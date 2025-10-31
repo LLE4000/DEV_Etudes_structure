@@ -41,6 +41,8 @@ SAVE_KEYS = {
     # étriers
     "n_etriers", "ø_etrier", "pas_etrier",
     "n_etriers_r", "ø_etrier_r", "pas_etrier_r",
+    # affichage réduit
+    "show_verif_reduit",
 }
 
 # ========= Réinitialisation propre =========
@@ -245,6 +247,15 @@ def show():
     with result_col_droite:
         st.markdown("### Dimensionnement")
 
+        # — Option d’affichage des lignes « effort tranchant réduit »
+        opt_col1, opt_col2 = st.columns([1.6, 1.4])
+        with opt_col2:
+            st.checkbox(
+                "Afficher la vérif. d’effort tranchant réduit",
+                key="show_verif_reduit",
+                value=st.session_state.get("show_verif_reduit", False)
+            )
+
         # ---- Vérification de la hauteur ----
         M_max      = max(st.session_state.get("M_inf", 0.0), st.session_state.get("M_sup", 0.0))
         b = st.session_state["b"]; h = st.session_state["h"]; enrobage = st.session_state["enrobage"]
@@ -386,11 +397,15 @@ def show():
                 with cpt3: st.markdown("")  # colonne vide pour l’alignement visuel
                 close_bloc()
 
-        # ---- Vérification effort tranchant réduit ----
-        if st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0:
+        # ---- Vérification effort tranchant réduit (affichage optionnel) ----
+        if (
+            st.session_state.get("ajouter_effort_reduit", False)
+            and st.session_state.get("V_lim", 0.0) > 0
+            and st.session_state.get("show_verif_reduit", False)
+        ):
             V_lim = st.session_state["V_lim"]
             tau_r = V_lim * 1e3 / (0.75 * b * h * 100)
-            if   tau_r <= tau_1: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas besoin d’étriers", "ok",  "τ_adm_I", tau_1
+            if   tau_r <= tau_1: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas besoin d’étriers", "ok",  "τ_adm_I",  tau_1
             elif tau_r <= tau_2: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Besoin d’étriers",     "ok",  "τ_adm_II", tau_2
             elif tau_r <= tau_4: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
             else:                 besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas acceptable",       "nok", "τ_adm_IV", tau_4
@@ -435,5 +450,5 @@ def show():
                 crp1, crp2, crp3 = st.columns([1,1,1])
                 with crp1: st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
                 with crp2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
-                with crp3: st.markdown("")  # colonne vide pour alignement
+                with crp3: st.markdown("")  # alignement
                 close_bloc()
