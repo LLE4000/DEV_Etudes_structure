@@ -347,9 +347,9 @@ def show():
             n_etriers_cur = int(st.session_state.get("n_etriers", 1))
             d_etrier_cur  = int(st.session_state.get("ø_etrier", 8))
             pas_cur       = float(st.session_state.get("pas_etrier", 30.0))
-
+            
             open_bloc("Détermination des étriers", "ok")
-
+            
             ce1, ce2, ce3 = st.columns(3)
             with ce1:
                 st.number_input("Nbr. étriers", min_value=1, max_value=8,
@@ -361,20 +361,28 @@ def show():
             with ce3:
                 float_input_fr_simple("Pas choisi (cm)", key="pas_etrier",
                                       default=pas_cur, min_value=5.0)
-
+            
             # Relecture des valeurs mises à jour
             n_etriers_cur = int(st.session_state["n_etriers"])
             d_etrier_cur  = int(st.session_state["ø_etrier"])
             pas_cur       = float(st.session_state["pas_etrier"])
-
+            
             # Recalculs
             Ast_e  = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2
             pas_th = Ast_e * fyd * d_utile * 10 / (10 * V * 1e3)
-
-            etat_pas = "ok" if pas_cur <= pas_th else ("warn" if pas_cur <= 30 else "nok")
-
+            
+            # === Vérification logique du pas ===
+            if pas_cur <= pas_th:
+                etat_pas = "ok"
+            elif pas_cur <= 30:
+                etat_pas = "warn"
+            else:
+                etat_pas = "nok"
+            
+            open_bloc("Détermination des étriers", etat_pas)
             st.markdown(f"**Pas théorique = {pas_th:.1f} cm — Pas choisi = {pas_cur:.1f} cm**")
             close_bloc()
+
 
         # ---- Vérification effort tranchant réduit ----
         if st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0:
@@ -393,9 +401,9 @@ def show():
             n_et_r_cur = int(st.session_state.get("n_etriers_r", 1))
             d_et_r_cur = int(st.session_state.get("ø_etrier_r", 8))
             pas_r_cur  = float(st.session_state.get("pas_etrier_r", 30.0))
-
+            
             open_bloc("Détermination des étriers réduits", "ok")
-
+            
             cr1, cr2, cr3 = st.columns(3)
             with cr1:
                 st.number_input("Nbr. étriers (réduit)", min_value=1, max_value=8,
@@ -407,17 +415,25 @@ def show():
             with cr3:
                 float_input_fr_simple("Pas choisi (cm) (réduit)", key="pas_etrier_r",
                                       default=pas_r_cur, min_value=5.0)
-
+            
             # Relecture à jour
             n_et_r_cur = int(st.session_state["n_etriers_r"])
             d_et_r_cur = int(st.session_state["ø_etrier_r"])
             pas_r_cur  = float(st.session_state["pas_etrier_r"])
-
+            
             # Recalculs
             Ast_er   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2
             pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim * 1e3)
-
-            etat_pas_r = "ok" if pas_r_cur <= pas_th_r else ("warn" if pas_r_cur <= 30 else "nok")
-
+            
+            # === Vérification logique du pas réduit ===
+            if pas_r_cur <= pas_th_r:
+                etat_pas_r = "ok"
+            elif pas_r_cur <= 30:
+                etat_pas_r = "warn"
+            else:
+                etat_pas_r = "nok"
+            
+            open_bloc("Détermination des étriers réduits", etat_pas_r)
             st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm — Pas choisi = {pas_r_cur:.1f} cm**")
             close_bloc()
+
