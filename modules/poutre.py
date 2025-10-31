@@ -351,7 +351,7 @@ def show():
             # ---- Détermination des étriers ----
             det_container = st.container()
             
-            # Inputs Nb/Ø d'abord (pour recalculer le pas recommandé à jour)
+            # Inputs Nb/Ø d'abord
             n_etriers_cur = int(st.session_state.get("n_etriers", 1))
             d_etrier_cur  = int(st.session_state.get("ø_etrier", 8))
             
@@ -364,43 +364,55 @@ def show():
                 idx = diam_list.index(d_etrier_cur) if d_etrier_cur in diam_list else diam_list.index(8)
                 st.selectbox("Ø étriers (mm)", diam_list, index=idx, key="ø_etrier")
             
-            # relecture Nb/Ø mis à jour
+            # Relecture Nb/Ø à jour
             n_etriers_cur = int(st.session_state["n_etriers"])
             d_etrier_cur  = int(st.session_state["ø_etrier"])
             
-            # Pré-calculs (cm)
-            Ast_pre   = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2
-            pas_th_pre = Ast_pre * fyd * d_utile * 10 / (10 * V * 1e3)        # cm
-            s_max_pre  = min(0.75 * d_utile, 30.0)                            # cm
+            # Pré-calculs (en cm)
+            Ast_pre    = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2           # mm² (2 branches)
+            pas_th_pre = Ast_pre * fyd * d_utile * 10 / (10 * V * 1e3)               # cm
+            s_max_pre  = min(0.75 * d_utile, 30.0)                                   # cm
             limit_pre  = min(pas_th_pre, s_max_pre)
-            rec_pas    = max(1.0, math.floor(limit_pre/2.5)*2.5)              # modulo 2,5 cm
+            rec_pas    = max(1.0, math.floor(limit_pre/2.5)*2.5)                     # modulo 2,5 cm
             
-            # Champ "Pas choisi" avec correction automatique + MAJ du _raw_
-            pas_avant = float(st.session_state.get("pas_etrier", rec_pas))
+            # Champ "Pas choisi" (affiché maintenant)
             with c3:
                 float_input_fr_simple("Pas choisi (cm)", key="pas_etrier",
                                       default=rec_pas, min_value=1.0)
             pas_cur = float(st.session_state["pas_etrier"])
             
-            # Si > limite après changement Nb/Ø ou V, on ramène et on met à jour le _raw_
+            # --- LOGIQUE DE RÉACTUALISATION DYNAMIQUE ---
+            # 1) on recalcule si l'une des "entrées" a changé
+            sig_actuelle = (d_utile, V, n_etriers_cur, d_etrier_cur)
+            sig_prec     = st.session_state.get("_sig_etriers")
+            
+            if (sig_prec is None) or (sig_actuelle != sig_prec):
+                _set_val_and_raw("pas_etrier", rec_pas)
+                pas_cur = rec_pas
+            
+            # 2) si l'utilisateur avait mis une valeur > limite, on la ramène aussi
             if pas_cur > limit_pre:
                 _set_val_and_raw("pas_etrier", rec_pas)
                 pas_cur = rec_pas
             
-            # Calculs définitifs (cm)
+            # on mémorise la signature
+            st.session_state["_sig_etriers"] = sig_actuelle
+            
+            # Calculs définitifs pour l'affichage (en cm)
             Ast_e  = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2
             pas_th = Ast_e * fyd * d_utile * 10 / (10 * V * 1e3)
             s_max  = min(0.75 * d_utile, 30.0)
             etat   = "ok" if pas_cur <= min(pas_th, s_max) else "nok"
             
-            # Bloc résultat (3 colonnes alignées dans le container)
+            # Bloc résultat (3 colonnes)
             with det_container:
                 open_bloc("Détermination des étriers", etat)
                 cc1, cc2, cc3 = st.columns([1,1,1])
                 with cc1: st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
                 with cc2: st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-                with cc3: st.markdown("&nbsp;", unsafe_allow_html=True)  # colonne vide pour garder 3 colonnes
+                with cc3: st.markdown("&nbsp;", unsafe_allow_html=True)  # colonne vide pour l’alignement
                 close_bloc()
+
 
         # ---- Vérification effort tranchant réduit ----
         if st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0:
@@ -414,8 +426,7 @@ def show():
             open_bloc("Vérification de l'effort tranchant réduit", etat_r)
             st.markdown(f"τ = {tau_r:.2f} N/mm² ≤ {nom_lim_r} = {tau_lim_r:.2f} N/mm² → {besoin_r}")
             close_bloc()
-
-           # ---- Détermination des étriers réduits ----
+            # ---- Détermination des étriers réduits ----
             det_r_container = st.container()
             
             n_et_r_cur = int(st.session_state.get("n_etriers_r", 1))
@@ -430,28 +441,38 @@ def show():
                 idxr = diam_list_r.index(d_et_r_cur) if d_et_r_cur in diam_list_r else diam_list_r.index(8)
                 st.selectbox("Ø étriers (mm) (réduit)", diam_list_r, index=idxr, key="ø_etrier_r")
             
-            # relecture
+            # Relecture
             n_et_r_cur = int(st.session_state["n_etriers_r"])
             d_et_r_cur = int(st.session_state["ø_etrier_r"])
             
-            # Pré-calculs (cm)
-            Ast_pre_r   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2
+            # Pré-calculs (en cm)
+            Ast_pre_r    = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2
             pas_th_pre_r = Ast_pre_r * fyd * d_utile * 10 / (10 * V_lim * 1e3)
             s_max_pre_r  = min(0.75 * d_utile, 30.0)
             limit_pre_r  = min(pas_th_pre_r, s_max_pre_r)
             rec_pas_r    = max(1.0, math.floor(limit_pre_r/2.5)*2.5)
             
-            # Champ "Pas choisi (réduit)" + correction + MAJ _raw_
-            pas_r_avant = float(st.session_state.get("pas_etrier_r", rec_pas_r))
+            # Champ "Pas choisi (réduit)"
             with r3:
                 float_input_fr_simple("Pas choisi (cm) (réduit)", key="pas_etrier_r",
                                       default=rec_pas_r, min_value=1.0)
             pas_r_cur = float(st.session_state["pas_etrier_r"])
+            
+            # --- RÉACTUALISATION DYNAMIQUE ---
+            sig_actuelle_r = (d_utile, V_lim, n_et_r_cur, d_et_r_cur)
+            sig_prec_r     = st.session_state.get("_sig_etriers_r")
+            
+            if (sig_prec_r is None) or (sig_actuelle_r != sig_prec_r):
+                _set_val_and_raw("pas_etrier_r", rec_pas_r)
+                pas_r_cur = rec_pas_r
+            
             if pas_r_cur > limit_pre_r:
                 _set_val_and_raw("pas_etrier_r", rec_pas_r)
                 pas_r_cur = rec_pas_r
             
-            # Définitif
+            st.session_state["_sig_etriers_r"] = sig_actuelle_r
+            
+            # Définitif (en cm)
             Ast_er   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2
             pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim * 1e3)
             s_max_r  = min(0.75 * d_utile, 30.0)
@@ -464,3 +485,5 @@ def show():
                 with rc2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
                 with rc3: st.markdown("&nbsp;", unsafe_allow_html=True)
                 close_bloc()
+
+           
