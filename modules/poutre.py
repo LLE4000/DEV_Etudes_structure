@@ -142,7 +142,7 @@ def show():
                 # --- CHOIX (→ affichés dans le PDF)
                 # armatures inférieures / supérieures
                 n_as_inf=st.session_state.get("n_as_inf"),
-                o_as_inf=st.session_state.get("ø_as_inf"),   # mappe la clé 'ø_*' vers 'o_*'
+                o_as_inf=st.session_state.get("ø_as_inf"),
                 n_as_sup=st.session_state.get("n_as_sup"),
                 o_as_sup=st.session_state.get("ø_as_sup"),
             
@@ -247,15 +247,6 @@ def show():
     with result_col_droite:
         st.markdown("### Dimensionnement")
 
-        # — Option d’affichage des lignes « effort tranchant réduit »
-        opt_col1, opt_col2 = st.columns([1.6, 1.4])
-        with opt_col2:
-            st.checkbox(
-                "Afficher la vérif. d’effort tranchant réduit",
-                key="show_verif_reduit",
-                value=st.session_state.get("show_verif_reduit", False)
-            )
-
         # ---- Vérification de la hauteur ----
         M_max      = max(st.session_state.get("M_inf", 0.0), st.session_state.get("M_sup", 0.0))
         b = st.session_state["b"]; h = st.session_state["h"]; enrobage = st.session_state["enrobage"]
@@ -354,12 +345,15 @@ def show():
             st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
+            # === Option pour afficher/masquer la vérification réduite ===
+            st.checkbox(
+                "Afficher la vérification d’effort tranchant réduit",
+                key="show_verif_reduit",
+                value=st.session_state.get("show_verif_reduit", False)
+            )
+
             # ---- Détermination des étriers ----
-            # placeholder pour afficher le bloc résultat AVANT visuellement,
-            # mais calculé APRÈS avoir lu les inputs
             det_container = st.container()
-            
-            # --- Inputs (après, pour que la session soit à jour)
             n_etriers_cur = int(st.session_state.get("n_etriers", 1))
             d_etrier_cur  = int(st.session_state.get("ø_etrier", 8))
             pas_cur       = float(st.session_state.get("pas_etrier", 30.0))
@@ -388,13 +382,12 @@ def show():
             
             etat_pas = "ok" if pas_cur <= min(pas_th, s_max) else "nok"
             
-            # Rendu du bloc résultat (au-dessus) avec 3 colonnes (la 3e vide pour alignement)
             with det_container:
                 open_bloc("Détermination des étriers", etat_pas)
                 cpt1, cpt2, cpt3 = st.columns([1,1,1])
                 with cpt1: st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
                 with cpt2: st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-                with cpt3: st.markdown("")  # colonne vide pour l’alignement visuel
+                with cpt3: st.markdown("")
                 close_bloc()
 
         # ---- Vérification effort tranchant réduit (affichage optionnel) ----
@@ -416,7 +409,6 @@ def show():
 
             # ---- Détermination des étriers réduits ----
             det_r_container = st.container()
-            
             n_et_r_cur = int(st.session_state.get("n_etriers_r", 1))
             d_et_r_cur = int(st.session_state.get("ø_etrier_r", 8))
             pas_r_cur  = float(st.session_state.get("pas_etrier_r", 30.0))
@@ -438,7 +430,7 @@ def show():
             d_et_r_cur = int(st.session_state["ø_etrier_r"])
             pas_r_cur  = float(st.session_state["pas_etrier_r"])
             
-            # Calculs (en cm) – V_lim > 0 garanti par le if parent
+            # Calculs (en cm)
             Ast_er   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2         # mm²
             pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim * 1e3)     # cm
             s_max_r  = min(0.75 * d_utile, 30.0)                            # cm
@@ -450,5 +442,5 @@ def show():
                 crp1, crp2, crp3 = st.columns([1,1,1])
                 with crp1: st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
                 with crp2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
-                with crp3: st.markdown("")  # alignement
+                with crp3: st.markdown("")
                 close_bloc()
