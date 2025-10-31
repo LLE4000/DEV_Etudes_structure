@@ -140,18 +140,13 @@ def show():
                 V_lim=st.session_state.get("V_lim", 0.0),
             
                 # --- CHOIX (→ affichés dans le PDF)
-                # armatures inférieures / supérieures
                 n_as_inf=st.session_state.get("n_as_inf"),
                 o_as_inf=st.session_state.get("ø_as_inf"),
                 n_as_sup=st.session_state.get("n_as_sup"),
                 o_as_sup=st.session_state.get("ø_as_sup"),
-            
-                # étriers (tranchant V)
                 n_etriers=st.session_state.get("n_etriers"),
                 o_etrier=st.session_state.get("ø_etrier"),
                 pas_etrier=st.session_state.get("pas_etrier"),
-            
-                # étriers réduits (V_lim)
                 n_etriers_r=st.session_state.get("n_etriers_r"),
                 o_etrier_r=st.session_state.get("ø_etrier_r"),
                 pas_etrier_r=st.session_state.get("pas_etrier_r"),
@@ -328,7 +323,7 @@ def show():
                 )
             close_bloc()
 
-        # ---- Vérification effort tranchant ----
+        # ---- Vérification effort tranchant (V) ----
         V = st.session_state.get("V", 0.0)
         tau_1 = 0.016 * fck_cube / 1.05
         tau_2 = 0.032 * fck_cube / 1.05
@@ -345,14 +340,35 @@ def show():
             st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
-            # === Option pour afficher/masquer la vérification réduite ===
+            # === Case d'affichage de la vérification "réduite" (juste sous la vérif. V) ===
+            default_show = st.session_state.get(
+                "show_verif_reduit",
+                st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0
+            )
             st.checkbox(
                 "Afficher la vérification d’effort tranchant réduit",
                 key="show_verif_reduit",
-                value=st.session_state.get("show_verif_reduit", False)
+                value=default_show
             )
 
-            # ---- Détermination des étriers ----
+            # ---- (Si demandé) Vérification effort tranchant réduit (τ_r) ----
+            if (
+                st.session_state.get("ajouter_effort_reduit", False)
+                and st.session_state.get("V_lim", 0.0) > 0
+                and st.session_state.get("show_verif_reduit", False)
+            ):
+                V_lim = st.session_state["V_lim"]
+                tau_r = V_lim * 1e3 / (0.75 * b * h * 100)
+                if   tau_r <= tau_1: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas besoin d’étriers", "ok",  "τ_adm_I",  tau_1
+                elif tau_r <= tau_2: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Besoin d’étriers",     "ok",  "τ_adm_II", tau_2
+                elif tau_r <= tau_4: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
+                else:                 besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas acceptable",       "nok", "τ_adm_IV", tau_4
+
+                open_bloc("Vérification de l'effort tranchant réduit", etat_r)
+                st.markdown(f"τ = {tau_r:.2f} N/mm² ≤ {nom_lim_r} = {tau_lim_r:.2f} N/mm² → {besoin_r}")
+                close_bloc()
+
+            # ---- Détermination des étriers (V) ----
             det_container = st.container()
             n_etriers_cur = int(st.session_state.get("n_etriers", 1))
             d_etrier_cur  = int(st.session_state.get("ø_etrier", 8))
@@ -390,24 +406,10 @@ def show():
                 with cpt3: st.markdown("")
                 close_bloc()
 
-        # ---- Vérification effort tranchant réduit (affichage optionnel) ----
-        if (
-            st.session_state.get("ajouter_effort_reduit", False)
-            and st.session_state.get("V_lim", 0.0) > 0
-            and st.session_state.get("show_verif_reduit", False)
-        ):
+        # ---- Détermination des étriers réduits (toujours si V_réduit > 0) ----
+        if st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0:
             V_lim = st.session_state["V_lim"]
-            tau_r = V_lim * 1e3 / (0.75 * b * h * 100)
-            if   tau_r <= tau_1: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas besoin d’étriers", "ok",  "τ_adm_I",  tau_1
-            elif tau_r <= tau_2: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Besoin d’étriers",     "ok",  "τ_adm_II", tau_2
-            elif tau_r <= tau_4: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
-            else:                 besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas acceptable",       "nok", "τ_adm_IV", tau_4
 
-            open_bloc("Vérification de l'effort tranchant réduit", etat_r)
-            st.markdown(f"τ = {tau_r:.2f} N/mm² ≤ {nom_lim_r} = {tau_lim_r:.2f} N/mm² → {besoin_r}")
-            close_bloc()
-
-            # ---- Détermination des étriers réduits ----
             det_r_container = st.container()
             n_et_r_cur = int(st.session_state.get("n_etriers_r", 1))
             d_et_r_cur = int(st.session_state.get("ø_etrier_r", 8))
