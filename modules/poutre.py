@@ -344,29 +344,15 @@ def show():
             close_bloc()
 
             # ---- Détermination des étriers ----
-            # Valeurs actuelles (si jamais l'utilisateur a déjà choisi quelque chose)
+            # placeholder pour afficher le bloc résultat AVANT visuellement,
+            # mais calculé APRÈS avoir lu les inputs
+            det_container = st.container()
+            
+            # --- Inputs (après, pour que la session soit à jour)
             n_etriers_cur = int(st.session_state.get("n_etriers", 1))
             d_etrier_cur  = int(st.session_state.get("ø_etrier", 8))
             pas_cur       = float(st.session_state.get("pas_etrier", 30.0))
             
-            # Calculs
-            Ast_e  = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2  # mm² (2 branches)
-            pas_th = Ast_e * fyd * d_utile * 10 / (10 * V * 1e3)        # cm (formule utilisée avant)
-            s_max  = min(0.75 * d_utile, 30.0)                          # cm (EC2 §9.2.2.6, α=90°)
-            
-            # Statut selon la règle stricte : pas choisi ≤ min(pas_th, s_max)
-            etat_pas = "ok" if pas_cur <= min(pas_th, s_max) else "nok"
-            
-            # === Bloc résultats AVANT les choix ===
-            open_bloc("Détermination des étriers", etat_pas)
-            cpt1, cpt2 = st.columns(2)
-            with cpt1:
-                st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
-            with cpt2:
-                st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-            close_bloc()
-            
-            # === Choix utilisateur APRÈS le bloc résultats ===
             ce1, ce2, ce3 = st.columns(3)
             with ce1:
                 st.number_input("Nbr. étriers", min_value=1, max_value=8,
@@ -379,13 +365,26 @@ def show():
                 float_input_fr_simple("Pas choisi (cm)", key="pas_etrier",
                                       default=pas_cur, min_value=1.0)
             
-            # Relecture des choix pour garder l'état à jour
+            # Relecture des valeurs à jour
             n_etriers_cur = int(st.session_state["n_etriers"])
             d_etrier_cur  = int(st.session_state["ø_etrier"])
             pas_cur       = float(st.session_state["pas_etrier"])
-
-
-
+            
+            # Calculs (en cm)
+            Ast_e  = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2      # mm²
+            pas_th = Ast_e * fyd * d_utile * 10 / (10 * V * 1e3)            # cm
+            s_max  = min(0.75 * d_utile, 30.0)                              # cm
+            
+            etat_pas = "ok" if pas_cur <= min(pas_th, s_max) else "nok"
+            
+            # Rendu du bloc résultat (au-dessus) avec 3 colonnes (la 3e vide pour alignement)
+            with det_container:
+                open_bloc("Détermination des étriers", etat_pas)
+                cpt1, cpt2, cpt3 = st.columns([1,1,1])
+                with cpt1: st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
+                with cpt2: st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
+                with cpt3: st.markdown("")  # colonne vide pour l’alignement visuel
+                close_bloc()
 
         # ---- Vérification effort tranchant réduit ----
         if st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0:
@@ -401,26 +400,12 @@ def show():
             close_bloc()
 
             # ---- Détermination des étriers réduits ----
+            det_r_container = st.container()
+            
             n_et_r_cur = int(st.session_state.get("n_etriers_r", 1))
             d_et_r_cur = int(st.session_state.get("ø_etrier_r", 8))
             pas_r_cur  = float(st.session_state.get("pas_etrier_r", 30.0))
             
-            Ast_er   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2
-            pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim * 1e3)   # cm
-            s_max_r  = min(0.75 * d_utile, 30.0)                          # cm (même règle constructive)
-            
-            etat_pas_r = "ok" if pas_r_cur <= min(pas_th_r, s_max_r) else "nok"
-            
-            # === Bloc résultats AVANT les choix ===
-            open_bloc("Détermination des étriers réduits", etat_pas_r)
-            crp1, crp2 = st.columns(2)
-            with crp1:
-                st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
-            with crp2:
-                st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
-            close_bloc()
-            
-            # === Choix utilisateur APRÈS le bloc résultats ===
             cr1, cr2, cr3 = st.columns(3)
             with cr1:
                 st.number_input("Nbr. étriers (réduit)", min_value=1, max_value=8,
@@ -433,7 +418,22 @@ def show():
                 float_input_fr_simple("Pas choisi (cm) (réduit)", key="pas_etrier_r",
                                       default=pas_r_cur, min_value=1.0)
             
-            # Relecture
+            # Relecture à jour
             n_et_r_cur = int(st.session_state["n_etriers_r"])
             d_et_r_cur = int(st.session_state["ø_etrier_r"])
             pas_r_cur  = float(st.session_state["pas_etrier_r"])
+            
+            # Calculs (en cm) – V_lim > 0 garanti par le if parent
+            Ast_er   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2         # mm²
+            pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim * 1e3)     # cm
+            s_max_r  = min(0.75 * d_utile, 30.0)                            # cm
+            
+            etat_pas_r = "ok" if pas_r_cur <= min(pas_th_r, s_max_r) else "nok"
+            
+            with det_r_container:
+                open_bloc("Détermination des étriers réduits", etat_pas_r)
+                crp1, crp2, crp3 = st.columns([1,1,1])
+                with crp1: st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
+                with crp2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
+                with crp3: st.markdown("")  # colonne vide pour alignement
+                close_bloc()
