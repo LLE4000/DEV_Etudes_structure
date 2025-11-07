@@ -16,9 +16,9 @@ def open_bloc(titre: str, etat: str = "ok"):
             border-radius:10px;
             border:1px solid #d9d9d9;
             margin:10px 0 12px 0;">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;">
-            <div style="font-weight:700;">{titre}</div>
-            <div style="font-size:20px;line-height:1;">{C_ICONES.get(etat,'')}</div>
+          <div style=\"display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;\">
+            <div style=\"font-weight:700;\">{titre}</div>
+            <div style=\"font-size:20px;line-height:1;\">{C_ICONES.get(etat,'')}</div>
           </div>
         """,
         unsafe_allow_html=True
@@ -64,6 +64,7 @@ def float_input_fr_simple(label, key, default=0.0, min_value=0.0):
     val = max(min_value, val)
     st.session_state[key] = float(val)
     return val
+
 
 def show():
     # ---------- État ----------
@@ -222,14 +223,13 @@ def show():
         cmom, cev  = st.columns(2)
         with cmom:
             M_inf = float_input_fr_simple("Moment inférieur M (kNm)", key="M_inf", default=0.0, min_value=0.0)
-            m_sup = st.checkbox("Ajouter un moment supérieur", key="ajouter_moment_sup",
-                                value=st.session_state.get("ajouter_moment_sup", False))
-            if m_sup:
+            # --- La case ne sert plus qu'à afficher/masquer la saisie de M_sup
+            m_sup_toggle = st.checkbox("Ajouter un moment supérieur", key="ajouter_moment_sup",
+                                       value=st.session_state.get("ajouter_moment_sup", False))
+            if m_sup_toggle:
                 M_sup = float_input_fr_simple("Moment supérieur M_sup (kNm)", key="M_sup", default=0.0, min_value=0.0)
             else:
-                M_sup = 0.0
-                if "M_sup" in st.session_state:
-                    del st.session_state["M_sup"]
+                st.session_state["M_sup"] = 0.0
         with cev:
             V = float_input_fr_simple("Effort tranchant V (kN)", key="V", default=0.0, min_value=0.0)
             v_sup = st.checkbox("Ajouter un effort tranchant réduit", key="ajouter_effort_reduit",
@@ -237,9 +237,7 @@ def show():
             if v_sup:
                 V_lim = float_input_fr_simple("Effort tranchant réduit V_réduit (kN)", key="V_lim", default=0.0, min_value=0.0)
             else:
-                V_lim = 0.0
-                if "V_lim" in st.session_state:
-                    del st.session_state["V_lim"]
+                st.session_state["V_lim"] = 0.0
 
     # ---------- COLONNE DROITE ----------
     with result_col_droite:
@@ -257,32 +255,44 @@ def show():
 
         # ---- Données section (communes) ----
         d_utile = h - enrobage  # cm
-        As_min  = 0.0013 * b * h * 1e2
-        As_max  = 0.04   * b * h * 1e2
+        As_min_formula  = 0.0013 * b * h * 1e2
+        As_max          = 0.04   * b * h * 1e2
+
+        # ---- A_s requis par moments (req = demandé par le moment, pas le choisi)
+        M_inf_val = st.session_state.get("M_inf", 0.0)
+        M_sup_val = st.session_state.get("M_sup", 0.0)  # 0 si case décochée
+
+        # A_s,req = M / (fyd * 0.9 * d)
+        As_req_inf = (M_inf_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_inf_val > 0 else 0.0
+        As_req_sup = (M_sup_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_sup_val > 0 else 0.0
+
+        # ---- A_s,min effectifs avec règle croisée des 25 %
+        As_min_inf_eff = max(As_min_formula, 0.25 * As_req_sup)
+        As_min_sup_eff = max(As_min_formula, 0.25 * As_req_inf)
 
         # --- Armatures inférieures ---
-        M_inf = st.session_state.get("M_inf", 0.0)
-        As_inf = (M_inf * 1e6) / (fyd * 0.9 * d_utile * 10)
         diam_opts = [6, 8, 10, 12, 16, 20, 25, 32, 40]
         n_inf_cur = st.session_state.get("n_as_inf", 2)
         diam_inf_cur = st.session_state.get("ø_as_inf", 16)
         As_inf_choisi = n_inf_cur * (math.pi * (diam_inf_cur/2)**2)
-        ok_inf = (As_min <= As_inf_choisi <= As_max) and (As_inf_choisi >= As_inf)
+
+        # Condition d'acceptation inf
+        ok_inf = (As_inf_choisi >= max(As_req_inf, As_min_inf_eff)) and (As_inf_choisi <= As_max)
         etat_inf = "ok" if ok_inf else "nok"
-        
+
         open_bloc("Armatures inférieures", etat_inf)
         ca1, ca2, ca3 = st.columns(3)
-        with ca1: st.markdown(f"**Aₛ,inf = {As_inf:.0f} mm²**")
-        with ca2: st.markdown(f"**Aₛ,min = {As_min:.0f} mm²**")
+        with ca1: st.markdown(f"**Aₛ,req,inf = {As_req_inf:.0f} mm²**")
+        with ca2: st.markdown(f"**Aₛ,min,inf = {As_min_inf_eff:.0f} mm²**")
         with ca3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
-        
+
         row1_c1, row1_c2, row1_c3 = st.columns([3, 3, 2])
         with row1_c1:
             st.number_input("Nb barres", min_value=1, max_value=50,
                             value=n_inf_cur, step=1, key="n_as_inf")
         with row1_c2:
             st.selectbox("Ø (mm)", diam_opts,
-                         index=diam_opts.index(diam_inf_cur), key="ø_as_inf")
+                         index=diam_opts.index(diam_inf_cur) if diam_inf_cur in diam_opts else diam_opts.index(16), key="ø_as_inf")
         n_val = st.session_state.get("n_as_inf", n_inf_cur)
         d_val = st.session_state.get("ø_as_inf", diam_inf_cur)
         As_inf_choisi = n_val * (math.pi * (d_val/2)**2)
@@ -290,41 +300,38 @@ def show():
             st.markdown(
                 f"<div style='margin-top:30px;font-weight:600;white-space:nowrap;'>( {As_inf_choisi:.0f} mm² )</div>",
                 unsafe_allow_html=True
-        )
+            )
         close_bloc()
 
-        # ---- Armatures supérieures (si M_sup) ----
-        if st.session_state.get("ajouter_moment_sup", False):
-            M_sup = st.session_state.get("M_sup", 0.0)
-            As_sup = (M_sup * 1e6) / (fyd * 0.9 * d_utile * 10)
-            n_sup_cur = st.session_state.get("n_as_sup", 2)
-            diam_sup_cur = st.session_state.get("ø_as_sup", 16)
-            As_sup_choisi = n_sup_cur * (math.pi * (diam_sup_cur/2)**2)
-            ok_sup = (As_min <= As_sup_choisi <= As_max) and (As_sup_choisi >= As_sup)
-            etat_sup = "ok" if ok_sup else "nok"
-        
-            open_bloc("Armatures supérieures", etat_sup)
-            cs1, cs2, cs3 = st.columns(3)
-            with cs1: st.markdown(f"**Aₛ,sup = {As_sup:.0f} mm²**")
-            with cs2: st.markdown(f"**Aₛ,min = {As_min:.0f} mm²**")
-            with cs3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
-        
-            row2_c1, row2_c2, row2_c3 = st.columns([3, 3, 2])
-            with row2_c1:
-                st.number_input("Nb barres (sup.)", min_value=1, max_value=50,
-                                value=n_sup_cur, step=1, key="n_as_sup")
-            with row2_c2:
-                st.selectbox("Ø (mm) (sup.)", diam_opts,
-                             index=diam_opts.index(diam_sup_cur), key="ø_as_sup")
-            n_s = st.session_state.get("n_as_sup", n_sup_cur)
-            d_s = st.session_state.get("ø_as_sup", diam_sup_cur)
-            As_sup_choisi = n_s * (math.pi * (d_s/2)**2)
-            with row2_c3:
-                st.markdown(
-                    f"<div style='margin-top:30px;font-weight:600;white-space:nowrap;'>( {As_sup_choisi:.0f} mm² )</div>",
-                    unsafe_allow_html=True
-                )
-            close_bloc()
+        # ---- Armatures supérieures (TOUJOURS affiché) ----
+        n_sup_cur = st.session_state.get("n_as_sup", 2)
+        diam_sup_cur = st.session_state.get("ø_as_sup", 16)
+        As_sup_choisi = n_sup_cur * (math.pi * (diam_sup_cur/2)**2)
+        ok_sup = (As_sup_choisi >= max(As_req_sup, As_min_sup_eff)) and (As_sup_choisi <= As_max)
+        etat_sup = "ok" if ok_sup else "nok"
+
+        open_bloc("Armatures supérieures", etat_sup)
+        cs1, cs2, cs3 = st.columns(3)
+        with cs1: st.markdown(f"**Aₛ,req,sup = {As_req_sup:.0f} mm²**")
+        with cs2: st.markdown(f"**Aₛ,min,sup = {As_min_sup_eff:.0f} mm²**")
+        with cs3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
+
+        row2_c1, row2_c2, row2_c3 = st.columns([3, 3, 2])
+        with row2_c1:
+            st.number_input("Nb barres (sup.)", min_value=1, max_value=50,
+                            value=n_sup_cur, step=1, key="n_as_sup")
+        with row2_c2:
+            st.selectbox("Ø (mm) (sup.)", diam_opts,
+                         index=diam_opts.index(diam_sup_cur) if diam_sup_cur in diam_opts else diam_opts.index(16), key="ø_as_sup")
+        n_s = st.session_state.get("n_as_sup", n_sup_cur)
+        d_s = st.session_state.get("ø_as_sup", diam_sup_cur)
+        As_sup_choisi = n_s * (math.pi * (d_s/2)**2)
+        with row2_c3:
+            st.markdown(
+                f"<div style='margin-top:30px;font-weight:600;white-space:nowrap;'>( {As_sup_choisi:.0f} mm² )</div>",
+                unsafe_allow_html=True
+            )
+        close_bloc()
 
         # ---- Vérification effort tranchant ----
         V = st.session_state.get("V", 0.0)
@@ -344,11 +351,9 @@ def show():
             close_bloc()
 
             # ---- Détermination des étriers ----
-            # placeholder pour afficher le bloc résultat AVANT visuellement,
-            # mais calculé APRÈS avoir lu les inputs
             det_container = st.container()
             
-            # --- Inputs (après, pour que la session soit à jour)
+            # --- Inputs
             n_etriers_cur = int(st.session_state.get("n_etriers", 1))
             d_etrier_cur  = int(st.session_state.get("ø_etrier", 8))
             pas_cur       = float(st.session_state.get("pas_etrier", 30.0))
@@ -377,13 +382,12 @@ def show():
             
             etat_pas = "ok" if pas_cur <= min(pas_th, s_max) else "nok"
             
-            # Rendu du bloc résultat (au-dessus) avec 3 colonnes (la 3e vide pour alignement)
             with det_container:
                 open_bloc("Détermination des étriers", etat_pas)
                 cpt1, cpt2, cpt3 = st.columns([1,1,1])
                 with cpt1: st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
                 with cpt2: st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-                with cpt3: st.markdown("")  # colonne vide pour l’alignement visuel
+                with cpt3: st.markdown("")
                 close_bloc()
 
         # ---- Vérification effort tranchant réduit ----
@@ -435,5 +439,5 @@ def show():
                 crp1, crp2, crp3 = st.columns([1,1,1])
                 with crp1: st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
                 with crp2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
-                with crp3: st.markdown("")  # colonne vide pour alignement
+                with crp3: st.markdown("")
                 close_bloc()
