@@ -41,8 +41,6 @@ SAVE_KEYS = {
     # étriers
     "n_etriers", "ø_etrier", "pas_etrier",
     "n_etriers_r", "ø_etrier_r", "pas_etrier_r",
-    # UI
-    "show_verif_tranchant_reduit"
 }
 
 # ========= Réinitialisation propre =========
@@ -138,19 +136,19 @@ def show():
                 M_sup=st.session_state.get("M_sup", 0.0),
                 V=st.session_state.get("V", 0.0),
                 V_lim=st.session_state.get("V_lim", 0.0),
-
+            
                 # --- CHOIX (→ affichés dans le PDF)
                 # armatures inférieures / supérieures
                 n_as_inf=st.session_state.get("n_as_inf"),
                 o_as_inf=st.session_state.get("ø_as_inf"),   # mappe la clé 'ø_*' vers 'o_*'
                 n_as_sup=st.session_state.get("n_as_sup"),
                 o_as_sup=st.session_state.get("ø_as_sup"),
-
+            
                 # étriers (tranchant V)
                 n_etriers=st.session_state.get("n_etriers"),
                 o_etrier=st.session_state.get("ø_etrier"),
                 pas_etrier=st.session_state.get("pas_etrier"),
-
+            
                 # étriers réduits (V_lim)
                 n_etriers_r=st.session_state.get("n_etriers_r"),
                 o_etrier_r=st.session_state.get("ø_etrier_r"),
@@ -247,16 +245,6 @@ def show():
     with result_col_droite:
         st.markdown("### Dimensionnement")
 
-        # --- Petit interrupteur (droite) pour la vérif τ réduite (n'apparaît que si V_réduit est activé)
-        right_hdr = st.columns([4, 1.2])
-        with right_hdr[1]:
-            if st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0:
-                st.checkbox(
-                    "Afficher la vérif. d’effort tranchant réduit",
-                    key="show_verif_tranchant_reduit",
-                    value=st.session_state.get("show_verif_tranchant_reduit", False)
-                )
-
         # ---- Vérification de la hauteur ----
         M_max      = max(st.session_state.get("M_inf", 0.0), st.session_state.get("M_sup", 0.0))
         b = st.session_state["b"]; h = st.session_state["h"]; enrobage = st.session_state["enrobage"]
@@ -281,13 +269,13 @@ def show():
         As_inf_choisi = n_inf_cur * (math.pi * (diam_inf_cur/2)**2)
         ok_inf = (As_min <= As_inf_choisi <= As_max) and (As_inf_choisi >= As_inf)
         etat_inf = "ok" if ok_inf else "nok"
-
+        
         open_bloc("Armatures inférieures", etat_inf)
         ca1, ca2, ca3 = st.columns(3)
         with ca1: st.markdown(f"**Aₛ,inf = {As_inf:.0f} mm²**")
         with ca2: st.markdown(f"**Aₛ,min = {As_min:.0f} mm²**")
         with ca3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
-
+        
         row1_c1, row1_c2, row1_c3 = st.columns([3, 3, 2])
         with row1_c1:
             st.number_input("Nb barres", min_value=1, max_value=50,
@@ -314,13 +302,13 @@ def show():
             As_sup_choisi = n_sup_cur * (math.pi * (diam_sup_cur/2)**2)
             ok_sup = (As_min <= As_sup_choisi <= As_max) and (As_sup_choisi >= As_sup)
             etat_sup = "ok" if ok_sup else "nok"
-
+        
             open_bloc("Armatures supérieures", etat_sup)
             cs1, cs2, cs3 = st.columns(3)
             with cs1: st.markdown(f"**Aₛ,sup = {As_sup:.0f} mm²**")
             with cs2: st.markdown(f"**Aₛ,min = {As_min:.0f} mm²**")
             with cs3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
-
+        
             row2_c1, row2_c2, row2_c3 = st.columns([3, 3, 2])
             with row2_c1:
                 st.number_input("Nb barres (sup.)", min_value=1, max_value=50,
@@ -338,13 +326,12 @@ def show():
                 )
             close_bloc()
 
-        # ---- Limites τ (en fonction de fck_cube)
-        tau_1 = 0.016 * beton_data[beton]["fck_cube"] / 1.05
-        tau_2 = 0.032 * beton_data[beton]["fck_cube"] / 1.05
-        tau_4 = 0.064 * beton_data[beton]["fck_cube"] / 1.05
-
-        # ---- Vérification effort tranchant (V)
+        # ---- Vérification effort tranchant ----
         V = st.session_state.get("V", 0.0)
+        tau_1 = 0.016 * fck_cube / 1.05
+        tau_2 = 0.032 * fck_cube / 1.05
+        tau_4 = 0.064 * fck_cube / 1.05
+
         if V > 0:
             tau = V * 1e3 / (0.75 * b * h * 100)
             if   tau <= tau_1: besoin, etat_tau, nom_lim, tau_lim = "Pas besoin d’étriers", "ok",  "τ_adm_I", tau_1
@@ -356,13 +343,16 @@ def show():
             st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
-            # ---- Détermination des étriers (V)
+            # ---- Détermination des étriers ----
+            # placeholder pour afficher le bloc résultat AVANT visuellement,
+            # mais calculé APRÈS avoir lu les inputs
+            det_container = st.container()
+            
+            # --- Inputs (après, pour que la session soit à jour)
             n_etriers_cur = int(st.session_state.get("n_etriers", 1))
             d_etrier_cur  = int(st.session_state.get("ø_etrier", 8))
             pas_cur       = float(st.session_state.get("pas_etrier", 30.0))
-
-            # Calculs après saisie
-            open_bloc("Détermination des étriers", "ok")
+            
             ce1, ce2, ce3 = st.columns(3)
             with ce1:
                 st.number_input("Nbr. étriers", min_value=1, max_value=8,
@@ -373,23 +363,30 @@ def show():
                 st.selectbox("Ø étriers (mm)", diam_list, index=idx, key="ø_etrier")
             with ce3:
                 float_input_fr_simple("Pas choisi (cm)", key="pas_etrier",
-                                      default=pas_cur, min_value=5.0)
-
-            # Relecture maj
+                                      default=pas_cur, min_value=1.0)
+            
+            # Relecture des valeurs à jour
             n_etriers_cur = int(st.session_state["n_etriers"])
             d_etrier_cur  = int(st.session_state["ø_etrier"])
             pas_cur       = float(st.session_state["pas_etrier"])
+            
+            # Calculs (en cm)
+            Ast_e  = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2      # mm²
+            pas_th = Ast_e * fyd * d_utile * 10 / (10 * V * 1e3)            # cm
+            s_max  = min(0.75 * d_utile, 30.0)                              # cm
+            
+            etat_pas = "ok" if pas_cur <= min(pas_th, s_max) else "nok"
+            
+            # Rendu du bloc résultat (au-dessus) avec 3 colonnes (la 3e vide pour alignement)
+            with det_container:
+                open_bloc("Détermination des étriers", etat_pas)
+                cpt1, cpt2, cpt3 = st.columns([1,1,1])
+                with cpt1: st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
+                with cpt2: st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
+                with cpt3: st.markdown("")  # colonne vide pour l’alignement visuel
+                close_bloc()
 
-            Ast_e  = n_etriers_cur * 2 * math.pi * (d_etrier_cur/2)**2
-            pas_th = Ast_e * fyd * d_utile * 10 / (10 * V * 1e3)
-            s_max  = 30.0
-            etat_pas = "ok" if pas_cur <= min(pas_th, s_max) else ("warn" if pas_cur <= 30 else "nok")
-            cpas1, cpas2, _ = st.columns([1,1,1])
-            cpas1.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
-            cpas2.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-            close_bloc()
-
-        # ---- Bloc(s) liés à l'effort tranchant réduit (toujours APRÈS les étriers classiques)
+        # ---- Vérification effort tranchant réduit ----
         if st.session_state.get("ajouter_effort_reduit", False) and st.session_state.get("V_lim", 0.0) > 0:
             V_lim = st.session_state["V_lim"]
             tau_r = V_lim * 1e3 / (0.75 * b * h * 100)
@@ -398,18 +395,17 @@ def show():
             elif tau_r <= tau_4: besoin_r, etat_r, nom_lim_r, tau_lim_r = "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
             else:                 besoin_r, etat_r, nom_lim_r, tau_lim_r = "Pas acceptable",       "nok", "τ_adm_IV", tau_4
 
-            # (option) Affichage de la vérification τ réduite
-            if st.session_state.get("show_verif_tranchant_reduit", False):
-                open_bloc("Vérification de l'effort tranchant réduit", etat_r)
-                st.markdown(f"τ = {tau_r:.2f} N/mm² ≤ {nom_lim_r} = {tau_lim_r:.2f} N/mm² → {besoin_r}")
-                close_bloc()
+            open_bloc("Vérification de l'effort tranchant réduit", etat_r)
+            st.markdown(f"τ = {tau_r:.2f} N/mm² ≤ {nom_lim_r} = {tau_lim_r:.2f} N/mm² → {besoin_r}")
+            close_bloc()
 
-            # Détermination des étriers réduits (toujours affichée quand V_réduit est renseigné)
+            # ---- Détermination des étriers réduits ----
+            det_r_container = st.container()
+            
             n_et_r_cur = int(st.session_state.get("n_etriers_r", 1))
             d_et_r_cur = int(st.session_state.get("ø_etrier_r", 8))
             pas_r_cur  = float(st.session_state.get("pas_etrier_r", 30.0))
-
-            open_bloc("Détermination des étriers réduits", "ok")
+            
             cr1, cr2, cr3 = st.columns(3)
             with cr1:
                 st.number_input("Nbr. étriers (réduit)", min_value=1, max_value=8,
@@ -420,18 +416,24 @@ def show():
                 st.selectbox("Ø étriers (mm) (réduit)", diam_list_r, index=idxr, key="ø_etrier_r")
             with cr3:
                 float_input_fr_simple("Pas choisi (cm) (réduit)", key="pas_etrier_r",
-                                      default=pas_r_cur, min_value=5.0)
-
-            # Relecture maj
+                                      default=pas_r_cur, min_value=1.0)
+            
+            # Relecture à jour
             n_et_r_cur = int(st.session_state["n_etriers_r"])
             d_et_r_cur = int(st.session_state["ø_etrier_r"])
             pas_r_cur  = float(st.session_state["pas_etrier_r"])
-
-            Ast_er   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2
-            pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim * 1e3)
-            s_max_r  = 30.0
-            etat_pas_r = "ok" if pas_r_cur <= min(pas_th_r, s_max_r) else ("warn" if pas_r_cur <= 30 else "nok")
-            crp1, crp2, _ = st.columns([1,1,1])
-            crp1.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
-            crp2.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
-            close_bloc()
+            
+            # Calculs (en cm) – V_lim > 0 garanti par le if parent
+            Ast_er   = n_et_r_cur * 2 * math.pi * (d_et_r_cur/2)**2         # mm²
+            pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim * 1e3)     # cm
+            s_max_r  = min(0.75 * d_utile, 30.0)                            # cm
+            
+            etat_pas_r = "ok" if pas_r_cur <= min(pas_th_r, s_max_r) else "nok"
+            
+            with det_r_container:
+                open_bloc("Détermination des étriers réduits", etat_pas_r)
+                crp1, crp2, crp3 = st.columns([1,1,1])
+                with crp1: st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
+                with crp2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
+                with crp3: st.markdown("")  # colonne vide pour alignement
+                close_bloc()
