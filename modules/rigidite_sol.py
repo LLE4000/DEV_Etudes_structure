@@ -2,6 +2,7 @@ import math
 import pandas as pd
 import streamlit as st
 
+
 def show():
     """
     Page Streamlit : calcul de la raideur de sol k (modèle de Winkler)
@@ -110,7 +111,7 @@ def show():
     with col_top[4]:
         st.button("📝 Générer PDF", use_container_width=True, help="(Export PDF à développer)")
     with col_top[5]:
-        st.markdown("<span class='badge'>v1.4</span>", unsafe_allow_html=True)
+        st.markdown("<span class='badge'>v1.5</span>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -123,11 +124,11 @@ def show():
         unsafe_allow_html=True,
     )
 
-    # Petite fiche mémo générale
+    # Fiche mémo générale
     with st.expander("📘 Fiche mémo (k, unités et modèle de Winkler)", expanded=False):
         st.markdown(
             """
-            - Le sol est modélisé par un ressort vertical :  
+            - On modélise le sol par un ressort vertical :  
               \\( q = k \\cdot w \\)  →  \\( k = q / w \\).  
             - Unités :
               - \\(q\\) : kPa = kN/m²  
@@ -137,8 +138,8 @@ def show():
               - la **largeur B** de la fondation,
               - le **type de sol**,
               - le **niveau de charge** (ELS / ELU).
-            - Les formules ici sont cohérentes avec l’Eurocode 7, mais les **valeurs finales de k**
-              doivent être validées par le rapport géotechnique.
+            - Les formules sont cohérentes avec l’EN 1997 (Eurocode 7), mais la **valeur finale de k**
+              doit toujours être validée par le rapport géotechnique.
             """
         )
 
@@ -166,8 +167,9 @@ def show():
                     "Pressions / contraintes",
                     ["kPa", "MPa", "kg/cm²"],
                     index=["kPa", "MPa", "kg/cm²"].index(st.session_state.press_unit),
-                    help="Unité d’entrée des pressions. Les calculs sont faite en kPa en interne.",
+                    help="Unité d’entrée des pressions. Les calculs sont faits en kPa en interne.",
                 )
+                # Conversion auto si changement d’unité
                 if new_unit != old_unit and "solo_q" in st.session_state:
                     q_kPa = to_kPa_from(st.session_state.solo_q, old_unit)
                     st.session_state.solo_q = from_kPa_to(q_kPa, new_unit)
@@ -214,9 +216,9 @@ def show():
             method = st.radio(
                 "Méthode de calcul",
                 [
-                    "SLS direct (q, w)",
-                    "Depuis contrainte admissible (q ad, s adm)",
-                    "Depuis module E (E, B, ν)",
+                    "1. À partir d’un couple (q, w)",
+                    "2. À partir d’une contrainte admissible (q_ad, s_ad)",
+                    "3. À partir du module E du sol (E, B, ν)",
                 ],
                 horizontal=True,
             )
@@ -226,8 +228,9 @@ def show():
                 unsafe_allow_html=True,
             )
 
-            if method.startswith("SLS"):
-                st.caption("À partir d’un couple (q, w) : on applique directement \(k = q / w\).")
+            # (1) q, w
+            if method.startswith("1."):
+                st.caption("On connaît une pression de service q et un tassement w : on applique directement k = q / w.")
                 c1, c2 = st.columns(2)
                 with c1:
                     st.session_state.solo_q = st.number_input(
@@ -244,10 +247,11 @@ def show():
                         step=5.0,
                     )
 
-            elif method.startswith("Depuis contrainte"):
+            # (2) q_ad, s_ad
+            elif method.startswith("2."):
                 st.caption(
-                    "On connaît une contrainte admissible \(q^{ad}\) et un tassement admissible \(s^{adm}\) : "
-                    "on prend \(k = q^{ad} / s^{adm}\)."
+                    "On connaît une contrainte admissible q_ad et un tassement admissible s_ad : "
+                    "on prend k = q_ad / s_ad (avec correction SF si q_ad est une contrainte ultime)."
                 )
                 c1, c2, c3 = st.columns(3)
                 with c1:
@@ -277,10 +281,11 @@ def show():
                         step=0.5,
                     )
 
+            # (3) E, B, ν
             else:
                 st.caption(
-                    "À partir d’un module d’Young E pour le sol et d’une largeur B de semelle filante : "
-                    r"on prend \(k \approx \dfrac{E}{B(1-\nu^2)}\)."
+                    "On dispose d’un module de déformation E et d’une largeur B de semelle filante : "
+                    "on prend k ≈ E / [B(1−ν²)]."
                 )
                 c1, c2, c3 = st.columns(3)
                 with c1:
@@ -318,8 +323,8 @@ def show():
             # ----- CAS 2 : multicouche -----
             st.markdown("**Sol multicouche — équivalence en série**")
             st.caption(
-                r"On approxime \(k_{eq}\) par : "
-                r"\(\displaystyle \frac{1}{k_{eq}} = \sum_i \frac{h_i}{E_i}\) avec \(h_i\) en m et \(E_i\) en kPa."
+                "On approxime la raideur verticale par : "
+                "1/k_eq = Σ(h_i / E_i) avec h_i en m et E_i en kPa."
             )
 
             n_layers = st.number_input(
@@ -381,8 +386,8 @@ def show():
             # ----- CAS 3 : CPT -----
             st.markdown("**CPT — déduction de E puis de k**")
             st.caption(
-                r"On utilise une corrélation du type \(E = \alpha_E\,(q_t - \sigma'_{v0})\), "
-                r"puis \(k \approx \dfrac{E}{B(1-\nu^2)}\)."
+                "On utilise une corrélation du type E = α_E (q_t − σ'ᵥ0), "
+                "puis k ≈ E / [B(1−ν²)]."
             )
 
             c1, c2, c3 = st.columns(3)
@@ -429,9 +434,8 @@ def show():
             # ----- CAS 4 : plat sur béton -----
             st.markdown("**Plat métallique sur béton (ressort de contact)**")
             st.caption(
-                "On assimile le contact à un ressort en compression du béton (et éventuellement du grout) : "
-                r"pour le béton seul, \(k_c \approx \dfrac{E_c}{h_c(1-\nu^2)}\) "
-                r"ou \(k_c \approx \dfrac{E_c}{h_c}\) suivant l’hypothèse."
+                "On assimile le contact à un ressort en compression du béton (et éventuellement du grout). "
+                "Pour le béton seul : k_c ≈ E_c / [h_c(1−ν²)] ou k_c ≈ E_c / h_c suivant l’hypothèse."
             )
 
             st.markdown("**Géométrie du plat**")
@@ -516,11 +520,11 @@ def show():
             st.info("Zone à compléter : conversions k ↔ E ↔ (q, w).")
 
         else:
-            # ----- CAS 6 : abaque sols -----
+            # ----- CAS 6 : abaque sols (colonne gauche : rien à saisir) -----
             st.markdown("**Base de données / abaques sols**")
             st.caption(
-                "Valeurs indicatives de densité, raideur k (MN/m³) et contrainte admissible qₐ (kPa) "
-                "par type de sol. À confirmer par le géotechnicien."
+                "Valeurs indicatives de poids volumique γ, raideur k (MN/m³) et contrainte "
+                "admissible qₐ (kPa) par type de sol. À confirmer par le géotechnicien."
             )
 
     # =============================================================
@@ -534,10 +538,10 @@ def show():
             value=st.session_state.detail_calc,
         )
 
-        # ----- CAS 1 -----
+        # ----- CAS 1 : Sol homogène -----
         if cas.startswith("1"):
             with st.container(border=True):
-                # (1) SLS direct : k = q / w
+                # (1) k = q / w
                 if (
                     "solo_q" in st.session_state
                     and "solo_w" in st.session_state
@@ -562,7 +566,7 @@ def show():
                             ]
                         )
 
-                # (2) q_ad / s_ad
+                # (2) k = q_ad / s_ad
                 if "solo_qad" in st.session_state and "solo_sadm" in st.session_state:
                     sadm_m = st.session_state.solo_sadm / 1000.0
                     qad_kPa = to_kPa_from(st.session_state.solo_qad, st.session_state.press_unit)
@@ -583,13 +587,14 @@ def show():
                                      f"{from_kPa_to(qad_used, st.session_state.press_unit):,.3f}",
                                      st.session_state.press_unit),
                                     ("s adm", "Tassement admissible", f"{st.session_state.solo_sadm:,.3f}", "mm"),
-                                    ("SF", "Facteur de sécurité", f"{st.session_state.solo_sf:,.2f}"
-                                     if st.session_state.solo_isult else "—", "—"),
+                                    ("SF", "Facteur de sécurité",
+                                     f"{st.session_state.solo_sf:,.2f}" if st.session_state.solo_isult else "—",
+                                     "—"),
                                     ("k", "Raideur de sol", f"{ksB:,.3f}", "MN/m³"),
                                 ]
                             )
 
-                # (3) E / [B(1-ν²)]
+                # (3) k ≈ E / [B(1−ν²)]
                 if "solo_E" in st.session_state and "solo_B" in st.session_state:
                     E_input = st.session_state.solo_E
                     E_MPa = E_input if st.session_state.module_unit == "MPa" else E_input * 1000.0
@@ -615,7 +620,7 @@ def show():
                             ]
                         )
 
-        # ----- CAS 2 : multicouche -----
+        # ----- CAS 2 : Sol multicouche -----
         elif cas.startswith("2"):
             layers = st.session_state.get("multi_layers", [])
             denom, H = 0.0, 0.0
@@ -692,7 +697,7 @@ def show():
                     f"k \\approx {k_kNpm3:,.1f}\\,\\text{{kN/m³}} = {ks:,.2f}\\,\\text{{MN/m³}}"
                 )
 
-        # ----- CAS 4 : plat métallique -----
+        # ----- CAS 4 : Plat sur béton -----
         elif cas.startswith("4"):
             Bp_mm = st.session_state.get("plate_B", 200.0)
             Lp_mm = st.session_state.get("plate_L", 200.0)
@@ -757,29 +762,107 @@ def show():
 
         # ----- CAS 6 : abaque sols -----
         else:
-            # Tableau indicatif de sols
             soils = [
-                ("Tourbe", 10.0, 5, 20, 50),
-                ("Argile très molle", 16.0, 20, 50, 100),
-                ("Argile molle à moyenne", 18.0, 50, 150, 150),
-                ("Argile ferme / surconsolidée", 19.0, 150, 400, 250),
-                ("Limon", 18.0, 30, 120, 150),
-                ("Sable lâche", 18.0, 50, 150, 150),
-                ("Sable moyennement compact", 19.0, 150, 400, 250),
-                ("Sable dense / graveleux", 20.0, 400, 1000, 400),
+                {
+                    "type": "Tourbe",
+                    "gamma": 10.0,
+                    "k_min": 1,
+                    "k_max": 5,
+                    "qa": "25–50",
+                    "desc": "Sol très organique, très compressible, souvent saturé, capacité portante très faible. "
+                            "On évite de fonder dedans (remblais, pieux, substitution...).",
+                },
+                {
+                    "type": "Argile très molle",
+                    "gamma": 16.0,
+                    "k_min": 2,
+                    "k_max": 10,
+                    "qa": "50–75",
+                    "desc": "Argile très plastique et peu consolidée, grande compressibilité et faibles résistances.",
+                },
+                {
+                    "type": "Argile molle à moyenne",
+                    "gamma": 18.0,
+                    "k_min": 10,
+                    "k_max": 40,
+                    "qa": "75–150",
+                    "desc": "Argile normalement consolidée ou légèrement surconsolidée, tassements notables.",
+                },
+                {
+                    "type": "Argile ferme / surconsolidée",
+                    "gamma": 19.0,
+                    "k_min": 20,
+                    "k_max": 80,
+                    "qa": "150–250",
+                    "desc": "Argile raide à très raide, surconsolidée ou bien drainée, meilleure tenue et tassements plus limités.",
+                },
+                {
+                    "type": "Limon",
+                    "gamma": 18.0,
+                    "k_min": 15,
+                    "k_max": 60,
+                    "qa": "100–200",
+                    "desc": "Silt / limon, comportement intermédiaire entre argiles et sables, sensibles à l’eau et au compactage.",
+                },
+                {
+                    "type": "Sable lâche",
+                    "gamma": 18.0,
+                    "k_min": 10,
+                    "k_max": 30,
+                    "qa": "100–150",
+                    "desc": "Sable peu compacté, tassements importants sous charges et comportement peu rigide.",
+                },
+                {
+                    "type": "Sable moyennement compact",
+                    "gamma": 19.0,
+                    "k_min": 30,
+                    "k_max": 80,
+                    "qa": "150–250",
+                    "desc": "Sable courant sous les bâtiments, portance correcte, tassements modérés.",
+                },
+                {
+                    "type": "Sable dense / graveleux",
+                    "gamma": 20.0,
+                    "k_min": 80,
+                    "k_max": 200,
+                    "qa": "250–400",
+                    "desc": "Sables très compacts ou graves denses, très bonne portance, tassements faibles.",
+                },
             ]
+
             df = pd.DataFrame(
-                soils,
-                columns=[
-                    "Type de sol",
-                    "γ (kN/m³)",
-                    "k_min (MN/m³)",
-                    "k_max (MN/m³)",
-                    "qₐ indicative (kPa)",
-                ],
+                [
+                    {
+                        "Type de sol": s["type"],
+                        "γ (kN/m³)": s["gamma"],
+                        "k_min (MN/m³)": s["k_min"],
+                        "k_max (MN/m³)": s["k_max"],
+                        "qₐ indicative (kPa)": s["qa"],
+                    }
+                    for s in soils
+                ]
             )
             st.dataframe(df, use_container_width=True)
 
+            st.markdown("#### Fiche sol")
+
+            choix = st.selectbox(
+                "Afficher la fiche d’un type de sol :",
+                [s["type"] for s in soils],
+                index=6,
+            )
+
+            sol_sel = next(s for s in soils if s["type"] == choix)
+
+            st.markdown(f"**{sol_sel['type']}**")
+            st.markdown(sol_sel["desc"])
+            st.markdown(
+                f"- γ ≈ **{sol_sel['gamma']} kN/m³**  \n"
+                f"- k ≈ **{sol_sel['k_min']} à {sol_sel['k_max']} MN/m³** (ordre de grandeur)  \n"
+                f"- qₐ indicative ≈ **{sol_sel['qa']} kPa**"
+            )
+
+        # Bas de page
         st.divider()
         st.markdown(
             "<div style='color:#64748B;font-size:.9rem;'>"
