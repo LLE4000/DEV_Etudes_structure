@@ -88,6 +88,8 @@ def show():
         st.session_state.detail_calc = True
     if "adv_open" not in st.session_state:
         st.session_state.adv_open = False
+    if "abaque_w" not in st.session_state:
+        st.session_state.abaque_w = 20.0  # tassement de réf. pour l’abaque sols (mm)
 
     # =============================================================
     # 🧭 Barre du haut
@@ -99,7 +101,7 @@ def show():
             st.rerun()
     with col_top[1]:
         if st.button("🧹 Réinitialiser", use_container_width=True, key="reset_btn"):
-            keep = {"press_unit", "module_unit", "detail_calc", "adv_open", "page"}
+            keep = {"press_unit", "module_unit", "detail_calc", "adv_open", "page", "abaque_w"}
             for k in list(st.session_state.keys()):
                 if k not in keep:
                     st.session_state.pop(k, None)
@@ -111,7 +113,7 @@ def show():
     with col_top[4]:
         st.button("📝 Générer PDF", use_container_width=True, help="(Export PDF à développer)")
     with col_top[5]:
-        st.markdown("<span class='badge'>v1.5</span>", unsafe_allow_html=True)
+        st.markdown("<span class='badge'>v1.6</span>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -138,8 +140,9 @@ def show():
               - la **largeur B** de la fondation,
               - le **type de sol**,
               - le **niveau de charge** (ELS / ELU).
-            - Les formules sont cohérentes avec l’EN 1997 (Eurocode 7), mais la **valeur finale de k**
-              doit toujours être validée par le rapport géotechnique.
+            - On peut relier \\(k\\) à une contrainte admissible \\(q_{adm}\\) pour un tassement choisi :  
+              \\( q_{adm}(\\text{kg/cm}^2) \\approx k(\\text{MN/m}^3) \\cdot w(\\text{mm}) / 98{,}07 \\).
+            - Les valeurs restent à valider par l’EN 1997 (Eurocode 7) et le rapport géotechnique.
             """
         )
 
@@ -517,14 +520,15 @@ def show():
         elif cas.startswith("5"):
             # ----- CAS 5 : convertisseur -----
             st.markdown("**Convertisseur et vérification rapide**")
-            st.info("Zone à compléter : conversions k ↔ E ↔ (q, w).")
+            st.info("Zone à compléter : conversions k ↔ E ↔ q,w.")
 
         else:
             # ----- CAS 6 : abaque sols (colonne gauche : rien à saisir) -----
             st.markdown("**Base de données / abaques sols**")
             st.caption(
-                "Valeurs indicatives de poids volumique γ, raideur k (MN/m³) et contrainte "
-                "admissible qₐ (kPa) par type de sol. À confirmer par le géotechnicien."
+                "Valeurs indicatives de poids volumique γ, raideur k (MN/m³) et contraintes "
+                "admissibles qₐ (kg/cm²) associées à un tassement de référence w_adm. "
+                "À confirmer par le géotechnicien."
             )
 
     # =============================================================
@@ -762,13 +766,27 @@ def show():
 
         # ----- CAS 6 : abaque sols -----
         else:
+            # Tassement de référence pour convertir k → qadm
+            st.markdown("#### Réglage du tassement de référence")
+            st.session_state.abaque_w = st.number_input(
+                "Tassement de référence w_adm [mm]",
+                min_value=1.0,
+                max_value=100.0,
+                value=float(st.session_state.abaque_w),
+                step=5.0,
+                help="Tassement admissible utilisé pour convertir k (MN/m³) en qₐ (kg/cm²). "
+                     "En Belgique, 20 mm est une valeur courante pour les tassements de service.",
+            )
+            w_adm = st.session_state.abaque_w
+            # facteur de conversion : q(kg/cm²) = k(MN/m³)*w(mm)/98.0665
+            factor_q = w_adm / 98.0665
+
             soils = [
                 {
                     "type": "Tourbe",
                     "gamma": 10.0,
                     "k_min": 1,
                     "k_max": 5,
-                    "qa": "25–50",
                     "desc": "Sol très organique, très compressible, souvent saturé, capacité portante très faible. "
                             "On évite de fonder dedans (remblais, pieux, substitution...).",
                 },
@@ -777,7 +795,6 @@ def show():
                     "gamma": 16.0,
                     "k_min": 2,
                     "k_max": 10,
-                    "qa": "50–75",
                     "desc": "Argile très plastique et peu consolidée, grande compressibilité et faibles résistances.",
                 },
                 {
@@ -785,7 +802,6 @@ def show():
                     "gamma": 18.0,
                     "k_min": 10,
                     "k_max": 40,
-                    "qa": "75–150",
                     "desc": "Argile normalement consolidée ou légèrement surconsolidée, tassements notables.",
                 },
                 {
@@ -793,7 +809,6 @@ def show():
                     "gamma": 19.0,
                     "k_min": 20,
                     "k_max": 80,
-                    "qa": "150–250",
                     "desc": "Argile raide à très raide, surconsolidée ou bien drainée, meilleure tenue et tassements plus limités.",
                 },
                 {
@@ -801,7 +816,6 @@ def show():
                     "gamma": 18.0,
                     "k_min": 15,
                     "k_max": 60,
-                    "qa": "100–200",
                     "desc": "Silt / limon, comportement intermédiaire entre argiles et sables, sensibles à l’eau et au compactage.",
                 },
                 {
@@ -809,7 +823,6 @@ def show():
                     "gamma": 18.0,
                     "k_min": 10,
                     "k_max": 30,
-                    "qa": "100–150",
                     "desc": "Sable peu compacté, tassements importants sous charges et comportement peu rigide.",
                 },
                 {
@@ -817,7 +830,6 @@ def show():
                     "gamma": 19.0,
                     "k_min": 30,
                     "k_max": 80,
-                    "qa": "150–250",
                     "desc": "Sable courant sous les bâtiments, portance correcte, tassements modérés.",
                 },
                 {
@@ -825,7 +837,6 @@ def show():
                     "gamma": 20.0,
                     "k_min": 80,
                     "k_max": 200,
-                    "qa": "250–400",
                     "desc": "Sables très compacts ou graves denses, très bonne portance, tassements faibles.",
                 },
             ]
@@ -837,7 +848,8 @@ def show():
                         "γ (kN/m³)": s["gamma"],
                         "k_min (MN/m³)": s["k_min"],
                         "k_max (MN/m³)": s["k_max"],
-                        "qₐ indicative (kPa)": s["qa"],
+                        "qₐ_min (kg/cm²)": s["k_min"] * factor_q,
+                        "qₐ_max (kg/cm²)": s["k_max"] * factor_q,
                     }
                     for s in soils
                 ]
@@ -853,13 +865,16 @@ def show():
             )
 
             sol_sel = next(s for s in soils if s["type"] == choix)
+            q_min = sol_sel["k_min"] * factor_q
+            q_max = sol_sel["k_max"] * factor_q
 
             st.markdown(f"**{sol_sel['type']}**")
             st.markdown(sol_sel["desc"])
             st.markdown(
                 f"- γ ≈ **{sol_sel['gamma']} kN/m³**  \n"
-                f"- k ≈ **{sol_sel['k_min']} à {sol_sel['k_max']} MN/m³** (ordre de grandeur)  \n"
-                f"- qₐ indicative ≈ **{sol_sel['qa']} kPa**"
+                f"- k ≈ **{sol_sel['k_min']} à {sol_sel['k_max']} MN/m³**  \n"
+                f"- pour w_adm = **{w_adm:.0f} mm** :  \n"
+                f"  → qₐ ≈ **{q_min:.2f} à {q_max:.2f} kg/cm²**"
             )
 
         # Bas de page
