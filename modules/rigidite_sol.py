@@ -545,84 +545,91 @@ def show():
         # ----- CAS 1 : Sol homogène -----
         if cas.startswith("1"):
             with st.container(border=True):
-                # (1) k = q / w
-                if (
-                    "solo_q" in st.session_state
-                    and "solo_w" in st.session_state
-                    and st.session_state.solo_w
-                ):
-                    q_kPa = to_kPa_from(st.session_state.solo_q, st.session_state.press_unit)
-                    w_m = st.session_state.solo_w / 1000.0
-                    k_kNpm3 = q_kPa / w_m
-                    ksA = kNpm3_to_MNpm3(k_kNpm3)
-                    st.metric("k (MN/m³)", f"{ksA:,.2f}")
-                    if st.session_state.detail_calc:
-                        st.latex(r"k = \dfrac{q}{w}")
-                        st.latex(
-                            f"k = \\dfrac{{{q_kPa:,.1f}\\,\\text{{kN/m²}}}}{{{w_m:,.3f}\\,\\text{{m}}}}"
-                            f" = {k_kNpm3:,.1f}\\,\\text{{kN/m³}} = {ksA:,.2f}\\,\\text{{MN/m³}}"
-                        )
-                        param_table(
-                            [
-                                ("q", "Pression de service", f"{st.session_state.solo_q:,.3f}", st.session_state.press_unit),
-                                ("w", "Tassement", f"{st.session_state.solo_w:,.3f}", "mm"),
-                                ("k", "Raideur de sol", f"{ksA:,.3f}", "MN/m³"),
-                            ]
-                        )
 
-                # (2) k = q_ad / s_ad
-                if "solo_qad" in st.session_state and "solo_sadm" in st.session_state:
-                    sadm_m = st.session_state.solo_sadm / 1000.0
-                    qad_kPa = to_kPa_from(st.session_state.solo_qad, st.session_state.press_unit)
-                    qad_used = qad_kPa * (st.session_state.solo_sf if st.session_state.solo_isult else 1.0)
-                    if sadm_m > 0:
-                        k_kNpm3_B = qad_used / sadm_m
-                        ksB = kNpm3_to_MNpm3(k_kNpm3_B)
-                        st.metric("k (MN/m³)", f"{ksB:,.2f}")
+                # On n'affiche que la méthode sélectionnée
+                # ---------------------------------------
+
+                # (1) k = q / w
+                if method.startswith("1."):
+                    if (
+                        "solo_q" in st.session_state
+                        and "solo_w" in st.session_state
+                        and st.session_state.solo_w
+                    ):
+                        q_kPa = to_kPa_from(st.session_state.solo_q, st.session_state.press_unit)
+                        w_m = st.session_state.solo_w / 1000.0
+                        k_kNpm3 = q_kPa / w_m
+                        ksA = kNpm3_to_MNpm3(k_kNpm3)
+                        st.metric("k (MN/m³)", f"{ksA:,.2f}")
                         if st.session_state.detail_calc:
-                            st.latex(r"k = \dfrac{q^{ad}}{s^{adm}}")
+                            st.latex(r"k = \dfrac{q}{w}")
                             st.latex(
-                                f"k = \\dfrac{{{qad_used:,.1f}\\,\\text{{kN/m²}}}}{{{sadm_m:,.3f}\\,\\text{{m}}}}"
-                                f" = {k_kNpm3_B:,.1f}\\,\\text{{kN/m³}} = {ksB:,.2f}\\,\\text{{MN/m³}}"
+                                f"k = \\dfrac{{{q_kPa:,.1f}\\,\\text{{kN/m²}}}}{{{w_m:,.3f}\\,\\text{{m}}}}"
+                                f" = {k_kNpm3:,.1f}\\,\\text{{kN/m³}} = {ksA:,.2f}\\,\\text{{MN/m³}}"
                             )
                             param_table(
                                 [
-                                    ("q ad", "Contrainte (admissible ou ultime×SF)",
-                                     f"{from_kPa_to(qad_used, st.session_state.press_unit):,.3f}",
-                                     st.session_state.press_unit),
-                                    ("s adm", "Tassement admissible", f"{st.session_state.solo_sadm:,.3f}", "mm"),
-                                    ("SF", "Facteur de sécurité",
-                                     f"{st.session_state.solo_sf:,.2f}" if st.session_state.solo_isult else "—",
-                                     "—"),
-                                    ("k", "Raideur de sol", f"{ksB:,.3f}", "MN/m³"),
+                                    ("q", "Pression de service", f"{st.session_state.solo_q:,.3f}", st.session_state.press_unit),
+                                    ("w", "Tassement", f"{st.session_state.solo_w:,.3f}", "mm"),
+                                    ("k", "Raideur de sol", f"{ksA:,.3f}", "MN/m³"),
                                 ]
                             )
 
+                # (2) k = q_ad / s_ad
+                elif method.startswith("2."):
+                    if "solo_qad" in st.session_state and "solo_sadm" in st.session_state:
+                        sadm_m = st.session_state.solo_sadm / 1000.0
+                        qad_kPa = to_kPa_from(st.session_state.solo_qad, st.session_state.press_unit)
+                        qad_used = qad_kPa * (st.session_state.solo_sf if st.session_state.solo_isult else 1.0)
+                        if sadm_m > 0:
+                            k_kNpm3_B = qad_used / sadm_m
+                            ksB = kNpm3_to_MNpm3(k_kNpm3_B)
+                            st.metric("k (MN/m³)", f"{ksB:,.2f}")
+                            if st.session_state.detail_calc:
+                                st.latex(r"k = \dfrac{q^{ad}}{s^{adm}}")
+                                st.latex(
+                                    f"k = \\dfrac{{{qad_used:,.1f}\\,\\text{{kN/m²}}}}{{{sadm_m:,.3f}\\,\\text{{m}}}}"
+                                    f" = {k_kNpm3_B:,.1f}\\,\\text{{kN/m³}} = {ksB:,.2f}\\,\\text{{MN/m³}}"
+                                )
+                                param_table(
+                                    [
+                                        ("q ad", "Contrainte (admissible ou ultime×SF)",
+                                         f"{from_kPa_to(qad_used, st.session_state.press_unit):,.3f}",
+                                         st.session_state.press_unit),
+                                        ("s adm", "Tassement admissible", f"{st.session_state.solo_sadm:,.3f}", "mm"),
+                                        ("SF", "Facteur de sécurité",
+                                         f"{st.session_state.solo_sf:,.2f}" if st.session_state.solo_isult else "—",
+                                         "—"),
+                                        ("k", "Raideur de sol", f"{ksB:,.3f}", "MN/m³"),
+                                    ]
+                                )
+
                 # (3) k ≈ E / [B(1−ν²)]
-                if "solo_E" in st.session_state and "solo_B" in st.session_state:
-                    E_input = st.session_state.solo_E
-                    E_MPa = E_input if st.session_state.module_unit == "MPa" else E_input * 1000.0
-                    E_kPa = E_MPa_to_kPa(E_MPa)
-                    B = max(st.session_state.solo_B, 1e-6)
-                    nu = st.session_state.solo_nu
-                    k_kNpm3_C = E_kPa / (B * (1 - nu ** 2))
-                    ksC = kNpm3_to_MNpm3(k_kNpm3_C)
-                    st.metric("k (MN/m³)", f"{ksC:,.2f}")
-                    if st.session_state.detail_calc:
-                        st.latex(r"k \approx \dfrac{E}{B(1-\nu^2)}")
-                        st.latex(
-                            f"k \\approx \\dfrac{{{E_kPa:,.0f}\\,\\text{{kN/m²}}}}"
-                            f"{{{B:,.2f}\\,\\text{{m}}(1-{nu:.2f}^2)}}"
-                            f" = {k_kNpm3_C:,.1f}\\,\\text{{kN/m³}} = {ksC:,.2f}\\,\\text{{MN/m³}}"
-                        )
-                        param_table(
-                            [
-                                ("E", "Module de Young", f"{E_MPa:,.3f}", "MPa"),
-                                ("B", "Largeur caractéristique", f"{B:,.3f}", "m"),
-                                ("ν", "Coefficient de Poisson", f"{nu:,.3f}", "—"),
-                                ("k", "Raideur de sol", f"{ksC:,.3f}", "MN/m³"),
-                            ]
-                        )
+                elif method.startswith("3."):
+                    if "solo_E" in st.session_state and "solo_B" in st.session_state:
+                        E_input = st.session_state.solo_E
+                        E_MPa = E_input if st.session_state.module_unit == "MPa" else E_input * 1000.0
+                        E_kPa = E_MPa_to_kPa(E_MPa)
+                        B = max(st.session_state.solo_B, 1e-6)
+                        nu = st.session_state.solo_nu
+                        k_kNpm3_C = E_kPa / (B * (1 - nu ** 2))
+                        ksC = kNpm3_to_MNpm3(k_kNpm3_C)
+                        st.metric("k (MN/m³)", f"{ksC:,.2f}")
+                        if st.session_state.detail_calc:
+                            st.latex(r"k \approx \dfrac{E}{B(1-\nu^2)}")
+                            st.latex(
+                                f"k \\approx \\dfrac{{{E_kPa:,.0f}\\,\\text{{kN/m²}}}}"
+                                f"{{{B:,.2f}\\,\\text{{m}}(1-{nu:.2f}^2)}}"
+                                f" = {k_kNpm3_C:,.1f}\\,\\text{{kN/m³}} = {ksC:,.2f}\\,\\text{{MN/m³}}"
+                            )
+                            param_table(
+                                [
+                                    ("E", "Module de Young", f"{E_MPa:,.3f}", "MPa"),
+                                    ("B", "Largeur caractéristique", f"{B:,.3f}", "m"),
+                                    ("ν", "Coefficient de Poisson", f"{nu:,.3f}", "—"),
+                                    ("k", "Raideur de sol", f"{ksC:,.3f}", "MN/m³"),
+                                ]
+                            )
 
         # ----- CAS 2 : Sol multicouche -----
         elif cas.startswith("2"):
