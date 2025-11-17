@@ -12,13 +12,17 @@ import streamlit as st
 def show():
     """
     Page Streamlit : calcul de la raideur de sol k (modèle de Winkler)
-    Version fusionnée : sol homogène / multicouche / CPT interprété.
+    Version fusionnée : sol homogène, multicouche, CPT interprété et méthodes empiriques.
     """
 
     # -----------------------------
     # ⚙️ Page config
     # -----------------------------
-    st.set_page_config(page_title="Raideur de sol – Winkler", layout="wide")
+    try:
+        st.set_page_config(page_title="Raideur de sol – Winkler", layout="wide")
+    except Exception:
+        # Si déjà appelée dans une autre page, on ignore.
+        pass
 
     # -----------------------------
     # 🎨 Styles
@@ -85,9 +89,15 @@ def show():
         return val_MNpm3 * 1000.0
 
     def param_table(rows):
-        """Affiche un tableau de paramètres (nom, description, valeur, unité)."""
+        """Affiche un tableau de paramètres (nom, description, valeur, unité) sans index visible."""
         df = pd.DataFrame(rows, columns=["Paramètre", "Description", "Valeur", "Unité"])
-        st.table(df)
+        try:
+            st.table(df.style.hide(axis="index"))
+        except Exception:
+            # Fallback si hide(axis="index") non dispo
+            df2 = df.copy()
+            df2.index = [""] * len(df2)
+            st.table(df2)
 
     # Liste simple de types de sols (utilisée dans le data_editor)
     SOIL_TYPES = [
@@ -103,7 +113,7 @@ def show():
         "Sable graveleux / grave compacte",
         "Roche altérée",
         "Roche saine",
-        "Personnalisé"
+        "Personnalisé",
     ]
 
     # Corrélation très simple (qc → E) indicative par type
@@ -146,20 +156,20 @@ def show():
         st.session_state.adv_open = False
     if "abaque_w" not in st.session_state:
         st.session_state.abaque_w = 20.0  # tassement de réf. pour l’abaque sols (mm)
+
+    # DataFrame couches (index à partir de 1)
     if "layers_df" not in st.session_state:
         st.session_state.layers_df = pd.DataFrame(
             [
                 {
-                    "Nom de la couche": "Couche 1",
-                    "Profondeur haut [m]": 0.0,
-                    "Profondeur bas [m]": 2.0,
-                    "Épaisseur h [m]": 2.0,
+                    "h [m]": 2.0,
                     "Type de sol": "Sable moyennement compact",
                     "qc moy [MPa]": 6.0,
                     "Rf [%]": 1.0,
-                    "E [MPa]": 30.0
+                    "E [MPa]": 30.0,
                 }
-            ]
+            ],
+            index=[1],
         )
 
     # =============================================================
@@ -184,7 +194,7 @@ def show():
     with col_top[4]:
         st.button("📝 Générer PDF", use_container_width=True, help="(Export PDF à développer)")
     with col_top[5]:
-        st.markdown("<span class='badge'>v2.0</span>", unsafe_allow_html=True)
+        st.markdown("<span class='badge'>v2.1</span>", unsafe_allow_html=True)
 
     st.divider()
 
@@ -193,7 +203,7 @@ def show():
     # =============================================================
     st.markdown("# Raideur élastique des sols")
     st.markdown(
-        "<span class='small'>Outil de pré-dimensionnement : sol homogène, multicouche ou interprété à partir d’un CPT, modélisé par des ressorts verticaux (modèle de Winkler).</span>",
+        "<span class='small'>Outil de pré-dimensionnement : sols modélisés par des ressorts verticaux (modèle de Winkler).</span>",
         unsafe_allow_html=True,
     )
 
@@ -266,11 +276,12 @@ def show():
         cas = st.selectbox(
             "Quel cas souhaitez-vous traiter ?",
             (
-                "1. Sol (mono / multicouche / CPT interprété)",
-                "2. CPT – module empirique α·qc (méthode rapide)",
-                "3. Plat sur béton",
-                "4. Convertisseur & vérification",
-                "5. Abaque sols",
+                "1. Raideur d’un sol (q, w)",
+                "2. Modélisation d’un sol (mono / multicouche / CPT interprété)",
+                "3. Raideur d’un sol – formule empirique (CPT)",
+                "4. Raideur d’un plat en béton",
+                "5. Convertisseur",
+                "6. Abaque sols",
             ),
             index=0,
         )
@@ -279,8 +290,34 @@ def show():
         # Formulaires selon le cas
         # -------------------------
         if cas.startswith("1."):
-            # ----- CAS 1 : Sol mono / multicouche / CPT interprété -----
-            st.markdown("**Sol homogène ou multicouche — équivalence verticale**")
+            # ----- CAS 1 : raideur d’un sol à partir de (q, w) -----
+            st.markdown("**Raideur d’un sol à partir d’un couple (q, w)**")
+            st.caption(
+                "On connaît une pression de service q et un tassement w : on applique directement k = q / w."
+            )
+            st.markdown(
+                "<span class='memo-chip'>Typiquement : q à l’ELS, w = 20 mm → k pour comparaison avec SCIA / RDM.</span>",
+                unsafe_allow_html=True,
+            )
+            c1, c2 = st.columns(2)
+            with c1:
+                st.session_state.solo_q = st.number_input(
+                    f"q (pression au sol) [{st.session_state.press_unit}]",
+                    min_value=0.0,
+                    value=float(st.session_state.get("solo_q", 60.0)),
+                    step=5.0,
+                )
+            with c2:
+                st.session_state.solo_w = st.number_input(
+                    "w (tassement) [mm]",
+                    min_value=0.001,
+                    value=float(st.session_state.get("solo_w", 20.0)),
+                    step=5.0,
+                )
+
+        elif cas.startswith("2."):
+            # ----- CAS 2 : sol mono / multicouche / CPT interprété -----
+            st.markdown("**Modélisation d’un sol (mono / multicouche / CPT interprété)**")
             st.caption(
                 "Une seule ligne = sol homogène. Plusieurs lignes = profil multicouche (par ex. issu d’un CPT). "
                 "Le calcul se base sur l’équation 1/k_eq = Σ(h_i / E_i)."
@@ -306,7 +343,7 @@ def show():
                 )
 
             st.markdown(
-                "<span class='memo-chip'>Astuce : une seule couche avec E et h donne directement k, plusieurs couches donnent k_eq.</span>",
+                "<span class='memo-chip'>Astuce : une seule ligne avec h et E donne k, plusieurs lignes donnent k_eq.</span>",
                 unsafe_allow_html=True,
             )
 
@@ -314,10 +351,7 @@ def show():
             df = st.session_state.layers_df.copy()
 
             col_config = {
-                "Nom de la couche": st.column_config.TextColumn("Nom de la couche", width="medium"),
-                "Profondeur haut [m]": st.column_config.NumberColumn("Profondeur haut [m]", step=0.5),
-                "Profondeur bas [m]": st.column_config.NumberColumn("Profondeur bas [m]", step=0.5),
-                "Épaisseur h [m]": st.column_config.NumberColumn("Épaisseur h [m]", step=0.1),
+                "h [m]": st.column_config.NumberColumn("h [m]", step=0.1),
                 "Type de sol": st.column_config.SelectboxColumn(
                     "Type de sol",
                     options=SOIL_TYPES,
@@ -338,19 +372,8 @@ def show():
                 column_config=col_config,
             )
 
-            # Mise à jour automatique de l’épaisseur si haut/bas remplis
+            # Suggestion d’E si qc et type de sol sont connus et E non rempli
             for i, row in edited_df.iterrows():
-                top = row.get("Profondeur haut [m]")
-                bot = row.get("Profondeur bas [m]")
-                h = row.get("Épaisseur h [m]")
-                # Si top et bas sont donnés, on recalcule h
-                if pd.notna(top) and pd.notna(bot) and bot > top:
-                    edited_df.at[i, "Épaisseur h [m]"] = bot - top
-                # Si h et top sont donnés mais pas bas, on déduit bas
-                elif pd.notna(top) and pd.notna(h) and h > 0 and (pd.isna(bot) or bot <= top):
-                    edited_df.at[i, "Profondeur bas [m]"] = top + h
-
-                # Suggestion d’E si qc et type de sol sont connus et E non rempli
                 E_val = row.get("E [MPa]")
                 if (pd.isna(E_val) or E_val <= 0) and pd.notna(row.get("qc moy [MPa]")):
                     s_type = row.get("Type de sol") or ""
@@ -358,11 +381,15 @@ def show():
                     if E_sugg is not None:
                         edited_df.at[i, "E [MPa]"] = round(E_sugg, 1)
 
+            # Forcer index à partir de 1
+            if len(edited_df) > 0:
+                edited_df.index = range(1, len(edited_df) + 1)
+
             st.session_state.layers_df = edited_df
 
-        elif cas.startswith("2."):
-            # ----- CAS 2 : CPT – méthode empirique -----
-            st.markdown("**CPT – module empirique α·(qₜ − σ'ᵥ₀)**")
+        elif cas.startswith("3."):
+            # ----- CAS 3 : CPT – méthode empirique -----
+            st.markdown("**Raideur d’un sol – formule empirique (CPT)**")
             st.caption(
                 "Méthode rapide basée sur une unique valeur de qc : "
                 "E = α_E (qₜ − σ'ᵥ₀), puis k ≈ E / [B(1−ν²)]. "
@@ -409,9 +436,9 @@ def show():
                     step=0.01,
                 )
 
-        elif cas.startswith("3."):
-            # ----- CAS 3 : Plat sur béton -----
-            st.markdown("**Plat métallique sur béton (ressort de contact)**")
+        elif cas.startswith("4."):
+            # ----- CAS 4 : Plat sur béton -----
+            st.markdown("**Raideur d’un plat en béton (contact plat / béton / grout)**")
             st.caption(
                 "On assimile le contact à un ressort en compression du béton (et éventuellement du grout). "
                 "Pour le béton seul : k_c ≈ E_c / [h_c(1−ν²)] ou k_c ≈ E_c / h_c suivant l’hypothèse."
@@ -493,17 +520,17 @@ def show():
                 st.session_state.plate_tg = st.session_state.get("plate_tg", 0.0)
                 st.session_state.plate_Eg = st.session_state.get("plate_Eg", 20.0)
 
-        elif cas.startswith("4."):
-            # ----- CAS 4 : convertisseur -----
+        elif cas.startswith("5."):
+            # ----- CAS 5 : convertisseur -----
             st.markdown("**Convertisseur et vérification rapide**")
             st.info(
-                "Zone à compléter : conversions k ↔ E ↔ q,w. "
-                "Par exemple : donner k, obtenir q pour un tassement ; donner E, obtenir k pour une largeur B, etc."
+                "À développer : conversions k ↔ E ↔ q,w. "
+                "Par exemple : donner k, obtenir q pour un tassement donné, ou donner E et B pour obtenir k."
             )
 
         else:
-            # ----- CAS 5 : abaque sols -----
-            st.markdown("**Base de données / abaques sols**")
+            # ----- CAS 6 : abaque sols -----
+            st.markdown("**Abaque sols – valeurs indicatives**")
             st.caption(
                 "Valeurs indicatives de poids volumique γ, raideur k (MN/m³) et contraintes "
                 "admissibles qₐ (kg/cm²) associées à un tassement de référence w_adm. "
@@ -521,16 +548,47 @@ def show():
             value=st.session_state.detail_calc,
         )
 
-        # ----- CAS 1 : Sol multi / mono -----
+        # ----- CAS 1 : Raideur d’un sol (q,w) -----
         if cas.startswith("1."):
+            with st.container(border=True):
+                if (
+                    "solo_q" in st.session_state
+                    and "solo_w" in st.session_state
+                    and st.session_state.solo_w
+                ):
+                    q_kPa = to_kPa_from(st.session_state.solo_q, st.session_state.press_unit)
+                    w_m = st.session_state.solo_w / 1000.0
+                    if w_m > 0:
+                        k_kNpm3 = q_kPa / w_m
+                        ksA = kNpm3_to_MNpm3(k_kNpm3)
+                    else:
+                        k_kNpm3 = 0.0
+                        ksA = 0.0
+
+                    st.metric("k (MN/m³)", f"{ksA:,.2f}")
+                    if st.session_state.detail_calc:
+                        st.latex(r"k = \dfrac{q}{w}")
+                        st.latex(
+                            f"k = \\dfrac{{{q_kPa:,.1f}\\,\\text{{kN/m²}}}}{{{w_m:,.3f}\\,\\text{{m}}}}"
+                            f" = {k_kNpm3:,.1f}\\,\\text{{kN/m³}} = {ksA:,.2f}\\,\\text{{MN/m³}}"
+                        )
+                        param_table(
+                            [
+                                ("q", "Pression de service", f"{st.session_state.solo_q:,.3f}", st.session_state.press_unit),
+                                ("w", "Tassement", f"{st.session_state.solo_w:,.3f}", "mm"),
+                                ("k", "Raideur de sol", f"{ksA:,.3f}", "MN/m³"),
+                            ]
+                        )
+
+        # ----- CAS 2 : Sol mono / multicouche -----
+        elif cas.startswith("2."):
             with st.container(border=True):
                 df = st.session_state.layers_df
                 denom = 0.0
                 H = 0.0
-                rows_used = []
 
                 for _, row in df.iterrows():
-                    h = row.get("Épaisseur h [m]")
+                    h = row.get("h [m]")
                     E_MPa = row.get("E [MPa]")
                     if pd.isna(h) or pd.isna(E_MPa):
                         continue
@@ -539,9 +597,6 @@ def show():
                     H += float(h)
                     E_kPa = E_MPa_to_kPa(float(E_MPa))
                     denom += float(h) / E_kPa
-                    rows_used.append(
-                        (row.get("Nom de la couche"), float(h), float(E_MPa))
-                    )
 
                 ks_eq = 0.0
                 k_kNpm3_eq = 0.0
@@ -580,8 +635,8 @@ def show():
                             f"k = {k_kNpm3_B:,.1f}\\,\\text{{kN/m³}} = {ksB:,.2f}\\,\\text{{MN/m³}}"
                         )
 
-        # ----- CAS 2 : CPT empirique -----
-        elif cas.startswith("2."):
+        # ----- CAS 3 : CPT empirique -----
+        elif cas.startswith("3."):
             with st.container(border=True):
                 qt_MPa = st.session_state.get("cpt_qt", 0.0)
                 qt_kPa = qt_MPa * 1000.0
@@ -611,8 +666,8 @@ def show():
                         f"k \\approx {k_kNpm3:,.1f}\\,\\text{{kN/m³}} = {ks:,.2f}\\,\\text{{MN/m³}}"
                     )
 
-        # ----- CAS 3 : Plat sur béton -----
-        elif cas.startswith("3."):
+        # ----- CAS 4 : Plat sur béton -----
+        elif cas.startswith("4."):
             with st.container(border=True):
                 Bp_mm = st.session_state.get("plate_B", 200.0)
                 Lp_mm = st.session_state.get("plate_L", 200.0)
@@ -671,15 +726,15 @@ def show():
                         ]
                     )
 
-        # ----- CAS 4 : convertisseur -----
-        elif cas.startswith("4."):
+        # ----- CAS 5 : convertisseur -----
+        elif cas.startswith("5."):
             with st.container(border=True):
                 st.info(
                     "Convertisseur à développer : donner k, obtenir q pour un tassement donné, "
                     "donner E et B pour obtenir k, etc."
                 )
 
-        # ----- CAS 5 : abaque sols -----
+        # ----- CAS 6 : abaque sols -----
         else:
             with st.container(border=True):
                 st.markdown("#### Réglage du tassement de référence")
