@@ -55,7 +55,7 @@ pages = {
     "Tableau profilés": tableau_profiles.show,
     "Enrobage": enrobage.show,
     "Rigidité du sol": rigidite_sol.show,
-    "Taux d'armmature": taux_armature.show,    # ⬅️ ajouté
+    "Taux d'armature": taux_armature.show,    # ⬅️ ajouté
 }
 
 # ---- Affichage
