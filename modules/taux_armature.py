@@ -1,4 +1,4 @@
-# TauxArmature.py
+# modules/taux_armature.py
 from __future__ import annotations
 
 import math
@@ -357,6 +357,7 @@ class RebarInstance:
     y: float          # cm
     phi_mm: float
     family_id: str
+    color: str = "black"
 
 
 @dataclass
@@ -365,17 +366,23 @@ class BeamSection:
     geometry: BeamGeometry
     rebars: List[RebarInstance] = field(default_factory=list)
 
-    def regenerate_rebars(self, families: List[RebarFamily]) -> None:
+    def regenerate_rebars(
+        self,
+        families: List[RebarFamily],
+        family_colors: Optional[Dict[str, str]] = None,
+    ) -> None:
         """
         Reconstruit la liste de RebarInstance à partir des familles.
         """
         self.rebars.clear()
+        color_map = family_colors or {}
         for fam in families:
             centers = self.geometry.bar_centers(
                 fam.position,
                 fam.n_bars,
                 fam.dia_mm,
             )
+            fam_color = color_map.get(fam.id, "black")
             for i, (x, y) in enumerate(centers):
                 self.rebars.append(
                     RebarInstance(
@@ -383,6 +390,7 @@ class BeamSection:
                         y=y,
                         phi_mm=fam.dia_mm,
                         family_id=fam.id,
+                        color=fam_color,
                     )
                 )
 
@@ -452,6 +460,85 @@ def compute_quantities(
 
 
 # =========================
+# Outils couleurs
+# =========================
+
+def _hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
+    hex_color = hex_color.lstrip("#")
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+
+def _rgb_to_hex(rgb: Tuple[int, int, int]) -> str:
+    return "#{:02x}{:02x}{:02x}".format(*rgb)
+
+
+def _gradient(start: str, end: str, n: int) -> List[str]:
+    if n <= 1:
+        return [start]
+    s = _hex_to_rgb(start)
+    e = _hex_to_rgb(end)
+    colors = []
+    for i in range(n):
+        t = i / (n - 1)
+        rgb = tuple(int(s[k] + (e[k] - s[k]) * t) for k in range(3))
+        colors.append(_rgb_to_hex(rgb))
+    return colors
+
+
+def _position_group(pos: str) -> str:
+    """Classe grossière des lits pour les couleurs (bas / haut / autres)."""
+    if pos == "web_bottom":
+        return "bottom"
+    if pos in ("web_top", "flange_left", "flange_right"):
+        return "top"
+    return "other"
+
+
+def compute_family_colors_for_families(
+    families: List[RebarFamily],
+) -> Dict[str, str]:
+    bottom_ids = [f.id for f in families if _position_group(f.position) == "bottom"]
+    top_ids = [f.id for f in families if _position_group(f.position) == "top"]
+    other_ids = [f.id for f in families if _position_group(f.position) == "other"]
+
+    colors: Dict[str, str] = {}
+
+    reds = _gradient("#ffcccc", "#b30000", max(len(bottom_ids), 1))
+    blues = _gradient("#cce0ff", "#0033cc", max(len(top_ids), 1))
+
+    for i, fid in enumerate(bottom_ids):
+        colors[fid] = reds[i]
+    for i, fid in enumerate(top_ids):
+        colors[fid] = blues[i]
+    for fid in other_ids:
+        colors[fid] = "#666666"  # gris pour latérales / autres
+
+    return colors
+
+
+def compute_family_colors_from_state() -> Dict[str, str]:
+    """Même logique de couleurs, mais à partir de la liste de dict en session."""
+    raw = st.session_state.get("rebar_families", [])
+    bottom_ids = [d["id"] for d in raw if _position_group(d["position"]) == "bottom"]
+    top_ids = [d["id"] for d in raw if _position_group(d["position"]) == "top"]
+    other_ids = [d["id"] for d in raw if _position_group(d["position"]) == "other"]
+
+    colors: Dict[str, str] = {}
+
+    reds = _gradient("#ffcccc", "#b30000", max(len(bottom_ids), 1))
+    blues = _gradient("#cce0ff", "#0033cc", max(len(top_ids), 1))
+
+    for i, fid in enumerate(bottom_ids):
+        colors[fid] = reds[i]
+    for i, fid in enumerate(top_ids):
+        colors[fid] = blues[i]
+    for fid in other_ids:
+        colors[fid] = "#666666"
+
+    return colors
+
+
+# =========================
 # Dessins matplotlib
 # =========================
 
@@ -471,7 +558,8 @@ def draw_section(
     b = geom.b_web
     h = geom.h_total
 
-    fig, ax = plt.subplots(figsize=(4, 4))
+    # Dessin plus petit
+    fig, ax = plt.subplots(figsize=(2.5, 3.5))
 
     # Béton (âme rectangulaire)
     rect = plt.Rectangle(
@@ -487,9 +575,9 @@ def draw_section(
     for bar in section.rebars:
         r_cm = bar.phi_mm / 20.0  # ϕ (mm) → rayon (cm)
         if highlight_family_ids and bar.family_id in highlight_family_ids:
-            facecolor = "red"
+            facecolor = "#ff6600"  # orange pour renfort sélectionné
         else:
-            facecolor = "black"
+            facecolor = bar.color
         circ = plt.Circle((bar.x, bar.y), r_cm, color=facecolor)
         ax.add_patch(circ)
 
@@ -571,6 +659,8 @@ def _init_state():
     st.session_state.setdefault("flange_right_b_cm", 0.0)
     st.session_state.setdefault("flange_right_h_cm", 0.0)
 
+    st.session_state.setdefault("shape_section", "Rectangulaire")
+
     st.session_state.setdefault("rebar_families", [])   # liste de dict
     st.session_state.setdefault("stirrup_types", [])    # liste de dict
     st.session_state.setdefault("stirrup_zones", [])    # liste de dict
@@ -581,14 +671,31 @@ def _init_state():
 
 
 def build_geometry() -> BeamGeometry:
+    shape = st.session_state.shape_section
+
+    # On applique les talons uniquement selon le type choisi
+    if "gauche" in shape:
+        flange_left_b = st.session_state.flange_left_b_cm
+        flange_left_h = st.session_state.flange_left_h_cm
+    else:
+        flange_left_b = 0.0
+        flange_left_h = 0.0
+
+    if "droit" in shape:
+        flange_right_b = st.session_state.flange_right_b_cm
+        flange_right_h = st.session_state.flange_right_h_cm
+    else:
+        flange_right_b = 0.0
+        flange_right_h = 0.0
+
     return BeamGeometry(
         b_web=st.session_state.b_web_cm,
         h_total=st.session_state.h_total_cm,
         cover=st.session_state.cover_cm,
-        flange_left_b=st.session_state.flange_left_b_cm,
-        flange_left_h=st.session_state.flange_left_h_cm,
-        flange_right_b=st.session_state.flange_right_b_cm,
-        flange_right_h=st.session_state.flange_right_h_cm,
+        flange_left_b=flange_left_b,
+        flange_left_h=flange_left_h,
+        flange_right_b=flange_right_b,
+        flange_right_h=flange_right_h,
     )
 
 
@@ -673,10 +780,21 @@ def add_family(role: FamilyRole):
     )
 
 
-def edit_family(idx: int, fam: Dict, role_label: str):
+def edit_family(idx: int, fam: Dict, role_label: str, color: Optional[str] = None):
     c1, c2 = st.columns([3, 1])
     with c1:
-        st.markdown(f"**{role_label} – {fam['id']}**")
+        if color:
+            badge = (
+                f"<span style='display:inline-block;width:14px;height:14px;"
+                f"border-radius:50%;background-color:{color};"
+                f"margin-right:6px;vertical-align:middle;'></span>"
+            )
+        else:
+            badge = ""
+        st.markdown(
+            f"{badge}<strong>{role_label} – {fam['id']}</strong>",
+            unsafe_allow_html=True,
+        )
     with c2:
         if st.button("🗑️ Supprimer", key=f"del_fam_{idx}"):
             st.session_state.rebar_families.pop(idx)
@@ -949,112 +1067,169 @@ def show():
 
     st.title("🧱 Poutre BA – Modélisation et quantification du ferraillage")
 
-    st.sidebar.header("Géométrie & portée")
-    st.sidebar.number_input(
-        "Portée L (m)",
-        min_value=0.5,
-        max_value=60.0,
-        value=float(st.session_state.L_beam_m),
-        step=0.5,
-        key="L_beam_m",
-    )
-    st.sidebar.number_input(
-        "Âme b (cm)",
-        min_value=5.0,
-        max_value=200.0,
-        value=float(st.session_state.b_web_cm),
-        step=1.0,
-        key="b_web_cm",
-    )
-    st.sidebar.number_input(
-        "Hauteur h (cm)",
-        min_value=10.0,
-        max_value=300.0,
-        value=float(st.session_state.h_total_cm),
-        step=1.0,
-        key="h_total_cm",
-    )
-    st.sidebar.number_input(
-        "Enrobage nominal c (cm)",
-        min_value=1.0,
-        max_value=10.0,
-        value=float(st.session_state.cover_cm),
-        step=0.5,
-        key="cover_cm",
-    )
-
-    with st.sidebar.expander("Talons (optionnels)", expanded=False):
-        st.number_input(
-            "Talon gauche – largeur (cm)",
-            min_value=0.0,
-            max_value=300.0,
-            value=float(st.session_state.flange_left_b_cm),
-            step=1.0,
-            key="flange_left_b_cm",
-        )
-        st.number_input(
-            "Talon gauche – hauteur (cm)",
-            min_value=0.0,
-            max_value=300.0,
-            value=float(st.session_state.flange_left_h_cm),
-            step=1.0,
-            key="flange_left_h_cm",
-        )
-        st.number_input(
-            "Talon droit – largeur (cm)",
-            min_value=0.0,
-            max_value=300.0,
-            value=float(st.session_state.flange_right_b_cm),
-            step=1.0,
-            key="flange_right_b_cm",
-        )
-        st.number_input(
-            "Talon droit – hauteur (cm)",
-            min_value=0.0,
-            max_value=300.0,
-            value=float(st.session_state.flange_right_h_cm),
-            step=1.0,
-            key="flange_right_h_cm",
-        )
-
-    col_left, col_right = st.columns([2, 2])
+    col_left, col_right = st.columns([3, 2])
 
     # ==============
     # COLONNE GAUCHE
     # ==============
     with col_left:
-        st.subheader("1️⃣ Armatures longitudinales – Lits principaux")
+        # 1. Dimensions de la poutre
+        st.subheader("1️⃣ Dimensions de la poutre")
+
+        c_dim1, c_dim2, c_dim3 = st.columns(3)
+        with c_dim1:
+            st.number_input(
+                "Largeur b (cm)",
+                min_value=5.0,
+                max_value=200.0,
+                value=float(st.session_state.b_web_cm),
+                step=1.0,
+                key="b_web_cm",
+            )
+        with c_dim2:
+            st.number_input(
+                "Hauteur h (cm)",
+                min_value=10.0,
+                max_value=300.0,
+                value=float(st.session_state.h_total_cm),
+                step=1.0,
+                key="h_total_cm",
+            )
+        with c_dim3:
+            st.number_input(
+                "Portée L (m)",
+                min_value=0.5,
+                max_value=60.0,
+                value=float(st.session_state.L_beam_m),
+                step=0.5,
+                key="L_beam_m",
+            )
+
+        c_dim4, c_dim5 = st.columns(2)
+        with c_dim4:
+            st.number_input(
+                "Enrobage nominal c (cm)",
+                min_value=1.0,
+                max_value=10.0,
+                value=float(st.session_state.cover_cm),
+                step=0.5,
+                key="cover_cm",
+            )
+        with c_dim5:
+            st.session_state.shape_section = st.radio(
+                "Type de section",
+                [
+                    "Rectangulaire",
+                    "Rectangulaire + talon gauche",
+                    "Rectangulaire + talon droit",
+                    "Rectangulaire + deux talons",
+                ],
+                index=[
+                    "Rectangulaire",
+                    "Rectangulaire + talon gauche",
+                    "Rectangulaire + talon droit",
+                    "Rectangulaire + deux talons",
+                ].index(st.session_state.shape_section),
+                horizontal=False,
+            )
+
+        # Talons visibles selon le type
+        if "gauche" in st.session_state.shape_section or "deux talons" in st.session_state.shape_section:
+            cg1, cg2 = st.columns(2)
+            with cg1:
+                st.number_input(
+                    "Talon gauche – largeur (cm)",
+                    min_value=0.0,
+                    max_value=300.0,
+                    value=float(st.session_state.flange_left_b_cm),
+                    step=1.0,
+                    key="flange_left_b_cm",
+                )
+            with cg2:
+                st.number_input(
+                    "Talon gauche – hauteur (cm)",
+                    min_value=0.0,
+                    max_value=300.0,
+                    value=float(st.session_state.flange_left_h_cm),
+                    step=1.0,
+                    key="flange_left_h_cm",
+                )
+
+        if "droit" in st.session_state.shape_section or "deux talons" in st.session_state.shape_section:
+            cd1, cd2 = st.columns(2)
+            with cd1:
+                st.number_input(
+                    "Talon droit – largeur (cm)",
+                    min_value=0.0,
+                    max_value=300.0,
+                    value=float(st.session_state.flange_right_b_cm),
+                    step=1.0,
+                    key="flange_right_b_cm",
+                )
+            with cd2:
+                st.number_input(
+                    "Talon droit – hauteur (cm)",
+                    min_value=0.0,
+                    max_value=300.0,
+                    value=float(st.session_state.flange_right_h_cm),
+                    step=1.0,
+                    key="flange_right_h_cm",
+                )
+
+        st.markdown("---")
+
+        # Couleurs pour les familles (pour l'UI)
+        family_colors_ui = compute_family_colors_from_state()
+
+        # 2. Lits principaux
+        st.subheader("2️⃣ Armatures longitudinales – Lits principaux")
         if st.button("➕ Ajouter un lit principal"):
             add_family("main")
 
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "main":
                 with st.container(border=True):
-                    edit_family(idx, fam, "Lit principal")
+                    edit_family(
+                        idx,
+                        fam,
+                        "Lit principal",
+                        color=family_colors_ui.get(fam["id"]),
+                    )
 
-        st.subheader("2️⃣ Renforts locaux")
+        # 3. Renforts locaux
+        st.subheader("3️⃣ Renforts locaux")
         if st.button("➕ Ajouter un renfort local"):
             add_family("reinforcement")
 
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "reinforcement":
                 with st.container(border=True):
-                    edit_family(idx, fam, "Renfort local")
+                    edit_family(
+                        idx,
+                        fam,
+                        "Renfort local",
+                        color=family_colors_ui.get(fam["id"]),
+                    )
 
-        st.subheader("3️⃣ Barres latérales")
+        # 4. Barres latérales
+        st.subheader("4️⃣ Barres latérales")
         if st.button("➕ Ajouter barres latérales"):
             add_family("lateral")
 
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "lateral":
                 with st.container(border=True):
-                    edit_family(idx, fam, "Barres latérales")
+                    edit_family(
+                        idx,
+                        fam,
+                        "Barres latérales",
+                        color=family_colors_ui.get(fam["id"]),
+                    )
 
-    # ===============
-    # COLONNE DROITE
-    # ===============
-    with col_right:
-        st.subheader("4️⃣ Étriers")
+        st.markdown("---")
+
+        # 5. Étriers (également dans la colonne gauche)
+        st.subheader("5️⃣ Étriers")
 
         cst1, cst2 = st.columns(2)
         with cst1:
@@ -1078,16 +1253,22 @@ def show():
                 with st.container(border=True):
                     edit_stirrup_zone(i, d)
 
-        st.markdown("---")
-        st.subheader("5️⃣ Résultats & dessins")
+    # ===============
+    # COLONNE DROITE
+    # ===============
+    with col_right:
+        st.subheader("6️⃣ Résultats & dessins")
 
         geom = build_geometry()
         families = build_rebar_families()
         stirrup_types = build_stirrup_types()
         stirrup_zones = build_stirrup_zones()
 
+        # Couleurs pour le dessin
+        family_colors_plot = compute_family_colors_for_families(families)
+
         section = BeamSection(geometry=geom)
-        section.regenerate_rebars(families)
+        section.regenerate_rebars(families, family_colors_plot)
 
         stirrup_results = compute_stirrups_for_zones(
             stirrup_zones,
@@ -1123,7 +1304,7 @@ def show():
 
         st.markdown("**Section générale (tous lits)**")
         fig_gen = draw_section(section)
-        st.pyplot(fig_gen)
+        st.pyplot(fig_gen, use_container_width=False)
 
         # Sections par zone d’étriers
         if stirrup_results:
@@ -1137,21 +1318,26 @@ def show():
                     f"Type {res.stirrup_type.name} – ϕ {res.stirrup_type.phi_mm:.1f} mm"
                 )
                 fig_z = draw_section_for_zone(section, stirrup_type=res.stirrup_type)
-                st.pyplot(fig_z)
+                st.pyplot(fig_z, use_container_width=False)
 
-        # Sections dédiées aux renforts – mise en évidence en rouge
+        # Sections dédiées aux renforts – barres surlignées en orange
         reinf_fams = [f for f in families if f.role == "reinforcement"]
         if reinf_fams:
-            st.markdown("**Sections pour renforts locaux (barres en rouge)**")
+            st.markdown("**Sections pour renforts locaux (barres mises en évidence)**")
             for f in reinf_fams:
                 st.caption(
                     f"Renfort {f.id} – {POSITION_LABELS.get(f.position, f.position)} : "
                     f"{f.n_bars}Ø{f.dia_mm} de {f.x_start_pct:.0f} à {f.x_end_pct:.0f} %L"
                 )
                 fig_r = draw_section(section, highlight_family_ids=[f.id])
-                st.pyplot(fig_r)
+                st.pyplot(fig_r, use_container_width=False)
 
 
 if __name__ == "__main__":
-    st.set_page_config(page_title="Poutre BA – Ferraillage complet", page_icon="🧱", layout="wide")
+    st.set_page_config(
+        page_title="Poutre BA – Ferraillage complet",
+        page_icon="🧱",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
     show()
