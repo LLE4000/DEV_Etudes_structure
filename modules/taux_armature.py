@@ -184,22 +184,16 @@ class BeamGeometry:
         y_min = c
         y_max = self.h_total - c
 
-        # Règle spéciale n=2 ou 3 : comme si 4 ou 5 barres, sans extrêmes
-        if n_bars in (2, 3):
+        if n_bars == 1:
+            ys = [(y_min + y_max) / 2.0]
+        else:
+            # règle générale : on place n+2 barres, on retire les 2 extrêmes
             n_eff = n_bars + 2
-            idxs = list(range(1, n_eff - 1))[:n_bars]
+            idxs = range(1, n_eff - 1)  # 1 .. n_eff-2 → n_bars positions
             ys = [
                 y_min + i * (y_max - y_min) / (n_eff - 1)
                 for i in idxs
             ]
-        else:
-            if n_bars == 1:
-                ys = [(y_min + y_max) / 2.0]
-            else:
-                ys = [
-                    y_min + i * (y_max - y_min) / (n_bars - 1)
-                    for i in range(n_bars)
-                ]
 
         x = x_min  # side_left ou side_right → même x
         return [(x, y) for y in ys]
@@ -224,6 +218,7 @@ class RebarFamily:
 
     with_hooks: bool = False
     hook_height_cm: float = 0.0
+    hook_mode: str = "none"  # "none", "both", "left", "right"
 
     with_lap: bool = False
     lap_length_mm: float = 0.0  # ℓ_rec (mm)
@@ -232,34 +227,51 @@ class RebarFamily:
     x_end_pct: float = 100.0    # 0–100 %
 
     def active_length_m(self, L_beam_m: float) -> float:
-        """Longueur active en m, à partir des % de portée."""
+        """Longueur active en m, à partir des % de portée (partie horizontale)."""
         x1 = max(0.0, min(100.0, self.x_start_pct))
         x2 = max(0.0, min(100.0, self.x_end_pct))
         if x2 <= x1:
             return 0.0
         return L_beam_m * (x2 - x1) / 100.0
 
+    def _hooks_per_bar(self) -> int:
+        if self.hook_mode == "both":
+            return 2
+        if self.hook_mode in ("left", "right"):
+            return 1
+        return 0
+
     def total_bar_length_m(self, L_beam_m: float, stock_length_m: float = 12.0) -> float:
         """
-        Longueur totale d’acier pour cette famille, avec éventuels recouvrements.
-        Formule :
-            N = ceil( (L_active + ℓ_rec) / (L_stock - ℓ_rec) )
-            L_tot = L_active + (N-1)*ℓ_rec
-        puis × n_bars.
+        Longueur totale d’acier pour cette famille, avec éventuels recouvrements et retours.
+        - L_active = longueur de la partie horizontale
+        - recouvrement appliqué sur la partie horizontale
+        - retours ajoutés ensuite, en fonction du nombre de barres et du nombre de barres stock
         """
         L_active = self.active_length_m(L_beam_m)
         if L_active <= 0.0 or self.n_bars <= 0:
             return 0.0
 
+        hooks_per_bar = self._hooks_per_bar()
+        hook_height_m = max(self.hook_height_cm, 0.0) / 100.0
+
+        # Partie horizontale avec recouvrements
         if not self.with_lap or self.lap_length_mm <= 0.0:
-            return L_active * self.n_bars
+            straight_total = L_active * self.n_bars
+            n_stock_bars = 1  # approximatif
+        else:
+            lap_m = self.lap_length_mm / 1000.0
+            usable = max(stock_length_m - lap_m, 1e-6)
 
-        lap_m = self.lap_length_mm / 1000.0
-        usable = max(stock_length_m - lap_m, 1e-6)
+            N = math.ceil((L_active + lap_m) / usable)  # nb de barres stock par "ligne"
+            straight_one = L_active + (N - 1) * lap_m
+            straight_total = straight_one * self.n_bars
+            n_stock_bars = N
 
-        N = math.ceil((L_active + lap_m) / usable)
-        L_tot_one = L_active + (N - 1) * lap_m
-        return L_tot_one * self.n_bars
+        # Longueur supplémentaire due aux retours
+        extra_hooks_total = hooks_per_bar * hook_height_m * self.n_bars * n_stock_bars
+
+        return straight_total + extra_hooks_total
 
     def steel_area_mm2(self) -> float:
         """Section d’acier totale (mm²) de la famille."""
@@ -327,7 +339,7 @@ def stirrup_length_m(
 
     perim_mm = 2.0 * (b_mm + h_mm)
 
-    # crochets simples en haut (2 jambes) : 8ϕ chacun (≈)
+    # crochets simples en haut (2 jambes) : ~8ϕ chacun
     phi = st_type.phi_mm
     hook_mm = 8.0 * phi * 2  # deux crochets
     L_mm = perim_mm + hook_mm
@@ -823,10 +835,11 @@ def build_rebar_families() -> List[RebarFamily]:
                 position=d["position"],
                 n_bars=d["n_bars"],
                 dia_mm=d["dia_mm"],
-                with_hooks=d["with_hooks"],
-                hook_height_cm=d["hook_height_cm"],
-                with_lap=d["with_lap"],
-                lap_length_mm=d["lap_length_mm"],
+                with_hooks=d.get("with_hooks", False),
+                hook_height_cm=d.get("hook_height_cm", 0.0),
+                hook_mode=d.get("hook_mode", "none"),
+                with_lap=d.get("with_lap", False),
+                lap_length_mm=d.get("lap_length_mm", 0.0),
                 x_start_pct=d["x_start_pct"],
                 x_end_pct=d["x_end_pct"],
             )
@@ -890,6 +903,7 @@ def add_family(role: FamilyRole):
             "dia_mm": 16.0,
             "with_hooks": False,
             "hook_height_cm": 0.0,
+            "hook_mode": "none",
             "with_lap": False,
             "lap_length_mm": 0.0,
             "x_start_pct": 0.0,
@@ -980,25 +994,52 @@ def edit_family(idx: int, fam: Dict, role_label: str, code: str, color: Optional
             )
 
     c6, c7, c8 = st.columns(3)
+    # Retours
     with c6:
-        fam["with_hooks"] = st.checkbox(
+        hook_mode_label_map = {
+            "Aucun retour": "none",
+            "Deux retours": "both",
+            "Retour côté début": "left",
+            "Retour côté fin": "right",
+        }
+        inv_map = {v: k for k, v in hook_mode_label_map.items()}
+        current_mode = fam.get("hook_mode", "none")
+        label_default = inv_map.get(current_mode, "Aucun retour")
+
+        label_choice = st.selectbox(
             "Retours verticaux",
-            value=bool(fam["with_hooks"]),
-            key=f"hooks_{idx}",
+            list(hook_mode_label_map.keys()),
+            index=list(hook_mode_label_map.keys()).index(label_default),
+            key=f"hook_mode_{idx}",
         )
+        fam["hook_mode"] = hook_mode_label_map[label_choice]
+        fam["with_hooks"] = fam["hook_mode"] != "none"
+
     with c7:
-        fam["hook_height_cm"] = st.number_input(
-            "Hauteur retour (cm)",
-            min_value=0.0,
-            max_value=1000.0,
-            value=float(fam["hook_height_cm"]),
-            step=1.0,
-            key=f"h_hook_{idx}",
+        # hauteur par défaut : h - 2c
+        default_h = max(
+            st.session_state.h_total_cm - 2 * st.session_state.cover_cm,
+            0.0,
         )
+        if fam["hook_mode"] != "none":
+            if fam.get("hook_height_cm", 0.0) <= 0.0:
+                fam["hook_height_cm"] = default_h
+            fam["hook_height_cm"] = st.number_input(
+                "Hauteur retour (cm)",
+                min_value=0.0,
+                max_value=1000.0,
+                value=float(fam["hook_height_cm"]),
+                step=1.0,
+                key=f"h_hook_{idx}",
+            )
+        else:
+            fam["hook_height_cm"] = 0.0
+            st.write("Hauteur retour (cm) : —")
+
     with c8:
         fam["with_lap"] = st.checkbox(
             "Recouvrement automatique",
-            value=bool(fam["with_lap"]),
+            value=bool(fam.get("with_lap", False)),
             key=f"lap_{idx}",
         )
         if fam["with_lap"]:
@@ -1006,7 +1047,7 @@ def edit_family(idx: int, fam: Dict, role_label: str, code: str, color: Optional
                 "ℓ_rec (mm)",
                 min_value=0.0,
                 max_value=5000.0,
-                value=float(fam["lap_length_mm"] or 60.0 * fam["dia_mm"]),
+                value=float(fam.get("lap_length_mm") or 60.0 * fam["dia_mm"]),
                 step=10.0,
                 key=f"lap_len_{idx}",
             )
@@ -1185,7 +1226,8 @@ def show():
 
     st.title("🧱 Poutre BA – Modélisation et taux d’armature")
 
-    col_left, col_right = st.columns([3, 2])
+    # colonnes 50 / 50
+    col_left, col_right = st.columns(2)
 
     # ==============
     # COLONNE GAUCHE
@@ -1353,7 +1395,7 @@ def show():
 
         st.markdown("---")
 
-        # 5. Étriers (également dans la colonne gauche)
+        # 5. Étriers
         st.subheader("5️⃣ Étriers")
 
         cst1, cst2 = st.columns(2)
