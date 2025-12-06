@@ -12,7 +12,8 @@ from modules import (
     enrobage,
     garde_corps,     # existant
     poutre_bois,
-    rigidite_sol,     # ⬅️ nouveau module
+    rigidite_sol,
+    taux_armature,     # ⬅️ nouveau module
 )
 
 st.set_page_config(page_title="Études Structure", layout="wide", initial_sidebar_state="collapsed")
@@ -46,7 +47,7 @@ pages = {
     "Dalle": dalle.show,
     "Cornière": corniere.show,
     "Garde-corps": garde_corps.show,
-    "Poutre bois": poutre_bois.show,          # ⬅️ ajouté
+    "Poutre bois": poutre_bois.show,          
     "Tableau armatures": tableau_armatures.show,
     "Age béton": age_beton.show,
     "Choix profilé": choix_profile.show,
@@ -54,6 +55,7 @@ pages = {
     "Tableau profilés": tableau_profiles.show,
     "Enrobage": enrobage.show,
     "Rigidité du sol": rigidite_sol.show,
+    "Taux d'armmature": taux_armature.show,    # ⬅️ ajouté
 }
 
 # ---- Affichage
