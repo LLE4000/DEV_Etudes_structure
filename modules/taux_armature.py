@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from typing import List, Tuple, Literal, Dict, Optional
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon, PathPatch
+from matplotlib.path import Path
 import streamlit as st
 
 
@@ -23,7 +25,7 @@ FamilyRole = Literal["main", "reinforcement", "lateral"]
 
 StirrupTypeEnum = Literal["full", "inner", "flange_left", "flange_right"]
 
-STEEL_DENSITY_KG_M3 = 7850.0
+STEEL_DENSITY_KG_M3 = 7850.0  # kg/m³
 
 
 # =========================
@@ -44,7 +46,7 @@ class BeamGeometry:
 
     def concrete_polygon(self) -> List[Tuple[float, float]]:
         """
-        Polygon de béton (simplifié : âme rectangulaire + éventuels talons).
+        Polygone de béton (âme rectangulaire + éventuels talons).
         Coordonnées en cm, origine au milieu de l’âme, fibre inf en y=0.
         """
         b = self.b_web
@@ -76,22 +78,32 @@ class BeamGeometry:
 
         return pts
 
+    def area_cm2(self) -> float:
+        """Aire totale de la section (âme + talons) en cm²."""
+        area = self.b_web * self.h_total
+        if self.flange_left_b > 0 and self.flange_left_h > 0:
+            area += self.flange_left_b * self.flange_left_h
+        if self.flange_right_b > 0 and self.flange_right_h > 0:
+            area += self.flange_right_b * self.flange_right_h
+        return area
+
     # ---------------------------------------------
     #  Bandes de placement des armatures
     # ---------------------------------------------
     def _horizontal_band(self, pos: PositionType) -> Tuple[Optional[float], float, float]:
         """
-        Retourne (y, x_min, x_max) pour la ligne de centre des barres.
-        Si y is None → bars verticales (barres latérales).
+        Retourne (y_face, x_min, x_max) pour la ligne de face la plus proche.
+        y_face = coordonnée de la face béton (pas de l’axe).
+        Si y_face is None → barres verticales (barres latérales).
         """
         c = self.cover
         if pos == "web_bottom":
-            y = c
+            y_face = 0.0
             x_min = -self.b_web / 2.0 + c
             x_max = self.b_web / 2.0 - c
 
         elif pos == "web_top":
-            y = self.h_total - c
+            y_face = self.h_total
             x_min = -self.b_web / 2.0 + c
             x_max = self.b_web / 2.0 - c
 
@@ -101,48 +113,63 @@ class BeamGeometry:
                 raise ValueError("Talon gauche non défini pour placement des barres.")
             x_min = -self.b_web / 2.0 - self.flange_left_b + c
             x_max = -self.b_web / 2.0 - c
-            y = self.flange_left_h - c
+            y_face = self.flange_left_h
 
         elif pos == "flange_right":
             if self.flange_right_b <= 0 or self.flange_right_h <= 0:
                 raise ValueError("Talon droit non défini pour placement des barres.")
             x_min = self.b_web / 2.0 + c
             x_max = self.b_web / 2.0 + self.flange_right_b - c
-            y = self.flange_right_h - c
+            y_face = self.flange_right_h
 
         elif pos == "side_left":
             # barre latérale gauche : on placera verticalement
-            y = None
+            y_face = None
             x_min = -self.b_web / 2.0 + c
             x_max = x_min
 
         elif pos == "side_right":
-            y = None
+            y_face = None
             x_max = self.b_web / 2.0 - c
             x_min = x_max
 
         else:
             raise ValueError(f"Position inconnue : {pos}")
 
-        return y, x_min, x_max
+        return y_face, x_min, x_max
 
     def bar_centers(
         self,
         pos: PositionType,
         n_bars: int,
         phi_mm: float,
+        layer_index: int = 0,
     ) -> List[Tuple[float, float]]:
         """
         Calcule les centres des barres d’un lit.
         Retourne une liste de (x, y) en cm.
+        layer_index : 0 pour le lit le plus proche de la face,
+                      1 pour le lit juste au-dessus, etc.
         """
         if n_bars <= 0:
             return []
 
-        y, x_min, x_max = self._horizontal_band(pos)
+        y_face, x_min, x_max = self._horizontal_band(pos)
 
         # lits horizontaux (Âme bas, Âme haut, Talons)
-        if y is not None:
+        if y_face is not None:
+            # distance de l’axe à la face : c_nominal + ϕ/2
+            r_cm = phi_mm / 20.0
+            base_cover = self.cover + r_cm
+
+            pitch = 2.0 * r_cm + 2.0  # espacement vertical entre lits (2ϕ + 2 cm)
+
+            if pos in ("web_bottom", "flange_left", "flange_right"):
+                y = y_face + base_cover + layer_index * pitch
+            else:  # web_top
+                y = y_face - (base_cover + layer_index * pitch)
+
+            # Répartition horizontale classique
             if n_bars == 1:
                 xs = [(x_min + x_max) / 2.0]
             else:
@@ -156,13 +183,24 @@ class BeamGeometry:
         c = self.cover
         y_min = c
         y_max = self.h_total - c
-        if n_bars == 1:
-            ys = [(y_min + y_max) / 2.0]
-        else:
+
+        # Règle spéciale n=2 ou 3 : comme si 4 ou 5 barres, sans extrêmes
+        if n_bars in (2, 3):
+            n_eff = n_bars + 2
+            idxs = list(range(1, n_eff - 1))[:n_bars]
             ys = [
-                y_min + i * (y_max - y_min) / (n_bars - 1)
-                for i in range(n_bars)
+                y_min + i * (y_max - y_min) / (n_eff - 1)
+                for i in idxs
             ]
+        else:
+            if n_bars == 1:
+                ys = [(y_min + y_max) / 2.0]
+            else:
+                ys = [
+                    y_min + i * (y_max - y_min) / (n_bars - 1)
+                    for i in range(n_bars)
+                ]
+
         x = x_min  # side_left ou side_right → même x
         return [(x, y) for y in ys]
 
@@ -274,31 +312,26 @@ class StirrupResult:
 
 def stirrup_length_m(
     st_type: StirrupType,
-    b_web_cm: float,
-    h_total_cm: float,
-    cover_cm: float,
+    geom: BeamGeometry,
 ) -> float:
     """
-    Longueur d’un étrier (approx) en m.
-    Modèle simple : périmètre rectangulaire de l’âme moins les enrobages.
+    Longueur d’un étrier en m (approx) :
+    on prend le contour de l’âme à l’enrobage, avec petits crochets.
     """
+    c = geom.cover
+    b_cm = geom.b_web - 2 * c
+    h_cm = geom.h_total - 2 * c
+
+    b_mm = b_cm * 10.0
+    h_mm = h_cm * 10.0
+
+    perim_mm = 2.0 * (b_mm + h_mm)
+
+    # crochets simples en haut (2 jambes) : 8ϕ chacun (≈)
     phi = st_type.phi_mm
-    r = st_type.bend_radius_mm or 4.0 * phi
+    hook_mm = 8.0 * phi * 2  # deux crochets
+    L_mm = perim_mm + hook_mm
 
-    # passage en mm
-    b_mm = b_web_cm * 10.0 - 2.0 * cover_cm * 10.0
-    h_mm = h_total_cm * 10.0 - 2.0 * cover_cm * 10.0
-
-    if st_type.type == "full":
-        perim_mm = 2.0 * (b_mm + h_mm)
-    else:
-        # pour les autres types, on approxime à 3 côtés
-        perim_mm = 1.5 * (b_mm + h_mm)
-
-    # branches verticales supplémentaires → demi-cercle
-    add_mm = max(st_type.n_vertical_legs - 2, 0) * (math.pi * r / 2.0)
-
-    L_mm = perim_mm + add_mm
     return L_mm / 1000.0
 
 
@@ -306,9 +339,7 @@ def compute_stirrups_for_zones(
     zones: List[StirrupZone],
     types: List[StirrupType],
     L_beam_m: float,
-    b_web_cm: float,
-    h_total_cm: float,
-    cover_cm: float,
+    geom: BeamGeometry,
 ) -> List[StirrupResult]:
     """Calcule le nombre et la longueur d’étriers pour chaque zone."""
     type_by_name = {t.name: t for t in types}
@@ -330,7 +361,7 @@ def compute_stirrups_for_zones(
         # nombre d’étriers (incluant celui du début de zone)
         n = int(L_zone_m / s_m) + 1
 
-        L_one = stirrup_length_m(st_type, b_web_cm, h_total_cm, cover_cm)
+        L_one = stirrup_length_m(st_type, geom)
         total = n * L_one
 
         results.append(
@@ -370,20 +401,24 @@ class BeamSection:
         self,
         families: List[RebarFamily],
         family_colors: Optional[Dict[str, str]] = None,
+        layer_by_id: Optional[Dict[str, int]] = None,
     ) -> None:
         """
         Reconstruit la liste de RebarInstance à partir des familles.
         """
         self.rebars.clear()
         color_map = family_colors or {}
+        layer_map = layer_by_id or {}
         for fam in families:
+            layer_index = layer_map.get(fam.id, 0)
             centers = self.geometry.bar_centers(
                 fam.position,
                 fam.n_bars,
                 fam.dia_mm,
+                layer_index=layer_index,
             )
             fam_color = color_map.get(fam.id, "black")
-            for i, (x, y) in enumerate(centers):
+            for (x, y) in centers:
                 self.rebars.append(
                     RebarInstance(
                         x=x,
@@ -402,6 +437,7 @@ class QuantitiesResult:
     V_stirrups_m3: float
     mass_steel_kg: float
     rho_global_pct: float
+    kg_per_m3: float
     by_category_m3: Dict[str, float]
 
 
@@ -412,15 +448,22 @@ def rebar_volume_m3_from_length(length_m: float, dia_mm: float) -> float:
     return length_m * area_m2
 
 
+def steel_linear_mass_kg_m(dia_mm: float) -> float:
+    """Masse linéique (kg/m) d’une barre de diamètre dia_mm."""
+    r_m = dia_mm / 1000.0 / 2.0
+    area_m2 = math.pi * r_m**2
+    return area_m2 * STEEL_DENSITY_KG_M3
+
+
 def compute_quantities(
-    b_web_cm: float,
-    h_total_cm: float,
+    geom: BeamGeometry,
     L_beam_m: float,
     families: List[RebarFamily],
     stirrup_results: List[StirrupResult],
 ) -> QuantitiesResult:
     """Volumes béton / acier et taux d’armatures global + par catégorie."""
-    Vc_m3 = (b_web_cm / 100.0) * (h_total_cm / 100.0) * L_beam_m
+    area_cm2 = geom.area_cm2()
+    Vc_m3 = area_cm2 / 10000.0 * L_beam_m
 
     V_long = 0.0
     cat_vol: Dict[str, float] = {
@@ -448,6 +491,7 @@ def compute_quantities(
     V_s_total = V_long + V_st
     mass_steel = V_s_total * STEEL_DENSITY_KG_M3
     rho_global = (V_s_total / Vc_m3) * 100.0 if Vc_m3 > 0 else 0.0
+    kg_per_m3 = mass_steel / Vc_m3 if Vc_m3 > 0 else 0.0
 
     return QuantitiesResult(
         Vc_m3=Vc_m3,
@@ -455,12 +499,13 @@ def compute_quantities(
         V_stirrups_m3=V_st,
         mass_steel_kg=mass_steel,
         rho_global_pct=rho_global,
+        kg_per_m3=kg_per_m3,
         by_category_m3=cat_vol,
     )
 
 
 # =========================
-# Outils couleurs
+# Outils couleurs & codage des lits
 # =========================
 
 def _hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
@@ -517,7 +562,6 @@ def compute_family_colors_for_families(
 
 
 def compute_family_colors_from_state() -> Dict[str, str]:
-    """Même logique de couleurs, mais à partir de la liste de dict en session."""
     raw = st.session_state.get("rebar_families", [])
     bottom_ids = [d["id"] for d in raw if _position_group(d["position"]) == "bottom"]
     top_ids = [d["id"] for d in raw if _position_group(d["position"]) == "top"]
@@ -538,9 +582,96 @@ def compute_family_colors_from_state() -> Dict[str, str]:
     return colors
 
 
+def compute_layer_indices(families: List[RebarFamily]) -> Dict[str, int]:
+    """
+    Attribue un index de lit (0,1,2,...) par position.
+    INF1 (premier lit en bas) aura layer=0, INF2 layer=1, etc.
+    """
+    layer_by_id: Dict[str, int] = {}
+    by_pos: Dict[str, List[RebarFamily]] = {}
+    for f in families:
+        by_pos.setdefault(f.position, []).append(f)
+    for pos, flist in by_pos.items():
+        for idx, f in enumerate(flist):
+            layer_by_id[f.id] = idx
+    return layer_by_id
+
+
+def compute_family_codes(raw_families: List[Dict]) -> Dict[str, str]:
+    """
+    Génère des codes INF1, INF2, SUP1, LAT1, ... à partir des positions.
+    """
+    bottom_ids = [d["id"] for d in raw_families if _position_group(d["position"]) == "bottom"]
+    top_ids = [d["id"] for d in raw_families if _position_group(d["position"]) == "top"]
+    other_ids = [d["id"] for d in raw_families if _position_group(d["position"]) == "other"]
+
+    codes: Dict[str, str] = {}
+
+    for i, fid in enumerate(bottom_ids, start=1):
+        codes[fid] = f"INF{i}"
+    for i, fid in enumerate(top_ids, start=1):
+        codes[fid] = f"SUP{i}"
+    for i, fid in enumerate(other_ids, start=1):
+        codes[fid] = f"LAT{i}"
+
+    return codes
+
+
 # =========================
 # Dessins matplotlib
 # =========================
+
+def _draw_concrete(ax, geom: BeamGeometry):
+    pts = geom.concrete_polygon()
+    poly = Polygon(pts, closed=True, fill=False, linewidth=1.8, edgecolor="black")
+    ax.add_patch(poly)
+
+
+def _draw_stirrup(ax, geom: BeamGeometry, st_type: Optional[StirrupType]):
+    if st_type is None:
+        return
+
+    c = geom.cover
+    b = geom.b_web
+    h = geom.h_total
+    phi = st_type.phi_mm
+    line_w = max(phi / 10.0, 0.8)  # épaisseur à l’écran
+
+    # Rectangle intérieur à l’enrobage
+    xL = -b / 2.0 + c
+    xR = b / 2.0 - c
+    yB = 0.0 + c
+    yT = h - c
+
+    hook_len = 8.0 * phi / 10.0  # en cm (≈ 8ϕ)
+
+    # Path avec crochets simples vers l’intérieur
+    verts = [
+        (xL, yB),
+        (xL, yT),
+        (xL, yT + hook_len),
+        (xL + hook_len, yT),
+        (xR - hook_len, yT),
+        (xR, yT + hook_len),
+        (xR, yT),
+        (xR, yB),
+        (xL, yB),
+    ]
+    codes = [
+        Path.MOVETO,
+        Path.LINETO,
+        Path.LINETO,
+        Path.LINETO,
+        Path.LINETO,
+        Path.LINETO,
+        Path.LINETO,
+        Path.LINETO,
+        Path.CLOSEPOLY,
+    ]
+    path = Path(verts, codes)
+    patch = PathPatch(path, fill=False, linewidth=line_w, edgecolor="red", linestyle="-")
+    ax.add_patch(patch)
+
 
 def draw_section(
     section: BeamSection,
@@ -549,27 +680,22 @@ def draw_section(
 ):
     """
     Dessin d’une section :
-    - contour âme rectangulaire
-    - toutes les barres longitudinales
-    - étrier (type de zone)
-    - éventuellement mise en évidence d’une famille (renfort)
+    - contour béton (avec talons)
+    - toutes les barres longitudinales (couleurs par lit)
+    - étrier (épaisseur liée à ϕ, crochets simplifiés)
+    - éventuellement mise en évidence d’une famille (renfort) en orange
     """
     geom = section.geometry
     b = geom.b_web
     h = geom.h_total
 
-    # Dessin plus petit
     fig, ax = plt.subplots(figsize=(2.5, 3.5))
 
-    # Béton (âme rectangulaire)
-    rect = plt.Rectangle(
-        (-b / 2.0, 0.0),
-        b,
-        h,
-        fill=False,
-        linewidth=1.5,
-    )
-    ax.add_patch(rect)
+    # Béton
+    _draw_concrete(ax, geom)
+
+    # Étrier
+    _draw_stirrup(ax, geom, stirrup_type)
 
     # Barres
     for bar in section.rebars:
@@ -581,25 +707,11 @@ def draw_section(
         circ = plt.Circle((bar.x, bar.y), r_cm, color=facecolor)
         ax.add_patch(circ)
 
-    # Étrier (contour simplifié à l’enrobage)
-    if stirrup_type is not None:
-        c = geom.cover
-        str_rect = plt.Rectangle(
-            (-b / 2.0 + c, c),
-            b - 2 * c,
-            h - 2 * c,
-            fill=False,
-            linestyle="--",
-            linewidth=1.0,
-            edgecolor="red",
-        )
-        ax.add_patch(str_rect)
-
     ax.set_aspect("equal", "box")
     ax.set_xlabel("x [cm]")
     ax.set_ylabel("y [cm]")
 
-    margin = max(b, h) * 0.15
+    margin = max(b, h) * 0.20
     ax.set_xlim(-b / 2.0 - margin, b / 2.0 + margin)
     ax.set_ylim(-margin, h + margin)
     ax.grid(True, linestyle=":", linewidth=0.5)
@@ -612,7 +724,7 @@ def draw_section_for_zone(
     section: BeamSection,
     stirrup_type: Optional[StirrupType] = None,
 ):
-    """Alias pour compatibilité : une vue de section par zone d’étriers."""
+    """Alias : une vue de section par zone d’étriers."""
     return draw_section(section, stirrup_type=stirrup_type)
 
 
@@ -661,6 +773,8 @@ def _init_state():
 
     st.session_state.setdefault("shape_section", "Rectangulaire")
 
+    st.session_state.setdefault("steel_grade", "B500A")
+
     st.session_state.setdefault("rebar_families", [])   # liste de dict
     st.session_state.setdefault("stirrup_types", [])    # liste de dict
     st.session_state.setdefault("stirrup_zones", [])    # liste de dict
@@ -673,7 +787,7 @@ def _init_state():
 def build_geometry() -> BeamGeometry:
     shape = st.session_state.shape_section
 
-    # On applique les talons uniquement selon le type choisi
+    # Talons selon le type choisi
     if "gauche" in shape:
         flange_left_b = st.session_state.flange_left_b_cm
         flange_left_h = st.session_state.flange_left_h_cm
@@ -755,9 +869,13 @@ def build_stirrup_zones() -> List[StirrupZone]:
 # UI Streamlit – édition des familles
 # =========================
 
-def add_family(role: FamilyRole):
+def _new_family_id(role: FamilyRole) -> str:
     st.session_state.family_counter += 1
-    fam_id = f"F{st.session_state.family_counter}"
+    return f"F{st.session_state.family_counter}"
+
+
+def add_family(role: FamilyRole):
+    fam_id = _new_family_id(role)
     if role == "lateral":
         pos = "side_left"
     else:
@@ -780,7 +898,7 @@ def add_family(role: FamilyRole):
     )
 
 
-def edit_family(idx: int, fam: Dict, role_label: str, color: Optional[str] = None):
+def edit_family(idx: int, fam: Dict, role_label: str, code: str, color: Optional[str] = None):
     c1, c2 = st.columns([3, 1])
     with c1:
         if color:
@@ -792,7 +910,7 @@ def edit_family(idx: int, fam: Dict, role_label: str, color: Optional[str] = Non
         else:
             badge = ""
         st.markdown(
-            f"{badge}<strong>{role_label} – {fam['id']}</strong>",
+            f"{badge}<strong>{role_label} – {code}</strong>",
             unsafe_allow_html=True,
         )
     with c2:
@@ -902,7 +1020,7 @@ def edit_family(idx: int, fam: Dict, role_label: str, color: Optional[str] = Non
 
 def add_stirrup_type():
     st.session_state.st_type_counter += 1
-    name = f"T{st.session_state.st_type_counter}"
+    name = f"E{st.session_state.st_type_counter}"
     st.session_state.stirrup_types.append(
         {
             "name": name,
@@ -935,7 +1053,7 @@ def edit_stirrup_type(idx: int, d: Dict):
     c1, c2 = st.columns([3, 1])
     with c1:
         d["name"] = st.text_input(
-            "Nom du type",
+            "Nom du type (E1, E2, ...)",
             value=d["name"],
             key=f"st_name_{idx}",
         )
@@ -1065,7 +1183,7 @@ def show():
     """Page Streamlit : Poutre BA – Modélisation et quantification du ferraillage."""
     _init_state()
 
-    st.title("🧱 Poutre BA – Modélisation et quantification du ferraillage")
+    st.title("🧱 Poutre BA – Modélisation et taux d’armature")
 
     col_left, col_right = st.columns([3, 2])
 
@@ -1178,53 +1296,60 @@ def show():
 
         st.markdown("---")
 
-        # Couleurs pour les familles (pour l'UI)
+        # Couleurs & codes pour les familles (pour l'UI)
         family_colors_ui = compute_family_colors_from_state()
+        family_codes_ui = compute_family_codes(st.session_state.rebar_families)
 
         # 2. Lits principaux
         st.subheader("2️⃣ Armatures longitudinales – Lits principaux")
-        if st.button("➕ Ajouter un lit principal"):
-            add_family("main")
 
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "main":
                 with st.container(border=True):
+                    code = family_codes_ui.get(fam["id"], fam["id"])
                     edit_family(
                         idx,
                         fam,
                         "Lit principal",
+                        code=code,
                         color=family_colors_ui.get(fam["id"]),
                     )
+        if st.button("➕ Ajouter un lit principal"):
+            add_family("main")
 
         # 3. Renforts locaux
         st.subheader("3️⃣ Renforts locaux")
-        if st.button("➕ Ajouter un renfort local"):
-            add_family("reinforcement")
 
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "reinforcement":
                 with st.container(border=True):
+                    code = family_codes_ui.get(fam["id"], fam["id"])
                     edit_family(
                         idx,
                         fam,
                         "Renfort local",
+                        code=code,
                         color=family_colors_ui.get(fam["id"]),
                     )
+        if st.button("➕ Ajouter un renfort local"):
+            add_family("reinforcement")
 
         # 4. Barres latérales
         st.subheader("4️⃣ Barres latérales")
-        if st.button("➕ Ajouter barres latérales"):
-            add_family("lateral")
 
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "lateral":
                 with st.container(border=True):
+                    code = family_codes_ui.get(fam["id"], fam["id"])
                     edit_family(
                         idx,
                         fam,
                         "Barres latérales",
+                        code=code,
                         color=family_colors_ui.get(fam["id"]),
                     )
+        if st.button("➕ Ajouter barres latérales"):
+            add_family("lateral")
 
         st.markdown("---")
 
@@ -1257,42 +1382,61 @@ def show():
     # COLONNE DROITE
     # ===============
     with col_right:
-        st.subheader("6️⃣ Résultats & dessins")
+        st.subheader("6️⃣ Résultats, taux & dessins")
 
         geom = build_geometry()
         families = build_rebar_families()
         stirrup_types = build_stirrup_types()
         stirrup_zones = build_stirrup_zones()
 
-        # Couleurs pour le dessin
+        family_codes = compute_family_codes(st.session_state.rebar_families)
         family_colors_plot = compute_family_colors_for_families(families)
+        layer_by_id = compute_layer_indices(families)
 
         section = BeamSection(geometry=geom)
-        section.regenerate_rebars(families, family_colors_plot)
+        section.regenerate_rebars(families, family_colors_plot, layer_by_id)
 
         stirrup_results = compute_stirrups_for_zones(
             stirrup_zones,
             stirrup_types,
             L_beam_m=st.session_state.L_beam_m,
-            b_web_cm=st.session_state.b_web_cm,
-            h_total_cm=st.session_state.h_total_cm,
-            cover_cm=st.session_state.cover_cm,
+            geom=geom,
         )
 
         qres = compute_quantities(
-            b_web_cm=st.session_state.b_web_cm,
-            h_total_cm=st.session_state.h_total_cm,
+            geom=geom,
             L_beam_m=st.session_state.L_beam_m,
             families=families,
             stirrup_results=stirrup_results,
         )
 
+        # Majoration
+        st.markdown("**Paramètres acier**")
+        c_steel1, c_steel2 = st.columns(2)
+        with c_steel1:
+            st.session_state.steel_grade = st.selectbox(
+                "Qualité d’acier",
+                ["B500A", "B500B", "B500C"],
+                index=["B500A", "B500B", "B500C"].index(st.session_state.steel_grade),
+            )
+        with c_steel2:
+            maj_pct = st.number_input(
+                "Majoration globale (%)",
+                min_value=0.0,
+                max_value=50.0,
+                value=5.0,
+                step=1.0,
+            )
+
+        mass_steel_majorated = qres.mass_steel_kg * (1.0 + maj_pct / 100.0)
+        kg_m3_majorated = mass_steel_majorated / qres.Vc_m3 if qres.Vc_m3 > 0 else 0.0
+
         c1, c2, c3 = st.columns(3)
         c1.metric("Volume béton Vc", f"{qres.Vc_m3:.3f} m³")
-        c2.metric("Masse acier totale", f"{qres.mass_steel_kg:.1f} kg")
-        c3.metric("Taux global ρ", f"{qres.rho_global_pct:.2f} %")
+        c2.metric("Masse acier (maj.)", f"{mass_steel_majorated:.1f} kg")
+        c3.metric("Taux d’armature", f"{kg_m3_majorated:.1f} kg/m³")
 
-        with st.expander("Détail par catégorie"):
+        with st.expander("Détail par catégorie (volume d’acier)"):
             st.write(
                 {
                     "Lits (bas/haut + renforts)": f"{qres.by_category_m3['main'] + qres.by_category_m3['reinforcement']:.4f} m³",
@@ -1301,6 +1445,57 @@ def show():
                     "Étriers": f"{qres.by_category_m3['stirrups']:.4f} m³",
                 }
             )
+
+        # Tableau récapitulatif armatures
+        st.markdown("### Tableau récapitulatif des armatures")
+
+        rows = []
+
+        L_beam = st.session_state.L_beam_m
+
+        # Longitudinales
+        for fam in families:
+            code = family_codes.get(fam.id, fam.id)
+            L_tot = fam.total_bar_length_m(L_beam)
+            m_lin = steel_linear_mass_kg_m(fam.dia_mm)
+            m_tot = L_tot * m_lin * (1.0 + maj_pct / 100.0)
+
+            rows.append(
+                {
+                    "Type": "Longitudinal",
+                    "Code": code,
+                    "Position": POSITION_LABELS.get(fam.position, fam.position),
+                    "ϕ (mm)": fam.dia_mm,
+                    "n barres": fam.n_bars,
+                    "L active (m)": f"{fam.active_length_m(L_beam):.2f}",
+                    "L tot (m)": f"{L_tot:.2f}",
+                    "kg/m": f"{m_lin:.3f}",
+                    "kg tot (maj.)": f"{m_tot:.2f}",
+                }
+            )
+
+        # Étriers
+        for res in stirrup_results:
+            m_lin = steel_linear_mass_kg_m(res.stirrup_type.phi_mm)
+            m_tot = res.total_length_m * m_lin * (1.0 + maj_pct / 100.0)
+            rows.append(
+                {
+                    "Type": "Étrier",
+                    "Code": res.stirrup_type.name,
+                    "Position": f"Zone {res.zone.name}",
+                    "ϕ (mm)": res.stirrup_type.phi_mm,
+                    "n barres": res.n_stirrups,
+                    "L active (m)": f"{res.length_per_stirrup_m:.2f}",
+                    "L tot (m)": f"{res.total_length_m:.2f}",
+                    "kg/m": f"{m_lin:.3f}",
+                    "kg tot (maj.)": f"{m_tot:.2f}",
+                }
+            )
+
+        if rows:
+            st.table(rows)
+        else:
+            st.info("Ajoute des armatures pour voir le tableau récapitulatif.")
 
         st.markdown("**Section générale (tous lits)**")
         fig_gen = draw_section(section)
@@ -1312,10 +1507,7 @@ def show():
             for res in stirrup_results:
                 st.markdown(
                     f"Zone **{res.zone.name}** : {res.zone.x_start_pct:.1f}–{res.zone.x_end_pct:.1f} %L  "
-                    f"({res.n_stirrups} étriers, s = {res.zone.spacing_cm:.1f} cm)"
-                )
-                st.caption(
-                    f"Type {res.stirrup_type.name} – ϕ {res.stirrup_type.phi_mm:.1f} mm"
+                    f"({res.n_stirrups} étriers, s = {res.zone.spacing_cm:.1f} cm, type {res.stirrup_type.name})"
                 )
                 fig_z = draw_section_for_zone(section, stirrup_type=res.stirrup_type)
                 st.pyplot(fig_z, use_container_width=False)
@@ -1325,8 +1517,9 @@ def show():
         if reinf_fams:
             st.markdown("**Sections pour renforts locaux (barres mises en évidence)**")
             for f in reinf_fams:
+                code = family_codes.get(f.id, f.id)
                 st.caption(
-                    f"Renfort {f.id} – {POSITION_LABELS.get(f.position, f.position)} : "
+                    f"Renfort {code} – {POSITION_LABELS.get(f.position, f.position)} : "
                     f"{f.n_bars}Ø{f.dia_mm} de {f.x_start_pct:.0f} à {f.x_end_pct:.0f} %L"
                 )
                 fig_r = draw_section(section, highlight_family_ids=[f.id])
