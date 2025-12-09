@@ -6,8 +6,7 @@ from dataclasses import dataclass, field
 from typing import List, Tuple, Literal, Dict, Optional
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon, PathPatch
-from matplotlib.path import Path
+from matplotlib.patches import Polygon
 import streamlit as st
 
 
@@ -17,8 +16,9 @@ import streamlit as st
 
 PositionType = Literal[
     "web_bottom", "web_top",
-    "flange_left", "flange_right",
-    "side_left", "side_right",
+    "flange_left_bottom", "flange_left_top",
+    "flange_right_bottom", "flange_right_top",
+    "side_left", "side_right", "side_both",
 ]
 
 FamilyRole = Literal["main", "reinforcement", "lateral"]
@@ -26,7 +26,8 @@ FamilyRole = Literal["main", "reinforcement", "lateral"]
 StirrupTypeEnum = Literal["full", "inner", "flange_left", "flange_right"]
 
 STEEL_DENSITY_KG_M3 = 7850.0  # kg/m³
-CONCRETE_DENSITY_KG_M3 = 2500.0  # kg/m³ (≈ 25 kN/m³)
+CONCRETE_DENSITY_KG_M3 = 2500.0  # masse volumique approx. du béton
+
 
 # =========================
 # Géométrie de la poutre
@@ -46,35 +47,48 @@ class BeamGeometry:
 
     def concrete_polygon(self) -> List[Tuple[float, float]]:
         """
-        Polygone de béton (âme rectangulaire + éventuels talons).
-        Coordonnées en cm, origine au milieu de l’âme, fibre inf en y=0.
+        Polygone de béton (âme + talons inférieurs éventuels).
+        Coordonnées en cm, origine au milieu de l’âme, fibre inf y = 0.
+        Talons en bas, vers l’extérieur.
         """
         b = self.b_web
         h = self.h_total
         xL = -b / 2.0
         xR = b / 2.0
 
+        has_left = self.flange_left_b > 0 and self.flange_left_h > 0
+        has_right = self.flange_right_b > 0 and self.flange_right_h > 0
+
+        XL_ext = xL - self.flange_left_b if has_left else xL
+        XR_ext = xR + self.flange_right_b if has_right else xR
+
         pts: List[Tuple[float, float]] = []
 
-        # bas âme
-        pts.append((xL, 0.0))
-        pts.append((xR, 0.0))
+        # départ bas gauche extérieur
+        pts.append((XL_ext, 0.0))
 
-        # talon droit (option)
-        if self.flange_right_b > 0 and self.flange_right_h > 0:
-            pts.append((xR, self.flange_right_h))
-            pts.append((xR + self.flange_right_b, self.flange_right_h))
-            pts.append((xR + self.flange_right_b, h))
+        # talon gauche (marche)
+        if has_left:
+            pts.append((XL_ext, self.flange_left_h))
+            pts.append((xL, self.flange_left_h))
 
-        # haut âme
-        pts.append((xR, h))
+        # monter âme gauche
         pts.append((xL, h))
 
-        # talon gauche (option)
-        if self.flange_left_b > 0 and self.flange_left_h > 0:
-            pts.append((xL - self.flange_left_b, h))
-            pts.append((xL - self.flange_left_b, self.flange_left_h))
-            pts.append((xL, self.flange_left_h))
+        # haut âme droite
+        pts.append((xR, h))
+
+        # talon droit (marche)
+        if has_right:
+            pts.append((xR, self.flange_right_h))
+            pts.append((XR_ext, self.flange_right_h))
+
+        # bas droit extérieur
+        pts.append((XR_ext, 0.0))
+
+        # fermer sur bas gauche
+        if XR_ext != XL_ext:
+            pts.append((XL_ext, 0.0))
 
         return pts
 
@@ -90,47 +104,69 @@ class BeamGeometry:
     # ---------------------------------------------
     #  Bandes de placement des armatures
     # ---------------------------------------------
-    def _horizontal_band(self, pos: PositionType) -> Tuple[Optional[float], float, float]:
+    def _horizontal_band(
+        self, pos: PositionType
+    ) -> Tuple[Optional[float], float, float]:
         """
-        Retourne (y_face, x_min, x_max) pour la ligne de face la plus proche.
+        Retourne (y_face, x_min, x_max) pour la face béton la plus proche.
         y_face = coordonnée de la face béton (pas de l’axe).
         Si y_face is None → barres verticales (barres latérales).
         """
         c = self.cover
+        b = self.b_web
+        xL = -b / 2.0
+        xR = b / 2.0
+
         if pos == "web_bottom":
             y_face = 0.0
-            x_min = -self.b_web / 2.0 + c
-            x_max = self.b_web / 2.0 - c
+            x_min = xL + c
+            x_max = xR - c
 
         elif pos == "web_top":
             y_face = self.h_total
-            x_min = -self.b_web / 2.0 + c
-            x_max = self.b_web / 2.0 - c
+            x_min = xL + c
+            x_max = xR - c
 
-        elif pos == "flange_left":
+        elif pos == "flange_left_bottom":
             if self.flange_left_b <= 0 or self.flange_left_h <= 0:
-                raise ValueError("Talon gauche non défini pour placement des barres.")
-            x_min = -self.b_web / 2.0 - self.flange_left_b + c
-            x_max = -self.b_web / 2.0 - c
+                raise ValueError("Talon gauche non défini.")
+            y_face = 0.0
+            x_min = xL - self.flange_left_b + c
+            x_max = xL - c
+
+        elif pos == "flange_left_top":
+            if self.flange_left_b <= 0 or self.flange_left_h <= 0:
+                raise ValueError("Talon gauche non défini.")
             y_face = self.flange_left_h
+            x_min = xL - self.flange_left_b + c
+            x_max = xL - c
 
-        elif pos == "flange_right":
+        elif pos == "flange_right_bottom":
             if self.flange_right_b <= 0 or self.flange_right_h <= 0:
-                raise ValueError("Talon droit non défini pour placement des barres.")
-            x_min = self.b_web / 2.0 + c
-            x_max = self.b_web / 2.0 + self.flange_right_b - c
+                raise ValueError("Talon droit non défini.")
+            y_face = 0.0
+            x_min = xR + c
+            x_max = xR + self.flange_right_b - c
+
+        elif pos == "flange_right_top":
+            if self.flange_right_b <= 0 or self.flange_right_h <= 0:
+                raise ValueError("Talon droit non défini.")
             y_face = self.flange_right_h
+            x_min = xR + c
+            x_max = xR + self.flange_right_b - c
 
-        elif pos == "side_left":
-            # barre latérale gauche : on placera verticalement
+        elif pos in ("side_left", "side_right", "side_both"):
+            # barres latérales verticales
             y_face = None
-            x_min = -self.b_web / 2.0 + c
-            x_max = x_min
-
-        elif pos == "side_right":
-            y_face = None
-            x_max = self.b_web / 2.0 - c
-            x_min = x_max
+            if pos == "side_left":
+                x_min = xL + c
+                x_max = x_min
+            elif pos == "side_right":
+                x_max = xR - c
+                x_min = x_max
+            else:  # side_both (on utilisera les deux côtés plus tard)
+                x_min = xL + c
+                x_max = xR - c
 
         else:
             raise ValueError(f"Position inconnue : {pos}")
@@ -154,16 +190,18 @@ class BeamGeometry:
             return []
 
         y_face, x_min, x_max = self._horizontal_band(pos)
+        c = self.cover
 
-        # lits horizontaux (bas, haut, talons)
+        # Lits horizontaux
         if y_face is not None:
             r_cm = phi_mm / 20.0
-            base_cover = self.cover + r_cm
-            pitch = 2.0 * r_cm + 2.0  # espacement vertical entre lits (2ϕ + 2 cm)
+            base_cover = c + r_cm
+            pitch = 2.0 * r_cm + 2.0  # espacement vertical entre lits
 
-            if pos in ("web_bottom", "flange_left", "flange_right"):
+            # bas / talon bas : on part du bas
+            if pos in ("web_bottom", "flange_left_bottom", "flange_right_bottom"):
                 y = y_face + base_cover + layer_index * pitch
-            else:  # web_top
+            else:
                 y = y_face - (base_cover + layer_index * pitch)
 
             if n_bars == 1:
@@ -175,8 +213,7 @@ class BeamGeometry:
                 ]
             return [(x, y) for x in xs]
 
-        # barres latérales verticales
-        c = self.cover
+        # Barres latérales verticales
         y_min = c
         y_max = self.h_total - c
 
@@ -185,14 +222,22 @@ class BeamGeometry:
         else:
             # règle générale : on place n+2 barres, on retire les 2 extrêmes
             n_eff = n_bars + 2
-            idxs = range(1, n_eff - 1)  # 1 .. n_eff-2 → n_bars positions
+            idxs = range(1, n_eff - 1)
             ys = [
                 y_min + i * (y_max - y_min) / (n_eff - 1)
                 for i in idxs
             ]
 
-        x = x_min  # side_left ou side_right → même x
-        return [(x, y) for y in ys]
+        xL = -self.b_web / 2.0 + c
+        xR = self.b_web / 2.0 - c
+        pts: List[Tuple[float, float]] = []
+
+        if pos in ("side_left", "side_both"):
+            pts.extend((xL, y) for y in ys)
+        if pos in ("side_right", "side_both"):
+            pts.extend((xR, y) for y in ys)
+
+        return pts
 
 
 # =========================
@@ -202,8 +247,8 @@ class BeamGeometry:
 @dataclass
 class RebarFamily:
     """
-    Famille d’armatures longitudinales (lit principal, renfort local ou barre latérale).
-    Longueur active définie en % de la portée.
+    Famille d’armatures longitudinales.
+    Longueur active définie en % de la portée ou en m.
     """
     id: str
     role: FamilyRole
@@ -212,85 +257,49 @@ class RebarFamily:
     n_bars: int
     dia_mm: float
 
-    with_hooks: bool = False
-    hook_height_cm: float = 0.0
-    hook_mode: str = "none"  # "none", "both", "left", "right"
-
-    with_lap: bool = False
-    lap_length_mm: float = 0.0  # ℓ_rec (mm)
+    hook_count: int = 0          # 0, 1 ou 2 retours
+    hook_height_cm: float = 0.0  # longueur de chaque retour (cm)
 
     x_start_pct: float = 0.0    # 0–100 %
     x_end_pct: float = 100.0    # 0–100 %
 
-    both_sides: bool = False    # pour barres latérales : 2 côtés (gauche + droite)
+    def effective_n_bars(self) -> int:
+        """Nombre réel de barres dans la famille (latérales 2 côtés)."""
+        if self.position == "side_both":
+            return self.n_bars * 2
+        return self.n_bars
 
     def active_length_m(self, L_beam_m: float) -> float:
-        """Longueur active horizontale en m (avec correction enrobages pour 0–100 %)."""
+        """Longueur de la partie droite en m (sans retours)."""
         x1 = max(0.0, min(100.0, self.x_start_pct))
         x2 = max(0.0, min(100.0, self.x_end_pct))
         if x2 <= x1:
             return 0.0
+        return L_beam_m * (x2 - x1) / 100.0
 
-        L = L_beam_m * (x2 - x1) / 100.0
-
-        # Correction enrobage uniquement si la barre court sur toute la portée
-        cover_cm = st.session_state.get("cover_cm", 0.0)
-        if x1 <= 1e-3 and x2 >= 100.0 - 1e-3:
-            L = max(L - 2.0 * cover_cm / 100.0, 0.0)
-
-        return L
-
-    def _hooks_per_bar(self) -> int:
-        if self.hook_mode == "both":
-            return 2
-        if self.hook_mode in ("left", "right"):
-            return 1
-        return 0
-
-    def total_bar_length_m(self, L_beam_m: float, stock_length_m: float = 12.0) -> float:
+    def total_bar_length_m(self, L_beam_m: float) -> float:
         """
-        Longueur totale d’acier pour cette famille, avec éventuels recouvrements et retours.
+        Longueur totale d’acier pour cette famille, y compris retours.
+        On ajoute hook_count × hook_height à chaque barre.
         """
         L_active = self.active_length_m(L_beam_m)
         if L_active <= 0.0 or self.n_bars <= 0:
             return 0.0
 
-        hooks_per_bar = self._hooks_per_bar()
-        hook_height_m = max(self.hook_height_cm, 0.0) / 100.0
-
-        # Partie horizontale avec ou sans recouvrement
-        if not self.with_lap or self.lap_length_mm <= 0.0:
-            straight_total = L_active * self.n_bars
-            n_stock_bars = 1
-        else:
-            lap_m = self.lap_length_mm / 1000.0
-            usable = max(stock_length_m - lap_m, 1e-6)
-
-            N = math.ceil((L_active + lap_m) / usable)  # nb de barres stock par "ligne"
-            straight_one = L_active + (N - 1) * lap_m
-            straight_total = straight_one * self.n_bars
-            n_stock_bars = N
-
-        # Longueur supplémentaire due aux retours
-        extra_hooks_total = hooks_per_bar * hook_height_m * self.n_bars * n_stock_bars
-
-        # Barres latérales sur 2 côtés → longueur doublée
-        factor_side = 2.0 if (self.role == "lateral" and self.both_sides) else 1.0
-
-        return (straight_total + extra_hooks_total) * factor_side
+        n_eff = self.effective_n_bars()
+        L_hooks = (self.hook_count * max(self.hook_height_cm, 0.0) / 100.0) * n_eff
+        return L_active * n_eff + L_hooks
 
     def steel_area_mm2(self) -> float:
         """Section d’acier totale (mm²) de la famille."""
-        return self.n_bars * math.pi * (self.dia_mm / 2.0) ** 2
+        return self.effective_n_bars() * math.pi * (self.dia_mm / 2.0) ** 2
 
 
-def total_steel_length_m(
-    families: List[RebarFamily],
-    L_beam_m: float,
-    stock_length_m: float = 12.0,
-) -> float:
-    """Somme des longueurs de toutes les familles."""
-    return sum(f.total_bar_length_m(L_beam_m, stock_length_m) for f in families)
+def steel_linear_mass_kg_m(dia_mm: float) -> float:
+    """Masse linéique (kg/m) d’un barreau Ø dia_mm."""
+    r_m = dia_mm / 1000.0 / 2.0
+    area_m2 = math.pi * r_m**2
+    return area_m2 * STEEL_DENSITY_KG_M3
 
 
 # =========================
@@ -299,14 +308,10 @@ def total_steel_length_m(
 
 @dataclass
 class StirrupType:
-    """Type d’étrier (géométrie et diamètre)."""
+    """Type d’étrier (diamètre + type général)."""
     name: str
     phi_mm: float
-    type: StirrupTypeEnum
-
-    n_enclosed_bars: int = 0
-    n_vertical_legs: int = 2
-    bend_radius_mm: float = 0.0
+    type: StirrupTypeEnum  # conservé pour futur, mais UI simplifiée
 
 
 @dataclass
@@ -328,13 +333,10 @@ class StirrupResult:
     total_length_m: float
 
 
-def stirrup_length_m(
-    st_type: StirrupType,
-    geom: BeamGeometry,
-) -> float:
+def stirrup_length_m(st_type: StirrupType, geom: BeamGeometry) -> float:
     """
-    Longueur d’un étrier en m :
-    contour de l’âme à l’enrobage + petits crochets.
+    Longueur d’un étrier en m (approx) :
+    contour rectangulaire de l’âme à l’enrobage + crochets simples.
     """
     c = geom.cover
     b_cm = geom.b_web - 2 * c
@@ -346,9 +348,9 @@ def stirrup_length_m(
     perim_mm = 2.0 * (b_mm + h_mm)
 
     phi = st_type.phi_mm
-    hook_mm = 8.0 * phi * 2  # deux crochets simplifiés
-
+    hook_mm = 8.0 * phi * 2  # deux crochets approx.
     L_mm = perim_mm + hook_mm
+
     return L_mm / 1000.0
 
 
@@ -375,9 +377,7 @@ def compute_stirrups_for_zones(
         L_zone_m = L_beam_m * (x2 - x1) / 100.0
         s_m = zone.spacing_cm / 100.0
 
-        # nombre d’étriers (incluant celui du début de zone)
         n = int(L_zone_m / s_m) + 1
-
         L_one = stirrup_length_m(st_type, geom)
         total = n * L_one
 
@@ -420,38 +420,18 @@ class BeamSection:
         family_colors: Optional[Dict[str, str]] = None,
         layer_by_id: Optional[Dict[str, int]] = None,
     ) -> None:
-        """
-        Reconstruit la liste de RebarInstance à partir des familles.
-        """
+        """Reconstruit les RebarInstance à partir des familles."""
         self.rebars.clear()
         color_map = family_colors or {}
         layer_map = layer_by_id or {}
         for fam in families:
             layer_index = layer_map.get(fam.id, 0)
-
-            # latérales sur deux côtés
-            if fam.role == "lateral" and fam.both_sides:
-                centers_left = self.geometry.bar_centers(
-                    "side_left",
-                    fam.n_bars,
-                    fam.dia_mm,
-                    layer_index=layer_index,
-                )
-                centers_right = self.geometry.bar_centers(
-                    "side_right",
-                    fam.n_bars,
-                    fam.dia_mm,
-                    layer_index=layer_index,
-                )
-                centers = centers_left + centers_right
-            else:
-                centers = self.geometry.bar_centers(
-                    fam.position,
-                    fam.n_bars,
-                    fam.dia_mm,
-                    layer_index=layer_index,
-                )
-
+            centers = self.geometry.bar_centers(
+                fam.position,
+                fam.n_bars,
+                fam.dia_mm,
+                layer_index=layer_index,
+            )
             fam_color = color_map.get(fam.id, "black")
             for (x, y) in centers:
                 self.rebars.append(
@@ -468,10 +448,9 @@ class BeamSection:
 @dataclass
 class QuantitiesResult:
     Vc_m3: float
-    V_longitudinal_m3: float
-    V_stirrups_m3: float
+    mass_concrete_kg: float
+    V_steel_m3: float
     mass_steel_kg: float
-    rho_global_pct: float
     kg_per_m3: float
     by_category_m3: Dict[str, float]
 
@@ -483,13 +462,6 @@ def rebar_volume_m3_from_length(length_m: float, dia_mm: float) -> float:
     return length_m * area_m2
 
 
-def steel_linear_mass_kg_m(dia_mm: float) -> float:
-    """Masse linéique (kg/m) d’une barre de diamètre dia_mm."""
-    r_m = dia_mm / 1000.0 / 2.0
-    area_m2 = math.pi * r_m**2
-    return area_m2 * STEEL_DENSITY_KG_M3
-
-
 def compute_quantities(
     geom: BeamGeometry,
     L_beam_m: float,
@@ -499,6 +471,7 @@ def compute_quantities(
     """Volumes béton / acier et taux d’armatures global + par catégorie."""
     area_cm2 = geom.area_cm2()
     Vc_m3 = area_cm2 / 10000.0 * L_beam_m
+    mass_concrete = Vc_m3 * CONCRETE_DENSITY_KG_M3
 
     V_long = 0.0
     cat_vol: Dict[str, float] = {
@@ -525,22 +498,20 @@ def compute_quantities(
 
     V_s_total = V_long + V_st
     mass_steel = V_s_total * STEEL_DENSITY_KG_M3
-    rho_global = (V_s_total / Vc_m3) * 100.0 if Vc_m3 > 0 else 0.0
     kg_per_m3 = mass_steel / Vc_m3 if Vc_m3 > 0 else 0.0
 
     return QuantitiesResult(
         Vc_m3=Vc_m3,
-        V_longitudinal_m3=V_long,
-        V_stirrups_m3=V_st,
+        mass_concrete_kg=mass_concrete,
+        V_steel_m3=V_s_total,
         mass_steel_kg=mass_steel,
-        rho_global_pct=rho_global,
         kg_per_m3=kg_per_m3,
         by_category_m3=cat_vol,
     )
 
 
 # =========================
-# Outils couleurs & codes
+# Outils couleurs
 # =========================
 
 def _hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
@@ -567,9 +538,9 @@ def _gradient(start: str, end: str, n: int) -> List[str]:
 
 def _position_group(pos: str) -> str:
     """Classe grossière des lits pour les couleurs (bas / haut / autres)."""
-    if pos == "web_bottom":
+    if pos in ("web_bottom", "flange_left_bottom", "flange_right_bottom"):
         return "bottom"
-    if pos in ("web_top", "flange_left", "flange_right"):
+    if pos in ("web_top", "flange_left_top", "flange_right_top"):
         return "top"
     return "other"
 
@@ -618,10 +589,7 @@ def compute_family_colors_from_state() -> Dict[str, str]:
 
 
 def compute_layer_indices(families: List[RebarFamily]) -> Dict[str, int]:
-    """
-    Attribue un index de lit (0,1,2,...) par position.
-    INF1 = layer 0, INF2 = layer 1, etc.
-    """
+    """Indice de lit (0,1,2,...) par position."""
     layer_by_id: Dict[str, int] = {}
     by_pos: Dict[str, List[RebarFamily]] = {}
     for f in families:
@@ -633,9 +601,7 @@ def compute_layer_indices(families: List[RebarFamily]) -> Dict[str, int]:
 
 
 def compute_family_codes(raw_families: List[Dict]) -> Dict[str, str]:
-    """
-    Génère des codes INF1, SUP1, LAT1, ... à partir des positions.
-    """
+    """Codes INF1, SUP1, LAT1, ... à partir des positions."""
     bottom_ids = [d["id"] for d in raw_families if _position_group(d["position"]) == "bottom"]
     top_ids = [d["id"] for d in raw_families if _position_group(d["position"]) == "top"]
     other_ids = [d["id"] for d in raw_families if _position_group(d["position"]) == "other"]
@@ -652,6 +618,16 @@ def compute_family_codes(raw_families: List[Dict]) -> Dict[str, str]:
     return codes
 
 
+def color_icon_for_position(pos: str) -> str:
+    """Icône simple pour la couleur (lisible dans le tableau)."""
+    grp = _position_group(pos)
+    if grp == "bottom":
+        return "🔴"
+    if grp == "top":
+        return "🔵"
+    return "⚫️"
+
+
 # =========================
 # Dessins matplotlib
 # =========================
@@ -665,47 +641,27 @@ def _draw_concrete(ax, geom: BeamGeometry):
 def _draw_stirrup(ax, geom: BeamGeometry, st_type: Optional[StirrupType]):
     if st_type is None:
         return
-
     c = geom.cover
     b = geom.b_web
     h = geom.h_total
     phi = st_type.phi_mm
-    line_w = max(phi / 10.0, 0.8)  # épaisseur à l’écran
+    line_w = max(phi / 10.0, 0.8)
 
-    # Rectangle intérieur à l’enrobage
     xL = -b / 2.0 + c
     xR = b / 2.0 - c
     yB = 0.0 + c
     yT = h - c
 
-    hook_len = 8.0 * phi / 10.0  # en cm (≈ 8ϕ)
-
-    # Path avec crochets simples vers l’intérieur
-    verts = [
+    rect = plt.Rectangle(
         (xL, yB),
-        (xL, yT),
-        (xL, yT + hook_len),
-        (xL + hook_len, yT),
-        (xR - hook_len, yT),
-        (xR, yT + hook_len),
-        (xR, yT),
-        (xR, yB),
-        (xL, yB),
-    ]
-    codes = [
-        Path.MOVETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.LINETO,
-        Path.CLOSEPOLY,
-    ]
-    path = Path(verts, codes)
-    patch = PathPatch(path, fill=False, linewidth=line_w, edgecolor="red", linestyle="-")
-    ax.add_patch(patch)
+        xR - xL,
+        yT - yB,
+        fill=False,
+        linewidth=line_w,
+        edgecolor="red",
+        linestyle="-",
+    )
+    ax.add_patch(rect)
 
 
 def draw_section(
@@ -713,30 +669,19 @@ def draw_section(
     stirrup_type: Optional[StirrupType] = None,
     highlight_family_ids: Optional[List[str]] = None,
 ):
-    """
-    Dessin d’une section :
-    - contour béton (avec talons)
-    - toutes les barres longitudinales (couleurs par lit)
-    - étrier (épaisseur liée à ϕ, crochets simplifiés)
-    - éventuellement mise en évidence d’une famille (renfort) en orange
-    """
     geom = section.geometry
     b = geom.b_web
     h = geom.h_total
 
-    fig, ax = plt.subplots(figsize=(2.5, 3.5))
+    fig, ax = plt.subplots(figsize=(2.6, 3.6))
 
-    # Béton
     _draw_concrete(ax, geom)
-
-    # Étrier
     _draw_stirrup(ax, geom, stirrup_type)
 
-    # Barres
     for bar in section.rebars:
-        r_cm = bar.phi_mm / 20.0  # ϕ (mm) → rayon (cm)
+        r_cm = bar.phi_mm / 20.0
         if highlight_family_ids and bar.family_id in highlight_family_ids:
-            facecolor = "#ff6600"  # orange pour renfort sélectionné
+            facecolor = "#ff6600"
         else:
             facecolor = bar.color
         circ = plt.Circle((bar.x, bar.y), r_cm, color=facecolor)
@@ -759,7 +704,6 @@ def draw_section_for_zone(
     section: BeamSection,
     stirrup_type: Optional[StirrupType] = None,
 ):
-    """Alias : une vue de section par zone d’étriers."""
     return draw_section(section, stirrup_type=stirrup_type)
 
 
@@ -768,12 +712,15 @@ def draw_section_for_zone(
 # =========================
 
 POSITION_LABELS = {
-    "web_bottom": "Armatures inférieures",
-    "web_top": "Armatures supérieures",
-    "flange_left": "Talon gauche",
-    "flange_right": "Talon droit",
-    "side_left": "Barres latérales gauche",
-    "side_right": "Barres latérales droite",
+    "web_bottom": "Armatures inférieures (âme)",
+    "web_top": "Armatures supérieures (âme)",
+    "flange_left_bottom": "Talon gauche – inférieure",
+    "flange_left_top": "Talon gauche – supérieure",
+    "flange_right_bottom": "Talon droit – inférieure",
+    "flange_right_top": "Talon droit – supérieure",
+    "side_left": "Latérales gauche",
+    "side_right": "Latérales droite",
+    "side_both": "Latérales 2 côtés",
 }
 
 ROLE_LABELS = {
@@ -782,23 +729,9 @@ ROLE_LABELS = {
     "lateral": "Barres latérales",
 }
 
-POSITION_OPTIONS_MAIN_BASE = [
-    ("Armatures inférieures (âme)", "web_bottom"),
-    ("Armatures supérieures (âme)", "web_top"),
-    ("Talon gauche", "flange_left"),
-    ("Talon droit", "flange_right"),
-]
-
-POSITION_OPTIONS_LATERAL = [
-    ("Latéral gauche", "side_left"),
-    ("Latéral droit", "side_right"),
-    ("Deux côtés", "both_sides"),
-]
-
 
 def _init_state():
     st.session_state.setdefault("L_beam_m", 6.0)
-
     st.session_state.setdefault("b_web_cm", 30.0)
     st.session_state.setdefault("h_total_cm", 60.0)
     st.session_state.setdefault("cover_cm", 3.0)
@@ -810,31 +743,31 @@ def _init_state():
 
     st.session_state.setdefault("shape_section", "Rectangulaire")
     st.session_state.setdefault("steel_grade", "B500A")
-    st.session_state.setdefault("length_mode", "%L")  # "%L" ou "m"
 
-    st.session_state.setdefault("rebar_families", [])   # liste de dict
-    st.session_state.setdefault("stirrup_types", [])    # liste de dict
-    st.session_state.setdefault("stirrup_zones", [])    # liste de dict
+    st.session_state.setdefault("rebar_families", [])
+    st.session_state.setdefault("stirrup_types", [])
+    st.session_state.setdefault("stirrup_zones", [])
 
     st.session_state.setdefault("family_counter", 0)
     st.session_state.setdefault("st_type_counter", 0)
     st.session_state.setdefault("st_zone_counter", 0)
 
+    st.session_state.setdefault("range_mode", "percent")  # "percent" ou "meter"
+
 
 def build_geometry() -> BeamGeometry:
     shape = st.session_state.shape_section
 
-    # Talons selon le type choisi
     if "gauche" in shape:
-        flange_left_b = st.session_state.flange_left_b_cm
-        flange_left_h = st.session_state.flange_left_h_cm
+        flange_left_b = st.session_state.flange_left_b_cm or 10.0
+        flange_left_h = st.session_state.flange_left_h_cm or 15.0
     else:
         flange_left_b = 0.0
         flange_left_h = 0.0
 
     if "droit" in shape:
-        flange_right_b = st.session_state.flange_right_b_cm
-        flange_right_h = st.session_state.flange_right_h_cm
+        flange_right_b = st.session_state.flange_right_b_cm or 10.0
+        flange_right_h = st.session_state.flange_right_h_cm or 15.0
     else:
         flange_right_b = 0.0
         flange_right_h = 0.0
@@ -860,14 +793,10 @@ def build_rebar_families() -> List[RebarFamily]:
                 position=d["position"],
                 n_bars=d["n_bars"],
                 dia_mm=d["dia_mm"],
-                with_hooks=d.get("with_hooks", False),
+                hook_count=d.get("hook_count", 0),
                 hook_height_cm=d.get("hook_height_cm", 0.0),
-                hook_mode=d.get("hook_mode", "none"),
-                with_lap=d.get("with_lap", False),
-                lap_length_mm=d.get("lap_length_mm", 0.0),
                 x_start_pct=d["x_start_pct"],
                 x_end_pct=d["x_end_pct"],
-                both_sides=d.get("both_sides", False),
             )
         )
     return families
@@ -881,9 +810,6 @@ def build_stirrup_types() -> List[StirrupType]:
                 name=d["name"],
                 phi_mm=d["phi_mm"],
                 type=d["type"],
-                n_enclosed_bars=d["n_enclosed_bars"],
-                n_vertical_legs=d["n_vertical_legs"],
-                bend_radius_mm=d["bend_radius_mm"],
             )
         )
     return types
@@ -908,17 +834,21 @@ def build_stirrup_zones() -> List[StirrupZone]:
 # UI Streamlit – édition des familles
 # =========================
 
-def _new_family_id(role: FamilyRole) -> str:
+def _new_family_id() -> str:
     st.session_state.family_counter += 1
     return f"F{st.session_state.family_counter}"
 
 
-def add_family(role: FamilyRole, default_position: Optional[PositionType] = None):
-    fam_id = _new_family_id(role)
+def add_family(role: FamilyRole, position: Optional[PositionType] = None):
+    fam_id = _new_family_id()
+    geom = build_geometry()
+
     if role == "lateral":
-        pos = "side_left"
+        pos = position or "side_left"
+        default_hook = geom.b_web - 2 * geom.cover
     else:
-        pos = default_position or ("web_bottom" if role == "main" else "web_top")
+        pos = position or ("web_bottom" if role == "main" else "web_top")
+        default_hook = geom.h_total - 2 * geom.cover
 
     st.session_state.rebar_families.append(
         {
@@ -927,95 +857,85 @@ def add_family(role: FamilyRole, default_position: Optional[PositionType] = None
             "position": pos,
             "n_bars": 2,
             "dia_mm": 16.0,
-            "with_hooks": False,
-            "hook_height_cm": 0.0,
-            "hook_mode": "none",
-            "with_lap": False,
-            "lap_length_mm": 0.0,
+            "hook_count": 0,
+            "hook_height_cm": max(default_hook, 0.0),
             "x_start_pct": 0.0,
             "x_end_pct": 100.0,
-            "both_sides": False,
         }
     )
 
 
-def edit_family(idx: int, fam: Dict, role_label: str, code: str, color: Optional[str] = None):
-    # Bandeau titre + poubelle
-    c1, c2 = st.columns([8, 1])
-    with c1:
+def _position_options_for_family(role: FamilyRole) -> List[Tuple[str, PositionType]]:
+    """Options de position en fonction du type de section."""
+    shape = st.session_state.shape_section
+    has_left = "gauche" in shape or "deux talons" in shape
+    has_right = "droit" in shape or "deux talons" in shape
+
+    opts: List[Tuple[str, PositionType]] = []
+
+    if role == "lateral":
+        opts.append(("Latérales gauche", "side_left"))
+        opts.append(("Latérales droite", "side_right"))
+        opts.append(("Latérales 2 côtés", "side_both"))
+        return opts
+
+    # sup / inf âme
+    opts.append(("Armatures inférieures (âme)", "web_bottom"))
+    opts.append(("Armatures supérieures (âme)", "web_top"))
+
+    # talons uniquement si activés
+    if has_left:
+        opts.append(("Talon gauche – inférieure", "flange_left_bottom"))
+        opts.append(("Talon gauche – supérieure", "flange_left_top"))
+    if has_right:
+        opts.append(("Talon droit – inférieure", "flange_right_bottom"))
+        opts.append(("Talon droit – supérieure", "flange_right_top"))
+
+    return opts
+
+
+def edit_family(idx: int, fam: Dict, code: str, color: Optional[str] = None):
+    # En-tête compact avec pastille couleur + code + bouton poubelle
+    header_cols = st.columns([6, 1])
+    with header_cols[0]:
+        badge = ""
         if color:
             badge = (
                 f"<span style='display:inline-block;width:12px;height:12px;"
                 f"border-radius:50%;background-color:{color};"
                 f"margin-right:6px;vertical-align:middle;'></span>"
             )
-        else:
-            badge = ""
         st.markdown(
-            f"{badge}<strong>{role_label} – {code}</strong>",
+            f"{badge}<strong>{ROLE_LABELS[fam['role']]} – {code}</strong>",
             unsafe_allow_html=True,
         )
-    with c2:
+    with header_cols[1]:
         if st.button("🗑️", key=f"del_fam_{idx}"):
             st.session_state.rebar_families.pop(idx)
             st.rerun()
 
-    # Ligne unique : Position ; n barres ; Ø ; retour ; h_retour ; De ; À
-    cpos, c_nb, c_dia, c_ret, c_h, c_de, c_a = st.columns([2.2, 0.8, 0.9, 0.9, 1.2, 0.8, 0.8])
+    # Ligne unique : Position ; n barres ; Ø ; retour ; h retour ; De ; À
+    cpos, c_nb, c_phi, c_hook, c_h, c_de, c_a = st.columns(
+        [2.3, 1.0, 1.0, 1.0, 1.3, 1.1, 1.1]
+    )
 
-    length_mode = st.session_state.get("length_mode", "%L")
-    L_beam = st.session_state.L_beam_m
-
-    # --- Position
     with cpos:
-        if fam["role"] == "lateral":
-            labels = [o[0] for o in POSITION_OPTIONS_LATERAL]
-            values = [o[1] for o in POSITION_OPTIONS_LATERAL]
-            current_value = "both_sides" if fam.get("both_sides") else fam["position"]
-            if current_value not in values:
-                current_value = "side_left"
-            i_sel = values.index(current_value)
-            pos_label = st.selectbox(
-                "Position",
-                labels,
-                index=i_sel,
-                key=f"pos_{idx}",
-            )
-            sel_val = values[labels.index(pos_label)]
-            if sel_val == "both_sides":
-                fam["both_sides"] = True
-                fam["position"] = "side_left"
-            else:
-                fam["both_sides"] = False
-                fam["position"] = sel_val
-        else:
-            # options talons uniquement si activés dans la géométrie
-            shape = st.session_state.shape_section
-            opts = []
-            for label, val in POSITION_OPTIONS_MAIN_BASE:
-                if "Talon gauche" in label and "gauche" not in shape:
-                    continue
-                if "Talon droit" in label and "droit" not in shape:
-                    continue
-                opts.append((label, val))
-            if not opts:
-                opts = POSITION_OPTIONS_MAIN_BASE[:2]
+        opts = _position_options_for_family(fam["role"])
+        labels = [o[0] for o in opts]
+        values = [o[1] for o in opts]
+        try:
+            i_sel = values.index(fam["position"])
+        except ValueError:
+            i_sel = 0
+            fam["position"] = values[0]
+        pos_label = st.selectbox(
+            "Position",
+            labels,
+            index=i_sel,
+            key=f"pos_{idx}",
+        )
+        fam["position"] = values[labels.index(pos_label)]
 
-            labels = [o[0] for o in opts]
-            values = [o[1] for o in opts]
-            current_value = fam["position"]
-            if current_value not in values:
-                current_value = "web_bottom"
-            i_sel = values.index(current_value)
-            pos_label = st.selectbox(
-                "Position",
-                labels,
-                index=i_sel,
-                key=f"pos_{idx}",
-            )
-            fam["position"] = values[labels.index(pos_label)]
-
-    # --- n barres
     with c_nb:
         fam["n_bars"] = st.number_input(
             "n barres",
@@ -1026,106 +946,87 @@ def edit_family(idx: int, fam: Dict, role_label: str, code: str, color: Optional
             key=f"nb_{idx}",
         )
 
-    # --- Ø
-    with c_dia:
-        dia_options = [6, 8, 10, 12, 16, 20, 25, 32, 40]
-        if int(fam["dia_mm"]) not in dia_options:
-            dia_options.append(int(fam["dia_mm"]))
-            dia_options.sort()
-        i_dia = dia_options.index(int(fam["dia_mm"]))
-        sel = st.selectbox(
+    with c_phi:
+        fam["dia_mm"] = st.selectbox(
             "Ø (mm)",
-            dia_options,
-            index=i_dia,
+            [6, 8, 10, 12, 14, 16, 20, 25, 32, 40],
+            index=[6, 8, 10, 12, 14, 16, 20, 25, 32, 40].index(int(fam["dia_mm"])),
             key=f"phi_{idx}",
         )
-        fam["dia_mm"] = float(sel)
 
-    # --- Retour (0 / 1 / 2)
-    with c_ret:
-        mode_map = {"none": 0, "left": 1, "right": 1, "both": 2}
-        inv_map = {0: "none", 1: "left", 2: "both"}
-        current = mode_map.get(fam.get("hook_mode", "none"), 0)
-        nb_ret = st.selectbox(
-            "Retour",
+    with c_hook:
+        fam["hook_count"] = st.selectbox(
+            "Retours",
             [0, 1, 2],
-            index=[0, 1, 2].index(current),
-            key=f"ret_{idx}",
+            index=[0, 1, 2].index(int(fam.get("hook_count", 0))),
+            key=f"hook_count_{idx}",
         )
-        fam["hook_mode"] = inv_map[nb_ret]
-        fam["with_hooks"] = nb_ret != 0
 
-    # --- Hauteur de retour
     with c_h:
-        if fam["hook_mode"] != "none":
-            if fam["role"] == "lateral":
-                default_h = max(
-                    st.session_state.b_web_cm - 2 * st.session_state.cover_cm,
-                    0.0,
-                )
-            else:
-                default_h = max(
-                    st.session_state.h_total_cm - 2 * st.session_state.cover_cm,
-                    0.0,
-                )
-            if fam.get("hook_height_cm", 0.0) <= 0.0:
-                fam["hook_height_cm"] = default_h
+        if fam["hook_count"] == 0:
+            st.text("Hauteur retour (cm)")
+            st.text("—")
+            fam["hook_height_cm"] = 0.0
+        else:
             fam["hook_height_cm"] = st.number_input(
-                "h retour (cm)",
+                "Hauteur retour (cm)",
                 min_value=0.0,
                 max_value=1000.0,
-                value=float(fam["hook_height_cm"]),
+                value=float(fam.get("hook_height_cm", 0.0)),
                 step=1.0,
                 key=f"h_hook_{idx}",
             )
-        else:
-            fam["hook_height_cm"] = 0.0
-            st.write("h retour (cm) : —")
 
-    # --- De / À
+    range_mode = st.session_state.range_mode
+    L_beam = st.session_state.L_beam_m
+
     with c_de:
-        if length_mode == "%L" or L_beam <= 0:
+        if range_mode == "percent":
             fam["x_start_pct"] = st.number_input(
-                "De",
+                "De (%L)",
                 min_value=0.0,
                 max_value=100.0,
                 value=float(fam["x_start_pct"]),
                 step=5.0,
+                format="%.0f",
                 key=f"x1_{idx}",
             )
         else:
-            x_start_m = L_beam * fam["x_start_pct"] / 100.0
-            x_start_m = st.number_input(
+            val_m = L_beam * fam["x_start_pct"] / 100.0
+            val_m = st.number_input(
                 "De (m)",
                 min_value=0.0,
                 max_value=float(L_beam),
-                value=float(x_start_m),
-                step=max(L_beam / 20.0, 0.1),
+                value=float(val_m),
+                step=max(L_beam / 20.0, 0.25),
+                format="%.2f",
                 key=f"x1m_{idx}",
             )
-            fam["x_start_pct"] = 100.0 * x_start_m / L_beam if L_beam > 0 else 0.0
+            fam["x_start_pct"] = 100.0 * val_m / L_beam if L_beam > 0 else 0.0
 
     with c_a:
-        if length_mode == "%L" or L_beam <= 0:
+        if range_mode == "percent":
             fam["x_end_pct"] = st.number_input(
-                "À",
+                "À (%L)",
                 min_value=0.0,
                 max_value=100.0,
                 value=float(fam["x_end_pct"]),
                 step=5.0,
+                format="%.0f",
                 key=f"x2_{idx}",
             )
         else:
-            x_end_m = L_beam * fam["x_end_pct"] / 100.0
-            x_end_m = st.number_input(
+            val_m = L_beam * fam["x_end_pct"] / 100.0
+            val_m = st.number_input(
                 "À (m)",
                 min_value=0.0,
                 max_value=float(L_beam),
-                value=float(x_end_m),
-                step=max(L_beam / 20.0, 0.1),
+                value=float(val_m),
+                step=max(L_beam / 20.0, 0.25),
+                format="%.2f",
                 key=f"x2m_{idx}",
             )
-            fam["x_end_pct"] = 100.0 * x_end_m / L_beam if L_beam > 0 else 0.0
+            fam["x_end_pct"] = 100.0 * val_m / L_beam if L_beam > 0 else 0.0
 
 
 # =========================
@@ -1140,9 +1041,6 @@ def add_stirrup_type():
             "name": name,
             "phi_mm": 8.0,
             "type": "full",
-            "n_enclosed_bars": 0,
-            "n_vertical_legs": 2,
-            "bend_radius_mm": 0.0,
         }
     )
 
@@ -1176,31 +1074,14 @@ def edit_stirrup_type(idx: int, d: Dict):
             st.session_state.stirrup_types.pop(idx)
             st.rerun()
 
-    c3, c4 = st.columns(2)
-    with c3:
-        d["phi_mm"] = st.number_input(
-            "ϕ étrier (mm)",
-            min_value=6.0,
-            max_value=16.0,
-            value=float(d["phi_mm"]),
-            step=2.0,
-            key=f"st_phi_{idx}",
-        )
-    with c4:
-        type_label = st.selectbox(
-            "Type",
-            ["Complet", "Intérieur", "Talon gauche", "Talon droit"],
-            index={"full": 0, "inner": 1, "flange_left": 2, "flange_right": 3}[
-                d["type"]
-            ],
-            key=f"st_type_{idx}",
-        )
-        d["type"] = {
-            "Complet": "full",
-            "Intérieur": "inner",
-            "Talon gauche": "flange_left",
-            "Talon droit": "flange_right",
-        }[type_label]
+    d["phi_mm"] = st.number_input(
+        "Ø (mm)",
+        min_value=6.0,
+        max_value=16.0,
+        value=float(d["phi_mm"]),
+        step=2.0,
+        key=f"st_phi_{idx}",
+    )
 
 
 def edit_stirrup_zone(idx: int, d: Dict):
@@ -1270,67 +1151,28 @@ def show():
 
     st.title("🧱 Poutre BA – Modélisation et taux d’armature")
 
-    # Choix de la saisie des zones (discret en haut)
-    c_mode1, c_mode2 = st.columns([5, 2])
-    with c_mode2:
-        mode_label = st.radio(
-            "Saisie des longueurs",
-            ["% de L", "m le long de L"],
-            index=0 if st.session_state.length_mode == "%L" else 1,
-            horizontal=True,
-        )
-        st.session_state.length_mode = "%L" if mode_label == "% de L" else "m"
-
-    # colonnes 50 / 50
     col_left, col_right = st.columns(2)
 
-    # ==============
-    # COLONNE GAUCHE
-    # ==============
+    # ============== COLONNE GAUCHE ==============
     with col_left:
-        # ---------------- Données ----------------
+        # petite option pour la saisie des zones
+        st.write("")
+        st.radio(
+            "Saisie des longueurs de lit",
+            options=["En % de la portée", "En mètres (m)"],
+            index=0 if st.session_state.range_mode == "percent" else 1,
+            key="range_mode_radio",
+            horizontal=True,
+        )
+        st.session_state.range_mode = (
+            "percent" if st.session_state.range_mode_radio == "En % de la portée" else "meter"
+        )
+
+        # Données
         st.subheader("Données")
 
-        c_dim1, c_dim2, c_dim3 = st.columns(3)
-        with c_dim1:
-            st.number_input(
-                "Largeur b (cm)",
-                min_value=5.0,
-                max_value=200.0,
-                value=float(st.session_state.b_web_cm),
-                step=1.0,
-                key="b_web_cm",
-            )
-        with c_dim2:
-            st.number_input(
-                "Hauteur h (cm)",
-                min_value=10.0,
-                max_value=300.0,
-                value=float(st.session_state.h_total_cm),
-                step=1.0,
-                key="h_total_cm",
-            )
-        with c_dim3:
-            st.number_input(
-                "Portée L (m)",
-                min_value=0.5,
-                max_value=60.0,
-                value=float(st.session_state.L_beam_m),
-                step=0.5,
-                key="L_beam_m",
-            )
-
-        c_dim4, c_dim5 = st.columns(2)
-        with c_dim4:
-            st.number_input(
-                "Enrobage nominal c (cm)",
-                min_value=1.0,
-                max_value=10.0,
-                value=float(st.session_state.cover_cm),
-                step=0.5,
-                key="cover_cm",
-            )
-        with c_dim5:
+        c1, c2, c3 = st.columns(3)
+        with c1:
             st.session_state.shape_section = st.selectbox(
                 "Section",
                 [
@@ -1346,9 +1188,48 @@ def show():
                     "Rectangulaire + deux talons",
                 ].index(st.session_state.shape_section),
             )
+        with c2:
+            st.number_input(
+                "Enrobage c (cm)",
+                min_value=1.0,
+                max_value=10.0,
+                value=float(st.session_state.cover_cm),
+                step=0.5,
+                key="cover_cm",
+            )
+        with c3:
+            st.number_input(
+                "Portée L (m)",
+                min_value=0.5,
+                max_value=60.0,
+                value=float(st.session_state.L_beam_m),
+                step=0.5,
+                key="L_beam_m",
+            )
 
-        # Talons visibles selon le type
-        if "gauche" in st.session_state.shape_section:
+        c4, c5 = st.columns(2)
+        with c4:
+            st.number_input(
+                "Largeur b (cm)",
+                min_value=5.0,
+                max_value=200.0,
+                value=float(st.session_state.b_web_cm),
+                step=1.0,
+                key="b_web_cm",
+            )
+        with c5:
+            st.number_input(
+                "Hauteur h (cm)",
+                min_value=10.0,
+                max_value=300.0,
+                value=float(st.session_state.h_total_cm),
+                step=1.0,
+                key="h_total_cm",
+            )
+
+        # Talons si activés
+        shape = st.session_state.shape_section
+        if "gauche" in shape or "deux talons" in shape:
             cg1, cg2 = st.columns(2)
             with cg1:
                 st.number_input(
@@ -1369,7 +1250,7 @@ def show():
                     key="flange_left_h_cm",
                 )
 
-        if "droit" in st.session_state.shape_section:
+        if "droit" in shape or "deux talons" in shape:
             cd1, cd2 = st.columns(2)
             with cd1:
                 st.number_input(
@@ -1390,39 +1271,44 @@ def show():
                     key="flange_right_h_cm",
                 )
 
-        # Couleurs & codes pour les familles (pour l'UI)
-        family_colors_ui = compute_family_colors_from_state()
-        family_codes_ui = compute_family_codes(st.session_state.rebar_families)
-
-        # ---------------- Armatures ----------------
+        # Armatures
         st.subheader("Armatures")
 
-        # Boutons d’ajout sur une seule ligne
-        c_btn1, c_btn2, c_btn3, c_btn4, c_btn5 = st.columns(5)
-        with c_btn1:
-            if st.button("➕ Lit principal"):
+        btn_cols = st.columns(5)
+        with btn_cols[0]:
+            if st.button("+ Lit principal"):
                 add_family("main")
-        with c_btn2:
-            if st.button("➕ Renfort local"):
+        with btn_cols[1]:
+            if st.button("+ Renfort local"):
                 add_family("reinforcement")
-        with c_btn3:
-            if st.button("➕ Latéral"):
+        with btn_cols[2]:
+            if st.button("+ Latéral"):
                 add_family("lateral")
-        with c_btn4:
-            if st.button("➕ Étrier"):
+        with btn_cols[3]:
+            # Renfort talon seulement si une section avec talon est choisie
+            has_flange = "gauche" in shape or "droit" in shape or "deux talons" in shape
+            if st.button("+ Renfort talon", disabled=not has_flange):
+                # par défaut talon gauche inférieur si dispo, sinon talon droit
+                pos: PositionType
+                if "gauche" in shape or "deux talons" in shape:
+                    pos = "flange_left_bottom"
+                else:
+                    pos = "flange_right_bottom"
+                add_family("reinforcement", position=pos)
+        with btn_cols[4]:
+            if st.button("+ Étrier"):
                 if not st.session_state.stirrup_types:
                     add_stirrup_type()
                 add_stirrup_zone()
-        with c_btn5:
-            if "talon" in st.session_state.shape_section:
-                if st.button("➕ Renfort talon"):
-                    # renfort par défaut dans le premier talon actif
-                    if "gauche" in st.session_state.shape_section:
-                        add_family("reinforcement", default_position="flange_left")
-                    else:
-                        add_family("reinforcement", default_position="flange_right")
+
+        # Couleurs & codes pour les familles
+        family_colors_ui = compute_family_colors_from_state()
+        family_codes_ui = compute_family_codes(st.session_state.rebar_families)
 
         # Lits principaux
+        mains = [f for f in st.session_state.rebar_families if f["role"] == "main"]
+        if mains:
+            st.markdown("**Lits principaux**")
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "main":
                 with st.container(border=True):
@@ -1430,12 +1316,14 @@ def show():
                     edit_family(
                         idx,
                         fam,
-                        "Lit principal",
                         code=code,
                         color=family_colors_ui.get(fam["id"]),
                     )
 
-        # Renforts locaux
+        # Renforts
+        reinfs = [f for f in st.session_state.rebar_families if f["role"] == "reinforcement"]
+        if reinfs:
+            st.markdown("**Renforts (y compris talons)**")
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "reinforcement":
                 with st.container(border=True):
@@ -1443,12 +1331,14 @@ def show():
                     edit_family(
                         idx,
                         fam,
-                        "Renfort local",
                         code=code,
                         color=family_colors_ui.get(fam["id"]),
                     )
 
-        # Barres latérales
+        # Latérales
+        lats = [f for f in st.session_state.rebar_families if f["role"] == "lateral"]
+        if lats:
+            st.markdown("**Barres latérales**")
         for idx, fam in enumerate(list(st.session_state.rebar_families)):
             if fam["role"] == "lateral":
                 with st.container(border=True):
@@ -1456,17 +1346,169 @@ def show():
                     edit_family(
                         idx,
                         fam,
-                        "Barres latérales",
                         code=code,
                         color=family_colors_ui.get(fam["id"]),
                     )
 
-        # Étriers (types + zones)
+        # Étriers
+        if st.session_state.stirrup_types or st.session_state.stirrup_zones:
+            st.subheader("Étriers")
+
         if st.session_state.stirrup_types:
-            st.markdown("**Types d’étriers**")
             for i, d in enumerate(list(st.session_state.stirrup_types)):
                 with st.container(border=True):
                     edit_stirrup_type(i, d)
 
         if st.session_state.stirrup_zones:
-            st.markdown("**Zones d’étriers (%L**
+            st.markdown("**Zones d’étriers**")
+            for i, d in enumerate(list(st.session_state.stirrup_zones)):
+                with st.container(border=True):
+                    edit_stirrup_zone(i, d)
+
+    # =============== COLONNE DROITE ===============
+    with col_right:
+        st.subheader("Résultats")
+
+        geom = build_geometry()
+        families = build_rebar_families()
+        stirrup_types = build_stirrup_types()
+        stirrup_zones = build_stirrup_zones()
+
+        family_codes = compute_family_codes(st.session_state.rebar_families)
+        family_colors_plot = compute_family_colors_for_families(families)
+        layer_by_id = compute_layer_indices(families)
+
+        section = BeamSection(geometry=geom)
+        section.regenerate_rebars(families, family_colors_plot, layer_by_id)
+
+        stirrup_results = compute_stirrups_for_zones(
+            stirrup_zones,
+            stirrup_types,
+            L_beam_m=st.session_state.L_beam_m,
+            geom=geom,
+        )
+
+        qres = compute_quantities(
+            geom=geom,
+            L_beam_m=st.session_state.L_beam_m,
+            families=families,
+            stirrup_results=stirrup_results,
+        )
+
+        # Qualité acier + majoration
+        c_steel1, c_steel2 = st.columns(2)
+        with c_steel1:
+            st.session_state.steel_grade = st.selectbox(
+                "Qualité d’acier",
+                ["B500A", "B500B", "B500C"],
+                index=["B500A", "B500B", "B500C"].index(st.session_state.steel_grade),
+            )
+        with c_steel2:
+            maj_pct = st.number_input(
+                "Majoration globale (%)",
+                min_value=0.0,
+                max_value=50.0,
+                value=5.0,
+                step=1.0,
+            )
+
+        mass_steel_majorated = qres.mass_steel_kg * (1.0 + maj_pct / 100.0)
+        kg_m3_majorated = (
+            mass_steel_majorated / qres.Vc_m3 if qres.Vc_m3 > 0 else 0.0
+        )
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Volume béton Vc", f"{qres.Vc_m3:.3f} m³")
+        m2.metric("Masse acier", f"{mass_steel_majorated:.1f} kg")
+        m3.metric("Taux d’armature", f"{kg_m3_majorated:.1f} kg/m³")
+
+        # Petit tableau récapitulatif masse / béton / taux
+        st.markdown("**Synthèse**")
+        synth_rows = [
+            {
+                "Élément": "Masse acier (majorée)",
+                "Valeur": f"{mass_steel_majorated:.1f} kg",
+            },
+            {
+                "Élément": "Volume béton",
+                "Valeur": f"{qres.Vc_m3:.3f} m³",
+            },
+            {
+                "Élément": "Poids béton (≈{CONCRETE_DENSITY_KG_M3:.0f} kg/m³)",
+                "Valeur": f"{qres.mass_concrete_kg:.0f} kg",
+            },
+            {
+                "Élément": "Taux d’armature acier",
+                "Valeur": f"{kg_m3_majorated:.1f} kg/m³",
+            },
+        ]
+        st.table(synth_rows)
+
+        # Tableau récapitulatif des armatures
+        st.markdown("### Tableau récapitulatif des armatures")
+
+        rows = []
+        L_beam = st.session_state.L_beam_m
+
+        # Longitudinales
+        for fam in families:
+            code = family_codes.get(fam.id, fam.id)
+            L_active = fam.active_length_m(L_beam)
+            L_tot = fam.total_bar_length_m(L_beam)
+            m_lin = steel_linear_mass_kg_m(fam.dia_mm)
+            m_tot = L_tot * m_lin * (1.0 + maj_pct / 100.0)
+
+            rows.append(
+                {
+                    "Couleur": color_icon_for_position(fam.position),
+                    "Code": code,
+                    "Position": POSITION_LABELS.get(fam.position, fam.position),
+                    "n barres": fam.effective_n_bars(),
+                    "Ø (mm)": int(fam.dia_mm),
+                    "L active (m)": f"{L_active:.2f}",
+                    "L tot (m)": f"{L_tot:.2f}",
+                    "kg/m": f"{m_lin:.3f}",
+                    "kg tot": f"{m_tot:.2f}",
+                }
+            )
+
+        # Étriers
+        for res in stirrup_results:
+            m_lin = steel_linear_mass_kg_m(res.stirrup_type.phi_mm)
+            m_tot = res.total_length_m * m_lin * (1.0 + maj_pct / 100.0)
+            rows.append(
+                {
+                    "Couleur": "🟡",
+                    "Code": res.stirrup_type.name,
+                    "Position": f"Zone {res.zone.name}",
+                    "n barres": res.n_stirrups,
+                    "Ø (mm)": int(res.stirrup_type.phi_mm),
+                    "L active (m)": f"{res.length_per_stirrup_m:.2f}",
+                    "L tot (m)": f"{res.total_length_m:.2f}",
+                    "kg/m": f"{m_lin:.3f}",
+                    "kg tot": f"{m_tot:.2f}",
+                }
+            )
+
+        if rows:
+            import pandas as pd
+
+            df = pd.DataFrame(rows)
+            st.dataframe(df, hide_index=True, use_container_width=True)
+        else:
+            st.info("Ajoute des armatures pour voir le tableau récapitulatif.")
+
+        # Dessin de la section
+        st.markdown("**Section générale (tous lits)**")
+        fig_gen = draw_section(section)
+        st.pyplot(fig_gen, use_container_width=False)
+
+
+if __name__ == "__main__":
+    st.set_page_config(
+        page_title="Poutre BA – Ferraillage complet",
+        page_icon="🧱",
+        layout="wide",
+        initial_sidebar_state="collapsed",
+    )
+    show()
