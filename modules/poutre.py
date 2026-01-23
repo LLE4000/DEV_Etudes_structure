@@ -402,7 +402,7 @@ def render_solicitations_all_sections():
     if st.button("➕ Ajouter une section à vérifier", use_container_width=True, key="btn_add_section"):
         _add_section()
         st.rerun()
-=========================
+
 #  PARTIE 2 / 2
 #  poutre.py (Streamlit)
 # ===========================
