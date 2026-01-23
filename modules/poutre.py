@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 from datetime import datetime
 import json
@@ -80,15 +81,24 @@ def float_input_fr_simple(label, key, default=0.0, min_value=0.0):
 # ============================================================
 #  SECTIONS : INIT / ADD / DELETE
 # ============================================================
+SECTION_TYPES = [
+    "Standard",
+    "Travée",
+    "Sur appui",
+    "Extrémité",
+    "Vérif recouvrement (à venir)",
+    "Vérif second lit (à venir)",
+]
+
 def _init_sections_if_needed():
     if "sections" not in st.session_state or not isinstance(st.session_state.sections, list) or len(st.session_state.sections) == 0:
-        st.session_state.sections = [{"id": 1, "nom": "Section 1", "type": "Standard"}]
+        st.session_state.sections = [{"id": 1, "nom": "Section A", "type": "Standard"}]
 
     # force présence section 1
     if not any(int(s.get("id", 0)) == 1 for s in st.session_state.sections):
-        st.session_state.sections.insert(0, {"id": 1, "nom": "Section 1", "type": "Standard"})
+        st.session_state.sections.insert(0, {"id": 1, "nom": "Section A", "type": "Standard"})
 
-    # normalisation légère
+    # normalisation
     for s in st.session_state.sections:
         s["id"] = int(s.get("id", 0))
         s["nom"] = str(s.get("nom", f"Section {s['id']}"))
@@ -119,21 +129,19 @@ BASE_SAVE_KEYS = {
     # infos projet
     "nom_projet", "partie", "date", "indice",
     # matériaux / géométrie
-    "beton", "fyk_mode", "fyk", "fyk_custom", "fyk_ref_for_mu",
-    "b", "h", "enrobage",
-    # options avancées
+    "beton", "b", "h", "enrobage",
+    # paramètres avancés
     "units_len", "units_as", "tau_tolerance_percent",
+    "acier_non_standard", "fyk", "fyk_custom", "fyk_ref_for_mu",
     # SECTION 1 (clés historiques)
     "M_inf", "ajouter_moment_sup", "M_sup",
     "V", "ajouter_effort_reduit", "V_lim",
     "n_as_inf", "ø_as_inf", "n_as_sup", "ø_as_sup",
     "n_etriers", "ø_etrier", "pas_etrier", "type_etrier",
     "n_etriers_r", "ø_etrier_r", "pas_etrier_r", "type_etrier_r",
-
     # SECOND LIT (section 1)
     "ajouter_second_lit_inf", "n_as_inf_2", "ø_as_inf_2", "jeu_inf_2",
     "ajouter_second_lit_sup", "n_as_sup_2", "ø_as_sup_2", "jeu_sup_2",
-
     # UI
     "show_open_uploader",
 }
@@ -177,9 +185,9 @@ def _load_from_payload(payload: dict):
                 "nom": str(s.get("nom", f"Section {sid}")),
                 "type": str(s.get("type", "Standard")),
             })
-        st.session_state.sections = cleaned if cleaned else [{"id": 1, "nom": "Section 1", "type": "Standard"}]
+        st.session_state.sections = cleaned if cleaned else [{"id": 1, "nom": "Section A", "type": "Standard"}]
     else:
-        st.session_state.sections = [{"id": 1, "nom": "Section 1", "type": "Standard"}]
+        st.session_state.sections = [{"id": 1, "nom": "Section A", "type": "Standard"}]
 
     if isinstance(values, dict):
         for k, v in values.items():
@@ -192,10 +200,56 @@ def _load_from_payload(payload: dict):
 def _bar_area_mm2(diam_mm: float) -> float:
     return math.pi * (diam_mm / 2.0) ** 2
 
-def _as_total_with_optional_second_layer(sec_id: int, which: str, diam_opts):
+def _status_merge(*states: str) -> str:
+    # priorité: nok > warn > ok
+    if any(s == "nok" for s in states):
+        return "nok"
+    if any(s == "warn" for s in states):
+        return "warn"
+    return "ok"
+
+def _status_icon_label(state: str, label: str) -> str:
+    # "vert" demandé => on utilise pastilles colorées (visibles même expander fermé)
+    if state == "ok":
+        return f"🟢 {label}"
+    if state == "warn":
+        return f"🟡 {label}"
+    return f"🔴 {label}"
+
+def _status_with_tolerance(value: float, limit: float, tol_percent: float):
+    """
+    Retourne (etat, msg_suffix)
+    - ok: value <= limit
+    - warn: value <= limit*(1+tol)
+    - nok: au-delà
+    """
+    if limit <= 0:
+        return "nok", ""
+    if value <= limit:
+        return "ok", ""
+    lim2 = limit * (1.0 + max(0.0, tol_percent) / 100.0)
+    if value <= lim2:
+        return "warn", f"(dépassement toléré +{tol_percent:.0f}%)"
+    return "nok", ""
+
+def _get_fyk_and_mu_ref():
+    """
+    - fyk standard: 400/500 via st.session_state["fyk"]
+    - acier non standard: fyk_custom, et mu_ref_for_mu=400/500 pour lire mu_aXXX dans la DB béton
+    """
+    acier_non_standard = bool(st.session_state.get("acier_non_standard", False))
+    if acier_non_standard:
+        fyk = float(st.session_state.get("fyk_custom", 500.0) or 500.0)
+        mu_ref = str(st.session_state.get("fyk_ref_for_mu", "500"))
+        return fyk, mu_ref
+    else:
+        fyk = float(st.session_state.get("fyk", "500") or 500.0)
+        return fyk, str(int(fyk))
+
+def _as_total_with_optional_second_layer(sec_id: int, which: str):
     """
     which = "inf" or "sup"
-    Retourne (As_total, detail_str, layer_info_dict)
+    Retourne (As_total_mm2, detail_str)
     """
     if which == "inf":
         n1 = int(st.session_state.get(K("n_as_inf", sec_id), 2) or 2)
@@ -220,38 +274,11 @@ def _as_total_with_optional_second_layer(sec_id: int, which: str, diam_opts):
     else:
         AsT = As1
         detail = f"{n1}Ø{d1}"
-
-    layer_info = {"n1": n1, "d1": d1, "has2": has2, "n2": n2, "d2": d2, "jeu": jeu}
-    return AsT, detail, layer_info
-
-def _status_with_tolerance(value: float, limit: float, tol_percent: float):
-    """
-    Retourne (etat, msg_suffix)
-    - ok: value <= limit
-    - warn: value <= limit*(1+tol)
-    - nok: au-delà
-    """
-    if limit <= 0:
-        return "nok", ""
-    if value <= limit:
-        return "ok", ""
-    lim2 = limit * (1.0 + max(0.0, tol_percent) / 100.0)
-    if value <= lim2:
-        return "warn", f"(dépassement toléré +{tol_percent:.0f}%)"
-    return "nok", ""
+    return AsT, detail
 
 # ============================================================
-#  UI : SOLLICITATIONS PAR SECTION
+#  UI : SOLLICITATIONS PAR SECTION (UNIFORME)
 # ============================================================
-SECTION_TYPES = [
-    "Standard",
-    "Travée",
-    "Sur appui",
-    "Extrémité",
-    "Vérif recouvrement (à venir)",
-    "Vérif second lit (à venir)",
-]
-
 def _render_section_inputs(sec_id: int):
     cmom, cev = st.columns(2)
 
@@ -281,369 +308,466 @@ def _render_section_inputs(sec_id: int):
         else:
             st.session_state[K("V_lim", sec_id)] = 0.0
 
-def render_solicitations_section(sec_id: int):
-    # métadonnées
-    sec = next(s for s in st.session_state.sections if int(s.get("id")) == sec_id)
-    sec_nom = str(sec.get("nom", f"Section {sec_id}"))
-    sec_type = str(sec.get("type", "Standard"))
+def render_solicitations_all_sections():
+    st.markdown("### Sollicitations")
 
-    if sec_id == 1:
-        # Section 1: interface identique (pas d'expander obligatoire)
-        st.markdown("### Sollicitations")
-        # Titre discret renommable (sans casser l'UI)
-        cT1, cT2 = st.columns([4, 2])
-        with cT1:
-            sec_nom_new = st.text_input("Nom de la section", value=sec_nom, key="sec1_nom")
-        with cT2:
-            sec_type_new = st.selectbox("Type", SECTION_TYPES, index=SECTION_TYPES.index(sec_type) if sec_type in SECTION_TYPES else 0, key="sec1_type")
+    # Toutes les sections en expander (y compris section A)
+    for s in st.session_state.sections:
+        sid = int(s.get("id"))
+        sec_nom = str(s.get("nom", f"Section {sid}"))
+        sec_type = str(s.get("type", "Standard"))
 
-        sec["nom"] = sec_nom_new
-        sec["type"] = sec_type_new
+        # section 1 ouverte par défaut, les autres fermées
+        expanded_default = True if sid == 1 else False
 
-        _render_section_inputs(1)
-        return
+        with st.expander(f"{sec_nom}", expanded=expanded_default):
+            c1, c2, c3 = st.columns([3, 2, 1])
 
-    # Sections 2+ : expander compact
-    with st.expander(f"{sec_nom}", expanded=False):
-        c1, c2, c3 = st.columns([3, 2, 1])
-        with c1:
-            sec_nom_new = st.text_input("Nom de la section", value=sec_nom, key=K("nom", sec_id))
-        with c2:
-            sec_type_new = st.selectbox("Type", SECTION_TYPES, index=SECTION_TYPES.index(sec_type) if sec_type in SECTION_TYPES else 0, key=K("type", sec_id))
-        with c3:
-            if st.button("🗑️", key=f"del_sec_{sec_id}", use_container_width=True):
-                _delete_section(sec_id)
-                st.rerun()
+            with c1:
+                new_nom = st.text_input("Nom de la section", value=sec_nom, key=f"meta_nom_{sid}")
+            with c2:
+                idx = SECTION_TYPES.index(sec_type) if sec_type in SECTION_TYPES else 0
+                new_type = st.selectbox("Type", SECTION_TYPES, index=idx, key=f"meta_type_{sid}")
+            with c3:
+                if sid > 1:
+                    if st.button("🗑️", key=f"del_sec_{sid}", use_container_width=True):
+                        _delete_section(sid)
+                        st.rerun()
+                else:
+                    st.markdown("")
 
-        sec["nom"] = sec_nom_new
-        sec["type"] = sec_type_new
+            s["nom"] = new_nom
+            s["type"] = new_type
 
-        _render_section_inputs(sec_id)
+            _render_section_inputs(sid)
+
+    # Bouton TOUJOURS en dessous de tout
+    st.markdown("---")
+    if st.button("➕ Ajouter une section à vérifier", use_container_width=True, key="btn_add_section"):
+        _add_section()
+        st.rerun()
 
 # ============================================================
-#  UI : DIMENSIONNEMENT PAR SECTION (même logique qu'avant)
+#  DIMENSIONNEMENT PAR SECTION + STATUT GLOBAL
 # ============================================================
-def render_dimensionnement_section(sec_id: int, beton_data: dict):
-    # --------- paramètres matériaux / géométrie ----------
+def _dimensionnement_compute_states(sec_id: int, beton_data: dict):
+    """
+    Calcule les états (ok/warn/nok) sans rendre l'UI.
+    Retourne: dict states + values utiles.
+    """
     beton = st.session_state["beton"]
-
-    fck       = beton_data[beton]["fck"]
     fck_cube  = beton_data[beton]["fck_cube"]
     alpha_b   = beton_data[beton]["alpha_b"]
 
-    # fyk : standard ou custom
-    fyk_mode = st.session_state.get("fyk_mode", "Standard")
-    if fyk_mode == "Custom":
-        fyk = float(st.session_state.get("fyk_custom", 500.0) or 500.0)
-        fyk_ref_for_mu = str(st.session_state.get("fyk_ref_for_mu", "500"))
-    else:
-        fyk = float(st.session_state.get("fyk", "500") or 500.0)
-        fyk_ref_for_mu = str(int(fyk))
-
-    # mu_val dépend de la base de données (souvent 400/500)
-    mu_key = f"mu_a{fyk_ref_for_mu}"
-    if mu_key not in beton_data[beton]:
-        # fallback le plus proche (400 ou 500)
-        mu_key = "mu_a500" if "mu_a500" in beton_data[beton] else list(k for k in beton_data[beton].keys() if k.startswith("mu_a"))[0]
-    mu_val = beton_data[beton][mu_key]
-
+    fyk, mu_ref = _get_fyk_and_mu_ref()
     fyd = fyk / 1.5
+
+    mu_key = f"mu_a{mu_ref}"
+    if mu_key not in beton_data[beton]:
+        mu_key = "mu_a500" if "mu_a500" in beton_data[beton] else [k for k in beton_data[beton].keys() if k.startswith("mu_a")][0]
+    mu_val = beton_data[beton][mu_key]
 
     b = float(st.session_state["b"])
     h = float(st.session_state["h"])
     enrobage = float(st.session_state["enrobage"])
+    d_utile = h - enrobage  # cm
 
-    # --------- section meta ----------
-    sec = next(s for s in st.session_state.sections if int(s.get("id")) == sec_id)
-    sec_nom = str(sec.get("nom", f"Section {sec_id}"))
+    tol_tau = float(st.session_state.get("tau_tolerance_percent", 0.0) or 0.0)
 
-    # --------- options avancées d'affichage ----------
-    units_len = st.session_state.get("units_len", "cm")  # "cm" ou "mm"
-    units_as  = st.session_state.get("units_as", "mm²")  # "mm²" ou "cm²"
-    tol_tau   = float(st.session_state.get("tau_tolerance_percent", 0.0) or 0.0)
-
-    # --------- sollicitations ----------
     M_inf_val = float(st.session_state.get(K("M_inf", sec_id), 0.0) or 0.0)
     M_sup_val = float(st.session_state.get(K("M_sup", sec_id), 0.0) or 0.0)
     V_val     = float(st.session_state.get(K("V", sec_id), 0.0) or 0.0)
     V_lim_val = float(st.session_state.get(K("V_lim", sec_id), 0.0) or 0.0)
+    has_Vlim  = bool(st.session_state.get(K("ajouter_effort_reduit", sec_id), False)) and (V_lim_val > 0)
 
-    st.markdown(f"#### {sec_nom}")
-
-    # ---- Vérification de la hauteur ----
+    # hauteur
     M_max = max(M_inf_val, M_sup_val)
     if M_max > 0:
         hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
     else:
         hmin_calc = 0.0
-
     etat_h = "ok" if (hmin_calc + enrobage <= h) else "nok"
-    open_bloc("Vérification de la hauteur", etat_h)
 
-    if units_len == "mm":
-        st.markdown(
-            f"**h,min** = {hmin_calc*10:.0f} mm  \n"
-            f"h,min + enrobage = {(hmin_calc + enrobage)*10:.0f} mm ≤ h = {h*10:.0f} mm"
-        )
-    else:
-        st.markdown(
-            f"**h,min** = {hmin_calc:.1f} cm  \n"
-            f"h,min + enrobage = {hmin_calc + enrobage:.1f} cm ≤ h = {h:.1f} cm"
-        )
-    close_bloc()
-
-    # ---- Données section (communes) ----
-    d_utile = h - enrobage  # cm
-    As_min_formula = 0.0013 * b * h * 1e2  # mm² (comme avant)
+    # As min/max
+    As_min_formula = 0.0013 * b * h * 1e2  # mm²
     As_max         = 0.04   * b * h * 1e2  # mm²
 
-    # ---- A_s requis par moments
     As_req_inf = (M_inf_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_inf_val > 0 else 0.0
     As_req_sup = (M_sup_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_sup_val > 0 else 0.0
-
-    # ---- A_s,min effectifs avec règle croisée des 25 %
     As_min_inf_eff = max(As_min_formula, 0.25 * As_req_sup)
     As_min_sup_eff = max(As_min_formula, 0.25 * As_req_inf)
 
-    diam_opts = [6, 8, 10, 12, 16, 20, 25, 32, 40]
+    As_inf_total, _ = _as_total_with_optional_second_layer(sec_id, "inf")
+    As_sup_total, _ = _as_total_with_optional_second_layer(sec_id, "sup")
+    etat_inf = "ok" if (As_inf_total >= max(As_req_inf, As_min_inf_eff) and As_inf_total <= As_max) else "nok"
+    etat_sup = "ok" if (As_sup_total >= max(As_req_sup, As_min_sup_eff) and As_sup_total <= As_max) else "nok"
 
-    # ---- Armatures inférieures (avec option 2e lit)
-    # UI de choix
-    open_bloc("Armatures inférieures", "ok")  # état mis à jour après lecture
-    ca1, ca2, ca3 = st.columns(3)
-    with ca1: st.markdown(f"**Aₛ,req,inf = {As_req_inf:.0f} mm²**")
-    with ca2: st.markdown(f"**Aₛ,min,inf = {As_min_inf_eff:.0f} mm²**")
-    with ca3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
-
-    r1c1, r1c2, r1c3 = st.columns([3, 3, 2])
-    with r1c1:
-        st.number_input("Nb barres", min_value=1, max_value=50, value=int(st.session_state.get(K("n_as_inf", sec_id), 2) or 2),
-                        step=1, key=K("n_as_inf", sec_id))
-    with r1c2:
-        dcur = int(st.session_state.get(K("ø_as_inf", sec_id), 16) or 16)
-        idx = diam_opts.index(dcur) if dcur in diam_opts else diam_opts.index(16)
-        st.selectbox("Ø (mm)", diam_opts, index=idx, key=K("ø_as_inf", sec_id))
-    with r1c3:
-        st.markdown("")
-
-    # second lit (discret)
-    has2 = st.checkbox("Ajouter un second lit (inf.)", value=bool(st.session_state.get(K("ajouter_second_lit_inf", sec_id), False)),
-                       key=K("ajouter_second_lit_inf", sec_id))
-    if has2:
-        r2c1, r2c2, r2c3 = st.columns([3, 3, 2])
-        with r2c1:
-            st.number_input("Nb barres (2e lit)", min_value=1, max_value=50,
-                            value=int(st.session_state.get(K("n_as_inf_2", sec_id), 2) or 2),
-                            step=1, key=K("n_as_inf_2", sec_id))
-        with r2c2:
-            dcur2 = int(st.session_state.get(K("ø_as_inf_2", sec_id), int(st.session_state.get(K("ø_as_inf", sec_id), 16) or 16)) or 16)
-            idx2 = diam_opts.index(dcur2) if dcur2 in diam_opts else diam_opts.index(16)
-            st.selectbox("Ø (mm) (2e lit)", diam_opts, index=idx2, key=K("ø_as_inf_2", sec_id))
-        with r2c3:
-            float_input_fr_simple("Jeu entre lits (cm)", key=K("jeu_inf_2", sec_id),
-                                  default=float(st.session_state.get(K("jeu_inf_2", sec_id), 0.0) or 0.0), min_value=0.0)
-    else:
-        # valeurs par défaut stables
-        st.session_state[K("n_as_inf_2", sec_id)] = st.session_state.get(K("n_as_inf_2", sec_id), 2)
-        st.session_state[K("ø_as_inf_2", sec_id)] = st.session_state.get(K("ø_as_inf_2", sec_id), st.session_state.get(K("ø_as_inf", sec_id), 16))
-        st.session_state[K("jeu_inf_2", sec_id)] = st.session_state.get(K("jeu_inf_2", sec_id), 0.0)
-
-    As_inf_total, inf_detail, _ = _as_total_with_optional_second_layer(sec_id, "inf", diam_opts)
-    ok_inf = (As_inf_total >= max(As_req_inf, As_min_inf_eff)) and (As_inf_total <= As_max)
-    etat_inf = "ok" if ok_inf else "nok"
-
-    # affichage surface choisi
-    As_inf_disp = As_inf_total if units_as == "mm²" else As_inf_total / 100.0
-    unit_as_txt = "mm²" if units_as == "mm²" else "cm²"
-
-    st.markdown(
-        f"<div style='margin-top:6px;font-weight:600;'>Choix : {inf_detail} — "
-        f"( {As_inf_disp:.2f} {unit_as_txt} )</div>",
-        unsafe_allow_html=True
-    )
-    close_bloc()
-    # on réouvre un petit bloc statut uniquement si NOK (sans changer ta mise en forme globale)
-    if etat_inf != "ok":
-        open_bloc("Armatures inférieures — Vérification", etat_inf)
-        st.markdown("Aₛ choisi insuffisant ou dépasse Aₛ,max.")
-        close_bloc()
-
-    # ---- Armatures supérieures (avec option 2e lit, toujours affiché)
-    open_bloc("Armatures supérieures", "ok")
-    cs1, cs2, cs3 = st.columns(3)
-    with cs1: st.markdown(f"**Aₛ,req,sup = {As_req_sup:.0f} mm²**")
-    with cs2: st.markdown(f"**Aₛ,min,sup = {As_min_sup_eff:.0f} mm²**")
-    with cs3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
-
-    s1c1, s1c2, s1c3 = st.columns([3, 3, 2])
-    with s1c1:
-        st.number_input("Nb barres (sup.)", min_value=1, max_value=50, value=int(st.session_state.get(K("n_as_sup", sec_id), 2) or 2),
-                        step=1, key=K("n_as_sup", sec_id))
-    with s1c2:
-        dcur = int(st.session_state.get(K("ø_as_sup", sec_id), 16) or 16)
-        idx = diam_opts.index(dcur) if dcur in diam_opts else diam_opts.index(16)
-        st.selectbox("Ø (mm) (sup.)", diam_opts, index=idx, key=K("ø_as_sup", sec_id))
-    with s1c3:
-        st.markdown("")
-
-    has2s = st.checkbox("Ajouter un second lit (sup.)", value=bool(st.session_state.get(K("ajouter_second_lit_sup", sec_id), False)),
-                        key=K("ajouter_second_lit_sup", sec_id))
-    if has2s:
-        s2c1, s2c2, s2c3 = st.columns([3, 3, 2])
-        with s2c1:
-            st.number_input("Nb barres (2e lit) (sup.)", min_value=1, max_value=50,
-                            value=int(st.session_state.get(K("n_as_sup_2", sec_id), 2) or 2),
-                            step=1, key=K("n_as_sup_2", sec_id))
-        with s2c2:
-            dcur2 = int(st.session_state.get(K("ø_as_sup_2", sec_id), int(st.session_state.get(K("ø_as_sup", sec_id), 16) or 16)) or 16)
-            idx2 = diam_opts.index(dcur2) if dcur2 in diam_opts else diam_opts.index(16)
-            st.selectbox("Ø (mm) (2e lit) (sup.)", diam_opts, index=idx2, key=K("ø_as_sup_2", sec_id))
-        with s2c3:
-            float_input_fr_simple("Jeu entre lits (cm) (sup.)", key=K("jeu_sup_2", sec_id),
-                                  default=float(st.session_state.get(K("jeu_sup_2", sec_id), 0.0) or 0.0), min_value=0.0)
-    else:
-        st.session_state[K("n_as_sup_2", sec_id)] = st.session_state.get(K("n_as_sup_2", sec_id), 2)
-        st.session_state[K("ø_as_sup_2", sec_id)] = st.session_state.get(K("ø_as_sup_2", sec_id), st.session_state.get(K("ø_as_sup", sec_id), 16))
-        st.session_state[K("jeu_sup_2", sec_id)] = st.session_state.get(K("jeu_sup_2", sec_id), 0.0)
-
-    As_sup_total, sup_detail, _ = _as_total_with_optional_second_layer(sec_id, "sup", diam_opts)
-    ok_sup = (As_sup_total >= max(As_req_sup, As_min_sup_eff)) and (As_sup_total <= As_max)
-    etat_sup = "ok" if ok_sup else "nok"
-
-    As_sup_disp = As_sup_total if units_as == "mm²" else As_sup_total / 100.0
-    st.markdown(
-        f"<div style='margin-top:6px;font-weight:600;'>Choix : {sup_detail} — "
-        f"( {As_sup_disp:.2f} {unit_as_txt} )</div>",
-        unsafe_allow_html=True
-    )
-    close_bloc()
-    if etat_sup != "ok":
-        open_bloc("Armatures supérieures — Vérification", etat_sup)
-        st.markdown("Aₛ choisi insuffisant ou dépasse Aₛ,max.")
-        close_bloc()
-
-    # ---- Vérification effort tranchant (avec tolérance)
+    # Tranchant
     tau_1 = 0.016 * fck_cube / 1.05
     tau_2 = 0.032 * fck_cube / 1.05
     tau_4 = 0.064 * fck_cube / 1.05
 
     def _shear_need(tau):
         if tau <= tau_1:
-            return "Pas besoin d’étriers", "ok", "τ_adm_I", tau_1
+            return "ok", tau_1
         if tau <= tau_2:
-            return "Besoin d’étriers", "ok", "τ_adm_II", tau_2
+            return "ok", tau_2
         if tau <= tau_4:
-            return "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
-        return "Pas acceptable", "nok", "τ_adm_IV", tau_4
+            return "warn", tau_4
+        return "nok", tau_4
 
+    # V
     if V_val > 0:
-        tau = V_val * 1e3 / (0.75 * b * h * 100)  # comme avant
-        besoin, etat_tau_base, nom_lim, tau_lim = _shear_need(tau)
+        tau = V_val * 1e3 / (0.75 * b * h * 100)
+        etat_tau_base, tau_lim = _shear_need(tau)
+        if tau > tau_lim:
+            etat_tau, _ = _status_with_tolerance(tau, tau_lim, tol_tau)
+        else:
+            etat_tau = etat_tau_base
+    else:
+        etat_tau = "ok"
 
-        # applique tolérance uniquement si on dépasse la limite associée
-        etat_tau, suffix = _status_with_tolerance(tau, tau_lim, tol_tau) if tau > tau_lim else (etat_tau_base, "")
-        open_bloc("Vérification de l'effort tranchant", etat_tau)
-        extra = f" {suffix}" if suffix else ""
-        st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin} {extra}")
-        close_bloc()
-
-        # ---- Détermination des étriers (2 brins) + épingles (1 brin)
-        # Inputs
-        cE0, cE1, cE2, cE3 = st.columns([2, 2, 2, 2])
-        with cE0:
-            typ = st.selectbox("Type", ["Étriers (2 brins)", "Épingles (1 brin)"],
-                               index=0 if str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else 1,
-                               key=K("type_etrier", sec_id))
-        with cE1:
-            st.number_input("Nbr. cadres", min_value=1, max_value=8,
-                            value=int(st.session_state.get(K("n_etriers", sec_id), 1) or 1),
-                            step=1, key=K("n_etriers", sec_id))
-        with cE2:
-            diam_list = [6, 8, 10, 12]
-            dcur = int(st.session_state.get(K("ø_etrier", sec_id), 8) or 8)
-            idx = diam_list.index(dcur) if dcur in diam_list else diam_list.index(8)
-            st.selectbox("Ø (mm)", diam_list, index=idx, key=K("ø_etrier", sec_id))
-        with cE3:
-            float_input_fr_simple("Pas choisi (cm)", key=K("pas_etrier", sec_id),
-                                  default=float(st.session_state.get(K("pas_etrier", sec_id), 30.0) or 30.0),
-                                  min_value=1.0)
-
-        # Relecture
-        n_etriers_cur = int(st.session_state.get(K("n_etriers", sec_id), 1) or 1)
-        d_etrier_cur  = int(st.session_state.get(K("ø_etrier", sec_id), 8) or 8)
-        pas_cur       = float(st.session_state.get(K("pas_etrier", sec_id), 30.0) or 30.0)
-        typ           = str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)"))
+    # pas d'étriers V
+    if V_val > 0:
+        typ = str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)"))
         brins = 2 if "2 brins" in typ else 1
+        n_et = int(st.session_state.get(K("n_etriers", sec_id), 1) or 1)
+        d_et = int(st.session_state.get(K("ø_etrier", sec_id), 8) or 8)
+        pas = float(st.session_state.get(K("pas_etrier", sec_id), 30.0) or 30.0)
 
-        Ast_e = n_etriers_cur * brins * _bar_area_mm2(d_etrier_cur)  # mm²
-        pas_th = Ast_e * fyd * d_utile * 10 / (10 * V_val * 1e3)     # cm (formule inchangée, juste brins)
+        Ast_e = n_et * brins * _bar_area_mm2(d_et)  # mm²
+        pas_th = Ast_e * fyd * d_utile * 10 / (10 * V_val * 1e3)
         s_max = min(0.75 * d_utile, 30.0)
-
         pas_lim = min(pas_th, s_max)
-        etat_pas, suffix_pas = _status_with_tolerance(pas_cur, pas_lim, tol_tau)
+        etat_pas, _ = _status_with_tolerance(pas, pas_lim, tol_tau)
+    else:
+        etat_pas = "ok"
 
-        open_bloc("Détermination des étriers", etat_pas)
-        cpt1, cpt2, cpt3 = st.columns([1, 1, 2])
-        with cpt1: st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
-        with cpt2: st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-        with cpt3:
-            if suffix_pas:
-                st.markdown(f"**{suffix_pas}**")
-        close_bloc()
-
-    # ---- Effort tranchant réduit
-    if bool(st.session_state.get(K("ajouter_effort_reduit", sec_id), False)) and V_lim_val > 0:
+    # V_lim
+    if has_Vlim:
         tau_r = V_lim_val * 1e3 / (0.75 * b * h * 100)
-        besoin_r, etat_r_base, nom_lim_r, tau_lim_r = _shear_need(tau_r)
-        etat_r, suffix_r = _status_with_tolerance(tau_r, tau_lim_r, tol_tau) if tau_r > tau_lim_r else (etat_r_base, "")
-        open_bloc("Vérification de l'effort tranchant réduit", etat_r)
-        extra = f" {suffix_r}" if suffix_r else ""
-        st.markdown(f"τ = {tau_r:.2f} N/mm² ≤ {nom_lim_r} = {tau_lim_r:.2f} N/mm² → {besoin_r} {extra}")
-        close_bloc()
+        etat_tau_r_base, tau_lim_r = _shear_need(tau_r)
+        if tau_r > tau_lim_r:
+            etat_tau_r, _ = _status_with_tolerance(tau_r, tau_lim_r, tol_tau)
+        else:
+            etat_tau_r = etat_tau_r_base
 
-        # ---- Détermination des étriers réduits
-        cR0, cR1, cR2, cR3 = st.columns([2, 2, 2, 2])
-        with cR0:
-            typ_r = st.selectbox("Type (réduit)", ["Étriers (2 brins)", "Épingles (1 brin)"],
-                                 index=0 if str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else 1,
-                                 key=K("type_etrier_r", sec_id))
-        with cR1:
-            st.number_input("Nbr. cadres (réduit)", min_value=1, max_value=8,
-                            value=int(st.session_state.get(K("n_etriers_r", sec_id), 1) or 1),
-                            step=1, key=K("n_etriers_r", sec_id))
-        with cR2:
-            diam_list_r = [6, 8, 10, 12]
-            dcur_r = int(st.session_state.get(K("ø_etrier_r", sec_id), 8) or 8)
-            idxr = diam_list_r.index(dcur_r) if dcur_r in diam_list_r else diam_list_r.index(8)
-            st.selectbox("Ø (mm) (réduit)", diam_list_r, index=idxr, key=K("ø_etrier_r", sec_id))
-        with cR3:
-            float_input_fr_simple("Pas choisi (cm) (réduit)", key=K("pas_etrier_r", sec_id),
-                                  default=float(st.session_state.get(K("pas_etrier_r", sec_id), 30.0) or 30.0),
-                                  min_value=1.0)
-
-        # Relecture
-        n_et_r_cur = int(st.session_state.get(K("n_etriers_r", sec_id), 1) or 1)
-        d_et_r_cur = int(st.session_state.get(K("ø_etrier_r", sec_id), 8) or 8)
-        pas_r_cur  = float(st.session_state.get(K("pas_etrier_r", sec_id), 30.0) or 30.0)
-        typ_r      = str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)"))
+        typ_r = str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)"))
         brins_r = 2 if "2 brins" in typ_r else 1
+        n_et_r = int(st.session_state.get(K("n_etriers_r", sec_id), 1) or 1)
+        d_et_r = int(st.session_state.get(K("ø_etrier_r", sec_id), 8) or 8)
+        pas_r  = float(st.session_state.get(K("pas_etrier_r", sec_id), 30.0) or 30.0)
 
-        Ast_er = n_et_r_cur * brins_r * _bar_area_mm2(d_et_r_cur)      # mm²
-        pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim_val * 1e3)  # cm
+        Ast_er = n_et_r * brins_r * _bar_area_mm2(d_et_r)
+        pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim_val * 1e3)
         s_max_r = min(0.75 * d_utile, 30.0)
-
         pas_lim_r = min(pas_th_r, s_max_r)
-        etat_pas_r, suffix_pas_r = _status_with_tolerance(pas_r_cur, pas_lim_r, tol_tau)
+        etat_pas_r, _ = _status_with_tolerance(pas_r, pas_lim_r, tol_tau)
+    else:
+        etat_tau_r = "ok"
+        etat_pas_r = "ok"
 
-        open_bloc("Détermination des étriers réduits", etat_pas_r)
-        crp1, crp2, crp3 = st.columns([1, 1, 2])
-        with crp1: st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
-        with crp2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
-        with crp3:
-            if suffix_pas_r:
-                st.markdown(f"**{suffix_pas_r}**")
+    etat_global = _status_merge(etat_h, etat_inf, etat_sup, etat_tau, etat_pas, etat_tau_r, etat_pas_r)
+
+    return {
+        "etat_global": etat_global,
+        "etat_h": etat_h,
+        "etat_inf": etat_inf,
+        "etat_sup": etat_sup,
+        "etat_tau": etat_tau,
+        "etat_pas": etat_pas,
+        "etat_tau_r": etat_tau_r,
+        "etat_pas_r": etat_pas_r,
+        "has_Vlim": has_Vlim,
+    }
+
+def render_dimensionnement_section(sec_id: int, beton_data: dict):
+    # --------- métadonnées section ----------
+    sec = next(s for s in st.session_state.sections if int(s.get("id")) == sec_id)
+    sec_nom = str(sec.get("nom", f"Section {sec_id}"))
+
+    # --------- compute states (pour colorer le titre expander) ----------
+    states = _dimensionnement_compute_states(sec_id, beton_data)
+    etat_global = states["etat_global"]
+
+    title = _status_icon_label(etat_global, sec_nom)
+    expanded_default = True if sec_id == 1 else False
+
+    with st.expander(title, expanded=expanded_default):
+        # --------- paramètres matériaux / géométrie ----------
+        beton = st.session_state["beton"]
+        fck_cube  = beton_data[beton]["fck_cube"]
+        alpha_b   = beton_data[beton]["alpha_b"]
+
+        fyk, mu_ref = _get_fyk_and_mu_ref()
+        fyd = fyk / 1.5
+
+        mu_key = f"mu_a{mu_ref}"
+        if mu_key not in beton_data[beton]:
+            mu_key = "mu_a500" if "mu_a500" in beton_data[beton] else [k for k in beton_data[beton].keys() if k.startswith("mu_a")][0]
+        mu_val = beton_data[beton][mu_key]
+
+        b = float(st.session_state["b"])
+        h = float(st.session_state["h"])
+        enrobage = float(st.session_state["enrobage"])
+        d_utile = h - enrobage  # cm
+
+        # --------- options avancées d'affichage ----------
+        units_len = st.session_state.get("units_len", "cm")  # "cm" ou "mm"
+        units_as  = st.session_state.get("units_as", "mm²")  # "mm²" ou "cm²"
+        tol_tau   = float(st.session_state.get("tau_tolerance_percent", 0.0) or 0.0)
+
+        # --------- sollicitations ----------
+        M_inf_val = float(st.session_state.get(K("M_inf", sec_id), 0.0) or 0.0)
+        M_sup_val = float(st.session_state.get(K("M_sup", sec_id), 0.0) or 0.0)
+        V_val     = float(st.session_state.get(K("V", sec_id), 0.0) or 0.0)
+        V_lim_val = float(st.session_state.get(K("V_lim", sec_id), 0.0) or 0.0)
+
+        # ---- Vérification de la hauteur ----
+        M_max = max(M_inf_val, M_sup_val)
+        if M_max > 0:
+            hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
+        else:
+            hmin_calc = 0.0
+
+        open_bloc("Vérification de la hauteur", states["etat_h"])
+        if units_len == "mm":
+            st.markdown(
+                f"**h,min** = {hmin_calc*10:.0f} mm  \n"
+                f"h,min + enrobage = {(hmin_calc + enrobage)*10:.0f} mm ≤ h = {h*10:.0f} mm"
+            )
+        else:
+            st.markdown(
+                f"**h,min** = {hmin_calc:.1f} cm  \n"
+                f"h,min + enrobage = {hmin_calc + enrobage:.1f} cm ≤ h = {h:.1f} cm"
+            )
         close_bloc()
 
+        # ---- Données section (communes) ----
+        As_min_formula = 0.0013 * b * h * 1e2  # mm²
+        As_max         = 0.04   * b * h * 1e2  # mm²
+
+        As_req_inf = (M_inf_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_inf_val > 0 else 0.0
+        As_req_sup = (M_sup_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_sup_val > 0 else 0.0
+
+        As_min_inf_eff = max(As_min_formula, 0.25 * As_req_sup)
+        As_min_sup_eff = max(As_min_formula, 0.25 * As_req_inf)
+
+        unit_as_txt = "mm²" if units_as == "mm²" else "cm²"
+
+        # ---- Armatures inférieures ----
+        diam_opts = [6, 8, 10, 12, 16, 20, 25, 32, 40]
+        open_bloc("Armatures inférieures", states["etat_inf"])
+        ca1, ca2, ca3 = st.columns(3)
+        with ca1: st.markdown(f"**Aₛ,req,inf = {As_req_inf:.0f} mm²**")
+        with ca2: st.markdown(f"**Aₛ,min,inf = {As_min_inf_eff:.0f} mm²**")
+        with ca3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
+
+        r1c1, r1c2 = st.columns([1, 1])
+        with r1c1:
+            st.number_input("Nb barres", min_value=1, max_value=50,
+                            value=int(st.session_state.get(K("n_as_inf", sec_id), 2) or 2),
+                            step=1, key=K("n_as_inf", sec_id))
+        with r1c2:
+            dcur = int(st.session_state.get(K("ø_as_inf", sec_id), 16) or 16)
+            idx = diam_opts.index(dcur) if dcur in diam_opts else diam_opts.index(16)
+            st.selectbox("Ø (mm)", diam_opts, index=idx, key=K("ø_as_inf", sec_id))
+
+        has2 = st.checkbox("Ajouter un second lit (inf.)",
+                           value=bool(st.session_state.get(K("ajouter_second_lit_inf", sec_id), False)),
+                           key=K("ajouter_second_lit_inf", sec_id))
+        if has2:
+            s2c1, s2c2, s2c3 = st.columns([1, 1, 1])
+            with s2c1:
+                st.number_input("Nb barres (2e lit)", min_value=1, max_value=50,
+                                value=int(st.session_state.get(K("n_as_inf_2", sec_id), 2) or 2),
+                                step=1, key=K("n_as_inf_2", sec_id))
+            with s2c2:
+                dcur2 = int(st.session_state.get(K("ø_as_inf_2", sec_id), dcur) or dcur)
+                idx2 = diam_opts.index(dcur2) if dcur2 in diam_opts else diam_opts.index(dcur)
+                st.selectbox("Ø (mm) (2e lit)", diam_opts, index=idx2, key=K("ø_as_inf_2", sec_id))
+            with s2c3:
+                float_input_fr_simple("Jeu entre lits (cm)", key=K("jeu_inf_2", sec_id),
+                                      default=float(st.session_state.get(K("jeu_inf_2", sec_id), 0.0) or 0.0),
+                                      min_value=0.0)
+
+        As_inf_total, inf_detail = _as_total_with_optional_second_layer(sec_id, "inf")
+        As_inf_disp = As_inf_total if units_as == "mm²" else As_inf_total / 100.0
+        st.markdown(
+            f"<div style='margin-top:6px;font-weight:600;'>Choix : {inf_detail} — "
+            f"( {As_inf_disp:.2f} {unit_as_txt} )</div>",
+            unsafe_allow_html=True
+        )
+        close_bloc()
+
+        # ---- Armatures supérieures ----
+        open_bloc("Armatures supérieures", states["etat_sup"])
+        cs1, cs2, cs3 = st.columns(3)
+        with cs1: st.markdown(f"**Aₛ,req,sup = {As_req_sup:.0f} mm²**")
+        with cs2: st.markdown(f"**Aₛ,min,sup = {As_min_sup_eff:.0f} mm²**")
+        with cs3: st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
+
+        t1c1, t1c2 = st.columns([1, 1])
+        with t1c1:
+            st.number_input("Nb barres (sup.)", min_value=1, max_value=50,
+                            value=int(st.session_state.get(K("n_as_sup", sec_id), 2) or 2),
+                            step=1, key=K("n_as_sup", sec_id))
+        with t1c2:
+            dcurS = int(st.session_state.get(K("ø_as_sup", sec_id), 16) or 16)
+            idxS = diam_opts.index(dcurS) if dcurS in diam_opts else diam_opts.index(16)
+            st.selectbox("Ø (mm) (sup.)", diam_opts, index=idxS, key=K("ø_as_sup", sec_id))
+
+        has2s = st.checkbox("Ajouter un second lit (sup.)",
+                            value=bool(st.session_state.get(K("ajouter_second_lit_sup", sec_id), False)),
+                            key=K("ajouter_second_lit_sup", sec_id))
+        if has2s:
+            u2c1, u2c2, u2c3 = st.columns([1, 1, 1])
+            with u2c1:
+                st.number_input("Nb barres (2e lit) (sup.)", min_value=1, max_value=50,
+                                value=int(st.session_state.get(K("n_as_sup_2", sec_id), 2) or 2),
+                                step=1, key=K("n_as_sup_2", sec_id))
+            with u2c2:
+                dcurS2 = int(st.session_state.get(K("ø_as_sup_2", sec_id), dcurS) or dcurS)
+                idxS2 = diam_opts.index(dcurS2) if dcurS2 in diam_opts else diam_opts.index(dcurS)
+                st.selectbox("Ø (mm) (2e lit) (sup.)", diam_opts, index=idxS2, key=K("ø_as_sup_2", sec_id))
+            with u2c3:
+                float_input_fr_simple("Jeu entre lits (cm) (sup.)", key=K("jeu_sup_2", sec_id),
+                                      default=float(st.session_state.get(K("jeu_sup_2", sec_id), 0.0) or 0.0),
+                                      min_value=0.0)
+
+        As_sup_total, sup_detail = _as_total_with_optional_second_layer(sec_id, "sup")
+        As_sup_disp = As_sup_total if units_as == "mm²" else As_sup_total / 100.0
+        st.markdown(
+            f"<div style='margin-top:6px;font-weight:600;'>Choix : {sup_detail} — "
+            f"( {As_sup_disp:.2f} {unit_as_txt} )</div>",
+            unsafe_allow_html=True
+        )
+        close_bloc()
+
+        # ---- Tranchant + étriers ----
+        tau_1 = 0.016 * fck_cube / 1.05
+        tau_2 = 0.032 * fck_cube / 1.05
+        tau_4 = 0.064 * fck_cube / 1.05
+
+        def _shear_need_text(tau):
+            if tau <= tau_1:
+                return "Pas besoin d’étriers", "ok", "τ_adm_I", tau_1
+            if tau <= tau_2:
+                return "Besoin d’étriers", "ok", "τ_adm_II", tau_2
+            if tau <= tau_4:
+                return "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
+            return "Pas acceptable", "nok", "τ_adm_IV", tau_4
+
+        if V_val > 0:
+            tau = V_val * 1e3 / (0.75 * b * h * 100)
+            besoin, etat_tau_base, nom_lim, tau_lim = _shear_need_text(tau)
+            if tau > tau_lim:
+                etat_tau, suffix = _status_with_tolerance(tau, tau_lim, tol_tau)
+            else:
+                etat_tau, suffix = etat_tau_base, ""
+            open_bloc("Vérification de l'effort tranchant", etat_tau)
+            extra = f" {suffix}" if suffix else ""
+            st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}{extra}")
+            close_bloc()
+
+            cE0, cE1, cE2, cE3 = st.columns([2, 2, 2, 2])
+            with cE0:
+                st.selectbox(
+                    "Type",
+                    ["Étriers (2 brins)", "Épingles (1 brin)"],
+                    index=0 if str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else 1,
+                    key=K("type_etrier", sec_id),
+                )
+            with cE1:
+                st.number_input("Nbr. cadres", min_value=1, max_value=8,
+                                value=int(st.session_state.get(K("n_etriers", sec_id), 1) or 1),
+                                step=1, key=K("n_etriers", sec_id))
+            with cE2:
+                diam_list = [6, 8, 10, 12]
+                dcurE = int(st.session_state.get(K("ø_etrier", sec_id), 8) or 8)
+                idxE = diam_list.index(dcurE) if dcurE in diam_list else diam_list.index(8)
+                st.selectbox("Ø (mm)", diam_list, index=idxE, key=K("ø_etrier", sec_id))
+            with cE3:
+                float_input_fr_simple("Pas choisi (cm)", key=K("pas_etrier", sec_id),
+                                      default=float(st.session_state.get(K("pas_etrier", sec_id), 30.0) or 30.0),
+                                      min_value=1.0)
+
+            typ = str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)"))
+            brins = 2 if "2 brins" in typ else 1
+            n_et = int(st.session_state.get(K("n_etriers", sec_id), 1) or 1)
+            d_et = int(st.session_state.get(K("ø_etrier", sec_id), 8) or 8)
+            pas = float(st.session_state.get(K("pas_etrier", sec_id), 30.0) or 30.0)
+
+            Ast_e = n_et * brins * _bar_area_mm2(d_et)  # mm²
+            pas_th = Ast_e * fyd * d_utile * 10 / (10 * V_val * 1e3)
+            s_max = min(0.75 * d_utile, 30.0)
+            pas_lim = min(pas_th, s_max)
+            etat_pas, suffix_pas = _status_with_tolerance(pas, pas_lim, tol_tau)
+
+            open_bloc("Détermination des étriers", etat_pas)
+            a1, a2, a3 = st.columns([1, 1, 2])
+            with a1: st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
+            with a2: st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
+            with a3:
+                if suffix_pas:
+                    st.markdown(f"**{suffix_pas}**")
+            close_bloc()
+
+        # ---- Tranchant réduit ----
+        if bool(st.session_state.get(K("ajouter_effort_reduit", sec_id), False)) and V_lim_val > 0:
+            tau_r = V_lim_val * 1e3 / (0.75 * b * h * 100)
+            besoin_r, etat_r_base, nom_lim_r, tau_lim_r = _shear_need_text(tau_r)
+            if tau_r > tau_lim_r:
+                etat_r, suffix_r = _status_with_tolerance(tau_r, tau_lim_r, tol_tau)
+            else:
+                etat_r, suffix_r = etat_r_base, ""
+            open_bloc("Vérification de l'effort tranchant réduit", etat_r)
+            extra = f" {suffix_r}" if suffix_r else ""
+            st.markdown(f"τ = {tau_r:.2f} N/mm² ≤ {nom_lim_r} = {tau_lim_r:.2f} N/mm² → {besoin_r}{extra}")
+            close_bloc()
+
+            cR0, cR1, cR2, cR3 = st.columns([2, 2, 2, 2])
+            with cR0:
+                st.selectbox(
+                    "Type (réduit)",
+                    ["Étriers (2 brins)", "Épingles (1 brin)"],
+                    index=0 if str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else 1,
+                    key=K("type_etrier_r", sec_id),
+                )
+            with cR1:
+                st.number_input("Nbr. cadres (réduit)", min_value=1, max_value=8,
+                                value=int(st.session_state.get(K("n_etriers_r", sec_id), 1) or 1),
+                                step=1, key=K("n_etriers_r", sec_id))
+            with cR2:
+                diam_list_r = [6, 8, 10, 12]
+                dcurER = int(st.session_state.get(K("ø_etrier_r", sec_id), 8) or 8)
+                idxER = diam_list_r.index(dcurER) if dcurER in diam_list_r else diam_list_r.index(8)
+                st.selectbox("Ø (mm) (réduit)", diam_list_r, index=idxER, key=K("ø_etrier_r", sec_id))
+            with cR3:
+                float_input_fr_simple("Pas choisi (cm) (réduit)", key=K("pas_etrier_r", sec_id),
+                                      default=float(st.session_state.get(K("pas_etrier_r", sec_id), 30.0) or 30.0),
+                                      min_value=1.0)
+
+            typ_r = str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)"))
+            brins_r = 2 if "2 brins" in typ_r else 1
+            n_et_r = int(st.session_state.get(K("n_etriers_r", sec_id), 1) or 1)
+            d_et_r = int(st.session_state.get(K("ø_etrier_r", sec_id), 8) or 8)
+            pas_r  = float(st.session_state.get(K("pas_etrier_r", sec_id), 30.0) or 30.0)
+
+            Ast_er = n_et_r * brins_r * _bar_area_mm2(d_et_r)
+            pas_th_r = Ast_er * fyd * d_utile * 10 / (10 * V_lim_val * 1e3)
+            s_max_r = min(0.75 * d_utile, 30.0)
+            pas_lim_r = min(pas_th_r, s_max_r)
+            etat_pas_r, suffix_pas_r = _status_with_tolerance(pas_r, pas_lim_r, tol_tau)
+
+            open_bloc("Détermination des étriers réduits", etat_pas_r)
+            b1, b2, b3 = st.columns([1, 1, 2])
+            with b1: st.markdown(f"**Pas théorique = {pas_th_r:.1f} cm**")
+            with b2: st.markdown(f"**Pas maximal = {s_max_r:.1f} cm**")
+            with b3:
+                if suffix_pas_r:
+                    st.markdown(f"**{suffix_pas_r}**")
+            close_bloc()
 
 # ============================================================
 #  SHOW()
@@ -714,6 +838,31 @@ def show():
     #  COLONNE GAUCHE
     # ============================================================
     with input_col_gauche:
+        # -------- Paramètres avancés (déplacé AU-DESSUS) --------
+        with st.expander("Paramètres avancés", expanded=False):
+            # 3 lignes (pas en colonnes)
+            st.selectbox("Affichage longueurs", ["cm", "mm"],
+                         index=0 if st.session_state.get("units_len", "cm") == "cm" else 1,
+                         key="units_len")
+            st.selectbox("Affichage armatures", ["mm²", "cm²"],
+                         index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1,
+                         key="units_as")
+            st.slider("Tolérance dépassement (%)", min_value=0, max_value=25,
+                      value=int(st.session_state.get("tau_tolerance_percent", 0) or 0),
+                      step=1, key="tau_tolerance_percent")
+
+            st.markdown("---")
+            st.checkbox("Qualité d'acier non standard", value=bool(st.session_state.get("acier_non_standard", False)),
+                        key="acier_non_standard")
+            if bool(st.session_state.get("acier_non_standard", False)):
+                st.number_input("fyk custom [N/mm²]", min_value=200.0, max_value=2000.0,
+                                value=float(st.session_state.get("fyk_custom", 500.0) or 500.0),
+                                step=10.0, key="fyk_custom")
+                st.selectbox("Référence mu (base béton)", ["400", "500"],
+                             index=1 if str(st.session_state.get("fyk_ref_for_mu", "500")) == "500" else 0,
+                             key="fyk_ref_for_mu")
+
+        # -------- Informations sur le projet --------
         st.markdown("### Informations sur le projet")
         afficher_infos = st.checkbox("Ajouter les informations du projet", value=False, key="chk_infos_projet")
         if afficher_infos:
@@ -728,6 +877,7 @@ def show():
         else:
             st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
 
+        # -------- Caractéristiques (retour “comme avant”) --------
         st.markdown("### Caractéristiques de la poutre")
         cbet, cacier = st.columns(2)
         with cbet:
@@ -737,23 +887,20 @@ def show():
             st.selectbox("Classe de béton", options, index=options.index(current_beton), key="beton")
 
         with cacier:
-            # Qualité acier standard ou custom
-            fyk_mode = st.selectbox("Qualité d'acier", ["Standard", "Custom"],
-                                    index=0 if st.session_state.get("fyk_mode", "Standard") == "Standard" else 1,
-                                    key="fyk_mode")
-            if fyk_mode == "Standard":
+            acier_non_standard = bool(st.session_state.get("acier_non_standard", False))
+            if not acier_non_standard:
                 acier_opts = ["400", "500"]
                 cur_fyk = st.session_state.get("fyk", "500")
-                st.selectbox("fyk [N/mm²]", acier_opts, index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1, key="fyk")
-                st.session_state["fyk_custom"] = float(st.session_state.get("fyk_custom", 500.0) or 500.0)
-                st.session_state["fyk_ref_for_mu"] = str(st.session_state.get("fyk_ref_for_mu", cur_fyk))
+                st.selectbox("Qualité d'acier [N/mm²]", acier_opts,
+                             index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
+                             key="fyk")
+                st.session_state.setdefault("fyk_custom", 500.0)
+                st.session_state.setdefault("fyk_ref_for_mu", "500")
             else:
-                st.number_input("fyk custom [N/mm²]", min_value=200.0, max_value=2000.0,
+                # demandé: le champ fyk custom apparait ici quand non standard activé
+                st.number_input("fyk (non standard) [N/mm²]", min_value=200.0, max_value=2000.0,
                                 value=float(st.session_state.get("fyk_custom", 500.0) or 500.0),
                                 step=10.0, key="fyk_custom")
-                st.selectbox("Référence mu (base béton)", ["400", "500"],
-                             index=1 if str(st.session_state.get("fyk_ref_for_mu", "500")) == "500" else 0,
-                             key="fyk_ref_for_mu")
 
         csec1, csec2, csec3 = st.columns(3)
         with csec1:
@@ -763,39 +910,15 @@ def show():
         with csec3:
             st.number_input("Enrob. (cm)", min_value=0.0, max_value=100.0, value=st.session_state.get("enrobage", 5.0), step=0.5, key="enrobage")
 
-        # -------- Paramètres avancés (discret) --------
-        with st.expander("Paramètres avancés", expanded=False):
-            st.selectbox("Affichage longueurs", ["cm", "mm"],
-                         index=0 if st.session_state.get("units_len", "cm") == "cm" else 1,
-                         key="units_len")
-            st.selectbox("Affichage armatures", ["mm²", "cm²"],
-                         index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1,
-                         key="units_as")
-            st.slider("Tolérance dépassement (%) (effort tranchant / pas)", min_value=0, max_value=25,
-                      value=int(st.session_state.get("tau_tolerance_percent", 0) or 0),
-                      step=1, key="tau_tolerance_percent")
-
-        # -------- Sollicitations : Section 1 + ajout sections + sections suivantes --------
-        render_solicitations_section(1)
-
-        st.markdown("---")
-        if st.button("➕ Ajouter une section à vérifier", use_container_width=True, key="btn_add_section"):
-            _add_section()
-            st.rerun()
-
-        for s in st.session_state.sections:
-            sid = int(s.get("id"))
-            if sid == 1:
-                continue
-            render_solicitations_section(sid)
+        # -------- Sollicitations (uniforme) --------
+        render_solicitations_all_sections()
 
     # ============================================================
     #  COLONNE DROITE
     # ============================================================
     with result_col_droite:
         st.markdown("### Dimensionnement")
-
         for s in st.session_state.sections:
             sid = int(s.get("id"))
             render_dimensionnement_section(sid, beton_data)
-            st.markdown("---")
+```
