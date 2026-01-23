@@ -231,19 +231,42 @@ def _status_with_tolerance(value: float, limit: float, tol_percent: float):
         return "warn", f"(dépassement toléré +{tol_percent:.0f}%)"
     return "nok", ""
 
+# ============================================================
+#  CISAILLEMENT : BRINS (centralisé)
+# ============================================================
+def _brins_from_type(type_txt: str) -> int:
+    if "3 brins" in type_txt:
+        return 3
+    if "2 brins" in type_txt:
+        return 2
+    return 1
+
 def _get_fyk_and_mu_ref():
     """
-    - fyk standard: 400/500 via st.session_state["fyk"]
-    - acier non standard: fyk_custom, et mu_ref_for_mu=400/500 pour lire mu_aXXX dans la DB béton
+    Sécurisé :
+    - fyk toujours numérique
+    - mu_ref toujours '400' ou '500'
     """
     acier_non_standard = bool(st.session_state.get("acier_non_standard", False))
+
     if acier_non_standard:
-        fyk = float(st.session_state.get("fyk_custom", 500.0) or 500.0)
+        try:
+            fyk = float(st.session_state.get("fyk_custom", 500.0))
+        except Exception:
+            fyk = 500.0
+
         mu_ref = str(st.session_state.get("fyk_ref_for_mu", "500"))
+        if mu_ref not in ("400", "500"):
+            mu_ref = "500"
+
         return fyk, mu_ref
-    else:
-        fyk = float(st.session_state.get("fyk", "500") or 500.0)
-        return fyk, str(int(fyk))
+
+    try:
+        fyk = float(st.session_state.get("fyk", 500))
+    except Exception:
+        fyk = 500.0
+
+    return fyk, str(int(fyk))
 
 def _as_total_with_optional_second_layer(sec_id: int, which: str):
     """
@@ -429,7 +452,7 @@ def _dimensionnement_compute_states(sec_id: int, beton_data: dict):
     # pas d'étriers V
     if V_val > 0:
         typ = str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)"))
-        brins = 2 if "2 brins" in typ else 1
+        brins = _brins_from_type(typ)
         n_et = int(st.session_state.get(K("n_etriers", sec_id), 1) or 1)
         d_et = int(st.session_state.get(K("ø_etrier", sec_id), 8) or 8)
         pas = float(st.session_state.get(K("pas_etrier", sec_id), 30.0) or 30.0)
@@ -452,7 +475,7 @@ def _dimensionnement_compute_states(sec_id: int, beton_data: dict):
             etat_tau_r = etat_tau_r_base
 
         typ_r = str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)"))
-        brins_r = 2 if "2 brins" in typ_r else 1
+        brins_r = _brins_from_type(typ_r)
         n_et_r = int(st.session_state.get(K("n_etriers_r", sec_id), 1) or 1)
         d_et_r = int(st.session_state.get(K("ø_etrier_r", sec_id), 8) or 8)
         pas_r  = float(st.session_state.get(K("pas_etrier_r", sec_id), 30.0) or 30.0)
@@ -523,13 +546,7 @@ def render_dimensionnement_section(sec_id: int, beton_data: dict):
         V_lim_val = float(st.session_state.get(K("V_lim", sec_id), 0.0) or 0.0)
 
         # ---- Vérification de la hauteur ----
-        M_max = max(M_inf_val, M_sup_val)
-        if M_max > 0:
-            hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
-        else:
-            hmin_calc = 0.0
-
-        open_bloc("Vérification de la hauteur", states["etat_h"])
+                open_bloc("Vérification de la hauteur", states["etat_h"])
         if units_len == "mm":
             st.markdown(
                 f"**h,min** = {hmin_calc*10:.0f} mm  \n"
@@ -673,8 +690,10 @@ def render_dimensionnement_section(sec_id: int, beton_data: dict):
             with cE0:
                 st.selectbox(
                     "Type",
-                    ["Étriers (2 brins)", "Épingles (1 brin)"],
-                    index=0 if str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else 1,
+                    ["Étriers (2 brins)", "Épingles (1 brin)", "Étriers (3 brins)"],
+                    index=0 if str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else (
+                        2 if str(st.session_state.get(K("type_etrier", sec_id), "")) == "Étriers (3 brins)" else 1
+                    ),
                     key=K("type_etrier", sec_id),
                 )
             with cE1:
@@ -692,7 +711,7 @@ def render_dimensionnement_section(sec_id: int, beton_data: dict):
                                       min_value=1.0)
 
             typ = str(st.session_state.get(K("type_etrier", sec_id), "Étriers (2 brins)"))
-            brins = 2 if "2 brins" in typ else 1
+            brins = _brins_from_type(typ)
             n_et = int(st.session_state.get(K("n_etriers", sec_id), 1) or 1)
             d_et = int(st.session_state.get(K("ø_etrier", sec_id), 8) or 8)
             pas = float(st.session_state.get(K("pas_etrier", sec_id), 30.0) or 30.0)
@@ -729,8 +748,10 @@ def render_dimensionnement_section(sec_id: int, beton_data: dict):
             with cR0:
                 st.selectbox(
                     "Type (réduit)",
-                    ["Étriers (2 brins)", "Épingles (1 brin)"],
-                    index=0 if str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else 1,
+                    ["Étriers (2 brins)", "Épingles (1 brin)", "Étriers (3 brins)"],
+                    index=0 if str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)")) == "Étriers (2 brins)" else (
+                        2 if str(st.session_state.get(K("type_etrier_r", sec_id), "")) == "Étriers (3 brins)" else 1
+                    ),
                     key=K("type_etrier_r", sec_id),
                 )
             with cR1:
@@ -748,7 +769,7 @@ def render_dimensionnement_section(sec_id: int, beton_data: dict):
                                       min_value=1.0)
 
             typ_r = str(st.session_state.get(K("type_etrier_r", sec_id), "Étriers (2 brins)"))
-            brins_r = 2 if "2 brins" in typ_r else 1
+            brins_r = _brins_from_type(typ_r)
             n_et_r = int(st.session_state.get(K("n_etriers_r", sec_id), 1) or 1)
             d_et_r = int(st.session_state.get(K("ø_etrier_r", sec_id), 8) or 8)
             pas_r  = float(st.session_state.get(K("pas_etrier_r", sec_id), 30.0) or 30.0)
