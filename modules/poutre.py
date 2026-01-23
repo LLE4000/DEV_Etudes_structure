@@ -561,7 +561,7 @@ def render_dimensionnement_section(sec_id: int, beton_data: dict):
 
         # ---- Données section (communes) ----
         As_min_formula = 0.0013 * b * h * 1e2  # mm²
-        As_max         = 0.04   * b * h * 1e2  # mm²
+        As_max = 0.04   * b * h * 1e2  # mm²
 
         As_req_inf = (M_inf_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_inf_val > 0 else 0.0
         As_req_sup = (M_sup_val * 1e6) / (fyd * 0.9 * d_utile * 10) if M_sup_val > 0 else 0.0
