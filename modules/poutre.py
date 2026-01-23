@@ -921,4 +921,3 @@ def show():
         for s in st.session_state.sections:
             sid = int(s.get("id"))
             render_dimensionnement_section(sid, beton_data)
-```
