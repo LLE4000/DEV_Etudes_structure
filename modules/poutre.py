@@ -190,6 +190,11 @@ BASE_SAVE_KEYS_GLOBAL = {
     "date",
     "indice",
     "chk_infos_projet",
+    # acier global (affiché une seule fois)
+    "acier_non_standard",
+    "fyk",
+    "fyk_custom",
+    "fyk_ref_for_mu",
 }
 
 
@@ -298,20 +303,22 @@ def _brins_from_type(type_txt: str) -> int:
     return 1
 
 
-def _get_fyk_and_mu_ref(beam_id: int):
-    acier_non_standard = bool(st.session_state.get(KB("acier_non_standard", beam_id), False))
+def _get_fyk_and_mu_ref():
+    """Acier GLOBAL (affiché une seule fois dans Paramètres avancés)."""
+    acier_non_standard = bool(st.session_state.get("acier_non_standard", False))
+
     if acier_non_standard:
         try:
-            fyk = float(st.session_state.get(KB("fyk_custom", beam_id), 500.0))
+            fyk = float(st.session_state.get("fyk_custom", 500.0))
         except Exception:
             fyk = 500.0
-        mu_ref = str(st.session_state.get(KB("fyk_ref_for_mu", beam_id), "500"))
+        mu_ref = str(st.session_state.get("fyk_ref_for_mu", "500"))
         if mu_ref not in ("400", "500"):
             mu_ref = "500"
         return fyk, mu_ref
 
     try:
-        fyk = float(st.session_state.get(KB("fyk", beam_id), 500))
+        fyk = float(st.session_state.get("fyk", 500))
     except Exception:
         fyk = 500.0
     return fyk, str(int(fyk))
@@ -441,50 +448,41 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
         key=f"meta_beam_nom_{beam_id}",
     )
 
-    # béton / acier
-    cbet, cacier = st.columns(2)
-    with cbet:
-        options = list(beton_data.keys())
-        cur = str(st.session_state.get(KB("beton", beam_id), options[min(2, len(options) - 1)]))
-        st.selectbox("Classe de béton", options, index=options.index(cur), key=KB("beton", beam_id))
-
-    with cacier:
-        st.checkbox(
-            "Qualité d'acier non standard",
-            value=bool(st.session_state.get(KB("acier_non_standard", beam_id), False)),
-            key=KB("acier_non_standard", beam_id),
-        )
-
-        if not bool(st.session_state.get(KB("acier_non_standard", beam_id), False)):
-            acier_opts = ["400", "500"]
-            cur_fyk = str(st.session_state.get(KB("fyk", beam_id), "500"))
-            st.selectbox("Qualité d'acier [N/mm²]", acier_opts, index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1, key=KB("fyk", beam_id))
-            st.session_state.setdefault(KB("fyk_custom", beam_id), 500.0)
-            st.session_state.setdefault(KB("fyk_ref_for_mu", beam_id), "500")
-        else:
-            st.number_input(
-                "fyk (non standard) [N/mm²]",
-                min_value=200.0,
-                max_value=2000.0,
-                value=float(st.session_state.get(KB("fyk_custom", beam_id), 500.0) or 500.0),
-                step=10.0,
-                key=KB("fyk_custom", beam_id),
-            )
-            st.selectbox(
-                "Référence mu (base béton)",
-                ["400", "500"],
-                index=1 if str(st.session_state.get(KB("fyk_ref_for_mu", beam_id), "500")) == "500" else 0,
-                key=KB("fyk_ref_for_mu", beam_id),
-            )
+    # béton
+    options = list(beton_data.keys())
+    cur = str(st.session_state.get(KB("beton", beam_id), options[min(2, len(options) - 1)]))
+    st.selectbox("Classe de béton", options, index=options.index(cur), key=KB("beton", beam_id))
 
     # section b/h/enrobage
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.number_input("Larg. [cm]", min_value=5, max_value=1000, value=int(st.session_state.get(KB("b", beam_id), 20) or 20), step=5, key=KB("b", beam_id))
+        st.number_input(
+            "Larg. [cm]",
+            min_value=5,
+            max_value=1000,
+            value=int(st.session_state.get(KB("b", beam_id), 20) or 20),
+            step=5,
+            key=KB("b", beam_id),
+        )
     with c2:
-        st.number_input("Haut. [cm]", min_value=5, max_value=1000, value=int(st.session_state.get(KB("h", beam_id), 40) or 40), step=5, key=KB("h", beam_id))
+        st.number_input(
+            "Haut. [cm]",
+            min_value=5,
+            max_value=1000,
+            value=int(st.session_state.get(KB("h", beam_id), 40) or 40),
+            step=5,
+            key=KB("h", beam_id),
+        )
     with c3:
-        st.number_input("Enrob. (cm)", min_value=0.0, max_value=100.0, value=float(st.session_state.get(KB("enrobage", beam_id), 5.0) or 5.0), step=0.5, key=KB("enrobage", beam_id))
+        st.number_input(
+            "Enrob. (cm)",
+            min_value=0.0,
+            max_value=100.0,
+            value=float(st.session_state.get(KB("enrobage", beam_id), 5.0) or 5.0),
+            step=0.5,
+            key=KB("enrobage", beam_id),
+        )
+
 
 
 # ============================================================
@@ -502,7 +500,7 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     fck_cube = beton_data[beton]["fck_cube"]
     alpha_b = beton_data[beton]["alpha_b"]
 
-    fyk, mu_ref = _get_fyk_and_mu_ref(beam_id)
+    fyk, mu_ref = _get_fyk_and_mu_ref()
     fyd = fyk / 1.5
 
     mu_key = f"mu_a{mu_ref}"
@@ -647,7 +645,7 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             fck_cube = beton_data[beton]["fck_cube"]
             alpha_b = beton_data[beton]["alpha_b"]
 
-            fyk, mu_ref = _get_fyk_and_mu_ref(beam_id)
+            fyk, mu_ref = _get_fyk_and_mu_ref()
             fyd = fyk / 1.5
 
             mu_key = f"mu_a{mu_ref}"
@@ -980,55 +978,179 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 st.rerun()
 
 # ============================================================
-#  COLONNE GAUCHE : choix poutre + actions
+#  UI : PARAMÈTRES PROJET + PARAMÈTRES AVANCÉS (acier global)
 # ============================================================
-def render_beam_picker_and_actions_left():
-    _init_beams_if_needed()
-    active_id = _get_active_beam_id()
+def _init_global_steel_from_legacy_if_needed():
+    """
+    Migration légère :
+    - si acier global pas encore défini, mais anciennes clés beam 1 existent,
+      on les récupère pour éviter de perdre l'info.
+    """
+    if "acier_non_standard" in st.session_state or "fyk" in st.session_state or "fyk_custom" in st.session_state:
+        return
+    legacy_non_std = st.session_state.get(KB("acier_non_standard", 1), None)
+    legacy_fyk = st.session_state.get(KB("fyk", 1), None)
+    legacy_fyk_custom = st.session_state.get(KB("fyk_custom", 1), None)
+    legacy_mu_ref = st.session_state.get(KB("fyk_ref_for_mu", 1), None)
 
-    st.markdown("### Poutres")
-    ids = [int(b["id"]) for b in st.session_state.beams]
-    labels = [str(b.get("nom", f"Poutre {b['id']}")) for b in st.session_state.beams]
-    idx = ids.index(active_id) if active_id in ids else 0
+    if legacy_non_std is not None:
+        st.session_state["acier_non_standard"] = bool(legacy_non_std)
+    if legacy_fyk is not None:
+        st.session_state["fyk"] = str(legacy_fyk)
+    if legacy_fyk_custom is not None:
+        st.session_state["fyk_custom"] = float(legacy_fyk_custom)
+    if legacy_mu_ref is not None:
+        st.session_state["fyk_ref_for_mu"] = str(legacy_mu_ref)
 
-    chosen = st.selectbox("Poutre active", options=ids, format_func=lambda x: labels[ids.index(x)], index=idx, key="beam_picker")
-    if int(chosen) != int(active_id):
-        _set_active_beam_id(int(chosen))
+
+def render_infos_projet():
+    st.markdown("### Informations sur le projet")
+    afficher_infos = st.checkbox(
+        "Ajouter les informations du projet",
+        value=bool(st.session_state.get("chk_infos_projet", False)),
+        key="chk_infos_projet",
+    )
+    if afficher_infos:
+        st.text_input("", placeholder="Nom du projet", key="nom_projet")
+        st.text_input("", placeholder="Partie", key="partie")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.text_input(
+                "",
+                placeholder="Date (jj/mm/aaaa)",
+                value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")),
+                key="date",
+            )
+        with c2:
+            st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
+    else:
+        st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
+
+
+def render_parametres_avances():
+    st.markdown("---")
+    st.markdown("### Paramètres avancés")
+
+    # séparateur "slider" horizontal (léger, visuel) — réglable si tu veux une autre valeur
+    st.slider(
+        "Séparation",
+        min_value=0,
+        max_value=100,
+        value=50,
+        step=1,
+        key="ui_sep_dummy",
+        help="Séparateur visuel uniquement.",
+        label_visibility="collapsed",
+    )
+
+    with st.expander("Paramètres avancés", expanded=False):
+        st.selectbox(
+            "Affichage longueurs",
+            ["cm", "mm"],
+            index=0 if st.session_state.get("units_len", "cm") == "cm" else 1,
+            key="units_len",
+        )
+        st.selectbox(
+            "Affichage armatures",
+            ["mm²", "cm²"],
+            index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1,
+            key="units_as",
+        )
+        st.slider(
+            "Tolérance dépassement (%)",
+            min_value=0,
+            max_value=25,
+            value=int(st.session_state.get("tau_tolerance_percent", 0) or 0),
+            step=1,
+            key="tau_tolerance_percent",
+        )
+
+        st.markdown("---")
+        st.markdown("#### Acier (global)")
+        st.checkbox(
+            "Qualité d'acier non standard",
+            value=bool(st.session_state.get("acier_non_standard", False)),
+            key="acier_non_standard",
+        )
+
+        if not bool(st.session_state.get("acier_non_standard", False)):
+            acier_opts = ["400", "500"]
+            cur_fyk = str(st.session_state.get("fyk", "500"))
+            st.selectbox(
+                "Qualité d'acier [N/mm²]",
+                acier_opts,
+                index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
+                key="fyk",
+            )
+            st.session_state.setdefault("fyk_custom", 500.0)
+            st.session_state.setdefault("fyk_ref_for_mu", "500")
+        else:
+            st.number_input(
+                "fyk (non standard) [N/mm²]",
+                min_value=200.0,
+                max_value=2000.0,
+                value=float(st.session_state.get("fyk_custom", 500.0) or 500.0),
+                step=10.0,
+                key="fyk_custom",
+            )
+            st.selectbox(
+                "Référence mu (base béton)",
+                ["400", "500"],
+                index=1 if str(st.session_state.get("fyk_ref_for_mu", "500")) == "500" else 0,
+                key="fyk_ref_for_mu",
+            )
+
+
+# ============================================================
+#  UI : DONNÉES (liste de poutres en expanders) — gauche
+# ============================================================
+def render_donnees_left(beton_data: dict):
+    st.markdown("### Données")
+
+    for b in st.session_state.beams:
+        bid = int(b["id"])
+        bnom = str(b.get("nom", f"Poutre {bid}"))
+
+        cexp, cdup, cdel = st.columns([22, 2, 2], vertical_alignment="center")
+
+        with cexp:
+            with st.expander(bnom, expanded=True if bid == 1 else False):
+                render_caracteristiques_beam(bid, beton_data)
+                st.markdown("---")
+                render_solicitations_for_beam(bid)
+
+        with cdup:
+            if st.button("📄", key=f"btn_dup_beam_{bid}", use_container_width=True, help="Dupliquer"):
+                _duplicate_beam(bid)
+                st.rerun()
+
+        with cdel:
+            if bid > 1:
+                if st.button("🗑️", key=f"btn_del_beam_{bid}", use_container_width=True, help="Supprimer"):
+                    _delete_beam(bid)
+                    st.rerun()
+            else:
+                st.button("🔒", key=f"btn_del_beam_{bid}_disabled", use_container_width=True, disabled=True)
+
+    st.markdown("---")
+    if st.button("➕ Ajouter une poutre", use_container_width=True, key="btn_add_beam_bottom"):
+        _add_beam()
         st.rerun()
 
-    cA, cB, cC = st.columns(3)
-    with cA:
-        if st.button("➕ Ajouter", use_container_width=True, key="btn_add_beam_left"):
-            _add_beam()
-            _set_active_beam_id(int(st.session_state.beams[-1]["id"]))
-            st.rerun()
-    with cB:
-        if st.button("📄 Dupliquer", use_container_width=True, key="btn_dup_beam_left"):
-            _duplicate_beam(active_id)
-            _set_active_beam_id(int(st.session_state.beams[-1]["id"]))
-            st.rerun()
-    with cC:
-        if active_id > 1:
-            if st.button("🗑️ Suppr.", use_container_width=True, key="btn_del_beam_left"):
-                _delete_beam(active_id)
-                st.rerun()
-        else:
-            st.button("🔒", use_container_width=True, key="btn_del_beam_left_disabled", disabled=True)
 
-
-def render_beam_inputs_left(beam_id: int, beton_data: dict):
-    st.markdown("### Dimensionnement de la poutre")
-    render_caracteristiques_beam(beam_id, beton_data)
-    st.markdown("---")
-    render_solicitations_for_beam(beam_id)
-
-
-def render_beam_results_right(beam_id: int, beton_data: dict):
-    beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
+# ============================================================
+#  UI : DIMENSIONNEMENT (toutes les poutres) — droite
+# ============================================================
+def render_dimensionnement_right(beton_data: dict):
     st.markdown("### Dimensionnement")
-    st.markdown(f"**{beam.get('nom', f'Poutre {beam_id}')}**")
-    for s in beam["sections"]:
-        render_dimensionnement_section(beam_id, int(s["id"]), beton_data)
+
+    for b in st.session_state.beams:
+        bid = int(b["id"])
+        bnom = str(b.get("nom", f"Poutre {bid}"))
+
+        with st.expander(bnom, expanded=True if bid == 1 else False):
+            for s in b.get("sections", []):
+                render_dimensionnement_section(bid, int(s["id"]), beton_data)
 
 
 # ============================================================
@@ -1036,6 +1158,7 @@ def render_beam_results_right(beam_id: int, beton_data: dict):
 # ============================================================
 def show():
     _init_beams_if_needed()
+    _init_global_steel_from_legacy_if_needed()
 
     if "retour_accueil_demande" not in st.session_state:
         st.session_state.retour_accueil_demande = False
@@ -1079,8 +1202,6 @@ def show():
                 data = json.load(uploaded)
                 _load_from_payload(data)
                 st.session_state["show_open_uploader"] = False
-                _get_active_beam_id()
-                st.success("Fichier chargé.")
                 st.rerun()
 
     with btn5:
@@ -1089,33 +1210,14 @@ def show():
     with open("beton_classes.json", "r", encoding="utf-8") as f:
         beton_data = json.load(f)
 
-    # colonnes écran
     input_col_gauche, result_col_droite = st.columns([2, 3])
-    active_beam_id = _get_active_beam_id()
 
     with input_col_gauche:
-        with st.expander("Paramètres avancés", expanded=False):
-            st.selectbox("Affichage longueurs", ["cm", "mm"], index=0 if st.session_state.get("units_len", "cm") == "cm" else 1, key="units_len")
-            st.selectbox("Affichage armatures", ["mm²", "cm²"], index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1, key="units_as")
-            st.slider("Tolérance dépassement (%)", min_value=0, max_value=25, value=int(st.session_state.get("tau_tolerance_percent", 0) or 0), step=1, key="tau_tolerance_percent")
-
-        st.markdown("### Informations sur le projet")
-        afficher_infos = st.checkbox("Ajouter les informations du projet", value=bool(st.session_state.get("chk_infos_projet", False)), key="chk_infos_projet")
-        if afficher_infos:
-            st.text_input("", placeholder="Nom du projet", key="nom_projet")
-            st.text_input("", placeholder="Partie", key="partie")
-            c1, c2 = st.columns(2)
-            with c1:
-                st.text_input("", placeholder="Date (jj/mm/aaaa)", value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")), key="date")
-            with c2:
-                st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
-        else:
-            st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
-
+        render_infos_projet()
+        render_parametres_avances()
         st.markdown("---")
-        render_beam_picker_and_actions_left()
-        st.markdown("---")
-        render_beam_inputs_left(active_beam_id, beton_data)
+        render_donnees_left(beton_data)
 
     with result_col_droite:
-        render_beam_results_right(active_beam_id, beton_data)
+        render_dimensionnement_right(beton_data)
+
