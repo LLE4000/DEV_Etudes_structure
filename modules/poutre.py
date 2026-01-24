@@ -1,15 +1,20 @@
+# ===========================
 #  PARTIE 1 / 2
 #  poutre.py (Streamlit)
+# ===========================
 import streamlit as st
 from datetime import datetime
 import json
 import math
 import re
 from copy import deepcopy
+
 # ============================================================
 #  STYLES BLOCS
+# ============================================================
 C_COULEURS = {"ok": "#e6ffe6", "warn": "#fffbe6", "nok": "#ffe6e6"}
 C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌"}
+
 
 def open_bloc_left_right(left: str, right: str = "", etat: str = "ok"):
     """
@@ -35,28 +40,32 @@ def open_bloc_left_right(left: str, right: str = "", etat: str = "ok"):
         unsafe_allow_html=True,
     )
 
+
 def close_bloc():
     st.markdown("</div>", unsafe_allow_html=True)
 
+
 # ============================================================
 #  UTILITAIRES SESSION / CLÉS
+# ============================================================
 SECTION_KEY_PREFIX_RE = re.compile(r"^b(\d+)_sec(\d+)_(.+)$")
+
 
 def _is_beam_section_key(k: str) -> bool:
     return bool(SECTION_KEY_PREFIX_RE.match(k))
 
+
 def _is_raw_key(k: str) -> bool:
     return k.endswith("_raw")
+
 
 def KB(base: str, beam_id: int) -> str:
     return f"b{beam_id}_{base}"
 
+
 def KS(base: str, beam_id: int, sec_id: int) -> str:
-    """
-    Clé par poutre + section:
-    b{beam}_sec{sec}_{base}
-    """
     return f"b{beam_id}_sec{sec_id}_{base}"
+
 
 # ============================================================
 #  RESET
@@ -73,11 +82,6 @@ def _reset_module():
 #  SAISIE DÉCIMALE FR (texte)
 # ============================================================
 def float_input_fr_simple(label, key, default=0.0, min_value=0.0):
-    """
-    Champ texte qui accepte virgule/point.
-    - Stocke le float dans st.session_state[key]
-    - Stocke le texte brut dans st.session_state[f"{key}_raw"]
-    """
     current = float(st.session_state.get(key, default) or 0.0)
     raw_default = st.session_state.get(f"{key}_raw", f"{current:.2f}".replace(".", ","))
     raw = st.text_input(label, value=raw_default, key=f"{key}_raw")
@@ -96,18 +100,9 @@ def float_input_fr_simple(label, key, default=0.0, min_value=0.0):
 #  POUTRES / SECTIONS : INIT / ADD / DELETE / DUPLICATE
 # ============================================================
 def _init_beams_if_needed():
-    """
-    Structure :
-    st.session_state.beams = [
-      {"id":1, "nom":"Poutre 1", "sections":[{"id":1,"nom":"Section A"}, ...]},
-      ...
-    ]
-    Toutes les valeurs UI sont dans st.session_state avec clés KB/KS.
-    """
     if "beams" not in st.session_state or not isinstance(st.session_state.beams, list) or len(st.session_state.beams) == 0:
         st.session_state.beams = [{"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "Section A"}]}]
 
-    # normalisation
     for b in st.session_state.beams:
         b["id"] = int(b.get("id", 0))
         b["nom"] = str(b.get("nom", f"Poutre {b['id']}"))
@@ -117,7 +112,6 @@ def _init_beams_if_needed():
             s["id"] = int(s.get("id", 0))
             s["nom"] = str(s.get("nom", f"Section {s['id']}"))
 
-    # garantir poutre 1 et section 1
     if not any(int(b.get("id", 0)) == 1 for b in st.session_state.beams):
         st.session_state.beams.insert(0, {"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "Section A"}]})
 
@@ -146,8 +140,6 @@ def _delete_beam(beam_id: int):
     if beam_id == 1:
         return
     st.session_state.beams = [b for b in st.session_state.beams if int(b.get("id")) != beam_id]
-
-    # suppression des clés associées
     prefix = f"b{beam_id}_"
     keys_to_delete = [k for k in list(st.session_state.keys()) if k.startswith(prefix)]
     for k in keys_to_delete:
@@ -157,15 +149,11 @@ def _delete_beam(beam_id: int):
 def _duplicate_beam(src_beam_id: int):
     src = next(b for b in st.session_state.beams if int(b.get("id")) == src_beam_id)
     new_id = _next_beam_id()
-
-    # 1) dupliquer la structure meta sections
     new_beam = {"id": new_id, "nom": f"{src.get('nom','Poutre')} (copie)", "sections": deepcopy(src["sections"])}
     st.session_state.beams.append(new_beam)
 
-    # 2) dupliquer toutes les valeurs session_state qui concernent src_beam_id
     src_prefix = f"b{src_beam_id}_"
     dst_prefix = f"b{new_id}_"
-
     for k in list(st.session_state.keys()):
         if k.startswith(src_prefix):
             st.session_state[dst_prefix + k[len(src_prefix):]] = deepcopy(st.session_state[k])
@@ -197,7 +185,6 @@ BASE_SAVE_KEYS_GLOBAL = {
     "units_as",
     "tau_tolerance_percent",
     "show_open_uploader",
-    # infos projet (global)
     "nom_projet",
     "partie",
     "date",
@@ -218,8 +205,6 @@ def _build_save_payload():
         )
 
     values = {}
-
-    # global keys
     for k in BASE_SAVE_KEYS_GLOBAL:
         if k in st.session_state:
             values[k] = st.session_state[k]
@@ -227,13 +212,8 @@ def _build_save_payload():
         if rk in st.session_state:
             values[rk] = st.session_state[rk]
 
-    # beam/section keys
     for k in list(st.session_state.keys()):
-        if k.startswith("b") and (k.startswith("b1_") or re.match(r"^b\d+_", k)):
-            # on ne prend que les clés beam/section, pas les globales
-            if _is_beam_section_key(k) or k.startswith("b") and ("_beton" in k or "_b" in k or "_h" in k or "_enrobage" in k or "_acier" in k):
-                values[k] = st.session_state[k]
-        if _is_raw_key(k) and (_is_beam_section_key(k[:-4]) or k.startswith("b")):
+        if re.match(r"^b\d+_", k):
             values[k] = st.session_state[k]
 
     return {"beams": beams, "values": values}
@@ -267,16 +247,12 @@ def _load_from_payload(payload: dict):
 
     if isinstance(values, dict):
         for k, v in values.items():
-            # global
-            if k in BASE_SAVE_KEYS_GLOBAL or k.endswith("_raw") and k[:-4] in BASE_SAVE_KEYS_GLOBAL:
+            if k in BASE_SAVE_KEYS_GLOBAL or (k.endswith("_raw") and k[:-4] in BASE_SAVE_KEYS_GLOBAL):
                 st.session_state[k] = v
                 continue
-
-            # beam keys
-            if k.startswith("b") and (re.match(r"^b\d+_", k) or _is_beam_section_key(k) or (_is_raw_key(k) and (re.match(r"^b\d+_", k[:-4]) or _is_beam_section_key(k[:-4])))):
+            if re.match(r"^b\d+_", k):
                 st.session_state[k] = v
 
-    # re-normaliser
     _init_beams_if_needed()
 
 
@@ -323,19 +299,12 @@ def _brins_from_type(type_txt: str) -> int:
 
 
 def _get_fyk_and_mu_ref(beam_id: int):
-    """
-    Même logique que ton code :
-    - si acier non standard : fyk_custom + mu_ref_for_mu (400/500)
-    - sinon : fyk standard (400/500) et mu_ref = fyk
-    """
     acier_non_standard = bool(st.session_state.get(KB("acier_non_standard", beam_id), False))
-
     if acier_non_standard:
         try:
             fyk = float(st.session_state.get(KB("fyk_custom", beam_id), 500.0))
         except Exception:
             fyk = 500.0
-
         mu_ref = str(st.session_state.get(KB("fyk_ref_for_mu", beam_id), "500"))
         if mu_ref not in ("400", "500"):
             mu_ref = "500"
@@ -345,7 +314,6 @@ def _get_fyk_and_mu_ref(beam_id: int):
         fyk = float(st.session_state.get(KB("fyk", beam_id), 500))
     except Exception:
         fyk = 500.0
-
     return fyk, str(int(fyk))
 
 
@@ -374,6 +342,24 @@ def _as_total_with_optional_second_layer(beam_id: int, sec_id: int, which: str):
         AsT = As1
         detail = f"{n1}Ø{d1}"
     return AsT, detail
+
+
+# ============================================================
+#  POUTRE ACTIVE (pour layout gauche/droite)
+# ============================================================
+def _get_active_beam_id() -> int:
+    _init_beams_if_needed()
+    if "active_beam_id" not in st.session_state:
+        st.session_state.active_beam_id = int(st.session_state.beams[0]["id"])
+    ids = [int(b["id"]) for b in st.session_state.beams]
+    if int(st.session_state.active_beam_id) not in ids:
+        st.session_state.active_beam_id = int(ids[0])
+    return int(st.session_state.active_beam_id)
+
+
+def _set_active_beam_id(bid: int):
+    st.session_state.active_beam_id = int(bid)
+
 # ===========================
 #  PARTIE 2 / 2
 #  poutre.py (Streamlit)
@@ -420,7 +406,6 @@ def render_solicitations_for_beam(beam_id: int):
         sid = int(s.get("id"))
         sec_nom = str(s.get("nom", f"Section {sid}"))
 
-        # Solution B : expander + poubelle sur la même ligne (visible même fermé)
         cexp, cdel = st.columns([24, 2], vertical_alignment="center")
 
         with cexp:
@@ -441,6 +426,74 @@ def render_solicitations_for_beam(beam_id: int):
         st.rerun()
 
 
+# ============================================================
+#  UI : CARACTÉRISTIQUES D'UNE POUTRE (gauche)
+# ============================================================
+def render_caracteristiques_beam(beam_id: int, beton_data: dict):
+    beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
+
+    st.markdown("#### Caractéristiques de la poutre")
+
+    # Nom poutre
+    beam["nom"] = st.text_input(
+        "Nom de la poutre",
+        value=str(beam.get("nom", f"Poutre {beam_id}")),
+        key=f"meta_beam_nom_{beam_id}",
+    )
+
+    # béton / acier
+    cbet, cacier = st.columns(2)
+    with cbet:
+        options = list(beton_data.keys())
+        cur = str(st.session_state.get(KB("beton", beam_id), options[min(2, len(options) - 1)]))
+        st.selectbox("Classe de béton", options, index=options.index(cur), key=KB("beton", beam_id))
+
+    with cacier:
+        st.checkbox(
+            "Qualité d'acier non standard",
+            value=bool(st.session_state.get(KB("acier_non_standard", beam_id), False)),
+            key=KB("acier_non_standard", beam_id),
+        )
+
+        if not bool(st.session_state.get(KB("acier_non_standard", beam_id), False)):
+            acier_opts = ["400", "500"]
+            cur_fyk = str(st.session_state.get(KB("fyk", beam_id), "500"))
+            st.selectbox("Qualité d'acier [N/mm²]", acier_opts, index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1, key=KB("fyk", beam_id))
+            st.session_state.setdefault(KB("fyk_custom", beam_id), 500.0)
+            st.session_state.setdefault(KB("fyk_ref_for_mu", beam_id), "500")
+        else:
+            st.number_input(
+                "fyk (non standard) [N/mm²]",
+                min_value=200.0,
+                max_value=2000.0,
+                value=float(st.session_state.get(KB("fyk_custom", beam_id), 500.0) or 500.0),
+                step=10.0,
+                key=KB("fyk_custom", beam_id),
+            )
+            st.selectbox(
+                "Référence mu (base béton)",
+                ["400", "500"],
+                index=1 if str(st.session_state.get(KB("fyk_ref_for_mu", beam_id), "500")) == "500" else 0,
+                key=KB("fyk_ref_for_mu", beam_id),
+            )
+
+    # section b/h/enrobage
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.number_input("Larg. [cm]", min_value=5, max_value=1000, value=int(st.session_state.get(KB("b", beam_id), 20) or 20), step=5, key=KB("b", beam_id))
+    with c2:
+        st.number_input("Haut. [cm]", min_value=5, max_value=1000, value=int(st.session_state.get(KB("h", beam_id), 40) or 40), step=5, key=KB("h", beam_id))
+    with c3:
+        st.number_input("Enrob. (cm)", min_value=0.0, max_value=100.0, value=float(st.session_state.get(KB("enrobage", beam_id), 5.0) or 5.0), step=0.5, key=KB("enrobage", beam_id))
+
+
+# ============================================================
+#  DIMENSIONNEMENT / render_dimensionnement_section
+#  IMPORTANT : tu gardes exactement ton code existant ici.
+#  (Tu l’as déjà dans ton message — je ne le réécris pas pour éviter de casser.)
+# ============================================================
+# -> Conserve _dimensionnement_compute_states(...)
+# -> Conserve render_dimensionnement_section(...)
 # ============================================================
 #  DIMENSIONNEMENT PAR SECTION + STATUT GLOBAL (inchangé en formules)
 # ============================================================
@@ -926,140 +979,64 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 _delete_section(beam_id, sec_id)
                 st.rerun()
 
-
 # ============================================================
-#  UI : CARACTÉRISTIQUES D'UNE POUTRE (suite)
+#  COLONNE GAUCHE : choix poutre + actions
 # ============================================================
-def render_caracteristiques_beam(beam_id: int, beton_data: dict):
-    beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
+def render_beam_picker_and_actions_left():
+    _init_beams_if_needed()
+    active_id = _get_active_beam_id()
 
-    st.markdown("#### Caractéristiques de la poutre")
+    st.markdown("### Poutres")
+    ids = [int(b["id"]) for b in st.session_state.beams]
+    labels = [str(b.get("nom", f"Poutre {b['id']}")) for b in st.session_state.beams]
+    idx = ids.index(active_id) if active_id in ids else 0
 
-    # Nom poutre + poubelle poutre (visible)
-    cnom, cdel = st.columns([24, 2], vertical_alignment="center")
-    with cnom:
-        beam["nom"] = st.text_input(
-            "Nom de la poutre",
-            value=str(beam.get("nom", f"Poutre {beam_id}")),
-            key=f"meta_beam_nom_{beam_id}",
-        )
-    with cdel:
-        if beam_id > 1:
-            if st.button("🗑️", key=f"btn_del_beam_{beam_id}", use_container_width=True):
-                _delete_beam(beam_id)
+    chosen = st.selectbox("Poutre active", options=ids, format_func=lambda x: labels[ids.index(x)], index=idx, key="beam_picker")
+    if int(chosen) != int(active_id):
+        _set_active_beam_id(int(chosen))
+        st.rerun()
+
+    cA, cB, cC = st.columns(3)
+    with cA:
+        if st.button("➕ Ajouter", use_container_width=True, key="btn_add_beam_left"):
+            _add_beam()
+            _set_active_beam_id(int(st.session_state.beams[-1]["id"]))
+            st.rerun()
+    with cB:
+        if st.button("📄 Dupliquer", use_container_width=True, key="btn_dup_beam_left"):
+            _duplicate_beam(active_id)
+            _set_active_beam_id(int(st.session_state.beams[-1]["id"]))
+            st.rerun()
+    with cC:
+        if active_id > 1:
+            if st.button("🗑️ Suppr.", use_container_width=True, key="btn_del_beam_left"):
+                _delete_beam(active_id)
                 st.rerun()
-
-    # Béton + acier
-    cbet, cacier = st.columns(2)
-
-    with cbet:
-        options = list(beton_data.keys())
-        default_beton = options[min(2, len(options) - 1)]
-        current_beton = st.session_state.get(KB("beton", beam_id), default_beton)
-        st.selectbox(
-            "Classe de béton",
-            options,
-            index=options.index(current_beton) if current_beton in options else 0,
-            key=KB("beton", beam_id),
-        )
-
-    with cacier:
-        st.checkbox(
-            "Qualité d'acier non standard",
-            value=bool(st.session_state.get(KB("acier_non_standard", beam_id), False)),
-            key=KB("acier_non_standard", beam_id),
-        )
-
-        acier_non_standard = bool(st.session_state.get(KB("acier_non_standard", beam_id), False))
-        if not acier_non_standard:
-            acier_opts = ["400", "500"]
-            cur_fyk = str(st.session_state.get(KB("fyk", beam_id), "500"))
-            st.selectbox(
-                "Qualité d'acier [N/mm²]",
-                acier_opts,
-                index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
-                key=KB("fyk", beam_id),
-            )
-            st.session_state.setdefault(KB("fyk_custom", beam_id), 500.0)
-            st.session_state.setdefault(KB("fyk_ref_for_mu", beam_id), "500")
         else:
-            # mu_ref (base béton)
-            st.selectbox(
-                "Référence mu (base béton)",
-                ["400", "500"],
-                index=1 if str(st.session_state.get(KB("fyk_ref_for_mu", beam_id), "500")) == "500" else 0,
-                key=KB("fyk_ref_for_mu", beam_id),
-            )
-            st.number_input(
-                "fyk (non standard) [N/mm²]",
-                min_value=200.0,
-                max_value=2000.0,
-                value=float(st.session_state.get(KB("fyk_custom", beam_id), 500.0) or 500.0),
-                step=10.0,
-                key=KB("fyk_custom", beam_id),
-            )
-
-    # Section b/h/enrobage
-    csec1, csec2, csec3 = st.columns(3)
-    with csec1:
-        st.number_input(
-            "Larg. [cm]",
-            min_value=5,
-            max_value=1000,
-            value=int(st.session_state.get(KB("b", beam_id), 20) or 20),
-            step=5,
-            key=KB("b", beam_id),
-        )
-    with csec2:
-        st.number_input(
-            "Haut. [cm]",
-            min_value=5,
-            max_value=1000,
-            value=int(st.session_state.get(KB("h", beam_id), 40) or 40),
-            step=5,
-            key=KB("h", beam_id),
-        )
-    with csec3:
-        st.number_input(
-            "Enrob. (cm)",
-            min_value=0.0,
-            max_value=100.0,
-            value=float(st.session_state.get(KB("enrobage", beam_id), 5.0) or 5.0),
-            step=0.5,
-            key=KB("enrobage", beam_id),
-        )
+            st.button("🔒", use_container_width=True, key="btn_del_beam_left_disabled", disabled=True)
 
 
-# ============================================================
-#  UI : DIMENSIONNEMENT D'UNE POUTRE (sections + résultats)
-# ============================================================
-def render_dimensionnement_beam(beam_id: int, beton_data: dict):
-    beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
-
-    # Bloc global "Dimensionnement"
+def render_beam_inputs_left(beam_id: int, beton_data: dict):
     st.markdown("### Dimensionnement de la poutre")
-
-    # 1) Caractéristiques (sous-titre)
     render_caracteristiques_beam(beam_id, beton_data)
-
-    # 2) Sollicitations (sous-titre)
+    st.markdown("---")
     render_solicitations_for_beam(beam_id)
 
-    # 3) Résultats pour chaque section
-    st.markdown("#### Résultats / Vérifications")
+
+def render_beam_results_right(beam_id: int, beton_data: dict):
+    beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
+    st.markdown("### Dimensionnement")
+    st.markdown(f"**{beam.get('nom', f'Poutre {beam_id}')}**")
     for s in beam["sections"]:
-        sid = int(s.get("id"))
-        render_dimensionnement_section(beam_id, sid, beton_data)
+        render_dimensionnement_section(beam_id, int(s["id"]), beton_data)
 
 
 # ============================================================
-#  SHOW()
+#  SHOW() : layout final gauche/droite
 # ============================================================
 def show():
     _init_beams_if_needed()
 
-    if "uploaded_file" not in st.session_state:
-        st.session_state.uploaded_file = None
     if "retour_accueil_demande" not in st.session_state:
         st.session_state.retour_accueil_demande = False
 
@@ -1070,9 +1047,6 @@ def show():
 
     st.markdown("## Poutre en béton armé")
 
-    # ----------------------------------------------------------------
-    # BARRE BOUTONS HAUT (identique à ton style)
-    # ----------------------------------------------------------------
     btn1, btn2, btn3, btn4, btn5 = st.columns(5)
 
     with btn1:
@@ -1100,109 +1074,48 @@ def show():
             st.session_state["show_open_uploader"] = not st.session_state.get("show_open_uploader", False)
 
         if st.session_state.get("show_open_uploader", False):
-            uploaded = st.file_uploader(
-                "Choisir un fichier JSON",
-                type=["json"],
-                label_visibility="collapsed",
-                key="open_uploader",
-            )
+            uploaded = st.file_uploader("Choisir un fichier JSON", type=["json"], label_visibility="collapsed", key="open_uploader")
             if uploaded is not None:
                 data = json.load(uploaded)
                 _load_from_payload(data)
                 st.session_state["show_open_uploader"] = False
+                _get_active_beam_id()
                 st.success("Fichier chargé.")
                 st.rerun()
 
     with btn5:
         st.button("📄 Générer PDF", use_container_width=True, key="btn_pdf_disabled", disabled=True)
 
-    # ----------------------------------------------------------------
-    # DATA béton
-    # ----------------------------------------------------------------
     with open("beton_classes.json", "r", encoding="utf-8") as f:
         beton_data = json.load(f)
 
-    # ----------------------------------------------------------------
-    # LAYOUT 2 COLONNES (gauche entrées globales / droite dimensionnement)
-    # ----------------------------------------------------------------
+    # colonnes écran
     input_col_gauche, result_col_droite = st.columns([2, 3])
+    active_beam_id = _get_active_beam_id()
 
-    # ---------------------- COLONNE GAUCHE ---------------------------
     with input_col_gauche:
         with st.expander("Paramètres avancés", expanded=False):
-            st.selectbox(
-                "Affichage longueurs",
-                ["cm", "mm"],
-                index=0 if st.session_state.get("units_len", "cm") == "cm" else 1,
-                key="units_len",
-            )
-            st.selectbox(
-                "Affichage armatures",
-                ["mm²", "cm²"],
-                index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1,
-                key="units_as",
-            )
-            st.slider(
-                "Tolérance dépassement (%)",
-                min_value=0,
-                max_value=25,
-                value=int(st.session_state.get("tau_tolerance_percent", 0) or 0),
-                step=1,
-                key="tau_tolerance_percent",
-            )
+            st.selectbox("Affichage longueurs", ["cm", "mm"], index=0 if st.session_state.get("units_len", "cm") == "cm" else 1, key="units_len")
+            st.selectbox("Affichage armatures", ["mm²", "cm²"], index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1, key="units_as")
+            st.slider("Tolérance dépassement (%)", min_value=0, max_value=25, value=int(st.session_state.get("tau_tolerance_percent", 0) or 0), step=1, key="tau_tolerance_percent")
 
         st.markdown("### Informations sur le projet")
-        afficher_infos = st.checkbox(
-            "Ajouter les informations du projet",
-            value=bool(st.session_state.get("chk_infos_projet", False)),
-            key="chk_infos_projet",
-        )
+        afficher_infos = st.checkbox("Ajouter les informations du projet", value=bool(st.session_state.get("chk_infos_projet", False)), key="chk_infos_projet")
         if afficher_infos:
             st.text_input("", placeholder="Nom du projet", key="nom_projet")
             st.text_input("", placeholder="Partie", key="partie")
             c1, c2 = st.columns(2)
             with c1:
-                st.text_input(
-                    "",
-                    placeholder="Date (jj/mm/aaaa)",
-                    value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")),
-                    key="date",
-                )
+                st.text_input("", placeholder="Date (jj/mm/aaaa)", value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")), key="date")
             with c2:
                 st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
         else:
             st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
 
-        # Gestion des poutres (ajout / duplication)
-        st.markdown("### Gestion des poutres")
-        cA, cB = st.columns(2)
-        with cA:
-            if st.button("➕ Ajouter une poutre", use_container_width=True, key="btn_add_beam"):
-                _add_beam()
-                st.rerun()
-        with cB:
-            # dupliquer la poutre "courante" = dernière (choix simple)
-            # si tu veux un selectbox plus tard, on l’ajoute sans casser le reste
-            last_id = int(st.session_state.beams[-1]["id"])
-            if st.button("📄 Dupliquer la dernière poutre", use_container_width=True, key="btn_dup_last_beam"):
-                _duplicate_beam(last_id)
-                st.rerun()
+        st.markdown("---")
+        render_beam_picker_and_actions_left()
+        st.markdown("---")
+        render_beam_inputs_left(active_beam_id, beton_data)
 
-    # ---------------------- COLONNE DROITE --------------------------
     with result_col_droite:
-        # Chaque poutre devient un expander (avec poubelle visible)
-        for b in st.session_state.beams:
-            bid = int(b.get("id"))
-            bnom = str(b.get("nom", f"Poutre {bid}"))
-
-            # expander + poubelle (visible)
-            cexp, cdel = st.columns([24, 2], vertical_alignment="center")
-            with cexp:
-                with st.expander(f"{bnom}", expanded=True if bid == 1 else False):
-                    render_dimensionnement_beam(bid, beton_data)
-
-            with cdel:
-                if bid > 1:
-                    if st.button("🗑️", key=f"btn_del_beam_right_{bid}", use_container_width=True):
-                        _delete_beam(bid)
-                        st.rerun()
+        render_beam_results_right(active_beam_id, beton_data)
