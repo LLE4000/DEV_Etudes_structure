@@ -193,6 +193,11 @@ def _ensure_defaults_for_beam(beam_id: int):
     st.session_state.setdefault(KB("fyk", beam_id), str(st.session_state.get("fyk", "500")))
     # Lock données
     st.session_state.setdefault(KB("lock_data", beam_id), False)
+    # statut (En cours / Validé) – migration depuis lock_data si présent
+    statut_key = KB("statut", beam_id)
+    if statut_key not in st.session_state:
+        st.session_state[statut_key] = "Validé" if bool(st.session_state.get(KB("lock_data", beam_id), False)) else "En cours"
+    st.session_state[KB("lock_data", beam_id)] = (st.session_state.get(statut_key) == "Validé")
 
     # Sections
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
@@ -659,131 +664,84 @@ def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
     # On bloque surtout les widgets qui le supportent (checkbox), et on laisse les valeurs telles quelles.
 
 
-def render_solicitations_for_beam(beam_id: int):
+
+def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
+    st.markdown("### Sollicitations")
 
-    st.markdown("#### Sollicitations")
+    for sec in beam["sections"]:
+        sec_id = int(sec.get("id"))
+        sec_name_key = f"meta_b{beam_id}_nom_{sec_id}"
+        st.session_state.setdefault(sec_name_key, sec.get("name", f"Section {sec_id}"))
 
-    data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
+        with st.expander(st.session_state.get(sec_name_key, sec.get("name", f"Section {sec_id}")), expanded=True):
+            st.text_input("Nom de la section", key=sec_name_key, disabled=data_locked)
 
-    for s in beam["sections"]:
-        sid = int(s.get("id"))
-        sec_nom = str(st.session_state.get(f"meta_b{beam_id}_nom_{sid}", s.get("nom", f"Section {sid}")))
+            c1, c2 = st.columns(2)
+            with c1:
+                st.number_input("Moment inférieur M (kNm)", step=1.0, key=KS("M_inf", beam_id, sec_id), disabled=data_locked)
+            with c2:
+                st.number_input("Effort tranchant V (kN)", step=1.0, key=KS("V", beam_id, sec_id), disabled=data_locked)
 
-        with st.expander(f"{sec_nom}", expanded=True if sid == 1 else False):
-            new_nom = st.text_input(
-                "Nom de la section",
-                value=sec_nom,
-                key=f"meta_b{beam_id}_nom_{sid}",
-                disabled=data_locked,
-            )
-            s["nom"] = new_nom
+            c3, c4 = st.columns(2)
+            with c3:
+                st.checkbox("Ajouter un moment supérieur", key=KS("chk_M_sup", beam_id, sec_id), disabled=data_locked)
+            with c4:
+                st.checkbox("Ajouter un effort tranchant réduit", key=KS("chk_V_red", beam_id, sec_id), disabled=data_locked)
 
-            _render_section_inputs(beam_id, sid, disabled=data_locked)
+            if bool(st.session_state.get(KS("chk_M_sup", beam_id, sec_id), False)):
+                st.number_input("Moment supérieur M_sup (kNm)", step=1.0, key=KS("M_sup", beam_id, sec_id), disabled=data_locked)
+            else:
+                st.session_state.setdefault(KS("M_sup", beam_id, sec_id), 0.0)
 
-            # Suppression section (sans icône latérale)
-            if sid > 1:
-                if st.button(
-                    "🗑️ Supprimer cette section",
-                    key=f"btn_del_b{beam_id}_sec_{sid}_inside",
-                    use_container_width=True,
-                    disabled=data_locked,
-                ):
-                    _delete_section(beam_id, sid)
-                    st.rerun()
+            if bool(st.session_state.get(KS("chk_V_red", beam_id, sec_id), False)):
+                st.number_input("Effort tranchant réduit V_réduit (kN)", step=1.0, key=KS("V_red", beam_id, sec_id), disabled=data_locked)
+            else:
+                st.session_state.setdefault(KS("V_red", beam_id, sec_id), 0.0)
 
-    # Ajouter section (bouton pleine largeur)
-    if st.button(
-        "➕ Ajouter une section à vérifier",
-        use_container_width=True,
-        key=f"btn_add_section_b{beam_id}",
-        disabled=data_locked,
-    ):
-        _add_section(beam_id)
-        st.rerun()
+            if sec_id != 1:
+                st.button("Supprimer cette section", key=f"del_sec_{beam_id}_{sec_id}", on_click=_delete_section, args=(beam_id, sec_id), disabled=data_locked)
 
-def render_caracteristiques_beam(beam_id: int, beton_data: dict):
+    st.button("Ajouter une section à vérifier", key=f"add_sec_btn_{beam_id}", on_click=_add_section, args=(beam_id,), disabled=data_locked)
+
+
+def render_caracteristiques_beam(beam_id: int):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
+    beam_name_key = KB("name", beam_id)
+    st.session_state.setdefault(beam_name_key, beam.get("name", f"Poutre {beam_id}"))
 
-    st.markdown("#### Caractéristiques de la poutre")
+    # Migration simple : ancien lock_data -> statut
+    lock_key = KB("lock_data", beam_id)
+    statut_key = KB("statut", beam_id)
+    if statut_key not in st.session_state:
+        st.session_state[statut_key] = "Validé" if bool(st.session_state.get(lock_key, False)) else "En cours"
+    # garder lock_data synchronisé (pour compat éventuelle)
+    st.session_state[lock_key] = (st.session_state.get(statut_key) == "Validé")
 
-    data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
+    data_locked = bool(st.session_state.get(lock_key, False))
 
-    # 4 colonnes : Nom + Béton + Acier + Lock
-    c1, c2, c3, c4 = st.columns([3, 2, 2, 1], vertical_alignment="center")
+    with st.expander(st.session_state.get(beam_name_key, beam.get("name", f"Poutre {beam_id}")), expanded=True):
+        st.markdown("#### Caractéristiques de la poutre")
 
-    with c1:
-        beam["nom"] = st.text_input(
-            "Nom de la poutre",
-            value=str(st.session_state.get(f"meta_beam_nom_{beam_id}", beam.get("nom", f"Poutre {beam_id}"))),
-            key=f"meta_beam_nom_{beam_id}",
-            disabled=data_locked,
-        )
+        c1, cStat, c2, c3 = st.columns([2.6, 1.3, 1.6, 1.5], vertical_alignment="center")
+        with c1:
+            st.text_input("Nom de la poutre", key=beam_name_key, disabled=data_locked)
+        with cStat:
+            st.selectbox("Statut", ["En cours", "Validé"], key=statut_key, disabled=False)
+        with c2:
+            st.selectbox("Classe de béton", list(BETON_DATA.keys()), key=KB("beton", beam_id), disabled=data_locked)
+        with c3:
+            st.selectbox("Qualité acier (B)", [400, 500], key=KB("fyk", beam_id), disabled=data_locked)
 
-    with c2:
-        options = list(beton_data.keys())
-        cur_default = options[min(2, len(options) - 1)]
-        cur = str(st.session_state.get(KB("beton", beam_id), cur_default))
-        st.selectbox(
-            "Classe de béton",
-            options,
-            index=options.index(cur) if cur in options else options.index(cur_default),
-            key=KB("beton", beam_id),
-            disabled=data_locked,
-        )
+        cB, cH, cE = st.columns(3)
+        with cB:
+            st.number_input("Larg. (cm)", min_value=5, max_value=200, step=1, key=KB("b", beam_id), disabled=data_locked)
+        with cH:
+            st.number_input("Haut. (cm)", min_value=5, max_value=300, step=1, key=KB("h", beam_id), disabled=data_locked)
+        with cE:
+            st.number_input("Enrob. béton (cm)", min_value=0.0, max_value=20.0, step=0.5, key=KB("enrobage_beton", beam_id), disabled=data_locked)
 
-    with c3:
-        acier_opts = ["400", "500"]
-        cur_fyk = str(st.session_state.get(KB("fyk", beam_id), "500"))
-        st.selectbox(
-            "Qualité acier (B)",
-            acier_opts,
-            index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
-            key=KB("fyk", beam_id),
-            disabled=data_locked,
-        )
-
-    with c4:
-        st.checkbox(
-            "🔒",
-            key=KB("lock_data", beam_id),
-            value=bool(st.session_state.get(KB("lock_data", beam_id), False)),
-            label_visibility="collapsed",
-        )
-    data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
-
-    # section b/h/enrobage béton
-    c5, c6, c7 = st.columns(3)
-    with c5:
-        st.number_input(
-            "Larg. [cm]",
-            min_value=5,
-            max_value=1000,
-            value=int(st.session_state.get(KB("b", beam_id), 20) or 20),
-            step=5,
-            key=KB("b", beam_id),
-            disabled=data_locked,
-        )
-    with c6:
-        st.number_input(
-            "Haut. [cm]",
-            min_value=5,
-            max_value=1000,
-            value=int(st.session_state.get(KB("h", beam_id), 40) or 40),
-            step=5,
-            key=KB("h", beam_id),
-            disabled=data_locked,
-        )
-    with c7:
-        st.number_input(
-            "Enrob. béton (cm)",
-            min_value=0.0,
-            max_value=100.0,
-            value=float(st.session_state.get(KB("enrobage_beton", beam_id), 3.0) or 3.0),
-            step=0.5,
-            key=KB("enrobage_beton", beam_id),
-            disabled=data_locked,
-        )
+        render_solicitations_for_beam(beam_id, data_locked=data_locked)
 
 
 def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict):
@@ -1030,6 +988,8 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, reduced: bool, disabled: b
 
 
 def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
+    # Verrouillage : si la poutre est 'Validée', tout le dimensionnement devient non modifiable
+    beam_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
     sec = next(s for s in beam["sections"] if int(s.get("id")) == sec_id)
     sec_nom = str(st.session_state.get(f"meta_b{beam_id}_nom_{sec_id}", sec.get("nom", f"Section {sec_id}")))
@@ -1362,74 +1322,49 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 
 
 
-def render_infos_projet():
-    # Header compact : titre (même niveau que les titres principaux) + label italique + checkbox
-    st.session_state.setdefault("chk_infos_projet", False)
 
-    # label + checkbox collés à droite
-    c1, c2, c3 = st.columns([18, 3, 1], vertical_alignment="center")
-    with c1:
+
+def render_infos_projet():
+    # Header sur une seule ligne : titre + libellé italique + checkbox
+    cT, cLbl, cChk = st.columns([6, 2.2, 0.8], vertical_alignment="center")
+    with cT:
         st.markdown("### Informations sur le projet")
-    with c2:
-        small_italic_label_right("Ajouter")
-    with c3:
-        st.checkbox(
-            "Activer infos projet",
-            value=bool(st.session_state.get("chk_infos_projet", False)),
-            key="chk_infos_projet",
-            label_visibility="collapsed",
-        )
+    with cLbl:
+        st.markdown("<div style='text-align:right;font-style:italic;opacity:0.75;'>Ajouter</div>", unsafe_allow_html=True)
+    with cChk:
+        st.checkbox("", value=bool(st.session_state.get("chk_infos_projet", False)), key="chk_infos_projet", label_visibility="collapsed")
 
     if bool(st.session_state.get("chk_infos_projet", False)):
-        open_frame()
-        st.text_input("Nom du projet", placeholder="Nom du projet", label_visibility="collapsed", key="nom_projet")
-        st.text_input("Partie", placeholder="Partie", label_visibility="collapsed", key="partie")
-        cD1, cD2 = st.columns(2)
-        with cD1:
-            st.text_input("Date", placeholder="Date (jj/mm/aaaa)", label_visibility="collapsed", value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")), key="date")
-        with cD2:
-            st.text_input("Indice", placeholder="Indice", label_visibility="collapsed", value=st.session_state.get("indice", "0"), key="indice")
-        close_frame()
+        with st.container(border=True):
+            st.text_input("", placeholder="Nom du projet", key="nom_projet")
+            st.text_input("", placeholder="Partie", key="partie")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.text_input(
+                    "",
+                    placeholder="Date (jj/mm/aaaa)",
+                    value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")),
+                    key="date",
+                )
+            with c2:
+                st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
     else:
         st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
 
 
 
 def render_parametres_avances():
-    # Contenu des paramètres avancés (affiché/masqué depuis la colonne de droite)
-    cU1, cU2 = st.columns(2)
-    with cU1:
-        st.selectbox(
-            "Affichage longueurs",
-            ["cm", "mm"],
-            index=0 if st.session_state.get("units_len", "cm") == "cm" else 1,
-            key="units_len",
-        )
-    with cU2:
-        st.selectbox(
-            "Affichage armatures",
-            ["mm²", "cm²"],
-            index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1,
-            key="units_as",
-        )
+    # Libellé + checkbox (placés par le parent)
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
+        with c1:
+            st.selectbox("Affichage longueurs", ["cm", "mm"], key="unit_len")
+        with c2:
+            st.selectbox("Affichage armatures", ["mm²", "cm²"], key="unit_as")
 
-    st.number_input(
-        "Jeu d'enrobage (cm)",
-        min_value=0.0,
-        max_value=10.0,
-        value=float(st.session_state.get("jeu_enrobage_cm", 1.0) or 1.0),
-        step=0.5,
-        key="jeu_enrobage_cm",
-    )
+        st.number_input("Jeu d'enrobage (cm)", min_value=0.0, step=0.5, key="jeu_enrobage_cm")
 
-    st.slider(
-        "Tolérance dépassement (%)",
-        min_value=0,
-        max_value=25,
-        value=int(st.session_state.get("tau_tolerance_percent", 0) or 0),
-        step=1,
-        key="tau_tolerance_percent",
-    )
+        st.slider("Tolérance dépassement (%)", min_value=0, max_value=50, value=int(st.session_state.get("tol_dep_pct", 0)), key="tol_dep_pct")
 
 
 def render_donnees_left(beton_data: dict):
@@ -1599,7 +1534,7 @@ def show():
         st.session_state.setdefault("show_param_avances", False)
     
         # label + checkbox collés à droite
-        cH1, cH2, cH3 = st.columns([18, 3, 1], vertical_alignment="center")
+        cH1, cH2, cH3 = st.columns([18, 1.2, 0.4], vertical_alignment="center")
         with cH1:
             st.markdown("### Dimensionnement")
         with cH2:
