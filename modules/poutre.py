@@ -15,6 +15,9 @@ from copy import deepcopy
 C_COULEURS = {"ok": "#e6ffe6", "warn": "#fffbe6", "nok": "#ffe6e6"}
 C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌"}
 
+# Données béton (chargées dans show()) : utilisées dans render_caracteristiques_beam
+BETON_DATA = {}
+
 
 def open_bloc_left_right(left: str, right: str = "", etat: str = "ok"):
     """
@@ -1523,6 +1526,9 @@ def show():
 
     with open("beton_classes.json", "r", encoding="utf-8") as f:
         beton_data = json.load(f)
+    # Rendre accessible aux fonctions UI qui n'ont pas beton_data en paramètre
+    global BETON_DATA
+    BETON_DATA = beton_data
 
     input_col_gauche, result_col_droite = st.columns([2, 3])
 
