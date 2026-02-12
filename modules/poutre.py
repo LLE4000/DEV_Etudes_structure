@@ -1058,13 +1058,16 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
         right=f"{As_sup_total:.0f} mm² (req {stt['As_req_sup_final']:.0f})",
         etat=stt["etat_sup"],
     )
-    st.caption(f"Choix : {As_sup_detail} | As_min eff = {stt['As_min_sup_eff']:.0f} | As_max = {]()_
-
+    st.caption(
+    f"Choix : {As_sup_detail} | As_min eff = {stt['As_min_sup_eff']:.0f} | As_max = {stt['As_max']:.0f}"
+)
+close_bloc()
 
 # ============================================================
 #  UI : DIMENSIONNEMENT (droite)
 #  + Header "Dimensionnement" + toggle Paramètres avancés à droite
 # ============================================================
+               
 def render_dimensionnement_right(beton_data: dict):
     st.session_state.setdefault("show_param_av", False)
 
