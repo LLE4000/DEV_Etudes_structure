@@ -1376,7 +1376,8 @@ def render_donnees_left(beton_data: dict):
         b["nom"] = bnom  # sync
 
         with st.expander(bnom, expanded=True if bid == 1 else False):
-            render_caracteristiques_beam(bid, beton_data)
+            # render_caracteristiques_beam ne dépend plus de beton_data (utilise BETON_DATA global)
+            render_caracteristiques_beam(bid)
             render_solicitations_for_beam(bid)
 
     # Gestion compacte (poutres + sections)
