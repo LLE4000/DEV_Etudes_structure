@@ -46,6 +46,31 @@ def close_bloc():
 
 
 # ============================================================
+#  CADRES NEUTRES (UI)
+# ============================================================
+def open_frame(title: str | None = None):
+    """Cadre neutre (bord gris) pour regrouper un bloc de champs."""
+    t = f"<div style='font-weight:700;margin-bottom:8px;'>{title}</div>" if title else ""
+    st.markdown(
+        f"""
+        <div style="
+            border:1px solid #d9d9d9;
+            border-radius:10px;
+            padding:12px 14px;
+            margin:8px 0 12px 0;
+            background:#ffffff;">
+            {t}
+        """,
+        unsafe_allow_html=True,
+    )
+
+def close_frame():
+    st.markdown("</div>", unsafe_allow_html=True)
+
+def small_italic_label(txt: str):
+    st.markdown(f"<span style='font-style:italic;opacity:0.75;'>{txt}</span>", unsafe_allow_html=True)
+
+# ============================================================
 #  UTILITAIRES SESSION / CLÉS
 # ============================================================
 SECTION_KEY_PREFIX_RE = re.compile(r"^b(\d+)_sec(\d+)_(.+)$")
@@ -415,9 +440,17 @@ def _brins_from_type(type_txt: str) -> int:
     return 1
 
 
+
 def _get_fyk_and_mu_ref():
-    """Acier GLOBAL (affiché une seule fois dans Paramètres avancés)."""
-    acier_non_standard = bool(st.session_state.get("acier_non_standard", False))
+    """Acier (via Paramètres avancés) : uniquement 400 / 500."""
+    try:
+        fyk = float(st.session_state.get("fyk", 500))
+    except Exception:
+        fyk = 500.0
+    if int(fyk) not in (400, 500):
+        fyk = 500.0
+    return fyk, str(int(fyk))
+
 
     if acier_non_standard:
         try:
@@ -663,9 +696,22 @@ def render_solicitations_for_beam(beam_id: int):
 def render_caracteristiques_beam(beam_id: int, beton_data: dict):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
 
-    st.markdown("#### Caractéristiques de la poutre")
-
-    data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
+    # Titre + icône info (renommer) sur la même ligne
+    cT, cI = st.columns([20, 1], vertical_alignment="center")
+    with cT:
+        st.markdown("#### Caractéristiques de la poutre")
+    with cI:
+        data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
+        try:
+            with st.popover("ℹ️"):
+                st.text_input(
+                    "Nom de la poutre",
+                    value=str(st.session_state.get(f"meta_beam_nom_{beam_id}", beam.get("nom", f"Poutre {beam_id}"))),
+                    key=f"meta_beam_nom_{beam_id}",
+                    disabled=data_locked,
+                )
+        except Exception:
+            pass
 
     # Lock / unlock données
     st.checkbox(
@@ -719,9 +765,6 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
             key=KB("enrobage_beton", beam_id),
             disabled=data_locked,
         )
-
-    # synchro
-    beam["nom"] = str(st.session_state.get(f"meta_beam_nom_{beam_id}", beam.get("nom", f"Poutre {beam_id}")))
 
 def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict):
     beton = str(st.session_state.get(KB("beton", beam_id), "C30/37"))
@@ -1297,65 +1340,53 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 st.caption(_shear_lines_summary(beam_id, sec_id, reduced=True))
                 close_bloc()
 
-def _init_global_steel_from_legacy_if_needed():
-    """
-    Migration légère :
-    - si acier global pas encore défini, mais anciennes clés beam 1 existent,
-      on les récupère pour éviter de perdre l'info.
-    """
-    if "acier_non_standard" in st.session_state or "fyk" in st.session_state or "fyk_custom" in st.session_state:
-        return
-    legacy_non_std = st.session_state.get(KB("acier_non_standard", 1), None)
-    legacy_fyk = st.session_state.get(KB("fyk", 1), None)
-    legacy_fyk_custom = st.session_state.get(KB("fyk_custom", 1), None)
-    legacy_mu_ref = st.session_state.get(KB("fyk_ref_for_mu", 1), None)
 
-    if legacy_non_std is not None:
-        st.session_state["acier_non_standard"] = bool(legacy_non_std)
+def _init_global_steel_from_legacy_if_needed():
+    """Compatibilité anciens fichiers : récupération éventuelle de fyk."""
+    if "fyk" in st.session_state:
+        return
+    legacy_fyk = st.session_state.get(KB("fyk", 1), None)
     if legacy_fyk is not None:
         st.session_state["fyk"] = str(legacy_fyk)
-    if legacy_fyk_custom is not None:
-        st.session_state["fyk_custom"] = float(legacy_fyk_custom)
-    if legacy_mu_ref is not None:
-        st.session_state["fyk_ref_for_mu"] = str(legacy_mu_ref)
+    else:
+        st.session_state["fyk"] = "500"
 
 
 def render_infos_projet():
-    # Header compact sur une seule ligne : titre + checkbox + chevron
-    if "chk_infos_projet" not in st.session_state:
-        st.session_state["chk_infos_projet"] = False
+    # Header compact : titre (même niveau que les titres principaux) + label italique + checkbox
+    st.session_state.setdefault("chk_infos_projet", False)
 
-    c1, c2, c3 = st.columns([20, 1, 1], vertical_alignment="center")
+    c1, c2, c3 = st.columns([18, 6, 1], vertical_alignment="center")
     with c1:
-        st.markdown("**Informations sur le projet**")
+        st.markdown("### Informations sur le projet")
     with c2:
+        small_italic_label("Ajouter à l'information")
+    with c3:
         st.checkbox(
-            "Activer",
+            "Activer infos projet",
             value=bool(st.session_state.get("chk_infos_projet", False)),
             key="chk_infos_projet",
             label_visibility="collapsed",
         )
-    with c3:
-        chevron = "▾" if bool(st.session_state.get("chk_infos_projet", False)) else "▸"
-        if st.button(chevron, key="btn_toggle_infos_projet", use_container_width=True):
-            st.session_state["chk_infos_projet"] = not bool(st.session_state.get("chk_infos_projet", False))
-            st.rerun()
 
     if bool(st.session_state.get("chk_infos_projet", False)):
+        open_frame()
         st.text_input("", placeholder="Nom du projet", key="nom_projet")
         st.text_input("", placeholder="Partie", key="partie")
-        c1, c2 = st.columns(2)
-        with c1:
+        cD1, cD2 = st.columns(2)
+        with cD1:
             st.text_input(
                 "",
                 placeholder="Date (jj/mm/aaaa)",
                 value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")),
                 key="date",
             )
-        with c2:
+        with cD2:
             st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
+        close_frame()
     else:
         st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
+
 
 
 def render_parametres_avances():
@@ -1394,39 +1425,22 @@ def render_parametres_avances():
         key="tau_tolerance_percent",
     )
 
-    st.markdown("#### Acier (global)")
-    st.checkbox(
-        "Qualité d'acier non standard",
-        value=bool(st.session_state.get("acier_non_standard", False)),
-        key="acier_non_standard",
+    st.markdown("#### Acier")
+    acier_opts = ["400", "500"]
+    cur_fyk = str(st.session_state.get("fyk", "500"))
+    st.selectbox(
+        "Qualité d'acier [N/mm²]",
+        acier_opts,
+        index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
+        key="fyk",
+        help="La valeur de μ dépend de la qualité d'acier : seules les qualités 400/500 sont disponibles.",
     )
 
-    if not bool(st.session_state.get("acier_non_standard", False)):
-        acier_opts = ["400", "500"]
-        cur_fyk = str(st.session_state.get("fyk", "500"))
-        st.selectbox(
-            "Qualité d'acier [N/mm²]",
-            acier_opts,
-            index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
-            key="fyk",
-        )
-        st.session_state.setdefault("fyk_custom", 500.0)
-        st.session_state.setdefault("fyk_ref_for_mu", "500")
-    else:
-        st.number_input(
-            "fyk (non standard) [N/mm²]",
-            min_value=200.0,
-            max_value=2000.0,
-            value=float(st.session_state.get("fyk_custom", 500.0) or 500.0),
-            step=10.0,
-            key="fyk_custom",
-        )
-        st.selectbox(
-            "Référence mu (base béton)",
-            ["400", "500"],
-            index=1 if str(st.session_state.get("fyk_ref_for_mu", "500")) == "500" else 0,
-            key="fyk_ref_for_mu",
-        )
+    # Nettoyage (compat anciens fichiers)
+    st.session_state.pop("acier_non_standard", None)
+    st.session_state.pop("fyk_custom", None)
+    st.session_state.pop("fyk_ref_for_mu", None)
+
 
 def render_donnees_left(beton_data: dict):
     st.markdown("### Données")
@@ -1437,30 +1451,6 @@ def render_donnees_left(beton_data: dict):
         b["nom"] = bnom  # sync
 
         with st.expander(bnom, expanded=True if bid == 1 else False):
-            # Ligne compacte : icône info pour renommer
-            data_locked = bool(st.session_state.get(KB("lock_data", bid), False))
-            cA, cB = st.columns([20, 1], vertical_alignment="center")
-            with cA:
-                st.markdown("")
-            with cB:
-                try:
-                    with st.popover("ℹ️"):
-                        st.text_input(
-                            "Nom de la poutre",
-                            value=str(st.session_state.get(f"meta_beam_nom_{bid}", bnom)),
-                            key=f"meta_beam_nom_{bid}",
-                            disabled=data_locked,
-                        )
-                except Exception:
-                    # Fallback si popover non disponible
-                    st.text_input(
-                        "Nom de la poutre",
-                        value=str(st.session_state.get(f"meta_beam_nom_{bid}", bnom)),
-                        key=f"meta_beam_nom_{bid}",
-                        disabled=data_locked,
-                        label_visibility="collapsed",
-                    )
-
             render_caracteristiques_beam(bid, beton_data)
             render_solicitations_for_beam(bid)
 
@@ -1615,28 +1605,26 @@ def show():
         render_infos_projet()
         render_donnees_left(beton_data)
 
-    with result_col_droite:
-        # Header compact : Dimensionnement + Paramètres avancés (toggle)
-        if "show_param_avances" not in st.session_state:
-            st.session_state["show_param_avances"] = False
+    
+with result_col_droite:
+    st.session_state.setdefault("show_param_avances", False)
 
-        cH1, cH2, cH3 = st.columns([20, 1, 1], vertical_alignment="center")
-        with cH1:
-            st.markdown("### Dimensionnement")
-        with cH2:
-            st.checkbox(
-                "Paramètres",
-                value=bool(st.session_state.get("show_param_avances", False)),
-                key="show_param_avances",
-                label_visibility="collapsed",
-            )
-        with cH3:
-            chev = "▾" if bool(st.session_state.get("show_param_avances", False)) else "▸"
-            if st.button(chev, key="btn_toggle_param_av", use_container_width=True):
-                st.session_state["show_param_avances"] = not bool(st.session_state.get("show_param_avances", False))
-                st.rerun()
+    cH1, cH2, cH3 = st.columns([18, 6, 1], vertical_alignment="center")
+    with cH1:
+        st.markdown("### Dimensionnement")
+    with cH2:
+        small_italic_label("Paramètres avancés")
+    with cH3:
+        st.checkbox(
+            "Afficher paramètres avancés",
+            value=bool(st.session_state.get("show_param_avances", False)),
+            key="show_param_avances",
+            label_visibility="collapsed",
+        )
 
-        if bool(st.session_state.get("show_param_avances", False)):
-            render_parametres_avances()
+    if bool(st.session_state.get("show_param_avances", False)):
+        open_frame()
+        render_parametres_avances()
+        close_frame()
 
-        render_dimensionnement_right(beton_data)
+    render_dimensionnement_right(beton_data)
