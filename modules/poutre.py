@@ -675,9 +675,9 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
     for sec in beam["sections"]:
         sec_id = int(sec.get("id"))
         sec_name_key = f"meta_b{beam_id}_nom_{sec_id}"
-        st.session_state.setdefault(sec_name_key, sec.get("name", f"Section {sec_id}"))
+        st.session_state.setdefault(sec_name_key, str(sec.get("nom", f"Section {sec_id}")))
 
-        with st.expander(st.session_state.get(sec_name_key, sec.get("name", f"Section {sec_id}")), expanded=True):
+        with st.expander(st.session_state.get(sec_name_key), expanded=True):
             st.text_input("Nom de la section", key=sec_name_key, disabled=data_locked)
 
             c1, c2 = st.columns(2)
@@ -688,19 +688,23 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
 
             c3, c4 = st.columns(2)
             with c3:
-                st.checkbox("Ajouter un moment supérieur", key=KS("chk_M_sup", beam_id, sec_id), disabled=data_locked)
+                st.checkbox("Ajouter un moment supérieur", key=KS("ajouter_moment_sup", beam_id, sec_id), disabled=data_locked)
             with c4:
-                st.checkbox("Ajouter un effort tranchant réduit", key=KS("chk_V_red", beam_id, sec_id), disabled=data_locked)
+                st.checkbox("Ajouter un effort tranchant réduit", key=KS("ajouter_effort_reduit", beam_id, sec_id), disabled=data_locked)
 
-            if bool(st.session_state.get(KS("chk_M_sup", beam_id, sec_id), False)):
+            if bool(st.session_state.get(KS("ajouter_moment_sup", beam_id, sec_id), False)):
                 st.number_input("Moment supérieur M_sup (kNm)", step=1.0, key=KS("M_sup", beam_id, sec_id), disabled=data_locked)
             else:
                 st.session_state.setdefault(KS("M_sup", beam_id, sec_id), 0.0)
+                if not data_locked:
+                    st.session_state[KS("M_sup", beam_id, sec_id)] = 0.0
 
-            if bool(st.session_state.get(KS("chk_V_red", beam_id, sec_id), False)):
-                st.number_input("Effort tranchant réduit V_réduit (kN)", step=1.0, key=KS("V_red", beam_id, sec_id), disabled=data_locked)
+            if bool(st.session_state.get(KS("ajouter_effort_reduit", beam_id, sec_id), False)):
+                st.number_input("Effort tranchant réduit V_réduit (kN)", step=1.0, key=KS("V_lim", beam_id, sec_id), disabled=data_locked)
             else:
-                st.session_state.setdefault(KS("V_red", beam_id, sec_id), 0.0)
+                st.session_state.setdefault(KS("V_lim", beam_id, sec_id), 0.0)
+                if not data_locked:
+                    st.session_state[KS("V_lim", beam_id, sec_id)] = 0.0
 
             if sec_id != 1:
                 st.button("Supprimer cette section", key=f"del_sec_{beam_id}_{sec_id}", on_click=_delete_section, args=(beam_id, sec_id), disabled=data_locked)
@@ -1379,9 +1383,8 @@ def render_donnees_left(beton_data: dict):
         b["nom"] = bnom  # sync
 
         with st.expander(bnom, expanded=True if bid == 1 else False):
-            # render_caracteristiques_beam ne dépend plus de beton_data (utilise BETON_DATA global)
+            # render_caracteristiques_beam inclut déjà les sollicitations
             render_caracteristiques_beam(bid)
-            render_solicitations_for_beam(bid)
 
     # Gestion compacte (poutres + sections)
     with st.expander("Gestion des poutres et sections", expanded=False):
