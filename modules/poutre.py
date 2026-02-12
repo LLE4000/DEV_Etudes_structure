@@ -1014,20 +1014,34 @@ def render_dimensionnement_right(beton_data: dict):
             for s in b.get("sections", []):
                 render_dimensionnement_section(bid, int(s["id"]), beton_data)
 
+def _init_global_steel_from_legacy_if_needed():
+    """
+    Migration légère :
+    - si acier global pas encore défini, mais anciennes clés beam 1 existent,
+      on les récupère pour éviter de perdre l'info.
+    """
+    if "acier_non_standard" in st.session_state or "fyk" in st.session_state or "fyk_custom" in st.session_state:
+        return
 
-# ============================================================
-#  UI : DIMENSIONNEMENT SECTION
-#  (inchangé — tu gardes ton code existant ici)
-#  => IMPORTANT : tu dois coller ici TA VERSION actuelle de:
-#     - _render_shear_lines_ui(...)
-#     - render_dimensionnement_section(...)
-#     - _init_global_steel_from_legacy_if_needed(...)
-#  car elles étaient déjà dans ton script.
-# ============================================================
+    legacy_non_std = st.session_state.get(KB("acier_non_standard", 1), None)
+    legacy_fyk = st.session_state.get(KB("fyk", 1), None)
+    legacy_fyk_custom = st.session_state.get(KB("fyk_custom", 1), None)
+    legacy_mu_ref = st.session_state.get(KB("fyk_ref_for_mu", 1), None)
 
-# --- COLLE ICI tes fonctions inchangées : _render_shear_lines_ui, render_dimensionnement_section, _init_global_steel_from_legacy_if_needed ---
+    if legacy_non_std is not None:
+        st.session_state["acier_non_standard"] = bool(legacy_non_std)
+    if legacy_fyk is not None:
+        st.session_state["fyk"] = str(legacy_fyk)
+    if legacy_fyk_custom is not None:
+        st.session_state["fyk_custom"] = float(legacy_fyk_custom)
+    if legacy_mu_ref is not None:
+        st.session_state["fyk_ref_for_mu"] = str(legacy_mu_ref)
 
-
+    # Défauts si rien n'existait
+    st.session_state.setdefault("acier_non_standard", False)
+    st.session_state.setdefault("fyk", "500")
+    st.session_state.setdefault("fyk_custom", 500.0)
+    st.session_state.setdefault("fyk_ref_for_mu", "500")
 # ============================================================
 #  SHOW()
 #  - Gauche : Infos projet puis Données (sans séparateurs inutiles)
