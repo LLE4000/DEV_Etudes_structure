@@ -184,6 +184,12 @@ def _ensure_defaults_for_beam(beam_id: int):
         st.session_state.setdefault(KS("ø_as_sup_2", beam_id, sid), 16)
         st.session_state.setdefault(KS("jeu_sup_2", beam_id, sid), 0.0)
 
+        # Enrobage de calcul (modifiable par section)
+        st.session_state.setdefault(KS("enrob_calc_inf", beam_id, sid), 0.0)
+        st.session_state.setdefault(KS("enrob_calc_sup", beam_id, sid), 0.0)
+        st.session_state.setdefault(KS("enrob_calc_inf_override", beam_id, sid), False)
+        st.session_state.setdefault(KS("enrob_calc_sup_override", beam_id, sid), False)
+
         # Lock dimensionnement
         st.session_state.setdefault(KS("lock_dim", beam_id, sid), False)
 
@@ -457,24 +463,59 @@ def _as_total_with_optional_second_layer(beam_id: int, sec_id: int, which: str):
     return AsT, detail
 
 
-def _enrobage_total_cm_for_layer(beam_id: int, sec_id: int, which: str) -> float:
+def _round_up_to_half_cm(x_cm: float) -> float:
+    # Arrondi au demi-centimètre supérieur
+    try:
+        return math.ceil(float(x_cm) * 2.0) / 2.0
+    except Exception:
+        return x_cm
+
+
+def _auto_enrobage_calc_cm(beam_id: int, sec_id: int, which: str) -> float:
     """
-    Nouvelle logique :
-    - Enrobage béton (caractéristiques poutre) : défaut 3 cm
-    - Jeu d'enrobage (paramètres avancés) : défaut 1 cm
-    - Axe barre (≈ rayon) : Ø/2 en mm => en cm = Ø/20
-    Total = enrobage_beton + jeu_enrobage + Ø/20
+    Enrobage de calcul (distance face béton -> axe armature) :
+      enrobage_beton + jeu_enrobage + (Ø/2 arrondi au 0.5 cm sup.)
+    où Ø/2 en cm = Ø/20.
     """
     enrob_beton = float(st.session_state.get(KB("enrobage_beton", beam_id), 3.0) or 3.0)
     jeu_enrob = float(st.session_state.get("jeu_enrobage_cm", 1.0) or 1.0)
+    diam = float(st.session_state.get(KS("ø_as_inf" if which == "inf" else "ø_as_sup", beam_id, sec_id), 16) or 16)
+    demi_diam_cm = diam / 20.0
+    return enrob_beton + jeu_enrob + _round_up_to_half_cm(demi_diam_cm)
 
-    if which == "inf":
-        diam = float(st.session_state.get(KS("ø_as_inf", beam_id, sec_id), 16) or 16)
-    else:
-        diam = float(st.session_state.get(KS("ø_as_sup", beam_id, sec_id), 16) or 16)
 
-    axe_cm = diam / 20.0
-    return enrob_beton + jeu_enrob + axe_cm
+def _get_enrobage_calc_cm(beam_id: int, sec_id: int, which: str) -> float:
+    """
+    Valeur utilisée pour le calcul.
+    - Par défaut: valeur auto (fonction du Ø)
+    - Si l'utilisateur force une valeur: on conserve (override)
+    """
+    key_val = KS(f"enrob_calc_{which}", beam_id, sec_id)
+    key_ovr = KS(f"enrob_calc_{which}_override", beam_id, sec_id)
+
+    auto_val = _auto_enrobage_calc_cm(beam_id, sec_id, which)
+
+    # Init
+    if key_ovr not in st.session_state:
+        st.session_state[key_ovr] = False
+    if key_val not in st.session_state:
+        st.session_state[key_val] = float(auto_val)
+
+    # Si pas override -> recaler sur l'auto (notamment si Ø change)
+    if not bool(st.session_state.get(key_ovr, False)):
+        st.session_state[key_val] = float(auto_val)
+
+    try:
+        return float(st.session_state.get(key_val, auto_val) or auto_val)
+    except Exception:
+        return float(auto_val)
+
+
+def _enrobage_total_cm_for_layer(beam_id: int, sec_id: int, which: str) -> float:
+    """
+    Enrobage total utilisé pour d utile, basé sur "enrobage de calcul" (modifiable).
+    """
+    return _get_enrobage_calc_cm(beam_id, sec_id, which)
 
 
 def _shear_lines_total_Ast_mm2(beam_id: int, sec_id: int, reduced: bool) -> float:
@@ -587,27 +628,29 @@ def render_solicitations_for_beam(beam_id: int):
         sid = int(s.get("id"))
         sec_nom = str(st.session_state.get(f"meta_b{beam_id}_nom_{sid}", s.get("nom", f"Section {sid}")))
 
-        cexp, cdel = st.columns([24, 2], vertical_alignment="center")
+        with st.expander(f"{sec_nom}", expanded=True if sid == 1 else False):
+            new_nom = st.text_input(
+                "Nom de la section",
+                value=sec_nom,
+                key=f"meta_b{beam_id}_nom_{sid}",
+                disabled=data_locked,
+            )
+            s["nom"] = new_nom
 
-        with cexp:
-            with st.expander(f"{sec_nom}", expanded=True if sid == 1 else False):
-                new_nom = st.text_input(
-                    "Nom de la section",
-                    value=sec_nom,
-                    key=f"meta_b{beam_id}_nom_{sid}",
-                    disabled=data_locked,
-                )
-                s["nom"] = new_nom
+            _render_section_inputs(beam_id, sid, disabled=data_locked)
 
-                _render_section_inputs(beam_id, sid, disabled=data_locked)
-
-        with cdel:
+            # Suppression section (sans icône latérale)
             if sid > 1:
-                if st.button("🗑️", key=f"btn_del_b{beam_id}_sec_{sid}", use_container_width=True, disabled=data_locked):
+                if st.button(
+                    "🗑️ Supprimer cette section",
+                    key=f"btn_del_b{beam_id}_sec_{sid}_inside",
+                    use_container_width=True,
+                    disabled=data_locked,
+                ):
                     _delete_section(beam_id, sid)
                     st.rerun()
 
-    # Suppression du trait horizontal demandé entre "Section 1" et "Ajouter une section à vérifier"
+    # Ajouter section (bouton pleine largeur)
     if st.button(
         "➕ Ajouter une section à vérifier",
         use_container_width=True,
@@ -617,10 +660,6 @@ def render_solicitations_for_beam(beam_id: int):
         _add_section(beam_id)
         st.rerun()
 
-
-# ============================================================
-#  UI : CARACTÉRISTIQUES D'UNE POUTRE (gauche)
-# ============================================================
 def render_caracteristiques_beam(beam_id: int, beton_data: dict):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
 
@@ -628,31 +667,25 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
 
     data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
 
-    # Lock / unlock données (demande)
-    cL, cR = st.columns([3, 2], vertical_alignment="center")
-    with cL:
-        st.checkbox(
-            "Bloquer les données de la poutre",
-            key=KB("lock_data", beam_id),
-            value=bool(st.session_state.get(KB("lock_data", beam_id), False)),
-        )
-        data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
-    with cR:
-        pass
-
-    # Nom poutre (utiliser le meta pour que le label expander se mette à jour immédiatement)
-    beam["nom"] = st.text_input(
-        "Nom de la poutre",
-        value=str(st.session_state.get(f"meta_beam_nom_{beam_id}", beam.get("nom", f"Poutre {beam_id}"))),
-        key=f"meta_beam_nom_{beam_id}",
-        disabled=data_locked,
+    # Lock / unlock données
+    st.checkbox(
+        "Bloquer les données de la poutre",
+        key=KB("lock_data", beam_id),
+        value=bool(st.session_state.get(KB("lock_data", beam_id), False)),
     )
+    data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
 
     # béton
     options = list(beton_data.keys())
     cur_default = options[min(2, len(options) - 1)]
     cur = str(st.session_state.get(KB("beton", beam_id), cur_default))
-    st.selectbox("Classe de béton", options, index=options.index(cur) if cur in options else options.index(cur_default), key=KB("beton", beam_id), disabled=data_locked)
+    st.selectbox(
+        "Classe de béton",
+        options,
+        index=options.index(cur) if cur in options else options.index(cur_default),
+        key=KB("beton", beam_id),
+        disabled=data_locked,
+    )
 
     # section b/h/enrobage béton
     c1, c2, c3 = st.columns(3)
@@ -687,10 +720,9 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
             disabled=data_locked,
         )
 
+    # synchro
+    beam["nom"] = str(st.session_state.get(f"meta_beam_nom_{beam_id}", beam.get("nom", f"Poutre {beam_id}")))
 
-# ============================================================
-#  DIMENSIONNEMENT / STATES
-# ============================================================
 def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict):
     beton = str(st.session_state.get(KB("beton", beam_id), "C30/37"))
     fck_cube = beton_data[beton]["fck_cube"]
@@ -743,8 +775,8 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     As_min_sup_eff = max(As_min_formula, 0.25 * As_formule_inf)
 
     # DEMANDE : acier requis affiché / retenu = max(As_formule, As_min)
-    As_req_inf_final = max(As_formule_inf, As_min_inf_eff)
-    As_req_sup_final = max(As_formule_sup, As_min_sup_eff)
+    As_req_inf_final = As_formule_inf
+    As_req_sup_final = As_formule_sup
 
     As_inf_total, _ = _as_total_with_optional_second_layer(beam_id, sec_id, "inf")
     As_sup_total, _ = _as_total_with_optional_second_layer(beam_id, sec_id, "sup")
@@ -946,9 +978,7 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 
     dim_locked = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False))
 
-    cexp, cdel = st.columns([24, 2], vertical_alignment="center")
-    with cexp:
-        with st.expander(title, expanded=True if sec_id == 1 else False):
+    with st.expander(title, expanded=True if sec_id == 1 else False):
             # Lock/unlock dimensionnement (demande)
             st.checkbox(
                 "Bloquer le dimensionnement de cette section",
@@ -1031,13 +1061,12 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             with ca1:
                 # DEMANDE : As_req affiché = max(As_formule, As_min)
                 st.markdown(f"**Aₛ,req,inf = {As_req_inf_final:.0f} mm²**")
-                st.caption(f"(As_formule={As_formule_inf:.0f} ; As_min={As_min_inf_eff:.0f})")
             with ca2:
                 st.markdown(f"**Aₛ,min,inf = {As_min_inf_eff:.0f} mm²**")
             with ca3:
                 st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
 
-            r1c1, r1c2 = st.columns([1, 1])
+            r1c1, r1c2, r1c3 = st.columns([1, 1, 1])
             with r1c1:
                 st.number_input(
                     "Nb barres",
@@ -1052,6 +1081,21 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 dcur = int(st.session_state.get(KS("ø_as_inf", beam_id, sec_id), 16) or 16)
                 idx = diam_opts.index(dcur) if dcur in diam_opts else diam_opts.index(16)
                 st.selectbox("Ø (mm)", diam_opts, index=idx, key=KS("ø_as_inf", beam_id, sec_id), disabled=dim_locked)
+            with r1c3:
+                # Enrobage de calcul (modifiable)
+                auto_e = _auto_enrobage_calc_cm(beam_id, sec_id, "inf")
+                if not bool(st.session_state.get(KS("enrob_calc_inf_override", beam_id, sec_id), False)):
+                    st.session_state[KS("enrob_calc_inf", beam_id, sec_id)] = float(auto_e)
+                val_e = st.number_input(
+                    "Enrobage calcul (cm)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(st.session_state.get(KS("enrob_calc_inf", beam_id, sec_id), auto_e) or auto_e),
+                    step=0.5,
+                    key=KS("enrob_calc_inf", beam_id, sec_id),
+                    disabled=dim_locked,
+                )
+                st.session_state[KS("enrob_calc_inf_override", beam_id, sec_id)] = bool(abs(float(val_e) - float(auto_e)) > 1e-6)
 
             has2 = st.checkbox(
                 "Ajouter un second lit (inf.)",
@@ -1095,13 +1139,12 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             cs1, cs2, cs3 = st.columns(3)
             with cs1:
                 st.markdown(f"**Aₛ,req,sup = {As_req_sup_final:.0f} mm²**")
-                st.caption(f"(As_formule={As_formule_sup:.0f} ; As_min={As_min_sup_eff:.0f})")
             with cs2:
                 st.markdown(f"**Aₛ,min,sup = {As_min_sup_eff:.0f} mm²**")
             with cs3:
                 st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
 
-            t1c1, t1c2 = st.columns([1, 1])
+            t1c1, t1c2, t1c3 = st.columns([1, 1, 1])
             with t1c1:
                 st.number_input(
                     "Nb barres (sup.)",
@@ -1116,6 +1159,20 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 dcurS = int(st.session_state.get(KS("ø_as_sup", beam_id, sec_id), 16) or 16)
                 idxS = diam_opts.index(dcurS) if dcurS in diam_opts else diam_opts.index(16)
                 st.selectbox("Ø (mm) (sup.)", diam_opts, index=idxS, key=KS("ø_as_sup", beam_id, sec_id), disabled=dim_locked)
+            with t1c3:
+                auto_eS = _auto_enrobage_calc_cm(beam_id, sec_id, "sup")
+                if not bool(st.session_state.get(KS("enrob_calc_sup_override", beam_id, sec_id), False)):
+                    st.session_state[KS("enrob_calc_sup", beam_id, sec_id)] = float(auto_eS)
+                val_eS = st.number_input(
+                    "Enrobage calcul (cm) (sup.)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(st.session_state.get(KS("enrob_calc_sup", beam_id, sec_id), auto_eS) or auto_eS),
+                    step=0.5,
+                    key=KS("enrob_calc_sup", beam_id, sec_id),
+                    disabled=dim_locked,
+                )
+                st.session_state[KS("enrob_calc_sup_override", beam_id, sec_id)] = bool(abs(float(val_eS) - float(auto_eS)) > 1e-6)
 
             has2s = st.checkbox(
                 "Ajouter un second lit (sup.)",
@@ -1240,16 +1297,6 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 st.caption(_shear_lines_summary(beam_id, sec_id, reduced=True))
                 close_bloc()
 
-    with cdel:
-        if sec_id > 1:
-            if st.button("🗑️", key=f"btn_del_dim_b{beam_id}_sec{sec_id}", use_container_width=True, disabled=dim_locked):
-                _delete_section(beam_id, sec_id)
-                st.rerun()
-
-
-# ============================================================
-#  UI : PARAMÈTRES PROJET + PARAMÈTRES AVANCÉS (acier global)
-# ============================================================
 def _init_global_steel_from_legacy_if_needed():
     """
     Migration légère :
@@ -1274,13 +1321,27 @@ def _init_global_steel_from_legacy_if_needed():
 
 
 def render_infos_projet():
-    st.markdown("### Informations sur le projet")
-    afficher_infos = st.checkbox(
-        "Ajouter les informations du projet",
-        value=bool(st.session_state.get("chk_infos_projet", False)),
-        key="chk_infos_projet",
-    )
-    if afficher_infos:
+    # Header compact sur une seule ligne : titre + checkbox + chevron
+    if "chk_infos_projet" not in st.session_state:
+        st.session_state["chk_infos_projet"] = False
+
+    c1, c2, c3 = st.columns([20, 1, 1], vertical_alignment="center")
+    with c1:
+        st.markdown("**Informations sur le projet**")
+    with c2:
+        st.checkbox(
+            "Activer",
+            value=bool(st.session_state.get("chk_infos_projet", False)),
+            key="chk_infos_projet",
+            label_visibility="collapsed",
+        )
+    with c3:
+        chevron = "▾" if bool(st.session_state.get("chk_infos_projet", False)) else "▸"
+        if st.button(chevron, key="btn_toggle_infos_projet", use_container_width=True):
+            st.session_state["chk_infos_projet"] = not bool(st.session_state.get("chk_infos_projet", False))
+            st.rerun()
+
+    if bool(st.session_state.get("chk_infos_projet", False)):
         st.text_input("", placeholder="Nom du projet", key="nom_projet")
         st.text_input("", placeholder="Partie", key="partie")
         c1, c2 = st.columns(2)
@@ -1298,147 +1359,192 @@ def render_infos_projet():
 
 
 def render_parametres_avances():
-    st.markdown("---")
-    st.markdown("### Paramètres avancés")
+    # Contenu des paramètres avancés (affiché/masqué depuis la colonne de droite)
+    cU1, cU2 = st.columns(2)
+    with cU1:
+        st.selectbox(
+            "Affichage longueurs",
+            ["cm", "mm"],
+            index=0 if st.session_state.get("units_len", "cm") == "cm" else 1,
+            key="units_len",
+        )
+    with cU2:
+        st.selectbox(
+            "Affichage armatures",
+            ["mm²", "cm²"],
+            index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1,
+            key="units_as",
+        )
 
-    # DEMANDE : supprimer la jauge 0–100% inutile (ui_sep_dummy) -> supprimé ici
+    st.number_input(
+        "Jeu d'enrobage (cm)",
+        min_value=0.0,
+        max_value=10.0,
+        value=float(st.session_state.get("jeu_enrobage_cm", 1.0) or 1.0),
+        step=0.5,
+        key="jeu_enrobage_cm",
+    )
 
-    with st.expander("Paramètres avancés", expanded=False):
-        # DEMANDE : unités sur une même ligne
-        cU1, cU2 = st.columns(2)
-        with cU1:
-            st.selectbox(
-                "Affichage longueurs",
-                ["cm", "mm"],
-                index=0 if st.session_state.get("units_len", "cm") == "cm" else 1,
-                key="units_len",
-            )
-        with cU2:
-            st.selectbox(
-                "Affichage armatures",
-                ["mm²", "cm²"],
-                index=0 if st.session_state.get("units_as", "mm²") == "mm²" else 1,
-                key="units_as",
-            )
+    st.slider(
+        "Tolérance dépassement (%)",
+        min_value=0,
+        max_value=25,
+        value=int(st.session_state.get("tau_tolerance_percent", 0) or 0),
+        step=1,
+        key="tau_tolerance_percent",
+    )
 
-        # DEMANDE : jeu d'enrobage en paramètres avancés (défaut 1 cm)
+    st.markdown("#### Acier (global)")
+    st.checkbox(
+        "Qualité d'acier non standard",
+        value=bool(st.session_state.get("acier_non_standard", False)),
+        key="acier_non_standard",
+    )
+
+    if not bool(st.session_state.get("acier_non_standard", False)):
+        acier_opts = ["400", "500"]
+        cur_fyk = str(st.session_state.get("fyk", "500"))
+        st.selectbox(
+            "Qualité d'acier [N/mm²]",
+            acier_opts,
+            index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
+            key="fyk",
+        )
+        st.session_state.setdefault("fyk_custom", 500.0)
+        st.session_state.setdefault("fyk_ref_for_mu", "500")
+    else:
         st.number_input(
-            "Jeu d'enrobage (cm)",
-            min_value=0.0,
-            max_value=10.0,
-            value=float(st.session_state.get("jeu_enrobage_cm", 1.0) or 1.0),
-            step=0.5,
-            key="jeu_enrobage_cm",
+            "fyk (non standard) [N/mm²]",
+            min_value=200.0,
+            max_value=2000.0,
+            value=float(st.session_state.get("fyk_custom", 500.0) or 500.0),
+            step=10.0,
+            key="fyk_custom",
+        )
+        st.selectbox(
+            "Référence mu (base béton)",
+            ["400", "500"],
+            index=1 if str(st.session_state.get("fyk_ref_for_mu", "500")) == "500" else 0,
+            key="fyk_ref_for_mu",
         )
 
-        st.slider(
-            "Tolérance dépassement (%)",
-            min_value=0,
-            max_value=25,
-            value=int(st.session_state.get("tau_tolerance_percent", 0) or 0),
-            step=1,
-            key="tau_tolerance_percent",
-        )
-
-        st.markdown("---")
-        st.markdown("#### Acier (global)")
-        st.checkbox(
-            "Qualité d'acier non standard",
-            value=bool(st.session_state.get("acier_non_standard", False)),
-            key="acier_non_standard",
-        )
-
-        if not bool(st.session_state.get("acier_non_standard", False)):
-            acier_opts = ["400", "500"]
-            cur_fyk = str(st.session_state.get("fyk", "500"))
-            st.selectbox(
-                "Qualité d'acier [N/mm²]",
-                acier_opts,
-                index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
-                key="fyk",
-            )
-            st.session_state.setdefault("fyk_custom", 500.0)
-            st.session_state.setdefault("fyk_ref_for_mu", "500")
-        else:
-            st.number_input(
-                "fyk (non standard) [N/mm²]",
-                min_value=200.0,
-                max_value=2000.0,
-                value=float(st.session_state.get("fyk_custom", 500.0) or 500.0),
-                step=10.0,
-                key="fyk_custom",
-            )
-            st.selectbox(
-                "Référence mu (base béton)",
-                ["400", "500"],
-                index=1 if str(st.session_state.get("fyk_ref_for_mu", "500")) == "500" else 0,
-                key="fyk_ref_for_mu",
-            )
-
-
-# ============================================================
-#  UI : DONNÉES — gauche
-# ============================================================
 def render_donnees_left(beton_data: dict):
     st.markdown("### Données")
 
-    # DEMANDE : ne plus avoir les boutons dupliquer/effacer à droite des poutres (compression)
-    # -> on affiche uniquement la liste des poutres
     for b in st.session_state.beams:
         bid = int(b["id"])
         bnom = str(st.session_state.get(f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}")))
-        b["nom"] = bnom  # sync immédiat
+        b["nom"] = bnom  # sync
 
         with st.expander(bnom, expanded=True if bid == 1 else False):
-            render_caracteristiques_beam(bid, beton_data)
+            # Ligne compacte : icône info pour renommer
+            data_locked = bool(st.session_state.get(KB("lock_data", bid), False))
+            cA, cB = st.columns([20, 1], vertical_alignment="center")
+            with cA:
+                st.markdown("")
+            with cB:
+                try:
+                    with st.popover("ℹ️"):
+                        st.text_input(
+                            "Nom de la poutre",
+                            value=str(st.session_state.get(f"meta_beam_nom_{bid}", bnom)),
+                            key=f"meta_beam_nom_{bid}",
+                            disabled=data_locked,
+                        )
+                except Exception:
+                    # Fallback si popover non disponible
+                    st.text_input(
+                        "Nom de la poutre",
+                        value=str(st.session_state.get(f"meta_beam_nom_{bid}", bnom)),
+                        key=f"meta_beam_nom_{bid}",
+                        disabled=data_locked,
+                        label_visibility="collapsed",
+                    )
 
-            # DEMANDE : pas de trait horizontal séparateur pour "Sollicitations"
+            render_caracteristiques_beam(bid, beton_data)
             render_solicitations_for_beam(bid)
 
-    # Actions sous la liste (demande)
-    st.markdown("")  # pas de trait
-
-    cA, cB, cC = st.columns(3)
-
-    with cA:
-        if st.button("➕ Ajouter une poutre", use_container_width=True, key="btn_add_beam_bottom"):
+    # Gestion compacte (poutres + sections)
+    with st.expander("Gestion des poutres et sections", expanded=False):
+        # --- Poutres ---
+        st.markdown("#### Poutres")
+        if st.button("➕ Ajouter une poutre", use_container_width=True, key="btn_add_beam_mng"):
             _add_beam()
             st.rerun()
 
-    with cB:
-        # Dupliquer : sélection poutre + bouton
         beam_options = [(int(b["id"]), str(st.session_state.get(f"meta_beam_nom_{int(b['id'])}", b.get("nom", f"Poutre {int(b['id'])}")))) for b in st.session_state.beams]
-        labels = [f"{bid} — {name}" for bid, name in beam_options]
         ids = [bid for bid, _ in beam_options]
-        sel = st.selectbox("Dupliquer une poutre", options=list(range(len(ids))), format_func=lambda i: labels[i], key="sel_dup_beam_idx")
-        if st.button("📄 Dupliquer", use_container_width=True, key="btn_dup_beam_bottom"):
-            _duplicate_beam(ids[int(sel)])
-            st.rerun()
+        labels = [f"{bid} — {name}" for bid, name in beam_options]
 
-    with cC:
-        # Effacer : sélection multiple + bouton
+        c1, c2 = st.columns([3, 2])
+        with c1:
+            sel = st.selectbox(
+                "Dupliquer une poutre",
+                options=list(range(len(ids))),
+                format_func=lambda i: labels[i],
+                key="sel_dup_beam_idx",
+            )
+        with c2:
+            if st.button("📄 Dupliquer", use_container_width=True, key="btn_dup_beam_mng"):
+                _duplicate_beam(ids[int(sel)])
+                st.rerun()
+
         deletable = [(int(b["id"]), str(st.session_state.get(f"meta_beam_nom_{int(b['id'])}", b.get("nom", f"Poutre {int(b['id'])}")))) for b in st.session_state.beams if int(b["id"]) != 1]
-        del_labels = [f"{bid} — {name}" for bid, name in deletable]
         del_ids = [bid for bid, _ in deletable]
-        chosen = st.multiselect("Effacer des poutres", options=list(range(len(del_ids))), format_func=lambda i: del_labels[i], key="ms_del_beams_idx")
-        if st.button("🗑️ Effacer", use_container_width=True, key="btn_del_beams_bottom", disabled=(len(chosen) == 0)):
+        del_labels = [f"{bid} — {name}" for bid, name in deletable]
+
+        chosen = st.multiselect(
+            "Effacer des poutres",
+            options=list(range(len(del_ids))),
+            format_func=lambda i: del_labels[i],
+            key="ms_del_beams_idx",
+        )
+        if st.button("🗑️ Effacer", use_container_width=True, key="btn_del_beams_mng", disabled=(len(chosen) == 0)):
             for idx in sorted(chosen, reverse=True):
                 _delete_beam(del_ids[int(idx)])
             st.rerun()
 
+        # --- Sections ---
+        st.markdown("#### Sections")
+        if len(ids) > 0:
+            sel_b = st.selectbox(
+                "Poutre (sections)",
+                options=list(range(len(ids))),
+                format_func=lambda i: labels[i],
+                key="sel_beam_sections_idx",
+            )
+            bid_sel = ids[int(sel_b)]
 
-# ============================================================
-#  UI : DIMENSIONNEMENT (toutes les poutres) — droite
-# ============================================================
+            cS1, cS2 = st.columns([2, 1])
+            with cS1:
+                if st.button("➕ Ajouter une section", use_container_width=True, key="btn_add_section_mng"):
+                    _add_section(bid_sel)
+                    st.rerun()
+            with cS2:
+                pass
+
+            beam_sel = next(bb for bb in st.session_state.beams if int(bb.get("id")) == int(bid_sel))
+            sec_deletable = [int(s.get("id")) for s in beam_sel.get("sections", []) if int(s.get("id")) != 1]
+            if sec_deletable:
+                sec_labels = [str(st.session_state.get(f"meta_b{bid_sel}_nom_{sid}", f"Section {sid}")) for sid in sec_deletable]
+                sec_choice = st.selectbox(
+                    "Supprimer une section",
+                    options=list(range(len(sec_deletable))),
+                    format_func=lambda i: f"{sec_deletable[i]} — {sec_labels[i]}",
+                    key="sel_del_section_idx",
+                )
+                if st.button("🗑️ Supprimer la section", use_container_width=True, key="btn_del_section_mng"):
+                    _delete_section(bid_sel, sec_deletable[int(sec_choice)])
+                    st.rerun()
+            else:
+                st.caption("Aucune section supprimable (Section 1 est conservée).")
+
 def render_dimensionnement_right(beton_data: dict):
-    st.markdown("### Dimensionnement")
-
     for b in st.session_state.beams:
         bid = int(b["id"])
         bnom = str(st.session_state.get(f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}")))
         b["nom"] = bnom
 
-        # DEMANDE : poutre en vert si toutes sections en vert
         sec_states = []
         for s in b.get("sections", []):
             sec_states.append(_dimensionnement_compute_states(bid, int(s["id"]), beton_data)["etat_global"])
@@ -1449,10 +1555,6 @@ def render_dimensionnement_right(beton_data: dict):
             for s in b.get("sections", []):
                 render_dimensionnement_section(bid, int(s["id"]), beton_data)
 
-
-# ============================================================
-#  SHOW() : layout final gauche/droite
-# ============================================================
 def show():
     _init_beams_if_needed()
     _init_global_steel_from_legacy_if_needed()
@@ -1511,9 +1613,30 @@ def show():
 
     with input_col_gauche:
         render_infos_projet()
-        render_parametres_avances()
-        st.markdown("---")
         render_donnees_left(beton_data)
 
     with result_col_droite:
+        # Header compact : Dimensionnement + Paramètres avancés (toggle)
+        if "show_param_avances" not in st.session_state:
+            st.session_state["show_param_avances"] = False
+
+        cH1, cH2, cH3 = st.columns([20, 1, 1], vertical_alignment="center")
+        with cH1:
+            st.markdown("### Dimensionnement")
+        with cH2:
+            st.checkbox(
+                "Paramètres",
+                value=bool(st.session_state.get("show_param_avances", False)),
+                key="show_param_avances",
+                label_visibility="collapsed",
+            )
+        with cH3:
+            chev = "▾" if bool(st.session_state.get("show_param_avances", False)) else "▸"
+            if st.button(chev, key="btn_toggle_param_av", use_container_width=True):
+                st.session_state["show_param_avances"] = not bool(st.session_state.get("show_param_avances", False))
+                st.rerun()
+
+        if bool(st.session_state.get("show_param_avances", False)):
+            render_parametres_avances()
+
         render_dimensionnement_right(beton_data)
