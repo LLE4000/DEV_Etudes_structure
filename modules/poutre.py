@@ -70,6 +70,14 @@ def close_frame():
 def small_italic_label(txt: str):
     st.markdown(f"<span style='font-style:italic;opacity:0.75;'>{txt}</span>", unsafe_allow_html=True)
 
+
+def small_italic_label_right(txt: str):
+    """Libellé italique aligné à droite pour être collé visuellement à une checkbox."""
+    st.markdown(
+        f"<div style='text-align:right;font-style:italic;opacity:0.75;padding-right:6px;'>{txt}</div>",
+        unsafe_allow_html=True,
+    )
+
 # ============================================================
 #  UTILITAIRES SESSION / CLÉS
 # ============================================================
@@ -234,12 +242,33 @@ def _ensure_defaults_for_beam(beam_id: int):
         st.session_state.setdefault(KS("shear_r_line0_d", beam_id, sid), 8)
 
 
+def _snapshot_state_by_prefix(prefixes: list[str]) -> dict:
+    """Sauvegarde défensive des valeurs de session_state pour une liste de préfixes."""
+    snap = {}
+    for k in list(st.session_state.keys()):
+        if any(str(k).startswith(p) for p in prefixes):
+            snap[k] = deepcopy(st.session_state[k])
+    return snap
+
+
+def _restore_state_snapshot(snapshot: dict):
+    """Restaure un snapshot sans écraser les nouvelles clés (uniquement celles déjà présentes dans le snapshot)."""
+    for k, v in snapshot.items():
+        st.session_state[k] = deepcopy(v)
+
+
 def _add_beam():
+    # Sauvegarde défensive : préserver les valeurs déjà saisies sur les autres poutres
+    existing_ids = [int(b.get("id", 0)) for b in st.session_state.beams]
+    snapshot = _snapshot_state_by_prefix([f"b{bid}_" for bid in existing_ids] + ["meta_beam_nom_", "meta_b"])
+
     new_id = _next_beam_id()
     st.session_state.beams.append({"id": new_id, "nom": f"Poutre {new_id}", "sections": [{"id": 1, "nom": "Section A"}]})
     st.session_state[f"meta_beam_nom_{new_id}"] = f"Poutre {new_id}"
     st.session_state[f"meta_b{new_id}_nom_1"] = "Section A"
     _ensure_defaults_for_beam(new_id)
+
+    _restore_state_snapshot(snapshot)
 
 
 def _delete_beam(beam_id: int):
@@ -282,10 +311,18 @@ def _duplicate_beam(src_beam_id: int):
 
 def _add_section(beam_id: int):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
+
+    # Sauvegarde défensive : préserver les valeurs déjà saisies sur les sections existantes
+    existing_secs = [int(s.get("id", 0)) for s in beam.get("sections", [])]
+    prefixes = [f"b{beam_id}_sec{sid}_" for sid in existing_secs] + [f"b{beam_id}_"]
+    snapshot = _snapshot_state_by_prefix(prefixes)
+
     new_id = _next_section_id(beam_id)
     beam["sections"].append({"id": new_id, "nom": f"Section {new_id}"})
     st.session_state[f"meta_b{beam_id}_nom_{new_id}"] = f"Section {new_id}"
     _ensure_defaults_for_beam(beam_id)
+
+    _restore_state_snapshot(snapshot)
 
 
 def _delete_section(beam_id: int, sec_id: int):
@@ -1356,11 +1393,12 @@ def render_infos_projet():
     # Header compact : titre (même niveau que les titres principaux) + label italique + checkbox
     st.session_state.setdefault("chk_infos_projet", False)
 
-    c1, c2, c3 = st.columns([18, 6, 1], vertical_alignment="center")
+    # label + checkbox collés à droite
+    c1, c2, c3 = st.columns([18, 3, 1], vertical_alignment="center")
     with c1:
         st.markdown("### Informations sur le projet")
     with c2:
-        small_italic_label("Ajouter à l'information")
+        small_italic_label_right("Ajouter")
     with c3:
         st.checkbox(
             "Activer infos projet",
@@ -1609,11 +1647,12 @@ def show():
     with result_col_droite:
         st.session_state.setdefault("show_param_avances", False)
     
-        cH1, cH2, cH3 = st.columns([18, 6, 1], vertical_alignment="center")
+        # label + checkbox collés à droite
+        cH1, cH2, cH3 = st.columns([18, 3, 1], vertical_alignment="center")
         with cH1:
             st.markdown("### Dimensionnement")
         with cH2:
-            small_italic_label("Paramètres avancés")
+            small_italic_label_right("Paramètres avancés")
         with cH3:
             st.checkbox(
                 "Afficher paramètres avancés",
