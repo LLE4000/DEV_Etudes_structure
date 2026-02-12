@@ -1606,25 +1606,25 @@ def show():
         render_donnees_left(beton_data)
 
     
-with result_col_droite:
-    st.session_state.setdefault("show_param_avances", False)
-
-    cH1, cH2, cH3 = st.columns([18, 6, 1], vertical_alignment="center")
-    with cH1:
-        st.markdown("### Dimensionnement")
-    with cH2:
-        small_italic_label("Paramètres avancés")
-    with cH3:
-        st.checkbox(
-            "Afficher paramètres avancés",
-            value=bool(st.session_state.get("show_param_avances", False)),
-            key="show_param_avances",
-            label_visibility="collapsed",
-        )
-
-    if bool(st.session_state.get("show_param_avances", False)):
-        open_frame()
-        render_parametres_avances()
-        close_frame()
-
-    render_dimensionnement_right(beton_data)
+    with result_col_droite:
+        st.session_state.setdefault("show_param_avances", False)
+    
+        cH1, cH2, cH3 = st.columns([18, 6, 1], vertical_alignment="center")
+        with cH1:
+            st.markdown("### Dimensionnement")
+        with cH2:
+            small_italic_label("Paramètres avancés")
+        with cH3:
+            st.checkbox(
+                "Afficher paramètres avancés",
+                value=bool(st.session_state.get("show_param_avances", False)),
+                key="show_param_avances",
+                label_visibility="collapsed",
+            )
+    
+        if bool(st.session_state.get("show_param_avances", False)):
+            open_frame()
+            render_parametres_avances()
+            close_frame()
+    
+        render_dimensionnement_right(beton_data)
