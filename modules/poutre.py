@@ -631,7 +631,7 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
 
 
 # ============================================================
-#  DIMENSIONNEMENT / STATES (inchangé)
+#  DIMENSIONNEMENT / STATES
 # ============================================================
 def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict):
     beton = str(st.session_state.get(KB("beton", beam_id), "C30/37"))
@@ -773,6 +773,32 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
 
 
 # ============================================================
+#  INIT / MIGRATION acier global (évite NameError)
+# ============================================================
+def _init_global_steel_from_legacy_if_needed():
+    """
+    Migration légère :
+    - si acier global pas encore défini, mais anciennes clés beam 1 existent,
+      on les récupère pour éviter de perdre l'info.
+    """
+    if "acier_non_standard" in st.session_state or "fyk" in st.session_state or "fyk_custom" in st.session_state:
+        return
+    legacy_non_std = st.session_state.get(KB("acier_non_standard", 1), None)
+    legacy_fyk = st.session_state.get(KB("fyk", 1), None)
+    legacy_fyk_custom = st.session_state.get(KB("fyk_custom", 1), None)
+    legacy_mu_ref = st.session_state.get(KB("fyk_ref_for_mu", 1), None)
+
+    if legacy_non_std is not None:
+        st.session_state["acier_non_standard"] = bool(legacy_non_std)
+    if legacy_fyk is not None:
+        st.session_state["fyk"] = str(legacy_fyk)
+    if legacy_fyk_custom is not None:
+        st.session_state["fyk_custom"] = float(legacy_fyk_custom)
+    if legacy_mu_ref is not None:
+        st.session_state["fyk_ref_for_mu"] = str(legacy_mu_ref)
+
+
+# ============================================================
 #  UI : PARAMÈTRES (contenu) -> affiché/masqué à droite
 #  IMPORTANT: pas de titre, pas d’expander (gain de place)
 # ============================================================
@@ -819,7 +845,11 @@ def render_parametres_avances_content():
 
     st.markdown("#### Acier (global)")
     st.session_state.setdefault("acier_non_standard", False)
-    st.checkbox("Qualité d'acier non standard", value=bool(st.session_state.get("acier_non_standard", False)), key="acier_non_standard")
+    st.checkbox(
+        "Qualité d'acier non standard",
+        value=bool(st.session_state.get("acier_non_standard", False)),
+        key="acier_non_standard",
+    )
 
     if not bool(st.session_state.get("acier_non_standard", False)):
         acier_opts = ["400", "500"]
@@ -847,6 +877,40 @@ def render_parametres_avances_content():
             index=1 if str(st.session_state.get("fyk_ref_for_mu", "500")) == "500" else 0,
             key="fyk_ref_for_mu",
         )
+
+
+# ============================================================
+#  UI : INFOS PROJET (checkbox à droite du titre, sans texte)
+# ============================================================
+def render_infos_projet():
+    # header sur 1 ligne : titre à gauche / checkbox seule à droite
+    cL, cR = st.columns([20, 1], vertical_alignment="center")
+    with cL:
+        st.markdown("### Informations sur le projet")
+    with cR:
+        st.checkbox(
+            " ",  # label volontairement minimal
+            value=bool(st.session_state.get("chk_infos_projet", False)),
+            key="chk_infos_projet",
+            label_visibility="collapsed",
+        )
+
+    if bool(st.session_state.get("chk_infos_projet", False)):
+        st.text_input("", placeholder="Nom du projet", key="nom_projet")
+        st.text_input("", placeholder="Partie", key="partie")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.text_input(
+                "",
+                placeholder="Date (jj/mm/aaaa)",
+                value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")),
+                key="date",
+            )
+        with c2:
+            st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
+    else:
+        # on garde au moins une date par défaut
+        st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
 
 
 # ============================================================
