@@ -74,7 +74,7 @@ def small_italic_label(txt: str):
 def small_italic_label_right(txt: str):
     """Libellé italique aligné à droite pour être collé visuellement à une checkbox."""
     st.markdown(
-        f"<div style='text-align:right;font-style:italic;opacity:0.75;padding-right:6px;'>{txt}</div>",
+        f"<div style='text-align:right;font-style:italic;opacity:0.75;padding-right:0px;margin-right:0px;'>{txt}</div>",
         unsafe_allow_html=True,
     )
 
@@ -114,10 +114,10 @@ def _reset_module():
 # ============================================================
 #  SAISIE DÉCIMALE FR (texte)
 # ============================================================
-def float_input_fr_simple(label, key, default=0.0, min_value=0.0):
+def float_input_fr_simple(label, key, default=0.0, min_value=0.0, disabled: bool = False):
     current = float(st.session_state.get(key, default) or 0.0)
     raw_default = st.session_state.get(f"{key}_raw", f"{current:.2f}".replace(".", ","))
-    raw = st.text_input(label, value=raw_default, key=f"{key}_raw")
+    raw = st.text_input(label, value=raw_default, key=f"{key}_raw", disabled=disabled)
 
     try:
         val = float(str(raw).strip().replace(",", "."))
@@ -189,6 +189,8 @@ def _ensure_defaults_for_beam(beam_id: int):
     st.session_state.setdefault(KB("h", beam_id), 40)
     # Enrobage béton (nouvelle logique) : défaut 3 cm
     st.session_state.setdefault(KB("enrobage_beton", beam_id), 3.0)
+    # Acier (par poutre) : 400 ou 500
+    st.session_state.setdefault(KB("fyk", beam_id), str(st.session_state.get("fyk", "500")))
     # Lock données
     st.session_state.setdefault(KB("lock_data", beam_id), False)
 
@@ -242,33 +244,12 @@ def _ensure_defaults_for_beam(beam_id: int):
         st.session_state.setdefault(KS("shear_r_line0_d", beam_id, sid), 8)
 
 
-def _snapshot_state_by_prefix(prefixes: list[str]) -> dict:
-    """Sauvegarde défensive des valeurs de session_state pour une liste de préfixes."""
-    snap = {}
-    for k in list(st.session_state.keys()):
-        if any(str(k).startswith(p) for p in prefixes):
-            snap[k] = deepcopy(st.session_state[k])
-    return snap
-
-
-def _restore_state_snapshot(snapshot: dict):
-    """Restaure un snapshot sans écraser les nouvelles clés (uniquement celles déjà présentes dans le snapshot)."""
-    for k, v in snapshot.items():
-        st.session_state[k] = deepcopy(v)
-
-
 def _add_beam():
-    # Sauvegarde défensive : préserver les valeurs déjà saisies sur les autres poutres
-    existing_ids = [int(b.get("id", 0)) for b in st.session_state.beams]
-    snapshot = _snapshot_state_by_prefix([f"b{bid}_" for bid in existing_ids] + ["meta_beam_nom_", "meta_b"])
-
     new_id = _next_beam_id()
     st.session_state.beams.append({"id": new_id, "nom": f"Poutre {new_id}", "sections": [{"id": 1, "nom": "Section A"}]})
     st.session_state[f"meta_beam_nom_{new_id}"] = f"Poutre {new_id}"
     st.session_state[f"meta_b{new_id}_nom_1"] = "Section A"
     _ensure_defaults_for_beam(new_id)
-
-    _restore_state_snapshot(snapshot)
 
 
 def _delete_beam(beam_id: int):
@@ -311,18 +292,10 @@ def _duplicate_beam(src_beam_id: int):
 
 def _add_section(beam_id: int):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
-
-    # Sauvegarde défensive : préserver les valeurs déjà saisies sur les sections existantes
-    existing_secs = [int(s.get("id", 0)) for s in beam.get("sections", [])]
-    prefixes = [f"b{beam_id}_sec{sid}_" for sid in existing_secs] + [f"b{beam_id}_"]
-    snapshot = _snapshot_state_by_prefix(prefixes)
-
     new_id = _next_section_id(beam_id)
     beam["sections"].append({"id": new_id, "nom": f"Section {new_id}"})
     st.session_state[f"meta_b{beam_id}_nom_{new_id}"] = f"Section {new_id}"
     _ensure_defaults_for_beam(beam_id)
-
-    _restore_state_snapshot(snapshot)
 
 
 def _delete_section(beam_id: int, sec_id: int):
@@ -478,15 +451,14 @@ def _brins_from_type(type_txt: str) -> int:
 
 
 
-def _get_fyk_and_mu_ref():
-    """Acier (via Paramètres avancés) : uniquement 400 / 500."""
-    try:
-        fyk = float(st.session_state.get("fyk", 500))
-    except Exception:
-        fyk = 500.0
-    if int(fyk) not in (400, 500):
-        fyk = 500.0
-    return fyk, str(int(fyk))
+def _get_fyk_and_mu_ref(beam_id: int):
+    """Acier par poutre : 400 ou 500."""
+    cur = str(st.session_state.get(KB("fyk", beam_id), "500"))
+    if cur not in ("400", "500"):
+        cur = "500"
+        st.session_state[KB("fyk", beam_id)] = cur
+    fyk = float(cur)
+    return fyk, cur
 
 
     if acier_non_standard:
@@ -654,7 +626,7 @@ def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
     cmom, cev = st.columns(2)
 
     with cmom:
-        float_input_fr_simple("Moment inférieur M (kNm)", key=KS("M_inf", beam_id, sec_id), default=0.0, min_value=0.0)
+        float_input_fr_simple("Moment inférieur M (kNm)", key=KS("M_inf", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
         st.session_state[KS("M_inf", beam_id, sec_id)] = float(st.session_state.get(KS("M_inf", beam_id, sec_id), 0.0) or 0.0)
 
         m_sup_toggle = st.checkbox(
@@ -664,12 +636,12 @@ def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
             disabled=disabled,
         )
         if m_sup_toggle:
-            float_input_fr_simple("Moment supérieur M_sup (kNm)", key=KS("M_sup", beam_id, sec_id), default=0.0, min_value=0.0)
+            float_input_fr_simple("Moment supérieur M_sup (kNm)", key=KS("M_sup", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
         else:
             st.session_state[KS("M_sup", beam_id, sec_id)] = 0.0
 
     with cev:
-        float_input_fr_simple("Effort tranchant V (kN)", key=KS("V", beam_id, sec_id), default=0.0, min_value=0.0)
+        float_input_fr_simple("Effort tranchant V (kN)", key=KS("V", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
         st.session_state[KS("V", beam_id, sec_id)] = float(st.session_state.get(KS("V", beam_id, sec_id), 0.0) or 0.0)
 
         v_sup = st.checkbox(
@@ -679,7 +651,7 @@ def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
             disabled=disabled,
         )
         if v_sup:
-            float_input_fr_simple("Effort tranchant réduit V_réduit (kN)", key=KS("V_lim", beam_id, sec_id), default=0.0, min_value=0.0)
+            float_input_fr_simple("Effort tranchant réduit V_réduit (kN)", key=KS("V_lim", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
         else:
             st.session_state[KS("V_lim", beam_id, sec_id)] = 0.0
 
@@ -733,46 +705,56 @@ def render_solicitations_for_beam(beam_id: int):
 def render_caracteristiques_beam(beam_id: int, beton_data: dict):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
 
-    # Titre + icône info (renommer) sur la même ligne
-    cT, cI = st.columns([20, 1], vertical_alignment="center")
-    with cT:
-        st.markdown("#### Caractéristiques de la poutre")
-    with cI:
-        data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
-        try:
-            with st.popover("ℹ️"):
-                st.text_input(
-                    "Nom de la poutre",
-                    value=str(st.session_state.get(f"meta_beam_nom_{beam_id}", beam.get("nom", f"Poutre {beam_id}"))),
-                    key=f"meta_beam_nom_{beam_id}",
-                    disabled=data_locked,
-                )
-        except Exception:
-            pass
+    st.markdown("#### Caractéristiques de la poutre")
 
-    # Lock / unlock données
-    st.checkbox(
-        "Bloquer les données de la poutre",
-        key=KB("lock_data", beam_id),
-        value=bool(st.session_state.get(KB("lock_data", beam_id), False)),
-    )
     data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
 
-    # béton
-    options = list(beton_data.keys())
-    cur_default = options[min(2, len(options) - 1)]
-    cur = str(st.session_state.get(KB("beton", beam_id), cur_default))
-    st.selectbox(
-        "Classe de béton",
-        options,
-        index=options.index(cur) if cur in options else options.index(cur_default),
-        key=KB("beton", beam_id),
-        disabled=data_locked,
-    )
+    # 4 colonnes : Nom + Béton + Acier + Lock
+    c1, c2, c3, c4 = st.columns([3, 2, 2, 1], vertical_alignment="center")
+
+    with c1:
+        beam["nom"] = st.text_input(
+            "Nom de la poutre",
+            value=str(st.session_state.get(f"meta_beam_nom_{beam_id}", beam.get("nom", f"Poutre {beam_id}"))),
+            key=f"meta_beam_nom_{beam_id}",
+            disabled=data_locked,
+        )
+
+    with c2:
+        options = list(beton_data.keys())
+        cur_default = options[min(2, len(options) - 1)]
+        cur = str(st.session_state.get(KB("beton", beam_id), cur_default))
+        st.selectbox(
+            "Classe de béton",
+            options,
+            index=options.index(cur) if cur in options else options.index(cur_default),
+            key=KB("beton", beam_id),
+            disabled=data_locked,
+        )
+
+    with c3:
+        acier_opts = ["400", "500"]
+        cur_fyk = str(st.session_state.get(KB("fyk", beam_id), "500"))
+        st.selectbox(
+            "Qualité acier (B)",
+            acier_opts,
+            index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
+            key=KB("fyk", beam_id),
+            disabled=data_locked,
+        )
+
+    with c4:
+        st.checkbox(
+            "🔒",
+            key=KB("lock_data", beam_id),
+            value=bool(st.session_state.get(KB("lock_data", beam_id), False)),
+            label_visibility="collapsed",
+        )
+    data_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
 
     # section b/h/enrobage béton
-    c1, c2, c3 = st.columns(3)
-    with c1:
+    c5, c6, c7 = st.columns(3)
+    with c5:
         st.number_input(
             "Larg. [cm]",
             min_value=5,
@@ -782,7 +764,7 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
             key=KB("b", beam_id),
             disabled=data_locked,
         )
-    with c2:
+    with c6:
         st.number_input(
             "Haut. [cm]",
             min_value=5,
@@ -792,7 +774,7 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
             key=KB("h", beam_id),
             disabled=data_locked,
         )
-    with c3:
+    with c7:
         st.number_input(
             "Enrob. béton (cm)",
             min_value=0.0,
@@ -803,12 +785,13 @@ def render_caracteristiques_beam(beam_id: int, beton_data: dict):
             disabled=data_locked,
         )
 
+
 def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict):
     beton = str(st.session_state.get(KB("beton", beam_id), "C30/37"))
     fck_cube = beton_data[beton]["fck_cube"]
     alpha_b = beton_data[beton]["alpha_b"]
 
-    fyk, mu_ref = _get_fyk_and_mu_ref()
+    fyk, mu_ref = _get_fyk_and_mu_ref(beam_id)
     fyd = fyk / 1.5
 
     mu_key = f"mu_a{mu_ref}"
@@ -1018,7 +1001,7 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, reduced: bool, disabled: b
             )
         with c3:
             if i == 0:
-                float_input_fr_simple(pas_label, key=pas_key, default=float(st.session_state.get(pas_key, 30.0) or 30.0), min_value=1.0)
+                float_input_fr_simple(pas_label, key=pas_key, default=float(st.session_state.get(pas_key, 30.0) or 30.0), min_value=1.0, disabled=disabled)
             else:
                 st.markdown("")
         with c4:
@@ -1071,7 +1054,7 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             fck_cube = beton_data[beton]["fck_cube"]
             alpha_b = beton_data[beton]["alpha_b"]
 
-            fyk, mu_ref = _get_fyk_and_mu_ref()
+            fyk, mu_ref = _get_fyk_and_mu_ref(beam_id)
             fyd = fyk / 1.5
 
             mu_key = f"mu_a{mu_ref}"
@@ -1378,16 +1361,6 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 close_bloc()
 
 
-def _init_global_steel_from_legacy_if_needed():
-    """Compatibilité anciens fichiers : récupération éventuelle de fyk."""
-    if "fyk" in st.session_state:
-        return
-    legacy_fyk = st.session_state.get(KB("fyk", 1), None)
-    if legacy_fyk is not None:
-        st.session_state["fyk"] = str(legacy_fyk)
-    else:
-        st.session_state["fyk"] = "500"
-
 
 def render_infos_projet():
     # Header compact : titre (même niveau que les titres principaux) + label italique + checkbox
@@ -1409,18 +1382,13 @@ def render_infos_projet():
 
     if bool(st.session_state.get("chk_infos_projet", False)):
         open_frame()
-        st.text_input("", placeholder="Nom du projet", key="nom_projet")
-        st.text_input("", placeholder="Partie", key="partie")
+        st.text_input("Nom du projet", placeholder="Nom du projet", label_visibility="collapsed", key="nom_projet")
+        st.text_input("Partie", placeholder="Partie", label_visibility="collapsed", key="partie")
         cD1, cD2 = st.columns(2)
         with cD1:
-            st.text_input(
-                "",
-                placeholder="Date (jj/mm/aaaa)",
-                value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")),
-                key="date",
-            )
+            st.text_input("Date", placeholder="Date (jj/mm/aaaa)", label_visibility="collapsed", value=st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")), key="date")
         with cD2:
-            st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
+            st.text_input("Indice", placeholder="Indice", label_visibility="collapsed", value=st.session_state.get("indice", "0"), key="indice")
         close_frame()
     else:
         st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
@@ -1462,22 +1430,6 @@ def render_parametres_avances():
         step=1,
         key="tau_tolerance_percent",
     )
-
-    st.markdown("#### Acier")
-    acier_opts = ["400", "500"]
-    cur_fyk = str(st.session_state.get("fyk", "500"))
-    st.selectbox(
-        "Qualité d'acier [N/mm²]",
-        acier_opts,
-        index=acier_opts.index(cur_fyk) if cur_fyk in acier_opts else 1,
-        key="fyk",
-        help="La valeur de μ dépend de la qualité d'acier : seules les qualités 400/500 sont disponibles.",
-    )
-
-    # Nettoyage (compat anciens fichiers)
-    st.session_state.pop("acier_non_standard", None)
-    st.session_state.pop("fyk_custom", None)
-    st.session_state.pop("fyk_ref_for_mu", None)
 
 
 def render_donnees_left(beton_data: dict):
@@ -1585,7 +1537,6 @@ def render_dimensionnement_right(beton_data: dict):
 
 def show():
     _init_beams_if_needed()
-    _init_global_steel_from_legacy_if_needed()
 
     if "retour_accueil_demande" not in st.session_state:
         st.session_state.retour_accueil_demande = False
