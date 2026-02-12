@@ -1006,22 +1006,59 @@ def render_donnees_left(beton_data: dict):
             if st.button("🗑️", use_container_width=True, key="btn_del_beam_compact"):
                 _delete_beam(del_ids[int(sel)])
                 st.rerun()
-# ============================================================
-#  COMPAT : évite crash si render_dimensionnement_section n'existe pas
-#  -> cherche une fonction existante avec un autre nom
-# ============================================================
 def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
-    # 1) cas le plus probable : tu as une fonction "_render_dimensionnement_section"
-    if "_render_dimensionnement_section" in globals():
-        return globals()["_render_dimensionnement_section"](beam_id, sec_id, beton_data)
+    stt = _dimensionnement_compute_states(beam_id, sec_id, beton_data)
 
-    # 2) autre cas : tu as peut-être une fonction "_render_dimensionnement_section_ui"
-    if "_render_dimensionnement_section_ui" in globals():
-        return globals()["_render_dimensionnement_section_ui"](beam_id, sec_id, beton_data)
+    sec_nom = st.session_state.get(f"meta_b{beam_id}_nom_{sec_id}", f"Section {sec_id}")
+    disabled = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False))
 
-    # 3) sinon : message clair au lieu de planter
-    st.error("Fonction manquante : aucune fonction de rendu trouvée pour le dimensionnement de section.")
-    st.caption("Il faut que tu me montres la fonction qui rend les résultats de dimensionnement (la partie 'section' à droite).")
+    # Header section + lock dimensionnement
+    c1, c2 = st.columns([16, 4], vertical_alignment="center")
+    with c1:
+        st.markdown(f"#### {sec_nom}")
+    with c2:
+        st.checkbox(
+            "Bloquer dim.",
+            key=KS("lock_dim", beam_id, sec_id),
+            value=bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False)),
+        )
+        disabled = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False))
+
+    # Résumé état global
+    open_bloc_left_right(
+        "État global",
+        right=stt["etat_global"].upper(),
+        etat=stt["etat_global"],
+    )
+    close_bloc()
+
+    # Hauteur utile / hmin
+    open_bloc_left_right(
+        "Hauteur minimale requise (hmin)",
+        right=f"{stt['hmin_calc']:.1f} cm",
+        etat=stt["etat_h"],
+    )
+    st.caption(f"Enrobage total inf ≈ {stt['enrob_tot_inf']:.1f} cm | sup ≈ {stt['enrob_tot_sup']:.1f} cm")
+    close_bloc()
+
+    # Armatures longitudinales (résumé)
+    As_inf_total, As_inf_detail = _as_total_with_optional_second_layer(beam_id, sec_id, "inf")
+    As_sup_total, As_sup_detail = _as_total_with_optional_second_layer(beam_id, sec_id, "sup")
+
+    open_bloc_left_right(
+        "Armatures inférieures",
+        right=f"{As_inf_total:.0f} mm² (req {stt['As_req_inf_final']:.0f})",
+        etat=stt["etat_inf"],
+    )
+    st.caption(f"Choix : {As_inf_detail} | As_min eff = {stt['As_min_inf_eff']:.0f} | As_max = {stt['As_max']:.0f}")
+    close_bloc()
+
+    open_bloc_left_right(
+        "Armatures supérieures",
+        right=f"{As_sup_total:.0f} mm² (req {stt['As_req_sup_final']:.0f})",
+        etat=stt["etat_sup"],
+    )
+    st.caption(f"Choix : {As_sup_detail} | As_min eff = {stt['As_min_sup_eff']:.0f} | As_max = {]()_
 
 
 # ============================================================
