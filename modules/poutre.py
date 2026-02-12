@@ -912,38 +912,6 @@ def render_infos_projet():
         # on garde au moins une date par défaut
         st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
 
-
-# ============================================================
-#  UI : INFOS PROJET (checkbox à droite du titre, sans texte)
-# ============================================================
-def render_infos_projet():
-    st.session_state.setdefault("chk_infos_projet", False)
-    st.session_state.setdefault("nom_projet", "")
-    st.session_state.setdefault("partie", "")
-    st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
-    st.session_state.setdefault("indice", "0")
-
-    cL, cR = st.columns([20, 1], vertical_alignment="center")
-    with cL:
-        st.markdown("### Informations sur le projet")
-    with cR:
-        st.checkbox(
-            label="",
-            value=bool(st.session_state.get("chk_infos_projet", False)),
-            key="chk_infos_projet",
-            label_visibility="collapsed",
-        )
-
-    if bool(st.session_state.get("chk_infos_projet", False)):
-        st.text_input("", placeholder="Nom du projet", key="nom_projet")
-        st.text_input("", placeholder="Partie", key="partie")
-        c1, c2 = st.columns(2)
-        with c1:
-            st.text_input("", placeholder="Date (jj/mm/aaaa)", value=st.session_state.get("date"), key="date")
-        with c2:
-            st.text_input("", placeholder="Indice", value=st.session_state.get("indice", "0"), key="indice")
-
-
 # ============================================================
 #  UI : DONNÉES — gauche
 #  + Gestion des poutres compacte (checkbox -> actions)
@@ -1038,6 +1006,22 @@ def render_donnees_left(beton_data: dict):
             if st.button("🗑️", use_container_width=True, key="btn_del_beam_compact"):
                 _delete_beam(del_ids[int(sel)])
                 st.rerun()
+# ============================================================
+#  COMPAT : évite crash si render_dimensionnement_section n'existe pas
+#  -> cherche une fonction existante avec un autre nom
+# ============================================================
+def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
+    # 1) cas le plus probable : tu as une fonction "_render_dimensionnement_section"
+    if "_render_dimensionnement_section" in globals():
+        return globals()["_render_dimensionnement_section"](beam_id, sec_id, beton_data)
+
+    # 2) autre cas : tu as peut-être une fonction "_render_dimensionnement_section_ui"
+    if "_render_dimensionnement_section_ui" in globals():
+        return globals()["_render_dimensionnement_section_ui"](beam_id, sec_id, beton_data)
+
+    # 3) sinon : message clair au lieu de planter
+    st.error("Fonction manquante : aucune fonction de rendu trouvée pour le dimensionnement de section.")
+    st.caption("Il faut que tu me montres la fonction qui rend les résultats de dimensionnement (la partie 'section' à droite).")
 
 
 # ============================================================
