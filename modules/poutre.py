@@ -1,5 +1,5 @@
 # ===========================
-#  VERSION 2.02
+#  VERSION 2.01.01
 # ===========================
 #  PARTIE 1 / 2
 #  poutre.py (Streamlit)
@@ -1538,6 +1538,10 @@ def show():
             )
     
         if bool(st.session_state.get("show_param_avances", False)):
+            # Cadre unique autour de tous les paramètres avancés (pas de cadre vide au-dessus).
             with st.container(border=True):
                 render_parametres_avances()
-render_dimensionnement_right(beton_data)
+
+        # IMPORTANT : doit rester dans show() et dans la colonne de droite
+        # (sinon beton_data n'existe pas au moment de l'import du module).
+        render_dimensionnement_right(beton_data)
