@@ -1,5 +1,5 @@
 # ===========================
-#  VERSION 2.01
+#  VERSION 2.02
 # ===========================
 #  PARTIE 1 / 2
 #  poutre.py (Streamlit)
@@ -1050,14 +1050,22 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 
     dim_locked = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False))
 
+    # Si la poutre est "Validée" (lock_data), on fige aussi le dimensionnement (moments, armatures, cisaillement)
+    if beam_locked:
+        dim_locked = True
+
     with st.expander(title, expanded=True if sec_id == 1 else False):
-            # Lock/unlock dimensionnement (demande)
-            st.checkbox(
-                "Bloquer le dimensionnement de cette section",
-                key=KS("lock_dim", beam_id, sec_id),
-                value=bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False)),
-            )
-            dim_locked = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False))
+            if beam_locked:
+                st.caption("Poutre validée — dimensionnement figé.")
+            else:
+                # Lock/unlock dimensionnement par section (optionnel)
+                st.checkbox(
+                    "Bloquer le dimensionnement de cette section",
+                    key=KS("lock_dim", beam_id, sec_id),
+                    value=bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False)),
+                )
+
+            dim_locked = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False)) or beam_locked
 
             beton = str(st.session_state.get(KB("beton", beam_id), "C30/37"))
             fck_cube = beton_data[beton]["fck_cube"]
@@ -1530,8 +1538,6 @@ def show():
             )
     
         if bool(st.session_state.get("show_param_avances", False)):
-            open_frame()
-            render_parametres_avances()
-            close_frame()
-    
-        render_dimensionnement_right(beton_data)
+            with st.container(border=True):
+                render_parametres_avances()
+render_dimensionnement_right(beton_data)
