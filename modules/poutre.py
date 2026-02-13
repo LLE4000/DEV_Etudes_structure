@@ -633,7 +633,7 @@ def _set_active_beam_id(bid: int):
 #  UI : SOLLICITATIONS PAR SECTION
 # ============================================================
 def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
-    # Ligne 1 : M_inf / V
+    # Ligne 1 : efforts principaux
     c1, c2 = st.columns(2)
     with c1:
         float_input_fr_simple(
@@ -655,16 +655,16 @@ def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
         )
         st.session_state[KS("V", beam_id, sec_id)] = float(st.session_state.get(KS("V", beam_id, sec_id), 0.0) or 0.0)
 
-    # Ligne 2 : toggles sur la même ligne
-    t1, t2 = st.columns(2)
-    with t1:
+    # Ligne 2 : options (checkbox sur la même ligne)
+    c3, c4 = st.columns(2)
+    with c3:
         m_sup_toggle = st.checkbox(
             "Ajouter un moment supérieur",
             key=KS("ajouter_moment_sup", beam_id, sec_id),
             value=bool(st.session_state.get(KS("ajouter_moment_sup", beam_id, sec_id), False)),
             disabled=disabled,
         )
-    with t2:
+    with c4:
         v_red_toggle = st.checkbox(
             "Ajouter un effort tranchant réduit",
             key=KS("ajouter_effort_reduit", beam_id, sec_id),
@@ -672,55 +672,44 @@ def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
             disabled=disabled,
         )
 
-    # Ligne 3 : champs conditionnels alignés (M_sup à gauche / V_réduit à droite)
-    if m_sup_toggle or v_red_toggle:
-        c3, c4 = st.columns(2)
-        with c3:
-            if m_sup_toggle:
-                float_input_fr_simple(
-                    "Moment supérieur M_sup (kNm)",
-                    key=KS("M_sup", beam_id, sec_id),
-                    default=0.0,
-                    min_value=0.0,
-                    disabled=disabled,
-                )
-            else:
-                st.markdown("")
-                st.session_state[KS("M_sup", beam_id, sec_id)] = 0.0
+    # Ligne 3 : champs conditionnels (sur la même ligne)
+    c5, c6 = st.columns(2)
+    with c5:
+        if m_sup_toggle:
+            float_input_fr_simple(
+                "Moment supérieur M_sup (kNm)",
+                key=KS("M_sup", beam_id, sec_id),
+                default=0.0,
+                min_value=0.0,
+                disabled=disabled,
+            )
+        else:
+            st.session_state[KS("M_sup", beam_id, sec_id)] = 0.0
 
-        with c4:
-            if v_red_toggle:
-                float_input_fr_simple(
-                    "Effort tranchant réduit V_réduit (kN)",
-                    key=KS("V_lim", beam_id, sec_id),
-                    default=0.0,
-                    min_value=0.0,
-                    disabled=disabled,
-                )
-            else:
-                st.markdown("")
-                st.session_state[KS("V_lim", beam_id, sec_id)] = 0.0
-    else:
-        st.session_state[KS("M_sup", beam_id, sec_id)] = 0.0
-        st.session_state[KS("V_lim", beam_id, sec_id)] = 0.0
-
+    with c6:
+        if v_red_toggle:
+            float_input_fr_simple(
+                "Effort tranchant réduit V_réduit (kN)",
+                key=KS("V_lim", beam_id, sec_id),
+                default=0.0,
+                min_value=0.0,
+                disabled=disabled,
+            )
+        else:
+            st.session_state[KS("V_lim", beam_id, sec_id)] = 0.0
 
 def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
-    """Saisie des sollicitations par section.
-    Exigence UI : si activés, M_sup (gauche) et V_réduit (droite) apparaissent sur la même ligne.
-    """
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
     st.markdown("### Sollicitations")
 
     for sec in beam.get("sections", []):
         sec_id = int(sec.get("id"))
         sec_name_key = f"meta_b{beam_id}_nom_{sec_id}"
-        st.session_state.setdefault(sec_name_key, str(sec.get("nom", f"Section {sec_id}")))
+        st.session_state.setdefault(sec_name_key, sec.get("nom", f"Section {sec_id}"))
 
-        with st.expander(st.session_state.get(sec_name_key), expanded=True):
+        with st.expander(st.session_state.get(sec_name_key, sec.get("nom", f"Section {sec_id}")), expanded=True):
             st.text_input("Nom de la section", key=sec_name_key, disabled=data_locked)
 
-            # Champs principaux + toggles + champs conditionnels alignés
             _render_section_inputs(beam_id, sec_id, disabled=data_locked)
 
             if sec_id != 1:
@@ -732,45 +721,62 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
                     disabled=data_locked,
                 )
 
-    st.button(
-        "Ajouter une section à vérifier",
-        key=f"add_sec_btn_{beam_id}",
-        on_click=_add_section,
-        args=(beam_id,),
-        disabled=data_locked,
-    )
+    # Bas de poutre : Ajouter section + (optionnel) Supprimer poutre sur la même ligne
+    cA, cD = st.columns([3, 1.4])
+    with cA:
+        st.button(
+            "Ajouter une section à vérifier",
+            key=f"add_sec_btn_{beam_id}",
+            on_click=_add_section,
+            args=(beam_id,),
+            disabled=data_locked,
+        )
+    with cD:
+        if beam_id != 1:
+            st.button(
+                "Supprimer la poutre",
+                key=f"del_beam_btn_{beam_id}",
+                on_click=_delete_beam,
+                args=(beam_id,),
+                disabled=data_locked,
+                use_container_width=True,
+            )
 
 
 def render_caracteristiques_beam(beam_id: int):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
-    beam_name_key = KB("name", beam_id)
-    st.session_state.setdefault(beam_name_key, beam.get("name", f"Poutre {beam_id}"))
 
-    # Migration simple : ancien lock_data -> statut
+    # Nom (meta)
+    beam_name_key = f"meta_beam_nom_{beam_id}"
+    st.session_state.setdefault(beam_name_key, beam.get("nom", f"Poutre {beam_id}"))
+
+    # Statut (En cours / Validé) + compat lock_data
     lock_key = KB("lock_data", beam_id)
     statut_key = KB("statut", beam_id)
     if statut_key not in st.session_state:
         st.session_state[statut_key] = "Validé" if bool(st.session_state.get(lock_key, False)) else "En cours"
-    # garder lock_data synchronisé (pour compat éventuelle)
     st.session_state[lock_key] = (st.session_state.get(statut_key) == "Validé")
 
     data_locked = bool(st.session_state.get(lock_key, False))
 
-    with st.expander(st.session_state.get(beam_name_key, beam.get("name", f"Poutre {beam_id}")), expanded=True):
-        st.markdown("#### Caractéristiques de la poutre")
-
-        c1, cStat, c2, c3 = st.columns([3.2, 1.0, 1.6, 1.5], vertical_alignment="center")
-        with c1:
-            st.text_input("Nom de la poutre", key=beam_name_key, disabled=data_locked)
-        with cStat:
-            # Menu compact (sans libellé) pour rester sur la même ligne
+    with st.expander(st.session_state.get(beam_name_key, beam.get("nom", f"Poutre {beam_id}")), expanded=True):
+        # Ligne titre : "Caractéristiques..." + statut à droite (sans libellé)
+        t1, t2 = st.columns([6, 1.6], vertical_alignment="center")
+        with t1:
+            st.markdown("#### Caractéristiques de la poutre")
+        with t2:
             st.selectbox(
                 "",
                 ["En cours", "Validé"],
                 key=statut_key,
-                label_visibility="collapsed",
                 disabled=False,
+                label_visibility="collapsed",
             )
+
+        # Ligne : Nom + béton + acier (même ligne)
+        c1, c2, c3 = st.columns([2.6, 1.6, 1.4], vertical_alignment="center")
+        with c1:
+            st.text_input("Nom de la poutre", key=beam_name_key, disabled=data_locked)
         with c2:
             st.selectbox("Classe de béton", list(BETON_DATA.keys()), key=KB("beton", beam_id), disabled=data_locked)
         with c3:
@@ -1397,7 +1403,6 @@ def render_infos_projet():
 
 
 def render_parametres_avances():
-    """Paramètres avancés (utilisés par le dimensionnement)."""
     c1, c2 = st.columns(2)
     with c1:
         st.selectbox("Affichage longueurs", ["cm", "mm"], key="units_len")
@@ -1405,7 +1410,6 @@ def render_parametres_avances():
         st.selectbox("Affichage armatures", ["mm²", "cm²"], key="units_as")
 
     st.number_input("Jeu d'enrobage (cm)", min_value=0.0, step=0.5, key="jeu_enrobage_cm")
-
     st.slider(
         "Tolérance dépassement (%)",
         min_value=0,
@@ -1414,24 +1418,20 @@ def render_parametres_avances():
         key="tau_tolerance_percent",
     )
 
-
 def render_donnees_left(beton_data: dict):
     st.markdown("### Données")
 
-    # 1 expander par poutre (pas de doublon)
+    # Affichage des poutres (un seul expander par poutre, géré dans render_caracteristiques_beam)
     for b in st.session_state.beams:
         bid = int(b["id"])
         bnom = str(st.session_state.get(f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}")))
-        b["nom"] = bnom  # sync
-
-        # render_caracteristiques_beam crée l'expander de la poutre + la zone Sollicitations
+        b["nom"] = bnom
         render_caracteristiques_beam(bid)
 
-    # Ajout simple de poutre (pas de gestionnaire)
+    # Ajout de poutre (simple)
     if st.button("➕ Ajouter une poutre", use_container_width=True, key="btn_add_beam_simple"):
         _add_beam()
         st.rerun()
-
 
 def render_dimensionnement_right(beton_data: dict):
     for b in st.session_state.beams:
