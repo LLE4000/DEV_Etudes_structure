@@ -1,5 +1,5 @@
 # ===========================
-#  VERSION 2.01.01
+#  VERSION 2.01
 # ===========================
 #  PARTIE 1 / 2
 #  poutre.py (Streamlit)
@@ -702,6 +702,24 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
     st.markdown("### Sollicitations")
 
+    # Section active (sert à piloter l'ouverture côté "Dimensionnement")
+    active_key = f"active_sec_{beam_id}"
+    sec_ids = [int(s.get("id")) for s in beam.get("sections", [])]
+    if active_key not in st.session_state:
+        st.session_state[active_key] = sec_ids[0] if sec_ids else 1
+    if int(st.session_state.get(active_key, 1)) not in sec_ids and sec_ids:
+        st.session_state[active_key] = sec_ids[0]
+
+    if sec_ids:
+        st.selectbox(
+            "Section affichée dans le dimensionnement",
+            options=sec_ids,
+            format_func=lambda sid: str(st.session_state.get(f"meta_b{beam_id}_nom_{int(sid)}", f"Section {sid}")),
+            key=active_key,
+            disabled=data_locked,
+        )
+
+
     for sec in beam.get("sections", []):
         sec_id = int(sec.get("id"))
         sec_name_key = f"meta_b{beam_id}_nom_{sec_id}"
@@ -1054,18 +1072,13 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
     if beam_locked:
         dim_locked = True
 
-    with st.expander(title, expanded=True if sec_id == 1 else False):
+    active_sec = int(st.session_state.get(f"active_sec_{beam_id}", 1) or 1)
+
+    with st.expander(title, expanded=(sec_id == active_sec)):
             if beam_locked:
                 st.caption("Poutre validée — dimensionnement figé.")
-            else:
-                # Lock/unlock dimensionnement par section (optionnel)
-                st.checkbox(
-                    "Bloquer le dimensionnement de cette section",
-                    key=KS("lock_dim", beam_id, sec_id),
-                    value=bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False)),
-                )
 
-            dim_locked = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False)) or beam_locked
+            dim_locked = bool(beam_locked)
 
             beton = str(st.session_state.get(KB("beton", beam_id), "C30/37"))
             fck_cube = beton_data[beton]["fck_cube"]
@@ -1152,15 +1165,15 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                     "Nb barres",
                     min_value=1,
                     max_value=50,
-                    value=int(st.session_state.get(KS("n_as_inf", beam_id, sec_id), 2) or 2),
                     step=1,
                     key=KS("n_as_inf", beam_id, sec_id),
                     disabled=dim_locked,
                 )
             with r1c2:
-                dcur = int(st.session_state.get(KS("ø_as_inf", beam_id, sec_id), 16) or 16)
-                idx = diam_opts.index(dcur) if dcur in diam_opts else diam_opts.index(16)
-                st.selectbox("Ø (mm)", diam_opts, index=idx, key=KS("ø_as_inf", beam_id, sec_id), disabled=dim_locked)
+                # Ø principal (inf.)
+                if int(st.session_state.get(KS("ø_as_inf", beam_id, sec_id), 16) or 16) not in diam_opts:
+                    st.session_state[KS("ø_as_inf", beam_id, sec_id)] = 16
+                st.selectbox("Ø (mm)", diam_opts, key=KS("ø_as_inf", beam_id, sec_id), disabled=dim_locked)
             with r1c3:
                 # Enrobage de calcul (modifiable)
                 auto_e = _auto_enrobage_calc_cm(beam_id, sec_id, "inf")
@@ -1190,15 +1203,15 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                         "Nb barres (2e lit)",
                         min_value=1,
                         max_value=50,
-                        value=int(st.session_state.get(KS("n_as_inf_2", beam_id, sec_id), 2) or 2),
                         step=1,
                         key=KS("n_as_inf_2", beam_id, sec_id),
                         disabled=dim_locked,
                     )
                 with s2c2:
-                    dcur2 = int(st.session_state.get(KS("ø_as_inf_2", beam_id, sec_id), dcur) or dcur)
-                    idx2 = diam_opts.index(dcur2) if dcur2 in diam_opts else diam_opts.index(dcur)
-                    st.selectbox("Ø (mm) (2e lit)", diam_opts, index=idx2, key=KS("ø_as_inf_2", beam_id, sec_id), disabled=dim_locked)
+                    # Ø (2e lit) (inf.)
+                    if int(st.session_state.get(KS("ø_as_inf_2", beam_id, sec_id), int(st.session_state.get(KS("ø_as_inf", beam_id, sec_id), 16) or 16)) or 16) not in diam_opts:
+                        st.session_state[KS("ø_as_inf_2", beam_id, sec_id)] = int(st.session_state.get(KS("ø_as_inf", beam_id, sec_id), 16) or 16)
+                    st.selectbox("Ø (mm) (2e lit)", diam_opts, key=KS("ø_as_inf_2", beam_id, sec_id), disabled=dim_locked)
                 with s2c3:
                     float_input_fr_simple("Jeu entre lits (cm)", key=KS("jeu_inf_2", beam_id, sec_id), default=0.0, min_value=0.0)
 
@@ -1230,15 +1243,15 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                     "Nb barres (sup.)",
                     min_value=1,
                     max_value=50,
-                    value=int(st.session_state.get(KS("n_as_sup", beam_id, sec_id), 2) or 2),
                     step=1,
                     key=KS("n_as_sup", beam_id, sec_id),
                     disabled=dim_locked,
                 )
             with t1c2:
-                dcurS = int(st.session_state.get(KS("ø_as_sup", beam_id, sec_id), 16) or 16)
-                idxS = diam_opts.index(dcurS) if dcurS in diam_opts else diam_opts.index(16)
-                st.selectbox("Ø (mm) (sup.)", diam_opts, index=idxS, key=KS("ø_as_sup", beam_id, sec_id), disabled=dim_locked)
+                # Ø principal (sup.)
+                if int(st.session_state.get(KS("ø_as_sup", beam_id, sec_id), 16) or 16) not in diam_opts:
+                    st.session_state[KS("ø_as_sup", beam_id, sec_id)] = 16
+                st.selectbox("Ø (mm) (sup.)", diam_opts, key=KS("ø_as_sup", beam_id, sec_id), disabled=dim_locked)
             with t1c3:
                 auto_eS = _auto_enrobage_calc_cm(beam_id, sec_id, "sup")
                 if not bool(st.session_state.get(KS("enrob_calc_sup_override", beam_id, sec_id), False)):
@@ -1267,15 +1280,15 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                         "Nb barres (2e lit) (sup.)",
                         min_value=1,
                         max_value=50,
-                        value=int(st.session_state.get(KS("n_as_sup_2", beam_id, sec_id), 2) or 2),
                         step=1,
                         key=KS("n_as_sup_2", beam_id, sec_id),
                         disabled=dim_locked,
                     )
                 with u2c2:
-                    dcurS2 = int(st.session_state.get(KS("ø_as_sup_2", beam_id, sec_id), dcurS) or dcurS)
-                    idxS2 = diam_opts.index(dcurS2) if dcurS2 in diam_opts else diam_opts.index(dcurS)
-                    st.selectbox("Ø (mm) (2e lit) (sup.)", diam_opts, index=idxS2, key=KS("ø_as_sup_2", beam_id, sec_id), disabled=dim_locked)
+                    # Ø (2e lit) (sup.)
+                    if int(st.session_state.get(KS("ø_as_sup_2", beam_id, sec_id), int(st.session_state.get(KS("ø_as_sup", beam_id, sec_id), 16) or 16)) or 16) not in diam_opts:
+                        st.session_state[KS("ø_as_sup_2", beam_id, sec_id)] = int(st.session_state.get(KS("ø_as_sup", beam_id, sec_id), 16) or 16)
+                    st.selectbox("Ø (mm) (2e lit) (sup.)", diam_opts, key=KS("ø_as_sup_2", beam_id, sec_id), disabled=dim_locked)
                 with u2c3:
                     float_input_fr_simple("Jeu entre lits (cm) (sup.)", key=KS("jeu_sup_2", beam_id, sec_id), default=0.0, min_value=0.0)
 
