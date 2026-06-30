@@ -45,8 +45,12 @@ COL_LINE      = colors.HexColor("#d9dee5")
 COL_BG_SOFT   = colors.HexColor("#f4f6f9")
 
 # Bandeau de poutre : gris-bleu doux, neutre, s'accorde au vert et au rouge des cadres
-COL_BANNER_BG = colors.HexColor("#5b6b7d")   # gris ardoise atténué
+COL_BANNER_BG = colors.HexColor("#5b6b7d")   # gris ardoise atténué (poutre)
 COL_BANNER_TX = colors.HexColor("#ffffff")
+
+# Bandeau de section : encore plus atténué que celui de la poutre
+COL_SBANNER_BG = colors.HexColor("#9aa6b2")  # gris clair (section)
+COL_SBANNER_TX = colors.HexColor("#ffffff")
 
 COL_OK_BG     = colors.HexColor("#e6f6ec")
 COL_OK_BD     = colors.HexColor("#28a745")
@@ -211,7 +215,40 @@ class PageMarker(Flowable):
 
 
 # ============================================================
-#  FLOWABLE : barre de titre poutre (bandeau coloré)
+#  BANDEAU (poutre / section) — construit comme les cadres pour
+#  garantir un bord gauche identique aux blocs verts/rouges.
+# ============================================================
+def make_banner(text, cw, kind="beam", etat="ok"):
+    """kind='beam' (foncé) ou 'section' (plus atténué)."""
+    if kind == "section":
+        bg = COL_SBANNER_BG
+        tx = COL_SBANNER_TX
+        fs = 12
+    else:
+        bg = COL_BANNER_BG
+        tx = COL_BANNER_TX
+        fs = 13
+
+    style = ParagraphStyle(
+        "banner_txt", fontName="Helvetica-Bold", fontSize=fs,
+        leading=fs + 3, textColor=tx,
+    )
+    cell = Paragraph(text, style)
+    t = Table([[cell]], colWidths=[cw])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), bg),
+        ("LEFTPADDING", (0, 0), (-1, -1), 12),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROUNDEDCORNERS", [4, 4, 4, 4]),
+    ]))
+    return t
+
+
+# ============================================================
+#  FLOWABLE : barre de titre poutre (conservé pour compat, non utilisé)
 # ============================================================
 class BeamBanner(Flowable):
     def __init__(self, text, width, etat="ok", height=24):
@@ -230,13 +267,9 @@ class BeamBanner(Flowable):
         c.saveState()
         c.setFillColor(COL_BANNER_BG)
         c.roundRect(0, 0, self.width, self.height, 4, stroke=0, fill=1)
-        # liseré accent à gauche (état) — discret
-        vis = ETAT_VIS.get(self.etat, ETAT_VIS["ok"])
-        c.setFillColor(vis["bd"])
-        c.roundRect(0, 0, 5, self.height, 2, stroke=0, fill=1)
         c.setFillColor(COL_BANNER_TX)
         c.setFont("Helvetica-Bold", 13)
-        c.drawString(14, self.height/2 - 4.5, self.text)
+        c.drawString(12, self.height/2 - 4.5, self.text)
         c.restoreState()
 
 
@@ -530,6 +563,205 @@ def _compute_section(values, beton_data, bid, sid):
 
 
 # ============================================================
+#  COUPE DE SECTION (schéma façon AutoCAD)
+# ============================================================
+def _first_stirrup(values, bid, sid):
+    """Diamètre / type / nombre de la 1re ligne d'étriers (pour le dessin)."""
+    typ = str(_g(values, KS("shear_line0_type", bid, sid), "Étriers (2 brins)"))
+    diam = int(float(_g(values, KS("shear_line0_d", bid, sid), 8) or 8))
+    return {"type": typ, "d": diam, "brins": _brins_from_type(typ)}
+
+
+# couleurs du dessin
+COL_CONC      = colors.HexColor("#eceff3")   # remplissage béton
+COL_CONC_BD   = colors.HexColor("#2b2f36")   # contour béton
+COL_REBAR     = colors.HexColor("#b11d1d")   # acier longitudinal (rouge)
+COL_STIRRUP   = colors.HexColor("#1f5fb0")   # étrier (bleu)
+COL_DIM       = colors.HexColor("#444a52")   # cotes
+COL_HATCH     = colors.HexColor("#c2c8d0")   # hachures béton
+
+
+class SectionDrawing(Flowable):
+    """
+    Coupe transversale de la poutre BA, dessinée à l'échelle.
+    - béton hachuré, contour net
+    - barres inf/sup (1er + 2e lit) au bon diamètre relatif
+    - étrier (cadre) avec rayon de pliage
+    - cotes b et h
+    - annotations nombre + Ø à droite, en regard de chaque nappe
+    """
+    def __init__(self, R, stirrup, width, height):
+        super().__init__()
+        self.R = R
+        self.stirrup = stirrup
+        self.width = width
+        self.height = height
+
+    def wrap(self, availWidth, availHeight):
+        return (self.width, self.height)
+
+    def draw(self):
+        c = self.canv
+        R = self.R
+        b_cm = float(R["b"]); h_cm = float(R["h"])
+        enrob_i = float(R["enrob_inf"]); enrob_s = float(R["enrob_sup"])
+        st_d = float(self.stirrup["d"])  # mm
+
+        # ---- zone de dessin (réserver marges pour cotes + annotations) ----
+        pad_left = 26      # cote h à gauche
+        pad_top = 20       # cote b en haut
+        pad_right = 92     # annotations barres à droite
+        pad_bottom = 16
+        avail_w = self.width - pad_left - pad_right
+        avail_h = self.height - pad_top - pad_bottom
+
+        # échelle (mm réels -> points), section homothétique
+        b_mm = b_cm * 10.0
+        h_mm = h_cm * 10.0
+        sc = min(avail_w / b_mm, avail_h / h_mm)
+
+        sec_w = b_mm * sc
+        sec_h = h_mm * sc
+        x0 = pad_left + (avail_w - sec_w) / 2.0
+        y0 = pad_bottom + (avail_h - sec_h) / 2.0
+
+        c.saveState()
+
+        # ---- béton : hachures + contour ----
+        c.setFillColor(COL_CONC)
+        c.setStrokeColor(COL_CONC_BD)
+        c.setLineWidth(1.4)
+        c.rect(x0, y0, sec_w, sec_h, stroke=1, fill=1)
+
+        # hachures diagonales légères
+        c.saveState()
+        p = c.beginPath()
+        p.rect(x0, y0, sec_w, sec_h)
+        c.clipPath(p, stroke=0, fill=0)
+        c.setStrokeColor(COL_HATCH)
+        c.setLineWidth(0.4)
+        step = 7
+        xx = x0 - sec_h
+        while xx < x0 + sec_w:
+            c.line(xx, y0, xx + sec_h, y0 + sec_h)
+            xx += step
+        c.restoreState()
+        # re-contour net par-dessus les hachures
+        c.setStrokeColor(COL_CONC_BD)
+        c.setLineWidth(1.4)
+        c.rect(x0, y0, sec_w, sec_h, stroke=1, fill=0)
+
+        # ---- étrier (cadre) ----
+        cov = min(enrob_i, enrob_s, 3.0)  # enrobage net visuel (cm) ~ jusqu'au cadre
+        # on place le cadre à ~ enrobage béton réel s'il est dispo
+        cov_mm = (cov) * 10.0 * sc
+        st_off = cov_mm
+        st_w_pts = max(2.0, st_d * sc)
+        c.setStrokeColor(COL_STIRRUP)
+        c.setLineWidth(max(1.0, st_w_pts))
+        rr = max(3.0, 2.0 * st_d * sc)  # rayon de pliage
+        c.roundRect(x0 + st_off, y0 + st_off,
+                    sec_w - 2*st_off, sec_h - 2*st_off, rr, stroke=1, fill=0)
+
+        # ---- barres longitudinales ----
+        def draw_bars(n, d_mm, y_axis_cm, color=COL_REBAR):
+            if n <= 0:
+                return
+            r_pts = max(1.6, (d_mm * sc) / 2.0)
+            inset = st_off + st_w_pts/2.0 + r_pts + 1.0
+            xa = x0 + inset
+            xb = x0 + sec_w - inset
+            yy = y0 + (y_axis_cm / h_cm) * sec_h
+            if n == 1:
+                xs = [(xa + xb) / 2.0]
+            else:
+                xs = [xa + (xb - xa) * k / (n - 1) for k in range(n)]
+            c.setFillColor(color)
+            c.setStrokeColor(colors.HexColor("#7a1010"))
+            c.setLineWidth(0.5)
+            for xc in xs:
+                c.circle(xc, yy, r_pts, stroke=1, fill=1)
+            return yy
+
+        inf = R["inf"]; sup = R["sup"]
+        # nappe inférieure (axe = enrob_inf depuis le bas)
+        y_inf1 = enrob_i
+        yy_inf1 = draw_bars(inf["n1"], inf["d1"], y_inf1)
+        yy_inf2 = None
+        if inf["has2"]:
+            y_inf2 = enrob_i + inf["jeu"] + (inf["d1"] + inf["d2"]) / 20.0
+            yy_inf2 = draw_bars(inf["n2"], inf["d2"], y_inf2)
+
+        # nappe supérieure (axe = h - enrob_sup)
+        y_sup1 = h_cm - enrob_s
+        yy_sup1 = draw_bars(sup["n1"], sup["d1"], y_sup1)
+        yy_sup2 = None
+        if sup["has2"]:
+            y_sup2 = h_cm - enrob_s - (sup["jeu"] + (sup["d1"] + sup["d2"]) / 20.0)
+            yy_sup2 = draw_bars(sup["n2"], sup["d2"], y_sup2)
+
+        # ---- cotes ----
+        c.setStrokeColor(COL_DIM)
+        c.setFillColor(COL_DIM)
+        c.setLineWidth(0.6)
+        c.setFont("Helvetica", 7.5)
+        # cote b (en haut)
+        yb = y0 + sec_h + 9
+        c.line(x0, yb, x0 + sec_w, yb)
+        for xx in (x0, x0 + sec_w):
+            c.line(xx, yb - 2.5, xx, yb + 2.5)
+        c.drawCentredString(x0 + sec_w/2, yb + 3, f"b = {f_num(b_cm,0)} cm")
+        # cote h (à gauche, verticale)
+        xl = x0 - 10
+        c.line(xl, y0, xl, y0 + sec_h)
+        for yy in (y0, y0 + sec_h):
+            c.line(xl - 2.5, yy, xl + 2.5, yy)
+        c.saveState()
+        c.translate(xl - 3, y0 + sec_h/2)
+        c.rotate(90)
+        c.drawCentredString(0, 0, f"h = {f_num(h_cm,0)} cm")
+        c.restoreState()
+
+        # ---- annotations barres (à droite, en regard de chaque nappe) ----
+        c.setFont("Helvetica-Bold", 8)
+        xann = x0 + sec_w + 8
+        def annotate(yy, n, d_mm, col):
+            if yy is None or n <= 0:
+                return
+            c.setStrokeColor(col)
+            c.setLineWidth(0.5)
+            c.line(x0 + sec_w, yy, xann - 2, yy)
+            c.setFillColor(col)
+            c.drawString(xann, yy - 3, f"{n} {SYM['phi'].replace('&#216;','Ø')}{int(d_mm)}")
+
+        # remplacer entité par caractère Ø direct
+        def lbl(n, d):
+            return f"{n} \u00d8{int(d)}"
+
+        c.setFillColor(COL_REBAR)
+        if yy_sup1 is not None:
+            c.setStrokeColor(COL_REBAR); c.setLineWidth(0.5)
+            c.line(x0 + sec_w, yy_sup1, xann - 2, yy_sup1)
+            c.drawString(xann, yy_sup1 - 3, lbl(sup["n1"], sup["d1"]))
+        if yy_sup2 is not None:
+            c.line(x0 + sec_w, yy_sup2, xann - 2, yy_sup2)
+            c.drawString(xann, yy_sup2 - 3, lbl(sup["n2"], sup["d2"]))
+        if yy_inf1 is not None:
+            c.line(x0 + sec_w, yy_inf1, xann - 2, yy_inf1)
+            c.drawString(xann, yy_inf1 - 3, lbl(inf["n1"], inf["d1"]))
+        if yy_inf2 is not None:
+            c.line(x0 + sec_w, yy_inf2, xann - 2, yy_inf2)
+            c.drawString(xann, yy_inf2 - 3, lbl(inf["n2"], inf["d2"]))
+
+        # étrier : annotation en haut à droite
+        c.setFillColor(COL_STIRRUP)
+        c.setFont("Helvetica", 7.5)
+        c.drawString(xann, y0 + sec_h - 2, f"cadre \u00d8{int(st_d)}")
+
+        c.restoreState()
+
+
+# ============================================================
 #  CONSTRUCTION DES BLOCS (Flowables)
 # ============================================================
 def _badge_para(etat, styles):
@@ -575,10 +807,11 @@ def _block(title, etat, body_flowables, styles, content_width):
     return outer
 
 
-def _formula_table(rows, styles, content_width, label_w=0.30):
+def _formula_table(rows, styles, content_width, label_w=0.30, divider=True):
     """
     rows = liste de (label, formule_markup).
     Affiche libellé à gauche, formule à droite (style 'note de calcul').
+    divider=False -> pas de lignes horizontales entre les formules.
     """
     data = []
     for lab, form in rows:
@@ -587,14 +820,16 @@ def _formula_table(rows, styles, content_width, label_w=0.30):
             Paragraph(form, styles["formula"]),
         ])
     t = Table(data, colWidths=[content_width * label_w, content_width * (1 - label_w) - 20])
-    t.setStyle(TableStyle([
+    ts = [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 10),
         ("RIGHTPADDING", (0, 0), (-1, -1), 10),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ("LINEBELOW", (0, 0), (-1, -2), 0.4, COL_LINE),
-    ]))
+    ]
+    if divider:
+        ts.append(("LINEBELOW", (0, 0), (-1, -2), 0.4, COL_LINE))
+    t.setStyle(TableStyle(ts))
     return t
 
 
@@ -604,7 +839,10 @@ def _kv_table(rows, styles, content_width, ncols=3, sep=" = "):
     cells = []
     line = []
     for (k, v) in rows:
-        line.append(Paragraph(f"<b>{k}</b>{sep}{v}", styles["cell"]))
+        if k:
+            line.append(Paragraph(f"<b>{k}</b>{sep}{v}", styles["cell"]))
+        else:
+            line.append(Paragraph(f"{v}", styles["cell"]))
         if len(line) == ncols:
             cells.append(line)
             line = []
@@ -650,14 +888,16 @@ def block_hauteur(R, styles, cw):
          f"M<sub>max</sub> = max(M<sub>inf</sub> ; M<sub>sup</sub>) = {f_num(R['M_max'],1)} kNm"),
         ("Hauteur minimale requise",
          f"h<sub>min</sub> = {SYM['sqrt']}( M<sub>max</sub> / ({SYM['alpha']}<sub>b</sub> {SYM['times']} b {SYM['times']} {chr(956)}) )"),
-        ("Application numérique",
+        ("",
          f"h<sub>min</sub> = {SYM['sqrt']}( {f_num(R['M_max']*1e6,0)} / ({f_num(R['alpha_b'],2)} {SYM['times']} {f_num(R['b']*10,0)} {SYM['times']} {f_num(R['mu_val'],4)}) ) = <b>{f_num(R['hmin'],1)} cm</b>"),
-    ], styles, cw))
-    body.append(Spacer(1, 4))
+    ], styles, cw, divider=False))
+    body.append(Spacer(1, 5))
+    body.append(HLine(cw - 20, COL_LINE, 0.5))
+    body.append(Spacer(1, 5))
     body.append(_kv_table([
         ("h<sub>min</sub>", f"{f_num(R['hmin'],1)} cm"),
         ("h<sub>min</sub> + enrobage", f"{f_num(R['hmin']+R['enrob_inf'],1)} cm"),
-        ("h disponible", f"{f_num(R['h'],1)} cm"),
+        ("hauteur", f"{f_num(R['h'],1)} cm"),
     ], styles, cw, ncols=3))
     body.append(Spacer(1, 4))
     ok = R["etat_h"] == "ok"
@@ -685,10 +925,12 @@ def block_armatures(R, styles, cw, which):
          f"d<sub>{sub}</sub> = h &#8722; enrobage = {f_num(R['h'],1)} &#8722; {f_num(R['enrob_inf'] if which=='inf' else R['enrob_sup'],1)} = <b>{f_num(d,1)} cm</b>"),
         ("Section d'acier requise",
          f"A<sub>s,req</sub> = M<sub>{sub}</sub> / (f<sub>yd</sub> {SYM['times']} 0,9 {SYM['times']} d)"),
-        ("Application numérique",
+        ("",
          f"A<sub>s,req</sub> = {f_num(M*1e6,0)} / ({f_num(R['fyd'],1)} {SYM['times']} 0,9 {SYM['times']} {f_num(d*10,0)}) = <b>{f_num(As_req,0)} mm{_sup('2')}</b>"),
-    ], styles, cw))
-    body.append(Spacer(1, 4))
+    ], styles, cw, divider=False))
+    body.append(Spacer(1, 5))
+    body.append(HLine(cw - 20, COL_LINE, 0.5))
+    body.append(Spacer(1, 5))
     body.append(_kv_table([
         ("A<sub>s,req</sub>", f"{f_num(As_req,0)} mm{_sup('2')}"),
         ("A<sub>s,min</sub>", f"{f_num(As_min,0)} mm{_sup('2')}"),
@@ -698,15 +940,15 @@ def block_armatures(R, styles, cw, which):
 
     # détail choix
     if lay["has2"]:
-        choix_txt = (f"Choix : {lay['n1']}{SYM['phi']}{lay['d1']} + {lay['n2']}{SYM['phi']}{lay['d2']} "
+        choix_txt = (f"{lay['n1']}{SYM['phi']}{lay['d1']} + {lay['n2']}{SYM['phi']}{lay['d2']} "
                      f"(2 lits, jeu {f_num(lay['jeu'],1)} cm)")
     else:
-        choix_txt = f"Choix : {lay['n1']}{SYM['phi']}{lay['d1']}"
+        choix_txt = f"{lay['n1']}{SYM['phi']}{lay['d1']}"
     body.append(_kv_table([
-        ("Choix retenu", choix_txt.replace("Choix : ", "")),
+        ("Choix retenu", choix_txt),
         ("A<sub>s,prév</sub>", f"{f_num(lay['As'],1)} mm{_sup('2')}"),
-        ("Vérifications",
-         f"{SYM['geq']} A<sub>s,min</sub> : {'OK' if lay['As']>=As_min else 'NON'} &#160;|&#160; "
+        ("",
+         f"{SYM['geq']} A<sub>s,min</sub> : {'OK' if lay['As']>=As_min else 'NON'} &#160;&#160; "
          f"{SYM['leq']} A<sub>s,max</sub> : {'OK' if lay['As']<=R['As_max'] else 'NON'}"),
     ], styles, cw, ncols=3, sep=" : "))
     body.append(Spacer(1, 4))
@@ -729,31 +971,36 @@ def block_shear(R, styles, cw, reduced=False):
     body.append(_formula_table([
         ("Contrainte de cisaillement",
          f"{SYM['tau']} = V / (0,75 {SYM['times']} b {SYM['times']} h)"),
-        ("Application numérique",
+        ("",
          f"{SYM['tau']} = {f_num(S['V']*1e3,0)} / (0,75 {SYM['times']} {f_num(R['b']*10,0)} {SYM['times']} {f_num(R['h']*10,0)}) "
          f"= <b>{f_num(S['tau'],2)} N/mm{_sup('2')}</b>"),
-        ("Limite admissible",
-         f"{SYM['tau']}<sub>adm,{S['nom_lim'].split(',')[1]}</sub> = {f_num(S['tau_lim'],2)} N/mm{_sup('2')}"),
-    ], styles, cw))
-    body.append(Spacer(1, 3))
+    ], styles, cw, divider=False))
+    body.append(Spacer(1, 5))
+    body.append(HLine(cw - 20, COL_LINE, 0.5))
+    body.append(Spacer(1, 5))
     body.append(_kv_table([
         ("&#964;", f"{f_num(S['tau'],2)} N/mm{_sup('2')}"),
         ("&#964;<sub>adm</sub>", f"{f_num(S['tau_lim'],2)} N/mm{_sup('2')}"),
-        ("Diagnostic", S["besoin"]),
+        ("", S["besoin"]),
     ], styles, cw, ncols=3, sep=" : "))
-    body.append(Spacer(1, 5))
+    body.append(Spacer(1, 6))
 
     body.append(Paragraph("<b>Détermination des étriers</b>", styles["body"]))
-    body.append(Spacer(1, 2))
+    body.append(Spacer(1, 3))
     body.append(_formula_table([
         ("Section d'armature transversale",
          f"A<sub>st</sub> = {f_num(S['Ast'],1)} mm{_sup('2')} &#8212; ({S['summary']})"),
         ("Pas théorique",
-         f"s<sub>th</sub> = A<sub>st</sub> {SYM['times']} f<sub>yd</sub> {SYM['times']} d / V = <b>{f_num(S['pas_th'],1)} cm</b>"),
+         f"s<sub>th</sub> = A<sub>st</sub> {SYM['times']} f<sub>yd</sub> {SYM['times']} d / V"),
+        ("",
+         f"s<sub>th</sub> = {f_num(S['Ast'],1)} {SYM['times']} {f_num(R['fyd'],1)} {SYM['times']} {f_num(R['d_shear']*10,0)} / {f_num(S['V']*1e3,0)} "
+         f"= <b>{f_num(S['pas_th'],1)} cm</b>"),
         ("Pas maximal",
          f"s<sub>max</sub> = min(0,75 {SYM['times']} d ; 30) = <b>{f_num(S['s_max'],1)} cm</b>"),
-    ], styles, cw))
-    body.append(Spacer(1, 3))
+    ], styles, cw, divider=False))
+    body.append(Spacer(1, 5))
+    body.append(HLine(cw - 20, COL_LINE, 0.5))
+    body.append(Spacer(1, 5))
     body.append(_kv_table([
         ("Pas théorique", f"{f_num(S['pas_th'],1)} cm"),
         ("Pas maximal", f"{f_num(S['s_max'],1)} cm"),
@@ -775,41 +1022,109 @@ def block_shear(R, styles, cw, reduced=False):
 # ============================================================
 #  EN-TÊTE SECTION (récap données)
 # ============================================================
-def _section_recap(R, styles, cw):
-    head = [
-        Paragraph("Donnée", styles["cell_head"]),
-        Paragraph("Valeur", styles["cell_head"]),
-        Paragraph("Donnée", styles["cell_head"]),
-        Paragraph("Valeur", styles["cell_head"]),
-    ]
-    rows = [
-        ("Béton", R["beton"], "Acier", f"B{int(R['fyk'])}"),
-        ("Largeur b", f"{f_num(R['b'],0)} cm", "Hauteur h", f"{f_num(R['h'],0)} cm"),
-        ("f<sub>ck</sub>", f"{f_num(R['fck'],0)} N/mm{_sup('2')}", "f<sub>yd</sub>", f"{f_num(R['fyd'],1)} N/mm{_sup('2')}"),
-        ("M<sub>inf</sub>", f"{f_num(R['M_inf'],1)} kNm",
-         "M<sub>sup</sub>", f"{f_num(R['M_sup'],1)} kNm" if R["has_Msup"] else "—"),
-        ("V", f"{f_num(R['V'],1)} kN",
-         "V<sub>réduit</sub>", f"{f_num(R['V_lim'],1)} kN" if R["has_Vlim"] else "—"),
-    ]
-    data = [head]
-    for a, b, c, d in rows:
-        data.append([
-            Paragraph(a, styles["cell"]), Paragraph(str(b), styles["cell_b"]),
-            Paragraph(c, styles["cell"]), Paragraph(str(d), styles["cell_b"]),
-        ])
-    w = cw
-    t = Table(data, colWidths=[w*0.22, w*0.28, w*0.22, w*0.28])
-    t.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), COL_PRIMARY),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, COL_BG_SOFT]),
-        ("GRID", (0, 0), (-1, -1), 0.4, COL_LINE),
+def _carac_cadre(R, styles, half_w):
+    """Cadre arrondi 'Caractéristiques', organisé en Dimensions / Matériaux / Sollicitations.
+    Largeur = demi-page. Les lignes M_sup / V_réduit ne s'affichent que si présentes."""
+    def sous_titre(txt):
+        return Paragraph(f'<font color="{COL_PRIMARY.hexval()}"><b>{txt}</b></font>', styles["cell"])
+
+    def kv(k, v):
+        return [Paragraph(k, styles["cell"]), Paragraph(str(v), styles["cell_b"])]
+
+    rows = []
+    # --- Dimensions ---
+    rows.append([sous_titre("Dimensions"), Paragraph("", styles["cell"])])
+    rows.append(kv("Largeur b", f"{f_num(R['b'],0)} cm"))
+    rows.append(kv("Hauteur h", f"{f_num(R['h'],0)} cm"))
+    rows.append(kv("Enrobage (inf. / sup.)",
+                   f"{f_num(R['enrob_inf'],1)} / {f_num(R['enrob_sup'],1)} cm"))
+    # --- Matériaux ---
+    rows.append([sous_titre("Matériaux"), Paragraph("", styles["cell"])])
+    rows.append(kv("Béton", f"{R['beton']}  (f<sub>ck</sub> = {f_num(R['fck'],0)} N/mm{_sup('2')})"))
+    rows.append(kv("Acier", f"B{int(R['fyk'])}  (f<sub>yd</sub> = {f_num(R['fyd'],1)} N/mm{_sup('2')})"))
+    # --- Sollicitations ---
+    rows.append([sous_titre("Sollicitations"), Paragraph("", styles["cell"])])
+    rows.append(kv("M<sub>inf</sub>", f"{f_num(R['M_inf'],1)} kNm"))
+    if R["has_Msup"]:
+        rows.append(kv("M<sub>sup</sub>", f"{f_num(R['M_sup'],1)} kNm"))
+    rows.append(kv("V", f"{f_num(R['V'],1)} kN"))
+    if R["has_Vlim"]:
+        rows.append(kv("V<sub>réduit</sub>", f"{f_num(R['V_lim'],1)} kN"))
+
+    inner = Table(rows, colWidths=[half_w*0.52, half_w*0.48])
+    # styles : fond alterné seulement sur les lignes de données, sous-titres sur fond doux
+    ts = [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 10),
         ("RIGHTPADDING", (0, 0), (-1, -1), 8),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3.5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3.5),
+        ("SPAN", (0, 0), (1, 0)),
+    ]
+    # repérer les lignes de sous-titres pour SPAN + fond
+    sub_idx = [i for i, r in enumerate(rows)
+               if isinstance(r[0], Paragraph) and "<b>" in r[0].text and r[1].text == ""]
+    for i in sub_idx:
+        ts.append(("SPAN", (0, i), (1, i)))
+        ts.append(("BACKGROUND", (0, i), (-1, i), COL_BG_SOFT))
+        ts.append(("LINEBELOW", (0, i), (-1, i), 0.5, COL_LINE))
+        ts.append(("TOPPADDING", (0, i), (-1, i), 5))
+        ts.append(("BOTTOMPADDING", (0, i), (-1, i), 4))
+    inner.setStyle(TableStyle(ts))
+
+    # encadré arrondi (même style visuel que les cadres de résultats, neutre)
+    outer = Table([[inner]], colWidths=[half_w])
+    outer.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+        ("BOX", (0, 0), (-1, -1), 0.8, COL_LINE),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+        ("ROUNDEDCORNERS", [6, 6, 6, 6]),
     ]))
-    return t
+    return outer
+
+
+def _section_recap(R, styles, cw, values=None, bid=None, sid=None):
+    """Deux colonnes : caractéristiques (gauche) + coupe de section (droite)."""
+    half = cw * 0.5
+    gap = 10
+    left_w = half - gap/2
+    right_w = cw - half - gap/2
+
+    carac = _carac_cadre(R, styles, left_w)
+
+    # dessin : hauteur calée sur le contenu (≈ celle du cadre carac)
+    if values is not None and bid is not None and sid is not None:
+        stirrup = _first_stirrup(values, bid, sid)
+    else:
+        stirrup = {"type": "Étriers (2 brins)", "d": 8, "brins": 2}
+    draw_h = 190
+    drawing = SectionDrawing(R, stirrup, right_w, draw_h)
+
+    title_draw = Paragraph('<font color="%s"><b>Coupe de section</b></font>' % COL_PRIMARY.hexval(),
+                           styles["cell"])
+    right_cell = Table([[title_draw], [drawing]], colWidths=[right_w])
+    right_cell.setStyle(TableStyle([
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, 0), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 2),
+        ("TOPPADDING", (0, 1), (-1, 1), 0),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 0),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+    ]))
+
+    layout = Table([[carac, "", right_cell]], colWidths=[left_w, gap, right_w])
+    layout.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 0),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+    ]))
+    return layout
 
 
 # ============================================================
@@ -973,27 +1288,28 @@ def _build_story(beams, values, beton_data, infos, styles, cw, beam_pages, page_
         # Marqueur de page (capture la page de début de cette poutre)
         story.append(PageMarker(page_store, bid))
 
-        # bandeau poutre
-        story.append(BeamBanner(bnom, cw))
+        # bandeau poutre (aligné au bord des cadres)
+        story.append(make_banner(bnom, cw, kind="beam"))
         story.append(Spacer(1, 10))
 
         sections = b.get("sections", [])
         for si, s in enumerate(sections):
             sid = int(s["id"])
-            snom = str(_g(values, f"meta_b{bid}_nom_{sid}", s.get("nom", f"Section {sid}")))
+            # Nom de section : "Section" + valeur (ex. "A") -> "Section A".
+            # Si le nom stocké contient déjà "Section", on le garde tel quel.
+            raw_nom = str(_g(values, f"meta_b{bid}_nom_{sid}", s.get("nom", f"Section {sid}")))
+            if raw_nom.strip().lower().startswith("section"):
+                snom = raw_nom
+            else:
+                snom = f"Section {raw_nom}"
             R = _compute_section(values, beton_data, bid, sid)
 
             vis = ETAT_VIS[R["etat_global"]]
-            sec_head = Table(
-                [[Paragraph(f"{snom}", styles["sec_title"]),
-                  Paragraph(f'<font color="{vis["tx"].hexval()}"><b>[{vis["ico"]}] {vis["label"]}</b></font>',
-                            styles["badge"])]],
-                colWidths=[cw*0.6, cw*0.4])
-            sec_head.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ]))
+            # bandeau section (même forme que poutre, couleur plus atténuée) + état à droite
+            sec_banner = make_banner(
+                f"{snom}"
+                f"&#160;&#160;&#160;<font size=9>[{vis['ico']}] {vis['label']}</font>",
+                cw, kind="section")
 
             # Liste ordonnée des blocs à produire pour cette section.
             blocs = [block_hauteur(R, styles, cw)]
@@ -1006,12 +1322,11 @@ def _build_story(beams, values, beton_data, infos, styles, cw, beam_pages, page_
             if R["shear_r"]:
                 blocs.append(block_shear(R, styles, cw, reduced=True))
 
-            # En-tête de section (titre + récap) regroupé avec le 1er bloc :
-            # évite un titre orphelin seul en bas de page.
+            # En-tête de section (bandeau + récap+coupe) regroupé avec le 1er bloc.
             intro = [
-                sec_head,
-                Spacer(1, 4),
-                _section_recap(R, styles, cw),
+                sec_banner,
+                Spacer(1, 6),
+                _section_recap(R, styles, cw, values=values, bid=bid, sid=sid),
                 Spacer(1, 10),
                 blocs[0],
             ]
