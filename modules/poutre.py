@@ -1470,6 +1470,14 @@ def show():
 
     st.markdown("## Poutre en béton armé")
 
+    # ---------- Données béton (chargées AVANT la barre de boutons pour que
+    #            le bouton "Générer PDF" puisse les utiliser) ----------
+    with open("beton_classes.json", "r", encoding="utf-8") as f:
+        beton_data = json.load(f)
+    # Rendre accessible aux fonctions UI qui n'ont pas beton_data en paramètre
+    global BETON_DATA
+    BETON_DATA = beton_data
+
     btn1, btn2, btn3, btn4, btn5 = st.columns(5)
 
     with btn1:
@@ -1505,13 +1513,33 @@ def show():
                 st.rerun()
 
     with btn5:
-        st.button("📄 Générer PDF", use_container_width=True, key="btn_pdf_disabled", disabled=True)
+        if st.button("📄 Générer PDF", use_container_width=True, key="btn_pdf"):
+            from modules.export_pdf import generer_rapport_pdf
 
-    with open("beton_classes.json", "r", encoding="utf-8") as f:
-        beton_data = json.load(f)
-    # Rendre accessible aux fonctions UI qui n'ont pas beton_data en paramètre
-    global BETON_DATA
-    BETON_DATA = beton_data
+            infos = {
+                "nom_projet": st.session_state.get("nom_projet", ""),
+                "partie": st.session_state.get("partie", ""),
+                "date": st.session_state.get("date", datetime.today().strftime("%d/%m/%Y")),
+                "indice": st.session_state.get("indice", "0"),
+            }
+
+            fichier_pdf = generer_rapport_pdf(
+                beams=st.session_state.beams,
+                values=dict(st.session_state),
+                beton_data=beton_data,
+                infos=infos,
+            )
+
+            with open(fichier_pdf, "rb") as f:
+                st.download_button(
+                    label="⬇️ Télécharger le rapport PDF",
+                    data=f.read(),
+                    file_name="note_de_calcul_poutre.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="btn_pdf_dl",
+                )
+            st.success("✅ Note de calcul générée")
 
     input_col_gauche, result_col_droite = st.columns([2, 3])
 
