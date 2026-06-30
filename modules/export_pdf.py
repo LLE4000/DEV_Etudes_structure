@@ -192,6 +192,25 @@ def frac(num, den):
 
 
 # ============================================================
+#  FLOWABLE : marqueur de page (capture le n° de page de début de poutre)
+# ============================================================
+class PageMarker(Flowable):
+    def __init__(self, store: dict, key):
+        super().__init__()
+        self.store = store
+        self.key = key
+        self.width = 0
+        self.height = 0
+
+    def wrap(self, availWidth, availHeight):
+        return (0, 0)
+
+    def draw(self):
+        # self.canv.getPageNumber() renvoie la page sur laquelle ce flowable est posé
+        self.store[self.key] = self.canv.getPageNumber()
+
+
+# ============================================================
 #  FLOWABLE : barre de titre poutre (bandeau coloré)
 # ============================================================
 class BeamBanner(Flowable):
@@ -579,12 +598,13 @@ def _formula_table(rows, styles, content_width, label_w=0.30):
     return t
 
 
-def _kv_table(rows, styles, content_width, ncols=3):
-    """Petite table clé/valeur en colonnes (pour résultats chiffrés)."""
+def _kv_table(rows, styles, content_width, ncols=3, sep=" = "):
+    """Petite table clé/valeur en colonnes (pour résultats chiffrés).
+    Clé et valeur sont sur la MÊME ligne, séparées par `sep`."""
     cells = []
     line = []
     for (k, v) in rows:
-        line.append(Paragraph(f"<b>{k}</b><br/>{v}", styles["cell"]))
+        line.append(Paragraph(f"<b>{k}</b>{sep}{v}", styles["cell"]))
         if len(line) == ncols:
             cells.append(line)
             line = []
@@ -683,10 +703,12 @@ def block_armatures(R, styles, cw, which):
     else:
         choix_txt = f"Choix : {lay['n1']}{SYM['phi']}{lay['d1']}"
     body.append(_kv_table([
-        (choix_txt, f"A<sub>s,prév</sub> = {f_num(lay['As'],1)} mm{_sup('2')}"),
-        ("Vérification mini", f"A<sub>s,prév</sub> {SYM['geq']} A<sub>s,min</sub> : {'OK' if lay['As']>=As_min else 'NON'}"),
-        ("Vérification maxi", f"A<sub>s,prév</sub> {SYM['leq']} A<sub>s,max</sub> : {'OK' if lay['As']<=R['As_max'] else 'NON'}"),
-    ], styles, cw, ncols=3))
+        ("Choix retenu", choix_txt.replace("Choix : ", "")),
+        ("A<sub>s,prév</sub>", f"{f_num(lay['As'],1)} mm{_sup('2')}"),
+        ("Vérifications",
+         f"{SYM['geq']} A<sub>s,min</sub> : {'OK' if lay['As']>=As_min else 'NON'} &#160;|&#160; "
+         f"{SYM['leq']} A<sub>s,max</sub> : {'OK' if lay['As']<=R['As_max'] else 'NON'}"),
+    ], styles, cw, ncols=3, sep=" : "))
     body.append(Spacer(1, 4))
     ok = etat == "ok"
     body.append(_conclusion(
@@ -718,7 +740,7 @@ def block_shear(R, styles, cw, reduced=False):
         ("&#964;", f"{f_num(S['tau'],2)} N/mm{_sup('2')}"),
         ("&#964;<sub>adm</sub>", f"{f_num(S['tau_lim'],2)} N/mm{_sup('2')}"),
         ("Diagnostic", S["besoin"]),
-    ], styles, cw, ncols=3))
+    ], styles, cw, ncols=3, sep=" : "))
     body.append(Spacer(1, 5))
 
     body.append(Paragraph("<b>Détermination des étriers</b>", styles["body"]))
@@ -798,7 +820,7 @@ class NoteDocTemplate(BaseDocTemplate):
         self.infos = infos or {}
         super().__init__(filename, pagesize=A4,
                          leftMargin=16*mm, rightMargin=16*mm,
-                         topMargin=26*mm, bottomMargin=18*mm, **kw)
+                         topMargin=28*mm, bottomMargin=18*mm, **kw)
         frame = Frame(self.leftMargin, self.bottomMargin,
                       self.width, self.height, id="main")
         self.addPageTemplates([PageTemplate(id="all", frames=[frame],
@@ -807,22 +829,31 @@ class NoteDocTemplate(BaseDocTemplate):
     def _decor(self, canvas, doc):
         canvas.saveState()
         w, h = A4
-        # ---- En-tête
+        band_h = 20*mm
+        # ---- En-tête (bandeau)
         canvas.setFillColor(COL_PRIMARY)
-        canvas.rect(0, h - 18*mm, w, 18*mm, stroke=0, fill=1)
+        canvas.rect(0, h - band_h, w, band_h, stroke=0, fill=1)
+
+        # Ligne 1 : nom du bureau / Ligne 2 : rédigé par (initiales)
         canvas.setFillColor(colors.white)
         canvas.setFont("Helvetica-Bold", 12)
-        canvas.drawString(16*mm, h - 11.5*mm, "NOTE DE CALCUL — Poutre en béton armé")
+        canvas.drawString(16*mm, h - 9*mm, "Bureau méthodes et stabilité Valens")
+        canvas.setFont("Helvetica", 9)
+        initiales = self.infos.get("initiales") or ""
+        canvas.drawString(16*mm, h - 15*mm, f"Rédigé par : {initiales}")
+
+        # Bloc projet / partie à droite
         canvas.setFont("Helvetica", 8.5)
         proj = self.infos.get("nom_projet") or "—"
-        canvas.drawRightString(w - 16*mm, h - 8*mm, f"Projet : {proj}")
+        canvas.drawRightString(w - 16*mm, h - 9*mm, f"Projet : {proj}")
         partie = self.infos.get("partie") or ""
         if partie:
-            canvas.drawRightString(w - 16*mm, h - 13*mm, f"Partie : {partie}")
+            canvas.drawRightString(w - 16*mm, h - 15*mm, f"Partie : {partie}")
+
         # accent line
         canvas.setStrokeColor(COL_ACCENT)
         canvas.setLineWidth(2)
-        canvas.line(0, h - 18*mm, w, h - 18*mm)
+        canvas.line(0, h - band_h, w, h - band_h)
 
         # ---- Pied de page
         canvas.setStrokeColor(COL_LINE)
@@ -833,7 +864,6 @@ class NoteDocTemplate(BaseDocTemplate):
         date = self.infos.get("date") or datetime.today().strftime("%d/%m/%Y")
         indice = self.infos.get("indice") or "0"
         canvas.drawString(16*mm, 9.5*mm, f"Date : {date}    |    Indice : {indice}")
-        canvas.drawCentredString(w/2, 9.5*mm, "Méthode de calcul interne (pré-Eurocode)")
         canvas.drawRightString(w - 16*mm, 9.5*mm, f"Page {doc.page}")
         canvas.restoreState()
 
@@ -841,7 +871,8 @@ class NoteDocTemplate(BaseDocTemplate):
 # ============================================================
 #  PAGE DE GARDE
 # ============================================================
-def _cover(infos, beams, values, beton_data, styles, cw):
+def _cover(infos, beams, values, beton_data, styles, cw, beam_pages=None):
+    beam_pages = beam_pages or {}
     story = []
     story.append(Spacer(1, 30*mm))
     story.append(Paragraph("Note de calcul", styles["doc_title"]))
@@ -878,7 +909,8 @@ def _cover(infos, beams, values, beton_data, styles, cw):
     summ = [[Paragraph("<b>Poutre</b>", styles["cell_head"]),
              Paragraph("<b>Sections</b>", styles["cell_head"]),
              Paragraph("<b>Béton / Acier</b>", styles["cell_head"]),
-             Paragraph("<b>État</b>", styles["cell_head"])]]
+             Paragraph("<b>État</b>", styles["cell_head"]),
+             Paragraph("<b>Page</b>", styles["cell_head"])]]
     for b in beams:
         bid = int(b["id"])
         sec_states = []
@@ -896,13 +928,16 @@ def _cover(infos, beams, values, beton_data, styles, cw):
         fyk = str(_g(values, KB("fyk", bid), "500"))
         sec_names = ", ".join(str(_g(values, f"meta_b{bid}_nom_{int(s['id'])}", s.get("nom", "")))
                               for s in b.get("sections", []))
+        pg = beam_pages.get(bid)
+        pg_txt = f"p.{pg}" if pg else "—"
         summ.append([
             Paragraph(str(_g(values, f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}"))), styles["cell_b"]),
             Paragraph(sec_names, styles["cell"]),
             Paragraph(f"{beton} / B{fyk}", styles["cell"]),
             Paragraph(f'<font color="{vis["tx"].hexval()}"><b>{vis["label"]}</b></font>', styles["cell"]),
+            Paragraph(pg_txt, styles["cell_b"]),
         ])
-    ts = Table(summ, colWidths=[cw*0.26, cw*0.34, cw*0.22, cw*0.18])
+    ts = Table(summ, colWidths=[cw*0.24, cw*0.30, cw*0.20, cw*0.16, cw*0.10])
     ts.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), COL_PRIMARY),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, COL_BG_SOFT]),
@@ -920,21 +955,11 @@ def _cover(infos, beams, values, beton_data, styles, cw):
 # ============================================================
 #  API PRINCIPALE
 # ============================================================
-def generer_rapport_pdf(beams, values, beton_data, infos=None, output_path=None):
-    """
-    Génère la note de calcul PDF et renvoie le chemin du fichier.
-    """
-    infos = infos or {}
-    if output_path is None:
-        fd, output_path = tempfile.mkstemp(suffix=".pdf", prefix="note_poutre_")
-        os.close(fd)
-
-    styles = _build_styles()
-    doc = NoteDocTemplate(output_path, infos)
-    cw = doc.width  # largeur utile
-
+def _build_story(beams, values, beton_data, infos, styles, cw, beam_pages, page_store):
+    """Construit le story complet. `page_store` reçoit les pages de début de poutre
+    (via PageMarker) lors du build. `beam_pages` alimente la colonne Page du sommaire."""
     story = []
-    story.extend(_cover(infos, beams, values, beton_data, styles, cw))
+    story.extend(_cover(infos, beams, values, beton_data, styles, cw, beam_pages=beam_pages))
 
     for bi, b in enumerate(beams):
         bid = int(b["id"])
@@ -944,6 +969,9 @@ def generer_rapport_pdf(beams, values, beton_data, infos=None, output_path=None)
         # qui se termine déjà par un PageBreak).
         if bi > 0:
             story.append(PageBreak())
+
+        # Marqueur de page (capture la page de début de cette poutre)
+        story.append(PageMarker(page_store, bid))
 
         # bandeau poutre
         story.append(BeamBanner(bnom, cw))
@@ -1000,5 +1028,38 @@ def generer_rapport_pdf(beams, values, beton_data, infos=None, output_path=None)
             if si < len(sections) - 1:
                 story.append(Spacer(1, 14))
 
-    doc.build(story)
+    return story
+
+
+def generer_rapport_pdf(beams, values, beton_data, infos=None, output_path=None):
+    """
+    Génère la note de calcul PDF et renvoie le chemin du fichier.
+    Deux passes : la 1re mesure la page de début de chaque poutre,
+    la 2e produit le sommaire avec les bons numéros de page.
+    """
+    infos = infos or {}
+    if output_path is None:
+        fd, output_path = tempfile.mkstemp(suffix=".pdf", prefix="note_poutre_")
+        os.close(fd)
+
+    styles = _build_styles()
+
+    # ---- Passe 1 : mesure des pages (sortie jetable) ----
+    page_store = {}
+    tmp_pdf = output_path + ".pass1.tmp"
+    doc1 = NoteDocTemplate(tmp_pdf, infos)
+    cw = doc1.width
+    story1 = _build_story(beams, values, beton_data, infos, styles, cw, beam_pages={}, page_store=page_store)
+    doc1.build(story1)
+    try:
+        os.remove(tmp_pdf)
+    except OSError:
+        pass
+
+    # ---- Passe 2 : build final avec les numéros de page connus ----
+    doc2 = NoteDocTemplate(output_path, infos)
+    cw = doc2.width
+    story2 = _build_story(beams, values, beton_data, infos, styles, cw,
+                          beam_pages=dict(page_store), page_store={})
+    doc2.build(story2)
     return output_path
