@@ -826,21 +826,32 @@ def b_arm(R, cw, which):
         Frac(Row(Row(sci_tokens(M * 1e6)).items), Row([_t(f"{fn(R['fyd'],1)} · 0,9 · {fn(d*10,0)}")])),
         _t("  =  "), txt(f"{fn(Ar,0)} mm", font="Helvetica-Bold", sup="2")]))
     choix = f"{lay['detail']} ({fn(lay['As'],0)} mm{s2()})" + (" · 2 lits" if lay["has2"] else "")
+
+    # valeurs numériques (b, d, h en mm) pour substitution directe
+    b_mm = R['b'] * 10.0
+    d_mm = d * 10.0
+    h_mm = R['h'] * 10.0
     fctm = 0.30 * (R['fck'] ** (2.0 / 3.0)) if R['fck'] > 0 else 0.0
-    asmin_ec = 0.26 * fctm / R['fyk'] * R['b'] * 10 * d * 10
-    asmin_min = 0.0013 * R['b'] * 10 * d * 10
+    asmin_ec = 0.26 * fctm / R['fyk'] * b_mm * d_mm       # 0,26·(fctm/fyk)·b·d
+    asmin_min = 0.0013 * b_mm * d_mm                       # 0,0013·b·d
 
     def _ts(s, **k):
-        return txt(s, size=8.3, **k)
-    asmin_f = Formula(Row([_ts("A", sub="s,min"), _ts(" = max( 0,26 · "),
-        _ts("f", sub="ctm"), _ts("/"), _ts("f", sub="yk"), _ts(" · b · d ; 0,0013 · b · d ) = max("),
-        _ts(f"{fn(asmin_ec,0)} ; {fn(asmin_min,0)}"), _ts(") = "),
-        txt(f"{fn(R['As_min'],0)} mm", font="Helvetica-Bold", size=8.3, sup="2")]))
-    asmax_f = Formula(Row([_ts("A", sub="s,max"), _ts(" = 0,04 · b · h = "),
-        _ts(f"0,04 · {fn(R['b']*10,0)} · {fn(R['h']*10,0)}"), _ts(" = "),
-        txt(f"{fn(R['As_max'],0)} mm", font="Helvetica-Bold", size=8.3, sup="2")]))
+        return txt(s, size=7.4, **k)
 
-    Msym = "M<sub>inf</sub>" if which == "inf" else "M<sup>sup</sup>"
+    # A_s,min : max( 0,26·(fctm/fyk)·b·d ; 0,0013·b·d ) = max(.. ; ..) = résultat
+    # -> valeurs numériques substituées (fraction fctm/fyk en LaTeX empilé), comme A_s,req
+    asmin_f = Formula(Row([
+        _ts("A", sub="s,min"), _ts(" = max( 0,26 · "),
+        Frac(Row([_ts(f"{fn(fctm,1)}")]), Row([_ts(f"{int(R['fyk'])}")]), pad=2),
+        _ts(f" · {fn(b_mm,0)} · {fn(d_mm,0)} ; 0,0013 · {fn(b_mm,0)} · {fn(d_mm,0)} ) = max("),
+        _ts(f"{fn(asmin_ec,0)} ; {fn(asmin_min,0)}"), _ts(") = "),
+        txt(f"{fn(R['As_min'],0)} mm", font="Helvetica-Bold", size=7.4, sup="2")]))
+
+    # A_s,max : 0,04·b·h -> valeurs numériques directes = résultat
+    asmax_f = Formula(Row([
+        _ts("A", sub="s,max"), _ts(f" = 0,04 · {fn(b_mm,0)} · {fn(h_mm,0)} = "),
+        txt(f"{fn(R['As_max'],0)} mm", font="Helvetica-Bold", size=7.4, sup="2")]))
+
     body = [fline("Moment appliqué",
                   Formula(Row([_t("M", sub=("inf" if which == "inf" else None), sup=(None if which == "inf" else "sup")),
                                _t("  =  "), nb(f"{fn(M,1)} kNm")])), iw),
