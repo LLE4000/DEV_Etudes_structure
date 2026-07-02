@@ -1,13 +1,22 @@
 # -*- coding: utf-8 -*-
 # ============================================================
-#  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  Rendu "note noire" : formules vectorielles (zéro image),
-#  notation scientifique, coupe de section style plan,
-#  conclusions à fond pâle + pictogramme ✔/✖ vectoriel,
-#  bandeaux pastel Poutre/Section.
+#  export_pdf.py â€” Note de calcul PDF (poutre bÃ©ton armÃ©)
+#  VERSION 2.20 (alignÃ©e sur poutre.py 2.20)
+#
+#  Corrections principales vs version prÃ©cÃ©dente :
+#   - LITS MULTIPLES (jusqu'Ã  4 par face) : lecture de nlits_*,
+#     positions rÃ©elles (distance axe lit / parement), centre de
+#     gravitÃ© pondÃ©rÃ© par les aires pour la hauteur utile.
+#   - DISTANCES axe lit / parement : nouvelles clÃ©s (enrob_calc_* pour
+#     le lit 1, dist_*_l{i} pour les suivants) + jeux globaux
+#     (jeu premier lit, jeu entre lits) et diamÃ¨tre Ã©trier.
+#   - ENROBAGE : affiche l'enrobage BÃ‰TON de la poutre (KB enrobage_beton).
+#   - As,min : accolade sur 3 lignes
+#       max( 0,26Â·fctm/fykÂ·bÂ·h ; 0,0013Â·bÂ·h ; 0,25Â·As,req opposÃ© )
+#     valeurs numÃ©riques exactes = celles retenues par poutre.py.
+#   - As,min / As,max : mÃªme police (taille) que As,req.
 #
 #  API : generer_rapport_pdf(beams, values, beton_data, infos=None) -> chemin PDF
-#  Branché sur les mêmes clés que poutre.py (aucune modif de poutre.py).
 # ============================================================
 
 import io
@@ -38,30 +47,34 @@ MUTE  = colors.HexColor("#737373")
 HAIR  = colors.HexColor("#e5e5e5")
 SOFT  = colors.HexColor("#f7f7f7")
 
-# bandeaux pastel
 BEAM_BG = colors.HexColor("#e7ecf2"); BEAM_TX = colors.HexColor("#243b53")
 SEC_BG  = colors.HexColor("#f2f5f8"); SEC_TX  = colors.HexColor("#334e68")
 
-# états (bordures/textes) + fonds pâles + textes foncés
 OKD = colors.HexColor("#2f7d4f"); WD = colors.HexColor("#9a6a1c"); ND = colors.HexColor("#b3261e")
 ECOL  = {"ok": OKD, "warn": WD, "nok": ND}
 EPALE = {"ok": colors.HexColor("#eaf6ee"), "warn": colors.HexColor("#fdf4e3"), "nok": colors.HexColor("#fdeceb")}
 EDARK = {"ok": colors.HexColor("#1e5b39"), "warn": colors.HexColor("#7a5314"), "nok": colors.HexColor("#8f1d17")}
-ELAB  = {"ok": "Vérifié", "warn": "À surveiller", "nok": "Non vérifié"}
+ELAB  = {"ok": "VÃ©rifiÃ©", "warn": "Ã€ surveiller", "nok": "Non vÃ©rifiÃ©"}
 
 # coupe de section : couleurs par lit
+LIT_COLORS = [
+    (colors.HexColor("#c0392b"), colors.HexColor("#7d2118")),  # lit 1 = rouge
+    (colors.HexColor("#2e6fb0"), colors.HexColor("#1c4a78")),  # lit 2 = bleu
+    (colors.HexColor("#1f8a70"), colors.HexColor("#125a48")),  # lit 3 = vert
+    (colors.HexColor("#8a5a1f"), colors.HexColor("#5a3a12")),  # lit 4 = brun
+]
 PAL = {
     "conc": colors.HexColor("#f2f2f0"), "conc_bd": INK, "hatch": colors.HexColor("#d9d9d6"),
-    "inf1": colors.HexColor("#c0392b"), "inf1_bd": colors.HexColor("#7d2118"),   # lit 1 inf = rouge
-    "inf2": colors.HexColor("#2e6fb0"), "inf2_bd": colors.HexColor("#1c4a78"),   # lit 2 inf = bleu
-    "sup":  colors.HexColor("#1f8a70"), "sup_bd": colors.HexColor("#125a48"),    # acier sup = vert sarcelle
-    "stirrup": colors.HexColor("#6b6f76"),                                       # étriers = gris ardoise
+    "sup":  colors.HexColor("#1f8a70"), "sup_bd": colors.HexColor("#125a48"),
+    "stirrup": colors.HexColor("#6b6f76"),
     "dim": MUTE, "txt": INK, "axis": colors.HexColor("#9aa0a6"),
 }
 
+MAX_LITS = 4
+
 
 # ============================================================
-#  FORMAT NOMBRES (virgule décimale FR)
+#  FORMAT NOMBRES (virgule dÃ©cimale FR)
 # ============================================================
 def fn(x, nd=2):
     try:
@@ -75,7 +88,7 @@ def s2():
 
 
 # ============================================================
-#  MOTEUR DE FORMULES VECTORIELLES (zéro image)
+#  MOTEUR DE FORMULES VECTORIELLES (zÃ©ro image)
 # ============================================================
 def _w(txt, font, size):
     return stringWidth(txt, font, size)
@@ -150,6 +163,58 @@ class Sqrt(_Tok):
         self.inner.draw(c, x + 10, yb)
 
 
+class Brace(_Tok):
+    """Grande accolade ouvrante '{' verticale, dimensionnÃ©e sur son contenu."""
+    def __init__(self, height, color=INK, w=6):
+        self.h = height; self.color = color; self.wd = w
+
+    def size_(self, c):
+        return self.wd + 2, self.h / 2.0, self.h / 2.0
+
+    def draw(self, c, x, yb):
+        top = yb + self.h / 2.0; bot = yb - self.h / 2.0; midy = yb
+        w = self.wd
+        c.setStrokeColor(self.color); c.setLineWidth(0.9)
+        p = c.beginPath()
+        # branche haute
+        p.moveTo(x + w, top)
+        p.curveTo(x + w * 0.4, top, x + w * 0.55, midy + (top - midy) * 0.15, x + w * 0.5, midy + 3)
+        # pointe centrale
+        p.curveTo(x + w * 0.5, midy + 1, x, midy + 1, x, midy)
+        p.curveTo(x, midy - 1, x + w * 0.5, midy - 1, x + w * 0.5, midy - 3)
+        # branche basse
+        p.curveTo(x + w * 0.55, midy - (midy - bot) * 0.15, x + w * 0.4, bot, x + w, bot)
+        c.drawPath(p, stroke=1, fill=0)
+
+
+class Stack(_Tok):
+    """Empile plusieurs Row verticalement (alignÃ© Ã  gauche), centrÃ© verticalement."""
+    def __init__(self, rows, gap=4, valign_center=True):
+        self.rows = [r if isinstance(r, Row) else Row(r) for r in rows]
+        self.gap = gap; self.valign_center = valign_center
+
+    def size_(self, c):
+        w = 0; total_h = 0; heights = []
+        for r in self.rows:
+            rw, ra, rd = r.size_(c); w = max(w, rw)
+            hh = ra + rd; heights.append((ra, rd, hh)); total_h += hh
+        total_h += self.gap * (len(self.rows) - 1)
+        self._heights = heights; self._total = total_h
+        return w, total_h / 2.0, total_h / 2.0
+
+    def draw(self, c, x, yb):
+        if not hasattr(self, "_total"):
+            self.size_(c)
+        cur_top = yb + self._total / 2.0
+        for r, (ra, rd, hh) in zip(self.rows, self._heights):
+            baseline = cur_top - ra
+            r.draw(c, x, baseline)
+            cur_top -= (hh + self.gap)
+
+    def n_rows(self):
+        return len(self.rows)
+
+
 class Row(_Tok):
     def __init__(self, items):
         self.items = list(items) if isinstance(items, (list, tuple)) else [items]
@@ -197,7 +262,7 @@ def nb(s):
 
 
 # ============================================================
-#  NOTATION SCIENTIFIQUE (a·10^n)
+#  NOTATION SCIENTIFIQUE (aÂ·10^n)
 # ============================================================
 def sci_tokens(value, color=INK, font="Helvetica", size=10):
     v = float(value)
@@ -209,11 +274,11 @@ def sci_tokens(value, color=INK, font="Helvetica", size=10):
     ms = f"{round(mant):d}" if abs(mant - round(mant)) < 1e-9 else f"{mant:.1f}".replace(".", ",")
     if n == 0:
         return [txt(ms, font=font, size=size, color=color)]
-    return [txt(f"{ms}·10", font=font, size=size, color=color, sup=str(n))]
+    return [txt(f"{ms}Â·10", font=font, size=size, color=color, sup=str(n))]
 
 
 # ============================================================
-#  ACCÈS AUX VALEURS (mêmes clés que poutre.py)
+#  ACCÃˆS AUX VALEURS (mÃªmes clÃ©s que poutre.py 2.20)
 # ============================================================
 def _g(values, key, default=None):
     return values.get(key, default)
@@ -246,48 +311,90 @@ def _round_up_to_half_cm(x):
         return x
 
 
-def _as_layer(values, bid, sid, which):
-    if which == "inf":
-        n1 = int(_g(values, KS("n_as_inf", bid, sid), 2) or 2)
-        d1 = int(_g(values, KS("ø_as_inf", bid, sid), 16) or 16)
-        has2 = bool(_g(values, KS("ajouter_second_lit_inf", bid, sid), False))
-        n2 = int(_g(values, KS("n_as_inf_2", bid, sid), 2) or 2)
-        d2 = int(_g(values, KS("ø_as_inf_2", bid, sid), d1) or d1)
-        jeu = float(_g(values, KS("jeu_inf_2", bid, sid), 0.0) or 0.0)
+def _get_fyk(values, bid):
+    try:
+        cur = int(float(_g(values, KB("fyk", bid), 500)))
+    except Exception:
+        cur = 500
+    if cur not in (400, 500):
+        cur = 500
+    return float(cur), str(cur)
+
+
+def _get_nlits(values, bid, sid, which):
+    try:
+        nl = int(_g(values, KS(f"nlits_{which}", bid, sid), 1) or 1)
+    except Exception:
+        nl = 1
+    return max(1, min(MAX_LITS, nl))
+
+
+def _lit_bars(values, bid, sid, which, i):
+    if i == 1:
+        n = int(_g(values, KS(f"n_as_{which}", bid, sid), 2) or 2)
+        d = int(_g(values, KS(f"Ã¸_as_{which}", bid, sid), 16) or 16)
     else:
-        n1 = int(_g(values, KS("n_as_sup", bid, sid), 2) or 2)
-        d1 = int(_g(values, KS("ø_as_sup", bid, sid), 16) or 16)
-        has2 = bool(_g(values, KS("ajouter_second_lit_sup", bid, sid), False))
-        n2 = int(_g(values, KS("n_as_sup_2", bid, sid), 2) or 2)
-        d2 = int(_g(values, KS("ø_as_sup_2", bid, sid), d1) or d1)
-        jeu = float(_g(values, KS("jeu_sup_2", bid, sid), 0.0) or 0.0)
-
-    As1 = n1 * _bar_area_mm2(d1)
-    if has2:
-        As2 = n2 * _bar_area_mm2(d2)
-        return {"As": As1 + As2, "n1": n1, "d1": d1, "has2": True, "n2": n2, "d2": d2,
-                "jeu": jeu, "As1": As1, "As2": As2, "detail": f"{n1}\u00d8{d1} + {n2}\u00d8{d2}"}
-    return {"As": As1, "n1": n1, "d1": d1, "has2": False, "n2": 0, "d2": 0,
-            "jeu": 0.0, "As1": As1, "As2": 0.0, "detail": f"{n1}\u00d8{d1}"}
+        n = int(_g(values, KS(f"n_as_{which}_l{i}", bid, sid), 2) or 2)
+        d = int(_g(values, KS(f"Ã¸_as_{which}_l{i}", bid, sid), 16) or 16)
+    return n, d
 
 
-def _auto_enrob_calc(values, bid, sid, which):
-    enrob_beton = float(_g(values, KB("enrobage_beton", bid), 3.0) or 3.0)
-    jeu_enrob = float(_g(values, "jeu_enrobage_cm", 1.0) or 1.0)
-    diam = float(_g(values, KS("ø_as_inf" if which == "inf" else "ø_as_sup", bid, sid), 16) or 16)
-    return enrob_beton + jeu_enrob + _round_up_to_half_cm(diam / 20.0)
+def _auto_dist_lit(values, bid, sid, which, i):
+    """RÃ©plique _auto_dist_lit de poutre.py 2.20."""
+    if i == 1:
+        enrob_beton = float(_g(values, KB("enrobage_beton", bid), 3.0) or 3.0)
+        d_etrier = float(_g(values, "diam_etrier_mm", 8) or 8)
+        jeu1 = float(_g(values, "jeu_enrobage_cm", 1.0) or 0.0)
+        _, d1 = _lit_bars(values, bid, sid, which, 1)
+        return (enrob_beton
+                + _round_up_to_half_cm(d_etrier / 10.0)
+                + _round_up_to_half_cm(d1 / 20.0)
+                + jeu1)
+    prev = _dist_lit(values, bid, sid, which, i - 1)
+    _, d_prev = _lit_bars(values, bid, sid, which, i - 1)
+    _, d_i = _lit_bars(values, bid, sid, which, i)
+    jeuL = float(_g(values, "jeu_entre_lits_cm", 1.0) or 0.0)
+    return (prev
+            + _round_up_to_half_cm(d_prev / 20.0)
+            + jeuL
+            + _round_up_to_half_cm(d_i / 20.0))
 
 
-def _enrob_calc(values, bid, sid, which):
-    key_val = KS(f"enrob_calc_{which}", bid, sid)
-    key_ovr = KS(f"enrob_calc_{which}_override", bid, sid)
-    auto_val = _auto_enrob_calc(values, bid, sid, which)
+def _dist_keys(bid, sid, which, i):
+    if i == 1:
+        return KS(f"enrob_calc_{which}", bid, sid), KS(f"enrob_calc_{which}_override", bid, sid)
+    return KS(f"dist_{which}_l{i}", bid, sid), KS(f"dist_{which}_l{i}_override", bid, sid)
+
+
+def _dist_lit(values, bid, sid, which, i):
+    """Distance axe lit i / parement effective (override compris)."""
+    key_val, key_ovr = _dist_keys(bid, sid, which, i)
+    auto = _auto_dist_lit(values, bid, sid, which, i)
     if bool(_g(values, key_ovr, False)):
         try:
-            return float(_g(values, key_val, auto_val) or auto_val)
+            return float(_g(values, key_val, auto) or auto)
         except Exception:
-            return float(auto_val)
-    return float(auto_val)
+            return float(auto)
+    return float(auto)
+
+
+def _layers_geometry(values, bid, sid, which):
+    """As_total (mmÂ²), e_cdg (cm, parement->c.d.g.), liste de lits, detail."""
+    nl = _get_nlits(values, bid, sid, which)
+    lits = []
+    As_tot = 0.0
+    somme = 0.0
+    parts = []
+    for i in range(1, nl + 1):
+        n, d = _lit_bars(values, bid, sid, which, i)
+        e = _dist_lit(values, bid, sid, which, i)
+        As_i = n * _bar_area_mm2(d)
+        As_tot += As_i
+        somme += As_i * e
+        lits.append({"i": i, "n": n, "d": d, "e": e, "As": As_i})
+        parts.append(f"{n}\u00d8{d}")
+    e_cdg = (somme / As_tot) if As_tot > 0 else _dist_lit(values, bid, sid, which, 1)
+    return {"As": As_tot, "e_cdg": e_cdg, "lits": lits, "detail": " + ".join(parts), "nl": nl}
 
 
 def _shear_lines(values, bid, sid, reduced):
@@ -298,7 +405,7 @@ def _shear_lines(values, bid, sid, reduced):
     n_lines = max(1, n_lines)
     Ast = 0.0; parts = []; groups = []
     for i in range(n_lines):
-        typ = str(_g(values, KS(f"{prefix}{i}_type", bid, sid), "Étriers (2 brins)"))
+        typ = str(_g(values, KS(f"{prefix}{i}_type", bid, sid), "Ã‰triers (2 brins)"))
         n_c = int(_g(values, KS(f"{prefix}{i}_n", bid, sid), 1) or 1)
         diam = float(_g(values, KS(f"{prefix}{i}_d", bid, sid), 8) or 8)
         brins = _brins_from_type(typ)
@@ -308,30 +415,23 @@ def _shear_lines(values, bid, sid, reduced):
     return Ast, " + ".join(parts), groups
 
 
-def _get_fyk(values, bid):
-    cur = str(_g(values, KB("fyk", bid), "500"))
-    if cur not in ("400", "500"):
-        cur = "500"
-    return float(cur), cur
-
-
 def _first_stirrup(values, bid, sid):
-    typ = str(_g(values, KS("shear_line0_type", bid, sid), "Étriers (2 brins)"))
+    typ = str(_g(values, KS("shear_line0_type", bid, sid), "Ã‰triers (2 brins)"))
     diam = int(float(_g(values, KS("shear_line0_d", bid, sid), 8) or 8))
     return {"type": typ, "d": diam, "brins": _brins_from_type(typ)}
 
 
 # ============================================================
-#  CALCUL SECTION (fidèle à poutre.py — inchangé)
+#  CALCUL SECTION (fidÃ¨le Ã  poutre.py 2.20)
 # ============================================================
 def _compute_section(values, beton_data, bid, sid):
     beton = str(_g(values, KB("beton", bid), "C30/37"))
     if beton not in beton_data:
         beton = list(beton_data.keys())[0]
     bd = beton_data[beton]
-    fck = bd.get("fck", 0)
     fck_cube = bd["fck_cube"]
     alpha_b = bd["alpha_b"]
+    fck_cyl = float(bd.get("fck", 0.8 * fck_cube) or (0.8 * fck_cube))
 
     fyk, mu_ref = _get_fyk(values, bid)
     fyd = fyk / 1.5
@@ -343,38 +443,50 @@ def _compute_section(values, beton_data, bid, sid):
 
     b = float(_g(values, KB("b", bid), 20))
     h = float(_g(values, KB("h", bid), 40))
+    enrob_beton = float(_g(values, KB("enrobage_beton", bid), 3.0) or 3.0)
 
-    enrob_inf = _enrob_calc(values, bid, sid, "inf")
-    enrob_sup = _enrob_calc(values, bid, sid, "sup")
-    d_inf = h - enrob_inf
-    d_sup = h - enrob_sup
-    d_shear = h - min(enrob_inf, enrob_sup)
+    geo_inf = _layers_geometry(values, bid, sid, "inf")
+    geo_sup = _layers_geometry(values, bid, sid, "sup")
+
+    dist_l1_inf = _dist_lit(values, bid, sid, "inf", 1)
+    dist_l1_sup = _dist_lit(values, bid, sid, "sup", 1)
+
+    d_inf = h - geo_inf["e_cdg"]
+    d_sup = h - geo_sup["e_cdg"]
+    d_shear = h - min(dist_l1_inf, dist_l1_sup)
+    d_calc_inf = max(d_inf, 0.1); d_calc_sup = max(d_sup, 0.1); d_calc_shear = max(d_shear, 0.1)
+    geom_inf_ok = d_inf > 0; geom_sup_ok = d_sup > 0; geom_shear_ok = d_shear > 0
 
     tol = float(_g(values, "tau_tolerance_percent", 0.0) or 0.0)
 
+    has_Msup = bool(_g(values, KS("ajouter_moment_sup", bid, sid), False))
+    has_Vred = bool(_g(values, KS("ajouter_effort_reduit", bid, sid), False))
     M_inf = float(_g(values, KS("M_inf", bid, sid), 0.0) or 0.0)
-    M_sup = float(_g(values, KS("M_sup", bid, sid), 0.0) or 0.0)
+    M_sup = float(_g(values, KS("M_sup", bid, sid), 0.0) or 0.0) if has_Msup else 0.0
     V = float(_g(values, KS("V", bid, sid), 0.0) or 0.0)
-    V_lim = float(_g(values, KS("V_lim", bid, sid), 0.0) or 0.0)
-    has_Msup = bool(_g(values, KS("ajouter_moment_sup", bid, sid), False)) and (M_sup > 0)
-    has_Vlim = bool(_g(values, KS("ajouter_effort_reduit", bid, sid), False)) and (V_lim > 0)
+    V_lim = float(_g(values, KS("V_lim", bid, sid), 0.0) or 0.0) if has_Vred else 0.0
+    has_Msup = has_Msup and (M_sup > 0)
+    has_Vlim = has_Vred and (V_lim > 0)
 
     M_max = max(M_inf, M_sup)
     hmin = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if M_max > 0 else 0.0
-    etat_h = "ok" if (hmin + enrob_inf <= h) else "nok"
+    etat_h = "ok" if (hmin + dist_l1_inf <= h) else "nok"
 
-    As_min = 0.0013 * b * h * 1e2
+    # As,min : 3 critÃ¨res (EC2 / plancher / 0,25Â·As,req opposÃ©), h partout
+    fctm = 0.30 * (fck_cyl ** (2.0 / 3.0)) if fck_cyl > 0 else 0.0
+    As_min_ec = 0.26 * fctm / fyk * b * h * 1e2
+    As_min_plancher = 0.0013 * b * h * 1e2
+    As_min_base = max(As_min_ec, As_min_plancher)
     As_max = 0.04 * b * h * 1e2
-    As_req_inf = (M_inf * 1e6) / (fyd * 0.9 * d_inf * 10) if M_inf > 0 else 0.0
-    As_req_sup = (M_sup * 1e6) / (fyd * 0.9 * d_sup * 10) if M_sup > 0 else 0.0
-    As_min_inf = max(As_min, 0.25 * As_req_sup)
-    As_min_sup = max(As_min, 0.25 * As_req_inf)
 
-    inf = _as_layer(values, bid, sid, "inf")
-    sup = _as_layer(values, bid, sid, "sup")
+    As_req_inf = (M_inf * 1e6) / (fyd * 0.9 * d_calc_inf * 10) if M_inf > 0 else 0.0
+    As_req_sup = (M_sup * 1e6) / (fyd * 0.9 * d_calc_sup * 10) if M_sup > 0 else 0.0
+    As_min_inf = max(As_min_base, 0.25 * As_req_sup)
+    As_min_sup = max(As_min_base, 0.25 * As_req_inf)
 
-    etat_inf = "ok" if (inf["As"] >= As_req_inf and inf["As"] <= As_max) else "nok"
-    etat_sup = "ok" if (sup["As"] >= As_req_sup and sup["As"] <= As_max) else "nok"
+    As_inf = geo_inf["As"]; As_sup = geo_sup["As"]
+    etat_inf = "ok" if (geom_inf_ok and As_inf >= max(As_req_inf, As_min_inf) and As_inf <= As_max) else "nok"
+    etat_sup = "ok" if (geom_sup_ok and As_sup >= max(As_req_sup, As_min_sup) and As_sup <= As_max) else "nok"
 
     tau_1 = 0.016 * fck_cube / 1.05
     tau_2 = 0.032 * fck_cube / 1.05
@@ -382,11 +494,11 @@ def _compute_section(values, beton_data, bid, sid):
 
     def shear_need(tau):
         if tau <= tau_1:
-            return "Pas besoin d'étriers", "ok", "tau_adm,I", tau_1
+            return "Pas besoin d'Ã©triers", "ok", "tau_adm,I", tau_1
         if tau <= tau_2:
-            return "Besoin d'étriers", "ok", "tau_adm,II", tau_2
+            return "Besoin d'Ã©triers", "ok", "tau_adm,II", tau_2
         if tau <= tau_4:
-            return "Barres inclinées + étriers", "warn", "tau_adm,IV", tau_4
+            return "Barres inclinÃ©es + Ã©triers", "warn", "tau_adm,IV", tau_4
         return "Section insuffisante", "nok", "tau_adm,IV", tau_4
 
     def status_tol(value, limit):
@@ -396,7 +508,7 @@ def _compute_section(values, beton_data, bid, sid):
             return "ok", ""
         lim2 = limit * (1.0 + max(0.0, tol) / 100.0)
         if value <= lim2:
-            return "ok", f"Acceptable (tolérance +{tol:.0f}%)"
+            return "ok", f"Acceptable (tolÃ©rance +{tol:.0f}%)"
         return "nok", ""
 
     def build_shear(Vx, reduced):
@@ -407,10 +519,12 @@ def _compute_section(values, beton_data, bid, sid):
         etat_tau, suf = (status_tol(tau, tau_lim) if tau > tau_lim else (etat_base, ""))
         Ast_e, summary, groups = _shear_lines(values, bid, sid, reduced=reduced)
         pas = float(_g(values, KS("shear_pas_r" if reduced else "shear_pas", bid, sid), 30.0) or 30.0)
-        pas_th = Ast_e * fyd * d_shear * 10 / (10 * Vx * 1e3) if Ast_e > 0 else 0.0
-        s_max = min(0.75 * d_shear, 30.0)
+        pas_th = Ast_e * fyd * (d_calc_shear * 10.0) / (Vx * 1e3) / 10.0 if Ast_e > 0 else 0.0
+        s_max = min(0.75 * d_calc_shear, 30.0)
         pas_lim = min(pas_th, s_max) if pas_th > 0 else s_max
         etat_pas, suf_pas = status_tol(pas, pas_lim)
+        if not geom_shear_ok:
+            etat_tau = "nok"; etat_pas = "nok"
         return {"tau": tau, "besoin": besoin, "etat_tau": etat_tau, "nom_lim": nom_lim,
                 "tau_lim": tau_lim, "suf": suf, "Ast": Ast_e, "summary": summary, "groups": groups,
                 "pas": pas, "pas_th": pas_th, "s_max": s_max, "pas_lim": pas_lim,
@@ -431,23 +545,26 @@ def _compute_section(values, beton_data, bid, sid):
     etat_global = "nok" if any(s == "nok" for s in states) else ("warn" if any(s == "warn" for s in states) else "ok")
 
     return {
-        "beton": beton, "fck": fck, "fck_cube": fck_cube, "alpha_b": alpha_b,
+        "beton": beton, "fck": fck_cyl, "fck_cube": fck_cube, "alpha_b": alpha_b, "fctm": fctm,
         "fyk": fyk, "fyd": fyd, "mu_ref": mu_ref, "mu": mu_val,
-        "b": b, "h": h, "ei": enrob_inf, "es": enrob_sup,
+        "b": b, "h": h, "enrob_beton": enrob_beton,
+        "ei": geo_inf["e_cdg"], "es": geo_sup["e_cdg"],
+        "dist_l1_inf": dist_l1_inf, "dist_l1_sup": dist_l1_sup,
         "di": d_inf, "ds": d_sup, "dsh": d_shear,
         "M_inf": M_inf, "M_sup": M_sup, "V": V, "V_lim": V_lim,
         "has_Msup": has_Msup, "has_Vlim": has_Vlim,
         "M_max": M_max, "hmin": hmin, "etat_h": etat_h,
-        "As_min": As_min, "As_max": As_max,
+        "As_min_ec": As_min_ec, "As_min_plancher": As_min_plancher, "As_max": As_max,
         "As_req_inf": As_req_inf, "As_req_sup": As_req_sup,
         "As_min_inf": As_min_inf, "As_min_sup": As_min_sup,
-        "inf": inf, "sup": sup, "etat_inf": etat_inf, "etat_sup": etat_sup,
+        "geo_inf": geo_inf, "geo_sup": geo_sup,
+        "As_inf": As_inf, "As_sup": As_sup, "etat_inf": etat_inf, "etat_sup": etat_sup,
         "shear": shear, "shear_r": shear_r, "etat_global": etat_global,
     }
 
 
 # ============================================================
-#  COUPE DE SECTION (style plan : axes + couleurs par lit)
+#  COUPE DE SECTION (multi-lits, positions rÃ©elles)
 # ============================================================
 class SectionDrawing(Flowable):
     def __init__(self, R, stirrups, width, height, pal):
@@ -468,9 +585,8 @@ class SectionDrawing(Flowable):
     def draw(self):
         c = self.canv; R = self.R; P = self.pal
         b_cm = float(R["b"]); h_cm = float(R["h"])
-        ei = float(R["ei"]); es = float(R["es"])
 
-        pad_l, pad_t, pad_r, pad_b = 34, 16, 138, 22
+        pad_l, pad_t, pad_r, pad_b = 34, 16, 150, 22
         aw = self.width - pad_l - pad_r
         ah = self.height - pad_t - pad_b
         b_mm, h_mm = b_cm * 10.0, h_cm * 10.0
@@ -480,7 +596,7 @@ class SectionDrawing(Flowable):
         y0 = pad_b + (ah - sh) / 2.0
 
         c.saveState()
-        # béton + hachures
+        # bÃ©ton + hachures
         c.setFillColor(P["conc"]); c.setStrokeColor(P["conc_bd"]); c.setLineWidth(1.5)
         c.rect(x0, y0, sw, sh, stroke=1, fill=1)
         c.saveState()
@@ -498,47 +614,50 @@ class SectionDrawing(Flowable):
         self._dash_axis(c, x0 + sw / 2, y0 - ext, x0 + sw / 2, y0 + sh + ext)
         self._dash_axis(c, x0 - ext, y0 + sh / 2, x0 + sw + ext, y0 + sh / 2)
 
-        inf, sup = R["inf"], R["sup"]
-        cov = min(ei, es, 3.0); st_off = cov * 10.0 * sc
-        st_main = self.stirrups[0] if self.stirrups else {"d": 8, "cover_extra": 0, "bottom_range": None}
-        xs_inf_main, r_inf_main = self._xs(inf["n1"], inf["d1"],
-                                           st_off + max(1.0, float(st_main.get('d', 8)) * sc) + 1.0, x0, sw, sc)
+        # enrobage Ã©trier approx pour offset des barres
+        enrob_beton = float(R.get("enrob_beton", 3.0))
+        st_off = enrob_beton * 10.0 * sc
+        st_main = self.stirrups[0] if self.stirrups else {"d": 8}
+        stw_main = max(1.0, float(st_main.get("d", 8)) * sc)
+        bar_off = st_off + stw_main + 1.0
 
-        # étriers
+        # Ã©trier pÃ©rimÃ©trique
         for stg in self.stirrups:
             st_d = float(stg.get("d", 8))
-            off = st_off + float(stg.get("cover_extra", 0.0)) * 10.0 * sc
             stw = max(1.0, st_d * sc)
             c.setStrokeColor(P["stirrup"]); c.setLineWidth(stw)
             rr = max(3.0, 2.0 * st_d * sc)
-            br = stg.get("bottom_range", None)
-            if not br:
-                c.roundRect(x0 + off, y0 + off, sw - 2 * off, sh - 2 * off, rr, stroke=1, fill=0)
-            else:
-                i, j = br; n = len(xs_inf_main)
-                i = max(1, min(i, n)); j = max(1, min(j, n))
-                if i > j:
-                    i, j = j, i
-                xL = xs_inf_main[i - 1] - r_inf_main - 2; xR = xs_inf_main[j - 1] + r_inf_main + 2
-                c.roundRect(xL, y0 + off, xR - xL, sh - 2 * off, rr * 0.8, stroke=1, fill=0)
+            c.roundRect(x0 + st_off, y0 + st_off, sw - 2 * st_off, sh - 2 * st_off, rr, stroke=1, fill=0)
 
-        stw_main = max(1.0, float(st_main.get('d', 8)) * sc)
-        bar_off = st_off + stw_main + 1.0
+        def _xs(n, d_mm, off):
+            r = max(1.7, (d_mm * sc) / 2.0)
+            inset = off + r + 1.0
+            xa, xb = x0 + inset, x0 + sw - inset
+            if n <= 1:
+                return [(xa + xb) / 2.0], r
+            return [xa + (xb - xa) * k / (n - 1) for k in range(n)], r
 
-        def layer(n, d_mm, y_cm, fc, sc_):
+        def layer(n, d_mm, y_cm_from_bottom, fc, bd):
             if n <= 0:
                 return None
-            xs, r = self._xs(n, d_mm, bar_off, x0, sw, sc)
-            yy = y0 + (y_cm / h_cm) * sh
-            c.setFillColor(fc); c.setStrokeColor(sc_); c.setLineWidth(0.5)
+            xs, r = _xs(n, d_mm, bar_off)
+            yy = y0 + (y_cm_from_bottom / h_cm) * sh
+            c.setFillColor(fc); c.setStrokeColor(bd); c.setLineWidth(0.5)
             for xc in xs:
                 c.circle(xc, yy, r, stroke=1, fill=1)
             return yy
 
-        yi1 = layer(inf["n1"], inf["d1"], ei, P["inf1"], P["inf1_bd"])
-        yi2 = layer(inf["n2"], inf["d2"], ei + inf["jeu"] + (inf["d1"] + inf["d2"]) / 20.0, P["inf2"], P["inf2_bd"]) if inf["has2"] else None
-        ys1 = layer(sup["n1"], sup["d1"], h_cm - es, P["sup"], P["sup_bd"])
-        ys2 = layer(sup["n2"], sup["d2"], h_cm - es - (sup["jeu"] + (sup["d1"] + sup["d2"]) / 20.0), P["sup"], P["sup_bd"]) if sup["has2"] else None
+        geo_inf = R["geo_inf"]; geo_sup = R["geo_sup"]
+        y_inf = []
+        for lit in geo_inf["lits"]:
+            col, bdc = LIT_COLORS[(lit["i"] - 1) % len(LIT_COLORS)]
+            yy = layer(lit["n"], lit["d"], lit["e"], col, bdc)  # e = depuis le bas
+            y_inf.append((yy, col, lit))
+        y_sup = []
+        for lit in geo_sup["lits"]:
+            col, bdc = LIT_COLORS[(lit["i"] - 1) % len(LIT_COLORS)]
+            yy = layer(lit["n"], lit["d"], h_cm - lit["e"], col, bdc)  # e = depuis le haut
+            y_sup.append((yy, col, lit))
 
         # cotes b / h
         c.setStrokeColor(P["dim"]); c.setFillColor(P["dim"]); c.setLineWidth(0.6); c.setFont("Helvetica", 7.5)
@@ -554,7 +673,7 @@ class SectionDrawing(Flowable):
         c.saveState(); c.translate(xl - 3, y0 + sh / 2); c.rotate(90)
         c.drawCentredString(0, 0, f"h = {fn(h_cm,0)} cm"); c.restoreState()
 
-        # légende par niveau
+        # lÃ©gende
         lx = x0 + sw + 16
         def leg(yy, col, label):
             if yy is None:
@@ -562,54 +681,27 @@ class SectionDrawing(Flowable):
             c.setStrokeColor(col); c.setLineWidth(0.5); c.setDash()
             c.line(x0 + sw, yy, lx - 3, yy)
             c.setFillColor(col); c.circle(lx + 2, yy, 2.2, stroke=0, fill=1)
-            c.setFillColor(P["txt"]); c.setFont("Helvetica", 7.6)
+            c.setFillColor(P["txt"]); c.setFont("Helvetica", 7.4)
             c.drawString(lx + 8, yy - 2.6, label)
 
-        if ys2 is not None:
-            leg(ys2, P["sup"], f"Lit 2 (sup.) : {sup['n2']} \u00d8{sup['d2']}")
-        if ys1 is not None:
-            leg(ys1, P["sup"], f"Lit 1 (sup.) : {sup['n1']} \u00d8{sup['d1']}")
+        for yy, col, lit in reversed(y_sup):
+            leg(yy, col, f"Lit {lit['i']} (sup.) : {lit['n']} \u00d8{lit['d']}")
         ymid = y0 + sh / 2.0
         c.setFillColor(P["stirrup"]); c.circle(lx + 2, ymid, 2.2, stroke=0, fill=1)
-        c.setFillColor(P["txt"]); c.setFont("Helvetica", 7.6)
-        etr = " · ".join(f"\u00d8{int(s.get('d', 8))}" for s in self.stirrups) or "\u00d88"
-        c.drawString(lx + 8, ymid - 2.6, f"Étriers : {etr}")
-        if yi2 is not None:
-            leg(yi2, P["inf2"], f"Lit 2 (inf.) : {inf['n2']} \u00d8{inf['d2']}")
-        if yi1 is not None:
-            leg(yi1, P["inf1"], f"Lit 1 (inf.) : {inf['n1']} \u00d8{inf['d1']}")
+        c.setFillColor(P["txt"]); c.setFont("Helvetica", 7.4)
+        etr = " Â· ".join(f"\u00d8{int(s.get('d', 8))}" for s in self.stirrups) or "\u00d88"
+        c.drawString(lx + 8, ymid - 2.6, f"Ã‰triers : {etr}")
+        for yy, col, lit in reversed(y_inf):
+            leg(yy, col, f"Lit {lit['i']} (inf.) : {lit['n']} \u00d8{lit['d']}")
 
         c.restoreState()
 
-    @staticmethod
-    def _xs(n, d_mm, off, x0, sw, sc):
-        r = max(1.7, (d_mm * sc) / 2.0)
-        inset = off + r + 1.0
-        xa, xb = x0 + inset, x0 + sw - inset
-        if n <= 1:
-            return [(xa + xb) / 2.0], r
-        return [xa + (xb - xa) * k / (n - 1) for k in range(n)], r
-
 
 def stirrups_for(R, values, bid, sid):
-    """Cadres à dessiner à partir des lignes d'étriers réelles de la section.
-    - une seule ligne -> un étrier pleine largeur
-    - plusieurs lignes -> étriers superposés (exemple : chevauchement symétrique)
-    L'emplacement précis (plages de barres) sera choisi plus tard dans poutre.py."""
     fs = _first_stirrup(values, bid, sid)
     Sh = R.get("shear")
     groups = (Sh or {}).get("groups") or [{"type": fs["type"], "n": 1, "d": fs["d"], "brins": fs["brins"]}]
-    n = R["inf"]["n1"]
-    out = []
-    if len(groups) <= 1 or n < 4:
-        d = int(groups[0]["d"])
-        out.append({"d": d, "cover_extra": 0.0, "bottom_range": None})
-    else:
-        # exemple visuel : deux étriers qui se chevauchent
-        d0 = int(groups[0]["d"]); d1 = int(groups[1]["d"])
-        out.append({"d": d0, "cover_extra": 0.0, "bottom_range": (1, max(2, n - 1))})
-        out.append({"d": d1, "cover_extra": 0.014, "bottom_range": (2, n)})
-    return out
+    return [{"d": int(groups[0]["d"])}]
 
 
 # ============================================================
@@ -661,7 +753,6 @@ class Marker(Flowable):
 
 
 class VerdictIcon(Flowable):
-    """Pictogramme vectoriel : disque + coche (ok) / croix (nok). Jamais une police couleur."""
     def __init__(self, ok, color, r=6.5):
         super().__init__(); self.ok = ok; self.color = color; self.r = r
     def wrap(self, aw, ah):
@@ -701,22 +792,6 @@ def reslines(rows, cw):
     return t
 
 
-def kvtab(rows, cw, n=3, sep=" = "):
-    cells = []; line = []
-    for k, vv in rows:
-        line.append(Paragraph((f"<b>{k}</b>{sep}{vv}" if k else vv), ST["kv"]))
-        if len(line) == n:
-            cells.append(line); line = []
-    if line:
-        while len(line) < n:
-            line.append(Paragraph("", ST["kv"]))
-        cells.append(line)
-    t = Table(cells, colWidths=[(cw) / n] * n)
-    t.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6), ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4)]))
-    return t
-
-
 def conclu(et, cw, left_txt, ok=None):
     lp = Paragraph(f'<font color="{EDARK[et].hexval()}">{left_txt}</font>', ST["concl"])
     if ok is None:
@@ -747,7 +822,7 @@ def block(num, title, et, body, cw):
 
 
 # ============================================================
-#  RÉCAP SECTION : caractéristiques (gauche) + coupe (droite)
+#  RÃ‰CAP SECTION : caractÃ©ristiques (gauche) + coupe (droite)
 # ============================================================
 def carac(R, cw):
     def sub(t):
@@ -756,19 +831,19 @@ def carac(R, cw):
         return [Paragraph(k, ST["cell"]), Paragraph(str(vv), ST["cellb"])]
     rows = [sub("DIMENSIONS"),
             kv("Largeur b", f"{fn(R['b'],0)} cm"), kv("Hauteur h", f"{fn(R['h'],0)} cm"),
-            kv("Enrobage", f"{fn(R['ei'],0)} cm"),
-            sub("MATÉRIAUX"),
-            kv("Béton", f"{R['beton']}"),
-            kv("f<sub>cd</sub>", f"{fn(R['fck'],0)} N/mm{s2()}"),
+            kv("Enrobage bÃ©ton", f"{fn(R['enrob_beton'],1)} cm"),
+            sub("MATÃ‰RIAUX"),
+            kv("BÃ©ton", f"{R['beton']}"),
+            kv("f<sub>ck</sub>", f"{fn(R['fck'],0)} N/mm{s2()}"),
             kv("Acier", f"B{int(R['fyk'])}"),
-            kv("f<sub>yd</sub>", f"{fn(R['fyk'],0)} N/mm{s2()}"),
+            kv("f<sub>yd</sub>", f"{fn(R['fyd'],0)} N/mm{s2()}"),
             sub("SOLLICITATIONS"),
             kv("M<sub>inf</sub>", f"{fn(R['M_inf'],1)} kNm")]
     if R["has_Msup"]:
         rows.append(kv("M<sup>sup</sup>", f"{fn(R['M_sup'],1)} kNm"))
     rows.append(kv("V", f"{fn(R['V'],1)} kN"))
     if R["has_Vlim"]:
-        rows.append(kv("V<sub>réduit</sub>", f"{fn(R['V_lim'],1)} kN"))
+        rows.append(kv("V<sub>rÃ©duit</sub>", f"{fn(R['V_lim'],1)} kN"))
     t = Table(rows, colWidths=[cw * 0.42, cw * 0.58])
     ts = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
           ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
@@ -796,76 +871,109 @@ def recap(R, values, bid, sid, cw):
 
 
 # ============================================================
-#  BLOCS DE VÉRIFICATION
+#  BLOCS DE VÃ‰RIFICATION
 # ============================================================
 def b_haut(R, cw):
     iw = cw - 24
     app = Formula(Row([_t("h", sub="min"), _t(" = "),
         Sqrt(Row([Frac(Row(Row(sci_tokens(R['M_max'] * 1e6)).items),
-                       Row([_t(f"{fn(R['alpha_b'],2)} · {fn(R['b']*10,0)} · {fn(R['mu'],4)}")]))]), INK),
+                       Row([_t(f"{fn(R['alpha_b'],2)} Â· {fn(R['b']*10,0)} Â· {fn(R['mu'],4)}")]))]), INK),
         _t("  =  "), nb(f"{fn(R['hmin'],1)} cm")]))
     body = [fline("Hauteur minimale", app, iw),
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
-            reslines([("Hauteur minimale + enrobage", "h<sub>min</sub> + enrobage", f"{fn(R['hmin']+R['ei'],1)} cm"),
+            reslines([("h,min + distance axe lit 1", "h<sub>min</sub> + d<sub>1,inf</sub>", f"{fn(R['hmin']+R['dist_l1_inf'],1)} cm"),
                       ("Hauteur de la poutre", "h", f"{fn(R['h'],0)} cm")], iw),
             Spacer(1, 5)]
     ok = R["etat_h"] == "ok"
-    left = f"{fn(R['hmin']+R['ei'],1)} cm {'≤' if ok else '&gt;'} {fn(R['h'],0)} cm"
+    left = f"{fn(R['hmin']+R['dist_l1_inf'],1)} cm {'â‰¤' if ok else '&gt;'} {fn(R['h'],0)} cm"
     body.append(conclu(R["etat_h"], iw, left, ok=ok))
-    return block("1.", "Vérification de la hauteur", R["etat_h"], body, cw)
+    return block("1.", "VÃ©rification de la hauteur", R["etat_h"], body, cw)
+
+
+def _asmin_formula(R, which):
+    """As,min = max{ 3 critÃ¨res } â€” accolade + 3 lignes, rÃ©sultat alignÃ© sur A_s,min.
+    MÃªme police (10) que A_s,req."""
+    b_mm = R["b"] * 10.0; h_mm = R["h"] * 10.0
+    fctm = R["fctm"]; fyk = R["fyk"]
+    ec = R["As_min_ec"]; pl = R["As_min_plancher"]
+    as_min = R["As_min_inf"] if which == "inf" else R["As_min_sup"]
+    as_req_opp = R["As_req_sup"] if which == "inf" else R["As_req_inf"]
+    quart = 0.25 * as_req_opp
+    face_opp = "sup" if which == "inf" else "inf"
+
+    sz = 10  # mÃªme taille que A_s,req
+
+    def _tt(s, **k):
+        return txt(s, size=sz, **k)
+
+    # 3 lignes de critÃ¨res
+    line1 = Row([_tt("0,26 Â· "),
+                 Frac(Row([_tt(f"{fn(fctm,1)}")]), Row([_tt(f"{int(fyk)}")]), pad=2),
+                 _tt(f" Â· {fn(b_mm,0)} Â· {fn(h_mm,0)} = {fn(ec,0)} mm", sup="2")])
+    line2 = Row([_tt(f"0,0013 Â· {fn(b_mm,0)} Â· {fn(h_mm,0)} = {fn(pl,0)} mm", sup="2")])
+    line3 = Row([_tt("0,25 Â· A", sub="s,req"), _tt(f",{face_opp} = 0,25 Â· {fn(as_req_opp,0)} = {fn(quart,0)} mm", sup="2")])
+
+    stack = Stack([line1, line2, line3], gap=5)
+
+    # hauteur de l'accolade ~ hauteur du stack
+    c0 = _canvas.Canvas(io.BytesIO())
+    _, sa, sd = stack.size_(c0)
+    brace = Brace(sa + sd, INK, w=6)
+
+    row = Row([
+        _tt("A", sub="s,min"), _tt(" = max "),
+        brace,
+        _tt("  "),
+        stack,
+        _tt("   =  "),
+        txt(f"{fn(as_min,0)} mm", font="Helvetica-Bold", size=sz, sup="2"),
+    ])
+    return Formula(row)
 
 
 def b_arm(R, cw, which):
     iw = cw - 24
     if which == "inf":
-        title = "Armatures inférieures"; M = R["M_inf"]; Ar = R["As_req_inf"]; lay = R["inf"]; d = R["di"]; et = R["etat_inf"]; e = R["ei"]; nn = "2."
+        title = "Armatures infÃ©rieures"; M = R["M_inf"]; Ar = R["As_req_inf"]; geo = R["geo_inf"]; d = R["di"]; et = R["etat_inf"]; nn = "2."; As_min = R["As_min_inf"]
     else:
-        title = "Armatures supérieures"; M = R["M_sup"]; Ar = R["As_req_sup"]; lay = R["sup"]; d = R["ds"]; et = R["etat_sup"]; e = R["es"]; nn = "3."
-    dlit = Formula(Row([_t("d", sub="u"), _t(f" = {fn(R['h'],0)} − {fn(e,0)} = "), nb(f"{fn(d,1)} cm")]))
+        title = "Armatures supÃ©rieures"; M = R["M_sup"]; Ar = R["As_req_sup"]; geo = R["geo_sup"]; d = R["ds"]; et = R["etat_sup"]; nn = "3."; As_min = R["As_min_sup"]
+
+    nl = geo["nl"]
+    # hauteur utile : c.d.g. si plusieurs lits
+    if nl > 1:
+        dlit = Formula(Row([_t("d", sub="u"), _t(f" = {fn(R['h'],0)} âˆ’ {fn(geo['e_cdg'],1)} = "), nb(f"{fn(d,1)} cm"),
+                            _t(f"   (c.d.g. de {nl} lits)", color=MUTE, size=8.5)]))
+    else:
+        e1 = geo["lits"][0]["e"]
+        dlit = Formula(Row([_t("d", sub="u"), _t(f" = {fn(R['h'],0)} âˆ’ {fn(e1,1)} = "), nb(f"{fn(d,1)} cm")]))
+
     app = Formula(Row([_t("A", sub="s,req"), _t(" = "),
-        Frac(Row(Row(sci_tokens(M * 1e6)).items), Row([_t(f"{fn(R['fyd'],1)} · 0,9 · {fn(d*10,0)}")])),
+        Frac(Row(Row(sci_tokens(M * 1e6)).items), Row([_t(f"{fn(R['fyd'],1)} Â· 0,9 Â· {fn(d*10,0)}")])),
         _t("  =  "), txt(f"{fn(Ar,0)} mm", font="Helvetica-Bold", sup="2")]))
-    choix = f"{lay['detail']} ({fn(lay['As'],0)} mm{s2()})" + (" · 2 lits" if lay["has2"] else "")
 
-    # valeurs numériques (b, d, h en mm) pour substitution directe
-    b_mm = R['b'] * 10.0
-    d_mm = d * 10.0
-    h_mm = R['h'] * 10.0
-    fctm = 0.30 * (R['fck'] ** (2.0 / 3.0)) if R['fck'] > 0 else 0.0
-    asmin_ec = 0.26 * fctm / R['fyk'] * b_mm * d_mm       # 0,26·(fctm/fyk)·b·d
-    asmin_min = 0.0013 * b_mm * d_mm                       # 0,0013·b·d
+    choix = f"{geo['detail']} ({fn(geo['As'],0)} mm{s2()})" + (f" Â· {nl} lits" if nl > 1 else "")
 
-    def _ts(s, **k):
-        return txt(s, size=7.4, **k)
-
-    # A_s,min : max( 0,26·(fctm/fyk)·b·d ; 0,0013·b·d ) = max(.. ; ..) = résultat
-    # -> valeurs numériques substituées (fraction fctm/fyk en LaTeX empilé), comme A_s,req
-    asmin_f = Formula(Row([
-        _ts("A", sub="s,min"), _ts(" = max( 0,26 · "),
-        Frac(Row([_ts(f"{fn(fctm,1)}")]), Row([_ts(f"{int(R['fyk'])}")]), pad=2),
-        _ts(f" · {fn(b_mm,0)} · {fn(d_mm,0)} ; 0,0013 · {fn(b_mm,0)} · {fn(d_mm,0)} ) = max("),
-        _ts(f"{fn(asmin_ec,0)} ; {fn(asmin_min,0)}"), _ts(") = "),
-        txt(f"{fn(R['As_min'],0)} mm", font="Helvetica-Bold", size=7.4, sup="2")]))
-
-    # A_s,max : 0,04·b·h -> valeurs numériques directes = résultat
+    asmin_f = _asmin_formula(R, which)
     asmax_f = Formula(Row([
-        _ts("A", sub="s,max"), _ts(f" = 0,04 · {fn(b_mm,0)} · {fn(h_mm,0)} = "),
-        txt(f"{fn(R['As_max'],0)} mm", font="Helvetica-Bold", size=7.4, sup="2")]))
+        _t("A", sub="s,max"), _t(f" = 0,04 Â· {fn(R['b']*10,0)} Â· {fn(R['h']*10,0)} = "),
+        txt(f"{fn(R['As_max'],0)} mm", font="Helvetica-Bold", sup="2")]))
 
-    body = [fline("Moment appliqué",
+    body = [fline("Moment appliquÃ©",
                   Formula(Row([_t("M", sub=("inf" if which == "inf" else None), sup=(None if which == "inf" else "sup")),
                                _t("  =  "), nb(f"{fn(M,1)} kNm")])), iw),
             Spacer(1, 2),
             fline("Hauteur utile", dlit, iw), Spacer(1, 2),
-            fline("Acier requis", app, iw), Spacer(1, 2),
-            fline("Section d'acier min", asmin_f, iw), Spacer(1, 2),
+            fline("Acier requis", app, iw), Spacer(1, 4),
+            fline("Section d'acier min", asmin_f, iw), Spacer(1, 3),
             fline("Section d'acier max", asmax_f, iw),
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
             reslines([("Acier requis", "A<sub>s,req</sub>", f"{fn(Ar,0)} mm{s2()}"),
+                      ("Acier minimal", "A<sub>s,min</sub>", f"{fn(As_min,0)} mm{s2()}"),
                       ("On prend", "", choix)], iw),
             Spacer(1, 5)]
     ok = et == "ok"
-    left = f"{fn(lay['As'],0)} mm{s2()} {'≥' if ok else '&lt;'} {fn(Ar,0)} mm{s2()}"
+    besoin = max(Ar, As_min)
+    left = f"{fn(geo['As'],0)} mm{s2()} {'â‰¥' if ok else '&lt;'} {fn(besoin,0)} mm{s2()}"
     body.append(conclu(et, iw, left, ok=ok))
     return block(nn, title, et, body, cw)
 
@@ -873,37 +981,37 @@ def b_arm(R, cw, which):
 def b_shear(R, cw, reduced=False):
     iw = cw - 24
     Sh = R["shear_r"] if reduced else R["shear"]
-    nn = "5." if reduced else "4."; suff = " réduit" if reduced else ""
-    app = Formula(Row([_t("τ = "),
-        Frac(Row(Row(sci_tokens(Sh['V'] * 1e3)).items), Row([_t(f"0,75 · {fn(R['b']*10,0)} · {fn(R['h']*10,0)}")])),
+    nn = "5." if reduced else "4."; suff = " rÃ©duit" if reduced else ""
+    app = Formula(Row([_t("Ï„ = "),
+        Frac(Row(Row(sci_tokens(Sh['V'] * 1e3)).items), Row([_t(f"0,75 Â· {fn(R['b']*10,0)} Â· {fn(R['h']*10,0)}")])),
         _t("  =  "), txt(f"{fn(Sh['tau'],2)} N/mm", font="Helvetica-Bold", sup="2")]))
     if Sh['Ast'] > 0 and Sh['V'] > 0:
         sthapp = Formula(Row([_t("s", sub="th"), _t(" = "),
-            Frac(Row([_t(f"{fn(Sh['Ast'],1)} · {fn(R['fyd'],1)} · {fn(R['dsh']*10,0)}")]), Row(Row(sci_tokens(Sh['V'] * 1e3)).items)),
+            Frac(Row([_t(f"{fn(Sh['Ast'],1)} Â· {fn(R['fyd'],1)} Â· {fn(R['dsh']*10,0)}")]), Row(Row(sci_tokens(Sh['V'] * 1e3)).items)),
             _t("  =  "), nb(f"{fn(Sh['pas_th'],1)} cm")]))
     else:
-        sthapp = Formula(Row([_t("s", sub="th"), _t("  =  "), nb("—")]))
+        sthapp = Formula(Row([_t("s", sub="th"), _t("  =  "), nb("â€”")]))
     etr = f"{Sh['summary']} ({fn(Sh['Ast'],1)} mm{s2()})"
     okt = Sh["tau"] <= Sh["tau_lim"]
     okp = Sh["pas"] <= Sh["pas_lim"]
     et_tau = "ok" if okt else ("warn" if Sh["etat_tau"] == "warn" else "nok")
     body = [fline("Contrainte tangentielle", app, iw),
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
-            reslines([("Contrainte admissible", "τ<sub>adm</sub>", f"{fn(Sh['tau_lim'],2)} N/mm{s2()}")], iw),
+            reslines([("Contrainte admissible", "Ï„<sub>adm</sub>", f"{fn(Sh['tau_lim'],2)} N/mm{s2()}")], iw),
             Spacer(1, 4),
-            conclu(et_tau, iw, f"{fn(Sh['tau'],2)} N/mm{s2()} {'≤' if okt else '&gt;'} {fn(Sh['tau_lim'],2)} N/mm{s2()}", ok=okt),
-            Spacer(1, 9), Paragraph("<b>Étriers</b>", ST["f"]), Spacer(1, 4),
-            reslines([("On prend (étrier)", "", etr)], iw),
-            Spacer(1, 2), fline("Pas théorique", sthapp, iw),
+            conclu(et_tau, iw, f"{fn(Sh['tau'],2)} N/mm{s2()} {'â‰¤' if okt else '&gt;'} {fn(Sh['tau_lim'],2)} N/mm{s2()}", ok=okt),
+            Spacer(1, 9), Paragraph("<b>Ã‰triers</b>", ST["f"]), Spacer(1, 4),
+            reslines([("On prend (Ã©trier)", "", etr)], iw),
+            Spacer(1, 2), fline("Pas thÃ©orique", sthapp, iw),
             Spacer(1, 2), fline("Pas maximal",
-                Formula(Row([_t("s", sub="max"), _t(" = min(0,75 · d ; 30) = "), nb(f"{fn(Sh['s_max'],1)} cm")])), iw),
+                Formula(Row([_t("s", sub="max"), _t(" = min(0,75 Â· d ; 30) = "), nb(f"{fn(Sh['s_max'],1)} cm")])), iw),
             Spacer(1, 2), fline("Pas retenu", Formula(Row([_t("s"), _t("  =  "), nb(f"{fn(Sh['pas'],1)} cm")])), iw),
             Spacer(1, 5)]
     et = "nok" if "nok" in (Sh["etat_tau"], Sh["etat_pas"]) else ("warn" if "warn" in (Sh["etat_tau"], Sh["etat_pas"]) else "ok")
     et_pas = "ok" if okp else "nok"
-    left = f"pas {fn(Sh['pas'],1)} cm {'≤' if okp else '&gt;'} {fn(Sh['pas_lim'],1)} cm"
+    left = f"pas {fn(Sh['pas'],1)} cm {'â‰¤' if okp else '&gt;'} {fn(Sh['pas_lim'],1)} cm"
     body.append(conclu(et_pas, iw, left, ok=okp))
-    return block(nn, f"Effort tranchant{suff} — étriers", et, body, cw)
+    return block(nn, f"Effort tranchant{suff} â€” Ã©triers", et, body, cw)
 
 
 # ============================================================
@@ -926,7 +1034,7 @@ def sec_banner(txt_, cw):
 
 
 # ============================================================
-#  DOC TEMPLATE (en-tête / pied de page)
+#  DOC TEMPLATE (en-tÃªte / pied de page)
 # ============================================================
 class NoteDoc(BaseDocTemplate):
     def __init__(self, filename, infos, **kw):
@@ -939,16 +1047,16 @@ class NoteDoc(BaseDocTemplate):
     def _decor(self, c, doc):
         w, h = A4; c.saveState()
         c.setFillColor(INK); c.setFont("Helvetica-Bold", 10.5)
-        c.drawString(18 * mm, h - 12 * mm, "Bureau méthodes et stabilité Valens")
+        c.drawString(18 * mm, h - 12 * mm, "Bureau mÃ©thodes et stabilitÃ© Valens")
         c.setFillColor(MUTE); c.setFont("Helvetica", 8)
-        c.drawString(18 * mm, h - 16.5 * mm, f"Rédigé par : {self.infos.get('initiales','')}")
+        c.drawString(18 * mm, h - 16.5 * mm, f"RÃ©digÃ© par : {self.infos.get('initiales','')}")
         c.drawRightString(w - 18 * mm, h - 12 * mm, f"{self.infos.get('nom_projet','')}")
         c.drawRightString(w - 18 * mm, h - 16.5 * mm, f"{self.infos.get('partie','')}")
         c.setStrokeColor(INK); c.setLineWidth(1.6); c.line(18 * mm, h - 18.5 * mm, w - 18 * mm, h - 18.5 * mm)
         c.setStrokeColor(HAIR); c.setLineWidth(0.5); c.line(18 * mm, 14 * mm, w - 18 * mm, 14 * mm)
         c.setFillColor(MUTE); c.setFont("Helvetica", 7.5)
         date = self.infos.get("date") or datetime.today().strftime("%d/%m/%Y")
-        c.drawString(18 * mm, 9.5 * mm, f"{date} · indice {self.infos.get('indice','0')}")
+        c.drawString(18 * mm, 9.5 * mm, f"{date} Â· indice {self.infos.get('indice','0')}")
         c.drawRightString(w - 18 * mm, 9.5 * mm, f"Page {doc.page}")
         c.restoreState()
 
@@ -963,7 +1071,7 @@ def _cover(infos, beams, values, beton_data, cw, pages):
           Paragraph(str(infos.get("nom_projet", "") or "Projet"), h1c),
           Spacer(1, 4), Paragraph("Note de calcul", subc),
           Spacer(1, 16), HR(cw, INK, 2), Spacer(1, 20)]
-    info = [("Projet", infos.get("nom_projet") or "—"), ("Partie", infos.get("partie") or "—")]
+    info = [("Projet", infos.get("nom_projet") or "â€”"), ("Partie", infos.get("partie") or "â€”")]
     for k, vv in info:
         st.append(Table([[Paragraph(f'<font color="{MUTE.hexval()}">{k.upper()}</font>', ST["lab"]),
                           Paragraph(str(vv), ST["cellb"])]], colWidths=[cw * 0.3, cw * 0.7],
@@ -971,7 +1079,7 @@ def _cover(infos, beams, values, beton_data, cw, pages):
                 ("TOPPADDING", (0, 0), (-1, 0), 5), ("LEFTPADDING", (0, 0), (-1, -1), 0)])))
     st += [Spacer(1, 30), Paragraph("SOMMAIRE", ST["subt"]), Spacer(1, 8)]
     sm = [[Paragraph("<b>POUTRE</b>", ST["lab"]), Paragraph("<b>SECTIONS</b>", ST["lab"]),
-           Paragraph("<b>BÉTON / ACIER</b>", ST["lab"]), Paragraph("<b>ÉTAT</b>", ST["lab"]), Paragraph("<b>PAGE</b>", ST["lab"])]]
+           Paragraph("<b>BÃ‰TON / ACIER</b>", ST["lab"]), Paragraph("<b>Ã‰TAT</b>", ST["lab"]), Paragraph("<b>PAGE</b>", ST["lab"])]]
     for b in beams:
         bid = int(b["id"])
         secs = ", ".join(str(_g(values, f"meta_b{bid}_nom_{int(s['id'])}", s.get("nom", ""))) for s in b.get("sections", []))
@@ -980,9 +1088,9 @@ def _cover(infos, beams, values, beton_data, cw, pages):
         pg = pages.get(bid)
         sm.append([Paragraph(str(_g(values, f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}"))), ST["cellb"]),
                    Paragraph(secs, ST["cell"]),
-                   Paragraph(f"{_g(values, KB('beton', bid), '—')} / B{_g(values, KB('fyk', bid), '500')}", ST["cell"]),
+                   Paragraph(f"{_g(values, KB('beton', bid), 'â€”')} / B{_g(values, KB('fyk', bid), '500')}", ST["cell"]),
                    Paragraph(f'<font color="{ECOL[eg].hexval()}"><b>{ELAB[eg]}</b></font>', ST["cell"]),
-                   Paragraph(f"p.{pg}" if pg else "—", ST["cellb"])])
+                   Paragraph(f"p.{pg}" if pg else "â€”", ST["cellb"])])
     t = Table(sm, colWidths=[cw * 0.24, cw * 0.34, cw * 0.20, cw * 0.13, cw * 0.09])
     t.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, 0), 1, INK), ("LINEBELOW", (0, 1), (-1, -1), 0.4, HAIR),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0),
@@ -1036,7 +1144,7 @@ def generer_rapport_pdf(beams, values, beton_data, infos=None, output_path=None)
         fd, output_path = tempfile.mkstemp(suffix=".pdf", prefix="note_poutre_")
         os.close(fd)
 
-    # passe 1 : mesure des pages de début de poutre
+    # passe 1 : mesure des pages de dÃ©but de poutre
     pages = {}
     tmp = output_path + ".pass1.tmp"
     d1 = NoteDoc(tmp, infos); cw = d1.width
@@ -1046,7 +1154,7 @@ def generer_rapport_pdf(beams, values, beton_data, infos=None, output_path=None)
     except OSError:
         pass
 
-    # passe 2 : build final avec numéros de page
+    # passe 2 : build final avec numÃ©ros de page
     d2 = NoteDoc(output_path, infos); cw = d2.width
     d2.build(_build_story(beams, values, beton_data, infos, cw, pages=dict(pages), store={}))
     return output_path
