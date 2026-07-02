@@ -1023,14 +1023,21 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     etat_h = "ok" if (hmin_calc + dist_l1_inf <= h) else "nok"
 
     # --- As min/max ---
-    As_min_formula = 0.0013 * b * h * 1e2  # mm²
+    # As,min retenu = max( 0,26·fctm/fyk·b·h ; 0,0013·b·h ; 0,25·As,req face opposée )
+    #   (h utilisé partout, en cohérence avec le rapport PDF)
+    fck_cyl = float(beton_data[beton].get("fck", 0.8 * fck_cube) or (0.8 * fck_cube))
+    fctm = 0.30 * (fck_cyl ** (2.0 / 3.0)) if fck_cyl > 0 else 0.0
+    As_min_ec = 0.26 * fctm / fyk * b * h * 1e2     # mm²  (b,h en cm -> ·1e2)
+    As_min_plancher = 0.0013 * b * h * 1e2          # mm²
+    As_min_base = max(As_min_ec, As_min_plancher)   # partie indépendante de la face
+    As_min_formula = As_min_base                    # (compat clé exportée)
     As_max = 0.04 * b * h * 1e2  # mm²
 
     As_formule_inf = (M_inf_val * 1e6) / (fyd * 0.9 * d_calc_inf * 10) if M_inf_val > 0 else 0.0
     As_formule_sup = (M_sup_val * 1e6) / (fyd * 0.9 * d_calc_sup * 10) if M_sup_val > 0 else 0.0
 
-    As_min_inf_eff = max(As_min_formula, 0.25 * As_formule_sup)
-    As_min_sup_eff = max(As_min_formula, 0.25 * As_formule_inf)
+    As_min_inf_eff = max(As_min_base, 0.25 * As_formule_sup)
+    As_min_sup_eff = max(As_min_base, 0.25 * As_formule_inf)
 
     As_req_inf_final = As_formule_inf
     As_req_sup_final = As_formule_sup
@@ -1121,6 +1128,9 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
         "dist_l1_sup": dist_l1_sup,
         "e_cdg_inf": e_cdg_inf,
         "e_cdg_sup": e_cdg_sup,
+        "fctm": fctm,
+        "As_min_ec": As_min_ec,
+        "As_min_plancher": As_min_plancher,
         "As_min_formula": As_min_formula,
         "As_max": As_max,
         "As_formule_inf": As_formule_inf,
