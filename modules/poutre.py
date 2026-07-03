@@ -1,33 +1,40 @@
 # ===========================
-#  VERSION 2.20
+#  VERSION 2.30
 # ===========================
 #  poutre.py (Streamlit)
 #
-#  Évolutions vs 2.10 :
-#   1. ENROBAGES -> "Distance axe lit / parement (cm)" :
-#      - Lit 1 (auto) = enrobage béton
-#                     + Ø étrier arrondi au 0,5 cm sup.
-#                     + demi-Ø barre lit 1 arrondi au 0,5 cm sup.
-#                     + jeu premier lit
-#      - Lit i (auto) = distance lit (i-1)
-#                     + demi-Ø lit (i-1) arrondi au 0,5 cm sup.
-#                     + jeu entre lits (paramètre global)
-#                     + demi-Ø lit i arrondi au 0,5 cm sup.
-#      - Chaque distance reste modifiable manuellement (override),
-#        pour les inférieures (mesurée depuis le bas) comme pour les
-#        supérieures (mesurée depuis le haut).
-#   2. PARAMÈTRES AVANCÉS : Diamètre étrier (mm), Jeu premier lit (cm),
-#      Jeu entre lits (cm), Tolérance dépassement (%).
-#      (L'enrobage béton reste PAR POUTRE dans les caractéristiques,
-#       pour ne pas perdre cette fonctionnalité.)
-#   3. HAUTEUR UTILE : positions réelles de chaque lit (centre de
-#      gravité pondéré par les aires) pour la flexion, inf. et sup.
-#      Cisaillement : inchangé (lit 1, min des deux faces).
-#   4. SECTIONS : nom éditable directement dans l'en-tête (plus de
-#      ligne "Nom de la section"), nommage automatique par lettres
-#      (Section A, B, C... premier nom libre), bouton 📋 copier la
-#      section (toutes les données), bouton 🗑️ supprimer intégré.
-#   5. fyd = fyk / 1.5 : VOLONTAIRE (méthode ancienne) — ne pas "corriger".
+#  Évolutions vs 2.20 :
+#   1. LITS D'ARMATURES : présentation en tableau
+#         | Lit | Nb barres | Ø | Distance axe lit | Action |
+#      - le bouton "+ Lit" est intégré sur la ligne du lit 1,
+#        dans la même colonne (même taille) que les poubelles ;
+#      - les poubelles restent uniquement pour les lits 2, 3, 4.
+#   2. LIBELLÉS : "Distance axe lit / parement" -> "Distance axe lit"
+#      (le mot "parement" est supprimé partout).
+#   3. DISTANCE AUTO DU LIT 1 : le Ø étrier provient désormais de la
+#      configuration des étriers (partie Effort tranchant, Ø max des
+#      lignes). Le paramètre avancé "Diamètre étrier" est supprimé.
+#         dist lit 1 = enrobage béton
+#                    + Ø étrier arrondi au 0,5 cm sup.
+#                    + demi-Ø barre lit 1 arrondi au 0,5 cm sup.
+#                    + jeu premier lit
+#      (le demi-Ø barre est conservé : la distance est mesurée à l'AXE)
+#   4. VERROUILLAGE PAR POUTRE : le statut "En cours / Validé" est
+#      remplacé par un cadenas 🔓/🔒 propre à chaque poutre. Poutre
+#      verrouillée = caractéristiques, sections, sollicitations,
+#      dimensionnement, armatures et efforts tranchants bloqués.
+#   5. SUPPRESSION du verrouillage par section ("Bloquer le
+#      dimensionnement de cette section") : doublon du cadenas poutre.
+#   6. "Sollicitations" (colonne gauche) renommé "Sections".
+#   7. NOM DE SECTION : l'en-tête devient directement le champ
+#      éditable (bloc bordé, plus de double affichage expander+champ).
+#   8. yG (centre de gravité des lits, distance axe) affiché dans le
+#      résumé "Choix : ...".
+#   9. PARAMÈTRES AVANCÉS réorganisés en 3 colonnes :
+#      Affichage / Coefficients matériaux / Jeux d'armatures.
+#      - Nouveau coefficient acier γs (défaut 1.15) : fyd = fyk / γs
+#        (remplace l'ancien fyd = fyk / 1.5).
+#      - "Tolérance de dépassement" supprimée.
 # ===========================
 import streamlit as st
 from datetime import datetime
@@ -47,6 +54,9 @@ C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌"}
 BETON_DATA = {}
 
 MAX_LITS = 4  # nombre maximal de lits d'armatures par face
+
+# Largeurs de colonnes du tableau des lits (Lit | Nb | Ø | Dist | Action)
+LIT_COLS = [0.6, 1.0, 1.0, 1.2, 0.55]
 
 
 def open_bloc_left_right(left: str, right: str = "", etat: str = "ok"):
@@ -103,8 +113,7 @@ def KS(base: str, beam_id: int, sec_id: int) -> str:
 PERSISTED_GLOBAL_KEYS = {
     "units_len",
     "units_as",
-    "tau_tolerance_percent",
-    "diam_etrier_mm",       # Ø étrier pour la distance auto du lit 1
+    "gamma_s",              # coefficient acier γs (fyd = fyk / γs)
     "jeu_enrobage_cm",      # "Jeu premier lit (cm)" (clé conservée pour compat anciens JSON)
     "jeu_entre_lits_cm",    # "Jeu entre lits (cm)"
     "nom_projet",
@@ -144,11 +153,17 @@ def _ensure_global_defaults():
     """Défauts des paramètres globaux (avant tout calcul / rendu)."""
     st.session_state.setdefault("units_len", "cm")
     st.session_state.setdefault("units_as", "mm²")
-    st.session_state.setdefault("tau_tolerance_percent", 0)
-    st.session_state.setdefault("diam_etrier_mm", 8)
     st.session_state.setdefault("jeu_enrobage_cm", 1.0)   # jeu premier lit
     st.session_state.setdefault("jeu_entre_lits_cm", 1.0)
-    _coerce_int_choice("diam_etrier_mm", [6, 8, 10, 12], 8)
+
+    # Coefficient acier γs (défaut 1.15)
+    try:
+        gs = float(st.session_state.get("gamma_s", 1.15) or 1.15)
+    except Exception:
+        gs = 1.15
+    if gs <= 0:
+        gs = 1.15
+    st.session_state["gamma_s"] = gs
 
 
 # ============================================================
@@ -165,7 +180,8 @@ def _reset_module():
 # ============================================================
 #  SAISIE DÉCIMALE FR (texte)
 # ============================================================
-def float_input_fr_simple(label, key, default=0.0, min_value=0.0, disabled: bool = False):
+def float_input_fr_simple(label, key, default=0.0, min_value=0.0, disabled: bool = False,
+                          label_visibility: str = "visible"):
     """
     Champ décimal FR (virgule). La valeur numérique vit dans `key`,
     la saisie texte dans `key_raw`.
@@ -176,7 +192,7 @@ def float_input_fr_simple(label, key, default=0.0, min_value=0.0, disabled: bool
     if raw_key not in st.session_state:
         st.session_state[raw_key] = f"{float(st.session_state[key]):.2f}".replace(".", ",")
 
-    raw = st.text_input(label, key=raw_key, disabled=disabled)
+    raw = st.text_input(label, key=raw_key, disabled=disabled, label_visibility=label_visibility)
 
     try:
         val = float(str(raw).strip().replace(",", "."))
@@ -292,10 +308,8 @@ SHEAR_DIAM_OPTS = [6, 8, 10, 12]
 def _migrate_second_lit(beam_id: int, sec_id: int, which: str):
     """
     Migration des anciennes clés 'second lit' (checkbox + *_2) vers le
-    système multi-lits. Les barres sont reprises ; la position du lit 2
-    est recalculée automatiquement avec la nouvelle logique de distances
-    (l'ancien 'jeu' par lit n'existe plus : le jeu entre lits est global).
-    Idempotent, fonctionne aussi pour les anciens fichiers JSON rechargés.
+    système multi-lits. Idempotent, fonctionne aussi pour les anciens
+    fichiers JSON rechargés.
     """
     old_flag = KS(f"ajouter_second_lit_{which}", beam_id, sec_id)
     nkey = KS(f"nlits_{which}", beam_id, sec_id)
@@ -334,12 +348,12 @@ def _ensure_defaults_for_beam(beam_id: int):
         cur = 500
     st.session_state[fkey] = cur
 
-    # Statut (En cours / Validé) + compat lock_data
+    # Verrouillage par poutre (cadenas). Migration de l'ancien statut
+    # "En cours / Validé" : Validé -> verrouillé.
     st.session_state.setdefault(KB("lock_data", beam_id), False)
-    statut_key = KB("statut", beam_id)
-    if statut_key not in st.session_state:
-        st.session_state[statut_key] = "Validé" if bool(st.session_state.get(KB("lock_data", beam_id), False)) else "En cours"
-    st.session_state[KB("lock_data", beam_id)] = (st.session_state.get(statut_key) == "Validé")
+    old_statut = st.session_state.pop(KB("statut", beam_id), None)
+    if old_statut is not None:
+        st.session_state[KB("lock_data", beam_id)] = (str(old_statut) == "Validé")
 
     # Sections
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
@@ -370,15 +384,12 @@ def _ensure_defaults_for_beam(beam_id: int):
                 st.session_state.setdefault(KS(f"dist_{which}_l{i}_override", beam_id, sid), False)
                 _coerce_int_choice(KS(f"ø_as_{which}_l{i}", beam_id, sid), DIAM_OPTS, 16)
 
-        # Distance axe lit 1 / parement (modifiable par face)
+        # Distance axe lit 1 (modifiable par face)
         # NB : clés 'enrob_calc_*' conservées pour compat anciens JSON.
         st.session_state.setdefault(KS("enrob_calc_inf", beam_id, sid), 0.0)
         st.session_state.setdefault(KS("enrob_calc_sup", beam_id, sid), 0.0)
         st.session_state.setdefault(KS("enrob_calc_inf_override", beam_id, sid), False)
         st.session_state.setdefault(KS("enrob_calc_sup_override", beam_id, sid), False)
-
-        # Lock dimensionnement
-        st.session_state.setdefault(KS("lock_dim", beam_id, sid), False)
 
         # Cisaillement
         st.session_state.setdefault(KS("shear_n_lines", beam_id, sid), 1)
@@ -503,7 +514,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.20", "beams": beams, "values": values}
+    return {"version": "2.30", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -570,18 +581,6 @@ def _status_icon_label(state: str, label: str) -> str:
     return f"🔴 {label}"
 
 
-def _status_with_tolerance(value: float, limit: float, tol_percent: float):
-    """Dans la tolérance => rester en VERT + texte 'Acceptable (tolérance ...)'."""
-    if limit <= 0:
-        return "nok", ""
-    if value <= limit:
-        return "ok", ""
-    lim2 = limit * (1.0 + max(0.0, tol_percent) / 100.0)
-    if value <= lim2:
-        return "ok", f"Acceptable (tolérance +{tol_percent:.0f}%)"
-    return "nok", ""
-
-
 def _brins_from_type(type_txt: str) -> int:
     if "3 brins" in type_txt:
         return 3
@@ -601,6 +600,14 @@ def _get_fyk_and_mu_ref(beam_id: int):
     return float(fyk_i), str(fyk_i)
 
 
+def _get_gamma_s() -> float:
+    try:
+        gs = float(st.session_state.get("gamma_s", 1.15) or 1.15)
+    except Exception:
+        gs = 1.15
+    return gs if gs > 0 else 1.15
+
+
 def _round_up_to_half_cm(x_cm: float) -> float:
     try:
         return math.ceil(float(x_cm) * 2.0) / 2.0
@@ -608,8 +615,24 @@ def _round_up_to_half_cm(x_cm: float) -> float:
         return x_cm
 
 
+def _stirrup_diam_mm(beam_id: int, sec_id: int) -> float:
+    """
+    Ø étrier (mm) pris directement dans la configuration des étriers de la
+    section (partie Effort tranchant). S'il y a plusieurs lignes, on prend
+    le Ø maximal (cas défavorable pour la distance du lit 1).
+    """
+    n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", beam_id, sec_id), 1) or 1))
+    diams = []
+    for i in range(n_lines):
+        try:
+            diams.append(float(st.session_state.get(KS(f"shear_line{i}_d", beam_id, sec_id), 8) or 8))
+        except Exception:
+            pass
+    return max(diams) if diams else 8.0
+
+
 # ============================================================
-#  DISTANCES AXE LIT / PAREMENT
+#  DISTANCES AXE LIT
 # ============================================================
 def _get_nlits(beam_id: int, sec_id: int, which: str) -> int:
     try:
@@ -631,7 +654,7 @@ def _lit_bars(beam_id: int, sec_id: int, which: str, i: int):
 
 
 def _dist_keys(beam_id: int, sec_id: int, which: str, i: int):
-    """Clés (valeur, override) de la distance axe lit i / parement."""
+    """Clés (valeur, override) de la distance axe lit i."""
     if i == 1:
         # clés historiques conservées pour la compatibilité des anciens JSON
         return KS(f"enrob_calc_{which}", beam_id, sec_id), KS(f"enrob_calc_{which}_override", beam_id, sec_id)
@@ -640,27 +663,26 @@ def _dist_keys(beam_id: int, sec_id: int, which: str, i: int):
 
 def _auto_dist_lit(beam_id: int, sec_id: int, which: str, i: int) -> float:
     """
-    Distance automatique axe lit i / parement (cm).
+    Distance automatique axe lit i (cm).
 
     Lit 1 :
       enrobage béton
       + Ø étrier (cm) arrondi au 0,5 cm sup.
+        (Ø étrier lu dans la configuration des étriers de la section,
+         partie Effort tranchant — plus de paramètre avancé dédié)
       + demi-Ø barre lit 1 (cm) arrondi au 0,5 cm sup.
       + jeu premier lit
       Ex : 3,0 + arr(0,8)=1,0 + arr(0,8)=1,0 + 1,0 = 6,0 cm
-           (avec jeu premier lit = 0 : 5,0 cm)
 
     Lit i (i >= 2) :
       distance lit (i-1)   [valeur réelle, override compris]
       + demi-Ø lit (i-1) arrondi au 0,5 cm sup.
       + jeu entre lits (paramètre global)
       + demi-Ø lit i arrondi au 0,5 cm sup.
-      Ex (Ø16/Ø16, lit 1 à 5,0, jeu entre lits 1,0) :
-           5,0 + 1,0 + 1,0 + 1,0 = 8,0 cm
     """
     if i == 1:
         enrob_beton = float(st.session_state.get(KB("enrobage_beton", beam_id), 3.0) or 3.0)
-        d_etrier = float(st.session_state.get("diam_etrier_mm", 8) or 8)
+        d_etrier = _stirrup_diam_mm(beam_id, sec_id)
         jeu1 = float(st.session_state.get("jeu_enrobage_cm", 1.0) or 0.0)
         _, d1 = _lit_bars(beam_id, sec_id, which, 1)
         return (
@@ -684,11 +706,10 @@ def _auto_dist_lit(beam_id: int, sec_id: int, which: str, i: int) -> float:
 
 def _get_dist_lit(beam_id: int, sec_id: int, which: str, i: int) -> float:
     """
-    Distance axe lit i / parement effectivement utilisée :
+    Distance axe lit i effectivement utilisée :
     valeur auto, sauf override manuel de l'utilisateur.
     NB : peut écrire dans la clé du widget -> à n'appeler qu'AVANT le
-    rendu des widgets de la section (les calculs précèdent toujours le
-    rendu, et on ne réécrit que si la valeur change réellement).
+    rendu des widgets de la section.
     """
     key_val, key_ovr = _dist_keys(beam_id, sec_id, which, i)
     auto_val = _auto_dist_lit(beam_id, sec_id, which, i)
@@ -712,8 +733,8 @@ def _layers_geometry(beam_id: int, sec_id: int, which: str):
     """
     Pour une face :
       - As_total (mm²)
-      - e_cdg (cm) : distance parement -> centre de gravité des lits
-        (positions RÉELLES de chaque lit, overrides compris)
+      - e_cdg (cm) = yG : distance parement -> centre de gravité des lits
+        yG = Σ(As,i · y_i) / Σ(As,i)   (positions réelles, overrides compris)
       - detail : chaîne '2Ø16 + 2Ø20 ...'
     """
     nl = _get_nlits(beam_id, sec_id, which)
@@ -830,7 +851,7 @@ def _delete_lit(beam_id: int, sec_id: int, which: str, i: int):
 
 
 # ============================================================
-#  UI : SOLLICITATIONS PAR SECTION
+#  UI : SECTIONS (SOLLICITATIONS) PAR POUTRE
 # ============================================================
 def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
     c1, c2 = st.columns(2)
@@ -858,15 +879,15 @@ def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
 
 def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
-    st.markdown("### Sollicitations")
+    st.markdown("### Sections")
 
     for sec in beam.get("sections", []):
         sec_id = int(sec.get("id"))
         sec_name_key = f"meta_b{beam_id}_nom_{sec_id}"
         st.session_state.setdefault(sec_name_key, sec.get("nom", f"Section {sec_id}"))
 
-        with st.expander(st.session_state.get(sec_name_key, sec.get("nom", f"Section {sec_id}")), expanded=True):
-            # En-tête compact : nom éditable directement + copier + supprimer
+        # Bloc bordé : l'en-tête EST le champ de nom (plus de double affichage)
+        with st.container(border=True):
             cN, cC, cD = st.columns([6, 0.8, 0.8], vertical_alignment="center")
             with cN:
                 st.text_input(
@@ -920,6 +941,11 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
             )
 
 
+def _toggle_beam_lock(beam_id: int):
+    k = KB("lock_data", beam_id)
+    st.session_state[k] = not bool(st.session_state.get(k, False))
+
+
 def render_caracteristiques_beam(beam_id: int):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
 
@@ -927,19 +953,23 @@ def render_caracteristiques_beam(beam_id: int):
     st.session_state.setdefault(beam_name_key, beam.get("nom", f"Poutre {beam_id}"))
 
     lock_key = KB("lock_data", beam_id)
-    statut_key = KB("statut", beam_id)
-    if statut_key not in st.session_state:
-        st.session_state[statut_key] = "Validé" if bool(st.session_state.get(lock_key, False)) else "En cours"
-    st.session_state[lock_key] = (st.session_state.get(statut_key) == "Validé")
-
+    st.session_state.setdefault(lock_key, False)
     data_locked = bool(st.session_state.get(lock_key, False))
 
     with st.expander(st.session_state.get(beam_name_key, beam.get("nom", f"Poutre {beam_id}")), expanded=True):
-        t1, t2 = st.columns([6, 1.6], vertical_alignment="center")
+        t1, t2 = st.columns([6, 0.8], vertical_alignment="center")
         with t1:
             st.markdown("#### Caractéristiques de la poutre")
         with t2:
-            st.selectbox("Statut", ["En cours", "Validé"], key=statut_key, label_visibility="collapsed")
+            st.button(
+                "🔒" if data_locked else "🔓",
+                key=f"btn_lock_beam_{beam_id}",
+                help="Poutre verrouillée — cliquer pour déverrouiller" if data_locked
+                     else "Poutre éditable — cliquer pour verrouiller",
+                use_container_width=True,
+                on_click=_toggle_beam_lock,
+                args=(beam_id,),
+            )
 
         c1, c2, c3 = st.columns([2.6, 1.6, 1.4], vertical_alignment="center")
         with c1:
@@ -970,9 +1000,10 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     fck_cube = beton_data[beton]["fck_cube"]
     alpha_b = beton_data[beton]["alpha_b"]
 
-    # Méthode ancienne : fyd = fyk / 1.5 (volontaire — validé par Khiao)
+    # fyd = fyk / γs (γs paramétrable, défaut 1.15)
     fyk, mu_ref = _get_fyk_and_mu_ref(beam_id)
-    fyd = fyk / 1.5
+    gamma_s = _get_gamma_s()
+    fyd = fyk / gamma_s
 
     mu_key = f"mu_a{mu_ref}"
     if mu_key not in beton_data[beton]:
@@ -1002,8 +1033,6 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     d_calc_inf = max(d_utile_inf, 0.1)
     d_calc_sup = max(d_utile_sup, 0.1)
     d_calc_shear = max(d_utile_for_shear, 0.1)
-
-    tol_tau = float(st.session_state.get("tau_tolerance_percent", 0.0) or 0.0)
 
     has_Msup = bool(st.session_state.get(KS("ajouter_moment_sup", beam_id, sec_id), False))
     has_Vred = bool(st.session_state.get(KS("ajouter_effort_reduit", beam_id, sec_id), False))
@@ -1051,22 +1080,18 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     tau_2 = 0.032 * fck_cube / 1.05
     tau_4 = 0.064 * fck_cube / 1.05
 
-    def _shear_need(tau):
+    def _shear_state(tau):
         if tau <= tau_1:
-            return "ok", tau_1
+            return "ok"
         if tau <= tau_2:
-            return "ok", tau_2
+            return "ok"
         if tau <= tau_4:
-            return "warn", tau_4
-        return "nok", tau_4
+            return "warn"
+        return "nok"
 
     if V_val > 0:
         tau = V_val * 1e3 / (0.75 * b * h * 100)
-        etat_tau_base, tau_lim = _shear_need(tau)
-        if tau > tau_lim:
-            etat_tau, _ = _status_with_tolerance(tau, tau_lim, tol_tau)
-        else:
-            etat_tau = etat_tau_base
+        etat_tau = _shear_state(tau)
         if not geom_shear_ok:
             etat_tau = "nok"
     else:
@@ -1079,7 +1104,7 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
         pas_th = Ast_e * fyd * (d_calc_shear * 10.0) / (V_kn * 1e3) / 10.0
         s_max = min(0.75 * d_calc_shear, 30.0)
         pas_lim = min(pas_th, s_max)
-        etat, _ = _status_with_tolerance(pas, pas_lim, tol_tau)
+        etat = "ok" if pas <= pas_lim else "nok"
         if not geom_shear_ok:
             etat = "nok"
         return etat
@@ -1088,11 +1113,7 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
 
     if has_Vlim:
         tau_r = V_lim_val * 1e3 / (0.75 * b * h * 100)
-        etat_tau_r_base, tau_lim_r = _shear_need(tau_r)
-        if tau_r > tau_lim_r:
-            etat_tau_r, _ = _status_with_tolerance(tau_r, tau_lim_r, tol_tau)
-        else:
-            etat_tau_r = etat_tau_r_base
+        etat_tau_r = _shear_state(tau_r)
         if not geom_shear_ok:
             etat_tau_r = "nok"
         etat_pas_r = _pas_state(V_lim_val, "shear_pas_r", reduced=True)
@@ -1121,6 +1142,7 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
         "tau_2": tau_2,
         "tau_4": tau_4,
         "fyd": fyd,
+        "gamma_s": gamma_s,
         "beton": beton,
         "b": b,
         "h": h,
@@ -1239,77 +1261,107 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, reduced: bool, disabled: b
 
 
 # ============================================================
-#  UI : LITS SUPPLÉMENTAIRES (2 à 4)
+#  UI : TABLEAU DES LITS (Lit | Nb barres | Ø | Distance | Action)
 # ============================================================
-def _render_extra_lits_ui(beam_id: int, sec_id: int, which: str, disabled: bool):
+def _render_lit_row(beam_id: int, sec_id: int, which: str, i: int, nl: int, disabled: bool):
+    """Ligne du tableau des lits. i=1 : bouton '+ Lit' ; i>=2 : poubelle."""
     suffix = " (sup.)" if which == "sup" else " (inf.)"
-    nl = _get_nlits(beam_id, sec_id, which)
 
-    for i in range(2, nl + 1):
+    if i == 1:
+        key_val, key_ovr = _dist_keys(beam_id, sec_id, which, 1)
+        key_n = KS(f"n_as_{which}", beam_id, sec_id)
+        key_d = KS(f"ø_as_{which}", beam_id, sec_id)
+    else:
         st.session_state.setdefault(KS(f"n_as_{which}_l{i}", beam_id, sec_id), 2)
         st.session_state.setdefault(KS(f"ø_as_{which}_l{i}", beam_id, sec_id), 16)
-
-        # La valeur auto a déjà été synchronisée (hors override) par les
-        # calculs qui précèdent le rendu ; on la recalcule ici uniquement
-        # pour détecter l'override après saisie.
-        auto_i = _auto_dist_lit(beam_id, sec_id, which, i)
         key_val, key_ovr = _dist_keys(beam_id, sec_id, which, i)
-        st.session_state.setdefault(key_val, float(auto_i))
-        st.session_state.setdefault(key_ovr, False)
+        key_n = KS(f"n_as_{which}_l{i}", beam_id, sec_id)
+        key_d = KS(f"ø_as_{which}_l{i}", beam_id, sec_id)
 
-        c1, c2, c3, c4 = st.columns([1, 1, 1, 0.35], vertical_alignment="bottom")
-        with c1:
-            st.number_input(
-                f"Nb barres (lit {i}){suffix}",
-                min_value=1,
-                max_value=50,
-                step=1,
-                key=KS(f"n_as_{which}_l{i}", beam_id, sec_id),
-                disabled=disabled,
+    auto_i = _auto_dist_lit(beam_id, sec_id, which, i)
+    st.session_state.setdefault(key_val, float(auto_i))
+    st.session_state.setdefault(key_ovr, False)
+
+    c0, c1, c2, c3, c4 = st.columns(LIT_COLS, vertical_alignment="center")
+    with c0:
+        st.markdown(f"Lit {i}")
+    with c1:
+        st.number_input(
+            f"Nb barres (lit {i}){suffix}",
+            min_value=1,
+            max_value=50,
+            step=1,
+            key=key_n,
+            disabled=disabled,
+            label_visibility="collapsed",
+        )
+    with c2:
+        st.selectbox(
+            f"Ø (mm) (lit {i}){suffix}",
+            DIAM_OPTS,
+            key=key_d,
+            disabled=disabled,
+            label_visibility="collapsed",
+        )
+    with c3:
+        val_d = st.number_input(
+            f"Distance axe lit {i} (cm){suffix}",
+            min_value=0.0,
+            max_value=300.0,
+            step=0.5,
+            key=key_val,
+            disabled=disabled,
+            label_visibility="collapsed",
+        )
+        # L'override est une clé non-widget : mutation légale après rendu.
+        st.session_state[key_ovr] = bool(abs(float(val_d) - float(auto_i)) > 1e-6)
+    with c4:
+        if i == 1:
+            st.button(
+                "＋ Lit",
+                key=KS(f"btn_add_lit_{which}", beam_id, sec_id),
+                use_container_width=True,
+                disabled=disabled or (nl >= MAX_LITS),
+                help="Ajouter un lit",
+                on_click=_add_lit,
+                args=(beam_id, sec_id, which),
             )
-        with c2:
-            st.selectbox(
-                f"Ø (mm) (lit {i}){suffix}",
-                DIAM_OPTS,
-                key=KS(f"ø_as_{which}_l{i}", beam_id, sec_id),
-                disabled=disabled,
-            )
-        with c3:
-            val_d = st.number_input(
-                f"Distance axe lit {i} / parement (cm){suffix}",
-                min_value=0.0,
-                max_value=300.0,
-                step=0.5,
-                key=key_val,
-                disabled=disabled,
-            )
-            st.session_state[key_ovr] = bool(abs(float(val_d) - float(auto_i)) > 1e-6)
-        with c4:
+        else:
             st.button(
                 "🗑️",
                 key=KS(f"btn_del_lit_{which}_{i}", beam_id, sec_id),
                 use_container_width=True,
                 disabled=disabled,
+                help="Supprimer ce lit",
                 on_click=_delete_lit,
                 args=(beam_id, sec_id, which, i),
             )
 
-    if nl < MAX_LITS:
-        st.button(
-            f"➕ Ajouter un lit{suffix}",
-            key=KS(f"btn_add_lit_{which}", beam_id, sec_id),
-            use_container_width=True,
-            disabled=disabled,
-            on_click=_add_lit,
-            args=(beam_id, sec_id, which),
-        )
+
+def _render_lits_table(beam_id: int, sec_id: int, which: str, disabled: bool):
+    nl = _get_nlits(beam_id, sec_id, which)
+
+    # En-tête du tableau
+    h0, h1, h2, h3, h4 = st.columns(LIT_COLS, vertical_alignment="bottom")
+    with h0:
+        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Lit</div>", unsafe_allow_html=True)
+    with h1:
+        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Nb barres</div>", unsafe_allow_html=True)
+    with h2:
+        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Ø (mm)</div>", unsafe_allow_html=True)
+    with h3:
+        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Distance axe lit (cm)</div>", unsafe_allow_html=True)
+    with h4:
+        st.markdown("")
+
+    for i in range(1, nl + 1):
+        _render_lit_row(beam_id, sec_id, which, i, nl, disabled)
 
 
 def _render_face_armatures(beam_id: int, sec_id: int, which: str, states: dict, dim_locked: bool, units_as: str):
     """Bloc 'Armatures inférieures' / 'Armatures supérieures' complet."""
     is_inf = (which == "inf")
     titre = "Armatures inférieures" if is_inf else "Armatures supérieures"
-    suffix = "" if is_inf else " (sup.)"
     unit_as_txt = "mm²" if units_as == "mm²" else "cm²"
 
     As_total = states["As_inf_total"] if is_inf else states["As_sup_total"]
@@ -1337,50 +1389,23 @@ def _render_face_armatures(beam_id: int, sec_id: int, which: str, states: dict, 
     if not geom_ok:
         st.markdown("❌ **Position des lits incompatible avec la hauteur : d utile ≤ 0.**")
 
-    # ---- Lit 1 ----
-    key_val1, key_ovr1 = _dist_keys(beam_id, sec_id, which, 1)
-    auto_e1 = _auto_dist_lit(beam_id, sec_id, which, 1)
+    # ---- Tableau des lits : Lit | Nb barres | Ø | Distance axe lit | Action ----
+    _render_lits_table(beam_id, sec_id, which, disabled=dim_locked)
 
-    r1c1, r1c2, r1c3 = st.columns([1, 1, 1])
-    with r1c1:
-        st.number_input(
-            "Nb barres" + suffix,
-            min_value=1,
-            max_value=50,
-            step=1,
-            key=KS(f"n_as_{which}", beam_id, sec_id),
-            disabled=dim_locked,
-        )
-    with r1c2:
-        st.selectbox("Ø (mm)" + suffix, DIAM_OPTS, key=KS(f"ø_as_{which}", beam_id, sec_id), disabled=dim_locked)
-    with r1c3:
-        val_e = st.number_input(
-            "Distance axe lit / parement (cm)" + suffix,
-            min_value=0.0,
-            max_value=300.0,
-            step=0.5,
-            key=key_val1,
-            disabled=dim_locked,
-        )
-        # L'override est une clé non-widget : mutation légale après rendu.
-        st.session_state[key_ovr1] = bool(abs(float(val_e) - float(auto_e1)) > 1e-6)
-
-    # ---- Lits 2..4 ----
-    _render_extra_lits_ui(beam_id, sec_id, which, disabled=dim_locked)
-
-    # ---- Récap : choix + d utile réduit si plusieurs lits ----
+    # ---- Récap : choix + d utile + yG (c.d.g. des lits) ----
     As_total2, e_cdg2, detail2 = _layers_geometry(beam_id, sec_id, which)
     As_disp2 = As_total2 if units_as == "mm²" else As_total2 / 100.0
     if nl > 1:
         d_eff2 = states["h"] - e_cdg2
         st.markdown(
             f"<div style='margin-top:6px;font-weight:600;'>Choix : {detail2} — ( {As_disp2:.2f} {unit_as_txt} ) — "
-            f"d utile = {d_eff2:.1f} cm (c.d.g. des {nl} lits)</div>",
+            f"d utile = {d_eff2:.1f} cm (c.d.g. des {nl} lits) — yG = {e_cdg2:.1f} cm</div>",
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            f"<div style='margin-top:6px;font-weight:600;'>Choix : {detail2} — ( {As_disp2:.2f} {unit_as_txt} )</div>",
+            f"<div style='margin-top:6px;font-weight:600;'>Choix : {detail2} — ( {As_disp2:.2f} {unit_as_txt} ) — "
+            f"yG = {e_cdg2:.1f} cm</div>",
             unsafe_allow_html=True,
         )
     close_bloc()
@@ -1400,15 +1425,12 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 
     with st.expander(title, expanded=True if sec_id == 1 else False):
         if beam_locked:
-            st.caption("Poutre validée — dimensionnement figé.")
-        else:
-            st.checkbox("Bloquer le dimensionnement de cette section", key=KS("lock_dim", beam_id, sec_id))
+            st.caption("🔒 Poutre verrouillée — édition bloquée.")
 
-        dim_locked = bool(st.session_state.get(KS("lock_dim", beam_id, sec_id), False)) or beam_locked
+        dim_locked = beam_locked
 
         units_len = st.session_state.get("units_len", "cm")
         units_as = st.session_state.get("units_as", "mm²")
-        tol_tau = float(st.session_state.get("tau_tolerance_percent", 0.0) or 0.0)
 
         beton = states["beton"]
         b = states["b"]
@@ -1456,15 +1478,10 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 
         def _bloc_pas(V_kn: float, pas_key_base: str, reduced: bool, titre_tau: str, titre_pas: str, etat_pas_state: str):
             tau = V_kn * 1e3 / (0.75 * b * h * 100)
-            besoin, etat_tau_base, nom_lim, tau_lim = _shear_need_text(tau)
-            if tau > tau_lim:
-                etat_tau, suffix = _status_with_tolerance(tau, tau_lim, tol_tau)
-            else:
-                etat_tau, suffix = etat_tau_base, ""
+            besoin, etat_tau, nom_lim, tau_lim = _shear_need_text(tau)
 
             open_bloc_left_right(titre_tau, f"τ={tau:.2f} ≤ {nom_lim}={tau_lim:.2f}", etat_tau)
-            extra = f" — {suffix}" if suffix else ""
-            st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}{extra}")
+            st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
             _render_shear_lines_ui(beam_id, sec_id, reduced=reduced, disabled=dim_locked)
@@ -1475,18 +1492,14 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             pas_th = Ast_e * fyd * (d_sh * 10.0) / (V_kn * 1e3) / 10.0  # cm
             s_max = min(0.75 * d_sh, 30.0)
             pas_lim = min(pas_th, s_max)
-            _, suffix_pas = _status_with_tolerance(pas, pas_lim, tol_tau)
 
             right_et = f"pas={pas:.1f} ≤ min({pas_th:.1f},{s_max:.1f})={pas_lim:.1f} cm"
             open_bloc_left_right(titre_pas, right_et, etat_pas_state)
-            a1, a2, a3 = st.columns([1, 1, 2])
+            a1, a2 = st.columns(2)
             with a1:
                 st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
             with a2:
                 st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-            with a3:
-                if suffix_pas:
-                    st.markdown(f"**{suffix_pas}**")
             st.caption(_shear_lines_summary(beam_id, sec_id, reduced=reduced))
             close_bloc()
 
@@ -1527,23 +1540,37 @@ def render_infos_projet():
 
 
 def render_parametres_avances():
+    """
+    Paramètres avancés en tableau compact, 3 colonnes thématiques :
+      1. Affichage        : unités de longueur / d'armature
+      2. Coeff. matériaux : γs (fyd = fyk / γs)
+      3. Jeux d'armatures : jeu premier lit / jeu entre lits
+    """
     _ensure_global_defaults()
 
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
+
     with c1:
-        st.selectbox("Affichage longueurs", ["cm", "mm"], key="units_len")
+        st.markdown("**Affichage**")
+        st.selectbox("Unité de longueur", ["cm", "mm"], key="units_len")
+        st.selectbox("Unité d'armature", ["mm²", "cm²"], key="units_as")
+
     with c2:
-        st.selectbox("Affichage armatures", ["mm²", "cm²"], key="units_as")
+        st.markdown("**Coefficients matériaux**")
+        st.number_input(
+            "Coefficient acier γs",
+            min_value=1.0,
+            max_value=2.0,
+            step=0.05,
+            format="%.2f",
+            key="gamma_s",
+            help="fyd = fyk / γs — ex. acier 500 : 500 / 1,15 = 435 MPa",
+        )
 
-    c3, c4, c5 = st.columns(3)
     with c3:
-        st.selectbox("Diamètre étrier (mm)", [6, 8, 10, 12], key="diam_etrier_mm")
-    with c4:
+        st.markdown("**Jeux d'armatures**")
         st.number_input("Jeu premier lit (cm)", min_value=0.0, step=0.5, key="jeu_enrobage_cm")
-    with c5:
         st.number_input("Jeu entre lits (cm)", min_value=0.0, step=0.5, key="jeu_entre_lits_cm")
-
-    st.slider("Tolérance dépassement (%)", min_value=0, max_value=50, key="tau_tolerance_percent")
 
 
 # ============================================================
@@ -1570,7 +1597,8 @@ def render_dimensionnement_right(beton_data: dict):
             for s in b.get("sections", [])
         ]
         beam_state = _status_merge(*sec_states) if sec_states else "ok"
-        beam_label = _status_icon_label(beam_state, bnom)
+        lock_icon = "🔒 " if bool(st.session_state.get(KB("lock_data", bid), False)) else ""
+        beam_label = _status_icon_label(beam_state, f"{lock_icon}{bnom}")
 
         with st.expander(beam_label, expanded=True if bid == 1 else False):
             for s in b.get("sections", []):
