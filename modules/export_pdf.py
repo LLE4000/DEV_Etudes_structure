@@ -1,20 +1,25 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  VERSION 2.20 (alignée sur poutre.py 2.20)
+#  VERSION 2.32 (alignée sur poutre.py 2.32)
 #
-#  Corrections principales vs version précédente :
-#   - LITS MULTIPLES (jusqu'à 4 par face) : lecture de nlits_*,
-#     positions réelles (distance axe lit / parement), centre de
-#     gravité pondéré par les aires pour la hauteur utile.
-#   - DISTANCES axe lit / parement : nouvelles clés (enrob_calc_* pour
-#     le lit 1, dist_*_l{i} pour les suivants) + jeux globaux
-#     (jeu premier lit, jeu entre lits) et diamètre étrier.
-#   - ENROBAGE : affiche l'enrobage BÉTON de la poutre (KB enrobage_beton).
-#   - As,min : accolade sur 3 lignes
-#       max( 0,26·fctm/fyk·b·h ; 0,0013·b·h ; 0,25·As,req opposé )
-#     valeurs numériques exactes = celles retenues par poutre.py.
-#   - As,min / As,max : même police (taille) que As,req.
+#  Corrections principales vs 2.20 :
+#   - ARMATURES SUPÉRIEURES : elles n'apparaissaient plus dans le
+#     rapport car le bloc dépendait de l'ancienne case à cocher
+#     "ajouter_moment_sup" (supprimée de l'application). Les blocs
+#     armatures inférieures ET supérieures sont désormais TOUJOURS
+#     inclus, comme dans l'application.
+#   - fyd = fyk / γs (clé "gamma_s", défaut 1,5) au lieu de fyk/1,5
+#     codé en dur.
+#   - DISTANCE AUTO LIT 1 : enrobage + (Ø étrier + demi-Ø barre lit 1)
+#     arrondi ensemble au 0,5 cm sup. + jeu premier lit. Le Ø étrier
+#     est lu dans la configuration des étriers de la section
+#     (le paramètre global "diam_etrier_mm" n'existe plus).
+#   - M_sup compte dès qu'il est > 0 (plus de case à cocher).
+#   - EFFORT TRANCHANT RÉDUIT : concept supprimé (comme dans l'app).
+#   - TOLÉRANCE DE DÉPASSEMENT : supprimée (comparaisons strictes).
+#   - État global de section : inclut toujours inf. ET sup. (cohérent
+#     avec l'application).
 #
 #  API : generer_rapport_pdf(beams, values, beton_data, infos=None) -> chemin PDF
 # ============================================================
@@ -278,7 +283,7 @@ def sci_tokens(value, color=INK, font="Helvetica", size=10):
 
 
 # ============================================================
-#  ACCÈS AUX VALEURS (mêmes clés que poutre.py 2.20)
+#  ACCÈS AUX VALEURS (mêmes clés que poutre.py 2.32)
 # ============================================================
 def _g(values, key, default=None):
     return values.get(key, default)
@@ -321,6 +326,27 @@ def _get_fyk(values, bid):
     return float(cur), str(cur)
 
 
+def _get_gamma_s(values):
+    """Coefficient acier γs (fyd = fyk / γs), défaut 1,5 — identique à poutre.py."""
+    try:
+        gs = float(_g(values, "gamma_s", 1.5) or 1.5)
+    except Exception:
+        gs = 1.5
+    return gs if gs > 0 else 1.5
+
+
+def _stirrup_diam_mm(values, bid, sid):
+    """Ø étrier (mm) lu dans la config des étriers de la section (Ø max)."""
+    n_lines = max(1, int(_g(values, KS("shear_n_lines", bid, sid), 1) or 1))
+    diams = []
+    for i in range(n_lines):
+        try:
+            diams.append(float(_g(values, KS(f"shear_line{i}_d", bid, sid), 8) or 8))
+        except Exception:
+            pass
+    return max(diams) if diams else 8.0
+
+
 def _get_nlits(values, bid, sid, which):
     try:
         nl = int(_g(values, KS(f"nlits_{which}", bid, sid), 1) or 1)
@@ -340,15 +366,14 @@ def _lit_bars(values, bid, sid, which, i):
 
 
 def _auto_dist_lit(values, bid, sid, which, i):
-    """Réplique _auto_dist_lit de poutre.py 2.20."""
+    """Réplique _auto_dist_lit de poutre.py 2.32."""
     if i == 1:
         enrob_beton = float(_g(values, KB("enrobage_beton", bid), 3.0) or 3.0)
-        d_etrier = float(_g(values, "diam_etrier_mm", 8) or 8)
+        d_etrier = _stirrup_diam_mm(values, bid, sid)
         jeu1 = float(_g(values, "jeu_enrobage_cm", 1.0) or 0.0)
         _, d1 = _lit_bars(values, bid, sid, which, 1)
         return (enrob_beton
-                + _round_up_to_half_cm(d_etrier / 10.0)
-                + _round_up_to_half_cm(d1 / 20.0)
+                + _round_up_to_half_cm(d_etrier / 10.0 + d1 / 20.0)
                 + jeu1)
     prev = _dist_lit(values, bid, sid, which, i - 1)
     _, d_prev = _lit_bars(values, bid, sid, which, i - 1)
@@ -367,7 +392,7 @@ def _dist_keys(bid, sid, which, i):
 
 
 def _dist_lit(values, bid, sid, which, i):
-    """Distance axe lit i / parement effective (override compris)."""
+    """Distance axe lit i effective (override compris)."""
     key_val, key_ovr = _dist_keys(bid, sid, which, i)
     auto = _auto_dist_lit(values, bid, sid, which, i)
     if bool(_g(values, key_ovr, False)):
@@ -397,12 +422,9 @@ def _layers_geometry(values, bid, sid, which):
     return {"As": As_tot, "e_cdg": e_cdg, "lits": lits, "detail": " + ".join(parts), "nl": nl}
 
 
-def _shear_lines(values, bid, sid, reduced):
-    if reduced:
-        n_lines = int(_g(values, KS("shear_n_lines_r", bid, sid), 1) or 1); prefix = "shear_r_line"
-    else:
-        n_lines = int(_g(values, KS("shear_n_lines", bid, sid), 1) or 1); prefix = "shear_line"
-    n_lines = max(1, n_lines)
+def _shear_lines(values, bid, sid):
+    n_lines = max(1, int(_g(values, KS("shear_n_lines", bid, sid), 1) or 1))
+    prefix = "shear_line"
     Ast = 0.0; parts = []; groups = []
     for i in range(n_lines):
         typ = str(_g(values, KS(f"{prefix}{i}_type", bid, sid), "Étriers (2 brins)"))
@@ -422,7 +444,7 @@ def _first_stirrup(values, bid, sid):
 
 
 # ============================================================
-#  CALCUL SECTION (fidèle à poutre.py 2.20)
+#  CALCUL SECTION (fidèle à poutre.py 2.32)
 # ============================================================
 def _compute_section(values, beton_data, bid, sid):
     beton = str(_g(values, KB("beton", bid), "C30/37"))
@@ -434,7 +456,8 @@ def _compute_section(values, beton_data, bid, sid):
     fck_cyl = float(bd.get("fck", 0.8 * fck_cube) or (0.8 * fck_cube))
 
     fyk, mu_ref = _get_fyk(values, bid)
-    fyd = fyk / 1.5
+    gamma_s = _get_gamma_s(values)
+    fyd = fyk / gamma_s
 
     mu_key = f"mu_a{mu_ref}"
     if mu_key not in bd:
@@ -457,16 +480,12 @@ def _compute_section(values, beton_data, bid, sid):
     d_calc_inf = max(d_inf, 0.1); d_calc_sup = max(d_sup, 0.1); d_calc_shear = max(d_shear, 0.1)
     geom_inf_ok = d_inf > 0; geom_sup_ok = d_sup > 0; geom_shear_ok = d_shear > 0
 
-    tol = float(_g(values, "tau_tolerance_percent", 0.0) or 0.0)
-
-    has_Msup = bool(_g(values, KS("ajouter_moment_sup", bid, sid), False))
-    has_Vred = bool(_g(values, KS("ajouter_effort_reduit", bid, sid), False))
+    # M_sup compte dès qu'il est > 0 (plus de case à cocher) ;
+    # concept "effort tranchant réduit" supprimé.
     M_inf = float(_g(values, KS("M_inf", bid, sid), 0.0) or 0.0)
-    M_sup = float(_g(values, KS("M_sup", bid, sid), 0.0) or 0.0) if has_Msup else 0.0
+    M_sup = float(_g(values, KS("M_sup", bid, sid), 0.0) or 0.0)
     V = float(_g(values, KS("V", bid, sid), 0.0) or 0.0)
-    V_lim = float(_g(values, KS("V_lim", bid, sid), 0.0) or 0.0) if has_Vred else 0.0
-    has_Msup = has_Msup and (M_sup > 0)
-    has_Vlim = has_Vred and (V_lim > 0)
+    has_Msup = M_sup > 0
 
     M_max = max(M_inf, M_sup)
     hmin = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if M_max > 0 else 0.0
@@ -501,65 +520,48 @@ def _compute_section(values, beton_data, bid, sid):
             return "Barres inclinées + étriers", "warn", "tau_adm,IV", tau_4
         return "Section insuffisante", "nok", "tau_adm,IV", tau_4
 
-    def status_tol(value, limit):
-        if limit <= 0:
-            return "nok", ""
-        if value <= limit:
-            return "ok", ""
-        lim2 = limit * (1.0 + max(0.0, tol) / 100.0)
-        if value <= lim2:
-            return "ok", f"Acceptable (tolérance +{tol:.0f}%)"
-        return "nok", ""
-
-    def build_shear(Vx, reduced):
+    def build_shear(Vx):
         if Vx <= 0:
             return None
         tau = Vx * 1e3 / (0.75 * b * h * 100)
-        besoin, etat_base, nom_lim, tau_lim = shear_need(tau)
-        etat_tau, suf = (status_tol(tau, tau_lim) if tau > tau_lim else (etat_base, ""))
-        Ast_e, summary, groups = _shear_lines(values, bid, sid, reduced=reduced)
-        pas = float(_g(values, KS("shear_pas_r" if reduced else "shear_pas", bid, sid), 30.0) or 30.0)
+        besoin, etat_tau, nom_lim, tau_lim = shear_need(tau)
+        Ast_e, summary, groups = _shear_lines(values, bid, sid)
+        pas = float(_g(values, KS("shear_pas", bid, sid), 30.0) or 30.0)
         pas_th = Ast_e * fyd * (d_calc_shear * 10.0) / (Vx * 1e3) / 10.0 if Ast_e > 0 else 0.0
         s_max = min(0.75 * d_calc_shear, 30.0)
         pas_lim = min(pas_th, s_max) if pas_th > 0 else s_max
-        etat_pas, suf_pas = status_tol(pas, pas_lim)
+        etat_pas = "ok" if pas <= pas_lim else "nok"
         if not geom_shear_ok:
             etat_tau = "nok"; etat_pas = "nok"
         return {"tau": tau, "besoin": besoin, "etat_tau": etat_tau, "nom_lim": nom_lim,
-                "tau_lim": tau_lim, "suf": suf, "Ast": Ast_e, "summary": summary, "groups": groups,
+                "tau_lim": tau_lim, "suf": "", "Ast": Ast_e, "summary": summary, "groups": groups,
                 "pas": pas, "pas_th": pas_th, "s_max": s_max, "pas_lim": pas_lim,
-                "etat_pas": etat_pas, "suf_pas": suf_pas, "V": Vx}
+                "etat_pas": etat_pas, "suf_pas": "", "V": Vx}
 
-    shear = build_shear(V, False)
-    shear_r = build_shear(V_lim, True) if has_Vlim else None
+    shear = build_shear(V)
 
-    states = [etat_h]
-    if M_inf > 0:
-        states.append(etat_inf)
-    if has_Msup:
-        states.append(etat_sup)
+    # État global : inf. et sup. TOUJOURS pris en compte (comme dans l'app)
+    states = [etat_h, etat_inf, etat_sup]
     if shear:
         states += [shear["etat_tau"], shear["etat_pas"]]
-    if shear_r:
-        states += [shear_r["etat_tau"], shear_r["etat_pas"]]
     etat_global = "nok" if any(s == "nok" for s in states) else ("warn" if any(s == "warn" for s in states) else "ok")
 
     return {
         "beton": beton, "fck": fck_cyl, "fck_cube": fck_cube, "alpha_b": alpha_b, "fctm": fctm,
-        "fyk": fyk, "fyd": fyd, "mu_ref": mu_ref, "mu": mu_val,
+        "fyk": fyk, "fyd": fyd, "gamma_s": gamma_s, "mu_ref": mu_ref, "mu": mu_val,
         "b": b, "h": h, "enrob_beton": enrob_beton,
         "ei": geo_inf["e_cdg"], "es": geo_sup["e_cdg"],
         "dist_l1_inf": dist_l1_inf, "dist_l1_sup": dist_l1_sup,
         "di": d_inf, "ds": d_sup, "dsh": d_shear,
-        "M_inf": M_inf, "M_sup": M_sup, "V": V, "V_lim": V_lim,
-        "has_Msup": has_Msup, "has_Vlim": has_Vlim,
+        "M_inf": M_inf, "M_sup": M_sup, "V": V,
+        "has_Msup": has_Msup,
         "M_max": M_max, "hmin": hmin, "etat_h": etat_h,
         "As_min_ec": As_min_ec, "As_min_plancher": As_min_plancher, "As_max": As_max,
         "As_req_inf": As_req_inf, "As_req_sup": As_req_sup,
         "As_min_inf": As_min_inf, "As_min_sup": As_min_sup,
         "geo_inf": geo_inf, "geo_sup": geo_sup,
         "As_inf": As_inf, "As_sup": As_sup, "etat_inf": etat_inf, "etat_sup": etat_sup,
-        "shear": shear, "shear_r": shear_r, "etat_global": etat_global,
+        "shear": shear, "etat_global": etat_global,
     }
 
 
@@ -658,6 +660,20 @@ class SectionDrawing(Flowable):
             col, bdc = LIT_COLORS[(lit["i"] - 1) % len(LIT_COLORS)]
             yy = layer(lit["n"], lit["d"], h_cm - lit["e"], col, bdc)  # e = depuis le haut
             y_sup.append((yy, col, lit))
+
+        # centres de gravité des armatures (petites croix noires)
+        def cdg_cross(y_cm_from_bottom):
+            yy = y0 + (y_cm_from_bottom / h_cm) * sh
+            cx = x0 + sw / 2.0
+            r = 3.2
+            c.setStrokeColor(INK); c.setLineWidth(0.9)
+            c.line(cx - r, yy, cx + r, yy)
+            c.line(cx, yy - r, cx, yy + r)
+            return yy
+
+        cdg_cross(geo_inf["e_cdg"])                 # c.d.g. armatures inférieures
+        if geo_sup["As"] > 0:
+            cdg_cross(h_cm - geo_sup["e_cdg"])      # c.d.g. armatures supérieures
 
         # cotes b / h
         c.setStrokeColor(P["dim"]); c.setFillColor(P["dim"]); c.setLineWidth(0.6); c.setFont("Helvetica", 7.5)
@@ -836,14 +852,12 @@ def carac(R, cw):
             kv("Béton", f"{R['beton']}"),
             kv("f<sub>ck</sub>", f"{fn(R['fck'],0)} N/mm{s2()}"),
             kv("Acier", f"B{int(R['fyk'])}"),
-            kv("f<sub>yd</sub>", f"{fn(R['fyd'],0)} N/mm{s2()}"),
+            kv("f<sub>yd</sub>", f"{fn(R['fyd'],0)} N/mm{s2()} (γ<sub>s</sub>={fn(R['gamma_s'],2)})"),
             sub("SOLLICITATIONS"),
             kv("M<sub>inf</sub>", f"{fn(R['M_inf'],1)} kNm")]
     if R["has_Msup"]:
-        rows.append(kv("M<sup>sup</sup>", f"{fn(R['M_sup'],1)} kNm"))
+        rows.append(kv("M<sub>sup</sub>", f"{fn(R['M_sup'],1)} kNm"))
     rows.append(kv("V", f"{fn(R['V'],1)} kN"))
-    if R["has_Vlim"]:
-        rows.append(kv("V<sub>réduit</sub>", f"{fn(R['V_lim'],1)} kN"))
     t = Table(rows, colWidths=[cw * 0.42, cw * 0.58])
     ts = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
           ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
@@ -959,7 +973,7 @@ def b_arm(R, cw, which):
         txt(f"{fn(R['As_max'],0)} mm", font="Helvetica-Bold", sup="2")]))
 
     body = [fline("Moment appliqué",
-                  Formula(Row([_t("M", sub=("inf" if which == "inf" else None), sup=(None if which == "inf" else "sup")),
+                  Formula(Row([_t("M", sub=("inf" if which == "inf" else "sup")),
                                _t("  =  "), nb(f"{fn(M,1)} kNm")])), iw),
             Spacer(1, 2),
             fline("Hauteur utile", dlit, iw), Spacer(1, 2),
@@ -978,10 +992,10 @@ def b_arm(R, cw, which):
     return block(nn, title, et, body, cw)
 
 
-def b_shear(R, cw, reduced=False):
+def b_shear(R, cw):
     iw = cw - 24
-    Sh = R["shear_r"] if reduced else R["shear"]
-    nn = "5." if reduced else "4."; suff = " réduit" if reduced else ""
+    Sh = R["shear"]
+    nn = "4."
     app = Formula(Row([_t("τ = "),
         Frac(Row(Row(sci_tokens(Sh['V'] * 1e3)).items), Row([_t(f"0,75 · {fn(R['b']*10,0)} · {fn(R['h']*10,0)}")])),
         _t("  =  "), txt(f"{fn(Sh['tau'],2)} N/mm", font="Helvetica-Bold", sup="2")]))
@@ -1011,7 +1025,7 @@ def b_shear(R, cw, reduced=False):
     et_pas = "ok" if okp else "nok"
     left = f"pas {fn(Sh['pas'],1)} cm {'≤' if okp else '&gt;'} {fn(Sh['pas_lim'],1)} cm"
     body.append(conclu(et_pas, iw, left, ok=okp))
-    return block(nn, f"Effort tranchant{suff} — étriers", et, body, cw)
+    return block(nn, "Effort tranchant — étriers", et, body, cw)
 
 
 # ============================================================
@@ -1117,15 +1131,10 @@ def _build_story(beams, values, beton_data, infos, cw, pages, store):
             raw = str(_g(values, f"meta_b{bid}_nom_{sid}", s.get("nom", f"Section {sid}")))
             snom = raw if raw.strip().lower().startswith("section") else f"Section {raw}"
             R = _compute_section(values, beton_data, bid, sid)
-            blocs = [b_haut(R, cw)]
-            if R["M_inf"] > 0:
-                blocs.append(b_arm(R, cw, "inf"))
-            if R["has_Msup"]:
-                blocs.append(b_arm(R, cw, "sup"))
+            # Comme dans l'application : blocs inf. ET sup. toujours présents
+            blocs = [b_haut(R, cw), b_arm(R, cw, "inf"), b_arm(R, cw, "sup")]
             if R["shear"]:
-                blocs.append(b_shear(R, cw, False))
-            if R["shear_r"]:
-                blocs.append(b_shear(R, cw, True))
+                blocs.append(b_shear(R, cw))
             intro = [sec_banner(snom, cw), Spacer(1, 6), recap(R, values, bid, sid, cw), Spacer(1, 12), blocs[0]]
             story.append(KeepTogether(intro))
             for blk in blocs[1:]:
