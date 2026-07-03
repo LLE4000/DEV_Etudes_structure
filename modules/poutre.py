@@ -1,7 +1,26 @@
 # ===========================
-#  VERSION 2.30
+#  VERSION 2.31
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.30 :
+#   a. DISTANCE AUTO LIT 1 = enrobage
+#                          + (Ø étrier + demi-Ø barre lit 1) arrondi
+#                            ensemble au 0,5 cm supérieur
+#                          + jeu premier lit.
+#      La valeur par défaut est désormais bien affichée (plus de 0,00 :
+#      les clés ne sont plus pré-créées à 0 et les anciennes valeurs
+#      nulles sont réinitialisées en mode auto).
+#   b. SOLLICITATIONS : M inférieur, M supérieur et V sur une seule
+#      ligne. Suppression de la case "Ajouter un moment supérieur" et
+#      du concept d'effort tranchant réduit (on vérifie plusieurs
+#      sections à la place).
+#   c. Tableau des lits : suppression du titre de colonne "Lit".
+#   d. "Sections" à la même taille que "Caractéristiques de la poutre".
+#   e. Largeur / Hauteur : pas de 5 cm.
+#   f. Coefficient acier γs : défaut 1,5.
+#   g. Bouton 📋 "Copier la poutre" (toutes les données) à droite du
+#      titre, à gauche du cadenas — même style que pour les sections.
 #
 #  Évolutions vs 2.20 :
 #   1. LITS D'ARMATURES : présentation en tableau
@@ -156,13 +175,13 @@ def _ensure_global_defaults():
     st.session_state.setdefault("jeu_enrobage_cm", 1.0)   # jeu premier lit
     st.session_state.setdefault("jeu_entre_lits_cm", 1.0)
 
-    # Coefficient acier γs (défaut 1.15)
+    # Coefficient acier γs (défaut 1.5)
     try:
-        gs = float(st.session_state.get("gamma_s", 1.15) or 1.15)
+        gs = float(st.session_state.get("gamma_s", 1.5) or 1.5)
     except Exception:
-        gs = 1.15
+        gs = 1.5
     if gs <= 0:
-        gs = 1.15
+        gs = 1.5
     st.session_state["gamma_s"] = gs
 
 
@@ -362,9 +381,16 @@ def _ensure_defaults_for_beam(beam_id: int):
         st.session_state.setdefault(KS("M_inf", beam_id, sid), 0.0)
         st.session_state.setdefault(KS("M_sup", beam_id, sid), 0.0)
         st.session_state.setdefault(KS("V", beam_id, sid), 0.0)
-        st.session_state.setdefault(KS("V_lim", beam_id, sid), 0.0)
-        st.session_state.setdefault(KS("ajouter_moment_sup", beam_id, sid), False)
-        st.session_state.setdefault(KS("ajouter_effort_reduit", beam_id, sid), False)
+
+        # Migration : M_sup était optionnel (case à cocher). Si la case
+        # était décochée, la valeur masquée ne comptait pas -> on la
+        # remet à zéro pour ne pas changer les résultats des anciens
+        # fichiers. Le concept d'effort tranchant réduit est supprimé.
+        old_msup_flag = st.session_state.pop(KS("ajouter_moment_sup", beam_id, sid), None)
+        if old_msup_flag is False:
+            st.session_state[KS("M_sup", beam_id, sid)] = 0.0
+            st.session_state[KS("M_sup", beam_id, sid) + "_raw"] = "0,00"
+        st.session_state.pop(KS("ajouter_effort_reduit", beam_id, sid), None)
 
         for which in ("inf", "sup"):
             st.session_state.setdefault(KS(f"n_as_{which}", beam_id, sid), 2)
@@ -386,25 +412,33 @@ def _ensure_defaults_for_beam(beam_id: int):
 
         # Distance axe lit 1 (modifiable par face)
         # NB : clés 'enrob_calc_*' conservées pour compat anciens JSON.
-        st.session_state.setdefault(KS("enrob_calc_inf", beam_id, sid), 0.0)
-        st.session_state.setdefault(KS("enrob_calc_sup", beam_id, sid), 0.0)
+        # Les valeurs ne sont PLUS pré-créées à 0 : _get_dist_lit les
+        # initialise directement à la valeur automatique. Migration :
+        # une ancienne valeur nulle (ou négative) repasse en mode auto.
         st.session_state.setdefault(KS("enrob_calc_inf_override", beam_id, sid), False)
         st.session_state.setdefault(KS("enrob_calc_sup_override", beam_id, sid), False)
+        for which in ("inf", "sup"):
+            kv = KS(f"enrob_calc_{which}", beam_id, sid)
+            if kv in st.session_state:
+                try:
+                    v = float(st.session_state.get(kv) or 0.0)
+                except Exception:
+                    v = 0.0
+                if v <= 0.0:
+                    st.session_state.pop(kv, None)
+                    st.session_state[KS(f"enrob_calc_{which}_override", beam_id, sid)] = False
 
-        # Cisaillement
+        # Cisaillement (le concept "réduit" est supprimé)
         st.session_state.setdefault(KS("shear_n_lines", beam_id, sid), 1)
         st.session_state.setdefault(KS("shear_pas", beam_id, sid), 30.0)
-        st.session_state.setdefault(KS("shear_n_lines_r", beam_id, sid), 1)
-        st.session_state.setdefault(KS("shear_pas_r", beam_id, sid), 30.0)
 
-        for prefix, nk in (("shear_line", "shear_n_lines"), ("shear_r_line", "shear_n_lines_r")):
-            n_lines = max(1, int(st.session_state.get(KS(nk, beam_id, sid), 1) or 1))
-            st.session_state[KS(nk, beam_id, sid)] = n_lines
-            for i in range(n_lines):
-                st.session_state.setdefault(KS(f"{prefix}{i}_type", beam_id, sid), "Étriers (2 brins)" if i == 0 else "Épingles (1 brin)")
-                st.session_state.setdefault(KS(f"{prefix}{i}_n", beam_id, sid), 1)
-                st.session_state.setdefault(KS(f"{prefix}{i}_d", beam_id, sid), 8)
-                _coerce_int_choice(KS(f"{prefix}{i}_d", beam_id, sid), SHEAR_DIAM_OPTS, 8)
+        n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", beam_id, sid), 1) or 1))
+        st.session_state[KS("shear_n_lines", beam_id, sid)] = n_lines
+        for i in range(n_lines):
+            st.session_state.setdefault(KS(f"shear_line{i}_type", beam_id, sid), "Étriers (2 brins)" if i == 0 else "Épingles (1 brin)")
+            st.session_state.setdefault(KS(f"shear_line{i}_n", beam_id, sid), 1)
+            st.session_state.setdefault(KS(f"shear_line{i}_d", beam_id, sid), 8)
+            _coerce_int_choice(KS(f"shear_line{i}_d", beam_id, sid), SHEAR_DIAM_OPTS, 8)
 
 
 def _add_beam():
@@ -514,7 +548,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.30", "beams": beams, "values": values}
+    return {"version": "2.31", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -602,10 +636,10 @@ def _get_fyk_and_mu_ref(beam_id: int):
 
 def _get_gamma_s() -> float:
     try:
-        gs = float(st.session_state.get("gamma_s", 1.15) or 1.15)
+        gs = float(st.session_state.get("gamma_s", 1.5) or 1.5)
     except Exception:
-        gs = 1.15
-    return gs if gs > 0 else 1.15
+        gs = 1.5
+    return gs if gs > 0 else 1.5
 
 
 def _round_up_to_half_cm(x_cm: float) -> float:
@@ -667,12 +701,11 @@ def _auto_dist_lit(beam_id: int, sec_id: int, which: str, i: int) -> float:
 
     Lit 1 :
       enrobage béton
-      + Ø étrier (cm) arrondi au 0,5 cm sup.
+      + (Ø étrier + demi-Ø barre lit 1) arrondi ENSEMBLE au 0,5 cm sup.
         (Ø étrier lu dans la configuration des étriers de la section,
          partie Effort tranchant — plus de paramètre avancé dédié)
-      + demi-Ø barre lit 1 (cm) arrondi au 0,5 cm sup.
       + jeu premier lit
-      Ex : 3,0 + arr(0,8)=1,0 + arr(0,8)=1,0 + 1,0 = 6,0 cm
+      Ex (étrier Ø8, barre Ø16) : 3,0 + arr(0,8+0,8=1,6)=2,0 + 1,0 = 6,0 cm
 
     Lit i (i >= 2) :
       distance lit (i-1)   [valeur réelle, override compris]
@@ -687,8 +720,7 @@ def _auto_dist_lit(beam_id: int, sec_id: int, which: str, i: int) -> float:
         _, d1 = _lit_bars(beam_id, sec_id, which, 1)
         return (
             enrob_beton
-            + _round_up_to_half_cm(d_etrier / 10.0)
-            + _round_up_to_half_cm(d1 / 20.0)
+            + _round_up_to_half_cm(d_etrier / 10.0 + d1 / 20.0)
             + jeu1
         )
 
@@ -854,32 +886,18 @@ def _delete_lit(beam_id: int, sec_id: int, which: str, i: int):
 #  UI : SECTIONS (SOLLICITATIONS) PAR POUTRE
 # ============================================================
 def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
-    c1, c2 = st.columns(2)
+    c1, c2, c3 = st.columns(3)
     with c1:
-        float_input_fr_simple("Moment inférieur M (kNm)", key=KS("M_inf", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("Moment inférieur (kN.m)", key=KS("M_inf", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
     with c2:
-        float_input_fr_simple("Effort tranchant V (kN)", key=KS("V", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
-
-    c3, c4 = st.columns(2)
+        float_input_fr_simple("Moment supérieur (kN.m)", key=KS("M_sup", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
     with c3:
-        m_sup_toggle = st.checkbox("Ajouter un moment supérieur", key=KS("ajouter_moment_sup", beam_id, sec_id), disabled=disabled)
-    with c4:
-        v_red_toggle = st.checkbox("Ajouter un effort tranchant réduit", key=KS("ajouter_effort_reduit", beam_id, sec_id), disabled=disabled)
-
-    # Les valeurs masquées sont conservées (et sauvegardées) mais ignorées
-    # dans les calculs tant que la case est décochée.
-    c5, c6 = st.columns(2)
-    with c5:
-        if m_sup_toggle:
-            float_input_fr_simple("Moment supérieur M_sup (kNm)", key=KS("M_sup", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
-    with c6:
-        if v_red_toggle:
-            float_input_fr_simple("Effort tranchant réduit V_réduit (kN)", key=KS("V_lim", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("Effort tranchant (kN)", key=KS("V", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
 
 
 def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
-    st.markdown("### Sections")
+    st.markdown("#### Sections")
 
     for sec in beam.get("sections", []):
         sec_id = int(sec.get("id"))
@@ -957,10 +975,19 @@ def render_caracteristiques_beam(beam_id: int):
     data_locked = bool(st.session_state.get(lock_key, False))
 
     with st.expander(st.session_state.get(beam_name_key, beam.get("nom", f"Poutre {beam_id}")), expanded=True):
-        t1, t2 = st.columns([6, 0.8], vertical_alignment="center")
+        t1, tC, tL = st.columns([6, 0.8, 0.8], vertical_alignment="center")
         with t1:
             st.markdown("#### Caractéristiques de la poutre")
-        with t2:
+        with tC:
+            st.button(
+                "📋",
+                key=f"btn_copy_beam_{beam_id}",
+                help="Copier la poutre (toutes les données)",
+                use_container_width=True,
+                on_click=_duplicate_beam,
+                args=(beam_id,),
+            )
+        with tL:
             st.button(
                 "🔒" if data_locked else "🔓",
                 key=f"btn_lock_beam_{beam_id}",
@@ -981,9 +1008,9 @@ def render_caracteristiques_beam(beam_id: int):
 
         cB, cH, cE = st.columns(3)
         with cB:
-            st.number_input("Larg. (cm)", min_value=5, max_value=200, step=1, key=KB("b", beam_id), disabled=data_locked)
+            st.number_input("Larg. (cm)", min_value=5, max_value=200, step=5, key=KB("b", beam_id), disabled=data_locked)
         with cH:
-            st.number_input("Haut. (cm)", min_value=5, max_value=300, step=1, key=KB("h", beam_id), disabled=data_locked)
+            st.number_input("Haut. (cm)", min_value=5, max_value=300, step=5, key=KB("h", beam_id), disabled=data_locked)
         with cE:
             st.number_input("Enrob. béton (cm)", min_value=0.0, max_value=20.0, step=0.5, key=KB("enrobage_beton", beam_id), disabled=data_locked)
 
@@ -1034,14 +1061,9 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     d_calc_sup = max(d_utile_sup, 0.1)
     d_calc_shear = max(d_utile_for_shear, 0.1)
 
-    has_Msup = bool(st.session_state.get(KS("ajouter_moment_sup", beam_id, sec_id), False))
-    has_Vred = bool(st.session_state.get(KS("ajouter_effort_reduit", beam_id, sec_id), False))
-
     M_inf_val = float(st.session_state.get(KS("M_inf", beam_id, sec_id), 0.0) or 0.0)
-    M_sup_val = float(st.session_state.get(KS("M_sup", beam_id, sec_id), 0.0) or 0.0) if has_Msup else 0.0
+    M_sup_val = float(st.session_state.get(KS("M_sup", beam_id, sec_id), 0.0) or 0.0)
     V_val = float(st.session_state.get(KS("V", beam_id, sec_id), 0.0) or 0.0)
-    V_lim_val = float(st.session_state.get(KS("V_lim", beam_id, sec_id), 0.0) or 0.0) if has_Vred else 0.0
-    has_Vlim = has_Vred and (V_lim_val > 0)
 
     # --- Hauteur (logique conservée : distance lit 1 inf.) ---
     M_max = max(M_inf_val, M_sup_val)
@@ -1111,17 +1133,7 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
 
     etat_pas = _pas_state(V_val, "shear_pas", reduced=False) if V_val > 0 else "ok"
 
-    if has_Vlim:
-        tau_r = V_lim_val * 1e3 / (0.75 * b * h * 100)
-        etat_tau_r = _shear_state(tau_r)
-        if not geom_shear_ok:
-            etat_tau_r = "nok"
-        etat_pas_r = _pas_state(V_lim_val, "shear_pas_r", reduced=True)
-    else:
-        etat_tau_r = "ok"
-        etat_pas_r = "ok"
-
-    etat_global = _status_merge(etat_h, etat_inf, etat_sup, etat_tau, etat_pas, etat_tau_r, etat_pas_r)
+    etat_global = _status_merge(etat_h, etat_inf, etat_sup, etat_tau, etat_pas)
 
     return {
         "etat_global": etat_global,
@@ -1130,13 +1142,9 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
         "etat_sup": etat_sup,
         "etat_tau": etat_tau,
         "etat_pas": etat_pas,
-        "etat_tau_r": etat_tau_r,
-        "etat_pas_r": etat_pas_r,
-        "has_Vlim": has_Vlim,
         "M_inf_val": M_inf_val,
         "M_sup_val": M_sup_val,
         "V_val": V_val,
-        "V_lim_val": V_lim_val,
         "hmin_calc": hmin_calc,
         "tau_1": tau_1,
         "tau_2": tau_2,
@@ -1177,27 +1185,16 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
 # ============================================================
 #  UI : CISAILLEMENT (lignes)
 # ============================================================
-def _render_shear_lines_ui(beam_id: int, sec_id: int, reduced: bool, disabled: bool):
-    if reduced:
-        n_key = KS("shear_n_lines_r", beam_id, sec_id)
-        pas_key = KS("shear_pas_r", beam_id, sec_id)
-        prefix = "shear_r_line"
-        add_btn_key = KS("btn_add_shear_line_r", beam_id, sec_id)
-        del_btn_prefix = KS("btn_del_shear_line_r_", beam_id, sec_id)
-        type_label = "Type (réduit)"
-        pas_label = "Pas choisi (cm) (réduit)"
-        diam_label = "Ø (mm) (réduit)"
-        nb_label = "Nbr. cadres (réduit)"
-    else:
-        n_key = KS("shear_n_lines", beam_id, sec_id)
-        pas_key = KS("shear_pas", beam_id, sec_id)
-        prefix = "shear_line"
-        add_btn_key = KS("btn_add_shear_line", beam_id, sec_id)
-        del_btn_prefix = KS("btn_del_shear_line_", beam_id, sec_id)
-        type_label = "Type"
-        pas_label = "Pas choisi (cm)"
-        diam_label = "Ø (mm)"
-        nb_label = "Nbr. cadres"
+def _render_shear_lines_ui(beam_id: int, sec_id: int, disabled: bool):
+    n_key = KS("shear_n_lines", beam_id, sec_id)
+    pas_key = KS("shear_pas", beam_id, sec_id)
+    prefix = "shear_line"
+    add_btn_key = KS("btn_add_shear_line", beam_id, sec_id)
+    del_btn_prefix = KS("btn_del_shear_line_", beam_id, sec_id)
+    type_label = "Type"
+    pas_label = "Pas choisi (cm)"
+    diam_label = "Ø (mm)"
+    nb_label = "Nbr. cadres"
 
     n_lines = max(1, int(st.session_state.get(n_key, 1) or 1))
     st.session_state[n_key] = n_lines
@@ -1247,16 +1244,16 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, reduced: bool, disabled: b
                     use_container_width=True,
                     disabled=disabled,
                     on_click=_delete_shear_line,
-                    args=(beam_id, sec_id, reduced, i),
+                    args=(beam_id, sec_id, False, i),
                 )
 
     st.button(
-        "➕ Ajouter armature d'effort tranchant" + (" (réduit)" if reduced else ""),
+        "➕ Ajouter armature d'effort tranchant",
         key=add_btn_key,
         use_container_width=True,
         disabled=disabled,
         on_click=_add_shear_line,
-        args=(beam_id, sec_id, reduced),
+        args=(beam_id, sec_id, False),
     )
 
 
@@ -1344,7 +1341,7 @@ def _render_lits_table(beam_id: int, sec_id: int, which: str, disabled: bool):
     # En-tête du tableau
     h0, h1, h2, h3, h4 = st.columns(LIT_COLS, vertical_alignment="bottom")
     with h0:
-        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Lit</div>", unsafe_allow_html=True)
+        st.markdown("")
     with h1:
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Nb barres</div>", unsafe_allow_html=True)
     with h2:
@@ -1439,7 +1436,6 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
         hmin_calc = states["hmin_calc"]
         dist_l1_inf = states["dist_l1_inf"]
         V_val = states["V_val"]
-        V_lim_val = states["V_lim_val"]
 
         # ---- Vérification de la hauteur ----
         if units_len == "mm":
@@ -1476,7 +1472,7 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 return "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
             return "Pas acceptable", "nok", "τ_adm_IV", tau_4
 
-        def _bloc_pas(V_kn: float, pas_key_base: str, reduced: bool, titre_tau: str, titre_pas: str, etat_pas_state: str):
+        def _bloc_pas(V_kn: float, pas_key_base: str, titre_tau: str, titre_pas: str, etat_pas_state: str):
             tau = V_kn * 1e3 / (0.75 * b * h * 100)
             besoin, etat_tau, nom_lim, tau_lim = _shear_need_text(tau)
 
@@ -1484,10 +1480,10 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
-            _render_shear_lines_ui(beam_id, sec_id, reduced=reduced, disabled=dim_locked)
+            _render_shear_lines_ui(beam_id, sec_id, disabled=dim_locked)
 
             pas = float(st.session_state.get(KS(pas_key_base, beam_id, sec_id), 30.0) or 30.0)
-            Ast_e = _shear_lines_total_Ast_mm2(beam_id, sec_id, reduced=reduced)
+            Ast_e = _shear_lines_total_Ast_mm2(beam_id, sec_id, reduced=False)
             d_sh = max(states["d_utile_shear"], 0.1)
             pas_th = Ast_e * fyd * (d_sh * 10.0) / (V_kn * 1e3) / 10.0  # cm
             s_max = min(0.75 * d_sh, 30.0)
@@ -1500,14 +1496,11 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
             with a2:
                 st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
-            st.caption(_shear_lines_summary(beam_id, sec_id, reduced=reduced))
+            st.caption(_shear_lines_summary(beam_id, sec_id, reduced=False))
             close_bloc()
 
         if V_val > 0:
-            _bloc_pas(V_val, "shear_pas", False, "Vérification de l'effort tranchant", "Détermination des étriers", states["etat_pas"])
-
-        if states["has_Vlim"]:
-            _bloc_pas(V_lim_val, "shear_pas_r", True, "Vérification effort tranchant réduit", "Détermination étriers réduits", states["etat_pas_r"])
+            _bloc_pas(V_val, "shear_pas", "Vérification de l'effort tranchant", "Détermination des étriers", states["etat_pas"])
 
 
 # ============================================================
@@ -1564,7 +1557,8 @@ def render_parametres_avances():
             step=0.05,
             format="%.2f",
             key="gamma_s",
-            help="fyd = fyk / γs — ex. acier 500 : 500 / 1,15 = 435 MPa",
+            help="fyd = fyk / γs — défaut 1,5 (méthode ancienne). "
+                 "Ex. acier 500 : 500/1,5 = 333 MPa ; avec γs=1,15 : 435 MPa.",
         )
 
     with c3:
