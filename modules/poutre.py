@@ -1,7 +1,35 @@
 # ===========================
-#  VERSION 2.31
+#  VERSION 2.32
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.31 :
+#   1. FIX BUG RECALCUL (étriers rouges à tort) : les champs décimaux
+#      FR (pas choisi, moments, V...) ne synchronisaient leur valeur
+#      numérique qu'au rendu du widget, c.-à-d. APRÈS les calculs du
+#      run -> les vérifications utilisaient la valeur du run précédent.
+#      Symptôme : pas correct mais vérification rouge, qui repassait
+#      au vert en touchant n'importe quel autre champ. Corrigé par
+#      _sync_float_raw_keys() en tout début de run.
+#   2. EXPANDERS qui se referment seuls : le libellé des expanders
+#      contient l'icône d'état (🟢/🔴) ; quand l'état change, Streamlit
+#      considère que c'est un NOUVEL expander et le remet à son état
+#      par défaut. Les expanders du dimensionnement sont donc tous à
+#      expanded=True (limitation Streamlit : pas de key sur expander).
+#   3. INFOS PROJET : la case "Ajouter" est remplacée par un bouton
+#      ➕ / ➖ compact.
+#   4. EFFORT TRANCHANT : la conclusion "Détermination des étriers"
+#      (vert/rouge) est remontée AVANT le tableau de saisie.
+#   5. AJOUT DE SECTION : bouton ➕ sur la ligne du nom de section
+#      (infobulle "Ajouter une section") ; le bouton "Ajouter une
+#      section à vérifier" est supprimé.
+#   6. POUTRES : infobulle du 📋 raccourcie en "Copier la poutre" ;
+#      le bouton "Ajouter une poutre" est supprimé (la duplication
+#      couvre le besoin).
+#   7. INFOBULLES PÉDAGOGIQUES : formules + valeurs numériques au
+#      survol de h,min, As,req, As,min, As,max et du pas théorique.
+#   8. LIBELLÉS sollicitations : "M inf (kN·m)", "M sup (kN·m)",
+#      "V (kN)".
 #
 #  Évolutions vs 2.30 :
 #   a. DISTANCE AUTO LIT 1 = enrobage
@@ -166,6 +194,36 @@ def _pin_persistent_state():
             st.session_state[k] = st.session_state[k]
         elif k.endswith("_raw") and (re.match(r"^b\d+_", k) or k[:-4] in PERSISTED_GLOBAL_KEYS):
             st.session_state[k] = st.session_state[k]
+
+
+def _sync_float_raw_keys():
+    """
+    FIX BUG RECALCUL :
+    les champs décimaux FR stockent la saisie dans '<clé>_raw' et la
+    valeur numérique dans '<clé>'. La valeur numérique n'était mise à
+    jour qu'au rendu du widget, c.-à-d. APRÈS les calculs du run en
+    cours -> les vérifications utilisaient la valeur du run précédent
+    (symptôme : pas correct mais statut rouge jusqu'à la modification
+    d'un autre champ). On synchronise donc toutes les clés *_raw vers
+    leur clé numérique en tout début de run, AVANT tout calcul.
+    """
+    for k in list(st.session_state.keys()):
+        if not k.endswith("_raw"):
+            continue
+        base = k[:-4]
+        try:
+            val = float(str(st.session_state[k]).strip().replace(",", "."))
+        except Exception:
+            continue
+        st.session_state[base] = max(0.0, float(val))
+
+
+def _fr(x, nd=1):
+    """Format FR (virgule décimale) pour les infobulles."""
+    try:
+        return f"{float(x):.{nd}f}".replace(".", ",")
+    except Exception:
+        return str(x)
 
 
 def _ensure_global_defaults():
@@ -548,7 +606,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.31", "beams": beams, "values": values}
+    return {"version": "2.32", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -888,11 +946,11 @@ def _delete_lit(beam_id: int, sec_id: int, which: str, i: int):
 def _render_section_inputs(beam_id: int, sec_id: int, disabled: bool):
     c1, c2, c3 = st.columns(3)
     with c1:
-        float_input_fr_simple("Moment inférieur (kN.m)", key=KS("M_inf", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("M inf (kN·m)", key=KS("M_inf", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
     with c2:
-        float_input_fr_simple("Moment supérieur (kN.m)", key=KS("M_sup", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("M sup (kN·m)", key=KS("M_sup", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
     with c3:
-        float_input_fr_simple("Effort tranchant (kN)", key=KS("V", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("V (kN)", key=KS("V", beam_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
 
 
 def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
@@ -906,13 +964,23 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
 
         # Bloc bordé : l'en-tête EST le champ de nom (plus de double affichage)
         with st.container(border=True):
-            cN, cC, cD = st.columns([6, 0.8, 0.8], vertical_alignment="center")
+            cN, cA, cC, cD = st.columns([5.4, 0.8, 0.8, 0.8], vertical_alignment="center")
             with cN:
                 st.text_input(
                     "Nom de la section",
                     key=sec_name_key,
                     disabled=data_locked,
                     label_visibility="collapsed",
+                )
+            with cA:
+                st.button(
+                    "➕",
+                    key=f"add_sec_btn_{beam_id}_{sec_id}",
+                    help="Ajouter une section",
+                    use_container_width=True,
+                    on_click=_add_section,
+                    args=(beam_id,),
+                    disabled=data_locked,
                 )
             with cC:
                 st.button(
@@ -938,25 +1006,15 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
 
             _render_section_inputs(beam_id, sec_id, disabled=data_locked)
 
-    cA, cD2 = st.columns([3, 1.4])
-    with cA:
+    if beam_id != 1:
         st.button(
-            "Ajouter une section à vérifier",
-            key=f"add_sec_btn_{beam_id}",
-            on_click=_add_section,
+            "🗑️ Supprimer la poutre",
+            key=f"del_beam_btn_{beam_id}",
+            on_click=_delete_beam,
             args=(beam_id,),
             disabled=data_locked,
+            use_container_width=True,
         )
-    with cD2:
-        if beam_id != 1:
-            st.button(
-                "Supprimer la poutre",
-                key=f"del_beam_btn_{beam_id}",
-                on_click=_delete_beam,
-                args=(beam_id,),
-                disabled=data_locked,
-                use_container_width=True,
-            )
 
 
 def _toggle_beam_lock(beam_id: int):
@@ -982,7 +1040,7 @@ def render_caracteristiques_beam(beam_id: int):
             st.button(
                 "📋",
                 key=f"btn_copy_beam_{beam_id}",
-                help="Copier la poutre (toutes les données)",
+                help="Copier la poutre",
                 use_container_width=True,
                 on_click=_duplicate_beam,
                 args=(beam_id,),
@@ -1151,6 +1209,9 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
         "tau_4": tau_4,
         "fyd": fyd,
         "gamma_s": gamma_s,
+        "fyk": fyk,
+        "alpha_b": alpha_b,
+        "mu_val": mu_val,
         "beton": beton,
         "b": b,
         "h": h,
@@ -1375,13 +1436,38 @@ def _render_face_armatures(beam_id: int, sec_id: int, which: str, states: dict, 
 
     open_bloc_left_right(titre, right, etat)
 
+    # Infobulles pédagogiques : formule + valeurs numériques
+    M_face = states["M_inf_val"] if is_inf else states["M_sup_val"]
+    d_face = states["d_utile_inf"] if is_inf else states["d_utile_sup"]
+    As_req_opp = states["As_formule_sup"] if is_inf else states["As_formule_inf"]
+    fyk = states["fyk"]; gs = states["gamma_s"]; fyd = states["fyd"]
+
+    help_req = (
+        "**Aₛ,req = M / (fyd · 0,9 · d)**\n\n"
+        f"M = {_fr(M_face, 1)} kN·m\n\n"
+        f"fyd = {_fr(fyk, 0)} / {_fr(gs, 2)} = {_fr(fyd, 0)} N/mm²\n\n"
+        f"d = {_fr(d_face, 1)} cm\n\n"
+        f"→ Aₛ,req = {_fr(As_req, 0)} mm²"
+    )
+    help_min = (
+        "**Aₛ,min = max( 0,26·fctm/fyk·b·h ; 0,0013·b·h ; 0,25·Aₛ,req face opposée )**\n\n"
+        f"0,26 · {_fr(states['fctm'], 1)} / {_fr(fyk, 0)} · b · h = {_fr(states['As_min_ec'], 0)} mm²\n\n"
+        f"0,0013 · b · h = {_fr(states['As_min_plancher'], 0)} mm²\n\n"
+        f"0,25 · {_fr(As_req_opp, 0)} = {_fr(0.25 * As_req_opp, 0)} mm²\n\n"
+        f"→ Aₛ,min = {_fr(As_min_eff, 0)} mm²"
+    )
+    help_max = (
+        "**Aₛ,max = 0,04 · b · h**\n\n"
+        f"0,04 · {_fr(states['b'] * 10, 0)} · {_fr(states['h'] * 10, 0)} = {_fr(As_max, 0)} mm²"
+    )
+
     ca1, ca2, ca3 = st.columns(3)
     with ca1:
-        st.markdown(f"**Aₛ,req,{'inf' if is_inf else 'sup'} = {As_req:.0f} mm²**")
+        st.markdown(f"**Aₛ,req,{'inf' if is_inf else 'sup'} = {As_req:.0f} mm²**", help=help_req)
     with ca2:
-        st.markdown(f"**Aₛ,min,{'inf' if is_inf else 'sup'} = {As_min_eff:.0f} mm²**")
+        st.markdown(f"**Aₛ,min,{'inf' if is_inf else 'sup'} = {As_min_eff:.0f} mm²**", help=help_min)
     with ca3:
-        st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**")
+        st.markdown(f"**Aₛ,max = {As_max:.0f} mm²**", help=help_max)
 
     if not geom_ok:
         st.markdown("❌ **Position des lits incompatible avec la hauteur : d utile ≤ 0.**")
@@ -1420,7 +1506,11 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
     states = _dimensionnement_compute_states(beam_id, sec_id, beton_data)
     title = _status_icon_label(states["etat_global"], sec_nom)
 
-    with st.expander(title, expanded=True if sec_id == 1 else False):
+    # NB : expanded=True pour tous — le libellé contient l'icône d'état,
+    # et Streamlit remet un expander à son état par défaut dès que son
+    # libellé change ; avec False, les sections se refermaient toutes
+    # seules à chaque changement d'état.
+    with st.expander(title, expanded=True):
         if beam_locked:
             st.caption("🔒 Poutre verrouillée — édition bloquée.")
 
@@ -1443,16 +1533,27 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
         else:
             right_h = f"{beton} — {b:.0f}×{h:.0f} cm — hmin={hmin_calc:.1f} cm"
 
+        M_max_val = max(states["M_inf_val"], states["M_sup_val"])
+        help_hmin = (
+            "**h,min = √( M / (α_b · b · μ) )**\n\n"
+            f"M = {_fr(M_max_val, 1)} kN·m\n\n"
+            f"α_b = {_fr(states['alpha_b'], 2)}\n\n"
+            f"b = {_fr(b * 10, 0)} mm\n\n"
+            f"μ = {states['mu_val']}\n\n"
+            f"→ h,min = {_fr(hmin_calc, 1)} cm"
+        )
         open_bloc_left_right("Vérification de la hauteur", right_h, states["etat_h"])
         if units_len == "mm":
             st.markdown(
                 f"**h,min** = {hmin_calc*10:.0f} mm  \n"
-                f"h,min + distance axe lit 1 (inf.) = {(hmin_calc + dist_l1_inf)*10:.0f} mm ≤ h = {h*10:.0f} mm"
+                f"h,min + distance axe lit 1 (inf.) = {(hmin_calc + dist_l1_inf)*10:.0f} mm ≤ h = {h*10:.0f} mm",
+                help=help_hmin,
             )
         else:
             st.markdown(
                 f"**h,min** = {hmin_calc:.1f} cm  \n"
-                f"h,min + distance axe lit 1 (inf.) = {hmin_calc + dist_l1_inf:.1f} cm ≤ h = {h:.1f} cm"
+                f"h,min + distance axe lit 1 (inf.) = {hmin_calc + dist_l1_inf:.1f} cm ≤ h = {h:.1f} cm",
+                help=help_hmin,
             )
         close_bloc()
 
@@ -1480,8 +1581,7 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
-            _render_shear_lines_ui(beam_id, sec_id, disabled=dim_locked)
-
+            # Conclusion AVANT la saisie : c'est l'information principale.
             pas = float(st.session_state.get(KS(pas_key_base, beam_id, sec_id), 30.0) or 30.0)
             Ast_e = _shear_lines_total_Ast_mm2(beam_id, sec_id, reduced=False)
             d_sh = max(states["d_utile_shear"], 0.1)
@@ -1489,15 +1589,27 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             s_max = min(0.75 * d_sh, 30.0)
             pas_lim = min(pas_th, s_max)
 
+            help_pas = (
+                "**s,th = Aₛₜ · fyd · d / V**\n\n"
+                f"Aₛₜ = {_fr(Ast_e, 1)} mm²\n\n"
+                f"fyd = {_fr(fyd, 0)} N/mm²\n\n"
+                f"d = {_fr(d_sh, 1)} cm\n\n"
+                f"V = {_fr(V_kn, 1)} kN\n\n"
+                f"→ s,th = {_fr(pas_th, 1)} cm"
+            )
+
             right_et = f"pas={pas:.1f} ≤ min({pas_th:.1f},{s_max:.1f})={pas_lim:.1f} cm"
             open_bloc_left_right(titre_pas, right_et, etat_pas_state)
             a1, a2 = st.columns(2)
             with a1:
-                st.markdown(f"**Pas théorique = {pas_th:.1f} cm**")
+                st.markdown(f"**Pas théorique = {pas_th:.1f} cm**", help=help_pas)
             with a2:
-                st.markdown(f"**Pas maximal = {s_max:.1f} cm**")
+                st.markdown(f"**Pas maximal = {s_max:.1f} cm**", help="**s,max = min( 0,75 · d ; 30 cm )**")
             st.caption(_shear_lines_summary(beam_id, sec_id, reduced=False))
             close_bloc()
+
+            # Saisie des armatures d'effort tranchant (après la conclusion)
+            _render_shear_lines_ui(beam_id, sec_id, disabled=dim_locked)
 
         if V_val > 0:
             _bloc_pas(V_val, "shear_pas", "Vérification de l'effort tranchant", "Détermination des étriers", states["etat_pas"])
@@ -1506,6 +1618,10 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 # ============================================================
 #  UI : INFOS PROJET / PARAMÈTRES AVANCÉS
 # ============================================================
+def _toggle_infos_projet():
+    st.session_state["chk_infos_projet"] = not bool(st.session_state.get("chk_infos_projet", False))
+
+
 def render_infos_projet():
     st.session_state.setdefault("chk_infos_projet", False)
     st.session_state.setdefault("nom_projet", "")
@@ -1513,13 +1629,18 @@ def render_infos_projet():
     st.session_state.setdefault("date", datetime.today().strftime("%d/%m/%Y"))
     st.session_state.setdefault("indice", "0")
 
-    cT, cLbl, cChk = st.columns([6, 2.2, 0.8], vertical_alignment="center")
+    shown = bool(st.session_state.get("chk_infos_projet", False))
+    cT, cBtn = st.columns([6, 0.6], vertical_alignment="center")
     with cT:
         st.markdown("### Informations sur le projet")
-    with cLbl:
-        st.markdown("<div style='text-align:right;font-style:italic;opacity:0.75;'>Ajouter</div>", unsafe_allow_html=True)
-    with cChk:
-        st.checkbox("Ajouter les informations du projet", key="chk_infos_projet", label_visibility="collapsed")
+    with cBtn:
+        st.button(
+            "➖" if shown else "➕",
+            key="btn_toggle_infos_projet",
+            help="Masquer les informations du projet" if shown else "Ajouter les informations du projet",
+            use_container_width=True,
+            on_click=_toggle_infos_projet,
+        )
 
     if bool(st.session_state.get("chk_infos_projet", False)):
         with st.container(border=True):
@@ -1577,8 +1698,6 @@ def render_donnees_left(beton_data: dict):
         b["nom"] = str(st.session_state.get(f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}")))
         render_caracteristiques_beam(bid)
 
-    st.button("➕ Ajouter une poutre", use_container_width=True, key="btn_add_beam_simple", on_click=_add_beam)
-
 
 def render_dimensionnement_right(beton_data: dict):
     for b in st.session_state.beams:
@@ -1594,7 +1713,9 @@ def render_dimensionnement_right(beton_data: dict):
         lock_icon = "🔒 " if bool(st.session_state.get(KB("lock_data", bid), False)) else ""
         beam_label = _status_icon_label(beam_state, f"{lock_icon}{bnom}")
 
-        with st.expander(beam_label, expanded=True if bid == 1 else False):
+        # expanded=True : libellé dynamique (icône d'état) -> Streamlit
+        # réinitialise l'expander à chaque changement de libellé.
+        with st.expander(beam_label, expanded=True):
             for s in b.get("sections", []):
                 render_dimensionnement_section(bid, int(s["id"]), beton_data)
 
@@ -1618,6 +1739,10 @@ def show():
 
     # FIX PERSISTANCE : épingler toutes les clés persistantes AVANT tout rendu.
     _pin_persistent_state()
+
+    # FIX BUG RECALCUL : synchroniser les saisies décimales FR (*_raw)
+    # vers leurs valeurs numériques AVANT tout calcul.
+    _sync_float_raw_keys()
 
     if "retour_accueil_demande" not in st.session_state:
         st.session_state.retour_accueil_demande = False
