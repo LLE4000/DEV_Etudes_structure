@@ -1,7 +1,25 @@
 # ===========================
-#  VERSION 2.32
+#  VERSION 2.33
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.32 :
+#   1. ÉTRIERS / ÉPINGLES POSITIONNÉS INDIVIDUELLEMENT :
+#      - le champ "Nbr. cadres" est supprimé : 1 ligne = 1 étrier
+#        (ou 1 épingle). Migration automatique : une ancienne ligne
+#        avec n cadres est dupliquée en n lignes identiques (Ast et
+#        vérifications strictement conservés).
+#      - chaque ligne porte une position "de barre X → à barre Y"
+#        (barres du lit 1 inférieur). Par défaut, un étrier englobe
+#        toutes les barres (1 → n) : comportement actuel conservé.
+#        Une épingle est par défaut sur la barre centrale.
+#      - ces positions ne servent QU'AU DESSIN (coupe de section du
+#        PDF) : aucun calcul (brins, cisaillement, pas) n'est modifié.
+#      - interface discrète : les sélecteurs de position n'apparaissent
+#        que s'il y a plusieurs barres au lit 1 inférieur, sur la même
+#        ligne que le type et le Ø.
+#   2. PARAMÈTRES AVANCÉS : la case + le texte sont remplacés par une
+#      icône ⚙️ qui ouvre/referme le panneau.
 #
 #  Évolutions vs 2.31 :
 #   1. FIX BUG RECALCUL (étriers rouges à tort) : les champs décimaux
@@ -402,6 +420,43 @@ def _migrate_second_lit(beam_id: int, sec_id: int, which: str):
         st.session_state[old_flag] = False
 
 
+def _migrate_shear_cadres(beam_id: int, sec_id: int):
+    """
+    Migration v2.33 : 1 ligne = 1 étrier/épingle. Les anciennes lignes
+    avec 'Nbr. cadres' n>1 sont dupliquées en n lignes identiques
+    (Ast total et dessin strictement conservés). Idempotent : les clés
+    *_n sont retirées au passage.
+    """
+    nk = KS("shear_n_lines", beam_id, sec_id)
+    n_lines = max(1, int(st.session_state.get(nk, 1) or 1))
+    lines = []
+    expanded = False
+    for i in range(n_lines):
+        typ = st.session_state.get(KS(f"shear_line{i}_type", beam_id, sec_id), "Étriers (2 brins)")
+        d = st.session_state.get(KS(f"shear_line{i}_d", beam_id, sec_id), 8)
+        f = st.session_state.get(KS(f"shear_line{i}_from", beam_id, sec_id), None)
+        t = st.session_state.get(KS(f"shear_line{i}_to", beam_id, sec_id), None)
+        n_raw = st.session_state.pop(KS(f"shear_line{i}_n", beam_id, sec_id), None)
+        try:
+            n = max(1, int(float(n_raw))) if n_raw is not None else 1
+        except Exception:
+            n = 1
+        if n > 1:
+            expanded = True
+        for _ in range(n):
+            lines.append((typ, d, f, t))
+    if not expanded:
+        return
+    for i, (typ, d, f, t) in enumerate(lines):
+        st.session_state[KS(f"shear_line{i}_type", beam_id, sec_id)] = typ
+        st.session_state[KS(f"shear_line{i}_d", beam_id, sec_id)] = d
+        if f is not None:
+            st.session_state[KS(f"shear_line{i}_from", beam_id, sec_id)] = f
+        if t is not None:
+            st.session_state[KS(f"shear_line{i}_to", beam_id, sec_id)] = t
+    st.session_state[nk] = len(lines)
+
+
 def _ensure_defaults_for_beam(beam_id: int):
     # Poutre
     st.session_state.setdefault(KB("b", beam_id), 20)
@@ -486,17 +541,48 @@ def _ensure_defaults_for_beam(beam_id: int):
                     st.session_state.pop(kv, None)
                     st.session_state[KS(f"enrob_calc_{which}_override", beam_id, sid)] = False
 
-        # Cisaillement (le concept "réduit" est supprimé)
+        # Cisaillement : 1 ligne = 1 étrier/épingle, positionné "de barre
+        # X à barre Y" (barres du lit 1 inférieur). Migration : les
+        # anciennes lignes avec "Nbr. cadres" n>1 sont dupliquées en n
+        # lignes identiques (Ast et vérifications conservés).
         st.session_state.setdefault(KS("shear_n_lines", beam_id, sid), 1)
         st.session_state.setdefault(KS("shear_pas", beam_id, sid), 30.0)
+        _migrate_shear_cadres(beam_id, sid)
 
+        n_bars = max(1, int(st.session_state.get(KS("n_as_inf", beam_id, sid), 2) or 2))
         n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", beam_id, sid), 1) or 1))
         st.session_state[KS("shear_n_lines", beam_id, sid)] = n_lines
         for i in range(n_lines):
             st.session_state.setdefault(KS(f"shear_line{i}_type", beam_id, sid), "Étriers (2 brins)" if i == 0 else "Épingles (1 brin)")
-            st.session_state.setdefault(KS(f"shear_line{i}_n", beam_id, sid), 1)
             st.session_state.setdefault(KS(f"shear_line{i}_d", beam_id, sid), 8)
             _coerce_int_choice(KS(f"shear_line{i}_d", beam_id, sid), SHEAR_DIAM_OPTS, 8)
+
+            # Positions par défaut : étrier = toutes les barres (1 -> n),
+            # épingle = barre centrale. Clamp + swap pré-rendu.
+            typ = str(st.session_state.get(KS(f"shear_line{i}_type", beam_id, sid), ""))
+            if _brins_from_type(typ) == 1:
+                mid = (n_bars + 1) // 2
+                df, dt = mid, mid
+            else:
+                df, dt = 1, n_bars
+            kf = KS(f"shear_line{i}_from", beam_id, sid)
+            kt = KS(f"shear_line{i}_to", beam_id, sid)
+            st.session_state.setdefault(kf, df)
+            st.session_state.setdefault(kt, dt)
+            try:
+                f = max(1, min(n_bars, int(float(st.session_state.get(kf, df)))))
+            except Exception:
+                f = df
+            try:
+                t = max(1, min(n_bars, int(float(st.session_state.get(kt, dt)))))
+            except Exception:
+                t = dt
+            if f > t:
+                f, t = t, f
+            if st.session_state.get(kf) != f:
+                st.session_state[kf] = f
+            if st.session_state.get(kt) != t:
+                st.session_state[kt] = t
 
 
 def _add_beam():
@@ -606,7 +692,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.32", "beams": beams, "values": values}
+    return {"version": "2.33", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -845,59 +931,89 @@ def _layers_geometry(beam_id: int, sec_id: int, which: str):
 
 
 # ============================================================
-#  CISAILLEMENT : aires, résumé, callbacks
+#  CISAILLEMENT : aires, résumé, callbacks (1 ligne = 1 étrier)
 # ============================================================
-def _shear_prefix_nkey(reduced: bool):
-    return ("shear_r_line", "shear_n_lines_r") if reduced else ("shear_line", "shear_n_lines")
-
-
-def _shear_lines_total_Ast_mm2(beam_id: int, sec_id: int, reduced: bool) -> float:
-    prefix, nk = _shear_prefix_nkey(reduced)
-    n_lines = max(1, int(st.session_state.get(KS(nk, beam_id, sec_id), 1) or 1))
+def _shear_lines_total_Ast_mm2(beam_id: int, sec_id: int, reduced: bool = False) -> float:
+    """Ast = Σ brins × aire(Ø) — 1 ligne = 1 étrier/épingle (v2.33)."""
+    n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", beam_id, sec_id), 1) or 1))
     Ast = 0.0
     for i in range(n_lines):
-        typ = str(st.session_state.get(KS(f"{prefix}{i}_type", beam_id, sec_id), "Étriers (2 brins)"))
-        n_cadres = int(st.session_state.get(KS(f"{prefix}{i}_n", beam_id, sec_id), 1) or 1)
-        diam = float(st.session_state.get(KS(f"{prefix}{i}_d", beam_id, sec_id), 8) or 8)
-        Ast += n_cadres * _brins_from_type(typ) * _bar_area_mm2(diam)
+        typ = str(st.session_state.get(KS(f"shear_line{i}_type", beam_id, sec_id), "Étriers (2 brins)"))
+        diam = float(st.session_state.get(KS(f"shear_line{i}_d", beam_id, sec_id), 8) or 8)
+        Ast += _brins_from_type(typ) * _bar_area_mm2(diam)
     return Ast
 
 
-def _shear_lines_summary(beam_id: int, sec_id: int, reduced: bool) -> str:
-    prefix, nk = _shear_prefix_nkey(reduced)
-    n_lines = max(1, int(st.session_state.get(KS(nk, beam_id, sec_id), 1) or 1))
-    parts = []
+def _shear_line_pos(beam_id: int, sec_id: int, i: int):
+    """Position (from, to) de la ligne i (barres du lit 1 inférieur)."""
+    try:
+        f = int(float(st.session_state.get(KS(f"shear_line{i}_from", beam_id, sec_id), 1) or 1))
+    except Exception:
+        f = 1
+    try:
+        t = int(float(st.session_state.get(KS(f"shear_line{i}_to", beam_id, sec_id), f) or f))
+    except Exception:
+        t = f
+    return (f, t) if f <= t else (t, f)
+
+
+def _shear_lines_summary(beam_id: int, sec_id: int, reduced: bool = False) -> str:
+    """Résumé compact : lignes identiques regroupées, position affichée
+    quand elle n'est pas triviale (étrier partiel, épingle)."""
+    n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", beam_id, sec_id), 1) or 1))
+    n_bars = max(1, int(st.session_state.get(KS("n_as_inf", beam_id, sec_id), 2) or 2))
+    order = []
+    counts = {}
     for i in range(n_lines):
-        typ = str(st.session_state.get(KS(f"{prefix}{i}_type", beam_id, sec_id), "Étriers (2 brins)"))
-        n_cadres = int(st.session_state.get(KS(f"{prefix}{i}_n", beam_id, sec_id), 1) or 1)
-        diam = int(float(st.session_state.get(KS(f"{prefix}{i}_d", beam_id, sec_id), 8) or 8))
-        parts.append(f"{n_cadres}× {typ} Ø{diam}")
+        typ = str(st.session_state.get(KS(f"shear_line{i}_type", beam_id, sec_id), "Étriers (2 brins)"))
+        diam = int(float(st.session_state.get(KS(f"shear_line{i}_d", beam_id, sec_id), 8) or 8))
+        f, t = _shear_line_pos(beam_id, sec_id, i)
+        key = (typ, diam, f, t)
+        if key not in counts:
+            counts[key] = 0
+            order.append(key)
+        counts[key] += 1
+    parts = []
+    for (typ, diam, f, t) in order:
+        n = counts[(typ, diam, f, t)]
+        lab = f"{n}× {typ} Ø{diam}"
+        brins = _brins_from_type(typ)
+        full = (f <= 1 and t >= n_bars)
+        if brins == 1:
+            lab += f" (b{f})" if f == t else f" ({f}→{t})"
+        elif not full:
+            lab += f" ({f}→{t})"
+        parts.append(lab)
     return " + ".join(parts)
 
 
 def _delete_shear_line(beam_id: int, sec_id: int, reduced: bool, i: int):
     """Callback on_click : mutation légale des clés (avant instanciation des widgets)."""
-    prefix, nk = _shear_prefix_nkey(reduced)
-    n_lines = max(1, int(st.session_state.get(KS(nk, beam_id, sec_id), 1) or 1))
+    nk = KS("shear_n_lines", beam_id, sec_id)
+    prefix = "shear_line"
+    n_lines = max(1, int(st.session_state.get(nk, 1) or 1))
     if n_lines <= 1 or i <= 0 or i >= n_lines:
         return
     for j in range(i, n_lines - 1):
-        for suf in ("type", "n", "d"):
+        for suf in ("type", "d", "from", "to"):
             st.session_state[KS(f"{prefix}{j}_{suf}", beam_id, sec_id)] = st.session_state.get(
                 KS(f"{prefix}{j+1}_{suf}", beam_id, sec_id)
             )
-    for suf in ("type", "n", "d"):
+    for suf in ("type", "d", "from", "to"):
         st.session_state.pop(KS(f"{prefix}{n_lines-1}_{suf}", beam_id, sec_id), None)
-    st.session_state[KS(nk, beam_id, sec_id)] = n_lines - 1
+    st.session_state[nk] = n_lines - 1
 
 
-def _add_shear_line(beam_id: int, sec_id: int, reduced: bool):
-    prefix, nk = _shear_prefix_nkey(reduced)
-    new_i = max(1, int(st.session_state.get(KS(nk, beam_id, sec_id), 1) or 1))
-    st.session_state[KS(nk, beam_id, sec_id)] = new_i + 1
-    st.session_state.setdefault(KS(f"{prefix}{new_i}_type", beam_id, sec_id), "Épingles (1 brin)")
-    st.session_state.setdefault(KS(f"{prefix}{new_i}_n", beam_id, sec_id), 1)
-    st.session_state.setdefault(KS(f"{prefix}{new_i}_d", beam_id, sec_id), 8)
+def _add_shear_line(beam_id: int, sec_id: int, reduced: bool = False):
+    nk = KS("shear_n_lines", beam_id, sec_id)
+    new_i = max(1, int(st.session_state.get(nk, 1) or 1))
+    st.session_state[nk] = new_i + 1
+    n_bars = max(1, int(st.session_state.get(KS("n_as_inf", beam_id, sec_id), 2) or 2))
+    mid = (n_bars + 1) // 2
+    st.session_state.setdefault(KS(f"shear_line{new_i}_type", beam_id, sec_id), "Épingles (1 brin)")
+    st.session_state.setdefault(KS(f"shear_line{new_i}_d", beam_id, sec_id), 8)
+    st.session_state.setdefault(KS(f"shear_line{new_i}_from", beam_id, sec_id), mid)
+    st.session_state.setdefault(KS(f"shear_line{new_i}_to", beam_id, sec_id), mid)
 
 
 # ============================================================
@@ -1252,49 +1368,62 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, disabled: bool):
     prefix = "shear_line"
     add_btn_key = KS("btn_add_shear_line", beam_id, sec_id)
     del_btn_prefix = KS("btn_del_shear_line_", beam_id, sec_id)
-    type_label = "Type"
-    pas_label = "Pas choisi (cm)"
-    diam_label = "Ø (mm)"
-    nb_label = "Nbr. cadres"
 
     n_lines = max(1, int(st.session_state.get(n_key, 1) or 1))
     st.session_state[n_key] = n_lines
 
+    # Barres du lit 1 inférieur : référence des positions "de -> à".
+    n_bars = max(1, int(st.session_state.get(KS("n_as_inf", beam_id, sec_id), 2) or 2))
+    bar_opts = list(range(1, n_bars + 1))
+    show_pos = n_bars > 1  # positions discrètes : visibles seulement si plusieurs barres
+
     for i in range(n_lines):
         st.session_state.setdefault(KS(f"{prefix}{i}_type", beam_id, sec_id), "Étriers (2 brins)" if i == 0 else "Épingles (1 brin)")
-        st.session_state.setdefault(KS(f"{prefix}{i}_n", beam_id, sec_id), 1)
         st.session_state.setdefault(KS(f"{prefix}{i}_d", beam_id, sec_id), 8)
 
-        c0, c1, c2, c3, c4 = st.columns([3, 2, 2, 2, 1], vertical_alignment="center")
+        if show_pos:
+            c0, c1, cF, cT, c3, c4 = st.columns([2.6, 1.3, 0.9, 0.9, 1.6, 0.65], vertical_alignment="center")
+        else:
+            c0, c1, c3, c4 = st.columns([2.6, 1.3, 3.4, 0.65], vertical_alignment="center")
+
         with c0:
             st.selectbox(
-                type_label,
+                "Type",
                 ["Étriers (2 brins)", "Épingles (1 brin)", "Étriers (3 brins)"],
                 key=KS(f"{prefix}{i}_type", beam_id, sec_id),
                 label_visibility="visible" if i == 0 else "collapsed",
                 disabled=disabled,
             )
         with c1:
-            st.number_input(
-                nb_label,
-                min_value=1,
-                max_value=8,
-                step=1,
-                key=KS(f"{prefix}{i}_n", beam_id, sec_id),
-                label_visibility="visible" if i == 0 else "collapsed",
-                disabled=disabled,
-            )
-        with c2:
             st.selectbox(
-                diam_label,
+                "Ø (mm)",
                 SHEAR_DIAM_OPTS,
                 key=KS(f"{prefix}{i}_d", beam_id, sec_id),
                 label_visibility="visible" if i == 0 else "collapsed",
                 disabled=disabled,
             )
+        if show_pos:
+            with cF:
+                st.selectbox(
+                    "de",
+                    bar_opts,
+                    key=KS(f"{prefix}{i}_from", beam_id, sec_id),
+                    label_visibility="visible" if i == 0 else "collapsed",
+                    disabled=disabled,
+                    help="Barre de début (lit 1 inf.) — dessin uniquement" if i == 0 else None,
+                )
+            with cT:
+                st.selectbox(
+                    "à",
+                    bar_opts,
+                    key=KS(f"{prefix}{i}_to", beam_id, sec_id),
+                    label_visibility="visible" if i == 0 else "collapsed",
+                    disabled=disabled,
+                    help="Barre de fin (lit 1 inf.) — dessin uniquement" if i == 0 else None,
+                )
         with c3:
             if i == 0:
-                float_input_fr_simple(pas_label, key=pas_key, default=30.0, min_value=1.0, disabled=disabled)
+                float_input_fr_simple("Pas choisi (cm)", key=pas_key, default=30.0, min_value=1.0, disabled=disabled)
             else:
                 st.markdown("")
         with c4:
@@ -1618,6 +1747,10 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 # ============================================================
 #  UI : INFOS PROJET / PARAMÈTRES AVANCÉS
 # ============================================================
+def _toggle_param_avances():
+    st.session_state["show_param_avances"] = not bool(st.session_state.get("show_param_avances", False))
+
+
 def _toggle_infos_projet():
     st.session_state["chk_infos_projet"] = not bool(st.session_state.get("chk_infos_projet", False))
 
@@ -1837,13 +1970,17 @@ def show():
     with result_col_droite:
         st.session_state.setdefault("show_param_avances", False)
 
-        cH1, cH2, cH3 = st.columns([18, 2.6, 0.6], vertical_alignment="center")
+        cH1, cH2 = st.columns([20, 0.8], vertical_alignment="center")
         with cH1:
             st.markdown("### Dimensionnement")
         with cH2:
-            small_italic_label_right("Paramètres avancés")
-        with cH3:
-            st.checkbox("Afficher paramètres avancés", key="show_param_avances", label_visibility="collapsed")
+            st.button(
+                "⚙️",
+                key="btn_toggle_param_avances",
+                help="Paramètres avancés",
+                use_container_width=True,
+                on_click=_toggle_param_avances,
+            )
 
         if bool(st.session_state.get("show_param_avances", False)):
             with st.container(border=True):
