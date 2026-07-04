@@ -1,7 +1,19 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  VERSION 2.32 (alignée sur poutre.py 2.32)
+#  VERSION 2.33 (alignée sur poutre.py 2.33)
+#
+#  Évolutions vs 2.32 :
+#   - ÉTRIERS / ÉPINGLES POSITIONNÉS : chaque ligne porte une position
+#     "de barre X → à barre Y" (barres du lit 1 inférieur). La coupe de
+#     section dessine exactement chaque étrier (rectangle limité aux
+#     barres choisies, étriers imbriqués distingués par un léger
+#     décalage) et chaque épingle (brin vertical sur une barre, ou
+#     agrafe horizontale entre deux barres). Par défaut (1 → n), le
+#     rendu périmétrique actuel est conservé à l'identique.
+#   - "Nbr. cadres" supprimé côté app (1 ligne = 1 étrier) ; lecture
+#     conservée ici avec défaut 1 pour compat d'anciens fichiers.
+#   - Aucun calcul modifié.
 #
 #  Corrections principales vs 2.20 :
 #   - ARMATURES SUPÉRIEURES : elles n'apparaissaient plus dans le
@@ -428,12 +440,23 @@ def _shear_lines(values, bid, sid):
     Ast = 0.0; parts = []; groups = []
     for i in range(n_lines):
         typ = str(_g(values, KS(f"{prefix}{i}_type", bid, sid), "Étriers (2 brins)"))
+        # 'Nbr. cadres' n'existe plus (1 ligne = 1 étrier) ; lecture avec
+        # défaut 1 conservée pour compat d'anciens fichiers non migrés.
         n_c = int(_g(values, KS(f"{prefix}{i}_n", bid, sid), 1) or 1)
         diam = float(_g(values, KS(f"{prefix}{i}_d", bid, sid), 8) or 8)
+        try:
+            frm = int(float(_g(values, KS(f"{prefix}{i}_from", bid, sid), 0) or 0)) or None
+        except Exception:
+            frm = None
+        try:
+            to = int(float(_g(values, KS(f"{prefix}{i}_to", bid, sid), 0) or 0)) or None
+        except Exception:
+            to = None
         brins = _brins_from_type(typ)
         Ast += n_c * brins * _bar_area_mm2(diam)
-        parts.append(f"{n_c}\u00d7 {typ} \u00d8{int(diam)}")
-        groups.append({"type": typ, "n": n_c, "d": int(diam), "brins": brins})
+        parts.append((f"{n_c}\u00d7 " if n_c > 1 else "") + f"{typ} \u00d8{int(diam)}")
+        for _ in range(max(1, n_c)):
+            groups.append({"type": typ, "d": int(diam), "brins": brins, "from": frm, "to": to})
     return Ast, " + ".join(parts), groups
 
 
@@ -616,20 +639,12 @@ class SectionDrawing(Flowable):
         self._dash_axis(c, x0 + sw / 2, y0 - ext, x0 + sw / 2, y0 + sh + ext)
         self._dash_axis(c, x0 - ext, y0 + sh / 2, x0 + sw + ext, y0 + sh / 2)
 
-        # enrobage étrier approx pour offset des barres
+        # enrobage étrier pour offset des barres (Ø max des étriers)
         enrob_beton = float(R.get("enrob_beton", 3.0))
         st_off = enrob_beton * 10.0 * sc
-        st_main = self.stirrups[0] if self.stirrups else {"d": 8}
-        stw_main = max(1.0, float(st_main.get("d", 8)) * sc)
+        d_et_max = max((float(s.get("d", 8)) for s in self.stirrups), default=8.0)
+        stw_main = max(1.0, d_et_max * sc)
         bar_off = st_off + stw_main + 1.0
-
-        # étrier périmétrique
-        for stg in self.stirrups:
-            st_d = float(stg.get("d", 8))
-            stw = max(1.0, st_d * sc)
-            c.setStrokeColor(P["stirrup"]); c.setLineWidth(stw)
-            rr = max(3.0, 2.0 * st_d * sc)
-            c.roundRect(x0 + st_off, y0 + st_off, sw - 2 * st_off, sh - 2 * st_off, rr, stroke=1, fill=0)
 
         def _xs(n, d_mm, off):
             r = max(1.7, (d_mm * sc) / 2.0)
@@ -638,6 +653,74 @@ class SectionDrawing(Flowable):
             if n <= 1:
                 return [(xa + xb) / 2.0], r
             return [xa + (xb - xa) * k / (n - 1) for k in range(n)], r
+
+        # ---- Étriers / épingles positionnés sur les barres du lit 1 inf. ----
+        geo_inf = R["geo_inf"]; geo_sup = R["geo_sup"]
+        lit1 = geo_inf["lits"][0]
+        n1 = max(1, int(lit1["n"]))
+        xs1, r1 = _xs(n1, lit1["d"], bar_off)
+        y_lit1 = y0 + (lit1["e"] / h_cm) * sh
+
+        def _clamp_bar(v, default):
+            try:
+                v = int(v)
+            except Exception:
+                return default
+            return max(1, min(n1, v))
+
+        k_et = 0  # index des étriers fermés (décalage des imbriqués)
+        for stg in self.stirrups:
+            st_d = float(stg.get("d", 8))
+            stw = max(1.0, st_d * sc)
+            brins = int(stg.get("brins", 2))
+            f = stg.get("from"); t = stg.get("to")
+            c.setStrokeColor(P["stirrup"]); c.setLineWidth(stw)
+
+            if brins == 1:
+                # ---- Épingle ----
+                fb = _clamp_bar(f, (n1 + 1) // 2)
+                tb = _clamp_bar(t, fb)
+                if fb > tb:
+                    fb, tb = tb, fb
+                if fb == tb:
+                    # brin vertical sur la barre fb, petits crochets
+                    xb_ = xs1[fb - 1]
+                    yb_, yt_ = y0 + st_off, y0 + sh - st_off
+                    c.line(xb_, yb_, xb_, yt_)
+                    hk = 5
+                    c.line(xb_, yt_, xb_ + hk, yt_ - hk)
+                    c.line(xb_, yb_, xb_ + hk, yb_ + hk)
+                else:
+                    # agrafe horizontale reliant les barres fb -> tb au lit 1
+                    xa, xb2 = xs1[fb - 1], xs1[tb - 1]
+                    c.line(xa, y_lit1, xb2, y_lit1)
+                    hk = 6
+                    c.line(xa, y_lit1, xa, y_lit1 + hk)
+                    c.line(xb2, y_lit1, xb2, y_lit1 + hk)
+                continue
+
+            # ---- Étrier fermé (2 ou 3 brins) ----
+            fb = _clamp_bar(f, 1)
+            tb = _clamp_bar(t, n1)
+            if fb > tb:
+                fb, tb = tb, fb
+            full = (fb <= 1 and tb >= n1)
+            iv = k_et * 2.2  # léger décalage des étriers imbriqués/superposés
+            rr = max(3.0, 2.0 * st_d * sc)
+            if full:
+                x_l = x0 + st_off + iv
+                x_r = x0 + sw - st_off - iv
+            else:
+                m = r1 + stw / 2.0 + 1.0
+                x_l = xs1[fb - 1] - m
+                x_r = xs1[tb - 1] + m
+            y_b = y0 + st_off + iv
+            y_t = y0 + sh - st_off - iv
+            c.roundRect(x_l, y_b, x_r - x_l, y_t - y_b, rr, stroke=1, fill=0)
+            if brins == 3:
+                xm = (x_l + x_r) / 2.0
+                c.line(xm, y_b, xm, y_t)
+            k_et += 1
 
         def layer(n, d_mm, y_cm_from_bottom, fc, bd):
             if n <= 0:
@@ -702,11 +785,30 @@ class SectionDrawing(Flowable):
 
         for yy, col, lit in reversed(y_sup):
             leg(yy, col, f"Lit {lit['i']} (sup.) : {lit['n']} \u00d8{lit['d']}")
+
+        # légende étriers/épingles : une ligne par élément, positions incluses
+        def _stg_label(g):
+            base = ("Épingle" if int(g.get("brins", 2)) == 1 else "Étrier") + f" \u00d8{int(g.get('d', 8))}"
+            fb = _clamp_bar(g.get("from"), None)
+            tb = _clamp_bar(g.get("to"), None)
+            if fb and tb:
+                if fb > tb:
+                    fb, tb = tb, fb
+                if int(g.get("brins", 2)) == 1:
+                    base += f" (b{fb})" if fb == tb else f" ({fb}\u2192{tb})"
+                elif not (fb <= 1 and tb >= n1):
+                    base += f" ({fb}\u2192{tb})"
+            return base
+
+        labels_et = [_stg_label(g) for g in self.stirrups]
         ymid = y0 + sh / 2.0
-        c.setFillColor(P["stirrup"]); c.circle(lx + 2, ymid, 2.2, stroke=0, fill=1)
-        c.setFillColor(P["txt"]); c.setFont("Helvetica", 7.4)
-        etr = " · ".join(f"\u00d8{int(s.get('d', 8))}" for s in self.stirrups) or "\u00d88"
-        c.drawString(lx + 8, ymid - 2.6, f"Étriers : {etr}")
+        y_start = ymid + (len(labels_et) - 1) * 4.5
+        c.setFont("Helvetica", 7.4)
+        for j, lab in enumerate(labels_et):
+            yy = y_start - j * 9.0
+            c.setFillColor(P["stirrup"]); c.circle(lx + 2, yy, 2.2, stroke=0, fill=1)
+            c.setFillColor(P["txt"])
+            c.drawString(lx + 8, yy - 2.6, lab)
         for yy, col, lit in reversed(y_inf):
             leg(yy, col, f"Lit {lit['i']} (inf.) : {lit['n']} \u00d8{lit['d']}")
 
@@ -714,10 +816,13 @@ class SectionDrawing(Flowable):
 
 
 def stirrups_for(R, values, bid, sid):
-    fs = _first_stirrup(values, bid, sid)
+    """Toutes les lignes étriers/épingles avec leur position (dessin)."""
     Sh = R.get("shear")
-    groups = (Sh or {}).get("groups") or [{"type": fs["type"], "n": 1, "d": fs["d"], "brins": fs["brins"]}]
-    return [{"d": int(groups[0]["d"])}]
+    groups = (Sh or {}).get("groups")
+    if not groups:
+        fs = _first_stirrup(values, bid, sid)
+        groups = [{"type": fs["type"], "d": fs["d"], "brins": fs["brins"], "from": None, "to": None}]
+    return groups
 
 
 # ============================================================
