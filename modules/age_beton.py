@@ -1,6 +1,6 @@
 # =============================================================
 #  age_beton.py — Évolution de la résistance du béton (EC2)
-#  VERSION 3.0 — assistant de chantier
+#  VERSION 3.1 — refonte ergonomique
 #
 #  Base normative :
 #   - EN 1992-1-1 §3.1.2 :
@@ -16,16 +16,17 @@
 #       t_e = Σ Δt_i · exp( 13,65 − 4000 / (273 + T) )
 #     4000 K ≡ Ea/R avec Ea ≈ 33,3 kJ/mol (Ea ajustable en avancé).
 #
-#  Nouveautés v3.0 (assistant de chantier) :
-#   1. % de résistance atteint vs fck(28) sur le point sélectionné.
-#   2. Recherche de la date d'obtention d'une résistance (% ou MPa) → décoffrage.
-#   3. Optimisation de la classe : même résistance, plus vite.
-#   4. Équivalence à partir d'une résistance mesurée (classe estimée, fck28 probable).
-#   5. Gestion de la température : manuel / historique météo (Open-Meteo) / jour par jour.
-#   6. Structure prête pour export PDF (build_rapport_data()).
+#  Évolutions v3.1 (ergonomie — le principe de calcul est inchangé) :
+#   - Layout 2/3 (paramètres) — 1/3 (graphique).
+#   - Bloc "Béton de référence" compacté (champs regroupés sur moins de lignes).
+#   - Paramètres avancés (Ea) déplacés dans un expander ⚙️.
+#   - Température : mode Manuel / Météo (Open-Meteo, Bruxelles par défaut) ;
+#     min / max / moyenne affichés après récupération. Libellé "jour par jour" retiré.
+#   - Les 4 analyses regroupées sous UN sélecteur unique (radio), présentées comme
+#     des analyses d'un même béton, chacune avec sa case "Afficher sur le graphique".
+#   - Le graphique superpose les analyses cochées (point, ligne, repère).
 #
-#  Le style, le graphique, les blocs de résultat et l'encadré des formules
-#  EC2 de la v2.0 sont conservés à l'identique.
+#  Le style, le graphique et l'encadré des formules EC2 restent identiques.
 # =============================================================
 
 import math
@@ -60,6 +61,21 @@ def _bloc(left: str, right: str = "", etat: str = "ok"):
             <div style="font-size:20px;line-height:1;">{C_ICONES.get(etat,'')}</div></div>
         </div>
         """,
+        unsafe_allow_html=True,
+    )
+
+
+def _mini_metrics(items):
+    """Petite rangée de valeurs (label, valeur) compacte, sans dénaturer le style."""
+    cells = "".join(
+        f"<div style='flex:1;text-align:center;padding:6px 4px;'>"
+        f"<div style='font-size:11px;color:#6b7280;'>{lbl}</div>"
+        f"<div style='font-size:15px;font-weight:700;color:#374151;'>{val}</div></div>"
+        for lbl, val in items
+    )
+    st.markdown(
+        f"<div style='display:flex;gap:6px;background:#f8fafc;border:1px solid #e5e7eb;"
+        f"border-radius:10px;padding:4px 6px;margin:6px 0;'>{cells}</div>",
         unsafe_allow_html=True,
     )
 
@@ -187,7 +203,7 @@ def classe_estimee_depuis_mesure(res_mesuree: float, age_jours: float, s: float,
     """
     À partir d'une résistance mesurée à un âge donné, remonte à fck(28) probable,
     puis à la classe de béton normalisée la plus proche (par le fck).
-    Retourne dict(fck28_est, classe, fck_classe, ecart_pct).
+    Retourne dict(t_e, fck28_est, classe, fck_classe, ecart_pct).
     """
     t_e = float(age_equiv(age_jours, T_celsius, Ea))
     if t_e >= 28.0:
@@ -253,16 +269,22 @@ def geocode_open_meteo(nom_lieu: str):
 COL_REF = "#2e6fb0"
 COL_ALT = "#c0392b"
 COL_MES = "#1f8a70"
+COL_SEUIL = "#b45309"   # analyse "date d'obtention"
+COL_OPT = "#7c3aed"     # analyse "optimisation classe"
 COL_GRID = "#e5e7eb"
 COL_TXT = "#374151"
 
 
-def build_figure(t_real, ref, alt=None, point=None, mesure=None, t28_real=None, titre=""):
+def build_figure(t_real, ref, alt=None, point=None, mesure=None, t28_real=None,
+                 seuil=None, opt=None, mesure_lab=None, titre=""):
     """
     ref / alt : dict(label, y) — courbes fck(t réels).
     point     : (t, fck) sélectionné sur la référence.
-    mesure    : dict(fck, t_est) — résistance mesurée + âge estimé (optionnels).
+    mesure    : dict(fck, t_est) — résistance mesurée (comparateur historique).
     t28_real  : jours réels correspondant à t_e = 28 j (fin de montée).
+    seuil     : dict(fck, t) — analyse "date d'obtention" à superposer.
+    opt       : dict(label, y, t, fck) — analyse "optimisation classe".
+    mesure_lab: dict(fck, age) — point d'essai laboratoire.
     """
     fig, ax = plt.subplots(figsize=(8.2, 5.2), dpi=110)
     fig.patch.set_facecolor("white")
@@ -272,10 +294,20 @@ def build_figure(t_real, ref, alt=None, point=None, mesure=None, t28_real=None, 
     ax.plot(t_real, ref["y"], color=COL_REF, lw=2.4, label=ref["label"], zorder=3)
     ax.fill_between(t_real, ref["y"], ref["y"].min(), color=COL_REF, alpha=0.06, zorder=1)
 
-    # Courbe comparée
+    # Courbe comparée (comparateur)
     if alt is not None:
         ax.plot(t_real, alt["y"], color=COL_ALT, lw=2.0, ls="-", alpha=0.9,
                 label=alt["label"], zorder=3)
+
+    # Courbe d'optimisation de classe
+    if opt is not None and opt.get("y") is not None:
+        ax.plot(t_real, opt["y"], color=COL_OPT, lw=2.0, ls="-", alpha=0.9,
+                label=opt["label"], zorder=3)
+        if opt.get("t") is not None:
+            ax.scatter([opt["t"]], [opt["fck"]], s=55, marker="^",
+                       color=COL_OPT, edgecolor="white", lw=1.3, zorder=6)
+            ax.plot([opt["t"], opt["t"]], [ref["y"].min(), opt["fck"]],
+                    color=COL_OPT, lw=1.0, ls="--", alpha=0.5, zorder=2)
 
     # Repère fin de montée (t_e = 28 j)
     if t28_real is not None and t_real.min() < t28_real < t_real.max():
@@ -296,7 +328,15 @@ def build_figure(t_real, ref, alt=None, point=None, mesure=None, t28_real=None, 
                     bbox=dict(boxstyle="round,pad=0.28", fc="white", ec=COL_REF, lw=0.8, alpha=0.9),
                     zorder=6)
 
-    # Mesure éventuelle
+    # Analyse "date d'obtention" : repère seuil (croix horizontale/verticale)
+    if seuil is not None and seuil.get("t") is not None:
+        f_s, t_s = seuil["fck"], seuil["t"]
+        ax.axhline(f_s, color=COL_SEUIL, lw=1.1, ls="--", alpha=0.7, zorder=2)
+        ax.plot([t_s, t_s], [ref["y"].min(), f_s], color=COL_SEUIL, lw=1.1, ls="--", alpha=0.7, zorder=2)
+        ax.scatter([t_s], [f_s], s=55, marker="s", color=COL_SEUIL,
+                   edgecolor="white", lw=1.3, zorder=6, label=f"Seuil : {f_s:.1f} MPa @ {t_s:.1f} j")
+
+    # Comparateur : mesure de résistance
     if mesure is not None and mesure.get("fck", 0) > 0:
         ax.axhline(mesure["fck"], color=COL_MES, lw=1.3, ls=":", zorder=2,
                    label=f"Mesure : {mesure['fck']:.1f} MPa")
@@ -306,6 +346,12 @@ def build_figure(t_real, ref, alt=None, point=None, mesure=None, t28_real=None, 
             ax.annotate(f"âge estimé ≈ {mesure['t_est']:.1f} j",
                         xy=(mesure["t_est"], mesure["fck"]), xytext=(8, -14),
                         textcoords="offset points", fontsize=8.5, color=COL_MES)
+
+    # Analyse "essai laboratoire" : point mesuré (âge, fck)
+    if mesure_lab is not None and mesure_lab.get("fck", 0) > 0:
+        ax.scatter([mesure_lab["age"]], [mesure_lab["fck"]], s=70, marker="P",
+                   color=COL_MES, edgecolor="white", lw=1.4, zorder=6,
+                   label=f"Essai : {mesure_lab['fck']:.1f} MPa @ {mesure_lab['age']:.1f} j")
 
     # Habillage
     ax.set_xlabel("Âge du béton (jours réels)", fontsize=10, color=COL_TXT)
@@ -331,9 +377,84 @@ def build_rapport_data(contexte: dict) -> dict:
     """
     Rassemble en un dict sérialisable toutes les données affichées, prêtes
     pour un export_pdf ultérieur. Ne réalise aucun rendu : sépare calcul et sortie.
-    contexte : dict libre alimenté par show() (paramètres, résultats, météo…).
     """
-    return {"module": "age_beton", "version": "3.0", **contexte}
+    return {"module": "age_beton", "version": "3.1", **contexte}
+
+
+# =============================================================
+#  HELPERS UI
+# =============================================================
+def _overlay_check(key: str, overlays: dict):
+    """Case 'Afficher sur le graphique' pilotant l'overlay 'key'."""
+    val = st.checkbox("Afficher sur le graphique", value=overlays.get(f"{key}_show", False),
+                      key=f"ab_chk_{key}")
+    overlays[f"{key}_show"] = val
+
+
+def _age_equiv_point(t_sel, T, profil_temps, Ea):
+    """Âge équivalent au point sélectionné (profil météo si dispo, sinon T constante)."""
+    if profil_temps:
+        n = min(int(round(t_sel)), len(profil_temps))
+        t_e = age_equiv_from_series(profil_temps[:n], Ea)
+        reste = t_sel - n
+        if reste > 0 and n < len(profil_temps):
+            t_e += maturity_factor(profil_temps[n], Ea) * reste
+        return t_e
+    return float(age_equiv(t_sel, T, Ea))
+
+
+def _saisie_temperature(mode_temp, date_coulage):
+    """
+    Gère la saisie de température selon le mode.
+    Retourne (T_moyenne, profil_temps|None, source_temp).
+    """
+    if mode_temp == "Manuel":
+        T = st.number_input("Température moyenne (°C)", value=20.0, step=1.0, format="%.1f",
+                            min_value=-5.0, max_value=60.0,
+                            help="Température moyenne de cure, supposée constante.")
+        return T, None, "manuelle"
+
+    # ---- Mode Météo ----
+    if not _HAS_REQUESTS:
+        st.warning("Module réseau indisponible ici. En production, `pip install requests` active la météo.")
+    cA, cB, cC = st.columns([1.4, 1, 1])
+    with cA:
+        lieu = st.text_input("Lieu du chantier", value="Bruxelles, Belgique")
+    with cB:
+        d_coul = st.date_input("Coulage",
+                               value=date_coulage or _dt.date.today() - _dt.timedelta(days=14),
+                               key="ab_meteo_coul")
+    with cC:
+        d_ctrl = st.date_input("Contrôle", value=_dt.date.today(), key="ab_meteo_ctrl")
+
+    if st.button("🔄 Récupérer la météo", use_container_width=True):
+        try:
+            geo = geocode_open_meteo(lieu)
+            if geo is None:
+                st.error("Lieu introuvable.")
+            else:
+                lat, lon, label = geo
+                dates, temps = fetch_temps_open_meteo(lat, lon, d_coul.isoformat(), d_ctrl.isoformat())
+                st.session_state["ab_meteo"] = {"label": label, "dates": dates, "temps": temps}
+                st.success(f"{label} — {len(temps)} jours récupérés.")
+        except Exception as e:
+            st.error(f"Échec de récupération : {e}")
+
+    meteo = st.session_state.get("ab_meteo")
+    if meteo and meteo.get("temps"):
+        valides = [t for t in meteo["temps"] if not math.isnan(t)]
+        if valides:
+            T = float(np.mean(valides))
+            # min / max / moyenne
+            _mini_metrics([
+                ("T min", f"{min(valides):.1f} °C"),
+                ("T moy", f"{T:.1f} °C"),
+                ("T max", f"{max(valides):.1f} °C"),
+            ])
+            return T, valides, f"météo ({meteo['label']})"
+
+    st.caption("Renseignez le lieu et les dates, puis récupérez la météo. T = 20 °C par défaut en attendant.")
+    return 20.0, None, "manuelle"
 
 
 # =============================================================
@@ -343,226 +464,178 @@ def show():
     st.markdown("## Évolution de la résistance du béton — EC2")
     st.caption("fck(t) selon EN 1992-1-1 §3.1.2, effet de la température par âge équivalent (annexe B).")
 
-    col_g, col_d = st.columns([1, 1.4])
+    # Layout : 2/3 paramètres — 1/3 graphique
+    col_g, col_d = st.columns([2, 1])
 
-    # -------------------- Paramètres --------------------
+    # =====================================================================
+    #  COLONNE GAUCHE — PARAMÈTRES & ANALYSES
+    # =====================================================================
     with col_g:
+        # ---------------- Bloc "Béton de référence" (compact) ----------------
         with st.container(border=True):
             st.markdown("#### Béton de référence")
-            c1, c2 = st.columns([1.4, 1])
-            with c1:
-                beton_label = st.selectbox("Classe de béton", CLASSES, index=2)
+
+            # Ligne 1 : classe · ciment · date de coulage
+            r1c1, r1c2, r1c3 = st.columns([1, 1.5, 1.2])
+            with r1c1:
+                beton_label = st.selectbox("Classe béton", CLASSES, index=2)
                 fck28 = parse_fck(beton_label)
-            with c2:
-                mode_temp = st.selectbox(
-                    "Mode température", ["Manuel", "Historique météo", "Jour par jour"], index=0,
-                    help="Manuel : moyenne constante. Historique : Open-Meteo. "
-                         "Jour par jour : saisie manuelle d'un profil T(t).")
+            with r1c2:
+                ciment = st.selectbox("Classe ciment", list(CIMENTS.keys()), index=1,
+                                      help="La classe de résistance du ciment (R/N/S) fixe s dans l'EC2, "
+                                           "pas le type CEM.")
+                s_ref = CIMENTS[ciment]
+            with r1c3:
+                date_coulage = st.date_input("Date de coulage", value=None,
+                                             help="Sert à dater les seuils calculés (décoffrage…).")
 
-            ciment = st.selectbox("Classe de résistance du ciment", list(CIMENTS.keys()), index=1,
-                                  help="C'est la classe de résistance du ciment (R/N/S) qui fixe s dans l'EC2, "
-                                       "pas le type CEM.")
-            st.caption(f"Ciments concernés : {CIMENT_DETAIL[ciment]} — s = {CIMENTS[ciment]:.2f}")
-            s_ref = CIMENTS[ciment]
+            # Ligne 2 : mode température + saisie associée
+            r2c1, r2c2 = st.columns([1, 2])
+            with r2c1:
+                mode_temp = st.radio("Température", ["Manuel", "Météo"], horizontal=True,
+                                     help="Manuel : moyenne constante. Météo : import Open-Meteo.")
+            with r2c2:
+                T, profil_temps, source_temp = _saisie_temperature(mode_temp, date_coulage)
 
-            date_coulage = st.date_input("Date de coulage (optionnel)", value=None,
-                                         help="Sert à dater les seuils calculés (décoffrage…).")
+            st.caption(f"{CIMENT_DETAIL[ciment]} — s = {s_ref:.2f}")
 
-            with st.expander("⚙️ Avancé — énergie d'activation"):
-                Ea_kJ = st.number_input("Ea [kJ/mol]", value=EA_EC2 / 1000.0, step=1.0, format="%.1f",
+            # Paramètres avancés (engrenage)
+            with st.expander("⚙️ Paramètres avancés"):
+                Ea_kJ = st.number_input("Énergie d'activation Ea [kJ/mol]",
+                                        value=EA_EC2 / 1000.0, step=1.0, format="%.1f",
                                         min_value=20.0, max_value=60.0,
                                         help="EC2 annexe B (éq. B.10) ⇔ 4000 K ⇔ 33,3 kJ/mol. "
                                              "Ajuster uniquement si calibré sur essais.")
                 Ea = Ea_kJ * 1000.0
 
-        # ---------- Détermination de la température effective ----------
-        # T : température moyenne représentative utilisée pour la courbe/point.
-        # profil_temps : historique éventuel (mode météo / jour par jour).
-        profil_temps = None
-        source_temp = "manuelle"
+        # =================================================================
+        #  ANALYSES — un même béton, plusieurs analyses
+        # =================================================================
+        with st.container(border=True):
+            st.markdown("#### Analyses")
+            st.caption("Choisissez une analyse à réaliser sur le béton ci-dessus. "
+                       "Cochez « Afficher sur le graphique » pour superposer plusieurs résultats.")
 
-        if mode_temp == "Manuel":
-            T = st.number_input("Température (°C)", value=20.0, step=1.0, format="%.1f",
-                                min_value=-5.0, max_value=60.0,
-                                help="Température moyenne de cure, supposée constante.")
+            analyse = st.radio(
+                "Type d'analyse",
+                ["① Résistance à un âge donné",
+                 "② Date d'obtention d'une résistance",
+                 "③ Optimiser la classe (plus vite)",
+                 "④ Analyser un essai mesuré"],
+                label_visibility="collapsed",
+            )
 
-        elif mode_temp == "Historique météo":
-            with st.container(border=True):
-                st.markdown("###### 🌦️ Historique météo (Open-Meteo)")
-                if not _HAS_REQUESTS:
-                    st.warning("Le module réseau n'est pas disponible ici. "
-                               "En production, `pip install requests` active ce mode.")
-                lieu = st.text_input("Lieu du chantier", value="Wortegem, Belgique")
-                cda, cdb = st.columns(2)
-                with cda:
-                    d_coul = st.date_input("Date de coulage (météo)",
-                                           value=date_coulage or _dt.date.today() - _dt.timedelta(days=14))
-                with cdb:
-                    d_ctrl = st.date_input("Date de contrôle", value=_dt.date.today())
-                T = 20.0
-                if st.button("🔄 Récupérer les températures", use_container_width=True):
-                    try:
-                        geo = geocode_open_meteo(lieu)
-                        if geo is None:
-                            st.error("Lieu introuvable.")
-                        else:
-                            lat, lon, label = geo
-                            dates, temps = fetch_temps_open_meteo(
-                                lat, lon, d_coul.isoformat(), d_ctrl.isoformat())
-                            st.session_state["ab_meteo"] = {
-                                "label": label, "dates": dates, "temps": temps}
-                            st.success(f"{label} — {len(temps)} jours récupérés.")
-                    except Exception as e:
-                        st.error(f"Échec de récupération : {e}")
+            # état partagé des overlays graphiques
+            overlays = st.session_state.setdefault("ab_overlays", {})
 
-                meteo = st.session_state.get("ab_meteo")
-                if meteo and meteo.get("temps"):
-                    profil_temps = [t for t in meteo["temps"] if not math.isnan(t)]
-                    T = float(np.nanmean(meteo["temps"])) if profil_temps else 20.0
-                    source_temp = f"météo ({meteo['label']})"
-                    st.caption(f"T moyenne = {T:.1f} °C sur {len(profil_temps)} jours.")
-                else:
-                    st.caption("Renseignez le lieu et les dates, puis récupérez les températures. "
-                               "T = 20 °C par défaut en attendant.")
+            # ---- Analyse ① : résistance à un âge donné (fonction historique) ----
+            if analyse.startswith("①"):
+                age_max = len(profil_temps) if profil_temps else 40
+                t_sel = st.slider("Âge du béton (jours réels)", 1, int(max(age_max, 2)),
+                                  min(14, int(max(age_max, 2))))
+                t_e_sel = _age_equiv_point(t_sel, T, profil_temps, Ea)
+                fck_val = float(fck_of_age_equiv(fck28, s_ref, t_e_sel))
+                pct_val = fck_val / fck28 * 100.0 if fck28 else 0.0
 
-        else:  # Jour par jour
-            with st.container(border=True):
-                st.markdown("###### 📅 Profil de température jour par jour")
-                n_jours = st.number_input("Nombre de jours", min_value=1, max_value=90, value=7, step=1)
-                defaut = ", ".join(["20"] * int(n_jours))
-                saisie = st.text_area("Températures (°C, séparées par des virgules)", value=defaut,
-                                      help="Une valeur par jour, dans l'ordre chronologique.")
-                try:
-                    profil_temps = [float(x.strip().replace(",", ".")) for x in saisie.split(",") if x.strip()]
-                except ValueError:
-                    profil_temps = None
-                    st.error("Saisie invalide : n'utilisez que des nombres séparés par des virgules.")
-                if profil_temps:
-                    T = float(np.mean(profil_temps))
-                    source_temp = "profil manuel"
-                    st.caption(f"{len(profil_temps)} jours — T moyenne = {T:.1f} °C.")
-                else:
-                    T = 20.0
+                etat = "warn" if t_e_sel <= 3.0 else "ok"
+                _bloc(f"fck({t_sel} j à {T:.0f} °C)",
+                      f"{fck_val:.2f} MPa · {pct_val:.0f} % de fck(28)", etat)
+                st.caption(f"Âge équivalent à 20 °C : t_e = {t_e_sel:.1f} j"
+                           + (f"  ({source_temp})" if source_temp != "manuelle" else "")
+                           + ("  —  ⚠️ t_e ≤ 3 j : hors domaine EC2, essais requis." if t_e_sel <= 3.0 else ""))
+                overlays["point"] = (t_sel, fck_val)  # le point de référence est toujours tracé
 
-        # ---------- Âge du béton (borné par le profil si dispo) ----------
-        age_max = 40
-        if profil_temps:
-            age_max = max(len(profil_temps), 2)
-        t_sel = st.slider("Âge du béton (jours réels)", 1, int(max(age_max, 2)),
-                          min(14, int(max(age_max, 2))))
-
-        # ---------- Âge équivalent au point sélectionné ----------
-        if profil_temps:
-            # cumul jour par jour jusqu'à t_sel (éq. B.10 sommée)
-            n = min(int(round(t_sel)), len(profil_temps))
-            t_e_sel = age_equiv_from_series(profil_temps[:n], Ea)
-            # fraction du dernier jour si t_sel non entier
-            reste = t_sel - n
-            if reste > 0 and n < len(profil_temps):
-                t_e_sel += maturity_factor(profil_temps[n], Ea) * reste
-        else:
-            t_e_sel = float(age_equiv(t_sel, T, Ea))
-
-        fck_val = float(fck_of_age_equiv(fck28, s_ref, t_e_sel))
-        pct_val = fck_val / fck28 * 100.0 if fck28 else 0.0  # % vs fck(28)
-
-        etat = "ok"
-        if t_e_sel <= 3.0:
-            etat = "warn"
-        # (1) affichage résistance + pourcentage atteint
-        _bloc(f"fck({t_sel} j à {T:.0f} °C)",
-              f"{fck_val:.2f} MPa · {pct_val:.0f} % de fck(28)", etat)
-        st.caption(f"Âge équivalent à 20 °C : t_e = {t_e_sel:.1f} j"
-                   + (f"  ({source_temp})" if source_temp != "manuelle" else "")
-                   + ("  —  ⚠️ t_e ≤ 3 j : hors domaine de validité EC2, essais requis." if t_e_sel <= 3.0 else ""))
-
-        res_mesuree = st.number_input("Résistance mesurée (MPa, optionnel)", min_value=0.0,
-                                      value=0.0, step=0.5, format="%.2f",
-                                      help="Estime l'âge réel correspondant sur la courbe de référence.")
-
-        # ==================================================================
-        # (2) RECHERCHE DE LA DATE D'OBTENTION D'UNE RÉSISTANCE (décoffrage)
-        # ==================================================================
-        with st.expander("🗓️ Date d'obtention d'une résistance (décoffrage)", expanded=False):
-            st.caption("Quand un seuil de résistance est-il atteint, à la température de référence ?")
-            mode_cible = st.radio("Définir la cible par", ["Pourcentage de fck(28)", "Résistance (MPa)"],
-                                  horizontal=True)
-            if mode_cible == "Pourcentage de fck(28)":
-                pct = st.slider("Pourcentage visé", 30, 100, 75, step=5)
-                target_seuil = fck_target_from_pct(fck28, pct)
-                cible_txt = f"{pct} % de fck(28) = {target_seuil:.1f} MPa"
             else:
-                target_seuil = st.number_input("Résistance visée (MPa)", min_value=1.0,
-                                               max_value=float(fck28), value=min(20.0, float(fck28)),
-                                               step=1.0, format="%.1f")
-                cible_txt = f"{target_seuil:.1f} MPa ({target_seuil / fck28 * 100:.0f} % de fck(28))"
+                # hors analyse ①, on conserve un point de référence par défaut (14 j)
+                t_sel = 14
+                t_e_sel = _age_equiv_point(t_sel, T, profil_temps, Ea)
+                fck_val = float(fck_of_age_equiv(fck28, s_ref, t_e_sel))
+                pct_val = fck_val / fck28 * 100.0 if fck28 else 0.0
+                overlays["point"] = (t_sel, fck_val)
 
-            t_seuil = t_real_for_target(fck28, s_ref, target_seuil, T, Ea)
-            if t_seuil is None:
-                _bloc(f"Seuil {cible_txt}", "non atteignable avec cette classe", "nok")
-            else:
-                date_txt = ""
-                base_date = date_coulage
-                if base_date:
-                    jour = base_date + _dt.timedelta(days=float(t_seuil))
-                    date_txt = f" — le {jour.strftime('%d/%m/%Y')}"
-                _bloc(f"Seuil {cible_txt}",
-                      f"atteint après {t_seuil:.1f} j{date_txt}", "ok")
-                if not base_date:
-                    st.caption("Renseignez une date de coulage ci-dessus pour dater le décoffrage.")
-
-        # ==================================================================
-        # (3) OPTIMISATION DE LA CLASSE : même résistance, plus vite
-        # ==================================================================
-        with st.expander("⚡ Optimiser la classe (même résistance, plus vite)", expanded=False):
-            st.caption("Quelle classe minimale atteint la résistance actuelle dans un délai plus court ?")
-            c_o1, c_o2 = st.columns(2)
-            with c_o1:
-                cible_opt = st.number_input("Résistance à atteindre (MPa)", min_value=1.0,
-                                            value=round(fck_val, 1), step=1.0, format="%.1f",
-                                            help="Par défaut, la résistance actuelle du point sélectionné.")
-            with c_o2:
-                delai_opt = st.number_input("Délai souhaité (jours)", min_value=0.5,
-                                            value=max(3.0, round(t_sel / 2, 1)), step=0.5, format="%.1f")
-            res_opt = classe_min_pour_delai(cible_opt, s_ref, T, delai_opt, Ea)
-            if res_opt is None:
-                _bloc(f"Aucune classe n'atteint {cible_opt:.1f} MPa en {delai_opt:.1f} j",
-                      "à cette température / ciment", "nok")
-            else:
-                lbl, fck28_o, fck_att = res_opt
-                etat_o = "ok" if parse_fck(lbl) > fck28 else "info"
-                sur_place = " (classe actuelle suffit)" if parse_fck(lbl) <= fck28 else ""
-                _bloc(f"Classe minimale : {lbl}{sur_place}",
-                      f"{fck_att:.1f} MPa à {delai_opt:.1f} j", etat_o)
-
-        # ==================================================================
-        # (4) ÉQUIVALENCE À PARTIR D'UNE RÉSISTANCE MESURÉE
-        # ==================================================================
-        with st.expander("🧪 Interpréter un essai (résistance mesurée)", expanded=False):
-            st.caption("Estime la classe et la résistance à 28 j à partir d'une éprouvette.")
-            c_m1, c_m2, c_m3 = st.columns(3)
-            with c_m1:
-                res_lab = st.number_input("Mesure (MPa)", min_value=0.0, value=0.0, step=0.5, format="%.1f")
-            with c_m2:
-                age_lab = st.number_input("Âge éprouvette (j)", min_value=0.5, value=7.0, step=0.5, format="%.1f")
-            with c_m3:
-                T_lab = st.number_input("T cure (°C)", value=float(T), step=1.0, format="%.1f",
-                                        min_value=-5.0, max_value=60.0)
-            if res_lab > 0:
-                est = classe_estimee_depuis_mesure(res_lab, age_lab, s_ref, T_lab, Ea)
-                _bloc("Classe estimée", f"≈ {est['classe']} (fck28 ≈ {est['fck28_est']:.1f} MPa)", "info")
-                # cohérence avec la classe prévue
-                ecart_prevu = (est["fck28_est"] - fck28) / fck28 * 100.0
-                if abs(ecart_prevu) <= 8.0:
-                    _bloc(f"Cohérent avec {beton_label} prévu", f"écart {ecart_prevu:+.0f} %", "ok")
-                elif ecart_prevu > 8.0:
-                    _bloc(f"Au-dessus de {beton_label} prévu", f"écart {ecart_prevu:+.0f} %", "ok")
+            # ---- Analyse ② : date d'obtention d'une résistance ----
+            if analyse.startswith("②"):
+                mode_cible = st.radio("Définir la cible par", ["Pourcentage de fck(28)", "Résistance (MPa)"],
+                                      horizontal=True)
+                if mode_cible == "Pourcentage de fck(28)":
+                    pct = st.slider("Pourcentage visé", 30, 100, 75, step=5)
+                    target_seuil = fck_target_from_pct(fck28, pct)
+                    cible_txt = f"{pct} % de fck(28) = {target_seuil:.1f} MPa"
                 else:
-                    _bloc(f"Sous {beton_label} prévu", f"écart {ecart_prevu:+.0f} %", "warn")
-                if est["t_e"] <= 3.0:
-                    st.caption("⚠️ Âge équivalent ≤ 3 j : estimation hors domaine de validité, à confirmer par essais.")
+                    target_seuil = st.number_input("Résistance visée (MPa)", min_value=1.0,
+                                                   max_value=float(fck28), value=min(20.0, float(fck28)),
+                                                   step=1.0, format="%.1f")
+                    cible_txt = f"{target_seuil:.1f} MPa ({target_seuil / fck28 * 100:.0f} % de fck(28))"
 
-        # -------------------- Comparateur (conservé v2.0) --------------------
+                t_seuil = t_real_for_target(fck28, s_ref, target_seuil, T, Ea)
+                if t_seuil is None:
+                    _bloc(f"Seuil {cible_txt}", "non atteignable avec cette classe", "nok")
+                    overlays.pop("seuil", None)
+                else:
+                    date_txt = ""
+                    if date_coulage:
+                        jour = date_coulage + _dt.timedelta(days=float(t_seuil))
+                        date_txt = f" — le {jour.strftime('%d/%m/%Y')}"
+                    _bloc(f"Seuil {cible_txt}", f"atteint après {t_seuil:.1f} j{date_txt}", "ok")
+                    if not date_coulage:
+                        st.caption("Renseignez une date de coulage pour dater le décoffrage.")
+                    overlays["seuil"] = {"fck": target_seuil, "t": t_seuil}
+
+                _overlay_check("seuil", overlays)
+
+            # ---- Analyse ③ : optimiser la classe ----
+            if analyse.startswith("③"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    cible_opt = st.number_input("Résistance à atteindre (MPa)", min_value=1.0,
+                                                value=round(fck_val, 1), step=1.0, format="%.1f",
+                                                help="Par défaut, la résistance du point de référence.")
+                with c2:
+                    delai_opt = st.number_input("Délai souhaité (jours)", min_value=0.5,
+                                                value=max(3.0, round(t_sel / 2, 1)), step=0.5, format="%.1f")
+                res_opt = classe_min_pour_delai(cible_opt, s_ref, T, delai_opt, Ea)
+                if res_opt is None:
+                    _bloc(f"Aucune classe n'atteint {cible_opt:.1f} MPa en {delai_opt:.1f} j",
+                          "à cette température / ciment", "nok")
+                    overlays.pop("opt", None)
+                else:
+                    lbl, fck28_o, fck_att = res_opt
+                    etat_o = "ok" if parse_fck(lbl) > fck28 else "info"
+                    sur_place = " (classe actuelle suffit)" if parse_fck(lbl) <= fck28 else ""
+                    _bloc(f"Classe minimale : {lbl}{sur_place}",
+                          f"{fck_att:.1f} MPa à {delai_opt:.1f} j", etat_o)
+                    overlays["opt"] = {"label": lbl, "s": s_ref, "fck28": fck28_o,
+                                       "t": delai_opt, "fck": fck_att}
+                _overlay_check("opt", overlays)
+
+            # ---- Analyse ④ : essai mesuré ----
+            if analyse.startswith("④"):
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    res_lab = st.number_input("Mesure (MPa)", min_value=0.0, value=0.0, step=0.5, format="%.1f")
+                with c2:
+                    age_lab = st.number_input("Âge éprouvette (j)", min_value=0.5, value=7.0, step=0.5, format="%.1f")
+                with c3:
+                    T_lab = st.number_input("T cure (°C)", value=float(T), step=1.0, format="%.1f",
+                                            min_value=-5.0, max_value=60.0)
+                if res_lab > 0:
+                    est = classe_estimee_depuis_mesure(res_lab, age_lab, s_ref, T_lab, Ea)
+                    _bloc("Classe estimée", f"≈ {est['classe']} (fck28 ≈ {est['fck28_est']:.1f} MPa)", "info")
+                    ecart_prevu = (est["fck28_est"] - fck28) / fck28 * 100.0
+                    if abs(ecart_prevu) <= 8.0:
+                        _bloc(f"Cohérent avec {beton_label} prévu", f"écart {ecart_prevu:+.0f} %", "ok")
+                    elif ecart_prevu > 8.0:
+                        _bloc(f"Au-dessus de {beton_label} prévu", f"écart {ecart_prevu:+.0f} %", "ok")
+                    else:
+                        _bloc(f"Sous {beton_label} prévu", f"écart {ecart_prevu:+.0f} %", "warn")
+                    if est["t_e"] <= 3.0:
+                        st.caption("⚠️ Âge équivalent ≤ 3 j : estimation hors domaine EC2, à confirmer par essais.")
+                    overlays["mesure_lab"] = {"fck": res_lab, "age": age_lab}
+                else:
+                    overlays.pop("mesure_lab", None)
+                _overlay_check("mesure_lab", overlays)
+
+        # -------------------- Comparateur (conservé) --------------------
         with st.expander("🔁 Comparateur d'équivalence", expanded=False):
             st.caption("Quand une autre classe atteint-elle la même résistance, à la même température ?")
             alt_label = st.selectbox("Classe comparée", CLASSES, index=0)
@@ -570,47 +643,49 @@ def show():
                                       index=list(CIMENTS.keys()).index(ciment))
             s_alt = CIMENTS[ciment_alt]
             fck28_alt = parse_fck(alt_label)
-
-            target = float(res_mesuree) if res_mesuree > 0 else fck_val
+            target = fck_val
             t_eq = t_real_for_target(fck28_alt, s_alt, target, T, Ea)
             if t_eq is not None:
-                _bloc(f"{alt_label} atteint {target:.1f} MPa",
-                      f"vers {t_eq:.1f} j à {T:.0f} °C", "ok")
+                _bloc(f"{alt_label} atteint {target:.1f} MPa", f"vers {t_eq:.1f} j à {T:.0f} °C", "ok")
             else:
-                _bloc(f"{alt_label} n'atteint pas {target:.1f} MPa",
-                      f"fck(28) = {fck28_alt} MPa", "nok")
-            show_alt = st.checkbox("Afficher sur le graphique", value=True)
+                _bloc(f"{alt_label} n'atteint pas {target:.1f} MPa", f"fck(28) = {fck28_alt} MPa", "nok")
+            show_alt = st.checkbox("Afficher sur le graphique", value=False, key="ab_show_alt")
 
-    # -------------------- Courbes --------------------
+    # =====================================================================
+    #  COLONNE DROITE — GRAPHIQUE
+    # =====================================================================
     t_real = np.linspace(1, 40, 500)
     y_ref = fck_of_age_equiv(fck28, s_ref, age_equiv(t_real, T, Ea))
     ref = {"label": f"{beton_label} — {ciment.split(' — ')[0]}", "y": y_ref}
 
+    # Overlay comparateur
     alt = None
     if show_alt:
         y_alt = fck_of_age_equiv(fck28_alt, s_alt, age_equiv(t_real, T, Ea))
         alt = {"label": f"{alt_label} — {ciment_alt.split(' — ')[0]}", "y": y_alt}
 
-    mesure = None
-    if 0 < res_mesuree <= fck28 + 1e-9:
-        t_est = t_real_for_target(fck28, s_ref, float(res_mesuree), T, Ea)
-        mesure = {"fck": float(res_mesuree), "t_est": t_est}
-    elif res_mesuree > fck28 + 1e-9:
-        mesure = {"fck": float(res_mesuree), "t_est": None}
+    # Overlays des analyses (uniquement si cochés)
+    seuil_ov = overlays.get("seuil") if overlays.get("seuil_show") else None
+    mesure_lab_ov = overlays.get("mesure_lab") if overlays.get("mesure_lab_show") else None
+    opt_ov = None
+    if overlays.get("opt_show") and overlays.get("opt"):
+        o = overlays["opt"]
+        y_opt = fck_of_age_equiv(o["fck28"], o["s"], age_equiv(t_real, T, Ea))
+        opt_ov = {"label": f"{o['label']} (optim.)", "y": y_opt,
+                  "t": o["t"], "fck": o["fck"]}
 
-    # jours réels correspondant à t_e = 28 j
     factor = float(age_equiv(1.0, T, Ea))
     t28_real = 28.0 / factor if factor > 0 else None
+    point = overlays.get("point")
 
     fig = build_figure(
-        t_real, ref, alt=alt, point=(t_sel, fck_val), mesure=mesure, t28_real=t28_real,
+        t_real, ref, alt=alt, point=point, t28_real=t28_real,
+        seuil=seuil_ov, opt=opt_ov, mesure_lab=mesure_lab_ov,
         titre=f"fck(t) — {beton_label} — {T:.0f} °C",
     )
 
     with col_d:
         st.pyplot(fig, use_container_width=True)
-        if res_mesuree > fck28 + 1e-9:
-            _bloc("Mesure > fck(28) de la référence", "âge non estimable par cette loi", "warn")
 
         with st.expander("📘 Formules (EC2)", expanded=False):
             st.latex(r"f_{ck}(t)=\beta_{cc}(t_e)\,f_{cm}-8 \quad ;\quad f_{cm}=f_{ck}+8"
@@ -631,6 +706,7 @@ def show():
         "profil_temps": profil_temps, "Ea_kJ_mol": Ea / 1000.0,
         "age_sel_j": t_sel, "t_e_sel_j": t_e_sel,
         "fck_sel_MPa": fck_val, "pct_fck28": pct_val,
+        "analyse_active": analyse,
         "date_coulage": date_coulage.isoformat() if date_coulage else None,
     })
 
