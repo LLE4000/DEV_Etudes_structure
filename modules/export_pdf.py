@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  VERSION 2.34 (alignée sur poutre.py 2.34)
+#  VERSION 2.35 (alignée sur poutre.py 2.35)
+#
+#  Évolutions vs 2.34 :
+#   - CONCLUSIONS explicites (hauteur, armatures, tau, pas) sans
+#     pourcentages (les %% restent dans l'application uniquement).
+#   - LÉGENDES de la coupe simplifiées : "Lit 1 : 3 Ø16" (sans sup./inf.),
+#     "Étrier : Ø8 — 15 cm" (sans positions), "Armature de peau : 2×n Ød".
+#   - Intitulé matériaux : "coef. acier ELS" (plus de symbole γs).
+#   - Style graphique de la coupe inchangé.
 #
 #  Évolutions vs 2.33 :
 #   - En-tête de page : "Bureau d'Études Valens".
@@ -840,34 +848,27 @@ class SectionDrawing(Flowable):
             c.drawString(lx + 8, yy - 2.6, label)
 
         for yy, col, lit in reversed(y_sup):
-            leg(yy, col, f"Lit {lit['i']} (sup.) : {lit['n']} \u00d8{lit['d']}")
+            leg(yy, col, f"Lit {lit['i']} : {lit['n']} \u00d8{lit['d']}")
 
-        # légende étriers/épingles : une ligne par élément, couleur + pas
+        # légende étriers/épingles : libellés simplifiés, sans positions
         Sh = R.get("shear") or {}
         pas_val = Sh.get("pas")
 
         def _stg_label(g):
             is_ep = int(g.get("brins", 2)) == 1
-            base = ("Épingle" if is_ep else "Étrier") + f" \u00d8{int(g.get('d', 8))}"
-            if not is_ep and pas_val:
+            if is_ep:
+                return f"Épingle : \u00d8{int(g.get('d', 8))}"
+            base = f"Étrier : \u00d8{int(g.get('d', 8))}"
+            if pas_val:
                 p = float(pas_val)
-                base += f" @{p:.0f} cm" if abs(p - round(p)) < 0.05 else f" @{p:.1f} cm".replace(".", ",")
-            fb = _clamp_bar(g.get("from"), None)
-            tb = _clamp_bar(g.get("to"), None)
-            if fb and tb:
-                if fb > tb:
-                    fb, tb = tb, fb
-                if is_ep:
-                    base += f" (b{fb})" if fb == tb else f" ({fb}\u2192{tb})"
-                elif not (fb <= 1 and tb >= n1):
-                    base += f" ({fb}\u2192{tb})"
+                base += f" — {p:.0f} cm" if abs(p - round(p)) < 0.05 else (f" — {p:.1f} cm").replace(".", ",")
             return base
 
         leg_items = [(_stg_label(g),
                       g.get("_color", EPINGLE_COLOR if int(g.get("brins", 2)) == 1 else ETRIER_COLORS[0]))
                      for g in self.stirrups]
         if n_peau > 0:
-            leg_items.append((f"Peau : {n_peau} \u00d8{int(t_d)} / c\u00f4t\u00e9", PEAU_COLOR))
+            leg_items.append((f"Armature de peau : 2\u00d7{n_peau} \u00d8{int(t_d)}", PEAU_COLOR))
 
         ymid = y0 + sh / 2.0
         y_start = ymid + (len(leg_items) - 1) * 4.5
@@ -878,7 +879,7 @@ class SectionDrawing(Flowable):
             c.setFillColor(P["txt"])
             c.drawString(lx + 8, yy - 2.6, lab)
         for yy, col, lit in reversed(y_inf):
-            leg(yy, col, f"Lit {lit['i']} (inf.) : {lit['n']} \u00d8{lit['d']}")
+            leg(yy, col, f"Lit {lit['i']} : {lit['n']} \u00d8{lit['d']}")
 
         c.restoreState()
 
@@ -1025,7 +1026,7 @@ def carac(R, cw):
             kv("Béton", f"{R['beton']}"),
             kv("f<sub>ck</sub>", f"{fn(R['fck'],0)} N/mm{s2()}"),
             kv("Acier", f"B{int(R['fyk'])}"),
-            kv("f<sub>yd</sub>", f"{fn(R['fyd'],0)} N/mm{s2()} (γ<sub>s</sub>={fn(R['gamma_s'],2)})"),
+            kv("f<sub>yd</sub>", f"{fn(R['fyd'],0)} N/mm{s2()} (coef. acier ELS = {fn(R['gamma_s'],2)})"),
             sub("SOLLICITATIONS"),
             kv("M<sub>inf</sub>", f"{fn(R['M_inf'],1)} kNm")]
     if R["has_Msup"]:
@@ -1072,7 +1073,8 @@ def b_haut(R, cw):
                       ("Hauteur de la poutre", "h", f"{fn(R['h'],0)} cm")], iw),
             Spacer(1, 5)]
     ok = R["etat_h"] == "ok"
-    left = f"{fn(R['hmin']+R['dist_l1_inf'],1)} cm {'≤' if ok else '&gt;'} {fn(R['h'],0)} cm"
+    left = (f"Hauteur minimale : {fn(R['hmin']+R['dist_l1_inf'],1)} cm "
+            f"{'≤' if ok else '&gt;'} hauteur de la poutre : {fn(R['h'],0)} cm")
     body.append(conclu(R["etat_h"], iw, left, ok=ok))
     return block("1.", "Vérification de la hauteur", R["etat_h"], body, cw)
 
@@ -1160,7 +1162,9 @@ def b_arm(R, cw, which):
             Spacer(1, 5)]
     ok = et == "ok"
     besoin = max(Ar, As_min)
-    left = f"{fn(geo['As'],0)} mm{s2()} {'≥' if ok else '&lt;'} {fn(besoin,0)} mm{s2()}"
+    face_txt = "inférieure" if which == "inf" else "supérieure"
+    left = (f"Section d'armature {face_txt} : {fn(geo['As'],0)} mm{s2()} "
+            f"{'≥' if ok else '&lt;'} section d'armature requise : {fn(besoin,0)} mm{s2()}")
     body.append(conclu(et, iw, left, ok=ok))
     return block(nn, title, et, body, cw)
 
@@ -1186,7 +1190,10 @@ def b_shear(R, cw):
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
             reslines([("Contrainte admissible", "τ<sub>adm</sub>", f"{fn(Sh['tau_lim'],2)} N/mm{s2()}")], iw),
             Spacer(1, 4),
-            conclu(et_tau, iw, f"{fn(Sh['tau'],2)} N/mm{s2()} {'≤' if okt else '&gt;'} {fn(Sh['tau_lim'],2)} N/mm{s2()}", ok=okt),
+            conclu(et_tau, iw,
+                   f"Contrainte tangentielle : {fn(Sh['tau'],2)} N/mm{s2()} "
+                   f"{'≤' if okt else '&gt;'} contrainte tangentielle admissible : {fn(Sh['tau_lim'],2)} N/mm{s2()}",
+                   ok=okt),
             Spacer(1, 9), Paragraph("<b>Étriers</b>", ST["f"]), Spacer(1, 4),
             reslines([("On prend (étrier)", "", etr)], iw),
             Spacer(1, 2), fline("Pas théorique", sthapp, iw),
@@ -1196,7 +1203,8 @@ def b_shear(R, cw):
             Spacer(1, 5)]
     et = "nok" if "nok" in (Sh["etat_tau"], Sh["etat_pas"]) else ("warn" if "warn" in (Sh["etat_tau"], Sh["etat_pas"]) else "ok")
     et_pas = "ok" if okp else "nok"
-    left = f"pas {fn(Sh['pas'],1)} cm {'≤' if okp else '&gt;'} {fn(Sh['pas_lim'],1)} cm"
+    left = (f"Pas des armatures d'effort tranchant : {fn(Sh['pas'],1)} cm "
+            f"{'≤' if okp else '&gt;'} pas maximal : {fn(Sh['pas_lim'],1)} cm")
     body.append(conclu(et_pas, iw, left, ok=okp))
     return block(nn, "Effort tranchant — étriers", et, body, cw)
 
