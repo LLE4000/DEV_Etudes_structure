@@ -1,7 +1,25 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  VERSION 2.33 (alignée sur poutre.py 2.33)
+#  VERSION 2.34 (alignée sur poutre.py 2.34)
+#
+#  Évolutions vs 2.33 :
+#   - En-tête de page : "Bureau d'Études Valens".
+#   - COUPE À L'ÉCHELLE EXACTE : suppression des marges fixes ±1-2 px ;
+#     étrier tracé sur sa LIGNE MOYENNE (nu extérieur exactement à
+#     l'enrobage) ; axe des barres = enrobage + Ø étrier + Ø barre/2,
+#     tout à l'échelle. Positions verticales déjà exactes.
+#   - ÉTRIERS : tous au même niveau (traverses hautes alignées, basses
+#     alignées) — seule la largeur varie ; couleurs alternées gris
+#     foncé / gris clair. "Étriers (3 brins)" supprimé (migré côté app).
+#   - ÉPINGLES : décalées sur le côté de la barre (l'armature reste
+#     visible), crochets orientés vers la barre.
+#   - ARMATURES TECHNOLOGIQUES (peau) : réparties automatiquement de
+#     chaque côté si l'écart vertical lit1 inf / lit1 sup dépasse
+#     l'espacement max (paramètres avancés), à l'intérieur des étriers,
+#     dessinées SOUS les étriers, couleur dédiée, en légende.
+#     DESSIN UNIQUEMENT — aucun calcul modifié.
+#   - LÉGENDE : pas affiché pour les étriers ("Étrier Ø8 @15 cm").
 #
 #  Évolutions vs 2.32 :
 #   - ÉTRIERS / ÉPINGLES POSITIONNÉS : chaque ligne porte une position
@@ -86,6 +104,12 @@ PAL = {
     "stirrup": colors.HexColor("#6b6f76"),
     "dim": MUTE, "txt": INK, "axis": colors.HexColor("#9aa0a6"),
 }
+
+# étriers : couleurs alternées (1er foncé, 2e clair, puis alternance)
+ETRIER_COLORS = [colors.HexColor("#4a4e57"), colors.HexColor("#b3b8c2")]
+EPINGLE_COLOR = colors.HexColor("#6b6f76")
+PEAU_COLOR = colors.HexColor("#7b4fa6")      # armatures technologiques (peau)
+PEAU_BORDER = colors.HexColor("#553675")
 
 MAX_LITS = 4
 
@@ -585,6 +609,10 @@ def _compute_section(values, beton_data, bid, sid):
         "geo_inf": geo_inf, "geo_sup": geo_sup,
         "As_inf": As_inf, "As_sup": As_sup, "etat_inf": etat_inf, "etat_sup": etat_sup,
         "shear": shear, "etat_global": etat_global,
+        "techno": {
+            "d": float(_g(values, "techno_d_mm", 10) or 10),
+            "s_max": float(_g(values, "techno_s_max_cm", 30) or 30),
+        },
     }
 
 
@@ -639,22 +667,25 @@ class SectionDrawing(Flowable):
         self._dash_axis(c, x0 + sw / 2, y0 - ext, x0 + sw / 2, y0 + sh + ext)
         self._dash_axis(c, x0 - ext, y0 + sh / 2, x0 + sw + ext, y0 + sh / 2)
 
-        # enrobage étrier pour offset des barres (Ø max des étriers)
+        # ---- Offsets à l'échelle EXACTE ----
+        # nu extérieur étrier = enrobage béton ; l'étrier est tracé sur sa
+        # ligne moyenne (centre du trait) -> centre = enrobage + Ø_et/2.
+        # axe barre principale = enrobage + Ø_et + Ø_barre/2.
         enrob_beton = float(R.get("enrob_beton", 3.0))
-        st_off = enrob_beton * 10.0 * sc
+        st_off = enrob_beton * 10.0 * sc                       # enrobage (px)
         d_et_max = max((float(s.get("d", 8)) for s in self.stirrups), default=8.0)
-        stw_main = max(1.0, d_et_max * sc)
-        bar_off = st_off + stw_main + 1.0
+        stw_main = max(0.8, d_et_max * sc)                      # Ø étrier (px)
+        bar_off = st_off + stw_main                             # nu intérieur étrier
 
         def _xs(n, d_mm, off):
-            r = max(1.7, (d_mm * sc) / 2.0)
-            inset = off + r + 1.0
+            r = max(1.2, (d_mm * sc) / 2.0)
+            inset = off + r                                     # axe barre (exact)
             xa, xb = x0 + inset, x0 + sw - inset
             if n <= 1:
                 return [(xa + xb) / 2.0], r
             return [xa + (xb - xa) * k / (n - 1) for k in range(n)], r
 
-        # ---- Étriers / épingles positionnés sur les barres du lit 1 inf. ----
+        # ---- Barres du lit 1 inférieur : référence des positions ----
         geo_inf = R["geo_inf"]; geo_sup = R["geo_sup"]
         lit1 = geo_inf["lits"][0]
         n1 = max(1, int(lit1["n"]))
@@ -668,28 +699,56 @@ class SectionDrawing(Flowable):
                 return default
             return max(1, min(n1, v))
 
-        k_et = 0  # index des étriers fermés (décalage des imbriqués)
+        # ---- Armatures technologiques (peau) — dessinées SOUS les étriers ----
+        techno = R.get("techno") or {}
+        t_d = float(techno.get("d", 10) or 10)
+        t_smax = float(techno.get("s_max", 30) or 30)
+        e_inf1 = geo_inf["lits"][0]["e"]
+        e_sup1 = geo_sup["lits"][0]["e"]
+        d_vert = h_cm - e_inf1 - e_sup1
+        n_peau = 0
+        if t_smax > 0 and d_vert > t_smax:
+            n_int = int(math.ceil(d_vert / t_smax))
+            n_peau = max(0, n_int - 1)
+            if n_peau > 0:
+                r_t = max(1.2, t_d * sc / 2.0)
+                x_axis_l = x0 + st_off + stw_main + r_t         # axe, à l'intérieur des étriers
+                x_axis_r = x0 + sw - st_off - stw_main - r_t
+                step = d_vert / n_int
+                c.setFillColor(PEAU_COLOR); c.setStrokeColor(PEAU_BORDER); c.setLineWidth(0.5)
+                for k in range(1, n_peau + 1):
+                    yy = y0 + ((e_inf1 + k * step) / h_cm) * sh
+                    c.circle(x_axis_l, yy, r_t, stroke=1, fill=1)
+                    c.circle(x_axis_r, yy, r_t, stroke=1, fill=1)
+
+        # ---- Étriers / épingles positionnés ----
+        # Tous les étriers partagent le MÊME niveau : traverses hautes
+        # alignées, basses alignées (seule la largeur varie).
+        off_c = st_off + stw_main / 2.0                          # ligne moyenne
+        y_b = y0 + off_c
+        y_t = y0 + sh - off_c
+
+        k_et = 0  # index des étriers fermés (alternance des couleurs)
         for stg in self.stirrups:
             st_d = float(stg.get("d", 8))
-            stw = max(1.0, st_d * sc)
+            stw = max(0.8, st_d * sc)
             brins = int(stg.get("brins", 2))
             f = stg.get("from"); t = stg.get("to")
-            c.setStrokeColor(P["stirrup"]); c.setLineWidth(stw)
 
             if brins == 1:
-                # ---- Épingle ----
+                # ---- Épingle : décalée sur le côté de la barre ----
+                c.setStrokeColor(EPINGLE_COLOR); c.setLineWidth(stw)
                 fb = _clamp_bar(f, (n1 + 1) // 2)
                 tb = _clamp_bar(t, fb)
                 if fb > tb:
                     fb, tb = tb, fb
                 if fb == tb:
-                    # brin vertical sur la barre fb, petits crochets
-                    xb_ = xs1[fb - 1]
-                    yb_, yt_ = y0 + st_off, y0 + sh - st_off
-                    c.line(xb_, yb_, xb_, yt_)
+                    dx = r1 + stw / 2.0 + 0.8                    # au ras de la barre, côté droit
+                    xb_ = xs1[fb - 1] + dx
+                    c.line(xb_, y_b, xb_, y_t)
                     hk = 5
-                    c.line(xb_, yt_, xb_ + hk, yt_ - hk)
-                    c.line(xb_, yb_, xb_ + hk, yb_ + hk)
+                    c.line(xb_, y_t, xb_ - hk, y_t - hk)         # crochets vers la barre
+                    c.line(xb_, y_b, xb_ - hk, y_b + hk)
                 else:
                     # agrafe horizontale reliant les barres fb -> tb au lit 1
                     xa, xb2 = xs1[fb - 1], xs1[tb - 1]
@@ -699,27 +758,24 @@ class SectionDrawing(Flowable):
                     c.line(xb2, y_lit1, xb2, y_lit1 + hk)
                 continue
 
-            # ---- Étrier fermé (2 ou 3 brins) ----
+            # ---- Étrier fermé : même niveau pour tous, largeur variable ----
+            col = ETRIER_COLORS[k_et % len(ETRIER_COLORS)]
+            stg["_color"] = col
+            c.setStrokeColor(col); c.setLineWidth(stw)
             fb = _clamp_bar(f, 1)
             tb = _clamp_bar(t, n1)
             if fb > tb:
                 fb, tb = tb, fb
             full = (fb <= 1 and tb >= n1)
-            iv = k_et * 2.2  # léger décalage des étriers imbriqués/superposés
-            rr = max(3.0, 2.0 * st_d * sc)
+            rr = max(2.5, 1.5 * st_d * sc)
             if full:
-                x_l = x0 + st_off + iv
-                x_r = x0 + sw - st_off - iv
+                x_l = x0 + off_c
+                x_r = x0 + sw - off_c
             else:
-                m = r1 + stw / 2.0 + 1.0
+                m = r1 + stw / 2.0                               # nu intérieur au contact de la barre
                 x_l = xs1[fb - 1] - m
                 x_r = xs1[tb - 1] + m
-            y_b = y0 + st_off + iv
-            y_t = y0 + sh - st_off - iv
             c.roundRect(x_l, y_b, x_r - x_l, y_t - y_b, rr, stroke=1, fill=0)
-            if brins == 3:
-                xm = (x_l + x_r) / 2.0
-                c.line(xm, y_b, xm, y_t)
             k_et += 1
 
         def layer(n, d_mm, y_cm_from_bottom, fc, bd):
@@ -786,27 +842,39 @@ class SectionDrawing(Flowable):
         for yy, col, lit in reversed(y_sup):
             leg(yy, col, f"Lit {lit['i']} (sup.) : {lit['n']} \u00d8{lit['d']}")
 
-        # légende étriers/épingles : une ligne par élément, positions incluses
+        # légende étriers/épingles : une ligne par élément, couleur + pas
+        Sh = R.get("shear") or {}
+        pas_val = Sh.get("pas")
+
         def _stg_label(g):
-            base = ("Épingle" if int(g.get("brins", 2)) == 1 else "Étrier") + f" \u00d8{int(g.get('d', 8))}"
+            is_ep = int(g.get("brins", 2)) == 1
+            base = ("Épingle" if is_ep else "Étrier") + f" \u00d8{int(g.get('d', 8))}"
+            if not is_ep and pas_val:
+                p = float(pas_val)
+                base += f" @{p:.0f} cm" if abs(p - round(p)) < 0.05 else f" @{p:.1f} cm".replace(".", ",")
             fb = _clamp_bar(g.get("from"), None)
             tb = _clamp_bar(g.get("to"), None)
             if fb and tb:
                 if fb > tb:
                     fb, tb = tb, fb
-                if int(g.get("brins", 2)) == 1:
+                if is_ep:
                     base += f" (b{fb})" if fb == tb else f" ({fb}\u2192{tb})"
                 elif not (fb <= 1 and tb >= n1):
                     base += f" ({fb}\u2192{tb})"
             return base
 
-        labels_et = [_stg_label(g) for g in self.stirrups]
+        leg_items = [(_stg_label(g),
+                      g.get("_color", EPINGLE_COLOR if int(g.get("brins", 2)) == 1 else ETRIER_COLORS[0]))
+                     for g in self.stirrups]
+        if n_peau > 0:
+            leg_items.append((f"Peau : {n_peau} \u00d8{int(t_d)} / c\u00f4t\u00e9", PEAU_COLOR))
+
         ymid = y0 + sh / 2.0
-        y_start = ymid + (len(labels_et) - 1) * 4.5
+        y_start = ymid + (len(leg_items) - 1) * 4.5
         c.setFont("Helvetica", 7.4)
-        for j, lab in enumerate(labels_et):
+        for j, (lab, colr) in enumerate(leg_items):
             yy = y_start - j * 9.0
-            c.setFillColor(P["stirrup"]); c.circle(lx + 2, yy, 2.2, stroke=0, fill=1)
+            c.setFillColor(colr); c.circle(lx + 2, yy, 2.2, stroke=0, fill=1)
             c.setFillColor(P["txt"])
             c.drawString(lx + 8, yy - 2.6, lab)
         for yy, col, lit in reversed(y_inf):
@@ -1166,7 +1234,7 @@ class NoteDoc(BaseDocTemplate):
     def _decor(self, c, doc):
         w, h = A4; c.saveState()
         c.setFillColor(INK); c.setFont("Helvetica-Bold", 10.5)
-        c.drawString(18 * mm, h - 12 * mm, "Bureau méthodes et stabilité Valens")
+        c.drawString(18 * mm, h - 12 * mm, "Bureau d'Études Valens")
         c.setFillColor(MUTE); c.setFont("Helvetica", 8)
         c.drawString(18 * mm, h - 16.5 * mm, f"Rédigé par : {self.infos.get('initiales','')}")
         c.drawRightString(w - 18 * mm, h - 12 * mm, f"{self.infos.get('nom_projet','')}")
