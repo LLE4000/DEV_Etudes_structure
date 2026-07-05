@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  VERSION 2.36 (alignée sur poutre.py 2.36)
+#  VERSION 2.37 (alignée sur poutre.py 2.37)
 #
 #  Évolutions vs 2.35 :
 #   - Tableau matériaux : lignes "Coefficient acier ELS : γs = 1,50"
@@ -352,11 +352,12 @@ def _bar_area_mm2(d):
 
 
 def _brins_from_type(t):
+    t = str(t)
     if "3 brins" in t:
         return 3
-    if "2 brins" in t:
-        return 2
-    return 1
+    if "pingle" in t or "1 brin" in t:
+        return 1
+    return 2
 
 
 def _round_up_to_half_cm(x):
@@ -454,7 +455,9 @@ def _dist_lit(values, bid, sid, which, i):
 
 
 def _layers_geometry(values, bid, sid, which):
-    """As_total (mm²), e_cdg (cm, parement->c.d.g.), liste de lits, detail."""
+    """As_total (mm²), e_cdg (cm, parement->c.d.g.), liste de lits, detail.
+    Si un yG manuel est saisi dans l'application (clé ycdg_*), il
+    remplace la valeur calculée — cohérent avec poutre.py."""
     nl = _get_nlits(values, bid, sid, which)
     lits = []
     As_tot = 0.0
@@ -469,6 +472,14 @@ def _layers_geometry(values, bid, sid, which):
         lits.append({"i": i, "n": n, "d": d, "e": e, "As": As_i})
         parts.append(f"{n}\u00d8{d}")
     e_cdg = (somme / As_tot) if As_tot > 0 else _dist_lit(values, bid, sid, which, 1)
+    raw = str(_g(values, KS(f"ycdg_{which}", bid, sid), "") or "").strip()
+    if raw:
+        try:
+            v = float(raw.replace(",", "."))
+            if v > 0:
+                e_cdg = v
+        except Exception:
+            pass
     return {"As": As_tot, "e_cdg": e_cdg, "lits": lits, "detail": " + ".join(parts), "nl": nl}
 
 
@@ -1070,18 +1081,18 @@ def recap(R, values, bid, sid, cw):
 # ============================================================
 def b_haut(R, cw):
     iw = cw - 24
-    app = Formula(Row([_t("h", sub="min"), _t(" = "),
+    app = Formula(Row([_t("h", sub="u,min"), _t(" = "),
         Sqrt(Row([Frac(Row(Row(sci_tokens(R['M_max'] * 1e6)).items),
                        Row([_t(f"{fn(R['alpha_b'],2)} · {fn(R['b']*10,0)} · {fn(R['mu'],4)}")]))]), INK),
         _t("  =  "), nb(f"{fn(R['hmin'],1)} cm")]))
-    body = [fline("Hauteur minimale", app, iw),
+    body = [fline("Hauteur utile minimale", app, iw),
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
-            reslines([("h,min + distance axe lit 1", "h<sub>min</sub> + d<sub>1,inf</sub>", f"{fn(R['hmin']+R['dist_l1_inf'],1)} cm"),
+            reslines([("h_u,min + distance axe lit 1", "h<sub>u,min</sub> + d<sub>1,inf</sub>", f"{fn(R['hmin']+R['dist_l1_inf'],1)} cm"),
                       ("Hauteur de la poutre", "h", f"{fn(R['h'],0)} cm")], iw),
             Spacer(1, 5)]
     ok = R["etat_h"] == "ok"
-    left = (f"Hauteur minimale : {fn(R['hmin']+R['dist_l1_inf'],1)} cm "
-            f"{'≤' if ok else '&gt;'} hauteur de la poutre : {fn(R['h'],0)} cm")
+    left = (f"Hauteur de la poutre : {fn(R['h'],0)} cm "
+            f"{'≥' if ok else '&lt;'} hauteur utile minimale : {fn(R['hmin']+R['dist_l1_inf'],1)} cm")
     body.append(conclu(R["etat_h"], iw, left, ok=ok))
     return block("1.", "Vérification de la hauteur", R["etat_h"], body, cw)
 
@@ -1102,12 +1113,12 @@ def _asmin_formula(R, which):
     def _tt(s, **k):
         return txt(s, size=sz, **k)
 
-    # 3 lignes de critères
+    # 3 lignes de critères (unités uniquement sur le résultat final)
     line1 = Row([_tt("0,26 · "),
                  Frac(Row([_tt(f"{fn(fctm,1)}")]), Row([_tt(f"{int(fyk)}")]), pad=2),
-                 _tt(f" · {fn(b_mm,0)} · {fn(h_mm,0)} = {fn(ec,0)} mm", sup="2")])
-    line2 = Row([_tt(f"0,0013 · {fn(b_mm,0)} · {fn(h_mm,0)} = {fn(pl,0)} mm", sup="2")])
-    line3 = Row([_tt("0,25 · A", sub="s,req"), _tt(f",{face_opp} = 0,25 · {fn(as_req_opp,0)} = {fn(quart,0)} mm", sup="2")])
+                 _tt(f" · {fn(b_mm,0)} · {fn(h_mm,0)} = {fn(ec,0)}")])
+    line2 = Row([_tt(f"0,0013 · {fn(b_mm,0)} · {fn(h_mm,0)} = {fn(pl,0)}")])
+    line3 = Row([_tt("0,25 · A", sub="s,req"), _tt(f",{face_opp} = 0,25 · {fn(as_req_opp,0)} = {fn(quart,0)}")])
 
     stack = Stack([line1, line2, line3], gap=5)
 
@@ -1135,13 +1146,10 @@ def b_arm(R, cw, which):
         title = "Armatures supérieures"; M = R["M_sup"]; Ar = R["As_req_sup"]; geo = R["geo_sup"]; d = R["ds"]; et = R["etat_sup"]; nn = "3."; As_min = R["As_min_sup"]
 
     nl = geo["nl"]
-    # hauteur utile : c.d.g. si plusieurs lits
-    if nl > 1:
-        dlit = Formula(Row([_t("d", sub="u"), _t(f" = {fn(R['h'],0)} − {fn(geo['e_cdg'],1)} = "), nb(f"{fn(d,1)} cm"),
-                            _t(f"   (c.d.g. de {nl} lits)", color=MUTE, size=8.5)]))
-    else:
-        e1 = geo["lits"][0]["e"]
-        dlit = Formula(Row([_t("d", sub="u"), _t(f" = {fn(R['h'],0)} − {fn(e1,1)} = "), nb(f"{fn(d,1)} cm")]))
+    # hauteur utile : toujours à partir du yG effectif (imposé compris)
+    suffix_note = f"   (c.d.g. de {nl} lits)" if nl > 1 else ""
+    dlit = Formula(Row([_t("d", sub="u"), _t(f" = {fn(R['h'],0)} − {fn(geo['e_cdg'],1)} = "), nb(f"{fn(d,1)} cm"),
+                        _t(suffix_note, color=MUTE, size=8.5)]))
 
     app = Formula(Row([_t("A", sub="s,req"), _t(" = "),
         Frac(Row(Row(sci_tokens(M * 1e6)).items), Row([_t(f"{fn(R['fyd'],1)} · 0,9 · {fn(d*10,0)}")])),
