@@ -1,7 +1,24 @@
 # ===========================
-#  VERSION 2.33
+#  VERSION 2.34
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.33 :
+#   1. ÉTRIERS : suppression du type "Étriers (3 brins)". Migration
+#      automatique : une ancienne ligne 3 brins devient 1 étrier
+#      (2 brins) + 1 épingle centrale de même Ø — Ast strictement
+#      conservé (3 × aire).
+#   2. PARAMÈTRES AVANCÉS, nouvelles rubriques :
+#      - "Armatures technologiques" : Ø (10 mm) + espacement vertical
+#        maximal (30 cm). Utilisées par la coupe du PDF pour placer
+#        automatiquement des barres latérales de peau quand l'écart
+#        vertical entre lit 1 inf. et lit 1 sup. dépasse l'espacement.
+#        DESSIN UNIQUEMENT, aucun calcul modifié.
+#      - "Taux d'armature" : case d'activation + % de majoration —
+#        préparés pour une évolution future, sans effet pour l'instant.
+#   3. Icône ⚙️ : cadre légèrement agrandi (l'icône ne déborde plus).
+#   4. NOM DU PDF automatique : AAA_NDC Partie#Indice_Date.pdf
+#      (AAA = 3 premières lettres du projet).
 #
 #  Évolutions vs 2.32 :
 #   1. ÉTRIERS / ÉPINGLES POSITIONNÉS INDIVIDUELLEMENT :
@@ -181,6 +198,10 @@ PERSISTED_GLOBAL_KEYS = {
     "gamma_s",              # coefficient acier γs (fyd = fyk / γs)
     "jeu_enrobage_cm",      # "Jeu premier lit (cm)" (clé conservée pour compat anciens JSON)
     "jeu_entre_lits_cm",    # "Jeu entre lits (cm)"
+    "techno_d_mm",          # armatures technologiques : Ø (dessin PDF)
+    "techno_s_max_cm",      # armatures technologiques : espacement vertical max
+    "taux_arm_enable",      # taux d'armature (préparation, sans effet)
+    "taux_arm_major_pct",   # % de majoration (préparation, sans effet)
     "nom_projet",
     "partie",
     "date",
@@ -250,6 +271,15 @@ def _ensure_global_defaults():
     st.session_state.setdefault("units_as", "mm²")
     st.session_state.setdefault("jeu_enrobage_cm", 1.0)   # jeu premier lit
     st.session_state.setdefault("jeu_entre_lits_cm", 1.0)
+
+    # Armatures technologiques (dessin PDF uniquement)
+    st.session_state.setdefault("techno_d_mm", 10)
+    _coerce_int_choice("techno_d_mm", [8, 10, 12, 16], 10)
+    st.session_state.setdefault("techno_s_max_cm", 30.0)
+
+    # Taux d'armature (préparation — sans effet pour l'instant)
+    st.session_state.setdefault("taux_arm_enable", False)
+    st.session_state.setdefault("taux_arm_major_pct", 0.0)
 
     # Coefficient acier γs (défaut 1.5)
     try:
@@ -443,6 +473,18 @@ def _migrate_shear_cadres(beam_id: int, sec_id: int):
             n = 1
         if n > 1:
             expanded = True
+        # Migration v2.34 : "Étriers (3 brins)" n'existe plus ->
+        # 1 étrier (2 brins) + 1 épingle centrale de même Ø (Ast conservé).
+        if "3 brins" in str(typ):
+            expanded = True
+            try:
+                mid = (int(float(f)) + int(float(t))) // 2 if (f is not None and t is not None) else None
+            except Exception:
+                mid = None
+            for _ in range(n):
+                lines.append(("Étriers (2 brins)", d, f, t))
+                lines.append(("Épingles (1 brin)", d, mid, mid))
+            continue
         for _ in range(n):
             lines.append((typ, d, f, t))
     if not expanded:
@@ -556,6 +598,9 @@ def _ensure_defaults_for_beam(beam_id: int):
             st.session_state.setdefault(KS(f"shear_line{i}_type", beam_id, sid), "Étriers (2 brins)" if i == 0 else "Épingles (1 brin)")
             st.session_state.setdefault(KS(f"shear_line{i}_d", beam_id, sid), 8)
             _coerce_int_choice(KS(f"shear_line{i}_d", beam_id, sid), SHEAR_DIAM_OPTS, 8)
+            # garde-fou : seuls 2 types existent désormais
+            if str(st.session_state.get(KS(f"shear_line{i}_type", beam_id, sid), "")) not in ("Étriers (2 brins)", "Épingles (1 brin)"):
+                st.session_state[KS(f"shear_line{i}_type", beam_id, sid)] = "Étriers (2 brins)"
 
             # Positions par défaut : étrier = toutes les barres (1 -> n),
             # épingle = barre centrale. Clamp + swap pré-rendu.
@@ -692,7 +737,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.33", "beams": beams, "values": values}
+    return {"version": "2.34", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -1389,7 +1434,7 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, disabled: bool):
         with c0:
             st.selectbox(
                 "Type",
-                ["Étriers (2 brins)", "Épingles (1 brin)", "Étriers (3 brins)"],
+                ["Étriers (2 brins)", "Épingles (1 brin)"],
                 key=KS(f"{prefix}{i}_type", beam_id, sec_id),
                 label_visibility="visible" if i == 0 else "collapsed",
                 disabled=disabled,
@@ -1747,6 +1792,22 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 # ============================================================
 #  UI : INFOS PROJET / PARAMÈTRES AVANCÉS
 # ============================================================
+def _pdf_filename() -> str:
+    """
+    Nom automatique du rapport : AAA_NDC Partie#Indice_Date.pdf
+    AAA = 3 premières lettres (alphanumériques) du nom du projet.
+    Ex : REA_NDC Poutres du portique#B_21-02-2026.pdf
+    """
+    nom = str(st.session_state.get("nom_projet", "") or "")
+    aaa = re.sub(r"[^A-Za-z0-9]", "", nom).upper()[:3] or "PRJ"
+    partie = str(st.session_state.get("partie", "") or "").strip()
+    indice = str(st.session_state.get("indice", "0") or "0").strip() or "0"
+    date = str(st.session_state.get("date", "") or datetime.today().strftime("%d/%m/%Y")).strip().replace("/", "-")
+    core = f"NDC {partie}".strip()
+    name = f"{aaa}_{core}#{indice}_{date}.pdf"
+    return re.sub(r'[\\/:*?"<>|]+', "-", name)
+
+
 def _toggle_param_avances():
     st.session_state["show_param_avances"] = not bool(st.session_state.get("show_param_avances", False))
 
@@ -1819,6 +1880,25 @@ def render_parametres_avances():
         st.markdown("**Jeux d'armatures**")
         st.number_input("Jeu premier lit (cm)", min_value=0.0, step=0.5, key="jeu_enrobage_cm")
         st.number_input("Jeu entre lits (cm)", min_value=0.0, step=0.5, key="jeu_entre_lits_cm")
+
+    c4, c5, c6 = st.columns(3)
+
+    with c4:
+        st.markdown("**Armatures technologiques**")
+        st.selectbox("Ø (mm)", [8, 10, 12, 16], key="techno_d_mm",
+                     help="Barres latérales de peau, ajoutées automatiquement sur la coupe "
+                          "du PDF quand l'écart vertical entre lits dépasse l'espacement max. "
+                          "Dessin uniquement.")
+        st.number_input("Espacement vertical max (cm)", min_value=5.0, step=5.0, key="techno_s_max_cm")
+
+    with c5:
+        st.markdown("**Taux d'armature**")
+        st.checkbox("Activer le calcul du taux d'armature", key="taux_arm_enable")
+        st.number_input("Pourcentage de majoration (%)", min_value=0.0, step=1.0, key="taux_arm_major_pct")
+        st.caption("Préparé pour une évolution future — sans effet pour l'instant.")
+
+    with c6:
+        st.markdown("")
 
 
 # ============================================================
@@ -1955,7 +2035,7 @@ def show():
             st.download_button(
                 label="⬇️ Télécharger le rapport PDF",
                 data=st.session_state["pdf_bytes"],
-                file_name="note_de_calcul_poutre.pdf",
+                file_name=_pdf_filename(),
                 mime="application/pdf",
                 use_container_width=True,
                 key="btn_pdf_dl",
@@ -1970,7 +2050,7 @@ def show():
     with result_col_droite:
         st.session_state.setdefault("show_param_avances", False)
 
-        cH1, cH2 = st.columns([20, 0.8], vertical_alignment="center")
+        cH1, cH2 = st.columns([18, 1.3], vertical_alignment="center")
         with cH1:
             st.markdown("### Dimensionnement")
         with cH2:
