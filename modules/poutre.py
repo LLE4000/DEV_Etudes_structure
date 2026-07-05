@@ -1,7 +1,22 @@
 # ===========================
-#  VERSION 2.35
+#  VERSION 2.36
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.35 :
+#   1. TAUX D'ARMATURE (application uniquement, pas dans le PDF) :
+#      - activé par défaut, case sur la ligne du titre ;
+#      - majoration 5 % par défaut ;
+#      - nouveaux paramètres : Retour d'étrier (10 cm — compté 2×
+#        dans la longueur d'un étrier) et Arrondi supérieur (kg/m³) ;
+#      - TA affiché dans l'en-tête de chaque section (droite) +
+#        icône ⓘ avec le tableau détaillé du calcul au mètre courant.
+#   2. SECTIONS : libellé "Section" + valeur lettre seule (A, B, C...).
+#      Migration : "Section A" -> "A". La copie prend toujours la
+#      lettre suivante disponible (jamais de "copy").
+#   3. Récap armatures : "2Ø16 (402.12 mm²)" (tiret supprimé).
+#   4. En-tête : "Version 1.001 (?)" à droite du titre (l'historique
+#      des versions viendra plus tard).
 #
 #  Évolutions vs 2.34 :
 #   1. Ajout d'armature d'effort tranchant : défaut = Étrier (2 brins),
@@ -150,6 +165,10 @@ BETON_DATA = {}
 
 MAX_LITS = 4  # nombre maximal de lits d'armatures par face
 
+APP_VERSION = "1.001"  # version affichée dans l'en-tête de l'application
+
+RHO_ACIER = 7850.0  # kg/m³ (taux d'armature)
+
 # Largeurs de colonnes du tableau des lits (Lit | Nb | Ø | Dist | Action)
 LIT_COLS = [0.6, 1.0, 1.0, 1.2, 0.55]
 
@@ -221,8 +240,10 @@ PERSISTED_GLOBAL_KEYS = {
     "jeu_entre_lits_cm",    # "Jeu entre lits (cm)"
     "techno_d_mm",          # armatures technologiques : Ø (dessin PDF)
     "techno_s_max_cm",      # armatures technologiques : espacement vertical max
-    "taux_arm_enable",      # taux d'armature (préparation, sans effet)
-    "taux_arm_major_pct",   # % de majoration (préparation, sans effet)
+    "taux_arm_enable",      # taux d'armature : activation
+    "taux_arm_major_pct",   # % de majoration
+    "taux_retour_etrier_cm",  # retour d'étrier (compté 2× par étrier)
+    "taux_arrondi_kgm3",    # arrondi supérieur du TA (kg/m³)
     "nom_projet",
     "partie",
     "date",
@@ -298,9 +319,11 @@ def _ensure_global_defaults():
     _coerce_int_choice("techno_d_mm", [8, 10, 12, 16], 10)
     st.session_state.setdefault("techno_s_max_cm", 30.0)
 
-    # Taux d'armature (préparation — sans effet pour l'instant)
-    st.session_state.setdefault("taux_arm_enable", False)
-    st.session_state.setdefault("taux_arm_major_pct", 0.0)
+    # Taux d'armature (application uniquement)
+    st.session_state.setdefault("taux_arm_enable", True)
+    st.session_state.setdefault("taux_arm_major_pct", 5.0)
+    st.session_state.setdefault("taux_retour_etrier_cm", 10.0)
+    st.session_state.setdefault("taux_arrondi_kgm3", 5)
 
     # Coefficient acier γs (défaut 1.5)
     try:
@@ -379,18 +402,17 @@ def _letter_sequence():
 
 
 def _next_section_name(beam_id: int) -> str:
-    """Premier nom 'Section X' non utilisé dans la poutre (X = lettre)."""
+    """Première lettre non utilisée dans la poutre (A, B, ..., AA, AB...)."""
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
     used = set()
     for s in beam.get("sections", []):
         sid = int(s.get("id"))
-        used.add(str(st.session_state.get(f"meta_b{beam_id}_nom_{sid}", s.get("nom", ""))))
-        used.add(str(s.get("nom", "")))
+        used.add(str(st.session_state.get(f"meta_b{beam_id}_nom_{sid}", s.get("nom", ""))).strip())
+        used.add(str(s.get("nom", "")).strip())
     for L in _letter_sequence():
-        candidate = f"Section {L}"
-        if candidate not in used:
-            return candidate
-    return f"Section {len(beam.get('sections', [])) + 1}"  # repli improbable
+        if L not in used:
+            return L
+    return f"S{len(beam.get('sections', [])) + 1}"  # repli improbable
 
 
 # ============================================================
@@ -398,23 +420,23 @@ def _next_section_name(beam_id: int) -> str:
 # ============================================================
 def _init_beams_if_needed():
     if "beams" not in st.session_state or not isinstance(st.session_state.beams, list) or len(st.session_state.beams) == 0:
-        st.session_state.beams = [{"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "Section A"}]}]
+        st.session_state.beams = [{"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "A"}]}]
 
     for b in st.session_state.beams:
         b["id"] = int(b.get("id", 0))
         b["nom"] = str(b.get("nom", f"Poutre {b['id']}"))
         if "sections" not in b or not isinstance(b["sections"], list) or len(b["sections"]) == 0:
-            b["sections"] = [{"id": 1, "nom": "Section A"}]
+            b["sections"] = [{"id": 1, "nom": "A"}]
         for s in b["sections"]:
             s["id"] = int(s.get("id", 0))
             s["nom"] = str(s.get("nom", f"Section {s['id']}"))
 
     if not any(int(b.get("id", 0)) == 1 for b in st.session_state.beams):
-        st.session_state.beams.insert(0, {"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "Section A"}]})
+        st.session_state.beams.insert(0, {"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "A"}]})
 
     for b in st.session_state.beams:
         if not any(int(s.get("id", 0)) == 1 for s in b["sections"]):
-            b["sections"].insert(0, {"id": 1, "nom": "Section A"})
+            b["sections"].insert(0, {"id": 1, "nom": "A"})
 
     # Synchronisation des noms (labels d'expander à jour immédiatement)
     for b in st.session_state.beams:
@@ -428,8 +450,14 @@ def _init_beams_if_needed():
             sid = int(s["id"])
             key_snom = f"meta_b{bid}_nom_{sid}"
             if key_snom not in st.session_state:
-                st.session_state[key_snom] = str(s.get("nom", f"Section {sid}"))
-            s["nom"] = str(st.session_state.get(key_snom, s.get("nom")))
+                st.session_state[key_snom] = str(s.get("nom", "A"))
+            raw = str(st.session_state.get(key_snom, s.get("nom", "A")))
+            # Migration v2.36 : "Section A" -> "A" (le libellé "Section"
+            # est désormais affiché à part).
+            if raw.lower().startswith("section "):
+                raw = raw[8:].strip() or raw
+                st.session_state[key_snom] = raw
+            s["nom"] = raw
 
     # Defaults + migrations
     for b in st.session_state.beams:
@@ -653,9 +681,9 @@ def _ensure_defaults_for_beam(beam_id: int):
 
 def _add_beam():
     new_id = _next_beam_id()
-    st.session_state.beams.append({"id": new_id, "nom": f"Poutre {new_id}", "sections": [{"id": 1, "nom": "Section A"}]})
+    st.session_state.beams.append({"id": new_id, "nom": f"Poutre {new_id}", "sections": [{"id": 1, "nom": "A"}]})
     st.session_state[f"meta_beam_nom_{new_id}"] = f"Poutre {new_id}"
-    st.session_state[f"meta_b{new_id}_nom_1"] = "Section A"
+    st.session_state[f"meta_b{new_id}_nom_1"] = "A"
     _ensure_defaults_for_beam(new_id)
 
 
@@ -758,7 +786,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.35", "beams": beams, "values": values}
+    return {"version": "2.36", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -774,7 +802,7 @@ def _load_from_payload(payload: dict):
                 continue
             secs = b.get("sections", [])
             if not isinstance(secs, list) or len(secs) == 0:
-                secs = [{"id": 1, "nom": "Section A"}]
+                secs = [{"id": 1, "nom": "A"}]
             cleaned_secs = []
             for s in secs:
                 try:
@@ -783,9 +811,9 @@ def _load_from_payload(payload: dict):
                     continue
                 cleaned_secs.append({"id": sid, "nom": str(s.get("nom", f"Section {sid}"))})
             cleaned.append({"id": bid, "nom": str(b.get("nom", f"Poutre {bid}")), "sections": cleaned_secs})
-        st.session_state.beams = cleaned if cleaned else [{"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "Section A"}]}]
+        st.session_state.beams = cleaned if cleaned else [{"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "A"}]}]
     else:
-        st.session_state.beams = [{"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "Section A"}]}]
+        st.session_state.beams = [{"id": 1, "nom": "Poutre 1", "sections": [{"id": 1, "nom": "A"}]}]
 
     if isinstance(values, dict):
         for k, v in values.items():
@@ -1146,7 +1174,9 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
 
         # Bloc bordé : l'en-tête EST le champ de nom (plus de double affichage)
         with st.container(border=True):
-            cN, cA, cC, cD = st.columns([5.4, 0.8, 0.8, 0.8], vertical_alignment="center")
+            cL, cN, cA, cC, cD = st.columns([1.1, 4.3, 0.8, 0.8, 0.8], vertical_alignment="center")
+            with cL:
+                st.markdown("**Section**")
             with cN:
                 st.text_input(
                     "Nom de la section",
@@ -1678,17 +1708,115 @@ def _render_face_armatures(beam_id: int, sec_id: int, which: str, states: dict, 
     if nl > 1:
         d_eff2 = states["h"] - e_cdg2
         st.markdown(
-            f"<div style='margin-top:6px;font-weight:600;'>Choix : {detail2} — ( {As_disp2:.2f} {unit_as_txt} ) — "
+            f"<div style='margin-top:6px;font-weight:600;'>Choix : {detail2} ({As_disp2:.2f} {unit_as_txt}) — "
             f"d utile = {d_eff2:.1f} cm (c.d.g. des {nl} lits) — yG = {e_cdg2:.1f} cm</div>",
             unsafe_allow_html=True,
         )
     else:
         st.markdown(
-            f"<div style='margin-top:6px;font-weight:600;'>Choix : {detail2} — ( {As_disp2:.2f} {unit_as_txt} ) — "
+            f"<div style='margin-top:6px;font-weight:600;'>Choix : {detail2} ({As_disp2:.2f} {unit_as_txt}) — "
             f"yG = {e_cdg2:.1f} cm</div>",
             unsafe_allow_html=True,
         )
     close_bloc()
+
+
+# ============================================================
+#  TAUX D'ARMATURE (application uniquement — pas exporté en PDF
+#  tant que le calcul global de la poutre n'est pas disponible)
+# ============================================================
+def _masse_lin_kg_m(d_mm: float) -> float:
+    """Masse linéique d'une barre (kg/m) : ρ·π·d²/4."""
+    return RHO_ACIER * math.pi * (d_mm / 1000.0) ** 2 / 4.0
+
+
+def _taux_armature_section(beam_id: int, sec_id: int):
+    """
+    Taux d'armature d'une section, au mètre courant de poutre.
+    Retourne (ta_arrondi_kgm3, detail_markdown) ou (None, None) si
+    le calcul est désactivé.
+    """
+    if not bool(st.session_state.get("taux_arm_enable", True)):
+        return None, None
+
+    b = float(st.session_state.get(KB("b", beam_id), 20))          # cm
+    h = float(st.session_state.get(KB("h", beam_id), 40))          # cm
+    enrob = float(st.session_state.get(KB("enrobage_beton", beam_id), 3.0) or 3.0)
+    maj = float(st.session_state.get("taux_arm_major_pct", 5.0) or 0.0)
+    retour = float(st.session_state.get("taux_retour_etrier_cm", 10.0) or 0.0)
+    arrondi = max(1, int(st.session_state.get("taux_arrondi_kgm3", 5) or 5))
+
+    rows = []   # (famille, Ø, As_unitaire_mm², kg/m, L_m_par_m, poids_kg_par_m)
+
+    # ---- Barres longitudinales (tous lits, deux faces) : L = 1 m/barre ----
+    for which, face in (("inf", "inf."), ("sup", "sup.")):
+        nl = _get_nlits(beam_id, sec_id, which)
+        for i in range(1, nl + 1):
+            n, dmm = _lit_bars(beam_id, sec_id, which, i)
+            kgm = _masse_lin_kg_m(dmm)
+            L = float(n)  # n barres × 1 m
+            rows.append((f"Lit {i} ({face})", dmm, _bar_area_mm2(dmm), kgm, L, L * kgm))
+
+    # ---- Étriers / épingles : n/m = 100 / pas ----
+    pas = float(st.session_state.get(KS("shear_pas", beam_id, sec_id), 30.0) or 30.0)
+    n_par_m = (100.0 / pas) if pas > 0 else 0.0
+    n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", beam_id, sec_id), 1) or 1))
+
+    # positions réelles des barres du lit 1 inf. (largeur des étriers partiels)
+    n1, d1 = _lit_bars(beam_id, sec_id, "inf", 1)
+    d_et_max = _stirrup_diam_mm(beam_id, sec_id)
+    inset = enrob + d_et_max / 10.0 + d1 / 20.0                     # axe barre (cm)
+    if n1 > 1:
+        xs = [inset + (b - 2 * inset) * k / (n1 - 1) for k in range(n1)]
+    else:
+        xs = [b / 2.0]
+
+    for i in range(n_lines):
+        typ = str(st.session_state.get(KS(f"shear_line{i}_type", beam_id, sec_id), "Étriers (2 brins)"))
+        dmm = float(st.session_state.get(KS(f"shear_line{i}_d", beam_id, sec_id), 8) or 8)
+        f, t = _shear_line_pos(beam_id, sec_id, i)
+        f = max(1, min(n1, f)); t = max(1, min(n1, t))
+        kgm = _masse_lin_kg_m(dmm)
+        if _brins_from_type(typ) == 1:
+            # épingle : brin vertical (ou agrafe horizontale si f != t)
+            L_un = ((h - 2 * enrob) if f == t else abs(xs[t - 1] - xs[f - 1])) + 2 * retour   # cm
+            fam = f"Épingle Ø{int(dmm)}"
+        else:
+            w_ext = (b - 2 * enrob) if (f <= 1 and t >= n1) else (abs(xs[t - 1] - xs[f - 1]) + d1 / 10.0 + 2 * dmm / 10.0)
+            L_un = 2 * (w_ext + (h - 2 * enrob)) + 2 * retour                                 # cm
+            fam = f"Étrier Ø{int(dmm)}"
+        L = n_par_m * L_un / 100.0                                                            # m / m courant
+        rows.append((fam, dmm, _bar_area_mm2(dmm), kgm, L, L * kgm))
+
+    # ---- Armatures de peau (si déclenchées) ----
+    t_d = float(st.session_state.get("techno_d_mm", 10) or 10)
+    t_smax = float(st.session_state.get("techno_s_max_cm", 30.0) or 30.0)
+    e_inf1 = _get_dist_lit(beam_id, sec_id, "inf", 1)
+    e_sup1 = _get_dist_lit(beam_id, sec_id, "sup", 1)
+    d_vert = h - e_inf1 - e_sup1
+    if t_smax > 0 and d_vert > t_smax:
+        n_side = max(0, int(math.ceil(d_vert / t_smax)) - 1)
+        if n_side > 0:
+            kgm = _masse_lin_kg_m(t_d)
+            L = 2.0 * n_side
+            rows.append((f"Peau Ø{int(t_d)}", t_d, _bar_area_mm2(t_d), kgm, L, L * kgm))
+
+    poids = sum(r[5] for r in rows)
+    poids_maj = poids * (1.0 + maj / 100.0)
+    vol = (b / 100.0) * (h / 100.0) * 1.0                            # m³ / m courant
+    ta_brut = poids_maj / vol if vol > 0 else 0.0
+    ta_arr = math.ceil(ta_brut / arrondi) * arrondi if ta_brut > 0 else 0
+
+    # ---- Tableau détaillé (markdown, pour l'infobulle) ----
+    md = "**Calcul du taux d'armature (par mètre courant)**\n\n"
+    md += "| Famille | Ø (mm) | As (mm²) | kg/m | L (m/m) | Poids (kg/m) |\n"
+    md += "|---|---|---|---|---|---|\n"
+    for fam, dmm, As, kgm, L, p in rows:
+        md += f"| {fam} | {int(dmm)} | {As:.0f} | {kgm:.3f} | {L:.2f} | {p:.2f} |\n"
+    md += f"\nPoids total : **{poids:.1f} kg/m** — majoration {maj:.0f} % → **{poids_maj:.1f} kg/m**\n\n"
+    md += f"Volume de béton : **{vol:.3f} m³/m**\n\n"
+    md += f"TA = {poids_maj:.1f} / {vol:.3f} = **{ta_brut:.0f} kg/m³** → arrondi ({arrondi}) : **{ta_arr:.0f} kg/m³**"
+    return ta_arr, md
 
 
 # ============================================================
@@ -1701,13 +1829,20 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
     sec_nom = str(st.session_state.get(f"meta_b{beam_id}_nom_{sec_id}", sec.get("nom", f"Section {sec_id}")))
 
     states = _dimensionnement_compute_states(beam_id, sec_id, beton_data)
-    title = _status_icon_label(states["etat_global"], sec_nom)
+    ta_val, ta_md = _taux_armature_section(beam_id, sec_id)
+    sec_label = sec_nom if sec_nom.lower().startswith("section") else f"Section {sec_nom}"
+    title = _status_icon_label(states["etat_global"], sec_label)
+    if ta_val is not None:
+        title += f" — TA = {ta_val:.0f} kg/m³"
 
     # NB : expanded=True pour tous — le libellé contient l'icône d'état,
     # et Streamlit remet un expander à son état par défaut dès que son
     # libellé change ; avec False, les sections se refermaient toutes
     # seules à chaque changement d'état.
     with st.expander(title, expanded=True):
+        if ta_val is not None:
+            # icône ⓘ : tableau détaillé du calcul au survol
+            st.markdown(f"**Taux d'armature : TA = {ta_val:.0f} kg/m³**", help=ta_md)
         if beam_locked:
             st.caption("🔒 Poutre verrouillée — édition bloquée.")
 
@@ -1918,10 +2053,17 @@ def render_parametres_avances():
         st.number_input("Espacement vertical max (cm)", min_value=5.0, step=5.0, key="techno_s_max_cm")
 
     with c5:
-        st.markdown("**Taux d'armature**")
-        st.checkbox("Activer le calcul du taux d'armature", key="taux_arm_enable")
+        tt1, tt2 = st.columns([3, 0.8], vertical_alignment="center")
+        with tt1:
+            st.markdown("**Taux d'armature**")
+        with tt2:
+            st.checkbox("Calcul du taux d'armature", key="taux_arm_enable", label_visibility="collapsed")
         st.number_input("Pourcentage de majoration (%)", min_value=0.0, step=1.0, key="taux_arm_major_pct")
-        st.caption("Préparé pour une évolution future — sans effet pour l'instant.")
+        st.number_input("Retour d'étrier (cm)", min_value=0.0, step=1.0, key="taux_retour_etrier_cm",
+                        help="Compté deux fois dans la longueur d'un étrier : "
+                             "longueur du rectangle + 2 × retour.")
+        st.number_input("Arrondi supérieur (kg/m³)", min_value=1, step=1, key="taux_arrondi_kgm3",
+                        help="Ex. : 103 kg/m³ → 105 (arrondi 5) ou 110 (arrondi 10).")
 
     with c6:
         st.markdown("")
@@ -1991,7 +2133,17 @@ def show():
         st.session_state.retour_accueil_demande = False
         st.rerun()
 
-    st.markdown("## Poutre en béton armé")
+    tH1, tH2, tH3 = st.columns([8, 1.6, 0.55], vertical_alignment="center")
+    with tH1:
+        st.markdown("## Poutre en béton armé")
+    with tH2:
+        st.markdown(
+            f"<div style='text-align:right;color:#6b7280;font-size:0.9em;'>Version {APP_VERSION}</div>",
+            unsafe_allow_html=True,
+        )
+    with tH3:
+        st.button("❔", key="btn_version_hist", help="Historique des versions (à venir)",
+                  use_container_width=True)
 
     btn1, btn2, btn3, btn4, btn5 = st.columns(5)
 
