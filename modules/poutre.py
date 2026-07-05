@@ -1,7 +1,20 @@
 # ===========================
-#  VERSION 2.34
+#  VERSION 2.35
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.34 :
+#   1. Ajout d'armature d'effort tranchant : défaut = Étrier (2 brins),
+#      positionné automatiquement de la 1re à la dernière barre inf.
+#      (épingle : barre centrale, modifiable).
+#   2. POURCENTAGE D'UTILISATION dans les bandeaux verts/rouges
+#      (application uniquement, pas dans le PDF), affiché juste avant
+#      l'icône ✅/❌ :
+#        hauteur : (hmin + dist axe lit 1)/h · armatures : As dimensionnant
+#        (max(As,req ; As,min)) / As choisi · τ : τ/τ_adm ·
+#        étriers : pas retenu / pas admissible.  Conforme si ≤ 100 %.
+#      En-tête hauteur : "... — (hmin = X cm)".
+#   3. "Coefficient acier γs" -> "Coefficient acier ELS".
 #
 #  Évolutions vs 2.33 :
 #   1. ÉTRIERS : suppression du type "Étriers (3 brins)". Migration
@@ -141,13 +154,20 @@ MAX_LITS = 4  # nombre maximal de lits d'armatures par face
 LIT_COLS = [0.6, 1.0, 1.0, 1.2, 0.55]
 
 
-def open_bloc_left_right(left: str, right: str = "", etat: str = "ok"):
+def open_bloc_left_right(left: str, right: str = "", etat: str = "ok", pct=None):
     """
     Header de bloc : texte à gauche + texte à droite (aligné contre l'icône à droite).
+    pct (optionnel) : pourcentage d'utilisation affiché juste avant l'icône.
     NB : le rendu (seule la barre d'en-tête est colorée) repose sur
     l'auto-fermeture du HTML par Streamlit. Ne pas modifier.
     """
     right_html = f"<div style='font-weight:600;opacity:0.9;white-space:nowrap;'>{right}</div>" if right else ""
+    pct_html = ""
+    if pct is not None:
+        try:
+            pct_html = f"<div style='font-weight:700;white-space:nowrap;'>{float(pct):.0f}\u202f%</div>"
+        except Exception:
+            pct_html = ""
     st.markdown(
         f"""
         <div style="
@@ -160,6 +180,7 @@ def open_bloc_left_right(left: str, right: str = "", etat: str = "ok"):
             <div style="font-weight:700;">{left}</div>
             <div style="display:flex;align-items:center;gap:10px;">
               {right_html}
+              {pct_html}
               <div style="font-size:20px;line-height:1;">{C_ICONES.get(etat, '')}</div>
             </div>
           </div>
@@ -595,7 +616,7 @@ def _ensure_defaults_for_beam(beam_id: int):
         n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", beam_id, sid), 1) or 1))
         st.session_state[KS("shear_n_lines", beam_id, sid)] = n_lines
         for i in range(n_lines):
-            st.session_state.setdefault(KS(f"shear_line{i}_type", beam_id, sid), "Étriers (2 brins)" if i == 0 else "Épingles (1 brin)")
+            st.session_state.setdefault(KS(f"shear_line{i}_type", beam_id, sid), "Étriers (2 brins)")
             st.session_state.setdefault(KS(f"shear_line{i}_d", beam_id, sid), 8)
             _coerce_int_choice(KS(f"shear_line{i}_d", beam_id, sid), SHEAR_DIAM_OPTS, 8)
             # garde-fou : seuls 2 types existent désormais
@@ -737,7 +758,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.34", "beams": beams, "values": values}
+    return {"version": "2.35", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -1054,11 +1075,11 @@ def _add_shear_line(beam_id: int, sec_id: int, reduced: bool = False):
     new_i = max(1, int(st.session_state.get(nk, 1) or 1))
     st.session_state[nk] = new_i + 1
     n_bars = max(1, int(st.session_state.get(KS("n_as_inf", beam_id, sec_id), 2) or 2))
-    mid = (n_bars + 1) // 2
-    st.session_state.setdefault(KS(f"shear_line{new_i}_type", beam_id, sec_id), "Épingles (1 brin)")
+    # Défaut : Étrier (2 brins) englobant toutes les barres (1 -> n).
+    st.session_state.setdefault(KS(f"shear_line{new_i}_type", beam_id, sec_id), "Étriers (2 brins)")
     st.session_state.setdefault(KS(f"shear_line{new_i}_d", beam_id, sec_id), 8)
-    st.session_state.setdefault(KS(f"shear_line{new_i}_from", beam_id, sec_id), mid)
-    st.session_state.setdefault(KS(f"shear_line{new_i}_to", beam_id, sec_id), mid)
+    st.session_state.setdefault(KS(f"shear_line{new_i}_from", beam_id, sec_id), 1)
+    st.session_state.setdefault(KS(f"shear_line{new_i}_to", beam_id, sec_id), n_bars)
 
 
 # ============================================================
@@ -1423,7 +1444,7 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, disabled: bool):
     show_pos = n_bars > 1  # positions discrètes : visibles seulement si plusieurs barres
 
     for i in range(n_lines):
-        st.session_state.setdefault(KS(f"{prefix}{i}_type", beam_id, sec_id), "Étriers (2 brins)" if i == 0 else "Épingles (1 brin)")
+        st.session_state.setdefault(KS(f"{prefix}{i}_type", beam_id, sec_id), "Étriers (2 brins)")
         st.session_state.setdefault(KS(f"{prefix}{i}_d", beam_id, sec_id), 8)
 
         if show_pos:
@@ -1607,8 +1628,10 @@ def _render_face_armatures(beam_id: int, sec_id: int, which: str, states: dict, 
 
     As_disp = As_total if units_as == "mm²" else As_total / 100.0
     right = f"{detail} — As={As_disp:.2f} {unit_as_txt}"
+    besoin_dim = max(As_req, As_min_eff)      # valeur dimensionnante
+    pct_as = (besoin_dim / As_total * 100.0) if As_total > 0 else None
 
-    open_bloc_left_right(titre, right, etat)
+    open_bloc_left_right(titre, right, etat, pct=pct_as)
 
     # Infobulles pédagogiques : formule + valeurs numériques
     M_face = states["M_inf_val"] if is_inf else states["M_sup_val"]
@@ -1703,9 +1726,10 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
 
         # ---- Vérification de la hauteur ----
         if units_len == "mm":
-            right_h = f"{beton} — {b*10:.0f}×{h*10:.0f} mm — hmin={hmin_calc*10:.0f} mm"
+            right_h = f"{beton} — {b*10:.0f}×{h*10:.0f} mm — (hmin = {hmin_calc*10:.0f} mm)"
         else:
-            right_h = f"{beton} — {b:.0f}×{h:.0f} cm — hmin={hmin_calc:.1f} cm"
+            right_h = f"{beton} — {b:.0f}×{h:.0f} cm — (hmin = {hmin_calc:.1f} cm)"
+        pct_h = ((hmin_calc + dist_l1_inf) / h * 100.0) if h > 0 else None
 
         M_max_val = max(states["M_inf_val"], states["M_sup_val"])
         help_hmin = (
@@ -1716,7 +1740,7 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             f"μ = {states['mu_val']}\n\n"
             f"→ h,min = {_fr(hmin_calc, 1)} cm"
         )
-        open_bloc_left_right("Vérification de la hauteur", right_h, states["etat_h"])
+        open_bloc_left_right("Vérification de la hauteur", right_h, states["etat_h"], pct=pct_h)
         if units_len == "mm":
             st.markdown(
                 f"**h,min** = {hmin_calc*10:.0f} mm  \n"
@@ -1751,7 +1775,8 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             tau = V_kn * 1e3 / (0.75 * b * h * 100)
             besoin, etat_tau, nom_lim, tau_lim = _shear_need_text(tau)
 
-            open_bloc_left_right(titre_tau, f"τ={tau:.2f} ≤ {nom_lim}={tau_lim:.2f}", etat_tau)
+            pct_tau = (tau / tau_lim * 100.0) if tau_lim > 0 else None
+            open_bloc_left_right(titre_tau, f"τ={tau:.2f} ≤ {nom_lim}={tau_lim:.2f}", etat_tau, pct=pct_tau)
             st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
@@ -1773,7 +1798,8 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             )
 
             right_et = f"pas={pas:.1f} ≤ min({pas_th:.1f},{s_max:.1f})={pas_lim:.1f} cm"
-            open_bloc_left_right(titre_pas, right_et, etat_pas_state)
+            pct_pas = (pas / pas_lim * 100.0) if pas_lim > 0 else None
+            open_bloc_left_right(titre_pas, right_et, etat_pas_state, pct=pct_pas)
             a1, a2 = st.columns(2)
             with a1:
                 st.markdown(f"**Pas théorique = {pas_th:.1f} cm**", help=help_pas)
@@ -1866,14 +1892,14 @@ def render_parametres_avances():
     with c2:
         st.markdown("**Coefficients matériaux**")
         st.number_input(
-            "Coefficient acier γs",
+            "Coefficient acier ELS",
             min_value=1.0,
             max_value=2.0,
             step=0.05,
             format="%.2f",
             key="gamma_s",
-            help="fyd = fyk / γs — défaut 1,5 (méthode ancienne). "
-                 "Ex. acier 500 : 500/1,5 = 333 MPa ; avec γs=1,15 : 435 MPa.",
+            help="fyd = fyk / coefficient — défaut 1,5 (méthode ancienne). "
+                 "Ex. acier 500 : 500/1,5 = 333 MPa ; avec 1,15 : 435 MPa.",
         )
 
     with c3:
