@@ -472,14 +472,16 @@ def _layers_geometry(values, bid, sid, which):
         lits.append({"i": i, "n": n, "d": d, "e": e, "As": As_i})
         parts.append(f"{n}\u00d8{d}")
     e_cdg = (somme / As_tot) if As_tot > 0 else _dist_lit(values, bid, sid, which, 1)
-    raw = str(_g(values, KS(f"ycdg_{which}", bid, sid), "") or "").strip()
-    if raw:
-        try:
-            v = float(raw.replace(",", "."))
-            if v > 0:
-                e_cdg = v
-        except Exception:
-            pass
+    # yG imposé uniquement si l'utilisateur a désactivé le mode auto.
+    if not bool(_g(values, KS(f"ycdg_auto_{which}", bid, sid), False)):
+        raw = str(_g(values, KS(f"ycdg_{which}", bid, sid), "") or "").strip()
+        if raw:
+            try:
+                v = float(raw.replace(",", "."))
+                if v > 0:
+                    e_cdg = v
+            except Exception:
+                pass
     return {"As": As_tot, "e_cdg": e_cdg, "lits": lits, "detail": " + ".join(parts), "nl": nl}
 
 
