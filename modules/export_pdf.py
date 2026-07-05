@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  VERSION 2.35 (alignée sur poutre.py 2.35)
+#  VERSION 2.36 (alignée sur poutre.py 2.36)
+#
+#  Évolutions vs 2.35 :
+#   - Tableau matériaux : lignes "Coefficient acier ELS : γs = 1,50"
+#     et "Contrainte de calcul acier : fyd = ...".
+#   - Le taux d'armature n'est PAS exporté dans le PDF (en attente du
+#     calcul global de la poutre avec longueurs de sections).
 #
 #  Évolutions vs 2.34 :
 #   - CONCLUSIONS explicites (hauteur, armatures, tau, pas) sans
@@ -1026,13 +1032,14 @@ def carac(R, cw):
             kv("Béton", f"{R['beton']}"),
             kv("f<sub>ck</sub>", f"{fn(R['fck'],0)} N/mm{s2()}"),
             kv("Acier", f"B{int(R['fyk'])}"),
-            kv("f<sub>yd</sub>", f"{fn(R['fyd'],0)} N/mm{s2()} (coef. acier ELS = {fn(R['gamma_s'],2)})"),
+            kv("Coefficient acier ELS", f"{fn(R['gamma_s'],2)}"),
+            kv("Contrainte de calcul acier", f"f<sub>yd</sub> = {fn(R['fyd'],0)} N/mm{s2()}"),
             sub("SOLLICITATIONS"),
             kv("M<sub>inf</sub>", f"{fn(R['M_inf'],1)} kNm")]
     if R["has_Msup"]:
         rows.append(kv("M<sub>sup</sub>", f"{fn(R['M_sup'],1)} kNm"))
     rows.append(kv("V", f"{fn(R['V'],1)} kN"))
-    t = Table(rows, colWidths=[cw * 0.42, cw * 0.58])
+    t = Table(rows, colWidths=[cw * 0.55, cw * 0.45])
     ts = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 4),
           ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3)]
     for i, r in enumerate(rows):
