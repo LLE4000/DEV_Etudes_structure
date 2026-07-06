@@ -1,7 +1,34 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
-#  VERSION 2.37 (alignée sur poutre.py 2.37)
+#  VERSION 2.39 (alignée sur poutre.py 2.39)
+#
+#  Évolutions vs 2.38 :
+#   - EN-TÊTE : suppression de la ligne "Rédigé par :" — seul
+#     "Bureau d'Études Valens" est conservé.
+#   - TAUX D'ARMATURE : le TA global de la poutre est affiché à droite
+#     du bandeau de poutre ("T.A. = xxx kg/m³") UNIQUEMENT si l'option
+#     "Envoyer dans la note de calcul" (taux_arm_pdf) est activée.
+#     Pas de TA par section dans le PDF.
+#   - VÉRIFICATION DE LA HAUTEUR : formule hᵤ,min inchangée ; la ligne
+#     "h_u,min + distance axe lit 1" devient "Hauteur minimale de la
+#     poutre = hᵤ,min + CDG armatures = a + b = c cm" avec le CDG RÉEL
+#     des armatures (face du moment dimensionnant, inf. ou sup.).
+#     Conclusion : "Hauteur de la poutre : X cm ≥ hauteur minimale de
+#     la poutre : Y cm".
+#   - ARMATURES : "Moment appliqué" -> "Moment inférieur" / "Moment
+#     supérieur". La hauteur utile d_u = h − CDG réel (déjà pondéré
+#     Σ As·e / Σ As sur tous les lits).
+#   - ÉTRIERS : libellé clair "Étrier Ø12" (normalisé), section Asw
+#     affichée, calcul du pas admissible s_adm = min(s_th ; s_max)
+#     explicité.
+#   - COUPE DE SECTION : croix du CDG affichée UNIQUEMENT s'il y a
+#     plusieurs lits sur la face (position réelle du CDG pondéré).
+#
+#  Évolutions vs 2.37 :
+#   - yG imposé pris en compte uniquement si le mode auto est désactivé
+#     côté application (drapeau ycdg_auto_*). Le TA global de la poutre
+#     et le TA par section restent gérés côté application (non exportés).
 #
 #  Évolutions vs 2.35 :
 #   - Tableau matériaux : lignes "Coefficient acier ELS : γs = 1,50"
@@ -504,8 +531,9 @@ def _shear_lines(values, bid, sid):
         except Exception:
             to = None
         brins = _brins_from_type(typ)
+        base = "Épingle" if brins == 1 else "Étrier"   # libellé clair, normalisé
         Ast += n_c * brins * _bar_area_mm2(diam)
-        parts.append((f"{n_c}\u00d7 " if n_c > 1 else "") + f"{typ} \u00d8{int(diam)}")
+        parts.append((f"{n_c}\u00d7 " if n_c > 1 else "") + f"{base} \u00d8{int(diam)}")
         for _ in range(max(1, n_c)):
             groups.append({"type": typ, "d": int(diam), "brins": brins, "from": frm, "to": to})
     return Ast, " + ".join(parts), groups
@@ -515,6 +543,102 @@ def _first_stirrup(values, bid, sid):
     typ = str(_g(values, KS("shear_line0_type", bid, sid), "Étriers (2 brins)"))
     diam = int(float(_g(values, KS("shear_line0_d", bid, sid), 8) or 8))
     return {"type": typ, "d": diam, "brins": _brins_from_type(typ)}
+
+
+# ============================================================
+#  TAUX D'ARMATURE GLOBAL DE LA POUTRE (v2.39)
+#  Exporté dans le PDF UNIQUEMENT si l'option "Envoyer dans la note
+#  de calcul" (taux_arm_pdf) est activée. Mêmes formules que poutre.py
+#  (_section_poids_vol / _taux_armature_global). Pas de TA par section.
+# ============================================================
+RHO_ACIER = 7850.0  # kg/m³
+
+
+def _masse_lin_kg_m(d_mm):
+    """Masse linéique d'une barre (kg/m) : ρ·π·d²/4."""
+    return RHO_ACIER * math.pi * (float(d_mm) / 1000.0) ** 2 / 4.0
+
+
+def _section_poids_vol(values, bid, sid):
+    """(poids acier majoré kg/m, volume béton m³/m) d'une section."""
+    b = float(_g(values, KB("b", bid), 20))
+    h = float(_g(values, KB("h", bid), 40))
+    enrob = float(_g(values, KB("enrobage_beton", bid), 3.0) or 3.0)
+    maj = float(_g(values, "taux_arm_major_pct", 5.0) or 0.0)
+    retour = float(_g(values, "taux_retour_etrier_cm", 10.0) or 0.0)
+
+    poids = 0.0
+    # longitudinales : 1 m par barre au mètre courant
+    for which in ("inf", "sup"):
+        nl = _get_nlits(values, bid, sid, which)
+        for i in range(1, nl + 1):
+            n, dmm = _lit_bars(values, bid, sid, which, i)
+            poids += n * 1.0 * _masse_lin_kg_m(dmm)
+
+    # transversales : n_par_m = 100 / pas
+    pas = float(_g(values, KS("shear_pas", bid, sid), 30.0) or 30.0)
+    n_par_m = (100.0 / pas) if pas > 0 else 0.0
+    n_lines = max(1, int(_g(values, KS("shear_n_lines", bid, sid), 1) or 1))
+    n1, d1 = _lit_bars(values, bid, sid, "inf", 1)
+    d_et_max = _stirrup_diam_mm(values, bid, sid)
+    inset = enrob + d_et_max / 10.0 + d1 / 20.0
+    xs = [inset + (b - 2 * inset) * k / (n1 - 1) for k in range(n1)] if n1 > 1 else [b / 2.0]
+    for i in range(n_lines):
+        typ = str(_g(values, KS(f"shear_line{i}_type", bid, sid), "Étrier"))
+        dmm = float(_g(values, KS(f"shear_line{i}_d", bid, sid), 10) or 10)
+        try:
+            f = int(float(_g(values, KS(f"shear_line{i}_from", bid, sid), 1) or 1))
+        except Exception:
+            f = 1
+        try:
+            t = int(float(_g(values, KS(f"shear_line{i}_to", bid, sid), f) or f))
+        except Exception:
+            t = f
+        f = max(1, min(n1, f)); t = max(1, min(n1, t))
+        if f > t:
+            f, t = t, f
+        if _brins_from_type(typ) == 1:
+            L_un_cm = ((h - 2 * enrob) if f == t else abs(xs[t - 1] - xs[f - 1])) + 2 * retour
+        else:
+            w_ext = ((b - 2 * enrob) if (f <= 1 and t >= n1)
+                     else (abs(xs[t - 1] - xs[f - 1]) + d1 / 10.0 + 2 * dmm / 10.0))
+            L_un_cm = 2 * (w_ext + (h - 2 * enrob)) + 2 * retour
+        poids += n_par_m * (L_un_cm / 100.0) * _masse_lin_kg_m(dmm)
+
+    # armatures de peau
+    t_d = float(_g(values, "techno_d_mm", 10) or 10)
+    t_smax = float(_g(values, "techno_s_max_cm", 30.0) or 30.0)
+    d_vert = h - _dist_lit(values, bid, sid, "inf", 1) - _dist_lit(values, bid, sid, "sup", 1)
+    if t_smax > 0 and d_vert > t_smax:
+        n_side = max(0, int(math.ceil(d_vert / t_smax)) - 1)
+        poids += 2 * n_side * 1.0 * _masse_lin_kg_m(t_d)
+
+    poids_maj = poids * (1.0 + maj / 100.0)
+    vol = (b / 100.0) * (h / 100.0)
+    return poids_maj, vol
+
+
+def _taux_armature_global(values, beam, bid):
+    """TA global de la poutre = Σ(poids_i·L_i) / Σ(vol_i·L_i), arrondi au
+    palier supérieur. None si option PDF désactivée ou aucune longueur."""
+    if not bool(_g(values, "taux_arm_pdf", False)):
+        return None
+    arrondi = max(1, int(_g(values, "taux_arrondi_kgm3", 5) or 5))
+    num = 0.0
+    den = 0.0
+    any_len = False
+    for s in beam.get("sections", []):
+        sid = int(s["id"])
+        L = float(_g(values, KS("longueur_m", bid, sid), 0.0) or 0.0)
+        if L <= 0:
+            continue
+        any_len = True
+        poids, vol = _section_poids_vol(values, bid, sid)
+        num += poids * L
+        den += vol * L
+    if not any_len or den <= 0:
+        return None
+    return math.ceil((num / den) / arrondi) * arrondi
 
 
 # ============================================================
@@ -563,7 +687,11 @@ def _compute_section(values, beton_data, bid, sid):
 
     M_max = max(M_inf, M_sup)
     hmin = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if M_max > 0 else 0.0
-    etat_h = "ok" if (hmin + dist_l1_inf <= h) else "nok"
+    # Hauteur minimale de la poutre = hᵤ,min + CDG RÉEL des armatures
+    # de la face du moment dimensionnant (v2.39 — avant : lit 1 inf.).
+    e_cdg_gov = geo_sup["e_cdg"] if M_sup > M_inf else geo_inf["e_cdg"]
+    h_min_poutre = hmin + e_cdg_gov
+    etat_h = "ok" if (h_min_poutre <= h) else "nok"
 
     # As,min : 3 critères (EC2 / plancher / 0,25·As,req opposé), h partout
     fctm = 0.30 * (fck_cyl ** (2.0 / 3.0)) if fck_cyl > 0 else 0.0
@@ -630,6 +758,7 @@ def _compute_section(values, beton_data, bid, sid):
         "M_inf": M_inf, "M_sup": M_sup, "V": V,
         "has_Msup": has_Msup,
         "M_max": M_max, "hmin": hmin, "etat_h": etat_h,
+        "e_cdg_gov": e_cdg_gov, "h_min_poutre": h_min_poutre,
         "As_min_ec": As_min_ec, "As_min_plancher": As_min_plancher, "As_max": As_max,
         "As_req_inf": As_req_inf, "As_req_sup": As_req_sup,
         "As_min_inf": As_min_inf, "As_min_sup": As_min_sup,
@@ -828,6 +957,9 @@ class SectionDrawing(Flowable):
             y_sup.append((yy, col, lit))
 
         # centres de gravité des armatures (petites croix noires)
+        # v2.39 : croix affichée UNIQUEMENT s'il y a plusieurs lits sur la
+        # face — position réelle du CDG pondéré (Σ As·e / Σ As), c.-à-d.
+        # ENTRE les lits (fix du bug "croix sur la barre du lit 1").
         def cdg_cross(y_cm_from_bottom):
             yy = y0 + (y_cm_from_bottom / h_cm) * sh
             cx = x0 + sw / 2.0
@@ -837,9 +969,10 @@ class SectionDrawing(Flowable):
             c.line(cx, yy - r, cx, yy + r)
             return yy
 
-        cdg_cross(geo_inf["e_cdg"])                 # c.d.g. armatures inférieures
-        if geo_sup["As"] > 0:
-            cdg_cross(h_cm - geo_sup["e_cdg"])      # c.d.g. armatures supérieures
+        if geo_inf["nl"] > 1 and geo_inf["As"] > 0:
+            cdg_cross(geo_inf["e_cdg"])                 # c.d.g. armatures inférieures
+        if geo_sup["nl"] > 1 and geo_sup["As"] > 0:
+            cdg_cross(h_cm - geo_sup["e_cdg"])          # c.d.g. armatures supérieures
 
         # cotes b / h
         c.setStrokeColor(P["dim"]); c.setFillColor(P["dim"]); c.setLineWidth(0.6); c.setFont("Helvetica", 7.5)
@@ -1087,14 +1220,22 @@ def b_haut(R, cw):
         Sqrt(Row([Frac(Row(Row(sci_tokens(R['M_max'] * 1e6)).items),
                        Row([_t(f"{fn(R['alpha_b'],2)} · {fn(R['b']*10,0)} · {fn(R['mu'],4)}")]))]), INK),
         _t("  =  "), nb(f"{fn(R['hmin'],1)} cm")]))
+    # Hauteur minimale de la poutre = hᵤ,min + CDG réel des armatures
+    # (face du moment dimensionnant), valeurs numériques explicites.
+    hminp = Formula(Row([
+        _t("h", sub="u,min"), _t(" + CDG armatures = "),
+        _t(f"{fn(R['hmin'],1)} + {fn(R['e_cdg_gov'],1)}  =  "),
+        nb(f"{fn(R['h_min_poutre'],1)} cm")]))
     body = [fline("Hauteur utile minimale", app, iw),
+            Spacer(1, 2),
+            fline("Hauteur minimale de la poutre", hminp, iw),
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
-            reslines([("h_u,min + distance axe lit 1", "h<sub>u,min</sub> + d<sub>1,inf</sub>", f"{fn(R['hmin']+R['dist_l1_inf'],1)} cm"),
+            reslines([("Hauteur minimale de la poutre", "h<sub>min</sub>", f"{fn(R['h_min_poutre'],1)} cm"),
                       ("Hauteur de la poutre", "h", f"{fn(R['h'],0)} cm")], iw),
             Spacer(1, 5)]
     ok = R["etat_h"] == "ok"
     left = (f"Hauteur de la poutre : {fn(R['h'],0)} cm "
-            f"{'≥' if ok else '&lt;'} hauteur utile minimale : {fn(R['hmin']+R['dist_l1_inf'],1)} cm")
+            f"{'≥' if ok else '&lt;'} hauteur minimale de la poutre : {fn(R['h_min_poutre'],1)} cm")
     body.append(conclu(R["etat_h"], iw, left, ok=ok))
     return block("1.", "Vérification de la hauteur", R["etat_h"], body, cw)
 
@@ -1164,7 +1305,8 @@ def b_arm(R, cw, which):
         _t("A", sub="s,max"), _t(f" = 0,04 · {fn(R['b']*10,0)} · {fn(R['h']*10,0)} = "),
         txt(f"{fn(R['As_max'],0)} mm", font="Helvetica-Bold", sup="2")]))
 
-    body = [fline("Moment appliqué",
+    moment_label = "Moment inférieur" if which == "inf" else "Moment supérieur"
+    body = [fline(moment_label,
                   Formula(Row([_t("M", sub=("inf" if which == "inf" else "sup")),
                                _t("  =  "), nb(f"{fn(M,1)} kNm")])), iw),
             Spacer(1, 2),
@@ -1199,10 +1341,15 @@ def b_shear(R, cw):
             _t("  =  "), nb(f"{fn(Sh['pas_th'],1)} cm")]))
     else:
         sthapp = Formula(Row([_t("s", sub="th"), _t("  =  "), nb("—")]))
-    etr = f"{Sh['summary']} ({fn(Sh['Ast'],1)} mm{s2()})"
+    etr = f"{Sh['summary']}"
     okt = Sh["tau"] <= Sh["tau_lim"]
     okp = Sh["pas"] <= Sh["pas_lim"]
     et_tau = "ok" if okt else ("warn" if Sh["etat_tau"] == "warn" else "nok")
+    # Pas admissible = min( pas théorique ; pas maximal ) — calcul explicite
+    sadm = Formula(Row([
+        _t("s", sub="adm"),
+        _t(f" = min( {fn(Sh['pas_th'],1)} ; {fn(Sh['s_max'],1)} )  =  "),
+        nb(f"{fn(Sh['pas_lim'],1)} cm")]))
     body = [fline("Contrainte tangentielle", app, iw),
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
             reslines([("Contrainte admissible", "τ<sub>adm</sub>", f"{fn(Sh['tau_lim'],2)} N/mm{s2()}")], iw),
@@ -1212,10 +1359,12 @@ def b_shear(R, cw):
                    f"{'≤' if okt else '&gt;'} contrainte tangentielle admissible : {fn(Sh['tau_lim'],2)} N/mm{s2()}",
                    ok=okt),
             Spacer(1, 9), Paragraph("<b>Étriers</b>", ST["f"]), Spacer(1, 4),
-            reslines([("On prend (étrier)", "", etr)], iw),
+            reslines([("On prend", "", etr),
+                      ("Section", "A<sub>sw</sub>", f"{fn(Sh['Ast'],1)} mm{s2()}")], iw),
             Spacer(1, 2), fline("Pas théorique", sthapp, iw),
             Spacer(1, 2), fline("Pas maximal",
                 Formula(Row([_t("s", sub="max"), _t(" = min(0,75 · d ; 30) = "), nb(f"{fn(Sh['s_max'],1)} cm")])), iw),
+            Spacer(1, 2), fline("Pas admissible", sadm, iw),
             Spacer(1, 2), fline("Pas retenu", Formula(Row([_t("s"), _t("  =  "), nb(f"{fn(Sh['pas'],1)} cm")])), iw),
             Spacer(1, 5)]
     et = "nok" if "nok" in (Sh["etat_tau"], Sh["etat_pas"]) else ("warn" if "warn" in (Sh["etat_tau"], Sh["etat_pas"]) else "ok")
@@ -1229,8 +1378,22 @@ def b_shear(R, cw):
 # ============================================================
 #  BANDEAUX POUTRE / SECTION (pastel)
 # ============================================================
-def beam_banner(txt_, cw):
+def beam_banner(txt_, cw, right_txt=None):
+    """Bandeau de poutre. right_txt (optionnel) : texte aligné à droite,
+    en gras — utilisé pour 'T.A. = xxx kg/m³' (option PDF activée)."""
     st = ParagraphStyle("bb", parent=ST["beam"], textColor=BEAM_TX)
+    if right_txt:
+        str_ = ParagraphStyle("bbr", parent=ST["beam"], textColor=BEAM_TX,
+                              fontSize=11.5, leading=18, alignment=TA_RIGHT)
+        t = Table([[Paragraph(txt_, st), Paragraph(f"<b>{right_txt}</b>", str_)]],
+                  colWidths=[cw * 0.62, cw * 0.38])
+        t.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), BEAM_BG),
+            ("LEFTPADDING", (0, 0), (0, 0), 12), ("RIGHTPADDING", (0, 0), (0, 0), 4),
+            ("LEFTPADDING", (1, 0), (1, 0), 4), ("RIGHTPADDING", (1, 0), (1, 0), 10),
+            ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("ROUNDEDCORNERS", [5, 5, 5, 5])]))
+        return t
     return Table([[Paragraph(txt_, st)]], colWidths=[cw],
         style=TableStyle([("BACKGROUND", (0, 0), (-1, -1), BEAM_BG), ("LEFTPADDING", (0, 0), (-1, -1), 12),
             ("RIGHTPADDING", (0, 0), (-1, -1), 10), ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
@@ -1261,7 +1424,6 @@ class NoteDoc(BaseDocTemplate):
         c.setFillColor(INK); c.setFont("Helvetica-Bold", 10.5)
         c.drawString(18 * mm, h - 12 * mm, "Bureau d'Études Valens")
         c.setFillColor(MUTE); c.setFont("Helvetica", 8)
-        c.drawString(18 * mm, h - 16.5 * mm, f"Rédigé par : {self.infos.get('initiales','')}")
         c.drawRightString(w - 18 * mm, h - 12 * mm, f"{self.infos.get('nom_projet','')}")
         c.drawRightString(w - 18 * mm, h - 16.5 * mm, f"{self.infos.get('partie','')}")
         c.setStrokeColor(INK); c.setLineWidth(1.6); c.line(18 * mm, h - 18.5 * mm, w - 18 * mm, h - 18.5 * mm)
@@ -1321,7 +1483,12 @@ def _build_story(beams, values, beton_data, infos, cw, pages, store):
         if bi > 0:
             story.append(PageBreak())
         story.append(Marker(store, bid))
-        story.append(beam_banner(str(_g(values, f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}"))), cw))
+        # T.A. global de la poutre à droite du bandeau — uniquement si
+        # l'option "Envoyer dans la note de calcul" est activée.
+        ta_global = _taux_armature_global(values, b, bid)
+        ta_txt = f"T.A. = {ta_global:.0f} kg/m³" if ta_global is not None else None
+        story.append(beam_banner(str(_g(values, f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}"))), cw,
+                                 right_txt=ta_txt))
         story.append(Spacer(1, 10))
         sections = b.get("sections", [])
         for si, s in enumerate(sections):
