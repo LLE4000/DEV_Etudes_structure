@@ -1,7 +1,32 @@
 # ===========================
-#  VERSION 2.39
+#  VERSION 2.39.1
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Correctifs vs 2.39 :
+#   1. FIX HTML brut visible dans "Vérification de l'effort tranchant"
+#      (et n'importe quel bloc open_bloc_left_right sans texte à droite) :
+#      le f-string multi-ligne indenté à 14 espaces générait, quand
+#      right="", une ligne vide indentée que Streamlit interprétait comme
+#      un bloc de code Markdown -> le HTML des <div> suivants (% + icône)
+#      s'affichait en clair. HTML reconstruit sur une seule ligne, sans
+#      indentation interne.
+#   2. Suppression du caption "🔒 Poutre verrouillée — édition bloquée."
+#      (le cadenas dans le nom de poutre suffit).
+#   3. Bloc "Vérification de la hauteur" en Streamlit : seul le header
+#      (état + % + icône) reste affiché. Les 3 lignes de détail
+#      (hᵤ,min / hauteur minimale de la poutre / conclusion) restent
+#      intégralement dans le PDF.
+#   4. T.A. dans les headers de poutre / section : plus d'em-spaces
+#      (\u2003 × 22) + injection CSS `white-space: pre` sur les résumés
+#      d'expander pour préserver les espaces multiples et pousser
+#      effectivement le T.A. vers la droite. NB : `st.expander` n'accepte
+#      pas d'HTML dans son libellé — un alignement pixel-perfect à droite
+#      n'est pas possible sans abandonner le mécanisme déplier/replier.
+#
+# ===========================
+#  VERSION 2.39
+# ===========================
 #
 #  Évolutions vs 2.38 :
 #   1. FIX CDG ARMATURES : l'ajout/modification d'un lit recalcule bien
@@ -224,7 +249,7 @@ BETON_DATA = {}
 
 MAX_LITS = 4  # nombre maximal de lits d'armatures par face
 
-APP_VERSION = "1.2.39"  # version affichée dans l'en-tête de l'application
+APP_VERSION = "1.2.39.1"  # version affichée dans l'en-tête de l'application
 
 RHO_ACIER = 7850.0  # kg/m³ (taux d'armature)
 
@@ -234,37 +259,39 @@ LIT_COLS = [0.6, 1.0, 1.0, 1.2, 1.2, 0.55]
 
 def open_bloc_left_right(left: str, right: str = "", etat: str = "ok", pct=None):
     """
-    Header de bloc : texte à gauche + texte à droite (aligné contre l'icône à droite).
-    pct (optionnel) : pourcentage d'utilisation affiché juste avant l'icône.
-    NB : le rendu (seule la barre d'en-tête est colorée) repose sur
-    l'auto-fermeture du HTML par Streamlit. Ne pas modifier.
+    Header de bloc : texte à gauche + (optionnel) texte à droite + pct + icône.
+
+    FIX v2.39.1 : HTML sur UNE SEULE LIGNE, sans indentation interne.
+    Motif : quand `right` est vide, l'ancienne version laissait une ligne
+    blanche indentée à 14 espaces au milieu du f-string ; Streamlit
+    interprétait cette ligne comme un début de bloc de code Markdown
+    (indentation ≥ 4 espaces) et repassait en mode texte -> le HTML des
+    <div> suivants (pct + icône) s'affichait en clair dans la page
+    (visible pour "Vérification de l'effort tranchant" v2.39).
+    Le rendu s'appuie toujours sur l'auto-fermeture du HTML par Streamlit
+    pour le <div> extérieur (fermé par close_bloc()).
     """
-    right_html = f"<div style='font-weight:600;opacity:0.9;white-space:nowrap;'>{right}</div>" if right else ""
-    pct_html = ""
+    parts = []
+    if right:
+        parts.append(f"<div style='font-weight:600;opacity:0.9;white-space:nowrap;'>{right}</div>")
     if pct is not None:
         try:
-            pct_html = f"<div style='font-weight:700;white-space:nowrap;'>{float(pct):.0f}\u202f%</div>"
+            parts.append(f"<div style='font-weight:700;white-space:nowrap;'>{float(pct):.0f}\u202f%</div>")
         except Exception:
-            pct_html = ""
-    st.markdown(
-        f"""
-        <div style="
-            background-color:{C_COULEURS.get(etat, '#f6f6f6')};
-            padding:12px 14px 10px 14px;
-            border-radius:10px;
-            border:1px solid #d9d9d9;
-            margin:10px 0 12px 0;">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:6px;">
-            <div style="font-weight:700;">{left}</div>
-            <div style="display:flex;align-items:center;gap:10px;">
-              {right_html}
-              {pct_html}
-              <div style="font-size:20px;line-height:1;">{C_ICONES.get(etat, '')}</div>
-            </div>
-          </div>
-        """,
-        unsafe_allow_html=True,
+            pass
+    parts.append(f"<div style='font-size:20px;line-height:1;'>{C_ICONES.get(etat, '')}</div>")
+    right_side = "".join(parts)
+    bg = C_COULEURS.get(etat, '#f6f6f6')
+    html = (
+        f'<div style="background-color:{bg};padding:12px 14px 10px 14px;'
+        f'border-radius:10px;border:1px solid #d9d9d9;margin:10px 0 12px 0;">'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;'
+        f'gap:10px;margin-bottom:6px;">'
+        f'<div style="font-weight:700;">{left}</div>'
+        f'<div style="display:flex;align-items:center;gap:10px;">{right_side}</div>'
+        f'</div>'
     )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def close_bloc():
@@ -2200,9 +2227,13 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
     sec_label = sec_nom if sec_nom.lower().startswith("section") else f"Section {sec_nom}"
     title = _status_icon_label(states["etat_global"], sec_label)
     if ta_val is not None:
-        # T.A. dans le header de section, poussé vers la droite
-        # (les libellés d'expander n'acceptent pas d'alignement HTML).
-        title = f"{title}\u2003\u2003\u2003\u2003T.A. = {ta_val:.0f} kg/m³"
+        # T.A. poussé à droite avec des em-spaces \u2003 (les libellés
+        # d'expander n'acceptent pas d'HTML : pas d'alignement CSS
+        # direct possible dans le titre). Combiné avec l'injection CSS
+        # `white-space: pre` sur les résumés d'expander (voir show()),
+        # ces espaces ne sont pas collapsés et poussent effectivement
+        # le T.A. vers la droite. Nombre calibré pour un écran typique.
+        title = f"{title}{'\u2003' * 22}T.A. = {ta_val:.0f} kg/m³"
 
     # NB : expanded=True pour tous — le libellé contient l'icône d'état,
     # et Streamlit remet un expander à son état par défaut dès que son
@@ -2215,8 +2246,9 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             _, cInfo = st.columns([22, 1])
             with cInfo:
                 st.markdown("&nbsp;", help=ta_md)
-        if beam_locked:
-            st.caption("🔒 Poutre verrouillée — édition bloquée.")
+        # (v2.39.1) Le caption "🔒 Poutre verrouillée — édition bloquée."
+        # est retiré : le cadenas dans le nom de poutre suffit à indiquer
+        # l'état de verrouillage.
 
         dim_locked = beam_locked
 
@@ -2232,52 +2264,17 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
         V_val = states["V_val"]
 
         # ---- Vérification de la hauteur ----
+        # (v2.39.1) En Streamlit, seul le header du bloc est affiché :
+        # % + icône d'état suffisent visuellement. Les 3 lignes de détail
+        # (hᵤ,min / hauteur minimale de la poutre / conclusion) restent
+        # intégralement dans le PDF.
         if units_len == "mm":
             right_h = f"{beton} • Section {b*10:.0f}×{h*10:.0f} mm"
         else:
             right_h = f"{beton} • Section {b:.0f}×{h:.0f} cm"
-        e_cdg_gov = states["e_cdg_gov"]
         h_min_poutre = states["h_min_poutre"]
         pct_h = (h_min_poutre / h * 100.0) if h > 0 else None
-
-        M_max_val = max(states["M_inf_val"], states["M_sup_val"])
-        help_hmin = (
-            "**hᵤ,min = √( M / (α_b · b · μ) )**\n\n"
-            f"M = {_fr(M_max_val, 1)} kN·m\n\n"
-            f"α_b = {_fr(states['alpha_b'], 2)}\n\n"
-            f"b = {_fr(b * 10, 0)} mm\n\n"
-            f"μ = {states['mu_val']}\n\n"
-            f"→ hᵤ,min = {_fr(hmin_calc, 1)} cm"
-        )
         open_bloc_left_right("Vérification de la hauteur", right_h, states["etat_h"], pct=pct_h)
-        help_hmin_p = (
-            "**Hauteur minimale de la poutre = hᵤ,min + CDG armatures**\n\n"
-            "CDG des armatures de la face du moment dimensionnant."
-        )
-        if units_len == "mm":
-            st.markdown(f"**Hauteur utile minimale hᵤ,min** = {hmin_calc*10:.0f} mm", help=help_hmin)
-            st.markdown(
-                f"**Hauteur minimale de la poutre** = hᵤ,min + CDG armatures = "
-                f"{hmin_calc*10:.0f} + {e_cdg_gov*10:.0f} = {h_min_poutre*10:.0f} mm",
-                help=help_hmin_p,
-            )
-            st.markdown(
-                f"Hauteur de la poutre : {h*10:.0f} mm "
-                f"{'≥' if states['etat_h'] == 'ok' else '<'} "
-                f"hauteur minimale de la poutre : {h_min_poutre*10:.0f} mm"
-            )
-        else:
-            st.markdown(f"**Hauteur utile minimale hᵤ,min** = {hmin_calc:.1f} cm", help=help_hmin)
-            st.markdown(
-                f"**Hauteur minimale de la poutre** = hᵤ,min + CDG armatures = "
-                f"{_fr(hmin_calc, 1)} + {_fr(e_cdg_gov, 1)} = {_fr(h_min_poutre, 1)} cm",
-                help=help_hmin_p,
-            )
-            st.markdown(
-                f"Hauteur de la poutre : {h:.0f} cm "
-                f"{'≥' if states['etat_h'] == 'ok' else '<'} "
-                f"hauteur minimale de la poutre : {_fr(h_min_poutre, 1)} cm"
-            )
         close_bloc()
 
         # ---- Armatures inférieures / supérieures ----
@@ -2499,7 +2496,7 @@ def render_dimensionnement_right(beton_data: dict):
         if bool(st.session_state.get("taux_arm_show_app", False)):
             ta_global = _taux_armature_global(bid)
             if ta_global is not None:
-                beam_label = (f"{beam_label}\u2003\u2003\u2003\u2003"
+                beam_label = (f"{beam_label}{'\u2003' * 22}"
                               f"**T.A. = {ta_global:.0f} kg/m³**")
 
         # expanded=True : libellé dynamique (icône d'état) -> Streamlit
@@ -2525,6 +2522,21 @@ def show():
 
     _ensure_global_defaults()
     _init_beams_if_needed()
+
+    # (v2.39.1) CSS : préserver les em-spaces (\u2003) dans les libellés
+    # d'expander pour que le T.A. soit poussé loin à droite (Streamlit
+    # collapse par défaut les espaces multiples). Sans injection HTML
+    # possible dans le titre, c'est la façon la plus fiable de pousser
+    # un contenu à droite sans casser le déplier/replier.
+    st.markdown(
+        "<style>"
+        "[data-testid='stExpander'] summary p, "
+        "[data-testid='stExpander'] details > summary p { "
+        "white-space: pre !important; "
+        "}"
+        "</style>",
+        unsafe_allow_html=True,
+    )
 
     # FIX PERSISTANCE : épingler toutes les clés persistantes AVANT tout rendu.
     _pin_persistent_state()
