@@ -1,23 +1,43 @@
 # =============================================================
 #  raideur_sol.py — Raideur élastique des sols (modèle de Winkler)
-#  VERSION 3.0 — refonte complète
+#  VERSION 3.1
 #
-#  Objectifs de la refonte :
-#   - Calculs séparés du rendu : fonctions pures testables, aucun
-#     effet de bord Streamlit dans le calcul.
-#   - Physique corrigée / clarifiée :
-#       * Cas 2 : k_serie (ressorts en série, tassement 1D d'une
-#         colonne de sol) ET k_Boussinesq (semelle sur massif semi-
-#         infini) sont deux MODÈLES DISTINCTS, jamais chaînés. Chacun
-#         est affiché avec son domaine de validité.
-#       * Cas 4 : contact plat/béton traité en compression 1D pure
-#         (k = E/h). Le facteur (1−ν²) — valable pour un massif semi-
-#         infini, pas pour une couche mince confinée — est proposé en
-#         option explicite et non plus imposé.
-#   - suggest_E_from_qc n'écrase plus silencieusement E : une colonne
-#     "E suggéré" informe, l'utilisateur remplit "E" s'il le souhaite.
-#   - set_page_config retiré (géré par l'app principale).
-#   - State centralisé + defaults ; conversions d'unités robustes.
+#  Évolutions vs 3.0 :
+#   1. BASE DE DONNÉES SOLS UNIFIÉE (SOIL_DB) : remplace à la fois
+#      SOIL_TYPES, _ALPHA_QC et la liste "soils" codée en dur dans le
+#      Cas 6. Une seule source de vérité, utilisée par :
+#        - le menu déroulant "Type de sol" du tableau multicouche,
+#        - le préremplissage qc / Rf / E du Cas 2,
+#        - l'abaque du Cas 6 (γ, k, qₐ).
+#      Chaque entrée porte : catégorie, γ, plage qc (si CPT pertinent),
+#      plage E, plage k, α (qc→E) si pertinent, description, et un
+#      indicateur cpt_ok (le CPT n'a pas de sens sur du rocher sain :
+#      refus de pointe).
+#   2. TYPES DE SOLS ÉTENDUS (contexte belge) :
+#      - Argile surconsolidée (Boom/Ypresienne), Limon (loess),
+#      - Craie (altérée / saine) — Hesbaye, Tournaisis,
+#      - Calcaire (fracturé/altéré / sain),
+#      - Schiste houiller, DÉCLINÉ PAR DEGRÉ D'ALTÉRATION
+#        (décomposé W4-W5 / altéré W3 / sain W1-W2 — classification
+#        type ISO 14689 / Franklin), plutôt qu'un seul "Roche" générique.
+#      - Grès (altéré / sain).
+#      Pour les roches, qc n'est PAS proposé (refus au pénétromètre) :
+#      seule une plage de E est fournie, à confirmer par RQD/pressiomètre/
+#      essai de laboratoire — jamais à figer sans le rapport géotechnique.
+#   3. PRÉREMPLISSAGE DU TABLEAU MULTICOUCHE (Cas 2) : dès qu'un type
+#      de sol est choisi (nouvelle ligne ou changement de type) ET que
+#      qc/E sont vides, les valeurs typiques (milieu de plage) de
+#      SOIL_DB sont injectées automatiquement dans qc/Rf/E — modifiables
+#      ensuite par l'utilisateur. Ne se redéclenche pas tant que le type
+#      ne change pas (évite d'écraser une valeur volontairement effacée).
+#   4. AVERTISSEMENT COUCHES INCOMPLÈTES : le calcul k_serie ignore
+#      toujours les lignes sans h ou E valides (physique inchangée),
+#      mais un message explicite indique désormais si l'épaisseur prise
+#      en compte (H) est inférieure à l'épaisseur totale saisie, avec le
+#      détail des lignes ignorées — fini le silence.
+#   5. Petit badge "→ à utiliser pour SCIA" sur le bloc "Ressorts en
+#      série", pour lever l'ambiguïté avec le bloc Boussinesq (donné à
+#      titre de comparaison / ordre de grandeur uniquement).
 #
 #  Winkler : q = k · w  ->  k = q / w
 #    q [kPa = kN/m²], w [m], k [kN/m³]  (1 MN/m³ = 1000 kN/m³)
@@ -32,40 +52,183 @@ import streamlit as st
 #  CONSTANTES
 # =============================================================
 KGF_PER_CM2_TO_KPA = 98.0665          # 1 kgf/cm² = 98.0665 kPa
-VERSION = "v3.0"
+VERSION = "v3.1"
 
 C_COULEURS = {"ok": "#e6ffe6", "warn": "#fffbe6", "nok": "#ffe6e6", "info": "#eef2ff"}
 C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌", "info": "ℹ️"}
 
-SOIL_TYPES = [
-    "—",
-    "Tourbe",
-    "Argile très molle",
-    "Argile molle à moyenne",
-    "Argile ferme / raide",
-    "Limon",
-    "Sable lâche",
-    "Sable moyennement compact",
-    "Sable dense",
-    "Sable graveleux / grave compacte",
-    "Roche altérée",
-    "Roche saine",
-    "Personnalisé",
-]
 
-# Corrélation indicative qc -> E (E ≈ α·qc), α selon le type de sol.
-_ALPHA_QC = {
-    "Tourbe": 4.0,
-    "Argile très molle": 4.0,
-    "Argile molle": 5.0,
-    "Argile ferme": 6.0,
-    "Limon": 4.0,
-    "Sable lâche": 3.5,
-    "Sable moyennement compact": 5.0,
-    "Sable dense": 6.0,
-    "grave": 4.0,
-    "Roche": 2.0,
+# =============================================================
+#  BASE DE DONNÉES SOLS (contexte belge) — SOURCE UNIQUE
+#
+#  Valeurs indicatives de littérature géotechnique courante (ordres de
+#  grandeur type Bowles / DIN 4019 / retours d'expérience CSTC-SPW).
+#  cpt_ok=False : qc n'a pas de sens physique pour ce matériau (refus de
+#  pointe sur rocher sain, par exemple) -> pas de corrélation qc->E
+#  proposée, E direct uniquement, à confirmer par le rapport géotechnique.
+# =============================================================
+SOIL_DB = {
+    "Remblais / terre végétale": dict(
+        category="Remblai", gamma=17.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=2.0, E_max=10.0, k_min=1, k_max=8, cpt_ok=False,
+        desc="Matériau rapporté, hétérogène, non contrôlé. Ne jamais retenir "
+             "comme assise de fondation sans reconnaissance spécifique (souvent à purger)."),
+    "Tourbe": dict(
+        category="Sol organique", gamma=10.0,
+        qc_min=0.1, qc_max=0.5, alpha_qc=4.0, rf_typ=4.0,
+        E_min=0.5, E_max=2.5, k_min=1, k_max=5, cpt_ok=True,
+        desc="Sol très organique, très compressible, souvent saturé. Portance très "
+             "faible : à éviter comme assise (substitution, pieux, colonnes)."),
+    "Argile très molle": dict(
+        category="Argile", gamma=16.0,
+        qc_min=0.3, qc_max=1.0, alpha_qc=4.0, rf_typ=3.5,
+        E_min=1.0, E_max=5.0, k_min=2, k_max=10, cpt_ok=True,
+        desc="Argile plastique peu consolidée, forte compressibilité, faibles résistances."),
+    "Argile molle à moyenne": dict(
+        category="Argile", gamma=18.0,
+        qc_min=1.0, qc_max=2.5, alpha_qc=5.0, rf_typ=3.0,
+        E_min=5.0, E_max=15.0, k_min=10, k_max=40, cpt_ok=True,
+        desc="Normalement à légèrement surconsolidée, tassements notables sous charge."),
+    "Argile ferme / raide": dict(
+        category="Argile", gamma=19.0,
+        qc_min=2.5, qc_max=5.0, alpha_qc=6.0, rf_typ=2.5,
+        E_min=15.0, E_max=40.0, k_min=20, k_max=80, cpt_ok=True,
+        desc="Argile raide bien consolidée, tassements plus limités."),
+    "Argile surconsolidée (Boom/Ypresienne)": dict(
+        category="Argile", gamma=20.0,
+        qc_min=3.0, qc_max=8.0, alpha_qc=7.0, rf_typ=2.5,
+        E_min=25.0, E_max=80.0, k_min=40, k_max=150, cpt_ok=True,
+        desc="Argiles profondes surconsolidées (bassin belge), raides, faible "
+             "compressibilité résiduelle mais sensibles au gonflement/retrait si décomprimées."),
+    "Limon (loess)": dict(
+        category="Limon", gamma=18.0,
+        qc_min=1.0, qc_max=3.0, alpha_qc=4.0, rf_typ=2.0,
+        E_min=8.0, E_max=25.0, k_min=15, k_max=60, cpt_ok=True,
+        desc="Très répandu en Hesbaye/Brabant. Comportement intermédiaire argile/sable, "
+             "sensible à l'eau (collapsibilité possible à l'état non saturé)."),
+    "Sable lâche": dict(
+        category="Sable", gamma=18.0,
+        qc_min=1.0, qc_max=5.0, alpha_qc=3.5, rf_typ=0.6,
+        E_min=5.0, E_max=15.0, k_min=10, k_max=30, cpt_ok=True,
+        desc="Peu compacté, tassements importants, risque de liquéfaction si saturé et sismique."),
+    "Sable moyennement compact": dict(
+        category="Sable", gamma=19.0,
+        qc_min=5.0, qc_max=12.0, alpha_qc=5.0, rf_typ=0.5,
+        E_min=15.0, E_max=40.0, k_min=30, k_max=80, cpt_ok=True,
+        desc="Sable courant sous bâtiments, portance correcte, tassements modérés."),
+    "Sable dense": dict(
+        category="Sable", gamma=20.0,
+        qc_min=12.0, qc_max=25.0, alpha_qc=6.0, rf_typ=0.4,
+        E_min=40.0, E_max=80.0, k_min=80, k_max=150, cpt_ok=True,
+        desc="Très compact, bonne portance, tassements faibles."),
+    "Sable graveleux / grave compacte": dict(
+        category="Sable/grave", gamma=21.0,
+        qc_min=15.0, qc_max=30.0, alpha_qc=4.0, rf_typ=0.4,
+        E_min=50.0, E_max=120.0, k_min=100, k_max=200, cpt_ok=True,
+        desc="Granulométrie étalée bien compactée, très bonne portance."),
+    "Craie altérée": dict(
+        category="Craie", gamma=18.0,
+        qc_min=1.5, qc_max=5.0, alpha_qc=3.0, rf_typ=1.5,
+        E_min=15.0, E_max=60.0, k_min=30, k_max=100, cpt_ok=True,
+        desc="Craie remaniée/fissurée (Hesbaye, Tournaisis) — comportement dispersé, "
+             "attention aux dissolutions/cavités (karst crayeux)."),
+    "Craie saine": dict(
+        category="Craie", gamma=20.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=200.0, E_max=1500.0, k_min=150, k_max=500, cpt_ok=False,
+        desc="Craie compacte non remaniée. Souvent refus au pénétromètre : caractériser "
+             "par carottage/RQD ou essai de plaque plutôt que par CPT."),
+    "Calcaire fracturé / altéré": dict(
+        category="Calcaire", gamma=21.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=100.0, E_max=800.0, k_min=100, k_max=400, cpt_ok=False,
+        desc="Massif calcaire fissuré ou altéré en surface. Grande dispersion : "
+             "attention aux karst/cavités, RQD indispensable."),
+    "Calcaire sain": dict(
+        category="Calcaire", gamma=23.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=2000.0, E_max=15000.0, k_min=1000, k_max=3000, cpt_ok=False,
+        desc="Massif rocheux sain, peu fracturé. Refus au pénétromètre — "
+             "caractérisation par RQD/GSI/essai en place."),
+    "Schiste houiller décomposé (W4-W5)": dict(
+        category="Schiste houiller", gamma=18.0,
+        qc_min=0.5, qc_max=3.0, alpha_qc=2.5, rf_typ=2.0,
+        E_min=5.0, E_max=30.0, k_min=10, k_max=50, cpt_ok=True,
+        desc="Roche entièrement à fortement décomposée (aspect de sol résiduel), "
+             "classification ISO 14689 W4-W5. Comportement proche d'un sol fin ferme : "
+             "un CPT reste indicatif, à recouper avec le log de sondage."),
+    "Schiste houiller altéré (W3)": dict(
+        category="Schiste houiller", gamma=20.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=100.0, E_max=800.0, k_min=100, k_max=400, cpt_ok=False,
+        desc="Roche modérément altérée (W3), matrice affaiblie mais structure "
+             "rocheuse conservée. Refus probable au CPT : caractériser par RQD/"
+             "pressiomètre. Grande dispersion selon le degré de fracturation."),
+    "Schiste houiller sain (W1-W2)": dict(
+        category="Schiste houiller", gamma=25.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=1000.0, E_max=8000.0, k_min=800, k_max=3000, cpt_ok=False,
+        desc="Roche saine à faiblement altérée (W1-W2), massif carbonifère typique "
+             "des bassins wallons. Refus au pénétromètre — caractériser par RQD/GSI "
+             "ou essai de plaque ; anisotropie de feuilletage à prendre en compte."),
+    "Grès altéré": dict(
+        category="Grès", gamma=20.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=150.0, E_max=1000.0, k_min=150, k_max=500, cpt_ok=False,
+        desc="Grès fracturé/altéré en surface. RQD recommandé."),
+    "Grès sain": dict(
+        category="Grès", gamma=24.0,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=3000.0, E_max=20000.0, k_min=1500, k_max=4000, cpt_ok=False,
+        desc="Massif rocheux sain. Refus au pénétromètre — RQD/GSI ou essai en place."),
+    "Personnalisé": dict(
+        category="—", gamma=None,
+        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
+        E_min=None, E_max=None, k_min=None, k_max=None, cpt_ok=True,
+        desc="Valeurs saisies manuellement — aucune valeur suggérée."),
 }
+
+ROCK_CATEGORIES = {"Craie", "Calcaire", "Schiste houiller", "Grès"}
+
+
+def soil_types_list():
+    """Liste pour les menus déroulants : '—' (vide) + types de SOIL_DB."""
+    return ["—"] + list(SOIL_DB.keys())
+
+
+def _mid(lo, hi):
+    if lo is None or hi is None:
+        return None
+    return round((lo + hi) / 2.0, 1)
+
+
+def soil_default_qc(soil_type: str):
+    """qc moyen typique (MPa) — None si non pertinent (rocher, remblai...)."""
+    d = SOIL_DB.get(soil_type)
+    if not d or not d.get("cpt_ok", False):
+        return None
+    return _mid(d.get("qc_min"), d.get("qc_max"))
+
+
+def soil_default_Rf(soil_type: str):
+    d = SOIL_DB.get(soil_type)
+    if not d:
+        return None
+    return d.get("rf_typ")
+
+
+def soil_default_E(soil_type: str):
+    """E typique (MPa) — milieu de la plage de référence."""
+    d = SOIL_DB.get(soil_type)
+    if not d:
+        return None
+    return _mid(d.get("E_min"), d.get("E_max"))
+
+
+def is_rock(soil_type: str) -> bool:
+    d = SOIL_DB.get(soil_type)
+    return bool(d and d.get("category") in ROCK_CATEGORIES)
 
 
 # =============================================================
@@ -91,14 +254,12 @@ def kNpm3_to_MNpm3(v: float) -> float:
 
 
 def suggest_E_from_qc(qc_MPa, soil_type: str):
-    """E ≈ α·qc (MPa). Retourne None si qc invalide."""
-    if qc_MPa is None or (isinstance(qc_MPa, float) and math.isnan(qc_MPa)) or qc_MPa <= 0:
+    """E ≈ α·qc (MPa), selon SOIL_DB. Retourne None si qc invalide ou
+    non pertinent pour ce type de sol (rocher)."""
+    d = SOIL_DB.get(soil_type, {})
+    alpha = d.get("alpha_qc")
+    if alpha is None or qc_MPa is None or (isinstance(qc_MPa, float) and math.isnan(qc_MPa)) or qc_MPa <= 0:
         return None
-    alpha = 3.0
-    for key, a in _ALPHA_QC.items():
-        if key.lower() in (soil_type or "").lower():
-            alpha = a
-            break
     return round(alpha * qc_MPa, 1)
 
 
@@ -232,9 +393,63 @@ def _init_state():
     if "layers_df" not in st.session_state:
         st.session_state.layers_df = pd.DataFrame(
             [{"h [m]": 2.0, "Type de sol": "Sable moyennement compact",
-              "qc moy [MPa]": 6.0, "Rf [%]": 1.0, "E [MPa]": 30.0}],
+              "qc moy [MPa]": 8.5, "Rf [%]": 0.5, "E [MPa]": 27.5}],
             index=[1],
         )
+
+    if "layers_last_types" not in st.session_state:
+        st.session_state.layers_last_types = list(
+            st.session_state.layers_df["Type de sol"].fillna("—")
+        )
+
+
+# =============================================================
+#  PRÉREMPLISSAGE DU TABLEAU MULTICOUCHE
+# =============================================================
+def _apply_layer_prefill(edited: pd.DataFrame) -> pd.DataFrame:
+    """
+    Dès qu'une ligne est nouvelle ou que son 'Type de sol' vient de
+    changer ET que qc/E sont encore vides, injecte les valeurs typiques
+    (milieu de plage) de SOIL_DB dans qc / Rf / E. Reste sans effet si
+    l'utilisateur a déjà saisi une valeur (qu'elle vienne du préremplissage
+    ou d'une saisie manuelle) : comparer au type PRÉCÉDENT (pas au type
+    actuel) évite de re-remplir en boucle une valeur volontairement
+    effacée par l'utilisateur.
+    """
+    edited = edited.copy()
+    types_now = list(edited["Type de sol"].fillna("—"))
+    prev_types = st.session_state.get("layers_last_types", [])
+
+    for i, t in enumerate(types_now):
+        prev_t = prev_types[i] if i < len(prev_types) else None
+        if t in ("—", "Personnalisé"):
+            continue
+        if t == prev_t:
+            continue  # type inchangé : ne pas re-déclencher le préremplissage
+
+        idx = edited.index[i]
+        qc_val = edited.at[idx, "qc moy [MPa]"] if "qc moy [MPa]" in edited.columns else None
+        E_val = edited.at[idx, "E [MPa]"] if "E [MPa]" in edited.columns else None
+        qc_empty = pd.isna(qc_val)
+        E_empty = pd.isna(E_val)
+
+        if not (qc_empty and E_empty):
+            continue  # une valeur a déjà été saisie : on ne l'écrase pas
+
+        soil = SOIL_DB.get(t, {})
+        if soil.get("cpt_ok", False):
+            qc_def = soil_default_qc(t)
+            if qc_def is not None:
+                edited.at[idx, "qc moy [MPa]"] = qc_def
+            rf_def = soil_default_Rf(t)
+            if rf_def is not None and "Rf [%]" in edited.columns:
+                edited.at[idx, "Rf [%]"] = rf_def
+        E_def = soil_default_E(t)
+        if E_def is not None:
+            edited.at[idx, "E [MPa]"] = E_def
+
+    st.session_state.layers_last_types = types_now
+    return edited
 
 
 # =============================================================
@@ -285,11 +500,15 @@ def show():
             r"""
 - **Winkler** : $q = k \cdot w \Rightarrow k = q/w$.
 - **Unités** : $q$ en kPa = kN/m² · $w$ en m · $k$ en kN/m³ ou MN/m³ (1 MN/m³ = 1000 kN/m³).
-- **Ressorts en série** (colonne de sol) : $1/k_{serie} = \sum_i h_i/E_i$.
+- **Ressorts en série** (colonne de sol) : $1/k_{serie} = \sum_i h_i/E_i$ — modèle à privilégier pour
+  exporter $k$ vers un logiciel de dalle sur sol élastique (SCIA...) quand le profil est connu.
 - **Semelle sur massif semi-infini** (Boussinesq, ordre de grandeur) : $k \approx E/[B(1-\nu^2)]$.
   Ces deux modèles répondent à des questions différentes et **ne se chaînent pas**.
 - **Contrainte admissible** pour un tassement de référence $w_{adm}$ :
   $q_{adm} = k \cdot w_{adm}$ ; en kgf/cm² : $q_{adm} \approx k(\text{MN/m}^3)\cdot w_{adm}(\text{mm})/98{,}07$.
+- **Rocher (schiste, calcaire, craie saine, grès)** : le CPT est en général en **refus de pointe** —
+  qc n'a pas de sens physique. Utiliser une plage de $E$ issue du degré d'altération (RQD/GSI/
+  pressiomètre), jamais une corrélation qc→E.
 - Valeurs à valider par l'**EN 1997 (Eurocode 7)** et le rapport géotechnique.
             """
         )
@@ -360,13 +579,16 @@ def show():
             with cNu:
                 st.session_state.multi_nu = st.number_input("ν équivalent (Poisson)", min_value=0.0, max_value=0.49,
                                                           value=float(st.session_state.get("multi_nu", 0.30)), step=0.01)
-            st.markdown("<span class='memo-chip'>Colonne « E suggéré » = α·qc, indicatif. "
-                        "Remplis « E [MPa] » pour l'utiliser dans le calcul.</span>", unsafe_allow_html=True)
+            st.markdown(
+                "<span class='memo-chip'>Choisir un « Type de sol » préremplit qc / Rf / E avec des valeurs "
+                "typiques (modifiables). Pour le rocher, seul E est proposé — qc n'a pas de sens en refus "
+                "de pointe.</span>", unsafe_allow_html=True)
 
             df = st.session_state.layers_df.copy()
             col_cfg = {
                 "h [m]": st.column_config.NumberColumn("h [m]", step=0.1, min_value=0.0),
-                "Type de sol": st.column_config.SelectboxColumn("Type de sol", options=SOIL_TYPES, required=False, width="medium"),
+                "Type de sol": st.column_config.SelectboxColumn("Type de sol", options=soil_types_list(),
+                                                                 required=False, width="medium"),
                 "qc moy [MPa]": st.column_config.NumberColumn("qc moy [MPa]", step=0.5, min_value=0.0),
                 "Rf [%]": st.column_config.NumberColumn("Rf [%]", step=0.5, min_value=0.0),
                 "E [MPa]": st.column_config.NumberColumn("E [MPa]", step=5.0, min_value=0.0),
@@ -375,17 +597,36 @@ def show():
             edited = st.data_editor(df, key="rs_layers_editor", num_rows="dynamic",
                                     use_container_width=True, column_config=col_cfg)
 
-            # E suggéré = colonne informative (n'écrase pas E)
+            # Préremplissage qc/Rf/E dès qu'un type de sol est choisi/modifié
+            edited = _apply_layer_prefill(edited)
+            st.session_state.layers_df = edited
+
+            # ---- Tableau informatif : E suggéré + statut par ligne ----
             if len(edited) > 0:
-                edited = edited.copy()
-                edited["E suggéré [MPa]"] = [
-                    suggest_E_from_qc(r.get("qc moy [MPa]"), r.get("Type de sol") or "")
-                    for _, r in edited.iterrows()
-                ]
-                edited.index = range(1, len(edited) + 1)
-                st.dataframe(edited[["Type de sol", "qc moy [MPa]", "E [MPa]", "E suggéré [MPa]"]],
-                             use_container_width=True)
-                st.session_state.layers_df = edited.drop(columns=["E suggéré [MPa]"])
+                info_rows = []
+                rock_warn = False
+                for _, r in edited.iterrows():
+                    t = r.get("Type de sol") or "—"
+                    h = r.get("h [m]")
+                    qc = r.get("qc moy [MPa]")
+                    E = r.get("E [MPa]")
+                    h_ok = pd.notna(h) and float(h) > 0
+                    E_ok = pd.notna(E) and float(E) > 0
+                    statut = "✅ pris en compte" if (h_ok and E_ok) else "⚠️ ignorée (h ou E manquant)"
+                    e_sugg = suggest_E_from_qc(qc, t)
+                    if is_rock(t) and pd.notna(qc):
+                        rock_warn = True
+                    info_rows.append({
+                        "Type de sol": t,
+                        "qc moy [MPa]": qc,
+                        "E [MPa]": E,
+                        "E suggéré (qc→E) [MPa]": e_sugg if e_sugg is not None else "—",
+                        "Statut": statut,
+                    })
+                st.dataframe(pd.DataFrame(info_rows), use_container_width=True, hide_index=True)
+                if rock_warn:
+                    st.info("ℹ️ qc renseigné sur une ligne de type rocheux : la corrélation qc→E n'est "
+                             "pas appliquée (refus de pointe probable) — seul le E saisi/préempli est utilisé.")
 
         elif cas.startswith("3."):
             st.markdown("**Raideur d'un sol – formule empirique (CPT)**")
@@ -407,6 +648,7 @@ def show():
             with c5:
                 st.session_state.cpt_nu = st.number_input("ν (Poisson)", min_value=0.0, max_value=0.49,
                                                           value=float(st.session_state.get("cpt_nu", 0.30)), step=0.01)
+            st.caption("⚠️ Ne s'applique qu'aux sols meubles (le CPT est en refus sur du rocher).")
 
         elif cas.startswith("4."):
             st.markdown("**Raideur d'un plat en béton (contact plat / béton / grout)**")
@@ -494,7 +736,8 @@ def show():
         else:  # cas 6
             st.markdown("**Abaque sols – valeurs indicatives**")
             st.caption("Poids volumique γ, raideur k (MN/m³) et contrainte admissible qₐ (kg/cm²) "
-                       "pour un tassement de référence. À confirmer par le géotechnicien.")
+                       "pour un tassement de référence — basé sur la même base de données que le "
+                       "tableau multicouche. À confirmer par le géotechnicien.")
 
     # =========================================================
     #  COLONNE DROITE — résultats
@@ -529,22 +772,43 @@ def show():
         elif cas.startswith("2."):
             with st.container(border=True):
                 df = st.session_state.layers_df
+
+                # Épaisseur totale SAISIE (toutes lignes avec h > 0, valides ou non)
+                h_series = pd.to_numeric(df["h [m]"], errors="coerce").fillna(0.0)
+                H_saisi = float(h_series[h_series > 0].sum())
+
                 layers = []
-                for _, r in df.iterrows():
+                lignes_ignorees = []
+                for num, (_, r) in enumerate(df.iterrows(), start=1):
                     h = r.get("h [m]")
                     E = r.get("E [MPa]")
-                    if pd.notna(h) and pd.notna(E):
+                    h_ok = pd.notna(h) and float(h) > 0
+                    E_ok = pd.notna(E) and float(E) > 0
+                    if h_ok and E_ok:
                         layers.append((float(h), E_to_kPa(float(E), "MPa")))
+                    elif h_ok and not E_ok:
+                        lignes_ignorees.append(num)
+
                 k_kN, k_MN, H, E_moy_kPa = k_series(layers)
 
-                _bloc("Ressorts en série (colonne 1D)", f"k = {k_MN:,.2f} MN/m³".replace(",", " "),
+                _bloc("Ressorts en série (colonne 1D)",
+                      f"k = {k_MN:,.2f} MN/m³  ·  → à utiliser pour SCIA".replace(",", " "),
                       "ok" if k_MN > 0 else "nok")
                 st.caption("Tassement d'une colonne de sol d'épaisseur H sous charge répartie.")
+
+                if abs(H - H_saisi) > 1e-6:
+                    lignes_txt = ", ".join(str(n) for n in lignes_ignorees) if lignes_ignorees else "?"
+                    st.warning(
+                        f"⚠️ Épaisseur saisie au total : {H_saisi:.2f} m, mais seulement "
+                        f"{H:.2f} m pris en compte dans le calcul (E manquant sur la/les ligne(s) "
+                        f"{lignes_txt}). Complète ou supprime ces lignes pour un résultat représentatif."
+                    )
+
                 if detail and k_MN > 0:
                     st.latex(r"k_{serie} = \left(\sum_i \dfrac{h_i}{E_i}\right)^{-1}")
                     st.latex(f"k_{{serie}} = {k_kN:,.0f}\\,\\text{{kN/m³}} = {k_MN:,.2f}\\,\\text{{MN/m³}}")
                     _param_table([
-                        ("H", "Somme des épaisseurs", f"{H:,.2f}", "m"),
+                        ("H", "Épaisseur prise en compte", f"{H:,.2f}", "m"),
                         ("E_moy", "Module oedo. équivalent", f"{E_moy_kPa/1000:,.1f}", "MPa"),
                         ("k_serie", "Raideur (série)", f"{k_MN:,.2f}", "MN/m³"),
                     ])
@@ -555,8 +819,8 @@ def show():
                 kB_kN, kB_MN = k_boussinesq(E_moy_kPa, B, nu)
                 _bloc("Semelle sur massif (Boussinesq)", f"k ≈ {kB_MN:,.2f} MN/m³".replace(",", " "),
                       "info" if kB_MN > 0 else "nok")
-                st.caption("Approximation indépendante, valable pour une semelle sur massif semi-infini. "
-                           "À ne pas confondre avec le modèle en série ci-dessus.")
+                st.caption("Ordre de grandeur de comparaison (massif semi-infini homogène). "
+                           "À ne pas confondre avec le modèle en série ci-dessus, ni exporter tel quel vers SCIA.")
                 if detail and kB_MN > 0:
                     st.latex(r"k \approx \dfrac{E_{moy}}{B\,(1-\nu^2)}")
                     st.latex(f"k \\approx {kB_kN:,.0f}\\,\\text{{kN/m³}} = {kB_MN:,.2f}\\,\\text{{MN/m³}}")
@@ -643,7 +907,7 @@ def show():
                         st.latex(r"k \approx \dfrac{E}{B(1-\nu^2)}")
                         st.latex(f"k \\approx {k_MN:,.2f}\\,\\text{{MN/m³}}")
 
-        # ---------- CAS 6 : abaque ----------
+        # ---------- CAS 6 : abaque (source = SOIL_DB) ----------
         else:
             with st.container(border=True):
                 st.markdown("#### Tassement de référence")
@@ -654,45 +918,46 @@ def show():
                 w_adm = st.session_state.abaque_w
                 factor_q = w_adm / KGF_PER_CM2_TO_KPA  # qₐ(kgf/cm²) ≈ k(MN/m³)·w(mm)/98.07
 
-                soils = [
-                    {"type": "Tourbe", "gamma": 10.0, "k_min": 1, "k_max": 5,
-                     "desc": "Sol très organique, très compressible, souvent saturé, portance très faible. "
-                             "On évite d'y fonder (remblais, pieux, substitution…)."},
-                    {"type": "Argile très molle", "gamma": 16.0, "k_min": 2, "k_max": 10,
-                     "desc": "Argile plastique peu consolidée, grande compressibilité, faibles résistances."},
-                    {"type": "Argile molle à moyenne", "gamma": 18.0, "k_min": 10, "k_max": 40,
-                     "desc": "Normalement à légèrement surconsolidée, tassements notables."},
-                    {"type": "Argile ferme / surconsolidée", "gamma": 19.0, "k_min": 20, "k_max": 80,
-                     "desc": "Argile raide, surconsolidée ou bien drainée, tassements plus limités."},
-                    {"type": "Limon", "gamma": 18.0, "k_min": 15, "k_max": 60,
-                     "desc": "Comportement intermédiaire argile/sable, sensible à l'eau et au compactage."},
-                    {"type": "Sable lâche", "gamma": 18.0, "k_min": 10, "k_max": 30,
-                     "desc": "Peu compacté, tassements importants, comportement peu rigide."},
-                    {"type": "Sable moyennement compact", "gamma": 19.0, "k_min": 30, "k_max": 80,
-                     "desc": "Sable courant sous bâtiments, portance correcte, tassements modérés."},
-                    {"type": "Sable dense / graveleux", "gamma": 20.0, "k_min": 80, "k_max": 200,
-                     "desc": "Très compact, très bonne portance, tassements faibles."},
-                ]
-                df = pd.DataFrame([{
-                    "Type de sol": s["type"], "γ (kN/m³)": s["gamma"],
-                    "k_min (MN/m³)": s["k_min"], "k_max (MN/m³)": s["k_max"],
-                    "qₐ_min (kg/cm²)": round(s["k_min"] * factor_q, 2),
-                    "qₐ_max (kg/cm²)": round(s["k_max"] * factor_q, 2),
-                } for s in soils])
-                st.dataframe(df, use_container_width=True, hide_index=True)
+                rows = []
+                for name, d in SOIL_DB.items():
+                    if name == "Personnalisé" or d.get("k_min") is None:
+                        continue
+                    rows.append({
+                        "Catégorie": d["category"],
+                        "Type de sol": name,
+                        "γ (kN/m³)": d["gamma"],
+                        "k_min (MN/m³)": d["k_min"],
+                        "k_max (MN/m³)": d["k_max"],
+                        "qₐ_min (kg/cm²)": round(d["k_min"] * factor_q, 2),
+                        "qₐ_max (kg/cm²)": round(d["k_max"] * factor_q, 2),
+                    })
+                df_ab = pd.DataFrame(rows)
+                st.dataframe(df_ab, use_container_width=True, hide_index=True)
 
                 st.markdown("#### Fiche sol")
-                choix = st.selectbox("Type de sol :", [s["type"] for s in soils], index=6)
-                sol = next(s for s in soils if s["type"] == choix)
-                q_min = sol["k_min"] * factor_q
-                q_max = sol["k_max"] * factor_q
-                _bloc(sol["type"], f"qₐ ≈ {q_min:,.2f}–{q_max:,.2f} kg/cm²".replace(",", " "), "info")
-                st.markdown(sol["desc"])
-                st.markdown(f"- γ ≈ **{sol['gamma']} kN/m³**  \n"
-                            f"- k ≈ **{sol['k_min']} à {sol['k_max']} MN/m³**  \n"
-                            f"- pour w_adm = **{w_adm:.0f} mm** → qₐ ≈ **{q_min:.2f} à {q_max:.2f} kg/cm²**")
+                noms = [r["Type de sol"] for r in rows]
+                default_idx = noms.index("Sable moyennement compact") if "Sable moyennement compact" in noms else 0
+                choix = st.selectbox("Type de sol :", noms, index=default_idx)
+                d = SOIL_DB[choix]
+                q_min = d["k_min"] * factor_q
+                q_max = d["k_max"] * factor_q
+                _bloc(choix, f"qₐ ≈ {q_min:,.2f}–{q_max:,.2f} kg/cm²".replace(",", " "), "info")
+                st.markdown(d["desc"])
+                lignes = [f"- Catégorie : **{d['category']}**",
+                          f"- γ ≈ **{d['gamma']} kN/m³**",
+                          f"- k ≈ **{d['k_min']} à {d['k_max']} MN/m³**",
+                          f"- E ≈ **{d['E_min']} à {d['E_max']} MPa**"]
+                if d.get("cpt_ok") and d.get("qc_min") is not None:
+                    lignes.append(f"- qc ≈ **{d['qc_min']} à {d['qc_max']} MPa** (α qc→E ≈ {d['alpha_qc']})")
+                else:
+                    lignes.append("- qc : **non pertinent** (refus de pointe probable) — caractériser par RQD/pressiomètre.")
+                lignes.append(f"- pour w_adm = **{w_adm:.0f} mm** → qₐ ≈ **{q_min:.2f} à {q_max:.2f} kg/cm²**")
+                st.markdown("  \n".join(lignes))
 
         st.divider()
-        st.markdown("<div class='small'>Valeurs de k et qₐ indicatives, réservées au pré-dimensionnement. "
-                    "Se référer au rapport géotechnique et à l'EN 1997 (Eurocode 7) pour le dimensionnement final.</div>",
+        st.markdown("<div class='small'>Valeurs de k, E et qₐ indicatives (littérature géotechnique / retours "
+                    "d'expérience), réservées au pré-dimensionnement — en particulier pour le rocher, où la "
+                    "dispersion peut être très importante selon le degré de fracturation/altération. "
+                    "Se référer systématiquement au rapport géotechnique et à l'EN 1997 (Eurocode 7) pour le "
+                    "dimensionnement final.</div>",
                     unsafe_allow_html=True)
