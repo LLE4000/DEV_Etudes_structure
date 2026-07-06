@@ -1,7 +1,32 @@
 # ===========================
-#  VERSION 2.38
+#  VERSION 2.39
 # ===========================
 #  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.38 :
+#   1. FIX CDG ARMATURES : l'ajout/modification d'un lit recalcule bien
+#      le CDG pondéré (Σ As·e / Σ As). Avant, tout changement de
+#      géométrie était interprété comme une saisie manuelle du champ
+#      CDG (comparaison à la valeur auto du run courant) et le CDG
+#      restait figé sur le lit 1. Détection désormais basée sur la
+#      dernière valeur auto affichée (clé *_lastauto).
+#   2. Colonne "CDG (cm)" intégrée au tableau des lits (entre
+#      "Distance axe lit" et "+ Lit"), champ affiché uniquement sur la
+#      ligne du dernier lit. Mention "Calculé automatiquement" retirée.
+#   3. TAUX D'ARMATURE : désactivé par défaut ; deux options dans les
+#      paramètres avancés ("Afficher dans Streamlit" / "Envoyer dans la
+#      note de calcul"). T.A. de section dans le header de section
+#      (droite), T.A. global (gras) dans le header de poutre ; ⓘ seul
+#      sous le header, aligné à droite. Popover : synthèse en deux
+#      colonnes (mètre courant / poutre complète).
+#   4. Vérification de la hauteur : "Hauteur minimale de la poutre"
+#      = hᵤ,min + CDG réel des armatures (face du moment dimensionnant),
+#      app + PDF.
+#   5. Header effort tranchant sans "Asw = ..." (repris dans le bloc
+#      étriers) ; header étriers : type + Ø seuls ("Étrier Ø10").
+#   6. Épingles : une position de départ (barre du lit 1 inf.), plus de
+#      plage "de → à" ; bouton ＋ aligné avec les champs de saisie.
+#   7. Tooltip sur le numéro de version.
 #
 #  Évolutions vs 2.37 (ergonomie — calculs inchangés) :
 #   1. TA par section : ligne "Taux d'armature : C.1 = xxx kg/m³" avec ⓘ.
@@ -199,12 +224,12 @@ BETON_DATA = {}
 
 MAX_LITS = 4  # nombre maximal de lits d'armatures par face
 
-APP_VERSION = "1.2.38"  # version affichée dans l'en-tête de l'application
+APP_VERSION = "1.2.39"  # version affichée dans l'en-tête de l'application
 
 RHO_ACIER = 7850.0  # kg/m³ (taux d'armature)
 
-# Largeurs de colonnes du tableau des lits (Lit | Nb | Ø | Dist | Action)
-LIT_COLS = [0.6, 1.0, 1.0, 1.2, 0.55]
+# Largeurs de colonnes du tableau des lits (Lit | Nb | Ø | Dist | CDG | Action)
+LIT_COLS = [0.6, 1.0, 1.0, 1.2, 1.2, 0.55]
 
 
 def open_bloc_left_right(left: str, right: str = "", etat: str = "ok", pct=None):
@@ -274,7 +299,9 @@ PERSISTED_GLOBAL_KEYS = {
     "jeu_entre_lits_cm",    # "Jeu entre lits (cm)"
     "techno_d_mm",          # armatures technologiques : Ø (dessin PDF)
     "techno_s_max_cm",      # armatures technologiques : espacement vertical max
-    "taux_arm_enable",      # taux d'armature : activation
+    "taux_arm_enable",      # taux d'armature : ancienne activation (compat JSON)
+    "taux_arm_show_app",    # taux d'armature : affichage dans Streamlit
+    "taux_arm_pdf",         # taux d'armature : export dans la note de calcul
     "taux_arm_major_pct",   # % de majoration
     "taux_retour_etrier_cm",  # retour d'étrier (compté 2× par étrier)
     "taux_arrondi_kgm3",    # arrondi supérieur du TA (kg/m³)
@@ -353,8 +380,10 @@ def _ensure_global_defaults():
     _coerce_int_choice("techno_d_mm", [8, 10, 12, 16], 10)
     st.session_state.setdefault("techno_s_max_cm", 30.0)
 
-    # Taux d'armature (application uniquement)
-    st.session_state.setdefault("taux_arm_enable", True)
+    # Taux d'armature : DÉSACTIVÉ PAR DÉFAUT (v2.39).
+    # Deux options indépendantes : affichage Streamlit / export PDF.
+    st.session_state.setdefault("taux_arm_show_app", False)
+    st.session_state.setdefault("taux_arm_pdf", False)
     st.session_state.setdefault("taux_arm_major_pct", 5.0)
     st.session_state.setdefault("taux_retour_etrier_cm", 10.0)
     st.session_state.setdefault("taux_arrondi_kgm3", 5)
@@ -822,7 +851,7 @@ def _build_save_payload():
         elif k.startswith("meta_beam_nom_") or (k.startswith("meta_b") and "_nom_" in k):
             values[k] = st.session_state[k]
 
-    return {"version": "2.38", "beams": beams, "values": values}
+    return {"version": "2.39", "beams": beams, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -1052,6 +1081,53 @@ def _ycdg_manual(beam_id: int, sec_id: int, which: str):
         return None
 
 
+def _sync_ycdg_state(beam_id: int, sec_id: int, which: str):
+    """
+    Synchronise le champ 'CDG (cm)' avec la valeur calculée.
+    À appeler AVANT le rendu du widget (mutation légale des clés).
+
+    FIX v2.39 (CDG figé) : l'ancienne détection d'une saisie manuelle
+    comparait le contenu du champ à la valeur auto DU RUN COURANT.
+    Tout changement de géométrie (ajout d'un lit, changement de Ø...)
+    modifiait la valeur auto -> le contenu (ancienne valeur auto)
+    différait -> passage à tort en mode "imposé" et CDG figé sur le
+    lit 1. On compare désormais à la DERNIÈRE valeur auto affichée
+    (clé *_lastauto) : seul un changement réellement tapé par
+    l'utilisateur bascule en mode imposé.
+
+    Retourne (e_auto, is_auto).
+    """
+    _, e_auto, _ = _layers_geometry(beam_id, sec_id, which, use_manual=False)
+    e_auto_txt = f"{e_auto:.1f}".replace(".", ",")
+
+    ykey = KS(f"ycdg_{which}", beam_id, sec_id)
+    auto_flag = KS(f"ycdg_auto_{which}", beam_id, sec_id)
+    last_key = KS(f"ycdg_lastauto_{which}", beam_id, sec_id)
+
+    if ykey not in st.session_state:
+        st.session_state[ykey] = e_auto_txt
+        st.session_state[auto_flag] = True
+    st.session_state.setdefault(auto_flag, True)
+    st.session_state.setdefault(last_key, e_auto_txt)
+
+    cur_raw = str(st.session_state.get(ykey, "") or "").strip()
+    last_auto = str(st.session_state.get(last_key, "") or "")
+
+    if cur_raw == "":
+        # champ vidé -> retour au mode automatique
+        st.session_state[auto_flag] = True
+    elif bool(st.session_state.get(auto_flag, False)) and cur_raw not in (last_auto, e_auto_txt):
+        # contenu différent de la dernière valeur auto affichée ET de la
+        # valeur auto actuelle -> l'utilisateur a réellement saisi une valeur
+        st.session_state[auto_flag] = False
+
+    is_auto = bool(st.session_state.get(auto_flag, False))
+    if is_auto:
+        st.session_state[ykey] = e_auto_txt   # suivre le calcul
+    st.session_state[last_key] = e_auto_txt
+    return e_auto, is_auto
+
+
 def _layers_geometry(beam_id: int, sec_id: int, which: str, use_manual: bool = True):
     """
     Pour une face :
@@ -1227,7 +1303,7 @@ def render_solicitations_for_beam(beam_id: int, data_locked: bool = False):
 
         # Bloc bordé : l'en-tête EST le champ de nom (plus de double affichage)
         with st.container(border=True):
-            ta_on = bool(st.session_state.get("taux_arm_enable", True))
+            ta_on = _ta_enabled()
             if ta_on:
                 cN, cLg, cA, cC, cD = st.columns([2.2, 2.2, 0.8, 0.8, 0.8], vertical_alignment="bottom")
             else:
@@ -1375,6 +1451,13 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     b = float(st.session_state.get(KB("b", beam_id), 20))
     h = float(st.session_state.get(KB("h", beam_id), 40))
 
+    # Synchroniser l'état du champ CDG AVANT toute lecture (mutation
+    # légale : les widgets de la section ne sont pas encore instanciés).
+    # Évite un décalage d'un run entre la saisie/la géométrie et les
+    # vérifications (fix v2.39).
+    _sync_ycdg_state(beam_id, sec_id, "inf")
+    _sync_ycdg_state(beam_id, sec_id, "sup")
+
     # --- Lits : aire totale + centre de gravité (positions réelles) ---
     As_inf_total, e_cdg_inf, inf_detail = _layers_geometry(beam_id, sec_id, "inf")
     As_sup_total, e_cdg_sup, sup_detail = _layers_geometry(beam_id, sec_id, "sup")
@@ -1400,13 +1483,18 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
     M_sup_val = float(st.session_state.get(KS("M_sup", beam_id, sec_id), 0.0) or 0.0)
     V_val = float(st.session_state.get(KS("V", beam_id, sec_id), 0.0) or 0.0)
 
-    # --- Hauteur (logique conservée : distance lit 1 inf.) ---
+    # --- Hauteur ---
+    # hᵤ,min : formule inchangée. Hauteur minimale de la poutre =
+    # hᵤ,min + CDG RÉEL des armatures de la face du moment dimensionnant
+    # (v2.39 — avant : distance axe lit 1 inf. uniquement).
     M_max = max(M_inf_val, M_sup_val)
     if M_max > 0:
         hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
     else:
         hmin_calc = 0.0
-    etat_h = "ok" if (hmin_calc + dist_l1_inf <= h) else "nok"
+    e_cdg_gov = e_cdg_sup if M_sup_val > M_inf_val else e_cdg_inf
+    h_min_poutre = hmin_calc + e_cdg_gov
+    etat_h = "ok" if (h_min_poutre <= h) else "nok"
 
     # --- As min/max ---
     # As,min retenu = max( 0,26·fctm/fyk·b·h ; 0,0013·b·h ; 0,25·As,req face opposée )
@@ -1481,6 +1569,8 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
         "M_sup_val": M_sup_val,
         "V_val": V_val,
         "hmin_calc": hmin_calc,
+        "e_cdg_gov": e_cdg_gov,
+        "h_min_poutre": h_min_poutre,
         "tau_1": tau_1,
         "tau_2": tau_2,
         "tau_4": tau_4,
@@ -1539,19 +1629,46 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, disabled: bool):
     show_pos = n_bars > 1  # positions discrètes : visibles seulement si plusieurs barres
 
     for i in range(n_lines):
-        st.session_state.setdefault(KS(f"{prefix}{i}_type", beam_id, sec_id), "Étrier")
+        type_key = KS(f"{prefix}{i}_type", beam_id, sec_id)
+        from_key = KS(f"{prefix}{i}_from", beam_id, sec_id)
+        to_key = KS(f"{prefix}{i}_to", beam_id, sec_id)
+        st.session_state.setdefault(type_key, "Étrier")
         st.session_state.setdefault(KS(f"{prefix}{i}_d", beam_id, sec_id), 8)
 
+        # Épingle : UNE position de départ (barre du lit 1 inf.), pas une
+        # plage "de → à" comme un étrier fermé (fix v2.39).
+        is_epingle = _brins_from_type(str(st.session_state.get(type_key, "Étrier"))) == 1
+
+        # Clamp des positions dans [1 ; n_bars] AVANT le rendu (le nombre
+        # de barres a pu diminuer depuis la dernière saisie).
         if show_pos:
-            c0, c1, cF, cT, c3, c4 = st.columns([2.6, 1.3, 0.9, 0.9, 1.6, 0.65], vertical_alignment="center")
+            for k in (from_key, to_key):
+                if k in st.session_state:
+                    try:
+                        v = int(float(st.session_state[k]))
+                    except Exception:
+                        v = 1
+                    st.session_state[k] = max(1, min(n_bars, v))
+
+        # vertical_alignment="bottom" sur la 1re ligne : le bouton ＋ est
+        # redescendu au niveau des champs Type / Ø / positions / Pas choisi
+        # (leurs libellés sont visibles uniquement sur cette ligne).
+        va = "bottom" if i == 0 else "center"
+        if show_pos and is_epingle:
+            c0, c1, cP, c3, c4 = st.columns([2.6, 1.3, 1.8, 1.6, 0.65], vertical_alignment=va)
+            cF = cT = None
+        elif show_pos:
+            c0, c1, cF, cT, c3, c4 = st.columns([2.6, 1.3, 0.9, 0.9, 1.6, 0.65], vertical_alignment=va)
+            cP = None
         else:
-            c0, c1, c3, c4 = st.columns([2.6, 1.3, 3.4, 0.65], vertical_alignment="center")
+            c0, c1, c3, c4 = st.columns([2.6, 1.3, 3.4, 0.65], vertical_alignment=va)
+            cP = cF = cT = None
 
         with c0:
             st.selectbox(
                 "Type",
                 ["Étrier", "Épingle"],
-                key=KS(f"{prefix}{i}_type", beam_id, sec_id),
+                key=type_key,
                 label_visibility="visible" if i == 0 else "collapsed",
                 disabled=disabled,
                 help="Un étrier = 2 brins · une épingle = 1 brin." if i == 0 else None,
@@ -1564,12 +1681,29 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, disabled: bool):
                 label_visibility="visible" if i == 0 else "collapsed",
                 disabled=disabled,
             )
-        if show_pos:
+        if show_pos and is_epingle:
+            with cP:
+                # Position de départ de l'épingle : à côté d'une barre du
+                # lit 1 inférieur (1, 2, ... n) — dessin uniquement.
+                st.session_state.setdefault(from_key, (n_bars + 1) // 2)
+                st.selectbox(
+                    "Position",
+                    bar_opts,
+                    key=from_key,
+                    label_visibility="visible" if i == 0 else "collapsed",
+                    disabled=disabled,
+                    help="Barre du lit 1 inf. à côté de laquelle part l'épingle — "
+                         "dessin uniquement" if i == 0 else None,
+                )
+            # Une épingle n'a pas de plage : fin = début (clé non
+            # instanciée sur cette ligne -> mutation légale).
+            st.session_state[to_key] = int(st.session_state.get(from_key, 1) or 1)
+        elif show_pos:
             with cF:
                 st.selectbox(
                     "de",
                     bar_opts,
-                    key=KS(f"{prefix}{i}_from", beam_id, sec_id),
+                    key=from_key,
                     label_visibility="visible" if i == 0 else "collapsed",
                     disabled=disabled,
                     help="Barre de début (lit 1 inf.) — dessin uniquement" if i == 0 else None,
@@ -1578,7 +1712,7 @@ def _render_shear_lines_ui(beam_id: int, sec_id: int, disabled: bool):
                 st.selectbox(
                     "à",
                     bar_opts,
-                    key=KS(f"{prefix}{i}_to", beam_id, sec_id),
+                    key=to_key,
                     label_visibility="visible" if i == 0 else "collapsed",
                     disabled=disabled,
                     help="Barre de fin (lit 1 inf.) — dessin uniquement" if i == 0 else None,
@@ -1632,7 +1766,7 @@ def _render_lit_row(beam_id: int, sec_id: int, which: str, i: int, nl: int, disa
     st.session_state.setdefault(key_val, float(auto_i))
     st.session_state.setdefault(key_ovr, False)
 
-    c0, c1, c2, c3, c4 = st.columns(LIT_COLS, vertical_alignment="center")
+    c0, c1, c2, c3, cG, c4 = st.columns(LIT_COLS, vertical_alignment="center")
     with c0:
         st.markdown(f"Lit {i}")
     with c1:
@@ -1665,6 +1799,16 @@ def _render_lit_row(beam_id: int, sec_id: int, which: str, i: int, nl: int, disa
             disabled=True,
             label_visibility="collapsed",
         )
+    with cG:
+        # Champ CDG : UNIQUEMENT sur la ligne du dernier lit (pas de
+        # répétition, pas de ligne supplémentaire sous le tableau).
+        if i == nl:
+            st.text_input(
+                f"CDG {which} (cm)",
+                key=KS(f"ycdg_{which}", beam_id, sec_id),
+                label_visibility="collapsed",
+                disabled=disabled,
+            )
     with c4:
         if i == 1:
             st.button(
@@ -1691,8 +1835,12 @@ def _render_lit_row(beam_id: int, sec_id: int, which: str, i: int, nl: int, disa
 def _render_lits_table(beam_id: int, sec_id: int, which: str, disabled: bool):
     nl = _get_nlits(beam_id, sec_id, which)
 
-    # En-tête du tableau
-    h0, h1, h2, h3, h4 = st.columns(LIT_COLS, vertical_alignment="bottom")
+    # Synchroniser le champ CDG AVANT le rendu du widget (le champ est
+    # affiché sur la ligne du dernier lit). Fix v2.39 : CDG figé.
+    _sync_ycdg_state(beam_id, sec_id, which)
+
+    # En-tête du tableau : Lit | Nb barres | Ø | Distance axe lit | CDG | +
+    h0, h1, h2, h3, hG, h4 = st.columns(LIT_COLS, vertical_alignment="bottom")
     with h0:
         st.markdown("")
     with h1:
@@ -1701,6 +1849,13 @@ def _render_lits_table(beam_id: int, sec_id: int, which: str, disabled: bool):
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Ø (mm)</div>", unsafe_allow_html=True)
     with h3:
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Distance axe lit (cm)</div>", unsafe_allow_html=True)
+    with hG:
+        st.markdown(
+            "<div style='font-size:0.85em;font-weight:600;'>CDG (cm)</div>",
+            unsafe_allow_html=True,
+            help="Valeur calculée automatiquement. Si une valeur est saisie, "
+                 "elle remplace le calcul automatique.",
+        )
     with h4:
         st.markdown("")
 
@@ -1767,66 +1922,25 @@ def _render_face_armatures(beam_id: int, sec_id: int, which: str, states: dict, 
     if not geom_ok:
         st.markdown("❌ **Position des lits incompatible avec la hauteur : d utile ≤ 0.**")
 
-    # ---- Tableau des lits : Lit | Nb barres | Ø | Distance axe lit | Action ----
+    # ---- Tableau des lits : Lit | Nb barres | Ø | Distance axe lit | CDG | Action ----
+    # (le champ CDG est intégré au tableau, sur la ligne du dernier lit)
     _render_lits_table(beam_id, sec_id, which, disabled=dim_locked)
-
-    # ---- CDG yG : aligné en 3e colonne (sous "Distance axe lit") ----
-    _, e_auto, _ = _layers_geometry(beam_id, sec_id, which, use_manual=False)
-    man = _ycdg_manual(beam_id, sec_id, which)
-    e_auto_txt = f"{e_auto:.1f}".replace(".", ",")
-
-    # Pré-remplir la case avec la valeur auto tant que l'utilisateur n'a
-    # rien saisi (permet d'afficher directement la valeur calculée).
-    ykey = KS(f"ycdg_{which}", beam_id, sec_id)
-    auto_flag = KS(f"ycdg_auto_{which}", beam_id, sec_id)
-    if ykey not in st.session_state:
-        st.session_state[ykey] = e_auto_txt
-        st.session_state[auto_flag] = True
-    cur_raw = str(st.session_state.get(ykey, "") or "").strip()
-    if cur_raw == "":
-        # champ vidé -> on repasse en automatique et on ré-affiche la valeur
-        st.session_state[ykey] = e_auto_txt
-        st.session_state[auto_flag] = True
-    elif bool(st.session_state.get(auto_flag, False)) and cur_raw != e_auto_txt:
-        # l'utilisateur a modifié la valeur -> mode imposé
-        st.session_state[auto_flag] = False
-    is_auto = bool(st.session_state.get(auto_flag, False))
-    if is_auto:
-        # garder la case synchronisée avec le calcul
-        st.session_state[ykey] = e_auto_txt
-
-    hg0, hg1, hg2, hg3, hg4 = st.columns(LIT_COLS, vertical_alignment="bottom")
-    with hg2:
-        st.markdown("<div style='font-size:0.85em;font-weight:600;'>&nbsp;</div>", unsafe_allow_html=True)
-    with hg3:
-        st.markdown(
-            "CDG yG (cm)",
-            help="Distance entre le bas de la poutre et le centre de gravité "
-                 "des armatures de cette face. Vide : recalculé automatiquement.",
-        )
-
-    rg0, rg1, rg2, rg3, rg4 = st.columns(LIT_COLS, vertical_alignment="center")
-    with rg2:
-        if is_auto:
-            st.markdown(
-                "<div style='text-align:right;font-style:italic;opacity:.7;font-size:0.85em;'>"
-                "Calculé automatiquement</div>",
-                unsafe_allow_html=True,
-            )
-    with rg3:
-        st.text_input(
-            f"CDG yG {which}",
-            key=ykey,
-            label_visibility="collapsed",
-            disabled=dim_locked,
-        )
     close_bloc()
 
 
 # ============================================================
-#  TAUX D'ARMATURE (application uniquement — pas exporté en PDF
-#  tant que le calcul global de la poutre n'est pas disponible)
+#  TAUX D'ARMATURE
+#  Deux options indépendantes (paramètres avancés) :
+#    - taux_arm_show_app : affichage dans les headers Streamlit + ⓘ
+#    - taux_arm_pdf      : T.A. global de la poutre dans la note PDF
 # ============================================================
+def _ta_enabled() -> bool:
+    """Le calcul du taux d'armature est actif si au moins une des deux
+    options (affichage Streamlit / export PDF) est cochée."""
+    return bool(st.session_state.get("taux_arm_show_app", False)) or \
+        bool(st.session_state.get("taux_arm_pdf", False))
+
+
 def _masse_lin_kg_m(d_mm: float) -> float:
     """Masse linéique d'une barre (kg/m) : ρ·π·d²/4."""
     return RHO_ACIER * math.pi * (d_mm / 1000.0) ** 2 / 4.0
@@ -1841,7 +1955,7 @@ def _taux_armature_section(beam_id: int, sec_id: int):
     Structure d'une ligne du tableau :
       (famille, nb_barres, Ø_mm, As_par_barre_mm², L_par_barre_m, L_totale_m, kgm, poids_kg)
     """
-    if not bool(st.session_state.get("taux_arm_enable", True)):
+    if not _ta_enabled():
         return None, None
 
     b = float(st.session_state.get(KB("b", beam_id), 20))          # cm
@@ -1924,11 +2038,28 @@ def _taux_armature_section(beam_id: int, sec_id: int):
         md += (f"| {fam} | **{nb_txt}** | **Ø{int(dmm)}** | {As:.0f} mm² | {kgm:.2f} "
                f"| **{L_un:.2f} m** | {L_tot:.2f} m "
                f"| **{p:.2f} kg** | {pct:.0f} % |\n")
-    md += (f"\n**Total acier = {poids:.2f} kg/m**  \n"
-           f"Volume béton = {vol:.3f} m³/m  \n"
-           f"Taux brut = {ta_brut:.0f} kg/m³  \n"
-           f"Majoration = {maj:.0f} %  \n"
-           f"**Taux final arrondi = {ta_arr:.0f} kg/m³**")
+    # ---- Synthèse en deux colonnes : mètre courant | poutre complète ----
+    tot = _beam_totals(beam_id)
+    if tot is not None:
+        L_tot, poids_poutre, vol_poutre, ta_poutre = tot
+        col_d = [f"{L_tot:.2f} m".replace(".", ","),
+                 f"{poids_poutre:.1f} kg".replace(".", ","),
+                 f"{vol_poutre:.3f} m³".replace(".", ","),
+                 f"{ta_poutre:.0f} kg/m³"]
+    else:
+        col_d = ["—", "—", "—", "—"]
+
+    md += "\n| Par mètre courant | | Poutre complète | |\n"
+    md += "|---|---|---|---|\n"
+    md += (f"| Total acier | **{poids:.2f} kg/m** "
+           f"| Longueur totale prise en compte | **{col_d[0]}** |\n")
+    md += (f"| Volume béton | {vol:.3f} m³/m "
+           f"| Total acier poutre | **{col_d[1]}** |\n")
+    md += (f"| Taux brut | {ta_brut:.0f} kg/m³ "
+           f"| Volume béton poutre | {col_d[2]} |\n")
+    md += (f"| Majoration | {maj:.0f} % "
+           f"| **Taux final poutre** | **{col_d[3]}** |\n")
+    md += f"| **Taux final arrondi** | **{ta_arr:.0f} kg/m³** | | |\n"
     return ta_arr, md
 
 
@@ -1939,7 +2070,7 @@ def _section_poids_vol(beam_id: int, sec_id: int):
     Recompose le poids à partir des mêmes formules que
     _taux_armature_section, sans passer par le markdown.
     """
-    if not bool(st.session_state.get("taux_arm_enable", True)):
+    if not _ta_enabled():
         return 0.0, 0.0
     b = float(st.session_state.get(KB("b", beam_id), 20))
     h = float(st.session_state.get(KB("h", beam_id), 40))
@@ -1989,6 +2120,38 @@ def _section_poids_vol(beam_id: int, sec_id: int):
     return poids_maj, vol
 
 
+def _beam_totals(beam_id: int):
+    """
+    Totaux de la poutre complète (à partir des longueurs de sections) :
+        (L_totale m, poids acier majoré kg, volume béton m³, TA arrondi kg/m³)
+    Le TA reste cohérent : poids total acier / volume total béton
+    (même ratio que la moyenne pondérée du TA global).
+    Retourne None si TA désactivé ou aucune longueur saisie.
+    """
+    if not _ta_enabled():
+        return None
+    beam = next((b for b in st.session_state.beams if int(b.get("id")) == beam_id), None)
+    if beam is None:
+        return None
+    arrondi = max(1, int(st.session_state.get("taux_arrondi_kgm3", 5) or 5))
+    L_tot = 0.0
+    poids_tot = 0.0
+    vol_tot = 0.0
+    for s in beam.get("sections", []):
+        sid = int(s["id"])
+        L = float(st.session_state.get(KS("longueur_m", beam_id, sid), 0.0) or 0.0)
+        if L <= 0:
+            continue
+        poids, vol = _section_poids_vol(beam_id, sid)   # par mètre courant
+        L_tot += L
+        poids_tot += poids * L
+        vol_tot += vol * L
+    if L_tot <= 0 or vol_tot <= 0:
+        return None
+    ta = math.ceil((poids_tot / vol_tot) / arrondi) * arrondi
+    return L_tot, poids_tot, vol_tot, ta
+
+
 def _taux_armature_global(beam_id: int):
     """
     TA global de la poutre = moyenne pondérée par les longueurs :
@@ -1996,7 +2159,7 @@ def _taux_armature_global(beam_id: int):
     L_i = longueur de section (m). Sections sans longueur : ignorées
     (L=0). Retourne None si TA désactivé ou aucune longueur saisie.
     """
-    if not bool(st.session_state.get("taux_arm_enable", True)):
+    if not _ta_enabled():
         return None
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
     num = 0.0  # Σ poids_i · L_i
@@ -2028,26 +2191,30 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
     sec_nom = str(st.session_state.get(f"meta_b{beam_id}_nom_{sec_id}", sec.get("nom", f"Section {sec_id}")))
 
     states = _dimensionnement_compute_states(beam_id, sec_id, beton_data)
-    ta_val, ta_md = _taux_armature_section(beam_id, sec_id)
+
+    # T.A. de section : affiché dans le header uniquement si l'option
+    # "Afficher dans Streamlit" est activée (paramètres avancés).
+    ta_show = bool(st.session_state.get("taux_arm_show_app", False))
+    ta_val, ta_md = _taux_armature_section(beam_id, sec_id) if ta_show else (None, None)
+
     sec_label = sec_nom if sec_nom.lower().startswith("section") else f"Section {sec_nom}"
     title = _status_icon_label(states["etat_global"], sec_label)
+    if ta_val is not None:
+        # T.A. dans le header de section, poussé vers la droite
+        # (les libellés d'expander n'acceptent pas d'alignement HTML).
+        title = f"{title}\u2003\u2003\u2003\u2003T.A. = {ta_val:.0f} kg/m³"
 
     # NB : expanded=True pour tous — le libellé contient l'icône d'état,
     # et Streamlit remet un expander à son état par défaut dès que son
     # libellé change ; avec False, les sections se refermaient toutes
     # seules à chaque changement d'état.
     with st.expander(title, expanded=True):
-        if ta_val is not None:
-            # Ligne "Taux d'armature : C.<poutre>.<section> = xxx kg/m³"
-            # (repère façon note de calcul), avec ⓘ pour le détail.
-            beam_idx = next((k + 1 for k, bb in enumerate(st.session_state.beams)
-                             if int(bb.get("id")) == beam_id), beam_id)
-            sec_idx = next((k + 1 for k, ss in enumerate(beam["sections"])
-                            if int(ss.get("id")) == sec_id), sec_id)
-            st.markdown(
-                f"**Taux d'armature : C.{beam_idx}.{sec_idx} = {ta_val:.0f} kg/m³**",
-                help=ta_md,
-            )
+        if ta_val is not None and ta_md:
+            # Seul le petit ⓘ, juste sous le header, aligné à droite ;
+            # le détail du calcul reste dans l'infobulle.
+            _, cInfo = st.columns([22, 1])
+            with cInfo:
+                st.markdown("&nbsp;", help=ta_md)
         if beam_locked:
             st.caption("🔒 Poutre verrouillée — édition bloquée.")
 
@@ -2069,7 +2236,9 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             right_h = f"{beton} • Section {b*10:.0f}×{h*10:.0f} mm"
         else:
             right_h = f"{beton} • Section {b:.0f}×{h:.0f} cm"
-        pct_h = ((hmin_calc + dist_l1_inf) / h * 100.0) if h > 0 else None
+        e_cdg_gov = states["e_cdg_gov"]
+        h_min_poutre = states["h_min_poutre"]
+        pct_h = (h_min_poutre / h * 100.0) if h > 0 else None
 
         M_max_val = max(states["M_inf_val"], states["M_sup_val"])
         help_hmin = (
@@ -2081,17 +2250,33 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             f"→ hᵤ,min = {_fr(hmin_calc, 1)} cm"
         )
         open_bloc_left_right("Vérification de la hauteur", right_h, states["etat_h"], pct=pct_h)
+        help_hmin_p = (
+            "**Hauteur minimale de la poutre = hᵤ,min + CDG armatures**\n\n"
+            "CDG des armatures de la face du moment dimensionnant."
+        )
         if units_len == "mm":
             st.markdown(f"**Hauteur utile minimale hᵤ,min** = {hmin_calc*10:.0f} mm", help=help_hmin)
             st.markdown(
-                f"Hauteur de la poutre h = {h*10:.0f} mm ≥ "
-                f"hᵤ,min + distance axe lit 1 (inf.) = {(hmin_calc + dist_l1_inf)*10:.0f} mm"
+                f"**Hauteur minimale de la poutre** = hᵤ,min + CDG armatures = "
+                f"{hmin_calc*10:.0f} + {e_cdg_gov*10:.0f} = {h_min_poutre*10:.0f} mm",
+                help=help_hmin_p,
+            )
+            st.markdown(
+                f"Hauteur de la poutre : {h*10:.0f} mm "
+                f"{'≥' if states['etat_h'] == 'ok' else '<'} "
+                f"hauteur minimale de la poutre : {h_min_poutre*10:.0f} mm"
             )
         else:
             st.markdown(f"**Hauteur utile minimale hᵤ,min** = {hmin_calc:.1f} cm", help=help_hmin)
             st.markdown(
-                f"Hauteur de la poutre h = {h:.1f} cm ≥ "
-                f"hᵤ,min + distance axe lit 1 (inf.) = {hmin_calc + dist_l1_inf:.1f} cm"
+                f"**Hauteur minimale de la poutre** = hᵤ,min + CDG armatures = "
+                f"{_fr(hmin_calc, 1)} + {_fr(e_cdg_gov, 1)} = {_fr(h_min_poutre, 1)} cm",
+                help=help_hmin_p,
+            )
+            st.markdown(
+                f"Hauteur de la poutre : {h:.0f} cm "
+                f"{'≥' if states['etat_h'] == 'ok' else '<'} "
+                f"hauteur minimale de la poutre : {_fr(h_min_poutre, 1)} cm"
             )
         close_bloc()
 
@@ -2116,8 +2301,9 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
             besoin, etat_tau, nom_lim, tau_lim = _shear_need_text(tau)
 
             pct_tau = (tau / tau_lim * 100.0) if tau_lim > 0 else None
-            Ast_hdr = _shear_lines_total_Ast_mm2(beam_id, sec_id, reduced=False)
-            open_bloc_left_right(titre_tau, f"Asw = {Ast_hdr:.0f} mm²", etat_tau, pct=pct_tau)
+            # Header effort tranchant : uniquement % + icône (v2.39).
+            # Asw reste affiché dans le bloc "Détermination des étriers".
+            open_bloc_left_right(titre_tau, "", etat_tau, pct=pct_tau)
             st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
             close_bloc()
 
@@ -2138,14 +2324,20 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
                 f"→ s,th = {_fr(pas_th, 1)} cm"
             )
 
-            right_et = f"{_shear_lines_summary(beam_id, sec_id)} ({Ast_e:.0f} mm²)"
+            # Header étriers : type choisi + Ø, clairement affiché
+            # (ex. "Étrier Ø10") — la section Asw est reprise dans le bloc.
+            right_et = _shear_lines_summary(beam_id, sec_id)
             pct_pas = (pas / pas_lim * 100.0) if pas_lim > 0 else None
             open_bloc_left_right(titre_pas, right_et, etat_pas_state, pct=pct_pas)
-            a1, a2 = st.columns(2)
+            a1, a2, a3 = st.columns(3)
             with a1:
                 st.markdown(f"**Pas théorique = {pas_th:.1f} cm**", help=help_pas)
             with a2:
                 st.markdown(f"**Pas maximal = {s_max:.1f} cm**", help="**s,max = min( 0,75 · d ; 30 cm )**")
+            with a3:
+                st.markdown(f"**Asw = {Ast_e:.0f} mm²**",
+                            help="Section totale des armatures d'effort tranchant "
+                                 "(Σ brins × aire du Ø).")
             close_bloc()
 
             # Saisie des armatures d'effort tranchant (après la conclusion)
@@ -2258,11 +2450,13 @@ def render_parametres_avances():
         st.number_input("Espacement vertical max (cm)", min_value=5.0, step=5.0, key="techno_s_max_cm")
 
     with c5:
-        tt1, tt2 = st.columns([3, 0.8], vertical_alignment="center")
-        with tt1:
-            st.markdown("**Taux d'armature**")
-        with tt2:
-            st.checkbox("Calcul du taux d'armature", key="taux_arm_enable", label_visibility="collapsed")
+        st.markdown("**Taux d'armature**")
+        # Deux options indépendantes, sur la même ligne (défaut : désactivées).
+        to1, to2 = st.columns(2, vertical_alignment="center")
+        with to1:
+            st.checkbox("Afficher dans Streamlit", key="taux_arm_show_app")
+        with to2:
+            st.checkbox("Envoyer dans la note de calcul", key="taux_arm_pdf")
         st.number_input("Pourcentage de majoration (%)", min_value=0.0, step=1.0, key="taux_arm_major_pct")
         st.number_input("Retour d'étrier (cm)", min_value=0.0, step=1.0, key="taux_retour_etrier_cm",
                         help="Compté deux fois dans la longueur d'un étrier : "
@@ -2299,19 +2493,18 @@ def render_dimensionnement_right(beton_data: dict):
         lock_icon = "🔒 " if bool(st.session_state.get(KB("lock_data", bid), False)) else ""
         beam_label = _status_icon_label(beam_state, f"{lock_icon}{bnom}")
 
-        # TA global de la poutre (moyenne pondérée par les longueurs)
-        ta_global = _taux_armature_global(bid)
+        # TA global de la poutre (moyenne pondérée par les longueurs des
+        # sections) : dans le header, à droite, EN GRAS — uniquement si
+        # l'option "Afficher dans Streamlit" est activée.
+        if bool(st.session_state.get("taux_arm_show_app", False)):
+            ta_global = _taux_armature_global(bid)
+            if ta_global is not None:
+                beam_label = (f"{beam_label}\u2003\u2003\u2003\u2003"
+                              f"**T.A. = {ta_global:.0f} kg/m³**")
 
         # expanded=True : libellé dynamique (icône d'état) -> Streamlit
         # réinitialise l'expander à chaque changement de libellé.
         with st.expander(beam_label, expanded=True):
-            if ta_global is not None:
-                # "Poutre 1" est dans le titre ; TA global complètement à droite.
-                _, cR = st.columns([4.6, 1.9])
-                with cR:
-                    st.markdown(f"**TA = {ta_global:.0f} kg/m³**",
-                                help="Taux d'armature global de la poutre — "
-                                     "moyenne pondérée par les longueurs de sections.")
             for s in b.get("sections", []):
                 render_dimensionnement_section(bid, int(s["id"]), beton_data)
 
@@ -2357,7 +2550,7 @@ def show():
             unsafe_allow_html=True,
         )
     with tH3:
-        st.button("❔", key="btn_version_hist", help="Historique des versions (à venir)",
+        st.button("❔", key="btn_version_hist", help="Version actuelle de l'application.",
                   use_container_width=True)
 
     btn1, btn2, btn3, btn4, btn5 = st.columns(5)
