@@ -1,6 +1,25 @@
 # =============================================================
 #  raideur_sol.py — Raideur élastique des sols (modèle de Winkler)
-#  VERSION 3.2
+#  VERSION 3.3
+#
+#  Évolutions vs 3.2 :
+#   1. GRAPHIQUES (Cas 2, trois onglets) :
+#      - Profil du sol : coupe du profil multicouche, une bande par
+#        couche (épaisseur réelle), coloration selon E (échelle log,
+#        car E varie sur plusieurs ordres de grandeur entre argile
+#        molle et rocher sain) -> répond à "voir la rigidité en
+#        fonction de quoi elle varie" de façon visuelle/qualitative.
+#      - Sensibilité d'une couche : k_serie tracé en fonction de E ou
+#        de h d'UNE couche choisie (les autres restant fixes). Sert de
+#        base à une étude de sensibilité/enveloppe (bornes basse/haute
+#        d'un rapport géotechnique) plutôt qu'un coefficient de
+#        sécurité arbitraire sur k (EN 1997 ne prescrit pas de facteur
+#        partiel sur E/k — voir réponse en conversation).
+#      - k vs B (Boussinesq) : seule relation continue à une variable
+#        du module (k ∝ 1/B), tracée sur une plage définie par
+#        l'utilisateur, avec marqueur sur le B courant.
+#      Nécessite matplotlib (déjà présent dans la plupart des
+#      environnements Streamlit) ; message informatif si absent.
 #
 #  Évolutions vs 3.1 :
 #   1. FIX PRÉREMPLISSAGE PEU FIABLE : le tableau "Couches de sol"
@@ -37,6 +56,12 @@
 import math
 import pandas as pd
 import streamlit as st
+
+try:
+    import matplotlib.pyplot as plt
+    _HAS_MPL = True
+except ImportError:
+    _HAS_MPL = False
 
 
 # =============================================================
@@ -299,6 +324,196 @@ def k_boussinesq(E_kPa: float, B_m: float, nu: float):
         return 0.0, 0.0
     k = E_kPa / (B_m * (1.0 - nu ** 2))
     return k, kNpm3_to_MNpm3(k)
+
+
+def _norm_log(x, lo, hi):
+    """Normalise x dans [0,1] sur une échelle log — utile pour colorer un
+    profil de sol dont E varie sur plusieurs ordres de grandeur (argile
+    molle ~1-5 MPa à rocher sain ~5000+ MPa)."""
+    if x is None or x <= 0:
+        return 0.0
+    lo = max(lo, 0.1)
+    hi = max(hi, lo * 1.0001)
+    v = (math.log10(x) - math.log10(lo)) / (math.log10(hi) - math.log10(lo))
+    return min(1.0, max(0.0, v))
+
+
+def _render_soil_profile_chart(ids):
+    """Coupe du profil multicouche : une bande par couche (épaisseur
+    réelle h_i), couleur selon E_i (échelle log). Purement visuel —
+    n'intervient dans aucun calcul, sert juste à voir d'un coup d'œil
+    où se trouvent les couches molles / raides du profil."""
+    if not _HAS_MPL:
+        st.info("Installe matplotlib (`pip install matplotlib`) pour afficher ce graphique.")
+        return
+
+    bands = []
+    depth = 0.0
+    for lid in ids:
+        lv = _get_layer_values(lid)
+        h, E, t = lv["h"], lv["E"], lv["type"]
+        if h <= 0:
+            continue
+        bands.append((depth, depth + h, h, E, t))
+        depth += h
+
+    if not bands:
+        st.info("Renseigne au moins une couche avec une épaisseur h > 0 pour afficher le profil.")
+        return
+
+    E_vals = [b[3] for b in bands if b[3] > 0]
+    E_lo, E_hi = (min(E_vals), max(E_vals)) if E_vals else (1.0, 100.0)
+
+    fig, ax = plt.subplots(figsize=(3.0, 5.0))
+    cmap = plt.get_cmap("YlOrBr")
+    for (z0, z1, h, E, t) in bands:
+        color = cmap(0.12) if E <= 0 else cmap(0.25 + 0.65 * _norm_log(E, E_lo, E_hi))
+        ax.barh((z0 + z1) / 2.0, width=1.0, height=h, left=0.0,
+                color=color, edgecolor="black", linewidth=0.8)
+        label = f"{t}\nh={h:.2f} m" + (f" · E={E:.0f} MPa" if E > 0 else "\n⚠ E manquant")
+        ax.text(0.5, (z0 + z1) / 2.0, label, ha="center", va="center", fontsize=7, wrap=True)
+    ax.set_xlim(0, 1)
+    ax.set_xticks([])
+    ax.set_ylim(depth, 0)  # 0 en haut (surface), profondeur croissante vers le bas
+    ax.set_ylabel("Profondeur (m)")
+    ax.set_title("Profil de sol (couleur ∝ E, échelle log)", fontsize=10)
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=True)
+    plt.close(fig)
+
+
+def _render_layer_sensitivity_chart(ids, k_actual_MN):
+    """
+    Trace k_serie en fonction de E ou de h d'UNE couche choisie, les
+    autres couches restant fixées à leurs valeurs actuelles. Sert à
+    quantifier l'impact d'une incertitude sur cette couche (ex. bornes
+    basse/haute d'un essai) plutôt que d'appliquer un facteur de
+    sécurité forfaitaire sur k, qui n'a pas de fondement dans EN 1997
+    pour ce type de paramètre.
+    """
+    if not _HAS_MPL:
+        st.info("Installe matplotlib (`pip install matplotlib`) pour afficher ce graphique.")
+        return
+    if not ids:
+        st.info("Ajoute au moins une couche.")
+        return
+
+    labels = [f"Couche {i + 1} — {_get_layer_values(lid)['type']}" for i, lid in enumerate(ids)]
+    sel_label = st.selectbox("Couche à faire varier", labels, key="sens_layer_choice")
+    sel_lid = ids[labels.index(sel_label)]
+
+    param = st.radio("Paramètre à faire varier", ["E (module)", "h (épaisseur)"],
+                      horizontal=True, key="sens_param_choice")
+
+    base = [{"lid": lid, **_get_layer_values(lid)} for lid in ids]
+    sel_lv = _get_layer_values(sel_lid)
+    fallback_note = None
+
+    if param.startswith("E"):
+        h_fixed = sel_lv["h"] if sel_lv["h"] > 0 else 1.0
+        if sel_lv["h"] <= 0:
+            fallback_note = "h de cette couche n'est pas encore renseigné — hypothèse de 1,00 m pour cette simulation."
+        base_val = sel_lv["E"] if sel_lv["E"] > 0 else 20.0
+        c1, c2 = st.columns(2)
+        with c1:
+            lo = st.number_input("E min [MPa]", min_value=0.1, value=round(max(0.1, base_val * 0.3), 1),
+                                  step=1.0, key="sens_E_lo")
+        with c2:
+            hi = st.number_input("E max [MPa]", min_value=lo + 0.1, value=round(base_val * 3.0, 1),
+                                  step=1.0, key="sens_E_hi")
+        x_label = "E [MPa]"
+    else:
+        E_fixed = sel_lv["E"] if sel_lv["E"] > 0 else (soil_default_E(sel_lv["type"]) or 20.0)
+        if sel_lv["E"] <= 0:
+            fallback_note = f"E de cette couche n'est pas encore renseigné — hypothèse de {E_fixed:.1f} MPa pour cette simulation."
+        base_val = sel_lv["h"] if sel_lv["h"] > 0 else 1.0
+        c1, c2 = st.columns(2)
+        with c1:
+            lo = st.number_input("h min [m]", min_value=0.05, value=round(max(0.05, base_val * 0.3), 2),
+                                  step=0.1, key="sens_h_lo")
+        with c2:
+            hi = st.number_input("h max [m]", min_value=lo + 0.05, value=round(base_val * 3.0, 2),
+                                  step=0.1, key="sens_h_hi")
+        x_label = "h [m]"
+
+    if fallback_note:
+        st.caption(f"ℹ️ {fallback_note}")
+
+    n_pts = 30
+    xs = [lo + (hi - lo) * i / (n_pts - 1) for i in range(n_pts)]
+    ys = []
+    for x in xs:
+        layers_kpa = []
+        for bl in base:
+            h, E = bl["h"], bl["E"]
+            if bl["lid"] == sel_lid:
+                if param.startswith("E"):
+                    E = x
+                    h = h if h > 0 else 1.0
+                else:
+                    h = x
+                    E = E if E > 0 else (soil_default_E(bl["type"]) or 20.0)
+            if h > 0 and E > 0:
+                layers_kpa.append((h, E_to_kPa(E, "MPa")))
+        _, k_MN, _, _ = k_series(layers_kpa)
+        ys.append(k_MN)
+
+    fig, ax = plt.subplots(figsize=(5.0, 3.2))
+    ax.plot(xs, ys, color="#2563eb", linewidth=2)
+    ax.axvline(base_val, color="#94a3b8", linestyle="--", linewidth=1)
+    ax.scatter([base_val], [k_actual_MN], color="#dc2626", zorder=5, label="Valeurs actuelles")
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("k_serie [MN/m³]")
+    ax.set_title(f"Sensibilité de k_série — {sel_label}", fontsize=10)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=True)
+    plt.close(fig)
+    st.caption("Les autres couches restent fixées à leurs valeurs actuelles. Utile pour tester l'effet des "
+               "bornes basse/haute d'un rapport géotechnique sur k, plutôt que d'appliquer un coefficient "
+               "de sécurité arbitraire (EN 1997 ne prescrit pas de facteur partiel sur E/k).")
+
+
+def _render_k_vs_B_chart(E_moy_kPa: float, nu: float):
+    """k(Boussinesq) en fonction de B — seule relation continue à une
+    variable du module (k ∝ 1/B). Comparaison uniquement, sans effet
+    sur le modèle en série utilisé pour SCIA."""
+    if not _HAS_MPL:
+        st.info("Installe matplotlib (`pip install matplotlib`) pour afficher ce graphique.")
+        return
+    if E_moy_kPa <= 0:
+        st.info("Renseigne au moins une couche valide (h et E) pour tracer cette courbe.")
+        return
+
+    B_cur = float(st.session_state.get("multi_B", 2.0))
+    c1, c2 = st.columns(2)
+    with c1:
+        B_lo = st.number_input("B min [m]", min_value=0.1, value=round(max(0.1, B_cur * 0.3), 2),
+                                step=0.1, key="kb_B_lo")
+    with c2:
+        B_hi = st.number_input("B max [m]", min_value=B_lo + 0.1, value=round(B_cur * 3.0, 2),
+                                step=0.1, key="kb_B_hi")
+
+    n_pts = 30
+    xs = [B_lo + (B_hi - B_lo) * i / (n_pts - 1) for i in range(n_pts)]
+    ys = [k_boussinesq(E_moy_kPa, B, nu)[1] for B in xs]
+    _, k_cur_MN = k_boussinesq(E_moy_kPa, B_cur, nu)
+
+    fig, ax = plt.subplots(figsize=(5.0, 3.2))
+    ax.plot(xs, ys, color="#7c3aed", linewidth=2)
+    ax.axvline(B_cur, color="#94a3b8", linestyle="--", linewidth=1)
+    ax.scatter([B_cur], [k_cur_MN], color="#dc2626", zorder=5, label="B actuel")
+    ax.set_xlabel("B [m]")
+    ax.set_ylabel("k (Boussinesq) [MN/m³]")
+    ax.set_title("k ≈ E_moy / [B·(1−ν²)] en fonction de B", fontsize=10)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    st.pyplot(fig, use_container_width=True)
+    plt.close(fig)
+    st.caption("Modèle de comparaison uniquement (décroissant en 1/B) — sans effet sur le résultat "
+               "\"à utiliser pour SCIA\" (ressorts en série).")
 
 
 def E_from_cpt(qt_MPa: float, sv0_kPa: float, alpha_E: float):
@@ -880,6 +1095,18 @@ def show():
                 if detail and kB_MN > 0:
                     st.latex(r"k \approx \dfrac{E_{moy}}{B\,(1-\nu^2)}")
                     st.latex(f"k \\approx {kB_kN:,.0f}\\,\\text{{kN/m³}} = {kB_MN:,.2f}\\,\\text{{MN/m³}}")
+
+                st.divider()
+                st.markdown("#### Graphiques")
+                tab_profil, tab_sens, tab_kb = st.tabs(
+                    ["Profil du sol", "Sensibilité d'une couche", "k vs B (Boussinesq)"]
+                )
+                with tab_profil:
+                    _render_soil_profile_chart(ids)
+                with tab_sens:
+                    _render_layer_sensitivity_chart(ids, k_MN)
+                with tab_kb:
+                    _render_k_vs_B_chart(E_moy_kPa, nu)
 
         # ---------- CAS 3 ----------
         elif cas.startswith("3."):
