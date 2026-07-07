@@ -1,43 +1,34 @@
 # =============================================================
 #  raideur_sol.py — Raideur élastique des sols (modèle de Winkler)
-#  VERSION 3.1
+#  VERSION 3.2
 #
-#  Évolutions vs 3.0 :
-#   1. BASE DE DONNÉES SOLS UNIFIÉE (SOIL_DB) : remplace à la fois
-#      SOIL_TYPES, _ALPHA_QC et la liste "soils" codée en dur dans le
-#      Cas 6. Une seule source de vérité, utilisée par :
-#        - le menu déroulant "Type de sol" du tableau multicouche,
-#        - le préremplissage qc / Rf / E du Cas 2,
-#        - l'abaque du Cas 6 (γ, k, qₐ).
-#      Chaque entrée porte : catégorie, γ, plage qc (si CPT pertinent),
-#      plage E, plage k, α (qc→E) si pertinent, description, et un
-#      indicateur cpt_ok (le CPT n'a pas de sens sur du rocher sain :
-#      refus de pointe).
-#   2. TYPES DE SOLS ÉTENDUS (contexte belge) :
-#      - Argile surconsolidée (Boom/Ypresienne), Limon (loess),
-#      - Craie (altérée / saine) — Hesbaye, Tournaisis,
-#      - Calcaire (fracturé/altéré / sain),
-#      - Schiste houiller, DÉCLINÉ PAR DEGRÉ D'ALTÉRATION
-#        (décomposé W4-W5 / altéré W3 / sain W1-W2 — classification
-#        type ISO 14689 / Franklin), plutôt qu'un seul "Roche" générique.
-#      - Grès (altéré / sain).
-#      Pour les roches, qc n'est PAS proposé (refus au pénétromètre) :
-#      seule une plage de E est fournie, à confirmer par RQD/pressiomètre/
-#      essai de laboratoire — jamais à figer sans le rapport géotechnique.
-#   3. PRÉREMPLISSAGE DU TABLEAU MULTICOUCHE (Cas 2) : dès qu'un type
-#      de sol est choisi (nouvelle ligne ou changement de type) ET que
-#      qc/E sont vides, les valeurs typiques (milieu de plage) de
-#      SOIL_DB sont injectées automatiquement dans qc/Rf/E — modifiables
-#      ensuite par l'utilisateur. Ne se redéclenche pas tant que le type
-#      ne change pas (évite d'écraser une valeur volontairement effacée).
-#   4. AVERTISSEMENT COUCHES INCOMPLÈTES : le calcul k_serie ignore
-#      toujours les lignes sans h ou E valides (physique inchangée),
-#      mais un message explicite indique désormais si l'épaisseur prise
-#      en compte (H) est inférieure à l'épaisseur totale saisie, avec le
-#      détail des lignes ignorées — fini le silence.
-#   5. Petit badge "→ à utiliser pour SCIA" sur le bloc "Ressorts en
-#      série", pour lever l'ambiguïté avec le bloc Boussinesq (donné à
-#      titre de comparaison / ordre de grandeur uniquement).
+#  Évolutions vs 3.1 :
+#   1. FIX PRÉREMPLISSAGE PEU FIABLE : le tableau "Couches de sol"
+#      utilisait st.data_editor (num_rows="dynamic"). Ce widget ne
+#      déclenche un rerun qu'à la perte de focus de la cellule éditée,
+#      et affiche littéralement "None" sur les nouvelles lignes tant
+#      qu'elles n'ont pas été éditées (défaut connu du widget). Le
+#      préremplissage semblait donc ne pas fonctionner. -> Le tableau
+#      est reconstruit avec des widgets natifs (selectbox/number_input,
+#      un par cellule, même principe que le tableau des lits de
+#      poutre.py) : chaque changement de type déclenche un rerun
+#      immédiat et le préremplissage s'applique en une frappe, sans
+#      "None" résiduel.
+#   2. RÉORGANISATION LOGIQUE : "Largeur caractéristique B" et "ν
+#      équivalent" ne servent QU'AU modèle Boussinesq (comparaison) et
+#      n'ont jamais d'effet sur le modèle en ressorts en série (celui
+#      à exporter vers SCIA). Ils étaient affichés tout en haut de la
+#      colonne de gauche, comme s'ils faisaient partie du calcul
+#      principal -> déplacés directement à côté du bloc Boussinesq,
+#      avec une légende explicite ("sans effet sur le résultat SCIA").
+#   3. Statut par ligne (pris en compte / ignorée, E suggéré qc->E,
+#      avertissement rocher) affiché en légende sous chaque ligne du
+#      tableau plutôt que dans un second tableau dupliqué en dessous
+#      -> moins de redondance visuelle.
+#   4. Ajout/suppression de couche par identifiant unique (comme
+#      beam_id/sec_id dans poutre.py) : pas de décalage de clés à
+#      gérer à la suppression, contrairement à une indexation par
+#      position.
 #
 #  Winkler : q = k · w  ->  k = q / w
 #    q [kPa = kN/m²], w [m], k [kN/m³]  (1 MN/m³ = 1000 kN/m³)
@@ -52,10 +43,13 @@ import streamlit as st
 #  CONSTANTES
 # =============================================================
 KGF_PER_CM2_TO_KPA = 98.0665          # 1 kgf/cm² = 98.0665 kPa
-VERSION = "v3.1"
+VERSION = "v3.2"
 
 C_COULEURS = {"ok": "#e6ffe6", "warn": "#fffbe6", "nok": "#ffe6e6", "info": "#eef2ff"}
 C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌", "info": "ℹ️"}
+
+# Largeurs de colonnes du tableau des couches (h | Type | qc | Rf | E | Action)
+LAYER_COLS = [0.8, 2.2, 1.0, 0.8, 1.0, 0.5]
 
 
 # =============================================================
@@ -377,6 +371,57 @@ def _metric(col, label, value, unit=""):
 
 
 # =============================================================
+#  ÉTAT DES COUCHES (identifiants uniques — pas de décalage à la
+#  suppression, sur le même principe que beam_id/sec_id de poutre.py)
+# =============================================================
+def _layer_key(lid: int, field: str) -> str:
+    return f"soil_layer_{lid}_{field}"
+
+
+def _layer_ids():
+    return list(st.session_state.get("layer_order", []))
+
+
+def _new_layer_id() -> int:
+    ids = _layer_ids()
+    return (max(ids) + 1) if ids else 1
+
+
+def _init_layer(lid: int, h=1.0, soil_type="—", qc=0.0, rf=0.0, E=0.0):
+    st.session_state[_layer_key(lid, "h")] = float(h)
+    st.session_state[_layer_key(lid, "type")] = soil_type
+    st.session_state[_layer_key(lid, "type_prev")] = soil_type
+    st.session_state[_layer_key(lid, "qc")] = float(qc)
+    st.session_state[_layer_key(lid, "rf")] = float(rf)
+    st.session_state[_layer_key(lid, "E")] = float(E)
+
+
+def _add_layer():
+    lid = _new_layer_id()
+    st.session_state.layer_order.append(lid)
+    _init_layer(lid)  # ligne vierge : l'utilisateur choisit un type -> préremplissage automatique
+
+
+def _delete_layer(lid: int):
+    ids = _layer_ids()
+    if len(ids) <= 1 or lid not in ids:
+        return
+    st.session_state.layer_order.remove(lid)
+    for f in ("h", "type", "type_prev", "qc", "rf", "E"):
+        st.session_state.pop(_layer_key(lid, f), None)
+
+
+def _get_layer_values(lid: int):
+    return {
+        "h": float(st.session_state.get(_layer_key(lid, "h"), 0.0) or 0.0),
+        "type": st.session_state.get(_layer_key(lid, "type"), "—"),
+        "qc": float(st.session_state.get(_layer_key(lid, "qc"), 0.0) or 0.0),
+        "rf": float(st.session_state.get(_layer_key(lid, "rf"), 0.0) or 0.0),
+        "E": float(st.session_state.get(_layer_key(lid, "E"), 0.0) or 0.0),
+    }
+
+
+# =============================================================
 #  STATE
 # =============================================================
 def _init_state():
@@ -390,66 +435,114 @@ def _init_state():
     for k, v in d.items():
         st.session_state.setdefault(k, v)
 
-    if "layers_df" not in st.session_state:
-        st.session_state.layers_df = pd.DataFrame(
-            [{"h [m]": 2.0, "Type de sol": "Sable moyennement compact",
-              "qc moy [MPa]": 8.5, "Rf [%]": 0.5, "E [MPa]": 27.5}],
-            index=[1],
-        )
-
-    if "layers_last_types" not in st.session_state:
-        st.session_state.layers_last_types = list(
-            st.session_state.layers_df["Type de sol"].fillna("—")
-        )
+    if "layer_order" not in st.session_state:
+        st.session_state.layer_order = [1]
+        _init_layer(1, h=2.0, soil_type="Sable moyennement compact", qc=8.5, rf=0.5, E=27.5)
 
 
 # =============================================================
-#  PRÉREMPLISSAGE DU TABLEAU MULTICOUCHE
+#  UI : TABLEAU DES COUCHES (widgets natifs — pas de data_editor)
 # =============================================================
-def _apply_layer_prefill(edited: pd.DataFrame) -> pd.DataFrame:
+def _render_layer_row(lid: int, i: int, n: int, disabled: bool = False):
     """
-    Dès qu'une ligne est nouvelle ou que son 'Type de sol' vient de
-    changer ET que qc/E sont encore vides, injecte les valeurs typiques
-    (milieu de plage) de SOIL_DB dans qc / Rf / E. Reste sans effet si
-    l'utilisateur a déjà saisi une valeur (qu'elle vienne du préremplissage
-    ou d'une saisie manuelle) : comparer au type PRÉCÉDENT (pas au type
-    actuel) évite de re-remplir en boucle une valeur volontairement
-    effacée par l'utilisateur.
+    Une ligne = un widget par cellule (comme le tableau des lits de
+    poutre.py). Chaque changement de valeur déclenche un rerun Streamlit
+    immédiat : le préremplissage qc/Rf/E s'applique donc en une frappe,
+    sans dépendre de la perte de focus (contrairement à data_editor).
     """
-    edited = edited.copy()
-    types_now = list(edited["Type de sol"].fillna("—"))
-    prev_types = st.session_state.get("layers_last_types", [])
+    h_key = _layer_key(lid, "h")
+    type_key = _layer_key(lid, "type")
+    prev_key = _layer_key(lid, "type_prev")
+    qc_key = _layer_key(lid, "qc")
+    rf_key = _layer_key(lid, "rf")
+    E_key = _layer_key(lid, "E")
 
-    for i, t in enumerate(types_now):
-        prev_t = prev_types[i] if i < len(prev_types) else None
-        if t in ("—", "Personnalisé"):
-            continue
-        if t == prev_t:
-            continue  # type inchangé : ne pas re-déclencher le préremplissage
+    st.session_state.setdefault(h_key, 1.0)
+    st.session_state.setdefault(type_key, "—")
+    st.session_state.setdefault(prev_key, st.session_state[type_key])
+    st.session_state.setdefault(qc_key, 0.0)
+    st.session_state.setdefault(rf_key, 0.0)
+    st.session_state.setdefault(E_key, 0.0)
 
-        idx = edited.index[i]
-        qc_val = edited.at[idx, "qc moy [MPa]"] if "qc moy [MPa]" in edited.columns else None
-        E_val = edited.at[idx, "E [MPa]"] if "E [MPa]" in edited.columns else None
-        qc_empty = pd.isna(qc_val)
-        E_empty = pd.isna(E_val)
+    lv = "visible" if i == 0 else "collapsed"
+    va = "bottom" if i == 0 else "center"
+    c_h, c_type, c_qc, c_rf, c_E, c_act = st.columns(LAYER_COLS, vertical_alignment=va)
 
-        if not (qc_empty and E_empty):
-            continue  # une valeur a déjà été saisie : on ne l'écrase pas
+    with c_h:
+        st.number_input("h [m]", min_value=0.0, step=0.1, key=h_key,
+                         disabled=disabled, label_visibility=lv)
+    with c_type:
+        st.selectbox("Type de sol", soil_types_list(), key=type_key,
+                     disabled=disabled, label_visibility=lv)
 
-        soil = SOIL_DB.get(t, {})
-        if soil.get("cpt_ok", False):
-            qc_def = soil_default_qc(t)
-            if qc_def is not None:
-                edited.at[idx, "qc moy [MPa]"] = qc_def
-            rf_def = soil_default_Rf(t)
-            if rf_def is not None and "Rf [%]" in edited.columns:
-                edited.at[idx, "Rf [%]"] = rf_def
-        E_def = soil_default_E(t)
-        if E_def is not None:
-            edited.at[idx, "E [MPa]"] = E_def
+    # ---- Préremplissage : mutation AVANT l'instanciation des widgets
+    # qc/Rf/E ci-dessous (règle Streamlit : une clé de widget ne peut
+    # être modifiée qu'avant que ce widget soit rendu dans le run). ----
+    new_type = st.session_state.get(type_key, "—")
+    type_changed = new_type != st.session_state.get(prev_key)
+    if type_changed:
+        qc_cur = float(st.session_state.get(qc_key, 0.0) or 0.0)
+        E_cur = float(st.session_state.get(E_key, 0.0) or 0.0)
+        if new_type not in ("—", "Personnalisé") and qc_cur <= 0 and E_cur <= 0:
+            soil = SOIL_DB.get(new_type, {})
+            if soil.get("cpt_ok", False):
+                qc_def = soil_default_qc(new_type)
+                if qc_def is not None:
+                    st.session_state[qc_key] = qc_def
+                rf_def = soil_default_Rf(new_type)
+                if rf_def is not None:
+                    st.session_state[rf_key] = rf_def
+            E_def = soil_default_E(new_type)
+            if E_def is not None:
+                st.session_state[E_key] = E_def
+        st.session_state[prev_key] = new_type
 
-    st.session_state.layers_last_types = types_now
-    return edited
+    with c_qc:
+        st.number_input("qc moy [MPa]", min_value=0.0, step=0.5, key=qc_key,
+                         disabled=disabled, label_visibility=lv)
+    with c_rf:
+        st.number_input("Rf [%]", min_value=0.0, step=0.5, key=rf_key,
+                         disabled=disabled, label_visibility=lv)
+    with c_E:
+        st.number_input("E [MPa]", min_value=0.0, step=5.0, key=E_key,
+                         disabled=disabled, label_visibility=lv)
+    with c_act:
+        if i == 0:
+            st.button("＋", key=f"btn_add_layer_{lid}", use_container_width=True,
+                       help="Ajouter une couche", disabled=disabled, on_click=_add_layer)
+        else:
+            st.button("🗑️", key=f"btn_del_layer_{lid}", use_container_width=True,
+                       help="Supprimer cette couche", disabled=disabled,
+                       on_click=_delete_layer, args=(lid,))
+
+    # ---- Statut / info sous la ligne (remplace l'ancien tableau dupliqué) ----
+    lv2 = _get_layer_values(lid)
+    h_ok = lv2["h"] > 0
+    E_ok = lv2["E"] > 0
+    bits = []
+    if not (h_ok and E_ok):
+        bits.append("⚠️ ligne ignorée dans le calcul (h ou E manquant)")
+    else:
+        bits.append("✅ prise en compte")
+    if new_type not in ("—", "Personnalisé"):
+        e_sugg = suggest_E_from_qc(lv2["qc"], new_type)
+        if e_sugg is not None:
+            bits.append(f"E suggéré (qc→E) : {e_sugg:.1f} MPa")
+        elif is_rock(new_type):
+            bits.append("qc non pertinent pour ce type (refus de pointe probable) — seul E est utilisé")
+    st.caption(" · ".join(bits))
+
+
+def _render_layers_table(disabled: bool = False):
+    ids = _layer_ids()
+    n = len(ids)
+
+    h0, h1, h2, h3, h4, h5 = st.columns(LAYER_COLS, vertical_alignment="bottom")
+    with h1:
+        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Type de sol</div>", unsafe_allow_html=True)
+
+    for i, lid in enumerate(ids):
+        _render_layer_row(lid, i, n, disabled=disabled)
 
 
 # =============================================================
@@ -503,7 +596,8 @@ def show():
 - **Ressorts en série** (colonne de sol) : $1/k_{serie} = \sum_i h_i/E_i$ — modèle à privilégier pour
   exporter $k$ vers un logiciel de dalle sur sol élastique (SCIA...) quand le profil est connu.
 - **Semelle sur massif semi-infini** (Boussinesq, ordre de grandeur) : $k \approx E/[B(1-\nu^2)]$.
-  Ces deux modèles répondent à des questions différentes et **ne se chaînent pas**.
+  Ces deux modèles répondent à des questions différentes et **ne se chaînent pas** : B et ν
+  n'ont aucun effet sur le modèle en série.
 - **Contrainte admissible** pour un tassement de référence $w_{adm}$ :
   $q_{adm} = k \cdot w_{adm}$ ; en kgf/cm² : $q_{adm} \approx k(\text{MN/m}^3)\cdot w_{adm}(\text{mm})/98{,}07$.
 - **Rocher (schiste, calcaire, craie saine, grès)** : le CPT est en général en **refus de pointe** —
@@ -571,62 +665,13 @@ def show():
             st.markdown("**Modélisation d'un sol (mono / multicouche / CPT interprété)**")
             st.caption("Une ligne = sol homogène. Plusieurs lignes = profil multicouche. "
                        "Calcul en ressorts en série : 1/k = Σ(hᵢ/Eᵢ).")
-            cB, cNu = st.columns(2)
-            with cB:
-                st.session_state.multi_B = st.number_input("Largeur caractéristique B [m]", min_value=0.1,
-                                                          value=float(st.session_state.get("multi_B", 2.0)), step=0.1,
-                                                          help="Pour l'approximation Boussinesq k ≈ E/[B(1−ν²)].")
-            with cNu:
-                st.session_state.multi_nu = st.number_input("ν équivalent (Poisson)", min_value=0.0, max_value=0.49,
-                                                          value=float(st.session_state.get("multi_nu", 0.30)), step=0.01)
             st.markdown(
                 "<span class='memo-chip'>Choisir un « Type de sol » préremplit qc / Rf / E avec des valeurs "
-                "typiques (modifiables). Pour le rocher, seul E est proposé — qc n'a pas de sens en refus "
-                "de pointe.</span>", unsafe_allow_html=True)
+                "typiques (modifiables) — immédiatement, dès la sélection. Pour le rocher, seul E est "
+                "proposé : qc n'a pas de sens en refus de pointe.</span>", unsafe_allow_html=True)
 
-            df = st.session_state.layers_df.copy()
-            col_cfg = {
-                "h [m]": st.column_config.NumberColumn("h [m]", step=0.1, min_value=0.0),
-                "Type de sol": st.column_config.SelectboxColumn("Type de sol", options=soil_types_list(),
-                                                                 required=False, width="medium"),
-                "qc moy [MPa]": st.column_config.NumberColumn("qc moy [MPa]", step=0.5, min_value=0.0),
-                "Rf [%]": st.column_config.NumberColumn("Rf [%]", step=0.5, min_value=0.0),
-                "E [MPa]": st.column_config.NumberColumn("E [MPa]", step=5.0, min_value=0.0),
-            }
             st.markdown("#### Couches de sol")
-            edited = st.data_editor(df, key="rs_layers_editor", num_rows="dynamic",
-                                    use_container_width=True, column_config=col_cfg)
-
-            # Préremplissage qc/Rf/E dès qu'un type de sol est choisi/modifié
-            edited = _apply_layer_prefill(edited)
-            st.session_state.layers_df = edited
-
-            # ---- Tableau informatif : E suggéré + statut par ligne ----
-            if len(edited) > 0:
-                info_rows = []
-                rock_warn = False
-                for _, r in edited.iterrows():
-                    t = r.get("Type de sol") or "—"
-                    h = r.get("h [m]")
-                    qc = r.get("qc moy [MPa]")
-                    E = r.get("E [MPa]")
-                    h_ok = pd.notna(h) and float(h) > 0
-                    E_ok = pd.notna(E) and float(E) > 0
-                    statut = "✅ pris en compte" if (h_ok and E_ok) else "⚠️ ignorée (h ou E manquant)"
-                    e_sugg = suggest_E_from_qc(qc, t)
-                    if is_rock(t) and pd.notna(qc):
-                        rock_warn = True
-                    info_rows.append({
-                        "Type de sol": t,
-                        "qc moy [MPa]": qc,
-                        "E [MPa]": E,
-                        "E suggéré (qc→E) [MPa]": e_sugg if e_sugg is not None else "—",
-                        "Statut": statut,
-                    })
-                st.dataframe(pd.DataFrame(info_rows), use_container_width=True, hide_index=True)
-                if rock_warn:
-                    st.info("ℹ️ qc renseigné sur une ligne de type rocheux : la corrélation qc→E n'est "
-                             "pas appliquée (refus de pointe probable) — seul le E saisi/préempli est utilisé.")
+            _render_layers_table(disabled=False)
 
         elif cas.startswith("3."):
             st.markdown("**Raideur d'un sol – formule empirique (CPT)**")
@@ -771,30 +816,28 @@ def show():
         # ---------- CAS 2 ----------
         elif cas.startswith("2."):
             with st.container(border=True):
-                df = st.session_state.layers_df
+                ids = _layer_ids()
 
-                # Épaisseur totale SAISIE (toutes lignes avec h > 0, valides ou non)
-                h_series = pd.to_numeric(df["h [m]"], errors="coerce").fillna(0.0)
-                H_saisi = float(h_series[h_series > 0].sum())
-
+                H_saisi = 0.0
                 layers = []
                 lignes_ignorees = []
-                for num, (_, r) in enumerate(df.iterrows(), start=1):
-                    h = r.get("h [m]")
-                    E = r.get("E [MPa]")
-                    h_ok = pd.notna(h) and float(h) > 0
-                    E_ok = pd.notna(E) and float(E) > 0
-                    if h_ok and E_ok:
-                        layers.append((float(h), E_to_kPa(float(E), "MPa")))
-                    elif h_ok and not E_ok:
-                        lignes_ignorees.append(num)
+                for num, lid in enumerate(ids, start=1):
+                    lv = _get_layer_values(lid)
+                    h, E = lv["h"], lv["E"]
+                    if h > 0:
+                        H_saisi += h
+                        if E > 0:
+                            layers.append((h, E_to_kPa(E, "MPa")))
+                        else:
+                            lignes_ignorees.append(num)
 
                 k_kN, k_MN, H, E_moy_kPa = k_series(layers)
 
                 _bloc("Ressorts en série (colonne 1D)",
                       f"k = {k_MN:,.2f} MN/m³  ·  → à utiliser pour SCIA".replace(",", " "),
                       "ok" if k_MN > 0 else "nok")
-                st.caption("Tassement d'une colonne de sol d'épaisseur H sous charge répartie.")
+                st.caption("Tassement d'une colonne de sol d'épaisseur H sous charge répartie. "
+                           "Seul le tableau des couches (h, E) influence ce résultat.")
 
                 if abs(H - H_saisi) > 1e-6:
                     lignes_txt = ", ".join(str(n) for n in lignes_ignorees) if lignes_ignorees else "?"
@@ -814,6 +857,19 @@ def show():
                     ])
 
                 st.divider()
+                # B / ν déplacés ICI : ils ne servent QU'AU modèle Boussinesq
+                # ci-dessous, jamais au résultat "à utiliser pour SCIA" ci-dessus.
+                st.caption("Paramètres du modèle de comparaison ci-dessous uniquement "
+                           "(sans effet sur le résultat SCIA ci-dessus) :")
+                cB, cNu = st.columns(2)
+                with cB:
+                    st.session_state.multi_B = st.number_input("Largeur caractéristique B [m]", min_value=0.1,
+                                                              value=float(st.session_state.get("multi_B", 2.0)), step=0.1,
+                                                              key="multi_B_input")
+                with cNu:
+                    st.session_state.multi_nu = st.number_input("ν équivalent (Poisson)", min_value=0.0, max_value=0.49,
+                                                              value=float(st.session_state.get("multi_nu", 0.30)), step=0.01,
+                                                              key="multi_nu_input")
                 B = st.session_state.get("multi_B", 2.0)
                 nu = st.session_state.get("multi_nu", 0.30)
                 kB_kN, kB_MN = k_boussinesq(E_moy_kPa, B, nu)
