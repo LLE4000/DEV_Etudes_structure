@@ -1,41 +1,53 @@
+# -*- coding: utf-8 -*-
 # =============================================================
-#  raideur_sol.py — Raideur élastique des sols (modèle de Winkler)
-#  VERSION 4.0
+#  rigidite_sol.py — Raideur élastique des sols (Winkler)
+#  VERSION 5.0
 #
-#  Évolutions vs 3.3 :
-#   1. MULTI-SONDAGES : le Cas 2 gère plusieurs sondages par projet
-#      (même principe que les poutres multiples de poutre.py : clés
-#      d'état préfixées snd{id}_, ajout/copie/suppression par
-#      identifiant unique). Chaque sondage a son nom (CPT01, CPT02...),
-#      son niveau d'assise et son propre tableau de couches.
-#   2. IMPORT PDF PAR IA : un rapport d'essais (CPT/forage) peut être
-#      téléversé ; il est envoyé à l'API Anthropic (Claude) qui renvoie
-#      les couches en JSON strict (nom du sondage, épaisseurs, types,
-#      qc, E, nappe). Les types sont mappés vers SOIL_DB par mots-clés
-#      et les valeurs manquantes préremplies par la corrélation α·qc ou
-#      les valeurs typiques. TOUT est ensuite éditable : l'IA propose,
-#      l'ingénieur dispose (bandeau d'avertissement systématique).
-#      Clé API : st.secrets["ANTHROPIC_API_KEY"] ou saisie manuelle.
-#   3. PROFONDEUR D'INFLUENCE : option "Limiter à 2·B" qui tronque
-#      automatiquement le profil à la profondeur d'influence sous
-#      l'assise (garde-fou contre le k artificiellement faible obtenu
-#      en sommant tout le sondage). Avertissement si H saisi >> 2·B
-#      quand l'option est désactivée.
-#   4. PANNEAU "RAIDEURS À ENCODER DANS SCIA" : tableau récapitulatif
-#      par sondage (k en MN/m³ ET kN/m³), enveloppe min/max entre
-#      sondages, rappel de faire tourner la dalle dans les deux bornes.
-#   5. RAPPORT PDF (reportlab, style sobre) : hypothèses et méthode,
-#      tableau des couches par sondage, application numérique de
-#      1/k = Σ hi/Ei, récapitulatif SCIA, références normatives
-#      (EN 1997-1, ISO 22476-1, Winkler). Bouton dans le panneau SCIA.
+#  RÉÉCRITURE COMPLÈTE. Trois changements de fond vs la v4.0 :
 #
-#  Winkler : q = k · w  ->  k = q / w
-#    q [kPa = kN/m²], w [m], k [kN/m³]  (1 MN/m³ = 1000 kN/m³)
+#  1. LE CALCUL. La v4.0 posait 1/k = Σ hᵢ/Eᵢ, ce qui suppose la
+#     contrainte UNIFORME sur toute la hauteur retenue et sous-estimait k
+#     d'un facteur 2 à 2,5 (le résultat était en fait piloté par la règle
+#     des 2·B, pas par le sol : pour un sol homogène la formule se réduit
+#     exactement à k = E/2B). On calcule désormais le tassement comme il
+#     se calcule :  w = Σ Δσᵢ·hᵢ/Mᵢ  avec Δσ issu de Boussinesq/Newmark,
+#     puis k = q/w. La profondeur d'influence n'est plus décrétée à 2·B :
+#     elle SORT du calcul (critère Δσ ≤ 0,20·σ'v0).
+#
+#  2. L'IMPORT. Plus d'intelligence artificielle, donc plus de clé API à
+#     saisir dans l'application. Les données sont lues directement dans le
+#     fichier : GEF, CSV, ou courbes vectorielles du PDF recalées sur les
+#     traits de grille. Précision mesurée sur un rapport de contrôle :
+#     écart médian 0,0005 % (contre 6,5 % en recalant sur les étiquettes
+#     de texte, et sans commune mesure avec une lecture à l'œil).
+#     Tout est exportable en CSV.
+#
+#  3. LE RÉSULTAT. k n'est pas une propriété du sol : il dépend de la
+#     fondation. On rend donc un k ENCADRÉ (les corrélations CPT
+#     divergent d'un facteur 2 à 4) et ZONÉ — centre, bord, angle — ce
+#     qui reproduit à la main ce que fait un calcul itératif type Soilin
+#     et permet d'encoder plusieurs zones de sol sous une dalle SCIA.
+#
+#  Corrections de défauts de la v4.0 :
+#    F1  « craie altérée » était classée « Craie saine » (accents absents
+#        des mots-clés) : module ×23 en silence.        -> sol_base.py
+#    F2  le champ « Niveau d'assise » n'entrait dans aucun calcul.
+#    F3  « Réinitialiser » vidait tout st.session_state, donc aussi les
+#        poutres et les dalles des autres modules.
+#    F4  un libellé de roche générique basculait sur la variante SAINE.
+#    F7  les k de l'abaque sont des valeurs de PLAQUE 0,30 m : la
+#        correction de taille de Terzaghi est désormais appliquée.
+#
+#  Validation externe (tests/test_sol_theorie.py) :
+#    · facteur d'influence de Newmark : 7 valeurs des tables publiées,
+#      écart < 5·10⁻⁴ ; ∫I dz = 1,1206·B contre Is = 1,12 publié.
+#    · Robertson Ic et module oedométrique : concordance avec groundhog
+#      (bibliothèque open source, Université de Gand) à 0,005 sur Ic et
+#      au dixième de MPa sur M.
 # =============================================================
 
-import base64
 import io
-import json as _json
+import json
 import math
 import re
 from datetime import date
@@ -43,388 +55,112 @@ from datetime import date
 import pandas as pd
 import streamlit as st
 
-try:
-    import matplotlib.pyplot as plt
-    _HAS_MPL = True
-except ImportError:
-    _HAS_MPL = False
+from modules import sol_base as SB
+from modules import sol_import as SI
+from modules import sol_theorie as ST
 
 try:
-    import requests as _requests
-    _HAS_REQUESTS = True
-except ImportError:
-    _HAS_REQUESTS = False
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Polygon as MplPolygon
+    _HAS_MPL = True
+except ImportError:                                   # pragma: no cover
+    _HAS_MPL = False
 
 try:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
-    from reportlab.lib import colors as _rl_colors
+    from reportlab.lib import colors as _rl
     from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
-                                    Table, TableStyle)
+                                    Table, TableStyle, Image as RLImage)
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     _HAS_REPORTLAB = True
-except ImportError:
+except ImportError:                                   # pragma: no cover
     _HAS_REPORTLAB = False
 
 
-# =============================================================
-#  CONSTANTES
-# =============================================================
-KGF_PER_CM2_TO_KPA = 98.0665          # 1 kgf/cm² = 98.0665 kPa
-VERSION = "v4.0"
-AI_MODEL = "claude-sonnet-4-6"        # modèle utilisé pour l'import PDF
+VERSION = "v5.0"
+KGF_PER_CM2_TO_KPA = 98.0665
 
 C_COULEURS = {"ok": "#e6ffe6", "warn": "#fffbe6", "nok": "#ffe6e6", "info": "#eef2ff"}
 C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌", "info": "ℹ️"}
 
-# Largeurs de colonnes du tableau des couches (h | Type | qc | Rf | E | Action)
-LAYER_COLS = [0.8, 2.2, 1.0, 0.8, 1.0, 0.5]
+LAYER_FIELDS = ("h", "type", "type_prev", "qc", "rf", "M", "gamma")
+LAYER_COLS = [0.7, 2.0, 0.9, 0.8, 0.9, 0.9, 0.5]
 
-LAYER_FIELDS = ("h", "type", "type_prev", "qc", "rf", "E")
-
-
-# =============================================================
-#  BASE DE DONNÉES SOLS (contexte belge) — SOURCE UNIQUE
-#  cpt_ok=False : qc sans sens physique (refus de pointe probable).
-# =============================================================
-SOIL_DB = {
-    "Remblais / terre végétale": dict(
-        category="Remblai", gamma=17.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=2.0, E_max=10.0, k_min=1, k_max=8, cpt_ok=False,
-        desc="Matériau rapporté, hétérogène, non contrôlé. Ne jamais retenir "
-             "comme assise de fondation sans reconnaissance spécifique (souvent à purger)."),
-    "Tourbe": dict(
-        category="Sol organique", gamma=10.0,
-        qc_min=0.1, qc_max=0.5, alpha_qc=4.0, rf_typ=4.0,
-        E_min=0.5, E_max=2.5, k_min=1, k_max=5, cpt_ok=True,
-        desc="Sol très organique, très compressible, souvent saturé. Portance très "
-             "faible : à éviter comme assise (substitution, pieux, colonnes)."),
-    "Argile très molle": dict(
-        category="Argile", gamma=16.0,
-        qc_min=0.3, qc_max=1.0, alpha_qc=4.0, rf_typ=3.5,
-        E_min=1.0, E_max=5.0, k_min=2, k_max=10, cpt_ok=True,
-        desc="Argile plastique peu consolidée, forte compressibilité, faibles résistances."),
-    "Argile molle à moyenne": dict(
-        category="Argile", gamma=18.0,
-        qc_min=1.0, qc_max=2.5, alpha_qc=5.0, rf_typ=3.0,
-        E_min=5.0, E_max=15.0, k_min=10, k_max=40, cpt_ok=True,
-        desc="Normalement à légèrement surconsolidée, tassements notables sous charge."),
-    "Argile ferme / raide": dict(
-        category="Argile", gamma=19.0,
-        qc_min=2.5, qc_max=5.0, alpha_qc=6.0, rf_typ=2.5,
-        E_min=15.0, E_max=40.0, k_min=20, k_max=80, cpt_ok=True,
-        desc="Argile raide bien consolidée, tassements plus limités."),
-    "Argile surconsolidée (Boom/Ypresienne)": dict(
-        category="Argile", gamma=20.0,
-        qc_min=3.0, qc_max=8.0, alpha_qc=7.0, rf_typ=2.5,
-        E_min=25.0, E_max=80.0, k_min=40, k_max=150, cpt_ok=True,
-        desc="Argiles profondes surconsolidées (bassin belge), raides, faible "
-             "compressibilité résiduelle mais sensibles au gonflement/retrait si décomprimées."),
-    "Limon (loess)": dict(
-        category="Limon", gamma=18.0,
-        qc_min=1.0, qc_max=3.0, alpha_qc=4.0, rf_typ=2.0,
-        E_min=8.0, E_max=25.0, k_min=15, k_max=60, cpt_ok=True,
-        desc="Très répandu en Hesbaye/Brabant. Comportement intermédiaire argile/sable, "
-             "sensible à l'eau (collapsibilité possible à l'état non saturé)."),
-    "Sable lâche": dict(
-        category="Sable", gamma=18.0,
-        qc_min=1.0, qc_max=5.0, alpha_qc=3.5, rf_typ=0.6,
-        E_min=5.0, E_max=15.0, k_min=10, k_max=30, cpt_ok=True,
-        desc="Peu compacté, tassements importants, risque de liquéfaction si saturé et sismique."),
-    "Sable moyennement compact": dict(
-        category="Sable", gamma=19.0,
-        qc_min=5.0, qc_max=12.0, alpha_qc=5.0, rf_typ=0.5,
-        E_min=15.0, E_max=40.0, k_min=30, k_max=80, cpt_ok=True,
-        desc="Sable courant sous bâtiments, portance correcte, tassements modérés."),
-    "Sable dense": dict(
-        category="Sable", gamma=20.0,
-        qc_min=12.0, qc_max=25.0, alpha_qc=6.0, rf_typ=0.4,
-        E_min=40.0, E_max=80.0, k_min=80, k_max=150, cpt_ok=True,
-        desc="Très compact, bonne portance, tassements faibles."),
-    "Sable graveleux / grave compacte": dict(
-        category="Sable/grave", gamma=21.0,
-        qc_min=15.0, qc_max=30.0, alpha_qc=4.0, rf_typ=0.4,
-        E_min=50.0, E_max=120.0, k_min=100, k_max=200, cpt_ok=True,
-        desc="Granulométrie étalée bien compactée, très bonne portance."),
-    "Sable argileux / argile sableuse": dict(
-        category="Sable", gamma=19.0,
-        qc_min=3.0, qc_max=8.0, alpha_qc=4.5, rf_typ=1.5,
-        E_min=12.0, E_max=35.0, k_min=20, k_max=60, cpt_ok=True,
-        desc="Mélange intermédiaire (fréquent dans les formations bruxelliennes/yprésiennes) : "
-             "comportement plastique, drainage lent."),
-    "Craie altérée": dict(
-        category="Craie", gamma=18.0,
-        qc_min=1.5, qc_max=5.0, alpha_qc=3.0, rf_typ=1.5,
-        E_min=15.0, E_max=60.0, k_min=30, k_max=100, cpt_ok=True,
-        desc="Craie remaniée/fissurée (Hesbaye, Tournaisis) — comportement dispersé, "
-             "attention aux dissolutions/cavités (karst crayeux)."),
-    "Craie saine": dict(
-        category="Craie", gamma=20.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=200.0, E_max=1500.0, k_min=150, k_max=500, cpt_ok=False,
-        desc="Craie compacte non remaniée. Souvent refus au pénétromètre : caractériser "
-             "par carottage/RQD ou essai de plaque plutôt que par CPT."),
-    "Calcaire fracturé / altéré": dict(
-        category="Calcaire", gamma=21.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=100.0, E_max=800.0, k_min=100, k_max=400, cpt_ok=False,
-        desc="Massif calcaire fissuré ou altéré en surface. Grande dispersion : "
-             "attention aux karst/cavités, RQD indispensable."),
-    "Calcaire sain": dict(
-        category="Calcaire", gamma=23.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=2000.0, E_max=15000.0, k_min=1000, k_max=3000, cpt_ok=False,
-        desc="Massif rocheux sain, peu fracturé. Refus au pénétromètre — "
-             "caractérisation par RQD/GSI/essai en place."),
-    "Schiste houiller décomposé (W4-W5)": dict(
-        category="Schiste houiller", gamma=18.0,
-        qc_min=0.5, qc_max=3.0, alpha_qc=2.5, rf_typ=2.0,
-        E_min=5.0, E_max=30.0, k_min=10, k_max=50, cpt_ok=True,
-        desc="Roche entièrement à fortement décomposée (aspect de sol résiduel), "
-             "classification ISO 14689 W4-W5. Comportement proche d'un sol fin ferme : "
-             "un CPT reste indicatif, à recouper avec le log de sondage."),
-    "Schiste houiller altéré (W3)": dict(
-        category="Schiste houiller", gamma=20.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=100.0, E_max=800.0, k_min=100, k_max=400, cpt_ok=False,
-        desc="Roche modérément altérée (W3), matrice affaiblie mais structure "
-             "rocheuse conservée. Refus probable au CPT : caractériser par RQD/"
-             "pressiomètre. Grande dispersion selon le degré de fracturation."),
-    "Schiste houiller sain (W1-W2)": dict(
-        category="Schiste houiller", gamma=25.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=1000.0, E_max=8000.0, k_min=800, k_max=3000, cpt_ok=False,
-        desc="Roche saine à faiblement altérée (W1-W2), massif carbonifère typique "
-             "des bassins wallons. Refus au pénétromètre — caractériser par RQD/GSI "
-             "ou essai de plaque ; anisotropie de feuilletage à prendre en compte."),
-    "Grès altéré": dict(
-        category="Grès", gamma=20.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=150.0, E_max=1000.0, k_min=150, k_max=500, cpt_ok=False,
-        desc="Grès fracturé/altéré en surface. RQD recommandé."),
-    "Grès sain": dict(
-        category="Grès", gamma=24.0,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=3000.0, E_max=20000.0, k_min=1500, k_max=4000, cpt_ok=False,
-        desc="Massif rocheux sain. Refus au pénétromètre — RQD/GSI ou essai en place."),
-    "Personnalisé": dict(
-        category="—", gamma=None,
-        qc_min=None, qc_max=None, alpha_qc=None, rf_typ=None,
-        E_min=None, E_max=None, k_min=None, k_max=None, cpt_ok=True,
-        desc="Valeurs saisies manuellement — aucune valeur suggérée."),
-}
-
-ROCK_CATEGORIES = {"Craie", "Calcaire", "Schiste houiller", "Grès"}
-
-# Mots-clés (minuscules, sans accents traités simplement) -> type SOIL_DB,
-# utilisés pour mapper les libellés libres renvoyés par l'IA d'import PDF.
-_SOIL_KEYWORDS = [
-    (("remblai", "debris", "débris", "bricaillon", "revetement", "revêtement",
-      "terre vegetale", "terre végétale", "asphalte"), "Remblais / terre végétale"),
-    (("tourbe", "organique"), "Tourbe"),
-    (("argile sableuse", "sable argileux", "argilo-sableux", "sablo-argileux"),
-     "Sable argileux / argile sableuse"),
-    (("boom", "ypres", "yprési", "surconsolid"), "Argile surconsolidée (Boom/Ypresienne)"),
-    (("argile tres molle", "argile très molle"), "Argile très molle"),
-    (("argile molle", "argile moyenne"), "Argile molle à moyenne"),
-    (("argile ferme", "argile raide", "argile"), "Argile ferme / raide"),
-    (("limon", "loess", "silt"), "Limon (loess)"),
-    (("gravier", "grave", "graveleux"), "Sable graveleux / grave compacte"),
-    (("sable lache", "sable lâche", "sable peu compact"), "Sable lâche"),
-    (("sable dense", "sable tres compact", "sable très compact"), "Sable dense"),
-    (("sable",), "Sable moyennement compact"),
-    (("craie alter",), "Craie altérée"),
-    (("craie",), "Craie saine"),
-    (("calcaire alter", "calcaire fractur", "calcaire karst"), "Calcaire fracturé / altéré"),
-    (("calcaire",), "Calcaire sain"),
-    (("schiste decompos", "schiste décompos", "w4", "w5"), "Schiste houiller décomposé (W4-W5)"),
-    (("schiste alter", "schiste altér", "w3"), "Schiste houiller altéré (W3)"),
-    (("schiste",), "Schiste houiller sain (W1-W2)"),
-    (("gres alter", "grès altér"), "Grès altéré"),
-    (("gres", "grès"), "Grès sain"),
-]
+# Clés de session propres à ce module : tout ce qui commence par ces
+# préfixes appartient au module sol et à personne d'autre. C'est ce qui
+# permet un « Réinitialiser » qui ne détruit pas le travail des modules
+# Poutre et Dalle (défaut F3 de la v4.0).
+_PREFIXES = ("snd", "rs_", "sol_")
 
 
-def soil_types_list():
-    return ["—"] + list(SOIL_DB.keys())
-
-
-def match_soil_type(label: str) -> str:
-    """Mappe un libellé libre (log de forage, sortie IA) vers le type
-    SOIL_DB le plus proche par mots-clés. '—' si aucun match."""
-    low = (label or "").strip().lower()
-    if not low:
-        return "—"
-    if label in SOIL_DB:
-        return label
-    for keys, target in _SOIL_KEYWORDS:
-        if any(k in low for k in keys):
-            return target
-    return "Personnalisé"
-
-
-def _mid(lo, hi):
-    if lo is None or hi is None:
-        return None
-    return round((lo + hi) / 2.0, 1)
-
-
-def soil_default_qc(soil_type: str):
-    d = SOIL_DB.get(soil_type)
-    if not d or not d.get("cpt_ok", False):
-        return None
-    return _mid(d.get("qc_min"), d.get("qc_max"))
-
-
-def soil_default_Rf(soil_type: str):
-    d = SOIL_DB.get(soil_type)
-    return d.get("rf_typ") if d else None
-
-
-def soil_default_E(soil_type: str):
-    d = SOIL_DB.get(soil_type)
-    if not d:
-        return None
-    return _mid(d.get("E_min"), d.get("E_max"))
-
-
-def is_rock(soil_type: str) -> bool:
-    d = SOIL_DB.get(soil_type)
-    return bool(d and d.get("category") in ROCK_CATEGORIES)
+def _est_cle_module(k: str) -> bool:
+    return (any(k.startswith(p) for p in _PREFIXES)
+            or k in ("soundings", "rs_projet"))
 
 
 # =============================================================
-#  CONVERSIONS D'UNITÉS (fonctions pures)
+#  HELPERS D'AFFICHAGE
 # =============================================================
-def to_kPa(value: float, unit: str) -> float:
-    return {"kPa": value, "MPa": value * 1000.0, "kg/cm²": value * KGF_PER_CM2_TO_KPA}.get(unit, value)
+def _bloc(left, right="", etat="ok"):
+    r = (f"<div style='font-weight:600;opacity:.9;white-space:nowrap;'>{right}</div>"
+         if right else "")
+    st.markdown(
+        f'<div style="background:{C_COULEURS.get(etat, "#f6f6f6")};padding:12px 14px;'
+        f'border-radius:10px;border:1px solid #d9d9d9;margin:8px 0 4px 0;display:flex;'
+        f'justify-content:space-between;align-items:center;gap:10px;">'
+        f'<div style="font-weight:700;">{left}</div>'
+        f'<div style="display:flex;align-items:center;gap:10px;">{r}'
+        f'<div style="font-size:20px;line-height:1;">{C_ICONES.get(etat, "")}</div></div></div>',
+        unsafe_allow_html=True)
 
 
-def from_kPa(value_kPa: float, unit: str) -> float:
-    return {"kPa": value_kPa, "MPa": value_kPa / 1000.0, "kg/cm²": value_kPa / KGF_PER_CM2_TO_KPA}.get(unit, value_kPa)
-
-
-def E_to_kPa(E: float, unit: str) -> float:
-    return {"MPa": E * 1000.0, "GPa": E * 1_000_000.0}.get(unit, E)
-
-
-def kNpm3_to_MNpm3(v: float) -> float:
-    return v / 1000.0
-
-
-def suggest_E_from_qc(qc_MPa, soil_type: str):
-    """E ≈ α·qc (MPa) selon SOIL_DB. None si non pertinent/invalide."""
-    d = SOIL_DB.get(soil_type, {})
-    alpha = d.get("alpha_qc")
-    if alpha is None or qc_MPa is None or (isinstance(qc_MPa, float) and math.isnan(qc_MPa)) or qc_MPa <= 0:
-        return None
-    return round(alpha * qc_MPa, 1)
+def _fr(x, nd=2):
+    try:
+        return f"{float(x):,.{nd}f}".replace(",", " ").replace(".", ",")
+    except Exception:
+        return str(x)
 
 
 # =============================================================
-#  CALCULS (fonctions pures — aucun Streamlit)
+#  ÉTAT
 # =============================================================
-def k_from_qw(q_kPa: float, w_mm: float):
-    w_m = w_mm / 1000.0
-    if w_m <= 0:
-        return 0.0, 0.0, w_m
-    k = q_kPa / w_m
-    return k, kNpm3_to_MNpm3(k), w_m
+def _layer_key(sid, lid, champ):
+    return f"snd{sid}_layer_{lid}_{champ}"
 
 
-def k_series(layers):
-    """1/k_serie = Σ h_i/E_i. layers = [(h_m, E_kPa)].
-    Retourne (k_kNpm3, k_MNpm3, H_m, E_moy_kPa)."""
-    denom = 0.0
-    H = 0.0
-    for h, E in layers:
-        if h > 0 and E > 0:
-            denom += h / E
-            H += h
-    if denom <= 0:
-        return 0.0, 0.0, H, 0.0
-    k = 1.0 / denom
-    return k, kNpm3_to_MNpm3(k), H, k * H
-
-
-def k_boussinesq(E_kPa: float, B_m: float, nu: float):
-    if E_kPa <= 0 or B_m <= 0 or nu >= 1.0:
-        return 0.0, 0.0
-    k = E_kPa / (B_m * (1.0 - nu ** 2))
-    return k, kNpm3_to_MNpm3(k)
-
-
-def E_from_cpt(qt_MPa: float, sv0_kPa: float, alpha_E: float):
-    delta = max(qt_MPa * 1000.0 - sv0_kPa, 0.0)
-    E_kPa = alpha_E * delta
-    return E_kPa, E_kPa / 1000.0, delta
-
-
-def k_plate(B_mm, L_mm, alpha, Ec_GPa, use_nu, nu_c,
-            has_grout=False, tg_mm=0.0, Eg_GPa=20.0):
-    B = B_mm / 1000.0
-    L = L_mm / 1000.0
-    hc = alpha * min(B, L)
-    Ec_kPa = E_to_kPa(Ec_GPa, "GPa")
-    if hc <= 0:
-        return {"hc": 0.0, "kc": 0.0, "kg": 0.0, "keq_kNpm3": 0.0, "keq_MNpm3": 0.0}
-    fac = (1.0 - nu_c ** 2) if use_nu else 1.0
-    kc = Ec_kPa / (hc * fac)
-    keq = kc
-    kg = 0.0
-    if has_grout and tg_mm > 0:
-        tg = tg_mm / 1000.0
-        Eg_kPa = E_to_kPa(Eg_GPa, "GPa")
-        kg = Eg_kPa / tg if tg > 0 else 0.0
-        if kc > 0 and kg > 0:
-            keq = 1.0 / (1.0 / kc + 1.0 / kg)
-    return {"hc": hc, "kc": kc, "kg": kg,
-            "keq_kNpm3": keq, "keq_MNpm3": kNpm3_to_MNpm3(keq)}
-
-
-# =============================================================
-#  ÉTAT MULTI-SONDAGES
-#  soundings = [{"id": 1, "nom": "CPT01"}, ...]
-#  Clés par couche : snd{sid}_layer_{lid}_{champ}
-#  Ordre des couches : snd{sid}_layer_order = [lid, ...]
-# =============================================================
-def _layer_key(sid: int, lid: int, field: str) -> str:
-    return f"snd{sid}_layer_{lid}_{field}"
-
-
-def _order_key(sid: int) -> str:
+def _order_key(sid):
     return f"snd{sid}_layer_order"
 
 
-def _layer_ids(sid: int):
+def _layer_ids(sid):
     return list(st.session_state.get(_order_key(sid), []))
 
 
-def _new_layer_id(sid: int) -> int:
+def _new_layer_id(sid):
     ids = _layer_ids(sid)
     return (max(ids) + 1) if ids else 1
 
 
-def _init_layer(sid: int, lid: int, h=1.0, soil_type="—", qc=0.0, rf=0.0, E=0.0):
+def _init_layer(sid, lid, h=1.0, type_sol="—", qc=0.0, rf=0.0, M=0.0, gamma=19.0):
     st.session_state[_layer_key(sid, lid, "h")] = float(h)
-    st.session_state[_layer_key(sid, lid, "type")] = soil_type
-    # type_prev = type au moment de la création : le préremplissage ne se
-    # déclenche que sur un changement ULTÉRIEUR, jamais sur des valeurs
-    # importées (l'import IA fixe déjà qc/E — il ne faut pas les écraser).
-    st.session_state[_layer_key(sid, lid, "type_prev")] = soil_type
+    st.session_state[_layer_key(sid, lid, "type")] = type_sol
+    st.session_state[_layer_key(sid, lid, "type_prev")] = type_sol
     st.session_state[_layer_key(sid, lid, "qc")] = float(qc)
     st.session_state[_layer_key(sid, lid, "rf")] = float(rf)
-    st.session_state[_layer_key(sid, lid, "E")] = float(E)
+    st.session_state[_layer_key(sid, lid, "M")] = float(M)
+    st.session_state[_layer_key(sid, lid, "gamma")] = float(gamma)
 
 
-def _add_layer(sid: int):
+def _add_layer(sid):
     lid = _new_layer_id(sid)
     st.session_state[_order_key(sid)].append(lid)
     _init_layer(sid, lid)
 
 
-def _delete_layer(sid: int, lid: int):
+def _delete_layer(sid, lid):
     ids = _layer_ids(sid)
     if len(ids) <= 1 or lid not in ids:
         return
@@ -433,13 +169,15 @@ def _delete_layer(sid: int, lid: int):
         st.session_state.pop(_layer_key(sid, lid, f), None)
 
 
-def _get_layer_values(sid: int, lid: int):
+def _get_layer(sid, lid):
+    g = st.session_state.get(_layer_key(sid, lid, "gamma"), 19.0)
     return {
         "h": float(st.session_state.get(_layer_key(sid, lid, "h"), 0.0) or 0.0),
         "type": st.session_state.get(_layer_key(sid, lid, "type"), "—"),
         "qc": float(st.session_state.get(_layer_key(sid, lid, "qc"), 0.0) or 0.0),
         "rf": float(st.session_state.get(_layer_key(sid, lid, "rf"), 0.0) or 0.0),
-        "E": float(st.session_state.get(_layer_key(sid, lid, "E"), 0.0) or 0.0),
+        "M": float(st.session_state.get(_layer_key(sid, lid, "M"), 0.0) or 0.0),
+        "gamma": float(g or 19.0),
     }
 
 
@@ -447,731 +185,752 @@ def _sounding_ids():
     return [int(s["id"]) for s in st.session_state.get("soundings", [])]
 
 
-def _sounding_name(sid: int) -> str:
+def _sounding_name(sid):
     return str(st.session_state.get(f"snd{sid}_nom", f"Sondage {sid}"))
 
 
-def _new_sounding_id() -> int:
+def _new_sounding_id():
     ids = _sounding_ids()
     return (max(ids) + 1) if ids else 1
 
 
-def _add_sounding(nom: str = None, first_layer=True):
+def _add_sounding(nom=None, first_layer=True):
     sid = _new_sounding_id()
     nom = nom or f"CPT{sid:02d}"
     st.session_state.soundings.append({"id": sid, "nom": nom})
     st.session_state[f"snd{sid}_nom"] = nom
-    st.session_state[f"snd{sid}_assise"] = 0.0
     st.session_state[_order_key(sid)] = []
     if first_layer:
-        st.session_state[_order_key(sid)].append(1)
-        _init_layer(sid, 1)
+        # Profil de départ volontairement PROFOND : un profil court
+        # tronquerait le tassement et donnerait un k trop élevé dès la
+        # première ouverture, sans que l'utilisateur en soit averti.
+        for i, (h, t, qc, rf, M, g) in enumerate((
+                (2.0, "Limon (loess)", 2.0, 2.0, 22.0, 18.0),
+                (4.0, "Sable moyennement compact", 8.5, 0.5, 37.0, 19.0),
+                (14.0, "Argile ferme / raide", 3.5, 2.5, 37.0, 19.0)), start=1):
+            st.session_state[_order_key(sid)].append(i)
+            _init_layer(sid, i, h=h, type_sol=t, qc=qc, rf=rf, M=M, gamma=g)
     return sid
 
 
-def _delete_sounding(sid: int):
+def _delete_sounding(sid):
     if len(st.session_state.soundings) <= 1:
         return
-    st.session_state.soundings = [s for s in st.session_state.soundings if int(s["id"]) != sid]
-    prefix = f"snd{sid}_"
-    for k in [k for k in list(st.session_state.keys()) if k.startswith(prefix)]:
+    st.session_state.soundings = [s for s in st.session_state.soundings
+                                  if int(s["id"]) != sid]
+    for k in [k for k in list(st.session_state.keys()) if k.startswith(f"snd{sid}_")]:
         st.session_state.pop(k, None)
 
 
-def _copy_sounding(src_sid: int):
-    """Copie intégrale d'un sondage (nom + ' (copie)', couches, assise)."""
+def _copy_sounding(src):
     sid = _new_sounding_id()
-    nom = f"{_sounding_name(src_sid)} (copie)"
-    st.session_state.soundings.append({"id": sid, "nom": nom})
-    st.session_state[f"snd{sid}_nom"] = nom
-    st.session_state[f"snd{sid}_assise"] = float(st.session_state.get(f"snd{src_sid}_assise", 0.0) or 0.0)
-    st.session_state[_order_key(sid)] = list(_layer_ids(src_sid))
-    for lid in _layer_ids(src_sid):
+    st.session_state.soundings.append({"id": sid, "nom": f"{_sounding_name(src)} (copie)"})
+    st.session_state[f"snd{sid}_nom"] = f"{_sounding_name(src)} (copie)"
+    st.session_state[_order_key(sid)] = list(_layer_ids(src))
+    for lid in _layer_ids(src):
         for f in LAYER_FIELDS:
-            st.session_state[_layer_key(sid, lid, f)] = st.session_state.get(_layer_key(src_sid, lid, f))
+            st.session_state[_layer_key(sid, lid, f)] = \
+                st.session_state.get(_layer_key(src, lid, f))
+    for suf in ("nappe", "points", "source"):
+        if f"snd{src}_{suf}" in st.session_state:
+            st.session_state[f"snd{sid}_{suf}"] = st.session_state[f"snd{src}_{suf}"]
 
 
-def _compute_sounding_k(sid: int, H_lim=None):
-    """
-    k_serie d'un sondage. Si H_lim (m) est fourni, le profil est tronqué
-    à cette profondeur sous l'assise (la dernière couche est écrêtée) :
-    garde-fou "profondeur d'influence" — sommer tout un sondage de 30 m
-    donne un k artificiellement faible et faux pour une fondation.
-    Retourne un dict complet pour l'affichage et le rapport PDF.
-    """
-    rows = []           # (num, h_utilisée, h_saisie, type, qc, E, statut)
-    layers = []         # [(h, E_kPa)] pour k_series
-    ignored = []
-    H_saisi = 0.0
-    cum = 0.0
-    for num, lid in enumerate(_layer_ids(sid), start=1):
-        lv = _get_layer_values(sid, lid)
-        h, E = lv["h"], lv["E"]
-        if h <= 0:
-            continue
-        H_saisi += h
-        h_use = h
-        clipped = False
-        if H_lim is not None:
-            if cum >= H_lim:
-                h_use = 0.0
-            elif cum + h > H_lim:
-                h_use = H_lim - cum
-                clipped = True
-        cum += h
-        if E > 0 and h_use > 0:
-            layers.append((h_use, E_to_kPa(E, "MPa")))
-            statut = "écrêtée à la prof. d'influence" if clipped else "prise en compte"
-        elif E > 0:
-            statut = "hors profondeur d'influence"
-        else:
-            statut = "ignorée (E manquant)"
-            ignored.append(num)
-        rows.append((num, h_use if E > 0 else 0.0, h, lv["type"], lv["qc"], E, statut))
-    k_kN, k_MN, H, E_moy_kPa = k_series(layers)
-    return {"k_kN": k_kN, "k_MN": k_MN, "H": H, "H_saisi": H_saisi,
-            "E_moy_kPa": E_moy_kPa, "ignored": ignored, "rows": rows}
-
-
-# =============================================================
-#  IMPORT PDF PAR IA (API Anthropic)
-# =============================================================
-_AI_PROMPT = """Tu es un assistant géotechnique. Le PDF joint est un rapport d'essais de sol
-(CPT, forages, coupes lithologiques). Extrais-en un profil de couches PAR SONDAGE/FORAGE,
-en combinant si possible la lithologie du forage et les valeurs qc des CPT.
-
-Réponds UNIQUEMENT avec un JSON valide, sans texte avant/après, sans balises markdown,
-au format strict :
-{"sondages":[{"nom":"CPT01","nappe_m":11.0,"couches":[
-  {"de_m":0.0,"a_m":4.0,"type":"Remblais graviers et débris","qc_MPa":null,"E_MPa":null},
-  {"de_m":4.0,"a_m":8.0,"type":"Sable jaune-orange","qc_MPa":9.0,"E_MPa":null}]}]}
-
-Règles :
-- "nom" : identifiant du sondage tel qu'il apparaît (CPT01, F01, BH01...). Si un forage
-  et un CPT sont au même endroit, fusionne-les en un seul profil.
-- "de_m"/"a_m" : profondeurs sous le terrain naturel, en mètres.
-- "type" : description lithologique courte en français.
-- "qc_MPa" : résistance de cône MOYENNE PRUDENTE de la couche lue sur les graphiques CPT
-  (ignorer les pics isolés), null si non disponible.
-- "E_MPa" : uniquement si le rapport donne explicitement un module, sinon null.
-- "nappe_m" : profondeur de la nappe si mentionnée, sinon null.
-- Regroupe en couches homogènes (4 à 8 couches max par sondage), n'invente aucune valeur."""
-
-
-def _get_api_key():
-    key = ""
-    try:
-        key = st.secrets.get("ANTHROPIC_API_KEY", "")
-    except Exception:
-        key = ""
-    return key or st.session_state.get("ai_api_key", "")
-
-
-def _extract_soundings_from_pdf(pdf_bytes: bytes, api_key: str):
-    """Envoie le PDF à l'API Anthropic, retourne la liste 'sondages' du JSON.
-    Lève une exception avec message lisible en cas d'échec."""
-    if not _HAS_REQUESTS:
-        raise RuntimeError("Le module 'requests' n'est pas disponible dans cet environnement.")
-    b64 = base64.standard_b64encode(pdf_bytes).decode("ascii")
-    payload = {
-        "model": AI_MODEL,
-        "max_tokens": 3000,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {"type": "document",
-                 "source": {"type": "base64", "media_type": "application/pdf", "data": b64}},
-                {"type": "text", "text": _AI_PROMPT},
-            ],
-        }],
-    }
-    resp = _requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={"x-api-key": api_key,
-                 "anthropic-version": "2023-06-01",
-                 "content-type": "application/json"},
-        json=payload, timeout=120,
-    )
-    if resp.status_code != 200:
-        raise RuntimeError(f"API Anthropic : HTTP {resp.status_code} — {resp.text[:300]}")
-    data = resp.json()
-    txt = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
-    txt = re.sub(r"```(json)?", "", txt).strip()
-    m = re.search(r"\{.*\}", txt, re.DOTALL)
-    if not m:
-        raise RuntimeError("Réponse IA sans JSON exploitable.")
-    parsed = _json.loads(m.group(0))
-    sondages = parsed.get("sondages", [])
-    if not isinstance(sondages, list) or not sondages:
-        raise RuntimeError("JSON reçu mais aucune clé 'sondages' exploitable.")
-    return sondages
-
-
-def _import_ai_soundings(sondages: list) -> list:
-    """Crée les sondages/couches en session à partir du JSON IA.
-    E : valeur du rapport si donnée, sinon α·qc, sinon valeur typique du
-    type (à VÉRIFIER par l'utilisateur). Retourne les noms créés."""
-    created = []
-    for snd in sondages:
-        nom = str(snd.get("nom", "") or f"Import {len(created) + 1}")
-        sid = _add_sounding(nom=nom, first_layer=False)
-        nappe = snd.get("nappe_m")
-        if nappe is not None:
-            try:
-                st.session_state[f"snd{sid}_nappe"] = float(nappe)
-            except Exception:
-                pass
-        couches = snd.get("couches", []) or []
-        for c in couches:
-            try:
-                de = float(c.get("de_m", 0.0) or 0.0)
-                a = float(c.get("a_m", 0.0) or 0.0)
-            except Exception:
-                continue
-            h = max(0.0, a - de)
-            if h <= 0:
-                continue
-            t = match_soil_type(str(c.get("type", "") or ""))
-            qc = c.get("qc_MPa")
-            try:
-                qc = float(qc) if qc is not None else 0.0
-            except Exception:
-                qc = 0.0
-            E = c.get("E_MPa")
-            try:
-                E = float(E) if E is not None else 0.0
-            except Exception:
-                E = 0.0
-            if E <= 0:
-                e_sugg = suggest_E_from_qc(qc, t)
-                if e_sugg is not None:
-                    E = e_sugg
-                else:
-                    E = soil_default_E(t) or 0.0
-            rf = soil_default_Rf(t) or 0.0
-            lid = _new_layer_id(sid)
-            st.session_state[_order_key(sid)].append(lid)
-            _init_layer(sid, lid, h=round(h, 2), soil_type=t, qc=qc, rf=rf, E=E)
-        if not _layer_ids(sid):
-            st.session_state[_order_key(sid)].append(1)
-            _init_layer(sid, 1)
-        created.append(nom)
-    return created
-
-
-# =============================================================
-#  RAPPORT PDF (reportlab — style sobre)
-# =============================================================
-def build_soil_report_pdf(project: dict, soundings_data: list, B: float,
-                          use_influence: bool, H_lim, w_adm_mm: float) -> bytes:
-    """
-    Rapport PDF : hypothèses/méthode, tableau des couches et application
-    numérique 1/k = Σ hi/Ei par sondage, récapitulatif SCIA, références.
-    soundings_data : [{"nom", "assise", "nappe", "res": dict de
-    _compute_sounding_k}].
-    """
-    if not _HAS_REPORTLAB:
-        raise RuntimeError("reportlab n'est pas installé (pip install reportlab).")
-
-    styles = getSampleStyleSheet()
-    H1 = ParagraphStyle("H1", parent=styles["Heading1"], fontSize=14, spaceAfter=4)
-    H2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=11, spaceBefore=8,
-                        spaceAfter=3, textColor=_rl_colors.HexColor("#1f2937"))
-    BODY = ParagraphStyle("BODY", parent=styles["Normal"], fontSize=9.2, leading=12.5)
-    SMALL = ParagraphStyle("SMALL", parent=BODY, fontSize=7.8,
-                           textColor=_rl_colors.HexColor("#475569"))
-    CELL = ParagraphStyle("CELL", parent=BODY, fontSize=8.2, leading=10.2)
-    CELLB = ParagraphStyle("CELLB", parent=CELL, fontName="Helvetica-Bold")
-
-    def P(t, b=False):
-        return Paragraph(t, CELLB if b else CELL)
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4,
-                            leftMargin=16 * mm, rightMargin=16 * mm,
-                            topMargin=14 * mm, bottomMargin=13 * mm,
-                            title="Note de calcul — Raideur élastique du sol")
-    story = []
-    story.append(Paragraph("Note de calcul — Raideur élastique du sol (modèle de Winkler)", H1))
-    meta = []
-    if project.get("nom"):
-        meta.append(f"Projet : <b>{project['nom']}</b>")
-    meta.append(f"Date : {project.get('date', date.today().strftime('%d/%m/%Y'))}")
-    meta.append(f"Module raideur_sol {VERSION}")
-    story.append(Paragraph(" — ".join(meta), SMALL))
-    story.append(Spacer(1, 4))
-
-    story.append(Paragraph("1. Méthode et hypothèses", H2))
-    story.append(Paragraph(
-        "Le sol est modélisé par des ressorts verticaux indépendants (modèle de Winkler) : "
-        "q = k·w, avec q la pression de contact [kPa], w le tassement [m] et k le coefficient "
-        "de réaction [kN/m³]. Pour un profil multicouche, le coefficient est obtenu par le "
-        "modèle des ressorts en série (tassement œdométrique 1D d'une colonne de sol) : "
-        "1/k = Σ (h<sub>i</sub>/E<sub>i</sub>), où h<sub>i</sub> est l'épaisseur et E<sub>i</sub> "
-        "le module de déformation de la couche i. Les modules E sont issus du rapport d'essais "
-        "lorsqu'ils y figurent ; à défaut, ils sont estimés par la corrélation indicative "
-        "E ≈ α·q<sub>c</sub> (q<sub>c</sub> : résistance de cône CPT, α selon la nature du sol) "
-        "ou par des valeurs typiques de littérature — ces estimations sont à valider par le "
-        "géotechnicien.", BODY))
-    infl_txt = (f"Le profil est limité à la profondeur d'influence H = 2·B = {H_lim:.2f} m sous "
-                f"le niveau d'assise (B = {B:.2f} m : largeur caractéristique de la zone chargée)."
-                if (use_influence and H_lim) else
-                "Le profil n'est pas tronqué à une profondeur d'influence : l'épaisseur totale "
-                "saisie est prise en compte (à justifier).")
-    story.append(Paragraph(infl_txt, BODY))
-
-    story.append(Paragraph("2. Sondages et calcul du coefficient de réaction", H2))
-    for sd in soundings_data:
-        res = sd["res"]
-        story.append(Spacer(1, 3))
-        titre = f"Sondage {sd['nom']}"
-        extras = []
-        if sd.get("assise"):
-            extras.append(f"assise à {sd['assise']:.2f} m sous TN")
-        if sd.get("nappe") is not None:
-            extras.append(f"nappe ≈ {sd['nappe']:.1f} m sous TN")
-        if extras:
-            titre += " (" + ", ".join(extras) + ")"
-        story.append(Paragraph(titre, ParagraphStyle(
-            "H3", parent=BODY, fontName="Helvetica-Bold", fontSize=9.6, spaceAfter=2)))
-
-        data = [[P("N°", True), P("h [m]", True), P("Nature", True),
-                 P("qc [MPa]", True), P("E [MPa]", True), P("Statut", True)]]
-        for (num, h_use, h, t, qc, E, statut) in res["rows"]:
-            data.append([P(str(num)), P(f"{h:.2f}"), P(t),
-                         P(f"{qc:.1f}" if qc > 0 else "—"),
-                         P(f"{E:.0f}" if E > 0 else "—"), P(statut)])
-        t_tbl = Table(data, colWidths=[10 * mm, 15 * mm, 68 * mm, 20 * mm, 20 * mm, 45 * mm])
-        t_tbl.setStyle(TableStyle([
-            ("GRID", (0, 0), (-1, -1), 0.4, _rl_colors.HexColor("#94a3b8")),
-            ("BACKGROUND", (0, 0), (-1, 0), _rl_colors.HexColor("#eef2f7")),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 2),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-        ]))
-        story.append(t_tbl)
-
-        if res["k_MN"] > 0:
-            terms = " + ".join(f"{h_use:.2f}/{E:.0f}" for (_, h_use, _, _, _, E, s) in res["rows"]
-                               if h_use > 0 and E > 0)
-            story.append(Paragraph(
-                f"1/k = Σ h<sub>i</sub>/E<sub>i</sub> = {terms}  (h en m, E en MPa) "
-                f"→ H pris en compte = {res['H']:.2f} m ; "
-                f"E<sub>moy</sub> = {res['E_moy_kPa']/1000:.1f} MPa ; "
-                f"<b>k = {res['k_kN']:,.0f} kN/m³ = {res['k_MN']:.2f} MN/m³</b>".replace(",", " "),
-                BODY))
-        else:
-            story.append(Paragraph("Profil incomplet : k non calculable.", BODY))
-        if res["ignored"]:
-            story.append(Paragraph(
-                f"Couches ignorées (E manquant) : {', '.join(map(str, res['ignored']))}.", SMALL))
-
-    story.append(Paragraph("3. Récapitulatif — valeurs à encoder dans SCIA", H2))
-    data = [[P("Sondage", True), P("k [MN/m³]", True), P("k [kN/m³]", True)]]
-    k_vals = []
-    for sd in soundings_data:
-        res = sd["res"]
-        if res["k_MN"] > 0:
-            k_vals.append(res["k_MN"])
-            data.append([P(sd["nom"]), P(f"{res['k_MN']:.2f}"),
-                         P(f"{res['k_kN']:,.0f}".replace(",", " "))])
-        else:
-            data.append([P(sd["nom"]), P("—"), P("—")])
-    t_rec = Table(data, colWidths=[70 * mm, 40 * mm, 40 * mm])
-    t_rec.setStyle(TableStyle([
-        ("GRID", (0, 0), (-1, -1), 0.4, _rl_colors.HexColor("#94a3b8")),
-        ("BACKGROUND", (0, 0), (-1, 0), _rl_colors.HexColor("#eef2f7")),
-        ("TOPPADDING", (0, 0), (-1, -1), 2),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-    ]))
-    story.append(t_rec)
-    if len(k_vals) >= 2:
-        story.append(Paragraph(
-            f"Enveloppe entre sondages : k = {min(k_vals):.2f} à {max(k_vals):.2f} MN/m³. "
-            "Il est recommandé de calculer la dalle avec les deux bornes (étude de "
-            "sensibilité) plutôt qu'avec une valeur unique — le coefficient de réaction "
-            "n'est pas un paramètre de résistance et ne fait pas l'objet d'un facteur "
-            "partiel dans l'EN 1997.", BODY))
-    story.append(Paragraph(
-        f"Pour information, la pression mobilisée pour un tassement de référence "
-        f"w = {w_adm_mm:.0f} mm vaut q = k·w (ex. k = 5 MN/m³ → q ≈ "
-        f"{5 * 1000 * w_adm_mm / 1000:.0f} kPa).", SMALL))
-
-    story.append(Paragraph("4. Références", H2))
-    story.append(Paragraph(
-        "• NBN EN 1997-1 (Eurocode 7) + ANB — calcul géotechnique ; valeurs caractéristiques "
-        "des paramètres de sol : §2.4.5.2 (estimation prudente).<br/>"
-        "• ISO 22476-1 — essais de pénétration statique (CPT), norme d'exécution des essais "
-        "du rapport géotechnique de référence.<br/>"
-        "• Modèle de Winkler (1867) ; corrélations E ≈ α·q<sub>c</sub> : littérature "
-        "géotechnique courante (indicatives, à valider par le géotechnicien).<br/>"
-        "• Les valeurs de k du présent document relèvent du pré-dimensionnement et doivent "
-        "être confrontées au rapport géotechnique du projet.", BODY))
-
-    doc.build(story)
-    return buf.getvalue()
-
-
-# =============================================================
-#  RENDU : helpers UI
-# =============================================================
-def _bloc(left: str, right: str = "", etat: str = "ok"):
-    right_html = f"<div style='font-weight:600;opacity:.9;white-space:nowrap;'>{right}</div>" if right else ""
-    st.markdown(
-        f"""
-        <div style="background:{C_COULEURS.get(etat,'#f6f6f6')};padding:12px 14px;border-radius:10px;
-             border:1px solid #d9d9d9;margin:8px 0 4px 0;display:flex;justify-content:space-between;
-             align-items:center;gap:10px;">
-          <div style="font-weight:700;">{left}</div>
-          <div style="display:flex;align-items:center;gap:10px;">{right_html}
-            <div style="font-size:20px;line-height:1;">{C_ICONES.get(etat,'')}</div></div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def _param_table(rows):
-    df = pd.DataFrame(rows, columns=["Paramètre", "Description", "Valeur", "Unité"])
-    df.index = [""] * len(df)
-    st.table(df)
-
-
-def _metric(col, label, value, unit=""):
-    col.metric(label, f"{value:,.2f}".replace(",", " ") + (f" {unit}" if unit else ""))
-
-
-# =============================================================
-#  GRAPHIQUES
-# =============================================================
-def _norm_log(x, lo, hi):
-    if x is None or x <= 0:
-        return 0.0
-    lo = max(lo, 0.1)
-    hi = max(hi, lo * 1.0001)
-    v = (math.log10(x) - math.log10(lo)) / (math.log10(hi) - math.log10(lo))
-    return min(1.0, max(0.0, v))
-
-
-def _render_soil_profile_chart(sid: int):
-    if not _HAS_MPL:
-        st.info("Installe matplotlib (`pip install matplotlib`) pour afficher ce graphique.")
-        return
-    bands = []
-    depth = 0.0
-    for lid in _layer_ids(sid):
-        lv = _get_layer_values(sid, lid)
-        if lv["h"] <= 0:
-            continue
-        bands.append((depth, depth + lv["h"], lv["h"], lv["E"], lv["type"]))
-        depth += lv["h"]
-    if not bands:
-        st.info("Renseigne au moins une couche avec h > 0.")
-        return
-    E_vals = [b[3] for b in bands if b[3] > 0]
-    E_lo, E_hi = (min(E_vals), max(E_vals)) if E_vals else (1.0, 100.0)
-    fig, ax = plt.subplots(figsize=(3.0, 5.0))
-    cmap = plt.get_cmap("YlOrBr")
-    for (z0, z1, h, E, t) in bands:
-        color = cmap(0.12) if E <= 0 else cmap(0.25 + 0.65 * _norm_log(E, E_lo, E_hi))
-        ax.barh((z0 + z1) / 2.0, width=1.0, height=h, left=0.0,
-                color=color, edgecolor="black", linewidth=0.8)
-        label = f"{t}\nh={h:.2f} m" + (f" · E={E:.0f} MPa" if E > 0 else "\n⚠ E manquant")
-        ax.text(0.5, (z0 + z1) / 2.0, label, ha="center", va="center", fontsize=7, wrap=True)
-    ax.set_xlim(0, 1)
-    ax.set_xticks([])
-    ax.set_ylim(depth, 0)
-    ax.set_ylabel("Profondeur sous assise (m)")
-    ax.set_title(f"Profil {_sounding_name(sid)} (couleur ∝ E, échelle log)", fontsize=10)
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
-    plt.close(fig)
-
-
-def _render_layer_sensitivity_chart(sid: int, k_actual_MN: float):
-    if not _HAS_MPL:
-        st.info("Installe matplotlib (`pip install matplotlib`) pour afficher ce graphique.")
-        return
-    ids = _layer_ids(sid)
-    if not ids:
-        st.info("Ajoute au moins une couche.")
-        return
-    labels = [f"Couche {i + 1} — {_get_layer_values(sid, lid)['type']}" for i, lid in enumerate(ids)]
-    sel_label = st.selectbox("Couche à faire varier", labels, key=f"sens_layer_choice_{sid}")
-    sel_lid = ids[labels.index(sel_label)]
-    param = st.radio("Paramètre à faire varier", ["E (module)", "h (épaisseur)"],
-                     horizontal=True, key=f"sens_param_choice_{sid}")
-    base = [{"lid": lid, **_get_layer_values(sid, lid)} for lid in ids]
-    sel_lv = _get_layer_values(sid, sel_lid)
-    fallback_note = None
-    if param.startswith("E"):
-        base_val = sel_lv["E"] if sel_lv["E"] > 0 else 20.0
-        if sel_lv["h"] <= 0:
-            fallback_note = "h de cette couche non renseigné — hypothèse 1,00 m pour la simulation."
-        c1, c2 = st.columns(2)
-        with c1:
-            lo = st.number_input("E min [MPa]", min_value=0.1, value=round(max(0.1, base_val * 0.3), 1),
-                                 step=1.0, key=f"sens_E_lo_{sid}")
-        with c2:
-            hi = st.number_input("E max [MPa]", min_value=lo + 0.1, value=round(base_val * 3.0, 1),
-                                 step=1.0, key=f"sens_E_hi_{sid}")
-        x_label = "E [MPa]"
-    else:
-        E_fixed = sel_lv["E"] if sel_lv["E"] > 0 else (soil_default_E(sel_lv["type"]) or 20.0)
-        if sel_lv["E"] <= 0:
-            fallback_note = f"E non renseigné — hypothèse {E_fixed:.1f} MPa pour la simulation."
-        base_val = sel_lv["h"] if sel_lv["h"] > 0 else 1.0
-        c1, c2 = st.columns(2)
-        with c1:
-            lo = st.number_input("h min [m]", min_value=0.05, value=round(max(0.05, base_val * 0.3), 2),
-                                 step=0.1, key=f"sens_h_lo_{sid}")
-        with c2:
-            hi = st.number_input("h max [m]", min_value=lo + 0.05, value=round(base_val * 3.0, 2),
-                                 step=0.1, key=f"sens_h_hi_{sid}")
-        x_label = "h [m]"
-    if fallback_note:
-        st.caption(f"ℹ️ {fallback_note}")
-    n_pts = 30
-    xs = [lo + (hi - lo) * i / (n_pts - 1) for i in range(n_pts)]
-    ys = []
-    for x in xs:
-        layers_kpa = []
-        for bl in base:
-            h, E = bl["h"], bl["E"]
-            if bl["lid"] == sel_lid:
-                if param.startswith("E"):
-                    E = x
-                    h = h if h > 0 else 1.0
-                else:
-                    h = x
-                    E = E if E > 0 else (soil_default_E(bl["type"]) or 20.0)
-            if h > 0 and E > 0:
-                layers_kpa.append((h, E_to_kPa(E, "MPa")))
-        _, kk, _, _ = k_series(layers_kpa)
-        ys.append(kk)
-    fig, ax = plt.subplots(figsize=(5.0, 3.2))
-    ax.plot(xs, ys, color="#2563eb", linewidth=2)
-    ax.axvline(base_val, color="#94a3b8", linestyle="--", linewidth=1)
-    ax.scatter([base_val], [k_actual_MN], color="#dc2626", zorder=5, label="Valeurs actuelles")
-    ax.set_xlabel(x_label)
-    ax.set_ylabel("k_serie [MN/m³]")
-    ax.set_title(f"Sensibilité — {_sounding_name(sid)} / {sel_label}", fontsize=10)
-    ax.grid(alpha=0.3)
-    ax.legend(fontsize=8)
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
-    plt.close(fig)
-    st.caption("Les autres couches restent fixées à leurs valeurs actuelles. Utile pour tester "
-               "les bornes basse/haute d'un rapport géotechnique plutôt qu'un coefficient de "
-               "sécurité arbitraire (EN 1997 ne prescrit pas de facteur partiel sur E/k).")
-
-
-def _render_k_vs_B_chart(E_moy_kPa: float, nu: float):
-    if not _HAS_MPL:
-        st.info("Installe matplotlib (`pip install matplotlib`) pour afficher ce graphique.")
-        return
-    if E_moy_kPa <= 0:
-        st.info("Renseigne au moins une couche valide (h et E) pour tracer cette courbe.")
-        return
-    B_cur = float(st.session_state.get("multi_B", 2.0))
-    c1, c2 = st.columns(2)
-    with c1:
-        B_lo = st.number_input("B min [m]", min_value=0.1, value=round(max(0.1, B_cur * 0.3), 2),
-                               step=0.1, key="kb_B_lo")
-    with c2:
-        B_hi = st.number_input("B max [m]", min_value=B_lo + 0.1, value=round(B_cur * 3.0, 2),
-                               step=0.1, key="kb_B_hi")
-    n_pts = 30
-    xs = [B_lo + (B_hi - B_lo) * i / (n_pts - 1) for i in range(n_pts)]
-    ys = [k_boussinesq(E_moy_kPa, B, nu)[1] for B in xs]
-    _, k_cur_MN = k_boussinesq(E_moy_kPa, B_cur, nu)
-    fig, ax = plt.subplots(figsize=(5.0, 3.2))
-    ax.plot(xs, ys, color="#7c3aed", linewidth=2)
-    ax.axvline(B_cur, color="#94a3b8", linestyle="--", linewidth=1)
-    ax.scatter([B_cur], [k_cur_MN], color="#dc2626", zorder=5, label="B actuel")
-    ax.set_xlabel("B [m]")
-    ax.set_ylabel("k (Boussinesq) [MN/m³]")
-    ax.set_title("k ≈ E_moy / [B·(1−ν²)] en fonction de B", fontsize=10)
-    ax.grid(alpha=0.3)
-    ax.legend(fontsize=8)
-    fig.tight_layout()
-    st.pyplot(fig, use_container_width=True)
-    plt.close(fig)
-    st.caption("Modèle de comparaison uniquement (décroissant en 1/B) — sans effet sur les "
-               "résultats \"à encoder dans SCIA\" (ressorts en série).")
-
-
-# =============================================================
-#  STATE
-# =============================================================
 def _init_state():
-    d = {
-        "press_unit": "kPa",
-        "module_unit": "MPa",
-        "detail_calc": True,
-        "adv_open": False,
-        "abaque_w": 20.0,
-        "multi_B": 2.0,
-        "multi_nu": 0.30,
-        "use_influence": True,
-        "projet_nom": "",
+    defauts = {
+        "rs_B": 2.0, "rs_L": 2.0, "rs_q": 150.0, "rs_D": 1.0,
+        "rs_nappe_active": False, "rs_nappe": 3.0,
+        "rs_critere": 20, "rs_q_net": True, "rs_nu": 0.30,
+        "rs_detail": True, "rs_projet": "", "rs_w_ref": 20.0,
+        "rs_mode": "1. Sondage CPT (import de fichier)",
+        "rs_pos_scia": "centre",
     }
-    for k, v in d.items():
+    for k, v in defauts.items():
         st.session_state.setdefault(k, v)
-
     if "soundings" not in st.session_state:
         st.session_state.soundings = []
-        sid = _add_sounding(nom="CPT01", first_layer=False)
-        st.session_state[_order_key(sid)] = [1]
-        _init_layer(sid, 1, h=2.0, soil_type="Sable moyennement compact",
-                    qc=8.5, rf=0.5, E=27.5)
+        _add_sounding(nom="CPT01")
+
+
+def _reset_module():
+    """Réinitialise UNIQUEMENT ce module (défaut F3 de la v4.0 : le bouton
+    vidait tout st.session_state, donc aussi beams et dalles)."""
+    for k in [k for k in list(st.session_state.keys()) if _est_cle_module(k)]:
+        st.session_state.pop(k, None)
+    st.rerun()
 
 
 # =============================================================
-#  UI : TABLEAU DES COUCHES D'UN SONDAGE (widgets natifs)
+#  PROFIL DE COUCHES <-> SESSION
 # =============================================================
-def _render_layer_row(sid: int, lid: int, i: int, disabled: bool = False):
-    h_key = _layer_key(sid, lid, "h")
-    type_key = _layer_key(sid, lid, "type")
-    prev_key = _layer_key(sid, lid, "type_prev")
-    qc_key = _layer_key(sid, lid, "qc")
-    rf_key = _layer_key(sid, lid, "rf")
-    E_key = _layer_key(sid, lid, "E")
+def _profil_session(sid):
+    """Couches saisies, au format attendu par sol_theorie (depuis le TN)."""
+    out = []
+    for lid in _layer_ids(sid):
+        lv = _get_layer(sid, lid)
+        if lv["h"] <= 0:
+            continue
+        out.append({"h": lv["h"], "gamma": lv["gamma"], "M": lv["M"] or None,
+                    "nom": lv["type"], "qc": lv["qc"]})
+    return out
 
-    st.session_state.setdefault(h_key, 1.0)
-    st.session_state.setdefault(type_key, "—")
-    st.session_state.setdefault(prev_key, st.session_state[type_key])
-    st.session_state.setdefault(qc_key, 0.0)
-    st.session_state.setdefault(rf_key, 0.0)
-    st.session_state.setdefault(E_key, 0.0)
+
+def _remplir_depuis_couches(sid, couches, nappe=None, source=""):
+    """Remplit AUTOMATIQUEMENT le tableau des couches d'un sondage."""
+    st.session_state[_order_key(sid)] = []
+    for i, c in enumerate(couches, start=1):
+        st.session_state[_order_key(sid)].append(i)
+        libelle = c.get("sbt") or c.get("type") or "—"
+        type_db = SB.match_soil_type(libelle)
+        M = c.get("M_bas") or c.get("M") or 0.0
+        rf = 0.0
+        if c.get("fs") and c.get("qc"):
+            rf = c["fs"] / (c["qc"] * 1000.0) * 100.0
+        _init_layer(sid, i, h=round(c.get("h", 0.0), 2), type_sol=type_db,
+                    qc=round(c.get("qc", 0.0) or 0.0, 2), rf=round(rf, 2),
+                    M=round(M or 0.0, 1), gamma=round(c.get("gamma", 19.0), 1))
+        st.session_state[_layer_key(sid, i, "M_haut")] = c.get("M_haut")
+        st.session_state[_layer_key(sid, i, "Ic")] = c.get("Ic")
+        st.session_state[_layer_key(sid, i, "sbt")] = c.get("sbt")
+    if not _layer_ids(sid):
+        st.session_state[_order_key(sid)].append(1)
+        _init_layer(sid, 1)
+    if nappe is not None:
+        st.session_state[f"snd{sid}_nappe"] = float(nappe)
+        st.session_state["rs_nappe_active"] = True
+        st.session_state["rs_nappe"] = float(nappe)
+    if source:
+        st.session_state[f"snd{sid}_source"] = source
+
+
+def _profil_encadre(sid):
+    """(couches_bas, couches_haut) : bornes basse et haute des modules."""
+    bas, haut = [], []
+    for lid in _layer_ids(sid):
+        lv = _get_layer(sid, lid)
+        if lv["h"] <= 0:
+            continue
+        Mb = lv["M"] or None
+        Mh = st.session_state.get(_layer_key(sid, lid, "M_haut")) or Mb
+        base = {"h": lv["h"], "gamma": lv["gamma"], "nom": lv["type"]}
+        bas.append(dict(base, M=Mb))
+        haut.append(dict(base, M=Mh))
+    return bas, haut
+
+
+# =============================================================
+#  UI : IMPORT SANS IA
+# =============================================================
+def _render_import(sid):
+    with st.expander("📥 Importer un sondage (GEF · CSV · PDF) — sans IA, sans clé API",
+                     expanded=False):
+        st.caption(
+            "Les valeurs sont lues **directement dans le fichier**, jamais estimées. "
+            "Par ordre de fidélité : fichier **GEF** (format d'échange belge/"
+            "néerlandais, pas réel de 2 cm) → **CSV** → **PDF à courbes vectorielles** "
+            "(les courbes sont relues et recalées sur les traits de grille). "
+            "Un scan ou une photo ne contient aucune donnée lisible : demande le GEF "
+            "ou le PDF d'origine au bureau d'essais.")
+
+        up = st.file_uploader("Fichier de sondage",
+                              type=["gef", "csv", "txt", "asc", "pdf"],
+                              key=f"snd{sid}_upload")
+        if up is None:
+            return
+
+        contenu = up.getvalue()
+        nom = up.name
+
+        if nom.lower().endswith(".pdf"):
+            _render_import_pdf(sid, contenu, nom)
+            return
+
+        try:
+            sondage = SI.importer(contenu, nom)
+        except Exception as e:
+            st.error(f"Lecture impossible : {e}")
+            return
+        _apercu_et_valider(sid, sondage)
+
+
+def _render_import_pdf(sid, contenu, nom):
+    """Import PDF : détection, recalage proposé, correction possible."""
+    kpref = f"snd{sid}_pdf"
+    try:
+        analyse = SI.analyser_pdf(contenu, page_idx=int(st.session_state.get(f"{kpref}_page", 1)) - 1)
+    except Exception as e:
+        st.error(f"{e}")
+        st.info("Astuce : si le rapport comporte un tableau de valeurs, il est souvent "
+                "lisible même sans courbe vectorielle — essaie la page du tableau.")
+        return
+
+    calib = analyse["calibration"]
+    c1, c2 = st.columns([1, 3])
+    with c1:
+        st.number_input("Page", min_value=1, max_value=max(1, calib.get("n_pages", 1)),
+                        step=1, key=f"{kpref}_page")
+    with c2:
+        st.markdown(
+            f"<div style='padding-top:30px;color:#475569;'>"
+            f"{len(analyse['courbes'])} courbe(s) détectée(s) · "
+            f"grille {calib['n_grille_v']}×{calib['n_grille_h']}</div>",
+            unsafe_allow_html=True)
+
+    for a in analyse["avertissements"]:
+        st.warning(a)
+
+    libelles = [f"Courbe {i+1} — {c['n']} points, amplitude {c['amplitude_x']:.0f} pt"
+                for i, c in enumerate(analyse["courbes"])]
+    cA, cB = st.columns(2)
+    with cA:
+        i_qc = st.selectbox("Courbe de résistance de pointe qc", range(len(libelles)),
+                            format_func=lambda i: libelles[i], key=f"{kpref}_iqc")
+    with cB:
+        opts = [-1] + list(range(len(libelles)))
+        i_fs = st.selectbox("Courbe de frottement fs (facultatif)", opts,
+                            format_func=lambda i: "— aucune —" if i < 0 else libelles[i],
+                            key=f"{kpref}_ifs")
+
+    st.markdown("**Recalage des axes**")
+    st.caption("Proposé automatiquement d'après les traits de grille et leurs étiquettes. "
+               "Corrige-le si le rapport a une mise en page inhabituelle.")
+    auto_ok = calib.get("auto_x") and calib.get("auto_y")
+    if auto_ok:
+        st.success(f"Recalage automatique — qc : R² = {calib['r2x']:.6f} · "
+                   f"profondeur : R² = {calib['r2y']:.6f}")
+
+    forcer = st.checkbox("Corriger le recalage à la main", key=f"{kpref}_manuel",
+                         value=not auto_ok)
+    calib_final = dict(calib)
+    if forcer:
+        st.caption("Donne la valeur portée par le bord gauche/droit du cadre (qc) et "
+                   "par son bord haut/bas (profondeur).")
+        g1, g2, g3, g4 = st.columns(4)
+        with g1:
+            qc_g = st.number_input("qc bord gauche", value=0.0, step=1.0, key=f"{kpref}_qcg")
+        with g2:
+            qc_d = st.number_input("qc bord droit", value=25.0, step=1.0, key=f"{kpref}_qcd")
+        with g3:
+            z_h = st.number_input("z bord haut [m]", value=0.0, step=1.0, key=f"{kpref}_zh")
+        with g4:
+            z_b = st.number_input("z bord bas [m]", value=20.0, step=1.0, key=f"{kpref}_zb")
+        dx = calib["x1"] - calib["x0"]
+        dy = calib["y1"] - calib["y0"]
+        if abs(dx) > 1e-6 and abs(dy) > 1e-6 and qc_d != qc_g and z_b != z_h:
+            calib_final["ax"] = (qc_d - qc_g) / dx
+            calib_final["bx"] = qc_g - calib_final["ax"] * calib["x0"]
+            calib_final["ay"] = (z_b - z_h) / dy
+            calib_final["by"] = z_h - calib_final["ay"] * calib["y0"]
+
+    try:
+        sondage = SI.extraire_courbe(
+            analyse, idx_qc=i_qc, idx_fs=(None if i_fs < 0 else i_fs),
+            calib=calib_final, nom=re.sub(r"\.pdf$", "", nom, flags=re.I))
+    except Exception as e:
+        st.error(f"{e}")
+        return
+    _apercu_et_valider(sid, sondage)
+
+
+def _apercu_et_valider(sid, sondage):
+    """Aperçu du sondage lu, découpage automatique, puis validation."""
+    pts = sondage["points"]
+    st.success(f"**{sondage['nom']}** — {sondage['source']} · "
+               f"{len(pts)} points de {pts[0][0]:.2f} à {pts[-1][0]:.2f} m")
+    for a in sondage.get("avertissements", []):
+        st.warning(a)
+
+    a_fs = any(p[2] is not None for p in pts)
+    if not a_fs:
+        st.warning(
+            "Pas de frottement latéral fs dans ce fichier : la classification "
+            "automatique du sol (Robertson) a besoin de qc **et** de fs. Les couches "
+            "seront créées d'après qc seul et le type de sol restera à choisir.")
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        nappe = st.number_input("Nappe [m sous TN]", min_value=0.0, step=0.5,
+                                value=float(sondage.get("nappe_m") or
+                                            st.session_state.get("rs_nappe", 3.0)),
+                                key=f"snd{sid}_imp_nappe")
+    with c2:
+        seuil = st.slider("Finesse du découpage", 0.10, 0.60, 0.25, 0.05,
+                          key=f"snd{sid}_imp_seuil",
+                          help="Écart d'indice Ic au-delà duquel on ouvre une nouvelle "
+                               "couche. Plus petit = plus de couches.")
+    with c3:
+        h_min = st.number_input("Épaisseur minimale [m]", min_value=0.20, max_value=5.0,
+                                value=0.50, step=0.10, key=f"snd{sid}_imp_hmin")
+
+    couches = ST.profil_depuis_cpt(pts, nappe_m=nappe, seuil_ic=seuil, h_min=h_min,
+                                   nu=float(st.session_state.get("rs_nu", 0.30)))
+    if not couches:
+        st.error("Aucune couche exploitable n'a pu être formée.")
+        return
+
+    lignes = []
+    for c in couches:
+        lignes.append({
+            "de [m]": round(c["z0"], 2), "à [m]": round(c["z1"], 2),
+            "h [m]": round(c["h"], 2),
+            "Ic": None if c["Ic"] is None else round(c["Ic"], 2),
+            "Type reconnu": c["sbt"],
+            "qc moy [MPa]": round(c["qc"] or 0, 2),
+            "M bas [MPa]": None if c["M_bas"] is None else round(c["M_bas"], 1),
+            "M haut [MPa]": None if c["M_haut"] is None else round(c["M_haut"], 1),
+        })
+    st.dataframe(pd.DataFrame(lignes), use_container_width=True, hide_index=True)
+    st.caption("Le type de sol est déduit de qc et fs par l'indice de comportement Ic "
+               "(Robertson) — aucune saisie, aucune estimation. Le module M est encadré "
+               "car les corrélations CPT divergent d'un facteur 2 à 4.")
+
+    b1, b2, b3 = st.columns(3)
+    with b1:
+        if st.button("✅ Remplir le tableau", key=f"snd{sid}_valider",
+                     use_container_width=True, type="primary"):
+            _remplir_depuis_couches(sid, couches, nappe=nappe, source=sondage["source"])
+            st.session_state[f"snd{sid}_points"] = pts
+            st.session_state[f"snd{sid}_nom"] = sondage["nom"]
+            st.success("Tableau rempli. Vérifie les couches avant de calculer.")
+            st.rerun()
+    with b2:
+        st.download_button("⬇️ CSV des mesures", data=SI.vers_csv(sondage).encode("utf-8"),
+                           file_name=f"{sondage['nom']}_mesures.csv", mime="text/csv",
+                           use_container_width=True, key=f"snd{sid}_dl_pts")
+    with b3:
+        st.download_button("⬇️ CSV des couches",
+                           data=SI.couches_vers_csv(sondage["nom"], couches).encode("utf-8"),
+                           file_name=f"{sondage['nom']}_couches.csv", mime="text/csv",
+                           use_container_width=True, key=f"snd{sid}_dl_cou")
+
+
+# =============================================================
+#  UI : TABLEAU DES COUCHES
+# =============================================================
+def _render_layer_row(sid, lid, i):
+    kh, kt, kp, kq, kr, km, kg = (_layer_key(sid, lid, f)
+                                  for f in ("h", "type", "type_prev", "qc", "rf", "M", "gamma"))
+    st.session_state.setdefault(kh, 1.0)
+    st.session_state.setdefault(kt, "—")
+    st.session_state.setdefault(kp, st.session_state[kt])
+    st.session_state.setdefault(kq, 0.0)
+    st.session_state.setdefault(kr, 0.0)
+    st.session_state.setdefault(km, 0.0)
+    st.session_state.setdefault(kg, 19.0)
 
     lv = "visible" if i == 0 else "collapsed"
     va = "bottom" if i == 0 else "center"
-    c_h, c_type, c_qc, c_rf, c_E, c_act = st.columns(LAYER_COLS, vertical_alignment=va)
+    c_h, c_t, c_q, c_r, c_m, c_g, c_a = st.columns(LAYER_COLS, vertical_alignment=va)
 
     with c_h:
-        st.number_input("h [m]", min_value=0.0, step=0.1, key=h_key,
-                        disabled=disabled, label_visibility=lv)
-    with c_type:
-        st.selectbox("Type de sol", soil_types_list(), key=type_key,
-                     disabled=disabled, label_visibility=lv)
+        st.number_input("h [m]", min_value=0.0, step=0.1, key=kh, label_visibility=lv)
+    with c_t:
+        st.selectbox("Type de sol", SB.soil_types_list(), key=kt, label_visibility=lv)
 
-    # Préremplissage : mutation AVANT le rendu des widgets qc/Rf/E.
-    new_type = st.session_state.get(type_key, "—")
-    if new_type != st.session_state.get(prev_key):
-        qc_cur = float(st.session_state.get(qc_key, 0.0) or 0.0)
-        E_cur = float(st.session_state.get(E_key, 0.0) or 0.0)
-        if new_type not in ("—", "Personnalisé") and qc_cur <= 0 and E_cur <= 0:
-            soil = SOIL_DB.get(new_type, {})
-            if soil.get("cpt_ok", False):
-                qc_def = soil_default_qc(new_type)
-                if qc_def is not None:
-                    st.session_state[qc_key] = qc_def
-                rf_def = soil_default_Rf(new_type)
-                if rf_def is not None:
-                    st.session_state[rf_key] = rf_def
-            E_def = soil_default_E(new_type)
-            if E_def is not None:
-                st.session_state[E_key] = E_def
-        st.session_state[prev_key] = new_type
+    # préremplissage sur changement de type (mutation avant rendu des widgets suivants)
+    new_type = st.session_state.get(kt, "—")
+    if new_type != st.session_state.get(kp):
+        if new_type not in ("—", "Personnalisé") and \
+                float(st.session_state.get(kq, 0) or 0) <= 0 and \
+                float(st.session_state.get(km, 0) or 0) <= 0:
+            d = SB.SOIL_DB.get(new_type, {})
+            if d.get("cpt_ok"):
+                q = SB.soil_default_qc(new_type)
+                if q is not None:
+                    st.session_state[kq] = q
+                r = SB.soil_default_Rf(new_type)
+                if r is not None:
+                    st.session_state[kr] = r
+            m = SB.soil_default_M(new_type)
+            if m is not None:
+                st.session_state[km] = m
+        st.session_state[kg] = SB.soil_gamma(new_type, 19.0)
+        st.session_state[kp] = new_type
 
-    with c_qc:
-        st.number_input("qc moy [MPa]", min_value=0.0, step=0.5, key=qc_key,
-                        disabled=disabled, label_visibility=lv)
-    with c_rf:
-        st.number_input("Rf [%]", min_value=0.0, step=0.5, key=rf_key,
-                        disabled=disabled, label_visibility=lv)
-    with c_E:
-        st.number_input("E [MPa]", min_value=0.0, step=5.0, key=E_key,
-                        disabled=disabled, label_visibility=lv)
-    with c_act:
+    with c_q:
+        st.number_input("qc [MPa]", min_value=0.0, step=0.5, key=kq, label_visibility=lv)
+    with c_r:
+        st.number_input("Rf [%]", min_value=0.0, step=0.1, key=kr, label_visibility=lv)
+    with c_m:
+        st.number_input("M [MPa]", min_value=0.0, step=5.0, key=km, label_visibility=lv,
+                        help="Module OEDOMÉTRIQUE (déformation latérale empêchée). "
+                             "C'est lui qui entre dans le tassement, pas le module de "
+                             "Young E : M = E(1−ν)/((1+ν)(1−2ν)), soit ≈ 1,35·E pour "
+                             "ν = 0,30." if i == 0 else None)
+    with c_g:
+        st.number_input("γ [kN/m³]", min_value=8.0, max_value=26.0, step=0.5, key=kg,
+                        label_visibility=lv,
+                        help="Sert au poids des terres σ'v0, donc à la profondeur "
+                             "d'influence." if i == 0 else None)
+    with c_a:
         if i == 0:
-            st.button("＋", key=f"btn_add_layer_{sid}_{lid}", use_container_width=True,
-                      help="Ajouter une couche", disabled=disabled,
-                      on_click=_add_layer, args=(sid,))
+            st.button("＋", key=f"rs_add_l_{sid}_{lid}", use_container_width=True,
+                      help="Ajouter une couche", on_click=_add_layer, args=(sid,))
         else:
-            st.button("🗑️", key=f"btn_del_layer_{sid}_{lid}", use_container_width=True,
-                      help="Supprimer cette couche", disabled=disabled,
-                      on_click=_delete_layer, args=(sid, lid))
+            st.button("🗑️", key=f"rs_del_l_{sid}_{lid}", use_container_width=True,
+                      help="Supprimer cette couche", on_click=_delete_layer, args=(sid, lid))
 
-    lv2 = _get_layer_values(sid, lid)
+    lv2 = _get_layer(sid, lid)
     bits = []
-    if not (lv2["h"] > 0 and lv2["E"] > 0):
-        bits.append("⚠️ ligne ignorée dans le calcul (h ou E manquant)")
-    else:
+    if lv2["h"] > 0 and lv2["M"] > 0:
         bits.append("✅ prise en compte")
-    new_type = st.session_state.get(type_key, "—")
-    if new_type not in ("—", "Personnalisé"):
-        e_sugg = suggest_E_from_qc(lv2["qc"], new_type)
-        if e_sugg is not None:
-            bits.append(f"E suggéré (qc→E) : {e_sugg:.1f} MPa")
-        elif is_rock(new_type):
-            bits.append("qc non pertinent pour ce type (refus de pointe probable) — seul E est utilisé")
+    else:
+        bits.append("⚠️ ignorée (h ou M manquant)")
+    Ic = st.session_state.get(_layer_key(sid, lid, "Ic"))
+    if Ic is not None:
+        bits.append(f"Ic = {Ic:.2f}")
+    sbt = st.session_state.get(_layer_key(sid, lid, "sbt"))
+    if sbt:
+        bits.append(f"CPT : {sbt}")
+    Mh = st.session_state.get(_layer_key(sid, lid, "M_haut"))
+    if Mh and lv2["M"] and Mh > lv2["M"]:
+        bits.append(f"M encadré : {lv2['M']:.0f} – {Mh:.0f} MPa")
+    elif lv2["type"] not in ("—", "Personnalisé"):
+        sug = SB.suggest_M_from_qc(lv2["qc"], lv2["type"])
+        if sug:
+            bits.append(f"M suggéré (qc) : {sug:.0f} MPa")
+        elif SB.is_rock(lv2["type"]):
+            bits.append("roche : refus de pointe probable, qc sans objet")
     st.caption(" · ".join(bits))
 
 
-def _render_sounding_block(sid: int):
-    """Bloc d'un sondage : nom + boutons + niveau d'assise + tableau des couches."""
+def _render_sounding(sid):
     with st.container(border=True):
         cN, cA, cC, cD = st.columns([3.6, 0.7, 0.7, 0.7], vertical_alignment="bottom")
         with cN:
             st.text_input("Sondage", key=f"snd{sid}_nom")
         with cA:
-            st.button("➕", key=f"btn_add_snd_{sid}", help="Ajouter un sondage",
+            st.button("➕", key=f"rs_add_s_{sid}", help="Ajouter un sondage",
                       use_container_width=True, on_click=_add_sounding)
         with cC:
-            st.button("📋", key=f"btn_copy_snd_{sid}", help="Copier le sondage",
+            st.button("📋", key=f"rs_cp_s_{sid}", help="Copier le sondage",
                       use_container_width=True, on_click=_copy_sounding, args=(sid,))
         with cD:
             if len(st.session_state.soundings) > 1:
-                st.button("🗑️", key=f"btn_del_snd_{sid}", help="Supprimer le sondage",
+                st.button("🗑️", key=f"rs_dl_s_{sid}", help="Supprimer le sondage",
                           use_container_width=True, on_click=_delete_sounding, args=(sid,))
 
-        c1, c2 = st.columns(2)
-        with c1:
-            st.number_input("Niveau d'assise sous TN [m]", min_value=0.0, step=0.5,
-                            key=f"snd{sid}_assise",
-                            help="Profondeur du dessous de fondation sous le terrain naturel. "
-                                 "Les couches ci-dessous sont à saisir À PARTIR de ce niveau "
-                                 "(les terrains au-dessus de l'assise ne participent pas au k).")
-        with c2:
-            nappe = st.session_state.get(f"snd{sid}_nappe")
-            if nappe is not None:
-                st.markdown(f"<div style='padding-top:28px;color:#475569;'>Nappe ≈ "
-                            f"{float(nappe):.1f} m sous TN (import)</div>", unsafe_allow_html=True)
+        src = st.session_state.get(f"snd{sid}_source")
+        if src:
+            st.caption(f"Source : {src}")
 
-        st.markdown("**Couches (sous le niveau d'assise)**")
+        _render_import(sid)
+
+        st.markdown("**Couches, depuis le TERRAIN NATUREL**")
+        st.caption("Saisis tout le profil depuis la surface : le niveau d'assise est "
+                   "appliqué par le calcul, il ne faut plus retirer les couches "
+                   "supérieures à la main.")
         for i, lid in enumerate(_layer_ids(sid)):
             _render_layer_row(sid, lid, i)
 
+        pts = st.session_state.get(f"snd{sid}_points")
+        if pts:
+            st.download_button(
+                "⬇️ Exporter les mesures brutes en CSV",
+                data=SI.vers_csv({"nom": _sounding_name(sid), "points": pts}).encode("utf-8"),
+                file_name=f"{_sounding_name(sid)}_mesures.csv", mime="text/csv",
+                use_container_width=True, key=f"rs_dlpts_{sid}")
+
 
 # =============================================================
-#  UI : IMPORT PDF PAR IA
+#  GRAPHIQUES
 # =============================================================
-def _render_pdf_import():
-    with st.expander("📥 Importer un rapport d'essais (PDF) — extraction par IA", expanded=False):
-        st.caption("Téléverse un rapport de sondages (CPT, forages). L'IA lit le document, "
-                   "découpe le profil en couches et crée un sondage par essai. "
-                   "**Tout reste modifiable : les valeurs proposées doivent être vérifiées "
-                   "par l'ingénieur avant usage.**")
-        api_key = _get_api_key()
-        if not api_key:
-            st.text_input("Clé API Anthropic (ou à placer dans st.secrets['ANTHROPIC_API_KEY'])",
-                          type="password", key="ai_api_key")
-            api_key = _get_api_key()
-        up = st.file_uploader("Rapport PDF", type=["pdf"], key="ai_pdf_upload")
-        if up is not None and st.button("🤖 Analyser et importer", key="btn_ai_import",
-                                        disabled=not api_key, use_container_width=True,
-                                        help=None if api_key else "Clé API requise"):
-            try:
-                with st.spinner("Analyse du rapport par l'IA…"):
-                    sondages = _extract_soundings_from_pdf(up.getvalue(), api_key)
-                created = _import_ai_soundings(sondages)
-                st.success(f"Importé : {', '.join(created)}. Vérifie les couches, "
-                           "les types mappés et les E proposés avant tout calcul.")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Import impossible : {e}")
+def _fig_diffusion(couches, res, B, L, q, D, nappe, titre=""):
+    """
+    LE graphique : profil de sol, diffusion de la contrainte sous la
+    fondation, contrainte en place, critère d'arrêt et profondeur
+    d'influence. Il montre « comment ça bouge » avec la profondeur.
+    """
+    if not _HAS_MPL:
+        return None
+    tr = res.get("tranches") or []
+    z_max = max(res.get("z_influence", 1.0) * 1.35, 1.0)
+
+    fig, (axp, axs) = plt.subplots(
+        1, 2, figsize=(9.2, 5.4), gridspec_kw={"width_ratios": [1, 2.1]}, sharey=True)
+
+    # ---- panneau gauche : colonnes de sol ----
+    cum = 0.0
+    cmap = plt.get_cmap("YlOrBr")
+    Ms = [c.get("M") for c in couches if c.get("M")]
+    Mlo, Mhi = (min(Ms), max(Ms)) if Ms else (1.0, 100.0)
+    for c in couches:
+        h = c.get("h", 0.0)
+        if h <= 0:
+            continue
+        z0, z1 = cum, cum + h
+        cum = z1
+        z0r, z1r = z0 - D, z1 - D
+        if z1r <= 0 or z0r >= z_max:
+            continue
+        z0r, z1r = max(z0r, -D), min(z1r, z_max)
+        M = c.get("M") or 0.0
+        if M > 0 and Mhi > Mlo:
+            t = (math.log10(max(M, .1)) - math.log10(max(Mlo, .1))) / \
+                (math.log10(max(Mhi, .1)) - math.log10(max(Mlo, .1)) or 1)
+        else:
+            t = 0.0
+        axp.axhspan(z0r, z1r, color=cmap(0.18 + 0.6 * min(max(t, 0), 1)),
+                    ec="black", lw=0.7)
+        if z1r - z0r > z_max * 0.05:
+            axp.text(0.5, (z0r + z1r) / 2,
+                     f"{(c.get('nom') or '—')[:22]}\nM = {M:.0f} MPa" if M else
+                     f"{(c.get('nom') or '—')[:22]}\n⚠ M manquant",
+                     ha="center", va="center", fontsize=7)
+    axp.axhline(0, color="#111", lw=2.2)
+    axp.text(0.5, -D * 0.5 if D > 0 else -0.02, "assise", ha="center", va="center",
+             fontsize=8, color="#111",
+             bbox=dict(fc="white", ec="none", alpha=.75, pad=1.5))
+    if nappe is not None:
+        zn = nappe - D
+        if -D <= zn <= z_max:
+            axp.axhline(zn, color="#2563eb", lw=1.3, ls=(0, (5, 3)))
+            axp.text(0.02, zn, " nappe", color="#2563eb", fontsize=7.5, va="bottom")
+    axp.set_xlim(0, 1)
+    axp.set_xticks([])
+    axp.set_ylabel("Profondeur sous l'assise [m]")
+    axp.set_title("Profil", fontsize=10)
+
+    # ---- panneau droit : contraintes ----
+    if tr:
+        zs = [t["z_sous_assise"] for t in tr]
+        ds = [t["delta_sigma"] for t in tr]
+        sv = [t["sigma_v0_eff"] for t in tr]
+        crit = res.get("critere_pct", 20) / 100.0
+        axs.fill_betweenx(zs, 0, ds, color="#b91c1c", alpha=.16,
+                          label="Δσ mobilisée (comprime le sol)")
+        axs.plot(ds, zs, color="#b91c1c", lw=2.1, label="Δσ apportée par la fondation")
+        axs.plot(sv, zs, color="#334155", lw=1.3, ls="--", label="σ'v0 en place")
+        axs.plot([c * crit for c in sv], zs, color="#059669", lw=1.3, ls=":",
+                 label=f"critère d'arrêt : {crit:.0%} · σ'v0")
+    zi = res.get("z_influence", 0.0)
+    # L'étiquette doit dire POURQUOI on s'est arrêté : « profondeur
+    # d'influence » n'est vrai que si le critère a réellement été atteint.
+    # Un profil trop court tronque le tassement et SURESTIME k.
+    tronque = "épuisé" in str(res.get("convergence", "")) or \
+              "plafond" in str(res.get("convergence", ""))
+    coul = "#b45309" if tronque else "#059669"
+    fond = "#fffbeb" if tronque else "#ecfdf5"
+    lib = (f" profil interrompu à {zi:.2f} m — k surestimé "
+           if tronque else f" profondeur d'influence  {zi:.2f} m ")
+    axs.axhline(zi, color=coul, lw=1.6, ls="--" if tronque else "-")
+    axs.text(axs.get_xlim()[1] * .98, zi, lib,
+             ha="right", va="bottom", fontsize=8.5, color=coul,
+             bbox=dict(fc=fond, ec=coul, lw=.7, pad=2))
+    axs.axhline(0, color="#111", lw=2.2)
+    axs.set_xlabel("Contrainte [kPa]")
+    axs.set_title(titre or "Diffusion de la contrainte sous la fondation", fontsize=10)
+    axs.grid(alpha=.25)
+    axs.legend(fontsize=7.5, loc="lower right", framealpha=.92)
+    axs.set_ylim(z_max, -D if D > 0 else -0.05)
+    fig.tight_layout()
+    return fig
+
+
+def _fig_k_vs_B(couches_bas, couches_haut, B, L, q, D, nappe, critere):
+    if not _HAS_MPL:
+        return None
+    ratio = (L / B) if B > 0 else 1.0
+    Bs, kb, kh = [], [], []
+    for i in range(18):
+        b = max(0.5, B * (0.25 + i * 0.15))
+        Bs.append(b)
+        rb = ST.tassement(couches_bas, b, b * ratio, q, D=D, nappe_m=nappe,
+                          critere=critere, dz=0.10)
+        rh = ST.tassement(couches_haut, b, b * ratio, q, D=D, nappe_m=nappe,
+                          critere=critere, dz=0.10)
+        kb.append(rb["k_MNm3"]); kh.append(rh["k_MNm3"])
+    fig, ax = plt.subplots(figsize=(6.0, 3.4))
+    ax.fill_between(Bs, kb, kh, color="#7c3aed", alpha=.16, label="encadrement")
+    ax.plot(Bs, kb, color="#7c3aed", lw=1.6)
+    ax.plot(Bs, kh, color="#7c3aed", lw=1.6, ls="--")
+    ax.axvline(B, color="#94a3b8", ls="--", lw=1)
+    ax.set_xlabel("Largeur de fondation B [m]")
+    ax.set_ylabel("k [MN/m³]")
+    ax.set_title("k n'est pas une propriété du sol : il dépend de la fondation",
+                 fontsize=9.5)
+    ax.grid(alpha=.3)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+    return fig
+
+
+def _fig_cpt(pts, couches, nappe=None):
+    if not _HAS_MPL or not pts:
+        return None
+    z = [p[0] for p in pts]
+    qc = [p[1] for p in pts]
+    fs = [p[2] for p in pts if p[2] is not None]
+    n = 2 if fs else 1
+    fig, axes = plt.subplots(1, n + 1, figsize=(3.1 * (n + 1), 5.6), sharey=True)
+    if n + 1 == 2:
+        axes = list(axes)
+    ax0 = axes[0]
+    ax0.plot(qc, z, color="#1d4ed8", lw=.8)
+    ax0.set_xlabel("qc [MPa]"); ax0.set_ylabel("Profondeur [m]")
+    ax0.grid(alpha=.3)
+    i = 1
+    if fs:
+        axf = axes[1]
+        axf.plot([p[2] for p in pts if p[2] is not None],
+                 [p[0] for p in pts if p[2] is not None], color="#b45309", lw=.8)
+        axf.set_xlabel("fs [kPa]"); axf.grid(alpha=.3)
+        i = 2
+    axi = axes[i]
+    zi = [c["z1"] for c in couches]
+    Ici = [c["Ic"] for c in couches]
+    for c in couches:
+        if c["Ic"] is not None:
+            axi.plot([c["Ic"], c["Ic"]], [c["z0"], c["z1"]], lw=3, color="#0f766e")
+    for b, _, lab in ST.SBT_ZONES[:-1]:
+        axi.axvline(b, color="#94a3b8", lw=.6, ls=":")
+    axi.set_xlabel("Ic (Robertson)"); axi.grid(alpha=.3)
+    axi.set_xlim(1.0, 4.0)
+    for ax in axes:
+        if nappe is not None:
+            ax.axhline(nappe, color="#2563eb", lw=1.1, ls=(0, (5, 3)))
+    ax0.set_ylim(max(z), 0)
+    fig.tight_layout()
+    return fig
+
+
+def _fig_bytes(fig):
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return buf.getvalue()
+
+
+# =============================================================
+#  RAPPORT PDF
+# =============================================================
+def _rapport_pdf(projet, resultats, params, images=None):
+    if not _HAS_REPORTLAB:
+        raise RuntimeError("reportlab n'est pas installé.")
+    styles = getSampleStyleSheet()
+    H1 = ParagraphStyle("H1", parent=styles["Heading1"], fontSize=14, spaceAfter=4)
+    H2 = ParagraphStyle("H2", parent=styles["Heading2"], fontSize=11, spaceBefore=9,
+                        spaceAfter=3, textColor=_rl.HexColor("#1f2937"))
+    BODY = ParagraphStyle("BODY", parent=styles["Normal"], fontSize=9.2, leading=12.5)
+    SMALL = ParagraphStyle("SMALL", parent=BODY, fontSize=7.8,
+                           textColor=_rl.HexColor("#475569"))
+    CELL = ParagraphStyle("CELL", parent=BODY, fontSize=8.2, leading=10.2)
+    CELLB = ParagraphStyle("CELLB", parent=CELL, fontName="Helvetica-Bold")
+
+    def P(t, b=False):
+        return Paragraph(str(t), CELLB if b else CELL)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=16 * mm, rightMargin=16 * mm,
+                            topMargin=14 * mm, bottomMargin=13 * mm,
+                            title="Note de calcul — Raideur élastique du sol")
+    S = []
+    S.append(Paragraph("Note de calcul — Coefficient de réaction du sol", H1))
+    meta = []
+    if projet.get("nom"):
+        meta.append(f"Projet : <b>{projet['nom']}</b>")
+    meta.append(f"Date : {projet.get('date')}")
+    meta.append(f"Module rigidite_sol {VERSION}")
+    S.append(Paragraph(" — ".join(meta), SMALL))
+    S.append(Spacer(1, 5))
+
+    S.append(Paragraph("1. Méthode", H2))
+    S.append(Paragraph(
+        "Le sol est représenté par des ressorts verticaux (Winkler) : q = k·w. Le "
+        "coefficient de réaction n'est pas une propriété mesurable du sol — c'est le "
+        "rapport entre la pression appliquée et le tassement qui en résulte. Il est donc "
+        "obtenu en calculant d'abord le tassement.<br/><br/>"
+        "<b>a.</b> La contrainte apportée par la fondation est diffusée dans le massif "
+        "par la solution de Boussinesq, intégrée sur le rectangle chargé "
+        "(facteur d'influence de Newmark) : Δσ(z) = q<sub>net</sub> · I(z).<br/>"
+        "<b>b.</b> Le tassement est la somme des compressions de tranches : "
+        "w = Σ Δσ<sub>i</sub>·h<sub>i</sub>/M<sub>i</sub>, où M est le module "
+        "OEDOMÉTRIQUE de la couche.<br/>"
+        "<b>c.</b> Le coefficient vaut k = q<sub>net</sub>/w.<br/>"
+        "<b>d.</b> La profondeur d'influence n'est pas fixée a priori : l'intégration "
+        "s'arrête lorsque la contrainte apportée devient négligeable devant la contrainte "
+        "en place, Δσ ≤ " + f"{params['critere']:.0%}" + " · σ'<sub>v0</sub>.", BODY))
+    S.append(Paragraph(
+        "Les modules sont issus des essais lorsqu'ils y figurent ; à défaut ils sont "
+        "déduits du CPT par l'indice de comportement I<sub>c</sub> (Robertson) et "
+        "encadrés, les corrélations divergeant d'un facteur 2 à 4 selon les auteurs. "
+        "Les deux bornes sont reportées : la structure doit être vérifiée aux deux.", BODY))
+
+    S.append(Paragraph("2. Hypothèses de la fondation", H2))
+    d = [[P("Grandeur", True), P("Valeur", True), P("Grandeur", True), P("Valeur", True)],
+         [P("Largeur B"), P(f"{params['B']:.2f} m"),
+          P("Longueur L"), P(f"{params['L']:.2f} m")],
+         [P("Pression de contact q"), P(f"{params['q']:.0f} kPa"),
+          P("Niveau d'assise D"), P(f"{params['D']:.2f} m")],
+         [P("Nappe"), P("—" if params.get("nappe") is None else f"{params['nappe']:.2f} m"),
+          P("Pression nette"), P(f"{params.get('q_net', 0):.0f} kPa")]]
+    t = Table(d, colWidths=[38 * mm, 30 * mm, 38 * mm, 30 * mm])
+    t.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), .4, _rl.HexColor("#94a3b8")),
+                           ("BACKGROUND", (0, 0), (-1, 0), _rl.HexColor("#eef2f7")),
+                           ("TOPPADDING", (0, 0), (-1, -1), 2),
+                           ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+    S.append(t)
+
+    for r in resultats:
+        S.append(Paragraph(f"3. Sondage {r['nom']}", H2))
+        data = [[P("N°", True), P("h [m]", True), P("Nature", True), P("γ", True),
+                 P("M bas", True), P("M haut", True)]]
+        for i, c in enumerate(r["couches"], 1):
+            data.append([P(i), P(f"{c['h']:.2f}"), P(c.get("nom", "—")),
+                         P(f"{c.get('gamma', 19):.1f}"),
+                         P("—" if not c.get("M") else f"{c['M']:.0f}"),
+                         P("—" if not c.get("M_haut") else f"{c['M_haut']:.0f}")])
+        tt = Table(data, colWidths=[10 * mm, 16 * mm, 76 * mm, 16 * mm, 20 * mm, 20 * mm])
+        tt.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), .4, _rl.HexColor("#94a3b8")),
+                                ("BACKGROUND", (0, 0), (-1, 0), _rl.HexColor("#eef2f7")),
+                                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                                ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+        S.append(tt)
+        S.append(Spacer(1, 4))
+        S.append(Paragraph(
+            f"Tassement calculé : <b>{r['w_bas']:.1f} à {r['w_haut']:.1f} mm</b> — "
+            f"profondeur d'influence : <b>{r['z_infl']:.2f} m</b> sous l'assise — "
+            f"coefficient de réaction au centre : "
+            f"<b>k = {r['k_bas']:.2f} à {r['k_haut']:.2f} MN/m³</b>.", BODY))
+
+        zr = [[P("Position", True), P("k bas [MN/m³]", True), P("k haut [MN/m³]", True),
+               P("k bas [kN/m³]", True), P("k haut [kN/m³]", True)]]
+        for pos, lab in ST.POSITIONS.items():
+            z = r["zones"][pos]
+            zr.append([P(lab), P(f"{z['k_bas_MNm3']:.2f}"), P(f"{z['k_haut_MNm3']:.2f}"),
+                       P(f"{z['k_bas_MNm3']*1000:,.0f}".replace(",", " ")),
+                       P(f"{z['k_haut_MNm3']*1000:,.0f}".replace(",", " "))])
+        tz = Table(zr, colWidths=[46 * mm, 28 * mm, 28 * mm, 28 * mm, 28 * mm])
+        tz.setStyle(TableStyle([("GRID", (0, 0), (-1, -1), .4, _rl.HexColor("#94a3b8")),
+                                ("BACKGROUND", (0, 0), (-1, 0), _rl.HexColor("#eef2f7")),
+                                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                                ("BOTTOMPADDING", (0, 0), (-1, -1), 2)]))
+        S.append(Spacer(1, 4))
+        S.append(tz)
+        S.append(Paragraph(
+            "Le centre tasse davantage que les bords : k y est plus faible. Cette "
+            "variation reproduit ce que produit un calcul itératif sol-structure et "
+            "peut être encodée comme plusieurs zones de sol sous une même dalle.", SMALL))
+        img = (images or {}).get(r["nom"])
+        if img:
+            S.append(Spacer(1, 5))
+            S.append(RLImage(io.BytesIO(img), width=168 * mm, height=98 * mm))
+
+    S.append(Paragraph("4. Références et limites", H2))
+    S.append(Paragraph(
+        "• NBN EN 1997-1 (Eurocode 7) et son ANB — calcul géotechnique. Le coefficient "
+        "de réaction n'est pas un paramètre de résistance et ne fait l'objet d'aucun "
+        "facteur partiel : l'encadrement remplace le coefficient de sécurité.<br/>"
+        "• ISO 22476-1 — essais de pénétration statique (CPT).<br/>"
+        "• Boussinesq (1885) ; Newmark (1935) pour l'intégration sur un rectangle.<br/>"
+        "• Robertson (1990, 2009) — indice de comportement I<sub>c</sub> et corrélations "
+        "vers le module oedométrique.<br/>"
+        "• Terzaghi (1955) — correction de taille des coefficients mesurés à la plaque.<br/>"
+        "• Le modèle de Winkler ignore le couplage entre ressorts et surestime les "
+        "réactions en rive. Les valeurs de ce document relèvent du pré-dimensionnement "
+        "et doivent être confrontées au rapport géotechnique du projet.", BODY))
+    doc.build(S)
+    return buf.getvalue()
 
 
 # =============================================================
@@ -1182,583 +941,569 @@ def show():
 
     st.markdown(
         "<style>.katex-display{text-align:left!important;margin:.2rem 0!important;}"
-        ".katex-display>.katex{text-align:left!important;}"
         ".memo-chip{display:inline-block;padding:2px 8px;border-radius:999px;"
         "background:#eef2ff;color:#3730a3;font-size:.8rem;}"
-        ".small{color:#64748b;font-size:.9rem;}</style>",
-        unsafe_allow_html=True,
-    )
+        ".small{color:#64748b;font-size:.9rem;}</style>", unsafe_allow_html=True)
 
-    # ---------- Barre du haut ----------
     cols = st.columns([1, 1, 1, 1, 1, 1])
     with cols[0]:
         if st.button("🏠 Accueil", use_container_width=True, key="rs_home"):
             st.session_state.page = "Accueil"
             st.rerun()
     with cols[1]:
-        if st.button("🧹 Réinitialiser", use_container_width=True, key="rs_reset"):
-            keep = {"press_unit", "module_unit", "detail_calc", "adv_open", "page",
-                    "abaque_w", "ai_api_key"}
-            for k in list(st.session_state.keys()):
-                if k not in keep:
-                    st.session_state.pop(k, None)
-            st.rerun()
+        if st.button("🧹 Réinitialiser", use_container_width=True, key="rs_reset",
+                     help="Ne réinitialise QUE ce module : les poutres et les dalles "
+                          "des autres modules sont conservées."):
+            _reset_module()
     with cols[2]:
-        st.button("💾 Enregistrer", use_container_width=True, disabled=True,
-                  help="À connecter au système JSON")
+        st.download_button("💾 Enregistrer", data=json.dumps(
+            _payload(), indent=2, ensure_ascii=False).encode("utf-8"),
+            file_name="raideur_sol.json", mime="application/json",
+            use_container_width=True, key="rs_save")
     with cols[3]:
-        st.button("📂 Ouvrir", use_container_width=True, disabled=True,
-                  help="Lecture de fichiers à venir")
+        if st.button("📂 Ouvrir", use_container_width=True, key="rs_open_t"):
+            st.session_state["rs_show_open"] = not st.session_state.get("rs_show_open", False)
     with cols[4]:
-        st.button("📝 Générer PDF", use_container_width=True, disabled=True,
-                  help="Rapport sols : bouton dans le panneau SCIA du Cas 2")
+        st.markdown("<div style='padding-top:8px;text-align:center;color:#64748b;"
+                    "font-size:.85rem;'>sans IA · sans clé API</div>",
+                    unsafe_allow_html=True)
     with cols[5]:
         st.markdown(f"<div style='text-align:right;padding-top:10px;'>"
-                    f"<span class='memo-chip'>{VERSION}</span></div>", unsafe_allow_html=True)
+                    f"<span class='memo-chip'>{VERSION}</span></div>",
+                    unsafe_allow_html=True)
+
+    if st.session_state.get("rs_show_open"):
+        up = st.file_uploader("Fichier JSON", type=["json"], key="rs_open_up",
+                              label_visibility="collapsed")
+        if up is not None:
+            try:
+                _charger(json.load(up))
+                st.session_state["rs_show_open"] = False
+                st.rerun()
+            except Exception as e:
+                st.error(f"Fichier invalide : {e}")
 
     st.divider()
     st.markdown("# Raideur élastique des sols")
-    st.markdown("<span class='small'>Pré-dimensionnement — sols modélisés par des ressorts "
-                "verticaux (modèle de Winkler).</span>", unsafe_allow_html=True)
+    st.markdown("<span class='small'>Coefficient de réaction de Winkler obtenu par "
+                "calcul du tassement — diffusion de Boussinesq, module oedométrique, "
+                "profondeur d'influence calculée.</span>", unsafe_allow_html=True)
 
-    with st.expander("📘 Fiche mémo (k, unités et modèle de Winkler)", expanded=False):
-        st.markdown(
-            r"""
-- **Winkler** : $q = k \cdot w \Rightarrow k = q/w$.
-- **Unités** : $q$ en kPa = kN/m² · $w$ en m · $k$ en kN/m³ ou MN/m³ (1 MN/m³ = 1000 kN/m³).
-- **Ressorts en série** (colonne de sol) : $1/k_{serie} = \sum_i h_i/E_i$ — modèle à privilégier pour
-  exporter $k$ vers un logiciel de dalle sur sol élastique (SCIA...) quand le profil est connu.
-- **Profondeur d'influence** : limiter le profil à $\approx 2 \cdot B$ sous l'assise — sommer tout un
-  sondage de 30 m donne un k artificiellement faible.
-- **Semelle sur massif semi-infini** (Boussinesq, ordre de grandeur) : $k \approx E/[B(1-\nu^2)]$.
-  Ces deux modèles répondent à des questions différentes et **ne se chaînent pas**.
-- **Rocher (schiste, calcaire, craie saine, grès)** : le CPT est en général en **refus de pointe** —
-  utiliser une plage de $E$ issue du degré d'altération (RQD/GSI/pressiomètre), jamais qc→E.
-- Valeurs à valider par l'**EN 1997 (Eurocode 7)** et le rapport géotechnique.
-            """
-        )
+    with st.expander("📘 Fiche mémo — ce que k est, et ce qu'il n'est pas", expanded=False):
+        st.markdown(r"""
+- **Winkler** : $q = k\,w \Rightarrow k = q/w$. Unités : $q$ en kPa, $w$ en m, $k$ en kN/m³
+  (1 MN/m³ = 1000 kN/m³).
+- **k n'est pas une propriété du sol.** Sur un même terrain, il varie d'un facteur 5 à 10
+  entre une semelle isolée et un grand radier. Il faut donc le calculer POUR une fondation
+  donnée — c'est pourquoi la géométrie est demandée ci-contre.
+- **Méthode** : $\Delta\sigma(z) = q_{net}\,I(z)$ (Boussinesq/Newmark), puis
+  $w = \sum \Delta\sigma_i h_i / M_i$, puis $k = q_{net}/w$.
+- **M est le module OEDOMÉTRIQUE**, pas le module de Young :
+  $M = E\,(1-\nu)/[(1+\nu)(1-2\nu)] \approx 1{,}35\,E$ pour $\nu = 0{,}30$.
+- **Profondeur d'influence** : elle se calcule ($\Delta\sigma \le 20\,\% \cdot \sigma'_{v0}$),
+  elle ne se décrète pas à $2B$. Sous un radier de 20 m, $2B = 40$ m n'a aucun sens.
+- **Un k trop faible n'est pas « du côté de la sécurité »** : il étale la charge, augmente
+  les tassements calculés mais diminue souvent les moments de pointe sous poteaux.
+  D'où l'encadrement systématique, à passer dans les deux bornes.
+- **Rocher** : le CPT est en refus de pointe — caractériser par RQD/pressiomètre, jamais
+  par une corrélation sur qc.
+        """)
 
-    col_left, col_right = st.columns(2)
+    mode = st.selectbox(
+        "Que veux-tu faire ?",
+        ("1. Sondage CPT (import de fichier)",
+         "2. Profil de sol saisi à la main",
+         "3. Vérification rapide k = q / w",
+         "4. Comparer les théories",
+         "5. Abaque des sols",
+         "6. Raideur d'un plat en béton"),
+        key="rs_mode")
+
+    gauche, droite = st.columns([1, 1.15])
 
     # =========================================================
-    #  COLONNE GAUCHE — entrées
+    #  ENTRÉES
     # =========================================================
-    with col_left:
-        st.markdown("### Informations et entrées")
+    with gauche:
+        st.markdown("### Entrées")
 
-        st.session_state.adv_open = st.checkbox("⚙️ Configuration avancée (unités)",
-                                                value=st.session_state.adv_open)
-        if st.session_state.adv_open:
-            c1, c2 = st.columns(2)
-            with c1:
-                old = st.session_state.press_unit
-                new = st.selectbox("Pressions / contraintes", ["kPa", "MPa", "kg/cm²"],
-                                   index=["kPa", "MPa", "kg/cm²"].index(old))
-                if new != old:
-                    for kk in ("solo_q", "solo_qad"):
-                        if kk in st.session_state:
-                            st.session_state[kk] = from_kPa(to_kPa(st.session_state[kk], old), new)
-                    st.session_state.press_unit = new
-            with c2:
-                oldm = st.session_state.module_unit
-                newm = st.selectbox("Modules E", ["MPa", "GPa"], index=0 if oldm == "MPa" else 1)
-                if newm != oldm and "solo_E" in st.session_state:
-                    st.session_state.solo_E *= (0.001 if newm == "GPa" else 1000.0)
-                st.session_state.module_unit = newm
+        if mode.startswith(("1.", "2.")):
+            with st.container(border=True):
+                st.markdown("#### Fondation")
+                st.caption("k dépend de la fondation : sans elle, le calcul n'a pas de sens.")
+                f1, f2, f3 = st.columns(3)
+                with f1:
+                    st.number_input("Largeur B [m]", min_value=0.2, step=0.1, key="rs_B",
+                                    help="Petit côté de la zone chargée.")
+                with f2:
+                    st.number_input("Longueur L [m]", min_value=0.2, step=0.1, key="rs_L")
+                with f3:
+                    st.number_input("Assise D [m]", min_value=0.0, step=0.25, key="rs_D",
+                                    help="Profondeur du dessous de fondation sous le "
+                                         "terrain naturel. Les couches au-dessus sont "
+                                         "automatiquement écartées du calcul.")
+                g1, g2 = st.columns(2)
+                with g1:
+                    st.number_input("Pression q [kPa]", min_value=1.0, step=10.0, key="rs_q",
+                                    help="Pression de contact à l'ELS sous la fondation.")
+                with g2:
+                    st.checkbox("Nappe", key="rs_nappe_active")
+                    if st.session_state.rs_nappe_active:
+                        st.number_input("Nappe [m sous TN]", min_value=0.0, step=0.5,
+                                        key="rs_nappe", label_visibility="collapsed")
 
-        cas = st.selectbox(
-            "Quel cas souhaitez-vous traiter ?",
-            ("1. Raideur d'un sol (q, w)",
-             "2. Modélisation de sondages (multicouche / import PDF)",
-             "3. Raideur d'un sol – formule empirique (CPT)",
-             "4. Raideur d'un plat en béton",
-             "5. Convertisseur k ↔ E ↔ (q, w)",
-             "6. Abaque sols"),
-            index=0,
-        )
+                with st.expander("Options de calcul", expanded=False):
+                    o1, o2 = st.columns(2)
+                    with o1:
+                        st.select_slider(
+                            "Critère de profondeur d'influence",
+                            options=[10, 15, 20, 25, 30], key="rs_critere",
+                            format_func=lambda v: f"Δσ ≤ {v} % · σ'v0",
+                            help="20 % est l'usage courant ; 10 % est plus strict et "
+                                 "descend plus profond (k plus faible).")
+                    with o2:
+                        st.number_input("ν (Poisson)", min_value=0.0, max_value=0.49,
+                                        step=0.01, key="rs_nu",
+                                        help="Sert à convertir E ↔ M et aux théories "
+                                             "de comparaison.")
+                    st.checkbox(
+                        "Utiliser la pression NETTE (q − poids des terres excavées)",
+                        key="rs_q_net",
+                        help="Usage normal en fondation : le sol a déjà supporté le "
+                             "poids des terres retirées.")
 
-        pu = st.session_state.press_unit
-
-        if cas.startswith("1."):
-            st.markdown("**Raideur à partir d'un couple (q, w)**")
-            st.caption("On connaît une pression de service q et un tassement w : k = q / w.")
-            st.markdown("<span class='memo-chip'>Typiquement : q à l'ELS, w = 20 mm → k pour "
-                        "SCIA / RDM.</span>", unsafe_allow_html=True)
-            c1, c2 = st.columns(2)
-            with c1:
-                st.session_state.solo_q = st.number_input(
-                    f"q (pression au sol) [{pu}]", min_value=0.0,
-                    value=float(st.session_state.get("solo_q", 60.0)), step=5.0)
-            with c2:
-                st.session_state.solo_w = st.number_input(
-                    "w (tassement) [mm]", min_value=0.001,
-                    value=float(st.session_state.get("solo_w", 20.0)), step=5.0)
-
-        elif cas.startswith("2."):
-            st.markdown("**Modélisation de sondages (multicouche / import PDF)**")
-            st.caption("Un sondage = un profil de couches saisi À PARTIR du niveau d'assise. "
-                       "Calcul par sondage en ressorts en série : 1/k = Σ(hᵢ/Eᵢ).")
-            st.text_input("Nom du projet (pour le rapport PDF)", key="projet_nom")
-
-            _render_pdf_import()
-
-            c1, c2, c3 = st.columns([1.2, 1.0, 1.6], vertical_alignment="bottom")
-            with c1:
-                st.number_input("Largeur caractéristique B [m]", min_value=0.1, step=0.1,
-                                key="multi_B",
-                                help="Largeur de la zone chargée (semelle, bande de dalle). "
-                                     "Sert à la profondeur d'influence (2·B) et au modèle "
-                                     "de comparaison Boussinesq.")
-            with c2:
-                st.number_input("ν (Poisson)", min_value=0.0, max_value=0.49, step=0.01,
-                                key="multi_nu", help="Uniquement pour la comparaison Boussinesq.")
-            with c3:
-                st.checkbox("Limiter le profil à la profondeur d'influence (2·B)",
-                            key="use_influence",
-                            help="Écrête automatiquement le profil à H = 2·B sous l'assise. "
-                                 "Fortement recommandé : sommer tout un sondage profond donne "
-                                 "un k artificiellement faible.")
-
+        if mode.startswith("1."):
+            st.text_input("Nom du projet", key="rs_projet")
             st.markdown("#### Sondages")
-            for s in st.session_state.soundings:
-                _render_sounding_block(int(s["id"]))
+            for s in list(st.session_state.soundings):
+                _render_sounding(int(s["id"]))
 
-        elif cas.startswith("3."):
-            st.markdown("**Raideur d'un sol – formule empirique (CPT)**")
-            st.caption("Basée sur une valeur de qc : E = α_E (qₜ − σ'ᵥ₀), puis k ≈ E/[B(1−ν²)]. "
-                       "Sol supposé homogène.")
+        elif mode.startswith("2."):
+            st.text_input("Nom du projet", key="rs_projet")
+            st.markdown("#### Profil")
+            st.caption("Saisis les couches depuis le terrain naturel, avec leur module "
+                       "OEDOMÉTRIQUE M. Choisir un type de sol préremplit les valeurs.")
+            for s in list(st.session_state.soundings):
+                _render_sounding(int(s["id"]))
+
+        elif mode.startswith("3."):
+            st.markdown("**k à partir d'un couple (q, w)**")
+            st.caption("Si tu disposes déjà d'un tassement calculé par le géotechnicien.")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.number_input("q [kPa]", min_value=0.0, step=5.0, value=150.0, key="rs3_q")
+            with c2:
+                st.number_input("w [mm]", min_value=0.01, step=1.0, value=20.0, key="rs3_w")
+
+        elif mode.startswith("4."):
+            st.markdown("**Comparaison des théories**")
+            st.caption("Sol homogène. Sert à situer un ordre de grandeur, jamais à "
+                       "produire la valeur retenue.")
+            c1, c2 = st.columns(2)
+            with c1:
+                st.number_input("E [MPa]", min_value=0.5, step=5.0, value=25.0, key="rs4_E")
+                st.number_input("B [m]", min_value=0.2, step=0.5, value=2.0, key="rs4_B")
+            with c2:
+                st.number_input("L [m]", min_value=0.2, step=0.5, value=2.0, key="rs4_L")
+                st.number_input("ν", min_value=0.0, max_value=0.49, step=0.01,
+                                value=0.30, key="rs4_nu")
+
+        elif mode.startswith("5."):
+            st.markdown("**Abaque des sols**")
+            st.caption("Les coefficients tabulés sont des valeurs mesurées à la PLAQUE "
+                       "de 0,30 m. La correction de taille de Terzaghi est appliquée "
+                       "ci-contre pour la largeur choisie.")
+            st.number_input("Largeur de fondation B [m]", min_value=0.3, step=0.5,
+                            value=2.0, key="rs5_B")
+            st.number_input("Tassement de référence [mm]", min_value=1.0, max_value=100.0,
+                            step=5.0, key="rs_w_ref")
+
+        else:
+            st.markdown("**Raideur d'un plat en béton**")
+            st.caption("Contact assimilé à une compression 1D : k = E/h_c.")
             c1, c2, c3 = st.columns(3)
             with c1:
-                st.session_state.cpt_qt = st.number_input(
-                    "qₜ (pointe nette) [MPa]", min_value=0.0,
-                    value=float(st.session_state.get("cpt_qt", 5.0)), step=0.5)
+                st.number_input("B [mm]", min_value=20.0, step=10.0, value=200.0, key="rs6_B")
             with c2:
-                st.session_state.cpt_sv0 = st.number_input(
-                    "σ'ᵥ₀ (contrainte eff.) [kPa]", min_value=0.0,
-                    value=float(st.session_state.get("cpt_sv0", 100.0)), step=10.0)
+                st.number_input("L [mm]", min_value=20.0, step=10.0, value=200.0, key="rs6_L")
             with c3:
-                st.session_state.cpt_alphaE = st.number_input(
-                    "α_E (CPT → E)", min_value=0.1,
-                    value=float(st.session_state.get("cpt_alphaE", 2.5)), step=0.1)
+                st.number_input("α (h_c = α·min(B,L))", min_value=0.05, step=0.05,
+                                value=0.5, key="rs6_a")
             c4, c5 = st.columns(2)
             with c4:
-                st.session_state.cpt_B = st.number_input(
-                    "B (largeur) [m]", min_value=0.1,
-                    value=float(st.session_state.get("cpt_B", 2.0)), step=0.1)
+                st.number_input("E béton [GPa]", min_value=5.0, step=1.0, value=30.0,
+                                key="rs6_E")
             with c5:
-                st.session_state.cpt_nu = st.number_input(
-                    "ν (Poisson)", min_value=0.0, max_value=0.49,
-                    value=float(st.session_state.get("cpt_nu", 0.30)), step=0.01)
-            st.caption("⚠️ Ne s'applique qu'aux sols meubles (le CPT est en refus sur du rocher).")
-
-        elif cas.startswith("4."):
-            st.markdown("**Raideur d'un plat en béton (contact plat / béton / grout)**")
-            st.caption("Contact assimilé à une compression 1D du béton (et du grout). "
-                       "Par défaut k = E/h.")
-            st.markdown("**Géométrie du plat**")
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.session_state.plate_B = st.number_input(
-                    "Largeur plat B [mm]", min_value=20.0,
-                    value=float(st.session_state.get("plate_B", 200.0)), step=10.0)
-            with c2:
-                st.session_state.plate_L = st.number_input(
-                    "Longueur plat L [mm]", min_value=20.0,
-                    value=float(st.session_state.get("plate_L", 200.0)), step=10.0)
-            with c3:
-                st.session_state.plate_alpha = st.number_input(
-                    "α (h_c = α·min(B,L))", min_value=0.05,
-                    value=float(st.session_state.get("plate_alpha", 0.5)), step=0.05)
-            st.markdown("**Béton support**")
-            c4, c5 = st.columns(2)
-            with c4:
-                st.session_state.plate_Ec = st.number_input(
-                    "E_c béton [GPa]", min_value=5.0,
-                    value=float(st.session_state.get("plate_Ec", 30.0)), step=1.0)
-            with c5:
-                st.session_state.plate_use_nu = st.checkbox(
-                    "Appliquer le facteur (1−ν²)",
-                    value=st.session_state.get("plate_use_nu", False),
-                    help="Valable pour un massif semi-infini, rarement justifié pour une "
-                         "couche mince confinée.")
-            if st.session_state.plate_use_nu:
-                st.session_state.plate_nu = st.number_input(
-                    "ν béton", min_value=0.0, max_value=0.49,
-                    value=float(st.session_state.get("plate_nu", 0.20)), step=0.01)
-            else:
-                st.session_state.plate_nu = st.session_state.get("plate_nu", 0.20)
-            st.markdown("**Lit de mortier / grout (optionnel)**")
-            st.session_state.plate_has_grout = st.checkbox(
-                "Présence d'un lit de mortier/grout",
-                value=st.session_state.get("plate_has_grout", False))
-            if st.session_state.plate_has_grout:
+                st.checkbox("Lit de mortier", key="rs6_grout")
+            if st.session_state.get("rs6_grout"):
                 c6, c7 = st.columns(2)
                 with c6:
-                    st.session_state.plate_tg = st.number_input(
-                        "Épaisseur grout t_g [mm]", min_value=1.0,
-                        value=float(st.session_state.get("plate_tg", 20.0)), step=1.0)
+                    st.number_input("Épaisseur [mm]", min_value=1.0, step=1.0, value=20.0,
+                                    key="rs6_tg")
                 with c7:
-                    st.session_state.plate_Eg = st.number_input(
-                        "E_g grout [GPa]", min_value=5.0,
-                        value=float(st.session_state.get("plate_Eg", 20.0)), step=1.0)
-            else:
-                st.session_state.plate_tg = st.session_state.get("plate_tg", 0.0)
-                st.session_state.plate_Eg = st.session_state.get("plate_Eg", 20.0)
-
-        elif cas.startswith("5."):
-            st.markdown("**Convertisseur k ↔ E ↔ (q, w)**")
-            st.caption("Choisis ce que tu connais ; l'outil déduit le reste.")
-            st.session_state.conv_mode = st.radio(
-                "Je connais…",
-                ["k → q (pour un tassement w)", "q, w → k", "E, B, ν → k (Boussinesq)"],
-                index=["k → q (pour un tassement w)", "q, w → k",
-                       "E, B, ν → k (Boussinesq)"].index(
-                    st.session_state.get("conv_mode", "q, w → k")),
-            )
-            m = st.session_state.conv_mode
-            if m.startswith("k →"):
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.session_state.conv_k = st.number_input(
-                        "k [MN/m³]", min_value=0.0,
-                        value=float(st.session_state.get("conv_k", 30.0)), step=1.0)
-                with c2:
-                    st.session_state.conv_w = st.number_input(
-                        "w (tassement) [mm]", min_value=0.001,
-                        value=float(st.session_state.get("conv_w", 20.0)), step=1.0)
-            elif m.startswith("q,"):
-                c1, c2 = st.columns(2)
-                with c1:
-                    st.session_state.conv_q = st.number_input(
-                        f"q [{pu}]", min_value=0.0,
-                        value=float(st.session_state.get("conv_q", 60.0)), step=5.0)
-                with c2:
-                    st.session_state.conv_w = st.number_input(
-                        "w [mm]", min_value=0.001,
-                        value=float(st.session_state.get("conv_w", 20.0)), step=1.0)
-            else:
-                c1, c2, c3 = st.columns(3)
-                with c1:
-                    st.session_state.conv_E = st.number_input(
-                        f"E [{st.session_state.module_unit}]", min_value=0.0,
-                        value=float(st.session_state.get("conv_E", 30.0)), step=5.0)
-                with c2:
-                    st.session_state.conv_B = st.number_input(
-                        "B [m]", min_value=0.1,
-                        value=float(st.session_state.get("conv_B", 2.0)), step=0.1)
-                with c3:
-                    st.session_state.conv_nu = st.number_input(
-                        "ν", min_value=0.0, max_value=0.49,
-                        value=float(st.session_state.get("conv_nu", 0.30)), step=0.01)
-
-        else:  # cas 6
-            st.markdown("**Abaque sols – valeurs indicatives**")
-            st.caption("Poids volumique γ, raideur k (MN/m³) et contrainte admissible qₐ "
-                       "(kg/cm²) pour un tassement de référence — basé sur la même base de "
-                       "données que le tableau multicouche. À confirmer par le géotechnicien.")
+                    st.number_input("E mortier [GPa]", min_value=1.0, step=1.0, value=20.0,
+                                    key="rs6_Eg")
 
     # =========================================================
-    #  COLONNE DROITE — résultats
+    #  RÉSULTATS
     # =========================================================
-    with col_right:
-        st.markdown("### Dimensionnement / Résultats")
-        st.session_state.detail_calc = st.checkbox(
-            "📘 Détail des calculs (formules + valeurs)", value=st.session_state.detail_calc)
-        detail = st.session_state.detail_calc
-        pu = st.session_state.press_unit
-        mu = st.session_state.module_unit
+    with droite:
+        st.markdown("### Résultats")
+        st.checkbox("📘 Détail des calculs", key="rs_detail")
 
-        # ---------- CAS 1 ----------
-        if cas.startswith("1."):
-            with st.container(border=True):
-                q_kPa = to_kPa(st.session_state.get("solo_q", 0.0), pu)
-                w_mm = st.session_state.get("solo_w", 20.0)
-                k_kN, k_MN, w_m = k_from_qw(q_kPa, w_mm)
-                _bloc("Raideur de Winkler", f"k = {k_MN:,.2f} MN/m³".replace(",", " "),
-                      "ok" if k_MN > 0 else "nok")
-                if detail and k_MN > 0:
-                    st.latex(r"k = \dfrac{q}{w}")
-                    st.latex(f"k = \\dfrac{{{q_kPa:,.1f}}}{{{w_m:,.3f}}} "
-                             f"= {k_kN:,.0f}\\,\\text{{kN/m³}} = {k_MN:,.2f}\\,\\text{{MN/m³}}")
-                    _param_table([
-                        ("q", "Pression de service",
-                         f"{st.session_state.get('solo_q', 0.0):,.2f}", pu),
-                        ("w", "Tassement", f"{w_mm:,.2f}", "mm"),
-                        ("k", "Raideur de sol", f"{k_MN:,.2f}", "MN/m³"),
-                    ])
-
-        # ---------- CAS 2 : MULTI-SONDAGES ----------
-        elif cas.startswith("2."):
-            B = float(st.session_state.get("multi_B", 2.0))
-            nu = float(st.session_state.get("multi_nu", 0.30))
-            use_infl = bool(st.session_state.get("use_influence", True))
-            H_lim = 2.0 * B if use_infl else None
-
-            results = []   # [{"sid","nom","assise","nappe","res"}]
-            for s in st.session_state.soundings:
-                sid = int(s["id"])
-                res = _compute_sounding_k(sid, H_lim=H_lim)
-                results.append({
-                    "sid": sid, "nom": _sounding_name(sid),
-                    "assise": float(st.session_state.get(f"snd{sid}_assise", 0.0) or 0.0),
-                    "nappe": st.session_state.get(f"snd{sid}_nappe"),
-                    "res": res,
-                })
-
-            # ---- Panneau SCIA (récapitulatif en tête) ----
-            with st.container(border=True):
-                st.markdown("#### 🎯 Raideurs à encoder dans SCIA (subsoil C)")
-                rec_rows = []
-                k_vals = []
-                for r in results:
-                    res = r["res"]
-                    if res["k_MN"] > 0:
-                        k_vals.append(res["k_MN"])
-                        rec_rows.append({"Sondage": r["nom"],
-                                         "k [MN/m³]": round(res["k_MN"], 2),
-                                         "k [kN/m³]": round(res["k_kN"])})
-                    else:
-                        rec_rows.append({"Sondage": r["nom"],
-                                         "k [MN/m³]": None, "k [kN/m³]": None})
-                st.dataframe(pd.DataFrame(rec_rows), use_container_width=True, hide_index=True)
-                if len(k_vals) >= 2:
-                    st.markdown(f"**Enveloppe : k = {min(k_vals):.2f} à {max(k_vals):.2f} MN/m³** "
-                                "— calculer la dalle avec les deux bornes (sensibilité), "
-                                "pas avec une valeur unique.")
-                elif len(k_vals) == 1:
-                    st.caption("Un seul sondage exploitable : pense à encadrer k avec les "
-                               "bornes basse/haute des E (onglet Sensibilité).")
-                if use_infl:
-                    st.caption(f"Profils limités à la profondeur d'influence H = 2·B = "
-                               f"{H_lim:.2f} m sous l'assise.")
-
-                # ---- Rapport PDF ----
-                if _HAS_REPORTLAB:
-                    if st.button("📄 Générer le rapport PDF sols", key="btn_soil_pdf",
-                                 use_container_width=True):
-                        try:
-                            pdf_bytes = build_soil_report_pdf(
-                                project={"nom": st.session_state.get("projet_nom", ""),
-                                         "date": date.today().strftime("%d/%m/%Y")},
-                                soundings_data=results, B=B,
-                                use_influence=use_infl, H_lim=H_lim,
-                                w_adm_mm=float(st.session_state.get("abaque_w", 20.0)),
-                            )
-                            st.session_state["soil_pdf_bytes"] = pdf_bytes
-                        except Exception as e:
-                            st.session_state.pop("soil_pdf_bytes", None)
-                            st.error(f"Erreur de génération du rapport : {e}")
-                    if st.session_state.get("soil_pdf_bytes"):
-                        nomp = re.sub(r"[^A-Za-z0-9]+", "_",
-                                      st.session_state.get("projet_nom", "") or "Projet")[:20]
-                        st.download_button(
-                            "⬇️ Télécharger le rapport",
-                            data=st.session_state["soil_pdf_bytes"],
-                            file_name=f"{nomp}_Raideur_sol_{date.today().strftime('%d-%m-%Y')}.pdf",
-                            mime="application/pdf", use_container_width=True,
-                            key="btn_soil_pdf_dl")
-                else:
-                    st.caption("Rapport PDF indisponible : installe reportlab "
-                               "(`pip install reportlab`).")
-
-            # ---- Détail par sondage ----
-            for r in results:
-                res = r["res"]
-                with st.expander(f"{'🟢' if res['k_MN'] > 0 else '🔴'} {r['nom']} — "
-                                 f"k = {res['k_MN']:.2f} MN/m³" if res["k_MN"] > 0
-                                 else f"🔴 {r['nom']} — profil incomplet", expanded=True):
-                    _bloc("Ressorts en série (colonne 1D)",
-                          f"k = {res['k_MN']:,.2f} MN/m³".replace(",", " "),
-                          "ok" if res["k_MN"] > 0 else "nok")
-                    if res["ignored"]:
-                        st.warning(f"⚠️ Couche(s) {', '.join(map(str, res['ignored']))} "
-                                   "ignorée(s) : E manquant. Complète ou supprime ces lignes.")
-                    if use_infl and res["H_saisi"] > (H_lim or 0) + 1e-6:
-                        st.info(f"Profil saisi : {res['H_saisi']:.2f} m — écrêté à "
-                                f"{res['H']:.2f} m (profondeur d'influence 2·B).")
-                    elif not use_infl and B > 0 and res["H_saisi"] > 2.5 * B:
-                        st.warning(f"⚠️ H saisi = {res['H_saisi']:.2f} m >> 2·B = {2*B:.2f} m : "
-                                   "k probablement sous-estimé. Active la limitation à la "
-                                   "profondeur d'influence.")
-                    if detail and res["k_MN"] > 0:
-                        st.latex(r"k_{serie} = \left(\sum_i \dfrac{h_i}{E_i}\right)^{-1}")
-                        st.latex(f"k_{{serie}} = {res['k_kN']:,.0f}\\,\\text{{kN/m³}} "
-                                 f"= {res['k_MN']:,.2f}\\,\\text{{MN/m³}}")
-                        _param_table([
-                            ("H", "Épaisseur prise en compte", f"{res['H']:,.2f}", "m"),
-                            ("E_moy", "Module oedo. équivalent",
-                             f"{res['E_moy_kPa']/1000:,.1f}", "MPa"),
-                            ("k_serie", "Raideur (série)", f"{res['k_MN']:,.2f}", "MN/m³"),
-                        ])
-                        kB_kN, kB_MN = k_boussinesq(res["E_moy_kPa"], B, nu)
-                        if kB_MN > 0:
-                            st.caption(f"Comparaison Boussinesq (massif semi-infini, "
-                                       f"B = {B:.2f} m, ν = {nu:.2f}) : "
-                                       f"k ≈ {kB_MN:.2f} MN/m³ — ordre de grandeur uniquement, "
-                                       "ne pas exporter vers SCIA.")
-
-            # ---- Graphiques ----
-            st.divider()
-            st.markdown("#### Graphiques")
-            noms = [r["nom"] for r in results]
-            sel = st.selectbox("Sondage", noms, key="chart_snd_choice")
-            r_sel = results[noms.index(sel)]
-            tab_profil, tab_sens, tab_kb = st.tabs(
-                ["Profil du sol", "Sensibilité d'une couche", "k vs B (Boussinesq)"])
-            with tab_profil:
-                _render_soil_profile_chart(r_sel["sid"])
-            with tab_sens:
-                _render_layer_sensitivity_chart(r_sel["sid"], r_sel["res"]["k_MN"])
-            with tab_kb:
-                _render_k_vs_B_chart(r_sel["res"]["E_moy_kPa"], nu)
-
-        # ---------- CAS 3 ----------
-        elif cas.startswith("3."):
-            with st.container(border=True):
-                qt = st.session_state.get("cpt_qt", 0.0)
-                sv0 = st.session_state.get("cpt_sv0", 0.0)
-                aE = st.session_state.get("cpt_alphaE", 2.5)
-                E_kPa, E_MPa, delta = E_from_cpt(qt, sv0, aE)
-                B = st.session_state.get("cpt_B", 2.0)
-                nu = st.session_state.get("cpt_nu", 0.30)
-                k_kN, k_MN = k_boussinesq(E_kPa, B, nu)
-                _bloc("Raideur estimée (CPT)", f"k ≈ {k_MN:,.2f} MN/m³".replace(",", " "),
-                      "ok" if k_MN > 0 else "nok")
-                c1, c2 = st.columns(2)
-                _metric(c1, "E estimé", E_MPa, "MPa")
-                _metric(c2, "k", k_MN, "MN/m³")
-                if detail and k_MN > 0:
-                    st.latex(r"E = \alpha_E\,(q_t - \sigma'_{v0})")
-                    st.latex(f"E = {aE:,.2f}\\,({qt*1000:,.0f}-{sv0:,.0f}) "
-                             f"= {E_kPa:,.0f}\\,\\text{{kN/m²}} = {E_MPa:,.1f}\\,\\text{{MPa}}")
-                    st.latex(r"k \approx \dfrac{E}{B(1-\nu^2)}")
-                    st.latex(f"k \\approx {k_kN:,.0f}\\,\\text{{kN/m³}} "
-                             f"= {k_MN:,.2f}\\,\\text{{MN/m³}}")
-
-        # ---------- CAS 4 ----------
-        elif cas.startswith("4."):
-            with st.container(border=True):
-                res = k_plate(
-                    st.session_state.get("plate_B", 200.0),
-                    st.session_state.get("plate_L", 200.0),
-                    st.session_state.get("plate_alpha", 0.5),
-                    st.session_state.get("plate_Ec", 30.0),
-                    st.session_state.get("plate_use_nu", False),
-                    st.session_state.get("plate_nu", 0.20),
-                    st.session_state.get("plate_has_grout", False),
-                    st.session_state.get("plate_tg", 0.0),
-                    st.session_state.get("plate_Eg", 20.0),
-                )
-                _bloc("Raideur du contact plat/béton",
-                      f"k_eq = {res['keq_MNpm3']:,.1f} MN/m³".replace(",", " "),
-                      "ok" if res["keq_MNpm3"] > 0 else "nok")
-                if detail and res["hc"] > 0:
-                    st.latex(r"h_c = \alpha\,\min(B,L)")
-                    st.latex(f"h_c = {res['hc']*1000:,.1f}\\,\\text{{mm}}")
-                    st.latex(r"k_c = \dfrac{E_c}{h_c}" +
-                             (r"\,(1-\nu^2)^{-1}" if st.session_state.get("plate_use_nu") else ""))
-                    st.latex(f"k_c = {res['kc']:,.0f}\\,\\text{{kN/m³}}")
-                    if st.session_state.get("plate_has_grout") and res["kg"] > 0:
-                        st.latex(r"\dfrac{1}{k_{eq}} = \dfrac{1}{k_c} + \dfrac{1}{k_g}")
-                        st.latex(f"k_g = {res['kg']:,.0f}\\,\\text{{kN/m³}}")
-                    _param_table([
-                        ("h_c", "Épaisseur mobilisée", f"{res['hc']*1000:,.1f}", "mm"),
-                        ("E_c", "Module béton",
-                         f"{st.session_state.get('plate_Ec',30.0):,.1f}", "GPa"),
-                        ("k_eq", "Raideur équivalente", f"{res['keq_MNpm3']:,.1f}", "MN/m³"),
-                    ])
-
-        # ---------- CAS 5 : convertisseur ----------
-        elif cas.startswith("5."):
-            with st.container(border=True):
-                m = st.session_state.get("conv_mode", "q, w → k")
-                if m.startswith("k →"):
-                    k_MN = st.session_state.get("conv_k", 0.0)
-                    w_mm = st.session_state.get("conv_w", 20.0)
-                    q_kPa = k_MN * 1000.0 * (w_mm / 1000.0)
-                    _bloc("Pression mobilisée",
-                          f"q = {from_kPa(q_kPa, pu):,.2f} {pu}".replace(",", " "),
-                          "ok" if q_kPa > 0 else "nok")
-                    if detail:
-                        st.latex(r"q = k \cdot w")
-                        st.latex(f"q = {k_MN:,.2f}\\cdot10^3 \\cdot {w_mm/1000:,.3f} "
-                                 f"= {q_kPa:,.1f}\\,\\text{{kN/m²}} "
-                                 f"= {from_kPa(q_kPa,pu):,.2f}\\,\\text{{{pu}}}")
-                elif m.startswith("q,"):
-                    q_kPa = to_kPa(st.session_state.get("conv_q", 0.0), pu)
-                    w_mm = st.session_state.get("conv_w", 20.0)
-                    k_kN, k_MN, w_m = k_from_qw(q_kPa, w_mm)
-                    _bloc("Raideur", f"k = {k_MN:,.2f} MN/m³".replace(",", " "),
-                          "ok" if k_MN > 0 else "nok")
-                    if detail and k_MN > 0:
-                        st.latex(r"k = q / w")
-                        st.latex(f"k = {q_kPa:,.1f}/{w_m:,.3f} = {k_MN:,.2f}\\,\\text{{MN/m³}}")
-                else:
-                    E_kPa = E_to_kPa(st.session_state.get("conv_E", 0.0), mu)
-                    B = st.session_state.get("conv_B", 2.0)
-                    nu = st.session_state.get("conv_nu", 0.30)
-                    k_kN, k_MN = k_boussinesq(E_kPa, B, nu)
-                    _bloc("Raideur (Boussinesq)", f"k ≈ {k_MN:,.2f} MN/m³".replace(",", " "),
-                          "ok" if k_MN > 0 else "nok")
-                    if detail and k_MN > 0:
-                        st.latex(r"k \approx \dfrac{E}{B(1-\nu^2)}")
-                        st.latex(f"k \\approx {k_MN:,.2f}\\,\\text{{MN/m³}}")
-
-        # ---------- CAS 6 : abaque (source = SOIL_DB) ----------
+        if mode.startswith(("1.", "2.")):
+            _resultats_profil()
+        elif mode.startswith("3."):
+            q = st.session_state.get("rs3_q", 0.0)
+            w = st.session_state.get("rs3_w", 20.0)
+            k = q / (w / 1000.0) if w > 0 else 0.0
+            _bloc("Coefficient de réaction", f"k = {_fr(k/1000, 2)} MN/m³",
+                  "ok" if k > 0 else "nok")
+            if st.session_state.rs_detail and k > 0:
+                st.latex(r"k = \dfrac{q}{w}")
+                st.latex(f"k = \\dfrac{{{q:.1f}}}{{{w/1000:.4f}}} = "
+                         f"{k:,.0f}\\,\\text{{kN/m³}} = {k/1000:,.2f}\\,\\text{{MN/m³}}"
+                         .replace(",", " "))
+                st.caption("Valable si w provient d'un vrai calcul de tassement, pour "
+                           "cette fondation et cette charge.")
+        elif mode.startswith("4."):
+            _resultats_theories()
+        elif mode.startswith("5."):
+            _resultats_abaque()
         else:
-            with st.container(border=True):
-                st.markdown("#### Tassement de référence")
-                st.session_state.abaque_w = st.number_input(
-                    "w_adm [mm]", min_value=1.0, max_value=100.0,
-                    value=float(st.session_state.abaque_w), step=5.0,
-                    help="Convertit k (MN/m³) en qₐ (kg/cm²). En Belgique, 20 mm est courant "
-                         "en service.")
-                w_adm = st.session_state.abaque_w
-                factor_q = w_adm / KGF_PER_CM2_TO_KPA
-
-                rows = []
-                for name, d in SOIL_DB.items():
-                    if name == "Personnalisé" or d.get("k_min") is None:
-                        continue
-                    rows.append({
-                        "Catégorie": d["category"],
-                        "Type de sol": name,
-                        "γ (kN/m³)": d["gamma"],
-                        "k_min (MN/m³)": d["k_min"],
-                        "k_max (MN/m³)": d["k_max"],
-                        "qₐ_min (kg/cm²)": round(d["k_min"] * factor_q, 2),
-                        "qₐ_max (kg/cm²)": round(d["k_max"] * factor_q, 2),
-                    })
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-
-                st.markdown("#### Fiche sol")
-                noms = [r["Type de sol"] for r in rows]
-                default_idx = noms.index("Sable moyennement compact") \
-                    if "Sable moyennement compact" in noms else 0
-                choix = st.selectbox("Type de sol :", noms, index=default_idx)
-                d = SOIL_DB[choix]
-                q_min = d["k_min"] * factor_q
-                q_max = d["k_max"] * factor_q
-                _bloc(choix, f"qₐ ≈ {q_min:,.2f}–{q_max:,.2f} kg/cm²".replace(",", " "), "info")
-                st.markdown(d["desc"])
-                lignes = [f"- Catégorie : **{d['category']}**",
-                          f"- γ ≈ **{d['gamma']} kN/m³**",
-                          f"- k ≈ **{d['k_min']} à {d['k_max']} MN/m³**",
-                          f"- E ≈ **{d['E_min']} à {d['E_max']} MPa**"]
-                if d.get("cpt_ok") and d.get("qc_min") is not None:
-                    lignes.append(f"- qc ≈ **{d['qc_min']} à {d['qc_max']} MPa** "
-                                  f"(α qc→E ≈ {d['alpha_qc']})")
-                else:
-                    lignes.append("- qc : **non pertinent** (refus de pointe probable) — "
-                                  "caractériser par RQD/pressiomètre.")
-                lignes.append(f"- pour w_adm = **{w_adm:.0f} mm** → qₐ ≈ "
-                              f"**{q_min:.2f} à {q_max:.2f} kg/cm²**")
-                st.markdown("  \n".join(lignes))
+            _resultats_plat()
 
         st.divider()
-        st.markdown("<div class='small'>Valeurs de k, E et qₐ indicatives (littérature "
-                    "géotechnique / retours d'expérience), réservées au pré-dimensionnement. "
-                    "Les valeurs importées par IA depuis un rapport PDF sont des propositions "
-                    "à vérifier systématiquement par l'ingénieur. Se référer au rapport "
-                    "géotechnique et à l'EN 1997 (Eurocode 7) pour le dimensionnement final."
-                    "</div>", unsafe_allow_html=True)
+        st.markdown("<div class='small'>Valeurs de pré-dimensionnement. Les modules "
+                    "déduits d'un CPT sont des corrélations : elles divergent d'un "
+                    "facteur 2 à 4 selon les auteurs, d'où l'encadrement systématique. "
+                    "Se référer au rapport géotechnique et à l'EN 1997 pour le "
+                    "dimensionnement final.</div>", unsafe_allow_html=True)
+
+
+# =============================================================
+#  RÉSULTATS — PROFIL
+# =============================================================
+def _resultats_profil():
+    B = float(st.session_state.rs_B)
+    L = float(st.session_state.rs_L)
+    q = float(st.session_state.rs_q)
+    D = float(st.session_state.rs_D)
+    nappe = float(st.session_state.rs_nappe) if st.session_state.rs_nappe_active else None
+    crit = float(st.session_state.rs_critere) / 100.0
+    q_net = bool(st.session_state.rs_q_net)
+
+    if L < B:
+        st.info("B est le petit côté par convention : B et L ont été échangés.")
+        B, L = L, B
+
+    resultats, images = [], {}
+    for s in st.session_state.soundings:
+        sid = int(s["id"])
+        bas, haut = _profil_encadre(sid)
+        if not bas or all(not c.get("M") for c in bas):
+            continue
+        zones = {}
+        for pos in ST.POSITIONS:
+            rb = ST.tassement(bas, B, L, q, D=D, nappe_m=nappe, critere=crit,
+                              position=pos, q_net=q_net)
+            rh = ST.tassement(haut, B, L, q, D=D, nappe_m=nappe, critere=crit,
+                              position=pos, q_net=q_net)
+            zones[pos] = {
+                "k_bas_MNm3": min(rb["k_MNm3"], rh["k_MNm3"]),
+                "k_haut_MNm3": max(rb["k_MNm3"], rh["k_MNm3"]),
+                "w_bas_mm": min(rb["w_mm"], rh["w_mm"]),
+                "w_haut_mm": max(rb["w_mm"], rh["w_mm"]),
+                "detail": rb,
+            }
+        c = zones["centre"]
+        rb_c = c["detail"]
+        rb_c["critere_pct"] = st.session_state.rs_critere
+        resultats.append({
+            "sid": sid, "nom": _sounding_name(sid), "zones": zones,
+            "k_bas": c["k_bas_MNm3"], "k_haut": c["k_haut_MNm3"],
+            "w_bas": c["w_bas_mm"], "w_haut": c["w_haut_mm"],
+            "z_infl": rb_c["z_influence"], "detail": rb_c,
+            "couches": [dict(cc, M_haut=hh.get("M")) for cc, hh in zip(bas, haut)],
+            "q_net": rb_c["q_net_kPa"], "convergence": rb_c["convergence"],
+        })
+
+    if not resultats:
+        st.warning("Renseigne au moins une couche avec une épaisseur et un module M, "
+                   "ou importe un sondage.")
+        return
+
+    # ---- panneau SCIA ----
+    with st.container(border=True):
+        st.markdown("#### 🎯 À encoder dans SCIA (paramètres de sol C1z)")
+        pos_lbl = st.radio("Position de référence", list(ST.POSITIONS.keys()),
+                           format_func=lambda p: ST.POSITIONS[p], horizontal=True,
+                           key="rs_pos_scia")
+        rows = []
+        for r in resultats:
+            z = r["zones"][pos_lbl]
+            rows.append({
+                "Sondage": r["nom"],
+                "k bas [MN/m³]": round(z["k_bas_MNm3"], 2),
+                "k haut [MN/m³]": round(z["k_haut_MNm3"], 2),
+                "k bas [kN/m³]": round(z["k_bas_MNm3"] * 1000),
+                "k haut [kN/m³]": round(z["k_haut_MNm3"] * 1000),
+                "w [mm]": f"{z['w_bas_mm']:.0f} – {z['w_haut_mm']:.0f}",
+            })
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+        ks = [r["zones"][pos_lbl]["k_bas_MNm3"] for r in resultats] + \
+             [r["zones"][pos_lbl]["k_haut_MNm3"] for r in resultats]
+        if ks and max(ks) - min(ks) > 1e-6:
+            st.markdown(f"**Enveloppe tous sondages : k = {min(ks):.2f} à "
+                        f"{max(ks):.2f} MN/m³** — la dalle doit être vérifiée aux "
+                        "DEUX bornes : un k faible augmente les tassements, un k élevé "
+                        "augmente les moments de pointe.")
+        elif ks:
+            st.markdown(f"**k = {ks[0]:.2f} MN/m³** (valeur unique : les modules ont été "
+                        "saisis directement, il n'y a donc pas d'incertitude de "
+                        "corrélation à reporter).")
+            st.caption("Un module issu d'un CPT serait encadré : les corrélations "
+                       "divergent d'un facteur 2 à 4. Pense à faire varier M à la main "
+                       "pour mesurer la sensibilité de ta dalle.")
+
+        # Profil trop court : le tassement est tronqué, donc k SURESTIMÉ.
+        # C'est un défaut non conservatif : il doit être visible sans déplier.
+        courts = [r for r in resultats
+                  if "épuisé" in r["convergence"] or "plafond" in r["convergence"]]
+        if courts:
+            noms_c = ", ".join(r["nom"] for r in courts)
+            manque = max(r["z_infl"] for r in courts)
+            st.error(
+                f"⚠️ **Profil trop court — k surestimé.** Pour {noms_c}, l'intégration "
+                f"s'est arrêtée à {manque:.2f} m sous l'assise parce que les couches "
+                f"saisies s'arrêtent là, et non parce que la contrainte était devenue "
+                f"négligeable. Le tassement est donc tronqué et le k affiché est **trop "
+                f"élevé** — c'est un écart du mauvais côté pour les moments de la dalle. "
+                f"Prolonge le profil : sous une fondation de {B:.1f} m, il faut "
+                f"typiquement descendre à {2.5 * B:.0f} m.")
+
+        st.markdown("**Zonage de la dalle** — sans module itératif sol-structure, "
+                    "c'est la façon d'approcher la raideur variable :")
+        zr = []
+        for pos, lab in ST.POSITIONS.items():
+            vals = [r["zones"][pos] for r in resultats]
+            zr.append({
+                "Zone": lab,
+                "k bas [MN/m³]": round(min(v["k_bas_MNm3"] for v in vals), 2),
+                "k haut [MN/m³]": round(max(v["k_haut_MNm3"] for v in vals), 2),
+            })
+        st.dataframe(pd.DataFrame(zr), use_container_width=True, hide_index=True)
+        st.caption("Le centre tasse plus que les bords, donc k y est plus faible. "
+                   "Encoder un k unique concentre artificiellement les réactions en rive : "
+                   "c'est le défaut connu du modèle de Winkler, pas de ce calcul.")
+
+    # ---- graphique de diffusion ----
+    st.markdown("#### Comment la contrainte se diffuse")
+    noms = [r["nom"] for r in resultats]
+    sel = st.selectbox("Sondage", noms, key="rs_chart_snd")
+    r_sel = next(r for r in resultats if r["nom"] == sel)
+    if _HAS_MPL:
+        fig = _fig_diffusion(r_sel["couches"], r_sel["detail"], B, L, q, D, nappe,
+                             titre=f"{r_sel['nom']} — {ST.POSITIONS['centre'].lower()}")
+        if fig:
+            png = _fig_bytes(fig)
+            images[r_sel["nom"]] = png
+            st.image(png, use_container_width=True)
+        st.caption(
+            "À gauche le profil, à droite les contraintes. L'aire rouge est ce qui "
+            "comprime réellement le sol : elle décroît avec la profondeur au lieu de "
+            "rester égale à q. Le calcul s'arrête où la courbe rouge croise la courbe "
+            "verte — c'est la profondeur d'influence, elle n'est pas imposée.")
+        with st.expander("k en fonction de la largeur de fondation", expanded=False):
+            bas, haut = _profil_encadre(r_sel["sid"])
+            f2 = _fig_k_vs_B(bas, haut, B, L, q, D, nappe, crit)
+            if f2:
+                st.image(_fig_bytes(f2), use_container_width=True)
+            st.caption("À sol identique, k varie fortement avec la taille de la "
+                       "fondation. C'est pourquoi une valeur de k n'a de sens qu'avec "
+                       "la géométrie qui l'accompagne.")
+        pts = st.session_state.get(f"snd{r_sel['sid']}_points")
+        if pts:
+            with st.expander("Courbes CPT et classification", expanded=False):
+                cou = ST.profil_depuis_cpt(pts, nappe_m=nappe)
+                f3 = _fig_cpt(pts, cou, nappe)
+                if f3:
+                    st.image(_fig_bytes(f3), use_container_width=True)
+
+    # ---- détail ----
+    for r in resultats:
+        etat = "ok" if r["k_bas"] > 0 else "nok"
+        with st.expander(f"{'🟢' if etat == 'ok' else '🔴'} {r['nom']} — "
+                         f"k = {r['k_bas']:.2f} à {r['k_haut']:.2f} MN/m³", expanded=False):
+            _bloc("Tassement calculé",
+                  f"w = {r['w_bas']:.1f} à {r['w_haut']:.1f} mm", etat)
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Pression nette", f"{r['q_net']:.0f} kPa")
+            m2.metric("Profondeur d'influence", f"{r['z_infl']:.2f} m")
+            m3.metric("k au centre", f"{r['k_bas']:.2f}–{r['k_haut']:.2f}")
+            st.caption(f"Arrêt de l'intégration : {r['convergence']}.")
+            if st.session_state.rs_detail:
+                st.latex(r"\Delta\sigma(z) = q_{net}\cdot I(z)\quad;\quad"
+                         r"w=\sum_i \frac{\Delta\sigma_i\,h_i}{M_i}\quad;\quad k=\frac{q_{net}}{w}")
+                tr = r["detail"].get("tranches") or []
+                if tr:
+                    pas = max(1, len(tr) // 12)
+                    df = pd.DataFrame([{
+                        "z sous assise [m]": round(t["z_sous_assise"], 2),
+                        "Δσ [kPa]": round(t["delta_sigma"], 1),
+                        "σ'v0 [kPa]": round(t["sigma_v0_eff"], 1),
+                        "Δσ/σ'v0": round(t["ratio"], 2) if t["ratio"] else None,
+                        "M [MPa]": round(t["M"], 1),
+                        "dw [mm]": round(t["dw_mm"], 3),
+                        "couche": t["couche"],
+                    } for t in tr[::pas]])
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    st.caption(f"Une ligne sur {pas} — {len(tr)} tranches au total.")
+            if r["detail"].get("h_sans_module", 0) > 0:
+                st.warning(f"{r['detail']['h_sans_module']:.2f} m de profil sans module M "
+                           "n'ont pas été comptés : complète ces couches.")
+
+    # ---- rapport ----
+    if _HAS_REPORTLAB:
+        if st.button("📄 Générer la note de calcul", key="rs_pdf",
+                     use_container_width=True):
+            try:
+                params = {"B": B, "L": L, "q": q, "D": D, "nappe": nappe,
+                          "critere": crit, "q_net": resultats[0]["q_net"]}
+                st.session_state["rs_pdf_bytes"] = _rapport_pdf(
+                    {"nom": st.session_state.get("rs_projet", ""),
+                     "date": date.today().strftime("%d/%m/%Y")},
+                    resultats, params, images)
+            except Exception as e:
+                st.session_state.pop("rs_pdf_bytes", None)
+                st.error(f"Erreur : {e}")
+        if st.session_state.get("rs_pdf_bytes"):
+            nomp = re.sub(r"[^A-Za-z0-9]+", "_",
+                          st.session_state.get("rs_projet", "") or "Projet")[:20]
+            st.download_button(
+                "⬇️ Télécharger la note", data=st.session_state["rs_pdf_bytes"],
+                file_name=f"{nomp}_Raideur_sol_{date.today().strftime('%d-%m-%Y')}.pdf",
+                mime="application/pdf", use_container_width=True, key="rs_pdf_dl")
+
+
+# =============================================================
+#  RÉSULTATS — AUTRES MODES
+# =============================================================
+def _resultats_theories():
+    E = float(st.session_state.get("rs4_E", 25.0))
+    B = float(st.session_state.get("rs4_B", 2.0))
+    L = float(st.session_state.get("rs4_L", 2.0))
+    nu = float(st.session_state.get("rs4_nu", 0.30))
+    M = ST.module_oedometrique(E, nu)
+
+    couches = [{"h": 60.0, "gamma": 19.0, "M": M, "nom": "sol homogène"}]
+    q = 150.0
+    r = ST.tassement(couches, B, L, q, D=0.0, critere=0.20, q_net=False)
+
+    rows = [
+        {"Méthode": "Tassement calculé (retenue)", "k [MN/m³]": round(r["k_MNm3"], 2),
+         "Domaine": "profil quelconque, fondation réelle"},
+        {"Méthode": "Élastique — semelle rigide", "k [MN/m³]":
+            round(ST.k_elastique(E, B, nu, Is=0.88), 2),
+         "Domaine": "massif homogène semi-infini"},
+        {"Méthode": "Élastique — souple, centre", "k [MN/m³]":
+            round(ST.k_elastique(E, B, nu, Is=1.12), 2),
+         "Domaine": "massif homogène semi-infini"},
+        {"Méthode": "Vesić (1961)", "k [MN/m³]": round(ST.k_vesic(E, B, nu), 2),
+         "Domaine": "sol homogène, ordre de grandeur"},
+        {"Méthode": "Ancienne formule 1/k = Σh/E (2B)", "k [MN/m³]":
+            round(E / (2 * B), 2),
+         "Domaine": "⚠ contrainte supposée uniforme — biaisée"},
+    ]
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.caption(
+        f"Sol homogène E = {E:.0f} MPa (soit M = {M:.0f} MPa pour ν = {nu:.2f}), "
+        f"semelle {B:.1f}×{L:.1f} m, q = {q:.0f} kPa. La dernière ligne est la formule "
+        "de la version 4 : elle donne exactement E/(2B), donc un résultat piloté par la "
+        "règle des 2B et non par le sol — d'où le facteur 2 à 2,5 d'écart.")
+    _bloc("Valeur retenue", f"k = {r['k_MNm3']:.2f} MN/m³",
+          "ok" if r["k_MNm3"] > 0 else "nok")
+    st.caption(f"Tassement {r['w_mm']:.1f} mm, profondeur d'influence "
+               f"{r['z_influence']:.2f} m.")
+
+
+def _resultats_abaque():
+    B = float(st.session_state.get("rs5_B", 2.0))
+    w_ref = float(st.session_state.get("rs_w_ref", 20.0))
+    rows = []
+    for nom, d in SB.SOIL_DB.items():
+        if nom == "Personnalisé" or d.get("kp_min") is None:
+            continue
+        kb = ST.k_terzaghi_taille(d["kp_min"], B, nature=d["nature"])
+        kh = ST.k_terzaghi_taille(d["kp_max"], B, nature=d["nature"])
+        rows.append({
+            "Catégorie": d["category"], "Type de sol": nom,
+            "γ [kN/m³]": d["gamma"],
+            "M [MPa]": f"{d['M_min']:.0f} – {d['M_max']:.0f}" if d["M_min"] else "—",
+            "k plaque 0,30 m": f"{d['kp_min']} – {d['kp_max']}",
+            f"k pour B = {B:.1f} m": f"{kb:.1f} – {kh:.1f}",
+            "q pour w réf [kPa]": f"{kb*1000*w_ref/1000:.0f} – {kh*1000*w_ref/1000:.0f}",
+        })
+    st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    st.warning(
+        "**Les deux colonnes de k ne sont pas interchangeables.** Celle de gauche est "
+        "la valeur mesurée sur une plaque de 0,30 m (tables de Terzaghi 1955) ; celle de "
+        "droite lui applique la correction de taille pour la largeur choisie. Utiliser "
+        "la colonne de gauche pour une fondation réelle surestime k d'un facteur 3 à 30. "
+        "La version 4 de ce module ne faisait pas cette correction.")
+    st.caption("Un abaque reste un ordre de grandeur : le mode « Sondage CPT » calcule "
+               "la valeur pour ton sol et ta fondation.")
+
+
+def _resultats_plat():
+    Bmm = float(st.session_state.get("rs6_B", 200.0))
+    Lmm = float(st.session_state.get("rs6_L", 200.0))
+    a = float(st.session_state.get("rs6_a", 0.5))
+    Ec = float(st.session_state.get("rs6_E", 30.0))
+    hc = a * min(Bmm, Lmm) / 1000.0
+    kc = (Ec * 1e6) / hc if hc > 0 else 0.0
+    keq = kc
+    kg = 0.0
+    if st.session_state.get("rs6_grout"):
+        tg = float(st.session_state.get("rs6_tg", 20.0)) / 1000.0
+        Eg = float(st.session_state.get("rs6_Eg", 20.0))
+        kg = (Eg * 1e6) / tg if tg > 0 else 0.0
+        if kc > 0 and kg > 0:
+            keq = 1.0 / (1.0 / kc + 1.0 / kg)
+    _bloc("Raideur du contact", f"k = {keq/1000:,.0f} MN/m³".replace(",", " "),
+          "ok" if keq > 0 else "nok")
+    if st.session_state.rs_detail and hc > 0:
+        st.latex(r"h_c = \alpha\cdot\min(B,L)")
+        st.latex(f"h_c = {hc*1000:.1f}\\,\\text{{mm}}")
+        st.latex(r"k_c = E_c / h_c")
+        st.latex(f"k_c = {kc/1000:,.0f}\\,\\text{{MN/m³}}".replace(",", " "))
+        if kg > 0:
+            st.latex(r"1/k_{eq} = 1/k_c + 1/k_g")
+            st.latex(f"k_g = {kg/1000:,.0f}\\,\\text{{MN/m³}}".replace(",", " "))
+
+
+# =============================================================
+#  SAUVEGARDE / OUVERTURE
+# =============================================================
+def _payload():
+    vals = {k: v for k, v in st.session_state.items()
+            if _est_cle_module(k) and isinstance(v, (int, float, str, bool, type(None)))}
+    return {"version": VERSION,
+            "soundings": [{"id": int(s["id"]), "nom": str(s["nom"])}
+                          for s in st.session_state.get("soundings", [])],
+            "orders": {str(int(s["id"])): _layer_ids(int(s["id"]))
+                       for s in st.session_state.get("soundings", [])},
+            "values": vals}
+
+
+def _charger(payload):
+    for k in [k for k in list(st.session_state.keys()) if _est_cle_module(k)]:
+        st.session_state.pop(k, None)
+    st.session_state.soundings = [{"id": int(s["id"]), "nom": str(s["nom"])}
+                                  for s in payload.get("soundings", [])] or []
+    for sid, order in (payload.get("orders") or {}).items():
+        st.session_state[_order_key(int(sid))] = list(order)
+    for k, v in (payload.get("values") or {}).items():
+        st.session_state[k] = v
+    _init_state()
