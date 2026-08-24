@@ -1,4 +1,16 @@
 # ===========================
+#  VERSION 2.40
+# ===========================
+#  poutre.py (Streamlit)
+#
+#  Évolutions vs 2.39.1 :
+#   1. RÉAFFICHAGE du détail de la "Vérification de la hauteur" sous le
+#      bandeau (comme dans le PDF) : formule de hᵤ,min avec les valeurs
+#      numériques, hauteur minimale de la poutre (hᵤ,min + CDG
+#      armatures) et conclusion. AFFICHAGE UNIQUEMENT : aucune formule
+#      ni aucun coefficient modifiés.
+#
+# ===========================
 #  VERSION 2.39.1
 # ===========================
 #  poutre.py (Streamlit)
@@ -249,7 +261,7 @@ BETON_DATA = {}
 
 MAX_LITS = 4  # nombre maximal de lits d'armatures par face
 
-APP_VERSION = "1.2.39.1"  # version affichée dans l'en-tête de l'application
+APP_VERSION = "1.2.40"  # version affichée dans l'en-tête de l'application
 
 RHO_ACIER = 7850.0  # kg/m³ (taux d'armature)
 
@@ -2211,6 +2223,37 @@ def _taux_armature_global(beam_id: int):
 # ============================================================
 #  UI : DIMENSIONNEMENT D'UNE SECTION
 # ============================================================
+def _render_hauteur_details(states: dict, h: float):
+    """
+    (v2.40) Détail de la vérification de la hauteur, réaffiché sous le
+    bandeau — comme dans le PDF : formule de hᵤ,min avec les valeurs
+    numériques, hauteur minimale de la poutre (hᵤ,min + CDG armatures)
+    et conclusion. Affichage uniquement : aucune formule modifiée.
+    """
+    M_max = max(states["M_inf_val"], states["M_sup_val"])
+    hmin_calc = states["hmin_calc"]
+    h_min_poutre = states["h_min_poutre"]
+    if M_max > 0:
+        m_txt = _fr(M_max, 0) if abs(M_max - round(M_max)) < 1e-9 else _fr(M_max, 1)
+        st.markdown(
+            f"hᵤ,min = √( {m_txt}·10⁶ / ({_fr(states['alpha_b'], 2)} · "
+            f"{_fr(states['b'] * 10, 0)} · {_fr(states['mu_val'], 4)}) ) = "
+            f"**{_fr(hmin_calc, 1)} cm**"
+        )
+    else:
+        st.markdown("hᵤ,min = **0,0 cm** — aucun moment appliqué")
+    st.markdown(
+        f"Hauteur minimale de la poutre : hᵤ,min + CDG armatures = "
+        f"{_fr(hmin_calc, 1)} + {_fr(states['e_cdg_gov'], 1)} = "
+        f"**{_fr(h_min_poutre, 1)} cm**"
+    )
+    ok_h = states["etat_h"] == "ok"
+    st.markdown(
+        f"Hauteur de la poutre : {_fr(h, 0)} cm {'≥' if ok_h else '<'} "
+        f"hauteur minimale de la poutre : {_fr(h_min_poutre, 1)} cm"
+    )
+
+
 def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
     beam_locked = bool(st.session_state.get(KB("lock_data", beam_id), False))
     beam = next(b for b in st.session_state.beams if int(b.get("id")) == beam_id)
@@ -2264,10 +2307,9 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
         V_val = states["V_val"]
 
         # ---- Vérification de la hauteur ----
-        # (v2.39.1) En Streamlit, seul le header du bloc est affiché :
-        # % + icône d'état suffisent visuellement. Les 3 lignes de détail
-        # (hᵤ,min / hauteur minimale de la poutre / conclusion) restent
-        # intégralement dans le PDF.
+        # (v2.40) Les 3 lignes de détail (hᵤ,min avec sa formule /
+        # hauteur minimale de la poutre / conclusion) sont réaffichées
+        # sous le bandeau, comme dans le PDF. Affichage uniquement.
         if units_len == "mm":
             right_h = f"{beton} • Section {b*10:.0f}×{h*10:.0f} mm"
         else:
@@ -2275,6 +2317,7 @@ def render_dimensionnement_section(beam_id: int, sec_id: int, beton_data: dict):
         h_min_poutre = states["h_min_poutre"]
         pct_h = (h_min_poutre / h * 100.0) if h > 0 else None
         open_bloc_left_right("Vérification de la hauteur", right_h, states["etat_h"], pct=pct_h)
+        _render_hauteur_details(states, h)
         close_bloc()
 
         # ---- Armatures inférieures / supérieures ----
