@@ -1,0 +1,3 @@
+# Bytecode Python (généré à l'exécution — jamais versionné)
+__pycache__/
+*.pyc
