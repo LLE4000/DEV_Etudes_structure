@@ -1238,8 +1238,10 @@ def b_haut(R, cw):
         _t("  =  "), nb(f"{fn(R['hmin'],1)} cm")]))
     # Hauteur minimale de la poutre = hᵤ,min + CDG réel des armatures
     # (face du moment dimensionnant), valeurs numériques explicites.
+    # « d₁ » : distance du parement au c.d.g. des aciers de la face
+    # dimensionnante (enrobage mécanique) — même vocabulaire que la note
     hminp = Formula(Row([
-        _t("h", sub="u,min"), _t(" + CDG armatures = "),
+        _t("h", sub="u,min"), _t(" + d", sub="1"), _t(" = "),
         _t(f"{fn(R['hmin'],1)} + {fn(R['e_cdg_gov'],1)}  =  "),
         nb(f"{fn(R['h_min_poutre'],1)} cm")]))
     body = [fline("Hauteur utile minimale", app, iw),

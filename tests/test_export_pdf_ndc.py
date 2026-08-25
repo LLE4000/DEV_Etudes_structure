@@ -163,6 +163,8 @@ t2 = doc[1].get_text()
 for att in ("67,2", "73,2", "1961", "1373", "3,83", "2,26"):
     chk(f"valeur de référence {att} sur la planche A", att in t2)
 chk("radical présent dans la formule (texte √ extrait)", "√" in t2 or "67,2" in t2)
+chk("« d₁ » remplace « CDG armatures » dans la note", "CDG" not in t2)
+chk("cote d₁ sur la coupe", "d₁ =" in t2)
 t4 = doc[3].get_text()
 chk("multi-lits : les deux lits sont annotés",
     "Lit 1 : 3 Ø20" in t4 and "Lit 2 : 2 Ø16" in t4, t4[:200])

@@ -261,7 +261,7 @@ BETON_DATA = {}
 
 MAX_LITS = 4  # nombre maximal de lits d'armatures par face
 
-APP_VERSION = "1.2.40"  # version affichée dans l'en-tête de l'application
+APP_VERSION = "1.2.41"  # version affichée dans l'en-tête de l'application
 
 RHO_ACIER = 7850.0  # kg/m³ (taux d'armature)
 
@@ -2242,8 +2242,11 @@ def _render_hauteur_details(states: dict, h: float):
         )
     else:
         st.markdown("hᵤ,min = **0,0 cm** — aucun moment appliqué")
+    # (v2.41) « d₁ » remplace « CDG armatures » : distance du parement au
+    # centre de gravité des aciers de la face dimensionnante (enrobage
+    # mécanique, h = d + d₁). Libellé uniquement — aucune formule modifiée.
     st.markdown(
-        f"Hauteur minimale de la poutre : hᵤ,min + CDG armatures = "
+        f"Hauteur minimale de la poutre : hᵤ,min + d₁ = "
         f"{_fr(hmin_calc, 1)} + {_fr(states['e_cdg_gov'], 1)} = "
         f"**{_fr(h_min_poutre, 1)} cm**"
     )

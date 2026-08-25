@@ -1483,8 +1483,10 @@ def _render_hauteur_details(states: dict, h: float):
         )
     else:
         st.markdown("hᵤ,min = **0,0 cm** — aucun moment appliqué")
+    # « d₁ » = distance du parement au c.d.g. des aciers de la face
+    # dimensionnante (enrobage mécanique) — même vocabulaire que Poutre
     st.markdown(
-        f"Hauteur minimale de la dalle : hᵤ,min + CDG armatures = "
+        f"Hauteur minimale de la dalle : hᵤ,min + d₁ = "
         f"{_fr(hmin_calc, 1)} + {_fr(states['e_cdg_gov'], 1)} = "
         f"**{_fr(h_min_dalle, 1)} cm**"
     )

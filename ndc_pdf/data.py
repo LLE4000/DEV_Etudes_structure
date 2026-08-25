@@ -135,6 +135,8 @@ def _coupe_depuis_R(R, stirrups, pas, peau=None):
         b_label=f"b = {fn(R['b'], 0)} cm", h_label=f"h = {fn(R['h'], 0)} cm",
         c_label=f"c = {fn(R['enrob_beton'], 1)} cm",
         d_label=f"d = {fn(R['di'], 1)} cm",
+        # d₁ de la face inférieure (h = d + d₁), cohérent avec la cote d
+        d1_label=f"d₁ = {fn(R['geo_inf']['e_cdg'], 1)} cm",
         lab_sup=labs_sup[0][0], lab_sup2=labs_sup[0][1],
         lab_inf=labs_inf[0][0], lab_inf2=labs_inf[0][1],
         lab_cadre=lab_cadre, lab_cadre2=lab_cadre2,
@@ -183,8 +185,10 @@ def _verif_hauteur(R):
              rf"h_{{u,min}} = \sqrt{{\frac{{{sci(R['M_max'] * 1e6)}}}"
              rf"{{{fn(R['alpha_b'], 2)} \cdot {fn(R['b'] * 10, 0)} \cdot {fn(R['mu'], 4)}}}}}"
              rf" = \res{{{fn(R['hmin'], 1)} \u{{cm}}}}"),
+            # d₁ = distance du parement au c.d.g. des aciers de la face
+            # dimensionnante (enrobage mécanique : h = d + d₁)
             ("f", "Hauteur minimale de la poutre",
-             rf"h_{{u,min}} + CDG_{{arm}} = {fn(R['hmin'], 1)} + {fn(R['e_cdg_gov'], 1)}"
+             rf"h_{{u,min}} + d_{{1}} = {fn(R['hmin'], 1)} + {fn(R['e_cdg_gov'], 1)}"
              rf" = \res{{{fn(R['h_min_poutre'], 1)} \u{{cm}}}}"),
             ("v", "Hauteur minimale de la poutre", "h_{min}", fn(R["h_min_poutre"], 1), "cm"),
             ("v", "Hauteur de la poutre", "h", fn(R["h"], 0), "cm"),

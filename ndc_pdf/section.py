@@ -355,6 +355,10 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         c.line(ox - 14, yd, ox + bw - 2, yd)
         c.setDash()
         _dim_v(c, yd, oy + bh, ox - 13, sec["d_label"], st, st.ink)
+        if sec.get("d1_label"):
+            # segment complémentaire de la chaîne : d₁ = h − d (enrobage
+            # mécanique de la face inférieure)
+            _dim_v(c, oy, yd, ox - 13, sec["d1_label"], st, st.ink)
         _dim_v(c, oy, oy + bh, ox - 28, sec["h_label"], st, ext_from=ox - 3)
     else:
         _dim_v(c, oy, oy + bh, ox - 15, sec["h_label"], st, ext_from=ox - 3)
