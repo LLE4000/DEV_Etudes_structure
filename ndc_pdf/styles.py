@@ -60,11 +60,14 @@ class Style:
         # concrete_texture : convention de coupe béton (fond blanc, hachure
         # discrète, petits triangles et points) — demandé par le bureau le
         # 25/08/2026, remplace l'aplat gris de la maquette d'origine
+        # steel : rendu métallique des armatures (barres en dégradé, reflet
+        # cylindrique sur les étriers) — demandé par le bureau le 25/08/2026
         return SectionStyle(
             mode="plein", panel=self.panel, concrete=self.concrete,
             show_hatch=False, ink=self.ink, accent=self.acc, bar=self.acc,
             muted=self.mut, rule_w=1.2, font=self.f_b, font_bold=self.f_v,
-            title=None, dim_size=6.0, label_size=6.4, concrete_texture=True)
+            title=None, dim_size=6.0, label_size=6.4, concrete_texture=True,
+            steel=True)
 
     # ------------------------------------------------------------- rendu
     def build(self, path, sections=None, doc=None, garde=True):

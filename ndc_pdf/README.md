@@ -103,6 +103,10 @@ palette = quatre lignes : `panel`, `acc`, `concrete`, `ko`.
 
 Révisions de l'étalon (chaque évolution VALIDÉE du rendu le remplace) :
 
+- **25/08/2026 (2)** — hachure refaite (45° conventionnel, semis par
+  hachage déterministe, triangles scalènes — plus d'alignement en
+  colonnes) et rendu « acier » des armatures : dégradé métallique sur
+  les barres, reflet cylindrique sur les étriers. Aucun texte modifié.
 - **25/08/2026** — coupe béton : l'aplat gris devient la représentation
   conventionnelle (fond blanc, hachure discrète, petits triangles et
   points), demandé par le bureau. Aucun texte modifié.

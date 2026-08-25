@@ -18,7 +18,7 @@ class SectionStyle:
                  font_bold="Heros-Bold", mono="Mono", arrows="arrow",
                  show_hatch=True, show_d=True, label_size=6.6, dim_size=6.4,
                  concrete=None, bar="#141414", rule_w=0.9, title=None,
-                 leader_side="right", concrete_texture=False):
+                 leader_side="right", concrete_texture=False, steel=False):
         self.mode = mode
         self.ink = HexColor(ink) if isinstance(ink, str) else ink
         self.accent = HexColor(accent) if isinstance(accent, str) else accent
@@ -38,6 +38,9 @@ class SectionStyle:
         # représentation conventionnelle du béton coupé (fond blanc +
         # hachure discrète + petits triangles et points) au lieu de l'aplat
         self.concrete_texture = concrete_texture
+        # rendu « acier » des armatures : dégradé métallique sur les barres,
+        # reflet cylindrique sur les étriers (au lieu de l'aplat accent)
+        self.steel = steel
 
 
 def _tick(c, x, y, kind, ang=0, size=2.6, color=None):
@@ -115,44 +118,92 @@ def _blanc_mix(col, t):
                  col.blue + (1 - col.blue) * t)
 
 
-def _texture_beton(c, x, y, w, h, col_grain, col_hachure, step=13.0):
+def _lerp_col(a, b, t):
+    """Interpolation linéaire entre deux couleurs."""
+    return Color(a.red + (b.red - a.red) * t, a.green + (b.green - a.green) * t,
+                 a.blue + (b.blue - a.blue) * t)
+
+
+# ---- rendu « acier » des armatures : nuances d'un acier au carbone
+_ACIER = dict(
+    jante=HexColor("#22262D"),      # jante sombre de la barre
+    fonce=HexColor("#3A404A"),      # métal à l'ombre
+    moyen=HexColor("#8A919D"),      # métal courant
+    clair=HexColor("#DADDE3"),      # reflet
+    trait=HexColor("#343A43"),      # corps des étriers
+    reflet=HexColor("#9AA2AD"),     # reflet cylindrique des étriers
+)
+
+
+def _metal(t):
+    """Dégradé sombre -> moyen -> clair pour t dans [0 ; 1]."""
+    if t < 0.5:
+        return _lerp_col(_ACIER["fonce"], _ACIER["moyen"], t * 2.0)
+    return _lerp_col(_ACIER["moyen"], _ACIER["clair"], (t - 0.5) * 2.0)
+
+
+def _barre_acier(c, cx, cy, r):
+    """Coupe d'une barre : jante sombre puis dégradé métallique décalé
+    vers le reflet haut-gauche — disques concentriques, vectoriel pur."""
+    c.setFillColor(_ACIER["jante"])
+    c.circle(cx, cy, r, stroke=0, fill=1)
+    steps = 9
+    for k in range(steps):
+        t = k / (steps - 1.0)
+        rr = r * (0.88 - 0.68 * t)
+        if rr <= 0.2:
+            break
+        c.setFillColor(_metal(t))
+        c.circle(cx - r * 0.24 * t, cy + r * 0.24 * t, rr, stroke=0, fill=1)
+
+
+def _h01(i, j, k=0.0):
+    """Hachage déterministe -> [0 ; 1[ (aucun aléa : rendu reproductible)."""
+    v = math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453
+    return v - math.floor(v)
+
+
+def _texture_beton(c, x, y, w, h, col_grain, col_hachure, step=12.0):
     """Représentation conventionnelle du béton coupé : fond blanc, hachure
-    diagonale très discrète, semis de petits triangles (granulats) et de
-    points (sable). Semis DÉTERMINISTE — aucun aléa, rendu reproductible."""
+    à 45° discrète, semis irrégulier de petits granulats (triangles
+    scalènes) et de points. Semis DÉTERMINISTE, sans motif de grille."""
     c.saveState()
     p = c.beginPath()
     p.rect(x, y, w, h)
     c.clipPath(p, stroke=0, fill=0)
-    # hachure diagonale légère
+    # hachure à 45° (convention), montante vers la droite
     c.setStrokeColor(col_hachure)
     c.setLineWidth(0.25)
-    n = int((w + h) / 14.0) + 2
-    for i in range(-2, n):
-        c.line(x + i * 14.0, y, x + i * 14.0 - h, y + h)
-    # granulats : jitter pseudo-aléatoire calculé sur les indices
+    pas_h = 11.0
+    n = int((w + h) / pas_h) + 2
+    for i in range(-1, n):
+        px = x - h + i * pas_h
+        c.line(px, y, px + h, y + h)
+    # granulats : positions désordonnées par hachage (pas d'alignement)
     c.setStrokeColor(col_grain)
     c.setFillColor(col_grain)
     for i in range(int(w / step) + 2):
         for j in range(int(h / step) + 2):
-            jx = (((i * 37 + j * 61) % 10) / 10.0 - 0.5) * 0.8
-            jy = (((i * 53 + j * 29) % 10) / 10.0 - 0.5) * 0.8
-            cx = x + (i + 0.5 + jx) * step
-            cy = y + (j + 0.5 + jy) * step
-            k = (i * 7 + j * 5) % 5
-            if k == 0:                      # petit triangle
-                r = 1.6 + ((i + 2 * j) % 3) * 0.4
-                a0 = ((i * 3 + j) % 6) * 0.5
+            cx = x + (i + 0.10 + 0.80 * _h01(i, j, 1)) * step
+            cy = y + (j + 0.10 + 0.80 * _h01(i, j, 2)) * step
+            u = _h01(i, j, 3)
+            if u < 0.42:                    # point (sable)
+                c.circle(cx, cy, 0.40 + 0.25 * _h01(i, j, 4), stroke=0, fill=1)
+            elif u < 0.72:                  # petit triangle scalène (granulat)
+                r = 1.1 + 1.0 * _h01(i, j, 5)
+                a0 = 6.2832 * _h01(i, j, 6)
                 tri = c.beginPath()
-                pts = [(cx + r * math.cos(a0 + t * 2.0944),
-                        cy + r * math.sin(a0 + t * 2.0944)) for t in range(3)]
+                pts = []
+                for t in range(3):
+                    at = a0 + t * 2.0944 + (_h01(i, j, 7 + t) - 0.5) * 0.9
+                    rt = r * (0.70 + 0.45 * _h01(i, j, 10 + t))
+                    pts.append((cx + rt * math.cos(at), cy + rt * math.sin(at)))
                 tri.moveTo(*pts[0])
                 tri.lineTo(*pts[1])
                 tri.lineTo(*pts[2])
                 tri.close()
-                c.setLineWidth(0.35)
+                c.setLineWidth(0.32)
                 c.drawPath(tri, stroke=1, fill=0)
-            elif k in (2, 4):               # point
-                c.circle(cx, cy, 0.45, stroke=0, fill=1)
     c.restoreState()
 
 
@@ -232,24 +283,32 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
     r = max(1.6, dst * s * 2.0)
 
     def _cadre_plein(dia, color, hooks):
-        """Rectangle périmétrique d'un étrier fermé (rendu historique)."""
-        c.setStrokeColor(color)
-        c.setLineWidth(max(0.9, dia * s * 0.85))
-        c.roundRect(sx0, sy0, sw, sh, r, stroke=1, fill=0)
-        if hooks:
-            hk = min(sw * 0.34, max(5.0, dia * s * 6.0))
-            e = max(1.8, dia * s * 1.7)
-            c.saveState()
-            c.setLineWidth(max(0.8, dia * s * 0.8))
-            u = 0.7071
-            for k in (0, 1):
-                px = sx0 + r * 0.75 - k * e * u
-                py = sy0 + sh - r * 0.25 - k * e * u
-                p = c.beginPath()
-                p.moveTo(px, py)
-                p.lineTo(px + hk * u, py - hk * u)
-                c.drawPath(p)
-            c.restoreState()
+        """Rectangle périmétrique d'un étrier fermé ; en mode acier, un
+        second passage plus fin trace le reflet cylindrique."""
+        w_tr = max(0.9, dia * s * 0.85)
+        w_hk = max(0.8, dia * s * 0.8)
+        passes = [(color, w_tr, w_hk)]
+        if st.steel:
+            passes.append((_ACIER["reflet"], w_tr * 0.34, w_hk * 0.34))
+        hk = min(sw * 0.34, max(5.0, dia * s * 6.0))
+        e = max(1.8, dia * s * 1.7)
+        u = 0.7071
+        for col, wt, wh in passes:
+            c.setStrokeColor(col)
+            c.setLineWidth(wt)
+            c.roundRect(sx0, sy0, sw, sh, r, stroke=1, fill=0)
+            if hooks:
+                c.saveState()
+                c.setStrokeColor(col)
+                c.setLineWidth(wh)
+                for k in (0, 1):
+                    px = sx0 + r * 0.75 - k * e * u
+                    py = sy0 + sh - r * 0.25 - k * e * u
+                    p = c.beginPath()
+                    p.moveTo(px, py)
+                    p.lineTo(px + hk * u, py - hk * u)
+                    c.drawPath(p)
+                c.restoreState()
 
     def _teinte(i):
         """Alternance des teintes entre groupes (1er = accent)."""
@@ -258,6 +317,12 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         a = st.accent
         return Color(a.red + (1 - a.red) * 0.45, a.green + (1 - a.green) * 0.45,
                      a.blue + (1 - a.blue) * 0.45)
+
+    def _coul_groupe(i):
+        """Couleur de base du i-e groupe fermé (acier ou palette)."""
+        if st.steel:
+            return _ACIER["trait"] if i % 2 == 0 else _blanc_mix(_ACIER["trait"], 0.30)
+        return _teinte(i)
 
     # groupes positionnés (extension) : `cadres` = [{dia, brins, de, a}],
     # de/a = indices de barres du lit 1 inférieur (None = toute la largeur).
@@ -274,7 +339,7 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
 
     attente = []          # groupes dessinés APRÈS les barres (positions requises)
     if not cadres:
-        _cadre_plein(dst, st.accent, True)
+        _cadre_plein(dst, _coul_groupe(0), True)
     else:
         k_ferme = 0
         for g in cadres:
@@ -290,9 +355,9 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             if fb > tb:
                 fb, tb = tb, fb
             if fb <= 1 and tb >= n1_ref:
-                _cadre_plein(dia, _teinte(k_ferme), k_ferme == 0)
+                _cadre_plein(dia, _coul_groupe(k_ferme), k_ferme == 0)
             else:
-                attente.append(("partiel", dia, fb, tb, _teinte(k_ferme)))
+                attente.append(("partiel", dia, fb, tb, _coul_groupe(k_ferme)))
             k_ferme += 1
 
     # ---- barres longitudinales
@@ -304,10 +369,13 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         x1 = sx0 + sw - dst * s - rr
         xs = [x0] if n == 1 else [x0 + i * (x1 - x0) / (n - 1) for i in range(n)]
         for bx in xs:
-            c.setFillColor(st.bar)
-            c.setStrokeColor(st.ink if st.mode != "blueprint" else st.bar)
-            c.setLineWidth(0.4)
-            c.circle(bx, y0, max(1.4, rr), stroke=1, fill=1)
+            if st.steel:
+                _barre_acier(c, bx, y0, max(1.4, rr))
+            else:
+                c.setFillColor(st.bar)
+                c.setStrokeColor(st.ink if st.mode != "blueprint" else st.bar)
+                c.setLineWidth(0.4)
+                c.circle(bx, y0, max(1.4, rr), stroke=1, fill=1)
         return xs, y0
 
     # ---- extension multi-lits : listes `lits_inf` / `lits_sup`, chaque lit
@@ -363,26 +431,35 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             m = r1 + w_st / 2.0
             x_l = xs_inf[fb - 1] - m
             x_r = xs_inf[tb - 1] + m
-            c.setStrokeColor(col)
-            c.setLineWidth(w_st)
-            c.roundRect(x_l, sy0, x_r - x_l, sh, max(2.0, 1.5 * dia * s),
-                        stroke=1, fill=0)
+            passes = [(col, w_st)]
+            if st.steel:
+                passes.append((_ACIER["reflet"], w_st * 0.34))
+            for cc, wt in passes:
+                c.setStrokeColor(cc)
+                c.setLineWidth(wt)
+                c.roundRect(x_l, sy0, x_r - x_l, sh, max(2.0, 1.5 * dia * s),
+                            stroke=1, fill=0)
         else:                       # épingle (1 brin) ou agrafe entre barres
             # teinte claire : l'épingle au ras d'une barre reste lisible
             # même quand elle longe le montant du cadre principal
-            c.setStrokeColor(_teinte(1))
-            c.setLineWidth(w_st)
+            base = _blanc_mix(_ACIER["trait"], 0.18) if st.steel else _teinte(1)
+            passes = [(base, w_st)]
+            if st.steel:
+                passes.append((_ACIER["reflet"], w_st * 0.34))
             hk = max(3.0, dia * s * 3.0)
-            if fb == tb:
-                xb = xs_inf[fb - 1] + r1 + w_st / 2.0 + 0.8
-                c.line(xb, sy0, xb, sy0 + sh)
-                c.line(xb, sy0 + sh, xb - hk, sy0 + sh - hk)
-                c.line(xb, sy0, xb - hk, sy0 + hk)
-            else:
-                xa, xb2 = xs_inf[fb - 1], xs_inf[tb - 1]
-                c.line(xa, y_inf, xb2, y_inf)
-                c.line(xa, y_inf, xa, y_inf + hk)
-                c.line(xb2, y_inf, xb2, y_inf + hk)
+            for cc, wt in passes:
+                c.setStrokeColor(cc)
+                c.setLineWidth(wt)
+                if fb == tb:
+                    xb = xs_inf[fb - 1] + r1 + w_st / 2.0 + 0.8
+                    c.line(xb, sy0, xb, sy0 + sh)
+                    c.line(xb, sy0 + sh, xb - hk, sy0 + sh - hk)
+                    c.line(xb, sy0, xb - hk, sy0 + hk)
+                else:
+                    xa, xb2 = xs_inf[fb - 1], xs_inf[tb - 1]
+                    c.line(xa, y_inf, xb2, y_inf)
+                    c.line(xa, y_inf, xa, y_inf + hk)
+                    c.line(xb2, y_inf, xb2, y_inf + hk)
 
     # ---- armatures de peau : sur les deux faces latérales, à l'intérieur
     # des étriers, aux positions calculées par le moteur
@@ -396,10 +473,13 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         for y_mm in peau["ys"]:
             yy = oy + y_mm * s
             for xc in (x_pl, x_pr):
-                c.setFillColor(st.bar)
-                c.setStrokeColor(st.ink if st.mode != "blueprint" else st.bar)
-                c.setLineWidth(0.4)
-                c.circle(xc, yy, r_t, stroke=1, fill=1)
+                if st.steel:
+                    _barre_acier(c, xc, yy, r_t)
+                else:
+                    c.setFillColor(st.bar)
+                    c.setStrokeColor(st.ink if st.mode != "blueprint" else st.bar)
+                    c.setLineWidth(0.4)
+                    c.circle(xc, yy, r_t, stroke=1, fill=1)
         peau_anchor = (x_pr, oy + max(peau["ys"]) * s)
 
     # ---- hauteur utile d
