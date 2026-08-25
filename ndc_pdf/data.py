@@ -81,9 +81,12 @@ def construire_doc(infos, date_defaut=""):
     )
 
 
-def _coupe_depuis_R(R, stirrups, pas):
+def _coupe_depuis_R(R, stirrups, pas, peau=None):
     """Payload de la coupe : millimètres, valeurs réelles du moteur.
-    Multi-lits : liste complète avec la position d'axe RÉELLE (e, mm)."""
+    Multi-lits : liste complète avec la position d'axe RÉELLE (e, mm).
+    Étriers/épingles : tous les groupes, avec leur position (de barre →
+    à barre, sur le lit 1 inférieur). Armatures de peau : positions
+    calculées par le moteur (_peau_bars)."""
     b_mm = R["b"] * 10.0
     h_mm = R["h"] * 10.0
     stirrups = stirrups or [{"d": 8, "brins": 2}]
@@ -100,16 +103,26 @@ def _coupe_depuis_R(R, stirrups, pas):
     lits_inf, labs_inf = _lits(R["geo_inf"])
     lits_sup, labs_sup = _lits(R["geo_sup"])
 
-    # libellé du cadre : mêmes formes que la légende d'origine
-    fermes = [g for g in stirrups if int(g.get("brins", 2)) != 1]
-    epingles = [g for g in stirrups if int(g.get("brins", 2)) == 1]
-    parts = [f"Étrier Ø{int(g['d'])}" for g in fermes] + \
-            [f"Épingle Ø{int(g['d'])}" for g in epingles]
-    lab_cadre = ("Étrier : Ø" + str(int(fermes[0]["d"]))) if len(parts) == 1 and fermes \
-        else " + ".join(parts) or f"Étrier : Ø{int(d_cadre)}"
-    lab_cadre2 = f"{_fmt_pas(pas)} cm" if pas else ""
+    # tous les groupes, avec leur emplacement (indices de barres du lit 1
+    # inférieur ; None = toute la largeur)
+    cadres = [dict(dia=float(g.get("d", 8) or 8), brins=int(g.get("brins", 2)),
+                   de=g.get("from"), a=g.get("to")) for g in stirrups]
 
-    return dict(
+    # légende : une ligne par groupe, mêmes formes que la légende d'origine
+    # (pas d'étrier sur les fermés, positions portées par le dessin)
+    def _lab(g):
+        if int(g.get("brins", 2)) == 1:
+            return f"Épingle : Ø{int(g['d'])}"
+        base = f"Étrier : Ø{int(g['d'])}"
+        return base + (f" — {_fmt_pas(pas)} cm" if pas else "")
+
+    labs_cadre = [_lab(g) for g in stirrups]
+    lab_cadre = f"Étrier : Ø{int(d_cadre)}"
+    lab_cadre2 = f"{_fmt_pas(pas)} cm" if pas else ""
+    if len(stirrups) == 1 and int(stirrups[0].get("brins", 2)) == 1:
+        lab_cadre = f"Épingle : Ø{int(stirrups[0]['d'])}"
+
+    out = dict(
         b=b_mm, h=h_mm,
         enrobage=R["enrob_beton"] * 10.0,
         cadre_dia=d_cadre,
@@ -118,6 +131,7 @@ def _coupe_depuis_R(R, stirrups, pas):
         lit_sup=dict(n=lits_sup[0]["n"], dia=lits_sup[0]["dia"]),
         lits_inf=lits_inf, lits_sup=lits_sup,
         labs_inf=labs_inf, labs_sup=labs_sup,
+        cadres=cadres,
         b_label=f"b = {fn(R['b'], 0)} cm", h_label=f"h = {fn(R['h'], 0)} cm",
         c_label=f"c = {fn(R['enrob_beton'], 1)} cm",
         d_label=f"d = {fn(R['di'], 1)} cm",
@@ -125,6 +139,14 @@ def _coupe_depuis_R(R, stirrups, pas):
         lab_inf=labs_inf[0][0], lab_inf2=labs_inf[0][1],
         lab_cadre=lab_cadre, lab_cadre2=lab_cadre2,
     )
+    if len(stirrups) > 1:
+        out["labs_cadre"] = labs_cadre
+    if peau and peau.get("n"):
+        out["peau"] = dict(
+            dia=float(peau["d"]),
+            ys=[y * 10.0 for y in peau["ys"]],
+            label=f"Armature de peau : 2×{int(peau['n'])} Ø{int(peau['d'])}")
+    return out
 
 
 def _blocs_depuis_R(R, ta_global=None):
@@ -292,7 +314,7 @@ def construire_sections(resultats):
             beton=R["beton"], acier=f"B{int(R['fyk'])}",
             etat=ETAT_LABELS.get(R["etat_global"], "Non vérifié"),
             coupe=_coupe_depuis_R(R, res.get("stirrups"),
-                                  (Sh or {}).get("pas")),
+                                  (Sh or {}).get("pas"), peau=res.get("peau")),
             blocs=_blocs_depuis_R(R, res.get("ta_global")),
             verifs=verifs,
         ))

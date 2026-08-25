@@ -169,27 +169,75 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
     c.setLineWidth(st.rule_w)
     c.rect(ox, oy, bw, bh, stroke=1, fill=0)
 
-    # ---- cadre (étrier) avec crochets
+    # ---- cadre(s) (étriers) avec crochets
     ci = cov * s
     sx0, sy0 = ox + ci, oy + ci
     sw, sh = bw - 2 * ci, bh - 2 * ci
     r = max(1.6, dst * s * 2.0)
-    c.setStrokeColor(st.accent)
-    c.setLineWidth(max(0.9, dst * s * 0.85))
-    c.roundRect(sx0, sy0, sw, sh, r, stroke=1, fill=0)
-    hk = min(sw * 0.34, max(5.0, dst * s * 6.0))
-    e = max(1.8, dst * s * 1.7)
-    c.saveState()
-    c.setLineWidth(max(0.8, dst * s * 0.8))
-    u = 0.7071
-    for k in (0, 1):
-        px = sx0 + r * 0.75 - k * e * u
-        py = sy0 + sh - r * 0.25 - k * e * u
-        p = c.beginPath()
-        p.moveTo(px, py)
-        p.lineTo(px + hk * u, py - hk * u)
-        c.drawPath(p)
-    c.restoreState()
+
+    def _cadre_plein(dia, color, hooks):
+        """Rectangle périmétrique d'un étrier fermé (rendu historique)."""
+        c.setStrokeColor(color)
+        c.setLineWidth(max(0.9, dia * s * 0.85))
+        c.roundRect(sx0, sy0, sw, sh, r, stroke=1, fill=0)
+        if hooks:
+            hk = min(sw * 0.34, max(5.0, dia * s * 6.0))
+            e = max(1.8, dia * s * 1.7)
+            c.saveState()
+            c.setLineWidth(max(0.8, dia * s * 0.8))
+            u = 0.7071
+            for k in (0, 1):
+                px = sx0 + r * 0.75 - k * e * u
+                py = sy0 + sh - r * 0.25 - k * e * u
+                p = c.beginPath()
+                p.moveTo(px, py)
+                p.lineTo(px + hk * u, py - hk * u)
+                c.drawPath(p)
+            c.restoreState()
+
+    def _teinte(i):
+        """Alternance des teintes entre groupes (1er = accent)."""
+        if i % 2 == 0:
+            return st.accent
+        a = st.accent
+        return Color(a.red + (1 - a.red) * 0.45, a.green + (1 - a.green) * 0.45,
+                     a.blue + (1 - a.blue) * 0.45)
+
+    # groupes positionnés (extension) : `cadres` = [{dia, brins, de, a}],
+    # de/a = indices de barres du lit 1 inférieur (None = toute la largeur).
+    # Sans cette clé, le rendu historique à un cadre est inchangé.
+    cadres = sec.get("cadres")
+    n1_ref = int((sec.get("lits_inf") or [sec["lit_inf"]])[0].get("n", 1) or 1)
+
+    def _clampb(v, dflt):
+        try:
+            v = int(v)
+        except (TypeError, ValueError):
+            return dflt
+        return max(1, min(n1_ref, v))
+
+    attente = []          # groupes dessinés APRÈS les barres (positions requises)
+    if not cadres:
+        _cadre_plein(dst, st.accent, True)
+    else:
+        k_ferme = 0
+        for g in cadres:
+            dia = float(g.get("dia", 8) or 8)
+            if int(g.get("brins", 2)) == 1:
+                attente.append(("epingle", dia,
+                                _clampb(g.get("de"), (n1_ref + 1) // 2),
+                                _clampb(g.get("a"), _clampb(g.get("de"), (n1_ref + 1) // 2)),
+                                None))
+                continue
+            fb = _clampb(g.get("de"), 1)
+            tb = _clampb(g.get("a"), n1_ref)
+            if fb > tb:
+                fb, tb = tb, fb
+            if fb <= 1 and tb >= n1_ref:
+                _cadre_plein(dia, _teinte(k_ferme), k_ferme == 0)
+            else:
+                attente.append(("partiel", dia, fb, tb, _teinte(k_ferme)))
+            k_ferme += 1
 
     # ---- barres longitudinales
     def bars(layer, bottom=True):
@@ -248,6 +296,54 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         xs_inf, y_inf = bars(inf, True)
         xs_sup, y_sup = bars(sup, False)
 
+    # ---- groupes positionnés en attente : étriers partiels, épingles,
+    # agrafes — tracés au contact des barres du lit 1 inférieur
+    r1 = float((sec.get("lits_inf") or [sec["lit_inf"]])[0]["dia"]) * s / 2.0
+    for kind, dia, fb, tb, col in attente:
+        w_st = max(0.8, dia * s * 0.85)
+        if fb > tb:
+            fb, tb = tb, fb
+        if kind == "partiel":
+            m = r1 + w_st / 2.0
+            x_l = xs_inf[fb - 1] - m
+            x_r = xs_inf[tb - 1] + m
+            c.setStrokeColor(col)
+            c.setLineWidth(w_st)
+            c.roundRect(x_l, sy0, x_r - x_l, sh, max(2.0, 1.5 * dia * s),
+                        stroke=1, fill=0)
+        else:                       # épingle (1 brin) ou agrafe entre barres
+            c.setStrokeColor(st.accent)
+            c.setLineWidth(w_st)
+            hk = max(3.0, dia * s * 3.0)
+            if fb == tb:
+                xb = xs_inf[fb - 1] + r1 + w_st / 2.0 + 0.8
+                c.line(xb, sy0, xb, sy0 + sh)
+                c.line(xb, sy0 + sh, xb - hk, sy0 + sh - hk)
+                c.line(xb, sy0, xb - hk, sy0 + hk)
+            else:
+                xa, xb2 = xs_inf[fb - 1], xs_inf[tb - 1]
+                c.line(xa, y_inf, xb2, y_inf)
+                c.line(xa, y_inf, xa, y_inf + hk)
+                c.line(xb2, y_inf, xb2, y_inf + hk)
+
+    # ---- armatures de peau : sur les deux faces latérales, à l'intérieur
+    # des étriers, aux positions calculées par le moteur
+    peau = sec.get("peau")
+    peau_anchor = None
+    if peau and peau.get("ys"):
+        r_t = max(1.2, float(peau["dia"]) * s / 2.0)
+        w_main = max(0.9, dst * s * 0.85)
+        x_pl = ox + ci + w_main + r_t
+        x_pr = ox + bw - ci - w_main - r_t
+        for y_mm in peau["ys"]:
+            yy = oy + y_mm * s
+            for xc in (x_pl, x_pr):
+                c.setFillColor(st.bar)
+                c.setStrokeColor(st.ink if st.mode != "blueprint" else st.bar)
+                c.setLineWidth(0.4)
+                c.circle(xc, yy, r_t, stroke=1, fill=1)
+        peau_anchor = (x_pr, oy + max(peau["ys"]) * s)
+
     # ---- hauteur utile d
     # ---- cotations principales (chaîne empilée à gauche)
     _dim_h(c, ox, ox + bw, oy - 15, sec["b_label"], st, ext_from=oy - 3)
@@ -304,13 +400,34 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             ):
                 yy = yl + (16 if yl > oy + bh / 2 else -16)
                 _annot(xsl, yl, yy, txt, sub)
-        # cadre
+        # cadre(s)
         yy = oy + bh * 0.52
         _leader(c, sx0 + sw, yy, lx - 14, yy, lx, st, st.accent)
-        draw_text(c, tx, yy + 1.6, sec["lab_cadre"], st.font_bold, st.label_size, st.accent)
-        if sec.get("lab_cadre2"):
-            draw_text(c, tx, yy - st.label_size + 0.4, sec["lab_cadre2"], st.font,
-                      st.label_size - 0.6, st.muted)
+        labs_c = sec.get("labs_cadre")
+        if labs_c:
+            # une ligne par groupe (étriers, épingles), empilées sous la
+            # ligne de rappel — 1er groupe en accent, suivants en encre
+            yline = yy
+            for i, lab in enumerate(labs_c):
+                draw_text(c, tx, yline + 1.6, lab,
+                          st.font_bold if i == 0 else st.font,
+                          st.label_size - (0 if i == 0 else 0.4),
+                          st.accent if i == 0 else st.ink)
+                yline -= st.label_size + 2.2
+            y_bas_cadre = yline + 1.6
+        else:
+            draw_text(c, tx, yy + 1.6, sec["lab_cadre"], st.font_bold, st.label_size, st.accent)
+            if sec.get("lab_cadre2"):
+                draw_text(c, tx, yy - st.label_size + 0.4, sec["lab_cadre2"], st.font,
+                          st.label_size - 0.6, st.muted)
+            y_bas_cadre = yy - st.label_size + 0.4
+
+        # armature de peau : ligne de rappel dédiée, sous le bloc du cadre
+        if peau_anchor is not None:
+            yp = y_bas_cadre - 14
+            _leader(c, peau_anchor[0], peau_anchor[1], lx - 14, yp, lx, st, st.muted)
+            draw_text(c, tx, yp + 1.6, sec["peau"].get("label", "Armature de peau"),
+                      st.font_bold, st.label_size, st.ink)
 
     # ---- repère / échelle
     if st.title:

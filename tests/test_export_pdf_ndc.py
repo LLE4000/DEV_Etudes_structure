@@ -121,8 +121,15 @@ values = {
     KS("n_as_inf", 2, 1): 3, KS("ø_as_inf", 2, 1): 20,
     KS("n_as_inf_l2", 2, 1): 2, KS("ø_as_inf_l2", 2, 1): 16,
     KS("n_as_sup", 2, 1): 2, KS("ø_as_sup", 2, 1): 16,
-    KS("shear_n_lines", 2, 1): 1, KS("shear_line0_type", 2, 1): "Étriers (2 brins)",
-    KS("shear_line0_d", 2, 1): 8, KS("shear_pas", 2, 1): 20.0,
+    # trois groupes positionnés : étrier périmétrique + étrier partiel
+    # (barres 1→2) + épingle (barre 3) — et h=60 déclenche la peau
+    KS("shear_n_lines", 2, 1): 3,
+    KS("shear_line0_type", 2, 1): "Étriers (2 brins)", KS("shear_line0_d", 2, 1): 8,
+    KS("shear_line1_type", 2, 1): "Étriers (2 brins)", KS("shear_line1_d", 2, 1): 8,
+    KS("shear_line1_from", 2, 1): 1, KS("shear_line1_to", 2, 1): 2,
+    KS("shear_line2_type", 2, 1): "Épingle (1 brin)", KS("shear_line2_d", 2, 1): 8,
+    KS("shear_line2_from", 2, 1): 3, KS("shear_line2_to", 2, 1): 3,
+    KS("shear_pas", 2, 1): 20.0,
     KS("M_inf", 2, 2): 80.0, KS("M_sup", 2, 2): 40.0, KS("V", 2, 2): 90.0,
     KS("n_as_inf", 2, 2): 3, KS("ø_as_inf", 2, 2): 16,
     KS("n_as_sup", 2, 2): 2, KS("ø_as_sup", 2, 2): 16,
@@ -160,6 +167,11 @@ t4 = doc[3].get_text()
 chk("multi-lits : les deux lits sont annotés",
     "Lit 1 : 3 Ø20" in t4 and "Lit 2 : 2 Ø16" in t4, t4[:200])
 chk("multi-lits : c.d.g. de 2 lits affiché", "c.d.g. de 2 lits" in t4)
+chk("armatures de peau annotées sur la coupe", "Armature de peau : 2×1 Ø10" in t4)
+chk("légende : une ligne par groupe d'étriers",
+    t4.count("Étrier : Ø8 — 20 cm") == 2 and "Épingle : Ø8" in t4)
+chk("récap étriers : les trois groupes dans « On prend »",
+    "Étrier Ø8 + Étrier Ø8 + Épingle Ø8" in t4)
 t5 = doc[4].get_text()
 chk("section vérifiée : pastille VÉRIFIÉ", "VÉRIFIÉ" in t5 and "NON VÉRIFIÉ" not in t5)
 
@@ -181,6 +193,12 @@ chk("coupe : positions d'axe réelles transmises (mm)",
     len(c4["lits_inf"]) == 2 and abs(c4["lits_inf"][0]["e"] - 60.0) < 1e-6
     and abs(c4["lits_inf"][1]["e"] - 90.0) < 1e-6, str(c4["lits_inf"]))
 chk("coupe : un libellé par lit", len(c4["labs_inf"]) == 2)
+chk("coupe : trois groupes d'étriers avec positions",
+    len(c4["cadres"]) == 3 and c4["cadres"][1]["de"] == 1 and c4["cadres"][1]["a"] == 2
+    and c4["cadres"][2]["brins"] == 1, str(c4["cadres"]))
+chk("coupe : peau aux positions du moteur (mm)",
+    "peau" in c4 and [round(y, 1) for y in c4["peau"]["ys"]] == [300.0],
+    str(c4.get("peau")))
 etats = [v["etat"] for s in secs for verif in s["verifs"] for v in verif["verdicts"]]
 chk("verdicts : uniquement ok/att/ko", set(etats) <= {"ok", "att", "ko"}, str(set(etats)))
 

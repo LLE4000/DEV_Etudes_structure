@@ -95,3 +95,20 @@ palette = quatre lignes : `panel`, `acc`, `concrete`, `ko`.
 - `doc.warnings` liste en points ce qui sortirait de la page. Vide = bon.
 - Le symbole recule automatiquement si la valeur calée à droite le toucherait.
 - `NDC_FONT_DIR` pointe un autre dossier de polices si besoin.
+
+## Portage vers un autre dépôt
+
+La fonctionnalité tient volontairement dans TROIS chemins — rien d'autre
+n'a été touché :
+
+| Chemin | Rôle |
+|---|---|
+| `ndc_pdf/` | ce dossier, autonome : code + polices + `reference/` (étalon) |
+| `modules/export_pdf.py` | le branchement (`generer_rapport_pdf` v3.0) — remplace le fichier |
+| `tests/test_export_pdf_ndc.py` | 34 contrôles, dont l'identité au rendu de référence |
+
+Copier ces trois chemins dans l'autre dépôt suffit. Dépendances :
+`reportlab` (l'application — fontTools vient avec) ; `pymupdf`
+(les tests uniquement). Vérification après portage :
+
+    python tests/test_export_pdf_ndc.py     # 34 OK attendu

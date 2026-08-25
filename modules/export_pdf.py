@@ -1543,6 +1543,28 @@ def _style_ndc(n_cols=2):
     return s
 
 
+def _peau_bars(R):
+    """Armatures de peau (paramètres techno) : mêmes règles que le dessin
+    de l'application et _section_poids_vol — n = ceil(d_vert/s_max) − 1
+    par face latérale, réparties entre les axes des lits 1. Renvoie
+    None ou {d (mm), ys (cm depuis le bas), n}."""
+    techno = R.get("techno") or {}
+    t_d = float(techno.get("d", 10) or 10)
+    t_smax = float(techno.get("s_max", 30) or 30)
+    e_inf1 = R["geo_inf"]["lits"][0]["e"]
+    e_sup1 = R["geo_sup"]["lits"][0]["e"]
+    d_vert = R["h"] - e_inf1 - e_sup1
+    if t_smax <= 0 or d_vert <= t_smax:
+        return None
+    n_int = int(math.ceil(d_vert / t_smax))
+    n_peau = max(0, n_int - 1)
+    if n_peau == 0:
+        return None
+    step = d_vert / n_int
+    return {"d": t_d, "n": n_peau,
+            "ys": [e_inf1 + k * step for k in range(1, n_peau + 1)]}
+
+
 def _collecter_resultats(beams, values, beton_data):
     """Payloads NEUTRES pour ndc_pdf.data : un par section, dans l'ordre
     des planches. Toute la vérité vient de _compute_section (fidèle à
@@ -1560,6 +1582,7 @@ def _collecter_resultats(beams, values, beton_data):
             out.append(dict(
                 poutre=nom_poutre, section=snom, R=R,
                 stirrups=stirrups_for(R, values, bid, sid),
+                peau=_peau_bars(R),
                 ta_global=ta,
             ))
     return out
