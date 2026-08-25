@@ -186,6 +186,20 @@ def tassement(couches, B: float, L: float, q_kPa: float, D: float = 0.0,
     motif = "profil épuisé"
     sans_module = 0.0
 
+    # PLANCHER D'INTÉGRATION.
+    # Le critère Δσ ≤ crit·σ'v0 compare la contrainte APPORTÉE à celle DÉJÀ
+    # EN PLACE. Sous une fondation profonde faiblement chargée, il est
+    # satisfait dès la première tranche : l'intégration s'arrêtait alors
+    # aussitôt, w valait zéro et k sortait à 0 — ou, juste au-dessus du
+    # seuil, à dix fois sa valeur. Or pour un sol élastique linéaire, k ne
+    # doit PAS dépendre de q : w est proportionnel à q, donc k = q/w est
+    # une constante du couple sol-fondation. La dépendance observée était
+    # entièrement un artefact de la troncature.
+    # On impose donc d'intégrer au moins sur une largeur de fondation, où
+    # la contrainte apportée vaut encore ~34 % de q et n'est en rien
+    # négligeable. Le critère ne peut plus tronquer en deçà.
+    z_plancher = min(B, z_plafond)
+
     while z < z_plafond - 1e-12:
         pas = min(dz, z_plafond - z)
         zm = z + pas / 2.0                       # milieu de tranche
@@ -193,17 +207,14 @@ def tassement(couches, B: float, L: float, q_kPa: float, D: float = 0.0,
         ds = delta_sigma(q_util, B, L, zm, position)
         _, svp0 = contraintes_en_place(couches, z_tn, nappe_m)
 
-        if svp0 > 0 and ds <= critere * svp0:
-            z_infl = zm
-            motif = f"Δσ ≤ {critere:.0%} · σ'v0"
-            break
-
         M, c = module_a(z_tn)
         if M is None or M <= 0:
             sans_module += pas
             z += pas
             continue
 
+        # La tranche qui déclenche l'arrêt est COMPTÉE avant de sortir :
+        # la jeter revenait à perdre sa contribution au tassement.
         dw = ds * pas / (M * 1000.0)             # M MPa -> kPa
         w += dw
         tranches.append({
@@ -214,11 +225,27 @@ def tassement(couches, B: float, L: float, q_kPa: float, D: float = 0.0,
         })
         z += pas
 
+        if z >= z_plancher and svp0 > 0 and ds <= critere * svp0:
+            z_infl = z
+            motif = f"Δσ ≤ {critere:.0%} · σ'v0"
+            break
+
     if z_infl is None:
         z_infl = z
         if z >= z_plafond - 1e-9:
             motif = ("profil saisi épuisé" if H_profil - D <= z_max_mult * B
                      else f"plafond {z_max_mult:g}·B atteint")
+
+    # Une couche sans module n'est PAS une couche incompressible : la
+    # sauter revenait à retenir l'hypothèse la plus favorable possible
+    # (jusqu'à +166 % sur k, mesuré). On refuse de produire un chiffre.
+    if sans_module > 1e-9:
+        return {"w_m": 0.0, "w_mm": 0.0, "k_kNm3": 0.0, "k_MNm3": 0.0,
+                "z_influence": z_infl, "tranches": tranches,
+                "q_net_kPa": q_util, "sigma_v0_assise": sv0_D,
+                "position": position, "h_sans_module": sans_module,
+                "convergence": (f"profil incomplet : {sans_module:.2f} m sans module M "
+                                "dans la zone d'influence — k non calculable")}
 
     w_m = w
     k_kN = (q_util / w_m) if w_m > 1e-12 else 0.0

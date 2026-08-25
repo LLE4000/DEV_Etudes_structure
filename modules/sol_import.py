@@ -293,7 +293,37 @@ def parse_csv(contenu: bytes, nom_fichier: str = "CPT", mapping=None,
     if len(points) < 5:
         raise ValueError("Moins de 5 lignes numériques exploitables.")
     avert = [f"{ignorees} ligne(s) non numérique(s) ignorée(s)."] if ignorees else []
+    avert += _controler_profondeurs(points)
     return _sondage(nom_fichier, points, f"CSV — {len(points)} points", avert=avert)
+
+
+def _controler_profondeurs(points):
+    """
+    Une colonne « Z » est aussi souvent une COTE (altitude, +12,50 m) qu'une
+    profondeur. Prise pour une profondeur, elle décale tout le profil et
+    fausse le calcul d'un ordre de grandeur, sans rien signaler. On teste
+    donc ce que la série ressemble vraiment à une profondeur de sondage.
+    """
+    if not points:
+        return []
+    zs = sorted(p[0] for p in points)
+    a = []
+    if zs[0] > 3.0:
+        a.append(
+            f"La colonne de profondeur commence à {zs[0]:.2f} m : s'agit-il d'une "
+            "COTE (altitude) et non d'une profondeur sous le terrain naturel ? "
+            "Dans ce cas le profil est décalé et le calcul sera faux — convertis "
+            "la colonne avant d'importer.")
+    if zs[-1] > 100.0:
+        a.append(f"Profondeur maximale lue : {zs[-1]:.1f} m — valeur inhabituelle "
+                 "pour un CPT, vérifie l'unité de la colonne (cm au lieu de m ?).")
+    ecarts = [b - a2 for a2, b in zip(zs, zs[1:]) if b > a2]
+    if ecarts:
+        med = sorted(ecarts)[len(ecarts) // 2]
+        if med > 1.0:
+            a.append(f"Pas de mesure médian de {med:.2f} m : très grossier pour un CPT "
+                     "(le pas normalisé est de 2 cm). Vérifie la colonne choisie.")
+    return a
 
 
 # =============================================================
@@ -496,11 +526,30 @@ def analyser_pdf(contenu: bytes, page_idx: int = 0):
     return {"courbes": courbes, "calibration": calib, "avertissements": avert}
 
 
+# Plage physique du rapport de frottement Rf = fs/qc. En dehors, ce n'est
+# pas un sol : c'est un recalage faux. Sert de garde-fou automatique.
+RF_MIN_PLAUSIBLE = 0.05      # %
+RF_MAX_PLAUSIBLE = 12.0      # %
+
+
 def extraire_courbe(analyse, idx_qc=0, idx_fs=None, calib=None, nom="CPT",
-                    z_min=None, z_max=None):
+                    z_min=None, z_max=None, calib_fs=None, facteur_fs=1.0):
     """
     Applique le recalage aux polylignes choisies et produit un sondage.
-    `calib` permet de forcer (ax, bx, ay, by) après correction manuelle.
+
+    `calib`     : recalage de l'axe des qc (ax, bx) et des profondeurs (ay, by).
+    `calib_fs`  : recalage PROPRE à la courbe de frottement. Dans un rapport
+                  réel, fs n'est presque jamais tracé à la même échelle que
+                  qc — soit sur un axe séparé, soit sur le même axe avec un
+                  facteur (« fs × 10 »). Utiliser la calibration de qc pour
+                  fs fausse Rf, donc l'indice Ic, donc tout le classement.
+    `facteur_fs`: raccourci quand fs partage l'axe de qc avec un facteur
+                  d'agrandissement (valeur lue sur le graphique divisée par
+                  ce facteur).
+
+    Le rapport de frottement obtenu est contrôlé : hors de la plage
+    physique, un avertissement explicite est renvoyé plutôt qu'un profil
+    silencieusement faux.
     """
     calib = calib or analyse["calibration"]
     for k in ("ax", "bx", "ay", "by"):
@@ -508,18 +557,25 @@ def extraire_courbe(analyse, idx_qc=0, idx_fs=None, calib=None, nom="CPT",
             raise ValueError(
                 "Recalage incomplet : renseigne les valeurs des axes avant d'importer.")
     ax, bx, ay, by = calib["ax"], calib["bx"], calib["ay"], calib["by"]
+    cfs = calib_fs or calib
+    ax_fs = cfs.get("ax", ax)
+    bx_fs = cfs.get("bx", bx)
+    try:
+        facteur_fs = float(facteur_fs) or 1.0
+    except Exception:
+        facteur_fs = 1.0
 
     courbes = analyse["courbes"]
     if idx_qc >= len(courbes):
         raise ValueError("Courbe qc introuvable.")
 
-    def _serie(c):
-        s = sorted(((ay * y + by, ax * x + bx) for (x, y) in c["pts"]),
-                   key=lambda t: t[0])
-        return s
+    def _serie(c, a, b):
+        return sorted(((ay * y + by, a * x + b) for (x, y) in c["pts"]),
+                      key=lambda t: t[0])
 
-    sq = _serie(courbes[idx_qc])
-    sf = _serie(courbes[idx_fs]) if (idx_fs is not None and idx_fs < len(courbes)) else None
+    sq = _serie(courbes[idx_qc], ax, bx)
+    sf = (_serie(courbes[idx_fs], ax_fs, bx_fs)
+          if (idx_fs is not None and 0 <= idx_fs < len(courbes)) else None)
 
     def interp(serie, z):
         if not serie:
@@ -551,17 +607,36 @@ def extraire_courbe(analyse, idx_qc=0, idx_fs=None, calib=None, nom="CPT",
         fs = None
         if sf:
             v = interp(sf, z)
-            # la 2ᵉ courbe est en général fs (MPa) tracée sur le même axe
-            fs = None if v is None else max(0.0, v) * 1000.0
+            # la courbe de frottement est lue en MPa sur SON axe, puis
+            # ramenée à l'échelle réelle et convertie en kPa
+            fs = None if v is None else max(0.0, v) / facteur_fs * 1000.0
         points.append((max(0.0, z), q, fs))
     if neg:
         avert.append(f"{neg} valeur(s) de qc négative(s) ramenée(s) à zéro "
                      "(dépassement de cadre à la lecture).")
     if len(points) < 5:
         raise ValueError("Moins de 5 points exploitables après recalage.")
-    return _sondage(nom, points,
-                    f"PDF vectoriel — {len(points)} points recalés sur la grille",
-                    avert=avert, calib=calib)
+
+    # ---- garde-fou : le rapport de frottement doit rester physique ----
+    rfs = [p[2] / (p[1] * 1000.0) * 100.0
+           for p in points if p[2] is not None and p[1] > 0.05]
+    rf_med = None
+    if rfs:
+        rfs_tri = sorted(rfs)
+        rf_med = rfs_tri[len(rfs_tri) // 2]
+        if not (RF_MIN_PLAUSIBLE <= rf_med <= RF_MAX_PLAUSIBLE):
+            avert.append(
+                f"Rapport de frottement médian Rf = {rf_med:.1f} % — hors de la plage "
+                f"physique ({RF_MIN_PLAUSIBLE:g} à {RF_MAX_PLAUSIBLE:g} %). "
+                "La courbe de frottement n'est presque jamais tracée à la même échelle "
+                "que qc : indique son échelle propre (ou son facteur d'agrandissement), "
+                "sinon la classification du sol sera fausse.")
+
+    s = _sondage(nom, points,
+                 f"PDF vectoriel — {len(points)} points recalés sur la grille",
+                 avert=avert, calib=calib)
+    s["rf_median"] = rf_med
+    return s
 
 
 # =============================================================

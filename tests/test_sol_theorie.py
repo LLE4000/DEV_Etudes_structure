@@ -185,11 +185,40 @@ chk("fonder SOUS une couche molle augmente fortement k",
     avec_D["k_MNm3"] > 3 * sans_D["k_MNm3"],
     f"D=0 : {sans_D['k_MNm3']:.2f} → D=2 m : {avec_D['k_MNm3']:.2f} MN/m³")
 
+# --- k ne doit PAS dépendre de q (modèle élastique linéaire) ---
+# Défaut trouvé en revue : le critère d'arrêt était testé AVANT
+# d'accumuler la tranche et sans plancher de profondeur ; k passait de
+# 7,4 à 62,6 puis à 0,00 quand q diminuait, en affichant du vert.
+sol_lin = [{"h": 25.0, "gamma": 19.0, "M": 25.0, "nom": "sable"}]
+ks_q = [ST.tassement(sol_lin, 4.0, 4.0, float(q), D=3.0)["k_MNm3"]
+        for q in (300, 200, 150, 120, 100, 80, 70, 60)]
+chk("k reste positif quel que soit q (même faiblement chargé)",
+    all(v > 0 for v in ks_q), " ; ".join(f"{v:.2f}" for v in ks_q))
+chk("k varie peu avec q (rapport < 1,5)",
+    max(ks_q) / min(ks_q) < 1.5, f"{min(ks_q):.2f} à {max(ks_q):.2f}")
+chk("aucune discontinuité de k avec q",
+    all(abs(a - b) / max(a, b) < 0.15 for a, b in zip(ks_q, ks_q[1:])),
+    " ; ".join(f"{v:.2f}" for v in ks_q))
+chk("plancher d'intégration : au moins une largeur de fondation",
+    ST.tassement(sol_lin, 4.0, 4.0, 60.0, D=3.0)["z_influence"] >= 4.0 - 1e-9,
+    f"{ST.tassement(sol_lin, 4.0, 4.0, 60.0, D=3.0)['z_influence']:.2f} m")
+
+# --- une couche sans module n'est PAS incompressible ---
+troue = [{"h": 2.0, "gamma": 19.0, "M": None, "nom": "non classé"},
+         {"h": 18.0, "gamma": 19.0, "M": 20.0, "nom": "sable"}]
+plein = [{"h": 2.0, "gamma": 19.0, "M": 20.0, "nom": "remblai"},
+         {"h": 18.0, "gamma": 19.0, "M": 20.0, "nom": "sable"}]
+rt = ST.tassement(troue, 3.0, 3.0, 200.0)
+chk("profil troué → refus de calculer (et non un k flatteur)",
+    rt["k_MNm3"] == 0.0 and "incomplet" in rt["convergence"], rt["convergence"])
+chk("le refus indique l'épaisseur manquante", rt["h_sans_module"] > 1.9,
+    f"{rt['h_sans_module']:.2f} m")
+chk("le même profil complété se calcule normalement",
+    ST.tassement(plein, 3.0, 3.0, 200.0)["k_MNm3"] > 0)
+
 # Robustesse
 chk("charge nulle → pas de division par zéro",
     ST.tassement(prof3, 2.0, 2.0, 0.0)["k_MNm3"] == 0.0)
-chk("profil sans module → k nul, pas d'exception",
-    ST.tassement([{"h": 5.0, "gamma": 19.0, "M": None}], 2.0, 2.0, 100.0)["k_MNm3"] == 0.0)
 chk("q inférieur au poids des terres → message explicite",
     "nette" in ST.tassement(prof3, 2.0, 2.0, 10.0, D=3.0, q_net=True)["convergence"])
 

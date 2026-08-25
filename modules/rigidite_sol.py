@@ -86,7 +86,14 @@ KGF_PER_CM2_TO_KPA = 98.0665
 C_COULEURS = {"ok": "#e6ffe6", "warn": "#fffbe6", "nok": "#ffe6e6", "info": "#eef2ff"}
 C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌", "info": "ℹ️"}
 
-LAYER_FIELDS = ("h", "type", "type_prev", "qc", "rf", "M", "gamma")
+# TOUTES les clés d'une couche, y compris celles issues d'un import CPT.
+# Elles doivent y figurer sans exception : c'est cette liste qui est
+# utilisée pour SUPPRIMER une couche et pour COPIER un sondage. Un champ
+# oublié survit à la suppression et se retrouve hérité par la couche
+# suivante portant le même identifiant (borne haute d'un ancien sol
+# recollée à un nouveau), et disparaît d'une copie de sondage.
+LAYER_FIELDS = ("h", "type", "type_prev", "qc", "rf", "M", "gamma",
+                "M_haut", "Ic", "sbt")
 LAYER_COLS = [0.7, 2.0, 0.9, 0.8, 0.9, 0.9, 0.5]
 
 # Clés de session propres à ce module : tout ce qui commence par ces
@@ -99,6 +106,22 @@ _PREFIXES = ("snd", "rs_", "sol_")
 def _est_cle_module(k: str) -> bool:
     return (any(k.startswith(p) for p in _PREFIXES)
             or k in ("soundings", "rs_projet"))
+
+
+# ---- écritures différées vers des clés de widgets --------------------
+# Streamlit interdit de modifier st.session_state[k] quand le widget de
+# clé k a déjà été instancié dans le run en cours. Un callback de bouton
+# s'exécute au MILIEU du script : tout ce qui a été rendu avant lui est
+# donc verrouillé. On empile ces écritures et on les applique au tout
+# début du run suivant, avant qu'aucun widget n'existe.
+def _differer(valeurs: dict):
+    st.session_state.setdefault("rs_pending", {})
+    st.session_state["rs_pending"].update(valeurs)
+
+
+def _appliquer_differees():
+    for k, v in (st.session_state.pop("rs_pending", None) or {}).items():
+        st.session_state[k] = v
 
 
 # =============================================================
@@ -297,8 +320,11 @@ def _remplir_depuis_couches(sid, couches, nappe=None, source=""):
         _init_layer(sid, 1)
     if nappe is not None:
         st.session_state[f"snd{sid}_nappe"] = float(nappe)
-        st.session_state["rs_nappe_active"] = True
-        st.session_state["rs_nappe"] = float(nappe)
+        # rs_nappe_active et rs_nappe sont des clés de WIDGETS déjà
+        # instanciés plus haut dans le même run (panneau Fondation) :
+        # les écrire ici lève une StreamlitAPIException. On diffère au
+        # run suivant, où elles seront posées avant tout rendu.
+        _differer({"rs_nappe_active": True, "rs_nappe": float(nappe)})
     if source:
         st.session_state[f"snd{sid}_source"] = source
 
@@ -422,13 +448,43 @@ def _render_import_pdf(sid, contenu, nom):
             calib_final["ay"] = (z_b - z_h) / dy
             calib_final["by"] = z_h - calib_final["ay"] * calib["y0"]
 
+    # --- échelle propre de la courbe de frottement ---
+    # Dans un rapport réel, fs n'est presque jamais tracé à la même échelle
+    # que qc. Appliquer la calibration de qc à fs fausse Rf, donc Ic, donc
+    # tout le classement du sol : le limon devient de la tourbe.
+    facteur_fs = 1.0
+    if i_fs >= 0:
+        st.markdown("**Échelle de la courbe de frottement**")
+        e1, e2 = st.columns([1, 2])
+        with e1:
+            facteur_fs = st.number_input(
+                "fs tracé × ", min_value=0.001, max_value=1000.0, value=1.0,
+                step=1.0, key=f"{kpref}_ffs",
+                help="Beaucoup de rapports tracent fs sur l'axe des qc avec un "
+                     "facteur d'agrandissement (« fs × 10 »). Indique-le ici. "
+                     "Si fs a son propre axe, mets le rapport des deux pleines "
+                     "échelles (ex. axe qc 0-25 MPa et axe fs 0-1 MPa → 25).")
+        with e2:
+            st.caption("Contrôle : le rapport de frottement Rf = fs/qc d'un sol réel "
+                       "vaut 0,2 à 1 % dans un sable, 2 à 6 % dans une argile. "
+                       "Une valeur hors de 0,05–12 % signale une échelle fausse.")
+
     try:
         sondage = SI.extraire_courbe(
             analyse, idx_qc=i_qc, idx_fs=(None if i_fs < 0 else i_fs),
-            calib=calib_final, nom=re.sub(r"\.pdf$", "", nom, flags=re.I))
+            calib=calib_final, nom=re.sub(r"\.pdf$", "", nom, flags=re.I),
+            facteur_fs=facteur_fs)
     except Exception as e:
         st.error(f"{e}")
         return
+
+    rf = sondage.get("rf_median")
+    if rf is not None:
+        ok_rf = SI.RF_MIN_PLAUSIBLE <= rf <= SI.RF_MAX_PLAUSIBLE
+        st.markdown(
+            f"{'✅' if ok_rf else '❌'} Rapport de frottement médian obtenu : "
+            f"**Rf = {rf:.2f} %**"
+            + ("" if ok_rf else " — échelle de fs à corriger avant d'importer."))
     _apercu_et_valider(sid, sondage)
 
 
@@ -490,8 +546,9 @@ def _apercu_et_valider(sid, sondage):
                      use_container_width=True, type="primary"):
             _remplir_depuis_couches(sid, couches, nappe=nappe, source=sondage["source"])
             st.session_state[f"snd{sid}_points"] = pts
-            st.session_state[f"snd{sid}_nom"] = sondage["nom"]
-            st.success("Tableau rempli. Vérifie les couches avant de calculer.")
+            # snd{sid}_nom porte un text_input rendu plus haut dans ce run :
+            # écriture différée, sinon StreamlitAPIException.
+            _differer({f"snd{sid}_nom": sondage["nom"]})
             st.rerun()
     with b2:
         st.download_button("⬇️ CSV des mesures", data=SI.vers_csv(sondage).encode("utf-8"),
@@ -937,6 +994,10 @@ def _rapport_pdf(projet, resultats, params, images=None):
 #  PAGE
 # =============================================================
 def show():
+    # Les écritures différées par un callback du run précédent sont posées
+    # AVANT tout rendu : c'est le seul moment où une clé de widget est
+    # librement modifiable.
+    _appliquer_differees()
     _init_state()
 
     st.markdown(
@@ -1197,11 +1258,12 @@ def _resultats_profil():
         st.info("B est le petit côté par convention : B et L ont été échangés.")
         B, L = L, B
 
-    resultats, images = [], {}
+    resultats, images, ecartes = [], {}, []
     for s in st.session_state.soundings:
         sid = int(s["id"])
         bas, haut = _profil_encadre(sid)
         if not bas or all(not c.get("M") for c in bas):
+            ecartes.append(_sounding_name(sid))
             continue
         zones = {}
         for pos in ST.POSITIONS:
@@ -1233,9 +1295,26 @@ def _resultats_profil():
                    "ou importe un sondage.")
         return
 
+    # Un profil troué (couche sans M dans la zone d'influence) ne donne PAS
+    # un k : le moteur refuse désormais de le calculer plutôt que de traiter
+    # la couche manquante comme incompressible.
+    incalculables = [r for r in resultats if "incomplet" in r["convergence"]]
+
     # ---- panneau SCIA ----
     with st.container(border=True):
         st.markdown("#### 🎯 À encoder dans SCIA (paramètres de sol C1z)")
+
+        if ecartes:
+            st.warning(
+                f"⚠️ **{', '.join(ecartes)} n'entre pas dans les résultats** : aucune "
+                "couche ne porte de module M. Les valeurs ci-dessous ne couvrent que "
+                f"{len(resultats)} sondage(s) sur {len(resultats) + len(ecartes)}.")
+        for r in incalculables:
+            st.error(
+                f"❌ **{r['nom']} : k non calculable.** {r['convergence']}. Une couche "
+                "sans module ne peut pas être traitée comme incompressible — ce serait "
+                "l'hypothèse la plus favorable possible, et elle surestime k. Complète "
+                "la colonne M de cette couche.")
         pos_lbl = st.radio("Position de référence", list(ST.POSITIONS.keys()),
                            format_func=lambda p: ST.POSITIONS[p], horizontal=True,
                            key="rs_pos_scia")
@@ -1254,8 +1333,12 @@ def _resultats_profil():
 
         ks = [r["zones"][pos_lbl]["k_bas_MNm3"] for r in resultats] + \
              [r["zones"][pos_lbl]["k_haut_MNm3"] for r in resultats]
+        ks = [v for v in ks if v > 0]
+        lib_env = ("Enveloppe tous sondages" if not (ecartes or incalculables)
+                   else f"Enveloppe des {len(resultats) - len(incalculables)} sondages "
+                        f"calculés sur {len(resultats) + len(ecartes)}")
         if ks and max(ks) - min(ks) > 1e-6:
-            st.markdown(f"**Enveloppe tous sondages : k = {min(ks):.2f} à "
+            st.markdown(f"**{lib_env} : k = {min(ks):.2f} à "
                         f"{max(ks):.2f} MN/m³** — la dalle doit être vérifiée aux "
                         "DEUX bornes : un k faible augmente les tassements, un k élevé "
                         "augmente les moments de pointe.")
