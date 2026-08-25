@@ -96,7 +96,9 @@ class Doc:
             c.rect(x, y, w, h, stroke=1 if stroke else 0, fill=1 if fill else 0)
 
     def wrap(self, s, f, size, width):
-        words, lines, cur = s.split(), [], ""
+        # coupe uniquement sur l'espace ordinaire : l'espace insécable
+        # (U+00A0) colle un nombre à son unité
+        words, lines, cur = [w for w in s.split(" ") if w], [], ""
         for wd in words:
             t = (cur + " " + wd).strip()
             if string_width(t, f, size) <= width or not cur:

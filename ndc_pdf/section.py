@@ -18,7 +18,7 @@ class SectionStyle:
                  font_bold="Heros-Bold", mono="Mono", arrows="arrow",
                  show_hatch=True, show_d=True, label_size=6.6, dim_size=6.4,
                  concrete=None, bar="#141414", rule_w=0.9, title=None,
-                 leader_side="right"):
+                 leader_side="right", concrete_texture=False):
         self.mode = mode
         self.ink = HexColor(ink) if isinstance(ink, str) else ink
         self.accent = HexColor(accent) if isinstance(accent, str) else accent
@@ -35,6 +35,9 @@ class SectionStyle:
         self.rule_w = rule_w
         self.title = title
         self.leader_side = leader_side
+        # représentation conventionnelle du béton coupé (fond blanc +
+        # hachure discrète + petits triangles et points) au lieu de l'aplat
+        self.concrete_texture = concrete_texture
 
 
 def _tick(c, x, y, kind, ang=0, size=2.6, color=None):
@@ -106,6 +109,53 @@ def _dim_v(c, y1, y2, x, label, st, color=None, ext_from=None):
     c.restoreState()
 
 
+def _blanc_mix(col, t):
+    """Éclaircit une couleur vers le blanc (0 = inchangée, 1 = blanc)."""
+    return Color(col.red + (1 - col.red) * t, col.green + (1 - col.green) * t,
+                 col.blue + (1 - col.blue) * t)
+
+
+def _texture_beton(c, x, y, w, h, col_grain, col_hachure, step=13.0):
+    """Représentation conventionnelle du béton coupé : fond blanc, hachure
+    diagonale très discrète, semis de petits triangles (granulats) et de
+    points (sable). Semis DÉTERMINISTE — aucun aléa, rendu reproductible."""
+    c.saveState()
+    p = c.beginPath()
+    p.rect(x, y, w, h)
+    c.clipPath(p, stroke=0, fill=0)
+    # hachure diagonale légère
+    c.setStrokeColor(col_hachure)
+    c.setLineWidth(0.25)
+    n = int((w + h) / 14.0) + 2
+    for i in range(-2, n):
+        c.line(x + i * 14.0, y, x + i * 14.0 - h, y + h)
+    # granulats : jitter pseudo-aléatoire calculé sur les indices
+    c.setStrokeColor(col_grain)
+    c.setFillColor(col_grain)
+    for i in range(int(w / step) + 2):
+        for j in range(int(h / step) + 2):
+            jx = (((i * 37 + j * 61) % 10) / 10.0 - 0.5) * 0.8
+            jy = (((i * 53 + j * 29) % 10) / 10.0 - 0.5) * 0.8
+            cx = x + (i + 0.5 + jx) * step
+            cy = y + (j + 0.5 + jy) * step
+            k = (i * 7 + j * 5) % 5
+            if k == 0:                      # petit triangle
+                r = 1.6 + ((i + 2 * j) % 3) * 0.4
+                a0 = ((i * 3 + j) % 6) * 0.5
+                tri = c.beginPath()
+                pts = [(cx + r * math.cos(a0 + t * 2.0944),
+                        cy + r * math.sin(a0 + t * 2.0944)) for t in range(3)]
+                tri.moveTo(*pts[0])
+                tri.lineTo(*pts[1])
+                tri.lineTo(*pts[2])
+                tri.close()
+                c.setLineWidth(0.35)
+                c.drawPath(tri, stroke=1, fill=0)
+            elif k in (2, 4):               # point
+                c.circle(cx, cy, 0.45, stroke=0, fill=1)
+    c.restoreState()
+
+
 def _hatch(c, x, y, w, h, color, step=4.2, lw=0.28):
     c.saveState()
     p = c.beginPath()
@@ -160,7 +210,13 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
     oy = y + pad_b + max(0, (core_h - bh) / 2)
 
     # ---- béton
-    if st.concrete is not None:
+    if st.concrete_texture:
+        # convention de coupe : fond blanc + hachure discrète + granulats
+        c.setFillColor(HexColor("#FFFFFF"))
+        c.rect(ox, oy, bw, bh, stroke=0, fill=1)
+        _texture_beton(c, ox, oy, bw, bh,
+                       _blanc_mix(st.muted, 0.38), _blanc_mix(st.muted, 0.62))
+    elif st.concrete is not None:
         c.setFillColor(st.concrete)
         c.rect(ox, oy, bw, bh, stroke=0, fill=1)
     if st.show_hatch:
@@ -312,7 +368,9 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             c.roundRect(x_l, sy0, x_r - x_l, sh, max(2.0, 1.5 * dia * s),
                         stroke=1, fill=0)
         else:                       # épingle (1 brin) ou agrafe entre barres
-            c.setStrokeColor(st.accent)
+            # teinte claire : l'épingle au ras d'une barre reste lisible
+            # même quand elle longe le montant du cadre principal
+            c.setStrokeColor(_teinte(1))
             c.setLineWidth(w_st)
             hk = max(3.0, dia * s * 3.0)
             if fb == tb:

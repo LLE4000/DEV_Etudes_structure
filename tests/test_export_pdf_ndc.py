@@ -170,8 +170,8 @@ chk("multi-lits : les deux lits sont annotés",
     "Lit 1 : 3 Ø20" in t4 and "Lit 2 : 2 Ø16" in t4, t4[:200])
 chk("multi-lits : c.d.g. de 2 lits affiché", "c.d.g. de 2 lits" in t4)
 chk("armatures de peau annotées sur la coupe", "Armature de peau : 2×1 Ø10" in t4)
-chk("légende : une ligne par groupe d'étriers",
-    t4.count("Étrier : Ø8 — 20 cm") == 2 and "Épingle : Ø8" in t4)
+chk("légende : groupes identiques regroupés (« 2× »)",
+    "2× Étrier : Ø8 — 20 cm" in t4 and "Épingle : Ø8" in t4)
 chk("récap étriers : les trois groupes dans « On prend »",
     "Étrier Ø8 + Étrier Ø8 + Épingle Ø8" in t4)
 t5 = doc[4].get_text()
@@ -182,6 +182,11 @@ print("\n=== 3. La construction refuse de recalculer ===")
 from ndc_pdf import data as ndc_data  # noqa: E402
 
 chk("fn : virgule décimale française", ndc_data.fn(3.833, 2) == "3,83")
+chk("fnt : pas affiché TRONQUÉ vers le bas (28,95 -> 28,9)",
+    ndc_data.fnt(28.95) == "28,9" and ndc_data.fnt(7.7397) == "7,7"
+    and ndc_data.fnt(25.5) == "25,5")
+chk("unités insécables dans les conclusions",
+    ndc_data._unites_insecables("40 cm et 402 mm²") == "40 cm et 402 mm²")
 chk("sci : paliers identiques à sci_tokens",
     ndc_data.sci(200e6) == r"200 \cdot 10^{6}"
     and ndc_data.sci(230e3) == r"230 \cdot 10^{3}"

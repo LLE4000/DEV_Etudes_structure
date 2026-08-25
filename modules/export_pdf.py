@@ -181,6 +181,16 @@ def fn(x, nd=2):
         return str(x)
 
 
+def fnt(x):
+    """TRONQUÉ vers le bas à une décimale (28,9 et non 29,0 pour 28,95) —
+    un pas affiché doit être recopiable comme pas choisi sans faire
+    basculer le verdict. Affichage uniquement, comparaisons inchangées."""
+    try:
+        return fn(math.floor(float(x) * 10.0) / 10.0, 1)
+    except Exception:
+        return str(x)
+
+
 def s2():
     return "<super>2</super>"
 
@@ -1353,10 +1363,12 @@ def b_shear(R, cw):
     app = Formula(Row([_t("τ = "),
         Frac(Row(Row(sci_tokens(Sh['V'] * 1e3)).items), Row([_t(f"0,75 · {fn(R['b']*10,0)} · {fn(R['h']*10,0)}")])),
         _t("  =  "), txt(f"{fn(Sh['tau'],2)} N/mm", font="Helvetica-Bold", sup="2")]))
+    # pas affichés TRONQUÉS vers le bas (fnt) : recopiables sans faire
+    # basculer le verdict — les comparaisons restent sur les valeurs exactes
     if Sh['Ast'] > 0 and Sh['V'] > 0:
         sthapp = Formula(Row([_t("s", sub="th"), _t(" = "),
             Frac(Row([_t(f"{fn(Sh['Ast'],1)} · {fn(R['fyd'],1)} · {fn(R['dsh']*10,0)}")]), Row(Row(sci_tokens(Sh['V'] * 1e3)).items)),
-            _t("  =  "), nb(f"{fn(Sh['pas_th'],1)} cm")]))
+            _t("  =  "), nb(f"{fnt(Sh['pas_th'])} cm")]))
     else:
         sthapp = Formula(Row([_t("s", sub="th"), _t("  =  "), nb("—")]))
     etr = f"{Sh['summary']}"
@@ -1366,8 +1378,8 @@ def b_shear(R, cw):
     # Pas admissible = min( pas théorique ; pas maximal ) — calcul explicite
     sadm = Formula(Row([
         _t("s", sub="adm"),
-        _t(f" = min( {fn(Sh['pas_th'],1)} ; {fn(Sh['s_max'],1)} )  =  "),
-        nb(f"{fn(Sh['pas_lim'],1)} cm")]))
+        _t(f" = min( {fnt(Sh['pas_th'])} ; {fnt(Sh['s_max'])} )  =  "),
+        nb(f"{fnt(Sh['pas_lim'])} cm")]))
     body = [fline("Contrainte tangentielle", app, iw),
             Spacer(1, 7), HR(iw, HAIR, 0.5), Spacer(1, 7),
             reslines([("Contrainte admissible", "τ<sub>adm</sub>", f"{fn(Sh['tau_lim'],2)} N/mm{s2()}")], iw),
@@ -1381,14 +1393,14 @@ def b_shear(R, cw):
                       ("Section", "A<sub>sw</sub>", f"{fn(Sh['Ast'],1)} mm{s2()}")], iw),
             Spacer(1, 2), fline("Pas théorique", sthapp, iw),
             Spacer(1, 2), fline("Pas maximal",
-                Formula(Row([_t("s", sub="max"), _t(" = min(0,75 · d ; 30) = "), nb(f"{fn(Sh['s_max'],1)} cm")])), iw),
+                Formula(Row([_t("s", sub="max"), _t(" = min(0,75 · d ; 30) = "), nb(f"{fnt(Sh['s_max'])} cm")])), iw),
             Spacer(1, 2), fline("Pas admissible", sadm, iw),
             Spacer(1, 2), fline("Pas retenu", Formula(Row([_t("s"), _t("  =  "), nb(f"{fn(Sh['pas'],1)} cm")])), iw),
             Spacer(1, 5)]
     et = "nok" if "nok" in (Sh["etat_tau"], Sh["etat_pas"]) else ("warn" if "warn" in (Sh["etat_tau"], Sh["etat_pas"]) else "ok")
     et_pas = "ok" if okp else "nok"
     left = (f"Pas des armatures d'effort tranchant : {fn(Sh['pas'],1)} cm "
-            f"{'≤' if okp else '&gt;'} pas maximal : {fn(Sh['pas_lim'],1)} cm")
+            f"{'≤' if okp else '&gt;'} pas maximal : {fnt(Sh['pas_lim'])} cm")
     body.append(conclu(et_pas, iw, left, ok=okp))
     return block(nn, "Effort tranchant — étriers", et, body, cw)
 

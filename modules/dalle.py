@@ -1566,13 +1566,18 @@ def render_dimensionnement_section(dalle_id: int, sec_id: int, beton_data: dict)
             s_max = min(0.75 * d_sh, 30.0)
             pas_lim = min(pas_th, s_max)
 
+            # Affichage TRONQUÉ vers le bas — même règle que Poutre v2.41 :
+            # la valeur affichée est recopiable sans faire basculer le
+            # verdict ; la comparaison reste sur la valeur exacte.
+            pas_th_aff = math.floor(pas_th * 10.0) / 10.0
+            s_max_aff = math.floor(s_max * 10.0) / 10.0
             help_pas = (
                 "**s,th = Aₛₜ · fyd · d / V**\n\n"
                 f"Aₛₜ = {_fr(Ast_e, 1)} mm²\n\n"
                 f"fyd = {_fr(fyd, 0)} N/mm²\n\n"
                 f"d = {_fr(d_sh, 1)} cm\n\n"
                 f"V = {_fr(V_kn, 1)} kN\n\n"
-                f"→ s,th = {_fr(pas_th, 1)} cm"
+                f"→ s,th = {_fr(pas_th_aff, 1)} cm (tronqué au mm inférieur)"
             )
 
             right_et = _shear_lines_summary(dalle_id, sec_id)
@@ -1580,9 +1585,9 @@ def render_dimensionnement_section(dalle_id: int, sec_id: int, beton_data: dict)
             open_bloc_left_right(titre_pas, right_et, etat_pas_state, pct=pct_pas)
             a1, a2, a3 = st.columns(3)
             with a1:
-                st.markdown(f"**Pas théorique = {pas_th:.1f} cm**", help=help_pas)
+                st.markdown(f"**Pas théorique = {pas_th_aff:.1f} cm**", help=help_pas)
             with a2:
-                st.markdown(f"**Pas maximal = {s_max:.1f} cm**", help="**s,max = min( 0,75 · d ; 30 cm )**")
+                st.markdown(f"**Pas maximal = {s_max_aff:.1f} cm**", help="**s,max = min( 0,75 · d ; 30 cm )**")
             with a3:
                 st.markdown(f"**Asw = {Ast_e:.0f} mm²**",
                             help="Section totale des armatures d'effort tranchant "

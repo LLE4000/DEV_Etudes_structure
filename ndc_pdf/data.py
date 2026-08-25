@@ -56,6 +56,26 @@ def _fmt_pas(p):
     return f"{p:.0f}" if abs(p - round(p)) < 0.05 else f"{p:.1f}".replace(".", ",")
 
 
+def fnt(x):
+    """TRONQUÉ vers le bas à une décimale (28,9 et non 29,0 pour 28,95) :
+    une valeur affichée doit être recopiable comme pas choisi sans faire
+    basculer le verdict. Affichage uniquement — les comparaisons du
+    moteur restent sur la valeur exacte."""
+    return fn(math.floor(float(x) * 10.0) / 10.0, 1)
+
+
+# espace insécable entre un nombre et son unité : la conclusion ne coupe
+# jamais « 73,2 / cm » en deux lignes
+NBSP = " "
+
+
+def _unites_insecables(texte):
+    """Colle chaque nombre à son unité dans les textes de conclusion."""
+    for u in ("N/mm²", "kg/m³", "mm²", "kNm", "cm", "kN"):
+        texte = texte.replace(f" {u}", f"{NBSP}{u}")
+    return texte
+
+
 # ============================================================
 #  CONSTRUCTION DEPUIS LE MOTEUR
 # ============================================================
@@ -116,7 +136,16 @@ def _coupe_depuis_R(R, stirrups, pas, peau=None):
         base = f"Étrier : Ø{int(g['d'])}"
         return base + (f" — {_fmt_pas(pas)} cm" if pas else "")
 
-    labs_cadre = [_lab(g) for g in stirrups]
+    # groupes identiques regroupés : « 2× Étrier : Ø8 — 20 cm »
+    labs_cadre = []
+    for lab in [_lab(g) for g in stirrups]:
+        for k, (l0, n0) in enumerate(labs_cadre):
+            if l0 == lab:
+                labs_cadre[k] = (l0, n0 + 1)
+                break
+        else:
+            labs_cadre.append((lab, 1))
+    labs_cadre = [(f"{n}× {l}" if n > 1 else l) for l, n in labs_cadre]
     lab_cadre = f"Étrier : Ø{int(d_cadre)}"
     lab_cadre2 = f"{_fmt_pas(pas)} cm" if pas else ""
     if len(stirrups) == 1 and int(stirrups[0].get("brins", 2)) == 1:
@@ -155,7 +184,8 @@ def _blocs_depuis_R(R, ta_global=None):
     """DIMENSIONS / MATÉRIAUX / SOLLICITATIONS — libellés de la note."""
     dims = [("Largeur", "b", fn(R["b"], 0), "cm"),
             ("Hauteur", "h", fn(R["h"], 0), "cm"),
-            ("Enrobage béton", None, fn(R["enrob_beton"], 1), "cm")]
+            # « c » : même symbole que la cote de la coupe (c = enrobage)
+            ("Enrobage béton", "c", fn(R["enrob_beton"], 1), "cm")]
     mats = [("Béton", None, R["beton"], ""),
             (None, "f_{ck}", fn(R["fck"], 0), "N/mm²"),
             ("Acier", None, f"B{int(R['fyk'])}", ""),
@@ -194,7 +224,7 @@ def _verif_hauteur(R):
             ("v", "Hauteur de la poutre", "h", fn(R["h"], 0), "cm"),
             ("k", 0),
         ],
-        verdicts=[dict(etat="ok" if ok else "ko", texte=txt)],
+        verdicts=[dict(etat="ok" if ok else "ko", texte=_unites_insecables(txt))],
     )
 
 
@@ -247,7 +277,7 @@ def _verif_armatures(R, which, num):
                   + (f" · {nl} lits" if nl > 1 else "")),
             ("k", 0),
         ],
-        verdicts=[dict(etat="ok" if ok else "ko", texte=txt)],
+        verdicts=[dict(etat="ok" if ok else "ko", texte=_unites_insecables(txt))],
     )
 
 
@@ -261,13 +291,15 @@ def _verif_tranchant(Sh, R, num):
     txt_tau = (f"Contrainte tangentielle : {fn(Sh['tau'], 2)} N/mm² "
                f"{'≤' if okt else '>'} contrainte tangentielle admissible : "
                f"{fn(Sh['tau_lim'], 2)} N/mm²")
+    # les pas AFFICHÉS sont tronqués vers le bas (fnt) : recopiables sans
+    # faire basculer le verdict, qui compare les valeurs exactes
     txt_pas = (f"Pas des armatures d'effort tranchant : {fn(Sh['pas'], 1)} cm "
-               f"{'≤' if okp else '>'} pas maximal : {fn(Sh['pas_lim'], 1)} cm")
+               f"{'≤' if okp else '>'} pas maximal : {fnt(Sh['pas_lim'])} cm")
 
     if Sh["Ast"] > 0 and Sh["V"] > 0:
         f_sth = (rf"s_{{th}} = \frac{{{fn(Sh['Ast'], 1)} \cdot {fn(R['fyd'], 1)}"
                  rf" \cdot {fn(R['dsh'] * 10, 0)}}}{{{sci(Sh['V'] * 1e3)}}}"
-                 rf" = \res{{{fn(Sh['pas_th'], 1)} \u{{cm}}}}")
+                 rf" = \res{{{fnt(Sh['pas_th'])} \u{{cm}}}}")
     else:
         f_sth = r"s_{th} = —"
 
@@ -285,15 +317,15 @@ def _verif_tranchant(Sh, R, num):
             ("v", "Section", "A_{sw}", fn(Sh["Ast"], 1), "mm²"),
             ("f", "Pas théorique", f_sth),
             ("f", "Pas maximal",
-             rf"s_{{max}} = \min{{0,75 \cdot d ; 30}} = \res{{{fn(Sh['s_max'], 1)} \u{{cm}}}}"),
+             rf"s_{{max}} = \min{{0,75 \cdot d ; 30}} = \res{{{fnt(Sh['s_max'])} \u{{cm}}}}"),
             ("f", "Pas admissible",
-             rf"s_{{adm}} = \min{{{fn(Sh['pas_th'], 1)} ; {fn(Sh['s_max'], 1)}}}"
-             rf" = \res{{{fn(Sh['pas_lim'], 1)} \u{{cm}}}}"),
+             rf"s_{{adm}} = \min{{{fnt(Sh['pas_th'])} ; {fnt(Sh['s_max'])}}}"
+             rf" = \res{{{fnt(Sh['pas_lim'])} \u{{cm}}}}"),
             ("v", "Pas retenu", "s", fn(Sh["pas"], 1), "cm"),
             ("k", 1),
         ],
-        verdicts=[dict(etat=etat_tau, texte=txt_tau),
-                  dict(etat="ok" if okp else "ko", texte=txt_pas)],
+        verdicts=[dict(etat=etat_tau, texte=_unites_insecables(txt_tau)),
+                  dict(etat="ok" if okp else "ko", texte=_unites_insecables(txt_pas))],
     )
 
 

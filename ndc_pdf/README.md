@@ -96,6 +96,18 @@ palette = quatre lignes : `panel`, `acc`, `concrete`, `ko`.
 - Le symbole recule automatiquement si la valeur calée à droite le toucherait.
 - `NDC_FONT_DIR` pointe un autre dossier de polices si besoin.
 
+## Étalon de référence
+
+`reference/NOTE_DE_CALCUL.pdf` est le rendu attendu du jeu d'essai figé ;
+`tests/test_export_pdf_ndc.py` vérifie l'identité (texte strict + pixels).
+
+Révisions de l'étalon (chaque évolution VALIDÉE du rendu le remplace) :
+
+- **25/08/2026** — coupe béton : l'aplat gris devient la représentation
+  conventionnelle (fond blanc, hachure discrète, petits triangles et
+  points), demandé par le bureau. Aucun texte modifié.
+- **24/08/2026** — étalon d'origine (livraison de la maquette).
+
 ## Portage vers un autre dépôt
 
 La fonctionnalité tient volontairement dans TROIS chemins — rien d'autre
