@@ -121,10 +121,10 @@ n'a été touché :
 |---|---|
 | `ndc_pdf/` | ce dossier, autonome : code + polices + `reference/` (étalon) |
 | `modules/export_pdf.py` | le branchement (`generer_rapport_pdf` v3.0) — remplace le fichier |
-| `tests/test_export_pdf_ndc.py` | 34 contrôles, dont l'identité au rendu de référence |
+| `tests/test_export_pdf_ndc.py` | la suite de contrôles, dont l'identité au rendu de référence |
 
 Copier ces trois chemins dans l'autre dépôt suffit. Dépendances :
 `reportlab` (l'application — fontTools vient avec) ; `pymupdf`
 (les tests uniquement). Vérification après portage :
 
-    python tests/test_export_pdf_ndc.py     # 34 OK attendu
+    python tests/test_export_pdf_ndc.py     # 0 échec attendu
