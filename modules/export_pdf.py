@@ -1,6 +1,22 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf.py — Note de calcul PDF (poutre béton armé)
+#  VERSION 3.0 (mise en page ndc_pdf)
+#
+#  Évolutions vs 2.39 :
+#   - GÉNÉRATION : generer_rapport_pdf (même signature, même appelant)
+#     produit désormais la note via le paquet `ndc_pdf/` : page de garde
+#     A4 portrait (cartouche + sommaire), une planche A4 paysage par
+#     section (coupe cotée à gauche sur fond gris, calculs sur deux
+#     colonnes en flux continu, conclusions vert / ocre / rouge).
+#   - AUCUN CALCUL MODIFIÉ : les valeurs viennent de _compute_section,
+#     inchangé et fidèle à poutre.py. La mise en page transcrit.
+#   - Si une planche déborde (doc.warnings), la note est régénérée en
+#     3 colonnes — remède prescrit par la maquette. Les avertissements
+#     restants sont exposés dans DERNIERS_AVERTISSEMENTS.
+#   - Toutes les primitives platypus (SectionDrawing, blocs, bandeaux,
+#     NoteDoc…) sont CONSERVÉES : export_pdf_dalle.py les importe.
+#
 #  VERSION 2.39 (alignée sur poutre.py 2.39)
 #
 #  Évolutions vs 2.38 :
@@ -1510,25 +1526,64 @@ def _build_story(beams, values, beton_data, infos, cw, pages, store):
 
 
 # ============================================================
-#  API PRINCIPALE
+#  API PRINCIPALE — mise en page ndc_pdf (v3.0)
 # ============================================================
+# Avertissements de débordement de la dernière génération (points hors
+# page par planche). Liste vide = rien ne déborde.
+DERNIERS_AVERTISSEMENTS = []
+
+
+def _style_ndc(n_cols=2):
+    """Palette 01_encre de la maquette ; n_cols=3 est le remède prescrit
+    quand une planche déborde (jamais la réduction du corps de texte)."""
+    from ndc_pdf.styles import Encre
+    s = Encre()
+    if n_cols != 2:
+        s.n_cols = n_cols
+    return s
+
+
+def _collecter_resultats(beams, values, beton_data):
+    """Payloads NEUTRES pour ndc_pdf.data : un par section, dans l'ordre
+    des planches. Toute la vérité vient de _compute_section (fidèle à
+    poutre.py) — la mise en page transcrit, elle ne recalcule rien."""
+    out = []
+    for b in beams:
+        bid = int(b["id"])
+        nom_poutre = str(_g(values, f"meta_beam_nom_{bid}", b.get("nom", f"Poutre {bid}")))
+        ta = _taux_armature_global(values, b, bid)
+        for sec in b.get("sections", []):
+            sid = int(sec["id"])
+            raw = str(_g(values, f"meta_b{bid}_nom_{sid}", sec.get("nom", f"Section {sid}")))
+            snom = raw if raw.strip().lower().startswith("section") else f"Section {raw}"
+            R = _compute_section(values, beton_data, bid, sid)
+            out.append(dict(
+                poutre=nom_poutre, section=snom, R=R,
+                stirrups=stirrups_for(R, values, bid, sid),
+                ta_global=ta,
+            ))
+    return out
+
+
 def generer_rapport_pdf(beams, values, beton_data, infos=None, output_path=None):
+    """Note de calcul complète : garde portrait + une planche paysage par
+    section. Signature et retour inchangés (appelée par poutre.py)."""
+    global DERNIERS_AVERTISSEMENTS
+    from ndc_pdf import data as ndc_data
+
     infos = infos or {}
     if output_path is None:
         fd, output_path = tempfile.mkstemp(suffix=".pdf", prefix="note_poutre_")
         os.close(fd)
 
-    # passe 1 : mesure des pages de début de poutre
-    pages = {}
-    tmp = output_path + ".pass1.tmp"
-    d1 = NoteDoc(tmp, infos); cw = d1.width
-    d1.build(_build_story(beams, values, beton_data, infos, cw, pages={}, store=pages))
-    try:
-        os.remove(tmp)
-    except OSError:
-        pass
+    resultats = _collecter_resultats(beams, values, beton_data)
+    doc_meta = ndc_data.construire_doc(
+        infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
+    sections = ndc_data.construire_sections(resultats)
 
-    # passe 2 : build final avec numéros de page
-    d2 = NoteDoc(output_path, infos); cw = d2.width
-    d2.build(_build_story(beams, values, beton_data, infos, cw, pages=dict(pages), store={}))
+    d = _style_ndc(2).build(output_path, sections=sections, doc=doc_meta)
+    if d.warnings:
+        d = _style_ndc(3).build(output_path, sections=sections, doc=doc_meta)
+    d.save()
+    DERNIERS_AVERTISSEMENTS = list(d.warnings)
     return output_path
