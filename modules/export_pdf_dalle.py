@@ -102,10 +102,12 @@ def _get_ncouches(values, did, sid, which):
 
 
 def _couche_data(values, did, sid, which, i):
-    """(type, désignation treillis, Ø barres, esp barres) de la couche i."""
+    """(type, désignation treillis, Ø barres, esp barres, nombre) de la
+    couche i — mêmes règles que dalle.py (« n barres » = nombre posé
+    dans la bande)."""
     typ = str(_g(values, KS(f"arm_type_{which}_c{i}", did, sid),
                  "Treillis" if i == 1 else "Barres"))
-    if typ not in ("Treillis", "Barres"):
+    if typ not in ("Treillis", "Barres", "n barres"):
         typ = "Treillis"
     des = str(_g(values, KS(f"treillis_{which}_c{i}", did, sid), TRD.TREILLIS_DEFAUT))
     try:
@@ -116,18 +118,25 @@ def _couche_data(values, did, sid, which, i):
         esp = float(_g(values, KS(f"esp_barres_{which}_c{i}", did, sid), 150) or 150)
     except Exception:
         esp = 150.0
-    return typ, des, d, esp
+    try:
+        n = int(float(_g(values, KS(f"n_barres_{which}_c{i}", did, sid), 3) or 3))
+    except Exception:
+        n = 3
+    return typ, des, d, esp, max(1, n)
 
 
 def _couche_as_per_m(values, did, sid, which, i):
-    typ, des, d, esp = _couche_data(values, did, sid, which, i)
+    typ, des, d, esp, n = _couche_data(values, did, sid, which, i)
     if typ == "Treillis":
         return TRD.as_treillis_mm2_m(des)
+    if typ == "n barres":
+        b = float(_g(values, KD("b", did), 100) or 100)
+        return n * (math.pi * d * d / 4.0) / max(0.01, b / 100.0)
     return TRD.as_barres_mm2_m(d, esp)
 
 
 def _couche_diam_mm(values, did, sid, which, i):
-    typ, des, d, esp = _couche_data(values, did, sid, which, i)
+    typ, des, d, esp, n = _couche_data(values, did, sid, which, i)
     if typ == "Treillis":
         t = TRD.parse_designation(des)
         return float(t[0]) if t else 10.0
@@ -136,38 +145,65 @@ def _couche_diam_mm(values, did, sid, which, i):
 
 def _couche_esp_mm(values, did, sid, which, i):
     """Espacement des fils/barres porteurs (mm) — sert au dessin."""
-    typ, des, d, esp = _couche_data(values, did, sid, which, i)
+    typ, des, d, esp, n = _couche_data(values, did, sid, which, i)
     if typ == "Treillis":
         t = TRD.parse_designation(des)
         return float(t[2]) if t else 100.0
     return float(esp) if esp > 0 else 100.0
 
 
+def _couche_n_barres(values, did, sid, which, i):
+    """Nombre de barres si la couche est « n barres », sinon 0 (le dessin
+    répartit alors à l'espacement)."""
+    typ, des, d, esp, n = _couche_data(values, did, sid, which, i)
+    return n if typ == "n barres" else 0
+
+
 def _couche_label(values, did, sid, which, i):
-    """'Treillis 10/10/100/100' ou 'Ø12/150' (libellé compact)."""
-    typ, des, d, esp = _couche_data(values, did, sid, which, i)
+    """'Treillis 10/10/100/100', 'Ø12/150' ou '3 Ø12' (libellé compact)."""
+    typ, des, d, esp, n = _couche_data(values, did, sid, which, i)
     if typ == "Treillis":
         return f"Treillis {des}"
+    if typ == "n barres":
+        return f"{n} Ø{d}"
     esp_txt = f"{esp:.0f}" if abs(esp - round(esp)) < 1e-9 else fn(esp, 1)
     return f"Ø{d}/{esp_txt}"
 
 
 def _couche_valeur(values, did, sid, which, i):
-    """Valeur seule pour la légende de la coupe : '10/10/100/100' ou 'Ø12/150'."""
-    typ, des, d, esp = _couche_data(values, did, sid, which, i)
+    """Valeur seule pour la légende de la coupe : '10/10/100/100',
+    'Ø12/150' ou '3 Ø12'."""
+    typ, des, d, esp, n = _couche_data(values, did, sid, which, i)
     if typ == "Treillis":
         return des
+    if typ == "n barres":
+        return f"{n} Ø{d}"
     esp_txt = f"{esp:.0f}" if abs(esp - round(esp)) < 1e-9 else fn(esp, 1)
     return f"Ø{d}/{esp_txt}"
 
 
 def _auto_dist_couche(values, did, sid, which, i):
-    """Distance d'axe de la couche i (cm) — même formule que dalle.py :
-    enrobage + demi-Ø arrondi au 0,5 cm sup. + jeu premier lit."""
+    """Distance d'axe automatique de la couche i (cm) — même formule que
+    dalle.py : enrobage + demi-Ø arrondi au 0,5 cm sup. + jeu premier lit."""
     enrob_beton = float(_g(values, KD("enrobage_beton", did), 3.0) or 3.0)
     jeu1 = float(_g(values, "jeu_enrobage_cm", 1.0) or 0.0)
     d = _couche_diam_mm(values, did, sid, which, i)
     return enrob_beton + _round_up_to_half_cm(d / 20.0) + jeu1
+
+
+def _dist_couche_eff(values, did, sid, which, i):
+    """Distance d'axe EFFECTIVE (cm) : la saisie de la colonne
+    « Dist. axe » quand elle est active et valide, sinon l'automatique —
+    même règle que dalle.py._dist_couche_eff."""
+    auto = _auto_dist_couche(values, did, sid, which, i)
+    if bool(_g(values, KS(f"dist_auto_{which}_c{i}", did, sid), True)):
+        return auto
+    raw = str(_g(values, KS(f"dist_axe_{which}_c{i}", did, sid), "") or "").strip()
+    try:
+        v = float(raw.replace(",", "."))
+        return v if v > 0 else auto
+    except Exception:
+        return auto
 
 
 def _layers_geometry(values, did, sid, which):
@@ -180,20 +216,21 @@ def _layers_geometry(values, did, sid, which):
     somme = 0.0
     parts = []
     for i in range(1, nc + 1):
-        typ, des, d, esp = _couche_data(values, did, sid, which, i)
+        typ, des, d, esp, n = _couche_data(values, did, sid, which, i)
         As_pm = _couche_as_per_m(values, did, sid, which, i)
-        e = _auto_dist_couche(values, did, sid, which, i)
+        e = _dist_couche_eff(values, did, sid, which, i)
         As_pm_tot += As_pm
         somme += As_pm * e
         couches.append({
             "i": i, "typ": typ, "des": des, "d": _couche_diam_mm(values, did, sid, which, i),
             "esp": _couche_esp_mm(values, did, sid, which, i),
+            "n": _couche_n_barres(values, did, sid, which, i),
             "As_pm": As_pm, "e": e,
             "label": _couche_label(values, did, sid, which, i),
             "valeur": _couche_valeur(values, did, sid, which, i),
         })
         parts.append(_couche_label(values, did, sid, which, i))
-    e_cdg = (somme / As_pm_tot) if As_pm_tot > 0 else _auto_dist_couche(values, did, sid, which, 1)
+    e_cdg = (somme / As_pm_tot) if As_pm_tot > 0 else _dist_couche_eff(values, did, sid, which, 1)
     # yG imposé uniquement si l'utilisateur a désactivé le mode auto.
     if not bool(_g(values, KS(f"ycdg_auto_{which}", did, sid), False)):
         raw = str(_g(values, KS(f"ycdg_{which}", did, sid), "") or "").strip()

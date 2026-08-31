@@ -23,6 +23,9 @@ Garanties, chacune rougit si on la retire :
   5. NIVEAUX : une même couche d'armatures est au MÊME niveau dans les
      deux schémas (filante dans l'un, en points dans l'autre), et deux
      axes ne se confondent jamais (écart >= (Øa+Øb)/2).
+  6. RENFORTS « n barres » (3 Ø12 : As = n·aire/(b/100)) et DISTANCE
+     D'AXE SAISIE par couche : le CDG pondéré, Aₛ,req, les schémas et
+     la note suivent la saisie ; champ vidé = retour à l'automatique.
 
 Lancement : python tests/test_dalle_bidir.py (depuis la racine).
 """
@@ -88,6 +91,34 @@ chk("tableau des couches : la colonne As (mm²/m) a disparu",
     not any("as_disp" in (ti.key or "") for ti in at.text_input))
 chk("bouton d'ajout de renfort : un « ＋ » seul",
     at.button(key="dal1_sec1_btn_add_couche_inf_y").label == "＋")
+
+print("\n=== 1b. Renfort « n barres » et niveau saisi par couche ===")
+# 3 Ø12 posées dans la bande : As = 3·113,1 = 339 mm²/m, qui s'ajoute
+# au treillis (785) -> 1125 mm²/m ; puis la couche est posée à 8,0 cm
+# d'axe -> le CDG pondéré passe à 5,6 cm et Aₛ,req suit (d = 14,4 cm).
+at.session_state["dal1_sec1_ncouches_inf_y"] = 2
+at.session_state["dal1_sec1_arm_type_inf_y_c2"] = "n barres"
+at.session_state["dal1_sec1_n_barres_inf_y_c2"] = 3
+at.session_state["dal1_sec1_ø_barres_inf_y_c2"] = 12
+at.run()
+chk("« n barres » : aucune exception", not at.exception, str(at.exception))
+t = md(at)
+chk("détail : « Treillis 10/10/100/100 + 3 Ø12 »",
+    "Treillis 10/10/100/100 + 3 Ø12" in t)
+chk("Aₛ fourni = 785 + 339 = 1125 mm²/m", "Aₛ fourni = 1125 mm²/m" in t)
+at.text_input(key="dal1_sec1_dist_axe_inf_y_c2").set_value("8,0")
+at.run()
+t = md(at)
+chk("niveau saisi : CDG pondéré recalculé (4,5/8,0 -> 5,6 cm)",
+    at.text_input(key="dal1_sec1_ycdg_inf_y").value == "5,6")
+chk("Aₛ,req inf. principale suit le d réduit (808 mm²)",
+    re.search(r"Aₛ,req = 808 mm²", t) is not None,
+    str(re.findall(r"Aₛ,req = (\d+) mm²", t)[:2]))
+# champ vidé -> retour à l'automatique (Ø12 : 3,0 + 1,0 + 1,0 = 5,0 cm)
+at.text_input(key="dal1_sec1_dist_axe_inf_y_c2").set_value("")
+at.run()
+chk("champ vidé : retour à la distance automatique",
+    at.text_input(key="dal1_sec1_dist_axe_inf_y_c2").value == "5,0")
 
 print("\n=== 2. Migration v1 -> v2 ===")
 a2 = AppTest.from_function(app, default_timeout=180)
@@ -219,12 +250,22 @@ v2 = {"meta_dalle_nom_1": "Dalle 1", "meta_dal1_nom_1": "A",
       "dal1_sec1_ncouches_inf_y": 2,
       "dal1_sec1_arm_type_inf_y_c1": "Treillis",
       "dal1_sec1_treillis_inf_y_c1": "10/10/100/100",
-      "dal1_sec1_arm_type_inf_y_c2": "Barres",
-      "dal1_sec1_ø_barres_inf_y_c2": 12, "dal1_sec1_esp_barres_inf_y_c2": 150,
+      # renfort « n barres » posé à un niveau SAISI (8,0 cm d'axe)
+      "dal1_sec1_arm_type_inf_y_c2": "n barres",
+      "dal1_sec1_ø_barres_inf_y_c2": 12, "dal1_sec1_n_barres_inf_y_c2": 3,
+      "dal1_sec1_dist_auto_inf_y_c2": False,
+      "dal1_sec1_dist_axe_inf_y_c2": "8,0",
       "dal1_sec1_treillis_sup_y_c1": "8/8/150/150",
       "dal1_sec1_arm_type_sup_x_c1": "Barres",
       "dal1_sec1_ø_barres_sup_x_c1": 10, "dal1_sec1_esp_barres_sup_x_c1": 200}
 R5 = _collecter_resultats(dalles, v2, bd)[0]["R"]
+geo5 = R5["dirs"]["y"]["geo_inf"]
+chk("export : couche « n barres » = 3 Ø12 -> 339 mm²/m",
+    geo5["couches"][1]["valeur"] == "3 Ø12"
+    and abs(geo5["couches"][1]["As_pm"] - 339.29) < 0.5)
+chk("export : niveau saisi respecté (e = 8,0 cm) et CDG pondéré",
+    abs(geo5["couches"][1]["e"] - 8.0) < 1e-9
+    and abs(geo5["e_cdg"] - 5.556) < 0.01)
 coupe = _coupe_dalle_depuis_R(R5)
 chk("cas différencié : deux schémas", len(coupe["schemas"]) == 2)
 sch_p, sch_s = coupe["schemas"]
@@ -253,6 +294,19 @@ for face in ("inf", "sup"):
         all(b[0] - a[0] >= (a[1] + b[1]) / 2.0 - 1e-9
             for a, b in zip(axes, axes[1:])),
         str(axes))
+# le renfort au niveau SAISI dans les DEUX schémas (80 mm), et « n »
+# transmis pour que le dessin répartisse 3 barres dans la bande
+chk("schémas : renfort à 80 mm (niveau saisi) dans les deux vues",
+    abs(sch_p["filants_inf"][1]["e"] - 80.0) < 1e-6
+    and abs(sch_s["points_inf"][1]["e"] - 80.0) < 1e-6)
+chk("schémas : n = 3 transmis au dessin", sch_s["points_inf"][1]["n"] == 3)
+# et la note complète porte le libellé « 3 Ø12 »
+p5 = generer_rapport_pdf(dalles, v2, bd, infos={"date": "31/08/2026"},
+                         output_path=os.path.join(os.environ.get("TMPDIR", "/tmp"),
+                                                  "ndc_dalle_nbarres_test.pdf"))
+t5n = pymupdf.open(p5)[1].get_text()
+chk("note : « 3 Ø12 » dans le détail retenu et la légende",
+    t5n.count("3 Ø12") >= 2 and "1125" in t5n.replace(" ", "").replace(" ", ""))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

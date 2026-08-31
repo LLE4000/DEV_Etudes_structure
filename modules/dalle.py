@@ -45,14 +45,18 @@
 #      RENFORTS (bouton "＋"), chacun étant au choix :
 #        - un TREILLIS (nomenclature Øl/Øt/el/et, base des treillis
 #          courants dans modules/treillis.py, facilement extensible) ;
-#        - des BARRES (Ø + espacement, ex. Ø12/150).
+#        - des BARRES (Ø + espacement, ex. Ø12/150) ;
+#        - « n barres » : un NOMBRE de barres posées dans la bande
+#          (ex. 3 Ø12) — As = n·aire/(b/100).
 #      La section d'acier est calculée automatiquement en mm²/m puis
 #      rapportée à la largeur réelle de la bande ; les sections des
 #      couches s'ADDITIONNENT ("As fourni ≥ As requis", logique Poutre).
-#   2. POSITION DES COUCHES : dans une dalle, les renforts sont posés
-#      dans le plan du treillis (pas d'empilement en lits). Distance
-#      d'axe d'une couche = enrobage + demi-Ø arrondi au 0,5 cm sup.
-#      + jeu premier lit (paramètre avancé partagé avec Poutre). Le
+#   2. POSITION DES COUCHES : par défaut les renforts sont posés dans
+#      le plan du treillis, avec une distance d'axe automatique =
+#      enrobage + demi-Ø arrondi au 0,5 cm sup. + jeu premier lit
+#      (paramètre avancé partagé avec Poutre) ; la colonne « Dist. axe »
+#      est SAISISSABLE par couche pour poser un renfort à un autre
+#      niveau (champ vidé = retour à l'automatique). Le
 #      Ø d'étrier n'intervient plus (pas d'étrier enveloppant les
 #      armatures de flexion dans une dalle). Le CDG pondéré
 #      (Σ As·e / Σ As) reste modifiable par face (champ CDG), comme
@@ -104,8 +108,9 @@ FACES_DIR = ("inf_x", "sup_x", "inf_y", "sup_y")
 # Largeurs de colonnes du tableau des couches
 # (Couche | Type | Treillis/Ø | Esp. | As/m | Dist. axe | CDG | Action)
 # Sans colonne As (mm²/m) : redondante avec « Aₛ fourni » du bandeau
-# (retour bureau du 31/08) — le bouton ＋ tient sur une colonne étroite.
-COUCHE_COLS = [0.85, 1.45, 1.9, 1.05, 1.05, 1.05, 0.6]
+# (retour bureau du 31/08) — le bouton ＋ tient sur une colonne étroite,
+# la première colonne ne porte plus qu'un numéro de couche.
+COUCHE_COLS = [0.4, 1.5, 1.9, 1.05, 1.05, 1.05, 0.6]
 
 
 def open_bloc_left_right(left: str, right: str = "", etat: str = "ok", pct=None):
@@ -369,7 +374,10 @@ def _next_section_id(dalle_id: int) -> int:
 
 
 DIAM_OPTS = [6, 8, 10, 12, 16, 20, 25, 32, 40]
-TYPES_ARMATURE = ["Treillis", "Barres"]
+# « Barres » = Ø à espacement régulier (Ø12/150) ; « n barres » = un
+# NOMBRE de barres posées dans la bande (« 3 Ø12 ») — demandé par le
+# bureau pour les renforts locaux. Ancien fichier : « Barres » inchangé.
+TYPES_ARMATURE = ["Treillis", "Barres", "n barres"]
 
 
 # Familles de clés de couches à migrer v1 -> v2 (une par face, une par
@@ -473,13 +481,13 @@ def _ensure_defaults_for_dalle(dalle_id: int):
             st.session_state[nk] = nc
             for i in range(1, nc + 1):
                 # Couche 1 (base) : treillis par défaut ;
-                # renforts : barres Ø12/150 par défaut.
+                # renforts : « n barres » (3 Ø12) par défaut.
                 st.session_state.setdefault(
                     KS(f"arm_type_{which}_c{i}", dalle_id, sid),
-                    "Treillis" if i == 1 else "Barres",
+                    "Treillis" if i == 1 else "n barres",
                 )
                 _coerce_str_choice(KS(f"arm_type_{which}_c{i}", dalle_id, sid), TYPES_ARMATURE,
-                                   "Treillis" if i == 1 else "Barres")
+                                   "Treillis" if i == 1 else "n barres")
                 st.session_state.setdefault(KS(f"treillis_{which}_c{i}", dalle_id, sid), TR.TREILLIS_DEFAUT)
                 st.session_state.setdefault(KS(f"ø_barres_{which}_c{i}", dalle_id, sid), 12)
                 _coerce_int_choice(KS(f"ø_barres_{which}_c{i}", dalle_id, sid), DIAM_OPTS, 12)
@@ -493,6 +501,15 @@ def _ensure_defaults_for_dalle(dalle_id: int):
                 ev = max(25, min(500, ev))
                 if st.session_state.get(ek) != ev:
                     st.session_state[ek] = ev
+                # Nombre de barres (« n barres ») : entier borné
+                nbk = KS(f"n_barres_{which}_c{i}", dalle_id, sid)
+                try:
+                    nv = int(float(st.session_state.get(nbk, 3) or 3))
+                except Exception:
+                    nv = 3
+                nv = max(1, min(50, nv))
+                if st.session_state.get(nbk) != nv:
+                    st.session_state[nbk] = nv
 
         # v2.1 : plus d'étriers dans une dalle — les anciennes clés de
         # cisaillement (lignes, pas) sont purgées par la migration.
@@ -702,7 +719,8 @@ def _couche_type(dalle_id: int, sec_id: int, which: str, i: int) -> str:
 
 def _couche_data(dalle_id: int, sec_id: int, which: str, i: int):
     """
-    Données d'une couche : (type, désignation treillis, Ø barres, esp barres).
+    Données d'une couche : (type, désignation treillis, Ø barres,
+    esp barres, nombre de barres).
     """
     typ = _couche_type(dalle_id, sec_id, which, i)
     des = str(st.session_state.get(KS(f"treillis_{which}_c{i}", dalle_id, sec_id), TR.TREILLIS_DEFAUT))
@@ -714,20 +732,29 @@ def _couche_data(dalle_id: int, sec_id: int, which: str, i: int):
         esp = float(st.session_state.get(KS(f"esp_barres_{which}_c{i}", dalle_id, sec_id), 150) or 150)
     except Exception:
         esp = 150.0
-    return typ, des, d, esp
+    try:
+        n = int(float(st.session_state.get(KS(f"n_barres_{which}_c{i}", dalle_id, sec_id), 3) or 3))
+    except Exception:
+        n = 3
+    return typ, des, d, esp, max(1, n)
 
 
 def _couche_as_per_m(dalle_id: int, sec_id: int, which: str, i: int) -> float:
-    """Section d'acier de la couche i (mm²/m), calculée automatiquement."""
-    typ, des, d, esp = _couche_data(dalle_id, sec_id, which, i)
+    """Section d'acier de la couche i (mm²/m), calculée automatiquement.
+    « n barres » : n barres dans la bande de largeur b -> n·aire/(b/100),
+    même aire de barre que partout ailleurs (π·Ø²/4)."""
+    typ, des, d, esp, n = _couche_data(dalle_id, sec_id, which, i)
     if typ == "Treillis":
         return TR.as_treillis_mm2_m(des)
+    if typ == "n barres":
+        b = float(st.session_state.get(KD("b", dalle_id), 100) or 100)
+        return n * (math.pi * d * d / 4.0) / max(0.01, b / 100.0)
     return TR.as_barres_mm2_m(d, esp)
 
 
 def _couche_diam_mm(dalle_id: int, sec_id: int, which: str, i: int) -> float:
     """Ø des fils/barres de la couche (mm) — sert à la distance d'axe."""
-    typ, des, d, esp = _couche_data(dalle_id, sec_id, which, i)
+    typ, des, d, esp, n = _couche_data(dalle_id, sec_id, which, i)
     if typ == "Treillis":
         t = TR.parse_designation(des)
         return float(t[0]) if t else 10.0
@@ -735,29 +762,80 @@ def _couche_diam_mm(dalle_id: int, sec_id: int, which: str, i: int) -> float:
 
 
 def _couche_label(dalle_id: int, sec_id: int, which: str, i: int) -> str:
-    """Libellé compact : 'Treillis 10/10/100/100' ou 'Ø12/150'."""
-    typ, des, d, esp = _couche_data(dalle_id, sec_id, which, i)
+    """Libellé compact : 'Treillis 10/10/100/100', 'Ø12/150' ou '3 Ø12'."""
+    typ, des, d, esp, n = _couche_data(dalle_id, sec_id, which, i)
     if typ == "Treillis":
         return f"Treillis {des}"
+    if typ == "n barres":
+        return f"{n} Ø{d}"
     esp_txt = f"{esp:.0f}" if abs(esp - round(esp)) < 1e-9 else _fr(esp, 1)
     return f"Ø{d}/{esp_txt}"
 
 
 def _auto_dist_couche(dalle_id: int, sec_id: int, which: str, i: int) -> float:
     """
-    Distance d'axe automatique de la couche i (cm) :
+    Distance d'axe PAR DÉFAUT de la couche i (cm) :
       enrobage béton
       + demi-Ø de la couche arrondi au 0,5 cm sup.
       + jeu premier lit (paramètre avancé, partagé avec Poutre)
-    Toutes les couches d'une face sont posées dans le même plan (les
-    renforts d'une dalle se placent dans le plan du treillis — pas
-    d'empilement en lits comme dans une poutre).
+    Par défaut les couches d'une face se posent dans le plan du treillis ;
+    l'utilisateur peut SAISIR une autre distance d'axe par couche (un
+    renfort peut se poser au-dessus de la nappe) — voir _dist_couche_eff.
     Ex (treillis Ø10) : 3,0 + arr(0,5)=0,5 + 1,0 = 4,5 cm.
     """
     enrob_beton = float(st.session_state.get(KD("enrobage_beton", dalle_id), 3.0) or 3.0)
     jeu1 = float(st.session_state.get("jeu_enrobage_cm", 1.0) or 0.0)
     d = _couche_diam_mm(dalle_id, sec_id, which, i)
     return enrob_beton + _round_up_to_half_cm(d / 20.0) + jeu1
+
+
+def _dist_couche_eff(dalle_id: int, sec_id: int, which: str, i: int) -> float:
+    """Distance d'axe EFFECTIVE de la couche i (cm) : la saisie de la
+    colonne « Dist. axe » si elle est valide, sinon l'automatique. Le
+    CDG, la hauteur utile et les schémas de la note suivent cette valeur."""
+    auto = _auto_dist_couche(dalle_id, sec_id, which, i)
+    if bool(st.session_state.get(KS(f"dist_auto_{which}_c{i}", dalle_id, sec_id), True)):
+        return auto
+    raw = str(st.session_state.get(KS(f"dist_axe_{which}_c{i}", dalle_id, sec_id), "") or "").strip()
+    try:
+        v = float(raw.replace(",", "."))
+        return v if v > 0 else auto
+    except Exception:
+        return auto
+
+
+def _sync_dist_state(dalle_id: int, sec_id: int, which: str, i: int):
+    """
+    Synchronise le champ « Dist. axe » de la couche i avec la valeur
+    automatique — même mécanisme que le CDG (_sync_ycdg_state) : tant
+    que l'utilisateur n'a rien saisi, le champ suit l'automatique ; une
+    vraie saisie fige la valeur ; champ vidé -> retour à l'automatique.
+    À appeler AVANT le rendu du widget.
+    """
+    auto = _auto_dist_couche(dalle_id, sec_id, which, i)
+    auto_txt = f"{auto:.1f}".replace(".", ",")
+
+    dkey = KS(f"dist_axe_{which}_c{i}", dalle_id, sec_id)
+    flag = KS(f"dist_auto_{which}_c{i}", dalle_id, sec_id)
+    last = KS(f"dist_lastauto_{which}_c{i}", dalle_id, sec_id)
+
+    if dkey not in st.session_state:
+        st.session_state[dkey] = auto_txt
+        st.session_state[flag] = True
+    st.session_state.setdefault(flag, True)
+    st.session_state.setdefault(last, auto_txt)
+
+    cur_raw = str(st.session_state.get(dkey, "") or "").strip()
+    last_auto = str(st.session_state.get(last, "") or "")
+
+    if cur_raw == "":
+        st.session_state[flag] = True
+    elif bool(st.session_state.get(flag, False)) and cur_raw not in (last_auto, auto_txt):
+        st.session_state[flag] = False
+
+    if bool(st.session_state.get(flag, False)):
+        st.session_state[dkey] = auto_txt
+    st.session_state[last] = auto_txt
 
 
 def _ycdg_manual(dalle_id: int, sec_id: int, which: str):
@@ -826,12 +904,12 @@ def _layers_geometry(dalle_id: int, sec_id: int, which: str, use_manual: bool = 
 
     for i in range(1, nc + 1):
         As_pm = _couche_as_per_m(dalle_id, sec_id, which, i)
-        e = _auto_dist_couche(dalle_id, sec_id, which, i)
+        e = _dist_couche_eff(dalle_id, sec_id, which, i)
         As_pm_tot += As_pm
         somme_As_e += As_pm * e
         parts.append(_couche_label(dalle_id, sec_id, which, i))
 
-    e_cdg = (somme_As_e / As_pm_tot) if As_pm_tot > 0 else _auto_dist_couche(dalle_id, sec_id, which, 1)
+    e_cdg = (somme_As_e / As_pm_tot) if As_pm_tot > 0 else _dist_couche_eff(dalle_id, sec_id, which, 1)
     if use_manual:
         man = _ycdg_manual(dalle_id, sec_id, which)
         if man is not None:
@@ -849,11 +927,13 @@ def _add_couche(dalle_id: int, sec_id: int, which: str):
     if nc >= MAX_COUCHES:
         return
     i = nc + 1
-    # Renfort par défaut : barres Ø12/150 (modifiable en treillis).
-    st.session_state[KS(f"arm_type_{which}_c{i}", dalle_id, sec_id)] = "Barres"
+    # Renfort par défaut : 3 Ø12 posées dans la bande (« n barres ») —
+    # modifiable en treillis ou en barres à espacement.
+    st.session_state[KS(f"arm_type_{which}_c{i}", dalle_id, sec_id)] = "n barres"
     st.session_state.setdefault(KS(f"treillis_{which}_c{i}", dalle_id, sec_id), TR.TREILLIS_DEFAUT)
     st.session_state.setdefault(KS(f"ø_barres_{which}_c{i}", dalle_id, sec_id), 12)
     st.session_state.setdefault(KS(f"esp_barres_{which}_c{i}", dalle_id, sec_id), 150)
+    st.session_state.setdefault(KS(f"n_barres_{which}_c{i}", dalle_id, sec_id), 3)
     st.session_state[nk] = i
 
 
@@ -863,12 +943,14 @@ def _delete_couche(dalle_id: int, sec_id: int, which: str, i: int):
     nc = _get_ncouches(dalle_id, sec_id, which)
     if i < 2 or i > nc:
         return
+    _SUFS = ("arm_type", "treillis", "ø_barres", "esp_barres", "n_barres",
+             "dist_axe", "dist_auto", "dist_lastauto")
     for j in range(i, nc):
-        for suf in ("arm_type", "treillis", "ø_barres", "esp_barres"):
+        for suf in _SUFS:
             st.session_state[KS(f"{suf}_{which}_c{j}", dalle_id, sec_id)] = st.session_state.get(
                 KS(f"{suf}_{which}_c{j+1}", dalle_id, sec_id)
             )
-    for suf in ("arm_type", "treillis", "ø_barres", "esp_barres"):
+    for suf in _SUFS:
         st.session_state.pop(KS(f"{suf}_{which}_c{nc}", dalle_id, sec_id), None)
     st.session_state[nk] = nc - 1
 
@@ -1200,18 +1282,21 @@ def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, 
     treillis_key = KS(f"treillis_{which}_c{i}", dalle_id, sec_id)
     diam_key = KS(f"ø_barres_{which}_c{i}", dalle_id, sec_id)
     esp_key = KS(f"esp_barres_{which}_c{i}", dalle_id, sec_id)
+    n_key = KS(f"n_barres_{which}_c{i}", dalle_id, sec_id)
 
-    st.session_state.setdefault(type_key, "Treillis" if i == 1 else "Barres")
+    st.session_state.setdefault(type_key, "Treillis" if i == 1 else "n barres")
     st.session_state.setdefault(treillis_key, TR.TREILLIS_DEFAUT)
     st.session_state.setdefault(diam_key, 12)
     st.session_state.setdefault(esp_key, 150)
+    st.session_state.setdefault(n_key, 3)
 
     typ = _couche_type(dalle_id, sec_id, which, i)
-    dist = _auto_dist_couche(dalle_id, sec_id, which, i)
 
     c0, c1, c2, c3, c5, cG, c6 = st.columns(COUCHE_COLS, vertical_alignment="center")
     with c0:
-        st.markdown("Base" if i == 1 else f"Renfort {i - 1}")
+        # Numéro seul (1, 2, 3…) : « Base / Renfort 1 » prenait trop de
+        # place (retour bureau) — la couche 1 reste la nappe de base.
+        st.markdown(f"{i}")
     with c1:
         st.selectbox(
             f"Type (couche {i}){suffix}",
@@ -1252,14 +1337,26 @@ def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, 
                 disabled=disabled,
                 label_visibility="collapsed",
             )
+        elif typ == "n barres":
+            st.number_input(
+                f"Nombre de barres (couche {i}){suffix}",
+                min_value=1,
+                max_value=50,
+                step=1,
+                key=n_key,
+                disabled=disabled,
+                label_visibility="collapsed",
+            )
         else:
             st.markdown("<div style='text-align:center;opacity:0.5;'>—</div>", unsafe_allow_html=True)
     with c5:
+        # Distance d'axe SAISISSABLE (retour bureau : « à quel niveau je
+        # mets mes barres ») — suit l'automatique tant que rien n'est
+        # saisi ; champ vidé = retour à l'automatique.
         st.text_input(
             f"Distance axe (cm) (couche {i}){suffix}",
-            value=f"{dist:.1f}".replace(".", ","),
-            key=KS(f"dist_disp_{which}_{i}", dalle_id, sec_id),
-            disabled=True,
+            key=KS(f"dist_axe_{which}_c{i}", dalle_id, sec_id),
+            disabled=disabled,
             label_visibility="collapsed",
         )
     with cG:
@@ -1280,7 +1377,7 @@ def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, 
                 key=KS(f"btn_add_couche_{which}", dalle_id, sec_id),
                 use_container_width=True,
                 disabled=disabled or (nc >= MAX_COUCHES),
-                help="Ajouter un renfort (treillis ou barres)",
+                help="Ajouter un renfort (treillis, barres à espacement ou n barres)",
                 on_click=_add_couche,
                 args=(dalle_id, sec_id, which),
             )
@@ -1299,23 +1396,29 @@ def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, 
 def _render_couches_table(dalle_id: int, sec_id: int, which: str, disabled: bool):
     nc = _get_ncouches(dalle_id, sec_id, which)
 
-    # Synchroniser le champ CDG AVANT le rendu du widget
-    _sync_ycdg_state(dalle_id, sec_id, which)
+    # Distances d'axe et CDG déjà synchronisés en tête de
+    # render_dimensionnement_section — AVANT le calcul des états, pour
+    # qu'une saisie se reflète dans les résultats du même rerun.
 
     h0, h1, h2, h3, h5, hG, h6 = st.columns(COUCHE_COLS, vertical_alignment="bottom")
     with h0:
         st.markdown("")
     with h1:
-        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Type</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Type</div>", unsafe_allow_html=True,
+                    help="« Barres » : Ø à espacement régulier (Ø12/150). "
+                         "« n barres » : un nombre de barres posées dans la bande (3 Ø12).")
     with h2:
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Treillis / Ø</div>", unsafe_allow_html=True)
     with h3:
-        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Esp. (mm)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.85em;font-weight:600;'>Esp. / n</div>", unsafe_allow_html=True,
+                    help="Espacement (mm) pour « Barres » ; nombre de barres pour « n barres ».")
     with h5:
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Dist. axe (cm)</div>", unsafe_allow_html=True,
-                    help="Distance d'axe = enrobage + demi-Ø arrondi au 0,5 cm sup. "
-                         "+ jeu premier lit. Les couches d'une face sont posées dans "
-                         "le même plan (renforts dans le plan du treillis).")
+                    help="Distance parement -> axe de la couche, SAISISSABLE : par défaut "
+                         "enrobage + demi-Ø arrondi au 0,5 cm sup. + jeu premier lit "
+                         "(renfort dans le plan du treillis). Saisissez une autre valeur "
+                         "pour poser la couche à un autre niveau — champ vidé = retour "
+                         "à l'automatique.")
     with hG:
         st.markdown(
             "<div style='font-size:0.85em;font-weight:600;'>CDG (cm)</div>",
@@ -1443,6 +1546,15 @@ def render_dimensionnement_section(dalle_id: int, sec_id: int, beton_data: dict)
     dalle = next(d for d in st.session_state.dalles if int(d.get("id")) == dalle_id)
     sec = next(s for s in dalle["sections"] if int(s.get("id")) == sec_id)
     sec_nom = str(st.session_state.get(f"meta_dal{dalle_id}_nom_{sec_id}", sec.get("nom", f"Section {sec_id}")))
+
+    # Synchroniser les distances d'axe par couche PUIS le CDG de chaque
+    # face AVANT le calcul des états : une saisie (niveau d'une couche,
+    # CDG) se reflète ainsi dans les résultats du MÊME rerun — et les
+    # widgets correspondants ne sont pas encore instanciés à ce stade.
+    for which in FACES_DIR:
+        for i in range(1, _get_ncouches(dalle_id, sec_id, which) + 1):
+            _sync_dist_state(dalle_id, sec_id, which, i)
+        _sync_ycdg_state(dalle_id, sec_id, which)
 
     states = _dimensionnement_compute_states(dalle_id, sec_id, beton_data)
 

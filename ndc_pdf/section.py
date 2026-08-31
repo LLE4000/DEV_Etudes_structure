@@ -366,28 +366,41 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
             anc_fil.setdefault(face, (x1, yy))
 
     # ---- autre direction : barres vues EN POINTS, à leur espacement réel
-    #      et au MÊME niveau que leur ligne filante dans l'autre schéma
+    #      (ou réparties si la couche est « n barres ») et au MÊME niveau
+    #      que leur ligne filante dans l'autre schéma
+    def _point(bx, yy, dia, rr):
+        if st.dia_colors:
+            c.setFillColor(_coul_dia(dia))
+            c.setStrokeColor(st.ink)
+            c.setLineWidth(0.35)
+            c.circle(bx, yy, rr, stroke=1, fill=1)
+        elif st.steel:
+            _barre_acier(c, bx, yy, rr)
+        else:
+            c.setFillColor(st.bar)
+            c.setStrokeColor(st.ink)
+            c.setLineWidth(0.35)
+            c.circle(bx, yy, rr, stroke=1, fill=1)
+
     for face in ("inf", "sup"):
         for j, cch in enumerate(sch.get(f"points_{face}", [])):
             dia = float(cch["dia"])
             yy = _y_face(face, float(cch["e"]) * sv)
-            esp_px = max(7.0, float(cch["esp"]) * sc)
             rr = max(1.6, dia * sv / 2.0)
+            n = int(cch.get("n") or 0)
+            x0, x1 = ox + cov * sc + rr, ox + bw - cov * sc - rr
+            if n > 0:
+                # couche « n barres » : n barres réparties dans la bande
+                xs = [(x0 + x1) / 2.0] if n == 1 else \
+                     [x0 + k * (x1 - x0) / (n - 1) for k in range(n)]
+                for bx in xs:
+                    _point(bx, yy, dia, rr)
+                continue
+            esp_px = max(7.0, float(cch["esp"]) * sc)
             phase = 0.5 if j == 0 else (0.25 if j % 2 else 0.75)
             bx = ox + cov * sc + esp_px * phase
             while bx < ox + bw - cov * sc:
-                if st.dia_colors:
-                    c.setFillColor(_coul_dia(dia))
-                    c.setStrokeColor(st.ink)
-                    c.setLineWidth(0.35)
-                    c.circle(bx, yy, rr, stroke=1, fill=1)
-                elif st.steel:
-                    _barre_acier(c, bx, yy, rr)
-                else:
-                    c.setFillColor(st.bar)
-                    c.setStrokeColor(st.ink)
-                    c.setLineWidth(0.35)
-                    c.circle(bx, yy, rr, stroke=1, fill=1)
+                _point(bx, yy, dia, rr)
                 bx += esp_px
 
     # ---- cotes : h (externe), d et d₁ (chaîne interne de la direction montrée)

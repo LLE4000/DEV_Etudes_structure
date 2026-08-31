@@ -490,7 +490,10 @@ def _coupe_dalle_depuis_R(R):
     niveaux = _niveaux()
 
     def _couches(dk, face):
+        # n > 0 : couche « n barres » — le dessin répartit n barres dans
+        # la bande au lieu de suivre l'espacement.
         return [dict(dia=float(c["d"]), esp=float(c["esp"]),
+                     n=int(c.get("n") or 0),
                      e=niveaux[(face, dk, i)])
                 for i, c in enumerate(_geo(dk, face)["couches"])]
 
@@ -520,7 +523,7 @@ def _coupe_dalle_depuis_R(R):
     # directions strictement identiques -> un seul schéma
     def _sig(dk):
         D = R["dirs"][dk]
-        return [(c["typ"], c["des"], c["d"], c["esp"], round(c["e"], 3))
+        return [(c["typ"], c["des"], c["d"], c["esp"], c.get("n") or 0, round(c["e"], 3))
                 for geo in (D["geo_inf"], D["geo_sup"]) for c in geo["couches"]]
 
     identiques = _sig("x") == _sig("y")
