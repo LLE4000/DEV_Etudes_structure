@@ -232,13 +232,20 @@ class Style:
         return low
 
     def _titre(self, d, fr, v):
-        """Numéro dans un carré plein, puis l'intitulé."""
+        """Numéro dans un carré plein, puis l'intitulé — réduit pour
+        tenir dans la colonne (les intitulés longs, ex. « … — direction
+        X (principale) », ne débordent jamais sur la colonne voisine)."""
         S, size = self, self.s_tit
         fr.down(S.title_gap)
         d.box(fr.x, fr.y - 2.4, size * 1.25, size * 1.15, fill=S.acc)
         d.t(fr.x + size * 0.62, fr.y + 0.4, str(v["num"]), S.f_v, size * 0.72,
             "#FFFFFF", "center")
-        d.t(fr.x + size * 1.25 + 8, fr.y, v["titre"], S.f_h, size, S.ink)
+        avail = fr.x1 - (fr.x + size * 1.25 + 8)
+        tsize = size
+        wt = d.w(v["titre"], S.f_h, size)
+        if wt > avail > 0:
+            tsize = max(7.0, size * avail / wt)
+        d.t(fr.x + size * 1.25 + 8, fr.y, v["titre"], S.f_h, tsize, S.ink)
         fr.down(size * 0.55)
         return fr.y
 
@@ -249,8 +256,13 @@ class Style:
         d.box(fr.x, fr.y - 1.6, 6.6, 6.6, fill=mix(S.acc, "#FFFFFF", 0.45))
         d.t(fr.x + 3.3, fr.y - 0.2, str(v["num"]), S.f_v, 5.0, "#FFFFFF",
             "center")
-        d.t(fr.x + 12, fr.y, f"{v['titre']} (suite)", S.f_b, S.s_lab + 0.6,
-            S.mut)
+        suite_txt = f"{v['titre']} (suite)"
+        ssize = S.s_lab + 0.6
+        ws = d.w(suite_txt, S.f_b, ssize)
+        avail = fr.x1 - (fr.x + 12)
+        if ws > avail > 0:
+            ssize = max(5.4, ssize * avail / ws)
+        d.t(fr.x + 12, fr.y, suite_txt, S.f_b, ssize, S.mut)
         fr.down(4)
         d.line(fr.x, fr.y, fr.x1, fr.y, mix(S.rule, S.ink, 0.1), 0.5)
         fr.down(5)
@@ -311,7 +323,12 @@ class Style:
             elif it[0] == "t":
                 place(S.s_kv * 1.5)
                 fr.down(S.s_kv * 1.5)
-                d.t(fr.x, fr.y, it[1], S.f_v, S.s_kv, S.ink)
+                # réduit pour tenir dans la colonne (« On prend … » longs)
+                tsz = S.s_kv
+                wt = d.w(it[1], S.f_v, tsz)
+                if wt > fr.w > 0:
+                    tsz = max(6.0, tsz * fr.w / wt)
+                d.t(fr.x, fr.y, it[1], S.f_v, tsz, S.ink)
             elif it[0] == "s":
                 place(S.s_kv * 3.2)
                 fr.down(S.s_kv * 1.75)

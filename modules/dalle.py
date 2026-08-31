@@ -1,8 +1,29 @@
 # -*- coding: utf-8 -*-
 # ===========================
-#  DALLE EN BÉTON ARMÉ — VERSION 1.0
+#  DALLE EN BÉTON ARMÉ — VERSION 2.0
 # ===========================
 #  dalle.py (Streamlit)
+#
+#  Évolutions v2.0 (dalle BIDIRECTIONNELLE) :
+#   1. SOLLICITATIONS : 5 valeurs par section — Mx inf, Mx sup, My inf,
+#      My sup (kN·m par bande) et V max (kN, convention inchangée : un
+#      seul effort tranchant par section, τ = V/(0,75·b·h)).
+#   2. ARMATURES DANS LES DEUX DIRECTIONS : chaque direction (X, Y)
+#      porte ses faces inf./sup. avec la MÊME machinerie de couches
+#      (treillis / barres / renforts) — le suffixe de face `which`
+#      devient "inf_x" / "sup_x" / "inf_y" / "sup_y". AUCUNE formule
+#      modifiée : les quatre familles sont calculées indépendamment par
+#      les expressions Poutre existantes (Aₛ,req, Aₛ,min avec 0,25·Aₛ,req
+#      de la face opposée DE LA MÊME DIRECTION, Aₛ,max).
+#   3. DIRECTION PRINCIPALE = celle dont le moment maximal est le plus
+#      grand (X à égalité) — déterminée des sollicitations, affichée
+#      dans les cartes ; l'ordre d'affichage suit (principale d'abord).
+#   4. HAUTEUR : hᵤ,min inchangée, avec M_max = max des QUATRE moments ;
+#      d₁ = enrobage mécanique de la famille dimensionnante. Affichage
+#      compacté à deux lignes.
+#   5. MIGRATION AUTOMATIQUE des données v1 (fichiers JSON et sessions) :
+#      M_inf→Mx_inf, M_sup→Mx_sup, couches inf/sup → direction X ; la
+#      direction Y démarre sur ses défauts. Idempotente.
 #
 #  Module construit comme une COPIE ADAPTÉE de poutre.py v2.40 :
 #  même organisation de page, mêmes cartes, mêmes bandeaux verts/rouges,
@@ -65,9 +86,15 @@ C_ICONES = {"ok": "✅", "warn": "⚠️", "nok": "❌"}
 # Données béton (chargées dans show())
 BETON_DATA = {}
 
-MAX_COUCHES = 4  # base + 3 renforts par face
+MAX_COUCHES = 4  # base + 3 renforts par face et par direction
 
-DALLE_VERSION = "1.0"  # version affichée dans l'en-tête de l'application
+DALLE_VERSION = "2.0"  # version affichée dans l'en-tête de l'application
+
+# Directions d'une dalle : clé interne + libellé. Les faces deviennent
+# "inf_x" / "sup_x" / "inf_y" / "sup_y" — suffixe opaque pour toute la
+# machinerie des couches (aucune formule ne lit la direction).
+DIR_KEYS = ("x", "y")
+FACES_DIR = ("inf_x", "sup_x", "inf_y", "sup_y")
 
 # Largeurs de colonnes du tableau des couches
 # (Couche | Type | Treillis/Ø | Esp. | As/m | Dist. axe | CDG | Action)
@@ -339,6 +366,46 @@ SHEAR_DIAM_OPTS = [6, 8, 10, 12]
 TYPES_ARMATURE = ["Treillis", "Barres"]
 
 
+# Familles de clés de couches à migrer v1 -> v2 (une par face, une par
+# face et par couche). Les clés d'affichage (as_disp_/dist_disp_) sont
+# de purs widgets : elles sont purgées, jamais migrées.
+_MIG_PAR_FACE = ("ncouches", "ycdg", "ycdg_auto", "ycdg_lastauto")
+_MIG_PAR_COUCHE = ("arm_type", "treillis", "ø_barres", "esp_barres")
+
+
+def _migrate_section_v2(dalle_id: int, sec_id: int):
+    """
+    Migration v1 -> v2 d'une section : l'unidirectionnel devient la
+    DIRECTION X (M_inf -> Mx_inf, M_sup -> Mx_sup, couches inf/sup ->
+    inf_x/sup_x) ; la direction Y démarre sur ses défauts. Idempotente :
+    une valeur v1 n'est copiée que si la clé v2 n'existe pas encore,
+    et les clés v1 sont retirées dans tous les cas.
+    """
+    ss = st.session_state
+
+    def _bascule(old: str, new: str):
+        if old in ss and new not in ss:
+            ss[new] = ss[old]
+        ss.pop(old, None)
+
+    # Sollicitations (+ champs texte _raw associés)
+    for old, new in (("M_inf", "Mx_inf"), ("M_sup", "Mx_sup")):
+        _bascule(KS(old, dalle_id, sec_id), KS(new, dalle_id, sec_id))
+        _bascule(KS(old, dalle_id, sec_id) + "_raw", KS(new, dalle_id, sec_id) + "_raw")
+
+    # Couches : inf -> inf_x, sup -> sup_x
+    for face in ("inf", "sup"):
+        for fam in _MIG_PAR_FACE:
+            _bascule(KS(f"{fam}_{face}", dalle_id, sec_id),
+                     KS(f"{fam}_{face}_x", dalle_id, sec_id))
+        for i in range(1, MAX_COUCHES + 1):
+            for fam in _MIG_PAR_COUCHE:
+                _bascule(KS(f"{fam}_{face}_c{i}", dalle_id, sec_id),
+                         KS(f"{fam}_{face}_x_c{i}", dalle_id, sec_id))
+            for fam in ("as_disp", "dist_disp"):
+                ss.pop(KS(f"{fam}_{face}_{i}", dalle_id, sec_id), None)
+
+
 def _ensure_defaults_for_dalle(dalle_id: int):
     # Dalle : bande de 100 cm de large, 20 cm d'épaisseur par défaut
     st.session_state.setdefault(KD("b", dalle_id), 100)
@@ -369,11 +436,14 @@ def _ensure_defaults_for_dalle(dalle_id: int):
     dalle = next(d for d in st.session_state.dalles if int(d.get("id")) == dalle_id)
     for s in dalle.get("sections", []):
         sid = int(s["id"])
-        st.session_state.setdefault(KS("M_inf", dalle_id, sid), 0.0)
-        st.session_state.setdefault(KS("M_sup", dalle_id, sid), 0.0)
+        _migrate_section_v2(dalle_id, sid)
+        st.session_state.setdefault(KS("Mx_inf", dalle_id, sid), 0.0)
+        st.session_state.setdefault(KS("Mx_sup", dalle_id, sid), 0.0)
+        st.session_state.setdefault(KS("My_inf", dalle_id, sid), 0.0)
+        st.session_state.setdefault(KS("My_sup", dalle_id, sid), 0.0)
         st.session_state.setdefault(KS("V", dalle_id, sid), 0.0)
 
-        for which in ("inf", "sup"):
+        for which in FACES_DIR:
             nk = KS(f"ncouches_{which}", dalle_id, sid)
             try:
                 nc = int(st.session_state.get(nk, 1) or 1)
@@ -513,7 +583,7 @@ def _build_save_payload():
         elif _is_dalle_key(k) or (k.endswith("_raw") and _is_dalle_key(k[:-4])):
             values[k] = st.session_state[k]
 
-    return {"version": "dalle-1.0", "dalles": dalles, "values": values}
+    return {"version": "dalle-2.0", "dalles": dalles, "values": values}
 
 
 def _load_from_payload(payload: dict):
@@ -866,13 +936,25 @@ def _delete_couche(dalle_id: int, sec_id: int, which: str, i: int):
 #  UI : SECTIONS (SOLLICITATIONS) PAR DALLE
 # ============================================================
 def _render_section_inputs(dalle_id: int, sec_id: int, disabled: bool):
-    c1, c2, c3 = st.columns(3)
+    """Cinq sollicitations sur une seule ligne compacte : Mx inf/sup,
+    My inf/sup (kN·m par bande) et V max (kN — convention inchangée :
+    un seul effort tranchant par section)."""
+    st.markdown(
+        "<div style='font-size:0.85em;color:#6b7280;margin-bottom:-6px;'>"
+        "Sollicitations — moments en kN·m, effort tranchant en kN</div>",
+        unsafe_allow_html=True,
+    )
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
-        float_input_fr_simple("M inf (kN·m)", key=KS("M_inf", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("Mx inf", key=KS("Mx_inf", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
     with c2:
-        float_input_fr_simple("M sup (kN·m)", key=KS("M_sup", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("Mx sup", key=KS("Mx_sup", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
     with c3:
-        float_input_fr_simple("V (kN)", key=KS("V", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+        float_input_fr_simple("My inf", key=KS("My_inf", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+    with c4:
+        float_input_fr_simple("My sup", key=KS("My_sup", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
+    with c5:
+        float_input_fr_simple("V max", key=KS("V", dalle_id, sec_id), default=0.0, min_value=0.0, disabled=disabled)
 
 
 def render_solicitations_for_dalle(dalle_id: int, data_locked: bool = False):
@@ -1024,46 +1106,7 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
     b = float(st.session_state.get(KD("b", dalle_id), 100))
     h = float(st.session_state.get(KD("h", dalle_id), 20))
 
-    # Synchroniser l'état du champ CDG AVANT toute lecture
-    _sync_ycdg_state(dalle_id, sec_id, "inf")
-    _sync_ycdg_state(dalle_id, sec_id, "sup")
-
-    # --- Couches : aire totale (bande) + centre de gravité ---
-    As_inf_total, e_cdg_inf, inf_detail, As_inf_pm = _layers_geometry(dalle_id, sec_id, "inf")
-    As_sup_total, e_cdg_sup, sup_detail, As_sup_pm = _layers_geometry(dalle_id, sec_id, "sup")
-
-    # Distance couche 1 (pour le cisaillement — logique Poutre conservée)
-    dist_l1_inf = _auto_dist_couche(dalle_id, sec_id, "inf", 1)
-    dist_l1_sup = _auto_dist_couche(dalle_id, sec_id, "sup", 1)
-
-    # d utile FLEXION : c.d.g. des couches (inf. depuis le bas, sup. depuis le haut)
-    d_utile_inf = h - e_cdg_inf  # cm
-    d_utile_sup = h - e_cdg_sup  # cm
-    # d utile CISAILLEMENT : couche 1, min des deux faces (comme Poutre)
-    d_utile_for_shear = h - min(dist_l1_inf, dist_l1_sup)  # cm
-
-    geom_inf_ok = d_utile_inf > 0.0
-    geom_sup_ok = d_utile_sup > 0.0
-    geom_shear_ok = d_utile_for_shear > 0.0
-    d_calc_inf = max(d_utile_inf, 0.1)
-    d_calc_sup = max(d_utile_sup, 0.1)
-    d_calc_shear = max(d_utile_for_shear, 0.1)
-
-    M_inf_val = float(st.session_state.get(KS("M_inf", dalle_id, sec_id), 0.0) or 0.0)
-    M_sup_val = float(st.session_state.get(KS("M_sup", dalle_id, sec_id), 0.0) or 0.0)
-    V_val = float(st.session_state.get(KS("V", dalle_id, sec_id), 0.0) or 0.0)
-
-    # --- Hauteur (formule Poutre inchangée) ---
-    M_max = max(M_inf_val, M_sup_val)
-    if M_max > 0:
-        hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
-    else:
-        hmin_calc = 0.0
-    e_cdg_gov = e_cdg_sup if M_sup_val > M_inf_val else e_cdg_inf
-    h_min_dalle = hmin_calc + e_cdg_gov
-    etat_h = "ok" if (h_min_dalle <= h) else "nok"
-
-    # --- As min/max (formules Poutre inchangées) ---
+    # --- As min/max (formules Poutre inchangées, communes aux directions) ---
     fck_cyl = float(beton_data[beton].get("fck", 0.8 * fck_cube) or (0.8 * fck_cube))
     fctm = 0.30 * (fck_cyl ** (2.0 / 3.0)) if fck_cyl > 0 else 0.0
     As_min_ec = 0.26 * fctm / fyk * b * h * 1e2     # mm²  (b,h en cm -> ·1e2)
@@ -1071,17 +1114,84 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
     As_min_base = max(As_min_ec, As_min_plancher)
     As_max = 0.04 * b * h * 1e2  # mm²
 
-    As_formule_inf = (M_inf_val * 1e6) / (fyd * 0.9 * d_calc_inf * 10) if M_inf_val > 0 else 0.0
-    As_formule_sup = (M_sup_val * 1e6) / (fyd * 0.9 * d_calc_sup * 10) if M_sup_val > 0 else 0.0
+    # --- UNE PASSE PAR DIRECTION : mêmes expressions que la v1, la face
+    #     opposée du critère 0,25·Aₛ,req est celle de la MÊME direction ---
+    dirs = {}
+    for dk in DIR_KEYS:
+        w_inf, w_sup = f"inf_{dk}", f"sup_{dk}"
+        _sync_ycdg_state(dalle_id, sec_id, w_inf)
+        _sync_ycdg_state(dalle_id, sec_id, w_sup)
 
-    As_min_inf_eff = max(As_min_base, 0.25 * As_formule_sup)
-    As_min_sup_eff = max(As_min_base, 0.25 * As_formule_inf)
+        As_inf_total, e_cdg_inf, inf_detail, As_inf_pm = _layers_geometry(dalle_id, sec_id, w_inf)
+        As_sup_total, e_cdg_sup, sup_detail, As_sup_pm = _layers_geometry(dalle_id, sec_id, w_sup)
 
-    As_req_inf_final = As_formule_inf
-    As_req_sup_final = As_formule_sup
+        d_utile_inf = h - e_cdg_inf  # cm
+        d_utile_sup = h - e_cdg_sup  # cm
+        geom_inf_ok = d_utile_inf > 0.0
+        geom_sup_ok = d_utile_sup > 0.0
+        d_calc_inf = max(d_utile_inf, 0.1)
+        d_calc_sup = max(d_utile_sup, 0.1)
 
-    etat_inf = "ok" if (geom_inf_ok and As_inf_total >= max(As_req_inf_final, As_min_inf_eff) and As_inf_total <= As_max) else "nok"
-    etat_sup = "ok" if (geom_sup_ok and As_sup_total >= max(As_req_sup_final, As_min_sup_eff) and As_sup_total <= As_max) else "nok"
+        M_inf_val = float(st.session_state.get(KS(f"M{dk}_inf", dalle_id, sec_id), 0.0) or 0.0)
+        M_sup_val = float(st.session_state.get(KS(f"M{dk}_sup", dalle_id, sec_id), 0.0) or 0.0)
+
+        As_formule_inf = (M_inf_val * 1e6) / (fyd * 0.9 * d_calc_inf * 10) if M_inf_val > 0 else 0.0
+        As_formule_sup = (M_sup_val * 1e6) / (fyd * 0.9 * d_calc_sup * 10) if M_sup_val > 0 else 0.0
+
+        As_min_inf_eff = max(As_min_base, 0.25 * As_formule_sup)
+        As_min_sup_eff = max(As_min_base, 0.25 * As_formule_inf)
+
+        As_req_inf_final = As_formule_inf
+        As_req_sup_final = As_formule_sup
+
+        etat_inf = "ok" if (geom_inf_ok and As_inf_total >= max(As_req_inf_final, As_min_inf_eff) and As_inf_total <= As_max) else "nok"
+        etat_sup = "ok" if (geom_sup_ok and As_sup_total >= max(As_req_sup_final, As_min_sup_eff) and As_sup_total <= As_max) else "nok"
+
+        dirs[dk] = {
+            "M_inf_val": M_inf_val, "M_sup_val": M_sup_val,
+            "As_inf_total": As_inf_total, "As_sup_total": As_sup_total,
+            "As_inf_pm": As_inf_pm, "As_sup_pm": As_sup_pm,
+            "inf_detail": inf_detail, "sup_detail": sup_detail,
+            "e_cdg_inf": e_cdg_inf, "e_cdg_sup": e_cdg_sup,
+            "d_utile_inf": d_utile_inf, "d_utile_sup": d_utile_sup,
+            "geom_inf_ok": geom_inf_ok, "geom_sup_ok": geom_sup_ok,
+            "As_formule_inf": As_formule_inf, "As_formule_sup": As_formule_sup,
+            "As_min_inf_eff": As_min_inf_eff, "As_min_sup_eff": As_min_sup_eff,
+            "As_req_inf_final": As_req_inf_final, "As_req_sup_final": As_req_sup_final,
+            "etat_inf": etat_inf, "etat_sup": etat_sup,
+        }
+
+    # Direction principale : celle du plus grand moment (X à égalité)
+    principale = "x" if max(dirs["x"]["M_inf_val"], dirs["x"]["M_sup_val"]) >= \
+        max(dirs["y"]["M_inf_val"], dirs["y"]["M_sup_val"]) else "y"
+
+    # Distances couche 1 (cisaillement — logique Poutre : min des faces)
+    dists_l1 = {w: _auto_dist_couche(dalle_id, sec_id, w, 1) for w in FACES_DIR}
+    d_utile_for_shear = h - min(dists_l1.values())  # cm
+    geom_shear_ok = d_utile_for_shear > 0.0
+    d_calc_shear = max(d_utile_for_shear, 0.1)
+
+    V_val = float(st.session_state.get(KS("V", dalle_id, sec_id), 0.0) or 0.0)
+
+    # --- Hauteur (formule Poutre inchangée) : M_max = max des 4 moments,
+    #     d₁ = enrobage mécanique de la famille qui porte ce moment ---
+    familles = [(dirs["x"]["M_inf_val"], dirs["x"]["e_cdg_inf"]),
+                (dirs["x"]["M_sup_val"], dirs["x"]["e_cdg_sup"]),
+                (dirs["y"]["M_inf_val"], dirs["y"]["e_cdg_inf"]),
+                (dirs["y"]["M_sup_val"], dirs["y"]["e_cdg_sup"])]
+    M_max = max(m for m, _ in familles)
+    # première famille au moment maximal (ordre inf_x, sup_x, inf_y,
+    # sup_y) — à égalité inf. l'emporte, comme dans la v1
+    e_cdg_gov = next(e for m, e in familles if m == M_max)
+    if M_max > 0:
+        hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
+    else:
+        hmin_calc = 0.0
+    h_min_dalle = hmin_calc + e_cdg_gov
+    etat_h = "ok" if (h_min_dalle <= h) else "nok"
+
+    etat_inf = _status_merge(dirs["x"]["etat_inf"], dirs["y"]["etat_inf"])
+    etat_sup = _status_merge(dirs["x"]["etat_sup"], dirs["y"]["etat_sup"])
 
     # --- Tranchant : τ = V / (0.75·b·h) (inchangé) ---
     tau_1 = 0.016 * fck_cube / 1.05
@@ -1123,13 +1233,14 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
     return {
         "etat_global": etat_global,
         "etat_h": etat_h,
-        "etat_inf": etat_inf,
+        "etat_inf": etat_inf,        # fusion X/Y (bandeaux de synthèse)
         "etat_sup": etat_sup,
         "etat_tau": etat_tau,
         "etat_pas": etat_pas,
-        "M_inf_val": M_inf_val,
-        "M_sup_val": M_sup_val,
+        "dirs": dirs,                # tout le détail par direction
+        "principale": principale,    # "x" ou "y"
         "V_val": V_val,
+        "M_max": M_max,
         "hmin_calc": hmin_calc,
         "e_cdg_gov": e_cdg_gov,
         "h_min_dalle": h_min_dalle,
@@ -1144,31 +1255,11 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
         "beton": beton,
         "b": b,
         "h": h,
-        "dist_l1_inf": dist_l1_inf,
-        "dist_l1_sup": dist_l1_sup,
-        "e_cdg_inf": e_cdg_inf,
-        "e_cdg_sup": e_cdg_sup,
         "fctm": fctm,
         "As_min_ec": As_min_ec,
         "As_min_plancher": As_min_plancher,
         "As_max": As_max,
-        "As_formule_inf": As_formule_inf,
-        "As_formule_sup": As_formule_sup,
-        "As_min_inf_eff": As_min_inf_eff,
-        "As_min_sup_eff": As_min_sup_eff,
-        "As_req_inf_final": As_req_inf_final,
-        "As_req_sup_final": As_req_sup_final,
-        "As_inf_total": As_inf_total,
-        "As_sup_total": As_sup_total,
-        "As_inf_pm": As_inf_pm,
-        "As_sup_pm": As_sup_pm,
-        "inf_detail": inf_detail,
-        "sup_detail": sup_detail,
-        "d_utile_inf": d_utile_inf,
-        "d_utile_sup": d_utile_sup,
         "d_utile_shear": d_utile_for_shear,
-        "geom_inf_ok": geom_inf_ok,
-        "geom_sup_ok": geom_sup_ok,
         "geom_shear_ok": geom_shear_ok,
     }
 
@@ -1241,9 +1332,13 @@ def _render_shear_lines_ui(dalle_id: int, sec_id: int, disabled: bool):
 # ============================================================
 #  UI : TABLEAU DES COUCHES (Base / Renforts)
 # ============================================================
+_FACE_LABELS = {"inf_x": " (inf. X)", "sup_x": " (sup. X)",
+                "inf_y": " (inf. Y)", "sup_y": " (sup. Y)"}
+
+
 def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, disabled: bool):
     """Ligne du tableau des couches. i=1 : bouton '＋ Renfort' ; i>=2 : poubelle."""
-    suffix = " (sup.)" if which == "sup" else " (inf.)"
+    suffix = _FACE_LABELS.get(which, f" ({which})")
 
     type_key = KS(f"arm_type_{which}_c{i}", dalle_id, sec_id)
     treillis_key = KS(f"treillis_{which}_c{i}", dalle_id, sec_id)
@@ -1389,20 +1484,26 @@ def _render_couches_table(dalle_id: int, sec_id: int, which: str, disabled: bool
         _render_couche_row(dalle_id, sec_id, which, i, nc, disabled)
 
 
-def _render_face_armatures(dalle_id: int, sec_id: int, which: str, states: dict, dim_locked: bool, units_as: str):
-    """Bloc 'Armatures inférieures' / 'Armatures supérieures' complet."""
-    is_inf = (which == "inf")
-    titre = "Armatures inférieures" if is_inf else "Armatures supérieures"
+def _render_face_armatures(dalle_id: int, sec_id: int, dk: str, face: str,
+                           states: dict, dim_locked: bool, units_as: str):
+    """Bloc 'Armatures inférieures/supérieures — direction X/Y' complet.
+    Toutes les valeurs viennent de states['dirs'][dk] — calcul par
+    direction, formules inchangées."""
+    which = f"{face}_{dk}"
+    D = states["dirs"][dk]
+    is_inf = (face == "inf")
+    dir_lab = f"dir. {dk.upper()}" + (" (principale)" if states["principale"] == dk else " (secondaire)")
+    titre = ("Armatures inférieures" if is_inf else "Armatures supérieures") + f" — {dir_lab}"
     unit_as_txt = "mm²" if units_as == "mm²" else "cm²"
 
-    As_total = states["As_inf_total"] if is_inf else states["As_sup_total"]
-    As_pm = states["As_inf_pm"] if is_inf else states["As_sup_pm"]
-    detail = states["inf_detail"] if is_inf else states["sup_detail"]
-    etat = states["etat_inf"] if is_inf else states["etat_sup"]
-    As_req = states["As_req_inf_final"] if is_inf else states["As_req_sup_final"]
-    As_min_eff = states["As_min_inf_eff"] if is_inf else states["As_min_sup_eff"]
+    As_total = D["As_inf_total"] if is_inf else D["As_sup_total"]
+    As_pm = D["As_inf_pm"] if is_inf else D["As_sup_pm"]
+    detail = D["inf_detail"] if is_inf else D["sup_detail"]
+    etat = D["etat_inf"] if is_inf else D["etat_sup"]
+    As_req = D["As_req_inf_final"] if is_inf else D["As_req_sup_final"]
+    As_min_eff = D["As_min_inf_eff"] if is_inf else D["As_min_sup_eff"]
     As_max = states["As_max"]
-    geom_ok = states["geom_inf_ok"] if is_inf else states["geom_sup_ok"]
+    geom_ok = D["geom_inf_ok"] if is_inf else D["geom_sup_ok"]
 
     As_disp = As_total if units_as == "mm²" else As_total / 100.0
     as_txt = f"{As_disp:.0f}" if units_as == "mm²" else f"{As_disp:.2f}"
@@ -1413,9 +1514,9 @@ def _render_face_armatures(dalle_id: int, sec_id: int, which: str, states: dict,
     open_bloc_left_right(titre, right, etat, pct=pct_as)
 
     # Infobulles pédagogiques : formule + valeurs numériques
-    M_face = states["M_inf_val"] if is_inf else states["M_sup_val"]
-    d_face = states["d_utile_inf"] if is_inf else states["d_utile_sup"]
-    As_req_opp = states["As_formule_sup"] if is_inf else states["As_formule_inf"]
+    M_face = D["M_inf_val"] if is_inf else D["M_sup_val"]
+    d_face = D["d_utile_inf"] if is_inf else D["d_utile_sup"]
+    As_req_opp = D["As_formule_sup"] if is_inf else D["As_formule_inf"]
     fyk = states["fyk"]; gs = states["gamma_s"]; fyd = states["fyd"]
     b_cm = states["b"]
 
@@ -1427,7 +1528,7 @@ def _render_face_armatures(dalle_id: int, sec_id: int, which: str, states: dict,
         f"→ Aₛ,req = {_fr(As_req, 0)} mm²"
     )
     help_min = (
-        "**Aₛ,min = max( 0,26·fctm/fyk·b·h ; 0,0013·b·h ; 0,25·Aₛ,req face opposée )**\n\n"
+        "**Aₛ,min = max( 0,26·fctm/fyk·b·h ; 0,0013·b·h ; 0,25·Aₛ,req face opposée, même direction )**\n\n"
         f"0,26 · {_fr(states['fctm'], 1)} / {_fr(fyk, 0)} · b · h = {_fr(states['As_min_ec'], 0)} mm²\n\n"
         f"0,0013 · b · h = {_fr(states['As_min_plancher'], 0)} mm²\n\n"
         f"0,25 · {_fr(As_req_opp, 0)} = {_fr(0.25 * As_req_opp, 0)} mm²\n\n"
@@ -1466,14 +1567,15 @@ def _render_face_armatures(dalle_id: int, sec_id: int, which: str, states: dict,
 # ============================================================
 def _render_hauteur_details(states: dict, h: float):
     """
-    Détail de la vérification de la hauteur sous le bandeau — comme
-    dans le PDF : formule de hᵤ,min avec les valeurs numériques,
-    hauteur minimale de la dalle (hᵤ,min + CDG armatures) et
-    conclusion. Affichage uniquement : formules Poutre inchangées.
+    Vérification de la hauteur en DEUX LIGNES (v2.0) : la formule de
+    hᵤ,min (M_max = max des quatre moments), puis la vérification
+    hᵤ,min + d₁ ≤ h sur une seule ligne. Formules Poutre inchangées —
+    seule la présentation est compactée.
     """
-    M_max = max(states["M_inf_val"], states["M_sup_val"])
+    M_max = states["M_max"]
     hmin_calc = states["hmin_calc"]
     h_min_dalle = states["h_min_dalle"]
+    ok_h = states["etat_h"] == "ok"
     if M_max > 0:
         m_txt = _fr(M_max, 0) if abs(M_max - round(M_max)) < 1e-9 else _fr(M_max, 1)
         st.markdown(
@@ -1483,17 +1585,10 @@ def _render_hauteur_details(states: dict, h: float):
         )
     else:
         st.markdown("hᵤ,min = **0,0 cm** — aucun moment appliqué")
-    # « d₁ » = distance du parement au c.d.g. des aciers de la face
-    # dimensionnante (enrobage mécanique) — même vocabulaire que Poutre
     st.markdown(
-        f"Hauteur minimale de la dalle : hᵤ,min + d₁ = "
-        f"{_fr(hmin_calc, 1)} + {_fr(states['e_cdg_gov'], 1)} = "
-        f"**{_fr(h_min_dalle, 1)} cm**"
-    )
-    ok_h = states["etat_h"] == "ok"
-    st.markdown(
-        f"Épaisseur de la dalle : {_fr(h, 0)} cm {'≥' if ok_h else '<'} "
-        f"hauteur minimale de la dalle : {_fr(h_min_dalle, 1)} cm"
+        f"hᵤ,min + d₁ = {_fr(hmin_calc, 1)} + {_fr(states['e_cdg_gov'], 1)} = "
+        f"**{_fr(h_min_dalle, 1)} cm** {'≤' if ok_h else '>'} "
+        f"h = **{_fr(h, 0)} cm** {'✅' if ok_h else '❌'}"
     )
 
 
@@ -1534,9 +1629,11 @@ def render_dimensionnement_section(dalle_id: int, sec_id: int, beton_data: dict)
         _render_hauteur_details(states, h)
         close_bloc()
 
-        # ---- Armatures inférieures / supérieures ----
-        _render_face_armatures(dalle_id, sec_id, "inf", states, dim_locked, units_as)
-        _render_face_armatures(dalle_id, sec_id, "sup", states, dim_locked, units_as)
+        # ---- Armatures : quatre familles, direction PRINCIPALE d'abord ----
+        ordre_dirs = (states["principale"], "y" if states["principale"] == "x" else "x")
+        for dk in ordre_dirs:
+            _render_face_armatures(dalle_id, sec_id, dk, "inf", states, dim_locked, units_as)
+            _render_face_armatures(dalle_id, sec_id, dk, "sup", states, dim_locked, units_as)
 
         # ---- Tranchant + étriers (moteur Poutre inchangé) ----
         tau_1, tau_2, tau_4 = states["tau_1"], states["tau_2"], states["tau_4"]

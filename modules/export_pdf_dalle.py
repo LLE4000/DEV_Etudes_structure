@@ -1,6 +1,21 @@
 # -*- coding: utf-8 -*-
 # ============================================================
 #  export_pdf_dalle.py — Note de calcul PDF (dalle béton armé)
+#  VERSION 2.0 (alignée sur dalle.py 2.0 — dalle BIDIRECTIONNELLE)
+#
+#  Évolutions v2.0 :
+#   - GÉNÉRATION : generer_rapport_pdf (même signature) produit la note
+#     via le paquet ndc_pdf/, comme la note Poutre v3.0 : garde A4
+#     portrait, une planche A4 paysage par section, conclusions
+#     vert/ocre/rouge, coupe de la bande de dalle (draw_dalle).
+#   - CALCUL par DIRECTION (X, Y) : mêmes formules qu'avant, exécutées
+#     indépendamment pour chaque direction ; sollicitations Mx/My
+#     inf/sup + V max ; direction principale = plus grand moment.
+#   - Anciennes clés v1 (M_inf, couches inf/sup) lues en repli : un
+#     dict de valeurs non migré reste exploitable.
+#   - Les aides platypus v1 restent présentes (aucun autre module ne
+#     doit casser) mais ne servent plus au rapport.
+#
 #  VERSION 1.0 (alignée sur dalle.py 1.0)
 #
 #  Construit sur les MÊMES briques graphiques que export_pdf.py
@@ -214,6 +229,38 @@ def _shear_lines(values, did, sid):
 #  CALCUL SECTION (formules strictement identiques à export_pdf.py —
 #  seule la géométrie des armatures provient des couches)
 # ============================================================
+DIR_KEYS = ("x", "y")
+FACES_DIR = ("inf_x", "sup_x", "inf_y", "sup_y")
+
+
+def _gm(values, key_new, key_old, default):
+    """Lecture avec repli v1 : la clé v2 d'abord, sinon l'ancienne."""
+    if key_new in values:
+        return values[key_new]
+    return values.get(key_old, default)
+
+
+def _layers_geometry_v2(values, did, sid, which):
+    """Géométrie d'une face-direction, avec repli v1 : si les clés v2
+    (« inf_x ») sont absentes mais que les clés v1 (« inf ») existent,
+    la direction X reprend l'ancien contenu — même règle que la
+    migration de dalle.py."""
+    if which.endswith("_x") and KS(f"ncouches_{which}", did, sid) not in values:
+        old = which[:-2]
+        if KS(f"ncouches_{old}", did, sid) in values or \
+                KS(f"arm_type_{old}_c1", did, sid) in values:
+            return _layers_geometry(values, did, sid, old)
+    return _layers_geometry(values, did, sid, which)
+
+
+def _auto_dist_couche_v2(values, did, sid, which, i):
+    if which.endswith("_x") and KS(f"arm_type_{which}_c{i}", did, sid) not in values:
+        old = which[:-2]
+        if KS(f"arm_type_{old}_c{i}", did, sid) in values:
+            return _auto_dist_couche(values, did, sid, old, i)
+    return _auto_dist_couche(values, did, sid, which, i)
+
+
 def _compute_section(values, beton_data, did, sid):
     beton = str(_g(values, KD("beton", did), "C30/37"))
     if beton not in beton_data:
@@ -236,43 +283,73 @@ def _compute_section(values, beton_data, did, sid):
     h = float(_g(values, KD("h", did), 20))
     enrob_beton = float(_g(values, KD("enrobage_beton", did), 3.0) or 3.0)
 
-    geo_inf = _layers_geometry(values, did, sid, "inf")
-    geo_sup = _layers_geometry(values, did, sid, "sup")
-
-    dist_l1_inf = _auto_dist_couche(values, did, sid, "inf", 1)
-    dist_l1_sup = _auto_dist_couche(values, did, sid, "sup", 1)
-
-    d_inf = h - geo_inf["e_cdg"]
-    d_sup = h - geo_sup["e_cdg"]
-    d_shear = h - min(dist_l1_inf, dist_l1_sup)
-    d_calc_inf = max(d_inf, 0.1); d_calc_sup = max(d_sup, 0.1); d_calc_shear = max(d_shear, 0.1)
-    geom_inf_ok = d_inf > 0; geom_sup_ok = d_sup > 0; geom_shear_ok = d_shear > 0
-
-    M_inf = float(_g(values, KS("M_inf", did, sid), 0.0) or 0.0)
-    M_sup = float(_g(values, KS("M_sup", did, sid), 0.0) or 0.0)
-    V = float(_g(values, KS("V", did, sid), 0.0) or 0.0)
-    has_Msup = M_sup > 0
-
-    M_max = max(M_inf, M_sup)
-    hmin = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if M_max > 0 else 0.0
-    e_cdg_gov = geo_sup["e_cdg"] if M_sup > M_inf else geo_inf["e_cdg"]
-    h_min_dalle = hmin + e_cdg_gov
-    etat_h = "ok" if (h_min_dalle <= h) else "nok"
-
     fctm = 0.30 * (fck_cyl ** (2.0 / 3.0)) if fck_cyl > 0 else 0.0
     As_min_ec = 0.26 * fctm / fyk * b * h * 1e2
     As_min_plancher = 0.0013 * b * h * 1e2
     As_min_base = max(As_min_ec, As_min_plancher)
     As_max = 0.04 * b * h * 1e2
 
-    As_req_inf = (M_inf * 1e6) / (fyd * 0.9 * d_calc_inf * 10) if M_inf > 0 else 0.0
-    As_req_sup = (M_sup * 1e6) / (fyd * 0.9 * d_calc_sup * 10) if M_sup > 0 else 0.0
-    As_min_inf = max(As_min_base, 0.25 * As_req_sup)
-    As_min_sup = max(As_min_base, 0.25 * As_req_inf)
+    # --- une passe par direction : mêmes expressions que la v1, le
+    #     critère 0,25·Aₛ,req vise la face opposée de la MÊME direction ---
+    dirs = {}
+    for dk in DIR_KEYS:
+        geo_inf = _layers_geometry_v2(values, did, sid, f"inf_{dk}")
+        geo_sup = _layers_geometry_v2(values, did, sid, f"sup_{dk}")
 
-    As_inf = geo_inf["As"]; As_sup = geo_sup["As"]
-    etat_inf = "ok" if (geom_inf_ok and As_inf >= max(As_req_inf, As_min_inf) and As_inf <= As_max) else "nok"
-    etat_sup = "ok" if (geom_sup_ok and As_sup >= max(As_req_sup, As_min_sup) and As_sup <= As_max) else "nok"
+        d_inf = h - geo_inf["e_cdg"]
+        d_sup = h - geo_sup["e_cdg"]
+        d_calc_inf = max(d_inf, 0.1)
+        d_calc_sup = max(d_sup, 0.1)
+        geom_inf_ok = d_inf > 0
+        geom_sup_ok = d_sup > 0
+
+        M_inf = float(_gm(values, KS(f"M{dk}_inf", did, sid),
+                          KS("M_inf", did, sid) if dk == "x" else "", 0.0) or 0.0)
+        M_sup = float(_gm(values, KS(f"M{dk}_sup", did, sid),
+                          KS("M_sup", did, sid) if dk == "x" else "", 0.0) or 0.0)
+
+        As_req_inf = (M_inf * 1e6) / (fyd * 0.9 * d_calc_inf * 10) if M_inf > 0 else 0.0
+        As_req_sup = (M_sup * 1e6) / (fyd * 0.9 * d_calc_sup * 10) if M_sup > 0 else 0.0
+        As_min_inf = max(As_min_base, 0.25 * As_req_sup)
+        As_min_sup = max(As_min_base, 0.25 * As_req_inf)
+
+        As_inf = geo_inf["As"]; As_sup = geo_sup["As"]
+        etat_inf = "ok" if (geom_inf_ok and As_inf >= max(As_req_inf, As_min_inf) and As_inf <= As_max) else "nok"
+        etat_sup = "ok" if (geom_sup_ok and As_sup >= max(As_req_sup, As_min_sup) and As_sup <= As_max) else "nok"
+
+        dirs[dk] = {
+            "M_inf": M_inf, "M_sup": M_sup,
+            "geo_inf": geo_inf, "geo_sup": geo_sup,
+            "di": d_inf, "ds": d_sup,
+            "As_req_inf": As_req_inf, "As_req_sup": As_req_sup,
+            "As_min_inf": As_min_inf, "As_min_sup": As_min_sup,
+            "As_inf": As_inf, "As_sup": As_sup,
+            "etat_inf": etat_inf, "etat_sup": etat_sup,
+            "geom_inf_ok": geom_inf_ok, "geom_sup_ok": geom_sup_ok,
+        }
+
+    principale = "x" if max(dirs["x"]["M_inf"], dirs["x"]["M_sup"]) >= \
+        max(dirs["y"]["M_inf"], dirs["y"]["M_sup"]) else "y"
+
+    dists_l1 = {w: _auto_dist_couche_v2(values, did, sid, w, 1) for w in FACES_DIR}
+    d_shear = h - min(dists_l1.values())
+    d_calc_shear = max(d_shear, 0.1)
+    geom_shear_ok = d_shear > 0
+
+    V = float(_g(values, KS("V", did, sid), 0.0) or 0.0)
+
+    familles = [(dirs["x"]["M_inf"], dirs["x"]["geo_inf"]["e_cdg"]),
+                (dirs["x"]["M_sup"], dirs["x"]["geo_sup"]["e_cdg"]),
+                (dirs["y"]["M_inf"], dirs["y"]["geo_inf"]["e_cdg"]),
+                (dirs["y"]["M_sup"], dirs["y"]["geo_sup"]["e_cdg"])]
+    M_max = max(m for m, _ in familles)
+    e_cdg_gov = next(e for m, e in familles if m == M_max)
+    hmin = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if M_max > 0 else 0.0
+    h_min_dalle = hmin + e_cdg_gov
+    etat_h = "ok" if (h_min_dalle <= h) else "nok"
+
+    etat_inf = "nok" if "nok" in (dirs["x"]["etat_inf"], dirs["y"]["etat_inf"]) else "ok"
+    etat_sup = "nok" if "nok" in (dirs["x"]["etat_sup"], dirs["y"]["etat_sup"]) else "ok"
 
     tau_1 = 0.016 * fck_cube / 1.05
     tau_2 = 0.032 * fck_cube / 1.05
@@ -316,18 +393,12 @@ def _compute_section(values, beton_data, did, sid):
         "beton": beton, "fck": fck_cyl, "fck_cube": fck_cube, "alpha_b": alpha_b, "fctm": fctm,
         "fyk": fyk, "fyd": fyd, "gamma_s": gamma_s, "mu_ref": mu_ref, "mu": mu_val,
         "b": b, "h": h, "enrob_beton": enrob_beton,
-        "ei": geo_inf["e_cdg"], "es": geo_sup["e_cdg"],
-        "dist_l1_inf": dist_l1_inf, "dist_l1_sup": dist_l1_sup,
-        "di": d_inf, "ds": d_sup, "dsh": d_shear,
-        "M_inf": M_inf, "M_sup": M_sup, "V": V,
-        "has_Msup": has_Msup,
+        "dirs": dirs, "principale": principale,
+        "dsh": d_shear, "V": V,
         "M_max": M_max, "hmin": hmin, "etat_h": etat_h,
         "e_cdg_gov": e_cdg_gov, "h_min_dalle": h_min_dalle,
         "As_min_ec": As_min_ec, "As_min_plancher": As_min_plancher, "As_max": As_max,
-        "As_req_inf": As_req_inf, "As_req_sup": As_req_sup,
-        "As_min_inf": As_min_inf, "As_min_sup": As_min_sup,
-        "geo_inf": geo_inf, "geo_sup": geo_sup,
-        "As_inf": As_inf, "As_sup": As_sup, "etat_inf": etat_inf, "etat_sup": etat_sup,
+        "etat_inf": etat_inf, "etat_sup": etat_sup,
         "shear": shear, "etat_global": etat_global,
     }
 
@@ -704,22 +775,48 @@ def _build_story(dalles, values, beton_data, infos, cw, pages, store):
 #  API PRINCIPALE
 # ============================================================
 def generer_rapport_pdf(dalles, values, beton_data, infos=None, output_path=None):
+    """Note de calcul Dalle : garde portrait + une planche paysage par
+    section — mêmes briques ndc_pdf que la note Poutre v3.0. Signature
+    et retour inchangés (appelée par dalle.py)."""
+    global DERNIERS_AVERTISSEMENTS
+    from datetime import datetime
+    from modules.export_pdf import _style_ndc
+    from ndc_pdf import data as ndc_data
+
     infos = infos or {}
     if output_path is None:
         fd, output_path = tempfile.mkstemp(suffix=".pdf", prefix="note_dalle_")
         os.close(fd)
 
-    # passe 1 : mesure des pages de début de dalle
-    pages = {}
-    tmp = output_path + ".pass1.tmp"
-    d1 = NoteDoc(tmp, infos); cw = d1.width
-    d1.build(_build_story(dalles, values, beton_data, infos, cw, pages={}, store=pages))
-    try:
-        os.remove(tmp)
-    except OSError:
-        pass
+    resultats = _collecter_resultats(dalles, values, beton_data)
+    doc_meta = ndc_data.construire_doc(
+        infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
+    sections = ndc_data.construire_sections_dalle(resultats)
 
-    # passe 2 : build final avec numéros de page
-    d2 = NoteDoc(output_path, infos); cw = d2.width
-    d2.build(_build_story(dalles, values, beton_data, infos, cw, pages=dict(pages), store={}))
+    d = _style_ndc(2).build(output_path, sections=sections, doc=doc_meta)
+    if d.warnings:
+        # remède prescrit par la maquette : planche à 3 colonnes
+        d = _style_ndc(3).build(output_path, sections=sections, doc=doc_meta)
+    d.save()
+    DERNIERS_AVERTISSEMENTS = list(d.warnings)
     return output_path
+
+
+# Avertissements de débordement de la dernière génération.
+DERNIERS_AVERTISSEMENTS = []
+
+
+def _collecter_resultats(dalles, values, beton_data):
+    """Payloads NEUTRES pour ndc_pdf.data : un par section, dans l'ordre
+    des planches — même motif que la note Poutre."""
+    out = []
+    for d in dalles:
+        did = int(d["id"])
+        nom_dalle = str(_g(values, f"meta_dalle_nom_{did}", d.get("nom", f"Dalle {did}")))
+        for sec in d.get("sections", []):
+            sid = int(sec["id"])
+            raw = str(_g(values, f"meta_dal{did}_nom_{sid}", sec.get("nom", f"Section {sid}")))
+            snom = raw if raw.strip().lower().startswith("section") else f"Section {raw}"
+            R = _compute_section(values, beton_data, did, sid)
+            out.append(dict(dalle=nom_dalle, section=snom, R=R))
+    return out

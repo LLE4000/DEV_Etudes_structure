@@ -234,12 +234,168 @@ def _leader(c, x0, y0, x1, y1, x2, st, color=None):
     c.circle(x0, y0, 1.0, stroke=0, fill=1)
 
 
+def draw_dalle(c, x, y, w, h, sec, st, label_w=104):
+    """
+    Coupe d'une BANDE DE DALLE (extension) : béton en représentation
+    conventionnelle, armatures de la direction PRINCIPALE vues en coupe
+    (cercles), direction secondaire filante (traits continus), chaîne de
+    cotation h / d / d₁ et largeur de bande. L'épaisseur est exagérée si
+    l'échelle exacte devient illisible — les cotes portent toujours les
+    vraies dimensions. `sec` : b, h, enrobage (mm), coupe_inf/sup et
+    long_inf/sup = [{dia, esp, e}], labs_inf/sup, d, d1, libellés.
+    """
+    b_mm, h_mm = float(sec["b"]), float(sec["h"])
+    cov = float(sec.get("enrobage", 30.0))
+
+    if st.panel is not None:
+        c.setFillColor(st.panel)
+        c.rect(x, y, w, h, stroke=0, fill=1)
+
+    pad_l, pad_b, pad_t = 44, 34, 18
+    lab = label_w if st.leader_side == "right" else 0
+    core_w = w - pad_l - lab - 12
+    zone_h = h - pad_b - pad_t
+    sc = core_w / b_mm                    # échelle horizontale (vraie)
+    sh = h_mm * sc
+    exag = False
+    if sh < 64.0:
+        sh = min(64.0, zone_h)
+        exag = True
+    if sh > zone_h:
+        sh = zone_h
+        exag = abs(sh - h_mm * sc) > 0.5
+    sv = sh / h_mm                        # échelle verticale (exagérée ou non)
+    ox = x + pad_l
+    oy = y + pad_b + max(0.0, (zone_h - sh) / 2.0)
+    bw = b_mm * sc
+
+    # ---- béton (mêmes conventions que la coupe de poutre)
+    if st.concrete_texture:
+        c.setFillColor(HexColor("#FFFFFF"))
+        c.rect(ox, oy, bw, sh, stroke=0, fill=1)
+        _texture_beton(c, ox, oy, bw, sh,
+                       _blanc_mix(st.muted, 0.38), _blanc_mix(st.muted, 0.62))
+    elif st.concrete is not None:
+        c.setFillColor(st.concrete)
+        c.rect(ox, oy, bw, sh, stroke=0, fill=1)
+    c.setStrokeColor(st.ink)
+    c.setLineWidth(st.rule_w)
+    c.rect(ox, oy, bw, sh, stroke=1, fill=0)
+
+    # ---- direction secondaire : barres FILANTES (sous les cercles)
+    anc_long = {}
+    for face, key in (("inf", "long_inf"), ("sup", "long_sup")):
+        for cch in sec.get(key, []):
+            e_px = float(cch["e"]) * sv
+            yy = oy + e_px if face == "inf" else oy + sh - e_px
+            th = max(1.4, float(cch["dia"]) * sv * 0.9)
+            x0, x1 = ox + cov * sc, ox + bw - cov * sc
+            passes = [(( _ACIER["trait"] if st.steel else st.bar), th)]
+            if st.steel:
+                passes.append((_ACIER["reflet"], th * 0.36))
+            for col, wt in passes:
+                c.setStrokeColor(col)
+                c.setLineWidth(wt)
+                c.line(x0, yy, x1, yy)
+            anc_long.setdefault(face, (x1, yy))
+
+    # ---- direction principale : barres vues EN COUPE (cercles acier)
+    anc_coupe = {}
+    for face, key in (("inf", "coupe_inf"), ("sup", "coupe_sup")):
+        for j, cch in enumerate(sec.get(key, [])):
+            e_px = float(cch["e"]) * sv
+            yy = oy + e_px if face == "inf" else oy + sh - e_px
+            esp_px = max(7.0, float(cch["esp"]) * sc)
+            rr = max(1.8, float(cch["dia"]) * sv / 2.0)
+            # renforts décalés d'une demi-maille : lisibles entre les fils
+            phase = 0.5 if j == 0 else (0.25 if j % 2 else 0.75)
+            bx = ox + cov * sc + esp_px * phase
+            last = None
+            while bx < ox + bw - cov * sc:
+                if st.steel:
+                    _barre_acier(c, bx, yy, rr)
+                else:
+                    c.setFillColor(st.bar)
+                    c.setStrokeColor(st.ink)
+                    c.setLineWidth(0.4)
+                    c.circle(bx, yy, rr, stroke=1, fill=1)
+                last = (bx, yy)
+                bx += esp_px
+            if last and face not in anc_coupe:
+                anc_coupe[face] = last
+
+    # ---- chaîne de cotation : h (externe), d et d₁ (interne), bande
+    d_mm = float(sec.get("d", 0.0) or 0.0)
+    if st.show_d and d_mm > 0:
+        yd = oy + sh - d_mm * sv
+        c.setStrokeColor(st.muted)
+        c.setLineWidth(0.4)
+        c.setDash(2, 2)
+        c.line(ox - 14, yd, ox + bw * 0.4, yd)
+        c.setDash()
+        _dim_v(c, yd, oy + sh, ox - 13, sec["d_label"], st, st.ink)
+        if sec.get("d1_label"):
+            _dim_v(c, oy, yd, ox - 13, sec["d1_label"], st, st.ink)
+        _dim_v(c, oy, oy + sh, ox - 28, sec["h_label"], st, ext_from=ox - 3)
+    else:
+        _dim_v(c, oy, oy + sh, ox - 15, sec["h_label"], st, ext_from=ox - 3)
+    _dim_h(c, ox, ox + bw, oy - 15, sec["b_label"], st, ext_from=oy - 3)
+
+    # ---- lignes de rappel : une par couche, empilées sans chevauchement
+    if st.leader_side == "right":
+        lx = ox + bw + 46
+        tx = lx + 4
+
+        def _annot(anchor, yy, txt, sub, col):
+            _leader(c, anchor[0], anchor[1], lx - 14, yy, lx, st, col)
+            draw_text(c, tx, yy + 1.6, txt, st.font_bold, st.label_size, st.ink)
+            if sub:
+                draw_text(c, tx, yy - st.label_size + 0.4, sub, st.font,
+                          st.label_size - 0.6, st.muted)
+
+        n_coupe_sup = len(sec.get("coupe_sup", []))
+        n_coupe_inf = len(sec.get("coupe_inf", []))
+        slot = None
+        for k, (txt, sub) in enumerate(sec.get("labs_sup", [])):
+            anchor = anc_coupe.get("sup") if k < n_coupe_sup else anc_long.get("sup")
+            anchor = anchor or (ox + bw - cov * sc, oy + sh - cov * sv)
+            yy = anchor[1] + 16 if slot is None else min(anchor[1] + 16, slot - 15)
+            _annot(anchor, yy, txt, sub, st.ink)
+            slot = yy
+        slot = None
+        slot_min = None
+        for k, (txt, sub) in enumerate(sec.get("labs_inf", [])):
+            if txt.startswith("Enrobage"):
+                # dernière ligne, sans ligne de rappel, SOUS toutes les autres
+                yy = (slot_min - 15) if slot_min is not None else oy - 2
+                draw_text(c, tx, yy + 1.6, txt, st.font, st.label_size - 0.4, st.muted)
+                continue
+            anchor = anc_coupe.get("inf") if k < n_coupe_inf else anc_long.get("inf")
+            anchor = anchor or (ox + bw - cov * sc, oy + cov * sv)
+            yy = anchor[1] - 16 if slot is None else max(anchor[1] - 16, slot + 15)
+            _annot(anchor, yy, txt, sub, st.ink)
+            slot = yy
+            slot_min = yy if slot_min is None else min(slot_min, yy)
+
+    # ---- repère / échelle / mention d'exagération
+    ech = f"éch. horiz. 1:{max(1, round(72.0 / (sc * 25.4))):d}"
+    if exag:
+        ech += " · épaisseur exagérée"
+    if sec.get("note_dir"):
+        draw_text(c, ox, y + 4, sec["note_dir"], st.font, st.dim_size - 0.4, st.muted)
+    draw_text(c, x + w - 2, y + 4, ech, st.font, st.dim_size - 0.4, st.muted, "right")
+    return h
+
+
 def draw_section(c, x, y, w, h, sec, st, label_w=104):
     """
     Dessine la coupe dans le rectangle (x, y, w, h).
-    `sec` : dict avec b, h, enrobage (mm), barres et cadre.
+    `sec` : dict avec b, h, enrobage (mm), barres et cadre — ou une
+    BANDE DE DALLE si sec["dalle"] est vrai (voir draw_dalle).
     Renvoie la hauteur réellement utilisée.
     """
+    if sec.get("dalle"):
+        return draw_dalle(c, x, y, w, h, sec, st, label_w=label_w)
     b_mm, h_mm = sec["b"], sec["h"]
     cov = sec["enrobage"]
     dst = sec.get("cadre_dia", 10)
