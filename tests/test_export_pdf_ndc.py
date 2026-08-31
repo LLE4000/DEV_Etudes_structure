@@ -174,6 +174,25 @@ chk("légende : groupes identiques regroupés (« 2× »)",
     "2× Étrier : Ø8 — 20 cm" in t4 and "Épingle : Ø8" in t4)
 chk("récap étriers : les trois groupes dans « On prend »",
     "Étrier Ø8 + Étrier Ø8 + Épingle Ø8" in t4)
+# Les LITS multi-positions sont en couleur PAR DIAMÈTRE : le violet Ø16 et
+# le rouge Ø20 de PALETTE_DIA doivent exister en pixels sur la coupe —
+# rougit si bars_face (section.py) redevient monochrome (st.bar).
+from ndc_pdf.section import PALETTE_DIA  # noqa: E402
+pix4 = doc[3].get_pixmap(dpi=100)
+
+
+def _couleur_presente(coul, tol=12):
+    cible = tuple(int(round(v * 255)) for v in (coul.red, coul.green, coul.blue))
+    for yy in range(0, pix4.height, 2):
+        for xx in range(0, pix4.width, 2):
+            px = pix4.pixel(xx, yy)
+            if all(abs(px[k] - cible[k]) <= tol for k in range(3)):
+                return True
+    return False
+
+
+chk("coupe : lits en couleur par diamètre (violet Ø16 et rouge Ø20)",
+    _couleur_presente(PALETTE_DIA[16]) and _couleur_presente(PALETTE_DIA[20]))
 t5 = doc[4].get_text()
 chk("section vérifiée : pastille VÉRIFIÉ", "VÉRIFIÉ" in t5 and "NON VÉRIFIÉ" not in t5)
 

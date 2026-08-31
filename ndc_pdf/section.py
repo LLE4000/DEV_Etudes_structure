@@ -618,10 +618,18 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             xs = [(x0 + x1) / 2.0] if n == 1 else \
                  [x0 + i * (x1 - x0) / (n - 1) for i in range(n)]
             for bx in xs:
-                c.setFillColor(st.bar)
-                c.setStrokeColor(st.ink if st.mode != "blueprint" else st.bar)
-                c.setLineWidth(0.4)
-                c.circle(bx, y0, max(1.4, rr), stroke=1, fill=1)
+                if st.dia_colors:
+                    c.setFillColor(_coul_dia(dia))
+                    c.setStrokeColor(st.ink)
+                    c.setLineWidth(0.4)
+                    c.circle(bx, y0, max(1.4, rr), stroke=1, fill=1)
+                elif st.steel:
+                    _barre_acier(c, bx, y0, max(1.4, rr))
+                else:
+                    c.setFillColor(st.bar)
+                    c.setStrokeColor(st.ink if st.mode != "blueprint" else st.bar)
+                    c.setLineWidth(0.4)
+                    c.circle(bx, y0, max(1.4, rr), stroke=1, fill=1)
             out.append((xs, y0))
             prev_e, prev_d = e_mm, dia
         return out
