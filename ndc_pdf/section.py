@@ -299,9 +299,11 @@ def draw_dalle(c, x, y, w, h, sec, st, label_w=104):
                                   st, lab, sc, dernier=(k == n - 1))
         y_cur -= gap
 
-    # pied : enrobage, échelle, mention d'exagération
-    draw_text(c, x + pad_l - 30, y + 4,
-              f"Enrobage : {sec.get('c_label', '')}", st.font,
+    # pied : enrobage (et découpage prédalle / coulé), échelle, exagération
+    pied = f"Enrobage : {sec.get('c_label', '')}"
+    if sec.get("h_pre_label"):
+        pied += " · " + str(sec["h_pre_label"])
+    draw_text(c, x + pad_l - 30, y + 4, pied, st.font,
               st.dim_size - 0.4, st.muted)
     ech = f"éch. horiz. 1:{max(1, round(72.0 / (sc * 25.4))):d}"
     if exag_glob:
@@ -339,6 +341,21 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
     elif st.concrete is not None:
         c.setFillColor(st.concrete)
         c.rect(ox, oy, bw, sh, stroke=0, fill=1)
+    # ---- prédalle : peau préfabriquée en partie basse — légère teinte
+    #      et TRAIT DE CLIVAGE entre préfabriqué et coulé en place
+    h_pre_mm = float(sec.get("h_pre") or 0.0)
+    if h_pre_mm > 0:
+        yj = oy + min(h_pre_mm, h_mm) * sv
+        c.saveState()
+        c.setFillColor(st.ink)
+        c.setFillAlpha(0.05)
+        c.rect(ox, oy, bw, yj - oy, stroke=0, fill=1)
+        c.restoreState()
+        c.setStrokeColor(st.ink)
+        c.setLineWidth(0.7)
+        c.line(ox, yj, ox + bw, yj)
+        draw_text(c, ox + 3, oy + 2.2, "prédalle préf.", st.font,
+                  st.dim_size - 0.8, st.muted)
     c.setStrokeColor(st.ink)
     c.setLineWidth(st.rule_w)
     c.rect(ox, oy, bw, sh, stroke=1, fill=0)

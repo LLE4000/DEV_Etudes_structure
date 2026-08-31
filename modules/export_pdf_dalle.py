@@ -407,6 +407,9 @@ def _compute_section(values, beton_data, did, sid):
         "beton": beton, "fck": fck_cyl, "fck_cube": fck_cube, "alpha_b": alpha_b, "fctm": fctm,
         "fyk": fyk, "fyd": fyd, "gamma_s": gamma_s, "mu_ref": mu_ref, "mu": mu_val,
         "b": b, "h": h, "enrob_beton": enrob_beton,
+        # PRÉDALLE (module predalle.py) : épaisseur de la peau préfabriquée
+        # en partie basse (cm). 0 = dalle homogène, rien ne change.
+        "h_pre": float(_g(values, KD("h_pre", did), 0) or 0),
         "dirs": dirs, "principale": principale,
         "V": V,
         "M_max": M_max, "hmin": hmin, "etat_h": etat_h,

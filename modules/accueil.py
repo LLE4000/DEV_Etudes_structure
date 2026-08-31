@@ -55,6 +55,7 @@ def show():
     beton_tools = [
         {"image": "Logo_poutre.png", "label": "Poutre", "page": "Poutre"},
         {"image": "Logo_dalle.png",  "label": "Dalle",  "page": "Dalle"},
+        {"image": "Logo_dalle.png",  "label": "Prédalle",  "page": "Prédalle"},
         {"image": "Logo_age.png",    "label": "Age beton", "page": "Age béton"},
         {"image": "Logo_enrobage.png", "label": "Enrobage", "page": "Enrobage"},
         {"image": "Logo_enrobage.png", "label": "Taux d'armature", "page": "Taux d'armature"},

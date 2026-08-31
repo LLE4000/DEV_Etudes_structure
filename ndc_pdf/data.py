@@ -534,9 +534,15 @@ def _coupe_dalle_depuis_R(R):
         schemas = [_schema(p, f"Direction principale : {p.upper()}"),
                    _schema(s, f"Direction secondaire : {s.upper()}")]
 
+    h_pre = float(R.get("h_pre") or 0.0)
     return dict(
         dalle=True,
         b=b_mm, h=h_mm, enrobage=R["enrob_beton"] * 10.0,
+        # prédalle : hauteur de la peau préfabriquée (mm, 0 = dalle
+        # homogène) — trait de clivage et teinte sur la coupe
+        h_pre=h_pre * 10.0,
+        h_pre_label=(f"prédalle préf. : {fn(h_pre, 0)} cm · "
+                     f"coulé en place : {fn(R['h'] - h_pre, 0)} cm") if h_pre > 0 else "",
         b_label=f"bande = {fn(R['b'] / 100.0, 2)} m",
         h_label=f"h = {fn(R['h'], 0)} cm",
         c_label=f"c = {fn(R['enrob_beton'], 1)} cm",
@@ -589,6 +595,12 @@ def construire_sections_dalle(resultats):
                 ("Épaisseur", "h", fn(R["h"], 0), "cm"),
                 ("Enrobage béton", "c", fn(R["enrob_beton"], 1), "cm"),
                 ("Direction principale", None, p.upper(), "")]
+        h_pre = float(R.get("h_pre") or 0.0)
+        if h_pre > 0:
+            # prédalle : la peau préfabriquée et le coulé en place
+            # (= h − h_pre, calculé) s'insèrent sous l'épaisseur totale
+            dims[2:2] = [("dont prédalle préf.", None, fn(h_pre, 0), "cm"),
+                         ("dont coulé en place", None, fn(R["h"] - h_pre, 0), "cm")]
         mats = [("Béton", None, R["beton"], ""),
                 (None, "f_{ck}", fn(R["fck"], 0), "N/mm²"),
                 ("Acier", None, f"B{int(R['fyk'])}", ""),
