@@ -103,6 +103,10 @@ palette = quatre lignes : `panel`, `acc`, `concrete`, `ko`.
 
 Révisions de l'étalon (chaque évolution VALIDÉE du rendu le remplace) :
 
+- **31/08/2026** — armatures en COULEUR PAR DIAMÈTRE (PALETTE_DIA,
+  une teinte par Ø) à la place du rendu « acier », demandé par le
+  bureau. Aucun texte modifié.
+
 - **25/08/2026 (2)** — hachure refaite (45° conventionnel, semis par
   hachage déterministe, triangles scalènes — plus d'alignement en
   colonnes) et rendu « acier » des armatures : dégradé métallique sur

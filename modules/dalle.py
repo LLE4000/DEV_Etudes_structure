@@ -15,9 +15,14 @@
 #      modifiée : les quatre familles sont calculées indépendamment par
 #      les expressions Poutre existantes (Aₛ,req, Aₛ,min avec 0,25·Aₛ,req
 #      de la face opposée DE LA MÊME DIRECTION, Aₛ,max).
-#   3. DIRECTION PRINCIPALE = celle dont le moment maximal est le plus
-#      grand (X à égalité) — déterminée des sollicitations, affichée
-#      dans les cartes ; l'ordre d'affichage suit (principale d'abord).
+#   3. DIRECTION PRINCIPALE choisie par l'utilisateur (v2.1) : sélecteur
+#      discret dans les caractéristiques de la dalle, DÉFAUT = Y. Ce
+#      choix pilote l'ordre d'affichage des cartes, la note de calcul
+#      et les schémas (principale d'abord, badge sur chaque carte).
+#   3b. EFFORT TRANCHANT (v2.1) : une dalle ne reçoit pas d'étriers —
+#      la vérification se réduit à la contrainte tangentielle
+#      τ = V/(0,75·b·h) ≤ τ_adm,I (le seuil « pas besoin d'étriers »
+#      existant de beton_classes.json). Plus de détermination de pas.
 #   4. HAUTEUR : hᵤ,min inchangée, avec M_max = max des QUATRE moments ;
 #      d₁ = enrobage mécanique de la famille dimensionnante. Affichage
 #      compacté à deux lignes.
@@ -88,7 +93,7 @@ BETON_DATA = {}
 
 MAX_COUCHES = 4  # base + 3 renforts par face et par direction
 
-DALLE_VERSION = "2.0"  # version affichée dans l'en-tête de l'application
+DALLE_VERSION = "2.1"  # version affichée dans l'en-tête de l'application
 
 # Directions d'une dalle : clé interne + libellé. Les faces deviennent
 # "inf_x" / "sup_x" / "inf_y" / "sup_y" — suffixe opaque pour toute la
@@ -362,7 +367,6 @@ def _next_section_id(dalle_id: int) -> int:
 
 
 DIAM_OPTS = [6, 8, 10, 12, 16, 20, 25, 32, 40]
-SHEAR_DIAM_OPTS = [6, 8, 10, 12]
 TYPES_ARMATURE = ["Treillis", "Barres"]
 
 
@@ -405,6 +409,14 @@ def _migrate_section_v2(dalle_id: int, sec_id: int):
             for fam in ("as_disp", "dist_disp"):
                 ss.pop(KS(f"{fam}_{face}_{i}", dalle_id, sec_id), None)
 
+    # v2.1 : plus d'étriers dans une dalle — purge des clés de cisaillement
+    ss.pop(KS("shear_pas", dalle_id, sec_id), None)
+    ss.pop(KS("shear_pas", dalle_id, sec_id) + "_raw", None)
+    ss.pop(KS("shear_n_lines", dalle_id, sec_id), None)
+    for i in range(8):
+        for suf in ("type", "d"):
+            ss.pop(KS(f"shear_line{i}_{suf}", dalle_id, sec_id), None)
+
 
 def _ensure_defaults_for_dalle(dalle_id: int):
     # Dalle : bande de 100 cm de large, 20 cm d'épaisseur par défaut
@@ -431,6 +443,12 @@ def _ensure_defaults_for_dalle(dalle_id: int):
 
     # Verrouillage par dalle (cadenas)
     st.session_state.setdefault(KD("lock_data", dalle_id), False)
+
+    # Direction principale de la dalle : Y par défaut (convention bureau)
+    dpk = KD("dir_principale", dalle_id)
+    if str(st.session_state.get(dpk, "Y")).upper() not in ("X", "Y"):
+        st.session_state[dpk] = "Y"
+    st.session_state.setdefault(dpk, "Y")
 
     # Sections
     dalle = next(d for d in st.session_state.dalles if int(d.get("id")) == dalle_id)
@@ -474,18 +492,8 @@ def _ensure_defaults_for_dalle(dalle_id: int):
                 if st.session_state.get(ek) != ev:
                     st.session_state[ek] = ev
 
-        # Cisaillement : mêmes clés que Poutre, sans positions de barres
-        st.session_state.setdefault(KS("shear_n_lines", dalle_id, sid), 1)
-        st.session_state.setdefault(KS("shear_pas", dalle_id, sid), 30.0)
-        n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", dalle_id, sid), 1) or 1))
-        st.session_state[KS("shear_n_lines", dalle_id, sid)] = n_lines
-        for i in range(n_lines):
-            st.session_state.setdefault(KS(f"shear_line{i}_type", dalle_id, sid), "Étrier")
-            st.session_state.setdefault(KS(f"shear_line{i}_d", dalle_id, sid), 10)
-            _coerce_int_choice(KS(f"shear_line{i}_d", dalle_id, sid), SHEAR_DIAM_OPTS, 10)
-            _tk = KS(f"shear_line{i}_type", dalle_id, sid)
-            if str(st.session_state.get(_tk, "")) not in ("Étrier", "Épingle"):
-                st.session_state[_tk] = "Étrier"
+        # v2.1 : plus d'étriers dans une dalle — les anciennes clés de
+        # cisaillement (lignes, pas) sont purgées par la migration.
 
 
 def _delete_dalle(dalle_id: int):
@@ -646,15 +654,6 @@ def _status_icon_label(state: str, label: str) -> str:
     if state == "warn":
         return f"🟡 {label}"
     return f"🔴 {label}"
-
-
-def _brins_from_type(type_txt: str) -> int:
-    t = str(type_txt)
-    if "3 brins" in t:
-        return 3
-    if "pingle" in t or "1 brin" in t:
-        return 1
-    return 2
 
 
 def _get_fyk_and_mu_ref(dalle_id: int):
@@ -840,66 +839,6 @@ def _layers_geometry(dalle_id: int, sec_id: int, which: str, use_manual: bool = 
 
 
 # ============================================================
-#  CISAILLEMENT : aires, résumé, callbacks (1 ligne = 1 étrier)
-# ============================================================
-def _shear_lines_total_Ast_mm2(dalle_id: int, sec_id: int) -> float:
-    n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", dalle_id, sec_id), 1) or 1))
-    Ast = 0.0
-    for i in range(n_lines):
-        typ = str(st.session_state.get(KS(f"shear_line{i}_type", dalle_id, sec_id), "Étrier"))
-        diam = float(st.session_state.get(KS(f"shear_line{i}_d", dalle_id, sec_id), 8) or 8)
-        Ast += _brins_from_type(typ) * _bar_area_mm2(diam)
-    return Ast
-
-
-def _shear_lines_summary(dalle_id: int, sec_id: int) -> str:
-    n_lines = max(1, int(st.session_state.get(KS("shear_n_lines", dalle_id, sec_id), 1) or 1))
-    order = []
-    counts = {}
-    for i in range(n_lines):
-        typ = str(st.session_state.get(KS(f"shear_line{i}_type", dalle_id, sec_id), "Étrier"))
-        diam = int(float(st.session_state.get(KS(f"shear_line{i}_d", dalle_id, sec_id), 8) or 8))
-        base = "Épingle" if _brins_from_type(typ) == 1 else "Étrier"
-        key = (base, diam)
-        if key not in counts:
-            counts[key] = 0
-            order.append(key)
-        counts[key] += 1
-    parts = []
-    for (base, diam) in order:
-        n = counts[(base, diam)]
-        if n == 1:
-            parts.append(f"{base} Ø{diam}")
-        else:
-            parts.append(f"{n} {base.lower()}s Ø{diam}")
-    return " + ".join(parts)
-
-
-def _delete_shear_line(dalle_id: int, sec_id: int, i: int):
-    nk = KS("shear_n_lines", dalle_id, sec_id)
-    prefix = "shear_line"
-    n_lines = max(1, int(st.session_state.get(nk, 1) or 1))
-    if n_lines <= 1 or i <= 0 or i >= n_lines:
-        return
-    for j in range(i, n_lines - 1):
-        for suf in ("type", "d"):
-            st.session_state[KS(f"{prefix}{j}_{suf}", dalle_id, sec_id)] = st.session_state.get(
-                KS(f"{prefix}{j+1}_{suf}", dalle_id, sec_id)
-            )
-    for suf in ("type", "d"):
-        st.session_state.pop(KS(f"{prefix}{n_lines-1}_{suf}", dalle_id, sec_id), None)
-    st.session_state[nk] = n_lines - 1
-
-
-def _add_shear_line(dalle_id: int, sec_id: int):
-    nk = KS("shear_n_lines", dalle_id, sec_id)
-    new_i = max(1, int(st.session_state.get(nk, 1) or 1))
-    st.session_state[nk] = new_i + 1
-    st.session_state.setdefault(KS(f"shear_line{new_i}_type", dalle_id, sec_id), "Étrier")
-    st.session_state.setdefault(KS(f"shear_line{new_i}_d", dalle_id, sec_id), 10)
-
-
-# ============================================================
 #  COUCHES : callbacks ajout / suppression
 # ============================================================
 def _add_couche(dalle_id: int, sec_id: int, which: str):
@@ -1066,7 +1005,7 @@ def render_caracteristiques_dalle(dalle_id: int):
         with c3:
             st.selectbox("Qualité acier (B)", [400, 500], key=KD("fyk", dalle_id), disabled=data_locked)
 
-        cB, cH, cE = st.columns(3)
+        cB, cH, cE, cD = st.columns([1.1, 1.0, 1.1, 0.9])
         with cB:
             st.number_input(
                 "Larg. bande (cm)", min_value=20, max_value=500, step=5, key=KD("b", dalle_id),
@@ -1077,6 +1016,13 @@ def render_caracteristiques_dalle(dalle_id: int):
             st.number_input("Épaisseur (cm)", min_value=5, max_value=100, step=1, key=KD("h", dalle_id), disabled=data_locked)
         with cE:
             st.number_input("Enrob. béton (cm)", min_value=0.0, max_value=20.0, step=0.5, key=KD("enrobage_beton", dalle_id), disabled=data_locked)
+        with cD:
+            st.selectbox(
+                "Dir. principale", ["Y", "X"], key=KD("dir_principale", dalle_id),
+                disabled=data_locked,
+                help="Direction principale de la dalle (Y par défaut). Pilote "
+                     "l'ordre des cartes, la note de calcul et les schémas.",
+            )
 
         render_solicitations_for_dalle(dalle_id, data_locked=data_locked)
 
@@ -1161,15 +1107,9 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
             "etat_inf": etat_inf, "etat_sup": etat_sup,
         }
 
-    # Direction principale : celle du plus grand moment (X à égalité)
-    principale = "x" if max(dirs["x"]["M_inf_val"], dirs["x"]["M_sup_val"]) >= \
-        max(dirs["y"]["M_inf_val"], dirs["y"]["M_sup_val"]) else "y"
-
-    # Distances couche 1 (cisaillement — logique Poutre : min des faces)
-    dists_l1 = {w: _auto_dist_couche(dalle_id, sec_id, w, 1) for w in FACES_DIR}
-    d_utile_for_shear = h - min(dists_l1.values())  # cm
-    geom_shear_ok = d_utile_for_shear > 0.0
-    d_calc_shear = max(d_utile_for_shear, 0.1)
+    # Direction principale : CHOIX de l'utilisateur (défaut Y) — pilote
+    # l'ordre d'affichage, la note et les schémas (v2.1)
+    principale = "x" if str(st.session_state.get(KD("dir_principale", dalle_id), "Y")).upper() == "X" else "y"
 
     V_val = float(st.session_state.get(KS("V", dalle_id, sec_id), 0.0) or 0.0)
 
@@ -1193,42 +1133,21 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
     etat_inf = _status_merge(dirs["x"]["etat_inf"], dirs["y"]["etat_inf"])
     etat_sup = _status_merge(dirs["x"]["etat_sup"], dirs["y"]["etat_sup"])
 
-    # --- Tranchant : τ = V / (0.75·b·h) (inchangé) ---
+    # --- Tranchant (v2.1) : une dalle ne reçoit pas d'étriers — SEULE la
+    #     contrainte tangentielle est vérifiée, contre τ_adm,I (le seuil
+    #     « pas besoin d'étriers » existant). Formule τ inchangée. ---
     tau_1 = 0.016 * fck_cube / 1.05
     tau_2 = 0.032 * fck_cube / 1.05
     tau_4 = 0.064 * fck_cube / 1.05
 
-    def _shear_state(tau):
-        if tau <= tau_1:
-            return "ok"
-        if tau <= tau_2:
-            return "ok"
-        if tau <= tau_4:
-            return "warn"
-        return "nok"
-
     if V_val > 0:
         tau = V_val * 1e3 / (0.75 * b * h * 100)
-        etat_tau = _shear_state(tau)
-        if not geom_shear_ok:
-            etat_tau = "nok"
+        etat_tau = "ok" if tau <= tau_1 else "nok"
     else:
+        tau = 0.0
         etat_tau = "ok"
 
-    def _pas_state(V_kn: float):
-        pas = float(st.session_state.get(KS("shear_pas", dalle_id, sec_id), 30.0) or 30.0)
-        Ast_e = _shear_lines_total_Ast_mm2(dalle_id, sec_id)
-        pas_th = Ast_e * fyd * (d_calc_shear * 10.0) / (V_kn * 1e3) / 10.0
-        s_max = min(0.75 * d_calc_shear, 30.0)
-        pas_lim = min(pas_th, s_max)
-        etat = "ok" if pas <= pas_lim else "nok"
-        if not geom_shear_ok:
-            etat = "nok"
-        return etat
-
-    etat_pas = _pas_state(V_val) if V_val > 0 else "ok"
-
-    etat_global = _status_merge(etat_h, etat_inf, etat_sup, etat_tau, etat_pas)
+    etat_global = _status_merge(etat_h, etat_inf, etat_sup, etat_tau)
 
     return {
         "etat_global": etat_global,
@@ -1236,10 +1155,11 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
         "etat_inf": etat_inf,        # fusion X/Y (bandeaux de synthèse)
         "etat_sup": etat_sup,
         "etat_tau": etat_tau,
-        "etat_pas": etat_pas,
         "dirs": dirs,                # tout le détail par direction
-        "principale": principale,    # "x" ou "y"
+        "principale": principale,    # "x" ou "y" (choix utilisateur)
         "V_val": V_val,
+        "tau": tau,
+        "tau_adm": tau_1,            # τ_adm,I : dalle sans étriers
         "M_max": M_max,
         "hmin_calc": hmin_calc,
         "e_cdg_gov": e_cdg_gov,
@@ -1259,74 +1179,7 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
         "As_min_ec": As_min_ec,
         "As_min_plancher": As_min_plancher,
         "As_max": As_max,
-        "d_utile_shear": d_utile_for_shear,
-        "geom_shear_ok": geom_shear_ok,
     }
-
-
-# ============================================================
-#  UI : CISAILLEMENT (lignes, sans positions de barres)
-# ============================================================
-def _render_shear_lines_ui(dalle_id: int, sec_id: int, disabled: bool):
-    n_key = KS("shear_n_lines", dalle_id, sec_id)
-    pas_key = KS("shear_pas", dalle_id, sec_id)
-    prefix = "shear_line"
-    add_btn_key = KS("btn_add_shear_line", dalle_id, sec_id)
-    del_btn_prefix = KS("btn_del_shear_line_", dalle_id, sec_id)
-
-    n_lines = max(1, int(st.session_state.get(n_key, 1) or 1))
-    st.session_state[n_key] = n_lines
-
-    for i in range(n_lines):
-        type_key = KS(f"{prefix}{i}_type", dalle_id, sec_id)
-        st.session_state.setdefault(type_key, "Étrier")
-        st.session_state.setdefault(KS(f"{prefix}{i}_d", dalle_id, sec_id), 10)
-
-        va = "bottom" if i == 0 else "center"
-        c0, c1, c3, c4 = st.columns([2.6, 1.3, 3.4, 0.65], vertical_alignment=va)
-
-        with c0:
-            st.selectbox(
-                "Type",
-                ["Étrier", "Épingle"],
-                key=type_key,
-                label_visibility="visible" if i == 0 else "collapsed",
-                disabled=disabled,
-                help="Un étrier = 2 brins · une épingle = 1 brin." if i == 0 else None,
-            )
-        with c1:
-            st.selectbox(
-                "Ø (mm)",
-                SHEAR_DIAM_OPTS,
-                key=KS(f"{prefix}{i}_d", dalle_id, sec_id),
-                label_visibility="visible" if i == 0 else "collapsed",
-                disabled=disabled,
-            )
-        with c3:
-            if i == 0:
-                float_input_fr_simple("Pas choisi (cm)", key=pas_key, default=30.0, min_value=1.0, disabled=disabled)
-            else:
-                st.markdown("")
-        with c4:
-            if i == 0:
-                st.button(
-                    "＋",
-                    key=add_btn_key,
-                    use_container_width=True,
-                    disabled=disabled,
-                    help="Ajouter une armature d'effort tranchant",
-                    on_click=_add_shear_line,
-                    args=(dalle_id, sec_id),
-                )
-            else:
-                st.button(
-                    "🗑️",
-                    key=f"{del_btn_prefix}{i}",
-                    use_container_width=True,
-                    disabled=disabled,
-                    on_click=_delete_shear_line,
-                    args=(dalle_id, sec_id, i),
-                )
 
 
 # ============================================================
@@ -1635,66 +1488,23 @@ def render_dimensionnement_section(dalle_id: int, sec_id: int, beton_data: dict)
             _render_face_armatures(dalle_id, sec_id, dk, "inf", states, dim_locked, units_as)
             _render_face_armatures(dalle_id, sec_id, dk, "sup", states, dim_locked, units_as)
 
-        # ---- Tranchant + étriers (moteur Poutre inchangé) ----
-        tau_1, tau_2, tau_4 = states["tau_1"], states["tau_2"], states["tau_4"]
-
-        def _shear_need_text(tau):
-            if tau <= tau_1:
-                return "Pas besoin d’étriers", "ok", "τ_adm_I", tau_1
-            if tau <= tau_2:
-                return "Besoin d’étriers", "ok", "τ_adm_II", tau_2
-            if tau <= tau_4:
-                return "Besoin de barres inclinées et d’étriers", "warn", "τ_adm_IV", tau_4
-            return "Pas acceptable", "nok", "τ_adm_IV", tau_4
-
-        def _bloc_pas(V_kn: float, pas_key_base: str, titre_tau: str, titre_pas: str, etat_pas_state: str):
-            tau = V_kn * 1e3 / (0.75 * b * h * 100)
-            besoin, etat_tau, nom_lim, tau_lim = _shear_need_text(tau)
-
-            pct_tau = (tau / tau_lim * 100.0) if tau_lim > 0 else None
-            open_bloc_left_right(titre_tau, "", etat_tau, pct=pct_tau)
-            st.markdown(f"τ = {tau:.2f} N/mm² ≤ {nom_lim} = {tau_lim:.2f} N/mm² → {besoin}")
-            close_bloc()
-
-            pas = float(st.session_state.get(KS(pas_key_base, dalle_id, sec_id), 30.0) or 30.0)
-            Ast_e = _shear_lines_total_Ast_mm2(dalle_id, sec_id)
-            d_sh = max(states["d_utile_shear"], 0.1)
-            pas_th = Ast_e * fyd * (d_sh * 10.0) / (V_kn * 1e3) / 10.0  # cm
-            s_max = min(0.75 * d_sh, 30.0)
-            pas_lim = min(pas_th, s_max)
-
-            # Affichage TRONQUÉ vers le bas — même règle que Poutre v2.41 :
-            # la valeur affichée est recopiable sans faire basculer le
-            # verdict ; la comparaison reste sur la valeur exacte.
-            pas_th_aff = math.floor(pas_th * 10.0) / 10.0
-            s_max_aff = math.floor(s_max * 10.0) / 10.0
-            help_pas = (
-                "**s,th = Aₛₜ · fyd · d / V**\n\n"
-                f"Aₛₜ = {_fr(Ast_e, 1)} mm²\n\n"
-                f"fyd = {_fr(fyd, 0)} N/mm²\n\n"
-                f"d = {_fr(d_sh, 1)} cm\n\n"
-                f"V = {_fr(V_kn, 1)} kN\n\n"
-                f"→ s,th = {_fr(pas_th_aff, 1)} cm (tronqué au mm inférieur)"
-            )
-
-            right_et = _shear_lines_summary(dalle_id, sec_id)
-            pct_pas = (pas / pas_lim * 100.0) if pas_lim > 0 else None
-            open_bloc_left_right(titre_pas, right_et, etat_pas_state, pct=pct_pas)
-            a1, a2, a3 = st.columns(3)
-            with a1:
-                st.markdown(f"**Pas théorique = {pas_th_aff:.1f} cm**", help=help_pas)
-            with a2:
-                st.markdown(f"**Pas maximal = {s_max_aff:.1f} cm**", help="**s,max = min( 0,75 · d ; 30 cm )**")
-            with a3:
-                st.markdown(f"**Asw = {Ast_e:.0f} mm²**",
-                            help="Section totale des armatures d'effort tranchant "
-                                 "(Σ brins × aire du Ø).")
-            close_bloc()
-
-            _render_shear_lines_ui(dalle_id, sec_id, disabled=dim_locked)
-
+        # ---- Effort tranchant (v2.1) : vérification de la contrainte
+        #      tangentielle uniquement — une dalle ne reçoit pas d'étriers ----
         if V_val > 0:
-            _bloc_pas(V_val, "shear_pas", "Vérification de l'effort tranchant", "Détermination des étriers", states["etat_pas"])
+            tau = states["tau"]
+            tau_adm = states["tau_adm"]
+            ok_tau = states["etat_tau"] == "ok"
+            pct_tau = (tau / tau_adm * 100.0) if tau_adm > 0 else None
+            open_bloc_left_right("Vérification de l'effort tranchant", "",
+                                 states["etat_tau"], pct=pct_tau)
+            st.markdown(
+                f"τ = {tau:.2f} N/mm² {'≤' if ok_tau else '>'} "
+                f"τ_adm,I = {tau_adm:.2f} N/mm² {'✅' if ok_tau else '❌'}",
+                help="**τ = V / (0,75 · b · h)** — dalle sans armatures "
+                     "d'effort tranchant : la contrainte tangentielle doit "
+                     "rester sous τ_adm,I (seuil « pas besoin d'étriers »).",
+            )
+            close_bloc()
 
 
 # ============================================================

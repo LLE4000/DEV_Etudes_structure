@@ -328,13 +328,8 @@ def _compute_section(values, beton_data, did, sid):
             "geom_inf_ok": geom_inf_ok, "geom_sup_ok": geom_sup_ok,
         }
 
-    principale = "x" if max(dirs["x"]["M_inf"], dirs["x"]["M_sup"]) >= \
-        max(dirs["y"]["M_inf"], dirs["y"]["M_sup"]) else "y"
-
-    dists_l1 = {w: _auto_dist_couche_v2(values, did, sid, w, 1) for w in FACES_DIR}
-    d_shear = h - min(dists_l1.values())
-    d_calc_shear = max(d_shear, 0.1)
-    geom_shear_ok = d_shear > 0
+    # Direction principale : CHOIX de l'utilisateur (défaut Y — v2.1)
+    principale = "x" if str(_g(values, KD("dir_principale", did), "Y")).upper() == "X" else "y"
 
     V = float(_g(values, KS("V", did, sid), 0.0) or 0.0)
 
@@ -355,38 +350,20 @@ def _compute_section(values, beton_data, did, sid):
     tau_2 = 0.032 * fck_cube / 1.05
     tau_4 = 0.064 * fck_cube / 1.05
 
-    def shear_need(tau):
-        if tau <= tau_1:
-            return "Pas besoin d'étriers", "ok", "tau_adm,I", tau_1
-        if tau <= tau_2:
-            return "Besoin d'étriers", "ok", "tau_adm,II", tau_2
-        if tau <= tau_4:
-            return "Barres inclinées + étriers", "warn", "tau_adm,IV", tau_4
-        return "Section insuffisante", "nok", "tau_adm,IV", tau_4
-
     def build_shear(Vx):
+        """v2.1 : une dalle ne reçoit pas d'étriers — la vérification se
+        réduit à τ ≤ τ_adm,I (seuil « pas besoin d'étriers » existant)."""
         if Vx <= 0:
             return None
         tau = Vx * 1e3 / (0.75 * b * h * 100)
-        besoin, etat_tau, nom_lim, tau_lim = shear_need(tau)
-        Ast_e, summary, groups = _shear_lines(values, did, sid)
-        pas = float(_g(values, KS("shear_pas", did, sid), 30.0) or 30.0)
-        pas_th = Ast_e * fyd * (d_calc_shear * 10.0) / (Vx * 1e3) / 10.0 if Ast_e > 0 else 0.0
-        s_max = min(0.75 * d_calc_shear, 30.0)
-        pas_lim = min(pas_th, s_max) if pas_th > 0 else s_max
-        etat_pas = "ok" if pas <= pas_lim else "nok"
-        if not geom_shear_ok:
-            etat_tau = "nok"; etat_pas = "nok"
-        return {"tau": tau, "besoin": besoin, "etat_tau": etat_tau, "nom_lim": nom_lim,
-                "tau_lim": tau_lim, "suf": "", "Ast": Ast_e, "summary": summary, "groups": groups,
-                "pas": pas, "pas_th": pas_th, "s_max": s_max, "pas_lim": pas_lim,
-                "etat_pas": etat_pas, "suf_pas": "", "V": Vx}
+        etat_tau = "ok" if tau <= tau_1 else "nok"
+        return {"tau": tau, "tau_adm": tau_1, "etat_tau": etat_tau, "V": Vx}
 
     shear = build_shear(V)
 
     states = [etat_h, etat_inf, etat_sup]
     if shear:
-        states += [shear["etat_tau"], shear["etat_pas"]]
+        states.append(shear["etat_tau"])
     etat_global = "nok" if any(s == "nok" for s in states) else ("warn" if any(s == "warn" for s in states) else "ok")
 
     return {
@@ -394,7 +371,7 @@ def _compute_section(values, beton_data, did, sid):
         "fyk": fyk, "fyd": fyd, "gamma_s": gamma_s, "mu_ref": mu_ref, "mu": mu_val,
         "b": b, "h": h, "enrob_beton": enrob_beton,
         "dirs": dirs, "principale": principale,
-        "dsh": d_shear, "V": V,
+        "V": V,
         "M_max": M_max, "hmin": hmin, "etat_h": etat_h,
         "e_cdg_gov": e_cdg_gov, "h_min_dalle": h_min_dalle,
         "As_min_ec": As_min_ec, "As_min_plancher": As_min_plancher, "As_max": As_max,

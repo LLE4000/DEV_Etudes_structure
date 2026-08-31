@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests de la dalle BIDIRECTIONNELLE (dalle.py 2.0 + note ndc_pdf).
+"""Tests de la dalle BIDIRECTIONNELLE (dalle.py 2.1 + note ndc_pdf).
 
 Garanties, chacune rougit si on la retire :
   1. CAS COMPLET (Mx inf/sup, My inf/sup, Vmax tous ≠ 0) : les QUATRE
@@ -9,12 +9,14 @@ Garanties, chacune rougit si on la retire :
        Mx,inf = 28 kN·m              -> 602 mm²
        Mx,sup = 12 kN·m              -> 258 mm²
        My,sup =  9 kN·m              -> 194 mm²
-     La direction PRINCIPALE (Y ici) s'affiche d'abord.
+     La direction PRINCIPALE est un CHOIX utilisateur (défaut Y) et
+     s'affiche d'abord ; la bascule vers X réordonne tout.
   2. MIGRATION v1 -> v2 : un ancien état (M_inf/M_sup + couches inf/sup)
      devient la direction X, renforts compris, anciennes clés purgées.
   3. NOTE DE CALCUL : le bouton PDF de l'application produit une garde
-     + DEUX planches par section, les quatre familles et l'effort
-     tranchant y figurent, la coupe porte « bande = 1,00 m ».
+     + UNE planche par section, dans l'ordre imposé (hauteur, inf P,
+     inf S, sup P, sup S, tranchant τ seul — sans étriers), avec les
+     schémas par direction et « bande = 1,00 m ».
   4. REPLI v1 de l'export : un dict de valeurs non migré reste lisible.
 
 Lancement : python tests/test_dalle_bidir.py (depuis la racine).
@@ -119,22 +121,52 @@ a3.run()
 chk("génération PDF sans exception", not a3.exception, str(a3.exception))
 pdf = a3.session_state["dalle_pdf_bytes"]
 doc = pymupdf.open(stream=pdf, filetype="pdf")
-chk("garde + 2 planches par section", doc.page_count == 3, str(doc.page_count))
-chk("garde en portrait, planches en paysage",
+chk("garde + UNE planche par section (v2.1)", doc.page_count == 2, str(doc.page_count))
+chk("garde en portrait, planche en paysage",
     doc[0].rect.height > doc[0].rect.width
-    and all(doc[i].rect.width > doc[i].rect.height for i in (1, 2)))
+    and doc[1].rect.width > doc[1].rect.height)
 t2 = doc[1].get_text()
-t3 = doc[2].get_text()
-chk("planche 1/2 : hauteur + direction principale (Y)",
-    "direction Y (principale)" in t2 and "Épaisseur de la dalle" in t2)
-chk("planche 2/2 : direction secondaire (X) + tranchant",
-    "direction X (secondaire)" in t3 and "Effort tranchant" in t3)
-chk("les 4 moments et V max sur les planches",
+chk("ordre : hauteur, inf P, inf S, sup P, sup S, tranchant",
+    0 <= t2.find("Vérification de la hauteur")
+    < t2.find("Armatures inférieures — direction Y (principale)")
+    < t2.find("Armatures inférieures — direction X (secondaire)")
+    < t2.find("Armatures supérieures — direction Y (principale)")
+    < t2.find("Armatures supérieures — direction X (secondaire)")
+    < t2.find("Vérification de l'effort tranchant"))
+chk("les 4 moments et V max sur la planche",
     all(v in t2 for v in ("28,0", "12,0", "35,0", "9,0", "60,0")))
 chk("coupe : bande de 1,00 m", "bande = 1,00 m" in t2)
-chk("coupe : sens de coupe indiqué", "coupe ⊥ direction Y" in t2)
+# armatures par défaut identiques en X et Y -> UN SEUL schéma (point 8)
+chk("directions identiques : un seul schéma combiné",
+    "Directions Y et X (identiques)" in t2 and "Direction secondaire" not in t2)
+
+# on différencie la direction X -> DEUX schémas titrés
+a3.selectbox(key="dal1_sec1_treillis_sup_x_c1").set_value("8/8/150/150")
+a3.run()
+a3.button(key="dalle_btn_pdf").click()
+a3.run()
+t2b = pymupdf.open(stream=a3.session_state["dalle_pdf_bytes"], filetype="pdf")[1].get_text()
+chk("directions différentes : deux schémas titrés par direction",
+    "Direction principale : Y" in t2b and "Direction secondaire : X" in t2b
+    and "en points : dir. X" in t2b)
+chk("tranchant SANS étriers : τ contre τ_adm,I seulement",
+    "adm,I" in t2 and "Étrier" not in t2 and "Pas théorique" not in t2)
 chk("Aₛ,req indépendants dans la note (753 principale / 602 secondaire)",
-    "753" in t2 and "602" in t3)
+    "753" in t2 and "602" in t2)
+
+print("\n=== 3b. Bascule de la direction principale vers X ===")
+a3.selectbox(key="dal1_dir_principale").set_value("X")
+a3.run()
+t = "\n".join(str(m.value) for m in a3.markdown)
+chk("X devient principale à l'écran (malgré My > Mx)",
+    "dir. X (principale)" in t and "dir. Y (secondaire)" in t
+    and t.find("dir. X (principale)") < t.find("dir. Y (secondaire)"))
+a3.button(key="dalle_btn_pdf").click()
+a3.run()
+tX = pymupdf.open(stream=a3.session_state["dalle_pdf_bytes"], filetype="pdf")[1].get_text()
+chk("X principale aussi dans la note",
+    "direction X (principale)" in tX and "Direction principale : X" in tX
+    and "Direction secondaire : Y" in tX)
 
 print("\n=== 4. Export : repli sur un dict de valeurs v1 ===")
 from modules.export_pdf_dalle import generer_rapport_pdf  # noqa: E402
@@ -151,9 +183,9 @@ p = generer_rapport_pdf(dalles, v1, bd, infos={"date": "31/08/2026"}, output_pat
 docv1 = pymupdf.open(p)
 tv1 = docv1[1].get_text()
 chk("un dict v1 se génère sans migration préalable",
-    docv1.page_count == 3 and "25,0" in tv1, str(docv1.page_count))
-chk("v1 : l'ancien M_inf devient la direction X principale",
-    "direction X (principale)" in tv1)
+    docv1.page_count == 2 and "25,0" in tv1, str(docv1.page_count))
+chk("v1 : l'ancien M_inf devient la direction X (Y principale par défaut)",
+    "direction X (secondaire)" in tv1)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

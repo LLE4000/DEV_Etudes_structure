@@ -368,6 +368,8 @@ def _dir_label(dk, principale):
 
 
 def _verif_hauteur_dalle(R):
+    """Version COMPACTE (v2.1) : les deux formules et la conclusion —
+    pas de lignes clé-valeur redondantes."""
     ok = R["etat_h"] == "ok"
     txt = (f"Épaisseur de la dalle : {fn(R['h'], 0)} cm "
            f"{'≥' if ok else '<'} hauteur minimale de la dalle : "
@@ -379,9 +381,8 @@ def _verif_hauteur_dalle(R):
          rf" = \res{{{fn(R['hmin'], 1)} \u{{cm}}}}"),
         ("f", "Hauteur minimale de la dalle",
          rf"h_{{u,min}} + d_{{1}} = {fn(R['hmin'], 1)} + {fn(R['e_cdg_gov'], 1)}"
-         rf" = \res{{{fn(R['h_min_dalle'], 1)} \u{{cm}}}}"),
-        ("v", "Hauteur minimale de la dalle", "h_{min}", fn(R["h_min_dalle"], 1), "cm"),
-        ("v", "Épaisseur de la dalle", "h", fn(R["h"], 0), "cm"),
+         rf" = \res{{{fn(R['h_min_dalle'], 1)} \u{{cm}}}} {r'\le' if ok else '>'} h"
+         rf" = {fn(R['h'], 0)} \u{{cm}}"),
         ("k", 0),
     ]
     return dict(num=1, titre="Vérification de la hauteur", items=items,
@@ -436,8 +437,8 @@ def _verif_armatures_dalle(R, dk, face, num):
             ("f", "Section d'acier max",
              rf"A_{{s,max}} = 0,04 \cdot {fn(b_mm, 0)} \cdot {fn(h_mm, 0)}"
              rf" = \res{{{fn(R['As_max'], 0)} \u{{mm}}^{{2}}}}"),
-            ("v", "Acier requis", "A_{s,req}", fn(Ar, 0), "mm²"),
-            ("v", "Acier minimal", "A_{s,min}", fn(As_min, 0), "mm²"),
+            # v2.1 compact : pas de lignes clé-valeur redondantes — les
+            # valeurs sont déjà en gras dans les formules
             ("t", f"On prend {geo['detail']} ({fn(geo['As_pm'], 0)} mm²/m)"),
             ("k", 0),
         ],
@@ -446,8 +447,10 @@ def _verif_armatures_dalle(R, dk, face, num):
 
 
 def _coupe_dalle_depuis_R(R):
-    """Payload de la coupe de bande : direction PRINCIPALE vue en coupe
-    (cercles), direction secondaire filante ; positions d'axe réelles."""
+    """Payload de la coupe de bande (v2.1) : UN SCHÉMA PAR DIRECTION —
+    la direction représentée est FILANTE (barres continues contre leur
+    nappe), l'autre apparaît en points ; un seul schéma si les deux
+    directions sont strictement identiques. Positions d'axe réelles."""
     p = R["principale"]
     s = "y" if p == "x" else "x"
     b_mm, h_mm = R["b"] * 10.0, R["h"] * 10.0
@@ -461,33 +464,80 @@ def _coupe_dalle_depuis_R(R):
         return [(f"{lab_face} {dk.upper()} : {c['valeur']}",
                  f"{fn(c['As_pm'], 0)} mm²/m") for c in geo["couches"]]
 
-    Dp, Ds = R["dirs"][p], R["dirs"][s]
-    d_p = Dp["di"]                       # d de la principale inf. (cotation)
-    labs_sup = _labs(p, "sup", Dp["geo_sup"]) + _labs(s, "sup", Ds["geo_sup"])
-    labs_inf = _labs(p, "inf", Dp["geo_inf"]) + _labs(s, "inf", Ds["geo_inf"]) \
-        + [(f"Enrobage : c = {fn(R['enrob_beton'], 1)} cm", None)]
+    def _schema(dk_montre, titre, points_outer):
+        """Un schéma : la direction `dk_montre` filante, l'autre en points.
+        points_outer : les points (direction principale vue dans le schéma
+        secondaire) se dessinent CONTRE l'enrobage — en général les barres
+        principales sont au premier plan contre leur nappe."""
+        o = "y" if dk_montre == "x" else "x"
+        Dm, Do = R["dirs"][dk_montre], R["dirs"][o]
+        d_m = Dm["di"]
+        return dict(
+            titre=titre,
+            filants_inf=_couches(Dm["geo_inf"]), filants_sup=_couches(Dm["geo_sup"]),
+            points_inf=_couches(Do["geo_inf"]), points_sup=_couches(Do["geo_sup"]),
+            points_outer=points_outer,
+            labs_inf=_labs(dk_montre, "inf", Dm["geo_inf"]),
+            labs_sup=_labs(dk_montre, "sup", Dm["geo_sup"]),
+            d=d_m * 10.0,
+            d_label=f"d = {fn(d_m, 1)} cm",
+            d1_label=f"d₁ = {fn(Dm['geo_inf']['e_cdg'], 1)} cm",
+            note=f"en points : dir. {o.upper()}",
+        )
+
+    # directions strictement identiques -> un seul schéma
+    def _sig(dk):
+        D = R["dirs"][dk]
+        return [(c["typ"], c["des"], c["d"], c["esp"], round(c["e"], 3))
+                for geo in (D["geo_inf"], D["geo_sup"]) for c in geo["couches"]]
+
+    identiques = _sig("x") == _sig("y")
+    if identiques:
+        schemas = [_schema(p, f"Directions {p.upper()} et {s.upper()} (identiques) — "
+                              f"principale : {p.upper()}", False)]
+    else:
+        schemas = [_schema(p, f"Direction principale : {p.upper()}", False),
+                   _schema(s, f"Direction secondaire : {s.upper()}", True)]
 
     return dict(
         dalle=True,
         b=b_mm, h=h_mm, enrobage=R["enrob_beton"] * 10.0,
-        d=d_p * 10.0, d1=Dp["geo_inf"]["e_cdg"] * 10.0,
         b_label=f"bande = {fn(R['b'] / 100.0, 2)} m",
         h_label=f"h = {fn(R['h'], 0)} cm",
-        d_label=f"d = {fn(d_p, 1)} cm",
-        d1_label=f"d₁ = {fn(Dp['geo_inf']['e_cdg'], 1)} cm",
-        coupe_inf=_couches(Dp["geo_inf"]), coupe_sup=_couches(Dp["geo_sup"]),
-        long_inf=_couches(Ds["geo_inf"]), long_sup=_couches(Ds["geo_sup"]),
-        labs_inf=labs_inf, labs_sup=labs_sup,
-        note_dir=f"coupe ⊥ direction {p.upper()} — filants : direction {s.upper()}",
+        c_label=f"c = {fn(R['enrob_beton'], 1)} cm",
+        schemas=schemas,
+    )
+
+
+def _verif_tranchant_dalle(Sh, R, num):
+    """v2.1 : une dalle ne reçoit pas d'étriers — vérification de la
+    contrainte tangentielle seule, contre τ_adm,I (seuil existant)."""
+    b_mm, h_mm = R["b"] * 10.0, R["h"] * 10.0
+    ok = Sh["etat_tau"] == "ok"
+    txt = (f"Contrainte tangentielle : {fn(Sh['tau'], 2)} N/mm² "
+           f"{'≤' if ok else '>'} contrainte tangentielle admissible : "
+           f"{fn(Sh['tau_adm'], 2)} N/mm²")
+    return dict(
+        num=num, titre="Vérification de l'effort tranchant",
+        items=[
+            ("f", "Contrainte tangentielle",
+             rf"\tau = \frac{{{sci(Sh['V'] * 1e3)}}}"
+             rf"{{0,75 \cdot {fn(b_mm, 0)} \cdot {fn(h_mm, 0)}}}"
+             rf" = \res{{{fn(Sh['tau'], 2)} \u{{N/mm}}^{{2}}}}"),
+            ("v", "Contrainte admissible", r"\tau_{adm,I}",
+             fn(Sh["tau_adm"], 2), "N/mm²"),
+            ("k", 0),
+        ],
+        verdicts=[dict(etat="ok" if ok else "ko", texte=_unites_insecables(txt))],
     )
 
 
 def construire_sections_dalle(resultats):
-    """Liste SECTIONS pour la note Dalle : DEUX planches par section —
-    (1/2) hauteur + armatures de la direction principale, (2/2)
-    direction secondaire + effort tranchant. Deux colonnes lisibles sur
-    chaque planche (le remède « deuxième planche » de la maquette,
-    préféré à l'écrasement en trois colonnes). Aucun recalcul."""
+    """Liste SECTIONS pour la note Dalle (v2.1) : UNE planche par
+    section, dans l'ordre demandé — 1 hauteur (compacte), 2 armatures
+    inférieures principale, 3 inférieures secondaire, 4 supérieures
+    principale, 5 supérieures secondaire, 6 effort tranchant (τ seul).
+    Aucun recalcul."""
     sections = []
     for res in resultats:
         R = res["R"]
@@ -502,33 +552,31 @@ def construire_sections_dalle(resultats):
                 (None, "V_{max}", fn(R["V"], 1), "kN")]
         dims = [("Larg. de bande", "b", fn(R["b"], 0), "cm"),
                 ("Épaisseur", "h", fn(R["h"], 0), "cm"),
-                ("Enrobage béton", "c", fn(R["enrob_beton"], 1), "cm")]
+                ("Enrobage béton", "c", fn(R["enrob_beton"], 1), "cm"),
+                ("Direction principale", None, p.upper(), "")]
         mats = [("Béton", None, R["beton"], ""),
                 (None, "f_{ck}", fn(R["fck"], 0), "N/mm²"),
                 ("Acier", None, f"B{int(R['fyk'])}", ""),
                 ("Coefficient acier ELS", None, fn(R["gamma_s"], 2), ""),
                 ("Contrainte de calcul acier", "f_{yd}", fn(R["fyd"], 0), "N/mm²")]
 
-        commun = dict(
-            poutre=res["dalle"],
+        verifs = [_verif_hauteur_dalle(R),
+                  _verif_armatures_dalle(R, p, "inf", 2),
+                  _verif_armatures_dalle(R, s, "inf", 3),
+                  _verif_armatures_dalle(R, p, "sup", 4),
+                  _verif_armatures_dalle(R, s, "sup", 5)]
+        if Sh:
+            verifs.append(_verif_tranchant_dalle(Sh, R, 6))
+
+        sections.append(dict(
+            poutre=res["dalle"], section=res["section"],
             beton=R["beton"], acier=f"B{int(R['fyk'])}",
             etat=ETAT_LABELS.get(R["etat_global"], "Non vérifié"),
             coupe=_coupe_dalle_depuis_R(R),
             blocs=[("DIMENSIONS", dims), ("MATÉRIAUX", mats),
                    ("SOLLICITATIONS", soll)],
-        )
-
-        verifs2 = [_verif_armatures_dalle(R, s, "inf", 4),
-                   _verif_armatures_dalle(R, s, "sup", 5)]
-        if Sh:
-            verifs2.append(_verif_tranchant(Sh, R, 6))
-
-        sections.append(dict(commun, section=f"{res['section']} (1/2)",
-                             verifs=[_verif_hauteur_dalle(R),
-                                     _verif_armatures_dalle(R, p, "inf", 2),
-                                     _verif_armatures_dalle(R, p, "sup", 3)]))
-        sections.append(dict(commun, section=f"{res['section']} (2/2)",
-                             verifs=verifs2))
+            verifs=verifs,
+        ))
     return sections
 
 
