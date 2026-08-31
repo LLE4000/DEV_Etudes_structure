@@ -42,7 +42,7 @@
 #  Différences assumées avec Poutre (adaptées à une bande de dalle) :
 #   1. ARMATURES PAR COUCHES au lieu de lits de barres comptées :
 #      chaque face (inf. / sup.) porte une couche de BASE + des
-#      RENFORTS (bouton "＋ Renfort"), chacun étant au choix :
+#      RENFORTS (bouton "＋"), chacun étant au choix :
 #        - un TREILLIS (nomenclature Øl/Øt/el/et, base des treillis
 #          courants dans modules/treillis.py, facilement extensible) ;
 #        - des BARRES (Ø + espacement, ex. Ø12/150).
@@ -103,7 +103,9 @@ FACES_DIR = ("inf_x", "sup_x", "inf_y", "sup_y")
 
 # Largeurs de colonnes du tableau des couches
 # (Couche | Type | Treillis/Ø | Esp. | As/m | Dist. axe | CDG | Action)
-COUCHE_COLS = [0.85, 1.45, 1.9, 1.05, 1.05, 1.05, 1.05, 1.0]
+# Sans colonne As (mm²/m) : redondante avec « Aₛ fourni » du bandeau
+# (retour bureau du 31/08) — le bouton ＋ tient sur une colonne étroite.
+COUCHE_COLS = [0.85, 1.45, 1.9, 1.05, 1.05, 1.05, 0.6]
 
 
 def open_bloc_left_right(left: str, right: str = "", etat: str = "ok", pct=None):
@@ -1190,7 +1192,8 @@ _FACE_LABELS = {"inf_x": " (inf. X)", "sup_x": " (sup. X)",
 
 
 def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, disabled: bool):
-    """Ligne du tableau des couches. i=1 : bouton '＋ Renfort' ; i>=2 : poubelle."""
+    """Ligne du tableau des couches. i=1 : bouton '＋' (ajout de renfort) ;
+    i>=2 : poubelle."""
     suffix = _FACE_LABELS.get(which, f" ({which})")
 
     type_key = KS(f"arm_type_{which}_c{i}", dalle_id, sec_id)
@@ -1204,10 +1207,9 @@ def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, 
     st.session_state.setdefault(esp_key, 150)
 
     typ = _couche_type(dalle_id, sec_id, which, i)
-    As_pm = _couche_as_per_m(dalle_id, sec_id, which, i)
     dist = _auto_dist_couche(dalle_id, sec_id, which, i)
 
-    c0, c1, c2, c3, c4, c5, cG, c6 = st.columns(COUCHE_COLS, vertical_alignment="center")
+    c0, c1, c2, c3, c5, cG, c6 = st.columns(COUCHE_COLS, vertical_alignment="center")
     with c0:
         st.markdown("Base" if i == 1 else f"Renfort {i - 1}")
     with c1:
@@ -1252,15 +1254,6 @@ def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, 
             )
         else:
             st.markdown("<div style='text-align:center;opacity:0.5;'>—</div>", unsafe_allow_html=True)
-    with c4:
-        # As de la couche (mm²/m) — calculée automatiquement, non modifiable
-        st.text_input(
-            f"As (mm²/m) (couche {i}){suffix}",
-            value=f"{As_pm:.0f}",
-            key=KS(f"as_disp_{which}_{i}", dalle_id, sec_id),
-            disabled=True,
-            label_visibility="collapsed",
-        )
     with c5:
         st.text_input(
             f"Distance axe (cm) (couche {i}){suffix}",
@@ -1280,8 +1273,10 @@ def _render_couche_row(dalle_id: int, sec_id: int, which: str, i: int, nc: int, 
             )
     with c6:
         if i == 1:
+            # Un gros « ＋ » seul : le libellé « Renfort » débordait sur
+            # deux lignes (retour bureau) — l'infobulle dit ce qu'il fait.
             st.button(
-                "＋ Renfort",
+                "＋",
                 key=KS(f"btn_add_couche_{which}", dalle_id, sec_id),
                 use_container_width=True,
                 disabled=disabled or (nc >= MAX_COUCHES),
@@ -1307,7 +1302,7 @@ def _render_couches_table(dalle_id: int, sec_id: int, which: str, disabled: bool
     # Synchroniser le champ CDG AVANT le rendu du widget
     _sync_ycdg_state(dalle_id, sec_id, which)
 
-    h0, h1, h2, h3, h4, h5, hG, h6 = st.columns(COUCHE_COLS, vertical_alignment="bottom")
+    h0, h1, h2, h3, h5, hG, h6 = st.columns(COUCHE_COLS, vertical_alignment="bottom")
     with h0:
         st.markdown("")
     with h1:
@@ -1316,8 +1311,6 @@ def _render_couches_table(dalle_id: int, sec_id: int, which: str, disabled: bool
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Treillis / Ø</div>", unsafe_allow_html=True)
     with h3:
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Esp. (mm)</div>", unsafe_allow_html=True)
-    with h4:
-        st.markdown("<div style='font-size:0.85em;font-weight:600;'>As (mm²/m)</div>", unsafe_allow_html=True)
     with h5:
         st.markdown("<div style='font-size:0.85em;font-weight:600;'>Dist. axe (cm)</div>", unsafe_allow_html=True,
                     help="Distance d'axe = enrobage + demi-Ø arrondi au 0,5 cm sup. "

@@ -81,6 +81,13 @@ chk("Aₛ,req des 4 familles, indépendants (753/194/602/258)",
 chk("hauteur en 2 lignes : « hᵤ,min + d₁ … ≤ h » sur une seule ligne",
     re.search(r"hᵤ,min \+ d₁ = [\d,]+ \+ [\d,]+ = \*\*[\d,]+ cm\*\* [≤>] h", t) is not None)
 chk("hauteur : M max des 4 moments (35 -> hᵤ,min 12,6 cm)", "**12,6 cm**" in t)
+# ergonomie du tableau des couches (retour bureau du 31/08) : pas de
+# colonne As (mm²/m) — redondante avec « Aₛ fourni » — et l'ajout de
+# renfort est un « ＋ » seul (le libellé long débordait sur deux lignes)
+chk("tableau des couches : la colonne As (mm²/m) a disparu",
+    not any("as_disp" in (ti.key or "") for ti in at.text_input))
+chk("bouton d'ajout de renfort : un « ＋ » seul",
+    at.button(key="dal1_sec1_btn_add_couche_inf_y").label == "＋")
 
 print("\n=== 2. Migration v1 -> v2 ===")
 a2 = AppTest.from_function(app, default_timeout=180)
