@@ -364,7 +364,9 @@ def construire_sections(resultats):
 #  modules/export_pdf_dalle._compute_section (fidèle à dalle.py 2.0).
 # ============================================================
 def _dir_label(dk, principale):
-    return f"direction {dk.upper()} " + ("(principale)" if dk == principale else "(secondaire)")
+    # Sans la lettre : « Moment inférieur Y » et M_{y,inf} la portent déjà
+    # juste sous le titre — la répéter ferait double emploi (retour bureau).
+    return "direction principale" if dk == principale else "direction secondaire"
 
 
 def _verif_hauteur_dalle(R):
@@ -448,40 +450,70 @@ def _verif_armatures_dalle(R, dk, face, num):
 
 def _coupe_dalle_depuis_R(R):
     """Payload de la coupe de bande (v2.1) : UN SCHÉMA PAR DIRECTION —
-    la direction représentée est FILANTE (barres continues contre leur
-    nappe), l'autre apparaît en points ; un seul schéma si les deux
-    directions sont strictement identiques. Positions d'axe réelles."""
+    la direction représentée est FILANTE (barres continues), l'autre
+    apparaît en points ; un seul schéma si les deux directions sont
+    strictement identiques.
+
+    Les NIVEAUX dessinés sont calculés UNE FOIS ici, pour les deux
+    schémas à la fois : une même barre est au même niveau qu'elle soit
+    vue filante ou en points (retour bureau du 31/08 — le renfort
+    changeait de niveau d'une vue à l'autre)."""
     p = R["principale"]
     s = "y" if p == "x" else "x"
     b_mm, h_mm = R["b"] * 10.0, R["h"] * 10.0
 
-    def _couches(geo):
-        return [dict(dia=float(c["d"]), esp=float(c["esp"]), e=float(c["e"]) * 10.0)
-                for c in geo["couches"]]
+    def _geo(dk, face):
+        return R["dirs"][dk]["geo_inf" if face == "inf" else "geo_sup"]
 
-    def _labs(dk, face, geo):
+    def _niveaux():
+        """Niveau dessiné (mm depuis la face) de chaque couche. On part
+        des distances d'axe réelles ; deux axes trop proches sont écartés
+        du minimum physique (Øa+Øb)/2 — deux barres qui se croisent ne
+        partagent jamais un axe — en poussant vers l'intérieur, la
+        direction PRINCIPALE restant contre l'enrobage à égalité."""
+        niv = {}
+        for face in ("inf", "sup"):
+            rangs = []
+            for dk in (p, s):
+                for idx, c in enumerate(_geo(dk, face)["couches"]):
+                    rangs.append((float(c["e"]) * 10.0, 0 if dk == p else 1,
+                                  idx, dk, float(c["d"])))
+            rangs.sort(key=lambda r: (r[0], r[1], r[2]))
+            e_prec = dia_prec = None
+            for e_mm, _, idx, dk, dia in rangs:
+                e_draw = e_mm if e_prec is None else \
+                    max(e_mm, e_prec + (dia_prec + dia) / 2.0)
+                niv[(face, dk, idx)] = e_draw
+                e_prec, dia_prec = e_draw, dia
+        return niv
+
+    niveaux = _niveaux()
+
+    def _couches(dk, face):
+        return [dict(dia=float(c["d"]), esp=float(c["esp"]),
+                     e=niveaux[(face, dk, i)])
+                for i, c in enumerate(_geo(dk, face)["couches"])]
+
+    def _labs(dk, face):
         lab_face = "Inf." if face == "inf" else "Sup."
         return [(f"{lab_face} {dk.upper()} : {c['valeur']}",
-                 f"{fn(c['As_pm'], 0)} mm²/m") for c in geo["couches"]]
+                 f"{fn(c['As_pm'], 0)} mm²/m") for c in _geo(dk, face)["couches"]]
 
-    def _schema(dk_montre, titre, points_outer):
-        """Un schéma : la direction `dk_montre` filante, l'autre en points.
-        points_outer : les points (direction principale vue dans le schéma
-        secondaire) se dessinent CONTRE l'enrobage — en général les barres
-        principales sont au premier plan contre leur nappe."""
+    def _schema(dk_montre, titre):
+        """Un schéma : la direction `dk_montre` filante, l'autre en points,
+        toutes deux aux niveaux communs de `_niveaux` — le dessin les
+        reporte tels quels, sans aucun ajustement propre au schéma."""
         o = "y" if dk_montre == "x" else "x"
-        Dm, Do = R["dirs"][dk_montre], R["dirs"][o]
-        d_m = Dm["di"]
+        d_m = R["dirs"][dk_montre]["di"]
         return dict(
             titre=titre,
-            filants_inf=_couches(Dm["geo_inf"]), filants_sup=_couches(Dm["geo_sup"]),
-            points_inf=_couches(Do["geo_inf"]), points_sup=_couches(Do["geo_sup"]),
-            points_outer=points_outer,
-            labs_inf=_labs(dk_montre, "inf", Dm["geo_inf"]),
-            labs_sup=_labs(dk_montre, "sup", Dm["geo_sup"]),
+            filants_inf=_couches(dk_montre, "inf"), filants_sup=_couches(dk_montre, "sup"),
+            points_inf=_couches(o, "inf"), points_sup=_couches(o, "sup"),
+            labs_inf=_labs(dk_montre, "inf"),
+            labs_sup=_labs(dk_montre, "sup"),
             d=d_m * 10.0,
             d_label=f"d = {fn(d_m, 1)} cm",
-            d1_label=f"d₁ = {fn(Dm['geo_inf']['e_cdg'], 1)} cm",
+            d1_label=f"d₁ = {fn(R['dirs'][dk_montre]['geo_inf']['e_cdg'], 1)} cm",
             note=f"en points : dir. {o.upper()}",
         )
 
@@ -494,10 +526,10 @@ def _coupe_dalle_depuis_R(R):
     identiques = _sig("x") == _sig("y")
     if identiques:
         schemas = [_schema(p, f"Directions {p.upper()} et {s.upper()} (identiques) — "
-                              f"principale : {p.upper()}", False)]
+                              f"principale : {p.upper()}")]
     else:
-        schemas = [_schema(p, f"Direction principale : {p.upper()}", False),
-                   _schema(s, f"Direction secondaire : {s.upper()}", True)]
+        schemas = [_schema(p, f"Direction principale : {p.upper()}"),
+                   _schema(s, f"Direction secondaire : {s.upper()}")]
 
     return dict(
         dalle=True,

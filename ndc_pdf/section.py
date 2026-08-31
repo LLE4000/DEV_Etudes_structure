@@ -265,7 +265,9 @@ def draw_dalle(c, x, y, w, h, sec, st, label_w=104):
     schéma si les deux directions sont identiques (sec["schemas"]).
     Couleur PAR DIAMÈTRE (PALETTE_DIA). L'épaisseur est exagérée si
     l'échelle exacte devient illisible — les cotes portent toujours les
-    vraies dimensions. Positions d'axe réelles (e mm par couche).
+    vraies dimensions. Les niveaux d'axe (e mm par couche) arrivent des
+    données, déjà harmonisés entre les schémas : ils se dessinent tels
+    quels, une même barre est au même niveau dans toutes les vues.
     """
     schemas = sec.get("schemas") or []
     n = max(1, len(schemas))
@@ -344,15 +346,16 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
     def _y_face(face, e_px):
         return oy + e_px if face == "inf" else oy + sh - e_px
 
-    # ---- direction représentée : barres FILANTES contre leur nappe
+    # ---- direction représentée : barres FILANTES. Les niveaux `e`
+    #      viennent des données (_coupe_dalle_depuis_R._niveaux), communs
+    #      aux deux schémas : AUCUN ajustement propre à la vue ici, sinon
+    #      une même barre change de niveau d'un schéma à l'autre.
     anc_fil = {}
     files = {"inf": [], "sup": []}
     for face in ("inf", "sup"):
-        for j, cch in enumerate(sch.get(f"filants_{face}", [])):
+        for cch in sch.get(f"filants_{face}", []):
             dia = float(cch["dia"])
-            e_px = float(cch["e"]) * sv
-            # couches d'un même plan légèrement décalées pour rester lisibles
-            yy = _y_face(face, e_px) + (0 if j == 0 else (2.2 * j if face == "inf" else -2.2 * j))
+            yy = _y_face(face, float(cch["e"]) * sv)
             th = max(1.6, dia * sv * 0.9)
             x0, x1 = ox + cov * sc, ox + bw - cov * sc
             c.setStrokeColor(_coul_dia(dia) if st.dia_colors else
@@ -363,22 +366,11 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
             anc_fil.setdefault(face, (x1, yy))
 
     # ---- autre direction : barres vues EN POINTS, à leur espacement réel
+    #      et au MÊME niveau que leur ligne filante dans l'autre schéma
     for face in ("inf", "sup"):
         for j, cch in enumerate(sch.get(f"points_{face}", [])):
             dia = float(cch["dia"])
-            e_mm = float(cch["e"])
-            e_px = e_mm * sv
-            yy = _y_face(face, e_px)
-            # même plan qu'un filant -> les points passent au second plan
-            # (vers l'intérieur), sauf s'ils sont la direction principale
-            # vue dans le schéma secondaire (contre l'enrobage)
-            for e_f, dia_f, _ in files[face]:
-                if abs(e_f - e_mm) < 6.0:
-                    d_px = (dia_f + dia) / 2.0 * sv + 0.6
-                    if sch.get("points_outer"):
-                        d_px = -d_px
-                    yy = yy + d_px if face == "inf" else yy - d_px
-                    break
+            yy = _y_face(face, float(cch["e"]) * sv)
             esp_px = max(7.0, float(cch["esp"]) * sc)
             rr = max(1.6, dia * sv / 2.0)
             phase = 0.5 if j == 0 else (0.25 if j % 2 else 0.75)

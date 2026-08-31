@@ -16,8 +16,13 @@ Garanties, chacune rougit si on la retire :
   3. NOTE DE CALCUL : le bouton PDF de l'application produit une garde
      + UNE planche par section, dans l'ordre imposé (hauteur, inf P,
      inf S, sup P, sup S, tranchant τ seul — sans étriers), avec les
-     schémas par direction et « bande = 1,00 m ».
+     schémas par direction et « bande = 1,00 m ». Les titres disent
+     « direction principale » SANS la lettre (le libellé de moment la
+     porte juste dessous — retour bureau du 31/08).
   4. REPLI v1 de l'export : un dict de valeurs non migré reste lisible.
+  5. NIVEAUX : une même couche d'armatures est au MÊME niveau dans les
+     deux schémas (filante dans l'un, en points dans l'autre), et deux
+     axes ne se confondent jamais (écart >= (Øa+Øb)/2).
 
 Lancement : python tests/test_dalle_bidir.py (depuis la racine).
 """
@@ -128,11 +133,15 @@ chk("garde en portrait, planche en paysage",
 t2 = doc[1].get_text()
 chk("ordre : hauteur, inf P, inf S, sup P, sup S, tranchant",
     0 <= t2.find("Vérification de la hauteur")
-    < t2.find("Armatures inférieures — direction Y (principale)")
-    < t2.find("Armatures inférieures — direction X (secondaire)")
-    < t2.find("Armatures supérieures — direction Y (principale)")
-    < t2.find("Armatures supérieures — direction X (secondaire)")
+    < t2.find("Armatures inférieures — direction principale")
+    < t2.find("Armatures inférieures — direction secondaire")
+    < t2.find("Armatures supérieures — direction principale")
+    < t2.find("Armatures supérieures — direction secondaire")
     < t2.find("Vérification de l'effort tranchant"))
+chk("titres sans lettre — elle vit dans les libellés de moments (Y avant X)",
+    "direction Y (principale)" not in t2
+    and 0 <= t2.find("Moment inférieur Y") < t2.find("Moment inférieur X")
+    < t2.find("Moment supérieur Y") < t2.find("Moment supérieur X"))
 chk("les 4 moments et V max sur la planche",
     all(v in t2 for v in ("28,0", "12,0", "35,0", "9,0", "60,0")))
 chk("coupe : bande de 1,00 m", "bande = 1,00 m" in t2)
@@ -164,9 +173,9 @@ chk("X devient principale à l'écran (malgré My > Mx)",
 a3.button(key="dalle_btn_pdf").click()
 a3.run()
 tX = pymupdf.open(stream=a3.session_state["dalle_pdf_bytes"], filetype="pdf")[1].get_text()
-chk("X principale aussi dans la note",
-    "direction X (principale)" in tX and "Direction principale : X" in tX
-    and "Direction secondaire : Y" in tX)
+chk("X principale aussi dans la note (moments X avant Y, schémas retitrés)",
+    0 <= tX.find("Moment inférieur X") < tX.find("Moment inférieur Y")
+    and "Direction principale : X" in tX and "Direction secondaire : Y" in tX)
 
 print("\n=== 4. Export : repli sur un dict de valeurs v1 ===")
 from modules.export_pdf_dalle import generer_rapport_pdf  # noqa: E402
@@ -185,7 +194,58 @@ tv1 = docv1[1].get_text()
 chk("un dict v1 se génère sans migration préalable",
     docv1.page_count == 2 and "25,0" in tv1, str(docv1.page_count))
 chk("v1 : l'ancien M_inf devient la direction X (Y principale par défaut)",
-    "direction X (secondaire)" in tv1)
+    "direction secondaire" in tv1
+    and 0 <= tv1.find("Moment inférieur Y") < tv1.find("Moment inférieur X"))
+
+print("\n=== 5. Niveaux d'armatures identiques entre les deux schémas ===")
+# Le cas du retour bureau : un RENFORT Ø12 en Y inf, X différencié —
+# la barre doit être au même niveau vue filante (schéma principal) et
+# vue en points (schéma secondaire).
+from modules.export_pdf_dalle import _collecter_resultats  # noqa: E402
+from ndc_pdf.data import _coupe_dalle_depuis_R  # noqa: E402
+v2 = {"meta_dalle_nom_1": "Dalle 1", "meta_dal1_nom_1": "A",
+      "dal1_b": 100, "dal1_h": 20, "dal1_enrobage_beton": 3.0,
+      "dal1_beton": "C30/37", "dal1_fyk": 500, "gamma_s": 1.5,
+      "dal1_dir_principale": "Y",
+      "dal1_sec1_Mx_inf": 28.0, "dal1_sec1_Mx_sup": 12.0,
+      "dal1_sec1_My_inf": 35.0, "dal1_sec1_My_sup": 9.0, "dal1_sec1_V": 60.0,
+      "dal1_sec1_ncouches_inf_y": 2,
+      "dal1_sec1_arm_type_inf_y_c1": "Treillis",
+      "dal1_sec1_treillis_inf_y_c1": "10/10/100/100",
+      "dal1_sec1_arm_type_inf_y_c2": "Barres",
+      "dal1_sec1_ø_barres_inf_y_c2": 12, "dal1_sec1_esp_barres_inf_y_c2": 150,
+      "dal1_sec1_treillis_sup_y_c1": "8/8/150/150",
+      "dal1_sec1_arm_type_sup_x_c1": "Barres",
+      "dal1_sec1_ø_barres_sup_x_c1": 10, "dal1_sec1_esp_barres_sup_x_c1": 200}
+R5 = _collecter_resultats(dalles, v2, bd)[0]["R"]
+coupe = _coupe_dalle_depuis_R(R5)
+chk("cas différencié : deux schémas", len(coupe["schemas"]) == 2)
+sch_p, sch_s = coupe["schemas"]
+for face in ("inf", "sup"):
+    fp = [c["e"] for c in sch_p[f"filants_{face}"]]
+    ps = [c["e"] for c in sch_s[f"points_{face}"]]
+    chk(f"{face} : la dir. principale au même niveau filante (P) et en points (S)",
+        fp == ps, f"{fp} vs {ps}")
+    pp = [c["e"] for c in sch_p[f"points_{face}"]]
+    fs = [c["e"] for c in sch_s[f"filants_{face}"]]
+    chk(f"{face} : la dir. secondaire au même niveau en points (P) et filante (S)",
+        pp == fs, f"{pp} vs {fs}")
+# jamais poussé vers l'enrobage : niveau dessiné >= distance d'axe réelle,
+# couche par couche (le renfort du retour bureau partait sous le treillis)
+chk("aucune couche poussée vers l'enrobage (e dessiné >= e réel)",
+    all(c["e"] >= float(g["e"]) * 10.0 - 1e-9
+        for face, dk, cle in (("inf", "y", "filants_inf"), ("sup", "y", "filants_sup"),
+                              ("inf", "x", "points_inf"), ("sup", "x", "points_sup"))
+        for c, g in zip(sch_p[cle],
+                        R5["dirs"][dk]["geo_inf" if face == "inf" else "geo_sup"]["couches"])))
+# deux axes ne se confondent jamais : écart >= (Øa+Øb)/2 sur chaque face
+for face in ("inf", "sup"):
+    axes = sorted((c["e"], c["dia"]) for c in
+                  sch_p[f"filants_{face}"] + sch_p[f"points_{face}"])
+    chk(f"{face} : écart physique (Øa+Øb)/2 entre axes voisins",
+        all(b[0] - a[0] >= (a[1] + b[1]) / 2.0 - 1e-9
+            for a, b in zip(axes, axes[1:])),
+        str(axes))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
