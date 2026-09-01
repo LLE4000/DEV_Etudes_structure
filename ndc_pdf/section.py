@@ -260,9 +260,10 @@ def _leader(c, x0, y0, x1, y1, x2, st, color=None):
 def draw_dalle(c, x, y, w, h, sec, st, label_w=104):
     """
     Coupe(s) d'une BANDE DE DALLE (v2.1) : un schéma PAR DIRECTION —
-    la direction représentée est FILANTE (barres continues contre leur
-    nappe), l'autre apparaît en points à leur espacement réel ; un seul
-    schéma si les deux directions sont identiques (sec["schemas"]).
+    chaque schéma est une COUPE PERPENDICULAIRE à sa direction : ses
+    barres sont coupées, donc EN POINTS à leur espacement réel, et
+    l'autre direction file en travers ; un seul schéma si les deux
+    directions sont identiques (sec["schemas"]).
     Couleur PAR DIAMÈTRE (PALETTE_DIA). L'épaisseur est exagérée si
     l'échelle exacte devient illisible — les cotes portent toujours les
     vraies dimensions. Les niveaux d'axe (e mm par couche) arrivent des
@@ -313,7 +314,8 @@ def draw_dalle(c, x, y, w, h, sec, st, label_w=104):
 
 
 def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
-    """Un schéma de bande : filants + points, cotes h/d/d₁, libellés.
+    """Un schéma de bande : la direction montrée EN POINTS (coupée), la
+    perpendiculaire filante, cotes h/d/d₁, libellés sur les points.
     Renvoie True si l'épaisseur a été exagérée."""
     b_mm, h_mm = float(sec["b"]), float(sec["h"])
     cov = float(sec.get("enrobage", 30.0))
@@ -332,43 +334,52 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
     oy = y0 + marge_b + max(0.0, (dispo - sh) / 2.0)
     bw = b_mm * sc
 
-    # ---- béton
+    # ---- béton — une prédalle TEINTE sa peau préfabriquée SOUS la
+    #      texture (couleur franche, demandée par le bureau), puis trait
+    #      de clivage et « prédalle : X cm » écrit dans la zone
+    h_pre_mm = float(sec.get("h_pre") or 0.0)
+    yj = oy + min(h_pre_mm, h_mm) * sv if h_pre_mm > 0 else None
     if st.concrete_texture:
         c.setFillColor(HexColor("#FFFFFF"))
         c.rect(ox, oy, bw, sh, stroke=0, fill=1)
+        if yj is not None:
+            c.setFillColor(HexColor("#DFE8F1"))
+            c.rect(ox, oy, bw, yj - oy, stroke=0, fill=1)
         _texture_beton(c, ox, oy, bw, sh,
                        _blanc_mix(st.muted, 0.38), _blanc_mix(st.muted, 0.62))
     elif st.concrete is not None:
         c.setFillColor(st.concrete)
         c.rect(ox, oy, bw, sh, stroke=0, fill=1)
-    # ---- prédalle : peau préfabriquée en partie basse — légère teinte
-    #      et TRAIT DE CLIVAGE entre préfabriqué et coulé en place
-    h_pre_mm = float(sec.get("h_pre") or 0.0)
-    if h_pre_mm > 0:
-        yj = oy + min(h_pre_mm, h_mm) * sv
-        c.saveState()
-        c.setFillColor(st.ink)
-        c.setFillAlpha(0.05)
-        c.rect(ox, oy, bw, yj - oy, stroke=0, fill=1)
-        c.restoreState()
+        if yj is not None:
+            c.setFillColor(HexColor("#DFE8F1"))
+            c.rect(ox, oy, bw, yj - oy, stroke=0, fill=1)
+    if yj is not None:
         c.setStrokeColor(st.ink)
         c.setLineWidth(0.7)
         c.line(ox, yj, ox + bw, yj)
-        draw_text(c, ox + 3, oy + 2.2, "prédalle préf.", st.font,
-                  st.dim_size - 0.8, st.muted)
+        draw_text(c, ox + 3, oy + 2.2,
+                  sec.get("h_pre_zone_label") or "prédalle", st.font,
+                  st.dim_size - 0.8, st.ink)
+    # contour : faces inf/sup en trait plein, RIVES EN POINTILLÉ — la
+    # bande de 1,00 m est extraite d'une dalle qui CONTINUE de part et
+    # d'autre (demandé par le bureau)
     c.setStrokeColor(st.ink)
     c.setLineWidth(st.rule_w)
-    c.rect(ox, oy, bw, sh, stroke=1, fill=0)
+    c.line(ox, oy, ox + bw, oy)
+    c.line(ox, oy + sh, ox + bw, oy + sh)
+    c.setDash(3, 3)
+    c.line(ox, oy, ox, oy + sh)
+    c.line(ox + bw, oy, ox + bw, oy + sh)
+    c.setDash()
 
     def _y_face(face, e_px):
         return oy + e_px if face == "inf" else oy + sh - e_px
 
-    # ---- direction représentée : barres FILANTES. Les niveaux `e`
-    #      viennent des données (_coupe_dalle_depuis_R._niveaux), communs
-    #      aux deux schémas : AUCUN ajustement propre à la vue ici, sinon
-    #      une même barre change de niveau d'un schéma à l'autre.
-    anc_fil = {}
-    files = {"inf": [], "sup": []}
+    # ---- direction PERPENDICULAIRE à la coupe : ses barres FILENT en
+    #      travers du dessin (lignes continues). Niveaux `e` communs aux
+    #      deux schémas (_coupe_dalle_depuis_R._niveaux) : AUCUN
+    #      ajustement propre à la vue ici, sinon une même barre change
+    #      de niveau d'un schéma à l'autre.
     for face in ("inf", "sup"):
         for cch in sch.get(f"filants_{face}", []):
             dia = float(cch["dia"])
@@ -379,12 +390,11 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
                              (_ACIER["trait"] if st.steel else st.bar))
             c.setLineWidth(th)
             c.line(x0, yy, x1, yy)
-            files[face].append((float(cch["e"]), dia, yy))
-            anc_fil.setdefault(face, (x1, yy))
 
-    # ---- autre direction : barres vues EN POINTS, à leur espacement réel
-    #      (ou réparties si la couche est « n barres ») et au MÊME niveau
-    #      que leur ligne filante dans l'autre schéma
+    # ---- direction de la COUPE (celle du titre) : ses barres sont
+    #      COUPÉES, donc vues EN POINTS à leur espacement réel (ou
+    #      réparties si « n barres ») — on lit le Ø et le pas.
+    #      Convention bureau du 01/09 : coupe perpendiculaire.
     def _point(bx, yy, dia, rr):
         if st.dia_colors:
             c.setFillColor(_coul_dia(dia))
@@ -399,6 +409,7 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
             c.setLineWidth(0.35)
             c.circle(bx, yy, rr, stroke=1, fill=1)
 
+    pts = {"inf": [], "sup": []}      # (x dernière barre, y) par couche
     for face in ("inf", "sup"):
         for j, cch in enumerate(sch.get(f"points_{face}", [])):
             dia = float(cch["dia"])
@@ -412,13 +423,17 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
                      [x0 + k * (x1 - x0) / (n - 1) for k in range(n)]
                 for bx in xs:
                     _point(bx, yy, dia, rr)
+                pts[face].append((xs[-1], yy))
                 continue
             esp_px = max(7.0, float(cch["esp"]) * sc)
             phase = 0.5 if j == 0 else (0.25 if j % 2 else 0.75)
             bx = ox + cov * sc + esp_px * phase
+            dernier_bx = ox + bw - cov * sc
             while bx < ox + bw - cov * sc:
                 _point(bx, yy, dia, rr)
+                dernier_bx = bx
                 bx += esp_px
+            pts[face].append((dernier_bx, yy))
 
     # ---- cotes : h (externe), d et d₁ (chaîne interne de la direction montrée)
     d_mm = float(sch.get("d", 0.0) or 0.0)
@@ -438,7 +453,8 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
     if dernier:
         _dim_h(c, ox, ox + bw, oy - 13, sec["b_label"], st, ext_from=oy - 3)
 
-    # ---- libellés à droite : un par couche filante
+    # ---- libellés à droite : un par couche de la direction montrée,
+    #      ancré sur la DERNIÈRE barre de sa rangée de points
     if st.leader_side == "right":
         lx = ox + bw + 40
         tx = lx + 4
@@ -452,17 +468,15 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
 
         slot = None
         for k, (txt, sub) in enumerate(sch.get("labs_sup", [])):
-            anchor = anc_fil.get("sup") or (ox + bw - cov * sc, oy + sh - cov * sv)
-            if k < len(files["sup"]):
-                anchor = (ox + bw - cov * sc, files["sup"][k][2])
+            anchor = pts["sup"][k] if k < len(pts["sup"]) else \
+                (ox + bw - cov * sc, oy + sh - cov * sv)
             yy = anchor[1] + 12 if slot is None else min(anchor[1] + 12, slot - 14)
             _annot(anchor, yy, txt, sub)
             slot = yy
         slot = None
         for k, (txt, sub) in enumerate(sch.get("labs_inf", [])):
-            anchor = anc_fil.get("inf") or (ox + bw - cov * sc, oy + cov * sv)
-            if k < len(files["inf"]):
-                anchor = (ox + bw - cov * sc, files["inf"][k][2])
+            anchor = pts["inf"][k] if k < len(pts["inf"]) else \
+                (ox + bw - cov * sc, oy + cov * sv)
             yy = anchor[1] - 12 if slot is None else max(anchor[1] - 12, slot + 14)
             _annot(anchor, yy, txt, sub)
             slot = yy

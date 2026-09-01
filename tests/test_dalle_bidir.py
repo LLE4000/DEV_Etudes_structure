@@ -16,7 +16,8 @@ Garanties, chacune rougit si on la retire :
   3. NOTE DE CALCUL : le bouton PDF de l'application produit une garde
      + UNE planche par section, dans l'ordre imposé (hauteur, inf P,
      inf S, sup P, sup S, tranchant τ seul — sans étriers), avec les
-     schémas par direction et « bande = 1,00 m ». Les titres disent
+     schémas par direction (COUPE PERPENDICULAIRE : la direction montrée
+     en points, l'autre filante) et « bande = 1,00 m ». Les titres disent
      « direction principale » SANS la lettre (le libellé de moment la
      porte juste dessous — retour bureau du 31/08).
   4. REPLI v1 de l'export : un dict de valeurs non migré reste lisible.
@@ -195,7 +196,7 @@ a3.run()
 t2b = pymupdf.open(stream=a3.session_state["dalle_pdf_bytes"], filetype="pdf")[1].get_text()
 chk("directions différentes : deux schémas titrés par direction",
     "Direction principale : Y" in t2b and "Direction secondaire : X" in t2b
-    and "en points : dir. X" in t2b)
+    and "filants : dir. X" in t2b)
 chk("tranchant SANS étriers : τ contre τ_adm,I seulement",
     "adm,I" in t2 and "Étrier" not in t2 and "Pas théorique" not in t2)
 chk("Aₛ,req indépendants dans la note (753 principale / 602 secondaire)",
@@ -269,21 +270,23 @@ chk("export : niveau saisi respecté (e = 8,0 cm) et CDG pondéré",
 coupe = _coupe_dalle_depuis_R(R5)
 chk("cas différencié : deux schémas", len(coupe["schemas"]) == 2)
 sch_p, sch_s = coupe["schemas"]
+# coupe PERPENDICULAIRE : dans son schéma la direction montrée est en
+# POINTS ; dans l'autre schéma elle file. Mêmes niveaux dans les deux.
 for face in ("inf", "sup"):
-    fp = [c["e"] for c in sch_p[f"filants_{face}"]]
-    ps = [c["e"] for c in sch_s[f"points_{face}"]]
-    chk(f"{face} : la dir. principale au même niveau filante (P) et en points (S)",
-        fp == ps, f"{fp} vs {ps}")
     pp = [c["e"] for c in sch_p[f"points_{face}"]]
     fs = [c["e"] for c in sch_s[f"filants_{face}"]]
-    chk(f"{face} : la dir. secondaire au même niveau en points (P) et filante (S)",
+    chk(f"{face} : la dir. principale au même niveau en points (P) et filante (S)",
         pp == fs, f"{pp} vs {fs}")
+    fp = [c["e"] for c in sch_p[f"filants_{face}"]]
+    ps = [c["e"] for c in sch_s[f"points_{face}"]]
+    chk(f"{face} : la dir. secondaire au même niveau filante (P) et en points (S)",
+        fp == ps, f"{fp} vs {ps}")
 # jamais poussé vers l'enrobage : niveau dessiné >= distance d'axe réelle,
 # couche par couche (le renfort du retour bureau partait sous le treillis)
 chk("aucune couche poussée vers l'enrobage (e dessiné >= e réel)",
     all(c["e"] >= float(g["e"]) * 10.0 - 1e-9
-        for face, dk, cle in (("inf", "y", "filants_inf"), ("sup", "y", "filants_sup"),
-                              ("inf", "x", "points_inf"), ("sup", "x", "points_sup"))
+        for face, dk, cle in (("inf", "y", "points_inf"), ("sup", "y", "points_sup"),
+                              ("inf", "x", "filants_inf"), ("sup", "x", "filants_sup"))
         for c, g in zip(sch_p[cle],
                         R5["dirs"][dk]["geo_inf" if face == "inf" else "geo_sup"]["couches"])))
 # deux axes ne se confondent jamais : écart >= (Øa+Øb)/2 sur chaque face
@@ -297,9 +300,10 @@ for face in ("inf", "sup"):
 # le renfort au niveau SAISI dans les DEUX schémas (80 mm), et « n »
 # transmis pour que le dessin répartisse 3 barres dans la bande
 chk("schémas : renfort à 80 mm (niveau saisi) dans les deux vues",
-    abs(sch_p["filants_inf"][1]["e"] - 80.0) < 1e-6
-    and abs(sch_s["points_inf"][1]["e"] - 80.0) < 1e-6)
-chk("schémas : n = 3 transmis au dessin", sch_s["points_inf"][1]["n"] == 3)
+    abs(sch_p["points_inf"][1]["e"] - 80.0) < 1e-6
+    and abs(sch_s["filants_inf"][1]["e"] - 80.0) < 1e-6)
+chk("schémas : n = 3 transmis au dessin (coupé dans SON schéma)",
+    sch_p["points_inf"][1]["n"] == 3)
 # et la note complète porte le libellé « 3 Ø12 »
 p5 = generer_rapport_pdf(dalles, v2, bd, infos={"date": "31/08/2026"},
                          output_path=os.path.join(os.environ.get("TMPDIR", "/tmp"),

@@ -450,9 +450,10 @@ def _verif_armatures_dalle(R, dk, face, num):
 
 def _coupe_dalle_depuis_R(R):
     """Payload de la coupe de bande (v2.1) : UN SCHÉMA PAR DIRECTION —
-    la direction représentée est FILANTE (barres continues), l'autre
-    apparaît en points ; un seul schéma si les deux directions sont
-    strictement identiques.
+    chaque schéma est une COUPE PERPENDICULAIRE à sa direction : ses
+    barres apparaissent EN POINTS à leur espacement réel, l'autre
+    direction file en travers ; un seul schéma si les deux directions
+    sont strictement identiques.
 
     Les NIVEAUX dessinés sont calculés UNE FOIS ici, pour les deux
     schémas à la fois : une même barre est au même niveau qu'elle soit
@@ -503,21 +504,23 @@ def _coupe_dalle_depuis_R(R):
                  f"{fn(c['As_pm'], 0)} mm²/m") for c in _geo(dk, face)["couches"]]
 
     def _schema(dk_montre, titre):
-        """Un schéma : la direction `dk_montre` filante, l'autre en points,
-        toutes deux aux niveaux communs de `_niveaux` — le dessin les
-        reporte tels quels, sans aucun ajustement propre au schéma."""
+        """Un schéma : COUPE PERPENDICULAIRE à la direction `dk_montre`
+        (convention bureau, 01/09) — SES barres apparaissent EN POINTS,
+        à leur espacement réel (on lit le Ø et le pas), et l'AUTRE
+        direction file en travers du dessin. Niveaux communs aux deux
+        schémas (_niveaux), reportés tels quels par le dessin."""
         o = "y" if dk_montre == "x" else "x"
         d_m = R["dirs"][dk_montre]["di"]
         return dict(
             titre=titre,
-            filants_inf=_couches(dk_montre, "inf"), filants_sup=_couches(dk_montre, "sup"),
-            points_inf=_couches(o, "inf"), points_sup=_couches(o, "sup"),
+            points_inf=_couches(dk_montre, "inf"), points_sup=_couches(dk_montre, "sup"),
+            filants_inf=_couches(o, "inf"), filants_sup=_couches(o, "sup"),
             labs_inf=_labs(dk_montre, "inf"),
             labs_sup=_labs(dk_montre, "sup"),
             d=d_m * 10.0,
             d_label=f"d = {fn(d_m, 1)} cm",
             d1_label=f"d₁ = {fn(R['dirs'][dk_montre]['geo_inf']['e_cdg'], 1)} cm",
-            note=f"en points : dir. {o.upper()}",
+            note=f"filants : dir. {o.upper()}",
         )
 
     # directions strictement identiques -> un seul schéma
@@ -541,6 +544,7 @@ def _coupe_dalle_depuis_R(R):
         # prédalle : hauteur de la peau préfabriquée (mm, 0 = dalle
         # homogène) — trait de clivage et teinte sur la coupe
         h_pre=h_pre * 10.0,
+        h_pre_zone_label=f"prédalle : {fn(h_pre, 0)} cm" if h_pre > 0 else "",
         h_pre_label=(f"prédalle préf. : {fn(h_pre, 0)} cm · "
                      f"coulé en place : {fn(R['h'] - h_pre, 0)} cm") if h_pre > 0 else "",
         b_label=f"bande = {fn(R['b'] / 100.0, 2)} m",

@@ -748,8 +748,9 @@ def _auto_dist_couche(dalle_id: int, sec_id: int, which: str, i: int) -> float:
     Distance d'axe PAR DÉFAUT de la couche i (cm) — LA règle prédalle :
 
       - couche 1 INFÉRIEURE de la direction PRINCIPALE : DANS la prédalle
-        préfabriquée -> enrobage + demi-Ø arrondi au 0,5 cm sup. + jeu
-        premier lit (règle Dalle inchangée, ex. Ø10 : 3,0+0,5+1,0 = 4,5) ;
+        préfabriquée, posée en fond de moule -> enrobage + demi-Ø arrondi
+        au 0,5 cm sup., SANS jeu premier lit (ex. Ø20 : 3,0+1,0 = 4,0 ;
+        Ø10 : 3,0+0,5 = 3,5) ;
       - TOUTE autre couche INFÉRIEURE (couche 1 de la direction
         secondaire, et tous les renforts, posés sur chantier) :
         AU-DESSUS de la prédalle -> h_pre + demi-Ø arrondi au 0,5 cm sup.
@@ -761,13 +762,17 @@ def _auto_dist_couche(dalle_id: int, sec_id: int, which: str, i: int) -> float:
     couche (colonne « Dist. axe ») — voir _dist_couche_eff.
     """
     d = _couche_diam_mm(dalle_id, sec_id, which, i)
+    enrob_beton = float(st.session_state.get(KD("enrobage_beton", dalle_id), 3.0) or 3.0)
     if which.startswith("inf"):
         principale = str(st.session_state.get(KD("dir_principale", dalle_id), "Y") or "Y").lower()
         dk = which.rsplit("_", 1)[-1]
         if not (i == 1 and dk == principale):
             h_pre = float(st.session_state.get(KD("h_pre", dalle_id), 6.0) or 6.0)
             return h_pre + _round_up_to_half_cm(d / 20.0)
-    enrob_beton = float(st.session_state.get(KD("enrobage_beton", dalle_id), 3.0) or 3.0)
+        # couche 1 principale : posée en FOND DE MOULE de la prédalle —
+        # enrobage + demi-Ø, SANS jeu premier lit (retour bureau du
+        # 01/09 : Ø20 avec enrobage 3,0 -> 4,0 cm, pas 5,0).
+        return enrob_beton + _round_up_to_half_cm(d / 20.0)
     jeu1 = float(st.session_state.get("jeu_enrobage_cm", 1.0) or 0.0)
     return enrob_beton + _round_up_to_half_cm(d / 20.0) + jeu1
 
