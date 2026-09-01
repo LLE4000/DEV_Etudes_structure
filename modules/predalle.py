@@ -194,7 +194,7 @@ def _ensure_global_defaults():
     """Défauts des paramètres globaux (partagés avec Poutre)."""
     st.session_state.setdefault("units_len", "cm")
     st.session_state.setdefault("units_as", "mm²")
-    st.session_state.setdefault("jeu_enrobage_cm", 1.0)   # jeu premier lit
+    st.session_state.setdefault("jeu_enrobage_cm", 0.0)   # jeu premier lit (0 par défaut, retour bureau 01/09)
 
     # Coefficient acier γs (défaut 1.5)
     try:
@@ -773,7 +773,7 @@ def _auto_dist_couche(dalle_id: int, sec_id: int, which: str, i: int) -> float:
         # enrobage + demi-Ø, SANS jeu premier lit (retour bureau du
         # 01/09 : Ø20 avec enrobage 3,0 -> 4,0 cm, pas 5,0).
         return enrob_beton + _round_up_to_half_cm(d / 20.0)
-    jeu1 = float(st.session_state.get("jeu_enrobage_cm", 1.0) or 0.0)
+    jeu1 = float(st.session_state.get("jeu_enrobage_cm", 0.0) or 0.0)
     return enrob_beton + _round_up_to_half_cm(d / 20.0) + jeu1
 
 

@@ -225,7 +225,7 @@ def _ensure_global_defaults():
     """Défauts des paramètres globaux (partagés avec Poutre)."""
     st.session_state.setdefault("units_len", "cm")
     st.session_state.setdefault("units_as", "mm²")
-    st.session_state.setdefault("jeu_enrobage_cm", 1.0)   # jeu premier lit
+    st.session_state.setdefault("jeu_enrobage_cm", 0.0)   # jeu premier lit (0 par défaut, retour bureau 01/09)
 
     # Coefficient acier γs (défaut 1.5)
     try:
@@ -781,10 +781,10 @@ def _auto_dist_couche(dalle_id: int, sec_id: int, which: str, i: int) -> float:
     Par défaut les couches d'une face se posent dans le plan du treillis ;
     l'utilisateur peut SAISIR une autre distance d'axe par couche (un
     renfort peut se poser au-dessus de la nappe) — voir _dist_couche_eff.
-    Ex (treillis Ø10) : 3,0 + arr(0,5)=0,5 + 1,0 = 4,5 cm.
+    Ex (treillis Ø10, jeu 0 par défaut) : 3,0 + arr(0,5)=0,5 = 3,5 cm.
     """
     enrob_beton = float(st.session_state.get(KD("enrobage_beton", dalle_id), 3.0) or 3.0)
-    jeu1 = float(st.session_state.get("jeu_enrobage_cm", 1.0) or 0.0)
+    jeu1 = float(st.session_state.get("jeu_enrobage_cm", 0.0) or 0.0)
     d = _couche_diam_mm(dalle_id, sec_id, which, i)
     return enrob_beton + _round_up_to_half_cm(d / 20.0) + jeu1
 

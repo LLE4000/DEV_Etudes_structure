@@ -186,7 +186,7 @@ def _auto_dist_couche(values, did, sid, which, i):
     """Distance d'axe automatique de la couche i (cm) — même formule que
     dalle.py : enrobage + demi-Ø arrondi au 0,5 cm sup. + jeu premier lit."""
     enrob_beton = float(_g(values, KD("enrobage_beton", did), 3.0) or 3.0)
-    jeu1 = float(_g(values, "jeu_enrobage_cm", 1.0) or 0.0)
+    jeu1 = float(_g(values, "jeu_enrobage_cm", 0.0) or 0.0)
     d = _couche_diam_mm(values, did, sid, which, i)
     return enrob_beton + _round_up_to_half_cm(d / 20.0) + jeu1
 

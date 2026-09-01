@@ -474,7 +474,7 @@ def _auto_dist_lit(values, bid, sid, which, i):
     if i == 1:
         enrob_beton = float(_g(values, KB("enrobage_beton", bid), 3.0) or 3.0)
         d_etrier = _stirrup_diam_mm(values, bid, sid)
-        jeu1 = float(_g(values, "jeu_enrobage_cm", 1.0) or 0.0)
+        jeu1 = float(_g(values, "jeu_enrobage_cm", 0.0) or 0.0)
         _, d1 = _lit_bars(values, bid, sid, which, 1)
         return (enrob_beton
                 + _round_up_to_half_cm(d_etrier / 10.0 + d1 / 20.0)

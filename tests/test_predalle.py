@@ -74,8 +74,8 @@ chk("inf. secondaire (X, Ø10) AU-DESSUS de la prédalle : 6,5 cm",
 t = md(at)
 reqs = re.findall(r"Aₛ,req = (\d+) mm²", t)
 chk("My,inf = Mx,inf = 30 : chaque direction garde SON d "
-    "(541 en principale, 645 en secondaire)",
-    reqs[:4] == ["541", "171", "645", "229"], str(reqs[:4]))
+    "(541 en principale, 645 en secondaire ; sup à 3,5 — jeu 0)",
+    reqs[:4] == ["541", "162", "645", "216"], str(reqs[:4]))
 chk("la direction secondaire demande PLUS d'acier (d plus faible)",
     int(reqs[2]) > int(reqs[0]))
 chk("hauteur : hᵤ,min + d₁ = 18,1 cm ≤ h = 22", "**18,1 cm**" in t and "h = **22 cm**" in t)

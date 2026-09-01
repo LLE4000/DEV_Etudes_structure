@@ -5,10 +5,11 @@ Garanties, chacune rougit si on la retire :
   1. CAS COMPLET (Mx inf/sup, My inf/sup, Vmax tous ≠ 0) : les QUATRE
      familles d'armatures sont calculées indépendamment, avec les
      valeurs de référence recalculées à la main :
-       My,inf = 35 kN·m, d = 15,5 cm -> Aₛ,req = 753 mm²
-       Mx,inf = 28 kN·m              -> 602 mm²
-       Mx,sup = 12 kN·m              -> 258 mm²
-       My,sup =  9 kN·m              -> 194 mm²
+       (jeu premier lit : 0 par défaut -> dist. d'axe Ø10 = 3,5 cm)
+       My,inf = 35 kN·m, d = 16,5 cm -> Aₛ,req = 707 mm²
+       Mx,inf = 28 kN·m              -> 566 mm²
+       Mx,sup = 12 kN·m              -> 242 mm²
+       My,sup =  9 kN·m              -> 182 mm²
      La direction PRINCIPALE est un CHOIX utilisateur (défaut Y) et
      s'affiche d'abord ; la bascule vers X réordonne tout.
   2. MIGRATION v1 -> v2 : un ancien état (M_inf/M_sup + couches inf/sup)
@@ -80,8 +81,8 @@ for attendu in ("Armatures inférieures — dir. Y (principale)",
 chk("principale (Y) affichée avant la secondaire",
     0 <= t.find("dir. Y (principale)") < t.find("dir. X (secondaire)"))
 reqs = re.findall(r"Aₛ,req = (\d+) mm²", t)
-chk("Aₛ,req des 4 familles, indépendants (753/194/602/258)",
-    reqs[:4] == ["753", "194", "602", "258"], str(reqs[:4]))
+chk("Aₛ,req des 4 familles, indépendants (707/182/566/242 — jeu 0 par défaut)",
+    reqs[:4] == ["707", "182", "566", "242"], str(reqs[:4]))
 chk("hauteur en 2 lignes : « hᵤ,min + d₁ … ≤ h » sur une seule ligne",
     re.search(r"hᵤ,min \+ d₁ = [\d,]+ \+ [\d,]+ = \*\*[\d,]+ cm\*\* [≤>] h", t) is not None)
 chk("hauteur : M max des 4 moments (35 -> hᵤ,min 12,6 cm)", "**12,6 cm**" in t)
@@ -96,7 +97,7 @@ chk("bouton d'ajout de renfort : un « ＋ » seul",
 print("\n=== 1b. Renfort « n barres » et niveau saisi par couche ===")
 # 3 Ø12 posées dans la bande : As = 3·113,1 = 339 mm²/m, qui s'ajoute
 # au treillis (785) -> 1125 mm²/m ; puis la couche est posée à 8,0 cm
-# d'axe -> le CDG pondéré passe à 5,6 cm et Aₛ,req suit (d = 14,4 cm).
+# d'axe -> le CDG pondéré passe à 4,9 cm et Aₛ,req suit (d = 15,1 cm).
 at.session_state["dal1_sec1_ncouches_inf_y"] = 2
 at.session_state["dal1_sec1_arm_type_inf_y_c2"] = "n barres"
 at.session_state["dal1_sec1_n_barres_inf_y_c2"] = 3
@@ -110,16 +111,18 @@ chk("Aₛ fourni = 785 + 339 = 1125 mm²/m", "Aₛ fourni = 1125 mm²/m" in t)
 at.text_input(key="dal1_sec1_dist_axe_inf_y_c2").set_value("8,0")
 at.run()
 t = md(at)
-chk("niveau saisi : CDG pondéré recalculé (4,5/8,0 -> 5,6 cm)",
-    at.text_input(key="dal1_sec1_ycdg_inf_y").value == "5,6")
-chk("Aₛ,req inf. principale suit le d réduit (808 mm²)",
-    re.search(r"Aₛ,req = 808 mm²", t) is not None,
+chk("niveau saisi : CDG pondéré recalculé (3,5/8,0 -> 4,9 cm)",
+    at.text_input(key="dal1_sec1_ycdg_inf_y").value == "4,9")
+chk("Aₛ,req inf. principale suit le d réduit (770 mm²)",
+    re.search(r"Aₛ,req = 770 mm²", t) is not None,
     str(re.findall(r"Aₛ,req = (\d+) mm²", t)[:2]))
-# champ vidé -> retour à l'automatique (Ø12 : 3,0 + 1,0 + 1,0 = 5,0 cm)
+# champ vidé -> retour à l'automatique (Ø12, jeu 0 : 3,0 + 1,0 = 4,0 cm)
 at.text_input(key="dal1_sec1_dist_axe_inf_y_c2").set_value("")
 at.run()
 chk("champ vidé : retour à la distance automatique",
-    at.text_input(key="dal1_sec1_dist_axe_inf_y_c2").value == "5,0")
+    at.text_input(key="dal1_sec1_dist_axe_inf_y_c2").value == "4,0")
+chk("jeu premier lit : 0 par défaut (retour bureau du 01/09)",
+    float(at.session_state["jeu_enrobage_cm"]) == 0.0)
 
 print("\n=== 2. Migration v1 -> v2 ===")
 a2 = AppTest.from_function(app, default_timeout=180)
@@ -199,8 +202,10 @@ chk("directions différentes : deux schémas titrés par direction",
     and "filants : dir. X" in t2b)
 chk("tranchant SANS étriers : τ contre τ_adm,I seulement",
     "adm,I" in t2 and "Étrier" not in t2 and "Pas théorique" not in t2)
-chk("Aₛ,req indépendants dans la note (753 principale / 602 secondaire)",
-    "753" in t2 and "602" in t2)
+chk("Aₛ,req indépendants dans la note (707 principale / 566 secondaire)",
+    "707" in t2 and "566" in t2)
+chk("échelle NORMALISÉE, juste sur l'A4 (1:25, plus de 1:21)",
+    "éch. horiz. 1:25" in t2)
 
 print("\n=== 3b. Bascule de la direction principale vers X ===")
 a3.selectbox(key="dal1_dir_principale").set_value("X")
@@ -266,7 +271,7 @@ chk("export : couche « n barres » = 3 Ø12 -> 339 mm²/m",
     and abs(geo5["couches"][1]["As_pm"] - 339.29) < 0.5)
 chk("export : niveau saisi respecté (e = 8,0 cm) et CDG pondéré",
     abs(geo5["couches"][1]["e"] - 8.0) < 1e-9
-    and abs(geo5["e_cdg"] - 5.556) < 0.01)
+    and abs(geo5["e_cdg"] - 4.858) < 0.01)
 coupe = _coupe_dalle_depuis_R(R5)
 chk("cas différencié : deux schémas", len(coupe["schemas"]) == 2)
 sch_p, sch_s = coupe["schemas"]

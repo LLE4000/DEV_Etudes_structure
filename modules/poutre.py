@@ -411,7 +411,7 @@ def _ensure_global_defaults():
     """Défauts des paramètres globaux (avant tout calcul / rendu)."""
     st.session_state.setdefault("units_len", "cm")
     st.session_state.setdefault("units_as", "mm²")
-    st.session_state.setdefault("jeu_enrobage_cm", 1.0)   # jeu premier lit
+    st.session_state.setdefault("jeu_enrobage_cm", 0.0)   # jeu premier lit (0 par défaut, retour bureau 01/09)
     st.session_state.setdefault("jeu_entre_lits_cm", 1.0)
 
     # Armatures technologiques (dessin PDF uniquement)
@@ -1059,7 +1059,7 @@ def _auto_dist_lit(beam_id: int, sec_id: int, which: str, i: int) -> float:
     if i == 1:
         enrob_beton = float(st.session_state.get(KB("enrobage_beton", beam_id), 3.0) or 3.0)
         d_etrier = _stirrup_diam_mm(beam_id, sec_id)
-        jeu1 = float(st.session_state.get("jeu_enrobage_cm", 1.0) or 0.0)
+        jeu1 = float(st.session_state.get("jeu_enrobage_cm", 0.0) or 0.0)
         _, d1 = _lit_bars(beam_id, sec_id, which, 1)
         return (
             enrob_beton

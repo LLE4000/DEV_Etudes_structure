@@ -281,7 +281,13 @@ def draw_dalle(c, x, y, w, h, sec, st, label_w=104):
     cov = float(sec.get("enrobage", 30.0))
     pad_l, lab = 46, (label_w if st.leader_side == "right" else 0)
     core_w = w - pad_l - lab - 12
-    sc = core_w / b_mm                    # échelle horizontale (vraie)
+    # Échelle horizontale NORMALISÉE (1:10, 1:15, 1:20, 1:25, 1:50,
+    # 1:100) : on retient la première échelle usuelle qui tient dans la
+    # place disponible — elle est alors JUSTE sur la feuille A4 imprimée
+    # à 100 % (retour bureau du 01/09 : plus de « 1:21 »).
+    n_brut = 72.0 / (25.4 * (core_w / b_mm))
+    n_ech = next((n for n in (10, 15, 20, 25, 50, 100) if n + 1e-6 >= n_brut), 100)
+    sc = 72.0 / (25.4 * n_ech)            # points par mm réel, à 1:n_ech
 
     titre_h, pied_h, gap = 14.0, 16.0, 26.0
     zone = (h - pied_h - n * titre_h - (n - 1) * gap) / n
@@ -306,7 +312,7 @@ def draw_dalle(c, x, y, w, h, sec, st, label_w=104):
         pied += " · " + str(sec["h_pre_label"])
     draw_text(c, x + pad_l - 30, y + 4, pied, st.font,
               st.dim_size - 0.4, st.muted)
-    ech = f"éch. horiz. 1:{max(1, round(72.0 / (sc * 25.4))):d}"
+    ech = f"éch. horiz. 1:{n_ech}"
     if exag_glob:
         ech += " · épaisseur exagérée"
     draw_text(c, x + w - 2, y + 4, ech, st.font, st.dim_size - 0.4, st.muted, "right")
