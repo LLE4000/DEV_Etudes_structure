@@ -711,11 +711,18 @@ def _compute_section(values, beton_data, bid, sid):
     V = float(_g(values, KS("V", bid, sid), 0.0) or 0.0)
     has_Msup = M_sup > 0
 
-    M_max = max(M_inf, M_sup)
-    hmin = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if M_max > 0 else 0.0
-    # Hauteur minimale de la poutre = hᵤ,min + CDG RÉEL des armatures
-    # de la face du moment dimensionnant (v2.39 — avant : lit 1 inf.).
-    e_cdg_gov = geo_sup["e_cdg"] if M_sup > M_inf else geo_inf["e_cdg"]
+    # Hauteur minimale de la poutre : famille la PLUS EXIGEANTE
+    # (hᵤ,min(M) + son d₁) — même règle que poutre.py.
+    def _hu_min(m):
+        return math.sqrt((m * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if m > 0 else 0.0
+
+    familles = [(M_inf, geo_inf["e_cdg"]), (M_sup, geo_sup["e_cdg"])]
+    actives = [(m, e) for m, e in familles if m > 0]
+    if actives:
+        M_max, e_cdg_gov = max(actives, key=lambda f: _hu_min(f[0]) + f[1])
+    else:
+        M_max, e_cdg_gov = 0.0, geo_inf["e_cdg"]
+    hmin = _hu_min(M_max)
     h_min_poutre = hmin + e_cdg_gov
     etat_h = "ok" if (h_min_poutre <= h) else "nok"
 

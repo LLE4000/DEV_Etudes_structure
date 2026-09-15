@@ -23,7 +23,9 @@
 #      la vérification se réduit à la contrainte tangentielle
 #      τ = V/(0,75·b·h) ≤ τ_adm,I (le seuil « pas besoin d'étriers »
 #      existant de beton_classes.json). Plus de détermination de pas.
-#   4. HAUTEUR : hᵤ,min inchangée, avec M_max = max des QUATRE moments ;
+#   4. HAUTEUR : hᵤ,min inchangée ; chaque famille demande
+#      hᵤ,min(M) + son d₁ et c'est la PLUS EXIGEANTE qui est
+#      retenue (v2.2, audit C-1 du 15/09/2026) ;
 #      d₁ = enrobage mécanique de la famille dimensionnante. Affichage
 #      compacté à deux lignes.
 #   5. MIGRATION AUTOMATIQUE des données v1 (fichiers JSON et sessions) :
@@ -97,7 +99,7 @@ BETON_DATA = {}
 
 MAX_COUCHES = 4  # base + 3 renforts par face et par direction
 
-DALLE_VERSION = "2.1"  # version affichée dans l'en-tête de l'application
+DALLE_VERSION = "2.2"  # version affichée dans l'en-tête de l'application
 
 # Directions d'une dalle : clé interne + libellé. Les faces deviennent
 # "inf_x" / "sup_x" / "inf_y" / "sup_y" — suffixe opaque pour toute la
@@ -1197,20 +1199,26 @@ def _dimensionnement_compute_states(dalle_id: int, sec_id: int, beton_data: dict
 
     V_val = float(st.session_state.get(KS("V", dalle_id, sec_id), 0.0) or 0.0)
 
-    # --- Hauteur (formule Poutre inchangée) : M_max = max des 4 moments,
-    #     d₁ = enrobage mécanique de la famille qui porte ce moment ---
+    # --- Hauteur (formule Poutre inchangée) : CHAQUE famille demande
+    #     hᵤ,min(M) + son d₁ ; on retient la PLUS EXIGEANTE. Une famille
+    #     moins chargée mais au bras de levier plus court peut gouverner
+    #     (prédalle : armatures secondaires posées sur la peau). ---
     familles = [(dirs["x"]["M_inf_val"], dirs["x"]["e_cdg_inf"]),
                 (dirs["x"]["M_sup_val"], dirs["x"]["e_cdg_sup"]),
                 (dirs["y"]["M_inf_val"], dirs["y"]["e_cdg_inf"]),
                 (dirs["y"]["M_sup_val"], dirs["y"]["e_cdg_sup"])]
-    M_max = max(m for m, _ in familles)
-    # première famille au moment maximal (ordre inf_x, sup_x, inf_y,
-    # sup_y) — à égalité inf. l'emporte, comme dans la v1
-    e_cdg_gov = next(e for m, e in familles if m == M_max)
-    if M_max > 0:
-        hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
+
+    def _hu_min(m):
+        return math.sqrt((m * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if m > 0 else 0.0
+
+    actives = [(m, e) for m, e in familles if m > 0]
+    if actives:
+        # à égalité, l'ordre inf_x, sup_x, inf_y, sup_y tranche
+        # (max renvoie le premier maximum — inf. l'emporte, comme en v1)
+        M_max, e_cdg_gov = max(actives, key=lambda f: _hu_min(f[0]) + f[1])
     else:
-        hmin_calc = 0.0
+        M_max, e_cdg_gov = 0.0, familles[0][1]
+    hmin_calc = _hu_min(M_max)
     h_min_dalle = hmin_calc + e_cdg_gov
     etat_h = "ok" if (h_min_dalle <= h) else "nok"
 
@@ -1588,10 +1596,13 @@ def render_dimensionnement_section(dalle_id: int, sec_id: int, beton_data: dict)
         close_bloc()
 
         # ---- Armatures : quatre familles, direction PRINCIPALE d'abord ----
-        ordre_dirs = (states["principale"], "y" if states["principale"] == "x" else "x")
-        for dk in ordre_dirs:
-            _render_face_armatures(dalle_id, sec_id, dk, "inf", states, dim_locked, units_as)
-            _render_face_armatures(dalle_id, sec_id, dk, "sup", states, dim_locked, units_as)
+        # Même ordre qu'à la note : par FACE, principale puis secondaire
+        # (inf. P, inf. S, sup. P, sup. S) — audit I-3.
+        dk_p = states["principale"]
+        dk_s = "y" if dk_p == "x" else "x"
+        for face in ("inf", "sup"):
+            _render_face_armatures(dalle_id, sec_id, dk_p, face, states, dim_locked, units_as)
+            _render_face_armatures(dalle_id, sec_id, dk_s, face, states, dim_locked, units_as)
 
         # ---- Effort tranchant (v2.1) : vérification de la contrainte
         #      tangentielle uniquement — une dalle ne reçoit pas d'étriers ----

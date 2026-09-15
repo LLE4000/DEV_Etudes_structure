@@ -217,11 +217,12 @@ def _verif_hauteur(R):
              rf" = \res{{{fn(R['hmin'], 1)} \u{{cm}}}}"),
             # d₁ = distance du parement au c.d.g. des aciers de la face
             # dimensionnante (enrobage mécanique : h = d + d₁)
+            # le critère tient dans la formule : pas de ligne clé-valeur
+            # qui répète h_min et h (audit I-4, comme la note Dalle)
             ("f", "Hauteur minimale de la poutre",
              rf"h_{{u,min}} + d_{{1}} = {fn(R['hmin'], 1)} + {fn(R['e_cdg_gov'], 1)}"
-             rf" = \res{{{fn(R['h_min_poutre'], 1)} \u{{cm}}}}"),
-            ("v", "Hauteur minimale de la poutre", "h_{min}", fn(R["h_min_poutre"], 1), "cm"),
-            ("v", "Hauteur de la poutre", "h", fn(R["h"], 0), "cm"),
+             rf" = \res{{{fn(R['h_min_poutre'], 1)} \u{{cm}}}} {r'\le' if ok else '>'} h"
+             rf" = {fn(R['h'], 0)} \u{{cm}}"),
             ("k", 0),
         ],
         verdicts=[dict(etat="ok" if ok else "ko", texte=_unites_insecables(txt))],
@@ -271,8 +272,8 @@ def _verif_armatures(R, which, num):
             ("f", "Section d'acier max",
              rf"A_{{s,max}} = 0,04 \cdot {fn(b_mm, 0)} \cdot {fn(h_mm, 0)}"
              rf" = \res{{{fn(R['As_max'], 0)} \u{{mm}}^{{2}}}}"),
-            ("v", "Acier requis", "A_{s,req}", fn(Ar, 0), "mm²"),
-            ("v", "Acier minimal", "A_{s,min}", fn(As_min, 0), "mm²"),
+            # Aₛ,req et Aₛ,min sont déjà en gras dans les formules
+            # ci-dessus : aucune ligne clé-valeur (audit I-4)
             ("t", f"On prend {prend} ({fn(geo['As'], 0)} mm²)"
                   + (f" · {nl} lits" if nl > 1 else "")),
             ("k", 0),
@@ -297,8 +298,10 @@ def _verif_tranchant(Sh, R, num):
                f"{'≤' if okp else '>'} pas maximal : {fnt(Sh['pas_lim'])} cm")
 
     if Sh["Ast"] > 0 and Sh["V"] > 0:
+        # d imprimé en CENTIMÈTRES : le résultat est en cm, la formule
+        # imprimée doit se recalculer telle quelle (audit I-2).
         f_sth = (rf"s_{{th}} = \frac{{{fn(Sh['Ast'], 1)} \cdot {fn(R['fyd'], 1)}"
-                 rf" \cdot {fn(R['dsh'] * 10, 0)}}}{{{sci(Sh['V'] * 1e3)}}}"
+                 rf" \cdot {fn(R['dsh'], 1)}}}{{{sci(Sh['V'] * 1e3)}}}"
                  rf" = \res{{{fnt(Sh['pas_th'])} \u{{cm}}}}")
     else:
         f_sth = r"s_{th} = —"
@@ -377,7 +380,7 @@ def _verif_hauteur_dalle(R):
            f"{'≥' if ok else '<'} hauteur minimale de la dalle : "
            f"{fn(R['h_min_dalle'], 1)} cm")
     items = [
-        ("f", "Hauteur utile minimale (M max des deux directions)",
+        ("f", "Hauteur utile minimale",
          rf"h_{{u,min}} = \sqrt{{\frac{{{sci(R['M_max'] * 1e6)}}}"
          rf"{{{fn(R['alpha_b'], 2)} \cdot {fn(R['b'] * 10, 0)} \cdot {fn(R['mu'], 4)}}}}}"
          rf" = \res{{{fn(R['hmin'], 1)} \u{{cm}}}}"),

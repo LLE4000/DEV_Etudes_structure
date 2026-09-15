@@ -57,7 +57,8 @@
 #      sous le header, aligné à droite. Popover : synthèse en deux
 #      colonnes (mètre courant / poutre complète).
 #   4. Vérification de la hauteur : "Hauteur minimale de la poutre"
-#      = hᵤ,min + CDG réel des armatures (face du moment dimensionnant),
+#      = hᵤ,min + CDG réel des armatures de la face la PLUS
+#        EXIGEANTE (audit C-1 du 15/09/2026),
 #      app + PDF.
 #   5. Header effort tranchant sans "Asw = ..." (repris dans le bloc
 #      étriers) ; header étriers : type + Ø seuls ("Étrier Ø10").
@@ -238,7 +239,7 @@
 #      résumé "Choix : ...".
 #   9. PARAMÈTRES AVANCÉS réorganisés en 3 colonnes :
 #      Affichage / Coefficients matériaux / Jeux d'armatures.
-#      - Nouveau coefficient acier γs (défaut 1.15) : fyd = fyk / γs
+#      - Nouveau coefficient acier γs (défaut 1,5) : fyd = fyk / γs
 #        (remplace l'ancien fyd = fyk / 1.5).
 #      - "Tolérance de dépassement" supprimée.
 # ===========================
@@ -1524,14 +1525,20 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
 
     # --- Hauteur ---
     # hᵤ,min : formule inchangée. Hauteur minimale de la poutre =
-    # hᵤ,min + CDG RÉEL des armatures de la face du moment dimensionnant
+    # hᵤ,min + CDG RÉEL des armatures de la face la plus exigeante
     # (v2.39 — avant : distance axe lit 1 inf. uniquement).
-    M_max = max(M_inf_val, M_sup_val)
-    if M_max > 0:
-        hmin_calc = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10  # cm
+    def _hu_min(m):
+        return math.sqrt((m * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if m > 0 else 0.0
+
+    # famille la PLUS EXIGEANTE : hᵤ,min(M) + son d₁ (à égalité, inf.
+    # l'emporte — max renvoie le premier maximum)
+    familles = [(M_inf_val, e_cdg_inf), (M_sup_val, e_cdg_sup)]
+    actives = [(m, e) for m, e in familles if m > 0]
+    if actives:
+        M_max, e_cdg_gov = max(actives, key=lambda f: _hu_min(f[0]) + f[1])
     else:
-        hmin_calc = 0.0
-    e_cdg_gov = e_cdg_sup if M_sup_val > M_inf_val else e_cdg_inf
+        M_max, e_cdg_gov = 0.0, e_cdg_inf
+    hmin_calc = _hu_min(M_max)
     h_min_poutre = hmin_calc + e_cdg_gov
     etat_h = "ok" if (h_min_poutre <= h) else "nok"
 
@@ -1607,6 +1614,7 @@ def _dimensionnement_compute_states(beam_id: int, sec_id: int, beton_data: dict)
         "M_inf_val": M_inf_val,
         "M_sup_val": M_sup_val,
         "V_val": V_val,
+        "M_max": M_max,          # moment de la famille GOUVERNANTE
         "hmin_calc": hmin_calc,
         "e_cdg_gov": e_cdg_gov,
         "h_min_poutre": h_min_poutre,
@@ -1831,10 +1839,14 @@ def _render_lit_row(beam_id: int, sec_id: int, which: str, i: int, nl: int, disa
         # et non modifiable (plus de +/-, plus d'override manuel).
         st.session_state[key_val] = float(auto_i)
         st.session_state[key_ovr] = False
+        # La valeur est écrite dans la CLÉ du widget avant son rendu :
+        # avec value= et une clé déjà en session, Streamlit conserve la
+        # valeur de session et la case ne se rafraîchit jamais (audit I-1).
+        k_disp = KS(f"dist_disp_{which}_{i}", beam_id, sec_id)
+        st.session_state[k_disp] = f"{auto_i:.1f}".replace(".", ",")
         st.text_input(
             f"Distance axe lit {i} (cm){suffix}",
-            value=f"{auto_i:.1f}".replace(".", ","),
-            key=KS(f"dist_disp_{which}_{i}", beam_id, sec_id),
+            key=k_disp,
             disabled=True,
             label_visibility="collapsed",
         )
@@ -2230,7 +2242,7 @@ def _render_hauteur_details(states: dict, h: float):
     numériques, hauteur minimale de la poutre (hᵤ,min + CDG armatures)
     et conclusion. Affichage uniquement : aucune formule modifiée.
     """
-    M_max = max(states["M_inf_val"], states["M_sup_val"])
+    M_max = states["M_max"]      # famille gouvernante, pas le max brut
     hmin_calc = states["hmin_calc"]
     h_min_poutre = states["h_min_poutre"]
     if M_max > 0:

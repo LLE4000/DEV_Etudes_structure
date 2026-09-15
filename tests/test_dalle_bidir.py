@@ -81,8 +81,15 @@ for attendu in ("Armatures inférieures — dir. Y (principale)",
 chk("principale (Y) affichée avant la secondaire",
     0 <= t.find("dir. Y (principale)") < t.find("dir. X (secondaire)"))
 reqs = re.findall(r"Aₛ,req = (\d+) mm²", t)
-chk("Aₛ,req des 4 familles, indépendants (707/182/566/242 — jeu 0 par défaut)",
-    reqs[:4] == ["707", "182", "566", "242"], str(reqs[:4]))
+# ordre d'écran = ordre de la note depuis l'audit (I-3) : par FACE,
+# principale puis secondaire — inf P, inf S, sup P, sup S
+chk("Aₛ,req des 4 familles, indépendants (707/566/182/242 — jeu 0 par défaut)",
+    reqs[:4] == ["707", "566", "182", "242"], str(reqs[:4]))
+chk("écran : les blocs suivent l'ordre de la note (inf P, inf S, sup P, sup S)",
+    0 <= t.find("Armatures inférieures — dir. Y (principale)")
+    < t.find("Armatures inférieures — dir. X (secondaire)")
+    < t.find("Armatures supérieures — dir. Y (principale)")
+    < t.find("Armatures supérieures — dir. X (secondaire)"))
 chk("hauteur en 2 lignes : « hᵤ,min + d₁ … ≤ h » sur une seule ligne",
     re.search(r"hᵤ,min \+ d₁ = [\d,]+ \+ [\d,]+ = \*\*[\d,]+ cm\*\* [≤>] h", t) is not None)
 chk("hauteur : M max des 4 moments (35 -> hᵤ,min 12,6 cm)", "**12,6 cm**" in t)
@@ -316,6 +323,30 @@ p5 = generer_rapport_pdf(dalles, v2, bd, infos={"date": "31/08/2026"},
 t5n = pymupdf.open(p5)[1].get_text()
 chk("note : « 3 Ø12 » dans le détail retenu et la légende",
     t5n.count("3 Ø12") >= 2 and "1125" in t5n.replace(" ", "").replace(" ", ""))
+
+print("\n=== 6. C-1 : la famille la plus exigeante gouverne la hauteur ===")
+# La couche inférieure Y est posée à 8,0 cm (saisie) : avec My,inf = 30
+# elle exige 11,6 + 8,0 = 19,6 cm, alors que My,sup = 32 (d₁ = 3,5)
+# n'exige que 12,0 + 3,5 = 15,5. C'est le moment le PLUS FAIBLE qui
+# gouverne — l'ancienne règle (moment maximal) affichait 15,5.
+a6 = AppTest.from_function(app, default_timeout=180)
+a6.run()
+a6.text_input(key="dal1_sec1_My_inf_raw").set_value("30,00")
+a6.text_input(key="dal1_sec1_My_sup_raw").set_value("32,00")
+a6.run(); a6.run()
+a6.text_input(key="dal1_sec1_dist_axe_inf_y_c1").set_value("8,0")
+a6.run()
+t6 = md(a6)
+chk("C-1 : aucune exception", not a6.exception, str(a6.exception))
+chk("C-1 : hᵤ,min calculée sur 30 kNm (famille gouvernante), pas 32",
+    bool([l for l in t6.splitlines() if "hᵤ,min = √" in l])
+    and "30·10⁶" in [l for l in t6.splitlines() if "hᵤ,min = √" in l][0]
+    and "32" not in [l for l in t6.splitlines() if "hᵤ,min = √" in l][0],
+    str([l for l in t6.splitlines() if "hᵤ,min = √" in l][:1]))
+chk("C-1 : hᵤ,min + d₁ = 11,6 + 8,0 = 19,6 cm (et non 12,0 + 3,5 = 15,5)",
+    re.search(r"hᵤ,min \+ d₁ = 11,6 \+ 8,0 = \*\*19,6 cm\*\*", t6) is not None
+    and "15,5 cm" not in t6,
+    str(re.findall(r"hᵤ,min \+ d₁ = [^\n]+", t6)[:1]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

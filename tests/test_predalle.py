@@ -73,11 +73,13 @@ chk("inf. secondaire (X, Ø10) AU-DESSUS de la prédalle : 6,5 cm",
     at.text_input(key="pre1_sec1_dist_axe_inf_x_c1").value == "6,5")
 t = md(at)
 reqs = re.findall(r"Aₛ,req = (\d+) mm²", t)
+# ordre d'écran = ordre de la note depuis l'audit (I-3) :
+# inf principale, inf secondaire, sup principale, sup secondaire
 chk("My,inf = Mx,inf = 30 : chaque direction garde SON d "
     "(541 en principale, 645 en secondaire ; sup à 3,5 — jeu 0)",
-    reqs[:4] == ["541", "162", "645", "216"], str(reqs[:4]))
+    reqs[:4] == ["541", "645", "162", "216"], str(reqs[:4]))
 chk("la direction secondaire demande PLUS d'acier (d plus faible)",
-    int(reqs[2]) > int(reqs[0]))
+    int(reqs[1]) > int(reqs[0]))
 chk("hauteur : hᵤ,min + d₁ = 18,1 cm ≤ h = 22", "**18,1 cm**" in t and "h = **22 cm**" in t)
 
 print("\n=== 2. Renfort inférieur principal posé AU-DESSUS de la prédalle ===")
@@ -142,6 +144,47 @@ print("\n=== 5. Étanchéité : la prédalle n'écrit RIEN dans les clés Dalle 
 fuites = [k for k in at.session_state.filtered_state
           if re.match(r"^dal\d+_", str(k)) or str(k).startswith("meta_dalle_nom_")]
 chk("aucune clé « dal » créée par le module Prédalle", not fuites, str(fuites[:6]))
+
+print("\n=== 6. C-1 : la direction secondaire peut gouverner la hauteur ===")
+# Cas de l'audit : My,inf = 60 (principale, d₁ = 3,5) exige 19,96 cm,
+# Mx,inf = 55 (secondaire, d₁ = 6,5) exige 22,26 cm. L'ancienne règle
+# ne regardait que le moment maximal et affichait un bandeau VERT.
+a6 = AppTest.from_function(app, default_timeout=240)
+a6.run()
+a6.session_state["pre1_h"] = 20
+a6.session_state["pre1_h_pre"] = 6.0
+a6.text_input(key="pre1_sec1_My_inf_raw").set_value("60,00")
+a6.text_input(key="pre1_sec1_Mx_inf_raw").set_value("55,00")
+a6.text_input(key="pre1_sec1_V_raw").set_value("30,00")
+a6.run(); a6.run()
+t6 = md(a6)
+chk("C-1 : aucune exception", not a6.exception, str(a6.exception))
+chk("C-1 : hᵤ,min + d₁ = 15,8 + 6,5 = 22,3 cm > h = 20 cm (bandeau rouge)",
+    re.search(r"hᵤ,min \+ d₁ = 15,8 \+ 6,5 = \*\*22,3 cm\*\* > h = \*\*20 cm\*\*", t6)
+    is not None and "❌" in t6,
+    str(re.findall(r"hᵤ,min \+ d₁ = [^\n]+", t6)[:1]))
+chk("C-1 : l'ancienne combinaison (16,5 + 3,5 = 20,0 ✅) a disparu",
+    "= **20,0 cm**" not in t6)
+
+print("\n=== 7. I-5 : la peau préfabriquée ne peut pas dépasser la dalle ===")
+a7 = AppTest.from_function(app, default_timeout=240)
+a7.run()
+a7.session_state["pre1_h"] = 8
+a7.session_state["pre1_h_pre"] = 12.0        # absurde : plus épais que la dalle
+a7.text_input(key="pre1_sec1_My_inf_raw").set_value("10,00")
+a7.run(); a7.run()
+chk("I-5 : aucune exception", not a7.exception, str(a7.exception))
+chk("I-5 : la peau est ramenée à h − 1 = 7,0 cm",
+    float(a7.session_state["pre1_h_pre"]) == 7.0,
+    str(a7.session_state["pre1_h_pre"]))
+a7.button(key="predalle_btn_pdf").click()
+a7.run()
+t7 = pymupdf.open(stream=a7.session_state["predalle_pdf_bytes"],
+                  filetype="pdf")[1].get_text()
+chk("I-5 : la note n'imprime jamais un coulé en place négatif",
+    "dont coulé en place" in t7
+    and not re.search(r"dont coulé en place\s*-", t7),
+    str(re.findall(r"dont coulé en place\s*([\-\d,]+)", t7)[:1]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

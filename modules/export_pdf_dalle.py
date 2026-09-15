@@ -370,13 +370,22 @@ def _compute_section(values, beton_data, did, sid):
 
     V = float(_g(values, KS("V", did, sid), 0.0) or 0.0)
 
+    # Hauteur : famille la PLUS EXIGEANTE (hᵤ,min(M) + son d₁) — même
+    # règle que dalle.py / predalle.py, aucune formule modifiée.
     familles = [(dirs["x"]["M_inf"], dirs["x"]["geo_inf"]["e_cdg"]),
                 (dirs["x"]["M_sup"], dirs["x"]["geo_sup"]["e_cdg"]),
                 (dirs["y"]["M_inf"], dirs["y"]["geo_inf"]["e_cdg"]),
                 (dirs["y"]["M_sup"], dirs["y"]["geo_sup"]["e_cdg"])]
-    M_max = max(m for m, _ in familles)
-    e_cdg_gov = next(e for m, e in familles if m == M_max)
-    hmin = math.sqrt((M_max * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if M_max > 0 else 0.0
+
+    def _hu_min(m):
+        return math.sqrt((m * 1e6) / (alpha_b * b * 10 * mu_val)) / 10 if m > 0 else 0.0
+
+    actives = [(m, e) for m, e in familles if m > 0]
+    if actives:
+        M_max, e_cdg_gov = max(actives, key=lambda f: _hu_min(f[0]) + f[1])
+    else:
+        M_max, e_cdg_gov = 0.0, familles[0][1]
+    hmin = _hu_min(M_max)
     h_min_dalle = hmin + e_cdg_gov
     etat_h = "ok" if (h_min_dalle <= h) else "nok"
 
@@ -409,7 +418,9 @@ def _compute_section(values, beton_data, did, sid):
         "b": b, "h": h, "enrob_beton": enrob_beton,
         # PRÉDALLE (module predalle.py) : épaisseur de la peau préfabriquée
         # en partie basse (cm). 0 = dalle homogène, rien ne change.
-        "h_pre": float(_g(values, KD("h_pre", did), 0) or 0),
+        # peau préfabriquée bornée à l'épaisseur totale : un ancien
+        # fichier ne peut pas imprimer un coulé en place négatif (I-5)
+        "h_pre": max(0.0, min(float(_g(values, KD("h_pre", did), 0) or 0), h)),
         "dirs": dirs, "principale": principale,
         "V": V,
         "M_max": M_max, "hmin": hmin, "etat_h": etat_h,
