@@ -230,6 +230,22 @@ chargement `.json` (mêmes clés), registre et page de sélection.
 | Rapport détaillé conservé | inchangé (3 pages, notation Eurocode sur ses dessins), bouton de l'onglet Note | `rapport.py` |
 | Régression calcul | `tests/test_assemblages_regression.py` imprime **« RÉGRESSION CALCUL : 0 différence »** (31 cas, 23 977 grandeurs, 5 exports texte) | — |
 
+Complément du 21/09/2026 — **style du dessin** (`Options.realiste`, par
+défaut à l'écran et sur la note ; le test de parité des dessins rejoue la
+géométrie du HTML avec `realiste=False`) :
+
+- congés réels : âme–semelle de la poutre principale (rayon `r` du profilé,
+  section en I d'une seule pièce), congé de racine `r` et arrondis de bout
+  `r/2` des cornières en plan (convention EN 10056-1, dessin seulement),
+  rayon du grugeage `r_n` (jusque-là « information d'exécution » non
+  dessinée) ;
+- hachures à 45° des parties coupées (section de la principale en
+  élévation ; âmes et cornières en plan), jamais des parties vues ;
+- cordons d'angle à leur taille : bande de largeur a·√2 le long du bout de
+  l'aile B avec ses retours (élévation), triangles a·√2 dans l'angle
+  aile–âme (plan) ;
+- rondelles (`dw` de la bibliothèque) autour des trous du groupe S.
+
 Écarts assumés par rapport aux idées initiales :
 
 - la matrice des cornières de la note ne porte pas de colonne « Réf. » :

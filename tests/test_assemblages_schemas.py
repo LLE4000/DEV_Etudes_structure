@@ -20,6 +20,7 @@ boulons existent à l'écran, pas sur la note.
 Lancement : python3 tests/test_assemblages_schemas.py
 """
 import json
+import math
 import os
 import random
 import re
@@ -170,6 +171,31 @@ chk("prédimensionnement : poignées présentes mais inertes (n1 piloté)",
     and 'class="gp"' in schemas.elevation(Rp, schemas.options_ecran(Rp, 1)).svg())
 chk("le SVG avec poignées reste un document XML valide",
     ET.fromstring(svg_ec) is not None and ET.fromstring(schemas.plan(R0, schemas.options_ecran(R0, 1)).svg()) is not None)
+# --- rendu réaliste : congés réels, hachures, cordons à leur taille
+sec = schemas._section_I(300, 390, 11, 19, 27)
+chk("section en I : quatre congés de rayon r (HEA 400 : r = 27), contour fermé",
+    len(sec) == 7 + 4 * (schemas.SEGMENTS_ARC + 1) and min(abs(x) for x, y in sec if 19 < y < 371) == 5.5
+    and any(abs(x - (5.5 + 27 * (1 - math.cos(math.pi / 4)))) < 1e-9 and abs(y - (19 + 27 * (1 - math.sin(math.pi / 4)))) < 1e-9 for x, y in sec))
+corn = schemas._corniere_plan(5.5, 105.5, 10, 4.25, 14.25, 104.25, 1, 12)
+chk("cornière en plan : congé de racine r = 12 (centre (27,5 ; 26,25)) et bouts arrondis r/2",
+    any(abs(x - (27.5 - 12 * math.cos(math.pi / 4))) < 1e-9 and abs(y - (26.25 - 12 * math.sin(math.pi / 4))) < 1e-9 for x, y in corn)
+    and any(abs(x - (99.5 + 6 * math.cos(math.pi / 4))) < 1e-9 for x, y in corn))
+h = schemas._hachures([(0, 0), (10, 0), (10, 10), (0, 10)], 5)
+chk("hachures à 45° d'un carré de 10 (pas 5) : trois segments dans le carré, extrémités sur le bord",
+    len(h) == 3 and all(0 - 1e-9 <= v <= 10 + 1e-9 for seg in h for p in seg for v in p)
+    and all(abs((b[1] - a[1]) - (b[0] - a[0])) < 1e-9 for a, b in h))
+svg_r = schemas.elevation(R0, schemas.options_ecran(R0, 1)).svg()
+chk("élévation réaliste : section en I hachurée (classe ht), rondelles (bw), rayon du grugeage r_n = 10 (arc : plus de 6 sommets)",
+    'class="ht"' in svg_r and svg_r.count('class="bw"') == 3 and 'class="ps"' in svg_r
+    and svg_r.split('class="ps"')[1].split("/>")[0].count(",") > 6)
+Rw = moteur.compute(dict(fix_P="Soudée", fix_S="Soudée", lh_S=40, a_S=5, a_P=6))
+svg_w = schemas.plan(Rw, schemas.options_ecran(Rw, 1)).svg()
+chk("plan réaliste : cordons en triangles a·√2 (4 : deux cornières × deux côtés), cornières hachurées",
+    svg_w.count('class="wb"') == 4 and svg_w.count('class="ht htc"') == 2)
+svg_fid = schemas.plan(Rw, schemas.Options(lvl=1, interactive=True, realiste=False)).svg()
+chk("mode fidèle au HTML (parité) : ni hachures, ni congés, cordons en disques (wd)",
+    'class="ht' not in svg_fid and 'class="wb"' not in svg_fid and 'class="wd"' in svg_fid)
+chk("rapport : rendu réaliste aussi", 'class="ht"' in schemas.elevation(R0, schemas.options_rapport()).svg())
 
 # ================================================================
 print("\n=== 2. Parité avec les dessins du HTML (oracle Node) ===")
@@ -201,8 +227,10 @@ else:
         R = moteur.compute(c["inputs"])
         hl = _hl(R, c["hl"])
         for l in c["niveaux"]:
-            # notation du moteur : le HTML de référence écrit Lc, ln, dnt…
-            opt = schemas.Options(lvl=l, interactive=True, hl=hl, notation={},
+            # notation du moteur (le HTML écrit Lc, ln, dnt…) et géométrie du
+            # HTML (rectangles sans congés ni hachures) : la parité prouve la
+            # feuille de cotation ; le rendu réaliste est testé au §1
+            opt = schemas.Options(lvl=l, interactive=True, hl=hl, notation={}, realiste=False,
                                   locked=set(schemas.PILOTEES_PAR_PREDIM) if R.pred else None)
             for vue, fn in (("elev", schemas.elevation), ("plan", schemas.plan)):
                 n_vues += 1

@@ -37,6 +37,7 @@ from acier.bibliotheques import PERSO
 from .entrees import PILOTEES_PAR_PREDIM
 
 NIVEAUX = ("Vue simple", "Cotations principales", "Cotations complètes")
+INF_MM = 1e9
 
 # Notations affichées : symbole du moteur de référence → notation de
 # l'Eurocode (EN 1993-1-8 Tableau 3.3 ; hc, c, dc : conventions des guides
@@ -62,9 +63,13 @@ COTES_CALCULEES = ("e2B", "z", "bB", "e1botS", "e1b", "he", "e1botP", "ztP", "e2
 # les couleurs fonctionnelles du HTML (cote modifiable sur fond jaune, cordon
 # orange, grandeur calculée en violet) — une seule charte pour l'écran et le PDF
 PALETTE = dict(ink="#15181F", accent="#33415C", muted="#6E7480", ko="#9C3341",
-               ext="#93A6B5", calc="#5B4A8A", weld="#D98A00",
+               ext="#93A6B5", calc="#5B4A8A", weld="#D98A00", weld2="#A86B00",
                pp="#C3CED7", ps="#E6ECF0", hit="#F6F8FA", inbg="#FFF7CF",
-               inink="#0B3D91", inbord="#C9B95A", hover="#FFE37A", hotbg="#FDECEA")
+               inink="#0B3D91", inbord="#C9B95A", hover="#FFE37A", hotbg="#FDECEA",
+               hatch="#7F8C9A")
+
+PAS_HACHURES = 5.0          # mm, hachures à 45° des parties coupées
+SEGMENTS_ARC = 6            # segments par quart de cercle (congés)
 
 
 @dataclass
@@ -82,6 +87,10 @@ class Options:
     editables: bool = False
     poignees: bool = False
     notation: dict = field(default_factory=lambda: dict(NOTATION_EC))
+    # rendu réaliste : congés réels (âme–semelle, racine et bouts des
+    # cornières, rayon du grugeage), hachures des parties coupées, cordons
+    # à leur taille (a·√2), rondelles ; False = géométrie du HTML (parité)
+    realiste: bool = True
 
 
 def options_ecran(R, lvl=1, hl=None):
@@ -145,6 +154,85 @@ def _text(cls, x, y, txt, size, anchor="middle"):
 
 def _group(cls, enfants, **attrs):
     return dict(t="g", cls=cls, enfants=enfants, **attrs)
+
+
+# ------------------------------------------------------- géométrie réaliste
+def _arc(cx, cy, r, a0, a1, n=SEGMENTS_ARC):
+    """Points d'un arc de cercle (repère y vers le bas), de l'angle ``a0`` à
+    ``a1`` inclus, en ``n`` segments par quart de cercle."""
+    k = max(1, int(round(n * abs(a1 - a0) / (math.pi / 2))))
+    return [(cx + r * math.cos(a0 + (a1 - a0) * i / k), cy + r * math.sin(a0 + (a1 - a0) * i / k))
+            for i in range(k + 1)]
+
+
+def _section_I(b, h, tw, tf, r):
+    """Contour d'une section en I (semelles parallèles) avec ses quatre
+    congés âme–semelle de rayon ``r`` (EN 10365) ; origine au milieu de la
+    face supérieure, y vers le bas."""
+    x = tw / 2
+    r = mx(0, mn(r, (b - tw) / 2, (h - 2 * tf) / 2))
+    pts = [(-b / 2, 0), (b / 2, 0), (b / 2, tf)]
+    if r > 0:
+        pts += _arc(x + r, tf + r, r, -math.pi / 2, -math.pi)
+        pts += _arc(x + r, h - tf - r, r, math.pi, math.pi / 2)
+    else:
+        pts += [(x, tf), (x, h - tf)]
+    pts += [(b / 2, h - tf), (b / 2, h), (-b / 2, h), (-b / 2, h - tf)]
+    if r > 0:
+        pts += _arc(-x - r, h - tf - r, r, math.pi / 2, 0)
+        pts += _arc(-x - r, tf + r, r, 0, -math.pi / 2)
+    else:
+        pts += [(-x, h - tf), (-x, tf)]
+    return pts
+
+
+def _corniere_plan(xf, xt, tC, y1, y2, y3, g, rC):
+    """Section d'une cornière en plan : aile B le long de l'âme secondaire
+    (de ``xf`` à ``xt``, entre ``y1`` et ``y2``), aile A le long de l'âme
+    principale (épaisseur ``tC``, jusqu'à ``y3``) ; congé de racine ``rC``
+    et arrondis de bout ``rC/2`` (convention EN 10056-1 : r2 = r1/2)."""
+    xa = xf + tC
+    r = mx(0, mn(rC, (xt - xa) / 2, abs(y3 - y2) / 2))
+    r2 = r / 2
+    pts = [(xf, y1), (xt, y1)]
+    if r > 0:
+        pts += _arc(xt - r2, y2 - g * r2, r2, 0, g * math.pi / 2)             # bout de l'aile B
+        pts += _arc(xa + r, y2 + g * r, r, -g * math.pi / 2, -g * math.pi)     # congé de racine
+        pts += _arc(xa - r2, y3 - g * r2, r2, 0, g * math.pi / 2)             # bout de l'aile A
+    else:
+        pts += [(xt, y2), (xa, y2), (xa, y3)]
+    pts.append((xf, y3))
+    return pts
+
+
+def _hachures(pts, pas=PAS_HACHURES):
+    """Hachures à 45° d'un polygone (règle pair-impair) : segments
+    ``[(x, y), (x, y)]`` sur les droites x − y = c, espacées de ``pas``."""
+    cs = [x - y for x, y in pts]
+    c0, c1 = min(cs), max(cs)
+    d = pas * math.sqrt(2)
+    lignes = []
+    n = len(pts)
+    c = c0 + d / 2
+    while c < c1:
+        inter = []
+        for i in range(n):
+            (x1, y1), (x2, y2) = pts[i], pts[(i + 1) % n]
+            f1 = x1 - y1 - c; f2 = x2 - y2 - c
+            if (f1 < 0) != (f2 < 0):
+                t = f1 / (f1 - f2)
+                inter.append((x1 + t * (x2 - x1), y1 + t * (y2 - y1)))
+        inter.sort(key=lambda p: p[0] + p[1])
+        for j in range(0, len(inter) - 1, 2):
+            a, b = inter[j], inter[j + 1]
+            if abs(a[0] - b[0]) + abs(a[1] - b[1]) > 1e-6:
+                lignes.append([a, b])
+        c += d
+    return lignes
+
+
+def _rect_pts(x, y, w, h):
+    return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
 
 
 # -------------------------------------------------------------------- Feuille
@@ -345,11 +433,38 @@ def elevation(R, opt):
     def hc(k):
         return ["hot"] if k in hot else []
 
-    s.append(_rect(["pp"] + hc("flPt"), -R.b_P / 2, 0, R.b_P, R.tf_P))
-    s.append(_rect(["pp"] + hc("flPb"), -R.b_P / 2, R.h_P - R.tf_P, R.b_P, R.tf_P))
-    s.append(_rect(["pp"], -xf, R.tf_P, R.tw_P, R.h_P - 2 * R.tf_P))
-    p = [[x0, yt + dnt], [x0 + ln, yt + dnt], [x0 + ln, yt], [xE, yt]] if dnt > 0 else [[x0, yt], [xE, yt]]
-    p = p + ([[xE, yb], [x0 + ln, yb], [x0 + ln, yb - dnb], [x0, yb - dnb]] if dnb > 0 else [[xE, yb], [x0, yb]])
+    if opt.realiste:
+        # section en I coupée : une seule pièce, congés réels, hachures
+        sec = _section_I(R.b_P, R.h_P, R.tw_P, R.tf_P, R.r_P)
+        s.append(_poly(["pp"], sec))
+        s.append(_path(["ht"], _hachures(sec)))
+        if "flPt" in hot:
+            s.append(_path(["hl"], [[(-R.b_P / 2, R.tf_P), (-R.b_P / 2, 0), (R.b_P / 2, 0), (R.b_P / 2, R.tf_P)]]))
+        if "flPb" in hot:
+            s.append(_path(["hl"], [[(-R.b_P / 2, R.h_P - R.tf_P), (-R.b_P / 2, R.h_P), (R.b_P / 2, R.h_P), (R.b_P / 2, R.h_P - R.tf_P)]]))
+    else:
+        s.append(_rect(["pp"] + hc("flPt"), -R.b_P / 2, 0, R.b_P, R.tf_P))
+        s.append(_rect(["pp"] + hc("flPb"), -R.b_P / 2, R.h_P - R.tf_P, R.b_P, R.tf_P))
+        s.append(_rect(["pp"], -xf, R.tf_P, R.tw_P, R.h_P - 2 * R.tf_P))
+    rn = mn(N(u.r_n), ln, dnt if dnt > 0 else INF_MM, dnb if dnb > 0 else INF_MM) if opt.realiste else 0
+    if dnt > 0:
+        p = [[x0, yt + dnt]]
+        if rn > 0:
+            p += _arc(x0 + ln - rn, yt + dnt - rn, rn, math.pi / 2, 0)     # rayon du grugeage
+        else:
+            p.append([x0 + ln, yt + dnt])
+        p += [[x0 + ln, yt], [xE, yt]]
+    else:
+        p = [[x0, yt], [xE, yt]]
+    if dnb > 0:
+        p += [[xE, yb], [x0 + ln, yb]]
+        if rn > 0:
+            p += _arc(x0 + ln - rn, yb - dnb + rn, rn, 0, -math.pi / 2)
+        else:
+            p.append([x0 + ln, yb - dnb])
+        p.append([x0, yb - dnb])
+    else:
+        p += [[xE, yb], [x0, yb]]
     s.append(_poly(["ps"] + hc("beamS"), p))
     s.append(_path(["fl2"], [[(x0 + ln if dnt > 0 else x0, yt + R.tf_S), (xE, yt + R.tf_S)],
                              [(x0 + ln if dnb > 0 else x0, yb - R.tf_S), (xE, yb - R.tf_S)]]))
@@ -371,8 +486,18 @@ def elevation(R, opt):
         for i in range(R.n1_S):
             for j in range(R.n2_S):
                 cx = xc1 + j * p2S; cy = yb1 + i * R.p1_S
+                if opt.realiste:
+                    s.append(_circle(["bw"], cx, cy, R.d_w / 2))          # rondelle (dw)
                 s.append(_circle(["bo"] + hc("boltsS"), cx, cy, r0))
                 s.append(_path(["cm"], [[(cx - r0 - 4, cy), (cx + r0 + 4, cy)], [(cx, cy - r0 - 4), (cx, cy + r0 + 4)]]))
+    elif opt.realiste:
+        # cordons d'angle vus de face : bande de largeur a·√2 le long du bout
+        # de l'aile B, retours en haut et en bas
+        z = N(u.a_S) * math.sqrt(2)
+        s.append(_rect(["wb"], xt, yc, z, R.L_C))
+        if lhS > 0:
+            s.append(_rect(["wb"], xt - lhS, yc - z, lhS + z, z))
+            s.append(_rect(["wb"], xt - lhS, yc + R.L_C, lhS + z, z))
     else:
         s.append(_path(["we"], [[(xt - lhS, yc), (xt, yc), (xt, yc + R.L_C), (xt - lhS, yc + R.L_C)]]))
     yp1 = yc + R.e1_P; ypl = yp1 + (R.n1_P - 1) * R.p1_P
@@ -473,17 +598,35 @@ def plan(R, opt):
 
     s.append(_rect(["pp"], -xf, -Hh, R.tw_P, 2 * Hh))
     s.append(_rect(["ps"] + hc("beamS"), x0, -ws, xE - x0, R.tw_S))
+    if opt.realiste:
+        # âmes coupées : hachures
+        s.append(_path(["ht"], _hachures(_rect_pts(-xf, -Hh, R.tw_P, 2 * Hh))))
+        s.append(_path(["ht"], _hachures(_rect_pts(x0, -ws, xE - x0, R.tw_S))))
     for g in (-1, 1):
         y1 = g * ws; y2 = g * (ws + R.t_C); y3 = g * (ws + R.b_A)
-        s.append(_poly(["co"] + hc("cleat"), [[xf, y1], [xt, y1], [xt, y2], [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]]))
+        if opt.realiste:
+            pts = _corniere_plan(xf, xt, R.t_C, y1, y2, y3, g, R.r_C)
+            s.append(_poly(["co"] + hc("cleat"), pts))
+            s.append(_path(["ht", "htc"], _hachures(pts)))
+        else:
+            s.append(_poly(["co"] + hc("cleat"), [[xf, y1], [xt, y1], [xt, y2], [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]]))
         if R.bolt_P:
             for i in range(R.n2_P):
                 yy = g * (ws + R.g_A + i * p2P)
                 s.append(_path(["bp"] + hc("boltsP"), [[(-xf - 14, yy), (xf + R.t_C + 14, yy)]]))
+        elif opt.realiste:
+            # cordon d'angle en section : triangle de côtés a·√2, dans l'angle
+            # entre le bout de l'aile A et la face de l'âme principale
+            z = N(u.a_P) * math.sqrt(2)
+            s.append(_poly(["wb"], [[xf, y3], [xf + z, y3], [xf, y3 + g * z]]))
         else:
             s.append(_circle(["wd"], xf + R.t_C, y3, mx(N(u.a_P), 4)))
         if not R.bolt_S:
-            s.append(_circle(["wd"], xt, y2, mx(N(u.a_S), 4)))
+            if opt.realiste:
+                z = N(u.a_S) * math.sqrt(2)
+                s.append(_poly(["wb"], [[xt, y1], [xt + z, y1], [xt, y1 + g * z]]))
+            else:
+                s.append(_circle(["wd"], xt, y2, mx(N(u.a_S), 4)))
     xc1 = xf + R.g_B; xcl = xc1 + (R.n2_S - 1) * p2S; yo = -ws - R.t_C
     if R.bolt_S:
         for i in range(R.n2_S):
@@ -570,6 +713,13 @@ def style_de(cls, ctx, p=None):
         st.update(stroke=p["weld"], sw=5)
     elif "wd" in c:
         st.update(fill=p["weld"])
+    elif "wb" in c:
+        # cordon à sa taille réelle : plein, contour plus soutenu
+        st.update(fill=p["weld"], stroke=p["weld2"], sw=0.8)
+    elif "bw" in c:
+        st.update(stroke=ink, sw=0.5)
+    elif "ht" in c:
+        st.update(stroke=acc if "htc" in c else p["hatch"], sw=0.5)
     elif "hl" in c:
         st.update(stroke=ko, sw=4)
     elif "cm" in c:
@@ -636,6 +786,10 @@ def _css(p, pre):
         f"#{pre} .bp{{stroke:{ko};stroke-width:2.4;stroke-dasharray:7 3;fill:none}}"
         f"#{pre} .we{{stroke:{p['weld']};stroke-width:5;fill:none}}"
         f"#{pre} .wd{{fill:{p['weld']}}}"
+        f"#{pre} .wb{{fill:{p['weld']};stroke:{p['weld2']};stroke-width:.8}}"
+        f"#{pre} .bw{{fill:none;stroke:{ink};stroke-width:.5}}"
+        f"#{pre} .ht{{stroke:{p['hatch']};stroke-width:.5;fill:none}}"
+        f"#{pre} .htc{{stroke:{acc}}}"
         f"#{pre} .dm path{{stroke:{acc};stroke-width:1;fill:none}}"
         f"#{pre} .ext{{stroke:{p['ext']};stroke-width:.6;fill:none}}"
         f"#{pre} .dm text,#{pre} .tx,#{pre} .cart text{{fill:{acc};font-family:system-ui,Arial,sans-serif}}"
