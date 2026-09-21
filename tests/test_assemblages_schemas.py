@@ -216,6 +216,15 @@ chk("cartouche à l'écran, pas sur la note (il ferait doublon avec la ligne de 
     "Cornières : 2 ×" in svg_ec and "Cornières : 2 ×" not in svg_note)
 chk("étiquettes de cote discrètes : halo blanc, plus de fond jaune permanent",
     'fill="#FFFFFF" fill-opacity="0.85"' in svg_ec and "#FFF7CF" not in svg_ec.split("</style>")[1])
+# --- traits d'axe des boulons (rendu réaliste)
+chk("boulons S : traits d'axe mixtes (rangées + files) à la place des croix ; boulons P : axes fins, plus de rouge",
+    'class="ax"' in svg_ec and 'class="cm"' not in svg_ec and 'class="bp"' not in svg_ec
+    and 'stroke-dasharray="8 2.5 2 2.5"' in svg_ec)
+chk("plan réaliste : axes aussi (files S, boulons P)", 'class="ax"' in svg_pl and 'class="bp"' not in svg_pl)
+chk("alerte sur les boulons P : l'axe passe en rouge épais",
+    'class="ax hot"' in schemas.elevation(R0, schemas.options_ecran(R0, 1, dict(dims=set(), elems={"boltsP"}))).svg())
+chk("parité : croix et tirets du HTML conservés (cm, bp)",
+    'class="cm"' in schemas.elevation(R0, schemas.Options(lvl=2, interactive=True, realiste=False)).svg())
 
 # ================================================================
 print("\n=== 2. Parité avec les dessins du HTML (oracle Node) ===")

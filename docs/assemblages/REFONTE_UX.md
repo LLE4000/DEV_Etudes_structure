@@ -277,7 +277,10 @@ Réalisé :
   discret sous chaque étiquette, bleu = modifiable (jaune au survol
   seulement), violet italique = calculée, lignes de cote fines (0,8),
   lignes d'attache très fines (0,5), tangentes des congés âme–semelle de la
-  poutre portée en trait fin (tf + r) ;
+  poutre portée en trait fin (tf + r) ; **traits d'axe normalisés** (mixte
+  fin) par rangée et par file du groupe S et pour les boulons P — à la
+  place des croix et des tirets rouges du HTML, le rouge restant réservé
+  aux alertes (l'axe passe en rouge épais quand une alerte le désigne) ;
 - **note d'une page sans doublon** : le cartouche sous l'élévation est
   retiré de la note (il répétait la ligne de données et les hypothèses — il
   reste à l'écran, où il est seul), la conclusion ne répète plus le taux

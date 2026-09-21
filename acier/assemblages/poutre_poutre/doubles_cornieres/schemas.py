@@ -506,7 +506,15 @@ def elevation(R, opt):
                 if opt.realiste:
                     bS.append(_circle(["bw"], cx, cy, R.d_w / 2))          # rondelle (dw)
                 bS.append(_circle(["bo"] + hc("boltsS"), cx, cy, r0))
-                bS.append(_path(["cm"], [[(cx - r0 - 4, cy), (cx + r0 + 4, cy)], [(cx, cy - r0 - 4), (cx, cy + r0 + 4)]]))
+                if not opt.realiste:
+                    bS.append(_path(["cm"], [[(cx - r0 - 4, cy), (cx + r0 + 4, cy)], [(cx, cy - r0 - 4), (cx, cy + r0 + 4)]]))
+        if opt.realiste:
+            # traits d'axe normalisés (mixte fin) : un par rangée, un par file,
+            # dépassant les trous extrêmes — à la place des croix
+            dep = R.d_w / 2 + 5
+            ax = [[(xc1 - dep, yb1 + i * R.p1_S), (xcl + dep, yb1 + i * R.p1_S)] for i in range(R.n1_S)]
+            ax += [[(xc1 + j * p2S, yb1 - dep), (xc1 + j * p2S, ybl + dep)] for j in range(R.n2_S)]
+            bS.append(_path(["ax"], ax))
         piece("bolts", bS)
     elif opt.realiste:
         # cordons d'angle vus de face : bande de largeur a·√2 le long du bout
@@ -521,8 +529,15 @@ def elevation(R, opt):
         piece("weldS", [_path(["we"], [[(xt - lhS, yc), (xt, yc), (xt, yc + R.L_C), (xt - lhS, yc + R.L_C)]])])
     yp1 = yc + R.e1_P; ypl = yp1 + (R.n1_P - 1) * R.p1_P
     if R.bolt_P:
-        piece("bolts", [_path(["bp"] + hc("boltsP"), [[(-xf - 16, yp1 + i * R.p1_P), (xf + R.t_C + 16, yp1 + i * R.p1_P)]])
-                        for i in range(R.n1_P)])
+        if opt.realiste:
+            # boulons P (perpendiculaires au plan) : traits d'axe mixtes fins,
+            # rouges épais seulement quand une alerte les désigne
+            piece("bolts", [_path(["ax"] + hc("boltsP"),
+                                  [[(-xf - 16, yp1 + i * R.p1_P), (xf + R.t_C + 16, yp1 + i * R.p1_P)]
+                                   for i in range(R.n1_P)])])
+        else:
+            piece("bolts", [_path(["bp"] + hc("boltsP"), [[(-xf - 16, yp1 + i * R.p1_P), (xf + R.t_C + 16, yp1 + i * R.p1_P)]])
+                            for i in range(R.n1_P)])
     if opt.poignees:
         # étiquette des efforts, sur l'âme de la poutre portée (panneau VEd,
         # NEd, HEd, MEd au clic)
@@ -645,7 +660,8 @@ def plan(R, opt):
         else:
             piece("cleat", [_poly(["co"] + hc("cleat"), [[xf, y1], [xt, y1], [xt, y2], [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]])])
         if R.bolt_P:
-            piece("bolts", [_path(["bp"] + hc("boltsP"), [[(-xf - 14, g * (ws + R.g_A + i * p2P)), (xf + R.t_C + 14, g * (ws + R.g_A + i * p2P))]])
+            cls_p = ["ax"] if opt.realiste else ["bp"]
+            piece("bolts", [_path(cls_p + hc("boltsP"), [[(-xf - 14, g * (ws + R.g_A + i * p2P)), (xf + R.t_C + 14, g * (ws + R.g_A + i * p2P))]])
                             for i in range(R.n2_P)])
         elif opt.realiste:
             # cordon d'angle en section : triangle de côtés a·√2, dans l'angle
@@ -662,8 +678,9 @@ def plan(R, opt):
                 piece("weldS", [_circle(["wd"], xt, y2, mx(N(u.a_S), 4))])
     xc1 = xf + R.g_B; xcl = xc1 + (R.n2_S - 1) * p2S; yo = -ws - R.t_C
     if R.bolt_S:
+        cls_s = ["ax"] if opt.realiste else ["bp"]
         for i in range(R.n2_S):
-            s.append(_path(["bp"] + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
+            s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
     if R.bolt_S:
         S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yo - 14, sym="e2,b", val=R.e2b_S, key="e2b_u", lvl=2))
         if R.n2_S > 1:
@@ -742,6 +759,11 @@ def style_de(cls, ctx, p=None):
         st.update(stroke=ko, sw=2.4, dash=(7, 3))
         if hot_self:
             st.update(sw=4.5, dash=None)
+    elif "ax" in c:
+        # trait d'axe normalisé : mixte fin (long, court), encre
+        st.update(stroke=ink, sw=0.5, dash=(8, 2.5, 2, 2.5))
+        if hot_self:
+            st.update(stroke=ko, sw=2.2)
     elif "we" in c:
         st.update(stroke=p["weld"], sw=5)
     elif "wd" in c:
@@ -820,6 +842,8 @@ def _css(p, pre):
         f"#{pre} .co2{{fill:{acc};opacity:.6}}"
         f"#{pre} .bo{{fill:#fff;stroke:{ink};stroke-width:1.5}}"
         f"#{pre} .bp{{stroke:{ko};stroke-width:2.4;stroke-dasharray:7 3;fill:none}}"
+        f"#{pre} .ax{{stroke:{ink};stroke-width:.5;stroke-dasharray:8 2.5 2 2.5;fill:none}}"
+        f"#{pre} .ax.hot{{stroke:{ko};stroke-width:2.2}}"
         f"#{pre} .we{{stroke:{p['weld']};stroke-width:5;fill:none}}"
         f"#{pre} .wd{{fill:{p['weld']}}}"
         f"#{pre} .wb{{fill:{p['weld']};stroke:{p['weld2']};stroke-width:.8}}"
@@ -903,7 +927,7 @@ def _attrs_forme(st):
     if st["stroke"] != "none":
         a += f' stroke-width="{_n(st["sw"])}" vector-effect="non-scaling-stroke"'
         if st["dash"]:
-            a += f' stroke-dasharray="{st["dash"][0]} {st["dash"][1]}"'
+            a += f' stroke-dasharray="{" ".join(_n(x) for x in st["dash"])}"'
     return a
 
 

@@ -92,7 +92,8 @@ def _appliquer_style(c, st, s):
         c.setStrokeColor(_couleur(st["stroke"]))
         c.setLineWidth(max(0.25, st["sw"] * 0.45))
         if st["dash"]:
-            c.setDash([st["dash"][0] * 0.6, st["dash"][1] * 0.6])
+            # motif complet (le trait d'axe est un mixte à quatre temps)
+            c.setDash([d * 0.6 for d in st["dash"]])
         else:
             c.setDash()
     return fill, stroke
