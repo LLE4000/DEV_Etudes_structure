@@ -162,9 +162,10 @@ def _dessins(R, u):
                 with col:
                     cle = "asm_cote_" + k
                     st.session_state[cle] = valeur_widget(k, st.session_state.get(K(k)))
-                    st.number_input(("🔴 " if ident in chauds else "") + f"{sym} (mm)", key=cle,
+                    # libellé court non ambigu (« e1 groupe S » / « e1 groupe P »)
+                    st.number_input(("🔴 " if ident in chauds else "") + f"{COURT.get(k, sym)} (mm)", key=cle,
                                     step=PAS.get(k, 1.0), format="%g",
-                                    on_change=_ecrire_depuis, args=(cle, k), help=COURT.get(k, k))
+                                    on_change=_ecrire_depuis, args=(cle, k), help=CHAMPS[k]["l"])
 
 
 def _parametres_retenus(R):
