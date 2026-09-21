@@ -122,3 +122,78 @@ def tableau_md(entetes, lignes, droite=()):
     for l in lignes:
         out.append("| " + " | ".join(cell(x) for x in l) + " |")
     return "\n".join(out)
+
+
+# --------------------------------------------------------------- refonte
+class Html(str):
+    """Une cellule déjà en HTML (non échappée) pour ``tableau_html``."""
+
+
+def taux_html(eta, ok, gras=False):
+    """« 74,0 % » coloré : vert vérifié, rouge non vérifié."""
+    col = C_TRAIT["ok" if ok else "nok"]
+    return Html(f"<span style='color:{col};font-weight:{700 if gras or not ok else 600};"
+                f"font-variant-numeric:tabular-nums;white-space:nowrap;'>{_esc(pct(eta, 1))}</span>")
+
+
+def tableau_html(entetes, lignes, droite=(), largeurs=None, compact=True):
+    """Tableau HTML compact (cellules colorées possibles via ``Html``) ;
+    ``droite`` = indices des colonnes alignées à droite, ``largeurs`` =
+    largeurs CSS optionnelles par colonne."""
+    fs = "0.86em" if compact else "0.95em"
+    pad = "3px 8px" if compact else "6px 10px"
+
+    def cell(x, i, th=False):
+        al = "right" if i in droite else "left"
+        w = f"width:{largeurs[i]};" if largeurs and largeurs[i] else ""
+        s = x if isinstance(x, Html) else _esc(x)
+        tag = "th" if th else "td"
+        st_ = (f"padding:{pad};text-align:{al};{w}border-bottom:1px solid #e5e7eb;vertical-align:middle;"
+               + ("color:#6E7480;font-weight:600;font-size:0.8em;letter-spacing:.04em;text-transform:uppercase;"
+                  "border-bottom:1.5px solid #33415C;white-space:nowrap;" if th else ""))
+        return f"<{tag} style='{st_}'>{s}</{tag}>"
+    html = [f"<table style='width:100%;border-collapse:collapse;font-size:{fs};margin:2px 0 10px 0;'>",
+            "<thead><tr>" + "".join(cell(e, i, True) for i, e in enumerate(entetes)) + "</tr></thead><tbody>"]
+    for l in lignes:
+        html.append("<tr>" + "".join(cell(x, i) for i, x in enumerate(l)) + "</tr>")
+    html.append("</tbody></table>")
+    return "".join(html)
+
+
+def bloc_statut_ligne(etat, titre, complement, elements):
+    """Bandeau d'état sur une ligne : icône, statut fort, taux et vérification
+    dimensionnante ; en dessous, une ligne de taux par élément."""
+    trait = C_TRAIT[etat]
+    chips = "".join(
+        f"<span style='display:inline-block;margin:0 10px 0 0;color:#374151;white-space:nowrap;'>{_esc(nom)} "
+        f"<b style='color:{C_TRAIT['ok' if ok else 'nok']};font-variant-numeric:tabular-nums;'>{_esc(pct(eta, 0))}</b></span>"
+        for nom, eta, ok in elements)
+    html = (
+        f'<div style="background-color:{C_COULEURS[etat]};padding:8px 14px 7px 14px;border-radius:10px;'
+        f'border:1px solid #d9d9d9;border-left:8px solid {trait};margin:2px 0 8px 0;">'
+        f'<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">'
+        f'<span style="font-size:1.15em;line-height:1;">{C_ICONES[etat]}</span>'
+        f'<span style="font-weight:700;font-size:1.08em;color:{trait};white-space:nowrap;">{_esc(titre)}</span>'
+        f'<span style="color:#374151;">{_esc(complement)}</span></div>'
+        f'<div style="font-size:0.88em;margin-top:3px;">{chips}</div></div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def bloc_alerte_ligne(titre, detail, bloquante, selectionnee=False):
+    """Une alerte sur une ligne : titre court en gras, détail chiffré."""
+    etat = "nok" if bloquante else "warn"
+    cadre = f"box-shadow:0 0 0 2px {C_TRAIT[etat]};" if selectionnee else ""
+    det = f" <span style='color:#374151;'>{_esc(detail)}</span>" if detail else ""
+    html = (
+        f'<div style="background-color:{C_COULEURS[etat]};padding:5px 12px;border-radius:8px;font-size:0.92em;'
+        f'border:1px solid #d9d9d9;border-left:6px solid {C_TRAIT[etat]};margin:2px 0;{cadre}">'
+        f"{'⛔' if bloquante else '⚠️'} <b>{_esc(titre)}</b>{det}</div>"
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def titre_bloc(txt):
+    """Titre de bloc de la carte (petites capitales, discret)."""
+    st.markdown(f"<div style='font-size:0.72em;font-weight:700;letter-spacing:.07em;color:#33415C;"
+                f"line-height:1.15;padding:0 0 9px 0;'>{_esc(txt)}</div>", unsafe_allow_html=True)

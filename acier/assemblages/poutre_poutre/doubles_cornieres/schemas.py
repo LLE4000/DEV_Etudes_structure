@@ -37,12 +37,25 @@ from acier.bibliotheques import PERSO
 from .entrees import PILOTEES_PAR_PREDIM
 
 NIVEAUX = ("Vue simple", "Cotations principales", "Cotations complètes")
+INF_MM = 1e9
+
+# Notations affichées : symbole du moteur de référence → notation de
+# l'Eurocode (EN 1993-1-8 Tableau 3.3 ; hc, c, dc : conventions des guides
+# SCI / MSB pour ce que l'Eurocode ne nomme pas). Les clés de calcul ne
+# changent pas ; seule l'écriture change — le test de parité des dessins
+# repasse en notation du moteur (``Options(notation={})``).
+NOTATION_EC = {"Lc": "hc", "ln": "c", "dnt": "dc,sup", "dnb": "dc,inf", "déc.": "Δz", "lh": "ℓh"}
+
+# Groupes de boulons : clé du nombre de rangées, libellé de la fenêtre
+GROUPES_BOULONS = {"S": dict(n1="n1S_u", n2="n2S_u", titre="Groupe S – âme de la poutre secondaire"),
+                   "P": dict(n1="n1P_u", n2="n2P_u", titre="Groupe P – âme de la poutre principale (par cornière)")}
 
 # Cotes du dessin → clé d'entrée (les 18 cotes modifiables)
 CLE_PAR_COTE = {"e2b": "e2b_u", "p2S": "p2_S", "lhS": "lh_S", "gh": "g_h", "ln": "l_n",
                 "e1S": "e1S_u", "p1S": "p1S_u", "Lc": "LC_u", "zc": "z_C", "dnt": "d_nt",
                 "dnb": "d_nb", "e1P": "e1P_u", "p1P": "p1P_u", "dtop": "d_top", "aS": "a_S",
-                "gA": "gA_u", "p2P": "p2_P", "aP": "a_P"}
+                "gA": "gA_u", "p2P": "p2_P", "aP": "a_P",
+                "lhP": "lh_P"}       # étiquette du mode édition (retours des cordons A)
 COTES_CALCULEES = ("e2B", "z", "bB", "e1botS", "e1b", "he", "e1botP", "ztP", "e2A", "p3",
                    "bA", "tc", "twS")
 
@@ -50,32 +63,57 @@ COTES_CALCULEES = ("e2B", "z", "bB", "e1botS", "e1b", "he", "e1botP", "ztP", "e2
 # les couleurs fonctionnelles du HTML (cote modifiable sur fond jaune, cordon
 # orange, grandeur calculée en violet) — une seule charte pour l'écran et le PDF
 PALETTE = dict(ink="#15181F", accent="#33415C", muted="#6E7480", ko="#9C3341",
-               ext="#93A6B5", calc="#5B4A8A", weld="#D98A00",
+               ext="#93A6B5", calc="#5B4A8A", weld="#D98A00", weld2="#A86B00",
                pp="#C3CED7", ps="#E6ECF0", hit="#F6F8FA", inbg="#FFF7CF",
-               inink="#0B3D91", inbord="#C9B95A", hover="#FFE37A", hotbg="#FDECEA")
+               inink="#0B3D91", inbord="#C9B95A", hover="#FFE37A", hotbg="#FDECEA",
+               hatch="#7F8C9A")
+
+PAS_HACHURES = 5.0          # mm, hachures à 45° des parties coupées
+SEGMENTS_ARC = 6            # segments par quart de cercle (congés)
 
 
 @dataclass
 class Options:
     """Options de rendu : niveau de cotation (0, 1, 2), interactivité (cotes
     modifiables cliquables), mise en évidence ``hl`` (``dims`` et ``elems``
-    d'une alerte), cotes verrouillées (prédimensionnement)."""
+    d'une alerte), cotes verrouillées (prédimensionnement), ``editables``
+    (toutes les cotes modifiables affichées quel que soit le niveau),
+    ``poignees`` (+ / − et étiquette cliquable des groupes de boulons),
+    ``notation`` (symboles affichés ; ``{}`` = ceux du moteur de référence)."""
     lvl: int = 1
     interactive: bool = False
     hl: Optional[dict] = None
     locked: Optional[set] = None
+    editables: bool = False
+    poignees: bool = False
+    notation: dict = field(default_factory=lambda: dict(NOTATION_EC))
+    # rendu réaliste : congés réels (âme–semelle, racine et bouts des
+    # cornières, rayon du grugeage), hachures des parties coupées, cordons
+    # à leur taille (a·√2), rondelles ; False = géométrie du HTML (parité)
+    realiste: bool = True
+    # cartouche (lignes sous l'élévation) : utile à l'écran ; sur la note il
+    # répéterait la ligne de données et les hypothèses, donc False au rapport
+    cartouche: bool = True
 
 
 def options_ecran(R, lvl=1, hl=None):
-    """Options de l'écran : niveau choisi, cotes cliquables, alerte en cours,
-    cotes pilotées verrouillées en prédimensionnement."""
-    return Options(lvl=lvl, interactive=True, hl=hl,
+    """Options de l'écran : niveau choisi, toutes les cotes modifiables
+    visibles et cliquables, poignées des groupes, alerte en cours, cotes
+    pilotées verrouillées en prédimensionnement."""
+    return Options(lvl=lvl, interactive=True, hl=hl, editables=True, poignees=True,
                    locked=set(PILOTEES_PAR_PREDIM) if R.pred else None)
 
 
 def options_rapport():
-    """Options du rapport : cotations principales, sans interaction."""
-    return Options(lvl=1, interactive=False, hl=None, locked=None)
+    """Options du rapport : cotations principales, sans interaction, sans
+    cartouche (la note porte déjà les données et les hypothèses)."""
+    return Options(lvl=1, interactive=False, hl=None, locked=None, cartouche=False)
+
+
+def sym_ec(s, notation=None):
+    """Symbole affiché pour un symbole du moteur (« Lc » → « hc »)."""
+    n = NOTATION_EC if notation is None else notation
+    return n.get(s, s)
 
 
 @dataclass
@@ -122,6 +160,86 @@ def _group(cls, enfants, **attrs):
     return dict(t="g", cls=cls, enfants=enfants, **attrs)
 
 
+# ------------------------------------------------------- géométrie réaliste
+def _arc(cx, cy, r, a0, a1, n=SEGMENTS_ARC):
+    """Points d'un arc de cercle (repère y vers le bas), de l'angle ``a0`` à
+    ``a1`` inclus, en ``n`` segments par quart de cercle."""
+    k = max(1, int(round(n * abs(a1 - a0) / (math.pi / 2))))
+    return [(cx + r * math.cos(a0 + (a1 - a0) * i / k), cy + r * math.sin(a0 + (a1 - a0) * i / k))
+            for i in range(k + 1)]
+
+
+def _section_I(b, h, tw, tf, r):
+    """Contour d'une section en I (semelles parallèles) avec ses quatre
+    congés âme–semelle de rayon ``r`` (EN 10365) ; origine au milieu de la
+    face supérieure, y vers le bas."""
+    x = tw / 2
+    r = mx(0, mn(r, (b - tw) / 2, (h - 2 * tf) / 2))
+    pts = [(-b / 2, 0), (b / 2, 0), (b / 2, tf)]
+    if r > 0:
+        pts += _arc(x + r, tf + r, r, -math.pi / 2, -math.pi)
+        pts += _arc(x + r, h - tf - r, r, math.pi, math.pi / 2)
+    else:
+        pts += [(x, tf), (x, h - tf)]
+    pts += [(b / 2, h - tf), (b / 2, h), (-b / 2, h), (-b / 2, h - tf)]
+    if r > 0:
+        pts += _arc(-x - r, h - tf - r, r, math.pi / 2, 0)
+        pts += _arc(-x - r, tf + r, r, 0, -math.pi / 2)
+    else:
+        pts += [(-x, h - tf), (-x, tf)]
+    pts.append((-b / 2, tf))     # coin sous la semelle supérieure gauche (sans lui, l'aile part en biseau)
+    return pts
+
+
+def _corniere_plan(xf, xt, tC, y1, y2, y3, g, rC):
+    """Section d'une cornière en plan : aile B le long de l'âme secondaire
+    (de ``xf`` à ``xt``, entre ``y1`` et ``y2``), aile A le long de l'âme
+    principale (épaisseur ``tC``, jusqu'à ``y3``) ; congé de racine ``rC``
+    et arrondis de bout ``rC/2`` (convention EN 10056-1 : r2 = r1/2)."""
+    xa = xf + tC
+    r = mx(0, mn(rC, (xt - xa) / 2, abs(y3 - y2) / 2))
+    r2 = r / 2
+    pts = [(xf, y1), (xt, y1)]
+    if r > 0:
+        pts += _arc(xt - r2, y2 - g * r2, r2, 0, g * math.pi / 2)             # bout de l'aile B
+        pts += _arc(xa + r, y2 + g * r, r, -g * math.pi / 2, -g * math.pi)     # congé de racine
+        pts += _arc(xa - r2, y3 - g * r2, r2, 0, g * math.pi / 2)             # bout de l'aile A
+    else:
+        pts += [(xt, y2), (xa, y2), (xa, y3)]
+    pts.append((xf, y3))
+    return pts
+
+
+def _hachures(pts, pas=PAS_HACHURES):
+    """Hachures à 45° d'un polygone (règle pair-impair) : segments
+    ``[(x, y), (x, y)]`` sur les droites x − y = c, espacées de ``pas``."""
+    cs = [x - y for x, y in pts]
+    c0, c1 = min(cs), max(cs)
+    d = pas * math.sqrt(2)
+    lignes = []
+    n = len(pts)
+    c = c0 + d / 2
+    while c < c1:
+        inter = []
+        for i in range(n):
+            (x1, y1), (x2, y2) = pts[i], pts[(i + 1) % n]
+            f1 = x1 - y1 - c; f2 = x2 - y2 - c
+            if (f1 < 0) != (f2 < 0):
+                t = f1 / (f1 - f2)
+                inter.append((x1 + t * (x2 - x1), y1 + t * (y2 - y1)))
+        inter.sort(key=lambda p: p[0] + p[1])
+        for j in range(0, len(inter) - 1, 2):
+            a, b = inter[j], inter[j + 1]
+            if abs(a[0] - b[0]) + abs(a[1] - b[1]) > 1e-6:
+                lignes.append([a, b])
+        c += d
+    return lignes
+
+
+def _rect_pts(x, y, w, h):
+    return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+
+
 # -------------------------------------------------------------------- Feuille
 class Feuille:
     """Feuille de cotation (transcription de ``Sheet``)."""
@@ -136,9 +254,19 @@ class Feuille:
     def tw(self, t):
         return len(str(t)) * self.fs * 0.56
 
+    def sym(self, s):
+        """Symbole affiché (notation de l'option)."""
+        return self.opt.notation.get(s, s)
+
     def is_hot(self, id_):
         h = self.opt.hl
         return bool(h and h.get("dims") and id_ in h["dims"])
+
+    def visible(self, d):
+        """Une cote se pose si son niveau est atteint, si une alerte la
+        désigne, ou — en mode édition — si elle est modifiable."""
+        return bool(d["lvl"] <= self.opt.lvl or self.is_hot(d["id"])
+                    or (self.opt.editables and d.get("key")))
 
     def slot(self, side, lo, hi):
         rows = self.rows[side]; pad = 0.4 * self.fs
@@ -167,17 +295,18 @@ class Feuille:
         hit["rx"] = 0.2 * fs
         tx = _text([], None, None, txt, fs)
         return _group(cls, [hit, tx], x=x, y=y, rot=-90 if rot else 0,
-                      key=d.get("key") if ed else None, sym=d.get("sym"), id=d["id"])
+                      key=d.get("key") if ed else None, sym=self.sym(d.get("sym")), id=d["id"])
 
     def dim(self, d):
         """d : id, side T|B|L|R, a, b, o1, o2, sym, val, key, lvl, calc, out."""
         hot = self.is_hot(d["id"])
-        if not (d["lvl"] <= self.opt.lvl or hot):
+        if not self.visible(d):
             return
         if not abs(d["b"] - d["a"]) > 0.01:
             return
         fs = self.fs; lo = mn(d["a"], d["b"]); hi = mx(d["a"], d["b"]); ln = hi - lo
-        t1 = d["sym"] + " = " + f0(d["val"]); t2 = d["sym"] + " " + f0(d["val"]); l2 = lo; h2 = hi
+        sy = self.sym(d["sym"])
+        t1 = sy + " = " + f0(d["val"]); t2 = sy + " " + f0(d["val"]); l2 = lo; h2 = hi
         if ln >= self.tw(t1) + 0.9 * fs:
             txt = t1; c = (lo + hi) / 2
         elif ln >= self.tw(t2) + 0.9 * fs:
@@ -216,11 +345,40 @@ class Feuille:
 
     def tag(self, x, y, d):
         hot = self.is_hot(d["id"])
-        if not (d["lvl"] <= self.opt.lvl or hot):
+        if not self.visible(d):
             return
-        txt = d["sym"] + " " + f0(d["val"])
+        txt = self.sym(d["sym"]) + " " + f0(d["val"])
         self.g.append(_group(["dm"] + (["hot"] if hot else []),
                              [self.label(x + self.tw(txt) / 2 + 0.3 * self.fs, y, False, txt, d)]))
+
+    def largeur_poignees(self, txt):
+        """Largeur occupée par une pile de poignées (étiquette + / −)."""
+        return mx(self.tw(txt) + 0.6 * self.fs, 1.3 * self.fs)
+
+    def poignees(self, xc, yc, grp, key, txt, hot=False):
+        """Poignées d'un groupe de boulons, empilées et centrées en
+        ``(xc, yc)`` : « + » (une rangée de plus), l'étiquette « n1 × n2 »
+        (cliquable : fenêtre du groupe), « − » (une rangée de moins)."""
+        if not self.opt.poignees:
+            return
+        fs = self.fs; w = self.largeur_poignees(txt); b = 1.3 * fs
+        ed = bool(self.opt.interactive and not (self.opt.locked and key in self.opt.locked))
+        h = ["hot"] if hot else []
+
+        def pile(y, cls, enfants, **attrs):
+            # comme ``label`` : le rectangle va de −1,05·fs à +0,37·fs autour
+            # de la ligne de base, son centre visuel est donc 0,34·fs plus haut
+            return _group(cls, enfants, x=xc, y=y + 0.34 * fs, rot=0, **attrs)
+
+        def bouton(y, signe, delta):
+            r = _rect(["gbx"], -b / 2, -1.05 * fs + (1.42 * fs - b) / 2, b, b); r["rx"] = 0.25 * fs
+            return pile(y, ["gb"] + (["ed"] if ed else []) + h, [r, _text([], None, None, signe, 1.15 * fs)],
+                        action=(key + ":" + ("+" if delta > 0 else "") + js_str(delta)) if ed else None,
+                        aria=("Une rangée de plus" if delta > 0 else "Une rangée de moins") + " – groupe " + grp)
+        hit = _rect(["hit"], -w / 2, -1.05 * fs, w, 1.42 * fs); hit["rx"] = 0.2 * fs
+        etiquette = pile(yc, ["gp"] + (["ed"] if ed else []) + h, [hit, _text([], None, None, txt, fs)],
+                         grp=grp if ed else None, id="grp" + grp)
+        self.g.append(_group(["pg"], [bouton(yc - 1.55 * fs, "+", 1), etiquette, bouton(yc + 1.55 * fs, "−", -1)]))
 
     def finish(self, body, lines, aria):
         fs = self.fs; n = self.rows; ex = self.ex
@@ -265,20 +423,70 @@ def elevation(R, opt):
     xE = mx(x0 + (ln if notch else 0), xf + R.b_B) + 75
     bb = dict(x1=-R.b_P / 2, x2=xE, y1=mn(0, yt), y2=mx(R.h_P, yb))
     fs = mx((bb["x2"] - bb["x1"] + 260) / 34, 9)
+    xt = xf + R.b_B
+    txtS = js_str(R.n1_S) + " × " + js_str(R.n2_S); txtP = js_str(R.n1_P) + " × " + js_str(R.n2_P)
+    if opt.poignees:
+        # la boîte s'élargit pour que les poignées n'empiètent pas sur les cotes
+        S0 = Feuille(bb, fs, opt)
+        if R.bolt_S:
+            bb["x2"] = mx(bb["x2"], xt + 0.5 * fs + S0.largeur_poignees(txtS) + 0.3 * fs)
+        if R.bolt_P:
+            bb["x1"] = mn(bb["x1"], -xf - 16 - 0.5 * fs - S0.largeur_poignees(txtP) - 0.3 * fs)
     S = Feuille(bb, fs, opt); s = []
     hot = (opt.hl or {}).get("elems") or set()
 
     def hc(k):
         return ["hot"] if k in hot else []
 
-    s.append(_rect(["pp"] + hc("flPt"), -R.b_P / 2, 0, R.b_P, R.tf_P))
-    s.append(_rect(["pp"] + hc("flPb"), -R.b_P / 2, R.h_P - R.tf_P, R.b_P, R.tf_P))
-    s.append(_rect(["pp"], -xf, R.tf_P, R.tw_P, R.h_P - 2 * R.tf_P))
-    p = [[x0, yt + dnt], [x0 + ln, yt + dnt], [x0 + ln, yt], [xE, yt]] if dnt > 0 else [[x0, yt], [xE, yt]]
-    p = p + ([[xE, yb], [x0 + ln, yb], [x0 + ln, yb - dnb], [x0, yb - dnb]] if dnb > 0 else [[xE, yb], [x0, yb]])
-    s.append(_poly(["ps"] + hc("beamS"), p))
-    s.append(_path(["fl2"], [[(x0 + ln if dnt > 0 else x0, yt + R.tf_S), (xE, yt + R.tf_S)],
-                             [(x0 + ln if dnb > 0 else x0, yb - R.tf_S), (xE, yb - R.tf_S)]]))
+    def piece(grp, prims, **attrs):
+        """Une pièce sélectionnable : groupe cliquable en mode édition
+        (``data-group``), primitives à plat sinon (parité, note)."""
+        if opt.poignees and prims:
+            s.append(_group(["pc", "ed"], prims, grp=grp, **attrs))
+        else:
+            s.extend(prims)
+
+    if opt.realiste:
+        # section en I coupée : une seule pièce, congés réels, hachures
+        sec = _section_I(R.b_P, R.h_P, R.tw_P, R.tf_P, R.r_P)
+        piece("beamP", [_poly(["pp"], sec), _path(["ht"], _hachures(sec))])
+        if "flPt" in hot:
+            s.append(_path(["hl"], [[(-R.b_P / 2, R.tf_P), (-R.b_P / 2, 0), (R.b_P / 2, 0), (R.b_P / 2, R.tf_P)]]))
+        if "flPb" in hot:
+            s.append(_path(["hl"], [[(-R.b_P / 2, R.h_P - R.tf_P), (-R.b_P / 2, R.h_P), (R.b_P / 2, R.h_P), (R.b_P / 2, R.h_P - R.tf_P)]]))
+    else:
+        piece("beamP", [_rect(["pp"] + hc("flPt"), -R.b_P / 2, 0, R.b_P, R.tf_P),
+                        _rect(["pp"] + hc("flPb"), -R.b_P / 2, R.h_P - R.tf_P, R.b_P, R.tf_P),
+                        _rect(["pp"], -xf, R.tf_P, R.tw_P, R.h_P - 2 * R.tf_P)])
+    rn = mn(N(u.r_n), ln, dnt if dnt > 0 else INF_MM, dnb if dnb > 0 else INF_MM) if opt.realiste else 0
+    if dnt > 0:
+        p = [[x0, yt + dnt]]
+        if rn > 0:
+            p += _arc(x0 + ln - rn, yt + dnt - rn, rn, math.pi / 2, 0)     # rayon du grugeage
+        else:
+            p.append([x0 + ln, yt + dnt])
+        p += [[x0 + ln, yt], [xE, yt]]
+    else:
+        p = [[x0, yt], [xE, yt]]
+    if dnb > 0:
+        p += [[xE, yb], [x0 + ln, yb]]
+        if rn > 0:
+            p += _arc(x0 + ln - rn, yb - dnb + rn, rn, 0, -math.pi / 2)
+        else:
+            p.append([x0 + ln, yb - dnb])
+        p.append([x0, yb - dnb])
+    else:
+        p += [[xE, yb], [x0, yb]]
+    pS = [_poly(["ps"] + hc("beamS"), p),
+          _path(["fl2"], [[(x0 + ln if dnt > 0 else x0, yt + R.tf_S), (xE, yt + R.tf_S)],
+                          [(x0 + ln if dnb > 0 else x0, yb - R.tf_S), (xE, yb - R.tf_S)]])]
+    if opt.realiste and R.r_S > 0:
+        # lignes tangentes des congés âme–semelle vus de côté (tf + r)
+        pS.append(_path(["flr"], [[(x0 + ln if dnt > 0 else x0, yt + R.tf_S + R.r_S), (xE, yt + R.tf_S + R.r_S)],
+                                  [(x0 + ln if dnb > 0 else x0, yb - R.tf_S - R.r_S), (xE, yb - R.tf_S - R.r_S)]]))
+    # la poutre portée se déplace à la souris : horizontal = jeu gh,
+    # vertical = décalage Δz des dessus de semelles
+    piece("beamS", pS, drag="g_h", dsym="gh", drag2="d_top", dsym2="Δz")
     if "notchT" in hot:
         if dnt > 0:
             s.append(_path(["hl"], [[(x0, yt + dnt), (x0 + ln, yt + dnt), (x0 + ln, yt)]]))
@@ -289,22 +497,73 @@ def elevation(R, opt):
             s.append(_path(["hl"], [[(x0, yb - dnb), (x0 + ln, yb - dnb), (x0 + ln, yb)]]))
         else:
             s.append(_path(["hl"], [[(x0, yb - R.tf_S - R.r_S), (x0, yb), (mx(R.b_P / 2, x0 + 40), yb)]]))
-    s.append(_rect(["co"] + hc("cleat"), xf, yc, R.b_B, R.L_C))
-    s.append(_rect(["co2"], xf, yc, R.t_C, R.L_C))
+    piece("cleat", [_rect(["co"] + hc("cleat"), xf, yc, R.b_B, R.L_C),
+                    _rect(["co2"], xf, yc, R.t_C, R.L_C)])
     xc1 = xf + R.g_B; xcl = xc1 + (R.n2_S - 1) * p2S; yb1 = yc + R.e1_S
-    ybl = yb1 + (R.n1_S - 1) * R.p1_S; xt = xf + R.b_B; r0 = R.d_0 / 2
+    ybl = yb1 + (R.n1_S - 1) * R.p1_S; r0 = R.d_0 / 2
     if R.bolt_S:
+        bS = []
         for i in range(R.n1_S):
             for j in range(R.n2_S):
                 cx = xc1 + j * p2S; cy = yb1 + i * R.p1_S
-                s.append(_circle(["bo"] + hc("boltsS"), cx, cy, r0))
-                s.append(_path(["cm"], [[(cx - r0 - 4, cy), (cx + r0 + 4, cy)], [(cx, cy - r0 - 4), (cx, cy + r0 + 4)]]))
+                if opt.realiste:
+                    bS.append(_circle(["bw"], cx, cy, R.d_w / 2))          # rondelle (dw)
+                bS.append(_circle(["bo"] + hc("boltsS"), cx, cy, r0))
+                if not opt.realiste:
+                    bS.append(_path(["cm"], [[(cx - r0 - 4, cy), (cx + r0 + 4, cy)], [(cx, cy - r0 - 4), (cx, cy + r0 + 4)]]))
+        if opt.realiste:
+            # traits d'axe normalisés (mixte fin) : un par rangée, un par file,
+            # dépassant les trous extrêmes — à la place des croix
+            dep = R.d_w / 2 + 5
+            ax = [[(xc1 - dep, yb1 + i * R.p1_S), (xcl + dep, yb1 + i * R.p1_S)] for i in range(R.n1_S)]
+            ax += [[(xc1 + j * p2S, yb1 - dep), (xc1 + j * p2S, ybl + dep)] for j in range(R.n2_S)]
+            bS.append(_path(["ax"], ax))
+        piece("bolts", bS)
+    elif opt.realiste:
+        # cordons d'angle vus de face : bande de largeur a·√2 le long du bout
+        # de l'aile B, retours en haut et en bas ; symbole de soudure
+        # EN 22553 (flèche → ligne de référence, triangle du cordon d'angle,
+        # désignation « a … » à gauche du triangle, éditable)
+        z = N(u.a_S) * math.sqrt(2)
+        wS = [_rect(["wb"], xt, yc, z, R.L_C)]
+        if lhS > 0:
+            wS += [_rect(["wb"], xt - lhS, yc - z, lhS + z, z),
+                   _rect(["wb"], xt - lhS, yc + R.L_C, lhS + z, z)]
+        # accroche au tiers bas du cordon, coude vers le bas : la ligne de
+        # référence ne croise ni l'étiquette VEd ni les cotes du haut
+        ax_, ay = xt + z, yc + 0.78 * R.L_C
+        ex, ey = ax_ + 1.7 * fs, ay + 1.5 * fs
+        wt = S.tw("a " + f0(N(u.a_S)))
+        tx = ex + wt + 0.9 * fs                                   # triangle après la désignation
+        wS.append(_path(["wsy"], [[(ax_, ay), (ex, ey), (tx + 1.6 * fs, ey)],
+                                  [(ax_ + 0.55 * fs, ay + 0.1 * fs), (ax_, ay), (ax_ + 0.1 * fs, ay + 0.55 * fs)]]))
+        wS.append(_poly(["wst"], [[tx, ey], [tx + 1.0 * fs, ey], [tx, ey - 0.95 * fs]]))
+        piece("weldS", wS)
+        S.tag(ex - 0.1 * fs, ey - 0.55 * fs, dict(id="aS", sym="a", val=N(u.a_S), key="a_S", lvl=1))
     else:
-        s.append(_path(["we"], [[(xt - lhS, yc), (xt, yc), (xt, yc + R.L_C), (xt - lhS, yc + R.L_C)]]))
+        piece("weldS", [_path(["we"], [[(xt - lhS, yc), (xt, yc), (xt, yc + R.L_C), (xt - lhS, yc + R.L_C)]])])
     yp1 = yc + R.e1_P; ypl = yp1 + (R.n1_P - 1) * R.p1_P
     if R.bolt_P:
-        for i in range(R.n1_P):
-            s.append(_path(["bp"] + hc("boltsP"), [[(-xf - 16, yp1 + i * R.p1_P), (xf + R.t_C + 16, yp1 + i * R.p1_P)]]))
+        if opt.realiste:
+            # boulons P (perpendiculaires au plan) : traits d'axe mixtes fins,
+            # rouges épais seulement quand une alerte les désigne
+            piece("bolts", [_path(["ax"] + hc("boltsP"),
+                                  [[(-xf - 16, yp1 + i * R.p1_P), (xf + R.t_C + 16, yp1 + i * R.p1_P)]
+                                   for i in range(R.n1_P)])])
+        else:
+            piece("bolts", [_path(["bp"] + hc("boltsP"), [[(-xf - 16, yp1 + i * R.p1_P), (xf + R.t_C + 16, yp1 + i * R.p1_P)]])
+                            for i in range(R.n1_P)])
+    if opt.poignees:
+        # étiquette des efforts, sur l'âme de la poutre portée (panneau VEd,
+        # NEd, HEd, MEd au clic)
+        autres = any(N(u[k]) != 0 for k in ("N_Ed", "H_Ed", "M_Ed"))
+        txtF = "VEd " + f0(N(u.V_Ed)) + (" +" if autres else "")
+        wF = S.tw(txtF) + 0.5 * fs
+        xF = (mx(x0 + (ln if notch else 0), xt) + xE) / 2
+        hitF = _rect(["hit"], -wF / 2, -1.05 * fs, wF, 1.42 * fs); hitF["rx"] = 0.2 * fs
+        s.append(_group(["ef", "ed"], [hitF, _text([], None, None, txtF, fs)],
+                        x=xF, y=mx(yt + dnt, yc) + 1.7 * fs, rot=0,
+                        grp="efforts", id="efforts"))
     # --- cotes : chaînes au plus près, cotes d'ensemble ensuite
     if R.bolt_S:
         S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=yt + dnt, o2=yb1, sym="e2,b", val=R.e2b_S, key="e2b_u", lvl=1))
@@ -351,26 +610,39 @@ def elevation(R, opt):
     if yt == 0:
         S.tag(-R.b_P / 2, -0.55 * fs, dict(id="dtop", sym="déc.", val=0, key="d_top", lvl=2))
     if not R.bolt_S:
-        S.tag(xt + 0.4 * fs, yc + R.L_C / 2, dict(id="aS", sym="a", val=N(u.a_S), key="a_S", lvl=1))
+        if not opt.realiste:
+            # géométrie du HTML : l'étiquette « a » près du cordon (en rendu
+            # réaliste, la désignation vit sur le symbole de soudure)
+            S.tag(xt + 0.4 * fs, yc + R.L_C / 2, dict(id="aS", sym="a", val=N(u.a_S), key="a_S", lvl=1))
+        if lhS == 0 and opt.editables:
+            # retours nuls : pas de cote possible, une étiquette (mode édition seulement)
+            S.tag(xt + 0.4 * fs, yc + R.L_C / 2 + 1.6 * fs, dict(id="lhS", sym="lh", val=0, key="lh_S", lvl=1))
+    # poignées des groupes de boulons (écran) : dans l'âme de la poutre
+    # secondaire à droite des cornières (S), entre les semelles de la
+    # principale à gauche de l'âme (P)
+    if R.bolt_S:
+        S.poignees(xt + 0.5 * fs + S.largeur_poignees(txtS) / 2, (yb1 + ybl) / 2, "S", "n1S_u", txtS, "boltsS" in hot)
+    if R.bolt_P:
+        S.poignees(-xf - 16 - 0.5 * fs - S.largeur_poignees(txtP) / 2, (yp1 + ypl) / 2, "P", "n1P_u", txtP, "boltsP" in hot)
     nomS = "Poutre secondaire" if u.prof_S == PERSO else u.prof_S
     S.name("T", xE - S.tw(nomS) / 2, nomS)
     S.name("B", 0, "Poutre principale" if u.prof_P == PERSO else u.prof_P)
     L = []
-    if opt.lvl >= 1:
-        L.append("Cornières : 2 × " + R.corn_txt + " – " + u.nu_C + " – Lc " + f0(R.L_C) + " mm")
+    if opt.lvl >= 1 and opt.cartouche:
+        L.append("Cornières : 2 × " + R.corn_txt + " – " + u.nu_C + " – " + S.sym("Lc") + " " + f0(R.L_C) + " mm")
         if R.bolt_S or R.bolt_P:
             L.append("Boulons " + R.boulon + " – classe " + u.classe + " – trous d0 " + f0(R.d_0) + " mm"
                      + (" – groupe S : " + js_str(R.n1_S) + " × " + js_str(R.n2_S) if R.bolt_S else "")
                      + (" – groupe P : 2 × (" + js_str(R.n1_P) + " × " + js_str(R.n2_P) + ")" if R.bolt_P else ""))
         if not R.bolt_S:
-            L.append("Soudure ailes B : a " + f0(N(u.a_S)) + " mm, cordon vertical Lc + retours " + f0(lhS) + " mm")
+            L.append("Soudure ailes B : a " + f0(N(u.a_S)) + " mm, cordon vertical " + S.sym("Lc") + " + retours " + f0(lhS) + " mm")
         if not R.bolt_P:
-            L.append("Soudure ailes A : a " + f0(N(u.a_P)) + " mm, cordon vertical Lc + retours " + f0(N(u.lh_P)) + " mm")
+            L.append("Soudure ailes A : a " + f0(N(u.a_P)) + " mm, cordon vertical " + S.sym("Lc") + " + retours " + f0(N(u.lh_P)) + " mm")
         L.append("Excentricité de calcul z = " + f0(R.zeff) + " mm – MS = " + F(R.M_S, 2) + " kNm"
                  + ((" – eP = " + f0(R.e_P if R.bolt_P else R.ew_P) + " mm, MP = " + F(R.M_P, 2) + " kNm") if R.M_P > 0 else ""))
         if notch:
             L.append("Grugeage : " + ("sup. " + f0(dnt) if dnt > 0 else "") + (" / " if dnt > 0 and dnb > 0 else "")
-                     + ("inf. " + f0(dnb) if dnb > 0 else "") + " × " + f0(ln) + " mm – bras de levier gh + ln = " + f0(gh + ln) + " mm")
+                     + ("inf. " + f0(dnb) if dnb > 0 else "") + " × " + f0(ln) + " mm – bras de levier gh + " + S.sym("ln") + " = " + f0(gh + ln) + " mm")
     return S.finish(s, L, "Élévation cotée de l'assemblage")
 
 
@@ -379,6 +651,9 @@ def plan(R, opt):
     """Vue en plan cotée (transcription de ``DCDraw.plan``)."""
     u = R.u; xf = R.tw_P / 2; gh = N(u.g_h); x0 = xf + gh; ws = R.tw_S / 2; xt = xf + R.b_B
     xE = xt + 60; Hh = ws + R.b_A + 22; p2S = N(u.p2_S); p2P = N(u.p2_P)
+    if opt.realiste:
+        # place pour les arêtes cachées des semelles de la portée (± bS/2)
+        Hh = mx(Hh, R.b_S / 2 + 10)
     bb = dict(x1=-xf - 30, x2=xE, y1=-Hh, y2=Hh)
     fs = mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
     S = Feuille(bb, fs, opt); s = []
@@ -387,23 +662,64 @@ def plan(R, opt):
     def hc(k):
         return ["hot"] if k in hot else []
 
-    s.append(_rect(["pp"], -xf, -Hh, R.tw_P, 2 * Hh))
-    s.append(_rect(["ps"] + hc("beamS"), x0, -ws, xE - x0, R.tw_S))
+    def piece(grp, prims, **attrs):
+        if opt.poignees and prims:
+            s.append(_group(["pc", "ed"], prims, grp=grp, **attrs))
+        else:
+            s.extend(prims)
+
+    if opt.realiste:
+        # arêtes cachées (au-dessus du plan de coupe, trait interrompu) :
+        # bord de semelle de la porteuse côté attache, bords de semelle de
+        # la portée — on lit d'un coup d'œil le dégagement du grugeage
+        xsem = mn(R.b_P / 2, xE - 4)
+        s.append(_path(["hd"], [[(xsem, -Hh + 2), (xsem, Hh - 2)]]))
+        s.append(_path(["hd"], [[(x0, -R.b_S / 2), (xE, -R.b_S / 2)], [(x0, R.b_S / 2), (xE, R.b_S / 2)]]))
+    piece("beamP", [_rect(["pp"], -xf, -Hh, R.tw_P, 2 * Hh)]
+          + ([_path(["ht"], _hachures(_rect_pts(-xf, -Hh, R.tw_P, 2 * Hh)))] if opt.realiste else []))
+    piece("beamS", [_rect(["ps"] + hc("beamS"), x0, -ws, xE - x0, R.tw_S)]
+          + ([_path(["ht"], _hachures(_rect_pts(x0, -ws, xE - x0, R.tw_S)))] if opt.realiste else []),
+          drag="g_h", dsym="gh")
     for g in (-1, 1):
         y1 = g * ws; y2 = g * (ws + R.t_C); y3 = g * (ws + R.b_A)
-        s.append(_poly(["co"] + hc("cleat"), [[xf, y1], [xt, y1], [xt, y2], [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]]))
-        if R.bolt_P:
-            for i in range(R.n2_P):
-                yy = g * (ws + R.g_A + i * p2P)
-                s.append(_path(["bp"] + hc("boltsP"), [[(-xf - 14, yy), (xf + R.t_C + 14, yy)]]))
+        if opt.realiste:
+            pts = _corniere_plan(xf, xt, R.t_C, y1, y2, y3, g, R.r_C)
+            piece("cleat", [_poly(["co"] + hc("cleat"), pts), _path(["ht", "htc"], _hachures(pts))])
         else:
-            s.append(_circle(["wd"], xf + R.t_C, y3, mx(N(u.a_P), 4)))
+            piece("cleat", [_poly(["co"] + hc("cleat"), [[xf, y1], [xt, y1], [xt, y2], [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]])])
+        if R.bolt_P:
+            cls_p = ["ax"] if opt.realiste else ["bp"]
+            piece("bolts", [_path(cls_p + hc("boltsP"), [[(-xf - 14, g * (ws + R.g_A + i * p2P)), (xf + R.t_C + 14, g * (ws + R.g_A + i * p2P))]])
+                            for i in range(R.n2_P)])
+        elif opt.realiste:
+            # cordon d'angle en section : triangle de côtés a·√2, dans l'angle
+            # entre le bout de l'aile A et la face de l'âme principale ;
+            # symbole EN 22553 sur la cornière du haut
+            z = N(u.a_P) * math.sqrt(2)
+            wP = [_poly(["wb"], [[xf, y3], [xf + z, y3], [xf, y3 + g * z]])]
+            if g == -1:
+                ax_, ay = xf + z * 0.55, y3 - z * 0.55
+                ex, ey = ax_ + 1.6 * fs, ay - 1.4 * fs
+                wt = S.tw("a " + f0(N(u.a_P)))
+                tx = ex + wt + 0.9 * fs
+                wP.append(_path(["wsy"], [[(ax_, ay), (ex, ey), (tx + 1.6 * fs, ey)],
+                                          [(ax_ + 0.55 * fs, ay - 0.1 * fs), (ax_, ay), (ax_ + 0.1 * fs, ay - 0.55 * fs)]]))
+                wP.append(_poly(["wst"], [[tx, ey], [tx + 1.0 * fs, ey], [tx, ey - 0.95 * fs]]))
+                S.tag(ex - 0.1 * fs, ey - 0.55 * fs, dict(id="aP", sym="a", val=N(u.a_P), key="a_P", lvl=1))
+            piece("weldP", wP)
+        else:
+            piece("weldP", [_circle(["wd"], xf + R.t_C, y3, mx(N(u.a_P), 4))])
         if not R.bolt_S:
-            s.append(_circle(["wd"], xt, y2, mx(N(u.a_S), 4)))
+            if opt.realiste:
+                z = N(u.a_S) * math.sqrt(2)
+                piece("weldS", [_poly(["wb"], [[xt, y1], [xt + z, y1], [xt, y1 + g * z]])])
+            else:
+                piece("weldS", [_circle(["wd"], xt, y2, mx(N(u.a_S), 4))])
     xc1 = xf + R.g_B; xcl = xc1 + (R.n2_S - 1) * p2S; yo = -ws - R.t_C
     if R.bolt_S:
+        cls_s = ["ax"] if opt.realiste else ["bp"]
         for i in range(R.n2_S):
-            s.append(_path(["bp"] + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
+            s.append(_path(cls_s + hc("boltsS"), [[(xc1 + i * p2S, yo - 14), (xc1 + i * p2S, -yo + 14)]]))
     if R.bolt_S:
         S.dim(dict(id="e2b", side="T", a=x0, b=xc1, o1=-ws, o2=yo - 14, sym="e2,b", val=R.e2b_S, key="e2b_u", lvl=2))
         if R.n2_S > 1:
@@ -418,7 +734,13 @@ def plan(R, opt):
         S.dim(dict(id="e2A", side="R", a=-(ws + R.b_A), b=yl, o1=xf + R.t_C, o2=xo, sym="e2", val=R.e2a_P, lvl=2, calc=1, out="lo"))
         S.dim(dict(id="p3", side="L", a=ya, b=-ya, o1=-xf - 14, o2=-xf - 14, sym="p3", val=R.p_3, lvl=1, calc=1))
     else:
-        S.tag(xf + R.t_C + 0.6 * fs, -(ws + R.b_A) - 0.2 * fs, dict(id="aP", sym="a", val=N(u.a_P), key="a_P", lvl=1))
+        if not opt.realiste:
+            # géométrie du HTML : étiquette « a » près du disque de cordon
+            # (en réaliste, la désignation vit sur le symbole de soudure)
+            S.tag(xf + R.t_C + 0.6 * fs, -(ws + R.b_A) - 0.2 * fs, dict(id="aP", sym="a", val=N(u.a_P), key="a_P", lvl=1))
+        if opt.editables:
+            # retours des cordons A : pas de cote dans cette vue, une étiquette (mode édition)
+            S.tag(xf + R.t_C + 0.6 * fs, (ws + R.b_A) + 1.2 * fs, dict(id="lhP", sym="lh", val=N(u.lh_P), key="lh_P", lvl=1))
     S.dim(dict(id="bA", side="R", a=ws, b=ws + R.b_A, o1=xt, o2=xf + R.t_C, sym="bA", val=R.b_A, lvl=1, calc=1))
     S.dim(dict(id="tc", side="R", a=ws, b=ws + R.t_C, o1=xt, o2=xt, sym="tc", val=R.t_C, lvl=2, calc=1))
     S.dim(dict(id="twS", side="R", a=-ws, b=ws, o1=xE, o2=xE, sym="tw", val=R.tw_S, lvl=2, calc=1))
@@ -479,36 +801,67 @@ def style_de(cls, ctx, p=None):
         st.update(stroke=ko, sw=2.4, dash=(7, 3))
         if hot_self:
             st.update(sw=4.5, dash=None)
+    elif "ax" in c:
+        # trait d'axe normalisé : mixte fin (long, court), encre
+        st.update(stroke=ink, sw=0.5, dash=(8, 2.5, 2, 2.5))
+        if hot_self:
+            st.update(stroke=ko, sw=2.2)
+    elif "hd" in c:
+        # arête cachée (semelle au-dessus du plan de coupe) : interrompu fin
+        st.update(stroke=p["hatch"], sw=0.6, dash=(4, 2.5))
+    elif "wsy" in c:
+        # symbole de soudure : flèche et ligne de référence
+        st.update(stroke=p["weld2"], sw=0.9)
+    elif "wst" in c:
+        # triangle du cordon d'angle sur la ligne de référence
+        st.update(fill=p["weld"], stroke=p["weld2"], sw=0.8)
     elif "we" in c:
         st.update(stroke=p["weld"], sw=5)
     elif "wd" in c:
         st.update(fill=p["weld"])
+    elif "wb" in c:
+        # cordon à sa taille réelle : plein, contour plus soutenu
+        st.update(fill=p["weld"], stroke=p["weld2"], sw=0.8)
+    elif "bw" in c:
+        st.update(stroke=ink, sw=0.5)
+    elif "ht" in c:
+        st.update(stroke=acc if "htc" in c else p["hatch"], sw=0.5)
     elif "hl" in c:
         st.update(stroke=ko, sw=4)
     elif "cm" in c:
         st.update(stroke=ink, sw=0.6)
+    elif "flr" in c:
+        # tangente du congé âme–semelle vue de côté : trait fin
+        st.update(stroke=p["hatch"], sw=0.45)
     elif "ext" in c:
-        st.update(stroke=p["ext"], sw=0.6)
+        st.update(stroke=p["ext"], sw=0.5)
         if hot_ctx:
             st.update(stroke=ko, sw=2)
     elif "dln" in c:
-        st.update(stroke=acc, sw=1)
+        st.update(stroke=acc, sw=0.8)
         if "calc" in k:
             st.update(stroke=p["calc"], dash=(5, 3))
         if hot_ctx:
             st.update(stroke=ko, sw=2, dash=None)
     elif "hit" in c:
-        st.update(fill=p["hit"], fo=0.9)
-        if "ed" in k:
-            st.update(fill=p["inbg"], fo=1.0, stroke=p["inbord"], sw=1)
+        # halo blanc discret sous chaque étiquette (cotation « propre » ;
+        # l'affordance d'édition n'apparaît qu'au survol, à l'écran)
+        st.update(fill="#FFFFFF", fo=0.85)
         if hot_ctx:
             st.update(fill=p["hotbg"], fo=1.0, stroke=ko, sw=2)
+    elif "gbx" in c:
+        # bouton + / − d'un groupe de boulons : plein, couleur d'accent
+        st.update(fill=acc if "ed" in k else p["ext"], fo=1.0)
+        if hot_ctx:
+            st.update(fill=ko)
     # texte
     if "tx" in c:
         st.update(tfill=ink, bold=True)
     elif "cart" in k:
         st.update(tfill=ink)
-    elif "dl" in k:
+    elif "gb" in k:
+        st.update(tfill="#FFFFFF", bold=True)
+    elif "dl" in k or "gp" in k or "ef" in k:
         if "ed" in k:
             st.update(tfill=p["inink"], bold=True)
         if "calc" in k:
@@ -540,19 +893,43 @@ def _css(p, pre):
         f"#{pre} .co2{{fill:{acc};opacity:.6}}"
         f"#{pre} .bo{{fill:#fff;stroke:{ink};stroke-width:1.5}}"
         f"#{pre} .bp{{stroke:{ko};stroke-width:2.4;stroke-dasharray:7 3;fill:none}}"
+        f"#{pre} .ax{{stroke:{ink};stroke-width:.5;stroke-dasharray:8 2.5 2 2.5;fill:none}}"
+        f"#{pre} .ax.hot{{stroke:{ko};stroke-width:2.2}}"
+        f"#{pre} .hd{{stroke:{p['hatch']};stroke-width:.6;stroke-dasharray:4 2.5;fill:none}}"
+        f"#{pre} .wsy{{stroke:{p['weld2']};stroke-width:.9;fill:none}}"
+        f"#{pre} .wst{{fill:{p['weld']};stroke:{p['weld2']};stroke-width:.8}}"
         f"#{pre} .we{{stroke:{p['weld']};stroke-width:5;fill:none}}"
         f"#{pre} .wd{{fill:{p['weld']}}}"
-        f"#{pre} .dm path{{stroke:{acc};stroke-width:1;fill:none}}"
-        f"#{pre} .ext{{stroke:{p['ext']};stroke-width:.6;fill:none}}"
+        f"#{pre} .wb{{fill:{p['weld']};stroke:{p['weld2']};stroke-width:.8}}"
+        f"#{pre} .bw{{fill:none;stroke:{ink};stroke-width:.5}}"
+        f"#{pre} .ht{{stroke:{p['hatch']};stroke-width:.5;fill:none}}"
+        f"#{pre} .htc{{stroke:{acc}}}"
+        f"#{pre} .dm path{{stroke:{acc};stroke-width:.8;fill:none}}"
+        f"#{pre} .ext{{stroke:{p['ext']};stroke-width:.5;fill:none}}"
+        f"#{pre} .flr{{stroke:{p['hatch']};stroke-width:.45;fill:none}}"
         f"#{pre} .dm text,#{pre} .tx,#{pre} .cart text{{fill:{acc};font-family:system-ui,Arial,sans-serif}}"
         f"#{pre} .tx{{fill:{ink};font-weight:600}}"
         f"#{pre} .cart text{{fill:{ink}}}"
-        f"#{pre} .dl .hit{{fill:{p['hit']};fill-opacity:.9;stroke:none}}"
+        f"#{pre} .dl .hit{{fill:#fff;fill-opacity:.85;stroke:none}}"
         f"#{pre} .dl.ed{{cursor:pointer}}"
-        f"#{pre} .dl.ed .hit{{fill:{p['inbg']};fill-opacity:1;stroke:{p['inbord']};stroke-width:1}}"
         f"#{pre} .dl.ed text{{fill:{p['inink']};font-weight:600}}"
-        f"#{pre} .dl.ed:hover .hit,#{pre} .dl.ed:focus .hit{{fill:{p['hover']};stroke:{acc};stroke-width:2}}"
+        f"#{pre} .dl.ed:hover .hit,#{pre} .dl.ed:focus .hit{{fill:{p['hover']};fill-opacity:1;stroke:{acc};stroke-width:1.6}}"
         f"#{pre} .dl.ed:focus{{outline:none}}"
+        f"#{pre} .ef{{cursor:pointer}}"
+        f"#{pre} .ef .hit{{fill:#fff;fill-opacity:.88;stroke:{p['inbord']};stroke-width:1}}"
+        f"#{pre} .ef text{{fill:{p['inink']};font-weight:700}}"
+        f"#{pre} .ef:hover .hit,#{pre} .ef:focus .hit{{fill:{p['hover']};stroke:{acc};stroke-width:1.6}}"
+        f"#{pre} .ef:focus{{outline:none}}"
+        f"#{pre} .pc.ed{{cursor:pointer}}"
+        f"#{pre} g[data-drag]{{cursor:grab}}"
+        f"#{pre} g[data-drag].drag{{cursor:grabbing;opacity:.75}}"
+        f"#{pre} .pc.ed:hover .pp,#{pre} .pc.ed:hover .ps,#{pre} .pc.sel .pp,#{pre} .pc.sel .ps{{stroke:{acc};stroke-width:2.6}}"
+        f"#{pre} .pc.ed:hover .co,#{pre} .pc.sel .co{{stroke-width:2.8}}"
+        f"#{pre} .pc.ed:hover .bo,#{pre} .pc.sel .bo{{stroke:{acc};stroke-width:2.4}}"
+        f"#{pre} .pc.ed:hover .bp,#{pre} .pc.sel .bp{{stroke-width:3.4}}"
+        f"#{pre} .pc.ed:hover .wb,#{pre} .pc.sel .wb{{stroke-width:1.8}}"
+        f"#{pre} .pc.ed:hover .we,#{pre} .pc.sel .we{{stroke-width:7}}"
+        f"#{pre} .pc:focus{{outline:none}}"
         f"#{pre} .dm.calc path.dln{{stroke:{p['calc']};stroke-dasharray:5 3}}"
         f"#{pre} .dl.calc text{{fill:{p['calc']};font-style:italic}}"
         f"#{pre} .dm.hot path.dln,#{pre} .dm.hot path.ext{{stroke:{ko};stroke-width:2}}"
@@ -563,6 +940,17 @@ def _css(p, pre):
         f"#{pre} .bp.hot{{stroke-width:4.5;stroke-dasharray:none}}"
         f"#{pre} .hl{{stroke:{ko};stroke-width:4;fill:none}}"
         f"#{pre} .cm{{stroke:{ink};stroke-width:.6;fill:none}}"
+        f"#{pre} .gp .hit{{fill:{p['inbg']};fill-opacity:1;stroke:{p['inbord']};stroke-width:1}}"
+        f"#{pre} .gp text{{fill:{p['inink']};font-weight:600}}"
+        f"#{pre} .gp.ed,#{pre} .gb.ed{{cursor:pointer}}"
+        f"#{pre} .gp.ed:hover .hit,#{pre} .gp.ed:focus .hit{{fill:{p['hover']};stroke:{acc};stroke-width:2}}"
+        f"#{pre} .gb .gbx{{fill:{p['ext']}}}"
+        f"#{pre} .gb.ed .gbx{{fill:{acc}}}"
+        f"#{pre} .gb text{{fill:#fff;font-weight:700}}"
+        f"#{pre} .gb.ed:hover .gbx,#{pre} .gb.ed:focus .gbx{{fill:{ink}}}"
+        f"#{pre} .gp.hot .hit{{fill:{p['hotbg']};stroke:{ko};stroke-width:2}}"
+        f"#{pre} .gp.hot text,#{pre} .gb.hot .gbx{{fill:{ko}}}"
+        f"#{pre} .gp:focus,#{pre} .gb:focus{{outline:none}}"
     )
 
 
@@ -593,7 +981,7 @@ def _attrs_forme(st):
     if st["stroke"] != "none":
         a += f' stroke-width="{_n(st["sw"])}" vector-effect="non-scaling-stroke"'
         if st["dash"]:
-            a += f' stroke-dasharray="{st["dash"][0]} {st["dash"][1]}"'
+            a += f' stroke-dasharray="{" ".join(_n(x) for x in st["dash"])}"'
     return a
 
 
@@ -617,6 +1005,16 @@ def _prim_svg(p, ctx=(), palette=None):
         if p.get("key"):
             attrs += (f' data-key="{p["key"]}" data-sym="{_esc(p["sym"])}" tabindex="0" role="button"'
                       f' aria-label="Modifier {_esc(p["sym"])}"')
+        if p.get("grp"):
+            attrs += (f' data-group="{p["grp"]}" tabindex="0" role="button"'
+                      f' aria-label="Modifier le groupe {p["grp"]}"')
+        if p.get("drag"):
+            attrs += f' data-drag="{p["drag"]}" data-dsym="{_esc(p.get("dsym") or p["drag"])}"'
+        if p.get("drag2"):
+            attrs += f' data-drag2="{p["drag2"]}" data-dsym2="{_esc(p.get("dsym2") or p["drag2"])}"'
+        if p.get("action"):
+            attrs += (f' data-action="{_esc(p["action"])}" tabindex="0" role="button"'
+                      f' aria-label="{_esc(p.get("aria") or p["action"])}"')
         if "x" in p:
             attrs += f' transform="translate({_n(p["x"])} {_n(p["y"])})' + (" rotate(-90)" if p.get("rot") else "") + '"'
         if p.get("id") and "x" in p:

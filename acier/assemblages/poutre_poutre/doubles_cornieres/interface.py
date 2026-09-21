@@ -1,22 +1,32 @@
 # -*- coding: utf-8 -*-
 # ===========================
-#  ASSEMBLAGE POUTRE–POUTRE — DOUBLES CORNIÈRES D'ÂME — VERSION 1.0
+#  ASSEMBLAGE POUTRE–POUTRE — DOUBLES CORNIÈRES D'ÂME — VERSION 1.2
 # ===========================
 #  interface.py (Streamlit)
 #
-#  Écran de l'assemblage, construit comme les modules béton : même en-tête,
-#  même barre d'outils (🏠 Accueil · 🔄 Réinitialiser · 💾 Enregistrer ·
-#  📂 Ouvrir · 📄 Générer PDF), même disposition saisie à gauche / résultats
-#  à droite (st.columns([2, 3])), mêmes encadrés.
+#  Écran de l'assemblage : même en-tête et même barre d'outils que les
+#  modules béton (🏠 Accueil · 🔄 Réinitialiser · 💾 Enregistrer · 📂 Ouvrir ·
+#  📄 Générer PDF), puis — refonte du 21/09/2026 (docs/assemblages/REFONTE_UX.md) :
+#
+#    ● statut sur une ligne, taux par élément, alertes courtes ;
+#    ● le DESSIN pleine largeur : TOUT se règle dessus — cotes cliquables,
+#      poignées + / −, fenêtres de groupe, PANNEAUX DE PIÈCE (un clic sur
+#      la poutre, la cornière, un boulon, un cordon ou l'étiquette VEd
+#      ouvre tous ses paramètres), et la poutre portée se DÉPLACE à la
+#      souris (jeu gh) — v2 du 21/09/2026 ;
+#    ● en dessous, deux replis seulement : Paramètres avancés (réduits) et
+#      Identification ; la carte de saisie complète ne revient qu'en repli
+#      si le dessin interactif est désactivé ;
+#    ● les onglets Vérifications · Prédim · Note · Benchmark · Méthode.
 #
 #  SOURCE UNIQUE : les 84 entrées vivent dans st.session_state sous les clés
-#  `asm_<clé>` ; le formulaire, le dessin cliquable, le panneau des cotes,
-#  les chips d'alerte, l'export texte et la note PDF lisent et écrivent
-#  ces clés — jamais une copie.
+#  `asm_<clé>` ; la carte, le dessin cliquable, le panneau des cotes (repli),
+#  les chips d'alerte, l'export texte et la note PDF lisent et écrivent ces
+#  clés — jamais une copie.
 #
-#  Ordre d'exécution : la colonne de droite est rendue AVANT la colonne de
-#  saisie, pour qu'un clic sur une cote du dessin (composant) soit appliqué
-#  à l'état avant l'instanciation des widgets du formulaire.
+#  Ordre d'exécution : le dessin (composant) est rendu AVANT la carte, pour
+#  qu'un message du dessin soit appliqué à l'état avant l'instanciation des
+#  widgets qui portent les mêmes clés.
 # ===========================
 import json
 from datetime import datetime
@@ -24,15 +34,14 @@ from functools import lru_cache
 
 import streamlit as st
 
-from acier.js import js_str
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json
 from .moteur import compute
 from .benchmark import run_bench
 
-MODULE_VERSION = "1.0"
+MODULE_VERSION = "1.2"
 PREFIXE = "asm_"
-_TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "_asm_", "asm_cmp_", "asm_cote_", "asm_fix_")
+_TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "pdf_detail_bytes", "_asm_", "asm_cmp_", "asm_cote_", "asm_fix_")
 
 
 def K(k):
@@ -64,7 +73,7 @@ def _init_etat():
 def _epingler():
     """FIX PERSISTANCE (voir poutre.py / dalle.py) : ré-affecter chaque clé
     persistante pour que Streamlit ne nettoie pas l'état des widgets non
-    rendus (champs conditionnels)."""
+    rendus (champs conditionnels, géométrie portée par le dessin)."""
     for k in list(st.session_state.keys()):
         if k.startswith(PREFIXE) and not _transitoire(k):
             st.session_state[k] = st.session_state[k]
@@ -89,7 +98,7 @@ def _reinitialiser():
 
 
 def _payload(u):
-    return {"version": "assemblage-doubles-cornieres-1.0", "assemblage": "doubles_cornieres",
+    return {"version": "assemblage-doubles-cornieres-1.1", "assemblage": "doubles_cornieres",
             "values": u}
 
 
@@ -104,6 +113,14 @@ def charger_payload(data):
 
 def _pdf_filename(u):
     return texte.nom_fichier(u, ".pdf")
+
+
+def _infos(u):
+    return {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
+            "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
+            "date": st.session_state.get("date", "") or u.get("id_date", "")
+            or datetime.today().strftime("%d/%m/%Y"),
+            "indice": st.session_state.get("indice", "0")}
 
 
 # ------------------------------------------------------------------ écran
@@ -173,47 +190,54 @@ def show():
         R, erreur = None, f"{type(e).__name__}: {e}"
 
     with b5:
-        if st.button("📄 Générer PDF", use_container_width=True, key="asm_btn_pdf", disabled=R is None):
-            from .rapport import generer_pdf
-            infos = {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
-                     "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
-                     "date": st.session_state.get("date", "") or u.get("id_date", "")
-                     or datetime.today().strftime("%d/%m/%Y"),
-                     "indice": st.session_state.get("indice", "0")}
+        if st.button("📄 Générer PDF", use_container_width=True, key="asm_btn_pdf", disabled=R is None,
+                     help="Note de calcul d'une page (A4 paysage). Rapport détaillé : onglet Note."):
+            from .note import generer_note
             try:
-                st.session_state["asm_pdf_bytes"] = generer_pdf(R, infos)
+                st.session_state["asm_pdf_bytes"] = generer_note(R, _infos(u))
                 st.success("✅ Note de calcul générée")
             except Exception as e:  # noqa: BLE001
                 st.session_state.pop("asm_pdf_bytes", None)
                 st.error(f"Erreur lors de la génération du PDF : {e}")
         if st.session_state.get("asm_pdf_bytes"):
-            st.download_button("⬇️ Télécharger le rapport PDF", data=st.session_state["asm_pdf_bytes"],
+            st.download_button("⬇️ Télécharger la note PDF", data=st.session_state["asm_pdf_bytes"],
                                file_name=_pdf_filename(u), mime="application/pdf",
                                use_container_width=True, key="asm_btn_pdf_dl")
 
-    gauche, droite = st.columns([2, 3])
-    with droite:
-        cH1, cH2 = st.columns([18, 1.3], vertical_alignment="center")
-        with cH1:
-            st.markdown("### Résultats")
-        with cH2:
-            st.button("⚙️", key="asm_btn_toggle_param", help="Paramètres avancés", use_container_width=True,
-                      on_click=lambda: st.session_state.__setitem__(
-                          "asm_show_param", not st.session_state.get("asm_show_param", False)))
-        if st.session_state.get("asm_show_param", False):
-            with st.container(border=True):
-                st.checkbox("Dessin interactif (cotes cliquables sur le schéma)", key="asm_ui_composant",
-                            help="Désactivé : le schéma reste affiché et les cotes se modifient dans le panneau « Cotes ».")
-        if R is None:
-            st.error(f"Données incomplètes : {erreur}")
-        else:
-            ecran_resultats.render(R, _bench(), u, ecrire_entrees)
-    with gauche:
-        st.markdown("### Données")
-        chauds = set()
-        if R is not None:
-            sel = st.session_state.get("asm_ui_alerte")
-            for a in R.alerts:
-                if a.id == sel:
-                    chauds = set(a.fields)
-        ecran_saisie.render(u, chauds)
+    if R is None:
+        st.error(f"Données incomplètes : {erreur}")
+        ecran_saisie.carte(u, set())
+        return
+
+    def generer_detaille():
+        from .rapport import generer_pdf
+        try:
+            st.session_state["asm_pdf_detail_bytes"] = generer_pdf(R, _infos(u))
+            st.success("✅ Rapport détaillé généré")
+        except Exception as e:  # noqa: BLE001
+            st.session_state.pop("asm_pdf_detail_bytes", None)
+            st.error(f"Erreur lors de la génération du PDF : {e}")
+
+    ecran_resultats.bandeau(R)
+    ecran_resultats.alertes(R, u)
+    chauds = set()
+    sel = st.session_state.get("asm_ui_alerte")
+    for a in R.alerts:
+        if a.id == sel:
+            chauds = set(a.fields)
+    if st.session_state.get("asm_ui_composant", True):
+        # tout se règle sur le dessin : pleine largeur, puis les deux replis
+        ecran_resultats.dessins(R, u)
+        c1, c2 = st.columns(2, gap="medium")
+        with c1:
+            ecran_saisie.avances(u, chauds)
+        with c2:
+            ecran_saisie.identification(u, chauds)
+    else:
+        # repli sans composant : dessin statique + carte de saisie complète
+        c_dessin, c_carte = st.columns([1.55, 1], gap="medium")
+        with c_dessin:
+            ecran_resultats.dessins(R, u)
+        with c_carte:
+            ecran_saisie.carte(u, chauds)
+    ecran_resultats.onglets(R, _bench(), u, ecrire_entrees, generer_detaille)

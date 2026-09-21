@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Note de calcul PDF de l'assemblage.
+"""Rapport détaillé PDF de l'assemblage (rapport.py, trois pages) — la note
+d'une page du bouton « Générer PDF » est testée par
+tests/test_assemblages_note.py.
 
 Chaque garantie rougit si on la retire :
   1. FORME : garde portrait + 2 planches paysage (A4), palette 01_encre,
@@ -12,8 +14,10 @@ Chaque garantie rougit si on la retire :
      donne ; le statut, le taux maximal, la dimensionnante y sont ; la
      planche de développement porte la formule des vérifications
      essentielles.
-  3. DESSIN : les deux vues sont peintes (textes des cotes présents).
-  4. APPLICATION : le bouton « Générer PDF » de l'écran produit la note.
+  3. DESSIN : les deux vues sont peintes (textes des cotes présents, en
+     notation Eurocode).
+  4. APPLICATION : le bouton « Rapport détaillé » de l'onglet Note produit
+     le rapport.
   5. NON-RÉGRESSION : l'extension de ndc_pdf ne change pas l'étalon béton
      (tests/test_export_pdf_ndc.py, lancé séparément).
 
@@ -87,8 +91,8 @@ chk("développement : paramètres retenus et pinces (Tableau 3.3)",
 chk("identification reprise", "P3/S7" in t1 and "Halle A" in t0)
 
 print("\n=== 3. Dessins peints ===")
-chk("cotes de l'élévation et du plan présentes (Lc, zc, gA, bA)",
-    all(x in t1 for x in ("Lc = 190", "zc 50", "gA 55", "bA = 100")))
+chk("cotes de l'élévation et du plan présentes, en notation Eurocode (hc, zc, gA, bA)",
+    all(x in t1 for x in ("hc = 190", "zc 50", "gA 55", "bA = 100")) and "Lc = 190" not in t1)
 chk("noms des profilés sur le dessin", "HEA 400" in t1 and "HEA 300" in t1)
 pix = doc[1].get_pixmap(dpi=60)
 chk("planche rendue (pixels non blancs)", sum(1 for i in range(0, len(pix.samples), 3 * 97)
@@ -111,12 +115,13 @@ at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout
 at.session_state["page"] = "Assemblages métalliques"
 at.session_state["asm_courant"] = "doubles_cornieres"
 at.run()
-at.button(key="asm_btn_pdf").click(); at.run()
-chk("le bouton « Générer PDF » produit la note", not at.exception and bool(at.session_state.get("asm_pdf_bytes")),
-    str(at.exception))
-if at.session_state.get("asm_pdf_bytes"):
-    da = pymupdf.open(stream=at.session_state["asm_pdf_bytes"], filetype="pdf")
-    chk("note de l'application : 3 pages, planche de synthèse", da.page_count == 3 and "synthèse" in da[1].get_text())
+at.session_state["asm_ui_onglet"] = "Note"; at.run()
+at.button(key="asm_btn_pdf_detail").click(); at.run()
+chk("le bouton « Rapport détaillé » de l'onglet Note produit le rapport",
+    not at.exception and bool(at.session_state.get("asm_pdf_detail_bytes")), str(at.exception))
+if at.session_state.get("asm_pdf_detail_bytes"):
+    da = pymupdf.open(stream=at.session_state["asm_pdf_detail_bytes"], filetype="pdf")
+    chk("rapport de l'application : 3 pages, planche de synthèse", da.page_count == 3 and "synthèse" in da[1].get_text())
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
