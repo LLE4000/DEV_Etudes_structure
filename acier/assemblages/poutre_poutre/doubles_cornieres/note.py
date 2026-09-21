@@ -523,6 +523,7 @@ class PlanPrincipe:
 
     def __init__(self, R, doc_meta):
         self.R = R; self.doc = doc_meta; self.S = Encre(); self.warnings = []
+        self.titre = TITRE                # un autre assemblage met le sien
         self.vues = self._vues(5)
 
     def _vues(self, dnm):
@@ -591,7 +592,7 @@ class PlanPrincipe:
         W, H = d.W, d.H
         y = H - M - 4
         d.t(M, y, doc.get("bureau", ""), S.f_v, 8.0, S.acc, track=1.4)
-        d.t(W - M, y, TITRE, S.f_b, 7.6, S.mut, "right")
+        d.t(W - M, y, self.titre, S.f_b, 7.6, S.mut, "right")
         y -= 16
         d.t(M, y, "PLAN DE PRINCIPE", S.f_h, 13.5, S.ink)
         y -= 7

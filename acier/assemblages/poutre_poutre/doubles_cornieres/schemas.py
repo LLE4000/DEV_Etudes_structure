@@ -100,6 +100,9 @@ class Options:
     # par une autre (jamais deux fois la même cote sur la planche)
     fabrication: bool = False
     exclure: frozenset = frozenset()
+    # liste blanche des cotes calculées admises en fabrication ; None = celle
+    # de CE module (FABRICATION_CALC) — un autre assemblage passe la sienne
+    fabrication_calc: object = None
     # taille de police IMPOSÉE (mm de la scène) : le plan de principe la fixe
     # à « hauteur imprimée constante × dénominateur d'échelle », pour que les
     # trois vues aient le MÊME texte sur le papier ; 0 = automatique (écran)
@@ -342,7 +345,8 @@ class Feuille:
             return False
         if o.fabrication:
             if d.get("calc"):
-                return d["id"] in FABRICATION_CALC
+                wl = FABRICATION_CALC if o.fabrication_calc is None else o.fabrication_calc
+                return d["id"] in wl
             return bool(d.get("key") or d["lvl"] <= o.lvl)
         return bool(d["lvl"] <= o.lvl or self.is_hot(d["id"])
                     or (o.editables and d.get("key")))
