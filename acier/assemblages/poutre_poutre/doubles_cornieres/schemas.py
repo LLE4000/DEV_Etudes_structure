@@ -445,6 +445,79 @@ def cotes_modifiables(dessin):
     return out
 
 
+# ------------------------------------------------------------ style résolu
+def style_de(cls, ctx, p=None):
+    """Style d'une primitive d'après ses classes et celles de ses groupes
+    parents (``ctx``) — la même règle que la feuille de style, exprimée en
+    attributs : ``fill``, ``fo`` (opacité de remplissage), ``stroke``,
+    ``sw`` (épaisseur), ``dash``, ``bold``, ``italic``, ``tfill`` (texte).
+    Sert au SVG (attributs de présentation, valables sans CSS) et au peintre
+    PDF de ``rapport.py``."""
+    p = p or PALETTE
+    c = set(cls); k = set(ctx)
+    hot_self = "hot" in c; hot_ctx = "hot" in k
+    st = dict(fill="none", fo=1.0, stroke="none", sw=1.0, dash=None, bold=False,
+              italic=False, tfill=p["accent"])
+    ink, acc, ko = p["ink"], p["accent"], p["ko"]
+    if "pp" in c or "ps" in c:
+        st.update(fill=p["pp"] if "pp" in c else p["ps"], stroke=ink, sw=1.4)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "fl2" in c:
+        st.update(stroke=ink, sw=0.8)
+    elif "co" in c:
+        st.update(fill=acc, fo=0.28, stroke=acc, sw=1.6)
+        if hot_self:
+            st.update(fill=ko, fo=0.2, stroke=ko, sw=3)
+    elif "co2" in c:
+        st.update(fill=acc, fo=0.6)
+    elif "bo" in c:
+        st.update(fill="#FFFFFF", stroke=ink, sw=1.5)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "bp" in c:
+        st.update(stroke=ko, sw=2.4, dash=(7, 3))
+        if hot_self:
+            st.update(sw=4.5, dash=None)
+    elif "we" in c:
+        st.update(stroke=p["weld"], sw=5)
+    elif "wd" in c:
+        st.update(fill=p["weld"])
+    elif "hl" in c:
+        st.update(stroke=ko, sw=4)
+    elif "cm" in c:
+        st.update(stroke=ink, sw=0.6)
+    elif "ext" in c:
+        st.update(stroke=p["ext"], sw=0.6)
+        if hot_ctx:
+            st.update(stroke=ko, sw=2)
+    elif "dln" in c:
+        st.update(stroke=acc, sw=1)
+        if "calc" in k:
+            st.update(stroke=p["calc"], dash=(5, 3))
+        if hot_ctx:
+            st.update(stroke=ko, sw=2, dash=None)
+    elif "hit" in c:
+        st.update(fill=p["hit"], fo=0.9)
+        if "ed" in k:
+            st.update(fill=p["inbg"], fo=1.0, stroke=p["inbord"], sw=1)
+        if hot_ctx:
+            st.update(fill=p["hotbg"], fo=1.0, stroke=ko, sw=2)
+    # texte
+    if "tx" in c:
+        st.update(tfill=ink, bold=True)
+    elif "cart" in k:
+        st.update(tfill=ink)
+    elif "dl" in k:
+        if "ed" in k:
+            st.update(tfill=p["inink"], bold=True)
+        if "calc" in k:
+            st.update(tfill=p["calc"], italic=True)
+        if hot_ctx:
+            st.update(tfill=ko, bold=True)
+    return st
+
+
 # ------------------------------------------------------------------ rendu SVG
 def _esc(s):
     return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
@@ -512,24 +585,33 @@ def _path_d(lignes, hint=None):
     return "".join(parts)
 
 
-def _prim_svg(p):
+def _attrs_forme(st):
+    a = f' fill="{st["fill"]}"'
+    if st["fill"] != "none" and st["fo"] < 1:
+        a += f' fill-opacity="{_n(st["fo"])}"'
+    a += f' stroke="{st["stroke"]}"'
+    if st["stroke"] != "none":
+        a += f' stroke-width="{_n(st["sw"])}" vector-effect="non-scaling-stroke"'
+        if st["dash"]:
+            a += f' stroke-dasharray="{st["dash"][0]} {st["dash"][1]}"'
+    return a
+
+
+def _attrs_texte(st):
+    a = f' fill="{st["tfill"]}" font-family="system-ui,Arial,sans-serif"'
+    if st["bold"]:
+        a += ' font-weight="600"'
+    if st["italic"]:
+        a += ' font-style="italic"'
+    return a
+
+
+def _prim_svg(p, ctx=(), palette=None):
+    """Une primitive en SVG : classes (pour la feuille de style, le survol et
+    le composant cliquable) ET attributs de présentation (valables sans CSS)."""
     cls = " ".join(p["cls"])
     ca = f' class="{cls}"' if cls else ""
     t = p["t"]
-    if t == "rect":
-        rx = f' rx="{_n(p["rx"])}"' if p.get("rx") else ""
-        return f'<rect class="{cls}" x="{_n(p["x"])}" y="{_n(p["y"])}" width="{_n(p["w"])}" height="{_n(p["h"])}"{rx}/>'
-    if t == "poly":
-        return f'<polygon class="{cls}" points="{" ".join(_n(x) + "," + _n(y) for x, y in p["pts"])}"/>'
-    if t == "path":
-        return f'<path{ca} d="{_path_d(p["lignes"], p.get("hint"))}"/>'
-    if t == "circle":
-        return f'<circle class="{cls}" cx="{_n(p["cx"])}" cy="{_n(p["cy"])}" r="{_n(p["r"])}"/>'
-    if t == "text":
-        pos = f' x="{_n(p["x"])}" y="{_n(p["y"])}"' if p.get("x") is not None else ""
-        anc = f' text-anchor="{p["anchor"]}"' if p.get("anchor") else ""
-        return (f'<text{ca}{pos}{anc} font-size="{_n(p["size"])}">'
-                f'{_esc(p["txt"])}</text>')
     if t == "g":
         attrs = ""
         if p.get("key"):
@@ -539,16 +621,33 @@ def _prim_svg(p):
             attrs += f' transform="translate({_n(p["x"])} {_n(p["y"])})' + (" rotate(-90)" if p.get("rot") else "") + '"'
         if p.get("id") and "x" in p:
             attrs += f' data-dim="{p["id"]}"'
-        return f'<g{ca}{attrs}>' + "".join(_prim_svg(e) for e in p["enfants"]) + "</g>"
+        sous = tuple(ctx) + tuple(p["cls"])
+        return f'<g{ca}{attrs}>' + "".join(_prim_svg(e, sous, palette) for e in p["enfants"]) + "</g>"
+    st = style_de(p["cls"], ctx, palette)
+    if t == "rect":
+        rx = f' rx="{_n(p["rx"])}"' if p.get("rx") else ""
+        return (f'<rect{ca} x="{_n(p["x"])}" y="{_n(p["y"])}" width="{_n(p["w"])}" height="{_n(p["h"])}"{rx}'
+                f'{_attrs_forme(st)}/>')
+    if t == "poly":
+        return f'<polygon{ca} points="{" ".join(_n(x) + "," + _n(y) for x, y in p["pts"])}"{_attrs_forme(st)}/>'
+    if t == "path":
+        return f'<path{ca} d="{_path_d(p["lignes"], p.get("hint"))}"{_attrs_forme(st)}/>'
+    if t == "circle":
+        return f'<circle{ca} cx="{_n(p["cx"])}" cy="{_n(p["cy"])}" r="{_n(p["r"])}"{_attrs_forme(st)}/>'
+    if t == "text":
+        pos = f' x="{_n(p["x"])}" y="{_n(p["y"])}"' if p.get("x") is not None else ""
+        anc = f' text-anchor="{p["anchor"]}"' if p.get("anchor") else ""
+        return (f'<text{ca}{pos}{anc} font-size="{_n(p["size"])}"{_attrs_texte(st)}>'
+                f'{_esc(p["txt"])}</text>')
     raise ValueError(t)
 
 
 def vers_svg(d, palette=PALETTE, largeur="100%", identifiant="dc"):
     """SVG autonome de la vue ``d`` (style embarqué)."""
     x1, y1, w, h = d.viewbox
-    corps = "".join(_prim_svg(p) for p in d.corps)
-    cotes = "".join(_prim_svg(p) for p in d.cotes)
-    cart = ('<g class="cart">' + "".join(_prim_svg(p) for p in d.cartouche) + "</g>") if d.cartouche else ""
+    corps = "".join(_prim_svg(p, (), palette) for p in d.corps)
+    cotes = "".join(_prim_svg(p, (), palette) for p in d.cotes)
+    cart = ('<g class="cart">' + "".join(_prim_svg(p, ("cart",), palette) for p in d.cartouche) + "</g>") if d.cartouche else ""
     return (f'<svg id="{identifiant}" xmlns="http://www.w3.org/2000/svg" viewBox="{_n(x1)} {_n(y1)} {_n(w)} {_n(h)}"'
             f' width="{largeur}" role="img" aria-label="{_esc(d.aria)}">'
             f"<style>{_css(palette, identifiant)}</style>" + corps + cotes + cart + "</svg>")
