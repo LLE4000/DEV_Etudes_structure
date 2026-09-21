@@ -94,20 +94,51 @@ class Options:
     # cartouche (lignes sous l'élévation) : utile à l'écran ; sur la note il
     # répéterait la ligne de données et les hypothèses, donc False au rapport
     cartouche: bool = True
+    # plan de principe (page 2 de la note) : toutes les cotes de FABRICATION
+    # (les entrées) et rien d'autre — les grandeurs calculées sont réduites à
+    # une liste blanche, et « exclure » retire d'une vue les cotes portées
+    # par une autre (jamais deux fois la même cote sur la planche)
+    fabrication: bool = False
+    exclure: frozenset = frozenset()
+    # liste blanche des cotes calculées admises en fabrication ; None = celle
+    # de CE module (FABRICATION_CALC) — un autre assemblage passe la sienne
+    fabrication_calc: object = None
+    # taille de police IMPOSÉE (mm de la scène) : le plan de principe la fixe
+    # à « hauteur imprimée constante × dénominateur d'échelle », pour que les
+    # trois vues aient le MÊME texte sur le papier ; 0 = automatique (écran)
+    fs_force: float = 0.0
 
 
 def options_ecran(R, lvl=1, hl=None):
     """Options de l'écran : niveau choisi, toutes les cotes modifiables
     visibles et cliquables, poignées des groupes, alerte en cours, cotes
-    pilotées verrouillées en prédimensionnement."""
+    pilotées verrouillées en prédimensionnement. Sans cartouche texte : la
+    carte et les panneaux de pièce portent déjà ces données, et la colonne
+    du dessin (figée) reste courte."""
     return Options(lvl=lvl, interactive=True, hl=hl, editables=True, poignees=True,
-                   locked=set(PILOTEES_PAR_PREDIM) if R.pred else None)
+                   cartouche=False, locked=set(PILOTEES_PAR_PREDIM) if R.pred else None)
 
 
 def options_rapport():
     """Options du rapport : cotations principales, sans interaction, sans
     cartouche (la note porte déjà les données et les hypothèses)."""
     return Options(lvl=1, interactive=False, hl=None, locked=None, cartouche=False)
+
+
+# Grandeurs calculées admises sur le plan de principe (une seule fois
+# chacune) ; ztP = dessus de la porteuse → première rangée P (perçage de
+# l'âme porteuse coté depuis SA référence, pas seulement depuis la portée)
+FABRICATION_CALC = frozenset({"bA", "bB", "p3", "bS", "ztP"})
+# Répartition des cotes entre les vues du plan de principe : le groupe P se
+# cote sur la vue de droite (sa vraie face), les doublons sortent des autres
+EXCLURE_ELEVATION = frozenset({"e1P", "p1P", "bB", "Lc", "ztP"})
+EXCLURE_PLAN = frozenset({"e2b", "p2S", "gh", "gA", "p2P", "p3"})
+
+
+def options_fabrication(exclure=frozenset(), fs_force=0.0):
+    """Options d'une vue du plan de principe."""
+    return Options(lvl=1, interactive=False, cartouche=False, fabrication=True,
+                   exclure=frozenset(exclure), fs_force=fs_force)
 
 
 def sym_ec(s, notation=None):
@@ -240,6 +271,48 @@ def _rect_pts(x, y, w, h):
     return [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
 
 
+def _rupture(a, b, amp=None):
+    """Ligne de rupture (pièce coupée, ISO 128) : du point ``a`` au point
+    ``b``, trait continu avec un zigzag au milieu. Renvoie les points, à
+    INSÉRER dans le contour de la pièce : le bord coupé EST la ligne de
+    rupture — pas un trait posé par-dessus un bord franc."""
+    (xa, ya), (xb, yb) = a, b
+    L = math.hypot(xb - xa, yb - ya)
+    if L < 6:
+        return [[xa, ya], [xb, yb]]
+    amp = mn(amp or 4.5, L / 3.5)
+    ux, uy = (xb - xa) / L, (yb - ya) / L
+    nx, ny = -uy, ux
+
+    def pt(d, n=0.0):
+        return [xa + ux * d + nx * n, ya + uy * d + ny * n]
+
+    m = L / 2
+    return [[xa, ya], pt(m - 1.6 * amp), pt(m - 0.5 * amp, amp), pt(m + 0.5 * amp, -amp),
+            pt(m + 1.6 * amp), [xb, yb]]
+
+
+def _rect_rompu(x, y, w, h, bords, amp=None):
+    """Rectangle dont les bords ``bords`` ⊆ {T, R, B, L} sont des lignes de
+    rupture : la pièce continue au-delà (profil coupé)."""
+    c = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
+    pts = []
+    for nom, a, b in (("T", c[0], c[1]), ("R", c[1], c[2]), ("B", c[2], c[3]), ("L", c[3], c[0])):
+        pts += _rupture(a, b, amp)[:-1] if nom in bords else [list(a)]
+    return pts
+
+
+def _renvoi(S, s, x0, y0, x1, y1, txt):
+    """Renvoi d'annotation (plan de principe) : ligne de rappel oblique
+    depuis la pièce, étiquette à halo au bout — « 3×Ø22 », « r 10 »."""
+    fs = S.fs; w = S.tw(txt)
+    s.append(_path(["ext"], [[(x0, y0), (x1, y1)]]))
+    hit = _rect(["hit"], -w / 2 - 0.3 * fs, -1.05 * fs, w + 0.6 * fs, 1.42 * fs)
+    hit["rx"] = 0.2 * fs
+    dx = (w / 2 + 0.45 * fs) * (1 if x1 >= x0 else -1)
+    s.append(_group(["dl"], [hit, _text([], None, None, txt, fs)], x=x1 + dx, y=y1 + 0.34 * fs, rot=0))
+
+
 # -------------------------------------------------------------------- Feuille
 class Feuille:
     """Feuille de cotation (transcription de ``Sheet``)."""
@@ -264,9 +337,19 @@ class Feuille:
 
     def visible(self, d):
         """Une cote se pose si son niveau est atteint, si une alerte la
-        désigne, ou — en mode édition — si elle est modifiable."""
-        return bool(d["lvl"] <= self.opt.lvl or self.is_hot(d["id"])
-                    or (self.opt.editables and d.get("key")))
+        désigne, ou — en mode édition — si elle est modifiable. Sur le plan
+        de principe (fabrication) : toutes les cotes d'entrée, les calculées
+        de la liste blanche, moins celles qu'une autre vue porte déjà."""
+        o = self.opt
+        if o.exclure and d["id"] in o.exclure:
+            return False
+        if o.fabrication:
+            if d.get("calc"):
+                wl = FABRICATION_CALC if o.fabrication_calc is None else o.fabrication_calc
+                return d["id"] in wl
+            return bool(d.get("key") or d["lvl"] <= o.lvl)
+        return bool(d["lvl"] <= o.lvl or self.is_hot(d["id"])
+                    or (o.editables and d.get("key")))
 
     def slot(self, side, lo, hi):
         rows = self.rows[side]; pad = 0.4 * self.fs
@@ -422,7 +505,7 @@ def elevation(R, opt):
     notch = dnt > 0 or dnb > 0
     xE = mx(x0 + (ln if notch else 0), xf + R.b_B) + 75
     bb = dict(x1=-R.b_P / 2, x2=xE, y1=mn(0, yt), y2=mx(R.h_P, yb))
-    fs = mx((bb["x2"] - bb["x1"] + 260) / 34, 9)
+    fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 260) / 34, 9)
     xt = xf + R.b_B
     txtS = js_str(R.n1_S) + " × " + js_str(R.n2_S); txtP = js_str(R.n1_P) + " × " + js_str(R.n2_P)
     if opt.poignees:
@@ -465,18 +548,21 @@ def elevation(R, opt):
             p += _arc(x0 + ln - rn, yt + dnt - rn, rn, math.pi / 2, 0)     # rayon du grugeage
         else:
             p.append([x0 + ln, yt + dnt])
-        p += [[x0 + ln, yt], [xE, yt]]
+        p += [[x0 + ln, yt]]
     else:
-        p = [[x0, yt], [xE, yt]]
+        p = [[x0, yt]]
+    # bord droit : la poutre continue — ligne de rupture en rendu réaliste,
+    # bord franc sinon (géométrie du HTML, parité)
+    p += _rupture((xE, yt), (xE, yb), 0.55 * fs) if opt.realiste else [[xE, yt], [xE, yb]]
     if dnb > 0:
-        p += [[xE, yb], [x0 + ln, yb]]
+        p += [[x0 + ln, yb]]
         if rn > 0:
             p += _arc(x0 + ln - rn, yb - dnb + rn, rn, 0, -math.pi / 2)
         else:
             p.append([x0 + ln, yb - dnb])
         p.append([x0, yb - dnb])
     else:
-        p += [[xE, yb], [x0, yb]]
+        p.append([x0, yb])
     pS = [_poly(["ps"] + hc("beamS"), p),
           _path(["fl2"], [[(x0 + ln if dnt > 0 else x0, yt + R.tf_S), (xE, yt + R.tf_S)],
                           [(x0 + ln if dnb > 0 else x0, yb - R.tf_S), (xE, yb - R.tf_S)]])]
@@ -497,6 +583,15 @@ def elevation(R, opt):
             s.append(_path(["hl"], [[(x0, yb - dnb), (x0 + ln, yb - dnb), (x0 + ln, yb)]]))
         else:
             s.append(_path(["hl"], [[(x0, yb - R.tf_S - R.r_S), (x0, yb), (mx(R.b_P / 2, x0 + 40), yb)]]))
+    if opt.fabrication and rn > 0 and dnt > 0:
+        # rayon du grugeage, renvoyé dans le vide du grugeage supérieur
+        cxg, cyg = x0 + ln - rn, yt + dnt - rn
+        _renvoi(S, s, cxg + rn * 0.707, cyg + rn * 0.707, cxg - 2.4 * fs, yt + dnt - rn - 0.9 * fs,
+                "r " + f0(rn))
+    elif opt.fabrication and rn > 0 and dnb > 0:
+        cxg, cyg = x0 + ln - rn, yb - dnb + rn
+        _renvoi(S, s, cxg + rn * 0.707, cyg - rn * 0.707, cxg - 2.4 * fs, yb - dnb + rn + 0.9 * fs,
+                "r " + f0(rn))
     piece("cleat", [_rect(["co"] + hc("cleat"), xf, yc, R.b_B, R.L_C),
                     _rect(["co2"], xf, yc, R.t_C, R.L_C)])
     xc1 = xf + R.g_B; xcl = xc1 + (R.n2_S - 1) * p2S; yb1 = yc + R.e1_S
@@ -519,6 +614,11 @@ def elevation(R, opt):
             ax += [[(xc1 + j * p2S, yb1 - dep), (xc1 + j * p2S, ybl + dep)] for j in range(R.n2_S)]
             bS.append(_path(["ax"], ax))
         piece("bolts", bS)
+        if opt.fabrication:
+            # renvoi de perçage du groupe S (âme portée et deux cornières)
+            _renvoi(S, s, xcl + R.d_w / 2 * 0.72, yb1 - R.d_w / 2 * 0.72,
+                    xcl + r0 + 1.9 * fs, yb1 - 1.7 * fs,
+                    js_str(R.n1_S * R.n2_S) + "×Ø" + f0(R.d_0))
     elif opt.realiste:
         # cordons d'angle vus de face : bande de largeur a·√2 le long du bout
         # de l'aile B, retours en haut et en bas ; symbole de soudure
@@ -655,7 +755,7 @@ def plan(R, opt):
         # place pour les arêtes cachées des semelles de la portée (± bS/2)
         Hh = mx(Hh, R.b_S / 2 + 10)
     bb = dict(x1=-xf - 30, x2=xE, y1=-Hh, y2=Hh)
-    fs = mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
+    fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
     S = Feuille(bb, fs, opt); s = []
     hot = (opt.hl or {}).get("elems") or set()
 
@@ -675,11 +775,17 @@ def plan(R, opt):
         xsem = mn(R.b_P / 2, xE - 4)
         s.append(_path(["hd"], [[(xsem, -Hh + 2), (xsem, Hh - 2)]]))
         s.append(_path(["hd"], [[(x0, -R.b_S / 2), (xE, -R.b_S / 2)], [(x0, R.b_S / 2), (xE, R.b_S / 2)]]))
-    piece("beamP", [_rect(["pp"], -xf, -Hh, R.tw_P, 2 * Hh)]
-          + ([_path(["ht"], _hachures(_rect_pts(-xf, -Hh, R.tw_P, 2 * Hh)))] if opt.realiste else []))
-    piece("beamS", [_rect(["ps"] + hc("beamS"), x0, -ws, xE - x0, R.tw_S)]
-          + ([_path(["ht"], _hachures(_rect_pts(x0, -ws, xE - x0, R.tw_S)))] if opt.realiste else []),
-          drag="g_h", dsym="gh")
+    if opt.realiste:
+        # âmes coupées : bords francs remplacés par des lignes de rupture
+        # (la porteuse continue en haut et en bas, la portée à droite)
+        ptsP = _rect_rompu(-xf, -Hh, R.tw_P, 2 * Hh, ("T", "B"), 0.55 * fs)
+        ptsS = _rect_rompu(x0, -ws, xE - x0, R.tw_S, ("R",), 0.55 * fs)
+        piece("beamP", [_poly(["pp"], ptsP), _path(["ht"], _hachures(ptsP))])
+        piece("beamS", [_poly(["ps"] + hc("beamS"), ptsS), _path(["ht"], _hachures(ptsS))],
+              drag="g_h", dsym="gh")
+    else:
+        piece("beamP", [_rect(["pp"], -xf, -Hh, R.tw_P, 2 * Hh)])
+        piece("beamS", [_rect(["ps"] + hc("beamS"), x0, -ws, xE - x0, R.tw_S)], drag="g_h", dsym="gh")
     for g in (-1, 1):
         y1 = g * ws; y2 = g * (ws + R.t_C); y3 = g * (ws + R.b_A)
         if opt.realiste:
@@ -745,6 +851,90 @@ def plan(R, opt):
     S.dim(dict(id="tc", side="R", a=ws, b=ws + R.t_C, o1=xt, o2=xt, sym="tc", val=R.t_C, lvl=2, calc=1))
     S.dim(dict(id="twS", side="R", a=-ws, b=ws, o1=xE, o2=xE, sym="tw", val=R.tw_S, lvl=2, calc=1))
     return S.finish(s, None, "Vue en plan cotée de l'assemblage")
+
+
+def _section_portee(R, yt):
+    """Coupe de la poutre portée pour la vue de droite : le profil en I
+    COMPLET, décalé au dessus ``yt``. Le plan de coupe est AU-DELÀ du
+    grugeage (la poutre continue vers l'observateur) : une coupe à ras de
+    l'âme porteuse tomberait dans la zone grugée et cacherait la semelle
+    supérieure (retour du 21/09/2026)."""
+    return [(x, yt + y) for x, y in _section_I(R.b_S, R.h_S, R.tw_S, R.tf_S, R.r_S)]
+
+
+def vue_droite(R, opt):
+    """Vue de droite (regard le long de la poutre portée) : la face de l'âme
+    porteuse avec ses semelles, les deux ailes A des cornières en vraie
+    grandeur (perçage du groupe P coté ici : gA, p2, p3, e1, p1), et la
+    COUPE de la portée par-devant — profil complet, semelles comprises, le
+    plan de coupe étant au-delà du grugeage. Vue du plan de principe."""
+    u = R.u; ws = R.tw_S / 2; yt = N(u.d_top); zc = N(u.z_C); yc = yt + zc
+    p2P = N(u.p2_P)
+    xg = ws + R.g_A                                   # première file (talon → file)
+    xgl = xg + (R.n2_P - 1) * p2P                     # dernière file
+    r0 = R.d_0 / 2
+    Wp = mx(ws + R.b_A, xgl + r0 + 18, R.b_S / 2 + 6) + 40
+    bb = dict(x1=-Wp, x2=Wp, y1=mn(0, yt), y2=mx(R.h_P, yt + R.h_S))
+    fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 240) / 34, 9)
+    S = Feuille(bb, fs, opt); s = []
+    # âme porteuse vue de face — tronçon coupé des deux côtés : les bords
+    # gauche et droit sont des lignes de rupture ; semelles par la tranche
+    s.append(_poly(["pp"], _rect_rompu(-Wp, 0, 2 * Wp, R.h_P, ("L", "R"), 0.55 * fs)))
+    s.append(_path(["fl2"], [[(-Wp, R.tf_P), (Wp, R.tf_P)], [(-Wp, R.h_P - R.tf_P), (Wp, R.h_P - R.tf_P)]]))
+    if R.r_P > 0:
+        s.append(_path(["flr"], [[(-Wp, R.tf_P + R.r_P), (Wp, R.tf_P + R.r_P)],
+                                 [(-Wp, R.h_P - R.tf_P - R.r_P), (Wp, R.h_P - R.tf_P - R.r_P)]]))
+    # ailes A des deux cornières, en vraie grandeur ; tranche des ailes B
+    for g in (-1, 1):
+        xa = mn(g * ws, g * (ws + R.b_A)); s.append(_rect(["co"], xa, yc, R.b_A, R.L_C))
+        xb = mn(g * ws, g * (ws + R.t_C)); s.append(_rect(["co2"], xb, yc, R.t_C, R.L_C))
+    yp1 = yc + R.e1_P; ypl = yp1 + (R.n1_P - 1) * R.p1_P
+    if R.bolt_P:
+        dep = R.d_0 / 2 + 5
+        for g in (-1, 1):
+            for j in range(R.n2_P):
+                xh = g * (xg + j * p2P)
+                for i in range(R.n1_P):
+                    s.append(_circle(["bo"], xh, yp1 + i * R.p1_P, r0))
+        ax = [[(-xgl - dep, yp1 + i * R.p1_P), (xgl + dep, yp1 + i * R.p1_P)] for i in range(R.n1_P)]
+        for g in (-1, 1):
+            for j in range(R.n2_P):
+                xh = g * (xg + j * p2P)
+                ax.append([(xh, yp1 - dep), (xh, ypl + dep)])
+        s.append(_path(["ax"], ax))
+        if opt.fabrication:
+            # renvoi de perçage du groupe P : les deux cornières et l'âme
+            _renvoi(S, s, xgl + r0 * 0.72, ypl + r0 * 0.72, xgl + r0 + 1.6 * fs, ypl + 1.9 * fs,
+                    js_str(2 * R.n1_P * R.n2_P) + "×Ø" + f0(R.d_0))
+    else:
+        # cordons A : bande verticale a·√2 au bout de chaque aile A
+        z = N(u.a_P) * math.sqrt(2)
+        for g in (-1, 1):
+            s.append(_rect(["wb"], mn(g * (ws + R.b_A), g * (ws + R.b_A) + g * z), yc, z, R.L_C))
+    # coupe de la poutre portée, par-devant : profil complet (le plan de
+    # coupe est au-delà du grugeage), hachuré comme toute pièce coupée
+    sec = _section_portee(R, yt)
+    s.append(_poly(["ps"], sec))
+    s.append(_path(["ht"], _hachures(sec)))
+    # cotes : le groupe P se lit ici (sa vraie face)
+    if R.bolt_P:
+        S.dim(dict(id="gA", side="T", a=ws, b=xg, o1=yc, o2=yp1, sym="gA", val=R.g_A, key="gA_u", lvl=1, out="lo"))
+        if R.n2_P > 1:
+            S.dim(dict(id="p2P", side="T", a=xg, b=xgl, o1=yp1, o2=yp1, sym="p2", val=p2P, key="p2_P", lvl=1))
+        S.dim(dict(id="p3", side="T", a=-xg, b=xg, o1=yp1, o2=yp1, sym="p3", val=R.p_3, lvl=1, calc=1))
+        S.dim(dict(id="e1P", side="L", a=yc, b=yp1, o1=-xgl, o2=-xgl, sym="e1", val=R.e1_P, key="e1P_u", lvl=1, out="lo"))
+        for i in range(1, R.n1_P):
+            S.dim(dict(id="p1P", side="L", a=yp1 + (i - 1) * R.p1_P, b=yp1 + i * R.p1_P, o1=-xgl, o2=-xgl,
+                       sym="p1", val=R.p1_P, key="p1P_u", lvl=1))
+        # position du perçage depuis la référence de la PORTEUSE (son dessus) :
+        # la cote de fabrication de l'âme porteuse, zt = Δz + zc + e1
+        S.dim(dict(id="ztP", side="L", a=0, b=yp1, o1=-Wp, o2=-xgl, sym="zt", val=R.zt_P, lvl=1, calc=1))
+    S.dim(dict(id="Lc", side="R", a=yc, b=yc + R.L_C, o1=ws + R.b_A, o2=ws + R.b_A, sym="Lc", val=R.L_C,
+               key="LC_u", lvl=1))
+    S.dim(dict(id="bS", side="B", a=-R.b_S / 2, b=R.b_S / 2, o1=yt + R.h_S, o2=yt + R.h_S, sym="bS",
+               val=R.b_S, lvl=1, calc=1))
+    S.name("T", 0, "Poutre principale" if u.prof_P == PERSO else u.prof_P)
+    return S.finish(s, None, "Vue de droite : ailes A et perçage du groupe P")
 
 
 def dessins(R, opt):

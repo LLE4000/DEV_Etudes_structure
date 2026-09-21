@@ -1,23 +1,27 @@
 # -*- coding: utf-8 -*-
 """La carte de données : ce qui n'est pas géométrique, en blocs compacts.
 
-Un objet = un bloc de deux lignes : MODE ET FIXATIONS, PROFILÉS, CORNIÈRES,
-BOULONS, EFFORTS ; puis, repliés, PARAMÈTRES AVANCÉS (ce qu'on ne modifie
+C'est la COLONNE DE DROITE de l'écran (finalisation du 21/09/2026) : un
+objet = un bloc de deux lignes — MODE ET FIXATIONS, PROFILÉS, CORNIÈRES,
+BOULONS, EFFORTS — puis, repliés, PARAMÈTRES AVANCÉS (ce qu'on ne modifie
 pas dans 90 % des cas) et IDENTIFICATION. La géométrie — entraxes, pinces,
 longueur et position des cornières, grugeage, jeu, gorges et retours des
-cordons — ne se modifie que sur le dessin (une seule entrée par paramètre).
+cordons — ne se modifie que sur le dessin, figé dans la colonne de gauche
+(ou dans le panneau des cotes, si le dessin interactif est désactivé).
 
 Chaque champ est un widget Streamlit dont la clé est ``asm_<clé>`` : la
 valeur vit dans ``st.session_state`` (source unique, partagée avec le dessin,
 les exports et la note). Aucun ``value=`` n'est passé aux widgets : l'état
-est écrit AVANT leur instanciation.
+est écrit AVANT leur instanciation — le dessin, qui écrit ces clés, est donc
+rendu AVANT la carte (interface.py).
 """
 import streamlit as st
 
 from acier.assemblages.ui_commun import titre_bloc
 from acier.bibliotheques import ORI_P, ORI_S
 from .entrees import (mode_predim, PILOTEES_PAR_PREDIM, CHAMPS, champ_visible,
-                      perso_P, perso_S, perso_C, _cat_non_A, _acier_perso)
+                      perso_P, perso_S, perso_C, _cat_non_A, _acier_perso,
+                      BOULONNEE, VISSERIE_DEFAUT)
 from .schemas import CLE_PAR_COTE
 
 # Affichage abrégé de certaines options (la valeur enregistrée ne change pas)
@@ -79,14 +83,6 @@ AVANCES = [(["r_n", "lt_ok"], None), (["d0_u", "filet"], None),
            (["opt_exc", "k_rot"], None), (["opt_blf", "expo"], None),
            (["fy_u", "fu_u", "bw_u"], _acier_perso),
            (["eta_c", "k_e1", "k_p1", "k_e2"], mode_predim), (["pd_dmin", "pd_dmax"], mode_predim)]
-# En mode interactif, ce que les panneaux du dessin portent déjà (rayon de
-# grugeage, maintien, filetage, μ / ks / ELS) sort des avancés : une seule
-# entrée par paramètre.
-AVANCES_INTERACTIF = [(["d0_u"], None),
-                      (["g_M0", "g_M2", "g_M2n"], None), (["g_M3", "g_M3s"], _cat_non_A),
-                      (["opt_exc", "k_rot"], None), (["opt_blf", "expo"], None),
-                      (["fy_u", "fu_u", "bw_u"], _acier_perso),
-                      (["eta_c", "k_e1", "k_p1", "k_e2"], mode_predim), (["pd_dmin", "pd_dmax"], mode_predim)]
 IDENTIFICATION = [(["id_projet", "id_rep"], None), (["id_red", "id_date"], None)]
 
 
@@ -186,19 +182,37 @@ def _contient_chaud(lignes, chauds, u):
     return any(k in chauds for cles, cond in lignes if not cond or cond(u) for k in cles)
 
 
-def avances(u, chauds=frozenset(), plein=False):
-    """L'expander « Paramètres avancés » : la version réduite (mode
-    interactif — le dessin porte le reste) ou la version pleine (repli)."""
-    rows = AVANCES if plein else AVANCES_INTERACTIF
-    chaud_av = _contient_chaud(rows, chauds, u)
+def ligne_visserie(u):
+    """La composition de la boulonnerie (rondelles, écrous) : une annotation
+    de FABRICATION, hors moteur — saisie libre, portée au cartouche du plan
+    de principe et enregistrée avec le calcul (interface.py)."""
+    if not (u.get("fix_P") == BOULONNEE or u.get("fix_S") == BOULONNEE):
+        return
+    cols = st.columns([0.62, 3], gap="small", vertical_alignment="bottom")
+    with cols[0]:
+        titre_bloc("VISSERIE")
+    with cols[1]:
+        st.session_state.setdefault("asm_visserie", VISSERIE_DEFAUT)
+        st.text_input("Par boulon", key="asm_visserie",
+                      help="Rondelles et écrous par boulon — porté au cartouche du plan de principe. "
+                           "Exemples : « 1 rondelle + 1 écrou », « 1 rondelle + 2 écrous (contre-écrou) », "
+                           "« 2 rondelles + 1 écrou ».")
+
+
+def avances(u, chauds=frozenset()):
+    """L'expander « Paramètres avancés », replié : coefficients partiels et
+    options du modèle. Certains champs (rayon de grugeage, maintien,
+    filetage) existent aussi dans les panneaux du dessin — même clé de
+    session, donc une seule vérité (R2)."""
+    chaud_av = _contient_chaud(AVANCES, chauds, u)
     with st.expander(("🔴 " if chaud_av else "") + "Paramètres avancés", expanded=chaud_av):
         st.caption("Coefficients partiels et options du modèle : valeurs recommandées de l'EN 1993, à confirmer "
                    "par rapport à l'ANB applicable.")
         with st.container(gap=None):
-            _lignes(rows, u, chauds)
+            _lignes(AVANCES, u, chauds)
         st.checkbox("Dessin interactif (cotes et pièces cliquables sur le schéma)", key="asm_ui_composant",
                     help="Désactivé : le dessin reste affiché ; les cotes se modifient dans le panneau « Cotes » "
-                         "et les autres paramètres dans la carte de saisie.")
+                         "en tête de cette colonne.")
 
 
 def identification(u, chauds=frozenset()):
@@ -208,12 +222,14 @@ def identification(u, chauds=frozenset()):
 
 
 def carte(u, chauds=frozenset()):
-    """Le repli sans dessin interactif : la carte complète pour l'état ``u`` ;
-    ``chauds`` = clés mises en cause par l'alerte sélectionnée."""
+    """La carte complète pour l'état ``u`` — les blocs par objet, puis les
+    deux replis ; ``chauds`` = clés mises en cause par l'alerte sélectionnée."""
     with st.container(gap=None):
         for titre, lignes in BLOCS:
             _lignes(lignes, u, chauds, ("🔴 " if _contient_chaud(lignes, chauds, u) else "") + titre)
-    avances(u, chauds, plein=True)
+            if titre == "BOULONS":
+                ligne_visserie(u)
+    avances(u, chauds)
     identification(u, chauds)
 
 

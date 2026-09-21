@@ -314,12 +314,84 @@ Complément (même jour, retour « la semelle est mal faite ») :
   les références, communes aux deux ailes, sont sur une ligne sous la
   matrice (une colonne les repliait sur trois à cinq lignes) ;
 - les formules de la note ne sont pas « toutes les essentielles » sur les
-  cas chargés : la place restante est remplie par priorité, et la page dit
-  « Autres vérifications : formules dans le rapport détaillé » quand elle
-  en omet ;
+  cas chargés : la place restante est remplie par priorité *(depuis la
+  finalisation §12, la page ne l'écrit plus — le rapport détaillé reste le
+  développement complet)* ;
 - l'onglet « Schéma et géométrie » disparaît : le dessin est toujours
   visible, au-dessus des onglets ; « Paramètres retenus » et le Tableau 3.3
   sont dans l'onglet Vérifications ;
 - les libellés d'options longs (orientation de la cornière) sont abrégés à
   l'affichage seulement (`ecran_saisie.AFFICHAGE`) ; la valeur enregistrée
   ne change pas.
+
+## 12. Finalisation du 21/09/2026 — colonne figée, plan de principe
+
+Dernier retour du bureau, réalisé le même jour.
+
+**Écran en deux colonnes, dessin FIGÉ.** À gauche, l'élévation puis la vue
+en plan, EMPILÉES ; la colonne est `position: sticky` (CSS injecté,
+`interface._CSS_STICKY`) : le schéma reste à l'écran pendant qu'on fait
+défiler les paramètres et les vérifications à droite. La colonne est
+reconnue par son contenu (`:has` sur le conteneur `asm_col_dessin`), jamais
+par sa position dans le DOM ; sous 641 px (téléphone), Streamlit empile les
+colonnes et le sticky est retiré. Le padding bas du conteneur principal
+(10 rem par défaut) est ramené à 1,5 rem : sans cela, la colonne « se
+gare » sous le haut de l'écran en fin de page (mesuré : −104 px, soit
+exactement `bas du parent − hauteur de la colonne`). À droite : la carte
+complète par objet (mode, profilés, cornières, boulons + **visserie**,
+efforts, avancés repliés, identification), puis les onglets. Le repli
+« dessin interactif désactivé » garde les mêmes colonnes : dessins
+statiques à gauche, panneau des cotes en tête de droite. Le cartouche
+texte sous l'élévation disparaît de l'écran (redondant avec la carte, il
+allongeait la colonne figée) ; la parité continue de le rejouer.
+
+**Visserie.** « Parfois on met un écrou, deux écrous, une rondelle… » :
+champ libre « Par boulon » (bloc BOULONS), par défaut « 1 rondelle +
+1 écrou ». C'est une annotation de FABRICATION, hors moteur et hors CLES
+(la parité fige les 84 entrées du corrigé) : clé de session
+`asm_visserie`, enregistrée dans le JSON (`visserie` à la racine du
+payload), relue à l'ouverture, portée au cartouche du plan de principe.
+
+**Page 1 allégée.** En-tête compact en trois lignes — objets
+(Principale | Secondaire | Cornières), attaches (Boulons | Groupe S |
+Groupe P), efforts (VEd | NEd | HEd | MEd) — sans géométrie détaillée
+(elle est COTÉE page 2). Hypothèses d'une ligne chacune, références
+abrégées (« MSB P5 §4.2.1.1 » — `notation._REMPLACEMENTS`). Pied en deux
+lignes : références puis notations. Phrases supprimées : l'ancienne ligne
+de géométrie (e1/p1/e2/hc/zc/gA/p3/grugeage « (mm) »), « Autres
+vérifications : formules dans le rapport détaillé. », les hypothèses
+longues (« répartition élastique… », « interaction quadratique… »), la
+légende Notations multiligne.
+
+**Page 2 « PLAN DE PRINCIPE ».** Trois vues — élévation, vue en plan, et
+une VUE DE DROITE nouvelle (face de l'âme porteuse, ailes A en vraie
+grandeur, perçage du groupe P, coupe de la portée par-devant — le profil
+COMPLET, semelles comprises : le plan de coupe est AU-DELÀ du grugeage,
+une coupe à ras de l'âme porteuse cacherait la semelle supérieure,
+retirée par le grugeage à cet endroit ; retour du bureau) — à la MÊME
+échelle normalisée, la PLUS GRANDE de la série 1:1, 1:2, 1:2,5, 1:5, 1:10…
+qui fait tenir une disposition (cinq candidates, centrées ; à échelle
+égale, celle qui remplit le mieux la feuille). Les vues sont RECONSTRUITES
+à chaque échelle candidate avec une police imposée
+(`Options.fs_force = TEXTE_MM × dénominateur`) : le texte des cotes fait
+2,4 mm sur le papier quelle que soit l'échelle — même hauteur de texte sur
+les trois vues, comme sur un plan. « Échelle 1:5 » affichée en tête et au
+cartouche (six cases : assemblage, poutres, cornières hc·zc, fixations +
+visserie, date·indice, échelle). Cotes réparties SANS doublon
+(`EXCLURE_ELEVATION`, `EXCLURE_PLAN`, liste blanche `FABRICATION_CALC`) ;
+renvois de perçage « 3×Ø22 » (groupe S) et « 6×Ø22 » (groupe P), rayon du
+grugeage « r 10 », cote `zt` (dessus de la porteuse → première rangée P :
+la référence de perçage de l'âme porteuse).
+
+**Lignes de rupture (ISO 128).** Un profil coupé ne se termine plus par un
+bord franc : le bord EST une ligne de rupture (zigzag inséré dans le
+contour, `_rupture` / `_rect_rompu`) — élévation : bout de la portée ;
+plan : âme porteuse en haut et en bas, âme portée à droite ; vue de
+droite : les deux côtés de la porteuse. À l'écran comme sur la note
+(rendu réaliste) ; la parité (realiste=False) garde la géométrie du HTML.
+
+Contrôle final : `python3 lancer_tests.py` — **613 OK, 0 échec, 18/18
+suites vertes** ; parité dessins 372 vues, 0 divergente ; « RÉGRESSION
+CALCUL : 0 différence » ; benchmark VALIDÉ. Recette navigateur : desktop
+1600×1000 et tablette 834×1112, position de l'élévation mesurée avant et
+après défilement (épinglée sous l'en-tête), glissement gh rejoué.

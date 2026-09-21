@@ -1,18 +1,26 @@
 # -*- coding: utf-8 -*-
-"""Note de calcul d'UNE page (note.py) — la note du bouton « Générer PDF ».
+"""Note de calcul (note.py) — la note du bouton « Générer PDF » : page 1 de
+calcul, page 2 « PLAN DE PRINCIPE » (trois vues cotées à la même échelle
+normalisée, la plus grande qui tient).
 
 Chaque garantie rougit si on la retire :
-  1. FORME : une seule page A4 paysage, palette 01_encre, sans débordement
+  1. FORME : DEUX pages A4 paysage, palette 01_encre, sans débordement
      (aucun avertissement) sur les 31 cas de référence ; le corps des
      formules n'est pas réduit sous 6,0 pt ; les tableaux ne s'ajustent
      jamais (la variante ne touche que les formules).
-  2. CONTENU : statut, taux maximal, dimensionnante, taux par élément ;
-     Ed / Rd de CHAQUE vérification active tels que le moteur les donne ;
-     Tableau 3.3 ; hypothèses (z, MS) ; identification ; légende des
-     références et des notations ; les formules obligatoires (dimensionnante,
-     non vérifiées, une par élément) sont imprimées.
-  3. DESSIN : élévation et plan peints, en notation Eurocode (hc, zc, gA).
-  4. APPLICATION : « 📄 Générer PDF » produit la note d'une page ; le
+  2. CONTENU p.1 : statut, taux maximal, dimensionnante, taux par élément ;
+     en-tête COMPACT (2 lignes d'objets + 1 ligne d'efforts, pas de
+     géométrie détaillée) ; hypothèses d'une ligne, références abrégées
+     (MSB P5) ; Ed / Rd de CHAQUE vérification active tels que le moteur
+     les donne ; Tableau 3.3 ; identification ; pied de page en 2 lignes ;
+     les formules obligatoires sont imprimées ; les phrases supprimées le
+     21/09/2026 ne reviennent pas.
+  3. DESSIN p.1 : élévation et plan peints, en notation Eurocode (hc, zc).
+  3 bis. PLAN DE PRINCIPE (p.2) : titre, « Échelle 1:5 » (cas par défaut,
+     échelle et disposition exposées), trois vues titrées, renvois de
+     perçage (3×Ø22, 6×Ø22), rayon du grugeage, cote zt, cartouche avec
+     visserie — et JAMAIS deux fois la même cote sur la planche.
+  4. APPLICATION : « 📄 Générer PDF » produit la note de deux pages ; le
      rapport détaillé (3 pages) reste disponible dans l'onglet Note.
 
 Lancement : python3 tests/test_assemblages_note.py
@@ -45,11 +53,12 @@ SCRATCH = os.environ.get("TMPDIR", "/tmp")
 
 print("=== 1. Forme ===")
 R = moteur.compute(dict(id_projet="Halle A", id_rep="P3/S7", id_red="X", id_date="21/09/2026"))
-pdf = note.generer_note(R, {"nom_projet": "Halle A", "partie": "P3/S7", "date": "21/09/2026", "indice": "0"})
+pdf = note.generer_note(R, {"nom_projet": "Halle A", "partie": "P3/S7", "date": "21/09/2026", "indice": "0",
+                            "visserie": "1 rondelle + 1 écrou"})
 with open(os.path.join(SCRATCH, "note_une_page_test.pdf"), "wb") as fh:
     fh.write(pdf)
 doc = pymupdf.open(stream=pdf, filetype="pdf")
-chk("une seule page", doc.page_count == 1, str(doc.page_count))
+chk("deux pages : la note, puis le plan de principe", doc.page_count == 2, str(doc.page_count))
 chk("A4 paysage", doc[0].rect.width > doc[0].rect.height and abs(doc[0].rect.width - 841.9) < 1)
 chk("aucun débordement, variante « toutes » (toutes les lignes de formules)",
     not note.derniers_avertissements and note.derniere_variante == "toutes", str(note.derniers_avertissements))
@@ -67,10 +76,10 @@ for cas in REF["cas"]:
     Rc = moteur.compute(cas["inputs"])
     p = note.generer_note(Rc, {})
     dc = pymupdf.open(stream=p, filetype="pdf")
-    if dc.page_count != 1 or note.derniers_avertissements:
+    if dc.page_count != 2 or note.derniers_avertissements or note.derniere_echelle is None:
         nb += 1
-        print("      ", cas["id"], dc.page_count, note.derniers_avertissements)
-chk("31 cas de référence : une page, sans débordement", nb == 0, str(nb))
+        print("      ", cas["id"], dc.page_count, note.derniere_echelle, note.derniers_avertissements)
+chk("31 cas de référence : deux pages, échelle normalisée trouvée, sans débordement", nb == 0, str(nb))
 
 print("\n=== 2. Contenu lu dans le moteur ===")
 t = doc[0].get_text()
@@ -90,8 +99,29 @@ chk("Tableau 3.3 : chaque ligne avec sa valeur et son minimum",
     all(F(x.val, 1) in t and F(x.min, 1) in t for x in R.dist) and "TAB.3.3" in s.upper())
 chk("hypothèses : z et MS", F(R.zeff, 1) in t and F(R.M_S, 2) in t)
 chk("identification et cartouche", "Halle A" in t and "P3/S7" in t and "Bureaud'ÉtudesValens" in s and "21/09/2026" in t)
-chk("légendes des références et des notations", "EC3 = EN 1993-1-8 sauf indication" in t and "hc : hauteur des cornières" in t)
+chk("pied de page en 2 lignes : références (MSB P5) et notations abrégées",
+    "EC3 = EN 1993-1-8 sauf indication" in t and "MSB P5" in t
+    and "hc, zc : hauteur et position des cornières" in t)
 chk("conclusion", "ASSEMBLAGE VÉRIFIÉ à l'ELU" in t)
+# --- en-tête compact (finalisation du 21/09/2026)
+chk("en-tête ligne 1 : Principale | Secondaire · grugée | Cornières",
+    "Principale HEA 400 S355" in t and "Secondaire HEA 300 S355 · grugée" in t
+    and "Cornières 2 × L100x100x10 S355" in t)
+chk("en-tête ligne 2 : Boulons | Groupe S | Groupe P",
+    "Boulons M20 8.8 cat. A · trous Ø22" in t and "Groupe S 3 × 1" in t and "Groupe P 2 × (3 × 1)" in t)
+chk("en-tête ligne 3 : les efforts seuls",
+    "VEd 125,0 kN" in t and "NEd 0,0 kN" in t and "HEd 0,0 kN" in t and "MEd 0,00 kNm" in t)
+chk("hypothèses d'une ligne, références abrégées",
+    "Articulé — rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1)." in t
+    and "Groupe P : cisaillement centré, 0,80·Fv,Rd (MSB P5 §4.2.1.2)." in t
+    and "Grugeage : flexion de la section réduite (MSB P5 §4.2.4)." in t)
+# --- phrases supprimées le 21/09/2026 : elles ne reviennent pas
+chk("plus de géométrie détaillée en tête (elle est cotée page 2)",
+    "e1/p1" not in t and "hc 190 – zc 50" not in t and "gA 55 – p3" not in t)
+chk("plus de « Autres vérifications : formules dans le rapport détaillé »", "Autres vérifications" not in t)
+chk("plus d'hypothèses longues (répartition élastique, interaction quadratique)",
+    "répartition élastique" not in t and "interaction quadratique" not in t)
+chk("MSB toujours abrégé « MSB P5 » (jamais « MSB Part 5 »)", "MSB Part 5" not in t and "MSB P5" in t)
 # --- aucune information en double sur la page
 chk("pas de cartouche sous les dessins (il répétait la ligne de données et les hypothèses)",
     "Cornières : 2 ×" not in t and "Excentricité de calcul" not in t and "Grugeage : sup." not in t
@@ -125,6 +155,34 @@ chk("cotes de l'élévation et du plan en notation Eurocode (hc, zc, gA, bA)",
     all(x in t for x in ("hc = 190", "zc 50", "gA 55", "bA = 100")) and "Lc = 190" not in t)
 chk("noms des profilés", "HEA 400" in t and "HEA 300" in t)
 
+print("\n=== 3 bis. Page 2 : PLAN DE PRINCIPE ===")
+p2 = doc[1].get_text()
+q2 = p2.replace(" ", "").replace("\n", "")
+chk("titre, échelle normalisée affichée — 1:5 sur le cas par défaut, trois vues côte à côte",
+    "PLANDEPRINCIPE" in q2 and "Échelle1:5" in q2
+    and note.derniere_echelle == 5 and note.derniere_disposition == "trois vues côte à côte",
+    f"{note.derniere_echelle} {note.derniere_disposition}")
+chk("trois vues titrées : élévation, vue en plan, vue de droite",
+    all(x in q2 for x in ("ÉLÉVATION", "VUEENPLAN", "VUEDEDROITE")))
+chk("renvois de perçage : 3×Ø22 (groupe S) et 6×Ø22 (groupe P, deux cornières)",
+    "3×Ø22" in p2 and "6×Ø22" in p2)
+chk("rayon du grugeage renvoyé (r 10) et position du perçage P depuis le dessus de la porteuse (zt = 85)",
+    "r 10" in p2 and "zt = 85" in p2)
+chk("cotes de fabrication réparties SANS doublon : hc, gA, p3, bS, c une seule fois chacune",
+    p2.count("hc = 190") == 1 and p2.count("gA 55") == 1 and p2.count("p3 = 118,5") == 1
+    and p2.count("bS = 300") == 1 and p2.count("c = 150") == 1)
+chk("cartouche : assemblage, poutres, cornières (hc · zc), fixations avec Ø des trous, date, indice, échelle",
+    all(x in q2 for x in ("ASSEMBLAGE", "POUTRES", "CORNIÈRES", "FIXATIONS", "ÉCHELLE"))
+    and "trousØ22" in q2 and "hc190·zc50mm" in q2 and "21/09/2026" in p2)
+chk("cartouche : la visserie saisie est écrite (rondelles, écrous)",
+    "par boulon : 1 rondelle + 1 écrou" in p2)
+chk("la page 2 ne porte pas les grandeurs de calcul (z, MS : page 1 seulement)",
+    "MS =" not in p2 and "z = 50,0 mm" not in p2)
+Rv = moteur.compute(dict())
+pv = pymupdf.open(stream=note.generer_note(Rv, {}), filetype="pdf")[1].get_text()
+chk("sans visserie fournie, le cartouche porte la composition par défaut",
+    "par boulon : 1 rondelle + 1 écrou" in pv)
+
 print("\n=== 4. Depuis l'application ===")
 from streamlit.testing.v1 import AppTest  # noqa: E402
 at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
@@ -132,10 +190,12 @@ at.session_state["page"] = "Assemblages métalliques"
 at.session_state["asm_courant"] = "doubles_cornieres"
 at.run()
 at.button(key="asm_btn_pdf").click(); at.run()
-chk("« Générer PDF » produit la note d'une page", not at.exception and bool(at.session_state.get("asm_pdf_bytes")), str(at.exception))
+chk("« Générer PDF » produit la note", not at.exception and bool(at.session_state.get("asm_pdf_bytes")), str(at.exception))
 if at.session_state.get("asm_pdf_bytes"):
     da = pymupdf.open(stream=at.session_state["asm_pdf_bytes"], filetype="pdf")
-    chk("note de l'application : 1 page, statut du moteur", da.page_count == 1 and "VÉRIFIÉ" in da[0].get_text())
+    chk("note de l'application : 2 pages, statut du moteur, plan de principe avec la visserie de l'écran",
+        da.page_count == 2 and "VÉRIFIÉ" in da[0].get_text()
+        and "par boulon : 1 rondelle + 1 écrou" in da[1].get_text())
 at.session_state["asm_ui_onglet"] = "Note"; at.run()
 at.button(key="asm_btn_pdf_detail").click(); at.run()
 chk("onglet Note : le rapport détaillé (3 pages) reste disponible",
