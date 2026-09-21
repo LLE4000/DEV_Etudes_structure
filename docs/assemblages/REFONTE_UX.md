@@ -291,6 +291,23 @@ Une entrée par paramètre, mise à jour : la géométrie sur le dessin
 (cotes + glissement), tout le reste dans les panneaux de pièce ; les
 avancés réduits ne portent plus rien de ce que les panneaux couvrent.
 
+Complément (même jour, retour « la semelle est mal faite ») :
+
+- **semelle corrigée** : le contour de la section en I omettait le coin
+  sous la semelle supérieure gauche — l'aile partait en biseau du congé
+  vers le bout. Sommet rétabli, test qui vérifie les quatre coins ;
+- **symboles de soudure EN 22553** : flèche vers le cordon, ligne de
+  référence, triangle du cordon d'angle, désignation « a … » à gauche du
+  triangle — c'est elle l'étiquette éditable (le clic sur le symbole ouvre
+  aussi le panneau des cordons). Un symbole en élévation pour les ailes B,
+  un en plan pour les ailes A ;
+- **glissement à deux axes** : la poutre portée se déplace aussi
+  verticalement — horizontal = jeu gh, vertical = décalage Δz, bulle
+  « gh = 36 · Δz = 20 mm » pendant le geste ;
+- **arêtes cachées en plan** (trait interrompu fin) : bord de la semelle
+  de la porteuse côté attache et bords de semelle de la portée — le
+  dégagement du grugeage se lit d'un coup d'œil.
+
 Écarts assumés par rapport aux idées initiales :
 
 - la matrice des cornières de la note ne porte pas de colonne « Réf. » :

@@ -187,6 +187,7 @@ def _section_I(b, h, tw, tf, r):
         pts += _arc(-x - r, tf + r, r, 0, -math.pi / 2)
     else:
         pts += [(-x, h - tf), (-x, tf)]
+    pts.append((-b / 2, tf))     # coin sous la semelle supérieure gauche (sans lui, l'aile part en biseau)
     return pts
 
 
@@ -483,7 +484,9 @@ def elevation(R, opt):
         # lignes tangentes des congés âme–semelle vus de côté (tf + r)
         pS.append(_path(["flr"], [[(x0 + ln if dnt > 0 else x0, yt + R.tf_S + R.r_S), (xE, yt + R.tf_S + R.r_S)],
                                   [(x0 + ln if dnb > 0 else x0, yb - R.tf_S - R.r_S), (xE, yb - R.tf_S - R.r_S)]]))
-    piece("beamS", pS, drag="g_h", dsym="gh")
+    # la poutre portée se déplace à la souris : horizontal = jeu gh,
+    # vertical = décalage Δz des dessus de semelles
+    piece("beamS", pS, drag="g_h", dsym="gh", drag2="d_top", dsym2="Δz")
     if "notchT" in hot:
         if dnt > 0:
             s.append(_path(["hl"], [[(x0, yt + dnt), (x0 + ln, yt + dnt), (x0 + ln, yt)]]))
@@ -518,13 +521,25 @@ def elevation(R, opt):
         piece("bolts", bS)
     elif opt.realiste:
         # cordons d'angle vus de face : bande de largeur a·√2 le long du bout
-        # de l'aile B, retours en haut et en bas
+        # de l'aile B, retours en haut et en bas ; symbole de soudure
+        # EN 22553 (flèche → ligne de référence, triangle du cordon d'angle,
+        # désignation « a … » à gauche du triangle, éditable)
         z = N(u.a_S) * math.sqrt(2)
         wS = [_rect(["wb"], xt, yc, z, R.L_C)]
         if lhS > 0:
             wS += [_rect(["wb"], xt - lhS, yc - z, lhS + z, z),
                    _rect(["wb"], xt - lhS, yc + R.L_C, lhS + z, z)]
+        # accroche au tiers bas du cordon, coude vers le bas : la ligne de
+        # référence ne croise ni l'étiquette VEd ni les cotes du haut
+        ax_, ay = xt + z, yc + 0.78 * R.L_C
+        ex, ey = ax_ + 1.7 * fs, ay + 1.5 * fs
+        wt = S.tw("a " + f0(N(u.a_S)))
+        tx = ex + wt + 0.9 * fs                                   # triangle après la désignation
+        wS.append(_path(["wsy"], [[(ax_, ay), (ex, ey), (tx + 1.6 * fs, ey)],
+                                  [(ax_ + 0.55 * fs, ay + 0.1 * fs), (ax_, ay), (ax_ + 0.1 * fs, ay + 0.55 * fs)]]))
+        wS.append(_poly(["wst"], [[tx, ey], [tx + 1.0 * fs, ey], [tx, ey - 0.95 * fs]]))
         piece("weldS", wS)
+        S.tag(ex - 0.1 * fs, ey - 0.55 * fs, dict(id="aS", sym="a", val=N(u.a_S), key="a_S", lvl=1))
     else:
         piece("weldS", [_path(["we"], [[(xt - lhS, yc), (xt, yc), (xt, yc + R.L_C), (xt - lhS, yc + R.L_C)]])])
     yp1 = yc + R.e1_P; ypl = yp1 + (R.n1_P - 1) * R.p1_P
@@ -595,7 +610,10 @@ def elevation(R, opt):
     if yt == 0:
         S.tag(-R.b_P / 2, -0.55 * fs, dict(id="dtop", sym="déc.", val=0, key="d_top", lvl=2))
     if not R.bolt_S:
-        S.tag(xt + 0.4 * fs, yc + R.L_C / 2, dict(id="aS", sym="a", val=N(u.a_S), key="a_S", lvl=1))
+        if not opt.realiste:
+            # géométrie du HTML : l'étiquette « a » près du cordon (en rendu
+            # réaliste, la désignation vit sur le symbole de soudure)
+            S.tag(xt + 0.4 * fs, yc + R.L_C / 2, dict(id="aS", sym="a", val=N(u.a_S), key="a_S", lvl=1))
         if lhS == 0 and opt.editables:
             # retours nuls : pas de cote possible, une étiquette (mode édition seulement)
             S.tag(xt + 0.4 * fs, yc + R.L_C / 2 + 1.6 * fs, dict(id="lhS", sym="lh", val=0, key="lh_S", lvl=1))
@@ -633,6 +651,9 @@ def plan(R, opt):
     """Vue en plan cotée (transcription de ``DCDraw.plan``)."""
     u = R.u; xf = R.tw_P / 2; gh = N(u.g_h); x0 = xf + gh; ws = R.tw_S / 2; xt = xf + R.b_B
     xE = xt + 60; Hh = ws + R.b_A + 22; p2S = N(u.p2_S); p2P = N(u.p2_P)
+    if opt.realiste:
+        # place pour les arêtes cachées des semelles de la portée (± bS/2)
+        Hh = mx(Hh, R.b_S / 2 + 10)
     bb = dict(x1=-xf - 30, x2=xE, y1=-Hh, y2=Hh)
     fs = mx((bb["x2"] - bb["x1"] + 210) / 32, 8)
     S = Feuille(bb, fs, opt); s = []
@@ -647,6 +668,13 @@ def plan(R, opt):
         else:
             s.extend(prims)
 
+    if opt.realiste:
+        # arêtes cachées (au-dessus du plan de coupe, trait interrompu) :
+        # bord de semelle de la porteuse côté attache, bords de semelle de
+        # la portée — on lit d'un coup d'œil le dégagement du grugeage
+        xsem = mn(R.b_P / 2, xE - 4)
+        s.append(_path(["hd"], [[(xsem, -Hh + 2), (xsem, Hh - 2)]]))
+        s.append(_path(["hd"], [[(x0, -R.b_S / 2), (xE, -R.b_S / 2)], [(x0, R.b_S / 2), (xE, R.b_S / 2)]]))
     piece("beamP", [_rect(["pp"], -xf, -Hh, R.tw_P, 2 * Hh)]
           + ([_path(["ht"], _hachures(_rect_pts(-xf, -Hh, R.tw_P, 2 * Hh)))] if opt.realiste else []))
     piece("beamS", [_rect(["ps"] + hc("beamS"), x0, -ws, xE - x0, R.tw_S)]
@@ -665,9 +693,20 @@ def plan(R, opt):
                             for i in range(R.n2_P)])
         elif opt.realiste:
             # cordon d'angle en section : triangle de côtés a·√2, dans l'angle
-            # entre le bout de l'aile A et la face de l'âme principale
+            # entre le bout de l'aile A et la face de l'âme principale ;
+            # symbole EN 22553 sur la cornière du haut
             z = N(u.a_P) * math.sqrt(2)
-            piece("weldP", [_poly(["wb"], [[xf, y3], [xf + z, y3], [xf, y3 + g * z]])])
+            wP = [_poly(["wb"], [[xf, y3], [xf + z, y3], [xf, y3 + g * z]])]
+            if g == -1:
+                ax_, ay = xf + z * 0.55, y3 - z * 0.55
+                ex, ey = ax_ + 1.6 * fs, ay - 1.4 * fs
+                wt = S.tw("a " + f0(N(u.a_P)))
+                tx = ex + wt + 0.9 * fs
+                wP.append(_path(["wsy"], [[(ax_, ay), (ex, ey), (tx + 1.6 * fs, ey)],
+                                          [(ax_ + 0.55 * fs, ay - 0.1 * fs), (ax_, ay), (ax_ + 0.1 * fs, ay - 0.55 * fs)]]))
+                wP.append(_poly(["wst"], [[tx, ey], [tx + 1.0 * fs, ey], [tx, ey - 0.95 * fs]]))
+                S.tag(ex - 0.1 * fs, ey - 0.55 * fs, dict(id="aP", sym="a", val=N(u.a_P), key="a_P", lvl=1))
+            piece("weldP", wP)
         else:
             piece("weldP", [_circle(["wd"], xf + R.t_C, y3, mx(N(u.a_P), 4))])
         if not R.bolt_S:
@@ -695,7 +734,10 @@ def plan(R, opt):
         S.dim(dict(id="e2A", side="R", a=-(ws + R.b_A), b=yl, o1=xf + R.t_C, o2=xo, sym="e2", val=R.e2a_P, lvl=2, calc=1, out="lo"))
         S.dim(dict(id="p3", side="L", a=ya, b=-ya, o1=-xf - 14, o2=-xf - 14, sym="p3", val=R.p_3, lvl=1, calc=1))
     else:
-        S.tag(xf + R.t_C + 0.6 * fs, -(ws + R.b_A) - 0.2 * fs, dict(id="aP", sym="a", val=N(u.a_P), key="a_P", lvl=1))
+        if not opt.realiste:
+            # géométrie du HTML : étiquette « a » près du disque de cordon
+            # (en réaliste, la désignation vit sur le symbole de soudure)
+            S.tag(xf + R.t_C + 0.6 * fs, -(ws + R.b_A) - 0.2 * fs, dict(id="aP", sym="a", val=N(u.a_P), key="a_P", lvl=1))
         if opt.editables:
             # retours des cordons A : pas de cote dans cette vue, une étiquette (mode édition)
             S.tag(xf + R.t_C + 0.6 * fs, (ws + R.b_A) + 1.2 * fs, dict(id="lhP", sym="lh", val=N(u.lh_P), key="lh_P", lvl=1))
@@ -764,6 +806,15 @@ def style_de(cls, ctx, p=None):
         st.update(stroke=ink, sw=0.5, dash=(8, 2.5, 2, 2.5))
         if hot_self:
             st.update(stroke=ko, sw=2.2)
+    elif "hd" in c:
+        # arête cachée (semelle au-dessus du plan de coupe) : interrompu fin
+        st.update(stroke=p["hatch"], sw=0.6, dash=(4, 2.5))
+    elif "wsy" in c:
+        # symbole de soudure : flèche et ligne de référence
+        st.update(stroke=p["weld2"], sw=0.9)
+    elif "wst" in c:
+        # triangle du cordon d'angle sur la ligne de référence
+        st.update(fill=p["weld"], stroke=p["weld2"], sw=0.8)
     elif "we" in c:
         st.update(stroke=p["weld"], sw=5)
     elif "wd" in c:
@@ -844,6 +895,9 @@ def _css(p, pre):
         f"#{pre} .bp{{stroke:{ko};stroke-width:2.4;stroke-dasharray:7 3;fill:none}}"
         f"#{pre} .ax{{stroke:{ink};stroke-width:.5;stroke-dasharray:8 2.5 2 2.5;fill:none}}"
         f"#{pre} .ax.hot{{stroke:{ko};stroke-width:2.2}}"
+        f"#{pre} .hd{{stroke:{p['hatch']};stroke-width:.6;stroke-dasharray:4 2.5;fill:none}}"
+        f"#{pre} .wsy{{stroke:{p['weld2']};stroke-width:.9;fill:none}}"
+        f"#{pre} .wst{{fill:{p['weld']};stroke:{p['weld2']};stroke-width:.8}}"
         f"#{pre} .we{{stroke:{p['weld']};stroke-width:5;fill:none}}"
         f"#{pre} .wd{{fill:{p['weld']}}}"
         f"#{pre} .wb{{fill:{p['weld']};stroke:{p['weld2']};stroke-width:.8}}"
@@ -956,6 +1010,8 @@ def _prim_svg(p, ctx=(), palette=None):
                       f' aria-label="Modifier le groupe {p["grp"]}"')
         if p.get("drag"):
             attrs += f' data-drag="{p["drag"]}" data-dsym="{_esc(p.get("dsym") or p["drag"])}"'
+        if p.get("drag2"):
+            attrs += f' data-drag2="{p["drag2"]}" data-dsym2="{_esc(p.get("dsym2") or p["drag2"])}"'
         if p.get("action"):
             attrs += (f' data-action="{_esc(p["action"])}" tabindex="0" role="button"'
                       f' aria-label="{_esc(p.get("aria") or p["action"])}"')

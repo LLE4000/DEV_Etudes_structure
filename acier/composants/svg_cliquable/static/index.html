@@ -179,25 +179,29 @@
       g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(g); } });
     });
   }
-  /* --- glissement d'une pièce : « data-drag » = clé de la cote pilotée par
-         le déplacement horizontal (jeu gh de la poutre portée) */
+  /* --- glissement d'une pièce : « data-drag » = cote pilotée par le
+         déplacement horizontal (jeu gh), « data-drag2 » = cote pilotée par
+         le déplacement vertical (décalage Δz) */
   function glisser(g) {
-    var key = g.getAttribute('data-drag'), sym = g.getAttribute('data-dsym') || key;
+    var kx = g.getAttribute('data-drag'), sx = g.getAttribute('data-dsym') || kx;
+    var ky = g.getAttribute('data-drag2'), sy = g.getAttribute('data-dsym2') || ky;
     g.addEventListener('pointerdown', function (e) {
       if (e.button) return;
       var f = fig(), svg = g.ownerSVGElement;
       var vb = svg.viewBox.baseVal, echelle = vb.width / svg.getBoundingClientRect().width;
-      var x0 = e.clientX, v0 = parseFloat(valeur(key)), bouge = false, bulle = null;
-      if (!isFinite(v0)) v0 = 0;
-      function val(ev) { return Math.max(0, Math.round(v0 + (ev.clientX - x0) * echelle)); }
+      var x0 = e.clientX, y0 = e.clientY, bouge = false, bulle = null;
+      var vx = parseFloat(valeur(kx)); if (!isFinite(vx)) vx = 0;
+      var vy = ky ? parseFloat(valeur(ky)) : 0; if (!isFinite(vy)) vy = 0;
+      function nx(ev) { return Math.max(0, Math.round(vx + (ev.clientX - x0) * echelle)); }
+      function ny(ev) { return ky ? Math.max(0, Math.round(vy + (ev.clientY - y0) * echelle)) : vy; }
       function move(ev) {
-        if (!bouge && Math.abs(ev.clientX - x0) < 5) return;
+        if (!bouge && Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 5) return;
         if (!bouge) {
           bouge = true; g.classList.add('drag'); fermerTout();
           bulle = document.createElement('div'); bulle.className = 'bulle'; f.appendChild(bulle);
         }
-        g.setAttribute('transform', 'translate(' + (val(ev) - v0) + ' 0)');
-        bulle.textContent = sym + ' = ' + val(ev) + ' mm';
+        g.setAttribute('transform', 'translate(' + (nx(ev) - vx) + ' ' + (ny(ev) - vy) + ')');
+        bulle.textContent = sx + ' = ' + nx(ev) + (ky ? ' · ' + sy + ' = ' + ny(ev) : '') + ' mm';
         var fr = f.getBoundingClientRect();
         bulle.style.left = (ev.clientX - fr.left + f.scrollLeft + 14) + 'px';
         bulle.style.top = (ev.clientY - fr.top + f.scrollTop - 36) + 'px';
@@ -210,8 +214,10 @@
         if (bouge) {
           g._fin_drag = Date.now();
           g.removeAttribute('transform');
-          var nv = val(ev);
-          if (nv !== v0) { var ch = {}; ch[key] = nv; envoyer(ch, sym); }
+          var ch = {}, s = [];
+          if (nx(ev) !== vx) { ch[kx] = nx(ev); s.push(sx); }
+          if (ky && ny(ev) !== vy) { ch[ky] = ny(ev); s.push(sy); }
+          envoyer(ch, s.join(' · '));
         }
       }
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);

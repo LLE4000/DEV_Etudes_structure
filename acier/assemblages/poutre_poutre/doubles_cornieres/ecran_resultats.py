@@ -221,7 +221,8 @@ def dessins(R, u):
             st.caption("◆ pilotés par la proposition : onglet Prédim pour appliquer une solution.")
         else:
             st.caption("Touche une cote pour la modifier · touche une pièce (poutre, cornière, boulon, cordon, "
-                       "VEd) pour tous ses paramètres · glisse la poutre portée pour régler le jeu gh.")
+                       "VEd) pour tous ses paramètres · glisse la poutre portée pour régler le jeu gh et le "
+                       "décalage Δz.")
     hl = _alerte_courante(R)
     opt = schemas.options_ecran(R, niveau, hl)
     opt.editables = niveau >= 1

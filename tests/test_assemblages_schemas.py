@@ -174,8 +174,11 @@ chk("le SVG avec poignées reste un document XML valide",
 # --- rendu réaliste : congés réels, hachures, cordons à leur taille
 sec = schemas._section_I(300, 390, 11, 19, 27)
 chk("section en I : quatre congés de rayon r (HEA 400 : r = 27), contour fermé",
-    len(sec) == 7 + 4 * (schemas.SEGMENTS_ARC + 1) and min(abs(x) for x, y in sec if 19 < y < 371) == 5.5
+    len(sec) == 8 + 4 * (schemas.SEGMENTS_ARC + 1) and min(abs(x) for x, y in sec if 19 < y < 371) == 5.5
     and any(abs(x - (5.5 + 27 * (1 - math.cos(math.pi / 4)))) < 1e-9 and abs(y - (19 + 27 * (1 - math.sin(math.pi / 4)))) < 1e-9 for x, y in sec))
+chk("semelles rectangulaires : les quatre coins sous/sur semelle existent (le biseau du 21/09 ne revient pas)",
+    all(any(abs(x - cx) < 1e-9 and abs(y - cy) < 1e-9 for x, y in sec)
+        for cx, cy in ((150, 19), (-150, 19), (150, 371), (-150, 371))))
 corn = schemas._corniere_plan(5.5, 105.5, 10, 4.25, 14.25, 104.25, 1, 12)
 chk("cornière en plan : congé de racine r = 12 (centre (27,5 ; 26,25)) et bouts arrondis r/2",
     any(abs(x - (27.5 - 12 * math.cos(math.pi / 4))) < 1e-9 and abs(y - (26.25 - 12 * math.sin(math.pi / 4))) < 1e-9 for x, y in corn)
@@ -225,6 +228,23 @@ chk("alerte sur les boulons P : l'axe passe en rouge épais",
     'class="ax hot"' in schemas.elevation(R0, schemas.options_ecran(R0, 1, dict(dims=set(), elems={"boltsP"}))).svg())
 chk("parité : croix et tirets du HTML conservés (cm, bp)",
     'class="cm"' in schemas.elevation(R0, schemas.Options(lvl=2, interactive=True, realiste=False)).svg())
+# --- symboles de soudure, glissement 2 axes, arêtes cachées
+chk("glissement 2 axes : la poutre portée porte gh (horizontal) ET Δz (vertical) en élévation, gh seul en plan",
+    'data-drag="g_h"' in svg_ec and 'data-drag2="d_top"' in svg_ec and 'data-dsym2="Δz"' in svg_ec
+    and "data-drag2" not in svg_pl and 'data-drag="g_h"' in svg_pl)
+svg_ws = schemas.elevation(Rw, schemas.options_ecran(Rw, 1)).svg()
+svg_wp = schemas.plan(Rw, schemas.options_ecran(Rw, 1)).svg()
+chk("cordons B soudés : symbole EN 22553 en élévation (flèche wsy + triangle wst) avec la désignation « a 5 » éditable",
+    'class="wsy"' in svg_ws and 'class="wst"' in svg_ws and 'data-key="a_S"' in svg_ws and ">a 5<" in svg_ws)
+chk("cordons A soudés : symbole en plan (un seul, cornière du haut) avec « a 6 » éditable",
+    svg_wp.count('class="wst"') == 1 and 'data-key="a_P"' in svg_wp and ">a 6<" in svg_wp)
+chk("le symbole appartient à la pièce cordon (clic → panneau)", 'data-group="weldS"' in svg_ws)
+chk("arêtes cachées des semelles en plan (trait interrompu hd) : porteuse + portée ; absentes en parité",
+    svg_pl.count('class="hd"') == 2 and 'stroke-dasharray="4 2.5"' in svg_pl
+    and 'class="hd"' not in schemas.plan(R0, schemas.Options(lvl=1, interactive=True, realiste=False)).svg())
+chk("note : symboles et arêtes cachées aussi (rendu réaliste)",
+    'class="hd"' in schemas.plan(R0, schemas.options_rapport()).svg()
+    and 'class="wst"' in schemas.elevation(Rw, schemas.options_rapport()).svg())
 
 # ================================================================
 print("\n=== 2. Parité avec les dessins du HTML (oracle Node) ===")
