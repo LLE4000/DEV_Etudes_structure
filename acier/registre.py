@@ -58,6 +58,24 @@ def vignette_doubles_cornieres():
         '</svg>')
 
 
+def vignette_plat_ame():
+    """Élévation schématique : plat soudé sur l'âme porteuse, boulonné à
+    l'âme de la portée."""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="100%" role="img" '
+        'aria-label="Plat d\'âme soudé (fin plate)">'
+        f'<rect x="8" y="4" width="46" height="6" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>'
+        f'<rect x="8" y="80" width="46" height="6" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>'
+        f'<rect x="28" y="10" width="6" height="70" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>'
+        f'<polygon points="40,22 40,68 112,68 112,14 52,14 52,22" fill="#E6ECF0" stroke="{_INK}" stroke-width="1"/>'
+        f'<rect x="34" y="26" width="34" height="40" fill="{_ACC}" fill-opacity=".28" stroke="{_ACC}" stroke-width="1.2"/>'
+        f'<rect x="34" y="26" width="3.5" height="40" fill="#D98A00"/>'
+        f'<circle cx="52" cy="34" r="3" fill="#fff" stroke="{_INK}" stroke-width="1"/>'
+        f'<circle cx="52" cy="46" r="3" fill="#fff" stroke="{_INK}" stroke-width="1"/>'
+        f'<circle cx="52" cy="58" r="3" fill="#fff" stroke="{_INK}" stroke-width="1"/>'
+        '</svg>')
+
+
 def vignette_platine_about():
     """Platine d'about (à venir) : plat soudé en about, boulonné sur l'âme."""
     return (
@@ -87,6 +105,15 @@ FAMILLES = (
                 vignette=vignette_doubles_cornieres(),
                 etat="disponible",
                 module="acier.assemblages.poutre_poutre.doubles_cornieres.interface",
+            ),
+            Assemblage(
+                id="plat_ame",
+                titre="Plat d'âme soudé (fin plate)",
+                pitch="Assemblage articulé : plat vertical soudé sur l'âme de la porteuse, "
+                      "boulonné à l'âme de la poutre portée — EN 1993-1-8, ANB belge.",
+                vignette=vignette_plat_ame(),
+                etat="disponible",
+                module="acier.assemblages.poutre_poutre.plat_ame.interface",
             ),
             Assemblage(
                 id="platine_about",

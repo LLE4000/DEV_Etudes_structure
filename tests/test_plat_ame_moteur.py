@@ -168,6 +168,30 @@ for i in range(200):
             print("      première exception :", type(e).__name__, e, "au tirage", i)
 chk("aucune exception sur 200 tirages", nerr == 0, str(nerr))
 
+print("\n=== 7. Régression figée (tests/ref_plat_ame.json, 12 cas, 187 vérifications) ===")
+import json  # noqa: E402
+with open("tests/ref_plat_ame.json", encoding="utf-8") as fh:
+    REF = json.load(fh)
+ndiff = 0
+for nom, cas in REF.items():
+    Rr = moteur.compute(cas["inp"])
+    for k, (ed, rd, eta) in cas["checks"].items():
+        c = Rr.ck.get(k)
+        if c is None or not c.active or abs(c.Ed - ed) > 1e-9 * max(1, abs(ed)) \
+           or abs(c.Rd - rd) > 1e-9 * max(1, abs(rd)) or abs(c.eta - eta) > 1e-12 * max(1, abs(eta)):
+            ndiff += 1
+            print("   ", nom, k, "attendu", (ed, rd, eta), "obtenu",
+                  (c.Ed, c.Rd, c.eta) if c and c.active else "inactif")
+    for k, v in cas["scal"].items():
+        if abs(Rr[k] - v) > 1e-9 * max(1, abs(v)):
+            ndiff += 1
+            print("   ", nom, "scalaire", k, "attendu", v, "obtenu", Rr[k])
+    if (Rr.gov.key if Rr.gov else None) != cas["gov"] or Rr.verified != cas["verified"] \
+       or sorted(a.id for a in Rr.alerts) != cas["alerts"]:
+        ndiff += 1
+        print("   ", nom, "synthèse divergente")
+chk("RÉGRESSION CALCUL : 0 différence sur les 12 cas figés", ndiff == 0, str(ndiff))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])
