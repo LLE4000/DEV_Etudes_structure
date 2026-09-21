@@ -274,6 +274,14 @@ face = next(p for p in vd.corps if p["t"] == "poly" and "pp" in p["cls"])
 xs3 = sorted(pt[0] for pt in face["pts"])
 chk("vue de droite : la face de l'âme porteuse est rompue des deux côtés (une pointe par bord)",
     xs3[0] < xs3[1] - 1.5 and xs3[-1] > xs3[-2] + 1.5)
+# la coupe de la portée est AU-DELÀ du grugeage : le profil complet, avec
+# sa semelle supérieure (largeur bS au dessus yt = 0), hachuré (pièce
+# coupée) — une coupe à ras de l'âme porteuse la cacherait (dnt = 50)
+sec3 = next(p for p in vd.corps if p["t"] == "poly" and "ps" in p["cls"])
+chk("vue de droite : coupe de la portée au-delà du grugeage — semelle supérieure visible et hachures",
+    any(abs(pt[1]) < 1e-6 and abs(pt[0] + R0.b_S / 2) < 1e-6 for pt in sec3["pts"])
+    and any(abs(pt[1]) < 1e-6 and abs(pt[0] - R0.b_S / 2) < 1e-6 for pt in sec3["pts"])
+    and sum(1 for p in vd.corps if p["t"] == "path" and "ht" in p["cls"]) == 1)
 
 # --- plan de principe (fabrication) : renvois de perçage, rayon du
 # --- grugeage, cote zt, répartition des cotes entre vues, police imposée

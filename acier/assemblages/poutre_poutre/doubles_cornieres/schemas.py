@@ -849,39 +849,21 @@ def plan(R, opt):
     return S.finish(s, None, "Vue en plan cotée de l'assemblage")
 
 
-def _section_about(R, yt):
-    """Section de la poutre portée à l'about (vue de droite) : profil en I
-    réel, semelle(s) absente(s) dans la zone grugée."""
-    u = R.u
-    b, h, tw, tf = R.b_S, R.h_S, R.tw_S, R.tf_S
-    dnt, dnb = N(u.d_nt), N(u.d_nb)
-    x = tw / 2
-    r = mx(0, mn(R.r_S, (b - tw) / 2, (h - 2 * tf) / 2))
-    haut = dnt <= 0
-    bas = dnb <= 0
-    pts = []
-    if haut:
-        pts += [(-b / 2, yt), (b / 2, yt), (b / 2, yt + tf)]
-        pts += _arc(x + r, yt + tf + r, r, -math.pi / 2, -math.pi) if r > 0 else [(x, yt + tf)]
-    else:
-        pts += [(-x, yt + dnt), (x, yt + dnt)]
-    if bas:
-        pts += _arc(x + r, yt + h - tf - r, r, math.pi, math.pi / 2) if r > 0 else [(x, yt + h - tf)]
-        pts += [(b / 2, yt + h - tf), (b / 2, yt + h), (-b / 2, yt + h), (-b / 2, yt + h - tf)]
-        pts += _arc(-x - r, yt + h - tf - r, r, math.pi / 2, 0) if r > 0 else [(-x, yt + h - tf)]
-    else:
-        pts += [(x, yt + h - dnb), (-x, yt + h - dnb)]
-    if haut:
-        pts += _arc(-x - r, yt + tf + r, r, 0, -math.pi / 2) if r > 0 else [(-x, yt + tf)]
-        pts.append((-b / 2, yt + tf))
-    return pts
+def _section_portee(R, yt):
+    """Coupe de la poutre portée pour la vue de droite : le profil en I
+    COMPLET, décalé au dessus ``yt``. Le plan de coupe est AU-DELÀ du
+    grugeage (la poutre continue vers l'observateur) : une coupe à ras de
+    l'âme porteuse tomberait dans la zone grugée et cacherait la semelle
+    supérieure (retour du 21/09/2026)."""
+    return [(x, yt + y) for x, y in _section_I(R.b_S, R.h_S, R.tw_S, R.tf_S, R.r_S)]
 
 
 def vue_droite(R, opt):
     """Vue de droite (regard le long de la poutre portée) : la face de l'âme
     porteuse avec ses semelles, les deux ailes A des cornières en vraie
-    grandeur (perçage du groupe P coté ici : gA, p2, p3, e1, p1), la section
-    d'about de la portée par-devant. Vue du plan de principe."""
+    grandeur (perçage du groupe P coté ici : gA, p2, p3, e1, p1), et la
+    COUPE de la portée par-devant — profil complet, semelles comprises, le
+    plan de coupe étant au-delà du grugeage. Vue du plan de principe."""
     u = R.u; ws = R.tw_S / 2; yt = N(u.d_top); zc = N(u.z_C); yc = yt + zc
     p2P = N(u.p2_P)
     xg = ws + R.g_A                                   # première file (talon → file)
@@ -925,8 +907,11 @@ def vue_droite(R, opt):
         z = N(u.a_P) * math.sqrt(2)
         for g in (-1, 1):
             s.append(_rect(["wb"], mn(g * (ws + R.b_A), g * (ws + R.b_A) + g * z), yc, z, R.L_C))
-    # section d'about de la poutre portée, par-devant
-    s.append(_poly(["ps"], _section_about(R, yt)))
+    # coupe de la poutre portée, par-devant : profil complet (le plan de
+    # coupe est au-delà du grugeage), hachuré comme toute pièce coupée
+    sec = _section_portee(R, yt)
+    s.append(_poly(["ps"], sec))
+    s.append(_path(["ht"], _hachures(sec)))
     # cotes : le groupe P se lit ici (sa vraie face)
     if R.bolt_P:
         S.dim(dict(id="gA", side="T", a=ws, b=xg, o1=yc, o2=yp1, sym="gA", val=R.g_A, key="gA_u", lvl=1, out="lo"))

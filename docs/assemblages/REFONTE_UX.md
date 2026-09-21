@@ -365,7 +365,10 @@ légende Notations multiligne.
 
 **Page 2 « PLAN DE PRINCIPE ».** Trois vues — élévation, vue en plan, et
 une VUE DE DROITE nouvelle (face de l'âme porteuse, ailes A en vraie
-grandeur, perçage du groupe P, section d'about de la portée) — à la MÊME
+grandeur, perçage du groupe P, coupe de la portée par-devant — le profil
+COMPLET, semelles comprises : le plan de coupe est AU-DELÀ du grugeage,
+une coupe à ras de l'âme porteuse cacherait la semelle supérieure,
+retirée par le grugeage à cet endroit ; retour du bureau) — à la MÊME
 échelle normalisée, la PLUS GRANDE de la série 1:1, 1:2, 1:2,5, 1:5, 1:10…
 qui fait tenir une disposition (cinq candidates, centrées ; à échelle
 égale, celle qui remplit le mieux la feuille). Les vues sont RECONSTRUITES
