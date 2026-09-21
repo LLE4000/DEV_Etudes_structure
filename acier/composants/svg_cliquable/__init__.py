@@ -1,18 +1,23 @@
 # -*- coding: utf-8 -*-
-"""Composant Streamlit bidirectionnel : un SVG dont les cotes se modifient
-sur place.
+"""Composant Streamlit bidirectionnel : un SVG dont les cotes et les groupes
+se modifient sur place.
 
 Générique et sans étape de compilation (HTML + JS simples, servis par
-Streamlit) : il affiche un SVG fourni par Python, rend cliquable tout élément
-``<g data-key="…">``, ouvre une saisie numérique à l'endroit de la cote et
-renvoie ``{"key", "value", "sym", "seq", "t"}`` à Python, qui met à jour
-l'état unique et relance le calcul. Réutilisable tel quel par les prochains
-assemblages : il ne connaît ni le moteur ni les clés.
+Streamlit) : il affiche un SVG fourni par Python et rend cliquables
 
-Usage ::
+- ``<g data-key="…">``    : une cote — saisie numérique à l'endroit de la
+                            cote (Entrée valide, Échap annule) ;
+- ``<g data-action="clé:±1">`` : une poignée — la valeur de ``clé`` change
+                            de ±1 (jamais sous 1) ;
+- ``<g data-group="G">``  : l'étiquette d'un groupe — petite fenêtre dont
+                            les champs sont décrits par ``groupes[G]``
+                            (``titre``, ``champs`` = liste de
+                            ``dict(key, lab, type 'n'|'s', options, step)``).
 
-    retour = svg_cliquable(svg, valeurs={"LC_u": 190, …}, key="asm_cmp_elev")
-    if retour is nouveau : st.session_state[…] = retour["value"] ; st.rerun()
+Chaque validation renvoie à Python ``{"changes": {clé: valeur, …}, "sym",
+"seq", "t"}`` ; Python met à jour l'état unique et relance le calcul. Le
+composant ne connaît ni le moteur ni les clés : il est réutilisable tel
+quel par les prochains assemblages.
 
 La valeur retournée persiste d'une relance à l'autre : l'appelant compare
 ``t`` (horodatage du clic) à celui déjà traité pour ce composant.
@@ -25,8 +30,9 @@ _DOSSIER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 _composant = components.declare_component("svg_cliquable", path=_DOSSIER)
 
 
-def svg_cliquable(svg, valeurs, key, palette=None):
+def svg_cliquable(svg, valeurs, key, groupes=None, palette=None):
     """Affiche ``svg`` ; ``valeurs`` = valeur courante de chaque clé
-    modifiable (préremplissage de la saisie). Retourne le dernier clic
-    validé (dict) ou None."""
-    return _composant(svg=svg, valeurs=valeurs, palette=palette or {}, key=key, default=None)
+    modifiable (préremplissage des saisies) ; ``groupes`` = définition des
+    fenêtres de groupe. Retourne le dernier message validé (dict) ou None."""
+    return _composant(svg=svg, valeurs=valeurs, groupes=groupes or {}, palette=palette or {},
+                      key=key, default=None)

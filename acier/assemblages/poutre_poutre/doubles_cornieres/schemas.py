@@ -38,11 +38,23 @@ from .entrees import PILOTEES_PAR_PREDIM
 
 NIVEAUX = ("Vue simple", "Cotations principales", "Cotations complètes")
 
+# Notations affichées : symbole du moteur de référence → notation de
+# l'Eurocode (EN 1993-1-8 Tableau 3.3 ; hc, c, dc : conventions des guides
+# SCI / MSB pour ce que l'Eurocode ne nomme pas). Les clés de calcul ne
+# changent pas ; seule l'écriture change — le test de parité des dessins
+# repasse en notation du moteur (``Options(notation={})``).
+NOTATION_EC = {"Lc": "hc", "ln": "c", "dnt": "dc,sup", "dnb": "dc,inf", "déc.": "Δz", "lh": "ℓh"}
+
+# Groupes de boulons : clé du nombre de rangées, libellé de la fenêtre
+GROUPES_BOULONS = {"S": dict(n1="n1S_u", n2="n2S_u", titre="Groupe S – âme de la poutre secondaire"),
+                   "P": dict(n1="n1P_u", n2="n2P_u", titre="Groupe P – âme de la poutre principale (par cornière)")}
+
 # Cotes du dessin → clé d'entrée (les 18 cotes modifiables)
 CLE_PAR_COTE = {"e2b": "e2b_u", "p2S": "p2_S", "lhS": "lh_S", "gh": "g_h", "ln": "l_n",
                 "e1S": "e1S_u", "p1S": "p1S_u", "Lc": "LC_u", "zc": "z_C", "dnt": "d_nt",
                 "dnb": "d_nb", "e1P": "e1P_u", "p1P": "p1P_u", "dtop": "d_top", "aS": "a_S",
-                "gA": "gA_u", "p2P": "p2_P", "aP": "a_P"}
+                "gA": "gA_u", "p2P": "p2_P", "aP": "a_P",
+                "lhP": "lh_P"}       # étiquette du mode édition (retours des cordons A)
 COTES_CALCULEES = ("e2B", "z", "bB", "e1botS", "e1b", "he", "e1botP", "ztP", "e2A", "p3",
                    "bA", "tc", "twS")
 
@@ -59,23 +71,36 @@ PALETTE = dict(ink="#15181F", accent="#33415C", muted="#6E7480", ko="#9C3341",
 class Options:
     """Options de rendu : niveau de cotation (0, 1, 2), interactivité (cotes
     modifiables cliquables), mise en évidence ``hl`` (``dims`` et ``elems``
-    d'une alerte), cotes verrouillées (prédimensionnement)."""
+    d'une alerte), cotes verrouillées (prédimensionnement), ``editables``
+    (toutes les cotes modifiables affichées quel que soit le niveau),
+    ``poignees`` (+ / − et étiquette cliquable des groupes de boulons),
+    ``notation`` (symboles affichés ; ``{}`` = ceux du moteur de référence)."""
     lvl: int = 1
     interactive: bool = False
     hl: Optional[dict] = None
     locked: Optional[set] = None
+    editables: bool = False
+    poignees: bool = False
+    notation: dict = field(default_factory=lambda: dict(NOTATION_EC))
 
 
 def options_ecran(R, lvl=1, hl=None):
-    """Options de l'écran : niveau choisi, cotes cliquables, alerte en cours,
-    cotes pilotées verrouillées en prédimensionnement."""
-    return Options(lvl=lvl, interactive=True, hl=hl,
+    """Options de l'écran : niveau choisi, toutes les cotes modifiables
+    visibles et cliquables, poignées des groupes, alerte en cours, cotes
+    pilotées verrouillées en prédimensionnement."""
+    return Options(lvl=lvl, interactive=True, hl=hl, editables=True, poignees=True,
                    locked=set(PILOTEES_PAR_PREDIM) if R.pred else None)
 
 
 def options_rapport():
     """Options du rapport : cotations principales, sans interaction."""
     return Options(lvl=1, interactive=False, hl=None, locked=None)
+
+
+def sym_ec(s, notation=None):
+    """Symbole affiché pour un symbole du moteur (« Lc » → « hc »)."""
+    n = NOTATION_EC if notation is None else notation
+    return n.get(s, s)
 
 
 @dataclass
@@ -136,9 +161,19 @@ class Feuille:
     def tw(self, t):
         return len(str(t)) * self.fs * 0.56
 
+    def sym(self, s):
+        """Symbole affiché (notation de l'option)."""
+        return self.opt.notation.get(s, s)
+
     def is_hot(self, id_):
         h = self.opt.hl
         return bool(h and h.get("dims") and id_ in h["dims"])
+
+    def visible(self, d):
+        """Une cote se pose si son niveau est atteint, si une alerte la
+        désigne, ou — en mode édition — si elle est modifiable."""
+        return bool(d["lvl"] <= self.opt.lvl or self.is_hot(d["id"])
+                    or (self.opt.editables and d.get("key")))
 
     def slot(self, side, lo, hi):
         rows = self.rows[side]; pad = 0.4 * self.fs
@@ -167,17 +202,18 @@ class Feuille:
         hit["rx"] = 0.2 * fs
         tx = _text([], None, None, txt, fs)
         return _group(cls, [hit, tx], x=x, y=y, rot=-90 if rot else 0,
-                      key=d.get("key") if ed else None, sym=d.get("sym"), id=d["id"])
+                      key=d.get("key") if ed else None, sym=self.sym(d.get("sym")), id=d["id"])
 
     def dim(self, d):
         """d : id, side T|B|L|R, a, b, o1, o2, sym, val, key, lvl, calc, out."""
         hot = self.is_hot(d["id"])
-        if not (d["lvl"] <= self.opt.lvl or hot):
+        if not self.visible(d):
             return
         if not abs(d["b"] - d["a"]) > 0.01:
             return
         fs = self.fs; lo = mn(d["a"], d["b"]); hi = mx(d["a"], d["b"]); ln = hi - lo
-        t1 = d["sym"] + " = " + f0(d["val"]); t2 = d["sym"] + " " + f0(d["val"]); l2 = lo; h2 = hi
+        sy = self.sym(d["sym"])
+        t1 = sy + " = " + f0(d["val"]); t2 = sy + " " + f0(d["val"]); l2 = lo; h2 = hi
         if ln >= self.tw(t1) + 0.9 * fs:
             txt = t1; c = (lo + hi) / 2
         elif ln >= self.tw(t2) + 0.9 * fs:
@@ -216,11 +252,40 @@ class Feuille:
 
     def tag(self, x, y, d):
         hot = self.is_hot(d["id"])
-        if not (d["lvl"] <= self.opt.lvl or hot):
+        if not self.visible(d):
             return
-        txt = d["sym"] + " " + f0(d["val"])
+        txt = self.sym(d["sym"]) + " " + f0(d["val"])
         self.g.append(_group(["dm"] + (["hot"] if hot else []),
                              [self.label(x + self.tw(txt) / 2 + 0.3 * self.fs, y, False, txt, d)]))
+
+    def largeur_poignees(self, txt):
+        """Largeur occupée par une pile de poignées (étiquette + / −)."""
+        return mx(self.tw(txt) + 0.6 * self.fs, 1.3 * self.fs)
+
+    def poignees(self, xc, yc, grp, key, txt, hot=False):
+        """Poignées d'un groupe de boulons, empilées et centrées en
+        ``(xc, yc)`` : « + » (une rangée de plus), l'étiquette « n1 × n2 »
+        (cliquable : fenêtre du groupe), « − » (une rangée de moins)."""
+        if not self.opt.poignees:
+            return
+        fs = self.fs; w = self.largeur_poignees(txt); b = 1.3 * fs
+        ed = bool(self.opt.interactive and not (self.opt.locked and key in self.opt.locked))
+        h = ["hot"] if hot else []
+
+        def pile(y, cls, enfants, **attrs):
+            # comme ``label`` : le rectangle va de −1,05·fs à +0,37·fs autour
+            # de la ligne de base, son centre visuel est donc 0,34·fs plus haut
+            return _group(cls, enfants, x=xc, y=y + 0.34 * fs, rot=0, **attrs)
+
+        def bouton(y, signe, delta):
+            r = _rect(["gbx"], -b / 2, -1.05 * fs + (1.42 * fs - b) / 2, b, b); r["rx"] = 0.25 * fs
+            return pile(y, ["gb"] + (["ed"] if ed else []) + h, [r, _text([], None, None, signe, 1.15 * fs)],
+                        action=(key + ":" + ("+" if delta > 0 else "") + js_str(delta)) if ed else None,
+                        aria=("Une rangée de plus" if delta > 0 else "Une rangée de moins") + " – groupe " + grp)
+        hit = _rect(["hit"], -w / 2, -1.05 * fs, w, 1.42 * fs); hit["rx"] = 0.2 * fs
+        etiquette = pile(yc, ["gp"] + (["ed"] if ed else []) + h, [hit, _text([], None, None, txt, fs)],
+                         grp=grp if ed else None, id="grp" + grp)
+        self.g.append(_group(["pg"], [bouton(yc - 1.55 * fs, "+", 1), etiquette, bouton(yc + 1.55 * fs, "−", -1)]))
 
     def finish(self, body, lines, aria):
         fs = self.fs; n = self.rows; ex = self.ex
@@ -265,6 +330,15 @@ def elevation(R, opt):
     xE = mx(x0 + (ln if notch else 0), xf + R.b_B) + 75
     bb = dict(x1=-R.b_P / 2, x2=xE, y1=mn(0, yt), y2=mx(R.h_P, yb))
     fs = mx((bb["x2"] - bb["x1"] + 260) / 34, 9)
+    xt = xf + R.b_B
+    txtS = js_str(R.n1_S) + " × " + js_str(R.n2_S); txtP = js_str(R.n1_P) + " × " + js_str(R.n2_P)
+    if opt.poignees:
+        # la boîte s'élargit pour que les poignées n'empiètent pas sur les cotes
+        S0 = Feuille(bb, fs, opt)
+        if R.bolt_S:
+            bb["x2"] = mx(bb["x2"], xt + 0.5 * fs + S0.largeur_poignees(txtS) + 0.3 * fs)
+        if R.bolt_P:
+            bb["x1"] = mn(bb["x1"], -xf - 16 - 0.5 * fs - S0.largeur_poignees(txtP) - 0.3 * fs)
     S = Feuille(bb, fs, opt); s = []
     hot = (opt.hl or {}).get("elems") or set()
 
@@ -292,7 +366,7 @@ def elevation(R, opt):
     s.append(_rect(["co"] + hc("cleat"), xf, yc, R.b_B, R.L_C))
     s.append(_rect(["co2"], xf, yc, R.t_C, R.L_C))
     xc1 = xf + R.g_B; xcl = xc1 + (R.n2_S - 1) * p2S; yb1 = yc + R.e1_S
-    ybl = yb1 + (R.n1_S - 1) * R.p1_S; xt = xf + R.b_B; r0 = R.d_0 / 2
+    ybl = yb1 + (R.n1_S - 1) * R.p1_S; r0 = R.d_0 / 2
     if R.bolt_S:
         for i in range(R.n1_S):
             for j in range(R.n2_S):
@@ -352,25 +426,35 @@ def elevation(R, opt):
         S.tag(-R.b_P / 2, -0.55 * fs, dict(id="dtop", sym="déc.", val=0, key="d_top", lvl=2))
     if not R.bolt_S:
         S.tag(xt + 0.4 * fs, yc + R.L_C / 2, dict(id="aS", sym="a", val=N(u.a_S), key="a_S", lvl=1))
+        if lhS == 0 and opt.editables:
+            # retours nuls : pas de cote possible, une étiquette (mode édition seulement)
+            S.tag(xt + 0.4 * fs, yc + R.L_C / 2 + 1.6 * fs, dict(id="lhS", sym="lh", val=0, key="lh_S", lvl=1))
+    # poignées des groupes de boulons (écran) : dans l'âme de la poutre
+    # secondaire à droite des cornières (S), entre les semelles de la
+    # principale à gauche de l'âme (P)
+    if R.bolt_S:
+        S.poignees(xt + 0.5 * fs + S.largeur_poignees(txtS) / 2, (yb1 + ybl) / 2, "S", "n1S_u", txtS, "boltsS" in hot)
+    if R.bolt_P:
+        S.poignees(-xf - 16 - 0.5 * fs - S.largeur_poignees(txtP) / 2, (yp1 + ypl) / 2, "P", "n1P_u", txtP, "boltsP" in hot)
     nomS = "Poutre secondaire" if u.prof_S == PERSO else u.prof_S
     S.name("T", xE - S.tw(nomS) / 2, nomS)
     S.name("B", 0, "Poutre principale" if u.prof_P == PERSO else u.prof_P)
     L = []
     if opt.lvl >= 1:
-        L.append("Cornières : 2 × " + R.corn_txt + " – " + u.nu_C + " – Lc " + f0(R.L_C) + " mm")
+        L.append("Cornières : 2 × " + R.corn_txt + " – " + u.nu_C + " – " + S.sym("Lc") + " " + f0(R.L_C) + " mm")
         if R.bolt_S or R.bolt_P:
             L.append("Boulons " + R.boulon + " – classe " + u.classe + " – trous d0 " + f0(R.d_0) + " mm"
                      + (" – groupe S : " + js_str(R.n1_S) + " × " + js_str(R.n2_S) if R.bolt_S else "")
                      + (" – groupe P : 2 × (" + js_str(R.n1_P) + " × " + js_str(R.n2_P) + ")" if R.bolt_P else ""))
         if not R.bolt_S:
-            L.append("Soudure ailes B : a " + f0(N(u.a_S)) + " mm, cordon vertical Lc + retours " + f0(lhS) + " mm")
+            L.append("Soudure ailes B : a " + f0(N(u.a_S)) + " mm, cordon vertical " + S.sym("Lc") + " + retours " + f0(lhS) + " mm")
         if not R.bolt_P:
-            L.append("Soudure ailes A : a " + f0(N(u.a_P)) + " mm, cordon vertical Lc + retours " + f0(N(u.lh_P)) + " mm")
+            L.append("Soudure ailes A : a " + f0(N(u.a_P)) + " mm, cordon vertical " + S.sym("Lc") + " + retours " + f0(N(u.lh_P)) + " mm")
         L.append("Excentricité de calcul z = " + f0(R.zeff) + " mm – MS = " + F(R.M_S, 2) + " kNm"
                  + ((" – eP = " + f0(R.e_P if R.bolt_P else R.ew_P) + " mm, MP = " + F(R.M_P, 2) + " kNm") if R.M_P > 0 else ""))
         if notch:
             L.append("Grugeage : " + ("sup. " + f0(dnt) if dnt > 0 else "") + (" / " if dnt > 0 and dnb > 0 else "")
-                     + ("inf. " + f0(dnb) if dnb > 0 else "") + " × " + f0(ln) + " mm – bras de levier gh + ln = " + f0(gh + ln) + " mm")
+                     + ("inf. " + f0(dnb) if dnb > 0 else "") + " × " + f0(ln) + " mm – bras de levier gh + " + S.sym("ln") + " = " + f0(gh + ln) + " mm")
     return S.finish(s, L, "Élévation cotée de l'assemblage")
 
 
@@ -419,6 +503,9 @@ def plan(R, opt):
         S.dim(dict(id="p3", side="L", a=ya, b=-ya, o1=-xf - 14, o2=-xf - 14, sym="p3", val=R.p_3, lvl=1, calc=1))
     else:
         S.tag(xf + R.t_C + 0.6 * fs, -(ws + R.b_A) - 0.2 * fs, dict(id="aP", sym="a", val=N(u.a_P), key="a_P", lvl=1))
+        if opt.editables:
+            # retours des cordons A : pas de cote dans cette vue, une étiquette (mode édition)
+            S.tag(xf + R.t_C + 0.6 * fs, (ws + R.b_A) + 1.2 * fs, dict(id="lhP", sym="lh", val=N(u.lh_P), key="lh_P", lvl=1))
     S.dim(dict(id="bA", side="R", a=ws, b=ws + R.b_A, o1=xt, o2=xf + R.t_C, sym="bA", val=R.b_A, lvl=1, calc=1))
     S.dim(dict(id="tc", side="R", a=ws, b=ws + R.t_C, o1=xt, o2=xt, sym="tc", val=R.t_C, lvl=2, calc=1))
     S.dim(dict(id="twS", side="R", a=-ws, b=ws, o1=xE, o2=xE, sym="tw", val=R.tw_S, lvl=2, calc=1))
@@ -503,12 +590,19 @@ def style_de(cls, ctx, p=None):
             st.update(fill=p["inbg"], fo=1.0, stroke=p["inbord"], sw=1)
         if hot_ctx:
             st.update(fill=p["hotbg"], fo=1.0, stroke=ko, sw=2)
+    elif "gbx" in c:
+        # bouton + / − d'un groupe de boulons : plein, couleur d'accent
+        st.update(fill=acc if "ed" in k else p["ext"], fo=1.0)
+        if hot_ctx:
+            st.update(fill=ko)
     # texte
     if "tx" in c:
         st.update(tfill=ink, bold=True)
     elif "cart" in k:
         st.update(tfill=ink)
-    elif "dl" in k:
+    elif "gb" in k:
+        st.update(tfill="#FFFFFF", bold=True)
+    elif "dl" in k or "gp" in k:
         if "ed" in k:
             st.update(tfill=p["inink"], bold=True)
         if "calc" in k:
@@ -563,6 +657,17 @@ def _css(p, pre):
         f"#{pre} .bp.hot{{stroke-width:4.5;stroke-dasharray:none}}"
         f"#{pre} .hl{{stroke:{ko};stroke-width:4;fill:none}}"
         f"#{pre} .cm{{stroke:{ink};stroke-width:.6;fill:none}}"
+        f"#{pre} .gp .hit{{fill:{p['inbg']};fill-opacity:1;stroke:{p['inbord']};stroke-width:1}}"
+        f"#{pre} .gp text{{fill:{p['inink']};font-weight:600}}"
+        f"#{pre} .gp.ed,#{pre} .gb.ed{{cursor:pointer}}"
+        f"#{pre} .gp.ed:hover .hit,#{pre} .gp.ed:focus .hit{{fill:{p['hover']};stroke:{acc};stroke-width:2}}"
+        f"#{pre} .gb .gbx{{fill:{p['ext']}}}"
+        f"#{pre} .gb.ed .gbx{{fill:{acc}}}"
+        f"#{pre} .gb text{{fill:#fff;font-weight:700}}"
+        f"#{pre} .gb.ed:hover .gbx,#{pre} .gb.ed:focus .gbx{{fill:{ink}}}"
+        f"#{pre} .gp.hot .hit{{fill:{p['hotbg']};stroke:{ko};stroke-width:2}}"
+        f"#{pre} .gp.hot text,#{pre} .gb.hot .gbx{{fill:{ko}}}"
+        f"#{pre} .gp:focus,#{pre} .gb:focus{{outline:none}}"
     )
 
 
@@ -617,6 +722,12 @@ def _prim_svg(p, ctx=(), palette=None):
         if p.get("key"):
             attrs += (f' data-key="{p["key"]}" data-sym="{_esc(p["sym"])}" tabindex="0" role="button"'
                       f' aria-label="Modifier {_esc(p["sym"])}"')
+        if p.get("grp"):
+            attrs += (f' data-group="{p["grp"]}" tabindex="0" role="button"'
+                      f' aria-label="Modifier le groupe {p["grp"]}"')
+        if p.get("action"):
+            attrs += (f' data-action="{_esc(p["action"])}" tabindex="0" role="button"'
+                      f' aria-label="{_esc(p.get("aria") or p["action"])}"')
         if "x" in p:
             attrs += f' transform="translate({_n(p["x"])} {_n(p["y"])})' + (" rotate(-90)" if p.get("rot") else "") + '"'
         if p.get("id") and "x" in p:

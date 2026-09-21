@@ -11,7 +11,11 @@ mode prédimensionnement (cotes verrouillées) et 60 cas aléatoires.
 
 Garanties propres au module (sans Node) : les 31 cotes existent, 18 portent
 une clé, 13 sont calculées ; une cote hors niveau apparaît quand une alerte
-la désigne ; le SVG est un document XML valide.
+la désigne ; le SVG est un document XML valide ; la notation affichée est
+celle de l'Eurocode (hc, c, dc,sup, dc,inf, Δz) alors que la parité avec le
+HTML se rejoue en notation du moteur ; en mode édition toutes les cotes
+modifiables sont posées ; les poignées + / − et l'étiquette des groupes de
+boulons existent à l'écran, pas sur la note.
 
 Lancement : python3 tests/test_assemblages_schemas.py
 """
@@ -123,8 +127,11 @@ rec(schemas.elevation(Rw, schemas.Options(lvl=2, interactive=True)).cotes)
 rec(schemas.plan(Rw, schemas.Options(lvl=2, interactive=True)).cotes)
 ATTENDUES = set("Lc zc e1S p1S e1botS e1b he e2b gh ln dnt dnb dtop z e1P p1P e1botP ztP gA p3 bA bB tc twS e2A e2B p2S p2P aS aP lhS".split())
 chk("les 31 cotes identifiées existent toutes", ATTENDUES <= ids, str(sorted(ATTENDUES - ids)))
-chk("18 cotes modifiables (clé d'entrée), 13 calculées",
-    keys == set(schemas.CLE_PAR_COTE.values()) and len(schemas.COTES_CALCULEES) == 13, str(sorted(keys)))
+chk("18 cotes modifiables (clé d'entrée) hors mode édition, 13 calculées",
+    keys == set(schemas.CLE_PAR_COTE.values()) - {"lh_P"} and len(schemas.COTES_CALCULEES) == 13, str(sorted(keys)))
+rec(schemas.plan(Rw, schemas.Options(lvl=2, interactive=True, editables=True)).cotes)
+chk("mode édition, cornières soudées : l'étiquette des retours ℓh des ailes A s'ajoute (19 clés)",
+    keys == set(schemas.CLE_PAR_COTE.values()) and len(keys) == 19, str(sorted(keys)))
 chk("le SVG est un document XML valide (élévation et plan)",
     ET.fromstring(e0.svg()) is not None and ET.fromstring(p0.svg()) is not None)
 svg1 = schemas.elevation(R0, schemas.Options(lvl=1, interactive=True)).svg()
@@ -141,6 +148,28 @@ chk("prédimensionnement : Lc verrouillée (pas de data-key), gh reste modifiabl
     'data-key="LC_u"' not in svgp and 'data-key="g_h"' in svgp)
 chk("cotes_modifiables() liste les cotes cliquables dans l'ordre de pose",
     [k for k, _, _ in schemas.cotes_modifiables(e0)][:3] == ["e2b_u", "g_h", "l_n"])
+# --- notation Eurocode, mode édition, poignées
+svg_ec = schemas.elevation(R0, schemas.options_ecran(R0, 1)).svg()
+chk("notation Eurocode par défaut : hc = 190, c = 150, dc,sup 50, zc 50 ; plus de « Lc », « ln », « dnt »",
+    all(x in svg_ec for x in (">hc = 190<", ">c = 150<", ">dc,sup 50<", ">zc 50<", ">Δz 0<"))
+    and not any(x in svg_ec for x in (">Lc", ">ln ", ">dnt", "déc.")), svg_ec[:0])
+chk("cartouche en notation Eurocode (hc 190 mm ; bras de levier gh + c)",
+    "hc 190 mm" in svg_ec and "gh + c = 160 mm" in svg_ec)
+chk("notation du moteur sur demande (parité) : Lc = 190",
+    ">Lc = 190<" in schemas.elevation(R0, schemas.Options(lvl=1, interactive=True, notation={})).svg())
+chk("mode édition : gh (niveau 2), Δz et dc,inf (étiquettes de valeur nulle) sont posées au niveau 1",
+    all(f'data-dim="{x}"' in svg_ec for x in ("gh", "dtop", "dnb")) and 'data-dim="gh"' not in svg1)
+chk("poignées des deux groupes : + / − (data-action) et étiquette cliquable (data-group)",
+    all(x in svg_ec for x in ('data-action="n1S_u:+1"', 'data-action="n1S_u:-1"', 'data-action="n1P_u:+1"',
+                              'data-group="S"', 'data-group="P"', ">3 × 1<")))
+svg_r = schemas.elevation(R0, schemas.options_rapport()).svg()
+chk("note : ni poignées ni cotes cliquables, notation Eurocode",
+    "data-action" not in svg_r and "data-group" not in svg_r and "data-key" not in svg_r and ">hc = 190<" in svg_r)
+chk("prédimensionnement : poignées présentes mais inertes (n1 piloté)",
+    "data-action" not in schemas.elevation(Rp, schemas.options_ecran(Rp, 1)).svg()
+    and 'class="gp"' in schemas.elevation(Rp, schemas.options_ecran(Rp, 1)).svg())
+chk("le SVG avec poignées reste un document XML valide",
+    ET.fromstring(svg_ec) is not None and ET.fromstring(schemas.plan(R0, schemas.options_ecran(R0, 1)).svg()) is not None)
 
 # ================================================================
 print("\n=== 2. Parité avec les dessins du HTML (oracle Node) ===")
@@ -172,7 +201,8 @@ else:
         R = moteur.compute(c["inputs"])
         hl = _hl(R, c["hl"])
         for l in c["niveaux"]:
-            opt = schemas.Options(lvl=l, interactive=True, hl=hl,
+            # notation du moteur : le HTML de référence écrit Lc, ln, dnt…
+            opt = schemas.Options(lvl=l, interactive=True, hl=hl, notation={},
                                   locked=set(schemas.PILOTEES_PAR_PREDIM) if R.pred else None)
             for vue, fn in (("elev", schemas.elevation), ("plan", schemas.plan)):
                 n_vues += 1

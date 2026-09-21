@@ -182,20 +182,18 @@ node outils/oracle_double_corniere.js acier/reference/assemblage_double_corniere
 
 ## 9. Limites connues
 
-- **Note PDF : 3 pages** — page de garde portrait (cartouche + sommaire,
-  comme les notes béton) + 2 planches paysage (synthèse, développement).
-  Les 2 pages de calcul tiennent sans réduire le corps de texte ; la
-  planche « développement » ajuste son niveau de détail (2 puis 3 colonnes,
-  puis valeurs introduites réservées à la dimensionnante). L'export texte
-  complet reste le document exhaustif. `generer_pdf(R, infos, garde=False)`
-  donne les 2 planches seules.
+- **Note PDF** : la note du bouton « 📄 Générer PDF » tient sur **une page
+  A4 paysage** (refonte du 21/09/2026, `note.py`) ; les formules qui n'y
+  tiennent pas renvoient au **rapport détaillé** (3 pages : garde,
+  synthèse, développement — `rapport.py`, onglet Note). L'export texte
+  complet reste le document exhaustif.
 - `use_container_width` (boutons) : le module suit la convention du dépôt ;
   Streamlit annonce son retrait (remplacement par `width=`). Tous les
   modules seront concernés en même temps.
 - Le composant cliquable repose sur le protocole des composants Streamlit
-  (v1, `declare_component(path=…)`). Si un déploiement le bloquait, le
-  paramètre avancé ⚙️ « Dessin interactif » le désactive : le schéma reste
-  affiché et le panneau « Cotes » assure l'édition.
+  (v1, `declare_component(path=…)`). Si un déploiement le bloquait, la case
+  « Dessin interactif » des **Paramètres avancés** le désactive : le schéma
+  reste affiché et le panneau « Cotes » assure l'édition.
 - Vignette d'accueil : `Logo_corniere.png`, servie par l'URL distante des
   images d'accueil (dépôt `LLE4000/Etudes-structure`) — à remplacer là-bas
   pour une image propre.
@@ -204,6 +202,34 @@ node outils/oracle_double_corniere.js acier/reference/assemblage_double_corniere
   remplir.
 - Les tests d'interface et de fumée durent quelques secondes chacun ;
   `test_sol_interface.py` (existant) reste le plus long (~11 s).
+
+## 9 bis. Refonte UX du 21/09/2026 (après livraison)
+
+Conception : `REFONTE_UX.md` (diagnostic, principes, architecture, ce qui a
+été réalisé et les écarts assumés). En résumé :
+
+- **une seule entrée par paramètre** : la géométrie (cotes, rangées, files,
+  cordons) se modifie sur le dessin — cotes cliquables, poignées + / −,
+  fenêtre de groupe — et seulement là ; le reste dans une carte compacte
+  (mode et fixations, profilés, cornières, boulons, efforts ; paramètres
+  avancés et identification repliés) ;
+- **notation Eurocode** partout à l'affichage (hc, c, dc,sup / dc,inf, Δz,
+  e1 / p1 / e2 / p2 du Tableau 3.3) — `notation.ec()` est une vue, le
+  moteur et l'export texte ne changent pas ;
+- **statut sur une ligne**, taux par élément, alertes courtes chiffrées ;
+- **vérifications regroupées par élément** (boulons, cornières en matrice
+  aile A · aile B · max, poutre portée, poutre porteuse, cordons), formules
+  en deux lignes avec **substitution numérique testée** (2 284 réévaluées
+  sur les 31 cas, 0 écart) ;
+- **note d'une page** A4 paysage (31 cas, 0 débordement, corps ≥ 6,0 pt) ;
+  rapport détaillé conservé ;
+- **régression calcul : 0 différence** (`tests/test_assemblages_regression.py`,
+  23 977 grandeurs et 5 exports texte contre le corrigé figé avant refonte).
+
+Suites après refonte : `test_assemblages_interface.py` 40, `_schemas.py` 18,
+`_formules.py` (nouvelle) 21, `_note.py` (nouvelle) 22,
+`_regression.py` (nouvelle) 2 — **545 OK, 0 échec, 18/18 suites vertes** ;
+étalon béton de `ndc_pdf` toujours identique au pixel.
 
 ## 10. Critères d'acceptation
 
