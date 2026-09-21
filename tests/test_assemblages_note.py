@@ -92,6 +92,16 @@ chk("hypothèses : z et MS", F(R.zeff, 1) in t and F(R.M_S, 2) in t)
 chk("identification et cartouche", "Halle A" in t and "P3/S7" in t and "Bureaud'ÉtudesValens" in s and "21/09/2026" in t)
 chk("légendes des références et des notations", "EC3 = EN 1993-1-8 sauf indication" in t and "hc : hauteur des cornières" in t)
 chk("conclusion", "ASSEMBLAGE VÉRIFIÉ à l'ELU" in t)
+# --- aucune information en double sur la page
+chk("pas de cartouche sous les dessins (il répétait la ligne de données et les hypothèses)",
+    "Cornières : 2 ×" not in t and "Excentricité de calcul" not in t and "Grugeage : sup." not in t
+    and "Boulons M20 – classe" not in t)
+tt = " ".join(t.split())
+chk("la conclusion ne répète ni le taux maximal ni la dimensionnante (déjà au bandeau)",
+    "Taux maximal" not in t and tt.count("74,0 %") == 3)     # bandeau, ligne pdS, formule de pdS
+chk("MS et z écrits une seule fois en clair (hypothèses)",
+    tt.count("MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm") == 1
+    and tt.count("z = " + F(R.zeff, 1) + " mm") == 1)
 oblig = {R.gov.key} | {c.key for c in R.checks if c.active and not c.ok} | {p.key for _, _, _, p in synthese.taux_par_element(R)}
 d = note.Note(R, {"bureau": "x", "date": "", "indice": "0"}, "toutes")
 from ndc_pdf.kit import Doc  # noqa: E402

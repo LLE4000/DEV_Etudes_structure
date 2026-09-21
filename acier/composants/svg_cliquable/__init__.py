@@ -9,10 +9,17 @@ Streamlit) : il affiche un SVG fourni par Python et rend cliquables
                             cote (Entrée valide, Échap annule) ;
 - ``<g data-action="clé:±1">`` : une poignée — la valeur de ``clé`` change
                             de ±1 (jamais sous 1) ;
-- ``<g data-group="G">``  : l'étiquette d'un groupe — petite fenêtre dont
-                            les champs sont décrits par ``groupes[G]``
-                            (``titre``, ``champs`` = liste de
-                            ``dict(key, lab, type 'n'|'s', options, step)``).
+- ``<g data-group="G">``  : un objet (étiquette de groupe, pièce du dessin,
+                            étiquette d'efforts) — fenêtre dont les champs
+                            sont décrits par ``groupes[G]`` (``titre``,
+                            ``note``, ``champs`` = liste de ``dict(key,
+                            lab, type 'n'|'s', options, step, dis)``) ;
+                            la pièce s'illumine tant que la fenêtre est
+                            ouverte (classe ``sel``) ;
+- ``<g data-drag="clé">`` : une pièce qui se DÉPLACE horizontalement — la
+                            valeur suit le glissement (mm entiers, ≥ 0,
+                            bulle « gh = 25 mm » pendant le geste), un
+                            relâchement sans mouvement vaut clic.
 
 Chaque validation renvoie à Python ``{"changes": {clé: valeur, …}, "sym",
 "seq", "t"}`` ; Python met à jour l'état unique et relance le calcul. Le

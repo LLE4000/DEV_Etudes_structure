@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===========================
-#  ASSEMBLAGE POUTRE–POUTRE — DOUBLES CORNIÈRES D'ÂME — VERSION 1.1
+#  ASSEMBLAGE POUTRE–POUTRE — DOUBLES CORNIÈRES D'ÂME — VERSION 1.2
 # ===========================
 #  interface.py (Streamlit)
 #
@@ -9,10 +9,14 @@
 #  📄 Générer PDF), puis — refonte du 21/09/2026 (docs/assemblages/REFONTE_UX.md) :
 #
 #    ● statut sur une ligne, taux par élément, alertes courtes ;
-#    ● le DESSIN au centre-gauche (cotes, poignées + / −, fenêtres de
-#      groupe) : toute la géométrie se modifie là, et seulement là ;
-#    ● la CARTE de données compacte à droite (profilés, cornières, boulons,
-#      efforts ; paramètres avancés et identification repliés) ;
+#    ● le DESSIN pleine largeur : TOUT se règle dessus — cotes cliquables,
+#      poignées + / −, fenêtres de groupe, PANNEAUX DE PIÈCE (un clic sur
+#      la poutre, la cornière, un boulon, un cordon ou l'étiquette VEd
+#      ouvre tous ses paramètres), et la poutre portée se DÉPLACE à la
+#      souris (jeu gh) — v2 du 21/09/2026 ;
+#    ● en dessous, deux replis seulement : Paramètres avancés (réduits) et
+#      Identification ; la carte de saisie complète ne revient qu'en repli
+#      si le dessin interactif est désactivé ;
 #    ● les onglets Vérifications · Prédim · Note · Benchmark · Méthode.
 #
 #  SOURCE UNIQUE : les 84 entrées vivent dans st.session_state sous les clés
@@ -35,7 +39,7 @@ from .entrees import CLES, defaults, charger_json
 from .moteur import compute
 from .benchmark import run_bench
 
-MODULE_VERSION = "1.1"
+MODULE_VERSION = "1.2"
 PREFIXE = "asm_"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "pdf_detail_bytes", "_asm_", "asm_cmp_", "asm_cote_", "asm_fix_")
 
@@ -221,9 +225,19 @@ def show():
     for a in R.alerts:
         if a.id == sel:
             chauds = set(a.fields)
-    c_dessin, c_carte = st.columns([1.55, 1], gap="medium")
-    with c_dessin:
+    if st.session_state.get("asm_ui_composant", True):
+        # tout se règle sur le dessin : pleine largeur, puis les deux replis
         ecran_resultats.dessins(R, u)
-    with c_carte:
-        ecran_saisie.carte(u, chauds)
+        c1, c2 = st.columns(2, gap="medium")
+        with c1:
+            ecran_saisie.avances(u, chauds)
+        with c2:
+            ecran_saisie.identification(u, chauds)
+    else:
+        # repli sans composant : dessin statique + carte de saisie complète
+        c_dessin, c_carte = st.columns([1.55, 1], gap="medium")
+        with c_dessin:
+            ecran_resultats.dessins(R, u)
+        with c_carte:
+            ecran_saisie.carte(u, chauds)
     ecran_resultats.onglets(R, _bench(), u, ecrire_entrees, generer_detaille)

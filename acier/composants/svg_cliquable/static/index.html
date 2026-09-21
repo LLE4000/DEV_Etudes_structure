@@ -9,18 +9,23 @@
   .dimedit { position: absolute; width: 98px; font: 600 16px system-ui, Arial, sans-serif; padding: 7px 6px;
              border: 2px solid #33415C; border-radius: 4px; background: #FFF7CF; color: #0B3D91; z-index: 4;
              box-shadow: 0 3px 10px rgba(0, 0, 0, .3); }
-  /* fenêtre d'un groupe de boulons : rangées, files, entraxes, pinces */
+  /* fenêtre d'un objet (groupe de boulons, pièce, efforts) : ses paramètres */
   .popover { position: absolute; z-index: 5; background: #fff; border: 2px solid #33415C; border-radius: 6px;
-             padding: 8px 10px 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, .28); min-width: 230px; font-size: 13px; color: #15181F; }
+             padding: 8px 10px 8px; box-shadow: 0 4px 14px rgba(0, 0, 0, .28); min-width: 240px; font-size: 13px; color: #15181F; }
   .popover h4 { margin: 0 0 6px; font-size: 12px; font-weight: 600; color: #33415C; letter-spacing: .02em; }
+  .popover .rows.deux { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
   .popover .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 3px 0; }
   .popover label { flex: 1 1 auto; color: #374151; white-space: nowrap; }
-  .popover input, .popover select { width: 78px; font: 600 14px system-ui, Arial, sans-serif; padding: 4px 5px;
+  .popover input, .popover select { width: 82px; font: 600 14px system-ui, Arial, sans-serif; padding: 4px 5px;
              border: 1.5px solid #C9B95A; border-radius: 4px; background: #FFF7CF; color: #0B3D91; box-sizing: border-box; }
+  .popover select { width: auto; min-width: 82px; max-width: 175px; }
+  .popover input:disabled, .popover select:disabled { background: #EEF0F3; border-color: #C6CBD3; color: #6E7480; }
   .popover .btns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
   .popover button { font: 600 12px system-ui, Arial, sans-serif; padding: 4px 10px; border-radius: 4px; cursor: pointer;
              border: 1px solid #33415C; background: #fff; color: #33415C; }
   .popover button.ok { background: #33415C; color: #fff; }
+  .bulle { position: absolute; z-index: 6; pointer-events: none; font: 600 14px system-ui, Arial, sans-serif;
+           padding: 4px 8px; border-radius: 4px; background: #15181F; color: #fff; opacity: .92; }
 </style>
 </head>
 <body>
@@ -97,17 +102,23 @@
     var ch = {}; ch[key] = nv;
     envoyer(ch, key);
   }
-  /* --- fenêtre d'un groupe de boulons (définition reçue de Python : args.groupes[grp]) */
+  /* --- fenêtre d'un objet : groupe de boulons, pièce, efforts
+         (définition reçue de Python : args.groupes[grp]) */
   function ouvrirGroupe(g) {
     var grp = g.getAttribute('data-group'), def = (args && args.groupes) ? args.groupes[grp] : null;
     if (!def) return;
+    if (g._fin_drag && Date.now() - g._fin_drag < 400) return;   /* fin de glissement, pas un clic */
     var f = fig();
     fermerTout();
+    g.classList.add('sel');
     var pop = document.createElement('form');
     pop.className = 'popover';
     pop.setAttribute('aria-label', def.titre || ('Groupe ' + grp));
     var h = document.createElement('h4'); h.textContent = def.titre || ('Groupe ' + grp); pop.appendChild(h);
     var champs = def.champs || [], inputs = [];
+    var rows = document.createElement('div');
+    rows.className = 'rows' + (champs.length > 5 ? ' deux' : '');
+    pop.appendChild(rows);
     champs.forEach(function (c) {
       var row = document.createElement('div'); row.className = 'row';
       var lab = document.createElement('label'); lab.textContent = c.lab; row.appendChild(lab);
@@ -122,14 +133,20 @@
         w = document.createElement('input'); w.type = 'number'; w.step = c.step || 'any';
         w.setAttribute('inputmode', 'decimal'); w.value = valeur(c.key);
       }
+      if (c.dis) w.disabled = true;
       w.setAttribute('aria-label', c.lab); w._key = c.key; w._old = String(w.value); w._type = c.type;
-      row.appendChild(w); pop.appendChild(row); inputs.push(w);
+      row.appendChild(w); rows.appendChild(row); inputs.push(w);
     });
+    if (def.note) {
+      var nt = document.createElement('div');
+      nt.style.cssText = 'font-size:11px;color:#6E7480;margin-top:4px;max-width:340px;';
+      nt.textContent = def.note; pop.appendChild(nt);
+    }
     var btns = document.createElement('div'); btns.className = 'btns';
     var bAnn = document.createElement('button'); bAnn.type = 'button'; bAnn.textContent = 'Annuler';
     var bOk = document.createElement('button'); bOk.type = 'submit'; bOk.className = 'ok'; bOk.textContent = 'Valider';
     btns.appendChild(bAnn); btns.appendChild(bOk); pop.appendChild(btns);
-    function fermer() { pop.remove(); f.style.minHeight = ''; hauteur(); }
+    function fermer() { pop.remove(); g.classList.remove('sel'); f.style.minHeight = ''; hauteur(); }
     bAnn.addEventListener('click', fermer);
     pop.addEventListener('submit', function (e) {
       e.preventDefault();
@@ -162,6 +179,44 @@
       g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(g); } });
     });
   }
+  /* --- glissement d'une pièce : « data-drag » = clé de la cote pilotée par
+         le déplacement horizontal (jeu gh de la poutre portée) */
+  function glisser(g) {
+    var key = g.getAttribute('data-drag'), sym = g.getAttribute('data-dsym') || key;
+    g.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      var f = fig(), svg = g.ownerSVGElement;
+      var vb = svg.viewBox.baseVal, echelle = vb.width / svg.getBoundingClientRect().width;
+      var x0 = e.clientX, v0 = parseFloat(valeur(key)), bouge = false, bulle = null;
+      if (!isFinite(v0)) v0 = 0;
+      function val(ev) { return Math.max(0, Math.round(v0 + (ev.clientX - x0) * echelle)); }
+      function move(ev) {
+        if (!bouge && Math.abs(ev.clientX - x0) < 5) return;
+        if (!bouge) {
+          bouge = true; g.classList.add('drag'); fermerTout();
+          bulle = document.createElement('div'); bulle.className = 'bulle'; f.appendChild(bulle);
+        }
+        g.setAttribute('transform', 'translate(' + (val(ev) - v0) + ' 0)');
+        bulle.textContent = sym + ' = ' + val(ev) + ' mm';
+        var fr = f.getBoundingClientRect();
+        bulle.style.left = (ev.clientX - fr.left + f.scrollLeft + 14) + 'px';
+        bulle.style.top = (ev.clientY - fr.top + f.scrollTop - 36) + 'px';
+        ev.preventDefault();
+      }
+      function up(ev) {
+        window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up);
+        if (bulle) bulle.remove();
+        g.classList.remove('drag');
+        if (bouge) {
+          g._fin_drag = Date.now();
+          g.removeAttribute('transform');
+          var nv = val(ev);
+          if (nv !== v0) { var ch = {}; ch[key] = nv; envoyer(ch, sym); }
+        }
+      }
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
+  }
   function rendre(a) {
     args = a;
     var f = fig(), garde = f.scrollLeft;
@@ -171,6 +226,7 @@
     lier('g.ed[data-key]', ouvrir);
     lier('g.ed[data-action]', action);
     lier('g.ed[data-group]', ouvrirGroupe);
+    f.querySelectorAll('g.ed[data-drag]').forEach(glisser);
     /* centrer la vue sur la première cote en alerte si elle est hors champ */
     var chaud = f.querySelector('.dm.hot .dl') || f.querySelector('.hot');
     if (chaud && f.scrollWidth > f.clientWidth + 4) {

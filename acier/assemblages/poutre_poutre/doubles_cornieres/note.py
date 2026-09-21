@@ -113,7 +113,7 @@ def lignes_hypotheses(R):
         s += " ; cordons A : " + ("groupe avec moment MP = " + F(R.M_P, 2) + " kNm" if R.M_P > 0 else "cisaillement centré")
     h.append(s + ".")
     h.append("Pression diamétrale : interaction quadratique des composantes"
-             + (" ; grugeage : flexion de la section réduite sous VEd·(gh + c) = " + F(R.ck["mN"].Ed, 2) + " kNm" if R.cas_g > 0 else "") + ".")
+             + (" ; grugeage : flexion de la section réduite sous VEd·(gh + c)" if R.cas_g > 0 else "") + ".")
     h.append("γM0 = " + F(N(u.g_M0), 2) + " · γM2 = " + F(N(u.g_M2), 2) + " (sections nettes " + F(N(u.g_M2n), 2) + ")"
              + (" · γM3 = " + F(N(u.g_M3), 2) if u.cat != "A" else "")
              + (" · cordons : longueur efficace = longueur totale (§4.5.1)" if not (R.bolt_S and R.bolt_P) else "") + ".")
@@ -278,6 +278,8 @@ class Note:
 
     # --- colonne 1 : dessins et hypothèses
     def colonne_dessins(self, d, fr):
+        # les dessins sont rendus SANS cartouche (options_rapport) : ses
+        # lignes répéteraient la ligne de données et les hypothèses
         S, R = self.S, self.R
         hyp = lignes_hypotheses(R)
         lignes = []
@@ -359,9 +361,10 @@ class Note:
     # --- conclusion
     def conclusion(self, d, x, w):
         S, R = self.S, self.R
+        # le taux maximal et la dimensionnante sont déjà dans le bandeau :
+        # la conclusion ne les répète pas
         txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1"
-               + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else ".")
-               + " Taux maximal " + pct(R.eta_max, 1) + (" (" + synthese.court(R.gov) + ")." if R.gov else "."))
+               + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
         col = S.ok if R.verified else S.ko
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7

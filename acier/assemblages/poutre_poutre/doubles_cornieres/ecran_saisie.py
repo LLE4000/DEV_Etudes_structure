@@ -79,6 +79,14 @@ AVANCES = [(["r_n", "lt_ok"], None), (["d0_u", "filet"], None),
            (["opt_exc", "k_rot"], None), (["opt_blf", "expo"], None),
            (["fy_u", "fu_u", "bw_u"], _acier_perso),
            (["eta_c", "k_e1", "k_p1", "k_e2"], mode_predim), (["pd_dmin", "pd_dmax"], mode_predim)]
+# En mode interactif, ce que les panneaux du dessin portent déjà (rayon de
+# grugeage, maintien, filetage, μ / ks / ELS) sort des avancés : une seule
+# entrée par paramètre.
+AVANCES_INTERACTIF = [(["d0_u"], None),
+                      (["g_M0", "g_M2", "g_M2n"], None), (["g_M3", "g_M3s"], _cat_non_A),
+                      (["opt_exc", "k_rot"], None), (["opt_blf", "expo"], None),
+                      (["fy_u", "fu_u", "bw_u"], _acier_perso),
+                      (["eta_c", "k_e1", "k_p1", "k_e2"], mode_predim), (["pd_dmin", "pd_dmax"], mode_predim)]
 IDENTIFICATION = [(["id_projet", "id_rep"], None), (["id_red", "id_date"], None)]
 
 
@@ -178,23 +186,35 @@ def _contient_chaud(lignes, chauds, u):
     return any(k in chauds for cles, cond in lignes if not cond or cond(u) for k in cles)
 
 
-def carte(u, chauds=frozenset()):
-    """La carte de données pour l'état ``u`` ; ``chauds`` = clés mises en
-    cause par l'alerte sélectionnée (champs marqués, replis dépliés)."""
-    with st.container(gap=None):
-        for titre, lignes in BLOCS:
-            _lignes(lignes, u, chauds, ("🔴 " if _contient_chaud(lignes, chauds, u) else "") + titre)
-    chaud_av = _contient_chaud(AVANCES, chauds, u)
+def avances(u, chauds=frozenset(), plein=False):
+    """L'expander « Paramètres avancés » : la version réduite (mode
+    interactif — le dessin porte le reste) ou la version pleine (repli)."""
+    rows = AVANCES if plein else AVANCES_INTERACTIF
+    chaud_av = _contient_chaud(rows, chauds, u)
     with st.expander(("🔴 " if chaud_av else "") + "Paramètres avancés", expanded=chaud_av):
         st.caption("Coefficients partiels et options du modèle : valeurs recommandées de l'EN 1993, à confirmer "
                    "par rapport à l'ANB applicable.")
         with st.container(gap=None):
-            _lignes(AVANCES, u, chauds)
-        st.checkbox("Dessin interactif (cotes et groupes cliquables)", key="asm_ui_composant",
-                    help="Désactivé : le dessin reste affiché et les cotes se modifient dans le panneau « Cotes ».")
+            _lignes(rows, u, chauds)
+        st.checkbox("Dessin interactif (cotes et pièces cliquables sur le schéma)", key="asm_ui_composant",
+                    help="Désactivé : le dessin reste affiché ; les cotes se modifient dans le panneau « Cotes » "
+                         "et les autres paramètres dans la carte de saisie.")
+
+
+def identification(u, chauds=frozenset()):
     with st.expander("Identification (note et export)"):
         with st.container(gap=None):
             _lignes(IDENTIFICATION, u, chauds)
+
+
+def carte(u, chauds=frozenset()):
+    """Le repli sans dessin interactif : la carte complète pour l'état ``u`` ;
+    ``chauds`` = clés mises en cause par l'alerte sélectionnée."""
+    with st.container(gap=None):
+        for titre, lignes in BLOCS:
+            _lignes(lignes, u, chauds, ("🔴 " if _contient_chaud(lignes, chauds, u) else "") + titre)
+    avances(u, chauds, plein=True)
+    identification(u, chauds)
 
 
 # rétro-compatibilité (tests, anciens appels)

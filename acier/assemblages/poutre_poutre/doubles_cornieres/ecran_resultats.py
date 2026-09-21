@@ -13,8 +13,10 @@ from acier.formats import F, pct
 from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte_ligne, bloc_alerte, badge_nature,
                                          tableau_md, tableau_html, taux_html, Html)
 from . import schemas, texte, synthese, formules
+from acier.bibliotheques import PERSO
 from .notation import ec, ligne_alerte, LEGENDE_REFERENCES
-from .entrees import (COURT, UNITE, CHAMPS, CLES, champ_visible, PILOTEES_PAR_PREDIM)
+from .entrees import (COURT, UNITE, CHAMPS, CLES, champ_visible, PILOTEES_PAR_PREDIM,
+                      MODE_VERIF, MODE_PREDIM)
 from .moteur import apply_solution, solution_label, nom_cornière_proposee
 from .benchmark import SRC, NOCOVER, BENCH
 from .methode import METHODE
@@ -129,11 +131,22 @@ def _traiter_clic(retour, cle_cmp):
         st.rerun()
 
 
-def _groupes(R):
-    """Les fenêtres de groupe du composant : rangées, files, entraxes, pinces."""
+def _panneaux(R, u):
+    """Les fenêtres d'objet du composant : un clic sur une pièce du dessin
+    ouvre TOUS ses paramètres — groupes de boulons (rangées, files, entraxes,
+    pinces), boulons (produit), poutres (profilé, nuance, dimensions
+    personnalisées), cornières (dont fixations), cordons, efforts. En
+    prédimensionnement, les champs pilotés (◆) sont désactivés."""
+    pred = R.pred
+
     def ch(k, lab):
         f = CHAMPS[k]
-        return dict(key=k, lab=lab, type=f["t"], options=f.get("o") or [], step=PAS.get(k, 1.0))
+        return dict(key=k, lab=lab, type=f["t"], options=f.get("o") or [], step=PAS.get(k, 1.0),
+                    dis=bool(pred and k in PILOTEES_PAR_PREDIM))
+
+    def perso(X):
+        return [ch(f"{d}{X}_u", d + " (mm)") for d in ("h", "b", "tw", "tf", "r")]
+
     g = {}
     if R.bolt_S:
         g["S"] = dict(titre=schemas.GROUPES_BOULONS["S"]["titre"],
@@ -145,6 +158,36 @@ def _groupes(R):
                       champs=[ch("n1P_u", "Rangées n1"), ch("n2P_u", "Files n2"), ch("p1P_u", "Entraxe p1 (mm)")]
                       + ([ch("p2_P", "Entraxe p2 (mm)")] if R.n2_P > 1 else [])
                       + [ch("e1P_u", "Pince e1 (mm)"), ch("gA_u", "Trusquinage gA (mm)")])
+    if R.bolt_S or R.bolt_P:
+        g["bolts"] = dict(titre="Boulons",
+                          champs=[ch("boulon_u", "Diamètre"), ch("classe", "Classe"), ch("trou", "Type de trou"),
+                                  ch("cat", "Catégorie"), ch("filet", "Filetage cisaillé")]
+                          + ([ch("mu_s", "Frottement μ"), ch("k_s", "ks")] if u.get("cat") != "A" else [])
+                          + ([ch("k_ser", "ELS / ELU")] if u.get("cat") == "B" else []))
+    g["beamS"] = dict(titre="Poutre secondaire (portée)",
+                      champs=[ch("prof_S", "Profilé"), ch("nu_S", "Nuance")]
+                      + (perso("S") if u.get("prof_S") == PERSO else [])
+                      + [ch("lt_ok", "Maintenue au déversement"), ch("r_n", "Rayon du grugeage (mm)")],
+                      note="Grugeage, jeu et décalage : cotes dc,sup, dc,inf, c, gh et Δz sur le dessin — "
+                           "la poutre se déplace aussi à la souris (jeu gh).")
+    g["beamP"] = dict(titre="Poutre principale (porteuse)",
+                      champs=[ch("prof_P", "Profilé"), ch("nu_P", "Nuance")]
+                      + (perso("P") if u.get("prof_P") == PERSO else []))
+    g["cleat"] = dict(titre="Cornières (2 identiques)",
+                      champs=[ch("corn_u", "Cornière"), ch("nu_C", "Nuance"), ch("orient", "Orientation")]
+                      + ([ch("k1_u", "Grande aile (mm)"), ch("k2_u", "Petite aile (mm)"),
+                          ch("kt_u", "Épaisseur (mm)"), ch("kr_u", "Congé (mm)")] if u.get("corn_u") == PERSO else [])
+                      + [ch("fix_P", "Fixation ailes A"), ch("fix_S", "Fixation ailes B")],
+                      note="Hauteur hc et position zc : cotes sur le dessin.")
+    if not R.bolt_S:
+        g["weldS"] = dict(titre="Cordons ailes B (âme portée)",
+                          champs=[ch("a_S", "Gorge a (mm)"), ch("lh_S", "Retours ℓh (mm)"), ch("fix_S", "Fixation ailes B")])
+    if not R.bolt_P:
+        g["weldP"] = dict(titre="Cordons ailes A (âme porteuse)",
+                          champs=[ch("a_P", "Gorge a (mm)"), ch("lh_P", "Retours ℓh (mm)"), ch("fix_P", "Fixation ailes A")])
+    g["efforts"] = dict(titre="Efforts de calcul ELU",
+                        champs=[ch("V_Ed", "VEd (kN)"), ch("N_Ed", "NEd (kN)"), ch("H_Ed", "HEd (kN)"),
+                                ch("M_Ed", "MEd (kNm)")])
     return g
 
 
@@ -157,22 +200,34 @@ def _alerte_courante(R):
 
 
 def dessins(R, u):
-    """Le centre de l'écran : élévation et vue en plan, cotes cliquables,
-    poignées des groupes ; panneau des cotes en repli si le dessin interactif
-    est désactivé."""
-    c1, c2 = st.columns([1, 2.2], vertical_alignment="center")
+    """Le centre de l'écran : élévation et vue en plan. Tout se règle sur le
+    dessin — une cote se touche, une pièce (poutre, cornière, boulons,
+    cordons, efforts) s'ouvre au clic avec tous ses paramètres, la poutre
+    portée se déplace à la souris (jeu gh). Panneau des cotes et carte de
+    saisie en repli si le dessin interactif est désactivé."""
+    interactif = bool(st.session_state.get("asm_ui_composant", True))
+    c1, c2, c3 = st.columns([2.6, 1.4, 3], vertical_alignment="center")
     with c1:
-        st.markdown("**Dessin**")
-    with c2:
         niveau = st.radio("Niveau de cotation", [0, 1, 2], format_func=lambda i: NIVEAUX_ECRAN[i],
                           horizontal=True, key="asm_ui_niveau", label_visibility="collapsed")
+    if interactif:
+        with c2:
+            st.selectbox("Mode de calcul", [MODE_VERIF, MODE_PREDIM], key="asm_mode_calc",
+                         label_visibility="collapsed",
+                         help="Prédimensionnement : boulons, rangées et cornière sont proposés (onglet Prédim) "
+                              "puis vérifiés en détail ; les paramètres pilotés ◆ sont alors verrouillés.")
+    with c3:
+        if R.pred:
+            st.caption("◆ pilotés par la proposition : onglet Prédim pour appliquer une solution.")
+        else:
+            st.caption("Touche une cote pour la modifier · touche une pièce (poutre, cornière, boulon, cordon, "
+                       "VEd) pour tous ses paramètres · glisse la poutre portée pour régler le jeu gh.")
     hl = _alerte_courante(R)
     opt = schemas.options_ecran(R, niveau, hl)
     opt.editables = niveau >= 1
     e = schemas.elevation(R, opt); p = schemas.plan(R, opt)
-    interactif = bool(st.session_state.get("asm_ui_composant", True))
     valeurs = {k: st.session_state.get(K(k)) for k in CLES}
-    groupes = _groupes(R)
+    groupes = _panneaux(R, u)
     ce, cp = st.columns([3, 2], vertical_alignment="top", gap="small")
     for col, d, cle in ((ce, e, "asm_cmp_elev"), (cp, p, "asm_cmp_plan")):
         with col:
@@ -181,12 +236,6 @@ def dessins(R, u):
                 _traiter_clic(svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle)
             else:
                 st.markdown(d.svg(identifiant=cle), unsafe_allow_html=True)
-    if R.pred:
-        st.caption("Mode prédimensionnement : les cotes pilotées par la proposition (◆) ne se modifient pas ici.")
-    else:
-        st.caption("Cotes sur fond jaune : touche la valeur, saisis, valide avec Entrée · + / − : une rangée de plus "
-                   "ou de moins · « 3 × 1 » : rangées, files, entraxes et pinces du groupe · violet : grandeurs "
-                   "calculées · rouge : en cause dans l'alerte localisée.")
     if not interactif:
         _panneau_cotes(e, p, hl)
 

@@ -226,10 +226,17 @@ Conception : `REFONTE_UX.md` (diagnostic, principes, architecture, ce qui a
 - **régression calcul : 0 différence** (`tests/test_assemblages_regression.py`,
   23 977 grandeurs et 5 exports texte contre le corrigé figé avant refonte).
 
-Suites après refonte : `test_assemblages_interface.py` 40, `_schemas.py` 18,
-`_formules.py` (nouvelle) 21, `_note.py` (nouvelle) 22,
-`_regression.py` (nouvelle) 2 — **545 OK, 0 échec, 18/18 suites vertes** ;
-étalon béton de `ndc_pdf` toujours identique au pixel.
+V2 (même jour, retour du bureau) : la colonne de saisie disparaît — chaque
+pièce du dessin se sélectionne et ouvre son panneau complet (poutres,
+cornières avec fixations, boulons, groupes, cordons, efforts via
+l'étiquette « VEd ») ; la poutre portée se déplace à la souris (jeu gh) ;
+cotation épurée (halo blanc, jaune au survol seulement) ; tangentes des
+congés tf + r ; note d'une page sans information en double (cartouche
+retiré, conclusion et hypothèses allégées). Détail : `REFONTE_UX.md` §11.
+
+Suites après refonte v2 : `test_assemblages_interface.py` 50, `_schemas.py`
+32, `_formules.py` 17, `_note.py` 25, `_regression.py` 2 — **595 OK,
+0 échec, 18/18 suites vertes** ; étalon béton toujours identique au pixel.
 
 ## 10. Critères d'acceptation
 

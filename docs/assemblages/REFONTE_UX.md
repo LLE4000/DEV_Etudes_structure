@@ -246,6 +246,48 @@ géométrie du HTML avec `realiste=False`) :
   aile–âme (plan) ;
 - rondelles (`dw` de la bibliothèque) autour des trous du groupe S.
 
+## 11. V2 du 21/09/2026 — retour du bureau (« 40/100 : trop de champs »)
+
+Le bureau : « à quoi ça sert d'avoir à droite autant de paramètres à remplir
+alors qu'on pourrait le faire sur le dessin ? Si on sélectionne la poutre
+secondaire, on a les étiquettes où on peut modifier tous ses paramètres…
+cotations de dessin limite professionnelles… on pourrait déplacer la
+poutrelle horizontalement. »
+
+Réalisé :
+
+- **la colonne de saisie disparaît.** Hors replis, il ne reste qu'UN
+  réglage à l'écran : le mode (VÉRIFICATION / PRÉDIMENSIONNEMENT), au-dessus
+  du dessin. « Paramètres avancés » (réduits : d0 imposé, coefficients γ,
+  options du modèle, acier personnalisé, règles du prédimensionnement) et
+  « Identification » sont repliés sous le dessin. La carte complète ne
+  revient qu'en repli, si le dessin interactif est désactivé ;
+- **chaque pièce se sélectionne** (elle s'illumine) et ouvre son panneau
+  complet : poutre portée (profilé, nuance, dimensions personnalisées,
+  maintien, rayon de grugeage), poutre porteuse, cornières (dont
+  l'orientation ET les deux fixations), boulons (diamètre, classe, trou,
+  catégorie, filetage, μ / ks selon la catégorie), groupes S et P
+  (rangées, files, entraxes, pinces), cordons (gorge, retours), efforts
+  (étiquette « VEd 125 » sur l'âme → VEd, NEd, HEd, MEd). En
+  prédimensionnement, les champs pilotés ◆ y sont désactivés ;
+- **la poutre portée se déplace à la souris** : le glissement horizontal
+  pilote le jeu gh (mm entiers, bulle « gh = 43 mm » pendant le geste, la
+  pièce suit en fantôme, le calcul repart au relâchement) ;
+- **cotation de dessin propre** : plus de fond jaune permanent — halo blanc
+  discret sous chaque étiquette, bleu = modifiable (jaune au survol
+  seulement), violet italique = calculée, lignes de cote fines (0,8),
+  lignes d'attache très fines (0,5), tangentes des congés âme–semelle de la
+  poutre portée en trait fin (tf + r) ;
+- **note d'une page sans doublon** : le cartouche sous l'élévation est
+  retiré de la note (il répétait la ligne de données et les hypothèses — il
+  reste à l'écran, où il est seul), la conclusion ne répète plus le taux
+  maximal ni la dimensionnante (déjà au bandeau), l'hypothèse du grugeage
+  ne répète plus le MEd du tableau.
+
+Une entrée par paramètre, mise à jour : la géométrie sur le dessin
+(cotes + glissement), tout le reste dans les panneaux de pièce ; les
+avancés réduits ne portent plus rien de ce que les panneaux couvrent.
+
 Écarts assumés par rapport aux idées initiales :
 
 - la matrice des cornières de la note ne porte pas de colonne « Réf. » :

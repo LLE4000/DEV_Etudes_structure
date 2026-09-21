@@ -196,6 +196,26 @@ svg_fid = schemas.plan(Rw, schemas.Options(lvl=1, interactive=True, realiste=Fal
 chk("mode fidèle au HTML (parité) : ni hachures, ni congés, cordons en disques (wd)",
     'class="ht' not in svg_fid and 'class="wb"' not in svg_fid and 'class="wd"' in svg_fid)
 chk("rapport : rendu réaliste aussi", 'class="ht"' in schemas.elevation(R0, schemas.options_rapport()).svg())
+# --- pièces sélectionnables, drag, cartouche
+chk("écran : chaque pièce est un groupe cliquable (beamP, beamS, cleat, bolts, efforts) et la poutre "
+    "portée porte data-drag=g_h",
+    all(f'data-group="{g}"' in svg_ec for g in ("beamP", "beamS", "cleat", "bolts", "efforts"))
+    and 'data-drag="g_h"' in svg_ec and 'data-dsym="gh"' in svg_ec)
+chk("étiquette des efforts : « VEd 125 » cliquable (panneau efforts)",
+    ">VEd 125<" in svg_ec and 'class="ef ed"' in svg_ec)
+svg_pl = schemas.plan(R0, schemas.options_ecran(R0, 1)).svg()
+chk("plan : pièces cliquables aussi (deux cornières, âmes, boulons) et drag de la portée",
+    svg_pl.count('data-group="cleat"') == 2 and 'data-group="beamS"' in svg_pl and 'data-drag="g_h"' in svg_pl)
+svg_note = schemas.elevation(R0, schemas.options_rapport()).svg()
+chk("parité et note : aucun groupe de pièce, pas d'étiquette d'efforts",
+    "data-group" not in schemas.elevation(R0, schemas.Options(lvl=2, interactive=True)).svg()
+    and "data-group" not in svg_note and "VEd" not in svg_note)
+chk("lignes de congé tf + r de la poutre portée (classe flr, écran et note)",
+    'class="flr"' in svg_ec and 'class="flr"' in svg_note)
+chk("cartouche à l'écran, pas sur la note (il ferait doublon avec la ligne de données)",
+    "Cornières : 2 ×" in svg_ec and "Cornières : 2 ×" not in svg_note)
+chk("étiquettes de cote discrètes : halo blanc, plus de fond jaune permanent",
+    'fill="#FFFFFF" fill-opacity="0.85"' in svg_ec and "#FFF7CF" not in svg_ec.split("</style>")[1])
 
 # ================================================================
 print("\n=== 2. Parité avec les dessins du HTML (oracle Node) ===")
