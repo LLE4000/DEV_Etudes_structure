@@ -157,7 +157,7 @@ chk("couches v1 -> direction X (renfort compris)",
     and ss["dal1_sec1_ø_barres_inf_x_c2"] == 12
     and ss["dal1_sec1_treillis_sup_x_c1"] == "8/8/150/150")
 chk("anciennes clés purgées",
-    all(k not in ss.filtered_state for k in
+    all(k not in ss.to_dict() for k in
         ("dal1_sec1_M_inf", "dal1_sec1_ncouches_inf", "dal1_sec1_treillis_inf_c1")))
 chk("direction Y sur ses défauts", ss["dal1_sec1_ncouches_inf_y"] == 1)
 
