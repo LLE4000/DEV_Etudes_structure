@@ -171,28 +171,39 @@ class Style:
         d.line(m, y - 28, W - m, y - 28, S.ink, 1.0)
         top = y - 38
 
-        # colonne de gauche : coupe puis données, sur fond sobre
-        cw = S.coupe_w
+        # colonne de gauche : figure puis données, sur fond sobre.
+        # Extension rétro-compatible (notes acier) : une section peut fournir
+        # son propre dessinateur `dessin(d, x, y, w, h, style)`, un titre de
+        # panneau, une largeur et une hauteur de figure, un nombre de
+        # colonnes ; sans ces clés, la coupe béton est dessinée comme avant.
+        cw = sec.get("coupe_w", S.coupe_w)
         d.box(m - 10, m - 4, cw + 20, top - m + 14, fill=S.panel, r=6)
         C = Frame(m, top, cw, m)
         C.down(11)
-        d.t(C.x, C.y, "COUPE DE SECTION", S.f_v, 6.6, S.acc, track=1.4)
+        d.t(C.x, C.y, sec.get("titre_coupe", "COUPE DE SECTION"), S.f_v, 6.6,
+            S.acc, track=1.4)
         C.down(4)
         d.line(C.x, C.y, C.x1, C.y, mix(S.rule, S.ink, 0.12), 0.5)
         blocs = sec.get("blocs", [])
         reserve = 26 + 13 * sum(1 + len(r) for _, r in blocs[:2]) if blocs else 0
-        hc = min(S.coupe_h, C.y - m - max(60, reserve))
-        C.down(hc)
-        draw_section(d.c, C.x, C.y, C.w, hc, sec["coupe"], S.sec_style(),
-                     label_w=96)
+        hc = min(sec.get("coupe_h", S.coupe_h), C.y - m - max(60, reserve))
+        dessin = sec.get("dessin")
+        if dessin is not None:
+            C.down(hc)
+            dessin(d, C.x, C.y, C.w, hc, S)
+        elif sec.get("coupe") is not None:
+            C.down(hc)
+            draw_section(d.c, C.x, C.y, C.w, hc, sec["coupe"], S.sec_style(),
+                         label_w=96)
         C.down(8)
         self._data(d, ms, C.x, C.y, C.w, blocs)
 
         # colonnes de calcul, en flux continu
+        n_cols = sec.get("n_cols", S.n_cols)
         zx = m + cw + S.gap
-        gw = (W - m - zx - S.col_gap * (S.n_cols - 1)) / S.n_cols
+        gw = (W - m - zx - S.col_gap * (n_cols - 1)) / n_cols
         cols = [Frame(zx + i * (gw + S.col_gap), top, gw, m)
-                for i in range(S.n_cols)]
+                for i in range(n_cols)]
         for fr in cols[1:]:
             d.line(fr.x - S.col_gap / 2, top + 4, fr.x - S.col_gap / 2, m + 2,
                    S.rule, 0.45)
@@ -333,6 +344,14 @@ class Style:
                 place(S.s_kv * 3.2)
                 fr.down(S.s_kv * 1.75)
                 d.t(fr.x, fr.y, it[1].upper(), S.f_v, S.s_lab, S.mut, track=1.1)
+            elif it[0] == "p":
+                # paragraphe replié (formule en clair, valeurs introduites) :
+                # petit corps gris, replié sur la largeur de colonne, jamais
+                # réduit — extension rétro-compatible (notes acier)
+                n = len(d.wrap(it[1], S.f_b, S.s_lab, fr.w))
+                place(n * S.s_lab * 1.32 + 3)
+                fr.down(2)
+                d.para(fr, it[1], S.f_b, S.s_lab, S.mut, lead=1.32)
             else:
                 k = v["verdicts"][it[1]]
                 n = len(d.wrap(k["texte"], S.f_b, S.s_verd, fr.w - 15))
