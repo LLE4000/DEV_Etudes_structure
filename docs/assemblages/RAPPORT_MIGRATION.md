@@ -238,6 +238,30 @@ Suites après refonte v2 : `test_assemblages_interface.py` 50, `_schemas.py`
 32, `_formules.py` 17, `_note.py` 25, `_regression.py` 2 — **595 OK,
 0 échec, 18/18 suites vertes** ; étalon béton toujours identique au pixel.
 
+## 9 ter. Finalisation du 21/09/2026 (colonne figée, plan de principe)
+
+Écran en deux colonnes : dessin à gauche (élévation puis vue en plan,
+empilées), colonne FIGÉE à l'écran (CSS sticky ciblé par `:has` sur le
+conteneur `asm_col_dessin`, retiré sous 641 px) ; à droite la carte par
+objet (mode, profilés, cornières, boulons + visserie, efforts, avancés,
+identification) puis les onglets. Champ « visserie » (rondelles / écrous
+par boulon) : annotation de fabrication hors moteur et hors CLES,
+enregistrée dans le JSON et portée au cartouche.
+
+Note PDF en DEUX pages : page 1 allégée (en-tête compact 3 lignes,
+hypothèses d'une ligne, références « MSB P5 §… », pied 2 lignes) ; page 2
+« PLAN DE PRINCIPE » — trois vues (dont la nouvelle vue de droite) à la
+même échelle normalisée, la plus grande qui tient (série 1:1 … 1:50,
+vues reconstruites par échelle, texte imprimé constant 2,4 mm),
+disposition automatique, cotes réparties sans doublon, renvois de perçage
+(n×Ø), rayon du grugeage, cote zt, lignes de rupture ISO 128 sur les
+profils coupés, cartouche six cases. Détail : `REFONTE_UX.md` §12.
+
+Suites après finalisation : `test_assemblages_interface.py` 55,
+`_schemas.py` 51, `_note.py` 42, `_formules.py` 17, `_regression.py` 2 —
+**613 OK, 0 échec, 18/18 suites vertes** ; parité dessins 372 vues,
+0 divergente ; étalon béton toujours identique au pixel.
+
 ## 10. Critères d'acceptation
 
 - [x] Les modules existants fonctionnent comme avant ; tests d'origine verts (320/320).

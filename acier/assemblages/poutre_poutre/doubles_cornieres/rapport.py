@@ -149,6 +149,30 @@ def _peindre_prim(c, p, ctx, s, X, Y, palette):
     c.setDash()
 
 
+def peindre_echelle(d, dessin, x, y, w, h, s, palette=None):
+    """Peint une vue à l'échelle EXACTE ``s`` (pt par mm), centrée dans le
+    rectangle ``(x, y, w, h)`` — pour le plan de principe, où les trois vues
+    partagent une échelle normalisée."""
+    palette = palette or schemas.PALETTE
+    c = d.c
+    vx, vy, vw, vh = dessin.viewbox
+    ox = x + (w - vw * s) / 2 - vx * s
+    oy = y + h - (h - vh * s) / 2 + vy * s
+
+    def X(px):
+        return ox + px * s
+
+    def Y(py):
+        return oy - py * s
+
+    c.saveState()
+    for p in dessin.corps:
+        _peindre_prim(c, p, (), s, X, Y, palette)
+    for p in dessin.cotes:
+        _peindre_prim(c, p, (), s, X, Y, palette)
+    c.restoreState()
+
+
 def peindre(d, dessin, x, y, w, h, palette=None, marge=3):
     """Peint une vue dans le rectangle ``(x, y, w, h)`` du canevas (origine
     en bas à gauche), à l'échelle et centrée."""

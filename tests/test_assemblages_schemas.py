@@ -154,8 +154,8 @@ svg_ec = schemas.elevation(R0, schemas.options_ecran(R0, 1)).svg()
 chk("notation Eurocode par défaut : hc = 190, c = 150, dc,sup 50, zc 50 ; plus de « Lc », « ln », « dnt »",
     all(x in svg_ec for x in (">hc = 190<", ">c = 150<", ">dc,sup 50<", ">zc 50<", ">Δz 0<"))
     and not any(x in svg_ec for x in (">Lc", ">ln ", ">dnt", "déc.")), svg_ec[:0])
-chk("cartouche en notation Eurocode (hc 190 mm ; bras de levier gh + c)",
-    "hc 190 mm" in svg_ec and "gh + c = 160 mm" in svg_ec)
+chk("plus de cartouche texte à l'écran (colonne figée courte ; la carte et les panneaux portent ces données)",
+    "hc 190 mm" not in svg_ec and "Cornières : 2 ×" not in svg_ec)
 chk("notation du moteur sur demande (parité) : Lc = 190",
     ">Lc = 190<" in schemas.elevation(R0, schemas.Options(lvl=1, interactive=True, notation={})).svg())
 chk("mode édition : gh (niveau 2), Δz et dc,inf (étiquettes de valeur nulle) sont posées au niveau 1",
@@ -215,8 +215,9 @@ chk("parité et note : aucun groupe de pièce, pas d'étiquette d'efforts",
     and "data-group" not in svg_note and "VEd" not in svg_note)
 chk("lignes de congé tf + r de la poutre portée (classe flr, écran et note)",
     'class="flr"' in svg_ec and 'class="flr"' in svg_note)
-chk("cartouche à l'écran, pas sur la note (il ferait doublon avec la ligne de données)",
-    "Cornières : 2 ×" in svg_ec and "Cornières : 2 ×" not in svg_note)
+chk("le cartouche reste rejoué par la parité (notation moteur) et absent de la note",
+    "Cornières : 2 ×" in schemas.elevation(R0, schemas.Options(lvl=1, interactive=True, notation={})).svg()
+    and "Cornières : 2 ×" not in svg_note)
 chk("étiquettes de cote discrètes : halo blanc, plus de fond jaune permanent",
     'fill="#FFFFFF" fill-opacity="0.85"' in svg_ec and "#FFF7CF" not in svg_ec.split("</style>")[1])
 # --- traits d'axe des boulons (rendu réaliste)
@@ -245,6 +246,54 @@ chk("arêtes cachées des semelles en plan (trait interrompu hd) : porteuse + po
 chk("note : symboles et arêtes cachées aussi (rendu réaliste)",
     'class="hd"' in schemas.plan(R0, schemas.options_rapport()).svg()
     and 'class="wst"' in schemas.elevation(Rw, schemas.options_rapport()).svg())
+
+# --- lignes de rupture : le bord d'un profil coupé est un zigzag, pas un
+# --- bord franc (élévation : portée à droite ; plan : porteuse haut et bas,
+# --- portée à droite ; vue de droite : porteuse des deux côtés) — et la
+# --- parité (realiste=False) garde la géométrie du HTML
+opt_par = schemas.Options(lvl=1, interactive=True, notation={}, realiste=False)
+e_r = schemas.elevation(R0, schemas.Options(lvl=1))
+e_p = schemas.elevation(R0, opt_par)
+poly_e = next(p for p in e_r.corps if p["t"] == "poly" and "ps" in p["cls"])
+poly_ep = next(p for p in e_p.corps if p["t"] == "poly" and "ps" in p["cls"])
+xs = sorted(pt[0] for pt in poly_e["pts"])
+chk("élévation : bord droit de la portée en ligne de rupture (pointe unique hors du bord coupé) ; "
+    "bord franc en parité",
+    xs[-1] > xs[-2] + 1.5 and abs(max(pt[0] for pt in poly_ep["pts"]) - xs[-2]) < 1e-6)
+pl_r = schemas.plan(R0, schemas.Options(lvl=1))
+pl_p = schemas.plan(R0, opt_par)
+poly_pp = next(p for p in pl_r.corps if p["t"] == "poly" and "pp" in p["cls"])
+poly_ps = next(p for p in pl_r.corps if p["t"] == "poly" and "ps" in p["cls"])
+ys = sorted(pt[1] for pt in poly_pp["pts"]); xs2 = sorted(pt[0] for pt in poly_ps["pts"])
+chk("plan : âme porteuse rompue en haut ET en bas, âme portée rompue à droite ; rectangles en parité",
+    ys[0] < ys[1] - 1.5 and ys[-1] > ys[-2] + 1.5 and xs2[-1] > xs2[-2] + 1.5
+    and any(p["t"] == "rect" and "pp" in p["cls"] for p in pl_p.corps)
+    and any(p["t"] == "rect" and "ps" in p["cls"] for p in pl_p.corps))
+vd = schemas.vue_droite(R0, schemas.options_fabrication())
+face = next(p for p in vd.corps if p["t"] == "poly" and "pp" in p["cls"])
+xs3 = sorted(pt[0] for pt in face["pts"])
+chk("vue de droite : la face de l'âme porteuse est rompue des deux côtés (une pointe par bord)",
+    xs3[0] < xs3[1] - 1.5 and xs3[-1] > xs3[-2] + 1.5)
+
+# --- plan de principe (fabrication) : renvois de perçage, rayon du
+# --- grugeage, cote zt, répartition des cotes entre vues, police imposée
+# --- (fs 12 = TEXTE_MM × 5, les conditions réelles de la page à 1:5)
+svg_fe = schemas.elevation(R0, schemas.options_fabrication(schemas.EXCLURE_ELEVATION, 12)).svg()
+svg_fd = schemas.vue_droite(R0, schemas.options_fabrication(fs_force=12)).svg()
+svg_ecran = schemas.elevation(R0, schemas.options_ecran(R0)).svg()
+chk("fabrication : renvois 3×Ø22 (élévation) et 6×Ø22 (vue de droite), rayon du grugeage « r 10 »",
+    ">3×Ø22<" in svg_fe and ">r 10<" in svg_fe and ">6×Ø22<" in svg_fd)
+chk("fabrication : zt = 85 (perçage P depuis le dessus de la porteuse) sur la vue de droite seulement",
+    "zt = 85" in svg_fd and "zt" not in svg_fe)
+chk("les renvois de perçage n'existent pas à l'écran (les panneaux portent déjà Ø et n)",
+    "3×Ø22" not in svg_ecran and "r 10<" not in svg_ecran)
+chk("répartition sans doublon : hc sur la vue de droite, pas sur l'élévation du plan de principe",
+    "hc = 190" in svg_fd and "hc = 190" not in svg_fe)
+f12 = [schemas.elevation(R0, schemas.options_fabrication(schemas.EXCLURE_ELEVATION, 12)),
+       schemas.plan(R0, schemas.options_fabrication(schemas.EXCLURE_PLAN, 12)),
+       schemas.vue_droite(R0, schemas.options_fabrication(fs_force=12))]
+chk("police imposée (fs_force) : les trois vues du plan de principe partagent la même taille de texte",
+    all(v.fs == 12 for v in f12))
 
 # ================================================================
 print("\n=== 2. Parité avec les dessins du HTML (oracle Node) ===")

@@ -1,23 +1,25 @@
 # -*- coding: utf-8 -*-
 # ===========================
-#  ASSEMBLAGE POUTRE–POUTRE — DOUBLES CORNIÈRES D'ÂME — VERSION 1.2
+#  ASSEMBLAGE POUTRE–POUTRE — DOUBLES CORNIÈRES D'ÂME — VERSION 1.3
 # ===========================
 #  interface.py (Streamlit)
 #
 #  Écran de l'assemblage : même en-tête et même barre d'outils que les
 #  modules béton (🏠 Accueil · 🔄 Réinitialiser · 💾 Enregistrer · 📂 Ouvrir ·
-#  📄 Générer PDF), puis — refonte du 21/09/2026 (docs/assemblages/REFONTE_UX.md) :
+#  📄 Générer PDF), puis — finalisation du 21/09/2026
+#  (docs/assemblages/REFONTE_UX.md §12) :
 #
 #    ● statut sur une ligne, taux par élément, alertes courtes ;
-#    ● le DESSIN pleine largeur : TOUT se règle dessus — cotes cliquables,
-#      poignées + / −, fenêtres de groupe, PANNEAUX DE PIÈCE (un clic sur
-#      la poutre, la cornière, un boulon, un cordon ou l'étiquette VEd
-#      ouvre tous ses paramètres), et la poutre portée se DÉPLACE à la
-#      souris (jeu gh) — v2 du 21/09/2026 ;
-#    ● en dessous, deux replis seulement : Paramètres avancés (réduits) et
-#      Identification ; la carte de saisie complète ne revient qu'en repli
-#      si le dessin interactif est désactivé ;
-#    ● les onglets Vérifications · Prédim · Note · Benchmark · Méthode.
+#    ● DEUX COLONNES : à gauche le DESSIN (élévation puis vue en plan,
+#      empilées), colonne FIGÉE à l'écran (CSS sticky — le schéma reste
+#      visible pendant le défilement de la droite) ; TOUT se règle dessus —
+#      cotes cliquables, poignées + / −, fenêtres de groupe, panneaux de
+#      pièce, et la poutre portée se DÉPLACE à la souris (gh, Δz) ;
+#    ● à droite : la carte compacte par objet (mode, profilés, cornières,
+#      boulons, efforts), les replis Paramètres avancés et Identification,
+#      puis les onglets Vérifications · Prédim · Note · Benchmark · Méthode ;
+#    ● dessin interactif désactivé : mêmes colonnes, dessins statiques à
+#      gauche, panneau des cotes en tête de la colonne de droite.
 #
 #  SOURCE UNIQUE : les 84 entrées vivent dans st.session_state sous les clés
 #  `asm_<clé>` ; la carte, le dessin cliquable, le panneau des cotes (repli),
@@ -35,13 +37,37 @@ from functools import lru_cache
 import streamlit as st
 
 from . import ecran_saisie, ecran_resultats, texte
-from .entrees import CLES, defaults, charger_json
+from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT
 from .moteur import compute
 from .benchmark import run_bench
 
-MODULE_VERSION = "1.2"
+MODULE_VERSION = "1.3"
 PREFIXE = "asm_"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "pdf_detail_bytes", "_asm_", "asm_cmp_", "asm_cote_", "asm_fix_")
+
+# La colonne du dessin est FIGÉE (position: sticky) : le schéma reste visible
+# pendant le défilement des paramètres et des vérifications. La colonne est
+# reconnue par son CONTENU (:has, conteneur clé asm_col_dessin), jamais par sa
+# position dans le DOM : les colonnes imbriquées de la droite ne sont pas
+# touchées. Sous 641 px (téléphone), Streamlit empile les colonnes : le sticky
+# est retiré pour que le dessin ne se peigne pas par-dessus la carte.
+_CSS_STICKY = """<style>
+@media (min-width: 641px) {
+  div[data-testid="stColumn"]:has(div.st-key-asm_col_dessin) {
+    position: sticky;
+    top: 2.875rem;
+    align-self: flex-start;
+    max-height: calc(100vh - 3.5rem);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  /* le padding bas par défaut (10rem) fait « garer » la colonne figée sous
+     le haut de l'écran en fin de page : on le ramène à une respiration */
+  div[data-testid="stMainBlockContainer"] {
+    padding-bottom: 1.5rem;
+  }
+}
+</style>"""
 
 
 def K(k):
@@ -62,6 +88,7 @@ def _transitoire(k):
 def _init_etat():
     for k, v in defaults().items():
         st.session_state.setdefault(K(k), ecran_saisie.valeur_widget(k, v))
+    st.session_state.setdefault("asm_visserie", VISSERIE_DEFAUT)
     st.session_state.setdefault("asm_ui_niveau", 1)
     st.session_state.setdefault("asm_ui_alerte", None)
     st.session_state.setdefault("asm_ui_onglet", ecran_resultats.ONGLETS[0])
@@ -99,7 +126,9 @@ def _reinitialiser():
 
 def _payload(u):
     return {"version": "assemblage-doubles-cornieres-1.1", "assemblage": "doubles_cornieres",
-            "values": u}
+            "values": u,
+            # annotation de fabrication (hors moteur) : visserie du cartouche
+            "visserie": st.session_state.get("asm_visserie", VISSERIE_DEFAUT)}
 
 
 def charger_payload(data):
@@ -120,7 +149,8 @@ def _infos(u):
             "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
             "date": st.session_state.get("date", "") or u.get("id_date", "")
             or datetime.today().strftime("%d/%m/%Y"),
-            "indice": st.session_state.get("indice", "0")}
+            "indice": st.session_state.get("indice", "0"),
+            "visserie": st.session_state.get("asm_visserie", VISSERIE_DEFAUT)}
 
 
 # ------------------------------------------------------------------ écran
@@ -176,6 +206,8 @@ def show():
                 try:
                     data = json.loads(up.read().decode("utf-8-sig"))
                     ecrire_entrees(charger_payload(data))
+                    if isinstance(data.get("visserie"), str) and data["visserie"].strip():
+                        st.session_state["asm_visserie"] = data["visserie"].strip()
                     st.session_state["asm_show_open_uploader"] = False
                     st.session_state["asm_ui_alerte"] = None
                     st.session_state["_asm_toast"] = "Données chargées"
@@ -225,19 +257,15 @@ def show():
     for a in R.alerts:
         if a.id == sel:
             chauds = set(a.fields)
-    if st.session_state.get("asm_ui_composant", True):
-        # tout se règle sur le dessin : pleine largeur, puis les deux replis
-        ecran_resultats.dessins(R, u)
-        c1, c2 = st.columns(2, gap="medium")
-        with c1:
-            ecran_saisie.avances(u, chauds)
-        with c2:
-            ecran_saisie.identification(u, chauds)
-    else:
-        # repli sans composant : dessin statique + carte de saisie complète
-        c_dessin, c_carte = st.columns([1.55, 1], gap="medium")
-        with c_dessin:
-            ecran_resultats.dessins(R, u)
-        with c_carte:
-            ecran_saisie.carte(u, chauds)
-    ecran_resultats.onglets(R, _bench(), u, ecrire_entrees, generer_detaille)
+    # Deux colonnes : le DESSIN à gauche (élévation puis vue en plan, colonne
+    # figée à l'écran), les paramètres, vérifications et commandes à droite.
+    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
+    c_dessin, c_droite = st.columns([1, 1.12], gap="medium")
+    with c_dessin:
+        with st.container(key="asm_col_dessin"):
+            e, p, hl = ecran_resultats.dessins(R, u)
+    with c_droite:
+        if not st.session_state.get("asm_ui_composant", True):
+            ecran_resultats.panneau_cotes(e, p, hl)
+        ecran_saisie.carte(u, chauds)
+        ecran_resultats.onglets(R, _bench(), u, ecrire_entrees, generer_detaille)

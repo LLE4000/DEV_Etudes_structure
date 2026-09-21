@@ -93,13 +93,13 @@ for cas in REF["cas"]:
 chk("aucun symbole de l'outil ne subsiste dans les textes affichés (31 cas)", not restes, str(restes[:3]))
 rc = notation.ref_courte
 chk("ref_courte : EN 1993-1-8 implicite, Tab., MSB, P358, ECCS",
-    rc("EN 1993-1-8 Tableau 3.4 ; groupe excentré : MSB Part 5 §4.2.1.1") == "Tab. 3.4 · MSB §4.2.1.1"
-    and rc("MSB Part 5 §4.2.2 (d'après ECCS n°126)") == "MSB §4.2.2 · ECCS"
+    rc("EN 1993-1-8 Tableau 3.4 ; groupe excentré : MSB Part 5 §4.2.1.1") == "Tab. 3.4 · MSB P5 §4.2.1.1"
+    and rc("MSB Part 5 §4.2.2 (d'après ECCS n°126)") == "MSB P5 §4.2.2 · ECCS"
     and rc("SCI P358 Check 10 (un seul côté chargé)") == "P358 Ch. 10"
     and rc("EN 1993-1-1 §6.2.5 ; bras de levier : hypothèse de l'outil") == "EC3-1-1 §6.2.5 · hyp. outil",
     rc("EN 1993-1-8 Tableau 3.4 ; groupe excentré : MSB Part 5 §4.2.1.1"))
-longues = [rc(c.ref) for c in R0.checks if len(rc(c.ref)) > 30 or "EN 1993-1-8" in rc(c.ref)]
-chk("références courtes ≤ 30 caractères, sans « EN 1993-1-8 »", not longues, str(longues))
+longues = [rc(c.ref) for c in R0.checks if len(rc(c.ref)) > 33 or "EN 1993-1-8" in rc(c.ref)]
+chk("références courtes ≤ 33 caractères, sans « EN 1993-1-8 »", not longues, str(longues))
 Rb = moteur.compute(dict(LC_u=260))
 a = [x for x in Rb.alerts if x.id == "h_dispo"][0]
 titre, det = notation.ligne_alerte(a, Rb)
@@ -136,7 +136,7 @@ m = synthese.matrice_cornieres(R0)
 chk("matrice des cornières : pression diamétrale A et B, max = la plus sollicitée",
     m[0]["lab"] == "Pression diamétrale" and m[0]["A"]["key"] == "pdA" and m[0]["B"]["key"] == "pdB"
     and m[0]["max"]["key"] == ("pdA" if R0.ck["pdA"].eta >= R0.ck["pdB"].eta else "pdB"))
-chk("refs_fusionnees sans doublon", synthese.refs_fusionnees(["Tab. 3.4 · MSB §4.2.1.1", "Tab. 3.4"]) == "Tab. 3.4 · MSB §4.2.1.1")
+chk("refs_fusionnees sans doublon", synthese.refs_fusionnees(["Tab. 3.4 · MSB P5 §4.2.1.1", "Tab. 3.4"]) == "Tab. 3.4 · MSB P5 §4.2.1.1")
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

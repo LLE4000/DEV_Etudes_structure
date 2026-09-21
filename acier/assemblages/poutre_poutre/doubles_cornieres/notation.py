@@ -47,10 +47,10 @@ def ec(txt):
 
 # --- références courtes -----------------------------------------------
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC3-1-1 = EN 1993-1-1 ; "
-                      "MSB = MSB Part 5 ; P358 = SCI P358 ; ECCS = ECCS n°126.")
+                      "MSB P5 ; P358 = SCI P358 ; ECCS = ECCS n°126.")
 
 _REMPLACEMENTS = [
-    ("EN 1993-1-8 ", ""), ("EN 1993-1-1 ", "EC3-1-1 "), ("MSB Part 5 ", "MSB "),
+    ("EN 1993-1-8 ", ""), ("EN 1993-1-1 ", "EC3-1-1 "), ("MSB Part 5 ", "MSB P5 "),
     ("SCI P358 Check ", "P358 Ch. "), ("ECCS n°126", "ECCS"), ("Tableau ", "Tab. "),
     ("hypothèse de l'outil", "hyp. outil"),
 ]

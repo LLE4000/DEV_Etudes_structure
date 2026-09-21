@@ -36,9 +36,11 @@ from ndc_pdf import data as ndc_data
 from acier.formats import F, pct
 from acier.js import N
 from acier.bibliotheques import PERSO
+from acier.js import js_str, mx
 from . import schemas, synthese, formules
-from .notation import ec, ligne_alerte, LEGENDE_REFERENCES, LEGENDE_NOTATION
-from .rapport import peindre
+from .entrees import VISSERIE_DEFAUT
+from .notation import ec, ligne_alerte, LEGENDE_REFERENCES
+from .rapport import peindre, peindre_echelle
 
 A4L = landscape(A4)
 M = 22                     # marge
@@ -49,6 +51,9 @@ S_TAB, S_TAB_H, S_REF, S_FORM, S_DATA = 6.5, 5.6, 5.6, 6.0, 7.0
 LEAD_TAB = 8.8
 
 TITRE = "Assemblage poutre–poutre — doubles cornières d'âme"
+NOTATIONS_COURTES = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2, p2) ; hc, zc : hauteur et position des "
+                     "cornières ; c, dc : grugeage ; gh, Δz : jeu et décalage ; gA, p3 : groupe P ; a : gorge ; "
+                     "z : excentricité.")
 PINCES_COURT = {"S_e1c": "S – e1 cornière (mini)", "S_e2c": "S – e2 cornière, aile B", "S_e1b": "S – e1,b âme portée",
                 "S_he": "S – he âme portée", "S_e2b": "S – e2,b âme portée", "S_p1": "S – p1", "S_p2": "S – p2",
                 "P_e1c": "P – e1 cornière (mini)", "P_e2c": "P – e2 cornière, aile A", "P_p1": "P – p1", "P_p2": "P – p2"}
@@ -67,56 +72,47 @@ def _prof(R, X):
     return u["prof_" + X]
 
 
-def ligne_donnees(R):
-    """La ligne de données (segments « · »), lue dans R."""
+def lignes_entete(R):
+    """L'en-tête compact : deux lignes d'objets, puis la ligne des efforts.
+    Pas de géométrie détaillée ici — elle est cotée sur le plan de principe
+    (page 2)."""
     u = R.u
-    nt, nb = N(u.d_nt), N(u.d_nb)
-    seg = ["Principale " + _prof(R, "P") + " " + u.nu_P]
-    s = "Secondaire " + _prof(R, "S") + " " + u.nu_S
-    if nt or nb:
-        s += ", grugée " + ((" dc,sup " + F(nt, 0)) if nt else "") + ((" dc,inf " + F(nb, 0)) if nb else "") + " × c " + F(N(u.l_n), 0)
-    else:
-        s += ", non grugée"
-    s += ", gh " + F(N(u.g_h), 0) + (", Δz " + F(N(u.d_top), 0) if N(u.d_top) else "")
-    seg.append(s)
-    seg.append("Cornières 2 × " + R.corn_txt + " " + u.nu_C + ", hc " + F(R.L_C, 0) + ", zc " + F(N(u.z_C), 0))
+    grugee = bool(N(u.d_nt) or N(u.d_nb))
+    l1 = ("Principale " + _prof(R, "P") + " " + u.nu_P
+          + "    |    Secondaire " + _prof(R, "S") + " " + u.nu_S + (" · grugée" if grugee else "")
+          + "    |    Cornières 2 × " + R.corn_txt + " " + u.nu_C)
     if R.bolt_S or R.bolt_P:
-        seg.append("Boulons " + R.boulon + " " + u.classe + " cat. " + u.cat + ", trous Ø" + F(R.d_0, 0)
-                   + (" (surdimensionnés)" if u.trou != "Normal" else ""))
-    if R.bolt_S:
-        seg.append("Groupe S " + str(R.n1_S) + " × " + str(R.n2_S) + " : p1 " + F(R.p1_S, 0)
-                   + (", p2 " + F(N(u.p2_S), 0) if R.n2_S > 1 else "") + ", e1 " + F(R.e1_S, 0) + ", e2,b " + F(R.e2b_S, 0))
+        b = ("Boulons " + R.boulon + " " + u.classe + " cat. " + u.cat + " · trous Ø" + F(R.d_0, 0)
+             + (" surdim." if u.trou != "Normal" else ""))
     else:
-        seg.append("Cordons ailes B a " + F(N(u.a_S), 0) + ", retours " + F(N(u.lh_S), 0))
-    if R.bolt_P:
-        seg.append("Groupe P 2 × (" + str(R.n1_P) + " × " + str(R.n2_P) + ") : p1 " + F(R.p1_P, 0)
-                   + (", p2 " + F(N(u.p2_P), 0) if R.n2_P > 1 else "") + ", e1 " + F(R.e1_P, 0) + ", gA " + F(R.g_A, 0))
-    else:
-        seg.append("Cordons ailes A a " + F(N(u.a_P), 0) + ", retours " + F(N(u.lh_P), 0))
-    seg.append("VEd " + F(u.V_Ed, 1) + " kN · NEd " + F(u.N_Ed, 1) + " kN · HEd " + F(u.H_Ed, 1) + " kN · MEd " + F(u.M_Ed, 2) + " kNm")
-    return " · ".join(seg) + " (mm)"
+        b = "Cornières soudées"
+    l2 = (b + "    |    Groupe S " + (js_str(R.n1_S) + " × " + js_str(R.n2_S) if R.bolt_S
+                                      else "soudé, a " + F(N(u.a_S), 0))
+          + "    |    Groupe P " + ("2 × (" + js_str(R.n1_P) + " × " + js_str(R.n2_P) + ")" if R.bolt_P
+                                    else "soudé, a " + F(N(u.a_P), 0)))
+    l3 = ("VEd " + F(u.V_Ed, 1) + " kN    |    NEd " + F(u.N_Ed, 1) + " kN    |    HEd "
+          + F(u.H_Ed, 1) + " kN    |    MEd " + F(u.M_Ed, 2) + " kNm")
+    return l1, l2, l3
 
 
 def lignes_hypotheses(R):
-    """Quatre hypothèses courtes, composées avec les grandeurs du moteur."""
+    """Les hypothèses : une par ligne, courtes, références abrégées."""
     u = R.u
-    h = ["Assemblage articulé, rotule à la face de l'âme porteuse (MSB §4.2.1.1) ; z = " + F(R.zeff, 1)
-         + " mm ; MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm."]
-    if R.bolt_S:
-        s = "Groupe S : répartition élastique, Ip = " + F(R.Ip_S, 0) + " mm²"
-    else:
-        s = "Cordons B : groupe de cordons en répartition élastique"
+    h = ["Articulé — rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1).",
+         "z = " + F(R.zeff, 1) + " mm ; MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm"
+         + (" ; Ip,S = " + F(R.Ip_S, 0) + " mm²" if R.bolt_S else "") + "."]
     if R.bolt_P:
-        s += " ; groupe P : " + ("excentricité eP reprise par cornière, MP = " + F(R.M_P, 2) + " kNm" if R.M_P > 0
-                                 else "cisaillement centré, facteur " + F(N(u.k_rot), 2) + " sur Fv,Rd")
-    else:
-        s += " ; cordons A : " + ("groupe avec moment MP = " + F(R.M_P, 2) + " kNm" if R.M_P > 0 else "cisaillement centré")
-    h.append(s + ".")
-    h.append("Pression diamétrale : interaction quadratique des composantes"
-             + (" ; grugeage : flexion de la section réduite sous VEd·(gh + c)" if R.cas_g > 0 else "") + ".")
-    h.append("γM0 = " + F(N(u.g_M0), 2) + " · γM2 = " + F(N(u.g_M2), 2) + " (sections nettes " + F(N(u.g_M2n), 2) + ")"
-             + (" · γM3 = " + F(N(u.g_M3), 2) if u.cat != "A" else "")
-             + (" · cordons : longueur efficace = longueur totale (§4.5.1)" if not (R.bolt_S and R.bolt_P) else "") + ".")
+        h.append("Groupe P : " + ("MP = " + F(R.M_P, 2) + " kNm par cornière" if R.M_P > 0
+                                  else "cisaillement centré, " + F(N(u.k_rot), 2) + "·Fv,Rd")
+                 + " (MSB P5 §4.2.1.2).")
+    elif R.M_P > 0:
+        h.append("Cordons A : MP = " + F(R.M_P, 2) + " kNm par cornière.")
+    if R.cas_g > 0:
+        h.append("Grugeage : flexion de la section réduite (MSB P5 §4.2.4).")
+    h.append("γM0 " + F(N(u.g_M0), 2) + " · γM2 " + F(N(u.g_M2), 2) + " · nettes " + F(N(u.g_M2n), 2)
+             + (" · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else "") + ".")
+    if not (R.bolt_S and R.bolt_P):
+        h.append("Cordons : Leff = longueur totale (EC3 §4.5.1).")
     return h
 
 
@@ -267,12 +263,15 @@ class Note:
         if len(al) > 3:
             y -= 9
             d.t(M + 9, y, "+ " + str(len(al) - 3) + " autre(s) point(s) signalé(s) — voir le rapport détaillé.", S.f_b, 6.4, S.mut)
-        # données
+        # en-tête compact : deux lignes d'objets, puis la ligne des efforts
         y -= 12
-        for l in d.wrap(ligne_donnees(R), S.f_b, S_DATA, W - 2 * M)[:3]:
-            d.t(M, y, l, S.f_b, S_DATA, S.ink)
-            y -= S_DATA * 1.3
-        y += S_DATA * 1.3 - 6
+        l1, l2, l3 = lignes_entete(R)
+        d.t(M, y, d.fit(l1, S.f_b, S_DATA, W - 2 * M), S.f_b, S_DATA, S.ink)
+        y -= S_DATA * 1.35
+        d.t(M, y, d.fit(l2, S.f_b, S_DATA, W - 2 * M), S.f_b, S_DATA, S.ink)
+        y -= S_DATA * 1.45
+        d.t(M, y, l3, "Carlito-Bold", S_DATA, S.ink)
+        y -= 6
         d.line(M, y, W - M, y, mix(S.rule, S.ink, 0.3), 0.6)
         return y - 4
 
@@ -464,9 +463,6 @@ class Note:
                 fr.down(S_FORM * 1.25)
                 d.t(fr.x + 5, fr.y, l, S.f_b, S_FORM, S.ink)
             fr.down(3)
-        if len(self.formules_imprimees) < len(cand) and fr.fits(9):
-            fr.down(8)
-            d.t(fr.x + 5, fr.y, "Autres vérifications : formules dans le rapport détaillé.", S.f_b, S_REF, S.mut)
 
     # --- page
     def construire(self, d):
@@ -491,15 +487,176 @@ class Note:
         hc = self.conclusion(d, x3, w3)
         f3.bottom = BAS + hc + 6
         self.formules(d, [f2, f3])
-        # pied de page
+        # pied de page : références et notations, une ligne chacune
         d.t(M, 24, d.fit(LEGENDE_REFERENCES, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
-        lignes = d.wrap(LEGENDE_NOTATION, S.f_b, 5.6, W - 2 * M)[:2]
-        for i, l in enumerate(lignes):
-            d.t(M, 16.5 - i * 7, l, S.f_b, 5.6, S.mut)
+        d.t(M, 16.5, d.fit(NOTATIONS_COURTES, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
         for f in (f1, f2, f3):
             if f.overflow() > 1.0:
                 self.warnings.append(f"colonne {f.x:.0f} : {f.overflow():.0f} pt")
         return self.warnings
+
+
+# ------------------------------------------------- page 2 : plan de principe
+# Échelles normalisées testées, de la plus grande à la plus petite ; la
+# première où une disposition tient est retenue (jamais « trop petit pour
+# être sûr que ça rentre » : on descend seulement si ça ne tient pas)
+ECHELLES = (1, 2, 2.5, 5, 10, 15, 20, 25, 30, 40, 50)
+MM = 72 / 25.4                # points par millimètre à l'échelle 1:1
+TITRE_VUE = 13                # bande de titre au-dessus de chaque vue
+GAP_VUES = 9
+CART_H = 44                   # cartouche compact en pied de page
+TEXTE_MM = 2.4                # hauteur du texte des cotes SUR LE PAPIER —
+#                               constante quelle que soit l'échelle : les
+#                               vues sont reconstruites pour chaque échelle
+#                               candidate avec fs = TEXTE_MM × dénominateur
+
+
+def _fmt_echelle(dnm):
+    return "1:" + (js_str(int(dnm)) if dnm == int(dnm) else F(dnm, 1))
+
+
+class PlanPrincipe:
+    """La page « PLAN DE PRINCIPE » : élévation, vue en plan et vue de
+    droite, toutes à la MÊME échelle normalisée, choisie automatiquement
+    comme la plus grande qui fait tenir les trois vues cotées ; la
+    disposition est choisie parmi plusieurs pour remplir la feuille."""
+
+    def __init__(self, R, doc_meta):
+        self.R = R; self.doc = doc_meta; self.S = Encre(); self.warnings = []
+        self.vues = self._vues(5)
+
+    def _vues(self, dnm):
+        """Les trois vues pour le dénominateur ``dnm`` : la police des cotes
+        est imposée pour que le texte imprimé fasse TEXTE_MM sur les trois
+        vues, quelle que soit l'échelle."""
+        f = TEXTE_MM * dnm
+        R = self.R
+        return [("ÉLÉVATION", schemas.elevation(R, schemas.options_fabrication(schemas.EXCLURE_ELEVATION, f))),
+                ("VUE EN PLAN", schemas.plan(R, schemas.options_fabrication(schemas.EXCLURE_PLAN, f))),
+                ("VUE DE DROITE", schemas.vue_droite(R, schemas.options_fabrication(fs_force=f)))]
+
+    # --- choix de l'échelle et de la disposition
+    def _dispositions(self, t, zw, zh):
+        """Les dispositions candidates pour les tailles ``t[i] = (w, h)``
+        (titre compris) : liste de ``(nom, [(i, x, y), …])`` en coordonnées
+        zone (origine en haut à gauche), ou None si ça ne tient pas."""
+        (w0, h0), (w1, h1), (w2, h2) = t
+        g = GAP_VUES
+        out = []
+
+        def centre(nom, wt, ht, slots):
+            if wt <= zw and ht <= zh:
+                dx, dy = (zw - wt) / 2, (zh - ht) / 2
+                out.append((nom, [(i, x + dx, y + dy) for i, x, y in slots]))
+
+        cw = mx(w0, w1)
+        centre("élévation et plan à gauche, droite à droite", cw + g + w2, mx(h0 + g + h1, h2),
+               [(0, (cw - w0) / 2, 0), (1, (cw - w1) / 2, h0 + g), (2, cw + g, (mx(h0 + g + h1, h2) - h2) / 2)])
+        cw = mx(w1, w2)
+        centre("élévation à gauche, plan et droite à droite", w0 + g + cw, mx(h0, h1 + g + h2),
+               [(0, 0, (mx(h0, h1 + g + h2) - h0) / 2), (1, w0 + g + (cw - w1) / 2, 0), (2, w0 + g + (cw - w2) / 2, h1 + g)])
+        cw = mx(w0, w2)
+        centre("élévation et droite à gauche, plan à droite", cw + g + w1, mx(h0 + g + h2, h1),
+               [(0, (cw - w0) / 2, 0), (2, (cw - w2) / 2, h0 + g), (1, cw + g, (mx(h0 + g + h2, h1) - h1) / 2)])
+        lb = mx(h1, h2)
+        centre("élévation en tête, plan et droite dessous", mx(w0, w1 + g + w2), h0 + g + lb,
+               [(0, (mx(w0, w1 + g + w2) - w0) / 2, 0), (1, 0, h0 + g + (lb - h1) / 2), (2, w1 + g, h0 + g + (lb - h2) / 2)])
+        hb = mx(h0, h1, h2)
+        centre("trois vues côte à côte", w0 + g + w1 + g + w2, hb,
+               [(0, 0, (hb - h0) / 2), (1, w0 + g, (hb - h1) / 2), (2, w0 + g + w1, (hb - h2) / 2)])
+        return out
+
+    def choisir(self, zw, zh):
+        """``(dénominateur, échelle pt/mm, nom, slots)`` — la plus grande
+        échelle normalisée qui tient (vues reconstruites à chaque essai,
+        texte imprimé constant), puis la disposition qui remplit le mieux la
+        feuille (aire du rectangle englobant)."""
+        for dnm in ECHELLES:
+            self.vues = self._vues(dnm)
+            s = MM / dnm
+            t = [(v.viewbox[2] * s, v.viewbox[3] * s + TITRE_VUE) for _, v in self.vues]
+            cand = self._dispositions(t, zw, zh)
+            if cand:
+                def aire(c):
+                    xs = [x for i, x, y in c[1]] + [x + t[i][0] for i, x, y in c[1]]
+                    ys = [y for i, x, y in c[1]] + [y + t[i][1] for i, x, y in c[1]]
+                    return (max(xs) - min(xs)) * (max(ys) - min(ys))
+                nom, slots = max(cand, key=aire)
+                return dnm, s, nom, slots, t
+        return None
+
+    # --- rendu
+    def construire(self, d):
+        S, R, doc = self.S, self.R, self.doc
+        W, H = d.W, d.H
+        y = H - M - 4
+        d.t(M, y, doc.get("bureau", ""), S.f_v, 8.0, S.acc, track=1.4)
+        d.t(W - M, y, TITRE, S.f_b, 7.6, S.mut, "right")
+        y -= 16
+        d.t(M, y, "PLAN DE PRINCIPE", S.f_h, 13.5, S.ink)
+        y -= 7
+        d.line(M, y, W - M, y, S.ink, 1.0)
+        zone_y1 = M + CART_H + 8
+        zone_h = y - 8 - zone_y1
+        zone_w = W - 2 * M
+        choix = self.choisir(zone_w, zone_h)
+        if choix is None:                       # ne devrait pas arriver (1:50)
+            self.warnings.append("plan de principe : aucune échelle normalisée ne tient")
+            return self.warnings
+        dnm, s, nom, slots, t = choix
+        self.echelle = dnm; self.disposition = nom
+        d.t(W - M, y + 9, "Échelle " + _fmt_echelle(dnm), S.f_h, 10.5, S.acc, "right")
+        for i, x, yy in slots:
+            titre, vue = self.vues[i]
+            x0 = M + x
+            y_top = zone_y1 + zone_h - yy       # haut du bloc (canevas : origine en bas)
+            d.t(x0 + t[i][0] / 2, y_top - 8, titre, S.f_v, 6.4, S.acc, "center", track=1.3)
+            peindre_echelle(d, vue, x0, y_top - t[i][1], t[i][0], t[i][1] - TITRE_VUE, s)
+        self._cartouche(d, dnm)
+        return self.warnings
+
+    def _cartouche(self, d, dnm):
+        """Cartouche compact : assemblage, poutres, cornières, boulons ou
+        cordons, date · indice, échelle."""
+        S, R, doc = self.S, self.R, self.doc
+        u = R.u
+        W = d.W
+        x0, y0, w, h = M, M, W - 2 * M, CART_H
+        d.box(x0, y0, w, h, stroke=S.ink, lw=0.9)
+        if R.bolt_S or R.bolt_P:
+            fix = ("Boulons " + R.boulon + " " + u.classe + " – trous Ø" + F(R.d_0, 0)
+                   + " – S " + js_str(R.n1_S) + " × " + js_str(R.n2_S) + " · P 2 × (" + js_str(R.n1_P) + " × " + js_str(R.n2_P) + ")"
+                   if R.bolt_S and R.bolt_P else
+                   "Boulons " + R.boulon + " " + u.classe + " – trous Ø" + F(R.d_0, 0))
+            if not R.bolt_S:
+                fix += " · ailes B soudées a " + F(N(u.a_S), 0)
+            if not R.bolt_P:
+                fix += " · ailes A soudées a " + F(N(u.a_P), 0)
+        else:
+            fix = "Soudures : ailes A a " + F(N(u.a_P), 0) + " · ailes B a " + F(N(u.a_S), 0) + " (retours " + F(N(u.lh_S), 0) + ")"
+        # visserie (rondelles, écrous) : annotation de fabrication saisie à
+        # l'écran, une par boulon — seulement s'il y a des boulons
+        vis = ("par boulon : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
+               if (R.bolt_S or R.bolt_P) else "")
+        ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
+        cases = [("ASSEMBLAGE", "Poutre–poutre – doubles cornières d'âme", ident or "—", 0.185),
+                 ("POUTRES", "P : " + _prof(R, "P") + " " + u.nu_P, "S : " + _prof(R, "S") + " " + u.nu_S, 0.165),
+                 ("CORNIÈRES", "2 × " + R.corn_txt + " " + u.nu_C, "hc " + F(R.L_C, 0) + " · zc " + F(N(u.z_C), 0) + " mm", 0.165),
+                 ("FIXATIONS", fix, vis, 0.27),
+                 ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.10),
+                 ("ÉCHELLE", _fmt_echelle(dnm), "A4 paysage", 0.115)]
+        x = x0
+        for i, (lab, l1, l2, part) in enumerate(cases):
+            cw = w * part
+            if i:
+                d.line(x, y0 + 2, x, y0 + h - 2, S.rule, 0.6)
+            d.t(x + 6, y0 + h - 10, lab, S.f_v, 5.4, S.mut, track=1.2)
+            gras = S.f_h if lab == "ÉCHELLE" else "Carlito-Bold"
+            d.t(x + 6, y0 + h - 21, d.fit(str(l1), gras, 7.2 if lab == "ÉCHELLE" else 6.6, cw - 12),
+                gras, 7.2 if lab == "ÉCHELLE" else 6.6, S.ink)
+            if l2:
+                d.t(x + 6, y0 + h - 32, d.fit(str(l2), S.f_b, 6.2, cw - 12), S.f_b, 6.2, S.ink)
+            x += cw
 
 
 def _essai(R, doc_meta, variante, chemin):
@@ -512,14 +669,16 @@ def _essai(R, doc_meta, variante, chemin):
 
 
 def generer_note(R, infos=None, chemin=None):
-    """La note d'une page (bytes). La première variante sans débordement est
-    retenue ; à défaut la plus compacte, avec ses avertissements."""
-    global derniers_avertissements, derniere_variante
+    """La note (bytes) : page 1 de calcul (la première variante de formules
+    sans débordement est retenue), page 2 « PLAN DE PRINCIPE » (trois vues à
+    la même échelle normalisée, la plus grande qui tient)."""
+    global derniers_avertissements, derniere_variante, derniere_echelle, derniere_disposition
     infos = infos or {}
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     doc_meta["titre"] = "Note de calcul"
+    doc_meta["visserie"] = infos.get("visserie", "")
     if chemin is None:
-        fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note1p_assemblage_")
+        fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_assemblage_")
         os.close(fd)
     retenue = VARIANTES[-1]
     warn = []
@@ -528,11 +687,23 @@ def generer_note(R, infos=None, chemin=None):
         retenue = v
         if not warn:
             break
+    d = Doc(chemin, A4L, title=doc_meta.get("titre", "Note de calcul"))
+    d.new_page(A4L)
+    n1 = Note(R, doc_meta, retenue)
+    warn = list(n1.construire(d))
+    d.new_page(A4L)
+    pp = PlanPrincipe(R, doc_meta)
+    warn += pp.construire(d)
+    d.save()
     derniere_variante = retenue
     derniers_avertissements = warn
+    derniere_echelle = getattr(pp, "echelle", None)
+    derniere_disposition = getattr(pp, "disposition", None)
     with open(chemin, "rb") as fh:
         return fh.read()
 
 
 derniers_avertissements = []
 derniere_variante = None
+derniere_echelle = None
+derniere_disposition = None

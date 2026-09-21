@@ -281,6 +281,13 @@ def champ_visible(u, k):
     return any(f["k"] == k for _, fs in groupes_visibles(u) for f in fs)
 
 
+# Annotation de FABRICATION, hors moteur et hors CLES (la parité fige les 84
+# entrées du corrigé) : composition de la boulonnerie par boulon — rondelles
+# et écrous. Saisie libre (carte, bloc VISSERIE), enregistrée avec le calcul
+# (interface.py) et portée au cartouche du plan de principe (note.py).
+VISSERIE_DEFAUT = "1 rondelle + 1 écrou"
+
+
 def charger_json(objet):
     """Fusion d'un fichier enregistré sur les défauts, clé par clé (comme le
     chargement du HTML : les clés inconnues sont ignorées)."""

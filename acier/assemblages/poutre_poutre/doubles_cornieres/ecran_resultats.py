@@ -15,8 +15,7 @@ from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte_ligne, b
 from . import schemas, texte, synthese, formules
 from acier.bibliotheques import PERSO
 from .notation import ec, ligne_alerte, LEGENDE_REFERENCES
-from .entrees import (COURT, UNITE, CHAMPS, CLES, champ_visible, PILOTEES_PAR_PREDIM,
-                      MODE_VERIF, MODE_PREDIM)
+from .entrees import COURT, UNITE, CHAMPS, CLES, champ_visible, PILOTEES_PAR_PREDIM
 from .moteur import apply_solution, solution_label, nom_cornière_proposee
 from .benchmark import SRC, NOCOVER, BENCH
 from .methode import METHODE
@@ -200,49 +199,42 @@ def _alerte_courante(R):
 
 
 def dessins(R, u):
-    """Le centre de l'écran : élévation et vue en plan. Tout se règle sur le
-    dessin — une cote se touche, une pièce (poutre, cornière, boulons,
-    cordons, efforts) s'ouvre au clic avec tous ses paramètres, la poutre
-    portée se déplace à la souris (jeu gh). Panneau des cotes et carte de
-    saisie en repli si le dessin interactif est désactivé."""
+    """La colonne du dessin : élévation puis vue en plan, EMPILÉES — la
+    colonne est figée à l'écran (CSS sticky, interface.py) pour que le schéma
+    reste visible pendant le défilement des paramètres et des vérifications.
+    Tout se règle sur le dessin — une cote se touche, une pièce (poutre,
+    cornière, boulons, cordons, efforts) s'ouvre au clic avec tous ses
+    paramètres, la poutre portée se déplace à la souris (jeu gh, décalage
+    Δz). Renvoie ``(e, p, hl)`` pour le panneau des cotes de la colonne de
+    droite (repli si le dessin interactif est désactivé)."""
     interactif = bool(st.session_state.get("asm_ui_composant", True))
-    c1, c2, c3 = st.columns([2.6, 1.4, 3], vertical_alignment="center")
-    with c1:
-        niveau = st.radio("Niveau de cotation", [0, 1, 2], format_func=lambda i: NIVEAUX_ECRAN[i],
-                          horizontal=True, key="asm_ui_niveau", label_visibility="collapsed")
-    if interactif:
-        with c2:
-            st.selectbox("Mode de calcul", [MODE_VERIF, MODE_PREDIM], key="asm_mode_calc",
-                         label_visibility="collapsed",
-                         help="Prédimensionnement : boulons, rangées et cornière sont proposés (onglet Prédim) "
-                              "puis vérifiés en détail ; les paramètres pilotés ◆ sont alors verrouillés.")
-    with c3:
-        if R.pred:
-            st.caption("◆ pilotés par la proposition : onglet Prédim pour appliquer une solution.")
-        else:
-            st.caption("Touche une cote pour la modifier · touche une pièce (poutre, cornière, boulon, cordon, "
-                       "VEd) pour tous ses paramètres · glisse la poutre portée pour régler le jeu gh et le "
-                       "décalage Δz.")
+    niveau = st.radio("Niveau de cotation", [0, 1, 2], format_func=lambda i: NIVEAUX_ECRAN[i],
+                      horizontal=True, key="asm_ui_niveau", label_visibility="collapsed")
     hl = _alerte_courante(R)
     opt = schemas.options_ecran(R, niveau, hl)
     opt.editables = niveau >= 1
     e = schemas.elevation(R, opt); p = schemas.plan(R, opt)
     valeurs = {k: st.session_state.get(K(k)) for k in CLES}
     groupes = _panneaux(R, u)
-    ce, cp = st.columns([3, 2], vertical_alignment="top", gap="small")
-    for col, d, cle in ((ce, e, "asm_cmp_elev"), (cp, p, "asm_cmp_plan")):
-        with col:
-            if interactif:
-                from acier.composants.svg_cliquable import svg_cliquable
-                _traiter_clic(svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle)
-            else:
-                st.markdown(d.svg(identifiant=cle), unsafe_allow_html=True)
-    if not interactif:
-        _panneau_cotes(e, p, hl)
+    for d, cle in ((e, "asm_cmp_elev"), (p, "asm_cmp_plan")):
+        if interactif:
+            from acier.composants.svg_cliquable import svg_cliquable
+            _traiter_clic(svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle)
+        else:
+            st.markdown(d.svg(identifiant=cle), unsafe_allow_html=True)
+    if R.pred:
+        st.caption("◆ pilotés par la proposition : onglet Prédim pour appliquer une solution.")
+    elif interactif:
+        st.caption("Touche une cote pour la modifier · touche une pièce (poutre, cornière, boulon, cordon, "
+                   "VEd) pour tous ses paramètres · glisse la poutre portée pour régler le jeu gh et le "
+                   "décalage Δz.")
+    return e, p, hl
 
 
-def _panneau_cotes(e, p, hl):
-    """Repli : la même source, une saisie par cote modifiable."""
+def panneau_cotes(e, p, hl):
+    """Repli (tête de la colonne de droite, dessin interactif désactivé) :
+    la même source, une saisie par cote modifiable — le dessin figé reste
+    sous les yeux pendant la saisie."""
     cotes = []
     vus = set()
     for k, sym, ident in schemas.cotes_modifiables(e) + schemas.cotes_modifiables(p):

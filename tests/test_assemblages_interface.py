@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
 """Tests de l'écran « Assemblages métalliques » (AppTest, application réelle),
-après la refonte UX v2 : TOUT se règle sur le dessin — cotes, pièces
-(panneaux d'objet), poignées ± , glissement de la poutre portée — et la
-colonne de saisie disparaît (repli si le dessin interactif est désactivé).
+après la finalisation du 21/09/2026 : DEUX COLONNES — à gauche le dessin
+(élévation puis vue en plan, empilées, colonne FIGÉE par CSS sticky), à
+droite la carte compacte par objet, puis les onglets. Tout se règle aussi
+sur le dessin (cotes, panneaux de pièce, poignées ±, glissement).
 
 Chaque garantie rougit si on la retire :
   1. NAVIGATION : sélection, carte « Doubles cornières d'âme », accueil.
   2. ÉTAT ET ÉCRAN : 84 clés ; statut une ligne + taux par élément ; deux
-     dessins ; AUCUN champ de saisie visible hors le mode et les replis
-     (avancés réduits, identification) ; onglet Vérifications par défaut.
+     dessins EMPILÉS dans la colonne figée (CSS sticky injecté, conteneur
+     asm_col_dessin) ; la carte par objet à droite (mode, profilés,
+     cornières, boulons + visserie, efforts, avancés, identification) —
+     JAMAIS la géométrie (elle ne se règle que sur le dessin) ; onglet
+     Vérifications par défaut.
   3. PANNEAUX D'OBJET : chaque pièce a son panneau complet (poutres,
      cornières avec fixations, boulons, groupes S et P, efforts) ; les
      champs pilotés ◆ y sont désactivés en prédimensionnement ; le panneau
@@ -17,11 +21,12 @@ Chaque garantie rougit si on la retire :
      alerte courte, « Localiser », chip hc modifiable.
   5. SOURCE UNIQUE : cote, poignée +, fenêtre de groupe, glissement (gh),
      panneau de pièce (profilé) écrivent tous dans asm_<clé>.
-  6. PRÉDIM : mode au-dessus du dessin ; « Appliquer » recopie la solution.
-  7. REPLI : dessin interactif désactivé → carte complète (profilés,
-     boulons, efforts) + panneau des cotes, mêmes clés.
-  8. EXPORTS : texte du corrigé, enregistrer / charger, réinitialiser,
-     benchmark, méthode. 9. ÉTANCHÉITÉ.
+  6. PRÉDIM : mode dans la carte (bloc MODE) ; « Appliquer » recopie la
+     solution.
+  7. REPLI : dessin interactif désactivé → dessins statiques à gauche, le
+     panneau des cotes s'ajoute en tête de la colonne de droite, mêmes clés.
+  8. EXPORTS : texte du corrigé, enregistrer / charger (visserie comprise),
+     réinitialiser, benchmark, méthode. 9. ÉTANCHÉITÉ.
 
 Lancement : python3 tests/test_assemblages_interface.py (depuis la racine).
 """
@@ -35,7 +40,7 @@ sys.path.insert(0, RACINE)
 
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
-from acier.assemblages.poutre_poutre.doubles_cornieres import interface, ecran_resultats, moteur  # noqa: E402
+from acier.assemblages.poutre_poutre.doubles_cornieres import interface, ecran_resultats, ecran_saisie, moteur  # noqa: E402
 from acier.assemblages.poutre_poutre.doubles_cornieres.ecran_saisie import valeur_widget  # noqa: E402
 
 OK, KO = [], []
@@ -109,14 +114,30 @@ chk("cas par défaut : ASSEMBLAGE VÉRIFIÉ", "ASSEMBLAGE VÉRIFIÉ" in t and "N
 chk("statut sur une ligne : 74,0 % et la dimensionnante ; pas de mention du benchmark",
     "74,0 %" in t and "Pression diamétrale – âme de la poutre secondaire" in t and "Benchmark du module" not in t)
 chk("taux par élément : Boulons, Cornières, Portée, Porteuse", all(x in t for x in ("Boulons", "Cornières", "Portée", "Porteuse")))
-chk("les dessins sont rendus (deux composants)", len(at.get("component_instance")) == 2,
-    str(len(at.get("component_instance"))))
+chk("les dessins sont rendus (deux composants, empilés dans la colonne de gauche)",
+    len(at.get("component_instance")) == 2, str(len(at.get("component_instance"))))
+t = md(at)
+chk("colonne du dessin FIGÉE : CSS sticky injecté et ciblé sur le conteneur asm_col_dessin",
+    "position: sticky" in t and "st-key-asm_col_dessin" in t)
 w = cles_widgets(at)
-donnees = {k for k in w if k.startswith("asm_") and k[4:] in interface.CLES and not k.startswith("asm_fix_")}
-AVANCES_ATTENDUS = {"asm_" + k for k in ("mode_calc", "d0_u", "g_M0", "g_M2", "g_M2n", "opt_exc", "k_rot",
-                                          "opt_blf", "expo", "id_projet", "id_rep", "id_red", "id_date")}
-chk("hors replis, un seul réglage visible : le mode — ni profilés, ni boulons, ni efforts en colonne",
-    donnees == AVANCES_ATTENDUS, str(sorted(donnees ^ AVANCES_ATTENDUS)))
+# k[4:] in CLES écarte déjà les chips d'alerte (asm_fix_<clé> → « fix_<clé> »
+# n'est pas une entrée), sans écarter les vraies clés asm_fix_P / asm_fix_S
+donnees = {k for k in w if k.startswith("asm_") and k[4:] in interface.CLES}
+CARTE_ATTENDUE = {"asm_" + k for k in (
+    "mode_calc", "fix_P", "fix_S",                                # MODE ET FIXATIONS
+    "prof_P", "nu_P", "prof_S", "nu_S",                           # PROFILÉS
+    "corn_u", "nu_C", "orient",                                   # CORNIÈRES
+    "boulon_u", "classe", "trou", "cat", "n1S_u", "n2S_u", "n1P_u", "n2P_u",   # BOULONS
+    "V_Ed", "N_Ed", "H_Ed", "M_Ed",                               # EFFORTS ELU
+    "r_n", "lt_ok", "d0_u", "filet", "g_M0", "g_M2", "g_M2n",     # avancés (repliés)
+    "opt_exc", "k_rot", "opt_blf", "expo",
+    "id_projet", "id_rep", "id_red", "id_date")}                  # identification
+chk("colonne de droite : la carte par objet, complète — et rien d'autre",
+    donnees == CARTE_ATTENDUE, str(sorted(donnees ^ CARTE_ATTENDUE)))
+chk("la géométrie ne se règle QUE sur le dessin (aucune cote dans la carte)",
+    not donnees & {"asm_" + k for k in ecran_saisie.GEOMETRIE_DESSIN})
+chk("visserie (rondelles, écrous) : saisie libre dans le bloc BOULONS, défaut « 1 rondelle + 1 écrou »",
+    "asm_visserie" in w and at.session_state["asm_visserie"] == "1 rondelle + 1 écrou")
 chk("onglet par défaut : Vérifications, tableaux par élément",
     at.session_state["asm_ui_onglet"] == "Vérifications" and "Cisaillement – groupe S" in t and "Aile A : Ed / Rd" in t
     and "Poutre secondaire (portée)" in t and "Pinces et entraxes" in t)
@@ -193,7 +214,7 @@ message(at, {"prof_S": "HEA 300"}, 2006); run(at)
 # ================================================================
 print("\n=== 6. Prédimensionnement ===")
 at.selectbox(key="asm_mode_calc").set_value("PRÉDIMENSIONNEMENT"); run(at)
-chk("le mode se règle au-dessus du dessin ; bandeau prédimensionnement", "Mode prédimensionnement" in md(at))
+chk("le mode se règle dans la carte (bloc MODE) ; bandeau prédimensionnement", "Mode prédimensionnement" in md(at))
 pd = REF["cas"][0]["attendu"]["predim"]
 at.session_state["asm_ui_onglet"] = "Prédim"; run(at)
 chk("onglet Prédim : solutions proposées", "Solutions proposées" in md(at))
@@ -211,7 +232,7 @@ print("\n=== 7. Repli : dessin interactif désactivé ===")
 at.button(key="asm_btn_reset").click(); run(at)
 at.checkbox(key="asm_ui_composant").uncheck(); run(at)
 w = cles_widgets(at)
-chk("la carte complète revient (profilés, boulons, efforts) et le panneau des cotes aussi",
+chk("dessins statiques à gauche ; le panneau des cotes s'ajoute à la carte (colonne de droite)",
     {"asm_prof_S", "asm_corn_u", "asm_boulon_u", "asm_V_Ed", "asm_n1S_u"} <= w
     and "asm_cote_LC_u" in at.session_state.to_dict() and len(at.get("component_instance")) == 0)
 at.number_input(key="asm_cote_LC_u").set_value(200.0); run(at)
@@ -221,14 +242,21 @@ chk("carte → VEd = 400 : NON VÉRIFIÉ", "ASSEMBLAGE NON VÉRIFIÉ" in md(at))
 at.number_input(key="asm_V_Ed").set_value(125.0)
 at.number_input(key="asm_cote_LC_u").set_value(190.0); run(at)
 at.checkbox(key="asm_ui_composant").check(); run(at)
-chk("dessin interactif rétabli : deux composants, plus de carte",
-    len(at.get("component_instance")) == 2 and "asm_prof_S" not in cles_widgets(at))
+chk("dessin interactif rétabli : deux composants, le panneau des cotes disparaît, la carte reste",
+    len(at.get("component_instance")) == 2 and "asm_cote_LC_u" not in cles_widgets(at)
+    and "asm_prof_S" in cles_widgets(at))
 
 # ================================================================
 print("\n=== 8. Exports, enregistrer / charger, réinitialiser ===")
 at.button(key="asm_btn_reset").click(); run(at)
 chk("réinitialiser : retour aux défauts", float(at.session_state["asm_LC_u"]) == 190.0
     and at.session_state["asm_prof_S"] == "HEA 300")
+at.text_input(key="asm_visserie").set_value("1 rondelle + 2 écrous (contre-écrou)"); run(at)
+chk("la visserie saisie persiste (source unique), et l'enregistrement l'emporte",
+    at.session_state["asm_visserie"] == "1 rondelle + 2 écrous (contre-écrou)"
+    and "visserie" in interface._payload({}))
+at.button(key="asm_btn_reset").click(); run(at)
+chk("réinitialiser rétablit la visserie par défaut", at.session_state["asm_visserie"] == "1 rondelle + 1 écrou")
 at.session_state["asm_ui_onglet"] = "Note"; run(at)
 code = "\n".join(str(c.value) for c in at.code)
 chk("onglet Note : le texte essentiel du cas par défaut est celui du corrigé",
