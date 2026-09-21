@@ -15,6 +15,7 @@ from modules import (
     poutre_bois,
     rigidite_sol,
     taux_armature,     # ⬅️ nouveau module
+    assemblages,       # Acier → Assemblages métalliques (registre acier/registre.py)
 )
 
 st.set_page_config(page_title="Études Structure", layout="wide", initial_sidebar_state="collapsed")
@@ -58,6 +59,7 @@ pages = {
     "Enrobage": enrobage.show,
     "Rigidité du sol": rigidite_sol.show,
     "Taux d'armature": taux_armature.show,    # ⬅️ ajouté
+    "Assemblages métalliques": assemblages.show,
 }
 
 # ---- Affichage

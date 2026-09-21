@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Double cornière d'âme – EN 1993-1-8</title>
+<style>
+:root{--bg:#E9EDF0;--paper:#fff;--ink:#14212B;--mut:#566573;--line:#C5CED6;--blue:#0F4C75;--blue2:#1B6CA8;--inbg:#FFF7CF;--inink:#0B3D91;--ok:#1E7A46;--okbg:#DDF1E4;--ko:#A3271A;--kobg:#F8DDD9;--wa:#7A5200;--wabg:#FFEFC7}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,"Segoe UI",Roboto,Arial,sans-serif}
+h1,h2,h3,.tabs button,.status strong{font-family:"Roboto Condensed","Arial Narrow","sans-serif-condensed","Helvetica Neue",Arial,sans-serif;font-stretch:condensed}
+.top{background:var(--blue);color:#fff;padding:10px 14px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;border-bottom:3px solid var(--ink)}
+.top h1{margin:0;font-size:21px;font-weight:700;letter-spacing:.01em}.top p{margin:0;font-size:13px;opacity:.9}
+.bar2{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line)}
+.status{margin:0;padding:8px 14px;display:flex;flex-wrap:wrap;gap:2px 12px;align-items:baseline;border-left:8px solid var(--mut);background:var(--paper);font-size:13px}
+.status strong{font-size:18px}.status.ok{border-color:var(--ok)}.status.ok strong{color:var(--ok)}.status.ko{border-color:var(--ko)}.status.ko strong{color:var(--ko)}
+.status .bm{margin-left:auto;font-weight:600}.bm.ok{color:var(--ok)}.bm.ko{color:var(--ko)}
+.tabs{display:flex;overflow-x:auto;gap:2px;padding:6px 10px 0;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;border:1px solid var(--line);border-bottom:0;background:#DDE4E9;color:var(--ink);font-size:15px;padding:8px 13px;border-radius:5px 5px 0 0;cursor:pointer}
+.tabs button.on{background:var(--paper);font-weight:700;color:var(--blue);box-shadow:inset 0 3px 0 var(--blue)}
+.tabs button:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid var(--blue2);outline-offset:1px}
+main{padding:12px 10px 60px;max-width:1500px;margin:0 auto}
+.tab{display:none}.tab.on{display:block}.tab,.right,main>*{min-width:0}.sheet{overflow-x:auto}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:12px}
+h2{font-size:20px;margin:0 0 4px}h3{font-size:17px;margin:20px 0 6px;color:var(--blue);border-bottom:2px solid var(--blue);padding-bottom:2px}
+.note,.legend,.off{font-size:13px;color:var(--mut);margin:6px 0}.off{font-style:italic}
+details.sec{background:var(--paper);border:1px solid var(--line);border-radius:4px;margin-bottom:8px}
+details.sec>summary{cursor:pointer;padding:9px 12px;font-weight:700;color:var(--blue);list-style-position:inside}
+.flds{padding:0 12px 10px}
+.fld{display:grid;grid-template-columns:1fr 150px;gap:8px;align-items:center;padding:5px 0;border-top:1px solid #EDF1F4}
+.fl{font-size:14px}.fl small{display:block;color:var(--mut);font-size:12px;line-height:1.3}.fl b{color:var(--wa)}
+.fc{display:flex;align-items:center;gap:5px}.fc i{font-style:normal;color:var(--mut);font-size:12px;min-width:26px}
+.fc input,.fc select{width:100%;min-width:0;font:inherit;font-size:15px;padding:7px 6px;border:1px solid #C9B95A;border-radius:3px;background:var(--inbg);color:var(--inink);font-variant-numeric:tabular-nums}
+.fld.rep input,.fld.rep select{opacity:.45}
+.alwrap{max-width:1500px;margin:0 auto;padding:8px 10px 0}.alwrap:empty{padding:0}.al{margin:6px 0;padding:8px 10px;border-left:5px solid;font-size:14px;border-radius:2px}.al.blk{background:var(--kobg);border-color:var(--ko);color:#5E130B}.al.inf{background:var(--wabg);border-color:#C98A00;color:#4A3200}
+.draws{display:grid;grid-template-columns:3fr 2fr;gap:10px;align-items:start}figure{position:relative;margin:0;background:#F6F8FA;border:1px solid var(--line);padding:6px}figcaption{font-size:12px;color:var(--mut);text-align:center}.swipe{display:block;color:var(--blue);font-weight:600}
+svg{width:100%;height:auto;display:block}svg *{vector-effect:non-scaling-stroke}
+.pp{fill:#C3CED7;stroke:var(--ink);stroke-width:1.4}.ps{fill:#E6ECF0;stroke:var(--ink);stroke-width:1.4}.fl2{stroke:var(--ink);stroke-width:.8;fill:none}
+.co{fill:rgba(27,108,168,.28);stroke:var(--blue);stroke-width:1.6}.co2{fill:var(--blue);opacity:.6}.bo{fill:#fff;stroke:var(--ink);stroke-width:1.5}
+.bp{stroke:var(--ko);stroke-width:2.4;stroke-dasharray:7 3;fill:none}.we{stroke:#D98A00;stroke-width:5;fill:none}.wd{fill:#D98A00}
+.dm path{stroke:var(--blue);stroke-width:1;fill:none}.dm path.ext,.ext{stroke:#93A6B5;stroke-width:.6;fill:none}.dm text,.tx,.cart text{fill:var(--blue);font-family:system-ui,Arial,sans-serif}.tx{fill:var(--ink);font-weight:600}.cart text{fill:var(--ink)}.dl .hit{fill:#F6F8FA;fill-opacity:.9;stroke:none}.dl.ed{cursor:pointer}.dl.ed .hit{fill:var(--inbg);fill-opacity:1;stroke:#C9B95A;stroke-width:1}.dl.ed text{fill:var(--inink);font-weight:600}.dl.ed:hover .hit,.dl.ed:focus .hit{fill:#FFE37A;stroke:var(--blue);stroke-width:2}.dl.ed:focus{outline:none}.dm.calc path.dln{stroke:#5B4A8A;stroke-dasharray:5 3}.dl.calc text{fill:#5B4A8A;font-style:italic}.dm.hot path.dln,.dm.hot path.ext{stroke:var(--ko);stroke-width:2}.dl.hot text{fill:var(--ko);font-weight:700}.dl.hot .hit{fill:#FDECEA;fill-opacity:1;stroke:var(--ko);stroke-width:2}.pp.hot,.ps.hot,.co.hot,.bo.hot{stroke:var(--ko);stroke-width:3}.co.hot{fill:rgba(163,39,26,.2)}.bp.hot{stroke-width:4.5;stroke-dasharray:none}.hl{stroke:var(--ko);stroke-width:4;fill:none}.cm{stroke:var(--ink);stroke-width:.6;fill:none}
+.tb{width:100%;border-collapse:collapse;font-size:13.5px;background:var(--paper)}.tb th,.tb td{border:1px solid var(--line);padding:5px 7px;text-align:left;vertical-align:top}
+.tb th{background:#DDE4E9;font-weight:600}.tb td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}.tb td.v{font-variant-numeric:tabular-nums}.tb small{display:block;color:var(--mut);font-size:12px}.tb tr.pick td{background:var(--okbg);font-weight:600}
+.scroll{overflow-x:auto}
+.pill{display:inline-block;padding:1px 8px;border-radius:3px;font-size:12px;font-weight:700;white-space:nowrap}.pill.ok{background:var(--okbg);color:var(--ok)}.pill.ko{background:var(--kobg);color:var(--ko)}.pill.wa{background:var(--wabg);color:var(--wa)}
+.nat{display:inline-block;border:1px solid var(--blue);color:var(--blue);font-size:11px;padding:0 5px;border-radius:2px;margin:0 3px;font-weight:600}
+details.ck{background:var(--paper);border:1px solid var(--line);border-left:5px solid var(--ok);margin-bottom:4px;border-radius:2px}details.ck.ko{border-left-color:var(--ko);background:#FFF8F7}
+details.ck>summary{display:grid;grid-template-columns:1fr 150px 110px 58px 66px;gap:8px;align-items:center;padding:7px 9px;cursor:pointer;list-style:none}details.ck>summary::-webkit-details-marker{display:none}
+.ckl{font-size:14px}.ckn,.cke{font-variant-numeric:tabular-nums;text-align:right;font-size:13px;color:var(--mut)}.cke{font-weight:700;color:var(--ink);font-size:14px}
+.bar{height:9px;background:#E3E8EC;border-radius:2px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}.ck.ko .bar i{background:var(--ko)}
+.ckd{padding:4px 12px 10px;border-top:1px dashed var(--line);font-size:13.5px}.ckd p{margin:5px 0}.fm{font-style:italic;color:var(--blue)}.rf{color:var(--mut)}
+details.sub{margin:6px 0}details.sub summary{cursor:pointer;color:var(--blue);font-size:14px;padding:4px 0}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;align-items:center}
+button.act,.filebtn{font:inherit;font-weight:600;border:1px solid var(--blue);background:var(--blue);color:#fff;padding:9px 13px;border-radius:4px;cursor:pointer}button.act.sec2,.filebtn{background:var(--paper);color:var(--blue)}
+.filebtn input{display:none}button.lk{font:inherit;font-size:12px;border:1px solid var(--blue);background:none;color:var(--blue);border-radius:3px;padding:2px 7px;cursor:pointer}
+textarea{width:100%;height:340px;font:12.5px/1.4 ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:3px;padding:8px;background:#FBFCFD;color:var(--ink)}
+.sheet{background:var(--paper);border:1px solid var(--line);padding:16px;margin-bottom:14px}.sub2{margin:0 0 10px;color:var(--mut)}
+.concl{padding:10px 12px;border-left:6px solid;font-size:15px;margin:12px 0}.concl.ok{border-color:var(--ok);background:var(--okbg)}.concl.ko{border-color:var(--ko);background:var(--kobg)}
+.meth{max-width:78ch}.meth li{margin:4px 0}
+#flash{position:fixed;left:50%;bottom:18px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;padding:9px 16px;border-radius:4px;font-size:14px;transition:transform .2s;z-index:9;visibility:hidden}#flash.on{transform:translateX(-50%);visibility:visible}
+div.al{padding:0}.alb{display:block;width:100%;text-align:left;font:inherit;color:inherit;background:none;border:0;padding:9px 10px;cursor:pointer}.alh{float:right;margin-left:12px;font-size:12px;font-weight:700;text-decoration:underline}.al.sel{box-shadow:0 0 0 2px currentColor}.why{padding:0 10px 9px;font-size:13.5px}.why p{margin:4px 0}.chips{display:flex;flex-wrap:wrap;gap:6px}.chips button{font:inherit;font-size:13px;font-weight:600;border:1px solid currentColor;background:#fff;color:inherit;border-radius:14px;padding:5px 11px;cursor:pointer}.fld.hot{background:var(--kobg);box-shadow:0 0 0 2px var(--ko);border-radius:3px;padding-left:6px;padding-right:6px}.fld.hot input,.fld.hot select{border:2px solid var(--ko)}.fld,#geo{scroll-margin-top:150px}.lvlbar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:0 0 8px}.lvl{display:inline-flex;border:1px solid var(--blue);border-radius:4px;overflow:hidden}.lvl button{font:inherit;font-size:13.5px;border:0;border-right:1px solid var(--blue);background:var(--paper);color:var(--blue);padding:8px 11px;cursor:pointer}.lvl button:last-child{border-right:0}.lvl button.on{background:var(--blue);color:#fff;font-weight:700}.lvlbar .note{margin:0}.dimedit{position:absolute;width:98px;font:600 16px system-ui,Arial,sans-serif;padding:7px 6px;border:2px solid var(--blue);border-radius:4px;background:var(--inbg);color:var(--inink);z-index:4;box-shadow:0 3px 10px rgba(0,0,0,.3)}.sols{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;margin:8px 0}.sol{text-align:left;font:inherit;font-size:14px;color:var(--ink);border:1px solid var(--line);border-left:5px solid var(--blue);background:var(--paper);border-radius:3px;padding:8px 10px;cursor:pointer}.sol:hover{border-color:var(--blue)}.sol b{display:block;font-size:16px;color:var(--blue)}.sol small{display:block;color:var(--mut);font-size:12px}.sol.over{border-left-color:#C98A00}.sol.pick{border-left-color:var(--ok);background:var(--okbg)}tr.clk{cursor:pointer}tr.clk:hover td{background:var(--kobg)}@media(max-width:700px){.draws{grid-template-columns:1fr}figure.wide{overflow-x:auto;-webkit-overflow-scrolling:touch}figure.wide svg{min-width:600px}figure.wide figcaption{position:sticky;left:0}.fld{grid-template-columns:1fr 124px}details.ck>summary{grid-template-columns:1fr 54px 64px;grid-template-areas:"l l l" "n n n" "b e p"}.ckl{grid-area:l}.ckn{grid-area:n;text-align:left}.bar{grid-area:b}.cke{grid-area:e}.ck .pill{grid-area:p;text-align:center}.status .bm{margin-left:0}}
+@media(min-width:1050px){main{display:grid;grid-template-columns:430px 1fr;gap:14px;align-items:start}#t-don,#t-don.tab{display:block;position:sticky;top:calc(var(--barh,100px) + 8px);max-height:calc(100vh - var(--barh,100px) - 16px);overflow-y:auto;padding-right:4px}.tabs button[data-t="t-don"]{display:none}.right{min-width:0}}
+@media(prefers-reduced-motion:reduce){#flash{transition:none}}
+@media print{.top,.bar2,.alwrap,.acts,textarea,.txtl,#flash,#t-don{display:none!important}body{background:#fff;font-size:11pt}main{display:block;padding:0}.tab{display:none!important}#t-rap{display:block!important}.sheet{border:0;padding:0}.tb{font-size:9pt}.draws{grid-template-columns:3fr 2fr}tr,figure,.concl{break-inside:avoid}@page{size:A4;margin:14mm}}
+</style>
+</head>
+<body>
+<header class="top"><h1>Double cornière d'âme – assemblage poutre–poutre articulé</h1><p>Vérification ELU selon EN 1993-1-8 et EN 1993-1-1</p></header>
+<div class="bar2"><div id="status" class="status"></div>
+<nav class="tabs" aria-label="Sections de l'outil"><button data-t="t-don" class="on">Données</button><button data-t="t-geo">Schéma et géométrie</button><button data-t="t-ver">Vérifications</button><button data-t="t-pre">Prédim</button><button data-t="t-rap">Rapport et export</button><button data-t="t-ben">Benchmark</button><button data-t="t-met">Méthode</button></nav></div>
+<div class="alwrap" id="alerts"></div>
+<main>
+<section id="t-don" class="tab on"><p class="note">Cases jaunes à texte bleu : tes saisies. Unités : mm, kN, kNm, MPa. Tout se recalcule à chaque frappe.</p><div id="form"></div>
+<div class="acts"><button class="act sec2" id="b-save">Enregistrer les données (.json)</button><label class="filebtn">Charger des données<input type="file" id="b-load" accept=".json,application/json"></label><button class="act sec2" id="b-reset">Valeurs par défaut</button></div></section>
+<div class="right">
+<section id="t-geo" class="tab"><div id="geo"></div></section>
+<section id="t-ver" class="tab"><div id="checks"></div></section>
+<section id="t-pre" class="tab"><div id="predim"></div></section>
+<section id="t-rap" class="tab"><div class="acts"><button class="act" id="b-txt">Exporter le rapport .txt</button><button class="act" id="b-copy">Copier le résumé</button><button class="act sec2" id="b-print">Imprimer (A4)</button><label class="txtl"><input type="checkbox" id="b-full"> toutes les vérifications dans le texte</label></div>
+<div class="sheet" id="sheet"></div><p class="note txtl">Texte exporté (sélectionnable à la main si le presse-papiers est bloqué) :</p><textarea id="txt" readonly aria-label="Résumé texte du calcul"></textarea></section>
+<section id="t-ben" class="tab"><div id="bench"></div></section>
+<section id="t-met" class="tab"><div class="card meth">
+<h2>Modèle mécanique</h2>
+<p>L'assemblage est nominalement articulé : il transmet l'effort tranchant VEd, et la ligne de transfert (rotule) est placée à la face de l'âme de la poutre principale (MSB Part 5 §4.2.1.1, d'après ECCS n°126). L'outil ne calcule aucune rigidité en rotation et ne transforme jamais l'assemblage en encastrement.</p>
+<h3>Cheminement de l'effort</h3>
+<ul><li>Âme de la poutre secondaire → groupe S (boulons en double cisaillement, ou cordons) → ailes B des deux cornières, VEd/2 par cornière.</li><li>Talon de chaque cornière → aile A → groupe P (boulons en simple cisaillement, ou cordons) → âme de la poutre principale.</li></ul>
+<h3>Excentricités prises en compte</h3>
+<ul><li>z, entre la face de l'âme porteuse et le centre du groupe S : MS = VEd·z + |MEd|. Les efforts par boulon viennent d'une répartition élastique avec l'inertie polaire Ip = Σ(x² + y²) ; le boulon d'angle le plus chargé est vérifié. VEd n'est jamais simplement divisé par le nombre de boulons.</li>
+<li>Groupe P : cisaillement centré (VEd/2)/n par boulon, avec le facteur 0,8 sur Fv,Rd qui couvre la traction parasite due à la rotation (MSB Part 5 §4.2.1.2, SCI P358). Option conservatrice : moment (VEd/2)·eP repris par chaque cornière dans son plan.</li>
+<li>Poutre grugée : flexion de la section réduite sous VEd·(gh + ln), avec réduction si VEd dépasse 0,5·Vpl,N,Rd, et règle de stabilité locale du grugeage.</li>
+<li>NEd : cisaillement horizontal des boulons S, traction des boulons P, tronçon en T équivalent des ailes A, sections nettes et ruptures de bloc en traction. HEd : cisaillement horizontal des boulons P et traction par le couple HEd·z/p3. MEd : moment parasite, pris en valeur absolue.</li></ul>
+<h3>Trois natures de vérification</h3>
+<ul><li><b class="nat">EC</b> formule donnée directement par l'Eurocode (Tableaux 3.3 et 3.4, §3.9, §3.10.2, §4.5.3.3, §6.2.4 de l'EN 1993-1-8 ; §6.2.3, §6.2.5, §6.2.6 de l'EN 1993-1-1).</li>
+<li><b class="nat">COMP</b> modèle complémentaire reconnu : répartition élastique du groupe excentré, facteur 0,8, coefficient 1,27 sur le cisaillement brut des cornières, section nette en cisaillement, poutre grugée, cisaillement local de l'âme porteuse (MSB Part 5, ECCS n°126, SCI P358).</li>
+<li><b class="nat">INT</b> interprétation propre à l'outil, signalée comme telle : bras de levier de la flexion des ailes A, limites S275 appliquées à S235 pour la stabilité du grugeage.</li></ul>
+<h3>Ce que l'outil ne vérifie pas</h3>
+<ul><li>Cisaillement global, flexion, déversement et torsion de la poutre principale ; cumul du cisaillement local avec le cisaillement global.</li><li>Flexion hors plan de l'âme porteuse sous NEd de traction ; flexion hors plan des cornières sous HEd.</li><li>Deux poutres secondaires en vis-à-vis partageant les mêmes boulons.</li><li>Stabilité d'ensemble d'une poutre grugée non maintenue au déversement ; stabilité du grugeage pour une nuance supérieure à S355.</li><li>Méthode directionnelle des soudures (§4.5.3.2) : seule la méthode simplifiée, plus sévère, est utilisée.</li></ul>
+<h3>Données de bibliothèque</h3>
+<p>Profilés : dimensions nominales h, b, tw, tf, r ; l'aire est recalculée par A = 2b·tf + (h − 2tf)·tw + (4 − π)·r². Cornières : dimensions usuelles EN 10056-1. Boulons : As selon ISO 898, trous normaux d + 1 (M12), d + 2 (M16 à M24), d + 3 (à partir de M27) selon EN 1090-2, dm et dw usuels ISO 4014 et ISO 7089. Aciers : EN 1993-1-1 Tableau 3.1 pour t ≤ 40 mm, βw selon EN 1993-1-8 Tableau 4.1. Coefficients partiels et résistances des aciers sont à caler sur l'ANB applicable ; la nuance « Personnalisé » permet toute autre valeur.</p>
+<h3>Sources</h3>
+<ul><li>EN 1993-1-8:2005, Calcul des assemblages ; EN 1993-1-1:2005, Règles générales.</li><li>Steel Buildings in Europe – Multi-Storey Steel Buildings – Part 5: Joint Design (ArcelorMittal, Peiner Träger, Corus ; CTICM et SCI), noté MSB Part 5 : chapitre 4 « Double angle web cleats » et exemples de calcul utilisés pour le benchmark.</li><li>ECCS n°126, European Recommendations for the Design of Simple Joints in Steel Structures ; SCI P358, Joints in Steel Construction: Simple Joints to Eurocode 3 : cités comme secondes sources des modèles complémentaires.</li></ul>
+</div></section>
+</div></main><div id="flash" role="status"></div>
+<script>
+/* ===== MOTEUR DE CALCUL – double cornière d'âme, EN 1993-1-8 / EN 1993-1-1 ===== */
+(function (root) {
+'use strict';
+var PERSO = 'Personnalisé', INF = 1e9, S3 = Math.sqrt(3);
+var T34 = 'EN 1993-1-8 Tableau 3.4', MSB = 'MSB Part 5';
+function P(fam, rows) { return rows.map(function (r) { return { n: fam + ' ' + r[0], h: r[1], b: r[2], tw: r[3], tf: r[4], r: r[5] }; }); }
+var DB = {
+  profils: [].concat(
+    P('HEA', [[100,96,100,5,8,12],[120,114,120,5,8,12],[140,133,140,5.5,8.5,12],[160,152,160,6,9,15],[180,171,180,6,9.5,15],[200,190,200,6.5,10,18],[220,210,220,7,11,18],[240,230,240,7.5,12,21],[260,250,260,7.5,12.5,24],[280,270,280,8,13,24],[300,290,300,8.5,14,27],[320,310,300,9,15.5,27],[340,330,300,9.5,16.5,27],[360,350,300,10,17.5,27],[400,390,300,11,19,27],[450,440,300,11.5,21,27],[500,490,300,12,23,27],[550,540,300,12.5,24,27],[600,590,300,13,25,27],[650,640,300,13.5,26,27],[700,690,300,14.5,27,27],[800,790,300,15,28,30],[900,890,300,16,30,30],[1000,990,300,16.5,31,30]]),
+    P('HEB', [[100,100,100,6,10,12],[120,120,120,6.5,11,12],[140,140,140,7,12,12],[160,160,160,8,13,15],[180,180,180,8.5,14,15],[200,200,200,9,15,18],[220,220,220,9.5,16,18],[240,240,240,10,17,21],[260,260,260,10,17.5,24],[280,280,280,10.5,18,24],[300,300,300,11,19,27],[320,320,300,11.5,20.5,27],[340,340,300,12,21.5,27],[360,360,300,12.5,22.5,27],[400,400,300,13.5,24,27],[450,450,300,14,26,27],[500,500,300,14.5,28,27],[550,550,300,15,29,27],[600,600,300,15.5,30,27],[650,650,300,16,31,27],[700,700,300,17,32,27],[800,800,300,17.5,33,30],[900,900,300,18.5,35,30],[1000,1000,300,19,36,30]]),
+    P('HEM', [[100,120,106,12,20,12],[120,140,126,12.5,21,12],[140,160,146,13,22,12],[160,180,166,14,23,15],[180,200,186,14.5,24,15],[200,220,206,15,25,18],[220,240,226,15.5,26,18],[240,270,248,18,32,21],[260,290,268,18,32.5,24],[280,310,288,18.5,33,24],[300,340,310,21,39,27],[320,359,309,21,40,27],[340,377,309,21,40,27],[360,395,308,21,40,27],[400,432,307,21,40,27],[450,478,307,21,40,27],[500,524,306,21,40,27],[550,572,306,21,40,27],[600,620,305,21,40,27],[650,668,305,21,40,27],[700,716,304,21,40,27],[800,814,303,21,40,30],[900,910,302,21,40,30],[1000,1008,302,21,40,30]]),
+    P('IPE', [[80,80,46,3.8,5.2,5],[100,100,55,4.1,5.7,7],[120,120,64,4.4,6.3,7],[140,140,73,4.7,6.9,7],[160,160,82,5,7.4,9],[180,180,91,5.3,8,9],[200,200,100,5.6,8.5,12],[220,220,110,5.9,9.2,12],[240,240,120,6.2,9.8,15],[270,270,135,6.6,10.2,15],[300,300,150,7.1,10.7,15],[330,330,160,7.5,11.5,18],[360,360,170,8,12.7,18],[400,400,180,8.6,13.5,21],[450,450,190,9.4,14.6,21],[500,500,200,10.2,16,21],[550,550,210,11.1,17.2,24],[600,600,220,12,19,24]])),
+  aciers: [{ n: 'S235', fy: 235, fu: 360, bw: 0.8 }, { n: 'S275', fy: 275, fu: 430, bw: 0.85 }, { n: 'S355', fy: 355, fu: 510, bw: 0.9 }, { n: 'S355 (fu 490)', fy: 355, fu: 490, bw: 0.9 }, { n: 'S355 N/NL', fy: 355, fu: 490, bw: 0.9 }, { n: 'S460 N/NL', fy: 460, fu: 540, bw: 1.0 }],
+  boulons: [['M12',12,13,84.3,113.1,19.0,24],['M16',16,18,157,201.1,25.4,30],['M20',20,22,245,314.2,31.8,37],['M22',22,24,303,380.1,35.9,39],['M24',24,26,353,452.4,38.0,44],['M27',27,30,459,572.6,43.1,50],['M30',30,33,561,706.9,48.4,56],['M36',36,39,817,1017.9,57.9,66]].map(function (b) { return { n: b[0], d: b[1], d0: b[2], As: b[3], A: b[4], dm: b[5], dw: b[6] }; }),
+  classes: [{ n: '4.6', fyb: 240, fub: 400, av: 0.6 }, { n: '5.6', fyb: 300, fub: 500, av: 0.6 }, { n: '8.8', fyb: 640, fub: 800, av: 0.6 }, { n: '10.9', fyb: 900, fub: 1000, av: 0.5 }],
+  cornieres: [['L60x60x6',60,60,6,8],['L70x70x7',70,70,7,9],['L80x80x8',80,80,8,10],['L90x90x9',90,90,9,11],['L100x100x8',100,100,8,12],['L100x100x10',100,100,10,12],['L100x100x12',100,100,12,12],['L120x120x10',120,120,10,13],['L120x120x12',120,120,12,13],['L150x150x10',150,150,10,16],['L150x150x12',150,150,12,16],['L150x150x15',150,150,15,16],['L200x200x16',200,200,16,18],['L100x75x8',100,75,8,10],['L120x80x8',120,80,8,11],['L120x80x10',120,80,10,11],['L150x90x10',150,90,10,12],['L150x100x10',150,100,10,12]].map(function (k) { return { n: k[0], a1: k[1], a2: k[2], t: k[3], r: k[4] }; }),
+  ailes: [[60,8],[70,9],[80,10],[90,11],[100,12],[120,13],[150,16],[200,18]], epais: [8, 9, 10, 12, 15]
+};
+var ORI_P = 'Grande aile sur poutre principale', ORI_S = 'Grande aile sur poutre secondaire';
+function defaults() {
+  return { id_projet: '', id_rep: '', id_red: '', id_date: '', mode_calc: 'VÉRIFICATION', fix_P: 'Boulonnée', fix_S: 'Boulonnée',
+    prof_P: 'HEA 400', hP_u: null, bP_u: null, twP_u: null, tfP_u: null, rP_u: null, nu_P: 'S355',
+    prof_S: 'HEA 300', hS_u: null, bS_u: null, twS_u: null, tfS_u: null, rS_u: null, nu_S: 'S355',
+    d_top: 0, d_nt: 50, d_nb: 0, l_n: 150, r_n: 10, g_h: 10, lt_ok: 'Oui',
+    corn_u: 'L100x100x10', k1_u: null, k2_u: null, kt_u: null, kr_u: null, orient: ORI_P, LC_u: 190, z_C: 50, nu_C: 'S355',
+    boulon_u: 'M20', classe: '8.8', trou: 'Normal', d0_u: null, filet: 'Oui', cat: 'A', mu_s: 0.3, k_s: 1, k_ser: 1,
+    n1S_u: 3, n2S_u: 1, p1S_u: 60, p2_S: 60, e1S_u: 35, e2b_u: 40, n1P_u: 3, n2P_u: 1, p1P_u: 60, p2_P: 60, e1P_u: 35, gA_u: 55,
+    a_P: 5, lh_P: 0, a_S: 5, lh_S: 40, V_Ed: 125, N_Ed: 0, H_Ed: 0, M_Ed: 0,
+    g_M0: 1, g_M2n: 1.25, g_M2: 1.25, g_M3: 1.25, g_M3s: 1.1, opt_exc: 'Non', k_rot: 0.8, opt_blf: 'Non', expo: 'Non',
+    fy_u: null, fu_u: null, bw_u: null, eta_c: 0.9, k_e1: 1.6, k_p1: 2.7, k_e2: 1.8, pd_dmin: 'M16', pd_dmax: 'M24' };
+}
+function N(x) { x = parseFloat(x); return isFinite(x) ? x : 0; }
+function hyp(a, b, c) { return Math.sqrt(a * a + b * b + (c || 0) * (c || 0)); }
+function ceil5(x) { return Math.ceil(x / 5 - 1e-9) * 5; }
+function find(arr, n) { for (var i = 0; i < arr.length; i++) if (arr[i].n === n) return arr[i]; return null; }
+function idx(arr, n) { for (var i = 0; i < arr.length; i++) if (arr[i].n === n) return i; return 0; }
+function F(x, n) { if (x === null || x === undefined || !isFinite(x)) return '—'; return x.toFixed(n === undefined ? 1 : n).replace('.', ','); }
+function firstGE(list, v) { var c = 0; list.forEach(function (x) { if (x < v) c++; }); return Math.min(c, list.length - 1); }
+
+function compute(u0) {
+  var u = defaults(), k; for (k in u0) if (u0[k] !== undefined) u[k] = u0[k];
+  var NUM = ['d_top','d_nt','d_nb','l_n','r_n','g_h','LC_u','z_C','mu_s','k_s','k_ser','n1S_u','n2S_u','p1S_u','p2_S','e1S_u','e2b_u','n1P_u','n2P_u','p1P_u','p2_P','e1P_u','gA_u','a_P','lh_P','a_S','lh_S','V_Ed','N_Ed','H_Ed','M_Ed','g_M0','g_M2n','g_M2','g_M3','g_M3s','k_rot','eta_c','k_e1','k_p1','k_e2'];
+  NUM.forEach(function (n) { u[n] = N(u[n]); });
+  u.V_Ed = Math.abs(u.V_Ed); var Mabs = Math.abs(u.M_Ed);
+  var R = { u: u, checks: [], ck: {} };
+  R.pred = u.mode_calc === 'PRÉDIMENSIONNEMENT'; R.bolt_P = u.fix_P === 'Boulonnée'; R.bolt_S = u.fix_S === 'Boulonnée';
+  ['P', 'S'].forEach(function (X) {
+    var p = u['prof_' + X] === PERSO ? { h: N(u['h' + X + '_u']), b: N(u['b' + X + '_u']), tw: N(u['tw' + X + '_u']), tf: N(u['tf' + X + '_u']), r: N(u['r' + X + '_u']) } : find(DB.profils, u['prof_' + X]);
+    ['h', 'b', 'tw', 'tf', 'r'].forEach(function (d) { R[d + '_' + X] = p[d]; });
+  });
+  ['P', 'S', 'C'].forEach(function (X) {
+    var a = u['nu_' + X] === PERSO ? { fy: N(u.fy_u), fu: N(u.fu_u), bw: N(u.bw_u) } : find(DB.aciers, u['nu_' + X]);
+    R['fy_' + X] = a.fy; R['fu_' + X] = a.fu; R['bw_' + X] = a.bw;
+  });
+  var cl = find(DB.classes, u.classe); R.f_ub = cl.fub; R.a_v = u.filet === 'Oui' ? cl.av : 0.6; R.k_trou = u.trou === 'Normal' ? 1 : 0.8;
+  var pd = R.pd = predim(u, R, Mabs);
+  /* ---- paramètres retenus */
+  R.boulon = R.pred ? pd.boulon : u.boulon_u;
+  function ret(a, b) { return R.pred ? b : a; }
+  R.n1_S = ret(u.n1S_u, pd.n); R.n2_S = ret(u.n2S_u, 1); R.p1_S = ret(u.p1S_u, pd.p1); R.e1_S = ret(u.e1S_u, pd.e1); R.e2b_S = ret(u.e2b_u, pd.e2);
+  R.n1_P = ret(u.n1P_u, pd.n); R.n2_P = ret(u.n2P_u, 1); R.p1_P = ret(u.p1P_u, pd.p1); R.e1_P = ret(u.e1P_u, pd.e1); R.g_A = ret(u.gA_u, pd.gA); R.L_C = ret(u.LC_u, pd.LC);
+  R.n1_S = Math.max(1, Math.round(R.n1_S)); R.n1_P = Math.max(1, Math.round(R.n1_P)); R.n2_S = R.n2_S >= 2 ? 2 : 1; R.n2_P = R.n2_P >= 2 ? 2 : 1;
+  var kc = u.corn_u === PERSO ? { a1: Math.max(N(u.k1_u), N(u.k2_u)), a2: Math.min(N(u.k1_u), N(u.k2_u)), t: N(u.kt_u), r: N(u.kr_u) } : find(DB.cornieres, u.corn_u);
+  R.b_A = R.pred ? pd.leg : (u.orient === ORI_P ? kc.a1 : kc.a2); R.b_B = R.pred ? pd.leg : (u.orient === ORI_P ? kc.a2 : kc.a1);
+  R.t_C = R.pred ? pd.tC : kc.t; R.r_C = R.pred ? pd.rC : kc.r;
+  R.corn_txt = R.pred ? 'L' + pd.leg + 'x' + pd.leg + 'x' + pd.tC + ' (proposée)' : (u.corn_u === PERSO ? 'L' + kc.a1 + 'x' + kc.a2 + 'x' + kc.t : u.corn_u);
+  var bo = find(DB.boulons, R.boulon); R.d_b = bo.d; R.d_0 = N(u.d0_u) > 0 ? N(u.d0_u) : bo.d0; R.As_b = bo.As; R.A_cis = u.filet === 'Oui' ? bo.As : bo.A; R.d_m = bo.dm; R.d_w = bo.dw;
+  var d0 = R.d_0, d = R.d_b, V = u.V_Ed, NEd = u.N_Ed, H = Math.abs(u.H_Ed), gM0 = u.g_M0, gM2 = u.g_M2, gM2n = u.g_M2n;
+  /* ---- géométrie */
+  R.g_B = u.g_h + R.e2b_S; R.z_S = R.g_B + (R.n2_S - 1) * u.p2_S / 2; R.e2a_S = R.b_B - R.g_B - (R.n2_S - 1) * u.p2_S;
+  R.e1bot_S = R.L_C - R.e1_S - (R.n1_S - 1) * R.p1_S; R.e1b_S = u.z_C + R.e1_S - u.d_nt; R.h_e = R.h_S - u.d_nb - (u.z_C + R.e1_S + (R.n1_S - 1) * R.p1_S);
+  R.n_S = R.n1_S * R.n2_S; R.Ip_S = R.n_S * (R.p1_S * R.p1_S * (R.n1_S * R.n1_S - 1) + u.p2_S * u.p2_S * (R.n2_S * R.n2_S - 1)) / 12;
+  R.xm_S = (R.n2_S - 1) * u.p2_S / 2; R.ym_S = (R.n1_S - 1) * R.p1_S / 2;
+  R.p_3 = R.tw_S + 2 * R.g_A; R.e2a_P = R.b_A - R.g_A - (R.n2_P - 1) * u.p2_P; R.e1bot_P = R.L_C - R.e1_P - (R.n1_P - 1) * R.p1_P;
+  R.zt_P = u.d_top + u.z_C + R.e1_P; R.zb_P = R.h_P - R.zt_P - (R.n1_P - 1) * R.p1_P; R.n_P = R.n1_P * R.n2_P;
+  R.Ip_P = R.n_P * (R.p1_P * R.p1_P * (R.n1_P * R.n1_P - 1) + u.p2_P * u.p2_P * (R.n2_P * R.n2_P - 1)) / 12;
+  R.xm_P = (R.n2_P - 1) * u.p2_P / 2; R.ym_P = (R.n1_P - 1) * R.p1_P / 2; R.e_P = R.g_A + (R.n2_P - 1) * u.p2_P / 2;
+  ['S', 'P'].forEach(function (X) {
+    var lh = u['lh_' + X], L = R.L_C, Lw = L + 2 * lh, xg = lh * lh / Lw;
+    R['Lw_' + X] = Lw; R['xg_' + X] = xg;
+    R['Iw_' + X] = L * L * L / 12 + 2 * lh * (L / 2) * (L / 2) + L * xg * xg + 2 * (lh * lh * lh / 12 + lh * (lh / 2 - xg) * (lh / 2 - xg));
+  });
+  R.zw_S = R.b_B - R.xg_S; R.ew_P = R.b_A - R.xg_P; R.zeff = R.bolt_S ? R.z_S : R.zw_S;
+  R.M_S = V * R.zeff / 1000 + Mabs;
+  R.M_P = u.opt_exc === 'Oui' ? V / 2 * (R.bolt_P ? R.e_P : R.ew_P) / 1000 : 0;
+  R.mod_S = !R.bolt_S ? 'Soudé – groupe de cordons avec moment' : (R.M_S === 0 ? 'Distribution uniforme' : 'Groupe de boulons avec moment (répartition élastique – inertie polaire)');
+  R.mod_P = !R.bolt_P ? (R.M_P === 0 ? 'Soudé – cisaillement centré' : 'Soudé – groupe de cordons avec moment') : (R.M_P === 0 ? 'Distribution uniforme (cisaillement centré, facteur ' + F(u.k_rot, 2) + ' sur Fv,Rd)' : 'Groupe de boulons avec moment (répartition élastique – inertie polaire)');
+  /* ---- Tableau 3.3 */
+  R.dist = [];
+  var cornF = u.corn_u === PERSO ? ['corn_u', 'k1_u', 'k2_u', 'orient'] : ['corn_u', 'orient'];
+  function drow(id, lab, val, kmin, tmax, kind, act, fields, dims) {
+    if (!act) return; var mn = kmin * d0, mx = kind === 'e' ? (u.expo === 'Oui' ? 4 * tmax + 40 : null) : Math.min(14 * tmax, 200);
+    R.dist.push({ id: id, lab: lab, val: val, min: mn, max: mx, kmin: kmin, fields: fields, dims: dims, rule: kind === 'e' ? 'e ≥ ' + F(kmin, 1) + '·d0 ; e ≤ 4t + 40 mm si exposé' : 'p ≥ ' + F(kmin, 1) + '·d0 ; p ≤ min(14t ; 200 mm)', ok: val >= mn - 0.001 && (mx === null || val <= mx) });
+  }
+  var tS = Math.min(R.t_C, R.tw_S), tP = Math.min(R.t_C, R.tw_P);
+  drow('S_e1c', 'S – e1 cornière (haut/bas, valeur mini)', Math.min(R.e1_S, R.e1bot_S), 1.2, R.t_C, 'e', R.bolt_S, ['e1S_u', 'LC_u', 'n1S_u', 'p1S_u'], ['e1S', 'e1botS']);
+  drow('S_e2c', 'S – e2 cornière (bord libre de l\'aile B)', R.e2a_S, 1.2, R.t_C, 'e', R.bolt_S, cornF.concat(['g_h', 'e2b_u', 'p2_S']), ['e2B']);
+  drow('S_e1b', 'S – e1,b âme poutre secondaire (vers grugeage sup.)', R.e1b_S, 1.2, R.tw_S, 'e', R.bolt_S && u.d_nt > 0, ['z_C', 'e1S_u', 'd_nt'], ['e1b', 'zc', 'dnt']);
+  drow('S_he', 'S – he âme poutre secondaire (vers grugeage inf.)', R.h_e, 1.2, R.tw_S, 'e', R.bolt_S && u.d_nb > 0, ['z_C', 'e1S_u', 'n1S_u', 'p1S_u', 'd_nb'], ['he', 'dnb']);
+  drow('S_e2b', 'S – e2,b âme poutre secondaire (vers l\'about)', R.e2b_S, 1.2, R.tw_S, 'e', R.bolt_S, ['e2b_u'], ['e2b']);
+  drow('S_p1', 'S – p1', R.p1_S, 2.2, tS, 'p', R.bolt_S && R.n1_S > 1, ['p1S_u'], ['p1S']); drow('S_p2', 'S – p2', u.p2_S, 2.4, tS, 'p', R.bolt_S && R.n2_S > 1, ['p2_S'], ['p2S']);
+  drow('P_e1c', 'P – e1 cornière (haut/bas, valeur mini)', Math.min(R.e1_P, R.e1bot_P), 1.2, R.t_C, 'e', R.bolt_P, ['e1P_u', 'LC_u', 'n1P_u', 'p1P_u'], ['e1P', 'e1botP']);
+  drow('P_e2c', 'P – e2 cornière (bord libre de l\'aile A)', R.e2a_P, 1.2, R.t_C, 'e', R.bolt_P, cornF.concat(['gA_u', 'p2_P']), ['e2A']);
+  drow('P_p1', 'P – p1', R.p1_P, 2.2, tP, 'p', R.bolt_P && R.n1_P > 1, ['p1P_u'], ['p1P']); drow('P_p2', 'P – p2', u.p2_P, 2.4, tP, 'p', R.bolt_P && R.n2_P > 1, ['p2_P'], ['p2P']);
+  R.dist_ok = R.dist.every(function (x) { return x.ok; });
+  R.rec_L = R.L_C >= 0.6 * R.h_S;
+  /* ---- alertes */
+  var tfrP = R.tf_P + R.r_P, gap = R.h_P - u.d_top - R.h_S, tfrS = R.tf_S + R.r_S, m12 = 1.2 * d0;
+  var botLim = R.h_S - (u.d_nb > 0 ? u.d_nb : tfrS), sumC = u.z_C + R.L_C;
+  function f0(x) { return F(x, Math.abs(x - Math.round(x)) > 0.05 ? 1 : 0).replace('-', '−'); }
+  var prP = u.prof_P === PERSO ? ['prof_P', 'hP_u', 'bP_u', 'twP_u', 'tfP_u', 'rP_u'] : ['prof_P'], prS = u.prof_S === PERSO ? ['prof_S', 'hS_u', 'tfS_u', 'rS_u'] : ['prof_S'];
+  var cA = R.bolt_P && R.g_A - d0 / 2 < R.t_C + R.r_C, cB = R.bolt_S && R.g_B - d0 / 2 < R.t_C + R.r_C;
+  var AL = [
+    { id: 'S_e1bot', c: R.bolt_S && R.e1bot_S < m12, b: 1, m: 'Configuration impossible : entraxe vertical / nombre de rangées du groupe S incompatible avec la longueur de cornière Lc (pince basse < 1,2·d0).',
+      f: ['LC_u', 'n1S_u', 'p1S_u', 'e1S_u'], d: ['Lc', 'e1S', 'p1S', 'e1botS'], e: ['cleat', 'boltsS'], cv: R.e1_S >= m12 - 0.001 ? ['S_e1c'] : [],
+      w: 'Pince basse du groupe S = Lc − e1 − (n1 − 1)·p1 = ' + f0(R.L_C) + ' − ' + f0(R.e1_S) + ' − ' + (R.n1_S - 1) + ' × ' + f0(R.p1_S) + ' = ' + f0(R.e1bot_S) + ' mm, alors qu\'il faut au moins 1,2·d0 = ' + F(m12, 1) + ' mm. Lc minimal avec ces boulons : ' + f0(Math.ceil(R.e1_S + (R.n1_S - 1) * R.p1_S + m12)) + ' mm.' },
+    { id: 'P_e1bot', c: R.bolt_P && R.e1bot_P < m12, b: 1, m: 'Configuration impossible : entraxe vertical / nombre de rangées du groupe P incompatible avec la longueur de cornière Lc (pince basse < 1,2·d0).',
+      f: ['LC_u', 'n1P_u', 'p1P_u', 'e1P_u'], d: ['Lc', 'e1P', 'p1P', 'e1botP'], e: ['cleat', 'boltsP'], cv: R.e1_P >= m12 - 0.001 ? ['P_e1c'] : [],
+      w: 'Pince basse du groupe P = Lc − e1 − (n1 − 1)·p1 = ' + f0(R.L_C) + ' − ' + f0(R.e1_P) + ' − ' + (R.n1_P - 1) + ' × ' + f0(R.p1_P) + ' = ' + f0(R.e1bot_P) + ' mm, alors qu\'il faut au moins 1,2·d0 = ' + F(m12, 1) + ' mm. Lc minimal avec ces boulons : ' + f0(Math.ceil(R.e1_P + (R.n1_P - 1) * R.p1_P + m12)) + ' mm.' },
+    { id: 'S_e2', c: R.bolt_S && R.e2a_S < m12, b: 1, m: 'Configuration impossible : aile B trop courte – pince e2 du groupe S non conforme à EN 1993-1-8 Tableau 3.3.',
+      f: cornF.concat(['g_h', 'e2b_u', 'n2S_u', 'p2_S']), d: ['e2B', 'e2b', 'gh', 'p2S', 'bB'], e: ['cleat', 'boltsS'], cv: ['S_e2c'],
+      w: 'Pince e2 = bB − gh − e2,b − (n2 − 1)·p2 = ' + f0(R.b_B) + ' − ' + f0(u.g_h) + ' − ' + f0(R.e2b_S) + ' − ' + (R.n2_S - 1) + ' × ' + f0(u.p2_S) + ' = ' + f0(R.e2a_S) + ' mm, alors qu\'il faut au moins 1,2·d0 = ' + F(m12, 1) + ' mm. Réduire e2,b ou p2, ou choisir une aile B plus longue.' },
+    { id: 'P_e2', c: R.bolt_P && R.e2a_P < m12, b: 1, m: 'Configuration impossible : aile A trop courte – pince e2 du groupe P non conforme à EN 1993-1-8 Tableau 3.3.',
+      f: cornF.concat(['gA_u', 'n2P_u', 'p2_P']), d: ['e2A', 'gA', 'p2P', 'bA'], e: ['cleat', 'boltsP'], cv: ['P_e2c'],
+      w: 'Pince e2 = bA − gA − (n2 − 1)·p2 = ' + f0(R.b_A) + ' − ' + f0(R.g_A) + ' − ' + (R.n2_P - 1) + ' × ' + f0(u.p2_P) + ' = ' + f0(R.e2a_P) + ' mm, alors qu\'il faut au moins 1,2·d0 = ' + F(m12, 1) + ' mm. Réduire gA ou p2, ou choisir une aile A plus longue.' },
+    { id: 'zc_top', c: u.z_C < (u.d_nt > 0 ? u.d_nt : tfrS), b: 1, m: 'Configuration impossible : le dessus des cornières est dans la zone grugée ou dans le congé supérieur de la poutre secondaire.',
+      f: ['z_C', 'd_nt'].concat(prS), d: ['zc', 'dnt'], e: ['cleat', 'notchT'],
+      w: u.d_nt > 0 ? 'zc = ' + f0(u.z_C) + ' mm est inférieur à la profondeur du grugeage dnt = ' + f0(u.d_nt) + ' mm : il faut zc ≥ dnt.' : 'zc = ' + f0(u.z_C) + ' mm est inférieur à tf + r = ' + f0(R.tf_S) + ' + ' + f0(R.r_S) + ' = ' + f0(tfrS) + ' mm (semelle et congé de la poutre secondaire) : il faut zc ≥ ' + f0(Math.ceil(tfrS)) + ' mm.' },
+    { id: 'h_dispo', c: sumC > botLim, b: 1, m: 'Configuration impossible : hauteur disponible insuffisante – les cornières dépassent la partie droite de l\'âme de la poutre secondaire.',
+      f: ['LC_u', 'z_C'].concat(u.d_nb > 0 ? ['d_nb'] : [], prS), d: ['Lc', 'zc'].concat(u.d_nb > 0 ? ['dnb'] : []), e: ['cleat'],
+      w: 'zc + Lc = ' + f0(u.z_C) + ' + ' + f0(R.L_C) + ' = ' + f0(sumC) + ' mm dépasse la limite basse de la partie droite de l\'âme : ' + (u.d_nb > 0 ? 'h − dnb = ' + f0(R.h_S) + ' − ' + f0(u.d_nb) : 'h − (tf + r) = ' + f0(R.h_S) + ' − ' + f0(tfrS)) + ' = ' + f0(botLim) + ' mm. Dépassement : ' + f0(sumC - botLim) + ' mm. Avec zc = ' + f0(u.z_C) + ' mm, Lc maximal = ' + f0(Math.floor(botLim - u.z_C)) + ' mm.' },
+    { id: 'dnt_min', c: u.d_top < tfrP && u.d_nt < tfrP - u.d_top, b: 1, m: 'Grugeage supérieur insuffisant : la semelle supérieure de la poutre secondaire heurte la semelle ou le congé de la poutre principale (dnt ≥ tf + r − décalage).',
+      f: ['d_nt', 'd_top'].concat(prP), d: ['dnt', 'dtop'], e: ['notchT', 'flPt'],
+      w: 'dnt = ' + f0(u.d_nt) + ' mm est inférieur à tf + r − décalage = ' + f0(R.tf_P) + ' + ' + f0(R.r_P) + ' − ' + f0(u.d_top) + ' = ' + f0(tfrP - u.d_top) + ' mm (semelle et congé de la poutre principale).' },
+    { id: 'ln_min', c: u.d_nt > 0 && u.l_n < (R.b_P - R.tw_P) / 2 - u.g_h, b: 1, m: 'Longueur de grugeage insuffisante pour dégager la demi-semelle de la poutre principale (ln ≥ (b − tw)/2 − gh, + jeu).',
+      f: ['l_n', 'g_h'].concat(prP), d: ['ln', 'gh'], e: ['notchT', 'flPt'],
+      w: 'ln = ' + f0(u.l_n) + ' mm est inférieur à (b − tw)/2 − gh = (' + f0(R.b_P) + ' − ' + f0(R.tw_P) + ')/2 − ' + f0(u.g_h) + ' = ' + f0((R.b_P - R.tw_P) / 2 - u.g_h) + ' mm : la demi-semelle de la poutre principale n\'est pas dégagée.' },
+    { id: 'gap_neg', c: gap < 0, b: 1, m: 'La poutre secondaire descend sous la poutre principale : configuration hors domaine de l\'outil.',
+      f: prP.concat(prS, ['d_top']), d: ['dtop'], e: ['beamS', 'flPb'], w: 'h principale − décalage − h secondaire = ' + f0(R.h_P) + ' − ' + f0(u.d_top) + ' − ' + f0(R.h_S) + ' = ' + f0(gap) + ' mm, valeur négative.' },
+    { id: 'dnb_min', c: gap >= 0 && gap < tfrP && u.d_nb < tfrP - gap, b: 1, m: 'Grugeage inférieur nécessaire ou insuffisant : la semelle inférieure de la poutre secondaire heurte la semelle ou le congé inférieur de la poutre principale.',
+      f: ['d_nb', 'd_top', 'l_n'].concat(prS, prP), d: ['dnb', 'dtop'], e: ['notchB', 'flPb'],
+      w: 'Espace sous la poutre secondaire = h principale − décalage − h secondaire = ' + f0(gap) + ' mm, inférieur à tf + r = ' + f0(tfrP) + ' mm de la poutre principale : il faut dnb ≥ ' + f0(Math.ceil(tfrP - gap)) + ' mm (actuel : ' + f0(u.d_nb) + ' mm).' },
+    { id: 'P_web', c: R.bolt_P && (R.zt_P - d0 / 2 < tfrP || R.zb_P - d0 / 2 < tfrP), b: 1, m: 'Configuration impossible : boulons du groupe P en dehors de la partie droite de l\'âme de la poutre principale.',
+      f: ['d_top', 'z_C', 'e1P_u', 'n1P_u', 'p1P_u'].concat(prP), d: ['ztP', 'e1P', 'p1P', 'zc', 'dtop'], e: ['boltsP', 'flPt', 'flPb'],
+      w: 'Il faut au moins tf + r = ' + f0(tfrP) + ' mm entre le bord du trou et chaque face extérieure de la poutre principale. Rangée haute : zt − d0/2 = ' + F(R.zt_P - d0 / 2, 1) + ' mm (zt = décalage + zc + e1) ; rangée basse : ' + F(R.zb_P - d0 / 2, 1) + ' mm.' },
+    { id: 'fillet', c: cA || cB, b: 1, m: 'Configuration impossible : trou de boulon dans le congé de la cornière (trusquinage − d0/2 < tc + rc).',
+      f: (cA ? ['gA_u'] : []).concat(cB ? ['g_h', 'e2b_u'] : [], cornF, ['boulon_u']), d: (cA ? ['gA'] : []).concat(cB ? ['e2b', 'gh'] : []), e: ['cleat'].concat(cA ? ['boltsP'] : [], cB ? ['boltsS'] : []),
+      w: 'Il faut trusquinage − d0/2 ≥ tc + rc = ' + f0(R.t_C) + ' + ' + f0(R.r_C) + ' = ' + f0(R.t_C + R.r_C) + ' mm.' + (cA ? ' Aile A : gA − d0/2 = ' + F(R.g_A - d0 / 2, 1) + ' mm, donc gA ≥ ' + f0(Math.ceil(R.t_C + R.r_C + d0 / 2)) + ' mm.' : '') + (cB ? ' Aile B : gh + e2,b − d0/2 = ' + F(R.g_B - d0 / 2, 1) + ' mm, donc e2,b ≥ ' + f0(Math.ceil(R.t_C + R.r_C + d0 / 2 - u.g_h)) + ' mm.' : '') },
+    { id: 'one_bolt', c: R.bolt_S && R.n_S === 1, b: 1, m: 'Configuration impossible : un seul boulon côté poutre secondaire ne peut pas reprendre le moment d\'excentricité VEd·z.', f: ['n1S_u', 'n2S_u'], d: [], e: ['boltsS'], w: 'n1 × n2 = 1 boulon : ajouter au moins une rangée ou une file.' },
+    { id: 'd0_manq', c: u.trou === 'Surdimensionné' && N(u.d0_u) === 0, b: 1, m: 'Trou surdimensionné : saisir le diamètre d0.', f: ['trou', 'd0_u'], d: [], e: [], w: '' },
+    { id: 'MEd', c: Mabs !== 0, b: 0, m: 'MEd ≠ 0 : l\'assemblage reste modélisé comme articulé ; MEd est traité comme moment parasite (groupe S : ajouté à VEd·z ; groupe P : traction élastique). Un moment significatif sort du domaine de l\'outil.', f: ['M_Ed'], d: ['z'], e: [], w: 'MS = VEd·z + |MEd| = ' + F(R.M_S, 2) + ' kNm.' },
+    { id: 'NEd', c: NEd > 0, b: 0, m: 'NEd de traction : la flexion hors plan de l\'âme de la poutre principale n\'est PAS vérifiée par l\'outil (à justifier séparément).', f: ['N_Ed'], d: [], e: [], w: '' },
+    { id: 'HEd', c: H > 0.1 * V && H > 0, b: 0, m: 'HEd > 10 % de VEd : la flexion hors plan des cornières sous HEd n\'est pas couverte par le modèle – étude spécifique à prévoir.', f: ['H_Ed', 'V_Ed'], d: [], e: [], w: 'HEd = ' + F(H, 1) + ' kN pour VEd = ' + F(V, 1) + ' kN.' },
+    { id: 'soude2', c: !R.bolt_P && !R.bolt_S, b: 0, m: 'Cornières soudées des deux côtés : capacité de rotation réduite, à justifier vis-à-vis de l\'hypothèse d\'articulation (EN 1993-1-8 §5.2).', f: ['fix_P', 'fix_S'], d: [], e: [], w: '' },
+    { id: 'cat_cl', c: u.cat !== 'A' && R.f_ub < 800, b: 1, m: 'Catégorie B ou C : boulons précontraints de classe 8.8 ou 10.9 requis (EN 1993-1-8 §3.4.1).', f: ['cat', 'classe'], d: [], e: [], w: '' }];
+  R.alerts = AL.filter(function (a) { return a.c; }).map(function (a) { return { id: a.id, msg: a.m, block: !!a.b, fields: a.f, dims: a.d, elems: a.e, why: a.w, covers: a.cv || [] }; });
+  R.geo_ok = !R.alerts.some(function (a) { return a.block; });
+  var cov = {}; R.alerts.forEach(function (a) { a.covers.forEach(function (x) { cov[x] = a.id; }); });
+  R.dist.forEach(function (x) {
+    x.alert = cov[x.id] || 'dist_' + x.id; if (x.ok || cov[x.id]) return;
+    R.alerts.push({ id: 'dist_' + x.id, msg: 'Pince ou entraxe non conforme à EN 1993-1-8 Tableau 3.3 : ' + x.lab + '.', block: true, fields: x.fields, dims: x.dims, elems: [], covers: [],
+      why: x.val < x.min - 0.001 ? 'Valeur actuelle ' + F(x.val, 1) + ' mm, inférieure au minimum ' + F(x.kmin, 1) + '·d0 = ' + F(x.min, 1) + ' mm (d0 = ' + f0(d0) + ' mm).' : 'Valeur actuelle ' + F(x.val, 1) + ' mm, supérieure au maximum ' + F(x.max, 1) + ' mm.' });
+  });
+  /* ---- boulons */
+  R.Fv_Rd = R.a_v * R.f_ub * R.A_cis / gM2 / 1000; R.Ft_Rd = 0.9 * R.f_ub * R.As_b / gM2 / 1000;
+  R.Bp_Rd = 0.6 * Math.PI * R.d_m * Math.min(R.t_C * R.fu_C, R.tw_P * R.fu_P) / gM2 / 1000; R.Fp_C = 0.7 * R.f_ub * R.As_b / 1000;
+  ['S', 'P'].forEach(function (X) { var Lj = (R['n1_' + X] - 1) * R['p1_' + X]; R['Lj_' + X] = Lj; R['bLf_' + X] = (u.opt_blf === 'Oui' && Lj > 15 * d) ? Math.max(0.75, 1 - (Lj - 15 * d) / (200 * d)) : 1; });
+  R.Fz_S = V / R.n_S + (R.Ip_S > 0 ? R.M_S * 1000 * R.xm_S / R.Ip_S : 0); R.Fx_S = Math.abs(NEd) / R.n_S + (R.Ip_S > 0 ? R.M_S * 1000 * R.ym_S / R.Ip_S : 0); R.F_S = hyp(R.Fz_S, R.Fx_S);
+  R.Fz_P = V / 2 / R.n_P + (R.Ip_P > 0 ? R.M_P * 1000 * R.xm_P / R.Ip_P : 0); R.Fx_P = H / 2 / R.n_P + (R.Ip_P > 0 ? R.M_P * 1000 * R.ym_P / R.Ip_P : 0); R.F_P = hyp(R.Fz_P, R.Fx_P);
+  R.Ft_P = Math.max(NEd, 0) / (2 * R.n_P) + (R.n1_P > 1 ? Mabs * 1000 * R.ym_P / (2 * R.n2_P * R.p1_P * R.p1_P * R.n1_P * (R.n1_P * R.n1_P - 1) / 12) : 0) + H * R.zeff / (R.p_3 * R.n_P);
+  R.tabS = boltTable(R.n1_S, R.n2_S, R.p1_S, u.p2_S, V, NEd, R.M_S, R.Ip_S); R.tabP = boltTable(R.n1_P, R.n2_P, R.p1_P, u.p2_P, V / 2, H / 2, R.M_P, R.Ip_P);
+  function bearing(key, t, fu, e1, p1, n1, e2, p2, n2, Fz, Fx, div, exV, exH) {
+    var abv = Math.min(e1 === null ? INF : e1 / (3 * d0), n1 > 1 ? p1 / (3 * d0) - 0.25 : 9, R.f_ub / fu, 1);
+    var k1v = Math.min(e2 === null ? INF : 2.8 * e2 / d0 - 1.7, exV === undefined ? INF : exV, n2 > 1 ? 1.4 * p2 / d0 - 1.7 : 9, 2.5);
+    var abh = Math.min(e2 === null ? INF : e2 / (3 * d0), exH === undefined ? INF : exH, n2 > 1 ? p2 / (3 * d0) - 0.25 : 9, R.f_ub / fu, 1);
+    var k1h = Math.min(e1 === null ? INF : 2.8 * e1 / d0 - 1.7, n1 > 1 ? 1.4 * p1 / d0 - 1.7 : 9, 2.5);
+    R['abv_' + key] = abv; R['k1v_' + key] = k1v; R['abh_' + key] = abh; R['k1h_' + key] = k1h;
+    R['Fbv_' + key] = k1v * abv * fu * d * t / gM2 / 1000 * R.k_trou; R['Fbh_' + key] = k1h * abh * fu * d * t / gM2 / 1000 * R.k_trou;
+    R['ipd_' + key] = hyp(Fz / div / R['Fbv_' + key], Fx / div / R['Fbh_' + key]);
+  }
+  bearing('B', R.t_C, R.fu_C, Math.min(R.e1_S, R.e1bot_S), R.p1_S, R.n1_S, R.e2a_S, u.p2_S, R.n2_S, R.Fz_S, R.Fx_S, 2);
+  bearing('A', R.t_C, R.fu_C, Math.min(R.e1_P, R.e1bot_P), R.p1_P, R.n1_P, R.e2a_P, u.p2_P, R.n2_P, R.Fz_P, R.Fx_P, 1);
+  bearing('S', R.tw_S, R.fu_S, u.d_nb > 0 ? Math.min(R.e1b_S, R.h_e) : R.e1b_S, R.p1_S, R.n1_S, R.e2b_S, u.p2_S, R.n2_S, R.Fz_S, R.Fx_S, 1);
+  bearing('P', R.tw_P, R.fu_P, null, R.p1_P, R.n1_P, null, u.p2_P, R.n2_P, R.Fz_P, R.Fx_P, 1, 1.4 * R.p_3 / d0 - 1.7, R.p_3 / (3 * d0) - 0.25);
+  function bvals(key) { return 'αb,ver = ' + F(R['abv_' + key], 3) + ' ; k1,ver = ' + F(R['k1v_' + key], 2) + ' → Fb,ver,Rd = ' + F(R['Fbv_' + key], 1) + ' kN ; αb,hor = ' + F(R['abh_' + key], 3) + ' ; k1,hor = ' + F(R['k1h_' + key], 2) + ' → Fb,hor,Rd = ' + F(R['Fbh_' + key], 1) + ' kN'; }
+  /* ---- aires et résistances cornières */
+  R.Ant_B = R.t_C * (R.e2a_S + (R.n2_S - 1) * u.p2_S - (R.n2_S - 0.5) * d0); R.Anv_B = R.t_C * (R.L_C - R.e1_S - (R.n1_S - 0.5) * d0);
+  R.Ant_A = R.t_C * (R.e2a_P + (R.n2_P - 1) * u.p2_P - (R.n2_P - 0.5) * d0); R.Anv_A = R.t_C * (R.L_C - R.e1_P - (R.n1_P - 0.5) * d0);
+  R.e1A_T = Math.min(R.e1_P, R.e1bot_P, 0.5 * (R.p_3 - R.tw_S - 2 * R.r_C) + d0 / 2); R.p1A_T = Math.min(R.p1_P, R.p_3 - R.tw_S - 2 * R.r_C + d0);
+  R.leff_T = 2 * R.e1A_T + (R.n1_P - 1) * R.p1A_T; R.m_T = (R.p_3 - R.tw_S - 2 * R.t_C - 1.6 * R.r_C) / 2; R.n_T = Math.min(R.e2a_P, 1.25 * R.m_T); R.ew_T = R.d_w / 4;
+  R.Mpl_T = 0.25 * R.leff_T * R.t_C * R.t_C * R.fy_C / gM0 / 1e6; R.SFt_T = 2 * R.n1_P * R.Ft_Rd;
+  R.FT_1 = (8 * R.n_T - 2 * R.ew_T) * R.Mpl_T * 1000 / (2 * R.m_T * R.n_T - R.ew_T * (R.m_T + R.n_T)); R.FT_2 = (2 * R.Mpl_T * 1000 + R.n_T * R.SFt_T) / (R.m_T + R.n_T); R.FT_3 = R.SFt_T;
+  var eB = Math.min(R.e1_S, R.e1bot_S), AhB = R.e2a_S + (R.n2_S - 1) * u.p2_S - (R.n2_S - 0.5) * d0;
+  R.Vt1_B = (R.fu_C * 2 * R.t_C * (R.n1_S - 1) * (R.p1_S - d0) / gM2n + R.fy_C * 4 * R.t_C * AhB / S3 / gM0) / 1000;
+  R.Vt2_B = (R.fu_C * 2 * R.t_C * (eB + (R.n1_S - 1) * R.p1_S - (R.n1_S - 0.5) * d0) / gM2n + R.fy_C * 2 * R.t_C * AhB / S3 / gM0) / 1000;
+  /* ---- poutre secondaire */
+  R.cas_g = (u.d_nt === 0 && u.d_nb === 0) ? 0 : ((u.d_nt > 0 && u.d_nb > 0) ? 2 : 1);
+  R.Asec_S = 2 * R.b_S * R.tf_S + (R.h_S - 2 * R.tf_S) * R.tw_S + (4 - Math.PI) * R.r_S * R.r_S; R.h_T = R.h_S - u.d_nt - u.d_nb;
+  R.A_Tee = R.b_S * R.tf_S + R.tw_S * (R.h_T - R.tf_S);
+  R.Av_S = R.cas_g === 0 ? Math.max(R.Asec_S - 2 * R.b_S * R.tf_S + (R.tw_S + 2 * R.r_S) * R.tf_S, (R.h_S - 2 * R.tf_S) * R.tw_S) : (R.cas_g === 1 ? R.A_Tee - R.b_S * R.tf_S + (R.tw_S + 2 * R.r_S) * R.tf_S / 2 : R.tw_S * R.h_T);
+  R.VRd_gS = R.Av_S * R.fy_S / S3 / gM0 / 1000;
+  var AhS = R.e2b_S + (R.n2_S - 1) * u.p2_S - (R.n2_S - 0.5) * d0;
+  R.Ant_S = R.tw_S * AhS; R.Anv_S = R.tw_S * (R.e1b_S + (R.n1_S - 1) * R.p1_S - (R.n1_S - 0.5) * d0);
+  R.VRd_bS = (0.5 * R.fu_S * R.Ant_S / gM2n + R.fy_S * R.Anv_S / S3 / gM0) / 1000;
+  R.hw_T = R.h_T - R.tf_S; R.zb_T = (R.b_S * R.tf_S * R.tf_S / 2 + R.tw_S * R.hw_T * (R.tf_S + R.hw_T / 2)) / R.A_Tee;
+  R.I_N = R.b_S * Math.pow(R.tf_S, 3) / 12 + R.b_S * R.tf_S * Math.pow(R.zb_T - R.tf_S / 2, 2) + R.tw_S * Math.pow(R.hw_T, 3) / 12 + R.tw_S * R.hw_T * Math.pow(R.tf_S + R.hw_T / 2 - R.zb_T, 2);
+  R.W_N = R.cas_g === 2 ? R.tw_S * R.h_T * R.h_T / 6 : R.I_N / Math.max(R.zb_T, R.h_T - R.zb_T);
+  R.rho_N = V <= 0.5 * R.VRd_gS ? 1 : Math.max(0, 1 - Math.pow(2 * V / R.VRd_gS - 1, 2)); R.Mv_N = R.W_N * R.fy_S / gM0 / 1e6 * R.rho_N;
+  var Vm = Math.min(R.VRd_gS, R.VRd_bS); R.Mc_2 = R.W_N * R.fy_S / gM0 / 1e6 * (V <= 0.5 * Vm ? 1 : Math.max(0, 1 - Math.pow(2 * V / Vm - 1, 2)));
+  R.el_N = R.h_S / R.tw_S; R.lim_N = R.fy_S <= 275 ? 54.3 : 48; R.ln_max = R.el_N <= R.lim_N ? R.h_S : (R.fy_S <= 275 ? 160000 : 110000) * R.h_S / Math.pow(R.el_N, 3);
+  R.val_N = R.cas_g === 0 ? 'Sans objet (poutre non grugée)' : (u.lt_ok !== 'Oui' ? 'NON VALIDE : poutre non maintenue au déversement – stabilité d\'ensemble de la poutre grugée à justifier (SCI P358 Check 7)' : (R.fy_S > 355 ? 'NON VALIDE : nuance > S355 – règle non publiée pour cette nuance' : (R.fy_S < 275 ? 'S235 : limites S275 appliquées (côté sécurité) – interprétation' : 'Valide')));
+  R.Vt1_S = (R.fu_S * R.tw_S * (R.n1_S - 1) * (R.p1_S - d0) / gM2n + R.fy_S * 2 * R.tw_S * AhS / S3 / gM0) / 1000;
+  R.Vt2_S = (R.fu_S * R.tw_S * (R.e1b_S + (R.n1_S - 1) * R.p1_S - (R.n1_S - 0.5) * d0) / gM2n + R.fy_S * R.tw_S * AhS / S3 / gM0) / 1000;
+  /* ---- poutre principale */
+  R.et_P = R.bolt_P ? Math.min(R.zt_P, 5 * d) : 0; R.eb_P = R.bolt_P ? Math.min(R.zb_P, R.p_3 / 2, 5 * d) : 0;
+  R.Av_P = R.bolt_P ? R.tw_P * (R.et_P + (R.n1_P - 1) * R.p1_P + R.eb_P) : R.tw_P * R.L_C;
+  /* ---- soudures */
+  [['S', Math.abs(NEd) / 2, 0, R.M_S / 2, 'S'], ['P', H / 2, Math.max(NEd, 0) / 2, R.M_P, 'P']].forEach(function (w) {
+    var X = w[0], Lw = R['Lw_' + X], Iw = R['Iw_' + X], lh = u['lh_' + X], xg = R['xg_' + X];
+    R['qz_' + X] = V / 2 * 1000 / Lw + w[3] * 1e6 * (lh - xg) / Iw; R['qx_' + X] = w[1] * 1000 / Lw + w[3] * 1e6 * (R.L_C / 2) / Iw; R['qn_' + X] = w[2] * 1000 / Lw;
+    R['qw_' + X] = hyp(R['qz_' + X], R['qx_' + X], R['qn_' + X]);
+    var fuo = R['fu_' + w[4]]; R['fuw_' + X] = Math.min(R.fu_C, fuo); R['bww_' + X] = R.fu_C <= fuo ? R.bw_C : R['bw_' + w[4]];
+    R['fvw_' + X] = R['fuw_' + X] / (S3 * R['bww_' + X] * gM2); R['Fw_' + X] = R['fvw_' + X] * u['a_' + X];
+  });
+  /* ---- vérifications */
+  function ck(key, grp, label, Ed, Rd, unit, ref, nat, act, formula, vals, ess) {
+    var c = { key: key, grp: grp, label: label, Ed: Ed, Rd: Rd, unit: unit, ref: ref, nat: nat, active: !!act, formula: formula, vals: vals || '', ess: !!ess };
+    c.eta = c.active ? (Rd > 0 ? Ed / Rd : (Ed > 0 ? INF : 0)) : null; c.ok = c.active ? c.eta <= 1 + 1e-9 : null;
+    R.checks.push(c); R.ck[key] = c;
+  }
+  var shr = MSB + ' §4.2.2 (d\'après ECCS n°126)', catB = u.cat === 'B', ks = catB ? u.k_ser : 1, g3 = catB ? u.g_M3s : u.g_M3;
+  var P10 = 'SCI P358 Check 10 (un seul côté chargé)', W = 'EN 1993-1-8 §4.5.3.3 ; répartition élastique du groupe de cordons : modèle complémentaire';
+  ck('bv_S', 'Boulons', 'Cisaillement des boulons – groupe S (2 plans), boulon le plus sollicité', R.F_S, 2 * R.Fv_Rd * R.bLf_S, 'kN', T34 + ' ; groupe excentré : ' + MSB + ' §4.2.1.1', 'EC + COMP', R.bolt_S,
+    'Fv,Rd = αv·fub·A/γM2 (× 2 plans) ; F,Ed = √(Fz² + Fx²) avec Fz = VEd/n + MS·xmax/Ip et Fx = |NEd|/n + MS·ymax/Ip',
+    'z = ' + F(R.z_S, 1) + ' mm ; MS = ' + F(R.M_S, 2) + ' kNm ; Ip = ' + F(R.Ip_S, 0) + ' mm² ; Fz = ' + F(R.Fz_S, 2) + ' kN ; Fx = ' + F(R.Fx_S, 2) + ' kN ; Fv,Rd = ' + F(R.Fv_Rd, 2) + ' kN/plan ; βLf = ' + F(R.bLf_S, 3), 1);
+  ck('bv_P', 'Boulons', 'Cisaillement des boulons – groupe P (1 plan)', R.F_P, u.k_rot * R.Fv_Rd * R.bLf_P, 'kN', T34 + ' ; facteur ' + F(u.k_rot, 2) + ' : ' + MSB + ' §4.2.1.2', 'EC + COMP', R.bolt_P,
+    'F,Ed = (VEd/2)/n par boulon ; FRd = k_rot·Fv,Rd (traction parasite due à la rotation)', 'n = ' + R.n_P + ' boulons par cornière ; Fz = ' + F(R.Fz_P, 2) + ' kN ; Fx = ' + F(R.Fx_P, 2) + ' kN ; Fv,Rd = ' + F(R.Fv_Rd, 2) + ' kN', 1);
+  ck('bt_P', 'Boulons', 'Traction des boulons – groupe P', R.Ft_P, Math.min(R.Ft_Rd, R.Bp_Rd), 'kN', T34, 'EC', R.bolt_P && R.Ft_P > 0, 'Ft,Rd = 0,9·fub·As/γM2 ; Bp,Rd = 0,6·π·dm·tp·fu/γM2',
+    'Ft,Ed = NEd/(2n) + MEd·ymax/Σy² + HEd·z/(p3·n) = ' + F(R.Ft_P, 2) + ' kN ; Ft,Rd = ' + F(R.Ft_Rd, 1) + ' kN ; Bp,Rd = ' + F(R.Bp_Rd, 1) + ' kN');
+  ck('bi_P', 'Boulons', 'Interaction cisaillement + traction – groupe P', R.F_P / (R.Fv_Rd * R.bLf_P) + R.Ft_P / (1.4 * R.Ft_Rd), 1, '-', T34, 'EC', R.bolt_P && R.Ft_P > 0, 'Fv,Ed/Fv,Rd + Ft,Ed/(1,4·Ft,Rd) ≤ 1', 'Fv,Ed = ' + F(R.F_P, 2) + ' kN ; Ft,Ed = ' + F(R.Ft_P, 2) + ' kN');
+  ck('gl_S', 'Boulons', 'Glissement – groupe S (2 surfaces de frottement)', R.F_S * ks, u.k_s * 2 * u.mu_s * R.Fp_C / g3, 'kN', 'EN 1993-1-8 §3.9.1', 'EC', R.bolt_S && u.cat !== 'A', 'Fs,Rd = ks·n·μ·Fp,C/γM3 ; Fp,C = 0,7·fub·As', 'Fp,C = ' + F(R.Fp_C, 1) + ' kN ; catégorie ' + u.cat);
+  ck('gl_P', 'Boulons', 'Glissement – groupe P (1 surface de frottement)', R.F_P * ks, u.k_s * u.mu_s * (R.Fp_C - 0.8 * R.Ft_P * ks) / g3, 'kN', 'EN 1993-1-8 §3.9.1 et §3.9.2', 'EC', R.bolt_P && u.cat !== 'A', 'Fs,Rd = ks·n·μ·(Fp,C − 0,8·Ft,Ed)/γM3', 'Fp,C = ' + F(R.Fp_C, 1) + ' kN ; Ft,Ed = ' + F(R.Ft_P, 2) + ' kN');
+  ck('pdB', 'Cornières', 'Pression diamétrale – ailes B des cornières (groupe S)', R.F_S / 2, R.ipd_B > 0 ? R.F_S / 2 / R.ipd_B : R.Fbv_B, 'kN', T34 + ' ; interaction : ' + MSB + ' §4.2.1.1', 'EC + COMP', R.bolt_S, 'Fb,Rd = k1·αb·fu·d·t/γM2 ; η = √[(Fz/Fb,ver)² + (Fx/Fb,hor)²] ; effort par cornière = F/2', bvals('B'), 1);
+  ck('pdA', 'Cornières', 'Pression diamétrale – ailes A des cornières (groupe P)', R.F_P, R.ipd_A > 0 ? R.F_P / R.ipd_A : R.Fbv_A, 'kN', T34, 'EC + COMP', R.bolt_P, 'Fb,Rd = k1·αb·fu·d·t/γM2', bvals('A'), 1);
+  var VgC = 2 * R.L_C * R.t_C * R.fy_C / (1.27 * S3 * gM0) / 1000, WC = R.t_C * R.L_C * R.L_C / 6 * R.fy_C / gM0 / 1e6;
+  ck('cgB', 'Cornières', 'Ailes B – cisaillement section brute', V, VgC, 'kN', shr, 'COMP', true, 'VRd,g = 2·Lc·tc·fy/(1,27·√3·γM0)', 'Lc = ' + F(R.L_C, 0) + ' mm ; tc = ' + F(R.t_C, 0) + ' mm ; fy = ' + F(R.fy_C, 0) + ' MPa', 1);
+  ck('cnB', 'Cornières', 'Ailes B – cisaillement section nette', V, 2 * R.t_C * (R.L_C - R.n1_S * d0) * R.fu_C / (S3 * gM2n) / 1000, 'kN', shr, 'COMP', R.bolt_S, 'VRd,n = 2·Av,net·fu/(√3·γM2) ; Av,net = tc·(Lc − n1·d0)', 'Av,net = ' + F(R.t_C * (R.L_C - R.n1_S * d0), 0) + ' mm² par cornière', 1);
+  ck('cbB', 'Cornières', 'Ailes B – rupture de bloc', V, 2 * (0.5 * R.fu_C * R.Ant_B / gM2n + R.fy_C * R.Anv_B / S3 / gM0) / 1000, 'kN', 'EN 1993-1-8 §3.10.2(3) ; aires : ' + MSB + ' §4.2.2.1', 'EC', R.bolt_S, 'Veff,2,Rd = 0,5·fu·Ant/γM2 + fy·Anv/(√3·γM0) (× 2 cornières)', 'Ant = ' + F(R.Ant_B, 0) + ' mm² ; Anv = ' + F(R.Anv_B, 0) + ' mm²', 1);
+  ck('flB', 'Cornières', 'Ailes B – flexion dans leur plan', V / 2 * R.zeff / 1000 + Mabs / 2, WC, 'kNm', MSB + ' §3.2.3 (plat d\'âme) ; EN 1993-1-1 §6.2.5', 'COMP', true, 'MEd = (VEd/2)·z ; MRd = Wel·fy/γM0 avec Wel = tc·Lc²/6', 'z = ' + F(R.zeff, 1) + ' mm ; Wel = ' + F(R.t_C * R.L_C * R.L_C / 6, 0) + ' mm³', 1);
+  ck('cgA', 'Cornières', 'Ailes A – cisaillement section brute', V, VgC, 'kN', MSB + ' §4.2.2.2', 'COMP', true, 'VRd,g = 2·Lc·tc·fy/(1,27·√3·γM0)', '');
+  ck('cnA', 'Cornières', 'Ailes A – cisaillement section nette', V, 2 * R.t_C * (R.L_C - R.n1_P * d0) * R.fu_C / (S3 * gM2n) / 1000, 'kN', MSB + ' §4.2.2.2', 'COMP', R.bolt_P, 'VRd,n = 2·Av,net·fu/(√3·γM2)', '');
+  ck('cbA', 'Cornières', 'Ailes A – rupture de bloc', V, 2 * (0.5 * R.fu_C * R.Ant_A / gM2n + R.fy_C * R.Anv_A / S3 / gM0) / 1000, 'kN', 'EN 1993-1-8 §3.10.2(3) ; aires : ' + MSB + ' §4.2.2.2', 'EC', R.bolt_P, 'Veff,2,Rd = 0,5·fu·Ant/γM2 + fy·Anv/(√3·γM0) (× 2 cornières)', 'Ant = ' + F(R.Ant_A, 0) + ' mm² ; Anv = ' + F(R.Anv_A, 0) + ' mm²');
+  ck('flA', 'Cornières', 'Ailes A – flexion dans leur plan entre talon et file de boulons (ou cordon)', V / 2 * ((R.bolt_P ? R.g_A : R.b_A) - R.t_C / 2) / 1000, WC, 'kNm', 'EN 1993-1-1 §6.2.5 ; bras de levier : hypothèse de l\'outil', 'INT', true, 'MEd = (VEd/2)·(gA − tc/2) ; MRd = Wel·fy/γM0', '');
+  ck('tsA', 'Cornières', 'Ailes A en flexion + boulons P en traction (tronçon en T équivalent)', NEd, Math.min(R.FT_1, R.FT_2, R.FT_3), 'kN', 'EN 1993-1-8 §6.2.4 Tableau 6.2 (méthode 2) ; leff et m : ' + MSB + ' §4.3.1.1', 'EC + COMP', R.bolt_P && NEd > 0,
+    'FT,1 = (8n − 2ew)·Mpl/[2mn − ew(m + n)] ; FT,2 = (2Mpl + n·ΣFt,Rd)/(m + n) ; FT,3 = ΣFt,Rd', 'Σleff = ' + F(R.leff_T, 0) + ' mm ; m = ' + F(R.m_T, 1) + ' mm ; n = ' + F(R.n_T, 1) + ' mm ; Mpl = ' + F(R.Mpl_T, 2) + ' kNm ; FT,1 = ' + F(R.FT_1, 0) + ' ; FT,2 = ' + F(R.FT_2, 0) + ' ; FT,3 = ' + F(R.FT_3, 0) + ' kN');
+  ck('tnB', 'Cornières', 'Ailes B – traction section nette', NEd, 2 * 0.9 * R.t_C * (R.L_C - R.n1_S * d0) * R.fu_C / gM2n / 1000, 'kN', 'EN 1993-1-1 §6.2.3(2)', 'EC', R.bolt_S && NEd > 0, 'Nu,Rd = 0,9·Anet·fu/γM2', '');
+  ck('tbB', 'Cornières', 'Ailes B – rupture de bloc en traction', NEd, Math.min(R.Vt1_B, R.Vt2_B), 'kN', 'EN 1993-1-8 §3.10.2(2) ; aires : ' + MSB + ' §4.3.1.4', 'EC', R.bolt_S && NEd > 0, 'Veff,1,Rd = fu·Ant/γM2 + fy·Anv/(√3·γM0)', 'cas 1 = ' + F(R.Vt1_B, 0) + ' kN ; cas 2 = ' + F(R.Vt2_B, 0) + ' kN');
+  ck('pdS', 'Poutre secondaire', 'Pression diamétrale – âme de la poutre secondaire', R.F_S, R.ipd_S > 0 ? R.F_S / R.ipd_S : R.Fbv_S, 'kN', T34 + ' ; interaction : ' + MSB + ' §4.2.1.1', 'EC + COMP', R.bolt_S, 'Fb,Rd = k1·αb·fu·d·tw/γM2 ; η = √[(Fz/Fb,ver)² + (Fx/Fb,hor)²]', bvals('S'), 1);
+  ck('vgS', 'Poutre secondaire', 'Âme – cisaillement section brute (section réduite si grugée)', V, R.VRd_gS, 'kN', 'EN 1993-1-1 §6.2.6 ; ' + MSB + ' §4.2.3.1', 'EC', true, 'VRd,g = Av·fy/(√3·γM0)', 'Av = ' + F(R.Av_S, 0) + ' mm²', 1);
+  ck('vnS', 'Poutre secondaire', 'Âme – cisaillement section nette au droit des boulons', V, (R.Av_S - R.n1_S * d0 * R.tw_S) * R.fu_S / S3 / gM2n / 1000, 'kN', MSB + ' §4.2.3.1 (ECCS n°126)', 'COMP', R.bolt_S, 'VRd,n = (Av − n1·d0·tw)·fu/(√3·γM2)', 'Av,net = ' + F(R.Av_S - R.n1_S * d0 * R.tw_S, 0) + ' mm²', 1);
+  ck('vbS', 'Poutre secondaire', 'Âme – rupture de bloc', V, R.VRd_bS, 'kN', 'EN 1993-1-8 §3.10.2(3) ; aires : ' + MSB + ' §4.2.3.1', 'EC', R.bolt_S, 'Veff,2,Rd = 0,5·fu·Ant/γM2 + fy·Anv/(√3·γM0)', 'Ant = ' + F(R.Ant_S, 0) + ' mm² ; Anv = ' + F(R.Anv_S, 0) + ' mm²', 1);
+  ck('mN', 'Poutre secondaire', 'Poutre grugée – flexion + cisaillement à l\'extrémité du grugeage', V * (u.g_h + u.l_n) / 1000 + Mabs, R.Mv_N, 'kNm', MSB + ' §4.2.4 ; SCI P358 Check 5', 'COMP', R.cas_g > 0,
+    'MEd = VEd·(gh + ln) ; Mv,N,Rd = fy·Wel,N/γM0·[1 − (2VEd/Vpl,N,Rd − 1)²] si VEd > 0,5·Vpl,N,Rd', 'Wel,N = ' + F(R.W_N, 0) + ' mm³ ; Vpl,N,Rd = ' + F(R.VRd_gS, 1) + ' kN ; réduction = ' + F(R.rho_N, 3), 1);
+  ck('m2', 'Poutre secondaire', 'Poutre grugée – interaction à la 2e file de boulons (n2 = 2)', V * (u.g_h + R.e2b_S + u.p2_S) / 1000, R.Mc_2, 'kNm', MSB + ' §4.2.3.2', 'COMP', R.cas_g > 0 && R.bolt_S && R.n2_S === 2 && u.l_n > R.e2b_S + u.p2_S, 'MEd = VEd·(gh + e2,b + p2)', '');
+  ck('stN', 'Poutre secondaire', 'Stabilité locale du grugeage – longueur ln', u.l_n, R.ln_max, 'mm', MSB + ' §4.2.5 ; SCI P358 Check 6', 'COMP', R.cas_g > 0, 'ln ≤ h si h/tw ≤ limite ; sinon ln ≤ K·h/(h/tw)³', 'h/tw = ' + F(R.el_N, 1) + ' ; limite = ' + F(R.lim_N, 1) + ' ; domaine : ' + R.val_N, 1);
+  ck('stD', 'Poutre secondaire', 'Stabilité locale du grugeage – profondeur', Math.max(u.d_nt, u.d_nb), R.cas_g === 1 ? R.h_S / 2 : R.h_S / 5, 'mm', MSB + ' §4.2.5', 'COMP', R.cas_g > 0, 'dn ≤ h/2 (1 semelle grugée) ; dn ≤ h/5 (2 semelles)', '');
+  ck('tnS', 'Poutre secondaire', 'Âme – traction section nette', NEd, 0.9 * R.tw_S * (R.L_C - R.n1_S * d0) * R.fu_S / gM2n / 1000, 'kN', 'EN 1993-1-1 §6.2.3(2) ; hauteur = Lc : ' + MSB + ' §4.3.2.2', 'EC', R.bolt_S && NEd > 0, 'Nu,Rd = 0,9·Anet·fu/γM2', '');
+  ck('tbS', 'Poutre secondaire', 'Âme – rupture de bloc en traction', NEd, Math.min(R.Vt1_S, R.cas_g > 0 ? R.Vt2_S : INF), 'kN', 'EN 1993-1-8 §3.10.2(2) ; aires : ' + MSB + ' §4.3.2.3', 'EC', R.bolt_S && NEd > 0, 'Veff,1,Rd = fu·Ant/γM2 + fy·Anv/(√3·γM0)', '');
+  ck('pdP', 'Poutre principale', 'Pression diamétrale – âme de la poutre principale', R.F_P, R.ipd_P > 0 ? R.F_P / R.ipd_P : R.Fbv_P, 'kN', T34 + ' ; SCI P358 Check 8', 'EC', R.bolt_P, 'Fb,Rd = k1·αb·fu·d·tw/γM2 (pas de bord libre : boulons intérieurs)', bvals('P'), 1);
+  ck('vlP', 'Poutre principale', 'Cisaillement local de l\'âme porteuse – section brute', V / 2, R.Av_P * R.fy_P / S3 / gM0 / 1000, 'kN', P10, 'COMP', true, 'VEd/2 ≤ Av·fy/(√3·γM0) ; Av = tw·(et + (n1 − 1)·p1 + eb)', 'Av = ' + F(R.Av_P, 0) + ' mm²', 1);
+  ck('vnP', 'Poutre principale', 'Cisaillement local de l\'âme porteuse – section nette', V / 2, (R.Av_P - R.n1_P * d0 * R.tw_P) * R.fu_P / S3 / gM2n / 1000, 'kN', P10, 'COMP', R.bolt_P, 'VEd/2 ≤ Av,net·fu/(√3·γM2)', '');
+  [['S', 'ailes B / âme poutre secondaire', !R.bolt_S], ['P', 'ailes A / âme poutre principale', !R.bolt_P]].forEach(function (w) {
+    var X = w[0];
+    ck('w' + X, 'Soudures', 'Cordons ' + w[1] + ' – effort par unité de longueur au point critique', R['qw_' + X], R['Fw_' + X], 'N/mm', W, 'EC + COMP', w[2], 'Fw,Ed = √(qz² + qx² + qn²) ≤ Fw,Rd = fvw,d·a ; fvw,d = fu/(√3·βw·γM2)',
+      'a = ' + F(u['a_' + X], 0) + ' mm ; ΣL = ' + F(R['Lw_' + X], 0) + ' mm ; Ip = ' + F(R['Iw_' + X], 0) + ' mm³ ; qz = ' + F(R['qz_' + X], 0) + ' ; qx = ' + F(R['qx_' + X], 0) + ' ; qn = ' + F(R['qn_' + X], 0) + ' N/mm ; fvw,d = ' + F(R['fvw_' + X], 1) + ' MPa', 1);
+    ck('wa' + X, 'Soudures', 'Cordons ' + w[1] + ' – gorge minimale', 3, u['a_' + X], 'mm', 'EN 1993-1-8 §4.5.2(2)', 'EC', w[2], 'a ≥ 3 mm', '');
+    ck('wl' + X, 'Soudures', 'Cordons ' + w[1] + ' – longueur minimale', Math.max(30, 6 * u['a_' + X]), R.L_C, 'mm', 'EN 1993-1-8 §4.5.1(2)', 'EC', w[2], 'L ≥ max(30 mm ; 6a)', '');
+  });
+  /* ---- synthèse */
+  var act = R.checks.filter(function (c) { return c.active; });
+  R.gov = act.reduce(function (a, c) { return (!a || c.eta > a.eta) ? c : a; }, null); R.eta_max = R.gov ? R.gov.eta : 0;
+  R.all_ok = act.every(function (c) { return c.ok; }); R.verified = R.all_ok && R.geo_ok && R.dist_ok;
+  R.statut = R.verified ? 'ASSEMBLAGE VÉRIFIÉ' : 'ASSEMBLAGE NON VÉRIFIÉ';
+  R.reserve = R.cas_g > 0 && R.val_N.indexOf('NON VALIDE') === 0;
+  return R;
+}
+function boltTable(n1, n2, p1, p2, V, Hh, M, Ip) {
+  var t = [], n = n1 * n2;
+  for (var i = 1; i <= n1; i++) for (var j = 1; j <= n2; j++) {
+    var x = (j - (n2 + 1) / 2) * p2, y = ((n1 + 1) / 2 - i) * p1, fx = Hh / n - (Ip > 0 ? M * 1000 * y / Ip : 0), fz = V / n + (Ip > 0 ? M * 1000 * x / Ip : 0);
+    t.push({ i: i, j: j, x: x, y: y, fx: fx, fz: fz, f: hyp(fx, fz) });
+  }
+  return t;
+}
+function predim(u, R, Mabs) {
+  var rows = [], hav = R.h_S - (u.d_nb > 0 ? u.d_nb : R.tf_S + R.r_S) - u.z_C, V = u.V_Ed, H = Math.abs(u.H_Ed);
+  var i1 = idx(DB.boulons, u.pd_dmin), i2 = idx(DB.boulons, u.pd_dmax), imin = Math.min(i1, i2), imax = Math.max(i1, i2);
+  DB.boulons.forEach(function (b, i) {
+    for (var n = 2; n <= 8; n++) {
+      var d = b.d, d0 = b.d0, A = u.filet === 'Oui' ? b.As : b.A, e1 = ceil5(u.k_e1 * d0), p1 = ceil5(u.k_p1 * d0), e2 = ceil5(u.k_e2 * d0), Lc = 2 * e1 + (n - 1) * p1;
+      var geom = Lc <= hav && i >= imin && i <= imax, Fv = R.a_v * R.f_ub * A / u.g_M2 / 1000, Lj = (n - 1) * p1;
+      var bLf = (u.opt_blf === 'Oui' && Lj > 15 * d) ? Math.max(0.75, 1 - (Lj - 15 * d) / (200 * d)) : 1;
+      var Mz = V * (u.g_h + e2) / 1000 + Mabs, Fz = V / n, Fx = Math.abs(u.N_Ed) / n + Mz * 1000 * 6 / (p1 * n * (n + 1)), Fs = hyp(Fz, Fx), e1b = u.z_C + e1 - u.d_nt;
+      var Fbv = Math.min(2.8 * e2 / d0 - 1.7, 2.5) * Math.min(e1b / (3 * d0), p1 / (3 * d0) - 0.25, R.f_ub / R.fu_S, 1) * R.fu_S * d * R.tw_S / u.g_M2 / 1000 * R.k_trou;
+      var Fbh = Math.min(2.8 * e1b / d0 - 1.7, 1.4 * p1 / d0 - 1.7, 2.5) * Math.min(e2 / (3 * d0), R.f_ub / R.fu_S, 1) * R.fu_S * d * R.tw_S / u.g_M2 / 1000 * R.k_trou;
+      var FP = hyp(V / 2 / n, H / 2 / n), FbP = 2.5 * Math.min(p1 / (3 * d0) - 0.25, R.f_ub / R.fu_P, 1) * R.fu_P * d * R.tw_P / u.g_M2 / 1000 * R.k_trou;
+      var e = { bS: R.bolt_S ? Fs / (2 * Fv * bLf) : 0, pdS: R.bolt_S ? hyp(Fz / Fbv, Fx / Fbh) : 0, bP: R.bolt_P ? FP / (u.k_rot * Fv * bLf) : 0, pdP: R.bolt_P ? FP / FbP : 0,
+        vt: (R.bolt_P && u.N_Ed > 0) ? FP / (Fv * bLf) + (u.N_Ed / (2 * n)) / (1.4 * 0.9 * R.f_ub * b.As / u.g_M2 / 1000) : 0 };
+      var eta = Math.max(e.bS, e.pdS, e.bP, e.pdP, e.vt), ok = geom && eta <= u.eta_c;
+      rows.push({ b: b, i: i, n: n, e1: e1, p1: p1, e2: e2, Lc: Lc, geom: geom, Fz: Fz, Fx: Fx, e: e, eta: eta, ok: ok, score: ok ? n * 100 + i + 1 : 9999, etag: geom ? eta : 99 });
+    }
+  });
+  var found = rows.some(function (r) { return r.ok; }), key = found ? 'score' : 'etag', pick = rows[0];
+  rows.forEach(function (r) { if (r[key] < pick[key]) pick = r; });
+  var gM0 = u.g_M0, gM2n = u.g_M2n, anyB = R.bolt_S || R.bolt_P, legs = DB.ailes.map(function (a) { return a[0]; });
+  function cleatFor(pk) {
+    var d0 = pk.b.d0, d = pk.b.d, n = pk.n, Lc = pk.Lc;
+    var fbv = Math.min(2.8 * pk.e2 / d0 - 1.7, 2.5) * Math.min(pk.e1 / (3 * d0), pk.p1 / (3 * d0) - 0.25, R.f_ub / R.fu_C, 1) * R.fu_C * d / u.g_M2 / 1000 * R.k_trou;
+    var fbh = Math.min(2.8 * pk.e1 / d0 - 1.7, 1.4 * pk.p1 / d0 - 1.7, 2.5) * Math.min(pk.e2 / (3 * d0), R.f_ub / R.fu_C, 1) * R.fu_C * d / u.g_M2 / 1000 * R.k_trou;
+    var reqs = [['Pression diamétrale ailes B (effort par cornière = F/2)', R.bolt_S ? hyp(pk.Fz / 2 / fbv, pk.Fx / 2 / fbh) : 0],
+      ['Pression diamétrale ailes A', R.bolt_P ? hyp(V / 2 / n / fbv, H / 2 / n / fbh) : 0],
+      ['Cisaillement section brute', V * 1000 * 1.27 * S3 * gM0 / (2 * Lc * R.fy_C)],
+      ['Cisaillement section nette', anyB ? V * 1000 * S3 * gM2n / (2 * (Lc - n * d0) * R.fu_C) : 0],
+      ['Rupture de bloc', anyB ? V * 1000 / (2 * (0.5 * R.fu_C * (pk.e2 - 0.5 * d0) / gM2n + R.fy_C * (Lc - pk.e1 - (n - 0.5) * d0) / S3 / gM0)) : 0],
+      ['Flexion des ailes B dans leur plan', (V / 2 * (u.g_h + pk.e2) / 1000 + Mabs / 2) * 1e6 * 6 * gM0 / (Lc * Lc * R.fy_C)],
+      ['Traction section nette (NEd > 0)', (R.bolt_S && u.N_Ed > 0) ? u.N_Ed * 1000 * gM2n / (2 * 0.9 * (Lc - n * d0) * R.fu_C) : 0]];
+    var treq = Math.max.apply(null, reqs.map(function (r) { return r[1]; })) / u.eta_c, tC = DB.epais[firstGE(DB.epais, treq)], dw = pk.b.dw;
+    var req1 = Math.max(ceil5(tC + 12 + dw / 2 + 2) + pk.e2, u.g_h + 2 * pk.e2), r1 = DB.ailes[firstGE(legs, req1)][1];
+    var gA = ceil5(tC + r1 + dw / 2 + 2), legreq = Math.max(gA + pk.e2, u.g_h + 2 * pk.e2), il = firstGE(legs, legreq);
+    return { reqs: reqs, treq: treq, tC: tC, gA: gA, legreq: legreq, leg: DB.ailes[il][0], rC: DB.ailes[il][1] };
+  }
+  rows.forEach(function (r) { if (r.geom) r.prop = cleatFor(r); });
+  if (!pick.prop) pick.prop = cleatFor(pick);
+  var pp = pick.prop;
+  return { rows: rows, hav: hav, found: found, pick: pick, boulon: pick.b.n, n: pick.n, e1: pick.e1, p1: pick.p1, e2: pick.e2, LC: pick.Lc, eta: pick.eta, reqs: pp.reqs, treq: pp.treq, tC: pp.tC, gA: pp.gA, legreq: pp.legreq, leg: pp.leg, rC: pp.rC,
+    msg: !found ? 'AUCUNE combinaison ne respecte le taux cible dans les limites fixées : la moins sollicitée est affichée. Élargir la plage de diamètres, la hauteur disponible ou la classe de boulons.' : (pp.treq > 15 ? 'Épaisseur nécessaire > 15 mm : hors gamme. Augmenter le nombre de rangées ou la nuance des cornières.' : 'Proposition complète') };
+}
+/* Recopie une solution du prédimensionnement dans les données (source unique : l'objet des saisies) et repasse en mode VÉRIFICATION */
+function applySolution(u0, r) {
+  var u = {}, k, p = r.prop, c = null; for (k in u0) u[k] = u0[k];
+  DB.cornieres.forEach(function (x) { if (!c && x.a1 === p.leg && x.a2 === p.leg && x.t === p.tC && x.r === p.rC) c = x; });
+  u.mode_calc = 'VÉRIFICATION'; u.boulon_u = r.b.n; u.n1S_u = r.n; u.n2S_u = 1; u.p1S_u = r.p1; u.e1S_u = r.e1; u.e2b_u = r.e2; u.n1P_u = r.n; u.n2P_u = 1; u.p1P_u = r.p1; u.e1P_u = r.e1; u.gA_u = p.gA; u.LC_u = r.Lc;
+  if (c) u.corn_u = c.n; else { u.corn_u = PERSO; u.k1_u = p.leg; u.k2_u = p.leg; u.kt_u = p.tC; u.kr_u = p.rC; }
+  return u;
+}
+function solutionLabel(r) { return r.b.n + ', ' + r.n + ' rangées, L' + r.prop.leg + 'x' + r.prop.leg + 'x' + r.prop.tC; }
+/* ===== BENCHMARKS (valeurs publiées relevées dans la source) ===== */
+var E_ARR = 'Arrondis intermédiaires de la source (αb = 0,61 pour 0,606 ; Fv,Rd = 94 pour 94,08 ; m = 31 pour 31,2).';
+var E_AIRE = 'La source utilise l\'aire catalogue A = 11700 mm² ; l\'outil calcule A = 2b·tf + (h − 2tf)·tw + (4 − π)·r² = 11729 mm² (+0,25 %), d\'où Av = 6030 au lieu de 6001 mm².';
+var E_BLOC = 'Hypothèse différente sur Anv : le chapitre « fin plate » de la source (§3.2.5.1) retire (n1 − 1)·d0 pour une poutre non grugée ; l\'outil applique la règle du chapitre « double angle web cleats » (§4.2.3.1) : (n1 − 0,5)·d0, côté sécurité. Formule non modifiée ; la ligne suivante reproduit l\'hypothèse de la source.';
+var IPEA = { prof_S: PERSO, hS_u: 547, bS_u: 210, twS_u: 9, tfS_u: 15.7, rS_u: 24, nu_S: 'S275', nu_C: 'S275', prof_P: PERSO, hP_u: 800, bP_u: 300, twP_u: 15, tfP_u: 30, rP_u: 27, nu_P: 'S275', d_top: 60, d_nt: 0, d_nb: 0, l_n: 0, g_h: 10, boulon_u: 'M20', classe: '8.8', z_C: 50, e2b_u: 40 };
+function mix() { var o = {}; for (var i = 0; i < arguments.length; i++) for (var k in arguments[i]) o[k] = arguments[i][k]; return o; }
+var BM1 = mix(IPEA, { corn_u: PERSO, k1_u: 90, k2_u: 90, kt_u: 10, kr_u: 11, V_Ed: 450, LC_u: 430, n1S_u: 6, n2S_u: 1, p1S_u: 70, e1S_u: 40, n1P_u: 6, n2P_u: 1, p1P_u: 70, e1P_u: 40, gA_u: 50 });
+var BM4 = mix(IPEA, { corn_u: PERSO, k1_u: 160, k2_u: 90, kt_u: 10, kr_u: 11, orient: ORI_S, V_Ed: 350, LC_u: 360, n1S_u: 5, n2S_u: 2, p1S_u: 70, p2_S: 60, e1S_u: 40, n1P_u: 5, n2P_u: 1, p1P_u: 70, e1P_u: 40, gA_u: 50 });
+function vr(k) { return function (R) { return R.u.V_Ed / R.ck[k].eta; }; }
+function rd(k) { return function (R) { return R.ck[k].Rd; }; }
+function va(k) { return function (R) { return R[k]; }; }
+var SRC = { titre: 'Steel Buildings in Europe – Multi-Storey Steel Buildings – Part 5: Joint Design', org: 'ArcelorMittal / Peiner Träger / Corus – contenu technique CTICM et SCI (projet RFCS SECHALO, RFS2-CT-2008-0030)', annee: 'feuilles de calcul datées 06/2009', norme: 'EN 1993-1-8:2005 et EN 1993-1-1:2005, valeurs recommandées (γM0 = 1,0 ; γM2 = 1,25 ; γMu = 1,1)', url: 'https://steelconstruction.info/images/5/53/SBE_MS5.pdf' };
+var BENCH = [
+  { id: 'BM1', titre: '§4.4 Worked Example: Angle Web Cleats – effort tranchant VEd = 450 kN, p. 5-68 à 5-77', data: 'IPE A 550 S275 (h 547, b 210, tw 9, tf 15,7, r 24), 2 L90x90x10 S275, M20 8.8, n1 = 6, p1 = 70, e1 = 40, e2 = 40, Lc = 430, gh = 10, e2,b = 40 (z = 50), p3 = 109, poutre non grugée', inp: BM1, rows: [
+    ['p. 5-70', 'Cisaillement d\'un boulon Fv,Rd (1 plan)', 94, va('Fv_Rd'), 'kN', E_ARR], ['p. 5-70', 'Groupe S excentré – cisaillement des boulons VRd', 962, vr('bv_S'), 'kN', E_ARR],
+    ['p. 5-71', 'Pression diamétrale cornière Fb,ver,Rd', 105, va('Fbv_B'), 'kN', E_ARR], ['p. 5-71', 'Pression diamétrale cornière Fb,hor,Rd', 105, va('Fbh_B'), 'kN', E_ARR],
+    ['p. 5-71', 'Groupe S – pression diamétrale sur les cornières VRd', 1075, vr('pdB'), 'kN', E_ARR], ['p. 5-72', 'Pression diamétrale âme Fb,ver,Rd', 125, va('Fbv_S'), 'kN', ''],
+    ['p. 5-73', 'Pression diamétrale âme Fb,hor,Rd', 94, va('Fbh_S'), 'kN', ''], ['p. 5-73', 'Groupe S – pression diamétrale sur l\'âme VRd', 583, vr('pdS'), 'kN', ''],
+    ['p. 5-74', 'Côté poutre porteuse – FRd = 0,8·ns·Fv,Rd', 902, vr('bv_P'), 'kN', E_ARR], ['p. 5-74', 'Cornières – cisaillement section brute VRd,g', 1076, rd('cgB'), 'kN', ''],
+    ['p. 5-75', 'Cornières – cisaillement section nette VRd,n', 1184, rd('cnB'), 'kN', ''], ['p. 5-75', 'Cornières – rupture de bloc VRd,b (côté poutre portée)', 954, rd('cbB'), 'kN', ''],
+    ['p. 5-76', 'Cornières – rupture de bloc VRd,b (côté poutre porteuse)', 954, rd('cbA'), 'kN', ''], ['p. 5-77', 'Âme – cisaillement section brute VRd,g', 953, rd('vgS'), 'kN', E_AIRE],
+    ['p. 5-77', 'Âme – cisaillement section nette VRd,n', 956, rd('vnS'), 'kN', E_AIRE], ['p. 5-77', 'Âme – rupture de bloc VRd,b', 501, rd('vbS'), 'kN', '']] },
+  { id: 'BM2', titre: '§4.4 même exemple – résistances en traction (tying FEd = 370 kN), p. 5-80 à 5-82. Le guide utilise γMu = 1,1 sur fu : reproduit avec γM2 (sections nettes) = 1,1', data: 'Données BM1 + NEd = 370 kN', inp: mix(BM1, { N_Ed: 370, g_M2n: 1.1 }), rows: [
+    ['p. 5-80', 'Cornières – rupture de bloc en traction, cas 1', 2060, va('Vt1_B'), 'kN', ''], ['p. 5-81', 'Cornières – rupture de bloc en traction, cas 2', 2195, va('Vt2_B'), 'kN', ''],
+    ['p. 5-82', 'Âme – traction section nette', 944, rd('tnS'), 'kN', ''], ['p. 5-82', 'Âme – rupture de bloc en traction, cas 1', 927, rd('tbS'), 'kN', '']] },
+  { id: 'BM3', titre: '§4.4 même exemple – tronçon en T équivalent des cornières (tying), p. 5-78 à 5-79. Le guide utilise fu/γMu : reproduit avec un acier de cornière personnalisé fy = fu = 430 MPa et γM0 = γM2 = 1,1', data: 'Données BM1 + NEd = 370 kN', inp: mix(BM1, { N_Ed: 370, nu_C: PERSO, fy_u: 430, fu_u: 430, bw_u: 0.85, g_M0: 1.1, g_M2: 1.1 }), rows: [
+    ['p. 5-79', 'Traction d\'un boulon Ft,Rd,u', 160, va('Ft_Rd'), 'kN', ''], ['p. 5-78', 'Longueur efficace Σleff', 430, va('leff_T'), 'mm', ''], ['p. 5-78', 'Moment plastique Mpl,1,Rd,u', 4.2, va('Mpl_T'), 'kNm', ''],
+    ['p. 5-79', 'Tronçon en T – mode 1', 696, va('FT_1'), 'kN', E_ARR], ['p. 5-79', 'Tronçon en T – mode 2', 1190, va('FT_2'), 'kN', E_ARR], ['p. 5-79', 'Tronçon en T – mode 3', 1920, va('FT_3'), 'kN', E_ARR]] },
+  { id: 'BM4', titre: '§3.4 Worked Example: Fin Plate (VEd = 350 kN, 2 files de boulons, z = 80 mm), p. 5-38 à 5-45 – transposé : le plat de 10 mm (1 plan de cisaillement) est remplacé par 2 cornières de 10 mm (2 plans) ; les valeurs de la source relatives au plat et aux boulons sont multipliées par 2, celles de l\'âme sont inchangées', data: 'IPE A 550 S275, plat 360x160x10 S275, M20 8.8, n1 = 5, n2 = 2, p1 = 70, p2 = 60, e1 = 40, e2 = 50, e2,b = 40, z = 80, e1,b = 90', inp: BM4, rows: [
+    ['p. 5-40', 'Inertie polaire du groupe de boulons I', 107000, va('Ip_S'), 'mm²', ''], ['p. 5-40', 'Groupe excentré à 2 files – cisaillement des boulons VRd (584 × 2)', 1168, vr('bv_S'), 'kN', ''],
+    ['p. 5-41', 'Pression diamétrale sur le plat VRd (605 × 2)', 1210, vr('pdB'), 'kN', E_ARR], ['p. 5-42', 'Pression diamétrale sur l\'âme VRd', 624, vr('pdS'), 'kN', ''],
+    ['p. 5-43', 'Plat – cisaillement section brute (450 × 2)', 900, rd('cgB'), 'kN', ''], ['p. 5-43', 'Plat – cisaillement section nette (497 × 2)', 994, rd('cnB'), 'kN', ''],
+    ['p. 5-43', 'Plat – rupture de bloc à 2 files (483 × 2)', 966, rd('cbB'), 'kN', ''], ['p. 5-45', 'Âme – cisaillement section brute', 953, rd('vgS'), 'kN', E_AIRE], ['p. 5-45', 'Âme – cisaillement section nette', 995, rd('vnS'), 'kN', E_AIRE],
+    ['p. 5-45', 'Âme – rupture de bloc à 2 files, formule de l\'outil', 507, rd('vbS'), 'kN', E_BLOC],
+    ['p. 5-45', 'Âme – rupture de bloc à 2 files, avec l\'hypothèse de la source sur Anv', 507, function (R) { var u = R.u, anv = R.tw_S * (R.e1b_S + (R.n1_S - 1) * R.p1_S - (R.n1_S - 1) * R.d_0); return (0.5 * R.fu_S * R.Ant_S / u.g_M2n + R.fy_S * anv / S3 / u.g_M0) / 1000; }, 'kN', '']] }];
+var NOCOVER = [['Interaction traction / cisaillement des boulons, glissement (cat. B et C)', 'Aucun exemple publié consulté : calcul manuel indépendant (cas VAL-B). Formules : EN 1993-1-8 Tableau 3.4, §3.9.1 et §3.9.2.'],
+  ['Poutre secondaire grugée (flexion au droit du grugeage, stabilité locale)', 'Les exemples du guide sont non grugés : calcul manuel indépendant (cas VAL-A). Formules : MSB Part 5 §4.2.4 et §4.2.5 ; seconde source : SCI P358 Checks 5 et 6.'],
+  ['Soudures', 'Aucun exemple publié consulté pour un groupe de cordons excentré : calcul manuel indépendant (cas VAL-B). Résistance : EN 1993-1-8 §4.5.3.3.'],
+  ['Vérification locale de l\'âme de la poutre principale', 'Aucun exemple publié consulté : calcul manuel indépendant (cas VAL-A). Modèle : SCI P358 Check 10.']];
+/* ===== VALIDATION : calcul manuel indépendant (hors moteur) + valeurs du classeur Excel recalculé ===== */
+var VALID = [
+  { id: 'VAL-A', titre: 'Cas par défaut (HEA 300 grugée sur HEA 400, S355, L100x100x10, 3 + 2×3 M20 8.8, VEd = 125 kN)', inp: {}, rows: [
+    ['Moment d\'excentricité MS = VEd·z', 6.25, 6.25, va('M_S'), 'kNm'], ['Effort maximal sur un boulon du groupe S', 66.69921080659218, 66.6992108065922, va('F_S'), 'kN'],
+    ['Résistance d\'un boulon du groupe S (2 plans)', 188.16, 188.16, rd('bv_S'), 'kN'], ['Taux – pression diamétrale de l\'âme (interaction)', 0.739914371796275, 0.739914371796275, function (R) { return R.ck.pdS.eta; }, '-'],
+    ['Aire du Té grugé ATee', 6121, 6121, va('A_Tee'), 'mm²'], ['Aire de cisaillement de la section grugée Av,N', 2358.5, 2358.5, va('Av_S'), 'mm²'],
+    ['Module élastique du Té Wel,N', 139377.42591522375, 139377.425915224, va('W_N'), 'mm³'], ['Moment résistant au grugeage Mv,N,Rd', 49.47898619990443, 49.4789861999044, rd('mN'), 'kNm'],
+    ['Sollicitation au grugeage VEd·(gh + ln)', 20, 20, function (R) { return R.ck.mN.Ed; }, 'kNm'], ['Longueur de grugeage maximale (stabilité locale)', 290, 290, rd('stN'), 'mm'],
+    ['Âme porteuse – aire de cisaillement locale Av', 2906.75, 2906.75, va('Av_P'), 'mm²'], ['Âme porteuse – résistance au cisaillement local', 595.7655777132654, 595.765577713265, rd('vlP'), 'kN'],
+    ['Ailes B – moment résistant élastique dans leur plan', 21.359166666666663, 21.3591666666667, rd('flB'), 'kNm']] },
+  { id: 'VAL-B', titre: 'Cas par défaut modifié : ailes B soudées (a = 5 mm, retours 40 mm), NEd = 50 kN, HEd = 20 kN, boulons 10.9 catégorie C', inp: { fix_S: 'Soudée', N_Ed: 50, H_Ed: 20, cat: 'C', classe: '10.9', a_S: 5, lh_S: 40 }, rows: [
+    ['Cordons S – longueur totale par cornière', 270, 270, va('Lw_S'), 'mm'], ['Cordons S – position du centre de gravité', 5.925925925925926, 5.92592592592593, va('xg_S'), 'mm'],
+    ['Cordons S – inertie polaire (par unité de gorge), intégration numérique', 1326768.5162685185, 1326768.51851852, va('Iw_S'), 'mm³'], ['Cordons S – effort par unité de longueur au point critique', 640.364181825083, 640.364181099529, function (R) { return R.ck.wS.Ed; }, 'N/mm'],
+    ['Cordons S – résistance Fw,Rd = fvw,d·a', 1308.6606101631517, 1308.66061016315, rd('wS'), 'N/mm'], ['Boulons P – effort de cisaillement par boulon', 21.098314835286935, 21.0983148352869, va('F_P'), 'kN'],
+    ['Boulons P – traction par boulon (NEd + couple HEd·z/p3)', 13.625826952127937, 13.6258269521279, va('Ft_P'), 'kN'], ['Boulons P – interaction cisaillement + traction', 0.2704631532922377, 0.270463153292238, function (R) { return R.ck.bi_P.Ed; }, '-'],
+    ['Boulons P – résistance au glissement (cat. C)', 38.543841225191436, 38.5438412251914, rd('gl_P'), 'kN']] }];
+function runBench() {
+  var out = [], worst = 0, nUnexp = 0;
+  BENCH.forEach(function (b) {
+    var R = compute(b.inp), rows = b.rows.map(function (r) {
+      var v = r[3](R), ec = (v - r[2]) / r[2], a = Math.abs(ec), st = a <= 0.01 ? 'OK' : (a <= 0.03 ? (r[5] ? 'Écart expliqué' : 'À expliquer') : (r[5] ? 'Écart > 3 % documenté' : 'À vérifier'));
+      if (a > 0.01 && !r[5]) nUnexp++; worst = Math.max(worst, a);
+      return { page: r[0], lab: r[1], ref: r[2], val: v, unit: r[4], ec: ec, st: st, exp: r[5] };
+    });
+    out.push({ id: b.id, titre: b.titre, data: b.data, rows: rows });
+  });
+  var nv = 0;
+  var val = VALID.map(function (c) {
+    var R = compute(c.inp);
+    return { id: c.id, titre: c.titre, rows: c.rows.map(function (r) { var v = r[3](R), ec = r[1] !== 0 ? (v - r[1]) / r[1] : v; if (Math.abs(ec) > 0.001) nv++; return { lab: r[0], hand: r[1], xls: r[2], val: v, unit: r[4], ec: ec, st: Math.abs(ec) <= 0.001 ? 'OK' : 'À vérifier' }; }) };
+  });
+  return { bench: out, valid: val, worst: worst, ok: nUnexp === 0 && nv === 0, statut: (nUnexp === 0 && nv === 0) ? 'VALIDÉ' : 'À CONTRÔLER' };
+}
+root.DC = { PERSO: PERSO, ORI_P: ORI_P, ORI_S: ORI_S, DB: DB, defaults: defaults, compute: compute, runBench: runBench, F: F, SRC: SRC, NOCOVER: NOCOVER, BENCH: BENCH, VALID: VALID, applySolution: applySolution, solutionLabel: solutionLabel };
+})(typeof window !== 'undefined' ? window : globalThis);
+if (typeof module !== 'undefined') module.exports = globalThis.DC;
+</script>
+<script>
+/* ===== DESSINS COTÉS (élévation + plan) – cotes placées automatiquement par rangées, sans chevauchement ===== */
+(function (root) {
+'use strict';
+var F = root.DC.F;
+function N(x) { x = parseFloat(x); return isFinite(x) ? x : 0; }
+function f0(x) { return F(x, Math.abs(x - Math.round(x)) > 0.05 ? 1 : 0).replace('-', '−'); }
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function pts(a) { return a.map(function (q) { return q[0] + ',' + q[1]; }).join(' '); }
+
+function Sheet(bb, fs, opt) {
+  this.bb = bb; this.fs = fs; this.opt = opt; this.gap = 2.35 * fs; this.rows = { T: [], B: [], L: [], R: [] }; this.g = [];
+  this.o = { T: bb.y1 - 1.5 * fs, B: bb.y2 + 2.0 * fs, L: bb.x1 - 1.4 * fs, R: bb.x2 + 2.0 * fs };
+  this.ex = { x1: bb.x1, x2: bb.x2, y1: bb.y1, y2: bb.y2 };
+}
+Sheet.prototype.tw = function (t) { return String(t).length * this.fs * 0.56; };
+Sheet.prototype.isHot = function (id) { var h = this.opt.hl; return !!(h && h.dims && h.dims[id]); };
+Sheet.prototype.slot = function (side, lo, hi) {
+  var rows = this.rows[side], pad = 0.4 * this.fs, r, i, ok;
+  for (r = 0; r < 40; r++) { if (!rows[r]) rows[r] = []; ok = true; for (i = 0; i < rows[r].length; i++) if (lo < rows[r][i][1] + pad && hi > rows[r][i][0] - pad) { ok = false; break; } if (ok) { rows[r].push([lo, hi]); return r; } }
+  return 0;
+};
+Sheet.prototype.pos = function (side, r) { return this.o[side] + ((side === 'T' || side === 'L') ? -1 : 1) * r * this.gap; };
+Sheet.prototype.label = function (x, y, rot, txt, d) {
+  var fs = this.fs, w = this.tw(txt), o = this.opt, ed = o.interactive && d.key && !(o.locked && o.locked[d.key]), hot = this.isHot(d.id);
+  return '<g class="dl' + (ed ? ' ed' : '') + (hot ? ' hot' : '') + (d.calc ? ' calc' : '') + '"' + (ed ? ' data-key="' + d.key + '" data-sym="' + esc(d.sym) + '" tabindex="0" role="button" aria-label="Modifier ' + esc(d.sym) + '"' : '') +
+    ' transform="translate(' + x + ' ' + y + ')' + (rot ? ' rotate(-90)' : '') + '"><rect class="hit" x="' + (-w / 2 - 0.3 * fs) + '" y="' + (-1.05 * fs) + '" width="' + (w + 0.6 * fs) + '" height="' + (1.42 * fs) + '" rx="' + (0.2 * fs) + '"/><text text-anchor="middle" font-size="' + fs + '">' + esc(txt) + '</text></g>';
+};
+/* d : {id, side T|B|L|R, a, b, o1, o2, sym, val, key, lvl, calc, out} */
+Sheet.prototype.dim = function (d) {
+  var hot = this.isHot(d.id); if (!(d.lvl <= this.opt.lvl || hot)) return; if (!(Math.abs(d.b - d.a) > 0.01)) return;
+  var fs = this.fs, lo = Math.min(d.a, d.b), hi = Math.max(d.a, d.b), len = hi - lo, t1 = d.sym + ' = ' + f0(d.val), t2 = d.sym + ' ' + f0(d.val), txt, c, l2 = lo, h2 = hi, w;
+  if (len >= this.tw(t1) + 0.9 * fs) { txt = t1; c = (lo + hi) / 2; } else if (len >= this.tw(t2) + 0.9 * fs) { txt = t2; c = (lo + hi) / 2; }
+  else { txt = t2; w = this.tw(t2); if (d.out === 'lo') { c = lo - 0.75 * fs - w / 2; l2 = lo - 1.0 * fs - w; } else { c = hi + 0.75 * fs + w / 2; h2 = hi + 1.0 * fs + w; } }
+  var r = this.slot(d.side, l2, h2), p = this.pos(d.side, r), H = d.side === 'T' || d.side === 'B', t = 0.34 * fs, s, e;
+  if (H) { e = p + (d.side === 'T' ? -0.45 : 0.45) * fs; this.ex.x1 = Math.min(this.ex.x1, l2); this.ex.x2 = Math.max(this.ex.x2, h2);
+    s = '<path class="ext" d="M' + d.a + ' ' + d.o1 + 'V' + e + 'M' + d.b + ' ' + d.o2 + 'V' + e + '"/><path class="dln" d="M' + l2 + ' ' + p + 'H' + h2 + 'M' + (d.a - t) + ' ' + (p + t) + 'L' + (d.a + t) + ' ' + (p - t) + 'M' + (d.b - t) + ' ' + (p + t) + 'L' + (d.b + t) + ' ' + (p - t) + '"/>' + this.label(c, p - 0.42 * fs, false, txt, d);
+  } else { e = p + (d.side === 'L' ? -0.45 : 0.45) * fs; this.ex.y1 = Math.min(this.ex.y1, l2); this.ex.y2 = Math.max(this.ex.y2, h2);
+    s = '<path class="ext" d="M' + d.o1 + ' ' + d.a + 'H' + e + 'M' + d.o2 + ' ' + d.b + 'H' + e + '"/><path class="dln" d="M' + p + ' ' + l2 + 'V' + h2 + 'M' + (p - t) + ' ' + (d.a + t) + 'L' + (p + t) + ' ' + (d.a - t) + 'M' + (p - t) + ' ' + (d.b + t) + 'L' + (p + t) + ' ' + (d.b - t) + '"/>' + this.label(p - 0.42 * fs, c, true, txt, d); }
+  this.g.push('<g class="dm' + (hot ? ' hot' : '') + (d.calc ? ' calc' : '') + '">' + s + '</g>');
+};
+Sheet.prototype.name = function (side, c, txt) {
+  var fs = this.fs, w = this.tw(txt) * 1.08, r = this.slot(side, c - w / 2, c + w / 2), p = this.pos(side, r);
+  this.ex.x1 = Math.min(this.ex.x1, c - w / 2); this.ex.x2 = Math.max(this.ex.x2, c + w / 2);
+  this.g.push('<text class="tx" x="' + c + '" y="' + (p + (side === 'B' ? 0.3 : -0.1) * fs) + '" text-anchor="middle" font-size="' + fs + '">' + esc(txt) + '</text>');
+};
+Sheet.prototype.tag = function (x, y, d) {
+  var hot = this.isHot(d.id); if (!(d.lvl <= this.opt.lvl || hot)) return; var txt = d.sym + ' ' + f0(d.val);
+  this.g.push('<g class="dm' + (hot ? ' hot' : '') + '">' + this.label(x + this.tw(txt) / 2 + 0.3 * this.fs, y, false, txt, d) + '</g>');
+};
+Sheet.prototype.finish = function (body, lines, aria) {
+  var fs = this.fs, n = this.rows, ex = this.ex, i;
+  var x1 = Math.min(ex.x1, n.L.length ? this.pos('L', n.L.length - 1) - 1.7 * fs : ex.x1) - 0.6 * fs, x2 = Math.max(ex.x2, n.R.length ? this.pos('R', n.R.length - 1) + 0.5 * fs : ex.x2) + 0.6 * fs;
+  var y1 = Math.min(ex.y1, n.T.length ? this.pos('T', n.T.length - 1) - 1.7 * fs : ex.y1) - 0.6 * fs, y2 = Math.max(ex.y2, n.B.length ? this.pos('B', n.B.length - 1) + 0.6 * fs : ex.y2) + 0.6 * fs, cart = '';
+  if (lines && lines.length) { var fc = fs * 0.95, maxc = Math.max(24, Math.floor((x2 - x1 - 1.2 * fs) / (fc * 0.56))), wr = [];
+    lines.forEach(function (l) { var cur = ''; l.split(' – ').forEach(function (part) { var t = cur ? cur + ' – ' + part : part; if (cur && t.length > maxc) { wr.push(cur); cur = '   ' + part; } else cur = t; }); wr.push(cur); }); lines = wr;
+    var wmax = 0; lines.forEach(function (l) { wmax = Math.max(wmax, l.length * fc * 0.56); }); x2 = Math.max(x2, x1 + wmax + 1.2 * fs);
+    for (i = 0; i < lines.length; i++) cart += '<text x="' + (x1 + 0.6 * fs) + '" y="' + (y2 + (i + 1) * 1.5 * fc) + '" font-size="' + fc + '">' + esc(lines[i]) + '</text>';
+    cart = '<g class="cart"><path class="ext" d="M' + x1 + ' ' + (y2 + 0.25 * fc) + 'H' + x2 + '"/>' + cart + '</g>'; y2 += (lines.length + 0.7) * 1.5 * fc; }
+  return '<svg viewBox="' + x1 + ' ' + y1 + ' ' + (x2 - x1) + ' ' + (y2 - y1) + '" role="img" aria-label="' + aria + '">' + body + this.g.join('') + cart + '</svg>';
+};
+
+function elev(R, opt) {
+  var u = R.u, xf = R.tw_P / 2, gh = N(u.g_h), x0 = xf + gh, yt = N(u.d_top), yb = yt + R.h_S, zc = N(u.z_C), yc = yt + zc, dnt = N(u.d_nt), dnb = N(u.d_nb), ln = N(u.l_n), p2S = N(u.p2_S), lhS = N(u.lh_S);
+  var notch = dnt > 0 || dnb > 0, xE = Math.max(x0 + (notch ? ln : 0), xf + R.b_B) + 75, bb = { x1: -R.b_P / 2, x2: xE, y1: Math.min(0, yt), y2: Math.max(R.h_P, yb) };
+  var fs = Math.max((bb.x2 - bb.x1 + 260) / 34, 9), S = new Sheet(bb, fs, opt), s = [], hot = (opt.hl && opt.hl.elems) || {}, i, j;
+  function hc(k) { return hot[k] ? ' hot' : ''; }
+  s.push('<rect class="pp' + hc('flPt') + '" x="' + (-R.b_P / 2) + '" y="0" width="' + R.b_P + '" height="' + R.tf_P + '"/><rect class="pp' + hc('flPb') + '" x="' + (-R.b_P / 2) + '" y="' + (R.h_P - R.tf_P) + '" width="' + R.b_P + '" height="' + R.tf_P + '"/><rect class="pp" x="' + (-xf) + '" y="' + R.tf_P + '" width="' + R.tw_P + '" height="' + (R.h_P - 2 * R.tf_P) + '"/>');
+  var p = dnt > 0 ? [[x0, yt + dnt], [x0 + ln, yt + dnt], [x0 + ln, yt], [xE, yt]] : [[x0, yt], [xE, yt]];
+  p = p.concat(dnb > 0 ? [[xE, yb], [x0 + ln, yb], [x0 + ln, yb - dnb], [x0, yb - dnb]] : [[xE, yb], [x0, yb]]);
+  s.push('<polygon class="ps' + hc('beamS') + '" points="' + pts(p) + '"/><path class="fl2" d="M' + (dnt > 0 ? x0 + ln : x0) + ' ' + (yt + R.tf_S) + 'H' + xE + 'M' + (dnb > 0 ? x0 + ln : x0) + ' ' + (yb - R.tf_S) + 'H' + xE + '"/>');
+  if (hot.notchT) s.push('<path class="hl" d="' + (dnt > 0 ? 'M' + x0 + ' ' + (yt + dnt) + 'H' + (x0 + ln) + 'V' + yt : 'M' + x0 + ' ' + (yt + R.tf_S + R.r_S) + 'V' + yt + 'H' + Math.max(R.b_P / 2, x0 + 40)) + '"/>');
+  if (hot.notchB) s.push('<path class="hl" d="' + (dnb > 0 ? 'M' + x0 + ' ' + (yb - dnb) + 'H' + (x0 + ln) + 'V' + yb : 'M' + x0 + ' ' + (yb - R.tf_S - R.r_S) + 'V' + yb + 'H' + Math.max(R.b_P / 2, x0 + 40)) + '"/>');
+  s.push('<rect class="co' + hc('cleat') + '" x="' + xf + '" y="' + yc + '" width="' + R.b_B + '" height="' + R.L_C + '"/><rect class="co2" x="' + xf + '" y="' + yc + '" width="' + R.t_C + '" height="' + R.L_C + '"/>');
+  var xc1 = xf + R.g_B, xcl = xc1 + (R.n2_S - 1) * p2S, yb1 = yc + R.e1_S, ybl = yb1 + (R.n1_S - 1) * R.p1_S, xt = xf + R.b_B, r0 = R.d_0 / 2;
+  if (R.bolt_S) for (i = 0; i < R.n1_S; i++) for (j = 0; j < R.n2_S; j++) { var cx = xc1 + j * p2S, cy = yb1 + i * R.p1_S; s.push('<circle class="bo' + hc('boltsS') + '" cx="' + cx + '" cy="' + cy + '" r="' + r0 + '"/><path class="cm" d="M' + (cx - r0 - 4) + ' ' + cy + 'H' + (cx + r0 + 4) + 'M' + cx + ' ' + (cy - r0 - 4) + 'V' + (cy + r0 + 4) + '"/>'); }
+  else s.push('<path class="we" d="M' + (xt - lhS) + ' ' + yc + 'H' + xt + 'V' + (yc + R.L_C) + 'H' + (xt - lhS) + '"/>');
+  var yp1 = yc + R.e1_P, ypl = yp1 + (R.n1_P - 1) * R.p1_P;
+  if (R.bolt_P) for (i = 0; i < R.n1_P; i++) s.push('<path class="bp' + hc('boltsP') + '" d="M' + (-xf - 16) + ' ' + (yp1 + i * R.p1_P) + 'H' + (xf + R.t_C + 16) + '"/>');
+  /* --- cotes : chaînes au plus près, cotes d'ensemble ensuite */
+  if (R.bolt_S) {
+    S.dim({ id: 'e2b', side: 'T', a: x0, b: xc1, o1: yt + dnt, o2: yb1, sym: 'e2,b', val: R.e2b_S, key: 'e2b_u', lvl: 1 });
+    if (R.n2_S > 1) S.dim({ id: 'p2S', side: 'T', a: xc1, b: xcl, o1: yb1, o2: yb1, sym: 'p2', val: p2S, key: 'p2_S', lvl: 1 });
+    S.dim({ id: 'e2B', side: 'T', a: xcl, b: xt, o1: yb1, o2: yc, sym: 'e2', val: R.e2a_S, lvl: 2, calc: 1 });
+  } else if (lhS > 0) S.dim({ id: 'lhS', side: 'T', a: xt - lhS, b: xt, o1: yc, o2: yc, sym: 'lh', val: lhS, key: 'lh_S', lvl: 1 });
+  S.dim({ id: 'gh', side: 'T', a: xf, b: x0, o1: yc, o2: yt + dnt, sym: 'gh', val: gh, key: 'g_h', lvl: 2, out: 'lo' });
+  S.dim({ id: 'z', side: 'T', a: xf, b: xf + R.zeff, o1: yc, o2: R.bolt_S ? yb1 : yc, sym: 'z', val: R.zeff, lvl: 1, calc: 1 });
+  if (dnt > 0) S.dim({ id: 'ln', side: 'T', a: x0, b: x0 + ln, o1: yt + dnt, o2: yt, sym: 'ln', val: ln, key: 'l_n', lvl: 1 });
+  else if (dnb > 0) S.dim({ id: 'ln', side: 'B', a: x0, b: x0 + ln, o1: yb - dnb, o2: yb, sym: 'ln', val: ln, key: 'l_n', lvl: 1 });
+  S.dim({ id: 'bB', side: 'B', a: xf, b: xt, o1: yc + R.L_C, o2: yc + R.L_C, sym: 'bB', val: R.b_B, lvl: 2, calc: 1 });
+  if (R.bolt_S) {
+    S.dim({ id: 'e1S', side: 'R', a: yc, b: yb1, o1: xt, o2: xcl, sym: 'e1', val: R.e1_S, key: 'e1S_u', lvl: 1, out: 'lo' });
+    for (i = 1; i < R.n1_S; i++) S.dim({ id: 'p1S', side: 'R', a: yb1 + (i - 1) * R.p1_S, b: yb1 + i * R.p1_S, o1: xcl, o2: xcl, sym: 'p1', val: R.p1_S, key: 'p1S_u', lvl: 1 });
+    S.dim({ id: 'e1botS', side: 'R', a: ybl, b: yc + R.L_C, o1: xcl, o2: xt, sym: 'e1\'', val: R.e1bot_S, lvl: 2, calc: 1 });
+  }
+  S.dim({ id: 'Lc', side: 'R', a: yc, b: yc + R.L_C, o1: xt, o2: xt, sym: 'Lc', val: R.L_C, key: 'LC_u', lvl: 1 });
+  S.dim({ id: 'zc', side: 'R', a: yt, b: yc, o1: xE, o2: xt, sym: 'zc', val: zc, key: 'z_C', lvl: 1, out: 'lo' });
+  if (dnt > 0) S.dim({ id: 'dnt', side: 'R', a: yt, b: yt + dnt, o1: x0 + ln, o2: x0 + ln, sym: 'dnt', val: dnt, key: 'd_nt', lvl: 1, out: 'lo' });
+  if (dnb > 0) S.dim({ id: 'dnb', side: 'R', a: yb - dnb, b: yb, o1: x0 + ln, o2: x0 + ln, sym: 'dnb', val: dnb, key: 'd_nb', lvl: 1 });
+  if (R.bolt_S) { S.dim({ id: 'e1b', side: 'R', a: yt + dnt, b: yb1, o1: x0 + (dnt > 0 ? ln : 0), o2: xcl, sym: 'e1,b', val: R.e1b_S, lvl: 2, calc: 1, out: 'lo' });
+    if (dnb > 0) S.dim({ id: 'he', side: 'R', a: ybl, b: yb - dnb, o1: xcl, o2: x0 + ln, sym: 'he', val: R.h_e, lvl: 2, calc: 1 }); }
+  if (R.bolt_P) { var lp = (R.bolt_S && R.n1_P === R.n1_S && R.p1_P === R.p1_S && R.e1_P === R.e1_S) ? 2 : 1;
+    S.dim({ id: 'e1P', side: 'L', a: yc, b: yp1, o1: xf, o2: -xf, sym: 'e1', val: R.e1_P, key: 'e1P_u', lvl: lp, out: 'lo' });
+    for (i = 1; i < R.n1_P; i++) S.dim({ id: 'p1P', side: 'L', a: yp1 + (i - 1) * R.p1_P, b: yp1 + i * R.p1_P, o1: -xf, o2: -xf, sym: 'p1', val: R.p1_P, key: 'p1P_u', lvl: lp });
+    S.dim({ id: 'e1botP', side: 'L', a: ypl, b: yc + R.L_C, o1: -xf, o2: xf, sym: 'e1\'', val: R.e1bot_P, lvl: 2, calc: 1 });
+    S.dim({ id: 'ztP', side: 'L', a: 0, b: yp1, o1: -R.b_P / 2, o2: -xf, sym: 'zt', val: R.zt_P, lvl: 2, calc: 1 }); }
+  S.dim({ id: 'dtop', side: 'L', a: 0, b: yt, o1: -R.b_P / 2, o2: x0, sym: 'déc.', val: yt, key: 'd_top', lvl: 2, out: 'lo' });
+  /* paramètres nuls : pas de cote possible, donc une étiquette éditable (niveau complet, ou si une alerte les désigne) */
+  if (dnt === 0) S.tag(xt + 0.4 * fs, yt + R.tf_S + 1.5 * fs, { id: 'dnt', sym: 'dnt', val: 0, key: 'd_nt', lvl: 2 });
+  if (dnb === 0) S.tag(xt + 0.4 * fs, yb - R.tf_S - 0.7 * fs, { id: 'dnb', sym: 'dnb', val: 0, key: 'd_nb', lvl: 2 });
+  if (yt === 0) S.tag(-R.b_P / 2, -0.55 * fs, { id: 'dtop', sym: 'déc.', val: 0, key: 'd_top', lvl: 2 });
+  if (!R.bolt_S) S.tag(xt + 0.4 * fs, yc + R.L_C / 2, { id: 'aS', sym: 'a', val: N(u.a_S), key: 'a_S', lvl: 1 });
+  S.name('T', xE - S.tw(u.prof_S === 'Personnalisé' ? 'Poutre secondaire' : u.prof_S) / 2, u.prof_S === 'Personnalisé' ? 'Poutre secondaire' : u.prof_S);
+  S.name('B', 0, u.prof_P === 'Personnalisé' ? 'Poutre principale' : u.prof_P);
+  var L = [];
+  if (opt.lvl >= 1) { L.push('Cornières : 2 × ' + R.corn_txt + ' – ' + u.nu_C + ' – Lc ' + f0(R.L_C) + ' mm');
+    if (R.bolt_S || R.bolt_P) L.push('Boulons ' + R.boulon + ' – classe ' + u.classe + ' – trous d0 ' + f0(R.d_0) + ' mm' + (R.bolt_S ? ' – groupe S : ' + R.n1_S + ' × ' + R.n2_S : '') + (R.bolt_P ? ' – groupe P : 2 × (' + R.n1_P + ' × ' + R.n2_P + ')' : ''));
+    if (!R.bolt_S) L.push('Soudure ailes B : a ' + f0(N(u.a_S)) + ' mm, cordon vertical Lc + retours ' + f0(lhS) + ' mm'); if (!R.bolt_P) L.push('Soudure ailes A : a ' + f0(N(u.a_P)) + ' mm, cordon vertical Lc + retours ' + f0(N(u.lh_P)) + ' mm');
+    L.push('Excentricité de calcul z = ' + f0(R.zeff) + ' mm – MS = ' + F(R.M_S, 2) + ' kNm' + (R.M_P > 0 ? ' – eP = ' + f0(R.bolt_P ? R.e_P : R.ew_P) + ' mm, MP = ' + F(R.M_P, 2) + ' kNm' : ''));
+    if (notch) L.push('Grugeage : ' + (dnt > 0 ? 'sup. ' + f0(dnt) : '') + (dnt > 0 && dnb > 0 ? ' / ' : '') + (dnb > 0 ? 'inf. ' + f0(dnb) : '') + ' × ' + f0(ln) + ' mm – bras de levier gh + ln = ' + f0(gh + ln) + ' mm'); }
+  return S.finish(s.join(''), L, 'Élévation cotée de l\'assemblage');
+}
+function plan(R, opt) {
+  var u = R.u, xf = R.tw_P / 2, gh = N(u.g_h), x0 = xf + gh, ws = R.tw_S / 2, xt = xf + R.b_B, xE = xt + 60, Hh = ws + R.b_A + 22, p2S = N(u.p2_S), p2P = N(u.p2_P);
+  var bb = { x1: -xf - 30, x2: xE, y1: -Hh, y2: Hh }, fs = Math.max((bb.x2 - bb.x1 + 210) / 32, 8), S = new Sheet(bb, fs, opt), s = [], hot = (opt.hl && opt.hl.elems) || {}, i;
+  function hc(k) { return hot[k] ? ' hot' : ''; }
+  s.push('<rect class="pp" x="' + (-xf) + '" y="' + (-Hh) + '" width="' + R.tw_P + '" height="' + 2 * Hh + '"/><rect class="ps' + hc('beamS') + '" x="' + x0 + '" y="' + (-ws) + '" width="' + (xE - x0) + '" height="' + R.tw_S + '"/>');
+  [-1, 1].forEach(function (g) {
+    var y1 = g * ws, y2 = g * (ws + R.t_C), y3 = g * (ws + R.b_A);
+    s.push('<polygon class="co' + hc('cleat') + '" points="' + pts([[xf, y1], [xt, y1], [xt, y2], [xf + R.t_C, y2], [xf + R.t_C, y3], [xf, y3]]) + '"/>');
+    if (R.bolt_P) for (i = 0; i < R.n2_P; i++) { var yy = g * (ws + R.g_A + i * p2P); s.push('<path class="bp' + hc('boltsP') + '" d="M' + (-xf - 14) + ' ' + yy + 'H' + (xf + R.t_C + 14) + '"/>'); }
+    else s.push('<circle class="wd" cx="' + (xf + R.t_C) + '" cy="' + y3 + '" r="' + Math.max(N(u.a_P), 4) + '"/>');
+    if (!R.bolt_S) s.push('<circle class="wd" cx="' + xt + '" cy="' + y2 + '" r="' + Math.max(N(u.a_S), 4) + '"/>');
+  });
+  var xc1 = xf + R.g_B, xcl = xc1 + (R.n2_S - 1) * p2S, yo = -ws - R.t_C;
+  if (R.bolt_S) for (i = 0; i < R.n2_S; i++) s.push('<path class="bp' + hc('boltsS') + '" d="M' + (xc1 + i * p2S) + ' ' + (yo - 14) + 'V' + (-yo + 14) + '"/>');
+  if (R.bolt_S) { S.dim({ id: 'e2b', side: 'T', a: x0, b: xc1, o1: -ws, o2: yo - 14, sym: 'e2,b', val: R.e2b_S, key: 'e2b_u', lvl: 2 });
+    if (R.n2_S > 1) S.dim({ id: 'p2S', side: 'T', a: xc1, b: xcl, o1: yo - 14, o2: yo - 14, sym: 'p2', val: p2S, key: 'p2_S', lvl: 2 }); }
+  S.dim({ id: 'gh', side: 'T', a: xf, b: x0, o1: -ws - R.b_A, o2: -ws, sym: 'gh', val: gh, key: 'g_h', lvl: 1, out: 'lo' });
+  S.dim({ id: 'bB', side: 'T', a: xf, b: xt, o1: -ws - R.b_A, o2: yo, sym: 'bB', val: R.b_B, lvl: 1, calc: 1 });
+  if (R.bolt_P) { var ya = -(ws + R.g_A), yl = ya - (R.n2_P - 1) * p2P, xo = xf + R.t_C + 14;
+    S.dim({ id: 'gA', side: 'R', a: ya, b: -ws, o1: xo, o2: xt, sym: 'gA', val: R.g_A, key: 'gA_u', lvl: 1, out: 'lo' });
+    if (R.n2_P > 1) S.dim({ id: 'p2P', side: 'R', a: yl, b: ya, o1: xo, o2: xo, sym: 'p2', val: p2P, key: 'p2_P', lvl: 1, out: 'lo' });
+    S.dim({ id: 'e2A', side: 'R', a: -(ws + R.b_A), b: yl, o1: xf + R.t_C, o2: xo, sym: 'e2', val: R.e2a_P, lvl: 2, calc: 1, out: 'lo' });
+    S.dim({ id: 'p3', side: 'L', a: ya, b: -ya, o1: -xf - 14, o2: -xf - 14, sym: 'p3', val: R.p_3, lvl: 1, calc: 1 }); }
+  else S.tag(xf + R.t_C + 0.6 * fs, -(ws + R.b_A) - 0.2 * fs, { id: 'aP', sym: 'a', val: N(u.a_P), key: 'a_P', lvl: 1 });
+  S.dim({ id: 'bA', side: 'R', a: ws, b: ws + R.b_A, o1: xt, o2: xf + R.t_C, sym: 'bA', val: R.b_A, lvl: 1, calc: 1 });
+  S.dim({ id: 'tc', side: 'R', a: ws, b: ws + R.t_C, o1: xt, o2: xt, sym: 'tc', val: R.t_C, lvl: 2, calc: 1 });
+  S.dim({ id: 'twS', side: 'R', a: -ws, b: ws, o1: xE, o2: xE, sym: 'tw', val: R.tw_S, lvl: 2, calc: 1 });
+  return S.finish(s.join(''), null, 'Vue en plan cotée de l\'assemblage');
+}
+root.DCDraw = { elev: elev, plan: plan };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ===== INTERFACE ===== */
+(function () {
+'use strict';
+var D = window.DC, DR = window.DCDraw, F = D.F, PERSO = D.PERSO, u = D.defaults(), R = null, B = null, openCk = {}, openSec = {}, fullTxt = false, lvl = 1, hl = null, mq = null;
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function names(a) { return a.map(function (x) { return x.n; }); }
+function pct(e, n) { if (e === null || e === undefined || isNaN(e)) return '—'; return e > 9.99 ? '> 999 %' : F(e * 100, n || 0) + ' %'; }
+var PROF = [PERSO].concat(names(D.DB.profils)), ACI = names(D.DB.aciers).concat([PERSO]), CORN = [PERSO].concat(names(D.DB.cornieres)), BOU = names(D.DB.boulons), CLA = names(D.DB.classes);
+var ON = ['Oui', 'Non'], FIX = ['Boulonnée', 'Soudée'];
+var PDK = { corn_u: 1, LC_u: 1, boulon_u: 1, n1S_u: 1, n2S_u: 1, p1S_u: 1, e1S_u: 1, e2b_u: 1, n1P_u: 1, n2P_u: 1, p1P_u: 1, e1P_u: 1, gA_u: 1 };
+function bS() { return u.fix_S === 'Boulonnée'; } function bP() { return u.fix_P === 'Boulonnée'; }
+function persoP() { return u.prof_P === PERSO; } function persoS() { return u.prof_S === PERSO; } function persoC() { return u.corn_u === PERSO; }
+function dims(X, f) { return [['h', 'h'], ['b', 'b'], ['tw', 'tw'], ['tf', 'tf'], ['r', 'r']].map(function (d) { return { k: d[0] + X + '_u', l: d[1] + ' (personnalisé)', t: 'n', un: 'mm', if: f }; }); }
+var SCH = [
+  { t: 'Identification', note: 'Reprise dans le rapport et l\'export texte. Un champ vide n\'est pas imprimé.', f: [{ k: 'id_projet', l: 'Projet', t: 'x' }, { k: 'id_rep', l: 'Repère de l\'assemblage', t: 'x' }, { k: 'id_red', l: 'Rédacteur', t: 'x' }, { k: 'id_date', l: 'Date', t: 'x' }] },
+  { t: 'Mode de calcul et fixations', f: [{ k: 'mode_calc', l: 'Mode de calcul', t: 's', o: ['VÉRIFICATION', 'PRÉDIMENSIONNEMENT'], h: 'Prédimensionnement : boulons, rangées et cornière sont proposés (onglet Prédim) puis vérifiés en détail. Les champs marqués ◆ sont alors remplacés.' },
+    { k: 'fix_P', l: 'Cornières sur la poutre principale (ailes A)', t: 's', o: FIX }, { k: 'fix_S', l: 'Cornières sur la poutre secondaire (ailes B)', t: 's', o: FIX, h: 'Soudée des deux côtés : assemblage peu déformable, à réserver à des cas particuliers.' }] },
+  { t: 'Poutre principale (porteuse)', f: [{ k: 'prof_P', l: 'Profilé', t: 's', o: PROF }].concat(dims('P', persoP), [{ k: 'nu_P', l: 'Nuance d\'acier', t: 's', o: ACI, h: 'S355 : fu = 510 MPa (EN 1993-1-1:2005 Tab. 3.1). Ligne « fu 490 » : valeur retenue par d\'autres références (annexe nationale française, EN 1993-1-1:2022). À caler sur ton ANB.' }]) },
+  { t: 'Poutre secondaire (portée) et grugeage', f: [{ k: 'prof_S', l: 'Profilé', t: 's', o: PROF }].concat(dims('S', persoS), [{ k: 'nu_S', l: 'Nuance d\'acier', t: 's', o: ACI },
+    { k: 'd_top', l: 'Décalage : dessus de la secondaire sous le dessus de la principale', t: 'n', un: 'mm', h: '0 = dessus des semelles au même niveau.' }, { k: 'd_nt', l: 'Profondeur du grugeage supérieur dnt', t: 'n', un: 'mm', h: '0 = semelle supérieure non grugée.' },
+    { k: 'd_nb', l: 'Profondeur du grugeage inférieur dnb', t: 'n', un: 'mm' }, { k: 'l_n', l: 'Longueur du grugeage ln depuis l\'about', t: 'n', un: 'mm' }, { k: 'r_n', l: 'Rayon du grugeage (information d\'exécution)', t: 'n', un: 'mm', h: 'Non utilisé dans les résistances.' },
+    { k: 'g_h', l: 'Jeu gh entre l\'âme porteuse et l\'about de la secondaire', t: 'n', un: 'mm' }, { k: 'lt_ok', l: 'Poutre secondaire maintenue au déversement', t: 's', o: ON, h: 'Condition d\'application de la règle de stabilité locale du grugeage (MSB Part 5 §4.2.5).' }]) },
+  { t: 'Cornières (2 cornières identiques)', f: [{ k: 'corn_u', l: 'Cornière', t: 's', o: CORN, h: 'Dimensions usuelles EN 10056-1, à contrôler avec le catalogue du fournisseur.' }, { k: 'k1_u', l: 'Grande aile', t: 'n', un: 'mm', if: persoC }, { k: 'k2_u', l: 'Petite aile', t: 'n', un: 'mm', if: persoC }, { k: 'kt_u', l: 'Épaisseur', t: 'n', un: 'mm', if: persoC }, { k: 'kr_u', l: 'Rayon de congé', t: 'n', un: 'mm', if: persoC },
+    { k: 'orient', l: 'Orientation (cornière inégale)', t: 's', o: [D.ORI_P, D.ORI_S] }, { k: 'LC_u', l: 'Longueur des cornières Lc (hauteur)', t: 'n', un: 'mm' }, { k: 'z_C', l: 'Dessus de la poutre secondaire → dessus des cornières zc', t: 'n', un: 'mm' }, { k: 'nu_C', l: 'Nuance d\'acier', t: 's', o: ACI }] },
+  { t: 'Boulons', f: [{ k: 'boulon_u', l: 'Diamètre', t: 's', o: BOU }, { k: 'classe', l: 'Classe', t: 's', o: CLA }, { k: 'trou', l: 'Type de trou', t: 's', o: ['Normal', 'Surdimensionné'], h: 'Surdimensionné : Fb,Rd × 0,8 (EN 1993-1-8 Tableau 3.4) et d0 à saisir.' },
+    { k: 'd0_u', l: 'Diamètre de trou d0 imposé (vide = trou normal)', t: 'n', un: 'mm' }, { k: 'filet', l: 'Plan de cisaillement dans la partie filetée', t: 's', o: ON }, { k: 'cat', l: 'Catégorie d\'assemblage en cisaillement', t: 's', o: ['A', 'B', 'C'], h: 'A : pression diamétrale. B : sans glissement à l\'ELS. C : sans glissement à l\'ELU (boulons précontraints 8.8 ou 10.9).' },
+    { k: 'mu_s', l: 'Coefficient de frottement μ', t: 'n', un: '-', if: function () { return u.cat !== 'A'; } }, { k: 'k_s', l: 'Coefficient ks (Tableau 3.6)', t: 'n', un: '-', if: function () { return u.cat !== 'A'; } }, { k: 'k_ser', l: 'Rapport efforts ELS / ELU', t: 'n', un: '-', if: function () { return u.cat === 'B'; }, h: '1,0 = hypothèse sécuritaire.' }] },
+  { t: 'Groupe S – boulons dans l\'âme de la poutre secondaire (2 plans)', if: bS, f: [{ k: 'n1S_u', l: 'Nombre de rangées n1', t: 'n', un: '-' }, { k: 'n2S_u', l: 'Nombre de files verticales n2', t: 's', o: ['1', '2'] }, { k: 'p1S_u', l: 'Entraxe vertical p1', t: 'n', un: 'mm' },
+    { k: 'p2_S', l: 'Entraxe horizontal p2', t: 'n', un: 'mm', if: function () { return String(u.n2S_u) === '2'; } }, { k: 'e1S_u', l: 'Pince e1 : dessus de cornière → 1re rangée', t: 'n', un: 'mm' }, { k: 'e2b_u', l: 'Distance e2,b : about de poutre → 1re file', t: 'n', un: 'mm' }] },
+  { t: 'Groupe P – boulons dans l\'âme de la poutre principale (1 plan, par cornière)', if: bP, f: [{ k: 'n1P_u', l: 'Nombre de rangées n1', t: 'n', un: '-' }, { k: 'n2P_u', l: 'Nombre de files verticales n2 par cornière', t: 's', o: ['1', '2'] }, { k: 'p1P_u', l: 'Entraxe vertical p1', t: 'n', un: 'mm' },
+    { k: 'p2_P', l: 'Entraxe horizontal p2', t: 'n', un: 'mm', if: function () { return String(u.n2P_u) === '2'; } }, { k: 'e1P_u', l: 'Pince e1 : dessus de cornière → 1re rangée', t: 'n', un: 'mm' }, { k: 'gA_u', l: 'Trusquinage gA : talon de cornière → 1re file', t: 'n', un: 'mm' }] },
+  { t: 'Soudures (cordons d\'angle)', if: function () { return !bS() || !bP(); }, f: [{ k: 'a_P', l: 'Gorge a – ailes A sur l\'âme principale', t: 'n', un: 'mm', if: function () { return !bP(); }, h: 'Cordon vertical en bout d\'aile sur toute la hauteur Lc.' }, { k: 'lh_P', l: 'Retours horizontaux haut et bas – ailes A', t: 'n', un: 'mm', if: function () { return !bP(); } },
+    { k: 'a_S', l: 'Gorge a – ailes B sur l\'âme secondaire', t: 'n', un: 'mm', if: function () { return !bS(); } }, { k: 'lh_S', l: 'Retours horizontaux haut et bas – ailes B', t: 'n', un: 'mm', if: function () { return !bS(); } }] },
+  { t: 'Efforts de calcul ELU', f: [{ k: 'V_Ed', l: 'VEd – effort tranchant vertical', t: 'n', un: 'kN' }, { k: 'N_Ed', l: 'NEd – effort normal dans la secondaire (traction +)', t: 'n', un: 'kN' }, { k: 'H_Ed', l: 'HEd – effort horizontal perpendiculaire à l\'âme secondaire', t: 'n', un: 'kN' },
+    { k: 'M_Ed', l: 'MEd – moment éventuel à la face de l\'âme porteuse', t: 'n', un: 'kNm', h: 'Assemblage articulé : normalement 0. Pris en valeur absolue comme moment parasite.' }] },
+  { t: 'Coefficients partiels', note: 'Valeurs recommandées de l\'EN 1993 : à confirmer par rapport à l\'ANB applicable.', f: [{ k: 'g_M0', l: 'γM0', t: 'n', un: '-' }, { k: 'g_M2n', l: 'γM2 – sections nettes, rupture de bloc', t: 'n', un: '-' }, { k: 'g_M2', l: 'γM2 – boulons, pression diamétrale, soudures', t: 'n', un: '-' }, { k: 'g_M3', l: 'γM3 – glissement ELU', t: 'n', un: '-' }, { k: 'g_M3s', l: 'γM3,ser – glissement ELS', t: 'n', un: '-' }] },
+  { t: 'Options du modèle mécanique', f: [{ k: 'opt_exc', l: 'Excentricité gA reprise par chaque groupe P dans son plan', t: 's', o: ON, h: 'Non : pratique ECCS n°126 / MSB Part 5. Oui : variante conservatrice, M = (VEd/2)·eP par cornière.' }, { k: 'k_rot', l: 'Facteur sur Fv,Rd des boulons P', t: 'n', un: '-', h: '0,8 : MSB Part 5 §4.2.1.2 / SCI P358. 1,0 pour désactiver.' },
+    { k: 'opt_blf', l: 'Appliquer βLf des assemblages longs (Lj > 15d)', t: 's', o: ON, h: 'EN 1993-1-8 §3.8. MSB Part 5 ne l\'applique pas aux cornières d\'âme ; Oui = variante conservatrice.' }, { k: 'expo', l: 'Assemblage exposé aux intempéries', t: 's', o: ON, h: 'Active les pinces maximales 4t + 40 mm (Tableau 3.3).' }] },
+  { t: 'Acier personnalisé', if: function () { return u.nu_P === PERSO || u.nu_S === PERSO || u.nu_C === PERSO; }, f: [{ k: 'fy_u', l: 'fy', t: 'n', un: 'MPa' }, { k: 'fu_u', l: 'fu', t: 'n', un: 'MPa' }, { k: 'bw_u', l: 'βw', t: 'n', un: '-' }] },
+  { t: 'Règles du prédimensionnement', if: function () { return u.mode_calc !== 'VÉRIFICATION'; }, note: 'Règles de détail non normatives, modifiables.', f: [{ k: 'eta_c', l: 'Taux d\'utilisation cible', t: 'n', un: '-' }, { k: 'k_e1', l: 'Pince e1 = k × d0 (minimum normatif 1,2)', t: 'n', un: '-' }, { k: 'k_p1', l: 'Entraxe p1 = k × d0 (minimum normatif 2,2)', t: 'n', un: '-' }, { k: 'k_e2', l: 'Pince e2 = k × d0 (minimum normatif 1,2)', t: 'n', un: '-' },
+    { k: 'pd_dmin', l: 'Plus petit diamètre admis', t: 's', o: BOU }, { k: 'pd_dmax', l: 'Plus grand diamètre admis', t: 's', o: BOU }] }];
+
+function buildForm() {
+  var pred = u.mode_calc !== 'VÉRIFICATION', h = '';
+  SCH.forEach(function (s, i) {
+    if (s.if && !s.if()) return;
+    h += '<details class="sec" data-i="' + i + '"' + (openSec[i] === false ? '' : ' open') + '><summary>' + esc(s.t) + '</summary><div class="flds">' + (s.note ? '<p class="note">' + esc(s.note) + '</p>' : '');
+    s.f.forEach(function (f) {
+      if (f.if && !f.if()) return;
+      var v = u[f.k] === null || u[f.k] === undefined ? '' : u[f.k], rep = pred && PDK[f.k], c;
+      if (f.t === 's') c = '<select data-k="' + f.k + '">' + f.o.map(function (o) { return '<option' + (String(v) === o ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select>';
+      else if (f.t === 'x') c = '<input type="text" data-k="' + f.k + '" value="' + esc(v) + '">';
+      else c = '<input type="number" inputmode="decimal" step="any" data-k="' + f.k + '" value="' + esc(v) + '">';
+      h += '<label class="fld' + (rep ? ' rep' : '') + '" data-f="' + f.k + '"><span class="fl">' + esc(f.l) + (rep ? ' <b title="Remplacé par la proposition">◆</b>' : '') + (f.h ? '<small>' + esc(f.h) + '</small>' : '') + '</span><span class="fc">' + c + '<i>' + (f.un && f.un !== '-' ? f.un : '') + '</i></span></label>';
+    });
+    h += '</div></details>';
+  });
+  $('form').innerHTML = h; markFields();
+}
+/* ---------- dessins : module DCDraw ; options communes ---------- */
+function drawOpt(inter) { return { lvl: inter ? lvl : 1, interactive: !!inter, hl: inter ? hl : null, locked: R.pred ? PDK : null }; }
+var SHORT = { LC_u: 'Lc', n1S_u: 'n1 groupe S', n2S_u: 'n2 groupe S', p1S_u: 'p1 groupe S', p2_S: 'p2 groupe S', e1S_u: 'e1 groupe S', e2b_u: 'e2,b', n1P_u: 'n1 groupe P', n2P_u: 'n2 groupe P', p1P_u: 'p1 groupe P', p2_P: 'p2 groupe P', e1P_u: 'e1 groupe P', gA_u: 'gA', z_C: 'zc', d_nt: 'dnt', d_nb: 'dnb', l_n: 'ln', g_h: 'gh', d_top: 'décalage', corn_u: 'cornière', orient: 'orientation', prof_P: 'poutre principale', prof_S: 'poutre secondaire', boulon_u: 'boulon', trou: 'type de trou', d0_u: 'd0', M_Ed: 'MEd', N_Ed: 'NEd', H_Ed: 'HEd', V_Ed: 'VEd', fix_P: 'fixation ailes A', fix_S: 'fixation ailes B', cat: 'catégorie', classe: 'classe', k1_u: 'grande aile', k2_u: 'petite aile', lh_S: 'retours lh (ailes B)', a_S: 'gorge a (ailes B)', a_P: 'gorge a (ailes A)' }, UNIT = {};
+SCH.forEach(function (s) { s.f.forEach(function (f) { UNIT[f.k] = f.un && f.un !== '-' ? ' ' + f.un : ''; if (!SHORT[f.k]) SHORT[f.k] = f.l; }); });
+function showTab(id) { document.querySelectorAll('.tabs button').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-t') === id); }); document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('on', t.id === id); }); if (id === 't-geo') geoAfter(); }
+function markFields() { var first = null; document.querySelectorAll('#form .fld').forEach(function (l) { var on = !!(hl && hl.fields[l.getAttribute('data-f')]); l.classList.toggle('hot', on); if (on) { var s = l.closest('details'); if (s) s.open = true; if (!first) first = l; } }); return first; }
+function syncField(k) { var el = document.querySelector('#form [data-k="' + k + '"]'); if (el) el.value = u[k]; }
+function jumpToField(k) {
+  var el = document.querySelector('#form [data-k="' + k + '"]'); if (!el) { flash('Ce champ est masqué dans la configuration actuelle'); return; }
+  if (!mq.matches) showTab('t-don'); var s = el.closest('details'); if (s) s.open = true;
+  el.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(function () { try { el.focus({ preventScroll: true }); if (el.select) el.select(); } catch (e) {} }, 380);
+}
+function selectAlert(id) {
+  var a = null; R.alerts.forEach(function (x) { if (x.id === id) a = x; }); if (!a) return;
+  if (hl && hl.id === id) hl = null; else { hl = { id: id, fields: {}, dims: {}, elems: {} }; a.fields.forEach(function (k) { hl.fields[k] = 1; }); a.dims.forEach(function (k) { hl.dims[k] = 1; }); a.elems.forEach(function (k) { hl.elems[k] = 1; }); }
+  renderStatus(); renderGeo(); var first = markFields(); if (!hl) return;
+  a.fields.some(function (k) { var el = document.querySelector('#form .fld[data-f="' + k + '"]'); if (el) first = el; return !!el; });
+  var geo = a.dims.length || a.elems.length;
+  if (mq.matches) { if (geo) showTab('t-geo'); if (first) first.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  else if (geo) { showTab('t-geo'); window.scrollTo({ top: 0, behavior: 'smooth' }); } else if (first) jumpToField(first.getAttribute('data-f'));
+}
+/* édition d'une cote directement sur le dessin : écrit dans u (source unique), synchronise le formulaire, recalcule tout */
+function openEditor(g) {
+  var key = g.getAttribute('data-key'), sym = g.getAttribute('data-sym'), fig = g.closest('figure'); if (!key || !fig) return;
+  var old = fig.querySelector('.dimedit'); if (old) old.blur();
+  var r = g.getBoundingClientRect(), fr = fig.getBoundingClientRect(), inp = document.createElement('input'), done = false;
+  inp.type = 'number'; inp.step = 'any'; inp.setAttribute('inputmode', 'decimal'); inp.className = 'dimedit'; inp.setAttribute('aria-label', 'Nouvelle valeur de ' + sym + ' en mm'); inp.value = (u[key] === null || u[key] === undefined) ? '' : u[key];
+  inp.style.left = Math.max(2, Math.min(fig.scrollWidth - 102, r.left - fr.left + fig.scrollLeft + r.width / 2 - 49)) + 'px'; inp.style.top = Math.max(2, Math.min(fig.scrollHeight - 44, r.top - fr.top + fig.scrollTop + r.height / 2 - 20)) + 'px';
+  function commit(ok) { if (done) return; done = true; var v = inp.value; inp.remove(); if (!ok || v === '' || !isFinite(parseFloat(v)) || parseFloat(v) === parseFloat(u[key])) return; u[key] = v; syncField(key); update(sym + ' = ' + v + ' mm : géométrie et vérifications recalculées'); }
+  inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); commit(true); } else if (e.key === 'Escape') commit(false); });
+  inp.addEventListener('blur', function () { commit(true); });
+  fig.appendChild(inp); inp.focus(); inp.select();
+}
+function applySol(i) {
+  var r = R.pd.rows[i]; if (!r || !r.prop) return; u = D.applySolution(u, r); hl = null; buildForm(); update('Solution appliquée aux données et à la géométrie : ' + D.solutionLabel(r)); showTab('t-geo'); window.scrollTo(0, 0);
+}
+function N(x) { x = parseFloat(x); return isFinite(x) ? x : 0; }
+/* ---------- rendus ---------- */
+function alertsHtml(inter) {
+  return R.alerts.map(function (a) {
+    var c = 'al ' + (a.block ? 'blk' : 'inf'), t = (a.block ? 'Bloquant' : 'Attention');
+    if (!inter) return '<p class="' + c + '">' + t + ' – ' + esc(a.msg) + '</p>';
+    var sel = hl && hl.id === a.id, h = '<div class="' + c + (sel ? ' sel' : '') + '"><button class="alb" data-a="' + a.id + '" aria-expanded="' + (sel ? 'true' : 'false') + '"><span class="alh">' + (sel ? 'Masquer' : 'Localiser') + '</span><b>' + t + '</b> – ' + esc(a.msg) + '</button>';
+    if (sel) h += '<div class="why">' + (a.why ? '<p>' + esc(a.why) + '</p>' : '') + (R.pred && a.fields.some(function (k) { return PDK[k]; }) ? '<p>Mode prédimensionnement : les champs marqués ◆ sont pilotés par la proposition. Applique une solution de l\'onglet Prédim, ou passe en mode VÉRIFICATION, pour les modifier.</p>' : '') +
+      '<p class="chips">' + a.fields.filter(function (k) { return document.querySelector('#form [data-k="' + k + '"]'); }).map(function (k) { return '<button data-f="' + k + '">' + esc(SHORT[k]) + ' : ' + esc(u[k] === null || u[k] === undefined || u[k] === '' ? '—' : u[k]) + UNIT[k] + '</button>'; }).join('') + (a.dims.length || a.elems.length ? '<button data-go="1">Voir sur le dessin</button>' : '') + '</p></div>';
+    return h + '</div>';
+  }).join('');
+}
+function renderStatus() {
+  var ok = R.verified;
+  $('status').className = 'status ' + (ok ? 'ok' : 'ko');
+  $('status').innerHTML = '<strong>' + esc(R.statut) + (ok && (R.reserve || R.alerts.length) ? ' – sous réserve des alertes' : '') + '</strong><span>Taux maximal ' + pct(R.eta_max, 1) + (R.gov ? ' : ' + esc(R.gov.label) : '') + (!R.geo_ok ? ' | géométrie non valide' : '') + (!R.dist_ok ? ' | pinces ou entraxes non conformes' : '') + '</span><span class="bm ' + (B.ok ? 'ok' : 'ko') + '">Benchmark du module : ' + B.statut + '</span>';
+  $('alerts').innerHTML = alertsHtml(true) + (R.pred ? '<p class="al inf">Mode prédimensionnement : ' + esc(R.boulon) + ', ' + R.n1_S + ' rangées, ' + esc(R.corn_txt) + ', Lc = ' + F(R.L_C, 0) + ' mm. ' + esc(R.pd.msg) + '</p>' : '');
+  document.documentElement.style.setProperty('--barh', document.querySelector('.bar2').offsetHeight + 'px');
+}
+function row2(a) { return '<tr>' + a.map(function (c, i) { return '<td' + (i ? ' class="v"' : '') + '>' + c + '</td>'; }).join('') + '</tr>'; }
+function row(a) { return '<tr>' + a.map(function (c, i) { return '<td' + (i ? ' class="n"' : '') + '>' + c + '</td>'; }).join('') + '</tr>'; }
+function geoAfter(keep) {
+  document.querySelectorAll('#geo figure').forEach(function (f, i) {
+    if (keep && keep[i]) f.scrollLeft = keep[i];
+    if (f.scrollWidth <= f.clientWidth + 4) return;
+    var c = f.querySelector('figcaption'); if (c && !c.querySelector('.swipe')) c.insertAdjacentHTML('afterbegin', '<b class="swipe">Fais glisser le dessin pour voir toutes les cotes.</b>');
+    var h = hl ? (f.querySelector('.dm.hot .dl') || f.querySelector('.hot')) : null; if (!h) return;
+    var r = h.getBoundingClientRect(), fr = f.getBoundingClientRect(); if (r.left < fr.left + 8 || r.right > fr.right - 8) f.scrollLeft += r.left + r.width / 2 - (fr.left + fr.width / 2);
+  });
+}
+function renderGeo() {
+  var keep = []; document.querySelectorAll('#geo figure').forEach(function (f) { keep.push(f.scrollLeft); });
+  var g = [['Boulon retenu', esc(R.boulon) + ' – d0 = ' + F(R.d_0, 0) + ' mm'], ['Cornières', esc(R.corn_txt) + ' – aile A ' + F(R.b_A, 0) + ', aile B ' + F(R.b_B, 0) + ', tc ' + F(R.t_C, 0) + ', rc ' + F(R.r_C, 0) + ' mm'], ['Longueur des cornières Lc', F(R.L_C, 0) + ' mm' + (R.rec_L ? '' : ' (Lc < 0,6·h : recommandation MSB Part 5 §4.1 non respectée)')],
+    ['Excentricité z : face de l\'âme porteuse → centre du groupe S ' + (R.bolt_S ? '' : '(cordons)'), F(R.zeff, 1) + ' mm'], ['Moment d\'excentricité MS = VEd·z + |MEd|', F(R.M_S, 2) + ' kNm'], ['Modèle du groupe S', esc(R.mod_S)], ['Modèle du groupe P', esc(R.mod_P)],
+    ['Moment par groupe P (option)', F(R.M_P, 2) + ' kNm'], ['Inertie polaire du groupe S', F(R.Ip_S, 0) + ' mm²'], ['Entraxe p3 entre les files des deux cornières', F(R.p_3, 1) + ' mm'], ['Pince e1,b dans l\'âme secondaire', F(R.e1b_S, 1) + ' mm'], ['Pinces e2 : aile B / aile A', F(R.e2a_S, 1) + ' / ' + F(R.e2a_P, 1) + ' mm'], ['Pinces basses e1 : groupe S / groupe P', F(R.e1bot_S, 1) + ' / ' + F(R.e1bot_P, 1) + ' mm']];
+  var lv = ['Vue simple', 'Cotations principales', 'Cotations complètes'];
+  $('geo').innerHTML = '<div class="lvlbar"><div class="lvl" role="group" aria-label="Niveau de cotation">' + lv.map(function (t, i) { return '<button data-l="' + i + '"' + (i === lvl ? ' class="on" aria-pressed="true"' : ' aria-pressed="false"') + '>' + t + '</button>'; }).join('') + '</div><span class="note">' +
+    (R.pred ? 'Mode prédimensionnement : les cotes pilotées par la proposition (◆) ne se modifient pas ici.' : 'Cotes sur fond jaune : touche la valeur, saisis la nouvelle, valide avec Entrée. Le formulaire et les vérifications suivent.') + '</span></div>' +
+    '<div class="draws"><figure' + (lvl > 0 ? ' class="wide"' : '') + '>' + DR.elev(R, drawOpt(true)) + '<figcaption>Élévation à l\'échelle, cotes en mm. En violet italique : grandeurs calculées, non modifiables.</figcaption></figure><figure>' + DR.plan(R, drawOpt(true)) + '<figcaption>Vue en plan</figcaption></figure></div>' +
+    '<h3>Paramètres retenus et excentricités</h3><table class="tb">' + g.map(row2).join('') + '</table><h3>Pinces et entraxes – EN 1993-1-8 Tableau 3.3</h3><div class="scroll"><table class="tb"><tr><th>Distance</th><th>Valeur</th><th>Min</th><th>Max</th><th>Statut</th></tr>' +
+    R.dist.map(function (x) { return '<tr' + (x.ok ? '' : ' class="clk" data-a="' + x.alert + '"') + '><td>' + esc(x.lab) + '<small>' + esc(x.rule) + '</small></td><td class="n">' + F(x.val, 1) + '</td><td class="n">' + F(x.min, 1) + '</td><td class="n">' + (x.max === null ? '—' : F(x.max, 0)) + '</td><td class="n"><b class="pill ' + (x.ok ? 'ok' : 'ko') + '">' + (x.ok ? 'OK' : 'NON OK') + '</b>' + (x.ok ? '' : '<small>toucher pour localiser</small>') + '</td></tr>'; }).join('') + '</table></div>';
+  geoAfter(keep);
+}
+function ckHtml(c) {
+  var w = Math.min(c.eta, 1) * 100;
+  return '<details class="ck ' + (c.ok ? 'ok' : 'ko') + '" data-k="' + c.key + '"' + (openCk[c.key] ? ' open' : '') + '><summary><span class="ckl">' + esc(c.label) + '</span><span class="ckn">' + F(c.Ed, c.unit === '-' ? 3 : 1) + ' / ' + F(c.Rd, c.unit === '-' ? 3 : 1) + (c.unit === '-' ? '' : ' ' + c.unit) + '</span><span class="bar"><i style="width:' + w.toFixed(1) + '%"></i></span><span class="cke">' + pct(c.eta) + '</span><b class="pill ' + (c.ok ? 'ok' : 'ko') + '">' + (c.ok ? 'OK' : 'NON OK') + '</b></summary>' +
+    '<div class="ckd"><p class="fm">' + esc(c.formula) + '</p>' + (c.vals ? '<p>' + esc(c.vals) + '</p>' : '') + '<p>Sollicitation = ' + F(c.Ed, 3) + ' ; résistance = ' + F(c.Rd, 3) + (c.unit === '-' ? '' : ' ' + c.unit) + ' ; η = ' + pct(c.eta, 1) + '</p><p class="rf">Réf. : ' + esc(c.ref) + ' <b class="nat">' + c.nat + '</b></p></div></details>';
+}
+function boltTab(t, lab) { return '<details class="sub"><summary>Répartition élastique par boulon – ' + lab + '</summary><table class="tb"><tr><th>Rangée / file</th><th>x</th><th>y</th><th>Fx</th><th>Fz</th><th>F [kN]</th></tr>' + t.map(function (b) { return row([b.i + ' / ' + b.j, F(b.x, 1), F(b.y, 1), F(b.fx, 2), F(b.fz, 2), F(b.f, 2)]); }).join('') + '</table></details>'; }
+function renderChecks() {
+  var h = '<p class="legend"><b class="nat">EC</b> formule directe de l\'Eurocode <b class="nat">COMP</b> modèle complémentaire reconnu (MSB Part 5, ECCS n°126, SCI P358) <b class="nat">INT</b> interprétation de l\'outil. Touche une ligne pour voir la formule, les valeurs et la référence.</p>';
+  ['Boulons', 'Cornières', 'Poutre secondaire', 'Poutre principale', 'Soudures'].forEach(function (g) {
+    var a = R.checks.filter(function (c) { return c.grp === g; }), on = a.filter(function (c) { return c.active; }), off = a.filter(function (c) { return !c.active; });
+    if (!on.length) return;
+    h += '<h3>' + g + '</h3>' + on.map(ckHtml).join('');
+    if (g === 'Boulons') h += (R.bolt_S ? boltTab(R.tabS, 'groupe S') : '') + (R.bolt_P && R.M_P > 0 ? boltTab(R.tabP, 'groupe P (une cornière)') : '');
+    if (g === 'Poutre principale') h += '<p class="note">Non revérifiés ici : cisaillement global, flexion et déversement de la poutre principale ; torsion induite par une attache d\'un seul côté ; flexion hors plan de l\'âme sous NEd ; deux poutres en vis-à-vis partageant les mêmes boulons.</p>';
+    if (off.length) h += '<p class="off">Sans objet dans cette configuration : ' + off.map(function (c) { return esc(c.label); }).join(' ; ') + '.</p>';
+  });
+  $('checks').innerHTML = h;
+}
+function renderPredim() {
+  var p = R.pd, rows = p.rows.filter(function (r) { return r.geom; }), sols = rows.filter(function (r) { return r.eta <= 1; }).sort(function (a, b) { return (a.ok === b.ok) ? (a.ok ? a.score - b.score : a.eta - b.eta) : (a.ok ? -1 : 1); }).slice(0, 9);
+  function cn(r) { return 'L' + r.prop.leg + 'x' + r.prop.leg + 'x' + r.prop.tC; }
+  $('predim').innerHTML = '<p class="note">' + (R.pred ? 'Mode PRÉDIMENSIONNEMENT actif : la solution retenue par défaut pilote le calcul (' + esc(R.statut) + ', taux maximal ' + pct(R.eta_max, 1) + ').' : 'Mode VÉRIFICATION actif.') + ' Touche une solution pour la recopier dans les données et la géométrie : elle devient alors modifiable comme une saisie. Seule la vérification détaillée fait foi.</p>' +
+    '<h3>Solutions proposées</h3>' + (sols.length ? '<div class="sols">' + sols.map(function (r) { return '<button class="sol' + (r === p.pick ? ' pick' : (r.ok ? '' : ' over')) + '" data-sol="' + p.rows.indexOf(r) + '"><b>' + r.b.n + ' – ' + r.n + ' rangées</b>' + cn(r) + ', Lc ' + r.Lc + ' mm<small>e1 ' + r.e1 + ' / p1 ' + r.p1 + ' / e2 ' + r.e2 + ' / gA ' + r.prop.gA + ' mm</small><small>taux estimé ' + pct(r.eta) + (r === p.pick ? ' – retenue par défaut' : (r.ok ? '' : ' – au-dessus du taux cible de ' + pct(N(u.eta_c)))) + '</small></button>'; }).join('') + '</div>' : '<p class="al blk">' + esc(p.msg) + '</p>') +
+    '<h3>Détail de la solution retenue par défaut</h3><table class="tb">' + [['Boulon proposé', esc(p.boulon)], ['Rangées n1 (groupes S et P, 1 file)', p.n], ['e1 / p1 / e2 = e2,b', p.e1 + ' / ' + p.p1 + ' / ' + p.e2 + ' mm'], ['Longueur des cornières Lc = 2·e1 + (n1 − 1)·p1', p.LC + ' mm (hauteur disponible ' + F(p.hav, 0) + ' mm)'], ['Épaisseur nécessaire au taux cible', F(p.treq, 2) + ' mm'], ['Cornière proposée', 'L' + p.leg + 'x' + p.leg + 'x' + p.tC + ' – trusquinage gA = ' + p.gA + ' mm'], ['Taux estimé (boulons et pressions diamétrales des âmes)', pct(p.eta, 1)], ['État', esc(p.msg)]].map(row2).join('') + '</table>' +
+    '<h3>Épaisseur nécessaire par vérification</h3><table class="tb">' + p.reqs.map(function (q) { return row([esc(q[0]), F(q[1], 2) + ' mm']); }).join('') + '</table>' +
+    '<h3>Toutes les combinaisons géométriquement possibles</h3><div class="scroll"><table class="tb"><tr><th>Boulon</th><th>n1</th><th>Lc</th><th>Cornière</th><th>η boulons S</th><th>η p. diam. âme S</th><th>η boulons P</th><th>η p. diam. âme P</th><th>η max</th><th></th></tr>' +
+    rows.map(function (r) { return '<tr' + (r === p.pick ? ' class="pick"' : '') + '><td>' + r.b.n + '</td><td class="n">' + r.n + '</td><td class="n">' + r.Lc + '</td><td>' + cn(r) + '</td><td class="n">' + pct(r.e.bS) + '</td><td class="n">' + pct(r.e.pdS) + '</td><td class="n">' + pct(r.e.bP) + '</td><td class="n">' + pct(r.e.pdP) + '</td><td class="n">' + pct(r.eta) + '</td><td><button class="lk" data-sol="' + p.rows.indexOf(r) + '">Appliquer</button>' + (r.ok ? '' : '<small>taux cible dépassé</small>') + '</td></tr>'; }).join('') + '</table></div><p class="note">Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit diamètre. MEd est ajouté à VEd·z ; les tractions dues à HEd et MEd ne sont prises en compte que dans la vérification détaillée.</p>';
+}
+function dataLines() {
+  var L = [], nt = N(u.d_nt), nb = N(u.d_nb);
+  [['Projet', u.id_projet], ['Repère', u.id_rep], ['Rédacteur', u.id_red], ['Date', u.id_date]].forEach(function (x) { if (x[1]) L.push(x); });
+  L.push(['Poutre principale', (u.prof_P === PERSO ? 'h ' + F(R.h_P, 0) + ' b ' + F(R.b_P, 0) + ' tw ' + F(R.tw_P, 1) + ' tf ' + F(R.tf_P, 1) : u.prof_P) + ' – ' + u.nu_P]);
+  L.push(['Poutre secondaire', (u.prof_S === PERSO ? 'h ' + F(R.h_S, 0) + ' b ' + F(R.b_S, 0) + ' tw ' + F(R.tw_S, 1) + ' tf ' + F(R.tf_S, 1) : u.prof_S) + ' – ' + u.nu_S + (nt || nb ? ' – grugeage ' + (nt ? 'sup. ' + F(nt, 0) : '') + (nt && nb ? ' / ' : '') + (nb ? 'inf. ' + F(nb, 0) : '') + ' × ' + F(N(u.l_n), 0) + ' mm' : ' – non grugée')]);
+  L.push(['Cornières', '2 × ' + R.corn_txt + ' – ' + u.nu_C + ' – Lc = ' + F(R.L_C, 0) + ' mm']);
+  if (R.bolt_S || R.bolt_P) L.push(['Boulons', R.boulon + ' classe ' + u.classe + ', catégorie ' + u.cat + ' – ' + (R.bolt_S ? 'âme secondaire : ' + R.n_S + ' (' + R.n1_S + ' × ' + R.n2_S + ', 2 plans)' : '') + (R.bolt_S && R.bolt_P ? ' ; ' : '') + (R.bolt_P ? 'âme principale : 2 × ' + R.n_P + ' (1 plan)' : '')]);
+  if (!R.bolt_S) L.push(['Soudures ailes B / âme secondaire', 'a = ' + F(N(u.a_S), 0) + ' mm, cordon vertical Lc + retours ' + F(N(u.lh_S), 0) + ' mm']);
+  if (!R.bolt_P) L.push(['Soudures ailes A / âme principale', 'a = ' + F(N(u.a_P), 0) + ' mm, cordon vertical Lc + retours ' + F(N(u.lh_P), 0) + ' mm']);
+  L.push(['Efforts ELU', 'VEd = ' + F(u.V_Ed === '' ? 0 : Math.abs(N(u.V_Ed)), 1) + ' kN ; NEd = ' + F(N(u.N_Ed), 1) + ' kN ; HEd = ' + F(N(u.H_Ed), 1) + ' kN ; MEd = ' + F(N(u.M_Ed), 2) + ' kNm']);
+  return L;
+}
+function hypLines() {
+  return ['Assemblage nominalement articulé ; ligne de transfert (rotule) à la face de l\'âme de la poutre principale (MSB Part 5 §4.2.1.1).',
+    (R.bolt_S ? 'Groupe S : répartition élastique (inertie polaire) sous VEd, NEd et MS = VEd·z + |MEd| ; z = ' + F(R.z_S, 1) + ' mm ; MS = ' + F(R.M_S, 2) + ' kNm.' : 'Cordons S : groupe de cordons en répartition élastique ; z = ' + F(R.zw_S, 1) + ' mm ; MS = ' + F(R.M_S, 2) + ' kNm.'),
+    (R.M_P > 0 ? 'Groupe P : excentricité eP reprise par chaque cornière (option conservatrice) ; MP = ' + F(R.M_P, 2) + ' kNm.' : 'Groupe P : cisaillement centré' + (R.bolt_P ? ', facteur ' + F(N(u.k_rot), 2) + ' sur Fv,Rd pour la traction parasite due à la rotation.' : '.')),
+    (R.cas_g > 0 ? 'Poutre grugée : flexion de la section réduite sous MEd = VEd·(gh + ln) = ' + F(R.ck.mN.Ed, 2) + ' kNm.' : 'Poutre secondaire non grugée.'),
+    'Pression diamétrale : interaction quadratique des composantes verticale et horizontale.', 'Coefficients partiels : γM0 = ' + F(N(u.g_M0), 2) + ' ; γM2 = ' + F(N(u.g_M2), 2) + ' (sections nettes : ' + F(N(u.g_M2n), 2) + ').'];
+}
+function buildTxt() {
+  var T = ['ASSEMBLAGE POUTRE–POUTRE PAR DOUBLE CORNIÈRE D\'ÂME', ''], i = 0;
+  dataLines().forEach(function (x) { T.push(x[0] + ' : ' + x[1]); });
+  T.push('', 'HYPOTHÈSES ET EXCENTRICITÉS :'); hypLines().forEach(function (x) { T.push('- ' + x); });
+  T.push('', 'VÉRIFICATIONS' + (fullTxt ? '' : ' ESSENTIELLES') + ' (EC = Eurocode direct ; COMP = modèle complémentaire ; INT = interprétation) :', '');
+  R.checks.forEach(function (c) { if (!c.active || (!fullTxt && !c.ess && c.ok)) return; i++; T.push(i + '. ' + c.label, '   ' + c.formula); if (c.vals) T.push('   ' + c.vals);
+    T.push('   Ed = ' + F(c.Ed, c.unit === '-' ? 3 : 1) + ' ; Rd = ' + F(c.Rd, c.unit === '-' ? 3 : 1) + (c.unit === '-' ? '' : ' ' + c.unit) + ' ; η = ' + pct(c.eta, 1) + ' → ' + (c.ok ? 'OK' : 'NON OK'), '   Réf. : ' + c.ref + ' [' + c.nat + ']', ''); });
+  T.push('PINCES ET ENTRAXES (EN 1993-1-8 Tableau 3.3) : ' + (R.dist_ok ? 'conformes' : 'NON CONFORMES'));
+  R.alerts.forEach(function (a) { T.push((a.block ? 'ALERTE BLOQUANTE : ' : 'ATTENTION : ') + a.msg); });
+  T.push('', 'VÉRIFICATION DIMENSIONNANTE :', R.gov ? R.gov.label : '—', 'Taux maximum = ' + pct(R.eta_max, 1), '', 'CONCLUSION :', R.verified ? 'ASSEMBLAGE VÉRIFIÉ À L\'ELU SELON EN 1993-1-8 ET EN 1993-1-1' + (R.reserve || R.alerts.length ? ' – SOUS RÉSERVE DES POINTS SIGNALÉS CI-DESSUS.' : '.') : 'ASSEMBLAGE NON VÉRIFIÉ.');
+  return T.join('\n');
+}
+function renderReport() {
+  var on = R.checks.filter(function (c) { return c.active; });
+  $('sheet').innerHTML = '<h2>Assemblage poutre–poutre par double cornière d\'âme</h2><p class="sub2">Vérification à l\'ELU selon EN 1993-1-8 et EN 1993-1-1</p><table class="tb">' + dataLines().map(function (x) { return row2([esc(x[0]), esc(x[1])]); }).join('') + '</table>' +
+    '<div class="draws">' + '<figure>' + DR.elev(R, drawOpt(false)) + '</figure><figure>' + DR.plan(R, drawOpt(false)) + '</figure></div><h3>Hypothèses et excentricités</h3><ul>' + hypLines().map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' +
+    '<h3>Vérifications</h3><div class="scroll"><table class="tb rp"><tr><th>Vérification</th><th>Ed</th><th>Rd</th><th>η</th><th></th><th>Référence</th></tr>' + on.map(function (c) { return '<tr><td>' + esc(c.label) + '<small>' + esc(c.formula) + '</small></td><td class="n">' + F(c.Ed, c.unit === '-' ? 3 : 1) + '</td><td class="n">' + F(c.Rd, c.unit === '-' ? 3 : 1) + (c.unit === '-' ? '' : ' ' + c.unit) + '</td><td class="n">' + pct(c.eta, 1) + '</td><td><b class="pill ' + (c.ok ? 'ok' : 'ko') + '">' + (c.ok ? 'OK' : 'NON OK') + '</b></td><td><small>' + esc(c.ref) + ' [' + c.nat + ']</small></td></tr>'; }).join('') + '</table></div>' +
+    '<p>Pinces et entraxes (Tableau 3.3) : <b>' + (R.dist_ok ? 'conformes' : 'NON CONFORMES') + '</b>.</p>' + alertsHtml(false) + '<p class="concl ' + (R.verified ? 'ok' : 'ko') + '">Vérification dimensionnante : ' + esc(R.gov ? R.gov.label : '—') + ' – taux maximal ' + pct(R.eta_max, 1) + '.<br><b>' + esc(R.statut) + '</b></p>';
+  $('txt').value = buildTxt();
+}
+function renderBench() {
+  var S = D.SRC, h = '<p class="concl ' + (B.ok ? 'ok' : 'ko') + '"><b>Benchmark du module : ' + B.statut + '</b> – ces tableaux sont recalculés par le moteur de l\'outil à chaque ouverture ; ils ne dépendent pas de tes données.</p><p class="note">Source : ' + esc(S.titre) + '. ' + esc(S.org) + ', ' + esc(S.annee) + '. Norme : ' + esc(S.norme) + '. ' + esc(S.url) + '</p><p class="note">Seuils : écart ≤ 1 % OK ; 1 à 3 % à expliquer ; > 3 % à vérifier. Aucune formule n\'a été ajustée pour coller à la source.</p>';
+  B.bench.forEach(function (b, i) {
+    h += '<h3>' + b.id + '</h3><p class="note">' + esc(b.titre) + '<br>Données : ' + esc(b.data) + ' <button class="lk" data-bm="' + i + '">Charger ces données dans l\'outil</button></p><div class="scroll"><table class="tb"><tr><th>Vérification</th><th>Page</th><th>Référence</th><th>Outil</th><th>Écart</th><th>Statut</th></tr>' +
+      b.rows.map(function (r) { return '<tr><td>' + esc(r.lab) + (r.exp && Math.abs(r.ec) > 0.003 ? '<small>' + esc(r.exp) + '</small>' : '') + '</td><td>' + r.page + '</td><td class="n">' + F(r.ref, r.ref < 10 ? 1 : 0) + ' ' + r.unit + '</td><td class="n">' + F(r.val, r.ref < 10 ? 2 : 1) + '</td><td class="n">' + F(r.ec * 100, 2) + ' %</td><td><b class="pill ' + (r.st === 'OK' ? 'ok' : (r.exp ? 'wa' : 'ko')) + '">' + r.st + '</b></td></tr>'; }).join('') + '</table></div>';
+  });
+  h += '<h3>Vérifications sans exemple publié consulté</h3><ul>' + D.NOCOVER.map(function (x) { return '<li><b>' + esc(x[0]) + '</b> – ' + esc(x[1]) + '</li>'; }).join('') + '</ul>';
+  B.valid.forEach(function (c) {
+    h += '<h3>' + c.id + ' – calcul manuel indépendant</h3><p class="note">' + esc(c.titre) + '. Colonne « manuel » : calcul indépendant hors moteur (intégration numérique pour les cordons). Colonne « Excel » : classeur recalculé avec les mêmes données.</p><div class="scroll"><table class="tb"><tr><th>Grandeur</th><th>Manuel</th><th>Excel</th><th>Outil</th><th>Écart</th><th></th></tr>' +
+      c.rows.map(function (r) { var n = Math.abs(r.hand) < 10 ? 4 : (Math.abs(r.hand) < 1000 ? 2 : 0); return '<tr><td>' + esc(r.lab) + '</td><td class="n">' + F(r.hand, n) + ' ' + (r.unit === '-' ? '' : r.unit) + '</td><td class="n">' + F(r.xls, n) + '</td><td class="n">' + F(r.val, n) + '</td><td class="n">' + F(r.ec * 100, 3) + ' %</td><td><b class="pill ' + (r.st === 'OK' ? 'ok' : 'ko') + '">' + r.st + '</b></td></tr>'; }).join('') + '</table></div>';
+  });
+  $('bench').innerHTML = h;
+}
+function update(msg) {
+  try { R = D.compute(u); } catch (e) { $('status').className = 'status ko'; $('status').innerHTML = '<strong>Données incomplètes</strong><span>' + esc(e.message) + '</span>'; return; }
+  var had = hl && hl.id; if (hl && !R.alerts.some(function (a) { return a.id === hl.id; })) hl = null;
+  renderStatus(); renderGeo(); renderChecks(); renderPredim(); renderReport(); markFields();
+  if (had && !hl) flash(R.geo_ok && R.dist_ok ? 'Blocage levé : géométrie valide' : 'Ce blocage est levé ; il en reste d\'autres'); else if (msg) flash(msg);
+}
+function download(name, text, type) {
+  try { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['\ufeff' + text], { type: type || 'text/plain;charset=utf-8' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500); flash('Fichier ' + name + ' généré'); }
+  catch (e) { flash('Téléchargement impossible ici : copie le texte ci-dessous'); }
+}
+function flash(m) { var f = $('flash'); f.textContent = m; f.className = 'on'; setTimeout(function () { f.className = ''; }, 2600); }
+function copyTxt() {
+  var t = $('txt'); function fb() { t.focus(); t.select(); try { document.execCommand('copy'); flash('Résumé copié'); } catch (e) { flash('Sélectionne le texte puis copie-le'); } }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t.value).then(function () { flash('Résumé copié'); }, fb); else fb();
+}
+function fname(ext) { return ('assemblage_' + (u.id_rep || 'double_corniere')).replace(/[^\w\-]+/g, '_') + ext; }
+document.addEventListener('DOMContentLoaded', function () {
+  B = D.runBench(); buildForm(); update(); renderBench();
+  $('form').addEventListener('input', function (e) { var k = e.target.getAttribute('data-k'); if (!k) return; u[k] = e.target.value; if (e.target.tagName === 'SELECT') buildForm(); update(); });
+  $('form').addEventListener('toggle', function (e) { var i = e.target.getAttribute && e.target.getAttribute('data-i'); if (i !== null && i !== undefined) openSec[i] = e.target.open; }, true);
+  $('checks').addEventListener('toggle', function (e) { var k = e.target.getAttribute && e.target.getAttribute('data-k'); if (k) openCk[k] = e.target.open; }, true);
+  mq = window.matchMedia('(min-width:1050px)');
+  document.querySelectorAll('.tabs button').forEach(function (b) { b.addEventListener('click', function () { showTab(b.getAttribute('data-t')); window.scrollTo(0, 0); }); });
+  function wide() { if (mq.matches && $('t-don').classList.contains('on')) showTab('t-geo'); } wide(); if (mq.addEventListener) mq.addEventListener('change', wide);
+  window.addEventListener('resize', function () { document.documentElement.style.setProperty('--barh', document.querySelector('.bar2').offsetHeight + 'px'); });
+  $('alerts').addEventListener('click', function (e) { var t = e.target.closest('[data-f],[data-go],[data-a]'); if (!t) return; if (t.hasAttribute('data-f')) jumpToField(t.getAttribute('data-f')); else if (t.hasAttribute('data-go')) { showTab('t-geo'); $('geo').scrollIntoView({ behavior: 'smooth', block: 'start' }); } else selectAlert(t.getAttribute('data-a')); });
+  $('geo').addEventListener('click', function (e) { var b = e.target.closest('[data-l]'); if (b) { lvl = +b.getAttribute('data-l'); renderGeo(); return; } var g = e.target.closest('.ed'); if (g) { openEditor(g); return; } var a = e.target.closest('[data-a]'); if (a) { selectAlert(a.getAttribute('data-a')); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+  $('geo').addEventListener('keydown', function (e) { if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && e.target.classList.contains('ed')) { e.preventDefault(); openEditor(e.target); } });
+  $('predim').addEventListener('click', function (e) { var b = e.target.closest('[data-sol]'); if (b) applySol(+b.getAttribute('data-sol')); });
+  $('b-txt').addEventListener('click', function () { download(fname('.txt'), $('txt').value); });
+  $('b-copy').addEventListener('click', copyTxt);
+  $('b-print').addEventListener('click', function () { window.print(); });
+  $('b-full').addEventListener('change', function (e) { fullTxt = e.target.checked; $('txt').value = buildTxt(); });
+  $('b-save').addEventListener('click', function () { download(fname('.json'), JSON.stringify(u, null, 1), 'application/json'); });
+  $('b-load').addEventListener('change', function (e) { var f = e.target.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { try { var o = JSON.parse(String(rd.result).replace(/^\ufeff/, '')), d = D.defaults(), k; for (k in d) if (o[k] !== undefined) d[k] = o[k]; u = d; hl = null; buildForm(); update('Données chargées'); } catch (x) { flash('Fichier illisible'); } }; rd.readAsText(f); e.target.value = ''; });
+  $('b-reset').addEventListener('click', function () { u = D.defaults(); hl = null; buildForm(); update('Valeurs par défaut rétablies'); });
+  $('bench').addEventListener('click', function (e) { var i = e.target.getAttribute('data-bm'); if (i === null) return; var d = D.defaults(), o = D.BENCH[i].inp, k; for (k in o) d[k] = o[k]; u = d; hl = null; buildForm(); update(D.BENCH[i].id + ' chargé : voir Vérifications'); });
+});
+})();
+</script>
+</body>
+</html>

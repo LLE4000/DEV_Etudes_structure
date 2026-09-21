@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; background: transparent; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; }
+  #fig { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #fig svg { width: 100%; height: auto; display: block; }
+  .dimedit { position: absolute; width: 98px; font: 600 16px system-ui, Arial, sans-serif; padding: 7px 6px;
+             border: 2px solid #33415C; border-radius: 4px; background: #FFF7CF; color: #0B3D91; z-index: 4;
+             box-shadow: 0 3px 10px rgba(0, 0, 0, .3); }
+  #aide { font-size: 12px; color: #6E7480; margin: 2px 0 0; }
+</style>
+</head>
+<body>
+<div id="fig" role="figure"></div>
+<script>
+(function () {
+  'use strict';
+  var args = null, seq = 0;
+  function send(type, data) {
+    var m = { isStreamlitMessage: true, type: type };
+    for (var k in data) m[k] = data[k];
+    window.parent.postMessage(m, '*');
+  }
+  function hauteur() {
+    var h = document.getElementById('fig').getBoundingClientRect().height;
+    send('streamlit:setFrameHeight', { height: Math.ceil(h) + 6 });
+  }
+  /* édition d'une cote sur place : Entrée valide, Échap annule, la perte de focus valide */
+  function commit(inp, ok) {
+    if (inp._fait) return;
+    inp._fait = true;
+    var v = inp.value, key = inp._key, sym = inp._sym, old = inp._old;
+    inp.remove();
+    if (!ok || v === '' || !isFinite(parseFloat(v))) return;
+    if (old !== null && old !== undefined && old !== '' && parseFloat(v) === parseFloat(old)) return;
+    seq += 1;
+    send('streamlit:setComponentValue', { value: { key: key, value: parseFloat(v), sym: sym, seq: seq, t: Date.now() }, dataType: 'json' });
+  }
+  function ouvrir(g) {
+    var fig = document.getElementById('fig'), key = g.getAttribute('data-key'), sym = g.getAttribute('data-sym');
+    if (!key) return;
+    var ancien = fig.querySelector('.dimedit');
+    if (ancien) ancien.blur();
+    var r = g.getBoundingClientRect(), fr = fig.getBoundingClientRect();
+    var inp = document.createElement('input');
+    inp.type = 'number'; inp.step = 'any'; inp.setAttribute('inputmode', 'decimal'); inp.className = 'dimedit';
+    inp.setAttribute('aria-label', 'Nouvelle valeur de ' + sym + ' en mm');
+    var cur = (args && args.valeurs) ? args.valeurs[key] : '';
+    inp.value = (cur === null || cur === undefined) ? '' : cur;
+    inp._key = key; inp._sym = sym; inp._old = inp.value;
+    inp.style.left = Math.max(2, Math.min(fig.scrollWidth - 102, r.left - fr.left + fig.scrollLeft + r.width / 2 - 49)) + 'px';
+    inp.style.top = Math.max(2, Math.min(fig.scrollHeight - 44, r.top - fr.top + fig.scrollTop + r.height / 2 - 20)) + 'px';
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); commit(inp, true); }
+      else if (e.key === 'Escape') { e.preventDefault(); commit(inp, false); }
+    });
+    inp.addEventListener('blur', function () { commit(inp, true); });
+    fig.appendChild(inp);
+    inp.focus();
+    inp.select();
+  }
+  function rendre(a) {
+    args = a;
+    var fig = document.getElementById('fig'), garde = fig.scrollLeft;
+    fig.innerHTML = a.svg || '';
+    fig.scrollLeft = garde;
+    fig.querySelectorAll('g.ed[data-key]').forEach(function (g) {
+      g.addEventListener('click', function () { ouvrir(g); });
+      g.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrir(g); } });
+    });
+    /* centrer la vue sur la première cote en alerte si elle est hors champ */
+    var chaud = fig.querySelector('.dm.hot .dl') || fig.querySelector('.hot');
+    if (chaud && fig.scrollWidth > fig.clientWidth + 4) {
+      var rc = chaud.getBoundingClientRect(), rf = fig.getBoundingClientRect();
+      if (rc.left < rf.left + 8 || rc.right > rf.right - 8) fig.scrollLeft += rc.left + rc.width / 2 - (rf.left + rf.width / 2);
+    }
+    hauteur();
+    setTimeout(hauteur, 50);
+  }
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || d.type !== 'streamlit:render') return;
+    rendre(d.args || {});
+  });
+  window.addEventListener('resize', hauteur);
+  send('streamlit:componentReady', { apiVersion: 1 });
+})();
+</script>
+</body>
+</html>

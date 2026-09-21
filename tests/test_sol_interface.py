@@ -243,14 +243,14 @@ lid10 = ids10[1]
 for champ, val in (("M_haut", 95.0), ("Ic", 3.45), ("sbt", "Argile silteuse")):
     a10.session_state[RS10._layer_key(s10, lid10, champ)] = val
 a10.run()
-avant = [k for k in a10.session_state.filtered_state
+avant = [k for k in a10.session_state.to_dict()
          if k.startswith(f"snd{s10}_layer_{lid10}_")]
 chk("clés d'import bien posées avant suppression",
     any(k.endswith("_M_haut") for k in avant), str(avant))
 # suppression par le VRAI bouton de l'interface (callback dans le run)
 a10.button(key=f"rs_del_l_{s10}_{lid10}").click()
 a10.run()
-restant = [k for k in a10.session_state.filtered_state
+restant = [k for k in a10.session_state.to_dict()
            if k.startswith(f"snd{s10}_layer_{lid10}_")]
 chk("aucune clé fantôme après suppression d'une couche", not restant, str(restant))
 chk("LAYER_FIELDS couvre M_haut, Ic et sbt",

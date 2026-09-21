@@ -69,8 +69,9 @@ def show():
         {"image": "Logo_poutrelle.png", "label": "Choix profilé", "page": "Choix profilé"},
         {"image": "Logo_flambement.png", "label": "Flambement", "page": "Flambement"},
         {"image": "Logo_info.png", "label": "Tableau profilés", "page": "Tableau profilés"},
+        {"image": "Logo_corniere.png", "label": "Assemblages métalliques", "page": "Assemblages métalliques"},
     ]
-    render_section("<span style='color:#FFA500;'>Acier</span>", acier_tools, cols_per_row=4)
+    render_section("<span style='color:#FFA500;'>Acier</span>", acier_tools, cols_per_row=5)
 
     # ====== LIGNE 3 — Autres ======
     autres_tools = [

@@ -141,7 +141,7 @@ chk("renfort « 3 Ø12 » dans la note", "3 Ø12" in t2)
 chk("tranchant sans étriers (τ_adm,I)", "adm,I" in t2 and "Étrier" not in t2)
 
 print("\n=== 5. Étanchéité : la prédalle n'écrit RIEN dans les clés Dalle ===")
-fuites = [k for k in at.session_state.filtered_state
+fuites = [k for k in at.session_state.to_dict()
           if re.match(r"^dal\d+_", str(k)) or str(k).startswith("meta_dalle_nom_")]
 chk("aucune clé « dal » créée par le module Prédalle", not fuites, str(fuites[:6]))
 
