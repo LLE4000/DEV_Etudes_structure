@@ -458,9 +458,8 @@ def _saisie_temperature(mode_temp, date_coulage, Ea):
     # ---- Mode Météo ----
     if not _HAS_REQUESTS:
         st.warning("Module réseau indisponible. `pip install requests` pour activer.")
-    cA, cB, cC = st.columns([1.4, 1, 1])
-    with cA:
-        lieu = st.text_input("Lieu du chantier", value="Bruxelles, Belgique")
+    lieu = st.text_input("Lieu du chantier", value="Bruxelles, Belgique")
+    cB, cC = st.columns(2)
     with cB:
         d_coul = st.date_input("Coulage",
                                value=date_coulage or _dt.date.today() - _dt.timedelta(days=14),
@@ -473,8 +472,9 @@ def _saisie_temperature(mode_temp, date_coulage, Ea):
         defaut_fin = max(_dt.date.today(), d_coul + _dt.timedelta(days=5))
         if st.session_state.get("ab_m_ctrl") is None or st.session_state["ab_m_ctrl"] < d_coul:
             st.session_state["ab_m_ctrl"] = defaut_fin
-        d_ctrl = st.date_input("Fin (contrôle/décoffrage)", key="ab_m_ctrl",
-                               help="Jusqu'où construire le profil de température.")
+        d_ctrl = st.date_input("Fin (décoffrage)", key="ab_m_ctrl",
+                               help="Contrôle ou décoffrage : jusqu'où construire "
+                                    "le profil de température.")
 
     if d_ctrl < d_coul:
         st.error("La date de fin précède le coulage.")
