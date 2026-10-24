@@ -9,6 +9,7 @@
 # =============================================================
 
 import math
+import time as _time
 import datetime as _dt
 import numpy as np
 import matplotlib.pyplot as plt
@@ -167,39 +168,147 @@ def classe_estimee_depuis_mesure(res_mesuree: float, age_jours: float, s: float,
 
 # =============================================================
 #  MÉTÉO (Open-Meteo)
+#
+#  Deux endpoints, un seul point d'entrée :
+#   - prévisions  : https://api.open-meteo.com/v1/forecast
+#       couvre [aujourd'hui − 92 j … aujourd'hui + 16 j] — jours récents
+#       MESURÉS (sans le retard ~5 j de l'archive) ET jours FUTURS ;
+#   - archive     : https://archive-api.open-meteo.com/v1/archive
+#       pour l'historique plus ancien (réanalyse, en retard de ~5 jours).
+#  Le quota gratuit d'Open-Meteo est compté PAR ADRESSE IP (600/min,
+#  5000/h, 10000/j) : sur un hébergeur mutualisé (Streamlit Cloud),
+#  l'adresse de sortie est partagée entre beaucoup d'applications — d'où
+#  des « Too Many Requests » sans rapport avec notre propre usage. Parade :
+#  cache (30 min), re-essai unique sur 429, données horaires seulement à
+#  la demande, et message clair qui renvoie vers le mode Manuel.
 # =============================================================
-def fetch_meteo_full(lat, lon, date_debut, date_fin):
-    """Récupère T moyenne journalière + T horaire sur la période."""
+HORIZON_PREVISION_J = 16        # horizon de l'API forecast
+RETARD_ARCHIVE_J = 6            # l'archive est fiable jusqu'à ~J-6
+MARGE_PREVISION_C = 3.0         # variante défavorable : °C retirés aux jours prévus
+
+
+def _get_json(url, params):
+    """GET avec un re-essai unique sur 429 et des messages d'erreur en
+    français (le 429 « concurrent » passe souvent au 2e essai ; les 429 de
+    quota viennent de l'adresse IP PARTAGÉE de l'hébergeur)."""
     if not _HAS_REQUESTS:
         raise RuntimeError("Module 'requests' indisponible.")
-    url = "https://archive-api.open-meteo.com/v1/archive"
-    params = {
-        "latitude": lat, "longitude": lon,
-        "start_date": date_debut, "end_date": date_fin,
-        "daily": "temperature_2m_mean",
-        "hourly": "temperature_2m",
-        "timezone": "auto",
-    }
     r = _req.get(url, params=params, timeout=20)
-    r.raise_for_status()
-    data = r.json()
-    daily = data.get("daily", {})
-    hourly = data.get("hourly", {})
-    d_dates = daily.get("time", [])
-    d_temps = [float(t) if t is not None else float("nan") for t in daily.get("temperature_2m_mean", [])]
-    h_times = hourly.get("time", [])
-    h_temps = [float(t) if t is not None else float("nan") for t in hourly.get("temperature_2m", [])]
-    return {"d_dates": d_dates, "d_temps": d_temps,
-            "h_times": h_times, "h_temps": h_temps}
+    if r.status_code == 429:
+        _time.sleep(2.0)
+        r = _req.get(url, params=params, timeout=20)
+    if r.status_code == 429:
+        raise RuntimeError(
+            "Service météo saturé (Open-Meteo limite par adresse IP, et l'hébergeur de "
+            "l'application partage la sienne avec d'autres applis). Réessaie dans quelques "
+            "minutes — ou passe en mode Manuel.")
+    if not r.ok:
+        try:
+            raison = r.json().get("reason", "")
+        except Exception:
+            raison = ""
+        raise RuntimeError(f"Service météo : erreur {r.status_code}"
+                           + (f" — {raison}" if raison else "") + ".")
+    return r.json()
 
 
+def _plages_endpoints(debut: _dt.date, fin: _dt.date, aujourdhui: _dt.date):
+    """Découpe [debut, fin] entre l'archive et l'API de prévision.
+    Retourne ``(plage_archive|None, plage_forecast|None, fin_dispo)`` où
+    ``fin_dispo`` = dernier jour servi par une API (le reste est prolongé)."""
+    horizon = aujourdhui + _dt.timedelta(days=HORIZON_PREVISION_J)
+    recente = aujourdhui - _dt.timedelta(days=RETARD_ARCHIVE_J)
+    fin_dispo = min(fin, horizon)
+    if fin_dispo < debut:
+        return None, None, None
+    if fin_dispo < recente:
+        return (debut, fin_dispo), None, fin_dispo
+    if debut >= recente:
+        return None, (debut, fin_dispo), fin_dispo
+    return (debut, recente - _dt.timedelta(days=1)), (recente, fin_dispo), fin_dispo
+
+
+def _appel_meteo(url, lat, lon, debut: _dt.date, fin: _dt.date, variables: dict):
+    params = {"latitude": lat, "longitude": lon,
+              "start_date": debut.isoformat(), "end_date": fin.isoformat(),
+              "timezone": "auto", **variables}
+    return _get_json(url, params)
+
+
+URL_FORECAST = "https://api.open-meteo.com/v1/forecast"
+URL_ARCHIVE = "https://archive-api.open-meteo.com/v1/archive"
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def meteo_journaliere(lat, lon, debut_iso: str, fin_iso: str):
+    """Températures moyennes JOURNALIÈRES sur [debut, fin] — passé par
+    l'archive et/ou la prévision selon les dates ; au-delà de l'horizon de
+    prévision, la série est PROLONGÉE à la moyenne des 5 derniers jours
+    prévus (drapeau ``extrapole``). Chaque jour porte ``prevision`` (True
+    s'il est postérieur à aujourd'hui). Léger : pas d'horaire ici."""
+    debut = _dt.date.fromisoformat(debut_iso); fin = _dt.date.fromisoformat(fin_iso)
+    aujourdhui = _dt.date.today()
+    pa, pf, fin_dispo = _plages_endpoints(debut, fin, aujourdhui)
+    if fin_dispo is None:
+        raise RuntimeError(
+            f"Période entièrement au-delà de l'horizon de prévision ({HORIZON_PREVISION_J} j) : "
+            "saisis une température manuelle (mode Manuel).")
+    dates, temps = [], []
+    for url, plage in ((URL_ARCHIVE, pa), (URL_FORECAST, pf)):
+        if plage is None:
+            continue
+        data = _appel_meteo(url, lat, lon, plage[0], plage[1],
+                            {"daily": "temperature_2m_mean"})
+        daily = data.get("daily", {})
+        for d, t in zip(daily.get("time", []), daily.get("temperature_2m_mean", [])):
+            if d not in dates:
+                dates.append(d)
+                temps.append(float(t) if t is not None else float("nan"))
+    prevision = [(_dt.date.fromisoformat(d) > aujourdhui) for d in dates]
+    extrapole = [False] * len(dates)
+    n_extra = (fin - fin_dispo).days
+    if n_extra > 0:
+        valides = [t for t in temps[-5:] if not math.isnan(t)] or \
+                  [t for t in temps if not math.isnan(t)]
+        if not valides:
+            raise RuntimeError("Aucune donnée météo exploitable sur la période.")
+        t_prolonge = float(np.mean(valides))
+        for i in range(1, n_extra + 1):
+            dates.append((fin_dispo + _dt.timedelta(days=i)).isoformat())
+            temps.append(t_prolonge)
+            prevision.append(True)
+            extrapole.append(True)
+    return {"d_dates": dates, "d_temps": temps, "d_prev": prevision,
+            "d_extra": extrapole, "n_extra": n_extra}
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def meteo_horaire(lat, lon, debut_iso: str, fin_iso: str):
+    """Températures HORAIRES (détail de contrôle, chargé À LA DEMANDE : une
+    requête horaire « pèse » beaucoup plus qu'une journalière dans le quota
+    d'Open-Meteo). Tronquée à ce que les API couvrent."""
+    debut = _dt.date.fromisoformat(debut_iso); fin = _dt.date.fromisoformat(fin_iso)
+    pa, pf, fin_dispo = _plages_endpoints(debut, fin, _dt.date.today())
+    if fin_dispo is None:
+        return {"h_times": [], "h_temps": []}
+    h_times, h_temps = [], []
+    for url, plage in ((URL_ARCHIVE, pa), (URL_FORECAST, pf)):
+        if plage is None:
+            continue
+        data = _appel_meteo(url, lat, lon, plage[0], plage[1],
+                            {"hourly": "temperature_2m"})
+        hourly = data.get("hourly", {})
+        for ht, hv in zip(hourly.get("time", []), hourly.get("temperature_2m", [])):
+            if not h_times or ht > h_times[-1]:
+                h_times.append(ht)
+                h_temps.append(float(hv) if hv is not None else float("nan"))
+    return {"h_times": h_times, "h_temps": h_temps}
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
 def geocode_open_meteo(nom_lieu: str):
-    if not _HAS_REQUESTS:
-        raise RuntimeError("Module 'requests' indisponible.")
-    r = _req.get("https://geocoding-api.open-meteo.com/v1/search",
-                 params={"name": nom_lieu, "count": 1, "language": "fr"}, timeout=20)
-    r.raise_for_status()
-    res = r.json().get("results")
+    res = _get_json("https://geocoding-api.open-meteo.com/v1/search",
+                    {"name": nom_lieu, "count": 1, "language": "fr"}).get("results")
     if not res:
         return None
     g = res[0]
@@ -207,10 +316,19 @@ def geocode_open_meteo(nom_lieu: str):
     return g["latitude"], g["longitude"], label
 
 
+def profil_defavorable(temps, prevision, marge=MARGE_PREVISION_C):
+    """La variante DÉFAVORABLE du profil : les jours mesurés sont certains,
+    les jours prévus (et prolongés) sont abaissés de ``marge`` °C — plus
+    froid = durcissement plus lent = côté sécurité pour un décoffrage."""
+    return [t - marge if (p and not math.isnan(t)) else t
+            for t, p in zip(temps, prevision)]
+
+
 # =============================================================
 #  GRAPHIQUE
 # =============================================================
 COL_REF   = "#2e6fb0"
+COL_DEFAV = "#b91c1c"
 COL_SEUIL = "#b45309"
 COL_OPT   = "#7c3aed"
 COL_MES   = "#1f8a70"
@@ -221,7 +339,7 @@ COL_CMP   = ["#c0392b", "#e67e22", "#27ae60", "#2980b9", "#8e44ad", "#16a085", "
 
 
 def build_figure(t_real, ref, comparateur=None, point=None, t28_real=None,
-                 seuil=None, opt=None, mesure_lab=None, titre=""):
+                 seuil=None, opt=None, mesure_lab=None, defav=None, titre=""):
     fig, ax = plt.subplots(figsize=(7.4, 5.0), dpi=110)
     fig.patch.set_facecolor("white")
     ax.set_facecolor("#fbfcfe")
@@ -229,6 +347,11 @@ def build_figure(t_real, ref, comparateur=None, point=None, t28_real=None,
     # Courbe de référence
     ax.plot(t_real, ref["y"], color=COL_REF, lw=2.4, label=ref["label"], zorder=3)
     ax.fill_between(t_real, ref["y"], ref["y"].min(), color=COL_REF, alpha=0.06, zorder=1)
+
+    # Variante défavorable (jours prévus abaissés de la marge)
+    if defav is not None and defav.get("y") is not None:
+        ax.plot(t_real, defav["y"], color=COL_DEFAV, lw=1.6, ls="--",
+                label=defav["label"], zorder=2.5)
 
     # Comparateur multi-classes
     if comparateur:
@@ -320,25 +443,42 @@ def _age_equiv_point(t_sel, T, profil_temps, Ea):
 
 
 def _saisie_temperature(mode_temp, date_coulage, Ea):
-    """Retourne (T_moyenne, profil_temps|None, source_temp)."""
+    """Retourne ``(T_moyenne, profil_temps|None, source_temp, defav|None)``.
+
+    ``defav`` n'existe qu'en mode Météo quand la période contient des jours
+    PRÉVUS ou PROLONGÉS : c'est la variante défavorable (jours non mesurés
+    abaissés de ``MARGE_PREVISION_C``), sous la forme
+    ``{"T_moy", "profil", "n_prev", "n_extra", "marge"}``."""
     if mode_temp == "Manuel":
         T = st.number_input("T moyenne (°C)", value=20.0, step=1.0, format="%.1f",
                             min_value=-5.0, max_value=60.0,
                             help="Température de cure, constante.")
-        return T, None, "manuelle"
+        return T, None, "manuelle", None
 
     # ---- Mode Météo ----
     if not _HAS_REQUESTS:
         st.warning("Module réseau indisponible. `pip install requests` pour activer.")
-    cA, cB, cC = st.columns([1.4, 1, 1])
-    with cA:
-        lieu = st.text_input("Lieu du chantier", value="Bruxelles, Belgique")
+    lieu = st.text_input("Lieu du chantier", value="Bruxelles, Belgique")
+    cB, cC = st.columns(2)
     with cB:
         d_coul = st.date_input("Coulage",
                                value=date_coulage or _dt.date.today() - _dt.timedelta(days=14),
-                               key="ab_m_coul")
+                               key="ab_m_coul",
+                               help="Passé (chantier en cours) ou futur (coulage à venir).")
     with cC:
-        d_ctrl = st.date_input("Contrôle", value=_dt.date.today(), key="ab_m_ctrl")
+        # fin par défaut : aujourd'hui, ou coulage + 5 j pour un coulage futur ;
+        # si le coulage saisi dépasse une fin déjà mémorisée, on la recale
+        # (état écrit AVANT l'instanciation du widget — pas de value=).
+        defaut_fin = max(_dt.date.today(), d_coul + _dt.timedelta(days=5))
+        if st.session_state.get("ab_m_ctrl") is None or st.session_state["ab_m_ctrl"] < d_coul:
+            st.session_state["ab_m_ctrl"] = defaut_fin
+        d_ctrl = st.date_input("Fin (décoffrage)", key="ab_m_ctrl",
+                               help="Contrôle ou décoffrage : jusqu'où construire "
+                                    "le profil de température.")
+
+    if d_ctrl < d_coul:
+        st.error("La date de fin précède le coulage.")
+        return 20.0, None, "manuelle", None
 
     if st.button("🔄 Récupérer la météo", use_container_width=True):
         try:
@@ -347,66 +487,109 @@ def _saisie_temperature(mode_temp, date_coulage, Ea):
                 st.error("Lieu introuvable.")
             else:
                 lat, lon, label = geo
-                data = fetch_meteo_full(lat, lon, d_coul.isoformat(), d_ctrl.isoformat())
-                data["label"] = label
+                data = dict(meteo_journaliere(lat, lon, d_coul.isoformat(), d_ctrl.isoformat()))
+                data.update(label=label, lat=lat, lon=lon,
+                            req=[lieu, d_coul.isoformat(), d_ctrl.isoformat()])
                 st.session_state["ab_meteo"] = data
-                st.success(f"{label} — {len(data['d_dates'])} jours récupérés.")
+                st.session_state.pop("ab_meteo_h", None)
         except Exception as e:
             st.error(f"Échec : {e}")
 
     meteo = st.session_state.get("ab_meteo")
     if meteo and meteo.get("d_temps"):
-        valides = [t for t in meteo["d_temps"] if not math.isnan(t)]
-        if valides:
-            T_moy = float(np.mean(valides))
-            T_min = float(min(valides))
-            T_max = float(max(valides))
-            _mini_metrics([("T min", f"{T_min:.1f} °C"), ("T moy", f"{T_moy:.1f} °C"),
-                           ("T max", f"{T_max:.1f} °C")])
+        if meteo.get("req") and meteo["req"] != [lieu, d_coul.isoformat(), d_ctrl.isoformat()]:
+            st.caption("⚠️ Lieu ou dates modifiés depuis la récupération — "
+                       "clique à nouveau sur « Récupérer la météo ».")
+        temps = meteo["d_temps"]
+        prev = meteo.get("d_prev", [False] * len(temps))
+        extra = meteo.get("d_extra", [False] * len(temps))
+        valides = [t for t in temps if not math.isnan(t)]
+        if not valides:
+            st.error("Aucune température exploitable sur la période.")
+            return 20.0, None, "manuelle", None
 
-            # ---- Tableau des données récupérées ----
-            with st.expander("📊 Données météo récupérées", expanded=False):
-                import pandas as pd
-                # table journalière avec T horaires regroupées
-                rows = []
-                h_times = meteo.get("h_times", [])
-                h_temps = meteo.get("h_temps", [])
-                # construire un dict date→[heures]
-                hourly_by_day = {}
-                for ht, hv in zip(h_times, h_temps):
-                    day = ht[:10]
-                    hourly_by_day.setdefault(day, []).append(hv)
+        # Profil journalier ALIGNÉ sur les dates (un jour sans donnée est
+        # remplacé par la moyenne, pour ne pas décaler les jours suivants).
+        T_rempl = float(np.mean(valides))
+        profil = [t if not math.isnan(t) else T_rempl for t in temps]
+        n_nan = len(temps) - len(valides)
+        n_extra = sum(1 for x in extra if x)
+        n_prev = sum(1 for p, x in zip(prev, extra) if p and not x)
+        n_mes = len(temps) - n_prev - n_extra
+        T_moy = float(np.mean(profil))
+        T_min, T_max = float(min(valides)), float(max(valides))
 
-                for d, tmoy in zip(meteo["d_dates"], meteo["d_temps"]):
-                    hvals = hourly_by_day.get(d, [])
-                    h_valid = [v for v in hvals if not math.isnan(v)]
-                    row = {"Date": d,
-                           "T moy (°C)": f"{tmoy:.1f}" if not math.isnan(tmoy) else "—"}
-                    if h_valid:
-                        row["T min h"] = f"{min(h_valid):.1f}"
-                        row["T max h"] = f"{max(h_valid):.1f}"
-                        # 24 heures résumées
-                        row["Heures"] = "  ".join(f"{v:.0f}" for v in hvals[:24])
-                    rows.append(row)
+        badge = f"**{meteo.get('label', '')}** — {n_mes} j mesurés"
+        if n_prev:
+            badge += f" · {n_prev} j de prévision"
+        if n_extra:
+            badge += f" · {n_extra} j prolongés"
+        st.caption(badge)
+        _mini_metrics([("T min", f"{T_min:.1f} °C"), ("T moy", f"{T_moy:.1f} °C"),
+                       ("T max", f"{T_max:.1f} °C")])
+        if n_extra:
+            t_prol = next(t for t, x in zip(profil, extra) if x)
+            st.warning(f"La fin de période dépasse l'horizon de prévision "
+                       f"({HORIZON_PREVISION_J} j) : {n_extra} j prolongés à "
+                       f"T ≈ {t_prol:.1f} °C (moyenne des 5 derniers jours prévus). "
+                       "À recouper à l'approche du décoffrage.")
+        if n_nan:
+            st.caption(f"{n_nan} jour(s) sans donnée, remplacé(s) par la moyenne "
+                       f"({T_rempl:.1f} °C).")
 
-                df = pd.DataFrame(rows)
-                st.dataframe(df, use_container_width=True, hide_index=True, height=240)
+        # Variante défavorable : la météo prévue n'est pas acquise.
+        defav = None
+        if n_prev + n_extra > 0:
+            profil_def = profil_defavorable(profil, prev)
+            defav = {"T_moy": float(np.mean(profil_def)), "profil": profil_def,
+                     "n_prev": n_prev, "n_extra": n_extra, "marge": MARGE_PREVISION_C}
 
-                # Synthèse
-                # Age équivalent calculé
-                t_e_meteo = age_equiv_from_series(valides, Ea)
-                _mini_metrics([
-                    ("Jours", f"{len(valides)}"),
-                    ("T min", f"{T_min:.1f} °C"),
-                    ("T moy", f"{T_moy:.1f} °C"),
-                    ("T max", f"{T_max:.1f} °C"),
-                    ("t_e utilisé", f"{t_e_meteo:.1f} j"),
-                ])
+        # ---- Tableau des données (détail horaire À LA DEMANDE) ----
+        with st.expander("📊 Données météo", expanded=False):
+            import pandas as pd
+            meteo_h = st.session_state.get("ab_meteo_h")
+            if meteo_h is None and meteo.get("lat") is not None and _HAS_REQUESTS:
+                if st.button("Charger le détail horaire (optionnel)", key="ab_btn_h",
+                             help="Chargé à part : une requête horaire pèse beaucoup "
+                                  "plus qu'une journalière dans le quota d'Open-Meteo."):
+                    try:
+                        st.session_state["ab_meteo_h"] = meteo_horaire(
+                            meteo["lat"], meteo["lon"],
+                            d_coul.isoformat(), d_ctrl.isoformat())
+                        meteo_h = st.session_state["ab_meteo_h"]
+                    except Exception as e:
+                        st.error(f"Échec : {e}")
+            hourly_by_day = {}
+            if meteo_h:
+                for ht, hv in zip(meteo_h.get("h_times", []), meteo_h.get("h_temps", [])):
+                    hourly_by_day.setdefault(ht[:10], []).append(hv)
 
-            return T_moy, valides, f"météo ({meteo.get('label', '')})"
+            rows = []
+            for d, tmoy, p, x in zip(meteo["d_dates"], temps, prev, extra):
+                row = {"Date": d,
+                       "T moy (°C)": f"{tmoy:.1f}" if not math.isnan(tmoy) else "—",
+                       "Source": "prolongé" if x else ("prévision" if p else "mesuré")}
+                h_valid = [v for v in hourly_by_day.get(d, []) if not math.isnan(v)]
+                if h_valid:
+                    row["T min h"] = f"{min(h_valid):.1f}"
+                    row["T max h"] = f"{max(h_valid):.1f}"
+                rows.append(row)
+            st.dataframe(pd.DataFrame(rows), use_container_width=True,
+                         hide_index=True, height=240)
 
-    st.caption("Renseignez le lieu et les dates, puis récupérez la météo. T = 20 °C par défaut.")
-    return 20.0, None, "manuelle"
+            t_e_meteo = age_equiv_from_series(profil, Ea)
+            items = [("Jours", f"{len(profil)}"), ("t_e", f"{t_e_meteo:.1f} j")]
+            if defav:
+                items.append(("t_e défavorable",
+                              f"{age_equiv_from_series(defav['profil'], Ea):.1f} j"))
+            _mini_metrics(items)
+
+        return T_moy, profil, f"météo ({meteo.get('label', '')})", defav
+
+    st.caption("Renseigne le lieu et les dates — passées (chantier en cours) ou à venir "
+               f"(prévisions jusqu'à +{HORIZON_PREVISION_J} j) — puis récupère la météo. "
+               "T = 20 °C par défaut.")
+    return 20.0, None, "manuelle", None
 
 
 # =============================================================
@@ -453,7 +636,7 @@ def show():
                 mode_temp = st.radio("Température", ["Manuel", "Météo"], horizontal=True)
             with r2c:
                 Ea = EA_EC2
-                T, profil_temps, source_temp = _saisie_temperature(mode_temp, date_coulage, Ea)
+                T, profil_temps, source_temp, defav = _saisie_temperature(mode_temp, date_coulage, Ea)
 
             # ---- Paramètres avancés (inline, sans nouveau bloc) ----
             if show_adv:
@@ -487,6 +670,15 @@ def show():
                        + (f"  ({source_temp})" if source_temp != "manuelle" else "")
                        + ("  — ⚠️ ≤ 3 j : hors domaine EC2" if t_e_sel <= 3.0 else ""))
             overlays["point"] = (t_sel, fck_val)
+
+            # Variante défavorable quand le profil contient des jours prévus
+            t_e_def = fck_def = None
+            if defav is not None:
+                t_e_def = _age_equiv_point(t_sel, defav["T_moy"], defav["profil"], Ea)
+                fck_def = float(fck_of_age_equiv(fck28, s_ref, t_e_def))
+                st.caption(f"🌡️ Défavorable (jours prévus − {defav['marge']:.0f} °C) : "
+                           f"fck({t_sel} j) ≈ {fck_def:.2f} MPa · t_e = {t_e_def:.1f} j — "
+                           "la météo prévue n'est pas acquise ; recalcule au jour J.")
 
             st.divider()
 
@@ -627,6 +819,13 @@ def show():
     # Overlay essai labo
     lab_ov = overlays.get("lab") if overlays.get("lab_show") else None
 
+    # Overlay variante défavorable (météo prévue abaissée)
+    defav_ov = None
+    if defav is not None:
+        y_def = fck_of_age_equiv(fck28, s_ref, age_equiv(t_real, defav["T_moy"], Ea))
+        defav_ov = {"label": f"défavorable (prévisions − {defav['marge']:.0f} °C)",
+                    "y": y_def}
+
     factor = float(age_equiv(1.0, T, Ea))
     t28_real = 28.0 / factor if factor > 0 else None
 
@@ -634,6 +833,7 @@ def show():
         t_real, ref, comparateur=comparateur,
         point=overlays.get("point"), t28_real=t28_real,
         seuil=seuil_ov, opt=opt_ov, mesure_lab=lab_ov,
+        defav=defav_ov,
         titre=f"fck(t) — {beton_label} — {T:.0f} °C",
     )
 
@@ -661,6 +861,10 @@ def show():
         "age_sel_j": t_sel, "t_e_sel_j": t_e_sel,
         "fck_sel_MPa": fck_val, "pct_fck28": pct_val,
         "date_coulage": date_coulage.isoformat() if date_coulage else None,
+        "defav": ({"T_moy": defav["T_moy"], "n_prev": defav["n_prev"],
+                   "n_extra": defav["n_extra"], "marge": defav["marge"],
+                   "t_e_sel_j": t_e_def, "fck_sel_MPa": fck_def}
+                  if defav else None),
     })
 
 
