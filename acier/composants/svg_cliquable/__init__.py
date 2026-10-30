@@ -19,7 +19,9 @@ Streamlit) : il affiche un SVG fourni par Python et rend cliquables
 - ``<g data-drag="clé">`` : une pièce qui se DÉPLACE horizontalement — la
                             valeur suit le glissement (mm entiers, ≥ 0,
                             bulle « gh = 25 mm » pendant le geste), un
-                            relâchement sans mouvement vaut clic.
+                            relâchement sans mouvement vaut clic ;
+                            ``data-drag2`` pilote de même le déplacement
+                            VERTICAL — seul ou avec ``data-drag``.
 
 Chaque validation renvoie à Python ``{"changes": {clé: valeur, …}, "sym",
 "seq", "t"}`` ; Python met à jour l'état unique et relance le calcul. Le

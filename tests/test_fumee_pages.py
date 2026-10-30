@@ -37,12 +37,15 @@ for page in PAGES:
     except Exception as e:  # noqa: BLE001
         chk(page, False, f"{type(e).__name__}: {e}"[:160])
 
-print("\n=== Écran de l'assemblage ouvert ===")
-at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
-at.session_state["page"] = "Assemblages métalliques"
-at.session_state["asm_courant"] = "doubles_cornieres"
-at.run()
-chk("Doubles cornières d'âme", not at.exception, str(at.exception[0].message)[:160] if at.exception else "")
+print("\n=== Écran de chaque assemblage ouvert ===")
+for ident, nom in (("doubles_cornieres", "Doubles cornières d'âme"), ("plat_ame", "Plat d'âme soudé"),
+                   ("platine_about", "Platine d'about")):
+    at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
+    at.session_state["page"] = "Assemblages métalliques"
+    at.session_state["asm_courant"] = ident
+    at.run()
+    chk(nom, not at.exception and at.session_state["asm_courant"] == ident,
+        str(at.exception[0].message)[:160] if at.exception else "")
 chk("page inconnue → accueil (comportement inchangé)",
     (lambda a: (a.run(), not a.exception)[1])(
         (lambda a: (a.session_state.__setitem__("page", "n'existe pas"), a)[1])(

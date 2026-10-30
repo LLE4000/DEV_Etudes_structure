@@ -232,7 +232,7 @@ chk("parité : croix et tirets du HTML conservés (cm, bp)",
 # --- symboles de soudure, glissement 2 axes, arêtes cachées
 chk("glissement 2 axes : la poutre portée porte gh (horizontal) ET Δz (vertical) en élévation, gh seul en plan",
     'data-drag="g_h"' in svg_ec and 'data-drag2="d_top"' in svg_ec and 'data-dsym2="Δz"' in svg_ec
-    and "data-drag2" not in svg_pl and 'data-drag="g_h"' in svg_pl)
+    and 'data-drag2="' not in svg_pl and 'data-drag="g_h"' in svg_pl)
 svg_ws = schemas.elevation(Rw, schemas.options_ecran(Rw, 1)).svg()
 svg_wp = schemas.plan(Rw, schemas.options_ecran(Rw, 1)).svg()
 chk("cordons B soudés : symbole EN 22553 en élévation (flèche wsy + triangle wst) avec la désignation « a 5 » éditable",
