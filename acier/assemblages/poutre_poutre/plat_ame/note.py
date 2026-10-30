@@ -82,13 +82,13 @@ def lignes_hypotheses(R):
     return h
 
 
-def _priorite(R):
+def _priorite(R, syn=synthese):
     act = [c for c in R.checks if c.active]
     ordre = []
     if R.gov:
         ordre.append(R.gov)
     ordre += [c for c in act if not c.ok]
-    ordre += [pire for _, _, _, pire in synthese.taux_par_element(R)]
+    ordre += [pire for _, _, _, pire in syn.taux_par_element(R)]
     ordre += [c for c in act if c.ess]
     vus = []
     for c in ordre:
@@ -97,14 +97,36 @@ def _priorite(R):
     return vus
 
 
-def _obligatoires(R):
-    n = (1 if R.gov else 0) + sum(1 for c in R.checks if c.active and not c.ok) + len(synthese.taux_par_element(R))
-    return _priorite(R)[:n]
+def _obligatoires(R, syn=synthese):
+    n = (1 if R.gov else 0) + sum(1 for c in R.checks if c.active and not c.ok) + len(syn.taux_par_element(R))
+    return _priorite(R, syn)[:n]
 
 
 # ------------------------------------------------------------- page 1
 class Note:
-    """Compose la page 1 ; ``warnings`` = débordements (vide si tout tient)."""
+    """Compose la page 1 ; ``warnings`` = débordements (vide si tout tient).
+
+    La mise en page est commune à la famille : un autre assemblage la
+    réutilise en sous-classant et en remplaçant les attributs de classe
+    ci-dessous (titre, synthèse, schémas, en-tête, hypothèses, tableaux des
+    colonnes 2 et 3, mention normative de la conclusion)."""
+    TITRE_NOTE = TITRE
+    SYN = synthese
+    SCH = schemas
+    COL2 = ("boulons", "plat", "soudure")
+    COL3 = ("portee", "porteuse")
+    NORME = "(γM1 : ANB belge)"
+    LEGENDE = LEGENDE_REFERENCES
+    NOTATIONS = NOTATIONS_COURTES
+
+    def entete(self, R):
+        return lignes_entete(R)
+
+    def hypotheses(self, R):
+        return lignes_hypotheses(R)
+
+    def alerte(self, a, R):
+        return ligne_alerte(a, R)
 
     def __init__(self, R, doc_meta, variante):
         self.R = R; self.doc = doc_meta; self.mode_lignes = variante
@@ -172,7 +194,7 @@ class Note:
         d.t(M, y, doc.get("bureau", ""), S.f_v, 8.0, S.acc, track=1.4)
         d.t(W - M, y, "Note de calcul · " + doc.get("date", "") + " · indice " + str(doc.get("indice", "")), S.f_b, 8, S.mut, "right")
         y -= 15
-        d.t(M, y, TITRE, S.f_h, 12.5, S.ink)
+        d.t(M, y, self.TITRE_NOTE, S.f_h, 12.5, S.ink)
         u = R.u
         ident = " · ".join(str(x) for x in (doc.get("projet") or u.id_projet, doc.get("partie") or u.id_rep, u.id_red) if x)
         if ident:
@@ -187,7 +209,7 @@ class Note:
         d.t(x, y, t1, "Carlito-Bold", 8.6, S.ok if etat_ok else S.ko)
         x += d.w(t1, "Carlito-Bold", 8.6) + 5
         from .notation import ref_courte
-        t2 = ("— dimensionnant : " + synthese.court(R.gov) + " (" + ref_courte(R.gov.ref) + ")") if R.gov else ""
+        t2 = ("— dimensionnant : " + self.SYN.court(R.gov) + " (" + ref_courte(R.gov.ref) + ")") if R.gov else ""
         if not R.geo_ok:
             t2 += " · géométrie non valide"
         if not R.dist_ok:
@@ -195,7 +217,7 @@ class Note:
         if R.verified and (R.reserve or R.alerts):
             t2 += " · sous réserve des points signalés"
         pieces = []
-        for nom, eta, ok, _ in synthese.taux_par_element(R):
+        for nom, eta, ok, _ in self.SYN.taux_par_element(R):
             pieces.append((nom + " ", S.f_b, S.ink)); pieces.append((pct(eta, 0), "Carlito-Bold", S.ok if ok else S.ko))
             pieces.append(("   ", S.f_b, S.ink))
         wt = sum(d.w(t, f, 8) for t, f, _ in pieces)
@@ -207,7 +229,7 @@ class Note:
         al = list(R.alerts)
         for a in al[:3]:
             y -= 10
-            titre, det = ligne_alerte(a, R)
+            titre, det = self.alerte(a, R)
             col = S.ko if a.block else S.att
             d.box(M + 1, y - 0.5, 4.2, 4.2, fill=col)
             txt = titre + (" : " + det if det else "")
@@ -216,7 +238,7 @@ class Note:
             y -= 9
             d.t(M + 9, y, "+ " + str(len(al) - 3) + " autre(s) point(s) signalé(s).", S.f_b, 6.4, S.mut)
         y -= 12
-        l1, l2, l3 = lignes_entete(R)
+        l1, l2, l3 = self.entete(R)
         d.t(M, y, d.fit(l1, S.f_b, S_DATA, W - 2 * M), S.f_b, S_DATA, S.ink)
         y -= S_DATA * 1.35
         d.t(M, y, d.fit(l2, S.f_b, S_DATA, W - 2 * M), S.f_b, S_DATA, S.ink)
@@ -227,21 +249,21 @@ class Note:
         return y - 4
 
     def colonne_dessins(self, d, fr):
-        S, R = self.S, self.R
-        hyp = lignes_hypotheses(R)
+        S, R, sch = self.S, self.R, self.SCH
+        hyp = self.hypotheses(R)
         lignes = []
         for h in hyp:
             lignes.extend(d.wrap(h, S.f_b, 6.2, fr.w))
         h_hyp = 13 + len(lignes) * 6.2 * 1.3 + 4
         dispo = fr.room() - h_hyp - 2 * 13 - 6
         he = dispo * 0.58; hp = dispo - he
-        opt = schemas.options_rapport()
+        opt = sch.options_rapport()
         self.titre(d, fr, "ÉLÉVATION (mm)")
         fr.down(he)
-        peindre(d, schemas.elevation(R, opt), fr.x, fr.y, fr.w, he - 2)
+        peindre(d, sch.elevation(R, opt), fr.x, fr.y, fr.w, he - 2)
         self.titre(d, fr, "VUE EN PLAN")
         fr.down(hp)
-        peindre(d, schemas.plan(R, opt), fr.x, fr.y, fr.w, hp - 2)
+        peindre(d, sch.plan(R, opt), fr.x, fr.y, fr.w, hp - 2)
         self.titre(d, fr, "HYPOTHÈSES")
         fr.down(3)
         for l in lignes:
@@ -250,7 +272,7 @@ class Note:
 
     def table_simple(self, d, fr, cle, largeurs):
         R = self.R
-        ls = synthese.lignes(R, cle)
+        ls = self.SYN.lignes(R, cle)
         if not ls:
             return
         cols = [("Vérification", largeurs[0], "left"), ("Ed", largeurs[1], "right"), ("Rd", largeurs[2], "right"),
@@ -261,7 +283,7 @@ class Note:
             lignes.append([("lab", l["lab"], "gov" if gov else ""),
                            ("num", l["Ed"]), ("num", l["Rd"] + (" " + l["unit"] if l["unit"] else "")),
                            ("eta", l["pct"], l["ok"], gov), ("ref", l["ref"])])
-        self.table(d, fr, synthese.titre_table(cle).upper(), cols, lignes)
+        self.table(d, fr, self.SYN.titre_table(cle).upper(), cols, lignes)
 
     def table_pinces(self, d, fr):
         R = self.R
@@ -276,7 +298,7 @@ class Note:
 
     def conclusion(self, d, x, w):
         S, R = self.S, self.R
-        txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1 (γM1 : ANB belge)"
+        txt = (R.statut + " à l'ELU selon EN 1993-1-8 et EN 1993-1-1 " + self.NORME
                + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
         col = S.ok if R.verified else S.ko
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
@@ -318,10 +340,10 @@ class Note:
 
     def formules(self, d, frames):
         S, R = self.S, self.R
-        cand = _priorite(R)
+        cand = _priorite(R, self.SYN)
         if not frames or not cand:
             return
-        oblig = _obligatoires(R)
+        oblig = _obligatoires(R, self.SYN)
         hauteurs = {(c.key, i): self._bloc_formules(d, c, f.w)[1] for c in cand for i, f in enumerate(frames)}
         dispo = sum(max(0.0, f.room()) for f in frames) - 16 - 8
         retenues = []
@@ -356,7 +378,7 @@ class Note:
             self.formules_imprimees.append(c.key)
             fr.down(9)
             d.box(fr.x, fr.y - 1.4, 1.6, 6.4, fill=S.ok if c.ok else S.ko)
-            lab = synthese.court(c) + ("" if c.nat == "EC" else " [" + c.nat + "]")
+            lab = self.SYN.court(c) + ("" if c.nat == "EC" else " [" + c.nat + "]")
             d.t(fr.x + 5, fr.y, lab, "Carlito-Bold", 6.3, S.ink)
             wl = d.w(lab, "Carlito-Bold", 6.3)
             d.t(fr.x + 5 + wl + 4, fr.y, d.fit("— " + ref_courte(c.ref), S.f_b, S_REF, fr.w - wl - 12), S.f_b, S_REF, S.mut)
@@ -378,17 +400,16 @@ class Note:
         f2 = Frame(x2, top, w2, BAS)
         f3 = Frame(x3, top, w3, BAS)
         self.colonne_dessins(d, f1)
-        self.table_simple(d, f2, "boulons", (92, 34, 46, 26, w2 - 198))
-        self.table_simple(d, f2, "plat", (92, 34, 46, 26, w2 - 198))
-        self.table_simple(d, f2, "soudure", (92, 34, 46, 26, w2 - 198))
-        self.table_simple(d, f3, "portee", (98, 36, 50, 28, w3 - 212))
-        self.table_simple(d, f3, "porteuse", (98, 36, 50, 28, w3 - 212))
+        for cle in self.COL2:
+            self.table_simple(d, f2, cle, (92, 34, 46, 26, w2 - 198))
+        for cle in self.COL3:
+            self.table_simple(d, f3, cle, (98, 36, 50, 28, w3 - 212))
         self.table_pinces(d, f3)
         hc = self.conclusion(d, x3, w3)
         f3.bottom = BAS + hc + 6
         self.formules(d, [f2, f3])
-        d.t(M, 24, d.fit(LEGENDE_REFERENCES, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
-        d.t(M, 16.5, d.fit(NOTATIONS_COURTES, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
+        d.t(M, 24, d.fit(self.LEGENDE, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
+        d.t(M, 16.5, d.fit(self.NOTATIONS, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
         for f in (f1, f2, f3):
             if f.overflow() > 1.0:
                 self.warnings.append(f"colonne {f.x:.0f} : {f.overflow():.0f} pt")

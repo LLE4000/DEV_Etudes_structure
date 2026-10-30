@@ -77,7 +77,8 @@ def vignette_plat_ame():
 
 
 def vignette_platine_about():
-    """Platine d'about (à venir) : plat soudé en about, boulonné sur l'âme."""
+    """Platine d'about : plat soudé en about de la portée, boulonné sur
+    l'âme porteuse (élévation : platine par la tranche, boulons de profil)."""
     return (
         '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="100%" role="img" '
         'aria-label="Platine d\'about">'
@@ -117,10 +118,12 @@ FAMILLES = (
             ),
             Assemblage(
                 id="platine_about",
-                titre="Platine d'about",
-                pitch="Plat soudé en about de la poutre portée, boulonné sur l'âme de la porteuse.",
+                titre="Platine d'about (hauteur partielle)",
+                pitch="Assemblage articulé : platine mince soudée en about de la poutre portée, "
+                      "boulonnée sur l'âme de la porteuse (2 files) — EN 1993-1-8, ANB belge, tying.",
                 vignette=vignette_platine_about(),
-                etat="à venir",
+                etat="disponible",
+                module="acier.assemblages.poutre_poutre.platine_about.interface",
             ),
         ),
     ),
