@@ -257,6 +257,9 @@ chk("la visserie saisie persiste (source unique), et l'enregistrement l'emporte"
     and "visserie" in interface._payload({}))
 at.button(key="asm_btn_reset").click(); run(at)
 chk("réinitialiser rétablit la visserie par défaut", at.session_state["asm_visserie"] == "1 rondelle + 1 écrou")
+# Dans un PROJET l'assemblage porte un repère (A1) que 🔄 conserve ; le corrigé
+# est celui du cas par défaut SANS repère : on le vide pour la comparaison.
+at.session_state["asm_id_rep"] = ""
 at.session_state["asm_ui_onglet"] = "Note"; run(at)
 code = "\n".join(str(c.value) for c in at.code)
 chk("onglet Note : le texte essentiel du cas par défaut est celui du corrigé",

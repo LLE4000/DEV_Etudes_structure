@@ -19,6 +19,7 @@ from functools import lru_cache
 
 import streamlit as st
 
+from acier import projet_ui
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT
 from .moteur import compute
@@ -91,6 +92,7 @@ def _reinitialiser():
     for k in list(st.session_state.keys()):
         if k.startswith(PREFIXE):
             del st.session_state[k]
+    projet_ui.entree_reinitialisee()      # l'entrée du projet suit (repère conservé)
     st.session_state["_fpl_toast"] = "Valeurs par défaut rétablies"
 
 
@@ -142,11 +144,11 @@ def show():
                        "MSB Part 5 §3 (fin plate), SCI P358, ECCS n°126. Benchmark : Worked Example "
                        "publié du guide, rejoué à chaque ouverture.")
 
+    # Barre d'outils : ◀ Projet · 🏠 · 🔄 · 💾 (projet entier) · [A2 ▾] · 📄 —
+    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
     b0, b1, b2, b3, b4, b5 = st.columns(6)
     with b0:
-        if st.button("◀ Assemblages", use_container_width=True, key="fpl_btn_retour"):
-            st.session_state.pop("asm_courant", None)
-            st.rerun()
+        projet_ui.bouton_retour("fpl_btn_retour")
     with b1:
         if st.button("🏠 Accueil", use_container_width=True, key="fpl_btn_home"):
             st.session_state.retour_accueil_demande = True
@@ -157,27 +159,10 @@ def show():
             st.rerun()
     u = lire_entrees()
     with b3:
-        st.download_button("💾 Enregistrer", data=json.dumps(_payload(u), indent=1, ensure_ascii=False).encode("utf-8"),
-                           file_name=texte.nom_fichier(u, ".json"), mime="application/json",
-                           use_container_width=True, key="fpl_btn_save_dl")
+        projet_ui.bouton_enregistrer("fpl_btn_save_dl", lambda: _payload(u), lambda: texte.nom_fichier(u, ".json"))
     with b4:
-        if st.button("📂 Ouvrir", use_container_width=True, key="fpl_btn_open_toggle"):
-            st.session_state["fpl_show_open_uploader"] = not st.session_state.get("fpl_show_open_uploader", False)
-        if st.session_state.get("fpl_show_open_uploader", False):
-            up = st.file_uploader("Choisir un fichier JSON", type=["json"], label_visibility="collapsed",
-                                  key="fpl_open_uploader")
-            if up is not None:
-                try:
-                    data = json.loads(up.read().decode("utf-8-sig"))
-                    ecrire_entrees(charger_payload(data))
-                    if isinstance(data.get("visserie"), str) and data["visserie"].strip():
-                        st.session_state["fpl_visserie"] = data["visserie"].strip()
-                    st.session_state["fpl_show_open_uploader"] = False
-                    st.session_state["fpl_ui_alerte"] = None
-                    st.session_state["_fpl_toast"] = "Données chargées"
-                    st.rerun()
-                except Exception:
-                    st.error("Fichier invalide ou corrompu — chargement annulé.")
+        if not projet_ui.selecteur(PREFIXE):
+            projet_ui.bouton_ouvrir_seul(PREFIXE, charger_payload, ecrire_entrees)
 
     try:
         R = compute(u)
