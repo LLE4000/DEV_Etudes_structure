@@ -129,7 +129,24 @@ Sur la page Projet, **📄 Générer PDF** (désactivé si le projet est vide) p
 Le bouton de téléchargement disparaît dès que le projet change après la
 génération (empreinte du fichier projet) : pas de rapport périmé.
 
-## 6 · Compatibilité
+## 6 · Lot 3 : récapitulatif, variante, verrou
+
+- **Récapitulatif** : une page portrait après la garde (même bandeau), un
+  tableau — n°, repère, type, profilés · efforts, η max, vérification
+  dimensionnante, pastille d'état — 30 lignes par page, puis suite. Il est
+  en tête du sommaire (ligne non numérotée) et a son signet ; les numéros de
+  page des notes en tiennent compte.
+- **🧬 Variante** (menu ⋯) : « créer à partir de » — copie « X (variante) »
+  ouverte aussitôt, pour comparer deux solutions dans le même projet.
+- **🔒 Verrou** (menu ⋯, et bouton 🔓 dans l'écran) : l'entrée ne se modifie
+  plus — repère et suppression bloqués dans la liste ; dans l'écran, saisies
+  et visserie désactivées, dessin rendu statique, 🔄 désactivé, bandeau de
+  rappel. La garantie n'est pas l'interface : pour une entrée verrouillée,
+  la synchronisation ne recopie jamais l'écran dans l'entrée et ré-hydrate
+  l'écran depuis l'entrée à chaque run — une saisie forcée rebondit. Une
+  copie naît déverrouillée ; le verrou est dans le fichier projet.
+
+## 7 · Compatibilité
 
 - Un écran ouvert sans entrée (tests existants, `asm_courant` posé
   directement) garde le comportement d'avant : 💾 et 📂 de l'assemblage seul,

@@ -118,11 +118,11 @@ def norm(t, src):
 
 
 infos2, lot = modele.lire_fichier(json.loads(json.dumps(pl)), norm)
-chk("relecture du fichier projet", infos2["partie"] == "Hall" and [t for t, _, _ in lot] == ["platine_about", "doubles_cornieres"]
+chk("relecture du fichier projet", infos2["partie"] == "Hall" and [t for t, _, _, _ in lot] == ["platine_about", "doubles_cornieres"]
     and lot[1][1]["id_rep"] == "P7")
 infos3, lot3 = modele.lire_fichier({"version": "assemblage-plat-ame-1.0", "assemblage": "plat_ame",
                                     "values": {"V_Ed": 200}, "visserie": "x"}, norm)
-chk("fichier d'assemblage seul", infos3 is None and lot3 == [("plat_ame", {"V_Ed": 200}, "x")])
+chk("fichier d'assemblage seul (déverrouillé)", infos3 is None and lot3 == [("plat_ame", {"V_Ed": 200}, "x", False)])
 _, lot4 = modele.lire_fichier({"V_Ed": 1}, norm, detecter=lambda s: "doubles_cornieres")
 chk("fichier brut : type détecté par l'appelant", lot4[0][0] == "doubles_cornieres")
 try:
@@ -285,6 +285,56 @@ chk("sans entrée ouverte : 📂 de l'assemblage seul, pas de sélecteur, 💾 p
 at.button(key="pab_btn_retour").click(); run(at)
 chk("◀ Projet mène à la page projet (vide → catalogue)", "asm_courant" not in at.session_state.to_dict()
     and "asm_btn_open_platine_about" in boutons(at))
+
+# ================================================================
+print("\n=== 9. Verrou 🔒 et variante (lot 3) ===")
+
+
+def infos_at(at):
+    return "\n".join(str(i.value) for i in at.info)
+
+
+at = app(); run(at)
+at.button(key="asm_btn_open_platine_about").click(); run(at)
+at.number_input(key="pab_V_Ed").set_value(160); run(at)
+at.button(key="pab_btn_retour").click(); run(at)
+at.button(key="prj_btn_lock_1").click(); run(at)
+chk("🔒 : entrée verrouillée, ligne marquée, repère et suppression désactivés",
+    modele.est_verrouille(entree(at, 1)) and "🔒" in md(at) and at.text_input(key="prj_rep_1").disabled
+    and at.button(key="prj_btn_suppr_1").disabled and "Déverrouiller" in at.button(key="prj_btn_lock_1").label)
+chk("le modèle refuse de supprimer ou renommer une entrée verrouillée",
+    not modele.supprimer(prj(at), 1) and not modele.renommer(prj(at), 1, "Z")
+    and len(modele.entrees(prj(at))) == 1 and modele.repere(entree(at, 1)) == "A1")
+at.button(key="prj_btn_ouvrir_1").click(); run(at)
+chk("écran verrouillé : bandeau, saisies et visserie désactivées, 🔄 désactivé, bouton 🔓",
+    "verrouillé" in infos_at(at) and at.number_input(key="pab_V_Ed").disabled
+    and at.text_input(key="pab_visserie").disabled and at.button(key="pab_btn_reset").disabled
+    and "pab_btn_unlock" in boutons(at))
+at.session_state["pab_V_Ed"] = 999; run(at)
+chk("une saisie forcée rebondit sur la valeur enregistrée", at.session_state["pab_V_Ed"] == 160
+    and entree(at, 1)["values"]["V_Ed"] == 160)
+at.button(key="pab_btn_unlock").click(); run(at)
+chk("🔓 depuis l'écran : modifiable à nouveau, plus de bandeau", not modele.est_verrouille(entree(at, 1))
+    and not at.number_input(key="pab_V_Ed").disabled and "verrouillé" not in infos_at(at))
+at.number_input(key="pab_V_Ed").set_value(170); run(at)
+chk("…et la saisie est reprise", entree(at, 1)["values"]["V_Ed"] == 170)
+at.button(key="pab_btn_retour").click(); run(at)
+at.button(key="prj_btn_lock_1").click(); run(at)
+pl = modele.payload(prj(at), {})
+chk("le fichier projet porte le verrou", pl["assemblages"][0]["verrou"] is True)
+_, lot = modele.lire_fichier(json.loads(json.dumps(pl)), norm)
+chk("…et le relit", lot[0][3] is True)
+at.button(key="prj_btn_var_1").click(); run(at)
+chk("🧬 Variante : copie « (variante) » ouverte aussitôt, déverrouillée, mêmes valeurs, l'original reste verrouillé",
+    at.session_state["prj_ouvert"] == 2 and at.session_state["asm_courant"] == "platine_about"
+    and modele.repere(entree(at, 2)) == "A1 (variante)" and not modele.est_verrouille(entree(at, 2))
+    and at.session_state["pab_V_Ed"] == 170 and not at.number_input(key="pab_V_Ed").disabled
+    and modele.est_verrouille(entree(at, 1)))
+at.number_input(key="pab_V_Ed").set_value(190); run(at)
+at.selectbox(key="pab_sel_projet").set_value(projet_ui.libelle_entree(entree(at, 1))); run(at)
+chk("retour sur l'original verrouillé : V = 170 intact, la variante garde 190",
+    at.session_state["pab_V_Ed"] == 170 and at.number_input(key="pab_V_Ed").disabled
+    and entree(at, 2)["values"]["V_Ed"] == 190)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

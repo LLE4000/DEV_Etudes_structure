@@ -140,13 +140,14 @@ def widget(f, u, chauds):
     k = f["k"]; key = K(k)
     st.session_state[key] = valeur_widget(k, st.session_state.get(key))
     lab = libelle(f, u, chauds)
-    dis = bool(mode_predim(u) and k in PILOTEES_PAR_PREDIM)
+    # prj_verrou : assemblage verrouillé dans son projet (acier/projet_ui.py)
+    dis = bool(mode_predim(u) and k in PILOTEES_PAR_PREDIM) or bool(st.session_state.get("prj_verrou", False))
     if f["t"] == "s":
         aff = AFFICHAGE.get(k)
         st.selectbox(lab, f["o"], key=key, help=_aide(f, u), disabled=dis,
                      format_func=(lambda o, a=aff: a.get(o, o)) if aff else str)
     elif f["t"] == "x":
-        st.text_input(lab, key=key, help=_aide(f, u))
+        st.text_input(lab, key=key, help=_aide(f, u), disabled=dis)
     else:
         st.number_input(lab, key=key, step=PAS.get(k, 1.0), format="%g", help=_aide(f, u), disabled=dis)
 
@@ -196,7 +197,8 @@ def ligne_visserie(u):
         st.text_input("Par boulon", key="asm_visserie",
                       help="Rondelles et écrous par boulon — porté au cartouche du plan de principe. "
                            "Exemples : « 1 rondelle + 1 écrou », « 1 rondelle + 2 écrous (contre-écrou) », "
-                           "« 2 rondelles + 1 écrou ».")
+                           "« 2 rondelles + 1 écrou ».",
+                      disabled=bool(st.session_state.get("prj_verrou", False)))
 
 
 def avances(u, chauds=frozenset()):

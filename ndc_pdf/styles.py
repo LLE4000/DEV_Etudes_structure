@@ -102,13 +102,15 @@ class Style:
         self.garde_lignes(d, doc, lignes)
         return d
 
-    def garde_lignes(self, d, doc, lignes, legende=None):
+    def garde_lignes(self, d, doc, lignes, legende=None, avant=None):
         """Garde générique : bandeau, cartouche, sommaire. Chaque ligne porte
         ``titre``, ``sous`` (facultatif), ``etat`` (libellé de la pastille,
-        facultatif), ``couleur`` et ``pages`` (nombre de pages de l'entrée).
+        facultatif), ``couleur`` et ``pages`` (nombre de pages de l'entrée) ;
+        ``avant`` = lignes NON numérotées placées en tête du sommaire (un
+        récapitulatif, par exemple), paginées comme les autres.
         Les numéros de page tiennent compte du nombre de pages de garde —
         le sommaire CONTINUE sur une page suivante quand il déborde (au-delà
-        de 11 entrées) — et du nombre de pages de chaque entrée. Retourne le
+        de 11 lignes) — et du nombre de pages de chaque ligne. Retourne le
         nombre de pages de garde."""
         S = self
         W, H = d.W, d.H
@@ -117,6 +119,8 @@ class Style:
         pas = self.LIGNE_SOMMAIRE
         cap1 = max(1, int((H - 261 - bas) // pas))  # sous le cartouche
         cap2 = max(1, int((H - 77 - bas) // pas))   # page de suite
+        avant = list(avant or [])
+        lignes = avant + list(lignes)
         n = len(lignes)
         n_garde = 1 + (0 if n <= cap1 else -(-(n - cap1) // cap2))
         debuts, page = [], n_garde + 1
@@ -161,7 +165,8 @@ class Style:
                 d.line(fr.x, fr.y, fr.x1, fr.y, S.acc, 0.9)
                 cap, k = cap2, 0
             fr.down(24)
-            d.t(fr.x, fr.y, f"{i + 1:02d}", S.f_h, 10.5, mix(S.acc, "#FFFFFF", 0.55))
+            if i >= len(avant):
+                d.t(fr.x, fr.y, f"{i - len(avant) + 1:02d}", S.f_h, 10.5, mix(S.acc, "#FFFFFF", 0.55))
             d.t(fr.x + 26, fr.y, lg["titre"], S.f_h, 11, S.ink)
             sous = lg.get("sous") or ""
             if sous:

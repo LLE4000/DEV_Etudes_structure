@@ -78,7 +78,7 @@ def _nouvel_id(projet):
     return ident
 
 
-def ajouter(projet, type_id, values, visserie="", repere_=None):
+def ajouter(projet, type_id, values, visserie="", repere_=None, verrou=False):
     """Ajoute une entrée en fin de liste et la renvoie. Un repère vide reçoit
     le premier libre ; ``repere_`` l'impose."""
     values = dict(values or {})
@@ -86,27 +86,44 @@ def ajouter(projet, type_id, values, visserie="", repere_=None):
         values["id_rep"] = str(repere_)
     elif not str(values.get("id_rep") or "").strip():
         values["id_rep"] = repere_libre(projet)
-    e = {"id": _nouvel_id(projet), "type": str(type_id), "values": values, "visserie": str(visserie or "")}
+    e = {"id": _nouvel_id(projet), "type": str(type_id), "values": values, "visserie": str(visserie or ""),
+         "verrou": bool(verrou)}
     entrees(projet).append(e)
     return e
 
 
-def dupliquer(projet, ident):
+def dupliquer(projet, ident, suffixe=" (copie)"):
     """Copie complète (deepcopy) insérée juste après l'original, repère
-    « X (copie) » — même geste que 📋 dans Poutre et Dalle."""
+    « X (copie) » — même geste que 📋 dans Poutre et Dalle. Une copie naît
+    déverrouillée."""
     src = trouver(projet, ident)
     if src is None:
         return None
     copie = deepcopy(src)
     copie["id"] = _nouvel_id(projet)
-    copie["values"]["id_rep"] = f"{repere(src) or PREFIXE_REPERE} (copie)"
+    copie["values"]["id_rep"] = f"{repere(src) or PREFIXE_REPERE}{suffixe}"
+    copie["verrou"] = False
     entrees(projet).insert(position(projet, ident) + 1, copie)
     return copie
 
 
-def supprimer(projet, ident):
+def est_verrouille(entree):
+    return bool(entree and entree.get("verrou"))
+
+
+def verrouiller(projet, ident, etat=True):
+    """🔒 : l'entrée ne se modifie plus (saisies, repère) et ne se supprime
+    plus tant qu'elle est verrouillée — comme une dalle verrouillée."""
+    e = trouver(projet, ident)
+    if e is None:
+        return False
+    e["verrou"] = bool(etat)
+    return True
+
+
+def supprimer(projet, ident, forcer=False):
     i = position(projet, ident)
-    if i < 0:
+    if i < 0 or (est_verrouille(entrees(projet)[i]) and not forcer):
         return False
     del entrees(projet)[i]
     return True
@@ -126,7 +143,7 @@ def deplacer(projet, ident, delta):
 
 def renommer(projet, ident, nouveau_repere):
     e = trouver(projet, ident)
-    if e is None:
+    if e is None or est_verrouille(e):
         return False
     nouveau_repere = str(nouveau_repere or "").strip()
     if not nouveau_repere:
@@ -141,7 +158,8 @@ def payload(projet, infos):
     return {"version": VERSION,
             "projet": {k: str(infos.get(k, "") or "") for k in CLES_INFOS},
             "assemblages": [{"id": int(e["id"]), "type": e["type"], "repere": repere(e),
-                             "values": e.get("values", {}), "visserie": e.get("visserie", "")}
+                             "values": e.get("values", {}), "visserie": e.get("visserie", ""),
+                             "verrou": est_verrouille(e)}
                             for e in entrees(projet)]}
 
 
@@ -156,8 +174,8 @@ def lire_fichier(data, normaliser, detecter=None):
     ``normaliser(type_id, src)`` → saisies validées du type (``charger_payload``
     du module) ; ``detecter(src)`` → type d'un fichier brut sans champ
     « assemblage », ou None.
-    Retourne ``(infos ou None, [(type_id, values, visserie), …])`` ; lève
-    ValueError si rien n'est lisible.
+    Retourne ``(infos ou None, [(type_id, values, visserie, verrou), …])`` ;
+    lève ValueError si rien n'est lisible.
     """
     if not isinstance(data, dict):
         raise ValueError("Structure JSON inattendue")
@@ -170,7 +188,7 @@ def lire_fichier(data, normaliser, detecter=None):
             rep = str(e.get("repere") or values.get("id_rep") or "").strip()
             if rep:
                 values["id_rep"] = rep
-            lot.append((str(e["type"]), values, str(e.get("visserie") or "")))
+            lot.append((str(e["type"]), values, str(e.get("visserie") or ""), bool(e.get("verrou", False))))
         infos = data.get("projet") if isinstance(data.get("projet"), dict) else {}
         return {k: str(infos.get(k, "") or "") for k in CLES_INFOS}, lot
     type_id = data.get("assemblage") or (detecter(data) if detecter else None)
@@ -178,12 +196,12 @@ def lire_fichier(data, normaliser, detecter=None):
         raise ValueError("Type d'assemblage non reconnu")
     values = normaliser(str(type_id), data)
     visserie = data.get("visserie") if isinstance(data.get("visserie"), str) else ""
-    return None, [(str(type_id), values, visserie.strip())]
+    return None, [(str(type_id), values, visserie.strip(), False)]
 
 
 def importer(projet, lot):
     """Ajoute au projet les entrées d'un lot lu par ``lire_fichier``."""
-    return [ajouter(projet, t, v, vis) for (t, v, vis) in lot]
+    return [ajouter(projet, t, v, vis, verrou=verrou) for (t, v, vis, verrou) in lot]
 
 
 def nom_fichier(infos, ext):

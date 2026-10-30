@@ -190,7 +190,8 @@ def show():
             st.session_state.retour_accueil_demande = True
             st.rerun()
     with b2:
-        if st.button("🔄 Réinitialiser", use_container_width=True, key="asm_btn_reset"):
+        if st.button("🔄 Réinitialiser", use_container_width=True, key="asm_btn_reset",
+                     disabled=projet_ui.verrouille()):
             _reinitialiser()
             st.rerun()
     u = lire_entrees()
@@ -221,6 +222,7 @@ def show():
                                file_name=_pdf_filename(u), mime="application/pdf",
                                use_container_width=True, key="asm_btn_pdf_dl")
 
+    projet_ui.bandeau_verrou(PREFIXE)
     if R is None:
         st.error(f"Données incomplètes : {erreur}")
         ecran_saisie.carte(u, set())

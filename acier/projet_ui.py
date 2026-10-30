@@ -97,11 +97,19 @@ def synchroniser():
     cela, ``_init_etat`` rendrait des valeurs par défaut que la recopie
     suivante écrirait dans l'entrée."""
     epingler_infos()
+    st.session_state["prj_verrou"] = False      # lu par les cartes de saisie et le dessin
     e = entree_ouverte()
     if e is None:
         return False
     m = module_de(e["type"])
     if m is None:
+        return False
+    if modele.est_verrouille(e):
+        # 🔒 : l'entrée fait foi, l'écran ne la modifie jamais — toute saisie
+        # rebondit à la valeur enregistrée au run suivant.
+        st.session_state["prj_verrou"] = True
+        if st.session_state.get("page") == "Assemblages métalliques":
+            _hydrater(m, e)
         return False
     if not _vivant(m):
         if st.session_state.get("page") == "Assemblages métalliques":
@@ -120,7 +128,7 @@ def entree_reinitialisee():
     ouverte reprend les valeurs par défaut du type — repère conservé — et
     c'est elle qui ré-hydratera l'écran au run suivant."""
     e = entree_ouverte()
-    if e is None:
+    if e is None or modele.est_verrouille(e):
         return False
     m = module_de(e["type"])
     if m is None:
@@ -129,6 +137,45 @@ def entree_reinitialisee():
     e["values"] = {k: m.ecran_saisie.valeur_widget(k, v) for k, v in m.defaults().items()}
     e["values"]["id_rep"] = rep
     e["visserie"] = m.VISSERIE_DEFAUT
+    return True
+
+
+def verrouille():
+    """L'entrée ouverte est-elle verrouillée ?"""
+    return modele.est_verrouille(entree_ouverte())
+
+
+def basculer_verrou(ident):
+    e = modele.trouver(projet(), ident)
+    if e is None:
+        return False
+    if not modele.est_verrouille(e):
+        synchroniser()                   # on fige ce que l'écran montre
+    return modele.verrouiller(projet(), ident, not modele.est_verrouille(e))
+
+
+def variante(ident):
+    """« Créer à partir de » : copie « X (variante) » ouverte aussitôt, pour
+    comparer deux solutions côte à côte dans le même projet."""
+    e = dupliquer(ident, " (variante)")
+    if e:
+        ouvrir(e["id"])
+    return e
+
+
+def bandeau_verrou(prefixe):
+    """Dans un écran : rappel du verrou et bouton 🔓. False si rien n'est rendu."""
+    e = entree_ouverte()
+    if not modele.est_verrouille(e):
+        return False
+    c1, c2 = st.columns([5, 1.3], vertical_alignment="center")
+    with c1:
+        st.info(f"🔒 {modele.repere(e)} est verrouillé : ses données ne se modifient pas "
+                "(une saisie revient à la valeur enregistrée).")
+    with c2:
+        if st.button("🔓 Déverrouiller", key=prefixe + "btn_unlock", use_container_width=True):
+            basculer_verrou(e["id"])
+            st.rerun()
     return True
 
 
@@ -170,9 +217,9 @@ def creer(type_id):
     return e
 
 
-def dupliquer(ident):
+def dupliquer(ident, suffixe=" (copie)"):
     synchroniser()
-    return modele.dupliquer(projet(), ident)
+    return modele.dupliquer(projet(), ident, suffixe)
 
 
 def supprimer(ident):

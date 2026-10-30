@@ -94,6 +94,17 @@ def _renommer(ident, cle):
     modele.renommer(projet_ui.projet(), ident, st.session_state.get(cle, ""))
 
 
+def _variante(ident):
+    e = projet_ui.variante(ident)
+    st.session_state["prj_mode_catalogue"] = False
+    if e:
+        _toast(f"{modele.repere(e)} ouvert")
+
+
+def _basculer_verrou(ident):
+    projet_ui.basculer_verrou(ident)
+
+
 def _basculer_catalogue():
     st.session_state["prj_mode_catalogue"] = not st.session_state.get("prj_mode_catalogue", False)
 
@@ -143,10 +154,11 @@ def _ligne(e, i, n):
     coul, lib = _PASTILLE.get(r.get("etat"), _PASTILLE["err"])
     ident = e["id"]
     rep = modele.repere(e) or "—"
+    verrou = modele.est_verrouille(e)
     with st.container(border=True):
         c1, c2, c3, c4 = st.columns([5, 2.6, 1.3, 0.7], vertical_alignment="center")
         with c1:
-            st.markdown(f"**{rep}** — {projet_ui.titre_de(e['type'])}")
+            st.markdown(f"{'🔒 ' if verrou else ''}**{rep}** — {projet_ui.titre_de(e['type'])}")
             if r.get("description"):
                 st.caption(r["description"])
         with c2:
@@ -161,9 +173,12 @@ def _ligne(e, i, n):
             with st.popover("⋯", use_container_width=True, help="Repère, dupliquer, ordre, supprimer"):
                 cle = f"prj_rep_{ident}"
                 st.session_state[cle] = modele.repere(e)
-                st.text_input("Repère", key=cle, on_change=_renommer, args=(ident, cle))
+                st.text_input("Repère", key=cle, on_change=_renommer, args=(ident, cle), disabled=verrou)
                 st.button("📋 Dupliquer", key=f"prj_btn_dup_{ident}", use_container_width=True,
                           on_click=_dupliquer, args=(ident,))
+                st.button("🧬 Variante", key=f"prj_btn_var_{ident}", use_container_width=True,
+                          on_click=_variante, args=(ident,),
+                          help="Copie ouverte aussitôt, pour comparer deux solutions dans le même projet")
                 m1, m2 = st.columns(2)
                 with m1:
                     st.button("↑ Monter", key=f"prj_btn_up_{ident}", use_container_width=True,
@@ -171,8 +186,11 @@ def _ligne(e, i, n):
                 with m2:
                     st.button("↓ Descendre", key=f"prj_btn_down_{ident}", use_container_width=True,
                               disabled=i >= n - 1, on_click=_deplacer, args=(ident, 1))
+                st.button("🔓 Déverrouiller" if verrou else "🔒 Verrouiller", key=f"prj_btn_lock_{ident}",
+                          use_container_width=True, on_click=_basculer_verrou, args=(ident,),
+                          help="Verrouillé : les données, le repère et la suppression sont bloqués")
                 st.button("🗑️ Supprimer", key=f"prj_btn_suppr_{ident}", use_container_width=True,
-                          on_click=_demander_suppression, args=(ident,))
+                          on_click=_demander_suppression, args=(ident,), disabled=verrou)
         if st.session_state.get("prj_confirm_suppr") == ident:
             w1, w2, w3 = st.columns([4, 1.3, 1.3], vertical_alignment="center")
             with w1:
