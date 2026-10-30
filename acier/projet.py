@@ -47,6 +47,22 @@ def repere(entree):
     return str((entree.get("values") or {}).get("id_rep") or "").strip()
 
 
+def description(values):
+    """Ligne courte d'une entrée : profilés et efforts (liste, sommaire)."""
+    u = values or {}
+    morceaux = []
+    if u.get("prof_S") or u.get("prof_P"):
+        morceaux.append(f"{u.get('prof_S') or '?'} sur {u.get('prof_P') or '?'}")
+    for cle, lab in (("V_Ed", "V"), ("N_Ed", "N"), ("M_Ed", "M")):
+        try:
+            v = float(u.get(cle) or 0)
+        except (TypeError, ValueError):
+            v = 0.0
+        if v:
+            morceaux.append(f"{lab} = {v:g} {'kNm' if lab == 'M' else 'kN'}")
+    return " · ".join(morceaux)
+
+
 def repere_libre(projet, prefixe=PREFIXE_REPERE):
     """Le premier repère « A1, A2, … » que le projet n'utilise pas encore."""
     pris = {repere(e) for e in entrees(projet)}

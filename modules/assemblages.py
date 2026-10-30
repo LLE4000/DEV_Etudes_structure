@@ -112,6 +112,31 @@ def _demander_vider():
     st.session_state["prj_confirm_vider"] = True
 
 
+# ------------------------------------------------------------------ rapport
+def _empreinte():
+    """Le rapport téléchargeable est celui du projet TEL QU'IL EST : un
+    changement après la génération retire le bouton (pas de rapport périmé)."""
+    return json.dumps(projet_ui.payload(), sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _bouton_rapport(liste):
+    if st.button("📄 Générer PDF", use_container_width=True, key="prj_btn_pdf", disabled=not liste,
+                 help="Rapport du projet : page de garde avec sommaire, puis la note de chaque assemblage "
+                      "(un signet par assemblage)."):
+        from acier.rapport_projet import generer_rapport
+        try:
+            st.session_state["prj_pdf_bytes"] = generer_rapport(projet_ui.projet(), projet_ui.infos())
+            st.session_state["prj_pdf_empreinte"] = _empreinte()
+            st.success("✅ Rapport généré")
+        except Exception as e:  # noqa: BLE001
+            st.session_state.pop("prj_pdf_bytes", None)
+            st.error(f"Erreur lors de la génération du PDF : {e}")
+    if st.session_state.get("prj_pdf_bytes") and st.session_state.get("prj_pdf_empreinte") == _empreinte():
+        st.download_button("⬇️ Télécharger le rapport PDF", data=st.session_state["prj_pdf_bytes"],
+                           file_name=projet_ui.nom_fichier(".pdf"), mime="application/pdf",
+                           use_container_width=True, key="prj_btn_pdf_dl")
+
+
 # ------------------------------------------------------------------ page
 def _ligne(e, i, n):
     r = projet_ui.resume(e)
@@ -214,7 +239,7 @@ def _page_projet():
                        "des assemblages créés, chacun ouvert dans l'écran de son type (données, calcul, "
                        "schémas, note). 💾 et 📂 portent sur le projet entier.")
 
-    b1, b2, b3, b4, _ = st.columns(5)
+    b1, b2, b3, b4, b5 = st.columns(5)
     with b1:
         if st.button("🏠 Accueil", use_container_width=True, key="asm_btn_home"):
             st.session_state.retour_accueil_demande = True
@@ -249,6 +274,8 @@ def _page_projet():
                     st.rerun()
                 except Exception:  # noqa: BLE001
                     st.error("Fichier invalide ou corrompu — chargement annulé.")
+    with b5:
+        _bouton_rapport(liste)
 
     projet_ui.bloc_infos_projet()
 

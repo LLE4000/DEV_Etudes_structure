@@ -198,14 +198,15 @@ chk("PIÈGE 1 : le 🔄 des doubles cornières (efface asm_*) laisse le projet i
 print("\n=== 5. Piège 2 : deux entrées du même type ===")
 at.selectbox(key="asm_sel_projet").set_value(projet_ui.libelle_entree(entree(at, 1))); run(at)
 at.button(key="pab_btn_pdf").click(); run(at)
-chk("note PDF générée pour A1", bool(at.session_state.get("pab_pdf_bytes")))
+chk("note PDF générée pour A1, téléchargeable", bool(at.session_state.get("pab_pdf_bytes"))
+    and "pab_btn_pdf_dl" in {d.key for d in at.get("download_button")})
 at.session_state["pab_ui_dernier_clic"]["pab_cmp_elev"] = 4242
 at.button(key="pab_btn_retour").click(); run(at)
 at.button(key="prj_btn_nouveau").click(); run(at)
 at.button(key="asm_btn_open_platine_about").click(); run(at)
 chk("A4 platine ouvert : la note de A1 n'est plus téléchargeable",
     at.session_state["prj_ouvert"] == 4 and not at.session_state.get("pab_pdf_bytes")
-    and "pab_btn_pdf_dl" not in boutons(at))
+    and "pab_btn_pdf_dl" not in {d.key for d in at.get("download_button")})
 chk("…et le dernier clic du dessin est conservé (pas de rejeu sur A4)",
     at.session_state["pab_ui_dernier_clic"].get("pab_cmp_elev") == 4242)
 chk("A4 a les valeurs par défaut, A1 garde les siennes",

@@ -104,7 +104,32 @@ ré-hydrate l'écran**. Le 🔄 d'un écran, qui efface les mêmes clés, appell
    continuer sur une deuxième page, et les rapports Poutre/Dalle doivent
    sortir identiques.
 
-## 5 · Compatibilité
+## 5 · Le rapport du projet (lot 2)
+
+`acier/rapport_projet.py` — sans Streamlit, `generer_rapport(projet, infos)`
+rend les octets du PDF :
+
+1. **Page(s) de garde** : la garde des notes Poutre/Dalle
+   (`ndc_pdf.styles.Style.garde_lignes`, dont `garde()` est désormais un cas
+   particulier — dessin inchangé, vérifié par `tests/test_export_pdf_ndc.py`) :
+   bandeau « Bureau d'Études Valens · Note de calcul », titre « Assemblages
+   métalliques », cartouche du projet, sommaire : repère — type, profilés et
+   efforts, pastille (VÉRIFIÉ · SOUS RÉSERVE · NON VÉRIFIÉ · CALCUL IMPOSSIBLE),
+   numéro de page. Au-delà de onze entrées le sommaire **continue** sur une
+   deuxième page de garde et les numéros de page en tiennent compte.
+2. **La note de chaque assemblage**, produite par `generer_note` de son type,
+   sans modification ; son cartouche porte « partie · repère ». Les pages sont
+   **comptées sur les PDF produits** (pymupdf), jamais supposées.
+3. **Assemblage** avec pymupdf : un **signet** par assemblage, métadonnées du
+   document. Une entrée dont le calcul échoue donne une page d'erreur et une
+   pastille « calcul impossible » : le rapport sort quand même.
+
+Sur la page Projet, **📄 Générer PDF** (désactivé si le projet est vide) puis
+« ⬇️ Télécharger le rapport PDF », nommé `AAA_Assemblages Partie#Indice_Date.pdf`.
+Le bouton de téléchargement disparaît dès que le projet change après la
+génération (empreinte du fichier projet) : pas de rapport périmé.
+
+## 6 · Compatibilité
 
 - Un écran ouvert sans entrée (tests existants, `asm_courant` posé
   directement) garde le comportement d'avant : 💾 et 📂 de l'assemblage seul,

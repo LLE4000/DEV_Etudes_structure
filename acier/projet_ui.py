@@ -261,18 +261,7 @@ def resume(e):
         r = dict(_resume_calcule(e["type"], json.dumps(e.get("values", {}), sort_keys=True, default=str)))
     except Exception as exc:  # noqa: BLE001
         r = {"etat": "err", "eta": None, "gov": type(exc).__name__, "statut": "calcul impossible"}
-    u = e.get("values") or {}
-    morceaux = []
-    if u.get("prof_S") or u.get("prof_P"):
-        morceaux.append(f"{u.get('prof_S') or '?'} sur {u.get('prof_P') or '?'}")
-    for cle, lab in (("V_Ed", "V"), ("N_Ed", "N"), ("M_Ed", "M")):
-        try:
-            v = float(u.get(cle) or 0)
-        except (TypeError, ValueError):
-            v = 0.0
-        if v:
-            morceaux.append(f"{lab} = {v:g} {'kNm' if lab == 'M' else 'kN'}")
-    r["description"] = " · ".join(morceaux)
+    r["description"] = modele.description(e.get("values"))
     return r
 
 
