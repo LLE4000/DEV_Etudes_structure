@@ -152,11 +152,11 @@ FAMILLES = (
             Assemblage(
                 id="platine_beton",
                 titre="Platine de pied de poteau sur béton",
-                pitch="Profilé en I/H ou RHS/SHS, platine rectangulaire, tiges en grille — aire efficace et "
-                      "tronçons en T EN 1993-1-8, tiges EN 1992-4. Moteur livré (lot A) ; écran au lot B.",
+                pitch="N + Mx + My sans éléments finis : profilé en I/H ou RHS/SHS, platine rectangulaire, tiges "
+                      "en grille — aire efficace et tronçons en T EN 1993-1-8, ancrages EN 1992-4, ANB belge.",
                 vignette=vignette_pied_poteau(),
-                etat="à venir",
-                module="",
+                etat="disponible",
+                module="acier.assemblages.pied_poteau.platine_beton.interface",
             ),
         ),
     ),

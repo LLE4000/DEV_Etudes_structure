@@ -21,6 +21,11 @@ TYPE_CROSSE = "Tige à crosse (adhérence)"
 OUI, NON = "Oui", "Non"
 BETONS = ["C20/25", "C25/30", "C30/37", "C35/45", "C40/50", "C45/55", "C50/60"]
 
+# Annotation de FABRICATION, hors moteur et hors CLES : composition de la
+# boulonnerie par tige (cartouche du plan de principe), même mécanisme que
+# les assemblages poutre–poutre.
+VISSERIE_DEFAUT = "1 rondelle + 1 écrou + 1 contre-écrou"
+
 
 def defaults():
     """Les entrées et leur valeur par défaut — l'exemple du bureau : HEA 300,
@@ -152,8 +157,10 @@ GROUPES = [
 ]
 
 COURT = {"bp_u": "bp", "lp_u": "lp", "tp_u": "tp", "a_w": "a", "w_x": "wx", "w_y": "wy",
-         "hef": "hef", "d_h": "dh", "t_g": "tg", "N_Ed": "NEd", "Mx_Ed": "Mx", "My_Ed": "My",
-         "Vx_Ed": "Vx", "Vy_Ed": "Vy", "T_Ed": "TEd", "prof_c": "profilé", "ancr": "tige"}
+         "hef": "hef", "d_h": "dh", "t_g": "tg", "f_g": "fg", "N_Ed": "NEd", "Mx_Ed": "Mx", "My_Ed": "My",
+         "Vx_Ed": "Vx", "Vy_Ed": "Vy", "T_Ed": "TEd", "prof_c": "profilé", "ancr": "tige",
+         "bc_u": "bc", "lc_u": "lc", "hc_u": "hc", "n_ax": "files", "n_ay": "rangées",
+         "h_u": "h", "b_u": "b", "tw_u": "tw", "tf_u": "tf", "r_u": "r", "t_u": "t", "L_c": "Lc"}
 UNITE = {}
 CHAMPS = {}
 for _g in GROUPES:

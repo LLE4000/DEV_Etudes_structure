@@ -118,6 +118,13 @@ class Note:
     NORME = "(γM1 : ANB belge)"
     LEGENDE = LEGENDE_REFERENCES
     NOTATIONS = NOTATIONS_COURTES
+    # la référence courte d'une vérification (bandeau, formules) : un autre
+    # assemblage, avec d'autres normes, passe la sienne
+    REF = None
+
+    def ref(self, r):
+        from .notation import ref_courte
+        return (self.REF or ref_courte)(r)
 
     def entete(self, R):
         return lignes_entete(R)
@@ -208,8 +215,7 @@ class Note:
         t1 = "η max " + pct(R.eta_max, 1)
         d.t(x, y, t1, "Carlito-Bold", 8.6, S.ok if etat_ok else S.ko)
         x += d.w(t1, "Carlito-Bold", 8.6) + 5
-        from .notation import ref_courte
-        t2 = ("— dimensionnant : " + self.SYN.court(R.gov) + " (" + ref_courte(R.gov.ref) + ")") if R.gov else ""
+        t2 = ("— dimensionnant : " + self.SYN.court(R.gov) + " (" + self.ref(R.gov.ref) + ")") if R.gov else ""
         if not R.geo_ok:
             t2 += " · géométrie non valide"
         if not R.dist_ok:
@@ -367,7 +373,6 @@ class Note:
         fr = frames[0]
         self.titre(d, fr, "FORMULES ET SUBSTITUTIONS NUMÉRIQUES")
         fr.down(2)
-        from .notation import ref_courte
         for c in places:
             bloc, h = self._bloc_formules(d, c, fr.w)
             while not fr.fits(h) and i + 1 < len(frames):
@@ -381,7 +386,7 @@ class Note:
             lab = self.SYN.court(c) + ("" if c.nat == "EC" else " [" + c.nat + "]")
             d.t(fr.x + 5, fr.y, lab, "Carlito-Bold", 6.3, S.ink)
             wl = d.w(lab, "Carlito-Bold", 6.3)
-            d.t(fr.x + 5 + wl + 4, fr.y, d.fit("— " + ref_courte(c.ref), S.f_b, S_REF, fr.w - wl - 12), S.f_b, S_REF, S.mut)
+            d.t(fr.x + 5 + wl + 4, fr.y, d.fit("— " + self.ref(c.ref), S.f_b, S_REF, fr.w - wl - 12), S.f_b, S_REF, S.mut)
             for l in bloc:
                 fr.down(S_FORM * 1.25)
                 d.t(fr.x + 5, fr.y, l, S.f_b, S_FORM, S.ink)

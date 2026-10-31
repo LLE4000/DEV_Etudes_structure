@@ -69,8 +69,10 @@ def compute(u0=None):
     gM0, gM2 = u.g_M0 or 1.0, u.g_M2 or 1.25
     gc, gMc = u.g_c or 1.5, u.g_Mc or 1.5
 
-    def al(ident, msg, block, fields=(), why=""):
-        R.alerts.append(Alerte(ident, msg, block, list(fields), [], [], why))
+    def al(ident, msg, block, fields=(), why="", dims=(), elems=()):
+        """``dims`` / ``elems`` : cotes et pièces du dessin que « Localiser »
+        met en rouge (identifiants de schemas.py)."""
+        R.alerts.append(Alerte(ident, msg, block, list(fields), list(dims), list(elems), why))
 
     def ck(key, grp, label, Ed, Rd, unit, ref, nat, active, formula, vals="", ess=0):
         if active and Rd is not None and Rd > 0:
@@ -101,7 +103,7 @@ def compute(u0=None):
     R.h, R.b = dims["h"], dims["b"]
     geo_ok = all(v > 0 for k, v in dims.items() if k != "r")
     if not geo_ok:
-        al("profil", "Dimensions du profilé incomplètes.", True, ["prof_c", "h_u", "b_u", "t_u"])
+        al("profil", "Dimensions du profilé incomplètes.", True, ["prof_c", "h_u", "b_u", "t_u"], elems=["col"])
 
     # ------------------------------------------------------------- aciers
     def acier(nu):
@@ -123,9 +125,11 @@ def compute(u0=None):
         al("mortier", "Mortier de scellement hors conditions de βj = 2/3 (épaisseur ≤ 0,2·min(bp, lp) et "
            "résistance ≥ 0,2·fck) — EN 1993-1-8 §6.2.5(7).", True, ["t_g", "f_g"],
            f"tg = {F(u.t_g, 0)} mm, fg = {F(u.f_g, 0)} MPa ; limites {F(0.2 * min(u.bp_u, u.lp_u), 0)} mm et "
-           f"{F(0.2 * R.fck, 1)} MPa")
+           f"{F(0.2 * R.fck, 1)} MPa", dims=["tg"], elems=["grout"])
     if u.bp_u > u.bc_u or u.lp_u > u.lc_u:
-        al("massif", "La platine déborde du massif.", True, ["bp_u", "lp_u", "bc_u", "lc_u"])
+        al("massif", "La platine déborde du massif.", True, ["bp_u", "lp_u", "bc_u", "lc_u"],
+           f"platine {F(u.bp_u, 0)} × {F(u.lp_u, 0)} mm, massif {F(u.bc_u, 0)} × {F(u.lc_u, 0)} mm",
+           dims=["bp", "lp", "bc", "lc"], elems=["plate", "pedestal"])
         geo_ok = False
 
     # ------------------------------------------------- aire efficace (EC3)
@@ -143,14 +147,18 @@ def compute(u0=None):
     bo = find(DB["boulons"], u.ancr)
     cl = find(DB["classes"], u.classe)
     R.d_a, R.As, R.d0 = bo["d"], bo["As"], bo["d0"]
+    R.d_w = bo.get("dw", 2 * bo["d"])                        # rondelle (dessins)
     R.f_ub, R.f_yb = cl["fub"], cl["fyb"]
+    R.nom_c = (u.prof_c if (R.forme == "I" and u.prof_c != PERSO)
+               else ("RHS " if R.forme == "RHS" else "Profilé ") + F(dims["h"], 0) + "×" + F(dims["b"], 0)
+               + ("×" + F(dims["t"], 0) if R.forme == "RHS" else ""))
     R.n_t = int(u.n_ax) * int(u.n_ay)
     pos = GE.positions_tiges(u.n_ax, u.n_ay, u.w_x, u.w_y)
     R.tiges = [dict(x=x, y=y, i=i, j=j) for (x, y, i, j) in pos]
     xy = [(t["x"], t["y"]) for t in R.tiges]
     if int(u.n_ax) != 2:
         al("files", "Deux files de tiges sont prévues en V1 ; les rangées sont traitées par tiges avec "
-           "leurs voisines.", False, ["n_ax"])
+           "leurs voisines.", False, ["n_ax"], f"{int(u.n_ax)} files", elems=["anchors"])
     R.Lb = 8 * R.d_a + u.t_g + u.tp_u + 0.6 * R.d_a           # Tableau 6.2 : + rondelle + ½ écrou (0,6·d)
     R.Ft_EC3 = CP.tige_traction_EC3(R.f_ub, R.As, gM2)
     R.N_Rd_s, R.g_Ms_N = CP.tige_traction_EN1992_4(R.As, R.f_ub, R.f_yb)
@@ -172,25 +180,30 @@ def compute(u0=None):
                         ["w_x", "w_y", "bp_u", "lp_u"], [], "e ≥ 1,2·d0", e_min >= 1.2 * R.d0 - 1e-9, "dist_e"))
     if e_min < 1.2 * R.d0 - 1e-9:
         al("dist_e", "Pince d'une tige au bord de la platine inférieure à 1,2·d0 (ou tige hors platine).",
-           True, ["w_x", "w_y", "bp_u", "lp_u"], f"e = {F(e_min, 0)} mm < {F(1.2 * R.d0, 1)} mm")
+           True, ["w_x", "w_y", "bp_u", "lp_u"], f"e = {F(e_min, 0)} mm < {F(1.2 * R.d0, 1)} mm",
+           dims=["wx", "wy", "bp", "lp", "ex", "ey"], elems=["anchors"])
         geo_ok = False
     R.dist_ok = all(p.ok for p in R.dist)
     for t in R.tiges:
         t.update(GE.classer_tige(t["x"], t["y"], R.forme, dims, u.a_w))
     classes = {t["classe"] for t in R.tiges}
     if "dedans" in classes:
-        al("dedans", "Une tige tombe dans le vide du profil creux.", True, ["w_x", "w_y"])
+        al("dedans", "Une tige tombe dans le vide du profil creux.", True, ["w_x", "w_y"],
+           f"wx = {F(u.w_x, 0)}, wy = {F(u.w_y, 0)} mm ; profil {F(dims['b'], 0)} × {F(dims['h'], 0)} mm",
+           dims=["wx", "wy"], elems=["anchors", "col"])
         geo_ok = False
     if "coin" in classes:
         al("coin", "Tiges au-delà de l'about d'aile (coin) : pas de longueur efficace codifiée — tronçon en T "
            "contre la face d'aile, longueur plafonnée à la demi-largeur d'aile par tige (modèle d'ingénieur, "
-           "à valider).", False, ["w_x", "w_y"])
+           "à valider).", False, ["w_x", "w_y"],
+           f"Σleff plafonnée à 0,25·b = {F(0.25 * dims['b'], 0)} mm par tige", dims=["wx", "wy"], elems=["anchors"])
     if "lat" in classes:
         al("lat", "Tiges au-delà de l'about d'aile entre les niveaux d'aile : appui réduit à l'épaisseur de "
-           "l'aile (modèle d'ingénieur, à valider).", False, ["w_x", "w_y"])
+           "l'aile (modèle d'ingénieur, à valider).", False, ["w_x", "w_y"],
+           f"plafond (tf + 4·m)/2 par tige, tf = {F(dims.get('tf', 0), 1)} mm", dims=["wx", "wy"], elems=["anchors"])
     if "int" in classes and R.forme == "I":
         al("int", "Tiges entre les ailes : tronçon en T non raidi contre l'âme (Tableau 6.4, conservatif).",
-           False, ["w_x", "w_y"])
+           False, ["w_x", "w_y"], "", dims=["wx", "wy"], elems=["anchors"])
 
     # ------------------------------------------- tronçons en T par rangée
     rangees = {}
@@ -252,7 +265,8 @@ def compute(u0=None):
     R.eq_ok = bool(el["ok"])
     if geo_ok and not R.eq_ok:
         al("eq", "Équilibre élastique introuvable (soulèvement sans tiges suffisantes ou données incohérentes).",
-           True, ["N_Ed", "Mx_Ed", "My_Ed"])
+           True, ["N_Ed", "Mx_Ed", "My_Ed"],
+           f"N = {F(u.N_Ed, 0)} kN, Mx = {F(u.Mx_Ed, 1)}, My = {F(u.My_Ed, 1)} kNm", elems=["efforts", "anchors"])
     R.contact, R.A_c = el["contact"], el["A_c"]
     R.C, R.xC, R.yC, R.pmax = el["C"] / 1e3, el["xC"], el["yC"], el["pmax"]
     R.axe = (el["a"], el["bx"], el["by"])
@@ -265,7 +279,9 @@ def compute(u0=None):
     R.soulevement = T_tot > 1e-6
     if R.soulevement:
         al("soul", "Côté tendu : " + ", ".join(f"tige ({F(t['x'], 0)} ; {F(t['y'], 0)}) {F(t['T'], 1)} kN"
-                                               for t in R.tiges if t["T"] > 1e-6) + ".", False, [])
+                                               for t in R.tiges if t["T"] > 1e-6) + ".", False, [],
+           f"{sum(1 for t in R.tiges if t['T'] > 1e-6)} tige(s) tendue(s), T max = {F(R.T_max, 1)} kN, "
+           f"ΣT = {F(R.T_tot, 1)} kN", elems=["anchors"])
 
     # cisaillement par tige : EC3 (frottement déduit) et EN 1992-4 (sans)
     R.Ff_Rd = (u.C_f or 0.0) * max(0.0, N_)
@@ -309,9 +325,10 @@ def compute(u0=None):
             eta1 = eta2 = (N_ / R.N_Rd) if R.N_Rd > 0 else 1e9
         else:
             eta1 = eta2 = (-N_ / (sum(FtRd) or 1e-9))
-    if N_ > 2 * min(R.FC_Rd.values() or [0.0]) and M_res > 1e-6:
+    if geo_ok and R.FC_Rd and N_ > 2 * min(R.FC_Rd.values()) and M_res > 1e-6:
         al("comp_dom", "Compression supérieure à 2·FC,Rd d'une paroi : le modèle de la Table 6.7 (niveau 1) "
-           "ne s'applique plus, le niveau 2 renseigne.", False, ["N_Ed"])
+           "ne s'applique plus, le niveau 2 renseigne.", False, ["N_Ed"],
+           f"N = {F(u.N_Ed, 0)} kN > 2·FC,Rd = {F(2 * min(R.FC_Rd.values()) / 1e3, 0)} kN", elems=["efforts"])
     R.eta1, R.eta2 = eta1, eta2
 
     # --------------------------------------------------------- vérifications
@@ -475,9 +492,11 @@ def compute(u0=None):
        1.0, "-", REF_924 + " §7.2.3.2", "EC", bool(tend) and V_res > 0,
        "βN^1,5 + βV^1,5 ≤ 1 ; βN = max(cône ; arrachement), βV = max(bord ; pry-out)",
        f"βN = {F(bN, 2)} ; βV = {F(bV, 2)}")
-    if min(cone["cmin"] if cone["actif"] else cone_all["cmin"], cone_all["cmin"]) < 1.5 * u.hef:
+    c_min = min(cone["cmin"] if cone["actif"] else cone_all["cmin"], cone_all["cmin"])
+    if c_min < 1.5 * u.hef:
         al("fend", "Bord du massif à moins de 1,5·hef : fendage (EN 1992-4 §7.2.1.7) et, pour une tige à tête, "
-           "éclatement latéral (§7.2.1.8) à vérifier — non couverts en V1.", False, ["bc_u", "lc_u", "hef"])
+           "éclatement latéral (§7.2.1.8) à vérifier — non couverts en V1.", False, ["bc_u", "lc_u", "hef"],
+           f"c = {F(c_min, 0)} mm < 1,5·hef = {F(1.5 * u.hef, 0)} mm", dims=["bc", "lc", "hef"], elems=["pedestal"])
 
     # poteau : aile / paroi comprimée
     Iy, Wpl = CP.inertie_wpl(R.forme, dims)

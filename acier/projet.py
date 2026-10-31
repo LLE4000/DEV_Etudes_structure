@@ -53,13 +53,23 @@ def description(values):
     morceaux = []
     if u.get("prof_S") or u.get("prof_P"):
         morceaux.append(f"{u.get('prof_S') or '?'} sur {u.get('prof_P') or '?'}")
-    for cle, lab in (("V_Ed", "V"), ("N_Ed", "N"), ("M_Ed", "M")):
+    elif u.get("prof_c") or u.get("bp_u"):
+        # pied de poteau : profilé, platine, massif
+        def _n(k):
+            try:
+                return f"{float(u.get(k) or 0):g}"
+            except (TypeError, ValueError):
+                return "?"
+        prof = u.get("prof_c") if u.get("prof_c") and u.get("prof_c") != "Personnalisé" else "Poteau"
+        morceaux.append(f"{prof} · platine {_n('bp_u')}×{_n('lp_u')}×{_n('tp_u')} · massif {_n('bc_u')}×{_n('lc_u')}")
+    for cle, lab in (("V_Ed", "V"), ("N_Ed", "N"), ("M_Ed", "M"), ("Mx_Ed", "Mx"), ("My_Ed", "My"),
+                     ("Vx_Ed", "Vx"), ("Vy_Ed", "Vy")):
         try:
             v = float(u.get(cle) or 0)
         except (TypeError, ValueError):
             v = 0.0
         if v:
-            morceaux.append(f"{lab} = {v:g} {'kNm' if lab == 'M' else 'kN'}")
+            morceaux.append(f"{lab} = {v:g} {'kNm' if lab.startswith('M') else 'kN'}")
     return " · ".join(morceaux)
 
 

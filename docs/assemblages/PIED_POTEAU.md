@@ -1,8 +1,9 @@
 # Pied de poteau sur béton — module `acier/assemblages/pied_poteau/platine_beton`
 
-*Lot A (31/10/2026) : le MOTEUR, sans écran. Il applique la méthode de
-l'étude `PIED_POTEAU_ETUDE.md`. Lot B : écran, note, projet. Lot C :
-validation, CHS, tiges post-installées.*
+*Lot A (31/10/2026) : le MOTEUR. Il applique la méthode de l'étude
+`PIED_POTEAU_ETUDE.md`. Lot B (31/10/2026) : l'ÉCRAN, les dessins, la note
+de deux pages et l'intégration au projet d'assemblages — section 6. Lot C :
+validation sur exemples publiés, CHS, tiges post-installées.*
 
 ## 1 · Ce que le moteur calcule
 
@@ -85,3 +86,24 @@ p_max = 11,7 MPa, niveau 1 = 0,53, niveau 2 = 0,38 — mais **le massif de
 (1,08)** : non vérifié ; avec un massif de 1 400 mm, vérifié. C'est le
 résultat annoncé par l'étude : ce sont le béton d'ancrage et la longueur
 efficace des coins qui décident, pas EC3-1-8.
+
+## 6 · L'écran, les dessins, la note (lot B)
+
+Le pied est le quatrième type du projet d'assemblages (`acier/registre.py`,
+famille « Pied de poteau », `etat="disponible"`) : « Créer » dans le
+catalogue, repère A1…, sélecteur, 💾 / 📂 du projet, verrou 🔒, rapport du
+projet (`acier/rapport_projet.py` assemble sa note de deux pages). Même
+présentation que les trois assemblages poutre–poutre — préfixe de session
+`ppb_`, colonne du dessin figée, carte par objet, onglets.
+
+| Pièce | Fichier | Ce qu'elle porte |
+|---|---|---|
+| Dessins | `schemas.py` | **vue en plan** = la répartition : massif, platine, section du poteau hachurée, aire efficace (bande c, classe `ae`), zone comprimée de la répartition élastique (`ct`), axe neutre (`an`), résultante C, effort T de chaque tige tendue, poignées files / rangées ; **coupe A-A** (plan x–z : b, files, platine, mortier, tiges et têtes ou crosses, massif rompu, symbole de soudure) ; **coupe B-B** (plan y–z) ; **domaine (Mx, My)** à N donné (niveau 2 en polygone, niveau 1 en losange, point MEd). Cotes modifiables sur le dessin : bp, lp, tp, wx, wy, hef, dh, tg, bc, lc, a. |
+| Kit partagé | `poutre_poutre/doubles_cornieres/schemas.py` | classes ajoutées pour les pieds : `be` béton, `gr` mortier, `tg` tige, `ae` / `ael` aire efficace, `ct` zone comprimée, `an` axe neutre, `d1` / `d2` / `pt` / `axe` / `grd` du domaine — `style_de` + `_css`, donc écran ET peintre PDF ; la parité des doubles cornières ne bouge pas (372 vues comparées). |
+| Carte | `ecran_saisie.py` | poteau (forme, profilé ou dimensions, nuance), nuance de la platine, tiges (diamètre, classe, ancrage, files, rangées), visserie, béton (classe, fissuré, hc), efforts ; replis : coefficients (αcc, γc, γMc, γM0, γM2, Cf,d), mortier fg, Lc et contreventement, acier personnalisé. **Jamais de cote dans la carte.** |
+| Résultats | `ecran_resultats.py` | bandeau (taux par élément : Pied, Béton, Platine, Tiges, Poteau, Soudure — les lignes d'information `fc2`, `bet` n'y comptent pas), alertes localisables (cotes et pièces en rouge), onglets **Vérifications** (six tableaux, formules, pince Tab. 3.3, paramètres retenus), **Répartition** (domaine, tiges, rangées), Note, Benchmark (VAL-A, VAL-B chargeables), Méthode. |
+| Note | `note.py` | page 1 : colonne des dessins = vue en plan (répartition), coupe A-A, domaine, hypothèses ; tableaux Pied · Béton · Cordons / Platine · Tiges · Poteau ; conclusion « selon EN 1993-1-8 §6.2.8, EN 1992-1-1 §6.7 et EN 1992-4 (γM0 : ANB belge ; αcc = 0,85) » ; page 2 : plan de principe (coupe A-A, vue en plan, coupe B-B, échelle normalisée, cartouche TIGES + visserie). Les références courtes (`notation.ref_courte`) sont propres au module (trois normes) : la classe de note de la famille les reçoit par l'attribut `REF`. |
+| Tests | `tests/test_pied_poteau_ecran.py` | 45 contrôles : navigation, écran, source unique (message du dessin, chip d'alerte, poignée, crosse, RHS), dessins (SVG, répartition, poignées, cotes de fabrication posées une fois), note (défaut + six cas figés, 2 pages sans débordement), benchmark, exports, projet, étanchéité. |
+
+Les alertes du moteur portent désormais `dims` / `elems` (identifiants du
+dessin) pour « Localiser », et une explication chiffrée `why` par alerte.

@@ -46,7 +46,7 @@ A2  Plat d'âme soudé    ● non vérifié · η = 104 %
 | Modèle du projet (liste, repères, dupliquer, ordre, fichier) — sans Streamlit | `acier/projet.py` |
 | Projet dans la session : ouvrir, fermer, synchroniser, barre partagée, infos projet | `acier/projet_ui.py` |
 | Page Projet (liste, catalogue, menu ⋯, 💾 📂) | `modules/assemblages.py` |
-| Barre d'outils des trois écrans (◀ Projet, 💾, sélecteur / 📂 seul) | `acier/assemblages/poutre_poutre/*/interface.py` |
+| Barre d'outils des quatre écrans (◀ Projet, 💾, sélecteur / 📂 seul) | `acier/assemblages/poutre_poutre/*/interface.py`, `acier/assemblages/pied_poteau/platine_beton/interface.py` (préfixe `ppb_`, lot B du pied) |
 | Appel de synchronisation au début de chaque run | `streamlit_app.py` |
 | Tests | `tests/test_projet_assemblages.py` |
 
