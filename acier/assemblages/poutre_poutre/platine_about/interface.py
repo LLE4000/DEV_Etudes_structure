@@ -4,22 +4,23 @@
 # ===========================
 #  interface.py (Streamlit)
 #
-#  Même écran que les deux autres assemblages de la famille : barre
-#  d'outils, statut une ligne, alertes courtes, puis DEUX COLONNES — à
-#  gauche le dessin (élévation puis vue en plan, colonne FIGÉE par CSS
-#  sticky), à droite la carte compacte par objet, les replis et les onglets.
+#  Titre court et barre d'outils partagée (acier/projet_ui.py), statut une
+#  ligne, alertes courtes, puis DEUX COLONNES — à gauche le dessin (élévation
+#  puis vue en plan, colonne FIGÉE par CSS sticky), à droite la carte par
+#  objet rendue par le kit (acier/assemblages/carte.py), les replis et les
+#  onglets. Charte ergonomique du 31/10/2026 (docs/assemblages/ERGONOMIE.md).
 #
 #  SOURCE UNIQUE : les entrées vivent dans st.session_state sous les clés
 #  `pab_<clé>` (espace disjoint des clés `asm_` et `fpl_` des deux autres).
 #  Le dessin est rendu AVANT la carte (messages appliqués avant widgets).
 # ===========================
-import json
 from datetime import datetime
 from functools import lru_cache
 
 import streamlit as st
 
 from acier import projet_ui
+from acier.assemblages import carte as kit
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT
 from .moteur import compute
@@ -27,6 +28,8 @@ from .benchmark import run_bench
 
 MODULE_VERSION = "1.0"
 PREFIXE = "pab_"
+TITRE_COURT = "Platine d'about partielle"
+TITRE_LONG = "Assemblage poutre–poutre – platine d'about de hauteur partielle"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "_pab_", "pab_cmp_", "pab_cote_", "pab_fix_")
 
 _CSS_STICKY = """<style>
@@ -132,61 +135,26 @@ def show():
     if msg:
         st.toast(msg)
 
-    tH1, tH2, tH3 = st.columns([8, 1.6, 0.55], vertical_alignment="center")
-    with tH1:
-        st.markdown("## Assemblage poutre–poutre – platine d'about de hauteur partielle")
-    with tH2:
-        st.markdown(f"<div style='text-align:right;color:#6b7280;font-size:0.9em;'>Version {MODULE_VERSION}</div>",
-                    unsafe_allow_html=True)
-    with tH3:
-        st.button("❔", key="pab_btn_version", use_container_width=True,
-                  help="Vérification ELU selon EN 1993-1-8 et EN 1993-1-1 (γM0 : ANB belge) ; modèles "
-                       "MSB Part 5 §2 (platine d'about partielle, tying §2.3), SCI P358, ECCS n°126. "
-                       "Benchmark : Worked Example publié du guide (§2.4), rejoué à chaque ouverture.")
-
-    # Barre d'outils : ◀ Projet · 🏠 · 🔄 · 💾 (projet entier) · [A2 ▾] · 📄 —
-    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
-    b0, b1, b2, b3, b4, b5 = st.columns(6)
-    with b0:
-        projet_ui.bouton_retour("pab_btn_retour")
-    with b1:
-        if st.button("🏠 Accueil", use_container_width=True, key="pab_btn_home"):
-            st.session_state.retour_accueil_demande = True
-            st.rerun()
-    with b2:
-        if st.button("🔄 Réinitialiser", use_container_width=True, key="pab_btn_reset",
-                     disabled=projet_ui.verrouille()):
-            _reinitialiser()
-            st.rerun()
+    projet_ui.en_tete(TITRE_COURT, TITRE_LONG + " · version " + MODULE_VERSION)
     u = lire_entrees()
-    with b3:
-        projet_ui.bouton_enregistrer("pab_btn_save_dl", lambda: _payload(u), lambda: texte.nom_fichier(u, ".json"))
-    with b4:
-        if not projet_ui.selecteur(PREFIXE):
-            projet_ui.bouton_ouvrir_seul(PREFIXE, charger_payload, ecrire_entrees)
-
     try:
         R = compute(u)
         erreur = None
     except Exception as e:  # noqa: BLE001 — l'écran doit rester utilisable
         R, erreur = None, f"{type(e).__name__}: {e}"
 
-    with b5:
-        if st.button("📄 Générer PDF", use_container_width=True, key="pab_btn_pdf", disabled=R is None,
-                     help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe."):
-            from .note import generer_note
-            try:
-                st.session_state["pab_pdf_bytes"] = generer_note(R, _infos(u))
-                st.success("✅ Note de calcul générée")
-            except Exception as e:  # noqa: BLE001
-                st.session_state.pop("pab_pdf_bytes", None)
-                st.error(f"Erreur lors de la génération du PDF : {e}")
-        if st.session_state.get("pab_pdf_bytes"):
-            st.download_button("⬇️ Télécharger la note PDF", data=st.session_state["pab_pdf_bytes"],
-                               file_name=texte.nom_fichier(u, ".pdf"), mime="application/pdf",
-                               use_container_width=True, key="pab_btn_pdf_dl")
+    def generer_pdf():
+        from .note import generer_note
+        return generer_note(R, _infos(u))
 
+    # Barre d'outils partagée : ◀ Projet · 🏠 · 💾 (projet entier) · 📄 · [A2 ▾] · 🔄 —
+    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
+    projet_ui.barre_outils(PREFIXE, lambda: _payload(u), lambda ext: texte.nom_fichier(u, ext), charger_payload,
+                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None,
+                           pdf_help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe.")
     projet_ui.bandeau_verrou(PREFIXE)
+    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
+    kit.injecter_css(PREFIXE)
     if R is None:
         st.error(f"Données incomplètes : {erreur}")
         ecran_saisie.carte(u, set())
@@ -199,7 +167,6 @@ def show():
     for a in R.alerts:
         if a.id == sel:
             chauds = set(a.fields)
-    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
     c_dessin, c_droite = st.columns([1, 1.12], gap="medium")
     with c_dessin:
         with st.container(key="pab_col_dessin"):

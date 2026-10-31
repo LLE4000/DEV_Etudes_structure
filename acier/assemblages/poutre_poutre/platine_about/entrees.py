@@ -3,8 +3,11 @@
 
 - ``defaults()``          : les clés et leur valeur par défaut ;
 - ``NUM``                 : les clés normalisées en nombre par le moteur ;
-- ``GROUPES``             : les groupes du formulaire (clé, libellé, type,
-                            options, unité, aide, condition d'affichage) ;
+- ``GROUPES``             : les groupes du formulaire (clé, libellé long, type,
+                            options, unité, aide, condition d'affichage) — une
+                            VUE : les libellés et aides de l'écran sont ceux
+                            de ``ecran_saisie.LIBELLE`` / ``AIDES`` (charte
+                            du 31/10/2026) ;
 - ``PILOTEES_PAR_PREDIM`` : les clés remplacées par la proposition en mode
                             prédimensionnement (marquées ◆) ;
 - ``COURT`` / ``UNITE``   : libellé court et unité (chips, panneau des cotes).
@@ -107,6 +110,20 @@ def tying(u):
     return u.get("nat_N") == NAT_TYING
 
 
+def traction(u):
+    """NEd > 0 : la nature de la traction (ELU / tying) n'a de sens qu'alors —
+    le moteur fait NEd = max(0, N_Ed), une compression n'a pas de nature."""
+    try:
+        return float(str(u.get("N_Ed")).strip().replace(",", ".")) > 0
+    except (TypeError, ValueError):
+        return False
+
+
+def _tying_N(u):
+    """γMu ne sert qu'au tying effectif : nature Tying ET NEd > 0."""
+    return tying(u) and traction(u)
+
+
 def _dims(X, cond):
     return [dict(k=f"{d}{X}_u", l=f"{d} (personnalisé)", t="n", un="mm", si=cond)
             for d in ("h", "b", "tw", "tf", "r")]
@@ -121,7 +138,6 @@ def _c(k, l, t="n", o=None, un=None, h=None, si=None):
 # ------------------------------------------------------------------ groupes
 GROUPES = [
     dict(t="Identification",
-         note="Reprise dans la note et l'export texte. Un champ vide n'est pas imprimé.",
          f=[_c("id_projet", "Projet", "x"), _c("id_rep", "Repère de l'assemblage", "x"),
             _c("id_red", "Rédacteur", "x"), _c("id_date", "Date", "x")]),
     dict(t="Mode de calcul",
@@ -136,8 +152,8 @@ GROUPES = [
            [_c("nu_S", "Nuance d'acier", "s", ACIERS),
             _c("d_top", "Décalage : dessus de la secondaire sous le dessus de la principale", un="mm",
                h="0 = dessus des semelles au même niveau."),
-            _c("d_nt", "Profondeur du grugeage supérieur dnt", un="mm", h="0 = semelle supérieure non grugée."),
-            _c("d_nb", "Profondeur du grugeage inférieur dnb", un="mm"),
+            _c("d_nt", "Profondeur du grugeage supérieur dc,sup", un="mm", h="0 = semelle supérieure non grugée."),
+            _c("d_nb", "Profondeur du grugeage inférieur dc,inf", un="mm"),
             _c("l_n", "Longueur du grugeage c, depuis la face arrière de la platine", un="mm"),
             _c("r_n", "Rayon du grugeage (information d'exécution)", un="mm", h="Non utilisé dans les résistances."),
             _c("lt_ok", "Poutre secondaire maintenue au déversement", "s", OUI_NON,
@@ -179,17 +195,16 @@ GROUPES = [
             _c("N_Ed", "NEd – effort normal dans la secondaire (traction +)", un="kN",
                h="Traction : boulons tendus, platine fléchie (tronçon en T, EN 1993-1-8 §6.2.4), âme "
                  "portée et cordons tendus. Compression : transmise par contact, sans effet sur les boulons."),
-            _c("nat_N", "Nature de NEd", "s", [NAT_ELU, NAT_TYING],
+            # visible dès NEd > 0 seulement (charte du 31/10/2026) ; la valeur reste dans le fichier
+            _c("nat_N", "Nature de NEd", "s", [NAT_ELU, NAT_TYING], si=traction,
                h="ELU fondamental : fy/γM0 et γM2, combiné avec VEd. Tying : force de chaînage en "
                  "situation accidentelle, vérifiée seule avec fu/γMu (MSB P5 §2.3).")]),
     dict(t="Coefficients partiels",
-         note="Défauts : ANB BELGE pour l'EN 1993-1-1 (γM0 1,00) ; valeurs recommandées pour "
-              "l'EN 1993-1-8 (γM2 1,25). À confirmer sur le texte NBN.",
          f=[_c("g_M0", "γM0", un="-"),
             _c("g_M2n", "γM2 – sections nettes, rupture de bloc", un="-"),
             _c("g_M2", "γM2 – boulons, pression diamétrale, soudures", un="-"),
             _c("g_M3", "γM3 – glissement ELU", un="-"), _c("g_M3s", "γM3,ser – glissement ELS", un="-"),
-            _c("g_Mu", "γMu – tying (situation accidentelle)", un="-", si=tying,
+            _c("g_Mu", "γMu – tying (situation accidentelle)", un="-", si=_tying_N,
                h="1,1 : valeur du guide (MSB P5 §2.3, SCI P358). L'EN 1993-1-8 ne la fixe pas : "
                  "à confirmer pour la Belgique.")]),
     dict(t="Options du modèle mécanique",
@@ -200,7 +215,6 @@ GROUPES = [
     dict(t="Acier personnalisé", si=_acier_perso,
          f=[_c("fy_u", "fy", un="MPa"), _c("fu_u", "fu", un="MPa"), _c("bw_u", "βw", un="-")]),
     dict(t="Règles du prédimensionnement", si=mode_predim,
-         note="Règles de détail non normatives, modifiables.",
          f=[_c("eta_c", "Taux d'utilisation cible", un="-"),
             _c("k_e1", "Pince e1 = k × d0 (minimum normatif 1,2)", un="-"),
             _c("k_p1", "Entraxe p1 = k × d0 (minimum normatif 2,2)", un="-"),

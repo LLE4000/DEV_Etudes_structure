@@ -23,6 +23,7 @@ from ndc_pdf import data as ndc_data
 from acier.formats import F
 from acier.js import N, js_str
 from acier.bibliotheques import PERSO
+from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
 from .notation import LEGENDE_REFERENCES, ligne_alerte
@@ -63,22 +64,43 @@ def lignes_entete(R):
     return l1, l2, l3
 
 
-def lignes_hypotheses(R):
+def segments_hypotheses(R):
+    """Les SEGMENTS du bloc HYPOTHÈSES (charte du 31/10/2026, §11) : modèle
+    articulé, rupture de bloc de la platine (k), grugeage, nature de NEd,
+    cordons et pleine résistance, coefficients — chaque segment écrit en
+    entier, avec sa forme courte quand il en a une ; le kit
+    (``note_kit.empaqueter``) les range en ≤ 3 lignes de ≤ 110 caractères.
+    Retirés parce que déjà sur la page : la branche du groupe, Fv,Rd / Fb,Rd
+    (table Boulons, formules) et Σleff (formule du tronçon en T)."""
     u = R.u
-    h = ["Articulé — rotule à la face de l'âme porteuse ; groupe centré, VEd/n par boulon (MSB P5 §2.2).",
-         "Groupe : " + R.branche_g + " = " + F(R.FRd_g, 1) + " kN (Fv,Rd " + F(R.Fv_Rd, 1) + " ; Fb,Rd "
-         + F(R.Fbb_L, 1) + " / " + F(R.Fbi_L, 1) + " kN).",
-         "Platine : hp " + ("≥" if R.hp_136 else "<") + " 1,36·p3 → rupture de bloc avec k = " + F(R.k_bloc, 1) + "."]
+    signe = "≥" if R.hp_136 else "<"
+    k = F(R.k_bloc, 1)
+    seg = ["articulé : rotule à la face de l'âme porteuse (MSB P5 §2.2) ; groupe centré, VEd/n par boulon",
+           ("platine : hp " + signe + " 1,36·p3 → rupture de bloc, k = " + k,
+            "platine hp " + signe + " 1,36·p3 → k = " + k)]
     if R.cas_g > 0:
-        h.append("Grugeage : flexion de la section réduite, bras tp + c (MSB P5 §4.2.4).")
+        seg.append(("grugeage : section réduite, bras tp + c (MSB P5 §4.2.4)", "grugeage : bras tp + c (§4.2.4)"))
+    tying = bool(R.tying and N(u.N_Ed) > 0)
     if N(u.N_Ed) > 0:
-        h.append(("Tying : force de chaînage seule, fu/γMu (MSB P5 §2.3)" if R.tying
-                  else "NEd ELU combiné avec VEd") + " ; tronçon en T Σleff = " + F(R.leff_T, 0) + " mm.")
-    h.append("γM0 " + F(N(u.g_M0), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2) + " · nettes " + F(N(u.g_M2n), 2)
-             + ((" · γMu " + F(N(u.g_Mu), 2)) if R.tying else "") + ".")
-    h.append("Cordons : deux cordons sur toute la hauteur hp (§4.5.3.3) ; pleine résistance "
-             + F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm.")
-    return h
+        seg.append(("tying : force de chaînage seule, fu/γMu (MSB P5 §2.3)", "tying : chaînage seul, fu/γMu (§2.3)")
+                   if tying else ("NEd ELU combiné avec VEd (tronçon en T §6.2.4)", "NEd ELU avec VEd (§6.2.4)"))
+    plein = F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm"
+    seg.append(("cordons sur hp (§4.5.3.3), pleine résistance " + plein, "cordons hp, pleine résistance " + plein))
+    g_M2, g_M2n = N(u.g_M2), N(u.g_M2n)
+    g = "γM0 " + F(N(u.g_M0), 2) + " (ANB) · γM2 " + F(g_M2, 2)
+    if abs(g_M2 - g_M2n) > 1e-9:
+        g_long = g + " (boulons, soudures) · γM2,net " + F(g_M2n, 2) + " (nettes)"
+        g_court = "γM0 " + F(N(u.g_M0), 2) + " · γM2 " + F(g_M2, 2) + " · γM2,net " + F(g_M2n, 2)
+    else:
+        g_long, g_court = g + " (boulons, soudures, sections nettes)", g
+    suffixe = (" · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else "") + (" · γMu " + F(N(u.g_Mu), 2) if tying else "")
+    seg.append((g_long + suffixe, g_court + suffixe))
+    return seg
+
+
+def lignes_hypotheses(R):
+    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
+    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
 
 
 class Note(_np.Note):
@@ -134,7 +156,9 @@ class PlanPrincipePA(PlanPrincipe):
                + " – " + js_str(R.n_1) + " × 2 (p3 " + F(R.p_3, 0) + ") · soudure double a "
                + F(R.a_w, 1).replace(",0", ""))
         vis = "par boulon : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
-        ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
+        # Le rédacteur saisi (id_red) est porté au cartouche — un champ saisi et jamais lu était
+        # un défaut (charte du 31/10/2026, §6 et amendement 3) ; un champ vide n'est pas imprimé.
+        ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie"), u.id_red) if x)
         cases = [("ASSEMBLAGE", "Poutre–poutre – platine d'about", ident or "—", 0.185),
                  ("POUTRES", "P : " + _prof(R, "P") + " " + u.nu_P, "S : " + _prof(R, "S") + " " + u.nu_S, 0.165),
                  ("PLATINE", js_str(R.h_p) + "×" + js_str(R.b_p) + "×" + js_str(R.t_p) + " " + u.nu_pl,

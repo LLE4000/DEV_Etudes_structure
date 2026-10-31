@@ -119,7 +119,8 @@ VALID = [
         ["Rupture de bloc, k = 1 (hp ≥ 1,36·p3)",
          2 * (510 * 10 * (30 - 11) / 1.25 + 355 * 10 * (190 - 35 - 2.5 * 22) / S3) / 1000, 564.96, rd("pcb"), "kN"],
         ["Grugeage – MEd = VEd·(tp + c)", 125 * 0.160, 20.0, lambda R: R.ck["mN"].Ed, "kNm"],
-        ["Grugeage – Mv,N,Rd (même ancre que les deux autres modules)", 49.47898619990443, 49.4790, rd("mN"), "kNm"],
+        # même ancre que les deux autres modules de la famille (même règle de grugeage)
+        ["Grugeage – Mv,N,Rd", 49.47898619990443, 49.4790, rd("mN"), "kNm"],
         ["Âme porteuse – cisaillement local tw·hp·fy/√3", 11 * 190 * 355 / S3 / 1000, 428.37, rd("vlP"), "kN"],
         ["Soudure – Fw,Rd = fu/(√3·βw·γM2)·a (a = 5)", 5 * 510 / (S3 * 0.9 * 1.25), 1308.66, rd("w"), "N/mm"],
         ["Pleine résistance S355 : a/tw = βw·γM2·fy/(√2·fu)", _kpl, 0.5537, va("k_plein"), "-"],

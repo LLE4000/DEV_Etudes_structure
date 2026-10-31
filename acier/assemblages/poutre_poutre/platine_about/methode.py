@@ -3,6 +3,12 @@
 et ses limites — en toutes lettres."""
 
 METHODE = """
+#### Ce que l'outil vérifie
+
+Vérification ELU selon EN 1993-1-8 et EN 1993-1-1 (γM0 : ANB belge) ; modèles
+MSB Part 5 §2 (platine d'about partielle, tying §2.3), SCI P358, ECCS n°126.
+Benchmark : Worked Example publié du guide (§2.4), rejoué à chaque ouverture.
+
 #### Modèle mécanique
 
 Assemblage **articulé** : la rotule est à la **face de l'âme porteuse**. La
@@ -47,6 +53,10 @@ Modèle du guide *Steel Buildings in Europe – Part 5: Joint Design* §2
 
 #### Traction NEd : deux natures
 
+Une **compression** (NEd < 0) est transmise par contact de la platine sur
+l'âme porteuse, sans effet sur les boulons ni sur la platine : l'outil
+n'en tient pas compte et la nature de NEd n'apparaît que pour une traction.
+
 - **ELU fondamental** : combinée avec VEd. Boulons : interaction
   `Fv,Ed/Fv,Rd + Ft,Ed/(1,4·Ft,Rd) ≤ 1` (Tableau 3.4) ; platine : **tronçon
   en T** (§6.2.4, Tableau 6.2, mode 1 par la méthode 2), fy/γM0 ;
@@ -79,6 +89,12 @@ texte NBN, payant, n'a pas été consulté ici : à confirmer, valeurs
 modifiables. Aucune vérification de cet assemblage n'utilise γM1. **γMu =
 1,1** (tying) est la valeur du guide ; l'EN 1993-1-8 ne la fixe pas — à
 confirmer pour un projet belge.
+
+#### Données de bibliothèque
+
+Nuances : S355 : fu = 510 MPa (EN 1993-1-1 Tab. 3.1) ; « S355 (fu 490) » :
+valeur d'autres références, à caler sur l'ANB. Profilés : catalogue HEA / HEB /
+HEM / IPE ; « Personnalisé » = dimensions h, b, tw, tf, r saisies.
 
 #### Limites du modèle (à justifier séparément le cas échéant)
 

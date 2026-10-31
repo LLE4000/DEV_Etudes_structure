@@ -6,7 +6,17 @@ cornières)."""
 import re
 
 from acier.formats import F
-from ..doubles_cornieres.notation import ref_courte  # noqa: F401 — réutilisée telle quelle
+from ..doubles_cornieres.notation import ref_courte as _ref_courte_famille
+
+# Commentaires internes que le moteur porte dans ses références (« — même modèle que les deux
+# autres assemblages ») : retirés de la VUE (écran, note, export), le moteur ne change pas.
+_COMMENTAIRES_INTERNES = re.compile(r"\s+—\s+même modèle que[^;]*")
+
+
+def ref_courte(ref):
+    """La référence courte de la famille, sans les commentaires internes du moteur."""
+    return _ref_courte_famille(_COMMENTAIRES_INTERNES.sub("", ref or ""))
+
 
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC3-1-1 = EN 1993-1-1 ; "
                       "MSB P5 = Steel Buildings in Europe, Part 5 (§2 : platine d'about partielle) ; "
