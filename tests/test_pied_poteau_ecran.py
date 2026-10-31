@@ -40,7 +40,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 from acier.assemblages.pied_poteau.platine_beton import (interface, ecran_saisie, moteur,  # noqa: E402
                                                           schemas, note)
 from acier.assemblages.pied_poteau.platine_beton.entrees import (FORME_RHS, TYPE_CROSSE, TYPE_ETA, PERIM_EC3,  # noqa: E402
-                                                                  PERIM_TOUT)
+                                                                  PERIM_TOUT, MODE_COMPLET, MODE_MANUEL)
 from acier import projet as modele, rapport_projet  # noqa: E402
 
 OK, KO = [], []
@@ -87,7 +87,14 @@ at.button(key="asm_btn_open_platine_beton").click(); run(at)
 chk("« Créer » ouvre l'écran dans le projet (entrée A1)", not at.exception
     and at.session_state["asm_courant"] == "platine_beton" and at.session_state["prj_ouvert"] is not None
     and at.session_state["ppb_id_rep"] == "A1")
-chk("en-tête du module", "Pied de poteau – platine sur béton" in md(at))
+# Depuis le lot D, l'écran s'ouvre en CALCUL MANUEL ; cette suite décrit la VÉRIFICATION COMPLÈTE : on y passe
+# (la disposition par défaut est une grille régulière, la bascule reprend le profilé et les quatre tiges).
+chk("l'écran s'ouvre en calcul manuel (lot D)", at.session_state["ppb_mode"] == MODE_MANUEL)
+at.selectbox(key="ppb_mode").set_value(MODE_COMPLET); run(at)
+chk("la bascule vers la vérification complète reprend la grille 2 × 2 de 400 × 400 et le HEA 300",
+    at.session_state["ppb_mode"] == MODE_COMPLET and float(at.session_state["ppb_w_x"]) == 400.0
+    and int(at.session_state["ppb_n_ay"]) == 2 and at.session_state["ppb_prof_c"] == "HEA 300")
+chk("en-tête du module", "Platine sur béton – pied de poteau" in md(at))
 
 # ================================================================
 print("\n=== 2. Écran ===")
@@ -170,6 +177,7 @@ w = cles_widgets(at)
 chk("profil creux : h, b, t demandés, tw / tf / r et la liste des profilés retirés",
     {"ppb_h_u", "ppb_b_u", "ppb_t_u"} <= w and not {"ppb_tw_u", "ppb_tf_u", "ppb_prof_c"} & w)
 at.button(key="ppb_btn_reset").click(); run(at)
+at.selectbox(key="ppb_mode").set_value(MODE_COMPLET); run(at)       # les défauts rouvrent le calcul manuel (lot D)
 chk("réinitialiser : retour aux défauts (massif 900, profilé en I), repère conservé",
     float(at.session_state["ppb_bc_u"]) == 900.0 and at.session_state["ppb_forme"] != FORME_RHS
     and at.session_state["ppb_id_rep"] == "A1")
@@ -289,6 +297,7 @@ at.button(key="ppb_btn_val_1").click(); run(at)
 chk("« Charger ces données » : VAL-B (massif 3 000) dans l'outil, VÉRIFIÉ",
     float(at.session_state["ppb_bc_u"]) == 3000.0 and "PIED DE POTEAU VÉRIFIÉ" in md(at))
 at.button(key="ppb_btn_reset").click(); run(at)
+at.selectbox(key="ppb_mode").set_value(MODE_COMPLET); run(at)       # les défauts rouvrent le calcul manuel (lot D)
 at.button(key="ppb_btn_pdf").click(); run(at)
 chk("« Générer PDF » depuis l'application : 2 pages",
     bool(at.session_state.get("ppb_pdf_bytes"))

@@ -453,8 +453,8 @@ def onglet_note(R, u):
 
 # --------------------------------------------------------- onglet benchmark
 def _charger(inp, ecrire):
-    from .entrees import defaults
-    d = defaults(); d.update(inp); ecrire(d)
+    from .entrees import defaults, MODE_COMPLET
+    d = defaults(); d.update(inp); d["mode"] = MODE_COMPLET; ecrire(d)       # les cas VAL-A / VAL-B sont ceux de la vérification complète
     st.session_state["ppb_ui_alerte"] = None
     st.session_state["ppb_ui_onglet"] = ONGLETS[0]
     st.session_state["_ppb_toast"] = "Données chargées : voir Vérifications"

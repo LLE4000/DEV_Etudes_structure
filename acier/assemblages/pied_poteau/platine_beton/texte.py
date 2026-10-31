@@ -38,6 +38,9 @@ def ligne_donnees(R):
 
 
 def construire_texte(R, complet=False):
+    if getattr(R, "mode", "") == "manuel":
+        from .manuel.texte import construire_texte as _manuel
+        return _manuel(R, complet)
     L = ["PIED DE POTEAU — PLATINE SUR BÉTON (N + Mx + My)",
          "=" * 64,
          R.statut + " — taux maximal " + pct(R.eta_max, 1)

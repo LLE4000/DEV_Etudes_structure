@@ -65,11 +65,27 @@ TITRES_ALERTES = {
     "ancr_info": "Béton d'ancrage (EN 1992-4) non satisfait — hors périmètre, en information",
     "eta_info": "Tige post-installée : valeurs de l'ETA à reporter du document (ψg,Np = 1)",
     "c_ecret": "Bande c écrêtée par la platine : niveau 1 conservatif (platine épaisse)",
+    # calcul manuel
+    "dist_p": "Tab. 3.3 — entraxe de deux boulons inférieur à 2,2·d0",
+    "aucun_e": "Impossible — aucun élément soudé",
+    "aucun_b": "Impossible — aucun boulon",
+    "plein": "Appui sur toute la platine : approximation entre les ailes et au-delà des abouts",
+    "exc": "Efforts excentrés : N·e ajouté aux moments",
+    "tige_info": "Un boulon dépasse sa résistance en traction (information, hors verdict)",
+    "fjd_info": "Pression sous la platine supérieure à fjd (information, hors verdict)",
 }
+_TITRES_PREFIXES = [("elem_", "Impossible — élément soudé mal dimensionné"), ("hors_", "Impossible — élément hors de la platine"),
+                    ("raidh_", "Impossible — raidisseur hors de la platine"), ("raid_", "Impossible — raidisseur sans longueur ou épaisseur"),
+                    ("bin_", "Impossible — boulon dans l'emprise d'un élément"), ("brd_", "Impossible — boulon dans un raidisseur")]
 
 
 def titre_alerte(a):
-    return TITRES_ALERTES.get(a.id, a.msg)
+    if a.id in TITRES_ALERTES:
+        return TITRES_ALERTES[a.id]
+    for pre, titre in _TITRES_PREFIXES:
+        if a.id.startswith(pre):
+            return titre
+    return a.msg
 
 
 def _premiere_phrase(txt):

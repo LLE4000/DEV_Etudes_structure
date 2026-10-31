@@ -268,8 +268,15 @@ def _essai(R, doc_meta, variante, chemin):
 
 
 def generer_note(R, infos=None, chemin=None):
-    """La note (bytes) : page 1 de calcul, page 2 « PLAN DE PRINCIPE »."""
+    """La note (bytes) : page 1 de calcul, page 2 « PLAN DE PRINCIPE » — celle
+    du mode de ``R`` (calcul manuel : ``manuel.note``)."""
     global derniers_avertissements, derniere_variante, derniere_echelle, derniere_disposition
+    if getattr(R, "mode", "") == "manuel":
+        from .manuel import note as _nm
+        octets = _nm.generer_note(R, infos, chemin)
+        derniers_avertissements, derniere_variante = _nm.derniers_avertissements, _nm.derniere_variante
+        derniere_echelle, derniere_disposition = _nm.derniere_echelle, _nm.derniere_disposition
+        return octets
     infos = infos or {}
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     doc_meta["titre"] = "Note de calcul"

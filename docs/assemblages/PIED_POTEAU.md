@@ -3,7 +3,12 @@
 *Lot A (31/10/2026) : le MOTEUR. Il applique la méthode de l'étude
 `PIED_POTEAU_ETUDE.md`. Lot B (31/10/2026) : l'ÉCRAN, les dessins, la note
 de deux pages et l'intégration au projet d'assemblages — section 6. Lot C :
-validation sur exemples publiés, CHS, tiges post-installées.*
+validation sur exemples publiés, CHS, tiges post-installées. **Lot D
+(31/10/2026) : le CALCUL MANUEL de la platine est devenu le mode par défaut
+du module** (boulons posés librement, éléments soudés, raidisseurs,
+épaisseur requise lue comme sur une note à la main) — `PLATINE_MANUELLE.md` ;
+la vérification complète décrite ici reste disponible pour une disposition
+régulière (section 9).*
 
 ## 1 · Ce que le moteur calcule
 
@@ -195,3 +200,26 @@ gaine de scellement. `k9` et `k8` restent ceux des tiges coulées en place.
 anneau — le kit de géométrie travaille en unions de rectangles — et aucun
 tableau de l'EN 1993-1-8 ne donne la longueur efficace d'un tronçon en T
 autour d'un tube ; à traiter quand une référence sera sous les yeux.
+
+## 9 · Lot D — deux modes dans un seul écran
+
+Le module a deux modes, choisis dans le bloc MODE de la carte ; l'entrée du
+projet garde le mode avec ses données (`mode`), et un fichier d'avant le lot D
+(sans clé `mode`) s'ouvre en vérification complète.
+
+| | Calcul manuel de la platine (défaut) | Vérification complète (sections 1 à 8) |
+|---|---|---|
+| Disposition | boulons libres (`tiges`), éléments soudés (`elems`), raidisseurs (`raid`) | grille centrée n × n (wx, wy), un profilé en I ou RHS à l'axe |
+| Efforts des tiges | platine rigide, même solveur (`equilibre.elastique`), bande c ou toute la platine | platine rigide sur la bande c |
+| Verdict | la PLATINE : tronçon en T par boulon, section au nu, bande comprimée, trous — épaisseur requise recalculée à chaque épaisseur | pied complet : Table 6.7 (niveau 1), platine, tiges, poteau, cordons, béton d'ancrage selon le périmètre |
+| Information | tiges (acier), appui (fjd) | niveau 2, pression, béton d'ancrage en mode EC3 |
+| Code | `manuel/` (elements, console, moteur, conversion, schemas, ecran, note, texte, benchmark, synthese) | les fichiers du module |
+| Tests | `tests/test_platine_manuelle.py`, `tests/test_platine_manuelle_ecran.py` | `tests/test_pied_poteau_moteur.py`, `tests/test_pied_poteau_ecran.py` |
+
+Le passage d'un mode à l'autre reprend la disposition (`manuel/conversion.py`) :
+vers le manuel, toujours (la grille devient une liste de boulons, le profilé
+un élément à l'axe) ; vers la vérification complète, seulement si la
+disposition est régulière — sinon la bascule est refusée et la raison est
+dite. `calcul.compute` appelle le moteur du mode ; `note.generer_note` et
+`texte.construire_texte` aiguillent de même ; l'écran, le projet et le
+rapport n'ont qu'un point d'entrée.

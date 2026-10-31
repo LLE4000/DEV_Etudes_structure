@@ -391,7 +391,8 @@ class Feuille:
             return
         fs = self.fs; lo = mn(d["a"], d["b"]); hi = mx(d["a"], d["b"]); ln = hi - lo
         sy = self.sym(d["sym"])
-        t1 = sy + " = " + f0(d["val"]); t2 = sy + " " + f0(d["val"]); l2 = lo; h2 = hi
+        # une cote sans symbole (chaîne de perçages) n'affiche que sa valeur
+        t1 = (sy + " = " if sy else "") + f0(d["val"]); t2 = (sy + " " if sy else "") + f0(d["val"]); l2 = lo; h2 = hi
         if ln >= self.tw(t1) + 0.9 * fs:
             txt = t1; c = (lo + hi) / 2
         elif ln >= self.tw(t2) + 0.9 * fs:
@@ -1068,6 +1069,9 @@ def style_de(cls, ctx, p=None):
     elif "ael" in c:
         # contour de l'aire efficace : accent, interrompu
         st.update(stroke=acc, sw=0.9, dash=(4, 2))
+    elif "ctf" in c:
+        # zone comprimée en morceaux (lamelles d'un rond) : le fond seul, sans contour
+        st.update(fill=ko, fo=0.32)
     elif "ct" in c:
         # zone comprimée de la répartition élastique : rouge translucide
         st.update(fill=ko, fo=0.32, stroke=ko, sw=0.7)
@@ -1089,6 +1093,21 @@ def style_de(cls, ctx, p=None):
     elif "grd" in c:
         # quadrillage léger d'un diagramme
         st.update(stroke=p["ext"], sw=0.35, dash=(2, 2))
+    # --- calcul manuel de la platine : raidisseur, bras de levier, bande comprimée
+    elif "rd" in c:
+        # raidisseur coupé : même teinte que les pièces, contour encre
+        st.update(fill=p["pp"], stroke=ink, sw=1.2)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "lv" in c:
+        # bras de levier d'un boulon tendu jusqu'à son appui : trait violet (grandeur calculée)
+        st.update(stroke=p["calc"], sw=1.3, dash=(3, 2))
+    elif "bs" in c:
+        # la bande comprimée la plus sollicitée : trait rouge plein, épais
+        st.update(stroke=ko, sw=3.2)
+    elif "bsp" in c:
+        # son point de départ au nu de la face
+        st.update(fill=ko, stroke="#FFFFFF", sw=0.8)
     # texte
     if "tx" in c:
         st.update(tfill=ink, bold=True)
@@ -1194,6 +1213,7 @@ def _css(p, pre):
         f"#{pre} .ae{{fill:{acc};fill-opacity:.14;stroke:none}}"
         f"#{pre} .ael{{stroke:{acc};stroke-width:.9;stroke-dasharray:4 2;fill:none}}"
         f"#{pre} .ct{{fill:{ko};fill-opacity:.32;stroke:{ko};stroke-width:.7}}"
+        f"#{pre} .ctf{{fill:{ko};fill-opacity:.32;stroke:none}}"
         f"#{pre} .an{{stroke:{ko};stroke-width:1.1;stroke-dasharray:7 3 1.5 3;fill:none}}"
         f"#{pre} .d2{{fill:{acc};fill-opacity:.1;stroke:{acc};stroke-width:1.4}}"
         f"#{pre} .d1{{stroke:{p['weld2']};stroke-width:1.2;stroke-dasharray:5 3;fill:none}}"
@@ -1201,6 +1221,13 @@ def _css(p, pre):
         f"#{pre} .axe{{stroke:{p['muted']};stroke-width:.6;fill:none}}"
         f"#{pre} .grd{{stroke:{p['ext']};stroke-width:.35;stroke-dasharray:2 2;fill:none}}"
         f"#{pre} .pc.ed:hover .be,#{pre} .pc.sel .be,#{pre} .pc.ed:hover .tg,#{pre} .pc.sel .tg{{stroke:{acc};stroke-width:2.6}}"
+        # calcul manuel : raidisseur, bras de levier, bande comprimée
+        f"#{pre} .rd{{fill:{p['pp']};stroke:{ink};stroke-width:1.2}}"
+        f"#{pre} .rd.hot{{stroke:{ko};stroke-width:3}}"
+        f"#{pre} .pc.ed:hover .rd,#{pre} .pc.sel .rd{{stroke:{acc};stroke-width:2.6}}"
+        f"#{pre} .lv{{stroke:{p['calc']};stroke-width:1.3;stroke-dasharray:3 2;fill:none}}"
+        f"#{pre} .bs{{stroke:{ko};stroke-width:3.2;fill:none}}"
+        f"#{pre} .bsp{{fill:{ko};stroke:#fff;stroke-width:.8}}"
     )
 
 

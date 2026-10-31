@@ -72,7 +72,7 @@ def _grille_tp():
             + [62.0 + 2.0 * i for i in range(int((TP_MAX - 62.0) / 2.0) + 1)])
 
 
-def _epaisseurs_requises(infaisable, tp_u, criteres):
+def _epaisseurs_requises(infaisable, tp_u, criteres, tps=None):
     """Pour chaque critère, l'épaisseur requise, cohérente avec le verdict :
 
     - si l'épaisseur retenue ``tp_u`` satisfait le critère, on DESCEND depuis
@@ -86,8 +86,9 @@ def _epaisseurs_requises(infaisable, tp_u, criteres):
 
     Ainsi « t_req ≤ tp » équivaut exactement à « les vérifications passent ».
     ``infaisable`` : ``tp -> tuple(bool)`` (True = critère non satisfait) ;
-    la frontière est affinée par dichotomie entre deux pas de la grille."""
-    tps = _grille_tp()
+    la frontière est affinée par dichotomie entre deux pas de la grille
+    (``tps`` : la grille des épaisseurs, celle du module par défaut)."""
+    tps = list(tps) if tps is not None else _grille_tp()
     etats = {tp: infaisable(tp) for tp in tps}
     e_u = infaisable(tp_u)
 

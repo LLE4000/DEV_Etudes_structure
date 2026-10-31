@@ -54,14 +54,28 @@ def description(values):
     if u.get("prof_S") or u.get("prof_P"):
         morceaux.append(f"{u.get('prof_S') or '?'} sur {u.get('prof_P') or '?'}")
     elif u.get("prof_c") or u.get("bp_u"):
-        # pied de poteau : profilé, platine, massif
+        # pied de poteau : profilé (ou éléments soudés du calcul manuel), platine, massif
         def _n(k):
             try:
                 return f"{float(u.get(k) or 0):g}"
             except (TypeError, ValueError):
                 return "?"
-        prof = u.get("prof_c") if u.get("prof_c") and u.get("prof_c") != "Personnalisé" else "Poteau"
-        morceaux.append(f"{prof} · platine {_n('bp_u')}×{_n('lp_u')}×{_n('tp_u')} · massif {_n('bc_u')}×{_n('lc_u')}")
+        manuel = str(u.get("mode") or "").startswith("Calcul manuel")
+        if manuel:
+            elems = [e for e in (u.get("elems") or []) if isinstance(e, dict)]
+            noms = []
+            for e in elems:
+                t = str(e.get("type") or "")
+                if t.startswith("Profilé en I"):
+                    noms.append(str(e.get("prof") or "I"))
+                else:
+                    noms.append(t.split(" (")[0].lower())
+            prof = "calcul manuel · " + (" + ".join(noms) if noms else "aucun élément")
+            n_b = len([t for t in (u.get("tiges") or []) if isinstance(t, dict)])
+            morceaux.append(f"{prof} · platine {_n('bp_u')}×{_n('lp_u')}×{_n('tp_u')} · {n_b} boulons {u.get('ancr') or ''}")
+        else:
+            prof = u.get("prof_c") if u.get("prof_c") and u.get("prof_c") != "Personnalisé" else "Poteau"
+            morceaux.append(f"{prof} · platine {_n('bp_u')}×{_n('lp_u')}×{_n('tp_u')} · massif {_n('bc_u')}×{_n('lc_u')}")
     for cle, lab in (("V_Ed", "V"), ("N_Ed", "N"), ("M_Ed", "M"), ("Mx_Ed", "Mx"), ("My_Ed", "My"),
                      ("Vx_Ed", "Vx"), ("Vy_Ed", "Vy")):
         try:

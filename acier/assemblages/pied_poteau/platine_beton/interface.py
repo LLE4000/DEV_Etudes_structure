@@ -20,11 +20,12 @@ import streamlit as st
 
 from acier import projet_ui
 from . import ecran_saisie, ecran_resultats, texte
-from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT
-from .moteur import compute
+from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT, est_complet
+from .calcul import compute                                    # selon le mode : manuel ou complet
 from .benchmark import run_bench
+from .manuel import ecran as ecran_manuel
 
-MODULE_VERSION = "1.0"
+MODULE_VERSION = "1.1"
 PREFIXE = "ppb_"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "_ppb_", "ppb_cmp_", "ppb_cote_", "ppb_fix_")
 
@@ -68,6 +69,7 @@ def _init_etat():
     st.session_state.setdefault("ppb_ui_txt_complet", False)
     st.session_state.setdefault("ppb_ui_composant", True)
     st.session_state.setdefault("ppb_ui_dernier_clic", {})
+    st.session_state.setdefault("ppb_ui_mode_prec", st.session_state.get(K("mode")))
 
 
 def _epingler():
@@ -133,16 +135,17 @@ def show():
 
     tH1, tH2, tH3 = st.columns([8, 1.6, 0.55], vertical_alignment="center")
     with tH1:
-        st.markdown("## Pied de poteau – platine sur béton")
+        st.markdown("## Platine sur béton – pied de poteau")
     with tH2:
         st.markdown(f"<div style='text-align:right;color:#6b7280;font-size:0.9em;'>Version {MODULE_VERSION}</div>",
                     unsafe_allow_html=True)
     with tH3:
         st.button("❔", key="ppb_btn_version", use_container_width=True,
-                  help="Vérification ELU sous N + Mx + My (+ Vx, Vy, T) selon EN 1993-1-8 §6.2.5 / §6.2.8 (aire "
-                       "efficace, tronçons en T, Table 6.7), EN 1992-1-1 §6.7 et EN 1992-4 (tiges coulées en "
-                       "place) ; γM0 ANB belge. Répartition élastique sans éléments finis. Benchmark : calculs "
-                       "manuels rejoués à chaque ouverture (exemples publiés au lot C).")
+                  help="Deux modes. CALCUL MANUEL de la platine (défaut) : boulons posés librement, éléments soudés, "
+                       "raidisseurs ; efforts des tiges par la platine rigide, épaisseur requise lue comme sur une "
+                       "note à la main (bras de levier, moment pris, largeur de plat, tronçon en T ou Von Mises). "
+                       "VÉRIFICATION COMPLÈTE EN 1993-1-8 + EN 1992-4 pour une grille régulière autour d'un "
+                       "profilé : aire efficace, Table 6.7, tronçons en T par rangée, ancrages. γM0 ANB belge.")
 
     # Barre d'outils : ◀ Projet · 🏠 · 🔄 · 💾 (projet entier) · [A2 ▾] · 📄 —
     # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
@@ -187,25 +190,38 @@ def show():
                                use_container_width=True, key="ppb_btn_pdf_dl")
 
     projet_ui.bandeau_verrou(PREFIXE)
+    manuel = not est_complet(u)
     if R is None:
         st.error(f"Données incomplètes : {erreur}")
-        ecran_saisie.carte(u, set())
+        if manuel:
+            ecran_manuel.carte(u, set(), lire_entrees, ecrire_entrees)
+        else:
+            ecran_manuel.bloc_mode(u, set(), lire_entrees, ecrire_entrees)
+            ecran_saisie.carte(u, set())
         return
 
-    ecran_resultats.bandeau(R)
+    if manuel:
+        ecran_manuel.bandeau(R)
+    else:
+        ecran_resultats.bandeau(R)
     ecran_resultats.alertes(R, u)
     chauds = set()
     sel = st.session_state.get("ppb_ui_alerte")
     for a in R.alerts:
         if a.id == sel:
-            chauds = set(a.fields)
+            chauds = set(a.fields) | set(a.elems)
     st.markdown(_CSS_STICKY, unsafe_allow_html=True)
     c_dessin, c_droite = st.columns([1, 1.12], gap="medium")
     with c_dessin:
         with st.container(key="ppb_col_dessin"):
-            e, p, hl = ecran_resultats.dessins(R, u)
+            e, p, hl = ecran_manuel.dessins(R, u) if manuel else ecran_resultats.dessins(R, u)
     with c_droite:
         if not st.session_state.get("ppb_ui_composant", True):
             ecran_resultats.panneau_cotes(e, p, hl)
-        ecran_saisie.carte(u, chauds)
-        ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)
+        if manuel:
+            ecran_manuel.carte(u, chauds, lire_entrees, ecrire_entrees)
+            ecran_manuel.onglets(R, u, ecrire_entrees)
+        else:
+            ecran_manuel.bloc_mode(u, chauds, lire_entrees, ecrire_entrees)
+            ecran_saisie.carte(u, chauds)
+            ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)
