@@ -21,7 +21,7 @@ from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
-from acier.formats import F
+from acier.formats import F, pct
 from acier.js import N, js_str
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT, TYPE_CROSSE, OUI
@@ -62,7 +62,9 @@ def lignes_entete(R):
 
 def lignes_hypotheses(R):
     u = R.u
-    h = ["Aire efficace EC3 §6.2.5 : fjd = " + F(R.fjd, 1) + " MPa (βj = 2/3, √(Ac1/Ac0) = " + F(R.ratio_c, 2)
+    h = [("Périmètre EN 1993-1-8 : platine, tiges, poteau, cordons, appui fjd ; béton d'ancrage EN 1992-4 en information."
+          if R.perim_ec3 else "Périmètre complet : EN 1993-1-8 et EN 1992-4 (béton d'ancrage dans le verdict)."),
+         "Aire efficace EC3 §6.2.5 : fjd = " + F(R.fjd, 1) + " MPa (βj = 2/3, √(Ac1/Ac0) = " + F(R.ratio_c, 2)
          + "), c = " + F(R.c, 0) + " mm, Aeff = " + F(R.A_eff / 100, 0) + " cm².",
          "Répartition élastique (platine rigide, lit sans traction, tiges tendues) : C = " + F(R.C, 0) + " kN, pmax = "
          + F(R.pmax, 1) + " MPa, ΣT = " + F(R.T_tot, 0) + " kN.",
@@ -84,8 +86,8 @@ class Note(_np.Note):
     TITRE_NOTE = TITRE
     SYN = synthese
     SCH = schemas
-    COL2 = ("pied", "beton", "soudure")
-    COL3 = ("platine", "tiges", "poteau")
+    COL2 = ("pied", "platine", "beton")
+    COL3 = ("ancrages", "tiges", "poteau", "soudure")
     NORME = "(γM0 : ANB belge ; αcc = 0,85)"
     LEGENDE = LEGENDE_REFERENCES
     NOTATIONS = NOTATIONS_COURTES
@@ -99,6 +101,60 @@ class Note(_np.Note):
 
     def alerte(self, a, R):
         return ligne_alerte(a, R)
+
+    def table_simple(self, d, fr, cle, largeurs):
+        """Comme la famille, avec le titre qui dit « information » pour les
+        ancrages hors périmètre, et le calcul à la main sous la platine."""
+        R = self.R
+        ls = self.SYN.lignes(R, cle)
+        if not ls:
+            return
+        cols = [("Vérification", largeurs[0], "left"), ("Ed", largeurs[1], "right"), ("Rd", largeurs[2], "right"),
+                ("η", largeurs[3], "right"), ("Réf.", largeurs[4], "left")]
+        lignes = []
+        for l in ls:
+            gov = l["c"] is R.gov
+            lignes.append([("lab", l["lab"], "gov" if gov else ""),
+                           ("num", l["Ed"]), ("num", l["Rd"] + (" " + l["unit"] if l["unit"] else "")),
+                           ("eta", l["pct"], l["ok"], gov), ("ref", l["ref"])])
+        self.table(d, fr, self.SYN.titre_table(cle, R).upper(), cols, lignes)
+        if cle == "platine":
+            self.table_platine_main(d, fr)
+
+    def table_platine_main(self, d, fr):
+        """Le calcul de la platine à la main : le moment pris de chaque côté,
+        l'épaisseur qu'il demande, l'épaisseur requise."""
+        R = self.R
+        P = R.plaque
+        u = R.u
+        if not R.ck["tpq"].active:
+            return
+        T = P.get("tendu")
+
+        def mm(v):
+            return "∞" if v == float("inf") else F(v, 1)
+        w = fr.w
+        cols = [("Côté", 62, "left"), ("Le moment pris, sa résistance, l'épaisseur qu'il demande", w - 62, "left")]
+        lignes = [[("lab", "Console comprimée"),
+                   ("lab", "p max " + F(P["p_max"], 1) + " MPa sur c = " + F(P["c"], 0) + " mm (" + P["ligne"]
+                    + ") : mEd = ∫p·s ds = " + F(P["m_Ed"], 1) + " ≤ tp²·fy/(6·γM0) = " + F(P["m_Rd_el"], 1)
+                    + " kNm/m → tc = " + mm(P["t_c"]) + " mm ; appui tN = " + mm(P["t_N"]) + " ; niveau 1 tM = "
+                    + mm(P["t_M"]) + " mm")]]
+        if T and T["T"] > 1e-9:
+            lignes.append([("lab", "Tronçon en T"),
+                           ("lab", "rangée " + T["cle"] + " : M = T·m = " + F(T["T"], 1) + " × " + F(T["m"], 1) + " = "
+                            + F(T["M"], 2) + " kNm ; Σleff,1 = " + F(T["leff1"], 0) + " mm, Mpl,1 = " + F(T["Mpl1"], 2)
+                            + " kNm, " + ("avec" if T["levier"] else "sans") + " effet de levier → FT,Rd = "
+                            + F(T["FT_Rd"], 0) + " kN → tT = " + mm(P["t_T"]) + " mm")])
+        lignes.append([("lab", "Épaisseur requise", "gov"),
+                       ("lab", "max(tc ; tN ; tM ; tT) = " + mm(P["t_req"]) + " mm pour tp = " + F(u.tp_u, 0) + " mm ("
+                        + pct(R.ck["tpq"].eta, 0) + ")", "gov")])
+        NV = P["navier"]
+        if NV["applicable"]:
+            lignes.append([("lab", "Repère Navier"),
+                           ("lab", "platine entière : σ max = " + F(NV["s_max"], 2) + " MPa, L = " + F(NV["L"], 0)
+                            + " mm, m = σ·L²/2 = " + F(NV["m"], 1) + " kNm/m → t = " + F(NV["t"], 1) + " mm")])
+        self.table(d, fr, "ÉPAISSEUR DE LA PLATINE — LE CALCUL À LA MAIN", cols, lignes)
 
     def colonne_dessins(self, d, fr):
         """Colonne 1 : la vue en plan avec la répartition (le dessin qui
@@ -132,8 +188,14 @@ class Note(_np.Note):
 
     def conclusion(self, d, x, w):
         S, R = self.S, self.R
-        txt = (R.statut + " à l'ELU selon EN 1993-1-8 §6.2.8, EN 1992-1-1 §6.7 et EN 1992-4 " + self.NORME
-               + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
+        statut = "PIED DE POTEAU VÉRIFIÉ" if R.verified else "PIED DE POTEAU NON VÉRIFIÉ"
+        if R.perim_ec3:
+            txt = (statut + " à l'ELU selon EN 1993-1-8 §6.2.5 et §6.2.8 " + self.NORME + " — le béton d'ancrage "
+                   "(EN 1992-4) est donné en information et ne fait pas partie du verdict"
+                   + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
+        else:
+            txt = (statut + " à l'ELU selon EN 1993-1-8 §6.2.8, EN 1992-1-1 §6.7 et EN 1992-4 " + self.NORME
+                   + (" — sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
         col = S.ok if R.verified else S.ko
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
         h = len(lines) * 7.2 * 1.28 + 7

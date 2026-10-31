@@ -35,11 +35,13 @@ from acier.resultats import Verification, Alerte, Pince
 from . import composants as CP
 from . import equilibre as EQ
 from . import geometrie as GE
-from .entrees import defaults, NUM, FORME_RHS, TYPE_CROSSE, OUI, fck_de, fy_epaisseur
+from .entrees import defaults, NUM, FORME_RHS, TYPE_CROSSE, OUI, PERIM_TOUT, fck_de, fy_epaisseur
 
-GROUPES_VERIF = ("Pied", "Béton", "Platine", "Tiges", "Poteau", "Soudure")
+GROUPES_VERIF = ("Pied", "Béton", "Ancrages", "Platine", "Tiges", "Poteau", "Soudure")
 DETAIL_SEUL = frozenset({"wa"})          # minimum de détail : jamais dimensionnant s'il passe
 INFO_SEUL = frozenset({"fc2", "bet"})    # information : ni dimensionnant, ni dans le verdict
+ANCRAGE_BETON = frozenset({"cone", "pull", "edge", "pry", "cv"})   # EN 1992-4 : information hors périmètre complet
+TP_MIN, TP_MAX, TP_PAS = 4.0, 150.0, 0.5                             # balayage de l'épaisseur requise (mm)
 REF_65 = "EN 1993-1-8 §6.2.5 ; EN 1992-1-1 §6.7"
 REF_67 = "EN 1993-1-8 §6.2.8.3 (modèle de la Table 6.7) + interaction linéaire (convexité)"
 REF_T62 = "EN 1993-1-8 §6.2.4, Tableau 6.2 ; longueurs efficaces dérivées des Tableaux 6.4 / 6.6"
@@ -50,6 +52,73 @@ E = CP.E_ACIER
 
 def _sens(v):
     return 1.0 if v >= 0 else -1.0
+
+
+SENS = {"x+": (0, 1), "x-": (0, -1), "y+": (1, 0), "y-": (-1, 0)}
+
+
+def _eta1(M1x, M1y, Mx, My):
+    """Interaction linéaire du niveau 1 : |Mx|/Mx,Rd + |My|/My,Rd (1e9 si une
+    capacité nulle est sollicitée)."""
+    eta = (abs(Mx) / M1x if abs(Mx) > 1e-9 else 0.0) if M1x > 0 or abs(Mx) < 1e-9 else 1e9
+    eta += (abs(My) / M1y if abs(My) > 1e-9 else 0.0) if M1y > 0 or abs(My) < 1e-9 else 1e9
+    return eta
+
+
+def _grille_tp():
+    """Les épaisseurs balayées : au demi-millimètre jusqu'à 60 mm, puis tous
+    les 2 mm jusqu'à TP_MAX."""
+    return ([TP_MIN + TP_PAS * i for i in range(int(round((60.0 - TP_MIN) / TP_PAS)) + 1)]
+            + [62.0 + 2.0 * i for i in range(int((TP_MAX - 62.0) / 2.0) + 1)])
+
+
+def _epaisseurs_requises(infaisable, tp_u, criteres):
+    """Pour chaque critère, l'épaisseur requise, cohérente avec le verdict :
+
+    - si l'épaisseur retenue ``tp_u`` satisfait le critère, on DESCEND depuis
+      elle tant que le critère tient — la borne basse de ce palier est
+      l'épaisseur requise (jamais un palier plus bas séparé par une zone
+      infaisable : un critère peut ne pas être monotone — transition de
+      l'effet de levier, bras de levier du niveau 1 qui se réduit avec une
+      bande c très large) ;
+    - sinon on MONTE depuis ``tp_u`` jusqu'à la première épaisseur qui le
+      satisfait (∞ si aucune jusqu'à TP_MAX).
+
+    Ainsi « t_req ≤ tp » équivaut exactement à « les vérifications passent ».
+    ``infaisable`` : ``tp -> tuple(bool)`` (True = critère non satisfait) ;
+    la frontière est affinée par dichotomie entre deux pas de la grille."""
+    tps = _grille_tp()
+    etats = {tp: infaisable(tp) for tp in tps}
+    e_u = infaisable(tp_u)
+
+    def affiner(lo, hi, j):
+        for _ in range(6):
+            mid = 0.5 * (lo + hi)
+            if infaisable(mid)[j]:
+                lo = mid
+            else:
+                hi = mid
+        return hi
+
+    out = {}
+    for j, nom in enumerate(criteres):
+        if not e_u[j]:
+            borne, bas = tp_u, None
+            for tp in sorted((t for t in tps if t < tp_u), reverse=True):
+                if etats[tp][j]:
+                    bas = tp
+                    break
+                borne = tp
+            out[nom] = TP_MIN if bas is None else affiner(bas, borne, j)
+        else:
+            prec, haut = tp_u, None
+            for tp in sorted(t for t in tps if t > tp_u):
+                if not etats[tp][j]:
+                    haut = tp
+                    break
+                prec = tp
+            out[nom] = float("inf") if haut is None else affiner(prec, haut, j)
+    return out
 
 
 def compute(u0=None):
@@ -66,6 +135,9 @@ def compute(u0=None):
     R.u = u
     R.checks, R.ck, R.alerts, R.dist = [], {}, [], []
     R.pred = False
+    # périmètre : EC3 seule (béton d'ancrage en information) ou complet
+    R.perim_ec3 = u.perim != PERIM_TOUT
+    R.info_keys = frozenset(INFO_SEUL | (ANCRAGE_BETON if R.perim_ec3 else frozenset()))
     gM0, gM2 = u.g_M0 or 1.0, u.g_M2 or 1.25
     gc, gMc = u.g_c or 1.5, u.g_Mc or 1.5
 
@@ -236,7 +308,7 @@ def compute(u0=None):
             e_x = u.bp_u / 2 - abs(ts[0]["x"])
         ts_r = CP.tstub_rangee(liste, m, e_x, u.tp_u, R.fy_p, gM0, R.Lb, R.As, R.Ft_anc, cap)
         ts_r.update(cle=f"{axe}{'+' if sg > 0 else '-'}:{_coord:.0f}", classe=classe_r, idx=idx,
-                    nat="INT" if classe_r in ("coin", "lat") else "EC")
+                    nat="INT" if classe_r in ("coin", "lat") else "EC", liste=liste, cap=cap)
         R.rangees.append(ts_r)
         for k in idx:
             FtRd[k] = ts_r["FT_tige"]
@@ -313,8 +385,7 @@ def compute(u0=None):
     kx, ky = ("x+" if Mx >= 0 else "x-"), ("y+" if My >= 0 else "y-")
     R.sum_Ft = sum(FtRd) / 1e3
     if M_res > 1e-6:
-        eta1 = (abs(u.Mx_Ed) / R.MRd1[kx] if abs(u.Mx_Ed) > 1e-9 else 0.0) if R.MRd1[kx] > 0 or abs(u.Mx_Ed) < 1e-9 else 1e9
-        eta1 += (abs(u.My_Ed) / R.MRd1[ky] if abs(u.My_Ed) > 1e-9 else 0.0) if R.MRd1[ky] > 0 or abs(u.My_Ed) < 1e-9 else 1e9
+        eta1 = _eta1(R.MRd1[kx], R.MRd1[ky], u.Mx_Ed, u.My_Ed)
         p2 = EQ.capacite_direction(R.A_eff_rects, xy, FtRd, N_, R.fjd, math.atan2(My, Mx)) if geo_ok else None
         R.M_R2 = (math.hypot(p2["Mx"], p2["My"]) / 1e6) if p2 else 0.0
         eta2 = (M_res / 1e6) / R.M_R2 if R.M_R2 > 0 else 1e9
@@ -359,7 +430,7 @@ def compute(u0=None):
 
     # platine comprimée : moment élastique du débord sous la répartition réelle
     m_el = u.tp_u ** 2 * R.fy_p / (6.0 * gM0)                                          # N·mm/mm
-    m_Ed, ligne_m = 0.0, "—"
+    m_Ed, ligne_m, L_geo = 0.0, "—", 0.0
     if R.eq_ok:
         lignes = [("y = +h/2", 0, 1, dims["h"] / 2), ("y = −h/2", 0, -1, dims["h"] / 2),
                   ("x = +b/2", 1, 0, dims["b"] / 2), ("x = −b/2", -1, 0, dims["b"] / 2)]
@@ -380,10 +451,17 @@ def compute(u0=None):
                 long += (max(xs) - min(xs)) if ny else (max(ys) - min(ys))
             if long > 0 and mom / long > m_Ed:
                 m_Ed, ligne_m = mom / long, nom
+                L_geo = (u.lp_u - dims["h"]) / 2 if ny else (u.bp_u - dims["b"]) / 2
     ck("pc", "Platine", "Platine comprimée — flexion élastique du débord sous la répartition", m_Ed / 1e3, m_el / 1e3,
        "kNm/m", REF_65 + " (la bande c est élastique par construction)", "EC + INT", R.eq_ok,
        "mEd = ∫p·s dA / l ≤ tp²·fy/(6·γM0) sur le débord au-delà de la paroi comprimée",
        f"ligne {ligne_m} ; tp = {F(u.tp_u, 0)} mm ; fy = {F(R.fy_p, 0)} MPa")
+    L_min = min((u.lp_u - dims["h"]) / 2, (u.bp_u - dims["b"]) / 2)
+    if geo_ok and R.c > L_min + 1e-9:
+        al("c_ecret", "Bande efficace c plus large que le débord : la platine l'écrête, la résultante comprimée du "
+           "niveau 1 (Table 6.7) se rapproche de l'axe — modèle conservatif pour les platines épaisses, le niveau 2 "
+           "renseigne.", False, ["tp_u", "bp_u", "lp_u"],
+           f"c = {F(R.c, 0)} mm > débord {F(L_min, 0)} mm", dims=["c", "bp", "lp"], elems=["plate"])
 
     # platine tendue : tronçon en T, tige la plus sollicitée
     pire = None
@@ -401,6 +479,70 @@ def compute(u0=None):
         f"Σleff,2 = {F(rg['leff2'], 0)} mm, Lb = {F(rg['Lb'], 0)} / Lb* = {F(min(rg['Lb_star'], 9999), 0)} mm, "
         f"mode {rg['mode']} ; FT1 = {F(rg['FT1'] / 1e3, 0)}, FT2 = "
         f"{('∞' if rg['FT2'] == CP.INF else F(rg['FT2'] / 1e3, 0))}, FT3 = {F(rg['FT3'] / 1e3, 0)} kN") if rg else "", 1)
+
+    # ------------------------------------- ÉPAISSEUR REQUISE de la platine
+    # Le calcul à la main : d'un côté la console comprimée au nu de l'aile
+    # (moment de la pression sur la bande c), de l'autre le tronçon en T
+    # (moment T·m de la rangée tendue) ; plus l'appui (N ≤ fjd·Aeff(c)) et la
+    # flexion composée (niveau 1), qui dépendent aussi de tp par c(tp) et
+    # Mpl(tp). Chaque critère donne son épaisseur requise par balayage, la
+    # répartition élastique (efforts T des tiges) étant celle de tp.
+    fy_nom = ap["fy"] if u.nu_pl != PERSO else (u.fy_u or 0)
+    T_fixe = [t["T"] * 1e3 for t in R.tiges]
+
+    def infaisable(tp):
+        fy = fy_epaisseur(fy_nom, tp)
+        c = CP.c_bande(tp, fy, R.fjd, gM0)
+        ok_N = (N_ <= R.fjd * GE.aire_rects(GE.aire_efficace(parois, c, plaque)) + 1e-6) if (N_ > 0 and geo_ok) else True
+        ok_c = m_Ed <= tp ** 2 * fy / (6.0 * gM0) + 1e-6
+        Lb = 8 * R.d_a + u.t_g + tp + 0.6 * R.d_a
+        Ft = [0.0] * len(R.tiges)
+        for r in R.rangees:
+            ts_ = CP.tstub_rangee(r["liste"], r["m"], r["e_x"], tp, fy, gM0, Lb, R.As, R.Ft_anc, r["cap"])
+            for k in r["idx"]:
+                Ft[k] = ts_["FT_tige"]
+        ok_T = all(Ti <= f + 1e-6 for Ti, f in zip(T_fixe, Ft))
+        ok_M = True
+        if M_res > 1e-6 and geo_ok:
+            M1 = {}
+            for nom in (kx, ky):
+                _r, A_t, bras = GE.tronçon_comprime(parois, c, plaque, SENS[nom], R.forme)
+                M1[nom], _b = EQ.capacite_niveau1(SENS[nom], bras, R.fjd * A_t, xy, Ft, N_)
+            ok_M = _eta1(M1[kx], M1[ky], u.Mx_Ed * 1e6, u.My_Ed * 1e6) <= 1 + 1e-9
+        return (not ok_c, not ok_N, not ok_M, not ok_T)
+
+    t_req = _epaisseurs_requises(infaisable, u.tp_u, ("c", "N", "M", "T")) if geo_ok else \
+        dict(c=float("inf"), N=float("inf"), M=float("inf"), T=float("inf"))
+    t_tot = max(t_req.values())
+    # côté tendu : la rangée de la tige la plus sollicitée, et son moment T·m
+    T_row = sum(R.tiges[k]["T"] for k in rg["idx"]) if rg else 0.0                 # kN
+    tendu = dict(cle=rg["cle"], classe=rg["classe"], T=T_row, m=rg["m"], M=T_row * rg["m"] / 1e3,
+                 leff1=rg["leff1"], Mpl1=rg["Mpl1"] / 1e6, levier=rg["levier"], Lb=rg["Lb"],
+                 Lb_star=rg["Lb_star"], FT_Rd=rg["FT_Rd"] / 1e3, mode=rg["mode"],
+                 t_formule=(math.sqrt((1.0 if rg["levier"] else 2.0) * T_row * 1e3 * rg["m"] * gM0
+                                      / (rg["leff1"] * R.fy_p)) if rg["leff1"] > 0 and T_row > 0 else 0.0)) if rg else None
+    # comparaison manuelle : Navier sur TOUTE la platine, débord géométrique
+    A_pl = u.bp_u * u.lp_u
+    sN = N_ / A_pl
+    sMx, sMy = 6 * abs(Mx) / (u.bp_u * u.lp_u ** 2), 6 * abs(My) / (u.lp_u * u.bp_u ** 2)
+    L_nav = max((u.lp_u - dims["h"]) / 2, (u.bp_u - dims["b"]) / 2)
+    s_max, s_min = sN + sMx + sMy, sN - sMx - sMy
+    nav_ok = N_ > 0 and s_min >= -1e-9
+    m_nav = s_max * L_nav ** 2 / 2 if nav_ok else 0.0                               # N·mm/mm
+    navier = dict(sN=sN, sMx=sMx, sMy=sMy, s_max=s_max, s_min=s_min, L=L_nav, applicable=nav_ok,
+                  m=m_nav / 1e3, t=math.sqrt(6 * m_nav * gM0 / R.fy_p) if nav_ok else 0.0)
+    R.plaque = dict(t_req=t_tot, t_c=t_req["c"], t_N=t_req["N"], t_M=t_req["M"], t_T=t_req["T"],
+                    m_Ed=m_Ed / 1e3, m_Rd_el=m_el / 1e3, ligne=ligne_m, L_geo=L_geo, c=R.c, p_max=R.pmax,
+                    t_c_formule=math.sqrt(6 * m_Ed * gM0 / R.fy_p) if R.fy_p > 0 else 0.0,
+                    tendu=tendu, navier=navier)
+    ck("tpq", "Platine", "Épaisseur requise de la platine (console comprimée, appui, flexion composée, tronçon en T)",
+       t_tot, u.tp_u, "mm", "EN 1993-1-8 §6.2.5 ; §6.2.4", "EC", geo_ok,
+       "tp ≥ max(tc ; tN ; tM ; tT) — tc = √(6·mEd·γM0/fy) (console au nu de l'aile) ; tN : N ≤ fjd·Aeff(c) ; "
+       "tM : niveau 1 ≤ 1 ; tT : FT,Rd(rangée) ≥ T",
+       f"console : mEd = {F(m_Ed / 1e3, 1)} kNm/m ({ligne_m}, p max {F(R.pmax, 1)} MPa sur c = {F(R.c, 0)} mm) → "
+       f"tc = {F(t_req['c'], 1)} ; tN = {F(t_req['N'], 1)} ; tM = {F(t_req['M'], 1)} ; tronçon en T : "
+       + (f"M = T·m = {F(T_row, 1)} kN × {F(rg['m'], 1)} mm = {F(T_row * rg['m'] / 1e3, 2)} kNm, Σleff,1 = "
+          f"{F(rg['leff1'], 0)} mm → tT = {F(t_req['T'], 1)} mm" if rg else "sans objet"), 1)
 
     # tiges : acier
     ck("ta", "Tiges", "Traction d'une tige (acier) : min(EN 1993-1-8 Tableau 3.4 ; EN 1992-4 §7.2.1.3"
@@ -444,21 +586,21 @@ def compute(u0=None):
     cone = CP.cone_beton(u.hef, R.fck, R.fiss, [t["x"] for t in tend], [t["y"] for t in tend], u.bc_u, u.lc_u,
                          ex, ey, gMc)
     R.cone = cone
-    ck("cone", "Béton", "Cône de béton du groupe tendu", R.T_tot, cone["NRd"] / 1e3 if cone["actif"] else None, "kN",
+    ck("cone", "Ancrages", "Cône de béton du groupe tendu", R.T_tot, cone["NRd"] / 1e3 if cone["actif"] else None, "kN",
        REF_924 + " §7.2.1.4", "EC", bool(tend),
        "NRk,c = N⁰Rk,c·(Ac,N/A⁰c,N)·ψs,N·ψre,N·ψec,N·ψM,N ; N⁰Rk,c = k1·√fck·hef^1,5 ; NRd,c = NRk,c/γMc",
        (f"k1 = {F(cone['k1'], 1)} ({'fissuré' if R.fiss else 'non fissuré'}) ; hef = {F(u.hef, 0)} mm ; "
         f"Ac,N/A⁰c,N = {F(cone['Ac'] / cone['Ac0'], 2)} ; ψs = {F(cone['psi_s'], 2)} ; ψre = {F(cone['psi_re'], 2)} ; "
         f"ψec = {F(cone['psi_ec'], 2)} ; ψM = 1 (conservatif) ; NRk,c = {F(cone['NRk'] / 1e3, 1)} kN") if cone["actif"] else "", 1)
     if u.typ_a == TYPE_CROSSE:
-        ck("pull", "Béton", "Adhérence de la tige à crosse", R.T_max, R.Ft_bond / 1e3, "kN",
+        ck("pull", "Ancrages", "Adhérence de la tige à crosse", R.T_max, R.Ft_bond / 1e3, "kN",
            "EN 1993-1-8 §6.2.6.12 ; EN 1992-1-1 §8.4.2", "EC", bool(tend),
            "Ft,bond,Rd = π·d·hef·fbd ; fbd = 2,25·η1·η2·fctd (η1 = 0,7)", f"fbd = {F(R.fbd, 2)} MPa")
         R.pull = None
     else:
         pl = CP.arrachement_tete(R.d_a, u.d_h, R.fck, R.fiss, gMc)
         R.pull = pl
-        ck("pull", "Béton", "Arrachement de la tête (pull-out)", R.T_max, pl["NRd"] / 1e3, "kN",
+        ck("pull", "Ancrages", "Arrachement de la tête (pull-out)", R.T_max, pl["NRd"] / 1e3, "kN",
            REF_924 + " §7.2.1.5", "EC", bool(tend),
            "NRk,p = k2·Ah·fck ; Ah = π(dh² − d²)/4 ; NRd,p = NRk,p/γMc",
            f"k2 = {F(pl['k2'], 1)} ; Ah = {F(pl['Ah'], 0)} mm² ; NRk,p = {F(pl['NRk'] / 1e3, 1)} kN")
@@ -473,7 +615,7 @@ def compute(u0=None):
         cands.append(CP.bord_beton(R.d_a, u.hef, R.fck, R.fiss, c1, lat_a, lat_b, sp, u.hc_u, gMc))
     bd = min(cands, key=lambda c: c["VRd"])
     R.bord = bd
-    ck("edge", "Béton", "Rupture du bord du massif en cisaillement (bord le plus proche, rangée voisine)",
+    ck("edge", "Ancrages", "Rupture du bord du massif en cisaillement (bord le plus proche, rangée voisine)",
        V_res / 1e3, bd["VRd"] / 1e3, "kN", REF_924 + " §7.2.2.5", "EC", V_res > 0,
        "VRk,c = V⁰Rk,c·(Ac,V/A⁰c,V)·ψs,V·ψh,V ; V⁰Rk,c = k9·d^α·lf^β·√fck·c1^1,5 ; VRd,c = VRk,c/γMc",
        f"c1 = {F(bd.get('c1', 0), 0)} mm ; lf = {F(bd.get('lf', 0), 0)} mm ; Ac,V/A⁰c,V = "
@@ -483,15 +625,23 @@ def compute(u0=None):
                              u.bc_u, u.lc_u, 0.0, 0.0, gMc)
     po = CP.pryout(cone_all["NRk"], u.hef, gMc)
     R.pryout = po
-    ck("pry", "Béton", "Pry-out du groupe", V_res / 1e3, po["VRd"] / 1e3, "kN", REF_924 + " §7.2.2.4", "EC",
+    ck("pry", "Ancrages", "Pry-out du groupe", V_res / 1e3, po["VRd"] / 1e3, "kN", REF_924 + " §7.2.2.4", "EC",
        V_res > 0, "VRk,cp = k8·NRk,c (groupe entier, sans excentrement) ; VRd,cp = VRk,cp/γMc",
        f"k8 = {F(po['k8'], 0)} ; NRk,c (groupe) = {F(cone_all['NRk'] / 1e3, 1)} kN")
     bN = max((R.ck["cone"].eta or 0) if R.ck["cone"].active else 0, (R.ck["pull"].eta or 0) if R.ck["pull"].active else 0)
     bV = max((R.ck["edge"].eta or 0) if R.ck["edge"].active else 0, (R.ck["pry"].eta or 0) if R.ck["pry"].active else 0)
-    ck("cv", "Béton", "Interaction traction / cisaillement du béton", (min(bN, 1e3) ** 1.5 + min(bV, 1e3) ** 1.5),
+    ck("cv", "Ancrages", "Interaction traction / cisaillement du béton", (min(bN, 1e3) ** 1.5 + min(bV, 1e3) ** 1.5),
        1.0, "-", REF_924 + " §7.2.3.2", "EC", bool(tend) and V_res > 0,
        "βN^1,5 + βV^1,5 ≤ 1 ; βN = max(cône ; arrachement), βV = max(bord ; pry-out)",
        f"βN = {F(bN, 2)} ; βV = {F(bV, 2)}")
+    if R.perim_ec3:
+        hors = [c for c in R.checks if c.key in ANCRAGE_BETON and c.active and not c.ok]
+        if hors:
+            pire_a = max(hors, key=lambda c: c.eta)
+            al("ancr_info", "Béton d'ancrage (EN 1992-4) hors périmètre : " + pire_a.label + " à "
+               + F(pire_a.eta * 100, 0) + " % — en information, le verdict ne le compte pas.", False, ["perim"],
+               f"{len(hors)} vérification(s) d'ancrage au-dessus de 100 % ; passer au périmètre complet pour les "
+               "compter dans le verdict", elems=["pedestal", "anchors"])
     c_min = min(cone["cmin"] if cone["actif"] else cone_all["cmin"], cone_all["cmin"])
     if c_min < 1.5 * u.hef:
         al("fend", "Bord du massif à moins de 1,5·hef : fendage (EN 1992-4 §7.2.1.7) et, pour une tige à tête, "
@@ -549,14 +699,15 @@ def compute(u0=None):
     act = [c for c in R.checks if c.active]
     gov = None
     for c in act:
-        if c.key in INFO_SEUL or (c.key in DETAIL_SEUL and c.ok):
+        if c.key in R.info_keys or (c.key in DETAIL_SEUL and c.ok):
             continue
         if gov is None or c.eta > gov.eta:
             gov = c
     R.gov = gov
     R.eta_max = gov.eta if gov else 0.0
-    R.all_ok = all(c.ok for c in act if c.key not in INFO_SEUL)
+    R.all_ok = all(c.ok for c in act if c.key not in R.info_keys)
     R.verified = bool(R.all_ok and R.geo_ok and R.dist_ok)
-    R.statut = "PIED DE POTEAU VÉRIFIÉ" if R.verified else "PIED DE POTEAU NON VÉRIFIÉ"
-    R.reserve = any(a.id in ("coin", "lat") for a in R.alerts)
+    R.statut = ("PIED DE POTEAU VÉRIFIÉ" if R.verified else "PIED DE POTEAU NON VÉRIFIÉ") \
+        + (" (EC3 — béton d'ancrage en information)" if R.perim_ec3 else "")
+    R.reserve = any(a.id in ("coin", "lat", "ancr_info") for a in R.alerts)
     return R

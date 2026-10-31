@@ -36,6 +36,44 @@ l'EN 1992-4.
    inférieure (champ statiquement admissible), **modèle d'ingénieur non
    codifié** : elle renseigne, elle ne décide pas.
 
+#### Périmètre de la vérification
+
+Par défaut, **l'EN 1993-1-8 seule décide** : platine (épaisseur), tiges
+(acier), poteau, cordons et béton d'appui (`fjd`). Les modes de ruine du
+**béton d'ancrage** de l'EN 1992-4 (cône, arrachement, rupture du bord,
+pry-out, interaction) sont calculés et affichés **en information** : ils
+dépendent du massif, de la distance aux bords, de l'état fissuré — données
+qui relèvent souvent du béton armé et que l'outil ne valide pour l'instant
+que par ses propres recalculs manuels. Le périmètre **Complet** les fait
+entrer dans le verdict.
+
+#### L'épaisseur de la platine : le moment pris
+
+Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
+
+- **Côté comprimé** : la platine est une console au nu de l'aile, chargée
+  par la pression d'appui. Dans l'EN 1993-1-8 la console ne dépasse pas la
+  bande `c = tp·√(fy/(3·fjd·γM0))` — c'est la définition de `c` : sous
+  `fjd`, le moment `fjd·c²/2` vaut exactement `tp²·fy/(6·γM0)`. L'outil
+  prend le moment de la **pression réelle** de la répartition élastique sur
+  cette console, `mEd = ∫p·s ds`, et l'épaisseur qu'il demande,
+  `tc = √(6·mEd·γM0/fy)`. Ce qui fixe ensuite `tp` de ce côté, c'est l'appui
+  (`N ≤ fjd·Aeff(c)`, épaisseur `tN`) et la flexion composée (niveau 1,
+  épaisseur `tM`) — l'aire efficace grandit avec `tp`.
+- **Côté tendu** : la platine fléchit autour de l'aile sous l'effort `T` de
+  la rangée de tiges : le moment pris est **`M = T·m`**, `m` étant la
+  distance de la tige au nu de l'aile, cordon déduit (`e − 0,8·a·√2`). Il
+  est repris par la longueur efficace `Σleff` du tronçon en T :
+  `Mpl,1 = 0,25·Σleff,1·tp²·fy/γM0`, `FT,Rd = 2·Mpl,1/m` sans effet de levier
+  (`Lb > Lb*`), `4·Mpl,1/m` avec (modes 1, 2, 3 du Tab. 6.2). L'épaisseur
+  demandée est `tp ≥ √(2·T·m·γM0/(Σleff,1·fy))` sans effet de levier
+  (`√(T·m·γM0/(Σleff,1·fy))` avec), affinée par balayage des modes (`tT`).
+- **Épaisseur requise** = `max(tc ; tN ; tM ; tT)`, et le verdict « tp ≥
+  épaisseur requise » coïncide exactement avec les vérifications. Un repère
+  manuel est donné à côté : Navier sur toute la platine (`σ = N/A ±
+  6M/W`, console sur le débord géométrique), quand il n'y a pas de
+  soulèvement.
+
 #### Composants vérifiés et sources
 
 - **Béton comprimé** : `N ≤ fjd·Aeff` (EC3 §6.2.8.2) ; pression maximale de

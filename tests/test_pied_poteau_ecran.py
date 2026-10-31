@@ -39,7 +39,8 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 
 from acier.assemblages.pied_poteau.platine_beton import (interface, ecran_saisie, moteur,  # noqa: E402
                                                           schemas, note)
-from acier.assemblages.pied_poteau.platine_beton.entrees import FORME_RHS, TYPE_CROSSE  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.entrees import (FORME_RHS, TYPE_CROSSE, PERIM_EC3,  # noqa: E402
+                                                                  PERIM_TOUT)
 from acier import projet as modele, rapport_projet  # noqa: E402
 
 OK, KO = [], []
@@ -93,10 +94,25 @@ print("\n=== 2. Écran ===")
 cles = [k for k in at.session_state.to_dict() if k.startswith("ppb_") and k[4:] in interface.CLES]
 chk(f"les {len(interface.CLES)} clés d'entrée existent en session", len(cles) == len(interface.CLES), str(len(cles)))
 t = md(at)
-chk("cas par défaut : NON VÉRIFIÉ, 107,7 % (interaction N / V du béton, massif 900)",
-    "PIED DE POTEAU NON VÉRIFIÉ" in t and "107,7 %" in t and "Interaction N / V du béton" in t)
-chk("taux par élément : Pied, Béton, Platine, Tiges, Poteau, Soudure",
-    all(x in t for x in ("Pied", "Béton", "Platine", "Tiges", "Poteau", "Soudure")))
+chk("cas par défaut, périmètre EC3 : VÉRIFIÉ à 55,9 % (épaisseur requise de la platine), béton d'ancrage en "
+    "information à 107,7 % dit en clair (hors verdict)",
+    "PIED DE POTEAU VÉRIFIÉ (EC3" in t and "55,9 %" in t and "Épaisseur requise de la platine" in t
+    and "en information, hors verdict) : Interaction N / V du béton à 107,7 %" in t
+    and "Ancrages dans le béton (EN 1992-4) — information, hors verdict" in t)
+chk("taux par élément : Pied, Platine, Appui, Tiges, Poteau, Soudure (ancrages hors verdict : pas de chip)",
+    all(x in t for x in ("Pied", "Platine", "Appui", "Tiges", "Poteau", "Soudure")))
+chk("la platine à la main, en tête des vérifications : moment pris de chaque côté, épaisseur requise",
+    all(x in t for x in ("Épaisseur de la platine — le calcul à la main", "Moment pris",
+                         "mEd = ∫p·s ds sur c = 11,5 kNm/m", "M = T·m = 43,2 × 45,9 = 1,98 kNm",
+                         "Épaisseur requise 14,0 mm ≤ tp = 25 mm", "tc = √(6·mEd·γM0/fy) = 14,0 mm",
+                         "Navier ne s'applique pas")))
+at.selectbox(key="ppb_perim").set_value(PERIM_TOUT); run(at)
+t = md(at)
+chk("périmètre complet : le béton d'ancrage entre dans le verdict → NON VÉRIFIÉ à 107,7 %",
+    "PIED DE POTEAU NON VÉRIFIÉ" in t and "VÉRIFIÉ (EC3" not in t and "107,7 %" in t and "hors verdict" not in t
+    and "Ancrages" in t)
+at.selectbox(key="ppb_perim").set_value(PERIM_EC3); run(at)
+t = md(at)
 chk("deux composants empilés dans la colonne figée (CSS sticky sur ppb_col_dessin)",
     len(at.get("component_instance")) == 2 and "position: sticky" in t and "st-key-ppb_col_dessin" in t)
 w = cles_widgets(at)
@@ -119,8 +135,9 @@ chk("alertes courtes : tiges de coin (modèle d'ingénieur), soulèvement, bord 
 # ================================================================
 print("\n=== 3. Source unique ===")
 message(at, {"bc_u": 1400, "lc_u": 1400, "hc_u": 800}, 1001); run(at)
-chk("message du dessin : massif 1 400 → VÉRIFIÉ", "PIED DE POTEAU VÉRIFIÉ" in md(at)
-    and float(at.session_state["ppb_bc_u"]) == 1400.0)
+chk("message du dessin : massif 1 400 → VÉRIFIÉ, et le béton d'ancrage passe aussi (plus d'information « non satisfait »)",
+    "PIED DE POTEAU VÉRIFIÉ" in md(at) and float(at.session_state["ppb_bc_u"]) == 1400.0
+    and "non satisfait" not in md(at))
 message(at, {"w_x": 480}, 1002); run(at)
 chk("wx = 480 → pince bloquante (Tab. 3.3), « Localiser » disponible",
     "pince des tiges au bord de la platine" in md(at) and any(b.key == "ppb_btn_al_dist_e" for b in at.button)
@@ -210,12 +227,23 @@ chk("deux pages A4 paysage, sans débordement, échelle et disposition exposées
     str(note.derniers_avertissements))
 t1 = doc[0].get_text(); s1 = t1.replace(" ", "").replace("\n", "")
 chk("page 1 : bandeau, en-tête compact (poteau, platine, massif, tiges, efforts), hypothèses, tableaux",
-    "NONVÉRIFIÉ" in s1 and "Poteau HEA 300 S355" in t1 and "Platine 500×500×25 S355" in t1
+    "VÉRIFIÉ" in s1 and "NONVÉRIFIÉ" not in s1 and "Poteau HEA 300 S355" in t1 and "Platine 500×500×25 S355" in t1
     and "Massif 900×900×600 C30/37 fissuré" in t1 and "Tiges 4 × M24 8.8" in t1 and "NEd 300,0 kN" in t1
     and "AireeﬃcaceEC3§6.2.5" in s1.replace("ffi", "ﬃ") or "AireefficaceEC3§6.2.5" in s1)
 chk("page 1 : vue en plan (répartition), coupe A-A, domaine et conclusion EC3 / EC2 / EC2-4 (γM0 ANB, αcc)",
     "RÉPARTITION" in s1 and "COUPEA-A" in s1 and "DOMAINE(Mx,My)" in s1
-    and "selonEN1993-1-8§6.2.8,EN1992-1-1§6.7etEN1992-4" in s1 and "(γM0:ANBbelge;αcc=0,85)" in s1)
+    and "selonEN1993-1-8§6.2.5et§6.2.8" in s1 and "(γM0:ANBbelge;αcc=0,85)" in s1
+    and "donnéeninformationetnefaitpaspartieduverdict" in s1)
+chk("page 1 : le calcul de la platine à la main (moment pris de chaque côté, épaisseur requise) et les ancrages "
+    "en information",
+    "ÉPAISSEURDELAPLATINE" in s1 and "M=T·m=43,2×45,9=1,98kNm" in s1 and "mEd=∫p·sds=11,5" in s1
+    and "max(tc;tN;tM;tT)=14,0mmpourtp=25mm" in s1 and "INFORMATION,HORSVERDICT" in s1)
+Rc = moteur.compute(dict(perim=PERIM_TOUT, id_rep="PP1"))
+pc_ = note.generer_note(Rc, {"nom_projet": "Halle A", "partie": "PP1", "date": "31/10/2026", "indice": "0"})
+sc = pymupdf.open(stream=pc_, filetype="pdf")[0].get_text().replace(" ", "").replace("\n", "")
+chk("périmètre complet : conclusion EC3 + EC2 + EC2-4, NON VÉRIFIÉ, 2 pages sans débordement",
+    "NONVÉRIFIÉ" in sc and "selonEN1993-1-8§6.2.8,EN1992-1-1§6.7etEN1992-4" in sc and "HORSVERDICT" not in sc
+    and not note.derniers_avertissements)
 t2 = doc[1].get_text(); s2 = t2.replace(" ", "").replace("\n", "")
 chk("page 2 : PLAN DE PRINCIPE, coupe A-A, vue en plan, coupe B-B, échelle affichée",
     "PLANDEPRINCIPE" in s2 and all(x in s2 for x in ("COUPEA-A", "VUEENPLAN", "COUPEB-B")) and "Échelle1:" in s2)
@@ -255,7 +283,8 @@ chk("« Générer PDF » depuis l'application : 2 pages",
 at.session_state["ppb_ui_onglet"] = "Note"; run(at)
 code = "\n".join(str(c.value) for c in at.code)
 chk("onglet Note : export texte avec statut, répartition, Tableau 3.3 et références EC2-4",
-    "PIED DE POTEAU" in code and "NON VÉRIFIÉ" in code and "Répartition élastique" in code
+    "PIED DE POTEAU VÉRIFIÉ" in code and "Périmètre : EN 1993-1-8 seule" in code and "Répartition élastique" in code
+    and "Platine : épaisseur requise 14,0 mm" in code and "moment pris côté comprimé" in code
     and "Tableau 3.3 : conforme" in code and "EC2-4 §7.2.3.2" in code)
 at.session_state["ppb_ui_onglet"] = "Répartition"; run(at)
 chk("onglet Répartition : domaine (Mx, My), tiges (classe, T, FT,Rd), rangées (tronçons en T)",

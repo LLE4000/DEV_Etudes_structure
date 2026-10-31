@@ -21,6 +21,14 @@ TYPE_CROSSE = "Tige à crosse (adhérence)"
 OUI, NON = "Oui", "Non"
 BETONS = ["C20/25", "C25/30", "C30/37", "C35/45", "C40/50", "C45/55", "C50/60"]
 
+# PÉRIMÈTRE de la vérification. Par défaut, l'EN 1993-1-8 seule décide :
+# platine (épaisseur), tiges (acier), poteau, cordons, béton d'APPUI (fjd) ;
+# les modes de ruine du béton d'ANCRAGE (EN 1992-4 : cône, arrachement, bord,
+# pry-out, interaction) sont calculés et affichés en INFORMATION. Le périmètre
+# complet les fait entrer dans le verdict.
+PERIM_EC3 = "Platine et tiges — EN 1993-1-8 (béton d'ancrage en information)"
+PERIM_TOUT = "Complet — EN 1993-1-8 + EN 1992-4 (béton d'ancrage dans le verdict)"
+
 # Annotation de FABRICATION, hors moteur et hors CLES : composition de la
 # boulonnerie par tige (cartouche du plan de principe), même mécanisme que
 # les assemblages poutre–poutre.
@@ -33,6 +41,7 @@ def defaults():
     My = 30 kNm."""
     return {
         "id_projet": "", "id_rep": "", "id_red": "", "id_date": "",
+        "perim": PERIM_EC3,
         "forme": FORME_I,
         "prof_c": "HEA 300", "h_u": None, "b_u": None, "tw_u": None, "tf_u": None, "r_u": None,
         "t_u": None, "nu_c": "S355",
@@ -115,6 +124,11 @@ GROUPES = [
          note="Reprise dans la note et l'export texte. Un champ vide n'est pas imprimé.",
          f=[_c("id_projet", "Projet", "x"), _c("id_rep", "Repère de l'assemblage", "x"),
             _c("id_red", "Rédacteur", "x"), _c("id_date", "Date", "x")]),
+    dict(t="Périmètre",
+         f=[_c("perim", "Périmètre de la vérification", "s", [PERIM_EC3, PERIM_TOUT],
+               h="EN 1993-1-8 seule : platine, tiges (acier), poteau, cordons et béton d'appui fjd décident ; "
+                 "les ruines du béton d'ancrage (EN 1992-4) sont affichées en information. Complet : elles "
+                 "entrent dans le verdict.")]),
     dict(t="Poteau",
          f=[_c("forme", "Forme du profilé", "s", [FORME_I, FORME_RHS]),
             _c("prof_c", "Profilé", "s", PROFILS, si=forme_I),

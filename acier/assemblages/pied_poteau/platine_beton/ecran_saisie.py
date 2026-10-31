@@ -23,6 +23,7 @@ PAS = {"N_Ed": 10.0, "Mx_Ed": 5.0, "My_Ed": 5.0, "Vx_Ed": 5.0, "Vy_Ed": 5.0, "T_
        "t_g": 5.0, "bc_u": 50.0, "lc_u": 50.0, "a_w": 0.5}
 
 LIBELLES = {
+    "perim": "Périmètre de la vérification",
     "forme": "Forme", "prof_c": "Profilé", "nu_c": "Nuance",
     "h_u": "h (mm)", "b_u": "b (mm)", "tw_u": "tw (mm)", "tf_u": "tf (mm)", "r_u": "r (mm)", "t_u": "t (mm)",
     "nu_pl": "Nuance de la platine",
@@ -41,6 +42,7 @@ LIBELLES = {
 GEOMETRIE_DESSIN = frozenset(CLE_PAR_COTE.values())
 
 BLOCS = [
+    ("PÉRIMÈTRE", [(["perim"], None)]),
     ("POTEAU", [(["forme", "prof_c", "nu_c"], None),
                 (["h_u", "b_u", "tw_u", "tf_u", "r_u", "t_u"], perso_c)]),
     ("PLATINE", [(["nu_pl"], None)]),

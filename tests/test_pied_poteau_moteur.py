@@ -35,7 +35,7 @@ from acier.assemblages.pied_poteau.platine_beton import equilibre as EQ  # noqa:
 from acier.assemblages.pied_poteau.platine_beton import composants as CP  # noqa: E402
 from acier.assemblages.pied_poteau.platine_beton.moteur import compute  # noqa: E402
 from acier.assemblages.pied_poteau.platine_beton.benchmark import run_bench  # noqa: E402
-from acier.assemblages.pied_poteau.platine_beton.entrees import FORME_RHS, TYPE_CROSSE, NON  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.entrees import FORME_RHS, TYPE_CROSSE, NON, PERIM_TOUT  # noqa: E402
 
 OK, KO = [], []
 
@@ -175,8 +175,38 @@ al_, be_ = 0.1 * math.sqrt(lf / 250), 0.1 * (24 / 250) ** 0.2
 V0 = 1.7 * 24 ** al_ * lf ** be_ * math.sqrt(30) * 250 ** 1.5
 chk("bord (c1 = 250, rangée de 2) = 53,1 kN", pres(R0.ck["edge"].Rd, V0 * 1.2 * 0.9 / 1.5 / 1e3, 1e-9))
 chk("pry-out = 2·NRk,c(groupe)/γMc = 253,2 kN", pres(R0.ck["pry"].Rd, 2 * N0 * (0.7 + 0.3 * 250 / 450) / 1.5 / 1e3, 1e-9))
-chk("interaction béton βN^1,5 + βV^1,5 : le bord gouverne le cas par défaut (massif 900)",
-    R0.gov.key == "cv" and not R0.verified and R0.ck["edge"].eta > 0.7)
+Rt = compute(dict(perim=PERIM_TOUT))
+chk("périmètre complet : l'interaction béton βN^1,5 + βV^1,5 gouverne le cas par défaut (massif 900), non vérifié",
+    Rt.gov.key == "cv" and not Rt.verified and Rt.ck["edge"].eta > 0.7 and "cv" not in Rt.info_keys)
+chk("périmètre EC3 (défaut) : le béton d'ancrage est en information — même calcul, hors verdict, alerte « ancr_info »",
+    R0.perim_ec3 and R0.verified and R0.ck["cv"].eta == Rt.ck["cv"].eta and "cv" in R0.info_keys
+    and R0.gov.key == "tpq" and any(a.id == "ancr_info" for a in R0.alerts)
+    and not any(a.id == "ancr_info" for a in Rt.alerts), f"{R0.gov.key} {R0.verified}")
+P = R0.plaque
+chk("épaisseur requise : max des quatre critères, console comprimée dimensionnante (mEd = 11,5 kNm/m sur c = 59)",
+    P["t_req"] == max(P["t_c"], P["t_N"], P["t_M"], P["t_T"]) and P["t_c"] == P["t_req"]
+    and pres(P["m_Ed"], R0.ck["pc"].Ed, 1e-12) and P["ligne"] == "y = +h/2" and 13.5 < P["t_c"] < 14.5
+    and pres(R0.ck["tpq"].Ed, P["t_req"], 1e-12) and R0.ck["tpq"].Rd == 25.0, str(P))
+Tm = P["tendu"]
+chk("tronçon en T : moment pris M = T·m (43,2 kN × 45,9 mm), épaisseur √(2·T·m·γM0/(Σleff,1·fy)) = 8,8 mm",
+    pres(Tm["M"], Tm["T"] * Tm["m"] / 1e3, 1e-12) and pres(Tm["T"], R0.T_max, 1e-9)
+    and pres(Tm["t_formule"], math.sqrt(2 * Tm["T"] * 1e3 * Tm["m"] / (150 * 345)), 1e-9) and 8 < P["t_T"] < 9.5)
+chk("Navier sur toute la platine : σ = 1,2 ± 2,4 ± 1,44 MPa → soulèvement, repère sans objet",
+    pres(P["navier"]["sN"], 1.2, 1e-12) and pres(P["navier"]["sMx"], 2.4, 1e-12) and pres(P["navier"]["sMy"], 1.44, 1e-12)
+    and not P["navier"]["applicable"])
+Rn = compute(dict(Mx_Ed=0, My_Ed=0, Vy_Ed=0))
+chk("N seul : Navier applicable (σ = 1,2 MPa uniforme, L = 105), t = √(6·σ·L²/2·γM0/fy) ; EC3 moins exigeant",
+    Rn.plaque["navier"]["applicable"] and pres(Rn.plaque["navier"]["t"], math.sqrt(6 * 1.2 * 105 ** 2 / 2 / 345), 1e-9)
+    and Rn.plaque["t_req"] < Rn.plaque["navier"]["t"])
+for cas in (dict(), dict(tp_u=10), dict(tp_u=15, N_Ed=600, Mx_Ed=120), dict(N_Ed=1200, Mx_Ed=200), dict(tp_u=90, N_Ed=1200, Mx_Ed=200)):
+    Rx = compute(cas)
+    ok4 = all(Rx.ck[k].ok for k in ("pc", "ncp", "fc1", "pt") if Rx.ck[k].active)
+    if Rx.ck["tpq"].ok != ok4:
+        chk("tp ≥ épaisseur requise ⟺ les vérifications de la platine passent", False, str(cas))
+        break
+else:
+    chk("tp ≥ épaisseur requise ⟺ les vérifications de la platine passent (5 cas, dont platine très épaisse : "
+        "niveau 1 non monotone, t_M = ∞)", compute(dict(tp_u=90, N_Ed=1200, Mx_Ed=200)).plaque["t_M"] == float("inf"))
 w = R0.cordons
 chk("cordons : σ⊥ = σn/√2, σeq = √(2σn² + 3τ∥²), limites fu/(βw·γM2) et 0,9·fu/γM2",
     pres(w["s_perp"], w["sig_n"] / math.sqrt(2), 1e-9) and pres(w["s_eq"], math.sqrt(2 * w["sig_n"] ** 2 + 3 * w["tau_par"] ** 2), 1e-9)

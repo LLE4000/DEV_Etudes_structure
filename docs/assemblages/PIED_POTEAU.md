@@ -107,3 +107,43 @@ présentation que les trois assemblages poutre–poutre — préfixe de session
 
 Les alertes du moteur portent désormais `dims` / `elems` (identifiants du
 dessin) pour « Localiser », et une explication chiffrée `why` par alerte.
+
+## 7 · Périmètre, et l'épaisseur de la platine « à la main » (lot B bis)
+
+Le besoin d'origine du bureau est **l'épaisseur de la platine, avec le
+moment qu'on prend pour la calculer** — pas le béton. Et la partie béton
+d'ancrage (EN 1992-4) n'est validée que par les recalculs manuels de
+l'outil (VAL-A), sans exemple publié rejoué. D'où deux décisions :
+
+- **Périmètre** (entrée `perim`, premier bloc de la carte). Par défaut
+  **« EN 1993-1-8 seule »** : platine, tiges (acier), poteau, cordons et
+  béton d'appui (`fjd`, `N ≤ fjd·Aeff`) décident ; les cinq modes de ruine du
+  béton d'ancrage (`cone`, `pull`, `edge`, `pry`, `cv`, groupe « Ancrages »)
+  sont calculés, affichés **en information, hors verdict** (`R.info_keys`),
+  avec une alerte `ancr_info` quand l'un dépasse 100 %. « Complet » les fait
+  entrer dans le verdict (comportement du lot A). Le statut le dit :
+  « VÉRIFIÉ (EC3 — béton d'ancrage en information) ». Ce que le périmètre
+  EC3 ne garantit donc PAS : cône, arrachement, bord, pry-out, fendage.
+- **Épaisseur requise** (`R.plaque`, vérification `tpq`, en tête du tableau
+  Platine et du bloc « Épaisseur de la platine — le calcul à la main ») :
+  `tp ≥ max(tc ; tN ; tM ; tT)` —
+  `tc = √(6·mEd·γM0/fy)` pour le **moment pris côté comprimé** (console au
+  nu de l'aile sous la pression réelle de la répartition, sur la bande `c`) ;
+  `tN` : `N ≤ fjd·Aeff(c(tp))` ; `tM` : niveau 1 ≤ 1 ; `tT` : `FT,Rd(rangée,
+  tp) ≥ T` pour le **moment pris côté tendu `M = T·m`** (rangée de la tige
+  la plus sollicitée, bras au nu de l'aile cordon déduit, `Σleff,1`,
+  `Mpl,1`, effet de levier). Chaque épaisseur vient d'un balayage de `tp`
+  (demi-millimètre jusqu'à 60 mm, puis 2 mm) à répartition élastique figée,
+  cohérent avec le verdict par construction (`_epaisseurs_requises` : on
+  descend depuis `tp` tant que le critère tient, ou on monte jusqu'à ce
+  qu'il tienne — le niveau 1 n'est pas monotone en `tp` : une bande `c`
+  plus large que le débord ramène la résultante vers l'axe, alerte
+  `c_ecret`). Un **repère manuel** est donné à côté : Navier sur toute la
+  platine (`σ = N/A ± 6Mx/W ± 6My/W`, console sur le débord géométrique),
+  quand il n'y a pas de soulèvement.
+
+Sur l'exemple du bureau (périmètre EC3) : console comprimée `mEd = 11,5
+kNm/m` sur `c = 59 mm` → `tc = 14,0 mm` ; tronçon en T `M = 43,2 kN × 45,9
+mm = 1,98 kNm`, `Σleff,1 = 150 mm` → `tT = 8,6 mm` ; appui `tN = 4,0` ;
+niveau 1 `tM = 11,1` ; **épaisseur requise 14,0 mm pour tp = 25 (56 %)**,
+VÉRIFIÉ — le béton d'ancrage à 108 % reste dit en information.

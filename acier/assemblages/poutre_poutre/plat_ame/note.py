@@ -82,8 +82,15 @@ def lignes_hypotheses(R):
     return h
 
 
+def _est_info(R, syn, c):
+    """Une vérification que la synthèse du module déclare « information »
+    (hors verdict) ne concourt pas aux formules imprimées."""
+    f = getattr(syn, "info", None)
+    return bool(f and f(R, c.key))
+
+
 def _priorite(R, syn=synthese):
-    act = [c for c in R.checks if c.active]
+    act = [c for c in R.checks if c.active and not _est_info(R, syn, c)]
     ordre = []
     if R.gov:
         ordre.append(R.gov)
@@ -98,7 +105,8 @@ def _priorite(R, syn=synthese):
 
 
 def _obligatoires(R, syn=synthese):
-    n = (1 if R.gov else 0) + sum(1 for c in R.checks if c.active and not c.ok) + len(syn.taux_par_element(R))
+    n = ((1 if R.gov else 0) + sum(1 for c in R.checks if c.active and not c.ok and not _est_info(R, syn, c))
+         + len(syn.taux_par_element(R)))
     return _priorite(R, syn)[:n]
 
 

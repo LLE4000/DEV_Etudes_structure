@@ -42,16 +42,30 @@ def construire_texte(R, complet=False):
          "=" * 64,
          R.statut + " — taux maximal " + pct(R.eta_max, 1)
          + (" — " + R.gov.label if R.gov else ""), ""]
+    u = R.u
+    P = R.plaque
+    T = P.get("tendu")
+
+    def mm(v):
+        return "∞" if v == float("inf") else F(v, 1)
     L += ["Données : " + ligne_donnees(R) + ".",
+          "Périmètre : " + ("EN 1993-1-8 seule (platine, tiges, poteau, cordons, béton d'appui) — béton d'ancrage "
+                            "EN 1992-4 en information." if R.perim_ec3 else "complet — EN 1993-1-8 + EN 1992-4."),
           "Répartition élastique : fjd = " + F(R.fjd, 1) + " MPa, c = " + F(R.c, 1) + " mm, Aeff = "
           + F(R.A_eff / 100, 0) + " cm² ; C = " + F(R.C, 1) + " kN en (" + F(R.xC, 0) + " ; " + F(R.yC, 0)
           + ") mm, pmax = " + F(R.pmax, 1) + " MPa, ΣT = " + F(R.T_tot, 1) + " kN (T max = " + F(R.T_max, 1) + " kN).",
+          "Platine : épaisseur requise " + mm(P["t_req"]) + " mm pour tp = " + F(u.tp_u, 0) + " mm (console "
+          + mm(P["t_c"]) + " ; appui " + mm(P["t_N"]) + " ; flexion composée " + mm(P["t_M"]) + " ; tronçon en T "
+          + mm(P["t_T"]) + ") — moment pris côté comprimé mEd = " + F(P["m_Ed"], 1) + " kNm/m (p max "
+          + F(P["p_max"], 1) + " MPa sur c = " + F(P["c"], 0) + " mm, " + P["ligne"] + ")"
+          + (" ; côté tendu M = T·m = " + F(T["T"], 1) + " kN × " + F(T["m"], 1) + " mm = " + F(T["M"], 2)
+             + " kNm sur Σleff,1 = " + F(T["leff1"], 0) + " mm." if T and T["T"] > 1e-9 else "."),
           "Niveau 1 : " + pct(R.eta1, 1) + " ; niveau 2 (information) : " + pct(R.eta2, 1) + ".", ""]
     for a in R.alerts:
         L.append(("[BLOQUANT] " if a.block else "[note] ") + a.msg)
     if R.alerts:
         L.append("")
-    for cle in ("pied", "beton", "platine", "tiges", "poteau", "soudure"):
+    for cle in synthese.ORDRE:
         ls = synthese.lignes(R, cle)
         keep = ls if complet else [l for l in ls if l["c"].ess or not l["ok"]]
         if not keep:

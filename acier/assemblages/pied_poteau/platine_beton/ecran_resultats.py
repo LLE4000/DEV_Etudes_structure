@@ -33,6 +33,81 @@ def bandeau(R):
         comp += " · pinces non conformes"
     bloc_statut_ligne("ok" if ok else "nok", titre, comp,
                       [(nom, eta, okg) for nom, eta, okg, _ in synthese.taux_par_element(R)])
+    pire = synthese.pire_information(R)
+    if pire is not None:
+        st.caption("Béton d'ancrage (EN 1992-4, en information, hors verdict) : " + synthese.court(pire) + " à "
+                   + pct(pire.eta, 1) + (" — non satisfait" if not pire.ok else " — satisfait")
+                   + ". Périmètre « Complet » dans la carte pour le compter dans le verdict.")
+
+
+# ------------------------------------------------- la platine, à la main
+def _lig(lab, val, fort=False):
+    return [Html(f"<b>{_esc(lab)}</b>" if fort else _esc(lab)), Html(f"<b>{_esc(val)}</b>" if fort else _esc(val))]
+
+
+def bloc_platine(R):
+    """L'épaisseur de la platine comme on la calcule à la main : de chaque
+    côté le moment pris, sa résistance, l'épaisseur qu'il demande ; en tête
+    l'épaisseur requise, le plus grand des quatre critères."""
+    P = R.plaque
+    u = R.u
+    c = R.ck["tpq"]
+    st.markdown("##### Épaisseur de la platine — le calcul à la main")
+    if not c.active:
+        st.caption("Géométrie non valide : pas d'épaisseur requise.")
+        return
+    crit = {"c": "console comprimée", "N": "appui N ≤ fjd·Aeff", "M": "flexion composée (niveau 1)", "T": "tronçon en T"}
+    pire = max(("c", "N", "M", "T"), key=lambda k: P["t_" + k])
+    req = "∞ (aucune épaisseur ne suffit : agrandir la platine ou les tiges)" if c.Ed == float("inf") else F(c.Ed, 1) + " mm"
+    bloc_statut_ligne("ok" if c.ok else "nok",
+                      "Épaisseur requise " + req + (" ≤ " if c.ok else " > ") + "tp = " + F(u.tp_u, 0) + " mm",
+                      "— " + pct(c.eta, 1) + " · critère : " + crit[pire] + " · fy = " + F(R.fy_p, 0) + " MPa (épaisseur retenue)",
+                      [(crit[k], P["t_" + k] / u.tp_u if u.tp_u else 0.0, P["t_" + k] <= u.tp_u + 1e-9)
+                       for k in ("c", "N", "M", "T")])
+    g1, g2 = st.columns(2, gap="medium")
+    with g1:
+        st.markdown("**Côté comprimé — console au nu de l'aile**")
+        rows = [_lig("Pression sous la platine (répartition élastique)",
+                     "p max = " + F(P["p_max"], 1) + " MPa ≤ fjd = " + F(R.fjd, 1) + " MPa"),
+                _lig("Console mobilisée", "bande c = tp·√(fy/(3·fjd·γM0)) = " + F(P["c"], 0) + " mm (EC3 §6.2.5) — débord "
+                     "géométrique " + F(P["L_geo"], 0) + " mm"),
+                _lig("Moment pris (" + P["ligne"] + ")", "mEd = ∫p·s ds sur c = " + F(P["m_Ed"], 1) + " kNm/m", True),
+                _lig("Résistance élastique", "mRd = tp²·fy/(6·γM0) = " + F(P["m_Rd_el"], 1) + " kNm/m → "
+                     + pct(R.ck["pc"].eta, 0) if R.ck["pc"].active else "—"),
+                _lig("Épaisseur pour ce moment", "tc = √(6·mEd·γM0/fy) = " + F(P["t_c"], 1) + " mm"),
+                _lig("Appui : N ≤ fjd·Aeff(c)", "tN = " + F(P["t_N"], 1) + " mm" if P["t_N"] != float("inf") else "tN = ∞"),
+                _lig("Flexion composée : niveau 1 ≤ 1", "tM = " + F(P["t_M"], 1) + " mm" if P["t_M"] != float("inf") else "tM = ∞")]
+        st.markdown(tableau_html(["", ""], rows, largeurs=["42%", None]), unsafe_allow_html=True)
+    with g2:
+        st.markdown("**Côté tendu — tronçon en T de la rangée la plus sollicitée**")
+        T = P["tendu"]
+        if T and T["T"] > 1e-9:
+            rows = [_lig("Rangée tendue", T["cle"] + " (" + T["classe"] + ") : T = " + F(T["T"], 1) + " kN"),
+                    _lig("Bras au nu de l'aile (cordon déduit)", "m = e − 0,8·a·√2 = " + F(T["m"], 1) + " mm"),
+                    _lig("Moment pris", "M = T·m = " + F(T["T"], 1) + " × " + F(T["m"], 1) + " = " + F(T["M"], 2) + " kNm", True),
+                    _lig("Longueur efficace", "Σleff,1 = " + F(T["leff1"], 0) + " mm"
+                         + (" (plafond de coin 0,25·b par tige)" if T["classe"] == "coin" else "")),
+                    _lig("Résistance plastique", "Mpl,1 = 0,25·Σleff,1·tp²·fy/γM0 = " + F(T["Mpl1"], 2) + " kNm"),
+                    _lig("Effet de levier", ("Lb = " + F(T["Lb"], 0) + (" ≤ " if T["levier"] else " > ") + "Lb* = "
+                         + F(min(T["Lb_star"], 9999), 0) + " mm : " + ("avec" if T["levier"] else "sans")
+                         + " → FT,Rd = " + ("4" if T["levier"] else "2") + "·Mpl,1/m… = " + F(T["FT_Rd"], 0)
+                         + " kN (mode " + str(T["mode"]) + ")")),
+                    _lig("Épaisseur pour ce moment", "tp ≥ √(" + ("1" if T["levier"] else "2") + "·T·m·γM0/(Σleff,1·fy)) = "
+                         + F(T["t_formule"], 1) + " mm ; tous modes : tT = " + F(P["t_T"], 1) + " mm")]
+        else:
+            rows = [_lig("Rangée tendue", "aucune tige tendue : la platine ne fléchit pas en traction"),
+                    _lig("Épaisseur pour ce côté", "tT = " + F(P["t_T"], 1) + " mm (minimum du balayage)")]
+        st.markdown(tableau_html(["", ""], rows, largeurs=["42%", None]), unsafe_allow_html=True)
+    NV = P["navier"]
+    base = ("Comparaison manuelle — Navier sur TOUTE la platine (repère, pas un critère) : σ = N/A ± 6·Mx/(bp·lp²) ± "
+            "6·My/(lp·bp²) = " + F(NV["sN"], 2) + " ± " + F(NV["sMx"], 2) + " ± " + F(NV["sMy"], 2) + " MPa")
+    if NV["applicable"]:
+        st.caption(base + " → σ max = " + F(NV["s_max"], 2) + " MPa, débord L = " + F(NV["L"], 0) + " mm, m = σ max·L²/2 = "
+                   + F(NV["m"], 1) + " kNm/m → t = √(6·m·γM0/fy) = " + F(NV["t"], 1) + " mm (pression uniforme sur "
+                   "toute la platine : plus de bras, moins d'appui que l'aire efficace).")
+    else:
+        st.caption(base + " → σ min = " + F(NV["s_min"], 2) + " MPa " + ("< 0 : soulèvement, Navier ne s'applique pas"
+                   if u.N_Ed > 0 else ": pas de compression") + " — la répartition sans traction ci-dessus fait foi.")
 
 
 # ------------------------------------------------------------------ alertes
@@ -146,7 +221,7 @@ def _panneaux(R, u):
     g["efforts"] = dict(titre="Efforts de calcul ELU (section de pied)",
                         champs=[ch("N_Ed", "NEd (kN, compression > 0)"), ch("Mx_Ed", "Mx,Ed (kNm)"),
                                 ch("My_Ed", "My,Ed (kNm)"), ch("Vx_Ed", "Vx,Ed (kN)"), ch("Vy_Ed", "Vy,Ed (kN)"),
-                                ch("T_Ed", "TEd (kNm)")],
+                                ch("T_Ed", "TEd (kNm)"), ch("perim", "Périmètre de la vérification")],
                         note="Mx comprime le côté y > 0 (haut de la vue en plan) ; My comprime le côté x > 0.")
     return g
 
@@ -215,7 +290,7 @@ def _table_simple(R, cle):
     ls = synthese.lignes(R, cle)
     if not ls:
         return False
-    st.markdown(f"##### {synthese.titre_table(cle)}")
+    st.markdown(f"##### {synthese.titre_table(cle, R)}")
     lignes = [[_cellule_verif(l), l["Ed"], l["Rd"] + (" " + l["unit"] if l["unit"] else ""),
                taux_html(l["eta"], l["ok"], l["c"] is R.gov), l["ref"]] for l in ls]
     st.markdown(tableau_html(["Vérification", "Ed", "Rd", "η", "Réf."], lignes, droite=(1, 2, 3),
@@ -272,7 +347,9 @@ def _tableau_33(R):
 
 def _parametres_retenus(R):
     u = R.u
-    g = [["Poteau", R.nom_c + " " + str(u.nu_c) + " – fy = " + F(R.fy_c, 0) + " MPa"],
+    g = [["Périmètre", "EN 1993-1-8 seule — béton d'ancrage (EN 1992-4) en information" if R.perim_ec3
+          else "Complet — EN 1993-1-8 + EN 1992-4"],
+         ["Poteau", R.nom_c + " " + str(u.nu_c) + " – fy = " + F(R.fy_c, 0) + " MPa"],
          ["Platine", js_str(N(u.bp_u)) + " × " + js_str(N(u.lp_u)) + " × " + js_str(N(u.tp_u)) + " mm " + str(u.nu_pl)
           + " – fy = " + F(R.fy_p, 0) + " MPa (épaisseur)"],
          ["Tiges", js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – d0 = " + F(R.d0, 0) + " mm, As = "
@@ -298,11 +375,12 @@ def _parametres_retenus(R):
 
 
 def onglet_verifications(R):
+    bloc_platine(R)
     st.markdown(badge_nature("EC") + " formule directe de l'Eurocode " + badge_nature("EC + INT")
                 + " Eurocode et interprétation nommée " + badge_nature("INT")
                 + " modèle d'ingénieur (niveau 2, tiges de coin ou latérales) · " + LEGENDE_REFERENCES,
                 unsafe_allow_html=True)
-    for cle in ("pied", "beton", "platine", "tiges", "poteau", "soudure"):
+    for cle in synthese.ORDRE:
         _table_simple(R, cle)
     st.caption("Non revérifiés ici : fendage et éclatement latéral du massif (EC2-4 §7.2.1.7-8, signalés en "
                "alerte) ; tiges post-installées, raidisseurs, bêche ; flambement et classe de section du poteau ; "
