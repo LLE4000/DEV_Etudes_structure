@@ -66,7 +66,9 @@ PALETTE = dict(ink="#15181F", accent="#33415C", muted="#6E7480", ko="#9C3341",
                ext="#93A6B5", calc="#5B4A8A", weld="#D98A00", weld2="#A86B00",
                pp="#C3CED7", ps="#E6ECF0", hit="#F6F8FA", inbg="#FFF7CF",
                inink="#0B3D91", inbord="#C9B95A", hover="#FFE37A", hotbg="#FDECEA",
-               hatch="#7F8C9A")
+               hatch="#7F8C9A",
+               # pieds de poteau : béton, mortier, tige d'ancrage
+               beton="#EEEBE3", mortier="#D8D2C4", tige="#8E97A6")
 
 PAS_HACHURES = 5.0          # mm, hachures à 45° des parties coupées
 SEGMENTS_ARC = 6            # segments par quart de cercle (congés)
@@ -389,7 +391,8 @@ class Feuille:
             return
         fs = self.fs; lo = mn(d["a"], d["b"]); hi = mx(d["a"], d["b"]); ln = hi - lo
         sy = self.sym(d["sym"])
-        t1 = sy + " = " + f0(d["val"]); t2 = sy + " " + f0(d["val"]); l2 = lo; h2 = hi
+        # une cote sans symbole (chaîne de perçages) n'affiche que sa valeur
+        t1 = (sy + " = " if sy else "") + f0(d["val"]); t2 = (sy + " " if sy else "") + f0(d["val"]); l2 = lo; h2 = hi
         if ln >= self.tw(t1) + 0.9 * fs:
             txt = t1; c = (lo + hi) / 2
         elif ln >= self.tw(t2) + 0.9 * fs:
@@ -1044,6 +1047,67 @@ def style_de(cls, ctx, p=None):
         st.update(fill=acc if "ed" in k else p["ext"], fo=1.0)
         if hot_ctx:
             st.update(fill=ko)
+    # --- classes des pieds de poteau (béton, mortier, répartition, domaine)
+    elif "be" in c:
+        # béton du massif : teinte pierre, contour encre fin
+        st.update(fill=p["beton"], stroke=ink, sw=1.0)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "gr" in c:
+        # mortier de scellement
+        st.update(fill=p["mortier"], stroke=ink, sw=0.6)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "tg" in c:
+        # tige d'ancrage vue de côté : pleine, gris acier
+        st.update(fill=p["tige"], stroke=ink, sw=0.6)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "ae" in c:
+        # aire efficace (bande c) : accent translucide, sans contour
+        st.update(fill=acc, fo=0.14)
+    elif "ael" in c:
+        # contour de l'aire efficace : accent, interrompu
+        st.update(stroke=acc, sw=0.9, dash=(4, 2))
+    elif "ctf" in c:
+        # zone comprimée en morceaux (lamelles d'un rond) : le fond seul, sans contour
+        st.update(fill=ko, fo=0.32)
+    elif "ct" in c:
+        # zone comprimée de la répartition élastique : rouge translucide
+        st.update(fill=ko, fo=0.32, stroke=ko, sw=0.7)
+    elif "an" in c:
+        # axe neutre : mixte rouge
+        st.update(stroke=ko, sw=1.1, dash=(7, 3, 1.5, 3))
+    elif "d2" in c:
+        # domaine résistant exact (niveau 2) : accent, fond léger
+        st.update(fill=acc, fo=0.10, stroke=acc, sw=1.4)
+    elif "d1" in c:
+        # interaction linéaire (niveau 1, verdict) : interrompu ocre
+        st.update(stroke=p["weld2"], sw=1.2, dash=(5, 3))
+    elif "pt" in c:
+        # point des efforts appliqués
+        st.update(fill=ko, stroke="#FFFFFF", sw=1.0)
+    elif "axe" in c:
+        # axes d'un diagramme
+        st.update(stroke=p["muted"], sw=0.6)
+    elif "grd" in c:
+        # quadrillage léger d'un diagramme
+        st.update(stroke=p["ext"], sw=0.35, dash=(2, 2))
+    # --- calcul manuel de la platine : raidisseur, bras de levier, bande comprimée
+    elif "rd" in c:
+        # raidisseur coupé : même teinte que les pièces, contour encre
+        st.update(fill=p["pp"], stroke=ink, sw=1.2)
+        if hot_self:
+            st.update(stroke=ko, sw=3)
+    elif "lv" in c:
+        # bras de levier d'un boulon tendu jusqu'à son appui : trait violet (grandeur calculée)
+        st.update(stroke=p["calc"], sw=1.3, dash=(3, 2))
+    elif "bs" in c:
+        # la bande comprimée la plus sollicitée : trait rouge plein, épais
+        st.update(stroke=ko, sw=3.2)
+    elif "bsp" in c:
+        # son point de départ au nu de la face
+        st.update(fill=ko, stroke="#FFFFFF", sw=0.8)
     # texte
     if "tx" in c:
         st.update(tfill=ink, bold=True)
@@ -1141,6 +1205,29 @@ def _css(p, pre):
         f"#{pre} .gp.hot .hit{{fill:{p['hotbg']};stroke:{ko};stroke-width:2}}"
         f"#{pre} .gp.hot text,#{pre} .gb.hot .gbx{{fill:{ko}}}"
         f"#{pre} .gp:focus,#{pre} .gb:focus{{outline:none}}"
+        # pieds de poteau : béton, mortier, tiges, aire efficace, répartition, domaine
+        f"#{pre} .be{{fill:{p['beton']};stroke:{ink};stroke-width:1}}"
+        f"#{pre} .gr{{fill:{p['mortier']};stroke:{ink};stroke-width:.6}}"
+        f"#{pre} .tg{{fill:{p['tige']};stroke:{ink};stroke-width:.6}}"
+        f"#{pre} .be.hot,#{pre} .tg.hot,#{pre} .gr.hot{{stroke:{ko};stroke-width:3}}"
+        f"#{pre} .ae{{fill:{acc};fill-opacity:.14;stroke:none}}"
+        f"#{pre} .ael{{stroke:{acc};stroke-width:.9;stroke-dasharray:4 2;fill:none}}"
+        f"#{pre} .ct{{fill:{ko};fill-opacity:.32;stroke:{ko};stroke-width:.7}}"
+        f"#{pre} .ctf{{fill:{ko};fill-opacity:.32;stroke:none}}"
+        f"#{pre} .an{{stroke:{ko};stroke-width:1.1;stroke-dasharray:7 3 1.5 3;fill:none}}"
+        f"#{pre} .d2{{fill:{acc};fill-opacity:.1;stroke:{acc};stroke-width:1.4}}"
+        f"#{pre} .d1{{stroke:{p['weld2']};stroke-width:1.2;stroke-dasharray:5 3;fill:none}}"
+        f"#{pre} .pt{{fill:{ko};stroke:#fff;stroke-width:1}}"
+        f"#{pre} .axe{{stroke:{p['muted']};stroke-width:.6;fill:none}}"
+        f"#{pre} .grd{{stroke:{p['ext']};stroke-width:.35;stroke-dasharray:2 2;fill:none}}"
+        f"#{pre} .pc.ed:hover .be,#{pre} .pc.sel .be,#{pre} .pc.ed:hover .tg,#{pre} .pc.sel .tg{{stroke:{acc};stroke-width:2.6}}"
+        # calcul manuel : raidisseur, bras de levier, bande comprimée
+        f"#{pre} .rd{{fill:{p['pp']};stroke:{ink};stroke-width:1.2}}"
+        f"#{pre} .rd.hot{{stroke:{ko};stroke-width:3}}"
+        f"#{pre} .pc.ed:hover .rd,#{pre} .pc.sel .rd{{stroke:{acc};stroke-width:2.6}}"
+        f"#{pre} .lv{{stroke:{p['calc']};stroke-width:1.3;stroke-dasharray:3 2;fill:none}}"
+        f"#{pre} .bs{{stroke:{ko};stroke-width:3.2;fill:none}}"
+        f"#{pre} .bsp{{fill:{ko};stroke:#fff;stroke-width:.8}}"
     )
 
 

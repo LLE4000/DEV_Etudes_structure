@@ -39,7 +39,7 @@ for page in PAGES:
 
 print("\n=== Écran de chaque assemblage ouvert ===")
 for ident, nom in (("doubles_cornieres", "Doubles cornières d'âme"), ("plat_ame", "Plat d'âme soudé"),
-                   ("platine_about", "Platine d'about")):
+                   ("platine_about", "Platine d'about"), ("platine_beton", "Pied de poteau")):
     at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
     at.session_state["page"] = "Assemblages métalliques"
     at.session_state["asm_courant"] = ident

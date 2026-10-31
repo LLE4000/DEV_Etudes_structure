@@ -33,6 +33,7 @@ La valeur retournée persiste d'une relance à l'autre : l'appelant compare
 """
 import os
 
+import streamlit as st
 import streamlit.components.v1 as components
 
 _DOSSIER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
@@ -42,6 +43,12 @@ _composant = components.declare_component("svg_cliquable", path=_DOSSIER)
 def svg_cliquable(svg, valeurs, key, groupes=None, palette=None):
     """Affiche ``svg`` ; ``valeurs`` = valeur courante de chaque clé
     modifiable (préremplissage des saisies) ; ``groupes`` = définition des
-    fenêtres de groupe. Retourne le dernier message validé (dict) ou None."""
+    fenêtres de groupe. Retourne le dernier message validé (dict) ou None.
+
+    Assemblage VERROUILLÉ dans son projet (``prj_verrou``, acier/projet_ui.py) :
+    le dessin s'affiche mais ne se modifie pas — rendu statique, aucun message."""
+    if st.session_state.get("prj_verrou", False):
+        st.markdown(svg, unsafe_allow_html=True)
+        return None
     return _composant(svg=svg, valeurs=valeurs, groupes=groupes or {}, palette=palette or {},
                       key=key, default=None)

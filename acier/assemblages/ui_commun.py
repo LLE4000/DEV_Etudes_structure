@@ -194,6 +194,11 @@ def bloc_alerte_ligne(titre, detail, bloquante, selectionnee=False):
 
 
 def titre_bloc(txt):
-    """Titre de bloc de la carte (petites capitales, discret)."""
+    """Titre de bloc de la carte (petites capitales, discret).
+
+    ``margin-bottom:16px`` : le conteneur markdown de Streamlit porte une marge
+    de −16 px qui compense la marge d'un ``<p>`` final ; un ``<div>`` nu n'en a
+    pas, et le titre débordait de 16 px sous sa ligne — dans la carte du calcul
+    manuel, il recouvrait le titre de la ligne suivante (mesuré le 31/10/2026)."""
     st.markdown(f"<div style='font-size:0.72em;font-weight:700;letter-spacing:.07em;color:#33415C;"
-                f"line-height:1.15;padding:0 0 9px 0;'>{_esc(txt)}</div>", unsafe_allow_html=True)
+                f"line-height:1.15;padding:0 0 9px 0;margin-bottom:16px;'>{_esc(txt)}</div>", unsafe_allow_html=True)

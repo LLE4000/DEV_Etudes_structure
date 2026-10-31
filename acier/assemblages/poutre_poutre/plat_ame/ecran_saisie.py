@@ -116,11 +116,12 @@ def widget(f, u, chauds):
     k = f["k"]; key = K(k)
     st.session_state[key] = valeur_widget(k, st.session_state.get(key))
     lab = libelle(f, u, chauds)
-    dis = bool(mode_predim(u) and k in PILOTEES_PAR_PREDIM)
+    # prj_verrou : assemblage verrouillé dans son projet (acier/projet_ui.py)
+    dis = bool(mode_predim(u) and k in PILOTEES_PAR_PREDIM) or bool(st.session_state.get("prj_verrou", False))
     if f["t"] == "s":
         st.selectbox(lab, f["o"], key=key, help=_aide(f, u), disabled=dis)
     elif f["t"] == "x":
-        st.text_input(lab, key=key, help=_aide(f, u))
+        st.text_input(lab, key=key, help=_aide(f, u), disabled=dis)
     else:
         st.number_input(lab, key=key, step=PAS.get(k, 1.0), format="%g", help=_aide(f, u), disabled=dis)
 
@@ -162,7 +163,8 @@ def ligne_visserie(u):
     with cols[1]:
         st.session_state.setdefault("fpl_visserie", VISSERIE_DEFAUT)
         st.text_input("Par boulon", key="fpl_visserie",
-                      help="Rondelles et écrous par boulon — porté au cartouche du plan de principe.")
+                      help="Rondelles et écrous par boulon — porté au cartouche du plan de principe.",
+                      disabled=bool(st.session_state.get("prj_verrou", False)))
 
 
 def avances(u, chauds=frozenset()):

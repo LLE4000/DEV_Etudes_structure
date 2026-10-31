@@ -62,5 +62,9 @@ pages = {
     "Assemblages métalliques": assemblages.show,
 }
 
+# ---- Le projet d'assemblages suit l'écran ouvert, quelle que soit la page
+#      (règle de synchronisation : acier/projet_ui.py)
+assemblages.synchroniser_projet()
+
 # ---- Affichage
 pages.get(st.session_state.page, accueil.show)()

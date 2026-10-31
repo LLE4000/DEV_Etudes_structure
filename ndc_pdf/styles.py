@@ -86,10 +86,49 @@ class Style:
         return d
 
     # ------------------------------------------------- page de garde (portrait)
+    LIGNE_SOMMAIRE = 46          # 24 + 22 points par entrée du sommaire
+    LEGENDE_GARDE = ("Vert : vérifié   ·   Ocre : admissible, à la limite   ·   "
+                     "Rouge : non vérifié")
+
     def garde(self, d, doc, sections):
+        """Page de garde des notes Poutre / Dalle : une ligne de sommaire par
+        planche (une page chacune). Dessin inchangé : c'est ``garde_lignes``
+        qui porte la mise en page, pour que le rapport d'assemblages ait la
+        même garde."""
+        lignes = [dict(titre=f"{sec['poutre']} — {sec['section']}",
+                       sous=f"{sec.get('beton', '')} / {sec.get('acier', '')}".strip(" /"),
+                       etat=sec.get("etat", ""), couleur=self.coul_etat(sec), pages=1)
+                  for sec in sections]
+        self.garde_lignes(d, doc, lignes)
+        return d
+
+    def garde_lignes(self, d, doc, lignes, legende=None, avant=None):
+        """Garde générique : bandeau, cartouche, sommaire. Chaque ligne porte
+        ``titre``, ``sous`` (facultatif), ``etat`` (libellé de la pastille,
+        facultatif), ``couleur`` et ``pages`` (nombre de pages de l'entrée) ;
+        ``avant`` = lignes NON numérotées placées en tête du sommaire (un
+        récapitulatif, par exemple), paginées comme les autres.
+        Les numéros de page tiennent compte du nombre de pages de garde —
+        le sommaire CONTINUE sur une page suivante quand il déborde (au-delà
+        de 11 lignes) — et du nombre de pages de chaque ligne. Retourne le
+        nombre de pages de garde."""
         S = self
         W, H = d.W, d.H
         m = 52
+        bas = 70                                    # au-dessus de la légende (y = 46)
+        pas = self.LIGNE_SOMMAIRE
+        cap1 = max(1, int((H - 261 - bas) // pas))  # sous le cartouche
+        cap2 = max(1, int((H - 77 - bas) // pas))   # page de suite
+        avant = list(avant or [])
+        lignes = avant + list(lignes)
+        n = len(lignes)
+        n_garde = 1 + (0 if n <= cap1 else -(-(n - cap1) // cap2))
+        debuts, page = [], n_garde + 1
+        for lg in lignes:
+            debuts.append(page)
+            page += max(1, int(lg.get("pages", 1) or 1))
+        legende = legende or self.LEGENDE_GARDE
+
         d.box(0, H - 132, W, 132, fill=S.panel)
         y = H - 52
         d.t(m, y, doc.get("bureau", ""), S.f_v, 8.6, S.acc, track=1.6)
@@ -114,26 +153,35 @@ class Style:
         d.t(fr.x, fr.y, "SOMMAIRE", S.f_v, 7.6, S.acc, track=1.6)
         fr.down(5)
         d.line(fr.x, fr.y, fr.x1, fr.y, S.acc, 0.9)
-        for i, sec in enumerate(sections):
+        cap, k = cap1, 0
+        for i, lg in enumerate(lignes):
+            if k >= cap:
+                d.t(m, 46, legende, S.f_b, 7.4, S.mut)
+                d.new_page((W, H))
+                d.t(m, H - 52, doc.get("bureau", ""), S.f_v, 8.6, S.acc, track=1.6)
+                d.t(m, H - 72, "SOMMAIRE (suite)", S.f_v, 7.6, S.acc, track=1.6)
+                fr = Frame(m, H - 72, W - 2 * m, m)
+                fr.down(5)
+                d.line(fr.x, fr.y, fr.x1, fr.y, S.acc, 0.9)
+                cap, k = cap2, 0
             fr.down(24)
-            n = f"{i + 1:02d}"
-            d.t(fr.x, fr.y, n, S.f_h, 10.5, mix(S.acc, "#FFFFFF", 0.55))
-            titre = f"{sec['poutre']} — {sec['section']}"
-            d.t(fr.x + 26, fr.y, titre, S.f_h, 11, S.ink)
-            sous = f"{sec.get('beton', '')} / {sec.get('acier', '')}".strip(" /")
+            if i >= len(avant):
+                d.t(fr.x, fr.y, f"{i - len(avant) + 1:02d}", S.f_h, 10.5, mix(S.acc, "#FFFFFF", 0.55))
+            d.t(fr.x + 26, fr.y, lg["titre"], S.f_h, 11, S.ink)
+            sous = lg.get("sous") or ""
             if sous:
                 d.t(fr.x + 26, fr.y - 12, sous, S.f_b, 8.2, S.mut)
-            e = sec.get("etat", "")
+            e = lg.get("etat") or ""
             if e:
                 chip(d, fr.x1, fr.y - 2, e.upper(), S.f_v, 6.4, "#FFFFFF",
-                     self.coul_etat(sec), align="right")
-            d.t(fr.x1, fr.y - 15, f"page {i + 2}", S.f_b, 7.6, S.mut, "right")
+                     lg.get("couleur") or S.ok, align="right")
+            d.t(fr.x1, fr.y - 15, f"page {debuts[i]}", S.f_b, 7.6, S.mut, "right")
             fr.down(22)
             d.line(fr.x, fr.y, fr.x1, fr.y, mix(S.rule, S.ink, 0.06), 0.5)
+            k += 1
 
-        d.t(m, 46, "Vert : vérifié   ·   Ocre : admissible, à la limite   ·   "
-                   "Rouge : non vérifié", S.f_b, 7.4, S.mut)
-        return d
+        d.t(m, 46, legende, S.f_b, 7.4, S.mut)
+        return n_garde
 
     def coul_etat(self, sec):
         """Couleur de la pastille d'état d'une section, d'après ses verdicts."""
