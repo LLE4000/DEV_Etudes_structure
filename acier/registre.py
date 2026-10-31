@@ -91,6 +91,23 @@ def vignette_platine_about():
         '</svg>')
 
 
+def vignette_pied_poteau():
+    """Pied de poteau : poteau, platine, mortier, tiges d'ancrage dans le massif
+    (élévation schématique)."""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="100%" role="img" '
+        'aria-label="Pied de poteau sur béton">'
+        f'<rect x="10" y="56" width="100" height="30" fill="#E6ECF0" stroke="{_INK}" stroke-width="1"/>'
+        f'<rect x="28" y="52" width="64" height="4" fill="#D9D4C7" stroke="{_INK}" stroke-width="0.6"/>'
+        f'<rect x="28" y="46" width="64" height="6" fill="{_ACC}" fill-opacity=".35" stroke="{_ACC}" stroke-width="1.2"/>'
+        f'<rect x="54" y="6" width="12" height="40" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>'
+        f'<rect x="44" y="6" width="32" height="4" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>'
+        f'<path d="M38 46V78M82 46V78" stroke="{_KO}" stroke-width="2" fill="none"/>'
+        f'<rect x="34" y="76" width="8" height="4" fill="{_KO}"/><rect x="78" y="76" width="8" height="4" fill="{_KO}"/>'
+        f'<path d="M36 40h4M80 40h4" stroke="{_INK}" stroke-width="1"/>'
+        '</svg>')
+
+
 # ------------------------------------------------------------------- registre
 FAMILLES = (
     Famille(
@@ -124,6 +141,22 @@ FAMILLES = (
                 vignette=vignette_platine_about(),
                 etat="disponible",
                 module="acier.assemblages.poutre_poutre.platine_about.interface",
+            ),
+        ),
+    ),
+    Famille(
+        id="pied_poteau",
+        titre="Pied de poteau",
+        pitch="Platine de pied de poteau sur béton : N + Mx + My, tiges d'ancrage, cordons",
+        assemblages=(
+            Assemblage(
+                id="platine_beton",
+                titre="Platine de pied de poteau sur béton",
+                pitch="Profilé en I/H ou RHS/SHS, platine rectangulaire, tiges en grille — aire efficace et "
+                      "tronçons en T EN 1993-1-8, tiges EN 1992-4. Moteur livré (lot A) ; écran au lot B.",
+                vignette=vignette_pied_poteau(),
+                etat="à venir",
+                module="",
             ),
         ),
     ),
