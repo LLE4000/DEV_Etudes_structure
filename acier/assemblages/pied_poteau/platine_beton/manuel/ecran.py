@@ -153,14 +153,30 @@ def _sel(label, wkey, valeur, options, cle, i, champ, visible=False):
 
 
 def _etiq(txt, fort=False):
+    # margin-bottom:16px — même compensation que titre_bloc (marge −16 px du conteneur markdown).
     st.markdown(f"<div style='font-size:0.8em;color:{'#33415C' if fort else '#6E7480'};line-height:1.2;"
-                f"padding:0 0 6px 0;{'font-weight:700;' if fort else ''}'>{txt}</div>", unsafe_allow_html=True)
+                f"padding:0 0 6px 0;margin-bottom:16px;{'font-weight:700;' if fort else ''}'>{txt}</div>", unsafe_allow_html=True)
+
+
+def _table_large(html):
+    """Une table large (six colonnes et plus) défile horizontalement sur un
+    téléphone au lieu de sortir de l'écran."""
+    st.markdown("<div style='overflow-x:auto;'>" + html + "</div>", unsafe_allow_html=True)
+
+
+def _cols(poids, va):
+    """Les colonnes d'une ligne de la carte : la colonne des titres garde la MÊME
+    largeur (0,62 pour 3 — comme les lignes de champs) quel que soit le nombre de
+    colonnes de la table, sinon « RAIDISSEURS » se coupait en deux lignes dans une
+    colonne rétrécie (constaté le 31/10/2026 sur PC et tablette)."""
+    s = sum(poids)
+    return st.columns([0.62] + [p * 3 / s for p in poids], gap="small", vertical_alignment=va)
 
 
 def _entete(titre, labels, poids):
     """Une ligne d'en-tête : le titre du bloc dans la colonne de gauche, les
     libellés des colonnes de la table (les lignes ont leurs étiquettes masquées)."""
-    cols = st.columns([0.62] + poids, gap="small", vertical_alignment="bottom")
+    cols = _cols(poids, "bottom")
     with cols[0]:
         if titre:
             titre_bloc(titre)
@@ -172,7 +188,7 @@ def _entete(titre, labels, poids):
 
 
 def _ligne(poids):
-    return st.columns([0.62] + poids, gap="small", vertical_alignment="center")
+    return _cols(poids, "center")
 
 
 def _poubelle(key, cle, i, aide):
@@ -219,7 +235,8 @@ def bloc_boulons(u, chauds):
 def bloc_elements(u, chauds):
     elems = _liste("elems")
     P = [1.7, 1.1, 0.75, 0.75, 0.45]
-    _entete(("🔴 " if "col" in chauds else "") + "ÉLÉMENTS SOUDÉS", ["Type", "Profilé · rotation", "x (mm)", "y (mm)", ""], P)
+    # « ÉLÉMENTS » : « ÉLÉMENTS SOUDÉS » ne tient pas sur une ligne de la colonne des titres (tablette).
+    _entete(("🔴 " if "col" in chauds else "") + "ÉLÉMENTS", ["Type", "Profilé · rotation", "x (mm)", "y (mm)", ""], P)
     for i, e in enumerate(elems):
         e = dict(element_defaut(), **{k: v for k, v in e.items() if v is not None})
         t = e.get("type") if e.get("type") in TYPES_ELEM else TYPE_I
@@ -244,7 +261,7 @@ def bloc_elements(u, chauds):
         extra = ["rot"] if t == TYPE_I else []
         if dims or extra:
             n = len(dims) + len(extra)
-            cols = st.columns([0.62] + [1] * n + [1] * max(0, 5 - n), gap="small", vertical_alignment="bottom")
+            cols = _cols([1] * n + [1] * max(0, 5 - n), "bottom")
             k = 1
             for d in dims:
                 with cols[k]:
@@ -492,7 +509,10 @@ def bloc_main(R):
                       "— " + pct(c.eta, 1) + " · critère : " + crit[P["pire"]] + " · " + P["critere"] + " · fy = " + F(R.fy_p, 0) + " MPa",
                       [(crit[k], P["t_" + k] / u.tp_u if u.tp_u else 0.0, P["t_" + k] <= u.tp_u + 1e-9) for k in ("T", "S", "c", "b")])
     tendus = [t for t in R.tiges if t["T"] > 1e-9]
-    g1, g2 = st.columns(2, gap="medium")
+    # Les deux groupes l'un SOUS l'autre, sur toute la largeur : les tables « boulon par boulon » (9 colonnes)
+    # et « section au nu » (8) débordaient d'une demi-colonne et recouvraient le côté comprimé (PC et tablette,
+    # constaté le 31/10/2026).
+    g1, g2 = st.container(), st.container()
     with g1:
         st.markdown("**Côté tendu — boulon par boulon (tronçon en T)**")
         if tendus:
@@ -502,8 +522,10 @@ def bloc_main(R):
                                F(t["m"], 1) + (" (angle)" if t["coin"] else ""), F(t["M"], 2), F(t["leff1"], 0),
                                F(t["FT_Rd"], 0) + " (m" + str(t["mode_ts"]).split(" ")[0] + ")",
                                taux_html(t["eta"], t["eta"] <= 1 + 1e-9), F(t["t_pl"], 1) + " / " + F(t["t_el"], 1)])
-            st.markdown(tableau_html(["n°", "T (kN)", "Appui", "m (mm)", "T·m (kNm)", "leff (mm)", "FT,Rd (kN)", "η", "tp plast. / élast."],
-                                     lignes, droite=(1, 3, 4, 5, 6, 7, 8)), unsafe_allow_html=True)
+            # En-têtes sur deux lignes : la table tient dans la colonne sur tablette (660 px) sans défiler.
+            _table_large(tableau_html(["n°", Html("T<br>(kN)"), "Appui", Html("m<br>(mm)"), Html("T·m<br>(kNm)"), Html("leff<br>(mm)"),
+                                       Html("FT,Rd<br>(kN)"), "η", Html("tp plast.<br>/ élast.")],
+                                      lignes, droite=(1, 3, 4, 5, 6, 7, 8)))
             pt = R.pire_tige
             st.caption(f"Boulon {pt['i'] + 1} : Lb = {F(R.Lb, 0)} / Lb* = {F(min(pt['Lb_star'], 9999), 0)} mm → "
                        + ("avec" if pt["levier"] else "sans") + " effet de levier, mode " + str(pt["mode_ts"])
@@ -518,8 +540,9 @@ def bloc_main(R):
                                ", ".join(str(i + 1) for i in s["idx"]), ", ".join(F(m, 0) for m in s["m"]),
                                F(s["M"], 2), F(s["b"], 0), F(s["Mpl"], 2), taux_html(s["eta"], s["eta"] <= 1 + 1e-9),
                                F(s["t_pl"], 1) + " / " + F(s["t_el"], 1)])
-            st.markdown(tableau_html(["Face", "Boulons", "m⊥ (mm)", "ΣT·m (kNm)", "b (mm)", "Mpl (kNm)", "η", "tp plast. / élast."],
-                                     lignes, droite=(2, 3, 4, 5, 6, 7)), unsafe_allow_html=True)
+            _table_large(tableau_html(["Face", "Boulons", Html("m⊥<br>(mm)"), Html("ΣT·m<br>(kNm)"), Html("b<br>(mm)"), Html("Mpl<br>(kNm)"),
+                                       "η", Html("tp plast.<br>/ élast.")],
+                                      lignes, droite=(2, 3, 4, 5, 6, 7)))
             st.caption("b = min(platine ; L + 2·m) : la face de longueur L et la diffusion à 45° sur le bras.")
         else:
             st.caption("Aucune section : pas de boulon tendu devant une paroi.")
@@ -629,8 +652,8 @@ def onglet_efforts(R):
                            taux_html(t["T"] / (R.Ft_anc / 1e3), t["T"] <= R.Ft_anc / 1e3 + 1e-9) if tendu else "—",
                            F(t["V_ec3"], 1) + " / " + F(t["V_en"], 1),
                            t["appui"]["face"].replace("élément ", "É") if tendu else "—", F(t["m"], 0) if tendu else "—"])
-        st.markdown(tableau_html(["n°", "x ; y (mm)", "T (kN)", "T/Ft,Rd", "V EC3 / brut (kN)", "Appui", "m (mm)"], lignes,
-                                 droite=(2, 3, 4, 6)), unsafe_allow_html=True)
+        _table_large(tableau_html(["n°", Html("x ; y<br>(mm)"), Html("T<br>(kN)"), Html("T /<br>Ft,Rd"), Html("V EC3 /<br>brut (kN)"),
+                                   "Appui", Html("m<br>(mm)")], lignes, droite=(2, 3, 4, 6)))
         st.caption("V EC3 : frottement Cf,d·N déduit ; brut : sans frottement (valeur des logiciels d'ancrage).")
     with c2:
         st.markdown("##### Répartition")
