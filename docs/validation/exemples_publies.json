@@ -1,0 +1,44 @@
+{
+  "_lire_moi": [
+    "Fiches des EXEMPLES PUBLIÉS à rejouer par le benchmark du pied de poteau (onglet Benchmark, benchmark.BENCH).",
+    "Une fiche n'est rejouée que si « complet » vaut true. Chaque valeur de référence doit être COPIÉE du document,",
+    "avec sa page : aucun nombre n'est reconstitué de mémoire. Les documents sont gratuits (steelconstruction.info,",
+    "page The Green Books ; constructalia.arcelormittal.com) mais inaccessibles depuis l'environnement de calcul.",
+    "« inp » : les entrées du module (clés de entrees.defaults()) ; « rows » : [page, libellé, valeur de référence,",
+    "grandeur du moteur (clé de R, ou 'ck:<clé>' pour la résistance Rd d'une vérification, ou 'ed:<clé>'), unité,",
+    "explication d'un écart attendu (ou null)]."
+  ],
+  "fiches": [
+    {
+      "id": "BM1",
+      "complet": false,
+      "titre": "Steel Buildings in Europe – Multi-Storey Steel Buildings, Part 5: Joint Design — §6.5 Worked Example : Column base (pied articulé, aire efficace)",
+      "source": "ArcelorMittal / Peiner Träger / Corus (CTICM, SCI), 2008 — SBE_MS5.pdf, pages 5-105 à 5-108",
+      "norme": "EN 1993-1-8:2005 §6.2.5 ; EN 1992-1-1 §6.7",
+      "data": "À COMPLÉTER depuis le document : profilé, platine (bp × lp × tp, nuance), béton (classe, fcd), massif, N_Ed.",
+      "inp": {},
+      "rows": [
+        ["5-106", "fjd (résistance d'appui du joint)", null, "fjd", "MPa", null],
+        ["5-106", "c (largeur de bande efficace)", null, "c", "mm", null],
+        ["5-107", "Aeff (aire efficace)", null, "A_eff", "mm²", null],
+        ["5-107", "NRd = fjd·Aeff", null, "ck:ncp", "kN", null]
+      ]
+    },
+    {
+      "id": "BM2",
+      "complet": false,
+      "titre": "SCI P398 — Joints in Steel Construction: Moment-Resisting Joints to Eurocode 3 — Worked Example : Column base (pied encastré, N + M)",
+      "source": "SCI / BCSA, 2013 — SCI_P398.pdf, chapitre 5 et exemple de pied de poteau de l'annexe des exemples",
+      "norme": "EN 1993-1-8:2005 §6.2.5, §6.2.4, §6.2.8",
+      "data": "À COMPLÉTER depuis le document : profilé, platine, tiges (diamètre, classe, position), béton, N_Ed, M_Ed.",
+      "inp": {},
+      "rows": [
+        ["", "fjd", null, "fjd", "MPa", null],
+        ["", "c", null, "c", "mm", null],
+        ["", "FC,Rd de l'aile comprimée (tronçon en T comprimé)", null, "FC_Rd:x+", "kN", null],
+        ["", "FT,Rd de la rangée tendue (tronçon en T, modes 1-2-3)", null, "rangee:0:FT_Rd", "kN", null],
+        ["", "Mj,Rd (résistance en flexion du pied)", null, "MRd1:x+", "kNm", null]
+      ]
+    }
+  ]
+}

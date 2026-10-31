@@ -12,7 +12,7 @@ from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte_ligne, b
 from acier.bibliotheques import PERSO
 from . import schemas, texte, synthese, formules
 from .notation import ligne_alerte, LEGENDE_REFERENCES
-from .entrees import COURT, UNITE, CHAMPS, CLES, champ_visible, forme_RHS, TYPE_CROSSE
+from .entrees import COURT, UNITE, CHAMPS, CLES, champ_visible, forme_RHS, ancrage_txt
 from .moteur import GROUPES_VERIF
 from .benchmark import SRC, NOCOVER
 from .methode import METHODE
@@ -209,7 +209,9 @@ def _panneaux(R, u):
                         champs=[ch("n_ax", "Files (selon x)"), ch("n_ay", "Rangées (selon y)"),
                                 ch("w_x", "wx — entraxe des files (mm)"), ch("w_y", "wy — entraxe des rangées (mm)"),
                                 ch("ancr", "Tige"), ch("classe", "Classe"), ch("typ_a", "Ancrage"),
-                                ch("hef", "hef (mm)")] + ([ch("d_h", "dh — tête (mm)")] if u.get("typ_a") != TYPE_CROSSE else []),
+                                ch("hef", "hef (mm)")]
+                        + ([ch("d_h", "dh — tête (mm)")] if champ_visible(u, "d_h") else [])
+                        + ([ch(k, COURT[k]) for k in ("eta_tau", "eta_k1", "eta_nrks", "eta_vrks")] if champ_visible(u, "eta_tau") else []),
                         note="Grille centrée sur l'axe du poteau : wx et wy sont les entraxes TOTAUX.")
     g["pedestal"] = dict(titre="Massif de béton",
                          champs=[ch("beton", "Classe"), ch("fiss", "Fissuré"), ch("bc_u", "bc — selon x (mm)"),
@@ -353,7 +355,7 @@ def _parametres_retenus(R):
          ["Platine", js_str(N(u.bp_u)) + " × " + js_str(N(u.lp_u)) + " × " + js_str(N(u.tp_u)) + " mm " + str(u.nu_pl)
           + " – fy = " + F(R.fy_p, 0) + " MPa (épaisseur)"],
          ["Tiges", js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – d0 = " + F(R.d0, 0) + " mm, As = "
-          + F(R.As, 0) + " mm² – " + ("crosse" if u.typ_a == TYPE_CROSSE else "tête dh = " + F(u.d_h, 0) + " mm")],
+          + F(R.As, 0) + " mm² – " + ancrage_txt(u) + (" mm" if champ_visible(u, "d_h") else "")],
          ["Béton", "fck = " + F(R.fck, 0) + " MPa, fcd = αcc·fck/γc = " + F(R.fcd, 1) + " MPa, Ecm = "
           + F(R.E_cm / 1e3, 1) + " GPa, " + ("fissuré" if R.fiss else "non fissuré")],
          ["Appui : fjd = βj·fcd·√(Ac1/Ac0)", F(R.fjd, 1) + " MPa (βj = " + F(R.beta_j, 3) + ", √(Ac1/Ac0) = "
@@ -486,9 +488,27 @@ def onglet_benchmark(B, ecrire):
             lignes.append([r["lab"], r["page"], F(r["ref"], n) + ("" if r["unit"] == "-" else " " + r["unit"]),
                            F(r["val"], n + 1), F(r["ec"] * 100, 2) + " %", r["st"]])
         st.markdown(tableau_md(["Vérification", "Réf.", "Référence", "Outil", "Écart", "Statut"], lignes, droite=(2, 3, 4)))
+    for f in B.get("fiches", []):
+        st.markdown(f"#### {f['id']} – fiche à compléter")
+        st.caption(f["titre"] + " — " + f.get("source", "") + ". " + f.get("data", ""))
     st.markdown("#### Vérifications sans exemple publié consulté")
     for x in NOCOVER:
         st.markdown(f"- **{x[0]}** – {x[1]}")
+    V = B.get("croisee")
+    if V:
+        st.markdown(f"#### Validation croisée indépendante du {V['date']} — {V['configurations']} configurations, "
+                    f"{V['directions']} directions")
+        st.caption("Hors moteur (numpy + scipy) : grille de ressorts pour la répartition élastique, programme linéaire "
+                   "(HiGHS) pour le domaine résistant — le domaine exact des champs admissibles bornés. Rapport : "
+                   + V["rapport"] + ".")
+        st.markdown(tableau_md(["Grandeur", "Écart maximal", "Tolérance"], [list(e) for e in V["ecarts"]], droite=(1, 2)))
+        import os
+        dossier = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "docs", "validation",
+                               "figures")
+        for nom in V["figures"]:
+            chemin = os.path.join(dossier, nom)
+            if os.path.exists(chemin):
+                st.image(chemin, use_container_width=True)
     for i, c in enumerate(B["valid"]):
         st.markdown(f"#### {c['id']} – calcul manuel indépendant")
         c1, c2 = st.columns([4, 1.4], vertical_alignment="center")

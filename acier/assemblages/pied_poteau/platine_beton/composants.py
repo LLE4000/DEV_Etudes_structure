@@ -149,26 +149,33 @@ def tige_cisaillement_EN1992_4(As, f_uk, f_yk, d, t_g, f_g, N_Ed_tige, N_Rd_s):
 
 
 # --------------------------------------------------------- tiges : béton
-def cone_beton(hef, fck, fiss, x_t, y_t, bc, lc, e_x, e_y, g_Mc):
-    """Cône de béton du groupe TENDU — EN 1992-4 §7.2.1.4 :
-    NRk,c = N⁰Rk,c·(Ac,N/A⁰c,N)·ψs,N·ψre,N·ψec,N·ψM,N, N⁰Rk,c = k1·√fck·hef^1,5
-    (k1 = 7,7 fissuré, 11,0 non fissuré, tiges coulées en place), scr,N = 3·hef,
-    ccr,N = 1,5·hef. ``x_t``, ``y_t`` : coordonnées des tiges tendues (massif
-    centré bc × lc) ; ``e_x``, ``e_y`` : excentrement de la résultante de
-    traction par rapport au centre du groupe tendu. ψM,N = 1 (conservatif)."""
-    if not x_t:
-        return dict(NRk=0.0, NRd=0.0, actif=False)
-    k1 = 7.7 if fiss else 11.0
-    N0 = k1 * math.sqrt(fck) * hef ** 1.5
-    scr, ccr = 3.0 * hef, 1.5 * hef
+def _aire_projetee(x_t, y_t, bc, lc, scr, ccr):
+    """Aire projetée d'un groupe (tiges aux coordonnées données, massif
+    centré bc × lc) pour un espacement critique ``scr`` et une distance au
+    bord critique ``ccr`` : (Ac, cmin)."""
     xs, ys = sorted(set(x_t)), sorted(set(y_t))
     cx1, cx2 = bc / 2 + xs[0], bc / 2 - xs[-1]
     cy1, cy2 = lc / 2 + ys[0], lc / 2 - ys[-1]
     wx = min(ccr, cx1) + sum(min(scr, b - a) for a, b in zip(xs, xs[1:])) + min(ccr, cx2)
     wy = min(ccr, cy1) + sum(min(scr, b - a) for a, b in zip(ys, ys[1:])) + min(ccr, cy2)
+    return wx * wy, min(cx1, cx2, cy1, cy2)
+
+
+def cone_beton(hef, fck, fiss, x_t, y_t, bc, lc, e_x, e_y, g_Mc, k1=None):
+    """Cône de béton du groupe TENDU — EN 1992-4 §7.2.1.4 :
+    NRk,c = N⁰Rk,c·(Ac,N/A⁰c,N)·ψs,N·ψre,N·ψec,N·ψM,N, N⁰Rk,c = k1·√fck·hef^1,5
+    (k1 = 7,7 fissuré, 11,0 non fissuré pour les tiges coulées en place ;
+    ``k1`` imposé = valeur de l'ETA d'une tige post-installée), scr,N = 3·hef,
+    ccr,N = 1,5·hef. ``x_t``, ``y_t`` : coordonnées des tiges tendues (massif
+    centré bc × lc) ; ``e_x``, ``e_y`` : excentrement de la résultante de
+    traction par rapport au centre du groupe tendu. ψM,N = 1 (conservatif)."""
+    if not x_t:
+        return dict(NRk=0.0, NRd=0.0, actif=False)
+    k1 = k1 if k1 else (7.7 if fiss else 11.0)
+    N0 = k1 * math.sqrt(fck) * hef ** 1.5
+    scr, ccr = 3.0 * hef, 1.5 * hef
     Ac0 = scr ** 2
-    Ac = wx * wy
-    cmin = min(cx1, cx2, cy1, cy2)
+    Ac, cmin = _aire_projetee(x_t, y_t, bc, lc, scr, ccr)
     psi_s = min(1.0, 0.7 + 0.3 * cmin / ccr)
     psi_re = min(1.0, 0.5 + hef / 200.0)
     psi_ec = 1.0 / (1.0 + 2.0 * abs(e_x) / scr) / (1.0 + 2.0 * abs(e_y) / scr)
@@ -185,6 +192,30 @@ def arrachement_tete(d, d_h, fck, fiss, g_Mc):
     Ah = math.pi / 4.0 * max(0.0, d_h ** 2 - d ** 2)
     NRk = k2 * Ah * fck
     return dict(NRk=NRk, NRd=NRk / g_Mc, Ah=Ah, k2=k2)
+
+
+def adherence_eta(d, hef, tau, x_t, y_t, bc, lc, e_x, e_y, g_Mc):
+    """Tige post-installée SCELLÉE : rupture combinée par arrachement et
+    cône de béton — EN 1992-4 §7.2.1.6. N⁰Rk,p = π·d·hef·τRk (τRk : valeur
+    caractéristique de l'ETA pour l'état du béton), scr,Np = 7,3·d·√τRk ≤ 3·hef,
+    ccr,Np = scr,Np/2, NRk,p = N⁰Rk,p·(Ap,N/A⁰p,N)·ψg,Np·ψs,Np·ψre,Np·ψec,Np.
+    ψg,Np (effet de groupe, ≥ 1) est pris à 1 et τRk sert aussi pour scr,Np :
+    deux simplifications du côté de la sécurité. Retourne aussi la
+    résistance d'UNE tige seule (sans effet de bord ni de groupe)."""
+    N0 = math.pi * d * hef * tau
+    scr = min(7.3 * d * math.sqrt(max(tau, 0.0)), 3.0 * hef)
+    ccr = scr / 2.0
+    seule = N0 / g_Mc
+    if not x_t:
+        return dict(NRk=0.0, NRd=0.0, actif=False, N0=N0, scr=scr, ccr=ccr, seule=seule)
+    Ap, cmin = _aire_projetee(x_t, y_t, bc, lc, scr, ccr)
+    Ap0 = scr ** 2
+    psi_s = min(1.0, 0.7 + 0.3 * cmin / ccr) if ccr > 0 else 1.0
+    psi_re = min(1.0, 0.5 + hef / 200.0)
+    psi_ec = 1.0 / (1.0 + 2.0 * abs(e_x) / scr) / (1.0 + 2.0 * abs(e_y) / scr) if scr > 0 else 1.0
+    NRk = N0 * Ap / Ap0 * psi_s * psi_re * psi_ec
+    return dict(NRk=NRk, NRd=NRk / g_Mc, actif=True, N0=N0, Ap=Ap, Ap0=Ap0, psi_s=psi_s, psi_re=psi_re,
+                psi_ec=psi_ec, psi_g=1.0, cmin=cmin, scr=scr, ccr=ccr, seule=seule)
 
 
 def adherence_crosse(d, l_a, fck, g_c, eta1=0.7):

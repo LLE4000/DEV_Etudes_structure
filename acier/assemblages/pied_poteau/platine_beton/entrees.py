@@ -18,6 +18,7 @@ FORME_I = "Profilé en I ou H"
 FORME_RHS = "Profil creux rectangulaire ou carré (RHS / SHS)"
 TYPE_TETE = "Tige à tête (ou plaque d'ancrage)"
 TYPE_CROSSE = "Tige à crosse (adhérence)"
+TYPE_ETA = "Tige post-installée (valeurs de l'ETA)"
 OUI, NON = "Oui", "Non"
 BETONS = ["C20/25", "C25/30", "C30/37", "C35/45", "C40/50", "C45/55", "C50/60"]
 
@@ -48,6 +49,7 @@ def defaults():
         "bp_u": 500, "lp_u": 500, "tp_u": 25, "nu_pl": "S355", "a_w": 8,
         "n_ax": 2, "n_ay": 2, "w_x": 400, "w_y": 400,
         "ancr": "M24", "classe": "8.8", "typ_a": TYPE_TETE, "hef": 300, "d_h": 40,
+        "eta_tau": 10, "eta_k1": 7.7, "eta_nrks": 0, "eta_vrks": 0,
         "t_g": 30, "f_g": 30,
         "beton": "C30/37", "fiss": OUI, "a_cc": 0.85,
         "bc_u": 900, "lc_u": 900, "hc_u": 600,
@@ -62,7 +64,7 @@ CLES = tuple(defaults().keys())
 
 # Clés passées par N() en tête de compute()
 NUM = ["h_u", "b_u", "tw_u", "tf_u", "r_u", "t_u", "bp_u", "lp_u", "tp_u", "a_w",
-       "n_ax", "n_ay", "w_x", "w_y", "hef", "d_h", "t_g", "f_g", "a_cc",
+       "n_ax", "n_ay", "w_x", "w_y", "hef", "d_h", "eta_tau", "eta_k1", "eta_nrks", "eta_vrks", "t_g", "f_g", "a_cc",
        "bc_u", "lc_u", "hc_u", "N_Ed", "Mx_Ed", "My_Ed", "Vx_Ed", "Vy_Ed", "T_Ed",
        "L_c", "g_M0", "g_M2", "g_c", "g_Mc", "C_f", "fy_u", "fu_u", "bw_u"]
 
@@ -87,11 +89,28 @@ def perso_c(u):
 
 
 def tete(u):
-    return u.get("typ_a") != TYPE_CROSSE
+    return u.get("typ_a") not in (TYPE_CROSSE, TYPE_ETA)
+
+
+def eta(u):
+    return u.get("typ_a") == TYPE_ETA
 
 
 def acier_perso(u):
     return PERSO in (u.get("nu_c"), u.get("nu_pl"))
+
+
+def ancrage_txt(u, court=False):
+    """« tête Ø40 », « crosse » ou « scellée (ETA) » — pour les textes."""
+    t = u.get("typ_a")
+    if t == TYPE_CROSSE:
+        return "crosse"
+    if t == TYPE_ETA:
+        return "scellée (ETA)" if court else "scellée, valeurs ETA"
+    try:
+        return ("tête Ø" if court else "tête dh = ") + str(int(float(u.get("d_h") or 0)))
+    except (TypeError, ValueError):
+        return "tête"
 
 
 def fck_de(nom):
@@ -149,9 +168,15 @@ GROUPES = [
          f=[_c("n_ax", "Files (selon x)", "n"), _c("n_ay", "Rangées (selon y)", "n"),
             _c("w_x", "wx — entraxe total des files", "n", un="mm"), _c("w_y", "wy — entraxe total des rangées", "n", un="mm"),
             _c("ancr", "Tige", "s", BOULONS), _c("classe", "Classe", "s", CLASSES),
-            _c("typ_a", "Type d'ancrage", "s", [TYPE_TETE, TYPE_CROSSE]),
+            _c("typ_a", "Type d'ancrage", "s", [TYPE_TETE, TYPE_CROSSE, TYPE_ETA]),
             _c("hef", "hef — profondeur d'ancrage", "n", un="mm"),
-            _c("d_h", "dh — diamètre de la tête / plaque", "n", un="mm", si=tete)]),
+            _c("d_h", "dh — diamètre de la tête / plaque", "n", un="mm", si=tete),
+            _c("eta_tau", "τRk — adhérence caractéristique de l'ETA", "n", un="MPa", si=eta,
+               h="Valeur de l'ETA de la tige scellée, pour l'état du béton (fissuré ou non) et la classe retenue."),
+            _c("eta_k1", "k1 — cône de béton (ETA)", "n", si=eta,
+               h="Facteur k1 (kcr fissuré, kucr non fissuré) de l'ETA ; 7,7 / 11,0 à défaut (EN 1992-4)."),
+            _c("eta_nrks", "NRk,s — acier en traction (ETA, 0 = calcul)", "n", un="kN", si=eta),
+            _c("eta_vrks", "VRk,s — acier en cisaillement (ETA, 0 = calcul)", "n", un="kN", si=eta)]),
     dict(t="Béton et scellement",
          f=[_c("beton", "Classe de béton", "s", BETONS), _c("fiss", "Béton fissuré", "s", OUI_NON),
             _c("a_cc", "αcc", "n", h="Coefficient de l'ANB belge pour fcd = αcc·fck/γc ; 0,85 par défaut, à confirmer."),
@@ -171,7 +196,8 @@ GROUPES = [
 ]
 
 COURT = {"bp_u": "bp", "lp_u": "lp", "tp_u": "tp", "a_w": "a", "w_x": "wx", "w_y": "wy",
-         "hef": "hef", "d_h": "dh", "t_g": "tg", "f_g": "fg", "N_Ed": "NEd", "Mx_Ed": "Mx", "My_Ed": "My",
+         "hef": "hef", "d_h": "dh", "eta_tau": "τRk", "eta_k1": "k1", "eta_nrks": "NRk,s", "eta_vrks": "VRk,s",
+         "t_g": "tg", "f_g": "fg", "N_Ed": "NEd", "Mx_Ed": "Mx", "My_Ed": "My",
          "Vx_Ed": "Vx", "Vy_Ed": "Vy", "T_Ed": "TEd", "prof_c": "profilé", "ancr": "tige",
          "bc_u": "bc", "lc_u": "lc", "hc_u": "hc", "n_ax": "files", "n_ay": "rangées",
          "h_u": "h", "b_u": "b", "tw_u": "tw", "tf_u": "tf", "r_u": "r", "t_u": "t", "L_c": "Lc"}

@@ -39,7 +39,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 
 from acier.assemblages.pied_poteau.platine_beton import (interface, ecran_saisie, moteur,  # noqa: E402
                                                           schemas, note)
-from acier.assemblages.pied_poteau.platine_beton.entrees import (FORME_RHS, TYPE_CROSSE, PERIM_EC3,  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.entrees import (FORME_RHS, TYPE_CROSSE, TYPE_ETA, PERIM_EC3,  # noqa: E402
                                                                   PERIM_TOUT)
 from acier import projet as modele, rapport_projet  # noqa: E402
 
@@ -156,6 +156,14 @@ at.selectbox(key="ppb_typ_a").set_value(TYPE_CROSSE); run(at)
 lu = {k: at.session_state.get("ppb_" + k) for k in interface.CLES}
 chk("tige à crosse : l'adhérence entre dans la résistance de la tige (formule Ft,bond,Rd à l'écran)",
     moteur.compute(lu).Ft_bond is not None and "Ft,bond,Rd = π·d·hef·fbd" in md(at))
+at.selectbox(key="ppb_typ_a").set_value(TYPE_ETA); run(at)
+w = cles_widgets(at)
+lu = {k: at.session_state.get("ppb_" + k) for k in interface.CLES}
+chk("tige post-installée (ETA) : τRk, k1, NRk,s, VRk,s dans la carte, alerte « valeurs de l'ETA », hypothèse "
+    "« scellée, valeurs ETA », et le moteur vérifie l'arrachement combiné du groupe (§7.2.1.6)",
+    {"ppb_eta_tau", "ppb_eta_k1", "ppb_eta_nrks", "ppb_eta_vrks"} <= w and "valeurs de l'ETA" in md(at)
+    and "scellée, valeurs ETA" in md(at)
+    and moteur.compute(lu).ck["pull"].label.startswith("Arrachement combiné du groupe tendu"))
 at.selectbox(key="ppb_typ_a").set_value("Tige à tête (ou plaque d'ancrage)"); run(at)
 at.selectbox(key="ppb_forme").set_value(FORME_RHS); run(at)
 w = cles_widgets(at)
@@ -272,6 +280,11 @@ print("\n=== 6. Benchmark, exports, onglets ===")
 at.session_state["ppb_ui_onglet"] = "Benchmark"; run(at)
 chk("onglet Benchmark : calculs manuels VAL-A et VAL-B, statut VALIDÉ, aucun exemple publié (dit en clair)",
     all(x in md(at) for x in ("VAL-A", "VAL-B", "Benchmark du module : VALIDÉ", "Aucun exemple publié")))
+chk("onglet Benchmark : fiches BM1 / BM2 « à compléter » et validation croisée indépendante du 31/10/2026 "
+    "(40 configurations, écarts, figures)",
+    all(x in md(at) for x in ("BM1 – fiche à compléter", "BM2 – fiche à compléter",
+                              "Validation croisée indépendante du 31/10/2026 — 40 configurations",
+                              "Résultante comprimée C (grille de ressorts", "0,042 %")))
 at.button(key="ppb_btn_val_1").click(); run(at)
 chk("« Charger ces données » : VAL-B (massif 3 000) dans l'outil, VÉRIFIÉ",
     float(at.session_state["ppb_bc_u"]) == 3000.0 and "PIED DE POTEAU VÉRIFIÉ" in md(at))

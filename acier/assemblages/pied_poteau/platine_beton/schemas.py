@@ -27,7 +27,7 @@ from acier.formats import F, f0
 from ...poutre_poutre.doubles_cornieres.schemas import (            # kit partagé
     Options, Feuille, Dessin,
     _rect, _poly, _path, _circle, _text, _group, _hachures, _rect_rompu, _section_I)
-from .entrees import TYPE_CROSSE
+from .entrees import TYPE_CROSSE, TYPE_ETA
 
 # Cote du dessin → clé d'entrée (édition directe sur le dessin)
 CLE_PAR_COTE = {"bp": "bp_u", "lp": "lp_u", "tp": "tp_u", "wx": "w_x", "wy": "w_y",
@@ -268,7 +268,8 @@ def _coupe(R, opt, axe):
     u = R.u
     dims = R.dims
     tp, tg = u.tp_u, u.t_g
-    tete = u.typ_a != TYPE_CROSSE
+    tete = u.typ_a not in (TYPE_CROSSE, TYPE_ETA)
+    scellee = u.typ_a == TYPE_ETA
     d, dh = R.d_a, (N(u.d_h) if tete else 0.0)
     rw = R.d_w / 2
     if axe == "x":
@@ -362,6 +363,10 @@ def _coupe(R, opt, axe):
         an.append(_rect(["bo"], p - sw / 2, -tp - tr - m, sw, m))
         if tete:
             an.append(_rect(["tg"] + hc("anchors"), p - dh / 2, tg + hef - 0.6 * d, dh, 0.6 * d))
+        elif scellee:
+            # tige scellée (post-installée) : gaine de scellement autour de la tige, sans tête
+            an.append(_rect(["gr"], p - 0.9 * d, tg, 1.8 * d, hef))
+            an.append(_rect(["tg"] + hc("anchors"), p - d / 2, tg, d, hef))
         else:
             g = -1 if p > 0 else 1                                   # crosse tournée vers l'axe
             an.append(_rect(["tg"] + hc("anchors"), mn(p, p + g * 4 * d), tg + hef - d, 4 * d, d))

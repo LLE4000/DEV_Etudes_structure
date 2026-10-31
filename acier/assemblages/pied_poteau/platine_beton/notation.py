@@ -63,6 +63,7 @@ TITRES_ALERTES = {
     "fend": "Bord du massif à moins de 1,5·hef : fendage et éclatement à vérifier (EC2-4 §7.2.1.7-8)",
     "rig": "Rigidité du pied (information)",
     "ancr_info": "Béton d'ancrage (EN 1992-4) non satisfait — hors périmètre, en information",
+    "eta_info": "Tige post-installée : valeurs de l'ETA à reporter du document (ψg,Np = 1)",
     "c_ecret": "Bande c écrêtée par la platine : niveau 1 conservatif (platine épaisse)",
 }
 

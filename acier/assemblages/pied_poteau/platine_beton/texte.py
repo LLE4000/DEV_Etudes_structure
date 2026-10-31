@@ -9,7 +9,7 @@ from acier.js import js_str, N
 from acier.formats import F, pct
 from . import synthese, formules
 from .notation import ref_courte
-from .entrees import TYPE_CROSSE, OUI
+from .entrees import OUI, ancrage_txt
 
 
 def nom_fichier(u, ext):
@@ -27,7 +27,7 @@ def ligne_donnees(R):
     u = R.u
     tige = (js_str(R.n_t) + " tiges " + str(u.ancr) + " " + str(u.classe) + " (" + js_str(int(u.n_ax)) + " files × "
             + js_str(int(u.n_ay)) + " rangées, wx = " + js_str(N(u.w_x)) + ", wy = " + js_str(N(u.w_y)) + " mm), "
-            + ("crosse" if u.typ_a == TYPE_CROSSE else "tête dh = " + js_str(N(u.d_h))) + ", hef = " + js_str(N(u.hef)) + " mm")
+            + ancrage_txt(u) + ", hef = " + js_str(N(u.hef)) + " mm")
     return ("Poteau " + R.nom_c + " " + str(u.nu_c) + " ; platine " + js_str(N(u.bp_u)) + "x" + js_str(N(u.lp_u)) + "x"
             + js_str(N(u.tp_u)) + " " + str(u.nu_pl) + " ; " + tige + " ; béton " + str(u.beton)
             + (" fissuré" if u.fiss == OUI else " non fissuré") + ", massif " + js_str(N(u.bc_u)) + "x"

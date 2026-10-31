@@ -97,6 +97,12 @@ Comme à la main, l'épaisseur se calcule de chaque côté de l'aile.
   ou adhérence de la crosse (EC3 §6.2.6.12 sur EC2 §8.4.2, `η1 = 0,7`),
   rupture du bord (§7.2.2.5, rangée voisine du bord, trous normaux),
   pry-out (§7.2.2.4), interaction `βN^1,5 + βV^1,5 ≤ 1` (§7.2.3.2).
+- **Tige post-installée scellée** (valeurs de l'ETA saisies : `τRk`, `k1`,
+  `NRk,s`, `VRk,s`) : arrachement combiné du groupe (§7.2.1.6,
+  `N⁰Rk,p = π·d·hef·τRk`, `scr,Np = 7,3·d·√τRk ≤ 3·hef`, `ψg,Np = 1`
+  conservatif), cône avec le `k1` de l'ETA, résistance d'une tige seule
+  bornée par `π·d·hef·τRk/γMc` dans le tronçon en T. Les facteurs `k9`
+  (bord) et `k8` (pry-out) restent ceux des tiges coulées en place.
 - **Poteau** : aile (ou paroi) comprimée `Fc,fc,Rd = Mc,Rd/(h − tf)` contre
   l'effort de sa bande (EC3 §6.2.6.7 par analogie).
 - **Cordons** poteau / platine : méthode directionnelle (EC3 §4.5.3.2),

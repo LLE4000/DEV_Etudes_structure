@@ -10,7 +10,7 @@ des widgets (le dessin est rendu avant la carte)."""
 import streamlit as st
 
 from acier.assemblages.ui_commun import titre_bloc
-from .entrees import CHAMPS, champ_visible, perso_c, acier_perso, VISSERIE_DEFAUT
+from .entrees import CHAMPS, champ_visible, perso_c, acier_perso, eta, VISSERIE_DEFAUT
 from .schemas import CLE_PAR_COTE
 
 PREFIXE = "ppb_"
@@ -28,6 +28,7 @@ LIBELLES = {
     "h_u": "h (mm)", "b_u": "b (mm)", "tw_u": "tw (mm)", "tf_u": "tf (mm)", "r_u": "r (mm)", "t_u": "t (mm)",
     "nu_pl": "Nuance de la platine",
     "ancr": "Tige", "classe": "Classe", "typ_a": "Ancrage",
+    "eta_tau": "τRk (MPa)", "eta_k1": "k1 (cône)", "eta_nrks": "NRk,s (kN, 0 = calcul)", "eta_vrks": "VRk,s (kN, 0 = calcul)",
     "n_ax": "Files (selon x)", "n_ay": "Rangées (selon y)",
     "beton": "Béton", "fiss": "Fissuré", "hc_u": "Hauteur du massif hc (mm)",
     "N_Ed": "NEd (kN)", "Mx_Ed": "Mx,Ed (kNm)", "My_Ed": "My,Ed (kNm)",
@@ -46,7 +47,8 @@ BLOCS = [
     ("POTEAU", [(["forme", "prof_c", "nu_c"], None),
                 (["h_u", "b_u", "tw_u", "tf_u", "r_u", "t_u"], perso_c)]),
     ("PLATINE", [(["nu_pl"], None)]),
-    ("TIGES", [(["ancr", "classe", "typ_a"], None), (["n_ax", "n_ay"], None)]),
+    ("TIGES", [(["ancr", "classe", "typ_a"], None), (["n_ax", "n_ay"], None),
+               (["eta_tau", "eta_k1", "eta_nrks", "eta_vrks"], eta)]),
     ("BÉTON", [(["beton", "fiss", "hc_u"], None)]),
     ("EFFORTS ELU", [(["N_Ed", "Mx_Ed", "My_Ed"], None), (["Vx_Ed", "Vy_Ed", "T_Ed"], None)]),
 ]

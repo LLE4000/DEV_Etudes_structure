@@ -24,7 +24,7 @@ from ndc_pdf import data as ndc_data
 from acier.formats import F, pct
 from acier.js import N, js_str
 from . import schemas, synthese
-from .entrees import VISSERIE_DEFAUT, TYPE_CROSSE, OUI
+from .entrees import VISSERIE_DEFAUT, OUI, ancrage_txt
 from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte
 from ...poutre_poutre.plat_ame import note as _np
 from ...poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, _fmt_echelle, CART_H
@@ -51,7 +51,7 @@ def lignes_entete(R):
           + str(u.beton) + (" fissuré" if u.fiss == OUI else " non fissuré"))
     l2 = ("Tiges " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " (" + js_str(int(u.n_ax)) + " files × "
           + js_str(int(u.n_ay)) + " rangées, " + js_str(N(u.w_x)) + " × " + js_str(N(u.w_y)) + ") · "
-          + ("crosse" if u.typ_a == TYPE_CROSSE else "tête Ø" + F(u.d_h, 0)) + " · hef " + F(u.hef, 0)
+          + ancrage_txt(u, True) + " · hef " + F(u.hef, 0)
           + "    |    Mortier " + F(u.t_g, 0) + " mm, " + F(u.f_g, 0) + " MPa"
           + "    |    Cordons a " + F(u.a_w, 1).replace(",0", ""))
     l3 = ("NEd " + F(u.N_Ed, 1) + " kN    |    Mx,Ed " + F(u.Mx_Ed, 1) + " kNm    |    My,Ed " + F(u.My_Ed, 1)
@@ -233,8 +233,7 @@ class PlanPrincipePB(PlanPrincipe):
         d.box(x0, y0, w, h, stroke=S.ink, lw=0.9)
         fix = ("Tiges " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – trous Ø" + F(R.d0, 0)
                + " – " + js_str(int(u.n_ax)) + " × " + js_str(int(u.n_ay)) + " (" + js_str(N(u.w_x)) + " × "
-               + js_str(N(u.w_y)) + ") · " + ("crosse" if u.typ_a == TYPE_CROSSE else "tête Ø" + F(u.d_h, 0))
-               + " · hef " + F(u.hef, 0))
+               + js_str(N(u.w_y)) + ") · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
         vis = "par tige : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
         ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
         cases = [("ASSEMBLAGE", "Pied de poteau – platine sur béton", ident or "—", 0.185),

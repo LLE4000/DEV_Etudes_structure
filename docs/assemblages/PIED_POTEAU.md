@@ -73,8 +73,11 @@ est l'effort élastique de la tige.
   (résidus, compression pure, soulèvement), convexité du domaine et
   niveau 1 ≤ niveau 2 (cas tirés au sort), composants à la main,
   configurations (RHS six tiges, int, géométries invalides), benchmark, temps.
-- Lot C : reproduction de la Table 6.7 sur exemples publiés, éléments finis
-  hors outil pour les coins et le biaxial, promotion éventuelle du niveau 2.
+- Lot C (section 8) : les exemples publiés restent **à compléter** (documents
+  inaccessibles depuis l'environnement) ; à leur place, une validation
+  croisée indépendante du moteur (grille de ressorts + programme linéaire,
+  rapport daté) ; tiges post-installées (valeurs d'une ETA) ; les coins et le
+  biaxial par éléments finis restent hors outil, le niveau 1 garde le verdict.
 
 ## 5 · Résultat sur l'exemple du bureau
 
@@ -147,3 +150,48 @@ kNm/m` sur `c = 59 mm` → `tc = 14,0 mm` ; tronçon en T `M = 43,2 kN × 45,9
 mm = 1,98 kNm`, `Σleff,1 = 150 mm` → `tT = 8,6 mm` ; appui `tN = 4,0` ;
 niveau 1 `tM = 11,1` ; **épaisseur requise 14,0 mm pour tp = 25 (56 %)**,
 VÉRIFIÉ — le béton d'ancrage à 108 % reste dit en information.
+
+## 8 · Lot C — validation, tiges post-installées, ce qui reste ouvert
+
+**Les exemples publiés n'ont pas pu être rejoués** : MSB Part 5 §6.5 et SCI
+P398 sont des téléchargements gratuits (steelconstruction.info, page *The
+Green Books* ; constructalia.arcelormittal.com), mais ces hôtes sont refusés
+par la politique réseau de l'environnement de calcul, et la règle du
+module est de ne reconstituer aucun nombre de mémoire. Deux **fiches** sont
+prêtes dans `docs/validation/exemples_publies.json` (entrées, pages,
+grandeurs du moteur à comparer) : une fiche marquée `"complet": true` est
+rejouée automatiquement par l'onglet Benchmark (`benchmark.BENCH`). Il
+suffit d'y copier les valeurs du document.
+
+**Validation croisée indépendante** (`tools/validation_pied_poteau.py`,
+numpy + scipy hors chemin de production ; rapport daté
+`docs/validation/pied_poteau_validation_2026-10-31.md`, trois figures) :
+
+| Contrôle | Méthode indépendante | Écart maximal (40 configurations, 468 directions) |
+|---|---|---|
+| Répartition élastique (C, position, p max, T de chaque tige) | grille de ressorts au pas de 4 mm, Newton analytique | C 0,012 % · position 0,03 mm · p max 0,020 % · T 0,29 ‰ |
+| Domaine résistant du niveau 2 | programme linéaire (HiGHS) sur cellules de 5 mm — l'exact du théorème statique | fonction d'appui 0,042 % · capacité sur le rayon 0,042 % |
+| Niveau 1 ≤ niveau 2, rayon du moteur intérieur | idem | 0 direction en défaut sur 468 |
+
+Ce que cette validation prouve : le moteur calcule exactement ce que son
+modèle dit (découpage des polygones, intégrales de Green, Newton, balayage
+de l'axe neutre). Ce qu'elle ne prouve pas : le modèle lui-même (bande c,
+raideurs k13 / k16, champ extrémal du niveau 2) et la longueur efficace des
+tiges de coin ou latérales, qui demandent un calcul de plaque
+élasto-plastique hors outil — c'est pourquoi le niveau 1 garde le verdict
+et les coins restent signalés. Le script a trouvé un défaut : une tige déjà
+à sa résistance en traction avec bras de levier (`MRk,s = 0`, `VRd,s = 0`)
+faisait diviser par zéro l'interaction traction / cisaillement — corrigé,
+test figé.
+
+**Tiges post-installées** (`typ_a` = « Tige post-installée (valeurs de
+l'ETA) ») : `τRk`, `k1`, `NRk,s`, `VRk,s` saisis depuis l'ETA ; arrachement
+combiné du groupe (EN 1992-4 §7.2.1.6, `scr,Np = 7,3·d·√τRk ≤ 3·hef`,
+`ψg,Np = 1` conservatif, `τRk` aussi pour `scr,Np`), cône avec le `k1` de
+l'ETA, tige seule bornée par `π·d·hef·τRk/γMc` ; coupe dessinée avec la
+gaine de scellement. `k9` et `k8` restent ceux des tiges coulées en place.
+
+**CHS** : toujours hors V1. L'aire efficace d'un tube circulaire est un
+anneau — le kit de géométrie travaille en unions de rectangles — et aucun
+tableau de l'EN 1993-1-8 ne donne la longueur efficace d'un tronçon en T
+autour d'un tube ; à traiter quand une référence sera sous les yeux.

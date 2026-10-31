@@ -18,7 +18,7 @@ TABLES = [
     ("beton", "Béton d'appui (EC3 §6.2.5)",
      [("ncp", "Compression : N ≤ fjd·Aeff"), ("bet", "Pression maximale ≤ fjd (information)")]),
     ("ancrages", "Ancrages dans le béton (EN 1992-4)",
-     [("cone", "Cône de béton du groupe tendu"), ("pull", "Arrachement (tête) / adhérence (crosse)"),
+     [("cone", "Cône de béton du groupe tendu"), ("pull", "Arrachement (tête) / adhérence (crosse, scellée)"),
       ("edge", "Rupture du bord en cisaillement"), ("pry", "Pry-out du groupe"),
       ("cv", "Interaction N / V du béton")]),
     ("tiges", "Tiges d'ancrage (acier)",

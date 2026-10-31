@@ -35,7 +35,7 @@ from acier.resultats import Verification, Alerte, Pince
 from . import composants as CP
 from . import equilibre as EQ
 from . import geometrie as GE
-from .entrees import defaults, NUM, FORME_RHS, TYPE_CROSSE, OUI, PERIM_TOUT, fck_de, fy_epaisseur
+from .entrees import defaults, NUM, FORME_RHS, TYPE_CROSSE, TYPE_ETA, OUI, PERIM_TOUT, fck_de, fy_epaisseur
 
 GROUPES_VERIF = ("Pied", "Béton", "Ancrages", "Platine", "Tiges", "Poteau", "Soudure")
 DETAIL_SEUL = frozenset({"wa"})          # minimum de détail : jamais dimensionnant s'il passe
@@ -234,12 +234,23 @@ def compute(u0=None):
     R.Lb = 8 * R.d_a + u.t_g + u.tp_u + 0.6 * R.d_a           # Tableau 6.2 : + rondelle + ½ écrou (0,6·d)
     R.Ft_EC3 = CP.tige_traction_EC3(R.f_ub, R.As, gM2)
     R.N_Rd_s, R.g_Ms_N = CP.tige_traction_EN1992_4(R.As, R.f_ub, R.f_yb)
+    R.eta = u.typ_a == TYPE_ETA
+    if R.eta and u.eta_nrks > 0:
+        R.N_Rd_s = u.eta_nrks * 1e3 / R.g_Ms_N                 # NRk,s de l'ETA, même γMs,N
     R.Ft_anc = min(R.Ft_EC3, R.N_Rd_s)
+    R.fbd = None
     if u.typ_a == TYPE_CROSSE:
         ad = CP.adherence_crosse(R.d_a, u.hef, R.fck, gc)
         R.Ft_bond = ad["F"]
         R.fbd = ad["fbd"]
         R.Ft_anc = min(R.Ft_anc, R.Ft_bond)
+    elif R.eta:
+        # tige scellée : la résistance d'adhérence d'UNE tige seule borne aussi la tige dans le tronçon en T
+        R.Ft_bond = math.pi * R.d_a * u.hef * u.eta_tau / gMc
+        R.Ft_anc = min(R.Ft_anc, R.Ft_bond)
+        al("eta_info", "Tige post-installée : τRk, k1, NRk,s et VRk,s sont ceux de l'ETA saisis — à reporter du "
+           "document ; effet de groupe ψg,Np pris à 1 (conservatif) ; valeurs k9 et k8 des tiges coulées en place.",
+           False, ["eta_tau", "eta_k1"], f"τRk = {F(u.eta_tau, 1)} MPa, k1 = {F(u.eta_k1, 1)}", elems=["anchors"])
     else:
         R.Ft_bond = None
 
@@ -546,15 +557,20 @@ def compute(u0=None):
 
     # tiges : acier
     ck("ta", "Tiges", "Traction d'une tige (acier) : min(EN 1993-1-8 Tableau 3.4 ; EN 1992-4 §7.2.1.3"
-       + (" ; adhérence de la crosse" if R.Ft_bond is not None else "") + ")", R.T_max,
+       + (" ; adhérence d'une tige" if R.Ft_bond is not None else "") + ")", R.T_max,
        R.Ft_anc / 1e3, "kN", "EN 1993-1-8 Tableau 3.4 et §6.2.6.11 ; EN 1992-4 §7.2.1.3", "EC", R.soulevement,
        "Ft,Rd = 0,9·fub·As/γM2 ; NRd,s = As·fuk/γMs,N (γMs,N = 1,2·fuk/fyk ≥ 1,4)"
-       + (" ; Ft,bond,Rd = π·d·hef·fbd" if R.Ft_bond is not None else ""),
+       + (" ; Ft,bond,Rd = π·d·hef·fbd" if R.fbd is not None else "")
+       + (" ; NRd,p = π·d·hef·τRk/γMc" if R.eta else ""),
        f"Ft,Rd = {F(R.Ft_EC3 / 1e3, 1)} kN ; NRd,s = {F(R.N_Rd_s / 1e3, 1)} kN (γMs,N = {F(R.g_Ms_N, 2)})"
-       + (f" ; Ft,bond,Rd = {F(R.Ft_bond / 1e3, 1)} kN (fbd = {F(R.fbd, 2)} MPa)" if R.Ft_bond is not None else ""), 1)
+       + (f" ; Ft,bond,Rd = {F(R.Ft_bond / 1e3, 1)} kN (fbd = {F(R.fbd, 2)} MPa)" if R.fbd is not None else "")
+       + (f" ; NRd,p = {F(R.Ft_bond / 1e3, 1)} kN (τRk = {F(u.eta_tau, 1)} MPa)" if R.eta else ""), 1)
     R.F2vb, R.alpha_b = CP.tige_cisaillement_EC3(R.f_yb, R.f_ub, R.As, gM2)
     v_en = CP.tige_cisaillement_EN1992_4(R.As, R.f_ub, R.f_yb, R.d_a, u.t_g, u.f_g, R.T_max * 1e3, R.N_Rd_s)
     R.VRd_s, R.VRd_s0, R.VRd_sM, R.levier_v, R.g_Ms_V = v_en
+    if R.eta and u.eta_vrks > 0:
+        R.VRd_s0 = u.eta_vrks * 1e3 / R.g_Ms_V                 # VRk,s de l'ETA (sans bras de levier)
+        R.VRd_s = min(R.VRd_s0, R.VRd_sM)
     eta_tv = max(R.V_t_ec3 / (R.F2vb / 1e3) if R.F2vb > 0 else 1e9, R.V_t_en / (R.VRd_s / 1e3) if R.VRd_s > 0 else 1e9)
     ck("tv", "Tiges", "Cisaillement d'une tige (acier) : EN 1993-1-8 §6.2.2 (frottement déduit) et EN 1992-4 "
        "§7.2.2.3 (sans frottement" + (", avec bras de levier" if R.levier_v else "") + ")",
@@ -568,7 +584,8 @@ def compute(u0=None):
     if R.soulevement and (V_res > 0 or abs(T_) > 0):
         tmax = max(R.tiges, key=lambda t: t["T"] / max(R.Ft_anc, 1) + t["V_ec3"] / max(R.F2vb, 1))
         i_ec3 = tmax["V_ec3"] / (R.F2vb / 1e3) + tmax["T"] / (1.4 * R.Ft_EC3 / 1e3)
-        i_en = (tmax["T"] / (R.N_Rd_s / 1e3)) ** 2 + (tmax["V_en"] / (R.VRd_s / 1e3)) ** 2
+        # VRd,s peut être NUL : bras de levier avec une tige déjà à sa résistance en traction (MRk,s = 0)
+        i_en = ((tmax["T"] / (R.N_Rd_s / 1e3)) ** 2 + (tmax["V_en"] / (R.VRd_s / 1e3)) ** 2) if R.VRd_s > 0 else 1e9
         eta_int = max(i_ec3, i_en)
     ck("tvn", "Tiges", "Interaction traction / cisaillement d'une tige (acier)", eta_int, 1.0, "-",
        "EN 1993-1-8 Tableau 3.4 ; EN 1992-4 §7.2.3.1", "EC", R.soulevement and (V_res > 0 or abs(T_) > 0),
@@ -583,8 +600,9 @@ def compute(u0=None):
         ey = sum(t["T"] * t["y"] for t in tend) / Tt - gy
     else:
         ex = ey = 0.0
+    k1_eta = u.eta_k1 if R.eta and u.eta_k1 > 0 else None
     cone = CP.cone_beton(u.hef, R.fck, R.fiss, [t["x"] for t in tend], [t["y"] for t in tend], u.bc_u, u.lc_u,
-                         ex, ey, gMc)
+                         ex, ey, gMc, k1=k1_eta)
     R.cone = cone
     ck("cone", "Ancrages", "Cône de béton du groupe tendu", R.T_tot, cone["NRd"] / 1e3 if cone["actif"] else None, "kN",
        REF_924 + " §7.2.1.4", "EC", bool(tend),
@@ -597,6 +615,16 @@ def compute(u0=None):
            "EN 1993-1-8 §6.2.6.12 ; EN 1992-1-1 §8.4.2", "EC", bool(tend),
            "Ft,bond,Rd = π·d·hef·fbd ; fbd = 2,25·η1·η2·fctd (η1 = 0,7)", f"fbd = {F(R.fbd, 2)} MPa")
         R.pull = None
+    elif R.eta:
+        ad = CP.adherence_eta(R.d_a, u.hef, u.eta_tau, [t["x"] for t in tend], [t["y"] for t in tend],
+                              u.bc_u, u.lc_u, ex, ey, gMc)
+        R.pull = ad
+        ck("pull", "Ancrages", "Arrachement combiné du groupe tendu (tige scellée, ETA)", R.T_tot,
+           ad["NRd"] / 1e3 if ad["actif"] else None, "kN", REF_924 + " §7.2.1.6", "EC", bool(tend),
+           "NRk,p = π·d·hef·τRk·(Ap,N/A⁰p,N)·ψg,Np·ψs,Np·ψre,Np·ψec,Np ; scr,Np = 7,3·d·√τRk ≤ 3·hef ; NRd,p = NRk,p/γMc",
+           (f"τRk = {F(u.eta_tau, 1)} MPa ; N⁰Rk,p = {F(ad['N0'] / 1e3, 1)} kN ; scr,Np = {F(ad['scr'], 0)} mm ; "
+            f"Ap,N/A⁰p,N = {F(ad['Ap'] / ad['Ap0'], 2)} ; ψs = {F(ad['psi_s'], 2)} ; ψre = {F(ad['psi_re'], 2)} ; "
+            f"ψec = {F(ad['psi_ec'], 2)} ; ψg = 1 ; NRk,p = {F(ad['NRk'] / 1e3, 1)} kN") if ad["actif"] else "")
     else:
         pl = CP.arrachement_tete(R.d_a, u.d_h, R.fck, R.fiss, gMc)
         R.pull = pl
@@ -622,7 +650,7 @@ def compute(u0=None):
        f"{F(dv(bd.get('Ac', 0), bd.get('Ac0', 1)), 2)} ; ψs = {F(bd.get('psi_s', 1), 2)} ; ψh = {F(bd.get('psi_h', 1), 2)} ; "
        f"VRk,c = {F(bd['VRk'] / 1e3, 1)} kN")
     cone_all = CP.cone_beton(u.hef, R.fck, R.fiss, [t["x"] for t in R.tiges], [t["y"] for t in R.tiges],
-                             u.bc_u, u.lc_u, 0.0, 0.0, gMc)
+                             u.bc_u, u.lc_u, 0.0, 0.0, gMc, k1=k1_eta)
     po = CP.pryout(cone_all["NRk"], u.hef, gMc)
     R.pryout = po
     ck("pry", "Ancrages", "Pry-out du groupe", V_res / 1e3, po["VRd"] / 1e3, "kN", REF_924 + " §7.2.2.4", "EC",

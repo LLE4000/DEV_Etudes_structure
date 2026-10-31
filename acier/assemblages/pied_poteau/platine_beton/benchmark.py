@@ -10,12 +10,77 @@ seront rejoués au lot B, avec les chiffres de la source sous les yeux — aucun
 nombre n'est reconstitué de mémoire. Seuils : écart ≤ 0,5 % sur un calcul
 manuel (formules exactes), sinon « À CONTRÔLER ».
 """
+import json
 import math
+import os
 
 from acier.js import mx
 from .moteur import compute
 
 PI = math.pi
+FICHES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "..", "docs", "validation",
+                      "exemples_publies.json")
+
+# Validation croisée indépendante du 31/10/2026 (tools/validation_pied_poteau.py,
+# rapport docs/validation/pied_poteau_validation_2026-10-31.md) : écarts
+# maximaux du moteur à une grille de ressorts (répartition) et à un programme
+# linéaire (domaine) sur 40 configurations, 468 directions. Mesure datée.
+VALIDATION_CROISEE = dict(
+    date="31/10/2026", configurations=40, directions=468,
+    ecarts=[("Résultante comprimée C (grille de ressorts, pas 4 mm)", "0,012 %", "0,2 %"),
+            ("Position de C", "0,03 mm", "1 mm"),
+            ("Pression maximale", "0,020 %", "0,5 %"),
+            ("Effort de chaque tige (rapporté à T max)", "0,29 ‰", "5 ‰"),
+            ("Fonction d'appui du domaine (polygone / programme linéaire)", "0,042 %", "1 %"),
+            ("Capacité sur le rayon (moteur / programme linéaire)", "0,042 %", "1 %"),
+            ("Niveau 1 au-delà du programme linéaire", "0 direction / 468", "0")],
+    figures=["pied_validation_A_repartition.png", "pied_validation_B_domaines.png", "pied_validation_ecarts.png"],
+    rapport="docs/validation/pied_poteau_validation_2026-10-31.md")
+
+
+def _valeur(R, cle):
+    """Lecture d'une grandeur du moteur désignée par une fiche : « fjd »,
+    « ck:ncp » (Rd), « ed:ncp » (Ed), « FC_Rd:x+ » (N → kN), « MRd1:x+ »,
+    « rangee:0:FT_Rd » (N → kN)."""
+    if cle.startswith("ck:"):
+        return R.ck[cle[3:]].Rd
+    if cle.startswith("ed:"):
+        return R.ck[cle[3:]].Ed
+    if cle.startswith("FC_Rd:"):
+        return R.FC_Rd[cle[6:]] / 1e3
+    if cle.startswith("MRd1:"):
+        return R.MRd1[cle[5:]]
+    if cle.startswith("rangee:"):
+        _, i, k = cle.split(":")
+        v = R.rangees[int(i)][k]
+        return v / 1e3 if k.startswith("FT") else v
+    return R[cle]
+
+
+def fiches_publiees():
+    """Les fiches d'exemples publiés (docs/validation/exemples_publies.json) :
+    celles qui sont complètes alimentent BENCH, les autres sont listées
+    « à compléter »."""
+    try:
+        with open(FICHES, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return []
+    return list(data.get("fiches", []))
+
+
+def _bench_depuis_fiches():
+    out = []
+    for f in fiches_publiees():
+        if not f.get("complet") or not f.get("rows"):
+            continue
+        rows = []
+        for page, lab, ref, cle, unit, exp in f["rows"]:
+            if ref is None:
+                continue
+            rows.append([page, lab, float(ref), (lambda R, c=cle: _valeur(R, c)), unit, exp])
+        out.append(dict(id=f["id"], titre=f["titre"], data=f.get("data", ""), inp=dict(f.get("inp", {})), rows=rows))
+    return out
 
 
 def rd(k):
@@ -38,17 +103,24 @@ SRC = dict(
           "γM0 = 1,00 (ANB), γM2 = 1,25, γMc = 1,5, αcc = 0,85 (hypothèse)",
     url="")
 
-BENCH = []
+BENCH = _bench_depuis_fiches()
 
 NOCOVER = [
-    ["Exemple publié (pied articulé, aire efficace — MSB Part 5 ; pied encastré N + M — SCI P398)",
-     "À rejouer au lot B avec le document sous les yeux ; en V1 les formules sont ancrées par VAL-A "
-     "(calcul manuel) et la répartition par VAL-B (script indépendant de l'étude)."],
-    ["Flexion biaxiale (niveau 2, domaine exact) et tiges de coin",
-     "Aucune source publiée : borne inférieure (théorème statique) — à valider par éléments finis hors outil "
-     "avant promotion (campagne RV, lot C)."],
-    ["Tiges post-installées (valeurs ETA), raidisseurs, bêche",
-     "Hors V1."],
+    ["Exemples publiés (pied articulé, aire efficace — MSB Part 5 §6.5 ; pied encastré N + M — SCI P398)",
+     "Fiches prêtes dans docs/validation/exemples_publies.json, à COMPLÉTER avec le document sous les yeux "
+     "(inaccessible depuis l'environnement de calcul le 31/10/2026) ; une fiche complète est rejouée ici "
+     "automatiquement. En attendant, les formules sont ancrées par VAL-A (calcul manuel) et le moteur par la "
+     "validation croisée indépendante (ci-dessous)."],
+    ["Flexion biaxiale (niveau 2, domaine exact)",
+     "Validée NUMÉRIQUEMENT le 31/10/2026 contre un programme linéaire (écart 0,04 %) : le domaine est bien "
+     "l'exact du modèle. Le MODÈLE (bloc fjd, tiges à leur résistance) reste une borne inférieure non codifiée : "
+     "le niveau 1 garde le verdict."],
+    ["Tiges de coin et latérales (longueur efficace plafonnée)",
+     "Aucune source publiée, aucune validation numérique ici : il y faut un calcul de plaque élasto-plastique "
+     "hors outil. Modèle d'ingénieur signalé en alerte."],
+    ["Profils creux circulaires (CHS), raidisseurs, bêche",
+     "Hors V1 : l'aire efficace d'un CHS est un anneau (pas une union de rectangles) et aucun tableau de l'EC3 ne "
+     "donne la longueur efficace d'un tronçon en T autour d'un tube."],
 ]
 
 # --- VAL-A : cas par défaut, recalculé à la main (N, mm, MPa)
@@ -148,5 +220,7 @@ def run_bench():
             rows.append(dict(lab=lab, main=main, ref=ref, val=v, unit=unit, ec=ec, ok=ok))
         val.append(dict(id=c["id"], titre=c["titre"], rows=rows))
     ok = n_unexp == 0 and nv == 0
-    statut = ("VALIDÉ" if BENCH else "VALIDÉ (calculs manuels, aucun exemple publié)") if ok else "À CONTRÔLER"
-    return dict(bench=out, valid=val, worst=worst, ok=ok, statut=statut)
+    statut = ("VALIDÉ" if BENCH else "VALIDÉ (calculs manuels et validation croisée, aucun exemple publié)") \
+        if ok else "À CONTRÔLER"
+    return dict(bench=out, valid=val, worst=worst, ok=ok, statut=statut,
+                fiches=[f for f in fiches_publiees() if not f.get("complet")], croisee=VALIDATION_CROISEE)

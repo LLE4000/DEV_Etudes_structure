@@ -35,7 +35,8 @@ from acier.assemblages.pied_poteau.platine_beton import equilibre as EQ  # noqa:
 from acier.assemblages.pied_poteau.platine_beton import composants as CP  # noqa: E402
 from acier.assemblages.pied_poteau.platine_beton.moteur import compute  # noqa: E402
 from acier.assemblages.pied_poteau.platine_beton.benchmark import run_bench  # noqa: E402
-from acier.assemblages.pied_poteau.platine_beton.entrees import FORME_RHS, TYPE_CROSSE, NON, PERIM_TOUT  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.entrees import (FORME_RHS, TYPE_CROSSE, TYPE_ETA, NON,  # noqa: E402
+                                                                  PERIM_TOUT)
 
 OK, KO = [], []
 
@@ -242,6 +243,55 @@ chk("mortier trop épais (> 0,2·min(bp, lp)) → alerte bloquante « mortier »
 Rok = compute(dict(bc_u=1400, lc_u=1400, hc_u=800))
 chk("massif 1 400 × 1 400 : le pied par défaut est vérifié (bord et cône desserrés)", Rok.verified, f"{Rok.gov.key} {Rok.eta_max}")
 chk("mêmes saisies → mêmes résultats (déterminisme)", compute().eta_max == R0.eta_max and compute().ck["edge"].Rd == R0.ck["edge"].Rd)
+
+Rz = compute(dict(ancr="M20", N_Ed=-400, Mx_Ed=120, Vy_Ed=50))
+chk("tige déjà à sa résistance en traction avec bras de levier (MRk,s = 0 → VRd,s = 0) : pas de division par zéro, "
+    "cisaillement et interaction hors limite (défaut trouvé par la validation croisée du lot C)",
+    Rz.VRd_s == 0.0 and Rz.ck["tv"].eta >= 1e8 and Rz.ck["tvn"].eta >= 1e8 and not Rz.verified)
+Re_ = compute(dict(typ_a=TYPE_ETA, eta_tau=12, eta_k1=8.5, perim=PERIM_TOUT))
+ad = Re_.pull
+chk("tige post-installée (ETA) : arrachement combiné §7.2.1.6 — N⁰Rk,p = π·d·hef·τRk, scr,Np = 7,3·d·√τRk ≤ 3·hef, "
+    "ψg = 1 ; k1 de l'ETA dans le cône ; la tige seule bornée par π·d·hef·τRk/γMc",
+    Re_.eta and Re_.ck["pull"].label.startswith("Arrachement combiné") and ad["actif"]
+    and pres(ad["N0"], math.pi * 24 * 300 * 12, 1e-9) and pres(ad["scr"], min(7.3 * 24 * math.sqrt(12), 900), 1e-9)
+    and ad["psi_g"] == 1.0 and pres(Re_.cone["k1"], 8.5, 1e-12)
+    and pres(Re_.Ft_bond, math.pi * 24 * 300 * 12 / 1.5, 1e-9) and Re_.Ft_anc <= Re_.Ft_bond + 1e-9
+    and any(a.id == "eta_info" for a in Re_.alerts))
+Re2 = compute(dict(typ_a=TYPE_ETA, eta_tau=12, eta_nrks=150, eta_vrks=80))
+chk("ETA : NRk,s et VRk,s saisis remplacent les valeurs calculées (mêmes γMs)",
+    pres(Re2.N_Rd_s, 150e3 / Re2.g_Ms_N, 1e-9) and pres(Re2.VRd_s0, 80e3 / Re2.g_Ms_V, 1e-9))
+chk("sans ETA : le cône garde k1 = 7,7 (fissuré) et l'arrachement de la tête", pres(R0.cone["k1"], 7.7, 1e-12)
+    and R0.ck["pull"].label.startswith("Arrachement de la tête"))
+from acier.assemblages.pied_poteau.platine_beton import benchmark as BM  # noqa: E402
+chk("fiches d'exemples publiés : lues, incomplètes → aucune rejouée, listées « à compléter » ; validation croisée datée",
+    len(BM.fiches_publiees()) == 2 and all(not f["complet"] for f in BM.fiches_publiees()) and BM.BENCH == []
+    and BM.VALIDATION_CROISEE["configurations"] == 40 and BM.VALIDATION_CROISEE["date"] == "31/10/2026")
+chk("une fiche complète se rejoue : la lecture des grandeurs du moteur (fjd, ck:, FC_Rd:, MRd1:, rangee:)",
+    pres(BM._valeur(R0, "fjd"), R0.fjd, 1e-12) and pres(BM._valeur(R0, "ck:ncp"), R0.ck["ncp"].Rd, 1e-12)
+    and pres(BM._valeur(R0, "FC_Rd:x+"), R0.FC_Rd["x+"] / 1e3, 1e-12) and pres(BM._valeur(R0, "MRd1:x+"), R0.MRd1["x+"], 1e-12)
+    and pres(BM._valeur(R0, "rangee:0:FT_Rd"), R0.rangees[0]["FT_Rd"] / 1e3, 1e-12))
+# R2 : les écarts affichés dans l'onglet Benchmark sont une COPIE NOMMÉE du rapport daté ; ce contrôle les lie.
+import re  # noqa: E402
+VC = BM.VALIDATION_CROISEE
+rap = open(VC["rapport"], encoding="utf-8").read()
+mesures = re.findall(r"^\| [^|]+ \| ([0-9,]+) (%|mm|‰) \| [^|]+ \|$", rap, re.M)
+
+
+def _lie(copie, mesure):
+    """La copie (« 0,012 % ») est la mesure (« 0,0121 », « % ») arrondie à la précision de la copie."""
+    val, unite = copie.rsplit(" ", 1)
+    dec = len(val.split(",")[1]) if "," in val else 0
+    return unite == mesure[1] and abs(round(float(mesure[0].replace(",", ".")), dec) - float(val.replace(",", "."))) < 1e-12
+
+
+chk("validation croisée : les écarts de l'onglet Benchmark sont ceux du rapport daté (arrondis), "
+    "configurations, directions et figures compris",
+    len(mesures) == 6 and all(_lie(e[1], m) for e, m in zip(VC["ecarts"][:6], mesures))
+    and f"{VC['configurations']} configurations" in rap and f"{VC['directions']} directions" in rap
+    and f"**0** / {VC['directions']}" in rap and VC["ecarts"][6][1] == f"0 direction / {VC['directions']}"
+    and all(os.path.exists(os.path.join("docs", "validation", "figures", f)) and f"figures/{f}" in rap
+            for f in VC["figures"]),
+    str(mesures))
 
 # ================================================================
 print("\n=== 6. Benchmark et temps ===")
