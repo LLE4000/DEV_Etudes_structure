@@ -5,13 +5,16 @@
                             moteur de référence, conservés pour la parité) ;
 - ``NUM``                 : les 41 clés normalisées en nombre par le moteur ;
 - ``GROUPES``             : les 14 groupes du formulaire, avec pour chaque
-                            champ sa clé, son libellé, son type, ses options,
-                            son unité, son aide et sa condition d'affichage —
-                            libellés et aides repris mot pour mot ;
+                            champ sa clé, son libellé long, son type, ses
+                            options, son unité, son aide et sa condition
+                            d'affichage — une VUE : les libellés et aides de
+                            l'écran sont ceux de ``ecran_saisie.LIBELLE`` /
+                            ``AIDES`` (charte du 31/10/2026) ;
 - ``PILOTEES_PAR_PREDIM`` : les 13 clés remplacées par la proposition en
                             mode prédimensionnement (marquées ◆) ;
-- ``COURT`` / ``UNITE``   : libellé court et unité de chaque clé (chips
-                            d'alerte, panneau des cotes).
+- ``UNITE``               : unité de chaque clé (``ecran_saisie.LIBELLE`` la
+                            lit) ; ``COURT`` : libellés de l'outil de
+                            référence, sans lecteur à l'écran.
 
 Les conditions d'affichage sont des fonctions du dictionnaire des saisies
 ``u`` : elles ne dépendent d'aucune interface.
@@ -131,6 +134,21 @@ def mode_predim(u):
     return u.get("mode_calc") != MODE_VERIF
 
 
+def corniere_inegale(u):
+    """L'orientation (grande aile côté principale ou secondaire) n'a de sens
+    que pour une cornière à ailes inégales — 5 des 18 cornières de
+    ``DB.cornieres`` (a1 ≠ a2) — ou Personnalisé (charte du 31/10/2026) ; la
+    valeur reste en session et dans le fichier. En prédimensionnement la
+    cornière est celle de la proposition, à ailes égales (le moteur prend
+    bA = bB = pd.leg et ignore l'orientation) : le champ n'est pas rendu."""
+    if mode_predim(u):
+        return False
+    if u.get("corn_u") == PERSO:
+        return True
+    c = next((x for x in DB["cornieres"] if x["n"] == u.get("corn_u")), None)
+    return c is not None and c["a1"] != c["a2"]
+
+
 def _dims(X, cond):
     """Les cinq dimensions d'un profilé personnalisé."""
     return [dict(k=f"{d}{X}_u", l=f"{d} (personnalisé)", t="n", un="mm", si=cond)
@@ -147,7 +165,6 @@ def _c(k, l, t="n", o=None, un=None, h=None, si=None):
 # Ordre, titres, libellés, aides et notes : ceux du formulaire de référence.
 GROUPES = [
     dict(t="Identification",
-         note="Reprise dans le rapport et l'export texte. Un champ vide n'est pas imprimé.",
          f=[_c("id_projet", "Projet", "x"), _c("id_rep", "Repère de l'assemblage", "x"),
             _c("id_red", "Rédacteur", "x"), _c("id_date", "Date", "x")]),
     dict(t="Mode de calcul et fixations",
@@ -165,9 +182,9 @@ GROUPES = [
            [_c("nu_S", "Nuance d'acier", "s", ACIERS),
             _c("d_top", "Décalage : dessus de la secondaire sous le dessus de la principale", un="mm",
                h="0 = dessus des semelles au même niveau."),
-            _c("d_nt", "Profondeur du grugeage supérieur dnt", un="mm", h="0 = semelle supérieure non grugée."),
-            _c("d_nb", "Profondeur du grugeage inférieur dnb", un="mm"),
-            _c("l_n", "Longueur du grugeage ln depuis l'about", un="mm"),
+            _c("d_nt", "Profondeur du grugeage supérieur dc,sup", un="mm", h="0 = semelle supérieure non grugée."),
+            _c("d_nb", "Profondeur du grugeage inférieur dc,inf", un="mm"),
+            _c("l_n", "Longueur du grugeage c depuis l'about", un="mm"),
             _c("r_n", "Rayon du grugeage (information d'exécution)", un="mm", h="Non utilisé dans les résistances."),
             _c("g_h", "Jeu gh entre l'âme porteuse et l'about de la secondaire", un="mm"),
             _c("lt_ok", "Poutre secondaire maintenue au déversement", "s", OUI_NON,
@@ -177,7 +194,8 @@ GROUPES = [
                h="Dimensions usuelles EN 10056-1, à contrôler avec le catalogue du fournisseur."),
             _c("k1_u", "Grande aile", un="mm", si=perso_C), _c("k2_u", "Petite aile", un="mm", si=perso_C),
             _c("kt_u", "Épaisseur", un="mm", si=perso_C), _c("kr_u", "Rayon de congé", un="mm", si=perso_C),
-            _c("orient", "Orientation (cornière inégale)", "s", [ORI_P, ORI_S]),
+            # visible pour une cornière inégale ou Personnalisé seulement (vue) ; fenêtre Cornières : toujours
+            _c("orient", "Orientation (cornière inégale)", "s", [ORI_P, ORI_S], si=corniere_inegale),
             _c("LC_u", "Longueur des cornières Lc (hauteur)", un="mm"),
             _c("z_C", "Dessus de la poutre secondaire → dessus des cornières zc", un="mm"),
             _c("nu_C", "Nuance d'acier", "s", ACIERS)]),
@@ -219,7 +237,6 @@ GROUPES = [
             _c("M_Ed", "MEd – moment éventuel à la face de l'âme porteuse", un="kNm",
                h="Assemblage articulé : normalement 0. Pris en valeur absolue comme moment parasite.")]),
     dict(t="Coefficients partiels",
-         note="Valeurs recommandées de l'EN 1993 : à confirmer par rapport à l'ANB applicable.",
          f=[_c("g_M0", "γM0", un="-"), _c("g_M2n", "γM2 – sections nettes, rupture de bloc", un="-"),
             _c("g_M2", "γM2 – boulons, pression diamétrale, soudures", un="-"),
             _c("g_M3", "γM3 – glissement ELU", un="-"), _c("g_M3s", "γM3,ser – glissement ELS", un="-")]),
@@ -234,7 +251,6 @@ GROUPES = [
     dict(t="Acier personnalisé", si=_acier_perso,
          f=[_c("fy_u", "fy", un="MPa"), _c("fu_u", "fu", un="MPa"), _c("bw_u", "βw", un="-")]),
     dict(t="Règles du prédimensionnement", si=mode_predim,
-         note="Règles de détail non normatives, modifiables.",
          f=[_c("eta_c", "Taux d'utilisation cible", un="-"),
             _c("k_e1", "Pince e1 = k × d0 (minimum normatif 1,2)", un="-"),
             _c("k_p1", "Entraxe p1 = k × d0 (minimum normatif 2,2)", un="-"),
@@ -243,8 +259,9 @@ GROUPES = [
             _c("pd_dmax", "Plus grand diamètre admis", "s", BOULONS)]),
 ]
 
-# Libellés courts (chips d'alerte, panneau des cotes) — ceux de l'interface
-# de référence, complétés par le libellé du champ
+# Libellés courts de l'interface de référence — l'écran lit désormais
+# ``ecran_saisie.LIBELLE`` (une forme par clé) ; COURT n'a plus de lecteur
+# (consolidation du kit : même état que le plat d'âme et la platine d'about)
 COURT = {"LC_u": "Lc", "n1S_u": "n1 groupe S", "n2S_u": "n2 groupe S", "p1S_u": "p1 groupe S",
          "p2_S": "p2 groupe S", "e1S_u": "e1 groupe S", "e2b_u": "e2,b", "n1P_u": "n1 groupe P",
          "n2P_u": "n2 groupe P", "p1P_u": "p1 groupe P", "p2_P": "p2 groupe P", "e1P_u": "e1 groupe P",
@@ -283,8 +300,9 @@ def champ_visible(u, k):
 
 # Annotation de FABRICATION, hors moteur et hors CLES (la parité fige les 84
 # entrées du corrigé) : composition de la boulonnerie par boulon — rondelles
-# et écrous. Saisie libre (carte, bloc VISSERIE), enregistrée avec le calcul
-# (interface.py) et portée au cartouche du plan de principe (note.py).
+# et écrous. Saisie libre (carte, repli « Cartouche (note et plan) »),
+# enregistrée avec le calcul (interface.py) et portée au cartouche du plan
+# de principe (note.py).
 VISSERIE_DEFAUT = "1 rondelle + 1 écrou"
 
 

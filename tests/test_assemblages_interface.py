@@ -5,28 +5,42 @@ après la finalisation du 21/09/2026 : DEUX COLONNES — à gauche le dessin
 droite la carte compacte par objet, puis les onglets. Tout se règle aussi
 sur le dessin (cotes, panneaux de pièce, poignées ±, glissement).
 
+Charte ergonomique du 31/10/2026 (docs/assemblages/ERGONOMIE.md §4.1) : la
+carte est rendue par le kit (acier/assemblages/carte.py), le mode est un
+segmented_control, la visserie est au cartouche, la case « Dessin
+interactif » en tête de la colonne dessin.
+
 Chaque garantie rougit si on la retire :
   1. NAVIGATION : sélection, carte « Doubles cornières d'âme », accueil.
-  2. ÉTAT ET ÉCRAN : 84 clés ; statut une ligne + taux par élément ; deux
-     dessins EMPILÉS dans la colonne figée (CSS sticky injecté, conteneur
-     asm_col_dessin) ; la carte par objet à droite (mode, profilés,
-     cornières, boulons + visserie, efforts, avancés, identification) —
-     JAMAIS la géométrie (elle ne se règle que sur le dessin) ; onglet
-     Vérifications par défaut.
-  3. PANNEAUX D'OBJET : chaque pièce a son panneau complet (poutres,
-     cornières avec fixations, boulons, groupes S et P, efforts) ; les
-     champs pilotés ◆ y sont désactivés en prédimensionnement ; le panneau
-     des cordons apparaît quand un côté est soudé.
+  2. ÉTAT ET ÉCRAN : 84 clés ; titre court + barre d'outils partagée, plus de
+     ❔ ni de « Version » ; statut une ligne (dimensionnante nommée comme
+     dans la note) + taux par élément ; deux dessins EMPILÉS dans la colonne
+     figée (CSS sticky injecté, conteneur asm_col_dessin) ; la carte par
+     objet à droite (en-tête du mode, profilés, cornières, boulons avec les
+     fixations dans leur groupe, efforts, avancés, cartouche) — JAMAIS la
+     géométrie (elle ne se règle que sur le dessin) ; « Grande aile côté »
+     seulement pour une cornière inégale ; onglet Vérifications par défaut,
+     légende, périmètre et Tableau 3.3 dans des replis.
+  3. PANNEAUX D'OBJET : chaque pièce a sa fenêtre complète, titre court,
+     libellés LIBELLE, aides AIDES, options AFFICHAGE (poutres — la
+     secondaire reçoit gh, Δz, dc,sup, dc,inf, c —, cornières avec
+     fixations, boulons, groupes S et P, efforts) ; les champs pilotés ◆ y
+     sont désactivés en prédimensionnement ; la fenêtre des cordons apparaît
+     quand un côté est soudé.
   4. RECALCUL : VEd = 400 (panneau efforts) → NON VÉRIFIÉ ; hc = 260 →
      alerte courte, « Localiser », chip hc modifiable.
   5. SOURCE UNIQUE : cote, poignée +, fenêtre de groupe, glissement (gh),
      panneau de pièce (profilé) écrivent tous dans asm_<clé>.
-  6. PRÉDIM : mode dans la carte (bloc MODE) ; « Appliquer » recopie la
-     solution.
+  6. PRÉDIM : mode dans l'en-tête de la carte (segmented_control) avec Taux
+     cible · Ø minimal · Ø maximal ; « Appliquer » recopie la solution.
   7. REPLI : dessin interactif désactivé → dessins statiques à gauche, le
      panneau des cotes s'ajoute en tête de la colonne de droite, mêmes clés.
   8. EXPORTS : texte du corrigé, enregistrer / charger (visserie comprise),
-     réinitialiser, benchmark, méthode. 9. ÉTANCHÉITÉ.
+     réinitialiser, benchmark, méthode (« Ce que l'outil vérifie »,
+     « Données de bibliothèque »). 9. ÉTANCHÉITÉ.
+ 10. CHARTE : rien ne se perd (87 clés), aides ≤ 160 et seulement depuis
+     AIDES, libellés ≤ 22 / 16 / 20, options ≤ 28, aucune ligne d'objet > 4,
+     5 « ? » au défaut, orientation pour 5 des 18 cornières.
 
 Lancement : python3 tests/test_assemblages_interface.py (depuis la racine).
 """
@@ -40,8 +54,13 @@ sys.path.insert(0, RACINE)
 
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
-from acier.assemblages.poutre_poutre.doubles_cornieres import interface, ecran_resultats, ecran_saisie, moteur  # noqa: E402
+import re  # noqa: E402
+
+from acier.assemblages import carte  # noqa: E402
+from acier.assemblages.poutre_poutre.doubles_cornieres import (interface, ecran_resultats, ecran_saisie,  # noqa: E402
+                                                               moteur, entrees, synthese)
 from acier.assemblages.poutre_poutre.doubles_cornieres.ecran_saisie import valeur_widget  # noqa: E402
+from acier.bibliotheques import DB, ORI_P, ORI_S  # noqa: E402
 
 OK, KO = [], []
 
@@ -75,7 +94,13 @@ def run(at):
 
 
 def cles_widgets(at):
-    return {w.key for w in list(at.number_input) + list(at.selectbox) + list(at.text_input) + list(at.checkbox) if w.key}
+    # le mode est un segmented_control (charte du 31/10/2026) : compté avec les autres widgets
+    return {w.key for w in list(at.number_input) + list(at.selectbox) + list(at.text_input) + list(at.checkbox)
+            + list(at.segmented_control) if w.key}
+
+
+def expanders(at):
+    return [str(x.label) for x in at.expander]
 
 
 def message(at, changes, t):
@@ -111,8 +136,11 @@ cles = [k for k in at.session_state.to_dict() if k.startswith("asm_") and k[4:] 
 chk("les 84 clés d'entrée existent en session", len(cles) == 84, str(len(cles)))
 t = md(at)
 chk("cas par défaut : ASSEMBLAGE VÉRIFIÉ", "ASSEMBLAGE VÉRIFIÉ" in t and "NON VÉRIFIÉ" not in t)
-chk("statut sur une ligne : 74,0 % et la dimensionnante ; pas de mention du benchmark",
-    "74,0 %" in t and "Pression diamétrale – âme de la poutre secondaire" in t and "Benchmark du module" not in t)
+R0 = moteur.compute({k: at.session_state["asm_" + k] for k in interface.CLES})
+chk("statut sur une ligne : 74,0 % et la dimensionnante nommée comme dans la note (synthese.court) ; "
+    "pas de mention du benchmark",
+    "— 74,0 % · Pression diamétrale – âme</span>" in t and synthese.court(R0.gov) == "Pression diamétrale – âme"
+    and "Benchmark du module" not in t)
 chk("taux par élément : Boulons, Cornières, Portée, Porteuse", all(x in t for x in ("Boulons", "Cornières", "Portée", "Porteuse")))
 chk("les dessins sont rendus (deux composants, empilés dans la colonne de gauche)",
     len(at.get("component_instance")) == 2, str(len(at.get("component_instance"))))
@@ -123,24 +151,59 @@ w = cles_widgets(at)
 # k[4:] in CLES écarte déjà les chips d'alerte (asm_fix_<clé> → « fix_<clé> »
 # n'est pas une entrée), sans écarter les vraies clés asm_fix_P / asm_fix_S
 donnees = {k for k in w if k.startswith("asm_") and k[4:] in interface.CLES}
-CARTE_ATTENDUE = {"asm_" + k for k in (
-    "mode_calc", "fix_P", "fix_S",                                # MODE ET FIXATIONS
+# Projet · Date du cartouche : seulement si nom_projet / date de la session sont vides (la condition
+# même de interface._infos — dans un projet ces cases sont écrasées)
+etat = at.session_state.to_dict()
+hors_projet = ((["id_projet"] if not etat.get("nom_projet") else [])
+               + (["id_date"] if not etat.get("date") else []))
+CARTE_ATTENDUE = {"asm_" + k for k in [
+    "mode_calc",                                                  # EN-TÊTE (segmented_control)
     "prof_P", "nu_P", "prof_S", "nu_S",                           # PROFILÉS
-    "corn_u", "nu_C", "orient",                                   # CORNIÈRES
-    "boulon_u", "classe", "trou", "cat", "n1S_u", "n2S_u", "n1P_u", "n2P_u",   # BOULONS
+    "corn_u", "nu_C",                                             # CORNIÈRES (orient : cornière inégale seulement)
+    "boulon_u", "classe", "trou", "cat",                          # BOULONS
+    "fix_P", "n1P_u", "n2P_u", "fix_S", "n1S_u", "n2S_u",         # ↳ AILES A (groupe P) · ↳ AILES B (groupe S)
     "V_Ed", "N_Ed", "H_Ed", "M_Ed",                               # EFFORTS ELU
     "r_n", "lt_ok", "d0_u", "filet", "g_M0", "g_M2", "g_M2n",     # avancés (repliés)
     "opt_exc", "k_rot", "opt_blf", "expo",
-    "id_projet", "id_rep", "id_red", "id_date")}                  # identification
+    "id_rep", "id_red"] + hors_projet}                            # cartouche
 chk("colonne de droite : la carte par objet, complète — et rien d'autre",
     donnees == CARTE_ATTENDUE, str(sorted(donnees ^ CARTE_ATTENDUE)))
+chk("le mode est un segmented_control (clé asm_mode_calc, valeurs brutes inchangées)",
+    any(x.key == "asm_mode_calc" for x in at.segmented_control)
+    and at.session_state["asm_mode_calc"] == "VÉRIFICATION")
+chk("plus de bloc MODE ET FIXATIONS ni VISSERIE ; les fixations ouvrent leur groupe de boulons "
+    "(↳ AILES A (groupe P), ↳ AILES B (groupe S) avec son « ? »)",
+    "MODE ET FIXATIONS" not in t and ">VISSERIE<" not in t and "AILES&nbsp;A" in t and "AILES&nbsp;B" in t
+    and any(getattr(m, "help", None) == ecran_saisie.AIDES["AILES B"] for m in at.markdown))
+chk("cornière à ailes égales (défaut L100x100x10) : pas de « Grande aile côté » ; valeur conservée en session",
+    "asm_orient" not in w and at.session_state["asm_orient"] == ORI_P)
+chk("titre court, caption « titre long · version 1.3 », barre d'outils partagée (clés inchangées)",
+    "## Doubles cornières d'âme" in t and "Assemblage poutre–poutre – doubles cornières d'âme · version 1.3" in t
+    and {"asm_btn_retour", "asm_btn_home", "asm_btn_save_dl", "asm_btn_pdf", "asm_btn_reset"}
+    <= {b.key for b in list(at.button) + list(at.get("download_button"))})
+chk("plus de bouton ❔ ni de cellule « Version »",
+    not any(b.key == "asm_btn_version_dc" for b in at.button) and "Version 1.3" not in t)
+av = [x for x in at.expander if str(x.label) == "Paramètres avancés"]
+chk("« Dessin interactif » en tête de la colonne dessin (plus dans les avancés), avec son « ? »",
+    "asm_ui_composant" in w and av and not [c for c in av[0].checkbox if c.key == "asm_ui_composant"]
+    and any(c.key == "asm_ui_composant" and c.help == ecran_saisie.AIDES["ui_composant"] for c in at.checkbox))
 chk("la géométrie ne se règle QUE sur le dessin (aucune cote dans la carte)",
     not donnees & {"asm_" + k for k in ecran_saisie.GEOMETRIE_DESSIN})
-chk("visserie (rondelles, écrous) : saisie libre dans le bloc BOULONS, défaut « 1 rondelle + 1 écrou »",
-    "asm_visserie" in w and at.session_state["asm_visserie"] == "1 rondelle + 1 écrou")
-chk("onglet par défaut : Vérifications, tableaux par élément",
+cart = [x for x in at.expander if str(x.label) == "Cartouche (note et plan)"]
+chk("visserie (rondelles, écrous) : saisie libre au cartouche, défaut « 1 rondelle + 1 écrou »",
+    "asm_visserie" in w and at.session_state["asm_visserie"] == "1 rondelle + 1 écrou"
+    and cart and any(c.key == "asm_visserie" for c in cart[0].text_input))
+chk("onglet par défaut : Vérifications, tableaux par élément ; Tableau 3.3 replié, verdict dans le titre",
     at.session_state["asm_ui_onglet"] == "Vérifications" and "Cisaillement – groupe S" in t and "Aile A : Ed / Rd" in t
-    and "Poutre secondaire (portée)" in t and "Pinces et entraxes" in t)
+    and "Poutre secondaire (portée)" in t and "Cornières — aile A / aile B" in t
+    and "Pinces et entraxes (Tab. 3.3) : conforme" in expanders(at))
+chk("légende des natures après les tables, références dans un repli ; périmètre replié (textes intégraux)",
+    "formule de l'Eurocode" in t and "Légende et références" in expanders(at)
+    and "Références : EC3 = EN 1993-1-8" in t and "torsion induite par une attache d'un seul côté" in t
+    and "Périmètre de la vérification — 4 non revérifiés · 16 sans objet" in expanders(at)
+    and "Paramètres retenus" in expanders(at))
+chk("matrice des cornières défilante au téléphone (tableau_html(defilant=True)) ; colonne Réf. sans commentaire "
+    "interne", "<div style='overflow-x:auto;'><table" in t and "même modèle que" not in t)
 chk("l'écran invite à toucher les pièces et à glisser la poutre",
     "touche une pièce" in t and "glisse la poutre portée" in t)
 
@@ -152,13 +215,28 @@ pan = ecran_resultats._panneaux(R, u)
 chk("panneaux : groupes S et P, boulons, poutres, cornières, efforts",
     {"S", "P", "bolts", "beamS", "beamP", "cleat", "efforts"} <= set(pan))
 cles_de = {g: [c["key"] for c in d["champs"]] for g, d in pan.items()}
-chk("poutre secondaire : profilé, nuance, maintien, rayon du grugeage",
-    cles_de["beamS"] == ["prof_S", "nu_S", "lt_ok", "r_n"])
+chk("poutre secondaire : profilé, nuance, maintien, rayon du grugeage — et gh, Δz, dc,sup, dc,inf, c",
+    cles_de["beamS"] == ["prof_S", "nu_S", "lt_ok", "r_n", "g_h", "d_top", "d_nt", "d_nb", "l_n"])
 chk("cornières : cornière, nuance, orientation ET les deux fixations",
     cles_de["cleat"] == ["corn_u", "nu_C", "orient", "fix_P", "fix_S"])
 chk("boulons : diamètre, classe, trou, catégorie, filetage (catégorie A : sans μ ni ks)",
     cles_de["bolts"] == ["boulon_u", "classe", "trou", "cat", "filet"])
 chk("efforts : VEd, NEd, HEd, MEd", cles_de["efforts"] == ["V_Ed", "N_Ed", "H_Ed", "M_Ed"])
+chk("fenêtres d'objet : titres courts, libellés LIBELLE (une forme par clé), aides AIDES",
+    [pan[k]["titre"] for k in ("S", "P", "bolts", "beamS", "beamP", "cleat", "efforts")]
+    == ["Groupe S", "Groupe P", "Boulons", "Poutre secondaire", "Poutre principale", "Cornières", "Efforts"]
+    and all(c["lab"] == ecran_saisie.LIBELLE[c["key"]] for g in pan.values() for c in g["champs"])
+    and all(c["help"] == ecran_saisie.AIDES.get(c["key"]) for g in pan.values() for c in g["champs"]))
+orient_f = next(c for c in pan["cleat"]["champs"] if c["key"] == "orient")
+chk("fenêtre Cornières : orientation toujours là, options affichées « Principale / Secondaire » (valeurs brutes "
+    "inchangées) ; les deux fixations ne se confondent pas",
+    orient_f["affichage"] == {ORI_P: "Principale", ORI_S: "Secondaire"} and orient_f["options"] == [ORI_P, ORI_S]
+    and [c["lab"] for c in pan["cleat"]["champs"] if c["key"] in ("fix_P", "fix_S")]
+    == ["Fixation ailes A", "Fixation ailes B"])
+with open("acier/composants/svg_cliquable/static/index.html", encoding="utf-8") as fh:
+    js = fh.read()
+chk("composant : une fenêtre affiche l'option courte (affichage) et renvoie la valeur brute",
+    "c.affichage[o]" in js and "op.value = o" in js)
 pan_b = ecran_resultats._panneaux(moteur.compute(dict(cat="B")), dict(u, cat="B"))
 chk("catégorie B : μ, ks et ELS/ELU s'ajoutent au panneau des boulons",
     [c["key"] for c in pan_b["bolts"]["champs"]][-3:] == ["mu_s", "k_s", "k_ser"])
@@ -170,6 +248,12 @@ uw = dict(u, fix_S="Soudée")
 pan_w = ecran_resultats._panneaux(moteur.compute(uw), uw)
 chk("côté soudé : panneau des cordons (gorge, retours, fixation), plus de groupe S",
     "S" not in pan_w and [c["key"] for c in pan_w["weldS"]["champs"]] == ["a_S", "lh_S", "fix_S"])
+uwp = dict(u, fix_P="Soudée")
+pan_wp = ecran_resultats._panneaux(moteur.compute(uwp), uwp)
+chk("fenêtres Cordons A / B à titres courts ; a_P et a_S seulement dans leur fenêtre ; ℓh ailes A (mm)",
+    pan_w["weldS"]["titre"] == "Cordons B" and pan_wp["weldP"]["titre"] == "Cordons A"
+    and [c["lab"] for c in pan_wp["weldP"]["champs"]][:2] == ["a ailes A (mm)", "ℓh ailes A (mm)"]
+    and sum(1 for g in list(pan_wp.values()) + list(pan_w.values()) for c in g["champs"] if c["key"] in ("a_P", "a_S")) == 2)
 Rp = moteur.compute(dict(mode_calc="PRÉDIMENSIONNEMENT"))
 pan_pred = ecran_resultats._panneaux(Rp, dict(u, mode_calc="PRÉDIMENSIONNEMENT"))
 chk("prédimensionnement : boulon et rangées désactivés (◆), profilé et efforts libres",
@@ -213,11 +297,19 @@ message(at, {"prof_S": "HEA 300"}, 2006); run(at)
 
 # ================================================================
 print("\n=== 6. Prédimensionnement ===")
-at.selectbox(key="asm_mode_calc").set_value("PRÉDIMENSIONNEMENT"); run(at)
-chk("le mode se règle dans la carte (bloc MODE) ; bandeau prédimensionnement", "Mode prédimensionnement" in md(at))
+at.segmented_control(key="asm_mode_calc").set_value("PRÉDIMENSIONNEMENT"); run(at)
+chk("le mode se règle dans l'en-tête de la carte (segmented_control) ; bandeau prédimensionnement",
+    "Mode prédimensionnement" in md(at))
+chk("en prédim : Taux cible · Ø minimal · Ø maximal dans la rangée d'en-tête ; un seul signal (bande ocre + ◆), "
+    "plus de caption « ◆ pilotés » ni de caption d'usage sous le dessin",
+    {"asm_eta_c", "asm_pd_dmin", "asm_pd_dmax"} <= cles_widgets(at) and "◆ pilotés par la proposition" not in md(at)
+    and "touche une pièce" not in md(at)
+    and any(x.label.endswith("◆") for x in at.selectbox if x.key == "asm_corn_u"))
 pd = REF["cas"][0]["attendu"]["predim"]
 at.session_state["asm_ui_onglet"] = "Prédim"; run(at)
-chk("onglet Prédim : solutions proposées", "Solutions proposées" in md(at))
+chk("onglet Prédim : solutions proposées ; une seule caption d'usage (« Seule la vérification détaillée fait foi »)",
+    "Solutions proposées" in md(at) and md(at).count("Seule la vérification détaillée fait foi") == 1
+    and "Mode PRÉDIMENSIONNEMENT actif" not in md(at))
 boutons = [b for b in at.button if b.key and b.key.startswith("asm_btn_sol_")]
 chk("au moins une solution cliquable", len(boutons) >= 1)
 retenue = [b for b in boutons if b.type == "primary"]
@@ -280,6 +372,11 @@ chk("« Charger ces données » : BM1 dans l'outil (VEd = 450, hc = 430)",
     float(at.session_state["asm_V_Ed"]) == 450.0 and float(at.session_state["asm_LC_u"]) == 430.0)
 at.session_state["asm_ui_onglet"] = "Méthode"; run(at)
 chk("onglet Méthode : modèle mécanique et sources", "Modèle mécanique" in md(at) and "Sources" in md(at))
+chk("le texte de l'ancien bouton ❔ vit dans Méthode « Ce que l'outil vérifie » ; « Données de bibliothèque » "
+    "reçoit les aides de la nuance et de la cornière",
+    "## Ce que l'outil vérifie" in md(at) and "Parité prouvée avec l'outil de référence" in md(at)
+    and "### Données de bibliothèque" in md(at) and "« S355 (fu 490) »" in md(at)
+    and "à contrôler avec le catalogue du fournisseur" in md(at))
 at.session_state["asm_ui_onglet"] = "Vérifications"; run(at)
 t = md(at)
 chk("onglet Vérifications : tableaux, formules et substitutions, sans objet",
@@ -292,6 +389,80 @@ fuites = [k for k in at.session_state.to_dict() if k.startswith(("b1_", "dal", "
 chk("aucune clé béton créée par le module", not fuites, str(fuites[:5]))
 at.button(key="asm_btn_retour").click(); run(at)
 chk("◀ Assemblages ramène à la sélection", "asm_courant" not in at.session_state.to_dict())
+
+# ================================================================
+print("\n=== 10. Charte (les contrôles du kit sur les doubles cornières) ===")
+D = ecran_saisie.D
+u0 = entrees.defaults()
+R0 = moteur.compute(dict(u0))
+cles_carte = carte.cles_carte(D)
+cles_fenetres = {c["key"] for g in ecran_resultats._panneaux(R0, u0).values() for c in g["champs"]}
+attendues = set(entrees.CHAMPS) | set(ecran_saisie.GEOMETRIE_DESSIN) | {"ui_niveau", "ui_composant"}
+atteignables = cles_carte | set(ecran_saisie.GEOMETRIE_DESSIN) | cles_fenetres | set(ecran_resultats.CLES_TETE_DESSIN)
+manquantes = sorted(attendues - atteignables)
+chk("rien ne se perd : les 87 clés de l'inventaire (CHAMPS ∪ GEOMETRIE_DESSIN ∪ {ui_niveau, ui_composant} + "
+    "visserie au cartouche) ont une destination",
+    len(attendues) == 86 and "visserie" in cles_carte and not manquantes, f"{len(attendues)} clés, manquantes {manquantes}")
+chk("GEOMETRIE_DESSIN = les 19 cotes de CLE_PAR_COTE (lh_P compris) ; ∩ carte = ∅ ; ONGLETS inchangés",
+    len(ecran_saisie.GEOMETRIE_DESSIN) == 19 and "lh_P" in ecran_saisie.GEOMETRIE_DESSIN
+    and not (cles_carte & set(ecran_saisie.GEOMETRIE_DESSIN))
+    and ecran_resultats.ONGLETS == ("Vérifications", "Prédim", "Note", "Benchmark", "Méthode"))
+sans_aide = [k for k in entrees.CHAMPS if k not in D.AIDES and carte.aide(D, k) is not None]
+longues = [k for k, v in D.AIDES.items() if len(v) > 160]
+chk("aide(k) is None hors AIDES ; toute aide ≤ 160", not sans_aide and not longues, str(sans_aide + longues))
+chk("aucun « ? » sur Nuance, Profilé, Cornière, Boulon, Classe, Fixation, dimensions, efforts, identification",
+    not ({"nu_P", "nu_S", "nu_C", "prof_P", "prof_S", "corn_u", "boulon_u", "classe", "fix_P", "fix_S", "n1S_u",
+          "hP_u", "hS_u", "k1_u", "V_Ed", "N_Ed", "H_Ed", "M_Ed", "id_rep", "id_red"} & set(D.AIDES)))
+trop = [(k, v) for k, v in D.LIBELLE.items() if len(v) > 22]
+r4 = [(k, D.LIBELLE[k]) for genre, cles in carte.rangees(D) if genre == "objet" and len(cles) == 4
+      for k in cles if len(D.LIBELLE[k]) > 16]
+r3 = [(k, D.LIBELLE[k]) for genre, cles in carte.rangees(D) if (genre == "suite" or len(cles) == 3)
+      for k in cles if len(D.LIBELLE[k]) > 20]
+chk("LIBELLE ≤ 22 partout, ≤ 16 dans une rangée de 4, ≤ 20 dans une rangée de 3 ou une continuation",
+    not trop and not r4 and not r3, str(trop + r4 + r3))
+
+
+def _mot(v):
+    t_ = re.match(r"[A-Za-zÀ-ÿ]+", v)
+    return bool(t_) and len(t_.group(0)) >= 3
+
+
+chk("capitale initiale des mots ; unités tirées de UNITE ; ℓh ailes A (plus de libellé de 46 caractères)",
+    not [v for v in D.LIBELLE.values() if _mot(v) and v[:1] != v[:1].upper()]
+    and D.LIBELLE["V_Ed"] == "VEd (kN)" and D.LIBELLE["M_Ed"] == "MEd (kNm)" and D.LIBELLE["LC_u"] == "hc (mm)"
+    and D.LIBELLE["lh_P"] == "ℓh ailes A (mm)" and D.LIBELLE["r_n"] == "Rayon grugeage (mm)")
+longues = [(k, o) for k, f in entrees.CHAMPS.items() for o in (f.get("o") or []) if len(carte.affiche(D, k, o)) > 28]
+chk("options affichées ≤ 28 ; AFFICHAGE ⊂ options brutes ; Grande aile côté → Principale / Secondaire",
+    not longues and all(set(v) <= set(entrees.CHAMPS[k]["o"]) for k, v in D.AFFICHAGE.items())
+    and carte.affiche(D, "orient", ORI_P) == "Principale" and carte.affiche(D, "orient", ORI_S) == "Secondaire"
+    and carte.affiche(D, "mode_calc", "PRÉDIMENSIONNEMENT") == "Prédimensionnement", str(longues))
+chk("aucune ligne d'objet > 4 widgets ; les fixations sont la 1re case de la continuation de leur groupe",
+    not [c for g_, c in carte.rangees(D) if g_ == "objet" and len(c) > 4]
+    and ("suite", ["fix_P", "n1P_u", "n2P_u"]) in carte.rangees(D)
+    and ("suite", ["fix_S", "n1S_u", "n2S_u"]) in carte.rangees(D))
+vis = ecran_saisie.aides_visibles(u0)
+chk("« ? » visibles dans la carte au défaut : 5 (mode, trou, catégorie, ↳ AILES B, EFFORTS ELU) au lieu de 22",
+    len(vis) == 5 and set(vis) == {"mode_calc", "trou", "cat", "AILES B", "EFFORTS ELU"}, str(vis))
+inegales = sorted(c["n"] for c in DB["cornieres"] if entrees.champ_visible(dict(u0, corn_u=c["n"]), "orient"))
+chk("« Grande aile côté » pour les 5 cornières inégales de DB.cornieres et Personnalisé seulement — jamais en "
+    "prédim (cornière proposée à ailes égales : le moteur ignore l'orientation)",
+    inegales == sorted(["L100x75x8", "L120x80x8", "L120x80x10", "L150x90x10", "L150x100x10"])
+    and len(DB["cornieres"]) == 18 and entrees.champ_visible(dict(u0, corn_u="Personnalisé"), "orient")
+    and not entrees.champ_visible(dict(u0, corn_u="L150x90x10", mode_calc="PRÉDIMENSIONNEMENT"), "orient"),
+    str(inegales))
+chk("grugeage nommé c / dc,sup / dc,inf dans GROUPES (vue) et LIBELLE ; GROUPES sans note morte",
+    "dc,sup" in entrees.CHAMPS["d_nt"]["l"] and "dc,inf" in entrees.CHAMPS["d_nb"]["l"]
+    and " c " in entrees.CHAMPS["l_n"]["l"] and D.LIBELLE["l_n"] == "c (mm)" and D.LIBELLE["d_nt"] == "dc,sup (mm)"
+    and not any(g_.get("note") for g_ in entrees.GROUPES))
+at3 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at3.session_state["page"] = "Assemblages métalliques"
+at3.session_state["asm_courant"] = "doubles_cornieres"
+at3.session_state["asm_corn_u"] = "L150x90x10"
+run(at3)
+orient_w = [x for x in at3.selectbox if x.key == "asm_orient"]
+chk("cornière inégale (L150x90x10) : « Grande aile côté » dans la carte, options « Principale / Secondaire »",
+    bool(orient_w) and orient_w[0].label == "Grande aile côté"
+    and orient_w[0].options == ["Principale", "Secondaire"] and orient_w[0].value == ORI_P)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

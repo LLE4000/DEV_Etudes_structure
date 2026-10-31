@@ -1,7 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Onglet « Méthode » : le texte de l'outil de référence, repris intégralement."""
+"""Onglet « Méthode » : le texte de l'outil de référence, repris intégralement,
+précédé de « Ce que l'outil vérifie » (le texte de l'ancien bouton ❔ de
+l'en-tête, charte du 31/10/2026 §8) ; « Données de bibliothèque » reçoit les
+aides retirées des champs Nuance et Cornière (§3)."""
 
 METHODE = """
+## Ce que l'outil vérifie
+
+Vérification ELU selon EN 1993-1-8 et EN 1993-1-1 ; modèles complémentaires MSB Part 5, ECCS n°126, SCI P358. Parité prouvée avec l'outil de référence.
+
 ## Modèle mécanique
 
 L'assemblage est nominalement articulé : il transmet l'effort tranchant VEd, et la ligne de transfert (rotule) est placée à la face de l'âme de la poutre principale (MSB Part 5 §4.2.1.1, d'après ECCS n°126). L'outil ne calcule aucune rigidité en rotation et ne transforme jamais l'assemblage en encastrement.
@@ -34,7 +41,7 @@ L'assemblage est nominalement articulé : il transmet l'effort tranchant VEd, et
 
 ### Données de bibliothèque
 
-Profilés : dimensions nominales h, b, tw, tf, r ; l'aire est recalculée par A = 2b·tf + (h − 2tf)·tw + (4 − π)·r². Cornières : dimensions usuelles EN 10056-1. Boulons : As selon ISO 898, trous normaux d + 1 (M12), d + 2 (M16 à M24), d + 3 (à partir de M27) selon EN 1090-2, dm et dw usuels ISO 4014 et ISO 7089. Aciers : EN 1993-1-1 Tableau 3.1 pour t ≤ 40 mm, βw selon EN 1993-1-8 Tableau 4.1. Coefficients partiels et résistances des aciers sont à caler sur l'ANB applicable ; la nuance « Personnalisé » permet toute autre valeur.
+Profilés : dimensions nominales h, b, tw, tf, r ; l'aire est recalculée par A = 2b·tf + (h − 2tf)·tw + (4 − π)·r². Cornières : dimensions usuelles EN 10056-1, à contrôler avec le catalogue du fournisseur ; « Grande aile côté » ne s'affiche que pour une cornière à ailes inégales (ou Personnalisé) en vérification — la cornière proposée par le prédimensionnement est à ailes égales. Boulons : As selon ISO 898, trous normaux d + 1 (M12), d + 2 (M16 à M24), d + 3 (à partir de M27) selon EN 1090-2, dm et dw usuels ISO 4014 et ISO 7089. Aciers : EN 1993-1-1 Tableau 3.1 pour t ≤ 40 mm, βw selon EN 1993-1-8 Tableau 4.1 ; S355 : fu = 510 MPa (EN 1993-1-1:2005 Tab. 3.1) ; « S355 (fu 490) » : valeur retenue par d'autres références (annexe nationale française, EN 1993-1-1:2022), à caler sur l'ANB. Coefficients partiels et résistances des aciers sont à caler sur l'ANB applicable ; la nuance « Personnalisé » permet toute autre valeur.
 
 ### Hypothèse sur les cordons
 

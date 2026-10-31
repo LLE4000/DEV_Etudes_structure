@@ -4,10 +4,11 @@
 # ===========================
 #  interface.py (Streamlit)
 #
-#  Écran de l'assemblage : même en-tête et même barre d'outils que les
-#  modules béton (🏠 Accueil · 🔄 Réinitialiser · 💾 Enregistrer · 📂 Ouvrir ·
-#  📄 Générer PDF), puis — finalisation du 21/09/2026
-#  (docs/assemblages/REFONTE_UX.md §12) :
+#  Écran de l'assemblage : titre court et barre d'outils partagée
+#  (acier/projet_ui.py : ◀ Projet · 🏠 Accueil · 💾 Enregistrer · 📄 PDF ·
+#  [A1 ▾] ou 📂 Ouvrir · 🔄 Réinitialiser), puis — finalisation du 21/09/2026
+#  (docs/assemblages/REFONTE_UX.md §12), charte ergonomique du 31/10/2026
+#  (docs/assemblages/ERGONOMIE.md) :
 #
 #    ● statut sur une ligne, taux par élément, alertes courtes ;
 #    ● DEUX COLONNES : à gauche le DESSIN (élévation puis vue en plan,
@@ -15,9 +16,11 @@
 #      visible pendant le défilement de la droite) ; TOUT se règle dessus —
 #      cotes cliquables, poignées + / −, fenêtres de groupe, panneaux de
 #      pièce, et la poutre portée se DÉPLACE à la souris (gh, Δz) ;
-#    ● à droite : la carte compacte par objet (mode, profilés, cornières,
-#      boulons, efforts), les replis Paramètres avancés et Identification,
-#      puis les onglets Vérifications · Prédim · Note · Benchmark · Méthode ;
+#    ● à droite : la carte par objet rendue par le kit
+#      (acier/assemblages/carte.py : en-tête du mode, profilés, cornières,
+#      boulons, efforts), les replis Paramètres avancés et Cartouche (note et
+#      plan), puis les onglets Vérifications · Prédim · Note · Benchmark ·
+#      Méthode ;
 #    ● dessin interactif désactivé : mêmes colonnes, dessins statiques à
 #      gauche, panneau des cotes en tête de la colonne de droite.
 #
@@ -30,13 +33,13 @@
 #  qu'un message du dessin soit appliqué à l'état avant l'instanciation des
 #  widgets qui portent les mêmes clés.
 # ===========================
-import json
 from datetime import datetime
 from functools import lru_cache
 
 import streamlit as st
 
 from acier import projet_ui
+from acier.assemblages import carte as kit
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT
 from .moteur import compute
@@ -44,6 +47,8 @@ from .benchmark import run_bench
 
 MODULE_VERSION = "1.3"
 PREFIXE = "asm_"
+TITRE_COURT = "Doubles cornières d'âme"
+TITRE_LONG = "Assemblage poutre–poutre – doubles cornières d'âme"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "pdf_detail_bytes", "_asm_", "asm_cmp_", "asm_cote_", "asm_fix_")
 
 # La colonne du dessin est FIGÉE (position: sticky) : le schéma reste visible
@@ -142,10 +147,6 @@ def charger_payload(data):
     return charger_json(src)
 
 
-def _pdf_filename(u):
-    return texte.nom_fichier(u, ".pdf")
-
-
 def _infos(u):
     return {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
             "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
@@ -169,60 +170,31 @@ def show():
     if msg:
         st.toast(msg)
 
-    tH1, tH2, tH3 = st.columns([8, 1.6, 0.55], vertical_alignment="center")
-    with tH1:
-        st.markdown("## Assemblage poutre–poutre – doubles cornières d'âme")
-    with tH2:
-        st.markdown(f"<div style='text-align:right;color:#6b7280;font-size:0.9em;'>Version {MODULE_VERSION}</div>",
-                    unsafe_allow_html=True)
-    with tH3:
-        st.button("❔", key="asm_btn_version_dc", use_container_width=True,
-                  help="Vérification ELU selon EN 1993-1-8 et EN 1993-1-1 ; modèles complémentaires "
-                       "MSB Part 5, ECCS n°126, SCI P358. Parité prouvée avec l'outil de référence.")
-
-    # Barre d'outils : ◀ Projet · 🏠 · 🔄 · 💾 (projet entier) · [A2 ▾] · 📄 —
-    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
-    b0, b1, b2, b3, b4, b5 = st.columns(6)
-    with b0:
-        projet_ui.bouton_retour("asm_btn_retour")
-    with b1:
-        if st.button("🏠 Accueil", use_container_width=True, key="asm_btn_home_dc"):
-            st.session_state.retour_accueil_demande = True
-            st.rerun()
-    with b2:
-        if st.button("🔄 Réinitialiser", use_container_width=True, key="asm_btn_reset",
-                     disabled=projet_ui.verrouille()):
-            _reinitialiser()
-            st.rerun()
+    # Titre court + l'ancien titre long mot pour mot avec la version (plus de bouton ❔ ni de cellule
+    # « Version » : leur texte vit dans Méthode › « Ce que l'outil vérifie »).
+    projet_ui.en_tete(TITRE_COURT, TITRE_LONG + " · version " + MODULE_VERSION)
     u = lire_entrees()
-    with b3:
-        projet_ui.bouton_enregistrer("asm_btn_save_dl", lambda: _payload(u), lambda: texte.nom_fichier(u, ".json"))
-    with b4:
-        if not projet_ui.selecteur(PREFIXE):
-            projet_ui.bouton_ouvrir_seul(PREFIXE, charger_payload, ecrire_entrees)
-
     try:
         R = compute(u)
         erreur = None
     except Exception as e:  # noqa: BLE001 — l'écran doit rester utilisable
         R, erreur = None, f"{type(e).__name__}: {e}"
 
-    with b5:
-        if st.button("📄 Générer PDF", use_container_width=True, key="asm_btn_pdf", disabled=R is None,
-                     help="Note de calcul d'une page (A4 paysage). Rapport détaillé : onglet Note."):
-            from .note import generer_note
-            try:
-                st.session_state["asm_pdf_bytes"] = generer_note(R, _infos(u))
-                st.success("✅ Note de calcul générée")
-            except Exception as e:  # noqa: BLE001
-                st.session_state.pop("asm_pdf_bytes", None)
-                st.error(f"Erreur lors de la génération du PDF : {e}")
-        if st.session_state.get("asm_pdf_bytes"):
-            st.download_button("⬇️ Télécharger la note PDF", data=st.session_state["asm_pdf_bytes"],
-                               file_name=_pdf_filename(u), mime="application/pdf",
-                               use_container_width=True, key="asm_btn_pdf_dl")
+    def generer_pdf():
+        from .note import generer_note
+        return generer_note(R, _infos(u))
 
+    # Barre d'outils partagée : ◀ Projet · 🏠 · 💾 (projet entier) · 📄 · [A2 ▾] · 🔄 —
+    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
+    projet_ui.barre_outils(PREFIXE, lambda: _payload(u), lambda ext: texte.nom_fichier(u, ext), charger_payload,
+                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None,
+                           pdf_help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe. "
+                                    "Rapport détaillé : onglet Note.")
     projet_ui.bandeau_verrou(PREFIXE)
+    # Deux colonnes : le DESSIN à gauche (élévation puis vue en plan, colonne
+    # figée à l'écran), les paramètres, vérifications et commandes à droite.
+    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
+    kit.injecter_css(PREFIXE)
     if R is None:
         st.error(f"Données incomplètes : {erreur}")
         ecran_saisie.carte(u, set())
@@ -244,9 +216,6 @@ def show():
     for a in R.alerts:
         if a.id == sel:
             chauds = set(a.fields)
-    # Deux colonnes : le DESSIN à gauche (élévation puis vue en plan, colonne
-    # figée à l'écran), les paramètres, vérifications et commandes à droite.
-    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
     c_dessin, c_droite = st.columns([1, 1.12], gap="medium")
     with c_dessin:
         with st.container(key="asm_col_dessin"):

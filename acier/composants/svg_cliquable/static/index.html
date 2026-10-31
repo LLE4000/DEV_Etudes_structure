@@ -127,7 +127,9 @@
       if (c.type === 's') {
         w = document.createElement('select');
         (c.options || []).forEach(function (o) {
-          var op = document.createElement('option'); op.value = o; op.textContent = o; w.appendChild(op);
+          var op = document.createElement('option'); op.value = o;
+          /* option courte à l'affichage (AFFICHAGE du module), valeur brute inchangée */
+          op.textContent = (c.affichage && c.affichage[o] != null) ? c.affichage[o] : o; w.appendChild(op);
         });
         w.value = String(valeur(c.key));
       } else {

@@ -10,8 +10,10 @@ Chaque garantie rougit si on la retire :
      jamais (la variante ne touche que les formules).
   2. CONTENU p.1 : statut, taux maximal, dimensionnante, taux par élément ;
      en-tête COMPACT (2 lignes d'objets + 1 ligne d'efforts, pas de
-     géométrie détaillée) ; hypothèses d'une ligne, références abrégées
-     (MSB P5) ; Ed / Rd de CHAQUE vérification active tels que le moteur
+     géométrie détaillée) ; HYPOTHÈSES ≤ 3 lignes ≤ 110 (note_kit.empaqueter,
+     textes exacts de la charte du 31/10/2026, défaut et variantes ; les 31
+     cas de référence sans segment perdu), références abrégées (MSB P5) ;
+     Ed / Rd de CHAQUE vérification active tels que le moteur
      les donne ; Tableau 3.3 ; identification ; pied de page en 2 lignes ;
      les formules obligatoires sont imprimées ; les phrases supprimées le
      21/09/2026 ne reviennent pas.
@@ -36,7 +38,7 @@ sys.path.insert(0, RACINE)
 import pymupdf  # noqa: E402
 
 from acier.formats import F, pct  # noqa: E402
-from acier.assemblages.poutre_poutre.doubles_cornieres import moteur, note, synthese  # noqa: E402
+from acier.assemblages.poutre_poutre.doubles_cornieres import moteur, note, synthese, texte  # noqa: E402
 
 OK, KO = [], []
 
@@ -111,10 +113,67 @@ chk("en-tête ligne 2 : Boulons | Groupe S | Groupe P",
     "Boulons M20 8.8 cat. A · trous Ø22" in t and "Groupe S 3 × 1" in t and "Groupe P 2 × (3 × 1)" in t)
 chk("en-tête ligne 3 : les efforts seuls",
     "VEd 125,0 kN" in t and "NEd 0,0 kN" in t and "HEd 0,0 kN" in t and "MEd 0,00 kNm" in t)
-chk("hypothèses d'une ligne, références abrégées",
-    "Articulé — rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1)." in t
-    and "Groupe P : cisaillement centré, 0,80·Fv,Rd (MSB P5 §4.2.1.2)." in t
-    and "Grugeage : flexion de la section réduite (MSB P5 §4.2.4)." in t)
+tt = " ".join(t.split())
+# --- HYPOTHÈSES (charte du 31/10/2026, §11) : ≤ 3 lignes ≤ 110 composées par note_kit.empaqueter
+HYP_DEFAUT = ["Articulé : rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1) ; z = 50,0 mm.",
+              "Groupe S : MS = VEd·z + |MEd| = 6,25 kNm ; groupe P : cisaillement centré, 0,80·Fv,Rd (§4.2.1.2).",
+              "Grugeage : flexion de la section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 (boulons, soudures, sections "
+              "nettes)."]
+lignes = note.lignes_hypotheses(R)
+chk("HYPOTHÈSES : ≤ 3 lignes de ≤ 110 caractères, textes exacts de la charte (défaut : 78 / 97 / 109)",
+    lignes == HYP_DEFAUT and [len(x) for x in lignes] == [78, 97, 109], str(lignes))
+chk("HYPOTHÈSES imprimées sur la page 1, références abrégées",
+    all(x in tt for x in HYP_DEFAUT) and "Ip,S" not in t and "· nettes 1,25" not in t)
+L2 = "Groupe S : MS = VEd·z + |MEd| = 6,25 kNm ; "
+var = {
+    "MP > 0, cat B": (dict(opt_exc="Oui", cat="B"),
+                      [L2 + "groupe P : MP = 3,44 kNm par cornière (§4.2.1.2).",
+                       "Grugeage : flexion de la section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
+    "ailes A soudées, MP > 0": (dict(fix_P="Soudée", opt_exc="Oui"),
+                                [L2 + "cordons A : MP = 6,25 kNm par cornière, Leff totale (§4.5.1).",
+                                 HYP_DEFAUT[2]]),
+    "ailes A soudées, MP = 0, sans grugeage": (dict(fix_P="Soudée", d_nt=0, l_n=0),
+                                               [L2 + "cordons A : centrés, Leff totale (§4.5.1).",
+                                                "γM0 1,00 · γM2 1,25 (boulons, soudures, sections nettes)."]),
+    "ailes B soudées, cat C": (dict(fix_S="Soudée", cat="C", classe="10.9"),
+                               ["Cordons B : MS = VEd·z + |MEd| = 11,76 kNm, Leff totale (§4.5.1) ; groupe P centré, "
+                                "0,80·Fv,Rd (§4.2.1.2).",
+                                "Grugeage : section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
+    "les deux soudées, MP > 0": (dict(fix_S="Soudée", fix_P="Soudée", opt_exc="Oui"),
+                                 ["Cordons B : MS = VEd·z + |MEd| = 11,76 kNm, Leff totale (§4.5.1).",
+                                  "Cordons A : MP = 6,25 kNm, Leff totale (§4.5.1) ; grugeage : section réduite "
+                                  "(§4.2.4) ; γM0 1,00 · γM2 1,25."]),
+    "γM2 ≠ γM2,net, cat C": (dict(g_M2n=1.2, cat="C"),
+                             [HYP_DEFAUT[1], "Grugeage : flexion de la section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 "
+                              "· γM2,net 1,20 · γM3 1,25."]),
+}
+ecarts = []
+for nom, (inp, attendu) in var.items():
+    obtenu = note.lignes_hypotheses(moteur.compute(inp))[1:]
+    if obtenu != attendu:
+        ecarts.append((nom, obtenu))
+chk("HYPOTHÈSES : variantes de la charte (MP > 0 cat B ; ailes A soudées MP > 0 / MP = 0 sans grugeage ; ailes B "
+    "soudées cat C ; les deux soudées ; γM2 ≠ γM2,net)", not ecarts, str(ecarts))
+pertes, trop, err = [], [], []
+for cas in REF["cas"]:
+    Rc = moteur.compute(cas["inputs"])
+    try:
+        ls = note.lignes_hypotheses(Rc)
+    except ValueError as e:
+        err.append((cas["id"], str(e)[:60]))
+        continue
+    txt = " ".join(ls)
+    if len(ls) > 3 or any(len(x) > 110 for x in ls):
+        trop.append((cas["id"], [len(x) for x in ls]))
+    for sg in note.segments_hypotheses(Rc):
+        formes = [sg] if isinstance(sg, str) else list(sg)
+        if not any(f[1:] in txt for f in formes):
+            pertes.append((cas["id"], formes[-1][:30]))
+chk("HYPOTHÈSES des 31 cas de référence : aucun ValueError, ≤ 3 lignes ≤ 110, aucun segment perdu",
+    not err and not trop and not pertes, str(err + trop + pertes))
+chk("l'export texte et le rapport détaillé gardent leurs propres lignes d'hypothèses (corrigés figés)",
+    texte.lignes_hypotheses(R)[0].startswith("Assemblage nominalement articulé")
+    and len(texte.lignes_hypotheses(R)) == 6)
 # --- phrases supprimées le 21/09/2026 : elles ne reviennent pas
 chk("plus de géométrie détaillée en tête (elle est cotée page 2)",
     "e1/p1" not in t and "hc 190 – zc 50" not in t and "gA 55 – p3" not in t)
