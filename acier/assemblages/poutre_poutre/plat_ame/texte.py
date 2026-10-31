@@ -36,7 +36,12 @@ def construire_texte(R, complet=False):
           + (" ; NEd = " + F(u.N_Ed, 1) + " kN" if u.N_Ed else "")
           + (" ; MEd = " + F(u.M_Ed, 2) + " kNm" if u.M_Ed else ""),
          "z = " + F(R.zeff, 1) + " mm ; MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm ; Ip = "
-         + F(R.Ip, 0) + " mm²", ""]
+         + F(R.Ip, 0) + " mm²"]
+    # Le rédacteur saisi au cartouche (id_red) est imprimé ici aussi — un champ saisi et jamais
+    # lu était un défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
+    if str(u.get("id_red") or "").strip():
+        L.append("Rédacteur : " + str(u.get("id_red")).strip())
+    L.append("")
     for a in R.alerts:
         L.append(("[BLOQUANT] " if a.block else "[note] ") + a.msg)
     if R.alerts:

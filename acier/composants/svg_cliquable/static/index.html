@@ -122,6 +122,7 @@
     champs.forEach(function (c) {
       var row = document.createElement('div'); row.className = 'row';
       var lab = document.createElement('label'); lab.textContent = c.lab; row.appendChild(lab);
+      if (c.help) lab.title = c.help;          /* l'aide du champ (AIDES du module), en infobulle */
       var w;
       if (c.type === 's') {
         w = document.createElement('select');

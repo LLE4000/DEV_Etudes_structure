@@ -6,7 +6,17 @@ la famille (module doubles cornières)."""
 import re
 
 from acier.formats import F
-from ..doubles_cornieres.notation import ref_courte  # noqa: F401 — réutilisée telle quelle
+from ..doubles_cornieres.notation import ref_courte as _ref_courte_famille
+
+# Commentaires internes que le moteur porte dans ses références (« — même modèle que le
+# module doubles cornières ») : retirés de la VUE (écran, note, export), le moteur ne change pas.
+_COMMENTAIRES_INTERNES = re.compile(r"\s+—\s+même modèle que[^;]*")
+
+
+def ref_courte(ref):
+    """La référence courte de la famille, sans les commentaires internes du moteur."""
+    return _ref_courte_famille(_COMMENTAIRES_INTERNES.sub("", ref or ""))
+
 
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC3-1-1 = EN 1993-1-1 ; "
                       "MSB P5 ; P358 = SCI P358 ; ECCS = ECCS n°126 ; BS 5950-1 : courbe de déversement "

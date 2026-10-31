@@ -25,6 +25,7 @@ from acier.js import N, js_str
 from acier.bibliotheques import PERSO
 from . import schemas, synthese, formules
 from .entrees import VISSERIE_DEFAUT
+from acier.assemblages.note_kit import empaqueter
 from .notation import ligne_alerte, LEGENDE_REFERENCES
 from ..doubles_cornieres.rapport import peindre
 from ..doubles_cornieres.note import PlanPrincipe, TEXTE_MM
@@ -68,18 +69,39 @@ def lignes_entete(R):
     return l1, l2, l3
 
 
-def lignes_hypotheses(R):
+def segments_hypotheses(R):
+    """Les SEGMENTS du bloc HYPOTHÈSES (charte du 31/10/2026, §11) : modèle et
+    excentricité, plat court / long, grugeage, cordons, coefficients — chaque
+    segment écrit en entier, avec sa forme courte quand il en a une ; le kit
+    (``note_kit.empaqueter``) les range en ≤ 3 lignes de ≤ 110 caractères.
+    Gardés parce qu'ils ne vivent nulle part ailleurs sur la page : z et le
+    moment repris ; retirés : MS, Ip (formule du cisaillement du groupe)."""
     u = R.u
-    h = ["Articulé — rotule à la face de l'âme porteuse ; le groupe de boulons reprend VEd·z (MSB P5 §3.2).",
-         "z = " + F(R.zeff, 1) + " mm ; MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm ; Ip = " + F(R.Ip, 0) + " mm².",
-         "Plat " + ("COURT (z ≤ tp/0,15 : pas de déversement)" if not R.long_p
-                    else "LONG (z > tp/0,15 : déversement vérifié, courbe BS 5950-1)") + "."]
+    seg = ["articulé : rotule à la face de l'âme porteuse (MSB P5 §3.2)",
+           "z = " + F(R.zeff, 1) + " mm",
+           "le groupe reprend VEd·z + |MEd|",
+           ("plat court (z ≤ tp/0,15 : pas de déversement)" if not R.long_p
+            else "plat long (z > tp/0,15 : déversement, courbe BS 5950-1)")]
     if R.cas_g > 0:
-        h.append("Grugeage : flexion de la section réduite (MSB P5 §4.2.4).")
-    h.append("γM0 " + F(N(u.g_M0), 2) + " · γM1 " + F(N(u.g_M1), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2)
-             + " · nettes " + F(N(u.g_M2n), 2) + ".")
-    h.append("Cordons : deux cordons verticaux pleine hauteur (§4.5.3.3).")
-    return h
+        seg.append(("grugeage : flexion de la section réduite (§4.2.4)", "grugeage : section réduite (§4.2.4)"))
+    seg.append(("cordons pleine hauteur, un par face (§4.5.3.3)", "cordons pleine hauteur (§4.5.3.3)"))
+    g_M2, g_M2n = N(u.g_M2), N(u.g_M2n)
+    g = "γM0 " + F(N(u.g_M0), 2) + " · γM1 " + F(N(u.g_M1), 2) + " (ANB) · γM2 " + F(g_M2, 2)
+    if abs(g_M2 - g_M2n) > 1e-9:
+        g_long = g + " (boulons, soudures) · γM2,net " + F(g_M2n, 2) + " (nettes)"
+        g_court = g + " · γM2,net " + F(g_M2n, 2)
+    else:
+        g_long, g_court = g + " (boulons, soudures, sections nettes)", g
+    if u.cat != "A":
+        g_long += " · γM3 " + F(N(u.g_M3), 2)
+        g_court += " · γM3 " + F(N(u.g_M3), 2)
+    seg.append((g_long, g_court))
+    return seg
+
+
+def lignes_hypotheses(R):
+    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
+    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
 
 
 def _est_info(R, syn, c):

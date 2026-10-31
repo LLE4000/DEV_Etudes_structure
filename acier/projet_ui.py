@@ -64,6 +64,12 @@ def titre_de(type_id):
     return t[1].titre if t else str(type_id)
 
 
+def court_de(type_id):
+    """Le nom court du type (sélecteur de la barre d'outils) ; le titre en repli."""
+    t = registre.trouver(type_id)
+    return (t[1].court or t[1].titre) if t else str(type_id)
+
+
 def _vivant(m):
     return all(m.K(k) in st.session_state for k in m.CLES)
 
@@ -313,15 +319,16 @@ def resume(e):
 
 
 # ------------------------------------------------- barre d'outils des écrans
-def bouton_retour(cle):
-    if st.button("◀ Projet", use_container_width=True, key=cle,
-                 help="Retour à la liste des assemblages du projet"):
+def bouton_retour(cle, width="stretch"):
+    if st.button("◀ Projet", width=width, key=cle, help="Retour à la liste des assemblages du projet"):
         fermer()
         st.rerun()
 
 
 def libelle_entree(e):
-    return f"{modele.repere(e) or '—'} · {titre_de(e['type'])}"
+    """« A1 · Plat d'âme » : le repère et le nom COURT du type (registre.court) —
+    le sélecteur de la barre fait 230 px ; le titre long reste au sommaire."""
+    return f"{modele.repere(e) or '—'} · {court_de(e['type'])}"
 
 
 def _libelles(projet_):
@@ -343,7 +350,7 @@ def _sur_selection(cle):
         ouvrir(ident)
 
 
-def selecteur(prefixe):
+def selecteur(prefixe, width="stretch"):
     """Dans la barre d'un écran : passer à un autre assemblage du projet sans
     repasser par la liste. False (rien rendu) si l'écran est ouvert hors projet."""
     e = entree_ouverte()
@@ -353,12 +360,12 @@ def selecteur(prefixe):
     cle = prefixe + "sel_projet"
     st.session_state[cle] = next(lab for lab, i in par_libelle.items() if i == e["id"])
     st.session_state[cle + "_map"] = par_libelle
-    st.selectbox("Assemblage du projet", list(par_libelle), key=cle, label_visibility="collapsed",
+    st.selectbox("Assemblage du projet", list(par_libelle), key=cle, label_visibility="collapsed", width=width,
                  on_change=_sur_selection, args=(cle,), help="Passer à un autre assemblage du projet")
     return True
 
 
-def bouton_enregistrer(cle, payload_seul, nom_seul):
+def bouton_enregistrer(cle, payload_seul, nom_seul, width="stretch"):
     """💾 : le projet entier quand une entrée est ouverte, sinon (écran ouvert
     hors projet) l'assemblage seul, au format que le module a toujours produit."""
     if entree_ouverte() is not None:
@@ -366,14 +373,14 @@ def bouton_enregistrer(cle, payload_seul, nom_seul):
     else:
         data, nom, aide = payload_seul(), nom_seul(), "Enregistre cet assemblage seul (fichier JSON)"
     st.download_button("💾 Enregistrer", data=json.dumps(data, indent=1, ensure_ascii=False).encode("utf-8"),
-                       file_name=nom, mime="application/json", use_container_width=True, key=cle, help=aide)
+                       file_name=nom, mime="application/json", width=width, key=cle, help=aide)
 
 
-def bouton_ouvrir_seul(prefixe, charger_payload, ecrire_entrees):
+def bouton_ouvrir_seul(prefixe, charger_payload, ecrire_entrees, width="stretch"):
     """📂 d'un écran ouvert hors projet : charge un fichier d'assemblage seul
     dans l'écran (comportement d'avant le projet, mêmes clés)."""
     p = prefixe
-    if st.button("📂 Ouvrir", use_container_width=True, key=p + "btn_open_toggle"):
+    if st.button("📂 Ouvrir", width=width, key=p + "btn_open_toggle"):
         st.session_state[p + "show_open_uploader"] = not st.session_state.get(p + "show_open_uploader", False)
     if st.session_state.get(p + "show_open_uploader", False):
         up = st.file_uploader("Choisir un fichier JSON", type=["json"], label_visibility="collapsed",
@@ -390,6 +397,54 @@ def bouton_ouvrir_seul(prefixe, charger_payload, ecrire_entrees):
                 st.rerun()
             except Exception:  # noqa: BLE001
                 st.error("Fichier invalide ou corrompu — chargement annulé.")
+
+
+# ------------------------------------------ en-tête et barre d'outils partagés
+def en_tete(titre_court, sous_titre):
+    """Le titre d'un écran d'assemblage : court (« ## Plat d'âme soudé ») et,
+    en caption, l'ancien titre long mot pour mot avec la version — plus de
+    bouton ❔ ni de cellule « Version » (charte du 31/10/2026, §8)."""
+    with st.container(gap=None):
+        st.markdown("## " + titre_court)
+        st.caption(sous_titre)
+
+
+def barre_outils(prefixe, payload_seul, nom_fichier_, charger_payload, ecrire_entrees, reinitialiser,
+                 generer_pdf, pdf_disabled=False, pdf_help=None):
+    """La barre d'outils partagée des écrans d'assemblage, sur UNE rangée qui
+    se replie (container horizontal, wrap) : ◀ Projet · 🏠 Accueil ·
+    💾 Enregistrer · 📄 PDF · [A1 · <court> ▾] (230 px, ou 📂 Ouvrir hors
+    projet) · 🔄 Réinitialiser en fin de rangée, loin de 💾. Clés
+    inchangées (<p>btn_retour, btn_home, btn_save_dl, btn_pdf, sel_projet,
+    btn_open_toggle, btn_reset, btn_pdf_dl) ; ⬇️ Télécharger sous la barre
+    après génération.
+
+    ``generer_pdf()`` rend les octets de la note (appelé au clic) ;
+    ``reinitialiser()`` efface l'état du module (le rerun suit ici)."""
+    p = prefixe
+    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center", key=p + "barre"):
+        bouton_retour(p + "btn_retour", width="content")
+        if st.button("🏠 Accueil", width="content", key=p + "btn_home"):
+            st.session_state.retour_accueil_demande = True
+            st.rerun()
+        bouton_enregistrer(p + "btn_save_dl", payload_seul, lambda: nom_fichier_(".json"), width="content")
+        clic_pdf = st.button("📄 PDF", width="content", key=p + "btn_pdf", disabled=pdf_disabled, help=pdf_help)
+        if not selecteur(p, width=230):
+            bouton_ouvrir_seul(p, charger_payload, ecrire_entrees, width="content")
+        if st.button("🔄 Réinitialiser", width="content", key=p + "btn_reset", disabled=verrouille()):
+            reinitialiser()
+            st.rerun()
+    if clic_pdf:
+        try:
+            st.session_state[p + "pdf_bytes"] = generer_pdf()
+            st.success("✅ Note de calcul générée")
+        except Exception as e:  # noqa: BLE001 — l'écran doit rester utilisable
+            st.session_state.pop(p + "pdf_bytes", None)
+            st.error(f"Erreur lors de la génération du PDF : {e}")
+    if st.session_state.get(p + "pdf_bytes"):
+        st.download_button("⬇️ Télécharger la note PDF", data=st.session_state[p + "pdf_bytes"],
+                           file_name=nom_fichier_(".pdf"), mime="application/pdf", width="content",
+                           key=p + "btn_pdf_dl")
 
 
 # ------------------------------------------------- informations du projet

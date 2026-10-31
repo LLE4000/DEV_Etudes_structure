@@ -52,7 +52,7 @@ SRC = dict(
 
 BENCH = [
     dict(id="BM1", titre="§3.4 Worked Example: Fin Plate — VEd = 350 kN, 2 files de boulons, z = 80 mm, "
-                         "p. 5-38 à 5-45 (le MÊME exemple sert, transposé, de BM4 au module doubles cornières)",
+                         "p. 5-38 à 5-45",     # le MÊME exemple sert, transposé, de BM4 au module doubles cornières
          data="IPE A 550 S275 (h 547, b 210, tw 9, tf 15,7, r 24), plat 360×160×10 S275, M20 8.8, "
               "n1 = 5, n2 = 2, p1 = 70, p2 = 60, e1 = 40, e2 = 50, e2,b = 40, e1,b = 90, poutre non grugée",
          inp=WE, rows=[
@@ -101,7 +101,8 @@ VALID = [
          inp={}, rows=[
         ["Moment d'excentricité MS = VEd·z", 6.25, 6.25, va("M_S"), "kNm"],
         ["Effort maximal sur un boulon", 66.69921080659218, 66.6992108065922, va("F_b"), "kN"],
-        ["Taux – pression diamétrale de l'âme (interaction) — ancre VAL-A du module 1",
+        # ancre VAL-A du module doubles cornières (même modèle d'interaction)
+        ["Taux – pression diamétrale de l'âme (interaction)",
          0.739914371796275, 0.739914371796275, lambda R: R.ck["pdS"].eta, "-"],
         ["Plat – cisaillement brut VRd,g = hp·tp/1,27·fy/√3", 306.7176754884, 306.717675488,
          rd("pcg"), "kN"],
@@ -109,7 +110,8 @@ VALID = [
         ["Soudure – qx = 3·MS/hp²", 3 * 6.25e6 / 36100, 519.390581717, va("qx_w"), "N/mm"],
         ["Soudure – résistance Fw,Rd = fvw,d·a (a = 5)", 5 * 510 / (S3 * 0.9 * 1.25), 1308.66061016,
          lambda R: R.ck["w"].Rd, "N/mm"],
-        ["Grugeage – moment résistant Mv,N,Rd (ancre VAL-A du module 1)", 49.47898619990443,
+        # ancre VAL-A du module doubles cornières (même règle de grugeage)
+        ["Grugeage – moment résistant Mv,N,Rd", 49.47898619990443,
          49.4789861999044, rd("mN"), "kNm"],
         ["Cisaillement local âme porteuse – Av = tw·hp", 2090, 2090, va("Av_P"), "mm²"]]),
 ]

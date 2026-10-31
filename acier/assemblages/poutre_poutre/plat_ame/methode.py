@@ -3,6 +3,12 @@
 limites — en toutes lettres."""
 
 METHODE = """
+#### Ce que l'outil vérifie
+
+Vérification ELU selon EN 1993-1-8 et EN 1993-1-1 (γM1 : ANB belge) ; modèles
+MSB Part 5 §3 (fin plate), SCI P358, ECCS n°126. Benchmark : Worked Example
+publié du guide, rejoué à chaque ouverture.
+
 #### Modèle mécanique
 
 Assemblage **articulé** : la rotule est à la **face de l'âme porteuse**. Le plat
@@ -48,6 +54,12 @@ STAAD « Belgian NA to EC3 ») — le texte NBN, payant, n'a pas été consulté
 ici : à confirmer, valeurs modifiables dans les paramètres avancés. Pour
 l'EN 1993-1-8, aucune divergence belge relevée : valeurs recommandées
 (γM2 = 1,25 ; γM3 = 1,25 ; γM3,ser = 1,1).
+
+#### Données de bibliothèque
+
+Nuances : S355 : fu = 510 MPa (EN 1993-1-1 Tab. 3.1) ; « S355 (fu 490) » :
+valeur d'autres références, à caler sur l'ANB. Profilés : catalogue HEA / HEB /
+HEM / IPE ; « Personnalisé » = dimensions h, b, tw, tf, r saisies.
 
 #### Limites du modèle (à justifier séparément le cas échéant)
 
