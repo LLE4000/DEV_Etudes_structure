@@ -19,12 +19,10 @@ d'alerte (P5) ; un « ? » n'existe que pour une entrée de ``AIDES`` (P3).
 
 Clés de session ``fpl_<clé>`` : source unique, écrite AVANT l'instanciation
 des widgets (le dessin est rendu avant la carte)."""
-import streamlit as st
-
 from acier.assemblages import carte as kit
 from acier.assemblages.carte import L
 from .entrees import (mode_predim, PILOTEES_PAR_PREDIM, CHAMPS, UNITE, champ_visible, perso_P, perso_S,
-                      _cat_non_A, _acier_perso, VISSERIE_DEFAUT, MODE_VERIF, MODE_PREDIM)
+                      _cat_non_A, _acier_perso, VISSERIE_DEFAUT, defaults, MODE_VERIF, MODE_PREDIM)
 from .schemas import CLE_PAR_COTE
 
 PREFIXE = "fpl_"
@@ -139,23 +137,20 @@ AVANCES = [
 ]
 
 
-def _hors_projet_nom(u):
-    # la condition même de interface._infos : dans un projet la case est écrasée par le projet
-    return not st.session_state.get("nom_projet")
-
-
-def _hors_projet_date(u):
-    return not st.session_state.get("date")
-
-
 CARTOUCHE = [("", [L(["id_rep", "id_red", "visserie"]), L(["id_projet", "id_date"], None, "hors projet")])]
+
+# Garde-fou des dimensions vides (consolidation, points 8 et 19) : un profil Personnalisé sans dimensions
+# suspend la vérification ; le dessin garde celles du profil par défaut, provisoirement.
+DIMENSIONS = dict(kit.dimensions_profil(defaults()["prof_P"], "hP_u", "bP_u", "twP_u", "tfP_u"),
+                  **kit.dimensions_profil(defaults()["prof_S"], "hS_u", "bS_u", "twS_u", "tfS_u"))
+
 
 D = kit.Description(
     PREFIXE=PREFIXE, CHAMPS=CHAMPS, champ_visible=champ_visible, LIBELLE=LIBELLE, AIDES=AIDES,
     AFFICHAGE=AFFICHAGE, PAS=PAS, BLOCS=BLOCS, AVANCES=AVANCES, PILOTEES_PAR_PREDIM=PILOTEES_PAR_PREDIM,
     mode_predim=mode_predim, VISSERIE_DEFAUT=VISSERIE_DEFAUT, GEOMETRIE_DESSIN=GEOMETRIE_DESSIN,
     EN_TETE=EN_TETE, SEGMENTS=SEGMENTS, CARTOUCHE=CARTOUCHE,
-    VISIBLE_SUPPL={"id_projet": _hors_projet_nom, "id_date": _hors_projet_date})
+    VISIBLE_SUPPL=dict(kit.HORS_PROJET), DIMENSIONS=DIMENSIONS)
 
 
 def K(k):

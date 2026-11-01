@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Onglet Méthode : le modèle mécanique de la platine d'about, ses sources
 et ses limites — en toutes lettres."""
+from .notation import NOTATIONS
 
 METHODE = """
 #### Ce que l'outil vérifie
@@ -114,3 +115,14 @@ platine d'about de hauteur partielle et §2.4 Worked Example (benchmark du
 module) ; *SCI P358, Joints in Steel Construction: Simple Joints to
 Eurocode 3* ; *ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005.
 """
+
+
+def _notations(texte):
+    """Le paragraphe « Notations » de l'onglet : la ligne « Notations » du pied
+    de la note, mot pour mot (une source : notation.py) — les définitions que
+    les cotes, réduites à leur symbole, ne portent plus (consolidation du
+    01/11/2026, point 4)."""
+    return "\n#### Notations\n\n" + texte.split(" : ", 1)[1] + "\n"
+
+
+METHODE += _notations(NOTATIONS)

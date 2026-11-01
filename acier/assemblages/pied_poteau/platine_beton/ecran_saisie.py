@@ -36,8 +36,7 @@ import streamlit as st
 
 from acier.assemblages import carte as kit
 from acier.assemblages.carte import L
-from acier.assemblages.ui_commun import titre_bloc, _esc, C_TRAIT
-from .entrees import (CHAMPS, UNITE, champ_visible, perso_c, acier_perso, eta, est_complet, VISSERIE_DEFAUT,
+from .entrees import (CHAMPS, UNITE, champ_visible, perso_c, acier_perso, eta, est_complet, VISSERIE_DEFAUT, defaults,
                       MODE_MANUEL, MODE_COMPLET, PERIM_EC3, PERIM_TOUT, CRIT_ELAS, CRIT_EC3, APPUI_EC3, APPUI_PLEIN,
                       FORME_I, FORME_RHS, TYPE_TETE, TYPE_CROSSE, TYPE_ETA)
 from .schemas import CLE_PAR_COTE
@@ -173,7 +172,8 @@ BLOCS_MANUEL = [
     ("BOULONS", [L(["ancr", "classe", "typ_a"])]),
     ("EFFORTS ELU", [L(["N_Ed", "Mx_Ed", "My_Ed"]), L(["Vx_Ed", "Vy_Ed", "T_Ed"], None, "")]),
 ]
-# Sans césure : l'espacement serré de manuel/ecran.CSS_MODULE le tient sur une ligne de la case de 76 px.
+# Sans césure : l'espacement serré du kit (ui_commun.espacement, mot ≥ 11 lettres) le tient sur une ligne
+# de la case de 76 px.
 TITRE_APPLICATION = "APPLICATION"
 # Paramètres avancés des deux modes : chaque ligne suit champ_visible (γMc, RIGIDITÉ : complet ;
 # APPLICATION : manuel).
@@ -183,29 +183,25 @@ AVANCES = [
     ("RIGIDITÉ", [L(["L_c", "contrev"])]),
     # « APPLICATION » (11 lettres) mesurait 76,5 px pour une case de 76 px (constaté à 1440 : « APPLICATIO / N »,
     # puis « APPLI-CATION » à la césure — un titre ne se coupe jamais, charte §2) : espacement serré de
-    # 0,05 em, style local du module (manuel/ecran.ESPACEMENT_SERRE, CSS_MODULE), relecture du 01/11/2026.
+    # 0,05 em, règle du kit depuis la consolidation (ui_commun.espacement : tout mot ≥ 11 lettres).
     (TITRE_APPLICATION, [L(["xN", "yN"])]),
     ("ACIER PERSO", [L(["fy_u", "fu_u", "bw_u"], acier_perso)]),
 ]
 
 
-def _hors_projet_nom(u):
-    # la condition même de interface._infos : dans un projet la case est écrasée par le projet
-    return not st.session_state.get("nom_projet")
-
-
-def _hors_projet_date(u):
-    return not st.session_state.get("date")
-
-
 CARTOUCHE = [("", [L(["id_rep", "id_red", "visserie"]), L(["id_projet", "id_date"], None, "hors projet")])]
+# Garde-fou des dimensions vides (consolidation, point 19) : un profil Personnalisé ou un tube sans
+# dimensions levait ZeroDivisionError (dessin disparu, cases étirées) ; la vérification est suspendue et le
+# dessin garde, provisoirement, les dimensions du profil par défaut (épaisseur du tube : celle de son aile).
+DIMENSIONS = kit.dimensions_profil(defaults()["prof_c"], "h_u", "b_u", "tw_u", "tf_u")
+DIMENSIONS["t_u"] = DIMENSIONS["tf_u"]
 
 D = kit.Description(
     PREFIXE=PREFIXE, CHAMPS=CHAMPS, champ_visible=champ_visible, LIBELLE=LIBELLE, AIDES=AIDES,
     AFFICHAGE=AFFICHAGE, PAS=PAS, BLOCS=BLOCS, AVANCES=AVANCES, PILOTEES_PAR_PREDIM=(),
     mode_predim=lambda u: False, VISSERIE_DEFAUT=VISSERIE_DEFAUT, GEOMETRIE_DESSIN=GEOMETRIE_DESSIN,
     EN_TETE=EN_TETE, SEGMENTS=SEGMENTS, CARTOUCHE=CARTOUCHE, LIBELLE_MODE=LIBELLE_MODE,
-    VISIBLE_SUPPL={"id_projet": _hors_projet_nom, "id_date": _hors_projet_date}, mode_courant=mode_courant)
+    VISIBLE_SUPPL=dict(kit.HORS_PROJET), mode_courant=mode_courant, DIMENSIONS=DIMENSIONS)
 D_MANUEL = dataclasses.replace(D, AIDES=AIDES_MANUEL, BLOCS=BLOCS_MANUEL)
 
 
@@ -262,56 +258,10 @@ def en_tete(u, chauds, lire, ecrire):
     kit.en_tete(Dm, u, chauds)
 
 
-# ------------------------------------------------- briques locales (kit gelé)
-# BRIQUES DE KIT MANQUANTES, écrites ici le temps de la phase où le kit est gelé (amendement 7) et
-# signalées pour la consolidation (même besoin que les doubles cornières) : un sous-titre « ↳ » qui
-# porte un « ? » (le kit ne le prévoit que sur le titre du bloc : « ↳ ETA ? ») ; le bloc qui les rend,
-# avec un 🔴 que l'alerte peut allumer par une pièce du dessin (« anchors ») et pas seulement par un
-# champ ; le compte des « ? » qui les inclut.
-def _aide_suite(Dx, suite):
-    """Le « ? » d'un sous-titre : AIDES[« ETA »] pour « ↳ ETA »."""
-    return Dx.AIDES.get(str(suite).split(" (", 1)[0]) if suite else None
-
-
-def _kit_sous_titre(txt, help=None):
-    """Sous-titre gris d'une continuation « ↳ », avec son « ? » éventuel."""
-    st.markdown(f"<div style='font-size:0.72em;font-weight:600;color:{C_TRAIT['mut']};line-height:1.15;"
-                f"padding:0 0 9px 0;margin-bottom:16px;white-space:nowrap;'>{_esc(txt)}</div>",
-                unsafe_allow_html=True, help=help)
-
-
-def _kit_bloc(Dx, titre, lignes, u, chauds=frozenset(), chaud=False, ident=None):
-    """Le bloc du kit (mêmes clés lg_ / ls_ / bt_, donc même CSS) dont les sous-titres « ↳ » peuvent
-    porter un « ? » ; ``chaud`` allume le 🔴 du titre (alerte portée par une pièce du dessin)."""
-    vis = kit.lignes_visibles(Dx, lignes, u)
-    if not vis:
-        return
-    ident = ident or kit.slug(titre)
-    t = ("🔴 " if (chaud or kit.contient_chaud(Dx, lignes, chauds, u)) else "") + titre
-    for n, (lg, cles) in enumerate(vis):
-        suite = lg["suite"]
-        with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom",
-                          key=f"{PREFIXE}{'lg' if suite is None else 'ls'}_{ident}_{n}"):
-            if n == 0 or suite is not None:
-                with st.container(key=f"{PREFIXE}bt_{ident}_{n}", width=kit.LARG_TITRE):
-                    if n == 0:
-                        titre_bloc(t, help=Dx.AIDES.get(titre))
-                    if suite is not None:
-                        _kit_sous_titre("↳ " + suite if suite else "↳", help=_aide_suite(Dx, suite))
-            for k in cles:
-                kit.widget(Dx, k, u, chauds, width="stretch" if suite is None else kit.LARG_SUITE)
-
-
 def aides_visibles(u, Dx=None):
-    """Les « ? » visibles dans la CARTE (kit.aides_visibles) + ceux des sous-titres « ↳ » visibles
-    (la carte manuelle ajoute ceux de ses tables : manuel/ecran.aides_visibles)."""
-    Dx = Dx or description(u)
-    out = kit.aides_visibles(Dx, u)
-    for _, lignes in Dx.BLOCS:
-        for lg, _cles in kit.lignes_visibles(Dx, lignes, u):
-            if _aide_suite(Dx, lg["suite"]):
-                out.append(lg["suite"].split(" (", 1)[0])
-    return out
+    """Les « ? » visibles dans la CARTE (``kit.aides_visibles`` : en-tête, lignes, sous-titres « ↳ ETA »,
+    titres de bloc ; la carte manuelle ajoute ceux de ses tables : manuel/ecran.aides_visibles)."""
+    return kit.aides_visibles(Dx or description(u), u)
 
 
 def avances(u, chauds=frozenset()):
@@ -331,6 +281,7 @@ def carte(u, chauds=frozenset(), lire=None, ecrire=None):
         if lire is not None:
             en_tete(u, chauds, lire, ecrire)
         for titre, lignes in D.BLOCS:
-            _kit_bloc(D, titre, lignes, u, chauds)
+            kit.bloc(D, titre, lignes, u, chauds, chaud=(titre == "TIGES" and "anchors" in chauds)
+                     or (titre == "POTEAU" and "col" in chauds))
     avances(u, chauds)
     cartouche(u, chauds)

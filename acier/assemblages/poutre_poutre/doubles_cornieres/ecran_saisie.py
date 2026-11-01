@@ -25,14 +25,11 @@ d'alerte (P5) ; un « ? » n'existe que pour une entrée de ``AIDES`` (P3).
 
 Clés de session ``asm_<clé>`` : source unique, écrite AVANT l'instanciation
 des widgets (le dessin est rendu avant la carte)."""
-import streamlit as st
-
 from acier.assemblages import carte as kit
 from acier.assemblages.carte import L
-from acier.assemblages.ui_commun import titre_bloc, _esc, C_TRAIT
 from acier.bibliotheques import ORI_P, ORI_S
 from .entrees import (mode_predim, PILOTEES_PAR_PREDIM, CHAMPS, UNITE, champ_visible, perso_P, perso_S, perso_C,
-                      _cat_non_A, _acier_perso, boulonne_P, boulonne_S, VISSERIE_DEFAUT, MODE_VERIF, MODE_PREDIM)
+                      _cat_non_A, _acier_perso, boulonne_P, boulonne_S, VISSERIE_DEFAUT, defaults, MODE_VERIF, MODE_PREDIM)
 from .schemas import CLE_PAR_COTE
 
 PREFIXE = "asm_"
@@ -137,6 +134,10 @@ SEGMENTS = frozenset({"mode_calc"})
 
 # Sous-titres des continuations du bloc BOULONS : une fixation gouverne un groupe de boulons
 SUITE_A, SUITE_B = "AILES A (groupe P)", "AILES B (groupe S)"
+# Hors de la carte (pastilles d'alerte, toasts du dessin, panneau Cotes), le groupe est dit : « Rangées n1 »
+# seul ne situait pas la clé (relecture du 01/11/2026 : toast « Rangées n1 = 4 »).
+LIBELLE_LONG = {"n1P_u": "Rangées n1 (groupe P)", "n2P_u": "Files n2 (groupe P)",
+                "n1S_u": "Rangées n1 (groupe S)", "n2S_u": "Files n2 (groupe S)"}
 
 BLOCS = [
     ("PROFILÉS", [L(["prof_P", "nu_P", "prof_S", "nu_S"]),
@@ -162,15 +163,6 @@ AVANCES = [
 ]
 
 
-def _hors_projet_nom(u):
-    # la condition même de interface._infos : dans un projet la case est écrasée par le projet
-    return not st.session_state.get("nom_projet")
-
-
-def _hors_projet_date(u):
-    return not st.session_state.get("date")
-
-
 def _avec_boulons(u):
     # la visserie n'a de sens que s'il y a des boulons (condition inchangée)
     return boulonne_P(u) or boulonne_S(u)
@@ -178,12 +170,21 @@ def _avec_boulons(u):
 
 CARTOUCHE = [("", [L(["id_rep", "id_red", "visserie"]), L(["id_projet", "id_date"], None, "hors projet")])]
 
+# Garde-fou des dimensions vides (consolidation, points 8 et 19) : un profil ou une cornière Personnalisé sans dimensions
+# suspend la vérification ; le dessin garde celles du profil par défaut, provisoirement.
+DIMENSIONS = dict(kit.dimensions_profil(defaults()["prof_P"], "hP_u", "bP_u", "twP_u", "tfP_u"),
+                  **kit.dimensions_profil(defaults()["prof_S"], "hS_u", "bS_u", "twS_u", "tfS_u"))
+DIMENSIONS.update(kit.dimensions_profil(defaults()["corn_u"], "k1_u", "k2_u", "kt_u", liste="cornieres",
+                                        champs=("a1", "a2", "t")))
+
+
 D = kit.Description(
     PREFIXE=PREFIXE, CHAMPS=CHAMPS, champ_visible=champ_visible, LIBELLE=LIBELLE, AIDES=AIDES,
     AFFICHAGE=AFFICHAGE, PAS=PAS, BLOCS=BLOCS, AVANCES=AVANCES, PILOTEES_PAR_PREDIM=PILOTEES_PAR_PREDIM,
     mode_predim=mode_predim, VISSERIE_DEFAUT=VISSERIE_DEFAUT, GEOMETRIE_DESSIN=GEOMETRIE_DESSIN,
     EN_TETE=EN_TETE, SEGMENTS=SEGMENTS, CARTOUCHE=CARTOUCHE,
-    VISIBLE_SUPPL={"id_projet": _hors_projet_nom, "id_date": _hors_projet_date, "visserie": _avec_boulons})
+    VISIBLE_SUPPL=dict(kit.HORS_PROJET, visserie=_avec_boulons), DIMENSIONS=DIMENSIONS,
+    LIBELLE_LONG=LIBELLE_LONG)
 
 
 def K(k):
@@ -195,63 +196,12 @@ def valeur_widget(k, v):
     return kit.valeur_widget(D, k, v)
 
 
-# ------------------------------------------------- briques locales (kit gelé)
-# BRIQUES DE KIT MANQUANTES, écrites ici le temps de la phase où le kit est gelé (amendement 7) et
-# signalées pour la consolidation : un sous-titre « ↳ » qui porte un « ? » (le kit ne le prévoit que
-# sur le titre du bloc) et qui tient sur DEUX lignes dans la case de 76 px (« ↳ AILES A (groupe P) »
-# déborderait en nowrap) ; le bloc qui les rend ; le compte des « ? » qui les inclut.
-def _aide_suite(suite):
-    """Le « ? » d'un sous-titre : AIDES[« AILES B »] pour « AILES B (groupe S) »."""
-    return D.AIDES.get(str(suite).split(" (", 1)[0]) if suite else None
-
-
-def _kit_sous_titre(txt, help=None):
-    """Sous-titre gris d'une continuation, coupé seulement avant « ( » (espaces insécables ailleurs) :
-    une ligne quand la case est pleine largeur (≤ 1350 px), deux dans la case de 76 px."""
-    tete, _, reste = str(txt).partition(" (")
-    html = "&nbsp;".join(_esc(tete).split(" ")) + (" " + "&nbsp;".join(_esc("(" + reste).split(" ")) if reste else "")
-    st.markdown(f"<div style='font-size:0.72em;font-weight:600;color:{C_TRAIT['mut']};line-height:1.15;"
-                f"padding:0 0 9px 0;margin-bottom:16px;'>{html}</div>", unsafe_allow_html=True, help=help)
-
-
-def _kit_bloc(titre, lignes, u, chauds=frozenset()):
-    """Le bloc du kit (mêmes clés lg_ / ls_ / bt_, donc même CSS) dont les sous-titres « ↳ » peuvent
-    porter un « ? » et passer sur deux lignes."""
-    vis = kit.lignes_visibles(D, lignes, u)
-    if not vis:
-        return
-    ident = kit.slug(titre)
-    t = ("🔴 " if kit.contient_chaud(D, lignes, chauds, u) else "") + titre
-    for n, (lg, cles) in enumerate(vis):
-        suite = lg["suite"]
-        with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom",
-                          key=f"{PREFIXE}{'lg' if suite is None else 'ls'}_{ident}_{n}"):
-            if n == 0 or suite is not None:
-                with st.container(key=f"{PREFIXE}bt_{ident}_{n}", width=kit.LARG_TITRE):
-                    if n == 0:
-                        titre_bloc(t, help=D.AIDES.get(titre))
-                    if suite is not None:
-                        _kit_sous_titre("↳ " + suite, help=_aide_suite(suite))
-            for k in cles:
-                kit.widget(D, k, u, chauds, width="stretch" if suite is None else kit.LARG_SUITE)
-
-
 def aides_visibles(u):
-    """Les « ? » visibles dans la CARTE (kit.aides_visibles) + ceux des sous-titres « ↳ » visibles."""
-    out = kit.aides_visibles(D, u)
-    for _, lignes in D.BLOCS:
-        for lg, _cles in kit.lignes_visibles(D, lignes, u):
-            if _aide_suite(lg["suite"]):
-                out.append(lg["suite"].split(" (", 1)[0])
-    return out
+    """Les « ? » visibles dans la CARTE (le kit compte ceux des sous-titres « ↳ » : AILES B)."""
+    return kit.aides_visibles(D, u)
 
 
 def carte(u, chauds=frozenset()):
-    """La carte complète : en-tête, blocs par objet (sous-titres à « ? » par la brique locale), puis
+    """La carte complète : en-tête, blocs par objet (le sous-titre « ↳ AILES B » porte son « ? »), puis
     les deux replis du kit."""
-    with st.container(gap=None):
-        kit.en_tete(D, u, chauds)
-        for titre, lignes in D.BLOCS:
-            _kit_bloc(titre, lignes, u, chauds)
-    kit.avances(D, u, chauds)
-    kit.cartouche(D, u, chauds)
+    kit.carte(D, u, chauds)

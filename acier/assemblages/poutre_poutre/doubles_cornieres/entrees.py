@@ -13,8 +13,9 @@
 - ``PILOTEES_PAR_PREDIM`` : les 13 clés remplacées par la proposition en
                             mode prédimensionnement (marquées ◆) ;
 - ``UNITE``               : unité de chaque clé (``ecran_saisie.LIBELLE`` la
-                            lit) ; ``COURT`` : libellés de l'outil de
-                            référence, sans lecteur à l'écran.
+                            lit ; le libellé de l'écran est ``ecran_saisie.LIBELLE``
+                            — une forme par clé ; l'ancien ``COURT``, sans
+                            lecteur, est retiré le 01/11/2026).
 
 Les conditions d'affichage sont des fonctions du dictionnaire des saisies
 ``u`` : elles ne dépendent d'aucune interface.
@@ -259,25 +260,11 @@ GROUPES = [
             _c("pd_dmax", "Plus grand diamètre admis", "s", BOULONS)]),
 ]
 
-# Libellés courts de l'interface de référence — l'écran lit désormais
-# ``ecran_saisie.LIBELLE`` (une forme par clé) ; COURT n'a plus de lecteur
-# (consolidation du kit : même état que le plat d'âme et la platine d'about)
-COURT = {"LC_u": "Lc", "n1S_u": "n1 groupe S", "n2S_u": "n2 groupe S", "p1S_u": "p1 groupe S",
-         "p2_S": "p2 groupe S", "e1S_u": "e1 groupe S", "e2b_u": "e2,b", "n1P_u": "n1 groupe P",
-         "n2P_u": "n2 groupe P", "p1P_u": "p1 groupe P", "p2_P": "p2 groupe P", "e1P_u": "e1 groupe P",
-         "gA_u": "gA", "z_C": "zc", "d_nt": "dnt", "d_nb": "dnb", "l_n": "ln", "g_h": "gh",
-         "d_top": "décalage", "corn_u": "cornière", "orient": "orientation",
-         "prof_P": "poutre principale", "prof_S": "poutre secondaire", "boulon_u": "boulon",
-         "trou": "type de trou", "d0_u": "d0", "M_Ed": "MEd", "N_Ed": "NEd", "H_Ed": "HEd",
-         "V_Ed": "VEd", "fix_P": "fixation ailes A", "fix_S": "fixation ailes B", "cat": "catégorie",
-         "classe": "classe", "k1_u": "grande aile", "k2_u": "petite aile",
-         "lh_S": "retours lh (ailes B)", "a_S": "gorge a (ailes B)", "a_P": "gorge a (ailes A)"}
 UNITE = {}
 CHAMPS = {}
 for _g in GROUPES:
     for _f in _g["f"]:
         UNITE[_f["k"]] = " " + _f["un"] if _f.get("un") and _f["un"] != "-" else ""
-        COURT.setdefault(_f["k"], _f["l"])
         CHAMPS[_f["k"]] = _f
 
 

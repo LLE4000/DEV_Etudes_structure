@@ -16,13 +16,12 @@
 #  `ppb_<clé>` (espace disjoint des clés `asm_`, `fpl_`, `pab_` et `prj_`).
 #  Le dessin est rendu AVANT la carte (messages appliqués avant widgets).
 # ===========================
-from datetime import datetime
 from functools import lru_cache
 
 import streamlit as st
 
 from acier import projet_ui
-from acier.assemblages import carte as kit
+from acier.assemblages import carte as kit, ui_commun
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT, est_complet
 from .calcul import compute                                    # selon le mode : manuel ou complet
@@ -35,34 +34,8 @@ TITRE_COURT = "Pied de poteau sur béton"
 TITRE_LONG = "Platine sur béton – pied de poteau"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "_ppb_", "ppb_cmp_", "ppb_cote_", "ppb_fix_")
 
-_CSS_STICKY = """<style>
-@media (min-width: 641px) {
-  div[data-testid="stColumn"]:has(div.st-key-ppb_col_dessin) {
-    position: sticky;
-    top: 2.875rem;
-    align-self: flex-start;
-    max-height: calc(100vh - 3.5rem);
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-  div[data-testid="stMainBlockContainer"] {
-    padding-bottom: 1.5rem;
-  }
-}
-</style>"""
-
-
 def K(k):
     return PREFIXE + k
-
-
-def _un_style(*blocs):
-    """Les règles CSS de plusieurs blocs ``<style>…</style>`` dans UN seul :
-    mises bout à bout dans un même markdown, la troisième balise était lue
-    comme du texte de la deuxième et ses règles perdues (mesuré le 31/10/2026 :
-    la ligne ppb_tt_ restait visible à 1440 px)."""
-    corps = [b.replace("<style>", "").replace("</style>", "").strip() for b in blocs]
-    return "<style>\n" + "\n".join(corps) + "\n</style>"
 
 
 @lru_cache(maxsize=1)
@@ -126,12 +99,7 @@ def charger_payload(data):
 
 
 def _infos(u):
-    return {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
-            "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
-            "date": st.session_state.get("date", "") or u.get("id_date", "")
-            or datetime.today().strftime("%d/%m/%Y"),
-            "indice": st.session_state.get("indice", "0"),
-            "visserie": st.session_state.get("ppb_visserie", VISSERIE_DEFAUT)}
+    return projet_ui.infos_cartouche(PREFIXE, u, VISSERIE_DEFAUT)
 
 
 # ------------------------------------------------------------------ écran
@@ -152,8 +120,12 @@ def show():
     # « Ce que l'outil vérifie ») ni de cellule « Version » (charte §8).
     projet_ui.en_tete(TITRE_COURT, TITRE_LONG + " · version " + MODULE_VERSION)
     u = lire_entrees()
+    # dimensions vides (profil Personnalisé, tube) : la vérification est suspendue, le dessin garde des
+    # dimensions provisoires (kit.provisoire) — plus de ZeroDivisionError (consolidation, point 19)
+    D = ecran_saisie.description(u)
+    vides = kit.dimensions_vides(D, u)
     try:
-        R = compute(u)
+        R = compute(kit.provisoire(D, u) if vides else u)
         erreur = None
     except Exception as e:  # noqa: BLE001 — l'écran doit rester utilisable
         R, erreur = None, f"{type(e).__name__}: {e}"
@@ -165,17 +137,19 @@ def show():
     # Barre d'outils partagée : ◀ Projet · 🏠 · 💾 (projet entier) · 📄 · [A2 ▾] · 🔄 —
     # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
     projet_ui.barre_outils(PREFIXE, lambda: _payload(u), lambda ext: texte.nom_fichier(u, ext), charger_payload,
-                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None,
+                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None or bool(vides),
                            pdf_help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe.")
     projet_ui.bandeau_verrou(PREFIXE)
     manuel = not est_complet(u)
-    # Le CSS (colonne figée, kit de la carte, briques locales) en UN élément, dans le même conteneur sans
-    # écart que le bandeau et les alertes : chaque élément vide coûtait 16 px d'écart, et au téléphone le
-    # dessin du calcul manuel tombait sous le premier écran (945 px > 844, mesuré le 31/10/2026).
+    # Le CSS du kit (colonne figée comprise) en UN élément, dans le même conteneur sans écart que le
+    # bandeau : chaque élément vide coûtait 16 px d'écart, et au téléphone le dessin du calcul manuel tombait
+    # sous le premier écran (945 px > 844, mesuré le 31/10/2026).
     with st.container(gap=None):
-        st.markdown(_un_style(_CSS_STICKY, kit.css_kit(PREFIXE), ecran_manuel.CSS_MODULE), unsafe_allow_html=True)
+        kit.injecter_css(PREFIXE)
         if R is None:
             st.error(f"Données incomplètes : {erreur}")
+        elif vides:
+            ui_commun.bloc_alerte_ligne("Données incomplètes", kit.message_dimensions(D, u), True)
         elif manuel:
             ecran_manuel.bandeau(R)
         else:
@@ -183,9 +157,10 @@ def show():
     if R is None:
         _carte(u, set(), manuel)
         return
-    # la ligne d'information hors verdict, sous le bandeau (hors du conteneur sans écart : elle le chevauchait)
-    (ecran_manuel.information if manuel else ecran_resultats.information)(R)
-    ecran_resultats.alertes(R, u)
+    if not vides:
+        # la ligne d'information hors verdict, sous le bandeau (hors du conteneur sans écart : elle le chevauchait)
+        (ecran_manuel.information if manuel else ecran_resultats.information)(R)
+        ecran_resultats.alertes(R, u)
     chauds = set()
     sel = st.session_state.get("ppb_ui_alerte")
     for a in R.alerts:
@@ -199,7 +174,9 @@ def show():
         if not st.session_state.get("ppb_ui_composant", True):
             ecran_resultats.panneau_cotes(u, hl)
         _carte(u, chauds, manuel)
-        if manuel:
+        if vides:
+            st.caption("Vérifications, note et exports : dès que les dimensions sont saisies.")
+        elif manuel:
             ecran_manuel.onglets(R, u, ecrire_entrees)
         else:
             ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)

@@ -260,6 +260,26 @@ chk("aucune clé asm_/béton créée par le module", not fuites, str(fuites[:5])
 at.button(key="fpl_btn_retour").click(); run(at)
 chk("◀ Assemblages ramène à la sélection", "asm_courant" not in at.session_state.to_dict())
 
+
+# ================================================================
+# Consolidation du 01/11/2026, point 6 : le Tableau 3.3 NON CONFORME — un contrôle par module. L'expander
+# s'ouvre d'office (le verdict est dans son titre) et « Localiser » sélectionne l'alerte de la pince.
+print("\n=== 9. Tableau 3.3 NON CONFORME ===")
+at33 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at33.session_state["page"] = "Assemblages métalliques"
+run(at33)
+at33.button(key="asm_btn_open_plat_ame").click(); run(at33)
+at33.session_state["fpl_e1_u"] = 20.0
+run(at33)
+e33 = [x for x in at33.expander if str(x.label).startswith("Pinces et entraxes (Tab. 3.3)")]
+chk("e1 = 20 mm → « Pinces et entraxes (Tab. 3.3) : NON CONFORME », expander ouvert d'office",
+    bool(e33) and str(e33[0].label) == "Pinces et entraxes (Tab. 3.3) : NON CONFORME" and e33[0].proto.expanded,
+    str([str(x.label) for x in e33]))
+at33.button(key="fpl_btn_dist_e1p").click(); run(at33)
+chk("« Localiser » de la ligne NON OK sélectionne son alerte (dist_e1p) ; sa rangée dit « Masquer »",
+    at33.session_state["fpl_ui_alerte"] == "dist_e1p" and at33.button(key="fpl_btn_al_dist_e1p").label == "Masquer",
+    str(at33.session_state["fpl_ui_alerte"]))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

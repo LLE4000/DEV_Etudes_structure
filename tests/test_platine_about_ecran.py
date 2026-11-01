@@ -293,12 +293,14 @@ l_elu = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, cat="B")))
 l_ty = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, nat_N=entrees.NAT_TYING, p3_u=140, bp_u=200, hp_u=180,
                                                    n1_u=2, p1_u=80, e1_u=50)))
 l_ty2 = note.lignes_hypotheses(moteur.compute(dict(N_Ed=60, nat_N=entrees.NAT_TYING, d_nt=0, l_n=0, cat="B", g_M2n=1.2)))
-chk("HYPOTHÈSES : variantes de la charte (NEd ELU cat B ; tying k = 0,5 ; tying sans grugeage, γM2 ≠ γM2,net)",
-    l_elu[1:] == ["Platine hp ≥ 1,36·p3 → k = 1,0 ; grugeage : bras tp + c (§4.2.4) ; NEd ELU avec VEd (§6.2.4).",
-                  "Cordons hp, pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 (ANB) · γM2 1,25 · γM3 1,25."]
-    and l_ty[1:] == ["Platine hp < 1,36·p3 → k = 0,5 ; grugeage : bras tp + c (§4.2.4) ; tying : chaînage seul, "
-                     "fu/γMu (§2.3).",
-                     "Cordons hp, pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 (ANB) · γM2 1,25 · γMu 1,10."]
+# Point 10 de la consolidation (01/11/2026) : un § du guide porte TOUJOURS « MSB P5 » (un § nu est de l'EN 1993-1-8) ;
+# le paquetage (lexicographique, « MSB P5 » une fois par ligne si possible) garde les formes longues des cordons.
+chk("HYPOTHÈSES : variantes (NEd ELU cat B ; tying k = 0,5 ; tying sans grugeage, γM2 ≠ γM2,net)",
+    l_elu[1:] == ["Platine hp ≥ 1,36·p3 → k = 1,0 ; grugeage : bras tp + c (MSB P5 §4.2.4) ; NEd ELU avec VEd (§6.2.4).",
+                  "Cordons sur hp (§4.5.3.3), pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 (ANB) · γM2 1,25 · γM3 1,25."]
+    and l_ty[1:] == ["Platine hp < 1,36·p3 → k = 0,5 ; grugeage : bras tp + c (MSB P5 §4.2.4) ; tying : fu/γMu "
+                     "(MSB P5 §2.3).",
+                     "Cordons sur hp (§4.5.3.3), pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 (ANB) · γM2 1,25 · γMu 1,10."]
     and l_ty2[1:] == ["Platine : hp ≥ 1,36·p3 → rupture de bloc, k = 1,0 ; tying : force de chaînage seule, "
                       "fu/γMu (MSB P5 §2.3).",
                       "Cordons hp, pleine résistance 0,55·tw = 4,7 mm ; γM0 1,00 · γM2 1,25 · γM2,net 1,20 · "
@@ -428,6 +430,35 @@ for nom, cas in REF.items():
             pertes.append((nom, formes[-1][:30]))
 chk(f"HYPOTHÈSES des {len(REF)} cas figés : ≤ 3 lignes ≤ 110, aucun segment perdu", not trop and not pertes,
     str(trop + pertes))
+import re  # noqa: E402
+_msb_nu = re.compile(r"(?<!MSB P5 )§(4\.2|3\.2|2\.)")
+nus = [(nom, l) for nom, cas in REF.items() for l in note.lignes_hypotheses(moteur.compute(cas["inp"])) if _msb_nu.search(l)]
+nus += [("variante", l) for l in l_elu + l_ty + l_ty2 if _msb_nu.search(l)]
+chk(f"HYPOTHÈSES : aucun renvoi au guide sans « MSB P5 » ({len(REF)} cas figés + variantes)", not nus, str(nus[:3]))
+doubles = [(nom, l) for nom, cas in REF.items() for l in note.lignes_hypotheses(moteur.compute(cas["inp"]))
+           if l.count("MSB P5") > 1]
+chk(f"HYPOTHÈSES : « MSB P5 » au plus une fois par ligne ({len(REF)} cas figés ; la variante tying k = 0,5 en "
+    "garde deux, faute de place, écart écrit)", not doubles and l_ty[1].count("MSB P5") == 2, str(doubles[:3]))
+
+
+# ================================================================
+# Consolidation du 01/11/2026, point 6 : le Tableau 3.3 NON CONFORME — un contrôle par module. L'expander
+# s'ouvre d'office (le verdict est dans son titre) et « Localiser » sélectionne l'alerte de la pince.
+print("\n=== 10. Tableau 3.3 NON CONFORME ===")
+at33 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at33.session_state["page"] = "Assemblages métalliques"
+run(at33)
+at33.button(key="asm_btn_open_platine_about").click(); run(at33)
+at33.session_state["pab_hp_u"] = 140.0
+run(at33)
+e33 = [x for x in at33.expander if str(x.label).startswith("Pinces et entraxes (Tab. 3.3)")]
+chk("hp = 140 mm → « Pinces et entraxes (Tab. 3.3) : NON CONFORME », expander ouvert d'office",
+    bool(e33) and str(e33[0].label) == "Pinces et entraxes (Tab. 3.3) : NON CONFORME" and e33[0].proto.expanded,
+    str([str(x.label) for x in e33]))
+at33.button(key="pab_btn_dist_e1p").click(); run(at33)
+chk("« Localiser » de la ligne NON OK sélectionne son alerte (e1bot) ; sa rangée dit « Masquer »",
+    at33.session_state["pab_ui_alerte"] == "e1bot" and at33.button(key="pab_btn_al_e1bot").label == "Masquer",
+    str(at33.session_state["pab_ui_alerte"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

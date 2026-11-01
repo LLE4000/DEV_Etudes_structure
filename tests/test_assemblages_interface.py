@@ -151,11 +151,10 @@ w = cles_widgets(at)
 # k[4:] in CLES écarte déjà les chips d'alerte (asm_fix_<clé> → « fix_<clé> »
 # n'est pas une entrée), sans écarter les vraies clés asm_fix_P / asm_fix_S
 donnees = {k for k in w if k.startswith("asm_") and k[4:] in interface.CLES}
-# Projet · Date du cartouche : seulement si nom_projet / date de la session sont vides (la condition
-# même de interface._infos — dans un projet ces cases sont écrasées)
+# Projet · Date du cartouche : hors projet (nom_projet vide), les deux — la condition même de
+# projet_ui.infos_cartouche (décision du 01/11/2026 : la date de session cachait id_date dans les cinq écrans)
 etat = at.session_state.to_dict()
-hors_projet = ((["id_projet"] if not etat.get("nom_projet") else [])
-               + (["id_date"] if not etat.get("date") else []))
+hors_projet = ["id_projet", "id_date"] if not etat.get("nom_projet") else []
 CARTE_ATTENDUE = {"asm_" + k for k in [
     "mode_calc",                                                  # EN-TÊTE (segmented_control)
     "prof_P", "nu_P", "prof_S", "nu_S",                           # PROFILÉS
@@ -194,7 +193,7 @@ chk("visserie (rondelles, écrous) : saisie libre au cartouche, défaut « 1 ron
     "asm_visserie" in w and at.session_state["asm_visserie"] == "1 rondelle + 1 écrou"
     and cart and any(c.key == "asm_visserie" for c in cart[0].text_input))
 chk("onglet par défaut : Vérifications, tableaux par élément ; Tableau 3.3 replié, verdict dans le titre",
-    at.session_state["asm_ui_onglet"] == "Vérifications" and "Cisaillement – groupe S" in t and "Aile A : Ed / Rd" in t
+    at.session_state["asm_ui_onglet"] == "Vérifications" and "Cisaillement – groupe S" in t and "AILE A : Ed / Rd" in t
     and "Poutre secondaire (portée)" in t and "Cornières — aile A / aile B" in t
     and "Pinces et entraxes (Tab. 3.3) : conforme" in expanders(at))
 chk("légende des natures après les tables, références dans un repli ; périmètre replié (textes intégraux)",
@@ -202,8 +201,10 @@ chk("légende des natures après les tables, références dans un repli ; périm
     and "Références : EC3 = EN 1993-1-8" in t and "torsion induite par une attache d'un seul côté" in t
     and "Périmètre de la vérification — 4 non revérifiés · 16 sans objet" in expanders(at)
     and "Paramètres retenus" in expanders(at))
-chk("matrice des cornières défilante au téléphone (tableau_html(defilant=True)) ; colonne Réf. sans commentaire "
-    "interne", "<div style='overflow-x:auto;'><table" in t and "même modèle que" not in t)
+chk("matrice des cornières serrée sous 1181 px et défilante au téléphone (tableau_html(serre=1, defilant=True)) ; "
+    "colonne Réf. sans commentaire interne",
+    "<div class='tab-serre' style='overflow-x:auto;'><table" in t and "AILE A : Ed / Rd · η</th>" in t
+    and "même modèle que" not in t)
 chk("l'écran invite à toucher les pièces et à glisser la poutre",
     "touche une pièce" in t and "glisse la poutre portée" in t)
 
@@ -463,6 +464,26 @@ orient_w = [x for x in at3.selectbox if x.key == "asm_orient"]
 chk("cornière inégale (L150x90x10) : « Grande aile côté » dans la carte, options « Principale / Secondaire »",
     bool(orient_w) and orient_w[0].label == "Grande aile côté"
     and orient_w[0].options == ["Principale", "Secondaire"] and orient_w[0].value == ORI_P)
+
+
+# ================================================================
+# Consolidation du 01/11/2026, point 6 : le Tableau 3.3 NON CONFORME — un contrôle par module. L'expander
+# s'ouvre d'office (le verdict est dans son titre) et « Localiser » sélectionne l'alerte de la pince.
+print("\n=== 11. Tableau 3.3 NON CONFORME ===")
+at33 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at33.session_state["page"] = "Assemblages métalliques"
+run(at33)
+at33.button(key="asm_btn_open_doubles_cornieres").click(); run(at33)
+at33.session_state["asm_e1S_u"] = 20.0
+run(at33)
+e33 = [x for x in at33.expander if str(x.label).startswith("Pinces et entraxes (Tab. 3.3)")]
+chk("e1 groupe S = 20 mm → « Pinces et entraxes (Tab. 3.3) : NON CONFORME », expander ouvert d'office",
+    bool(e33) and str(e33[0].label) == "Pinces et entraxes (Tab. 3.3) : NON CONFORME" and e33[0].proto.expanded,
+    str([str(x.label) for x in e33]))
+at33.button(key="asm_btn_dist_S_e1c").click(); run(at33)
+chk("« Localiser » de la ligne NON OK sélectionne son alerte (dist_S_e1c) ; sa rangée dit « Masquer »",
+    at33.session_state["asm_ui_alerte"] == "dist_S_e1c" and at33.button(key="asm_btn_al_dist_S_e1c").label == "Masquer",
+    str(at33.session_state["asm_ui_alerte"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

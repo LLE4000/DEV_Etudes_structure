@@ -34,7 +34,9 @@ def construire_texte(R, complet=False):
           + " ; boulons " + R.boulon + " " + str(u.classe) + " (" + js_str(R.n_1) + " × 2, p3 = "
           + js_str(R.p_3) + " mm)"
           + " ; a = " + js_str(R.a_w) + " mm ; VEd = " + F(u.V_Ed, 1) + " kN"
-          + ((" ; NEd = " + F(u.N_Ed, 1) + " kN (" + str(u.nat_N) + ")") if u.N_Ed else ""),
+          # la nature (ELU / tying) seulement en traction : NEd < 0 imprimait « (Tying (accidentel)) »
+          # (lot « vocabulaire », consolidation du 01/11/2026 — même règle que la carte, entrees.traction)
+          + ((" ; NEd = " + F(u.N_Ed, 1) + " kN" + (" (" + str(u.nat_N) + ")" if u.N_Ed > 0 else "")) if u.N_Ed else ""),
           R.mod + "."]
     # Le rédacteur saisi au cartouche (id_red) est imprimé ici aussi — un champ saisi et jamais
     # lu était un défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.

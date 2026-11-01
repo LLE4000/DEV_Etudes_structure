@@ -81,6 +81,22 @@ def infos():
             "indice": str(st.session_state.get("indice", "0") or "0")}
 
 
+def infos_cartouche(prefixe, u, visserie_defaut):
+    """Les informations du cartouche de la note et du plan d'un écran
+    d'assemblage (les cinq écrans, une source) : celles du projet (page
+    projet) ; hors projet — nom du projet vide —, celles du cartouche de
+    l'écran : id_projet, id_rep et id_date. La date de session, toujours
+    initialisée par la page projet, masquait id_date : décision du
+    01/11/2026 (consolidation, points 3 et 22)."""
+    hors = not st.session_state.get("nom_projet")
+    return {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
+            "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
+            "date": ((u.get("id_date") or "") if hors else "") or st.session_state.get("date", "")
+            or datetime.today().strftime("%d/%m/%Y"),
+            "indice": st.session_state.get("indice", "0"),
+            "visserie": st.session_state.get(prefixe + "visserie", visserie_defaut)}
+
+
 def epingler_infos():
     """Les informations du projet sont des widgets de la page projet ; elles
     doivent survivre aux écrans qui ne les rendent pas (même fix que Poutre)."""

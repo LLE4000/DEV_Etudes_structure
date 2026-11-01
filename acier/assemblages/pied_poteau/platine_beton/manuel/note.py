@@ -27,7 +27,7 @@ from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
 from . import elements as EL
 from ..entrees import VISSERIE_DEFAUT, ancrage_txt
-from ..notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte
+from ..notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, NOTATIONS_MANUEL as NOTATIONS_COURTES
 from ....poutre_poutre.plat_ame import note as _np
 from ....poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, _fmt_echelle, CART_H
 from ....poutre_poutre.doubles_cornieres.rapport import peindre
@@ -37,10 +37,6 @@ M = _np.M
 BAS = _np.BAS
 
 TITRE = "Platine sur béton — calcul manuel de la platine"
-NOTATIONS_COURTES = ("Notations : bp, lp, tp : platine ; (x ; y) : repère au centre de la platine ; m : bras de levier "
-                     "jusqu'à l'appui, cordon déduit ; leff : longueur efficace du tronçon en T ; b : largeur de la section "
-                     "au nu (L + 2·m) ; c : bande efficace (EC3 §6.2.5) ; fjd : résistance d'appui ; C, pmax : résultante et "
-                     "pression ; T : effort d'un boulon ; mEd : moment de la bande comprimée.")
 # toutes : six boulons et quatre sections, formules complètes ; eta : trois boulons, deux sections, formules
 # réduites à la ligne du taux ; mini : le boulon et la section les plus sollicités seulement
 VARIANTES = ("toutes", "eta", "mini")
@@ -284,9 +280,14 @@ class PlanPrincipeMan(PlanPrincipe):
         W = d.W
         x0, y0, w, h = M, M, W - 2 * M, CART_H
         d.box(x0, y0, w, h, stroke=S.ink, lw=0.9)
+        # La 1re ligne mesurait 273 pt pour 168 : coupée d'un « … », elle perdait l'ancrage et hef (relecture des
+        # notes finales du 01/11/2026). L'ancrage et hef restent en 1re ligne ; « perçages cotés depuis les bords »,
+        # que la vue en plan montre déjà, passe APRÈS la visserie (saisie) : si la 2e ligne est trop longue, c'est
+        # lui qui se coupe.
         fix = ("Boulons " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – trous Ø" + F(R.d0, 0)
-               + " – perçages cotés depuis les bords (vue en plan) · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
-        vis = "par boulon : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
+               + " · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
+        vis = ("par boulon : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
+               + " · perçages cotés depuis les bords")
         # Le rédacteur saisi (id_red) est porté au cartouche — un champ saisi et jamais lu était un
         # défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
         ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie"), u.get("id_red")) if x)

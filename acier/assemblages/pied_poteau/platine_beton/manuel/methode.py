@@ -3,6 +3,7 @@
 la main (docs/assemblages/PLATINE_MANUELLE.md), précédé de « Ce que l'outil
 vérifie » (le texte de l'ancien bouton ❔, commun aux deux modes)."""
 from ..methode import CE_QUE_L_OUTIL_VERIFIE
+from ..notation import NOTATIONS_MANUEL as NOTATIONS
 
 METHODE = CE_QUE_L_OUTIL_VERIFIE + """
 #### Le calcul manuel de la platine — ce que l'outil fait, dans l'ordre
@@ -58,3 +59,14 @@ eux-mêmes et poteau ne sont pas vérifiés ici.
 raidisseur, le mode « Vérif. complète » (EN 1993-1-8 + EN 1992-4) reprend la disposition :
 Table 6.7, tronçons en T par rangée, ancrages dans le béton.
 """
+
+
+def _notations(texte):
+    """Le paragraphe « Notations » de l'onglet : la ligne « Notations » du pied
+    de la note, mot pour mot (une source : notation.py) — les définitions que
+    les cotes, réduites à leur symbole, ne portent plus (consolidation du
+    01/11/2026, point 4)."""
+    return "\n#### Notations\n\n" + texte.split(" : ", 1)[1] + "\n"
+
+
+METHODE += _notations(NOTATIONS)

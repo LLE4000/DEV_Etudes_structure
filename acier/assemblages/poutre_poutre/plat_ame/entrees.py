@@ -10,7 +10,11 @@
                             du 31/10/2026) ;
 - ``PILOTEES_PAR_PREDIM`` : les clés remplacées par la proposition en mode
                             prédimensionnement (marquées ◆) ;
-- ``COURT`` / ``UNITE``   : libellé court et unité (chips, panneau des cotes).
+- ``UNITE``               : unité de chaque clé (``ecran_saisie.LIBELLE`` la
+                            lit ; le libellé de l'écran, des pastilles et du
+                            panneau des cotes est ``ecran_saisie.LIBELLE`` — une
+                            forme par clé ; l'ancien ``COURT``, sans lecteur, est
+                            retiré le 01/11/2026).
 
 Coefficients partiels : défauts de l'ANNEXE NATIONALE BELGE (NBN EN
 1993-1-1 ANB : γM0 = 1,00 ; γM1 = 1,10 ; γM2 = 1,25 — γM1 diffère de la
@@ -196,21 +200,11 @@ GROUPES = [
             _c("pd_dmax", "Plus grand diamètre admis", "s", BOULONS)]),
 ]
 
-# Libellés courts (chips d'alerte, panneau des cotes)
-COURT = {"hp_u": "hp", "tp_u": "tp", "bp_u": "bp", "z_C": "zp", "a_w": "a",
-         "n1_u": "n1", "n2_u": "n2", "p1_u": "p1", "p2_u": "p2", "e1_u": "e1",
-         "e2b_u": "e2,b", "d_nt": "dnt", "d_nb": "dnb", "l_n": "ln",
-         "g_h": "gh", "d_top": "décalage", "prof_P": "poutre principale",
-         "prof_S": "poutre secondaire", "boulon_u": "boulon",
-         "trou": "type de trou", "d0_u": "d0", "M_Ed": "MEd", "N_Ed": "NEd",
-         "V_Ed": "VEd", "cat": "catégorie", "classe": "classe",
-         "nu_pl": "nuance du plat"}
 UNITE = {}
 CHAMPS = {}
 for _g in GROUPES:
     for _f in _g["f"]:
         UNITE[_f["k"]] = " " + _f["un"] if _f.get("un") and _f["un"] != "-" else ""
-        COURT.setdefault(_f["k"], _f["l"])
         CHAMPS[_f["k"]] = _f
 
 

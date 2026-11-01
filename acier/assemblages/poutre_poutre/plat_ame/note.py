@@ -25,8 +25,8 @@ from acier.js import N, js_str
 from acier.bibliotheques import PERSO
 from . import schemas, synthese, formules
 from .entrees import VISSERIE_DEFAUT
-from acier.assemblages.note_kit import empaqueter
-from .notation import ligne_alerte, LEGENDE_REFERENCES
+from acier.assemblages.note_kit import empaqueter, coefficients, MSB
+from .notation import ligne_alerte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from ..doubles_cornieres.rapport import peindre
 from ..doubles_cornieres.note import PlanPrincipe, TEXTE_MM
 
@@ -39,9 +39,6 @@ S_TAB, S_TAB_H, S_REF, S_FORM, S_DATA = 6.5, 5.6, 5.6, 6.0, 7.0
 LEAD_TAB = 8.8
 
 TITRE = "Assemblage poutre–poutre — plat d'âme soudé (fin plate)"
-NOTATIONS_COURTES = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2, p2) ; hp, bp, tp : plat ; zp : position du "
-                     "plat ; e2,b : pince à l'about ; c, dc : grugeage ; gh, Δz : jeu et décalage ; a : gorge "
-                     "(cordon double) ; z : excentricité (face d'appui → centre du groupe).")
 VARIANTES = ("toutes", "eta")
 
 
@@ -83,25 +80,17 @@ def segments_hypotheses(R):
            ("plat court (z ≤ tp/0,15 : pas de déversement)" if not R.long_p
             else "plat long (z > tp/0,15 : déversement, courbe BS 5950-1)")]
     if R.cas_g > 0:
-        seg.append(("grugeage : flexion de la section réduite (§4.2.4)", "grugeage : section réduite (§4.2.4)"))
+        seg.append(("grugeage : flexion de la section réduite (MSB P5 §4.2.4)", "grugeage : section réduite (MSB P5 §4.2.4)"))
     seg.append(("cordons pleine hauteur, un par face (§4.5.3.3)", "cordons pleine hauteur (§4.5.3.3)"))
-    g_M2, g_M2n = N(u.g_M2), N(u.g_M2n)
-    g = "γM0 " + F(N(u.g_M0), 2) + " · γM1 " + F(N(u.g_M1), 2) + " (ANB) · γM2 " + F(g_M2, 2)
-    if abs(g_M2 - g_M2n) > 1e-9:
-        g_long = g + " (boulons, soudures) · γM2,net " + F(g_M2n, 2) + " (nettes)"
-        g_court = g + " · γM2,net " + F(g_M2n, 2)
-    else:
-        g_long, g_court = g + " (boulons, soudures, sections nettes)", g
-    if u.cat != "A":
-        g_long += " · γM3 " + F(N(u.g_M3), 2)
-        g_court += " · γM3 " + F(N(u.g_M3), 2)
-    seg.append((g_long, g_court))
+    suffixe = " · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else ""
+    g = "γM0 " + F(N(u.g_M0), 2) + " · γM1 " + F(N(u.g_M1), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2)
+    seg.append(tuple(f + suffixe for f in coefficients(g, N(u.g_M2), N(u.g_M2n))))
     return seg
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
+    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible (ValueError sinon : le test rougit)."""
+    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 def _est_info(R, syn, c):

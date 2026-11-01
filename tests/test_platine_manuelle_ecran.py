@@ -316,8 +316,13 @@ chk("7 « ? » dans la carte au défaut : Mode, Critère, Appui, Ancrage, EFFORT
     len(vis) == 7 and set(vis) == {"mode", "crit", "appui", "typ_a", "EFFORTS ELU", "ÉLÉMENTS", "tiges"}, str(vis))
 chk("table des boulons du kit : en-tête ppb_th_tiges (n° · x (mm) ? · y (mm)) ; l'ancienne légende « Repère : "
     "origine… » est devenue le « ? » de x (mm)",
-    "n°</div>" in t and "x (mm)" in t and ecran_saisie.AIDES_MANUEL["tiges"] in t
-    and at.number_input(key="ppb_t0_x").help == ecran_saisie.AIDES_MANUEL["tiges"] and "Repère : origine" not in t)
+    "n°</div>" in t and "x (mm)</div>" in t
+    # le « ? » de l'en-tête est NATIF (help= : une infobulle au toucher aussi), plus un span title (point 18)
+    and any(getattr(m, "help", None) == ecran_saisie.AIDES_MANUEL["tiges"] for m in at.markdown)
+    and "<span title=" not in t
+    and at.number_input(key="ppb_t0_x").help == ecran_saisie.AIDES_MANUEL["tiges"] and "Repère : origine" not in t
+    # … sur la PREMIÈRE rangée seulement : sous 1351 px il se répétait sur chaque boulon (captures du 01/11/2026)
+    and not any(at.number_input(key=f"ppb_t{i}_x").help for i in (1, 2, 3)))
 chk("ÉLÉMENTS : HEA 300 du catalogue à l'axe sur UNE rangée (pas de ↳ É1 : rotation et dimensions dans sa fenêtre)",
     {"ppb_e0_type", "ppb_e0_prof", "ppb_e0_x", "ppb_e0_y"} <= w and "ppb_e0_rot" not in w and "ppb_e0_h" not in w)
 # Relecture du 01/11/2026 : la zone de texte de la case Type mesure 63 px à 1351 et 75 px à 1440 (case de 113 /
@@ -333,12 +338,17 @@ chk("RAIDISSEURS : sans raidisseur, ni en-tête ni rangée — ➕ Raidisseur se
     any(b.key == "ppb_btn_radd" for b in at.button) and "ppb_r0_x" not in w and ">RAIDISSEURS</div>" in t)
 # Relecture du 01/11/2026 : « RAIDISSEURS » et « APPLICATION » mesuraient 76,5 px pour une case de 76 px et se
 # coupaient à leur césure (« RAIDIS-SEURS », « APPLI-CATION ») ; un titre ne se coupe jamais (charte §2). Plus de
-# césure, un espacement serré de 0,05 em (CSS du module) : 74,0 px mesurés dans le navigateur, une ligne.
-chk("RAIDISSEURS et APPLICATION sans césure, espacement serré de 0,05 em dans leurs quatre lieux (ligne sans "
-    "raidisseur, en-tête de table, titre au-dessus sous 1351 px, avancés)",
+# césure, un espacement serré de 0,05 em : 74,0 px mesurés dans le navigateur, une ligne. Depuis la consolidation
+# (point 20), c'est une règle du KIT (ui_commun.espacement : tout titre dont un mot compte ≥ 11 lettres), écrite
+# dans le style du titre lui-même — elle vaut donc dans les quatre lieux (ligne sans raidisseur, en-tête de
+# table, titre au-dessus sous 1351 px, avancés) sans CSS du module.
+from acier.assemblages import ui_commun  # noqa: E402
+chk("RAIDISSEURS et APPLICATION sans césure, espacement serré de 0,05 em (règle du kit, dans le style du titre)",
     "\u00ad" not in EM.TITRE_RAID + ecran_saisie.TITRE_APPLICATION and "\u00ad" not in t + md(at)
-    and EM.ESPACEMENT_SERRE == ".05em" and "{letter-spacing:.05em !important;}" in EM.CSS_MODULE
-    and all(f'st-key-ppb_{k}"' in EM.CSS_MODULE for k in ("bt_raidisseurs_", "bt_av_application_", "tt_raid", "th_raid"))
+    and ui_commun.ESPACEMENT_SERRE == ".05em" and ui_commun.espacement(EM.TITRE_RAID) == ".05em"
+    and ui_commun.espacement(ecran_saisie.TITRE_APPLICATION) == ".05em" and ui_commun.espacement("EFFORTS ELU") == ".07em"
+    and "letter-spacing:.05em;color:#33415C;line-height:1.15;padding:0 0 9px 0;margin-bottom:16px;'>RAIDISSEURS</div>" in t
+    and "letter-spacing:.05em;color:#33415C;line-height:1.15;padding:0 0 9px 0;margin-bottom:16px;'>APPLICATION</div>" in t
     and kit.slug(ecran_saisie.TITRE_APPLICATION) == "application")
 at.checkbox(key="ppb_ui_composant").uncheck(); run(at)
 w2 = cles_widgets(at)
@@ -382,7 +392,9 @@ chk("onglet Vérifications : bloc d'état et table des quatre critères en tête
     "« Le détail, comme à la main » ; légende (INT modèle d'ingénieur), « Non vérifiés ici », Tab. 3.3 repliés",
     "Le détail, comme à la main" in expanders(at) and "Légende et références" in expanders(at)
     and "Pinces et entraxes (Tab. 3.3) : conforme" in expanders(at)
-    and any(x.startswith("Périmètre de la vérification — 4 non revérifiés") for x in expanders(at))
+    # le titre dit le mot du contenu : « non vérifiés » (le calcul manuel ne les vérifie pas du tout) — point 17
+    and any(x.startswith("Périmètre de la vérification — 4 non vérifiés ·") for x in expanders(at))
+    and not any("non revérifié" in x for x in expanders(at))
     and "Non vérifiés ici : cordons ; raidisseurs eux-mêmes ; poteau ; béton d'ancrage" in t
     and "modèle d'ingénieur (sections au nu, bandes, angles)" in t
     and t.index("Platine — épaisseur requise et ses quatre critères") < t.index("Côté tendu — boulon par boulon"))
@@ -394,11 +406,14 @@ chk("onglet Vérifications : bloc d'état et table des quatre critères en tête
 # précède η est désormais la grandeur du critère retenu : σvm en élastique, FT,Rd / Mpl en plastique.
 def table_detail(at, marque):
     """(en-têtes, rangées) de la table de détail dont l'en-tête contient ``marque`` ; texte des cellules."""
+    import html
     import re
     for m in at.markdown:
         v = str(m.value)
         if "<table" in v and marque in v:
-            nu = lambda c: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c)).strip()  # noqa: E731
+            # le texte VU : balises retirées, entités décodées (« 149&nbsp;(m2) » : un nombre ne se coupe plus de
+            # son unité depuis la consolidation du 01/11/2026), espaces normalisés
+            nu = lambda c: re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", c))).strip()  # noqa: E731
             return ([nu(c) for c in re.findall(r"<th[^>]*>(.*?)</th>", v)],
                     [[nu(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", r)] for r in re.findall(r"<tr>(.*?)</tr>", v)
                      if "<td" in r])
@@ -420,8 +435,9 @@ chk("écran, élastique (défaut) : boulon 1 — σvm 188 MPa puis η 54,4 % (= 
     and f"FT,Rd = {_F(pt0['FT_Rd'], 0)} kN, mode {pt0['mode_ts']} (plastique, information)" in md(at)
     and f"Mpl = 0,25·b·tp²·fy/γM0 = {_F(ps0['Mpl'], 2)} kNm pour" in md(at)
     and "Critère élastique retenu : η = σvm / (fy/γM0), fy/γM0 = 345 MPa" in md(at)
-    # le σ garde sa casse sous les en-têtes en capitales du kit (« ΣVM » se lisait comme une somme)
-    and md(at).count("<span style='text-transform:none'>σvm</span>") == 2, str([eb, lb, es, ls_]))
+    # le σ garde sa casse : les en-têtes du kit sont écrits en capitales, plus transformés (« ΣVM » se lisait
+    # comme une somme ; point 23 de la consolidation)
+    and md(at).count("σvm<br>(MPa)</th>") == 2 and "text-transform" not in md(at), str([eb, lb, es, ls_]))
 at.segmented_control(key="ppb_crit").set_value(CRIT_EC3); run(at)
 Rp0 = compute(lu(at))
 ptp, psp = Rp0.pire_tige, Rp0.pire_section
@@ -530,6 +546,26 @@ for v in variantes:
     manquantes |= {k for k in CHAMPS if champ_visible(v, k)} - atteignables
 chk("rien ne se perd (manuel) : chaque clé visible en calcul manuel a une destination (carte, avancés, cartouche, "
     "tables, fenêtres, panneau Cotes, tête du dessin)", not manquantes and len(CHAMPS) == 61, str(sorted(manquantes)))
+
+
+# ================================================================
+# Consolidation du 01/11/2026, point 6 : le Tableau 3.3 NON CONFORME — un contrôle par module. L'expander
+# s'ouvre d'office (le verdict est dans son titre) et « Localiser » sélectionne l'alerte de la pince.
+print("\n=== 9. Tableau 3.3 NON CONFORME ===")
+at33 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at33.session_state["page"] = "Assemblages métalliques"
+run(at33)
+at33.button(key="asm_btn_open_platine_beton").click(); run(at33)
+at33.session_state["ppb_tiges"] = [dict(x=-235.0, y=-200.0), dict(x=200.0, y=-200.0), dict(x=-200.0, y=200.0), dict(x=200.0, y=200.0)]
+run(at33)
+e33 = [x for x in at33.expander if str(x.label).startswith("Pinces et entraxes (Tab. 3.3)")]
+chk("calcul manuel, un boulon à 15 mm du bord → « Pinces et entraxes (Tab. 3.3) : NON CONFORME », expander ouvert d'office",
+    bool(e33) and str(e33[0].label) == "Pinces et entraxes (Tab. 3.3) : NON CONFORME" and e33[0].proto.expanded,
+    str([str(x.label) for x in e33]))
+at33.button(key="ppb_btn_dist_e_pl").click(); run(at33)
+chk("« Localiser » de la ligne NON OK sélectionne son alerte (dist_e) ; sa rangée dit « Masquer »",
+    at33.session_state["ppb_ui_alerte"] == "dist_e" and at33.button(key="ppb_btn_al_dist_e").label == "Masquer",
+    str(at33.session_state["ppb_ui_alerte"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

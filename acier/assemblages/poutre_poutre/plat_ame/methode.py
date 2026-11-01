@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Onglet Méthode : le modèle mécanique du plat d'âme, ses sources et ses
 limites — en toutes lettres."""
+from .notation import NOTATIONS
 
 METHODE = """
 #### Ce que l'outil vérifie
@@ -80,3 +81,14 @@ Design* (ArcelorMittal / Peiner Träger / Corus, contenu CTICM et SCI,
 *ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005 ; BS 5950-1:2000
 Annexe B.2.1 (courbe de déversement des plats longs).
 """
+
+
+def _notations(texte):
+    """Le paragraphe « Notations » de l'onglet : la ligne « Notations » du pied
+    de la note, mot pour mot (une source : notation.py) — les définitions que
+    les cotes, réduites à leur symbole, ne portent plus (consolidation du
+    01/11/2026, point 4)."""
+    return "\n#### Notations\n\n" + texte.split(" : ", 1)[1] + "\n"
+
+
+METHODE += _notations(NOTATIONS)

@@ -513,6 +513,28 @@ dest = (kit.cles_carte(D) | kit.cles_carte(ecran_saisie.D_MANUEL) | set(EM.CLES_
 chk(f"les {len(inventaire)} clés de l'inventaire (CHAMPS, listes, visserie, grille posée, dessin interactif) ont une "
     "destination dans l'un ou l'autre mode", len(inventaire) == 70 and not inventaire - dest, str(sorted(inventaire - dest)))
 
+
+# ================================================================
+# Consolidation du 01/11/2026, point 6 : le Tableau 3.3 NON CONFORME — un contrôle par module. L'expander
+# s'ouvre d'office (le verdict est dans son titre) et « Localiser » sélectionne l'alerte de la pince.
+print("\n=== 10. Tableau 3.3 NON CONFORME ===")
+at33 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at33.session_state["page"] = "Assemblages métalliques"
+run(at33)
+at33.button(key="asm_btn_open_platine_beton").click(); run(at33)
+# l'entrée du projet ré-hydrate l'écran à l'ouverture : on bascule par le choix du mode, comme en tête de suite
+at33.segmented_control(key="ppb_mode").set_value(MODE_COMPLET); run(at33)
+at33.session_state["ppb_w_x"] = 470.0
+run(at33)
+e33 = [x for x in at33.expander if str(x.label).startswith("Pinces et entraxes (Tab. 3.3)")]
+chk("vérification complète, wx = 470 mm → « Pinces et entraxes (Tab. 3.3) : NON CONFORME », expander ouvert d'office",
+    bool(e33) and str(e33[0].label) == "Pinces et entraxes (Tab. 3.3) : NON CONFORME" and e33[0].proto.expanded,
+    str([str(x.label) for x in e33]))
+at33.button(key="ppb_btn_dist_e_pl").click(); run(at33)
+chk("« Localiser » de la ligne NON OK sélectionne son alerte (dist_e) ; sa rangée dit « Masquer »",
+    at33.session_state["ppb_ui_alerte"] == "dist_e" and at33.button(key="ppb_btn_al_dist_e").label == "Masquer",
+    str(at33.session_state["ppb_ui_alerte"]))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

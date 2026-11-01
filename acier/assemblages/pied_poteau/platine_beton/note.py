@@ -14,6 +14,7 @@ trois colonnes, pied en deux lignes) :
   le cartouche de CET assemblage.
 """
 import os
+import re
 import tempfile
 from datetime import datetime
 
@@ -26,7 +27,7 @@ from acier.js import N, js_str
 from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT, OUI, ancrage_txt, TYPE_CROSSE, TYPE_ETA
-from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte
+from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, rangee_lisible, NOTATIONS as NOTATIONS_COURTES
 from ...poutre_poutre.plat_ame import note as _np
 from ...poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, _fmt_echelle, CART_H
 from ...poutre_poutre.doubles_cornieres.rapport import peindre
@@ -36,9 +37,8 @@ M = _np.M
 BAS = _np.BAS
 
 TITRE = "Pied de poteau — platine sur béton (N + Mx + My)"
-NOTATIONS_COURTES = ("Notations : bp, lp, tp : platine ; wx, wy : entraxes des files et des rangées ; hef, dh : "
-                     "ancrage ; tg : mortier ; bc, lc, hc : massif ; c : bande efficace (EC3 §6.2.5) ; fjd : "
-                     "résistance d'appui ; C, pmax : résultante et pression de la répartition ; T : effort d'une tige.")
+# un nombre et son unité (« 8,6 mm », « 43,2 kN », « 35,9 kNm/m ») : l'espace qui les sépare devient insécable
+_UNITE = re.compile(r"(\d) (kNm/m|kNm|kN|MPa|mm)(?![\w/])")
 VARIANTES = _np.VARIANTES
 
 
@@ -158,7 +158,8 @@ class Note(_np.Note):
                     + mm(P["t_M"]) + " mm")]]
         if T and T["T"] > 1e-9:
             lignes.append([("lab", "Tronçon en T"),
-                           ("lab", "rangée " + T["cle"] + " : M = T·m = " + F(T["T"], 1) + " × " + F(T["m"], 1) + " = "
+                           ("lab", "rangée " + rangee_lisible(T["cle"]) + " : M = T·m = " + F(T["T"], 1) + " × "
+                            + F(T["m"], 1) + " = "
                             + F(T["M"], 2) + " kNm ; Σleff,1 = " + F(T["leff1"], 0) + " mm, Mpl,1 = " + F(T["Mpl1"], 2)
                             + " kNm, " + ("avec" if T["levier"] else "sans") + " effet de levier → FT,Rd = "
                             + F(T["FT_Rd"], 0) + " kN → tT = " + mm(P["t_T"]) + " mm")])
@@ -170,6 +171,9 @@ class Note(_np.Note):
             lignes.append([("lab", "Repère Navier"),
                            ("lab", "platine entière : σ max = " + F(NV["s_max"], 2) + " MPa, L = " + F(NV["L"], 0)
                             + " mm, m = σ·L²/2 = " + F(NV["m"], 1) + " kNm/m → t = " + F(NV["t"], 1) + " mm")])
+        # une valeur ne se sépare pas de son unité en fin de ligne (« tT = 8,6 / mm », relecture des notes finales
+        # du 01/11/2026) : ndc_pdf.kit.wrap ne coupe qu'aux espaces ordinaires
+        lignes = [[(c[0], _UNITE.sub("\\1\u00a0\\2", c[1])) + tuple(c[2:]) for c in l] for l in lignes]
         self.table(d, fr, "ÉPAISSEUR DE LA PLATINE — LE CALCUL À LA MAIN", cols, lignes)
 
     def colonne_dessins(self, d, fr):

@@ -18,6 +18,13 @@ def ref_courte(ref):
     return _ref_courte_famille(_COMMENTAIRES_INTERNES.sub("", ref or ""))
 
 
+# La ligne « Notations » du pied de la note ET le paragraphe « Notations » de l'onglet Méthode : une source
+# (consolidation du 01/11/2026, point 4 — les cotes ne portent plus que leur symbole : zp, c, e1, Δz, p3, gh,
+# dc… ; leur définition vit ici). Elle tient sur la ligne de la note (≤ 798 pt à 5,6 pt, contrôlé).
+NOTATIONS = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2) ; p3 : entraxe des deux files ; hp, bp, tp : "
+             "platine ; zp : position de la platine ; c, dc : grugeage ; Δz : décalage ; a : gorge (cordon "
+             "double) ; e1' : pince basse.")
+
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC3-1-1 = EN 1993-1-1 ; "
                       "MSB P5 = Steel Buildings in Europe, Part 5 (§2 : platine d'about partielle) ; "
                       "P358 = SCI P358 ; ECCS = ECCS n°126.")

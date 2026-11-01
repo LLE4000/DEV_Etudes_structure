@@ -15,17 +15,19 @@ import streamlit as st
 
 from acier.js import N, js_str
 from acier.formats import F, pct
-from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte_ligne, bloc_alerte, badge_nature,
+from acier.assemblages import carte as kit, ui_commun
+from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc,
                                          C_TRAIT, legende_natures, expander_perimetre, tableau_33_replie)
 from . import schemas, texte, synthese, formules
 from acier.bibliotheques import PERSO
 from .notation import ec, ligne_alerte, ref_courte, LEGENDE_REFERENCES
-from .entrees import CHAMPS, CLES, champ_visible, PILOTEES_PAR_PREDIM
+from .entrees import CHAMPS, CLES
 from .moteur import apply_solution, solution_label, nom_cornière_proposee
 from .benchmark import SRC, NOCOVER, BENCH
 from .methode import METHODE
-from .ecran_saisie import K, valeur_widget, PAS, LIBELLE, AIDES, AFFICHAGE
+from .ecran_saisie import D, PREFIXE, K, LIBELLE, AIDES
+from .schemas import CLE_PAR_COTE
 
 ONGLETS = ("Vérifications", "Prédim", "Note", "Benchmark", "Méthode")
 NIVEAUX_ECRAN = ("Vue simple", "Édition", "Cotations complètes")
@@ -58,93 +60,13 @@ def bandeau(R):
 
 
 # ------------------------------------------------------------------ alertes
-def _selectionner(ident, a_geo):
-    cur = st.session_state.get("asm_ui_alerte")
-    st.session_state["asm_ui_alerte"] = None if cur == ident else ident
-
-
-def _ecrire_depuis(cle_widget, k):
-    """Callback : recopie la valeur d'un widget secondaire (chip d'alerte,
-    panneau des cotes) dans la clé de session du champ (source unique)."""
-    st.session_state[K(k)] = valeur_widget(k, st.session_state.get(cle_widget))
-
-
-def _mini_champ(k, u, prefixe, disabled=False):
-    """La chip d'une alerte : le même champ, modifiable sur place (libellé
-    LIBELLE, options AFFICHAGE) ; écrit dans la source unique."""
-    f = CHAMPS[k]
-    cle = prefixe + k
-    st.session_state[cle] = valeur_widget(k, st.session_state.get(K(k)))
-    lab = LIBELLE.get(k, k)
-    if f["t"] == "s":
-        aff = AFFICHAGE.get(k)
-        st.selectbox(lab, f["o"], key=cle, on_change=_ecrire_depuis, args=(cle, k), disabled=disabled,
-                     format_func=(lambda o, a=aff: a.get(o, o)) if aff else str)
-    elif f["t"] == "x":
-        st.text_input(lab, key=cle, on_change=_ecrire_depuis, args=(cle, k), disabled=disabled)
-    else:
-        st.number_input(lab, key=cle, step=PAS.get(k, 1.0), format="%g",
-                        on_change=_ecrire_depuis, args=(cle, k), disabled=disabled)
-
-
 def alertes(R, u):
-    sel = st.session_state.get("asm_ui_alerte")
-    ids = [a.id for a in R.alerts]
-    if sel and sel not in ids:
-        st.session_state["asm_ui_alerte"] = None
-        sel = None
-        st.toast("Blocage levé : géométrie valide" if (R.geo_ok and R.dist_ok)
-                 else "Ce blocage est levé ; il en reste d'autres")
-    for a in R.alerts:
-        est_sel = sel == a.id
-        titre, detail = ligne_alerte(a, R)
-        c1, c2 = st.columns([7, 1], vertical_alignment="center", gap="small")
-        with c1:
-            bloc_alerte_ligne(titre, detail, a.block, est_sel)
-        with c2:
-            st.button("Masquer" if est_sel else "Localiser", key=f"asm_btn_al_{a.id}",
-                      width="stretch", on_click=_selectionner,
-                      args=(a.id, bool(a.dims or a.elems)))
-        if est_sel:
-            with st.container(border=True):
-                st.markdown(ec(a.why) if a.why else ec(a.msg))
-                if R.pred and any(k in PILOTEES_PAR_PREDIM for k in a.fields):
-                    st.caption("Mode prédimensionnement : les champs marqués ◆ sont pilotés par la "
-                               "proposition (onglet Prédim, ou mode Vérification pour les modifier).")
-                visibles = [k for k in a.fields if champ_visible(u, k)]
-                if visibles:
-                    st.caption("Champs en cause — modifiables ici :")
-                    cols = st.columns(min(4, len(visibles)))
-                    for i, k in enumerate(visibles):
-                        with cols[i % len(cols)]:
-                            _mini_champ(k, u, "asm_fix_", disabled=R.pred and k in PILOTEES_PAR_PREDIM)
-                if a.dims or a.elems:
-                    st.caption("Sur le dessin : cotes et éléments en cause en rouge.")
+    """Les alertes, forme commune des cinq écrans (``ui_commun.alertes``) ;
+    sélectionnée, les champs en cause modifiables sur place (``kit.pastilles``)."""
+    ui_commun.alertes(PREFIXE, R, ligne_alerte, lambda a: kit.pastilles(D, a, u, R.pred), texte=ec)
 
 
 # ------------------------------------------------------------------ dessins
-def _traiter_clic(retour, cle_cmp):
-    """Un message validé du dessin (cote, poignée, fenêtre de groupe) →
-    source unique → recalcul."""
-    if not retour or not isinstance(retour, dict):
-        return
-    derniers = st.session_state.setdefault("asm_ui_dernier_clic", {})
-    if derniers.get(cle_cmp) == retour.get("t"):
-        return
-    derniers[cle_cmp] = retour.get("t")
-    changes = retour.get("changes")
-    if changes is None and retour.get("key"):
-        changes = {retour["key"]: retour.get("value")}
-    ecrits = []
-    for k, v in (changes or {}).items():
-        if k in CHAMPS:
-            st.session_state[K(k)] = valeur_widget(k, v)
-            ecrits.append(LIBELLE.get(k, k) + " = " + js_str(valeur_widget(k, v)))
-    if ecrits:
-        st.toast(" ; ".join(ecrits) + " : géométrie et vérifications recalculées")
-        st.rerun()
-
-
 def _panneaux(R, u):
     """Les fenêtres d'objet du composant : un clic sur une pièce du dessin
     ouvre TOUS ses paramètres — une VUE des mêmes clés (libellés LIBELLE,
@@ -155,10 +77,7 @@ def _panneaux(R, u):
     pred = R.pred
 
     def ch(k):
-        f = CHAMPS[k]
-        return dict(key=k, lab=LIBELLE[k], type=f["t"], options=f.get("o") or [], step=PAS.get(k, 1.0),
-                    dis=bool(pred and k in PILOTEES_PAR_PREDIM), help=AIDES.get(k),
-                    affichage=AFFICHAGE.get(k) or None)
+        return kit.champ_fenetre(D, k, u, pred)
 
     def perso(X):
         return [ch(f"{d}{X}_u") for d in ("h", "b", "tw", "tf", "r")]
@@ -235,7 +154,7 @@ def dessins(R, u):
     for d, cle in ((e, "asm_cmp_elev"), (p, "asm_cmp_plan")):
         if interactif:
             from acier.composants.svg_cliquable import svg_cliquable
-            _traiter_clic(svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle)
+            kit.traiter_clic(D, svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle, u)
         else:
             st.markdown(d.svg(identifiant=cle), unsafe_allow_html=True)
     if interactif and not R.pred:
@@ -243,28 +162,18 @@ def dessins(R, u):
     return e, p, hl
 
 
-def panneau_cotes(e, p, hl):
-    """Repli (tête de la colonne de droite, dessin interactif désactivé) :
-    la même source, une saisie par cote modifiable (libellé LIBELLE, aide
-    AIDES) — le dessin figé reste sous les yeux pendant la saisie."""
-    cotes = []
-    vus = set()
-    for k, sym, ident in schemas.cotes_modifiables(e) + schemas.cotes_modifiables(p):
-        if k not in vus:
-            vus.add(k); cotes.append((k, sym, ident))
-    with st.expander("Cotes", expanded=True):
-        if not cotes:
-            st.caption("Aucune cote modifiable dans cette configuration.")
-        chauds = set(hl["dims"]) if hl else set()
-        for i in range(0, len(cotes), 4):
-            cols = st.columns(4)
-            for col, (k, sym, ident) in zip(cols, cotes[i:i + 4]):
-                with col:
-                    cle = "asm_cote_" + k
-                    st.session_state[cle] = valeur_widget(k, st.session_state.get(K(k)))
-                    st.number_input(("🔴 " if ident in chauds else "") + LIBELLE.get(k, ec(sym) + " (mm)"), key=cle,
-                                    step=PAS.get(k, 1.0), format="%g",
-                                    on_change=_ecrire_depuis, args=(cle, k), help=AIDES.get(k))
+def panneau_cotes(R, u, e, p, hl):
+    """Repli (tête de la colonne de droite, dessin interactif décoché) : une
+    saisie par cote (``kit.panneau_cotes``) — les cotes du dessin, celles de
+    l'Édition en Vue simple (point 15 : le panneau était vide), puis la
+    géométrie visible qu'il n'émet pas (rien ne se perd)."""
+    if not (schemas.cotes_modifiables(e) or schemas.cotes_modifiables(p)):
+        opt = schemas.options_ecran(R, 1, hl)
+        opt.editables = True
+        e, p = schemas.elevation(R, opt), schemas.plan(R, opt)
+    emises = [k for k, _s, _i in schemas.cotes_modifiables(e) + schemas.cotes_modifiables(p)]
+    chauds = {CLE_PAR_COTE[d] for d in (hl["dims"] if hl else ()) if d in CLE_PAR_COTE}
+    kit.panneau_cotes(D, kit.cotes_du_panneau(D, u, emises, list(CLE_PAR_COTE.values())), u, chauds)
 
 
 # ------------------------------------------------------ onglet vérifications
@@ -294,11 +203,9 @@ def _cell_aile(x, gov):
 
 
 # La matrice tient dans la colonne du téléphone (358 px à 390) au lieu de défiler : cellules resserrées et
-# en-têtes repliés sous 1181 px (mesuré le 31/10/2026 : 422 px au plus serré avec les marges du kit, 309 px
-# ainsi ; à 1024 la table passe de 699 à 519 px de haut et la colonne Réf. de 61 à 84 px) ; le défilement
-# (tableau_html(defilant=True)) reste le filet pour un écran plus étroit.
-_CSS_MATRICE = ("<style>@media (max-width:1180px){.asm-matrice th,.asm-matrice td{padding:3px 4px !important;}"
-                ".asm-matrice th{white-space:normal !important;}}</style>")
+# en-têtes repliés sous 1181 px — la table serrée du kit (tableau_html(serre=1), classe tab-serre de
+# carte.css_kit ; mesuré le 31/10/2026 : 430 px au plus serré avec les marges du kit, 309 px ainsi ; à 1024
+# la table passe de 699 à 519 px de haut). Le défilement (defilant=True) reste le filet d'un écran plus étroit.
 
 
 def _table_cornieres(R):
@@ -314,10 +221,9 @@ def _table_cornieres(R):
         nat = (l["A"] or l["B"])["nat"]
         lignes.append([Html(f"{l['lab']}{badge_nature(nat)}"), _cell_aile(l["A"], R.gov), _cell_aile(l["B"], R.gov),
                        taux_html(l["max"]["eta"], l["max"]["ok"], l["max"]["c"] is R.gov), refs])
-    st.markdown(_CSS_MATRICE + "<div class='asm-matrice'>"
-                + tableau_html(["Vérification", "Aile A : Ed / Rd · η", "Aile B : Ed / Rd · η", "max", "Réf."], lignes,
-                               droite=(1, 2, 3), largeurs=["26%", "22%", "22%", "8%", None], defilant=True)
-                + "</div>", unsafe_allow_html=True)
+    st.markdown(tableau_html(["Vérification", "Aile A : Ed / Rd · η", "Aile B : Ed / Rd · η", "max", "Réf."], lignes,
+                             droite=(1, 2, 3), largeurs=["26%", "22%", "22%", "8%", None], defilant=True, serre=1),
+                unsafe_allow_html=True)
     st.caption("Aile A sur la poutre principale (groupe P) · aile B sur la poutre secondaire (groupe S).")
 
 
@@ -367,7 +273,7 @@ def _tableau_33(R):
             for i, x in enumerate(nok):
                 with cols[i % len(cols)]:
                     st.button("Localiser : " + x.lab.split(" (")[0], key=f"asm_btn_dist_{x.id}", width="stretch",
-                              on_click=_selectionner, args=(x.alert, True))
+                              on_click=ui_commun.selectionner, args=(PREFIXE, x.alert))
         st.caption("e ≥ 1,2·d0 ; p1 ≥ 2,2·d0 ; p2 ≥ 2,4·d0 ; p ≤ min(14t ; 200 mm) ; e ≤ 4t + 40 mm si exposé.")
     tableau_33_replie(R.dist_ok, rendre)
 

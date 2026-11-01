@@ -24,14 +24,12 @@ from acier.js import N, js_str
 from acier.formats import F, pct
 from acier.assemblages import carte as kit
 from acier.assemblages.ui_commun import (bloc_statut_ligne, badge_nature, tableau_md, tableau_html, taux_html, Html,
-                                         titre_bloc, sous_titre_bloc, legende_natures, expander_perimetre, _esc,
-                                         C_TRAIT)
+                                         legende_natures, expander_perimetre, _esc, C_TRAIT)
 from acier.bibliotheques import PERSO
-from ..entrees import (CHAMPS, CLES, champ_visible, TYPES_ELEM, TYPE_I, TYPE_RHS, TYPE_CHS, TYPE_PLAT, TYPE_ROND,
+from ..entrees import (CLES, champ_visible, TYPES_ELEM, TYPE_I, TYPE_RHS, TYPE_CHS, TYPE_PLAT, TYPE_ROND,
                        TYPE_RECT, DIRS_RAID, PROFILS, element_defaut, raidisseur_defaut)
-from ..ecran_saisie import (K, valeur_widget, PAS, AIDES_MANUEL as AIDES, AFFICHAGE, D_MANUEL as D,
-                            libelle, en_tete, changer_mode, _kit_bloc, aides_visibles as _aides_kit, avances,
-                            cartouche)
+from ..ecran_saisie import (K, AIDES_MANUEL as AIDES, D_MANUEL as D, PREFIXE, en_tete, changer_mode,
+                            aides_visibles as _aides_kit, avances, cartouche)
 from .. import ecran_resultats as ER
 from ..notation import LEGENDE_REFERENCES
 from .. import formules
@@ -69,55 +67,15 @@ CAPTION_LEGENDE = ("Vue en plan : aire d'appui (bleu), zone comprimée (rouge), 
                    "boulon, bande comprimée (mEd).")
 CAPTION_USAGE = CAPTION_LEGENDE + " Glisse un boulon, un élément ou un raidisseur ; touche une pièce ou une cote."
 
-# BRIQUES DE KIT MANQUANTES (kit gelé, amendement 7), signalées pour la consolidation — CSS du module,
-# injecté une fois par interface.py (dans le même élément que le CSS du kit) :
-# - le titre d'une table (ÉLÉMENTS, RAIDISSEURS) est porté par la première case de son en-tête ≥ 1351 px ;
-#   sous 1350 px l'en-tête est caché par le kit, le titre est alors rendu une seconde fois sur sa ligne
-#   (ppb_tt_*), cachée ≥ 1351 px ;
-# - les tables de détail (9 et 8 colonnes, conteneurs ppb_tab_*) tiennent dans leur colonne à la tablette
-#   (440 px à 1024) et au téléphone (358 px) : police et marges réduites, en-têtes sur plusieurs lignes
-#   (mesuré : 470 px avant, débordement au téléphone, dernière colonne rognée à 1024) ;
-# - une alerte et son bouton « Localiser » sur une rangée (ppb_al_*) : sans la marge −16 px du conteneur
-#   markdown, que la rangée horizontale rognait (bas du cadre coupé, constaté sur la capture) ;
-# - la tête de la colonne dessin (ppb_tete_dessin) : 4 px entre ses rangées au téléphone (comme la barre) ;
-# - sous 1351 px, une rangée de table range ses cases par deux AVEC le 🗑️ à leur droite (x · y · 🗑️ sur une
-#   rangée) : la base de 205 / 160 px du kit donnait au 🗑️ une demi-rangée à lui seul, cadre vide de 205 px
-#   (constaté sur les captures à 1024 et 390) ; le titre ppb_tt_ prend la forme d'un titre de bloc du kit
-#   au-dessus de sa ligne (« ? » collé au texte, 6 px d'air) ;
-# - les deux titres de 11 lettres (RAIDISSEURS, APPLICATION) prennent un espacement serré (voir TITRE_RAID).
-ESPACEMENT_SERRE = ".05em"
-# L'encre des titres de bloc : celle de ui_commun.titre_bloc, écrite en dur dans le kit gelé (C_TRAIT n'a que
-# ok / warn / nok / mut) — nommée ici, à consolider dans la palette du kit.
-C_ENCRE_TITRE = "#33415C"
-_TR = "[class*=\"st-key-ppb_tr_\"] > [data-testid=\"stElementContainer\"]"
-CSS_MODULE = ("<style>@media (min-width:1351px){[class*=\"st-key-ppb_tt_\"]{display:none !important;}}\n"
-              "@media (max-width:1350px){" + _TR + ":not([class*=\"st-key-ppb_btn_\"]){flex:1 1 calc(50% - 30px) "
-              "!important;max-width:calc(50% - 30px) !important;}\n"
-              "  " + _TR + "[class*=\"st-key-ppb_btn_\"]{flex:0 0 auto !important;max-width:none !important;}\n"
-              "  [class*=\"st-key-ppb_tt_\"]{margin-top:6px;}\n"
-              "  [class*=\"st-key-ppb_tt_\"] [data-testid=\"stMarkdown\"]{width:fit-content !important;}\n"
-              "  [class*=\"st-key-ppb_tt_\"] [data-testid=\"stMarkdownContainer\"] > div{padding-bottom:6px !important;"
-              "margin-bottom:0 !important;}}\n"
-              "@media (max-width:1180px){[class*=\"st-key-ppb_tab_\"] table{font-size:0.76em !important;}\n"
-              "  [class*=\"st-key-ppb_tab_\"] th, [class*=\"st-key-ppb_tab_\"] td{padding:2px 4px !important;}\n"
-              "  [class*=\"st-key-ppb_tab_\"] th{white-space:normal !important;letter-spacing:0 !important;}}\n"
-              "@media (max-width:640px){[class*=\"st-key-ppb_tab_\"] table{font-size:0.7em !important;}\n"
-              "  [class*=\"st-key-ppb_tab_\"] th, [class*=\"st-key-ppb_tab_\"] td{padding:2px 3px !important;}}\n"
-              "[class*=\"st-key-ppb_al_\"] [data-testid=\"stMarkdownContainer\"]{margin-bottom:0 !important;}\n"
-              "[class*=\"st-key-ppb_tete_dessin\"]{gap:4px 0.5rem !important;}\n"
-              + ", ".join(f"[class*=\"st-key-ppb_{k}\"] [data-testid=\"stMarkdownContainer\"] > div{suite}"
-                          for k, suite in (("bt_raidisseurs_", ""), ("bt_av_application_", ""), ("tt_raid", ""),
-                                           ("th_raid", " > div:first-child")))
-              + "{letter-spacing:" + ESPACEMENT_SERRE + " !important;}</style>")
-# Un titre de bloc tient dans la case de 76 px, jamais coupé (charte §2). « RAIDISSEURS » et « APPLICATION »
-# (11 lettres, 11,52 px gras) mesuraient 76,5 px à l'espacement du kit (0,07 em) : ils se coupaient à leur
-# césure (« RAIDIS-SEURS », « APPLI-CATION », relecture du 01/11/2026). L'espacement serré ci-dessus, local au
-# module (kit gelé), les ramène sur UNE ligne, sans césure. Il vaut pour leurs quatre lieux : la ligne sans
-# raidisseur, l'en-tête de table ≥ 1351 px, le titre au-dessus sous 1351 px, les avancés (APPLICATION).
+# Le titre d'une table (ÉLÉMENTS, RAIDISSEURS) : porté par la case des titres de son en-tête ≥ 1351 px, rendu
+# une seconde fois sur sa ligne <p>tt_ sous 1351 px — kit.table depuis la consolidation du 01/11/2026, comme
+# le CSS que ce module écrivait localement pendant le gel du kit (rangées de table par deux avec le 🗑️, tables
+# serrées, rangées d'alerte, tête du dessin, espacement serré des titres de 11 lettres : carte.css_kit,
+# ui_commun.espacement).
 TITRE_RAID = "RAIDISSEURS"
-# L'en-tête « σvm (MPa) » des tables de détail : les en-têtes du kit (tableau_html) sont en capitales, et « σvm »
-# devenait « ΣVM » — un Σ de somme (mesuré le 01/11/2026) ; le σ garde sa casse.
-ENTETE_SVM = "<span style='text-transform:none'>σvm</span><br>(MPa)"
+# L'en-tête « σvm (MPa) » des tables de détail : un symbole garde sa casse (ui_commun.capitales — l'ancien
+# text-transform des en-têtes faisait de « σvm » un « ΣVM », un Σ de somme : mesuré le 01/11/2026).
+ENTETE_SVM = "σvm<br>(MPa)"
 
 
 def _verrou():
@@ -197,78 +155,25 @@ def _poubelle(key, cle, i, aide):
     st.button("🗑️", key=key, on_click=_supprimer, args=(cle, i), disabled=_verrou(), help=aide, width="content")
 
 
-# --------------------------------------------- les tables (briques locales)
-def _entete_table(bloc, entetes, titre=None, aide=None, chaud=False):
-    """L'en-tête ``ppb_th_<bloc>`` d'une table (visible ≥ 1351 px) : la case
-    des titres porte « n° » ou le TITRE du bloc avec son « ? » ; puis les
-    libellés des colonnes (``entetes`` = [(libellé, aide)]) et la place du
-    🗑️. Mêmes largeurs que les rangées (kit.table). Sous 1350 px, le titre est
-    rendu une seconde fois sur sa propre ligne ``ppb_tt_<bloc>``."""
-    def q(h):
-        # l'apostrophe échappée : « l'élément » de l'aide RAIDISSEURS fermait l'attribut title
-        return (f" <span title='{_esc(h).replace(chr(39), '&#39;')}' style='display:inline-block;border:1px solid {C_TRAIT['mut']};border-radius:50%;"
-                f"width:13px;height:13px;line-height:12px;text-align:center;font-size:9px;cursor:help;"
-                f"font-weight:400;letter-spacing:0;'>?</span>" if h else "")
-
-    def cellule(lab, h):
-        return f"<div style='flex:1 1 100px;min-width:0;white-space:nowrap;'>{_esc(lab)}{q(h)}</div>"
-    t = ("🔴 " if chaud else "") + titre if titre else None
-    premiere = (f"<div style='flex:0 0 {kit.LARG_TITRE}px;font-size:0.92em;font-weight:700;letter-spacing:.07em;"
-                f"color:{C_ENCRE_TITRE};line-height:1.15;'>{_esc(t)}{q(aide)}</div>" if t
-                else f"<div style='flex:0 0 {kit.LARG_TITRE}px;'>n°</div>")
-    with st.container(key=f"ppb_th_{bloc}"):
-        # margin-bottom:10px : le conteneur markdown de Streamlit porte une marge de −16 px (cf.
-        # ui_commun.titre_bloc) ; l'en-tête du kit.table, sans compensation, mesurait 0 px de haut et les
-        # rangées le recouvraient (mesuré le 31/10/2026 : « x (mm) » invisible).
-        st.markdown(f"<div style='display:flex;gap:8px;align-items:flex-end;font-size:0.78em;color:{C_TRAIT['mut']};"
-                    f"padding:0 0 4px 0;margin-bottom:12px;'>" + premiere + "".join(cellule(lab, h) for lab, h in entetes)
-                    + "<div style='flex:0 0 43px;'></div></div>", unsafe_allow_html=True)
-    if t:
-        with st.container(key=f"ppb_tt_{bloc}"):
-            titre_bloc(t, help=aide)
-
-
-def _rangee(bloc, i, sous_titre, rendre):
-    """Une rangée de table ``ppb_tr_<bloc>_<i>`` : sous-titre (n° 1, É1, R1)
-    dans la case des titres, widgets à libellés visibles (cachés ≥ 1351 px)."""
-    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=f"ppb_tr_{bloc}_{i}"):
-        with st.container(key=f"ppb_bt_{bloc}_{i}", width=kit.LARG_TITRE):
-            sous_titre_bloc(sous_titre)
-        rendre()
-
-
-def _suite(ident, sous_titre, rendre):
-    """Une continuation « ↳ » ``ppb_ls_<ident>`` : cases de 150 px ou boutons.
-    ``ident`` ne doit pas être celui d'une table (« elems_0 » donnerait la clé
-    ppb_bt_elems_0 de la rangée É1 : clé dupliquée, trouvée par le harnais)."""
-    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=f"ppb_ls_{ident}"):
-        with st.container(key=f"ppb_bt_{ident}", width=kit.LARG_TITRE):
-            sous_titre_bloc("↳ " + sous_titre if sous_titre else "↳")
-        rendre()
-
-
-def _ligne_titre(ident, titre, aide, rendre, chaud=False):
-    """Une ligne d'objet titrée dont la seule case est une action (table vide)."""
-    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=f"ppb_lg_{ident}_0"):
-        with st.container(key=f"ppb_bt_{ident}_0", width=kit.LARG_TITRE):
-            titre_bloc(("🔴 " if chaud else "") + titre, help=aide)
-        rendre()
-
-
 # ---------------------------------------------------------------- les blocs
 def bloc_boulons(u, chauds):
     """BOULONS : Boulon · Classe · Ancrage ? (ligne du kit), puis la table
     n° | x (mm) ? | y (mm) | 🗑️ et les actions ➕ Boulon · Poser une grille…"""
     tiges = _liste("tiges")
-    _kit_bloc(D, "BOULONS", D.BLOCS[1][1], u, chauds, chaud="anchors" in chauds)
+    kit.bloc(D, "BOULONS", D.BLOCS[1][1], u, chauds, chaud="anchors" in chauds)
     if tiges:
-        _entete_table("tiges", [("x (mm)", AIDES["tiges"]), ("y (mm)", None)])
+        rangees = []
         for i, t in enumerate(tiges):
             def rendre(i=i, t=t):
-                _num("x (mm)", f"ppb_t{i}_x", N(t.get("x")), "tiges", i, "x", 5.0, aide=AIDES["tiges"])
+                # le « ? » du repère sur la PREMIÈRE rangée seulement : sous 1351 px, où les rangées portent
+                # leurs libellés, il se répétait sur chaque boulon (4 « ? » identiques au défaut, captures du
+                # 01/11/2026) ; au-dessus, l'en-tête de la table le porte une fois
+                _num("x (mm)", f"ppb_t{i}_x", N(t.get("x")), "tiges", i, "x", 5.0,
+                     aide=AIDES["tiges"] if i == 0 else None)
                 _num("y (mm)", f"ppb_t{i}_y", N(t.get("y")), "tiges", i, "y", 5.0)
                 _poubelle(f"ppb_btn_tdel_{i}", "tiges", i, "Retirer ce boulon")
-            _rangee("tiges", i, f"n° {i + 1}", rendre)
+            rangees.append((f"n° {i + 1}", rendre))
+        kit.table(PREFIXE, "tiges", [("x (mm)", AIDES["tiges"]), ("y (mm)", None)], rangees)
 
     def actions():
         st.button("➕ Boulon", key="ppb_btn_tadd", on_click=_ajouter_boulon, args=(u,), disabled=_verrou(),
@@ -285,7 +190,7 @@ def bloc_boulons(u, chauds):
                 st.number_input("wy (mm)", key="ppb_ui_gwy", step=10.0, format="%g")
             st.button("Poser la grille (remplace les boulons)", key="ppb_btn_grille", on_click=_poser_grille,
                       type="primary", width="stretch")
-    _suite("tiges_act", "", actions)
+    kit.suite(PREFIXE, "tiges_act", "", actions)
 
 
 def _suite_element_visible(e, t):
@@ -304,10 +209,9 @@ def bloc_elements(u, chauds):
     ajout = dict(label="➕ Élément soudé", key="ppb_btn_eadd", on_click=_ajouter, args=("elems", element_defaut()),
                  disabled=_verrou(), width="content", help="Profilé en I, tube, plat, rond ou rectangle de plus, à l'axe")
     if not elems:
-        _ligne_titre("elements", "ÉLÉMENTS", AIDES["ÉLÉMENTS"], lambda: st.button(**ajout), chaud)
+        kit.ligne_titre(PREFIXE, "elements", "ÉLÉMENTS", AIDES["ÉLÉMENTS"], lambda: st.button(**ajout), chaud)
         return
-    _entete_table("elems", [("Type", None), ("Profilé", None), ("x (mm)", None), ("y (mm)", None)],
-                  "ÉLÉMENTS", AIDES["ÉLÉMENTS"], chaud)
+    rangees = []
     for i, e in enumerate(elems):
         e = dict(element_defaut(), **{k: v for k, v in e.items() if v is not None})
         t = e.get("type") if e.get("type") in TYPES_ELEM else TYPE_I
@@ -323,17 +227,20 @@ def bloc_elements(u, chauds):
             _num("x (mm)", f"ppb_e{i}_x", N(e.get("x")), "elems", i, "x", 5.0)
             _num("y (mm)", f"ppb_e{i}_y", N(e.get("y")), "elems", i, "y", 5.0)
             _poubelle(f"ppb_btn_edel_{i}", "elems", i, "Retirer cet élément")
-        _rangee("elems", i, f"É{i + 1}", rendre)
+        suite = None
         if _suite_element_visible(e, t):
             perso = t != TYPE_I or (e.get("prof") or "HEA 300") == PERSO
 
-            def suite(i=i, e=e, t=t, perso=perso):
+            def rendre_suite(i=i, e=e, t=t, perso=perso):
                 _sel("Rotation (°)", f"ppb_e{i}_rot", str(int(N(e.get("rot")) or 0)), ["0", "90"], "elems", i, "rot",
                      width=kit.LARG_SUITE)
                 for d in (DIMS_PAR_TYPE[t] if perso else ()):
                     _num(LIB_DIM[d] + " (mm)", f"ppb_e{i}_{d}", N(e.get(d)), "elems", i, d, 1.0, width=kit.LARG_SUITE)
-            _suite(f"elemsx_{i}", f"É{i + 1}", suite)
-    _suite("elems_act", "", lambda: st.button(**ajout))
+            suite = (f"elemsx_{i}", f"É{i + 1}", rendre_suite)
+        rangees.append((f"É{i + 1}", rendre, suite))
+    kit.table(PREFIXE, "elems", [("Type", None), ("Profilé", None), ("x (mm)", None), ("y (mm)", None)], rangees,
+              "ÉLÉMENTS", AIDES["ÉLÉMENTS"], chaud)
+    kit.suite(PREFIXE, "elems_act", "", lambda: st.button(**ajout))
 
 
 def bloc_raidisseurs(u, chauds):
@@ -344,10 +251,9 @@ def bloc_raidisseurs(u, chauds):
     ajout = dict(label="➕ Raidisseur", key="ppb_btn_radd", on_click=_ajouter, args=("raid", raidisseur_defaut()),
                  disabled=_verrou(), width="content", help=AIDES["RAIDISSEURS"])
     if not raid:
-        _ligne_titre("raidisseurs", TITRE_RAID, None, lambda: st.button(**ajout), chaud)
+        kit.ligne_titre(PREFIXE, "raidisseurs", TITRE_RAID, None, lambda: st.button(**ajout), chaud)
         return
-    _entete_table("raid", [("x (mm)", None), ("y (mm)", None), ("Sens", None)], TITRE_RAID, AIDES["RAIDISSEURS"],
-                  chaud)
+    rangees = []
     for i, r in enumerate(raid):
         r = dict(raidisseur_defaut(), **{k: v for k, v in r.items() if v is not None})
 
@@ -356,14 +262,15 @@ def bloc_raidisseurs(u, chauds):
             _num("y (mm)", f"ppb_r{i}_y", N(r.get("y")), "raid", i, "y", 5.0)
             _sel("Sens", f"ppb_r{i}_dir", str(r.get("dir") or "+x").replace("-", "−"), DIRS_RAID, "raid", i, "dir")
             _poubelle(f"ppb_btn_rdel_{i}", "raid", i, "Retirer ce raidisseur")
-        _rangee("raid", i, f"R{i + 1}", rendre)
 
-        def suite(i=i, r=r):
+        def rendre_suite(i=i, r=r):
             _num("L (mm)", f"ppb_r{i}_L", N(r.get("L")), "raid", i, "L", 5.0, width=kit.LARG_SUITE)
             _num("t (mm)", f"ppb_r{i}_t", N(r.get("t")), "raid", i, "t", 1.0, width=kit.LARG_SUITE)
             _num("h (mm)", f"ppb_r{i}_h", N(r.get("h")), "raid", i, "h", 10.0, width=kit.LARG_SUITE)
-        _suite(f"raidx_{i}", f"R{i + 1}", suite)
-    _suite("raid_act", "", lambda: st.button(**ajout))
+        rangees.append((f"R{i + 1}", rendre, (f"raidx_{i}", f"R{i + 1}", rendre_suite)))
+    kit.table(PREFIXE, "raid", [("x (mm)", None), ("y (mm)", None), ("Sens", None)], rangees, TITRE_RAID,
+              AIDES["RAIDISSEURS"], chaud)
+    kit.suite(PREFIXE, "raid_act", "", lambda: st.button(**ajout))
 
 
 def etat_bascule(u):
@@ -393,11 +300,11 @@ def carte(u, chauds, lire, ecrire):
     with st.container(gap=None):
         en_tete(u, chauds, lire, ecrire)
         st.caption(etat_bascule(u))
-        _kit_bloc(D, "MATÉRIAUX", D.BLOCS[0][1], u, chauds)
+        kit.bloc(D, "MATÉRIAUX", D.BLOCS[0][1], u, chauds)
         bloc_boulons(u, chauds)
         bloc_elements(u, chauds)
         bloc_raidisseurs(u, chauds)
-        _kit_bloc(D, "EFFORTS ELU", D.BLOCS[2][1], u, chauds)
+        kit.bloc(D, "EFFORTS ELU", D.BLOCS[2][1], u, chauds)
     avances(u, chauds)
     cartouche(u, chauds)
 
@@ -501,24 +408,14 @@ def _appliquer_derivee(k, v, u, etat=None):
     return True
 
 
-def _traiter_clic(retour, cle_cmp, u):
-    if not retour or not isinstance(retour, dict):
-        return
-    derniers = st.session_state.setdefault("ppb_ui_dernier_clic", {})
-    if derniers.get(cle_cmp) == retour.get("t"):
-        return
-    derniers[cle_cmp] = retour.get("t")
-    changes = retour.get("changes") or {}
-    ecrits = []
-    for k, v in changes.items():
-        if k in CHAMPS:
-            st.session_state[K(k)] = valeur_widget(k, v)
-            ecrits.append(libelle(k, u) + " = " + js_str(valeur_widget(k, v)))
-        elif _appliquer_derivee(k, v, u):
-            ecrits.append(k.split("_")[0] + " déplacé" if k.endswith(("_u", "_v")) else k + " = " + js_str(v))
-    if ecrits:
-        st.toast(" ; ".join(sorted(set(ecrits))) + " : recalculé")
-        st.rerun()
+def _derivee(u):
+    """L'écriture d'une clé dérivée du dessin (boulon, élément, raidisseur
+    déplacé) pour ``kit.traiter_clic`` : son texte de toast, None sinon."""
+    def ecrire(k, v):
+        if not _appliquer_derivee(k, v, u):
+            return None
+        return k.split("_")[0] + " déplacé" if k.endswith(("_u", "_v")) else k + " = " + js_str(v)
+    return ecrire
 
 
 def _panneaux(R, u):
@@ -530,9 +427,7 @@ def _panneaux(R, u):
     boulon) ; la fenêtre Massif porte tg quand il est nul (le mortier n'est
     alors pas dessiné : amendement 2)."""
     def ch(k):
-        f = CHAMPS[k]
-        return dict(key=k, lab=libelle(k, u), type=f["t"], options=f.get("o") or [], step=PAS.get(k, 1.0), dis=False,
-                    help=AIDES.get(k), affichage=AFFICHAGE.get(k) or None)
+        return kit.champ_fenetre(D, k, u)
 
     def nb(k, lab, step=5.0):
         return dict(key=k, lab=lab, type="n", options=[], step=step, dis=False)
@@ -587,7 +482,8 @@ def dessins(R, u):
     for d, cle in ((e, "ppb_cmp_elev"), (p, "ppb_cmp_plan")):
         if interactif:
             from acier.composants.svg_cliquable import svg_cliquable
-            _traiter_clic(svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle, u)
+            kit.traiter_clic(D, svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle, u,
+                             derivee=_derivee(u))
         else:
             st.markdown(d.svg(identifiant=cle), unsafe_allow_html=True)
     st.caption(CAPTION_USAGE if interactif else CAPTION_LEGENDE)
@@ -646,7 +542,7 @@ def detail_main(R):
         st.markdown(tableau_html(["n°", Html("T<br>(kN)"), "Appui", Html("m<br>(mm)"), Html("T·m<br>(kNm)"),
                                   Html("leff<br>(mm)"), Html(ENTETE_SVM if el else "FT,Rd<br>(kN)"), "η",
                                   Html("tp plast.<br>/ élast.")],
-                                 lignes, droite=(1, 3, 4, 5, 6, 7, 8), defilant=True), unsafe_allow_html=True)
+                                 lignes, droite=(1, 3, 4, 5, 6, 7, 8), defilant=True, serre=2), unsafe_allow_html=True)
         pt = R.pire_tige
         levier = (f"Boulon {pt['i'] + 1} : Lb = {F(R.Lb, 0)} / Lb* = {F(min(pt['Lb_star'], 9999), 0)} mm → "
                   + ("avec" if pt["levier"] else "sans") + " effet de levier")
@@ -669,7 +565,7 @@ def detail_main(R):
                            taux_html(s["eta"], s["eta"] <= 1 + 1e-9), F(s["t_pl"], 1) + " / " + F(s["t_el"], 1)])
         st.markdown(tableau_html(["Face", "Boulons", Html("m⊥<br>(mm)"), Html("ΣT·m<br>(kNm)"), Html("b<br>(mm)"),
                                   Html(ENTETE_SVM if el else "Mpl<br>(kNm)"), "η", Html("tp plast.<br>/ élast.")],
-                                 lignes, droite=(2, 3, 4, 5, 6, 7), defilant=True), unsafe_allow_html=True)
+                                 lignes, droite=(2, 3, 4, 5, 6, 7), defilant=True, serre=2), unsafe_allow_html=True)
         ps = R.pire_section
         st.caption("b = min(platine ; L + 2·m) : la face de longueur L et la diffusion à 45° sur le bras."
                    + (f" Critère élastique retenu : η = σvm / (fy/γM0), fy/γM0 = {F(R.ck['pts'].Rd, 0)} MPa ; "
@@ -790,7 +686,7 @@ def onglet_efforts(R):
                            t["appui"]["face"].replace("élément ", "É") if tendu else "—", F(t["m"], 0) if tendu else "—"])
         st.markdown(tableau_html(["n°", Html("x ; y<br>(mm)"), Html("T<br>(kN)"), Html("T /<br>Ft,Rd"),
                                   Html("V EC3 /<br>brut (kN)"), "Appui", Html("m<br>(mm)")], lignes,
-                                 droite=(2, 3, 4, 6), defilant=True), unsafe_allow_html=True)
+                                 droite=(2, 3, 4, 6), defilant=True, serre=2), unsafe_allow_html=True)
         st.caption("V EC3 : frottement Cf,d·N déduit ; brut : sans frottement (valeur des logiciels d'ancrage).")
     with c2:
         st.markdown("##### Répartition")

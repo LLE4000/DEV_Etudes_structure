@@ -33,9 +33,10 @@ main.
 | Raidisseurs | point de départ (x ; y), direction (±x, ±y), longueur L, épaisseur t, hauteur h (dessin) | carte, dessin |
 | Appui | béton, massif (fjd par EN 1992-1-1 §6.7 et EN 1993-1-8 §6.2.5), mortier ; aire d'appui : bande c ou toute la platine | carte |
 | Efforts | N (compression > 0), Mx (comprime y > 0), My (comprime x > 0), Vx, Vy, T ; point d'application (xN ; yN) | carte, dessin |
-| Critère | EN 1993-1-8 (tronçon en T plastique, console élastique) ou tout élastique (Von Mises) | carte |
+| Critère | Élastique (Von Mises ≤ fy/γM0, **défaut** depuis le 31/10/2026, § 6) ou Plastique (EN 1993-1-8 : tronçon en T plastique, console élastique) | en-tête de la carte |
 
-Repère : origine au centre de la platine, x et y du dessin en plan. Un
+Repère : origine au centre de la platine, x et y du dessin en plan (à l'écran :
+le « ? » de x (mm) dans l'en-tête de la table des boulons). Un
 élément excentré par rapport aux boulons, ou des efforts appliqués hors du
 centre, créent leur moment N·e tout seuls : `Mx = Mx,Ed + N·yN`,
 `My = My,Ed + N·xN`.
@@ -316,3 +317,26 @@ la zone de texte de la case Type mesure 63 px à 1351 px de fenêtre et 75 px à
 « Profilé I / H » à 1351) étaient rognés ; les titres « RAIDISSEURS » et
 « APPLICATION » perdent leur césure et prennent un espacement de 0,05 em
 (74,0 px pour une case de 76 : une ligne, plus de « RAIDIS-SEURS »).
+
+
+### 01/11/2026 — consolidation des écrans (charte ergonomique §17)
+
+Sans effet sur le calcul. La ligne « Notations » du pied de la note mesurait
+801 pt pour 798 disponibles : elle était coupée d'un « … » (défaut trouvé à la
+consolidation). Elle est resserrée (777 pt, contrôlé), complétée de hef, dh,
+tg, bc, lc, hc, et devient aussi le paragraphe « Notations » de l'onglet
+Méthode (source : `notation.NOTATIONS_MANUEL`). La référence de la pression
+« … EC2 §6.7 — répartition élastique » (phrase interdite des notes depuis le
+21/09/2026) s'abrège en « … EC2 §6.7 (répartition) » dans la vue
+(`notation.ref_courte`) ; le moteur garde sa référence. Le titre du périmètre
+dit « n non vérifiés », comme son contenu. Les tables de détail sont des
+tables serrées du kit (`tableau_html(serre=2)`), leurs en-têtes écrits en
+capitales sans transformer les symboles (σvm, η).
+
+Relecture des notes finales, même jour : au cartouche du plan, la 1re ligne
+BOULONS mesurait 273 pt pour 168 ; coupée d'un « … », elle perdait l'ancrage
+et hef. Elle garde « Boulons 4 × M24 8.8 – trous Ø26 · tête Ø40 · hef 300 » ;
+« perçages cotés depuis les bords » (la vue en plan le montre) passe en 2e
+ligne APRÈS la visserie saisie — si cette ligne déborde, c'est lui qui se
+coupe. À l'écran, le « ? » du repère n'est plus que sur la première rangée de
+boulons (sous 1351 px il se répétait sur chacune).

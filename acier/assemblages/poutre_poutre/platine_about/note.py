@@ -23,10 +23,10 @@ from ndc_pdf import data as ndc_data
 from acier.formats import F
 from acier.js import N, js_str
 from acier.bibliotheques import PERSO
-from acier.assemblages.note_kit import empaqueter
+from acier.assemblages.note_kit import empaqueter, coefficients, MSB
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
-from .notation import LEGENDE_REFERENCES, ligne_alerte
+from .notation import LEGENDE_REFERENCES, ligne_alerte, NOTATIONS as NOTATIONS_COURTES
 from ..plat_ame import note as _np
 from ..doubles_cornieres.note import PlanPrincipe, TEXTE_MM
 
@@ -34,9 +34,6 @@ A4L = landscape(A4)
 M = _np.M
 
 TITRE = "Assemblage poutre–poutre — platine d'about de hauteur partielle"
-NOTATIONS_COURTES = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2) ; p3 : entraxe des deux files ; hp, bp, tp : "
-                     "platine ; zp : position de la platine ; c, dc : grugeage ; Δz : décalage ; a : gorge "
-                     "(cordon double) ; e1' : pince basse.")
 VARIANTES = _np.VARIANTES
 
 
@@ -79,28 +76,24 @@ def segments_hypotheses(R):
            ("platine : hp " + signe + " 1,36·p3 → rupture de bloc, k = " + k,
             "platine hp " + signe + " 1,36·p3 → k = " + k)]
     if R.cas_g > 0:
-        seg.append(("grugeage : section réduite, bras tp + c (MSB P5 §4.2.4)", "grugeage : bras tp + c (§4.2.4)"))
+        seg.append(("grugeage : section réduite, bras tp + c (MSB P5 §4.2.4)", "grugeage : bras tp + c (MSB P5 §4.2.4)"))
     tying = bool(R.tying and N(u.N_Ed) > 0)
     if N(u.N_Ed) > 0:
-        seg.append(("tying : force de chaînage seule, fu/γMu (MSB P5 §2.3)", "tying : chaînage seul, fu/γMu (§2.3)")
+        seg.append(("tying : force de chaînage seule, fu/γMu (MSB P5 §2.3)", "tying : chaînage seul, fu/γMu (MSB P5 §2.3)",
+                    "tying : fu/γMu (MSB P5 §2.3)")
                    if tying else ("NEd ELU combiné avec VEd (tronçon en T §6.2.4)", "NEd ELU avec VEd (§6.2.4)"))
     plein = F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm"
     seg.append(("cordons sur hp (§4.5.3.3), pleine résistance " + plein, "cordons hp, pleine résistance " + plein))
-    g_M2, g_M2n = N(u.g_M2), N(u.g_M2n)
-    g = "γM0 " + F(N(u.g_M0), 2) + " (ANB) · γM2 " + F(g_M2, 2)
-    if abs(g_M2 - g_M2n) > 1e-9:
-        g_long = g + " (boulons, soudures) · γM2,net " + F(g_M2n, 2) + " (nettes)"
-        g_court = "γM0 " + F(N(u.g_M0), 2) + " · γM2 " + F(g_M2, 2) + " · γM2,net " + F(g_M2n, 2)
-    else:
-        g_long, g_court = g + " (boulons, soudures, sections nettes)", g
     suffixe = (" · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else "") + (" · γMu " + F(N(u.g_Mu), 2) if tying else "")
-    seg.append((g_long + suffixe, g_court + suffixe))
+    g = " · γM2 " + F(N(u.g_M2), 2)
+    seg.append(tuple(f + suffixe for f in coefficients("γM0 " + F(N(u.g_M0), 2) + " (ANB)" + g, N(u.g_M2), N(u.g_M2n),
+                                                       tete_net="γM0 " + F(N(u.g_M0), 2) + g)))
     return seg
 
 
 def lignes_hypotheses(R):
-    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
-    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
+    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible (ValueError sinon : le test rougit)."""
+    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 class Note(_np.Note):

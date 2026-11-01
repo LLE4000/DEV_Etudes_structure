@@ -14,13 +14,12 @@
 #  `pab_<clé>` (espace disjoint des clés `asm_` et `fpl_` des deux autres).
 #  Le dessin est rendu AVANT la carte (messages appliqués avant widgets).
 # ===========================
-from datetime import datetime
 from functools import lru_cache
 
 import streamlit as st
 
 from acier import projet_ui
-from acier.assemblages import carte as kit
+from acier.assemblages import carte as kit, ui_commun
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT
 from .moteur import compute
@@ -31,23 +30,6 @@ PREFIXE = "pab_"
 TITRE_COURT = "Platine d'about partielle"
 TITRE_LONG = "Assemblage poutre–poutre – platine d'about de hauteur partielle"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "_pab_", "pab_cmp_", "pab_cote_", "pab_fix_")
-
-_CSS_STICKY = """<style>
-@media (min-width: 641px) {
-  div[data-testid="stColumn"]:has(div.st-key-pab_col_dessin) {
-    position: sticky;
-    top: 2.875rem;
-    align-self: flex-start;
-    max-height: calc(100vh - 3.5rem);
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-  div[data-testid="stMainBlockContainer"] {
-    padding-bottom: 1.5rem;
-  }
-}
-</style>"""
-
 
 def K(k):
     return PREFIXE + k
@@ -113,12 +95,7 @@ def charger_payload(data):
 
 
 def _infos(u):
-    return {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
-            "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
-            "date": st.session_state.get("date", "") or u.get("id_date", "")
-            or datetime.today().strftime("%d/%m/%Y"),
-            "indice": st.session_state.get("indice", "0"),
-            "visserie": st.session_state.get("pab_visserie", VISSERIE_DEFAUT)}
+    return projet_ui.infos_cartouche(PREFIXE, u, VISSERIE_DEFAUT)
 
 
 # ------------------------------------------------------------------ écran
@@ -137,8 +114,11 @@ def show():
 
     projet_ui.en_tete(TITRE_COURT, TITRE_LONG + " · version " + MODULE_VERSION)
     u = lire_entrees()
+    # dimensions vides (profil Personnalisé) : la vérification est suspendue, le dessin garde des dimensions
+    # provisoires (kit.provisoire) — plus de taux absurdes ni d'exception (consolidation, points 8 et 19)
+    vides = kit.dimensions_vides(ecran_saisie.D, u)
     try:
-        R = compute(u)
+        R = compute(kit.provisoire(ecran_saisie.D, u) if vides else u)
         erreur = None
     except Exception as e:  # noqa: BLE001 — l'écran doit rester utilisable
         R, erreur = None, f"{type(e).__name__}: {e}"
@@ -150,18 +130,20 @@ def show():
     # Barre d'outils partagée : ◀ Projet · 🏠 · 💾 (projet entier) · 📄 · [A2 ▾] · 🔄 —
     # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
     projet_ui.barre_outils(PREFIXE, lambda: _payload(u), lambda ext: texte.nom_fichier(u, ext), charger_payload,
-                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None,
+                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None or bool(vides),
                            pdf_help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe.")
     projet_ui.bandeau_verrou(PREFIXE)
-    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
     kit.injecter_css(PREFIXE)
     if R is None:
         st.error(f"Données incomplètes : {erreur}")
         ecran_saisie.carte(u, set())
         return
 
-    ecran_resultats.bandeau(R)
-    ecran_resultats.alertes(R, u)
+    if vides:
+        ui_commun.bloc_alerte_ligne("Données incomplètes", kit.message_dimensions(ecran_saisie.D, u), True)
+    else:
+        ecran_resultats.bandeau(R)
+        ecran_resultats.alertes(R, u)
     chauds = set()
     sel = st.session_state.get("pab_ui_alerte")
     for a in R.alerts:
@@ -173,6 +155,9 @@ def show():
             e, p, hl = ecran_resultats.dessins(R, u)
     with c_droite:
         if not st.session_state.get("pab_ui_composant", True):
-            ecran_resultats.panneau_cotes(e, p, hl)
+            ecran_resultats.panneau_cotes(R, u, e, p, hl)
         ecran_saisie.carte(u, chauds)
-        ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)
+        if vides:
+            st.caption("Vérifications, note et exports : dès que les dimensions sont saisies.")
+        else:
+            ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)

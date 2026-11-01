@@ -14,16 +14,17 @@ import streamlit as st
 
 from acier.js import N, js_str
 from acier.formats import F, pct
-from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte_ligne, badge_nature,
+from acier.assemblages import carte as kit, ui_commun
+from acier.assemblages.ui_commun import (bloc_statut_ligne, badge_nature,
                                          tableau_md, tableau_html, taux_html, verdict_html, Html, _esc, C_TRAIT,
                                          legende_natures, expander_perimetre, tableau_33_replie)
 from . import schemas, texte, synthese, formules
-from .notation import ligne_alerte, LEGENDE_REFERENCES
-from .entrees import CHAMPS, CLES, champ_visible, ancrage_txt
+from .notation import ligne_alerte, LEGENDE_REFERENCES, rangee_lisible
+from .entrees import CLES, champ_visible, ancrage_txt
 from .moteur import GROUPES_VERIF
 from .benchmark import SRC, NOCOVER
 from .methode import METHODE
-from .ecran_saisie import (K, valeur_widget, PAS, LIBELLE, AIDES, AFFICHAGE, COTES_ORDRE, libelle, description)
+from .ecran_saisie import (D, PREFIXE, K, LIBELLE, AIDES, COTES_ORDRE, description)
 from .manuel.schemas import CLE_PAR_COTE as CLE_PAR_COTE_MANUEL
 
 ONGLETS = ("Vérifications", "Répartition", "Note", "Benchmark", "Méthode")
@@ -89,7 +90,9 @@ def bloc_platine(R):
                       "— " + pct(c.eta, 1) + " · critère : " + crit[pire] + " · fy = " + F(R.fy_p, 0) + " MPa (épaisseur retenue)",
                       [(crit[k], P["t_" + k] / u.tp_u if u.tp_u else 0.0, P["t_" + k] <= u.tp_u + 1e-9)
                        for k in ("c", "N", "M", "T")])
-    g1, g2 = st.columns(2, gap="medium")
+    # « duo_ » : sous 1351 px, le CSS du kit (carte.css_kit) pose les deux tables l'une sous l'autre
+    with st.container(key=PREFIXE + "duo_tpq"):
+        g1, g2 = st.columns(2, gap="medium")
     with g1:
         st.markdown("**Côté comprimé — console au nu de l'aile**")
         rows = [_lig("Pression sous la platine (répartition élastique)",
@@ -107,7 +110,8 @@ def bloc_platine(R):
         st.markdown("**Côté tendu — tronçon en T de la rangée la plus sollicitée**")
         T = P["tendu"]
         if T and T["T"] > 1e-9:
-            rows = [_lig("Rangée tendue", T["cle"] + " (" + T["classe"] + ") : T = " + F(T["T"], 1) + " kN"),
+            rows = [_lig("Rangée tendue", rangee_lisible(T["cle"]) + " · " + T["classe"] + " : T = " + F(T["T"], 1)
+                         + " kN"),
                     _lig("Bras au nu de l'aile (cordon déduit)", "m = e − 0,8·a·√2 = " + F(T["m"], 1) + " mm"),
                     _lig("Moment pris", "M = T·m = " + F(T["T"], 1) + " × " + F(T["m"], 1) + " = " + F(T["M"], 2) + " kNm", True),
                     _lig("Longueur efficace", "Σleff,1 = " + F(T["leff1"], 0) + " mm"
@@ -136,112 +140,15 @@ def bloc_platine(R):
 
 
 # ------------------------------------------------------------------ alertes
-def _selectionner(ident, a_geo):
-    cur = st.session_state.get("ppb_ui_alerte")
-    st.session_state["ppb_ui_alerte"] = None if cur == ident else ident
-
-
-def _ecrire_depuis(cle_widget, k):
-    st.session_state[K(k)] = valeur_widget(k, st.session_state.get(cle_widget))
-
-
-def _mini_champ(k, u, prefixe, disabled=False):
-    """La chip d'une alerte : le même champ, modifiable sur place (libellé
-    LIBELLE du mode, options AFFICHAGE) ; écrit dans la source unique."""
-    f = CHAMPS[k]
-    cle = prefixe + k
-    st.session_state[cle] = valeur_widget(k, st.session_state.get(K(k)))
-    lab = libelle(k, u)
-    if f["t"] == "s":
-        aff = AFFICHAGE.get(k)
-        st.selectbox(lab, f["o"], key=cle, on_change=_ecrire_depuis, args=(cle, k), disabled=disabled,
-                     format_func=(lambda o, a=aff: a.get(o, o)) if aff else str)
-    elif f["t"] == "x":
-        st.text_input(lab, key=cle, on_change=_ecrire_depuis, args=(cle, k), disabled=disabled)
-    else:
-        st.number_input(lab, key=cle, step=PAS.get(k, 1.0), format="%g",
-                        on_change=_ecrire_depuis, args=(cle, k), disabled=disabled)
-
-
-def _alerte(a, R, u, sel):
-    """Une alerte : sa ligne courte et son bouton Localiser sur UNE rangée ;
-    sélectionnée, l'explication et les champs en cause, modifiables sur place."""
-    est_sel = sel == a.id
-    titre, detail = ligne_alerte(a, R)
-    # L'alerte et son bouton sur une rangée à toutes les largeurs : en colonnes, le bouton passait sous
-    # l'alerte au téléphone (une rangée de plus par alerte).
-    with st.container(horizontal=True, wrap=False, gap="small", vertical_alignment="center", key=f"ppb_al_{a.id}"):
-        bloc_alerte_ligne(titre, detail, a.block, est_sel)
-        st.button("Masquer" if est_sel else "Localiser", key=f"ppb_btn_al_{a.id}",
-                  width="content", on_click=_selectionner, args=(a.id, bool(a.dims or a.elems)))
-    if est_sel:
-        with st.container(border=True):
-            st.markdown(a.why if a.why else a.msg)
-            visibles = [k for k in a.fields if champ_visible(u, k)]
-            if visibles:
-                st.caption("Champs en cause — modifiables ici :")
-                cols = st.columns(min(4, len(visibles)))
-                for i, k in enumerate(visibles):
-                    with cols[i % len(cols)]:
-                        _mini_champ(k, u, "ppb_fix_", disabled=bool(st.session_state.get("prj_verrou")))
-            if a.dims or a.elems:
-                st.caption("Sur le dessin : cotes et éléments en cause en rouge.")
-
-
-def titre_remarques(remarques, R):
-    """« ⚠️ 2 remarques — Tiges de coin · Soulèvement » : le titre du repli des
-    alertes d'information (le titre court de chacune, avant « : », « — » ou
-    « ( » ; le titre entier est dans le repli)."""
-    import re
-    noms = [re.split(r" : | — | \(", ligne_alerte(a, R)[0])[0] for a in remarques]
-    return "⚠️ " + str(len(remarques)) + " remarques — " + " · ".join(noms)
-
-
 def alertes(R, u):
-    """Les alertes : une ligne par alerte BLOQUANTE ; les alertes d'information
-    (attention, modèle d'ingénieur, soulèvement, rigidité…) regroupées dans un
-    repli « ⚠️ n remarques — … » dès qu'il y en a deux, ouvert quand l'une
-    d'elles est localisée. Rien ne se perd (même texte, mêmes boutons) ; le
-    premier écran du téléphone garde le bandeau ET le dessin (cinq alertes
-    d'information au cas par défaut de la vérification complète : 425 px)."""
-    sel = st.session_state.get("ppb_ui_alerte")
-    ids = [a.id for a in R.alerts]
-    if sel and sel not in ids:
-        st.session_state["ppb_ui_alerte"] = None
-        sel = None
-        st.toast("Blocage levé : géométrie valide" if (R.geo_ok and R.dist_ok)
-                 else "Ce blocage est levé ; il en reste d'autres")
-    remarques = [a for a in R.alerts if not a.block]
-    for a in R.alerts:
-        if a.block or len(remarques) == 1:
-            _alerte(a, R, u, sel)
-    if len(remarques) > 1:
-        with st.expander(titre_remarques(remarques, R), expanded=any(a.id == sel for a in remarques)):
-            for a in remarques:
-                _alerte(a, R, u, sel)
+    """Les alertes des deux modes, forme commune des cinq écrans
+    (``ui_commun.alertes`` : rangée alignée, repli « ⚠️ n remarques » dès deux
+    alertes d'information — la forme née ici, étendue aux cinq écrans) ;
+    sélectionnée, les champs en cause modifiables sur place (libellé du mode)."""
+    ui_commun.alertes(PREFIXE, R, ligne_alerte, lambda a: kit.pastilles(description(u), a, u))
 
 
 # ------------------------------------------------------------------ dessins
-def _traiter_clic(retour, cle_cmp, u):
-    if not retour or not isinstance(retour, dict):
-        return
-    derniers = st.session_state.setdefault("ppb_ui_dernier_clic", {})
-    if derniers.get(cle_cmp) == retour.get("t"):
-        return
-    derniers[cle_cmp] = retour.get("t")
-    changes = retour.get("changes")
-    if changes is None and retour.get("key"):
-        changes = {retour["key"]: retour.get("value")}
-    ecrits = []
-    for k, v in (changes or {}).items():
-        if k in CHAMPS:
-            st.session_state[K(k)] = valeur_widget(k, v)
-            ecrits.append(libelle(k, u) + " = " + js_str(valeur_widget(k, v)))
-    if ecrits:
-        st.toast(" ; ".join(ecrits) + " : géométrie et vérifications recalculées")
-        st.rerun()
-
-
 def _panneaux(R, u):
     """Les fenêtres d'objet du composant (vérification complète) : un clic sur
     une pièce ouvre TOUS ses paramètres — une VUE des mêmes clés (libellés
@@ -250,9 +157,7 @@ def _panneaux(R, u):
     périmètre dans l'en-tête de la carte ; la fenêtre Massif porte tg quand il
     est nul (le mortier n'est alors pas dessiné : amendement 2)."""
     def ch(k):
-        f = CHAMPS[k]
-        return dict(key=k, lab=libelle(k, u), type=f["t"], options=f.get("o") or [], step=PAS.get(k, 1.0),
-                    dis=False, help=AIDES.get(k), affichage=AFFICHAGE.get(k) or None)
+        return kit.champ_fenetre(D, k, u)
 
     perso = [ch(k) for k in ("h_u", "b_u", "tw_u", "tf_u", "r_u", "t_u") if champ_visible(u, k)]
     tg_nul = (N(u.get("t_g")) or 0.0) <= 0
@@ -313,7 +218,7 @@ def dessins(R, u):
     for d, cle in ((e, "ppb_cmp_elev"), (p, "ppb_cmp_plan")):
         if interactif:
             from acier.composants.svg_cliquable import svg_cliquable
-            _traiter_clic(svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle, u)
+            kit.traiter_clic(description(u), svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle, u)
         else:
             st.markdown(d.svg(identifiant=cle), unsafe_allow_html=True)
     st.caption(CAPTION_USAGE if interactif else CAPTION_LEGENDE)
@@ -328,20 +233,11 @@ def cotes_panneau(u):
 
 
 def panneau_cotes(u, hl):
-    """Repli (tête de la colonne de droite) : une saisie par cote, libellé
-    LIBELLE, aide AIDES."""
-    cotes = cotes_panneau(u)
-    with st.expander("Cotes", expanded=True):
-        chauds = set(hl["dims"]) if hl else set()
-        for i in range(0, len(cotes), 4):
-            cols = st.columns(4)
-            for col, k in zip(cols, cotes[i:i + 4]):
-                with col:
-                    cle = "ppb_cote_" + k
-                    st.session_state[cle] = valeur_widget(k, st.session_state.get(K(k)))
-                    st.number_input(("🔴 " if _COTE_DE.get(k) in chauds else "") + libelle(k, u), key=cle,
-                                    step=PAS.get(k, 1.0), format="%g",
-                                    on_change=_ecrire_depuis, args=(cle, k), help=description(u).AIDES.get(k))
+    """Repli (tête de la colonne de droite, dessin fixe) : une saisie par
+    cote (``kit.panneau_cotes`` : grille 4 / 3 / 2 colonnes), libellé du mode,
+    aide du mode."""
+    chauds = {k for k in cotes_panneau(u) if _COTE_DE.get(k) in (hl["dims"] if hl else ())}
+    kit.panneau_cotes(description(u), cotes_panneau(u), u, chauds)
 
 
 # ------------------------------------------------------ onglet vérifications
@@ -400,7 +296,7 @@ def _tableau_33(R):
             for i, x in enumerate(nok):
                 with cols[i % len(cols)]:
                     st.button("Localiser : " + x.lab.split(" (")[0], key=f"ppb_btn_dist_{x.id}", width="stretch",
-                              on_click=_selectionner, args=(x.alert, True))
+                              on_click=ui_commun.selectionner, args=(PREFIXE, x.alert))
         st.caption("e ≥ 1,2·d0 au bord de la platine (Tableau 3.3) ; les distances aux bords du MASSIF relèvent de "
                    "l'EN 1992-4 (cône, bord, fendage).")
     tableau_33_replie(R.dist_ok, rendre)
@@ -471,7 +367,7 @@ def onglet_repartition(R):
         lignes = []
         for t in R.tiges:
             tendue = t["T"] > 1e-6
-            lignes.append([F(t["x"], 0) + " ; " + F(t["y"], 0), t["classe"], t.get("rangee", "—"),
+            lignes.append([F(t["x"], 0) + " ; " + F(t["y"], 0), t["classe"], rangee_lisible(t.get("rangee", "—")),
                            F(t["T"], 1) if tendue else "0", F(t["FT_Rd"] / 1e3, 1),
                            taux_html(t["T"] / (t["FT_Rd"] / 1e3), t["T"] <= t["FT_Rd"] / 1e3 + 1e-9) if tendue and t["FT_Rd"] > 0 else "—",
                            F(t["V_ec3"], 1) + " / " + F(t["V_en"], 1)])
@@ -483,7 +379,7 @@ def onglet_repartition(R):
         st.markdown("##### Rangées : tronçons en T")
         lignes = []
         for r in R.rangees:
-            lignes.append([r["cle"], r["classe"], F(r["m"], 1), F(r["leff1"], 0) + " / " + F(r["leff2"], 0),
+            lignes.append([rangee_lisible(r["cle"]), r["classe"], F(r["m"], 1), F(r["leff1"], 0) + " / " + F(r["leff2"], 0),
                            F(r["Lb"], 0) + " / " + ("∞" if r["Lb_star"] == float("inf") else F(r["Lb_star"], 0)),
                            str(r["mode"]), F(r["FT_Rd"] / 1e3, 1)])
         st.markdown(tableau_html(["Rangée", "Classe", "m (mm)", "Σleff,1 / Σleff,2 (mm)", "Lb / Lb* (mm)", "Mode",

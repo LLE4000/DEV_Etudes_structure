@@ -28,6 +28,7 @@ Chaque garantie rougit si on la retire :
 Lancement : python3 tests/test_assemblages_note.py
 """
 import json
+import re
 import os
 import sys
 
@@ -101,6 +102,14 @@ chk("Tableau 3.3 : chaque ligne avec sa valeur et son minimum",
     all(F(x.val, 1) in t and F(x.min, 1) in t for x in R.dist) and "TAB.3.3" in s.upper())
 chk("hypothèses : z et MS", F(R.zeff, 1) in t and F(R.M_S, 2) in t)
 chk("identification et cartouche", "Halle A" in t and "P3/S7" in t and "Bureaud'ÉtudesValens" in s and "21/09/2026" in t)
+# Amendement 3 (un chk par module) : le rédacteur saisi figure à la page 1 et dans l'export texte, et un champ vide
+# n'y est pas imprimé — les doubles cornières l'imprimaient déjà, sans contrôle (consolidation, point 11).
+Rr = moteur.compute(dict(id_red="J. Dupont"))
+pr = pymupdf.open(stream=note.generer_note(Rr, {"nom_projet": "", "partie": "", "date": "01/11/2026", "indice": "0",
+                                                "visserie": "1 rondelle + 1 écrou"}), filetype="pdf")
+chk("le rédacteur saisi figure à la page 1 et dans l'export texte (amendement 3, un chk par module)",
+    "J.Dupont" in pr[0].get_text().replace(" ", "") and "J. Dupont" in texte.construire_texte(Rr)
+    and "Rédacteur" in texte.construire_texte(Rr) and "Rédacteur" not in texte.construire_texte(moteur.compute(dict())))
 chk("pied de page en 2 lignes : références (MSB P5) et notations abrégées",
     "EC3 = EN 1993-1-8 sauf indication" in t and "MSB P5" in t
     and "hc, zc : hauteur et position des cornières" in t)
@@ -115,20 +124,21 @@ chk("en-tête ligne 3 : les efforts seuls",
     "VEd 125,0 kN" in t and "NEd 0,0 kN" in t and "HEd 0,0 kN" in t and "MEd 0,00 kNm" in t)
 tt = " ".join(t.split())
 # --- HYPOTHÈSES (charte du 31/10/2026, §11) : ≤ 3 lignes ≤ 110 composées par note_kit.empaqueter
+# Point 10 de la consolidation (01/11/2026) : un § du guide porte TOUJOURS « MSB P5 » (un § nu est de l'EN 1993-1-8,
+# légende du pied de la note) — « (§4.2.1.2) » et « (§4.2.4) » nus se lisaient comme l'EN, à côté de « (§4.5.1) ».
 HYP_DEFAUT = ["Articulé : rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1) ; z = 50,0 mm.",
-              "Groupe S : MS = VEd·z + |MEd| = 6,25 kNm ; groupe P : cisaillement centré, 0,80·Fv,Rd (§4.2.1.2).",
-              "Grugeage : flexion de la section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 (boulons, soudures, sections "
-              "nettes)."]
+              "Groupe S : MS = VEd·z + |MEd| = 6,25 kNm ; groupe P : cisaillement centré, 0,80·Fv,Rd (MSB P5 §4.2.1.2).",
+              "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 (boulons, soudures, nettes)."]
 lignes = note.lignes_hypotheses(R)
-chk("HYPOTHÈSES : ≤ 3 lignes de ≤ 110 caractères, textes exacts de la charte (défaut : 78 / 97 / 109)",
-    lignes == HYP_DEFAUT and [len(x) for x in lignes] == [78, 97, 109], str(lignes))
+chk("HYPOTHÈSES : ≤ 3 lignes de ≤ 110 caractères, textes exacts (défaut : 78 / 104 / 107)",
+    lignes == HYP_DEFAUT and [len(x) for x in lignes] == [78, 104, 107], str(lignes))
 chk("HYPOTHÈSES imprimées sur la page 1, références abrégées",
     all(x in tt for x in HYP_DEFAUT) and "Ip,S" not in t and "· nettes 1,25" not in t)
 L2 = "Groupe S : MS = VEd·z + |MEd| = 6,25 kNm ; "
 var = {
     "MP > 0, cat B": (dict(opt_exc="Oui", cat="B"),
-                      [L2 + "groupe P : MP = 3,44 kNm par cornière (§4.2.1.2).",
-                       "Grugeage : flexion de la section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
+                      [L2 + "groupe P : MP = 3,44 kNm par cornière (MSB P5 §4.2.1.2).",
+                       "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
     "ailes A soudées, MP > 0": (dict(fix_P="Soudée", opt_exc="Oui"),
                                 [L2 + "cordons A : MP = 6,25 kNm par cornière, Leff totale (§4.5.1).",
                                  HYP_DEFAUT[2]]),
@@ -136,16 +146,16 @@ var = {
                                                [L2 + "cordons A : centrés, Leff totale (§4.5.1).",
                                                 "γM0 1,00 · γM2 1,25 (boulons, soudures, sections nettes)."]),
     "ailes B soudées, cat C": (dict(fix_S="Soudée", cat="C", classe="10.9"),
-                               ["Cordons B : MS = VEd·z + |MEd| = 11,76 kNm, Leff totale (§4.5.1) ; groupe P centré, "
-                                "0,80·Fv,Rd (§4.2.1.2).",
-                                "Grugeage : section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
+                               ["Cordons B : MS = VEd·z + |MEd| = 11,76 kNm, Leff totale (§4.5.1) ; groupe P : "
+                                "0,80·Fv,Rd (MSB P5 §4.2.1.2).",
+                                "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · γM2 1,25 · γM3 1,25."]),
     "les deux soudées, MP > 0": (dict(fix_S="Soudée", fix_P="Soudée", opt_exc="Oui"),
                                  ["Cordons B : MS = VEd·z + |MEd| = 11,76 kNm, Leff totale (§4.5.1).",
-                                  "Cordons A : MP = 6,25 kNm, Leff totale (§4.5.1) ; grugeage : section réduite "
-                                  "(§4.2.4) ; γM0 1,00 · γM2 1,25."]),
+                                  "Cordons A : MP = 6,25 kNm par cornière, Leff totale (§4.5.1) ; grugeage (MSB P5 §4.2.4) ; "
+                                  "γM0 1,00 · γM2 1,25."]),
     "γM2 ≠ γM2,net, cat C": (dict(g_M2n=1.2, cat="C"),
-                             [HYP_DEFAUT[1], "Grugeage : flexion de la section réduite (§4.2.4) ; γM0 1,00 · γM2 1,25 "
-                              "· γM2,net 1,20 · γM3 1,25."]),
+                             [HYP_DEFAUT[1], "Grugeage : flexion de la section réduite (MSB P5 §4.2.4) ; γM0 1,00 · "
+                              "γM2 1,25 · γM2,net 1,20 · γM3 1,25."]),
 }
 ecarts = []
 for nom, (inp, attendu) in var.items():
@@ -171,6 +181,23 @@ for cas in REF["cas"]:
             pertes.append((cas["id"], formes[-1][:30]))
 chk("HYPOTHÈSES des 31 cas de référence : aucun ValueError, ≤ 3 lignes ≤ 110, aucun segment perdu",
     not err and not trop and not pertes, str(err + trop + pertes))
+# Les renvois du guide : jamais un § de MSB P5 nu (§4.2.x, §3.2, §2.x) ; « MSB P5 » au plus une fois par ligne
+MSB_NU = re.compile(r"(?<!MSB P5 )§(4\.2|3\.2|2\.)")
+nus, doubles = [], []
+for cas in REF["cas"]:
+    for x in note.lignes_hypotheses(moteur.compute(cas["inputs"])):
+        if MSB_NU.search(x):
+            nus.append((cas["id"], x))
+        if x.count("MSB P5") > 1:
+            doubles.append((cas["id"], x))
+for nom, (inp, _a) in var.items():
+    for x in note.lignes_hypotheses(moteur.compute(inp)):
+        if MSB_NU.search(x):
+            nus.append((nom, x))
+        if x.count("MSB P5") > 1:
+            doubles.append((nom, x))
+chk("HYPOTHÈSES : aucun renvoi au guide sans « MSB P5 » (31 cas + variantes)", not nus, str(nus[:3]))
+chk("HYPOTHÈSES : « MSB P5 » au plus une fois par ligne (31 cas + variantes)", not doubles, str(doubles[:3]))
 chk("l'export texte et le rapport détaillé gardent leurs propres lignes d'hypothèses (corrigés figés)",
     texte.lignes_hypotheses(R)[0].startswith("Assemblage nominalement articulé")
     and len(texte.lignes_hypotheses(R)) == 6)

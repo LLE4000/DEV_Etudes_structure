@@ -3,6 +3,7 @@
 précédé de « Ce que l'outil vérifie » (le texte de l'ancien bouton ❔ de
 l'en-tête, charte du 31/10/2026 §8) ; « Données de bibliothèque » reçoit les
 aides retirées des champs Nuance et Cornière (§3)."""
+from .notation import NOTATIONS
 
 METHODE = """
 ## Ce que l'outil vérifie
@@ -53,3 +54,14 @@ Longueur efficace des cordons prise égale à leur longueur totale (cordon verti
 - Steel Buildings in Europe – Multi-Storey Steel Buildings – Part 5: Joint Design (ArcelorMittal, Peiner Träger, Corus ; CTICM et SCI), noté MSB Part 5 : chapitre 4 « Double angle web cleats » et exemples de calcul utilisés pour le benchmark.
 - ECCS n°126, European Recommendations for the Design of Simple Joints in Steel Structures ; SCI P358, Joints in Steel Construction: Simple Joints to Eurocode 3 : cités comme secondes sources des modèles complémentaires.
 """
+
+
+def _notations(texte):
+    """Le paragraphe « Notations » de l'onglet : la ligne « Notations » du pied
+    de la note, mot pour mot (une source : notation.py) — les définitions que
+    les cotes, réduites à leur symbole, ne portent plus (consolidation du
+    01/11/2026, point 4)."""
+    return "\n#### Notations\n\n" + texte.split(" : ", 1)[1] + "\n"
+
+
+METHODE += _notations(NOTATIONS)
