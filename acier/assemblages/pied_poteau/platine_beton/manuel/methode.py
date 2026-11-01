@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """L'onglet Méthode du calcul manuel : le modèle, dans l'ordre d'une note à
-la main (docs/assemblages/PLATINE_MANUELLE.md)."""
+la main (docs/assemblages/PLATINE_MANUELLE.md), précédé de « Ce que l'outil
+vérifie » (le texte de l'ancien bouton ❔, commun aux deux modes)."""
+from ..methode import CE_QUE_L_OUTIL_VERIFIE
 
-METHODE = """
+METHODE = CE_QUE_L_OUTIL_VERIFIE + """
 #### Le calcul manuel de la platine — ce que l'outil fait, dans l'ordre
 
 **1. Les efforts des tiges** — platine rigide (EN 1992-4 section 6, le modèle des logiciels
@@ -38,9 +40,12 @@ entraxes du Tableau 3.3.
 répartition étant RECALCULÉE à chaque épaisseur essayée (bande c, raideurs, efforts des tiges,
 pressions) ; la plus grande des quatre est l'épaisseur requise, et le verdict est « t_req ≤ tp ».
 
-**Les deux critères** — EN 1993-1-8 (défaut) : tronçon en T plastique côté tendu, console élastique
-côté comprimé. Élastique : partout σ de Von Mises ≤ fy/γM0 sur la bande, sans effet de levier —
-√1,5 fois l'épaisseur plastique sans effet de levier, jusqu'à √3 fois avec.
+**Les deux critères** — Élastique (défaut) : partout σ de Von Mises ≤ fy/γM0 sur la bande, sans
+effet de levier — √1,5 fois l'épaisseur plastique sans effet de levier, jusqu'à √3 fois avec.
+Plastique (EN 1993-1-8) : tronçon en T plastique côté tendu (Mpl), console élastique côté comprimé.
+Le défaut élastique date du 31/10/2026 (demande du bureau, côté sûr) : sur le cas par défaut,
+l'épaisseur requise passe de 15,6 mm (plastique) à 19,8 mm (élastique) ; un fichier enregistré
+avant cette date, sans critère, garde le plastique.
 
 **Les deux aires d'appui** — bande c (référence, sûre) ou toute la platine (platine rigide : les
 efforts des tiges se comparent alors à ceux des logiciels d'ancrage ; moins de pression, plus de bras).
@@ -50,6 +55,6 @@ d'ancrage relève du logiciel d'ancrage ou de la vérification complète ; cordo
 eux-mêmes et poteau ne sont pas vérifiés ici.
 
 **Vérification complète** — pour une grille centrée autour d'un seul profilé en I ou RHS sans
-raidisseur, le mode « Vérification complète EN 1993-1-8 + EN 1992-4 » reprend la disposition :
+raidisseur, le mode « Vérif. complète » (EN 1993-1-8 + EN 1992-4) reprend la disposition :
 Table 6.7, tronçons en T par rangée, ancrages dans le béton.
 """

@@ -40,12 +40,20 @@ MODE_MANUEL = "Calcul manuel de la platine (boulons et éléments libres)"
 MODE_COMPLET = "Vérification complète EN 1993-1-8 + EN 1992-4 (grille régulière)"
 MODES = [MODE_MANUEL, MODE_COMPLET]
 
-# Critère de résistance du calcul manuel : l'EN 1993-1-8 (tronçon en T
-# plastique côté tendu, console élastique côté comprimé) ou tout élastique
-# (contrainte de Von Mises ≤ fy/γM0 dans chaque bande).
+# Critère de résistance du calcul manuel : tout élastique (contrainte de Von
+# Mises ≤ fy/γM0 dans chaque bande) ou l'EN 1993-1-8 (tronçon en T plastique
+# côté tendu, console élastique côté comprimé) — affichés « Élastique » /
+# « Plastique » (ecran_saisie.AFFICHAGE), valeurs brutes inchangées.
+#
+# DÉFAUT ÉLASTIQUE — décision du 31/10/2026 (charte ergonomique §12,
+# docs/assemblages/PLATINE_MANUELLE.md « Écarts assumés ») : demande du
+# bureau et côté sûr. Mesuré ce jour sur le cas par défaut : épaisseur
+# requise 15,56 mm en EN 1993-1-8 → 19,81 mm en élastique (η 62,25 → 79,25 %),
+# platine de 25 mm toujours vérifiée. Un fichier enregistré AVANT cette date
+# (sans clé « crit ») garde le critère de son époque (``charger_json``).
 CRIT_EC3 = "EN 1993-1-8 : tronçon en T plastique (Mpl), console élastique"
 CRIT_ELAS = "Élastique : contrainte de Von Mises ≤ fy/γM0 partout"
-CRITERES = [CRIT_EC3, CRIT_ELAS]
+CRITERES = [CRIT_ELAS, CRIT_EC3]
 
 # Aire d'appui de la répartition (calcul manuel) : la bande c de l'EN 1993-1-8
 # autour des parois, ou toute la platine (platine rigide, comme les logiciels
@@ -103,7 +111,7 @@ def defaults():
         "id_projet": "", "id_rep": "", "id_red": "", "id_date": "",
         "mode": MODE_MANUEL,
         "tiges": d["tiges"], "elems": d["elems"], "raid": d["raid"],
-        "crit": CRIT_EC3, "appui": APPUI_EC3, "xN": 0, "yN": 0,
+        "crit": CRIT_ELAS, "appui": APPUI_EC3, "xN": 0, "yN": 0,
         "perim": PERIM_EC3,
         "forme": FORME_I,
         "prof_c": "HEA 300", "h_u": None, "b_u": None, "tw_u": None, "tf_u": None, "r_u": None,
@@ -211,9 +219,13 @@ def _c(k, l, t="n", o=None, un=None, h=None, si=None):
 
 
 # ------------------------------------------------------------------ groupes
+# Les GROUPES (clé, libellé long, type, options, unité, aide, condition
+# d'affichage) sont une VUE : les libellés, aides et options affichés à
+# l'écran sont ceux de ``ecran_saisie.LIBELLE`` / ``AIDES`` / ``AFFICHAGE``
+# (charte ergonomique du 31/10/2026) ; les conditions ``si`` restent la
+# source de ``champ_visible``. ``COURT`` n'a plus de lecteur à l'écran.
 GROUPES = [
     dict(t="Identification",
-         note="Reprise dans la note et l'export texte. Un champ vide n'est pas imprimé.",
          f=[_c("id_projet", "Projet", "x"), _c("id_rep", "Repère de l'assemblage", "x"),
             _c("id_red", "Rédacteur", "x"), _c("id_date", "Date", "x")]),
     dict(t="Mode",
@@ -253,7 +265,6 @@ GROUPES = [
             _c("tp_u", "tp — épaisseur", "n", un="mm"), _c("nu_pl", "Nuance", "s", ACIERS),
             _c("a_w", "a — gorge des cordons poteau / platine", "n", un="mm")]),
     dict(t="Tiges d'ancrage",
-         note="Grille centrée : n files selon x espacées de wx au total, n rangées selon y espacées de wy.",
          f=[_c("n_ax", "Files (selon x)", "n", si=est_complet), _c("n_ay", "Rangées (selon y)", "n", si=est_complet),
             _c("w_x", "wx — entraxe total des files", "n", un="mm", si=est_complet),
             _c("w_y", "wy — entraxe total des rangées", "n", un="mm", si=est_complet),
@@ -320,7 +331,10 @@ def champ_visible(u, k):
 def charger_json(objet):
     """Fusion d'un fichier enregistré sur les défauts, clé par clé (les clés
     inconnues sont ignorées). Un fichier d'avant le calcul manuel (sans clé
-    « mode ») s'ouvre en VÉRIFICATION COMPLÈTE : c'est ce qu'il décrivait."""
+    « mode ») s'ouvre en VÉRIFICATION COMPLÈTE : c'est ce qu'il décrivait.
+    Un fichier sans clé « crit » garde le critère de son époque, l'EN 1993-1-8
+    (le défaut élastique date du 31/10/2026) : il redonne le résultat qu'il
+    donnait."""
     d = defaults()
     if not isinstance(objet, dict):
         raise ValueError("Structure JSON inattendue")
@@ -329,6 +343,8 @@ def charger_json(objet):
             d[k] = objet[k]
     if "mode" not in objet:
         d["mode"] = MODE_COMPLET
+    if "crit" not in objet:
+        d["crit"] = CRIT_EC3
     for k in LISTES:
         if not isinstance(d[k], list):
             d[k] = disposition_defaut()[k]

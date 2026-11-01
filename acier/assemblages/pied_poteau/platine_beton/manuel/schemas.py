@@ -34,9 +34,10 @@ from . import elements as EL
 
 T_MIN_ETIQ = 0.5                      # kN : en dessous, le boulon est dessiné détendu (ni effort, ni bras)
 
-# Cote du dessin → clé d'entrée (édition directe sur le dessin)
+# Cote du dessin → clé d'entrée (édition directe sur le dessin). « dh » y manquait alors que la coupe
+# émet la cote dh (key d_h) : le dict est de nouveau la liste des cotes éditables (31/10/2026).
 CLE_PAR_COTE = {"bp": "bp_u", "lp": "lp_u", "tp": "tp_u", "tg": "t_g", "bc": "bc_u", "lc": "lc_u", "aw": "a_w",
-                "hef": "hef"}
+                "hef": "hef", "dh": "d_h"}
 EXCLURE_PLAN = frozenset({"bc", "lc"})
 EXCLURE_AA = frozenset({"bp", "hef"})
 EXCLURE_BB = frozenset({"lp", "tp", "tg", "aw", "dh"})
@@ -384,6 +385,10 @@ def _coupe(R, opt, axe):
         if tete and dh > 0:
             S.dim(dict(id="dh", side="B", a=pos[-1] - dh / 2, b=pos[-1] + dh / 2, o1=tg + hef, o2=tg + hef, sym="dh",
                        val=dh, key="d_h", lvl=1, out="hi"))
+        elif tete and not opt.fabrication:
+            # dh nul : étiquette « dh 0 » éditable sous la tête (comme « Δz 0 » de la platine d'about) —
+            # hef et dh ont quitté la carte, la coupe reste leur lieu d'édition (charte §4.5)
+            S.tag(pos[-1] + 0.6 * d, tg + hef + 1.3 * fs, dict(id="dh", sym="dh", val=0, key="d_h", lvl=1))
     S.dim(dict(id=id_p, side="T", a=-Wp / 2, b=Wp / 2, o1=-tp, o2=-tp, sym=id_p, val=Wp, key=key_p, lvl=1))
     S.dim(dict(id=id_c, side="T", a=-Wc / 2, b=Wc / 2, o1=tg, o2=tg, sym=id_c, val=Wc, key=key_c, lvl=1))
     S.name("B", 0, R.nom_elems)

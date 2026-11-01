@@ -8,6 +8,12 @@ d'une platine libre n'a pas de fiche de référence dans les guides."""
 import math
 
 from .moteur import compute
+from ..entrees import CRIT_EC3
+
+# Les quatre cas sont des calculs à la main PLASTIQUES (tronçon en T Mpl, section au nu Mpl) : leur critère
+# est écrit dans leurs données. Le défaut de l'écran est devenu élastique le 31/10/2026 (charte §12) ; la
+# fiche VAL-M dépendait de ce défaut sans le dire — le harnais l'a trouvé (VAL-M1, VAL-M2 « À CONTRÔLER »).
+_EC3 = dict(crit=CRIT_EC3)
 
 _CORD = 0.8 * 8 * math.sqrt(2)                       # cordon a = 8 mm
 _m1 = math.hypot(50, 55) - _CORD                     # boulon (−200 ; −200) → angle (−150 ; −145)
@@ -41,7 +47,7 @@ CAS = [
     dict(id="VAL-M1", titre="Suspente N = −100 kN, quatre boulons d'angle (±200 ; ±200), HEA 300, platine 500×500×25 S355",
          data="T = N/4 ; angle : bras diagonal − cordon, leff = m, effet de levier (Lb ≤ Lb*), mode 2 ; "
               "épaisseur tT = √(T/fy) en mode 1 ; section de l'about d'aile b = 14 + 2·m⊥.",
-         inp=dict(N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0), rows=[
+         inp=dict(_EC3, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0), rows=[
              ["T de chaque boulon = N/4", 25.0, lambda R: R.tiges[0]["T"], "kN"],
              ["Bras m = √(50² + 55²) − 0,8·a·√2", _m1, lambda R: R.tiges[0]["m"], "mm"],
              ["leff,1 = m (angle : modèle d'ingénieur)", _m1, lambda R: R.tiges[0]["leff1"], "mm"],
@@ -52,7 +58,7 @@ CAS = [
     dict(id="VAL-M2", titre="Suspente N = −100 kN, boulons devant les ailes (±100 ; ±215)",
          data="m = 215 − 145 − cordon ; leff,1 = min(motifs circulaire et non circulaire, L/2 + m) ; section au nu "
               "de l'aile b = 300 + 2·m, M = 2·T·m ; tS = √(4·M/(b·fy)) gouverne.",
-         inp=dict(tiges=[dict(x=-100, y=-215), dict(x=100, y=-215), dict(x=-100, y=215), dict(x=100, y=215)],
+         inp=dict(_EC3, tiges=[dict(x=-100, y=-215), dict(x=100, y=-215), dict(x=-100, y=215), dict(x=100, y=215)],
                   N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0), rows=[
              ["Bras m = 215 − 145 − 0,8·a·√2", _m2, lambda R: R.tiges[0]["m"], "mm"],
              ["leff,1 = min(cp ; nc ; L/2 + m)", min(_cp2, _nc2), lambda R: R.tiges[0]["leff1"], "mm"],
@@ -63,7 +69,7 @@ CAS = [
     dict(id="VAL-M3", titre="Compression centrée N = 2 000 kN, HEA 300, bande c",
          data="L'épaisseur requise côté comprimé est celle dont la bande c porte N à fjd : Aeff(c) = N/fjd → c = 45,0 "
               "→ tp = c/√(fy/(3·fjd)) ; pression uniforme → bande m = p·c²/2.",
-         inp=dict(N_Ed=2000, Mx_Ed=0, My_Ed=0, Vy_Ed=0), rows=[
+         inp=dict(_EC3, N_Ed=2000, Mx_Ed=0, My_Ed=0, Vy_Ed=0), rows=[
              ["fjd = βj·fcd·√(Ac1/Ac0)", _fjd, lambda R: R.fjd, "MPa"],
              ["tc : Aeff(c) = N/fjd", _tc3, lambda R: R.plaque["t_c"], "mm"],
              ["bande m = p·c²/2 (à tp = 25)", 2000e3 / (2 * (300 + 2 * 25 * math.sqrt(345 / (3 * _fjd))) * (14 + 2 * 25 * math.sqrt(345 / (3 * _fjd)))
@@ -72,7 +78,7 @@ CAS = [
     dict(id="VAL-M4", titre="Cisaillement Vy = 200 kN, N = 0 : pression diamétrale (Tableau 3.4)",
          data="50 kN par boulon ; boulon vers le bord : e1 = 50, p1 = ∞, e2 = 50, p2 = 400 → αb = 0,64, k1 = 2,5 ; "
               "fu = 510 MPa (S355) ; Fb,Rd = k1·αb·fu·d·tp/γM2 = 392,3 kN ; tb = Fv·γM2/(k1·αb·fu·d) = 3,19 mm.",
-         inp=dict(N_Ed=0, Mx_Ed=0, My_Ed=0, Vx_Ed=0, Vy_Ed=200), rows=[
+         inp=dict(_EC3, N_Ed=0, Mx_Ed=0, My_Ed=0, Vx_Ed=0, Vy_Ed=200), rows=[
              ["Fv par boulon", 50.0, lambda R: R.appuis[2]["Fv"], "kN"],
              ["αb = min(e1/(3d0) ; fub/fu ; 1)", _ab4, lambda R: R.appuis[2]["ab"], "-"],
              ["k1 = min(2,8·e2/d0 − 1,7 ; 1,4·p2/d0 − 1,7 ; 2,5)", _k14, lambda R: R.appuis[2]["k1"], "-"],

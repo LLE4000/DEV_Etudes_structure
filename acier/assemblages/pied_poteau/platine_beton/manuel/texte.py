@@ -70,7 +70,12 @@ def construire_texte(R, complet=False):
     L = ["PLATINE SUR BÉTON — CALCUL MANUEL DE LA PLATINE",
          "=" * 64,
          R.statut + " — taux maximal " + pct(R.eta_max, 1) + (" — " + R.gov.label if R.gov else ""), "",
-         "Données : " + ligne_donnees(R) + ".", ""]
+         "Données : " + ligne_donnees(R) + "."]
+    # Le rédacteur saisi au cartouche (id_red) est imprimé ici aussi — un champ saisi et jamais lu
+    # était un défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
+    if str(R.u.get("id_red") or "").strip():
+        L.append("Rédacteur : " + str(R.u.get("id_red")).strip())
+    L.append("")
     L += lignes_main(R)
     L.append("")
     for a in R.alerts:
