@@ -307,7 +307,7 @@ av = expander(at, "Paramètres avancés")
 chk("xN / yN dans Paramètres avancés › APPLICATION ; « Dessin interactif » quitte les avancés pour la tête du dessin",
     av is not None and {"ppb_xN", "ppb_yN"} <= {x.key for x in av.number_input}
     and "ppb_ui_composant" not in {x.key for x in av.checkbox} and "ppb_ui_composant" in w
-    and "APPLI­CATION" in md(at))
+    and ">APPLICATION</div>" in md(at))
 chk("vocabulaire du mode (LIBELLE_MODE) : « Boulon », « Visserie par boulon » ; MATÉRIAUX à trois cases (pas Fissuré)",
     at.selectbox(key="ppb_ancr").label == "Boulon" and at.text_input(key="ppb_visserie").label == "Visserie par boulon"
     and "ppb_fiss" not in w and {"ppb_nu_pl", "ppb_beton", "ppb_hc_u"} <= w)
@@ -320,8 +320,26 @@ chk("table des boulons du kit : en-tête ppb_th_tiges (n° · x (mm) ? · y (mm)
     and at.number_input(key="ppb_t0_x").help == ecran_saisie.AIDES_MANUEL["tiges"] and "Repère : origine" not in t)
 chk("ÉLÉMENTS : HEA 300 du catalogue à l'axe sur UNE rangée (pas de ↳ É1 : rotation et dimensions dans sa fenêtre)",
     {"ppb_e0_type", "ppb_e0_prof", "ppb_e0_x", "ppb_e0_y"} <= w and "ppb_e0_rot" not in w and "ppb_e0_h" not in w)
+# Relecture du 01/11/2026 : la zone de texte de la case Type mesure 63 px à 1351 et 75 px à 1440 (case de 113 /
+# 125 px moins la flèche et 16 px de marge) ; « Tube RHS / SHS » (91 px), « Rectangle plein » (90), « Plat sur
+# chant » (81) et « Profilé I / H » (64, à 1351) y étaient rognés. Libellés courts, mesurés ≤ 58,8 px.
+sel_type = at.selectbox(key="ppb_e0_type")
+chk("type d'élément : libellés courts (Profilé I/H · Tube RHS · Tube CHS · Plat · Rond · Rectangle), valeurs brutes "
+    "inchangées, mêmes libellés dans la fenêtre de l'élément",
+    list(sel_type.options) == ["Profilé I/H", "Tube RHS", "Tube CHS", "Plat", "Rond", "Rectangle"]
+    and sel_type.value == EM.TYPES_ELEM[0] and list(EM.AFF_TYPES) == list(EM.TYPES_ELEM)
+    and EM._panneaux(R0, u0)["elem0"]["champs"][0]["affichage"] is EM.AFF_TYPES, str(list(sel_type.options)))
 chk("RAIDISSEURS : sans raidisseur, ni en-tête ni rangée — ➕ Raidisseur seul",
-    any(b.key == "ppb_btn_radd" for b in at.button) and "ppb_r0_x" not in w and "RAIDIS­SEURS" in t)
+    any(b.key == "ppb_btn_radd" for b in at.button) and "ppb_r0_x" not in w and ">RAIDISSEURS</div>" in t)
+# Relecture du 01/11/2026 : « RAIDISSEURS » et « APPLICATION » mesuraient 76,5 px pour une case de 76 px et se
+# coupaient à leur césure (« RAIDIS-SEURS », « APPLI-CATION ») ; un titre ne se coupe jamais (charte §2). Plus de
+# césure, un espacement serré de 0,05 em (CSS du module) : 74,0 px mesurés dans le navigateur, une ligne.
+chk("RAIDISSEURS et APPLICATION sans césure, espacement serré de 0,05 em dans leurs quatre lieux (ligne sans "
+    "raidisseur, en-tête de table, titre au-dessus sous 1351 px, avancés)",
+    "\u00ad" not in EM.TITRE_RAID + ecran_saisie.TITRE_APPLICATION and "\u00ad" not in t + md(at)
+    and EM.ESPACEMENT_SERRE == ".05em" and "{letter-spacing:.05em !important;}" in EM.CSS_MODULE
+    and all(f'st-key-ppb_{k}"' in EM.CSS_MODULE for k in ("bt_raidisseurs_", "bt_av_application_", "tt_raid", "th_raid"))
+    and kit.slug(ecran_saisie.TITRE_APPLICATION) == "application")
 at.checkbox(key="ppb_ui_composant").uncheck(); run(at)
 w2 = cles_widgets(at)
 cotes = expander(at, "Cotes")
@@ -368,6 +386,55 @@ chk("onglet Vérifications : bloc d'état et table des quatre critères en tête
     and "Non vérifiés ici : cordons ; raidisseurs eux-mêmes ; poteau ; béton d'ancrage" in t
     and "modèle d'ingénieur (sections au nu, bandes, angles)" in t
     and t.index("Platine — épaisseur requise et ses quatre critères") < t.index("Côté tendu — boulon par boulon"))
+
+
+# --- le calcul à la main dit le taux du critère RETENU (relecture du 01/11/2026)
+# Sous le défaut élastique, la table « boulon par boulon » montrait « FT,Rd 149 » suivi de « η 54,4 % » (σvm/fy,
+# pas T/FT,Rd = 26 %) et la table des sections « Mpl 5,17 » suivi de « η 46,9 % » (M/Mpl = 31 %). La colonne qui
+# précède η est désormais la grandeur du critère retenu : σvm en élastique, FT,Rd / Mpl en plastique.
+def table_detail(at, marque):
+    """(en-têtes, rangées) de la table de détail dont l'en-tête contient ``marque`` ; texte des cellules."""
+    import re
+    for m in at.markdown:
+        v = str(m.value)
+        if "<table" in v and marque in v:
+            nu = lambda c: re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", c)).strip()  # noqa: E731
+            return ([nu(c) for c in re.findall(r"<th[^>]*>(.*?)</th>", v)],
+                    [[nu(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", r)] for r in re.findall(r"<tr>(.*?)</tr>", v)
+                     if "<td" in r])
+    return [], []
+
+
+from acier.formats import F as _F, pct as _pct  # noqa: E402
+pt0, ps0 = R0.pire_tige, R0.pire_section
+eb, rb = table_detail(at, "T·m<br>(kNm)")
+es, rs = table_detail(at, "ΣT·m<br>(kNm)")
+lb = next((r for r in rb if r and r[0] == str(pt0["i"] + 1)), [])
+ls_ = next((r for r in rs if r and r[0] == ps0["nom"].replace("élément ", "É")), [])
+chk("écran, élastique (défaut) : boulon 1 — σvm 188 MPa puis η 54,4 % (= σvm / 345), plus de colonne FT,Rd ; section "
+    "au nu — σvm 162 puis η 46,9 % ; FT,Rd et Mpl en information plastique dans les légendes",
+    R0.elastique and eb[6:8] == ["σvm (MPa)", "η"] and not any("FT,Rd" in x for x in eb)
+    and lb[6:8] == [_F(pt0["svm"], 0), _pct(pt0["eta"], 1)] and _pct(pt0["eta"], 1) == "54,4 %"
+    and es[5:7] == ["σvm (MPa)", "η"] and not any("Mpl" in x for x in es)
+    and ls_[5:7] == [_F(ps0["svm"], 0), _pct(ps0["eta"], 1)] and _pct(ps0["eta"], 1) == "46,9 %"
+    and f"FT,Rd = {_F(pt0['FT_Rd'], 0)} kN, mode {pt0['mode_ts']} (plastique, information)" in md(at)
+    and f"Mpl = 0,25·b·tp²·fy/γM0 = {_F(ps0['Mpl'], 2)} kNm pour" in md(at)
+    and "Critère élastique retenu : η = σvm / (fy/γM0), fy/γM0 = 345 MPa" in md(at)
+    # le σ garde sa casse sous les en-têtes en capitales du kit (« ΣVM » se lisait comme une somme)
+    and md(at).count("<span style='text-transform:none'>σvm</span>") == 2, str([eb, lb, es, ls_]))
+at.segmented_control(key="ppb_crit").set_value(CRIT_EC3); run(at)
+Rp0 = compute(lu(at))
+ptp, psp = Rp0.pire_tige, Rp0.pire_section
+ebp, rbp = table_detail(at, "T·m<br>(kNm)")
+esp, rsp = table_detail(at, "ΣT·m<br>(kNm)")
+lbp = next((r for r in rbp if r and r[0] == str(ptp["i"] + 1)), [])
+lsp = next((r for r in rsp if r and r[0] == psp["nom"].replace("élément ", "É")), [])
+chk("écran, plastique : boulon 1 — FT,Rd 149 (mode 2) puis η 26,1 % = T/FT,Rd ; section au nu — Mpl 5,17 puis η 30,8 %",
+    not Rp0.elastique and ebp[6:8] == ["FT,Rd (kN)", "η"] and lbp[6:8] == [_F(ptp["FT_Rd"], 0) + " (m" + str(ptp["mode_ts"]).split(" ")[0] + ")", _pct(ptp["eta"], 1)]
+    and _pct(ptp["T"] / ptp["FT_Rd"], 1) == _pct(ptp["eta"], 1) == "26,1 %"
+    and esp[5:7] == ["Mpl (kNm)", "η"] and lsp[5:7] == [_F(psp["Mpl"], 2), _pct(psp["eta"], 1)] and _pct(psp["eta"], 1) == "30,8 %"
+    and "Critère élastique retenu" not in md(at), str([ebp, lbp, esp, lsp]))
+at.segmented_control(key="ppb_crit").set_value(CRIT_ELAS); run(at)
 chk("onglet Méthode : « Ce que l'outil vérifie » (le texte de l'ancien ❔) en tête", EM.METHODE.lstrip().startswith(
     "#### Ce que l'outil vérifie"))
 
@@ -416,6 +483,41 @@ chk("CONCLUSION de la note : elle dit le critère retenu (« selon Von Mises ≤
     "« selon EN 1993-1-8 §6.2.4 (tronçons en T) » en plastique)",
     "selonVonMises≤fy/γM0(critèreélastique)" in s_el and "selonEN1993-1-8§6.2.4(tronçonsenT)" not in s_el
     and "selonEN1993-1-8§6.2.4(tronçonsenT)" in s_pl)
+# Le calcul à la main de la NOTE dit le taux du critère retenu (relecture du 01/11/2026) : sous le défaut
+# élastique, « Boulon 1 … → FT,Rd = 149 kN (mode 2) → 26 % » et « Section … Mpl = 5,17 kNm → 47 % » contredisaient
+# la table des critères (54 %). Le texte de la page est relu sans espaces (ni insécables) : « σvm=188MPa≤… ».
+s_el, s_pl = s_el.replace("\xa0", ""), s_pl.replace("\xa0", "")
+
+
+def segment(s, debut, fins=("Section", "Bandecomprimée", "Trous", "Épaisseurrequise")):
+    """Le texte d'une ligne du calcul à la main : de ``debut`` à la ligne suivante."""
+    i = s.find(debut)
+    if i < 0:
+        return ""
+    j = min([k for k in (s.find(f, i + len(debut)) for f in fins) if k > 0] or [len(s)])
+    return s[i:j]
+
+
+def sans_esp(x):
+    return x.replace(" ", "")
+
+
+pt0, ps0 = R0.pire_tige, R0.pire_section
+nb_el = segment(s_el, f"Boulon{pt0['i'] + 1}T=")
+ns_el = segment(s_el, "Section" + sans_esp(ps0["nom"].replace("élément ", "É")) + ":")
+chk("note, élastique : la ligne Boulon 1 dit « σvm = 188 MPa ≤ fy/γM0 = 345 MPa → 54 % » (plus « → 26 % ») et la "
+    "ligne Section « σvm = 162 MPa ≤ 345 MPa → 47 % » (plus « Mpl = 5,17 kNm → »)",
+    sans_esp(f"σvm = {_F(pt0['svm'], 0)} MPa ≤ fy/γM0 = {_F(R0.ck['ptl'].Rd, 0)} MPa → {_pct(pt0['eta'], 0)}") in nb_el
+    and sans_esp(f"→ {_pct(pt0['T'] / pt0['FT_Rd'], 0)}") not in nb_el and "(plastique,information)" in nb_el
+    and sans_esp(f"σvm = {_F(ps0['svm'], 0)} MPa ≤ {_F(R0.ck['pts'].Rd, 0)} MPa → {_pct(ps0['eta'], 0)}") in ns_el
+    and sans_esp(f"Mpl = {_F(ps0['Mpl'], 2)} kNm →") not in ns_el
+    and _pct(pt0["eta"], 0) == "54 %" and _pct(ps0["eta"], 0) == "47 %", nb_el + " | " + ns_el)
+Rpl0 = compute(dict(u0, crit=CRIT_EC3))
+ptl0 = Rpl0.pire_tige
+nb_pl = segment(s_pl, f"Boulon{ptl0['i'] + 1}T=")
+chk("note, plastique : la ligne Boulon 1 porte T/FT,Rd — « FT,Rd = 149 kN (mode 2) → 26 % »",
+    sans_esp(f"FT,Rd = {_F(ptl0['FT_Rd'], 0)} kN (mode {str(ptl0['mode_ts']).split(' ')[0]}) → {_pct(ptl0['eta'], 0)}") in nb_pl
+    and _pct(ptl0["T"] / ptl0["FT_Rd"], 0) == _pct(ptl0["eta"], 0) == "26 %" and "σvm" not in nb_pl, nb_pl)
 
 # --- rien ne se perd (mode manuel)
 variantes = [u0, dict(u0, typ_a=TYPE_CROSSE), dict(u0, nu_pl="Personnalisé", fy_u=355, fu_u=510, bw_u=0.9),

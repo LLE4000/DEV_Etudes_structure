@@ -281,3 +281,38 @@ et plus seulement les cotes émises ; `manuel/schemas.CLE_PAR_COTE` reçoit
 la fenêtre Efforts. Le vocabulaire suit le mode : « Boulon », « Visserie par
 boulon ». Les alertes d'information (au moins deux) sont regroupées dans un
 repli « ⚠️ n remarques — … » ; les alertes bloquantes restent une par ligne.
+
+### 01/11/2026 — révision après relecture : le calcul à la main dit le taux du critère retenu
+
+Sous le défaut élastique, la ligne « Boulon 1 » du calcul à la main (note,
+export texte) disait « FT,Rd = 149 kN (mode 2) → 26 % » — T/FT,Rd, un taux
+plastique — alors que la table des critères et les formules disaient 54,4 %
+(σvm 187,7 / 345 MPa) pour le même boulon ; la ligne « Section » disait
+« Mpl = 5,17 kNm → 47 % » alors que M/Mpl = 1,59 / 5,17 = 31 % (les 47 % sont
+σvm/fy). À l'écran, « FT,Rd 149 » précédait « η 54,4 % » et « Mpl 5,17 »
+précédait « η 46,9 % ». Correction par COMPOSITION seulement (le moteur nommait
+déjà `t["svm"]`, `t["eta"]`, `s["svm"]`, `s["eta"]`, `R.elastique`) :
+
+- en élastique, la ligne Boulon dit « σvm = 188 MPa ≤ fy/γM0 = 345 MPa → 54 % »
+  et la ligne Section « σvm = 162 MPa ≤ 345 MPa → 47 % » ; FT,Rd et Mpl n'y
+  restent qu'en information, marqués « (plastique, information) » ; à l'écran,
+  la colonne qui précède η est « σvm (MPa) », FT,Rd et Mpl passent dans les
+  légendes des deux tables ;
+- en plastique, rien ne change (T/FT,Rd → 26 %, M/Mpl → 31 %) : export texte et
+  texte de la note identiques, octet pour octet, sur le cas plastique et les
+  quatre cas VAL-M ;
+- la phrase élastique est composée une fois (`manuel/synthese.taux_von_mises`)
+  pour la note, l'export et l'écran.
+
+Valeurs mesurées en relançant le moteur sur le cas par défaut (élastique :
+boulon 1 η 0,5439, section É1 aile −x η 0,4688 ; plastique : 0,2613 et 0,3078).
+Tests : `tests/test_platine_manuelle.py` §9 (export), `tests/test_platine_manuelle_ecran.py`
+§8 (écran et note) — ils rougissent sur l'état du 31/10/2026.
+
+Même relecture, à l'écran : les types d'élément s'affichent « Profilé I/H ·
+Tube RHS · Tube CHS · Plat · Rond · Rectangle » (valeurs brutes inchangées) —
+la zone de texte de la case Type mesure 63 px à 1351 px de fenêtre et 75 px à
+1440, où « Tube RHS / SHS », « Plat sur chant », « Rectangle plein » (et
+« Profilé I / H » à 1351) étaient rognés ; les titres « RAIDISSEURS » et
+« APPLICATION » perdent leur césure et prennent un espacement de 0,05 em
+(74,0 px pour une case de 76 : une ligne, plus de « RAIDIS-SEURS »).

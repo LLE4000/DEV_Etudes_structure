@@ -45,6 +45,8 @@ NOTATIONS_COURTES = ("Notations : bp, lp, tp : platine ; (x ; y) : repère au ce
 # réduites à la ligne du taux ; mini : le boulon et la section les plus sollicités seulement
 VARIANTES = ("toutes", "eta", "mini")
 MAX_LIGNES = {"toutes": (6, 4), "eta": (3, 2), "mini": (1, 1)}
+# L'espace insécable du kit PDF (Doc.wrap ne coupe que l'espace ordinaire) : « 54 % » reste sur une ligne.
+INSEC = "\u00a0"
 
 
 def lignes_entete(R):
@@ -151,16 +153,26 @@ class Note(_np.Note):
         n_b, n_s = MAX_LIGNES.get(self.mode_lignes, (6, 4))
         cols = [("Pas", 58, "left"), ("Le moment pris, sa résistance, l'épaisseur qu'il demande", w - 58, "left")]
         lignes = []
+        # Le calcul à la main dit le taux du critère RETENU (t["eta"], s["eta"] : nommés par le moteur) : en
+        # élastique, σ de Von Mises ≤ fy/γM0 — FT,Rd et Mpl n'y sont plus qu'une information plastique ;
+        # en plastique, T/FT,Rd et M/Mpl (relecture du 01/11/2026 : « FT,Rd = 149 kN → 26 % » sous le défaut
+        # élastique contredisait les 54 % de la table des critères).
+        el = R.elastique
         tendus = sorted([t for t in R.tiges if t["T"] > 1e-9], key=lambda t: -t["eta"])
         for t in tendus[:n_b]:
             txt = ("T = " + F(t["T"], 1) + " kN ; appui " + t["appui"]["face"].replace("élément ", "É") + " ; m = "
                    + F(t["m"], 1) + " mm" + (" (angle)" if t["coin"] else "") + " ; T·m = " + F(t["M"], 2) + " kNm ; leff = "
                    + F(t["leff1"], 0) + " mm")
-            if not court:
-                txt += (", Mpl = " + F(t["Mpl1"], 2) + " kNm, " + ("avec" if t["levier"] else "sans") + " effet de levier")
-            txt += (" → FT,Rd = " + F(t["FT_Rd"], 0) + " kN (mode " + str(t["mode_ts"]).split(" ")[0] + ") → "
-                    + pct(t["T"] / t["FT_Rd"] if t["FT_Rd"] > 0 else 9.99, 0) + " ; tp plast. " + F(t["t_pl"], 1)
-                    + " / élast. " + F(t["t_el"], 1) + " mm")
+            if el:
+                txt += " → " + synthese.taux_von_mises(t, R.ck["ptl"].Rd, esp=INSEC)
+                if not court:
+                    txt += " ; FT,Rd = " + F(t["FT_Rd"], 0) + " kN (plastique, information)"
+            else:
+                if not court:
+                    txt += (", Mpl = " + F(t["Mpl1"], 2) + " kNm, " + ("avec" if t["levier"] else "sans") + " effet de levier")
+                txt += (" → FT,Rd = " + F(t["FT_Rd"], 0) + " kN (mode " + str(t["mode_ts"]).split(" ")[0] + ") → "
+                        + pct(t["eta"], 0))
+            txt += " ; tp plast. " + F(t["t_pl"], 1) + " / élast. " + F(t["t_el"], 1) + INSEC + "mm"
             lignes.append([("lab", "Boulon " + js_str(t["i"] + 1)), ("lab", txt)])
         if len(tendus) > n_b:
             lignes.append([("lab", "…"), ("lab", js_str(len(tendus) - n_b) + " autre(s) boulon(s) tendu(s), moins sollicité(s) — export texte.")])
@@ -169,8 +181,14 @@ class Note(_np.Note):
             txt = (s["nom"].replace("élément ", "É").replace("raidisseur ", "R") + " : boulons "
                    + ", ".join(str(i + 1) for i in s["idx"]) + ", m⊥ " + ", ".join(F(m, 0) for m in s["m"])
                    + " mm ; M = ΣT·m = " + F(s["M"], 2) + " kNm ; b = " + ("" if court else "min(platine ; L + 2m) = ") + F(s["b"], 0)
-                   + " mm ; Mpl = " + F(s["Mpl"], 2) + " kNm → " + pct(s["eta"], 0) + " ; tp plast. " + F(s["t_pl"], 1)
-                   + " / élast. " + F(s["t_el"], 1) + " mm")
+                   + " mm")
+            if el:
+                txt += " ; " + synthese.taux_von_mises(s, R.ck["pts"].Rd, nommer=False, esp=INSEC)
+                if not court:
+                    txt += " ; Mpl = " + F(s["Mpl"], 2) + " kNm (plastique, information)"
+            else:
+                txt += " ; Mpl = " + F(s["Mpl"], 2) + " kNm → " + pct(s["eta"], 0)
+            txt += " ; tp plast. " + F(s["t_pl"], 1) + " / élast. " + F(s["t_el"], 1) + INSEC + "mm"
             lignes.append([("lab", "Section"), ("lab", txt)])
         if len(secs) > n_s:
             lignes.append([("lab", "…"), ("lab", js_str(len(secs) - n_s) + " autre(s) section(s) — export texte.")])

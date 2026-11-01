@@ -47,9 +47,14 @@ ONGLETS = ("Vérifications", "Efforts des tiges", "Note", "Benchmark", "Méthode
 DIMS_PAR_TYPE = {TYPE_I: ("h", "b", "tw", "tf", "r"), TYPE_RHS: ("h", "b", "t"), TYPE_CHS: ("d", "t"),
                  TYPE_PLAT: ("b", "t"), TYPE_ROND: ("d",), TYPE_RECT: ("b", "h")}
 LIB_DIM = {"h": "h", "b": "b", "tw": "tw", "tf": "tf", "r": "r", "t": "t", "d": "Ø"}
-# Types d'élément courts à l'affichage (charte §3) ; valeurs brutes TYPE_* inchangées.
-AFF_TYPES = {TYPE_I: "Profilé I / H", TYPE_RHS: "Tube RHS / SHS", TYPE_CHS: "Tube CHS", TYPE_PLAT: "Plat sur chant",
-             TYPE_ROND: "Rond plein", TYPE_RECT: "Rectangle plein"}
+# Types d'élément courts à l'affichage (charte §3) ; valeurs brutes TYPE_* inchangées. Ils tiennent dans la zone
+# de texte de la case Type ≥ 1351 px : 63 px à 1351, 75 px à 1440 (case de 113 / 125 px moins la flèche et
+# 16 px de marge intérieure), mesurés le 01/11/2026 — « Tube RHS / SHS » (91 px), « Rectangle plein » (90),
+# « Plat sur chant » (81) et même « Profilé I / H » (64, à 1351) y étaient rognés. Les mots sont ceux du moteur
+# (elements.nom : « RHS … », « CHS … », « plat … », « rond Ø… ») et de l'aide ÉLÉMENTS ; un RHS carré (SHS) est
+# un « Tube RHS » de h = b ; le nom complet de la section est dans la case Profilé.
+AFF_TYPES = {TYPE_I: "Profilé I/H", TYPE_RHS: "Tube RHS", TYPE_CHS: "Tube CHS", TYPE_PLAT: "Plat",
+             TYPE_ROND: "Rond", TYPE_RECT: "Rectangle"}
 # Les quatre critères de l'épaisseur requise (bandeau, bloc d'état, chips)
 CRITERES_NOMS = {"T": "tronçon en T du boulon", "S": "section au nu d'une paroi", "c": "bande comprimée",
                  "b": "pression diamétrale"}
@@ -78,7 +83,12 @@ CAPTION_USAGE = CAPTION_LEGENDE + " Glisse un boulon, un élément ou un raidiss
 # - sous 1351 px, une rangée de table range ses cases par deux AVEC le 🗑️ à leur droite (x · y · 🗑️ sur une
 #   rangée) : la base de 205 / 160 px du kit donnait au 🗑️ une demi-rangée à lui seul, cadre vide de 205 px
 #   (constaté sur les captures à 1024 et 390) ; le titre ppb_tt_ prend la forme d'un titre de bloc du kit
-#   au-dessus de sa ligne (« ? » collé au texte, 6 px d'air).
+#   au-dessus de sa ligne (« ? » collé au texte, 6 px d'air) ;
+# - les deux titres de 11 lettres (RAIDISSEURS, APPLICATION) prennent un espacement serré (voir TITRE_RAID).
+ESPACEMENT_SERRE = ".05em"
+# L'encre des titres de bloc : celle de ui_commun.titre_bloc, écrite en dur dans le kit gelé (C_TRAIT n'a que
+# ok / warn / nok / mut) — nommée ici, à consolider dans la palette du kit.
+C_ENCRE_TITRE = "#33415C"
 _TR = "[class*=\"st-key-ppb_tr_\"] > [data-testid=\"stElementContainer\"]"
 CSS_MODULE = ("<style>@media (min-width:1351px){[class*=\"st-key-ppb_tt_\"]{display:none !important;}}\n"
               "@media (max-width:1350px){" + _TR + ":not([class*=\"st-key-ppb_btn_\"]){flex:1 1 calc(50% - 30px) "
@@ -94,10 +104,20 @@ CSS_MODULE = ("<style>@media (min-width:1351px){[class*=\"st-key-ppb_tt_\"]{disp
               "@media (max-width:640px){[class*=\"st-key-ppb_tab_\"] table{font-size:0.7em !important;}\n"
               "  [class*=\"st-key-ppb_tab_\"] th, [class*=\"st-key-ppb_tab_\"] td{padding:2px 3px !important;}}\n"
               "[class*=\"st-key-ppb_al_\"] [data-testid=\"stMarkdownContainer\"]{margin-bottom:0 !important;}\n"
-              "[class*=\"st-key-ppb_tete_dessin\"]{gap:4px 0.5rem !important;}</style>")
-# Un titre de bloc tient dans la case de 76 px sur une ou deux lignes, jamais coupé au milieu d'un mot
-# (charte §2) : « RAIDISSEURS » (11 lettres) ne tient pas sur une ligne, il se coupe à sa césure.
-TITRE_RAID = "RAIDIS\u00adSEURS"
+              "[class*=\"st-key-ppb_tete_dessin\"]{gap:4px 0.5rem !important;}\n"
+              + ", ".join(f"[class*=\"st-key-ppb_{k}\"] [data-testid=\"stMarkdownContainer\"] > div{suite}"
+                          for k, suite in (("bt_raidisseurs_", ""), ("bt_av_application_", ""), ("tt_raid", ""),
+                                           ("th_raid", " > div:first-child")))
+              + "{letter-spacing:" + ESPACEMENT_SERRE + " !important;}</style>")
+# Un titre de bloc tient dans la case de 76 px, jamais coupé (charte §2). « RAIDISSEURS » et « APPLICATION »
+# (11 lettres, 11,52 px gras) mesuraient 76,5 px à l'espacement du kit (0,07 em) : ils se coupaient à leur
+# césure (« RAIDIS-SEURS », « APPLI-CATION », relecture du 01/11/2026). L'espacement serré ci-dessus, local au
+# module (kit gelé), les ramène sur UNE ligne, sans césure. Il vaut pour leurs quatre lieux : la ligne sans
+# raidisseur, l'en-tête de table ≥ 1351 px, le titre au-dessus sous 1351 px, les avancés (APPLICATION).
+TITRE_RAID = "RAIDISSEURS"
+# L'en-tête « σvm (MPa) » des tables de détail : les en-têtes du kit (tableau_html) sont en capitales, et « σvm »
+# devenait « ΣVM » — un Σ de somme (mesuré le 01/11/2026) ; le σ garde sa casse.
+ENTETE_SVM = "<span style='text-transform:none'>σvm</span><br>(MPa)"
 
 
 def _verrou():
@@ -186,7 +206,7 @@ def _entete_table(bloc, entetes, titre=None, aide=None, chaud=False):
     rendu une seconde fois sur sa propre ligne ``ppb_tt_<bloc>``."""
     def q(h):
         # l'apostrophe échappée : « l'élément » de l'aide RAIDISSEURS fermait l'attribut title
-        return (f" <span title='{_esc(h).replace(chr(39), '&#39;')}' style='display:inline-block;border:1px solid #6E7480;border-radius:50%;"
+        return (f" <span title='{_esc(h).replace(chr(39), '&#39;')}' style='display:inline-block;border:1px solid {C_TRAIT['mut']};border-radius:50%;"
                 f"width:13px;height:13px;line-height:12px;text-align:center;font-size:9px;cursor:help;"
                 f"font-weight:400;letter-spacing:0;'>?</span>" if h else "")
 
@@ -194,13 +214,13 @@ def _entete_table(bloc, entetes, titre=None, aide=None, chaud=False):
         return f"<div style='flex:1 1 100px;min-width:0;white-space:nowrap;'>{_esc(lab)}{q(h)}</div>"
     t = ("🔴 " if chaud else "") + titre if titre else None
     premiere = (f"<div style='flex:0 0 {kit.LARG_TITRE}px;font-size:0.92em;font-weight:700;letter-spacing:.07em;"
-                f"color:#33415C;line-height:1.15;'>{_esc(t)}{q(aide)}</div>" if t
+                f"color:{C_ENCRE_TITRE};line-height:1.15;'>{_esc(t)}{q(aide)}</div>" if t
                 else f"<div style='flex:0 0 {kit.LARG_TITRE}px;'>n°</div>")
     with st.container(key=f"ppb_th_{bloc}"):
         # margin-bottom:10px : le conteneur markdown de Streamlit porte une marge de −16 px (cf.
         # ui_commun.titre_bloc) ; l'en-tête du kit.table, sans compensation, mesurait 0 px de haut et les
         # rangées le recouvraient (mesuré le 31/10/2026 : « x (mm) » invisible).
-        st.markdown(f"<div style='display:flex;gap:8px;align-items:flex-end;font-size:0.78em;color:#6E7480;"
+        st.markdown(f"<div style='display:flex;gap:8px;align-items:flex-end;font-size:0.78em;color:{C_TRAIT['mut']};"
                     f"padding:0 0 4px 0;margin-bottom:12px;'>" + premiere + "".join(cellule(lab, h) for lab, h in entetes)
                     + "<div style='flex:0 0 43px;'></div></div>", unsafe_allow_html=True)
     if t:
@@ -606,6 +626,11 @@ def detail_main(R):
     def mm(v):
         return "∞" if v == float("inf") else F(v, 1)
     tendus = [t for t in R.tiges if t["T"] > 1e-9]
+    # La colonne qui précède η est la résistance du critère RETENU, dont η est le taux (t["eta"], s["eta"]
+    # du moteur) : σvm en élastique (η = σvm / (fy/γM0)), FT,Rd ou Mpl en plastique ; en élastique, FT,Rd
+    # et Mpl passent dans la légende, en information (relecture du 01/11/2026 : « FT,Rd 149 » suivi de
+    # « η 54,4 % » se lisait comme un taux faux).
+    el = R.elastique
     # Les tables l'une SOUS l'autre, sur toute la largeur : « boulon par boulon » (9 colonnes) et « section au
     # nu » (8) débordaient d'une demi-colonne (PC et tablette, constaté le 31/10/2026) ; elles défilent au
     # téléphone (tableau_html(defilant=True)).
@@ -615,16 +640,23 @@ def detail_main(R):
         for t in tendus:
             lignes.append([js_str(t["i"] + 1), F(t["T"], 1), t["appui"]["face"].replace("élément ", "É"),
                            F(t["m"], 1) + (" (angle)" if t["coin"] else ""), F(t["M"], 2), F(t["leff1"], 0),
-                           F(t["FT_Rd"], 0) + " (m" + str(t["mode_ts"]).split(" ")[0] + ")",
+                           F(t["svm"], 0) if el else F(t["FT_Rd"], 0) + " (m" + str(t["mode_ts"]).split(" ")[0] + ")",
                            taux_html(t["eta"], t["eta"] <= 1 + 1e-9), F(t["t_pl"], 1) + " / " + F(t["t_el"], 1)])
         # En-têtes sur deux lignes : la table tient dans la colonne sur tablette (660 px) sans défiler.
         st.markdown(tableau_html(["n°", Html("T<br>(kN)"), "Appui", Html("m<br>(mm)"), Html("T·m<br>(kNm)"),
-                                  Html("leff<br>(mm)"), Html("FT,Rd<br>(kN)"), "η", Html("tp plast.<br>/ élast.")],
+                                  Html("leff<br>(mm)"), Html(ENTETE_SVM if el else "FT,Rd<br>(kN)"), "η",
+                                  Html("tp plast.<br>/ élast.")],
                                  lignes, droite=(1, 3, 4, 5, 6, 7, 8), defilant=True), unsafe_allow_html=True)
         pt = R.pire_tige
-        st.caption(f"Boulon {pt['i'] + 1} : Lb = {F(R.Lb, 0)} / Lb* = {F(min(pt['Lb_star'], 9999), 0)} mm → "
-                   + ("avec" if pt["levier"] else "sans") + " effet de levier, mode " + str(pt["mode_ts"])
-                   + f" ; Mpl,1 = 0,25·leff·tp²·fy/γM0 = {F(pt['Mpl1'], 2)} kNm ; σ Von Mises de la bande (2·leff) = {F(pt['svm'], 0)} MPa.")
+        levier = (f"Boulon {pt['i'] + 1} : Lb = {F(R.Lb, 0)} / Lb* = {F(min(pt['Lb_star'], 9999), 0)} mm → "
+                  + ("avec" if pt["levier"] else "sans") + " effet de levier")
+        if el:
+            st.caption(f"Critère élastique retenu : η = σvm / (fy/γM0), fy/γM0 = {F(R.ck['ptl'].Rd, 0)} MPa — σ de "
+                       f"Von Mises de la bande (2·leff). {levier} ; Mpl,1 = 0,25·leff·tp²·fy/γM0 = {F(pt['Mpl1'], 2)} kNm, "
+                       f"FT,Rd = {F(pt['FT_Rd'], 0)} kN, mode {pt['mode_ts']} (plastique, information).")
+        else:
+            st.caption(levier + ", mode " + str(pt["mode_ts"])
+                       + f" ; Mpl,1 = 0,25·leff·tp²·fy/γM0 = {F(pt['Mpl1'], 2)} kNm ; σ Von Mises de la bande (2·leff) = {F(pt['svm'], 0)} MPa.")
     else:
         st.caption("Aucun boulon tendu : la platine ne fléchit pas en traction.")
     st.markdown("**Côté tendu — section au nu de chaque paroi**")
@@ -633,12 +665,17 @@ def detail_main(R):
         for s in R.sections:
             lignes.append([s["nom"].replace("élément ", "É").replace("raidisseur ", "R"),
                            ", ".join(str(i + 1) for i in s["idx"]), ", ".join(F(m, 0) for m in s["m"]),
-                           F(s["M"], 2), F(s["b"], 0), F(s["Mpl"], 2), taux_html(s["eta"], s["eta"] <= 1 + 1e-9),
-                           F(s["t_pl"], 1) + " / " + F(s["t_el"], 1)])
+                           F(s["M"], 2), F(s["b"], 0), F(s["svm"], 0) if el else F(s["Mpl"], 2),
+                           taux_html(s["eta"], s["eta"] <= 1 + 1e-9), F(s["t_pl"], 1) + " / " + F(s["t_el"], 1)])
         st.markdown(tableau_html(["Face", "Boulons", Html("m⊥<br>(mm)"), Html("ΣT·m<br>(kNm)"), Html("b<br>(mm)"),
-                                  Html("Mpl<br>(kNm)"), "η", Html("tp plast.<br>/ élast.")],
+                                  Html(ENTETE_SVM if el else "Mpl<br>(kNm)"), "η", Html("tp plast.<br>/ élast.")],
                                  lignes, droite=(2, 3, 4, 5, 6, 7), defilant=True), unsafe_allow_html=True)
-        st.caption("b = min(platine ; L + 2·m) : la face de longueur L et la diffusion à 45° sur le bras.")
+        ps = R.pire_section
+        st.caption("b = min(platine ; L + 2·m) : la face de longueur L et la diffusion à 45° sur le bras."
+                   + (f" Critère élastique retenu : η = σvm / (fy/γM0), fy/γM0 = {F(R.ck['pts'].Rd, 0)} MPa ; "
+                      f"Mpl = 0,25·b·tp²·fy/γM0 = {F(ps['Mpl'], 2)} kNm pour "
+                      f"{ps['nom'].replace('élément ', 'É').replace('raidisseur ', 'R')} (plastique, information)."
+                      if el else ""))
     else:
         st.caption("Aucune section : pas de boulon tendu devant une paroi.")
     st.markdown("**Côté comprimé — la bande la plus sollicitée**")

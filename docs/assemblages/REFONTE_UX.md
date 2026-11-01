@@ -395,3 +395,30 @@ suites vertes** ; parité dessins 372 vues, 0 divergente ; « RÉGRESSION
 CALCUL : 0 différence » ; benchmark VALIDÉ. Recette navigateur : desktop
 1600×1000 et tablette 834×1112, position de l'élévation mesurée avant et
 après défilement (épinglée sous l'en-tête), glissement gh rejoué.
+
+## 13. Charte ergonomique du 31/10/2026 — pied de poteau, calcul manuel : critère élastique par défaut
+
+Décision du 31/10/2026 (charte ergonomique des écrans d'assemblage, §12) : le
+critère de la platine en calcul manuel est **Élastique** par défaut —
+`entrees.defaults()["crit"] = CRIT_ELAS`, `CRITERES = [CRIT_ELAS, CRIT_EC3]`,
+valeurs brutes, clé `ppb_crit` et fichiers inchangés ; un fichier sans clé
+`crit` (enregistré avant le 31/10/2026) reçoit l'EN 1993-1-8, le critère de son
+époque. Pourquoi : la demande du bureau et le côté sûr — l'élastique ne crédite
+pas l'effet de levier (épaisseur √1,5 à √3 fois la plastique).
+
+Mesuré en relançant le moteur sur le cas par défaut (HEA 300, platine
+500×500×25 S355, 4 × M24 8.8, N 300 / Mx 50 / My 30 / Vy 40) : épaisseur
+requise 15,56 → 19,81 mm, η platine 62,25 → 79,25 %, platine de 25 mm toujours
+VÉRIFIÉE. Le détail (quatre critères, répartition inchangée, benchmark VAL-M
+qui écrit désormais `crit = CRIT_EC3`) : `docs/assemblages/PLATINE_MANUELLE.md`
+§ 6 « Écarts assumés ».
+
+**Révision du 01/11/2026 (relecture des étapes 5 et 6).** Le calcul à la main
+dit le taux du critère RETENU : sous le défaut élastique, la ligne Boulon de la
+note et de l'export disait « FT,Rd = 149 kN (mode 2) → 26 % » (plastique) quand
+la table des critères disait 54,4 %, et la ligne Section « Mpl = 5,17 kNm →
+47 % » (47 % = σvm/fy ; M/Mpl = 31 %). Elles disent maintenant « σvm = 188 MPa
+≤ fy/γM0 = 345 MPa → 54 % » et « σvm = 162 MPa ≤ 345 MPa → 47 % », FT,Rd et Mpl
+« (plastique, information) » ; à l'écran la colonne qui précède η est σvm.
+En plastique, rien ne change. Tests : `tests/test_platine_manuelle.py` §9,
+`tests/test_platine_manuelle_ecran.py` §8.

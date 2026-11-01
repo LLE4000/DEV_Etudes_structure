@@ -362,6 +362,49 @@ chk("sans ce critère écrit, le défaut élastique ferait sortir VAL-M1 et VAL-
     ecarts_el["VAL-M1"] > 0.005 and ecarts_el["VAL-M2"] > 0.005,
     str({k: round(v * 100, 1) for k, v in ecarts_el.items()}))
 
+# ================================================================
+print("\n=== 9. L'export texte dit le taux du critère RETENU ===")
+# Relecture du 01/11/2026 : sous le défaut élastique, la ligne Boulon disait « FT,Rd = 148,7 kN (mode 2) → 26 % »
+# (T/FT,Rd, plastique) et la ligne Section « Mpl = 5,17 kNm → 47 % » (σvm/fy en réalité, M/Mpl = 31 %), alors
+# que la table des critères disait 54,4 % pour ce boulon. Le taux d'une ligne est t["eta"] / s["eta"] du moteur ;
+# en élastique, la ligne dit σvm ≤ fy/γM0, FT,Rd et Mpl n'y sont qu'une information plastique.
+from acier.formats import pct as _pct  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.manuel import texte as _TX  # noqa: E402
+R9, R9p = MM.compute(), MM.compute(dict(crit=CRIT_EC3))
+t9, s9, t9p, s9p = R9.pire_tige, R9.pire_section, R9p.pire_tige, R9p.pire_section
+# Valeurs MESURÉES le 01/11/2026 (moteur relancé, cas par défaut, boulon 1 et section É1 aile −x) : élastique
+# σvm 187,7 / 345 MPa = 54,4 % et 161,7 / 345 = 46,9 % ; plastique T/FT,Rd = 38,9 / 148,7 = 26,1 %, M/Mpl = 30,8 %.
+chk("cas par défaut, mesuré : boulon 1 à 54 % (σvm 188 / 345 MPa) et section au nu à 47 % (σvm 162) en élastique ; "
+    "26 % (T/FT,Rd) et 31 % (M/Mpl) en plastique",
+    R9.elastique and not R9p.elastique and t9["i"] == 0 and _pct(t9["eta"], 0) == "54 %" and _pct(s9["eta"], 0) == "47 %"
+    and _F(t9["svm"], 0) == "188" and _F(s9["svm"], 0) == "162" and _F(R9.ck["ptl"].Rd, 0) == "345"
+    and _pct(t9p["eta"], 0) == "26 %" and pres(t9p["eta"], t9p["T"] / t9p["FT_Rd"], 1e-12) and _pct(s9p["eta"], 0) == "31 %",
+    f"{t9['eta']:.4f} {s9['eta']:.4f} {t9p['eta']:.4f} {s9p['eta']:.4f}")
+
+
+def _ligne(L, debut):
+    return next((x for x in L if x.startswith(debut)), "")
+
+
+L9, L9p = _TX.lignes_main(R9), _TX.lignes_main(R9p)
+b9, sc9 = _ligne(L9, f"Boulon {t9['i'] + 1} "), _ligne(L9, f"Section au nu {s9['nom']} ")
+chk("export, élastique : la ligne Boulon dit « σvm = 188 MPa ≤ fy/γM0 = 345 MPa → 54 % », FT,Rd en information, "
+    "plus « → 26 % »",
+    f"σvm = {_F(t9['svm'], 0)} MPa ≤ fy/γM0 = {_F(R9.ck['ptl'].Rd, 0)} MPa → {_pct(t9['eta'], 0)}" in b9
+    and "(plastique, information)" in b9 and f"→ {_pct(t9['T'] / t9['FT_Rd'], 0)}" not in b9, b9)
+chk("export, élastique : la ligne Section dit « σvm = 162 MPa ≤ fy/γM0 = 345 MPa → 47 % », plus « Mpl = 5,17 kNm → »",
+    f"σvm = {_F(s9['svm'], 0)} MPa ≤ fy/γM0 = {_F(R9.ck['pts'].Rd, 0)} MPa → {_pct(s9['eta'], 0)}" in sc9
+    and f"Mpl = {_F(s9['Mpl'], 2)} kNm →" not in sc9 and f"Mpl = {_F(s9['Mpl'], 2)} kNm (plastique, information)" in sc9, sc9)
+chk("export, élastique : chaque ligne Boulon / Section porte le taux de son t['eta'] / s['eta']",
+    all(f"→ {_pct(t['eta'], 0)} ;" in _ligne(L9, f"Boulon {t['i'] + 1} ") for t in R9.tiges if t["T"] > 1e-9)
+    and all(f"→ {_pct(s['eta'], 0)} ;" in _ligne(L9, f"Section au nu {s['nom']} ") for s in R9.sections))
+b9p, sc9p = _ligne(L9p, f"Boulon {t9p['i'] + 1} "), _ligne(L9p, f"Section au nu {s9p['nom']} ")
+chk("export, plastique : la ligne Boulon dit « FT,Rd = 148,7 kN (mode 2) → 26 % » (T/FT,Rd) et la Section « Mpl = 5,17 "
+    "kNm → 31 % » (M/Mpl)",
+    f"FT,Rd = {_F(t9p['FT_Rd'], 1)} kN (mode {t9p['mode_ts']}) → {_pct(t9p['eta'], 0)}" in b9p and f"σvm = {_F(t9p['svm'], 0)} MPa ;" in b9p
+    and f"Mpl = {_F(s9p['Mpl'], 2)} kNm → {_pct(s9p['eta'], 0)}" in sc9p and "(plastique, information)" not in b9p + sc9p,
+    b9p + " | " + sc9p)
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

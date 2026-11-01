@@ -173,16 +173,17 @@ BLOCS_MANUEL = [
     ("BOULONS", [L(["ancr", "classe", "typ_a"])]),
     ("EFFORTS ELU", [L(["N_Ed", "Mx_Ed", "My_Ed"]), L(["Vx_Ed", "Vy_Ed", "T_Ed"], None, "")]),
 ]
-TITRE_APPLICATION = "APPLI\u00adCATION"
+# Sans césure : l'espacement serré de manuel/ecran.CSS_MODULE le tient sur une ligne de la case de 76 px.
+TITRE_APPLICATION = "APPLICATION"
 # Paramètres avancés des deux modes : chaque ligne suit champ_visible (γMc, RIGIDITÉ : complet ;
 # APPLICATION : manuel).
 AVANCES = [
     ("COEFF. γ", [L(["g_M0", "g_M2", "g_c", "g_Mc"]), L(["a_cc"], None, "")]),
     ("APPUI", [L(["C_f", "f_g"])]),
     ("RIGIDITÉ", [L(["L_c", "contrev"])]),
-    # « APPLICATION » (11 lettres) ne tient pas sur une ligne de la case de 76 px : césure « APPLI-CATION »
-    # (un titre peut occuper deux lignes, jamais être coupé au milieu d'un mot — charte §2 ; constaté sur la
-    # capture des avancés à 1440 : « APPLICATIO / N »).
+    # « APPLICATION » (11 lettres) mesurait 76,5 px pour une case de 76 px (constaté à 1440 : « APPLICATIO / N »,
+    # puis « APPLI-CATION » à la césure — un titre ne se coupe jamais, charte §2) : espacement serré de
+    # 0,05 em, style local du module (manuel/ecran.ESPACEMENT_SERRE, CSS_MODULE), relecture du 01/11/2026.
     (TITRE_APPLICATION, [L(["xN", "yN"])]),
     ("ACIER PERSO", [L(["fy_u", "fu_u", "bw_u"], acier_perso)]),
 ]
