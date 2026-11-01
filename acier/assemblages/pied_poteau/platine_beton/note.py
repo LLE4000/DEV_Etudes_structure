@@ -14,6 +14,7 @@ trois colonnes, pied en deux lignes) :
   le cartouche de CET assemblage.
 """
 import os
+import re
 import tempfile
 from datetime import datetime
 
@@ -23,9 +24,10 @@ from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
 from acier.formats import F, pct
 from acier.js import N, js_str
+from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
-from .entrees import VISSERIE_DEFAUT, OUI, ancrage_txt
-from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte
+from .entrees import VISSERIE_DEFAUT, OUI, ancrage_txt, TYPE_CROSSE, TYPE_ETA
+from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, rangee_lisible, NOTATIONS as NOTATIONS_COURTES
 from ...poutre_poutre.plat_ame import note as _np
 from ...poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, _fmt_echelle, CART_H
 from ...poutre_poutre.doubles_cornieres.rapport import peindre
@@ -35,9 +37,8 @@ M = _np.M
 BAS = _np.BAS
 
 TITRE = "Pied de poteau — platine sur béton (N + Mx + My)"
-NOTATIONS_COURTES = ("Notations : bp, lp, tp : platine ; wx, wy : entraxes des files et des rangées ; hef, dh : "
-                     "ancrage ; tg : mortier ; bc, lc, hc : massif ; c : bande efficace (EC3 §6.2.5) ; fjd : "
-                     "résistance d'appui ; C, pmax : résultante et pression de la répartition ; T : effort d'une tige.")
+# un nombre et son unité (« 8,6 mm », « 43,2 kN », « 35,9 kNm/m ») : l'espace qui les sépare devient insécable
+_UNITE = re.compile(r"(\d) (kNm/m|kNm|kN|MPa|mm)(?![\w/])")
 VARIANTES = _np.VARIANTES
 
 
@@ -60,22 +61,37 @@ def lignes_entete(R):
     return l1, l2, l3
 
 
-def lignes_hypotheses(R):
+def segments_hypotheses(R):
+    """Les SEGMENTS du bloc HYPOTHÈSES (charte du 31/10/2026, §11) : le
+    périmètre ; l'aire efficace (c, Aeff, fjd, βj) et ΣT de la platine
+    rigide ; le niveau du verdict, le type de tiges, les coefficients —
+    chaque segment écrit en entier, avec sa forme courte quand il en a une ;
+    le kit (``note_kit.empaqueter``) les range en ≤ 3 lignes de ≤ 110
+    caractères. Gardés parce qu'ils ne vivent nulle part ailleurs sur la
+    page : Aeff et ΣT. Retirés parce que déjà sur la page : C et pmax (vue en
+    plan, table Béton d'appui), les taux des niveaux 1 et 2 (lignes fc1 / fc2),
+    Sj,ini et son seuil (alerte « rig » sous le bandeau). Perte assumée :
+    √(Ac1/Ac0) (Paramètres retenus à l'écran, export texte)."""
     u = R.u
-    h = [("Périmètre EN 1993-1-8 : platine, tiges, poteau, cordons, appui fjd ; béton d'ancrage EN 1992-4 en information."
-          if R.perim_ec3 else "Périmètre complet : EN 1993-1-8 et EN 1992-4 (béton d'ancrage dans le verdict)."),
-         "Aire efficace EC3 §6.2.5 : fjd = " + F(R.fjd, 1) + " MPa (βj = 2/3, √(Ac1/Ac0) = " + F(R.ratio_c, 2)
-         + "), c = " + F(R.c, 0) + " mm, Aeff = " + F(R.A_eff / 100, 0) + " cm².",
-         "Répartition élastique (platine rigide, lit sans traction, tiges tendues) : C = " + F(R.C, 0) + " kN, pmax = "
-         + F(R.pmax, 1) + " MPa, ΣT = " + F(R.T_tot, 0) + " kN.",
-         "Verdict au niveau 1 (Tab. 6.7, interaction linéaire : " + F(R.eta1 * 100, 0) + " %) ; niveau 2 exact : "
-         + F(R.eta2 * 100, 0) + " %, information.",
-         "Tiges coulées en place (EC2-4, ψM,N = 1) ; γM0 " + F(N(u.g_M0), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2)
-         + " · γc " + F(N(u.g_c), 2) + " (αcc " + F(N(u.a_cc), 2) + ") · γMc " + F(N(u.g_Mc), 2) + "."]
-    if R.rig:
-        h.append("Rigidité Sj,ini = " + F(R.Sj / 1e3, 0) + " MNm/rad, seuil " + F(R.Sj_seuil / 1e3, 0) + " → pied "
-                 + ("RIGIDE" if R.rig["rigide"] else "SEMI-RIGIDE") + " (information).")
-    return h
+    bj = "2/3" if abs(R.beta_j - 2 / 3) < 1e-9 else F(R.beta_j, 2)
+    perim = ("périmètre EN 1993-1-8 : platine, tiges, poteau, cordons, appui fjd ; béton d'ancrage EN 1992-4 en "
+             "information" if R.perim_ec3 else
+             "périmètre complet : EN 1993-1-8 et EN 1992-4, béton d'ancrage dans le verdict")
+    aire = "c = " + F(R.c, 0) + " mm, Aeff = " + F(R.A_eff / 100, 0) + " cm², fjd = " + F(R.fjd, 1) + " MPa"
+    tiges = {TYPE_CROSSE: "tiges à crosse (adhérence)", TYPE_ETA: "tiges scellées (ETA)"}.get(
+        u.typ_a, "tiges coulées (ψM,N = 1)")
+    return [perim,
+            ("aire efficace EC3 §6.2.5 : " + aire + " (βj " + bj + ")", "aire efficace §6.2.5 : " + aire),
+            "platine rigide, ΣT = " + F(R.T_tot, 0) + " kN",
+            "verdict niveau 1",
+            tiges,
+            "γM0 " + F(N(u.g_M0), 2) + " · γM2 " + F(N(u.g_M2), 2) + " · γc " + F(N(u.g_c), 2) + " · γMc "
+            + F(N(u.g_Mc), 2)]
+
+
+def lignes_hypotheses(R):
+    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
+    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
 
 
 class Note(_np.Note):
@@ -142,7 +158,8 @@ class Note(_np.Note):
                     + mm(P["t_M"]) + " mm")]]
         if T and T["T"] > 1e-9:
             lignes.append([("lab", "Tronçon en T"),
-                           ("lab", "rangée " + T["cle"] + " : M = T·m = " + F(T["T"], 1) + " × " + F(T["m"], 1) + " = "
+                           ("lab", "rangée " + rangee_lisible(T["cle"]) + " : M = T·m = " + F(T["T"], 1) + " × "
+                            + F(T["m"], 1) + " = "
                             + F(T["M"], 2) + " kNm ; Σleff,1 = " + F(T["leff1"], 0) + " mm, Mpl,1 = " + F(T["Mpl1"], 2)
                             + " kNm, " + ("avec" if T["levier"] else "sans") + " effet de levier → FT,Rd = "
                             + F(T["FT_Rd"], 0) + " kN → tT = " + mm(P["t_T"]) + " mm")])
@@ -154,6 +171,9 @@ class Note(_np.Note):
             lignes.append([("lab", "Repère Navier"),
                            ("lab", "platine entière : σ max = " + F(NV["s_max"], 2) + " MPa, L = " + F(NV["L"], 0)
                             + " mm, m = σ·L²/2 = " + F(NV["m"], 1) + " kNm/m → t = " + F(NV["t"], 1) + " mm")])
+        # une valeur ne se sépare pas de son unité en fin de ligne (« tT = 8,6 / mm », relecture des notes finales
+        # du 01/11/2026) : ndc_pdf.kit.wrap ne coupe qu'aux espaces ordinaires
+        lignes = [[(c[0], _UNITE.sub("\\1\u00a0\\2", c[1])) + tuple(c[2:]) for c in l] for l in lignes]
         self.table(d, fr, "ÉPAISSEUR DE LA PLATINE — LE CALCUL À LA MAIN", cols, lignes)
 
     def colonne_dessins(self, d, fr):
@@ -235,7 +255,9 @@ class PlanPrincipePB(PlanPrincipe):
                + " – " + js_str(int(u.n_ax)) + " × " + js_str(int(u.n_ay)) + " (" + js_str(N(u.w_x)) + " × "
                + js_str(N(u.w_y)) + ") · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
         vis = "par tige : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
-        ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
+        # Le rédacteur saisi (id_red) est porté au cartouche — un champ saisi et jamais lu était un
+        # défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
+        ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie"), u.get("id_red")) if x)
         cases = [("ASSEMBLAGE", "Pied de poteau – platine sur béton", ident or "—", 0.185),
                  ("POTEAU · MASSIF", R.nom_c + " " + str(u.nu_c),
                   "massif " + js_str(N(u.bc_u)) + "×" + js_str(N(u.lc_u)) + "×" + js_str(N(u.hc_u)) + " " + str(u.beton), 0.165),

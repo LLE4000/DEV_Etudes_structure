@@ -15,9 +15,18 @@ on la retire, et chaque nombre attendu est recalculé À LA MAIN dans le test :
   4. CÔTÉ COMPRIMÉ : pression uniforme → m = p·c²/2 exactement ; épaisseur
      requise = celle où la bande c porte N à fjd ; règle de Voronoï.
   5. TROUS : pression diamétrale du Tableau 3.4 à la main.
-  6. INTUITIONS : rond fin ≫ RHS ; toute la platine ≠ bande c ; critères.
+  6. INTUITIONS : rond fin ≫ RHS ; toute la platine ≠ bande c ; critères —
+     défaut ÉLASTIQUE depuis le 31/10/2026 (charte ergonomique §12) : plus
+     d'épaisseur qu'en EN 1993-1-8, valeurs mesurées figées ; un fichier sans
+     critère garde l'EN 1993-1-8 ; la Méthode cite les nombres du moteur.
   7. VALIDITÉ : boulon dans l'élément, pince, entraxe, élément hors platine,
      aucun boulon, équilibre impossible ; temps de calcul.
+  8. BENCHMARK de l'écran : VALIDÉ ; chaque cas VAL-M écrit son critère
+     (plastique) — sous le défaut élastique, VAL-M1 et VAL-M2 sortiraient
+     « À CONTRÔLER ».
+
+Les calculs à la main des §3 à §5 sont PLASTIQUES (tronçon en T Mpl, section
+au nu Mpl) : ils écrivent ``crit=CRIT_EC3`` (le défaut est élastique).
 
 Lancement : python3 tests/test_platine_manuelle.py (depuis la racine).
 """
@@ -38,8 +47,8 @@ from acier.assemblages.pied_poteau.platine_beton.manuel import elements as EL  #
 from acier.assemblages.pied_poteau.platine_beton.manuel import console as CO  # noqa: E402
 from acier.assemblages.pied_poteau.platine_beton.manuel import conversion as CV  # noqa: E402
 from acier.assemblages.pied_poteau.platine_beton.entrees import (  # noqa: E402
-    TYPE_RHS, TYPE_ROND, TYPE_CHS, TYPE_PLAT, CRIT_ELAS, APPUI_PLEIN, MODE_COMPLET, MODE_MANUEL,
-    element_defaut, defaults, charger_json)
+    TYPE_RHS, TYPE_ROND, TYPE_CHS, TYPE_PLAT, CRIT_ELAS, CRIT_EC3, CRITERES, APPUI_PLEIN, MODE_COMPLET,
+    MODE_MANUEL, element_defaut, defaults, charger_json)
 
 OK, KO = [], []
 
@@ -99,6 +108,11 @@ chk("complet → manuel : les quatre boulons de la grille, le profilé à l'axe"
 anc = charger_json({"bp_u": 500, "n_ax": 2})
 chk("un fichier d'avant le mode manuel (sans clé « mode ») s'ouvre en vérification complète", anc["mode"] == MODE_COMPLET)
 chk("un fichier neuf garde son mode", charger_json({"mode": MODE_MANUEL})["mode"] == MODE_MANUEL)
+chk("un fichier qui porte « mode » mais pas « crit » (enregistré avant le 31/10/2026) garde l'EN 1993-1-8 ; "
+    "un fichier qui porte son critère le garde",
+    charger_json({"mode": MODE_MANUEL})["crit"] == CRIT_EC3
+    and charger_json({"mode": MODE_MANUEL, "crit": CRIT_ELAS})["crit"] == CRIT_ELAS
+    and charger_json({"mode": MODE_MANUEL, "crit": CRIT_EC3})["crit"] == CRIT_EC3)
 
 # ================================================================
 print("\n=== 2. Efforts ===")
@@ -111,7 +125,7 @@ chk("à raideur de tige égale, les efforts des tiges sont ceux de la vérificat
     all(pres(a / 1e3, t["T"], 1e-9) for a, t in zip(el["T"], Rc.tiges)))
 chk("le mode manuel conclut à l'effet de levier (Lb ≤ Lb* avec le bras diagonal) → kb = 1,6·E·As/Lb",
     R.levier and pres(R.k_b, 1.6 * 210000 * 353 / R.Lb, 1e-9))
-Rs = MM.compute(dict(N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0))
+Rs = MM.compute(dict(N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_EC3))
 chk("suspente (N = −100 kN, rien d'autre) : T = 25 kN sur chaque boulon, aucun contact",
     all(pres(t["T"], 25.0, 1e-9) for t in Rs.tiges) and Rs.C < 1e-9 and Rs.A_c < 1e-9)
 Re = MM.compute(dict(elems=[dict(element_defaut(), x=60)], xN=60, Mx_Ed=0, My_Ed=0, Vy_Ed=0))
@@ -167,7 +181,7 @@ chk("l'about d'aile gouverne la suspente : tS = √(4·M/(b·fy)) = 10,97 mm", p
     f"{Rs.plaque['t_S']:.3f} / {t_about:.3f}")
 # boulons DEVANT l'aile : (±100 ; ±215) — pince 35 ≥ 1,2·d0 = 31,2
 DEVANT = tiges((-100, -215), (100, -215), (-100, 215), (100, 215))
-Rf = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0))
+Rf = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_EC3))
 tf_ = Rf.tiges[0]
 m2 = 215 - 145 - CORD
 cp = min(math.pi * m2, math.pi * m2 / 2 + 100, math.pi * m2 / 2 + 150)
@@ -191,7 +205,7 @@ chk("platine de 40 : Lb > Lb* → sans effet de levier ; l'épaisseur élastique
 Rfe = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_ELAS))
 chk("critère élastique : la section au nu demande √1,5 × l'épaisseur plastique (τ négligeable ici)",
     pres(Rfe.plaque["t_S"], t_sec * math.sqrt(1.5), 0.01) and Rfe.elastique, f"{Rfe.plaque['t_S']:.3f} / {t_sec * math.sqrt(1.5):.3f}")
-Rr = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0,
+Rr = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_EC3,
                      raid=[dict(x=130, y=145, dir="+y", L=100, t=10), dict(x=-130, y=145, dir="+y", L=100, t=10),
                            dict(x=130, y=-145, dir="−y", L=100, t=10), dict(x=-130, y=-145, dir="−y", L=100, t=10)]))
 m_r = 25 - CORD
@@ -201,7 +215,7 @@ chk("raidisseurs de 100 le long des boulons (à 25 mm) : le bras tombe à 25 −
     pres(Rr.tiges[0]["m"], m_r, 1e-9) and "raidisseur" in Rr.tiges[0]["appui"]["face"] and not Rr.tiges[0]["coin"]
     and pres(Rr.plaque["t_S"], math.sqrt(4 * 25e3 * m_r / (b_r * 355)), 0.005) and Rr.plaque["t_req"] < Rf.plaque["t_req"],
     f"{Rr.plaque['t_req']:.2f} < {Rf.plaque['t_req']:.2f} ; m = {Rr.tiges[0]['m']:.2f} ; {Rr.tiges[0]['appui']['face']}")
-Rr2 = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0,
+Rr2 = MM.compute(dict(tiges=DEVANT, N_Ed=-100, Mx_Ed=0, My_Ed=0, Vy_Ed=0, crit=CRIT_EC3,
                       raid=[dict(x=100, y=145, dir="+y", L=50, t=10), dict(x=-100, y=145, dir="+y", L=50, t=10),
                             dict(x=100, y=-145, dir="−y", L=50, t=10), dict(x=-100, y=-145, dir="−y", L=50, t=10)]))
 chk("un boulon juste AU-DELÀ DU BOUT d'un raidisseur de 10 mm n'est tenu que par ce bout : bande étroite b = 10 + 2m = 32 mm, "
@@ -267,9 +281,31 @@ chk("CHS 219,1×8 : bras radial 200·√2 − 109,6 − cordon, aire d'appui = a
     and pres(Rchs.A_eff, math.pi * ((219.1 / 2 + Rchs.c) ** 2 - (219.1 / 2 - 8 - Rchs.c) ** 2), 1e-6))
 chk("le verdict suit l'épaisseur requise : t_req ≤ tp ⟺ VÉRIFIÉE (défaut, RHS, suspente, rond)",
     all((X.plaque["t_req"] <= X.u.tp_u + 1e-9) == X.verified for X in (R, Rrhs, Rs, Rrond, Rf)))
-Rel = MM.compute(dict(crit=CRIT_ELAS))
-chk("critère élastique sur le cas par défaut : plus d'épaisseur qu'en EN 1993-1-8 (l'effet de levier n'est pas compté)",
-    Rel.plaque["t_req"] > R.plaque["t_req"] and Rel.ck["ptl"].unit == "MPa")
+# Décision du 31/10/2026 (charte ergonomique §12) : le critère par défaut est ÉLASTIQUE.
+chk("défaut ÉLASTIQUE : defaults()['crit'] == CRIT_ELAS, CRITERES = [CRIT_ELAS, CRIT_EC3] (valeurs brutes inchangées)",
+    defaults()["crit"] == CRIT_ELAS and CRITERES == [CRIT_ELAS, CRIT_EC3] and R.elastique)
+Rpl = MM.compute(dict(crit=CRIT_EC3))
+chk("critère élastique (défaut) : plus d'épaisseur qu'en EN 1993-1-8 (l'effet de levier n'est pas compté) — "
+    "compute(crit=CRIT_EC3).t_req < compute().t_req",
+    Rpl.plaque["t_req"] < R.plaque["t_req"] and R.ck["ptl"].unit == "MPa" and Rpl.ck["ptl"].unit == "kN",
+    f"{Rpl.plaque['t_req']:.2f} / {R.plaque['t_req']:.2f}")
+r_T = R.plaque["t_T"] / Rpl.plaque["t_T"]
+chk("côté tendu : l'épaisseur élastique vaut entre √1,5 (sans levier) et √3 (avec levier) fois la plastique",
+    math.sqrt(1.5) - 1e-6 <= r_T <= math.sqrt(3) + 1e-6, f"{r_T:.3f}")
+# Valeurs MESURÉES le 31/10/2026 en relançant le moteur sur le cas par défaut (HEA 300, platine 500×500×25 S355,
+# 4 × M24 8.8, N 300 / Mx 50 / My 30 / Vy 40) : figées ici, citées par la charte §12, le bandeau et la Méthode.
+chk("cas par défaut, mesuré : élastique t_req 19,81 mm (tT 19,81 · tS 18,66 · tc 12,19 · tb 4,0), η 79,25 % ; "
+    "EN 1993-1-8 t_req 15,56 mm (tT 12,47 · tS 15,56), η 62,25 % ; platine de 25 mm VÉRIFIÉE dans les deux",
+    pres(R.plaque["t_req"], 19.81, 5e-4) and pres(R.plaque["t_S"], 18.66, 5e-4) and pres(R.plaque["t_c"], 12.19, 5e-4)
+    and pres(R.ck["tpq"].eta, 0.7925, 1e-3) and pres(Rpl.plaque["t_req"], 15.56, 5e-4)
+    and pres(Rpl.plaque["t_T"], 12.47, 5e-4) and pres(Rpl.ck["tpq"].eta, 0.6225, 1e-3) and R.verified and Rpl.verified,
+    f"{R.plaque['t_req']:.3f} {Rpl.plaque['t_req']:.3f} {R.ck['tpq'].eta:.4f} {Rpl.ck['tpq'].eta:.4f}")
+from acier.formats import F as _F  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.manuel.methode import METHODE as _METHODE  # noqa: E402
+chk("la Méthode dit « Élastique (défaut) » et cite les deux épaisseurs du moteur (" + _F(Rpl.plaque["t_req"], 1)
+    + " → " + _F(R.plaque["t_req"], 1) + " mm)",
+    "Élastique (défaut)" in _METHODE and _F(Rpl.plaque["t_req"], 1) + " mm (plastique)" in _METHODE
+    and _F(R.plaque["t_req"], 1) + " mm (élastique)" in _METHODE)
 chk("le point d'application par défaut est l'axe de la platine ; à l'axe, aucun moment ajouté",
     pres(R.Mx_o, 50, 1e-12) and pres(R.My_o, 30, 1e-12) and not any(a.id == "exc" for a in R.alerts))
 
@@ -315,6 +351,59 @@ chk("le benchmark de l'onglet (VAL-M1 à VAL-M4) est VALIDÉ : chaque ligne à 0
     str([(c["id"], r["lab"], round(r["ec"] * 100, 2)) for c in B["cas"] for r in c["rows"] if not r["ok"]]))
 chk("VAL-M4 : Fb,Rd = 2,5 × 0,641 × 510 × 24 × 25 / 1,25 = 392,3 kN ; tb = 3,19 mm",
     pres(B["cas"][3]["rows"][3]["val"], 392.3, 0.05) and pres(B["cas"][3]["rows"][4]["val"], 3.19, 0.005))
+# Le 31/10/2026, le défaut du critère est devenu élastique : VAL-M1 et VAL-M2 (des calculs PLASTIQUES)
+# dépendaient de l'ancien défaut sans l'écrire — le harnais l'a trouvé. Chaque cas porte désormais son critère.
+from acier.assemblages.pied_poteau.platine_beton.manuel.benchmark import CAS as _CAS  # noqa: E402
+chk("chaque cas VAL-M écrit son critère : crit = CRIT_EC3 (plastique) dans ses données",
+    all(c["inp"].get("crit") == CRIT_EC3 for c in _CAS))
+ecarts_el = {c["id"]: max(abs((fn(MM.compute(dict(c["inp"], crit=CRIT_ELAS))) - main) / main) for _lab, main, fn, _u in c["rows"])
+             for c in _CAS}
+chk("sans ce critère écrit, le défaut élastique ferait sortir VAL-M1 et VAL-M2 « À CONTRÔLER » (écart > 0,5 %)",
+    ecarts_el["VAL-M1"] > 0.005 and ecarts_el["VAL-M2"] > 0.005,
+    str({k: round(v * 100, 1) for k, v in ecarts_el.items()}))
+
+# ================================================================
+print("\n=== 9. L'export texte dit le taux du critère RETENU ===")
+# Relecture du 01/11/2026 : sous le défaut élastique, la ligne Boulon disait « FT,Rd = 148,7 kN (mode 2) → 26 % »
+# (T/FT,Rd, plastique) et la ligne Section « Mpl = 5,17 kNm → 47 % » (σvm/fy en réalité, M/Mpl = 31 %), alors
+# que la table des critères disait 54,4 % pour ce boulon. Le taux d'une ligne est t["eta"] / s["eta"] du moteur ;
+# en élastique, la ligne dit σvm ≤ fy/γM0, FT,Rd et Mpl n'y sont qu'une information plastique.
+from acier.formats import pct as _pct  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.manuel import texte as _TX  # noqa: E402
+R9, R9p = MM.compute(), MM.compute(dict(crit=CRIT_EC3))
+t9, s9, t9p, s9p = R9.pire_tige, R9.pire_section, R9p.pire_tige, R9p.pire_section
+# Valeurs MESURÉES le 01/11/2026 (moteur relancé, cas par défaut, boulon 1 et section É1 aile −x) : élastique
+# σvm 187,7 / 345 MPa = 54,4 % et 161,7 / 345 = 46,9 % ; plastique T/FT,Rd = 38,9 / 148,7 = 26,1 %, M/Mpl = 30,8 %.
+chk("cas par défaut, mesuré : boulon 1 à 54 % (σvm 188 / 345 MPa) et section au nu à 47 % (σvm 162) en élastique ; "
+    "26 % (T/FT,Rd) et 31 % (M/Mpl) en plastique",
+    R9.elastique and not R9p.elastique and t9["i"] == 0 and _pct(t9["eta"], 0) == "54 %" and _pct(s9["eta"], 0) == "47 %"
+    and _F(t9["svm"], 0) == "188" and _F(s9["svm"], 0) == "162" and _F(R9.ck["ptl"].Rd, 0) == "345"
+    and _pct(t9p["eta"], 0) == "26 %" and pres(t9p["eta"], t9p["T"] / t9p["FT_Rd"], 1e-12) and _pct(s9p["eta"], 0) == "31 %",
+    f"{t9['eta']:.4f} {s9['eta']:.4f} {t9p['eta']:.4f} {s9p['eta']:.4f}")
+
+
+def _ligne(L, debut):
+    return next((x for x in L if x.startswith(debut)), "")
+
+
+L9, L9p = _TX.lignes_main(R9), _TX.lignes_main(R9p)
+b9, sc9 = _ligne(L9, f"Boulon {t9['i'] + 1} "), _ligne(L9, f"Section au nu {s9['nom']} ")
+chk("export, élastique : la ligne Boulon dit « σvm = 188 MPa ≤ fy/γM0 = 345 MPa → 54 % », FT,Rd en information, "
+    "plus « → 26 % »",
+    f"σvm = {_F(t9['svm'], 0)} MPa ≤ fy/γM0 = {_F(R9.ck['ptl'].Rd, 0)} MPa → {_pct(t9['eta'], 0)}" in b9
+    and "(plastique, information)" in b9 and f"→ {_pct(t9['T'] / t9['FT_Rd'], 0)}" not in b9, b9)
+chk("export, élastique : la ligne Section dit « σvm = 162 MPa ≤ fy/γM0 = 345 MPa → 47 % », plus « Mpl = 5,17 kNm → »",
+    f"σvm = {_F(s9['svm'], 0)} MPa ≤ fy/γM0 = {_F(R9.ck['pts'].Rd, 0)} MPa → {_pct(s9['eta'], 0)}" in sc9
+    and f"Mpl = {_F(s9['Mpl'], 2)} kNm →" not in sc9 and f"Mpl = {_F(s9['Mpl'], 2)} kNm (plastique, information)" in sc9, sc9)
+chk("export, élastique : chaque ligne Boulon / Section porte le taux de son t['eta'] / s['eta']",
+    all(f"→ {_pct(t['eta'], 0)} ;" in _ligne(L9, f"Boulon {t['i'] + 1} ") for t in R9.tiges if t["T"] > 1e-9)
+    and all(f"→ {_pct(s['eta'], 0)} ;" in _ligne(L9, f"Section au nu {s['nom']} ") for s in R9.sections))
+b9p, sc9p = _ligne(L9p, f"Boulon {t9p['i'] + 1} "), _ligne(L9p, f"Section au nu {s9p['nom']} ")
+chk("export, plastique : la ligne Boulon dit « FT,Rd = 148,7 kN (mode 2) → 26 % » (T/FT,Rd) et la Section « Mpl = 5,17 "
+    "kNm → 31 % » (M/Mpl)",
+    f"FT,Rd = {_F(t9p['FT_Rd'], 1)} kN (mode {t9p['mode_ts']}) → {_pct(t9p['eta'], 0)}" in b9p and f"σvm = {_F(t9p['svm'], 0)} MPa ;" in b9p
+    and f"Mpl = {_F(s9p['Mpl'], 2)} kNm → {_pct(s9p['eta'], 0)}" in sc9p and "(plastique, information)" not in b9p + sc9p,
+    b9p + " | " + sc9p)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

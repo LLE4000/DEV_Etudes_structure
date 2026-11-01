@@ -4,22 +4,22 @@
 # ===========================
 #  interface.py (Streamlit)
 #
-#  Même écran que le module doubles cornières (finalisation du 21/09/2026) :
-#  barre d'outils, statut une ligne, alertes courtes, puis DEUX COLONNES —
-#  à gauche le dessin (élévation puis vue en plan, colonne FIGÉE par CSS
-#  sticky), à droite la carte compacte par objet, les replis et les onglets.
+#  Titre court et barre d'outils partagée (acier/projet_ui.py), statut une
+#  ligne, alertes courtes, puis DEUX COLONNES — à gauche le dessin (élévation
+#  puis vue en plan, colonne FIGÉE par CSS sticky), à droite la carte par
+#  objet rendue par le kit (acier/assemblages/carte.py), les replis et les
+#  onglets. Charte ergonomique du 31/10/2026 (docs/assemblages/ERGONOMIE.md).
 #
 #  SOURCE UNIQUE : les 67 entrées vivent dans st.session_state sous les clés
 #  `fpl_<clé>` (espace disjoint des clés `asm_` du module doubles cornières).
 #  Le dessin est rendu AVANT la carte (messages appliqués avant widgets).
 # ===========================
-import json
-from datetime import datetime
 from functools import lru_cache
 
 import streamlit as st
 
 from acier import projet_ui
+from acier.assemblages import carte as kit, ui_commun
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT
 from .moteur import compute
@@ -27,24 +27,9 @@ from .benchmark import run_bench
 
 MODULE_VERSION = "1.0"
 PREFIXE = "fpl_"
+TITRE_COURT = "Plat d'âme soudé"
+TITRE_LONG = "Assemblage poutre–poutre – plat d'âme soudé (fin plate)"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "_fpl_", "fpl_cmp_", "fpl_cote_", "fpl_fix_")
-
-_CSS_STICKY = """<style>
-@media (min-width: 641px) {
-  div[data-testid="stColumn"]:has(div.st-key-fpl_col_dessin) {
-    position: sticky;
-    top: 2.875rem;
-    align-self: flex-start;
-    max-height: calc(100vh - 3.5rem);
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-  div[data-testid="stMainBlockContainer"] {
-    padding-bottom: 1.5rem;
-  }
-}
-</style>"""
-
 
 def K(k):
     return PREFIXE + k
@@ -110,12 +95,7 @@ def charger_payload(data):
 
 
 def _infos(u):
-    return {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
-            "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
-            "date": st.session_state.get("date", "") or u.get("id_date", "")
-            or datetime.today().strftime("%d/%m/%Y"),
-            "indice": st.session_state.get("indice", "0"),
-            "visserie": st.session_state.get("fpl_visserie", VISSERIE_DEFAUT)}
+    return projet_ui.infos_cartouche(PREFIXE, u, VISSERIE_DEFAUT)
 
 
 # ------------------------------------------------------------------ écran
@@ -132,80 +112,52 @@ def show():
     if msg:
         st.toast(msg)
 
-    tH1, tH2, tH3 = st.columns([8, 1.6, 0.55], vertical_alignment="center")
-    with tH1:
-        st.markdown("## Assemblage poutre–poutre – plat d'âme soudé (fin plate)")
-    with tH2:
-        st.markdown(f"<div style='text-align:right;color:#6b7280;font-size:0.9em;'>Version {MODULE_VERSION}</div>",
-                    unsafe_allow_html=True)
-    with tH3:
-        st.button("❔", key="fpl_btn_version", use_container_width=True,
-                  help="Vérification ELU selon EN 1993-1-8 et EN 1993-1-1 (γM1 : ANB belge) ; modèles "
-                       "MSB Part 5 §3 (fin plate), SCI P358, ECCS n°126. Benchmark : Worked Example "
-                       "publié du guide, rejoué à chaque ouverture.")
-
-    # Barre d'outils : ◀ Projet · 🏠 · 🔄 · 💾 (projet entier) · [A2 ▾] · 📄 —
-    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
-    b0, b1, b2, b3, b4, b5 = st.columns(6)
-    with b0:
-        projet_ui.bouton_retour("fpl_btn_retour")
-    with b1:
-        if st.button("🏠 Accueil", use_container_width=True, key="fpl_btn_home"):
-            st.session_state.retour_accueil_demande = True
-            st.rerun()
-    with b2:
-        if st.button("🔄 Réinitialiser", use_container_width=True, key="fpl_btn_reset",
-                     disabled=projet_ui.verrouille()):
-            _reinitialiser()
-            st.rerun()
+    projet_ui.en_tete(TITRE_COURT, TITRE_LONG + " · version " + MODULE_VERSION)
     u = lire_entrees()
-    with b3:
-        projet_ui.bouton_enregistrer("fpl_btn_save_dl", lambda: _payload(u), lambda: texte.nom_fichier(u, ".json"))
-    with b4:
-        if not projet_ui.selecteur(PREFIXE):
-            projet_ui.bouton_ouvrir_seul(PREFIXE, charger_payload, ecrire_entrees)
-
+    # dimensions vides (profil Personnalisé) : la vérification est suspendue, le dessin garde des dimensions
+    # provisoires (kit.provisoire) — plus de taux absurdes ni d'exception (consolidation, points 8 et 19)
+    vides = kit.dimensions_vides(ecran_saisie.D, u)
     try:
-        R = compute(u)
+        R = compute(kit.provisoire(ecran_saisie.D, u) if vides else u)
         erreur = None
     except Exception as e:  # noqa: BLE001 — l'écran doit rester utilisable
         R, erreur = None, f"{type(e).__name__}: {e}"
 
-    with b5:
-        if st.button("📄 Générer PDF", use_container_width=True, key="fpl_btn_pdf", disabled=R is None,
-                     help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe."):
-            from .note import generer_note
-            try:
-                st.session_state["fpl_pdf_bytes"] = generer_note(R, _infos(u))
-                st.success("✅ Note de calcul générée")
-            except Exception as e:  # noqa: BLE001
-                st.session_state.pop("fpl_pdf_bytes", None)
-                st.error(f"Erreur lors de la génération du PDF : {e}")
-        if st.session_state.get("fpl_pdf_bytes"):
-            st.download_button("⬇️ Télécharger la note PDF", data=st.session_state["fpl_pdf_bytes"],
-                               file_name=texte.nom_fichier(u, ".pdf"), mime="application/pdf",
-                               use_container_width=True, key="fpl_btn_pdf_dl")
+    def generer_pdf():
+        from .note import generer_note
+        return generer_note(R, _infos(u))
 
+    # Barre d'outils partagée : ◀ Projet · 🏠 · 💾 (projet entier) · 📄 · [A2 ▾] · 🔄 —
+    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
+    projet_ui.barre_outils(PREFIXE, lambda: _payload(u), lambda ext: texte.nom_fichier(u, ext), charger_payload,
+                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None or bool(vides),
+                           pdf_help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe.")
     projet_ui.bandeau_verrou(PREFIXE)
+    kit.injecter_css(PREFIXE)
     if R is None:
         st.error(f"Données incomplètes : {erreur}")
         ecran_saisie.carte(u, set())
         return
 
-    ecran_resultats.bandeau(R)
-    ecran_resultats.alertes(R, u)
+    if vides:
+        ui_commun.bloc_alerte_ligne("Données incomplètes", kit.message_dimensions(ecran_saisie.D, u), True)
+    else:
+        ecran_resultats.bandeau(R)
+        ecran_resultats.alertes(R, u)
     chauds = set()
     sel = st.session_state.get("fpl_ui_alerte")
     for a in R.alerts:
         if a.id == sel:
             chauds = set(a.fields)
-    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
     c_dessin, c_droite = st.columns([1, 1.12], gap="medium")
     with c_dessin:
         with st.container(key="fpl_col_dessin"):
             e, p, hl = ecran_resultats.dessins(R, u)
     with c_droite:
         if not st.session_state.get("fpl_ui_composant", True):
-            ecran_resultats.panneau_cotes(e, p, hl)
+            ecran_resultats.panneau_cotes(R, u, e, p, hl)
         ecran_saisie.carte(u, chauds)
-        ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)
+        if vides:
+            st.caption("Vérifications, note et exports : dès que les dimensions sont saisies.")
+        else:
+            ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)

@@ -27,16 +27,17 @@ from acier.formats import F, f0
 from ....poutre_poutre.doubles_cornieres.schemas import (           # kit partagé
     Options, Feuille, Dessin,
     _rect, _poly, _path, _circle, _text, _group, _hachures, _rect_rompu)
-from ..schemas import _etiquette, _contour_union, _segment_droite, visserie
+from ..schemas import _etiquette, _contour_union, _segment_droite, visserie, englober_efforts, etiquette_efforts
 from ..geometrie import clip as GE_clip
 from ..entrees import TYPE_CROSSE, TYPE_ETA, TYPE_I, TYPE_CHS, TYPE_ROND
 from . import elements as EL
 
 T_MIN_ETIQ = 0.5                      # kN : en dessous, le boulon est dessiné détendu (ni effort, ni bras)
 
-# Cote du dessin → clé d'entrée (édition directe sur le dessin)
+# Cote du dessin → clé d'entrée (édition directe sur le dessin). « dh » y manquait alors que la coupe
+# émet la cote dh (key d_h) : le dict est de nouveau la liste des cotes éditables (31/10/2026).
 CLE_PAR_COTE = {"bp": "bp_u", "lp": "lp_u", "tp": "tp_u", "tg": "t_g", "bc": "bc_u", "lc": "lc_u", "aw": "a_w",
-                "hef": "hef"}
+                "hef": "hef", "dh": "d_h"}
 EXCLURE_PLAN = frozenset({"bc", "lc"})
 EXCLURE_AA = frozenset({"bp", "hef"})
 EXCLURE_BB = frozenset({"lp", "tp", "tg", "aw", "dh"})
@@ -66,6 +67,33 @@ def options_fabrication(R, exclure=frozenset(), fs_force=0.0):
                    exclure=frozenset(exclure), fs_force=fs_force, notation={}, fabrication_calc=frozenset(calc))
 
 
+def _place(S, candidats, txt, taille, cercles, segments, poses):
+    """Le premier candidat (x, ligne de base y) dont le cadre d'étiquette évite
+    les cercles (cx, cy, r), les segments et les étiquettes déjà posées ; à
+    défaut le premier. Le cadre retenu rejoint ``poses``."""
+    demi = len(str(txt)) * taille * 0.56 / 2 + 0.3 * taille
+
+    def cadre(x, y):
+        return (x - demi, y - 1.05 * taille, x + demi, y + 0.37 * taille)
+
+    def libre(c):
+        x1, y1, x2, y2 = c
+        for cx, cy, r in cercles:
+            if x1 - r < cx < x2 + r and y1 - r < cy < y2 + r:
+                return False
+        for (ax, ay), (bx, by) in segments:
+            n = max(2, int(math.hypot(bx - ax, by - ay) / (0.4 * taille)))
+            if any(x1 < ax + (bx - ax) * i / n < x2 and y1 < ay + (by - ay) * i / n < y2 for i in range(n + 1)):
+                return False
+        return not any(x1 < q[2] and q[0] < x2 and y1 < q[3] and q[1] < y2 for q in poses)
+    for x, y in candidats:
+        if libre(cadre(x, y)):
+            poses.append(cadre(x, y))
+            return x, y
+    poses.append(cadre(*candidats[0]))
+    return candidats[0]
+
+
 # ----------------------------------------------------------------------- plan
 def _prims_element(e, hc):
     """La section coupée d'un élément (repère y retourné) : contour, hachures."""
@@ -92,10 +120,12 @@ def plan(R, opt):
     r0, rw = R.d0 / 2, R.d_w / 2
     bb = dict(x1=-mx(bc, bp) / 2, x2=mx(bc, bp) / 2, y1=-mx(lc, lp) / 2, y2=mx(lc, lp) / 2)
     fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 300) / 34, 9)
+    inter = bool(opt.poignees)
+    if inter:
+        englober_efforts(bb, u, fs, opt)
     S = Feuille(bb, fs, opt)
     s = []
     hot = (opt.hl or {}).get("elems") or set()
-    inter = bool(opt.poignees)
 
     def hc(cle):
         return ["hot"] if cle in hot else []
@@ -181,20 +211,35 @@ def plan(R, opt):
             # l'étiquette au-delà du bord de la platine, dans le prolongement de l'axe
             ne = math.hypot(xe, ye) or 1.0
             s.append(_etiquette(S, xe + 1.2 * fs * xe / ne, -(ye + 1.2 * fs * ye / ne) + 0.35 * fs, "AN", ("dl",), 0.8 * fs))
+    # Les étiquettes « C = … » et « mEd » se posent au premier emplacement libre : ni sur un boulon, ni sur le
+    # trait de la bande, ni l'une sur l'autre (cas par défaut, relecture du 01/11/2026 : « mEd » couvrait le
+    # boulon 4 et « C = 339 kN » le trait de la bande) ; à défaut, l'emplacement d'origine.
+    obstacles = [(t["x"], -t["y"], rw + 0.25 * fs) for t in R.tiges]
+    cs = R.console
+    bande = (not opt.fabrication and R.eq_ok and cs.get("L", 0) > 0 and cs.get("m_Ed", 0) > 1e-9)
+    segments = []
+    if bande:
+        ox, oy, nx, ny, L = cs["ox"], cs["oy"], cs["nx"], cs["ny"], cs["L"]
+        segments.append(((ox, -oy), (ox + L * nx, -(oy + L * ny))))
+    poses = []
     if not opt.fabrication and R.eq_ok and R.C > 1e-6:
         s.append(_circle(["pt"], R.xC, -R.yC, 0.3 * fs))
-        s.append(_etiquette(S, R.xC, -R.yC - 0.75 * fs, "C = " + F(R.C, 0) + " kN"))
+        txtC = "C = " + F(R.C, 0) + " kN"
+        wC = S.tw(txtC) / 2 + 0.6 * fs
+        x, y = _place(S, [(R.xC, -R.yC - 0.75 * fs), (R.xC, -R.yC + 1.55 * fs), (R.xC + wC, -R.yC + 0.35 * fs),
+                          (R.xC - wC, -R.yC + 0.35 * fs)], txtC, fs, obstacles, segments, poses)
+        s.append(_etiquette(S, x, y, txtC))
     # la bande comprimée la plus sollicitée : son repère « mEd » au nu, décalé de côté (la valeur est dans le tableau)
-    cs = R.console
-    if not opt.fabrication and R.eq_ok and cs.get("L", 0) > 0 and cs.get("m_Ed", 0) > 1e-9:
-        ox, oy, nx, ny, L = cs["ox"], cs["oy"], cs["nx"], cs["ny"], cs["L"]
-        s.append(_path(["bs"], [[(ox, -oy), (ox + L * nx, -(oy + L * ny))]]))
+    if bande:
+        s.append(_path(["bs"], [segments[0]]))
         s.append(_circle(["bsp"], ox, -oy, 0.28 * fs))
         px_, py_ = -ny, nx
         if px_ * ox + py_ * oy < 0:                 # du côté extérieur (loin du centre de la platine)
             px_, py_ = -px_, -py_
-        xm, ym = ox + 0.45 * L * nx + 1.5 * fs * px_, oy + 0.45 * L * ny + 1.5 * fs * py_
-        s.append(_etiquette(S, xm, -ym + 0.35 * fs, "mEd", ("dl", "calc"), 0.8 * fs))
+        cands = [(ox + f * L * nx + c * 1.5 * fs * px_, -(oy + f * L * ny + c * 1.5 * fs * py_) + 0.35 * fs)
+                 for c in (1, -1) for f in (0.45, 0.75, 0.25)]
+        x, y = _place(S, cands, "mEd", 0.8 * fs, obstacles, segments, poses)
+        s.append(_etiquette(S, x, y, "mEd", ("dl", "calc"), 0.8 * fs))
     # boulons numérotés, déplaçables ; effort et bras de levier des boulons tendus
     for t in R.tiges:
         X, Y = t["x"], -t["y"]
@@ -209,7 +254,11 @@ def plan(R, opt):
                        js_str(t["i"] + 1), 0.8 * fs, "start" if sx > 0 else "end"))
         if not opt.fabrication and t.get("T", 0) > T_MIN_ETIQ:
             yl = Y - rw - 0.6 * fs if t["y"] >= 0 else Y + rw + 1.3 * fs
-            s.append(_etiquette(S, X, yl, "T = " + (F(t["T"], 1) if t["T"] < 10 else F(t["T"], 0)) + " kN", ("dl", "calc"), 0.9 * fs))
+            txtT = "T = " + (F(t["T"], 1) if t["T"] < 10 else F(t["T"], 0)) + " kN"
+            # l'étiquette part du boulon vers l'intérieur de la platine : centrée, elle couvrait le numéro du
+            # boulon, posé du côté extérieur (relecture du 01/11/2026)
+            xl = X - sx * max(0.0, len(txtT) * 0.9 * fs * 0.56 / 2 - rw)
+            s.append(_etiquette(S, xl, yl, txtT, ("dl", "calc"), 0.9 * fs))
             a = t["appui"]
             if a["d"] > 1e-6:
                 s.append(_path(["lv"], [[(X, Y), (a["px"], -a["py"])]]))
@@ -224,14 +273,7 @@ def plan(R, opt):
                                     ("dl", "calc"), 0.8 * fs))
     # étiquette des efforts (panneau au clic), au point d'application
     if inter:
-        autres = any(N(u[k]) != 0 for k in ("Vx_Ed", "Vy_Ed", "T_Ed"))
-        txtE = ("NEd " + f0(N(u.N_Ed)) + " · Mx " + f0(N(u.Mx_Ed)) + " · My " + f0(N(u.My_Ed))
-                + (" · V" if autres else ""))
-        wE = S.tw(txtE) + 0.5 * fs
-        hitE = _rect(["hit"], -wE / 2, -1.05 * fs, wE, 1.42 * fs)
-        hitE["rx"] = 0.2 * fs
-        s.append(_group(["ef", "ed"], [hitE, _text([], None, None, txtE, fs)],
-                        x=0, y=-hl_ - 0.9 * fs, rot=0, grp="efforts", id="efforts"))
+        s.append(etiquette_efforts(S, u, fs, 0, -hl_ - 0.9 * fs))
         if abs(R.xN) + abs(R.yN) > 1e-9:
             s.append(_circle(["pt"], R.xN, -R.yN, 0.25 * fs))
     # --- cotes
@@ -384,6 +426,10 @@ def _coupe(R, opt, axe):
         if tete and dh > 0:
             S.dim(dict(id="dh", side="B", a=pos[-1] - dh / 2, b=pos[-1] + dh / 2, o1=tg + hef, o2=tg + hef, sym="dh",
                        val=dh, key="d_h", lvl=1, out="hi"))
+        elif tete and not opt.fabrication:
+            # dh nul : étiquette « dh 0 » éditable sous la tête (comme « Δz 0 » de la platine d'about) —
+            # hef et dh ont quitté la carte, la coupe reste leur lieu d'édition (charte §4.5)
+            S.tag(pos[-1] + 0.6 * d, tg + hef + 1.3 * fs, dict(id="dh", sym="dh", val=0, key="d_h", lvl=1))
     S.dim(dict(id=id_p, side="T", a=-Wp / 2, b=Wp / 2, o1=-tp, o2=-tp, sym=id_p, val=Wp, key=key_p, lvl=1))
     S.dim(dict(id=id_c, side="T", a=-Wc / 2, b=Wc / 2, o1=tg, o2=tg, sym=id_c, val=Wc, key=key_c, lvl=1))
     S.name("B", 0, R.nom_elems)

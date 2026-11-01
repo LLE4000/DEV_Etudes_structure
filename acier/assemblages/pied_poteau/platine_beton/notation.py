@@ -7,6 +7,32 @@ import re
 
 from acier.formats import F
 
+# La ligne « Notations » du pied de la note (vérification complète) ET le paragraphe « Notations » de l'onglet
+# Méthode : une source (consolidation du 01/11/2026, point 4 — les cotes ne portent plus que leur symbole : bp,
+# tg, hef, dh… ; leur définition vit ici). Elle tient sur la ligne de la note (≤ 798 pt à 5,6 pt, contrôlé).
+NOTATIONS = ("Notations : bp, lp, tp : platine ; wx, wy : entraxes des files et des rangées ; hef, dh : "
+             "ancrage ; tg : mortier ; bc, lc, hc : massif ; a : gorge des cordons ; c : bande efficace "
+             "(EC3 §6.2.5) ; fjd : résistance d'appui ; C, pmax : résultante et pression de la répartition "
+             "; T : effort d'une tige.")
+# Le calcul manuel : sa propre ligne (boulons, bras m, sections au nu), même règle.
+NOTATIONS_MANUEL = ("Notations : bp, lp, tp : platine ; (x ; y) : repère au centre ; m : bras jusqu'à l'appui "
+                    "(cordon a déduit) ; leff : longueur efficace (tronçon en T) ; b : section au nu (L + "
+                    "2·m) ; c : bande efficace ; fjd : résistance d'appui ; C, pmax : résultante, pression ; "
+                    "T : effort d'un boulon ; mEd : moment de la bande ; hef, dh : ancrage ; tg : mortier ; "
+                    "bc, lc, hc : massif.")
+
+def rangee_lisible(cle):
+    """La clé de rangée que le moteur NOMME (« y-:-200 » : axe, côté, coordonnée)
+    dite en clair : « y− (y = -200 mm) » — écran (Vérifications, Répartition)
+    et note. L'écran et la note affichaient la clé brute (« y-:-200 (coin) »,
+    relecture des captures et des notes du 01/11/2026)."""
+    try:
+        axe, cote, coord = cle[0], cle[1], float(cle.split(":", 1)[1])
+    except (IndexError, TypeError, ValueError):
+        return cle
+    return f"{axe}{'+' if cote == '+' else '−'} ({axe} = {F(coord, 0)} mm)"
+
+
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC2 = EN 1992-1-1 ; "
                       "EC2-4 = EN 1992-4 (ancrages dans le béton) ; ANB = annexe nationale belge.")
 
@@ -17,6 +43,10 @@ _CIBLES = [
      "d'ingénieur, non codifié", "théorème statique · §6.2.5, §6.2.4 · modèle d'ingénieur"),
     ("(modèle de la Table 6.7) + interaction linéaire (convexité)", "Tab. 6.7 · interaction linéaire"),
     ("— répartition élastique (EN 1992-4 section 6)", "· EC2-4 §6 (répartition)"),
+    # la référence du calcul manuel (« … §6.7 — répartition élastique ») : « répartition élastique » est une
+    # phrase interdite des notes depuis le 21/09/2026 (test_assemblages_note) — la VUE l'abrège, le moteur
+    # garde sa référence (consolidation du 01/11/2026, point 23)
+    ("— répartition élastique", "(répartition)"),
     ("longueurs efficaces dérivées des Tableaux 6.4 / 6.6", "leff : Tab. 6.4 / 6.6"),
     ("tiges de coin / latérales : longueur plafonnée (modèle d'ingénieur)", "coin / lat. : plafond, modèle d'ingénieur"),
     ("(Fc,fc,Rd = Mc,Rd/(h − tf)), par analogie", "par analogie"),

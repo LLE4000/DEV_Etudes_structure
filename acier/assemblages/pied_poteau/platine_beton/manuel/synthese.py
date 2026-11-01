@@ -74,3 +74,17 @@ def lignes(R, cle):
 
 def titre_table(cle, R=None):
     return {t[0]: t[1] for t in TABLES}[cle]
+
+
+def taux_von_mises(d, lim, nommer=True, esp=" "):
+    """« σvm = 188 MPa ≤ fy/γM0 = 345 MPa → 54 % » : le taux du critère
+    élastique RETENU d'un boulon ou d'une section — ``d["svm"]`` et
+    ``d["eta"]`` sont nommés par le moteur, ``lim`` est la résistance de la
+    vérification ptl / pts (fy/γM0). Rien n'est recalculé ; la phrase est
+    composée ICI une fois pour la note, l'export texte et l'écran (relecture
+    du 01/11/2026 : le calcul à la main dit le taux du critère retenu).
+    ``nommer=False`` : « ≤ 345 MPa », sans redire fy/γM0. ``esp`` : l'espace
+    entre un nombre et son unité — la note passe l'insécable (U+00A0), que
+    le kit PDF ne coupe pas (« 54 » / « % » tombait sur deux lignes)."""
+    return ("σvm = " + F(d["svm"], 0) + esp + "MPa " + ("≤" if d["eta"] <= 1 + 1e-9 else ">") + " "
+            + ("fy/γM0 = " if nommer else "") + F(lim, 0) + esp + "MPa → " + pct(d["eta"], 0).replace(" ", esp))

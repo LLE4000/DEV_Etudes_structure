@@ -1,8 +1,22 @@
 # -*- coding: utf-8 -*-
 """Onglet Méthode : le modèle mécanique du pied de poteau, ses deux niveaux,
-ses sources et ses limites — en toutes lettres."""
+ses sources et ses limites — en toutes lettres. ``CE_QUE_L_OUTIL_VERIFIE``
+est le texte de l'ancien bouton ❔ de l'en-tête (charte du 31/10/2026, §8) :
+il ouvre l'onglet Méthode des DEUX modes."""
+from .notation import NOTATIONS
 
-METHODE = """
+CE_QUE_L_OUTIL_VERIFIE = """
+#### Ce que l'outil vérifie
+
+Deux modes. **Calcul manuel de la platine** (défaut) : boulons posés librement,
+éléments soudés, raidisseurs ; efforts des tiges par la platine rigide,
+épaisseur requise lue comme sur une note à la main (bras de levier, moment
+pris, largeur de plat, Von Mises ou tronçon en T). **Vérification complète
+EN 1993-1-8 + EN 1992-4** pour une grille régulière autour d'un profilé :
+aire efficace, Table 6.7, tronçons en T par rangée, ancrages. γM0 ANB belge.
+"""
+
+METHODE = CE_QUE_L_OUTIL_VERIFIE + """
 #### Modèle mécanique
 
 Pied de poteau **encastré ou articulé** selon ce que donne le calcul : une
@@ -145,3 +159,14 @@ EN 1992-1-1:2004 §6.7, §8.4.2 ; EN 1992-4:2018 §7.2 ; *Steel Buildings in
 Europe – Part 5: Joint Design* (pied articulé, aire efficace) ; SCI P398
 (pied encastré) ; étude de méthode du bureau (30/10/2026).
 """
+
+
+def _notations(texte):
+    """Le paragraphe « Notations » de l'onglet : la ligne « Notations » du pied
+    de la note, mot pour mot (une source : notation.py) — les définitions que
+    les cotes, réduites à leur symbole, ne portent plus (consolidation du
+    01/11/2026, point 4)."""
+    return "\n#### Notations\n\n" + texte.split(" : ", 1)[1] + "\n"
+
+
+METHODE += _notations(NOTATIONS)

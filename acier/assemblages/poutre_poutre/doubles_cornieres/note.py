@@ -37,9 +37,10 @@ from acier.formats import F, pct
 from acier.js import N
 from acier.bibliotheques import PERSO
 from acier.js import js_str, mx
+from acier.assemblages.note_kit import empaqueter, coefficients, MSB
 from . import schemas, synthese, formules
 from .entrees import VISSERIE_DEFAUT
-from .notation import ec, ligne_alerte, LEGENDE_REFERENCES
+from .notation import ec, ligne_alerte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from .rapport import peindre, peindre_echelle
 
 A4L = landscape(A4)
@@ -51,9 +52,6 @@ S_TAB, S_TAB_H, S_REF, S_FORM, S_DATA = 6.5, 5.6, 5.6, 6.0, 7.0
 LEAD_TAB = 8.8
 
 TITRE = "Assemblage poutre–poutre — doubles cornières d'âme"
-NOTATIONS_COURTES = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2, p2) ; hc, zc : hauteur et position des "
-                     "cornières ; c, dc : grugeage ; gh, Δz : jeu et décalage ; gA, p3 : groupe P ; a : gorge ; "
-                     "z : excentricité.")
 PINCES_COURT = {"S_e1c": "S – e1 cornière (mini)", "S_e2c": "S – e2 cornière, aile B", "S_e1b": "S – e1,b âme portée",
                 "S_he": "S – he âme portée", "S_e2b": "S – e2,b âme portée", "S_p1": "S – p1", "S_p2": "S – p2",
                 "P_e1c": "P – e1 cornière (mini)", "P_e2c": "P – e2 cornière, aile A", "P_p1": "P – p1", "P_p2": "P – p2"}
@@ -95,25 +93,43 @@ def lignes_entete(R):
     return l1, l2, l3
 
 
-def lignes_hypotheses(R):
-    """Les hypothèses : une par ligne, courtes, références abrégées."""
+def segments_hypotheses(R):
+    """Les SEGMENTS du bloc HYPOTHÈSES (charte du 31/10/2026, §11) : modèle
+    articulé et excentricité z ; groupe S (MS) ou cordons B ; groupe P
+    (cisaillement centré, k·Fv,Rd, ou MP) ou cordons A ; grugeage ;
+    coefficients — chaque segment écrit en entier, avec sa forme courte
+    quand il en a une ; le kit (``note_kit.empaqueter``) les range en ≤ 3
+    lignes de ≤ 110 caractères. Retirés parce que déjà sur la page : Ip,S,
+    FRd, Fv,Rd, Fb,Rd (formules et tableaux). « z = … mm » et « MS = VEd·z +
+    |MEd| = … kNm » n'y sont écrits qu'une fois. L'export texte et le rapport
+    détaillé gardent leurs propres lignes (``texte.lignes_hypotheses``)."""
     u = R.u
-    h = ["Articulé — rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1).",
-         "z = " + F(R.zeff, 1) + " mm ; MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm"
-         + (" ; Ip,S = " + F(R.Ip_S, 0) + " mm²" if R.bolt_S else "") + "."]
+    ms = "MS = VEd·z + |MEd| = " + F(R.M_S, 2) + " kNm"
+    mp = "MP = " + F(R.M_P, 2) + " kNm"
+    seg = ["articulé : rotule à la face de l'âme porteuse (MSB P5 §4.2.1.1)", "z = " + F(R.zeff, 1) + " mm",
+           ("groupe S : " + ms) if R.bolt_S else ("cordons B : " + ms + ", Leff totale (§4.5.1)")]
     if R.bolt_P:
-        h.append("Groupe P : " + ("MP = " + F(R.M_P, 2) + " kNm par cornière" if R.M_P > 0
-                                  else "cisaillement centré, " + F(N(u.k_rot), 2) + "·Fv,Rd")
-                 + " (MSB P5 §4.2.1.2).")
+        if R.M_P > 0:
+            seg.append("groupe P : " + mp + " par cornière (MSB P5 §4.2.1.2)")
+        else:
+            k = F(N(u.k_rot), 2) + "·Fv,Rd (MSB P5 §4.2.1.2)"
+            seg.append(("groupe P : cisaillement centré, " + k, "groupe P centré, " + k, "groupe P : " + k))
     elif R.M_P > 0:
-        h.append("Cordons A : MP = " + F(R.M_P, 2) + " kNm par cornière.")
+        seg.append(("cordons A : " + mp + " par cornière, Leff totale (§4.5.1)", "cordons A : " + mp + ", Leff totale (§4.5.1)"))
+    else:
+        seg.append("cordons A : centrés, Leff totale (§4.5.1)")
     if R.cas_g > 0:
-        h.append("Grugeage : flexion de la section réduite (MSB P5 §4.2.4).")
-    h.append("γM0 " + F(N(u.g_M0), 2) + " · γM2 " + F(N(u.g_M2), 2) + " · nettes " + F(N(u.g_M2n), 2)
-             + (" · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else "") + ".")
-    if not (R.bolt_S and R.bolt_P):
-        h.append("Cordons : Leff = longueur totale (EC3 §4.5.1).")
-    return h
+        seg.append(("grugeage : flexion de la section réduite (MSB P5 §4.2.4)", "grugeage : section réduite (MSB P5 §4.2.4)",
+                    "grugeage (MSB P5 §4.2.4)"))
+    suffixe = " · γM3 " + F(N(u.g_M3), 2) if u.cat != "A" else ""
+    seg.append(tuple(f + suffixe for f in coefficients("γM0 " + F(N(u.g_M0), 2) + " · γM2 " + F(N(u.g_M2), 2),
+                                                       N(u.g_M2), N(u.g_M2n))))
+    return seg
+
+
+def lignes_hypotheses(R):
+    """≤ 3 lignes de ≤ 110 caractères, « MSB P5 » une fois par ligne si possible (ValueError sinon : le test rougit)."""
+    return empaqueter(segments_hypotheses(R), n_max=3, larg=110, une_fois=MSB)
 
 
 def _priorite(R):

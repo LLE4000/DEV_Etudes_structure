@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
 """Onglet Méthode : le modèle mécanique du plat d'âme, ses sources et ses
 limites — en toutes lettres."""
+from .notation import NOTATIONS
 
 METHODE = """
+#### Ce que l'outil vérifie
+
+Vérification ELU selon EN 1993-1-8 et EN 1993-1-1 (γM1 : ANB belge) ; modèles
+MSB Part 5 §3 (fin plate), SCI P358, ECCS n°126. Benchmark : Worked Example
+publié du guide, rejoué à chaque ouverture.
+
 #### Modèle mécanique
 
 Assemblage **articulé** : la rotule est à la **face de l'âme porteuse**. Le plat
@@ -49,6 +56,12 @@ ici : à confirmer, valeurs modifiables dans les paramètres avancés. Pour
 l'EN 1993-1-8, aucune divergence belge relevée : valeurs recommandées
 (γM2 = 1,25 ; γM3 = 1,25 ; γM3,ser = 1,1).
 
+#### Données de bibliothèque
+
+Nuances : S355 : fu = 510 MPa (EN 1993-1-1 Tab. 3.1) ; « S355 (fu 490) » :
+valeur d'autres références, à caler sur l'ANB. Profilés : catalogue HEA / HEB /
+HEM / IPE ; « Personnalisé » = dimensions h, b, tw, tf, r saisies.
+
 #### Limites du modèle (à justifier séparément le cas échéant)
 
 - flexion **hors plan** de l'âme porteuse sous le moment `VEd·z` (attache
@@ -68,3 +81,14 @@ Design* (ArcelorMittal / Peiner Träger / Corus, contenu CTICM et SCI,
 *ECCS n°126* ; EN 1993-1-8:2005 ; EN 1993-1-1:2005 ; BS 5950-1:2000
 Annexe B.2.1 (courbe de déversement des plats longs).
 """
+
+
+def _notations(texte):
+    """Le paragraphe « Notations » de l'onglet : la ligne « Notations » du pied
+    de la note, mot pour mot (une source : notation.py) — les définitions que
+    les cotes, réduites à leur symbole, ne portent plus (consolidation du
+    01/11/2026, point 4)."""
+    return "\n#### Notations\n\n" + texte.split(" : ", 1)[1] + "\n"
+
+
+METHODE += _notations(NOTATIONS)

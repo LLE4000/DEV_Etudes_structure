@@ -46,6 +46,13 @@ def ec(txt):
 
 
 # --- références courtes -----------------------------------------------
+# La ligne « Notations » du pied de la note ET le paragraphe « Notations » de l'onglet Méthode : une source
+# (consolidation du 01/11/2026, point 4 — les cotes ne portent plus que leur symbole : zp, c, e1, Δz, p3, gh,
+# dc… ; leur définition vit ici). Elle tient sur la ligne de la note (≤ 798 pt à 5,6 pt, contrôlé).
+NOTATIONS = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2, p2) ; hc, zc : hauteur et position des "
+             "cornières ; c, dc : grugeage ; gh, Δz : jeu et décalage ; gA, p3 : groupe P ; e2,b : pince à "
+             "l'about ; ℓh : retour des cordons ; a : gorge ; z : excentricité.")
+
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC3-1-1 = EN 1993-1-1 ; "
                       "MSB P5 ; P358 = SCI P358 ; ECCS = ECCS n°126.")
 

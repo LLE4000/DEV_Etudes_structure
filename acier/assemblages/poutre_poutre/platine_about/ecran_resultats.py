@@ -2,31 +2,47 @@
 """Résultats à l'écran de la platine d'about : bandeau d'une ligne, alertes
 courtes, dessins cliquables (colonne figée), onglets Vérifications · Prédim ·
 Note · Benchmark · Méthode. Tout est lu dans ``R`` (moteur) et ``B``
-(benchmark)."""
+(benchmark).
+
+Charte du 31/10/2026 : les fenêtres d'objet, le panneau Cotes et les chips
+d'alerte lisent ``LIBELLE`` et ``AIDES`` de la carte (une forme par clé) ;
+l'onglet Vérifications range la légende, le périmètre et le Tableau 3.3
+dans des replis (rien ne se perd, tout est dans ``md(at)``)."""
 import streamlit as st
 
 from acier.js import N, js_str
 from acier.formats import F, pct
-from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte_ligne, bloc_alerte, badge_nature,
-                                         tableau_md, tableau_html, taux_html, Html)
+from acier.assemblages import carte as kit, ui_commun
+from acier.assemblages.ui_commun import (bloc_statut_ligne, bloc_alerte, badge_nature,
+                                         tableau_md, tableau_html, taux_html, verdict_html, Html, _esc,
+                                         C_TRAIT, legende_natures, expander_perimetre, tableau_33_replie)
 from acier.bibliotheques import PERSO
 from . import schemas, texte, synthese, formules
-from .notation import ligne_alerte, LEGENDE_REFERENCES
-from .entrees import COURT, UNITE, CHAMPS, CLES, champ_visible, PILOTEES_PAR_PREDIM
+from .notation import ligne_alerte, ref_courte, LEGENDE_REFERENCES
+from .entrees import CHAMPS, CLES, traction
 from .moteur import apply_solution, solution_label
 from .benchmark import SRC, NOCOVER
 from .methode import METHODE
-from .ecran_saisie import K, valeur_widget, PAS
+from .ecran_saisie import D, PREFIXE, K, LIBELLE, AIDES
+from .schemas import CLE_PAR_COTE
 
 ONGLETS = ("Vérifications", "Prédim", "Note", "Benchmark", "Méthode")
 NIVEAUX_ECRAN = ("Vue simple", "Édition", "Cotations complètes")
+CLES_TETE_DESSIN = ("ui_niveau", "ui_composant")      # réglages d'écran en tête de la colonne dessin
+NATURES = ("EC", "COMP", "INT")
+NON_REVERIFIES = ("flexion TRANSVERSALE de l'âme porteuse sous la traction des boulons (NEd, tying)",
+                  "capacité de rotation au-delà des règles de détail",
+                  "cisaillement global, flexion et déversement de la poutre principale",
+                  "torsion induite", "deux poutres en vis-à-vis sur la même âme")
+CAPTION_USAGE = ("Touche une cote pour la modifier, touche une pièce (poutre, platine, boulon, cordon, VEd) pour "
+                 "ses paramètres ; glisse la poutre portée (Δz).")
 
 
 # ------------------------------------------------------------------ bandeau
 def bandeau(R):
     ok = R.verified
     titre = R.statut + (" – sous réserve des alertes" if ok and (R.reserve or R.alerts) else "")
-    comp = "— " + pct(R.eta_max, 1) + (" · " + R.gov.label if R.gov else "")
+    comp = "— " + pct(R.eta_max, 1) + (" · " + synthese.court(R.gov) if R.gov else "")
     if not R.geo_ok:
         comp += " · géométrie non valide"
     if not R.dist_ok:
@@ -39,125 +55,48 @@ def bandeau(R):
 
 
 # ------------------------------------------------------------------ alertes
-def _selectionner(ident, a_geo):
-    cur = st.session_state.get("pab_ui_alerte")
-    st.session_state["pab_ui_alerte"] = None if cur == ident else ident
-
-
-def _ecrire_depuis(cle_widget, k):
-    st.session_state[K(k)] = valeur_widget(k, st.session_state.get(cle_widget))
-
-
-def _mini_champ(k, u, prefixe, disabled=False):
-    f = CHAMPS[k]
-    cle = prefixe + k
-    st.session_state[cle] = valeur_widget(k, st.session_state.get(K(k)))
-    lab = COURT.get(k, f["l"]) + (UNITE.get(k, "") and " (" + UNITE[k].strip() + ")")
-    if f["t"] == "s":
-        st.selectbox(lab, f["o"], key=cle, on_change=_ecrire_depuis, args=(cle, k), disabled=disabled)
-    elif f["t"] == "x":
-        st.text_input(lab, key=cle, on_change=_ecrire_depuis, args=(cle, k), disabled=disabled)
-    else:
-        st.number_input(lab, key=cle, step=PAS.get(k, 1.0), format="%g",
-                        on_change=_ecrire_depuis, args=(cle, k), disabled=disabled)
-
-
 def alertes(R, u):
-    sel = st.session_state.get("pab_ui_alerte")
-    ids = [a.id for a in R.alerts]
-    if sel and sel not in ids:
-        st.session_state["pab_ui_alerte"] = None
-        sel = None
-        st.toast("Blocage levé : géométrie valide" if (R.geo_ok and R.dist_ok)
-                 else "Ce blocage est levé ; il en reste d'autres")
-    for a in R.alerts:
-        est_sel = sel == a.id
-        titre, detail = ligne_alerte(a, R)
-        c1, c2 = st.columns([7, 1], vertical_alignment="center", gap="small")
-        with c1:
-            bloc_alerte_ligne(titre, detail, a.block, est_sel)
-        with c2:
-            st.button("Masquer" if est_sel else "Localiser", key=f"pab_btn_al_{a.id}",
-                      use_container_width=True, on_click=_selectionner,
-                      args=(a.id, bool(a.dims or a.elems)))
-        if est_sel:
-            with st.container(border=True):
-                st.markdown(a.why if a.why else a.msg)
-                if R.pred and any(k in PILOTEES_PAR_PREDIM for k in a.fields):
-                    st.caption("Mode prédimensionnement : les champs marqués ◆ sont pilotés par la "
-                               "proposition (onglet Prédim, ou mode VÉRIFICATION pour les modifier).")
-                visibles = [k for k in a.fields if champ_visible(u, k)]
-                if visibles:
-                    st.caption("Champs en cause — modifiables ici :")
-                    cols = st.columns(min(4, len(visibles)))
-                    for i, k in enumerate(visibles):
-                        with cols[i % len(cols)]:
-                            _mini_champ(k, u, "pab_fix_", disabled=R.pred and k in PILOTEES_PAR_PREDIM)
-                if a.dims or a.elems:
-                    st.caption("Sur le dessin : cotes et éléments en cause en rouge.")
+    """Les alertes, forme commune des cinq écrans (``ui_commun.alertes``) ;
+    sélectionnée, les champs en cause modifiables sur place (``kit.pastilles``)."""
+    ui_commun.alertes(PREFIXE, R, ligne_alerte, lambda a: kit.pastilles(D, a, u, R.pred))
 
 
 # ------------------------------------------------------------------ dessins
-def _traiter_clic(retour, cle_cmp):
-    if not retour or not isinstance(retour, dict):
-        return
-    derniers = st.session_state.setdefault("pab_ui_dernier_clic", {})
-    if derniers.get(cle_cmp) == retour.get("t"):
-        return
-    derniers[cle_cmp] = retour.get("t")
-    changes = retour.get("changes")
-    if changes is None and retour.get("key"):
-        changes = {retour["key"]: retour.get("value")}
-    ecrits = []
-    for k, v in (changes or {}).items():
-        if k in CHAMPS:
-            st.session_state[K(k)] = valeur_widget(k, v)
-            ecrits.append(COURT.get(k, k) + " = " + js_str(valeur_widget(k, v)))
-    if ecrits:
-        st.toast(" ; ".join(ecrits) + " : géométrie et vérifications recalculées")
-        st.rerun()
-
-
 def _panneaux(R, u):
     """Les fenêtres d'objet du composant : un clic sur une pièce ouvre TOUS
-    ses paramètres."""
+    ses paramètres — une VUE des mêmes clés (libellés LIBELLE, aides AIDES),
+    titres courts, aucun doublon (a_w ne reste que dans Soudure) ; la fenêtre
+    Poutre secondaire porte aussi Δz, dc,sup, dc,inf et c."""
     pred = R.pred
 
-    def ch(k, lab):
-        f = CHAMPS[k]
-        return dict(key=k, lab=lab, type=f["t"], options=f.get("o") or [], step=PAS.get(k, 1.0),
-                    dis=bool(pred and k in PILOTEES_PAR_PREDIM))
+    def ch(k):
+        return kit.champ_fenetre(D, k, u, pred)
 
     def perso(X):
-        return [ch(f"{d}{X}_u", d + " (mm)") for d in ("h", "b", "tw", "tf", "r")]
+        return [ch(f"{d}{X}_u") for d in ("h", "b", "tw", "tf", "r")]
 
     g = {}
-    g["G"] = dict(titre=schemas.GROUPE_BOULONS["titre"],
-                  champs=[ch("n1_u", "Rangées n1"), ch("p1_u", "Entraxe p1 (mm)"),
-                          ch("e1_u", "Pince e1 (mm)"), ch("p3_u", "Entraxe des files p3 (mm)")],
+    g["G"] = dict(titre="Groupe", champs=[ch("n1_u"), ch("p1_u"), ch("e1_u"), ch("p3_u")],
                   note="Deux files symétriques par rapport à l'âme de la poutre portée.")
     g["bolts"] = dict(titre="Boulons",
-                      champs=[ch("boulon_u", "Diamètre"), ch("classe", "Classe"), ch("trou", "Type de trou"),
-                              ch("cat", "Catégorie"), ch("filet", "Filetage cisaillé")]
-                      + ([ch("mu_s", "Frottement μ"), ch("k_s", "ks")] if u.get("cat") != "A" else [])
-                      + ([ch("k_ser", "ELS / ELU")] if u.get("cat") == "B" else []))
-    g["beamS"] = dict(titre="Poutre secondaire (portée)",
-                      champs=[ch("prof_S", "Profilé"), ch("nu_S", "Nuance")]
+                      champs=[ch("boulon_u"), ch("classe"), ch("trou"), ch("cat"), ch("filet")]
+                      + ([ch("mu_s"), ch("k_s")] if u.get("cat") != "A" else [])
+                      + ([ch("k_ser")] if u.get("cat") == "B" else []))
+    g["beamS"] = dict(titre="Poutre secondaire",
+                      champs=[ch("prof_S"), ch("nu_S")]
                       + (perso("S") if u.get("prof_S") == PERSO else [])
-                      + [ch("lt_ok", "Maintenue au déversement"), ch("r_n", "Rayon du grugeage (mm)")],
-                      note="Grugeage et décalage : cotes dc,sup, dc,inf, c et Δz sur le dessin — "
-                           "la poutre se déplace aussi verticalement à la souris.")
-    g["beamP"] = dict(titre="Poutre principale (porteuse)",
-                      champs=[ch("prof_P", "Profilé"), ch("nu_P", "Nuance")]
+                      + [ch("lt_ok"), ch("r_n"), ch("d_top"), ch("d_nt"), ch("d_nb"), ch("l_n")],
+                      note="Δz, dc,sup, dc,inf et c : aussi des cotes sur le dessin — la poutre se déplace aussi "
+                           "verticalement à la souris.")
+    g["beamP"] = dict(titre="Poutre principale",
+                      champs=[ch("prof_P"), ch("nu_P")]
                       + (perso("P") if u.get("prof_P") == PERSO else []))
-    g["plate"] = dict(titre="Platine d'about",
-                      champs=[ch("hp_u", "Hauteur hp (mm)"), ch("bp_u", "Largeur bp (mm)"),
-                              ch("tp_u", "Épaisseur tp (mm)"), ch("z_C", "Position zp (mm)"),
-                              ch("nu_pl", "Nuance"), ch("a_w", "Gorge a (mm)")],
-                      note="hp, bp, tp, zp et la gorge a : aussi des cotes sur le dessin.")
-    g["weld"] = dict(titre="Soudure (double cordon sur l'âme)", champs=[ch("a_w", "Gorge a (mm)")])
-    g["efforts"] = dict(titre="Efforts de calcul ELU",
-                        champs=[ch("V_Ed", "VEd (kN)"), ch("N_Ed", "NEd (kN)"), ch("nat_N", "Nature de NEd")])
+    g["plate"] = dict(titre="Platine",
+                      champs=[ch("hp_u"), ch("tp_u"), ch("bp_u"), ch("z_C"), ch("nu_pl")],
+                      note="hp, bp, tp et zp : aussi des cotes sur le dessin ; la gorge a : fenêtre Soudure.")
+    g["weld"] = dict(titre="Soudure", champs=[ch("a_w")])
+    # la nature de NEd n'a de sens qu'en traction : même règle que la carte (entrees.traction)
+    g["efforts"] = dict(titre="Efforts", champs=[ch("V_Ed"), ch("N_Ed")] + ([ch("nat_N")] if traction(u) else []))
     return g
 
 
@@ -170,11 +109,14 @@ def _alerte_courante(R):
 
 
 def dessins(R, u):
-    """La colonne du dessin : élévation puis vue en plan, empilées (colonne
+    """La colonne du dessin : en tête le niveau de cotation et la case
+    « Dessin interactif », puis élévation et vue en plan empilées (colonne
     figée par interface.py). Renvoie ``(e, p, hl)`` pour le repli."""
+    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center", key="pab_tete_dessin"):
+        niveau = st.radio(LIBELLE["ui_niveau"], [0, 1, 2], format_func=lambda i: NIVEAUX_ECRAN[i],
+                          horizontal=True, key="pab_ui_niveau", label_visibility="collapsed")
+        st.checkbox(LIBELLE["ui_composant"], key="pab_ui_composant", help=AIDES["ui_composant"])
     interactif = bool(st.session_state.get("pab_ui_composant", True))
-    niveau = st.radio("Niveau de cotation", [0, 1, 2], format_func=lambda i: NIVEAUX_ECRAN[i],
-                      horizontal=True, key="pab_ui_niveau", label_visibility="collapsed")
     hl = _alerte_courante(R)
     opt = schemas.options_ecran(R, niveau, hl)
     opt.editables = niveau >= 1
@@ -184,37 +126,26 @@ def dessins(R, u):
     for d, cle in ((e, "pab_cmp_elev"), (p, "pab_cmp_plan")):
         if interactif:
             from acier.composants.svg_cliquable import svg_cliquable
-            _traiter_clic(svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle)
+            kit.traiter_clic(D, svg_cliquable(d.svg(identifiant=cle), valeurs, key=cle, groupes=groupes), cle, u)
         else:
             st.markdown(d.svg(identifiant=cle), unsafe_allow_html=True)
-    if R.pred:
-        st.caption("◆ pilotés par la proposition : onglet Prédim pour appliquer une solution.")
-    elif interactif:
-        st.caption("Touche une cote pour la modifier · touche une pièce (poutre, platine, boulon, cordon, VEd) "
-                   "pour tous ses paramètres · glisse la poutre portée verticalement pour régler le décalage Δz.")
+    if interactif and not R.pred:
+        st.caption(CAPTION_USAGE)       # en prédim, le bandeau ocre et les ◆ suffisent (P9)
     return e, p, hl
 
 
-def panneau_cotes(e, p, hl):
-    """Repli (tête de la colonne de droite) : une saisie par cote."""
-    cotes = []
-    vus = set()
-    for k, sym, ident in schemas.cotes_modifiables(e) + schemas.cotes_modifiables(p):
-        if k not in vus:
-            vus.add(k); cotes.append((k, sym, ident))
-    with st.expander("Cotes", expanded=True):
-        if not cotes:
-            st.caption("Aucune cote modifiable dans cette configuration.")
-        chauds = set(hl["dims"]) if hl else set()
-        for i in range(0, len(cotes), 4):
-            cols = st.columns(4)
-            for col, (k, sym, ident) in zip(cols, cotes[i:i + 4]):
-                with col:
-                    cle = "pab_cote_" + k
-                    st.session_state[cle] = valeur_widget(k, st.session_state.get(K(k)))
-                    st.number_input(("🔴 " if ident in chauds else "") + f"{COURT.get(k, sym)} (mm)", key=cle,
-                                    step=PAS.get(k, 1.0), format="%g",
-                                    on_change=_ecrire_depuis, args=(cle, k), help=CHAMPS[k]["l"])
+def panneau_cotes(R, u, e, p, hl):
+    """Repli (tête de la colonne de droite, dessin interactif décoché) : une
+    saisie par cote (``kit.panneau_cotes``) — les cotes du dessin, celles de
+    l'Édition en Vue simple (point 15 : le panneau était vide), puis la
+    géométrie visible qu'il n'émet pas (rien ne se perd)."""
+    if not (schemas.cotes_modifiables(e) or schemas.cotes_modifiables(p)):
+        opt = schemas.options_ecran(R, 1, hl)
+        opt.editables = True
+        e, p = schemas.elevation(R, opt), schemas.plan(R, opt)
+    emises = [k for k, _s, _i in schemas.cotes_modifiables(e) + schemas.cotes_modifiables(p)]
+    chauds = {CLE_PAR_COTE[d] for d in (hl["dims"] if hl else ()) if d in CLE_PAR_COTE}
+    kit.panneau_cotes(D, kit.cotes_du_panneau(D, u, emises, list(CLE_PAR_COTE.values())), u, chauds)
 
 
 # ------------------------------------------------------ onglet vérifications
@@ -234,10 +165,6 @@ def _table_simple(R, cle):
     return True
 
 
-def _esc(s):
-    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 def _formules(R):
     with st.expander("Formules et substitutions numériques"):
         st.caption("Les valeurs introduites sont composées par le moteur ; la ligne du taux est vérifiée "
@@ -251,34 +178,34 @@ def _formules(R):
                 corps = "<br>".join(_esc(l) for l in formules.textes(R, c))
                 st.markdown(
                     f"<div style='margin:2px 0 8px 0;padding:4px 10px;border-left:3px solid "
-                    f"{'#2E7D46' if c.ok else '#9C3341'};font-size:0.88em;'>"
+                    f"{C_TRAIT['ok'] if c.ok else C_TRAIT['nok']};font-size:0.88em;'>"
                     f"<b>{_esc(synthese.court(c))}</b>{badge_nature(c.nat)} "
-                    f"<span style='color:#6E7480;'>{_esc(c.ref)}</span><br>"
+                    f"<span style='color:{C_TRAIT['mut']};'>{_esc(ref_courte(c.ref))}</span><br>"
                     f"<span style='font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:0.95em;'>{corps}</span></div>",
                     unsafe_allow_html=True)
 
 
 def _tableau_33(R):
-    st.markdown("##### Pinces et entraxes – EN 1993-1-8 Tableau 3.3")
-    if not R.dist:
-        st.caption("Sans objet.")
-        return
-    lignes = []
-    for x in R.dist:
-        lignes.append([x.lab, F(x.val, 1), F(x.min, 1), "—" if x.max is None else F(x.max, 0),
-                       Html("<span style='color:#2E7D46;font-weight:700'>OK</span>" if x.ok
-                            else "<span style='color:#9C3341;font-weight:700'>NON OK</span>")])
-    st.markdown(tableau_html(["Distance", "Valeur", "Min", "Max", ""], lignes, droite=(1, 2, 3),
-                             largeurs=[None, "10%", "10%", "10%", "10%"]), unsafe_allow_html=True)
-    nok = [x for x in R.dist if not x.ok]
-    if nok:
-        cols = st.columns(min(4, len(nok)))
-        for i, x in enumerate(nok):
-            with cols[i % len(cols)]:
-                st.button("Localiser : " + x.lab.split(" (")[0], key=f"pab_btn_dist_{x.id}", use_container_width=True,
-                          on_click=_selectionner, args=(x.alert, True))
-    st.caption("e ≥ 1,2·d0 ; p1 ≥ 2,2·d0 ; p3 (p2 du tableau) ≥ 2,4·d0 ; p ≤ min(14t ; 200 mm) ; "
-               "e ≤ 4t + 40 mm si exposé.")
+    """Le Tableau 3.3 replié : verdict dans le titre, lignes nommées par le
+    moteur (x.lab), boutons Localiser, règles en caption."""
+    def rendre():
+        if not R.dist:
+            st.caption("Sans objet.")
+            return
+        lignes = [[x.lab, F(x.val, 1), F(x.min, 1), "—" if x.max is None else F(x.max, 0), verdict_html(x.ok)]
+                  for x in R.dist]
+        st.markdown(tableau_html(["Distance", "Valeur", "Min", "Max", ""], lignes, droite=(1, 2, 3),
+                                 largeurs=[None, "10%", "10%", "10%", "10%"]), unsafe_allow_html=True)
+        nok = [x for x in R.dist if not x.ok]
+        if nok:
+            cols = st.columns(min(4, len(nok)))
+            for i, x in enumerate(nok):
+                with cols[i % len(cols)]:
+                    st.button("Localiser : " + x.lab.split(" (")[0], key=f"pab_btn_dist_{x.id}", width="stretch",
+                              on_click=ui_commun.selectionner, args=(PREFIXE, x.alert))
+        st.caption("e ≥ 1,2·d0 ; p1 ≥ 2,2·d0 ; p3 (p2 du tableau) ≥ 2,4·d0 ; p ≤ min(14t ; 200 mm) ; "
+                   "e ≤ 4t + 40 mm si exposé.")
+    tableau_33_replie(R.dist_ok, rendre)
 
 
 def _parametres_retenus(R):
@@ -301,18 +228,10 @@ def _parametres_retenus(R):
 
 
 def onglet_verifications(R):
-    st.markdown(badge_nature("EC") + " formule directe de l'Eurocode " + badge_nature("COMP")
-                + " modèle complémentaire reconnu (MSB Part 5 §2, SCI P358, ECCS n°126) "
-                + badge_nature("INT") + " interprétation de l'outil · " + LEGENDE_REFERENCES, unsafe_allow_html=True)
     for cle in ("boulons", "platine", "portee", "porteuse", "soudure"):
         _table_simple(R, cle)
-    st.caption("Non revérifiés ici : flexion TRANSVERSALE de l'âme porteuse sous la traction des boulons "
-               "(NEd, tying) ; capacité de rotation au-delà des règles de détail ; cisaillement global, flexion "
-               "et déversement de la poutre principale ; torsion induite ; deux poutres en vis-à-vis sur la "
-               "même âme.")
-    off = [c for c in R.checks if not c.active]
-    if off:
-        st.caption("Sans objet dans cette configuration : " + " ; ".join(synthese.court(c) for c in off) + ".")
+    legende_natures(NATURES, LEGENDE_REFERENCES)
+    expander_perimetre(NON_REVERIFIES, [synthese.court(c) for c in R.checks if not c.active])
     _formules(R)
     _tableau_33(R)
     _parametres_retenus(R)
@@ -335,10 +254,8 @@ def onglet_predim(R, u, ecrire):
     rows = [r for r in p.rows if r.geom]
     sols = sorted([r for r in rows if r.eta <= 1],
                   key=lambda r: (0 if r.ok else 1, r.score if r.ok else r.eta))[:9]
-    st.caption(("Mode PRÉDIMENSIONNEMENT actif : la solution retenue par défaut pilote le calcul ("
-                + R.statut + ", taux maximal " + pct(R.eta_max, 1) + ")." if R.pred else "Mode VÉRIFICATION actif.")
-               + " Touche une solution pour la recopier dans les données et la géométrie. "
-               "Seule la vérification détaillée fait foi.")
+    st.caption("Touche « Appliquer » pour recopier une solution dans les données et la géométrie ; elle devient "
+               "modifiable comme une saisie. Seule la vérification détaillée fait foi.")
     st.markdown("#### Solutions proposées")
     if sols:
         for i in range(0, len(sols), 3):
@@ -353,7 +270,7 @@ def onglet_predim(R, u, ecrire):
                         st.caption(f"e1 {r.e1} / p1 {r.p1} / p3 {r.p3} mm  \ntaux estimé " + pct(r.eta)
                                    + (" – retenue par défaut" if retenue else
                                       ("" if r.ok else " – au-dessus du taux cible de " + pct(N(u.get("eta_c"))))))
-                        st.button("Appliquer", key=f"pab_btn_sol_{p.rows.index(r)}", use_container_width=True,
+                        st.button("Appliquer", key=f"pab_btn_sol_{p.rows.index(r)}", width="stretch",
                                   type="primary" if retenue else "secondary",
                                   on_click=_appliquer, args=(p.rows.index(r), ecrire))
     else:
@@ -382,7 +299,7 @@ def onglet_predim(R, u, ecrire):
             cc.markdown(f"{fort}{v}{fort}")
         with c[7]:
             st.button("Appliquer" + ("" if r.ok else " ⚠"), key=f"pab_btn_row_{p.rows.index(r)}",
-                      use_container_width=True, on_click=_appliquer, args=(p.rows.index(r), ecrire),
+                      width="stretch", on_click=_appliquer, args=(p.rows.index(r), ecrire),
                       help=None if r.ok else "taux cible dépassé")
     st.caption("Règle de choix par défaut : le plus petit nombre de rangées ; à égalité, le plus petit "
                "diamètre. L'épaisseur de la platine reste entre 8 mm et la limite de ductilité ; la gorge "
@@ -397,9 +314,9 @@ def onglet_note(R, u):
     with c1:
         st.download_button("⬇️ Exporter le texte (.txt)", data=("﻿" + t).encode("utf-8"),
                            file_name=texte.nom_fichier(u, ".txt"), mime="text/plain;charset=utf-8",
-                           use_container_width=True, key="pab_btn_txt")
+                           width="stretch", key="pab_btn_txt")
     c2.caption("Note de calcul (2 pages, A4 paysage — synthèse + plan de principe) : bouton "
-               "« 📄 Générer PDF » de la barre d'outils. Le texte ci-dessous se copie avec l'icône "
+               "« 📄 PDF » de la barre d'outils. Le texte ci-dessous se copie avec l'icône "
                "en haut à droite du cadre.")
     st.code(t, language=None)
 
@@ -421,7 +338,7 @@ def _nd(x):
 def onglet_benchmark(B, ecrire):
     from acier.assemblages.ui_commun import bloc_statut
     bloc_statut("Benchmark du module : " + B["statut"],
-                ["Ces tableaux sont recalculés par le moteur à chaque ouverture ; ils ne dépendent pas de tes données."],
+                ["Ces tableaux sont recalculés par le moteur à chaque ouverture ; ils ne dépendent pas des données saisies."],
                 "ok" if B["ok"] else "nok")
     st.caption("Source : " + SRC["titre"] + ". " + SRC["org"] + ", " + SRC["annee"] + ". Norme : " + SRC["norme"] + ". " + SRC["url"])
     st.caption("Seuils : écart ≤ 1 % OK ; 1 à 3 % à expliquer ; > 3 % à vérifier. Aucune formule n'a été ajustée pour coller à la source.")
@@ -432,7 +349,7 @@ def onglet_benchmark(B, ecrire):
         c1, c2 = st.columns([4, 1.4], vertical_alignment="center")
         c1.caption("Données : " + b["data"])
         with c2:
-            st.button("Charger ces données dans l'outil", key=f"pab_btn_bm_{i}", use_container_width=True,
+            st.button("Charger ces données dans l'outil", key=f"pab_btn_bm_{i}", width="stretch",
                       on_click=_charger_benchmark, args=(BENCH[i]["inp"], ecrire))
         lignes = []
         for r in b["rows"]:
@@ -464,11 +381,7 @@ def onglet_methode():
 # ------------------------------------------------------------------- onglets
 def onglets(R, B, u, ecrire):
     st.session_state["_pab_R"] = R
-    seg = getattr(st, "segmented_control", None)
-    if seg:
-        seg("Onglet", list(ONGLETS), key="pab_ui_onglet", label_visibility="collapsed")
-    else:
-        st.radio("Onglet", list(ONGLETS), key="pab_ui_onglet", horizontal=True, label_visibility="collapsed")
+    st.segmented_control("Onglet", list(ONGLETS), key="pab_ui_onglet", label_visibility="collapsed", wrap=True)
     onglet = st.session_state.get("pab_ui_onglet") or ONGLETS[0]
     if onglet == ONGLETS[1]:
         onglet_predim(R, u, ecrire)

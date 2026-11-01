@@ -23,6 +23,16 @@ Chaque garantie rougit si on la retire :
      chargeable ; exports texte et PDF ; onglets Répartition et Méthode.
   7. PROJET : description de la liste, rapport du projet avec un pied.
   8. ÉTANCHÉITÉ : aucune clé asm_ / fpl_ / pab_ / béton créée.
+  9. CHARTE ERGONOMIQUE du 31/10/2026 (§4.4, amendements 2, 3, 5) :
+     en-tête Mode · Périmètre en segmented_control, le bloc PÉRIMÈTRE et
+     son doublon de la fenêtre Efforts disparus ; POTEAU · MATÉRIAUX ·
+     TIGES (↳ grille, ↳ ETA ?) · EFFORTS 3 + 3 ; avancés COEFF. γ ·
+     APPUI · RIGIDITÉ ; « Tige », « Visserie par tige » ; 4 « ? » ;
+     libellés, aides, options, lignes du kit ; fenêtres d'objet (a_w,
+     αcc, périmètre, tg nul) ; légende, périmètre, alertes en replis ;
+     rédacteur au cartouche et dans l'export ; HYPOTHÈSES ≤ 3 × 110 (défaut,
+     variantes, 6 cas figés) ; rien ne se perd (les 70 clés de l'inventaire
+     dans l'un ou l'autre mode).
 
 Lancement : python3 tests/test_pied_poteau_ecran.py
 """
@@ -37,8 +47,13 @@ sys.path.insert(0, RACINE)
 import pymupdf  # noqa: E402
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
-from acier.assemblages.pied_poteau.platine_beton import (interface, ecran_saisie, moteur,  # noqa: E402
-                                                          schemas, note)
+from acier.assemblages import carte as kit  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton import (interface, ecran_saisie, ecran_resultats, moteur,  # noqa: E402
+                                                          schemas, note, texte)
+from acier.assemblages.pied_poteau.platine_beton.manuel import ecran as EM  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.calcul import compute as compute_mode  # noqa: E402
+from acier.assemblages.pied_poteau.platine_beton.entrees import (CHAMPS, LISTES, champ_visible,  # noqa: E402
+                                                                  FORME_I, TYPE_TETE)
 from acier.assemblages.pied_poteau.platine_beton.entrees import (FORME_RHS, TYPE_CROSSE, TYPE_ETA, PERIM_EC3,  # noqa: E402
                                                                   PERIM_TOUT, MODE_COMPLET, MODE_MANUEL)
 from acier import projet as modele, rapport_projet  # noqa: E402
@@ -64,7 +79,12 @@ def run(at):
 
 
 def cles_widgets(at):
-    return {w.key for w in list(at.number_input) + list(at.selectbox) + list(at.text_input) + list(at.checkbox) if w.key}
+    return {w.key for w in list(at.number_input) + list(at.selectbox) + list(at.text_input) + list(at.checkbox)
+            + list(at.segmented_control) if w.key}
+
+
+def expanders(at):
+    return [str(x.label) for x in at.expander]
 
 
 def message(at, changes, t):
@@ -90,7 +110,7 @@ chk("« Créer » ouvre l'écran dans le projet (entrée A1)", not at.exception
 # Depuis le lot D, l'écran s'ouvre en CALCUL MANUEL ; cette suite décrit la VÉRIFICATION COMPLÈTE : on y passe
 # (la disposition par défaut est une grille régulière, la bascule reprend le profilé et les quatre tiges).
 chk("l'écran s'ouvre en calcul manuel (lot D)", at.session_state["ppb_mode"] == MODE_MANUEL)
-at.selectbox(key="ppb_mode").set_value(MODE_COMPLET); run(at)
+at.segmented_control(key="ppb_mode").set_value(MODE_COMPLET); run(at)
 chk("la bascule vers la vérification complète reprend la grille 2 × 2 de 400 × 400 et le HEA 300",
     at.session_state["ppb_mode"] == MODE_COMPLET and float(at.session_state["ppb_w_x"]) == 400.0
     and int(at.session_state["ppb_n_ay"]) == 2 and at.session_state["ppb_prof_c"] == "HEA 300")
@@ -101,9 +121,12 @@ print("\n=== 2. Écran ===")
 cles = [k for k in at.session_state.to_dict() if k.startswith("ppb_") and k[4:] in interface.CLES]
 chk(f"les {len(interface.CLES)} clés d'entrée existent en session", len(cles) == len(interface.CLES), str(len(cles)))
 t = md(at)
-chk("cas par défaut, périmètre EC3 : VÉRIFIÉ à 55,9 % (épaisseur requise de la platine), béton d'ancrage en "
+# Le bandeau nomme la dimensionnante comme la note (synthese.court : « Épaisseur requise tp ») et non plus
+# par le libellé du moteur (88 caractères) — charte §9.
+chk("cas par défaut, périmètre EC3 : VÉRIFIÉ à 55,9 % (« — 55,9 % · Épaisseur requise tp »), béton d'ancrage en "
     "information à 107,7 % dit en clair (hors verdict)",
-    "PIED DE POTEAU VÉRIFIÉ (EC3" in t and "55,9 %" in t and "Épaisseur requise de la platine" in t
+    "PIED DE POTEAU VÉRIFIÉ (EC3" in t and "— 55,9 % · Épaisseur requise tp" in t
+    and "Épaisseur requise de la platine" not in t
     and "en information, hors verdict) : Interaction N / V du béton à 107,7 %" in t
     and "Ancrages dans le béton (EN 1992-4) — information, hors verdict" in t)
 chk("taux par élément : Pied, Platine, Appui, Tiges, Poteau, Soudure (ancrages hors verdict : pas de chip)",
@@ -113,12 +136,12 @@ chk("la platine à la main, en tête des vérifications : moment pris de chaque 
                          "mEd = ∫p·s ds sur c = 11,5 kNm/m", "M = T·m = 43,2 × 45,9 = 1,98 kNm",
                          "Épaisseur requise 14,0 mm ≤ tp = 25 mm", "tc = √(6·mEd·γM0/fy) = 14,0 mm",
                          "Navier ne s'applique pas")))
-at.selectbox(key="ppb_perim").set_value(PERIM_TOUT); run(at)
+at.segmented_control(key="ppb_perim").set_value(PERIM_TOUT); run(at)
 t = md(at)
 chk("périmètre complet : le béton d'ancrage entre dans le verdict → NON VÉRIFIÉ à 107,7 %",
     "PIED DE POTEAU NON VÉRIFIÉ" in t and "VÉRIFIÉ (EC3" not in t and "107,7 %" in t and "hors verdict" not in t
     and "Ancrages" in t)
-at.selectbox(key="ppb_perim").set_value(PERIM_EC3); run(at)
+at.segmented_control(key="ppb_perim").set_value(PERIM_EC3); run(at)
 t = md(at)
 chk("deux composants empilés dans la colonne figée (CSS sticky sur ppb_col_dessin)",
     len(at.get("component_instance")) == 2 and "position: sticky" in t and "st-key-ppb_col_dessin" in t)
@@ -126,16 +149,18 @@ w = cles_widgets(at)
 donnees = {k for k in w if k.startswith("ppb_") and k[4:] in interface.CLES}
 chk("la géométrie ne se règle QUE sur le dessin (aucune cote dans la carte)",
     not donnees & {"ppb_" + k for k in ecran_saisie.GEOMETRIE_DESSIN}, str(sorted(donnees)))
-chk("carte par objet : poteau, platine (nuance), tiges, béton, efforts, visserie, coefficients",
-    {"ppb_forme", "ppb_prof_c", "ppb_nu_c", "ppb_nu_pl", "ppb_ancr", "ppb_classe", "ppb_typ_a", "ppb_n_ax",
+chk("carte par objet : en-tête (mode, périmètre), poteau, matériaux, tiges, efforts, visserie, coefficients",
+    {"ppb_mode", "ppb_perim", "ppb_forme", "ppb_prof_c", "ppb_nu_c", "ppb_nu_pl", "ppb_ancr", "ppb_classe", "ppb_typ_a", "ppb_n_ax",
      "ppb_n_ay", "ppb_beton", "ppb_fiss", "ppb_hc_u", "ppb_N_Ed", "ppb_Mx_Ed", "ppb_My_Ed", "ppb_Vy_Ed",
      "ppb_visserie", "ppb_g_M0", "ppb_a_cc", "ppb_g_Mc"} <= w)
 chk("profilé de la base : pas de dimensions personnalisées affichées", not {"ppb_h_u", "ppb_t_u"} & w)
-chk("onglet par défaut : Vérifications (six tableaux, pince Tab. 3.3, limites écrites en clair)",
+# Le Tableau 3.3 est replié (amendement 5) : le harnais lit le titre de l'expander.
+chk("onglet par défaut : Vérifications (six tableaux, pince Tab. 3.3 repliée, limites écrites en clair)",
     at.session_state["ppb_ui_onglet"] == "Vérifications"
     and all(x in t for x in ("Niveau 1 : interaction linéaire", "Cône de béton du groupe tendu",
                              "Tendue — tronçon en T", "Aile / paroi comprimée", "Contrainte équivalente",
-                             "Pinces – EN 1993-1-8 Tableau 3.3", "fendage et éclatement latéral")))
+                             "fendage et éclatement latéral"))
+    and "Pinces et entraxes (Tab. 3.3) : conforme" in expanders(at))
 chk("alertes courtes : tiges de coin (modèle d'ingénieur), soulèvement, bord < 1,5·hef, rigidité",
     all(x in t for x in ("Tiges de coin", "Soulèvement", "Bord du massif à moins de 1,5·hef", "Rigidité du pied")))
 
@@ -177,7 +202,7 @@ w = cles_widgets(at)
 chk("profil creux : h, b, t demandés, tw / tf / r et la liste des profilés retirés",
     {"ppb_h_u", "ppb_b_u", "ppb_t_u"} <= w and not {"ppb_tw_u", "ppb_tf_u", "ppb_prof_c"} & w)
 at.button(key="ppb_btn_reset").click(); run(at)
-at.selectbox(key="ppb_mode").set_value(MODE_COMPLET); run(at)       # les défauts rouvrent le calcul manuel (lot D)
+at.segmented_control(key="ppb_mode").set_value(MODE_COMPLET); run(at)       # les défauts rouvrent le calcul manuel (lot D)
 chk("réinitialiser : retour aux défauts (massif 900, profilé en I), repère conservé",
     float(at.session_state["ppb_bc_u"]) == 900.0 and at.session_state["ppb_forme"] != FORME_RHS
     and at.session_state["ppb_id_rep"] == "A1")
@@ -297,7 +322,7 @@ at.button(key="ppb_btn_val_1").click(); run(at)
 chk("« Charger ces données » : VAL-B (massif 3 000) dans l'outil, VÉRIFIÉ",
     float(at.session_state["ppb_bc_u"]) == 3000.0 and "PIED DE POTEAU VÉRIFIÉ" in md(at))
 at.button(key="ppb_btn_reset").click(); run(at)
-at.selectbox(key="ppb_mode").set_value(MODE_COMPLET); run(at)       # les défauts rouvrent le calcul manuel (lot D)
+at.segmented_control(key="ppb_mode").set_value(MODE_COMPLET); run(at)       # les défauts rouvrent le calcul manuel (lot D)
 at.button(key="ppb_btn_pdf").click(); run(at)
 chk("« Générer PDF » depuis l'application : 2 pages",
     bool(at.session_state.get("ppb_pdf_bytes"))
@@ -340,6 +365,175 @@ chk("aucune clé asm_ / fpl_ / pab_ / béton créée par le module", not fuites,
 at.button(key="ppb_btn_retour").click(); run(at)
 chk("◀ Projet ramène à la liste, l'entrée y figure", "asm_courant" not in at.session_state.to_dict()
     and "Assemblages (1)" in md(at))
+
+# ================================================================
+print("\n=== 9. Charte ergonomique (§4.4) ===")
+D = ecran_saisie.D
+at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at.session_state["page"] = "Assemblages métalliques"
+run(at)
+at.button(key="asm_btn_open_platine_beton").click(); run(at)
+at.segmented_control(key="ppb_mode").set_value(MODE_COMPLET); run(at)
+t = md(at)
+w = cles_widgets(at)
+u = {k: at.session_state.get("ppb_" + k) for k in interface.CLES}
+R = moteur.compute(u)
+seg = {x.key for x in at.segmented_control}
+chk("en-tête : Mode · Périmètre en segmented_control (« Calcul manuel / Vérif. complète », « EC3 seul / EC3 + "
+    "EC2-4 »), ni critère ni appui ; le bloc PÉRIMÈTRE (un champ) a disparu",
+    {"ppb_mode", "ppb_perim"} <= seg and not {"ppb_crit", "ppb_appui"} & seg and "PÉRIMÈTRE" not in t
+    and [kit.affiche(D, "perim", o) for o in CHAMPS["perim"]["o"]] == ["EC3 seul", "EC3 + EC2-4"]
+    and [kit.affiche(D, "forme", o) for o in CHAMPS["forme"]["o"]] == ["I / H", "Tube RHS / SHS"])
+chk("POTEAU · MATÉRIAUX (Nuance platine · Béton · Fissuré · Massif hc) · TIGES · EFFORTS ELU ; PLATINE et BÉTON "
+    "fusionnés", all(x in t for x in ("POTEAU", "MATÉRIAUX", "TIGES", "EFFORTS ELU")) and "BÉTON</div>" not in t
+    and [k for g, ls in D.BLOCS if g == "MATÉRIAUX" for lg in ls for k in lg["cles"]] == ["nu_pl", "beton", "fiss", "hc_u"]
+    and {"ppb_nu_pl", "ppb_beton", "ppb_fiss", "ppb_hc_u", "ppb_n_ax", "ppb_n_ay", "ppb_T_Ed"} <= w)
+chk("vocabulaire du mode : « Tige », « Visserie par tige » (LIBELLE_MODE) ; « Files (x) · Rangées (y) »",
+    at.selectbox(key="ppb_ancr").label == "Tige" and at.text_input(key="ppb_visserie").label == "Visserie par tige"
+    and at.number_input(key="ppb_n_ax").label == "Files (x)" and at.number_input(key="ppb_n_ay").label == "Rangées (y)")
+vis = ecran_saisie.aides_visibles(u)
+chk("4 « ? » dans la carte au défaut : Mode, Périmètre, Ancrage, EFFORTS ELU (24 avant)",
+    len(vis) == 4 and set(vis) == {"mode", "perim", "typ_a", "EFFORTS ELU"}, str(vis))
+av = next(x for x in at.expander if str(x.label) == "Paramètres avancés")
+kav = {x.key for x in list(av.number_input) + list(av.selectbox) + list(av.checkbox)}
+chk("avancés : COEFF. γ (γM0 · γM2 · γc béton · γMc) + ↳ αcc · APPUI (Cf,d · fg) · RIGIDITÉ (Lc · Contreventé) ; ni "
+    "xN / yN ni « Dessin interactif » ; les captions ANB sont devenues le « ? » de COEFF. γ",
+    {"ppb_g_M0", "ppb_g_M2", "ppb_g_c", "ppb_g_Mc", "ppb_a_cc", "ppb_C_f", "ppb_f_g", "ppb_L_c", "ppb_contrev"} <= kav
+    and not {"ppb_xN", "ppb_yN", "ppb_ui_composant"} & kav and "hypothèse à confirmer sur le texte NBN), mortier" not in t
+    and any(getattr(m, "help", None) == D.AIDES["COEFF. γ"] for m in at.markdown))
+chk("tête de la colonne dessin : Vue simple / Édition / Cotations complètes + « Dessin interactif » ?",
+    any(x.key == "ppb_ui_niveau" for x in at.radio) and "ppb_ui_composant" in w
+    and at.checkbox(key="ppb_ui_composant").help == D.AIDES["ui_composant"])
+chk("caption d'usage exacte (charte §7)", ecran_resultats.CAPTION_USAGE in t and ecran_resultats.CAPTION_USAGE ==
+    "Vue en plan : aire efficace (bleu), zone comprimée (rouge), axe neutre, C et T des tiges. Touche une cote ou une "
+    "pièce (poteau, platine, tiges, massif, mortier, efforts).")
+chk("alertes : les cinq alertes d'information du défaut dans un repli « ⚠️ 5 remarques — … » (textes intégraux dedans)",
+    any(x.startswith("⚠️ 5 remarques — Tiges de coin · Soulèvement") for x in expanders(at)), str(expanders(at)[:3]))
+chk("onglet Vérifications : légende EC / EC + INT / INT (modèle d'ingénieur) après les tables, « Légende et "
+    "références », « Périmètre de la vérification — 4 non revérifiés · 0 sans objet » repliés",
+    "modèle d'ingénieur (niveau 2, tiges de coin ou latérales)" in t and "Légende et références" in expanders(at)
+    and "Périmètre de la vérification — 4 non revérifiés · 0 sans objet" in expanders(at)
+    and t.index("Cordons poteau / platine") < t.index("modèle d'ingénieur (niveau 2"))
+chk("la ligne d'information dit le nouveau nom du périmètre complet (« EC3 + EC2-4 » en tête de la carte)",
+    "Périmètre « EC3 + EC2-4 » en tête de la carte" in t)
+at.selectbox(key="ppb_typ_a").set_value(TYPE_ETA); run(at)
+w2 = cles_widgets(at)
+chk("scellée : ↳ ETA (τRk (MPa) · k1 cône · NRk,s (kN) · VRk,s (kN)) et le « ? » du sous-titre (AIDES['ETA'])",
+    {"ppb_eta_tau", "ppb_eta_k1", "ppb_eta_nrks", "ppb_eta_vrks"} <= w2
+    and any(getattr(m, "help", None) == D.AIDES["ETA"] for m in at.markdown)
+    and at.number_input(key="ppb_eta_tau").label == "τRk (MPa)")
+at.selectbox(key="ppb_typ_a").set_value(TYPE_TETE); run(at)
+# --- données de la carte (contrôles 2 à 6 du kit, appliqués aux deux Descriptions)
+for Dx, nom in ((ecran_saisie.D, "complet"), (ecran_saisie.D_MANUEL, "manuel")):
+    labs = dict(Dx.LIBELLE, **{k: v for m in Dx.LIBELLE_MODE.values() for k, v in m.items()})
+    trop = [(k, v) for k, v in labs.items() if len(v) > 22]
+    r4 = [(k, labs[k]) for genre, cles in kit.rangees(Dx) if genre == "objet" and len(cles) == 4 for k in cles if len(labs[k]) > 16]
+    r3 = [(k, labs[k]) for genre, cles in kit.rangees(Dx) if genre == "suite" or len(cles) == 3 for k in cles if len(labs[k]) > 20]
+    longues = [k for k, v in Dx.AIDES.items() if len(v) > 160]
+    fabriquees = [k for k in CHAMPS if k not in Dx.AIDES and kit.aide(Dx, k) is not None]
+    opts = [(k, o) for k in CHAMPS for o in (CHAMPS[k].get("o") or []) if len(kit.affiche(Dx, k, o)) > 28]
+    lignes5 = [c for genre, c in kit.rangees(Dx) if genre == "objet" and len(c) > 4]
+    chk(f"carte {nom} : libellés ≤ 22 / ≤ 16 (rangée de 4) / ≤ 20 (rangée de 3, continuation) ; aides ≤ 160 et "
+        f"seulement de AIDES ; options ≤ 28 ; aucune ligne d'objet > 4 cases",
+        not (trop or r4 or r3 or longues or fabriquees or opts or lignes5), str([trop, r4, r3, longues, fabriquees, opts, lignes5]))
+chk("aucun « ? » sur Nuance, Profilé, Tige, Classe, dimensions, efforts, identification",
+    not ({"nu_c", "nu_pl", "prof_c", "ancr", "classe", "h_u", "N_Ed", "Mx_Ed", "id_rep", "id_red", "beton", "hc_u"}
+         & set(ecran_saisie.AIDES_MANUEL)))
+# --- fenêtres d'objet
+g = ecran_resultats._panneaux(R, u)
+chk("fenêtres d'objet : titres courts (Poteau, Platine, Tiges, Massif, Mortier, Soudure, Efforts) ; a_w seulement dans "
+    "Soudure ; αcc hors du Massif ; le périmètre hors d'Efforts ; libellés LIBELLE, aides AIDES, options courtes",
+    [g[k]["titre"] for k in ("col", "plate", "anchors", "pedestal", "grout", "weld", "efforts")]
+    == ["Poteau", "Platine", "Tiges", "Massif", "Mortier", "Soudure", "Efforts"]
+    and [k for k, grp in g.items() if "a_w" in {c["key"] for c in grp["champs"]}] == ["weld"]
+    and "a_cc" not in {c["key"] for c in g["pedestal"]["champs"]} and "perim" not in {c["key"] for c in g["efforts"]["champs"]}
+    and all(c["lab"] == ecran_saisie.libelle(c["key"], u) for grp in g.values() for c in grp["champs"])
+    and next(c for c in g["col"]["champs"] if c["key"] == "forme")["affichage"][FORME_I] == "I / H")
+u_tg = dict(u, t_g=0)
+chk("tg = 0 (amendement 2) : tg dans la fenêtre Massif ET dans le panneau Cotes (dessin fixe)",
+    "t_g" in {c["key"] for c in ecran_resultats._panneaux(moteur.compute(u_tg), u_tg)["pedestal"]["champs"]}
+    and "t_g" in ecran_resultats.cotes_panneau(u_tg) and "t_g" not in {c["key"] for c in g["pedestal"]["champs"]})
+at.checkbox(key="ppb_ui_composant").uncheck(); run(at)
+cotes = next((x for x in at.expander if str(x.label) == "Cotes"), None)
+kc = {x.key for x in cotes.number_input} if cotes is not None else set()
+chk("dessin fixe : panneau Cotes = GEOMETRIE_DESSIN ∩ champ_visible (wx, wy, hef, dh, tg…) ; plus de composant",
+    {"ppb_cote_" + k for k in ("bp_u", "lp_u", "tp_u", "a_w", "t_g", "bc_u", "lc_u", "w_x", "w_y", "hef", "d_h")} == kc
+    and len(at.get("component_instance")) == 0, str(sorted(kc)))
+at.checkbox(key="ppb_ui_composant").check(); run(at)
+# --- note et export
+Rr = moteur.compute(dict(u, id_red="J. Dupont"))
+pr = pymupdf.open(stream=note.generer_note(Rr, {"nom_projet": "Halle A", "partie": "PP1", "date": "31/10/2026",
+                                                "indice": "0"}), filetype="pdf")
+chk("le rédacteur saisi est imprimé au cartouche du plan (p. 2) et dans l'export texte (amendement 3)",
+    "J.Dupont" in pr[1].get_text().replace(" ", "") and "Rédacteur : J. Dupont" in texte.construire_texte(Rr)
+    and "Rédacteur" not in texte.construire_texte(R))
+chk("HYPOTHÈSES du défaut : trois lignes exactes (charte §11), ≤ 110 caractères ; « Aire efficace EC3 §6.2.5 » gardé",
+    note.lignes_hypotheses(R) == [
+        "Périmètre EN 1993-1-8 : platine, tiges, poteau, cordons, appui fjd ; béton d'ancrage EN 1992-4 en information.",
+        "Aire efficace EC3 §6.2.5 : c = 59 mm, Aeff = 1294 cm², fjd = 20,4 MPa (βj 2/3) ; platine rigide, ΣT = 43 kN.",
+        "Verdict niveau 1 ; tiges coulées (ψM,N = 1) ; γM0 1,00 · γM2 1,25 · γc 1,50 · γMc 1,50."],
+    str(note.lignes_hypotheses(R)))
+chk("variantes : périmètre complet (ligne 1), crosse et scellée (ligne 3)",
+    note.lignes_hypotheses(moteur.compute(dict(u, perim=PERIM_TOUT)))[0]
+    == "Périmètre complet : EN 1993-1-8 et EN 1992-4, béton d'ancrage dans le verdict."
+    and note.lignes_hypotheses(moteur.compute(dict(u, typ_a=TYPE_CROSSE)))[2]
+    == "Verdict niveau 1 ; tiges à crosse (adhérence) ; γM0 1,00 · γM2 1,25 · γc 1,50 · γMc 1,50."
+    and "tiges scellées (ETA)" in note.lignes_hypotheses(moteur.compute(dict(u, typ_a=TYPE_ETA)))[2])
+pertes, trop = [], []
+for nom, cas in CAS.items():
+    Rc = moteur.compute(cas)
+    ls = note.lignes_hypotheses(Rc)
+    if len(ls) > 3 or any(len(x) > 110 for x in ls):
+        trop.append(nom)
+    txt = " ".join(ls)
+    for sg in note.segments_hypotheses(Rc):
+        formes = [sg] if isinstance(sg, str) else list(sg)
+        if not any(f[1:] in txt for f in formes):
+            pertes.append((nom, formes[-1][:30]))
+chk(f"les {len(CAS)} cas figés : ≤ 3 lignes ≤ 110, aucun segment perdu (2 pages sans débordement : section 5)",
+    not trop and not pertes, str([trop, pertes]))
+# --- rien ne se perd
+variantes = [u, dict(u, forme=FORME_RHS, h_u=250, b_u=250, t_u=10), dict(u, prof_c="Personnalisé", h_u=290, b_u=300,
+             tw_u=8.5, tf_u=14, r_u=27), dict(u, typ_a=TYPE_ETA), dict(u, typ_a=TYPE_CROSSE),
+             dict(u, nu_c="Personnalisé", fy_u=355, fu_u=510, bw_u=0.9), dict(u, t_g=0)]
+manquantes = set()
+for v in variantes:
+    Rv = moteur.compute(v)
+    atteignables = (kit.cles_carte(D) | {c["key"] for grp in ecran_resultats._panneaux(Rv, v).values() for c in grp["champs"]}
+                    | set(ecran_resultats.cotes_panneau(v)) | set(ecran_resultats.CLES_TETE_DESSIN))
+    manquantes |= {k for k in CHAMPS if champ_visible(v, k)} - atteignables
+chk("rien ne se perd (vérification complète) : chaque clé visible a une destination (carte, avancés, cartouche, "
+    "fenêtres, panneau Cotes, tête du dessin)", not manquantes, str(sorted(manquantes)))
+inventaire = set(CHAMPS) | set(LISTES) | {"visserie", "ui_gx", "ui_gy", "ui_gwx", "ui_gwy", "ui_composant"}
+um = dict(u, mode=MODE_MANUEL)
+dest = (kit.cles_carte(D) | kit.cles_carte(ecran_saisie.D_MANUEL) | set(EM.CLES_TABLES) | set(ecran_resultats.CLES_TETE_DESSIN)
+        | {c["key"] for grp in ecran_resultats._panneaux(R, u).values() for c in grp["champs"]}
+        | {c["key"] for grp in EM._panneaux(compute_mode(um), um).values() for c in grp["champs"]}
+        | set(ecran_resultats.cotes_panneau(u)) | set(ecran_resultats.cotes_panneau(um)))
+chk(f"les {len(inventaire)} clés de l'inventaire (CHAMPS, listes, visserie, grille posée, dessin interactif) ont une "
+    "destination dans l'un ou l'autre mode", len(inventaire) == 70 and not inventaire - dest, str(sorted(inventaire - dest)))
+
+
+# ================================================================
+# Consolidation du 01/11/2026, point 6 : le Tableau 3.3 NON CONFORME — un contrôle par module. L'expander
+# s'ouvre d'office (le verdict est dans son titre) et « Localiser » sélectionne l'alerte de la pince.
+print("\n=== 10. Tableau 3.3 NON CONFORME ===")
+at33 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at33.session_state["page"] = "Assemblages métalliques"
+run(at33)
+at33.button(key="asm_btn_open_platine_beton").click(); run(at33)
+# l'entrée du projet ré-hydrate l'écran à l'ouverture : on bascule par le choix du mode, comme en tête de suite
+at33.segmented_control(key="ppb_mode").set_value(MODE_COMPLET); run(at33)
+at33.session_state["ppb_w_x"] = 470.0
+run(at33)
+e33 = [x for x in at33.expander if str(x.label).startswith("Pinces et entraxes (Tab. 3.3)")]
+chk("vérification complète, wx = 470 mm → « Pinces et entraxes (Tab. 3.3) : NON CONFORME », expander ouvert d'office",
+    bool(e33) and str(e33[0].label) == "Pinces et entraxes (Tab. 3.3) : NON CONFORME" and e33[0].proto.expanded,
+    str([str(x.label) for x in e33]))
+at33.button(key="ppb_btn_dist_e_pl").click(); run(at33)
+chk("« Localiser » de la ligne NON OK sélectionne son alerte (dist_e) ; sa rangée dit « Masquer »",
+    at33.session_state["ppb_ui_alerte"] == "dist_e" and at33.button(key="ppb_btn_al_dist_e").label == "Masquer",
+    str(at33.session_state["ppb_ui_alerte"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

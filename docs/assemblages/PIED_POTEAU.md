@@ -223,3 +223,53 @@ disposition est régulière — sinon la bascule est refusée et la raison est
 dite. `calcul.compute` appelle le moteur du mode ; `note.generer_note` et
 `texte.construire_texte` aiguillent de même ; l'écran, le projet et le
 rapport n'ont qu'un point d'entrée.
+
+## 10 · L'écran sur le kit de la carte (31/10/2026) — écarts assumés
+
+Charte ergonomique du 31/10/2026 (`docs/assemblages/ERGONOMIE.md` §4.4
+vérification complète, §4.5 calcul manuel, §17 consolidation du 01/11/2026) :
+les deux cartes sont rendues par `acier/assemblages/carte.py` à partir des
+DONNÉES d'`ecran_saisie.py` (`D` complet, `D_MANUEL` manuel : `LIBELLE`,
+`LIBELLE_MODE` « Tige » / « Boulon », `AIDES`, `AFFICHAGE`, `BLOCS`,
+`AVANCES`, `CARTOUCHE`). Les clés `ppb_*`, les valeurs brutes et les fichiers
+ne changent pas ; une seule exception décidée, le critère par défaut du calcul
+manuel (élastique) : `docs/assemblages/PLATINE_MANUELLE.md` § 6.
+
+- **En-tête** : Mode et Périmètre (complet) / Critère et Appui (manuel) en
+  segmented_control ; le bloc PÉRIMÈTRE (un champ) et son doublon dans la
+  fenêtre Efforts disparaissent ; PLATINE et BÉTON fusionnent en MATÉRIAUX.
+- **Fenêtres d'objet** : titres courts, libellés et aides de la carte ;
+  a_w seulement dans Soudure, αcc seulement dans les avancés ; tg nul dans
+  la fenêtre Massif (le mortier n'est alors pas dessiné) ; le panneau Cotes
+  (dessin fixe) liste toute la géométrie visible.
+- **Alertes** : une ligne par alerte bloquante ; les alertes d'information,
+  dès qu'il y en a deux, dans un repli « ⚠️ n remarques — … » (cinq au cas
+  par défaut de la vérification complète : sans repli, le dessin sortait du
+  premier écran du téléphone). Depuis la consolidation du 01/11/2026, c'est la
+  forme des cinq écrans (`ui_commun.alertes`), bouton « Localiser » de largeur
+  fixe aligné à droite.
+- **Dimensions vides** (tube RHS / SHS ou profil Personnalisé sans dimensions,
+  consolidation du 01/11/2026) : la vérification est suspendue — bandeau
+  « Données incomplètes », message court sous la ligne ↳ perso — et le dessin
+  garde provisoirement les dimensions du HEA 300 par défaut ; auparavant
+  « Données incomplètes : ZeroDivisionError », dessin disparu.
+- **Étiquette des efforts** du dessin : « NEd 300 · Mx 50 · My 30 + » (le « + »
+  des poutre-poutre quand Vx, Vy ou T ne sont pas nuls ; « · V » se lisait
+  comme un texte coupé), englobée par la boîte du dessin.
+- **Notations** : la ligne du pied de la note (`notation.NOTATIONS`,
+  `NOTATIONS_MANUEL`) est aussi le paragraphe « Notations » de l'onglet
+  Méthode.
+- **Rangées** : la clé que le moteur nomme (« y-:-200 ») est dite
+  « y− (y = -200 mm) » à l'écran (Vérifications, Répartition) et dans la note
+  (`notation.rangee_lisible`, relecture du 01/11/2026) ; le moteur garde sa
+  clé. Sous 1351 px, « Côté comprimé » et « Côté tendu » passent l'une sous
+  l'autre (à 1024, la seconde table sortait de la page).
+- **Note** : HYPOTHÈSES en ≤ 3 lignes de ≤ 110 caractères (`note_kit.empaqueter`).
+  Perte assumée : √(Ac1/Ac0) n'est plus imprimé sur la note complète (il reste
+  dans « Paramètres retenus » à l'écran et dans l'export texte) ; C, pmax, les
+  taux des niveaux 1 et 2 et le seuil de rigidité sortent parce qu'ils sont
+  déjà sur la page. Le rédacteur est imprimé au cartouche du plan (p. 2) et dans
+  l'export texte des deux modes.
+- **Vocabulaire non suivi** : les messages du moteur gardent « périmètre
+  complet » (alerte du béton d'ancrage) là où l'écran dit « EC3 + EC2-4 » ; le
+  moteur ne change pas.

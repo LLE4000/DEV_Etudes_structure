@@ -29,8 +29,11 @@ from acier import projet as modele
 
 ASSEMBLAGES_VERSION = "2.0"
 
-_PASTILLE = {"ok": ("#1f7a3a", "vérifié"), "att": ("#b45309", "sous réserve"),
-             "ko": ("#b91c1c", "non vérifié"), "err": ("#6b7280", "calcul impossible")}
+from acier.assemblages.ui_commun import C_TRAIT
+
+# Une seule palette d'état : celle des écrans (ui_commun.C_TRAIT)
+_PASTILLE = {"ok": (C_TRAIT["ok"], "vérifié"), "att": (C_TRAIT["warn"], "sous réserve"),
+             "ko": (C_TRAIT["nok"], "non vérifié"), "err": (C_TRAIT["mut"], "calcul impossible")}
 
 
 def synchroniser_projet():

@@ -23,10 +23,11 @@ from ndc_pdf.kit import Doc, mix
 from ndc_pdf import data as ndc_data
 from acier.formats import F, pct
 from acier.js import N, js_str
+from acier.assemblages.note_kit import empaqueter
 from . import schemas, synthese
 from . import elements as EL
 from ..entrees import VISSERIE_DEFAUT, ancrage_txt
-from ..notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte
+from ..notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, NOTATIONS_MANUEL as NOTATIONS_COURTES
 from ....poutre_poutre.plat_ame import note as _np
 from ....poutre_poutre.doubles_cornieres.note import PlanPrincipe, TEXTE_MM, _fmt_echelle, CART_H
 from ....poutre_poutre.doubles_cornieres.rapport import peindre
@@ -36,14 +37,12 @@ M = _np.M
 BAS = _np.BAS
 
 TITRE = "Platine sur béton — calcul manuel de la platine"
-NOTATIONS_COURTES = ("Notations : bp, lp, tp : platine ; (x ; y) : repère au centre de la platine ; m : bras de levier "
-                     "jusqu'à l'appui, cordon déduit ; leff : longueur efficace du tronçon en T ; b : largeur de la section "
-                     "au nu (L + 2·m) ; c : bande efficace (EC3 §6.2.5) ; fjd : résistance d'appui ; C, pmax : résultante et "
-                     "pression ; T : effort d'un boulon ; mEd : moment de la bande comprimée.")
 # toutes : six boulons et quatre sections, formules complètes ; eta : trois boulons, deux sections, formules
 # réduites à la ligne du taux ; mini : le boulon et la section les plus sollicités seulement
 VARIANTES = ("toutes", "eta", "mini")
 MAX_LIGNES = {"toutes": (6, 4), "eta": (3, 2), "mini": (1, 1)}
+# L'espace insécable du kit PDF (Doc.wrap ne coupe que l'espace ordinaire) : « 54 % » reste sur une ligne.
+INSEC = "\u00a0"
 
 
 def lignes_entete(R):
@@ -64,19 +63,37 @@ def lignes_entete(R):
     return l1, l2, l3
 
 
-def lignes_hypotheses(R):
+def segments_hypotheses(R):
+    """Les SEGMENTS du bloc HYPOTHÈSES (charte du 31/10/2026, §11) : modèle et
+    critère, appui ; platine rigide (kc, kb), bras et cordon déduit ; plafond
+    de leff, information, coefficients — chaque segment écrit en entier, avec
+    sa forme courte quand il en a une ; le kit (``note_kit.empaqueter``) les
+    range en ≤ 3 lignes de ≤ 110 caractères. Gardés parce qu'ils ne vivent
+    nulle part ailleurs sur la page : kc / kb, le cordon déduit, leff ≤ L/2 + m.
+    Retirés parce que déjà sur la page : C, pmax, fjd, ΣT (vue en plan, table
+    Appui), b = min(platine ; L + 2m) et la console comprimée (table « LE
+    CALCUL À LA MAIN », onglet Méthode)."""
     u = R.u
-    h = ["Calcul manuel de la platine — critère " + R.plaque["critere"] + " ; appui : "
-         + ("toute la platine (platine rigide)." if R.plein else "bande c = " + F(R.c, 0) + " mm autour des parois (EC3 §6.2.5)."),
-         "Efforts des tiges par la platine rigide (lit sans traction, tiges tendues) : C = " + F(R.C, 0) + " kN, pmax = "
-         + F(R.pmax, 1) + " MPa (fjd = " + F(R.fjd, 1) + "), ΣT = " + F(R.T_tot, 0) + " kN ; kc = " + F(R.k_c, 0)
-         + " N/mm³, kb = " + F(R.k_b / 1e3, 0) + " kN/mm.",
-         "Bras m jusqu'à l'appui le plus proche, cordon 0,8·a·√2 = " + F(R.cord, 1) + " mm déduit ; leff par boulon "
-         "(Tab. 6.6) plafonnée à L/2 + m (m dans un angle) ; section au nu b = min(platine ; L + 2m).",
-         "Côté comprimé : chaque paroi reprend en console la pression qui lui est la plus proche ; bande la plus sollicitée.",
-         "Tiges (acier) et appui (fjd) en information ; γM0 " + F(N(u.g_M0), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2)
-         + " · γc " + F(N(u.g_c), 2) + " (αcc " + F(N(u.a_cc), 2) + ")."]
-    return h
+    crit = ("critère élastique (Von Mises ≤ fy/γM0)" if R.elastique
+            else "critère plastique EN 1993-1-8 (Mpl, console élastique)")
+    if R.plein:
+        appui = appui_court = "appui : toute la platine (rigide)"
+    else:
+        appui_court = "appui : bande c = " + F(R.c, 0) + " mm"
+        appui = appui_court + " (EC3 §6.2.5)"
+    tete = "calcul manuel — " + crit + " ; "
+    return [(tete + appui, tete + appui_court),
+            "platine rigide, lit sans traction (kc " + F(R.k_c, 0) + " N/mm³, kb " + F(R.k_b / 1e3, 0) + " kN/mm)",
+            "bras m à l'appui, cordon " + F(R.cord, 1) + " mm déduit",
+            "leff ≤ L/2 + m",
+            "tiges, appui : information",
+            "γM0 " + F(N(u.g_M0), 2) + " (ANB) · γM2 " + F(N(u.g_M2), 2) + " · γc " + F(N(u.g_c), 2)
+            + " (αcc " + F(N(u.a_cc), 2) + ")"]
+
+
+def lignes_hypotheses(R):
+    """≤ 3 lignes de ≤ 110 caractères (ValueError sinon : le test rougit)."""
+    return empaqueter(segments_hypotheses(R), n_max=3, larg=110)
 
 
 class Note(_np.Note):
@@ -132,16 +149,26 @@ class Note(_np.Note):
         n_b, n_s = MAX_LIGNES.get(self.mode_lignes, (6, 4))
         cols = [("Pas", 58, "left"), ("Le moment pris, sa résistance, l'épaisseur qu'il demande", w - 58, "left")]
         lignes = []
+        # Le calcul à la main dit le taux du critère RETENU (t["eta"], s["eta"] : nommés par le moteur) : en
+        # élastique, σ de Von Mises ≤ fy/γM0 — FT,Rd et Mpl n'y sont plus qu'une information plastique ;
+        # en plastique, T/FT,Rd et M/Mpl (relecture du 01/11/2026 : « FT,Rd = 149 kN → 26 % » sous le défaut
+        # élastique contredisait les 54 % de la table des critères).
+        el = R.elastique
         tendus = sorted([t for t in R.tiges if t["T"] > 1e-9], key=lambda t: -t["eta"])
         for t in tendus[:n_b]:
             txt = ("T = " + F(t["T"], 1) + " kN ; appui " + t["appui"]["face"].replace("élément ", "É") + " ; m = "
                    + F(t["m"], 1) + " mm" + (" (angle)" if t["coin"] else "") + " ; T·m = " + F(t["M"], 2) + " kNm ; leff = "
                    + F(t["leff1"], 0) + " mm")
-            if not court:
-                txt += (", Mpl = " + F(t["Mpl1"], 2) + " kNm, " + ("avec" if t["levier"] else "sans") + " effet de levier")
-            txt += (" → FT,Rd = " + F(t["FT_Rd"], 0) + " kN (mode " + str(t["mode_ts"]).split(" ")[0] + ") → "
-                    + pct(t["T"] / t["FT_Rd"] if t["FT_Rd"] > 0 else 9.99, 0) + " ; tp plast. " + F(t["t_pl"], 1)
-                    + " / élast. " + F(t["t_el"], 1) + " mm")
+            if el:
+                txt += " → " + synthese.taux_von_mises(t, R.ck["ptl"].Rd, esp=INSEC)
+                if not court:
+                    txt += " ; FT,Rd = " + F(t["FT_Rd"], 0) + " kN (plastique, information)"
+            else:
+                if not court:
+                    txt += (", Mpl = " + F(t["Mpl1"], 2) + " kNm, " + ("avec" if t["levier"] else "sans") + " effet de levier")
+                txt += (" → FT,Rd = " + F(t["FT_Rd"], 0) + " kN (mode " + str(t["mode_ts"]).split(" ")[0] + ") → "
+                        + pct(t["eta"], 0))
+            txt += " ; tp plast. " + F(t["t_pl"], 1) + " / élast. " + F(t["t_el"], 1) + INSEC + "mm"
             lignes.append([("lab", "Boulon " + js_str(t["i"] + 1)), ("lab", txt)])
         if len(tendus) > n_b:
             lignes.append([("lab", "…"), ("lab", js_str(len(tendus) - n_b) + " autre(s) boulon(s) tendu(s), moins sollicité(s) — export texte.")])
@@ -150,8 +177,14 @@ class Note(_np.Note):
             txt = (s["nom"].replace("élément ", "É").replace("raidisseur ", "R") + " : boulons "
                    + ", ".join(str(i + 1) for i in s["idx"]) + ", m⊥ " + ", ".join(F(m, 0) for m in s["m"])
                    + " mm ; M = ΣT·m = " + F(s["M"], 2) + " kNm ; b = " + ("" if court else "min(platine ; L + 2m) = ") + F(s["b"], 0)
-                   + " mm ; Mpl = " + F(s["Mpl"], 2) + " kNm → " + pct(s["eta"], 0) + " ; tp plast. " + F(s["t_pl"], 1)
-                   + " / élast. " + F(s["t_el"], 1) + " mm")
+                   + " mm")
+            if el:
+                txt += " ; " + synthese.taux_von_mises(s, R.ck["pts"].Rd, nommer=False, esp=INSEC)
+                if not court:
+                    txt += " ; Mpl = " + F(s["Mpl"], 2) + " kNm (plastique, information)"
+            else:
+                txt += " ; Mpl = " + F(s["Mpl"], 2) + " kNm → " + pct(s["eta"], 0)
+            txt += " ; tp plast. " + F(s["t_pl"], 1) + " / élast. " + F(s["t_el"], 1) + INSEC + "mm"
             lignes.append([("lab", "Section"), ("lab", txt)])
         if len(secs) > n_s:
             lignes.append([("lab", "…"), ("lab", js_str(len(secs) - n_s) + " autre(s) section(s) — export texte.")])
@@ -210,9 +243,12 @@ class Note(_np.Note):
         S, R = self.S, self.R
         P = R.plaque
         req = "∞" if P["t_req"] == float("inf") else F(P["t_req"], 1)
+        # la conclusion dit le critère RETENU (défaut élastique depuis le 31/10/2026, charte §12)
+        selon = ("selon Von Mises ≤ fy/γM0 (critère élastique), EN 1993-1-8 §6.2.5 (bande comprimée)" if R.elastique
+                 else "selon EN 1993-1-8 §6.2.4 (tronçons en T), §6.2.5 (bande comprimée)")
         txt = (("PLATINE VÉRIFIÉE" if R.verified else "PLATINE NON VÉRIFIÉE") + " (calcul manuel) : épaisseur requise " + req
-               + " mm" + (" ≤ " if R.verified else " > ") + "tp = " + F(R.u.tp_u, 0) + " mm, selon EN 1993-1-8 §6.2.4 "
-               "(tronçons en T), §6.2.5 (bande comprimée) et Tableau 3.4 " + self.NORME + " — tiges et béton d'ancrage en "
+               + " mm" + (" ≤ " if R.verified else " > ") + "tp = " + F(R.u.tp_u, 0) + " mm, " + selon
+               + " et Tableau 3.4 " + self.NORME + " — tiges et béton d'ancrage en "
                "information" + (" ; sous réserve des points signalés." if R.verified and (R.reserve or R.alerts) else "."))
         col = S.ok if R.verified else S.ko
         lines = d.wrap(txt, S.f_b, 7.2, w - 15)
@@ -244,10 +280,17 @@ class PlanPrincipeMan(PlanPrincipe):
         W = d.W
         x0, y0, w, h = M, M, W - 2 * M, CART_H
         d.box(x0, y0, w, h, stroke=S.ink, lw=0.9)
+        # La 1re ligne mesurait 273 pt pour 168 : coupée d'un « … », elle perdait l'ancrage et hef (relecture des
+        # notes finales du 01/11/2026). L'ancrage et hef restent en 1re ligne ; « perçages cotés depuis les bords »,
+        # que la vue en plan montre déjà, passe APRÈS la visserie (saisie) : si la 2e ligne est trop longue, c'est
+        # lui qui se coupe.
         fix = ("Boulons " + js_str(R.n_t) + " × " + str(u.ancr) + " " + str(u.classe) + " – trous Ø" + F(R.d0, 0)
-               + " – perçages cotés depuis les bords (vue en plan) · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
-        vis = "par boulon : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
-        ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
+               + " · " + ancrage_txt(u, True) + " · hef " + F(u.hef, 0))
+        vis = ("par boulon : " + (str(doc.get("visserie") or "").strip() or VISSERIE_DEFAUT)
+               + " · perçages cotés depuis les bords")
+        # Le rédacteur saisi (id_red) est porté au cartouche — un champ saisi et jamais lu était un
+        # défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
+        ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie"), u.get("id_red")) if x)
         elems = " + ".join(EL.nom(e) + " (" + F(e["x"], 0) + " ; " + F(e["y"], 0) + ")" for e in R.elems)
         raid = (js_str(len(R.raid)) + " raidisseur(s) " + ", ".join(F(r["L"], 0) + "×" + F(r["t"], 0) for r in R.raid)) if R.raid \
             else "sans raidisseur"

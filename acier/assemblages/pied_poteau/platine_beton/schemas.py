@@ -142,6 +142,34 @@ def _pas_rond(x):
     return min(cands, key=lambda c: abs(c - x))
 
 
+# ------------------------------------------------- étiquette des efforts
+def texte_efforts(u):
+    """« NEd 300 · Mx 50 · My 30 + » : l'étiquette des efforts (panneau au
+    clic), le « + » des trois modules poutre-poutre quand Vx, Vy ou T ne sont
+    pas nuls — l'ancien « · V » final se lisait comme un texte coupé
+    (consolidation du 01/11/2026, point 23)."""
+    autres = any(N(u[k]) != 0 for k in ("Vx_Ed", "Vy_Ed", "T_Ed"))
+    return "NEd " + f0(N(u.N_Ed)) + " · Mx " + f0(N(u.Mx_Ed)) + " · My " + f0(N(u.My_Ed)) + (" +" if autres else "")
+
+
+def englober_efforts(bb, u, fs, opt):
+    """La boîte du dessin englobe l'étiquette des efforts, centrée en x = 0 :
+    plus large que la platine (551 unités pour 500 au cas par défaut, mesuré
+    dans le navigateur le 01/11/2026), elle était rognée dès que le massif ne
+    la débordait pas."""
+    d = Feuille(bb, fs, opt).tw(texte_efforts(u)) / 2 + 0.5 * fs
+    bb["x1"], bb["x2"] = mn(bb["x1"], -d), mx(bb["x2"], d)
+
+
+def etiquette_efforts(S, u, fs, x, y):
+    """Le groupe cliquable de l'étiquette des efforts (cadre arrondi + texte)."""
+    txt = texte_efforts(u)
+    w = S.tw(txt) + 0.5 * fs
+    hit = _rect(["hit"], -w / 2, -1.05 * fs, w, 1.42 * fs)
+    hit["rx"] = 0.2 * fs
+    return _group(["ef", "ed"], [hit, _text([], None, None, txt, fs)], x=x, y=y, rot=0, grp="efforts", id="efforts")
+
+
 # ----------------------------------------------------------------------- plan
 def plan(R, opt):
     """Vue en plan : massif, platine, section du poteau (coupée, hachurée),
@@ -163,6 +191,7 @@ def plan(R, opt):
         S0 = Feuille(bb, fs, opt)
         bb["x2"] = mx(bb["x2"], hb + 1.0 * fs + S0.largeur_poignees(txtR) + 0.3 * fs)
         bb["x1"] = mn(bb["x1"], -hb - 1.0 * fs - S0.largeur_poignees(txtF) - 0.3 * fs)
+        englober_efforts(bb, u, fs, opt)
     S = Feuille(bb, fs, opt)
     s = []
     hot = (opt.hl or {}).get("elems") or set()
@@ -231,14 +260,7 @@ def plan(R, opt):
             s.append(_etiquette(S, X, yl, "T = " + F(t["T"], 0) + " kN"))
     # étiquette des efforts (panneau au clic)
     if opt.poignees:
-        autres = any(N(u[k]) != 0 for k in ("Vx_Ed", "Vy_Ed", "T_Ed"))
-        txtE = ("NEd " + f0(N(u.N_Ed)) + " · Mx " + f0(N(u.Mx_Ed)) + " · My " + f0(N(u.My_Ed))
-                + (" · V" if autres else ""))
-        wE = S.tw(txtE) + 0.5 * fs
-        hitE = _rect(["hit"], -wE / 2, -1.05 * fs, wE, 1.42 * fs)
-        hitE["rx"] = 0.2 * fs
-        s.append(_group(["ef", "ed"], [hitE, _text([], None, None, txtE, fs)],
-                        x=0, y=-hl_ - 0.9 * fs, rot=0, grp="efforts", id="efforts"))
+        s.append(etiquette_efforts(S, u, fs, 0, -hl_ - 0.9 * fs))
     # --- cotes
     S.dim(dict(id="bp", side="T", a=-hb, b=hb, o1=-hl_, o2=-hl_, sym="bp", val=bp, key="bp_u", lvl=1))
     S.dim(dict(id="lp", side="R", a=-hl_, b=hl_, o1=hb, o2=hb, sym="lp", val=lp, key="lp_u", lvl=1))
@@ -290,6 +312,8 @@ def _coupe(R, opt, axe):
     rompu = Hb < u.hc_u - 1e-9
     bb = dict(x1=-mx(Wc, Wp) / 2, x2=mx(Wc, Wp) / 2, y1=-tp - Hc, y2=tg + Hb)
     fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 300) / 34, 9)
+    if opt.poignees and axe == "x":
+        englober_efforts(bb, u, fs, opt)
     S = Feuille(bb, fs, opt)
     s = []
     hot = (opt.hl or {}).get("elems") or set()
@@ -373,14 +397,7 @@ def _coupe(R, opt, axe):
     piece("anchors", an)
     # étiquette des efforts, dans le tronçon de poteau (A-A, écran)
     if opt.poignees and axe == "x":
-        autres = any(N(u[k]) != 0 for k in ("Vx_Ed", "Vy_Ed", "T_Ed"))
-        txtE = ("NEd " + f0(N(u.N_Ed)) + " · Mx " + f0(N(u.Mx_Ed)) + " · My " + f0(N(u.My_Ed))
-                + (" · V" if autres else ""))
-        wE = S.tw(txtE) + 0.5 * fs
-        hitE = _rect(["hit"], -wE / 2, -1.05 * fs, wE, 1.42 * fs)
-        hitE["rx"] = 0.2 * fs
-        s.append(_group(["ef", "ed"], [hitE, _text([], None, None, txtE, fs)],
-                        x=0, y=-tp - 0.55 * Hc, rot=0, grp="efforts", id="efforts"))
+        s.append(etiquette_efforts(S, u, fs, 0, -tp - 0.55 * Hc))
     # --- cotes
     S.dim(dict(id="tp", side="L", a=-tp, b=0, o1=-Wp / 2, o2=-Wp / 2, sym="tp", val=tp, key="tp_u", lvl=1, out="lo"))
     if tg > 0:

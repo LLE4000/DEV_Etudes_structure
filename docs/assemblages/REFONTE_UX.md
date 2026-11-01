@@ -395,3 +395,90 @@ suites vertes** ; parité dessins 372 vues, 0 divergente ; « RÉGRESSION
 CALCUL : 0 différence » ; benchmark VALIDÉ. Recette navigateur : desktop
 1600×1000 et tablette 834×1112, position de l'élévation mesurée avant et
 après défilement (épinglée sous l'en-tête), glissement gh rejoué.
+
+## 13. Charte ergonomique du 31/10/2026 — pied de poteau, calcul manuel : critère élastique par défaut
+
+Décision du 31/10/2026 (charte ergonomique des écrans d'assemblage, §12) : le
+critère de la platine en calcul manuel est **Élastique** par défaut —
+`entrees.defaults()["crit"] = CRIT_ELAS`, `CRITERES = [CRIT_ELAS, CRIT_EC3]`,
+valeurs brutes, clé `ppb_crit` et fichiers inchangés ; un fichier sans clé
+`crit` (enregistré avant le 31/10/2026) reçoit l'EN 1993-1-8, le critère de son
+époque. Pourquoi : la demande du bureau et le côté sûr — l'élastique ne crédite
+pas l'effet de levier (épaisseur √1,5 à √3 fois la plastique).
+
+Mesuré en relançant le moteur sur le cas par défaut (HEA 300, platine
+500×500×25 S355, 4 × M24 8.8, N 300 / Mx 50 / My 30 / Vy 40) : épaisseur
+requise 15,56 → 19,81 mm, η platine 62,25 → 79,25 %, platine de 25 mm toujours
+VÉRIFIÉE. Le détail (quatre critères, répartition inchangée, benchmark VAL-M
+qui écrit désormais `crit = CRIT_EC3`) : `docs/assemblages/PLATINE_MANUELLE.md`
+§ 6 « Écarts assumés ».
+
+**Révision du 01/11/2026 (relecture des étapes 5 et 6).** Le calcul à la main
+dit le taux du critère RETENU : sous le défaut élastique, la ligne Boulon de la
+note et de l'export disait « FT,Rd = 149 kN (mode 2) → 26 % » (plastique) quand
+la table des critères disait 54,4 %, et la ligne Section « Mpl = 5,17 kNm →
+47 % » (47 % = σvm/fy ; M/Mpl = 31 %). Elles disent maintenant « σvm = 188 MPa
+≤ fy/γM0 = 345 MPa → 54 % » et « σvm = 162 MPa ≤ 345 MPa → 47 % », FT,Rd et Mpl
+« (plastique, information) » ; à l'écran la colonne qui précède η est σvm.
+En plastique, rien ne change. Tests : `tests/test_platine_manuelle.py` §9,
+`tests/test_platine_manuelle_ecran.py` §8.
+
+## 14. Refonte ergonomique du 31/10/2026 — les quatre modules, une charte
+
+**Le retour du bureau (31/10/2026, ses mots).** « Il n'y a rien qui va visuellement, c'est trop compliqué,
+on n'a pas envie de le faire. » — « support principal avec la qualité d'acier, puis support secondaire avec
+la qualité d'acier, tout sur UNE SEULE LIGNE avec les quatre cases les unes à côté des autres » — « Tout
+regrouper pour que ce soit beaucoup plus digeste. » — des « ? » seulement quand c'est nécessaire : « quand
+on dit qualité d'acier S235, il n'y a pas besoin de point d'interrogation » — « il ne faut pas que dans le
+choix ce soit une énorme phrase » (critère de la platine : « Élastique » par défaut / « Plastique », avec un
+« ? » qui explique) — dans la note, le bloc HYPOTHÈSES « doit être beaucoup plus court et mieux résumé » —
+« Il faut qu'on ne perde rien du tout » — « Je te fais confiance, prends toutes les décisions ».
+
+La charte qui en est née — principes, grille mesurée, textes exacts, décisions, écarts assumés — est
+`docs/assemblages/ERGONOMIE.md`. Mise en œuvre en sept étapes, un commit chacune : kit et plat d'âme
+(gabarit), platine d'about, doubles cornières, pied de poteau (vérification complète puis calcul manuel et
+critère élastique par défaut, relecture), consolidation du kit et documentation (01/11/2026).
+
+### Prévu / Réalisé / Où
+
+| Prévu (charte) | Réalisé | Où |
+|---|---|---|
+| Un objet = une ligne de 3 ou 4 cases, titre discret à gauche (P1) | les cinq cartes ; « Principale · Nuance · Secondaire · Nuance » sur une ligne | `ecran_saisie.BLOCS` des modules, `carte.ligne_objet` |
+| Un seul arbre Streamlit, la grille change par une règle CSS sur nos clés (P2) | quatre paliers mesurés (1351 / 1350 / 1180 / 640), base 124, écart 8 px ; consolidation : case ≤ 187 px, continuation alignée, titres collés à leur rangée | `carte.css_kit` |
+| Un « ? » seulement s'il apprend quelque chose (P3) | 5 / 4 / 4 / 4 / 7 « ? » dans la carte au défaut ; plus aucun libellé long recopié en aide | `AIDES`, `carte.aides_visibles` |
+| Des choix courts, valeurs brutes inchangées (P4) | « Vérification / Prédimensionnement », « Élastique / Plastique », « Bande c / Toute la platine », « EC3 seul / EC3 + EC2-4 »… ; aucune option affichée > 28 caractères | `AFFICHAGE`, `segmented_control` du kit |
+| Une forme par clé (P5) | LIBELLE lu par la carte, les fenêtres, le panneau Cotes, les pastilles ; LIBELLE_MODE (pied) ; LIBELLE_LONG hors carte (« Rangées n1 (groupe S) ») | `ecran_saisie.LIBELLE`, `carte.libelle_long` |
+| La géométrie se règle sur le dessin (P6) | GEOMETRIE_DESSIN ∩ carte = ∅ ; dessin fixe : panneau Cotes complet (Vue simple comprise) | `carte.cotes_du_panneau`, `carte.panneau_cotes` |
+| Rien ne se perd, et un test le prouve (P7) | champs, géométrie (cote du vrai dessin, fenêtre ou panneau Cotes rendu), onglets, exports, aides | `tests/test_assemblages_kit.py` §1 et §1 bis, suites d'écran |
+| Barre d'outils partagée, titre court (§8) | une rangée à 1440 et 1024, trois rangées (≤ 130 px) à 390 | `projet_ui.barre_outils`, `projet_ui.en_tete` |
+| Bandeau court (§9) | « — 74,0 % · Pression diamétrale – âme » ; calcul manuel : épaisseur requise et critère gouvernant, chips tT · tS · tc · tb | `synthese.court`, `bandeau` des modules |
+| Vérifications : légende, périmètre, Tableau 3.3 repliés (§10) | légende d'une ligne après la dernière table ; « Périmètre de la vérification » et « Pinces et entraxes (Tab. 3.3) » repliés, ouverts d'office si NON CONFORME | `ui_commun.legende_natures`, `expander_perimetre`, `tableau_33_replie` |
+| HYPOTHÈSES ≤ 3 lignes de ≤ 110 caractères (§11) | les cinq notes ; renvois du guide toujours « MSB P5 » | `note_kit.empaqueter`, `segments_hypotheses` |
+| Critère de la platine manuelle : Élastique par défaut (§12) | défaut changé, fichiers anciens relus en EN 1993-1-8, VAL-M explicites | `entrees.defaults`, §13 ci-dessus, `PLATINE_MANUELLE.md` § 6 |
+| Kit d'abord, modules ensuite, consolidation (§13, §14) | briques locales rapatriées, une source par brique (ERGONOMIE.md §17) | `acier/assemblages/carte.py`, `ui_commun.py`, `note_kit.py` |
+| Captures mesurées aux quatre largeurs (amendement 10) | seuils tenus aux quatre largeurs, cinq écrans et quatre états (complet, fixe, Vue simple, perso) | `tools/captures_assemblages.js` |
+
+### Mesures avant / après (01/11/2026)
+
+Avant = le commit `d3f6d35` (dernier état avant la refonte), après = l'arbre consolidé ; même protocole des deux
+côtés, relancé ce jour : un serveur par version, Playwright (`scratchpad/ergo/consolidation/js/avant_apres.js`)
+et AppTest (`compte_cases.py`). Cases = champs de saisie visibles de la carte au cas par défaut, au-dessus des
+onglets, hors replis, à 1440 px ; rangées = rangées distinctes de ces cases à 1440 px ; hauteur = hauteur de la
+page à 390 px (formule de `tools/captures_assemblages.js`). « ? » avant = aides des widgets et des titres de la
+carte hors replis (AppTest) ; après = `carte.aides_visibles` (les « ? » visibles à une largeur donnée : les
+tables du calcul manuel portent le « ? » de x (mm) dans l'en-tête ≥ 1351 px OU sur la première rangée en dessous).
+
+| Écran | Cases avant → après | « ? » avant → après | Rangées de la carte avant → après | Hauteur à 390 px avant → après |
+|---|---|---|---|---|
+| Doubles cornières | 23 → 21 | 20 → 5 | 8 → 7 | 7 415 → 5 345 px (−28 %) |
+| Plat d'âme | 16 → 15 | 15 → 4 | 8 → 6 | 6 396 → 4 840 px (−24 %) |
+| Platine d'about | 15 → 13 | 14 → 4 | 8 → 6 | 5 694 → 4 244 px (−25 %) |
+| Pied de poteau, vérification complète | 21 → 20 | 15 → 4 | 10 → 7 | 8 961 → 7 206 px (−20 %) |
+| Pied de poteau, calcul manuel | 33 → 27 | 15 → 7 | 16 → 10 | 9 710 → 6 953 px (−28 %) |
+
+Les cases ne baissent presque pas : la refonte REGROUPE, elle ne retire rien (les champs rares sont dans
+« Paramètres avancés » et le cartouche, la géométrie sur le dessin). L'inventaire du 31/10/2026 comptait 22 / 14 /
+22 / 24 / 24 « ? » sur un autre périmètre (carte visible plus visserie, case « Dessin interactif » et, selon le
+module, les avancés) ; le recomptage ci-dessus applique une seule règle aux deux versions. HYPOTHÈSES de la note :
+3 lignes de ≤ 110 caractères dans les cinq écrans (ERGONOMIE.md §11 : 4 à 6 lignes imprimées au lieu de 5 à 13,
+mesuré le 31/10/2026).

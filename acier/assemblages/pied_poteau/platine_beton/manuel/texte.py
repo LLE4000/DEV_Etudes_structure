@@ -37,20 +37,33 @@ def lignes_main(R):
     L.append("Répartition (platine rigide, " + ("toute la platine" if R.plein else "bande c = " + F(R.c, 1) + " mm") + ") : C = "
              + F(R.C, 1) + " kN en (" + F(R.xC, 0) + " ; " + F(R.yC, 0) + "), p max = " + F(R.pmax, 2) + " MPa (fjd = "
              + F(R.fjd, 1) + ") ; tiges : " + ", ".join(f"n°{t['i'] + 1} T = {F(t['T'], 1)} kN" for t in R.tiges) + ".")
+    # Le taux de chaque ligne est celui du critère RETENU (t["eta"], s["eta"] du moteur) : en élastique,
+    # σvm ≤ fy/γM0, et FT,Rd / Mpl restent dits en information plastique ; en plastique, T/FT,Rd et M/Mpl.
+    el = R.elastique
     for t in R.tiges:
         if t["T"] <= 1e-9:
             continue
-        L.append(f"Boulon {t['i'] + 1} ({F(t['x'], 0)} ; {F(t['y'], 0)}) : appui = {t['appui']['face']}, bras m = {F(t['m'], 1)} mm"
-                 + (" (angle)" if t["coin"] else "") + f", M = T·m = {F(t['T'], 1)} × {F(t['m'], 1)} = {F(t['M'], 2)} kNm ; "
-                 f"leff,1 = {F(t['leff1'], 0)} mm, Mpl,1 = {F(t['Mpl1'], 2)} kNm, Lb = {F(R.Lb, 0)} / Lb* = "
-                 f"{F(min(t['Lb_star'], 9999), 0)} ({'avec' if t['levier'] else 'sans'} effet de levier), FT,Rd = {F(t['FT_Rd'], 1)} kN "
-                 f"(mode {t['mode_ts']}) → {pct(t['T'] / t['FT_Rd'] if t['FT_Rd'] > 0 else 9.99, 0)} ; σvm = {F(t['svm'], 0)} MPa ; "
-                 f"épaisseur pour ce boulon : plastique {F(t['t_pl'], 1)} mm, élastique {F(t['t_el'], 1)} mm.")
+        tete = (f"Boulon {t['i'] + 1} ({F(t['x'], 0)} ; {F(t['y'], 0)}) : appui = {t['appui']['face']}, bras m = {F(t['m'], 1)} mm"
+                + (" (angle)" if t["coin"] else "") + f", M = T·m = {F(t['T'], 1)} × {F(t['m'], 1)} = {F(t['M'], 2)} kNm ; "
+                f"leff,1 = {F(t['leff1'], 0)} mm, ")
+        levier = f"Lb = {F(R.Lb, 0)} / Lb* = {F(min(t['Lb_star'], 9999), 0)} ({'avec' if t['levier'] else 'sans'} effet de levier)"
+        if el:
+            corps = (f"{levier} ; {synthese.taux_von_mises(t, R.ck['ptl'].Rd)} ; Mpl,1 = {F(t['Mpl1'], 2)} kNm, "
+                     f"FT,Rd = {F(t['FT_Rd'], 1)} kN, mode {t['mode_ts']} (plastique, information) ; ")
+        else:
+            corps = (f"Mpl,1 = {F(t['Mpl1'], 2)} kNm, {levier}, FT,Rd = {F(t['FT_Rd'], 1)} kN (mode {t['mode_ts']}) → "
+                     f"{pct(t['eta'], 0)} ; σvm = {F(t['svm'], 0)} MPa ; ")
+        L.append(tete + corps + f"épaisseur pour ce boulon : plastique {F(t['t_pl'], 1)} mm, élastique {F(t['t_el'], 1)} mm.")
     for s in R.sections:
-        L.append(f"Section au nu {s['nom']} : boulons {', '.join(str(i + 1) for i in s['idx'])}, bras ⊥ "
-                 f"{', '.join(F(m, 1) for m in s['m'])} mm, M = ΣT·m = {F(s['M'], 2)} kNm, b = min(platine ; L + 2m) = "
-                 f"{F(s['b'], 0)} mm, Mpl = {F(s['Mpl'], 2)} kNm → {pct(s['eta'], 0)} ; σvm = {F(s['svm'], 0)} MPa ; "
-                 f"épaisseur : plastique {F(s['t_pl'], 1)}, élastique {F(s['t_el'], 1)} mm.")
+        tete = (f"Section au nu {s['nom']} : boulons {', '.join(str(i + 1) for i in s['idx'])}, bras ⊥ "
+                f"{', '.join(F(m, 1) for m in s['m'])} mm, M = ΣT·m = {F(s['M'], 2)} kNm, b = min(platine ; L + 2m) = "
+                f"{F(s['b'], 0)} mm")
+        if el:
+            corps = (f" ; {synthese.taux_von_mises(s, R.ck['pts'].Rd)} ; Mpl = {F(s['Mpl'], 2)} kNm (plastique, "
+                     f"information) ; ")
+        else:
+            corps = f", Mpl = {F(s['Mpl'], 2)} kNm → {pct(s['eta'], 0)} ; σvm = {F(s['svm'], 0)} MPa ; "
+        L.append(tete + corps + f"épaisseur : plastique {F(s['t_pl'], 1)}, élastique {F(s['t_el'], 1)} mm.")
     cs = R.console
     if cs["m_Ed"] > 1e-9:
         L.append(f"Bande comprimée la plus sollicitée : {cs['nom']}, p au nu = {F(cs['p0'], 2)} MPa, console de "
@@ -70,7 +83,12 @@ def construire_texte(R, complet=False):
     L = ["PLATINE SUR BÉTON — CALCUL MANUEL DE LA PLATINE",
          "=" * 64,
          R.statut + " — taux maximal " + pct(R.eta_max, 1) + (" — " + R.gov.label if R.gov else ""), "",
-         "Données : " + ligne_donnees(R) + ".", ""]
+         "Données : " + ligne_donnees(R) + "."]
+    # Le rédacteur saisi au cartouche (id_red) est imprimé ici aussi — un champ saisi et jamais lu
+    # était un défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
+    if str(R.u.get("id_red") or "").strip():
+        L.append("Rédacteur : " + str(R.u.get("id_red")).strip())
+    L.append("")
     L += lignes_main(R)
     L.append("")
     for a in R.alerts:

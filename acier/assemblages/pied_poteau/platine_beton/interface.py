@@ -4,21 +4,24 @@
 # ===========================
 #  interface.py (Streamlit)
 #
-#  Même écran que les assemblages poutre–poutre : barre d'outils, statut une
+#  Titre court et barre d'outils partagée (acier/projet_ui.py), statut une
 #  ligne, alertes courtes, puis DEUX COLONNES — à gauche le dessin (coupe A-A
 #  puis vue en plan avec la répartition, colonne FIGÉE par CSS sticky), à
-#  droite la carte compacte par objet, les replis et les onglets.
+#  droite la carte par objet rendue par le kit (acier/assemblages/carte.py),
+#  les replis et les onglets. Deux modes, une seule source de clés : le
+#  calcul manuel (défaut, manuel/ecran.py) et la vérification complète.
+#  Charte ergonomique du 31/10/2026 (docs/assemblages/ERGONOMIE.md).
 #
 #  SOURCE UNIQUE : les entrées vivent dans st.session_state sous les clés
 #  `ppb_<clé>` (espace disjoint des clés `asm_`, `fpl_`, `pab_` et `prj_`).
 #  Le dessin est rendu AVANT la carte (messages appliqués avant widgets).
 # ===========================
-from datetime import datetime
 from functools import lru_cache
 
 import streamlit as st
 
 from acier import projet_ui
+from acier.assemblages import carte as kit, ui_commun
 from . import ecran_saisie, ecran_resultats, texte
 from .entrees import CLES, defaults, charger_json, VISSERIE_DEFAUT, est_complet
 from .calcul import compute                                    # selon le mode : manuel ou complet
@@ -27,24 +30,9 @@ from .manuel import ecran as ecran_manuel
 
 MODULE_VERSION = "1.1"
 PREFIXE = "ppb_"
+TITRE_COURT = "Pied de poteau sur béton"
+TITRE_LONG = "Platine sur béton – pied de poteau"
 _TRANSITOIRES = ("btn", "uploader", "pdf_bytes", "_ppb_", "ppb_cmp_", "ppb_cote_", "ppb_fix_")
-
-_CSS_STICKY = """<style>
-@media (min-width: 641px) {
-  div[data-testid="stColumn"]:has(div.st-key-ppb_col_dessin) {
-    position: sticky;
-    top: 2.875rem;
-    align-self: flex-start;
-    max-height: calc(100vh - 3.5rem);
-    overflow-y: auto;
-    scrollbar-width: thin;
-  }
-  div[data-testid="stMainBlockContainer"] {
-    padding-bottom: 1.5rem;
-  }
-}
-</style>"""
-
 
 def K(k):
     return PREFIXE + k
@@ -111,12 +99,7 @@ def charger_payload(data):
 
 
 def _infos(u):
-    return {"nom_projet": st.session_state.get("nom_projet", "") or u.get("id_projet", ""),
-            "partie": st.session_state.get("partie", "") or u.get("id_rep", ""),
-            "date": st.session_state.get("date", "") or u.get("id_date", "")
-            or datetime.today().strftime("%d/%m/%Y"),
-            "indice": st.session_state.get("indice", "0"),
-            "visserie": st.session_state.get("ppb_visserie", VISSERIE_DEFAUT)}
+    return projet_ui.infos_cartouche(PREFIXE, u, VISSERIE_DEFAUT)
 
 
 # ------------------------------------------------------------------ écran
@@ -133,95 +116,76 @@ def show():
     if msg:
         st.toast(msg)
 
-    tH1, tH2, tH3 = st.columns([8, 1.6, 0.55], vertical_alignment="center")
-    with tH1:
-        st.markdown("## Platine sur béton – pied de poteau")
-    with tH2:
-        st.markdown(f"<div style='text-align:right;color:#6b7280;font-size:0.9em;'>Version {MODULE_VERSION}</div>",
-                    unsafe_allow_html=True)
-    with tH3:
-        st.button("❔", key="ppb_btn_version", use_container_width=True,
-                  help="Deux modes. CALCUL MANUEL de la platine (défaut) : boulons posés librement, éléments soudés, "
-                       "raidisseurs ; efforts des tiges par la platine rigide, épaisseur requise lue comme sur une "
-                       "note à la main (bras de levier, moment pris, largeur de plat, tronçon en T ou Von Mises). "
-                       "VÉRIFICATION COMPLÈTE EN 1993-1-8 + EN 1992-4 pour une grille régulière autour d'un "
-                       "profilé : aire efficace, Table 6.7, tronçons en T par rangée, ancrages. γM0 ANB belge.")
-
-    # Barre d'outils : ◀ Projet · 🏠 · 🔄 · 💾 (projet entier) · [A2 ▾] · 📄 —
-    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
-    b0, b1, b2, b3, b4, b5 = st.columns(6)
-    with b0:
-        projet_ui.bouton_retour("ppb_btn_retour")
-    with b1:
-        if st.button("🏠 Accueil", use_container_width=True, key="ppb_btn_home"):
-            st.session_state.retour_accueil_demande = True
-            st.rerun()
-    with b2:
-        if st.button("🔄 Réinitialiser", use_container_width=True, key="ppb_btn_reset",
-                     disabled=projet_ui.verrouille()):
-            _reinitialiser()
-            st.rerun()
+    # Titre court + l'ancien titre long et la version en caption ; plus de bouton ❔ (son texte : Méthode
+    # « Ce que l'outil vérifie ») ni de cellule « Version » (charte §8).
+    projet_ui.en_tete(TITRE_COURT, TITRE_LONG + " · version " + MODULE_VERSION)
     u = lire_entrees()
-    with b3:
-        projet_ui.bouton_enregistrer("ppb_btn_save_dl", lambda: _payload(u), lambda: texte.nom_fichier(u, ".json"))
-    with b4:
-        if not projet_ui.selecteur(PREFIXE):
-            projet_ui.bouton_ouvrir_seul(PREFIXE, charger_payload, ecrire_entrees)
-
+    # dimensions vides (profil Personnalisé, tube) : la vérification est suspendue, le dessin garde des
+    # dimensions provisoires (kit.provisoire) — plus de ZeroDivisionError (consolidation, point 19)
+    D = ecran_saisie.description(u)
+    vides = kit.dimensions_vides(D, u)
     try:
-        R = compute(u)
+        R = compute(kit.provisoire(D, u) if vides else u)
         erreur = None
     except Exception as e:  # noqa: BLE001 — l'écran doit rester utilisable
         R, erreur = None, f"{type(e).__name__}: {e}"
 
-    with b5:
-        if st.button("📄 Générer PDF", use_container_width=True, key="ppb_btn_pdf", disabled=R is None,
-                     help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe."):
-            from .note import generer_note
-            try:
-                st.session_state["ppb_pdf_bytes"] = generer_note(R, _infos(u))
-                st.success("✅ Note de calcul générée")
-            except Exception as e:  # noqa: BLE001
-                st.session_state.pop("ppb_pdf_bytes", None)
-                st.error(f"Erreur lors de la génération du PDF : {e}")
-        if st.session_state.get("ppb_pdf_bytes"):
-            st.download_button("⬇️ Télécharger la note PDF", data=st.session_state["ppb_pdf_bytes"],
-                               file_name=texte.nom_fichier(u, ".pdf"), mime="application/pdf",
-                               use_container_width=True, key="ppb_btn_pdf_dl")
+    def generer_pdf():
+        from .note import generer_note
+        return generer_note(R, _infos(u))
 
+    # Barre d'outils partagée : ◀ Projet · 🏠 · 💾 (projet entier) · 📄 · [A2 ▾] · 🔄 —
+    # hors projet (écran ouvert directement), 💾 et 📂 gardent l'assemblage seul.
+    projet_ui.barre_outils(PREFIXE, lambda: _payload(u), lambda ext: texte.nom_fichier(u, ext), charger_payload,
+                           ecrire_entrees, _reinitialiser, generer_pdf, pdf_disabled=R is None or bool(vides),
+                           pdf_help="Note de calcul de 2 pages (A4 paysage) : synthèse + plan de principe.")
     projet_ui.bandeau_verrou(PREFIXE)
     manuel = not est_complet(u)
-    if R is None:
-        st.error(f"Données incomplètes : {erreur}")
-        if manuel:
-            ecran_manuel.carte(u, set(), lire_entrees, ecrire_entrees)
+    # Le CSS du kit (colonne figée comprise) en UN élément, dans le même conteneur sans écart que le
+    # bandeau : chaque élément vide coûtait 16 px d'écart, et au téléphone le dessin du calcul manuel tombait
+    # sous le premier écran (945 px > 844, mesuré le 31/10/2026).
+    with st.container(gap=None):
+        kit.injecter_css(PREFIXE)
+        if R is None:
+            st.error(f"Données incomplètes : {erreur}")
+        elif vides:
+            ui_commun.bloc_alerte_ligne("Données incomplètes", kit.message_dimensions(D, u), True)
+        elif manuel:
+            ecran_manuel.bandeau(R)
         else:
-            ecran_manuel.bloc_mode(u, set(), lire_entrees, ecrire_entrees)
-            ecran_saisie.carte(u, set())
+            ecran_resultats.bandeau(R)
+    if R is None:
+        _carte(u, set(), manuel)
         return
-
-    if manuel:
-        ecran_manuel.bandeau(R)
-    else:
-        ecran_resultats.bandeau(R)
-    ecran_resultats.alertes(R, u)
+    if not vides:
+        # la ligne d'information hors verdict, sous le bandeau (hors du conteneur sans écart : elle le chevauchait)
+        (ecran_manuel.information if manuel else ecran_resultats.information)(R)
+        ecran_resultats.alertes(R, u)
     chauds = set()
     sel = st.session_state.get("ppb_ui_alerte")
     for a in R.alerts:
         if a.id == sel:
             chauds = set(a.fields) | set(a.elems)
-    st.markdown(_CSS_STICKY, unsafe_allow_html=True)
     c_dessin, c_droite = st.columns([1, 1.12], gap="medium")
     with c_dessin:
         with st.container(key="ppb_col_dessin"):
             e, p, hl = ecran_manuel.dessins(R, u) if manuel else ecran_resultats.dessins(R, u)
     with c_droite:
         if not st.session_state.get("ppb_ui_composant", True):
-            ecran_resultats.panneau_cotes(e, p, hl)
-        if manuel:
-            ecran_manuel.carte(u, chauds, lire_entrees, ecrire_entrees)
+            ecran_resultats.panneau_cotes(u, hl)
+        _carte(u, chauds, manuel)
+        if vides:
+            st.caption("Vérifications, note et exports : dès que les dimensions sont saisies.")
+        elif manuel:
             ecran_manuel.onglets(R, u, ecrire_entrees)
         else:
-            ecran_manuel.bloc_mode(u, chauds, lire_entrees, ecrire_entrees)
-            ecran_saisie.carte(u, chauds)
             ecran_resultats.onglets(R, _bench(), u, ecrire_entrees)
+
+
+def _carte(u, chauds, manuel):
+    """La carte du mode : calcul manuel (tables) ou vérification complète ;
+    les deux s'ouvrent sur la même rangée d'en-tête (le mode et sa bascule)."""
+    if manuel:
+        ecran_manuel.carte(u, chauds, lire_entrees, ecrire_entrees)
+    else:
+        ecran_saisie.carte(u, chauds, lire_entrees, ecrire_entrees)

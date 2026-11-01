@@ -33,9 +33,10 @@ main.
 | Raidisseurs | point de départ (x ; y), direction (±x, ±y), longueur L, épaisseur t, hauteur h (dessin) | carte, dessin |
 | Appui | béton, massif (fjd par EN 1992-1-1 §6.7 et EN 1993-1-8 §6.2.5), mortier ; aire d'appui : bande c ou toute la platine | carte |
 | Efforts | N (compression > 0), Mx (comprime y > 0), My (comprime x > 0), Vx, Vy, T ; point d'application (xN ; yN) | carte, dessin |
-| Critère | EN 1993-1-8 (tronçon en T plastique, console élastique) ou tout élastique (Von Mises) | carte |
+| Critère | Élastique (Von Mises ≤ fy/γM0, **défaut** depuis le 31/10/2026, § 6) ou Plastique (EN 1993-1-8 : tronçon en T plastique, console élastique) | en-tête de la carte |
 
-Repère : origine au centre de la platine, x et y du dessin en plan. Un
+Repère : origine au centre de la platine, x et y du dessin en plan (à l'écran :
+le « ? » de x (mm) dans l'en-tête de la table des boulons). Un
 élément excentré par rapport aux boulons, ou des efforts appliqués hors du
 centre, créent leur moment N·e tout seuls : `Mx = Mx,Ed + N·yN`,
 `My = My,Ed + N·xN`.
@@ -169,15 +170,16 @@ retenue (le balayage descend depuis tp tant que le critère tient).
 
 ## 3 · Ce que donnent les deux critères
 
-- **EN 1993-1-8** (défaut) : côté tendu le tronçon en T plastique du
-  Tableau 6.2 — avec effet de levier quand `Lb ≤ Lb*`, ce qui est le cas des
-  platines minces sur tiges longues : la platine s'appuie sur le béton
-  au-delà du boulon et le boulon reprend l'effort de levier Q, d'où
+- **Élastique** (défaut depuis le 31/10/2026, affiché « Élastique ») :
+  partout `σ de Von Mises ≤ fy/γM0` sur la bande, sans effet de levier. Sans
+  effet de levier l'épaisseur vaut √1,5 = 1,22 fois la plastique (rapport des
+  modules élastique et plastique) ; avec effet de levier, jusqu'à √3 = 1,73
+  fois. Les deux sont affichées.
+- **EN 1993-1-8** (affiché « Plastique ») : côté tendu le tronçon en T
+  plastique du Tableau 6.2 — avec effet de levier quand `Lb ≤ Lb*`, ce qui
+  est le cas des platines minces sur tiges longues : la platine s'appuie sur
+  le béton au-delà du boulon et le boulon reprend l'effort de levier Q, d'où
   `FT,Rd = 4·Mpl/m` ; côté comprimé la console élastique du §6.2.5.
-- **Élastique** : partout `σ de Von Mises ≤ fy/γM0` sur la bande, sans
-  effet de levier. Sans effet de levier l'épaisseur vaut √1,5 = 1,22 fois
-  la plastique (rapport des modules élastique et plastique) ; avec effet de
-  levier, jusqu'à √3 = 1,73 fois. Les deux sont affichées.
 
 ## 4 · Exemples vérifiés à la main (tests/test_platine_manuelle.py)
 
@@ -192,10 +194,14 @@ Platine 500 × 500 S355, HEA 300 à l'axe, 4 × M24 8.8, cordon a = 8.
 | Vy = 200 kN, N = 0 | 50 kN par boulon ; boulon vers le bord : e1 = 50, p1 = ∞ (le boulon arrière : e1 = 450, p1 = 400), e2 = 50, p2 = 400 → αb = 50/78 = 0,64, k1 = 2,5 ; fu = 510 MPa (S355, EN 1993-1-1 Tab. 3.1) ; Fb,Rd = 2,5 × 0,641 × 510 × 24 × 25 / 1,25 = 392,3 kN ; tb = 50 000 × 1,25 / (2,5 × 0,641 × 510 × 24) = 3,19 mm | exact |
 | Rond Ø20 à l'axe | bras 264 mm, pression ≫ fjd | aucune épaisseur ne suffit |
 
-Le cas par défaut (N = 300, Mx = 50, My = 30, Vy = 40) donne une épaisseur
-requise de 15,6 mm (about d'aile du boulon d'angle) contre 14,0 mm dans la
-vérification complète (console moyenne à l'épaisseur retenue) : deux
-conventions voisines, la manuelle recalculant tout à chaque épaisseur.
+Les cas du tableau sont des calculs PLASTIQUES : leurs données écrivent le
+critère (`crit = CRIT_EC3`, dans le test comme dans le benchmark de l'onglet).
+
+Le cas par défaut (N = 300, Mx = 50, My = 30, Vy = 40) donne, au critère
+EN 1993-1-8, une épaisseur requise de 15,6 mm (about d'aile du boulon d'angle)
+contre 14,0 mm dans la vérification complète (console moyenne à l'épaisseur
+retenue) : deux conventions voisines, la manuelle recalculant tout à chaque
+épaisseur. Au critère élastique (le défaut), 19,8 mm : voir « Écarts assumés ».
 
 ## 5 · Ce que le calcul manuel ne couvre pas
 
@@ -211,3 +217,126 @@ conventions voisines, la manuelle recalculant tout à chaque épaisseur.
   de la sécurité (platine tenue sur trois côtés en réalité) ;
 - une platine en pure traction (suspente) n'a pas de bande comprimée : le
   côté tendu décide seul.
+
+## 6 · Écarts assumés
+
+### 31/10/2026 — le critère par défaut devient ÉLASTIQUE (charte ergonomique §12)
+
+**Décision.** `entrees.defaults()["crit"] = CRIT_ELAS` et
+`CRITERES = [CRIT_ELAS, CRIT_EC3]` ; à l'écran, le choix est un
+segmented_control « Élastique | Plastique » (valeurs brutes inchangées, clé
+`ppb_crit`, fichiers inchangés). Pourquoi : la demande du bureau (« Élastique
+par défaut, Plastique, avec un ? qui explique ») et le côté sûr — l'élastique
+ne crédite pas l'effet de levier.
+
+**Conséquences mesurées** (moteur relancé le 31/10/2026 sur le cas par défaut :
+HEA 300, platine 500×500×25 S355, 4 × M24 8.8, N 300 / Mx 50 / My 30 / Vy 40) :
+
+| | EN 1993-1-8 (plastique) | Élastique (défaut) |
+|---|---|---|
+| Épaisseur requise | 15,56 mm | 19,81 mm |
+| tT · tS · tc · tb | 12,47 · 15,56 · 12,19 · 4,0 mm | 19,81 · 18,66 · 12,19 · 4,0 mm |
+| Critère gouvernant | section au nu (tS) | tronçon en T du boulon (tT) |
+| η platine | 62,25 % | 79,25 % |
+| Verdict (tp = 25 mm) | VÉRIFIÉE | VÉRIFIÉE |
+
+C, pmax, ΣT et la bande c ne changent pas (338,9 kN ; 12,22 MPa ; 38,9 kN ;
+59,4 mm) : la répartition ne dépend pas du critère. Rapport tT élastique /
+plastique = 1,59, entre √1,5 (sans levier, au nu : `t_el = √(6·M·γM0/(b·fy))`
+contre `√(4·…)`) et √3 (avec levier, l'effet de levier n'étant crédité qu'en
+plastique).
+
+**Ce qui suit, dans le même lot** : la note dit le critère retenu (CONCLUSION
+« selon Von Mises ≤ fy/γM0 (critère élastique) » ou « selon EN 1993-1-8 §6.2.4
+(tronçons en T) » ; HYPOTHÈSES ligne 1) ; le bandeau dit l'épaisseur requise et
+le critère gouvernant ; l'onglet Méthode dit « Élastique (défaut) ».
+
+**Les fichiers.** `charger_json` : un fichier SANS clé `crit` (enregistré avant
+le 31/10/2026, ou un fichier d'avant le calcul manuel) reçoit l'EN 1993-1-8,
+le critère de son époque — il redonne le résultat qu'il donnait. Un fichier
+qui porte son critère le garde.
+
+**Le harnais a trouvé.** Le benchmark de l'onglet (VAL-M1 à VAL-M4) et les
+calculs à la main de `tests/test_platine_manuelle.py` (§3) sont PLASTIQUES et
+dépendaient du défaut sans l'écrire : sous le défaut élastique, VAL-M1 et
+VAL-M2 sortaient « À CONTRÔLER » (tT 14,56 au lieu de 8,39 mm ; tS 11,06 au
+lieu de 9,02 mm). Chaque cas écrit désormais `crit = CRIT_EC3`, et un contrôle
+rougit si l'un l'oublie.
+
+**Tests** : `defaults()["crit"] == CRIT_ELAS` ;
+`compute(crit=CRIT_EC3).t_req < compute().t_req` ; les valeurs du tableau
+ci-dessus figées ; `charger_json` sans `crit` → `CRIT_EC3` ; chaque VAL-M
+porte son critère (`tests/test_platine_manuelle.py` §6 et §8) ; l'écran
+(bandeau « épaisseur requise 19,8 ≤ tp 25 mm · 79,3 % · tronçon en T du
+boulon », bascule « Plastique » puis retour au défaut) :
+`tests/test_platine_manuelle_ecran.py`.
+
+### 31/10/2026 — l'écran du calcul manuel sur le kit de la carte (charte §4.5)
+
+hef et dh ont quitté la carte : ils se règlent sur la coupe A-A (dès qu'un
+boulon existe ; « dh 0 » est une étiquette éditable), dans la fenêtre Boulons
+et dans la fenêtre Platine (toujours cliquable, même sans boulon), ou dans le
+panneau Cotes (dessin fixe), qui liste maintenant toute la géométrie visible
+et plus seulement les cotes émises ; `manuel/schemas.CLE_PAR_COTE` reçoit
+`dh`. xN / yN descendent dans Paramètres avancés › APPLICATION et restent dans
+la fenêtre Efforts. Le vocabulaire suit le mode : « Boulon », « Visserie par
+boulon ». Les alertes d'information (au moins deux) sont regroupées dans un
+repli « ⚠️ n remarques — … » ; les alertes bloquantes restent une par ligne.
+
+### 01/11/2026 — révision après relecture : le calcul à la main dit le taux du critère retenu
+
+Sous le défaut élastique, la ligne « Boulon 1 » du calcul à la main (note,
+export texte) disait « FT,Rd = 149 kN (mode 2) → 26 % » — T/FT,Rd, un taux
+plastique — alors que la table des critères et les formules disaient 54,4 %
+(σvm 187,7 / 345 MPa) pour le même boulon ; la ligne « Section » disait
+« Mpl = 5,17 kNm → 47 % » alors que M/Mpl = 1,59 / 5,17 = 31 % (les 47 % sont
+σvm/fy). À l'écran, « FT,Rd 149 » précédait « η 54,4 % » et « Mpl 5,17 »
+précédait « η 46,9 % ». Correction par COMPOSITION seulement (le moteur nommait
+déjà `t["svm"]`, `t["eta"]`, `s["svm"]`, `s["eta"]`, `R.elastique`) :
+
+- en élastique, la ligne Boulon dit « σvm = 188 MPa ≤ fy/γM0 = 345 MPa → 54 % »
+  et la ligne Section « σvm = 162 MPa ≤ 345 MPa → 47 % » ; FT,Rd et Mpl n'y
+  restent qu'en information, marqués « (plastique, information) » ; à l'écran,
+  la colonne qui précède η est « σvm (MPa) », FT,Rd et Mpl passent dans les
+  légendes des deux tables ;
+- en plastique, rien ne change (T/FT,Rd → 26 %, M/Mpl → 31 %) : export texte et
+  texte de la note identiques, octet pour octet, sur le cas plastique et les
+  quatre cas VAL-M ;
+- la phrase élastique est composée une fois (`manuel/synthese.taux_von_mises`)
+  pour la note, l'export et l'écran.
+
+Valeurs mesurées en relançant le moteur sur le cas par défaut (élastique :
+boulon 1 η 0,5439, section É1 aile −x η 0,4688 ; plastique : 0,2613 et 0,3078).
+Tests : `tests/test_platine_manuelle.py` §9 (export), `tests/test_platine_manuelle_ecran.py`
+§8 (écran et note) — ils rougissent sur l'état du 31/10/2026.
+
+Même relecture, à l'écran : les types d'élément s'affichent « Profilé I/H ·
+Tube RHS · Tube CHS · Plat · Rond · Rectangle » (valeurs brutes inchangées) —
+la zone de texte de la case Type mesure 63 px à 1351 px de fenêtre et 75 px à
+1440, où « Tube RHS / SHS », « Plat sur chant », « Rectangle plein » (et
+« Profilé I / H » à 1351) étaient rognés ; les titres « RAIDISSEURS » et
+« APPLICATION » perdent leur césure et prennent un espacement de 0,05 em
+(74,0 px pour une case de 76 : une ligne, plus de « RAIDIS-SEURS »).
+
+
+### 01/11/2026 — consolidation des écrans (charte ergonomique §17)
+
+Sans effet sur le calcul. La ligne « Notations » du pied de la note mesurait
+801 pt pour 798 disponibles : elle était coupée d'un « … » (défaut trouvé à la
+consolidation). Elle est resserrée (777 pt, contrôlé), complétée de hef, dh,
+tg, bc, lc, hc, et devient aussi le paragraphe « Notations » de l'onglet
+Méthode (source : `notation.NOTATIONS_MANUEL`). La référence de la pression
+« … EC2 §6.7 — répartition élastique » (phrase interdite des notes depuis le
+21/09/2026) s'abrège en « … EC2 §6.7 (répartition) » dans la vue
+(`notation.ref_courte`) ; le moteur garde sa référence. Le titre du périmètre
+dit « n non vérifiés », comme son contenu. Les tables de détail sont des
+tables serrées du kit (`tableau_html(serre=2)`), leurs en-têtes écrits en
+capitales sans transformer les symboles (σvm, η).
+
+Relecture des notes finales, même jour : au cartouche du plan, la 1re ligne
+BOULONS mesurait 273 pt pour 168 ; coupée d'un « … », elle perdait l'ancrage
+et hef. Elle garde « Boulons 4 × M24 8.8 – trous Ø26 · tête Ø40 · hef 300 » ;
+« perçages cotés depuis les bords » (la vue en plan le montre) passe en 2e
+ligne APRÈS la visserie saisie — si cette ligne déborde, c'est lui qui se
+coupe. À l'écran, le « ? » du repère n'est plus que sur la première rangée de
+boulons (sous 1351 px il se répétait sur chacune).

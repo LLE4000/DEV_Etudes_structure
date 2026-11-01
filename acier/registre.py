@@ -22,6 +22,8 @@ class Assemblage:
     etat: str = "disponible"          # « disponible » | « à venir »
     module: str = ""                  # chemin pointé du module d'interface
     entree: str = "show"
+    court: str = ""                   # nom court (≤ 18) du sélecteur de la barre d'outils ; ``titre``
+                                      # reste celui du catalogue, du sommaire et des signets du rapport
 
     @property
     def disponible(self):
@@ -118,6 +120,7 @@ FAMILLES = (
             Assemblage(
                 id="doubles_cornieres",
                 titre="Doubles cornières d'âme",
+                court="Doubles cornières",
                 pitch="Assemblage articulé : deux cornières boulonnées ou soudées sur l'âme "
                       "de la poutre portée et sur l'âme de la porteuse — EN 1993-1-8.",
                 vignette=vignette_doubles_cornieres(),
@@ -127,6 +130,7 @@ FAMILLES = (
             Assemblage(
                 id="plat_ame",
                 titre="Plat d'âme soudé (fin plate)",
+                court="Plat d'âme",
                 pitch="Assemblage articulé : plat vertical soudé sur l'âme de la porteuse, "
                       "boulonné à l'âme de la poutre portée — EN 1993-1-8, ANB belge.",
                 vignette=vignette_plat_ame(),
@@ -136,6 +140,7 @@ FAMILLES = (
             Assemblage(
                 id="platine_about",
                 titre="Platine d'about (hauteur partielle)",
+                court="Platine d'about",
                 pitch="Assemblage articulé : platine mince soudée en about de la poutre portée, "
                       "boulonnée sur l'âme de la porteuse (2 files) — EN 1993-1-8, ANB belge, tying.",
                 vignette=vignette_platine_about(),
@@ -152,6 +157,7 @@ FAMILLES = (
             Assemblage(
                 id="platine_beton",
                 titre="Platine de pied de poteau sur béton",
+                court="Pied de poteau",
                 pitch="Calcul manuel de la platine (boulons libres, éléments soudés, raidisseurs : bras de levier, "
                       "moment pris, épaisseur requise) ; vérification complète EN 1993-1-8 + EN 1992-4 pour une "
                       "grille régulière — ANB belge.",

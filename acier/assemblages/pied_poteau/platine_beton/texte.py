@@ -63,7 +63,12 @@ def construire_texte(R, complet=False):
           + F(P["p_max"], 1) + " MPa sur c = " + F(P["c"], 0) + " mm, " + P["ligne"] + ")"
           + (" ; côté tendu M = T·m = " + F(T["T"], 1) + " kN × " + F(T["m"], 1) + " mm = " + F(T["M"], 2)
              + " kNm sur Σleff,1 = " + F(T["leff1"], 0) + " mm." if T and T["T"] > 1e-9 else "."),
-          "Niveau 1 : " + pct(R.eta1, 1) + " ; niveau 2 (information) : " + pct(R.eta2, 1) + ".", ""]
+          "Niveau 1 : " + pct(R.eta1, 1) + " ; niveau 2 (information) : " + pct(R.eta2, 1) + "."]
+    # Le rédacteur saisi au cartouche (id_red) est imprimé ici aussi — un champ saisi et jamais lu
+    # était un défaut (charte du 31/10/2026, amendement 3) ; un champ vide n'est pas imprimé.
+    if str(u.get("id_red") or "").strip():
+        L.append("Rédacteur : " + str(u.get("id_red")).strip())
+    L.append("")
     for a in R.alerts:
         L.append(("[BLOQUANT] " if a.block else "[note] ") + a.msg)
     if R.alerts:

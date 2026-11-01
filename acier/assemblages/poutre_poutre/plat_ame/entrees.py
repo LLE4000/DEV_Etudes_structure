@@ -3,11 +3,18 @@
 
 - ``defaults()``          : les 67 clés et leur valeur par défaut ;
 - ``NUM``                 : les clés normalisées en nombre par le moteur ;
-- ``GROUPES``             : les groupes du formulaire (clé, libellé, type,
-                            options, unité, aide, condition d'affichage) ;
+- ``GROUPES``             : les groupes du formulaire (clé, libellé long, type,
+                            options, unité, aide, condition d'affichage) — une
+                            VUE : les libellés et aides de l'écran sont ceux
+                            de ``ecran_saisie.LIBELLE`` / ``AIDES`` (charte
+                            du 31/10/2026) ;
 - ``PILOTEES_PAR_PREDIM`` : les clés remplacées par la proposition en mode
                             prédimensionnement (marquées ◆) ;
-- ``COURT`` / ``UNITE``   : libellé court et unité (chips, panneau des cotes).
+- ``UNITE``               : unité de chaque clé (``ecran_saisie.LIBELLE`` la
+                            lit ; le libellé de l'écran, des pastilles et du
+                            panneau des cotes est ``ecran_saisie.LIBELLE`` — une
+                            forme par clé ; l'ancien ``COURT``, sans lecteur, est
+                            retiré le 01/11/2026).
 
 Coefficients partiels : défauts de l'ANNEXE NATIONALE BELGE (NBN EN
 1993-1-1 ANB : γM0 = 1,00 ; γM1 = 1,10 ; γM2 = 1,25 — γM1 diffère de la
@@ -114,7 +121,6 @@ def _c(k, l, t="n", o=None, un=None, h=None, si=None):
 # ------------------------------------------------------------------ groupes
 GROUPES = [
     dict(t="Identification",
-         note="Reprise dans la note et l'export texte. Un champ vide n'est pas imprimé.",
          f=[_c("id_projet", "Projet", "x"), _c("id_rep", "Repère de l'assemblage", "x"),
             _c("id_red", "Rédacteur", "x"), _c("id_date", "Date", "x")]),
     dict(t="Mode de calcul",
@@ -128,9 +134,9 @@ GROUPES = [
            [_c("nu_S", "Nuance d'acier", "s", ACIERS),
             _c("d_top", "Décalage : dessus de la secondaire sous le dessus de la principale", un="mm",
                h="0 = dessus des semelles au même niveau."),
-            _c("d_nt", "Profondeur du grugeage supérieur dnt", un="mm", h="0 = semelle supérieure non grugée."),
-            _c("d_nb", "Profondeur du grugeage inférieur dnb", un="mm"),
-            _c("l_n", "Longueur du grugeage ln depuis l'about", un="mm"),
+            _c("d_nt", "Profondeur du grugeage supérieur dc,sup", un="mm", h="0 = semelle supérieure non grugée."),
+            _c("d_nb", "Profondeur du grugeage inférieur dc,inf", un="mm"),
+            _c("l_n", "Longueur du grugeage c depuis l'about", un="mm"),
             _c("r_n", "Rayon du grugeage (information d'exécution)", un="mm", h="Non utilisé dans les résistances."),
             _c("g_h", "Jeu gh entre l'âme porteuse et l'about de la secondaire", un="mm"),
             _c("lt_ok", "Poutre secondaire maintenue au déversement", "s", OUI_NON,
@@ -172,8 +178,6 @@ GROUPES = [
             _c("M_Ed", "MEd – moment éventuel à la face de l'âme porteuse", un="kNm",
                h="Assemblage articulé : normalement 0. Pris en valeur absolue comme moment parasite.")]),
     dict(t="Coefficients partiels",
-         note="Défauts : ANB BELGE pour l'EN 1993-1-1 (γM0 1,00 · γM1 1,10 · γM2 1,25) ; "
-              "valeurs recommandées pour l'EN 1993-1-8. À confirmer sur le texte NBN.",
          f=[_c("g_M0", "γM0", un="-"),
             _c("g_M1", "γM1 – instabilités (déversement du plat long)", un="-",
                h="NBN EN 1993-1-1 ANB : 1,10 (la valeur recommandée de l'EN est 1,00)."),
@@ -188,7 +192,6 @@ GROUPES = [
     dict(t="Acier personnalisé", si=_acier_perso,
          f=[_c("fy_u", "fy", un="MPa"), _c("fu_u", "fu", un="MPa"), _c("bw_u", "βw", un="-")]),
     dict(t="Règles du prédimensionnement", si=mode_predim,
-         note="Règles de détail non normatives, modifiables.",
          f=[_c("eta_c", "Taux d'utilisation cible", un="-"),
             _c("k_e1", "Pince e1 = k × d0 (minimum normatif 1,2)", un="-"),
             _c("k_p1", "Entraxe p1 = k × d0 (minimum normatif 2,2)", un="-"),
@@ -197,21 +200,11 @@ GROUPES = [
             _c("pd_dmax", "Plus grand diamètre admis", "s", BOULONS)]),
 ]
 
-# Libellés courts (chips d'alerte, panneau des cotes)
-COURT = {"hp_u": "hp", "tp_u": "tp", "bp_u": "bp", "z_C": "zp", "a_w": "a",
-         "n1_u": "n1", "n2_u": "n2", "p1_u": "p1", "p2_u": "p2", "e1_u": "e1",
-         "e2b_u": "e2,b", "d_nt": "dnt", "d_nb": "dnb", "l_n": "ln",
-         "g_h": "gh", "d_top": "décalage", "prof_P": "poutre principale",
-         "prof_S": "poutre secondaire", "boulon_u": "boulon",
-         "trou": "type de trou", "d0_u": "d0", "M_Ed": "MEd", "N_Ed": "NEd",
-         "V_Ed": "VEd", "cat": "catégorie", "classe": "classe",
-         "nu_pl": "nuance du plat"}
 UNITE = {}
 CHAMPS = {}
 for _g in GROUPES:
     for _f in _g["f"]:
         UNITE[_f["k"]] = " " + _f["un"] if _f.get("un") and _f["un"] != "-" else ""
-        COURT.setdefault(_f["k"], _f["l"])
         CHAMPS[_f["k"]] = _f
 
 

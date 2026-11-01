@@ -4,9 +4,12 @@
 Chaque garantie rougit si on la retire :
   1. NAVIGATION : la carte « Plat d'âme soudé (fin plate) » sur la page de
      sélection, « Ouvrir » mène au module, mêmes boutons d'outils.
-  2. ÉCRAN : deux colonnes, colonne du dessin FIGÉE (CSS sticky, conteneur
-     fpl_col_dessin), deux composants, carte par objet à droite SANS la
-     géométrie (elle vit sur le dessin), visserie, 67 clés en session.
+  2. ÉCRAN : titre court + barre d'outils partagée, deux colonnes, colonne
+     du dessin FIGÉE (CSS sticky, conteneur fpl_col_dessin), deux composants,
+     carte par objet à droite rendue par le kit (mode en segmented_control,
+     « Dessin interactif » en tête du dessin, visserie au cartouche) SANS la
+     géométrie (elle vit sur le dessin), 67 clés en session ; onglet
+     Vérifications : légende, périmètre et Tableau 3.3 dans des replis.
   3. SOURCE UNIQUE : un message du dessin (cote, glissement, panneau)
      écrit dans fpl_<clé> et recalcule ; VEd = 400 → NON VÉRIFIÉ.
   4. PRÉDIM : solutions cliquables, « Appliquer » recopie et repasse en
@@ -58,7 +61,12 @@ def run(at):
 
 
 def cles_widgets(at):
-    return {w.key for w in list(at.number_input) + list(at.selectbox) + list(at.text_input) + list(at.checkbox) if w.key}
+    return {w.key for w in list(at.number_input) + list(at.selectbox) + list(at.text_input) + list(at.checkbox)
+            + list(at.segmented_control) if w.key}
+
+
+def expanders(at):
+    return [str(x.label) for x in at.expander]
 
 
 def message(at, changes, t):
@@ -98,11 +106,26 @@ chk("la géométrie ne se règle QUE sur le dessin (aucune cote dans la carte)",
 chk("carte par objet : mode, profilés, nuance du plat, boulons, rangées, efforts, visserie",
     {"fpl_mode_calc", "fpl_prof_P", "fpl_prof_S", "fpl_nu_pl", "fpl_boulon_u", "fpl_n1_u",
      "fpl_V_Ed", "fpl_visserie", "fpl_g_M1"} <= w)
+chk("le mode est un segmented_control (clé fpl_mode_calc, valeurs brutes inchangées)",
+    any(x.key == "fpl_mode_calc" for x in at.segmented_control)
+    and at.session_state["fpl_mode_calc"] == "VÉRIFICATION")
+chk("« Dessin interactif » en tête de la colonne dessin (clé fpl_ui_composant), titre court et barre partagée",
+    "fpl_ui_composant" in w and "Plat d'âme soudé" in t and "version 1.0" in t
+    and {"fpl_btn_retour", "fpl_btn_home", "fpl_btn_save_dl", "fpl_btn_pdf", "fpl_btn_reset"}
+    <= {b.key for b in list(at.button) + list(at.get("download_button"))})
+chk("plus de bouton ❔ ni de cellule Version", not any(b.key == "fpl_btn_version" for b in at.button)
+    and "Version 1.0" not in t)
 chk("γM1 (ANB belge) exposé dans les avancés, défaut 1,10", at.session_state["fpl_g_M1"] == 1.1)
-chk("onglet par défaut : Vérifications", at.session_state["fpl_ui_onglet"] == "Vérifications"
-    and "Cisaillement du groupe" in t and "Pinces et entraxes" in t)
-chk("la limite « flexion hors plan de l'âme porteuse » est écrite en clair",
-    "flexion HORS PLAN de l'âme porteuse" in t)
+chk("onglet par défaut : Vérifications ; Tableau 3.3 replié, verdict dans le titre",
+    at.session_state["fpl_ui_onglet"] == "Vérifications"
+    and "Cisaillement du groupe" in t and "Pinces et entraxes (Tab. 3.3) : conforme" in expanders(at))
+chk("la limite « flexion hors plan de l'âme porteuse » est écrite en clair (expander Périmètre)",
+    "flexion HORS PLAN de l'âme porteuse" in t
+    and any(x.startswith("Périmètre de la vérification — 5 non revérifiés") for x in expanders(at)))
+chk("légende des natures après les tables, références dans un repli",
+    "formule de l'Eurocode" in t and "Légende et références" in expanders(at)
+    and "Références : EC3 = EN 1993-1-8" in t)
+chk("colonne Réf. sans commentaire interne", "même modèle que le module" not in t)
 
 # ================================================================
 print("\n=== 3. Source unique ===")
@@ -124,7 +147,7 @@ message(at, {"g_h": 10, "d_top": 0}, 1004); run(at)
 
 # ================================================================
 print("\n=== 4. Prédim ===")
-at.selectbox(key="fpl_mode_calc").set_value("PRÉDIMENSIONNEMENT"); run(at)
+at.segmented_control(key="fpl_mode_calc").set_value("PRÉDIMENSIONNEMENT"); run(at)
 chk("bandeau prédimensionnement", "Mode prédimensionnement" in md(at))
 at.session_state["fpl_ui_onglet"] = "Prédim"; run(at)
 boutons = [b for b in at.button if b.key and b.key.startswith("fpl_btn_sol_")]
@@ -184,6 +207,8 @@ chk("page 1 : bandeau, en-tête compact 3 lignes, hypothèses, tableaux, conclus
     and "VEd 125,0 kN" in t1 and "rotule à la face de l'âme porteuse" in t1
     and "PLAT D'ÂME" in t1.upper() and "ASSEMBLAGE VÉRIFIÉ à l'ELU" in t1)
 chk("page 1 : γM1 ANB écrit dans les hypothèses", "γM1 1,10 (ANB)" in t1)
+chk("HYPOTHÈSES : ≤ 3 lignes de ≤ 110 caractères (note_kit.empaqueter)",
+    1 <= len(note.lignes_hypotheses(R)) <= 3 and all(len(l) <= 110 for l in note.lignes_hypotheses(R)))
 t2 = doc[1].get_text(); s2 = t2.replace(" ", "").replace("\n", "")
 chk("page 2 : PLAN DE PRINCIPE, trois vues titrées, échelle affichée",
     "PLANDEPRINCIPE" in s2 and all(x in s2 for x in ("ÉLÉVATION", "VUEENPLAN", "VUEDEDROITE"))
@@ -219,6 +244,10 @@ at.session_state["fpl_ui_onglet"] = "Note"; run(at)
 code = "\n".join(str(c.value) for c in at.code)
 chk("onglet Note : export texte avec statut et références",
     "PLAT D'ÂME" in code and "VÉRIFIÉ" in code and "Tableau 3.3 : conforme" in code)
+from acier.assemblages.poutre_poutre.plat_ame import texte as texte_fpl  # noqa: E402
+chk("le rédacteur saisi figure dans l'export texte (amendement 3 : un champ saisi et jamais lu)",
+    "Rédacteur : J. Dupont" in texte_fpl.construire_texte(moteur.compute(dict(id_red="J. Dupont")))
+    and "Rédacteur" not in texte_fpl.construire_texte(moteur.compute(dict())))
 at.session_state["fpl_ui_onglet"] = "Méthode"; run(at)
 chk("onglet Méthode : modèle, ANB belge, limites",
     "Modèle mécanique" in md(at) and "Annexe nationale belge" in md(at))
@@ -230,6 +259,26 @@ fuites = [k for k in at.session_state.to_dict()
 chk("aucune clé asm_/béton créée par le module", not fuites, str(fuites[:5]))
 at.button(key="fpl_btn_retour").click(); run(at)
 chk("◀ Assemblages ramène à la sélection", "asm_courant" not in at.session_state.to_dict())
+
+
+# ================================================================
+# Consolidation du 01/11/2026, point 6 : le Tableau 3.3 NON CONFORME — un contrôle par module. L'expander
+# s'ouvre d'office (le verdict est dans son titre) et « Localiser » sélectionne l'alerte de la pince.
+print("\n=== 9. Tableau 3.3 NON CONFORME ===")
+at33 = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
+at33.session_state["page"] = "Assemblages métalliques"
+run(at33)
+at33.button(key="asm_btn_open_plat_ame").click(); run(at33)
+at33.session_state["fpl_e1_u"] = 20.0
+run(at33)
+e33 = [x for x in at33.expander if str(x.label).startswith("Pinces et entraxes (Tab. 3.3)")]
+chk("e1 = 20 mm → « Pinces et entraxes (Tab. 3.3) : NON CONFORME », expander ouvert d'office",
+    bool(e33) and str(e33[0].label) == "Pinces et entraxes (Tab. 3.3) : NON CONFORME" and e33[0].proto.expanded,
+    str([str(x.label) for x in e33]))
+at33.button(key="fpl_btn_dist_e1p").click(); run(at33)
+chk("« Localiser » de la ligne NON OK sélectionne son alerte (dist_e1p) ; sa rangée dit « Masquer »",
+    at33.session_state["fpl_ui_alerte"] == "dist_e1p" and at33.button(key="fpl_btn_al_dist_e1p").label == "Masquer",
+    str(at33.session_state["fpl_ui_alerte"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

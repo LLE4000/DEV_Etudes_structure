@@ -6,7 +6,24 @@ la famille (module doubles cornières)."""
 import re
 
 from acier.formats import F
-from ..doubles_cornieres.notation import ref_courte  # noqa: F401 — réutilisée telle quelle
+from ..doubles_cornieres.notation import ref_courte as _ref_courte_famille
+
+# Commentaires internes que le moteur porte dans ses références (« — même modèle que le
+# module doubles cornières ») : retirés de la VUE (écran, note, export), le moteur ne change pas.
+_COMMENTAIRES_INTERNES = re.compile(r"\s+—\s+même modèle que[^;]*")
+
+
+def ref_courte(ref):
+    """La référence courte de la famille, sans les commentaires internes du moteur."""
+    return _ref_courte_famille(_COMMENTAIRES_INTERNES.sub("", ref or ""))
+
+
+# La ligne « Notations » du pied de la note ET le paragraphe « Notations » de l'onglet Méthode : une source
+# (consolidation du 01/11/2026, point 4 — les cotes ne portent plus que leur symbole : zp, c, e1, Δz, p3, gh,
+# dc… ; leur définition vit ici). Elle tient sur la ligne de la note (≤ 798 pt à 5,6 pt, contrôlé).
+NOTATIONS = ("Notations : EN 1993-1-8 Tab. 3.3 (e1, p1, e2, p2) ; hp, bp, tp : plat ; zp : position du "
+             "plat ; e2,b : pince à l'about ; c, dc : grugeage ; gh, Δz : jeu et décalage ; a : gorge "
+             "(cordon double) ; z : excentricité (face d'appui → centre du groupe).")
 
 LEGENDE_REFERENCES = ("Références : EC3 = EN 1993-1-8 sauf indication (§, Tab.) ; EC3-1-1 = EN 1993-1-1 ; "
                       "MSB P5 ; P358 = SCI P358 ; ECCS = ECCS n°126 ; BS 5950-1 : courbe de déversement "
