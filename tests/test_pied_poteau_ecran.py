@@ -56,7 +56,7 @@ from acier.assemblages.pied_poteau.platine_beton.entrees import (CHAMPS, LISTES,
                                                                   FORME_I, TYPE_TETE)
 from acier.assemblages.pied_poteau.platine_beton.entrees import (FORME_RHS, TYPE_CROSSE, TYPE_ETA, PERIM_EC3,  # noqa: E402
                                                                   PERIM_TOUT, MODE_COMPLET, MODE_MANUEL)
-from acier import projet as modele, rapport_projet  # noqa: E402
+from acier import projet as modele, rapport_projet, registre  # noqa: E402
 
 OK, KO = [], []
 
@@ -100,9 +100,15 @@ print("=== 1. Navigation ===")
 at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
 at.session_state["page"] = "Assemblages métalliques"
 run(at)
+# Le catalogue porte depuis le 01/11/2026 trois attaches poutre–poteau « à venir » :
+# la mention « À venir » existe donc dans la page, mais JAMAIS sur cette carte-ci, qui
+# garde son bouton « Créer ». Le compte se lit dans le registre, pas en dur.
+_a_venir = sum(1 for f in registre.FAMILLES for a in f.assemblages if not a.disponible)
 chk("la carte « Platine de pied de poteau sur béton » est dans le catalogue, DISPONIBLE (bouton Créer)",
     "Platine de pied de poteau sur béton" in md(at)
-    and any(b.key == "asm_btn_open_platine_beton" for b in at.button) and "À venir" not in md(at))
+    and any(b.key == "asm_btn_open_platine_beton" for b in at.button)
+    and md(at).count("À venir") == _a_venir and registre.trouver("platine_beton")[1].disponible,
+    f"{md(at).count('À venir')} mentions « À venir » pour {_a_venir} assemblage(s) à venir")
 at.button(key="asm_btn_open_platine_beton").click(); run(at)
 chk("« Créer » ouvre l'écran dans le projet (entrée A1)", not at.exception
     and at.session_state["asm_courant"] == "platine_beton" and at.session_state["prj_ouvert"] is not None

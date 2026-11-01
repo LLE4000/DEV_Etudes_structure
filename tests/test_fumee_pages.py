@@ -46,6 +46,52 @@ for ident, nom in (("doubles_cornieres", "Doubles cornières d'âme"), ("plat_am
     at.run()
     chk(nom, not at.exception and at.session_state["asm_courant"] == ident,
         str(at.exception[0].message)[:160] if at.exception else "")
+print("\n=== Catalogue : la famille « Poutre – Poteau », trois attaches « à venir » ===")
+# `modules/assemblages._catalogue` rend un bouton « Créer » (clé
+# asm_btn_open_<id>) pour un assemblage DISPONIBLE, et la mention « À venir »
+# sinon (registre.Assemblage.disponible : état « disponible » ET module non
+# vide). Les trois attaches poutre–poteau sont déclarées « à venir » : elles
+# paraissent au catalogue, sans bouton, et leur module n'est pas importé.
+at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
+at.session_state["page"] = "Assemblages métalliques"
+at.run()
+TXT = ("\n".join(str(m.value) for m in at.markdown) + "\n"
+       + "\n".join(str(c.value) for c in at.caption))   # le pitch est un st.caption
+BOUTONS = {b.key for b in at.button if b.key}
+chk("la page du catalogue se charge", not at.exception,
+    str(at.exception[0].message)[:160] if at.exception else "")
+chk("la famille « Poutre – Poteau » est titrée, avec son accroche",
+    "#### Poutre – Poteau" in TXT
+    and "Attaches d'une poutre portée sur l'aile ou dans l'âme d'un poteau" in TXT)
+for ident, titre, aria in (
+        ("plat_ame_poteau", "Plat d'âme soudé sur poteau (fin plate)",
+         "Plat d'âme soudé sur poteau, vue en plan"),
+        ("doubles_cornieres_poteau", "Doubles cornières d'âme sur poteau",
+         "Doubles cornières d'âme sur poteau, vue en plan"),
+        ("platine_about_poteau", "Platine d'about (hauteur partielle) sur poteau",
+         "Platine d'about sur poteau, vue en plan")):
+    chk(f"{ident} : titre, vignette (role=img + aria-label), AUCUN bouton « Créer »",
+        titre in TXT and f'aria-label="{aria}"' in TXT and 'role="img"' in TXT
+        and f"asm_btn_open_{ident}" not in BOUTONS,
+        f"titre {titre in TXT} · vignette {aria in TXT} · bouton "
+        f"{f'asm_btn_open_{ident}' in BOUTONS}")
+chk("trois mentions « À venir », une par attache", TXT.count("À venir") == 3,
+    str(TXT.count("À venir")))
+chk("les quatre assemblages disponibles gardent leur bouton « Créer »",
+    all(f"asm_btn_open_{i}" in BOUTONS for i in ("doubles_cornieres", "plat_ame",
+                                                 "platine_about", "platine_beton")),
+    str(sorted(BOUTONS)))
+for ident in ("plat_ame_poteau", "doubles_cornieres_poteau", "platine_about_poteau"):
+    atv = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
+    atv.session_state["page"] = "Assemblages métalliques"
+    atv.session_state["asm_courant"] = ident
+    atv.run()
+    chk(f"{ident} : ouvrir un assemblage « à venir » ramène à la page projet, sans "
+        "importer son module", not atv.exception
+        and "asm_courant" not in atv.session_state.to_dict()
+        and "Assemblages (0)" in "\n".join(str(m.value) for m in atv.markdown),
+        str(atv.exception[0].message)[:160] if atv.exception else "")
+
 chk("page inconnue → accueil (comportement inchangé)",
     (lambda a: (a.run(), not a.exception)[1])(
         (lambda a: (a.session_state.__setitem__("page", "n'existe pas"), a)[1])(

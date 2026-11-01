@@ -313,9 +313,12 @@ if IMPORT_OK:
     # ================================================================
     print("\n=== 10. Barre, titre, briques ===")
     courts = {a.id: a.court for f in registre.FAMILLES for a in f.assemblages}
-    chk("registre.court : les quatre, ≤ 18 caractères",
+    chk("registre.court : les sept (quatre disponibles + les trois attaches poutre–poteau "
+        "« à venir »), ≤ 18 caractères",
         courts == {"doubles_cornieres": "Doubles cornières", "plat_ame": "Plat d'âme",
-                   "platine_about": "Platine d'about", "platine_beton": "Pied de poteau"}
+                   "platine_about": "Platine d'about", "platine_beton": "Pied de poteau",
+                   "plat_ame_poteau": "Plat d'âme/poteau", "doubles_cornieres_poteau": "Cornières/poteau",
+                   "platine_about_poteau": "Platine/poteau"}
         and all(len(v) <= 18 for v in courts.values()), str(courts))
     chk("libelle_entree compose « A1 · Plat d'âme » avec court ; titre inchangé pour le sommaire",
         projet_ui.libelle_entree({"type": "plat_ame", "values": {"id_rep": "A1"}}) == "A1 · Plat d'âme"
