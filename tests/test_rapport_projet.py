@@ -14,6 +14,11 @@ Chaque garantie rougit si on la retire :
      une pastille « calcul impossible », le rapport sort quand même.
   4. PAGE PROJET : 📄 génère le rapport (pages, nom de fichier) ; le bouton de
      téléchargement disparaît dès que le projet change (pas de rapport périmé).
+  5. PROJET MIXTE (lot 5) : les SEPT types du registre dans un même rapport —
+     16 pages, 8 signets aux bonnes pages, le cas d'appui dans la ligne de
+     chaque attache poutre–poteau, et un récapitulatif à DEUX lignes par
+     assemblage où ni le type, ni les profilés, ni la dimensionnante ne
+     sortent coupés.
   La garde Poutre/Dalle reste identique : tests/test_export_pdf_ndc.py.
 
 Lancement : python3 tests/test_rapport_projet.py (depuis la racine).
@@ -171,6 +176,59 @@ chk("le projet change → le rapport périmé n'est plus proposé", "prj_btn_pdf
     and at.session_state.get("prj_pdf_bytes"))
 chk("nom de fichier du rapport", modele.nom_fichier({"nom_projet": "Reamenagement", "partie": "Hall", "date": "30/10/2026",
                                                      "indice": "B"}, ".pdf") == "REA_Assemblages Hall#B_30-10-2026.pdf")
+
+# ================================================================
+print("\n=== 5. Projet MIXTE : les SEPT types assemblés (lot 5) ===")
+# Le harnais SUIT : il n'assemblait que trois types sur quatre. Un rapport
+# réel mélange les sept — deux familles de poutre et le pied de poteau.
+TYPES = [a.id for f in registre.FAMILLES for a in f.assemblages]
+pm = modele.nouveau()
+for t in TYPES:
+    modele.ajouter(pm, t, defauts(t))
+INFOS_M = {"nom_projet": "Halle logistique Valens", "partie": "Ossature niveau 1",
+           "date": "02/11/2026", "indice": "A"}
+elems_m = rp.notes(pm, INFOS_M)
+pages_m = [n for (_e, _i, _p, n) in elems_m]
+chk("sept notes produites, deux pages chacune, aucun calcul impossible",
+    len(elems_m) == 7 and pages_m == [2] * 7
+    and all(i["etat"] in ("ok", "att") for (_e, i, _p, _n) in elems_m), str(pages_m))
+pdfm = rp.generer_rapport(pm, INFOS_M)
+docm = pymupdf.open(stream=pdfm, filetype="pdf")
+chk("16 pages : 1 garde + 1 récapitulatif + 7 × 2, garde et récapitulatif en portrait, notes en paysage",
+    docm.page_count == 16 and docm[0].rect.height > docm[0].rect.width
+    and docm[1].rect.height > docm[1].rect.width
+    and all(docm[i].rect.width > docm[i].rect.height for i in range(2, 16)), str(docm.page_count))
+tocm = docm.get_toc()
+chk("huit signets : le récapitulatif puis A1 à A7, aux pages 2, 3, 5, 7, 9, 11, 13, 15",
+    [t[2] for t in tocm] == [2, 3, 5, 7, 9, 11, 13, 15] and tocm[0][1] == "Récapitulatif"
+    and [t[1].split(" — ")[0] for t in tocm[1:]] == [f"A{i}" for i in range(1, 8)], str(tocm))
+gardem = docm[0].get_text()
+chk("sommaire : les sept titres de type, dans l'ordre du registre",
+    all(f"A{i + 1} — " + registre.trouver(t)[1].titre in gardem for i, t in enumerate(TYPES)),
+    str([t for i, t in enumerate(TYPES) if f"A{i + 1} — " + registre.trouver(t)[1].titre not in gardem]))
+chk("sommaire : la ligne des trois types neufs porte le CAS D'APPUI et l'effort, entière",
+    gardem.count("IPE 400 sur HEB 300 (sur l'aile) · V = 200 kN") == 3
+    and "HEA 300 sur HEA 400 · V = 125 kN" in gardem)
+recapm = docm[1].get_text()
+chk("récapitulatif : une seule page, les sept repères et les sept taux",
+    "Récapitulatifdesassemblages" in compact(recapm)
+    and all(f"A{i}" in recapm for i in range(1, 8))
+    and recapm.count("%") >= 7, recapm[:200])
+chk("récapitulatif : chaque assemblage tient sur DEUX lignes — profilés, efforts ET "
+    "dimensionnante, sans « … » sur les six attaches de poutre",
+    recapm.count("dimensionnante :") == 7
+    and recapm.count("IPE 400 sur HEB 300 (sur l'aile) · V = 200 kN · dimensionnante :") == 3
+    and recapm.count("HEA 300 sur HEA 400 · V = 125 kN · dimensionnante :") == 3,
+    recapm[:400])
+chk("récapitulatif : le titre long du type n'est plus coupé",
+    "Platine d'about (hauteur partielle) sur poteau" in recapm
+    and "Doubles cornières d'âme sur poteau" in recapm, recapm[:400])
+chk("chaque note porte son repère dans son cartouche",
+    all(f"Ossature niveau 1 · A{i + 1}" in docm[2 + 2 * i].get_text() for i in range(7)),
+    str([i + 1 for i in range(7) if f"Ossature niveau 1 · A{i + 1}" not in docm[2 + 2 * i].get_text()]))
+chk("le rapport mixte s'enregistre et se relit (nom de fichier du projet)",
+    modele.nom_fichier(INFOS_M, ".pdf") == "HAL_Assemblages Ossature niveau 1#A_02-11-2026.pdf",
+    modele.nom_fichier(INFOS_M, ".pdf"))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

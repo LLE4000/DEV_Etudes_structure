@@ -28,8 +28,8 @@ import math
 
 from acier.bibliotheques import PERSO
 from acier.js import dv, mx
-from .entrees import APPUI_AILE, APPUI_AME, NAT_TYING, SOUDEE
-from .moteur import compute, leff_aile_poteau
+from .entrees import APPUI_AILE, APPUI_AME, NAT_TYING
+from .moteur import compute
 
 S3 = math.sqrt(3)
 

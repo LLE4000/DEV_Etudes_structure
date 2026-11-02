@@ -56,6 +56,7 @@ from acier.formats import F, f0
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
+from .. import textes as TXT
 from .entrees import defaults, NUM, MODE_PREDIM, APPUI_AME, NAT_TYING
 
 S3 = math.sqrt(3)
@@ -72,9 +73,18 @@ GROUPES_VERIF = ("Boulons", "Platine d'about", "Poutre portée", "Poteau porteur
 DETAIL_SEUL = frozenset({"wa"})          # minimum de détail : jamais dimensionnant s'il passe
 
 
+def _profil_P(R):
+    """Les cinq dimensions du POTEAU en dictionnaire, comme l'appel de
+    ``mecanique.section_grugee`` le fait pour la poutre portée — la
+    géométrie du poteau se lit à plusieurs endroits (``compute`` et
+    ``predim``), elle s'écrit donc une fois."""
+    return dict(h=R.h_P, b=R.b_P, tw=R.tw_P, tf=R.tf_P, r=R.r_P)
+
+
 def _first_ge(liste, v):
     c = sum(1 for x in liste if x < v)
     return min(c, len(liste) - 1)
+
 
 
 # =========================================================================
@@ -153,12 +163,18 @@ def compute(u0=None):
     R.e_2 = (R.b_p - R.p_3) / 2                 # pince latérale de la platine
     R.e_P = (R.b_P - R.p_3) / 2                 # pince au bout d'aile du poteau (cas a)
     R.e1_min = mn(R.e_1, R.e1bot)               # pince verticale retenue (haut/bas)
+    # les largeurs utiles du POTEAU : la brique partagée de la famille
+    # (``mecanique.geometrie_poteau``, étude §3.2.2, §4.3 et §5.3). Pour une
+    # PLATINE, l'about de la poutre est à ``tp`` de la face d'appui (il n'y a
+    # pas de clé ``gh``) : c'est ``tp`` qui se passe en troisième argument, et
+    # ``rec_min`` vaut donc (bP − twP)/2 + j − tp (écart assumé, voir la fiche).
+    geoP = MEC.geometrie_poteau(_profil_P(R), u.j_lat, R.t_p, R.b_S, R.d_w)
     # la rondelle doit dégager le cordon de l'âme portée : p3/2 − dw/2 ≥ tw/2 + a·√2
     R.p3_min = R.tw_S + 2 * R.a_w * math.sqrt(2) + R.d_w
     # l'écrou doit dégager le CONGÉ DU POTEAU (étude §4.3, point 1) : il est du
     # côté intérieur de l'aile, au droit du congé — c'est la règle qui refuse le
     # p3 = 90 usuel des âmes de poutre sur l'aile d'un HEB 300 (102 mm requis)
-    R.p3_congeP = R.tw_P + 2 * R.r_P + R.d_w
+    R.p3_congeP = geoP["p3_congeP"]
     R.rec_hp = R.h_p >= 0.6 * R.h_S             # maintien en torsion (MSB P5 §2.1)
     R.tp_max = MEC.tp_ductile(d, R.f_ub, R.fy_L)
     R.rec_tp = R.t_p <= R.tp_max + 1e-9
@@ -166,16 +182,16 @@ def compute(u0=None):
     R.mod = ("Rotule à la face d'appui du poteau — groupe de boulons centré "
              "(deux files symétriques), sans moment d'excentricité")
 
-    # ---- géométrie propre au POTEAU (étude §3.2.2, §4.3, §5.3)
-    R.libre_droit = R.h_P - 2 * R.tf_P - 2 * R.r_P        # largeur droite de l'âme
-    R.demi_droit = (R.h_P - 2 * R.tf_P) / 2 - R.r_P       # demi-largeur droite
-    R.libre_ailes = R.h_P - 2 * R.tf_P - 2 * u.j_lat      # passage de la semelle
+    # ---- géométrie propre au POTEAU (``geoP``, posé plus haut)
+    R.libre_droit = geoP["libre_droit"]                   # largeur droite de l'âme
+    R.demi_droit = geoP["demi_droit"]                     # demi-largeur droite
+    R.libre_ailes = geoP["libre_ailes"]                   # passage de la semelle
     R.bp_maxP = R.libre_droit - 2 * u.j_lat               # cas (b) : la platine tient
-    R.p3_maxP = 2 * (R.demi_droit - R.d_w / 2)            # cas (b) : l'écrou dégage le congé
+    R.p3_maxP = geoP["p3_maxP"]                           # cas (b) : l'écrou dégage le congé
     # la poutre entre entre les ailes, ou ses semelles sont RECOUPÉES depuis
     # l'about (la recoupe en LARGEUR n'est pas un grugeage — point P-3)
-    R.rec_min = mx(0.0, (R.b_P - R.tw_P) / 2 + u.j_lat - R.t_p)
-    R.passe_S = bool(R.b_S <= R.libre_ailes + 1e-9)
+    R.rec_min = geoP["rec_min"]
+    R.passe_S = geoP["passe_S"]
     R.rec_ok = bool(not R.ame or R.passe_S or u.rec_S >= R.rec_min - 1e-9)
     # excentricité apportée au POTEAU : information, pas une vérification de
     # l'attache — elle appartient au calcul d'élément (EC3-1-1 §6.2 et §6.3)
@@ -276,11 +292,9 @@ def compute(u0=None):
              + (("h − dc,inf = " + f0(R.h_S) + " − " + f0(u.d_nb)) if u.d_nb > 0 else ("h − (tf + r) = " + f0(R.h_S) + " − " + f0(tfrS)))
              + " = " + f0(botLim) + " mm. Avec zp = " + f0(u.z_C) + " mm, hp maximal = " + f0(math.floor(botLim - u.z_C)) + " mm."),
         dict(id="aile_poutre", c=R.ame and not R.rec_ok, b=1,
-             m="Configuration impossible : la semelle de la poutre portée ne passe pas entre les ailes du poteau et la recoupe est insuffisante.",
+             m=TXT.M_AILE_POUTRE,
              f=["rec_S", "j_lat"] + prS + prP, d=["rec", "jlat"], e=["beamS", "recut", "col"],
-             w="bS = " + f0(R.b_S) + " mm dépasse la largeur libre entre ailes hP − 2·tfP − 2·j = " + f0(R.libre_ailes)
-             + " mm : il faut recouper les semelles sur au moins (bP − twP)/2 + j − tp = " + F(R.rec_min, 1)
-             + " mm depuis l'about (recoupe actuelle " + f0(u.rec_S) + " mm)."),
+             w=TXT.w_aile_poutre(f0(R.b_S), f0(R.libre_ailes), "tp", F(R.rec_min, 1), f0(u.rec_S)) + "."),
         dict(id="d0_manq", c=u.trou == "Surdimensionné" and N(u.d0_u) == 0, b=1,
              m="Trou surdimensionné : saisir le diamètre d0.", f=["trou", "d0_u"], d=[], e=[], w=""),
         dict(id="tp_duct", c=not R.rec_tp, b=0,
@@ -299,10 +313,9 @@ def compute(u0=None):
              f=["a_w"] + prS, d=["aw"], e=["weld"],
              w="Recommandé : a ≥ " + F(R.k_plein, 2) + "·tw = " + F(R.a_plein, 1) + " mm (βw·γM2·fy/(√2·fu) — MSB P5 §2.2) ; actuel : a = " + f0(R.a_w) + " mm."),
         dict(id="ame_hp", c=R.ame, b=0,
-             m="Appui dans l'ÂME du poteau : la flexion HORS PLAN de l'âme sous la traction des boulons n'est PAS "
-               "couverte par l'EN 1993-1-8 pour une âme non raidie — à justifier séparément, ou raidir "
-               "(raidisseurs entre ailes). Le tronçon en T de l'aile et l'âme en traction transversale sont sans "
-               "objet dans ce cas d'appui.",
+             m=TXT.m_ame_hp("la traction des boulons", "raidisseurs entre ailes",
+                            "Le tronçon en T de l'aile et l'âme en traction transversale sont "
+                            "sans objet dans ce cas d'appui."),
              f=["appui"] + prP, d=["libreP"], e=["col", "colWeb"], w=""),
         dict(id="NEd", c=NEd > 0 and not R.tying, b=0,
              m="NEd de traction à l'ELU fondamental : boulons, platine (tronçon en T), poinçonnement, âme portée "
@@ -654,13 +667,13 @@ def predim(u, R):
     # géométrie du poteau : le prédimensionnement tourne AVANT compute(), les
     # scalaires de R ne sont pas encore posés — les deux largeurs se
     # recalculent ici (même expression, étude §5.3)
-    libre_droit = R.h_P - 2 * R.tf_P - 2 * R.r_P
+    libre_droit = MEC.geometrie_poteau(_profil_P(R))["libre_droit"]
     for i, b in enumerate(DB["boulons"]):
         d = b["d"]; d0 = b["d0"]; A = b["As"] if u.filet == "Oui" else b["A"]
         e1 = ceil5(u.k_e1 * d0); p1 = ceil5(u.k_p1 * d0); e2 = ceil5(u.k_e2 * d0)
         # p3 : minima cumulés (guide, Tableau 3.3, cordon, congé du poteau)
         p3 = mx(90, ceil5(R.tw_S + 2 * a_s * math.sqrt(2) + b["dw"]), ceil5(2.4 * d0),
-                ceil5(R.tw_P + 2 * R.r_P + b["dw"]) if not ame else 0)
+                ceil5(MEC.geometrie_poteau(_profil_P(R), dw=b["dw"])["p3_congeP"]) if not ame else 0)
         # plafond : la platine reste dans l'aile (cas a) ou entre les congés
         # de l'âme (cas b), pince e2 ≥ 1,2·d0 comprise
         cap = (R.b_P - 2 * 1.2 * d0) if not ame else (libre_droit - 2 * u.j_lat - 2 * 1.2 * d0)

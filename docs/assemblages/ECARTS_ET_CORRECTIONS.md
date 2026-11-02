@@ -135,3 +135,64 @@ cordons), soit environ +12 % sur `qz` et `qn` ; η de `wS` passerait d'environ
    Node si le HTML a été corrigé ;
 4. consigner ici : où, quoi, pourquoi, source, effet chiffré sur le cas par
    défaut.
+
+---
+
+## 6. Attaches POUTRE – POTEAU (02/11/2026) — ce qui attend le bureau
+
+Ce document était celui des doubles cornières poutre–poutre. La famille
+**Poutre – Poteau** (`plat_ame_poteau`, `doubles_cornieres_poteau`,
+`platine_about_poteau`, livrées le 02/11/2026) y ajoute **neuf points tranchés
+sans source franche** et des **écarts assumés** par module.
+
+**Où vit quoi — une seule source par chose.** Le RAISONNEMENT de chaque point
+est au §9 de `docs/assemblages/POUTRE_POTEAU.md` ; le texte que l'ÉCRAN affiche
+est dans `acier/assemblages/poutre_poteau/textes.py` (les huit limites
+communes) et dans le `methode.py` de chaque module (la septième, propre à
+chacun, et les points de §9) ; les écarts par module sont dans les trois fiches
+`PLAT_AME_POTEAU.md`, `DOUBLES_CORNIERES_POTEAU.md`,
+`PLATINE_ABOUT_POTEAU.md`, rassemblés au §13.3 de l'étude. Ce qui suit est le
+**registre** : ce qu'il faut décider, et ce qui bouge si la décision change.
+
+### 6.1 Les neuf points — registre de décision
+
+| N° | Décision attendue | Nature | Si le bureau tranche autrement |
+|---|---|---|---|
+| **P-1** | `Σleff` de l'aile de poteau non raidie : Tableau **6.4** (appliqué) ou 6.6 (cité par la consigne) ? **C'est le NUMÉRO, pas la formule** — les formules sont celles de l'aile non raidie, et `platine_about` les applique déjà. | référence | aucun chiffre ne bouge : seule la RÉFÉRENCE imprimée change (`notation.py`, `methode.py`, `benchmark.py` de `pac_` et `dcc_`) |
+| **P-2** | Faut-il une vérification locale de l'aile sous `VEd` seul, pour un plat soudé au droit de l'âme ? L'outil n'en pose aucune (groupe « Poteau porteur » VIDE en cas a). | modèle | il faudrait inventer un `Av = f(tfP, hp)` — refusé faute de source. Un modèle imposé s'ajouterait au moteur de `fpc_` |
+| **P-3** | La recoupe en LARGEUR des semelles est-elle un grugeage ? L'outil dit **non** : MSB P5 §4.2.4 / §4.2.5 ne sont pas activés. | modèle | les trois modules devraient activer les règles du Té résiduel en cas (b) recoupé |
+| **P-4** | Faut-il une épaisseur minimale d'aile de poteau (`tfP ≥ tp` pour un cordon de pleine résistance) ? L'outil n'en pose aucune. | détail | une alerte de plus dans les trois modules |
+| **P-5** | Âme du poteau en traction transversale avec **`ω = 1`** (valeur la plus favorable, en l'absence de moment d'étage). | modèle | `ω` deviendrait une saisie ; `pac_` et `dcc_` perdent de la résistance en tying |
+| **P-6** | Flexion hors plan de l'âme du poteau en cas (b) : **DÉCLARÉE non vérifiée**, pas transposée. | périmètre | un modèle imposé s'ajouterait aux trois modules en cas (b) |
+| **P-7** | Gauge minimal `p3 ≥ twP + 2·rP + dw` (dégagement du congé, nature **INT**) — il explique les gauges usuels 90 / 100 / 120 / 140 mais ne les remplace pas ; SCI P358 tabule des gauges minimaux par série, **non consultés**. | détail | une table remplacerait la formule dans `mecanique.geometrie_poteau` |
+| **P-8** | `et = 5·d` pour le cisaillement local de l'âme du poteau, bornes `zt` / `zb` du grand frère supprimées (le poteau continue). | modèle | la règle dépend entièrement du `5·d`, cité de mémoire de SCI P358 depuis le 21/09/2026 |
+| **P-9** | `γMu = 1,1` (valeur du guide ; l'ANB belge n'a pas été consultée). | coefficient | modifiable en saisie ; toutes les résistances de tying bougent |
+
+### 6.2 Écarts assumés — ce qui a été écrit autrement que l'étude
+
+Un seul est **non conservatif s'il n'est pas appliqué**, et il l'a été :
+
+- **`dcc_` · `bvT_S` AJOUTÉE** — le §8.2 de l'étude ne demandait pas le
+  cisaillement des boulons du groupe S sous la force de chaînage, alors que son
+  §7.2 attribue le tying à ce groupe. L'omission était **non conservative** ;
+  la ligne existe, elle est nommée comme ajoutée dans `methode.py` et un
+  contrôle la fige.
+
+Les autres ne changent aucune résistance, ou les changent dans le sens de la
+formule publiée plutôt que du nombre imprimé :
+
+- **la recoupe minimale** : l'étude imprime 154,5 / 144,5 mm (valeurs à
+  `j = 10`) alors qu'elle déclare `j = 5` ; les trois modules appliquent la
+  FORMULE `(bP − twP)/2 + j` → 149,5 / 139,5 mm. Pour `pac_`, l'about est à
+  `tp` de la face d'appui, pas à `gh` : `(bP − twP)/2 + j − tp` ;
+- **`dcc_`** : poinçonnement coupé en deux lignes nommées (cornière, poteau) ;
+  gauge `p3` aussi plafonné par le Tableau 3.3 ; tronçon en T de l'aile écrit
+  pour UNE file par cornière (alerte d'information `n2P_T` sinon) ;
+- **`pac_`** : la limite du cas (b) ne cite pas `qx = 3·MS/hp²` (groupe
+  CENTRÉ) ; `bp ≤ bP` en cas (a) est une INFORMATION, `bp` entre congés en cas
+  (b) est bloquante ;
+- **`fpc_`** : BM3' de l'étude n'est pas complet — l'outil trouve en plus
+  `p2 = 60 < 2,4·d0 = 62,4` et une pression diamétrale d'âme portée à
+  `η = 1,148` ;
+- **les trois** : `rec_S`, `j_lat`, `d_nt`, `d_nb`, `l_n` sont des cotes du
+  DESSIN et non des paramètres avancés (règle P6 de la charte).

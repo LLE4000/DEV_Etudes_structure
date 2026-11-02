@@ -430,10 +430,6 @@ def coupe_bb(R, opt):
 elevation = coupe_aa                 # l'« élévation » de la famille : la coupe A-A
 
 
-def dessins(R, opt):
-    return coupe_aa(R, opt), plan(R, opt)
-
-
 # -------------------------------------------------------------------- domaine
 def domaine(R, opt=None):
     """Le diagramme (Mx, My) à N = NEd : frontière exacte du niveau 2 (bloc

@@ -2,38 +2,28 @@
 """Onglet Méthode : le modèle mécanique du plat d'âme sur poteau, ses
 sources et ses limites — en toutes lettres.
 
-Les LIMITES de validité ont une seule source (ce fichier) : l'onglet Méthode
+Les LIMITES de validité ont une seule source, ``..textes`` pour les huit
+communes à la famille et ce fichier pour la septième : l'onglet Méthode
 les écrit en liste, et l'onglet Vérifications les reprend mot pour mot dans
 le repli « Périmètre de la vérification » (``ecran_resultats.NON_REVERIFIES``
 les lit ici). Elles sont celles de l'étude, `POUTRE_POTEAU.md` §8.4."""
+from .. import textes
 from .notation import NOTATIONS
 
-# Les neuf limites du §8.4 : les six premières et les deux dernières valent
-# dans les deux cas d'appui ; ``LIMITE_AME`` ne vaut qu'en cas (b).
-LIMITES_AVANT = (
-    "panneau d'âme du poteau en cisaillement sous les moments d'étage (§6.2.6.1) — une attache simple "
-    "n'y contribue pas, il se vérifie avec l'ensemble des attaches de l'étage",
-    "poteau sous charges combinées : résistance de section, flambement, déversement, et le moment "
-    "VEd·e que cette attache lui apporte (EC3-1-1 §6.2 et §6.3)",
-    "torsion du poteau induite par une attache d'un seul côté",
-    "attaches des DEUX côtés du poteau : efforts opposés, boulons ou âme partagés — pression "
-    "diamétrale, cisaillement local et tying non traités",
-    "capacité de ROTATION au-delà des règles de détail : l'articulation est supposée (§5.2), le "
-    "contact de la semelle inférieure de la poutre sur le poteau n'est pas vérifié",
-    "cisaillement global, flexion et déversement de la poutre portée",
-)
+# Les neuf limites du §8.4 ont UNE SOURCE, ``..textes`` (consolidation du
+# 02/11/2026) : les six premières et les deux dernières sont celles de la
+# FAMILLE, mot pour mot. Seule la septième est rédigée ici — ``LIMITE_AME``
+# ne vaut qu'en cas (b), et chaque attache la dit à sa façon : ce qui
+# sollicite l'âme hors de son plan n'est pas le même (docstring de
+# ``..textes``).
 LIMITE_AME = ("flexion HORS PLAN de l'âme du poteau sous qx = 3·MS/hp² et sous la force de chaînage — "
               "non couverte par l'EN 1993-1-8 pour une âme non raidie")
-LIMITES_APRES = (
-    "poteau raidi (goussets, raidisseurs entre ailes) : les longueurs efficaces du Tab. 6.4 et les "
-    "limites de l'âme supposent le poteau NON raidi",
-    "ELS : flèches, vibrations, confort",
-)
 
 
 def limites(ame=True):
-    """Les limites de validité pour le cas d'appui courant (``ame`` : cas b)."""
-    return LIMITES_AVANT + ((LIMITE_AME,) if ame else ()) + LIMITES_APRES
+    """Les limites de validité pour le cas d'appui courant (``ame`` : cas b) —
+    les neuf du §8.4, assemblées par la source unique de la famille."""
+    return textes.limites(LIMITE_AME, ame)
 
 
 def _liste(items):

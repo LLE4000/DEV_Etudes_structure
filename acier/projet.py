@@ -47,12 +47,24 @@ def repere(entree):
     return str((entree.get("values") or {}).get("id_rep") or "").strip()
 
 
+# Les deux cas d'appui de la famille POUTRE – POTEAU, tels que les trois
+# modules les écrivent en session (``entrees.APPUI_AILE`` / ``APPUI_AME``) →
+# le morceau COURT de la ligne de liste. Deux attaches qui ne diffèrent que
+# par l'appui ne donnaient pas deux lignes différentes (consolidation du
+# 02/11/2026). Le dict est la CLÉ de reconnaissance : la clé ``appui`` du
+# pied de poteau porte un tout autre choix (le modèle d'aire efficace), elle
+# n'y figure pas et la ligne du pied de poteau ne change donc pas.
+APPUI_COURT = {"Aile du poteau": "sur l'aile", "Âme du poteau": "dans l'âme"}
+
+
 def description(values):
     """Ligne courte d'une entrée : profilés et efforts (liste, sommaire)."""
     u = values or {}
     morceaux = []
     if u.get("prof_S") or u.get("prof_P"):
-        morceaux.append(f"{u.get('prof_S') or '?'} sur {u.get('prof_P') or '?'}")
+        appui = APPUI_COURT.get(str(u.get("appui") or ""))
+        morceaux.append(f"{u.get('prof_S') or '?'} sur {u.get('prof_P') or '?'}"
+                        + (f" ({appui})" if appui else ""))
     elif u.get("prof_c") or u.get("bp_u"):
         # pied de poteau : profilé (ou éléments soudés du calcul manuel), platine, massif
         def _n(k):

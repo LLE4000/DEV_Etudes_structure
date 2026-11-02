@@ -49,6 +49,7 @@ from acier.formats import F, f0
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
+from .. import textes as TXT
 from .entrees import defaults, NUM, MODE_PREDIM, APPUI_AME, NAT_TYING
 
 S3 = math.sqrt(3)
@@ -59,6 +60,14 @@ P358_SUP = "SCI P358 (élément support chargé d'un seul côté)"
 
 GROUPES_VERIF = ("Boulons", "Plat d'âme", "Poutre portée", "Poteau porteur",
                  "Soudure")
+
+
+def _profil_P(R):
+    """Les cinq dimensions du POTEAU en dictionnaire, comme l'appel de
+    ``mecanique.section_grugee`` le fait pour la poutre portée — la
+    géométrie du poteau se lit à plusieurs endroits (``compute`` et
+    ``predim``), elle s'écrit donc une fois."""
+    return dict(h=R.h_P, b=R.b_P, tw=R.tw_P, tf=R.tf_P, r=R.r_P)
 
 
 def _first_ge(liste, v):
@@ -169,13 +178,17 @@ def compute(u0=None):
     R.long_p = R.z_p > dv(R.t_p, 0.15)          # plat LONG (P358 / MSB P5)
 
     # ---- géométrie propre au POTEAU (étude §3.2.2, §4.3, §5.3)
-    R.libre_droit = R.h_P - 2 * R.tf_P - 2 * R.r_P        # largeur droite de l'âme
-    R.demi_droit = (R.h_P - 2 * R.tf_P) / 2 - R.r_P       # demi-largeur droite
-    R.libre_ailes = R.h_P - 2 * R.tf_P - 2 * u.j_lat      # passage de la semelle
-    R.p3_congeP = R.tw_P + 2 * R.r_P + R.d_w              # gauge mini d'une file sur l'aile
-    R.gh_b1 = (R.b_P - R.tw_P) / 2 + u.j_lat              # variante b1 : au-delà des bouts d'aile
-    R.rec_min = mx(0.0, R.gh_b1 - u.g_h)                  # recoupe mini si la poutre ne passe pas
-    R.passe_S = bool(R.b_S <= R.libre_ailes + 1e-9)       # la semelle passe entre les ailes
+    # brique partagée : les largeurs utiles du poteau sont les mêmes pour
+    # les trois attaches de la famille (``mecanique.geometrie_poteau``) ; pour
+    # un plat d'âme, l'about de la poutre est à ``gh`` de la face d'appui.
+    geoP = MEC.geometrie_poteau(_profil_P(R), u.j_lat, u.g_h, R.b_S, R.d_w)
+    R.libre_droit = geoP["libre_droit"]                   # largeur droite de l'âme
+    R.demi_droit = geoP["demi_droit"]                     # demi-largeur droite
+    R.libre_ailes = geoP["libre_ailes"]                   # passage de la semelle
+    R.p3_congeP = geoP["p3_congeP"]                       # gauge mini d'une file sur l'aile
+    R.gh_b1 = geoP["gh_b1"]                               # variante b1 : au-delà des bouts d'aile
+    R.rec_min = geoP["rec_min"]                           # recoupe mini si la poutre ne passe pas
+    R.passe_S = geoP["passe_S"]                           # la semelle passe entre les ailes
     R.b1 = bool(R.ame and u.g_h >= R.gh_b1 - 1e-9)        # variante b1
     R.rec_ok = bool(not R.ame or R.passe_S or R.b1 or u.rec_S >= R.rec_min - 1e-9)
     # excentricité apportée au POTEAU : information, pas une vérification de
@@ -247,12 +260,10 @@ def compute(u0=None):
              + (("h − dc,inf = " + f0(R.h_S) + " − " + f0(u.d_nb)) if u.d_nb > 0 else ("h − (tf + r) = " + f0(R.h_S) + " − " + f0(tfrS)))
              + " = " + f0(botLim) + " mm. Avec zp = " + f0(u.z_C) + " mm, hp maximal = " + f0(math.floor(botLim - u.z_C)) + " mm."),
         dict(id="aile_poutre", c=R.ame and not R.rec_ok, b=1,
-             m="Configuration impossible : la semelle de la poutre portée ne passe pas entre les ailes du poteau et la recoupe est insuffisante.",
+             m=TXT.M_AILE_POUTRE,
              f=["rec_S", "j_lat", "g_h"] + prS + prP, d=["rec", "jlat", "gh"], e=["beamS", "recut", "col"],
-             w="bS = " + f0(R.b_S) + " mm dépasse la largeur libre entre ailes hP − 2·tfP − 2·j = " + f0(R.libre_ailes)
-             + " mm : il faut recouper les semelles sur au moins (bP − twP)/2 + j − gh = " + F(R.rec_min, 1)
-             + " mm depuis l'about (recoupe actuelle " + f0(u.rec_S) + " mm), ou éloigner la poutre (gh ≥ "
-             + F(R.gh_b1, 1) + " mm)."),
+             w=TXT.w_aile_poutre(f0(R.b_S), f0(R.libre_ailes), "gh", F(R.rec_min, 1), f0(u.rec_S))
+             + ", ou éloigner la poutre (gh ≥ " + F(R.gh_b1, 1) + " mm)."),
         dict(id="one_bolt", c=R.n_b == 1, b=1,
              m="Configuration impossible : un seul boulon ne peut pas reprendre le moment d'excentricité VEd·z.",
              f=["n1_u", "n2_u"], d=[], e=["bolts"], w="n1 × n2 = 1 boulon : ajouter au moins une rangée ou une file."),
@@ -277,7 +288,8 @@ def compute(u0=None):
              + F(R.z_p, 1) + " mm au lieu de " + F(R.e2b + mn(u.g_h, 10), 1)
              + " mm avec un about au contact de l'âme."),
         dict(id="ame_hp", c=R.ame, b=0,
-             m="Appui dans l'ÂME du poteau : la flexion HORS PLAN de l'âme sous qx = 3·MS/hp² et sous la force de chaînage n'est PAS couverte par l'EN 1993-1-8 pour une âme non raidie — à justifier séparément, ou raidir (plat traversant, raidisseurs entre ailes).",
+             m=TXT.m_ame_hp("qx = 3·MS/hp² et sous la force de chaînage",
+                            "plat traversant, raidisseurs entre ailes"),
              f=["appui"] + prP, d=["libreP"], e=["col", "colWeb"], w=""),
         dict(id="a_rec", c=R.a_w < R.a_plein - 1e-9, b=0,
              m="Gorge inférieure à la PLEINE RÉSISTANCE recommandée vis-à-vis du plat — admissible si la vérification en contrainte du cordon passe, mais le détail courant soude le plat à pleine résistance.",

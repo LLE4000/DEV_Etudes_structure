@@ -1,5 +1,11 @@
 # Refonte UX / UI / information design — doubles cornières d'âme
 
+> **Portée au 02/11/2026** : la charte née de cette refonte (`ERGONOMIE.md`) s'applique désormais à **SEPT**
+> écrans — les trois attaches poutre–poutre, les trois attaches poutre–poteau et le pied de poteau (deux
+> modes). Les trois écrans neufs sont nés à la charte, sans amendement : `ERGONOMIE.md` §19 dit ce que leur
+> arrivée a ajouté (la ligne « Appui » de l'en-tête, quatre cotes de dessin, trois états de capture). Ce
+> document, lui, reste la RÉFLEXION du 31/10/2026 : il n'est pas réécrit.
+
 Point de départ : commit `52b5e4e` (module fonctionnel, parité prouvée). Le
 moteur, les vérifications, les benchmarks et les exports texte ne changent
 pas. Ce document est la réflexion **avant** le code ; les décisions sont
@@ -456,7 +462,7 @@ critère élastique par défaut, relecture), consolidation du kit et documentati
 | HYPOTHÈSES ≤ 3 lignes de ≤ 110 caractères (§11) | les cinq notes ; renvois du guide toujours « MSB P5 » | `note_kit.empaqueter`, `segments_hypotheses` |
 | Critère de la platine manuelle : Élastique par défaut (§12) | défaut changé, fichiers anciens relus en EN 1993-1-8, VAL-M explicites | `entrees.defaults`, §13 ci-dessus, `PLATINE_MANUELLE.md` § 6 |
 | Kit d'abord, modules ensuite, consolidation (§13, §14) | briques locales rapatriées, une source par brique (ERGONOMIE.md §17) | `acier/assemblages/carte.py`, `ui_commun.py`, `note_kit.py` |
-| Captures mesurées aux quatre largeurs (amendement 10) | seuils tenus aux quatre largeurs, cinq écrans et quatre états (complet, fixe, Vue simple, perso) | `tools/captures_assemblages.js` |
+| Captures mesurées aux quatre largeurs (amendement 10) | seuils tenus aux quatre largeurs, cinq écrans et quatre états (complet, fixe, Vue simple, perso) ; **depuis le 02/11/2026 : SEPT écrans et trois états de plus** (ame, ameok, tying) — ERGONOMIE.md §19 | `tools/captures_assemblages.js` |
 
 ### Mesures avant / après (01/11/2026)
 

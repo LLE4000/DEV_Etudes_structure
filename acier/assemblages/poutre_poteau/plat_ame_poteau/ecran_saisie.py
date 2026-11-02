@@ -29,7 +29,7 @@ des widgets (le dessin est rendu avant la carte)."""
 from acier.assemblages import carte as kit
 from acier.assemblages.carte import L
 from .entrees import (mode_predim, PILOTEES_PAR_PREDIM, CHAMPS, UNITE, champ_visible, perso_P, perso_S,
-                      _cat_non_A, _acier_perso, _tying_N, traction, VISSERIE_DEFAUT, defaults,
+                      _cat_non_A, _acier_perso, _tying_N, VISSERIE_DEFAUT, defaults,
                       MODE_VERIF, MODE_PREDIM, APPUI_AILE, APPUI_AME, NAT_ELU, NAT_TYING)
 from .schemas import CLE_PAR_COTE
 

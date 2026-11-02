@@ -427,3 +427,61 @@ def leff_platine_bords_libres(n1, p1, e1h, e1b, m, e):
     cp_i = bh["cp_seul"] + bb["cp_seul"] + (n1 - 2) * 2 * pi * m
     nc_i = bh["nc_seul"] + bb["nc_seul"] + (n1 - 2) * (4 * m + 1.25 * e)
     return mn(mn(cp_g, nc_g), mn(cp_i, nc_i)), mn(nc_g, nc_i)
+
+
+# =========================================================================
+#  7. Géométrie du POTEAU porteur (famille poutre – poteau)
+# =========================================================================
+def geometrie_poteau(profil, j=0.0, gh=0.0, bS=0.0, dw=0.0):
+    """Les largeurs utiles d'un poteau en I ou H qui porte une attache
+    articulée, dans les DEUX cas d'appui — étude §3.2.2, §4.3 et §5.3.
+
+    ``profil`` : indexable par ``h``, ``b``, ``tw``, ``tf``, ``r`` (mm) — le
+    POTEAU. ``j`` : jeu latéral de montage ; ``gh`` : distance de la face
+    d'appui à l'about de la poutre portée (c'est le jeu ``gh`` pour un plat
+    d'âme ou des cornières, et l'épaisseur ``tp`` de la platine pour une
+    platine d'about — l'about est alors à ``tp`` de la face d'appui) ;
+    ``bS`` : largeur de semelle de la poutre portée ; ``dw`` : diamètre
+    d'appui de la rondelle ou de l'écrou.
+
+    Rend ``{libre_droit, demi_droit, libre_ailes, p3_congeP, p3_maxP, gh_b1,
+    rec_min, passe_S}`` :
+
+    - ``libre_droit`` : largeur DROITE de l'âme entre congés,
+      ``hP − 2·tfP − 2·rP`` — ce qui reste utilisable en cas (b) ;
+    - ``demi_droit`` : la demi-largeur droite, ``(hP − 2·tfP)/2 − rP``,
+      mesurée depuis l'axe de l'âme (une file de boulons, un talon de
+      cornière ou un demi-gauge ne peut pas la dépasser en cas b) ;
+    - ``libre_ailes`` : passage de la semelle portée entre les ailes,
+      ``hP − 2·tfP − 2·j`` ;
+    - ``p3_congeP`` : gauge MINIMAL d'une file sur l'aile (cas a),
+      ``twP + 2·rP + dw`` — l'écrou est du côté intérieur de l'aile, au
+      droit du congé : c'est la règle qui refuse le ``p3 = 90`` usuel des
+      âmes de poutre sur l'aile d'un HEB 300 (point P-7 de l'étude, nature
+      INT : dégagement géométrique, pas une clause normative) ;
+    - ``p3_maxP`` : gauge MAXIMAL en cas (b), ``2·(demi_droit − dw/2)`` —
+      les deux écrous dégagent les deux congés ;
+    - ``gh_b1`` : ``gh`` à partir duquel l'about de la poutre passe au-delà
+      des bouts d'aile du poteau, ``(bP − twP)/2 + j`` (variante b1) ;
+    - ``rec_min`` : recoupe minimale des semelles depuis l'about si la
+      poutre ne passe pas, ``max(0 ; gh_b1 − gh)``. La recoupe en LARGEUR
+      n'est PAS un grugeage (point P-3) ;
+    - ``passe_S`` : la semelle portée passe entre les ailes sans recoupe.
+
+    Les quatre derniers arguments ne servent qu'aux grandeurs qui en
+    dépendent : un appelant qui ne lit que ``libre_droit`` ou ``demi_droit``
+    (le prédimensionnement, qui tourne avant ``compute``) peut les omettre.
+
+    Référence : géométrie de profilés laminés ; MSB Part 5 §2 à §4 pour les
+    cas d'appui. Origine de la copie : les TROIS moteurs poutre–poteau, à
+    l'identique — ``tests/test_assemblages_mecanique.py`` les lie."""
+    hP = profil["h"]; bP = profil["b"]; twP = profil["tw"]
+    tfP = profil["tf"]; rP = profil["r"]
+    libre_droit = hP - 2 * tfP - 2 * rP
+    demi_droit = (hP - 2 * tfP) / 2 - rP
+    libre_ailes = hP - 2 * tfP - 2 * j
+    gh_b1 = (bP - twP) / 2 + j
+    return dict(libre_droit=libre_droit, demi_droit=demi_droit,
+                libre_ailes=libre_ailes, p3_congeP=twP + 2 * rP + dw,
+                p3_maxP=2 * (demi_droit - dw / 2), gh_b1=gh_b1,
+                rec_min=mx(0.0, gh_b1 - gh), passe_S=bool(bS <= libre_ailes + 1e-9))

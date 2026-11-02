@@ -48,6 +48,7 @@ from acier.formats import F, f0
 from acier.resultats import Verification, Alerte, Pince
 from acier import resistances as RS
 from acier.assemblages import mecanique as MEC
+from .. import textes as TXT
 from .entrees import defaults, NUM, MODE_PREDIM, BOULONNEE, APPUI_AME, NAT_TYING
 
 S3 = math.sqrt(3)
@@ -59,6 +60,14 @@ TAB64 = "EN 1993-1-8 Tableau 6.4 (aile de poteau non raidie)"
 
 GROUPES_VERIF = ("Boulons", "Cornières", "Poutre portée", "Poteau porteur",
                  "Soudures")
+
+
+def _profil_P(R):
+    """Les cinq dimensions du POTEAU en dictionnaire, comme l'appel de
+    ``mecanique.section_grugee`` le fait pour la poutre portée — la
+    géométrie du poteau se lit à plusieurs endroits (``compute`` et
+    ``predim``), elle s'écrit donc une fois."""
+    return dict(h=R.h_P, b=R.b_P, tw=R.tw_P, tf=R.tf_P, r=R.r_P)
 
 
 def _first_ge(liste, v):
@@ -205,15 +214,19 @@ def compute(u0=None):
     R.rec_L = R.L_C >= 0.6 * R.h_S              # maintien en torsion (guides)
 
     # ---- géométrie propre au POTEAU (étude §3.2.2, §4.3, §5.3)
-    R.libre_droit = R.h_P - 2 * R.tf_P - 2 * R.r_P        # largeur droite de l'âme
-    R.demi_droit = (R.h_P - 2 * R.tf_P) / 2 - R.r_P       # demi-largeur droite
-    R.libre_ailes = R.h_P - 2 * R.tf_P - 2 * u.j_lat      # passage de la semelle
-    R.p3_congeP = R.tw_P + 2 * R.r_P + R.d_w              # gauge mini sur l'aile
+    # brique partagée : les largeurs utiles du poteau sont les mêmes pour les
+    # trois attaches de la famille (``mecanique.geometrie_poteau``) ; pour des
+    # cornières, l'about de la poutre est à ``gh`` de la face d'appui.
+    geoP = MEC.geometrie_poteau(_profil_P(R), u.j_lat, u.g_h, R.b_S, R.d_w)
+    R.libre_droit = geoP["libre_droit"]                   # largeur droite de l'âme
+    R.demi_droit = geoP["demi_droit"]                     # demi-largeur droite
+    R.libre_ailes = geoP["libre_ailes"]                   # passage de la semelle
+    R.p3_congeP = geoP["p3_congeP"]                       # gauge mini sur l'aile
     R.bA_max = R.demi_droit - R.tw_S / 2                  # aile A maxi en cas (b)
-    R.p3_max_ame = 2 * (R.demi_droit - R.d_w / 2)         # gauge maxi en cas (b)
-    R.gh_b1 = (R.b_P - R.tw_P) / 2 + u.j_lat              # about au-delà des bouts d'aile
-    R.rec_min = mx(0.0, R.gh_b1 - u.g_h)                  # recoupe mini si la poutre ne passe pas
-    R.passe_S = bool(R.b_S <= R.libre_ailes + 1e-9)       # la semelle passe entre les ailes
+    R.p3_max_ame = geoP["p3_maxP"]                        # gauge maxi en cas (b)
+    R.gh_b1 = geoP["gh_b1"]                               # about au-delà des bouts d'aile
+    R.rec_min = geoP["rec_min"]                           # recoupe mini si la poutre ne passe pas
+    R.passe_S = geoP["passe_S"]                           # la semelle passe entre les ailes
     R.b1 = bool(R.ame and u.g_h >= R.gh_b1 - 1e-9)        # about au-delà des bouts d'aile
     R.rec_ok = bool(not R.ame or R.passe_S or R.b1 or u.rec_S >= R.rec_min - 1e-9)
     # excentricité apportée au POTEAU : information, pas une vérification de
@@ -333,18 +346,17 @@ def compute(u0=None):
              + F(R.tw_S / 2, 1) + " + " + f0(R.b_A) + " = " + F(R.tw_S / 2 + R.b_A, 1)
              + " mm. Longueur d'aile A maximale : " + F(R.bA_max, 1) + " mm."),
         dict(id="aile_poutre", c=R.ame and not R.rec_ok, b=1,
-             m="Configuration impossible : la semelle de la poutre portée ne passe pas entre les ailes du poteau et la recoupe est insuffisante.",
+             m=TXT.M_AILE_POUTRE,
              f=["rec_S", "j_lat", "g_h"] + prS + prP, d=["rec", "jlat", "gh"], e=["beamS", "recut", "col"],
-             w="bS = " + f0(R.b_S) + " mm dépasse la largeur libre entre ailes hP − 2·tfP − 2·j = " + f0(R.libre_ailes)
-             + " mm : il faut recouper les semelles sur au moins (bP − twP)/2 + j − gh = " + F(R.rec_min, 1)
-             + " mm depuis l'about (recoupe actuelle " + f0(u.rec_S) + " mm)."),
+             w=TXT.w_aile_poutre(f0(R.b_S), f0(R.libre_ailes), "gh", F(R.rec_min, 1), f0(u.rec_S)) + "."),
         dict(id="one_bolt", c=R.bolt_S and R.n_S == 1, b=1,
              m="Configuration impossible : un seul boulon côté poutre portée ne peut pas reprendre le moment d'excentricité VEd·z.",
              f=["n1S_u", "n2S_u"], d=[], e=["boltsS"], w="n1 × n2 = 1 boulon : ajouter au moins une rangée ou une file."),
         dict(id="d0_manq", c=u.trou == "Surdimensionné" and N(u.d0_u) == 0, b=1,
              m="Trou surdimensionné : saisir le diamètre d0.", f=["trou", "d0_u"], d=[], e=[], w=""),
         dict(id="ame_hp", c=R.ame, b=0,
-             m="Appui dans l'ÂME du poteau : la flexion HORS PLAN de l'âme sous la force de chaînage et sous la traction des boulons n'est PAS couverte par l'EN 1993-1-8 pour une âme non raidie — à justifier séparément, ou raidir (raidisseurs entre ailes).",
+             m=TXT.m_ame_hp("la force de chaînage et sous la traction des boulons",
+                            "raidisseurs entre ailes"),
              f=["appui"] + prP, d=["libreP"], e=["col", "colWeb"], w=""),
         dict(id="n2P_T", c=R.bolt_P and R.aile and R.n2_P > 1 and NT > 0, b=0,
              m="Deux files par cornière et boulons tendus : le tronçon en T de l'AILE DU POTEAU est calculé sur la file la plus proche de l'âme (bras m tiré de p3) ; la seconde file, plus éloignée, n'est pas modélisée — à justifier séparément.",
@@ -798,7 +810,9 @@ def predim(u, R, Mabs):
     V = u.V_Ed; H = abs(u.H_Ed)
     ame = u.appui == APPUI_AME
     t_appui = R.tw_P if ame else R.tf_P
-    demi_droit = (R.h_P - 2 * R.tf_P) / 2 - R.r_P
+    # le prédimensionnement tourne AVANT compute() : R.demi_droit n'est pas
+    # encore posé, la largeur se lit sur la brique partagée (une seule source)
+    demi_droit = MEC.geometrie_poteau(_profil_P(R))["demi_droit"]
     i1 = idx(DB["boulons"], u.pd_dmin); i2 = idx(DB["boulons"], u.pd_dmax)
     imin = min(i1, i2); imax = max(i1, i2)
     Nx = 0.0 if u.nat_N == NAT_TYING else abs(u.N_Ed)
@@ -820,10 +834,11 @@ def predim(u, R, Mabs):
             FP = hyp(V / 2 / n, H / 2 / n)
             # gauge p3 proposé : le plus grand des trois minima (usuel 90,
             # Tab. 3.3, dégagement du congé du poteau sur l'AILE), au 5 supérieur
-            p3min = mx(90.0, 2.4 * d0, (R.tw_P + 2 * R.r_P + b["dw"]) if not ame else 0.0)
+            geo_b = MEC.geometrie_poteau(_profil_P(R), dw=b["dw"])
+            p3min = mx(90.0, 2.4 * d0, geo_b["p3_congeP"] if not ame else 0.0)
             p3 = ceil5(p3min)
             if ame:
-                p3 = mn(p3, 5 * math.floor(2 * (demi_droit - b["dw"] / 2) / 5))
+                p3 = mn(p3, 5 * math.floor(geo_b["p3_maxP"] / 5))
             FbP = (mn(1.4 * p3 / d0 - 1.7, 2.5) * mn(p1 / (3 * d0) - 0.25, dv(R.f_ub, R.fu_P), 1)
                    * R.fu_P * d * t_appui / u.g_M2 / 1000 * R.k_trou) if u.g_M2 != 0 else math.nan
             e = AttrDict(
@@ -874,7 +889,8 @@ def predim(u, R, Mabs):
         # partie droite de l'âme entre congés. Une cornière MINCE ferme donc
         # la fenêtre : l'épaisseur est relevée jusqu'à ce que le gauge minimal
         # tienne sous le maximum.
-        p3min = mx(90.0, 2.4 * pk.b["d0"], 0.0 if ame else R.tw_P + 2 * R.r_P + dw)
+        geo_k = MEC.geometrie_poteau(_profil_P(R), dw=dw)
+        p3min = mx(90.0, 2.4 * pk.b["d0"], 0.0 if ame else geo_k["p3_congeP"])
 
         def pour_tC(t):
             req1 = mx(ceil5(t + 12 + dw / 2 + 2) + pk.e2, u.g_h + 2 * pk.e2)
@@ -882,7 +898,7 @@ def predim(u, R, Mabs):
             gA_c = ceil5(t + r1 + dw / 2 + 2)
             p3m = mn(14 * mn(t, t_appui), 200.0)
             if ame:
-                p3m = mn(p3m, 2 * (demi_droit - dw / 2))
+                p3m = mn(p3m, geo_k["p3_maxP"])
             g = mx(gA_c, ceil5((p3min - R.tw_S) / 2))
             g_max = 5 * math.floor(mx(0.0, (p3m - R.tw_S) / 2) / 5)
             if g > g_max:                          # le plafond du Tableau 3.3 l'emporte

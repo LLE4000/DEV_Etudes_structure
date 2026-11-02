@@ -45,11 +45,11 @@ import math
 
 from acier.js import N, mn, mx, js_str
 from acier.formats import f0
-from acier.bibliotheques import PERSO
 from acier.assemblages.poutre_poutre.doubles_cornieres.schemas import (   # kit partagé
-    Options, Feuille, PALETTE, INF_MM, SEGMENTS_ARC,
+    Options, Feuille, INF_MM,
     _rect, _poly, _path, _circle, _text, _group, _arc, _hachures,
-    _rect_rompu, _rupture, _renvoi, _section_I, _section_portee)
+    _rect_rompu, _rupture, _renvoi, _section_portee)
+from ..dessin import marge_poteau, nom_portee, nom_poteau, section_poteau
 from .entrees import PILOTEES_PAR_PREDIM
 
 # Cote du dessin → clé d'entrée (édition directe sur le dessin)
@@ -108,35 +108,6 @@ def _boulon_profil(cls_t, x_ap, x_av, y, d, dw):
             _rect(cls_t, x_av + tr, y - s / 2, k, s)]
 
 
-def _marge_poteau(R):
-    """Hauteur du tronçon de poteau dessiné au-dessus et en dessous de la
-    poutre portée (il continue : bords rompus)."""
-    return mx(60.0, 0.18 * R.h_S)
-
-
-def _nom_poteau(R):
-    return "Poteau" if R.u.prof_P == PERSO else R.u.prof_P
-
-
-def _nom_portee(R):
-    return "Poutre portée" if R.u.prof_S == PERSO else R.u.prof_S
-
-
-def _section_poteau(R):
-    """Contour du poteau en COUPE HORIZONTALE, orienté pour la vue en plan :
-    l'axe x du dessin suit l'axe de la poutre portée.
-
-    - cas (a) : x = X (profondeur hP), y = Y (largeur d'aile bP) — les deux
-      ailes sont VERTICALES, aux abscisses x = ±hP/2 ;
-    - cas (b) : x = Y (largeur d'aile bP), y = X (profondeur hP) — les deux
-      ailes sont HORIZONTALES, aux ordonnées y = ±hP/2, et la poutre entre
-      ENTRE elles."""
-    sec = _section_I(R.b_P, R.h_P, R.tw_P, R.tf_P, R.r_P)
-    if R.ame:
-        return [(sx, sy - R.h_P / 2) for sx, sy in sec]
-    return [(sy - R.h_P / 2, sx) for sx, sy in sec]
-
-
 # ------------------------------------------------------------------ élévation
 def elevation(R, opt):
     """Élévation (regard ⊥ à l'axe de la poutre portée) : le poteau vu de
@@ -152,7 +123,7 @@ def elevation(R, opt):
     zc = N(u.z_C); yc = yt + zc
     dnt = N(u.d_nt); dnb = N(u.d_nb); ln = N(u.l_n)
     larg = R.b_P if R.ame else R.h_P             # largeur de la bande du poteau
-    mar = _marge_poteau(R)
+    mar = marge_poteau(R)
     notch = dnt > 0 or dnb > 0
     k, m, tr = visserie(R.d_b)
     xtete = x0 + tr + k                          # bout des têtes de boulon
@@ -321,8 +292,8 @@ def elevation(R, opt):
             S.tag(xE - S.tw("dc,inf 0") - 0.6 * fs, yb - R.tf_S - 0.7 * fs,
                   dict(id="dci", sym="dc,inf", val=0, key="d_nb", lvl=2))
     S.poignees(xtete + 1.2 * fs + S.largeur_poignees(txtG) / 2, (yb1 + ybl) / 2, "G", "n1_u", txtG, "bolts" in hot)
-    S.name("T", xE - S.tw(_nom_portee(R)) / 2, _nom_portee(R))
-    S.name("B", 0, _nom_poteau(R))
+    S.name("T", xE - S.tw(nom_portee(R)) / 2, nom_portee(R))
+    S.name("B", 0, nom_poteau(R))
     return S.finish(s, None, "Élévation cotée de l'assemblage par platine d'about sur poteau")
 
 
@@ -339,7 +310,7 @@ def plan(R, opt):
     k, m, tr = visserie(R.d_b)
     xtete = x0 + tr + k; x_ap = xf - R.t_appui; xecrou = x_ap - tr - m
     hb = R.b_p / 2; y3 = R.p_3 / 2
-    sec = _section_poteau(R)
+    sec = section_poteau(R)
     xcol = mx(*[abs(px) for px, _ in sec]); ycol = mx(*[abs(py) for _, py in sec])
     rec = N(u.rec_S); brec = mn(R.b_S, R.libre_ailes) if rec > 0 else R.b_S
     Hh = mx(hb + 24, ycol + 10)
@@ -446,7 +417,7 @@ def plan(R, opt):
                    sym="tf", val=R.tf_P, lvl=2, calc=1))
         S.dim(dict(id="twP", side="L", a=-R.tw_P / 2, b=R.tw_P / 2, o1=-xcol, o2=-xcol,
                    sym="tw", val=R.tw_P, lvl=2, calc=1))
-    S.name("T", 0, _nom_poteau(R))
+    S.name("T", 0, nom_poteau(R))
     return S.finish(s, None, "Vue en plan cotée : poteau en coupe et platine d'about")
 
 
@@ -463,7 +434,7 @@ def coupe_aa(R, opt):
     yt = 0.0; zc = N(u.z_C); yc = yt + zc
     ws = R.tw_S / 2; hb = R.b_p / 2; y3 = R.p_3 / 2
     larg = R.h_P if R.ame else R.b_P
-    mar = _marge_poteau(R)
+    mar = marge_poteau(R)
     Wp = mx(larg / 2, hb, R.b_S / 2 + 6) + 30
     bb = dict(x1=-Wp, x2=Wp, y1=yt - mar, y2=yt + R.h_S + mar)
     fs = opt.fs_force or mx((bb["x2"] - bb["x1"] + 240) / 34, 9)
@@ -523,12 +494,8 @@ def coupe_aa(R, opt):
         xc = larg / 2 - R.tf_P - R.r_P
         S.dim(dict(id="libreP", side="B", a=-xc, b=xc, o1=y2c, o2=y2c, sym="ℓ",
                    val=R.libre_droit, lvl=1, calc=1))
-    S.name("T", 0, _nom_poteau(R))
+    S.name("T", 0, nom_poteau(R))
     return S.finish(s, None, "Coupe A-A : platine en vraie grandeur et coupe de la poutre portée")
-
-
-def dessins(R, opt):
-    return elevation(R, opt), plan(R, opt)
 
 
 def cotes_modifiables(dessin):

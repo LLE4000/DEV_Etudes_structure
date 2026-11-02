@@ -1,8 +1,16 @@
 # Attaches articulées POUTRE – POTEAU — étude de méthode et plan
 
-**Étude du 01/11/2026.** Dépôt `LLE4000/DEV_Etudes_structure`, branche
-`claude/dalle-module-creation-sjmitr`, HEAD `383297b`, arbre propre.
-Python de recette : `/usr/bin/python3.12`.
+**Étude du 01/11/2026 — RÉALISÉE, bilan du 02/11/2026 au §13.** Dépôt
+`LLE4000/DEV_Etudes_structure`, branche `claude/dalle-module-creation-sjmitr`,
+HEAD de l'étude `383297b`. Python de recette : `/usr/bin/python3.12`.
+
+> **Les cinq lots sont livrés.** Les trois attaches sont disponibles au
+> registre, dans les deux cas d'appui. Le **§13** dit ce qui a été réalisé, ce
+> que la consolidation a versé en commun, les **écarts assumés** des trois
+> modules rassemblés, et les **neuf points P-1 à P-9 qui restent à relire par
+> le bureau**. Le corps du document (§1 à §12) n'a PAS été réécrit : il reste
+> l'étude telle qu'elle a piloté les agents, et c'est le §13 qui dit où la
+> réalisation s'en écarte.
 
 **Ce document ne contient aucun code d'application.** Il dit, pour TROIS
 attaches articulées neuves — plat d'âme soudé, doubles cornières, platine
@@ -1633,3 +1641,221 @@ Même découpage. Spécificités :
 - **Le harnais suit dans le même commit**, et chaque rouge est classé : le
   harnais **suit** (il décrivait l'ancien écran) ou le harnais a **trouvé**
   (il avait raison).
+
+---
+
+## 13. CE QUI A ÉTÉ RÉALISÉ — bilan daté du 02/11/2026
+
+**Les cinq lots sont livrés** (lot 0 et 1 : `49ebe30` ; lot 2 `fpc_` :
+`6672ffd` ; lot 3 `pac_` : `37bba0c` ; lot 4 `dcc_` : `4409c67` ; lot 5 : ce
+commit). Les trois attaches sont **disponibles** au registre, dans les deux
+cas d'appui. Cette section est le bilan ; elle ne remplace pas les trois
+fiches de module, qui portent le détail.
+
+### 13.1 Les trois modules
+
+| module | préfixe | vérifications | cas figés | suites | benchmark |
+|---|---|---|---|---|---|
+| `plat_ame_poteau` | `fpc_` | 25 lignes (§8.1) | `ref_fpc.json`, 18 cas / 232 vérifications | `test_plat_ame_poteau_moteur` 88, `_ecran` 94 | BM1 à BM4, VALIDÉ |
+| `platine_about_poteau` | `pac_` | 22 lignes (§8.3) | `ref_pac.json` | `test_platine_about_poteau_moteur` 96, `_ecran` 98 | BM1 à BM4, VALIDÉ |
+| `doubles_cornieres_poteau` | `dcc_` | 40 lignes (§8.2) | `ref_dcc.json` | `test_doubles_cornieres_poteau_moteur` 98, `_ecran` 98 | BM1 à BM4, VALIDÉ |
+
+La mécanique partagée `acier/assemblages/mecanique.py` porte **16 briques**,
+dont `geometrie_poteau` versée au lot 5 ; `tests/test_assemblages_mecanique.py`
+(85 contrôles) les lie aux **56 cas figés** des trois moteurs poutre–poutre,
+qui n'ont pas été touchés, et aux **62 cas figés** des trois moteurs neufs
+pour la géométrie du poteau.
+
+### 13.2 Ce que la CONSOLIDATION du lot 5 a versé
+
+1. **`mecanique.geometrie_poteau(profil, j, gh, bS, dw)`** — les sept largeurs
+   utiles du poteau (`libre_droit`, `demi_droit`, `libre_ailes`, `p3_congeP`,
+   `p3_maxP`, `gh_b1`, `rec_min`, `passe_S`) étaient écrites EN LIGNE, mot pour
+   mot, dans les trois moteurs ; les trois l'appellent désormais, y compris
+   dans leur prédimensionnement. L'argument `gh` est la distance **face
+   d'appui → about** : le jeu `gh` pour un plat d'âme et des cornières,
+   l'épaisseur `tp` pour une platine d'about.
+2. **`acier/assemblages/poutre_poteau/textes.py`** — les **huit** limites
+   communes du §8.4 et les deux alertes communes (`aile_poutre`, `ame_hp`) ont
+   une source unique. La **septième** limite (`LIMITE_AME`) reste rédigée par
+   chaque module : ce qui sollicite l'âme hors de son plan n'est pas le même
+   (moment d'excentricité du plat d'âme, traction des boulons de la platine).
+   L'alerte `b1_long` n'existe que pour le plat d'âme et y reste.
+3. **`acier/assemblages/poutre_poteau/dessin.py`** — les quatre briques de
+   dessin propres à la famille (`marge_poteau`, `nom_poteau`, `nom_portee`,
+   `section_poteau` : la section du poteau TOURNÉE selon l'appui) étaient en
+   trois copies identiques.
+4. **`tools/captures_assemblages.js`** — la table `PREFIXE` connaît `dcc_` et
+   `pac_` ; les états `ame`, `ameok` et `tying` sont versés ; et le défaut de
+   `rows()` est corrigé (`last = -99` rendait « 0 rangée » pour une ligne
+   passée au-dessus du viewport — faux rouge diagnostiqué deux fois aux lots 3
+   et 4).
+5. **`plat_ame.note.Note.REF`** est un `staticmethod` explicite, et
+   `platine_about.note.Note` nomme le sien au lieu d'hériter silencieusement de
+   celui du plat d'âme par le repli `REF or`.
+
+**Ce qui n'a PAS été versé, et pourquoi** : le KIT de dessin
+(`options_ecran`, `options_rapport`, `options_fabrication`,
+`cotes_modifiables` — 6 copies ; `visserie` — 2 copies) reste dans
+`poutre_poutre/doubles_cornieres/schemas.py`. Le §10.5 l'avait prévu : le
+déplacer oblige à toucher les trois `schemas.py` des grands frères, dont les
+dessins sont figés par `tests/test_assemblages_schemas.py` (parité avec
+l'oracle HTML). C'est un **chantier à part**, écrit au §13.6 ci-dessous.
+`_boulon_profil` n'est pas une copie : `pac_` l'a adapté (l'écrou est du côté
+intérieur du poteau).
+
+### 13.3 Les écarts assumés des trois modules, rassemblés
+
+Chaque fiche porte le détail ; voici ce qu'un relecteur doit savoir d'un coup
+d'œil.
+
+**Communs aux trois**
+
+- **La recoupe minimale** : l'étude imprime `gh ≥ 154,5 mm` (variante b1) et
+  `recoupe ≥ 144,5 mm` pour un HEB 300, nombres qui correspondent à `j = 10`
+  alors qu'elle déclare `j = 5` par défaut. Les trois modules appliquent la
+  **FORMULE** `(bP − twP)/2 + j`, soit 149,5 et 139,5 mm, et le disent. Aucune
+  résistance n'en dépend.
+- **`rec_S`, `j_lat`, `d_nt`, `d_nb`, `l_n` sont des cotes du DESSIN**, pas des
+  champs des paramètres avancés : le §10.6.1 les plaçait dans « Avancés ›
+  GÉOMÉTRIE », la règle P6 de la charte — que le §12 impose lui-même — veut que
+  la géométrie se règle sur le dessin.
+- **Aucun numéro de sous-clause inventé** : à défaut, la référence reste au
+  chapitre. Pas de rapport détaillé 3 pages : la note 2 pages et l'export texte
+  couvrent la livraison.
+- Le nom de disposition de la page 2 (`derniere_disposition`) est celui de la
+  famille poutre–poutre (« … plan et droite à droite ») alors que la troisième
+  vue s'appelle ici COUPE A-A : texte hérité, non repris pour ne pas toucher
+  au module poutre–poutre.
+
+**`fpc_` (plat d'âme sur poteau)**
+
+- **BM3' (cas b1 redimensionné) n'est pas complet dans l'étude** : l'outil
+  trouve deux non-conformités de plus et il faut qu'il les trouve — `p2 = 60`
+  sous le minimum `2,4·d0 = 62,4` du Tableau 3.3 pour un M24, et la pression
+  diamétrale de l'âme portée à **η = 1,148**. Les six valeurs annoncées sont
+  reproduites à 1e-9.
+- La gorge `a` est cotée sur l'ÉLÉVATION (symbole EN 22553), pas sur la coupe
+  A-A ; l'ÉLÉVATION porte `hP` en cas (a) / `bP` en cas (b) et la VUE EN PLAN
+  l'autre — chaque cote une seule fois.
+- Les composants du tronçon en T de l'aile et de l'âme en traction transversale
+  n'existent pas ici : le plat est soudé, aucun boulon ne traverse le poteau.
+
+**`pac_` (platine d'about sur poteau)**
+
+- La recoupe minimale s'écrit `(bP − twP)/2 + j − tp` : une platine n'a pas de
+  clé `gh`, l'about est à `tp` de la face d'appui.
+- La limite du cas (b) ne cite pas `qx = 3·MS/hp²` : le groupe est **CENTRÉ**,
+  ce moment n'existe pas dans cette attache.
+- `bp ≤ bP` en cas (a) est une alerte d'**INFORMATION** (une platine plus large
+  que l'aile se fabrique) ; `bp` entre congés en cas (b) est **bloquante**
+  (elle ne rentre pas).
+- En cas (b), l'élévation regarde l'attache depuis la face de l'âme (l'aile
+  proche est retirée) : convention du gabarit, pour que les trois modules se
+  dessinent pareil. Le jeu `j` se cote contre la face INTÉRIEURE de l'aile :
+  c'est la valeur SAISIE, pas l'écart résiduel.
+- Briques locales : `schemas.visserie()` et `schemas._boulon_profil()`.
+
+**`dcc_` (doubles cornières sur poteau)**
+
+- **`bvT_S` est AJOUTÉE à la liste du §8.2** : cisaillement des boulons du
+  groupe S sous la force de chaînage, que le §7.2 demande et que le §8.2
+  oubliait. Son absence était un **défaut non conservatif**.
+- Le poinçonnement est coupé en DEUX lignes nommées (`bt_P` la cornière,
+  `ppP` le poteau) là où le grand frère gardait un `min()`.
+- Le gauge `p3` est aussi plafonné par le Tableau 3.3 (`p ≤ min(14t ; 200)`),
+  que l'étude n'écrit pas : le prédimensionnement **remonte l'épaisseur de la
+  cornière** quand les deux bornes ne se croisent pas.
+- Le tronçon en T de l'aile du poteau est écrit pour UNE file par cornière ;
+  avec deux files, la seconde n'est pas modélisée et une alerte d'information
+  (`n2P_T`) le dit.
+- La variante b1 n'est pas offerte (le §6.2 la déclare sans objet pour les
+  cornières) ; `waS` / `waP` peuvent être « dimensionnantes » quand une
+  fixation est soudée et l'attache peu chargée — comportement identique au
+  grand frère.
+
+### 13.4 Les NEUF points à relire par le bureau — toujours ouverts
+
+Les points **P-1 à P-9** du §9 ont été **appliqués tels que l'étude les
+tranche**, dans les trois modules ; aucun n'a été refermé par une source. Ils
+restent à relire, et ils sont écrits aux trois endroits : ici, dans l'onglet
+**Méthode** de chaque écran, et dans
+`docs/assemblages/ECARTS_ET_CORRECTIONS.md`.
+
+| N° | ce qu'il faut trancher | où il mord |
+|---|---|---|
+| **P-1** | Tableau **6.4** ou 6.6 pour `Σleff` de l'aile non raidie — c'est le NUMÉRO, pas la formule | `pac_`, `dcc_` (tronçon en T de l'aile) |
+| **P-2** | Aucune vérification locale de l'aile sous `VEd` seul — groupe « Poteau porteur » VIDE en cas (a) pour un plat soudé | `fpc_` |
+| **P-3** | La recoupe en LARGEUR n'est pas un grugeage (MSB P5 §4.2.4 / §4.2.5 non activés) | les trois, cas (b) |
+| **P-4** | Aucune épaisseur minimale d'aile de poteau | les trois, cas (a) |
+| **P-5** | Âme du poteau en traction transversale avec `ω = 1` | `pac_`, `dcc_` |
+| **P-6** | Flexion hors plan de l'âme en cas (b) : DÉCLARÉE, non vérifiée | les trois, cas (b) |
+| **P-7** | Gauge minimal `p3 ≥ twP + 2·rP + dw` (nature INT, pas une clause) | `pac_`, `dcc_` |
+| **P-8** | `et = 5·d` pour le cisaillement local de l'âme, bornes `zt`/`zb` supprimées | les trois, cas (b) |
+| **P-9** | `γMu = 1,1` (valeur du guide, ANB non consultée) | les trois, tying |
+
+### 13.5 Ce que la recette d'ensemble a vérifié
+
+- `python3.12 lancer_tests.py` : **toutes les suites au vert**, les comptes des
+  suites existantes inchangés sauf les deux que le lot 5 fait suivre
+  (`test_projet_assemblages`, `test_rapport_projet`).
+- Un projet **MIXTE aux SEPT types** (les quatre anciens, les trois neufs) se
+  crée, s'enregistre, se relit par la normalisation de chaque module et
+  s'assemble en un rapport de **16 pages** : garde + sommaire, récapitulatif,
+  7 notes de 2 pages, 8 signets aux pages 2, 3, 5, 7, 9, 11, 13 et 15.
+- Captures aux **quatre largeurs** (1440, 1280, 1024, 390) pour les trois
+  modules, dans les états `défaut` (appui sur l'aile), `ame`, `ameok` et
+  `tying` : « Tous les seuils sont tenus » partout, captures relues à l'œil.
+- Les **six notes PDF** (trois modules × deux appuis) rendues à 110 dpi,
+  rédacteur saisi : 2 pages chacune, `derniers_avertissements == []`, échelles
+  1:10 et 1:5.
+- Le **catalogue** aux quatre largeurs : trois familles, sept boutons
+  « Créer », sept vignettes rendues (276 × 207 px à 1440, 326 × 245 à 390),
+  aucun débordement.
+
+
+### 13.6 CHANTIER ouvert : le kit de dessin partagé
+
+**Ce qu'il reste à faire, et ce qu'il coûte.** Le kit de dessin vit dans
+`acier/assemblages/poutre_poutre/doubles_cornieres/schemas.py`, et les cinq
+autres modules l'importent de là — un module de la famille poutre–poutre sert
+de bibliothèque aux deux autres familles. Avec lui, quatre fonctions sont
+recopiées :
+
+| brique | copies | variantes |
+|---|---|---|
+| `options_ecran`, `options_rapport`, `options_fabrication`, `cotes_modifiables` | **6** chacune | 2 (`doubles_cornieres` a la sienne, les cinq autres sont identiques) |
+| `visserie` | 2 (`platine_about`, `platine_about_poteau`) | 1 — copie pure |
+| `_boulon_profil` | 2 | 2 — **pas une copie**, `pac_` l'a adapté (l'écrou est du côté intérieur du poteau) |
+
+**Le chantier** : créer `acier/assemblages/dessin_kit.py`, y déplacer les
+primitives, la `Feuille`, la palette et ces quatre fonctions ; faire importer
+les six `schemas.py` et `rapport.py` de là.
+
+**Pourquoi il n'a pas été fait au lot 5** : il oblige à modifier les trois
+`schemas.py` des grands frères, dont les dessins sont opposables
+(`tests/test_assemblages_schemas.py`, parité avec l'oracle Node sur le HTML de
+référence, et `tests/test_assemblages_rapport.py`). La règle de ces cinq lots
+— « les suites des modules existants restent identiques » — l'interdit. Ce
+n'est pas un report de confort : c'est la même règle que celle qui a protégé
+les 56 cas figés.
+
+**Sa preuve, le jour où il se fera** : `test_assemblages_schemas`,
+`test_assemblages_rapport`, `test_assemblages_note` et les six suites d'écran
+au vert **sans retouche**, et l'empreinte SVG des sept écrans inchangée
+(protocole : `empreinte.py` du lot 5, qui hache les trois vues de chaque
+module dans les deux cas d'appui).
+
+### 13.7 Ce qui reste OUVERT
+
+1. Les **neuf points P-1 à P-9** (§13.4) — à relire par le bureau.
+2. Le **chantier du kit de dessin** (§13.6).
+3. Deux points d'œil, écrits dans `ERGONOMIE.md` §19 et laissés en l'état :
+   la table « Poteau porteur » des cornières en tying DÉFILE à 390 px (c'est
+   le comportement charté : défiler plutôt que déborder ; la resserrer
+   toucherait aussi les trois écrans poutre–poutre), et les boutons « Créer »
+   du catalogue ne s'alignent pas quand les accroches n'ont pas le même nombre
+   de lignes (défaut antérieur à la famille, `modules/assemblages.py` étant
+   hors périmètre par le §10.4).
+4. **Rien n'est poussé** : ce commit n'a pas été fait — l'arbre porte le
+   travail, le message est prêt.

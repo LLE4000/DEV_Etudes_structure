@@ -421,7 +421,88 @@ chk("troncon_T retombe sur la MÉTHODE 1 (4·Mpl,1/m) quand 2mn − ew(m + n) d�
            4 * (0.25 * 280.0 * 19.0 * 19.0 * 510.0 / 1.1) / 5.0 / 1000, 1e-12))
 
 # =========================================================================
-print("\n=== 5. Pureté de mecanique.py ===")
+print("\n=== 5. geometrie_poteau — les sept largeurs, sur les 50 cas figés "
+      "des trois modules de la famille ===")
+# `geometrie_poteau` était écrite EN LIGNE, mot pour mot, dans les trois
+# moteurs poutre–poteau (consolidation du 02/11/2026). Les trois l'appellent
+# désormais : comparer la brique au moteur serait circulaire. Ce qui la TIENT,
+# c'est une SECONDE ÉCRITURE des sept formules, ici, confrontée au moteur sur
+# chacun de ses cas figés — si l'une des deux change, le test rougit et nomme
+# le cas et la grandeur. Les cas figés portent déjà ces grandeurs dans leurs
+# `scal` : la chaîne complète est donc tenue (brique → moteur → ref_*.json).
+#
+# L'argument `gh` de la brique est la distance FACE D'APPUI → ABOUT de la
+# poutre portée : le jeu `gh` pour un plat d'âme et des cornières,
+# l'épaisseur `tp` de la platine pour une platine d'about (écart assumé du
+# module `pac_`, docs/assemblages/PLATINE_ABOUT_POTEAU.md).
+from acier.assemblages.poutre_poteau.plat_ame_poteau import moteur as M_fpc  # noqa: E402
+from acier.assemblages.poutre_poteau.doubles_cornieres_poteau import moteur as M_dcc  # noqa: E402
+from acier.assemblages.poutre_poteau.platine_about_poteau import moteur as M_pac  # noqa: E402
+
+# (nom du module, moteur, fichier de régression, nom local du gauge maximal,
+#  d'où vient l'about : « gh » ou « tp »)
+FAMILLE = [("fpc_", M_fpc, "tests/ref_fpc.json", None, "gh"),
+           ("dcc_", M_dcc, "tests/ref_dcc.json", "p3_max_ame", "gh"),
+           ("pac_", M_pac, "tests/ref_pac.json", "p3_maxP", "tp")]
+n_geo, n_cas_geo, varies_geo = 0, 0, set()
+for court, Mx, fichier, nom_p3max, about in FAMILLE:
+    with open(fichier, encoding="utf-8") as fh:
+        REF_X = json.load(fh)
+    for nom, cas in REF_X.items():
+        R = Mx.compute(cas["inp"])
+        n_cas_geo += 1
+        # seconde écriture des sept formules (étude §3.2.2, §4.3, §5.3)
+        hP, bP, twP, tfP, rP = R.h_P, R.b_P, R.tw_P, R.tf_P, R.r_P
+        j = R.u.j_lat
+        gh = R.t_p if about == "tp" else R.u.g_h
+        att = {"libre_droit": hP - 2 * tfP - 2 * rP,
+               "demi_droit": 0.5 * (hP - 2 * tfP) - rP,
+               "libre_ailes": hP - 2 * tfP - 2 * j,
+               "p3_congeP": twP + 2 * rP + R.d_w,
+               "gh_b1": 0.5 * (bP - twP) + j,
+               "rec_min": max(0.0, 0.5 * (bP - twP) + j - gh),
+               "passe_S": bool(R.b_S <= hP - 2 * tfP - 2 * j + 1e-9)}
+        if nom_p3max:
+            att[nom_p3max] = 2 * (0.5 * (hP - 2 * tfP) - rP - R.d_w / 2)
+        for cle, v in att.items():
+            if cle not in R:
+                continue                      # fpc_ ne nomme pas demi_droit ni p3_maxP
+            varies_geo.add((court, cle))
+            obtenu = R[cle]
+            if isinstance(v, bool):
+                ok = bool(obtenu) == v
+            else:
+                ok = proche(obtenu, v, 1e-12)
+            if not ok:
+                n_geo += 1
+                print("   ", court, nom, cle, "attendu", v, "obtenu", obtenu)
+chk(f"les sept largeurs du poteau coïncident à 1e-12 sur les {n_cas_geo} cas "
+    f"figés de la famille ({len(varies_geo)} couples module × grandeur)",
+    n_geo == 0 and n_cas_geo >= 50 and len(varies_geo) >= 20,
+    f"{n_geo} écart(s), {n_cas_geo} cas, {len(varies_geo)} couples")
+# les cas figés ne font pas varier tout le domaine : trois géométries à la main
+g1 = MC.geometrie_poteau(dict(h=300.0, b=300.0, tw=11.0, tf=19.0, r=27.0),
+                         5.0, 10.0, 180.0, 37.0)
+chk("HEB 300, j = 5, gh = 10, bS = 180, dw = 37 : libre droit 208 · demi 104 · "
+    "libre entre ailes 252 · p3 congé 102 · p3 max 171 · gh b1 149,5 · "
+    "recoupe 139,5 · la semelle passe",
+    all(proche(g1[k], v, 1e-12) for k, v in (("libre_droit", 208.0), ("demi_droit", 104.0),
+                                             ("libre_ailes", 252.0), ("p3_congeP", 102.0),
+                                             ("p3_maxP", 171.0), ("gh_b1", 149.5),
+                                             ("rec_min", 139.5)))
+    and g1["passe_S"] is True, str(g1))
+g2 = MC.geometrie_poteau(dict(h=300.0, b=300.0, tw=11.0, tf=19.0, r=27.0),
+                         5.0, 200.0, 300.0, 37.0)
+chk("la même, gh = 200 > gh,b1 : recoupe nulle ; bS = 300 > 252 : la semelle ne passe pas",
+    proche(g2["rec_min"], 0.0, 1e-12) and g2["passe_S"] is False, str(g2))
+g3 = MC.geometrie_poteau(dict(h=400.0, b=180.0, tw=8.6, tf=13.5, r=21.0), 5.0, 0.0, 0.0, 0.0)
+chk("IPE 400 porteur, arguments facultatifs omis : libre droit 331 · demi 165,5 "
+    "(le prédimensionnement les lit ainsi)",
+    proche(g3["libre_droit"], 331.0, 1e-12) and proche(g3["demi_droit"], 165.5, 1e-12),
+    str(g3))
+
+# =========================================================================
+print("\n=== 6. Pureté de mecanique.py ===")
 import inspect  # noqa: E402
 
 SRC = inspect.getsource(MC)

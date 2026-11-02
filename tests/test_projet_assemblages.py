@@ -24,6 +24,13 @@ Chaque garantie rougit si on la retire :
      d'un fichier d'assemblage seul (s'ajoute), détection d'un fichier brut.
   8. ÉCRAN OUVERT HORS PROJET (asm_courant posé directement, comme les
      tests existants) : 📂 et 💾 de l'assemblage seul, ◀ Projet mène au projet.
+  9. VERROU 🔒 et 🧬 VARIANTE (lot 3).
+ 10. PROJET MIXTE (lot 5) : les SEPT types du registre dans un même projet —
+     enregistré, relu par la normalisation de chaque module, recalculé ; la
+     ligne de liste distingue les DEUX cas d'appui de la famille
+     poutre–poteau, et les quatre lignes anciennes n'ont pas bougé.
+ 11. CATALOGUE : les sept boutons « Créer », les sept écrans ouverts à la
+     suite sans exception, « Ouvrir » et le sélecteur de la barre.
 
 Lancement : python3 tests/test_projet_assemblages.py (depuis la racine).
 """
@@ -335,6 +342,97 @@ at.selectbox(key="pab_sel_projet").set_value(projet_ui.libelle_entree(entree(at,
 chk("retour sur l'original verrouillé : V = 170 intact, la variante garde 190",
     at.session_state["pab_V_Ed"] == 170 and at.number_input(key="pab_V_Ed").disabled
     and entree(at, 2)["values"]["V_Ed"] == 190)
+
+# ================================================================
+print("\n=== 10. Projet MIXTE : les SEPT types, enregistré et relu (lot 5) ===")
+# Le harnais SUIT : il ne connaissait que quatre types. La famille
+# poutre–poteau en ajoute trois, et un projet réel les mélange.
+from acier import registre  # noqa: E402
+
+TYPES = [a.id for f in registre.FAMILLES for a in f.assemblages]
+chk("le registre porte TROIS familles et SEPT assemblages, tous disponibles "
+    "(poutre–poutre 3, poutre–poteau 3, pied de poteau 1)",
+    [(f.id, len(f.assemblages)) for f in registre.FAMILLES]
+    == [("poutre_poutre", 3), ("poutre_poteau", 3), ("pied_poteau", 1)]
+    and len(TYPES) == 7 and all(a.disponible for f in registre.FAMILLES for a in f.assemblages),
+    str([(f.id, [a.id for a in f.assemblages]) for f in registre.FAMILLES]))
+
+
+def defauts(type_id, **surcharge):
+    m = registre.charger(registre.trouver(type_id)[1])
+    u = {k: m.ecran_saisie.valeur_widget(k, v) for k, v in m.defaults().items()}
+    u.update(surcharge)
+    return u
+
+
+pm = modele.nouveau()
+for t in TYPES:
+    modele.ajouter(pm, t, defauts(t))
+chk("sept entrées A1 à A7, un type chacune",
+    [(modele.repere(e), e["type"]) for e in modele.entrees(pm)]
+    == [(f"A{i + 1}", t) for i, t in enumerate(TYPES)])
+plm = modele.payload(pm, {"nom_projet": "Halle", "partie": "Niveau 1", "date": "02/11/2026", "indice": "A"})
+
+
+def norm_reel(t, src):
+    """La normalisation RÉELLE : celle du module, comme projet_ui l'appelle."""
+    m = registre.charger(registre.trouver(t)[1])
+    return m.charger_payload(src)
+
+
+infos_m, lot_m = modele.lire_fichier(json.loads(json.dumps(plm)), norm_reel)
+chk("le fichier projet mixte se relit : sept entrées, dans l'ordre, par la normalisation de chaque module",
+    infos_m["partie"] == "Niveau 1" and [t for t, _, _, _ in lot_m] == TYPES
+    and all(isinstance(v, dict) and v for _t, v, _vis, _ver in lot_m), str([t for t, _, _, _ in lot_m]))
+chk("…et chaque jeu relu repasse dans son moteur sans exception",
+    all(registre.charger(registre.trouver(t)[1]).compute(v) is not None for t, v, _vis, _ver in lot_m))
+# la ligne de liste : elle distingue les deux cas d'appui de la famille neuve
+lignes = {t: modele.description(v) for t, v, _vis, _ver in lot_m}
+chk("description() rend une ligne juste pour les trois types neufs (profilés · appui · effort)",
+    all(lignes[t] == "IPE 400 sur HEB 300 (sur l'aile) · V = 200 kN"
+        for t in ("plat_ame_poteau", "doubles_cornieres_poteau", "platine_about_poteau")),
+    str({t: lignes[t] for t in TYPES[3:6]}))
+chk("…et les quatre anciennes lignes n'ont pas bougé (aucune clé « appui » reconnue)",
+    all(lignes[t] == "HEA 300 sur HEA 400 · V = 125 kN"
+        for t in ("doubles_cornieres", "plat_ame", "platine_about"))
+    and lignes["platine_beton"].startswith("calcul manuel · HEA 300 · platine 500×500×25"),
+    str(lignes["platine_beton"]))
+u_ame = defauts("doubles_cornieres_poteau", appui="Âme du poteau")
+chk("deux entrées qui ne diffèrent que par l'appui donnent DEUX lignes différentes",
+    modele.description(u_ame) == "IPE 400 sur HEB 300 (dans l'âme) · V = 200 kN"
+    and modele.description(u_ame) != lignes["doubles_cornieres_poteau"], modele.description(u_ame))
+
+# ================================================================
+print("\n=== 11. Page projet : les sept types au catalogue, créés et rouverts ===")
+at = app(); run(at)
+chk("catalogue : un bouton « Créer » par type, les sept",
+    {f"asm_btn_open_{t}" for t in TYPES} <= boutons(at),
+    str(sorted({f"asm_btn_open_{t}" for t in TYPES} - boutons(at))))
+PREFIXES = {"doubles_cornieres": "asm_", "plat_ame": "fpl_", "platine_about": "pab_",
+            "plat_ame_poteau": "fpc_", "doubles_cornieres_poteau": "dcc_",
+            "platine_about_poteau": "pac_", "platine_beton": "ppb_"}
+for i, t in enumerate(TYPES):
+    at.button(key=f"asm_btn_open_{t}").click(); run(at)
+    if at.session_state.get("asm_courant") != t:
+        chk(f"A{i + 1} : l'écran {t} s'ouvre", False, str(at.session_state.get("asm_courant")))
+    at.button(key=f"{PREFIXES[t]}btn_retour").click(); run(at)
+    if i < len(TYPES) - 1:
+        at.button(key="prj_btn_nouveau").click(); run(at)
+chk("les sept types créés à la suite : A1 à A7, aucune exception, l'en-tête les compte",
+    [e["type"] for e in modele.entrees(prj(at))] == TYPES and "Assemblages (7)" in md(at),
+    str([e["type"] for e in modele.entrees(prj(at))]))
+chk("la liste du projet porte la ligne de chaque entrée, appui compris",
+    "IPE 400 sur HEB 300 (sur l'aile) · V = 200 kN" in md(at)
+    and "HEA 300 sur HEA 400 · V = 125 kN" in md(at))
+at.button(key="prj_btn_ouvrir_4").click(); run(at)
+chk("« Ouvrir » rouvre A4 (plat d'âme sur poteau) avec ses valeurs",
+    at.session_state["asm_courant"] == "plat_ame_poteau"
+    and at.session_state["prj_ouvert"] == 4 and at.session_state["fpc_V_Ed"] == 200,
+    str(at.session_state.get("asm_courant")))
+at.selectbox(key="fpc_sel_projet").set_value(projet_ui.libelle_entree(entree(at, 6))); run(at)
+chk("le sélecteur de la barre passe de A4 à A6 (platine d'about sur poteau), écran changé",
+    at.session_state["asm_courant"] == "platine_about_poteau" and at.session_state["prj_ouvert"] == 6
+    and at.session_state["pac_V_Ed"] == 200, str(at.session_state.get("asm_courant")))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

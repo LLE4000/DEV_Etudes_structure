@@ -35,7 +35,8 @@ BUREAU = "Bureau d'Études Valens · Note de calcul"
 LEGENDE = ("Vert : vérifié   ·   Ocre : vérifié sous réserve des alertes   ·   "
            "Rouge : non vérifié ou calcul impossible")
 ETATS = {"ok": "Vérifié", "att": "Sous réserve", "ko": "Non vérifié", "err": "Calcul impossible"}
-CAP_RECAP = 30                     # lignes du récapitulatif par page (pas de 20 pt)
+CAP_RECAP = 20                     # assemblages par page du récapitulatif (deux lignes
+                                   # chacun, pas de 32 pt ; 654 pt utiles sous l'en-tête)
 TITRE_RECAP = "Récapitulatif des assemblages"
 
 
@@ -132,12 +133,23 @@ def pages_recap(n_elems):
 
 def _recap(S, d, doc, elems):
     """Le récapitulatif : un tableau, CAP_RECAP lignes par page (portrait,
-    même bandeau que la garde). Retourne le nombre de pages dessinées."""
+    même bandeau que la garde). Retourne le nombre de pages dessinées.
+
+    Chaque assemblage tient sur DEUX lignes (consolidation du 02/11/2026) :
+    la première porte le repère, le type, le taux et la pastille d'état ; la
+    seconde, en retrait et plus discrète, les profilés et les efforts puis la
+    vérification dimensionnante. Six colonnes de texte et une pastille ne
+    tiennent pas sur la largeur d'une A4 portrait : le type, les profilés et
+    la dimensionnante sortaient tous les trois coupés d'un « … », et un
+    récapitulatif qui perd l'effort repris ne récapitule plus rien. Les deux
+    lignes rendent au texte long la LARGEUR de la page."""
     W, H = d.W, d.H
     m = 52
-    # en-têtes déjà en capitales : « η » passé en majuscule deviendrait « Η »
-    cols = [("N°", 22), ("REPÈRE", 44), ("TYPE", 118), ("PROFILÉS · EFFORTS", 112),
-            ("η MAX", 40), ("DIMENSIONNANTE", 80), ("ÉTAT", 0)]
+    x_rep = m + 24                              # repère
+    x_tit = x_rep + 46                          # type (et, en dessous, le détail)
+    l_eta = 46                                  # largeur de la colonne du taux
+    l_etat = 68                                 # réserve de la pastille d'état
+    x_eta = W - m - l_etat - l_eta
     n_pages = 0
     for debut in range(0, max(1, len(elems)), CAP_RECAP):
         d.new_page((W, H))
@@ -147,30 +159,29 @@ def _recap(S, d, doc, elems):
         d.t(m, H - 72, TITRE_RECAP + (" (suite)" if debut else ""), S.f_h, 18, S.ink)
         d.line(m, H - 96, W - m, H - 96, S.acc, 1.2)
         y = H - 122
-        x = m
-        for lab, w in cols:
+        # en-têtes déjà en capitales : « η » passé en majuscule deviendrait « Η »
+        for lab, x in (("N°", m), ("REPÈRE", x_rep), ("ASSEMBLAGE", x_tit),
+                       ("η MAX", x_eta), ("ÉTAT", W - m - l_etat)):
             d.t(x, y, lab, S.f_v, 6.6, S.mut, track=1.1)
-            x += w
         y -= 6
         d.line(m, y, W - m, y, S.acc, 0.8)
         for i, (e, info, _pdf, _n) in enumerate(elems[debut:debut + CAP_RECAP], start=debut):
-            y -= 20
+            y -= 21
             etat = info["etat"]
             u = e.get("values") or {}
             eta = ("—" if info.get("eta") is None
                    else "> 999 %" if info["eta"] > 9.99 else f"{info['eta'] * 100:.0f} %")
-            cellules = [(f"{i + 1:02d}", S.f_h, 8.0, mix(S.acc, "#FFFFFF", 0.55)),
-                        (modele.repere(e) or "—", S.f_h, 8.4, S.ink),
-                        (titre_de(e["type"]), S.f_b, 8.0, S.ink),
-                        (modele.description(u), S.f_b, 7.6, S.mut),
-                        (eta, S.f_v, 8.0, _couleur(S, etat)),
-                        (info.get("gov") or "", S.f_b, 7.4, S.mut)]
-            x = m
-            for (txt, f, size, col), (_lab, w) in zip(cellules, cols):
-                d.t(x, y, d.fit(str(txt), f, size, w - 6), f, size, col)
-                x += w
-            chip(d, W - m, y - 2, ETATS[etat].upper(), S.f_v, 6.4, "#FFFFFF", _couleur(S, etat), align="right")
-            d.line(m, y - 6, W - m, y - 6, mix(S.rule, S.ink, 0.06), 0.5)
+            d.t(m, y, f"{i + 1:02d}", S.f_h, 8.0, mix(S.acc, "#FFFFFF", 0.55))
+            d.t(x_rep, y, modele.repere(e) or "—", S.f_h, 8.4, S.ink)
+            d.t(x_tit, y, d.fit(titre_de(e["type"]), S.f_h, 8.4, x_eta - x_tit - 8), S.f_h, 8.4, S.ink)
+            d.t(x_eta, y, eta, S.f_v, 8.0, _couleur(S, etat))
+            chip(d, W - m, y - 2, ETATS[etat].upper(), S.f_v, 6.4, "#FFFFFF",
+                 _couleur(S, etat), align="right")
+            gov = info.get("gov") or ""
+            detail = modele.description(u) + (" · dimensionnante : " + gov if gov else "")
+            d.t(x_tit, y - 11, d.fit(detail, S.f_b, 7.4, W - m - x_tit), S.f_b, 7.4, S.mut)
+            d.line(m, y - 17, W - m, y - 17, mix(S.rule, S.ink, 0.06), 0.5)
+            y -= 11
         d.t(m, 46, LEGENDE, S.f_b, 7.4, S.mut)
     return n_pages
 

@@ -1,6 +1,10 @@
 # Charte ergonomique des écrans d'assemblage
 
-Charte du 31/10/2026, amendée le même jour (§0) et consolidée le 01/11/2026 (§17, étape 7 du plan). Document de référence des quatre modules et du calcul manuel ; le code cite ses paragraphes.
+Charte du 31/10/2026, amendée le même jour (§0), consolidée le 01/11/2026 (§17, étape 7 du plan) et ÉTENDUE le
+02/11/2026 à la famille Poutre – Poteau (§19). Document de référence des **sept** modules et du calcul manuel ;
+le code cite ses paragraphes. **Ce qui est écrit « les cinq écrans » dans le corps de la charte vaut désormais
+pour les SEPT** : les trois attaches poutre–poteau ont été écrites à la charte, sans exception et sans
+amendement — elles n'ont rien demandé de neuf (§19).
 
 Charte finale (31/10/2026), issue de la proposition D « trois formats » (gagnante chez deux juges sur trois) greffée des idées retenues de A, B et C et corrigée des manques relevés par le contrôle de complétude. Modules : doubles cornières d'âme (asm_), plat d'âme soudé (fpl_), platine d'about partielle (pab_), platine de pied de poteau sur béton (ppb_, modes complet et manuel). Streamlit 1.66.1. Aucune clé de session, aucune valeur d'option enregistrée, aucun fichier projet, aucun octet de moteur ne change — à une exception décidée et testée : le défaut du critère de la platine manuelle (§12).
 
@@ -387,3 +391,41 @@ résorbent. Contrôles : `tests/test_assemblages_kit.py` §1 bis et §11, les ci
   jamais retiré : un § nu se lirait comme l'EN 1993-1-8).
 - Les briques de RÉSULTATS encore écrites dans chaque module (tables simples, formules, onglets Prédim, Note,
   Benchmark) restent au plan (`resultats_commun.py`, §13) : leur contenu diffère d'un module à l'autre.
+
+## 19. Extension du 02/11/2026 : la famille POUTRE – POTEAU, sept écrans
+
+Les trois attaches `plat_ame_poteau` (`fpc_`), `doubles_cornieres_poteau` (`dcc_`) et `platine_about_poteau`
+(`pac_`) sont nées À LA CHARTE : elles n'ont ni amendé un paragraphe, ni ouvert d'exception. Ce que l'extension
+ajoute, et rien d'autre :
+
+- **P10 (même ordre dans tous les écrans)** reçoit une ligne d'EN-TÊTE de plus, le **cas d'appui** : « Mode » et
+  « Appui » côte à côte, en `segmented_control`, options affichées « Aile » / « Âme ». C'est le choix qui commande
+  tout le reste de l'écran (le groupe « Poteau porteur », les dessins, les limites), il est donc AVANT les
+  profilés. Les trois modules le placent au même endroit.
+- **P6 (la géométrie se règle sur le dessin)** gagne quatre cotes propres à la famille : la recoupe des semelles
+  `rc`, le jeu latéral `j`, la largeur droite entre congés `ℓ` et l'excentricité `e_col`. Les trois modules les
+  portent sur la VUE EN PLAN, qui est **la vue porteuse** de cette famille.
+- **§11 (HYPOTHÈSES ≤ 3 lignes de ≤ 110 caractères)** : les six notes de la famille (trois modules × deux appuis)
+  tiennent, `derniers_avertissements == []`. Le segment du CAS D'APPUI vient en **deuxième** position, parce que
+  `note_kit.empaqueter` raccourcit du dernier au premier et qu'en queue il se perdait.
+- **Captures (amendement 10)** : `tools/captures_assemblages.js` connaît les trois préfixes et trois états de plus
+  — `ame` (appui dans l'âme), `ameok` (le cas (b) réglé de la platine d'about) et `tying` (NEd en force de
+  chaînage). Seuils tenus aux quatre largeurs sur les **sept** écrans.
+- **Une mesure corrigée, pas un seuil** : `rows()` comptait « 0 rangée » pour une ligne passée au-dessus du
+  viewport après défilement (`last = -99`), et `debordants` comptait comme « sorti de l'écran » ce qui est logé
+  dans une boîte qui DÉFILE (`tableau_html(defilant=)`, §10 — le choix de la charte est justement de faire défiler
+  les tables serrées). Deux faux rouges ; la règle « mesurer ce que l'œil voit » n'a pas changé. Le script le DIT
+  désormais : « boîtes qui DÉFILENT (contenu plus large que la boîte, lisible en balayant) : 384/358 px ».
+
+**Ce qui reste à l'œil, et qui ne change pas en l'état (relecture du 02/11/2026)**
+
+- À 390 px, en tying, la table « Poteau porteur » des cornières sur poteau fait 384 px pour une colonne de 358 :
+  elle DÉFILE, et la colonne « Réf. » (`§6.2.4 · Tab. 6.2 · Tab. 6.4 · MSB P5 §2.3`) se lit en balayant. C'est le
+  comportement CHARTÉ (§10, point 9 de la consolidation du 01/11/2026 : défiler plutôt que déborder) ; la rendre
+  `serre=1` la ferait tenir (−8 px de remplissage par colonne, 5 colonnes), mais `_table_simple` est la MÊME
+  fonction dans cinq modules : la resserrer changerait aussi les trois écrans poutre–poutre sous 1181 px. Décision
+  du bureau, pas d'un commit de consolidation.
+- Au CATALOGUE (page projet vide), les boutons « Créer » d'une rangée ne s'alignent pas quand les accroches n'ont
+  pas le même nombre de lignes (≈ 20 px d'écart ; visible depuis les quatre premiers types, pas né avec la famille
+  neuve). `modules/assemblages.py` n'a pas été touché — l'étude §10.4 l'exclut — et le défaut ne se voit qu'au
+  format PC : au téléphone les cartes s'empilent.
