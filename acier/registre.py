@@ -237,7 +237,7 @@ FAMILLES = (
                 pitch="Assemblage articulé : plat vertical soudé sur l'aile du poteau ou dans son âme, "
                       "boulonné à l'âme de la poutre portée — EN 1993-1-8, ANB belge, tying.",
                 vignette=vignette_plat_ame_poteau(),
-                etat="à venir",
+                etat="disponible",
                 module="acier.assemblages.poutre_poteau.plat_ame_poteau.interface",
             ),
             Assemblage(

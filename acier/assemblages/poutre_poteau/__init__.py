@@ -9,6 +9,8 @@ les DEUX cas d'appui : sur l'AILE (cas a) et dans l'ÂME (cas b) —
 - ``doubles_cornieres_poteau`` : doubles cornières d'âme ;
 - ``platine_about_poteau``     : platine d'about de hauteur partielle.
 
-Les trois sont déclarées « à venir » au registre : seuls le dossier et la
-mécanique partagée (`acier/assemblages/mecanique.py`) existent à ce jour.
+``plat_ame_poteau`` est **disponible** (lot 2, le GABARIT des deux autres) ;
+``doubles_cornieres_poteau`` et ``platine_about_poteau`` sont encore
+déclarées « à venir » au registre : seuls leur dossier et la mécanique
+partagée (`acier/assemblages/mecanique.py`) existent à ce jour.
 """

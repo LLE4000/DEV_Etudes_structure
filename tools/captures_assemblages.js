@@ -31,7 +31,8 @@ const PORT = process.argv[5] || '8597';
 const ETAT = (process.argv[6] || '').split('+').filter(Boolean);
 const SUFFIXE = ETAT.length ? '_' + ETAT.join('_') : '';
 const BASE = `http://localhost:${PORT}/?page=Assemblages%20m%C3%A9talliques`;
-const PREFIXE = { doubles_cornieres: 'asm_', plat_ame: 'fpl_', platine_about: 'pab_', platine_beton: 'ppb_' };
+const PREFIXE = { doubles_cornieres: 'asm_', plat_ame: 'fpl_', platine_about: 'pab_', platine_beton: 'ppb_',
+                  plat_ame_poteau: 'fpc_' };
 let KO = 0;
 
 async function settle(page, ms = 700) {
