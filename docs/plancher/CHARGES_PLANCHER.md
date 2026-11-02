@@ -1,11 +1,12 @@
-# Charges sur plancher — document de référence (moteur, lot 1 · écran, lot 2)
+# Charges sur plancher — document de référence (moteur, lot 1 · écran, lot 2 · note, lot 3)
 
 *Lot 1 livré le 02/11/2026 : le moteur, sans écran. Lot 2 livré le 02/11/2026 :
-l'écran (section 8). Étude de conception : `CHARGES_PLANCHER_ETUDE.md`
+l'écran (section 8). Lot 3 livré le 02/11/2026 : la note PDF et l'onglet
+Méthode (section 9). Étude de conception : `CHARGES_PLANCHER_ETUDE.md`
 (décisions P-1 à P-17, section 12 pour la revue des remarques extérieures).
 Ce document dit ce que le moteur calcule, avec quels paramètres, ce qu'il
 refuse, ce qui reste à transcrire, comment il est tenu par ses tests, et
-comment l'écran s'en sert.*
+comment l'écran et la note s'en servent.*
 
 ## 1 · Ce que le paquet contient
 
@@ -123,28 +124,38 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
 
 ## 6 · Tests
 
-- `test_charges_plancher_diffusion.py` (33) : Heft 240, lignes d'influence, levier, parts annexe C,
-  créneaux.
+- `test_charges_plancher_diffusion.py` (39) : Heft 240, lignes d'influence, levier, parts annexe C,
+  créneaux (plateau déterministe, fenêtre d'évaluation d'une bande sans re-concentration).
 - `test_charges_plancher_repartiteurs.py` (23) : bande c itérée à la main, section en I à 2 % du
   catalogue sur tous les profilés, poutre sur ressorts (statique, rigide, souple, Σ R = Σ P, symétrie,
   erreurs), flexion de la filière.
-- `test_charges_plancher_moteur.py` (82) : **copie tenue** des formules BA (les expressions de
+- `test_charges_plancher_moteur.py` (83) : **copie tenue** des formules BA (les expressions de
   `poutre.py` retrouvées mot pour mot, inversions exactes, exemple de l'étude), classes et Ecm,
   natures et chape (P-17), §6.7 et §6.4 à la main, pipeline hourdis (P·L/4, levier, plateau avec
   bande plastique sous la pression ELU, chape, P-5, filière rigide et souple, annexe C, P-3, P-15,
   P-11, φ), **P-2** (poids propres dans les efforts : M_G et M_Q nommés, M_Ed = 1,35·M_G + 1,5·M_Q,
   V de même, nature service → coefficients 1, γG = γQ = 1 retrouve le service, l'ancien ÷ 1,5 refusé,
   fissuration en service), pipeline dalle et prédalle (P-4, P-16, P-8, P-7, effets locaux à γQ),
-  refus (dont le hourdis sans M_Rd / V_Rd), balayage, dimensionnement (P-14), bibliothèque, JSON,
-  cas gelés `ref_chp.json` (régénérés le 02/11/2026 sur la règle P-2), pureté.
-- `test_charges_plancher_ecran.py` (67, lot 2, AppTest sur l'application réelle) : navigation et
+  refus (dont le hourdis sans M_Rd / V_Rd), taux par bande d'une dalle bornés par le taux global,
+  balayage, dimensionnement (P-14), bibliothèque, JSON, cas gelés `ref_chp.json` (régénérés le
+  02/11/2026 sur la règle P-2, puis sur la correction des bandes), pureté.
+- `test_charges_plancher_note.py` (52, lot 3) : deux pages A4 paysage sans débordement sur quatre
+  cas (hourdis complet, dalle + étançon + stock, prédalle + file + grue araignée + filière en sens 2,
+  refus), contenu de la page 1 (statut, η max, gouverne, familles, données, éléments, charges,
+  vérifications groupées, conclusion, légende), plan et coupe peints depuis le SVG de l'écran (textes
+  retrouvés, rien de l'interface), page 2 (sections de `methode.py` mot pour mot, bibliothèque et
+  sources, balayage, à transcrire, cartouche), peintre (composition des transformations, texte
+  vertical, motif, balise inconnue), groupement des lignes.
+- `test_charges_plancher_ecran.py` (74, lots 2 et 3, AppTest sur l'application réelle) : navigation et
   tuile, composant du plan, « Données manquantes », onglets, source unique widgets → état → moteur
   et plan (M_Rd, L, hourdis / dalle / prédalle), engin de la bibliothèque et charges par appui
   (refus P-13 puis calcul, bandes teintées, semelles cliquables), plan → état (glisser, cote,
   sens, ±, fenêtres d'engin et de semelle, plateau, idem, filière, dupliquer / supprimer),
   répartiteur par l'onglet 3, proposition de filière, vues Coupe et Balayage, cas multiples,
   JSON aller-retour, fiches ajoutées (engin, plateau azobé, madrier sur champ, fiche de hourdis
-  gardée depuis l'onglet Plancher et réappliquée), étanchéité des clés.
+  gardée depuis l'onglet Plancher et réappliquée), onglet Méthode (sections, bibliothèque,
+  identification), bouton « 📄 Note » (PDF de deux pages produit, bouton de téléchargement,
+  identification portée), étanchéité des clés.
 - `tools/captures_plancher.js` : captures et mesures aux quatre largeurs (états vide, engin,
   plateau, clic, glisser, coupe, balayage) — aucun débordement, plan visible, calcul abouti,
   plateau hachuré, fenêtre ouverte au clic sur une semelle, position changée au glisser.
@@ -223,6 +234,11 @@ Textes du plan : constants à l'écran quelle que soit la taille du plancher (fa
 de police et d'étiquette au-delà d'un plan de référence de 11,4 m de large) ; sur téléphone, le
 plan garde une largeur minimale lisible et le conteneur du composant défile horizontalement.
 
+L'onglet **5 · Méthode** porte les sections de `plancher/charges/methode.py` (mêmes textes que la
+page 2 de la note), les références, ce qui reste à transcrire, la bibliothèque livrée avec ses
+sources et l'identification de la note (projet, partie, indice). Le bouton **📄 Note** de la barre
+d'outils produit la note du cas actif puis offre son téléchargement.
+
 ![Écran PC](images/ecran_pc.png)
 
 *PC 1440 : télescopique rotatif posé depuis la bibliothèque, charges d'essai par appui, plateau
@@ -236,3 +252,53 @@ d'ESSAI du harnais, pas un catalogue.*
 ![Écran téléphone](images/ecran_telephone.png)
 
 *Téléphone 390 : mêmes fonctions, colonnes empilées, plan défilant dans son cadre.*
+
+## 9 · La note PDF (lot 3)
+
+```
+plancher/charges/note.py      la note : page 1 CALCUL, page 2 MÉTHODE ET DÉTAIL (kit ndc_pdf, palette Encre,
+                              mêmes marges et polices que les notes d'assemblage) ; generer_note(etat, cas, infos)
+plancher/charges/peintre.py   le sous-ensemble SVG de dessin.py et symboles.py peint sur le canevas reportlab
+plancher/charges/methode.py   les sections de méthode, les références, la liste « à transcrire »
+tests/test_charges_plancher_note.py
+```
+
+**Page 1 · CALCUL.** Bandeau : bureau, titre avec le type de plancher, projet · partie · cas, date ·
+indice ; pastille (CONFORME, CONFORME · ATTENTION, NON CONFORME, DONNÉES MANQUANTES), η max, famille
+et objet gouvernants, taux par famille, lignes non vérifiées ; deux lignes de données (plancher ;
+charges et répartiteurs). Trois colonnes : le **PLAN** et la **COUPE** tels qu'à l'écran, peints depuis
+le MÊME SVG (source unique, R2) sans poignées ni invites de clic (`ctx["impression"]`), puis les
+**HYPOTHÈSES** du moteur (y compris ses notes P-4, P-8, P-16, chape) ; le tableau des **ÉLÉMENTS**
+(M_Ed, M_Rd, η_M, V_Ed, V_Rd, η_V — les douze pires si plus de treize) et celui des **CHARGES**
+(engin et ses appuis, étançons, files, stocks, répartiteur de chaque appui) ; le tableau des
+**VÉRIFICATIONS** (plateaux, filières, effets locaux, joints, fissuration) et la **CONCLUSION**.
+Les empreintes d'une charge discrétisée (« S1.3.7 ») et les éléments sous une filière (« F1 →
+H3 ») donnent UNE ligne, la pire, comptée (« local ×32 ») — un stock de 32 empreintes écrivait 96
+lignes d'effets locaux. Pied de page : légende P-2 / P-3 et notations.
+
+**Page 2 · MÉTHODE ET DÉTAIL.** Les sections de `methode.py` (charges et combinaisons,
+répartiteurs, hourdis, dalle et prédalle, ce que l'outil ne fait pas), la **bibliothèque utilisée**
+avec la source de chaque fiche (gabarit d'engin et ses appuis, plateau, filière, hourdis), le
+**balayage** de position s'il y a un engin, ce qui reste **à transcrire**, et le cartouche (cas,
+plancher, charges, répartiteurs, date · indice, échelle du plan).
+
+**Peintre SVG → reportlab.** Pas de svglib ni de cairosvg dans l'environnement : `peintre.py` rend
+le sous-ensemble émis par les dessins (rect, circle, line, polygon, polyline, text, g avec
+translate · rotate · matrix · scale composés, fill / stroke / dasharray / opacity, text-anchor,
+font-weight) ; les motifs de hachures deviennent des aplats clairs, les textes sont posés à
+l'endroit avec l'angle de la matrice courante (un `rotate(-90)` donne un texte qui monte), les
+traits sont pris en points, bornés. Le test retrouve dans le PDF les textes du plan (« L = 7,20 m »,
+« P2 · 95 kN ») et rien de l'interface.
+
+**Deux défauts trouvés par la note le 02/11/2026, corrigés et tenus par un test :**
+
+- `diffusion.max_creneaux` recevait la bande d'affichage comme plancher : une empreinte hors de la
+  bande, « tronquée » à une largeur nulle, y était concentrée sur 1e-9 m — des taux de 10⁹ % sur les
+  bandes non chargées d'une dalle (visibles aussi à l'écran dès qu'une dalle portait une charge).
+  La fonction prend désormais une `fenetre` d'évaluation distincte du plancher ; cas gelés régénérés ;
+- le groupement des lignes de la note fusionnait deux vérifications distinctes d'une même filière
+  (flexion, ressort qui tire) : seules les lignes « sous <charge> » se groupent.
+
+Les textes de méthode sont écrits une fois (`methode.py`) et lus par l'onglet Méthode et par la
+page 2 : le test de la note retrouve un fragment de chaque section mot pour mot, celui de l'écran
+aussi.

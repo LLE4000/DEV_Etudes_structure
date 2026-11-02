@@ -25,10 +25,12 @@ from plancher.charges import dessin as DS
 from plancher.charges import symboles as SY
 from plancher.charges import bibliotheque as BIB
 from plancher.charges import resistances as RS
+from plancher.charges import methode as ME
+from plancher.charges import note as NT
 
 P = "chp_"
 VUES = ["Plan", "Coupe", "Balayage"]
-ETAPES = ["1 · Plancher", "2 · Charges", "3 · Répartiteur", "4 · Hypothèses"]
+ETAPES = ["1 · Plancher", "2 · Charges", "3 · Répartiteur", "4 · Hypothèses", "5 · Méthode"]
 TYPES = {"hourdis": "Hourdis", "dalle": "Dalle BA", "predalle": "Prédalle"}
 ETATS_H = {"poses": "Posés", "clavetes": "Clavetés", "chapes": "Chapés"}
 FAMILLES = [("flexion", "Flexion"), ("tranchant", "Tranchant"), ("local", "Local"), ("plateau", "Plateaux"),
@@ -138,7 +140,7 @@ def _entete(etat: Dict, cas: Dict):
     st.markdown(CSS, unsafe_allow_html=True)
     st.markdown("## Charges sur plancher")
     st.caption("Charges temporaires de chantier sur hourdis, dalle coulée en place ou prédalle — vérification du plancher, "
-               "des plateaux et des filières · version 1.0 (lot 2)")
+               "des plateaux et des filières · note de calcul en deux pages · version 1.0")
     with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center", key=P + "barre"):
         if st.button("🏠 Accueil", key=P + "btn_home", width="content"):
             st.session_state.retour_accueil_demande = True
@@ -170,7 +172,16 @@ def _entete(etat: Dict, cas: Dict):
                            mime="application/json", key=P + "btn_save", width="content", help="Tous les cas et les fiches ajoutées (JSON)")
         if st.button("📂 Ouvrir", key=P + "btn_open", width="content"):
             st.session_state[P + "ouvrir"] = not st.session_state.get(P + "ouvrir", False)
+        if st.button("📄 Note", key=P + "btn_note", width="content", help="Note de calcul PDF en deux pages : calcul, méthode et détail"):
+            ident = cas.get("identification") or {}
+            st.session_state[P + "note"] = (cas["nom"], NT.generer_note(etat, cas, {"nom_projet": ident.get("projet", ""),
+                                                                                       "partie": ident.get("partie", ""),
+                                                                                       "indice": ident.get("indice", "0")}))
         _texte_w("Nom du cas", ("nom",), cas)
+    note = st.session_state.get(P + "note")
+    if note and note[0] == cas["nom"]:
+        st.download_button("⬇️ Télécharger la note (PDF, 2 pages)", data=note[1], file_name=f"note_charges_plancher_{cas['nom']}.pdf",
+                           mime="application/pdf", key=P + "dl_note", width="content")
     if st.session_state.get(P + "ouvrir"):
         up = st.file_uploader("Fichier JSON du module", type=["json"], key=P + "uploader", label_visibility="collapsed")
         if up is not None:
@@ -209,7 +220,7 @@ def _colonne_plan(etat, cas, res, plancher, index):
         _balayage(etat, cas, res, plancher, index, svg)
         return
     if cas["vue"] == "Coupe":
-        st.markdown(DS.coupe(_ctx_coupe(etat, cas, res, plancher, index)), unsafe_allow_html=True)
+        st.markdown(DS.coupe(ET.contexte_coupe(etat, cas, res, plancher, index)), unsafe_allow_html=True)
         st.caption("Coupe transversale sous l'appui sélectionné : éléments voisins, couche de compression, plateau, semelle, charge, aire efficace.")
         return
     from acier.composants.svg_cliquable import svg_cliquable
@@ -221,34 +232,7 @@ def _colonne_plan(etat, cas, res, plancher, index):
                 '&nbsp;·&nbsp; glisser un engin, un plateau, une filière ; clic : réglages ; cote L : clic pour saisir</div>',
                 unsafe_allow_html=True)
     with st.expander("Coupe sous l'appui sélectionné", expanded=True):
-        st.markdown(DS.coupe(_ctx_coupe(etat, cas, res, plancher, index)), unsafe_allow_html=True)
-
-
-def _ctx_coupe(etat, cas, res, plancher, index) -> Dict:
-    """Contexte de la coupe : l'appui sélectionné, sinon l'appui de l'élément gouvernant, sinon le premier."""
-    sel = cas.get("selection") or ""
-    ref = sel.split(":", 1)[1] if sel.startswith("rep:") else None
-    emps = index["empreintes"]
-    if ref not in emps:
-        ref = next(iter(emps), None)
-    pl = cas["plancher"]
-    patches = {p["ref"]: p for p in res.get("patches", [])}
-    e = emps.get(ref)
-    el = plancher.element_de(e.y) if e else None
-    els = plancher.elements()
-    i = el.index if el else 0
-    voisins = (els[i - 1].nom if i > 0 else "", els[i].nom if els else "", els[i + 1].nom if i + 1 < len(els) else "")
-    taux = {x["nom"]: x["taux"] for x in res.get("elements", [])}
-    pt = patches.get(ref, {})
-    plat = index["plateaux"].get(ref)
-    chape = 0.0
-    if pl["type"] == "hourdis" and pl["hourdis"].get("chape", {}).get("oui"):
-        chape = float(pl["hourdis"]["chape"]["epaisseur"])
-    return {"type": "hourdis" if pl["type"] == "hourdis" else "dalle", "h": float(pl[pl["type"]]["h"]), "chape": chape,
-            "b_element": els[0].largeur if els else 1.2, "voisins": voisins, "nom_element": voisins[1],
-            "plateau": {"A": plat.A, "t": plat.t} if plat else None, "semelle": e.a if e else 0.15,
-            "P": (e.P * e.phi) if e else 0.0, "a_eff": pt.get("a") if pt else None, "taux": taux.get(voisins[1], 0.0) or 0.0,
-            "joints_predalle": pl["type"] == "predalle"}
+        st.markdown(DS.coupe(ET.contexte_coupe(etat, cas, res, plancher, index)), unsafe_allow_html=True)
 
 
 def _balayage(etat, cas, res, plancher, index, svg):
@@ -742,6 +726,45 @@ def _etape_hypotheses(cas, params, res):
         st.caption("• " + h)
 
 
+def _etape_methode(etat, cas):
+    """Onglet Méthode : les sections de ``methode.py`` (mêmes textes que la page 2
+    de la note), les références, ce qui reste à transcrire, la bibliothèque
+    livrée avec ses sources, et l'identification portée par la note."""
+    cas.setdefault("identification", {"projet": "", "partie": "", "indice": "0"})
+    st.caption("Ce que l'outil vérifie, avec la décision du bureau que chaque règle applique (P-n de l'étude) — "
+               "les mêmes textes que la page 2 de la note.")
+    with st.expander("Identification de la note (projet, partie, indice)", expanded=False):
+        c1, c2, c3 = st.columns([2, 2, 1])
+        with c1:
+            _texte_w("Projet", ("identification", "projet"), cas)
+        with c2:
+            _texte_w("Partie d'ouvrage", ("identification", "partie"), cas)
+        with c3:
+            _texte_w("Indice", ("identification", "indice"), cas)
+    for sec in ME.SECTIONS:
+        st.markdown(f"**{sec['titre']}**")
+        for p in sec["paragraphes"]:
+            st.markdown(p)
+    st.markdown("**Références** — " + " · ".join(ME.REFERENCES))
+    st.markdown("**À transcrire avant un usage en production** — " + " ".join(ME.A_TRANSCRIRE))
+    with st.expander("Données de bibliothèque livrées (engins, plateaux, hourdis) et leurs sources", expanded=False):
+        lignes = ["<table class='chp-tab'><tr><th>Fiche</th><th>Type</th><th>Contenu</th><th>Source</th></tr>"]
+        for nom, g in ET.gabarits(etat).items():
+            app = ", ".join(f"{a['nom']} ({a['dx']:g} ; {a['dy']:g}) m {a['a'] * 1e3:.0f}×{a['b'] * 1e3:.0f}" for a in g["appuis"])
+            lignes.append(f"<tr><td><b>{nom}</b></td><td>engin · {g.get('type_appuis', '')}{' · générique' if g.get('generique') else ''}</td>"
+                          f"<td>{app}</td><td class='chp-i'>{(g.get('source') or '—')[:160]}</td></tr>")
+        for nom, d in ET.repartiteurs_disponibles(etat).items():
+            if d.get("type") == "plateau":
+                lignes.append(f"<tr><td><b>{nom}</b></td><td>plateau · {d.get('origine', '')}</td>"
+                              f"<td>{d.get('A', 0):.0f} × {d.get('Bp', 0):.0f} × {d.get('t', 0):.0f} mm · f {d.get('f') or '—'} MPa</td>"
+                              f"<td class='chp-i'>{(d.get('source') or '—')[:160]}</td></tr>")
+        for nom, d in ET.types_hourdis(etat).items():
+            lignes.append(f"<tr><td><b>{nom}</b></td><td>hourdis{' · générique' if d.get('generique', True) else ''}</td>"
+                          f"<td>M_Rd {d.get('M_Rd', 0)} · V_Rd {d.get('V_Rd', 0)} ({d.get('nature', 'Rd')})</td><td class='chp-i'>{(d.get('source') or '—')[:160]}</td></tr>")
+        lignes.append("<tr><td><b>Profilés</b></td><td>filières · catalogue</td><td>IPE, HEA, HEB (Iy, Wel, masse)</td><td class='chp-i'>profiles_test.json de l'application</td></tr>")
+        st.markdown("".join(lignes) + "</table>", unsafe_allow_html=True)
+
+
 def _detail(res):
     with st.expander("Détail des vérifications par élément", expanded=False):
         if res["statut"] == "refus":
@@ -808,4 +831,6 @@ def show():
             _etape_repartiteur(etat, cas, index)
         with onglets[3]:
             _etape_hypotheses(cas, params, res)
+        with onglets[4]:
+            _etape_methode(etat, cas)
     _detail(res)

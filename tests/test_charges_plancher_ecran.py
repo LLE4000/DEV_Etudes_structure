@@ -41,7 +41,7 @@ from plancher.charges import symboles as SY  # noqa: E402
 from plancher.charges import verification as V  # noqa: E402
 
 OK, KO = [], []
-ETAPES = ["1 · Plancher", "2 · Charges", "3 · Répartiteur", "4 · Hypothèses"]
+ETAPES = ["1 · Plancher", "2 · Charges", "3 · Répartiteur", "4 · Hypothèses", "5 · Méthode"]
 
 
 def chk(nom, cond, info=""):
@@ -115,7 +115,7 @@ chk("poignées ○ des bords libres (sens porteur) et cote L cliquable", 'data-a
 chk("poignées ± du nombre de hourdis", 'data-action="n_elements:+1"' in s and 'data-action="n_elements:-1"' in s)
 chk("appuis A et B nommés, échelle graphique", ">A<" in s and ">B<" in s and "2 m" in s)
 chk("sans M_Rd / V_Rd : « Données manquantes », message du moteur", "manquantes" in pastille(at) and "M_Rd et V_Rd" in md(at))
-chk("quatre onglets à libellé FIXE", [t.label for t in at.tabs] == ETAPES)
+chk("cinq onglets à libellé FIXE", [t.label for t in at.tabs] == ETAPES)
 chk("barre d'outils : Accueil, cas, ＋ Cas, copie, Ouvrir, nom du cas",
     {"chp_btn_home", "chp_sel_cas", "chp_btn_new", "chp_btn_copy", "chp_btn_open", "chp_w_nom"} <= cles(at))
 chk("vues Plan / Coupe / Balayage et options", at.segmented_control(key="chp_vue").value == "Plan"
@@ -340,6 +340,23 @@ chk("retour au gabarit générique : M_Rd du gabarit (0, à renseigner)", ET.cas
 at.selectbox(key="chp_w_type_cat").select("Hourdis d'essai 60 / 80"); run(at)
 chk("la fiche réapplique ses valeurs (60 / 80)", ET.cas_actif(at.session_state["chp"])["plancher"]["hourdis"]["M_Rd"] == 60.0)
 chk("la fiche voyage avec le fichier JSON", any(f["nom"] == "Hourdis d'essai 60 / 80" for f in ET.charger(json.loads(ET.texte_json(at.session_state["chp"])))["fiches"]["hourdis"]))
+
+print("\n=== 9 ter. Onglet Méthode et note PDF (lot 3) ===")
+from plancher.charges import methode as ME  # noqa: E402
+chk("cinq onglets : le cinquième est « 5 · Méthode »", [t.label for t in at.tabs][-1] == "5 · Méthode")
+chk("l'onglet Méthode porte les sections de methode.py (source unique avec la page 2 de la note)",
+    all(sec["titre"] in md(at) and sec["paragraphes"][0][:40] in md(at) for sec in ME.SECTIONS) and "Références" in md(at) and "À transcrire" in md(at))
+chk("bibliothèque livrée listée avec ses sources", "Données de bibliothèque" in "\n".join(str(e.label) for e in at.expander) and "profiles_test.json" in md(at))
+chk("identification de la note : projet, partie, indice", {"chp_w_identification_projet", "chp_w_identification_partie", "chp_w_identification_indice"} <= cles(at))
+at.text_input(key="chp_w_identification_projet").set_value("Halle d'essai"); run(at)
+at.button(key="chp_btn_note").click(); run(at)
+note = at.session_state["chp_note"] if "chp_note" in at.session_state.to_dict() else None
+chk("« 📄 Note » : un PDF de deux pages est produit pour le cas actif", note is not None and note[0] == ET.cas_actif(at.session_state["chp"])["nom"]
+    and note[1][:5] == b"%PDF-" and note[1].count(b"/Type /Page") >= 2)
+chk("puis un bouton de téléchargement « Télécharger la note » apparaît", any("Télécharger la note" in str(b.label) for b in at.download_button))
+import pymupdf  # noqa: E402
+tn = pymupdf.open(stream=note[1], filetype="pdf")[0].get_text() if note else ""
+chk("la note porte l'identification saisie et le cas", "Halle d'essai" in tn and "cas C1" in tn)
 
 print("\n=== 10. Étanchéité ===")
 k = cles(at)

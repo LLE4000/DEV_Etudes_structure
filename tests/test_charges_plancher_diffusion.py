@@ -99,6 +99,16 @@ m, y = DF.max_creneaux([(2.0, 1.0, 10.0), (3.0, 1.0, 10.0 + 1e-12)], 0.0, 6.0)
 chk("créneaux égaux au bruit près : le premier plateau nomme le maximum", pres(m, 10.0) and pres(y, 1.5))
 m, y = DF.max_creneaux([(3.0, 1.0, 10.0 + 1e-12), (2.0, 1.0, 10.0)], 0.0, 6.0)
 chk("créneaux égaux au bruit près : indépendant de l'ordre des boîtes", pres(m, 10.0) and pres(y, 1.5))
+# fenêtre d'évaluation (bande d'affichage) : un créneau hors de la bande n'y apporte RIEN — il n'est
+# pas « concentré » sur une largeur nulle (défaut du 02/11/2026 : 10⁹ % sur les bandes non chargées d'une dalle)
+m, y = DF.max_creneaux([(2.0, 1.0, 10.0)], 0.0, 6.0, fenetre=(4.0, 5.0))
+chk("fenêtre sans créneau : 0", m == 0.0 and 4.0 <= y <= 5.0, str((m, y)))
+m, y = DF.max_creneaux([(2.0, 1.0, 10.0)], 0.0, 6.0, fenetre=(2.3, 3.0))
+chk("fenêtre qui coupe un créneau : la valeur du créneau, pas plus", pres(m, 10.0) and 2.3 <= y <= 2.5, str((m, y)))
+chk("fenêtre = plancher ≡ sans fenêtre", DF.max_creneaux([(2.0, 1.0, 10.0), (2.4, 1.0, 10.0)], 0.0, 6.0, fenetre=(0.0, 6.0))
+    == DF.max_creneaux([(2.0, 1.0, 10.0), (2.4, 1.0, 10.0)], 0.0, 6.0))
+m, _ = DF.max_creneaux([(0.1, 1.0, 10.0)], 0.0, 6.0, fenetre=(0.0, 1.0))
+chk("rive : la concentration se fait au plancher, puis la fenêtre la lit", pres(m, 10.0 / 0.6))
 
 print(f"RÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

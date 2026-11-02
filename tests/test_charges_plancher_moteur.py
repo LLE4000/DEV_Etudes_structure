@@ -241,6 +241,13 @@ chk("dalle : résistances de resistance_dalle", pres(verif(rd, "flexion")[0]["R"
 chk("dalle : ligne P-4 (k non transcrit)", any("P-4" in v["methode"] for v in verif(rd, "hypothese")))
 chk("dalle : §6.7 et §6.4 présents", len(verif(rd, "local")) == 3)
 chk("dalle : effets locaux à l'ELU, E = γQ·P (P-2, P-9)", pres(verif(rd, "local")[0]["E"], 1.5 * 40.0) and "γQ" in verif(rd, "local")[0]["methode"])
+# taux par bande : la bande chargée porte le taux global, une bande non chargée porte celui du poids
+# propre seul — jamais une valeur « concentrée » sur une largeur nulle (défaut du 02/11/2026, note PDF)
+bandes = {b["nom"]: b for b in rd["elements"]}
+chk("dalle : taux par bande ≤ taux global, bande chargée = taux global, bande vide = poids propre seul",
+    max(b["taux_M"] for b in bandes.values()) <= verif(rd, "flexion")[0]["taux"] * (1 + 1e-9)
+    and pres(bandes["B3"]["taux_M"], verif(rd, "flexion")[0]["taux"]) and pres(bandes["B1"]["M_max"], w * 36 / 8),
+    str({k: round(b["taux_M"], 3) for k, b in bandes.items()}))
 chk("dalle : flexion et tranchant par mètre en service, coefficients 1 (méthode de l'application)",
     any("coefficients 1" in t for t in rd["hypotheses"]))
 rdk = V.verifier(D, [M.Empreinte("E", 3.0, 3.0, 0.15, 0.15, 40.0)], {}, Parametres(k_flexion_heft240=2.5))

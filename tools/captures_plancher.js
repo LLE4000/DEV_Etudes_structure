@@ -11,7 +11,8 @@
 //   « plateau » un plateau acier 600 × 600 × 20 sous l'appui P2 (étape 3) ;
 //   « clic »    clic sur la semelle P2 du plan : la fenêtre de réglages du composant s'ouvre ;
 //   « glisser » l'engin est glissé de 60 px vers la droite : sa position x change dans l'étape 2 ;
-//   « coupe »   la vue Coupe ; « balayage » la vue Balayage (après « engin »).
+//   « coupe »   la vue Coupe ; « balayage » la vue Balayage (après « engin ») ;
+//   « methode » l'onglet 5 · Méthode ; « note » le bouton 📄 Note puis le bouton de téléchargement (après « engin »).
 // Mesures : aucun débordement horizontal (scrollWidth == innerWidth) ; le dessin cliquable existe et a une
 // hauteur ≥ 200 px ; la carte RÉSULTAT porte une pastille ; en état « engin », la pastille n'est plus
 // « Données manquantes » (le calcul a abouti) ; en état « plateau », le plan porte un plateau (hachures).
@@ -22,7 +23,7 @@ const ETATS = (process.argv[3] || 'vide,engin,plateau').split(',');
 const LARGEURS = (process.argv[4] || '1440,1280,1024,390').split(',').map(Number);
 const PORT = process.argv[5] || '8597';
 const BASE = `http://localhost:${PORT}/?page=Charges%20sur%20plancher`;
-const ORDRE = ['vide', 'engin', 'plateau', 'clic', 'glisser', 'coupe', 'balayage'];
+const ORDRE = ['vide', 'engin', 'plateau', 'clic', 'glisser', 'coupe', 'balayage', 'methode', 'note'];
 let KO = 0;
 
 async function settle(page, ms = 700) {
@@ -112,6 +113,12 @@ async function preparer(page, etat) {
     await settle(page, 3500);
     await ouvrirEtape(page, '2 · Charges');
   }
+  if (etat === 'methode') await ouvrirEtape(page, '5 · Méthode');
+  if (etat === 'note') {
+    await jsClick(page, 'chp_btn_note');
+    await page.waitForSelector('.st-key-chp_dl_note', { timeout: 60000 });
+    await settle(page, 1500);
+  }
   if (etat === 'coupe') await segment(page, 'Coupe');
   if (etat === 'balayage') await segment(page, 'Balayage');
   // on REMONTE avant de mesurer (Streamlit défile dans son conteneur)
@@ -177,6 +184,14 @@ async function agrandir(page, w) {
           const txt = await page.evaluate(() => [...document.querySelectorAll('[data-testid="stMarkdownContainer"]')]
             .map(e => e.innerText).find(t => /^E1 ·/.test(t.trim())) || 'ligne E1 absente');
           verdict('glisser l\'engin : sa position x a changé (≠ 3,60 m)', /x \d,\d\d/.test(txt) && !/x 3,60/.test(txt), txt.slice(0, 90));
+        }
+        if (etat === 'methode') {
+          const txt = await page.evaluate(() => document.body.innerText);
+          verdict('onglet Méthode : sections, références et « à transcrire » visibles', /Charges et combinaisons/.test(txt) && /Heft 240/.test(txt) && /transcrire/.test(txt));
+        }
+        if (etat === 'note') {
+          const dl = await page.evaluate(() => { const b = document.querySelector('.st-key-chp_dl_note'); return b ? b.innerText.trim() : ''; });
+          verdict('📄 Note : le bouton de téléchargement de la note apparaît', /Télécharger la note/.test(dl), dl);
         }
         if (etat === 'plateau') {
           const hach = await page.evaluate(() => {

@@ -12,7 +12,7 @@ Ce qui vient d'un texte NON relu est un paramètre, jamais une valeur :
 - les parts de la figure C.1 de l'EN 1168 sont FOURNIES par le bureau
   (``parts``) ; sans elles, l'élément chargé porte tout.
 """
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 import math
 
 from .modele import Element
@@ -105,10 +105,18 @@ def parts_voisins(parts: Dict[int, float], i: int, n: int) -> Dict[int, float]:
 
 
 # ---------------------------------------------------------------- créneaux
-def max_creneaux(boites: List[Tuple[float, float, float]], y_min: float, y_max: float) -> Tuple[float, float]:
+def max_creneaux(boites: List[Tuple[float, float, float]], y_min: float, y_max: float,
+                 fenetre: Optional[Tuple[float, float]] = None) -> Tuple[float, float]:
     """Maximum sur la largeur de m(y) = Σ_j val_j / w_j sur chaque créneau
-    [y_j − w_j/2, y_j + w_j/2], tronqué au plancher (rive : la valeur se
-    concentre sur la largeur restante). Renvoie (max, y du max)."""
+    [y_j − w_j/2, y_j + w_j/2], tronqué au PLANCHER [y_min, y_max] (rive : la
+    valeur se concentre sur la largeur restante). ``fenetre`` = (a, b)
+    restreint la recherche du maximum à une bande du plancher, SANS
+    re-concentrer : un créneau hors de la bande n'y apporte rien.
+    Renvoie (max, y du max).
+
+    Défaut trouvé le 02/11/2026 par la note PDF : la bande d'affichage était
+    passée comme plancher, et une empreinte située hors de la bande, « tronquée »
+    à une largeur nulle, y était concentrée sur 1e-9 m — des taux de 10⁹ %."""
     if not boites:
         return 0.0, y_min
     inter = []
@@ -117,12 +125,13 @@ def max_creneaux(boites: List[Tuple[float, float, float]], y_min: float, y_max: 
         if hi - lo <= 1e-12:
             lo, hi = max(y_min, min(yc, y_max)), max(y_min, min(yc, y_max)) + 1e-9
         inter.append((lo, hi, val / (hi - lo)))
-    cand = sorted({lo for lo, _, _ in inter} | {hi for _, hi, _ in inter})
-    best, y_best = -math.inf, y_min
+    a, b = fenetre if fenetre is not None else (y_min, y_max)
+    cand = sorted(({lo for lo, _, _ in inter} | {hi for _, hi, _ in inter} | {a, b}))
+    best, y_best = -math.inf, a
     for y in cand:
         for eps in (1e-9, -1e-9):          # juste à droite et juste à gauche de chaque arête
             yy = y + eps
-            if yy < y_min or yy > y_max:
+            if yy < a or yy > b:
                 continue
             m = sum(v for lo, hi, v in inter if lo <= yy <= hi)
             # Un plateau n'est jamais plat au bruit près (les valeurs viennent de numpy,

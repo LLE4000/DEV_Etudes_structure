@@ -52,7 +52,8 @@ def defaut_params() -> Dict:
 def nouveau_cas(nom: str) -> Dict:
     return {"nom": nom, "plancher": defaut_plancher(), "charges": [], "repartiteurs": {}, "filieres": [],
             "params": defaut_params(), "selection": None, "vue": "plan",
-            "options": {"cotes": True, "aires": True, "taux": True}}
+            "options": {"cotes": True, "aires": True, "taux": True},
+            "identification": {"projet": "", "partie": "", "indice": "0"}}
 
 
 def nouvel_etat() -> Dict:
@@ -363,6 +364,34 @@ def contexte_dessin(etat: Dict, cas: Dict, res: Dict, plancher, index: Dict) -> 
             "joints": plancher.joints() if pl["type"] == "predalle" else [], "engins": engins, "charges": charges,
             "plateaux": plateaux, "filieres": filieres, "selection": cas.get("selection"), "options": cas.get("options", {}),
             "seuils": (0.85, 1.0), "libelles": libelles, "groupes": groupes, "valeurs": valeurs, "cote_largeur": cote}
+
+
+def contexte_coupe(etat: Dict, cas: Dict, res: Dict, plancher, index: Dict) -> Dict:
+    """Contexte de la coupe (``dessin.coupe``) : l'appui sélectionné, sinon
+    le premier appui. Même source pour l'écran et la note."""
+    sel = cas.get("selection") or ""
+    ref = sel.split(":", 1)[1] if sel.startswith("rep:") else None
+    emps = index["empreintes"]
+    if ref not in emps:
+        ref = next(iter(emps), None)
+    pl = cas["plancher"]
+    patches = {p["ref"]: p for p in res.get("patches", [])}
+    e = emps.get(ref)
+    el = plancher.element_de(e.y) if e else None
+    els = plancher.elements()
+    i = el.index if el else 0
+    voisins = (els[i - 1].nom if i > 0 else "", els[i].nom if els else "", els[i + 1].nom if i + 1 < len(els) else "")
+    taux = {x["nom"]: x["taux"] for x in res.get("elements", [])}
+    pt = patches.get(ref, {})
+    plat = index["plateaux"].get(ref)
+    chape = 0.0
+    if pl["type"] == "hourdis" and pl["hourdis"].get("chape", {}).get("oui"):
+        chape = float(pl["hourdis"]["chape"]["epaisseur"])
+    return {"type": "hourdis" if pl["type"] == "hourdis" else "dalle", "h": float(pl[pl["type"]]["h"]), "chape": chape,
+            "b_element": els[0].largeur if els else 1.2, "voisins": voisins, "nom_element": voisins[1],
+            "plateau": {"A": plat.A, "t": plat.t} if plat else None, "semelle": e.a if e else 0.15,
+            "P": (e.P * e.phi) if e else 0.0, "a_eff": pt.get("a") if pt else None, "taux": taux.get(voisins[1], 0.0) or 0.0,
+            "joints_predalle": pl["type"] == "predalle"}
 
 
 def _vers_ecran(pl: Dict, x: float, y: float) -> Tuple[float, float]:

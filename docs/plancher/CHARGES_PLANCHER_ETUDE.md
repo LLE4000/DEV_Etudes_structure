@@ -751,7 +751,7 @@ qui changent les nombres).
 |---|---|---|
 | 1 · moteur | `modele`, `diffusion` (Heft 240 et annexe C **transcrits** du texte), `repartiteurs`, `resistances`, `verification`, bibliothèques génériques | tests analytiques et cas gelés ; relecture des valeurs transcrites sur le document imprimé, référencée dans `methode.py` |
 | 2 · écran | `dessin` (plan, grille de clic), `ecran` (charte), cas multiples, fichier JSON, balayage | harnais AppTest, captures trois formats relues |
-| 3 · note | note deux pages, onglet Méthode, textes, intégration menu | tests PDF (ancres de page 1 et 2), images envoyées |
+| 3 · note | note deux pages, onglet Méthode, textes, intégration menu — **livré le 02/11/2026** (`note.py`, `peintre.py`, `methode.py`, `CHARGES_PLANCHER.md` § 9) | tests PDF (ancres de page 1 et 2), images envoyées |
 | 4 · V&V et doc | cas de contrôle à la main (une roue sur un hourdis, un stabilisateur sur tôle à cheval sur deux hourdis, un Manitou sur dalle 20 cm), `docs/plancher/CHARGES_PLANCHER.md`, registre | rapport daté, suites au vert, fusion dans `main` sur demande |
 
 ---

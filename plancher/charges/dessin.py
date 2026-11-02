@@ -122,7 +122,8 @@ def plan(ctx: Dict) -> Tuple[str, Dict, Dict]:
     v = Vue(ctx["L"], ctx["B"], ctx.get("sens", 1))
     att, nok = ctx.get("seuils", (0.85, 1.0))
     opt = ctx.get("options", {})
-    sel = ctx.get("selection")
+    imp = bool(ctx.get("impression"))          # note PDF : sans poignées, invites de clic ni halo de sélection
+    sel = None if imp else ctx.get("selection")
     # Textes : constants À L'ÉCRAN quelle que soit la taille du plan. k grossit les textes des grands
     # plans ; la largeur minimale (px) garde une échelle lisible sur téléphone — le conteneur du
     # composant défile alors horizontalement (#fig : overflow-x auto).
@@ -186,7 +187,7 @@ def plan(ctx: Dict) -> Tuple[str, Dict, Dict]:
     delta = "+1" if v.sens == 1 else "-1"
     for (x1, y1), (x2, y2) in appuis:
         a(f'<circle cx="{(x1 + x2) / 2:.0f}" cy="{(y1 + y2) / 2:.0f}" r="75" fill="{NOIR}" stroke="{NOIR}" stroke-width="1.4" {NS}/>')
-    for (x1, y1), (x2, y2) in libres:
+    for (x1, y1), (x2, y2) in ([] if imp else libres):
         a(f'<g class="ed" data-action="sens:{delta}"><title>Bord libre : clic = appui (change le sens porteur)</title>'
           f'<circle cx="{(x1 + x2) / 2:.0f}" cy="{(y1 + y2) / 2:.0f}" r="75" fill="white" stroke="{NOIR}" stroke-width="1.4" {NS}/></g>')
     # cotes
@@ -198,7 +199,7 @@ def plan(ctx: Dict) -> Tuple[str, Dict, Dict]:
               + _texte(OX + v.W / 2, OY - 470, f"L = {_fmt(v.L)} m", fs, "#374151", "middle") + '</g>')
             a(f'<line x1="{OX - 520}" y1="{OY}" x2="{OX - 520}" y2="{OY + v.H:.0f}" stroke="#374151" stroke-width="1" marker-start="url(#chp_tk)" marker-end="url(#chp_tk)" {NS}/>')
             a(f'<text transform="translate({OX - 600} {OY + v.H / 2:.0f}) rotate(-90)" font-size="{fs}" fill="#374151" text-anchor="middle">{ctx["cote_largeur"]}</text>')
-            if ctx["type"] == "hourdis":
+            if ctx["type"] == "hourdis" and not imp:
                 for d, xx in (("-1", OX - 1000), ("+1", OX - 620)):
                     yy = OY + v.H + 120
                     a(f'<g class="ed" data-action="n_elements:{d}"><title>{"Un hourdis de plus" if d == "+1" else "Un hourdis de moins"}</title>'
@@ -210,7 +211,7 @@ def plan(ctx: Dict) -> Tuple[str, Dict, Dict]:
               f'<text transform="translate({OX - 600} {OY + v.H / 2:.0f}) rotate(-90)" font-size="{fs}" fill="#374151" text-anchor="middle">L = {_fmt(v.L)} m</text></g>')
             a(f'<line x1="{OX}" y1="{OY - 420}" x2="{OX + v.W:.0f}" y2="{OY - 420}" stroke="#374151" stroke-width="1" marker-start="url(#chp_tk)" marker-end="url(#chp_tk)" {NS}/>')
             a(_texte(OX + v.W / 2, OY - 470, ctx["cote_largeur"], fs, "#374151", "middle"))
-            if ctx["type"] == "hourdis":
+            if ctx["type"] == "hourdis" and not imp:
                 for d, xx in (("-1", OX + v.W + 150), ("+1", OX + v.W + 530)):
                     a(f'<g class="ed" data-action="n_elements:{d}"><title>{"Un hourdis de plus" if d == "+1" else "Un hourdis de moins"}</title>'
                       f'<rect x="{xx:.0f}" y="{OY - 570}" width="300" height="300" rx="60" fill="white" stroke="{LIGNE}" {NS}/>'
@@ -303,7 +304,7 @@ def plan(ctx: Dict) -> Tuple[str, Dict, Dict]:
         a(_texte(sx0 + i * 1000, sy0 + 290, t, fs_s, GRIS, "middle"))
     # légende des appuis sur une DEUXIÈME ligne : sur la ligne de l'échelle elle recouvrait « 2 m »
     # (capture du 02/11/2026, après l'agrandissement des textes)
-    a(_texte(OX + v.W, sy0 + 290 + 330 * k, "● appui  ○ bord libre : clic pour changer le sens porteur", fs_s, GRIS, "end"))
+    a(_texte(OX + v.W, sy0 + 290 + 330 * k, "● appui" if imp else "● appui  ○ bord libre : clic pour changer le sens porteur", fs_s, GRIS, "end"))
     a("</svg>")
     return "\n".join(s), ctx.get("valeurs", {}), ctx.get("groupes", {})
 

@@ -338,11 +338,12 @@ def _efforts_dalle(d: DalleBA, patches: List[Dict], p: Parametres) -> Tuple[List
     # par bande (pour l'affichage) : maximum du profil dans chaque bande
     elements = []
     for e in d.elements():
+        # les créneaux restent tronqués au PLANCHER ; seule la recherche du maximum se limite à la bande
         boites = [(pt["y"], bm, DF.moment_ponctuel(pt["P"], pt["x"], x_M, L)) for pt, bm, _, _ in infos]
-        mb, _ = DF.max_creneaux(boites, e.y0, e.y1) if boites else (0.0, e.y0)
+        mb, _ = DF.max_creneaux(boites, 0.0, d.B, fenetre=(e.y0, e.y1)) if boites else (0.0, e.y0)
         mb += DF.moment_uniforme(w, x_M, L)
-        vbA, _ = DF.max_creneaux(boites_A, e.y0, e.y1) if boites_A else (0.0, e.y0)
-        vbB, _ = DF.max_creneaux(boites_B, e.y0, e.y1) if boites_B else (0.0, e.y0)
+        vbA, _ = DF.max_creneaux(boites_A, 0.0, d.B, fenetre=(e.y0, e.y1)) if boites_A else (0.0, e.y0)
+        vbB, _ = DF.max_creneaux(boites_B, 0.0, d.B, fenetre=(e.y0, e.y1)) if boites_B else (0.0, e.y0)
         vb = DF.tranchant_uniforme(w, L) + max(vbA, vbB)
         tMb = mb / res_d["M_adm"] if res_d["M_adm"] > 0 else math.inf
         tVb = vb / res_d["V_adm"] if res_d["V_adm"] > 0 else math.inf
