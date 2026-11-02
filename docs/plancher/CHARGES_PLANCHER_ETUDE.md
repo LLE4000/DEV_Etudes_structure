@@ -489,7 +489,15 @@ Le même mot « taux » partout, et la ligne d'hypothèses dit lequel.
 `acier/`. Pas de sous-menu : le **type de plancher** est une case de la
 première ligne, pas une page.
 
-### 7.2 Organisation de l'écran (PC et tablette)
+### 7.2 Organisation de l'écran : digeste d'abord
+
+**Décision du 02/11/2026 (retour du bureau).** Une première maquette, qui
+montrait tout en même temps (quatre lignes de cases par objet, bulles
+détaillées sur chaque roue, grille, cotes, bandeau de statut à six
+chiffres), a été jugée **indigeste** et rejetée. La règle retenue : on ne
+simplifie **aucun calcul ni aucune vérification**, on simplifie **ce qui
+se voit**. Un écran = un plan épuré, un résultat en une phrase, et des
+étapes repliées qu'on ouvre quand on en a besoin.
 
 ![Maquette d'écran — PC 1440 px, valeurs d'illustration](images/maquette_ecran.png)
 
@@ -497,71 +505,99 @@ première ligne, pas une page.
 régénérables : `python3 maquette.py <dossier>` puis `node capture.js`).
 Toutes les valeurs sont d'illustration.*
 
-De haut en bas : la barre d'outils du cas (projet, enregistrer, ouvrir,
-PDF, sélecteur de cas, nouveau, copier, verrou) ; le **bandeau de statut**
-avec la vérification gouvernante, l'élément, le pied en cause, la
-proposition du dimensionnement et les taux maximaux par famille ; puis
-deux colonnes.
+**En haut** : le titre, le sélecteur de cas, et trois boutons (ouvrir,
+enregistrer, note PDF). Rien d'autre.
 
-**À gauche, le plan à l'échelle** : appuis hachurés et nommés, hourdis
-numérotés avec leurs joints, grille à 1 m, cotes bleues de portée, de
-largeur et de position de l'objet sélectionné, règle en x, légende et
-échelle graphique. Chaque engin est dessiné en vue de dessus
-(châssis, tourelle, flèche, cabine, roues) avec **une bulle par roue ou
-par pied** : son nom, sa charge, son coefficient dynamique, son plateau
-et l'élément qui le reçoit ; les plateaux sont dessinés à leur taille,
-l'**aire efficace** (bande *c*) hachurée en bleu à l'intérieur. L'objet
-sélectionné porte un cadre à poignées et une mini-barre (tourner de 90°,
-copier, supprimer). Les **taux de chaque élément** sont en colonne à
-droite du dessin, hors du plan, avec la vérification qui gouverne ; les
-bandes sont colorées. Sous le plan, le **bandeau de balayage** montre où
-l'engin sélectionné peut se tenir le long de la portée.
+**À gauche, le plan**, blanc, à l'échelle, avec le strict nécessaire :
 
-**À droite, les trois objets** : PLANCHER (type et état d'avancement en
-contrôles segmentés, puis les lignes « état », « élément », « catalogue »
-avec la **coupe du hourdis dessinée**, « local » : chaque valeur de
-catalogue porte sa **nature** en badge : Rd, fab.) ; CHARGES (ajout depuis
-la bibliothèque avec sa configuration, table des objets posés avec x, y,
-angle, φ, total) ; **APPUIS DE L'ENGIN** (une ligne par roue ou pied :
-charge, contact, répartiteur, aire efficace, pression, élément, taux) ;
-la proposition du **dimensionnement** ; EFFORTS (méthode, φ, tranchant,
-répartition) ; Paramètres avancés et Cartouche repliés. En bas, les
-onglets Vérifications · Appuis de l'engin · Balayage · Note · Méthode.
+- les **appuis sont un trait noir épais** (A et B), les bords libres un
+  trait fin ; une poignée au milieu de chaque bord permet de **basculer
+  appui / libre** d'un clic (par défaut : poutre sur deux appuis, A et B) ;
+- les hourdis numérotés, leurs joints en tireté ; seules les bandes dont
+  le taux est **≥ 85 %** sont teintées (orange) ou **> 100 %** (rouge), les
+  autres restent blanches ; le taux de chaque bande est écrit à droite,
+  hors du dessin, en pastille rouge ou orange seulement quand il compte ;
+- l'engin en vue de dessus réduite à ce qui porte : chenilles, tourelle,
+  flèche, bras et **pieds** ; chaque pied porte une étiquette courte
+  « P2 · 95 kN », la semelle en noir, le **plateau** hachuré autour, l'aire
+  efficace en tireté bleu ;
+- **le plateau se pose automatiquement sous le pied** quand on le choisit
+  (centré par défaut), il se déplace en le glissant, et **un clic sur le
+  plateau ouvre une petite fenêtre** pour changer son type, son matériau,
+  ses dimensions, ou le retirer ;
+- la **filière proposée** par le dimensionnement est dessinée en tireté
+  bleu à l'endroit où elle irait, avant qu'on l'applique ;
+- deux cotes (portée, largeur), une échelle graphique, une légende d'une
+  ligne. Les options d'affichage (cotes, aires efficaces, taux) sont des
+  cases à cocher ; « Plan · Coupe · Balayage » sont trois vues du même cas.
 
-Chaque objet tient sur **une ligne de 3 à 4 cases** (charte
-`docs/assemblages/ERGONOMIE.md`) ; une ligne « suite » par charge placée et
-par répartiteur ; l'avancé (γF, φ, largeur efficace plafonnée, options
-annexe C) dans le repli « Paramètres avancés ». Téléphone : plan en
-pleine largeur au-dessus, lignes empilées dessous, même contenu
-(`images/maquette_ecran_390.png`, même page HTML rendue à 390 px).
+**Sous le plan, la coupe transversale** sous le pied sélectionné : les
+hourdis voisins, le plateau, la semelle, la charge, l'aire efficace et la
+diffusion au plan moyen. C'est la figure que le bureau voulait voir.
 
-### 7.3 Le plan
+**À droite, le résultat puis quatre étapes** :
 
-Dessin SVG à l'échelle : contour du plancher, éléments (hourdis avec
-joints, bandes de dalle en pointillé), appuis hachurés, empreintes des
-charges (rectangles pleins, numérotés), filières et plateaux (contour
-épais, aire efficace en hachure), cotes de portée et de position. Après
-calcul, chaque élément prend la couleur de son taux (vert ≤ 100 %, orange
-≤ 100 % avec avertissement, rouge au-delà) et porte son taux en clair.
+1. **RÉSULTAT** en tête : une pastille (conforme / non conforme), **une
+   phrase** (« Flexion de H3 sous le pied P2 »), quatre barres (flexion,
+   tranchant, pression locale, plateaux) et les **propositions** du
+   dimensionnement avec un bouton « Appliquer » (filière sous P2) ou
+   « Voir » (reculer la grue de 0,40 m).
+2. **Plancher**, replié sur une ligne de résumé (type, portée, éléments,
+   appuis, état) ; déplié, il montre le type en contrôle segmenté, six
+   champs, et les valeurs de catalogue avec leur **nature**.
+3. **Charges** : la liste des objets posés (nom, configuration, position,
+   charge totale), le bouton « Ajouter » qui ouvre la **bibliothèque**, et
+   la table « Pieds de la grue » (pied, charge, répartiteur, élément, taux).
+4. **Répartiteur sous le pied sélectionné** : « Aucun · Plateau · Filière ·
+   Plateau + filière », matériau, dimensions, épaisseur, et une ligne de
+   résultat (aire efficace, pression, éléments touchés). La case « idem
+   4 pieds » applique le même choix à tous les pieds de l'engin.
+5. **Hypothèses de calcul**, repliées sur une ligne (ELU, γF, φ, nature
+   des résistances, annexe C), puis le lien « Voir le détail des
+   vérifications par élément », qui ouvre les tableaux complets.
 
-Placement **par clic** sans composant nouveau : le plan est recouvert
-d'une grille de cellules invisibles (pas de 10 cm) identifiées
-`c_x_y` ; `svg_cliquable` renvoie l'identifiant cliqué, le module y pose
-l'objet sélectionné (« placer l'engin », « placer le plateau »). Le réglage
-fin se fait dans les cases x, y, angle (0° / 90° par bouton). Le
-glisser-déposer est **écarté** : il exigerait un composant JavaScript
-nouveau pour un gain faible.
+Téléphone : même page, une seule colonne, plan puis coupe puis étapes
+(`images/maquette_ecran_390.png`).
 
-### 7.4 Résultats
+### 7.3 La bibliothèque
 
-Tableau des éléments gouvernants (trois lignes repliées par défaut,
-`tableau_33_replie`), tableau des répartiteurs, lignes locales, puis
-**statut global** avec le nom de la vérification gouvernante et de
-l'élément. Les messages de refus (prédalle sans chape, filière en
-diagonale, hourdis sans donnée locale et sans répartiteur) sont des
-statuts rouges avec la phrase qui dit quoi faire.
+![Bibliothèque d'engins et fiche technique, plancher déplié](images/bibliotheque.png)
 
-### 7.5 Balayage de position
+« Ajouter » ouvre la bibliothèque : des **fiches** d'engins, grues, étais
+et filières, stocks, plateaux, chacune avec un pictogramme en vue de
+dessus, ses valeurs clés et un badge de **source** : « fiche Manitou 2024 »
+(fiche réelle), « générique » (gabarit à adapter), « fiche à compléter ».
+Une fiche se crée ou se complète depuis une vraie documentation
+constructeur : nom, type d'appuis, nombre, entraxes, semelle, masse,
+charge maximale par pied (avant / arrière), configurations, coefficient
+dynamique, source et page. Les charges par pied se relisent sur le
+tableau de stabilité du constructeur pour l'opération prévue ; la fiche
+mémorise la dernière valeur saisie et sa source. Les fiches du bureau
+sont versionnées avec l'application (**P-12**), une fiche ajoutée dans un
+cas reste dans son fichier.
+
+### 7.4 Le plan : mécanique du clic
+
+Dessin SVG à l'échelle, rendu par `svg_cliquable`. Placement **par clic**
+sans composant nouveau : le plan est recouvert d'une grille de cellules
+invisibles (pas de 10 cm) identifiées `c_x_y` ; le module y pose l'objet
+choisi. Un clic sur un pied, un plateau, un bord ou une bande renvoie son
+identifiant : sélection, fenêtre du répartiteur, bascule appui / libre,
+détail de la bande. Le déplacement d'un plateau se fait par clic sur sa
+nouvelle cellule (ou par les cases x, y de l'étape 4) ; le glisser-déposer
+continu reste **écarté** tant qu'il exigerait un composant JavaScript
+nouveau : le clic-pose donne le même résultat au pas de 10 cm.
+
+### 7.5 Résultats
+
+Le résultat tient en une phrase et quatre barres (§ 7.2) ; le détail
+(tableau des éléments, répartiteurs, effets locaux, formules) est
+derrière le lien « Voir le détail des vérifications par élément ». Les
+messages de refus (prédalle sans chape, filière en diagonale, hourdis
+sans donnée locale et sans répartiteur) prennent la place de la phrase
+de résultat, en rouge, avec ce qu'il faut faire.
+
+### 7.6 Balayage de position
 
 Case « balayer le long de la portée » : le groupe de charges est déplacé
 de l'appui gauche à l'appui droit par pas de 10 cm, le taux maximal est
@@ -570,7 +606,7 @@ plus défavorable est retenue pour la note. Coût nul avec des formules
 fermées ; valeur énorme pour un ingénieur méthodes à qui l'on demande
 « où peut rouler le Manitou ».
 
-### 7.6 Note PDF, deux pages, même présentation
+### 7.7 Note PDF, deux pages, même présentation
 
 Page 1 : en-tête du projet, trois lignes d'hypothèses (plancher et état ·
 charges et φ, γF · diffusion et répartiteurs), plan à l'échelle avec
