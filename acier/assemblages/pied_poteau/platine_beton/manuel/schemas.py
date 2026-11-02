@@ -448,10 +448,6 @@ def coupe_bb(R, opt):
 elevation = coupe_aa
 
 
-def dessins(R, opt):
-    return coupe_aa(R, opt), plan(R, opt)
-
-
 def cotes_modifiables(dessin):
     out = []
 

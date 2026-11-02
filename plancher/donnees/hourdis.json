@@ -1,0 +1,19 @@
+[
+  {
+    "nom": "Hourdis générique 200 · à renseigner",
+    "generique": true,
+    "b_element": 1.2,
+    "h": 0.20,
+    "g": 2.9,
+    "E": 36000.0,
+    "I": null,
+    "M_Rd": 0.0,
+    "V_Rd": 0.0,
+    "nature": "Rd",
+    "M_Rd_chape": null,
+    "V_Rd_chape": null,
+    "M_cr": null,
+    "p_loc_adm": null,
+    "source": "GABARIT : aucune valeur de catalogue n'est livrée. Renseigner M_Rd, V_Rd (par élément) et leur nature depuis la fiche du fabricant (P-1), I (m⁴), la pression locale admissible sur la membrure (P-5), le moment de fissuration s'il est publié (P-11), les valeurs avec dalle de compression et la classe exigée (P-17)."
+  }
+]

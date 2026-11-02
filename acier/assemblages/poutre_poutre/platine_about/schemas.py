@@ -29,7 +29,6 @@ CLE_PAR_COTE = {"hp": "hp_u", "zp": "z_C", "e1": "e1_u", "p1": "p1_u",
                 "c": "l_n", "dcs": "d_nt", "dci": "d_nb", "dz": "d_top",
                 "aw": "a_w", "tp": "tp_u", "p3": "p3_u", "bp": "bp_u"}
 
-GROUPE_BOULONS = dict(n1="n1_u", titre="Groupe de boulons – platine et âme porteuse")
 
 # Plan de principe : grandeurs calculées admises, et répartition des cotes
 # (jamais deux fois la même cote sur la planche)
@@ -369,10 +368,6 @@ def vue_droite(R, opt):
                val=R.b_S, lvl=1, calc=1))
     S.name("T", 0, "Poutre principale" if u.prof_P == PERSO else u.prof_P)
     return S.finish(s, None, "Vue de droite : platine en vraie grandeur et coupe de la portée")
-
-
-def dessins(R, opt):
-    return elevation(R, opt), plan(R, opt)
 
 
 def cotes_modifiables(dessin):

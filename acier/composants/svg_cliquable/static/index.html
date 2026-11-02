@@ -6,6 +6,10 @@
   html, body { margin: 0; padding: 0; background: transparent; font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif; }
   #fig { position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   #fig svg { width: 100%; height: auto; display: block; }
+  /* écran tactile : un doigt posé sur un objet glissable le GLISSE (pointer events), il ne fait pas
+     défiler la page ni le conteneur (02/11/2026, plan « Charges sur plancher » plus large que
+     l'écran d'un téléphone) */
+  #fig .ed[data-drag], #fig .ed[data-drag2] { touch-action: none; }
   .dimedit { position: absolute; width: 98px; font: 600 16px system-ui, Arial, sans-serif; padding: 7px 6px;
              border: 2px solid #33415C; border-radius: 4px; background: #FFF7CF; color: #0B3D91; z-index: 4;
              box-shadow: 0 3px 10px rgba(0, 0, 0, .3); }

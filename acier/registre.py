@@ -93,6 +93,82 @@ def vignette_platine_about():
         '</svg>')
 
 
+# ----------------------------------------------- vignettes poutre – poteau
+# Les trois attaches sur POTEAU sont vues EN PLAN (coupe horizontale au
+# niveau des boulons) : c'est la vue qui porte l'information neuve
+# (docs/assemblages/POUTRE_POTEAU.md §10.7). Le poteau y est un profil en I
+# coupé — deux ailes VERTICALES, qui touchent les bords du cadre pour dire
+# qu'il continue au-dessus et en dessous, et une âme horizontale. La poutre
+# portée arrive par la droite sur la face extérieure de l'aile : on voit sa
+# semelle de dessus (teinte claire) et son âme coupée. Les boulons sont dans
+# le plan du dessin : ils se tracent en axes tiretés, comme chez les grands
+# frères. Règle de teinte de ces trois vues : ce qui est COUPÉ est en
+# #C3CED7 (les ailes et l'âme du poteau, l'âme de la poutre portée), ce qui
+# est vu de DESSUS en #E6ECF0 (la semelle supérieure de la poutre portée).
+_POTEAU = (f'<rect x="12" y="0" width="7" height="90" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>'
+           f'<rect x="40" y="0" width="7" height="90" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>'
+           f'<rect x="19" y="41" width="21" height="8" fill="#C3CED7" stroke="{_INK}" stroke-width="1"/>')
+
+
+def _poutre_portee(x):
+    """Poutre portée vue de dessus depuis ``x`` : semelle puis âme coupée."""
+    return (f'<rect x="{x}" y="20" width="{114 - x}" height="50" fill="#E6ECF0" '
+            f'stroke="{_INK}" stroke-width="1"/>'
+            f'<rect x="{x}" y="41" width="{114 - x}" height="8" fill="#C3CED7" '
+            f'stroke="{_INK}" stroke-width="1"/>')
+
+
+def vignette_plat_ame_poteau():
+    """Vue en plan : plat soudé sur l'aile du poteau, au droit de son âme,
+    boulonné à l'âme de la poutre portée (cordon en orange)."""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="100%" role="img" '
+        'aria-label="Plat d\'âme soudé sur poteau, vue en plan">'
+        + _POTEAU + _poutre_portee(54)
+        + f'<rect x="47" y="32" width="41" height="9" fill="{_ACC}" fill-opacity=".28" '
+          f'stroke="{_ACC}" stroke-width="1.2"/>'
+          f'<rect x="47" y="32" width="3.5" height="9" fill="#D98A00"/>'
+          f'<path d="M66 27V56M78 27V56" stroke="{_KO}" stroke-width="1.6" '
+          f'stroke-dasharray="3 2" fill="none"/>'
+        '</svg>')
+
+
+def vignette_doubles_cornieres_poteau():
+    """Vue en plan : deux cornières de part et d'autre de l'âme portée,
+    ailes A boulonnées sur l'aile du poteau (deux files à ± p3/2)."""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="100%" role="img" '
+        'aria-label="Doubles cornières d\'âme sur poteau, vue en plan">'
+        + _POTEAU + _poutre_portee(50)
+        + f'<polygon points="47,12 55,12 55,33 83,33 83,41 47,41" fill="{_ACC}" '
+          f'fill-opacity=".28" stroke="{_ACC}" stroke-width="1.2"/>'
+          f'<polygon points="47,78 55,78 55,57 83,57 83,49 47,49" fill="{_ACC}" '
+          f'fill-opacity=".28" stroke="{_ACC}" stroke-width="1.2"/>'
+          f'<rect x="47" y="12" width="8" height="21" fill="{_ACC}" fill-opacity=".6"/>'
+          f'<rect x="47" y="57" width="8" height="21" fill="{_ACC}" fill-opacity=".6"/>'
+          f'<path d="M33 22H62M33 68H62" stroke="{_KO}" stroke-width="1.6" '
+          f'stroke-dasharray="3 2" fill="none"/>'
+          f'<path d="M72 28V62" stroke="{_KO}" stroke-width="1.6" '
+          f'stroke-dasharray="3 2" fill="none"/>'
+        '</svg>')
+
+
+def vignette_platine_about_poteau():
+    """Vue en plan : platine d'about par la tranche contre l'aile du poteau,
+    soudée sur l'âme portée, boulonnée par deux files symétriques."""
+    return (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="100%" role="img" '
+        'aria-label="Platine d\'about sur poteau, vue en plan">'
+        + _POTEAU + _poutre_portee(57)
+        + f'<rect x="47" y="18" width="10" height="54" fill="{_ACC}" fill-opacity=".35" '
+          f'stroke="{_ACC}" stroke-width="1.2"/>'
+          f'<rect x="57" y="37" width="4" height="4" fill="#D98A00"/>'
+          f'<rect x="57" y="49" width="4" height="4" fill="#D98A00"/>'
+          f'<path d="M33 30H66M33 60H66" stroke="{_KO}" stroke-width="1.6" '
+          f'stroke-dasharray="3 2" fill="none"/>'
+        '</svg>')
+
+
 def vignette_pied_poteau():
     """Pied de poteau : poteau, platine, mortier, tiges d'ancrage dans le massif
     (élévation schématique)."""
@@ -146,6 +222,43 @@ FAMILLES = (
                 vignette=vignette_platine_about(),
                 etat="disponible",
                 module="acier.assemblages.poutre_poutre.platine_about.interface",
+            ),
+        ),
+    ),
+    Famille(
+        id="poutre_poteau",
+        titre="Poutre – Poteau",
+        pitch="Attaches d'une poutre portée sur l'aile ou dans l'âme d'un poteau",
+        assemblages=(
+            Assemblage(
+                id="plat_ame_poteau",
+                titre="Plat d'âme soudé sur poteau (fin plate)",
+                court="Plat d'âme/poteau",
+                pitch="Assemblage articulé : plat vertical soudé sur l'aile du poteau ou dans son âme, "
+                      "boulonné à l'âme de la poutre portée — EN 1993-1-8, ANB belge, tying.",
+                vignette=vignette_plat_ame_poteau(),
+                etat="disponible",
+                module="acier.assemblages.poutre_poteau.plat_ame_poteau.interface",
+            ),
+            Assemblage(
+                id="doubles_cornieres_poteau",
+                titre="Doubles cornières d'âme sur poteau",
+                court="Cornières/poteau",
+                pitch="Assemblage articulé : deux cornières boulonnées ou soudées sur l'aile du poteau "
+                      "ou dans son âme, et sur l'âme de la poutre portée — EN 1993-1-8, tying.",
+                vignette=vignette_doubles_cornieres_poteau(),
+                etat="disponible",
+                module="acier.assemblages.poutre_poteau.doubles_cornieres_poteau.interface",
+            ),
+            Assemblage(
+                id="platine_about_poteau",
+                titre="Platine d'about (hauteur partielle) sur poteau",
+                court="Platine/poteau",
+                pitch="Assemblage articulé : platine mince soudée en about de la poutre portée, boulonnée "
+                      "sur l'aile du poteau ou dans son âme (2 files) — EN 1993-1-8, ANB belge, tying.",
+                vignette=vignette_platine_about_poteau(),
+                etat="disponible",
+                module="acier.assemblages.poutre_poteau.platine_about_poteau.interface",
             ),
         ),
     ),

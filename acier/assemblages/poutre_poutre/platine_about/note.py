@@ -26,7 +26,7 @@ from acier.bibliotheques import PERSO
 from acier.assemblages.note_kit import empaqueter, coefficients, MSB
 from . import schemas, synthese
 from .entrees import VISSERIE_DEFAUT
-from .notation import LEGENDE_REFERENCES, ligne_alerte, NOTATIONS as NOTATIONS_COURTES
+from .notation import LEGENDE_REFERENCES, ligne_alerte, ref_courte, NOTATIONS as NOTATIONS_COURTES
 from ..plat_ame import note as _np
 from ..doubles_cornieres.note import PlanPrincipe, TEXTE_MM
 
@@ -108,6 +108,9 @@ class Note(_np.Note):
     COL3 = ("portee", "porteuse")
     NORME = "(γM0 : ANB belge)"
     LEGENDE = LEGENDE_REFERENCES
+    # elle héritait du ``ref_courte`` du plat d'âme par le repli ``REF or``,
+    # retiré ; le sien est mot pour mot le même — elle le NOMME.
+    REF = staticmethod(ref_courte)
     NOTATIONS = NOTATIONS_COURTES
 
     def entete(self, R):

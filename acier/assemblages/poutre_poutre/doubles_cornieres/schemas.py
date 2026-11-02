@@ -940,11 +940,6 @@ def vue_droite(R, opt):
     return S.finish(s, None, "Vue de droite : ailes A et perçage du groupe P")
 
 
-def dessins(R, opt):
-    """Les deux vues."""
-    return elevation(R, opt), plan(R, opt)
-
-
 def cotes_modifiables(dessin):
     """Les cotes cliquables d'un dessin : ``[(clé, symbole, id), …]`` dans
     l'ordre de pose (pour le panneau des cotes)."""

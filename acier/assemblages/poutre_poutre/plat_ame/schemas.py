@@ -25,7 +25,6 @@ CLE_PAR_COTE = {"e2b": "e2b_u", "p2": "p2_u", "gh": "g_h", "c": "l_n",
                 "e1": "e1_u", "p1": "p1_u", "bp": "bp_u", "dz": "d_top",
                 "aw": "a_w", "tp": "tp_u"}
 
-GROUPE_BOULONS = dict(n1="n1_u", n2="n2_u", titre="Groupe de boulons – plat et âme de la portée")
 
 # Plan de principe : grandeurs calculées admises, et répartition des cotes
 FABRICATION_CALC = frozenset({"ztp", "bS", "e2p", "twS"})
@@ -326,10 +325,6 @@ def vue_droite(R, opt):
                val=R.b_S, lvl=1, calc=1))
     S.name("T", 0, "Poutre principale" if u.prof_P == PERSO else u.prof_P)
     return S.finish(s, None, "Vue de droite : plat par la tranche et coupe de la portée")
-
-
-def dessins(R, opt):
-    return elevation(R, opt), plan(R, opt)
 
 
 def cotes_modifiables(dessin):

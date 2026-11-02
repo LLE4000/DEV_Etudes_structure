@@ -5,8 +5,10 @@
 //   ex. node tools/captures_assemblages.js scratchpad/ergo/apres plat_ame 1440,1280,1024,390 8597
 //   [état] (consolidation du 01/11/2026) : « complet » (pied de poteau en vérification complète), « fixe »
 //   (dessin interactif décoché : panneau Cotes), « simple » (Vue simple), « perso » (profil ou tube sans
-//   dimensions), « avances » (Paramètres avancés ouverts) — combinables par « + » ; fichiers
-//   apres_<module>_<état>_<largeur>.png.
+//   dimensions), « avances » (Paramètres avancés ouverts) ; consolidation du 02/11/2026, famille
+//   POUTRE – POTEAU : « ame » (cas d'appui « Âme du poteau »), « ameok » (le cas (b) RÉGLÉ de la platine
+//   d'about : bp 190 et p3 110 par le panneau Cotes), « tying » (NEd = 250 kN en force de chaînage) —
+//   combinables par « + » ; fichiers apres_<module>_<état>_<largeur>.png.
 //
 // Mesure CE QUE L'ŒIL VOIT (getBoundingClientRect + checkVisibility), jamais ce que le DOM garde :
 //   - scrollWidth == innerWidth (aucun débordement horizontal) ;
@@ -31,7 +33,8 @@ const PORT = process.argv[5] || '8597';
 const ETAT = (process.argv[6] || '').split('+').filter(Boolean);
 const SUFFIXE = ETAT.length ? '_' + ETAT.join('_') : '';
 const BASE = `http://localhost:${PORT}/?page=Assemblages%20m%C3%A9talliques`;
-const PREFIXE = { doubles_cornieres: 'asm_', plat_ame: 'fpl_', platine_about: 'pab_', platine_beton: 'ppb_' };
+const PREFIXE = { doubles_cornieres: 'asm_', plat_ame: 'fpl_', platine_about: 'pab_', platine_beton: 'ppb_',
+                  plat_ame_poteau: 'fpc_', doubles_cornieres_poteau: 'dcc_', platine_about_poteau: 'pac_' };
 let KO = 0;
 
 async function settle(page, ms = 700) {
@@ -68,6 +71,49 @@ async function preparer(page, mod, p) {
       if (mod === 'platine_beton') await choisir(page, `${p}forme`, 'Tube RHS / SHS');
       else await choisir(page, `${p}prof_P`, 'Personnalisé');
     }
+    // ---- famille POUTRE – POTEAU (lot 5) : les deux cas d'appui et le tying
+    // « ame » : le cas d'appui « Âme du poteau » (segmented_control de l'en-tête,
+    // options affichées « Aile » / « Âme »).
+    if (e === 'ame') {
+      await cliquerTexte(page, `.st-key-${p}appui button`, 'Âme');
+      // en cas (b), une L100 ne passe pas entre les congés d'un HEB 300
+      // (4,3 + 100 = 104,3 > 104) : la L90x90x9 passe, et l'écran se mesure
+      // sur une configuration VALIDE
+      if (mod === 'doubles_cornieres_poteau') await choisir(page, `${p}corn_u`, 'L90x90x9');
+    }
+    // « ameok » : cas (b) RÉGLÉ pour la platine d'about — la platine 290 × 220 du
+    // cas (a) ne tient pas entre les congés (198 mm). bp et p3 sont des cotes du
+    // DESSIN (règle P6 de la charte) : on passe par le panneau « Cotes » (dessin
+    // interactif décoché), puis on recoche.
+    if (e === 'ameok') {
+      await cliquerTexte(page, `.st-key-${p}appui button`, 'Âme');
+      await page.evaluate(k => { const c = document.querySelector(`.st-key-${k} input[type="checkbox"]`); if (c && c.checked) c.click(); }, `${p}ui_composant`);
+      await settle(page, 2500);
+      for (const [cle, val] of [[`${p}cote_bp_u`, '190'], [`${p}cote_p3_u`, '110']]) {
+        const inp = page.locator(`.st-key-${cle} input`).first();
+        await inp.scrollIntoViewIfNeeded(); await inp.fill(val); await inp.press('Enter');
+        await settle(page, 2500);
+      }
+      await page.evaluate(k => { const c = document.querySelector(`.st-key-${k} input[type="checkbox"]`); if (c && !c.checked) c.click(); }, `${p}ui_composant`);
+      await settle(page, 2500);
+    }
+    // « tying » : NEd de traction en force de chaînage — la ligne EFFORTS ELU
+    // passe à 4 cases (VEd · NEd · MEd · Nature de NEd) et γMu paraît aux avancés
+    if (e === 'tying') {
+      const inp = page.locator(`.st-key-${p}N_Ed input`).first();
+      await inp.scrollIntoViewIfNeeded(); await inp.fill('250'); await inp.press('Enter');
+      await settle(page, 2500);
+      await choisir(page, `${p}nat_N`, 'Tying');
+    }
+  }
+  // un état qui a défilé laisse la page au milieu : on REMONTE avant de mesurer.
+  // Streamlit défile dans SON conteneur, pas dans la fenêtre : les deux.
+  if (ETAT.length) {
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      for (const e of document.querySelectorAll('*')) { if (e.scrollTop) e.scrollTop = 0; }
+    });
+    await settle(page, 800);
   }
 }
 async function jsClick(page, key) {
@@ -100,7 +146,12 @@ function verdict(nom, ok, info) {
         const m = await page.evaluate((p) => {
           const rect = e => { const r = e.getBoundingClientRect(); return { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), b: Math.round(r.bottom) }; };
           const vis = e => e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
-          const rows = rs => { const bs = [...new Set(rs.map(r => r.b))].sort((a, b) => a - b); let n = 0, last = -99; for (const b of bs) { if (b - last > 12) { n++; last = b; } } return n; };
+          // rangées : les ordonnées de BAS groupées à 12 px près. `last = -99` rendait
+          // « 0 rangée » pour une ligne passée AU-DESSUS du viewport après défilement
+          // (ordonnées négatives : -200 - (-99) = -101, jamais > 12) — faux rouge
+          // diagnostiqué deux fois. La PREMIÈRE ordonnée ouvre toujours une rangée,
+          // quel que soit son signe.
+          const rows = rs => { const bs = [...new Set(rs.map(r => r.b))].sort((a, b) => a - b); let n = 0, last = null; for (const b of bs) { if (last === null || b - last > 12) { n++; last = b; } } return n; };
           const out = { innerWidth: window.innerWidth, scrollW: document.documentElement.scrollWidth, lignes: [] };
           const CELL = '[data-testid="stSelectbox"], [data-testid="stNumberInput"], [data-testid="stTextInput"]';
           for (const el of document.querySelectorAll(`[class*="st-key-${p}lg_"]`)) {
@@ -161,10 +212,29 @@ function verdict(nom, ok, info) {
           const dessin = document.querySelector(`.st-key-${p}col_dessin iframe, .st-key-${p}col_dessin svg`);
           const y0 = h2 ? rect(h2).y : 0;
           out.premierEcran = { bandeau: bandeau ? rect(bandeau).b - y0 : null, dessin: dessin ? rect(dessin).y - y0 : null };
-          out.debordants = [...document.querySelectorAll('[data-testid="stMainBlockContainer"] *')].filter(e => vis(e) && e.getBoundingClientRect().right > window.innerWidth + 1).length;
+          // débordement : ce qui SORT de l'écran. Un élément logé dans une boîte qui
+          // DÉFILE horizontalement (tableau_html(defilant=), point 9 de la consolidation
+          // du 01/11/2026 : « les tables serrées défilent au lieu de déborder ») n'en
+          // sort pas — on le compte à part, il se lit en balayant. Sans cette distinction
+          // la table « Poteau porteur » des cornières en tying rougissait à tort à 390 px.
+          const scroller = e => {
+            for (let p = e.parentElement; p; p = p.parentElement) {
+              const ox = getComputedStyle(p).overflowX;
+              if ((ox === 'auto' || ox === 'scroll') && p.scrollWidth > p.clientWidth + 1) return p;
+            }
+            return null;
+          };
+          const sortis = [...document.querySelectorAll('[data-testid="stMainBlockContainer"] *')]
+            .filter(e => vis(e) && e.getBoundingClientRect().right > window.innerWidth + 1);
+          out.debordants = sortis.filter(e => !scroller(e)).length;
+          out.defilantes = [...new Set(sortis.filter(e => scroller(e)).map(e => {
+            const p = scroller(e);
+            return `${Math.round(p.scrollWidth)}/${Math.round(p.clientWidth)} px`;
+          }))];
           return out;
         }, p);
         verdict('aucun débordement horizontal (scrollWidth == innerWidth)', m.scrollW === m.innerWidth && m.debordants === 0, `${m.scrollW} / ${m.innerWidth}, ${m.debordants} débordant(s)`);
+        if (m.defilantes && m.defilantes.length) console.log('   boîtes qui DÉFILENT (contenu plus large que la boîte, lisible en balayant) :', m.defilantes.join(' · '));
         const petites = m.lignes.filter(l => l.largeurs.some(x => x < 120));
         verdict('cases de nombre ≥ 120 px', petites.length === 0, petites.map(l => l.key + ':' + l.largeurs).join(' '));
         const attendu = w >= 1181 ? 4 : 2;

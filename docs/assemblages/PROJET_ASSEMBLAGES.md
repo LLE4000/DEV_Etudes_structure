@@ -46,7 +46,8 @@ A2  Plat d'âme soudé    ● non vérifié · η = 104 %
 | Modèle du projet (liste, repères, dupliquer, ordre, fichier) — sans Streamlit | `acier/projet.py` |
 | Projet dans la session : ouvrir, fermer, synchroniser, barre partagée, infos projet | `acier/projet_ui.py` |
 | Page Projet (liste, catalogue, menu ⋯, 💾 📂) | `modules/assemblages.py` |
-| Barre d'outils des quatre écrans (◀ Projet, 💾, sélecteur / 📂 seul) | `acier/assemblages/poutre_poutre/*/interface.py`, `acier/assemblages/pied_poteau/platine_beton/interface.py` (préfixe `ppb_`, lot B du pied) |
+| Barre d'outils des **sept** écrans (◀ Projet, 💾, sélecteur / 📂 seul) | `acier/assemblages/poutre_poutre/*/interface.py`, `acier/assemblages/poutre_poteau/*/interface.py` (préfixes `fpc_`, `dcc_`, `pac_` — famille livrée le 02/11/2026), `acier/assemblages/pied_poteau/platine_beton/interface.py` (préfixe `ppb_`, lot B du pied) |
+| Registre des familles et des types (catalogue, vignettes, noms courts) | `acier/registre.py` — **3 familles, 7 types, tous « disponible »** |
 | Appel de synchronisation au début de chaque run | `streamlit_app.py` |
 | Tests | `tests/test_projet_assemblages.py` |
 
@@ -133,9 +134,15 @@ génération (empreinte du fichier projet) : pas de rapport périmé.
 
 - **Récapitulatif** : une page portrait après la garde (même bandeau), un
   tableau — n°, repère, type, profilés · efforts, η max, vérification
-  dimensionnante, pastille d'état — 30 lignes par page, puis suite. Il est
-  en tête du sommaire (ligne non numérotée) et a son signet ; les numéros de
-  page des notes en tiennent compte.
+  dimensionnante, pastille d'état. Il est en tête du sommaire (ligne non
+  numérotée) et a son signet ; les numéros de page des notes en tiennent
+  compte. *Depuis le 02/11/2026, chaque assemblage tient sur **deux lignes**
+  (20 par page) : le type, le taux et la pastille sur la première, les
+  profilés, les efforts et la dimensionnante sur la seconde, en retrait.
+  Six colonnes de texte et une pastille ne tenaient pas sur une A4 portrait —
+  le type, les profilés ET la dimensionnante sortaient tous les trois coupés
+  d'un « … », et un récapitulatif qui perd l'effort repris ne récapitule
+  rien.*
 - **🧬 Variante** (menu ⋯) : « créer à partir de » — copie « X (variante) »
   ouverte aussitôt, pour comparer deux solutions dans le même projet.
 - **🔒 Verrou** (menu ⋯, et bouton 🔓 dans l'écran) : l'entrée ne se modifie
@@ -146,7 +153,37 @@ génération (empreinte du fichier projet) : pas de rapport périmé.
   l'écran depuis l'entrée à chaque run — une saisie forcée rebondit. Une
   copie naît déverrouillée ; le verrou est dans le fichier projet.
 
-## 7 · Compatibilité
+## 7 · Les SEPT types du catalogue (02/11/2026)
+
+Le registre porte trois familles et sept assemblages, tous **disponibles** ;
+la page Projet lit le registre et n'est pas modifiée quand on en ajoute un.
+
+| Famille | Type | `id` | préfixe | nom court de la barre |
+|---|---|---|---|---|
+| Poutre – Poutre | Doubles cornières d'âme | `doubles_cornieres` | `asm_` | Doubles cornières |
+| | Plat d'âme soudé (fin plate) | `plat_ame` | `fpl_` | Plat d'âme |
+| | Platine d'about (hauteur partielle) | `platine_about` | `pab_` | Platine d'about |
+| Poutre – Poteau | Plat d'âme soudé sur poteau | `plat_ame_poteau` | `fpc_` | Plat d'âme/poteau |
+| | Doubles cornières d'âme sur poteau | `doubles_cornieres_poteau` | `dcc_` | Cornières/poteau |
+| | Platine d'about sur poteau | `platine_about_poteau` | `pac_` | Platine/poteau |
+| Pied de poteau | Platine de pied de poteau sur béton | `platine_beton` | `ppb_` | Pied de poteau |
+
+**La ligne de liste** (`acier/projet.description`, source unique du sommaire
+du rapport, du récapitulatif et de la liste de la page Projet) dit
+« profilés · efforts ». Les trois types poutre–poteau y ajoutent le **cas
+d'appui** — « IPE 400 sur HEB 300 (sur l'aile) · V = 200 kN » — parce que deux
+entrées qui ne diffèrent que par l'appui donnaient sinon deux lignes
+identiques. La clé reconnue est `appui` avec les valeurs « Aile du poteau » /
+« Âme du poteau » : la clé `appui` du pied de poteau porte un tout autre choix
+(le modèle d'aire efficace) et sa ligne ne change pas.
+
+Un projet **MIXTE** aux sept types est tenu par
+`tests/test_projet_assemblages.py` §10–11 (création, enregistrement,
+relecture par la normalisation de chaque module, catalogue, ouverture des sept
+écrans) et par `tests/test_rapport_projet.py` §5 (16 pages, 8 signets,
+récapitulatif à deux lignes non coupé).
+
+## 8 · Compatibilité
 
 - Un écran ouvert sans entrée (tests existants, `asm_courant` posé
   directement) garde le comportement d'avant : 💾 et 📂 de l'assemblage seul,

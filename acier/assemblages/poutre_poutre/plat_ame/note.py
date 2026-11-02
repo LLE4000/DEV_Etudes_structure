@@ -26,7 +26,7 @@ from acier.bibliotheques import PERSO
 from . import schemas, synthese, formules
 from .entrees import VISSERIE_DEFAUT
 from acier.assemblages.note_kit import empaqueter, coefficients, MSB
-from .notation import ligne_alerte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
+from .notation import ligne_alerte, ref_courte, LEGENDE_REFERENCES, NOTATIONS as NOTATIONS_COURTES
 from ..doubles_cornieres.rapport import peindre
 from ..doubles_cornieres.note import PlanPrincipe, TEXTE_MM
 
@@ -138,12 +138,16 @@ class Note:
     LEGENDE = LEGENDE_REFERENCES
     NOTATIONS = NOTATIONS_COURTES
     # la référence courte d'une vérification (bandeau, formules) : un autre
-    # assemblage, avec d'autres normes, passe la sienne
-    REF = None
+    # assemblage, avec d'autres normes, passe la SIENNE. C'est une FONCTION
+    # portée par la classe : elle s'enveloppe dans ``staticmethod``, sinon
+    # Python en fait une méthode et lui passe ``self`` en premier argument
+    # (défaut signalé par le gabarit de la famille poutre–poteau, qui, lui,
+    # l'enveloppait déjà). ``None`` et le repli ``or`` ont disparu : chaque
+    # sous-classe NOMME la sienne.
+    REF = staticmethod(ref_courte)
 
     def ref(self, r):
-        from .notation import ref_courte
-        return (self.REF or ref_courte)(r)
+        return self.REF(r)
 
     def entete(self, R):
         return lignes_entete(R)
