@@ -1,0 +1,683 @@
+# Charges sur plancher en phase chantier — étude de conception
+
+*Étude du 02/11/2026, avant toute ligne de code. Elle répond aux questions
+posées pour un module unique « Charges sur plancher » : organisation de
+l'écran, modèle de calcul sans maillage, données indispensables,
+vérifications réellement possibles par type de plancher, fonctions utiles
+sans « usine à gaz », critique du « ÷ 1,5 » sur les catalogues de hourdis.
+Elle se termine par la solution recommandée, les lots de réalisation et les
+points à trancher par le bureau (P-1 à P-12).*
+
+**Convention de citation.** Les articles cités sont ceux dont je suis sûr.
+Là où je ne le suis pas, je cite le texte par son titre et la relecture sur
+le document imprimé fait partie du lot 1. Aucun coefficient de norme n'est
+reconstitué de mémoire : les valeurs à transcrire (figure C.1 de l'EN 1168,
+largeurs efficaces du Heft 240) sont marquées **[à transcrire]**. Les
+nombres d'exemple sont calculés avec les formules **de l'application**
+(`modules/poutre.py`, `beton_classes.json`), ils illustrent et ne valident
+rien.
+
+---
+
+## 0 · La décision en une page
+
+**Faisable, sans maillage, avec une note justifiable — à condition de
+nommer honnêtement ce qu'on vérifie.**
+
+1. **Une seule entrée de menu, un plancher, des charges posées sur un plan,
+   des répartiteurs sous les charges.** L'écran a trois objets, dans
+   l'ordre où le chantier les pense : le PLANCHER (type, portée, état
+   d'avancement), les CHARGES (bibliothèque d'engins, position, coefficient
+   dynamique), les RÉPARTITEURS (plateaux, filières, dimensionnés
+   automatiquement). Le plan est au centre, les trois lignes de cases de la
+   charte des assemblages à côté, les résultats colorient le plan.
+2. **Deux régimes de répartition, un seul moteur.** Un plateau posé
+   **directement** sur un plancher rigide ne répartit pas « par rigidité »
+   mais par **résistance** : c'est la bande efficace *c* d'EN 1993-1-8
+   §6.2.5 que l'application utilise déjà pour les pieds de poteaux. Un
+   répartiteur qui **porte d'un élément à l'autre** (filière sur plusieurs
+   hourdis, plateau à cheval sur un joint) répartit **par rigidité
+   relative** : poutre sur appuis élastiques, chaque hourdis ou bande de
+   dalle étant un ressort de raideur connue. Un système linéaire de
+   quelques dizaines d'inconnues, pas un maillage.
+3. **Le plancher calcule ses efforts par des formules fermées.** Appui sur
+   deux côtés : lignes d'influence d'une poutre et largeur efficace (Heft
+   240 pour les dalles, annexe C de l'EN 1168 pour les hourdis clavetés,
+   rien pour les hourdis non clavetés). Appui sur quatre côtés, plus tard :
+   série de Navier de la plaque simplement appuyée, qui remplace les
+   ressorts par une matrice de souplesse **sans rien changer** au reste.
+4. **Le « ÷ 1,5 » n'est pas une méthode ELS, c'est une vérification ELU
+   écrite en charges de service.** Elle est acceptable, et même pratique,
+   **si** la valeur de catalogue est une résistance de calcul *R*d ; elle
+   est fausse si c'est une charge utile admissible (déjà en service), et
+   elle ne dit rien de la fissuration d'un élément précontraint. La
+   bibliothèque porte donc la **nature** de chaque valeur, et la note
+   affiche le taux avec son nom exact.
+5. **Les anciennes formules BA gardent leur place** pour les dalles coulées
+   et les prédalles après durcissement de la chape : *M*adm = min(αb·μ·b·d² ;
+   As·fyd·0,9·d) et *V*adm = τadm,I·0,75·b·h, c'est-à-dire les formules de
+   `dalle.py` **inversées**. Ce que l'ancienne méthode n'a pas — le
+   poinçonnement, la pression localisée, la membrure supérieure d'un
+   hourdis — est pris dans l'EN 1992-1-1 ou chez le fabricant, et la note
+   le dit.
+6. **Périmètre V1 net** : trois planchers (hourdis précontraints, dalle BA
+   unidirectionnelle, prédalle après chape) sur deux appuis ; charges
+   ponctuelles avec surface de contact, linéaires, surfaciques, groupes
+   (roues, stabilisateurs, chenilles) ; plateaux et filières à 0° ou 90° ;
+   bibliothèque JSON du bureau + ajouts dans le fichier ; balayage de la
+   position le long de la portée ; note PDF deux pages au format des
+   assemblages. Quatre côtés, continuité, porte-à-faux, étais reportés sur
+   l'étage inférieur : V2, architecture prête.
+
+---
+
+## 1 · Ce que l'application a déjà, et ce que le module réutilise
+
+| Existant | Réemploi dans « Charges sur plancher » |
+|---|---|
+| `modules/dalle.py`, `modules/predalle.py` : hᵤ,min = √(M/(αb·b·μ)), As = M/(fyd·0,9·d), τ = V/(0,75·b·h) ≤ τadm,I, seuils de `beton_classes.json` | Les mêmes formules, **inversées** pour donner la résistance d'une bande dont l'armature est connue (§ 2.1). Une seule source : les fonctions de calcul sont importées, pas recopiées. |
+| `modules/treillis.py` : nomenclature des treillis, As en mm²/m | Saisie de l'armature en place d'une dalle ou d'une prédalle. |
+| `modules/age_beton.py` : fck(t) par maturité (EN 1992-1-1 §3.1.2, annexe B) | Résistance d'une chape ou d'un clavetage jeune : la classe retenue est celle dont fck est **inférieure ou égale** à fck(t) (arrondi vers le bas, § 3.2). |
+| `acier/assemblages/pied_poteau/…` : bande efficace *c* = t·√(fy/(3·fjd·γM0)) d'EN 1993-1-8 §6.2.5 | Diffusion sous un plateau posé directement sur le plancher (§ 5.1). Même fonction, importée. |
+| `modules/tableau_profiles.py`, `acier/resistances.py` : catalogue IPE/HEA/HEB/UPN, W, I | Filières de profilés : inertie pour le modèle, module de flexion pour la vérification du profilé. |
+| `acier/assemblages/carte.py`, `ui_commun.py`, `note_kit.py` : charte des cartes, kit CSS, note deux pages, hypothèses ≤ 3 lignes | Toute la présentation : « même présentation » que les assemblages, y compris la note. |
+| `acier/composants/svg_cliquable` : dessin SVG dont on sait quel élément a été cliqué | Sélection d'un objet sur le plan et **placement par clic** sur une grille invisible (§ 7.3). |
+| `modules/dalle.py` : liste de cas (ajout, copie, suppression, verrou), fichier JSON propre au module | Même mécanique : plusieurs **cas** (un plancher + ses charges) dans une session, fichier JSON du module. |
+
+Rien de ce qui précède n'est à réécrire. Le module est un **assemblage de
+briques existantes** plus trois choses neuves : le modèle de répartition
+(§ 5), la diffusion dans le plancher (§ 4) et le plan (§ 7).
+
+---
+
+## 2 · Le point dur : « ELS », résistances de catalogue et le « ÷ 1,5 »
+
+### 2.1 Ce que l'application appelle ELS
+
+La méthode de `poutre.py` et `dalle.py` est l'ancienne méthode belge aux
+**charges de service** et **contraintes admissibles** : pas de coefficient
+sur les charges, des seuils déjà minorés côté matériau (αb et μ par classe
+de béton, fyd = fyk/γs avec le « coefficient acier ELS » = 1,15, τadm,I =
+0,016·fck,cube/1,05). Elle **dimensionne** une section : on lui donne M et
+V, elle rend hᵤ,min, As,req et un verdict sur τ.
+
+Pour une **vérification** d'un plancher existant sous une charge de
+chantier, on a besoin de l'inverse : la **résistance** d'une bande dont
+l'armature est connue. Les mêmes formules la donnent sans rien inventer :
+
+- *M*adm,béton = αb·μ·b·d² (c'est hᵤ,min résolue en M) ;
+- *M*adm,acier = As·fyd·0,9·d (c'est As,req résolue en M) ;
+- *M*adm = min des deux ; *V*adm = τadm,I·0,75·b·h.
+
+Exemple, formules de l'application : bande de 1 m, h = 20 cm, d = 17 cm,
+C30/37 (αb = 12,96 ; μ = 0,1709), As = 524 mm²/m (Ø10/150), fyd = 500/1,15.
+
+| Grandeur | Formule | Valeur |
+|---|---|---|
+| *M*adm,béton | 12,96·0,1709·1000·170² | 64,0 kN·m/m |
+| *M*adm,acier | 524·434,8·0,9·170 | 34,9 kN·m/m |
+| τadm,I | 0,016·37/1,05 | 0,564 N/mm² |
+| *V*adm | 0,564·0,75·1000·200 | 84,6 kN/m |
+
+C'est la méthode que le bureau connaît, elle reste la règle pour les dalles
+coulées et les prédalles après chape (**P-10** : le bureau confirme que
+« garder la méthode ELS » signifie bien cette inversion).
+
+### 2.2 Ce qu'un catalogue de hourdis publie
+
+Un hourdis précontraint n'a pas d'armature « à inverser » : sa résistance
+vient du fabricant. Les catalogues belges publient, selon le document :
+
+- des **résistances de calcul** *M*Rd et *V*Rd (par mètre de largeur ou par
+  élément), qui contiennent déjà γc, γs et le coefficient sur la
+  précontrainte ;
+- des **tableaux de portées maximales par charge utile** (kN/m² selon la
+  hauteur, avec ou sans dalle de compression) — ce sont des charges **de
+  service**, calculées par le fabricant avec ses propres combinaisons, et
+  souvent bornées par une **flèche** (le PTV 201 Probeton-Benor limite f/L,
+  d'après le résumé d'un catalogue PRECO consulté le 02/11/2026 ; le
+  document lui-même n'a pas pu être ouvert depuis cette session) ;
+- parfois un **moment de fissuration** ou de décompression, une charge
+  ponctuelle admissible sur la membrure supérieure, les propriétés de
+  section (aire, inertie).
+
+Le catalogue ERGON n'était pas accessible depuis cette session : **la
+nature de chaque valeur se relit dans le document du fabricant au moment
+de remplir la bibliothèque, pas de mémoire** (**P-1**).
+
+### 2.3 Critique du « ÷ 1,5 »
+
+Diviser *M*Rd par 1,5 et comparer à *M*G + *M*Q revient exactement à
+vérifier 1,5·(*M*G + *M*Q) ≤ *M*Rd, soit l'ELU avec γF = 1,5 **uniforme**
+au lieu de 1,35 sur le poids propre. C'est **conservatif** sur la part
+permanente (rapport 1,5/1,35 = 1,11 sur cette part seule), et c'est
+**parfaitement défendable** en phase chantier, où la part variable domine
+et où l'EN 1990 autorise les mêmes coefficients pour les situations
+transitoires. Mais il faut le **nommer** : ce n'est pas un ELS, c'est un
+ELU écrit en charges de service. La note dira « taux ELU = 1,5·(M_G +
+M_Q)/M_Rd », pas « ELS ».
+
+Quatre cas où le « ÷ 1,5 » est **faux ou insuffisant** :
+
+1. **La valeur est déjà une charge de service.** Diviser une charge utile
+   admissible par 1,5 cumule deux sécurités : on refuse des opérations
+   légitimes, et l'ingénieur méthodes finit par contourner l'outil. La
+   bibliothèque porte un champ *nature* ∈ {Rd, service admissible,
+   caractéristique} et la conversion ne s'applique qu'à *Rd*.
+2. **La fissuration d'un élément précontraint.** *M*Rd/1,5 n'est pas un
+   moment de fissuration : la fissuration se juge sur la contrainte de
+   traction en fibre inférieure, c'est-à-dire sur *M*cr (ou le moment de
+   décompression) du fabricant. Si le plafond reste apparent ou si le
+   hourdis n'est pas encore chapé, une fissure sous un stabilisateur est
+   un défaut ; le module affiche une ligne « fissuration » **seulement si
+   M_cr est renseigné** (**P-11**), et ne prétend pas la couvrir sinon.
+3. **L'effort tranchant.** *V*Rd d'un hourdis est une résistance de section
+   (traction d'âme, EN 1168 §4.3.3.2.2 par renvoi à l'EN 1992-1-1), fragile,
+   sans armature. Un stabilisateur de grue est souvent **près d'un appui**,
+   là où le tranchant gouverne et où la répartition transversale est la
+   plus faible. Le « ÷ 1,5 » y est correct comme coefficient, mais la
+   répartition entre hourdis ne l'est pas (§ 4.2) : la V1 affecte **100 %
+   du tranchant à l'élément chargé** (**P-3**).
+4. **Les effets locaux.** Ni *M*Rd ni *V*Rd ne disent ce qu'une roue à
+   0,8 N/mm² fait à une membrure supérieure de quelques centimètres. Ce
+   contrôle n'a **pas** de formule publique fiable : soit le fabricant
+   donne une charge locale admissible, soit le répartiteur est
+   **obligatoire** et le module l'exige (**P-5**).
+
+### 2.4 Ce que la note affichera
+
+Un seul vocabulaire pour les trois planchers : un **taux en %** par
+vérification, et dans la ligne d'hypothèses le nom exact de la méthode :
+
+- dalle BA et prédalle : « méthode aux contraintes admissibles de
+  l'application (αb, μ, τadm) sur charges de service » ;
+- hourdis : « résistances de calcul du fabricant, γF = 1,5 sur G + Q » ;
+- effets locaux : « EN 1992-1-1 §6.4 / §6.7, γF = 1,5 sur la charge » —
+  l'ancienne méthode n'a pas de poinçonnement, le module en introduit un
+  et le dit (**P-9**).
+
+---
+
+## 3 · Les planchers : données indispensables, vérifications possibles
+
+### 3.1 Hourdis précontraints (alvéolés)
+
+**État du plancher, la donnée qui change tout.** Un plancher de hourdis
+passe par trois états et la répartition transversale n'existe que dans le
+dernier :
+
+| État | Répartition entre éléments | Portée |
+|---|---|---|
+| posés, joints **non** clavetés | aucune : chaque élément porte seul ; une roue à cheval sur un joint se partage par la règle du levier | L entre appuis |
+| joints clavetés et durcis (fck(t) du mortier de clavetage ≥ seuil fabricant) | annexe C de l'EN 1168 (figure C.1, **[à transcrire]**), pour la **flexion** ; tranchant : 100 % à l'élément chargé (**P-3**) | L |
+| dalle de compression collaborante durcie | annexe C au minimum ; la chape peut mieux faire, mais sans règle publique : on reste à l'annexe C en V1 | L |
+
+**Données indispensables** (par type, dans la bibliothèque) : hauteur,
+largeur d'élément (1,20 m usuel, éléments découpés en rive), poids propre
+g, inertie I de la section (donnée fabricant ; à défaut estimation sur la
+géométrie, signalée), *M*Rd et *V*Rd **avec leur nature** (**P-1**), classe
+de béton. Facultatives : *M*cr, charge locale admissible sur la membrure,
+épaisseur de membrure et entraxe d'alvéoles (pour dessiner où poser un
+plateau). Par cas : portée, nombre d'éléments, appuis, état, âge du
+clavetage ou de la chape, charges réparties déjà présentes (stocks,
+personnel), épaisseur de chape si coulée.
+
+**Vérifications possibles** : flexion de l'élément chargé (part annexe C ou
+100 %) ; tranchant à l'appui de l'élément chargé ; charge locale sur la
+membrure (si donnée fabricant) sinon exigence de répartiteur ;
+fissuration (si *M*cr). **Impossible sans donnée fabricant** : le joint
+longitudinal (l'EN 1168 fixe une contrainte de cisaillement admissible
+dans le joint, **[à transcrire]**, V1.1), la torsion d'un élément de rive
+chargé excentré, les éléments découpés ou à réservations.
+
+### 3.2 Dalle en béton armé coulée en place, unidirectionnelle
+
+**Données** : h, enrobage d'axe, classe de béton **ou** âge (fck(t) de
+`age_beton`, classe arrondie vers le bas), As inférieur dans le sens
+porteur (treillis + renforts, `treillis.py`), armature transversale
+≥ 20 % de la principale (case cochée par défaut ; EN 1992-1-1 §9.3.1.1(2)) —
+sans elle, pas de largeur efficace au-delà de t_y (§ 4.1) ; portée et
+appuis. As supérieur sur appuis : V2 (continuité).
+
+**Vérifications** : *M*adm et *V*adm par bande (§ 2.1) sur la largeur
+efficace ; pression localisée sous un plateau (EN 1992-1-1 §6.7) ;
+poinçonnement sous une roue ou un plateau (EN 1992-1-1 §6.4, γF = 1,5).
+
+### 3.3 Prédalles
+
+**Avant la chape** : la prédalle et ses raidisseurs ne portent que le béton
+frais et les charges de bétonnage de l'EN 1991-1-6 ; un engin n'y a rien à
+faire. Le module **refuse** l'état « chape non coulée » pour toute charge
+autre que surfacique de bétonnage, avec le message qui renvoie aux tables
+d'étaiement du fabricant (**P-7**). Pas de calcul.
+
+**Après durcissement de la chape** : dalle unidirectionnelle monolithique
+(§ 3.2) avec deux particularités : la largeur efficace est **plafonnée à
+la largeur de la prédalle** sauf si le treillis de chape et les barres de
+couture traversent les joints (case « joints armés », cochée par défaut
+quand la chape est coulée) ; les **étais encore en place** réduisent la
+portée à leur entraxe, mais reportent la charge sur l'étage inférieur, ce
+que le module ne modélise pas et **signale** (**P-8**).
+
+### 3.4 Appui sur quatre côtés (V2)
+
+Dalle BA bidirectionnelle simplement appuyée : série de Navier de la
+plaque rectangulaire (formules fermées, charges en rectangle), qui donne
+flèche, Mx et My en tout point sans maillage. Elle fournit à la fois la
+**souplesse** sous un répartiteur (§ 5.2) et les **efforts** à comparer à
+*M*adm par direction (As,x et As,y). L'interface `Plancher` de § 8 est
+écrite pour qu'un quatrième type s'ajoute sans toucher aux répartiteurs ni
+aux vérifications.
+
+---
+
+## 4 · La diffusion dans le plancher, sans maillage
+
+### 4.1 Dalles unidirectionnelles : largeur efficace (DAfStb Heft 240)
+
+Une charge concentrée sur une dalle portant dans un sens se répartit sur
+une largeur qui croît avec la distance à l'appui. Le Heft 240 donne :
+
+- la largeur de **contact diffusée** t_y = b₀ + 2·h₁ + h (largeur de la
+  charge, diffusion à 45° dans le revêtement h₁ et jusqu'au plan moyen de
+  la dalle), bornée par t_y ≤ 0,8·l ;
+- pour le **tranchant**, b_v = t_y + 0,5·a ≤ b (a = distance de la charge à
+  l'appui ; 0,3·a en porte-à-faux) ;
+- pour la **flexion**, une largeur de la forme t_y + k·x·(1 − x/l) selon les
+  conditions d'appui, **[à transcrire]** du texte avant implémentation ;
+  la forme est connue, le coefficient ne se recopie pas de mémoire.
+
+Charges multiples : l'effort par mètre en un point est la **somme des
+créneaux** M_j/b_eff,j centrés sur chaque charge ; le maximum sur la
+largeur donne la bande gouvernante. Près d'une rive libre : demi-largeur.
+C'est de l'arithmétique sur des intervalles, pas un maillage.
+
+### 4.2 Hourdis : annexe C de l'EN 1168 et règle du levier
+
+Joints clavetés : la figure C.1 donne la **part de la charge** reprise par
+l'élément chargé et ses voisins, pour une charge ponctuelle ou linéaire,
+au centre ou en rive, en fonction de la portée **[à transcrire]**. Elle
+s'applique à la flexion ; pour le tranchant près de l'appui, V1 garde
+100 % sur l'élément chargé (**P-3**) — c'est conservatif et c'est là que
+se posent les stabilisateurs.
+
+Joints non clavetés : aucune répartition. Une empreinte à cheval sur un
+joint se partage entre les deux éléments par la **règle du levier** (au
+prorata de la position), ce qui est exact pour deux appuis indépendants.
+
+Annexe C et filière ne se cumulent pas : si une filière distribue la
+charge sur plusieurs éléments (§ 5.2), chaque élément reçoit sa réaction
+**sans** nouvelle répartition — conservatif pour l'élément le plus chargé.
+
+### 4.3 Efforts dans un élément ou une bande
+
+Poutre sur deux appuis, formules fermées : pour une charge P à l'abscisse
+a, M(x) et V(x) par lignes d'influence, plus les charges réparties
+présentes (poids propre, chape, stocks). Le maximum est cherché aux
+abscisses des charges et aux appuis, ce qui suffit pour des charges
+concentrées et réparties uniformes. Le **balayage** (§ 7.5) déplace le
+groupe de charges le long de la portée et garde l'enveloppe.
+
+---
+
+## 5 · Les répartiteurs : deux régimes, un moteur
+
+![Modèle de calcul : filière sur ressorts, bande efficace c, diffusion](images/modele_calcul.png)
+
+### 5.1 Plateau posé directement sur le plancher : régime de résistance
+
+Un plateau d'OSB ou d'acier posé sur une dalle est des centaines de fois
+plus souple qu'elle en flexion. Il ne « répartit » donc pas par rigidité :
+la pression ne s'étale que jusqu'où le plateau **résiste** en console
+autour de l'empreinte. C'est exactement le modèle d'EN 1993-1-8 §6.2.5
+pour une platine sur béton : bande efficace *c* = t·√(f/(3·p)), où p est la
+pression sous l'aire efficace et f la contrainte de flexion admise du
+plateau (fy/γM0 pour l'acier, valeur de fiche pour l'OSB ou le bois,
+**saisie dans la bibliothèque avec sa source**). L'aire efficace vaut
+(a + 2c)·(b + 2c) ; comme p en dépend, deux ou trois itérations suffisent.
+
+Ce modèle **dit la vérité qui fâche** : pour un plateau de 18 mm, avec par
+exemple f = 10 N/mm² et p = 1 N/mm², c = 18·√(10/3) = 33 mm. Un OSB sous
+une roue protège la surface et ne répartit presque rien. Une tôle de
+20 mm en S235 sous un stabilisateur gagne une bande de plusieurs
+centimètres, pas la tôle entière. Le module affiche l'aire efficace sur
+le plan, et c'est l'argument que l'ingénieur méthodes attend.
+
+Le dimensionnement est direct : l'aire efficace nécessaire vient de la
+pression localisée admise par le plancher (EN 1992-1-1 §6.7, ou donnée
+fabricant pour un hourdis) et du poinçonnement ; l'épaisseur nécessaire
+vient de c ≥ (B − b)/2 pour que le plateau choisi soit **entièrement**
+efficace. Un plateau de fournisseur déclaré rigide (plaques de grue
+composites) se saisit avec la nature « rigide déclaré » et sa pression
+admissible, sans calcul de c.
+
+Pour la flexion globale du plancher, l'aire efficace ne change presque
+rien (seule la résultante compte) ; pour le poinçonnement, la membrure
+d'un hourdis et le joint, elle change tout. Le modèle est donc là où il
+sert.
+
+### 5.2 Filière ou plateau à cheval : régime de rigidité
+
+Une filière de profilés (ou une tôle épaisse) posée **en travers** de
+plusieurs hourdis, ou sur plusieurs bandes d'une dalle, porte d'un
+élément à l'autre. Là, la rigidité relative décide : une HEB rigide
+partage presque également, une UPN souple concentre sous la charge.
+
+Modèle : **poutre sur appuis élastiques**.
+
+- Les appuis sont les éléments croisés par la filière : hourdis de largeur
+  b_u, ou bandes de 1,00 m d'une dalle. Chacun est un ressort de raideur
+  k_i = 3·E·I·L/(a²·(L − a)²) — la flèche d'une poutre sur deux appuis sous
+  une charge à l'abscisse a — avec E·I de l'élément (inertie fabricant ou
+  b·h³/12 de la bande) ; k dépend donc de l'endroit de la portée où la
+  filière est posée.
+- La filière est une poutre d'inertie EI_f, chargée par les charges P_j aux
+  abscisses de la machine, **libre à ses extrémités** et tenue seulement
+  par les ressorts. Méthode des déplacements : deux degrés de liberté par
+  nœud (flèche, rotation), matrices élémentaires 4×4 d'une poutre
+  d'Euler, raideurs des ressorts sur la diagonale, résolution par
+  `numpy.linalg.solve` (numpy est déjà une dépendance de l'application).
+  Vingt appuis font un système de quarante équations : instantané.
+- Sorties : réactions R_i (ce que chaque élément reçoit, **somme exacte**),
+  moment et tranchant dans la filière (vérification du profilé avec W du
+  catalogue : 1,5·M ≤ W·fy/γM0, même vocabulaire de taux), pression de
+  la semelle sur l'élément (R_i / (largeur de semelle · largeur de
+  contact)), qui alimente le contrôle local.
+
+Un plateau à cheval sur un joint se traite par le **même** moteur : la
+bande de plateau qui travaille en poutre d'un élément à l'autre a la
+largeur de contact + 2c (§ 5.1), et EI = E·b_strip·t³/12.
+
+Validité et limites, écrites dans l'onglet Méthode : les éléments sont
+supposés **indépendants** (exact pour des hourdis non clavetés,
+conservatif pour l'élément le plus chargé sinon) ; filière à 0° ou 90°
+seulement, une diagonale est refusée avec un message ; deux filières
+sous les deux chenilles ou les deux files de roues sont deux problèmes
+indépendants.
+
+Dimensionnement automatique : pour une longueur donnée (n éléments
+couverts), le module parcourt la bibliothèque de filières par masse
+croissante et retient la première dont tous les taux sont ≤ 100 % ; il
+essaie ensuite n + 1 éléments. Le tableau des trois premières candidates
+reste visible, comme le « prédimensionnement » des assemblages.
+
+### 5.3 Pourquoi pas un maillage
+
+Un plancher de chantier est une poutre ou une plaque simplement appuyée
+sous quelques charges : tout ce qu'un maillage apporterait (répartition
+2D fine, continuité, singularités sous charge ponctuelle) est soit
+couvert par des formules fermées reconnues, soit **non souhaité** dans une
+note qu'un ingénieur doit relire en dix minutes. Le jour où la plaque sur
+quatre côtés arrive, la série de Navier (fermée, convergente pour des
+charges en rectangle) fournit la matrice de souplesse F_ij = w(x_i | P
+en x_j) qui remplace les ressorts diagonaux par une matrice pleine de
+même taille. Le solveur de § 5.2 ne change pas d'une ligne.
+
+---
+
+## 6 · Les charges : bibliothèque, coefficients, combinaison
+
+### 6.1 Natures de charge
+
+| Nature | Saisie | Exemple |
+|---|---|---|
+| ponctuelle | P, empreinte a × b, position, angle | roue, stabilisateur, pied d'étai |
+| linéaire | p (kN/m), longueur, largeur de contact | file d'étais de l'étage supérieur, chenille |
+| surfacique | q (kN/m²), rectangle | stock de palettes, benne, personnel |
+| **groupe** | gabarit de la bibliothèque : liste d'empreintes avec (dx, dy, a × b, part ou charge) | télescopique (4 roues, charge par essieu), grue mobile (4 stabilisateurs), nacelle |
+
+Un gabarit d'engin porte sa **géométrie** et ses charges **par appui** ;
+la charge par stabilisateur vient du tableau de levage de la grue et se
+saisit **par opération** (le gabarit mémorise la dernière valeur, pas une
+valeur « constructeur » que personne ne pourra justifier). Les gabarits
+livrés avec l'application sont **génériques et nommés comme tels** ; le
+bureau y ajoute ses machines, fiche technique à l'appui (champ *source*
+obligatoire : nom du document et date).
+
+### 6.2 Coefficient dynamique
+
+Une machine qui roule frappe plus fort qu'une machine arrêtée. Règle
+codifiée la plus proche : EN 1991-1-1 §6.3.2.3, chariots élévateurs,
+Q_k,dyn = φ·Q_k avec φ = 1,40 (pneumatiques) et 2,00 (bandages pleins).
+Défauts de la bibliothèque : φ = 1,40 pour des roues « en mouvement »,
+1,00 pour un stabilisateur ou une charge à l'arrêt ; valeur modifiable et
+affichée dans la ligne d'hypothèses (**P-6**).
+
+### 6.3 Combinaison
+
+Charges de service en entrée : poids propre du plancher (bibliothèque ou
+calculé), chape si coulée, charges réparties déjà présentes (stocks,
+personnel ; l'EN 1991-1-6 §4.11 nomme les charges de chantier Q_ca à
+Q_cf, le module ne les impose pas, il les laisse saisir), puis l'engin
+avec son φ. Le taux se calcule :
+
+- dalle BA et prédalle : (M_G + M_Q)/M_adm, (V_G + V_Q)/V_adm — la méthode
+  de l'application porte sa sécurité côté matériau ;
+- hourdis : 1,5·(M_G + M_Q)/M_Rd, 1,5·(V_G + V_Q)/V_Rd (**P-2** : γF = 1,5
+  uniforme, conservatif sur G, accepté pour la phase chantier) ;
+- effets locaux : 1,5·P/F_Rd (EN 1992-1-1 §6.7), 1,5·V_Ed/(u₁·d) ≤ v_Rd,c
+  (§6.4).
+
+Le même mot « taux » partout, et la ligne d'hypothèses dit lequel.
+
+---
+
+## 7 · L'interface : une entrée, un plan, trois objets
+
+### 7.1 Une entrée de menu
+
+`streamlit_app.py` reçoit une page « Charges sur plancher » qui appelle
+`modules/charges_plancher.show()`, façade mince devant le paquet
+`plancher/charges/` (§ 8), comme `modules/assemblages.py` devant
+`acier/`. Pas de sous-menu : le **type de plancher** est une case de la
+première ligne, pas une page.
+
+### 7.2 Organisation de l'écran (PC et tablette)
+
+```
+┌ barre d'outils : cas 1 ▾ · ＋ · copier · 🔒 · 💾 · 📂 · 📄 PDF ───────────┐
+├──────────────────────────────┬───────────────────────────────────────────┤
+│  PLAN (SVG, 55 %)            │ PLANCHER  [type ▾] [portée] [largeur/n] [état ▾]  │
+│  appuis hachurés (2 côtés)   │           [béton/âge] [armature ou type cat.] […] │
+│  éléments / bandes colorés   │ CHARGES   [engin ▾] [x] [y] [angle]  (+ ligne par │
+│  empreintes, filières,       │           charge : P ou charge/appui, φ)          │
+│  aires efficaces, cotes      │ RÉPARTIT. [sous ▾] [type ▾] [dimension] [⚙ auto]  │
+│  clic : sélectionne / place  │ RÉSULTATS tableau éléments : M · M_adm · V · V_adm · taux │
+│                              │           répartiteurs : M · taux · pression · taux │
+│                              │           effets locaux · statut global           │
+├──────────────────────────────┴───────────────────────────────────────────┤
+│ onglets : Données · Méthode · Note                                      │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+![Maquette d'écran de l'étude — valeurs d'illustration](images/maquette_ecran.png)
+
+Chaque objet tient sur **une ligne de 3 à 4 cases** (charte
+`docs/assemblages/ERGONOMIE.md`) ; une ligne « suite » par charge placée et
+par répartiteur ; l'avancé (γF, φ, largeur efficace plafonnée, options
+annexe C) dans le repli « Paramètres avancés ». Téléphone : plan en
+pleine largeur au-dessus, lignes empilées dessous, même contenu.
+
+### 7.3 Le plan
+
+Dessin SVG à l'échelle : contour du plancher, éléments (hourdis avec
+joints, bandes de dalle en pointillé), appuis hachurés, empreintes des
+charges (rectangles pleins, numérotés), filières et plateaux (contour
+épais, aire efficace en hachure), cotes de portée et de position. Après
+calcul, chaque élément prend la couleur de son taux (vert ≤ 100 %, orange
+≤ 100 % avec avertissement, rouge au-delà) et porte son taux en clair.
+
+Placement **par clic** sans composant nouveau : le plan est recouvert
+d'une grille de cellules invisibles (pas de 10 cm) identifiées
+`c_x_y` ; `svg_cliquable` renvoie l'identifiant cliqué, le module y pose
+l'objet sélectionné (« placer l'engin », « placer le plateau »). Le réglage
+fin se fait dans les cases x, y, angle (0° / 90° par bouton). Le
+glisser-déposer est **écarté** : il exigerait un composant JavaScript
+nouveau pour un gain faible.
+
+### 7.4 Résultats
+
+Tableau des éléments gouvernants (trois lignes repliées par défaut,
+`tableau_33_replie`), tableau des répartiteurs, lignes locales, puis
+**statut global** avec le nom de la vérification gouvernante et de
+l'élément. Les messages de refus (prédalle sans chape, filière en
+diagonale, hourdis sans donnée locale et sans répartiteur) sont des
+statuts rouges avec la phrase qui dit quoi faire.
+
+### 7.5 Balayage de position
+
+Case « balayer le long de la portée » : le groupe de charges est déplacé
+de l'appui gauche à l'appui droit par pas de 10 cm, le taux maximal est
+tracé en bandeau sous le plan (vert / rouge selon x) et la position la
+plus défavorable est retenue pour la note. Coût nul avec des formules
+fermées ; valeur énorme pour un ingénieur méthodes à qui l'on demande
+« où peut rouler le Manitou ».
+
+### 7.6 Note PDF, deux pages, même présentation
+
+Page 1 : en-tête du projet, trois lignes d'hypothèses (plancher et état ·
+charges et φ, γF · diffusion et répartiteurs), plan à l'échelle avec
+empreintes et taux, tableau des éléments, statut. Page 2 : répartiteurs
+(réactions, moment, pression), effets locaux, balayage s'il est activé,
+sources et notations. Kit `note_kit`, signets, intégration future au
+rapport de projet.
+
+---
+
+## 8 · Architecture logicielle
+
+```
+plancher/
+  charges/
+    modele.py         dataclasses : Plancher (3 variantes), Charge, Groupe,
+                      Repartiteur, Position ; interface Plancher :
+                      elements(), raideur(i, a), efforts(charges) → M, V
+                      par élément, resistance() → M_adm, V_adm, locaux
+    diffusion.py      Heft 240 (t_y, b_v, b_m), annexe C EN 1168 (table
+                      transcrite + interpolation), règle du levier,
+                      superposition en créneaux
+    repartiteurs.py   bande efficace c (import pied_poteau), poutre sur
+                      ressorts (numpy), dimensionnement par parcours
+    resistances.py    inversion des formules de dalle.py (import, pas
+                      copie), conversion des natures de catalogue,
+                      EN 1992-1-1 §6.4 / §6.7
+    verification.py   pipeline : charges → répartiteurs → charges par
+                      élément → efforts → taux ; balayage ; statut
+    bibliotheque.py   JSON livrés (plancher/donnees/*.json) + ajouts du
+                      fichier de cas ; champ source obligatoire
+    dessin.py         plan SVG, grille de clic, coloration
+    ecran.py          Streamlit, charte carte.py / ui_commun.py
+    note.py, textes.py, methode.py
+  donnees/
+    hourdis.json      types génériques (à compléter par le bureau)
+    engins.json       gabarits génériques
+    repartiteurs.json plateaux, filières (profilés du catalogue, bois)
+modules/charges_plancher.py   façade show()
+tests/test_charges_plancher_{diffusion,repartiteurs,moteur,ecran}.py
+docs/plancher/CHARGES_PLANCHER.md   (document de référence, lot 4)
+```
+
+Clés de session préfixées `chp_`, disjointes des autres modules. Fichier
+JSON du module (comme `dalle.py`) ; la bibliothèque personnelle vit **dans
+le dépôt** pour les machines du bureau (Streamlit Cloud n'a pas de disque
+persistant : un fichier écrit à chaud disparaît au redémarrage) et **dans
+le fichier de cas** pour les ajouts d'une étude, exportables.
+
+**Tests qui verrouillent** (chaque formule a le sien, et rougit si on la
+retire) : charge au milieu d'un élément seul → M = P·L/4, V = P/2 ; règle
+du levier → somme des parts = 1 ; filière infiniment rigide sur n
+ressorts égaux → réactions égales ; filière infiniment souple → tout sur
+le ressort sous la charge ; somme des réactions = somme des charges, à
+10⁻⁹ près ; inversion des formules de dalle → hᵤ,min(M_adm,béton) = d et
+As,req(M_adm,acier) = As ; parts de l'annexe C → somme = 100 % ; cas de
+référence gelés (`tests/ref_chp.json`) ; harnais AppTest de l'écran ;
+captures PC / tablette / téléphone par `tools/captures_assemblages.js`
+étendu.
+
+---
+
+## 9 · Fonctions retenues, fonctions écartées
+
+**Retenues en V1** : trois planchers sur deux appuis ; états
+d'avancement avec fck(t) ; charges ponctuelles, linéaires, surfaciques,
+groupes ; bibliothèque JSON avec sources ; φ dynamique ; plateaux (règle
+c) et filières (poutre sur ressorts) à 0° / 90° ; dimensionnement
+automatique ; diffusion Heft 240 / annexe C / levier ; contrôles locaux
+EN 1992-1-1 ; balayage de position ; plan cliquable ; plusieurs cas par
+fichier ; note PDF deux pages ; onglet Méthode avec limites.
+
+**Écartées, et pourquoi** : glisser-déposer (composant nouveau pour rien) ;
+maillage 2D (§ 5.3) ; continuité et porte-à-faux (V2, exigent As
+supérieur et les largeurs efficaces correspondantes) ; quatre côtés (V2,
+Navier) ; chaîne d'étais vers l'étage inférieur (avertissement seulement,
+**P-8**) ; prédalle avant chape (refus, **P-7**) ; joint longitudinal des
+hourdis (V1.1 avec la valeur de l'EN 1168, **[à transcrire]**) ; flèche et
+vibrations (sans objet pour une charge temporaire) ; répartiteurs en
+diagonale ; grues sur chenilles au-delà d'une charge linéaire (la
+chenille **est** une charge linéaire, elle est donc couverte).
+
+---
+
+## 10 · Solution recommandée et lots
+
+**Recommandation.** Construire le module tel que décrit, en quatre lots
+de taille comparable à ceux des assemblages, et ne pas lancer le lot 2
+avant que le bureau ait tranché P-1 à P-3 (ce sont les trois décisions
+qui changent les nombres).
+
+| Lot | Contenu | Preuve |
+|---|---|---|
+| 1 · moteur | `modele`, `diffusion` (Heft 240 et annexe C **transcrits** du texte), `repartiteurs`, `resistances`, `verification`, bibliothèques génériques | tests analytiques et cas gelés ; relecture des valeurs transcrites sur le document imprimé, référencée dans `methode.py` |
+| 2 · écran | `dessin` (plan, grille de clic), `ecran` (charte), cas multiples, fichier JSON, balayage | harnais AppTest, captures trois formats relues |
+| 3 · note | note deux pages, onglet Méthode, textes, intégration menu | tests PDF (ancres de page 1 et 2), images envoyées |
+| 4 · V&V et doc | cas de contrôle à la main (une roue sur un hourdis, un stabilisateur sur tôle à cheval sur deux hourdis, un Manitou sur dalle 20 cm), `docs/plancher/CHARGES_PLANCHER.md`, registre | rapport daté, suites au vert, fusion dans `main` sur demande |
+
+---
+
+## 11 · Points à trancher par le bureau
+
+- **P-1 · Nature des valeurs de catalogue.** Pour chaque type de hourdis
+  de la bibliothèque, *M*Rd / *V*Rd (résistances de calcul) ou charge
+  utile admissible (service) ? Le « ÷ 1,5 » ne s'applique qu'au premier
+  cas. À relire dans le document ERGON, non accessible depuis cette
+  session.
+- **P-2 · γF = 1,5 uniforme** sur G + Q en phase chantier pour les
+  hourdis (conservatif sur G, rapport 1,11 sur cette part). Accepter, ou
+  passer à 1,35 / 1,5 avec un affichage ELU explicite ?
+- **P-3 · Tranchant des hourdis** : 100 % à l'élément chargé, sans
+  répartition annexe C. Accepter en V1 ?
+- **P-4 · Largeur efficace en flexion** (Heft 240) : coefficients à
+  transcrire du texte ; la V1 n'utilise que t_y et b_v tant que la
+  relecture n'est pas faite.
+- **P-5 · Charge locale sur hourdis** : donnée fabricant ou répartiteur
+  obligatoire. Pas de troisième voie.
+- **P-6 · φ = 1,40** pour des roues en mouvement (EN 1991-1-1 §6.3.2.3),
+  1,00 à l'arrêt. Confirmer la transposition d'une règle « chariot
+  élévateur » aux télescopiques de chantier.
+- **P-7 · Prédalle sans chape** : refus de toute charge d'engin.
+- **P-8 · Étais en place** : portée réduite acceptée, report sur l'étage
+  inférieur non modélisé, avertissement.
+- **P-9 · Poinçonnement et pression localisée** : EN 1992-1-1 §6.4 / §6.7
+  avec γF = 1,5, introduits à côté de l'ancienne méthode qui ne les a pas.
+- **P-10 · « Garder la méthode ELS »** = inverser les formules de
+  `dalle.py` (M_adm = min(αb·μ·b·d² ; As·fyd·0,9·d), V_adm = τadm,I·0,75·b·h).
+- **P-11 · Fissuration des hourdis** : ligne affichée seulement si *M*cr
+  est renseigné.
+- **P-12 · Bibliothèque du bureau dans le dépôt** (fichier versionné) plutôt
+  qu'écrite à chaud sur Streamlit Cloud, où elle disparaîtrait au
+  redémarrage ; ajouts d'étude dans le fichier de cas.
+
+---
+
+## 12 · Sources
+
+EN 1992-1-1:2004 (§3.1.2, §6.2, §6.4, §6.7, §9.3.1.1) ; EN 1993-1-8:2005
+§6.2.5 (bande efficace *c*) ; EN 1168 (hourdis alvéolés : §4.3.3.2
+tranchant, annexe C répartition transversale) ; EN 1991-1-6 (charges de
+chantier, §4.11) ; EN 1991-1-1 §6.3.2.3 (coefficient dynamique des
+chariots) ; EN 1990 (situations transitoires) ; DAfStb Heft 240 (largeurs
+efficaces des dalles sous charges concentrées ; la formule de tranchant
+t_y + 0,5·a est citée par des publications de second rang consultées le
+02/11/2026, la formule de flexion est à relire dans le texte) ;
+`modules/poutre.py`, `modules/dalle.py`, `beton_classes.json` (formules de
+l'application) ; `docs/assemblages/ERGONOMIE.md` (charte).
