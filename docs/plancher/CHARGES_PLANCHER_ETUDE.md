@@ -517,14 +517,17 @@ enregistrer, note PDF). Rien d'autre.
   le taux est **≥ 85 %** sont teintées (orange) ou **> 100 %** (rouge), les
   autres restent blanches ; le taux de chaque bande est écrit à droite,
   hors du dessin, en pastille rouge ou orange seulement quand il compte ;
-- l'engin en vue de dessus réduite à ce qui porte : chenilles, tourelle,
-  flèche, bras et **pieds** ; chaque pied porte une étiquette courte
-  « P2 · 95 kN », la semelle en noir, le **plateau** hachuré autour, l'aire
-  efficace en tireté bleu ;
+- l'engin en **vraie vue de dessus, à l'échelle de sa fiche** : châssis et
+  roues, tourelle, cabine, flèche, stabilisateurs ; chaque symbole est
+  dessiné au trait à partir des dimensions de la fiche (§ 7.3) et posé sur
+  le plan avec la même échelle que le plancher. Chaque pied porte une
+  étiquette courte « P2 · 95 kN », la semelle en noir, le **plateau**
+  hachuré autour, l'aire efficace en tireté bleu. Un engin sans fiche
+  dimensionnelle est dessiné par son gabarit générique, et nommé tel ;
 - **le plateau se pose automatiquement sous le pied** quand on le choisit
   (centré par défaut), il se déplace en le glissant, et **un clic sur le
-  plateau ouvre une petite fenêtre** pour changer son type, son matériau,
-  ses dimensions, ou le retirer ;
+  plateau ouvre un petit panneau**, à côté du plan et relié au plateau,
+  pour changer son type, son matériau, ses dimensions, ou le retirer ;
 - la **filière proposée** par le dimensionnement est dessinée en tireté
   bleu à l'endroit où elle irait, avant qu'on l'applique ;
 - deux cotes (portée, largeur), une échelle graphique, une légende d'une
@@ -532,8 +535,17 @@ enregistrer, note PDF). Rien d'autre.
   cases à cocher ; « Plan · Coupe · Balayage » sont trois vues du même cas.
 
 **Sous le plan, la coupe transversale** sous le pied sélectionné : les
-hourdis voisins, le plateau, la semelle, la charge, l'aire efficace et la
-diffusion au plan moyen. C'est la figure que le bureau voulait voir.
+hourdis voisins, la **couche de compression** si elle existe (épaisseur,
+béton, âge), le plateau, la semelle, la charge, l'aire efficace et la
+diffusion à 45° jusqu'au plan moyen. C'est la figure que le bureau
+voulait voir.
+
+**La couche de compression** est une donnée du plancher, pas un état : le
+hourdis peut être nu ou chapé, et la chape change le poids propre, la
+hauteur de diffusion et les résistances de catalogue (le fabricant publie
+*M*Rd et *V*Rd avec et sans dalle de compression). L'étape 1 porte donc
+« Couche de compression : oui / non · épaisseur · béton · âge », et la
+ligne de catalogue dit laquelle des deux valeurs est retenue.
 
 **À droite, le résultat puis quatre étapes** :
 
@@ -564,17 +576,32 @@ Téléphone : même page, une seule colonne, plan puis coupe puis étapes
 ![Bibliothèque d'engins et fiche technique, plancher déplié](images/bibliotheque.png)
 
 « Ajouter » ouvre la bibliothèque : des **fiches** d'engins, grues, étais
-et filières, stocks, plateaux, chacune avec un pictogramme en vue de
-dessus, ses valeurs clés et un badge de **source** : « fiche Manitou 2024 »
-(fiche réelle), « générique » (gabarit à adapter), « fiche à compléter ».
-Une fiche se crée ou se complète depuis une vraie documentation
-constructeur : nom, type d'appuis, nombre, entraxes, semelle, masse,
-charge maximale par pied (avant / arrière), configurations, coefficient
-dynamique, source et page. Les charges par pied se relisent sur le
-tableau de stabilité du constructeur pour l'opération prévue ; la fiche
-mémorise la dernière valeur saisie et sa source. Les fiches du bureau
-sont versionnées avec l'application (**P-12**), une fiche ajoutée dans un
-cas reste dans son fichier.
+et filières, stocks, plateaux, chacune avec **le même symbole en vue de
+dessus que sur le plan**, ses valeurs clés et un badge de **source** qui
+dit d'où viennent les dimensions et si les charges par appui sont
+renseignées. Une fiche se crée ou se complète depuis une vraie
+documentation constructeur : nom, type d'appuis, nombre, largeur et
+longueur hors tout, empattement, emprise des stabilisateurs, semelle,
+masse, charge maximale par pied (avant / arrière), configurations,
+coefficient dynamique, source et page. Un champ obligatoire vide
+(charge par pied) est orange et **bloque le calcul**. Les charges par pied
+se relisent sur le tableau de stabilité du constructeur pour
+l'opération prévue ; la fiche mémorise la dernière valeur saisie et sa
+source. Les fiches du bureau sont versionnées avec l'application
+(**P-12**), une fiche ajoutée dans un cas reste dans son fichier.
+
+**Dimensions utilisées dans la maquette** (relevées en ligne le
+02/11/2026 sur des sources secondaires, pour dessiner à l'échelle ; à
+confirmer sur les fiches officielles avant tout usage) : Manitou
+MRT 2150 Privilege Plus, largeur 2,49 m, châssis 5,35 m, empattement
+3,05 m, emprise sur stabilisateurs 5,55 × 5,19 m (brochure Manitou
+diffusée par un distributeur, fiche Equipworld) ; Manitou MT 1840,
+longueur au tablier 6,27 m, largeur 2,36 à 2,42 m selon la variante,
+empattement 3,07 m, pneus 400/80-24, 11,6 à 11,9 t (pages manitou.com,
+Equipworld) ; Liebherr LTM 1060-3.1, base d'appui 7,36 × 6,30 m,
+porteur 11,98 × 2,69 m (annonces de revendeurs, fiche Liebherr à
+confirmer). **Aucune charge par pied n'a été relevée** : elles viennent
+des tableaux de stabilité, que la maquette laisse en orange.
 
 ### 7.4 Le plan : mécanique du clic
 
