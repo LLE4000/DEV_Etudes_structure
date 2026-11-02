@@ -406,7 +406,8 @@ def _etape_hourdis(etat, cas):
         _num("Membrure p_adm (N/mm²)", ("plancher", "hourdis", "p_loc_adm"), cas, 0.05, nul_vaut_none=True, help="Pression locale admissible du fabricant (P-5) ; 0 = non renseignée")
     with c3:
         _num("Hauteur h (m)", ("plancher", "hourdis", "h"), cas, 0.01)
-        _choix("Nature des résistances", ("plancher", "hourdis", "nature"), cas, ["Rd", "service"], {"Rd": "Rd (calcul)", "service": "service"}, help="P-1 : Rd est divisé par γF ; une charge admissible de service ne l'est pas")
+        _choix("Nature des résistances", ("plancher", "hourdis", "nature"), cas, ["Rd", "service"], {"Rd": "Rd (calcul)", "service": "service"},
+               help="P-1 / P-2 : Rd (M_Rd, V_Rd du catalogue) → efforts à l'ELU, γG·G + γQ·Q ; service (charge admissible du catalogue) → coefficients 1")
         _num("g (kN/m²)", ("plancher", "hourdis", "g"), cas, 0.1)
     _choix("État", ("plancher", "hourdis", "etat"), cas, list(ETATS_H), ETATS_H, segmente=True)
     c1, c2, c3 = st.columns(3)
@@ -427,6 +428,19 @@ def _etape_hourdis(etat, cas):
     with c3:
         _parts_annexe_c(cas)
     _texte_w("Source du catalogue", ("plancher", "hourdis", "source"), cas)
+    # P-1 : un catalogue transcrit sert de défaut, le bureau peut toujours saisir ses valeurs — et les
+    # garder comme fiche de ce fichier (sélectionnable ci-dessus, enregistrée avec le cas)
+    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "fiche_h"):
+        nom_f = st.text_input("Garder ces valeurs comme fiche du catalogue", key=P + "fiche_h_nom",
+                              placeholder="ex. ERGON SP 200 · fiche 2026", width=340)
+        if st.button("＋ Fiche de hourdis", key=P + "btn_fiche_h", width="content",
+                     help="Largeur, hauteur, g, E, I, M_Rd, V_Rd, nature, valeurs avec chape, M_cr, p_adm et source deviennent "
+                          "une fiche choisie dans « Type (catalogue ou fiche) » et enregistrée avec le fichier du cas"):
+            if not (nom_f or "").strip():
+                st.toast("Donner un nom à la fiche")
+            else:
+                ET.ajouter_fiche_hourdis(etat, cas, nom_f.strip())
+                _changer(f"Fiche « {nom_f.strip()} » ajoutée au catalogue de ce fichier")
 
 
 def _parts_annexe_c(cas):
@@ -706,18 +720,24 @@ def _nouvel_element(etat):
 
 
 def _etape_hypotheses(cas, params, res):
-    st.caption(f"γF {params.gamma_f:g} · tranchant {params.part_tranchant_element:.0%} sur l'élément chargé · "
+    st.caption(f"ELU quand la résistance est une valeur de calcul : γG {params.gamma_G:g} sur les poids propres, "
+               f"γQ {params.gamma_Q:g} sur les charges de chantier (coefficients 1 avec une valeur admissible de service) · "
+               f"tranchant : {params.part_tranchant_element:.0%} de la réaction d'une charge concentrée sur l'élément chargé · "
                + ("k Heft 240 transcrit" if params.k_flexion_heft240 is not None else "b_m = t_y (k à transcrire)"))
     c1, c2, c3 = st.columns(3)
     with c1:
-        _num("γF sur G + Q (P-2)", ("params", "gamma_f"), cas, 0.05)
-        _num("k Heft 240 flexion (0 = non transcrit, P-4)", ("params", "k_flexion_heft240"), cas, 0.1, nul_vaut_none=True)
+        _num("γG sur les poids propres (P-2)", ("params", "gamma_G"), cas, 0.05, help="Hourdis, chape, dalle : 1,35 à l'ELU")
+        _num("γQ sur les charges de chantier (P-2)", ("params", "gamma_Q"), cas, 0.05,
+             help="Charges présentes, engins (× φ), étais, stocks : 1,5 à l'ELU ; aussi sur la charge des effets locaux, de la filière et du plateau")
     with c2:
-        _num("Part du tranchant sur l'élément chargé (P-3)", ("params", "part_tranchant_element"), cas, 0.05)
-        _num("Joint : résistance (kN/m, 0 = non vérifié, P-15)", ("params", "joint_adm_kN_m"), cas, 1.0, nul_vaut_none=True)
+        _num("Part du tranchant d'une charge concentrée sur l'élément chargé (P-3)", ("params", "part_tranchant_element"), cas, 0.05,
+             help="1 = la réaction d'appui reste entière sur l'élément qui porte la charge, sans partage par les joints (prudent) ; "
+                  "l'annexe C de l'EN 1168 répartit la flexion, pas le tranchant près de l'appui")
+        _num("k Heft 240 flexion (0 = non transcrit, P-4)", ("params", "k_flexion_heft240"), cas, 0.1, nul_vaut_none=True)
     with c3:
-        _num("αcc (ANB à confirmer)", ("params", "alpha_cc"), cas, 0.05)
+        _num("Joint : résistance (kN/m, 0 = non vérifié, P-15)", ("params", "joint_adm_kN_m"), cas, 1.0, nul_vaut_none=True)
         _num("Joint : longueur mobilisée (m)", ("params", "joint_longueur_m"), cas, 0.1, nul_vaut_none=True)
+        _num("αcc (ANB à confirmer)", ("params", "alpha_cc"), cas, 0.05)
     for h in res.get("hypotheses", []):
         st.caption("• " + h)
 

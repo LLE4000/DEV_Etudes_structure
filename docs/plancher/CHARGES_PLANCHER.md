@@ -55,19 +55,24 @@ premier candidat dont **tout le système** est ≤ 1 (P-14), avec la liste des t
 linéaires et surfaciques discrétisées (pas 0,25 / 0,30 m) ; gabarits d'engin tournés de 0 à 270°.
 Un gabarit sans charge par appui est un refus (P-13).
 
-**Répartiteurs.** Plateau : aire efficace (a + 2c)(b + 2c), c = t·√(f/(3·p)) itéré, c plafonné par le
-bord du plateau ; plaque déclarée rigide : plaque entière, pression comparée à la valeur publiée.
-Filière en travers : poutre d'Euler libre sur un ressort par élément croisé, k = 3·E·I·L/(a²(L − a)²) à
-l'abscisse de la filière ; réactions = charges des éléments ; flexion de la filière γF·M ≤ W·fy/γM0 ;
-un ressort qui tire est signalé. Filière dans le sens porteur : charge linéaire uniforme (hypothèse
+**Répartiteurs.** Plateau : aire efficace (a + 2c)(b + 2c), c = t·√(f/(3·p_Ed)) itéré avec la pression
+ELU p_Ed = γQ·P / aire (vérification plastique de l'acier), c plafonné par le bord du plateau ; plaque
+déclarée rigide : plaque entière, pression de service comparée à la valeur publiée. Filière en travers :
+poutre d'Euler libre sur un ressort par élément croisé, k = 3·E·I·L/(a²(L − a)²) à l'abscisse de la
+filière ; réactions = charges des éléments ; flexion de la filière à l'ELU, γQ·M ≤ W·fy/γM0 ; un
+ressort qui tire est signalé. Filière dans le sens porteur : charge linéaire uniforme (hypothèse
 rigide), aucune répartition entre éléments.
 
 **Hourdis.** Par élément : règle du levier (part proportionnelle au recouvrement de l'empreinte),
 parts de l'annexe C si elles sont fournies et si les joints sont clavetés ou le plancher chapé
 (flexion seulement), tranchant à `part_tranchant_element` sur l'élément chargé (P-3, défaut 100 %) ;
-M aux abscisses des charges et à mi-portée, V aux appuis, charges réparties `g + chape + q_presentes`.
-Résistances : M_Rd/γF et V_Rd/γF si nature Rd (P-2), telles quelles si service ; valeurs « avec chape »
-seulement si collaborante et classe exigée atteinte (P-17). Membrure : pression P/(aire efficace
+M aux abscisses des charges et à mi-portée, V aux appuis ; les efforts sollicitants comptent les
+**poids propres** (`g + chape`, part G) et les charges de chantier (`q_presentes` et charges
+concentrées × φ, part Q). **Résistances de calcul** (nature Rd) : M_Ed = γG·M_G + γQ·M_Q ≤ M_Rd avec
+γG = 1,35 et γQ = 1,5 (P-2, tranché le 02/11/2026 — plus de « ÷ 1,5 uniforme », qui pondérait le poids
+propre à 1,5) ; **valeurs admissibles de service** : M_G + M_Q ≤ M_adm, coefficients 1 ; valeurs
+« avec chape » seulement si collaborante et classe exigée atteinte (P-17). La ligne de fissuration
+(M_cr) compare le moment de service. Membrure : pression P/(aire efficace
 + diffusion à 45° dans la chape) ≤ `p_loc_adm` ; sans donnée : non vérifié si un répartiteur efficace
 est présent, défaut « répartiteur exigé » sinon (P-5). Joints : effort transmis par les parts de
 l'annexe C, vérifié si `joint_adm_kN_m` et `joint_longueur_m` sont renseignés (P-15). Fissuration :
@@ -77,7 +82,8 @@ information si M_cr est renseigné (P-11).
 `k_flexion_heft240` est `None` (P-4, **très conservatif** sous charge concentrée, voir § 5) ;
 superposition en créneaux, maximum sur la largeur ; résistances = formules de `poutre.py` inversées
 (§ 2.1 de l'étude) sur la classe saisie ou la classe arrondie vers le bas de fck(t). Effets locaux
-EN 1992-1-1 §6.7 et §6.4 avec γF sur la charge (P-9). Prédalle : largeur plafonnée à la prédalle si
+EN 1992-1-1 §6.7 et §6.4 à l'ELU avec γQ sur la charge concentrée (P-9) ; la flexion et le tranchant
+par mètre restent en service (coefficients 1), méthode de l'application. Prédalle : largeur plafonnée à la prédalle si
 joints non armés ou charge à cheval sur un joint (P-16) ; étais en place = portée réduite +
 avertissement (P-8) ; chape non durcie = refus de toute charge d'engin ou d'étai (P-7).
 
@@ -89,8 +95,8 @@ la liste `non_verifies` est rendue à part.
 
 | Champ | Défaut | Décision |
 |---|---|---|
-| `gamma_f` | 1,5 | P-2, uniforme sur G + Q (hourdis Rd, effets locaux) |
-| `part_tranchant_element` | 1,0 | P-3 |
+| `gamma_G`, `gamma_Q` | 1,35 · 1,5 | P-2 (02/11/2026) : ELU quand la résistance est une valeur de calcul — γG sur les poids propres, γQ sur les charges de chantier (hourdis Rd, effets locaux, filière, bande plastique du plateau) ; 1 et 1 avec une valeur admissible de service |
+| `part_tranchant_element` | 1,0 | P-3 : part de la réaction d'appui d'une charge concentrée reprise en tranchant par l'élément chargé ; 1 = aucun partage par les joints (prudent : l'annexe C répartit la flexion, pas le tranchant près de l'appui) |
 | `k_flexion_heft240` | `None` → b_m = t_y | P-4, **à transcrire** du Heft 240 |
 | `joint_adm_kN_m`, `joint_longueur_m` | `None` → non vérifié | P-15, **à transcrire** de l'EN 1168 |
 | `gamma_c`, `alpha_cc`, `beta_poinconnement` | 1,5 · 1,0 · 1,0 | P-9 ; αcc de l'ANB belge à confirmer |
@@ -122,20 +128,23 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
 - `test_charges_plancher_repartiteurs.py` (23) : bande c itérée à la main, section en I à 2 % du
   catalogue sur tous les profilés, poutre sur ressorts (statique, rigide, souple, Σ R = Σ P, symétrie,
   erreurs), flexion de la filière.
-- `test_charges_plancher_moteur.py` (72) : **copie tenue** des formules BA (les expressions de
+- `test_charges_plancher_moteur.py` (82) : **copie tenue** des formules BA (les expressions de
   `poutre.py` retrouvées mot pour mot, inversions exactes, exemple de l'étude), classes et Ecm,
-  natures et chape (P-17), §6.7 et §6.4 à la main, pipeline hourdis (P·L/4, levier, plateau, chape,
-  P-5, filière rigide et souple, annexe C, P-3, P-15, P-11, φ), pipeline dalle et prédalle (P-4,
-  P-16, P-8, P-7), refus (dont le hourdis sans M_Rd / V_Rd), balayage, dimensionnement (P-14),
-  bibliothèque, JSON, cas gelés `ref_chp.json`, pureté.
-- `test_charges_plancher_ecran.py` (63, lot 2, AppTest sur l'application réelle) : navigation et
+  natures et chape (P-17), §6.7 et §6.4 à la main, pipeline hourdis (P·L/4, levier, plateau avec
+  bande plastique sous la pression ELU, chape, P-5, filière rigide et souple, annexe C, P-3, P-15,
+  P-11, φ), **P-2** (poids propres dans les efforts : M_G et M_Q nommés, M_Ed = 1,35·M_G + 1,5·M_Q,
+  V de même, nature service → coefficients 1, γG = γQ = 1 retrouve le service, l'ancien ÷ 1,5 refusé,
+  fissuration en service), pipeline dalle et prédalle (P-4, P-16, P-8, P-7, effets locaux à γQ),
+  refus (dont le hourdis sans M_Rd / V_Rd), balayage, dimensionnement (P-14), bibliothèque, JSON,
+  cas gelés `ref_chp.json` (régénérés le 02/11/2026 sur la règle P-2), pureté.
+- `test_charges_plancher_ecran.py` (67, lot 2, AppTest sur l'application réelle) : navigation et
   tuile, composant du plan, « Données manquantes », onglets, source unique widgets → état → moteur
   et plan (M_Rd, L, hourdis / dalle / prédalle), engin de la bibliothèque et charges par appui
   (refus P-13 puis calcul, bandes teintées, semelles cliquables), plan → état (glisser, cote,
   sens, ±, fenêtres d'engin et de semelle, plateau, idem, filière, dupliquer / supprimer),
   répartiteur par l'onglet 3, proposition de filière, vues Coupe et Balayage, cas multiples,
-  JSON aller-retour, fiches ajoutées (engin, plateau azobé, madrier sur champ), étanchéité des
-  clés.
+  JSON aller-retour, fiches ajoutées (engin, plateau azobé, madrier sur champ, fiche de hourdis
+  gardée depuis l'onglet Plancher et réappliquée), étanchéité des clés.
 - `tools/captures_plancher.js` : captures et mesures aux quatre largeurs (états vide, engin,
   plateau, clic, glisser, coupe, balayage) — aucun débordement, plan visible, calcul abouti,
   plateau hachuré, fenêtre ouverte au clic sur une semelle, position changée au glisser.
@@ -194,7 +203,9 @@ passe par `etat.appliquer_changements`, qui écrit dans le cas ; les widgets des
 pose un engin de `plancher/donnees/engins.json` ou une **fiche ajoutée** (nom, type d'appuis,
 silhouette, appuis avec positions, empreintes, charges, φ, source) ; l'onglet Répartiteur accepte un
 **nouvel élément** (plateau ou filière : matériau, f, E, masse, dimensions, profilé du catalogue ou
-rectangle b × h posé sur champ — plateau azobé, madrier C24, profilé, plaque de grue). Les fiches
+rectangle b × h posé sur champ — plateau azobé, madrier C24, profilé, plaque de grue) ; l'onglet
+Plancher garde les valeurs saisies d'un hourdis comme **fiche du catalogue** (« ＋ Fiche de
+hourdis », P-1 : un catalogue transcrit sert de défaut, le bureau indique les siennes). Les fiches
 ajoutées voyagent avec le fichier JSON du cas (`💾 Enregistrer` / `📂 Ouvrir`, `etat.charger`
 contrôle le module et la version).
 

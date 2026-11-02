@@ -124,8 +124,8 @@ chk("onglet 1 : type, portée, appuis, catalogue, résistances, état, chape, pa
     {"chp_w_plancher_type", "chp_w_plancher_L", "chp_w_plancher_sens", "chp_w_type_cat", "chp_w_plancher_hourdis_M_Rd",
      "chp_w_plancher_hourdis_V_Rd", "chp_w_plancher_hourdis_etat", "chp_w_plancher_hourdis_chape_oui", "chp_w_parts_C"} <= cles(at))
 chk("onglet 2 : bibliothèque, étançon, file d'étais, stock", {"chp_btn_lib", "chp_btn_et", "chp_btn_fi", "chp_btn_st"} <= cles(at))
-chk("onglet 4 : γF, k Heft 240, part du tranchant, joint, αcc",
-    {"chp_w_params_gamma_f", "chp_w_params_k_flexion_heft240", "chp_w_params_part_tranchant_element",
+chk("onglet 4 : γG, γQ, k Heft 240, part du tranchant, joint, αcc",
+    {"chp_w_params_gamma_G", "chp_w_params_gamma_Q", "chp_w_params_k_flexion_heft240", "chp_w_params_part_tranchant_element",
      "chp_w_params_joint_adm_kN_m", "chp_w_params_alpha_cc"} <= cles(at))
 
 # ================================================================
@@ -324,6 +324,23 @@ chk("à l'écran : plateau azobé proposé dans le choix, madrier dans le plan",
 ET.supprimer_filiere(cas, fid)
 
 # ================================================================
+print("\n=== 9 bis. Fiche de hourdis (P-1 : catalogue par défaut, valeurs du bureau gardées) ===")
+e = at.session_state["chp"]
+cas = ET.cas_actif(e)
+at.text_input(key="chp_fiche_h_nom").set_value("Hourdis d'essai 60 / 80"); run(at)
+at.button(key="chp_btn_fiche_h").click(); run(at)
+e = at.session_state["chp"]
+cas = ET.cas_actif(e)
+fh = [f for f in e["fiches"]["hourdis"] if f["nom"] == "Hourdis d'essai 60 / 80"]
+chk("« ＋ Fiche de hourdis » : les valeurs saisies deviennent une fiche du fichier, sélectionnée", len(fh) == 1
+    and fh[0]["M_Rd"] == 60.0 and fh[0]["V_Rd"] == 80.0 and fh[0]["nature"] == "Rd" and cas["plancher"]["hourdis"]["type_cat"] == "Hourdis d'essai 60 / 80"
+    and "Hourdis d'essai 60 / 80" in at.selectbox(key="chp_w_type_cat").options)
+at.selectbox(key="chp_w_type_cat").select(next(n for n in at.selectbox(key="chp_w_type_cat").options if "générique" in n)); run(at)
+chk("retour au gabarit générique : M_Rd du gabarit (0, à renseigner)", ET.cas_actif(at.session_state["chp"])["plancher"]["hourdis"]["M_Rd"] == 0.0)
+at.selectbox(key="chp_w_type_cat").select("Hourdis d'essai 60 / 80"); run(at)
+chk("la fiche réapplique ses valeurs (60 / 80)", ET.cas_actif(at.session_state["chp"])["plancher"]["hourdis"]["M_Rd"] == 60.0)
+chk("la fiche voyage avec le fichier JSON", any(f["nom"] == "Hourdis d'essai 60 / 80" for f in ET.charger(json.loads(ET.texte_json(at.session_state["chp"])))["fiches"]["hourdis"]))
+
 print("\n=== 10. Étanchéité ===")
 k = cles(at)
 chk("toutes les clés de widgets commencent par chp_", all(c.startswith("chp_") or c.startswith("FormSubmitter:chp_") for c in k), str([c for c in k if not c.startswith("chp_")][:5]))

@@ -32,7 +32,7 @@ FS, FS_S, FS_L = 230, 200, 260            # tailles de texte en unités du dessi
 #   → ≈ 13 px dans une colonne de 650 px (PC), 9 px à 450 px (tablette) et à la largeur minimale (téléphone)
 LARGEUR_REF = 11400                        # largeur SVG (mm) du plan de référence : au-delà, textes et étiquettes grossissent (k)
 OX, OY = 1500, 800                         # origine du plancher dans le SVG
-MARGE_D, MARGE_B = 2700, 650
+MARGE_D, MARGE_B = 2700, 1000             # marge basse : échelle graphique, puis la légende des appuis sur une 2e ligne
 STYLE = ("<style>.ed{cursor:pointer}.ed.sel>rect,.ed.sel>g>rect:first-child{stroke:#2563eb !important;stroke-width:2.2px !important}"
          ".ed.drag{opacity:.75}text{font-family:Inter,system-ui,sans-serif}</style>")
 DEFS = f'''<defs>
@@ -301,7 +301,9 @@ def plan(ctx: Dict) -> Tuple[str, Dict, Dict]:
     a(f'<rect x="{sx0}" y="{sy0}" width="1000" height="70" fill="{NOIR}"/><rect x="{sx0 + 1000}" y="{sy0}" width="1000" height="70" fill="white" stroke="{NOIR}" {NS}/>')
     for i, t in enumerate(("0", "1", "2 m")):
         a(_texte(sx0 + i * 1000, sy0 + 290, t, fs_s, GRIS, "middle"))
-    a(_texte(OX + v.W, sy0 + 290, "● appui  ○ bord libre : clic pour changer le sens porteur", fs_s, GRIS, "end"))
+    # légende des appuis sur une DEUXIÈME ligne : sur la ligne de l'échelle elle recouvrait « 2 m »
+    # (capture du 02/11/2026, après l'agrandissement des textes)
+    a(_texte(OX + v.W, sy0 + 290 + 330 * k, "● appui  ○ bord libre : clic pour changer le sens porteur", fs_s, GRIS, "end"))
     a("</svg>")
     return "\n".join(s), ctx.get("valeurs", {}), ctx.get("groupes", {})
 

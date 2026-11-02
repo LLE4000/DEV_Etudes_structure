@@ -13,9 +13,18 @@ from typing import Optional
 
 @dataclass
 class Parametres:
-    # P-2 : coefficient uniforme sur G + Q pour les résistances de calcul (hourdis, effets locaux)
-    gamma_f: float = 1.5
-    # P-3 : part du tranchant qui reste sur l'élément chargé (1,0 = aucune répartition en tranchant)
+    # P-2 (tranché par le bureau le 02/11/2026) : coefficients partiels de l'ELU, appliqués quand la
+    # résistance est une valeur de CALCUL — M_Rd / V_Rd d'un catalogue, EN 1992-1-1 pour les effets
+    # locaux, EN 1993 pour une filière : γG sur les poids propres (hourdis, chape, dalle), γQ sur les
+    # charges de chantier (engins × φ, étais, stocks, charges présentes). Quand le catalogue donne une
+    # valeur ADMISSIBLE de service (nature « service »), les coefficients valent 1. Jamais de
+    # « ÷ 1,5 uniforme » : il pondérait le poids propre à 1,5 au lieu de 1,35.
+    gamma_G: float = 1.35
+    gamma_Q: float = 1.5
+    # P-3 : part de la réaction d'appui d'une charge concentrée reprise en TRANCHANT par l'élément
+    # chargé — 1,0 = aucun partage avec les voisins par les joints. Prudent : la figure C.1 de
+    # l'EN 1168 répartit la flexion à mi-portée, pas l'effort tranchant près de l'appui, où le joint
+    # longitudinal n'a que quelques dizaines de centimètres pour transmettre.
     part_tranchant_element: float = 1.0
     # P-4 : coefficient k de la largeur efficace en flexion (Heft 240) — None = b_m = t_y
     k_flexion_heft240: Optional[float] = None

@@ -91,9 +91,13 @@ class Plancher:
         """kN·m² de l'élément ``i``."""
         raise NotImplementedError
 
-    def g_total(self) -> float:
-        """Charges réparties présentes, kN/m² : poids propre + chape + autres."""
+    def g_perm(self) -> float:
+        """Poids propres PERMANENTS, kN/m² : élément + chape (part G de l'ELU, P-2)."""
         raise NotImplementedError
+
+    def g_total(self) -> float:
+        """Charges réparties présentes, kN/m² : poids propres + charges présentes (service)."""
+        return self.g_perm() + self.q_presentes
 
     def raideur(self, i: int, a: float) -> float:
         """Raideur du ressort de l'élément ``i`` pour une charge à l'abscisse
@@ -165,8 +169,8 @@ class Hourdis(Plancher):
     def EI_element(self, i):
         return self.E * 1.0e3 * self.inertie()    # MPa → kN/m², × m⁴
 
-    def g_total(self):
-        return self.g + (self.chape.poids if self.chape else 0.0) + self.q_presentes
+    def g_perm(self):
+        return self.g + (self.chape.poids if self.chape else 0.0)
 
     def repartition_active(self):
         """L'annexe C ne s'applique qu'à des joints clavetés et durcis, ou
@@ -235,8 +239,8 @@ class DalleBA(Plancher):
             raise ValueError(f"fck(t) = {self.fck_t} MPa : sous la plus petite classe de beton_classes.json")
         return c
 
-    def g_total(self):
-        return self.gamma_beton * self.h + self.q_presentes
+    def g_perm(self):
+        return self.gamma_beton * self.h
 
     @property
     def rho_l(self):

@@ -758,16 +758,38 @@ qui changent les nombres).
 
 ## 11 · Points à trancher par le bureau
 
-- **P-1 · Nature des valeurs de catalogue.** Pour chaque type de hourdis
-  de la bibliothèque, *M*Rd / *V*Rd (résistances de calcul) ou charge
-  utile admissible (service) ? Le « ÷ 1,5 » ne s'applique qu'au premier
-  cas. À relire dans le document ERGON, non accessible depuis cette
-  session.
-- **P-2 · γF = 1,5 uniforme** sur G + Q en phase chantier pour les
-  hourdis (conservatif sur G, rapport 1,11 sur cette part). Accepter, ou
-  passer à 1,35 / 1,5 avec un affichage ELU explicite ?
-- **P-3 · Tranchant des hourdis** : 100 % à l'élément chargé, sans
-  répartition annexe C. Accepter en V1 ?
+- **P-1 · Nature des valeurs de catalogue — tranché le 02/11/2026.** Les
+  valeurs du catalogue (ERGON) servent de défaut dès qu'elles sont
+  transcrites dans `plancher/donnees/hourdis.json`, et le bureau peut
+  toujours saisir les siennes dans l'étape Plancher (M_Rd, V_Rd, nature,
+  I, p_loc_adm, M_cr, valeurs avec chape et classe exigée). Chaque valeur
+  porte sa nature : résistance de CALCUL (Rd, comparée à des efforts ELU)
+  ou charge ADMISSIBLE de service (coefficients 1). La fiche ERGON reste à
+  transcrire du document du fabricant — aucun chiffre n'est pris de
+  mémoire ; la recherche en ligne du 02/11/2026 n'a trouvé aucun tableau
+  ERGON publié (seul un document PRECO, qui ne vaut pas pour ERGON).
+- **P-2 · Coefficients partiels — tranché le 02/11/2026 : pas de ÷ 1,5
+  uniforme.** Les efforts sollicitants comptent les poids propres. Quand
+  la résistance est une valeur de CALCUL (M_Rd d'un catalogue, EN 1992-1-1
+  pour les effets locaux, EN 1993 pour une filière ou un plateau) :
+  M_Ed = 1,35·M_G + 1,5·M_Q ≤ M_Rd, avec G = poids propres (hourdis, chape,
+  dalle) et Q = charges de chantier (charges présentes, engins × φ, étais,
+  stocks). Quand la résistance est une valeur ADMISSIBLE de service
+  (catalogue en service, méthode aux contraintes admissibles de
+  l'application pour les dalles) : coefficients 1 sur G et Q. L'ancienne
+  règle « M_Rd / 1,5 contre un moment de service » pondérait le poids
+  propre à 1,5 au lieu de 1,35.
+- **P-3 · Tranchant des hourdis — hypothèse explicitée le 02/11/2026.**
+  Pour l'effort tranchant, la réaction d'appui de chaque charge
+  concentrée reste à 100 % sur l'élément qui la porte : aucun partage avec
+  les voisins par les joints longitudinaux. La figure C.1 de l'EN 1168
+  répartit la FLEXION à mi-portée, où les joints ont toute la portée pour
+  transmettre ; près de l'appui, le joint n'a que quelques dizaines de
+  centimètres et l'annexe C ne dit rien de l'effort tranchant : garder
+  tout sur l'élément chargé est prudent. Le paramètre
+  `part_tranchant_element` (défaut 1,0) permet une autre part, à
+  justifier ; l'hypothèse est écrite dans la ligne de méthode de chaque
+  vérification de tranchant et dans les hypothèses du résultat.
 - **P-4 · Largeur efficace en flexion** (Heft 240) : coefficients à
   transcrire du texte ; la V1 n'utilise que t_y et b_v tant que la
   relecture n'est pas faite.

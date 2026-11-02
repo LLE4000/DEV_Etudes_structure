@@ -14,7 +14,7 @@ Garanties, chacune rougit si on retire ce qu'elle verrouille :
      sur le ressort sous la charge ; Σ R = Σ P ; symétrie ; moment nul aux
      extrémités libres ; erreurs sur un seul ressort ou une abscisse hors
      poutre.
-  4. Flexion de la filière : taux = γF·M/(W·fy/γM0).
+  4. Flexion de la filière (ELU) : taux = γQ·M/(W·fy/γM0), γQ sur les charges de chantier (P-2).
 
 Lancement : python3 tests/test_charges_plancher_repartiteurs.py (depuis la racine).
 """
@@ -104,7 +104,7 @@ for args, nom in (((1.0, 3.0, [(1.0, 10.0)], [(1.0, 5.0)]), "un seul ressort"),
 # 4. flexion de la filière
 v = RP.verifier_filiere({"M_max": 34.0}, 215.6, 235.0, 1.0, 1.5)
 chk("filière : M_Rd = W·fy/γM0", pres(v["M_Rd"], 215.6e3 * 235.0 / 1e6))
-chk("filière : taux = γF·M/M_Rd", pres(v["taux"], 1.5 * 34.0 / v["M_Rd"]))
+chk("filière : taux = γQ·M/M_Rd (ELU sur les charges de chantier)", pres(v["taux"], 1.5 * 34.0 / v["M_Rd"]))
 
 print(f"RÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -19,7 +19,7 @@ from . import diffusion as DF
 from . import repartiteurs as RP
 from . import resistances as RS
 from .modele import (Hourdis, DalleBA, Predalle, Element, Empreinte, ChargeLineaire, ChargeSurfacique,
-                     Engin, Plateau, Filiere, EN_TRAVERS, DANS_LE_SENS, HOURDIS, DALLE, PREDALLE)
+                     Engin, Plateau, Filiere, EN_TRAVERS, DANS_LE_SENS, HOURDIS, DALLE, PREDALLE, RD)
 from .parametres import Parametres, DEFAUT
 
 OK, ATTENTION, NOK, INFO, NON_VERIFIE, REFUS = "ok", "attention", "nok", "info", "non_verifie", "refus"
@@ -98,11 +98,13 @@ def _appliquer_plateau(e: Empreinte, pl: Plateau, p: Parametres) -> Tuple[Dict, 
         if pl.f is None:
             raise Refus(f"Plateau « {pl.nom} » : résistance de flexion f absente — à renseigner avec sa source "
                         "(fy/γM0 pour l'acier, f_m,d pour le bois ou l'OSB).")
-        ae = RP.aire_efficace(e.P_dyn * 1e3, a_mm, b_mm, pl.A, pl.Bp, pl.t, pl.f)
-        a_eff, b_eff, pres = ae["a_eff"], ae["b_eff"], ae["p"]
+        # la bande plastique est une vérification ELU de l'acier : pression γQ·P sous l'aire efficace (P-2)
+        ae = RP.aire_efficace(p.gamma_Q * e.P_dyn * 1e3, a_mm, b_mm, pl.A, pl.Bp, pl.t, pl.f)
+        a_eff, b_eff = ae["a_eff"], ae["b_eff"]
+        pres = e.P_dyn * 1e3 / (a_eff * b_eff)           # pression de SERVICE sous l'aire efficace (affichage, membrure)
         detail = ae
-        methode = ("bande efficace c = t·√(f/(3·p)) de chaque côté de l'empreinte (EN 1993-1-8 §6.2.5, "
-                   "distribution plastique, cohérente avec γF) ; aire efficace (a + 2c)·(b + 2c)")
+        methode = ("bande efficace c = t·√(f/(3·p_Ed)) de chaque côté de l'empreinte (EN 1993-1-8 §6.2.5, "
+                   f"distribution plastique, p_Ed = γQ·P / aire avec γQ = {p.gamma_Q:g}) ; aire efficace (a + 2c)·(b + 2c)")
         verifs.append(_verif("plateau", f"{pl.nom} sous {e.ref}", ae["c"], ae["c_max"],
                              None, methode, p, statut=INFO, unite="mm", part_efficace=ae["part_efficace"],
                              complet=ae["complet"], a_eff=a_eff, b_eff=b_eff, pression=pres))
@@ -145,9 +147,10 @@ def _appliquer_filiere(fil: Filiere, portees: List[Empreinte], plancher, p: Para
                             "complet": True, "origine": fil.nom})
         methode = ("poutre d'Euler sur appuis élastiques, un ressort par élément k = 3·E·I·L/(a²(L − a)²), "
                    "méthode des déplacements ; les réactions sont les charges des éléments")
-        vf = RP.verifier_filiere(res, fil.W_el, fil.fy, fil.gamma_M0, p.gamma_f)
+        vf = RP.verifier_filiere(res, fil.W_el, fil.fy, fil.gamma_M0, p.gamma_Q)
         verifs.append(_verif("filiere", fil.nom, vf["M_Ed_service"], vf["M_Rd"], vf["taux"],
-                             "flexion de la filière : γF·M_max ≤ W_el·fy/γM0", p, unite="kN·m",
+                             f"flexion de la filière (ELU) : γQ·M_max ≤ W_el·fy/γM0, γQ = {p.gamma_Q:g} sur les charges de "
+                             "chantier ; poids propre de la filière négligé", p, unite="kN·m",
                              reactions=[(round(s + s0, 4), R) for s, R in res["reactions"]], souleve=[
                                  e.nom for (e, _, _), (_, R) in zip(infos, res["reactions"]) if R < -1e-9]))
         if any(R < -1e-9 for _, R in res["reactions"]):
@@ -219,41 +222,54 @@ def _efforts_hourdis(h: Hourdis, patches: List[Dict], p: Parametres) -> Tuple[Li
             locaux.append(_verif("local", f"membrure sous {pt['ref']}", pres, None, None,
                                  "pression locale admissible non renseignée et pas de répartiteur efficace : "
                                  "répartiteur exigé (P-5)", p, statut=NOK, unite="N/mm²"))
-    res_h = RS.resistance_hourdis(h, p.gamma_f)
+    res_h = RS.resistance_hourdis(h, p.gamma_G, p.gamma_Q)
+    gG, gQ = res_h["gamma_G"], res_h["gamma_Q"]
     elements = []
     for e in els:
-        w = h.g_total() * e.largeur
+        # P-2 : les efforts SOLLICITANTS comptent les poids propres (G : hourdis + chape) et les
+        # charges de chantier (Q : charges présentes + charges concentrées × φ), chacun avec son
+        # coefficient — γG et γQ si la résistance est une valeur de calcul, 1 et 1 si elle est
+        # une valeur admissible de service
+        w_g = h.g_perm() * e.largeur            # kN/m, permanent
+        w_q = h.q_presentes * e.largeur         # kN/m, charges déjà présentes (variable)
         xs = sorted({h.L / 2} | {x for x, _, _ in charges_el[e.index]})
-        M_max, x_M = 0.0, h.L / 2
+        M_max, x_M, M_G, M_Q = 0.0, h.L / 2, 0.0, 0.0
         for xs_ in xs:
-            m = DF.moment_uniforme(w, xs_, h.L) + sum(DF.moment_ponctuel(P, x, xs_, h.L) for x, P, _ in charges_el[e.index])
+            mg = DF.moment_uniforme(w_g, xs_, h.L)
+            mq = DF.moment_uniforme(w_q, xs_, h.L) + sum(DF.moment_ponctuel(P, x, xs_, h.L) for x, P, _ in charges_el[e.index])
+            m = gG * mg + gQ * mq
             if m > M_max:
-                M_max, x_M = m, xs_
-        VA = DF.tranchant_uniforme(w, h.L) + sum(DF.reactions_ponctuelle(P, x, h.L)[0] for x, P in tranchant_el[e.index])
-        VB = DF.tranchant_uniforme(w, h.L) + sum(DF.reactions_ponctuelle(P, x, h.L)[1] for x, P in tranchant_el[e.index])
+                M_max, x_M, M_G, M_Q = m, xs_, mg, mq
+        VA = gG * DF.tranchant_uniforme(w_g, h.L) + gQ * (DF.tranchant_uniforme(w_q, h.L)
+                                                          + sum(DF.reactions_ponctuelle(P, x, h.L)[0] for x, P in tranchant_el[e.index]))
+        VB = gG * DF.tranchant_uniforme(w_g, h.L) + gQ * (DF.tranchant_uniforme(w_q, h.L)
+                                                          + sum(DF.reactions_ponctuelle(P, x, h.L)[1] for x, P in tranchant_el[e.index]))
         V_max = max(VA, VB)
         tM = M_max / res_h["M_adm"] if res_h["M_adm"] > 0 else math.inf
         tV = V_max / res_h["V_adm"] if res_h["V_adm"] > 0 else math.inf
         gouverne = "flexion" if tM >= tV else "tranchant"
         elements.append({"nom": e.nom, "index": e.index, "y0": e.y0, "y1": e.y1, "M_max": M_max, "x_M": x_M,
+                         "M_G": M_G, "M_Q": M_Q, "gamma_G": gG, "gamma_Q": gQ,
                          "M_adm": res_h["M_adm"], "taux_M": tM, "V_A": VA, "V_B": VB, "V_max": V_max,
                          "V_adm": res_h["V_adm"], "taux_V": tV, "taux": max(tM, tV), "gouverne": gouverne,
-                         "charges": [(x, P, o) for x, P, o in charges_el[e.index]], "w": w})
-        verifs.append(_verif("flexion", e.nom, M_max, res_h["M_adm"], tM, res_h["methode"], p, unite="kN·m"))
+                         "charges": [(x, P, o) for x, P, o in charges_el[e.index]], "w": w_g + w_q, "w_g": w_g, "w_q": w_q})
+        verifs.append(_verif("flexion", e.nom, M_max, res_h["M_adm"], tM, res_h["methode"], p, unite="kN·m",
+                             M_G=M_G, M_Q=M_Q, gamma_G=gG, gamma_Q=gQ))
         verifs.append(_verif("tranchant", e.nom, V_max, res_h["V_adm"], tV,
-                             res_h["methode"] + f" ; tranchant : {p.part_tranchant_element:.0%} sur l'élément chargé (P-3)",
-                             p, unite="kN"))
+                             res_h["methode"] + f" ; tranchant : {p.part_tranchant_element:.0%} de la réaction d'appui de chaque "
+                             "charge concentrée sur l'élément chargé, sans partage par les joints (P-3)",
+                             p, unite="kN", gamma_G=gG, gamma_Q=gQ))
         if res_h["M_cr"] is not None and M_max > 0:
-            verifs.append(_verif("fissuration", e.nom, M_max, res_h["M_cr"], M_max / res_h["M_cr"],
-                                 "moment de service ≤ moment de fissuration du fabricant (information, P-11)", p,
+            verifs.append(_verif("fissuration", e.nom, M_G + M_Q, res_h["M_cr"], (M_G + M_Q) / res_h["M_cr"],
+                                 "moment de SERVICE (coefficients 1) ≤ moment de fissuration du fabricant (information, P-11)", p,
                                  statut=INFO, unite="kN·m"))
     # joints (P-15)
     for j, F in sorted(joints.items()):
         objet = f"joint {els[j].nom} | {els[j + 1].nom}"
         if p.joint_adm_kN_m is not None and p.joint_longueur_m is not None:
             cap = p.joint_adm_kN_m * p.joint_longueur_m
-            verifs.append(_verif("joint", objet, F, cap, p.gamma_f * F / cap if cap > 0 else math.inf,
-                                 "effort transmis par le joint (parts annexe C) ≤ résistance admissible × longueur mobilisée, γF sur l'effort (P-15)",
+            verifs.append(_verif("joint", objet, F, cap, p.gamma_Q * F / cap if cap > 0 else math.inf,
+                                 f"effort transmis par le joint (parts annexe C) ≤ résistance admissible × longueur mobilisée, γQ = {p.gamma_Q:g} sur l'effort (P-15)",
                                  p, unite="kN"))
         else:
             verifs.append(_verif("joint", objet, F, None, None,
@@ -333,17 +349,19 @@ def _efforts_dalle(d: DalleBA, patches: List[Dict], p: Parametres) -> Tuple[List
         elements.append({"nom": e.nom, "index": e.index, "y0": e.y0, "y1": e.y1, "M_max": mb, "x_M": x_M,
                          "M_adm": res_d["M_adm"], "taux_M": tMb, "V_max": vb, "V_adm": res_d["V_adm"], "taux_V": tVb,
                          "taux": max(tMb, tVb), "gouverne": "flexion" if tMb >= tVb else "tranchant"})
-    # effets locaux EN 1992-1-1 (ELU, γF sur la charge)
+    # effets locaux EN 1992-1-1 : vérifications ELU, γQ sur la charge concentrée (charge de chantier, P-2 et P-9)
     fck = res_d["fck"]
     for pt in patches:
         a_mm, b_mm = pt["a"] * 1e3, pt["b"] * 1e3
         pl = RS.pression_localisee_Rd(a_mm, b_mm, d.h * 1e3, fck, p.gamma_c, p.alpha_cc)
-        locaux.append(_verif("local", f"pression localisée sous {pt['ref']}", p.gamma_f * pt["P"], pl["F_Rdu_kN"],
-                             p.gamma_f * pt["P"] / pl["F_Rdu_kN"], "EN 1992-1-1 §6.7 (6.63), γF sur la charge (P-9)", p, unite="kN"))
-        po = RS.poinconnement(p.gamma_f * pt["P"], a_mm, b_mm, d.d * 1e3, fck, d.rho_l, p.gamma_c, p.alpha_cc,
+        locaux.append(_verif("local", f"pression localisée sous {pt['ref']}", p.gamma_Q * pt["P"], pl["F_Rdu_kN"],
+                             p.gamma_Q * pt["P"] / pl["F_Rdu_kN"], f"EN 1992-1-1 §6.7 (6.63), ELU, γQ = {p.gamma_Q:g} sur la charge (P-9)",
+                             p, unite="kN"))
+        po = RS.poinconnement(p.gamma_Q * pt["P"], a_mm, b_mm, d.d * 1e3, fck, d.rho_l, p.gamma_c, p.alpha_cc,
                               p.beta_poinconnement, p.coef_vrd_max)
         locaux.append(_verif("local", f"poinçonnement sous {pt['ref']}", po["v_Ed"], po["v_Rd_c"], po["taux"],
-                             "EN 1992-1-1 §6.4, contour u1 à 2d, v_Rd,c (6.47) ≥ v_min, γF sur la charge (P-9)", p, unite="N/mm²"))
+                             f"EN 1992-1-1 §6.4, contour u1 à 2d, v_Rd,c (6.47) ≥ v_min, ELU, γQ = {p.gamma_Q:g} sur la charge (P-9)",
+                             p, unite="N/mm²"))
         if "taux_u0" in po:
             locaux.append(_verif("local", f"poinçonnement au nu sous {pt['ref']}", po["v_Ed0"], po["v_Rd_max"], po["taux_u0"],
                                  "EN 1992-1-1 §6.4.5(3), v_Rd,max = coef·ν·fcd (coefficient à confirmer sur l'ANB)", p, unite="N/mm²"))
@@ -426,16 +444,25 @@ def verifier(plancher, charges: Sequence, repartiteurs: Optional[Dict[str, objec
 def _hypotheses(plancher, p: Parametres) -> List[str]:
     h = []
     if plancher.type == HOURDIS:
-        h.append(f"hourdis : résistances de catalogue (nature {plancher.nature}), γF = {p.gamma_f:g} sur G + Q si Rd ; "
-                 f"répartition flexion : {'parts annexe C fournies' if plancher.repartition_active() else 'aucune (élément chargé seul)'} ; "
-                 f"tranchant : {p.part_tranchant_element:.0%} sur l'élément chargé")
+        if plancher.nature == RD:
+            h.append(f"hourdis, résistances de CALCUL du catalogue (M_Rd, V_Rd) : efforts à l'ELU, M_Ed = γG·M_G + γQ·M_Q avec "
+                     f"γG = {p.gamma_G:g} sur les poids propres (hourdis, chape) et γQ = {p.gamma_Q:g} sur les charges de chantier "
+                     "(charges présentes, engins × φ, étais, stocks) (P-2)")
+        else:
+            h.append("hourdis, valeurs ADMISSIBLES de service du catalogue : efforts de service, coefficients 1 sur G et Q (P-2)")
+        h.append("flexion : " + ("parts de la figure C.1 de l'EN 1168 fournies par le bureau (joints clavetés ou plancher chapé)"
+                                 if plancher.repartition_active() else "aucune répartition entre éléments, l'élément chargé porte tout")
+                 + f" ; tranchant : {p.part_tranchant_element:.0%} de la réaction d'appui de chaque charge concentrée reste sur "
+                 "l'élément chargé, sans partage par les joints — prudent, l'annexe C répartit la flexion à mi-portée, pas "
+                 "l'effort tranchant près de l'appui (P-3)")
         if plancher.chape:
             h.append(f"couche de compression {plancher.chape.epaisseur * 1e3:.0f} mm, fck(t) = {plancher.chape.fck_t:g} MPa"
                      + (" : valeurs catalogue avec chape" if plancher.chape.valeurs_avec_chape_admises() else " : valeurs nues, chape en poids (P-17)"))
     else:
-        h.append("béton armé : méthode aux contraintes admissibles de l'application (αb, μ, τadm,I) sur charges de service ; "
-                 "effets locaux EN 1992-1-1 §6.4 et §6.7 avec γF = %g" % p.gamma_f)
-    h.append("charges de service en entrée ; coefficient dynamique φ par appui (EN 1991-1-1 §6.3.2.3 pour les roues)")
+        h.append("béton armé : méthode aux contraintes admissibles de l'application (αb, μ, τadm,I) sur les charges de SERVICE, "
+                 f"coefficients 1 sur G et Q ; effets locaux EN 1992-1-1 §6.4 et §6.7 à l'ELU avec γQ = {p.gamma_Q:g} sur la charge (P-9)")
+    h.append("charges saisies en valeurs de service ; coefficient dynamique φ par appui (EN 1991-1-1 §6.3.2.3 pour les roues) ; "
+             "les poids propres (élément, chape) entrent dans les efforts sollicitants")
     return h
 
 

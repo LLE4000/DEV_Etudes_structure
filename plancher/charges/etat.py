@@ -45,7 +45,7 @@ def defaut_plancher() -> Dict:
 
 
 def defaut_params() -> Dict:
-    return {"gamma_f": 1.5, "part_tranchant_element": 1.0, "k_flexion_heft240": None, "joint_adm_kN_m": None,
+    return {"gamma_G": 1.35, "gamma_Q": 1.5, "part_tranchant_element": 1.0, "k_flexion_heft240": None, "joint_adm_kN_m": None,
             "joint_longueur_m": None, "gamma_c": 1.5, "alpha_cc": 1.0, "coef_vrd_max": 0.4}
 
 
@@ -103,13 +103,30 @@ def types_hourdis(etat: Dict) -> Dict[str, Dict]:
     return out
 
 
+CHAMPS_FICHE_HOURDIS = ("b_element", "h", "g", "E", "I", "M_Rd", "V_Rd", "nature", "M_Rd_chape", "V_Rd_chape", "M_cr",
+                        "p_loc_adm", "source")
+
+
 def appliquer_type_hourdis(cas: Dict, fiche: Dict) -> None:
     """Copie les valeurs d'une fiche de hourdis dans le cas (modifiables ensuite)."""
     h = cas["plancher"]["hourdis"]
     h["type_cat"] = fiche["nom"]
-    for k in ("b_element", "h", "g", "E", "I", "M_Rd", "V_Rd", "nature", "M_Rd_chape", "V_Rd_chape", "M_cr", "p_loc_adm", "source"):
+    for k in CHAMPS_FICHE_HOURDIS:
         if k in fiche:
             h[k] = fiche[k]
+
+
+def ajouter_fiche_hourdis(etat: Dict, cas: Dict, nom: str) -> Dict:
+    """P-1 : les valeurs saisies à l'étape Plancher deviennent une fiche du
+    catalogue de ce fichier (un catalogue transcrit sert de défaut, le bureau
+    peut toujours indiquer les siennes). Un nom déjà pris est remplacé."""
+    h = cas["plancher"]["hourdis"]
+    fiche = {"nom": nom, "generique": False}
+    for k in CHAMPS_FICHE_HOURDIS:
+        fiche[k] = h.get(k)
+    etat["fiches"]["hourdis"] = [f for f in etat["fiches"].get("hourdis", []) if f["nom"] != nom] + [fiche]
+    h["type_cat"] = nom
+    return fiche
 
 
 # ---------------------------------------------------------------- construction des objets du moteur
@@ -215,7 +232,8 @@ def construire(etat: Dict, cas: Optional[Dict] = None):
         elif rp["type"] == "filiere" and rp.get("id") in index["filieres"]:
             repartiteurs[ref] = index["filieres"][rp["id"]]
     pr = cas.get("params", {})
-    params = Parametres(gamma_f=float(pr.get("gamma_f", 1.5)), part_tranchant_element=float(pr.get("part_tranchant_element", 1.0)),
+    params = Parametres(gamma_G=float(pr.get("gamma_G", 1.35)), gamma_Q=float(pr.get("gamma_Q", 1.5)),
+                        part_tranchant_element=float(pr.get("part_tranchant_element", 1.0)),
                         k_flexion_heft240=pr.get("k_flexion_heft240"), joint_adm_kN_m=pr.get("joint_adm_kN_m"),
                         joint_longueur_m=pr.get("joint_longueur_m"), gamma_c=float(pr.get("gamma_c", 1.5)),
                         alpha_cc=float(pr.get("alpha_cc", 1.0)), coef_vrd_max=pr.get("coef_vrd_max", 0.4))

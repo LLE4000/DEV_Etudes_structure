@@ -8,11 +8,14 @@
   l'état Streamlit : elles sont RECOPIÉES ici, nommées, et le test
   ``tests/test_charges_plancher_moteur.py`` les lie au texte de
   ``poutre.py`` (copie tenue = vue, R2).
-- Hourdis : résistances de catalogue avec leur nature (P-1), ramenées en
-  service par γF si ce sont des résistances de calcul (P-2) ; valeurs
-  « avec chape » seulement si la chape les autorise (P-17).
+- Hourdis : résistances de catalogue avec leur nature (P-1) : valeurs de
+  CALCUL (M_Rd, V_Rd), comparées à des efforts ELU — γG sur les poids
+  propres, γQ sur les charges de chantier (P-2, tranché le 02/11/2026) —
+  ou valeurs ADMISSIBLES de service, comparées aux efforts de service
+  (coefficients 1) ; valeurs « avec chape » seulement si la chape les
+  autorise (P-17).
 - Effets locaux : EN 1992-1-1 §6.7 (pression localisée) et §6.4
-  (poinçonnement), en ELU avec γF sur la charge (P-9).
+  (poinçonnement), en ELU avec γQ sur la charge (P-9).
 """
 import json
 import math
@@ -117,10 +120,12 @@ def resistance_dalle(dalle: DalleBA) -> Dict:
 
 
 # ---------------------------------------------------------------- hourdis
-def resistance_hourdis(h: Hourdis, gamma_f: float) -> Dict:
-    """Résistances PAR ÉLÉMENT, ramenées en charges de service :
-    - nature Rd : M_adm = M_Rd / γF (ELU écrit en service, P-2) ;
-    - nature service : M_adm = valeur telle quelle ;
+def resistance_hourdis(h: Hourdis, gamma_G: float = 1.35, gamma_Q: float = 1.5) -> Dict:
+    """Résistances PAR ÉLÉMENT et coefficients à appliquer aux efforts :
+    - nature Rd : M_adm = M_Rd, V_adm = V_Rd, efforts à l'ELU — γG sur les
+      poids propres, γQ sur les charges de chantier (P-2, 02/11/2026) ;
+    - nature service : valeurs admissibles telles quelles, efforts de
+      service (coefficients 1 et 1) ;
     - valeurs « avec chape » si la chape les autorise (P-17), sinon valeurs
       nues, la chape ne comptant que comme poids."""
     avec_chape = bool(h.chape and h.chape.valeurs_avec_chape_admises()
@@ -128,17 +133,20 @@ def resistance_hourdis(h: Hourdis, gamma_f: float) -> Dict:
     M_Rd = h.M_Rd_chape if avec_chape else h.M_Rd
     V_Rd = h.V_Rd_chape if avec_chape else h.V_Rd
     if h.nature == RD:
-        div, methode = gamma_f, f"résistances de calcul du catalogue, γF = {gamma_f:g} sur G + Q (ELU écrit en service)"
+        gG, gQ = gamma_G, gamma_Q
+        methode = (f"résistances de calcul du catalogue : M_Ed = γG·M_G + γQ·M_Q ≤ M_Rd, γG = {gamma_G:g} sur les poids "
+                   f"propres, γQ = {gamma_Q:g} sur les charges de chantier (ELU, P-2)")
     elif h.nature == SERVICE:
-        div, methode = 1.0, "charges admissibles de service du catalogue, sans division"
+        gG, gQ = 1.0, 1.0
+        methode = "charges admissibles de service du catalogue : M_G + M_Q ≤ M_adm, coefficients 1 (P-2)"
     else:
         raise ValueError(f"Nature de catalogue non prise en charge en V1 : {h.nature!r} (Rd ou service)")
     note = ""
     if h.chape and not avec_chape:
         note = ("chape présente mais résistances « avec chape » non admises (P-17 : classe exigée non atteinte, "
                 "chape non collaborante ou valeurs absentes) : valeurs nues, chape comptée en poids")
-    return {"M_adm": M_Rd / div, "V_adm": V_Rd / div, "M_Rd": M_Rd, "V_Rd": V_Rd, "avec_chape": avec_chape,
-            "nature": h.nature, "diviseur": div, "methode": methode, "note": note,
+    return {"M_adm": M_Rd, "V_adm": V_Rd, "M_Rd": M_Rd, "V_Rd": V_Rd, "avec_chape": avec_chape,
+            "nature": h.nature, "gamma_G": gG, "gamma_Q": gQ, "methode": methode, "note": note,
             "M_cr": h.M_cr, "p_loc_adm": h.p_loc_adm}
 
 

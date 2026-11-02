@@ -127,7 +127,9 @@ def poutre_sur_ressorts(EI: float, longueur: float, ressorts: Sequence[Tuple[flo
             "somme_R": somme_R, "somme_P": somme_P, "ecart_equilibre": abs(somme_R - somme_P)}
 
 
-def verifier_filiere(res: Dict, W_el_cm3: float, fy: float, gamma_M0: float, gamma_f: float) -> Dict:
-    """Flexion de la filière : γF·M_max ≤ W_el·fy/γM0 (taux en service)."""
+def verifier_filiere(res: Dict, W_el_cm3: float, fy: float, gamma_M0: float, gamma_Q: float) -> Dict:
+    """Flexion de la filière à l'ELU : γQ·M_max ≤ W_el·fy/γM0 — M_max est le
+    moment sous les charges de chantier (valeurs de service), γQ leur
+    coefficient partiel (P-2) ; le poids propre de la filière est négligé."""
     M_Rd = W_el_cm3 * 1e3 * fy / gamma_M0 / 1e6      # kN·m
-    return {"M_Ed_service": res["M_max"], "M_Rd": M_Rd, "taux": gamma_f * res["M_max"] / M_Rd if M_Rd > 0 else math.inf}
+    return {"M_Ed_service": res["M_max"], "M_Rd": M_Rd, "taux": gamma_Q * res["M_max"] / M_Rd if M_Rd > 0 else math.inf}

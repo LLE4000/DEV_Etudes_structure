@@ -9,13 +9,17 @@ Garanties, chacune rougit si on retire ce qu'elle verrouille :
      As,req(M_adm,acier) = As, τ(V_adm) = τ) ; l'exemple du § 2.1 de
      l'étude (64,0 · 34,9 · 84,6) est retrouvé.
   2. Classes de béton : arrondi vers le bas de fck(t), Ecm du Tableau 3.1.
-  3. Hourdis : nature Rd → /γF, service → tel quel, nature inconnue →
-     erreur ; chape : valeurs « avec chape » seulement si collaborante ET
-     classe exigée atteinte (P-17), sinon valeurs nues et note.
+  3. Hourdis : nature Rd → M_adm = M_Rd et coefficients γG / γQ sur les
+     efforts (ELU, P-2 tranché le 02/11/2026), service → valeur telle
+     quelle et coefficients 1, nature inconnue → erreur ; chape : valeurs
+     « avec chape » seulement si collaborante ET classe exigée atteinte
+     (P-17), sinon valeurs nues et note.
   4. Effets locaux EN 1992-1-1 : §6.7 recalculé à la main (plafond 3·fcd·Ac0),
      §6.4 recalculé à la main (u1, k, v_Rd,c, plancher v_min).
-  5. PIPELINE hourdis : charge seule à mi-portée → P·L/4 et P/2, taux contre
-     M_Rd/γF ; charge sur un joint → moitié-moitié ; plateau → empreinte
+  5. PIPELINE hourdis : charge seule à mi-portée → M_Q = P·L/4, V_Q = P/2,
+     M_Ed = γQ·M_Q contre M_Rd ; POIDS PROPRES dans les efforts : M_Ed =
+     γG·M_G + γQ·M_Q, V de même, service → coefficients 1, γG = γQ = 1
+     retrouve le service ; charge sur un joint → moitié-moitié ; plateau → empreinte
      a + 2c et pression cohérente, membrure à travers la chape ; filière →
      Σ réactions = P, un élément hors filière ne reçoit rien, filière rigide
      sur trois éléments égaux → trois tiers ; parts annexe C → parts de M,
@@ -91,27 +95,29 @@ chk("Ecm Tableau 3.1", pres(RS.Ecm(30.0), 22.0 * (38.0 / 10.0) ** 0.3 * 1e3))
 
 # 3. hourdis : natures et chape
 h = M.Hourdis(nom="H", L=6.0, n_elements=4, M_Rd=90.0, V_Rd=95.0, nature=M.RD)
-r = RS.resistance_hourdis(h, 1.5)
-chk("nature Rd : M_adm = M_Rd/γF", pres(r["M_adm"], 60.0) and pres(r["V_adm"], 95.0 / 1.5))
+r = RS.resistance_hourdis(h, 1.35, 1.5)
+chk("nature Rd : M_adm = M_Rd, V_adm = V_Rd, coefficients γG = 1,35 et γQ = 1,5 sur les efforts (P-2)",
+    pres(r["M_adm"], 90.0) and pres(r["V_adm"], 95.0) and r["gamma_G"] == 1.35 and r["gamma_Q"] == 1.5 and "ELU" in r["methode"])
 h.nature = M.SERVICE
-chk("nature service : tel quel", pres(RS.resistance_hourdis(h, 1.5)["M_adm"], 90.0))
+rs_ = RS.resistance_hourdis(h, 1.35, 1.5)
+chk("nature service : tel quel, coefficients 1", pres(rs_["M_adm"], 90.0) and rs_["gamma_G"] == 1.0 and rs_["gamma_Q"] == 1.0)
 h.nature = "Rk"
 try:
-    RS.resistance_hourdis(h, 1.5)
+    RS.resistance_hourdis(h, 1.35, 1.5)
     chk("nature inconnue : erreur", False)
 except ValueError:
     chk("nature inconnue : erreur", True)
 hc = M.Hourdis(nom="H", L=6.0, n_elements=4, M_Rd=90.0, V_Rd=95.0, M_Rd_chape=112.0, V_Rd_chape=104.0,
                chape=M.Chape(0.05, 24.0, True, 20.0))
-chk("chape admise : valeurs avec chape", RS.resistance_hourdis(hc, 1.5)["avec_chape"] and pres(RS.resistance_hourdis(hc, 1.5)["M_adm"], 112.0 / 1.5))
+chk("chape admise : valeurs avec chape", RS.resistance_hourdis(hc)["avec_chape"] and pres(RS.resistance_hourdis(hc)["M_adm"], 112.0))
 hc.chape = M.Chape(0.05, 18.0, True, 20.0)
-rc = RS.resistance_hourdis(hc, 1.5)
-chk("classe exigée non atteinte : valeurs nues + note (P-17)", not rc["avec_chape"] and pres(rc["M_adm"], 60.0) and "P-17" in rc["note"])
+rc = RS.resistance_hourdis(hc)
+chk("classe exigée non atteinte : valeurs nues + note (P-17)", not rc["avec_chape"] and pres(rc["M_adm"], 90.0) and "P-17" in rc["note"])
 hc.chape = M.Chape(0.05, 30.0, True, None)
-chk("classe exigée inconnue : refus des valeurs avec chape", not RS.resistance_hourdis(hc, 1.5)["avec_chape"])
+chk("classe exigée inconnue : refus des valeurs avec chape", not RS.resistance_hourdis(hc)["avec_chape"])
 hc.chape = M.Chape(0.05, 30.0, False, 20.0)
-chk("chape non collaborante : valeurs nues", not RS.resistance_hourdis(hc, 1.5)["avec_chape"])
-chk("chape comptée en poids", pres(hc.g_total(), 2.9 + 1.25))
+chk("chape non collaborante : valeurs nues", not RS.resistance_hourdis(hc)["avec_chape"])
+chk("chape comptée en poids (permanent)", pres(hc.g_perm(), 2.9 + 1.25) and pres(hc.g_total(), 2.9 + 1.25))
 
 # 4. effets locaux
 pl = RS.pression_localisee_Rd(300.0, 300.0, 200.0, 30.0)
@@ -134,15 +140,16 @@ H = M.Hourdis(nom="H", L=6.0, n_elements=5, g=0.0, q_presentes=0.0, M_Rd=90.0, V
 e = M.Empreinte("E", 3.0, 3.0, 0.3, 0.3, 20.0)          # centre de H3 (2,4–3,6)
 r = V.verifier(H, [e], {})
 h3 = next(x for x in r["elements"] if x["nom"] == "H3")
-chk("charge seule : M = P·L/4", pres(h3["M_max"], 30.0) and pres(h3["taux_M"], 30.0 / 60.0))
-chk("charge seule : V = P/2, taux contre V_Rd/γF", pres(h3["V_max"], 10.0) and pres(h3["taux_V"], 10.0 / (95.0 / 1.5)))
+chk("charge seule : M_Q = P·L/4, M_Ed = γQ·M_Q contre M_Rd", pres(h3["M_Q"], 30.0) and pres(h3["M_max"], 1.5 * 30.0)
+    and pres(h3["taux_M"], 1.5 * 30.0 / 90.0) and h3["M_G"] == 0.0)
+chk("charge seule : V_Ed = γQ·P/2 contre V_Rd", pres(h3["V_max"], 1.5 * 10.0) and pres(h3["taux_V"], 1.5 * 10.0 / 95.0))
 chk("autres éléments vides sans annexe C", all(x["M_max"] == 0.0 for x in r["elements"] if x["nom"] != "H3"))
 chk("statut ok, gouverne flexion H3", r["statut"] == "ok" and r["gouverne"]["objet"] == "H3" and r["gouverne"]["famille"] == "flexion")
 chk("membrure : pression = P/(a·b) contre p_loc_adm", pres(verif(r, "local")[0]["E"], 20e3 / (300 * 300)) and pres(verif(r, "local")[0]["taux"], 20e3 / 9e4 / 0.7))
 ej = M.Empreinte("E", 3.0, 2.4, 0.3, 0.3, 20.0)          # sur le joint H2 | H3
 rj = V.verifier(H, [ej], {})
-m2 = next(x["M_max"] for x in rj["elements"] if x["nom"] == "H2")
-m3 = next(x["M_max"] for x in rj["elements"] if x["nom"] == "H3")
+m2 = next(x["M_Q"] for x in rj["elements"] if x["nom"] == "H2")
+m3 = next(x["M_Q"] for x in rj["elements"] if x["nom"] == "H3")
 chk("charge sur un joint : moitié-moitié (levier)", pres(m2, 15.0) and pres(m3, 15.0))
 # plateau
 plat = M.Plateau("tôle", 235.0, 20.0, 600.0, 600.0)
@@ -150,7 +157,17 @@ rp = V.verifier(H, [e], {"E": plat})
 pt = rp["patches"][0]
 chk("plateau : empreinte a + 2c, pression P/aire", pres(pt["a"], (300 + 2 * verif(rp, "plateau")[0]["E"]) / 1e3)
     and pres(pt["pression"], 20e3 / (pt["a"] * 1e3 * pt["b"] * 1e3)))
-chk("plateau : M de l'élément inchangé (résultante)", pres(next(x["M_max"] for x in rp["elements"] if x["nom"] == "H3"), 30.0))
+chk("plateau : M de l'élément inchangé (résultante)", pres(next(x["M_Q"] for x in rp["elements"] if x["nom"] == "H3"), 30.0))
+# tôle de 20 mm : c plafonné par le bord (plateau entier) ; tôle de 6 mm : bande partielle, calculée sous
+# la pression ELU γQ·P / aire efficace (P-2) — plus courte que sous la pression de service
+e95 = M.Empreinte("E", 3.0, 3.0, 0.3, 0.3, 95.0)          # 95 kN : la bande d'une tôle de 6 mm ne couvre pas le plateau
+rp6 = V.verifier(H, [e95], {"E": M.Plateau("tôle fine", 235.0, 6.0, 600.0, 600.0)})
+pt6, c6 = rp6["patches"][0], verif(rp6, "plateau")[0]["E"]
+p_Ed = 1.5 * 95e3 / (pt6["a"] * 1e3 * pt6["b"] * 1e3)
+chk("plateau : bande plastique calculée sous la pression ELU γQ·P (P-2)",
+    not verif(rp6, "plateau")[0]["complet"] and pres(c6, 6.0 * math.sqrt(235.0 / (3 * p_Ed)), 1e-3)
+    and c6 < 6.0 * math.sqrt(235.0 / (3 * p_Ed / 1.5)) and "γQ" in verif(rp6, "plateau")[0]["methode"],
+    f"c = {c6}, a_eff = {pt6['a']}")
 Hc = M.Hourdis(**{**H.__dict__, "chape": M.Chape(0.05, 30.0, True, 20.0)})
 rc = V.verifier(Hc, [e], {"E": plat})
 ptc = rc["patches"][0]
@@ -163,36 +180,55 @@ chk("membrure sans donnée, plateau complet : non vérifié (P-5)", verif(rn2, "
 # filière
 fil = M.Filiere("fil", EI=1.0e9, W_el=1.0e6, fy=235.0, longueur=3.6, x=3.0, y=3.0, refs=["E"])   # rigide, H2 H3 H4 entiers
 rf = V.verifier(H, [e], {"E": fil})
-ms = {x["nom"]: x["M_max"] for x in rf["elements"]}
+ms = {x["nom"]: x["M_Q"] for x in rf["elements"]}
 chk("filière rigide sur trois éléments : trois tiers", all(pres(ms[n], 10.0, 1e-4) for n in ("H2", "H3", "H4")), str(ms))
 chk("filière : éléments hors filière vides", ms["H1"] == 0.0 and ms["H5"] == 0.0)
 chk("filière : Σ réactions = P", pres(sum(R for _, R in verif(rf, "filiere")[0]["reactions"]), 20.0, 1e-9))
 fil2 = M.Filiere("fil", EI=1.0, W_el=100.0, fy=235.0, longueur=3.6, x=3.0, y=3.0, refs=["E"])      # très souple
 rf2 = V.verifier(H, [e], {"E": fil2})
-chk("filière très souple : la charge reste sur H3", next(x["M_max"] for x in rf2["elements"] if x["nom"] == "H3") > 29.0)
-chk("filière : flexion vérifiée (γF·M ≤ W·fy)", verif(rf, "filiere")[0]["taux"] is not None)
+chk("filière très souple : la charge reste sur H3", next(x["M_Q"] for x in rf2["elements"] if x["nom"] == "H3") > 29.0)
+chk("filière : flexion vérifiée à l'ELU (γQ·M ≤ W·fy/γM0)", verif(rf, "filiere")[0]["taux"] is not None
+    and pres(verif(rf, "filiere")[0]["taux"], 1.5 * verif(rf, "filiere")[0]["E"] / verif(rf, "filiere")[0]["R"]))
 # annexe C et joints
 Ha = M.Hourdis(**{**H.__dict__, "parts_annexe_C": {0: 0.5, 1: 0.25}})
 ra = V.verifier(Ha, [e], {})
-ma = {x["nom"]: x["M_max"] for x in ra["elements"]}
+ma = {x["nom"]: x["M_Q"] for x in ra["elements"]}
 chk("annexe C : parts de moment 0,25 · 0,5 · 0,25", pres(ma["H3"], 15.0) and pres(ma["H2"], 7.5) and pres(ma["H4"], 7.5))
 va = {x["nom"]: x["V_max"] for x in ra["elements"]}
-chk("tranchant 100 % sur l'élément chargé (P-3)", pres(va["H3"], 10.0) and va["H2"] == 0.0 and va["H4"] == 0.0)
+chk("tranchant : 100 % de la réaction sur l'élément chargé, rien aux voisins (P-3), V_Ed = γQ·P/2",
+    pres(va["H3"], 1.5 * 10.0) and va["H2"] == 0.0 and va["H4"] == 0.0
+    and "sans partage par les joints" in verif(ra, "tranchant")[0]["methode"])
 js = verif(ra, "joint")
 chk("joints : effort transmis = part du voisin, non vérifié sans paramètre (P-15)",
     len(js) == 2 and all(pres(j["E"], 5.0) and j["statut"] == "non_verifie" for j in js), str(js))
 raj = V.verifier(Ha, [e], {}, Parametres(joint_adm_kN_m=5.0, joint_longueur_m=1.0))
-chk("joints : vérifiés avec paramètres, taux = γF·F/(adm·l)", all(pres(j["taux"], 1.5 * 5.0 / 5.0) for j in verif(raj, "joint")))
+chk("joints : vérifiés avec paramètres, taux = γQ·F/(adm·l)", all(pres(j["taux"], 1.5 * 5.0 / 5.0) for j in verif(raj, "joint")))
 Hp = M.Hourdis(**{**H.__dict__, "parts_annexe_C": {0: 0.5, 1: 0.25}, "etat": M.POSES})
-chk("annexe C inactive sur des hourdis posés", next(x["M_max"] for x in V.verifier(Hp, [e], {})["elements"] if x["nom"] == "H3") == 30.0)
+chk("annexe C inactive sur des hourdis posés", next(x["M_Q"] for x in V.verifier(Hp, [e], {})["elements"] if x["nom"] == "H3") == 30.0)
 Hf = M.Hourdis(**{**H.__dict__, "M_cr": 25.0})
 chk("fissuration : ligne d'information (P-11)", verif(V.verifier(Hf, [e], {}), "fissuration")[0]["statut"] == "info")
 rr = V.verifier(M.Hourdis(**{**H.__dict__, "nature": M.SERVICE}), [e], {})
 chk("nature service dans le pipeline", pres(next(x["taux_M"] for x in rr["elements"] if x["nom"] == "H3"), 30.0 / 90.0))
 # charge dynamique et charges réparties présentes
-Hg = M.Hourdis(**{**H.__dict__, "g": 2.0, "q_presentes": 1.0})
+Hg = M.Hourdis(**{**H.__dict__, "g": 2.0, "q_presentes": 1.0})            # b = 1,2 m : w_g = 2,4 kN/m, w_q = 1,2 kN/m
 rg = V.verifier(Hg, [M.Empreinte("E", 3.0, 3.0, 0.3, 0.3, 20.0, phi=1.4)], {})
-chk("φ et charges réparties : M = 1,4·P·L/4 + w·L²/8", pres(next(x["M_max"] for x in rg["elements"] if x["nom"] == "H3"), 1.4 * 30.0 + 3.0 * 1.2 * 36 / 8))
+hg3 = next(x for x in rg["elements"] if x["nom"] == "H3")
+M_G, M_Q = 2.4 * 36 / 8, 1.2 * 36 / 8 + 1.4 * 30.0
+chk("P-2 : POIDS PROPRES dans les efforts — M_G = w_g·L²/8, M_Q = w_q·L²/8 + φ·P·L/4", pres(hg3["M_G"], M_G) and pres(hg3["M_Q"], M_Q))
+chk("P-2 : M_Ed = 1,35·M_G + 1,5·M_Q (nature Rd)", pres(hg3["M_max"], 1.35 * M_G + 1.5 * M_Q))
+chk("P-2 : V_Ed = 1,35·w_g·L/2 + 1,5·(w_q·L/2 + φ·P/2)", pres(hg3["V_max"], 1.35 * 2.4 * 3.0 + 1.5 * (1.2 * 3.0 + 1.4 * 10.0)))
+rgs = V.verifier(M.Hourdis(**{**Hg.__dict__, "nature": M.SERVICE}), [M.Empreinte("E", 3.0, 3.0, 0.3, 0.3, 20.0, phi=1.4)], {})
+chk("P-2 : nature service → M = M_G + M_Q, coefficients 1", pres(next(x["M_max"] for x in rgs["elements"] if x["nom"] == "H3"), M_G + M_Q))
+rg1 = V.verifier(Hg, [M.Empreinte("E", 3.0, 3.0, 0.3, 0.3, 20.0, phi=1.4)], {}, Parametres(gamma_G=1.0, gamma_Q=1.0))
+chk("P-2 : γG = γQ = 1 retrouve le moment de service", pres(next(x["M_max"] for x in rg1["elements"] if x["nom"] == "H3"), M_G + M_Q))
+chk("P-2 : l'ancien ÷ 1,5 uniforme n'est plus là (taux ≠ (M_G + M_Q)/(M_Rd/1,5))",
+    not pres(hg3["taux_M"], (M_G + M_Q) / (90.0 / 1.5)) and pres(hg3["taux_M"], (1.35 * M_G + 1.5 * M_Q) / 90.0))
+rgf = V.verifier(M.Hourdis(**{**Hg.__dict__, "M_cr": 25.0}), [M.Empreinte("E", 3.0, 3.0, 0.3, 0.3, 20.0, phi=1.4)], {})
+chk("P-11 : la fissuration compare le moment de SERVICE M_G + M_Q",
+    pres(next(v for v in verif(rgf, "fissuration") if v["objet"] == "H3")["E"], M_G + M_Q))
+chk("hypothèses : γG, γQ, poids propres et tranchant P-3 écrits en toutes lettres",
+    any("γG = 1.35" in t and "γQ = 1.5" in t for t in rg["hypotheses"]) and any("sans partage par les joints" in t for t in rg["hypotheses"])
+    and any("poids propres" in t for t in rg["hypotheses"]))
 
 # 6. pipeline dalle et prédalle
 D = M.DalleBA(nom="D", L=6.0, largeur=6.0, h=0.20, d=0.17, beton="C30/37", As_inf=524.0)
@@ -204,6 +240,9 @@ chk("dalle : v_A = (P/2)/(t_y + 0,5·L/2) + w·L/2", pres(verif(rd, "tranchant")
 chk("dalle : résistances de resistance_dalle", pres(verif(rd, "flexion")[0]["R"], RS.resistance_dalle(D)["M_adm"]))
 chk("dalle : ligne P-4 (k non transcrit)", any("P-4" in v["methode"] for v in verif(rd, "hypothese")))
 chk("dalle : §6.7 et §6.4 présents", len(verif(rd, "local")) == 3)
+chk("dalle : effets locaux à l'ELU, E = γQ·P (P-2, P-9)", pres(verif(rd, "local")[0]["E"], 1.5 * 40.0) and "γQ" in verif(rd, "local")[0]["methode"])
+chk("dalle : flexion et tranchant par mètre en service, coefficients 1 (méthode de l'application)",
+    any("coefficients 1" in t for t in rd["hypotheses"]))
 rdk = V.verifier(D, [M.Empreinte("E", 3.0, 3.0, 0.15, 0.15, 40.0)], {}, Parametres(k_flexion_heft240=2.5))
 chk("dalle : k transcrit élargit la bande", verif(rdk, "flexion")[0]["E"] < verif(rd, "flexion")[0]["E"])
 P1 = M.Predalle(nom="P", L=6.0, largeur=4.8, h=0.20, d=0.17, b_predalle=2.4, joints_armes=False)
