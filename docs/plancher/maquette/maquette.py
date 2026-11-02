@@ -100,7 +100,23 @@ def nacelle():
     s.append(_rect(1.2, -0.52, 0.9, 1.04, dash="3 2"))
     return "".join(s), [(0.85, -0.64), (0.85, 0.64), (-0.85, -0.64), (-0.85, 0.64)], (3.2, 1.6)
 
-ENGINS = {"mrt": mrt_2150, "mt": mt_1840, "ltm": ltm_1060, "nac": nacelle}
+def grue_araignee():
+    """Mini-grue sur chenilles, 4 stabilisateurs en diagonale (gabarit générique,
+    proportions d'une mini-grue de 3 à 6 t : chenilles 2,9 × 1,2, emprise 4,0 × 4,0)."""
+    s = []
+    for sy in (-1, 1):
+        s.append(_rect(-1.45, sy * 0.5 - 0.17, 2.9, 0.34, fill=ROUE, rx=0.06))
+    s.append(_rect(-1.1, -0.42, 2.2, 0.84, rx=0.08))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            s.append(_poutre(sx * 0.9, sy * 0.35, sx * 1.75, sy * 1.75, 0.16))
+    s.append(_circle(-0.2, 0, 0.38))
+    s.append(_poly([(-0.2, -0.16), (2.6, -0.1), (2.6, 0.1), (-0.2, 0.16)]))
+    s.append(_circle(-0.2, 0, 0.06, fill=NOIR))
+    pads = [(1.75, -1.75), (1.75, 1.75), (-1.75, -1.75), (-1.75, 1.75)]
+    return "".join(s), pads, (4.2, 4.2)
+
+ENGINS = {"mrt": mrt_2150, "mt": mt_1840, "ltm": ltm_1060, "nac": nacelle, "ara": grue_araignee}
 
 def place(fn, px, py, scale, angle=0):
     body, appuis, _ = fn()
@@ -111,7 +127,7 @@ def picto(kind, w=112, h=72):
         body, appuis, (lw, lh) = ENGINS[kind]()
         sc = min((w - 10) / lw, (h - 8) / lh)
         pads = ""
-        if kind in ("mrt", "ltm"):
+        if kind in ("mrt", "ltm", "ara"):
             pads = "".join(f'<rect x="{x-0.3}" y="{y-0.3}" width="0.6" height="0.6" fill="white" stroke="{NOIR}" stroke-width="1" {NS}/><rect x="{x-0.15}" y="{y-0.15}" width="0.3" height="0.3" fill="{NOIR}"/>' for x, y in appuis)
         return f'<svg viewBox="0 0 {w} {h}" width="{w}" height="{h}"><g transform="translate({w/2} {h/2}) scale({sc:.3f})">{body}{pads}</g></svg>'
     if kind == "etancon":
@@ -307,16 +323,16 @@ RIGHT = f"""
   <div style="font-size:13.5px">Flexion de <b>H3</b> sous le pied <b>P2</b> — ELU, γF 1,5 sur G + Q.</div>
   {bar("Flexion", 118, "#b91c1c")}{bar("Tranchant", 93, "#c2410c")}{bar("Pression locale", 48, "#2563eb")}{bar("Plateaux", 80, "#2563eb")}
   <div class="tip">💡 <span>Filière HEB 140 sous P2 → <b>79 %</b></span><span class="btn">Appliquer</span></div>
-  <div class="tip" style="background:#fff;border-color:#e5e7eb">↔ <span>ou avancer la grue de 0,40 m → <b>98 %</b></span><span class="btn" style="border-color:#d1d5db;color:#374151">Voir</span></div>
+  <div class="tip" style="background:#fff;border-color:#e5e7eb">↔ <span>ou avancer l'engin de 0,40 m → <b>98 %</b></span><span class="btn" style="border-color:#d1d5db;color:#374151">Voir</span></div>
 </div>
 <div class="card"><div class="step"><span class="num g">1</span><div><div class="ttl">Plancher</div><div class="sub">Hourdis ERGON SP 200 + couche de compression 50 mm · L 7,20 m · 8 × 1,20 m · appuis A, B · 14 j</div></div><span class="chev">⌄</span></div></div>
 <div class="card">
   <div class="step"><span class="num">2</span><div><div class="ttl">Charges</div><div class="sub">2 objets · 345 kN</div></div><span class="btn" style="margin-left:auto">＋ Ajouter</span></div>
   <div class="list">
-    <div class="it on"><div><b>Grue araignée MRT 2150</b><span class="sub">levage · 4 stabilisateurs · x 3,00 · y 5,60 m</span></div><span class="kn">310 kN</span></div>
+    <div class="it on"><div><b>Télescopique rotatif MRT 2150</b><span class="sub">levage · 4 stabilisateurs · x 3,00 · y 5,60 m</span></div><span class="kn">310 kN</span></div>
     <div class="it"><div><b>Étançon E1</b><span class="sub">sous poutre de l'étage · x 6,30 · y 0,60 m</span></div><span class="kn">35 kN</span></div>
   </div>
-  <div class="sub2">PIEDS DE LA GRUE</div>
+  <div class="sub2">PIEDS DE L'ENGIN</div>
   <table><tr><th>Pied</th><th class="n">Charge</th><th>Répartiteur</th><th>Élém.</th><th class="n">Taux</th></tr>
   <tr style="background:#f8fafc"><td><b>P2</b></td><td class="n">95 kN</td><td>Plateau 600×600</td><td>H3</td><td class="n r">118 %</td></tr>
   <tr><td><b>P1</b></td><td class="n">95 kN</td><td>Plateau 600×600</td><td>H3</td><td class="n r">118 %</td></tr>
@@ -377,20 +393,20 @@ LIB = f"""<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bibl
   <div class="h"><span style="font-weight:600;font-size:15px">Bibliothèque — ajouter une charge</span><span class="btn">＋ Nouvelle fiche</span></div>
   <div class="tabs"><span class="on">Engins</span><span>Grues</span><span>Étais et filières</span><span>Stocks</span><span>Plateaux</span></div>
   <div class="lib">
-    {fiche("mrt", "Grue araignée MRT 2150", "4 stabilisateurs · emprise 5,55 × 5,19 m · largeur 2,49 m · semelle 300 × 300", "ok", "dimensions : brochure Manitou (en ligne) · charges par pied : à relire", True)}
+    {fiche("mrt", "Télescopique rotatif MRT 2150", "4 stabilisateurs · emprise 5,55 × 5,19 m · largeur 2,49 m · semelle 300 × 300", "ok", "dimensions : brochure Manitou (en ligne) · charges par pied : à relire", True)}
     {fiche("mt", "Télescopique MT 1840", "4 roues 400/80-24 · 6,27 × 2,42 m · empattement 3,07 m · 11,8 t · φ 1,40", "ok", "dimensions : manitou.com · charges par roue : à relire")}
-    {fiche("ltm", "Grue mobile LTM 1060-3.1", "4 stabilisateurs · base 7,36 × 6,30 m · porteur 11,98 × 2,69 m", "todo", "dimensions : annonces revendeurs · fiche Liebherr à confirmer")}
+    {fiche("ara", "Grue araignée (mini-grue)", "4 stabilisateurs · chenilles · emprise et charges par pied selon la fiche (Unic, Maeda, Jekko…)", "gen", "gabarit générique · à compléter d'une fiche")}
     {fiche("nac", "Nacelle ciseaux 12 m", "4 roues pleines · 2,4 × 1,2 m · φ 2,00 · gabarit", "gen", "générique · à compléter d'une fiche")}
     {fiche("etancon", "Étançon", "charge ponctuelle · semelle 150 × 150 · charge saisie", "gen", "générique")}
     {fiche("stock", "Stock de palettes", "charge surfacique · 15 kN/m² · emprise saisie", "gen", "générique")}
   </div>
-  <div class="meta" style="margin-top:12px">Chaque fiche porte ses dimensions, ses charges par appui et sa <b>source</b> (document, date, page). Les dimensions ci-dessus ont été relevées en ligne le 02/11/2026 sur des sources secondaires : elles servent au dessin à l'échelle et se confirment sur la fiche officielle avant usage. Les fiches du bureau sont versionnées avec l'application ; une fiche ajoutée dans un cas reste dans son fichier.</div>
+  <div class="meta" style="margin-top:12px">Chaque fiche porte ses dimensions, ses charges par appui et sa <b>source</b> (document, date, page). Les dimensions ci-dessus ont été relevées en ligne le 02/11/2026 sur des sources secondaires : elles servent au dessin à l'échelle et se confirment sur la fiche officielle avant usage. Les fiches du bureau sont versionnées avec l'application ; une fiche ajoutée dans un cas reste dans son fichier. La bibliothèque livrée ne contient que des engins de plancher ; une grue mobile se crée comme fiche utilisateur, pour une dalle conçue pour la recevoir.</div>
 </div>
 <div>
   <div class="card">
-    <div class="h"><span style="font-weight:600;font-size:15px">Fiche — Grue araignée MRT 2150</span><span class="src ok" style="font-size:11.5px">brochure Manitou MRT 2150 Privilege Plus · relevé en ligne 02/11/2026</span></div>
+    <div class="h"><span style="font-weight:600;font-size:15px">Fiche — Télescopique rotatif MRT 2150</span><span class="src ok" style="font-size:11.5px">brochure Manitou MRT 2150 Privilege Plus · relevé en ligne 02/11/2026</span></div>
     <div class="form">
-      <div><label>Nom</label><div class="in">Grue araignée MRT 2150</div></div><div><label>Type d'appuis</label><div class="in">Stabilisateurs ▾</div></div><div><label>Nombre</label><div class="in">4</div></div><div><label>φ dynamique</label><div class="in">1,00</div></div>
+      <div><label>Nom</label><div class="in">Télescopique rotatif MRT 2150</div></div><div><label>Type d'appuis</label><div class="in">Stabilisateurs ▾</div></div><div><label>Nombre</label><div class="in">4</div></div><div><label>φ dynamique</label><div class="in">1,00</div></div>
       <div><label>Largeur hors tout (m)</label><div class="in">2,49</div></div><div><label>Longueur châssis (m)</label><div class="in">5,35</div></div><div><label>Empattement (m)</label><div class="in">3,05</div></div><div><label>Emprise stabilisateurs (m)</label><div class="in">5,55 × 5,19</div></div>
       <div><label>Semelle (mm)</label><div class="in">300 × 300</div></div><div><label>Charge max / pied AV (kN)</label><div class="in todo">à relire</div></div><div><label>Charge max / pied AR (kN)</label><div class="in todo">à relire</div></div><div><label>Source</label><div class="in">brochure Manitou, p. — ▾</div></div>
     </div>

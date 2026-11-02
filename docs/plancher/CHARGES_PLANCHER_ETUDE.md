@@ -766,10 +766,111 @@ qui changent les nombres).
 - **P-12 · Bibliothèque du bureau dans le dépôt** (fichier versionné) plutôt
   qu'écrite à chaud sur Streamlit Cloud, où elle disparaîtrait au
   redémarrage ; ajouts d'étude dans le fichier de cas.
+- **P-13 · Bibliothèque livrée = engins de plancher** (télescopiques et
+  rotatifs, mini-grues araignées sur stabilisateurs, nacelles, chariots,
+  étançons et tours d'étaiement, bennes, stocks) ; une grue mobile se crée
+  comme fiche utilisateur, jamais livrée. Aucune charge constructeur n'est
+  livrée : champ obligatoire, orange tant qu'il est vide (§ 12, remarque 1).
+- **P-14 · Une proposition affiche le pire taux du système** après
+  recalcul complet, et la liste des taux qui ont monté (§ 12, remarques 3
+  et 6).
+- **P-15 · Joint longitudinal des hourdis vérifié dès la V1** quand le
+  partage de l'annexe C est utilisé : le cisaillement transmis au voisin
+  passe par le joint, et sa limite de l'EN 1168 **[à transcrire]**
+  s'applique (§ 12, remarque 4).
+- **P-16 · Charge concentrée à cheval sur un joint de prédalle** :
+  avertissement et largeur efficace plafonnée à la prédalle, le joint
+  n'ayant pas d'armature de flexion transversale propre (§ 12, remarque 4).
+- **P-17 · Résistances « avec dalle de compression »** du catalogue :
+  admises seulement si la chape a atteint la classe que le fabricant exige
+  et si elle est collaborante (surface rugueuse, joints remplis) ; sinon
+  valeurs « sans chape », et la chape ne compte que comme poids (§ 12,
+  remarque 5).
 
 ---
 
-## 12 · Sources
+## 12 · Revue du 02/11/2026 : six remarques extérieures, examinées une à une
+
+Le bureau a soumis la maquette à un second avis (un outil, pas un
+ingénieur), qui a rendu six remarques. Elles sont examinées ici
+**indépendamment**, contre ce que l'étude dit réellement ; verdict et
+suite pour chacune. L'interface n'est pas touchée.
+
+**1 · « Pas de grosses grues mobiles sur des hourdis ; engins réellement
+utilisés ; vérifier désignations et charges. »** Pertinent sur deux
+points, à côté sur un. (a) La maquette appelait « grue araignée » un
+MRT 2150, qui est un **télescopique rotatif** : désignation fausse,
+corrigée dans la maquette et la bibliothèque ; une vraie grue araignée est
+une mini-grue sur chenilles et stabilisateurs (Unic, Maeda, Jekko), ajoutée
+comme gabarit générique à compléter d'une fiche. (b) Les charges par appui
+ne sont pas livrées, elles viennent des tableaux de stabilité, champ
+obligatoire orange — c'était déjà la règle. (c) La grue mobile n'a rien à
+faire dans la bibliothèque livrée, mais le module ne l'interdit pas : une
+dalle de parking ou un podium conçus pour la recevoir sont des cas réels,
+et c'est l'utilisateur qui crée la fiche. → **P-13**.
+
+**2 · « Un plateau de 600 × 600 ne répartit pas sur toute sa surface ;
+tenir compte de sa rigidité, de sa déformation, du plancher. »** Le
+modèle fait exactement cela, et la maquette l'affiche : aire efficace
+540 × 540, « plateau efficace à 80 % ». La remarque n'a pas lu le modèle.
+Sur le fond, le choix d'un modèle de **résistance** (console de largeur
+*c*, EN 1993-1-8 §6.2.5) plutôt que de rigidité est volontaire : posé sur
+un plancher raide, un plateau sur appui élastique concentre la pression
+sous le pied **plus** que la règle *c*, pas moins ; la rigidité compte là
+où elle décide, entre éléments, et c'est le régime de la filière (§ 5.2).
+Deux précisions vont dans l'onglet Méthode : la règle *c* est une
+distribution plastique, cohérente avec γF = 1,5 ; sur la membrure d'un
+hourdis, c'est la charge locale admissible du fabricant qui tranche, et un
+plateau n'y aide que s'il est efficace (*c* ≥ (B − b)/2). → modèle
+inchangé, texte précisé.
+
+**3 · « Une filière proposée doit faire recalculer tous les hourdis avec
+toutes les charges. »** Exigence juste, mécanisme déjà prévu : une
+proposition est le **résultat** d'un recalcul complet (toutes charges,
+tous éléments, la filière elle-même, la pression de sa semelle sur les
+voisins). Ce qui manquait est l'affichage : la maquette ne montrait que
+l'élément qui était en défaut. Retenu : la proposition affiche le pire
+taux du système après recalcul et les taux qui ont monté. → **P-14**.
+
+**4 · « Poinçonnement, résistance locale des hourdis, transferts par les
+joints. »** À moitié pertinent. Poinçonnement et pression localisée sont
+au périmètre pour les dalles et prédalles (§ 7). Pour un hourdis, le
+poinçonnement au sens de l'EN 1992-1-1 **n'est pas le bon modèle** : une
+membrure de 30 à 50 mm entre alvéoles ne se vérifie pas avec un périmètre
+à 2d ; seule la charge locale admissible du fabricant est défendable, et
+elle est obligatoire (**P-5**). Le joint longitudinal, en revanche, est
+une vraie lacune de la V1 : si l'on prend le partage de l'annexe C, les
+joints transmettent du cisaillement, et ne pas le vérifier est
+incohérent. Promu en V1. → **P-15**, et **P-16** pour le joint de
+prédalle.
+
+**5 · « Clarifier ELS / ELU ; vérifier dalle de compression et âge du
+béton. »** La clarification est le § 2 de l'étude, inchangé : taux ELU
+écrit en charges de service pour les hourdis, méthode aux contraintes
+admissibles de l'application pour le béton armé, et le nom exact dans la
+ligne d'hypothèses. L'âge est déjà traité par maturité avec classe
+arrondie vers le bas. La remarque fait toutefois apparaître une règle
+qui manquait : les résistances « avec dalle de compression » du
+catalogue supposent une chape à sa classe de calcul et collaborante ; à
+14 jours et une classe en dessous, elles ne sont pas acquises. → **P-17**.
+
+**6 · « Quand une modification améliore un critère, vérifier l'ensemble. »**
+Même réponse que la remarque 3 : tout est recalculé, « Appliquer »
+relance la vérification et affiche le nouveau statut, et une proposition
+qui crée un défaut ailleurs n'est pas proposée. → **P-14**.
+
+**Deux points que la revue n'a pas vus**, ajoutés de mon côté : la charge
+par stabilisateur d'une mini-grue ou d'un rotatif varie avec
+l'orientation de la flèche, et la valeur retenue par cas est le
+**maximum sur le tour** ; le *V*Rd d'un hourdis est réduit dans la
+longueur de transmission de la précontrainte près de l'appui, et un
+stabilisateur posé à moins de cette longueur de l'appui doit être comparé
+à la valeur la plus proche de l'appui que publie le fabricant, si le
+catalogue distingue.
+
+---
+
+## 13 · Sources
 
 EN 1992-1-1:2004 (§3.1.2, §6.2, §6.4, §6.7, §9.3.1.1) ; EN 1993-1-8:2005
 §6.2.5 (bande efficace *c*) ; EN 1168 (hourdis alvéolés : §4.3.3.2
