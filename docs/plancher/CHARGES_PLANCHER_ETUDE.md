@@ -477,6 +477,28 @@ avec son φ. Le taux se calcule :
 
 Le même mot « taux » partout, et la ligne d'hypothèses dit lequel.
 
+### 6.4 Étais, files d'étais et filières (question du bureau du 02/11/2026)
+
+Un étai est une charge ponctuelle à petite semelle (150 × 150 mm usuels),
+rarement seul : une **file** (n étais à l'entraxe e) ou une **trame**
+(nx × ny). Sa charge ne vient pas d'une fiche constructeur mais du
+plancher qu'il porte : le gabarit « Étais » la calcule depuis la surface
+tributaire et le plancher au-dessus (épaisseur × 25 kN/m³ + coffrage +
+charge de chantier), ou la prend saisie. La classe de l'étai (EN 1065)
+est une information de la fiche, pas une vérification du module.
+
+| Plancher porteur | Étai posé directement | Étai sur filière |
+|---|---|---|
+| dalle coulée en place | oui : bande avec largeur efficace (Heft 240), poinçonnement (petite semelle : souvent gouvernant sur une dalle mince), pression localisée ; dalle jeune → fck(t) | oui : filière **en travers** du sens porteur = poutre sur bandes-ressorts, répartit sur plusieurs bandes ; filière **dans** le sens porteur = charge linéaire sur la même bande, utile seulement pour le local |
+| prédalle, chape durcie | oui, comme une dalle ; semelle à cheval sur un joint de prédalle → avertissement et largeur plafonnée (**P-16**) ; avant la chape : refus (**P-7**) | oui, mêmes règles ; la filière en travers des joints est la bonne réponse à **P-16** |
+| hourdis, nus ou chapés | oui : élément chargé ou règle du levier sur un joint, part annexe C si clavetés, tranchant à 100 % ; la **membrure** sous une semelle de 150 × 150 est presque toujours le point dur → charge locale admissible du fabricant, sinon filière exigée (**P-5**) | oui, c'est le cas d'usage de la filière : en travers des hourdis, elle porte sur plusieurs éléments par leur raideur (§ 5.2) et supprime le problème de membrure |
+
+Ce que la V1 ne fait pas : la **chaîne d'étaiement** sur plusieurs
+étages (un étage porté par des étais est lui-même étayé sur l'étage
+inférieur). La V1 vérifie un plancher sous des charges d'étais données et
+avertit que l'étage inférieur reçoit ces charges (**P-8**) ; la chaîne
+est une V2, avec les mêmes briques.
+
 ---
 
 ## 7 · L'interface : une entrée, un plan, trois objets
