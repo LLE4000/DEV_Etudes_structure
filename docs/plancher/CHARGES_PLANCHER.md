@@ -229,6 +229,10 @@ plan garde une largeur minimale lisible et le conteneur du composant défile hor
 600 × 600 × 20 sous P2. Les valeurs de résistance (M_Rd 60 kN·m, V_Rd 80 kN) sont des valeurs
 d'ESSAI du harnais, pas un catalogue.*
 
+![Écran tablette](images/ecran_tablette.png)
+
+*Tablette 1024 : le plan tient dans sa colonne (largeur minimale 440 px), textes à 9 px.*
+
 ![Écran téléphone](images/ecran_telephone.png)
 
-*Téléphone 390 : mêmes fonctions, colonnes empilées, plan défilant.*
+*Téléphone 390 : mêmes fonctions, colonnes empilées, plan défilant dans son cadre.*

@@ -101,8 +101,13 @@ async function preparer(page, etat) {
     await el.scrollIntoViewIfNeeded(); await page.waitForTimeout(400);
     const bb = await el.boundingBox();
     const cx = bb.x + bb.width / 2, cy = bb.y + bb.height / 2;
+    // le glissement vaut 0,8 m DU PLAN, pas 60 px : à 1024 et 390 px, 60 px valaient 1,5 m et un
+    // stabilisateur sortait du plancher (refus légitime du moteur, faux rouge du harnais, 02/11/2026)
+    const sc = await page.evaluate(() => { const fr = document.querySelector('.st-key-chp_col_dessin iframe');
+      const svg = fr.contentDocument.querySelector('svg'); return svg.getBoundingClientRect().width / svg.viewBox.baseVal.width; });
+    const dx = Math.max(12, Math.round(800 * sc));
     await page.mouse.move(cx, cy); await page.mouse.down();
-    await page.mouse.move(cx + 30, cy, { steps: 8 }); await page.mouse.move(cx + 60, cy, { steps: 8 });
+    await page.mouse.move(cx + dx / 2, cy, { steps: 8 }); await page.mouse.move(cx + dx, cy, { steps: 8 });
     await page.mouse.up();
     await settle(page, 3500);
     await ouvrirEtape(page, '2 · Charges');
