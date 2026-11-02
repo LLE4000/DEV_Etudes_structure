@@ -1,0 +1,64 @@
+[
+  {
+    "nom": "Télescopique rotatif (type MRT 2150) · levage sur stabilisateurs",
+    "type_appuis": "pieds",
+    "generique": true,
+    "source": "Dimensions : brochure Manitou MRT 2150 Privilege Plus relevée en ligne le 02/11/2026 (largeur 2,49 m, emprise stabilisateurs 5,55 × 5,19 m), à confirmer sur la fiche officielle. Charges par pied : tableau de stabilité du constructeur, à saisir (P = 0 bloque le calcul).",
+    "notes": "x vers l'avant (flèche), y vers la gauche ; 4 semelles 300 × 300 aux coins de l'emprise.",
+    "appuis": [
+      {"nom": "P1", "dx": -2.35, "dy": 2.52, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0},
+      {"nom": "P2", "dx": 2.35, "dy": 2.52, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0},
+      {"nom": "P3", "dx": -2.35, "dy": -2.52, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0},
+      {"nom": "P4", "dx": 2.35, "dy": -2.52, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0}
+    ]
+  },
+  {
+    "nom": "Télescopique à roues (type MT 1840) · en déplacement",
+    "type_appuis": "roues",
+    "generique": true,
+    "source": "Dimensions : manitou.com et fiches de revendeurs relevées en ligne le 02/11/2026 (empattement 3,07 m, largeur 2,42 m, pneus 400/80-24), à confirmer. Charges par roue : à relire sur la fiche (répartition par essieu, charge levée), P = 0 bloque le calcul. φ = 1,40 : EN 1991-1-1 §6.3.2.3, pneumatiques (P-6).",
+    "notes": "Voie ≈ 1,95 m ; empreinte d'une roue 0,25 × 0,30 m.",
+    "appuis": [
+      {"nom": "R1", "dx": 1.535, "dy": 0.975, "a": 0.30, "b": 0.25, "P": 0.0, "phi": 1.4},
+      {"nom": "R2", "dx": 1.535, "dy": -0.975, "a": 0.30, "b": 0.25, "P": 0.0, "phi": 1.4},
+      {"nom": "R3", "dx": -1.535, "dy": 0.975, "a": 0.30, "b": 0.25, "P": 0.0, "phi": 1.4},
+      {"nom": "R4", "dx": -1.535, "dy": -0.975, "a": 0.30, "b": 0.25, "P": 0.0, "phi": 1.4}
+    ]
+  },
+  {
+    "nom": "Grue araignée (mini-grue sur stabilisateurs) · gabarit",
+    "type_appuis": "pieds",
+    "generique": true,
+    "source": "Gabarit générique (emprise 3,5 × 3,5 m, semelles 300 × 300) : à remplacer par la fiche du modèle (Unic, Maeda, Jekko…). Charges par pied : tableau de stabilité, maximum sur le tour (§ 12 de l'étude).",
+    "notes": "",
+    "appuis": [
+      {"nom": "P1", "dx": -1.75, "dy": 1.75, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0},
+      {"nom": "P2", "dx": 1.75, "dy": 1.75, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0},
+      {"nom": "P3", "dx": -1.75, "dy": -1.75, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0},
+      {"nom": "P4", "dx": 1.75, "dy": -1.75, "a": 0.30, "b": 0.30, "P": 0.0, "phi": 1.0}
+    ]
+  },
+  {
+    "nom": "Nacelle ciseaux · gabarit",
+    "type_appuis": "roues",
+    "generique": true,
+    "source": "Gabarit générique (2,4 × 1,2 m, 4 roues pleines) : à remplacer par la fiche du modèle. φ = 2,00 : EN 1991-1-1 §6.3.2.3, bandages pleins (P-6).",
+    "notes": "",
+    "appuis": [
+      {"nom": "R1", "dx": 0.85, "dy": 0.55, "a": 0.15, "b": 0.10, "P": 0.0, "phi": 2.0},
+      {"nom": "R2", "dx": 0.85, "dy": -0.55, "a": 0.15, "b": 0.10, "P": 0.0, "phi": 2.0},
+      {"nom": "R3", "dx": -0.85, "dy": 0.55, "a": 0.15, "b": 0.10, "P": 0.0, "phi": 2.0},
+      {"nom": "R4", "dx": -0.85, "dy": -0.55, "a": 0.15, "b": 0.10, "P": 0.0, "phi": 2.0}
+    ]
+  },
+  {
+    "nom": "Étançon · semelle 150 × 150",
+    "type_appuis": "ponctuel",
+    "generique": true,
+    "source": "Charge à saisir ou à calculer depuis le plancher porté (§ 6.4 de l'étude) ; classe EN 1065 : information.",
+    "notes": "",
+    "appuis": [
+      {"nom": "E", "dx": 0.0, "dy": 0.0, "a": 0.15, "b": 0.15, "P": 0.0, "phi": 1.0}
+    ]
+  }
+]
