@@ -14,6 +14,8 @@ sys.path.insert(0, RACINE)
 
 from streamlit.testing.v1 import AppTest  # noqa: E402
 
+from acier import registre as registre_f  # noqa: E402
+
 OK, KO = [], []
 
 
@@ -40,20 +42,23 @@ for page in PAGES:
 print("\n=== Écran de chaque assemblage ouvert ===")
 for ident, nom in (("doubles_cornieres", "Doubles cornières d'âme"), ("plat_ame", "Plat d'âme soudé"),
                    ("platine_about", "Platine d'about"), ("platine_beton", "Pied de poteau"),
-                   ("plat_ame_poteau", "Plat d'âme soudé sur poteau")):
+                   ("plat_ame_poteau", "Plat d'âme soudé sur poteau"),
+                   ("doubles_cornieres_poteau", "Doubles cornières d'âme sur poteau"),
+                   ("platine_about_poteau", "Platine d'about sur poteau")):
     at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
     at.session_state["page"] = "Assemblages métalliques"
     at.session_state["asm_courant"] = ident
     at.run()
     chk(nom, not at.exception and at.session_state["asm_courant"] == ident,
         str(at.exception[0].message)[:160] if at.exception else "")
-print("\n=== Catalogue : la famille « Poutre – Poteau », le plat d'âme disponible ===")
+print("\n=== Catalogue : la famille « Poutre – Poteau » ===")
 # `modules/assemblages._catalogue` rend un bouton « Créer » (clé
 # asm_btn_open_<id>) pour un assemblage DISPONIBLE, et la mention « À venir »
 # sinon (registre.Assemblage.disponible : état « disponible » ET module non
-# vide). Depuis le lot 2, `plat_ame_poteau` est DISPONIBLE (le harnais suit) ;
-# les deux autres attaches poutre–poteau restent « à venir » : elles
-# paraissent au catalogue, sans bouton, et leur module n'est pas importé.
+# vide). Depuis le lot 2, `plat_ame_poteau` est DISPONIBLE ; `doubles_cornieres_poteau`
+# et `platine_about_poteau` le sont aussi depuis leurs lots (le harnais suit). Une
+# attache encore « à venir » paraît au catalogue, sans bouton, et son module n'est
+# pas importé.
 at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
 at.session_state["page"] = "Assemblages métalliques"
 at.run()
@@ -69,24 +74,26 @@ chk("plat_ame_poteau : titre, vignette (role=img + aria-label) et bouton « Cré
     "Plat d'âme soudé sur poteau (fin plate)" in TXT
     and 'aria-label="Plat d\'âme soudé sur poteau, vue en plan"' in TXT and 'role="img"' in TXT
     and "asm_btn_open_plat_ame_poteau" in BOUTONS, str(sorted(BOUTONS)))
-for ident, titre, aria in (
-        ("doubles_cornieres_poteau", "Doubles cornières d'âme sur poteau",
-         "Doubles cornières d'âme sur poteau, vue en plan"),
-        ("platine_about_poteau", "Platine d'about (hauteur partielle) sur poteau",
-         "Platine d'about sur poteau, vue en plan")):
-    chk(f"{ident} : titre, vignette (role=img + aria-label), AUCUN bouton « Créer »",
-        titre in TXT and f'aria-label="{aria}"' in TXT and 'role="img"' in TXT
-        and f"asm_btn_open_{ident}" not in BOUTONS,
-        f"titre {titre in TXT} · vignette {aria in TXT} · bouton "
-        f"{f'asm_btn_open_{ident}' in BOUTONS}")
-chk("deux mentions « À venir », une par attache encore à écrire", TXT.count("À venir") == 2,
-    str(TXT.count("À venir")))
-chk("les cinq assemblages disponibles gardent leur bouton « Créer »",
-    all(f"asm_btn_open_{i}" in BOUTONS for i in ("doubles_cornieres", "plat_ame",
-                                                 "platine_about", "platine_beton",
-                                                 "plat_ame_poteau")),
-    str(sorted(BOUTONS)))
-for ident in ("doubles_cornieres_poteau", "platine_about_poteau"):
+chk("doubles_cornieres_poteau : titre, vignette (role=img + aria-label) et bouton « Créer »",
+    "Doubles cornières d'âme sur poteau" in TXT
+    and 'aria-label="Doubles cornières d\'âme sur poteau, vue en plan"' in TXT and 'role="img"' in TXT
+    and "asm_btn_open_doubles_cornieres_poteau" in BOUTONS, str(sorted(BOUTONS)))
+chk("platine_about_poteau : titre, vignette (role=img + aria-label) et bouton « Créer »",
+    "Platine d'about (hauteur partielle) sur poteau" in TXT
+    and 'aria-label="Platine d\'about sur poteau, vue en plan"' in TXT and 'role="img"' in TXT
+    and "asm_btn_open_platine_about_poteau" in BOUTONS, str(sorted(BOUTONS)))
+# Le catalogue écrit « À venir » pour un assemblage non disponible et un bouton
+# « Créer » pour chacun des disponibles : les deux attendus se lisent sur le
+# REGISTRE, de sorte que les lots 3, 4 et 5 (un module chacun) ne se marchent
+# pas dessus dans ce fichier partagé.
+_AVENIR = [a.id for f in registre_f.FAMILLES for a in f.assemblages if not a.disponible]
+_DISPO = [a.id for a in registre_f.disponibles()]
+chk(f"une mention « À venir » par attache encore à écrire ({len(_AVENIR)})",
+    TXT.count("À venir") == len(_AVENIR), f"{TXT.count('À venir')} pour {_AVENIR}")
+chk(f"les {len(_DISPO)} assemblages disponibles gardent leur bouton « Créer »",
+    all(f"asm_btn_open_{i}" in BOUTONS for i in _DISPO),
+    str([i for i in _DISPO if f"asm_btn_open_{i}" not in BOUTONS]))
+for ident in _AVENIR:
     atv = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=180)
     atv.session_state["page"] = "Assemblages métalliques"
     atv.session_state["asm_courant"] = ident

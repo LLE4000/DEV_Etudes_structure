@@ -247,7 +247,7 @@ FAMILLES = (
                 pitch="Assemblage articulé : deux cornières boulonnées ou soudées sur l'aile du poteau "
                       "ou dans son âme, et sur l'âme de la poutre portée — EN 1993-1-8, tying.",
                 vignette=vignette_doubles_cornieres_poteau(),
-                etat="à venir",
+                etat="disponible",
                 module="acier.assemblages.poutre_poteau.doubles_cornieres_poteau.interface",
             ),
             Assemblage(
@@ -257,7 +257,7 @@ FAMILLES = (
                 pitch="Assemblage articulé : platine mince soudée en about de la poutre portée, boulonnée "
                       "sur l'aile du poteau ou dans son âme (2 files) — EN 1993-1-8, ANB belge, tying.",
                 vignette=vignette_platine_about_poteau(),
-                etat="à venir",
+                etat="disponible",
                 module="acier.assemblages.poutre_poteau.platine_about_poteau.interface",
             ),
         ),
