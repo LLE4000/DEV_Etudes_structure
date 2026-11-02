@@ -322,7 +322,13 @@ groupe de charges le long de la portée et garde l'enveloppe.
 
 ## 5 · Les répartiteurs : deux régimes, un moteur
 
-![Modèle de calcul : filière sur ressorts, bande efficace c, diffusion](images/modele_calcul.png)
+![Modèle de calcul : bande efficace c, filière sur ressorts, largeur efficace, répartition entre hourdis](images/modele_calcul.png)
+
+*Quatre planches au trait (sources dans `maquette/modele.py`) : a · plateau
+posé sur le plancher et bande efficace c ; b · filière en travers des
+hourdis, poutre sur appuis élastiques ; c · largeur efficace d'une dalle
+unidirectionnelle ; d · répartition entre hourdis selon l'état des
+joints. Valeurs d'illustration.*
 
 ### 5.1 Plateau posé directement sur le plancher : régime de résistance
 
@@ -434,6 +440,17 @@ livrés avec l'application sont **génériques et nommés comme tels** ; le
 bureau y ajoute ses machines, fiche technique à l'appui (champ *source*
 obligatoire : nom du document et date).
 
+Un engin a des **configurations** : un télescopique « en déplacement »
+porte sur ses quatre roues avec φ = 1,40, « en levage » sur ses pieds
+stabilisateurs avec les roues délestées ; une grue mobile sur ses
+stabilisateurs. La configuration est une case du gabarit, et chaque
+**appui** de l'engin (roue, pied, chenille) est une ligne de la table
+« Appuis de l'engin » : sa charge, son empreinte, **son répartiteur**
+(plateau par pied, plaque de roulage par file de roues, ou filière sous
+plusieurs appuis), l'aire efficace qui en résulte, la pression, l'élément
+du plancher qui le reçoit et le taux. La charge de chaque roue ou pied est
+**écrite sur le plan**, à côté de son empreinte, avec son plateau.
+
 ### 6.2 Coefficient dynamique
 
 Une machine qui roule frappe plus fort qu'une machine arrêtée. Règle
@@ -474,29 +491,49 @@ première ligne, pas une page.
 
 ### 7.2 Organisation de l'écran (PC et tablette)
 
-```
-┌ barre d'outils : cas 1 ▾ · ＋ · copier · 🔒 · 💾 · 📂 · 📄 PDF ───────────┐
-├──────────────────────────────┬───────────────────────────────────────────┤
-│  PLAN (SVG, 55 %)            │ PLANCHER  [type ▾] [portée] [largeur/n] [état ▾]  │
-│  appuis hachurés (2 côtés)   │           [béton/âge] [armature ou type cat.] […] │
-│  éléments / bandes colorés   │ CHARGES   [engin ▾] [x] [y] [angle]  (+ ligne par │
-│  empreintes, filières,       │           charge : P ou charge/appui, φ)          │
-│  aires efficaces, cotes      │ RÉPARTIT. [sous ▾] [type ▾] [dimension] [⚙ auto]  │
-│  clic : sélectionne / place  │ RÉSULTATS tableau éléments : M · M_adm · V · V_adm · taux │
-│                              │           répartiteurs : M · taux · pression · taux │
-│                              │           effets locaux · statut global           │
-├──────────────────────────────┴───────────────────────────────────────────┤
-│ onglets : Données · Méthode · Note                                      │
-└──────────────────────────────────────────────────────────────────────────┘
-```
+![Maquette d'écran — PC 1440 px, valeurs d'illustration](images/maquette_ecran.png)
 
-![Maquette d'écran de l'étude — valeurs d'illustration](images/maquette_ecran.png)
+*Maquette HTML/SVG rendue par Chromium (sources dans `maquette/`,
+régénérables : `python3 maquette.py <dossier>` puis `node capture.js`).
+Toutes les valeurs sont d'illustration.*
+
+De haut en bas : la barre d'outils du cas (projet, enregistrer, ouvrir,
+PDF, sélecteur de cas, nouveau, copier, verrou) ; le **bandeau de statut**
+avec la vérification gouvernante, l'élément, le pied en cause, la
+proposition du dimensionnement et les taux maximaux par famille ; puis
+deux colonnes.
+
+**À gauche, le plan à l'échelle** : appuis hachurés et nommés, hourdis
+numérotés avec leurs joints, grille à 1 m, cotes bleues de portée, de
+largeur et de position de l'objet sélectionné, règle en x, légende et
+échelle graphique. Chaque engin est dessiné en vue de dessus
+(châssis, tourelle, flèche, cabine, roues) avec **une bulle par roue ou
+par pied** : son nom, sa charge, son coefficient dynamique, son plateau
+et l'élément qui le reçoit ; les plateaux sont dessinés à leur taille,
+l'**aire efficace** (bande *c*) hachurée en bleu à l'intérieur. L'objet
+sélectionné porte un cadre à poignées et une mini-barre (tourner de 90°,
+copier, supprimer). Les **taux de chaque élément** sont en colonne à
+droite du dessin, hors du plan, avec la vérification qui gouverne ; les
+bandes sont colorées. Sous le plan, le **bandeau de balayage** montre où
+l'engin sélectionné peut se tenir le long de la portée.
+
+**À droite, les trois objets** : PLANCHER (type et état d'avancement en
+contrôles segmentés, puis les lignes « état », « élément », « catalogue »
+avec la **coupe du hourdis dessinée**, « local » : chaque valeur de
+catalogue porte sa **nature** en badge : Rd, fab.) ; CHARGES (ajout depuis
+la bibliothèque avec sa configuration, table des objets posés avec x, y,
+angle, φ, total) ; **APPUIS DE L'ENGIN** (une ligne par roue ou pied :
+charge, contact, répartiteur, aire efficace, pression, élément, taux) ;
+la proposition du **dimensionnement** ; EFFORTS (méthode, φ, tranchant,
+répartition) ; Paramètres avancés et Cartouche repliés. En bas, les
+onglets Vérifications · Appuis de l'engin · Balayage · Note · Méthode.
 
 Chaque objet tient sur **une ligne de 3 à 4 cases** (charte
 `docs/assemblages/ERGONOMIE.md`) ; une ligne « suite » par charge placée et
 par répartiteur ; l'avancé (γF, φ, largeur efficace plafonnée, options
 annexe C) dans le repli « Paramètres avancés ». Téléphone : plan en
-pleine largeur au-dessus, lignes empilées dessous, même contenu.
+pleine largeur au-dessus, lignes empilées dessous, même contenu
+(`images/maquette_ecran_390.png`, même page HTML rendue à 390 px).
 
 ### 7.3 Le plan
 
