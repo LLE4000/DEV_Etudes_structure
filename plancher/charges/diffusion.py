@@ -125,6 +125,10 @@ def max_creneaux(boites: List[Tuple[float, float, float]], y_min: float, y_max: 
             if yy < y_min or yy > y_max:
                 continue
             m = sum(v for lo, hi, v in inter if lo <= yy <= hi)
-            if m > best:
+            # Un plateau n'est jamais plat au bruit près (les valeurs viennent de numpy,
+            # et deux versions de numpy ne font pas le même bruit) : à égalité dans la
+            # tolérance relative 1e-9, c'est la PREMIÈRE arête (y le plus bas) qui nomme le
+            # maximum. Sans cela, le « y du max » changeait d'interpréteur à interpréteur.
+            if best == -math.inf or m > best + 1e-9 * max(1.0, abs(best)):
                 best, y_best = m, y
     return best, y_best

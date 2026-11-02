@@ -1,10 +1,11 @@
-# Charges sur plancher — document de référence du moteur (lot 1)
+# Charges sur plancher — document de référence (moteur, lot 1 · écran, lot 2)
 
-*Lot 1 livré le 02/11/2026 : le moteur, sans écran. Étude de conception :
-`CHARGES_PLANCHER_ETUDE.md` (décisions P-1 à P-17, section 12 pour la revue
-des remarques extérieures). Ce document dit ce que le moteur calcule,
-avec quels paramètres, ce qu'il refuse, ce qui reste à transcrire, et
-comment il est tenu par ses tests.*
+*Lot 1 livré le 02/11/2026 : le moteur, sans écran. Lot 2 livré le 02/11/2026 :
+l'écran (section 8). Étude de conception : `CHARGES_PLANCHER_ETUDE.md`
+(décisions P-1 à P-17, section 12 pour la revue des remarques extérieures).
+Ce document dit ce que le moteur calcule, avec quels paramètres, ce qu'il
+refuse, ce qui reste à transcrire, comment il est tenu par ses tests, et
+comment l'écran s'en sert.*
 
 ## 1 · Ce que le paquet contient
 
@@ -121,12 +122,23 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
 - `test_charges_plancher_repartiteurs.py` (23) : bande c itérée à la main, section en I à 2 % du
   catalogue sur tous les profilés, poutre sur ressorts (statique, rigide, souple, Σ R = Σ P, symétrie,
   erreurs), flexion de la filière.
-- `test_charges_plancher_moteur.py` (71) : **copie tenue** des formules BA (les expressions de
+- `test_charges_plancher_moteur.py` (72) : **copie tenue** des formules BA (les expressions de
   `poutre.py` retrouvées mot pour mot, inversions exactes, exemple de l'étude), classes et Ecm,
   natures et chape (P-17), §6.7 et §6.4 à la main, pipeline hourdis (P·L/4, levier, plateau, chape,
   P-5, filière rigide et souple, annexe C, P-3, P-15, P-11, φ), pipeline dalle et prédalle (P-4,
-  P-16, P-8, P-7), refus, balayage, dimensionnement (P-14), bibliothèque, JSON, cas gelés
-  `ref_chp.json`, pureté.
+  P-16, P-8, P-7), refus (dont le hourdis sans M_Rd / V_Rd), balayage, dimensionnement (P-14),
+  bibliothèque, JSON, cas gelés `ref_chp.json`, pureté.
+- `test_charges_plancher_ecran.py` (63, lot 2, AppTest sur l'application réelle) : navigation et
+  tuile, composant du plan, « Données manquantes », onglets, source unique widgets → état → moteur
+  et plan (M_Rd, L, hourdis / dalle / prédalle), engin de la bibliothèque et charges par appui
+  (refus P-13 puis calcul, bandes teintées, semelles cliquables), plan → état (glisser, cote,
+  sens, ±, fenêtres d'engin et de semelle, plateau, idem, filière, dupliquer / supprimer),
+  répartiteur par l'onglet 3, proposition de filière, vues Coupe et Balayage, cas multiples,
+  JSON aller-retour, fiches ajoutées (engin, plateau azobé, madrier sur champ), étanchéité des
+  clés.
+- `tools/captures_plancher.js` : captures et mesures aux quatre largeurs (états vide, engin,
+  plateau, clic, glisser, coupe, balayage) — aucun débordement, plan visible, calcul abouti,
+  plateau hachuré, fenêtre ouverte au clic sur une semelle, position changée au glisser.
 
 ![Contrôles du lot 1](images/lot1_controle.png)
 
@@ -140,3 +152,72 @@ Deux appuis seulement ; filières à 0° ou 90° ; éléments supposés indépen
 (conservatif pour le plus chargé) ; pas de chaîne d'étaiement entre étages (P-8) ; pas de
 continuité ni de porte-à-faux ; prédalle avant chape refusée ; poinçonnement au sens EN 1992-1-1
 réservé aux dalles et prédalles (pour un hourdis, la membrure se juge sur la donnée fabricant).
+
+## 8 · L'écran (lot 2)
+
+```
+modules/charges_plancher.py   la vue Streamlit : barre d'outils du cas, plan, coupe, balayage, carte résultat,
+                              quatre onglets (Plancher · Charges · Répartiteur · Hypothèses), détail, bibliothèque
+plancher/charges/etat.py      l'ÉTAT (dict JSON, source unique) : cas multiples, fiches ajoutées ; construire() →
+                              objets du moteur ; contexte_dessin() → plan ; appliquer_changements() ← plan
+plancher/charges/dessin.py    le plan cliquable et glissable, la coupe sous un appui, le bandeau de balayage (SVG en mm)
+plancher/charges/symboles.py  symboles d'engins en vue de dessus, au trait, À L'ÉCHELLE de leur fiche
+tools/captures_plancher.js    captures et mesures PC 1440 / 1280, tablette 1024, téléphone 390 (états vide, engin,
+                              plateau, clic, glisser, coupe, balayage)
+tests/test_charges_plancher_ecran.py   harnais AppTest + état (source unique, plan → état, JSON, fiches)
+```
+
+`plancher/charges` reste **pur** (le test 10 du moteur le garde) : l'état, le dessin et les symboles
+n'importent pas Streamlit ; seule la vue `modules/charges_plancher.py` le fait.
+
+**Organisation** (étude § 7, maquette « digeste ») : à gauche le **plan** — appuis A et B en trait
+épais, bords libres fins avec une poignée ○ qui change le sens porteur, cote L cliquable, poignées
+± du nombre de hourdis, bandes teintées seulement à partir de 85 % (orange) et au-delà de 100 %
+(rouge), taux et famille gouvernante **hors du dessin**, engins dessinés à l'échelle de leur fiche,
+semelles et étiquettes « P2 · 95 kN », plateaux hachurés avec leur aire efficace en pointillé bleu,
+filières, échelle graphique ; sous le plan, la **coupe** sous l'appui sélectionné (éléments voisins,
+couche de compression, plateau, semelle, charge, diffusion à 45°). À droite la **carte résultat**
+(pastille, une phrase « Flexion · H7 — 343 % », barres par famille, lignes non vérifiées,
+« Proposer une filière », « Balayer la position »), puis les quatre onglets. En bas, le détail des
+vérifications par élément et par famille.
+
+**Ce qui se règle sur le plan** (composant partagé `acier/composants/svg_cliquable`, retours en mm) :
+glisser un engin, une charge, un plateau, une filière ; clic sur un engin (angle, charges par appui,
+dupliquer, supprimer), sur une semelle (répartiteur : aucun, plateau, filière, « idem tous les
+appuis »), sur un plateau (même fenêtre, et le plateau se décale), sur une filière (élément,
+longueur, orientation), sur la cote L, sur les poignées ± et ○. Grammaire des clés :
+`<objet>:<réf>.<champ>` avec objet ∈ engin · charge · rep · fil (`dessin.py`, en-tête). Tout retour
+passe par `etat.appliquer_changements`, qui écrit dans le cas ; les widgets des onglets (clés
+`chp_w_…`) sont des **vues** du même état, relues dès qu'il change par ailleurs.
+
+**Bibliothèque extensible** (exigence du 02/11/2026) : la fenêtre « Ajouter depuis la bibliothèque »
+pose un engin de `plancher/donnees/engins.json` ou une **fiche ajoutée** (nom, type d'appuis,
+silhouette, appuis avec positions, empreintes, charges, φ, source) ; l'onglet Répartiteur accepte un
+**nouvel élément** (plateau ou filière : matériau, f, E, masse, dimensions, profilé du catalogue ou
+rectangle b × h posé sur champ — plateau azobé, madrier C24, profilé, plaque de grue). Les fiches
+ajoutées voyagent avec le fichier JSON du cas (`💾 Enregistrer` / `📂 Ouvrir`, `etat.charger`
+contrôle le module et la version).
+
+**Deux décisions d'écran prises le 02/11/2026, chacune tenue par un test :**
+
+- les quatre étapes sont des **onglets à libellé fixe**, pas des expanders au titre résumé : un
+  expander dont le titre change se referme à chaque saisie qui le change (Streamlit le remonte), ce
+  qui coupait la saisie des charges par appui ; le résumé vit en tête de chaque onglet ;
+- `diffusion.max_creneaux` nomme le **premier** plateau maximal à 1e-9 relatif près : la valeur
+  d'un plateau n'est jamais plate au bruit numérique, et le cas gelé `dalle_etai` donnait
+  « y = 3,65 m » sous numpy 2.4 et « y = 3,90 m » sous numpy 2.5 pour la même valeur. Le cas gelé
+  a été réécrit sur la valeur déterministe (révision du 02/11/2026).
+
+Textes du plan : constants à l'écran quelle que soit la taille du plancher (facteur k sur les tailles
+de police et d'étiquette au-delà d'un plan de référence de 11,4 m de large) ; sur téléphone, le
+plan garde une largeur minimale lisible et le conteneur du composant défile horizontalement.
+
+![Écran PC](images/ecran_pc.png)
+
+*PC 1440 : télescopique rotatif posé depuis la bibliothèque, charges d'essai par appui, plateau
+600 × 600 × 20 sous P2. Les valeurs de résistance (M_Rd 60 kN·m, V_Rd 80 kN) sont des valeurs
+d'ESSAI du harnais, pas un catalogue.*
+
+![Écran téléphone](images/ecran_telephone.png)
+
+*Téléphone 390 : mêmes fonctions, colonnes empilées, plan défilant.*

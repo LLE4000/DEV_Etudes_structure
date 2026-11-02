@@ -60,6 +60,7 @@ def show():
         {"image": "Logo_enrobage.png", "label": "Enrobage", "page": "Enrobage"},
         {"image": "Logo_enrobage.png", "label": "Taux d'armature", "page": "Taux d'armature"},
         {"image": "Logo_info.png", "label": "Tableau armatures", "page": "Tableau armatures"},
+        {"image": "Logo_dalle.png", "label": "Charges sur plancher", "page": "Charges sur plancher"},
     ]
     render_section("<span style='color:#FF6F61;'>Béton</span>", beton_tools, cols_per_row=5)
 

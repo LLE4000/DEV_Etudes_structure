@@ -368,6 +368,9 @@ def verifier(plancher, charges: Sequence, repartiteurs: Optional[Dict[str, objec
     p = params
     repartiteurs = dict(repartiteurs or {})
     try:
+        if plancher.type == HOURDIS and (plancher.M_Rd <= 0.0 or plancher.V_Rd <= 0.0):
+            raise Refus("Hourdis : résistances M_Rd et V_Rd du catalogue à renseigner (étape 1, fiche du fabricant) ; "
+                        "aucune vérification n'est possible sans elles.")
         if isinstance(plancher, Predalle) and not plancher.chape_durcie:
             if any(not isinstance(c, ChargeSurfacique) for c in charges):
                 raise Refus("Prédalle sans chape durcie : seules les charges surfaciques de bétonnage sont admises ; "

@@ -222,6 +222,10 @@ chk("refus : charge hors plancher", V.verifier(H, [M.Empreinte("E", 7.0, 3.0, 0.
 chk("refus : plateau sans f", V.verifier(H, [e], {"E": M.Plateau("osb", None, 18.0, 600.0, 600.0)})["statut"] == "refus")
 chk("refus : prédalle sans chape (P-7)", V.verifier(M.Predalle(**{**P1.__dict__, "chape_durcie": False}), [e], {})["statut"] == "refus")
 chk("refus : message présent", "P-7" in V.verifier(M.Predalle(**{**P1.__dict__, "chape_durcie": False}), [e], {})["message"])
+# hourdis sans résistances de catalogue (gabarit vide, M_Rd = V_Rd = 0) : REFUS nommé, jamais un
+# taux infini présenté comme « non conforme » (écran, 02/11/2026)
+r0 = V.verifier(M.Hourdis(**{**H.__dict__, "M_Rd": 0.0, "V_Rd": 0.0}), [e], {})
+chk("refus : hourdis sans M_Rd / V_Rd (catalogue à renseigner)", r0["statut"] == "refus" and "M_Rd et V_Rd" in r0["message"])
 
 # 8. balayage et dimensionnement
 gab1 = M.Gabarit("g", "pieds", [M.AppuiGabarit("P", 0.0, 0.0, 0.3, 0.3, 20.0)])

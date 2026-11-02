@@ -92,6 +92,13 @@ chk("créneau tronqué en rive : concentré sur la largeur restante", pres(m, 10
 chk("créneaux : liste vide → 0", DF.max_creneaux([], 0.0, 6.0) == (0.0, 0.0))
 m, _ = DF.max_creneaux([(1.0, 1.0, 10.0), (5.0, 1.0, 30.0)], 0.0, 6.0)
 chk("créneaux disjoints : le plus fort", pres(m, 30.0))
+# Deux plateaux égaux au bruit près (1e-12) : le y nommé est celui du PREMIER plateau,
+# quelle que soit la version de numpy (défaut trouvé le 02/11/2026 par le cas gelé
+# dalle_etai : 3,65 m sous numpy 2.4, 3,90 m sous numpy 2.5, pour la même valeur).
+m, y = DF.max_creneaux([(2.0, 1.0, 10.0), (3.0, 1.0, 10.0 + 1e-12)], 0.0, 6.0)
+chk("créneaux égaux au bruit près : le premier plateau nomme le maximum", pres(m, 10.0) and pres(y, 1.5))
+m, y = DF.max_creneaux([(3.0, 1.0, 10.0 + 1e-12), (2.0, 1.0, 10.0)], 0.0, 6.0)
+chk("créneaux égaux au bruit près : indépendant de l'ordre des boîtes", pres(m, 10.0) and pres(y, 1.5))
 
 print(f"RÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
