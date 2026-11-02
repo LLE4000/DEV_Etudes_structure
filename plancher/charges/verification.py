@@ -175,6 +175,18 @@ def _appliquer_filiere(fil: Filiere, portees: List[Empreinte], plancher, p: Para
                              "methode": "charge linéaire uniforme (hypothèse rigide)"}
 
 
+def _sections(L: float, abscisses) -> List[float]:
+    """Abscisses où le moment est évalué : celles des charges, la mi-portée et
+    un pas ≤ L/60. Le maximum d'une somme de paraboles (charges réparties) et
+    de triangles (charges concentrées) tombe ENTRE la charge et la mi-portée :
+    ne regarder que ces deux points sous-estimait M_Ed d'environ 1 % pour une
+    roue à 2 m d'un appui de 7,20 m — défaut NON CONSERVATIF trouvé le
+    02/11/2026 en préparant la validation croisée ; au pas L/60, l'erreur sur
+    une parabole est inférieure à w·(L/120)²/2, négligeable."""
+    n = 60
+    return sorted({L / 2} | set(abscisses) | {L * k / n for k in range(1, n)})
+
+
 # ---------------------------------------------------------------- efforts : hourdis
 def _efforts_hourdis(h: Hourdis, patches: List[Dict], p: Parametres) -> Tuple[List[Dict], List[Dict], List[Dict]]:
     els = h.elements()
@@ -232,7 +244,7 @@ def _efforts_hourdis(h: Hourdis, patches: List[Dict], p: Parametres) -> Tuple[Li
         # une valeur admissible de service
         w_g = h.g_perm() * e.largeur            # kN/m, permanent
         w_q = h.q_presentes * e.largeur         # kN/m, charges déjà présentes (variable)
-        xs = sorted({h.L / 2} | {x for x, _, _ in charges_el[e.index]})
+        xs = _sections(h.L, [x for x, _, _ in charges_el[e.index]])
         M_max, x_M, M_G, M_Q = 0.0, h.L / 2, 0.0, 0.0
         for xs_ in xs:
             mg = DF.moment_uniforme(w_g, xs_, h.L)
@@ -311,8 +323,8 @@ def _efforts_dalle(d: DalleBA, patches: List[Dict], p: Parametres) -> Tuple[List
         notes_all.extend(notes)
         infos.append((pt, bm, bvA, bvB))
     w = d.g_total()
-    # moment par mètre : sections candidates = abscisses des charges + mi-portée
-    xs = sorted({L / 2} | {pt["x"] for pt in patches})
+    # moment par mètre : sections candidates = abscisses des charges, mi-portée et pas L/60
+    xs = _sections(L, [pt["x"] for pt in patches])
     best = (0.0, L / 2, 0.0)
     for xs_ in xs:
         boites = [(pt["y"], bm, DF.moment_ponctuel(pt["P"], pt["x"], xs_, L)) for pt, bm, _, _ in infos]

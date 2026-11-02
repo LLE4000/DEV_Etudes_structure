@@ -226,6 +226,24 @@ chk("P-2 : l'ancien ÷ 1,5 uniforme n'est plus là (taux ≠ (M_G + M_Q)/(M_Rd/1
 rgf = V.verifier(M.Hourdis(**{**Hg.__dict__, "M_cr": 25.0}), [M.Empreinte("E", 3.0, 3.0, 0.3, 0.3, 20.0, phi=1.4)], {})
 chk("P-11 : la fissuration compare le moment de SERVICE M_G + M_Q",
     pres(next(v for v in verif(rgf, "fissuration") if v["objet"] == "H3")["E"], M_G + M_Q))
+# Le maximum de M_Ed tombe ENTRE la charge et la mi-portée : le moteur doit le trouver (défaut non
+# conservatif du 02/11/2026 : seules la charge et la mi-portée étaient regardées, −1 % sur le cas A
+# de la validation croisée). Le maximum est intérieur quand la pente du réparti à la charge,
+# w_Ed·(L/2 − a), dépasse la pente du terme concentré à droite, γQ·φ·P·a/L : ici 5,04 > 2,8, et
+# l'optimum analytique est x* = L/2 − γQ·φ·P·a/(L·w_Ed) = 2,444 m (avec P = 12 kN, il serait à la charge).
+Hx = M.Hourdis(**{**H.__dict__, "g": 2.0, "q_presentes": 1.0})
+rx = V.verifier(Hx, [M.Empreinte("E", 2.0, 3.0, 0.3, 0.3, 4.0, phi=1.4)], {})
+hx3 = next(x for x in rx["elements"] if x["nom"] == "H3")
+def _m_ed(x):
+    mg = 2.4 * x * (6.0 - x) / 2
+    mq = 1.2 * x * (6.0 - x) / 2 + (5.6 * x * 4.0 / 6.0 if x <= 2.0 else 5.6 * 2.0 * (6.0 - x) / 6.0)
+    return 1.35 * mg + 1.5 * mq
+m_fin = max(_m_ed(k / 2000 * 6.0) for k in range(2001))
+x_star = 3.0 - 1.5 * 5.6 * 2.0 / (6.0 * (1.35 * 2.4 + 1.5 * 1.2))
+chk("M_Ed maximal cherché entre la charge et la mi-portée (pas L/60) : ≥ grille fine − 0,05 %, > valeur à la charge et à mi-portée",
+    hx3["M_max"] >= m_fin * (1 - 5e-4) and hx3["M_max"] > _m_ed(2.0) and hx3["M_max"] > _m_ed(3.0)
+    and 2.0 < hx3["x_M"] < 3.0 and abs(hx3["x_M"] - x_star) <= 0.05 + 1e-9,
+    f"{hx3['M_max']:.3f} vs fin {m_fin:.3f}, à 2 m {_m_ed(2.0):.3f}, à 3 m {_m_ed(3.0):.3f}, x_M {hx3['x_M']:.2f} (x* {x_star:.3f})")
 chk("hypothèses : γG, γQ, poids propres et tranchant P-3 écrits en toutes lettres",
     any("γG = 1.35" in t and "γQ = 1.5" in t for t in rg["hypotheses"]) and any("sans partage par les joints" in t for t in rg["hypotheses"])
     and any("poids propres" in t for t in rg["hypotheses"]))

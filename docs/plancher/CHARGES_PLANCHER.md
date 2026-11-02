@@ -67,7 +67,8 @@ rigide), aucune répartition entre éléments.
 **Hourdis.** Par élément : règle du levier (part proportionnelle au recouvrement de l'empreinte),
 parts de l'annexe C si elles sont fournies et si les joints sont clavetés ou le plancher chapé
 (flexion seulement), tranchant à `part_tranchant_element` sur l'élément chargé (P-3, défaut 100 %) ;
-M aux abscisses des charges et à mi-portée, V aux appuis ; les efforts sollicitants comptent les
+M cherché aux abscisses des charges, à mi-portée et sur une grille au pas L/60 (son maximum tombe
+entre la charge et la mi-portée, § 10), V aux appuis ; les efforts sollicitants comptent les
 **poids propres** (`g + chape`, part G) et les charges de chantier (`q_presentes` et charges
 concentrées × φ, part Q). **Résistances de calcul** (nature Rd) : M_Ed = γG·M_G + γQ·M_Q ≤ M_Rd avec
 γG = 1,35 et γQ = 1,5 (P-2, tranché le 02/11/2026 — plus de « ÷ 1,5 uniforme », qui pondérait le poids
@@ -129,7 +130,7 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
 - `test_charges_plancher_repartiteurs.py` (23) : bande c itérée à la main, section en I à 2 % du
   catalogue sur tous les profilés, poutre sur ressorts (statique, rigide, souple, Σ R = Σ P, symétrie,
   erreurs), flexion de la filière.
-- `test_charges_plancher_moteur.py` (83) : **copie tenue** des formules BA (les expressions de
+- `test_charges_plancher_moteur.py` (84) : **copie tenue** des formules BA (les expressions de
   `poutre.py` retrouvées mot pour mot, inversions exactes, exemple de l'étude), classes et Ecm,
   natures et chape (P-17), §6.7 et §6.4 à la main, pipeline hourdis (P·L/4, levier, plateau avec
   bande plastique sous la pression ELU, chape, P-5, filière rigide et souple, annexe C, P-3, P-15,
@@ -137,8 +138,14 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
   V de même, nature service → coefficients 1, γG = γQ = 1 retrouve le service, l'ancien ÷ 1,5 refusé,
   fissuration en service), pipeline dalle et prédalle (P-4, P-16, P-8, P-7, effets locaux à γQ),
   refus (dont le hourdis sans M_Rd / V_Rd), taux par bande d'une dalle bornés par le taux global,
-  balayage, dimensionnement (P-14), bibliothèque, JSON, cas gelés `ref_chp.json` (régénérés le
-  02/11/2026 sur la règle P-2, puis sur la correction des bandes), pureté.
+  balayage, dimensionnement (P-14), bibliothèque, JSON, **sections de moment** (le maximum de M_Ed
+  cherché ENTRE la charge et la mi-portée, § 10), cas gelés `ref_chp.json` (régénérés le
+  02/11/2026 sur la règle P-2, puis sur la correction des bandes, puis sur les sections au pas
+  L/60), pureté.
+- `test_charges_plancher_validation.py` (6, lot 4) : le script de validation croisée rend VALIDÉ en
+  mode rapide (6 filières, 60 jeux de créneaux), ses figures sont produites puis retirées, le cas A
+  tient le défaut des sections (maximum ni à la charge ni à mi-portée), le rapport daté et ses trois
+  figures existent, le moteur n'importe ni scipy, ni matplotlib, ni streamlit.
 - `test_charges_plancher_note.py` (52, lot 3) : deux pages A4 paysage sans débordement sur quatre
   cas (hourdis complet, dalle + étançon + stock, prédalle + file + grue araignée + filière en sens 2,
   refus), contenu de la page 1 (statut, η max, gouverne, familles, données, éléments, charges,
@@ -157,8 +164,9 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
   identification), bouton « 📄 Note » (PDF de deux pages produit, bouton de téléchargement,
   identification portée), étanchéité des clés.
 - `tools/captures_plancher.js` : captures et mesures aux quatre largeurs (états vide, engin,
-  plateau, clic, glisser, coupe, balayage) — aucun débordement, plan visible, calcul abouti,
-  plateau hachuré, fenêtre ouverte au clic sur une semelle, position changée au glisser.
+  plateau, clic, glisser, coupe, balayage, methode, note) — aucun débordement, plan visible, calcul
+  abouti, plateau hachuré, fenêtre ouverte au clic sur une semelle, position changée au glisser,
+  onglet Méthode lisible, bouton de téléchargement de la note apparu.
 
 ![Contrôles du lot 1](images/lot1_controle.png)
 
@@ -302,3 +310,48 @@ traits sont pris en points, bornés. Le test retrouve dans le PDF les textes du 
 Les textes de méthode sont écrits une fois (`methode.py`) et lus par l'onglet Méthode et par la
 page 2 : le test de la note retrouve un fragment de chaque section mot pour mot, celui de l'écran
 aussi.
+
+## 10 · Validation croisée (lot 4)
+
+```
+tools/validation_charges_plancher.py              le script : cinq contrôles, rapport daté, trois figures
+docs/validation/charges_plancher_validation_2026-11-02.md   la MESURE (ne se réécrit pas)
+docs/validation/figures/plancher_validation_{A_roue,C_dalle,D_filiere}.png
+tests/test_charges_plancher_validation.py         le script en mode rapide, VALIDÉ exigé
+```
+
+Cinq contrôles, chacun par une méthode qui **ne passe pas par le moteur** (numpy et matplotlib, hors
+chemin de production — le moteur reste pur, le test le vérifie) :
+
+| Cas | Ce qui est vérifié | Méthode indépendante | Écart mesuré |
+|---|---|---|---|
+| A · une roue sur un hourdis | M_Ed, son abscisse, V_Ed, η_M, η_V de H3, M_Ed d'un élément non chargé | M_Ed = 1,35·M_G + 1,5·M_Q sur 7 201 sections ; statique | ≤ 3·10⁻⁵ % (abscisse : 3 mm) |
+| B · un stabilisateur sur tôle à cheval sur deux hourdis | bande plastique c, aire efficace, pression de service, part de H3, M_Ed de H3 = M_Ed de H4, V_Ed | point fixe c = t·√(f/(3·p_Ed)) sous la pression ELU, règle du levier, moments | 0 |
+| C · un Manitou sur une dalle de 20 cm | M et V par mètre en service, abscisse, §6.7 F_Rdu et γQ·P, §6.4 v_Ed et v_Rd,c | Heft 240 réécrit (t_y, b_v), quatre roues superposées sur une grille transversale de 5 mm, formules depuis la norme | ≤ 2·10⁻¹³ % |
+| D · filière sur ressorts | réactions, moment maximal, flèches aux nœuds de 24 configurations tirées au sort | éléments finis d'Euler-Bernoulli, Hermite cubique, 400 éléments | ≤ 0,003 % |
+| E · créneaux | maximum sur la largeur et dans une fenêtre de bande, 300 jeux tirés au sort | évaluation exhaustive aux arêtes | 0 |
+
+Les cas A à C emploient des résistances d'ESSAI (M_Rd 60 kN·m et V_Rd 80 kN par hourdis ; dalle de
+20 cm à 524 mm²/m), pas un catalogue : ils valident les efforts, les largeurs efficaces, les
+répartiteurs et les effets locaux, pas une valeur de fabricant.
+
+**Un défaut NON CONSERVATIF trouvé par le cas A, corrigé le 02/11/2026 et tenu par deux tests.**
+Le moteur n'évaluait le moment d'un hourdis qu'aux abscisses des charges et à mi-portée. Or, sous
+une charge concentrée hors du milieu, le maximum de M_Ed = 1,35·M_G + 1,5·M_Q tombe ENTRE la
+charge et la mi-portée dès que la pente du réparti à la charge, w_Ed·(L/2 − a), dépasse celle du
+terme concentré, γQ·φ·P·a/L : sur le cas A (roue de 12 kN, φ 1,4, à 2,00 m d'une portée de 7,20 m
+sous 2,90 + 1,00 kN/m²), 71,08 kN·m en x = 2,52 m contre 70,19 à la charge — **−1,3 %**. Le moteur
+regarde désormais aussi une grille au pas L/60 (`verification._sections`, hourdis et dalles) ; sur
+les cas gelés, M_Ed monte jusqu'à +3,2 % et deux statuts passent d'« ok » à « attention ». Le verrou
+du moteur emploie un cas dont l'optimum analytique x* = L/2 − γQ·φ·P·a/(L·w_Ed) est intérieur ; le
+test de validation exige que le cas A ne culmine ni à la charge ni à mi-portée.
+
+Ce que la validation **ne couvre pas** : les formules béton armé de l'application (reproduites, pas
+jugées), le coefficient k du Heft 240 en flexion, les parts de l'annexe C et la résistance du joint
+(non transcrits, § 5), les valeurs de catalogue, et les deux décisions du bureau (P-3, éléments
+indépendants sous une filière) qui sont des choix, pas des mesures.
+
+**Registre.** Le module est inscrit dans l'application : page « Charges sur plancher » dans
+`streamlit_app.py`, tuile de la rangée Béton dans `modules/accueil.py` (le harnais d'écran les
+contrôle tous deux) ; ses documents sont ce fichier, l'étude `CHARGES_PLANCHER_ETUDE.md` et la
+mesure datée de `docs/validation/`.

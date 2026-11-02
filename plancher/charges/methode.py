@@ -48,7 +48,8 @@ SECTIONS: List[Dict] = [
          "flexion à mi-portée, où les joints ont toute la portée pour transmettre ; près de l'appui, le joint "
          "n'a que quelques dizaines de centimètres et l'annexe ne dit rien de l'effort tranchant : garder tout "
          "sur l'élément chargé est prudent.",
-         "M est calculé aux abscisses des charges et à mi-portée, V aux deux appuis. Les résistances sont celles "
+         "M est cherché aux abscisses des charges, à mi-portée et sur une grille au pas L/60 — son maximum "
+         "tombe entre la charge et la mi-portée ; V aux deux appuis. Les résistances sont celles "
          "du catalogue, dans leur nature (calcul ou service, P-1) ; les valeurs « avec couche de compression » "
          "ne sont admises que si la chape est collaborante et a atteint la classe exigée par le fabricant "
          "(P-17), sinon la chape ne compte que comme poids. La pression sur la membrure supérieure, diffusée à "
