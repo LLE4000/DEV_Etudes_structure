@@ -371,13 +371,11 @@ def _carte_resultat(cas: Dict, res: Dict):
 # ---------------------------------------------------------------- onglet 1 : garde-corps
 def _etape_garde_corps(cas: Dict, res: Dict):
     g = cas["geometrie"]
-    c1, c2 = st.columns([1.1, 1])
-    with c1:
-        _choix("Système", ("geometrie", "systeme"), cas, list(GE.SYSTEMES), GE.SYSTEMES, segmente=True,
+    with st.container(horizontal=True, wrap=True, gap="medium", vertical_alignment="bottom", key=P + "c_sys"):
+        _choix("Système", ("geometrie", "systeme"), cas, list(GE.SYSTEMES), GE.SYSTEMES, segmente=True, width="content",
                help="Montants verticaux encastrés en pied (platine) portant la lisse haute, ou une lisse horizontale (main courante) "
                     "portée par des consoles ancrées dans un mur, aux mêmes entraxes.")
-    with c2:
-        _choix("Forme en plan", ("geometrie", "forme"), cas, list(GE.FORMES), GE.FORMES, segmente=True,
+        _choix("Forme en plan", ("geometrie", "forme"), cas, list(GE.FORMES), GE.FORMES, segmente=True, width="content",
                help="Un, deux ou trois tronçons droits ; un montant d'angle reçoit une demi-travée de chaque tronçon dans deux directions.")
     n = GE.N_TRONCONS.get(g.get("forme", "droit"), 1)
     for i in range(n):
