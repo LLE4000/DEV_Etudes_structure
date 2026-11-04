@@ -36,8 +36,10 @@ def fmt_no_trailing_zeros(x, digits=3):
 # =========================================================
 @st.cache_data
 def load_profiles():
-    with open("profiles_test.json", "r", encoding="utf-8") as f:
-        raw = json.load(f)
+    # Source unique : le catalogue des profilés (acier/donnees/profiles.json), sous la forme
+    # ancienne des enregistrements (masse, h, b, tw, tf, r, A, Iy, Wel, Wpl_y, …) — familles I/H
+    from acier.profiles import catalogue as CAT
+    raw = CAT.legacy(("IPE", "IPE A", "IPE O", "IPN", "HEA", "HEB", "HEM", "HEAA", "HL", "HD", "HP"))
 
     cleaned = {}
     for name, p in raw.items():
@@ -178,10 +180,12 @@ def ec3_buckling_chi(A_cm2, I_cm4, Lcr_m, fy, E=210000.0, alpha=0.34):
 # =========================================================
 def show():
     st.title("Choix de profilé métallique optimisé (EC3)")
+    from modules import navigation
+    navigation.bouton_accueil("chx_btn_home")
 
     profiles = load_profiles()
     if not profiles:
-        st.error("Aucun profil n’a été chargé. Vérifie **profiles_test.json**.")
+        st.error("Aucun profil n’a été chargé. Vérifie **acier/donnees/profiles.json**.")
         return
 
     familles_disponibles = sorted({p["type"] for p in profiles.values() if p.get("type")})

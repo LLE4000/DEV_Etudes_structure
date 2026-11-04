@@ -59,6 +59,8 @@ def kh_depth(h_mm):
 
 def show():
     st.header("Dimensionnement **poutre en bois** (EC5)")
+    from modules import navigation
+    navigation.bouton_accueil("pb_btn_home")
 
     left, right = st.columns([1, 1.25])
 

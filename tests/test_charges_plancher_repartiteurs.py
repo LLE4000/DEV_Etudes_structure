@@ -6,7 +6,7 @@ Garanties, chacune rougit si on retire ce qu'elle verrouille :
      le test (boucle indépendante) ; c plafonné par le bord du plateau ;
      plateau épais → complet ; empreinte plus grande que le plateau → erreur.
   2. Propriétés d'une section en I : le repli ``section_I`` retrouve, à 2 %
-     près, Iy et Wel des profilés de ``profiles_test.json`` (valeurs du
+     près, Iy et Wel des profilés du catalogue ``acier/donnees/profiles.json`` (valeurs du
      catalogue de l'application, pas de mémoire).
   3. Poutre sur ressorts : statique (deux ressorts : réactions 2/3 · 1/3
      quelle que soit EI, M = P·L/4 sur deux ressorts d'extrémité) ; rigide
@@ -64,9 +64,9 @@ try:
 except ValueError:
     chk("empreinte > plateau : erreur", True)
 
-# 2. section en I contre le catalogue de l'application
-with open("profiles_test.json", "r", encoding="utf-8") as fh:
-    prof = json.load(fh)
+# 2. section en I contre le catalogue de l'application (acier/donnees/profiles.json, forme ancienne)
+from acier.profiles import catalogue as CAT  # noqa: E402
+prof = CAT.legacy(("IPE", "HEA", "HEB", "HEM"))
 ecarts = []
 for nom, p in prof.items():
     if not all(p.get(k) for k in ("h", "b", "tw", "tf", "Iy", "Wel")):

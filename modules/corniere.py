@@ -9,6 +9,8 @@ def show():
     - Colonne gauche: entrées (section, charges, ancrages, critères)
     - Colonne droite: dimensionnement (transversal, longitudinal) + TODO ancrages
     """
+    from modules import navigation
+    navigation.bouton_accueil("cor_btn_home")
     # ----------------------------
     # Données cornières standards (extrait – complète au besoin)
     # format: "A x B x t (mm)": {"A":..., "B":..., "t":..., "kg_m": ...}

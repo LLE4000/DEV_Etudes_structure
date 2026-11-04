@@ -5,7 +5,7 @@
      clé « bibliotheques » du corrigé de référence (aucune recopie).
   2. COMPTES : 90 profilés, 6 aciers, 8 boulons, 4 classes, 18 cornières,
      8 ailes, 5 épaisseurs.
-  3. CROISEMENT avec le catalogue du dépôt (profiles_test.json) : mêmes
+  3. CROISEMENT avec le catalogue du dépôt (acier/donnees/profiles.json) : mêmes
      h, b, tw, tf, r sur les 31 profilés communs ; aire recalculée
      A = 2·b·tf + (h − 2tf)·tw + (4 − π)·r² à moins de 1 % de l'aire
      catalogue.
@@ -48,11 +48,11 @@ for k, n in (("profils", 90), ("aciers", 6), ("boulons", 8), ("classes", 4),
 chk("« Personnalisé » n'est pas une entrée de bibliothèque",
     all(x["n"] != PERSO for k in ("profils", "aciers", "cornieres") for x in DB[k]))
 
-print("\n=== 3. Croisement avec profiles_test.json ===")
-with open("profiles_test.json", encoding="utf-8") as fh:
-    CAT = json.load(fh)
+print("\n=== 3. Croisement avec le catalogue des profilés (acier/donnees/profiles.json) ===")
+from acier.profiles import catalogue as CATALOGUE  # noqa: E402
+CAT = CATALOGUE.legacy()
 communs = [p for p in DB["profils"] if p["n"] in CAT]
-chk("31 profilés communs", len(communs) == 31, str(len(communs)))
+chk("au moins 80 des 90 profilés communs au catalogue (31 avant la transcription du 04/11/2026)", len(communs) >= 80, str(len(communs)))
 div = [p["n"] for p in communs
        if any(abs(float(p[k]) - float(CAT[p["n"]][k])) > 1e-9 for k in ("h", "b", "tw", "tf", "r"))]
 chk("dimensions h, b, tw, tf, r identiques au catalogue", not div, str(div))

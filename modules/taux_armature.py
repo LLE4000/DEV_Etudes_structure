@@ -1150,6 +1150,8 @@ def show():
     _init_state()
 
     st.title("🧱 Poutre BA – Modélisation et taux d’armature")
+    from modules import navigation
+    navigation.bouton_accueil("ta_btn_home")
 
     col_left, col_right = st.columns(2)
 

@@ -39,6 +39,8 @@ def box_ok(ok, txt): (st.success if ok else st.error)(txt)
 
 def show():
     st.markdown("## Garde-corps")
+    from modules import navigation
+    navigation.bouton_accueil("gc_btn_home")
 
     left, right = st.columns([1, 1.25])
 

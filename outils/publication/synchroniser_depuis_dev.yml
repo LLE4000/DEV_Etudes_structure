@@ -1,0 +1,48 @@
+# Synchronisation « en un clic » du dépôt partagé depuis le dépôt de développement.
+#
+# À installer DANS LE DÉPÔT PARTAGÉ (LLE4000/Etudes-structure) sous
+# .github/workflows/synchroniser_depuis_dev.yml — un seul commit, puis le bouton
+# « Run workflow » de l'onglet Actions remplace le contenu du dépôt partagé par
+# celui de la branche main du dépôt de développement (public : aucun jeton à créer ;
+# le GITHUB_TOKEN du dépôt suffit pour pousser sur lui-même).
+#
+# Effets, à connaître avant de cliquer (docs/PUBLICATION.md) :
+#  - l'historique du dépôt partagé est REMPLACÉ par celui du dépôt dev (les deux
+#    n'ont aucun ancêtre commun) : les collègues qui ont cloné doivent re-cloner ;
+#    ceux qui n'utilisent que l'application déployée ne voient qu'une mise à jour ;
+#  - Streamlit Community Cloud redéploie à la poussée ;
+#  - tout fichier propre au dépôt partagé qui n'existe pas dans dev disparaît
+#    (aujourd'hui : .devcontainer/) — à recopier dans dev s'il doit survivre.
+name: Synchroniser depuis le dépôt de développement
+
+on:
+  workflow_dispatch:
+    inputs:
+      branche_source:
+        description: "Branche du dépôt de développement à publier"
+        required: true
+        default: "main"
+
+permissions:
+  contents: write
+
+jobs:
+  synchroniser:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le dépôt partagé
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ramener la branche du dépôt de développement
+        run: |
+          git fetch https://github.com/LLE4000/DEV_Etudes_structure.git "${{ github.event.inputs.branche_source }}:dev_source"
+          git log --oneline -1 dev_source
+
+      - name: Remplacer main par le contenu du dépôt de développement
+        run: |
+          git config user.name "Synchronisation dev → partagé"
+          git config user.email "actions@github.com"
+          git checkout -B main dev_source
+          git push --force origin main

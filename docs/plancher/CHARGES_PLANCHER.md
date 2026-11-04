@@ -19,7 +19,7 @@ plancher/charges/
   repartiteurs.py   bande efficace c (EN 1993-1-8 §6.2.5) · section en I (repli) · poutre sur ressorts (numpy) · flexion de la filière
   resistances.py    formules BA de l'application inversées · natures de catalogue · chape · EN 1992-1-1 §6.7 et §6.4
   verification.py   verifier() · balayer() · dimensionner_filiere()
-  bibliotheque.py   gabarits, types de hourdis, plateaux (plancher/donnees/*.json) · profilés (profiles_test.json) · aciers
+  bibliotheque.py   gabarits, types de hourdis, plateaux (plancher/donnees/*.json) · profilés (acier/donnees/profiles.json) · aciers
   parametres.py     Parametres : décisions du bureau et valeurs « à transcrire », défauts conservatifs
 plancher/donnees/   engins.json · hourdis.json · plateaux.json (génériques, sources, charges à saisir)
 tests/              test_charges_plancher_diffusion.py · _repartiteurs.py · _moteur.py · ref_chp.json (cas gelés)
@@ -141,7 +141,9 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
   balayage, dimensionnement (P-14), bibliothèque, JSON, **sections de moment** (le maximum de M_Ed
   cherché ENTRE la charge et la mi-portée, § 10), cas gelés `ref_chp.json` (régénérés le
   02/11/2026 sur la règle P-2, puis sur la correction des bandes, puis sur les sections au pas
-  L/60), pureté.
+  L/60 ; le 04/11/2026 quand les filières ont pris leurs profilés dans le catalogue
+  `acier/donnees/profiles.json` — Iy et Wel calculés au lieu des valeurs arrondies de
+  l'ancien `profiles_test.json`, écarts ≤ 0,1 %), pureté.
 - `test_charges_plancher_validation.py` (6, lot 4) : le script de validation croisée rend VALIDÉ en
   mode rapide (6 filières, 60 jeux de créneaux), ses figures sont produites puis retirées, le cas A
   tient le défaut des sections (maximum ni à la charge ni à mi-portée), le rapport daté et ses trois

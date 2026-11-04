@@ -346,7 +346,7 @@ from plancher.charges import methode as ME  # noqa: E402
 chk("cinq onglets : le cinquième est « 5 · Méthode »", [t.label for t in at.tabs][-1] == "5 · Méthode")
 chk("l'onglet Méthode porte les sections de methode.py (source unique avec la page 2 de la note)",
     all(sec["titre"] in md(at) and sec["paragraphes"][0][:40] in md(at) for sec in ME.SECTIONS) and "Références" in md(at) and "À transcrire" in md(at))
-chk("bibliothèque livrée listée avec ses sources", "Données de bibliothèque" in "\n".join(str(e.label) for e in at.expander) and "profiles_test.json" in md(at))
+chk("bibliothèque livrée listée avec ses sources", "Données de bibliothèque" in "\n".join(str(e.label) for e in at.expander) and "profiles.json" in md(at))
 chk("identification de la note : projet, partie, indice", {"chp_w_identification_projet", "chp_w_identification_partie", "chp_w_identification_indice"} <= cles(at))
 at.text_input(key="chp_w_identification_projet").set_value("Halle d'essai"); run(at)
 at.button(key="chp_btn_note").click(); run(at)

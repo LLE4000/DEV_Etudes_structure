@@ -1,0 +1,36 @@
+{
+ "colonnes": [
+  "h",
+  "b",
+  "tw",
+  "tf",
+  "masse",
+  "A",
+  "Iy",
+  "Wel_y",
+  "Wpl_y",
+  "iy",
+  "Iz",
+  "Wel_z",
+  "iz",
+  "It",
+  "Avz"
+ ],
+ "familles": [
+  "IPE",
+  "HEA",
+  "HEB",
+  "HEM",
+  "UPE",
+  "UPN",
+  "L",
+  "LI",
+  "CHS",
+  "SHS",
+  "RHS"
+ ],
+ "tri": "",
+ "decroissant": false,
+ "courants_seulement": false,
+ "decimales_fixes": null
+}
