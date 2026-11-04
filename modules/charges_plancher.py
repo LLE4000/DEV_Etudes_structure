@@ -761,7 +761,7 @@ def _etape_methode(etat, cas):
         for nom, d in ET.types_hourdis(etat).items():
             lignes.append(f"<tr><td><b>{nom}</b></td><td>hourdis{' · générique' if d.get('generique', True) else ''}</td>"
                           f"<td>M_Rd {d.get('M_Rd', 0)} · V_Rd {d.get('V_Rd', 0)} ({d.get('nature', 'Rd')})</td><td class='chp-i'>{(d.get('source') or '—')[:160]}</td></tr>")
-        lignes.append("<tr><td><b>Profilés</b></td><td>filières · catalogue</td><td>IPE, HEA, HEB (Iy, Wel, masse)</td><td class='chp-i'>profiles_test.json de l'application</td></tr>")
+        lignes.append("<tr><td><b>Profilés</b></td><td>filières · catalogue</td><td>IPE, HEA, HEB (Iy, Wel, masse)</td><td class='chp-i'>catalogue des profilés de l'application (acier/donnees/profiles.json)</td></tr>")
         st.markdown("".join(lignes) + "</table>", unsafe_allow_html=True)
 
 

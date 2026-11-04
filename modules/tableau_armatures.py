@@ -6,8 +6,8 @@ def show():
     with col1:
         st.markdown("## 📊 Tableau des sections d’armatures")
     with col2:
-        if st.button("🏠 Accueil", key="retour_accueil_armatures"):
-            st.session_state.page = "Accueil"
+        from modules import navigation
+        navigation.bouton_accueil("retour_accueil_armatures")
 
     st.markdown("---")
 

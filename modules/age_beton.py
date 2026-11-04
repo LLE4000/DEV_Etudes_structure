@@ -598,6 +598,8 @@ def _saisie_temperature(mode_temp, date_coulage, Ea):
 def show():
     st.markdown("## Évolution de la résistance du béton — EC2")
     st.caption("fck(t) selon EN 1992-1-1 §3.1.2, effet de la température par âge équivalent (annexe B).")
+    from modules import navigation
+    navigation.bouton_accueil("age_btn_home")
 
     # Layout 3/5 – 2/5
     col_g, col_d = st.columns([3, 2])

@@ -216,6 +216,8 @@ def show():
     st.markdown("## 🧱 Calcul de l'enrobage du béton")
     st.caption("Enrobage nominal retenu = max( durabilité EN 1992-1-1 ; feu EN 1992-1-2 méthode tabulée ). "
                "Valeurs Annexe nationale belge — à valider par l'ingénieur.")
+    from modules import navigation
+    navigation.bouton_accueil("enr_btn_home")
 
     col_form, col_res = st.columns([1.15, 1])
 

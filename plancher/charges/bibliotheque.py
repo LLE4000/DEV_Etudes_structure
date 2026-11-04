@@ -5,7 +5,7 @@ types de hourdis, plateaux, filières. Sources uniques :
 - ``plancher/donnees/engins.json``, ``hourdis.json``, ``plateaux.json`` :
   fiches livrées, GÉNÉRIQUES et nommées comme telles (P-13) ; chaque fiche
   porte ``source`` ; une charge par appui absente vaut 0 et bloque le calcul ;
-- les profilés de filière viennent de ``profiles_test.json`` de
+- les profilés de filière viennent du catalogue ``acier/donnees/profiles.json`` de
   l'application (Iy en cm⁴, Wel en cm³, masse en kg/m), lu directement ;
 - les nuances d'acier viennent de ``acier/donnees/bibliotheques.json``.
 
@@ -85,12 +85,17 @@ def aciers() -> Dict[str, Dict]:
     return {a["n"]: a for a in _lire_racine(os.path.join("acier", "donnees", "bibliotheques.json"))["aciers"]}
 
 
+SOURCE_PROFILS = "acier/donnees/profiles.json"
+
+
 def profils(familles=("IPE", "HEA", "HEB")) -> Dict[str, Dict]:
-    """Profilés de ``profiles_test.json`` portant Iy (cm⁴) et Wel (cm³)."""
-    raw = _lire_racine("profiles_test.json")
+    """Profilés du catalogue de l'application (``acier/donnees/profiles.json``,
+    source unique) portant Iy (cm⁴) et Wel (cm³), sous la forme ancienne des
+    enregistrements."""
+    from acier.profiles import catalogue as CAT
     out = {}
-    for nom, p in raw.items():
-        if p.get("type") in familles and p.get("Iy") and p.get("Wel"):
+    for nom, p in CAT.legacy(familles).items():
+        if p.get("Iy") and p.get("Wel"):
             out[nom] = p
     return out
 
@@ -103,7 +108,7 @@ def filiere_profil(nom: str, longueur: float, x: float, y: float, orientation: s
     fy = aciers()[nuance]["fy"]
     EI = E * 1e3 * p["Iy"] * 1e-8                     # MPa → kN/m² ; cm⁴ → m⁴
     return Filiere(f"{nom} · {longueur:.2f} m", EI, p["Wel"], fy, longueur, x, y, orientation,
-                   p["b"] / 1000.0, list(refs or []), gamma_M0, p.get("masse", 0.0), "profiles_test.json")
+                   p["b"] / 1000.0, list(refs or []), gamma_M0, p.get("masse", 0.0), SOURCE_PROFILS)
 
 
 def candidats_filieres(longueur: float, familles=("IPE", "HEA", "HEB")) -> List[str]:

@@ -32,16 +32,19 @@ except Exception:
         v = qp["page"]
         page_param = v[0] if isinstance(v, list) else v
 
-if page_param:
+# Le paramètre d'URL n'est appliqué qu'à son CHANGEMENT (arrivée par une tuile
+# de l'accueil) : réappliqué à chaque exécution, il annulait tout bouton
+# « Accueil » tant que l'URL portait ?page=… (modules/navigation.py).
+if page_param and st.session_state.get("_page_param_vu") != page_param:
     st.session_state.page = page_param
+    st.session_state["_page_param_vu"] = page_param
 elif "page" not in st.session_state:
     st.session_state.page = "Accueil"
 
 # retour à l’accueil demandé ?
 if st.session_state.get("retour_accueil_demande", False):
-    st.session_state.page = "Accueil"
-    st.session_state.retour_accueil_demande = False
-    st.rerun()
+    from modules import navigation
+    navigation.aller_accueil()
 
 # ---- Dictionnaire des pages → fonctions show()
 pages = {

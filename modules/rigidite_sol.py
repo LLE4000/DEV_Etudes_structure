@@ -1008,9 +1008,8 @@ def show():
 
     cols = st.columns([1, 1, 1, 1, 1, 1])
     with cols[0]:
-        if st.button("🏠 Accueil", use_container_width=True, key="rs_home"):
-            st.session_state.page = "Accueil"
-            st.rerun()
+        from modules import navigation
+        navigation.bouton_accueil("rs_home", use_container_width=True)
     with cols[1]:
         if st.button("🧹 Réinitialiser", use_container_width=True, key="rs_reset",
                      help="Ne réinitialise QUE ce module : les poutres et les dalles "

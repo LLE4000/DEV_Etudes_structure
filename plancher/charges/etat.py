@@ -91,7 +91,7 @@ def repartiteurs_disponibles(etat: Dict) -> Dict[str, Dict]:
         out[d["nom"]] = dict(d, type="plateau", origine="livré")
     for nom, p in BIB.profils().items():
         out[nom] = {"nom": nom, "type": "filiere", "origine": "catalogue", "section": {"profil": nom}, "materiau": "S235",
-                    "E": 210000.0, "f": None, "masse": p.get("masse", 0.0), "source": "profiles_test.json"}
+                    "E": 210000.0, "f": None, "masse": p.get("masse", 0.0), "source": "acier/donnees/profiles.json"}
     for d in etat["fiches"].get("repartiteurs", []):
         out[d["nom"]] = dict(d, origine="fiche")
     return out
