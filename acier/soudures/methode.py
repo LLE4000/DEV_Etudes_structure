@@ -17,6 +17,11 @@ SECTIONS: List[Dict] = [
          "Longueur efficace l_eff = l − 2a sans retours d'angle (§4.5.1) ; un cordon ne compte que si l_eff ≥ max(30 mm ; 6a) "
          "et a ≥ 3 mm (§4.5.2). Bout à bout à pénétration partielle : cordon de gorge égale à la pénétration (§4.7.2), gorge "
          "perpendiculaire à l'effort normal.",
+         "Soudure discontinue : un cordon droit, un arc ou un pourtour peut être posé par tronçons (n tronçons de l mm, aux deux "
+         "bouts et régulièrement entre ; sur un pourtour, régulièrement à partir du haut) — on n'est pas obligé de souder partout. "
+         "Chaque tronçon est raccourci de a à chaque bout et doit respecter l − 2a ≥ max(30 mm ; 6a) ; l'espacement entre tronçons "
+         "est rappelé avec la limite de l'EN 1993-1-8 §4.3.2.2 (≤ min(200 mm ; 12 t en compression ; 16 t en traction)). Un arc ou "
+         "un pourtour est découpé en segments de calcul (cordes de 15°).",
      ]},
     {"titre": "Le groupe de cordons",
      "paragraphes": [
@@ -51,10 +56,10 @@ SECTIONS: List[Dict] = [
      ]},
     {"titre": "Ce que l'outil ne fait pas (V1)",
      "paragraphes": [
-         "Pas de fatigue, pas d'aciers au-delà du S460 ni d'inoxydable, pas de cordons discontinus (les saisir comme cordons "
-         "libres), pas de répartition plastique entre cordons, pas de vérification des pièces assemblées hors du bout à bout "
-         "à pleine pénétration (la pièce est à vérifier dans son propre module). L'excentricité des plats d'un recouvrement "
-         "simple n'est pas prise en compte (pratique usuelle).",
+         "Pas de fatigue, pas d'aciers au-delà du S460 ni d'inoxydable, pas de répartition plastique entre cordons, pas de "
+         "vérification des pièces assemblées hors du bout à bout à pleine pénétration (la pièce est à vérifier dans son propre "
+         "module), pas de vérification de l'espacement des tronçons au-delà du rappel de la limite (§4.3.2.2). L'excentricité "
+         "des plats d'un recouvrement simple n'est pas prise en compte (pratique usuelle).",
      ]},
 ]
 

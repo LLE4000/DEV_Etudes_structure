@@ -146,9 +146,16 @@ c'est exactement ce que le switch doit rendre visible.
 | C3 | Console fléchie | hauteur du plat, épaisseur, excentricité, a | 2 cordons verticaux (ou 3 côtés) | V à l'excentricité e → M = V·e + V |
 | C4 | Gousset en torsion | plat posé à plat, cordons sur 1 à 4 côtés, a | périmètre choisi | V dans le plan à l'excentricité → torsion + cisaillement |
 | C5 | Platine d'about de profilé | profilé du catalogue (IPE, HE…), a_semelles, a_âme, cordons une ou deux faces | semelles (4 cordons) + âme (2) | N, V_z, M_y (+ V_y, M_z) |
-| C6 | Tube sur platine | tube du catalogue (CHS, SHS, RHS), a | périmètre (cercle discrétisé, rectangle à coins) | N, V, M, T |
+| C6 | Tube sur platine | tube du catalogue (CHS, SHS, RHS), a, pourtour continu ou par n tronçons de l mm | périmètre (cercle discrétisé, rectangle à coins) ou ses tronçons (le premier centré en haut) | N, V, M, T |
 | C7 | Bout à bout | largeur, épaisseur, pénétration (pleine / partielle p) | pleine : vérification de la pièce ; partielle : cordon de gorge p | N, V, M |
-| C8 | Cordons libres | liste de cordons (x₁, y₁, x₂, y₂, a, côté de la pièce rapportée) | tel quel | les six composantes au point de référence |
+| C8 | Cordons libres | liste d'éléments : segments (x₁, y₁, x₂, y₂) ou arcs (centre, rayon, angles — 0 → 360 : cercle), gorge, côté de la pièce rapportée, continus ou par tronçons | tel quel (arcs en cordes de 15°) | les six composantes au point de référence |
+
+**Soudure discontinue (04/11/2026).** Toutes les configurations acceptent « n tronçons de
+l mm » sur leurs cordons droits et leurs pourtours : aux deux bouts et régulièrement entre
+sur un cordon droit, régulièrement à partir du haut sur un pourtour ; chaque tronçon est
+une chaîne ouverte raccourcie de a à chaque bout, soumise à l − 2a ≥ max(30 mm ; 6a) ;
+l'espacement est rappelé avec la limite de l'EN 1993-1-8 §4.3.2.2 (≤ min(200 mm ; 12 t en
+compression ; 16 t en traction)) et marqué « DÉPASSÉ » le cas échéant (`trace.py`).
 
 Chaque constructeur rend aussi les éléments du dessin (pièces, cotes) : le dessin est une
 vue du même objet.
@@ -157,10 +164,14 @@ vue du même objet.
 
 Principes, les mêmes pour tous les cas :
 
-- **vue principale** adaptée au cas (élévation pour la console et le T, plan pour le
-  recouvrement et le gousset, face de la platine pour C5 et C6) : pièces en gris
-  (`#CBD5E1`, trait `#1F2937`), cordons en orange (`#D98A00`, triangle à 45° en section,
-  trait épais en vue de face), cotes en rouge sombre ;
+- **vue principale** adaptée au cas (élévation pour la console, coupe A-A et plan pour le
+  T, vue de dessus pour le recouvrement, face pour le gousset, face et élévation pour C5 et
+  C6, plan et coupe pour le bout à bout), en **style dessin technique** (demande du
+  04/11/2026, le premier rendu « n'était pas assez technique ») : pièces au trait fort,
+  sections hachurées (deux sens pour deux pièces, cordon coupé en orange hachuré), cotes
+  fines à lignes d'attache et pointes, axes en trait mixte, trait de coupe sur le plan,
+  arêtes cachées en interrompu, mini-vue de dessus des cordons sur la console, coupe de
+  la soudure bout à bout ;
 - **efforts en rouge** (`#9C3341`) : flèche droite pour une force, flèche courbe pour un
   moment, point d'application marqué, libellé avec la valeur ; le sens du dessin EST le
   sens positif de la saisie (une valeur négative retourne la flèche) ;
@@ -223,8 +234,10 @@ docs/acier/SOUDURES.md       document de référence
 | Lot | Contenu | Preuve |
 |---|---|---|
 | SW1 · moteur | cordon, groupe, critères, configurations, état | tests analytiques : recouvrement (τ∥ = N/(2·a·l)), frontal (σ⊥ = τ⊥ = N/(a·l·√2)), T en traction, console (3M/l²), gousset (polaire), platine (semelles = M/h), simplifiée ≥ directionnelle, conversions k |
-| SW2 · écran | dessins, écran, switch, cas, JSON | harnais AppTest, captures trois formats, images |
-| SW3 · note | note deux pages, doc, intégration | tests PDF, batterie, commit, push |
+| SW2 · écran | dessins techniques, écran, switch, cas, JSON | harnais AppTest (50), captures trois formats (`tools/captures_soudures.js`), images |
+| SW2a · tronçons | soudures discontinues, arcs, éléments libres (`trace.py`) | tests analytiques (78 au total) |
+| SW2b · liaison | `modules/liaison.py` : les widgets suivent l'état (Soudures et Charges sur plancher) | contrôle navigateur dans les captures (état « tube »), harnais des deux écrans |
+| SW3 · note | note deux pages, peintre SVG partagé (`ndc_pdf/svg.py`), doc `docs/acier/SOUDURES.md` | tests PDF (43), batterie, commit, push |
 
 ## 8 · Points à trancher par le bureau (défauts retenus en attendant)
 
@@ -237,7 +250,9 @@ docs/acier/SOUDURES.md       document de référence
 | P-5 | longueur efficace | l − 2a par défaut (§4.5.1) ; « retours d'angle exécutés » rend l entière |
 | P-6 | méthode Eurocode par défaut | directionnelle (la plus juste) ; simplifiée en option |
 | P-7 | la méthode ELS compare la résultante (comme la simplifiée) | oui — c'est la règle du bureau ; la directionnelle reste lisible dans Détail |
-| P-8 | cordons discontinus, fatigue, aciers > S460, soudures sur acier inoxydable | hors V1, dits dans « ce que l'outil ne fait pas » |
+| P-8 | fatigue, aciers > S460, soudures sur acier inoxydable | hors V1, dits dans « ce que l'outil ne fait pas » — les cordons discontinus, d'abord exclus, sont entrés le 04/11/2026 à la demande du bureau (tronçons sur toutes les configurations) |
+| P-9 | position des tronçons | aux deux bouts et régulièrement entre sur un cordon droit (les bouts doivent être soudés) ; régulièrement à partir du haut sur un pourtour ; l'espacement §4.3.2.2 est rappelé, pas imposé |
+| P-10 | l'écran garde-t-il la valeur du navigateur ou celle de l'état ? | celle de l'ÉTAT, toujours : `modules/liaison.py` réécrit les widgets depuis l'état à chaque changement hors widget (défaut trouvé par les captures : C3 → C6 affichait l'ancienne gorge) |
 
 ## 9 · Sources
 
