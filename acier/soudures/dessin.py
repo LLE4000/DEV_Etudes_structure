@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
-"""Les schémas des soudures en SVG, en style DESSIN TECHNIQUE : pièces au
-trait fort, sections hachurées, cotes fines à lignes d'attache, axes en
-trait mixte, efforts en rouge avec leur sens, cordons colorés par leur taux,
-point gouvernant marqué, et l'encart « la gorge » qui montre σ⊥, τ⊥, τ∥ au
-point le plus chargé (EN 1993-1-8 fig. 4.5).
+"""L'encart « LA GORGE » (SVG) et la carte des taux (HTML) : l'encart montre
+la section du cordon gouvernant — les deux pièces coupées, le cordon d'angle,
+la pénétration partielle ou la pleine pénétration — et les composantes σ⊥,
+τ⊥, τ∥ au point le plus chargé (EN 1993-1-8 fig. 4.5), avec le signe de σ⊥
+(sortante : traction, entrante : compression).
 
-Tout est dessiné depuis les objets du calcul (cordons, pièces des
-constructeurs, résultats) : le dessin est une vue, jamais une seconde
-géométrie. Unités du dessin : mm du plan de joint, mis à l'échelle dans un
-canevas en pixels ; le SVG porte un viewBox et s'étire à la largeur de sa
-colonne. Palette : pièces #F1F5F9 / #E2E8F0, trait #111827, hachures #6B7280,
-cordons #D98A00, efforts #9C3341, cotes #374151, taux vert / ocre / rouge.
+Les vues des configurations (plan de joint, coupes, élévations) vivent dans
+``schemas.py``, sur le kit de dessin des assemblages. Ici reste un petit
+canevas SVG en pixels (hachures, flèches, textes à halo) pour l'encart.
+Palette : pièces #F1F5F9 / #E2E8F0, trait #111827, hachures #6B7280, cordon
+#D98A00, efforts #9C3341, taux vert / ocre / rouge.
 """
 import itertools
 import math
@@ -283,462 +282,6 @@ class Canevas:
                 f'{POLICE} font-size="11">' + bg + self._defs() + "".join(self.out) + fr + "</svg>")
 
 
-# ====================================================================== outils communs aux vues
-def _taux3(res: Dict, nom: str) -> List[float]:
-    pts = sorted([p for p in res["points"] if p["cordon"] == nom], key=lambda p: p["s"])
-    return [p["taux"] for p in pts] if len(pts) == 3 else [0.0, 0.0, 0.0]
-
-
-def _gouv_s(res: Dict, nom: str) -> Optional[float]:
-    g = res.get("gouvernant")
-    return g["s"] if g and g.get("cordon") == nom else None
-
-
-def _cordons(cv: Canevas, res: Dict, ep: float = 7.0, transformer=None, caches: Sequence[str] = ()):
-    """Tous les cordons utiles colorés, les exclus en pointillé, le point gouvernant."""
-    tr = transformer or (lambda c: c)
-    for c in res.get("cordons_exclus", []):
-        cv.cordon_exclu(tr(c), ep * 0.7)
-    for c in res.get("cordons", []):
-        cv.cordon_taux(tr(c), _taux3(res, c["nom"]), ep, _gouv_s(res, c["nom"]), cache=c["nom"] in caches)
-
-
-def _etiquette_gouvernant(cv: Canevas, res: Dict, transformer=None, u=None):
-    """« ◉ 61 % » à côté du point gouvernant, décalé du côté de la pièce
-    rapportée (−u_A) — les noms et gorges vont de l'autre côté."""
-    g = res.get("gouvernant")
-    if not g or g.get("cordon") == "pièce":
-        return
-    c = next((k for k in res.get("cordons", []) if k["nom"] == g["cordon"]), None)
-    pt = (transformer or (lambda p: p))(g["point"])
-    ua = u if u is not None else ((-c["u_A"][0], -c["u_A"][1]) if c else (1.0, 0.0))
-    n = math.hypot(ua[0], ua[1]) or 1.0
-    dx, dy = ua[0] / n * 17, -ua[1] / n * 17
-    anc = "start" if dx > 3 else ("end" if dx < -3 else "middle")
-    cv.texte(pt[0], pt[1], f"◉ {g['taux'] * 100:.0f} %", 10.5, NOK, anc, True, dx=dx, dy=dy + 4, boite=True)
-
-
-def _milieu_chaine(res: Dict, nom_chaine: str, transformer=None) -> Tuple[Tuple[float, float], Tuple[float, float]]:
-    """Milieu du segment médian d'une chaîne et son u_A (pour poser un nom hors de la pièce)."""
-    segs = [k for k in res.get("cordons", []) + res.get("cordons_exclus", []) if (k.get("chaine") or k["nom"]) == nom_chaine]
-    c = segs[len(segs) // 2]
-    c2 = (transformer or (lambda k: k))(c)
-    mx, my = (c2["p1"][0] + c2["p2"][0]) / 2, (c2["p1"][1] + c2["p2"][1]) / 2
-    ua = c.get("u_A", [1.0, 0.0])
-    return (mx, my), (ua[0], ua[1])
-
-
-def _etiquette_gorge(cv: Canevas, res: Dict, nom: str, texte: str, transformer=None, decal_px: float = 14.0):
-    """« a5 » près du milieu d'un cordon (ou d'une chaîne), hors de la pièce rapportée."""
-    c = next((k for k in res.get("cordons", []) if k["nom"] == nom or k.get("chaine") == nom), None)
-    if c is None:
-        return
-    (mx, my), ua = _milieu_chaine(res, c.get("chaine") or c["nom"], transformer)
-    n = math.hypot(ua[0], ua[1]) or 1.0
-    dx, dy = ua[0] / n * decal_px, -ua[1] / n * decal_px
-    anc = "start" if dx > 3 else ("end" if dx < -3 else "middle")
-    cv.texte(mx, my, texte, 9.5, "#8A5A00", anc, False, dx=dx, dy=dy + 3.5, boite=True)
-
-
-def _gorges(res: Dict) -> str:
-    gs = sorted({round(c["a"], 1) for c in res.get("cordons", [])})
-    return " / ".join(f"a{_fmt(a, 0) if float(a).is_integer() else _fmt(a, 1)}" for a in gs)
-
-
-def _triangle_cordon(cv: Canevas, racine, u_face_A, u_face_B, a: float, trait=True):
-    """Triangle d'un cordon d'angle coupé : racine, ailes a·√2 le long des deux faces."""
-    z = a * 1.4142
-    p = np.asarray(racine, float)
-    A = p + np.asarray(u_face_A, float) * z
-    B = p + np.asarray(u_face_B, float) * z
-    cv.polygone([tuple(p), tuple(A), tuple(B)], CORDON, TRAIT if trait else CORDON, 0.8, hachure="W")
-
-
-def _val_kN(v):
-    return f"{_fmt(abs(v) / 1e3)} kN"
-
-
-def _val_kNm(v):
-    return f"{_fmt(abs(v) / 1e6)} kN·m"
-
-
-# ====================================================================== C1 recouvrement (plan)
-def vue_plan_recouvrement(res: Dict, W: int = 640, H: int = 400) -> str:
-    pc = res["pieces"]
-    L, b = pc["L"], pc["b"]
-    xs = [x for x, _ in pc["A"]] + [x for x, _ in pc["B"]]
-    cv = Canevas(W, H, min(xs) - 10, L * 1.6 + 115, -b * 0.75 - 50, b * 0.75 + 45, marge=34)
-    cv.titre("C1 · RECOUVREMENT — vue de dessus", f"cordons {_gorges(res)} · cotes en mm")
-    cv.polygone(pc["A"], PIECE_A)
-    cv.polygone(pc["B"], PIECE_B)
-    cv.cache((L, -b / 2), (L, b / 2))                       # bout du plat A sous B
-    cv.texte(L * 0.2, -b * 0.63, f"plat A (dessous) · t {_fmt(pc['tA'], 0)}", 10, MUT, "middle")
-    cv.texte(L * 0.5, 0.0, f"plat B (dessus) · t {_fmt(pc['tB'], 0)}", 10, MUT, "middle", dy=4)
-    _cordons(cv, res, 7.0, caches=("frontal (bout de A)",))
-    _etiquette_gouvernant(cv, res)
-    e = res["efforts"]
-    if abs(e.Vx) > 0:
-        s = 1 if e.Vx > 0 else -1
-        cv.axe((L * 1.6, 0), (L * 1.6 + 30, 0))
-        cv.fleche((L * 1.6 + 30, 0), (L * 1.6 + 30 + s * 60, 0), f"N = {_val_kN(e.Vx)}")
-    if abs(e.Vy) > 0:
-        s = 1 if e.Vy > 0 else -1
-        cv.fleche((L * 1.35, s * (b / 2 + 3)), (L * 1.35, s * (b / 2 + 48)), f"V = {_val_kN(e.Vy)}")
-    cv.cote((0, -b * 0.75), (L, -b * 0.75), f"L = {_fmt(L, 0)}", 18)
-    cv.cote((L * 1.6, -b / 2), (L * 1.6, b / 2), f"b = {_fmt(b, 0)}", -16, pos=0.25)
-    cv.repere_xy()
-    cv.cartouche("cordons colorés par leur taux · ◉ point gouvernant · pointillé : cordon caché (face inférieure)")
-    return cv.svg()
-
-
-# ====================================================================== C2 jonction en T (coupe + plan)
-def vue_elevation_T(res: Dict, W: int = 640, H: int = 400) -> str:
-    pc = res["pieces"]
-    tA, tB, l, hB = pc["tA"], pc["tB"], pc["l"], pc["hB"]
-    a = res["cordons"][0]["a"] if res.get("cordons") else 5.0
-    larg_coupe = max(hB, 110.0)
-    cv = Canevas(W, H, -larg_coupe - 30, l + 70, -tA - 60, hB + 40, marge=34)
-    cv.titre("C2 · JONCTION EN T — coupe A-A et vue en plan", f"cordons {_gorges(res)} · cotes en mm")
-    # --- coupe à gauche : A horizontal (coupé), B debout (coupée), triangles des cordons
-    x_c = -larg_coupe / 2 - 15
-    cv.polygone([(x_c - larg_coupe / 2, -tA), (x_c + larg_coupe / 2, -tA), (x_c + larg_coupe / 2, 0), (x_c - larg_coupe / 2, 0)], PIECE_A, hachure="A")
-    cv.polygone([(x_c - tB / 2, 0), (x_c + tB / 2, 0), (x_c + tB / 2, hB), (x_c - tB / 2, hB)], PIECE_B, hachure="B")
-    _triangle_cordon(cv, (x_c + tB / 2, 0), (1, 0), (0, 1), a)
-    if len(res.get("cordons", [])) > 1 or any(c["nom"].startswith("cordon 2") for c in res.get("cordons", []) + res.get("cordons_exclus", [])):
-        _triangle_cordon(cv, (x_c - tB / 2, 0), (-1, 0), (0, 1), a)
-    cv.axe((x_c, -tA - 12), (x_c, hB + 12))
-    cv.texte(x_c, -tA - 24, "coupe A-A", 10, MUT, "middle")
-    cv.texte(x_c + tB / 2, hB * 0.62, f"B · t {_fmt(tB, 0)}", 9.5, MUT, "start", dx=8, dy=3.5, boite=True)
-    cv.texte(x_c + larg_coupe / 2, -tA / 2, f"A · t {_fmt(tA, 0)}", 9.5, MUT, "end", dx=-6, dy=3.5, boite=True)
-    e = res["efforts"]
-    if abs(e.N) > 0:
-        s = 1 if e.N > 0 else -1
-        cv.fleche((x_c, hB + 3 if s > 0 else hB + 48), (x_c, hB + 48 if s > 0 else hB + 3), f"N = {_val_kN(e.N)}")
-    if abs(e.Vy) > 0:
-        s = 1 if e.Vy > 0 else -1
-        cv.fleche((x_c + s * (tB / 2 + 2), hB * 0.8), (x_c + s * (tB / 2 + 50), hB * 0.8), f"V⊥ = {_val_kN(e.Vy)}")
-    if abs(e.Mx) > 0:
-        cv.moment((x_c, hB * 0.42), 20, f"M = {_val_kNm(e.Mx)}", +1 if e.Mx > 0 else -1, pos="gauche")
-    # --- plan à droite : A vu de dessus, l'empreinte de B, les cordons des deux côtés
-    y0 = hB * 0.45
-    hA = min(hB * 0.6, 90.0)
-    cv.polygone([(0, y0 - hA / 2), (l, y0 - hA / 2), (l, y0 + hA / 2), (0, y0 + hA / 2)], PIECE_A)
-    cv.polygone([(0, y0 - tB / 2), (l, y0 - tB / 2), (l, y0 + tB / 2), (0, y0 + tB / 2)], PIECE_B)
-    deplace = lambda c: dict(c, p1=[c["p1"][0], c["p1"][1] + y0], p2=[c["p2"][0], c["p2"][1] + y0])  # noqa: E731
-    _cordons(cv, res, 6.0, deplace)
-    _etiquette_gouvernant(cv, res, lambda p: (p[0], p[1] + y0))
-    # trait de coupe A-A sur le plan
-    xa = l * 0.28
-    cv.axe((xa, y0 - hA / 2 - 26), (xa, y0 + hA / 2 + 22))
-    for yy, dy in ((y0 - hA / 2 - 26, -1), (y0 + hA / 2 + 22, 1)):
-        cv.fleche((xa, yy), (xa - 14, yy), "", COTE, 1.2)
-        cv.texte(xa - 20, yy, "A", 9.5, COTE, "end", True, dy=3.5)
-    if abs(e.Vx) > 0:
-        s = 1 if e.Vx > 0 else -1
-        cv.axe((l, y0), (l + 12, y0))
-        cv.fleche((l + 12 if s > 0 else l + 62, y0), (l + 62 if s > 0 else l + 12, y0), f"V∥ = {_val_kN(e.Vx)}")
-    cv.cote((0, y0 - hA / 2), (l, y0 - hA / 2), f"l = {_fmt(l, 0)}", 18)
-    cv.texte(l / 2, y0 + hA / 2 + 30, "vue en plan", 10, MUT, "middle")
-    cv.cartouche("sections hachurées · cordons colorés par leur taux · ◉ point gouvernant")
-    return cv.svg()
-
-
-# ====================================================================== C3 console (élévation)
-def vue_elevation_console(res: Dict, W: int = 640, H: int = 400) -> str:
-    pc = res["pieces"]
-    h, t, ex, Lc = pc["h"], pc["t"], pc["e"], pc["longueur"]
-    a = res["cordons"][0]["a"] if res.get("cordons") else 5.0
-    bp = 90.0                                            # largeur dessinée du poteau
-    cv = Canevas(W, H, -bp - 16, Lc + 110, -h * 0.72 - 50, h / 2 + 95, marge=34)
-    cv.titre("C3 · CONSOLE FLÉCHIE — élévation", f"cordons {_gorges(res)} · cotes en mm")
-    cv.polygone([(-bp, -h * 0.72 - 30), (0, -h * 0.72 - 30), (0, h / 2 + 70), (-bp, h / 2 + 70)], PIECE_A)
-    cv.axe((-bp / 2, -h * 0.72 - 36), (-bp / 2, h / 2 + 76))
-    cv.texte(-bp / 2, -h * 0.72 - 22, "poteau (face)", 9.5, MUT, "middle")
-    cv.polygone([(0, h / 2), (Lc, h / 2), (Lc, -h / 2), (0, -h / 2)], PIECE_B)
-    cv.texte(Lc * 0.62, -h * 0.36, f"plat t = {_fmt(t, 0)}", 10, MUT, "middle")
-    # les cordons sont vus par la tranche sur la face : tous en x = 0 (le dessin les superpose)
-    sur_face = lambda c: dict(c, p1=[0.0, c["p1"][1]], p2=[0.0, c["p2"][1]])  # noqa: E731
-    _cordons(cv, res, 8.0, sur_face)
-    _etiquette_gouvernant(cv, res, lambda p: (0.0, p[1]), u=(-1.0, 0.0))
-    n_c = len({c["chaine"] for c in res.get("cordons", [])})
-    cv.texte(0, 0, f"{_gorges(res)} · {n_c} cordon{'s' if n_c > 1 else ''}", 9.5, "#8A5A00", "end", dx=-10, dy=3.5, boite=True)
-    e = res["efforts"]
-    V = -e.Vy
-    if abs(V) > 0:
-        if V > 0:
-            cv.fleche((ex, h / 2 + 60), (ex, h / 2 + 3), f"V = {_val_kN(V)}")
-        else:
-            cv.fleche((ex, h / 2 + 3), (ex, h / 2 + 60), f"V = {_val_kN(V)}")
-        cv.axe((ex, h / 2 - 14), (ex, h / 2 + 64))
-        cv.moment((Lc * 0.28, 0.0), 22, f"M = V·e = {_val_kNm(abs(V) * ex)}", -1 if V > 0 else 1, pos="bas")
-    if abs(e.N) > 0:
-        s = 1 if e.N > 0 else -1
-        cv.axe((Lc, 0), (Lc + 30, 0))
-        cv.fleche((Lc + 30, 0), (Lc + 30 + s * 56, 0), f"N = {_val_kN(e.N)}")
-    cv.cote((0, h / 2 + 30), (ex, h / 2 + 30), f"e = {_fmt(ex, 0)}", 16)
-    cv.cote((Lc, -h / 2), (Lc, h / 2), f"h = {_fmt(h, 0)}", -18, pos=0.3)
-    # mini vue de dessus (×2,5) : le plat perpendiculaire à la face, les deux cordons dans leur dièdre
-    k = 2.5
-    y_v = -h * 0.72 - 8
-    x_v = Lc * 0.32
-    tf = 10.0 * k
-    cv.polygone([(x_v - 26 * k, y_v - tf), (x_v + 26 * k, y_v - tf), (x_v + 26 * k, y_v), (x_v - 26 * k, y_v)], PIECE_A, hachure="A")
-    cv.polygone([(x_v - t * k / 2, y_v), (x_v + t * k / 2, y_v), (x_v + t * k / 2, y_v + 16 * k), (x_v - t * k / 2, y_v + 16 * k)], PIECE_B, hachure="B")
-    _triangle_cordon(cv, (x_v + t * k / 2, y_v), (1, 0), (0, 1), a * k)
-    if n_c > 1 or any("gauche" in c["nom"] for c in res.get("cordons", []) + res.get("cordons_exclus", [])):
-        _triangle_cordon(cv, (x_v - t * k / 2, y_v), (-1, 0), (0, 1), a * k)
-    cv.texte(x_v + 30 * k, y_v + 8 * k, "vue de dessus ×2,5 : le plat et ses cordons sur la face", 9.5, MUT, "start")
-    cv.cartouche("cordons colorés par leur taux · ◉ point gouvernant · trait mixte : ligne d'action")
-    return cv.svg()
-
-
-# ====================================================================== C4 gousset (plan)
-def vue_plan_gousset(res: Dict, W: int = 640, H: int = 400) -> str:
-    pc = res["pieces"]
-    A, B = pc["A"], pc["B"]
-    xs = [x for x, _ in A] + [x for x, _ in B]
-    ys = [y for _, y in A] + [y for _, y in B]
-    cv = Canevas(W, H, min(xs) - 40, max(xs) + 80, min(ys) - 70, max(ys) + 30, marge=34)
-    cv.titre("C4 · GOUSSET EN TORSION — vue de face (plat posé sur l'appui)", f"cordons {_gorges(res)} · cotes en mm")
-    cv.polygone(A, PIECE_A)
-    cv.texte(min(x for x, _ in A) + 6, max(y for _, y in A) - 12, "appui", 9.5, MUT, "start")
-    cv.polygone(B, PIECE_B)
-    cv.texte(pc["bx"] / 2, pc["by"] - 16, f"plat t = {_fmt(pc['t'], 0)}, posé à plat", 10, MUT, "middle")
-    _cordons(cv, res, 7.0)
-    _etiquette_gouvernant(cv, res)
-    e = res["efforts"]
-    xV, yV = pc["xV"], pc["yV"]
-    cv.point_R(xV, yV, "")
-    V = -e.Vy
-    if abs(V) > 0:
-        s = -1 if V > 0 else 1
-        cv.fleche((xV, yV + s * 4), (xV, yV + s * 62), f"V = {_val_kN(V)}")
-    if abs(e.Vx) > 0:
-        s = 1 if e.Vx > 0 else -1
-        cv.fleche((xV + s * 4, yV), (xV + s * 62, yV), f"H = {_val_kN(e.Vx)}")
-    if abs(e.N) > 0:
-        cv.symbole_normal((xV, yV), f"N = {_val_kN(e.N)}", e.N > 0, cote=+1 if e.Vx <= 0 else -1)
-    pr = res.get("proprietes") or {}
-    yb = min(y for _, y in A)
-    cv.cote((0, yb), (pc["bx"], yb), f"b_x = {_fmt(pc['bx'], 0)}", 16)
-    cv.cote((0, 0), (0, pc["by"]), f"b_y = {_fmt(pc['by'], 0)}", -(abs(min(x for x, _ in A)) * cv.ech + 16))
-    if "xG" in pr:
-        cv.marque_G(pr["xG"], pr["yG"])
-        cv.cote((pr["xG"], yb), (xV, yb), f"e = {_fmt(xV - pr['xG'], 0)}", 40)
-    cv.repere_xy()
-    cv.cartouche("G centre des gorges · R point d'application · cordons colorés par leur taux · ◉ point gouvernant")
-    return cv.svg()
-
-
-# ====================================================================== C5 / C6 platine (face + élévation)
-def _section_profil(cv: Canevas, rec: Dict, pc: Dict):
-    """La section du profilé (coupée : hachurée), ou l'anneau du tube."""
-    from acier.profiles import familles as F
-    try:
-        rings = F.contours(rec["famille"], rec["dims"])
-        rings = [[(float(x), float(y)) for x, y in r] for r in rings]
-    except Exception:  # noqa: BLE001 — famille sans contour : rectangle d'encombrement
-        h, b = rec.get("h", rec.get("d", 100.0)), rec.get("b", rec.get("d", 100.0))
-        rings = [[(-b / 2, -h / 2), (b / 2, -h / 2), (b / 2, h / 2), (-b / 2, h / 2)]]
-    if len(rings) > 1:
-        cv.anneau(rings[0], rings[1:], PIECE_B, hachure="B")
-    else:
-        cv.polygone(rings[0], PIECE_B, hachure="B")
-
-
-def vue_face_profil(res: Dict, W: int = 640, H: int = 400) -> str:
-    pc = res["pieces"]
-    pl = pc["platine"]
-    rec = pc["profil"]
-    xs, ys = [x for x, _ in pl], [y for _, y in pl]
-    hp = max(ys) - min(ys)
-    larg_face = max(xs) - min(xs)
-    # repère commun : la face à gauche, l'élévation à droite (décalée de x_el)
-    x_el = max(xs) + 190
-    l_el = max(0.75 * hp, 110.0)
-    cv = Canevas(W, H, min(xs) - 90, x_el + l_el + 80, min(ys) - 88, max(ys) + 38, marge=34)
-    tube = "contour" in pc
-    cv.titre(("C6 · TUBE SUR PLATINE" if tube else "C5 · PLATINE D'ABOUT DE PROFILÉ") + " — vue de face et élévation",
-             f"{rec['nom']} · cordons {_gorges(res)} · cotes en mm")
-    cv.polygone(pl, PIECE_A)
-    cv.texte(min(xs) + 6, max(ys) - 12, "platine", 9.5, MUT, "start")
-    _section_profil(cv, rec, pc)
-    cv.axe((min(xs) - 10, 0), (max(xs) + 10, 0))
-    cv.axe((0, min(ys) - 10), (0, max(ys) + 10))
-    _cordons(cv, res, 5.5)
-    _etiquette_gouvernant(cv, res)
-    if tube:
-        _etiquette_gorge(cv, res, res["cordons"][0]["nom"] if res.get("cordons") else "", f"a{_fmt(res['cordons'][0]['a'], 0)}" if res.get("cordons") else "")
-    else:
-        sup = next((c["nom"] for c in res.get("cordons", []) if c["nom"].startswith("semelle sup. ext")), None)
-        ame = next((c["nom"] for c in res.get("cordons", []) if c["nom"].startswith("âme droite")), None)
-        if sup:
-            _etiquette_gorge(cv, res, sup, f"a_f = {_fmt(next(c['a'] for c in res['cordons'] if c['nom'] == sup), 0)}", decal_px=12)
-        if ame:
-            _etiquette_gorge(cv, res, ame, f"a_w = {_fmt(next(c['a'] for c in res['cordons'] if c['nom'] == ame), 0)}", decal_px=12)
-    e = res["efforts"]
-    h_pr = rec.get("h", rec.get("d", hp * 0.6))
-    # efforts dans la face : V_z (vertical), V_y (horizontal), N (⊙/⊗), T (courbe), M_y et M_z (vecteurs)
-    if abs(e.Vy) > 0:
-        s = 1 if e.Vy > 0 else -1
-        cv.fleche((max(xs) + 30, -s * 28), (max(xs) + 30, s * 28), f"V_z = {_val_kN(e.Vy)}")
-    if abs(e.Vx) > 0:
-        s = 1 if e.Vx > 0 else -1
-        cv.fleche((-s * 30, min(ys) - 26), (s * 30, min(ys) - 26), f"V_y = {_val_kN(e.Vx)}", cote=-1)
-    if abs(e.N) > 0:
-        cv.symbole_normal((0, 0), f"N = {_val_kN(e.N)}", e.N > 0)
-    if abs(e.Mz) > 0:
-        cv.moment((0, 0), max(22.0, min(0.3 * h_pr * cv.ech, 42)), f"T = {_val_kNm(e.Mz)}", 1 if e.Mz > 0 else -1, pos="bas")
-    if abs(e.Mx) > 0:
-        s = 1 if e.Mx > 0 else -1
-        cv.vecteur_moment((min(xs) - 42, 0), (s, 0), f"M_y = {_val_kNm(e.Mx)}", 44, cote=+1)
-        cv.texte(min(xs) - 42, 0, "tend " + ("le haut" if s > 0 else "le bas"), 9.5, EFFORT, "middle", dy=16, boite=True)
-    if abs(e.My) > 0:
-        s = 1 if e.My > 0 else -1
-        cv.vecteur_moment((0, max(ys) + 22), (0, s), f"M_z = {_val_kNm(e.My)}", 40, cote=+1)
-        cv.texte(0, max(ys) + 22, "tend " + ("la gauche" if s > 0 else "la droite"), 9.5, EFFORT, "start", dx=14 + _larg(f"M_z = {_val_kNm(e.My)}", 11.5), dy=4, boite=True)
-    cv.texte((min(xs) + max(xs)) / 2, min(ys) - 78, "vue de face (le profilé est coupé)", 10, MUT, "middle")
-    # --- élévation à droite : la platine coupée (debout), le profilé qui en sort, les cordons haut et bas, N, V_z, M_y
-    tp = 16.0
-    cv.polygone([(x_el - tp, min(ys) + 8), (x_el, min(ys) + 8), (x_el, max(ys) - 8), (x_el - tp, max(ys) - 8)], PIECE_A, hachure="A")
-    cv.polygone([(x_el, -h_pr / 2), (x_el + l_el, -h_pr / 2), (x_el + l_el, h_pr / 2), (x_el, h_pr / 2)], PIECE_B)
-    if not tube and "tf" in rec:
-        cv.ligne((x_el, h_pr / 2 - rec["tf"]), (x_el + l_el, h_pr / 2 - rec["tf"]), TRAIT, 0.8)
-        cv.ligne((x_el, -h_pr / 2 + rec["tf"]), (x_el + l_el, -h_pr / 2 + rec["tf"]), TRAIT, 0.8)
-    a_h = res["cordons"][0]["a"] if res.get("cordons") else 5.0
-    _triangle_cordon(cv, (x_el, h_pr / 2), (0, 1), (1, 0), a_h)
-    _triangle_cordon(cv, (x_el, -h_pr / 2), (0, -1), (1, 0), a_h)
-    cv.axe((x_el - tp - 8, 0), (x_el + l_el + 8, 0))
-    xe = x_el + l_el
-    if abs(e.N) > 0:
-        s = 1 if e.N > 0 else -1
-        cv.fleche((xe + (4 if s > 0 else 52), 0), (xe + (52 if s > 0 else 4), 0), f"N = {_val_kN(e.N)}", cote=-1)
-    if abs(e.Vy) > 0:
-        s = 1 if e.Vy > 0 else -1
-        cv.fleche((xe - 14, s * (h_pr / 2 + 4)), (xe - 14, s * (h_pr / 2 + 46)), f"V_z = {_val_kN(e.Vy)}", cote=-1)
-    if abs(e.Mx) > 0:
-        cv.moment((x_el + l_el * 0.5, 0), 20, f"M_y = {_val_kNm(e.Mx)}", 1 if e.Mx > 0 else -1, pos="haut")
-    cv.texte(x_el + l_el / 2, min(ys) - 78, "élévation", 10, MUT, "middle")
-    cv.cartouche("sections hachurées · cordons colorés par leur taux · ◉ point gouvernant · ⊙ vers soi · ⊗ vers le fond")
-    return cv.svg()
-
-
-# ====================================================================== C7 bout à bout (plan + coupe)
-def vue_plan_bout_a_bout(res: Dict, W: int = 640, H: int = 400) -> str:
-    pc = res["pieces"]
-    b, t = pc["b"], pc["t"]
-    cv = Canevas(W, H, -b - 100, b + 100, -b / 2 - 150, b / 2 + 40, marge=34)
-    cv.titre("C7 · BOUT À BOUT — vue en plan et coupe", f"plats {_fmt(b, 0)} × {_fmt(t, 0)} · cotes en mm")
-    cv.polygone(pc["A"], PIECE_A)
-    cv.polygone(pc["B"], PIECE_B)
-    cv.texte(-b / 2, -b * 0.35, "plat A", 10, MUT)
-    cv.texte(b / 2, -b * 0.35, "plat B", 10, MUT)
-    cv.axe((-b - 36, 0), (b + 36, 0))
-    if pc["pleine"]:
-        w = max(t, 4.0)
-        cv.polygone([(-w / 2, -b / 2), (w / 2, -b / 2), (w / 2, b / 2), (-w / 2, b / 2)], CORDON, TRAIT, 0.8, hachure="W")
-        cv.texte(0, b / 2, "pleine pénétration : la pièce gouverne", 10, ENCRE, "middle", dy=-10, boite=True)
-    else:
-        _cordons(cv, res, 7.0)
-        _etiquette_gouvernant(cv, res, u=(1.0, 0.0))
-    e = res["efforts"]
-    if abs(e.Vx) > 0:
-        s = 1 if e.Vx > 0 else -1
-        cv.fleche((b + 30, 0), (b + 30 + s * 60, 0), f"N = {_val_kN(e.Vx)}")
-        cv.fleche((-b - 30, 0), (-b - 30 - s * 60, 0), f"N = {_val_kN(e.Vx)}")
-    if abs(e.Vy) > 0:
-        s = 1 if e.Vy > 0 else -1
-        cv.fleche((b * 0.5, s * (b / 2 + 3)), (b * 0.5, s * (b / 2 + 48)), f"V = {_val_kN(e.Vy)}")
-    if abs(e.Mz) > 0:
-        cv.moment((b * 0.5, 0), 20, f"M = {_val_kNm(e.Mz)}", 1 if e.Mz > 0 else -1, pos="bas")
-    cv.cote((-b, -b / 2), (-b, b / 2), f"b = {_fmt(b, 0)}", 18, pos=0.25)
-    # coupe sous le plan : l'épaisseur t, la soudure (V pleine ou deux pénétrations partielles p)
-    yc = -b / 2 - 95
-    ech_c = 3.0
-    tt = t * ech_c
-    cv.polygone([(-b * 0.7, yc), (-tt * 0.6, yc), (-tt * 0.6 - tt * 0.5, yc + tt), (-b * 0.7, yc + tt)], PIECE_A, hachure="A") if pc["pleine"] else \
-        cv.polygone([(-b * 0.7, yc), (-1.5, yc), (-1.5, yc + tt), (-b * 0.7, yc + tt)], PIECE_A, hachure="A")
-    cv.polygone([(tt * 0.6, yc), (b * 0.7, yc), (b * 0.7, yc + tt), (tt * 0.6 + tt * 0.5, yc + tt)], PIECE_B, hachure="B") if pc["pleine"] else \
-        cv.polygone([(1.5, yc), (b * 0.7, yc), (b * 0.7, yc + tt), (1.5, yc + tt)], PIECE_B, hachure="B")
-    if pc["pleine"]:
-        cv.polygone([(-tt * 0.6, yc), (tt * 0.6, yc), (tt * 0.6 + tt * 0.5, yc + tt), (-tt * 0.6 - tt * 0.5, yc + tt)], CORDON, TRAIT, 0.8, hachure="W")
-        cv.texte(0, yc + tt, "soudure en V, pleine pénétration", 9.5, MUT, "middle", dy=-6 - tt * 0, boite=True) if False else None
-    else:
-        p = res["cordons"][0]["a"] if res.get("cordons") else float(t) / 2
-        pp = p * ech_c
-        deux = len(res.get("cordons", [])) > 1
-        cv.polygone([(-pp * 0.9, yc + tt), (pp * 0.9, yc + tt), (0, yc + tt - pp)], CORDON, TRAIT, 0.8, hachure="W")
-        if deux:
-            cv.polygone([(-pp * 0.9, yc), (pp * 0.9, yc), (0, yc + pp)], CORDON, TRAIT, 0.8, hachure="W")
-        cv.cote((0, yc + tt - pp), (0, yc + tt), f"p = {_fmt(p, 0)}", b * 0.7 * cv.ech + 46, taille=9)
-    cv.cote((b * 0.7, yc), (b * 0.7, yc + tt), f"t = {_fmt(t, 0)}", 16, taille=9)
-    cv.texte(0, yc - 16, "coupe (épaisseur ×3)", 9.5, MUT, "middle")
-    cv.cartouche("sections hachurées · ◉ point gouvernant · trait mixte : ligne d'action de N")
-    return cv.svg()
-
-
-# ====================================================================== C8 cordons libres (plan)
-def vue_plan_libre(res: Dict, W: int = 640, H: int = 400) -> str:
-    cs = res.get("cordons", []) + res.get("cordons_exclus", [])
-    e = res["efforts"]
-    xs = [c["p1"][0] for c in cs] + [c["p2"][0] for c in cs] + [e.reference[0]]
-    ys = [c["p1"][1] for c in cs] + [c["p2"][1] for c in cs] + [e.reference[1]]
-    if not xs:
-        xs, ys = [0.0], [0.0]
-    m = max(60.0, 0.3 * max(max(xs) - min(xs), max(ys) - min(ys), 1.0))
-    cv = Canevas(W, H, min(xs) - m, max(xs) + m, min(ys) - m, max(ys) + m * 0.8, marge=34)
-    cv.titre("C8 · CORDONS LIBRES — vue en plan (plan de joint)", f"cordons {_gorges(res)} · coordonnées en mm")
-    _cordons(cv, res, 7.0)
-    # le nom de chaque chaîne au milieu de son segment médian, hors de la pièce (u_A)
-    for nom in list(dict.fromkeys((c.get("chaine") or c["nom"]) for c in cs)):
-        (mx, my), ua = _milieu_chaine(res, nom)
-        a_ch = next(c["a"] for c in cs if (c.get("chaine") or c["nom"]) == nom)
-        n = math.hypot(ua[0], ua[1]) or 1.0
-        dx, dy = ua[0] / n * 15, -ua[1] / n * 15
-        cv.texte(mx, my, f"{nom} · a{_fmt(a_ch, 0)}", 9.5, "#8A5A00", "start" if dx > 3 else ("end" if dx < -3 else "middle"), dx=dx, dy=dy + 3.5, boite=True)
-    _etiquette_gouvernant(cv, res)
-    pr = res.get("proprietes") or {}
-    if "xG" in pr:
-        cv.marque_G(pr["xG"], pr["yG"])
-    rx, ry = e.reference[0], e.reference[1]
-    cv.point_R(rx, ry)
-    px = 1.0 / cv.ech                                   # 1 px en mm
-    if abs(e.Vx) > 0:
-        s = 1 if e.Vx > 0 else -1
-        cv.fleche((rx + s * 5 * px, ry), (rx + s * 60 * px, ry), f"V_x = {_val_kN(e.Vx)}", cote=+1)
-    if abs(e.Vy) > 0:
-        s = 1 if e.Vy > 0 else -1
-        cv.fleche((rx, ry + s * 5 * px), (rx, ry + s * 60 * px), f"V_y = {_val_kN(e.Vy)}")
-    if abs(e.N) > 0:
-        cv.symbole_normal((rx, ry), "", e.N > 0)
-        cv.texte(rx, ry, f"N = {_val_kN(e.N)} {'⊙' if e.N > 0 else '⊗'}", 11.5, EFFORT, "end", True, dx=-12, dy=-8, boite=True)
-    if abs(e.Mx) > 0:
-        s = 1 if e.Mx > 0 else -1
-        cv.vecteur_moment((rx, ry + 44 * px), (s, 0), f"M_x = {_val_kNm(e.Mx)}", 40, cote=+1)
-    if abs(e.My) > 0:
-        s = 1 if e.My > 0 else -1
-        cv.vecteur_moment((rx - 44 * px, ry), (0, s), f"M_y = {_val_kNm(e.My)}", 40, cote=-1)
-    if abs(e.Mz) > 0:
-        cv.moment((rx, ry), 24, "", 1 if e.Mz > 0 else -1)
-        cv.texte(rx, ry, f"M_z = {_val_kNm(e.Mz)} ↻" if e.Mz < 0 else f"M_z = {_val_kNm(e.Mz)} ↺", 11.5, EFFORT, "end", True, dx=-22, dy=34, boite=True)
-    cv.repere_xy()
-    cv.cartouche("G centre des gorges · R point de référence · ⇒ vecteur moment (règle de la main droite) · ◉ point gouvernant")
-    return cv.svg()
-
-
-VUES = {"C1": vue_plan_recouvrement, "C2": vue_elevation_T, "C3": vue_elevation_console, "C4": vue_plan_gousset,
-        "C5": vue_face_profil, "C6": vue_face_profil, "C7": vue_plan_bout_a_bout, "C8": vue_plan_libre}
-
-
-def vue_principale(res: Dict, W: int = 640, H: int = 400) -> str:
-    if res.get("statut") == "refus" or "efforts" not in res:
-        cv = Canevas(W, H, 0, 100, 0, 60)
-        cv.titre("CALCUL IMPOSSIBLE")
-        cv.texte(50, 30, "Voir les messages : " + (res.get("messages") or ["—"])[0][:90], 11, NOK)
-        return cv.svg()
-    return VUES[res["config"]](res, W, H)
-
-
 # ====================================================================== encart « la gorge »
 def encart_gorge(res: Dict, W: int = 320, H: int = 330) -> str:
     """La section du cordon gouvernant : les deux pièces coupées (hachurées),
@@ -748,17 +291,56 @@ def encart_gorge(res: Dict, W: int = 320, H: int = 330) -> str:
     g = res.get("gouvernant")
     cv = Canevas(W, H, 0, 100, 0, 100, marge=8)
     cv.titre("LA GORGE AU POINT GOUVERNANT")
-    if not g or g.get("cordon") == "pièce":
-        cv.texte(50, 55, "pas de cordon gouvernant" if not g else "pleine pénétration : la pièce gouverne", 10.5, ENCRE)
-        if g:
-            cv.texte(50, 42, f"σ = {_fmt(g['sigma_perp'])} · τ = {_fmt(g['tau_par'])} N/mm² · η = {g['taux'] * 100:.0f} %", 10, MUT)
+    if not g:
+        cv.texte(50, 55, "pas de cordon gouvernant", 10.5, ENCRE)
         return cv.svg()
     a = g["a"]
     cord = next((c for c in res.get("cordons", []) if c["nom"] == g["cordon"]), {})
     bout = bool(cord.get("bout_a_bout"))
+    pleine = bool(cord.get("pleine"))
+    t_piece = float(cord.get("t_piece") or a)
+    coplanaire = pleine and res.get("config") == "C7"
     nom_ch = cord.get("chaine") or g["cordon"]
     sp, tp, tpar = g["sigma_perp"], g["tau_perp"], g["tau_par"]
-    if bout:
+    if coplanaire:
+        # bout à bout coplanaire à pleine pénétration : le V sur toute l'épaisseur, la « gorge » est la section du plat
+        cv.polygone([(4, 50), (48, 50), (42, 78), (4, 78)], PIECE_A, hachure="A")
+        cv.polygone([(52, 50), (96, 50), (96, 78), (58, 78)], PIECE_B, hachure="B")
+        cv.polygone([(48, 50), (52, 50), (58, 78), (42, 78)], CORDON, TRAIT, 0.8, hachure="W")
+        cv.ligne((50, 50), (50, 78), ENCRE, 1.1, "3 2")
+        cv.texte(50, 52, f"t = {_fmt(t_piece, 0)}", 9.5, ENCRE, "start", dx=10, dy=4, boite=True)
+        mx, my = 50.0, 66.0
+        cv.fleche((mx, my), (mx + (20 if sp >= 0 else -20), my), "σ⊥", EFFORT, 2.0, 10.5, cote=+1)
+        cv.fleche((mx, my), (mx, my + (14 if tp >= 0 else -14)), "τ⊥", EFFORT, 2.0, 10.5, cote=+1)
+        cv.symbole_normal((mx, my), "", tpar >= 0)
+        cv.texte(50, 44, "pleine pénétration : la soudure vaut le plat, gorge = t", 9, MUT)
+    elif pleine:
+        # pièce debout soudée à pleine pénétration : toute l'épaisseur t est soudée, la « gorge » est la section de la pièce à sa racine
+        cv.polygone([(4, 30), (70, 30), (70, 42), (4, 42)], PIECE_A, hachure="A")
+        cv.polygone([(16, 54), (30, 54), (30, 96), (16, 96)], PIECE_B, hachure="B")
+        cv.polygone([(8, 42), (38, 42), (30, 50), (30, 54), (16, 54), (16, 50)], CORDON, TRAIT, 0.9, hachure="W")
+        cv.ligne((16, 42), (30, 42), ENCRE, 1.2, "3 2")
+        cv.texte(30, 42, f"gorge = t = {_fmt(t_piece, 0)}", 9.5, ENCRE, "start", dx=10, dy=-4, boite=True)
+        cv.texte(10, 35, "A", 9.5, MUT)
+        cv.texte(23, 80, "B", 9.5, MUT)
+        mx, my = 23.0, 42.0
+        cv.symbole_normal((mx, my), "", tpar >= 0)
+        q = (mx, my + (17 if sp >= 0 else -14))
+        if sp >= 0:
+            cv.fleche((mx, my + 3), q, "", EFFORT, 2.0)
+        else:
+            cv.fleche((mx, my - 3), q, "", EFFORT, 2.0)
+        cv.texte(q[0], q[1], "σ⊥", 10.5, EFFORT, "start", True, dx=5, dy=(4 if sp >= 0 else -2), boite=True)
+        q2 = (mx + (19 if tp >= 0 else -19), my)
+        cv.fleche((mx + (3 if tp >= 0 else -3), my), q2, "", EFFORT, 2.0)
+        cv.texte(q2[0], q2[1], "τ⊥", 10.5, EFFORT, "start" if tp >= 0 else "end", True, dx=(4 if tp >= 0 else -4), dy=-5, boite=True)
+        cv.texte(39, 62, "τ∥", 10.5, EFFORT, "middle", True, boite=True)
+        cv.texte(98, 90, nom_ch, 9.5, ENCRE, "end", True)
+        cv.texte(98, 84, g["position"], 9.5, MUT, "end")
+        cv.texte(98, 76, f"η = {g['taux'] * 100:.0f} %", 11, couleur_taux(g["taux"]), "end", True)
+        cv.texte(98, 68, "pleine pénétration", 9, MUT, "end")
+        cv.texte(98, 62, "la soudure vaut la pièce", 9, MUT, "end")
+    elif bout:
         # pénétration partielle : deux plats bout à bout, la gorge = la pénétration, normale à l'effort
         cv.polygone([(4, 50), (47, 50), (47, 78), (4, 78)], PIECE_A, hachure="A")
         cv.polygone([(53, 50), (96, 50), (96, 78), (53, 78)], PIECE_B, hachure="B")
@@ -809,10 +391,11 @@ def encart_gorge(res: Dict, W: int = 320, H: int = 330) -> str:
     crit = g.get("critere", "")
     if crit:
         lignes.append((crit[:72], 9.0, ENCRE))
-    if bout:
+    a_droite = coplanaire or (bout and not pleine)                    # pas d'étiquettes à droite du dessin : une ligne de plus
+    if a_droite:
         lignes.append((f"{nom_ch} · {g['position']} · η = {g['taux'] * 100:.0f} %", 10, couleur_taux(g["taux"])))
     for i, (t, taille, coul) in enumerate(lignes):
-        cv.texte(50, 24 - i * 6.3, t, taille, coul, "middle", gras=(i == len(lignes) - 1 and bout))
+        cv.texte(50, 24 - i * 6.3, t, taille, coul, "middle", gras=(i == len(lignes) - 1 and a_droite))
     return cv.svg()
 
 
@@ -836,7 +419,7 @@ def carte_taux(res: Dict) -> str:
 
 
 def legende() -> str:
-    return ("Pièces au trait fort, sections hachurées · cordons colorés par leur taux (vert ≤ 70 %, ocre jusqu'à 100 %, rouge au-delà), "
-            "pointillé gris : cordon qui ne compte pas · ◉ point gouvernant · flèches rouges : efforts dans le sens saisi "
-            "(⊙ vers soi, ⊗ vers le fond, ⇒ vecteur moment, flèche courbe : moment dans le plan) · cotes en mm · "
-            "encart : les composantes sur la gorge, EN 1993-1-8 fig. 4.5")
+    return ("Pièces au trait fort, sections hachurées, lignes de rupture où la pièce continue · cordons en bande ocre à leur taille a·√2, "
+            "symbole de soudure EN 22553 (a : gorge, s : pénétration), interrompu gris : cordon qui ne compte pas · ◉ point gouvernant et son taux · "
+            "G centre des gorges, R point de référence · flèches rouges : efforts dans le sens saisi (⊙ vers soi, ⊗ vers le fond, ⇒ vecteur moment, "
+            "flèche courbe : moment dans le plan) · cotes en mm · encart : les composantes sur la gorge, EN 1993-1-8 fig. 4.5")

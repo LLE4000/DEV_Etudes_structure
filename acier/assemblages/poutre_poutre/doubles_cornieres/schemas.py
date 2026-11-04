@@ -1013,9 +1013,30 @@ def style_de(cls, ctx, p=None):
     elif "bw" in c:
         st.update(stroke=ink, sw=0.5)
     elif "ht" in c:
-        st.update(stroke=acc if "htc" in c else p["hatch"], sw=0.5)
+        st.update(stroke=acc if "htc" in c else (p["weld2"] if "htw" in c else p["hatch"]), sw=0.5)
     elif "hl" in c:
         st.update(stroke=ko, sw=4)
+    # --- soudures : cordon qui ne compte pas, efforts, point gouvernant, repères
+    elif "wbx" in c:
+        # cordon exclu (trop court, gorge trop faible) : contour interrompu gris, sans remplissage
+        st.update(stroke=p["hatch"], sw=0.8, dash=(3, 2))
+    elif "fz" in c:
+        # effort appliqué : trait rouge soutenu (fût d'une flèche, arc d'un moment)
+        st.update(stroke=ko, sw=1.6)
+    elif "fzh" in c:
+        # pointe d'une flèche d'effort
+        st.update(fill=ko)
+    elif "gv" in c:
+        # point gouvernant : cercle rouge sur fond blanc
+        st.update(fill="#FFFFFF", stroke=ko, sw=1.6)
+    elif "gvd" in c:
+        st.update(fill=ko)
+    elif "mkg" in c:
+        # repère (centre des gorges G, point de référence R) : trait d'accent fin
+        st.update(stroke=acc, sw=0.9)
+    elif "bg" in c:
+        # fond du plan de joint (cordons libres) : teinte neutre, sans contour
+        st.update(fill=p["hit"])
     elif "cm" in c:
         st.update(stroke=ink, sw=0.6)
     elif "flr" in c:
@@ -1106,6 +1127,15 @@ def style_de(cls, ctx, p=None):
     # texte
     if "tx" in c:
         st.update(tfill=ink, bold=True)
+    elif "tx2" in c:
+        # texte secondaire (titre de coupe, mention) : gris
+        st.update(tfill=p["muted"])
+    elif "txw" in c:
+        # nom d'un cordon : ocre du cordon, gras
+        st.update(tfill=p["weld2"], bold=True)
+    elif "fzl" in k:
+        # étiquette d'un effort : rouge, gras (sur halo blanc)
+        st.update(tfill=ko, bold=True)
     elif "cart" in k:
         st.update(tfill=ink)
     elif "gb" in k:
@@ -1153,6 +1183,18 @@ def _css(p, pre):
         f"#{pre} .bw{{fill:none;stroke:{ink};stroke-width:.5}}"
         f"#{pre} .ht{{stroke:{p['hatch']};stroke-width:.5;fill:none}}"
         f"#{pre} .htc{{stroke:{acc}}}"
+        f"#{pre} .htw{{stroke:{p['weld2']}}}"
+        f"#{pre} .wbx{{fill:none;stroke:{p['hatch']};stroke-width:.8;stroke-dasharray:3 2}}"
+        f"#{pre} .fz{{stroke:{ko};stroke-width:1.6;fill:none}}"
+        f"#{pre} .fzh{{fill:{ko};stroke:none}}"
+        f"#{pre} .gv{{fill:#fff;stroke:{ko};stroke-width:1.6}}"
+        f"#{pre} .gvd{{fill:{ko};stroke:none}}"
+        f"#{pre} .mkg{{stroke:{acc};stroke-width:.9;fill:none}}"
+        f"#{pre} .bg{{fill:{p['hit']};stroke:none}}"
+        f"#{pre} .tx2{{fill:{p['muted']};font-family:system-ui,Arial,sans-serif}}"
+        f"#{pre} .txw{{fill:{p['weld2']};font-weight:600;font-family:system-ui,Arial,sans-serif}}"
+        f"#{pre} .fzl .hit{{fill:#fff;fill-opacity:.85;stroke:none}}"
+        f"#{pre} .fzl text{{fill:{ko};font-weight:600;font-family:system-ui,Arial,sans-serif}}"
         f"#{pre} .dm path{{stroke:{acc};stroke-width:.8;fill:none}}"
         f"#{pre} .ext{{stroke:{p['ext']};stroke-width:.5;fill:none}}"
         f"#{pre} .flr{{stroke:{p['hatch']};stroke-width:.45;fill:none}}"

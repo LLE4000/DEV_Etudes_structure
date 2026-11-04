@@ -48,6 +48,9 @@ chk("force en travers dans le plan : |σ⊥| = |τ⊥| = f/(a·√2), τ∥ = 0"
 chk("arrachement : mêmes modules, signe relatif opposé (la géométrie décide)",
     pres(abs(r2["sigma_perp"]), 100 / (5 * S2)) and pres(abs(r2["tau_perp"]), 100 / (5 * S2))
     and (r1["sigma_perp"] * r1["tau_perp"]) * (r2["sigma_perp"] * r2["tau_perp"]) < 0)
+chk("SIGNE : l'arrachement (+z) met la gorge en TRACTION, σ⊥ > 0 ; en travers, la pièce qui VIENT sur le cordon (force selon u_A = −y) le comprime, "
+    "σ⊥ < 0, celle qui s'en éloigne (+y) le tend",
+    r2["sigma_perp"] > 0 and c.composantes((0, -100, 0))["sigma_perp"] < 0 and c.composantes((0, 100, 0))["sigma_perp"] > 0)
 chk("le long : τ∥ = f/a seul", pres(r3["tau_par"], 20.0) and pres(r3["sigma_perp"], 0.0) and pres(r3["tau_perp"], 0.0))
 chk("ailes perpendiculaires à l'axe et entre elles ; u_A hors de la pièce (pièce à gauche de +x → u_A = −y)",
     pres(float(np.dot(c.e_a, c.u_A)), 0.0) and pres(float(np.dot(c.u_A, c.u_B)), 0.0) and tuple(np.round(c.u_A, 9)) == (0.0, -1.0, 0.0))
@@ -55,6 +58,10 @@ cb = C.cordon_bout_a_bout("b", (0, -50), (0, 50), 6.0, cote=+1)
 rb = cb.composantes((120, 0, 0))
 chk("bout à bout partiel : gorge perpendiculaire à n = x → σ⊥ = f/a, τ⊥ = τ∥ = 0",
     pres(abs(rb["sigma_perp"]), 20.0) and pres(rb["tau_perp"], 0.0, 1e-9) and pres(rb["tau_par"], 0.0, 1e-9))
+cT = C.cordon_bout_a_bout_T("T", (0, 0), (100, 0), 6.0, cote=+1)
+rT = cT.composantes((0, 0, 120))
+chk("bout à bout en T : gorge parallèle à la face d'appui → l'arrachement donne σ⊥ = f/a > 0, τ = 0 ; en travers τ⊥ = f/a",
+    pres(rT["sigma_perp"], 20.0) and pres(rT["tau_perp"], 0.0, 1e-9) and pres(abs(cT.composantes((0, 60, 0))["tau_perp"]), 10.0))
 chk("longueur efficace l − 2a, retours → l ; cordon utile si l_eff ≥ max(30 ; 6a) et a ≥ 3",
     pres(C.cordon_angle("x", (0, 0), (100, 0), 5.0).l_eff, 90.0) and pres(C.cordon_angle("x", (0, 0), (100, 0), 5.0, retours=True).l_eff, 100.0)
     and not C.cordon_angle("x", (0, 0), (36, 0), 5.0).utile and C.cordon_angle("x", (0, 0), (40, 0), 5.0).utile
@@ -191,12 +198,15 @@ chk("C6 tube rond en torsion : τ∥ = T/(2π·R²·a) uniforme (Bredt sur la li
 r = verif("C7", {"b": 150, "t": 12, "penetration": "pleine"}, {"N": 200, "V": 0, "M": 0})
 chk("C7 pleine pénétration : la pièce gouverne, σ = N/(b·t) = 111,1, η = 111,1/235",
     r["pleine"] and pres(r["taux_max"], 200e3 / (150 * 12) / 235) and any("pièce" in m for m in r["messages"]))
+r = verif("C7", {"b": 150, "t": 12, "penetration": "partielle", "p": 4, "deux_faces": True}, {"N": 200, "V": 0, "M": 0})
+chk("C7 pénétration partielle deux faces p = 4 : σ⊥ = N/(2·b·p) = 166,7 N/mm² (> 0 : traction), τ⊥ = τ∥ = 0, deux soudures",
+    pres(r["gouvernant"]["sigma_perp"], 200e3 / (2 * 150 * 4)) and pres(r["gouvernant"]["tau_perp"], 0.0, 1e-9) and len(r["chaines"]) == 2 and not r["pleine"])
+r = verif("C7", {"b": 150, "t": 12, "penetration": "partielle", "p": 4, "deux_faces": True}, {"N": 0, "V": 0, "M": 3.0})
+chk("C7 partielle en flexion dans le plan : σ⊥ aux bords = 6M/(2·p·b²) = 100 N/mm²",
+    pres(abs(r["gouvernant"]["sigma_perp"]), 6 * 3e6 / (2 * 4 * 150 ** 2), 1e-6), str(r["gouvernant"]["sigma_perp"]))
 r = verif("C7", {"b": 150, "t": 12, "penetration": "partielle", "p": 6, "deux_faces": True}, {"N": 200, "V": 0, "M": 0})
-chk("C7 pénétration partielle deux faces p = 6 : σ⊥ = N/(2·b·p) = 111,1 N/mm², τ⊥ = τ∥ = 0",
-    pres(abs(r["gouvernant"]["sigma_perp"]), 200e3 / (2 * 150 * 6)) and pres(r["gouvernant"]["tau_perp"], 0.0, 1e-9))
-r = verif("C7", {"b": 150, "t": 12, "penetration": "partielle", "p": 6, "deux_faces": True}, {"N": 0, "V": 0, "M": 3.0})
-chk("C7 partielle en flexion dans le plan : σ⊥ aux bords = 6M/(2·p·b²) = 66,7 N/mm²",
-    pres(abs(r["gouvernant"]["sigma_perp"]), 6 * 3e6 / (2 * 6 * 150 ** 2), 1e-6), str(r["gouvernant"]["sigma_perp"]))
+chk("C7 partielle p = 6 des deux faces sur t = 12 : pénétration complète → pleine pénétration, la pièce gouverne (§4.7.1), note",
+    r["pleine"] and any("complète" in m and "§4.7.1" in m for m in r["messages"]) and pres(r["taux_max"], 200e3 / 1800 / 235))
 # C8
 r = verif("C8")
 r3 = verif("C3", {"h": 200, "t": 100, "e": 150, "a": 5, "retours": False}, {"V": 60, "N": 0})
@@ -329,6 +339,81 @@ chk("C5 semelles extérieures par 2 tronçons de 50 (bouts de semelle) : 4 chaî
     len(r["chaines"]) == 4 and pres(r["gouvernant"]["f"], 30e6 / (200 * 80), 1e-6), str(r["gouvernant"]["f"]))
 chk("sortie : chaque cordon porte u_A (hors de la pièce rapportée) pour le dessin ; C3 cordon droit → u_A = +x",
     all(len(c["u_A"]) == 3 for c in r["cordons"]) and pres(verif("C3")["cordons"][0]["u_A"][0], 1.0, 1e-9))
+
+print("\n=== 8. Types de jonction : pénétration partielle, pleine pénétration = la pièce (EN 1993-1-8 §4.7) ===")
+r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 400, "Va": 0, "Vp": 0, "M": 0})
+chk("C2 pleine pénétration (plats de 30), N = 400 kN : σ = N/(l·t) = 66,7 N/mm² sur la section, η = σ/fy = 0,284 ; UNE soudure de gorge t = 30 et l = 200, message §4.7.1",
+    r["pleine"] and pres(abs(r["gouvernant"]["sigma_perp"]), 400e3 / 6000) and pres(r["taux_max"], 400e3 / 6000 / 235)
+    and len(r["chaines"]) == 1 and pres(r["chaines"][0]["a"], 30.0) and pres(r["chaines"][0]["l_eff"], 200.0) and r["chaines"][0]["segments"] == 1
+    and any("§4.7.1" in m and "pièce" in m for m in r["messages"]), str(r["chaines"]))
+r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 0, "Va": 0, "Vp": 0, "M": 10})
+chk("C2 pleine en flexion M = 10 kN·m : les trois lignes de gorge (Simpson) rendent I = l·t³/12 exactement → σ au bord = 6M/(l·t²) = 333,3 N/mm²",
+    pres(abs(r["gouvernant"]["sigma_perp"]), 6 * 10e6 / (200 * 30 ** 2), 1e-9) and "bord" in r["gouvernant"]["cordon"], str(r["gouvernant"]["sigma_perp"]))
+r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 0, "Va": 50, "Vp": 0, "M": 0})
+chk("C2 pleine en cisaillement V∥ = 50 kN : τ∥ = V/(l·t) = 8,33 N/mm², σ⊥ = 0 → critère de la pièce √(3)·τ ≤ fy/γM0",
+    pres(abs(r["gouvernant"]["tau_par"]), 50e3 / 6000) and pres(r["gouvernant"]["sigma_perp"], 0.0, 1e-9) and pres(r["taux_max"], S3 * 50e3 / 6000 / 235, 1e-9))
+r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine"}, {"N": 400, "Va": 0, "Vp": 0, "M": 0}, {"mode": "els"})
+chk("C2 pleine en méthode ELS (efforts de service) : la pièce est comparée à fy/γ_F = 156,7 → η = 0,426, message",
+    pres(r["taux_max"], 400e3 / 6000 / (235 / 1.5), 1e-9) and any("fy/γ_F" in m for m in r["messages"]))
+r = verif("C2", {"l": 200, "tB": 10, "jonction": "partielle", "p": 4, "renfort": 0, "retours": True}, {"N": 40, "Va": 0, "Vp": 0, "M": 0})
+chk("C2 pénétration partielle p = 4 des deux faces, sans renfort : gorge p parallèle à la face, σ⊥ = N/(2·p·l) = 25,0 N/mm², τ = 0, deux soudures « bout à bout »",
+    len(r["chaines"]) == 2 and all(c["bout_a_bout"] and pres(c["a"], 4.0) for c in r["chaines"]) and pres(abs(r["gouvernant"]["sigma_perp"]), 40e3 / (2 * 4 * 200))
+    and pres(r["gouvernant"]["tau_perp"], 0.0, 1e-9) and not r["pleine"], str(r["chaines"]))
+r = verif("C2", {"l": 200, "tB": 10, "jonction": "partielle", "p": 3, "renfort": 3}, {"N": 40, "Va": 0, "Vp": 0, "M": 0})
+chk("C2 partielle p = 3 avec renfort a_r = 3 : cordon d'angle à pénétration profonde de gorge p + a_r = 6 (§4.5.2(3)), composantes à 45° (|σ⊥| = |τ⊥|)",
+    len(r["chaines"]) == 2 and all(not c["bout_a_bout"] and pres(c["a"], 6.0) for c in r["chaines"])
+    and pres(abs(r["gouvernant"]["sigma_perp"]), abs(r["gouvernant"]["tau_perp"])), str(r["chaines"]))
+r = verif("C2", {"l": 200, "tB": 10, "jonction": "partielle", "p": 5, "renfort": 0}, {"N": 40, "Va": 0, "Vp": 0, "M": 0})
+chk("C2 partielle p = 5 des deux faces sur t = 10 : 2p ≥ t et c = 0 ≤ min(t/5 ; 3) → traitée comme pleine (§4.7.3), note dans les messages",
+    r["pleine"] and any("§4.7.3" in m for m in r["messages"]), str(r["messages"][:1]))
+r = verif("C2", {"l": 200, "tB": 10, "jonction": "partielle", "p": 5, "renfort": 0, "deux_cordons": False}, {"N": 0, "Va": 40, "Vp": 0, "M": 0})
+chk("C2 partielle p = 5 d'une seule face (cisaillée le long) : pas de règle du T, une soudure de gorge 5",
+    r["statut"] != ET.REFUS and not r["pleine"] and len(r["chaines"]) == 1 and pres(r["chaines"][0]["a"], 5.0), str(r["messages"][:1]))
+r = verif("C3", {"h": 200, "t": 30, "e": 150, "jonction": "pleine"}, {"V": 60, "N": 0})
+chk("C3 console en pleine pénétration (plat de 30 sur l'aile d'un HEB 200) : σ en tête = 6·V·e/(t·h²) = 45,0 N/mm², η = 0,191 ; poteau du catalogue dans les pièces, t_min = min(t ; t_f) = 15",
+    r["pleine"] and pres(abs(r["gouvernant"]["sigma_perp"]), 6 * 60e3 * 150 / (30 * 200 ** 2), 1e-9) and r["pieces"]["poteau"]["nom"] == "HEB 200"
+    and pres(r["pieces"]["t_min"], 15.0), str(r["gouvernant"]))
+chk("C3 sur un plat (poteau = « plat ») : pas de profilé support, t_min = t", verif("C3", {"poteau": "plat"})["pieces"]["poteau"] is None and pres(verif("C3", {"poteau": "plat"})["pieces"]["t_min"], 10.0))
+chk("C3 par défaut (cordons d'angle) : face « droit » à x = +t/2, face « gauche » à −t/2",
+    all(pres(c["p1"][0], 5.0 if c["nom"] == "cordon droit" else -5.0) for c in verif("C3")["cordons"]) and len(verif("C3")["cordons"]) == 2)
+r = verif("C5", {"profil": "IPE 200", "jonction_semelles": "pleine", "ame": False, "retours": True}, {"N": 0, "Vz": 0, "Vy": 0, "My": 30, "Mz": 0, "T": 0})
+I_f = 2 * (100 * 8.5 ** 3 / 12 + 100 * 8.5 * ((200 - 8.5) / 2) ** 2)
+chk("C5 semelles à pleine pénétration, M_y = 30 kN·m : I des deux semelles exact (b·tf³/12 + b·tf·d²), σ = M·(h/2)/I = 192,4 N/mm², deux soudures de gorge t_f = 8,5",
+    r["pleine"] and pres(abs(r["gouvernant"]["sigma_perp"]), 30e6 * 100 / I_f, 1e-9) and len(r["chaines"]) == 2 and all(pres(c["a"], 8.5) for c in r["chaines"]),
+    str(r["gouvernant"]["sigma_perp"]))
+r = verif("C5", {"profil": "IPE 200", "jonction_semelles": "pleine", "jonction_ame": "angle", "ame": True, "a_w": 4, "retours": True}, {"N": 0, "Vz": 60, "Vy": 0, "My": 30, "Mz": 0, "T": 0})
+chk("C5 semelles pleines + âme en cordons d'angle : groupe mixte, 6 lignes pleines, pas « tout plein », chaque point selon SON critère (pièce ou cordon)",
+    not r["pleine"] and r["n_pleine"] == 6 and any(p["pleine"] for p in r["points"]) and any(not p["pleine"] for p in r["points"])
+    and all(("pièce" in p["critere"]) == p["pleine"] for p in r["points"]))
+r = verif("C5", {"profil": "IPE 200", "jonction_semelles": "angle", "jonction_ame": "pleine", "ame": True, "a_f": 5, "retours": True}, {"N": 0, "Vz": 60, "Vy": 0, "My": 0, "Mz": 0, "T": 0})
+chk("C5 âme à pleine pénétration : faces « droite » à x = +t_w/2 et « gauche » à −t_w/2 (lignes de bord), gorge t_w = 5,6",
+    any(c["nom"] == "âme (bord 1)" and pres(c["p1"][0], 2.8, 1e-9) for c in r["cordons"]) and any(c["nom"] == "âme (bord 2)" and pres(c["p1"][0], -2.8, 1e-9) for c in r["cordons"])
+    and pres([c for c in r["chaines"] if c["nom"] == "âme"][0]["a"], 5.6), str([(c["nom"], c["p1"]) for c in r["cordons"] if c["nom"].startswith("âme")]))
+r = verif("C6", {"profil": "CHS 114.3x5", "jonction": "pleine"}, {"N": 100, "Vz": 0, "Vy": 0, "My": 0, "Mz": 0, "T": 0})
+peri = sum(c["l_eff"] for c in r["cordons"])
+chk("C6 tube rond à pleine pénétration, N = 100 kN : σ = N/(t·périmètre moyen) sur toute la paroi (ligne moyenne, 24 cordes), une chaîne « pourtour » de gorge t = 5",
+    r["pleine"] and pres(abs(r["gouvernant"]["sigma_perp"]), 100e3 / (5 * peri), 1e-9) and pres(r["chaines"][0]["a"], 5.0)
+    and pres(peri, 24 * 109.3 * math.sin(math.radians(7.5)), 1e-6), str(r["chaines"]))
+r = verif("C6", {"profil": "CHS 114.3x5", "jonction": "partielle", "p": 3, "renfort": 0}, {"N": 100, "Vz": 0, "Vy": 0, "My": 0, "Mz": 0, "T": 0})
+chk("C6 tube en pénétration partielle p = 3 sans renfort : gorge 3 parallèle à la platine, σ⊥ = N/(p·périmètre), τ = 0",
+    pres(abs(r["gouvernant"]["sigma_perp"]), 100e3 / (3 * sum(c["l_eff"] for c in r["cordons"])), 1e-9) and pres(r["gouvernant"]["tau_perp"], 0.0, 1e-9) and not r["pleine"])
+r = verif("C7", {"b": 150, "t": 12, "penetration": "pleine"}, {"N": 0, "V": 0, "M": 3.0})
+chk("C7 pleine en flexion dans le plan : la soudure vaut le plat, σ = 6M/(t·b²) = 66,7 N/mm² (une seule soudure de gorge t dans le groupe)",
+    pres(abs(r["gouvernant"]["sigma_perp"]), 6 * 3e6 / (12 * 150 ** 2), 1e-9) and len(r["cordons"]) == 1 and r["cordons"][0]["pleine"])
+r = verif("C7", {"b": 150, "t": 12, "penetration": "pleine"}, {"N": 200, "V": 0, "M": 0}, {"mode": "els"})
+chk("C7 pleine en ELS : σ ≤ fy/γ_F = 156,7 → η = 0,709", pres(r["taux_max"], 200e3 / 1800 / (235 / 1.5), 1e-9))
+gp = K.gorge_pleine_resistance(30.0, 235.0, FU, BW, GM2)
+chk("gorge de pleine résistance S235 : deux cordons d'angle équivalents au plat tendu → a ≥ 0,46·t (directionnelle), 0,57·t (simplifiée) ; t = 30 → 13,8 et 17,0 mm",
+    pres(gp["ratio_dir"], S2 * BW * GM2 * 235 / (2 * FU)) and pres(gp["ratio_simp"], 235 / (2 * FU / (S3 * BW * GM2)))
+    and pres(gp["directionnelle"], 13.85, 1e-3) and pres(gp["simplifiee"], 16.96, 1e-3))
+chk("a_pleine rendu par la vérification dès que la pièce rapportée a une épaisseur (C2 t_B = 30)", pres(verif("C2", {"tB": 30})["a_pleine"]["directionnelle"], gp["directionnelle"]))
+mb = K.metal_base(100.0, 0.0, 50.0, 235.0)
+chk("métal de base : √(σ² + 3τ²) = 132,3 ≤ fy/γM0 = 235, critère nommé « pièce » ; en service, fy/γ_F",
+    pres(mb["sigma_c"], math.hypot(100, 50 * S3)) and pres(mb["lim_c"], 235.0) and "pièce" in mb["critere"]
+    and pres(K.metal_base(100.0, 0.0, 0.0, 235.0, 1.5, service=True)["lim_c"], 235 / 1.5))
+r = verif("C2", {"l": 200, "tB": 30, "tA": 30, "jonction": "pleine", "troncons": {"n": 3, "l": 40}}, {"N": 400, "Va": 0, "Vp": 0, "M": 0})
+chk("C2 pleine : les tronçons ne s'appliquent pas (la soudure vaut la pièce sur toute la longueur), pas de message de soudure discontinue",
+    r["pleine"] and pres(r["chaines"][0]["l_eff"], 200.0) and not any("discontinue" in m for m in r["messages"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

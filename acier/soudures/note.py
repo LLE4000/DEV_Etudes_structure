@@ -4,17 +4,23 @@ des notes de l'application (palette Encre, mêmes marges et mêmes polices que
 les notes d'assemblage et de plancher).
 
 Page 1 · CALCUL : bandeau (statut, η max, cordon et point gouvernants,
-critère, les quatre méthodes comparées, la configuration, les efforts et la
-méthode en deux lignes), puis trois colonnes — le DESSIN TECHNIQUE tel qu'à
-l'écran (peint depuis le même SVG, source unique) avec l'encart LA GORGE et
-les HYPOTHÈSES ; le tableau des CORDONS et celui des EFFORTS avec les
-propriétés du groupe ; le tableau des VÉRIFICATIONS par point, la COMPARAISON
-des méthodes et la CONCLUSION.
+critère, la méthode CHOISIE, la configuration, les efforts et la méthode en
+deux lignes), puis trois colonnes — les SCHÉMAS TECHNIQUES tels qu'à l'écran
+(les scènes de ``schemas.py`` peintes en vectoriel par le peintre du kit des
+assemblages, source unique) avec l'encart LA GORGE et les HYPOTHÈSES ; le
+tableau des CORDONS et celui des EFFORTS avec les propriétés du groupe ; le
+tableau des VÉRIFICATIONS par point, la VÉRIFICATION AU POINT GOUVERNANT
+écrite comme à la main (le critère de la méthode choisie en typographie
+mathématique, puis les substitutions numériques de ``formules.py`` : groupe,
+point, critère — testées contre le moteur) et la CONCLUSION. La note
+n'imprime QUE la méthode choisie ; la comparaison des quatre lectures reste
+à l'écran (carte RÉSULTAT, onglet Détail).
 
-Page 2 · MÉTHODE ET DÉTAIL : les sections de ``methode.py`` (mêmes textes que
-l'onglet Méthode), la CARTE DES TAUX de tous les cordons, le détail complet
-par point s'il ne tenait pas en page 1, les références, et un cartouche (cas,
-configuration, méthode, acier, date · indice, échelle du dessin).
+Page 2 · MÉTHODE ET DÉTAIL : les sections de ``methode.py`` de la méthode
+choisie (mêmes textes que l'onglet Méthode), la CARTE DES TAUX de tous les
+cordons, le détail complet par point s'il ne tenait pas en page 1, les
+références, et un cartouche (cas, configuration, méthode, acier, date ·
+indice, échelle du dessin).
 
 ``derniers_avertissements`` : débordements de colonne (vide si tout tient) ;
 la note est d'abord composée en taille normale, puis en taille réduite si une
@@ -29,15 +35,18 @@ from typing import Dict, List, Optional
 from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf import data as ndc_data
-from ndc_pdf.kit import Doc, Frame, chip, mix
+from ndc_pdf.kit import Doc, Frame, chip, formula, mix
 from ndc_pdf.styles import Encre
 from ndc_pdf.svg import peindre_svg
+from acier.assemblages.poutre_poutre.doubles_cornieres.rapport import peindre as peindre_scene   # peintre des scènes du kit
 
 from . import configurations as CF
 from . import criteres as K
 from . import dessin as DS
 from . import etat as ET
+from . import formules as FO
 from . import methode as ME
+from . import schemas as SC
 
 A4L = landscape(A4)
 M, BAS, GAP = 22, 40, 12
@@ -49,8 +58,8 @@ STATUTS = {ET.OK: ("CONFORME", "ok"), ET.ATTENTION: ("CONFORME · ATTENTION", "a
            ET.REFUS: ("CALCUL IMPOSSIBLE", "mut")}
 MODES = {K.EUROCODE: "Eurocode (ELU)", K.ELS: "Méthode ELS du bureau"}
 MODES_PHRASE = {K.EUROCODE: "l'Eurocode (efforts de calcul, ELU)", K.ELS: "la méthode ELS du bureau (efforts de service)"}
-LEGENDE = ("Dessin : pièces au trait fort, sections hachurées, cordons colorés par leur taux (vert ≤ 70 %, ocre jusqu'à 100 %, rouge au-delà), "
-           "◉ point gouvernant, flèches rouges dans le sens des efforts saisis (⊙ vers soi, ⊗ vers le fond), cotes en mm. "
+LEGENDE = ("Dessins : pièces au trait fort, sections hachurées, cordons en bande ocre à leur taille a·√2 (symbole EN 22553), "
+           "◉ point gouvernant et son taux, flèches rouges dans le sens des efforts saisis (⊙ vers soi, ⊗ vers le fond, ⇒ vecteur moment), cotes en mm. "
            "Répartition élastique des six composantes sur les gorges ; f évaluée au début, au milieu et à la fin de la longueur efficace de chaque cordon.")
 NOTATIONS = ("f : force par unité de longueur sur le cordon (N/mm) · a : gorge · l_eff : longueur efficace (l − 2a sans retours d'angle) · "
              "σ⊥, τ⊥, τ∥ : composantes sur la gorge (EN 1993-1-8 fig. 4.5) · σ_c = √(σ⊥² + 3(τ⊥² + τ∥²)) · η : taux · "
@@ -84,13 +93,25 @@ def _tr(p: Dict, cle: str = "troncons") -> str:
     return f"par {n} tronçon{'s' if n > 1 else ''} de {_g(float(t.get('l', 0)))} mm" if n >= 1 else "continu"
 
 
+def _jonction(p: Dict, cle: str = "jonction", cle_a: str = "a", cle_p: str = "p", cle_r: str = "renfort", cle_tr: str = "troncons") -> str:
+    """Le type de jonction en clair : « cordons d'angle a 5 continu », « pénétration partielle p 6 + renfort a_r 3 … »,
+    « pleine pénétration (la soudure vaut la pièce) »."""
+    jon = p.get(cle, "angle")
+    if jon == "pleine":
+        return "pleine pénétration (la soudure vaut la pièce)"
+    if jon == "partielle":
+        r = float(p.get(cle_r, 0) or 0)
+        return f"pénétration partielle p {_g(p.get(cle_p, 0))}" + (f" + renfort a_r {_g(r)} (gorge {_g(float(p.get(cle_p, 0)) + r)})" if r > 0 else "") + f" {_tr(p, cle_tr)}"
+    return f"cordons d'angle a {_g(p[cle_a])} {_tr(p, cle_tr)}"
+
+
 class Calcul:
     """Tout ce que la note imprime, calculé une fois : moteur, dessins, textes."""
 
     def __init__(self, etat: Dict, cas: Dict):
         self.etat, self.cas = etat, cas
         self.res = ET.verifier(cas)
-        self.svg_dessin = DS.vue_principale(self.res)
+        self.vues = SC.vues(self.res, SC.options_schemas(lvl=1))      # les scènes du kit, cotations principales
         self.svg_gorge = DS.encart_gorge(self.res)
         self.acier = self.res["acier"]
         self.meth = self.res["methode"]
@@ -106,18 +127,21 @@ class Calcul:
                  f"{', ' + str(nf) + ' frontal' + ('s' if nf > 1 else '') if nf else ''}, a {_g(p['a'])}")
         elif cfg == "C2":
             s = (f"{lib} : pièce debout t {_g(p['tB'])} sur support t {_g(p['tA'])}, jonction l {_g(p['l'])} mm, "
-                 f"{'deux cordons' if p.get('deux_cordons', True) else 'un cordon'} a {_g(p['a'])} {_tr(p)}")
+                 f"{'deux faces' if p.get('deux_cordons', True) else 'une face'}, {_jonction(p)}")
         elif cfg == "C3":
-            s = (f"{lib} : plat {_g(p['h'])} × {_g(p['t'])}, V à e {_g(p['e'])} mm de la face, "
-                 f"{'deux cordons' if p.get('deux_cordons', True) else 'un cordon'} a {_g(p['a'])} {_tr(p)}")
+            pot = p.get("poteau") or "plat"
+            support = "un plat" if pot == "plat" else f"l'aile d'un {pot}"
+            s = (f"{lib} : plat {_g(p['h'])} × {_g(p['t'])} sur {support}, V à e {_g(p['e'])} mm de la face, "
+                 f"{'deux faces' if p.get('deux_cordons', True) else 'une face'}, {_jonction(p)}")
         elif cfg == "C4":
             s = (f"{lib} : plat {_g(p['bx'])} × {_g(p['by'])} × {_g(p['t'])}, côtés soudés {', '.join(p.get('cotes', []))}, a {_g(p['a'])} {_tr(p)}, "
                  f"effort en ({_g(p.get('xV', 0))} ; {_g(p.get('yV', 0))})")
         elif cfg == "C5":
-            s = (f"{lib} : {p['profil']}, semelles {p.get('semelles', 'deux faces')} a_f {_g(p['a_f'])} {_tr(p, 'troncons_semelles')}, "
-                 f"âme {'a_w ' + str(float(p['a_w'])).rstrip('0').rstrip('.') + ' ' + _tr(p, 'troncons_ame') if p.get('ame', True) else 'non soudée'}")
+            s = (f"{lib} : {p['profil']} sur platine t {_g(p.get('tp', 15))}, semelles {p.get('semelles', 'deux faces')} "
+                 f"{_jonction(p, 'jonction_semelles', 'a_f', 'p_f', 'renfort_f', 'troncons_semelles')}, "
+                 f"âme {_jonction(p, 'jonction_ame', 'a_w', 'p_w', 'renfort_w', 'troncons_ame') if p.get('ame', True) else 'non soudée'}")
         elif cfg == "C6":
-            s = f"{lib} : {p['profil']}, pourtour a {_g(p['a'])} {_tr(p)}"
+            s = f"{lib} : {p['profil']} sur platine t {_g(p.get('tp', 15))}, pourtour {_jonction(p)}"
         elif cfg == "C7":
             s = (f"{lib} : plats {_g(p['b'])} × {_g(p['t'])}, " + ("pleine pénétration" if p.get("penetration", "pleine") == "pleine"
                  else f"pénétration partielle p {_g(p['p'])} {'des deux faces' if p.get('deux_faces', True) else 'd une face'}"))
@@ -148,18 +172,13 @@ class Calcul:
                 f"0,9·fu/γM2 = {_fmt(r.get('lim_perp', 0))}, f_vw,d = {_fmt(r.get('f_vw_d', 0))} N/mm²" if r else
                 f"Eurocode EN 1993-1-8 §4.5.3, méthode {crit}, γM2 = {_g(m.gamma_M2)}")
 
-    def comparaison(self) -> List:
-        comp = self.res.get("comparaison") or {}
-        m = self.meth
-        kq = self.res.get("k_equivalent") or {}
-        out = []
-        for cle, lab, sel in (("directionnelle", "EC3 directionnelle", m.mode == K.EUROCODE and m.ec == K.DIRECTIONNELLE),
-                              ("simplifiee", "EC3 simplifiée", m.mode == K.EUROCODE and m.ec == K.SIMPLIFIEE),
-                              ("bureau", f"ELS bureau k = {_g(m.k)}", m.mode == K.ELS),
-                              ("bureau_equiv", f"ELS k Eurocode = {kq.get('k_kg_mm_cm', 0):.0f}", False)):
-            if cle in comp:
-                out.append((lab, comp[cle], sel))
-        return out
+    def formules(self) -> Dict:
+        """Les substitutions de la méthode CHOISIE au point gouvernant (``formules.py``) : groupe, point, critère."""
+        return FO.toutes(self.res)
+
+    def methode_point(self) -> str:
+        g = self.res.get("gouvernant") or {}
+        return FO.methode_du_point(self.res, g) if g else ("els" if self.meth.mode == K.ELS else self.meth.ec)
 
 
 class Note:
@@ -258,22 +277,13 @@ class Note:
             t1 = "η max " + _pct(res["taux_max"])
             d.t(x, y, t1, "Carlito-Bold", 8.6, col)
             x += d.w(t1, "Carlito-Bold", 8.6) + 5
-            if res.get("pleine"):
-                t2 = f"— la pièce gouverne (pleine pénétration) · {g['critere']}"
-            else:
-                ch = next((c["chaine"] for c in res["cordons"] if c["nom"] == g["cordon"]), g["cordon"])
-                t2 = f"— gouverne : {ch}, {g['position']} · {g['critere']}"
-            pieces = []
-            for lab, t, sel in C.comparaison():
-                pieces.append((lab + (" ◀ " if sel else " "), "Carlito-Bold" if sel else S.f_b, S.ink))
-                pieces.append((_pct(t), "Carlito-Bold", S.ok if t <= 1.0 else S.ko))
-                pieces.append(("   ", S.f_b, S.ink))
-            wt = sum(d.w(t, f, 7.6) for t, f, _ in pieces)
+            ch = next((c["chaine"] for c in res["cordons"] if c["nom"] == g["cordon"]), g["cordon"])
+            t2 = f"— gouverne : {ch}, {g['position']} · {g['critere']}"
+            t3 = FO.TITRES[C.methode_point()]
+            wt = d.w(t3, "Carlito-Bold", 7.6)
             xr = W - M - wt
             d.t(x, y, d.fit(t2, S.f_b, 8, xr - x - 6), S.f_b, 8, S.ink)
-            for t, f, cc in pieces:
-                d.t(xr, y, t, f, 7.6, cc)
-                xr += d.w(t, f, 7.6)
+            d.t(xr, y, t3, "Carlito-Bold", 7.6, S.acc)
         y -= 12
         d.t(M, y, d.fit(C.ligne_configuration(), S.f_b, S_DATA, W - 2 * M), S.f_b, S_DATA, S.ink)
         y -= S_DATA * 1.4
@@ -297,12 +307,24 @@ class Note:
         h_hyp = 13 + len(lignes) * self.s_hyp * 1.3 + 4
         h_gorge = 132
         dispo = fr.room() - h_hyp - 13 - 13 - 6
-        hd = max(120.0, min(dispo - h_gorge, fr.w * 400.0 / 640.0 + 4))
-        self.titre(d, fr, "DESSIN — " + {"C1": "vue de dessus", "C2": "coupe A-A et vue en plan", "C3": "élévation", "C4": "vue de face",
-                                         "C5": "vue de face et élévation", "C6": "vue de face et élévation", "C7": "vue en plan et coupe",
-                                         "C8": "vue en plan"}[C.cas["config"]])
-        fr.down(hd)
-        self.echelle = peindre_svg(d.c, C.svg_dessin, fr.x, fr.y, fr.w, hd - 2)
+        vues = C.vues
+        self.titre(d, fr, "DESSINS — " + (" · ".join(t.lower() for _, t, _ in vues) if vues else "calcul impossible"))
+        if vues:
+            # la vue principale sur la largeur, les autres côte à côte dessous ; hauteurs au prorata des viewBox, bornées
+            _, _, d0 = vues[0]
+            h0 = min(max(90.0, fr.w * d0.viewbox[3] / d0.viewbox[2]), 0.62 * (dispo - h_gorge))
+            fr.down(h0)
+            self.echelle = peindre_scene(d, d0, fr.x, fr.y, fr.w, h0 - 2)
+            if len(vues) > 1:
+                n = len(vues) - 1
+                wv = (fr.w - 4 * (n - 1)) / n
+                h1 = min(max(60.0, max(wv * dv.viewbox[3] / dv.viewbox[2] for _, _, dv in vues[1:])), dispo - h_gorge - h0 - 6)
+                fr.down(h1 + 3)
+                for i, (_, _, dv) in enumerate(vues[1:]):
+                    peindre_scene(d, dv, fr.x + i * (wv + 4), fr.y, wv, h1 - 2)
+        else:
+            fr.down(20)
+            d.t(fr.x, fr.y + 6, (C.res.get("messages") or ["Calcul impossible"])[0][:90], S.f_b, self.s_hyp, S.ko)
         self.titre(d, fr, "LA GORGE AU POINT GOUVERNANT — EN 1993-1-8 fig. 4.5")
         fr.down(h_gorge)
         peindre_svg(d.c, C.svg_gorge, fr.x + (fr.w - h_gorge * 320.0 / 330.0) / 2, fr.y, h_gorge * 320.0 / 330.0, h_gorge - 2)
@@ -317,18 +339,14 @@ class Note:
         C = self.C
         res = C.res
         rows = []
-        if res.get("pleine"):
-            p = res["piece"]
-            rows.append([("lab", "pièce", True), ("num", _fmt(C.cas["params"]["t"], 0)), ("num", _fmt(C.cas["params"]["b"], 0)),
-                         ("num", "—"), ("eta", _pct(p["taux"]), p["taux"] <= 1.0, True), ("ref", "section du plat")])
         g = res.get("gouvernant") or {}
         g_ch = next((c["chaine"] for c in res.get("cordons", []) if c["nom"] == g.get("cordon")), None)
         chaines = sorted(res.get("chaines", []), key=lambda c: -c["taux"])
         montres = chaines[:16]
         for c in montres:
             gouv = c["nom"] == g_ch
-            rows.append([("lab", c["nom"], gouv), ("num", _fmt(c["a"], 1)), ("num", _fmt(c["l_eff"], 0)), ("num", _fmt(c["f_max"], 0)),
-                         ("eta", _pct(c["taux"]), c["taux"] <= 1.0, gouv), ("ref", c["position"])])
+            rows.append([("lab", c["nom"] + (" (pleine pén.)" if c.get("pleine") else ""), gouv), ("num", _fmt(c["a"], 1)),
+                         ("num", _fmt(c["l_eff"], 0)), ("num", _fmt(c["f_max"], 0)), ("eta", _pct(c["taux"]), c["taux"] <= 1.0, gouv), ("ref", c["position"])])
         for c in res.get("cordons_exclus", [])[:4]:
             rows.append([("ref", c["chaine"]), ("num", _fmt(c["a"], 1)), ("num", "—"), ("num", "—"), ("ref", "exclu"), ("ref", "ne compte pas")])
         if not rows:
@@ -354,7 +372,7 @@ class Note:
         nature = "service" if C.meth.mode == K.ELS else "calcul (ELU)"
         self.table(d, fr, f"EFFORTS — valeurs de {nature}, dans le sens du dessin", cols, rows)
         pr = C.res.get("proprietes") or {}
-        if pr and not C.res.get("pleine"):
+        if pr:
             ef = C.res.get("efforts")
             txt = (f"Groupe : A_w {_fmt(pr.get('A_w', 0), 0)} mm², G ({_fmt(pr.get('xG', 0), 1)} ; {_fmt(pr.get('yG', 0), 1)}), "
                    f"I_x {_fmt(pr.get('Ix', 0) / 1e4, 1)}, I_y {_fmt(pr.get('Iy', 0) / 1e4, 1)}, I_xy {_fmt(pr.get('Ixy', 0) / 1e4, 1)}, "
@@ -393,7 +411,7 @@ class Note:
     def table_points(self, d, fr, tous: bool = False):
         C, S = self.C, self.S
         res = C.res
-        if res.get("pleine") or not res.get("points"):
+        if not res.get("points"):
             return
         g = res["gouvernant"]
         montres, chaines, note = self.lignes_points(tous)
@@ -409,15 +427,29 @@ class Note:
                 ("τ⊥", 26, "right"), ("τ∥", 26, "right"), ("σ_c", 30, "right"), ("η", 28, "right")]
         self.table(d, fr, "VÉRIFICATIONS PAR POINT — N/mm et N/mm², taux selon la méthode choisie", cols, rows, note or None)
 
-    def comparaison(self, d, fr):
+    def verification(self, d, fr):
+        """La vérification au point gouvernant, écrite comme à la main : le critère de la
+        méthode choisie en typographie mathématique, puis les substitutions numériques
+        (groupe, point, critère) — chacune testée contre le moteur (``formules.py``)."""
         C, S = self.C, self.S
-        comp = C.comparaison()
-        if not comp:
+        fo = C.formules()
+        if not fo["critere"]:
             return
-        rows = [[("lab", lab + (" ◀ méthode choisie" if sel else ""), sel), ("eta", _pct(t), t <= 1.0, sel)] for lab, t, sel in comp]
-        cols = [("MÉTHODE", fr.w - 36, "left"), ("η", 36, "right")]
-        self.table(d, fr, "COMPARAISON — les mêmes efforts, chaque méthode", cols, rows,
-                   "Indicatif : l'Eurocode attend des efforts de calcul, la règle du bureau des efforts de service.")
+        cle = C.methode_point()
+        self.titre(d, fr, "VÉRIFICATION AU POINT GOUVERNANT — " + FO.TITRES[cle].split(" (")[0])
+        fr.down(2)
+        formula(d, fr, "", FO.CRITERES_MATH[cle], S.ms(), 7.6 * self.k, S.mut, S.f_b, 5.8, lead=1.0, min_size=5.5)
+        for titre, cles in (("Groupe", "groupe"), ("Point gouvernant", "point"), ("Critère", "critere")):
+            subs = fo[cles]
+            if not subs:
+                continue
+            fr.down(self.s_hyp * 1.5)
+            d.t(fr.x, fr.y, titre.upper(), S.f_v, 5.4, S.mut, track=1.1)
+            for sub in subs:
+                for l in d.wrap(FO.rendre(sub), S.f_b, self.s_hyp, fr.w - 4):
+                    fr.down(self.s_hyp * 1.3)
+                    d.t(fr.x + 4, fr.y, l, S.f_b, self.s_hyp, S.ink)
+        fr.down(2)
 
     def conclusion(self, d, x, w):
         S, C = self.S, self.C
@@ -428,14 +460,15 @@ class Note:
             txt = (res["messages"] or ["Calcul impossible."])[0]
         else:
             g = res["gouvernant"]
-            if res.get("pleine"):
-                ou = "la section du plat (pleine pénétration : la pièce gouverne)"
+            ch = next((c["chaine"] for c in res["cordons"] if c["nom"] == g["cordon"]), g["cordon"])
+            ou = f"{ch}, {g['position']}" + (" (pleine pénétration : la pièce gouverne)" if g.get("pleine") else "")
+            if g.get("pleine"):
+                porte = ("La soudure vaut la pièce : sa section porte les efforts saisis." if res["statut"] != ET.NOK else
+                         "La section de la pièce ne porte pas les efforts saisis : épaisseur, longueur ou réduction d'effort à étudier.")
             else:
-                ch = next((c["chaine"] for c in res["cordons"] if c["nom"] == g["cordon"]), g["cordon"])
-                ou = f"{ch}, {g['position']}"
-            txt = (f"Taux maximal {_pct(res['taux_max'])} sur {ou}, selon {MODES_PHRASE[C.meth.mode]}. "
-                   + ("Les cordons portent les efforts saisis." if res["statut"] != ET.NOK else
-                      "Les cordons ne portent pas les efforts saisis en l'état : gorge, longueur, cordons supplémentaires ou réduction d'effort à étudier."))
+                porte = ("Les cordons portent les efforts saisis." if res["statut"] != ET.NOK else
+                         "Les cordons ne portent pas les efforts saisis en l'état : gorge, longueur, cordons supplémentaires ou réduction d'effort à étudier.")
+            txt = f"Taux maximal {_pct(res['taux_max'])} sur {ou}, selon {MODES_PHRASE[C.meth.mode]}. " + porte
             if any("DÉPASSÉ" in m for m in res.get("messages", [])):
                 txt += " L'espacement des tronçons dépasse la limite de l'EN 1993-1-8 §4.3.2.2 : à revoir."
         lignes = d.wrap(txt, S.f_b, 6.6, w - 16)
@@ -465,7 +498,7 @@ class Note:
         hc = self.conclusion(d, x3, w3)
         f3.bottom = BAS + hc + 6
         self.table_points(d, f3)
-        self.comparaison(d, f3)
+        self.verification(d, f3)
         d.t(M, 24, d.fit(LEGENDE, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
         d.t(M, 16.5, d.fit(NOTATIONS, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
         for f in (f1, f2, f3):
@@ -573,12 +606,14 @@ class Methode:
         frames = [Frame(M + i * (wc + GAP), top, wc, bas) for i in range(3)]
         for i in (1, 2):
             d.line(frames[i].x - GAP / 2, top, frames[i].x - GAP / 2, bas, S.rule, 0.45)
-        secs = ME.SECTIONS
+        # la méthode CHOISIE seulement : le texte de l'autre méthode n'est pas imprimé
+        els = self.C.meth.mode == K.ELS
+        secs = [s for s in ME.SECTIONS if not (s["titre"].startswith("Eurocode") and els) and not (s["titre"].startswith("Méthode ELS") and not els)]
         for sec in secs[:2]:
             self.section(d, frames[0], sec)
-        for sec in secs[2:4]:
+        for sec in secs[2:3]:
             self.section(d, frames[1], sec)
-        for sec in secs[4:]:
+        for sec in secs[3:]:
             self.section(d, frames[2], sec)
         self.carte_taux(d, frames[2])
         pts = self.C.res.get("points") or []

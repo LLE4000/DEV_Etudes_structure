@@ -24,8 +24,10 @@ from acier.soudures import configurations as CF
 from acier.soudures import criteres as K
 from acier.soudures import dessin as DS
 from acier.soudures import etat as ET
+from acier.soudures import formules as FO
 from acier.soudures import methode as ME
 from acier.soudures import note as NT
+from acier.soudures import schemas as SC
 from modules import liaison as LI
 
 P = "sdr_"
@@ -153,6 +155,50 @@ def _troncons(cas, cle_p="troncons", label="Soudure discontinue (par tronçons)"
             _num("Longueur d'un tronçon (mm)", ("params", cle_p, "l"), cas, 5.0, "%.0f", min_value=1.0, width=200)
 
 
+JONCTION_AIDE = ("Cordons d'angle : gorge a sur chaque face. Pénétration partielle (EN 1993-1-8 §4.7.2) : pénétration p par face ; "
+                 "avec un cordon de renfort a_r, cordon à pénétration profonde de gorge p + a_r (§4.5.2(3)) ; deux faces avec 2p ≥ t et "
+                 "t − 2p ≤ min(t/5 ; 3 mm) : traitée comme pleine (§4.7.3). Pleine pénétration (§4.7.1) : la soudure vaut la pièce, "
+                 "sa section t × l est vérifiée au métal de base (fy/γM0) — le cas d'une cornière reconstituée de deux plats épais.")
+
+
+def _jonction(cas, cle="jonction", cle_a="a", cle_p="p", cle_r="renfort", label="Jonction", lab_a="Gorge a (mm)", t=None):
+    """Le type de jonction d'une pièce posée en T et ses paramètres : gorge a (angle), pénétration p et
+    renfort a_r (partielle), rien (pleine : la soudure vaut la pièce d'épaisseur t — l'équivalent en cordons d'angle est dit)."""
+    jon = cas["params"].get(cle, "angle")
+    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_" + cle):
+        _choix(label, ("params", cle), cas, list(CF.JONCTIONS), CF.JONCTIONS, segmente=True, help=JONCTION_AIDE)
+        if jon == "angle":
+            _num(lab_a, ("params", cle_a), cas, 0.5, "%.1f", 1.0, width=170)
+        elif jon == "partielle":
+            _num("Pénétration p par face (mm)", ("params", cle_p), cas, 0.5, "%.1f", 1.0, width=220)
+            _num("Renfort a_r (mm, 0 : sans)", ("params", cle_r), cas, 0.5, "%.1f", 0.0, width=200,
+                 help="Cordon d'angle de renfort sur la pénétration : cordon à pénétration profonde de gorge p + a_r (§4.5.2(3))")
+    if jon == "pleine":
+        txt = (f"La soudure vaut la pièce (t = {t:g} mm) : sa section t × l est vérifiée au métal de base, fy/γM0 (§4.7.1)." if t
+               else "La soudure vaut la pièce : sa section est vérifiée au métal de base, fy/γM0 (§4.7.1).")
+        if t:
+            ac = ET.acier_cordon(cas["params"])
+            gp = K.gorge_pleine_resistance(float(t), ac["fy_min"], ac["fu"], ac["bw"], float(cas["methode"].get("gamma_M2", K.GAMMA_M2)))
+            txt += (f" Pour la même résistance en traction avec deux cordons d'angle, il faudrait a ≥ {_fmt(gp['ratio_dir'], 2)}·t = {_fmt(gp['directionnelle'])} mm "
+                    f"(directionnelle) ou {_fmt(gp['ratio_simp'], 2)}·t = {_fmt(gp['simplifiee'])} mm (simplifiée) de chaque côté.")
+        st.caption(txt)
+    return jon
+
+
+def _support(cas, help_=None):
+    """Le support de la pièce : un plat, ou l'aile d'un poteau du catalogue (dessin et épaisseur t_min des tronçons)."""
+    _choix("Support", ("params", "poteau"), cas, ["plat"] + _profils("I/H"), {"plat": "plat (face d'appui plane)"},
+           help=help_ or "L'aile d'un poteau du catalogue (dessin, épaisseur t_f pour l'espacement des tronçons) ou un simple plat.")
+
+
+def _epaisseurs_profil(nom: str):
+    try:
+        rec = CF._profil(nom)
+    except ValueError:
+        return None, None
+    return float(rec.get("tf", 0) or 0) or None, float(rec.get("tw", rec.get("t", 0)) or 0) or None
+
+
 def _changer(toast: str = ""):
     """Après un changement de l'état hors callback : synchronisation au rendu suivant, relance."""
     LI.demander(P)
@@ -254,8 +300,21 @@ def _colonne_dessin(etat: Dict, cas: Dict, res: Dict):
     LI.enregistrer(REGISTRE, P + "w_config", ("config",), None, list(CF.CONFIGS))
     st.radio("Configuration", list(CF.CONFIGS), format_func=lambda c: f"{c} · {CF.CONFIGS[c]['libelle']}", index=list(CF.CONFIGS).index(cas["config"]),
              key=P + "w_config", on_change=_cfg, horizontal=True, label_visibility="collapsed")
+    vues = SC.vues(res)
     with st.container(key=P + "dessin"):
-        st.markdown(DS.vue_principale(res), unsafe_allow_html=True)
+        if not vues:
+            st.warning("Calcul impossible — " + (res.get("messages") or ["données manquantes"])[0])
+        else:
+            cle, titre, d = vues[0]
+            st.markdown(f'<div class="sdr-leg" style="margin:2px 0"><b>{titre.upper()}</b> · {CF.CONFIGS[cas["config"]]["libelle"]}</div>'
+                        + SC.svg(d, "sdr_v0"), unsafe_allow_html=True)
+    if len(vues) > 1:
+        cols = st.columns(len(vues) - 1, gap="small")
+        for i, (cle, titre, d) in enumerate(vues[1:], 1):
+            with cols[i - 1]:
+                with st.container(key=P + f"dessin_{i}"):
+                    st.markdown(f'<div class="sdr-leg" style="margin:2px 0"><b>{titre.upper()}</b></div>' + SC.svg(d, f"sdr_v{i}"),
+                                unsafe_allow_html=True)
     c1, c2 = st.columns([1.3, 1], gap="small")
     with c1:
         with st.container(key=P + "gorge"):
@@ -280,11 +339,8 @@ def _carte_resultat(cas: Dict, res: Dict):
         t = res["taux_max"]
         col = "#b91c1c" if t > 1 else ("#c2410c" if t > 0.85 else "#15803d")
         eta = f'<span style="color:{col}">η = {t * 100:.0f} %</span>'
-        if res.get("pleine"):
-            phrase = f"Pleine pénétration : la pièce gouverne — {g['critere']}"
-        else:
-            ch = next((c["chaine"] for c in res["cordons"] if c["nom"] == g["cordon"]), g["cordon"])
-            phrase = f"<b>{ch}</b>, {g['position']} — {g['critere']}"
+        ch = next((c["chaine"] for c in res["cordons"] if c["nom"] == g["cordon"]), g["cordon"])
+        phrase = f"<b>{ch}</b>, {g['position']} — " + ("pleine pénétration, la soudure vaut la pièce : " if g.get("pleine") else "") + g["critere"]
     if m.mode == K.ELS:
         ligne_m = f"Méthode ELS du bureau · k = {m.k:g} kg/(mm·cm) → {K.tau_adm_bureau(m.k, m.g):.1f} N/mm² · efforts de service"
     else:
@@ -363,11 +419,12 @@ def _etape_configuration(etat: Dict, cas: Dict, res: Dict):
             _num("Épaisseur t_B de la pièce debout (mm)", ("params", "tB"), cas, 1.0, "%.0f", 1.0)
         with c2:
             _num("Épaisseur t_A du support (mm)", ("params", "tA"), cas, 1.0, "%.0f", 1.0)
-            _num("Gorge a (mm)", ("params", "a"), cas, 0.5, "%.1f", 1.0)
+            _case("Soudée des deux faces", ("params", "deux_cordons"), cas)
         with c3:
-            _case("Deux cordons (un de chaque côté)", ("params", "deux_cordons"), cas)
             _case("Retours d'angle exécutés", ("params", "retours"), cas)
-        _troncons(cas)
+        jon = _jonction(cas, t=float(cas["params"].get("tB", 0) or 0))
+        if jon != "pleine":
+            _troncons(cas)
     elif cfg == "C3":
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -375,11 +432,13 @@ def _etape_configuration(etat: Dict, cas: Dict, res: Dict):
             _num("Épaisseur t du plat (mm)", ("params", "t"), cas, 1.0, "%.0f", 1.0)
         with c2:
             _num("Excentricité e de V (mm)", ("params", "e"), cas, 5.0, "%.0f", 0.0)
-            _num("Gorge a (mm)", ("params", "a"), cas, 0.5, "%.1f", 1.0)
+            _support(cas)
         with c3:
-            _case("Deux cordons (un de chaque côté)", ("params", "deux_cordons"), cas)
+            _case("Soudée des deux faces", ("params", "deux_cordons"), cas)
             _case("Retours d'angle exécutés", ("params", "retours"), cas)
-        _troncons(cas)
+        jon = _jonction(cas, t=float(cas["params"].get("t", 0) or 0))
+        if jon != "pleine":
+            _troncons(cas)
     elif cfg == "C4":
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -397,7 +456,11 @@ def _etape_configuration(etat: Dict, cas: Dict, res: Dict):
             cas["params"]["cotes"] = list(st.session_state[P + "w_cotes"] or [])
         LI.enregistrer(REGISTRE, P + "w_cotes", ("params", "cotes"), lambda v: [c for c in (v or []) if c in COTES_C4])
         st.pills("Côtés soudés", list(COTES_C4), default=cur, key=P + "w_cotes", on_change=_cotes, selection_mode="multi")
-        _case("Retours d'angle exécutés", ("params", "retours"), cas)
+        c1, c2 = st.columns(2)
+        with c1:
+            _support(cas)
+        with c2:
+            _case("Retours d'angle exécutés", ("params", "retours"), cas)
         _troncons(cas)
     elif cfg == "C5":
         c1, c2, c3 = st.columns(3)
@@ -405,20 +468,28 @@ def _etape_configuration(etat: Dict, cas: Dict, res: Dict):
             _choix("Profilé du catalogue", ("params", "profil"), cas, _profils("I/H"))
             _choix("Semelles soudées", ("params", "semelles"), cas, ["deux faces", "extérieur"], {"deux faces": "deux faces (ext. + int.)", "extérieur": "face extérieure seule"})
         with c2:
-            _num("Gorge des semelles a_f (mm)", ("params", "a_f"), cas, 0.5, "%.1f", 1.0)
-            _case("Âme soudée (deux cordons)", ("params", "ame"), cas)
+            _num("Épaisseur de la platine t_p (mm)", ("params", "tp"), cas, 1.0, "%.0f", 1.0)
+            _case("Âme soudée (les deux faces)", ("params", "ame"), cas)
         with c3:
-            _num("Gorge de l'âme a_w (mm)", ("params", "a_w"), cas, 0.5, "%.1f", 1.0)
             _case("Retours d'angle exécutés", ("params", "retours"), cas)
-        _troncons(cas, "troncons_semelles", "Semelles par tronçons")
-        _troncons(cas, "troncons_ame", "Âme par tronçons")
+        tf, tw = _epaisseurs_profil(cas["params"].get("profil", ""))
+        jf = _jonction(cas, "jonction_semelles", "a_f", "p_f", "renfort_f", label="Semelles", lab_a="Gorge des semelles a_f (mm)", t=tf)
+        if jf != "pleine":
+            _troncons(cas, "troncons_semelles", "Semelles par tronçons")
+        if cas["params"].get("ame", True):
+            jw = _jonction(cas, "jonction_ame", "a_w", "p_w", "renfort_w", label="Âme", lab_a="Gorge de l'âme a_w (mm)", t=tw)
+            if jw != "pleine":
+                _troncons(cas, "troncons_ame", "Âme par tronçons")
     elif cfg == "C6":
         c1, c2 = st.columns(2)
         with c1:
             _choix("Tube du catalogue", ("params", "profil"), cas, _profils("creux"))
         with c2:
-            _num("Gorge a (mm)", ("params", "a"), cas, 0.5, "%.1f", 1.0)
-        _troncons(cas, "troncons", "Pourtour par tronçons (pas de cordon partout)")
+            _num("Épaisseur de la platine t_p (mm)", ("params", "tp"), cas, 1.0, "%.0f", 1.0)
+        _, tt = _epaisseurs_profil(cas["params"].get("profil", ""))
+        jon = _jonction(cas, t=tt)
+        if jon != "pleine":
+            _troncons(cas, "troncons", "Pourtour par tronçons (pas de cordon partout)")
     elif cfg == "C7":
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -498,16 +569,14 @@ def _etape_cordons(cas: Dict, res: Dict):
     if res["statut"] == ET.REFUS and not res.get("chaines"):
         st.warning((res["messages"] or ["Calcul impossible"])[0])
         return
-    if res.get("pleine"):
-        st.caption("Pleine pénétration : aucun cordon à vérifier, la pièce la plus faible gouverne (§4.7.1).")
-        return
     pr = res.get("proprietes") or {}
     st.caption(f"A_w = {_fmt(pr.get('A_w', 0), 0)} mm² · G = ({_fmt(pr.get('xG', 0), 1)} ; {_fmt(pr.get('yG', 0), 1)}) · "
                f"I_x = {_fmt(pr.get('Ix', 0) / 1e4, 1)} cm⁴ · I_y = {_fmt(pr.get('Iy', 0) / 1e4, 1)} cm⁴ · I_xy = {_fmt(pr.get('Ixy', 0) / 1e4, 1)} cm⁴ · "
                f"J = {_fmt(pr.get('J', 0) / 1e4, 1)} cm⁴ · {pr.get('n_cordons', 0)} segment(s) de calcul · βLw = {res.get('beta_Lw', 1.0):.3f}")
     lignes = ""
     for c in res.get("chaines", []):
-        nat = "pénétration partielle" if c["bout_a_bout"] else ("pourtour" if c["ferme"] else ("chaîne (l − 2a)" if c["continu"] else ("retours (l entière)" if c["retours"] else "l − 2a")))
+        nat = ("pleine pénétration : gorge = t, la pièce" if c.get("pleine") else "pénétration partielle" if c["bout_a_bout"] else
+               ("pourtour" if c["ferme"] else ("chaîne (l − 2a)" if c["continu"] else ("retours (l entière)" if c["retours"] else "l − 2a"))))
         lignes += (f"<tr><td><b>{c['nom']}</b></td><td class='n'>{_fmt(c['a'], 1)}</td><td class='n'>{_fmt(c['l'], 0)}</td><td class='n'>{_fmt(c['l_eff'], 0)}</td>"
                    f"<td>{nat}</td><td class='n'>{_fmt(c['f_max'], 0)}</td><td class='n {_cls(c['taux'])}'>{c['taux'] * 100:.0f} %</td><td>{c['position']}</td></tr>")
     st.markdown("<table class='sdr-tab'><tr><th>Cordon</th><th class='n'>a (mm)</th><th class='n'>l (mm)</th><th class='n'>l_eff (mm)</th><th>longueur efficace</th>"
@@ -591,16 +660,13 @@ def _etape_detail(cas: Dict, res: Dict):
     if res["statut"] == ET.REFUS:
         st.warning((res["messages"] or ["Calcul impossible"])[0])
         return
-    if res.get("pleine"):
-        pc = res["piece"]
-        st.caption(f"Pièce {cas['params']['b']:g} × {cas['params']['t']:g} mm : σ = {_fmt(pc['sigma'])} N/mm², τ = {_fmt(pc['tau'])} N/mm², "
-                   f"σ_c = {_fmt(pc['sigma_c'])} ≤ {_fmt(pc['lim'])} N/mm² → η = {pc['taux'] * 100:.0f} %")
-        return
     g = res["gouvernant"]
     r = res.get("resistances") or {}
     st.caption(f"Par cordon et par point (début, milieu, fin de la longueur efficace) : force par unité de longueur |f|, composantes sur la gorge, "
                f"σ_c = √(σ⊥² + 3(τ⊥² + τ∥²)), et le taux selon chaque méthode. Limites : fu/(βw·γM2) = {r.get('lim_c', 0):.1f}, "
-               f"0,9·fu/γM2 = {r.get('lim_perp', 0):.1f}, f_vw,d = {r.get('f_vw_d', 0):.1f} N/mm² · bureau {r.get('tau_adm_bureau', 0):.1f} N/mm².")
+               f"0,9·fu/γM2 = {r.get('lim_perp', 0):.1f}, f_vw,d = {r.get('f_vw_d', 0):.1f} N/mm² · bureau {r.get('tau_adm_bureau', 0):.1f} N/mm²"
+               + (f" · pleine pénétration (la pièce) : fy/γM0 = {r.get('lim_piece', 0):.0f} N/mm², en service fy/γ_F = {r.get('lim_piece_els', 0):.1f}."
+                  if res.get("n_pleine") else "."))
     lignes = ""
     chaines = {c["nom"]: c["chaine"] for c in res["cordons"]}
     for p in res["points"]:
@@ -615,6 +681,12 @@ def _etape_detail(cas: Dict, res: Dict):
     st.markdown("<table class='sdr-tab'><tr><th>Cordon</th><th>point</th><th class='n'>|f| N/mm</th><th class='n'>σ⊥</th><th class='n'>τ⊥</th><th class='n'>τ∥</th>"
                 "<th class='n'>σ_c</th><th class='n'>η dir.</th><th class='n'>η simpl.</th><th class='n'>η ELS</th><th class='n'>η choisie</th></tr>"
                 + lignes + "</table>", unsafe_allow_html=True)
+    fo = FO.toutes(res)
+    if fo["critere"]:
+        with st.expander(f"Les formules, écrites comme à la main, au point gouvernant — {FO.TITRES[FO.methode_du_point(res, g)]}", expanded=False):
+            for titre, cle in (("Groupe", "groupe"), ("Point gouvernant", "point"), ("Critère", "critere")):
+                st.markdown(f"**{titre}**  \n" + "  \n".join(FO.rendre(s) for s in fo[cle]))
+            st.caption("Chaque ligne est une substitution numérique testée contre le moteur (tests/test_soudures_formules.py) ; la note l'imprime telle quelle.")
 
 
 def _cls(t):

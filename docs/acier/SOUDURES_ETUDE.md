@@ -142,12 +142,12 @@ c'est exactement ce que le switch doit rendre visible.
 | Code | Cas | Ce qu'on saisit | Groupe construit | Efforts |
 |---|---|---|---|---|
 | C1 | Recouvrement | largeurs, épaisseurs, recouvrement, cordons latéraux et frontaux (oui/non), a | 2 cordons latéraux (τ∥) ± 1 ou 2 frontaux (σ⊥ = τ⊥) | N dans le plan ± V transversal |
-| C2 | Jonction en T | épaisseur de la pièce rapportée, longueur, un ou deux cordons, a | 1 ou 2 cordons le long de la jonction, ailes sur chaque pièce | N (arrachement), V_a (le long), V_p (en travers), M (flexion du T) |
-| C3 | Console fléchie | hauteur du plat, épaisseur, excentricité, a | 2 cordons verticaux (ou 3 côtés) | V à l'excentricité e → M = V·e + V |
+| C2 | Jonction en T | épaisseur de la pièce rapportée, longueur, une ou deux faces, jonction (angle a / pénétration partielle p ± renfort a_r / pleine) | 1 ou 2 cordons le long de la jonction, ailes sur chaque pièce — ou les trois lignes de gorge d'une pleine pénétration (la section t·l de la pièce) | N (arrachement), V_a (le long), V_p (en travers), M (flexion du T) |
+| C3 | Console fléchie | hauteur du plat, épaisseur, excentricité, jonction (angle / partielle / pleine), support (aile d'un poteau du catalogue ou plat) | 2 cordons verticaux (ou la section du plat en pleine pénétration) | V à l'excentricité e → M = V·e + V |
 | C4 | Gousset en torsion | plat posé à plat, cordons sur 1 à 4 côtés, a | périmètre choisi | V dans le plan à l'excentricité → torsion + cisaillement |
-| C5 | Platine d'about de profilé | profilé du catalogue (IPE, HE…), a_semelles, a_âme, cordons une ou deux faces | semelles (4 cordons) + âme (2) | N, V_z, M_y (+ V_y, M_z) |
-| C6 | Tube sur platine | tube du catalogue (CHS, SHS, RHS), a, pourtour continu ou par n tronçons de l mm | périmètre (cercle discrétisé, rectangle à coins) ou ses tronçons (le premier centré en haut) | N, V, M, T |
-| C7 | Bout à bout | largeur, épaisseur, pénétration (pleine / partielle p) | pleine : vérification de la pièce ; partielle : cordon de gorge p | N, V, M |
+| C5 | Platine d'about de profilé | profilé du catalogue (IPE, HE…), épaisseur de platine, jonction des semelles et de l'âme (angle a / partielle p ± renfort / pleine), semelles une ou deux faces | semelles (4 cordons, ou leurs lignes de pleine pénétration) + âme (2) — un groupe peut mélanger | N, V_z, M_y (+ V_y, M_z) |
+| C6 | Tube sur platine | tube du catalogue (CHS, SHS, RHS), épaisseur de platine, jonction (angle a / partielle / pleine), pourtour continu ou par n tronçons de l mm | périmètre (cercle discrétisé, rectangle à coins) ou ses tronçons (le premier centré en haut) ; pleine : la paroi t sur la ligne moyenne | N, V, M, T |
+| C7 | Bout à bout | largeur, épaisseur, pénétration (pleine / partielle p par face) | pleine : une soudure de gorge t vérifiée au métal de base ; partielle : une soudure de gorge p par face ; p₁ + p₂ ≥ t → complète | N, V, M |
 | C8 | Cordons libres | liste d'éléments : segments (x₁, y₁, x₂, y₂) ou arcs (centre, rayon, angles — 0 → 360 : cercle), gorge, côté de la pièce rapportée, continus ou par tronçons | tel quel (arcs en cordes de 15°) | les six composantes au point de référence |
 
 **Soudure discontinue (04/11/2026).** Toutes les configurations acceptent « n tronçons de
@@ -162,28 +162,35 @@ vue du même objet.
 
 ## 4 · Les schémas
 
-Principes, les mêmes pour tous les cas :
+Principes, les mêmes pour tous les cas — et, depuis le 05/11/2026, le MÊME KIT que les
+dessins d'assemblage (`acier/soudures/schemas.py` sur
+`acier.assemblages.poutre_poutre.doubles_cornieres.schemas`) : le premier jeu du 04/11,
+dessiné à la main en pixels, « n'était pas assez technique » — des carrés et des
+rectangles à côté des attaches poutre–poteau ; il a été refait sur le kit (feuille de
+cotation, primitives, sections réelles, hachures, ruptures, symboles) et le peintre
+vectoriel de la note est celui des assemblages (`rapport.peindre`).
 
-- **vue principale** adaptée au cas (élévation pour la console, coupe A-A et plan pour le
-  T, vue de dessus pour le recouvrement, face pour le gousset, face et élévation pour C5 et
-  C6, plan et coupe pour le bout à bout), en **style dessin technique** (demande du
-  04/11/2026, le premier rendu « n'était pas assez technique ») : pièces au trait fort,
-  sections hachurées (deux sens pour deux pièces, cordon coupé en orange hachuré), cotes
-  fines à lignes d'attache et pointes, axes en trait mixte, trait de coupe sur le plan,
-  arêtes cachées en interrompu, mini-vue de dessus des cordons sur la console, coupe de
-  la soudure bout à bout ;
-- **efforts en rouge** (`#9C3341`) : flèche droite pour une force, flèche courbe pour un
-  moment, point d'application marqué, libellé avec la valeur ; le sens du dessin EST le
-  sens positif de la saisie (une valeur négative retourne la flèche) ;
-- **encart « la gorge »** : la section du cordon le plus chargé avec sa gorge a, et les trois
-  composantes σ⊥ (normale à la gorge), τ⊥ (dans la gorge, en travers), τ∥ (dans la gorge,
-  le long) avec leurs valeurs — c'est la figure 4.5 de l'EN 1993-1-8 appliquée au cas ;
-- **carte des taux** : chaque cordon coloré par son taux (vert → ocre → rouge), le point
-  gouvernant marqué ●, les extrémités annotées ;
-- une **légende** d'une ligne sous le dessin.
-
-Le dessin est un SVG en millimètres (même convention que le plancher), rendu à l'écran et
-peint dans la note par `peintre.py`.
+- **deux ou trois vues** par cas (§3) : la vue du plan de joint montre les cordons tels
+  que calculés (bandes ocre à leur taille a·√2, chaîne par chaîne, tronçons, exclus en
+  interrompu), une coupe ou une élévation montre la jonction (triangles des cordons
+  d'angle, chanfreins remplis d'une pénétration partielle avec son renfort, chanfrein K
+  d'une pleine pénétration) ; pièces au trait fort, sections hachurées, lignes de rupture
+  là où la pièce continue, arêtes cachées, profilés RÉELS du catalogue (section en I avec
+  ses congés, couronne d'un tube, aile d'un HEB en support), noms des pièces, symbole de
+  soudure EN 22553 (« a 5 », « s 6 + a 3 », « pleine pénétration ») ;
+- **cotes** : la feuille à rangées du kit, posée sur l'étendue RÉELLE du corps (efforts
+  compris) — une cote ne tombe jamais sur une flèche, rien n'est coupé
+  (`tests/test_soudures_schemas.py`) ;
+- **efforts en rouge** (`#9C3341`) : dans le plan de joint, flèches V_x / V_y, ⊙ / ⊗ pour N,
+  vecteurs ⇒ pour M_x / M_y, arc pour M_z, les valeurs dans un bloc sous le dessin ; en
+  coupe ou en élévation, l'effort porte sa valeur ; le sens du dessin EST le sens positif
+  de la saisie (une valeur négative retourne la flèche) ;
+- **◉ point gouvernant** avec son taux, G centre des gorges, R point de référence ;
+- **encart « la gorge »** (`dessin.py`) : la section du cordon le plus chargé — cordon
+  d'angle, pénétration partielle ou pleine pénétration — avec sa gorge, et les trois
+  composantes σ⊥ (normale à la gorge, sortante en traction), τ⊥, τ∥ avec leurs valeurs —
+  la figure 4.5 de l'EN 1993-1-8 appliquée au cas ;
+- **carte des taux** à côté de l'encart, et une **légende** d'une ligne sous le dessin.
 
 ## 5 · L'écran
 
@@ -220,15 +227,17 @@ acier/soudures/
   cordon.py        Cordon, décomposition sur la gorge (§2.1)
   groupe.py        Groupe : centre, inerties, répartition élastique des six composantes (§2.2)
   criteres.py      Eurocode directionnelle / simplifiée, ELS bureau, bout à bout, longueurs (§2.3)
-  configurations.py  C1 … C8 : dimensions → groupe + éléments du dessin
+  configurations.py  C1 … C8 : dimensions → groupe + éléments du dessin ; types de jonction (jonction_T)
   etat.py          cas, défauts, JSON, construction depuis l'état
-  dessin.py        SVG : vues, efforts, encart, carte des taux
+  schemas.py       les schémas techniques sur le kit des assemblages (deux ou trois vues par cas)
+  dessin.py        l'encart « la gorge », la carte des taux
+  formules.py      les formules de la méthode choisie (substitutions testables)
   methode.py       textes de méthode (écran et note), références
-  note.py          la note PDF
+  note.py          la note PDF (la méthode choisie seulement)
 modules/soudures.py          l'écran
-tests/test_soudures_moteur.py, test_soudures_ecran.py, test_soudures_note.py
+tests/test_soudures_moteur.py, test_soudures_schemas.py, test_soudures_formules.py, test_soudures_ecran.py, test_soudures_note.py
 tools/captures_soudures.js
-docs/acier/SOUDURES.md       document de référence
+docs/acier/SOUDURES.md       document de référence (§9 : couverture)
 ```
 
 | Lot | Contenu | Preuve |
@@ -238,6 +247,10 @@ docs/acier/SOUDURES.md       document de référence
 | SW2a · tronçons | soudures discontinues, arcs, éléments libres (`trace.py`) | tests analytiques (78 au total) |
 | SW2b · liaison | `modules/liaison.py` : les widgets suivent l'état (Soudures et Charges sur plancher) | contrôle navigateur dans les captures (état « tube »), harnais des deux écrans |
 | SW3 · note | note deux pages, peintre SVG partagé (`ndc_pdf/svg.py`), doc `docs/acier/SOUDURES.md` | tests PDF (43), batterie, commit, push |
+| SW4a · jonctions | angle / pénétration partielle ± renfort / pleine pénétration (la pièce, métal de base, trois lignes de Simpson) sur C2, C3, C5, C6, C7 ; gorge de pleine résistance ; poteau du catalogue en support ; signe de σ⊥ (traction > 0) | tests analytiques (103 au total : N/(l·t), 6M/(l·t²) exacts, §4.7.3, I exact des semelles, fy/γ_F) |
+| SW4b · schémas | `schemas.py` sur le kit des assemblages : vues, profilés réels, symboles EN 22553, cotes hors de tout, efforts, ◉ | `test_soudures_schemas.py` (32 : rien de coupé, contenus, peintre), captures trois formats |
+| SW4c · formules | `formules.py` : la vérification au point gouvernant écrite comme à la main, la note n'imprime que la méthode choisie | `test_soudures_formules.py` (27 : chaque substitution redonne le moteur), tests de la note |
+| SW4d · couverture | `docs/acier/SOUDURES.md` §9 : couvert / pas couvert, la cornière reconstituée = C2 pleine | — |
 
 ## 8 · Points à trancher par le bureau (défauts retenus en attendant)
 
@@ -253,6 +266,9 @@ docs/acier/SOUDURES.md       document de référence
 | P-8 | fatigue, aciers > S460, soudures sur acier inoxydable | hors V1, dits dans « ce que l'outil ne fait pas » — les cordons discontinus, d'abord exclus, sont entrés le 04/11/2026 à la demande du bureau (tronçons sur toutes les configurations) |
 | P-9 | position des tronçons | aux deux bouts et régulièrement entre sur un cordon droit (les bouts doivent être soudés) ; régulièrement à partir du haut sur un pourtour ; l'espacement §4.3.2.2 est rappelé, pas imposé |
 | P-10 | l'écran garde-t-il la valeur du navigateur ou celle de l'état ? | celle de l'ÉTAT, toujours : `modules/liaison.py` réécrit les widgets depuis l'état à chaque changement hors widget (défaut trouvé par les captures : C3 → C6 affichait l'ancienne gorge) |
+| P-11 | pleine pénétration en méthode ELS : à quoi comparer la pièce ? | fy/γ_F (156,7 N/mm² pour le S235 avec γ_F = 1,5), le pendant de k·a pour les cordons ; à l'ELU fy/γM0 = fy (§4.7.1) |
+| P-12 | signe de σ⊥ | σ⊥ > 0 quand la pièce rapportée s'arrache (traction sur la gorge), < 0 quand elle comprime le cordon ; l'encart dit « traction » / « compression » d'après ce signe (la convention du 04/11 était inversée : un arrachement s'affichait « compression ») |
+| P-13 | pénétration partielle des deux faces avec p₁ + p₂ ≥ t | en T : traitée comme pleine si c = t − 2p ≤ min(t/5 ; 3 mm) (§4.7.3) ; bout à bout coplanaire : pénétration complète, la pièce gouverne (§4.7.1) |
 
 ## 9 · Sources
 

@@ -113,7 +113,9 @@ def _statut(taux: float) -> str:
 
 def _chaines(cordons: List[Dict]) -> List[Dict]:
     """Les cordons tels que l'utilisateur les nomme : un cordon droit, ou une
-    chaîne (pourtour, arc, tronçon) regroupant ses segments de calcul."""
+    chaîne (pourtour, arc, tronçon) regroupant ses segments de calcul. Une
+    pleine pénétration est UNE soudure de gorge t (l'épaisseur de la pièce) :
+    ses trois lignes de gorge (bords et milieu) ne s'additionnent pas."""
     out: List[Dict] = []
     index: Dict[str, Dict] = {}
     for c in cordons:
@@ -121,14 +123,19 @@ def _chaines(cordons: List[Dict]) -> List[Dict]:
         if nom not in index:
             index[nom] = {"nom": nom, "a": c["a"], "l": 0.0, "l_eff": 0.0, "segments": 0, "taux": c["taux"],
                           "position": c["position"], "f_max": c["f_max"], "retours": c["retours"], "continu": c["continu"],
-                          "ferme": c["ferme"], "bout_a_bout": c["bout_a_bout"]}
+                          "ferme": c["ferme"], "bout_a_bout": c["bout_a_bout"], "pleine": c["pleine"]}
             out.append(index[nom])
         ch = index[nom]
+        if c["taux"] > ch["taux"]:
+            ch["taux"], ch["position"], ch["f_max"] = c["taux"], c["position"], c["f_max"]
+        if c["pleine"]:
+            ch["a"] = c["t_piece"] or ch["a"]
+            if not c["continu"]:                      # lignes de gorge d'une même soudure : une longueur, une gorge t
+                ch["l"], ch["l_eff"], ch["segments"] = c["l_chaine"] or c["l"], c["l_chaine"] or c["l"], 1
+                continue
         ch["l"] += c["l"]
         ch["l_eff"] += c["l_eff"]
         ch["segments"] += 1
-        if c["taux"] > ch["taux"]:
-            ch["taux"], ch["position"], ch["f_max"] = c["taux"], c["position"], c["f_max"]
         if c["continu"]:
             ch["l"] = c["l_chaine"]        # la chaîne porte sa longueur réelle (avant raccourcissement de a à chaque bout)
     return out
@@ -141,15 +148,14 @@ def verifier(cas: Dict) -> Dict:
     meth = K.Methode(**{k: cas["methode"][k] for k in ("mode", "ec", "gamma_M2", "k", "g", "gamma_F")})
     acier = acier_cordon(cas["params"])
     out = {"config": cas["config"], "methode": meth, "acier": acier, "messages": [], "points": [], "cordons": [], "chaines": [],
-           "cordons_exclus": [], "statut": REFUS, "taux_max": None, "gouvernant": None, "comparaison": {}, "pleine": False}
+           "cordons_exclus": [], "statut": REFUS, "taux_max": None, "gouvernant": None, "comparaison": {}, "pleine": False, "n_pleine": 0}
     try:
         built = CF.construire(cas["config"], cas["params"], cas["efforts"])
     except (ValueError, KeyError) as e:
         out["messages"].append(f"Refus : {e}")
         return out
     out["pieces"], out["efforts"], out["beta_Lw"] = built["pieces"], built["efforts"], built["beta_Lw"]
-    if built.get("pleine"):
-        return _verifier_pleine(cas, out, acier, meth)
+    out["messages"].extend(built.get("notes", []))
     cordons = built["cordons"]
     out["cordons_exclus"] = []
     vus = set()
@@ -187,17 +193,21 @@ def verifier(cas: Dict) -> Dict:
         out["messages"].append(f"Refus : {e}")
         return out
     out["proprietes"] = pr
+    pleins = [c for c in g.utiles if c.pleine]
+    out["n_pleine"] = len(pleins)
+    out["pleine"] = bool(pleins) and len(pleins) == len(g.utiles)       # tout le groupe vaut la pièce : un seul critère
     lim = {"directionnelle": 0.0, "simplifiee": 0.0, "bureau": 0.0, "bureau_equiv": 0.0}
     kq = K.k_equivalent_eurocode(acier["fu"], acier["bw"], meth.gamma_M2, meth.gamma_F, meth.g)
     out["k_equivalent"] = kq
     gouv = None
     for p in pts:
-        ev = K.evaluer(p, meth, acier["fu"], acier["bw"])
-        equiv = K.els_bureau(p["f"], p["cordon"].a, kq["k_kg_mm_cm"], meth.g)
+        ev = K.evaluer(p, meth, acier["fu"], acier["bw"], fy=acier["fy_min"])
+        # une ligne de pleine pénétration n'a pas de « k équivalent » : sa lecture de service est fy/γ_F
+        equiv = ev["bureau"] if p["cordon"].pleine else K.els_bureau(p["f"], p["cordon"].a, kq["k_kg_mm_cm"], meth.g)
         rec = {"cordon": p["cordon"].nom, "a": p["cordon"].a, "s": p["s"], "position": _position(p["cordon"], p["s"]),
                "point": [float(v) for v in p["point"]], "f_vec": [float(v) for v in p["f_vec"]], "f": p["f"],
                "sigma_perp": p["sigma_perp"], "tau_perp": p["tau_perp"], "tau_par": p["tau_par"],
-               "sigma_c": ev["directionnelle"]["sigma_c"], "taux": ev["taux"], "critere": ev["critere"],
+               "sigma_c": ev["directionnelle"]["sigma_c"], "taux": ev["taux"], "critere": ev["critere"], "pleine": p["cordon"].pleine,
                "taux_directionnelle": ev["directionnelle"]["taux"], "taux_simplifiee": ev["simplifiee"]["taux"],
                "taux_bureau": ev["bureau"]["taux"], "taux_bureau_equiv": equiv["taux"]}
         out["points"].append(rec)
@@ -212,7 +222,7 @@ def verifier(cas: Dict) -> Dict:
         pire = max(mine, key=lambda p: p["taux"])
         out["cordons"].append({"nom": c.nom, "chaine": c.chaine or c.nom, "a": c.a, "l": c.longueur, "l_eff": c.l_eff,
                                "retours": c.retours, "continu": c.continu, "ferme": c.ferme, "l_chaine": c.l_chaine,
-                               "bout_a_bout": c.bout_a_bout,
+                               "bout_a_bout": c.bout_a_bout, "pleine": c.pleine, "t_piece": c.t_piece,
                                "p1": [float(v) for v in c.P1], "p2": [float(v) for v in c.P2],
                                "u_A": [float(v) for v in c.u_A], "taux": pire["taux"], "position": pire["position"], "f_max": pire["f"]})
     out["chaines"] = _chaines(out["cordons"])
@@ -223,29 +233,19 @@ def verifier(cas: Dict) -> Dict:
     d = K.directionnelle(0, 0, 0, acier["fu"], acier["bw"], meth.gamma_M2)
     s = K.simplifiee(0, 1.0, acier["fu"], acier["bw"], meth.gamma_M2)
     out["resistances"] = {"lim_c": d["lim_c"], "lim_perp": d["lim_perp"], "f_vw_d": s["f_vw_d"],
-                          "tau_adm_bureau": K.tau_adm_bureau(meth.k, meth.g), "tau_equiv": kq["tau_N_mm2"], "k_equiv": kq["k_kg_mm_cm"]}
-    if meth.mode == K.ELS:
+                          "tau_adm_bureau": K.tau_adm_bureau(meth.k, meth.g), "tau_equiv": kq["tau_N_mm2"], "k_equiv": kq["k_kg_mm_cm"],
+                          "fy": acier["fy_min"], "lim_piece": acier["fy_min"] / K.GAMMA_M0, "lim_piece_els": acier["fy_min"] / meth.gamma_F}
+    t_rap = (built.get("pieces") or {}).get("t_rapporte")
+    if t_rap:
+        out["a_pleine"] = K.gorge_pleine_resistance(float(t_rap), acier["fy_min"], acier["fu"], acier["bw"], meth.gamma_M2)
+    if pleins:
+        noms = ", ".join(dict.fromkeys(c.chaine or c.nom for c in pleins))
+        out["messages"].append(f"Pleine pénétration ({noms}) : la soudure vaut la pièce la plus faible (EN 1993-1-8 §4.7.1) — sa section "
+                               f"t × l est vérifiée élastiquement, √(σ² + 3τ²) ≤ fy/γM0 = {acier['fy_min']:g}/{K.GAMMA_M0:g} N/mm² "
+                               f"(fy = {acier['fy_min']:g} N/mm², la nuance la plus faible)"
+                               + (f" ; en méthode ELS, efforts de service : ≤ fy/γ_F = {acier['fy_min'] / meth.gamma_F:.1f} N/mm²" if meth.mode == K.ELS else ""))
+    if meth.mode == K.ELS and not out["pleine"]:
         out["messages"].append(f"Méthode ELS du bureau : efforts de service, résultante ≤ k·a avec k = {meth.k:g} kg/(mm·cm) "
                                f"= {out['resistances']['tau_adm_bureau']:.1f} N/mm² ; l'Eurocode donnerait f_vw,d/{meth.gamma_F:g} = "
                                f"{kq['tau_N_mm2']:.1f} N/mm² ({kq['k_kg_mm_cm']:.0f} kg/(mm·cm)) pour le {acier['nuance_ref']}")
-    return out
-
-
-def _verifier_pleine(cas: Dict, out: Dict, acier: Dict, meth) -> Dict:
-    """Bout à bout à pleine pénétration : la pièce la plus faible gouverne (§4.7.1)."""
-    p, e = cas["params"], cas["efforts"]
-    gM0 = 1.0
-    r = K.piece_pleine_penetration(float(e.get("N", 0)) * 1e3, float(e.get("V", 0)) * 1e3, float(e.get("M", 0)) * 1e6,
-                                   float(p["b"]), float(p["t"]), acier["fy_min"], gM0)
-    taux = r["taux"] / (meth.gamma_F if meth.mode == K.ELS else 1.0) if False else r["taux"]
-    out.update({"pleine": True, "piece": r, "taux_max": taux, "statut": _statut(taux),
-                "gouvernant": {"cordon": "pièce", "position": "section du plat", "taux": taux, "critere": r["critere"],
-                               "sigma_perp": r["sigma"], "tau_perp": 0.0, "tau_par": r["tau"], "sigma_c": r["sigma_c"], "f": 0.0,
-                               "a": float(p["t"]), "s": 0.5},
-                "comparaison": {"piece": taux}, "proprietes": {"A_w": float(p["b"]) * float(p["t"]), "n_cordons": 0, "l_total": float(p["b"])},
-                "resistances": {"lim_piece": r["lim"]}})
-    out["messages"].append("Pleine pénétration : la soudure vaut la pièce la plus faible, aucune vérification de cordon "
-                           f"(§4.7.1) ; pièce {p['b']:g} × {p['t']:g} mm vérifiée élastiquement avec fy = {acier['fy_min']:g} N/mm², γM0 = {gM0:g}")
-    if meth.mode == K.ELS:
-        out["messages"].append("Méthode ELS : les efforts saisis sont de service ; la pièce est comparée à fy/γM0 sans coefficient de charge")
     return out

@@ -144,13 +144,17 @@ def est_ferme_arc(ang1: float, ang2: float) -> bool:
 
 
 # ------------------------------------------------------------------ chaînes et tronçons
-def chaine(nom: str, points: Sequence, a: float, cote: int = +1, ferme: bool = False, **kw) -> List[Cordon]:
+def chaine(nom: str, points: Sequence, a: float, cote: int = +1, ferme: bool = False, constructeur=cordon_angle,
+           **kw) -> List[Cordon]:
     """Les cordons droits d'une chaîne : ouverte → raccourcie de a à chaque bout
-    (l_eff = l − 2a), exclue si l − 2a < max(30 mm ; 6a) ; fermée → entière."""
+    (l_eff = l − 2a), exclue si l − 2a < max(30 mm ; 6a) ; fermée → entière.
+    ``constructeur`` : cordon_angle (défaut) ou une soudure bout à bout en T ;
+    une chaîne à pleine pénétration (``pleine=True``) n'est ni raccourcie ni exclue."""
     L = longueur_chemin(points, ferme)
     exclu = False
-    if ferme:
-        poly = _pts(points) + [_pts(points)[0]]
+    pleine = bool(kw.get("pleine"))
+    if ferme or pleine:
+        poly = _pts(points) + ([_pts(points)[0]] if ferme else [])
     else:
         l_eff = L - 2.0 * a
         exclu = l_eff < max(L_MIN_ABS, 6.0 * a) - 1e-9 or a < A_MIN - 1e-9
@@ -162,11 +166,11 @@ def chaine(nom: str, points: Sequence, a: float, cote: int = +1, ferme: bool = F
         if float(np.linalg.norm(q - p)) <= 1e-9:
             continue
         nom_i = nom if nseg == 1 else f"{nom} ({i + 1})"
-        cs.append(cordon_angle(nom_i, tuple(p), tuple(q), a, cote=cote, continu=True, chaine=nom, ferme=ferme, l_chaine=L,
+        cs.append(constructeur(nom_i, tuple(p), tuple(q), a, cote=cote, continu=True, chaine=nom, ferme=ferme, l_chaine=L,
                                exclu=exclu, **kw))
     if not cs:  # chaîne dégénérée : un cordon nul, exclu
         p = _pts(points)[0]
-        cs.append(cordon_angle(nom, tuple(p), tuple(p + np.array([1e-3, 0.0])), a, cote=cote, continu=True, chaine=nom,
+        cs.append(constructeur(nom, tuple(p), tuple(p + np.array([1e-3, 0.0])), a, cote=cote, continu=True, chaine=nom,
                                ferme=ferme, l_chaine=L, exclu=True, **kw))
     return cs
 
@@ -196,33 +200,33 @@ def espacement_troncons(L: float, ferme: bool, n: int, l_t: float) -> Optional[f
 
 
 def tronconner(nom: str, points: Sequence, a: float, cote: int, n: int, l_t: float, ferme: bool = False,
-               s_origine: float = 0.0, **kw) -> List[Cordon]:
+               s_origine: float = 0.0, constructeur=cordon_angle, **kw) -> List[Cordon]:
     """Les cordons des n tronçons de longueur l_t répartis sur le chemin ;
     chaque tronçon est une chaîne ouverte « nom · tronçon k »."""
     L = longueur_chemin(points, ferme)
     cs: List[Cordon] = []
     for k, s0 in enumerate(abscisses_troncons(L, ferme, n, l_t, s_origine), 1):
         poly = sous_chemin(points, ferme, s0, s0 + l_t)
-        cs += chaine(f"{nom} · tronçon {k}", poly, a, cote, ferme=False, **kw)
+        cs += chaine(f"{nom} · tronçon {k}", poly, a, cote, ferme=False, constructeur=constructeur, **kw)
     return cs
 
 
 def cordons_droits_ou_troncons(nom: str, p1, p2, a: float, cote: int, retours: bool, troncons: Optional[Dict] = None,
-                               **kw) -> List[Cordon]:
+                               constructeur=cordon_angle, **kw) -> List[Cordon]:
     """Un cordon droit continu (retours d'angle possibles), ou ses tronçons
     si ``troncons`` = {"n": ≥ 1, "l": mm}."""
     tr = troncons or {}
     n = int(tr.get("n", 0) or 0)
     if n >= 1:
-        return tronconner(nom, [p1, p2], a, cote, n, float(tr["l"]), ferme=False, **kw)
-    return [cordon_angle(nom, p1, p2, a, cote=cote, retours=retours, **kw)]
+        return tronconner(nom, [p1, p2], a, cote, n, float(tr["l"]), ferme=False, constructeur=constructeur, **kw)
+    return [constructeur(nom, p1, p2, a, cote=cote, retours=retours, **kw)]
 
 
 def chaine_ou_troncons(nom: str, points: Sequence, a: float, cote: int, ferme: bool, troncons: Optional[Dict] = None,
-                       s_origine: float = 0.0, **kw) -> List[Cordon]:
+                       s_origine: float = 0.0, constructeur=cordon_angle, **kw) -> List[Cordon]:
     """Une chaîne entière, ou ses tronçons si ``troncons`` = {"n": ≥ 1, "l": mm}."""
     tr = troncons or {}
     n = int(tr.get("n", 0) or 0)
     if n >= 1:
-        return tronconner(nom, points, a, cote, n, float(tr["l"]), ferme=ferme, s_origine=s_origine, **kw)
-    return chaine(nom, points, a, cote, ferme=ferme, **kw)
+        return tronconner(nom, points, a, cote, n, float(tr["l"]), ferme=ferme, s_origine=s_origine, constructeur=constructeur, **kw)
+    return chaine(nom, points, a, cote, ferme=ferme, constructeur=constructeur, **kw)

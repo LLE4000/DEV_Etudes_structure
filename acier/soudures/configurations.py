@@ -15,18 +15,28 @@ Repère de chaque cas (plan de joint z = 0) :
 - C7 bout à bout : plan de joint = plan du plat ; cordon le long de y (largeur b), effort N le long de x ;
 - C8 cordons libres : tel que saisi — segments et arcs.
 
+TYPE DE JONCTION d'une pièce rapportée posée en T (C2, C3, C5, C6) — ``jonction`` :
+- « angle » : cordons d'angle (une ou deux faces), gorge a ;
+- « partielle » : pénétration partielle p par face (§4.7.2) ; avec un cordon de renfort de gorge
+  a_r, cordon à pénétration profonde de gorge p + a_r (§4.5.2(3)) ; sans renfort, gorge p
+  parallèle à la face d'appui ; deux faces avec p₁ + p₂ ≥ t et c = t − 2p ≤ min(t/5 ; 3 mm) ⇒
+  traitée comme pleine (§4.7.3) ;
+- « pleine » : pleine pénétration — la soudure vaut la pièce (§4.7.1) : trois lignes de gorge
+  (bords et milieu, poids de Simpson) qui rendent la section t·l de la pièce, vérifiées au métal
+  de base. C'est le cas d'une cornière reconstituée de deux plats épais soudés à pleine pénétration.
+
 Soudure DISCONTINUE : chaque configuration accepte ``troncons = {"n": k, "l": mm}`` (n = 0 :
 cordon continu) ; les cordons droits et les pourtours deviennent k tronçons de l mm
 régulièrement répartis (``trace.py``). Les efforts se saisissent en kN et kN·m dans le sens
 du dessin ; ``efforts`` les convertit en N et N·mm au point de référence. ``pieces`` décrit
-les pièces pour le dessin (polygones dans le plan de joint, mm).
+les pièces pour le dessin (polygones dans le plan de joint, mm, profilés du catalogue).
 """
 import math
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from .cordon import Cordon, beta_Lw, cordon_angle, cordon_bout_a_bout
+from .cordon import Cordon, beta_Lw, cordon_angle, cordon_bout_a_bout, cordon_bout_a_bout_T, lignes_pleine_penetration
 from .groupe import Efforts
 from . import trace as TR
 
@@ -34,13 +44,13 @@ CONFIGS: Dict[str, Dict] = {
     "C1": {"libelle": "Recouvrement", "vue": "plan",
            "description": "Deux plats à recouvrement : cordons latéraux (cisaillés le long) et frontaux (sollicités en travers)."},
     "C2": {"libelle": "Jonction en T", "vue": "elevation",
-           "description": "Pièce debout soudée sur une face par un ou deux cordons : arrachement, cisaillement, flexion du T."},
+           "description": "Pièce debout soudée sur une face — cordons d'angle, pénétration partielle ou pleine : arrachement, cisaillement, flexion du T."},
     "C3": {"libelle": "Console fléchie", "vue": "elevation",
-           "description": "Plat en console soudé sur un poteau par ses cordons verticaux : V à l'excentricité e → flexion + cisaillement."},
+           "description": "Plat en console soudé sur l'aile d'un poteau : V à l'excentricité e → flexion + cisaillement des cordons verticaux."},
     "C4": {"libelle": "Gousset en torsion", "vue": "plan",
-           "description": "Plat posé à plat, soudé sur un à quatre côtés, chargé dans son plan hors du centre : torsion + cisaillement."},
+           "description": "Plat posé à plat sur l'aile d'un poteau, soudé sur un à quatre côtés, chargé dans son plan hors du centre : torsion + cisaillement."},
     "C5": {"libelle": "Platine d'about de profilé", "vue": "face",
-           "description": "Profilé du catalogue soudé sur une platine : semelles et âme sous N, V, M, T."},
+           "description": "Profilé du catalogue soudé sur une platine : semelles et âme (cordons d'angle, pénétration partielle ou pleine) sous N, V, M, T."},
     "C6": {"libelle": "Tube sur platine", "vue": "face",
            "description": "Tube rond, carré ou rectangulaire soudé sur son pourtour, en continu ou par tronçons : N, V, M, T."},
     "C7": {"libelle": "Bout à bout", "vue": "plan",
@@ -48,6 +58,7 @@ CONFIGS: Dict[str, Dict] = {
     "C8": {"libelle": "Cordons libres", "vue": "plan",
            "description": "N'importe quelle géométrie : segments et arcs, continus ou par tronçons, et six composantes d'effort au point de référence."},
 }
+JONCTIONS = {"angle": "cordons d'angle", "partielle": "pénétration partielle", "pleine": "pleine pénétration"}
 
 # efforts de chaque cas : (clé, libellé, unité, aide — le sens est celui du dessin)
 EFFORTS: Dict[str, List[Tuple[str, str, str, str]]] = {
@@ -85,20 +96,23 @@ EFFORTS: Dict[str, List[Tuple[str, str, str, str]]] = {
 }
 
 CONTINU = {"n": 0, "l": 60.0}
+POTEAU_DEFAUT = "HEB 200"
 
 PARAMS_DEFAUT: Dict[str, Dict] = {
     "C1": {"b": 100.0, "tB": 10.0, "tA": 10.0, "L_rec": 120.0, "lateraux": True, "frontaux": 1, "a": 5.0, "retours": False,
            "troncons": dict(CONTINU), "nuance_A": "S235", "nuance_B": "S235"},
     "C2": {"l": 200.0, "tB": 10.0, "tA": 12.0, "deux_cordons": True, "a": 5.0, "retours": False, "troncons": dict(CONTINU),
-           "nuance_A": "S235", "nuance_B": "S235"},
+           "jonction": "angle", "p": 6.0, "renfort": 0.0, "nuance_A": "S235", "nuance_B": "S235"},
     "C3": {"h": 200.0, "t": 10.0, "e": 150.0, "deux_cordons": True, "a": 5.0, "retours": False, "troncons": dict(CONTINU),
-           "nuance_A": "S235", "nuance_B": "S235"},
+           "jonction": "angle", "p": 6.0, "renfort": 0.0, "poteau": POTEAU_DEFAUT, "nuance_A": "S235", "nuance_B": "S235"},
     "C4": {"bx": 200.0, "by": 150.0, "t": 10.0, "cotes": ["gauche", "haut", "bas"], "a": 5.0, "retours": False,
-           "troncons": dict(CONTINU), "xV": 250.0, "yV": 75.0, "nuance_A": "S235", "nuance_B": "S235"},
+           "troncons": dict(CONTINU), "xV": 250.0, "yV": 75.0, "poteau": POTEAU_DEFAUT, "nuance_A": "S235", "nuance_B": "S235"},
     "C5": {"profil": "IPE 200", "a_f": 5.0, "a_w": 4.0, "semelles": "deux faces", "ame": True, "retours": True,
-           "troncons_semelles": dict(CONTINU), "troncons_ame": dict(CONTINU), "nuance_A": "S235", "nuance_B": "S235"},
-    "C6": {"profil": "SHS 100x100x5", "a": 4.0, "troncons": dict(CONTINU), "nuance_A": "S235", "nuance_B": "S235"},
-    "C7": {"b": 150.0, "t": 12.0, "penetration": "pleine", "p": 6.0, "deux_faces": True, "nuance_A": "S235", "nuance_B": "S235"},
+           "jonction_semelles": "angle", "p_f": 6.0, "renfort_f": 0.0, "jonction_ame": "angle", "p_w": 4.0, "renfort_w": 0.0,
+           "troncons_semelles": dict(CONTINU), "troncons_ame": dict(CONTINU), "tp": 15.0, "nuance_A": "S235", "nuance_B": "S235"},
+    "C6": {"profil": "SHS 100x100x5", "a": 4.0, "troncons": dict(CONTINU), "jonction": "angle", "p": 4.0, "renfort": 0.0, "tp": 15.0,
+           "nuance_A": "S235", "nuance_B": "S235"},
+    "C7": {"b": 150.0, "t": 12.0, "penetration": "pleine", "p": 5.0, "deux_faces": True, "nuance_A": "S235", "nuance_B": "S235"},
     "C8": {"elements": [{"type": "segment", "x1": -50.0, "y1": -100.0, "x2": -50.0, "y2": 100.0, "a": 5.0, "cote": -1, "retours": False,
                          "troncons": dict(CONTINU)},
                         {"type": "segment", "x1": 50.0, "y1": -100.0, "x2": 50.0, "y2": 100.0, "a": 5.0, "cote": 1, "retours": False,
@@ -132,13 +146,71 @@ def _tr(p: Dict, cle: str = "troncons") -> Dict:
     return {"n": int(t.get("n", 0) or 0), "l": float(t.get("l", CONTINU["l"]) or CONTINU["l"])}
 
 
-def _droit(nom, p1, p2, a, cote, retours, tr) -> List[Cordon]:
-    return TR.cordons_droits_ou_troncons(nom, p1, p2, a, cote, retours, tr)
+def _droit(nom, p1, p2, a, cote, retours, tr, constructeur=cordon_angle, **kw) -> List[Cordon]:
+    return TR.cordons_droits_ou_troncons(nom, p1, p2, a, cote, retours, tr, constructeur=constructeur, **kw)
 
 
-def discontinuite(cordons_desc: List[Dict]) -> List[Dict]:
-    """Les soudures discontinues du groupe (pour le message §4.3.2.2) : nom, n, l, espacement."""
-    return [d for d in cordons_desc if d.get("n", 0) >= 1]
+def _profil(nom: str) -> Dict:
+    from acier.profiles import catalogue as CAT
+    rec = CAT.par_nom().get(nom)
+    if rec is None:
+        raise ValueError(f"profilé inconnu au catalogue : {nom}")
+    return rec
+
+
+def _poteau(p: Dict) -> Optional[Dict]:
+    """Le profilé support (aile de poteau) du dessin, ou None pour un plat."""
+    nom = p.get("poteau") or ""
+    if not nom or nom == "plat":
+        return None
+    return _profil(nom)
+
+
+# ------------------------------------------------------------------ jonction d'une pièce en T
+def jonction_T(nom: str, p1, p2, t: float, jonction: str, a: float, p: float, renfort: float, deux_faces: bool,
+               retours: bool, tr: Dict, notes: List[str], faces: Tuple[str, str] = ("1", "2")) -> List[Cordon]:
+    """Les cordons du bord d'une pièce rapportée d'épaisseur t, debout sur la face
+    d'appui le long de son plan moyen p1 → p2 : face « 1 » à +n·t/2 (n = normale à
+    gauche du sens de parcours), face « 2 » à −n·t/2.
+    - angle : cordon d'angle de gorge a sur chaque face (ou la face 1 seule) ;
+    - partielle : pénétration p par face ; cordon de renfort a_r ⇒ gorge p + a_r en
+      cordon d'angle à pénétration profonde (§4.5.2(3)) ; sans renfort, gorge p
+      parallèle à la face d'appui ; règle du T (§4.7.3) : deux faces, 2p ≥ t et
+      t − 2p ≤ min(t/5 ; 3) ⇒ pleine ;
+    - pleine : trois lignes de gorge (bords ±t/2 à t/6, milieu à 2t/3) vérifiées au
+      métal de base (§4.7.1)."""
+    P1 = np.array([float(p1[0]), float(p1[1]), 0.0])
+    P2 = np.array([float(p2[0]), float(p2[1]), 0.0])
+    ea = (P2 - P1) / (np.linalg.norm(P2 - P1) or 1.0)
+    n = np.cross(np.array([0.0, 0.0, 1.0]), ea)                  # normale à GAUCHE du sens de parcours
+    f1 = (P1 + n * t / 2, P2 + n * t / 2, -1)                      # face 1 : la pièce est à droite du cordon
+    f2 = (P1 - n * t / 2, P2 - n * t / 2, +1)                      # face 2 : à gauche
+    nom1, nom2 = (f"{nom} {faces[0]}".strip(), f"{nom} {faces[1]}".strip())
+    if jonction == "pleine":
+        return lignes_pleine_penetration(nom, tuple(P1[:2]), tuple(P2[:2]), t, cote=-1)   # bord 1 du côté de la face 1 (à gauche du parcours)
+    if jonction == "partielle":
+        p = float(p)
+        if deux_faces and 2.0 * p >= t - 1e-9 and (t - 2.0 * p) <= min(t / 5.0, 3.0) + 1e-9:
+            notes.append(f"{nom} : pénétration partielle des deux faces avec p₁ + p₂ = {2 * p:g} ≥ t = {t:g} mm et "
+                         f"c = {max(0.0, t - 2 * p):g} ≤ min(t/5 ; 3 mm) → traitée comme pleine pénétration (EN 1993-1-8 §4.7.3)")
+            return lignes_pleine_penetration(nom, tuple(P1[:2]), tuple(P2[:2]), t, cote=-1)   # bord 1 du côté de la face 1 (à gauche du parcours)
+        out = []
+        for (q1, q2, cote), nm in ((f1, nom1), (f2, nom2)):
+            if float(renfort) > 0:                                  # pénétration profonde : gorge p + a_r à 45°
+                out += _droit(nm, tuple(q1[:2]), tuple(q2[:2]), p + float(renfort), cote, retours, tr)
+            else:                                                   # gorge p parallèle à la face d'appui
+                out += _droit(nm, tuple(q1[:2]), tuple(q2[:2]), p, cote, True, tr, constructeur=cordon_bout_a_bout_T)
+            if not deux_faces:
+                break
+        return out
+    out = _droit(nom1, tuple(f1[0][:2]), tuple(f1[1][:2]), a, f1[2], retours, tr)
+    if deux_faces:
+        out += _droit(nom2, tuple(f2[0][:2]), tuple(f2[1][:2]), a, f2[2], retours, tr)
+    return out
+
+
+def _desc_jonction(jonction: str, a: float, p: float, renfort: float, deux: bool, t: float) -> Dict:
+    return {"type": jonction, "a": float(a), "p": float(p), "renfort": float(renfort), "deux_faces": bool(deux), "t": float(t)}
 
 
 # ------------------------------------------------------------------ C1 recouvrement
@@ -162,8 +234,8 @@ def c1(p: Dict, e: Dict) -> Dict:
     eff = Efforts(Vx=_kn(e.get("N", 0)), Vy=_kn(e.get("V", 0)), reference=(L / 2, 0.0, 0.0))
     pieces = {"vue": "plan", "A": [(-L * 0.6, -b * 0.75), (L, -b * 0.75), (L, b * 0.75), (-L * 0.6, b * 0.75)],
               "B": [(0, -b / 2), (L * 1.6, -b / 2), (L * 1.6, b / 2), (0, b / 2)], "tA": float(p["tA"]), "tB": float(p["tB"]),
-              "L": L, "b": b, "t_min": min(float(p["tA"]), float(p["tB"]))}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": blw, "pieces": pieces, "discontinu": disc}
+              "L": L, "b": b, "t_min": min(float(p["tA"]), float(p["tB"])), "a": a, "frontaux": nf, "lateraux": bool(p.get("lateraux", True))}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": blw, "pieces": pieces, "discontinu": disc, "notes": []}
 
 
 # ------------------------------------------------------------------ C2 jonction en T
@@ -171,14 +243,18 @@ def c2(p: Dict, e: Dict) -> Dict:
     l, tB, a = float(p["l"]), float(p["tB"]), float(p["a"])
     ret = bool(p.get("retours", False))
     tr = _tr(p)
-    cs = _droit("cordon 1", (0, tB / 2), (l, tB / 2), a, -1, ret, tr)
-    if p.get("deux_cordons", True):
-        cs += _droit("cordon 2", (0, -tB / 2), (l, -tB / 2), a, +1, ret, tr)
-    disc = [{"nom": "cordons de la jonction", "n": tr["n"], "l": tr["l"], "espacement": TR.espacement_troncons(l, False, tr["n"], tr["l"])}] if tr["n"] >= 1 else []
+    notes: List[str] = []
+    jon = p.get("jonction", "angle")
+    cs = jonction_T("cordon", (0, 0), (l, 0), tB, jon, a, float(p.get("p", 6.0)), float(p.get("renfort", 0.0)),
+                    bool(p.get("deux_cordons", True)), ret, tr, notes)
+    disc = [{"nom": "cordons de la jonction", "n": tr["n"], "l": tr["l"], "espacement": TR.espacement_troncons(l, False, tr["n"], tr["l"])}] \
+        if tr["n"] >= 1 and jon != "pleine" else []
     eff = Efforts(N=_kn(e.get("N", 0)), Vx=_kn(e.get("Va", 0)), Vy=_kn(e.get("Vp", 0)), Mx=_knm(e.get("M", 0)),
                   reference=(l / 2, 0.0, 0.0))
-    pieces = {"vue": "elevation", "tA": float(p["tA"]), "tB": tB, "l": l, "hB": max(120.0, 6 * tB), "t_min": min(float(p["tA"]), tB)}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc}
+    pieces = {"vue": "elevation", "tA": float(p["tA"]), "tB": tB, "l": l, "hB": max(120.0, 6 * tB), "t_min": min(float(p["tA"]), tB),
+              "jonction": _desc_jonction(jon, a, float(p.get("p", 6.0)), float(p.get("renfort", 0.0)), bool(p.get("deux_cordons", True)), tB),
+              "t_rapporte": tB}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc, "notes": notes}
 
 
 # ------------------------------------------------------------------ C3 console
@@ -186,13 +262,21 @@ def c3(p: Dict, e: Dict) -> Dict:
     h, t, ex, a = float(p["h"]), float(p["t"]), float(p["e"]), float(p["a"])
     ret = bool(p.get("retours", False))
     tr = _tr(p)
-    cs = _droit("cordon droit", (t / 2, -h / 2), (t / 2, h / 2), a, +1, ret, tr)
-    if p.get("deux_cordons", True):
-        cs += _droit("cordon gauche", (-t / 2, -h / 2), (-t / 2, h / 2), a, -1, ret, tr)
-    disc = [{"nom": "cordons verticaux", "n": tr["n"], "l": tr["l"], "espacement": TR.espacement_troncons(h, False, tr["n"], tr["l"])}] if tr["n"] >= 1 else []
+    notes: List[str] = []
+    jon = p.get("jonction", "angle")
+    # le plat est debout sur la face, son plan moyen est l'axe y (x = 0) ; parcouru de haut en bas, la face 1
+    # (à gauche du parcours) est la face DROITE (x = +t/2) : « cordon droit »
+    cs = jonction_T("cordon", (0, h / 2), (0, -h / 2), t, jon, a, float(p.get("p", 6.0)), float(p.get("renfort", 0.0)),
+                    bool(p.get("deux_cordons", True)), ret, tr, notes, faces=("droit", "gauche"))
+    disc = [{"nom": "cordons verticaux", "n": tr["n"], "l": tr["l"], "espacement": TR.espacement_troncons(h, False, tr["n"], tr["l"])}] \
+        if tr["n"] >= 1 and jon != "pleine" else []
     eff = Efforts(Vy=-_kn(e.get("V", 0)), N=_kn(e.get("N", 0)), reference=(0.0, 0.0, ex))
-    pieces = {"vue": "elevation", "h": h, "t": t, "e": ex, "longueur": ex * 1.35, "t_min": t}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc}
+    pot = _poteau(p)
+    t_sup = pot["tf"] if pot else t
+    pieces = {"vue": "elevation", "h": h, "t": t, "e": ex, "longueur": ex * 1.35, "t_min": min(t, t_sup), "poteau": pot,
+              "jonction": _desc_jonction(jon, a, float(p.get("p", 6.0)), float(p.get("renfort", 0.0)), bool(p.get("deux_cordons", True)), t),
+              "t_rapporte": t}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc, "notes": notes}
 
 
 # ------------------------------------------------------------------ C4 gousset
@@ -211,67 +295,78 @@ def c4(p: Dict, e: Dict) -> Dict:
                 disc.append({"nom": f"côté {nom}", "n": tr["n"], "l": tr["l"], "espacement": TR.espacement_troncons(L, False, tr["n"], tr["l"])})
     xV, yV = float(p.get("xV", bx)), float(p.get("yV", by / 2))
     eff = Efforts(Vy=-_kn(e.get("V", 0)), Vx=_kn(e.get("H", 0)), N=_kn(e.get("N", 0)), reference=(xV, yV, 0.0))
+    pot = _poteau(p)
+    t_sup = pot["tf"] if pot else float(p["t"])
     # l'appui A couvre la zone soudée ; le plat B déborde jusqu'au point d'application (porte-à-faux)
     pieces = {"vue": "plan", "A": [(-25, -30), (bx + 25, -30), (bx + 25, by + 30), (-25, by + 30)],
               "B": [(0, 0), (max(bx, xV + 20), 0), (max(bx, xV + 20), by), (0, by)], "bx": bx, "by": by,
-              "t": float(p["t"]), "xV": xV, "yV": yV, "t_min": float(p["t"])}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc}
+              "t": float(p["t"]), "xV": xV, "yV": yV, "t_min": min(float(p["t"]), t_sup), "poteau": pot, "a": a, "cotes": list(cotes)}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc, "notes": []}
 
 
 # ------------------------------------------------------------------ C5 platine d'about
-def _profil(nom: str) -> Dict:
-    from acier.profiles import catalogue as CAT
-    rec = CAT.par_nom().get(nom)
-    if rec is None:
-        raise ValueError(f"profilé inconnu au catalogue : {nom}")
-    return rec
-
-
 def c5(p: Dict, e: Dict) -> Dict:
     rec = _profil(p["profil"])
     h, b, tw, tf, r = rec["h"], rec["b"], rec["tw"], rec["tf"], rec.get("r", rec.get("r1", 0.0))
     af, aw = float(p["a_f"]), float(p["a_w"])
     ret = bool(p.get("retours", True))
     trf, trw = _tr(p, "troncons_semelles"), _tr(p, "troncons_ame")
-    cs = _droit("semelle sup. ext.", (-b / 2, h / 2), (b / 2, h / 2), af, -1, ret, trf)
-    cs += _droit("semelle inf. ext.", (-b / 2, -h / 2), (b / 2, -h / 2), af, +1, ret, trf)
+    notes: List[str] = []
+    jf, jw = p.get("jonction_semelles", "angle"), p.get("jonction_ame", "angle")
+    pf, rf = float(p.get("p_f", 6.0)), float(p.get("renfort_f", 0.0))
+    pw, rw = float(p.get("p_w", 4.0)), float(p.get("renfort_w", 0.0))
+    deux = p.get("semelles", "deux faces") == "deux faces"
+    cs: List[Cordon] = []
     disc = []
-    if trf["n"] >= 1:
-        disc.append({"nom": "semelles", "n": trf["n"], "l": trf["l"], "espacement": TR.espacement_troncons(b, False, trf["n"], trf["l"])})
-    if p.get("semelles", "deux faces") == "deux faces":
-        x0 = tw / 2 + r
-        for nom, p1, p2, cote in (("semelle sup. int. droite", (x0, h / 2 - tf), (b / 2, h / 2 - tf), +1),
-                                  ("semelle sup. int. gauche", (-b / 2, h / 2 - tf), (-x0, h / 2 - tf), +1),
-                                  ("semelle inf. int. droite", (x0, -h / 2 + tf), (b / 2, -h / 2 + tf), -1),
-                                  ("semelle inf. int. gauche", (-b / 2, -h / 2 + tf), (-x0, -h / 2 + tf), -1)):
-            # les tronçons des faces intérieures : au plus un par demi-semelle (place limitée)
-            tri = {"n": min(trf["n"], 1), "l": trf["l"]} if trf["n"] >= 1 else trf
-            cs += _droit(nom, p1, p2, af, cote, ret, tri)
+    if jf == "angle":
+        cs += _droit("semelle sup. ext.", (-b / 2, h / 2), (b / 2, h / 2), af, -1, ret, trf)
+        cs += _droit("semelle inf. ext.", (-b / 2, -h / 2), (b / 2, -h / 2), af, +1, ret, trf)
+        if trf["n"] >= 1:
+            disc.append({"nom": "semelles", "n": trf["n"], "l": trf["l"], "espacement": TR.espacement_troncons(b, False, trf["n"], trf["l"])})
+        if deux:
+            x0 = tw / 2 + r
+            for nom, p1, p2, cote in (("semelle sup. int. droite", (x0, h / 2 - tf), (b / 2, h / 2 - tf), +1),
+                                      ("semelle sup. int. gauche", (-b / 2, h / 2 - tf), (-x0, h / 2 - tf), +1),
+                                      ("semelle inf. int. droite", (x0, -h / 2 + tf), (b / 2, -h / 2 + tf), -1),
+                                      ("semelle inf. int. gauche", (-b / 2, -h / 2 + tf), (-x0, -h / 2 + tf), -1)):
+                tri = {"n": min(trf["n"], 1), "l": trf["l"]} if trf["n"] >= 1 else trf
+                cs += _droit(nom, p1, p2, af, cote, ret, tri)
+    else:
+        # pénétration (partielle ou pleine) sur l'épaisseur de chaque semelle : plan moyen à ±(h/2 − tf/2)
+        for nom, y, sens in (("semelle sup.", h / 2 - tf / 2, +1), ("semelle inf.", -h / 2 + tf / 2, -1)):
+            cs += jonction_T(nom, (-b / 2 * sens, y), (b / 2 * sens, y), tf, jf, af, pf, rf, deux, ret, trf, notes, faces=("ext.", "int."))
     if p.get("ame", True):
         d = h / 2 - tf - r
-        cs += _droit("âme droite", (tw / 2, -d), (tw / 2, d), aw, +1, ret, trw)
-        cs += _droit("âme gauche", (-tw / 2, -d), (-tw / 2, d), aw, -1, ret, trw)
-        if trw["n"] >= 1:
-            disc.append({"nom": "âme", "n": trw["n"], "l": trw["l"], "espacement": TR.espacement_troncons(2 * d, False, trw["n"], trw["l"])})
+        if jw == "angle":
+            cs += _droit("âme droite", (tw / 2, -d), (tw / 2, d), aw, +1, ret, trw)
+            cs += _droit("âme gauche", (-tw / 2, -d), (-tw / 2, d), aw, -1, ret, trw)
+            if trw["n"] >= 1:
+                disc.append({"nom": "âme", "n": trw["n"], "l": trw["l"], "espacement": TR.espacement_troncons(2 * d, False, trw["n"], trw["l"])})
+        else:   # parcourue de haut en bas : la face 1 (à gauche du parcours) est la face droite (x = +tw/2)
+            cs += jonction_T("âme", (0, d), (0, -d), tw, jw, aw, pw, rw, True, ret, trw, notes, faces=("droite", "gauche"))
     eff = Efforts(N=_kn(e.get("N", 0)), Vy=_kn(e.get("Vz", 0)), Vx=_kn(e.get("Vy", 0)),
                   Mx=_knm(e.get("My", 0)), My=_knm(e.get("Mz", 0)), Mz=_knm(e.get("T", 0)), reference=(0.0, 0.0, 0.0))
     pieces = {"vue": "face", "profil": rec, "platine": [(-b / 2 - 40, -h / 2 - 40), (b / 2 + 40, -h / 2 - 40), (b / 2 + 40, h / 2 + 40), (-b / 2 - 40, h / 2 + 40)],
-              "t_min": min(tw, tf)}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc}
+              "t_min": min(tw, tf), "tp": float(p.get("tp", 15.0)),
+              "jonction_semelles": _desc_jonction(jf, af, pf, rf, deux, tf), "jonction_ame": _desc_jonction(jw, aw, pw, rw, True, tw),
+              "t_rapporte": tf}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc, "notes": notes}
 
 
 # ------------------------------------------------------------------ C6 tube
-def contour_tube(rec: Dict) -> List[Tuple[float, float]]:
-    """Le pourtour du tube (ligne de racine des cordons), sens trigonométrique :
+def contour_tube(rec: Dict, retrait: float = 0.0) -> List[Tuple[float, float]]:
+    """Le pourtour du tube (ligne de racine des cordons), sens trigonométrique,
+    rentré de ``retrait`` (0 : face extérieure ; t/2 : ligne moyenne de la paroi) :
     24 cordes pour un rond, côtés droits + 4 cordes par coin arrondi pour un carré ou un rectangle."""
     if rec["famille"] in ("CHS", "CHS-F", "TUBE"):
-        d = rec["d"]
+        rr = rec["d"] / 2 - retrait
         n = 24
-        return [(d / 2 * math.cos(2 * math.pi * k / n), d / 2 * math.sin(2 * math.pi * k / n)) for k in range(n)]
+        return [(rr * math.cos(2 * math.pi * k / n), rr * math.sin(2 * math.pi * k / n)) for k in range(n)]
     from acier.profiles import familles as F
     from acier.profiles import geometrie as G
-    h, b, t = rec["h"], rec["b"], rec["t"]
+    h, b, t = rec["h"] - 2 * retrait, rec["b"] - 2 * retrait, rec["t"]
     re, _ = F.rayons(rec["famille"], t)
+    re = max(0.0, re - retrait)
     coins = [(-b / 2, -h / 2), (b / 2, -h / 2), (b / 2, h / 2), (-b / 2, h / 2)]
     ring = G.arrondir(coins, [re] * 4, n=4)
     return [(float(x), float(y)) for x, y in ring]
@@ -280,35 +375,61 @@ def contour_tube(rec: Dict) -> List[Tuple[float, float]]:
 def c6(p: Dict, e: Dict) -> Dict:
     rec = _profil(p["profil"])
     a = float(p["a"])
+    t = float(rec.get("t", 0.0) or 0.0)
     tr = _tr(p)
+    notes: List[str] = []
+    jon = p.get("jonction", "angle")
+    pen, renf = float(p.get("p", 4.0)), float(p.get("renfort", 0.0))
     pts = contour_tube(rec)
     ymax = max(y for _, y in pts)
     s_haut = TR.abscisse_pres(pts, True, (0.0, ymax))      # le premier tronçon centré en haut
-    cs = TR.chaine_ou_troncons("pourtour", pts, a, +1, True, tr, s_origine=s_haut)
+    if jon == "pleine" and t > 0:
+        ligne = contour_tube(rec, t / 2)
+        cs = TR.chaine("pourtour", ligne, t, +1, ferme=True, constructeur=cordon_bout_a_bout_T, pleine=True, t_piece=t)
+    elif jon == "partielle" and t > 0:
+        if renf > 0:
+            cs = TR.chaine_ou_troncons("pourtour", pts, pen + renf, +1, True, tr, s_origine=s_haut)
+        else:
+            cs = TR.chaine_ou_troncons("pourtour", pts, pen, +1, True, tr, s_origine=s_haut, constructeur=cordon_bout_a_bout_T)
+    else:
+        cs = TR.chaine_ou_troncons("pourtour", pts, a, +1, True, tr, s_origine=s_haut)
     L = TR.longueur_chemin(pts, True)
-    disc = [{"nom": "pourtour", "n": tr["n"], "l": tr["l"], "espacement": TR.espacement_troncons(L, True, tr["n"], tr["l"])}] if tr["n"] >= 1 else []
+    disc = [{"nom": "pourtour", "n": tr["n"], "l": tr["l"], "espacement": TR.espacement_troncons(L, True, tr["n"], tr["l"])}] \
+        if tr["n"] >= 1 and jon != "pleine" else []
     eff = Efforts(N=_kn(e.get("N", 0)), Vy=_kn(e.get("Vz", 0)), Vx=_kn(e.get("Vy", 0)),
                   Mx=_knm(e.get("My", 0)), My=_knm(e.get("Mz", 0)), Mz=_knm(e.get("T", 0)), reference=(0.0, 0.0, 0.0))
     ext = max(max(abs(x) for x, _ in pts), max(abs(y) for _, y in pts)) + 40
     pieces = {"vue": "face", "profil": rec, "contour": pts, "platine": [(-ext, -ext), (ext, -ext), (ext, ext), (-ext, ext)],
-              "t_min": rec.get("t", 0.0), "perimetre": L}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc}
+              "t_min": t, "perimetre": L, "tp": float(p.get("tp", 15.0)), "jonction": _desc_jonction(jon, a, pen, renf, False, t),
+              "t_rapporte": t}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc, "notes": notes}
 
 
 # ------------------------------------------------------------------ C7 bout à bout
 def c7(p: Dict, e: Dict) -> Dict:
     b, t = float(p["b"]), float(p["t"])
     pleine = p.get("penetration", "pleine") == "pleine"
-    cs = []
-    if not pleine:
+    notes: List[str] = []
+    cs: List[Cordon] = []
+    if pleine:
+        cs.append(cordon_bout_a_bout("soudure bout à bout", (0, -b / 2), (0, b / 2), t, cote=+1, retours=True, pleine=True, t_piece=t))
+    else:
         pen = float(p["p"])
-        cs.append(cordon_bout_a_bout("pénétration face 1", (0, -b / 2), (0, b / 2), pen, cote=+1, retours=True))
-        if p.get("deux_faces", True):
-            cs.append(cordon_bout_a_bout("pénétration face 2", (0, -b / 2), (0, b / 2), pen, cote=+1, retours=True))
+        deux = bool(p.get("deux_faces", True))
+        if deux and 2.0 * pen >= t - 1e-9:
+            notes.append(f"pénétration des deux faces avec p₁ + p₂ = {2 * pen:g} ≥ t = {t:g} mm : la pénétration est complète → soudure bout à bout "
+                         "à pleine pénétration, la pièce gouverne (§4.7.1)")
+            cs.append(cordon_bout_a_bout("soudure bout à bout", (0, -b / 2), (0, b / 2), t, cote=+1, retours=True, pleine=True, t_piece=t))
+            pleine = True
+        else:
+            cs.append(cordon_bout_a_bout("pénétration face 1", (0, -b / 2), (0, b / 2), pen, cote=+1, retours=True))
+            if deux:
+                cs.append(cordon_bout_a_bout("pénétration face 2", (0, -b / 2), (0, b / 2), pen, cote=+1, retours=True))
     eff = Efforts(Vx=_kn(e.get("N", 0)), Vy=_kn(e.get("V", 0)), Mz=_knm(e.get("M", 0)), reference=(0.0, 0.0, 0.0))
     pieces = {"vue": "plan", "b": b, "t": t, "pleine": pleine, "A": [(-b, -b / 2), (0, -b / 2), (0, b / 2), (-b, b / 2)],
-              "B": [(0, -b / 2), (b, -b / 2), (b, b / 2), (0, b / 2)], "t_min": t}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "pleine": pleine, "discontinu": []}
+              "B": [(0, -b / 2), (b, -b / 2), (b, b / 2), (0, b / 2)], "t_min": t, "p": float(p.get("p", t / 2)),
+              "deux_faces": bool(p.get("deux_faces", True)), "t_rapporte": t}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": [], "notes": notes}
 
 
 # ------------------------------------------------------------------ C8 libre
@@ -351,7 +472,7 @@ def c8(p: Dict, e: Dict) -> Dict:
                   My=_knm(e.get("My", 0)), Mz=_knm(e.get("Mz", 0)),
                   reference=(float(p.get("xR", 0)), float(p.get("yR", 0)), float(p.get("zR", 0))))
     pieces = {"vue": "plan", "elements": elements, "t_min": None}
-    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc}
+    return {"cordons": cs, "efforts": eff, "beta_Lw": 1.0, "pieces": pieces, "discontinu": disc, "notes": []}
 
 
 CONSTRUCTEURS = {"C1": c1, "C2": c2, "C3": c3, "C4": c4, "C5": c5, "C6": c6, "C7": c7, "C8": c8}

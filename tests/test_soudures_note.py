@@ -106,41 +106,54 @@ chk("refus (gorge 2 mm) : la note sort quand même, « CALCUL IMPOSSIBLE », mes
 # ================================================================
 print("\n=== 2. Contenu de la page 1 (console par défaut) ===")
 t1 = norm(texte(pdfs["C3"]))
-chk("bandeau : CONFORME, η max 61 %, cordon droit · bas, critère", "CONFORME" in t1 and "η max 61 %" in t1 and "cordon droit, bas" in t1 and "σ_c ≤ fu/(βw·γM2)" in t1)
-chk("quatre méthodes comparées, la choisie marquée ◀ : directionnelle 61, simplifiée 74, ELS 156, ELS k Eurocode 110",
-    "EC3 directionnelle ◀ 61 %" in t1 and "EC3 simplifiée 74 %" in t1 and "ELS bureau k = 100 156 %" in t1 and "ELS k Eurocode = 141 110 %" in t1)
-chk("ligne de configuration : plat 200 × 10, e 150, deux cordons a 5 continu, acier de référence S235",
-    "Console fléchie : plat 200 × 10, V à e 150 mm de la face, deux cordons a 5 continu" in t1 and "référence S235 (fu 360, βw 0,8)" in t1)
+chk("bandeau : CONFORME, η max 61 %, cordon droit · haut (le côté tendu, premier des deux bouts à égalité), critère",
+    "CONFORME" in t1 and "η max 61 %" in t1 and "cordon droit, haut" in t1 and "σ_c ≤ fu/(βw·γM2)" in t1)
+chk("la méthode CHOISIE seulement : le bandeau la nomme, pas de comparaison des quatre méthodes dans la note",
+    "Eurocode, méthode directionnelle (EN 1993-1-8 §4.5.3.2)" in t1 and "COMPARAISON" not in serre(t1) and "EC3 simplifiée" not in t1 and "ELS bureau k" not in t1)
+chk("VÉRIFICATION AU POINT GOUVERNANT, écrite comme à la main : A_w = 2 × 5 × 190, |f| = √(…) = 764 N/mm, σ_c = √(105,8² + 3 × (105,8² + 31,58²)) = 218,5, "
+    "lim_c = 360/(0,8 × 1,25) = 360, η = max(η_c, η⊥) = 60,7 %",
+    "VÉRIFICATIONAUPOINTGOUVERNANT" in serre(t1) and "A_w = 2·a·l_eff = 2 × 5 × 190 = 1900 mm²" in t1
+    and "|f| = √(f_x² + f_y² + f_z²) = √(0² + −157,9² + 747,9²) = 764 N/mm" in t1
+    and "√(105,8² + 3 × (105,8² + 31,58²)) = 218,5 N/mm²" in t1 and "360/(0,8 × 1,25) = 360 N/mm²" in t1 and "η = max(η_c, η⊥)" in t1 and "60,7 %" in t1)
+chk("ligne de configuration : plat 200 × 10 sur l'aile d'un HEB 200, e 150, deux faces, cordons d'angle a 5 continu, acier de référence S235",
+    "Console fléchie : plat 200 × 10 sur l'aile d'un HEB 200, V à e 150 mm de la face, deux faces, cordons d'angle a 5 continu" in t1
+    and "référence S235 (fu 360, βw 0,8)" in t1)
 chk("ligne des efforts et de la méthode : V = 60,0 kN, efforts de calcul (ELU), limites 360 / 259,2 / 207,8",
     "V = 60,0 kN" in t1 and "efforts de calcul (ELU)" in t1 and "360,0" in t1 and "259,2" in t1 and "207,8" in t1)
 chk("tableau CORDONS : cordon droit et gauche, a 5,0, l_eff 190, |f| 764, η 61 %", "cordon droit" in t1 and "cordon gauche" in t1 and "190" in t1 and "764" in t1)
 chk("tableau EFFORTS : V et N avec le sens ; propriétés du groupe (A_w 1 900 mm², J)", "Charge verticale vers le bas" in t1 and "A_w 1 900 mm²" in t1 and "J 576" in t1)
-chk("VÉRIFICATIONS PAR POINT : σ⊥ 106, τ⊥ −106, τ∥ −32, σ_c 219 au point gouvernant", "106" in t1 and "-106" in t1 and "-32" in t1 and "219" in t1)
-chk("CONCLUSION : taux maximal, méthode nommée en clair, cordons qui portent", "CONCLUSION" in serre(t1) and "Taux maximal 61 % sur cordon droit, bas, selon l'Eurocode" in t1 and "Les cordons portent" in t1)
-chk("légende et notations en pied de page", "σ_c = √(σ⊥² + 3(τ⊥² + τ∥²))" in t1 and "Dessin : pièces au trait fort" in t1)
+chk("VÉRIFICATIONS PAR POINT : en tête σ⊥ +106 (traction : la console s'arrache en haut), τ⊥ 106, τ∥ 32, σ_c 219 ; en pied σ⊥ −106 (compression)",
+    "106" in t1 and "-106" in t1 and "32" in t1 and "219" in t1)
+chk("CONCLUSION : taux maximal, méthode nommée en clair, cordons qui portent", "CONCLUSION" in serre(t1) and "Taux maximal 61 % sur cordon droit, haut, selon l'Eurocode" in t1 and "Les cordons portent" in t1)
+chk("légende et notations en pied de page", "σ_c = √(σ⊥² + 3(τ⊥² + τ∥²))" in t1 and "Dessins : pièces au trait fort" in t1 and "EN 22553" in t1)
 chk("ligne de méthode : Eurocode, directionnelle, γM2 = 1,25, limites 360,0 / 259,2 / 207,8", "méthode directionnelle (§4.5.3.2), γM2 = 1,25" in t1 and "207,8 N/mm²" in t1)
 
 # ================================================================
 print("\n=== 3. Le dessin peint depuis le même SVG ===")
-chk("titre de la vue, cotes, efforts et point gouvernant du SVG dans le PDF",
-    "C3 · CONSOLE FLÉCHIE — élévation" in t1 and "e = 150" in t1 and "h = 200" in t1 and "V = 60,0 kN" in t1 and "M = V·e = 9,0 kN·m" in t1 and "◉ 61 %" in t1)
+chk("les trois scènes du kit peintes en vectoriel : titre des vues, HEB 200 du catalogue, cotes e = 150 / h = 200 / b_p = 200, V = 60,0 kN, ◉ 61 %",
+    "DESSINS—élévation·coupehorizontale·vuedeface" in serre(t1) and "HEB 200" in t1 and "e = 150" in t1 and "h = 200" in t1
+    and "Console · plat 200 × 10" in t1 and "V = 60,0 kN" in t1 and "◉ 61 %" in t1)
 chk("encart de la gorge : titre, a = 5,0, σ⊥ / τ⊥ / τ∥, σ_c", "LA GORGE AU POINT GOUVERNANT" in t1 and "a = 5,0" in t1 and "σ_c = √(σ⊥² + 3(τ⊥² + τ∥²)) = 218,5 N/mm²" in t1)
 t2 = norm(texte(pdfs["C3"], 1))
 chk("cartouche : cas, configuration, méthode, acier, date, échelle 1:n", "ÉCHELLEDUDESSIN" in serre(t2) and "1:" in t2 and "référence S235" in t2 and "Eurocode (ELU) · directionnelle" in t2)
 t5 = norm(texte(pdfs["C5"]))
-chk("C5 : vue de face et élévation, IPE 200, a_f et a_w, semelle tendue nommée", "IPE 200" in t5 and "a_f = 5" in t5 and "a_w = 4" in t5 and "tend le haut" in t5 and "élévation" in t5)
+chk("C5 : vue de face et élévation, IPE 200 sur platine t 15, symboles a 5 (semelles) et a 4 (âme), M_y et V_z en élévation",
+    "IPE 200 sur platine t 15" in t5 and "a 5" in t5 and "a 4" in t5 and "M_y = 30,00 kN·m" in t5 and "V_z = 60,0 kN" in t5
+    and "DESSINS—vuedeface·élévation" in serre(t5))
 t6 = norm(texte(pdfs["C6 CHS par tronçons"]))
 chk("C6 par tronçons : quatre tronçons dans les cordons, message §4.3.2.2 en hypothèse", "pourtour · tronçon 4" in t6 and "§4.3.2.2" in t6 and "espacement" in t6)
 t7 = norm(texte(pdfs["C7"]))
-chk("C7 pleine pénétration : la pièce gouverne, coupe de la soudure en V", "la pièce gouverne" in t7 and "pleine pénétration" in t7 and "coupe (épaisseur ×3)" in t7)
+chk("C7 pleine pénétration : la pièce gouverne, coupe A-A de la soudure (chanfrein en X)", "la pièce gouverne" in t7 and "pleine pénétration" in t7 and "chanfrein en X" in t7)
 t8 = norm(texte(pdfs["C8 cercle + segment"]))
-chk("C8 : arc par tronçons et segment nommés, point de référence R", "arc 1 · tronçon 1" in t8 and "cordon 2" in t8 and "R point de référence" in t8)
+chk("C8 : arc par tronçons et segment nommés sur le dessin avec leur gorge, bloc des efforts", "arc 1 · tronçon 1 · a 4" in t8 and "cordon 2 · a 5" in t8 and "V_y = " in t8)
 
 # ================================================================
 print("\n=== 4. Page 2 : méthode et détail ===")
 chk("MÉTHODE ET DÉTAIL, références", "MÉTHODE ET DÉTAIL" in t2 and "EN 1993-1-8" in t2 and "ANB" in t2 and "LECORDONETSAGORGE" in serre(t2))
-frag_ok = all(norm(sec["paragraphes"][0])[:60] in t2 for sec in ME.SECTIONS)
-chk("un fragment de chaque section de methode.py, mot pour mot (source unique)", frag_ok)
+gardees = [sec for sec in ME.SECTIONS if not sec["titre"].startswith("Méthode ELS")]       # note Eurocode : la règle du bureau n'est pas imprimée
+frag_ok = all(norm(sec["paragraphes"][0])[:60] in t2 for sec in gardees)
+chk("un fragment de chaque section de methode.py de la méthode choisie, mot pour mot (source unique) ; la section ELS absente d'une note Eurocode",
+    frag_ok and len(gardees) == len(ME.SECTIONS) - 1 and norm(next(s for s in ME.SECTIONS if s["titre"].startswith("Méthode ELS"))["paragraphes"][0])[:60] not in t2)
 chk("carte des taux : cordon droit et gauche avec a5 · 190 mm et 61 %", "CARTEDESTAUX" in serre(t2) and "cordon droit · a5 · 190 mm" in t2 and "61 %" in t2)
 t8b = norm(texte(pdfs["C5 HEA 200 six efforts"], 1))
 chk("HEA 200 : 24 points ne tiennent pas en page 1 → le pire point de chacun des 8 cordons, détail des 24 en page 2",
@@ -154,7 +167,11 @@ print("\n=== 5. Méthode ELS ===")
 te = norm(texte(pdfs["C3 ELS"]))
 chk("ELS : « efforts de service », k = 100 kg/(mm·cm) = 98,1 N/mm², équivalent Eurocode 138,6 = 141, console à 104 % NON CONFORME (V_ser 40 kN, sans retours)",
     "efforts de service" in te and "98,1 N/mm²" in te and "138,6 N/mm² = 141 kg/(mm·cm)" in te and "NON CONFORME" in te and "η max 104 %" in te)
-chk("ELS : la comparaison marque « ELS bureau k = 100 ◀ », l'Eurocode directionnel reste lisible à 40 %", "ELS bureau k = 100 ◀ 104 %" in te and "EC3 directionnelle 40 %" in te)
+chk("ELS : la vérification écrit la règle du bureau et son équivalent (τ_adm = k·g/10 = 100 × 9,81/10 = 98,1, F_adm = 98,1 × 5 = 491 N/mm, k équivalent 141) ; "
+    "page 2 sans le texte Eurocode",
+    "τ_adm = k·g/10 = 100 × 9,81/10 = 98,1 N/mm²" in te and "F_adm = τ_adm·a = 98,1 × 5 = 491 N/mm" in te and "= 141 kg/(mm·cm)" in te
+    and "Méthode ELS du bureau (efforts de service)" in te and "EUROCODE:EN1993-1-8§4.5.3" not in serre(norm(texte(pdfs["C3 ELS"], 1)))
+    and "MÉTHODEELSDUBUREAU" in serre(norm(texte(pdfs["C3 ELS"], 1))))
 te_r = norm(texte(NT.generer_note(ET_, cas_de("C3", {"retours": True}, {"V": 40}, {"mode": "els"}))))
 chk("ELS avec retours d'angle (l'exemple de l'étude) : 94 %, CONFORME · ATTENTION", "η max 94 %" in te_r and "ATTENTION" in serre(te_r))
 

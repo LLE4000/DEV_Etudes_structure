@@ -120,8 +120,10 @@ chk("le switch : segmented control Eurocode (ELU) | Méthode ELS (bureau), Euroc
     at.segmented_control(key="sdr_w_methode_mode").value == K.EUROCODE and "Efforts de calcul (ELU)" in m)
 chk("choix de configuration C1 … C8 (radio sur une ligne, qui passe à la ligne sur tablette), C3 (console) par défaut",
     at.radio(key="sdr_w_config").value == "C3" and len(at.radio(key="sdr_w_config").options) == 8)
-chk("dessin technique : SVG avec titre, hachures, cotes, cordons colorés, point gouvernant",
-    "C3 · CONSOLE FLÉCHIE" in m and "patternTransform" in m and "e = 150" in m and "linearGradient" in m and "◉ " in m)
+chk("schémas techniques du kit des assemblages : trois vues de la console (élévation, coupe horizontale, vue de face), HEB 200 du catalogue, "
+    "hachures, cotes e = 150, bande de cordon, point gouvernant",
+    "ÉLÉVATION" in m and "COUPE HORIZONTALE" in m and "VUE DE FACE" in m and 'id="sdr_v0"' in m and 'id="sdr_v2"' in m and "HEB 200" in m
+    and 'class="ht"' in m and "e = 150" in m and 'class="wb"' in m and "◉ " in m)
 chk("encart « la gorge » : σ⊥, τ⊥, τ∥, σ_c, critère", "LA GORGE AU POINT GOUVERNANT" in m and "σ_c = √(σ⊥² + 3(τ⊥² + τ∥²))" in m)
 chk("carte des taux : cordon droit et cordon gauche avec leur η", "CARTE DES TAUX" in m and "cordon droit" in m and "cordon gauche" in m)
 chk("carte RÉSULTAT : pastille Conforme, η = 61 % (console par défaut sans retours : l_eff = 190), quatre méthodes comparées",
@@ -187,21 +189,29 @@ at.selectbox(key="sdr_w_params_nuance_B").select("S235"); run(at)
 
 # ================================================================
 print("\n=== 5. Les huit configurations ===")
-attendus = {"C1": ({"sdr_w_params_b", "sdr_w_params_L_rec", "sdr_w_params_frontaux", "sdr_w_params_lateraux"}, "C1 · RECOUVREMENT"),
-            "C2": ({"sdr_w_params_l", "sdr_w_params_tB", "sdr_w_params_deux_cordons"}, "C2 · JONCTION EN T"),
-            "C4": ({"sdr_w_params_bx", "sdr_w_params_by", "sdr_w_params_xV", "sdr_w_params_yV"}, "C4 · GOUSSET"),
-            "C5": ({"sdr_w_params_profil", "sdr_w_params_a_f", "sdr_w_params_a_w", "sdr_w_params_semelles", "sdr_w_troncons_semelles_on"}, "C5 · PLATINE"),
-            "C6": ({"sdr_w_params_profil", "sdr_w_params_a", "sdr_w_troncons_on"}, "C6 · TUBE"),
-            "C7": ({"sdr_w_params_b", "sdr_w_params_t", "sdr_w_params_penetration", "sdr_w_params_p"}, "C7 · BOUT À BOUT"),
-            "C8": ({"sdr_w_params_xR", "sdr_w_params_yR", "sdr_w_params_zR"}, "C8 · CORDONS LIBRES")}
-for cfg, (attendu, titre) in attendus.items():
+attendus = {"C1": ({"sdr_w_params_b", "sdr_w_params_L_rec", "sdr_w_params_frontaux", "sdr_w_params_lateraux"}, "VUE EN PLAN", "Recouvrement"),
+            "C2": ({"sdr_w_params_l", "sdr_w_params_tB", "sdr_w_params_deux_cordons", "sdr_w_params_jonction"}, "COUPE A-A", "Jonction en T"),
+            "C4": ({"sdr_w_params_bx", "sdr_w_params_by", "sdr_w_params_xV", "sdr_w_params_yV", "sdr_w_params_poteau"}, "VUE EN PLAN", "Gousset"),
+            "C5": ({"sdr_w_params_profil", "sdr_w_params_a_f", "sdr_w_params_a_w", "sdr_w_params_semelles", "sdr_w_troncons_semelles_on",
+                    "sdr_w_params_jonction_semelles", "sdr_w_params_jonction_ame", "sdr_w_params_tp"}, "VUE DE FACE", "Platine d'about"),
+            "C6": ({"sdr_w_params_profil", "sdr_w_params_a", "sdr_w_troncons_on", "sdr_w_params_jonction"}, "VUE DE FACE", "Tube sur platine"),
+            "C7": ({"sdr_w_params_b", "sdr_w_params_t", "sdr_w_params_penetration", "sdr_w_params_p"}, "VUE EN PLAN", "Bout à bout"),
+            "C8": ({"sdr_w_params_xR", "sdr_w_params_yR", "sdr_w_params_zR"}, "VUE DU PLAN DE JOINT", "Cordons libres")}
+for cfg, (attendu, titre, lib) in attendus.items():
     at = changer_config(at, cfg)
-    chk(f"{cfg} : champs propres, dessin titré, calcul conforme avec les défauts",
-        attendu <= cles(at) and titre in md(at) and "onforme" in pastille(at), f"{sorted(attendu - cles(at))} {pastille(at)[:40]}")
+    chk(f"{cfg} : champs propres (dont le type de jonction, le support), vue principale titrée « {titre} », calcul conforme avec les défauts",
+        attendu <= cles(at) and titre in md(at) and lib in md(at) and 'id="sdr_v0"' in md(at) and "onforme" in pastille(at),
+        f"{sorted(attendu - cles(at))} {pastille(at)[:40]}")
 at = changer_config(at, "C5")
 at.selectbox(key="sdr_w_params_profil").select("HEA 200"); run(at)
 chk("C5 : HEA 200 choisi au catalogue, nommé sur le dessin, huit cordons",
-    cas_actif(at)["params"]["profil"] == "HEA 200" and "HEA 200 · cordons" in md(at) and "semelle sup. int. droite" in md(at))
+    cas_actif(at)["params"]["profil"] == "HEA 200" and "HEA 200 sur platine t 15" in md(at) and "semelle sup. int. droite" in md(at))
+at.segmented_control(key="sdr_w_params_jonction_semelles").set_value("pleine"); run(at)
+chk("C5 semelles à pleine pénétration : les champs de gorge des semelles disparaissent, l'équivalent en cordons d'angle est dit (a ≥ 0,46·t), "
+    "symbole « pleine pénétration » sur le dessin, deux soudures « semelle sup. / inf. » de gorge t_f = 10",
+    "sdr_w_params_a_f" not in cles(at) and "sdr_w_params_a_w" in cles(at) and "a ≥ 0,46·t" in md(at) and "pleine pénétration" in md(at)
+    and "semelle sup." in md(at) and cas_actif(at)["params"]["jonction_semelles"] == "pleine")
+at.segmented_control(key="sdr_w_params_jonction_semelles").set_value("angle"); run(at)
 at = changer_config(at, "C6")
 at.selectbox(key="sdr_w_params_profil").select("CHS 114.3x5"); run(at)
 chk("C3 → C6 : la gorge du widget SUIT l'état (4 mm, défaut du tube), pas l'ancienne valeur 5 de la console",
@@ -214,8 +224,8 @@ chk("C6 : CHS 114,3 × 5 par 4 tronçons de 50 — plus de cordon partout : quat
     "pourtour · tronçon 4" in m and "§4.3.2.2" in m and "4 tronçons de 50 mm" in m)
 at = changer_config(at, "C7")
 at.segmented_control(key="sdr_w_params_penetration").set_value("partielle"); run(at)
-chk("C7 partielle : deux cordons de pénétration, encart « gorge ⊥ à N », coupe cotée p",
-    "pénétration face 2" in md(at) and "gorge ⊥ à N" in md(at) and "p = 6" in md(at))
+chk("C7 partielle (p = 5 par défaut sur t = 12) : deux cordons de pénétration, encart « gorge ⊥ à N », coupe cotée p 5, symbole « s 5 »",
+    "pénétration face 2" in md(at) and "gorge ⊥ à N" in md(at) and "p 5" in md(at) and "s 5" in md(at))
 
 # ================================================================
 print("\n=== 6. Cordons libres ===")
