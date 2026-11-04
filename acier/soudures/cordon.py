@@ -46,7 +46,11 @@ class Cordon:
     u_B: Tuple[float, float, float] = (0.0, 0.0, 1.0)
     retours: bool = False                 # retours d'angle exécutés → longueur entière (§4.5.1)
     bout_a_bout: bool = False             # pénétration partielle : gorge = pénétration
-    continu: bool = False                 # tronçon d'un cordon continu (pourtour) : pas de longueur minimale propre
+    continu: bool = False                 # segment d'une chaîne (pourtour, arc, tronçon) : pas de longueur minimale propre
+    chaine: str = ""                      # nom de la chaîne dont le cordon est un segment ("" : cordon droit seul)
+    ferme: bool = False                   # segment d'une chaîne fermée (pourtour) : pas de bout
+    l_chaine: float = 0.0                 # longueur réelle de la chaîne (avant raccourcissement)
+    exclu: bool = False                   # exclu par sa chaîne (trop courte) : ne compte pas
     note: str = ""
     _cache: Dict = field(default_factory=dict, repr=False)
 
@@ -72,8 +76,9 @@ class Cordon:
     @property
     def utile(self) -> bool:
         """Un cordon compte si l_eff ≥ max(30 mm ; 6a) et a ≥ 3 mm (§4.5.1, §4.5.2) ;
-        un tronçon de cordon continu ne porte pas de longueur minimale propre."""
-        if self.a < A_MIN - 1e-9:
+        un segment de chaîne ne porte pas de longueur minimale propre (sa chaîne
+        la porte et l'exclut s'il le faut)."""
+        if self.exclu or self.a < A_MIN - 1e-9:
             return False
         return self.continu or self.l_eff >= max(L_MIN_ABS, 6.0 * self.a) - 1e-9
 

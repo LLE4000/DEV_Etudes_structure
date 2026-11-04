@@ -67,6 +67,10 @@ def depuis_json(texte: str) -> Dict:
         c.setdefault("methode", methode_defaut())
         for k, v in methode_defaut().items():
             c["methode"].setdefault(k, v)
+        c.setdefault("params", {})
+        if c["config"] == "C8" and "elements" not in c["params"] and "cordons" in c["params"]:
+            c["params"]["elements"] = CF.elements_c8(c["params"])      # ancien fichier : segments seuls
+            del c["params"]["cordons"]
         for k, v in CF.PARAMS_DEFAUT[c["config"]].items():
             c["params"].setdefault(k, copy.deepcopy(v))
         for k, v in CF.EFFORTS_DEFAUT[c["config"]].items():
@@ -107,14 +111,37 @@ def _statut(taux: float) -> str:
     return NOK if taux > SEUIL_NOK else ATTENTION if taux > SEUIL_ATTENTION else OK
 
 
+def _chaines(cordons: List[Dict]) -> List[Dict]:
+    """Les cordons tels que l'utilisateur les nomme : un cordon droit, ou une
+    chaîne (pourtour, arc, tronçon) regroupant ses segments de calcul."""
+    out: List[Dict] = []
+    index: Dict[str, Dict] = {}
+    for c in cordons:
+        nom = c["chaine"]
+        if nom not in index:
+            index[nom] = {"nom": nom, "a": c["a"], "l": 0.0, "l_eff": 0.0, "segments": 0, "taux": c["taux"],
+                          "position": c["position"], "f_max": c["f_max"], "retours": c["retours"], "continu": c["continu"],
+                          "ferme": c["ferme"], "bout_a_bout": c["bout_a_bout"]}
+            out.append(index[nom])
+        ch = index[nom]
+        ch["l"] += c["l"]
+        ch["l_eff"] += c["l_eff"]
+        ch["segments"] += 1
+        if c["taux"] > ch["taux"]:
+            ch["taux"], ch["position"], ch["f_max"] = c["taux"], c["position"], c["f_max"]
+        if c["continu"]:
+            ch["l"] = c["l_chaine"]        # la chaîne porte sa longueur réelle (avant raccourcissement de a à chaque bout)
+    return out
+
+
 def verifier(cas: Dict) -> Dict:
     """Vérification complète d'un cas : propriétés du groupe, force et
     composantes de gorge en chaque point, taux selon la méthode choisie et
     selon les autres (comparaison), point et cordon gouvernants, messages."""
     meth = K.Methode(**{k: cas["methode"][k] for k in ("mode", "ec", "gamma_M2", "k", "g", "gamma_F")})
     acier = acier_cordon(cas["params"])
-    out = {"config": cas["config"], "methode": meth, "acier": acier, "messages": [], "points": [], "cordons": [],
-           "statut": REFUS, "taux_max": None, "gouvernant": None, "comparaison": {}, "pleine": False}
+    out = {"config": cas["config"], "methode": meth, "acier": acier, "messages": [], "points": [], "cordons": [], "chaines": [],
+           "cordons_exclus": [], "statut": REFUS, "taux_max": None, "gouvernant": None, "comparaison": {}, "pleine": False}
     try:
         built = CF.construire(cas["config"], cas["params"], cas["efforts"])
     except (ValueError, KeyError) as e:
@@ -124,10 +151,32 @@ def verifier(cas: Dict) -> Dict:
     if built.get("pleine"):
         return _verifier_pleine(cas, out, acier, meth)
     cordons = built["cordons"]
+    out["cordons_exclus"] = []
+    vus = set()
     for c in cordons:
         if not c.utile:
-            out["messages"].append(f"{c.nom} : ne compte pas (gorge ≥ {A_MIN:g} mm et l_eff ≥ max(30 mm ; 6a) exigés ; "
-                                   f"a = {c.a:g}, l_eff = {c.l_eff:g} mm)")
+            out["cordons_exclus"].append({"nom": c.nom, "chaine": c.chaine or c.nom, "a": c.a, "p1": [float(v) for v in c.P1],
+                                          "p2": [float(v) for v in c.P2]})
+            nom = c.chaine or c.nom
+            if nom in vus:
+                continue
+            vus.add(nom)
+            if c.chaine:
+                out["messages"].append(f"{nom} : ne compte pas (gorge ≥ {A_MIN:g} mm et l − 2a ≥ max(30 mm ; 6a) exigés ; "
+                                       f"a = {c.a:g}, l = {c.l_chaine:.0f} mm)")
+            else:
+                out["messages"].append(f"{c.nom} : ne compte pas (gorge ≥ {A_MIN:g} mm et l_eff ≥ max(30 mm ; 6a) exigés ; "
+                                       f"a = {c.a:g}, l_eff = {c.l_eff:g} mm)")
+    for d in built.get("discontinu", []):
+        t_min = (built.get("pieces") or {}).get("t_min")
+        esp = d.get("espacement")
+        if esp is None:
+            out["messages"].append(f"Soudure discontinue ({d['nom']}) : {d['n']} tronçon de {d['l']:g} mm")
+            continue
+        lim = f" ≤ min(200 mm ; 12 t = {12 * t_min:.0f} en compression ; 16 t = {16 * t_min:.0f} en traction) pour t = {t_min:g} mm" if t_min else " ≤ min(200 mm ; 12 t en compression ; 16 t en traction)"
+        trop = t_min and esp > min(200.0, 16.0 * t_min) + 1e-9 or (not t_min and esp > 200.0 + 1e-9)
+        out["messages"].append(f"Soudure discontinue ({d['nom']}) : {d['n']} tronçons de {d['l']:g} mm, espacement {esp:.0f} mm ; "
+                               f"EN 1993-1-8 §4.3.2.2 : espacement{lim}" + (" — DÉPASSÉ" if trop else ""))
     if built["beta_Lw"] < 1.0:
         out["messages"].append(f"Assemblage long par recouvrement (§4.11) : βLw = {built['beta_Lw']:.3f} appliqué")
     try:
@@ -161,9 +210,12 @@ def verifier(cas: Dict) -> Dict:
     for c in g.utiles:
         mine = [p for p in out["points"] if p["cordon"] == c.nom]
         pire = max(mine, key=lambda p: p["taux"])
-        out["cordons"].append({"nom": c.nom, "a": c.a, "l": c.longueur, "l_eff": c.l_eff, "retours": c.retours,
-                               "p1": [float(v) for v in c.P1], "p2": [float(v) for v in c.P2], "taux": pire["taux"],
-                               "position": pire["position"], "f_max": pire["f"]})
+        out["cordons"].append({"nom": c.nom, "chaine": c.chaine or c.nom, "a": c.a, "l": c.longueur, "l_eff": c.l_eff,
+                               "retours": c.retours, "continu": c.continu, "ferme": c.ferme, "l_chaine": c.l_chaine,
+                               "bout_a_bout": c.bout_a_bout,
+                               "p1": [float(v) for v in c.P1], "p2": [float(v) for v in c.P2],
+                               "u_A": [float(v) for v in c.u_A], "taux": pire["taux"], "position": pire["position"], "f_max": pire["f"]})
+    out["chaines"] = _chaines(out["cordons"])
     out["comparaison"] = lim
     out["gouvernant"] = gouv
     out["taux_max"] = gouv["taux"]

@@ -228,6 +228,108 @@ chk("le moteur n'importe pas Streamlit",
     not any("import streamlit" in open(os.path.join("acier", "soudures", f), encoding="utf-8").read()
             for f in os.listdir(os.path.join("acier", "soudures")) if f.endswith(".py")))
 
+print("\n=== 6. Tracé : chaînes, tronçons, arcs (soudures discontinues, cordons sur n'importe quoi) ===")
+from acier.soudures import trace as TR  # noqa: E402
+carre = [(0, 0), (100, 0), (100, 100), (0, 100)]
+chk("chemin fermé : longueur du carré 400, point à s = 150 → (100, 50)",
+    pres(TR.longueur_chemin(carre, True), 400.0) and pres(TR.point_chemin(carre, True, 150)[0], 100.0) and pres(TR.point_chemin(carre, True, 150)[1], 50.0))
+sc = TR.sous_chemin(carre, True, 350, 450)
+chk("sous-chemin qui franchit l'origine : (0,50) → (0,0) → (50,0), longueur 100",
+    len(sc) == 3 and pres(sc[1][0], 0.0, 1e-9) and pres(sc[1][1], 0.0, 1e-9) and pres(TR.longueur_chemin(sc), 100.0))
+ch = TR.chaine("c", [(0, 0), (200, 0)], 5.0, +1)
+chk("chaîne ouverte de 200, a = 5 : un segment raccourci de a à chaque bout (5 → 195), l_eff = 190, longueur réelle gardée",
+    len(ch) == 1 and pres(ch[0].P1[0], 5.0) and pres(ch[0].P2[0], 195.0) and pres(ch[0].l_eff, 190.0) and pres(ch[0].l_chaine, 200.0) and ch[0].utile)
+ch = TR.chaine("c", [(0, 0), (35, 0)], 5.0, +1)
+chk("chaîne de 35 avec a = 5 : l − 2a = 25 < 30 → exclue (ne compte pas)", ch and not ch[0].utile and ch[0].exclu)
+chk("chaîne fermée : pas de bout, longueur entière, 4 segments", len(TR.chaine("p", carre, 5.0, +1, ferme=True)) == 4
+    and pres(sum(c.l_eff for c in TR.chaine("p", carre, 5.0, +1, ferme=True)), 400.0))
+tr = TR.tronconner("t", [(0, 0), (200, 0)], 5.0, +1, 3, 40.0)
+chk("3 tronçons de 40 sur 200 : aux deux bouts et au milieu (0–40, 80–120, 160–200), chacun raccourci de a, espacement 40",
+    len(tr) == 3 and pres(tr[0].P1[0], 5.0) and pres(tr[1].P1[0], 85.0) and pres(tr[2].P2[0], 195.0) and all(pres(c.l_eff, 30.0) for c in tr)
+    and pres(TR.espacement_troncons(200, False, 3, 40), 40.0))
+try:
+    TR.tronconner("t", [(0, 0), (200, 0)], 5.0, +1, 4, 60.0)
+    chk("tronçons qui ne tiennent pas (4 × 60 > 200) : ValueError", False)
+except ValueError:
+    chk("tronçons qui ne tiennent pas (4 × 60 > 200) : ValueError", True)
+s_haut = TR.abscisse_pres(carre, True, (50.0, 100.0))
+tr = TR.tronconner("p", carre, 5.0, +1, 4, 50.0, ferme=True, s_origine=s_haut)
+centres = [tuple(np.round((c.P1[:2] + c.P2[:2]) / 2, 6)) for c in tr]
+chk("4 tronçons de 50 sur le carré, le premier centré en haut : centres au milieu des quatre côtés",
+    pres(s_haut, 250.0) and len(tr) == 4 and (50.0, 100.0) in centres and (0.0, 50.0) in centres and (50.0, 0.0) in centres and (100.0, 50.0) in centres, str(centres))
+a4 = TR.arc((0, 0), 100.0, 0.0, 90.0)
+chk("arc de 90° r = 100 : 7 points (cordes de 15°), longueur 156,6 (polygone) ; cercle entier : 24 points, fermé",
+    len(a4) == 7 and pres(TR.longueur_chemin(a4), 12 * 100 * math.sin(math.radians(7.5)), 1e-6) and len(TR.arc((0, 0), 100.0, 0.0, 360.0)) == 24
+    and TR.est_ferme_arc(0.0, 360.0) and not TR.est_ferme_arc(0.0, 180.0))
+
+print("\n=== 7. Les configurations par tronçons et les cordons libres généralisés ===")
+r = verif("C6", {"profil": "CHS 114.3x5", "a": 4, "troncons": {"n": 4, "l": 60}}, {"N": 100, "Vz": 0, "Vy": 0, "My": 0, "Mz": 0, "T": 0})
+chk("C6 CHS par 4 tronçons de 60, a = 4 : 4 chaînes de l_eff = 52, N seul → f = N/(4·52) = 480,8 N/mm, message §4.3.2.2 avec l'espacement",
+    len(r["chaines"]) == 4 and all(pres(c["l_eff"], 52.0) and pres(c["l"], 60.0) for c in r["chaines"]) and pres(r["gouvernant"]["f"], 100e3 / 208.0, 1e-6)
+    and any("§4.3.2.2" in m and "4 tronçons" in m for m in r["messages"]), str(r["messages"][:2]))
+peri = r["pieces"]["perimetre"]
+esp = [m for m in r["messages"] if "espacement" in m][0]
+chk("C6 : espacement = périmètre/4 − 60 écrit dans le message", f"espacement {peri / 4 - 60:.0f} mm" in esp, esp)
+rs = verif("C6", {"profil": "SHS 100x100x5", "a": 4, "troncons": {"n": 4, "l": 50}}, {"N": 0, "Vz": 30, "Vy": 0, "My": 0, "Mz": 0, "T": 0})
+cent = [np.round((np.array(c["p1"][:2]) + np.array(c["p2"][:2])) / 2, 3) for c in rs["cordons"]]
+chk("C6 SHS par 4 tronçons de 50 : un tronçon droit centré sur chaque côté (centre du premier en (0 ; 50))",
+    len(rs["chaines"]) == 4 and any(abs(c[0]) < 1e-6 and abs(c[1] - 50.0) < 1e-6 for c in cent), str(cent))
+r = verif("C3", {"h": 200, "t": 10, "e": 150, "a": 5, "troncons": {"n": 2, "l": 60}}, {"V": 60, "N": 0})
+Ix = 4 * 5 * (50 ** 3 / 12 + 50 * 70 ** 2)
+f_att = math.hypot(5 * 9e6 * 95 / Ix, 5 * 60e3 / 1000)
+chk("C3 par 2 tronçons de 60 par côté (h = 200) : 4 chaînes de 50 efficaces centrées à ±70, |f| en tête = √((a·M·95/I_x)² + (a·V/A_w)²)",
+    len(r["chaines"]) == 4 and pres(r["gouvernant"]["f"], f_att, 1e-6) and r["gouvernant"]["position"] in ("haut", "bas"), f"{r['gouvernant']['f']} vs {f_att}")
+chk("C3 tronçons : message §4.3.2.2 avec les limites pour t = 10 (12 t = 120, 16 t = 160), espacement 80 non dépassé",
+    any("espacement 80 mm" in m and "12 t = 120" in m and "DÉPASSÉ" not in m for m in r["messages"]), str(r["messages"]))
+r = verif("C3", {"h": 400, "t": 10, "e": 150, "a": 5, "troncons": {"n": 2, "l": 50}}, {"V": 60, "N": 0})
+chk("C3 h = 400, 2 tronçons de 50 : espacement 300 > min(200 ; 16 t) → « DÉPASSÉ » dans le message",
+    any("espacement 300 mm" in m and "DÉPASSÉ" in m for m in r["messages"]), str(r["messages"]))
+r = verif("C3", {"h": 200, "t": 10, "e": 150, "a": 5, "troncons": {"n": 4, "l": 60}}, {"V": 60, "N": 0})
+chk("C3 : 4 tronçons de 60 ne tiennent pas sur 200 → refus", r["statut"] == ET.REFUS and any("ne tiennent pas" in m for m in r["messages"]))
+r = verif("C1")
+chk("C1 par défaut : le cordon frontal est au bout du plat B (x = 0), nommé ainsi ; deux frontaux → le bout de A en x = L",
+    any(c["nom"] == "frontal (bout de B)" and pres(c["p1"][0], 0.0, 1e-9) for c in r["cordons"])
+    and any(c["nom"] == "frontal (bout de A)" and pres(c["p1"][0], 120.0, 1e-9) for c in verif("C1", {"frontaux": 2})["cordons"]))
+r = verif("C1", {"troncons": {"n": 2, "l": 40}, "frontaux": 0, "retours": False, "L_rec": 120, "b": 100, "a": 5}, {"N": 50, "V": 0})
+chk("C1 latéraux par 2 tronçons de 40 (bouts), frontaux 0 : 4 chaînes de 30 efficaces, τ∥ = N/(4·a·30)",
+    len(r["chaines"]) == 4 and pres(abs(r["gouvernant"]["tau_par"]), 50e3 / (4 * 5 * 30), 1e-6))
+r = verif("C4", {"bx": 200, "by": 150, "cotes": ["gauche", "haut", "bas"], "xV": 250, "yV": 75})
+chk("C4 : l'appui couvre la zone soudée (0 … b_x) et le plat déborde jusqu'au point d'application (porte-à-faux)",
+    max(x for x, _ in r["pieces"]["A"]) == 225 and max(x for x, _ in r["pieces"]["B"]) == 270)
+r = verif("C8", {"elements": [{"type": "arc", "xc": 0, "yc": 0, "r": 50, "ang1": 0, "ang2": 360, "a": 5, "cote": 1}]},
+          {"N": 100, "Vx": 0, "Vy": 0, "Mx": 0, "My": 0, "Mz": 0})
+peri = sum(c["l_eff"] for c in r["cordons"])
+chk("C8 arc fermé r = 50 (cercle, 24 cordes), N seul : une chaîne « arc 1 » de 24 segments, f = N/périmètre, |σ⊥| = |τ⊥| = f/(a√2)",
+    len(r["chaines"]) == 1 and r["chaines"][0]["segments"] == 24 and r["chaines"][0]["nom"] == "arc 1"
+    and pres(r["gouvernant"]["f"], 100e3 / peri, 1e-6) and pres(abs(r["gouvernant"]["sigma_perp"]), 100e3 / peri / (5 * S2), 1e-6), str(r["messages"][:2]))
+r = verif("C8", {"elements": [{"type": "arc", "xc": 0, "yc": 0, "r": 50, "ang1": 0, "ang2": 180, "a": 5, "cote": 1},
+                              {"type": "segment", "x1": -50, "y1": 0, "x2": 50, "y2": 0, "a": 5, "cote": 1}]},
+          {"N": 100, "Vx": 0, "Vy": 0, "Mx": 0, "My": 0, "Mz": 0})
+demi = [c for c in r["chaines"] if c["nom"] == "arc 1"][0]
+chk("C8 demi-cercle ouvert + corde : l'arc est une chaîne raccourcie de a à chaque bout (l_eff = l − 2a), la corde un cordon droit (100 − 2a = 90)",
+    pres(demi["l_eff"], demi["l"] - 10.0, 1e-6) and pres([c for c in r["chaines"] if c["nom"] == "cordon 2"][0]["l_eff"], 90.0) and r["statut"] != ET.REFUS, str(r["messages"][:2]))
+r = verif("C8", {"elements": [{"type": "arc", "xc": 0, "yc": 0, "r": 60, "ang1": 0, "ang2": 360, "a": 4, "cote": 1, "troncons": {"n": 3, "l": 50}}]},
+          {"N": 100, "Vx": 0, "Vy": 0, "Mx": 0, "My": 0, "Mz": 0})
+chk("C8 cercle par 3 tronçons de 50, a = 4 : 3 chaînes de 42 efficaces, le premier tronçon centré en haut",
+    len(r["chaines"]) == 3 and all(pres(c["l_eff"], 42.0, 1e-6) for c in r["chaines"])
+    and any(abs((c["p1"][0] + c["p2"][0]) / 2) < 8 and (c["p1"][1] + c["p2"][1]) / 2 > 55 for c in r["cordons"]), str(r["chaines"]))
+vieux = json.dumps({"cas": [{"nom": "x", "config": "C8", "params": {"cordons": [{"x1": 0, "y1": 0, "x2": 0, "y2": 200, "a": 5, "cote": 1}]},
+                             "efforts": {"Vx": 10}}]})
+d = ET.depuis_json(vieux)
+chk("fichier ancien (C8 par « cordons ») : converti en « elements » de type segment, nom donné",
+    "cordons" not in d["cas"][0]["params"] and d["cas"][0]["params"]["elements"][0]["type"] == "segment"
+    and d["cas"][0]["params"]["elements"][0]["nom"] == "cordon 1" and len(d["cas"][0]["params"]["elements"]) == 1)
+r = verif("C5", {"profil": "IPE 200", "semelles": "extérieur", "ame": False, "a_f": 5, "troncons_semelles": {"n": 2, "l": 30}},
+          {"N": 0, "Vz": 0, "Vy": 0, "My": 30, "Mz": 0, "T": 0})
+chk("C5 semelles par 2 tronçons de 30 : l − 2a = 20 < 30 → toutes les chaînes exclues, refus avec le message de la chaîne",
+    r["statut"] == ET.REFUS and r["chaines"] == [] and any("ne compte pas" in m and "l = 30 mm" in m for m in r["messages"]), str(r["messages"][:2]))
+r = verif("C5", {"profil": "IPE 200", "semelles": "extérieur", "ame": False, "a_f": 5, "troncons_semelles": {"n": 2, "l": 50}},
+          {"N": 0, "Vz": 0, "Vy": 0, "My": 30, "Mz": 0, "T": 0})
+chk("C5 semelles extérieures par 2 tronçons de 50 (bouts de semelle) : 4 chaînes de 40 efficaces, f = M/(h·Σl_eff) = 1 875 N/mm",
+    len(r["chaines"]) == 4 and pres(r["gouvernant"]["f"], 30e6 / (200 * 80), 1e-6), str(r["gouvernant"]["f"]))
+chk("sortie : chaque cordon porte u_A (hors de la pièce rapportée) pour le dessin ; C3 cordon droit → u_A = +x",
+    all(len(c["u_A"]) == 3 for c in r["cordons"]) and pres(verif("C3")["cordons"][0]["u_A"][0], 1.0, 1e-9))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])
