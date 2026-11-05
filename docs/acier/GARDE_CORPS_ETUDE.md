@@ -27,8 +27,10 @@ charges du remplissage (pression q_r, charge ponctuelle Q_r = 0,5 kN de la NBN B
 
 **Les vieilles formules du bureau, et l'Eurocode en face.** Un switch, comme pour les
 soudures : « Vérification à l'ELS » (nommée ainsi depuis la version 3 ; l'étude l'appelait
-« Méthode ELS (bureau) ») = efforts de service et contraintes admissibles
-(σ = M/W_el + N/A ≤ 160 N/mm², τ = V/A_v ≤ 90 N/mm², flèche ≤ L/100) ; « Eurocode (ELU) » =
+« Méthode ELS (bureau) ») = efforts de service et contraintes admissibles dérivées de la
+nuance (σ = M/W_el + N/A ≤ σ_adm = f_y/1,5, τ = V/A_v ≤ τ_adm = σ_adm/√3, σ_eq = √(σ² + 3τ²) ≤
+σ_adm, flèche ≤ L/100 — l'étude et les versions 1 à 3 posaient 160 et 90 N/mm², corrigés en
+version 3.1, P-12) ; « Eurocode (ELU) » =
 charges × γ_Q = 1,5, σ ≤ f_y/γ_M0 (élastique), τ ≤ f_y/(√3·γ_M0), flèche de service. La
 fixation suit : la soudure du montant sur la platine est UN CAS DU MODULE SOUDURES (tube sur
 platine C6, console fléchie C3 pour un plat, cordons libres C8 pour une section non standard —
@@ -256,6 +258,12 @@ plateforme industrielle, câbles), GC7d vérification complète (cinq suites, hu
 captures, docs, batterie). `fixation.py` et `schemas.py` ont grossi d'autant ; le découpage de
 `schemas.py` (élévation / coupes / détails) est au plan.
 
+Version 3.1, le même jour, après la relecture du bureau (« 160 c'est faux : 235/1,5 », « vérifie
+qu'il y a zéro faute », « propose l'optimal ») : GC8a limites dérivées de f_y et σ_eq (P-12),
+GC8b optimal à chaque profilé, GC8c relecture des douze notes avec recalcul indépendant (452
+grandeurs, aucun écart) et six défauts corrigés dont les lisses intermédiaires sur l'axe faible
+(P-13), GC8d suites, batterie, fusion dans `main` à la demande du bureau.
+
 ## 8 · Points à trancher par le bureau (défauts retenus en attendant)
 
 - **P-1 · Valeurs belges du Tableau 6.12.** L'ANB (NBN EN 1991-1-1 ANB) n'a pas pu être lue
@@ -298,6 +306,20 @@ captures, docs, batterie). `fixation.py` et `schemas.py` ont grossi d'autant ; l
 - **P-11 · Plateforme industrielle (version 3).** 0,3 kN/m d'après l'EN ISO 14122-3 (machines,
   accès), imprimé « à confirmer sur l'édition en vigueur » : la valeur est modifiable, et
   l'origine suit.
+- **P-12 · Contraintes admissibles (version 3.1, tranché par le bureau le 05/11/2026).** Les
+  constantes 160 et 90 N/mm² des versions 1 à 3 étaient FAUSSES : la règle est σ_adm = f_y/1,5
+  (156,7 N/mm² pour le S235, 236,7 pour le S355), τ_adm = σ_adm/√3 (90,5), et la contrainte
+  équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm. Le moteur les dérive de la nuance (`membres.limites`,
+  γ_adm = 1,5 modifiable) ; les notes, l'écran, la méthode et les tests ont suivi ; la platine en
+  flexion et la flèche ne changent pas, les taux en contrainte montent de 2 % relatifs
+  (barreaux 62 → 63 %, platine 34 → 35 %).
+- **P-13 · Lisses intermédiaires sur l'axe faible (version 3.1, relecture).** Les versions 1 à 3
+  vérifiaient une lisse intermédiaire sur son axe FORT sous la poussée horizontale, alors
+  qu'elle est posée h vertical comme la main courante (dessins, coupe A-A) : c'était optimiste
+  (RHS 50x25x2.5 sur 900 mm : 18 → 27 %). Depuis la 3.1, `etat.verifier_barre(axe="faible")`
+  la fléchit sur W_el,z et I_z ; les barreaux restent de champ (h dans le sens de la poussée).
+  Si le bureau pose des lisses plates « à plat », il choisira la section dans l'autre sens
+  (b × h inversés) — à trancher si le cas se présente.
 
 ## 9 · Sources
 

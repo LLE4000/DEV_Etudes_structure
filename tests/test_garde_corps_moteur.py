@@ -151,9 +151,18 @@ chk("continue : une charge ponctuelle garde QL/4 et QL³/48EI (côté sûr) ; un
 sec = BI.section({"nom": "CHS 48.3x3.2"})
 meth = ME.methode_defaut()
 v = ME.verifier_section(sec, 495000.0, 0.0, 450.0, 450.0, 0.0, 8.206, 1100.0, meth, 235.0)
-chk("vérification ELS : σ = M/W + N/A, τ = V/A_v, flèche/(L/100) ; σ_adm 160, τ_adm 90 ; η = max",
+chk("vérification ELS : σ = M/W + N/A, τ = V/A_v, flèche/(L/100) ; σ_adm = f_y/1,5 = 156,67, τ_adm = σ_adm/√3 = 90,45 (dérivées de la nuance, plus 160 ni 90) ; η = max",
     pres(v["sigma"], 495000 / (sec["Wel_y"] * 1e3) + 450 / (sec["A"] * 1e2)) and pres(v["tau"], 450 / (sec["Avz"] * 1e2))
-    and pres(v["fleche_lim"], 11.0) and v["lim_sigma"] == 160 and v["lim_tau"] == 90 and pres(v["taux_max"], 8.206 / 11.0) and v["critere"] == "fleche")
+    and pres(v["fleche_lim"], 11.0) and pres(v["lim_sigma"], 235 / 1.5) and pres(v["lim_tau"], 235 / 1.5 / math.sqrt(3)) and v["coef_lim"] == 1.5
+    and pres(v["taux_max"], 8.206 / 11.0) and v["critere"] == "fleche")
+chk("contrainte équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm : calculée, son taux η_eq ≥ η_σ, et c'est elle qui est nommée quand les contraintes gouvernent",
+    pres(v["sigma_eq"], math.sqrt(v["sigma"] ** 2 + 3 * v["tau"] ** 2)) and pres(v["taux"]["sigma_eq"], v["sigma_eq"] / (235 / 1.5))
+    and v["taux"]["sigma_eq"] >= v["taux"]["sigma"]
+    and ME.verifier_section(sec, 495000.0, 0.0, 450.0, 450.0, 0.0, 1.0, 1100.0, meth, 235.0)["critere"] == "sigma_eq"
+    and ME.critere_texte("sigma_eq") == "σ équivalente")
+chk("S355 : σ_adm = 355/1,5 = 236,7 et τ_adm = 136,6 suivent la nuance ; γ_adm modifiable (1,6 → 146,9)",
+    pres(ME.limites(meth, 355.0)["sigma"], 355 / 1.5) and pres(ME.limites(meth, 355.0)["tau"], 355 / 1.5 / math.sqrt(3))
+    and pres(ME.limites({**meth, "gamma_adm": 1.6}, 235.0)["sigma"], 235 / 1.6))
 me = {**meth, "mode": "eurocode"}
 ve = ME.verifier_section(sec, 495000.0, 0.0, 450.0, 450.0, 0.0, 8.206, 1100.0, me, 235.0)
 chk("Eurocode : γ_Q = 1,5 sur σ et τ, limites fy/γM0 = 235 et fy/√3, la flèche reste de service",
@@ -274,7 +283,7 @@ chk("cheville ETA en ELS : N_Rd/γ_F = 9/1,5 = 6 kN, interaction (β_N)^1,5 + (�
     pres(pl["FtRd"], 6000.0) and pres(pl["inter"], (pl["Ft"] / 6000) ** 1.5 + (pl["Fv"] / 8000) ** 1.5))
 chk("flexion de la platine : m = e_x/2 − h_p/2 − 0,8·a·√2 = 20,5, b_eff = min(l_p ; 2·min(2πm ; 4m + 1,25e)) = 150, σ_p = 6·Z·m/(b·t²), t_req",
     pres(pl["m"], 50 - 25 - 0.8 * 4 * math.sqrt(2)) and pres(pl["b_eff"], 150.0) and pres(pl["sigma_p"], 6 * pl["Z"] * pl["m"] / (150 * 100))
-    and pres(pl["tp_req"], math.sqrt(6 * pl["Z"] * pl["m"] / (150 * 160))))
+    and pres(pl["tp_req"], math.sqrt(6 * pl["Z"] * pl["m"] / (150 * 235 / 1.5))))
 plK = rK["fixation"]["platine"]
 chk("cumul : la platine reçoit aussi N = 0,45 kN de compression (Z = (M − N·h_p/2)/z), cas 1+2", plK["cas_charge"] == "1+2" and pres(plK["Z"], (495000 - 450 * 25) / 75.0))
 rB = ET.verifier(cas(fixation={"ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon", "boulon": "M12", "classe": "8.8"}}))
@@ -364,7 +373,7 @@ chk("… couple d'ancrages : z = e_x = 100, Z = M/z + P/2 = 5512,5 + 225 = 5737,
     pres(plLat["z"], 100.0) and pres(plLat["Z"], 450 * 1225 / 100 + 225) and pres(plLat["Ft"], plLat["Z"] / 2) and pres(plLat["Fv"], 0.0))
 chk("… platine en console horizontale : m = e_y/2 − b/2 − 0,8·a·√2 = 50 − 15 − 4,525 = 30,5, e = (b_p − e_x)/2 = 25, b_eff = min(b_p ; 2·min(2πm ; 4m + 1,25e)) = 150, σ_p, t_req",
     pres(plLat["m"], 50 - 15 - 0.8 * 4 * math.sqrt(2)) and pres(plLat["e_bord"], 25.0) and pres(plLat["b_eff"], 150.0)
-    and pres(plLat["sigma_p"], 6 * plLat["Z"] * plLat["m"] / (150 * 100)) and pres(plLat["tp_req"], math.sqrt(6 * plLat["Z"] * plLat["m"] / (150 * 160))))
+    and pres(plLat["sigma_p"], 6 * plLat["Z"] * plLat["m"] / (150 * 100)) and pres(plLat["tp_req"], math.sqrt(6 * plLat["Z"] * plLat["m"] / (150 * 235 / 1.5))))
 chk("… soudure : cas C8, deux cordons longitudinaux de 150 (la hauteur de la platine) à ±15 (b/2), efforts au point à y_P = 1225 (N = P, V_y = −N_v), le point haut gouverne",
     sLat["res"]["config"] == "C8" and len(sLat["cas"]["params"]["elements"]) == 2
     and all(pres(abs(e["x1"]), 15.0) and pres(abs(e["y1"] - e["y2"]), 150.0) for e in sLat["cas"]["params"]["elements"])
@@ -404,6 +413,27 @@ chk("rampant (pente 32°) : la mécanique ne change pas (entraxes mesurés suiva
 chk("catégorie « plateforme industrielle (machines) » : q_h = 0,30 kN/m, origine EN ISO 14122-3 à confirmer", CH.qh_de_categorie("ind") == 0.3
     and "EN ISO 14122-3" in CH.tableau(CH.normaliser({"categorie": "ind"}))[0]["norme"] and "confirmer" in CH.origine_qh(CH.normaliser({"categorie": "ind"})))
 chk("le type « panneau » annonce aussi les câbles", "câbles" in TY.TYPES["panneau"]["libelle"])
+
+
+# ================================================================
+print("\n=== 10. Relecture 3.1 : axes du remplissage, efforts d'ancrage nommés ===")
+rL2 = ET.verifier(cas("lisses", geometrie={"forme": "L"}, montant={"section": {"nom": "RHS 60x40x3"}}, lisse={"appuis": "continue"}))
+vli = rL2["remplissage"]["verif"]
+secL = rL2["remplissage"]["section"]
+chk("une lisse intermédiaire est posée h vertical : la poussée horizontale fléchit l'AXE FAIBLE (M₂ sur W_el,z, I_z, V sur A_v,y) — 27,5 % et non 18 % sur l'axe fort",
+    vli["axe"] == "faible" and vli["M1"] == 0.0 and vli["M2"] > 0 and pres(vli["sigma"], vli["M2"] / (secL["Wel_z"] * 1e3))
+    and pres(vli["fleche"], 500.0 * 900.0 ** 3 / (48 * 210000 * secL["Iz"] * 1e4)) and pres(vli["tau"], vli["V2"] / (secL["Avy"] * 1e2)) and 0.27 < vli["taux_max"] < 0.28)
+vbb = ET.verifier(cas())["remplissage"]["verif"]
+chk("un barreau plat est de champ : h = 30 dans le sens de la poussée, axe fort (W_el = 8·30²/6 = 1200, I = 18 000)",
+    vbb["axe"] == "fort" and vbb["M2"] == 0.0 and pres(vbb["Wy"], 1200.0) and pres(vbb["sigma"], vbb["M1"] / 1200.0))
+chk("ME.verifier_barre(axe='faible') met M sur l'axe faible, axe='fort' (défaut) sur l'axe fort",
+    ET.verifier_barre(secL, 0.0, 500.0, 900.0, ME.methode_defaut(), 235.0, axe="faible")["M2"] > 0
+    and ET.verifier_barre(secL, 0.0, 500.0, 900.0, ME.methode_defaut(), 235.0)["M1"] > 0)
+rP = ET.verifier(cas(charges={"mode": "P", "P": 1.2, "cumul": True}))
+chk("les efforts à l'ancrage nomment la nature de N : « N = 0,23 kN (compression) » sous q_h + q_v cumulées (plus de signe nu)",
+    "N = 0,23 kN (compression)" in rP["fixation"]["soudure"]["efforts_txt"] and "N = 0,00 kN" in ET.verifier(cas())["fixation"]["soudure"]["efforts_txt"])
+chk("le libellé de l'élément ancrage est court : « Ancrages · 2 × 2 chevilles M12 » (les résistances restent dans les hypothèses)",
+    any(e["libelle"] == "Ancrages · 2 × 2 chevilles M12" for e in ET.verifier(cas())["elements"]) and "(N_Rd 9 kN, V_Rd 12 kN)" in FX.texte_ancrage(FX.fixation_defaut()["ancrage"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

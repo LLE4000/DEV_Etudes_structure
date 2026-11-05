@@ -53,7 +53,7 @@ def _fs(w: float) -> float:
 
 
 def _kn(v: float) -> str:
-    return F(abs(v) / 1e3, 1) + " kN"
+    return F(abs(v) / 1e3, 2 if abs(v) < 10e3 else 1) + " kN"      # deux décimales sous 10 kN (0,45 kN, pas 0,5)
 
 
 def _knm(v: float) -> str:

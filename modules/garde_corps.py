@@ -75,6 +75,7 @@ CSS = """<style>
 .gc-ch .n{font-size:18px;font-weight:700;color:#33415c;line-height:1.1}.gc-ch .s{font-weight:700}.gc-ch .o{font-size:11.5px;color:#6b7280}
 .gc-role{font-size:14px;font-weight:700;margin:14px 0 2px;padding-top:8px;border-top:1px solid #e5e7eb}
 .gc-elt{font-size:12.5px;color:#374151}
+.gc-opt{font-size:13px;color:#1f2937;padding:4px 0}
 </style>"""
 
 
@@ -318,10 +319,12 @@ def _switch(cas: Dict):
     fl = f"L/{m.get('fleche_val', 100):g}" if m.get("fleche_mode", "L/x") == "L/x" else f"{m.get('fleche_val', 0):g} mm"
     with c2:
         if m["mode"] == ME.ELS:
-            st.markdown(f'<div class="gc-switch"><b>Charges de service</b>, sans coefficient, contraintes admissibles — σ = M/W + N/A ≤ '
-                        f'<b>{m.get("sigma_adm", 160):g} N/mm²</b>, τ = V/A_v ≤ <b>{m.get("tau_adm", 90):g} N/mm²</b>, flèche ≤ <b>{fl}</b> ; soudure '
+            lim = ME.limites(m, ET.acier(m)["fy"])
+            st.markdown(f'<div class="gc-switch"><b>Charges de service</b>, sans coefficient, contraintes admissibles dérivées de la nuance — '
+                        f'σ = M/W + N/A ≤ σ_adm = f_y/{lim["coef"]:g} = <b>{_fmt(lim["sigma"])} N/mm²</b>, τ = V/A_v ≤ τ_adm = σ_adm/√3 = '
+                        f'<b>{_fmt(lim["tau"])} N/mm²</b>, σ_eq = √(σ² + 3τ²) ≤ σ_adm, flèche ≤ <b>{fl}</b> ; soudure '
                         f'à l\'ELS (k = {m.get("k", 100):g} kg/(mm·cm)), chevilles et boulons à leur résistance de calcul / γ_F = {m.get("gamma_F", 1.5):g} '
-                        f'(paramètres dans l\'onglet Détail).</div>', unsafe_allow_html=True)
+                        f'(paramètres dans l\'onglet Détail).</div>'.replace("f_y/1.5", "f_y/1,5"), unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="gc-switch"><b>Efforts de calcul (ELU)</b> : charges × γ_Q = {m.get("gamma_Q", 1.5):g}, σ ≤ f_y/γ_M0 (élastique, W_el), '
                         f'τ ≤ f_y/(√3·γ_M0), flèche ≤ {fl} sous charges de service ; soudure EN 1993-1-8 directionnelle, boulons Tab. 3.4, chevilles à '
@@ -455,7 +458,7 @@ def _etape_garde_corps(cas: Dict, res: Dict):
             _num("Entraxe des lisses e_l (mm)", ("remplissage", "entraxe_lisses"), cas, 10.0, "%.0f", 50.0, width=220,
                  help="Chaque lisse reprend q_r × e_l, ou Q_r à mi-portée, sur la portée entre montants.")
     elif rpt == "panneau":
-        st.markdown("**Panneau** (verre, tôle) — entre la lisse basse et la main courante")
+        st.markdown("**Panneau** (verre, tôle, câbles) — entre la lisse basse et la main courante")
         with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_rp"):
             _num("h_bas — axe de la lisse basse au-dessus de la platine (mm)", ("remplissage", "h_bas"), cas, 10.0, "%.0f", 0.0, width=330)
         st.caption("La résistance du panneau sous q_r et Q_r est à justifier par le fournisseur ; la note le dit.")
@@ -570,11 +573,18 @@ def _tableau_role(cas: Dict, res: Dict, role: str, masse_max: float, seuls: bool
     cands = [c for c in ET.candidats(cas, role, _groupes_de(fams, froid), float(masse_max)) if _de_famille(c["section"], fams)]
     best = ET.plus_leger(cands)
     cur = (ET.spec_du_role(cas, role) or {}).get("nom")
+    nom_best = best["section"]["nom"] if best is not None else None
     if best is not None:
-        if st.button(f"Prendre le plus léger qui tient : {best['section']['nom']} ({best['section']['masse']:.2f} kg/m, η = {best['taux'] * 100:.0f} %)".replace(".", ","),
-                     key=P + f"btn_best_{role}", width="content", disabled=(best["section"]["nom"] == cur)):
-            ET.appliquer_section(cas, best["section"], role)
-            _changer(f"{best['section']['nom']} retenu pour {lib}")
+        # l'OPTIMAL — la section la plus légère des familles cochées qui tient dans ce rôle — est proposé à chaque choix de profilé
+        retenu = nom_best == cur
+        with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center", key=P + f"c_opt_{role}"):
+            st.markdown(f'<div class="gc-opt">★ Optimal pour {lib} : <b>{nom_best}</b> · {best["section"]["masse"]:.2f} kg/m · η = {best["taux"] * 100:.0f} % '
+                        f'({ME.critere_texte(best["critere"])})'.replace(".", ",").replace(nom_best.replace(".", ","), nom_best)
+                        + (' · <span class="gc-ok">retenu</span>' if retenu else '') + '</div>', unsafe_allow_html=True)
+            if st.button("Prendre l'optimal", key=P + f"btn_best_{role}", width="content", disabled=retenu,
+                         help="Retient la section la plus légère qui tient, parmi les familles cochées et sous la masse maximale."):
+                ET.appliquer_section(cas, best["section"], role)
+                _changer(f"{nom_best} retenu pour {lib}")
     else:
         st.warning("Aucune section de la sélection ne tient : élargir les familles ou la masse maximale.")
     montres = [c for c in cands if not seuls or c["taux"] <= 1.0][:40]
@@ -582,14 +592,15 @@ def _tableau_role(cas: Dict, res: Dict, role: str, masse_max: float, seuls: bool
         st.caption("Aucune ligne à montrer.")
         return
     df = pd.DataFrame([{"Section": c["section"]["nom"], "dimensions (mm)": BI.dimensions_texte(c["section"]), "kg/m": round(c["masse"], 2),
-                        "η σ": int(round(min(c["taux_sigma"], 9.99) * 100)), "η flèche": int(round(min(c["taux_fleche"], 9.99) * 100)),
-                        "η": int(round(min(c["taux"], 9.99) * 100)), "retenue": "◀" if c["section"]["nom"] == cur else ""} for c in montres])
+                        "η σ_eq": int(round(min(c["taux_eq"], 9.99) * 100)), "η flèche": int(round(min(c["taux_fleche"], 9.99) * 100)),
+                        "η": int(round(min(c["taux"], 9.99) * 100)),
+                        "retenue": ("◀ " if c["section"]["nom"] == cur else "") + ("★" if c["section"]["nom"] == nom_best else "")} for c in montres])
     # largeurs en pixels : le nom complet de la section se lit, et les sept colonnes tiennent dans la colonne de droite d'un PC
     cfg = {"Section": st.column_config.TextColumn("Section", width=125), "dimensions (mm)": st.column_config.TextColumn("dimensions (mm)", width=92),
            "kg/m": st.column_config.NumberColumn("kg/m", format="%.2f", width=52),
-           "η σ": st.column_config.NumberColumn("η σ", format="%d %%", width=52), "η flèche": st.column_config.NumberColumn("η flèche", format="%d %%", width=62),
+           "η σ_eq": st.column_config.NumberColumn("η σ_eq", format="%d %%", width=58), "η flèche": st.column_config.NumberColumn("η flèche", format="%d %%", width=62),
            "η": st.column_config.ProgressColumn("η", min_value=0, max_value=150, format="%d %%", width=110),
-           "retenue": st.column_config.TextColumn("", width=30)}
+           "retenue": st.column_config.TextColumn("", width=36)}
     ev = st.dataframe(df, hide_index=True, column_config=cfg, key=P + f"tab_{role}_{LI.generation(P)}", on_select="rerun", selection_mode="single-row",
                       height=min(300, 35 * (len(df) + 1) + 12), width="stretch")
     rows = list(ev.selection.rows) if ev is not None and hasattr(ev, "selection") else []
@@ -599,7 +610,7 @@ def _tableau_role(cas: Dict, res: Dict, role: str, masse_max: float, seuls: bool
             ET.appliquer_section(cas, sec, role)
             _changer(f"{sec['nom']} retenu pour {lib}")
     st.caption(f"Un clic sur une ligne retient la section pour {lib} · {len(cands)} sections essayées par masse croissante ({len(montres)} montrées), chacune "
-               f"vérifiée dans ce rôle ({ME.critere_texte('sigma')}, τ, flèche) ; la fixation est vérifiée pour la section retenue.")
+               f"vérifiée dans ce rôle (σ, τ, σ_eq, flèche) ; ★ l'optimal, le plus léger qui tient ; la fixation est vérifiée pour la section retenue.")
 
 
 def _bloc_role(cas: Dict, res: Dict, role: str, masse_max: float, seuls: bool, froid: bool):
@@ -779,8 +790,9 @@ def _etape_detail(etat: Dict, cas: Dict, res: Dict):
                  help="L/100 par défaut (pratique des garde-corps ; l'ancien module proposait L/200).")
         with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_meth2"):
             if m["mode"] == ME.ELS:
-                _num("σ_adm (N/mm²)", ("methode", "sigma_adm"), cas, 5.0, "%.0f", 10.0, width=150)
-                _num("τ_adm (N/mm²)", ("methode", "tau_adm"), cas, 5.0, "%.0f", 5.0, width=150)
+                _num("γ_adm (σ_adm = f_y/γ_adm, τ_adm = σ_adm/√3)", ("methode", "gamma_adm"), cas, 0.05, "%.2f", 1.0, width=290,
+                     help="Les contraintes admissibles se déduisent de la nuance : σ_adm = f_y/1,5 (156,7 N/mm² pour le S235), τ_adm = σ_adm/√3 (90,5), "
+                          "et la contrainte équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm.")
                 _num("k cordons (kg/(mm·cm))", ("methode", "k"), cas, 5.0, "%.0f", 1.0, width=190)
                 _num("γ_F (résistances de calcul → service)", ("methode", "gamma_F"), cas, 0.05, "%.2f", 1.0, width=250)
             else:

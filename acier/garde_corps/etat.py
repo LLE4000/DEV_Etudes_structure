@@ -35,9 +35,9 @@ from . import membres as ME
 from . import types as TY
 
 OK, ATTENTION, NOK, REFUS = ME.OK, ME.ATTENTION, ME.NOK, ME.REFUS
-REMPLISSAGES = {"barreaux": "barreaux verticaux", "lisses": "lisses intermédiaires", "panneau": "panneau (verre, tôle)", "aucun": "aucun (main courante seule)"}
+REMPLISSAGES = {"barreaux": "barreaux verticaux", "lisses": "lisses intermédiaires", "panneau": "panneau (verre, tôle, câbles)", "aucun": "aucun (main courante seule)"}
 LIBELLES = {"montant": "Montant principal", "lisse": "Main courante", "barreau": "Barreaux", "lisse_inter": "Lisses intermédiaires", "console": "Console",
-            "soudure": "Soudure sur la platine", "ancrage": "Chevilles / boulons", "platine": "Platine"}
+            "soudure": "Soudure sur la platine", "ancrage": "Ancrages", "platine": "Platine"}
 VERSION = 3
 ROLES = {"montant": "montant principal", "lisse": "main courante", "barreau": "barreaux", "lisse_inter": "lisses intermédiaires", "console": "console"}
 SECTIONS_DEFAUT = {"montant": "RHS 50x30x3", "lisse": "RHS 50x30x3", "barreau": "Plat 30x8", "lisse_inter": "RHS 50x25x2.5 (froid)",
@@ -209,19 +209,26 @@ def verifier_lisse(sec: Dict, qh: float, qv: float, Q: float, L: float, n: int, 
     return v
 
 
-def verifier_barre(sec: Dict, q: float, Q: float, L: float, meth: Dict, fy: float) -> Dict:
-    """Un élément du remplissage (barreau, lisse intermédiaire) de portée L sous la charge
-    ponctuelle Q_r (cas 3) OU la pression q_r × entraxe (cas 4) — deux cas, le pire."""
+def verifier_barre(sec: Dict, q: float, Q: float, L: float, meth: Dict, fy: float, axe: str = "fort") -> Dict:
+    """Un élément du remplissage de portée L sous la charge ponctuelle Q_r (cas 3) OU la pression
+    q_r × entraxe (cas 4) — deux cas, le pire. ``axe`` : « fort » pour un BARREAU (sa hauteur h est
+    dans le sens de la charge horizontale : plat de champ) ; « faible » pour une LISSE intermédiaire
+    (posée h vertical comme la main courante : la charge horizontale fléchit l'axe faible, W_el,z, I_z)."""
     E = float(meth.get("E") or ME.E_ACIER)
-    Iy = sec["Iy"] * 1e4
-    pQ = ME.poutre(0.0, Q, L, E, Iy, "somme")
-    pq = ME.poutre(q, 0.0, L, E, Iy, "somme")
-    vQ = ME.verifier_section(sec, pQ["M"], 0.0, 0.0, pQ["V"], 0.0, pQ["f"], L, meth, fy)
-    vq = ME.verifier_section(sec, pq["M"], 0.0, 0.0, pq["V"], 0.0, pq["f"], L, meth, fy)
+    faible = axe == "faible"
+    I = (sec["Iz"] if faible else sec["Iy"]) * 1e4
+    pQ = ME.poutre(0.0, Q, L, E, I, "somme")
+    pq = ME.poutre(q, 0.0, L, E, I, "somme")
+
+    def verif(pp):
+        if faible:
+            return ME.verifier_section(sec, 0.0, pp["M"], 0.0, 0.0, pp["V"], pp["f"], L, meth, fy)
+        return ME.verifier_section(sec, pp["M"], 0.0, 0.0, pp["V"], 0.0, pp["f"], L, meth, fy)
+    vQ, vq = verif(pQ), verif(pq)
     pire_Q = vQ["taux_max"] >= vq["taux_max"]
     v = dict(vQ if pire_Q else vq)
     v.update({"cas": "Q" if pire_Q else "q", "cas_charge": "3" if pire_Q else "4", "cas_taux": {"3": vQ["taux_max"], "4": vq["taux_max"]},
-              "q": q, "Q": Q, "L": L, "verif_q": vq, "verif_Q": vQ})
+              "q": q, "Q": Q, "L": L, "verif_q": vq, "verif_Q": vQ, "axe": "faible" if faible else "fort", "M": pQ["M"] if pire_Q else pq["M"]})
     return v
 
 
@@ -363,13 +370,14 @@ def verifier(cas: Dict) -> Dict:
         sec_l = _section(rp.get("section_lisses") or {"nom": SECTIONS_DEFAUT["lisse_inter"]}, "des lisses intermédiaires", out["messages"])
         if sec_l is not None:
             el, nl = float(rp.get("entraxe_lisses") or 300.0), int(rp.get("n_lisses") or 1)
-            vb = verifier_barre(sec_l, ch["qr"] * el / 1e3, ch["Qr"] * 1e3, s_max, meth, fy)
+            vb = verifier_barre(sec_l, ch["qr"] * el / 1e3, ch["Qr"] * 1e3, s_max, meth, fy, axe="faible")
             out["remplissage"].update({"section": sec_l, "verif": vb, "entraxe": el, "L": s_max, "n": nl})
             elements.append(("lisse_inter", f"Lisses intermédiaires ({nl}) · {sec_l['nom']} · e = {el:g} mm, portée {s_max / 1000:.2f} m".replace(".", ","),
                              vb["taux_max"], vb["critere"], vb))
             masse += nl * BI.masse_lineaire(sec_l, ana["L_total"])
     elif typ == "panneau":
-        out["messages"].append(f"Remplissage en panneau : sa résistance sous Q_r = {ch['Qr']:g} kN et q_r = {ch['qr']:g} kN/m² est à justifier par le fournisseur")
+        out["messages"].append(f"Remplissage en panneau (verre, tôle, câbles) : sa résistance sous Q_r = {ch['Qr']:g} kN et q_r = {ch['qr']:g} kN/m² "
+                               "est à justifier par le fournisseur".replace(".", ","))
     # la fixation
     out["fixation"] = _fixation(cas, out, meth, fy, ac)
     fx = out["fixation"]
@@ -379,7 +387,7 @@ def verifier(cas: Dict) -> Dict:
     if fx.get("platine"):
         pl = fx["platine"]
         if pl.get("taux_max") is not None:
-            elements.append(("ancrage", f"{LIBELLES['ancrage']} · {FX.texte_ancrage(cas['fixation']['ancrage'])}", pl["taux_boulons"],
+            elements.append(("ancrage", f"{LIBELLES['ancrage']} · {FX.texte_ancrage(cas['fixation']['ancrage'], court=True)}", pl["taux_boulons"],
                              "traction" if pl["taux_t"] >= max(pl["taux_v"], pl["inter"]) else ("cisaillement" if pl["taux_v"] >= pl["inter"] else "interaction"), pl))
             nom_pl = f"Platine latérale {pl['lp']:g} × {pl['bp']:g} × {pl['tp']:g}" if pl.get("mode") == FX.LATERALE else f"Platine {pl['bp']:g} × {pl['lp']:g} × {pl['tp']:g}"
             elements.append(("platine", nom_pl + " · flexion", pl["taux_platine"], "flexion", pl))
@@ -441,7 +449,8 @@ def _fixation(cas: Dict, out: Dict, meth: Dict, fy: float, ac: Dict) -> Dict:
         cas_s = FX.cas_soudure(sec, _kn(N_trac) * g, _kn(P1) * g, _kn(P2) * g, L, soud, tp, meth, ac["nuance"])
         s = FX.verifier_soudure(cas_s)
         s["cas_charge"] = lab
-        s["efforts_txt"] = (f"N = {_kn(N_trac) * g:.2f} kN, V = {_kn(V) * g:.2f} kN, M = {M * g / 1e6:.3f} kN·m".replace(".", ",")
+        n_txt = (f"N = {abs(_kn(N_trac)) * g:.2f} kN (" + ("traction" if N_trac > 0 else "compression") + ")") if abs(N_trac) > 0.5 else "N = 0,00 kN"
+        s["efforts_txt"] = (f"{n_txt}, V = {_kn(V) * g:.2f} kN, M = {M * g / 1e6:.3f} kN·m".replace(".", ",")
                             + (" (efforts de calcul)" if g != 1.0 else " (efforts de service)"))
         if res["soudure"] is None or (s["taux"] or 0) > (res["soudure"]["taux"] or 0):
             res["soudure"] = s
@@ -556,7 +565,7 @@ def _verifier_role(sec: Dict, role: str, cas: Dict, res: Dict) -> Dict:
         Lb = (res.get("remplissage") or {}).get("L") or portee_barreaux(H, rp, res["lisse"]["section"], (res.get("remplissage") or {}).get("section_basse"))
         return verifier_barre(sec, ch["qr"] * float(rp.get("entraxe") or 110.0) / 1e3, ch["Qr"] * 1e3, Lb, meth, fy)
     if role == "lisse_inter":
-        return verifier_barre(sec, ch["qr"] * float(cas["remplissage"].get("entraxe_lisses") or 300.0) / 1e3, ch["Qr"] * 1e3, s_max, meth, fy)
+        return verifier_barre(sec, ch["qr"] * float(cas["remplissage"].get("entraxe_lisses") or 300.0) / 1e3, ch["Qr"] * 1e3, s_max, meth, fy, axe="faible")
     if role == "console":
         e = float(cas["fixation"]["console"].get("e") or 100.0)
         return max((verifier_console(sec, ch, m, e, meth, fy) for m in ana["montants"]), key=lambda v: v["taux_max"])
@@ -577,7 +586,7 @@ def candidats(cas: Dict, role: str = "montant", groupes: Optional[List[str]] = N
     for sec in BI.catalogue(groupes, masse_max, dim_max):
         v = _verifier_role(sec, role, cas, res)
         out.append({"section": sec, "taux": v["taux_max"], "critere": v["critere"], "statut": v["statut"], "taux_sigma": v["taux"]["sigma"],
-                    "taux_tau": v["taux"]["tau"], "taux_fleche": v["taux"]["fleche"], "masse": sec["masse"]})
+                    "taux_tau": v["taux"]["tau"], "taux_eq": v["taux"]["sigma_eq"], "taux_fleche": v["taux"]["fleche"], "masse": sec["masse"]})
     return out
 
 

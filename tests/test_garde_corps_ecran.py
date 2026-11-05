@@ -125,7 +125,7 @@ chk("le switch : « Vérification à l'ELS » par défaut, « charges de service
 chk("six dessins SVG légendés : élévation, coupe A-A, plan, platine en plan, coupe sur la fixation, section", m.count("<svg") >= 6 and all(k in m for k in LEGENDES))
 chk("carte RÉSULTAT : Conforme, η = 64 %, le montant M2 gouverne par la flèche sous le cas 1, une barre par élément",
     "Conforme" in pastille(at) and "64 %" in eta(at) and "Montant principal M2" in m and "flèche" in m and "cas 1 · q_h seule" in m
-    and all(k in m for k in ("Main courante", "Barreaux", "Soudure", "Platine", "Chevilles")))
+    and all(k in m for k in ("Main courante", "Barreaux", "Soudure", "Platine", "Ancrages · 2 × 2 chevilles M12")))
 chk("cinq onglets à libellé fixe", [t.label for t in at.tabs] == ETAPES)
 chk("barre d'outils : Accueil, ＋ Cas, copie, Enregistrer, Ouvrir, Note, nom du cas", all(k in cles(at) for k in ("gc_btn_home", "gc_btn_new", "gc_btn_copy", "gc_btn_open", "gc_btn_note", "gc_w_nom")))
 chk("le tableau des montants : M1 … M5 avec leurs longueurs tributaires", "M5" in m and "450" in m and "s_trib" in m)
@@ -253,13 +253,13 @@ at = run(app())
 t = tables(at)
 chk("un tableau par élément : montant, main courante, barreaux (génération 0)", set(t) == {"gc_tab_montant_0", "gc_tab_lisse_0", "gc_tab_barreau_0"}, str(sorted(t)))
 df = t["gc_tab_montant_0"]
-chk("colonnes : Section, dimensions, kg/m, η σ, η flèche, η, retenue ; 40 lignes par masse croissante",
-    list(df.columns) == ["Section", "dimensions (mm)", "kg/m", "η σ", "η flèche", "η", "retenue"] and len(df) == 40 and list(df["kg/m"]) == sorted(df["kg/m"]))
+chk("colonnes : Section, dimensions, kg/m, η σ_eq, η flèche, η, retenue ; 40 lignes par masse croissante",
+    list(df.columns) == ["Section", "dimensions (mm)", "kg/m", "η σ_eq", "η flèche", "η", "retenue"] and len(df) == 40 and list(df["kg/m"]) == sorted(df["kg/m"]))
 chk("RHS cochés par défaut pour le montant et la main courante, plats et ronds pour les barreaux ; que des RHS dans le tableau du montant",
     at.pills(key="gc_lib_montant_fam").value == ["RHS"] and at.pills(key="gc_lib_lisse_fam").value == ["RHS"] and at.pills(key="gc_lib_barreau_fam").value == ["plats", "ronds"]
     and all(s.startswith("RHS") for s in df["Section"]))
-ret = df[df["retenue"] == "◀"]
-chk("la section retenue RHS 50x30x3 est marquée ◀, avec son η = 64 %", len(ret) == 1 and ret.iloc[0]["Section"] == "RHS 50x30x3" and int(ret.iloc[0]["η"]) == 64)
+ret = df[df["retenue"].str.startswith("◀")]
+chk("la section retenue RHS 50x30x3 est marquée ◀ (et ★ l'optimal, le plus léger qui tient), avec son η = 64 %", len(ret) == 1 and ret.iloc[0]["Section"] == "RHS 50x30x3" and int(ret.iloc[0]["η"]) == 64)
 chk("les boutons « le plus léger qui tient » existent par élément", all(k in cles(at) for k in ("gc_btn_best_montant", "gc_btn_best_lisse", "gc_btn_best_barreau")))
 at.button(key="gc_btn_best_montant").click(); run(at)
 c = cas_actif(at)
@@ -269,7 +269,7 @@ chk("« le plus léger qui tient » : le montant devient un RHS plus léger qui 
 chk("le sélecteur de section AFFICHE la nouvelle section (liaison état → widget)", at.selectbox(key="gc_w_montant_section").value == nom)
 t = tables(at)
 chk("après le changement, les tableaux changent de génération (clé _1) : la sélection repart de zéro", set(t) == {"gc_tab_montant_1", "gc_tab_lisse_1", "gc_tab_barreau_1"}, str(sorted(t)))
-chk("… et la ligne retenue est la nouvelle section", list(t["gc_tab_montant_1"][t["gc_tab_montant_1"]["retenue"] == "◀"]["Section"]) == [nom])
+chk("… et la ligne retenue est la nouvelle section", list(t["gc_tab_montant_1"][t["gc_tab_montant_1"]["retenue"].str.startswith("◀")]["Section"]) == [nom])
 at.button(key="gc_btn_best_barreau").click(); run(at)
 chk("barreaux : le plus léger plat ou rond qui tient est retenu", cas_actif(at)["remplissage"]["section"]["nom"].split(" ")[0] in ("Plat", "Rond"))
 src = open("modules/garde_corps.py", encoding="utf-8").read()

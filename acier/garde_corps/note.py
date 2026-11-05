@@ -165,22 +165,23 @@ class Calcul:
         elif rp.get("type") == "lisses" and rp.get("section"):
             L.append(("Lisses", f"{rp.get('n', 1)} lisses intermédiaires {rp['section']['nom']} · $e_l$ = {_g(rp['entraxe'])} mm"))
         elif rp.get("type") == "panneau":
-            L.append(("Panneau", "verre ou tôle, justifié par son fournisseur" + (f" · lisse basse {rp['section_basse']['nom']}" if rp.get("section_basse") else "")))
+            L.append(("Panneau", "verre, tôle ou câbles, justifié par son fournisseur" + (f" · lisse basse {rp['section_basse']['nom']}" if rp.get("section_basse") else "")))
         else:
             L.append(("Remplissage", "sans remplissage"))
         ac, m, lim = self.acier, self.meth, res["limites"]
         L.append(("Acier", f"{ac['nuance']} · $f_y$ = {_g(ac['fy'])} N/mm² · $f_u$ = {_g(ac['fu'])} N/mm² · $E$ = {_fmt(float(m.get('E') or ME.E_ACIER), 0)} N/mm²"))
         fl = self.fleche_adm()
         if m["mode"] == ME.ELS:
-            L.append(("Vérification", f"à l'ELS, charges de service sans coefficient : $σ$ ≤ $σ_{{adm}}$ = {_g(lim['sigma'])} N/mm² · $τ$ ≤ $τ_{{adm}}$ = {_g(lim['tau'])} N/mm² · "
+            L.append(("Vérification", f"à l'ELS, charges de service sans coefficient : $σ$ ≤ $σ_{{adm}}$ = $f_y$/{_g(lim['coef'])} = {_fmt(lim['sigma'])} N/mm² · "
+                                      f"$τ$ ≤ $τ_{{adm}}$ = $σ_{{adm}}$/$\\sqrt{{3}}$ = {_fmt(lim['tau'])} N/mm² · $σ_{{eq}}$ = $\\sqrt{{σ^2 + 3τ^2}}$ ≤ $σ_{{adm}}$ · "
                                       f"flèche ≤ {fl} · soudure $k$ = {_g(m.get('k', 100))} kg/(mm·cm) · ancrages : résistances de calcul / $γ_F$ = {_g(m.get('gamma_F', 1.5))}"))
         else:
             L.append(("Vérification", f"à l'ELU selon l'Eurocode, charges × $γ_Q$ = {_g(m.get('gamma_Q', 1.5))} : $σ$ ≤ $f_y/γ_{{M0}}$ = {_fmt(lim['sigma'])} N/mm² (élastique, $W_{{el}}$) · "
-                                      f"$τ$ ≤ $f_y/(\\sqrt{{3}}·γ_{{M0}})$ = {_fmt(lim['tau'])} N/mm² · flèche ≤ {fl} sous charges de service · "
+                                      f"$τ$ ≤ $f_y/(\\sqrt{{3}}·γ_{{M0}})$ = {_fmt(lim['tau'])} N/mm² · $σ_{{eq}}$ = $\\sqrt{{σ^2 + 3τ^2}}$ ≤ $f_y/γ_{{M0}}$ · flèche ≤ {fl} sous charges de service · "
                                       f"soudure EN 1993-1-8 {m.get('ec', 'directionnelle')}, $γ_{{M2}}$ = {_g(m.get('gamma_M2', 1.25))}"))
         L.append(("Fixation", self.hyp_fixation()))
         sans = bool(geo.get("sans_montant"))               # sans montant, le bloc « ancrage » dit déjà les réactions des murs
-        for msg in [x for x in res.get("messages", []) if not x.startswith("Refus") and not x.startswith("Sans montant")
+        for msg in [x for x in res.get("messages", []) if not x.startswith("Refus") and not x.startswith("Sans montant") and not x.startswith("Montant scellé")
                     and not (sans and x.startswith("Ancrage de la main courante dans le mur"))][:2]:
             L.append(("Note", RI.auto(msg)))
         return L
@@ -516,7 +517,8 @@ class Note:
             h_txt = (f"$H$ = {_g(v['H'])} mm ({_g(geo['H'])} au-dessus de la dalle + descente $d_h$ = {_g(geo['d_h'])})" if geo.get("laterale")
                      else f"$H$ = {_g(v['H'])} mm")
             self.bloc(d, fr, f"{self.numero()}MONTANT {m['nom']} — {m['section']['nom']}", C.fo["montant"], C.taux_de("montant"),
-                      f"{h_txt} · $s_{{trib}}$ = {_g(v['trib1'] + v['trib2'])} mm · console encastrée en pied" + (" · montant d'angle : deux directions" if v["coin"] else ""))
+                      f"{h_txt} · " + (f"$s_{{trib,1}}$ = {_g(v['trib2'] if v.get('orientation_inversee') else v['trib1'])} mm · $s_{{trib,2}}$ = {_g(v['trib1'] if v.get('orientation_inversee') else v['trib2'])} mm"
+                                 if v["coin"] else f"$s_{{trib}}$ = {_g(v['trib1'] + v['trib2'])} mm") + " · console encastrée en pied" + (" · montant d'angle : deux directions" if v["coin"] else ""))
         elif res.get("console"):
             c = res["console"]
             v = c["verif"]
@@ -550,7 +552,7 @@ class Note:
         elif rp.get("type") == "panneau":
             self.titre(d, fr, f"{self.numero()}PANNEAU")
             fr.down(1)
-            self.rp(d, fr, f"Remplissage en panneau (verre, tôle) : sa résistance sous $Q_r$ = {_g(C.res['charges']['Qr'])} kN et $q_r$ = {_g(C.res['charges']['qr'])} kN/m² "
+            self.rp(d, fr, f"Remplissage en panneau (verre, tôle, câbles) : sa résistance sous $Q_r$ = {_g(C.res['charges']['Qr'])} kN et $q_r$ = {_g(C.res['charges']['qr'])} kN/m² "
                            "est à justifier par le fournisseur ; la lisse basse n'est pas calculée.")
             fr.down(2)
 
@@ -580,7 +582,7 @@ class Note:
         cas_g = (pl or {}).get("cas_charge") or s.get("cas_charge")
         self.titre(d, fr, f"{self.numero()}ANCRAGE — " + FIXATIONS.get(typ, typ), fx.get("taux_max"))
         fr.down(0.5)
-        ou = "au centre de la platine latérale" if typ == FX.LATERALE else "en pied du montant"
+        ou = "au centre de la platine latérale" if typ == FX.LATERALE else ("à la platine de la console" if self.C.systeme() == "mur" else "en pied du montant")
         self.rp(d, fr, f"Gouverne : {_cas(CH.CAS_LIBELLES.get(cas_g, cas_g))} · {ou} : {_efforts(s['efforts_txt'])}", size=self.s_txt * 0.95, col=S.mut)
         fos = C.fo["soudure"]
         lib_s = (f"Soudure — deux cordons le long de la platine ({s['res']['config']}), détail p. 2" if typ == FX.LATERALE
@@ -628,9 +630,22 @@ class Note:
         else:
             crit = ME.critere_texte(g["critere"]) if g["cle"] not in ("soudure", "ancrage", "platine") else g["critere"]
             cas_g = (next((e for e in res["elements"] if e["cle"] == g["cle"]), {}).get("detail") or {}).get("cas_charge")
-            elts = ("main courante, consoles et ancrage" if C.systeme() == "mur" else
-                    "main courante et remplissage (ancrages aux murs à justifier)" if res["geometrie"].get("sans_montant") else "montant, main courante, remplissage et ancrage")
-            porte = (f"Le garde-corps porte les charges retenues : {elts} vérifiés." if res["statut"] != ET.NOK else
+            # les éléments RÉELLEMENT vérifiés, dans l'ordre de la note, puis ce qui reste à justifier
+            cles = [e["cle"] for e in res["elements"]]
+            noms = {"montant": "montant", "console": "consoles", "lisse": "main courante", "barreau": "barreaux", "lisse_inter": "lisses intermédiaires"}
+            elts = [noms[k] for k in ("montant", "console", "lisse", "barreau", "lisse_inter") if k in cles]
+            if any(k in cles for k in ("soudure", "ancrage", "platine")):
+                elts.append("ancrage")
+            restes = []
+            if res["geometrie"].get("sans_montant"):
+                restes.append("ancrages aux murs à justifier")
+            elif C.cas["fixation"].get("type") == "scellee" and C.systeme() == "montants":
+                restes.append("scellement à justifier séparément")
+            if (res.get("remplissage") or {}).get("type") == "panneau":
+                restes.append("panneau à justifier par le fournisseur")
+            elts_txt = ", ".join(elts[:-1]) + " et " + elts[-1] if len(elts) > 1 else (elts[0] if elts else "éléments")
+            porte = (f"Le garde-corps porte les charges retenues : {elts_txt} vérifié{'s' if len(elts) > 1 else ''}" + (f" ({' ; '.join(restes)})." if restes else ".")
+                     if res["statut"] != ET.NOK else
                      "Le garde-corps ne porte pas les charges retenues en l'état : section, entraxe, hauteur ou ancrage à revoir (les tableaux de l'écran donnent le plus léger qui tient).")
             txt = (f"Taux maximal {_pct(res['taux_max'])} sur {RI.auto(g['libelle'])} ({RI.auto(crit)}" + (f", {_cas(CH.CAS_LIBELLES.get(cas_g, cas_g))}" if cas_g else "")
                    + f"), {MODES_PHRASE[C.meth['mode']]}. " + porte)
@@ -798,7 +813,8 @@ class Methode:
             ech = "1:" + f"{2.8346 / self.echelle:.0f}"
         ident = " · ".join(str(x) for x in (doc.get("projet"), doc.get("partie")) if x)
         m = C.meth
-        meth = MODES[m["mode"]] + (f" · $σ_{{adm}}$ {_g(m.get('sigma_adm', 160))} · $τ_{{adm}}$ {_g(m.get('tau_adm', 90))}" if m["mode"] == ME.ELS
+        lim = C.res["limites"]
+        meth = MODES[m["mode"]] + (f" · $σ_{{adm}}$ = $f_y$/{_g(lim['coef'])} = {_fmt(lim['sigma'])} · $τ_{{adm}}$ {_fmt(lim['tau'])}" if m["mode"] == ME.ELS
                                    else f" · $γ_Q$ {_g(m.get('gamma_Q', 1.5))} · $γ_{{M0}}$ {_g(m.get('gamma_M0', 1))}")
         cases = [("CAS", cas["nom"], ident or "—", 0.18),
                  ("GARDE-CORPS", C.type_libelle(), C.res["geometrie"]["phrase"], 0.28),
@@ -825,7 +841,7 @@ class Methode:
         d.t(W - M, y, TITRE + " · cas " + self.C.cas["nom"], S.f_b, 7.6, S.mut, "right")
         y -= 16
         d.t(M, y, "DÉTAILS ET MÉTHODE", S.f_h, 13.5, S.ink)
-        self.note1.rt(d, W - M, y, "Références : " + " · ".join(RI.auto(r) for r in MT.REFERENCES), 6.2, S.mut, align="right", width=W - 2 * M - 150)
+        # les références sont une section de la colonne Méthode (en tête, la ligne se tronquait)
         y -= 7
         d.line(M, y, W - M, y, S.ink, 1.0)
         top = y - 6
@@ -839,7 +855,7 @@ class Methode:
         self.section_et_bibliotheque(d, frames[0])
         self.soudure(d, frames[1])
         secs = MT.sections(self.C.meth["mode"], self.C.cas["fixation"].get("type", "platine"), bool(self.C.res["geometrie"].get("sans_montant")))
-        for sec in secs:
+        for sec in secs + [{"titre": "Références", "paragraphes": [" · ".join(MT.REFERENCES)]}]:
             self.section(d, frames[2], sec)
         self.cartouche(d)
         for f in frames:

@@ -80,7 +80,7 @@ t = FO.toutes(res)
 txt = "\n".join(FO.rendre(s) for s in t["montant"]["subs"])
 chk("le montant : bloc « cas 1 · q_h seule », l'autre cas cité avec son taux, P₁ = q_h·s_trib, M₁ = P₁·H, σ = M₁/W_el,y, f = P₁·H³/(3·E·I_y), η = max",
     t["montant"]["cas"] == "cas 1 · q_h seule" and "cas 2 · q_v seule" in t["montant"]["autres"] and "%" in t["montant"]["autres"]
-    and all(k in txt for k in ("P₁ = q_h·s_trib", "M₁ = P₁·H", "σ = M₁/W_el,y", "H³/(3·E·I_y)", "η = max(η_σ, η_τ, η_f)")) and "N =" not in txt)
+    and all(k in txt for k in ("P₁ = q_h·s_trib", "M₁ = P₁·H", "σ = M₁/W_el,y", "H³/(3·E·I_y)", "η = max(η_τ, η_eq, η_f)")) and "N =" not in txt)
 txt_l = "\n".join(FO.rendre(s) for s in t["lisse"]["subs"])
 chk("la main courante : cas 1 (q_h seule), M_h = q_h·L²/8, σ = M_h/W_el,z, f = 5·q_h·L⁴/(384·E·I_z) ; exposants ² ⁴ (jamais « ** »)",
     t["lisse"]["cas"].startswith("cas 1") and "M_h = q_h·L²/8" in txt_l and "σ = M_h/W_el,z" in txt_l and "L⁴/(384·E·I_z)" in txt_l and "**" not in txt_l)
@@ -122,16 +122,24 @@ for cle in ("montant", "lisse", "barre"):
         libs == [g for g in GROUPES if g in libs] and libs[-3:] == [FO.CONTRAINTES, FO.FLECHE, FO.TAUX]
         and [s.nom for s in t[cle]["subs"]] == [s.nom for _, subs in t[cle]["groupes"] for s in subs], str(libs))
 noms_m = [s.nom for s in t["montant"]["subs"]]
-chk("montant : P₁ puis M₁, V, puis σ, η_σ, τ, η_τ (chaque taux suit sa contrainte), puis f, f_adm, η_f, puis η",
-    noms_m == ["P₁", "M₁", "V", "σ", "η_σ", "τ", "η_τ", "f", "f_adm", "η_f", "η"], str(noms_m))
-chk("un taux reprend le nombre IMPRIMÉ de sa contrainte : η_σ = σ/σ_adm = 91,2/160 (et non 91,25), η_f = f/f_adm = 7,01/11",
-    "η_σ = σ/σ_adm = 91,2/160 = 57,0 %" in txt and "η_f = f/f_adm = 7,01/11 = 63,7 %" in txt)
-chk("en ELS les limites s'appellent σ_adm et τ_adm ; en Eurocode σ_lim et τ_lim", "τ/τ_adm" in txt and "σ/σ_lim" in txtE)
+chk("montant : P₁ puis M₁, V, puis σ, τ, η_τ, σ_eq, η_eq (chaque taux suit sa contrainte), puis f, f_adm, η_f, puis η",
+    noms_m == ["P₁", "M₁", "V", "σ", "τ", "η_τ", "σ_eq", "η_eq", "f", "f_adm", "η_f", "η"], str(noms_m))
+chk("un taux reprend le nombre IMPRIMÉ de sa contrainte : η_eq = σ_eq/σ_adm = 91,3/156,7 (et non 91,34/156,67), η_f = f/f_adm = 7,01/11",
+    "η_eq = σ_eq/σ_adm = 91,3/156,7 = 58,3 %" in txt and "η_f = f/f_adm = 7,01/11 = 63,7 %" in txt)
+chk("les limites de l'ELS sont DÉRIVÉES de la nuance (σ_adm = f_y/1,5 = 156,7, τ_adm = σ_adm/√3 = 90,5 — écrites une fois dans les hypothèses, pas dans chaque bloc) ; "
+    "chaque bloc porte la contrainte équivalente σ_eq = √(σ² + 3·τ²) et son taux η_eq, et η = max(η_τ, η_eq, η_f) sans η_σ (règle du bureau du 05/11/2026 : plus de 160 ni de 90)",
+    "σ_eq = √(σ² + 3·τ²) = √(91,2² + 3 × 1,66²) = 91,3 N/mm²" in txt and "η_eq = σ_eq/σ_adm = 91,3/156,7 = 58,3 %" in txt and "η_τ = τ/τ_adm = 1,66/90,5 = 1,8 %" in txt
+    and "σ_adm = f_y" not in txt and "/160" not in txt and "/90 " not in txt and "η = max(η_τ, η_eq, η_f)" in txt and "η_σ" not in txt)
+chk("en ELS les limites s'appellent σ_adm et τ_adm ; en Eurocode σ_lim et τ_lim (σ_eq/σ_lim, et la ligne σ_lim = f_y/γ_M0)",
+    "τ/τ_adm" in txt and "σ_eq/σ_adm" in txt and "σ_eq/σ_lim" in txtE and "σ_lim = f_y/γ_M0" in txtE)
 libs_p = [lib for lib, _ in t["platine"]["groupes"]]
 chk("platine : trois groupes — ancrages (efforts), ancrages (résistances et taux), platine en flexion", libs_p == [FO.ANCRAGES_EFFORTS, FO.ANCRAGES_RESISTANCES, FO.PLATINE_FLEXION], str(libs_p))
 chk("les autres cas sont aussi donnés en liste (libellé, taux)", t["montant"]["cas_taux"] and t["montant"]["cas_taux"][0][0] == "cas 2 · q_v seule" and 0 < t["montant"]["cas_taux"][0][1] < 0.1)
 tL = FO.toutes(ET.verifier(cas(geometrie={"forme": "L"})))
-chk("montant d'angle : P₂ et M₂ sans mention entre parenthèses (le titre du bloc dit l'angle)", [s.nom for s in tL["montant"]["subs"]][:5] == ["P₁", "P₂", "M₁", "M₂", "V"], str([s.nom for s in tL["montant"]["subs"]][:5]))
+chk("montant d'angle : P₂ et M₂ sans mention entre parenthèses (le titre du bloc dit l'angle), V₁ et V₂ nommés, τ sur la direction qui gouverne (V₂/A_v,y), f₁, f₂ et f_rés",
+    [s.nom for s in tL["montant"]["subs"]][:6] == ["P₁", "P₂", "M₁", "M₂", "V₁", "V₂"] and "τ = V₂/A_v,y = " in "\n".join(FO.rendre(s) for s in tL["montant"]["subs"])
+    and [s.nom for s in tL["montant"]["subs"] if s.nom.startswith("f")] == ["f₁", "f₂", "f_rés", "f_adm"]
+    and "P₁ = q_h·s_trib,1 = " in "\n".join(FO.rendre(s) for s in tL["montant"]["subs"]), str([s.nom for s in tL["montant"]["subs"]][:8]))
 tLat = FO.toutes(ET.verifier(cas(fixation={"type": "laterale"})))
 txtLat = "\n".join(FO.rendre(s) for s in tLat["platine"]["subs"])
 chk("platine latérale : z = e_x = 100 mm, Z = M/z + P/2, F_t = Z/n, F_v = V/2n, m = e_y/2 − b/2 − 0,8·a·√2, b_eff = min(b_p, …), t_p = 10 mm face à t_req",
@@ -142,6 +150,23 @@ tLatL = FO.toutes(ET.verifier(cas(geometrie={"forme": "L"}, fixation={"type": "l
 chk("montant d'angle en latéral : F_v = V/2n + F_v,tors (la torsion des ancrages est écrite)", "F_v = V/2n + F_v,tors" in "\n".join(FO.rendre(s) for s in tLatL["platine"]["subs"]))
 chk("chaque morceau d'une substitution se compose en typographie mathématique (riche.tex puis mathx.parse)",
     all(M.parse(RI.tex(p)) is not None for b in BLOCS for s in t[b]["subs"] for p in FO.morceaux(s)[0] + [FO.morceaux(s)[1]]))
+
+
+# ================================================================
+print("\n=== 5. Relecture 3.1 : chaque bloc écrit V, τ et sa flèche ; lisse intermédiaire sur l'axe faible ===")
+tM = FO.toutes(ET.verifier(cas("murale")))
+txtC = "\n".join(FO.rendre(s) for s in tM["console"]["subs"])
+chk("console au mur : R_v, M = R_v·e, V, σ, τ = V/A_v, σ_eq, f = R_v·e³/(3·E·I), f_adm, η — et chaque substitution se ré-évalue",
+    [s.nom for s in tM["console"]["subs"]] == ["R_v", "M", "V", "σ", "τ", "η_τ", "σ_eq", "η_eq", "f", "f_adm", "η_f", "η"] and "f = R_v·e³/(3·E·I) = " in txtC
+    and all(FO.verifier(s) for s in tM["console"]["subs"]))
+tB = FO.toutes(ET.verifier(cas()))
+chk("barreau : M, V, σ = M/W_el, τ = V/A_v, σ_eq, f — V et τ écrits (ils ne l'étaient pas)",
+    [s.nom for s in tB["barre"]["subs"]][:5] == ["M", "V", "σ", "τ", "η_τ"] and "τ = V/A_v = 0,25 × 10³/240 = 1,04 N/mm²" in "\n".join(FO.rendre(s) for s in tB["barre"]["subs"]))
+tLi = FO.toutes(ET.verifier(cas("lisses", geometrie={"forme": "L"}, montant={"section": {"nom": "RHS 60x40x3"}}, lisse={"appuis": "continue"})))
+txtLi = "\n".join(FO.rendre(s) for s in tLi["barre"]["subs"])
+chk("lisse intermédiaire : σ = M/W_el,z, τ = V/A_v,y, f sur I_z (axe faible, h vertical)", "σ = M/W_el,z = " in txtLi and "τ = V/A_v,y = " in txtLi and "48·E·I_z" in txtLi)
+chk("la limite de la platine porte le nom de la méthode : σ_adm à l'ELS, σ_lim en Eurocode",
+    "η_p = σ_p/σ_adm = " in "\n".join(FO.rendre(s) for s in tB["platine"]["subs"]) and "η_p = σ_p/σ_lim = " in "\n".join(FO.rendre(s) for s in FO.toutes(ET.verifier(cas(methode={"mode": "eurocode"})))["platine"]["subs"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

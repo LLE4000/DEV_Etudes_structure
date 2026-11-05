@@ -312,11 +312,13 @@ def pluriel_ancrage(nom: str) -> str:
     return " ".join(mots)
 
 
-def texte_ancrage(anc: Dict) -> str:
+def texte_ancrage(anc: Dict, court: bool = False) -> str:
+    """« 2 × 2 chevilles M12 (N_Rd 9 kN, V_Rd 12 kN) » ; ``court`` : sans les résistances (libellé d'élément)."""
     n = int(anc.get("n_par_rangee") or 2)
     if anc.get("type") == "boulon":
         return f"2 × {n} boulons {anc.get('boulon', 'M12')} {anc.get('classe', '8.8')}"
-    return f"2 × {n} {pluriel_ancrage(anc.get('nom'))} (N_Rd {float(anc.get('NRd') or 0):g} kN, V_Rd {float(anc.get('VRd') or 0):g} kN)"
+    base = f"2 × {n} {pluriel_ancrage(anc.get('nom'))}"
+    return base if court else base + f" (N_Rd {float(anc.get('NRd') or 0):g} kN, V_Rd {float(anc.get('VRd') or 0):g} kN)"
 
 
 def texte_platine(fx: Dict) -> str:

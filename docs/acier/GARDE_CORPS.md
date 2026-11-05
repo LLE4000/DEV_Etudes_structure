@@ -19,6 +19,19 @@ apporté le menu des types, les quatre charges nommées en cas distincts, la mai
 deux appuis ou continue, la portée des barreaux déduite, les tableaux cliquables et les six
 vues en dessin technique.
 
+**Version 3.1 — relecture du bureau (05/11/2026).** Les contraintes admissibles sont DÉRIVÉES
+de la nuance : σ_adm = f_y/1,5 (156,7 N/mm² pour le S235), τ_adm = σ_adm/√3 (90,5), et la
+contrainte équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm est vérifiée (les constantes 160 et 90 étaient
+fausses — P-12 de l'étude). Relecture complète des douze notes avec un RECALCUL INDÉPENDANT
+(452 grandeurs, aucun écart) : six défauts corrigés — les lisses intermédiaires étaient prises
+sur l'axe fort (P-13), un montant d'angle imprimait le cisaillement d'une direction et le taux
+de l'autre, les blocs console et barreaux n'écrivaient ni V ni τ ni la formule de flèche, la
+conclusion annonçait « remplissage et ancrage vérifiés » même sans remplissage ni ancrage
+vérifié, la ligne des références se tronquait, et des détails de forme (σ_lim nommée σ_adm à
+l'ELS, « 0.5 » et « 0.125 » à point décimal, N signé sans dire compression ou traction,
+« verre, tôle » sans câbles). L'écran propose l'OPTIMAL à chaque choix de profilé (★ le plus
+léger qui tient, son taux, le bouton « Prendre l'optimal », la ligne marquée ★ dans le tableau).
+
 ## 1 · Ce qui est livré
 
 | Pièce | Rôle |
@@ -35,7 +48,7 @@ vues en dessin technique.
 | `acier/garde_corps/schemas.py` | les six vues en dessin technique : élévation (inclinée pour un rampant), coupe A-A, vue en plan, platine en plan ou platine latérale vue de face, coupe sur la fixation ou coupe horizontale, section |
 | `acier/garde_corps/note.py` | la note PDF en deux pages, les hypothèses en tête, les symboles composés (`ndc_pdf/riche.py`), le résultat à la suite du calcul |
 | `modules/garde_corps.py` | l'écran : menu des types, cinq onglets, tableaux cliquables, quatre fixations, pente ; `modules/liaison.py` : la liaison état → widgets partagée |
-| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (103 + 57 + 75 + 59 + 65) ; `tools/captures_garde_corps.js` : huit états × quatre largeurs, mesures de ce que l'œil voit, clic sur une ligne de tableau dans un vrai navigateur |
+| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (110 + 62 + 75 + 59 + 71) ; `tools/captures_garde_corps.js` : huit états × quatre largeurs, mesures de ce que l'œil voit, clic sur une ligne de tableau dans un vrai navigateur |
 
 ## 2 · Le modèle
 
@@ -62,8 +75,11 @@ les lisses sont rarement continues d'un montant à l'autre) ou continue sur n tr
 (coefficients des tables). Un barreau est une poutre entre le dessus de la lisse basse (axe à
 h_bas) et le dessous de la main courante — sa portée se DÉDUIT de H, de h_bas et des sections ;
 une lisse intermédiaire est une poutre entre montants ; chacun sous Q_r à mi-portée (cas 3) OU
-q_r × entraxe (cas 4), le pire des deux. Un panneau n'est pas vérifié (à justifier par le
-fournisseur), la lisse basse n'est pas calculée.
+q_r × entraxe (cas 4), le pire des deux. Orientation (version 3.1) : un barreau a sa hauteur h
+dans le sens de la poussée (plat de champ : W_el = b·h²/6), une lisse intermédiaire est posée
+h vertical comme la main courante, la poussée horizontale fléchit donc son AXE FAIBLE (W_el,z,
+I_z) — jusqu'à la version 3 elle était prise sur l'axe fort, côté optimiste. Un panneau n'est
+pas vérifié (à justifier par le fournisseur), la lisse basse n'est pas calculée.
 
 **Cas de charge.** Les quatre charges agissent SÉPARÉMENT : cas 1 (q_h seule), 2 (q_v seule),
 3 (Q_r seule), 4 (q_r seule) ; chaque élément, la soudure et la platine sont vérifiés sous
@@ -110,20 +126,27 @@ garde-corps, q_v verticale, les longueurs tributaires suivent la pente.
 | | Vérification à l'ELS — défaut | Eurocode (ELU) |
 |---|---|---|
 | Charges | de service, sans coefficient | × γ_Q = 1,5 (flèche : service) |
-| σ | M/W_el + N/A ≤ σ_adm (160 N/mm²) | ≤ f_y/γ_M0 (élastique, W_el) |
-| τ | V/A_v ≤ τ_adm (90 N/mm²) | ≤ f_y/(√3·γ_M0) |
+| σ | M/W_el + N/A ≤ σ_adm = f_y/γ_adm, γ_adm = 1,5 (156,7 N/mm² pour le S235) | ≤ f_y/γ_M0 (élastique, W_el) |
+| τ | V/A_v ≤ τ_adm = σ_adm/√3 (90,5 N/mm²) | ≤ f_y/(√3·γ_M0) |
+| σ_eq | √(σ² + 3τ²) ≤ σ_adm | ≤ f_y/γ_M0 (EN 1993-1-1 §6.2.1(5)) |
 | Flèche | ≤ L/100 (ou mm) | ≤ L/100 (ou mm) |
 | Soudure | vérification à l'ELS, |f| ≤ k·a avec k = 100 kg/(mm·cm) | directionnelle EN 1993-1-8, γ_M2 = 1,25 |
 | Boulons, chevilles | résistances de calcul / γ_F = 1,5 | résistances de calcul |
 
 Les deux se nomment « Vérification à l'ELS » et « Eurocode (ELU) » partout — écran, note,
-hypothèses — ; la note ne parle plus de « méthode du bureau » (version 3).
+hypothèses — ; la note ne parle plus de « méthode du bureau » (version 3). **Les contraintes
+admissibles sont DÉRIVÉES de la nuance** depuis la version 3.1 (règle du bureau, 05/11/2026) :
+σ_adm = f_y/1,5, τ_adm = σ_adm/√3, et la contrainte équivalente σ_eq = √(σ² + 3τ²) a la limite
+de σ — les anciennes constantes 160 et 90 N/mm² étaient fausses ; γ_adm est modifiable dans les
+paramètres de la méthode. Dans la note, σ_adm et τ_adm sont écrites une fois dans les
+hypothèses ; chaque bloc écrit σ, τ et son taux, σ_eq et son taux, et η = max(η_τ, η_eq, η_f)
+(σ_eq ≥ σ avec la même limite : le taux de σ seule n'est plus imprimé).
 
 Le cas par défaut (barreaudage, RHS 50x30x3, H = 1,10 m, 0,45 kN en tête du montant M2)
 donne 64 % (flèche 7,0 mm pour 11 admissibles, cas 1) en ELS ; les barreaux Plat 30x8 sont à
-62 % (cas 3, Q_r), la soudure à 59 %, les chevilles à 55 %, la platine à 34 %. Le même
+63 % (cas 3, Q_r, σ_eq), la soudure à 59 %, les chevilles à 55 %, la platine à 35 %. Le même
 garde-corps en fixation latérale (d_h = 50, platine 150 × 150 × 10) donne 70 % (le montant
-est une console de 1150 mm), la soudure 21 %, les chevilles 48 %, la platine 44 %.
+est une console de 1150 mm), la soudure 21 %, les chevilles 48 %, la platine 45 %.
 
 ## 4 · Les charges
 
@@ -190,8 +213,10 @@ barre par élément, masse indicative) et cinq onglets à droite :
    appuis ou continue, barreaux avec la lisse basse, ou lisses, ou console) : la section, son
    taux et son cas, puis le TABLEAU des profilés compatibles (familles cochées — RHS par défaut
    pour le montant et la main courante, plats et ronds pour les barreaux —, η σ, η flèche, η en
-   barre, la section retenue marquée ◀) : un CLIC sur une ligne retient la section, et le
-   bouton « Prendre le plus léger qui tient » reste ;
+   barre, la section retenue marquée ◀, l'OPTIMAL marqué ★) : un CLIC sur une ligne retient la
+   section ; au-dessus du tableau, la ligne « ★ Optimal pour … : section · kg/m · η » nomme le
+   plus léger qui tient parmi les familles cochées, et le bouton « Prendre l'optimal » le
+   retient (version 3.1 — à chaque choix de profilé) ;
 4. **Ancrage** — QUATRE fixations (platine boulonnée sur la dalle, platine latérale en nez de
    dalle, soudé sur un plat existant, scellé), console au mur, soudure (jonction, gorge, t_p,
    η et dessins du module Soudures), platine (b_p, l_p, e_x, n, e_y ; en latéral : d_h, b_p
@@ -202,6 +227,8 @@ barre par élément, masse indicative) et cinq onglets à droite :
    les paramètres de la méthode, l'identification de la note, la méthode et les sources.
 
 ![tablette](images/garde_corps_tablette_lisses.png) ![téléphone](images/garde_corps_telephone_murale.png)
+
+![PC, onglet Sections : l'optimal proposé](images/garde_corps_pc_sections.png)
 
 Version 3 — la fixation latérale sur PC (onglet Ancrage : d_h, b_p, l_p, e_x, e_y, arrachement
 P, les deux vues de détail) et le garde-corps sans montant au téléphone (« Non conforme » : un
@@ -248,15 +275,17 @@ l'échelle de l'élévation.
 
 ## 8 · Les preuves
 
-- `tests/test_garde_corps_moteur.py` (103) : types, charges nommées et cas, géométrie (entraxes
+- `tests/test_garde_corps_moteur.py` (110) : types, charges nommées et cas, géométrie (entraxes
   saisis, angles, mur, sans montant, pente), mécanique (console, poutre sur deux appuis et
   continue, limites), bibliothèque, vérification complète sous chaque cas, fixation sur la dalle
   et latérale (couple z = e_x, arrachement, torsion d'un angle, refus par paires, H + d_h), la
-  catégorie industrielle, candidats par rôle, JSON version 3 ;
-- `tests/test_garde_corps_formules.py` (57) : plus de 300 substitutions ré-évaluées sur seize
+  catégorie industrielle, candidats par rôle, JSON version 3, les limites dérivées de la nuance et
+  σ_eq, les lisses intermédiaires sur l'axe faible, les efforts d'ancrage nommés ;
+- `tests/test_garde_corps_formules.py` (62) : plus de 300 substitutions ré-évaluées sur seize
   cas (dont latéral, latéral en L à boulons, sans montant), les blocs nomment leur cas
   gouvernant et les autres, les groupes dans l'ordre de lecture, chaque taux reprend le nombre
-  imprimé, chaque morceau se compose ;
+  imprimé, chaque morceau se compose, chaque bloc écrit V, τ, σ_eq et sa flèche (console et barreaux
+  compris), le montant d'angle nomme V₁, V₂ et la direction de τ ;
 - `tests/test_garde_corps_schemas.py` (75) : les six vues et leur contenu à l'échelle, la vue
   de face et la coupe horizontale de la platine latérale (trous, bandes, z, m, P, V seulement
   s'il existe), les quatre vues sans montant, l'élévation inclinée du rampant, le peintre, la
@@ -266,12 +295,13 @@ l'échelle de l'élévation.
   retenue ◀, génération de la clé après un changement), la fixation latérale (champs, vues,
   méthode « Ancrage latéral »), la pente, le garde-corps sans montant, la catégorie
   industrielle, cas multiples, note, étanchéité ;
-- `tests/test_garde_corps_note.py` (65) : deux pages sans débordement sur douze cas, les
+- `tests/test_garde_corps_note.py` (71) : deux pages sans débordement sur douze cas, les
   hypothèses d'abord (« Vérification » et non « Méthode »), les symboles composés (aucun
   « q_h » brut hors les cotes des dessins), le calcul 1 à 4 dans l'ordre de lecture avec le
   résultat à la suite et les η seuls à droite (mesuré sur les mots du PDF), les dessins peints,
   la page 2 et ses sections de méthode, les variantes — latérale, sans montant (titre « de mur
-  à mur », réactions des murs), rampant industriel ;
+  à mur », réactions des murs), rampant industriel ; les conclusions construites sur les éléments
+  réellement vérifiés, les limites 156,7 / 90,5, les références en section ;
 - `tools/captures_garde_corps.js` : huit états × quatre largeurs (défaut, lisses, murale,
   biblio, nok, latérale, loggia, rampant), mesures de ce que l'œil voit, dont le CLIC sur une
   ligne de tableau dans un vrai navigateur (le sélecteur affiche la section cliquée).

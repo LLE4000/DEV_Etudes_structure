@@ -61,32 +61,44 @@ def _gq(v: Dict):
     return ({"g": ("γ_Q", g)} if g != 1.0 else {}), ("g*" if g != 1.0 else "")
 
 
+def _sym_lim(res: Dict) -> str:
+    """Le nom de la limite de contrainte de la méthode : σ_adm à l'ELS, σ_lim en Eurocode."""
+    return "σ_lim" if (res.get("methode") or {}).get("mode") == ME.EUROCODE else "σ_adm"
+
+
 def _limites(v: Dict, meth: Dict, fy: float) -> Dict:
     """Les limites et les taux d'une vérification de section : ``s_lim``/``t_lim`` (Eurocode : f_y/γ_M0,
     f_y/(√3·γ_M0)), ``eta_s``, ``eta_t``, ``f_adm``, ``eta_f``, ``eta`` — chaque taux reprend le nombre
     imprimé de la grandeur qu'il compare."""
     ec = meth.get("mode") == ME.EUROCODE
-    gM0 = float(meth.get("gamma_M0") or 1.0)
     s_sym, t_sym = ("σ_lim", "τ_lim") if ec else ("σ_adm", "τ_adm")
     out = {"s_lim": None, "t_lim": None}
     if ec:
+        gM0 = float(meth.get("gamma_M0") or 1.0)
         out["s_lim"] = Sub(s_sym, "fy/gM0", {"fy": ("f_y", fy), "gM0": ("γ_M0", gM0)}, v["lim_sigma"], "N/mm²", 1)
         out["t_lim"] = Sub(t_sym, "fy/(sqrt(3)*gM0)", {"fy": ("f_y", fy), "gM0": ("γ_M0", gM0)}, v["lim_tau"], "N/mm²", 1)
-    out["eta_s"] = Sub("η_σ", "s/lim", {"s": ("σ", _arr(v["sigma"], 1)), "lim": (s_sym, v["lim_sigma"])}, v["taux"]["sigma"], "", -1)
-    out["eta_t"] = Sub("η_τ", "t/lim", {"t": ("τ", _arr(v["tau"], 2)), "lim": (t_sym, v["lim_tau"])}, v["taux"]["tau"], "", -1)
+    # à l'ELS, σ_adm = f_y/γ_adm et τ_adm = σ_adm/√3 sont écrites une fois, dans les hypothèses de la note
+    out["eta_s"] = Sub("η_σ", "s/lim", {"s": ("σ", _arr(v["sigma"], 1)), "lim": (s_sym, _arr(v["lim_sigma"], 1))}, v["taux"]["sigma"], "", -1)
+    out["eta_t"] = Sub("η_τ", "t/lim", {"t": ("τ", _arr(v["tau"], 2)), "lim": (t_sym, _arr(v["lim_tau"], 1))}, v["taux"]["tau"], "", -1)
+    out["s_eq"] = Sub("σ_eq", "sqrt(s**2 + 3*t**2)", {"s": ("σ", _arr(v["sigma"], 1)), "t": ("τ", _arr(v["tau"], 2))}, v["sigma_eq"], "N/mm²", 1)
+    out["eta_eq"] = Sub("η_eq", "se/lim", {"se": ("σ_eq", _arr(v["sigma_eq"], 1)), "lim": (s_sym, _arr(v["lim_sigma"], 1))}, v["taux"]["sigma_eq"], "", -1)
     if meth.get("fleche_mode") == "mm":
         out["f_adm"] = Sub("f_adm", "", {}, v["fleche_lim"], "mm", 1)
     else:
         out["f_adm"] = Sub("f_adm", "L/x", {"L": ("L", v["L"]), "x": ("x", float(meth.get("fleche_val") or ME.FLECHE_X_DEFAUT))}, v["fleche_lim"], "mm", 1)
     out["eta_f"] = Sub("η_f", "f/fa", {"f": ("f", _arr(v["fleche"], 2)), "fa": ("f_adm", _arr(v["fleche_lim"], 1))}, v["taux"]["fleche"], "", -1)
-    out["eta"] = Sub("η", "max(a, b, c)", {"a": ("η_σ", v["taux"]["sigma"]), "b": ("η_τ", v["taux"]["tau"]), "c": ("η_f", v["taux"]["fleche"])}, v["taux_max"], "", -1)
+    # σ_eq ≥ σ avec la même limite : η_σ n'est jamais le pire, le taux retient η_τ, η_eq et η_f
+    out["eta"] = Sub("η", "max(b, c, d)", {"b": ("η_τ", v["taux"]["tau"]), "c": ("η_eq", v["taux"]["sigma_eq"]), "d": ("η_f", v["taux"]["fleche"])},
+                     v["taux_max"], "", -1)
     return out
 
 
 def _groupes(charges, sollic, sigma, tau, fleches, lim) -> List:
-    """Les cinq groupes d'une vérification de section, dans l'ordre de lecture."""
+    """Les cinq groupes d'une vérification de section, dans l'ordre de lecture : σ (et sa limite en
+    Eurocode), τ, sa limite et son taux, puis la contrainte équivalente σ_eq = √(σ² + 3τ²) et son taux
+    (σ_eq ≥ σ avec la même limite : le taux de σ seule n'est pas imprimé)."""
     return [(CHARGES, charges), (SOLLICITATIONS, sollic),
-            (CONTRAINTES, [sigma, lim["s_lim"], lim["eta_s"], tau, lim["t_lim"], lim["eta_t"]]),
+            (CONTRAINTES, [sigma, lim["s_lim"], tau, lim["t_lim"], lim["eta_t"], lim["s_eq"], lim["eta_eq"]]),
             (FLECHE, list(fleches) + [lim["f_adm"], lim["eta_f"]]), (TAUX, [lim["eta"]])]
 
 
@@ -102,19 +114,29 @@ def montant(res: Dict) -> Dict:
     inv = v.get("orientation_inversee")
     gq, pref = _gq(v)
     charges, sollic, fleches = [], [], []
+    coin = v["P2"] > 0 or v["trib2"] > 0
+    s1, s2 = (v["trib2"], v["trib1"]) if inv else (v["trib1"], v["trib2"])    # la longueur tributaire de chaque direction
     if v["P1"] > 0 or v["P2"] > 0:
         if ch["mode"] == "P":
             charges.append(Sub("P₁", "", {}, v["P1"] / 1e3, "kN", 2))
-        else:
-            charges.append(Sub("P₁", "qh*s/1000", {"qh": ("q_h", ch["qh"]), "s": ("s_trib", v["trib2"] if inv else v["trib1"])}, v["P1"] / 1e3, "kN", 3))
             if v["P2"] > 0:
-                charges.append(Sub("P₂", "qh*s/1000", {"qh": ("q_h", ch["qh"]), "s": ("s_trib,2", v["trib1"] if inv else v["trib2"])}, v["P2"] / 1e3, "kN", 3))
+                charges.append(Sub("P₂", "", {}, v["P2"] / 1e3, "kN", 2))
+        else:
+            charges.append(Sub("P₁", "qh*s/1000", {"qh": ("q_h", ch["qh"]), "s": ("s_trib,1" if coin else "s_trib", s1)}, v["P1"] / 1e3, "kN", 3))
+            if v["P2"] > 0:
+                charges.append(Sub("P₂", "qh*s/1000", {"qh": ("q_h", ch["qh"]), "s": ("s_trib,2", s2)}, v["P2"] / 1e3, "kN", 3))
         sollic.append(Sub("M₁", "P*H/1000", {"P": ("P₁", v["P1"] / 1e3), "H": ("H", v["H"])}, v["M1"] / 1e6, "kN·m", 3))
         if v["P2"] > 0:
             sollic.append(Sub("M₂", "P*H/1000", {"P": ("P₂", v["P2"] / 1e3), "H": ("H", v["H"])}, v["M2"] / 1e6, "kN·m", 3))
-        sollic.append(Sub("V", "", {}, v["V1"] / 1e3, "kN", 3))
+            sollic.append(Sub("V₁", "", {}, v["V1"] / 1e3, "kN", 3))
+            sollic.append(Sub("V₂", "", {}, v["V2"] / 1e3, "kN", 3))
+        else:
+            sollic.append(Sub("V", "", {}, v["V1"] / 1e3, "kN", 3))
     if v["N"] > 0:
-        charges.append(Sub("N", "qv*s/1000", {"qv": ("q_v", ch["qv"]), "s": ("s_trib", trib)}, v["N"] / 1e3, "kN", 3))
+        if coin:
+            charges.append(Sub("N", "qv*(s1 + s2)/1000", {"qv": ("q_v", ch["qv"]), "s1": ("s_trib,1", s1), "s2": ("s_trib,2", s2)}, v["N"] / 1e3, "kN", 3))
+        else:
+            charges.append(Sub("N", "qv*s/1000", {"qv": ("q_v", ch["qv"]), "s": ("s_trib", trib)}, v["N"] / 1e3, "kN", 3))
     termes, vals = [], dict(gq)
     if v["P1"] > 0:
         termes.append(f"{pref}M1*1e6/Wy")
@@ -127,12 +149,18 @@ def montant(res: Dict) -> Dict:
         vals.update({"N": ("N", v["N"] / 1e3), "A": ("A", v["A"])})
     sigma = Sub("σ", " + ".join(termes), vals, v["sigma"], "N/mm²", 1) if termes else None
     tau = None
-    if v["V1"] > 0:
-        tau = Sub("τ", f"{pref}V*1000/Av", {**gq, "V": ("V", v["V1"] / 1e3), "Av": ("A_v", sec["Avz"] * 1e2)}, v["gamma"] * v["V1"] / (sec["Avz"] * 1e2), "N/mm²", 2)
-        fleches.append(Sub("f", "P*1000*H**3/(3*E*I)", {"P": ("P₁", v["P1"] / 1e3), "H": ("H", v["H"]), "E": ("E", E), "I": ("I_y", sec["Iy"] * 1e4)}, v["f1"], "mm", 2))
+    if v["V1"] > 0 or v["V2"] > 0:
+        # le cisaillement qui gouverne : V₁ sur A_v,z ou, pour un montant d'angle, V₂ sur A_v,y — celui que le moteur retient
+        t1, t2 = v["gamma"] * v["V1"] / (sec["Avz"] * 1e2), (v["gamma"] * v["V2"] / (sec["Avy"] * 1e2) if v["V2"] > 0 else 0.0)
+        if v["P2"] > 0 and t2 > t1:
+            tau = Sub("τ", f"{pref}V*1000/Av", {**gq, "V": ("V₂", v["V2"] / 1e3), "Av": ("A_v,y", sec["Avy"] * 1e2)}, t2, "N/mm²", 2)
+        else:
+            tau = Sub("τ", f"{pref}V*1000/Av", {**gq, "V": ("V₁" if v["P2"] > 0 else "V", v["V1"] / 1e3), "Av": ("A_v" if v["P2"] <= 0 else "A_v,z", sec["Avz"] * 1e2)},
+                      t1, "N/mm²", 2)
+        fleches.append(Sub("f₁" if v["P2"] > 0 else "f", "P*1000*H**3/(3*E*I)", {"P": ("P₁", v["P1"] / 1e3), "H": ("H", v["H"]), "E": ("E", E), "I": ("I_y", sec["Iy"] * 1e4)}, v["f1"], "mm", 2))
         if v["P2"] > 0:
             fleches.append(Sub("f₂", "P*1000*H**3/(3*E*I)", {"P": ("P₂", v["P2"] / 1e3), "H": ("H", v["H"]), "E": ("E", E), "I": ("I_z", sec["Iz"] * 1e4)}, v["f2"], "mm", 2))
-            fleches.append(Sub("f_rés", "sqrt(f1**2 + f2**2)", {"f1": ("f", v["f1"]), "f2": ("f₂", v["f2"])}, v["fleche"], "mm", 2))
+            fleches.append(Sub("f_rés", "sqrt(f1**2 + f2**2)", {"f1": ("f₁", v["f1"]), "f2": ("f₂", v["f2"])}, v["fleche"], "mm", 2))
     lim = _limites(v, meth, res["acier"]["fy"])
     return _bloc(cas, v.get("cas_taux"), _groupes(charges, sollic, sigma, tau, fleches, lim))
 
@@ -196,16 +224,23 @@ def barre(res: Dict) -> Dict:
     L = v["L"]
     gq, pref = _gq(v)
     charges, sollic, fleches = [], [], []
+    faible = v.get("axe") == "faible"                 # lisse intermédiaire h vertical : axe faible (W_el,z, I_z)
+    M = v["M2"] if faible else v["M1"]
+    W_sym, W = ("W_el,z", v["Wz"]) if faible else ("W_el", v["Wy"])
+    I_sym, I = ("I_z", sec["Iz"] * 1e4) if faible else ("I", sec["Iy"] * 1e4)
     if v["cas"] == "q":
         charges.append(Sub("q", "qr*e/1000", {"qr": ("q_r", ch["qr"]), "e": ("e", rp["entraxe"])}, v["q"], "kN/m", 3))
-        sollic.append(Sub("M", "q*L**2/8/1e6", {"q": ("q", v["q"]), "L": ("L", L)}, v["M1"] / 1e6, "kN·m", 4))
-        fleches.append(Sub("f", "5*q*L**4/(384*E*I)", {"q": ("q", v["q"]), "L": ("L", L), "E": ("E", E), "I": ("I", sec["Iy"] * 1e4)}, v["fleche"], "mm", 2))
+        sollic.append(Sub("M", "q*L**2/8/1e6", {"q": ("q", v["q"]), "L": ("L", L)}, M / 1e6, "kN·m", 4))
+        fleches.append(Sub("f", "5*q*L**4/(384*E*I)", {"q": ("q", v["q"]), "L": ("L", L), "E": ("E", E), "I": (I_sym, I)}, v["fleche"], "mm", 2))
     else:
-        sollic.append(Sub("M", "Q*L/4/1000", {"Q": ("Q_r", v["Q"] / 1e3), "L": ("L", L)}, v["M1"] / 1e6, "kN·m", 4))
-        fleches.append(Sub("f", "Q*1000*L**3/(48*E*I)", {"Q": ("Q_r", v["Q"] / 1e3), "L": ("L", L), "E": ("E", E), "I": ("I", sec["Iy"] * 1e4)}, v["fleche"], "mm", 2))
-    sigma = Sub("σ", f"{pref}M*1e6/W", {**gq, "M": ("M", v["M1"] / 1e6), "W": ("W_el", v["Wy"])}, v["sigma"], "N/mm²", 1)
+        sollic.append(Sub("M", "Q*L/4/1000", {"Q": ("Q_r", v["Q"] / 1e3), "L": ("L", L)}, M / 1e6, "kN·m", 4))
+        fleches.append(Sub("f", "Q*1000*L**3/(48*E*I)", {"Q": ("Q_r", v["Q"] / 1e3), "L": ("L", L), "E": ("E", E), "I": (I_sym, I)}, v["fleche"], "mm", 2))
+    sigma = Sub("σ", f"{pref}M*1e6/W", {**gq, "M": ("M", M / 1e6), "W": (W_sym, W)}, v["sigma"], "N/mm²", 1)
+    V, Av_sym, Av = (v["V2"], "A_v,y", sec["Avy"] * 1e2) if faible else (v["V1"], "A_v", sec["Avz"] * 1e2)
+    sollic.append(Sub("V", "", {}, V / 1e3, "kN", 3))
+    tau = Sub("τ", f"{pref}V*1000/Av", {**gq, "V": ("V", V / 1e3), "Av": (Av_sym, Av)}, v["tau"], "N/mm²", 2)
     lim = _limites(v, meth, res["acier"]["fy"])
-    return _bloc(v["cas_charge"], v.get("cas_taux"), _groupes(charges, sollic, sigma, None, fleches, lim))
+    return _bloc(v["cas_charge"], v.get("cas_taux"), _groupes(charges, sollic, sigma, tau, fleches, lim))
 
 
 # ------------------------------------------------------------------ console (système mur)
@@ -217,13 +252,18 @@ def console(res: Dict) -> Dict:
     cas = v["cas_charge"]
     trib = v["trib1"] + v["trib2"]
     gq, pref = _gq(v)
-    charges, sollic = [], []
+    charges, sollic, fleches = [], [], []
+    tau = None
     termes, vals = [], dict(gq)
+    E = float(meth.get("E") or ME.E_ACIER)
     if cas in ("2", "1+2"):
         charges.append(Sub("R_v", "qv*s/1000", {"qv": ("q_v", ch["qv"]), "s": ("s_trib", trib)}, v["Rv"] / 1e3, "kN", 3))
         sollic.append(Sub("M", "Rv*e/1000", {"Rv": ("R_v", v["Rv"] / 1e3), "e": ("e", v["e"])}, v["M1"] / 1e6, "kN·m", 3))
+        sollic.append(Sub("V", "", {}, v["V1"] / 1e3, "kN", 3))
         termes.append(f"{pref}M*1e6/W")
         vals.update({"M": ("M", v["M1"] / 1e6), "W": ("W_el", v["Wy"])})
+        tau = Sub("τ", f"{pref}V*1000/Av", {**gq, "V": ("V", v["V1"] / 1e3), "Av": ("A_v", sec["Avz"] * 1e2)}, v["tau"], "N/mm²", 2)
+        fleches.append(Sub("f", "Rv*1000*e**3/(3*E*I)", {"Rv": ("R_v", v["Rv"] / 1e3), "e": ("e", v["e"]), "E": ("E", E), "I": ("I", sec["Iy"] * 1e4)}, v["fleche"], "mm", 3))
     if cas in ("1", "1+2"):
         if ch["mode"] == "P":
             charges.append(Sub("R_h", "P", {"P": ("P", ch["P"])}, v["Rh"] / 1e3, "kN", 3))
@@ -237,7 +277,7 @@ def console(res: Dict) -> Dict:
             vals.update({"M2": ("M₂", v["M2"] / 1e6), "Wz": ("W_el,z", v["Wz"])})
     sigma = Sub("σ", " + ".join(termes), vals, v["sigma"], "N/mm²", 1)
     lim = _limites(v, meth, res["acier"]["fy"])
-    return _bloc(cas, v.get("cas_taux"), _groupes(charges, sollic, sigma, None, [], lim))
+    return _bloc(cas, v.get("cas_taux"), _groupes(charges, sollic, sigma, tau, fleches, lim))
 
 
 # ------------------------------------------------------------------ 4 · ancrage : platine, chevilles ou boulons
@@ -287,8 +327,8 @@ def platine(res: Dict) -> Dict:
         flexion.append(Sub("M_p", "Z*m/1000", {"Z": ("Z", p["Z"] / 1e3), "m": ("m", p["m"])}, p["Mp"] / 1e6, "kN·m", 4))
         flexion.append(Sub("σ_p", "6*Mp*1e6/(b*tp**2)", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "tp": ("t_p", p["tp"])}, p["sigma_p"], "N/mm²", 1))
         flexion.append(Sub("t_p", "", {}, p["tp"], "mm", 0))
-        flexion.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": ("σ_lim", p["lim_sigma"])}, p["tp_req"], "mm", 1))
-        flexion.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": ("σ_lim", p["lim_sigma"])}, p["taux_platine"], "", -1))
+        flexion.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": (_sym_lim(res), p["lim_sigma"])}, p["tp_req"], "mm", 1))
+        flexion.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": (_sym_lim(res), p["lim_sigma"])}, p["taux_platine"], "", -1))
     return _bloc(p.get("cas_charge", ""), None, [(ANCRAGES_EFFORTS, efforts), (ANCRAGES_RESISTANCES, resist), (PLATINE_FLEXION, flexion)])
 
 
@@ -325,8 +365,8 @@ def _flexion_platine(res: Dict, p: Dict, bras: Sub, largeur_sym: str, largeur: f
     out.append(Sub("M_p", "Z*m/1000", {"Z": ("Z", p["Z"] / 1e3), "m": ("m", p["m"])}, p["Mp"] / 1e6, "kN·m", 4))
     out.append(Sub("σ_p", "6*Mp*1e6/(b*tp**2)", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "tp": ("t_p", p["tp"])}, p["sigma_p"], "N/mm²", 1))
     out.append(Sub("t_p", "", {}, p["tp"], "mm", 0))
-    out.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": ("σ_lim", p["lim_sigma"])}, p["tp_req"], "mm", 1))
-    out.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": ("σ_lim", p["lim_sigma"])}, p["taux_platine"], "", -1))
+    out.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": (_sym_lim(res), p["lim_sigma"])}, p["tp_req"], "mm", 1))
+    out.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": (_sym_lim(res), p["lim_sigma"])}, p["taux_platine"], "", -1))
     return out
 
 
