@@ -24,14 +24,21 @@ Six vues (``vues(res)`` : [(clé, titre, Dessin)]), scènes en mm À L'ÉCHELLE,
   chevilles dans le support, bras de levier m et z, efforts M, V, N du cas gouvernant ;
 - SECTION de l'élément principal, axes y-y et z-z, direction de la charge.
 
-Pour la main courante murale, les mêmes vues avec la console à la place du montant.
+Pour la main courante murale, les mêmes vues avec la console à la place du montant. Pour la
+PLATINE LATÉRALE (nez de dalle) : l'élévation montre le montant qui descend le long de la dalle
+jusqu'à sa platine, la coupe A-A la platine contre le nez de dalle et ses chevilles horizontales,
+la vue de face de la platine (montant, cordons longitudinaux, trous, e_x, e_y, z, m) et la COUPE
+HORIZONTALE sur la fixation (dalle, platine, section du montant, cordons coupés, chevilles).
+Un garde-corps SANS MONTANT (main courante portante entre deux murs) a son élévation, sa coupe et
+son plan sans montant ni fixation. Un garde-corps RAMPANT (escalier) : l'élévation est inclinée
+de la pente, montants verticaux, entraxes mesurés suivant la pente.
 Rien n'est recalculé : tout vient de ``etat.verifier``. Pureté : aucun Streamlit.
 """
 import math
 from typing import Dict, List, Optional, Tuple
 
 from acier.assemblages.poutre_poutre.doubles_cornieres.schemas import (   # kit partagé
-    Dessin, Feuille, Options, PALETTE, _circle, _group, _hachures, _path, _poly, _rect, _rect_rompu, _text, vers_svg)
+    Dessin, Feuille, Options, PALETTE, _circle, _group, _hachures, _path, _poly, _rect, _rect_pts, _rect_rompu, _text, vers_svg)
 from acier.formats import F, f0
 from acier.soudures.schemas import (_arc_moment, _bb, _bloc_efforts, _etendre, _fleche, _fs, _label, _nom, _normal,   # briques partagées
                                     _trait_coupe, _tw)
@@ -209,17 +216,73 @@ def _gouvernant_nom(res: Dict) -> Optional[str]:
     return ((res.get("montant") or res.get("console")) or {}).get("nom")
 
 
-def _montant_gouvernant(res: Dict) -> Dict:
+def _montant_gouvernant(res: Dict) -> Optional[Dict]:
+    """Le montant (ou la console) gouvernant ; None sans montant (main courante entre deux murs)."""
+    ms = res["geometrie"].get("montants") or []
+    if not ms:
+        return None
     nom = (_gouvernant_nom(res) or "").replace("C", "M")
-    return next((m for m in res["geometrie"]["montants"] if m["nom"] == nom), res["geometrie"]["montants"][0])
+    return next((m for m in ms if m["nom"] == nom), ms[0])
 
 
 def _x_coupe(res: Dict) -> float:
-    """L'abscisse développée du plan de la coupe A-A : dans la travée à côté du montant gouvernant."""
+    """L'abscisse développée du plan de la coupe A-A : dans la travée à côté du montant gouvernant
+    (sans montant : au tiers de la portée)."""
     m = _montant_gouvernant(res)
+    if m is None:
+        return 0.33 * float(res["geometrie"].get("L_total") or 1000.0)
     if m["s_d"] > 0:
         return m["x"] + min(D_COUPE, 0.3 * m["s_d"])
     return m["x"] - min(D_COUPE, 0.3 * m["s_g"])
+
+
+def _incliner(prims: List[Dict], alpha_deg: float) -> List[Dict]:
+    """Le garde-corps RAMPANT : la scène droite (x le long de la main courante) est inclinée de la
+    pente — (x, y) → (x·cos α, y − x·sin α) : les montants restent verticaux, la main courante, la
+    lisse basse et la dalle suivent la pente, les longueurs le long de la main courante sont gardées.
+    Les rectangles deviennent des polygones."""
+    ca, sa = math.cos(math.radians(alpha_deg)), math.sin(math.radians(alpha_deg))
+
+    def T(pt):
+        x, y = float(pt[0]), float(pt[1])
+        return (x * ca, y - x * sa)
+    out = []
+    for p in prims:
+        t = p["t"]
+        if t == "rect":
+            q = dict(p); q["t"] = "poly"; q["pts"] = [T(pt) for pt in _rect_pts(p["x"], p["y"], p["w"], p["h"])]
+            for k in ("x", "y", "w", "h"):
+                q.pop(k, None)
+            out.append(q)
+        elif t == "poly":
+            out.append({**p, "pts": [T(pt) for pt in p["pts"]]})
+        elif t == "path":
+            out.append({**p, "lignes": [[T(pt) for pt in l] for l in p["lignes"]]})
+        elif t == "circle":
+            x, y = T((p["cx"], p["cy"]))
+            out.append({**p, "cx": x, "cy": y})
+        elif t == "text" and p.get("x") is not None:
+            x, y = T((p["x"], p["y"]))
+            out.append({**p, "x": x, "y": y})
+        elif t == "g" and "x" in p:
+            x, y = T((p["x"], p["y"]))
+            out.append({**p, "x": x, "y": y})
+        else:
+            out.append(p)
+    return out
+
+
+def _chaine_prims(s, xs: List[float], y: float, fs: float):
+    """Une chaîne de cotes posée dans le CORPS (pour être inclinée avec lui) : ligne de cote à ``y``,
+    repères, valeurs des intervalles (mesurées le long de la ligne)."""
+    xs = sorted(float(v) for v in xs)
+    if len(xs) < 2:
+        return
+    t = 0.34 * fs
+    s.append(_path(["ext"], [[(x, y - 1.0 * fs), (x, y + 0.45 * fs)] for x in xs], hint="V"))
+    s.append(_path(["dln"], [[(xs[0], y), (xs[-1], y)]] + [[(x - t, y + t), (x + t, y - t)] for x in xs], hint="H"))
+    for x0, x1 in zip(xs[:-1], xs[1:]):
+        s.append(_text(["tx2"], (x0 + x1) / 2, y - 0.42 * fs, f0(x1 - x0), fs))
 
 
 def _efforts_fixation(res: Dict) -> Tuple[str, float, float, float]:
@@ -230,6 +293,15 @@ def _efforts_fixation(res: Dict) -> Tuple[str, float, float, float]:
     pl = fx.get("platine") or {}
     if pl.get("taux_max") is not None:
         return CH.CAS_LIBELLES.get(pl.get("cas_charge"), ""), float(pl.get("V") or 0.0), float(pl.get("N") or 0.0), float(pl.get("M") or 0.0)
+    if fx.get("type") == "laterale" and fx.get("soudure") and res.get("montant"):
+        v = res["montant"]["verif"]
+        g = float((res.get("limites") or {}).get("gamma") or 1.0)
+        cas = fx["soudure"].get("cas_charge") or "1"
+        y_P = v["H"] + float(((res.get("fixation") or {}).get("platine") or {}).get("bp") or 150.0) / 2
+        P1, Nv = v.get("P_h", 0.0), v.get("N_v", 0.0)
+        if cas == "2":
+            return CH.CAS_LIBELLES.get(cas, ""), Nv * g, 0.0, 0.0
+        return CH.CAS_LIBELLES.get(cas, ""), (Nv if cas != "1" else 0.0) * g, -P1 * g, P1 * y_P * g
     g = float((res.get("limites") or {}).get("gamma") or 1.0)
     cas = ((fx.get("soudure") or {}).get("cas_charge")) or "1"
     if res["geometrie"].get("systeme") == "mur" and res.get("console"):
@@ -296,14 +368,19 @@ def elevation(res: Dict, opt: Options) -> Dessin:
     h_mc = max(h_mc, 0.25 * fs)
     h_c, b_c = _dim_sec(sec_c)
     w_post = max(b_post if systeme == "montants" else b_c, MIN_VIS * fs)
+    lat = typ_fix == "laterale" and systeme == "montants"           # platine latérale : H se mesure du dessus de dalle, le montant descend le long du nez
+    d_h = float(geo.get("d_h") or 0.0) if lat else 0.0
     tp = float(pl.get("tp") or 10.0) if typ_fix in ("platine", "soudee") else 0.0
     lp, bp = float(pl.get("lp") or 150.0), float(pl.get("bp") or 150.0)
     ex, ey = float(pl.get("ex") or 100.0), float(pl.get("ey") or 100.0)
     n_r, d_a = int(pl.get("n_tendus") or 2), float(pl.get("d") or 12.0)
+    pente = float(geo.get("pente") or 0.0)
     y_sol = 0.0                                    # le dessus de la dalle
     y_pl = -tp if systeme == "montants" else 0.0   # le dessus de la platine : H se mesure de là
     y_mc = y_pl - H                                # l'axe de la main courante
     ep = max(EP_DALLE, 1.4 * fs)
+    if lat:
+        ep = max(ep, d_h + bp + 1.0 * fs)
     m_d = 2.2 * fs
     bb0 = dict(x1=0.0, x2=Lt, y1=y_mc - h_mc / 2, y2=y_sol + ep)
     s: List[Dict] = []
@@ -351,7 +428,13 @@ def elevation(res: Dict, opt: Options) -> Dessin:
     ancr_apres = []
     for m in montants:
         x = m["x"]
-        if systeme == "montants":
+        if systeme == "montants" and lat:                              # la platine sur le nez de dalle, le montant qui descend jusqu'à son bas, les chevilles
+            s.append(_rect(["ps"], x - lp / 2, y_sol + d_h, lp, bp))
+            s.append(_rect(["pp"], x - w_post / 2, y_haut, w_post, y_sol + d_h + bp - y_haut))
+            for i in (-1, 1):
+                for k in range(n_r):
+                    ancr_apres.append(_circle(["bo"], x + (k - (n_r - 1) / 2) * ey, y_sol + d_h + bp / 2 + i * ex / 2, d_a / 2))
+        elif systeme == "montants":
             s.append(_rect(["pp"], x - w_post / 2, y_haut, w_post, y_pl - y_haut))
             if typ_fix == "platine":
                 s.append(_rect(["pp"], x - lp / 2, y_pl, lp, tp))
@@ -408,7 +491,7 @@ def elevation(res: Dict, opt: Options) -> Dessin:
     if ch.get("Q", 0) > 0:
         items.append(f"Q = {F(ch['Q'], 2)} kN sur la main courante")
     if typ in ("barreaux", "lisses", "panneau") and y_bas - y_haut > 2 * fs:
-        mg = _montant_gouvernant(res)
+        mg = _montant_gouvernant(res) or {"x": -1.0}
         t = next((t for t in travees if abs(t["x0"] - mg["x"]) < 1e-6), None) or next((t for t in travees if abs(t["x0"] + t["L"] - mg["x"]) < 1e-6), travees[0])
         xq, yq = t["x0"] + t["L"] / 2, (y_haut + y_bas) / 2
         _normal(s, (xq, yq), True, "Q_r", fs, etiq=(xq + 0.55 * fs + _tw("Q_r", fs) / 2 + 0.7 * fs, yq + 0.34 * fs))
@@ -419,33 +502,45 @@ def elevation(res: Dict, opt: Options) -> Dessin:
     if any(abs(xc - xq) < 1.2 * fs for xq in xs_q):
         xc += 1.2 * fs
     _trait_coupe(s, (xc, y_mc - h_mc / 2 - 1.4 * fs), (xc, y_sol + ep + 0.4 * fs), fs, "A")
+    # le garde-corps rampant : la chaîne des entraxes dans le corps (le long de la pente), puis toute la scène inclinée
+    ca = math.cos(math.radians(pente)) if pente else 1.0
+    if pente:
+        _chaine_prims(s, [0.0] + [t["x0"] + t["L"] for t in travees], y_sol + ep + 1.6 * fs, fs)
+        s = _incliner(s, pente)
+        bb0 = dict(x1=0.0, x2=Lt * ca, y1=y_mc - h_mc / 2 - Lt * math.sin(math.radians(pente)), y2=y_sol + ep + 2.6 * fs)
+
+    def X(x):
+        return x * ca
     # la feuille : chaîne des entraxes sur une rangée, L, H, h_bas, e_b ou e_l, noms, gouvernant, charges
     S = Feuille(_bb(bb0, s, fs), fs, opt)
-    _chaine(S, "B", [0.0] + [t["x0"] + t["L"] for t in travees], y_sol + ep)
-    if len(travees) > 1:
-        S.dim(dict(id="L", side="B", a=0.0, b=Lt, o1=y_sol + ep, o2=y_sol + ep, sym="L", val=Lt, lvl=1))
+    if not pente:
+        _chaine(S, "B", [0.0] + [t["x0"] + t["L"] for t in travees], y_sol + ep)
+        if len(travees) > 1:
+            S.dim(dict(id="L", side="B", a=0.0, b=Lt, o1=y_sol + ep, o2=y_sol + ep, sym="L", val=Lt, lvl=1))
     S.dim(dict(id="H", side="L", a=y_mc, b=y_pl, o1=0.0, o2=0.0, sym="H", val=H, lvl=1))
+    if lat and d_h > 0:
+        S.dim(dict(id="dh", side="L", a=y_sol, b=y_sol + d_h, o1=0.0, o2=0.0, sym="d_h", val=d_h, lvl=2))
     if y_lb is not None:
         S.dim(dict(id="hb", side="L", a=y_lb, b=y_pl, o1=0.0, o2=0.0, sym="h_bas", val=h_bas, lvl=2))
     if typ == "barreaux" and len(xs_b) >= 2:
-        S.dim(dict(id="eb", side="T", a=xs_b[0], b=xs_b[1], o1=y_haut, o2=y_haut, sym="e_b", val=eb, lvl=2, out="lo"))
+        S.dim(dict(id="eb", side="T", a=X(xs_b[0]), b=X(xs_b[1]), o1=y_haut, o2=y_haut, sym="e_b", val=eb, lvl=2, out="lo"))
     elif typ == "lisses" and el > 0:
-        S.dim(dict(id="el", side="R", a=y_mc, b=y_mc + el, o1=Lt, o2=Lt, sym="e_l", val=el, lvl=2))
+        S.dim(dict(id="el", side="R", a=y_mc, b=y_mc + el, o1=X(Lt), o2=X(Lt), sym="e_l", val=el, lvl=2))
     t_g = ((res.get("montant") or res.get("console")) or {}).get("verif", {}).get("taux_max")
     for m in montants:
         nom = m["nom"] if systeme == "montants" else m["nom"].replace("M", "C")
         if nom == gouv and t_g is not None:
-            _nom(S, "T", m["x"], f"◉ {nom} · {t_g * 100:.0f} %", cls="fzl")
+            _nom(S, "T", X(m["x"]), f"◉ {nom} · {t_g * 100:.0f} %", cls="fzl")
         else:
-            S.name("T", m["x"], nom)
+            S.name("T", X(m["x"]), nom)
     for i, ent in enumerate(geo["entraxes"]):
         if i and ent:
-            _nom(S, "T", sum(sum(e) for e in geo["entraxes"][:i]), "angle")
-    _bloc_efforts(S, items, Lt / 2, "B", 4)
-    _nom(S, "B", Lt / 2, CH.phrase_cumul(ch), cls="tx2")
+            _nom(S, "T", X(sum(sum(e) for e in geo["entraxes"][:i])), "angle")
+    _bloc_efforts(S, items, X(Lt) / 2, "B", 4)
+    _nom(S, "B", X(Lt) / 2, CH.phrase_cumul(ch) + (f" · rampant, pente {F(pente, 0)}°, entraxes suivant la pente" if pente else ""), cls="tx2")
     _etendre(S, s, fs)
     n_tr = sum(1 for e in geo["entraxes"] if e)
-    _nom(S, "T", Lt / 2, "Élévation développée" if n_tr > 1 else "Élévation")
+    _nom(S, "T", X(Lt) / 2, ("Élévation développée" if n_tr > 1 else "Élévation") + (" · rampant" if pente else "") + (" · sans montant" if not montants else ""))
     return S.finish(s, [], "Élévation du garde-corps : dalle, montants, main courante, lisse basse, remplissage, platines, charges, entraxes")
 
 
@@ -457,40 +552,56 @@ def coupe(res: Dict, opt: Options) -> Dessin:
     if geo.get("systeme") == "mur":
         return _coupe_mur(res, opt)
     H = float(geo["H"])
+    sans_montant = not geo.get("montants")
     sec_p, sec_l = res["section_montant"], res["lisse"]["section"]
     rp = res.get("remplissage") or {}
     fx = res.get("fixation") or {}
     pl = fx.get("platine") or {}
-    typ_fix = fx.get("type", "platine")
+    typ_fix = fx.get("type", "platine") if not sans_montant else "aucune"
+    lat = typ_fix == "laterale"
     ch = res["charges"]
-    hp, _b = _dim_sec(sec_p)
+    hp, _b = _dim_sec(sec_p) if not sans_montant else (0.0, 0.0)
     h_mc, b_mc = _dim_sec(sec_l)
-    tp = float(pl.get("tp") or 10.0) if typ_fix in ("platine", "soudee") else 0.0
+    tp = float(pl.get("tp") or 10.0) if typ_fix in ("platine", "soudee", "laterale") else 0.0
     bp, ex, d_a = float(pl.get("bp") or 150.0), float(pl.get("ex") or 100.0), float(pl.get("d") or 12.0)
-    ep = EP_DALLE
+    d_h = float(geo.get("d_h") or 0.0) if lat else 0.0
+    ep = EP_DALLE if not lat else max(EP_DALLE, d_h + bp + 40.0)
     fs = opt.fs_force or _fs(max(0.62 * (H + ep + 60.0), bp + 300.0))
-    y_sol, y_pl = 0.0, -tp
+    y_sol, y_pl = 0.0, (-tp if typ_fix in ("platine", "soudee") else 0.0)
     y_mc = y_pl - H
     y_haut = y_mc + h_mc / 2
     s: List[Dict] = []
-    x_d = max(bp, hp) / 2 + 2.4 * fs
+    x_d = max(bp, hp, b_mc + 20.0) / 2 + 2.4 * fs
     bb0 = dict(x1=-x_d, x2=x_d, y1=y_mc - h_mc / 2, y2=y_sol + ep)
-    _dalle(s, -x_d - 0.8 * fs, x_d + 0.8 * fs, y_sol, fs, ep)
     soud = ((fx.get("soudure") or {}).get("cas") or {}).get("params") or {}
     a = float(soud.get("a") or 4.0)
     jon = soud.get("jonction", "angle")
+    if lat:
+        # la dalle à gauche, son nez en x_face ; la platine contre le nez, le montant devant elle, les chevilles horizontales
+        x_face = -hp / 2 - tp
+        sup = _rect_rompu(-x_d - 0.8 * fs, y_sol, x_face + x_d + 0.8 * fs, ep, {"L", "B"}, 0.5 * fs)
+        s.append(_poly(["be"], sup)); s.append(_hach(["ht"], sup, 0.6 * fs))
+        s.append(_rect(["pp"], x_face, y_sol + d_h, tp, bp))
+        for sg in (-1, 1):
+            _cheville_h(s, x_face, y_sol + d_h + bp / 2 + sg * ex / 2, d_a, min(8 * d_a, 0.8 * x_d), tp)
+        s.append(_rect(["pp"], -hp / 2, y_haut, hp, y_sol + d_h + bp - y_haut))                   # le montant descend le long du nez de dalle
+        z = a * S2 if jon == "angle" else 0.6 * float(sec_p.get("t") or sec_p.get("b") or 4.0)
+        s.append(_rect(["wb"], x_face + tp - z, y_sol + d_h, z, bp))                                # les cordons longitudinaux, vus de côté
+    else:
+        _dalle(s, -x_d - 0.8 * fs, x_d + 0.8 * fs, y_sol, fs, ep)
     if typ_fix == "platine":
         s.append(_rect(["pp"], -bp / 2, y_pl, bp, tp))
         for sg in (-1, 1):
             _cheville(s, sg * ex / 2, y_sol, d_a, min(8 * d_a, 0.8 * ep), y_pl)
     elif typ_fix == "soudee":
         s.append(_rect(["ps"], -bp / 2, y_pl, bp, tp))
-    else:
+    elif typ_fix == "scellee":
         prof = 0.6 * ep
         s.append(_rect(["gr"], -hp / 2 - 0.3 * fs, y_sol, hp + 0.6 * fs, prof))
         s.append(_rect(["pp"], -hp / 2, y_sol, hp, prof))
-    s.append(_rect(["pp"], -hp / 2, y_haut, hp, y_pl - y_haut))              # le montant vu de côté (profondeur h_p)
-    if typ_fix != "scellee":
+    if not sans_montant and not lat:
+        s.append(_rect(["pp"], -hp / 2, y_haut, hp, y_pl - y_haut))              # le montant vu de côté (profondeur h_p)
+    if typ_fix in ("platine", "soudee"):
         z = a * S2 if jon == "angle" else 0.6 * float(sec_p.get("t") or sec_p.get("b") or 4.0)
         for sg in (-1, 1):
             s.append(_poly(["wb"], [(sg * hp / 2, y_pl), (sg * hp / 2 + sg * z, y_pl), (sg * hp / 2, y_pl - z)]))
@@ -528,7 +639,8 @@ def coupe(res: Dict, opt: Options) -> Dessin:
         items.append(f"q_r = {F(ch['qr'], 2)} kN/m²")
     # les noms des pièces, du côté du vide
     s.append(_text(["tx"], b_mc / 2 + 0.5 * fs, y_mc + 0.34 * fs, sec_l["nom"] + " · main courante", fs, "start"))
-    s.append(_text(["tx"], hp / 2 + 0.5 * fs, y_pl - 0.28 * H + 0.34 * fs, sec_p["nom"] + " · montant", fs, "start"))
+    if not sans_montant:
+        s.append(_text(["tx"], hp / 2 + 0.5 * fs, y_pl - 0.28 * H + 0.34 * fs, sec_p["nom"] + " · montant", fs, "start"))
     if y_lb is not None:
         s.append(_text(["tx"], _dim_sec(rp["section_basse"])[1] / 2 + 0.5 * fs, y_lb + 0.34 * fs, rp["section_basse"]["nom"] + " · lisse basse", fs, "start"))
     S = Feuille(_bb(bb0, s, fs), fs, opt)
@@ -539,10 +651,16 @@ def coupe(res: Dict, opt: Options) -> Dessin:
         S.dim(dict(id="bp", side="B", a=-bp / 2, b=bp / 2, o1=y_sol + ep, o2=y_sol + ep, sym="b_p", val=bp, lvl=1))
     if typ_fix == "platine":
         S.dim(dict(id="ex", side="B", a=-ex / 2, b=ex / 2, o1=y_sol + ep, o2=y_sol + ep, sym="e_x", val=ex, lvl=2))
-    S.tag(hp / 2 + 0.4 * fs, y_pl - 0.5 * H, dict(id="hp", sym="h_p", val=hp, lvl=2))
+    if lat:
+        S.dim(dict(id="dh", side="R", a=y_sol, b=y_sol + d_h, o1=hp / 2, o2=hp / 2, sym="d_h", val=d_h, lvl=1))
+        S.dim(dict(id="bp", side="R", a=y_sol + d_h, b=y_sol + d_h + bp, o1=hp / 2, o2=hp / 2, sym="b_p", val=bp, lvl=1))
+        S.dim(dict(id="ex", side="R", a=y_sol + d_h + bp / 2 - ex / 2, b=y_sol + d_h + bp / 2 + ex / 2, o1=hp / 2, o2=hp / 2, sym="e_x", val=ex, lvl=2))
+        S.dim(dict(id="tp", side="B", a=-hp / 2 - tp, b=-hp / 2, o1=y_sol + d_h + bp, o2=y_sol + d_h + bp, sym="t_p", val=tp, lvl=2, out="hi"))
+    if not sans_montant:
+        S.tag(hp / 2 + 0.4 * fs, y_pl - 0.5 * H, dict(id="hp", sym="h_p", val=hp, lvl=2))
     _bloc_efforts(S, items, 0.0, "B", 2)
     _etendre(S, s, fs)
-    _nom(S, "T", 0.0, "Coupe A-A")
+    _nom(S, "T", 0.0, "Coupe A-A" + (" · platine latérale" if lat else "") + (" · sans montant" if sans_montant else ""))
     return S.finish(s, [], "Coupe A-A : dalle, platine et chevilles, montant vu de côté, main courante et lisse basse coupées, charges")
 
 
@@ -767,6 +885,8 @@ def platine(res: Dict, opt: Options) -> Dessin:
     les distances aux bords, la direction de la charge qui fléchit la platine."""
     fx = res["fixation"]
     pl = fx.get("platine") or {}
+    if pl.get("mode") == "laterale":
+        return _platine_laterale(res, opt)
     mur = res["geometrie"].get("systeme") == "mur"
     sec = (res["console"] if mur else res["montant"])["section"]
     bp, lp, tp = float(pl.get("bp") or 150.0), float(pl.get("lp") or 150.0), float(pl.get("tp") or 10.0)
@@ -824,12 +944,63 @@ def platine(res: Dict, opt: Options) -> Dessin:
     return S.finish(s, [], "Platine en plan : section du montant, bande du cordon, trous des chevilles, e_x, e_y, b_p, l_p")
 
 
+def _platine_laterale(res: Dict, opt: Options) -> Dessin:
+    """La platine latérale vue de FACE (depuis le vide) : la platine l_p × b_p, le montant qui la
+    traverse de haut en bas (largeur b), les deux bandes des cordons longitudinaux, les trous des
+    chevilles (rangée haute tendue, rangée basse en appui), e_x, e_y, b_p, l_p, le bras z = e_x
+    du couple et le bras m de la platine en console, la charge P ⊙ (vers soi) en tête."""
+    fx = res["fixation"]
+    pl = fx["platine"]
+    sec = res["montant"]["section"]
+    bp, lp, tp = float(pl["bp"]), float(pl["lp"]), float(pl["tp"])
+    ex, ey, n = float(pl["ex"]), float(pl["ey"]), int(pl["n_tendus"])
+    b = float(pl.get("b_post") or _dim_sec(sec)[1])
+    d0 = float(pl.get("d0") or 14.0)
+    soud = ((fx.get("soudure") or {}).get("cas") or {}).get("params") or {}
+    els = soud.get("elements") or [{}]
+    a = float(els[0].get("a") or 4.0)
+    fs = opt.fs_force or _fs(max(lp, bp) + 90.0)
+    z = a * S2
+    bb0 = dict(x1=-lp / 2, x2=lp / 2, y1=-bp / 2 - 1.6 * fs, y2=bp / 2)
+    s: List[Dict] = [_rect(["pp"], -lp / 2, -bp / 2, lp, bp)]
+    wb = max(b, MIN_VIS * fs)
+    s.append(_rect(["wb"], -wb / 2 - z, -bp / 2, wb + 2 * z, bp))                      # les deux bandes des cordons, le long du montant
+    pts = _rect_rompu(-wb / 2, -bp / 2 - 1.6 * fs, wb, bp + 1.6 * fs, {"T"}, 0.45 * fs)
+    s.append(_poly(["ps"], pts))
+    vs = [(k - (n - 1) / 2) * ey for k in range(n)]
+    for i in (-1, 1):
+        for v in vs:
+            x, y = v, i * ex / 2
+            s.append(_circle(["bo"], x, y, d0 / 2))
+            r = d0 / 2 + 0.45 * fs
+            s.append(_path(["ax"], [[(x - r, y), (x + r, y)], [(x, y - r), (x, y + r)]]))
+    _normal(s, (0.0, -bp / 2 - 1.1 * fs), True, "P", fs, etiq=(wb / 2 + 1.6 * fs, -bp / 2 - 0.8 * fs))
+    S = Feuille(_bb(bb0, s, fs), fs, opt)
+    _chaine(S, "T", [-lp / 2] + vs + [lp / 2], -bp / 2, lvl=2)
+    if n > 1:
+        S.dim(dict(id="ey", side="T", a=vs[-2], b=vs[-1], o1=-bp / 2, o2=-bp / 2, sym="e_y", val=ey, lvl=1))
+    S.dim(dict(id="lp", side="T", a=-lp / 2, b=lp / 2, o1=-bp / 2, o2=-bp / 2, sym="l_p", val=lp, lvl=1))
+    _chaine(S, "R", [-bp / 2, -ex / 2, ex / 2, bp / 2], lp / 2, lvl=2)
+    S.dim(dict(id="ex", side="R", a=-ex / 2, b=ex / 2, o1=lp / 2, o2=lp / 2, sym="e_x", val=ex, lvl=1))
+    S.dim(dict(id="bp", side="R", a=-bp / 2, b=bp / 2, o1=lp / 2, o2=lp / 2, sym="b_p", val=bp, lvl=1))
+    if pl.get("z", 0) > 0:
+        S.dim(dict(id="z", side="L", a=-ex / 2, b=ex / 2, o1=vs[0] if vs else 0.0, o2=vs[0] if vs else 0.0, sym="z", val=pl["z"], lvl=2, calc=True))
+    if pl.get("m", 0) > 0 and vs:
+        S.dim(dict(id="m", side="B", a=wb / 2 + 0.8 * z, b=vs[-1], o1=-ex / 2, o2=-ex / 2, sym="m", val=pl["m"], lvl=2, calc=True))
+    S.tag(wb / 2 + z + 0.4 * fs, bp / 2 - 0.4 * fs, dict(id="a", sym="a", val=a, lvl=1))
+    _etendre(S, s, fs)
+    _nom(S, "T", 0.0, f"Platine latérale {lp:g} × {bp:g} × {tp:g} · {2 * n} {pl.get('nom_ancrage') or 'chevilles'} · vue de face")
+    return S.finish(s, [], "Platine latérale vue de face : montant, cordons longitudinaux, trous des chevilles, e_x, e_y, b_p, l_p, z, m")
+
+
 # ====================================================================== coupe sur la fixation (pied)
 def pied(res: Dict, opt: Options) -> Dessin:
     """Le pied du montant en coupe, à grande échelle : montant coupé, cordons, platine,
     chevilles dans le support, bras de levier m et z, efforts du cas gouvernant."""
     if res["geometrie"].get("systeme") == "mur":
         return _pied_console(res, opt)
+    if ((res.get("fixation") or {}).get("platine") or {}).get("mode") == "laterale":
+        return _pied_lateral(res, opt)
     sec = res["montant"]["section"]
     fx = res.get("fixation") or {}
     pl = fx.get("platine") or {}
@@ -965,6 +1136,63 @@ def _pied_console(res: Dict, opt: Options) -> Dessin:
     return S.finish(s, [], "Coupe sur la fixation au mur : mur, platine, chevilles, console coupée, cordons, bras de levier, efforts")
 
 
+def _pied_lateral(res: Dict, opt: Options) -> Dessin:
+    """La fixation latérale en COUPE HORIZONTALE, à grande échelle, au niveau de la rangée tendue : la
+    dalle (à gauche, son nez en x = 0), la platine contre le nez, la section du montant (h vers le
+    vide, b le long de la platine), les deux cordons longitudinaux coupés, les chevilles horizontales
+    des colonnes, l_p, e_y, t_p, h, b, le bras m, les efforts du cas gouvernant (V en ⊗)."""
+    sec = res["montant"]["section"]
+    fx = res.get("fixation") or {}
+    pl = fx.get("platine") or {}
+    soud = ((fx.get("soudure") or {}).get("cas") or {}).get("params") or {}
+    els = soud.get("elements") or [{}]
+    a = float(els[0].get("a") or 4.0)
+    hp, b = _dim_sec(sec)
+    lp, tp = float(pl.get("lp") or 150.0), float(pl.get("tp") or 10.0)
+    ey, n, d = float(pl.get("ey") or 100.0), int(pl.get("n_tendus") or 2), float(pl.get("d") or 12.0)
+    fs = opt.fs_force or _fs(lp + hp + 240.0)
+    ep = max(3.0 * fs, 110.0)
+    z = a * S2
+    s: List[Dict] = []
+    bb0 = dict(x1=-ep, x2=tp + hp + 1.5 * fs, y1=-lp / 2, y2=lp / 2)
+    sup = _rect_rompu(-ep, -lp / 2 - 2.2 * fs, ep, lp + 4.4 * fs, {"T", "B", "L"}, 0.5 * fs)
+    beton = pl.get("As") is None
+    s.append(_poly(["be" if beton else "pp"], sup)); s.append(_hach(["ht"], sup, 0.55 * fs))
+    P = [(0.0, -lp / 2), (tp, -lp / 2), (tp, lp / 2), (0.0, lp / 2)]
+    s.append(_poly(["pp"], P)); s.append(_hach(["ht"], P, 0.3 * fs))
+    xs = [(k - (n - 1) / 2) * ey for k in range(n)]
+    prof = min(8 * d, 0.85 * ep)
+    for y in xs:
+        s.append(_rect(["tg"], -prof, y - d / 2, prof + tp + 0.8 * d, d))
+        s.append(_rect(["bo"], tp, y - 0.8 * d, 0.8 * d, 1.6 * d))
+    _coupe_section(s, sec, tp + hp / 2, 0.0, max(1.5, 0.22 * fs), h_vertical=False)
+    for sg in (-1, 1):
+        _cordons(s, tp, sg * b / 2, z, +1, sg, 0.2 * fs)
+    s.append(_path(["ax"], [[(-0.5 * fs, 0.0), (tp + hp + 1.0 * fs, 0.0)]]))
+    cas, V, N, M = _efforts_fixation(res)
+    xe = tp + hp + 0.5 * fs
+    if N < 0:
+        _fleche(s, (xe + 0.2 * fs, 0.0), (xe + 3.4 * fs, 0.0), "P", fs, cote=+1)
+    if V > 0:                                                          # le cisaillement vertical traverse la coupe horizontale : ⊗ (vers le fond)
+        _normal(s, (tp + hp / 2, -b / 2 - 2.2 * fs), False, "V", fs, etiq=(tp + hp / 2 + 1.5 * fs, -b / 2 - 2.0 * fs))
+    if M > 0:
+        _arc_moment(s, (xe + 1.0 * fs, b / 2 + 2.6 * fs), 1.4 * fs, +1, "M", fs)
+    S = Feuille(_bb(bb0, s, fs), fs, opt)
+    S.dim(dict(id="lp", side="L", a=-lp / 2, b=lp / 2, o1=0.0, o2=0.0, sym="l_p", val=lp, lvl=1))
+    if n > 1:
+        S.dim(dict(id="ey", side="L", a=xs[-2], b=xs[-1], o1=0.0, o2=0.0, sym="e_y", val=ey, lvl=2))
+    if pl.get("m", 0) > 0:
+        S.dim(dict(id="m", side="R", a=b / 2 + 0.8 * z, b=xs[-1], o1=tp + 0.8 * d, o2=tp, sym="m", val=pl["m"], lvl=2, calc=True))
+    S.dim(dict(id="tp", side="T", a=0.0, b=tp, o1=-lp / 2, o2=-lp / 2, sym="t_p", val=tp, lvl=1, out="hi"))
+    S.dim(dict(id="hp", side="T", a=tp, b=tp + hp, o1=-b / 2, o2=-b / 2, sym="h", val=hp, lvl=2))
+    S.tag(tp + hp + 0.4 * fs, -b / 2 - 0.2 * fs, dict(id="b", sym="b", val=b, lvl=2))
+    S.tag(tp + z + 0.5 * fs, -b / 2 - z - 0.2 * fs, dict(id="a", sym="a", val=a, lvl=1))
+    _bloc_efforts(S, [_texte_efforts(cas, V, N, M).replace("(traction)", "(arrachement P)")], (tp + hp) / 2, "B", 1)
+    _etendre(S, s, fs)
+    _nom(S, "T", (tp + hp) / 2, "Coupe horizontale sur la fixation · " + sec["nom"] + " sur platine latérale")
+    return S.finish(s, [], "Coupe horizontale sur la fixation latérale : dalle, platine, section du montant, cordons coupés, chevilles, bras m, efforts")
+
+
 # ====================================================================== section
 def section(res: Dict, opt: Options) -> Dessin:
     """La section de l'élément principal, à l'échelle : contour du catalogue, hachures de la
@@ -990,7 +1218,7 @@ def section(res: Dict, opt: Options) -> Dessin:
     s.append(_text(["tx2"], xa1 + 0.55 * fs, 0.34 * fs, "y", fs))
     s.append(_text(["tx2"], 0.0, ya0 - 0.35 * fs, "z", fs))
     mur = res["geometrie"].get("systeme") == "mur"
-    _fleche(s, (0.0, ya1 + 2.6 * fs), (0.0, ya1 + 0.3 * fs), "q_v" if mur else "P₁", fs, cote=+1)
+    _fleche(s, (0.0, ya1 + 2.6 * fs), (0.0, ya1 + 0.3 * fs), "q_v" if mur else ("q_h" if res["geometrie"].get("sans_montant") else "P₁"), fs, cote=+1)
     S = Feuille(_bb(bb0, s, fs), fs, opt)
     d = sec["dims"]
     if sec["forme"] in ("creux_rond", "plein_rond"):
@@ -1015,19 +1243,24 @@ def vues(res: Dict, opt: Optional[Options] = None) -> List[Tuple[str, str, Dessi
     de la main courante ou de l'élément principal) ; sans platine en plan si le montant n'est
     pas sur platine boulonnée, sans coupe sur la fixation s'il est scellé."""
     geo = res.get("geometrie") or {}
-    if not geo.get("montants") or not res.get("lisse") or not res.get("section_montant") or not (res.get("montant") or res.get("console")):
+    sans_montant = not geo.get("montants") and bool(geo.get("travees")) and res.get("lisse") is not None
+    if not res.get("lisse") or not res.get("section_montant") or not (res.get("montant") or res.get("console") or sans_montant):
         return []
     opt = opt or options_schemas()
     typ_fix = (res.get("fixation") or {}).get("type")
     n_tr = sum(1 for e in geo.get("entraxes", []) if e)
     out = []
     for cle, titre, fn in VUES:
-        if cle == "platine" and typ_fix != "platine":
+        if cle in ("platine", "pied") and sans_montant:
+            continue
+        if cle == "platine" and typ_fix not in ("platine", "laterale"):
             continue
         if cle == "pied" and typ_fix == "scellee":
             continue
         if cle == "elevation" and n_tr > 1:
             titre = "Élévation développée"
+        if typ_fix == "laterale" and geo.get("systeme") == "montants":
+            titre = {"platine": "Platine latérale (vue de face)", "pied": "Coupe horizontale sur la fixation"}.get(cle, titre)
         out.append((cle, titre, fn(res, opt)))
     return out
 

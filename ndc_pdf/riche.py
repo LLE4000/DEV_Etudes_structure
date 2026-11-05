@@ -206,10 +206,11 @@ def paragraphe(d, fr, s, font, size, col, ms, lead=1.32, indent=0, max_lignes=No
 
 
 # ------------------------------------------------------------------ substitutions
-def formule_calee(d, fr, parts, res, ms, size, ms_res=None, indent=0, retrait=8, lead=1.36, min_size=5.0, gap=6.0):
-    """« a = b = c » à gauche, « = r » calé à droite. Si la ligne est trop longue, les morceaux
-    passent à la ligne (« = c » en retrait) ; si la dernière ligne et son résultat ne tiennent
-    toujours pas, ils se réduisent jusqu'à ``min_size``."""
+def formule_calee(d, fr, parts, res, ms, size, ms_res=None, indent=0, retrait=8, lead=1.36, min_size=5.0, gap=6.0, cale="droite"):
+    """Une substitution « a = b = c » et son résultat « = r ». ``cale`` « suite » : le résultat
+    suit le calcul sur la même ligne ; « droite » : il est calé à droite de la colonne (les taux).
+    Si la ligne est trop longue, les morceaux passent à la ligne (« = c » en retrait) ; si une
+    ligne ne tient toujours pas, elle se réduit jusqu'à ``min_size``."""
     parts = [p for p in parts if p]
     if not parts:
         return fr.y
@@ -219,12 +220,32 @@ def formule_calee(d, fr, parts, res, ms, size, ms_res=None, indent=0, retrait=8,
     def w(t, s, st=ms):
         return M.width(noeud(t), st, s)
 
+    if cale == "suite":
+        morceaux = parts + ([res] if res else [])
+        lignes, cur = [], morceaux[0]
+        for p in morceaux[1:]:
+            cand = cur + " = " + p
+            if w(cand, size, msr) <= avail - (retrait if lignes else 0.0):
+                cur = cand
+            else:
+                lignes.append(cur)
+                cur = "= " + p
+        lignes.append(cur)
+        for i, l in enumerate(lignes):
+            dx = retrait if i else 0.0
+            sz = size
+            wl = w(l, sz, msr)
+            if wl > avail - dx:
+                sz = max(min_size, sz * (avail - dx) / wl)
+            fr.down(size * lead)
+            M.draw(d.c, noeud(l), fr.x + indent + dx, fr.y, msr, sz)
+        return fr.y
     nres = "= " + res if res else None
     wres = w(nres, size, msr) if nres else 0.0
     lignes, cur = [], parts[0]
     for p in parts[1:]:
         cand = cur + " = " + p
-        if w(cand, size) <= avail - (0.0 if lignes else 0.0):
+        if w(cand, size) <= avail:
             cur = cand
         else:
             lignes.append(cur)

@@ -61,12 +61,12 @@ LEAD_TAB = 8.8
 LAB_W = 58
 TITRE = "Garde-corps"
 STATUTS = {ET.OK: ("CONFORME", "ok"), ET.ATTENTION: ("CONFORME · ATTENTION", "att"), ET.NOK: ("NON CONFORME", "ko"), ET.REFUS: ("CALCUL IMPOSSIBLE", "mut")}
-MODES = {ME.ELS: "Méthode ELS du bureau", ME.EUROCODE: "Eurocode (ELU)"}
-MODES_PHRASE = {ME.ELS: "méthode ELS du bureau (charges de service, contraintes admissibles)", ME.EUROCODE: "Eurocode (efforts de calcul)"}
+MODES = {ME.ELS: "Vérification à l'ELS", ME.EUROCODE: "Eurocode (ELU)"}
+MODES_PHRASE = {ME.ELS: "vérification à l'ELS (charges de service, contraintes admissibles)", ME.EUROCODE: "vérification à l'ELU selon l'Eurocode (efforts de calcul)"}
 LEGENDE = ("Dessins à l'échelle, cotes en mm · ◉ l'élément gouvernant et son taux · flèches rouges : les charges (⊙ vers soi) · A-A : plan de la coupe · "
            "cordons en ocre à leur taille a·√2, chevilles en gris · chaque montant reçoit la charge de sa longueur tributaire.")
 VARIANTES = ((1.0, "normale"), (0.92, "serrée"))
-FIXATIONS = {"platine": "platine boulonnée", "soudee": "montant soudé sur un plat existant", "scellee": "montant scellé"}
+FIXATIONS = {"platine": "platine boulonnée", "laterale": "platine latérale en nez de dalle", "soudee": "montant soudé sur un plat existant", "scellee": "montant scellé"}
 
 
 def _fmt(x, nd=1) -> str:
@@ -94,7 +94,7 @@ def _cas(lbl: Optional[str]) -> str:
 
 def _efforts(txt: str) -> str:
     """« N = 0,00 kN, V = 0,45 kN, M = 0,495 kN·m (…) » avec ses symboles composés."""
-    return re.sub(r"\b([NVM]) = ", r"$\1$ = ", txt)
+    return re.sub(r"\b([NVMP]) = ", r"$\1$ = ", txt)
 
 
 def _sans_parentheses(txt: str) -> str:
@@ -129,6 +129,8 @@ class Calcul:
 
     def sous_titre(self) -> str:
         lib = self.type_libelle().lower()
+        if self.res["geometrie"].get("sans_montant"):
+            return lib.replace(" sur montants", "") + " de mur à mur"
         return lib + ("" if self.systeme() == "mur" or " sur " in lib else " sur montants")
 
     def fleche_adm(self) -> str:
@@ -143,6 +145,13 @@ class Calcul:
             c = res.get("console") or {}
             L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus du sol · consoles à $e$ = {_g(c.get('e', 0))} mm du mur"))
             L.append(("Consoles", (c.get("section") or {}).get("nom", "—")))
+        elif geo.get("sans_montant"):
+            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus de la dalle"))
+            L.append(("Montants", "aucun : la main courante porte de mur à mur"))
+        elif geo.get("laterale"):
+            L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus de la dalle · descente $d_h$ = {_g(geo['d_h'])} mm jusqu'au haut de la platine latérale : "
+                                 f"le montant est une console de {_g(geo['H_post'])} mm"))
+            L.append(("Montants", (res.get("section_montant") or {}).get("nom", "—")))
         else:
             L.append(("Hauteur", f"$H$ = {_g(geo['H'])} mm au-dessus de la platine"))
             L.append(("Montants", (res.get("section_montant") or {}).get("nom", "—")))
@@ -163,28 +172,41 @@ class Calcul:
         L.append(("Acier", f"{ac['nuance']} · $f_y$ = {_g(ac['fy'])} N/mm² · $f_u$ = {_g(ac['fu'])} N/mm² · $E$ = {_fmt(float(m.get('E') or ME.E_ACIER), 0)} N/mm²"))
         fl = self.fleche_adm()
         if m["mode"] == ME.ELS:
-            L.append(("Méthode", "ELS du bureau : charges de service sans coefficient, contraintes admissibles"))
-            L.append(("Limites", f"$σ_{{adm}}$ = {_g(lim['sigma'])} N/mm² · $τ_{{adm}}$ = {_g(lim['tau'])} N/mm² · flèche ≤ {fl} · soudure $k$ = {_g(m.get('k', 100))} kg/(mm·cm) · "
-                                 f"ancrages : résistances de calcul / $γ_F$ = {_g(m.get('gamma_F', 1.5))}"))
+            L.append(("Vérification", f"à l'ELS, charges de service sans coefficient : $σ$ ≤ $σ_{{adm}}$ = {_g(lim['sigma'])} N/mm² · $τ$ ≤ $τ_{{adm}}$ = {_g(lim['tau'])} N/mm² · "
+                                      f"flèche ≤ {fl} · soudure $k$ = {_g(m.get('k', 100))} kg/(mm·cm) · ancrages : résistances de calcul / $γ_F$ = {_g(m.get('gamma_F', 1.5))}"))
         else:
-            L.append(("Méthode", f"Eurocode : efforts de calcul, charges × $γ_Q$ = {_g(m.get('gamma_Q', 1.5))} · vérification élastique ($W_{{el}}$)"))
-            L.append(("Limites", f"$σ$ ≤ $f_y/γ_{{M0}}$ = {_fmt(lim['sigma'])} N/mm² · $τ$ ≤ $f_y/(\\sqrt{{3}}·γ_{{M0}})$ = {_fmt(lim['tau'])} N/mm² · flèche ≤ {fl} sous charges de service · "
-                                 f"soudure EN 1993-1-8 {m.get('ec', 'directionnelle')}, $γ_{{M2}}$ = {_g(m.get('gamma_M2', 1.25))}"))
+            L.append(("Vérification", f"à l'ELU selon l'Eurocode, charges × $γ_Q$ = {_g(m.get('gamma_Q', 1.5))} : $σ$ ≤ $f_y/γ_{{M0}}$ = {_fmt(lim['sigma'])} N/mm² (élastique, $W_{{el}}$) · "
+                                      f"$τ$ ≤ $f_y/(\\sqrt{{3}}·γ_{{M0}})$ = {_fmt(lim['tau'])} N/mm² · flèche ≤ {fl} sous charges de service · "
+                                      f"soudure EN 1993-1-8 {m.get('ec', 'directionnelle')}, $γ_{{M2}}$ = {_g(m.get('gamma_M2', 1.25))}"))
         L.append(("Fixation", self.hyp_fixation()))
-        for msg in [x for x in res.get("messages", []) if not x.startswith("Refus")][:2]:
+        sans = bool(geo.get("sans_montant"))               # sans montant, le bloc « ancrage » dit déjà les réactions des murs
+        for msg in [x for x in res.get("messages", []) if not x.startswith("Refus") and not x.startswith("Sans montant")
+                    and not (sans and x.startswith("Ancrage de la main courante dans le mur"))][:2]:
             L.append(("Note", RI.auto(msg)))
         return L
 
     def hyp_fixation(self) -> str:
         fx = self.cas["fixation"]
         typ = fx.get("type", "platine")
+        if self.res["geometrie"].get("sans_montant"):
+            return "sans montant : la main courante est ancrée dans les murs, ses ancrages sont à justifier avec les réactions du calcul"
         if typ == "scellee":
             return "montant scellé : la fixation n'est pas vérifiée"
+        pl, anc = fx["platine"], fx["ancrage"]
+        if typ == FX.LATERALE and self.systeme() == "montants":
+            return (f"{FIXATIONS[typ]} · {RI.auto(FX.texte_platine(fx))} · soudure {RI.auto(FX.texte_soudure(fx['soudure']))} le long de la platine · "
+                    f"{RI.auto(FX.texte_ancrage(anc))}, rangées à $e_x$ = {_g(anc['ex'])} mm (vertical), colonnes à $e_y$ = {_g(anc['ey'])} mm")
         s = f"{FIXATIONS[typ]} · soudure {RI.auto(FX.texte_soudure(fx['soudure']))}"
-        if typ == "platine":
-            pl, anc = fx["platine"], fx["ancrage"]
+        if typ in ("platine", FX.LATERALE):
             s += f" · platine {_g(pl['bp'])} × {_g(pl['lp'])} × {_g(pl['tp'])} mm · {RI.auto(FX.texte_ancrage(anc))}, rangées à $e_x$ = {_g(anc['ex'])} mm, $e_y$ = {_g(anc['ey'])} mm"
         return s
+
+    def reactions_murs(self) -> List[Tuple[str, float, float]]:
+        """Les réactions (kN, service) de la main courante à chaque mur d'extrémité : (où, H, V)."""
+        geo, ch = self.res["geometrie"], self.res["charges"]
+        s_max = geo.get("s_max") or 0.0
+        qh = (ch["P"] * 1e3 / s_max if ch["mode"] == "P" else ch["qh"]) if s_max > 0 else 0.0
+        return [(r["ou"], qh * r["trib"] / 1e3, ch["qv"] * r["trib"] / 1e3) for r in geo.get("reprises_mur", [])]
 
     def ligne_cas(self) -> str:
         if self.res["charges"].get("cumul"):
@@ -198,6 +220,9 @@ class Calcul:
             rows.append({"n": "+", "symbole": "Q", "nom": "charge ponctuelle horizontale sur la main courante", "valeur": ch["Q"], "unite": "kN",
                          "norme": f"option, {self.meth.get('comb', 'somme')} avec q_h"})
         return rows
+
+    def role_principal(self) -> str:
+        return "lisse" if self.systeme() == "mur" or self.res["geometrie"].get("sans_montant") else "montant"
 
     def taux_de(self, cle: str) -> Optional[float]:
         for e in self.res.get("elements", []):
@@ -218,6 +243,12 @@ class Note:
         self.lead = LEAD_TAB * k
         self.echelle = None
         self._ms: Dict = {}
+        self.n_bloc = 0
+
+    def numero(self) -> str:
+        """Le numéro du prochain bloc d'élément (1 · MONTANT, 2 · MAIN COURANTE…), dans l'ordre de lecture."""
+        self.n_bloc += 1
+        return f"{self.n_bloc} · "
 
     # --- composition
     def ms(self, col=None, op=None, res=None) -> MathStyle:
@@ -260,9 +291,10 @@ class Note:
         d.line(fr.x, fr.y, fr.x1, fr.y, mix(S.rule, S.ink, 0.12), 0.5)
 
     def etiquette(self, d, fr, txt):
-        """Le libellé d'un groupe de formules, en petites capitales grises."""
+        """Le libellé d'un groupe de formules, en petites capitales grises (tronqué à la colonne)."""
         fr.down(self.s_txt * 1.6)
-        d.t(fr.x, fr.y, txt.upper(), self.S.f_v, 4.9 * self.k, self.S.mut, track=1.0)
+        size = 4.9 * self.k
+        d.t(fr.x, fr.y, d.fit(txt.upper(), self.S.f_v, size, fr.w - 1.0 * len(txt)), self.S.f_v, size, self.S.mut, track=1.0)
 
     def ligne_hyp(self, d, fr, label, val, col=None):
         """« LIBELLÉ   valeur » : le libellé en petites capitales à gauche, la valeur composée à droite, repliée."""
@@ -355,7 +387,7 @@ class Note:
                 if sub.nom.startswith("η") and sub.res is not None and math.isfinite(sub.res):
                     col_res = S.ok if sub.res <= 1.0 else S.ko
                 RI.formule_calee(d, fr, [RI.tex(p) for p in parts], self.res_tex(sub, res), ms, size, ms_res=self.ms(S.ink, op=S.mut, res=col_res),
-                                 indent=indent, retrait=10, lead=1.38, min_size=4.8)
+                                 indent=indent, retrait=10, lead=1.38, min_size=4.8, cale="droite" if col_res is not None else "suite")
 
     @staticmethod
     def res_tex(sub, res: str) -> str:
@@ -480,12 +512,15 @@ class Note:
         if C.systeme() == "montants" and res.get("montant"):
             m = res["montant"]
             v = m["verif"]
-            self.bloc(d, fr, f"1 · MONTANT {m['nom']} — {m['section']['nom']}", C.fo["montant"], C.taux_de("montant"),
-                      f"$H$ = {_g(v['H'])} mm · $s_{{trib}}$ = {_g(v['trib1'] + v['trib2'])} mm · console encastrée en pied" + (" · montant d'angle : deux directions" if v["coin"] else ""))
+            geo = res["geometrie"]
+            h_txt = (f"$H$ = {_g(v['H'])} mm ({_g(geo['H'])} au-dessus de la dalle + descente $d_h$ = {_g(geo['d_h'])})" if geo.get("laterale")
+                     else f"$H$ = {_g(v['H'])} mm")
+            self.bloc(d, fr, f"{self.numero()}MONTANT {m['nom']} — {m['section']['nom']}", C.fo["montant"], C.taux_de("montant"),
+                      f"{h_txt} · $s_{{trib}}$ = {_g(v['trib1'] + v['trib2'])} mm · console encastrée en pied" + (" · montant d'angle : deux directions" if v["coin"] else ""))
         elif res.get("console"):
             c = res["console"]
             v = c["verif"]
-            self.bloc(d, fr, f"1 · CONSOLE {c['nom']} — {c['section']['nom']}", C.fo["console"], C.taux_de("console"),
+            self.bloc(d, fr, f"{self.numero()}CONSOLE {c['nom']} — {c['section']['nom']}", C.fo["console"], C.taux_de("console"),
                       f"$e$ = {_g(c['e'])} mm du mur · $s_{{trib}}$ = {_g(v['trib1'] + v['trib2'])} mm · encastrée dans le mur")
 
     def main_courante(self, d, fr):
@@ -498,7 +533,9 @@ class Note:
         donnees = f"$L$ = {_g(v['L'])} mm (l'entraxe le plus grand) · {ME.APPUIS['continue'] if cont else ME.APPUIS['deux']}"
         if cont and v.get("kM"):
             donnees += f" · {li['n_travees']} travées : $k_M$ = {_g(v['kM'])}, $k_V$ = {_g(v['kV'])}, $k_f$ = {_g(v['kf'])}"
-        self.bloc(d, fr, f"2 · MAIN COURANTE — {li['section']['nom']}", C.fo["lisse"], C.taux_de("lisse"), donnees)
+        if C.res["geometrie"].get("sans_montant"):
+            donnees = f"$L$ = {_g(v['L'])} mm de mur à mur · {ME.APPUIS['deux']} · la main courante est l'élément porteur"
+        self.bloc(d, fr, f"{self.numero()}MAIN COURANTE — {li['section']['nom']}", C.fo["lisse"], C.taux_de("lisse"), donnees)
 
     def remplissage(self, d, fr):
         C = self.C
@@ -508,10 +545,10 @@ class Note:
             barreaux = rp["type"] == "barreaux"
             nom = "BARREAUX" if barreaux else "LISSES INTERMÉDIAIRES"
             ent = ("$e_b$" if barreaux else "$e_l$") + f" = {_g(rp['entraxe'])} mm"
-            self.bloc(d, fr, f"3 · {nom} — {rp['section']['nom']}", C.fo["barre"], C.taux_de("barreau" if barreaux else "lisse_inter"),
+            self.bloc(d, fr, f"{self.numero()}{nom} — {rp['section']['nom']}", C.fo["barre"], C.taux_de("barreau" if barreaux else "lisse_inter"),
                       f"$L$ = {_g(round(v['L']))} mm · {ent} · sur deux appuis · $Q_r$ à mi-portée (cas 3) ou $q_r$ × entraxe (cas 4)")
         elif rp.get("type") == "panneau":
-            self.titre(d, fr, "3 · PANNEAU")
+            self.titre(d, fr, f"{self.numero()}PANNEAU")
             fr.down(1)
             self.rp(d, fr, f"Remplissage en panneau (verre, tôle) : sa résistance sous $Q_r$ = {_g(C.res['charges']['Qr'])} kN et $q_r$ = {_g(C.res['charges']['qr'])} kN/m² "
                            "est à justifier par le fournisseur ; la lisse basse n'est pas calculée.")
@@ -521,20 +558,34 @@ class Note:
         S, C = self.S, self.C
         fx = C.res.get("fixation") or {}
         s = fx.get("soudure")
+        if C.res["geometrie"].get("sans_montant"):
+            self.titre(d, fr, f"{self.numero()}ANCRAGE — main courante ancrée dans les murs")
+            fr.down(1)
+            self.rp(d, fr, "Chaque mur reprend une demi-travée de la main courante ; les ancrages (chevilles, scellements) sont à justifier avec ces réactions de service :",
+                    size=self.s_txt * 0.95, col=S.mut)
+            for ou, Hr, Vr in C.reactions_murs():
+                self.rp(d, fr, f"mur de {ou} : $H$ = {_fmt(Hr, 2)} kN (horizontal, du $q_h$) · $V$ = {_fmt(Vr, 2)} kN (vertical, du $q_v$)", indent=4)
+            fr.down(2)
+            return
         if not s:
             if C.cas["fixation"].get("type") == "scellee":
-                self.titre(d, fr, "4 · ANCRAGE — montant scellé")
+                self.titre(d, fr, f"{self.numero()}ANCRAGE — montant scellé")
                 fr.down(1)
                 self.rp(d, fr, "Montant scellé : la fixation n'est pas vérifiée (scellement à justifier séparément).")
             return
         pl = fx.get("platine")
         typ = C.cas["fixation"].get("type", "platine")
+        if typ == FX.LATERALE and C.systeme() == "mur":
+            typ = "platine"
         cas_g = (pl or {}).get("cas_charge") or s.get("cas_charge")
-        self.titre(d, fr, "4 · ANCRAGE — " + FIXATIONS.get(typ, typ), fx.get("taux_max"))
+        self.titre(d, fr, f"{self.numero()}ANCRAGE — " + FIXATIONS.get(typ, typ), fx.get("taux_max"))
         fr.down(0.5)
-        self.rp(d, fr, f"Gouverne : {_cas(CH.CAS_LIBELLES.get(cas_g, cas_g))} · en pied du montant : {_efforts(s['efforts_txt'])}", size=self.s_txt * 0.95, col=S.mut)
+        ou = "au centre de la platine latérale" if typ == FX.LATERALE else "en pied du montant"
+        self.rp(d, fr, f"Gouverne : {_cas(CH.CAS_LIBELLES.get(cas_g, cas_g))} · {ou} : {_efforts(s['efforts_txt'])}", size=self.s_txt * 0.95, col=S.mut)
         fos = C.fo["soudure"]
-        groupes = [(f"Soudure — {s['res']['config']} du module Soudures, {s['position']}, détail p. 2", (fos["point"][:1] if fos["point"] else []) + fos["critere"])]
+        lib_s = (f"Soudure — deux cordons le long de la platine ({s['res']['config']}), détail p. 2" if typ == FX.LATERALE
+                 else f"Soudure — {s['res']['config']} du module Soudures, {s['position']}, détail p. 2")
+        groupes = [(lib_s, (fos["point"][:1] if fos["point"] else []) + fos["critere"])]
         if pl and pl.get("taux_max") is not None:
             groupes += C.fo["platine"]["groupes"]
         self.formules(d, fr, groupes)
@@ -555,7 +606,7 @@ class Note:
             crit = ME.critere_texte(e["critere"]) if e["cle"] in ("montant", "lisse", "barreau", "lisse_inter", "console") else e["critere"]
             lib = [_sans_parentheses(x) for x in e["libelle"].split(" · ")]
             if e["cle"] == "ancrage" and len(lib) > 1:
-                lib[0] = "Chevilles" if "cheville" in lib[1] else "Boulons"
+                lib[0] = "Ancrages"                                # le détail dit déjà « 2 × 2 chevilles M12 » ou « 2 × 2 boulons M12 8.8 »
             rows.append([("lab", RI.auto(" · ".join(lib[:2])), gouv), ("ref", _cas(cas_c).replace("cas ", "")), ("eta", _pct(e["taux"]), e["taux"] <= 1.0, gouv, e["taux"]),
                          ("ref", RI.auto(crit[:24]))])
         if not rows:
@@ -577,7 +628,8 @@ class Note:
         else:
             crit = ME.critere_texte(g["critere"]) if g["cle"] not in ("soudure", "ancrage", "platine") else g["critere"]
             cas_g = (next((e for e in res["elements"] if e["cle"] == g["cle"]), {}).get("detail") or {}).get("cas_charge")
-            elts = "montant, main courante, remplissage et ancrage" if C.systeme() == "montants" else "main courante, consoles et ancrage"
+            elts = ("main courante, consoles et ancrage" if C.systeme() == "mur" else
+                    "main courante et remplissage (ancrages aux murs à justifier)" if res["geometrie"].get("sans_montant") else "montant, main courante, remplissage et ancrage")
             porte = (f"Le garde-corps porte les charges retenues : {elts} vérifiés." if res["statut"] != ET.NOK else
                      "Le garde-corps ne porte pas les charges retenues en l'état : section, entraxe, hauteur ou ancrage à revoir (les tableaux de l'écran donnent le plus léger qui tient).")
             txt = (f"Taux maximal {_pct(res['taux_max'])} sur {RI.auto(g['libelle'])} ({RI.auto(crit)}" + (f", {_cas(CH.CAS_LIBELLES.get(cas_g, cas_g))}" if cas_g else "")
@@ -655,7 +707,9 @@ class Methode:
         vues = [(k, C.vues[k]) for k in ("platine", "pied") if k in C.vues]
         if not vues:
             return
-        self.titre(d, fr, "DÉTAIL DE L'ANCRAGE — " + ", ".join(C.titres[k].lower().replace("coupe sur la fixation", "coupe") for k, _ in vues))
+        lat = (C.res.get("fixation") or {}).get("type") == FX.LATERALE and C.systeme() == "montants"
+        self.titre(d, fr, "DÉTAIL DE L'ANCRAGE — " + ("platine latérale : vue de face, coupe horizontale" if lat else
+                                                   ", ".join(C.titres[k].lower().replace("coupe sur la fixation", "coupe") for k, _ in vues)))
         parts = {"platine": 0.46, "pied": 0.54} if len(vues) == 2 else {vues[0][0]: 1.0}
         larg = {k: (fr.w - 4 * (len(vues) - 1)) * parts[k] for k, _ in vues}
         h = min(max(110.0, max(larg[k] * dv.viewbox[3] / dv.viewbox[2] for k, dv in vues)), 190.0)
@@ -692,8 +746,10 @@ class Methode:
         if not s:
             return
         g = s["res"].get("gouvernant") or {}
-        self.titre(d, fr, "SOUDURE SUR LA PLATINE — " + (FOS.TITRES[FOS.methode_du_point(s["res"], g)].split(" (")[0] if g else "module Soudures"))
-        if C.vues_soudure:
+        meth_s = FOS.methode_du_point(s["res"], g) if g else ""
+        lib_s = "vérification à l'ELS" if meth_s.startswith("els") else (FOS.TITRES[meth_s].split(" (")[0] if meth_s in FOS.TITRES else "module Soudures")
+        self.titre(d, fr, "SOUDURE SUR LA PLATINE — " + lib_s)
+        if C.vues_soudure and s["res"].get("config") != "C8":          # les cordons libres (platine latérale, section libre) : la vue est en colonne 1
             _, _, dv = C.vues_soudure[0]
             h = min(max(80.0, fr.w * 0.8 * dv.viewbox[3] / dv.viewbox[2]), 130.0)
             fr.down(h + 2)
@@ -706,7 +762,7 @@ class Methode:
     def section_et_bibliotheque(self, d, fr):
         C = self.C
         dv = C.vues.get("section")
-        role = "lisse" if C.systeme() == "mur" else "montant"
+        role = C.role_principal()
         self.titre(d, fr, "SECTION DE L'ÉLÉMENT PRINCIPAL ET BIBLIOTHÈQUE")
         if dv is not None:
             h = min(max(55.0, fr.w * 0.4 * dv.viewbox[3] / dv.viewbox[2]), 80.0)
@@ -782,8 +838,7 @@ class Methode:
         self.table_montants(d, frames[0])
         self.section_et_bibliotheque(d, frames[0])
         self.soudure(d, frames[1])
-        els = self.C.meth["mode"] == ME.ELS
-        secs = [s for s in MT.SECTIONS if not (s["titre"].startswith("Eurocode") and els) and not (s["titre"].startswith("Méthode ELS") and not els)]
+        secs = MT.sections(self.C.meth["mode"], self.C.cas["fixation"].get("type", "platine"), bool(self.C.res["geometrie"].get("sans_montant")))
         for sec in secs:
             self.section(d, frames[2], sec)
         self.cartouche(d)

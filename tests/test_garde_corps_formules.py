@@ -51,7 +51,12 @@ CAS = [("défaut (ELS, chevilles, cas distincts)", cas()),
        ("type lisses", cas("lisses")),
        ("barreaux : la pression gouverne", cas(remplissage={"section": {"nom": "Plat 80x8"}, "entraxe": 300.0}, charges={"qr": 3.0, "Qr": 0.2})),
        ("murale (console sous q_v, tirée sous q_h)", cas("murale")),
-       ("murale cumulée, Eurocode, boulons", cas("murale", charges={"cumul": True}, methode={"mode": "eurocode"}, fixation={"ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon"}}))]
+       ("murale cumulée, Eurocode, boulons", cas("murale", charges={"cumul": True}, methode={"mode": "eurocode"}, fixation={"ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon"}})),
+       ("platine latérale (nez de dalle)", cas(fixation={"type": "laterale"})),
+       ("platine latérale en L, plat, boulons, cumul", cas(geometrie={"forme": "L"}, montant={"section": {"nom": "Plat 60x12"}}, charges={"cumul": True},
+                                                          fixation={"type": "laterale", "platine": {"bp": 200.0, "lp": 160.0, "tp": 10.0, "d_h": 60.0},
+                                                                    "ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon", "ex": 140.0, "ey": 90.0}})),
+       ("sans montant (loggia de mur à mur)", cas(geometrie={"debut": "mur", "fin": "mur", "troncons": [{"L": 2500, "s_max": 3000, "entraxes": []}, {"L": 2400, "s_max": 1000, "entraxes": []}, {"L": 3600, "s_max": 1000, "entraxes": []}]}))]
 n_sub = 0
 for nom, c in CAS:
     res = ET.verifier(c)
@@ -63,7 +68,10 @@ for nom, c in CAS:
     sou = t["soudure"]
     lignes = sou["groupe"] + sou["point"] + sou["critere"]
     mauvais_s = [FO.rendre(s) for s in lignes if not FO.verifier(s)]
-    chk(f"{nom} : la soudure a ses formules ({len(lignes)}) et elles se ré-évaluent", lignes and not mauvais_s, " ; ".join(mauvais_s)[:200])
+    if "sans montant" in nom:
+        chk(f"{nom} : sans montant, pas de soudure — aucune formule de soudure ({len(lignes)})", not lignes, " ; ".join(FO.rendre(s) for s in lignes)[:200])
+    else:
+        chk(f"{nom} : la soudure a ses formules ({len(lignes)}) et elles se ré-évaluent", lignes and not mauvais_s, " ; ".join(mauvais_s)[:200])
 chk("au moins 300 substitutions en tout", n_sub >= 300, str(n_sub))
 
 print("\n=== 2. Contenu et typographie ===")
@@ -124,6 +132,14 @@ chk("platine : trois groupes — ancrages (efforts), ancrages (résistances et t
 chk("les autres cas sont aussi donnés en liste (libellé, taux)", t["montant"]["cas_taux"] and t["montant"]["cas_taux"][0][0] == "cas 2 · q_v seule" and 0 < t["montant"]["cas_taux"][0][1] < 0.1)
 tL = FO.toutes(ET.verifier(cas(geometrie={"forme": "L"})))
 chk("montant d'angle : P₂ et M₂ sans mention entre parenthèses (le titre du bloc dit l'angle)", [s.nom for s in tL["montant"]["subs"]][:5] == ["P₁", "P₂", "M₁", "M₂", "V"], str([s.nom for s in tL["montant"]["subs"]][:5]))
+tLat = FO.toutes(ET.verifier(cas(fixation={"type": "laterale"})))
+txtLat = "\n".join(FO.rendre(s) for s in tLat["platine"]["subs"])
+chk("platine latérale : z = e_x = 100 mm, Z = M/z + P/2, F_t = Z/n, F_v = V/2n, m = e_y/2 − b/2 − 0,8·a·√2, b_eff = min(b_p, …), t_p = 10 mm face à t_req",
+    "z = e_x = 100 mm" in txtLat and "Z = M/z + P/2 = " in txtLat and "F_t = Z/n" in txtLat and "F_v = V/2n" in txtLat and "m = e_y/2 − b/2 − 0,8·a·√2 = 100/2 − 30/2 − 4,525" in txtLat
+    and "b_eff = min(b_p, n·min(2·π·m, 4·m + 1,25·e))" in txtLat and "t_p = 10 mm" in txtLat and "t_req" in txtLat
+    and [lib for lib, _ in tLat["platine"]["groupes"]] == [FO.ANCRAGES_EFFORTS, FO.ANCRAGES_RESISTANCES, FO.PLATINE_FLEXION])
+tLatL = FO.toutes(ET.verifier(cas(geometrie={"forme": "L"}, fixation={"type": "laterale"})))
+chk("montant d'angle en latéral : F_v = V/2n + F_v,tors (la torsion des ancrages est écrite)", "F_v = V/2n + F_v,tors" in "\n".join(FO.rendre(s) for s in tLatL["platine"]["subs"]))
 chk("chaque morceau d'une substitution se compose en typographie mathématique (riche.tex puis mathx.parse)",
     all(M.parse(RI.tex(p)) is not None for b in BLOCS for s in t[b]["subs"] for p in FO.morceaux(s)[0] + [FO.morceaux(s)[1]]))
 

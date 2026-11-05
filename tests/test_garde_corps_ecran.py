@@ -119,8 +119,9 @@ chk("🏠 Accueil ramène à l'accueil", at.session_state["page"] == "Accueil")
 print("\n=== 2. Écran ===")
 at = run(app())
 m = md(at)
-chk("le switch : ELS par défaut, « charges de service » et « formules du bureau »", at.segmented_control(key="gc_w_methode_mode").value == "els"
-    and "Charges de service" in m and "formules du bureau" in m)
+chk("le switch : « Vérification à l'ELS » par défaut, « charges de service », contraintes admissibles — sans « méthode du bureau » ni « ELS du bureau »",
+    at.segmented_control(key="gc_w_methode_mode").value == "els" and "Charges de service" in m and "contraintes admissibles" in m
+    and "méthode du bureau" not in m.lower() and "ELS du bureau" not in m and "Vérification à l'ELS" in m)
 chk("six dessins SVG légendés : élévation, coupe A-A, plan, platine en plan, coupe sur la fixation, section", m.count("<svg") >= 6 and all(k in m for k in LEGENDES))
 chk("carte RÉSULTAT : Conforme, η = 64 %, le montant M2 gouverne par la flèche sous le cas 1, une barre par élément",
     "Conforme" in pastille(at) and "64 %" in eta(at) and "Montant principal M2" in m and "flèche" in m and "cas 1 · q_h seule" in m
@@ -205,11 +206,36 @@ n_svg = md(at).count("<svg")
 at.segmented_control(key="gc_w_fixation_type").set_value("scellee"); run(at)
 chk("montant scellé : ni platine ni coupe sur la fixation ni soudure (quatre dessins de moins)", "scellé" in md(at).lower() and md(at).count("<svg") == n_svg - 4
     and "PLATINE EN PLAN" not in md(at))
+at.segmented_control(key="gc_w_fixation_type").set_value("laterale"); run(at)
+c = cas_actif(at)
+labels_lat = [n.label for n in at.number_input]
+chk("platine latérale en nez de dalle : quatre fixations au choix, les champs d_h, b_p (hauteur), l_p (largeur), e_x vertical, e_y horizontal ; « Platine latérale (vue de face) » et "
+    "« Coupe horizontale sur la fixation » dessinées, arrachement P ; six dessins du garde-corps et UN dessin de soudure (le groupe C8 n'a qu'une vue, C5 en a deux)",
+    c["fixation"]["type"] == "laterale" and "gc_w_fixation_platine_d_h" in cles(at)
+    and all(any(l.startswith(k) for l in labels_lat) for k in ("d_h — descente", "b_p — hauteur de la platine", "l_p — largeur de la platine", "e_x — entraxe vertical", "e_y — entraxe horizontal"))
+    and "PLATINE LATÉRALE (VUE DE FACE)" in md(at) and "COUPE HORIZONTALE SUR LA FIXATION" in md(at) and "arrachement P" in md(at) and md(at).count("<svg") == n_svg - 1
+    and "Ancrage latéral" in md(at) and "Platine rigide" not in md(at))
 at.segmented_control(key="gc_w_fixation_type").set_value("platine"); run(at)
+at.number_input(key="gc_w_geometrie_pente").set_value(32.0); run(at)
+chk("rampant : la pente 32° dans l'état et la phrase, « rampant » sur l'élévation, η inchangé", cas_actif(at)["geometrie"]["pente"] == 32.0 and "rampant, pente 32°" in md(at)
+    and "ÉLÉVATION" in md(at))
+at.number_input(key="gc_w_geometrie_pente").set_value(0.0); run(at)
 at.segmented_control(key="gc_w_geometrie_forme").set_value("L"); run(at)
 chk("forme en L : deux tronçons, un montant d'angle, le plan en L, « Élévation développée »", "gc_w_geometrie_troncons_1_L" in cles(at) and "d'angle" in md(at)
     and "en L" in md(at) and "ÉLÉVATION DÉVELOPPÉE" in md(at))
 at.segmented_control(key="gc_w_geometrie_forme").set_value("droit"); run(at)
+
+# ================================================================
+at = run(app())
+at.selectbox(key="gc_w_geometrie_debut").set_value("mur"); run(at)
+at.selectbox(key="gc_w_geometrie_fin").set_value("mur"); run(at)
+at.number_input(key="gc_w_geometrie_troncons_0_s_max").set_value(4000.0); run(at)
+chk("les deux bouts ancrés et une seule travée : garde-corps SANS montant — la main courante porte de mur à mur (3600), pas de fixation, rôles lisse et barreaux, réactions aux murs",
+    "Sans montant" in md(at) and "porte de mur à mur" in md(at) and "gc_w_fixation_platine_bp" not in cles(at) and "gc_w_montant_section" not in cles(at)
+    and "il reprend H = 0,90 kN" in md(at) and eta_moteur(at) in eta(at))
+at = run(app())
+at.selectbox(key="gc_w_charges_categorie").set_value("ind"); run(at)
+chk("catégorie « plateforme industrielle (machines) » : q_h = 0,30 kN/m, origine EN ISO 14122-3 à confirmer", cas_actif(at)["charges"]["qh"] == 0.3 and "EN ISO 14122-3" in md(at))
 
 # ================================================================
 print("\n=== 5. Le switch ===")

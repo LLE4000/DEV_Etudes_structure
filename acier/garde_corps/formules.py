@@ -20,14 +20,15 @@ from acier.assemblages.poutre_poutre.doubles_cornieres.formules import Sub, fmt,
 from acier.soudures import formules as FOS
 
 from . import charges as CH
+from . import fixation as FX
 from . import membres as ME
 
 CRITERES_MATH = {
     "els": r"σ = \frac{M}{W_{el}} + \frac{N}{A} \le σ_{adm} \t{ ; } τ = \frac{V}{A_v} \le τ_{adm} \t{ ; } f \le f_{adm}",
     "eurocode": r"σ_{Ed} = \frac{γ_Q \cdot M}{W_{el}} + \frac{γ_Q \cdot N}{A} \le \frac{f_y}{γ_{M0}} \t{ ; } τ_{Ed} = \frac{γ_Q \cdot V}{A_v} \le \frac{f_y}{\sqrt{3} \cdot γ_{M0}} \t{ ; } f \le f_{adm}",
 }
-TITRES = {"els": "Méthode ELS du bureau (charges de service, contraintes admissibles)",
-          "eurocode": "Eurocode (charges de calcul, EN 1993-1-1 §6.2, élastique)"}
+TITRES = {"els": "Vérification à l'ELS (charges de service, contraintes admissibles)",
+          "eurocode": "Vérification à l'ELU selon l'Eurocode (charges de calcul, EN 1993-1-1 §6.2, élastique)"}
 
 
 CHARGES, SOLLICITATIONS, CONTRAINTES, FLECHE, TAUX = "Charges", "Sollicitations", "Contraintes", "Flèche", "Taux"
@@ -249,6 +250,8 @@ def platine(res: Dict) -> Dict:
     if not p or p.get("taux_max") is None:
         return _vide()
     meth = res["methode"]
+    if p.get("mode") == FX.LATERALE:
+        return _platine_laterale(res, p, meth)
     efforts = [Sub("z", "ex/2 + hp/2", {"ex": ("e_x", p["ex"]), "hp": ("h_p", p["hp"])}, p["z"], "mm", 1)]
     if p["N"] >= 0:
         efforts.append(Sub("Z", "max(0, (M*1e6 - N*1000*hp/2)/z)/1000", {"M": ("M", p["M"] / 1e6), "N": ("N", p["N"] / 1e3), "hp": ("h_p", p["hp"]), "z": ("z", p["z"])}, p["Z"] / 1e3, "kN", 3))
@@ -283,9 +286,64 @@ def platine(res: Dict) -> Dict:
         flexion.append(Sub("b_eff", "min(lp, n*min(2*pi*m, 4*m + 1.25*e))", {"lp": ("l_p", p["lp"]), "n": ("n", p["n_tendus"]), "m": ("m", p["m"]), "e": ("e", p["e_bord"])}, p["b_eff"], "mm", 1))
         flexion.append(Sub("M_p", "Z*m/1000", {"Z": ("Z", p["Z"] / 1e3), "m": ("m", p["m"])}, p["Mp"] / 1e6, "kN·m", 4))
         flexion.append(Sub("σ_p", "6*Mp*1e6/(b*tp**2)", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "tp": ("t_p", p["tp"])}, p["sigma_p"], "N/mm²", 1))
+        flexion.append(Sub("t_p", "", {}, p["tp"], "mm", 0))
         flexion.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": ("σ_lim", p["lim_sigma"])}, p["tp_req"], "mm", 1))
         flexion.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": ("σ_lim", p["lim_sigma"])}, p["taux_platine"], "", -1))
     return _bloc(p.get("cas_charge", ""), None, [(ANCRAGES_EFFORTS, efforts), (ANCRAGES_RESISTANCES, resist), (PLATINE_FLEXION, flexion)])
+
+
+def _resistances_ancrage(p: Dict, meth: Dict) -> List[Sub]:
+    """F_t,Rd et F_v,Rd (boulon) ou N_Rd et V_Rd (cheville), divisées par γ_F en ELS, l'interaction et le taux de traction."""
+    gF = p["gamma_F"]
+    out = []
+    if "As" in p:
+        gM2 = float(meth.get("gamma_M2") or 1.25)
+        if gF != 1.0:
+            out.append(Sub("F_t,Rd/γ_F", "0.9*fub*As/gM2/gF/1000", {"fub": ("f_ub", p["fub"]), "As": ("A_s", p["As"]), "gM2": ("γ_M2", gM2), "gF": ("γ_F", gF)}, p["FtRd"] / 1e3, "kN", 2))
+            out.append(Sub("F_v,Rd/γ_F", "av*fub*As/gM2/gF/1000", {"av": ("α_v", p["av"]), "fub": ("f_ub", p["fub"]), "As": ("A_s", p["As"]), "gM2": ("γ_M2", gM2), "gF": ("γ_F", gF)}, p["FvRd"] / 1e3, "kN", 2))
+        else:
+            out.append(Sub("F_t,Rd", "0.9*fub*As/gM2/1000", {"fub": ("f_ub", p["fub"]), "As": ("A_s", p["As"]), "gM2": ("γ_M2", gM2)}, p["FtRd"] / 1e3, "kN", 2))
+            out.append(Sub("F_v,Rd", "av*fub*As/gM2/1000", {"av": ("α_v", p["av"]), "fub": ("f_ub", p["fub"]), "As": ("A_s", p["As"]), "gM2": ("γ_M2", gM2)}, p["FvRd"] / 1e3, "kN", 2))
+        out.append(Sub("η_inter", "Fv/FvRd + Ft/(1.4*FtRd)", {"Fv": ("F_v", p["Fv"] / 1e3), "FvRd": ("F_v,Rd", p["FvRd"] / 1e3), "Ft": ("F_t", p["Ft"] / 1e3), "FtRd": ("F_t,Rd", p["FtRd"] / 1e3)},
+                       p["inter"], "", -1))
+    else:
+        if gF != 1.0:
+            out.append(Sub("N_Rd/γ_F", "", {}, p["FtRd"] / 1e3, "kN", 2))
+            out.append(Sub("V_Rd/γ_F", "", {}, p["FvRd"] / 1e3, "kN", 2))
+        out.append(Sub("η_inter", "(Ft/NRd)**1.5 + (Fv/VRd)**1.5", {"Ft": ("F_t", p["Ft"] / 1e3), "NRd": ("N_Rd", p["FtRd"] / 1e3), "Fv": ("F_v", p["Fv"] / 1e3), "VRd": ("V_Rd", p["FvRd"] / 1e3)},
+                       p["inter"], "", -1))
+    out.append(Sub("η_t", "Ft/FtRd", {"Ft": ("F_t", p["Ft"] / 1e3), "FtRd": ("F_t,Rd", p["FtRd"] / 1e3)}, p["taux_t"], "", -1))
+    return out
+
+
+def _flexion_platine(res: Dict, p: Dict, bras: Sub, largeur_sym: str, largeur: float) -> List[Sub]:
+    """m, b_eff, M_p, σ_p, t_p, t_req, η_p : la platine en console du nu du montant à la rangée tendue."""
+    if p.get("m", 0) <= 0:
+        return []
+    out = [bras]
+    out.append(Sub("b_eff", "min(lp, n*min(2*pi*m, 4*m + 1.25*e))", {"lp": (largeur_sym, largeur), "n": ("n", p["n_tendus"]), "m": ("m", p["m"]), "e": ("e", p["e_bord"])}, p["b_eff"], "mm", 1))
+    out.append(Sub("M_p", "Z*m/1000", {"Z": ("Z", p["Z"] / 1e3), "m": ("m", p["m"])}, p["Mp"] / 1e6, "kN·m", 4))
+    out.append(Sub("σ_p", "6*Mp*1e6/(b*tp**2)", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "tp": ("t_p", p["tp"])}, p["sigma_p"], "N/mm²", 1))
+    out.append(Sub("t_p", "", {}, p["tp"], "mm", 0))
+    out.append(Sub("t_req", "sqrt(6*Mp*1e6/(b*lim))", {"Mp": ("M_p", p["Mp"] / 1e6), "b": ("b_eff", p["b_eff"]), "lim": ("σ_lim", p["lim_sigma"])}, p["tp_req"], "mm", 1))
+    out.append(Sub("η_p", "sp/lim", {"sp": ("σ_p", _arr(p["sigma_p"], 1)), "lim": ("σ_lim", p["lim_sigma"])}, p["taux_platine"], "", -1))
+    return out
+
+
+def _platine_laterale(res: Dict, p: Dict, meth: Dict) -> Dict:
+    """La platine latérale : couple d'ancrages (z = e_x, Z = M/z + P/2), F_t, F_v (avec la part de
+    torsion à l'angle), résistances et taux, la platine en console horizontale (m = e_y/2 − b/2 − 0,8·a·√2)."""
+    efforts = [Sub("z", "ex", {"ex": ("e_x", p["ex"])}, p["z"], "mm", 1),
+               Sub("Z", "M*1e6/z/1000 + P/2", {"M": ("M", p["M"] / 1e6), "z": ("z", p["z"]), "P": ("P", p["P"] / 1e3)}, p["Z"] / 1e3, "kN", 3),
+               Sub("F_t", "Z/n", {"Z": ("Z", p["Z"] / 1e3), "n": ("n", p["n_tendus"])}, p["Ft"] / 1e3, "kN", 3)]
+    if p.get("Fv_tors", 0.0) > 0:
+        efforts.append(Sub("F_v", "V/n + Ft", {"V": ("V", p["V"] / 1e3), "n": ("2n", p["n_total"]), "Ft": ("F_v,tors", p["Fv_tors"] / 1e3)}, p["Fv"] / 1e3, "kN", 3))
+    else:
+        efforts.append(Sub("F_v", "V/n", {"V": ("V", p["V"] / 1e3), "n": ("2n", p["n_total"])}, p["Fv"] / 1e3, "kN", 3))
+    deduc = 0.8 * float((res["fixation"].get("soudure") or {}).get("cas", {}).get("params", {}).get("elements", [{}])[0].get("a", 0) or 0) * 2 ** 0.5
+    bras = Sub("m", "ey/2 - b/2 - d", {"ey": ("e_y", p["ey"]), "b": ("b", p["b_post"]), "d": ("0,8·a·√2", deduc)}, p["m"], "mm", 1)
+    return _bloc(p.get("cas_charge", ""), None, [(ANCRAGES_EFFORTS, efforts), (ANCRAGES_RESISTANCES, _resistances_ancrage(p, meth)),
+                                                 (PLATINE_FLEXION, _flexion_platine(res, p, bras, "b_p", p["bp"]))])
 
 
 def soudure(res: Dict) -> Dict[str, List[Sub]]:

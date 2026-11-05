@@ -4,7 +4,7 @@
 Le moteur, l'état, les dessins et la note vivent dans ``acier/garde_corps`` (sans
 Streamlit : ``tests/test_garde_corps_moteur.py`` le garde) ; ce fichier n'est que la vue.
 
-Organisation : barre d'outils du cas ; le SWITCH de méthode — « Méthode ELS (bureau) » par
+Organisation : barre d'outils du cas ; le SWITCH de méthode — « Vérification à l'ELS » par
 défaut | « Eurocode (ELU) » ; à gauche les dessins de dessinateur (élévation, coupe A-A, plan,
 platine en plan, coupe sur la fixation, section) ; à droite la carte RÉSULTAT puis cinq
 onglets à libellé fixe : Garde-corps (le TYPE en menu déroulant, la forme en plan, les
@@ -41,7 +41,7 @@ from modules import liaison as LI
 P = "gc_"
 REGISTRE: LI.Registre = {}
 ETAPES = ["1 · Garde-corps", "2 · Charges", "3 · Sections", "4 · Ancrage", "5 · Détail"]
-MODES = {ME.ELS: "Méthode ELS (bureau)", ME.EUROCODE: "Eurocode (ELU)"}
+MODES = {ME.ELS: "Vérification à l'ELS", ME.EUROCODE: "Eurocode (ELU)"}
 LIBRE = "— section libre (dimensions) —"
 DIMS_LIBRES = {"TUBE": {"d": 48.3, "t": 3.2}, "CAISSON": {"h": 60.0, "b": 40.0, "t": 3.0}, "PLAT": {"h": 50.0, "b": 10.0}, "ROND": {"d": 12.0}}
 # Les familles proposées dans les tableaux de profilés, et celles cochées par défaut pour chaque rôle (RHS pour les montants et la main courante)
@@ -255,8 +255,8 @@ def _entete(etat: Dict, cas: Dict):
     st.markdown("## Garde-corps")
     st.caption("Dimensionnement d'un garde-corps acier — type en menu (barreaudage, lisses, panneau, main courante seule, main courante murale), "
                "forme en plan droite, en L ou en U, entraxes libres, quatre charges nommées (EN 1991-1-1 Tab. 6.12, NBN B 03-004) en cas distincts, "
-               "montant principal, main courante sur deux appuis ou continue, barreaux, ancrage (soudure, chevilles ou boulons, platine) · méthode "
-               "ELS du bureau par défaut, Eurocode en option · version 2.0")
+               "montant principal, main courante sur deux appuis ou continue, barreaux, ancrage (soudure, chevilles ou boulons, platine sur la dalle ou "
+               "en nez de dalle) · vérification à l'ELS par défaut, Eurocode en option · version 3.0")
     with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center", key=P + "barre"):
         if st.button("🏠 Accueil", key=P + "btn_home", width="content"):
             st.session_state.retour_accueil_demande = True
@@ -318,9 +318,9 @@ def _switch(cas: Dict):
     fl = f"L/{m.get('fleche_val', 100):g}" if m.get("fleche_mode", "L/x") == "L/x" else f"{m.get('fleche_val', 0):g} mm"
     with c2:
         if m["mode"] == ME.ELS:
-            st.markdown(f'<div class="gc-switch"><b>Charges de service</b>, sans coefficient : les formules du bureau — σ = M/W + N/A ≤ '
+            st.markdown(f'<div class="gc-switch"><b>Charges de service</b>, sans coefficient, contraintes admissibles — σ = M/W + N/A ≤ '
                         f'<b>{m.get("sigma_adm", 160):g} N/mm²</b>, τ = V/A_v ≤ <b>{m.get("tau_adm", 90):g} N/mm²</b>, flèche ≤ <b>{fl}</b> ; soudure '
-                        f'par la méthode ELS (k = {m.get("k", 100):g}), chevilles et boulons à leur résistance de calcul / γ_F = {m.get("gamma_F", 1.5):g} '
+                        f'à l\'ELS (k = {m.get("k", 100):g} kg/(mm·cm)), chevilles et boulons à leur résistance de calcul / γ_F = {m.get("gamma_F", 1.5):g} '
                         f'(paramètres dans l\'onglet Détail).</div>', unsafe_allow_html=True)
         else:
             st.markdown(f'<div class="gc-switch"><b>Efforts de calcul (ELU)</b> : charges × γ_Q = {m.get("gamma_Q", 1.5):g}, σ ≤ f_y/γ_M0 (élastique, W_el), '
@@ -355,7 +355,7 @@ def _colonne_dessin(cas: Dict, res: Dict):
         bloc("section", "section", "élément principal")
     c3, c4 = st.columns([1, 1.1], gap="small")
     with c3:
-        bloc("platine", "platine", "vue de dessus (au mur : vue sur la face du mur)")
+        bloc("platine", "platine", "vue de face (platine latérale, console au mur) ou de dessus (platine sur la dalle)")
     with c4:
         bloc("pied", "pied", "coupe à grande échelle, efforts du cas gouvernant")
     st.markdown('<div class="gc-leg">Dessins à l\'échelle, en mm : pièces au trait fort, sections coupées hachurées, cordons en ocre à leur taille a·√2, '
@@ -417,9 +417,12 @@ def _etape_garde_corps(cas: Dict, res: Dict):
     with st.container(horizontal=True, wrap=True, gap="medium", vertical_alignment="bottom", key=P + "c_sys"):
         _choix("Forme en plan", ("geometrie", "forme"), cas, list(GE.FORMES), GE.FORMES, segmente=True, width="content",
                help="Un, deux ou trois tronçons droits ; un montant d'angle reçoit une demi-travée de chaque tronçon dans deux directions.")
-        _num("H — main courante au-dessus de la fixation (mm)", ("geometrie", "H"), cas, 10.0, "%.0f", 300.0, width=270,
-             help="Bras de levier de la charge horizontale : hauteur de l'axe de la main courante au-dessus de la platine (fixation en nez de dalle : "
-                  "ajouter la descente). La charge s'applique au plus à 1,20 m (EN 1991-1-1 §6.4).")
+        _num("H — main courante au-dessus de la dalle (mm)", ("geometrie", "H"), cas, 10.0, "%.0f", 300.0, width=250,
+             help="Bras de levier de la charge horizontale : hauteur de l'axe de la main courante au-dessus de la platine (ou du dessus de dalle pour une "
+                  "platine latérale : le montant est alors vérifié sur H + d_h). La charge s'applique au plus à 1,20 m (EN 1991-1-1 §6.4).")
+        _num("Pente α du rampant (°, 0 : horizontal)", ("geometrie", "pente"), cas, 1.0, "%.0f", 0.0, max_value=60.0, width=230,
+             help="Garde-corps d'escalier : les entraxes se mesurent le long de la main courante, les montants restent verticaux ; la pente incline "
+                  "l'élévation et se lit dans les hypothèses, elle ne change pas les formules.")
     n = GE.N_TRONCONS.get(g.get("forme", "droit"), 1)
     for i in range(n):
         with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + f"c_tr{i}"):
@@ -430,7 +433,8 @@ def _etape_garde_corps(cas: Dict, res: Dict):
             _entraxes_w(i, cas)
     with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_ext"):
         _choix("Début", ("geometrie", "debut"), cas, list(GE.EXTREMITES), GE.EXTREMITES, width=240,
-               help="Un montant d'extrémité, ou la main courante ancrée dans le mur : le mur reprend la demi-travée.")
+               help="Un montant d'extrémité, ou la main courante ancrée dans le mur : le mur reprend la demi-travée. Les deux bouts ancrés et une "
+                    "seule travée : garde-corps SANS montant, la main courante porte de mur à mur (loggia).")
         _choix("Fin", ("geometrie", "fin"), cas, list(GE.EXTREMITES), GE.EXTREMITES, width=240)
     rp = cas["remplissage"]
     rpt = rp.get("type")
@@ -467,6 +471,9 @@ def _etape_garde_corps(cas: Dict, res: Dict):
         st.markdown(f"<table class='gc-tab'><tr><th>{nom.capitalize()}</th><th class='n'>x (mm)</th><th class='n'>s_trib (mm)</th><th class='n'>s_trib,2 (mm)</th><th></th></tr>"
                     + lignes + "</table>", unsafe_allow_html=True)
         st.caption(f"{geo['phrase']} · portée de la main courante : l'entraxe le plus grand, {_fmt(geo['s_max'], 0)} mm.")
+    elif geo.get("sans_montant"):
+        st.info(f"Sans montant : la main courante porte de mur à mur sur {_fmt(geo['L_total'], 0)} mm (les deux bouts ancrés, une seule travée) ; "
+                "la fixation n'a pas d'objet, les réactions aux murs sont données dans le résultat. Pour des montants, raccourcir l'entraxe maximal.")
 
 
 # ---------------------------------------------------------------- onglet 2 : charges
@@ -638,16 +645,22 @@ def _etape_ancrage(cas: Dict, res: Dict):
     fx = cas["fixation"]
     g = cas["geometrie"]
     typ = _choix("Fixation", ("fixation", "type"), cas, list(FX.TYPES), FX.TYPES, segmente=True,
-                 help="Platine boulonnée : le montant est soudé sur sa platine, fixée par chevilles ou boulons ; soudé : le montant est soudé "
-                      "directement sur un plat existant (la soudure seule est vérifiée) ; scellé : rien n'est vérifié.")
+                 help="Platine boulonnée : le montant est soudé sur sa platine posée sur la dalle, fixée par chevilles ou boulons ; platine latérale : la "
+                      "platine est verticale, en applique sur le nez de dalle, le montant soudé le long d'elle ; soudé : le montant est soudé directement "
+                      "sur un plat existant (la soudure seule est vérifiée) ; scellé : rien n'est vérifié.")
     if g.get("systeme") == "mur":
         with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_cons"):
             _num("Console : longueur e du mur à l'axe de la main courante (mm)", ("fixation", "console", "e"), cas, 10.0, "%.0f", 20.0, width=380,
                  help="Bras de levier de la charge verticale sur la console et sur ses chevilles ; la section de la console se choisit dans l'onglet Sections.")
+    if (res.get("geometrie") or {}).get("sans_montant"):
+        st.info("Sans montant : rien à fixer — la main courante est ancrée dans les murs (réactions dans le résultat).")
+        return
     if typ == "scellee":
         st.caption("Montant scellé dans le béton ou dans un fourreau : la fixation n'est pas vérifiée ici.")
         return
-    st.markdown("**Soudure sur la platine** — vérifiée par le module Soudures")
+    lat = typ == FX.LATERALE and g.get("systeme") == "montants"
+    st.markdown("**Soudure du montant le long de la platine** — deux cordons longitudinaux de la hauteur b_p, vérifiés par le module Soudures (C8)" if lat
+                else "**Soudure sur la platine** — vérifiée par le module Soudures")
     with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_soud"):
         jon = _choix("Jonction", ("fixation", "soudure", "jonction"), cas, ["angle", "partielle", "pleine"],
                      {"angle": "cordon d'angle", "partielle": "pénétration partielle", "pleine": "pleine pénétration"}, segmente=True)
@@ -669,15 +682,28 @@ def _etape_ancrage(cas: Dict, res: Dict):
                     with cols[i]:
                         with st.container(key=P + f"soud_{i}"):
                             st.markdown(f'<div class="gc-leg"><b>{titre.upper()}</b></div>' + SCS.svg(d, f"gc_s{i}"), unsafe_allow_html=True)
-    if typ != "platine":
+    if typ not in ("platine", FX.LATERALE):
         return
-    st.markdown("**Platine et ancrage** — platine rigide, deux rangées de chevilles (ou boulons) de part et d'autre du montant, à ±e_x/2")
-    with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_pl"):
-        _num("b_p — dans le sens de l'effort (mm)", ("fixation", "platine", "bp"), cas, 5.0, "%.0f", 40.0, width=230)
-        _num("l_p — largeur (mm)", ("fixation", "platine", "lp"), cas, 5.0, "%.0f", 40.0, width=170)
-        _num("e_x — entraxe des deux rangées (mm)", ("fixation", "ancrage", "ex"), cas, 5.0, "%.0f", 10.0, width=250, help="Dans le sens de l'effort ; doit dépasser la dimension h_p du montant.")
-        _num("Chevilles par rangée", ("fixation", "ancrage", "n_par_rangee"), cas, 1, min_value=1, max_value=4, width=160)
-        _num("e_y — entraxe dans la rangée (mm)", ("fixation", "ancrage", "ey"), cas, 5.0, "%.0f", 10.0, width=230)
+    if lat:
+        st.markdown("**Platine latérale et ancrage** — platine verticale en applique sur le nez de dalle, deux rangées horizontales de chevilles (ou boulons) "
+                    "à ±e_x/2 du centre, la haute tendue et la basse en appui ; colonnes de part et d'autre du montant à e_y")
+        with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_pl"):
+            _num("d_h — descente du dessus de dalle au haut de la platine (mm)", ("fixation", "platine", "d_h"), cas, 5.0, "%.0f", 0.0, width=330,
+                 help="Le montant est vérifié sur H + d_h ; le moment à la platine vaut P·(H + d_h + b_p/2).")
+            _num("b_p — hauteur de la platine (mm)", ("fixation", "platine", "bp"), cas, 5.0, "%.0f", 40.0, width=220)
+            _num("l_p — largeur de la platine (mm)", ("fixation", "platine", "lp"), cas, 5.0, "%.0f", 40.0, width=220)
+            _num("e_x — entraxe vertical des deux rangées (mm)", ("fixation", "ancrage", "ex"), cas, 5.0, "%.0f", 10.0, width=270, help="Le bras de levier z du couple d'ancrages.")
+            _num("Chevilles par rangée (2 ou 4, par paires)", ("fixation", "ancrage", "n_par_rangee"), cas, 2, min_value=2, max_value=4, width=240)
+            _num("e_y — entraxe horizontal des colonnes (mm)", ("fixation", "ancrage", "ey"), cas, 5.0, "%.0f", 10.0, width=270,
+                 help="De part et d'autre du montant ; doit dépasser sa largeur b plus un trou.")
+    else:
+        st.markdown("**Platine et ancrage** — platine rigide, deux rangées de chevilles (ou boulons) de part et d'autre du montant, à ±e_x/2")
+        with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_pl"):
+            _num("b_p — dans le sens de l'effort (mm)", ("fixation", "platine", "bp"), cas, 5.0, "%.0f", 40.0, width=230)
+            _num("l_p — largeur (mm)", ("fixation", "platine", "lp"), cas, 5.0, "%.0f", 40.0, width=170)
+            _num("e_x — entraxe des deux rangées (mm)", ("fixation", "ancrage", "ex"), cas, 5.0, "%.0f", 10.0, width=250, help="Dans le sens de l'effort ; doit dépasser la dimension h_p du montant.")
+            _num("Chevilles par rangée", ("fixation", "ancrage", "n_par_rangee"), cas, 1, min_value=1, max_value=4, width=160)
+            _num("e_y — entraxe dans la rangée (mm)", ("fixation", "ancrage", "ey"), cas, 5.0, "%.0f", 10.0, width=230)
     with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="bottom", key=P + "c_anc"):
         ta = _choix("Ancrage", ("fixation", "ancrage", "type"), cas, list(FX.ANCRAGES), FX.ANCRAGES, segmente=True)
         if ta == "boulon":
@@ -689,7 +715,8 @@ def _etape_ancrage(cas: Dict, res: Dict):
             _num("V_Rd par cheville (kN)", ("fixation", "ancrage", "VRd"), cas, 0.5, "%.1f", 0.1, width=170, help="Valeur de calcul en cisaillement de l'ETA.")
     pl = (res.get("fixation") or {}).get("platine")
     if pl and pl.get("taux_max") is not None:
-        st.markdown(f"{CH.CAS_LIBELLES.get(pl.get('cas_charge'), '')} · bras de levier z = {_fmt(pl['z'])} mm · traction de la rangée Z = {_fmt(pl['Z'] / 1e3, 2)} kN → "
+        arr = f" · arrachement P = {_fmt(pl['P'] / 1e3, 2)} kN" if pl.get("mode") == FX.LATERALE else ""
+        st.markdown(f"{CH.CAS_LIBELLES.get(pl.get('cas_charge'), '')}{arr} · bras de levier z = {_fmt(pl['z'])} mm · traction de la rangée Z = {_fmt(pl['Z'] / 1e3, 2)} kN → "
                     f"F_t = {_fmt(pl['Ft'] / 1e3, 2)} kN par cheville (≤ {_fmt(pl['FtRd'] / 1e3, 2)}) : <span class='{_cls(pl['taux_t'])}'>{pl['taux_t'] * 100:.0f} %</span> · "
                     f"F_v = {_fmt(pl['Fv'] / 1e3, 2)} kN (≤ {_fmt(pl['FvRd'] / 1e3, 2)}) : <span class='{_cls(pl['taux_v'])}'>{pl['taux_v'] * 100:.0f} %</span> · interaction "
                     f"<span class='{_cls(pl['inter'])}'>{pl['inter'] * 100:.0f} %</span><br>Platine : bras m = {_fmt(pl['m'])} mm, b_eff = {_fmt(pl['b_eff'], 0)} mm, "
@@ -771,7 +798,7 @@ def _etape_detail(etat: Dict, cas: Dict, res: Dict):
         with c3:
             st.text_input("Indice", value=ident.get("indice", "0"), key=P + "id_indice", on_change=lambda: ident.__setitem__("indice", st.session_state[P + "id_indice"]))
     with st.expander("Méthode et sources (les mêmes textes que la page 2 de la note)", expanded=False):
-        for sec in MT.SECTIONS:
+        for sec in MT.sections(cas["methode"].get("mode", ME.ELS), cas["fixation"].get("type", "platine"), bool((res.get("geometrie") or {}).get("sans_montant"))):
             st.markdown(f"**{sec['titre']}**")
             for p in sec["paragraphes"]:
                 st.markdown(p)

@@ -93,7 +93,7 @@ ET_ = ET.nouvel_etat()
 INFOS = {"nom_projet": "Résidence des Tilleuls", "partie": "Balcons", "indice": "B"}
 
 # ================================================================
-print("\n=== 1. Forme : deux pages, aucun débordement, huit cas ===")
+print("\n=== 1. Forme : deux pages, aucun débordement, douze cas ===")
 CAS = [("défaut", cas()),
        ("L lisses continue", cas("L", "lisses", geometrie={"forme": "L"}, montant={"section": {"nom": "RHS 60x40x3"}}, lisse={"appuis": "continue"})),
        ("U plat boulons", cas("U", "barreaudage", geometrie={"forme": "U", "fin": "mur", "troncons": [{"L": 2100, "s_max": 1200, "entraxes": [1200, 900]}, {"L": 1500, "s_max": 1000, "entraxes": []},
@@ -103,7 +103,13 @@ CAS = [("défaut", cas()),
        ("eurocode soudé C5", cas("EC", "panneau", methode={"mode": "eurocode"}, fixation={"type": "soudee"}, charges={"categorie": "C5"})),
        ("scellé", cas("scellé", "main_courante", fixation={"type": "scellee"})),
        ("cumul P", cas("P", charges={"mode": "P", "P": 1.2, "cumul": True})),
-       ("section libre", cas("libre", montant={"section": {"famille": "CAISSON", "dims": {"h": 60, "b": 40, "t": 3}}}))]
+       ("section libre", cas("libre", montant={"section": {"famille": "CAISSON", "dims": {"h": 60, "b": 40, "t": 3}}})),
+       ("latéral", cas("latéral", fixation={"type": "laterale"})),
+       ("latéral L plat boulons", cas("latéral L", geometrie={"forme": "L"}, montant={"section": {"nom": "Plat 60x12"}},
+                                      fixation={"type": "laterale", "platine": {"bp": 200.0, "lp": 160.0, "tp": 10.0, "d_h": 60.0},
+                                                "ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon", "ex": 140.0, "ey": 90.0}})),
+       ("sans montant", cas("loggia", geometrie={"debut": "mur", "fin": "mur", "troncons": [{"L": 2500, "s_max": 3000, "entraxes": []}, {"L": 2400, "s_max": 1000, "entraxes": []}, {"L": 3600, "s_max": 1000, "entraxes": []}]})),
+       ("rampant industriel", cas("escalier", geometrie={"pente": 32.0}, charges={"categorie": "ind"}, methode={"fleche_mode": "mm", "fleche_val": 30.0}))]
 PDF = {}
 for nom, c in CAS:
     t0 = time.time()
@@ -119,8 +125,9 @@ for nom, c in CAS:
 print("\n=== 2. Page 1 : les hypothèses d'abord ===")
 p1 = norm(texte(PDF["défaut"], 0))
 s1 = serre(texte(PDF["défaut"], 0))
-chk("bandeau : CONFORME, η max 64 %, gouverne Montant principal M2 · RHS 50x30x3 · flèche · cas 1 · qh seule, Méthode ELS du bureau",
-    "CONFORME" in s1 and "ηmax64%" in s1 and "Montant principal M2" in p1 and "RHS 50x30x3" in p1 and "flèche" in p1 and "cas 1 · qh seule" in p1 and "Méthode ELS du bureau" in p1)
+chk("bandeau : CONFORME, η max 64 %, gouverne Montant principal M2 · RHS 50x30x3 · flèche · cas 1 · qh seule, « Vérification à l'ELS » (jamais « du bureau »)",
+    "CONFORME" in s1 and "ηmax64%" in s1 and "Montant principal M2" in p1 and "RHS 50x30x3" in p1 and "flèche" in p1 and "cas 1 · qh seule" in p1 and "Vérification à l'ELS" in p1
+    and "du bureau" not in p1.replace("usage du bureau", ""))
 chk("titre : « Garde-corps — barreaudage vertical sur montants »", "barreaudage vertical sur montants" in p1)
 chk("HYPOTHÈSES en tête de la première colonne, avant les charges et les dessins", "HYPOTHÈSES" in s1 and "CHARGES—" in s1 and "DESSINS—" in s1
     and s1.index("HYPOTHÈSES") < s1.index("CHARGES—") < s1.index("DESSINS—"))
@@ -129,11 +136,11 @@ chk("hypothèses en lignes « libellé · valeur » : GARDE-CORPS (droit, 3,60 m
 chk("… MAIN COURANTE (portée 900 mm, sur deux appuis), BARREAUX (Plat 30x8, eb = 110 mm, portée 950 mm déduite de H, hbas), LISSE BASSE non calculée",
     "MAINCOURANTERHS50x30x3·portée900mm,surdeuxappuis(unetravée)" in s1 and "BARREAUXPlat30x8·eb=110mm·portée950mm,déduitedeH,hbas=100mmetdessections" in s1
     and "LISSEBASSERHS50x25x2.5(froid)(noncalculée)" in s1)
-chk("… ACIER (S235, fy = 235, fu = 360, E = 210 000), MÉTHODE (ELS, sans coefficient), LIMITES (σadm = 160, τadm = 90, flèche ≤ L/100, k = 100, γF = 1,5)",
-    "ACIERS235·fy=235N/mm²·fu=360N/mm²·E=210000N/mm²" in s1 and "MÉTHODEELSdubureau:chargesdeservicesanscoefficient" in s1
-    and "LIMITESσadm=160N/mm²·τadm=90N/mm²·flèche≤L/100·soudurek=100kg/(mm·cm)·ancrages:résistancesdecalcul/γF=1,5" in s1)
+chk("… ACIER (S235, fy = 235, fu = 360, E = 210 000), VÉRIFICATION (à l'ELS, charges de service sans coefficient, σ ≤ σadm = 160, τ ≤ τadm = 90, flèche ≤ L/100, k = 100, γF = 1,5) — pas de ligne « méthode »",
+    "ACIERS235·fy=235N/mm²·fu=360N/mm²·E=210000N/mm²" in s1 and "MÉTHODE" not in s1
+    and "VÉRIFICATIONàl'ELS,chargesdeservicesanscoefficient:σ≤σadm=160N/mm²·τ≤τadm=90N/mm²·flèche≤L/100·soudurek=100kg/(mm·cm)·ancrages:résistancesdecalcul/γF=1,5" in s1)
 chk("… FIXATION : platine boulonnée, cordon a = 4 mm, platine 150 × 150 × 10, 2 × 2 chevilles M12, ex = 100, ey = 100",
-    "FIXATIONplatineboulonnée·soudurecordond'anglea=4mm·platine150×150×10mm·2×2chevilleM12(NRd9kN,VRd12kN),rangéesàex=100mm,ey=100mm" in s1)
+    "FIXATIONplatineboulonnée·soudurecordond'anglea=4mm·platine150×150×10mm·2×2chevillesM12(NRd9kN,VRd12kN),rangéesàex=100mm,ey=100mm" in s1)
 chk("tableau des QUATRE CHARGES : le symbole et la valeur sur la première ligne, le nom DESSOUS, l'origine en dessous",
     "qh 0,50 kN/m charge linéaire horizontale sur la main courante A · habitation — Tab. 6.12 EN 1991-1-1, valeur recommandée" in p1
     and "qv 0,50 kN/m charge linéaire verticale sur la main courante usage du bureau (NBN B 03-004 : Qkv, à confirmer)" in p1
@@ -178,7 +185,10 @@ chk("… chaque taux SOUS sa contrainte : σ, ησ = σ/σadm = 91,2/160, τ, η
 w1 = mots(PDF["défaut"], 0)
 y_p1 = next((w[1] for w in w1 if w[4] == "P1"), None)
 x_res = max((w[2] for w in w1 if y_p1 is not None and abs(w[1] - y_p1) < 2.5 and w[4] == "kN"), default=0.0)
-chk("… le résultat « = 0,45 kN » est calé à droite de la colonne 2 (x ≥ 555 pt), la formule à gauche", y_p1 is not None and x_res >= 555.0, f"x1 = {x_res:.0f}")
+y_eta = next((w[1] for w in w1 if w[4] == "ησ"), None)
+x_eta = max((w[2] for w in w1 if y_eta is not None and abs(w[1] - y_eta) < 2.5 and w[4] == "%"), default=0.0)
+chk("… la valeur « = 0,45 kN » suit le calcul sur la ligne (x < 480 pt) ; seul le taux « = 57,0 % » est calé à droite de la colonne 2 (x ≥ 555 pt)",
+    y_p1 is not None and 0 < x_res < 480.0 and y_eta is not None and x_eta >= 555.0, f"x1 valeur = {x_res:.0f}, x1 taux = {x_eta:.0f}")
 chk("2 · MAIN COURANTE — RHS 50x30x3, η 8 %, L = 900 mm sur deux appuis, Mh = qh·L²/8, σ = Mh/Wel,z, f = 5·qh·L⁴/(384·E·Iz)",
     "η8%2·MAINCOURANTE—RHS50x30x3" in s1 and "L = 900 mm (l'entraxe le plus grand) · sur deux appuis (une travée)" in p1 and "Mh = qh·L2/8 = 0,5 × 9002/8/106 = 0,051 kN·m" in p1
     and "σ = Mh/Wel,z" in p1 and "L4/ 384·E·Iz" in p1)
@@ -194,7 +204,7 @@ chk("… puis ANCRAGES — EFFORTS (z, Z, Ft = Z/n, Fv), ANCRAGES — RÉSISTANC
     and all(k in p1 for k in ("z = ex/2 + hp/2 = 100/2 + 50/2 = 75 mm", "Ft = Z/n = 6,6/2 = 3,3 kN", "NRd/γF = 6 kN", "σp = 6·Mp/ beff·t2p = 6 × 0,1351 × 106/ 150 × 102 = 54,1 N/mm²", "treq = 6·Mp/ beff·σlim")))
 chk("l'ordre 1, 2, 3, 4 est celui de la lecture", s1.index("1·MONTANT") < s1.index("2·MAINCOURANTE") < s1.index("3·BARREAUX") < s1.index("4·ANCRAGE"))
 chk("RÉCAPITULATIF : montant, main courante, barreaux, soudure, chevilles (sans la parenthèse des résistances), platine, chacun avec son cas", "RÉCAPITULATIF" in s1
-    and all(k in p1 for k in ("Main courante · RHS 50x30x3", "Barreaux · Plat 30x8", "Soudure · cordon d'angle a = 4 mm", "Chevilles · 2 × 2 cheville M12", "Platine 150 × 150 × 10 · flexion"))
+    and all(k in p1 for k in ("Main courante · RHS 50x30x3", "Barreaux · Plat 30x8", "Soudure · cordon d'angle a = 4 mm", "Ancrages · 2 × 2 chevilles M12", "Platine 150 × 150 × 10 · flexion"))
     and "Chevilles / boulons" not in p1 and p1.count("qh seule") >= 7 and "3 · Qr seule" in p1)
 chk("CONCLUSION : taux maximal 64 %, le cas gouvernant, porte les charges, masse indicative", "CONCLUSION" in s1 and "Taux maximal 64 %" in p1 and "cas 1 · qh seule" in p1
     and "porte les charges" in p1 and "Masse indicative" in p1)
@@ -220,18 +230,21 @@ chk("SECTION ET BIBLIOTHÈQUE : le plus léger qui tient (CHS 48.3x2.5), la sect
 chk("la soudure : vue peinte (« RHS 50x30x3 sur platine ») et formules du module Soudures par groupe (GROUPE DE CORDONS, POINT GOUVERNANT, CRITÈRE : Aw, |f|, τadm = k·g/10)",
     "SOUDURESURLAPLATINE" in s2 and "sur platine" in p2 and s2.index("GROUPEDECORDONS") < s2.index("POINTGOUVERNANT") < s2.index("CRITÈRE")
     and "Aw = 2·a·leff" in p2 and "|f|" in p2 and "τadm = k·g/10" in p2)
-els = [s for s in MT.SECTIONS if not s["titre"].startswith("Eurocode")]
+els = MT.sections("els", "platine", False)
+chk("les sections du cas par défaut : Modèle, Vérification à l'ELS, Ancrage, Hors périmètre — ni Eurocode ni Ancrage latéral",
+    [s["titre"] for s in els] == ["Modèle", "Vérification à l'ELS", "Ancrage", "Hors périmètre"], str([s["titre"] for s in els]))
 for sec in els:
     frag = plat(sec["paragraphes"][0][:70])
     chk(f"section « {sec['titre']} » : un fragment mot pour mot (symboles composés)", frag in plat(p2), frag[:50])
 frag_ec = plat(MT.SECTIONS[2]["paragraphes"][0][:70])
 chk("la section Eurocode n'est PAS imprimée en méthode ELS", frag_ec not in plat(p2))
+chk("ni la section « Ancrage latéral »", plat([s for s in MT.SECTIONS if s["titre"] == "Ancrage latéral"][0]["paragraphes"][0][:70]) not in plat(p2))
 
 # ================================================================
 print("\n=== 7. Variantes ===")
 pE = norm(texte(PDF["eurocode soudé C5"], 0)) + norm(texte(PDF["eurocode soudé C5"], 1))
-chk("Eurocode : efforts de calcul, γQ, fy/γM0, catégorie C5 à 3 kN/m, soudé sur plat, panneau à justifier par le fournisseur, pas de 4 · ANCRAGE chevilles",
-    "efforts de calcul" in pE and "γQ" in pE and "fy/γM0" in pE and "3,00 kN/m" in pE and "soudé sur un plat" in pE and "fournisseur" in pE and "3·PANNEAU" in serre(pE)
+chk("Eurocode : « vérification à l'ELU selon l'Eurocode », γQ, fy/γM0, catégorie C5 à 3 kN/m, soudé sur plat, panneau à justifier par le fournisseur, pas de 4 · ANCRAGE chevilles",
+    "à l'ELU selon l'Eurocode" in pE and "γQ" in pE and "fy/γM0" in pE and "3,00 kN/m" in pE and "soudé sur un plat" in pE and "fournisseur" in pE and "3·PANNEAU" in serre(pE)
     and "Ft = Z/n = " not in pE and "σlim = fy/γM0 = 235/1 = 235 N/mm²" in pE)
 chk("Eurocode : la section « Méthode ELS » n'est pas imprimée, la section « Eurocode » l'est", plat(MT.SECTIONS[1]["paragraphes"][0][:70]) not in plat(pE)
     and plat(MT.SECTIONS[2]["paragraphes"][0][:70]) in plat(pE))
@@ -254,6 +267,37 @@ chk("cumul en mode P : P = 1,20 kN (saisie directe), cas 1 + 2 · qh et qv cumul
     and "cas 1 + 2 · qh et qv cumulées" in pP and "σ = M1/Wel,y + N/A" in pP)
 pLib = norm(texte(PDF["section libre"], 0)) + norm(texte(PDF["section libre"], 1))
 chk("section libre : « Caisson 60x40x3 », soudure C8", "Caisson 60x40x3" in pLib and "C8" in pLib)
+pLat, sLat = norm(texte(PDF["latéral"], 0)), serre(texte(PDF["latéral"], 0))
+chk("platine latérale : hypothèses (H au-dessus de la dalle, descente dh = 50, console de 1150 ; platine latérale 150 × 150 × 10, soudure le long de la platine, "
+    "rangées à ex vertical, colonnes à ey), montant sur H = 1150, « 4 · ANCRAGE — platine latérale en nez de dalle », arrachement P, z = ex = 100 mm, Z = M/z + P/2, "
+    "m = ey/2 − b/2 − …, tp = 10 mm, « Platine latérale 150 × 150 × 10 » au récapitulatif",
+    "descente dh = 50 mm" in pLat and "console de 1150 mm" in pLat and "platine latérale 150 × 150 × 10 mm" in pLat and "le long de la platine" in pLat
+    and "(vertical), colonnes à ey = 100 mm" in pLat and "H = 1150 mm (1100 au-dessus de la dalle + descente dh = 50)" in pLat
+    and "4·ANCRAGE—platinelatéraleennezdedalle" in sLat and "P = 0,45 kN (arrachement)" in pLat and "z = ex = 100 mm" in pLat and "Z = M/z + P/2" in pLat
+    and "m=ey/2−b/2−0,8·a·2" in sLat and "tp = 10 mm" in pLat and "Platine latérale 150 × 150 × 10 · flexion" in pLat
+    and "Ancrages · 2 × 2 chevilles M12" in pLat)
+pLat2, sLat2 = norm(texte(PDF["latéral"], 1)), serre(texte(PDF["latéral"], 1))
+chk("… page 2 : « DÉTAIL DE L'ANCRAGE — platine latérale : vue de face, coupe horizontale », les deux dessins (« 4 chevilles M12 · vue de face », « Coupe horizontale sur la fixation »), "
+    "la soudure C8 par ses formules (deux cordons de 142 : Aw = 2·a·leff) et pas de dessin de soudure C8 ; la méthode « Ancrage latéral » (z = ex, Z = M/z + P/2) "
+    "à la place de « Ancrage » (z = ex/2 + hp/2)",
+    "DÉTAILDEL'ANCRAGE—platinelatérale:vuedeface,coupehorizontale" in sLat2 and "4 chevilles M12 · vue de face" in pLat2 and "Coupe horizontale sur la fixation" in pLat2
+    and "Aw = 2·a·leff = 2 × 4 × 142" in pLat2 and "cordon gauche" not in pLat2
+    and "ANCRAGELATÉRAL" in sLat2 and "z = ex, Z = M/z + P/2" in pLat2 and "z = ex/2 + hp/2" not in pLat2)
+pSM, sSM = norm(texte(PDF["sans montant"], 0)), serre(texte(PDF["sans montant"], 0))
+chk("sans montant : « aucun : la main courante porte de mur à mur », 1 · MAIN COURANTE porteuse sur L = 2500, 2 · BARREAUX, 3 · ANCRAGE — main courante ancrée dans les murs "
+    "avec les réactions H et V de chaque mur, conclusion « ancrages aux murs à justifier »",
+    "aucun : la main courante porte de mur à mur" in pSM and "1·MAINCOURANTE—RHS50x30x3" in sSM and "L = 2500 mm de mur à mur" in pSM and "2·BARREAUX" in sSM
+    and "3·ANCRAGE—maincouranteancréedanslesmurs" in sSM and "mur de début : H = 0,62 kN" in pSM and "mur de fin : H = 0,62 kN" in pSM
+    and "V = 0,62 kN (vertical" in pSM and "ancrages aux murs à justifier" in pSM and "1·MONTANT" not in sSM)
+pSM2 = norm(texte(PDF["sans montant"], 1))
+chk("sans montant : titre « barreaudage vertical de mur à mur » (pas « sur montants »), pas de ligne NOTE qui répète les réactions des murs, "
+    "page 2 sans section « Ancrage » (rien n'est fixé)",
+    "Garde-corps — barreaudage vertical de mur à mur" in pSM and "sur montants" not in pSM and pSM.count("Ancrage de la main courante dans le mur") == 0
+    and "Platine rigide" not in pSM2 and "ANCRAGE" not in serre(texte(PDF["sans montant"], 1)).replace("DÉTAILDEL'ANCRAGE", ""))
+pRp, sRp = norm(texte(PDF["rampant industriel"], 0)), serre(texte(PDF["rampant industriel"], 0))
+chk("rampant industriel : « rampant, pente 32° (entraxes mesurés suivant la pente) », qh = 0,30 kN/m d'origine EN ISO 14122-3 à confirmer, flèche ≤ 30 mm (fadm = 30 mm), « Élévation · rampant »",
+    "rampant, pente 32° (entraxes mesurés suivant la pente)" in pRp and "qh 0,30 kN/m charge linéaire horizontale sur la main courante plateforme industrielle (machines) — EN ISO 14122-3, 0,3 kN/m à confirmer" in pRp
+    and "flèche≤30mm" in sRp and "fadm = 30 mm" in pRp and "Élévation · rampant" in pRp)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

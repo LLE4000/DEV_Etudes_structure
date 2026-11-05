@@ -10,13 +10,18 @@
 //   « murale »  le type « Main courante murale sur consoles » : consoles C…, coupe au mur ;
 //   « biblio »  onglet Sections, CLIC sur la troisième ligne du tableau du montant : la section cliquée est retenue — le sélecteur
 //               de section doit AFFICHER cette valeur (liaison état → widget) ;
-//   « nok »     onglet Charges, catégorie C5 (3 kN/m) : Non conforme.
+//   « nok »     onglet Charges, catégorie C5 (3 kN/m) : Non conforme ;
+//   « laterale » onglet Ancrage, fixation « platine latérale en nez de dalle » : les champs d_h, b_p, l_p, e_x, e_y, les vues
+//               « Platine latérale (vue de face) » et « Coupe horizontale sur la fixation » (version 3) ;
+//   « loggia »  onglet Garde-corps, les deux bouts « lisse ancrée dans le mur » et un entraxe maxi de 4000 : garde-corps SANS montant,
+//               la main courante porte de mur à mur (quatre dessins, pas de fixation) ;
+//   « rampant » onglet Garde-corps, pente 32° : élévation inclinée, « rampant, pente 32° » dans la phrase.
 // Mesures : aucune exception ; aucune erreur JavaScript ; aucun débordement horizontal ; élévation SVG visible
-// (≥ 260 px de large, ≥ 120 px de haut) ; au moins cinq dessins SVG visibles ; carte RÉSULTAT visible avec η ; états spécifiques.
-// Fichiers : apres_garde_corps_<état>_<largeur>.png. Code de sortie 1 dès qu'un seuil n'est pas tenu.
+// (≥ 260 px de large, ≥ 120 px de haut) ; au moins cinq dessins SVG visibles (quatre sans montant) ; carte RÉSULTAT visible avec η ;
+// états spécifiques. Fichiers : apres_garde_corps_<état>_<largeur>.png. Code de sortie 1 dès qu'un seuil n'est pas tenu.
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
-const ETATS = (process.argv[3] || 'defaut,lisses,murale,biblio,nok').split(',');
+const ETATS = (process.argv[3] || 'defaut,lisses,murale,biblio,nok,laterale,loggia,rampant').split(',');
 const LARGEURS = (process.argv[4] || '1440,1280,1024,390').split(',').map(Number);
 const PORT = process.argv[5] || '8597';
 const BASE = `http://localhost:${PORT}/?page=Garde-corps`;
@@ -49,6 +54,12 @@ async function choisir(page, cle, texte) {
 async function valeurSelect(page, cle) {
   return page.locator(`.st-key-${cle} input`).first().inputValue();
 }
+async function saisir(page, cle, valeur) {
+  // number_input de Streamlit : on remplace le texte puis Entrée (le widget n'envoie sa valeur qu'à la validation)
+  const inp = page.locator(`.st-key-${cle} input`).first();
+  await inp.scrollIntoViewIfNeeded(); await inp.click({ clickCount: 3 }); await inp.fill(String(valeur)); await inp.press('Enter');
+  await settle(page, 2500);
+}
 async function preparer(page, etat) {
   if (etat === 'lisses') {
     await choisir(page, 'gc_w_type', 'Lisses horizontales');
@@ -68,6 +79,14 @@ async function preparer(page, etat) {
     biblio.apres = await valeurSelect(page, 'gc_w_montant_section');
   }
   if (etat === 'nok') { await onglet(page, '2 · Charges'); await choisir(page, 'gc_w_charges_categorie', 'C5'); }
+  if (etat === 'laterale') { await onglet(page, '4 · Ancrage'); await cliquerSegment(page, 'gc_w_fixation_type', 'latérale'); }
+  if (etat === 'loggia') {
+    await onglet(page, '1 · Garde-corps');
+    await choisir(page, 'gc_w_geometrie_debut', 'lisse ancrée dans le mur');
+    await choisir(page, 'gc_w_geometrie_fin', 'lisse ancrée dans le mur');
+    await saisir(page, 'gc_w_geometrie_troncons_0_s_max', 4000);
+  }
+  if (etat === 'rampant') { await onglet(page, '1 · Garde-corps'); await saisir(page, 'gc_w_geometrie_pente', 32); }
   await page.evaluate(() => { window.scrollTo(0, 0); for (const e of document.querySelectorAll('*')) { if (e.scrollTop) e.scrollTop = 0; } });
   await settle(page, 800);
 }
@@ -115,14 +134,24 @@ async function agrandir(page, w) {
                    pill: pill ? pill.innerText : '', eta: eta ? eta.innerText : '',
                    angle: /d'angle/.test(texte), console: /Console C/.test(texte), enL: /en L/.test(texte),
                    lissesInter: /Lisses intermédiaires/.test(texte), murale: /murale sur consoles/i.test(texte),
+                   laterale: /PLATINE LATÉRALE \(VUE DE FACE\)/.test(texte) && /COUPE HORIZONTALE SUR LA FIXATION/.test(texte) && /arrachement P/.test(texte),
+                   champsLat: ['d_h', 'b_p', 'l_p', 'e_x', 'e_y'].every(k => [...document.querySelectorAll('[data-testid="stNumberInput"] label')]
+                                                                            .some(l => l.innerText.startsWith(k + ' —'))),
+                   sansMontant: /Sans montant/.test(texte) && /porte de mur à mur/.test(texte) && !/PLATINE EN PLAN/.test(texte),
+                   rampant: /rampant, pente 32°/.test(texte),
                    exc: [...document.querySelectorAll('[data-testid="stException"]')].map(e => e.innerText.slice(0, 200)) };
         });
         verdict('aucune exception Streamlit', m.exc.length === 0, m.exc.join(' | '));
         verdict('aucune erreur JavaScript', erreurs.length === 0, erreurs.join(' | ').slice(0, 200));
         verdict('aucun débordement horizontal', m.scrollW <= m.innerWidth, `${m.scrollW}/${m.innerWidth}`);
         verdict('élévation visible (≥ 260 × 120 px)', m.dessinW >= 260 && m.dessinH >= 120, `${m.dessinW} × ${m.dessinH} px`);
-        verdict('au moins cinq dessins SVG visibles', m.nSvg >= 5, `${m.nSvg}`);
+        verdict(etat === 'loggia' ? 'au moins quatre dessins SVG visibles (sans montant : ni platine ni coupe sur la fixation)' : 'au moins cinq dessins SVG visibles',
+                m.nSvg >= (etat === 'loggia' ? 4 : 5), `${m.nSvg}`);
         verdict('carte RÉSULTAT visible avec η', m.resH >= 80 && /η = \d+ %/.test(m.eta), `${m.resH} px · ${m.eta}`);
+        if (etat === 'laterale') verdict('latérale : les champs d_h, b_p, l_p, e_x, e_y ; « Platine latérale (vue de face) », « Coupe horizontale sur la fixation », arrachement P',
+                                         m.laterale && m.champsLat, `${m.eta}`);
+        if (etat === 'loggia') verdict('loggia : « Sans montant », la main courante porte de mur à mur, pas de platine en plan', m.sansMontant, `${m.eta}`);
+        if (etat === 'rampant') verdict('rampant : « rampant, pente 32° »', m.rampant, `${m.eta}`);
         if (etat === 'defaut') verdict('défaut : Conforme, η = 64 %', /Conforme/.test(m.pill) && /64 %/.test(m.eta), `${m.pill} · ${m.eta}`);
         if (etat === 'lisses') verdict('lisses : lisses intermédiaires, en L, un montant d\'angle', m.lissesInter && m.enL && m.angle, `${m.eta}`);
         if (etat === 'murale') verdict('murale : des consoles C…', m.console && m.murale, `${m.eta}`);

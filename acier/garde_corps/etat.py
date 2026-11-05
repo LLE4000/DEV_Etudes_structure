@@ -13,7 +13,8 @@ Un cas :
 - ``montant`` (section), ``lisse`` (section de la main courante, appuis « deux » ou « continue »),
   ``remplissage`` (barreaux à entraxe e_b entre la lisse basse à h_bas et la main courante, lisses
   intermédiaires, panneau, aucun ; la portée des barreaux se DÉDUIT de H, h_bas et des sections),
-  ``fixation`` (platine, soudure, ancrage, console), ``methode`` (ELS du bureau | Eurocode).
+  ``fixation`` (platine sur la dalle ou latérale en nez de dalle, soudure, ancrage, console),
+  ``methode`` (vérification à l'ELS | Eurocode).
 
 ``verifier`` rend tout ce que l'écran et la note impriment : les montants un à un avec leur
 longueur tributaire, chaque élément sous le cas de charge qui le gouverne, la soudure et la
@@ -33,11 +34,11 @@ from . import geometrie as GE
 from . import membres as ME
 from . import types as TY
 
-VERSION = 2
 OK, ATTENTION, NOK, REFUS = ME.OK, ME.ATTENTION, ME.NOK, ME.REFUS
 REMPLISSAGES = {"barreaux": "barreaux verticaux", "lisses": "lisses intermédiaires", "panneau": "panneau (verre, tôle)", "aucun": "aucun (main courante seule)"}
 LIBELLES = {"montant": "Montant principal", "lisse": "Main courante", "barreau": "Barreaux", "lisse_inter": "Lisses intermédiaires", "console": "Console",
             "soudure": "Soudure sur la platine", "ancrage": "Chevilles / boulons", "platine": "Platine"}
+VERSION = 3
 ROLES = {"montant": "montant principal", "lisse": "main courante", "barreau": "barreaux", "lisse_inter": "lisses intermédiaires", "console": "console"}
 SECTIONS_DEFAUT = {"montant": "RHS 50x30x3", "lisse": "RHS 50x30x3", "barreau": "Plat 30x8", "lisse_inter": "RHS 50x25x2.5 (froid)",
                    "lisse_basse": "RHS 50x25x2.5 (froid)", "console": "Plat 50x10"}
@@ -82,6 +83,7 @@ def normaliser_cas(c: Dict) -> Dict:
         g["systeme"] = "montants"
     if g.get("forme") not in GE.FORMES:
         g["forme"] = "droit"
+    g["pente"] = max(0.0, min(60.0, float(g.get("pente") or 0.0)))
     for k in ("debut", "fin"):
         if g.get(k) not in GE.EXTREMITES:
             g[k] = "montant"
@@ -277,10 +279,15 @@ def verifier(cas: Dict) -> Dict:
     H = float(geom.get("H") or GE.H_DEFAUT)
     systeme = geom.get("systeme", "montants")
     typ_gc = TY.type_de(cas)
+    # platine latérale : le montant descend le long du nez de dalle jusqu'au haut de la platine, à d_h sous le dessus de dalle
+    laterale = systeme == "montants" and cas["fixation"].get("type") == FX.LATERALE
+    d_h = float((cas["fixation"].get("platine") or {}).get("d_h") or 0.0) if laterale else 0.0
+    H_post = H + d_h
     out: Dict = {"statut": REFUS, "taux_max": None, "gouvernant": None, "elements": [], "messages": list(ana["messages"]),
                  "type": typ_gc, "type_libelle": TY.TYPES[typ_gc]["libelle"],
                  "charges": ch, "charges_tableau": CH.tableau(ch), "cumul": bool(ch.get("cumul")),
-                 "geometrie": {**ana, "H": H, "systeme": systeme, "phrase": GE.phrase(geom, ana)}, "acier": ac, "methode": meth,
+                 "geometrie": {**ana, "H": H, "H_post": H_post, "d_h": d_h, "laterale": laterale, "systeme": systeme, "phrase": GE.phrase(geom, ana)},
+                 "acier": ac, "methode": meth,
                  "limites": lim, "montants": [], "montant": None, "lisse": None, "remplissage": None, "consoles": [], "console": None,
                  "fixation": None, "masse": 0.0}
     if ana["messages"]:
@@ -298,20 +305,25 @@ def verifier(cas: Dict) -> Dict:
     if sec_lisse is None:
         return out
     qh_lisse = (ch["P"] * 1e3 / s_max if ch["mode"] == "P" else ch["qh"]) if s_max > 0 else 0.0     # N/mm
-    if systeme == "montants":
+    if systeme == "montants" and ana["sans_montant"]:
+        # une travée de mur à mur : la main courante est l'élément principal, chaque mur reprend une demi-travée (messages)
+        out["section_montant"] = sec_lisse
+        out["messages"].append("Sans montant : la main courante porte de mur à mur sur toute la longueur ; la fixation n'a pas d'objet, "
+                               "les ancrages dans les murs sont à justifier avec les réactions ci-dessous")
+    elif systeme == "montants":
         sec = _section(cas["montant"]["section"], "du montant", out["messages"])
         if sec is None:
             return out
         out["section_montant"] = sec
         for m in ana["montants"]:
-            out["montants"].append(verifier_montant(sec, ch, m, H, meth, fy))
+            out["montants"].append(verifier_montant(sec, ch, m, H_post, meth, fy))
         gouv = max(out["montants"], key=lambda v: v["taux_max"])
         out["montant"] = {"section": sec, "verif": gouv, "nom": gouv["nom"], "n": len(out["montants"])}
         elements.append(("montant", f"Montant principal {gouv['nom']} · {sec['nom']}", gouv["taux_max"], gouv["critere"], gouv))
-        masse += len(out["montants"]) * BI.masse_lineaire(sec, H)
+        masse += len(out["montants"]) * BI.masse_lineaire(sec, H_post + (float(cas["fixation"]["platine"].get("bp") or 0.0) if laterale else 0.0))
     vl = verifier_lisse(sec_lisse, qh_lisse, ch["qv"], ch["Q"] * 1e3, s_max, n_tr, appuis, meth, fy, comb, bool(ch.get("cumul")))
     out["lisse"] = {"section": sec_lisse, "verif": vl, "L": s_max, "appuis": appuis, "n_travees": n_tr,
-                    "role": "principal" if systeme == "mur" else "secondaire"}
+                    "role": "principal" if systeme == "mur" or ana["sans_montant"] else "secondaire"}
     elements.append(("lisse", f"Main courante · {sec_lisse['nom']} · portée {s_max / 1000:.2f} m, {ME.APPUIS[appuis]}".replace(".", ","), vl["taux_max"], vl["critere"], vl))
     masse += BI.masse_lineaire(sec_lisse, ana["L_total"])
     if systeme == "mur":
@@ -369,7 +381,8 @@ def verifier(cas: Dict) -> Dict:
         if pl.get("taux_max") is not None:
             elements.append(("ancrage", f"{LIBELLES['ancrage']} · {FX.texte_ancrage(cas['fixation']['ancrage'])}", pl["taux_boulons"],
                              "traction" if pl["taux_t"] >= max(pl["taux_v"], pl["inter"]) else ("cisaillement" if pl["taux_v"] >= pl["inter"] else "interaction"), pl))
-            elements.append(("platine", f"Platine {pl['bp']:g} × {pl['lp']:g} × {pl['tp']:g} · flexion", pl["taux_platine"], "flexion", pl))
+            nom_pl = f"Platine latérale {pl['lp']:g} × {pl['bp']:g} × {pl['tp']:g}" if pl.get("mode") == FX.LATERALE else f"Platine {pl['bp']:g} × {pl['lp']:g} × {pl['tp']:g}"
+            elements.append(("platine", nom_pl + " · flexion", pl["taux_platine"], "flexion", pl))
         else:
             out["messages"].extend(pl.get("messages", []))
     out["elements"] = [{"cle": k, "libelle": lib, "taux": t, "critere": c, "statut": ME.statut(t), "detail": d} for k, lib, t, c, d in elements
@@ -411,12 +424,19 @@ def _fixation(cas: Dict, out: Dict, meth: Dict, fy: float, ac: Dict) -> Dict:
         return res
     systeme = out["geometrie"]["systeme"]
     if (systeme == "montants" and not out.get("montant")) or (systeme == "mur" and not out.get("console")):
+        if out["geometrie"].get("sans_montant"):
+            res["libelle"] = "sans montant : main courante ancrée dans les murs"
         return res
     sec = out["montant"]["section"] if systeme == "montants" else out["console"]["section"]
     hp = float(sec["h"] or sec["d"])
     soud = fx["soudure"]
     tp = float(fx["platine"].get("tp") or 10.0)
     g = out["limites"]["gamma"]
+    if typ == FX.LATERALE:
+        if systeme != "montants":
+            out["messages"].append("Platine latérale : pour des montants verticaux seulement — la console au mur garde sa platine")
+            return res
+        return _fixation_laterale(cas, out, res, sec, soud, tp, g, meth, fy, ac)
     for lab, M, N_trac, V, P1, P2, L in _cas_fixation(out, bool(cas["charges"].get("cumul"))):
         cas_s = FX.cas_soudure(sec, _kn(N_trac) * g, _kn(P1) * g, _kn(P2) * g, L, soud, tp, meth, ac["nuance"])
         s = FX.verifier_soudure(cas_s)
@@ -436,6 +456,36 @@ def _fixation(cas: Dict, out: Dict, meth: Dict, fy: float, ac: Dict) -> Dict:
     return res
 
 
+def _fixation_laterale(cas: Dict, out: Dict, res: Dict, sec: Dict, soud: Dict, tp: float, g: float, meth: Dict, fy: float, ac: Dict) -> Dict:
+    """La platine latérale du montant gouvernant : la soudure longitudinale (C8) et le couple
+    d'ancrages sous chaque cas de charge — l'arrachement P₁ (normal à la platine) à y_P = H_post +
+    b_p/2 au-dessus du centre de la platine, le cisaillement vertical N_v et horizontal P₂ (angle)."""
+    fx = cas["fixation"]
+    v = out["montant"]["verif"]
+    P1, P2, Nv, H_post = v["P_h"], v["P_h2"], v["N_v"], v["H"]
+    bp = float(fx["platine"].get("bp") or 150.0)
+    y_P = H_post + bp / 2
+    cas_ch = [("1+2", P1, P2, Nv)] if cas["charges"].get("cumul") else [("1", P1, P2, 0.0), ("2", 0.0, 0.0, Nv)]
+    for lab, p1, p2, nv in cas_ch:
+        M, Mz, V = p1 * y_P, p2 * y_P, math.hypot(nv, p2)
+        cas_s = FX.cas_soudure_laterale(sec, _kn(p1) * g, _kn(p2) * g, _kn(nv) * g, y_P, soud, bp, tp, meth, ac["nuance"])
+        s = FX.verifier_soudure(cas_s)
+        s["cas_charge"] = lab
+        s["efforts_txt"] = (f"P = {_kn(p1) * g:.2f} kN (arrachement), V = {_kn(V) * g:.2f} kN, M = {M * g / 1e6:.3f} kN·m".replace(".", ",")
+                            + (" (efforts de calcul)" if g != 1.0 else " (efforts de service)"))
+        if res["soudure"] is None or (s["taux"] or 0) > (res["soudure"]["taux"] or 0):
+            res["soudure"] = s
+        pl = FX.platine_laterale(M, p1, V, Mz, FX.largeur_contact(sec), fx["platine"], fx["ancrage"], float(soud.get("a") or 0.0), meth, fy, soud.get("jonction", "angle"))
+        pl["cas_charge"] = lab
+        pl["y_P"] = y_P
+        if res["platine"] is None or (pl.get("taux_max") or 0) > (res["platine"].get("taux_max") or 0):
+            res["platine"] = pl
+    taux = [t for t in (res["soudure"]["taux"], (res["platine"] or {}).get("taux_max")) if t is not None]
+    res["taux_max"] = max(taux) if taux else None
+    res["statut"] = ME.statut(res["taux_max"]) if taux else REFUS
+    return res
+
+
 # ------------------------------------------------------------------ bibliothèque : les candidats par élément
 def element_principal(cas: Dict) -> str:
     return "lisse" if normaliser_cas(cas)["geometrie"].get("systeme") == "mur" else "montant"
@@ -447,6 +497,8 @@ def roles_du_cas(cas: Dict) -> List[str]:
     out = []
     if c["geometrie"].get("systeme") == "mur":
         out += ["lisse", "console"]
+    elif GE.analyser(c["geometrie"])["sans_montant"]:
+        out += ["lisse"]
     else:
         out += ["montant", "lisse"]
     rp = c["remplissage"].get("type")
@@ -495,7 +547,7 @@ def _verifier_role(sec: Dict, role: str, cas: Dict, res: Dict) -> Dict:
     H, s_max = ana["H"], ana["s_max"]
     qh = (ch["P"] * 1e3 / s_max if ch["mode"] == "P" else ch["qh"]) if s_max > 0 else 0.0
     if role == "montant":
-        return max((verifier_montant(sec, ch, m, H, meth, fy) for m in ana["montants"]), key=lambda v: v["taux_max"])
+        return max((verifier_montant(sec, ch, m, ana.get("H_post", H), meth, fy) for m in ana["montants"]), key=lambda v: v["taux_max"])
     if role == "lisse":
         return verifier_lisse(sec, qh, ch["qv"], ch["Q"] * 1e3, s_max, _n_travees_max(ana), cas["lisse"].get("appuis", "deux"), meth, fy,
                               meth.get("comb", "somme"), bool(ch.get("cumul")))
@@ -519,7 +571,7 @@ def candidats(cas: Dict, role: str = "montant", groupes: Optional[List[str]] = N
     premier qui tient."""
     cas = normaliser_cas(cas)
     res = verifier(cas)
-    if not res.get("geometrie", {}).get("montants") or not res.get("lisse"):
+    if not res.get("lisse") or (not res.get("geometrie", {}).get("montants") and role != "lisse" and role not in ("barreau", "lisse_inter")):
         return []
     out = []
     for sec in BI.catalogue(groupes, masse_max, dim_max):

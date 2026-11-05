@@ -30,8 +30,12 @@ CATEGORIES: List[Tuple[str, str, Optional[float], str]] = [
     ("D", "D · commerces", 1.0, "0,8 à 1,0"),
     ("C5", "C5 · foules (salles de concert, tribunes, quais)", 3.0, "3,0 à 5,0"),
     ("E", "E · stockage, industrie", 2.0, "0,8 à 2,0"),
+    ("ind", "plateforme industrielle (machines)", 0.3, "0,3"),
     ("perso", "valeur libre", None, ""),
 ]
+# L'origine de q_h hors Tableau 6.12 : garde-corps des plateformes et passerelles de machines (EN ISO 14122-3 : 300 N/m
+# horizontaux en tête de main courante — valeur à confirmer sur l'édition en vigueur ; sa flèche admissible se saisit en mm)
+SOURCES_CAT = {"ind": "EN ISO 14122-3, 0,3 kN/m à confirmer sur l'édition en vigueur"}
 CATEGORIE_DEFAUT = "A"
 QV_DEFAUT = 0.5        # kN/m
 QR_DEFAUT = 0.5        # kN/m²
@@ -98,6 +102,8 @@ def origine_qh(ch: Dict) -> str:
         return "charge ponctuelle par montant saisie directement"
     if ch.get("categorie") == "perso":
         return "valeur libre saisie par le bureau"
+    if ch.get("categorie") in SOURCES_CAT:
+        return f"{libelle_categorie(ch['categorie'])} — {SOURCES_CAT[ch['categorie']]}"
     return f"catégorie {libelle_categorie(ch['categorie'])} — {SOURCE_QH}"
 
 
@@ -116,7 +122,8 @@ def tableau(ch: Dict) -> List[Dict]:
         else:
             d["valeur"] = valeur(ch, c["cle"])
             if c["cle"] == "qh":
-                d["norme"] = f"{libelle_categorie(ch['categorie'])} — " + ("valeur libre" if ch["categorie"] == "perso" else "Tab. 6.12 EN 1991-1-1, valeur recommandée")
+                d["norme"] = f"{libelle_categorie(ch['categorie'])} — " + ("valeur libre" if ch["categorie"] == "perso" else
+                                                                           SOURCES_CAT.get(ch["categorie"], "Tab. 6.12 EN 1991-1-1, valeur recommandée"))
         out.append(d)
     return out
 

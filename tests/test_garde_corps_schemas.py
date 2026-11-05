@@ -35,6 +35,7 @@ retire :
 
 Lancement : python3 tests/test_garde_corps_schemas.py (depuis la racine).
 """
+import math
 import os
 import re
 import sys
@@ -135,7 +136,11 @@ chk("en L : « Élévation développée »", SC.vues(rL)[0][1] == "Élévation d
 g2 = cas()
 g2["geometrie"]["troncons"][0] = {"L": 1000, "s_max": 1000, "entraxes": []}
 g2["geometrie"]["debut"] = g2["geometrie"]["fin"] = "mur"
-chk("refus de géométrie : aucune vue", SC.vues(ET.verifier(g2)) == [])
+chk("sans montant (une travée de mur à mur) : élévation, coupe, plan et section — ni platine ni coupe sur la fixation",
+    [k for k, _, _ in SC.vues(ET.verifier(g2))] == ["elevation", "coupe", "plan", "section"])
+g3 = cas()
+g3["geometrie"]["troncons"][0] = {"L": 0, "s_max": 1000, "entraxes": []}
+chk("refus de géométrie (aucune travée) : aucune vue", SC.vues(ET.verifier(g3)) == [])
 
 # ================================================================
 print("\n=== 2. Élévation ===")
@@ -261,11 +266,11 @@ chk("la bande du cordon déborde la section de a·√2 = 5,7 (sur h_p = 50 : ±3
 tp_ = textes(pl)
 chk("cotes e_x = 100, e_y = 100, b_p = 150, l_p = 150 ; chaînes des bords 25 | 100 | 25 (niveau 2) ; titre avec les chevilles ; la charge q_h",
     all(any(t == n for t in tp_) for n in ("e_x = 100", "e_y = 100", "b_p = 150", "l_p = 150")) and tp_.count("25") == 4 and tp_.count("100") == 2
-    and any("Platine 150 × 150 × 10 · 4 cheville M12" in t for t in tp_) and any(t == "q_h" for t in tp_))
+    and any("Platine 150 × 150 × 10 · 4 chevilles M12" in t for t in tp_) and any(t == "q_h" for t in tp_))
 chk("niveau 1 : pas de chaîne des bords", "25" not in textes(vue(res, "platine", 1)))
 rB = ET.verifier(cas(fixation={"ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon"}}))
 plB = vue(rB, "platine")
-chk("boulons M12 : trous d_0 = 13, titre « 4 M12 classe 8.8 »", all(abs(t["r"] - 6.5) < 1e-6 for t in prims(plB, "circle", "bo")) and any("4 M12 classe 8.8" in t for t in textes(plB)))
+chk("boulons M12 : trous d_0 = 13, titre « 4 boulons M12 classe 8.8 »", all(abs(t["r"] - 6.5) < 1e-6 for t in prims(plB, "circle", "bo")) and any("4 boulons M12 classe 8.8" in t for t in textes(plB)))
 plM = vue(rM, "platine")
 fz = [q for q in prims(plM, "path", "fz")]
 chk("au mur : la charge q_v verticale (flèche verticale), titre « au mur »", any(t == "q_v" for t in textes(plM)) and fz
@@ -314,7 +319,59 @@ chk("plat 50 × 10 : plein hachuré, cotes h 50 et b 10", any("h" in t and "50" 
 chk("au mur : la charge de la section est q_v", any(t == "q_v" for t in textes(vue(rM, "section"))))
 
 # ================================================================
-print("\n=== 8. Peintre ===")
+print("\n=== 8. Fixation latérale, sans montant, rampant ===")
+rLat = ET.verifier(cas(fixation={"type": "laterale"}))
+vsLat = SC.vues(rLat)
+chk("platine latérale : six vues, « Platine latérale (vue de face) » et « Coupe horizontale sur la fixation »",
+    [t for _, t, _ in vsLat][3:5] == ["Platine latérale (vue de face)", "Coupe horizontale sur la fixation"])
+eLat = vue(rLat, "elevation")
+plaques = rects(eLat, "ps", 150, 150)
+chk("élévation latérale : cinq platines 150 × 150 sur le nez de dalle (de 50 à 200 sous le dessus), vingt chevilles vues de face, les montants descendent jusqu'au bas de la platine",
+    len(plaques) == 5 and all(abs(p["y"] - 50) < 1e-6 for p in plaques) and len(prims(eLat, "circle", "bo")) == 20
+    and any(abs(r["y"] + r["h"] - 200) < 1e-6 for r in prims(eLat, "rect", "pp")) and any(t == "d_h 50" for t in textes(eLat)))
+fLat = vue(rLat, "platine")
+trous = prims(fLat, "circle", "bo")
+chk("vue de face : la platine 150 × 150, quatre trous à (±50, ±50), la bande des cordons le long du montant (b + 2·a·√2 de large, toute la hauteur), z = e_x = 100 et m 30,5 (niveau 2), P ⊙, « 4 chevilles M12 »",
+    rects(fLat, "pp", 150, 150) and sorted((round(t["cx"]), round(t["cy"])) for t in trous) == [(-50, -50), (-50, 50), (50, -50), (50, 50)]
+    and any(abs(r["w"] - (30 + 2 * 4 * math.sqrt(2))) < 1e-6 and abs(r["h"] - 150) < 1e-6 for r in prims(fLat, "rect", "wb"))
+    and any(t in ("z 100", "z = 100") for t in textes(fLat)) and any(t == "m 30,5" for t in textes(fLat)) and any(t == "P" for t in textes(fLat))
+    and any("4 chevilles M12 · vue de face" in t for t in textes(fLat)))
+hLat = vue(rLat, "pied")
+tg = prims(hLat, "rect", "tg")
+chk("coupe horizontale : deux chevilles horizontales à ±e_y/2 = ±50 dans le béton, la section du montant (h = 50 vers le vide), deux cordons coupés, P (arrachement) et M, titre",
+    len(tg) == 2 and sorted(round(r["y"] + r["h"] / 2) for r in tg) == [-50, 50] and all(r["w"] > r["h"] for r in tg) and prims(hLat, "poly", "be")
+    and len(prims(hLat, "poly", "wb")) == 2 and any("arrachement P" in t for t in textes(hLat)) and any(t == "M" for t in textes(hLat))
+    and any("Coupe horizontale" in t for t in textes(hLat)))
+chk("coupe horizontale : V ⊗ n'est dessiné que s'il existe — absent sous q_h seule (V = 0), présent sous q_h et q_v cumulées",
+    not any(t == "V" for t in textes(hLat)) and any("V = 0,00 kN" in t for t in textes(hLat))
+    and any(t == "V" for t in textes(vue(ET.verifier(cas(fixation={"type": "laterale"}, charges={"cumul": True})), "pied"))))
+cLat = vue(rLat, "coupe")
+chk("coupe A-A latérale : la platine contre le nez de dalle, chevilles horizontales, cotes d_h, b_p, e_x, t_p, titre « platine latérale »",
+    all(any(t == n for t in textes(cLat)) for n in ("d_h 50", "b_p 150", "e_x 100", "t_p 10")) and any("platine latérale" in t for t in textes(cLat))
+    and len(prims(cLat, "path", "hd")) >= 2)
+gSM = cas()
+gSM["geometrie"].update({"debut": "mur", "fin": "mur"})
+gSM["geometrie"]["troncons"][0] = {"L": 2500, "s_max": 3000, "entraxes": []}
+rSM = ET.verifier(gSM)
+eSM = vue(rSM, "elevation")
+chk("sans montant : l'élévation a deux murs d'extrémité, aucun montant ni platine, la main courante de 2500, titre « sans montant »",
+    sum(1 for q in prims(eSM, "poly", "pp") if len(q["pts"]) == 4) == 2 and not rects(eSM, "pp", None, None) and rects(eSM, "ps", 2500, None)
+    and any("sans montant" in t for t in textes(eSM)))
+cSM = vue(rSM, "coupe")
+chk("sans montant : la coupe A-A n'a ni montant ni platine ni cheville, la main courante et la lisse basse coupées restent",
+    not prims(cSM, "rect", "pp") and not prims(cSM, "path", "hd") and len([q for q in prims(cSM, "poly", "pp") if len(q["pts"]) > 50]) == 2
+    and any("sans montant" in t for t in textes(cSM)))
+chk("sans montant : la section est celle de la main courante, chargée par q_h", any(t == "q_h" for t in textes(vue(rSM, "section"))) and "RHS 50x30x3" in " ".join(textes(vue(rSM, "section"))))
+rRp = ET.verifier(cas(geometrie={"pente": 32.0}))
+eRp = vue(rRp, "elevation")
+mc = [q for q in prims(eRp, "poly", "ps") if len(q["pts"]) == 4 and max(x for x, _ in q["pts"]) - min(x for x, _ in q["pts"]) > 2000]
+chk("rampant 32° : la main courante est inclinée (son bord monte de L·sin α = 1908 sur 3600 · cos α = 3053), les montants restent verticaux, titre « rampant », la chaîne 900 suit la pente",
+    mc and abs((max(y for _, y in mc[0]["pts"]) - min(y for _, y in mc[0]["pts"])) - 3600 * math.sin(math.radians(32)) - 50) < 2.0
+    and abs(max(x for x, _ in mc[0]["pts"]) - 3600 * math.cos(math.radians(32))) < 1.0
+    and all(abs(q["pts"][0][0] - q["pts"][3][0]) < 1e-6 for q in prims(eRp, "poly", "pp") if len(q["pts"]) == 4)
+    and any("rampant" in t for t in textes(eRp)) and textes(eRp).count("900") == 4 and any("pente 32°" in t for t in textes(eRp)))
+
+print("\n=== 9. Peintre ===")
 for nom, r in (("défaut", res), ("L mur", rL), ("au mur", rM), ("U", rU), ("lisses", rLi)):
     chemin = os.path.join("/tmp", f"gc_schemas_{abs(hash(nom)) % 1000}.pdf")
     doc = Doc(chemin, landscape(A4))
@@ -335,7 +392,7 @@ for nom, r in (("défaut", res), ("L mur", rL), ("au mur", rM), ("U", rU), ("lis
         chk(f"{nom} : toutes les vues se peignent", False, f"{type(ex).__name__}: {ex}"[:200])
 
 # ================================================================
-print("\n=== 9. Pureté ===")
+print("\n=== 10. Pureté ===")
 src = open("acier/garde_corps/schemas.py", encoding="utf-8").read()
 chk("schemas.py n'importe ni Streamlit ni etat ni membres ni fixation, et ne vérifie rien", not re.search(r"^\s*(import|from)\s+streamlit", src, re.M)
     and not re.search(r"from \. import (etat|membres|fixation)", src) and "verifier(" not in src)

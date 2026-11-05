@@ -100,7 +100,10 @@ chk("la phrase nomme la forme, les travées et les angles", "en U" in GE.phrase(
 g2 = GE.geometrie_defaut()
 g2["troncons"][0] = {"L": 1000, "s_max": 1000, "entraxes": []}
 g2["debut"] = g2["fin"] = "mur"
-chk("une seule travée ancrée aux deux bouts : refus (aucun montant)", any("Refus" in m for m in GE.analyser(g2)["messages"]))
+a2 = GE.analyser(g2)
+chk("une seule travée ancrée aux deux bouts : SANS montant, la main courante porte de mur à mur (aucun refus, deux reprises de demi-travée)",
+    not a2["messages"] and a2["sans_montant"] and not a2["montants"] and len(a2["reprises_mur"]) == 2 and all(pres(r["trib"], 500.0) for r in a2["reprises_mur"])
+    and "sans montant" in GE.phrase(g2, a2))
 
 # ================================================================
 print("\n=== 2. Types et charges ===")
@@ -333,7 +336,7 @@ print("\n=== 8. État et JSON ===")
 e0 = ET.nouvel_etat()
 txt = ET.vers_json(e0)
 e1 = ET.depuis_json(txt)
-chk("aller-retour JSON : un cas identique, version 2", e1["cas"][0] == e0["cas"][0] and e1["actif"] == 0 and e1["version"] == 2)
+chk("aller-retour JSON : un cas identique, version 3", e1["cas"][0] == e0["cas"][0] and e1["actif"] == 0 and e1["version"] == 3)
 vieux = json.dumps({"cas": [{"nom": "ancien", "geometrie": {"forme": "L", "troncons": [{"L": 3000}]}, "charges": {"categorie": "D"},
                              "remplissage": {"type": "lisses", "L": 900}}]})
 e2 = ET.depuis_json(vieux)
@@ -347,6 +350,60 @@ try:
     chk("un fichier sans cas est refusé", False)
 except ValueError:
     chk("un fichier sans cas est refusé", True)
+
+# ================================================================
+print("\n=== 9. Fixation latérale (nez de dalle), sans montant, rampant, plateforme industrielle ===")
+cLat = cas(fixation={"type": "laterale"})
+rLat = ET.verifier(cLat)
+vLat, plLat, sLat = rLat["montant"]["verif"], rLat["fixation"]["platine"], rLat["fixation"]["soudure"]
+chk("platine latérale : le montant est vérifié sur H + d_h = 1150 (console jusqu'au haut de la platine), H = 1100 reste la hauteur de la main courante",
+    pres(vLat["H"], 1150.0) and pres(rLat["geometrie"]["H"], 1100.0) and pres(rLat["geometrie"]["H_post"], 1150.0) and rLat["geometrie"]["laterale"] and pres(vLat["M1"], 450 * 1150))
+chk("… au centre de la platine : M = P·(H + d_h + b_p/2) = 0,45 × 1225 = 0,551 kN·m, arrachement P = 0,45 kN, V = 0 sous le cas 1",
+    plLat["mode"] == "laterale" and pres(plLat["M"], 450 * 1225) and pres(plLat["P"], 450.0) and pres(plLat["V"], 0.0) and plLat["cas_charge"] == "1")
+chk("… couple d'ancrages : z = e_x = 100, Z = M/z + P/2 = 5512,5 + 225 = 5737,5 N, F_t = Z/2, F_v = 0",
+    pres(plLat["z"], 100.0) and pres(plLat["Z"], 450 * 1225 / 100 + 225) and pres(plLat["Ft"], plLat["Z"] / 2) and pres(plLat["Fv"], 0.0))
+chk("… platine en console horizontale : m = e_y/2 − b/2 − 0,8·a·√2 = 50 − 15 − 4,525 = 30,5, e = (b_p − e_x)/2 = 25, b_eff = min(b_p ; 2·min(2πm ; 4m + 1,25e)) = 150, σ_p, t_req",
+    pres(plLat["m"], 50 - 15 - 0.8 * 4 * math.sqrt(2)) and pres(plLat["e_bord"], 25.0) and pres(plLat["b_eff"], 150.0)
+    and pres(plLat["sigma_p"], 6 * plLat["Z"] * plLat["m"] / (150 * 100)) and pres(plLat["tp_req"], math.sqrt(6 * plLat["Z"] * plLat["m"] / (150 * 160))))
+chk("… soudure : cas C8, deux cordons longitudinaux de 150 (la hauteur de la platine) à ±15 (b/2), efforts au point à y_P = 1225 (N = P, V_y = −N_v), le point haut gouverne",
+    sLat["res"]["config"] == "C8" and len(sLat["cas"]["params"]["elements"]) == 2
+    and all(pres(abs(e["x1"]), 15.0) and pres(abs(e["y1"] - e["y2"]), 150.0) for e in sLat["cas"]["params"]["elements"])
+    and pres(sLat["cas"]["params"]["yR"], 1225.0) and pres(sLat["cas"]["efforts"]["N"], 0.45) and pres(sLat["cas"]["efforts"]["Vy"], 0.0) and sLat["position"] == "haut")
+chk("… les éléments : montant (sur 1150), main courante, barreaux, soudure, chevilles, « Platine latérale 150 × 150 × 10 »",
+    [e["cle"] for e in rLat["elements"]] == ["montant", "lisse", "barreau", "soudure", "ancrage", "platine"] and any("Platine latérale" in e["libelle"] for e in rLat["elements"])
+    and rLat["montants"][1]["taux_max"] > r["montants"][1]["taux_max"])
+cLatL = cas(geometrie={"forme": "L"}, fixation={"type": "laterale"})
+rLatL = ET.verifier(cLatL)
+plL = rLatL["fixation"]["platine"]
+chk("montant d'angle en latéral : P₂ (dans le plan de la platine) fait du cisaillement et une torsion M_z = P₂·y_P reprise par les ancrages (F_v,tors > 0) et par les cordons (V_x, torsion transportée)",
+    rLatL["montant"]["verif"]["coin"] and plL["Fv_tors"] > 0 and pres(plL["Mz"], rLatL["montant"]["verif"]["P_h2"] * (1150 + 75))
+    and pres(rLatL["fixation"]["soudure"]["cas"]["efforts"]["Vx"], rLatL["montant"]["verif"]["P_h2"] / 1e3))
+rImp = ET.verifier(cas(fixation={"type": "laterale", "ancrage": {**FX.fixation_defaut()["ancrage"], "n_par_rangee": 3}}))
+chk("latéral avec 3 chevilles par rangée : refus (les colonnes vont par paires de part et d'autre du montant)", rImp["fixation"]["platine"]["taux_max"] is None
+    and any("paires" in m for m in rImp["messages"]))
+rSer = ET.verifier(cas(fixation={"type": "laterale", "ancrage": {**FX.fixation_defaut()["ancrage"], "ey": 40.0}}))
+chk("latéral avec e_y = 40 ≤ b + d_0 : refus", rSer["fixation"]["platine"]["taux_max"] is None and any("e_y" in m for m in rSer["messages"]))
+rLatB = ET.verifier(cas(fixation={"type": "laterale", "ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon"}}))
+chk("latéral par boulons M12 8.8 : F_t,Rd = 0,9·f_ub·A_s/γ_M2/γ_F, interaction des boulons", pres(rLatB["fixation"]["platine"]["FtRd"], 0.9 * 800 * 84.3 / 1.25 / 1.5)
+    and "F_v/F_v,Rd" in rLatB["fixation"]["platine"]["formule_inter"])
+rLatM = ET.verifier(cas("murale", fixation={"type": "laterale"}))
+chk("au mur, la platine latérale n'a pas d'objet : message, pas de fixation vérifiée", rLatM["fixation"]["platine"] is None and any("latérale" in m for m in rLatM["messages"]))
+cSM = cas(geometrie={"debut": "mur", "fin": "mur", "troncons": [{"L": 2500, "s_max": 3000, "entraxes": []}, {"L": 2400, "s_max": 1000, "entraxes": []}, {"L": 3600, "s_max": 1000, "entraxes": []}]})
+rSM = ET.verifier(cSM)
+chk("sans montant (loggia 2,50 m de mur à mur) : la main courante est principale sur L = 2500, pas de montant, éléments lisse et barreaux, aucune fixation, réactions aux murs en messages",
+    rSM["statut"] == "ok" and rSM["lisse"]["role"] == "principal" and pres(rSM["lisse"]["L"], 2500.0) and rSM["montant"] is None and not rSM["montants"]
+    and [e["cle"] for e in rSM["elements"]] == ["lisse", "barreau"] and rSM["fixation"]["soudure"] is None and rSM["geometrie"]["sans_montant"]
+    and sum(1 for m in rSM["messages"] if "il reprend H = 0,62 kN et V = 0,62 kN" in m) == 2 and rSM["section_montant"]["nom"] == "RHS 50x30x3")
+chk("sans montant : les rôles de la bibliothèque sont la main courante et les barreaux, et les candidats de la main courante se calculent",
+    ET.roles_du_cas(cSM) == ["lisse", "barreau"] and len(ET.candidats(cSM, "lisse", ["creux"], 15.0)) > 20 and ET.candidats(cSM, "montant") == [])
+cRp = cas(geometrie={"pente": 32.0})
+rRp = ET.verifier(cRp)
+chk("rampant (pente 32°) : la mécanique ne change pas (entraxes mesurés suivant la pente), la phrase le dit, la pente est bornée à 60°",
+    pres(rRp["taux_max"], r["taux_max"]) and "rampant, pente 32°" in rRp["geometrie"]["phrase"] and rRp["geometrie"]["pente"] == 32.0
+    and ET.normaliser_cas(cas(geometrie={"pente": 90.0}))["geometrie"]["pente"] == 60.0)
+chk("catégorie « plateforme industrielle (machines) » : q_h = 0,30 kN/m, origine EN ISO 14122-3 à confirmer", CH.qh_de_categorie("ind") == 0.3
+    and "EN ISO 14122-3" in CH.tableau(CH.normaliser({"categorie": "ind"}))[0]["norme"] and "confirmer" in CH.origine_qh(CH.normaliser({"categorie": "ind"})))
+chk("le type « panneau » annonce aussi les câbles", "câbles" in TY.TYPES["panneau"]["libelle"])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
