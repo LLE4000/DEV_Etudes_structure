@@ -26,8 +26,11 @@ verticale q_v sur la main courante (usage du bureau), une charge ponctuelle Q en
 charges du remplissage (pression q_r, charge ponctuelle Q_r = 0,5 kN de la NBN B 03-004).
 
 **Les vieilles formules du bureau, et l'Eurocode en face.** Un switch, comme pour les
-soudures : « Méthode ELS (bureau) » = efforts de service et contraintes admissibles
-(σ = M/W_el + N/A ≤ 160 N/mm², τ = V/A_v ≤ 90 N/mm², flèche ≤ L/100) ; « Eurocode (ELU) » =
+soudures : « Vérification à l'ELS » (nommée ainsi depuis la version 3 ; l'étude l'appelait
+« Méthode ELS (bureau) ») = efforts de service et contraintes admissibles dérivées de la
+nuance (σ = M/W_el + N/A ≤ σ_adm = f_y/1,5, τ = V/A_v ≤ τ_adm = σ_adm/√3, σ_eq = √(σ² + 3τ²) ≤
+σ_adm, flèche ≤ L/100 — l'étude et les versions 1 à 3 posaient 160 et 90 N/mm², corrigés en
+version 3.1, P-12) ; « Eurocode (ELU) » =
 charges × γ_Q = 1,5, σ ≤ f_y/γ_M0 (élastique), τ ≤ f_y/(√3·γ_M0), flèche de service. La
 fixation suit : la soudure du montant sur la platine est UN CAS DU MODULE SOUDURES (tube sur
 platine C6, console fléchie C3 pour un plat, cordons libres C8 pour une section non standard —
@@ -125,6 +128,18 @@ prime (décision écrite ici).
 - **Platine** : bande en console du nu du montant à la rangée tendue, m = e_x/2 − h_p/2 −
   0,8·a·√2, b_eff = min(l_p ; Σ min(2πm ; 4m + 1,25e)), σ_p = 6·Z·m/(b_eff·t_p²) ≤ σ_lim,
   épaisseur requise.
+- **Platine latérale en nez de dalle (version 3)** : platine verticale l_p × b_p (largeur ×
+  hauteur) en applique, descendue de d_h sous le dessus de dalle ; le montant la longe et y est
+  soudé par deux cordons longitudinaux de hauteur b_p (cas C8 libre du module Soudures, repère
+  au centre des cordons, torseur transporté). Le montant est une console de H + d_h ; au centre
+  de la platine M = P·(H + d_h + b_p/2), N = −P (arrachement), V = N_v = q_v·s_trib ; un
+  montant d'angle ajoute M₂ = P₂·(H + d_h + b_p/2) en torsion des ancrages. Deux rangées
+  horizontales de n ancrages à ±e_x/2 (la haute tendue, la basse en appui sur le béton) :
+  z = e_x, Z = M/z + P/2 (P se partage entre les deux rangées, côté sûr pour la haute),
+  F_t = Z/n, F_v = V/(2n) + M_z·r_max/Σr². Platine : bande en console du nu du montant à la
+  colonne d'ancrages, m = e_y/2 − b/2 − 0,8·a·√2, b_eff = min(b_p ; Σ min(2πm ; 4m + 1,25e)),
+  σ_p = 6·Z·m/(b_eff·t_p²). Refus : n impair (les colonnes vont par paires, une de chaque côté
+  du montant), colonne dans le montant (e_y ≤ b + d_0), rangée hors de la platine.
 - Pas de béton sous la platine ni de modes de ruine du béton d'ancrage (module Pied de poteau).
 
 ### 2.5 Statuts
@@ -179,6 +194,31 @@ retenue par le bouton de la bibliothèque (contrôle du harnais et de la capture
 Voir le document de référence `GARDE_CORPS.md` §7. Composée en taille normale puis « serrée »
 si une colonne déborde ; `derniers_avertissements` vide sur les huit cas du test.
 
+Version 3 (05/11/2026), à la demande du bureau (« trop d'explications », « la nomenclature »,
+« charge répartie sur deux lignes », « qu'elle soit belle à voir ») :
+- **les symboles sont composés** — `ndc_pdf/riche.py` traduit la notation des substitutions
+  (« W_el,y », « P₁ », « √(…) », « t_p² ») vers le mini-LaTeX de `mathx` et compose les segments
+  « $…$ » d'un texte courant à la taille et dans la couleur du texte ; `auto()` compose les
+  symboles indicés d'une prose ordinaire (les textes de `methode.py`, les libellés du moteur) ;
+  la notation « q_h » reste la source unique (écran, JSON, tests), la note en est une vue ;
+- **l'ordre de lecture** — `formules.py` rend chaque bloc par GROUPE (charges, sollicitations,
+  contraintes avec la limite et le taux sous chaque contrainte, flèche, taux) ; « subs » reste la
+  liste à plat, dans le même ordre, pour l'écran et les tests ; un taux reprend le nombre
+  IMPRIMÉ de sa contrainte (η_σ = 91,2/160 et non 91,25/160) ;
+- **la mise en page** — hypothèses en lignes « libellé · valeur », charges en « symbole et
+  valeur, nom dessous, origine en gris », le résultat de chaque formule À LA SUITE du calcul
+  (le bureau a refusé la première version, qui calait tous les résultats à droite : « le égal
+  doit se mettre à la suite du calcul ; on peut juste mettre les pourcentages sur la droite »),
+  seuls les η calés à droite en couleur (`riche.formule_calee`, `cale="suite"` ou
+  `"droite"`), pastille η par élément, barres de taux au récapitulatif, une légende d'une
+  ligne ; la prose d'explication (sous-titres, notations, « platine rigide ») a disparu ;
+  la ligne « Méthode » des hypothèses est devenue « Vérification » (à l'ELS … / à l'ELU selon
+  l'Eurocode …) — la note ne dit plus « méthode du bureau » ; t_p est imprimé face à t_req ;
+- **ce qui garde sa notation** : les cotes des dessins (« e_x = 100 », « b_p 150 »), écrites par
+  le kit des schémas partagé avec l'écran SVG — à composer dans un lot ultérieur si le bureau le
+  souhaite ; les parenthèses des formules composées sont des tracés, pas des glyphes (le texte
+  extrait du PDF les perd : `tests/test_garde_corps_note.py` en tient compte).
+
 ## 7 · Architecture et lots
 
 ```
@@ -201,6 +241,29 @@ tools/captures_garde_corps.js
 Lots livrés le 04/11/2026 : GC0 (cette étude), GC1 (moteur + tests), GC2 (schémas + écran),
 GC3 (note), GC4 (captures, docs, batterie, commit).
 
+Version 2, livrée le 05/11/2026 après la relecture du bureau (« présentation à 10 sur 100 ») :
+GC5a moteur (types en menu, quatre charges nommées en cas distincts, main courante sur deux
+appuis ou continue, portée des barreaux déduite, candidats par rôle, RHS par défaut), GC5b
+schémas de dessin technique (six vues), GC5c écran (menu des types, cinq onglets, tableaux
+cliquables), GC5d note (hypothèses en tête, 1 à 4 avec formules développées), GC5e docs,
+captures, batterie. Le document de référence est `docs/acier/GARDE_CORPS.md`.
+
+Version 3, livrée le 05/11/2026 : GC6 note composée (`ndc_pdf/riche.py`, formules par groupe,
+charges symbole / nom / valeur), puis, après la seconde relecture (« le égal à la suite du
+calcul », « d'autres cas courants », « est-ce que l'épaisseur de la platine est vérifiée ? »,
+« 95 % des garde-corps ») : GC7a note (résultats à la suite, η seuls à droite, « vérification à
+l'ELS »), GC7b fixation latérale en nez de dalle (moteur, soudure C8 longitudinale, vue de face
+et coupe horizontale, écran, note), GC7c couverture (sans montant de mur à mur, rampant,
+plateforme industrielle, câbles), GC7d vérification complète (cinq suites, huit états de
+captures, docs, batterie). `fixation.py` et `schemas.py` ont grossi d'autant ; le découpage de
+`schemas.py` (élévation / coupes / détails) est au plan.
+
+Version 3.1, le même jour, après la relecture du bureau (« 160 c'est faux : 235/1,5 », « vérifie
+qu'il y a zéro faute », « propose l'optimal ») : GC8a limites dérivées de f_y et σ_eq (P-12),
+GC8b optimal à chaque profilé, GC8c relecture des douze notes avec recalcul indépendant (452
+grandeurs, aucun écart) et six défauts corrigés dont les lisses intermédiaires sur l'axe faible
+(P-13), GC8d suites, batterie, fusion dans `main` à la demande du bureau.
+
 ## 8 · Points à trancher par le bureau (défauts retenus en attendant)
 
 - **P-1 · Valeurs belges du Tableau 6.12.** L'ANB (NBN EN 1991-1-1 ANB) n'a pas pu être lue
@@ -215,8 +278,48 @@ GC3 (note), GC4 (captures, docs, batterie, commit).
 - **P-5 · Angle d'un L ou d'un U sur platine** : le moment résultant √(M₁² + M₂²) est appliqué
   aux chevilles dans le sens de b_p avec h_p = h (approximation du côté sûr pour un tube rond,
   légèrement optimiste pour un rectangulaire chargé selon b).
-- **P-6 · Lisse continue sur plusieurs travées** : prise appuyée (qL²/8, côté sûr) ; la
-  continuité (qL²/10) n'est pas proposée.
+- **P-6 · Lisse continue sur plusieurs travées** : prise appuyée (qL²/8, côté sûr) par
+  défaut ; depuis la version 2, l'option « poutre continue » applique les coefficients des
+  tables (0,125 / 0,100 / 0,107 qL² pour 2 / 3 / ≥ 4 travées égales, flèche k_f·qL⁴/EI), la
+  charge ponctuelle gardant ses valeurs sur deux appuis.
+- **P-7 · Cas de charge distincts (version 2).** Les quatre charges (q_h, q_v, Q_r, q_r)
+  agissent séparément : c'est la pratique des normes de garde-corps (charges de service qui ne
+  se cumulent pas), demandée par le bureau et à confirmer contre la NBN B 03-004 §6 ; l'option
+  « cumul » (q_h + q_v ensemble) reste disponible, du côté sûr.
+- **P-8 · Sections par défaut (version 2)** : RHS 50x30x3 pour les montants et la main
+  courante (RHS demandés par le bureau), Plat 30x8 pour les barreaux, RHS 50x25x2.5 formé à
+  froid pour la lisse basse (non calculée), Plat 50x10 pour les consoles.
+- **P-9 · Main courante entre deux murs (version 3).** Question du bureau : « une main courante
+  scellée dans le mur à gauche et à droite, un garde-corps de 8 m, il faudrait que les 8 m du
+  profilé résistent en flèche ? » Réponse : OUI si rien ne la porte entre les deux murs — c'est
+  le garde-corps SANS MONTANT, la main courante est une poutre de mur à mur sur toute la
+  longueur (un RHS 50x30x3 n'y tient déjà plus à 3,60 m : η = 244 %, flèche) ; NON dès qu'il y a
+  des montants intermédiaires : la portée est l'entraxe, le mur compte pour un appui et reprend
+  la demi-travée (l'outil le dit depuis la version 1 avec « fin : lisse ancrée dans le mur »),
+  et l'option « poutre continue » applique les coefficients des tables. Le module choisit
+  seul : deux bouts ancrés et une seule travée = sans montant.
+- **P-10 · Fixation latérale (version 3).** Modèle retenu en 2.4 : couple d'ancrages z = e_x
+  avec P/2 de part et d'autre, platine en console vers la colonne d'ancrages, soudure par deux
+  cordons longitudinaux. À confirmer par le bureau : la part de P donnée à la rangée haute
+  (Z = M/z + P/2 ; l'alternative M/z + P est plus sûre de 0,2 kN sur le cas courant) et la
+  descente d_h par défaut (50 mm).
+- **P-11 · Plateforme industrielle (version 3).** 0,3 kN/m d'après l'EN ISO 14122-3 (machines,
+  accès), imprimé « à confirmer sur l'édition en vigueur » : la valeur est modifiable, et
+  l'origine suit.
+- **P-12 · Contraintes admissibles (version 3.1, tranché par le bureau le 05/11/2026).** Les
+  constantes 160 et 90 N/mm² des versions 1 à 3 étaient FAUSSES : la règle est σ_adm = f_y/1,5
+  (156,7 N/mm² pour le S235, 236,7 pour le S355), τ_adm = σ_adm/√3 (90,5), et la contrainte
+  équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm. Le moteur les dérive de la nuance (`membres.limites`,
+  γ_adm = 1,5 modifiable) ; les notes, l'écran, la méthode et les tests ont suivi ; la platine en
+  flexion et la flèche ne changent pas, les taux en contrainte montent de 2 % relatifs
+  (barreaux 62 → 63 %, platine 34 → 35 %).
+- **P-13 · Lisses intermédiaires sur l'axe faible (version 3.1, relecture).** Les versions 1 à 3
+  vérifiaient une lisse intermédiaire sur son axe FORT sous la poussée horizontale, alors
+  qu'elle est posée h vertical comme la main courante (dessins, coupe A-A) : c'était optimiste
+  (RHS 50x25x2.5 sur 900 mm : 18 → 27 %). Depuis la 3.1, `etat.verifier_barre(axe="faible")`
+  la fléchit sur W_el,z et I_z ; les barreaux restent de champ (h dans le sens de la poussée).
+  Si le bureau pose des lisses plates « à plat », il choisira la section dans l'autre sens
+  (b × h inversés) — à trancher si le cas se présente.
 
 ## 9 · Sources
 

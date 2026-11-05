@@ -10,6 +10,12 @@ tronçon, dans deux directions perpendiculaires.
 
 Le même découpage sert au système « lisse ancrée dans un mur » : les montants deviennent les
 consoles de fixation, aux mêmes entraxes, avec les mêmes longueurs tributaires.
+
+SANS MONTANT : une seule travée ancrée dans un mur à chaque bout (le garde-corps d'une loggia
+entre deux murs) — la main courante porte de mur à mur, chaque mur reprend une demi-travée.
+RAMPANT (escalier) : la pente α ne change pas la mécanique — les entraxes sont mesurés le long
+de la main courante, les montants restent verticaux ; elle incline l'élévation et se lit dans
+les hypothèses.
 """
 import math
 from typing import Dict, List
@@ -37,7 +43,7 @@ def troncon_defaut(L: float = 3600.0, s_max: float = S_MAX_DEFAUT) -> Dict:
 
 
 def geometrie_defaut() -> Dict:
-    return {"systeme": "montants", "forme": "droit", "H": H_DEFAUT,
+    return {"systeme": "montants", "forme": "droit", "H": H_DEFAUT, "pente": 0.0,
             "troncons": [troncon_defaut(3600.0), troncon_defaut(2400.0), troncon_defaut(3600.0)],
             "debut": "montant", "fin": "montant", "e_console": 100.0}
 
@@ -121,10 +127,10 @@ def analyser(geom: Dict) -> Dict:
     messages = []
     if not travees:
         messages.append("Refus : aucune travée (longueur ou entraxes nuls)")
-    if not montants:
-        messages.append("Refus : aucun montant (les deux extrémités sont ancrées dans un mur et il n'y a qu'une travée)")
+    sans_montant = bool(travees) and not montants          # une travée de mur à mur : la main courante porte, sans montant
     return {"forme": forme, "montants": montants, "travees": travees, "s_max": s_max, "L_total": x, "reprises_mur": reprises,
-            "entraxes": ents, "messages": messages, "n_montants": len(montants), "n_coins": sum(1 for m in montants if m["coin"])}
+            "entraxes": ents, "messages": messages, "n_montants": len(montants), "n_coins": sum(1 for m in montants if m["coin"]),
+            "sans_montant": sans_montant, "pente": float(geom.get("pente") or 0.0)}
 
 
 def longueurs_troncons(geom: Dict) -> List[float]:
@@ -152,7 +158,13 @@ def phrase(geom: Dict, ana: Dict) -> str:
         ext.append("fin ancrée dans le mur")
     n = ana["n_montants"]
     nom = "console" if geom.get("systeme") == "mur" else "montant"
-    s += f" · {n} {nom}{'s' if n > 1 else ''}" + (f" dont {ana['n_coins']} d'angle" if ana["n_coins"] else "")
+    if n:
+        s += f" · {n} {nom}{'s' if n > 1 else ''}" + (f" dont {ana['n_coins']} d'angle" if ana["n_coins"] else "")
+    else:
+        s += " · sans montant, main courante de mur à mur"
     if ext:
         s += " · " + ", ".join(ext)
+    pente = float(geom.get("pente") or 0.0)
+    if pente:
+        s += f" · rampant, pente {pente:g}° (entraxes mesurés suivant la pente)"
     return s

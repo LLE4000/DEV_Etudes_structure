@@ -71,7 +71,7 @@ def els_bureau(f: float, a: float, k: float = K_BUREAU, g: float = G_KG) -> Dict
     """Méthode ELS du bureau : résultante de service |f| ≤ (k·g/10)·a."""
     tau = tau_adm_bureau(k, g)
     Fadm = tau * a
-    return {"tau_adm": tau, "F_adm": Fadm, "taux": f / Fadm if Fadm > 0 else math.inf, "critere": "|f| ≤ k·a (bureau)"}
+    return {"tau_adm": tau, "F_adm": Fadm, "taux": f / Fadm if Fadm > 0 else math.inf, "critere": "|f| ≤ k·a (ELS)"}
 
 
 # ------------------------------------------------------------------ bout à bout, pleine pénétration

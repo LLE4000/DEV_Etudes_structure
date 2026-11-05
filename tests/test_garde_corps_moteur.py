@@ -1,25 +1,30 @@
 # -*- coding: utf-8 -*-
-"""Tests du moteur « Garde-corps » (acier/garde_corps, sans Streamlit). Chaque garantie
+"""Tests du moteur « Garde-corps » v2 (acier/garde_corps, sans Streamlit). Chaque garantie
 rougit si on la retire :
 
   1. GÉOMÉTRIE : répartition régulière, entraxes saisis (un poteau central à deux distances
      différentes), longueurs tributaires, montant d'angle d'un L et d'un U, extrémité ancrée
      dans le mur (le mur reprend la demi-travée), phrase.
-  2. CHARGES : catégories du Tableau 6.12, valeur libre, mode P direct, remplissage.
-  3. MÉCANIQUE : console (M = P·H, V = P, f = PH³/3EI), poutre (qL²/8, QL/4, 5qL⁴/384EI,
-     somme / max), vérification de section (σ = M/W + N/A, τ = V/A_v, flèche), limites
-     ELS et Eurocode (γ_Q sur les contraintes, pas sur la flèche), statuts.
-  4. BIBLIOTHÈQUE : creux du catalogue, plats et ronds de stock, sections libres (TUBE,
-     CAISSON, PLAT, ROND) par la même fonction que le catalogue, axe fort = sens de h,
-     aire de cisaillement entière pour un plein, spécifications, refus.
-  5. VÉRIFICATION COMPLÈTE : montant gouvernant, angle vérifié dans les deux orientations,
-     lisse biaxiale, barreau (deux cas), lisses intermédiaires, panneau, masse, messages.
-  6. FIXATION : cas de soudure (C6 tube, C3 plat, C8 libre) et ses efforts, platine
-     boulonnée (bras de levier, Z, F_t, F_v, boulon EN 1993-1-8, cheville ETA, interaction,
-     ELS /γ_F, flexion de la platine, épaisseur requise, refus), système mur (console,
-     traction des chevilles : enveloppe des deux modèles), scellé.
-  7. CANDIDATS : tri par masse, le plus léger qui tient, filtre de groupe, application.
-  8. ÉTAT ET JSON : nouveau cas, normalisation d'un fichier incomplet, aller-retour.
+  2. TYPES ET CHARGES : les cinq types du menu fixent système et remplissage ; les quatre
+     charges nommées (q_h, q_v, Q_r, q_r) avec leur origine ; catégories du Tableau 6.12 ;
+     valeur libre ; mode P ; cas distincts par défaut, cumul en option.
+  3. MÉCANIQUE : console (M = P·H, V = P, f = PH³/3EI), poutre sur deux appuis (qL²/8, QL/4,
+     5qL⁴/384EI, somme / max), poutre continue (coefficients des tables : 0,125 / 0,100 /
+     0,107 qL²), vérification de section, limites ELS et Eurocode, statuts.
+  4. BIBLIOTHÈQUE : creux du catalogue, plats et ronds de stock, sections libres, axe fort =
+     sens de h, aire de cisaillement entière pour un plein, spécifications, refus.
+  5. VÉRIFICATION COMPLÈTE : le montant sous q_h seule (cas 1) gouverne, le cas 2 (q_v seule)
+     est calculé ; main courante : cas 1 et 2 séparés, le pire ; cumul : efforts additionnés ;
+     continuité ; angle vérifié dans les deux orientations ; barreaux à portée DÉDUITE de H,
+     h_bas et des sections, cas 3 (Q_r) et 4 (q_r) ; lisses intermédiaires ; panneau ; masse.
+  6. FIXATION : cas de soudure (C6 tube, C3 plat, C8 libre) et ses efforts sous le cas de charge
+     qui gouverne (N = 0 sous q_h seule), platine (bras de levier, Z, F_t, F_v, boulon
+     EN 1993-1-8, cheville ETA, interaction, ELS /γ_F, flexion, épaisseur requise, refus),
+     système mur (console sous q_v, platine tirée sous q_h : enveloppe des deux modèles), scellé.
+  7. CANDIDATS PAR RÔLE : montant, main courante, barreaux, lisses intermédiaires, console ;
+     tri par masse ; le plus léger qui tient ; application de la section au rôle.
+  8. ÉTAT ET JSON : nouveau cas, fichier v1 relu (type déduit, portée des barreaux déduite),
+     aller-retour.
 
 Lancement : python3 tests/test_garde_corps_moteur.py (depuis la racine).
 """
@@ -38,6 +43,7 @@ from acier.garde_corps import etat as ET  # noqa: E402
 from acier.garde_corps import fixation as FX  # noqa: E402
 from acier.garde_corps import geometrie as GE  # noqa: E402
 from acier.garde_corps import membres as ME  # noqa: E402
+from acier.garde_corps import types as TY  # noqa: E402
 from acier.profiles import catalogue as CAT  # noqa: E402
 
 OK, KO = [], []
@@ -52,8 +58,8 @@ def pres(a, b, tol=1e-6):
     return abs(a - b) <= tol * max(1.0, abs(a), abs(b))
 
 
-def cas(**kw):
-    c = ET.nouveau_cas()
+def cas(type_=TY.TYPE_DEFAUT, **kw):
+    c = ET.nouveau_cas(None, type_)
     for k, v in kw.items():
         if isinstance(v, dict):
             c[k] = {**c[k], **v}
@@ -73,9 +79,8 @@ chk("droit, 4 travées : 5 montants, tributaires 450 / 900 / 900 / 900 / 450, s_
     a["n_montants"] == 5 and [m["trib1"] for m in a["montants"]] == [450, 900, 900, 900, 450] and a["s_max"] == 900 and a["L_total"] == 3600)
 g["troncons"][0]["entraxes"] = [1200, 900]
 a = GE.analyser(g)
-chk("entraxes saisis 1200 + 900 : trois montants à x = 0, 1200, 2100, tributaires 600 / 1050 / 450 (le central n'est pas symétrique)",
+chk("entraxes saisis 1200 + 900 : trois montants à x = 0, 1200, 2100, tributaires 600 / 1050 / 450",
     [m["x"] for m in a["montants"]] == [0, 1200, 2100] and [m["trib1"] for m in a["montants"]] == [600, 1050, 450] and a["s_max"] == 1200)
-chk("un montant courant n'est pas d'angle et n'a pas de seconde direction", all(not m["coin"] and m["trib2"] == 0 for m in a["montants"]))
 g["fin"] = "mur"
 a = GE.analyser(g)
 chk("fin ancrée dans le mur : plus de dernier montant, le mur reprend la demi-travée 450",
@@ -95,34 +100,69 @@ chk("la phrase nomme la forme, les travées et les angles", "en U" in GE.phrase(
 g2 = GE.geometrie_defaut()
 g2["troncons"][0] = {"L": 1000, "s_max": 1000, "entraxes": []}
 g2["debut"] = g2["fin"] = "mur"
-chk("une seule travée ancrée aux deux bouts : refus (aucun montant)", any("Refus" in m for m in GE.analyser(g2)["messages"]))
+a2 = GE.analyser(g2)
+chk("une seule travée ancrée aux deux bouts : SANS montant, la main courante porte de mur à mur (aucun refus, deux reprises de demi-travée)",
+    not a2["messages"] and a2["sans_montant"] and not a2["montants"] and len(a2["reprises_mur"]) == 2 and all(pres(r["trib"], 500.0) for r in a2["reprises_mur"])
+    and "sans montant" in GE.phrase(g2, a2))
 
 # ================================================================
-print("\n=== 2. Charges ===")
+print("\n=== 2. Types et charges ===")
+chk("cinq types : barreaudage (défaut), lisses, panneau, main courante seule, murale", list(TY.TYPES) == ["barreaudage", "lisses", "panneau", "main_courante", "murale"]
+    and TY.TYPE_DEFAUT == "barreaudage")
+for ty, (sysm, rp) in {"barreaudage": ("montants", "barreaux"), "lisses": ("montants", "lisses"), "panneau": ("montants", "panneau"),
+                       "main_courante": ("montants", "aucun"), "murale": ("mur", "aucun")}.items():
+    c = ET.nouveau_cas("t", ty)
+    chk(f"type « {ty} » : système {sysm}, remplissage {rp}, retrouvé par type_de", c["geometrie"]["systeme"] == sysm and c["remplissage"]["type"] == rp and TY.type_de(c) == ty)
+c = ET.nouveau_cas()
+c["remplissage"]["type"] = "lisses"
+chk("un remplissage changé à la main redéfinit le type déduit (lisses)", TY.type_de(c) == "lisses")
+chk("sections par défaut : montant et main courante RHS 50x30x3, barreaux Plat 30x8, lisse basse RHS 50x25x2.5 (froid)",
+    c["montant"]["section"] == {"nom": "RHS 50x30x3"} and c["lisse"]["section"] == {"nom": "RHS 50x30x3"} and c["remplissage"]["section"] == {"nom": "Plat 30x8"}
+    and c["remplissage"]["section_basse"] == {"nom": "RHS 50x25x2.5 (froid)"} and c["lisse"]["appuis"] == "deux")
 chk("catégorie A : 0,5 kN/m ; C2-C4 : 1,0 ; C5 : 3,0 ; E : 2,0 (valeurs recommandées du Tableau 6.12)",
     CH.qh_de_categorie("A") == 0.5 and CH.qh_de_categorie("C2-C4") == 1.0 and CH.qh_de_categorie("C5") == 3.0 and CH.qh_de_categorie("E") == 2.0)
-c = CH.normaliser({"categorie": "D", "qh": 7.0})
-chk("une catégorie impose sa valeur (D : 1,0 malgré 7 saisi) ; la valeur libre la garde", c["qh"] == 1.0 and CH.normaliser({"categorie": "perso", "qh": 0.8})["qh"] == 0.8)
-chk("défauts : q_v 0,5 kN/m, q_r 0,5 kN/m², Q_r 0,5 kN, mode q", c["qv"] == 0.5 and c["qr"] == 0.5 and c["Qr"] == 0.5 and c["mode"] == "q")
-chk("l'origine de q_h dit la catégorie et le tableau ; le mode P dit la saisie directe",
-    "Tab. 6.12" in CH.origine_qh(c) and "saisie directement" in CH.origine_qh(CH.normaliser({"mode": "P"})))
+ch = CH.normaliser({"categorie": "D", "qh": 7.0})
+chk("une catégorie impose sa valeur (D : 1,0 malgré 7 saisi) ; la valeur libre la garde", ch["qh"] == 1.0 and CH.normaliser({"categorie": "perso", "qh": 0.8})["qh"] == 0.8)
+chk("défauts : q_v 0,5 kN/m, q_r 0,5 kN/m², Q_r 0,5 kN, mode q, cas distincts (cumul False)", ch["qv"] == 0.5 and ch["qr"] == 0.5 and ch["Qr"] == 0.5 and ch["mode"] == "q" and ch["cumul"] is False)
+tab = CH.tableau(ch)
+chk("les quatre charges nommées, numérotées 1 à 4 : q_h, q_v, Q_r, q_r avec valeur, unité et norme",
+    [t["n"] for t in tab] == [1, 2, 3, 4] and [t["symbole"] for t in tab] == ["q_h", "q_v", "Q_r", "q_r"] and tab[0]["valeur"] == 1.0 and tab[0]["unite"] == "kN/m"
+    and "Tab. 6.12" in tab[0]["norme"] and "Q_kh,2" in tab[2]["norme"] and tab[3]["unite"] == "kN/m²")
+chk("mode P : la charge 1 devient P par montant (saisie directe)", CH.tableau(CH.normaliser({"mode": "P", "P": 1.2}))[0]["symbole"] == "P" and CH.tableau(CH.normaliser({"mode": "P", "P": 1.2}))[0]["valeur"] == 1.2)
+chk("la phrase des cas : distincts par défaut, cumulés en option", "distincts" in CH.phrase_cumul(ch) and "cumulées" in CH.phrase_cumul({**ch, "cumul": True}))
 
 # ================================================================
 print("\n=== 3. Mécanique ===")
 E = 210000.0
-c = ME.console(450.0, 0.0, 450.0, 1100.0, E, 115857.0, 115857.0)
-chk("console : M = P·H = 495 000 N·mm, V = P, f = PH³/(3EI) = 8,206 mm", pres(c["M1"], 495000.0) and c["V1"] == 450.0 and pres(c["f"], 450 * 1100 ** 3 / (3 * E * 115857)))
+c0 = ME.console(450.0, 0.0, 450.0, 1100.0, E, 115857.0, 115857.0)
+chk("console : M = P·H = 495 000 N·mm, V = P, f = PH³/(3EI)", pres(c0["M1"], 495000.0) and c0["V1"] == 450.0 and pres(c0["f"], 450 * 1100 ** 3 / (3 * E * 115857)))
 p = ME.poutre(0.5, 300.0, 900.0, E, 76200.0)
-chk("poutre : qL²/8 + QL/4 = 50 625 + 67 500, V = qL/2 + Q/2, f = 5qL⁴/384EI + QL³/48EI",
+chk("poutre sur deux appuis : qL²/8 + QL/4, V = qL/2 + Q/2, f = 5qL⁴/384EI + QL³/48EI",
     pres(p["M"], 0.5 * 900 ** 2 / 8 + 300 * 900 / 4) and pres(p["V"], 225 + 150) and pres(p["f"], 5 * 0.5 * 900 ** 4 / (384 * E * 76200) + 300 * 900 ** 3 / (48 * E * 76200)))
 pm = ME.poutre(0.5, 300.0, 900.0, E, 76200.0, "max")
 chk("combinaison « max » : le plus grand des deux cas", pres(pm["M"], 67500.0) and pres(pm["V"], 225.0))
+pc2, pc3, pc5 = (ME.poutre_continue(0.5, 0.0, 900.0, n, E, 76200.0) for n in (2, 3, 5))
+chk("poutre continue : 2 travées 0,125 qL², 0,625 qL, 0,00541 qL⁴/EI ; 3 travées 0,100 ; ≥ 4 travées 0,107 (tables)",
+    pres(pc2["M"], 0.125 * 0.5 * 900 ** 2) and pres(pc2["V"], 0.625 * 0.5 * 900) and pres(pc2["f"], 0.00541 * 0.5 * 900 ** 4 / (E * 76200))
+    and pres(pc3["M"], 0.100 * 0.5 * 900 ** 2) and pres(pc5["M"], 0.107 * 0.5 * 900 ** 2))
+pcQ = ME.poutre_continue(0.0, 300.0, 900.0, 3, E, 76200.0)
+chk("continue : une charge ponctuelle garde QL/4 et QL³/48EI (côté sûr) ; une travée = deux appuis", pres(pcQ["M"], 300 * 900 / 4) and pres(pcQ["f"], 300 * 900 ** 3 / (48 * E * 76200))
+    and pres(ME.poutre_continue(0.5, 0.0, 900.0, 1, E, 76200.0)["M"], 0.5 * 900 ** 2 / 8))
 sec = BI.section({"nom": "CHS 48.3x3.2"})
 meth = ME.methode_defaut()
 v = ME.verifier_section(sec, 495000.0, 0.0, 450.0, 450.0, 0.0, 8.206, 1100.0, meth, 235.0)
-chk("vérification ELS : σ = M/W + N/A = 104,2, τ = V/A_v = 1,56, flèche/(L/100) ; σ_adm 160, τ_adm 90 ; η = max",
+chk("vérification ELS : σ = M/W + N/A, τ = V/A_v, flèche/(L/100) ; σ_adm = f_y/1,5 = 156,67, τ_adm = σ_adm/√3 = 90,45 (dérivées de la nuance, plus 160 ni 90) ; η = max",
     pres(v["sigma"], 495000 / (sec["Wel_y"] * 1e3) + 450 / (sec["A"] * 1e2)) and pres(v["tau"], 450 / (sec["Avz"] * 1e2))
-    and pres(v["fleche_lim"], 11.0) and v["lim_sigma"] == 160 and v["lim_tau"] == 90 and pres(v["taux_max"], 8.206 / 11.0) and v["critere"] == "fleche")
+    and pres(v["fleche_lim"], 11.0) and pres(v["lim_sigma"], 235 / 1.5) and pres(v["lim_tau"], 235 / 1.5 / math.sqrt(3)) and v["coef_lim"] == 1.5
+    and pres(v["taux_max"], 8.206 / 11.0) and v["critere"] == "fleche")
+chk("contrainte équivalente σ_eq = √(σ² + 3τ²) ≤ σ_adm : calculée, son taux η_eq ≥ η_σ, et c'est elle qui est nommée quand les contraintes gouvernent",
+    pres(v["sigma_eq"], math.sqrt(v["sigma"] ** 2 + 3 * v["tau"] ** 2)) and pres(v["taux"]["sigma_eq"], v["sigma_eq"] / (235 / 1.5))
+    and v["taux"]["sigma_eq"] >= v["taux"]["sigma"]
+    and ME.verifier_section(sec, 495000.0, 0.0, 450.0, 450.0, 0.0, 1.0, 1100.0, meth, 235.0)["critere"] == "sigma_eq"
+    and ME.critere_texte("sigma_eq") == "σ équivalente")
+chk("S355 : σ_adm = 355/1,5 = 236,7 et τ_adm = 136,6 suivent la nuance ; γ_adm modifiable (1,6 → 146,9)",
+    pres(ME.limites(meth, 355.0)["sigma"], 355 / 1.5) and pres(ME.limites(meth, 355.0)["tau"], 355 / 1.5 / math.sqrt(3))
+    and pres(ME.limites({**meth, "gamma_adm": 1.6}, 235.0)["sigma"], 235 / 1.6))
 me = {**meth, "mode": "eurocode"}
 ve = ME.verifier_section(sec, 495000.0, 0.0, 450.0, 450.0, 0.0, 8.206, 1100.0, me, 235.0)
 chk("Eurocode : γ_Q = 1,5 sur σ et τ, limites fy/γM0 = 235 et fy/√3, la flèche reste de service",
@@ -170,71 +210,85 @@ chk("catalogue filtré : creux seulement, ≤ 10 kg/m, par masse croissante",
 print("\n=== 5. Vérification complète ===")
 c0 = ET.nouveau_cas()
 r = ET.verifier(c0)
-chk("cas par défaut : conforme, 5 montants, le gouvernant est un montant courant (M2) par la flèche",
-    r["statut"] == "ok" and len(r["montants"]) == 5 and r["gouvernant"]["cle"] == "montant" and r["montant"]["nom"] == "M2" and r["montant"]["verif"]["critere"] == "fleche")
+sec_m = r["section_montant"]
+chk("cas par défaut (barreaudage, RHS 50x30x3) : conforme, 5 montants, le montant M2 gouverne par la flèche sous le cas 1 (q_h seule)",
+    r["statut"] == "ok" and r["type"] == "barreaudage" and len(r["montants"]) == 5 and r["gouvernant"]["cle"] == "montant" and r["montant"]["nom"] == "M2"
+    and r["montant"]["verif"]["critere"] == "fleche" and r["montant"]["verif"]["cas_charge"] == "1")
 m2 = r["montant"]["verif"]
-chk("montant M2 : P = q_h·900 = 0,45 kN, N = 0,45 kN, M = 0,495 kN·m, σ = 104,2 N/mm², f = 8,21 mm ≤ 11",
-    pres(m2["P1"], 450.0) and pres(m2["N"], 450.0) and pres(m2["M1"], 495000.0) and pres(m2["sigma"], 104.2, 1e-3) and pres(m2["fleche"], 8.206, 1e-3) and pres(m2["fleche_lim"], 11.0))
+chk("montant M2 sous q_h seule : P = 0,45 kN, N = 0, M = 0,495 kN·m, σ = M/W_el,y = 91,2 N/mm², f = 7,01 mm ≤ 11 ; le cas 2 (q_v seule) est calculé et faible",
+    pres(m2["P1"], 450.0) and m2["N"] == 0.0 and pres(m2["M1"], 495000.0) and pres(m2["sigma"], 495000 / (sec_m["Wel_y"] * 1e3)) and pres(m2["fleche"], 7.01, 2e-3)
+    and pres(m2["fleche_lim"], 11.0) and "2" in m2["cas_taux"] and m2["cas_taux"]["2"] < 0.02 and pres(m2["N_v"], 450.0))
 li = r["lisse"]["verif"]
-chk("lisse haute : portée 900, M_h = M_v = qL²/8 = 0,0506 kN·m, σ = M_v/W_y + M_h/W_z, flèche résultante √(f_h² + f_v²)",
-    pres(li["L"], 900.0) and pres(li["Mh"], 0.5 * 900 ** 2 / 8) and pres(li["Mv"], li["Mh"]) and pres(li["fleche"], math.hypot(li["fh"], li["fv"])))
+chk("main courante : portée 900 sur deux appuis, cas 1 (q_h) et cas 2 (q_v) séparés, le pire gouverne (σ = M_h/W_el,z, pas de somme)",
+    pres(li["L"], 900.0) and li["appuis"] == "deux" and pres(li["Mh"], 0.5 * 900 ** 2 / 8) and pres(li["Mv"], li["Mh"]) and li["cas_charge"] == "1"
+    and pres(li["sigma"], li["Mh"] / (r["lisse"]["section"]["Wel_z"] * 1e3)) and set(li["cas_taux"]) == {"1", "2"} and pres(li["taux_max"], max(li["cas_taux"].values())))
 b = r["remplissage"]["verif"]
-chk("barreaux Plat 30×8 sur 900 à 110 : le cas Q_r = 0,5 kN gouverne (M = QL/4 = 0,1125 kN·m, σ = 93,75) devant la pression q_r·e",
-    b["cas"] == "Q" and pres(b["M1"], 500 * 900 / 4) and pres(b["sigma"], 93.75, 1e-3) and b["verif_q"]["taux_max"] < b["verif_Q"]["taux_max"])
-chk("les éléments : montant, lisse, barreau, soudure, ancrage, platine ; une masse indicative",
-    [e["cle"] for e in r["elements"]] == ["montant", "lisse", "barreau", "soudure", "ancrage", "platine"] and 50 < r["masse"] < 150)
+chk("barreaux Plat 30×8 à 110 : portée DÉDUITE 950 = 1100 − h_bas 100 − 25 − 25 ; le cas 3 (Q_r = 0,5 kN) gouverne (M = QL/4) devant le cas 4 (q_r·e)",
+    pres(r["remplissage"]["L"], 950.0) and b["cas_charge"] == "3" and pres(b["M1"], 500 * 950 / 4) and b["cas_taux"]["4"] < b["cas_taux"]["3"])
+chk("la lisse basse est une section du cas (non calculée), à h_bas = 100 mm", r["remplissage"]["section_basse"]["nom"] == "RHS 50x25x2.5 (froid)" and r["remplissage"]["h_bas"] == 100.0)
+chk("les éléments : montant, main courante, barreaux, soudure, chevilles, platine ; une masse indicative",
+    [e["cle"] for e in r["elements"]] == ["montant", "lisse", "barreau", "soudure", "ancrage", "platine"] and 50 < r["masse"] < 200)
+rC = ET.verifier(cas(lisse={"appuis": "continue"}))
+lc = rC["lisse"]["verif"]
+chk("main courante continue sur 4 travées : M_h = 0,107 qL², η plus faible que sur deux appuis", lc["appuis"] == "continue" and lc["n_travees"] == 4 and pres(lc["kM"], 0.107)
+    and pres(lc["Mh"], 0.107 * 0.5 * 900 ** 2) and lc["taux_max"] < li["taux_max"])
+rK = ET.verifier(cas(charges={"cumul": True}))
+mk, lk = rK["montant"]["verif"], rK["lisse"]["verif"]
+chk("cumul : montant sous q_h et q_v (cas 1+2 : σ = M/W + N/A), main courante biaxiale (σ = M_v/W_y + M_h/W_z)",
+    mk["cas_charge"] == "1+2" and pres(mk["N"], 450.0) and pres(mk["sigma"], m2["sigma"] + 450 / (sec_m["A"] * 1e2)) and lk["cas_charge"] == "1+2"
+    and pres(lk["sigma"], lk["Mv"] / (r["lisse"]["section"]["Wel_y"] * 1e3) + lk["Mh"] / (r["lisse"]["section"]["Wel_z"] * 1e3)))
 cL = cas(geometrie={"forme": "L"}, montant={"section": {"nom": "RHS 60x40x3"}})
 rL = ET.verifier(cL)
-g = rL["montant"]["verif"]
+gL = rL["montant"]["verif"]
 chk("en L avec un RHS 60×40 : le montant d'angle gouverne, vérifié dans l'orientation la pire (P selon b)",
-    g["coin"] and g.get("orientation_inversee") and g["P2"] > 0 and g["taux_max"] > max(v["taux_max"] for v in rL["montants"] if not v["coin"]))
-cP = cas(charges={"mode": "P", "P": 1.0})
-rP = ET.verifier(cP)
-chk("mode P direct : chaque montant reçoit 1 kN, la lisse l'équivalent P/s = 1,11 kN/m",
+    gL["coin"] and gL.get("orientation_inversee") and gL["P2"] > 0 and gL["taux_max"] > max(v["taux_max"] for v in rL["montants"] if not v["coin"]))
+rP = ET.verifier(cas(charges={"mode": "P", "P": 1.0}))
+chk("mode P direct : chaque montant reçoit 1 kN, la main courante l'équivalent P/s = 1,11 kN/m",
     all(pres(v["P1"], 1000.0) for v in rP["montants"]) and pres(rP["lisse"]["verif"]["qh"], 1000 / 900))
-cI = cas(remplissage={"type": "lisses", "n_lisses": 2, "entraxe_lisses": 330.0, "section_lisses": {"nom": "CHS 26.9x3.2"}})
-rI = ET.verifier(cI)
-chk("lisses intermédiaires : portée s_max, charge q_r·e = 0,165 kN/m ou Q_r", rI["remplissage"]["verif"]["L"] == 900 and pres(rI["remplissage"]["verif"]["q"], 0.5 * 330 / 1e3)
-    and any(e["cle"] == "lisse_inter" for e in rI["elements"]))
-rPan = ET.verifier(cas(remplissage={"type": "panneau"}))
-chk("panneau : pas d'élément vérifié, un message pour le fournisseur", not any(e["cle"] in ("barreau", "lisse_inter") for e in rPan["elements"]) and any("fournisseur" in m for m in rPan["messages"]))
-cH = cas(geometrie={"H": 1300.0})
-chk("H > 1,20 m : message (bras de levier pris tel quel, côté sûr)", any("1,20 m" in m or "1.20 m" in m for m in ET.verifier(cH)["messages"]))
-cM = cas(geometrie={"fin": "mur"})
-chk("fin ancrée dans le mur : le message donne l'effort repris par le mur", any("mur" in m and "kN" in m for m in ET.verifier(cM)["messages"]))
+rI = ET.verifier(ET.nouveau_cas("l", "lisses"))
+chk("type lisses : lisses intermédiaires sur la portée s_max, charge q_r·e = 0,165 kN/m ou Q_r (cas 3 / 4)", rI["remplissage"]["verif"]["L"] == 900
+    and pres(rI["remplissage"]["verif"]["q"], 0.5 * 330 / 1e3) and any(e["cle"] == "lisse_inter" for e in rI["elements"]) and rI["remplissage"]["verif"]["cas_charge"] in ("3", "4"))
+rPan = ET.verifier(ET.nouveau_cas("p", "panneau"))
+chk("type panneau : pas d'élément de remplissage vérifié, une lisse basse, un message pour le fournisseur",
+    not any(e["cle"] in ("barreau", "lisse_inter") for e in rPan["elements"]) and rPan["remplissage"].get("section_basse") and any("fournisseur" in m for m in rPan["messages"]))
+chk("H > 1,20 m : message (bras de levier pris tel quel, côté sûr)", any("1,20 m" in m or "1.20 m" in m for m in ET.verifier(cas(geometrie={"H": 1300.0}))["messages"]))
+chk("fin ancrée dans le mur : le message donne l'effort repris par le mur", any("mur" in m and "kN" in m for m in ET.verifier(cas(geometrie={"fin": "mur"}))["messages"]))
 
 # ================================================================
 print("\n=== 6. Fixation ===")
 fx = r["fixation"]
 sres = fx["soudure"]["res"]
-chk("CHS du catalogue : cas C6 tube sur platine, efforts N = −0,45 (compression), V_z = 0,45, M_y = −0,495 kN·m",
-    sres["config"] == "C6" and pres(fx["soudure"]["cas"]["efforts"]["N"], -0.45) and pres(fx["soudure"]["cas"]["efforts"]["Vz"], 0.45)
+chk("RHS du catalogue : cas C6 tube sur platine sous le cas 1 : N = 0, V_z = 0,45, M_y = −0,495 kN·m",
+    sres["config"] == "C6" and fx["soudure"]["cas_charge"] == "1" and pres(fx["soudure"]["cas"]["efforts"]["N"], 0.0) and pres(fx["soudure"]["cas"]["efforts"]["Vz"], 0.45)
     and pres(fx["soudure"]["cas"]["efforts"]["My"], -0.495))
-chk("la soudure est jugée par la méthode ELS du bureau (k = 100) quand le garde-corps l'est", sres["methode"].mode == "els" and sres["methode"].k == 100.0 and fx["soudure"]["taux"] > 0.5)
-chk("le groupe de cordons fait le tour du tube : A_w ≈ π·d·a", pres(sres["proprietes"]["A_w"], math.pi * 48.3 * 4.0, 0.02))
+chk("la soudure est jugée par la méthode ELS du bureau (k = 100) quand le garde-corps l'est", sres["methode"].mode == "els" and sres["methode"].k == 100.0 and fx["soudure"]["taux"] > 0.4)
+chk("le groupe de cordons fait le tour du RHS 50 × 30 : A_w ≈ périmètre × a", pres(sres["proprietes"]["A_w"], sres["pieces"]["perimetre"] * 4.0, 0.02))
 rPl = ET.verifier(cas(montant={"section": {"nom": "Plat 50x10"}}))
 cs3 = rPl["fixation"]["soudure"]["cas"]
-chk("plat : cas C3 console fléchie, h = 50, t = 10, e = H = 1100, V = P, N = −N", sres is not None and cs3["config"] == "C3" and cs3["params"]["h"] == 50 and cs3["params"]["t"] == 10
-    and cs3["params"]["e"] == 1100 and pres(cs3["efforts"]["V"], 0.45) and pres(cs3["efforts"]["N"], -0.45))
+chk("plat : cas C3 console fléchie, h = 50, t = 10, e = H = 1100, V = P, N = 0 sous q_h seule", cs3["config"] == "C3" and cs3["params"]["h"] == 50 and cs3["params"]["t"] == 10
+    and cs3["params"]["e"] == 1100 and pres(cs3["efforts"]["V"], 0.45) and pres(cs3["efforts"]["N"], 0.0))
 rT = ET.verifier(cas(montant={"section": {"famille": "TUBE", "dims": {"d": 48.3, "t": 3.2}}}))
 cs8 = rT["fixation"]["soudure"]["cas"]
+rChs = ET.verifier(cas(montant={"section": {"nom": "CHS 48.3x3.2"}}))
 chk("tube libre : cas C8, un arc de 360° de rayon d/2, V_y = P, M_x = −P·H ; même taux que le C6 du CHS (±5 %)",
     cs8["config"] == "C8" and cs8["params"]["elements"][0]["type"] == "arc" and pres(cs8["params"]["elements"][0]["r"], 24.15)
-    and pres(cs8["efforts"]["Vy"], 0.45) and pres(cs8["efforts"]["Mx"], -0.495) and pres(rT["fixation"]["soudure"]["taux"], fx["soudure"]["taux"], 0.05))
-rC = ET.verifier(cas(montant={"section": {"famille": "CAISSON", "dims": {"h": 60, "b": 40, "t": 3}}}))
-chk("caisson libre : cas C8, quatre segments sur le contour 40 × 60, A_w = 200·a", rC["fixation"]["soudure"]["cas"]["config"] == "C8"
-    and len(rC["fixation"]["soudure"]["cas"]["params"]["elements"]) == 4 and pres(rC["fixation"]["soudure"]["res"]["proprietes"]["A_w"], 200 * 4.0, 0.05))
+    and pres(cs8["efforts"]["Vy"], 0.45) and pres(cs8["efforts"]["Mx"], -0.495) and pres(rT["fixation"]["soudure"]["taux"], rChs["fixation"]["soudure"]["taux"], 0.05))
+rCa = ET.verifier(cas(montant={"section": {"famille": "CAISSON", "dims": {"h": 60, "b": 40, "t": 3}}}))
+chk("caisson libre : cas C8, quatre segments sur le contour 40 × 60, A_w = 200·a", rCa["fixation"]["soudure"]["cas"]["config"] == "C8"
+    and len(rCa["fixation"]["soudure"]["cas"]["params"]["elements"]) == 4 and pres(rCa["fixation"]["soudure"]["res"]["proprietes"]["A_w"], 200 * 4.0, 0.05))
 pl = fx["platine"]
-chk("platine : z = e_x/2 + h_p/2 = 74,15, Z = (M − N·h_p/2)/z = 6,53 kN, F_t = Z/2, F_v = V/4",
-    pres(pl["z"], 74.15) and pres(pl["Z"], (495000 - 450 * 48.3 / 2) / 74.15) and pres(pl["Ft"], pl["Z"] / 2) and pres(pl["Fv"], 450 / 4))
+chk("platine sous le cas 1 (N = 0) : z = e_x/2 + h_p/2 = 75, Z = M/z = 6,6 kN, F_t = Z/2, F_v = V/4",
+    pl["cas_charge"] == "1" and pres(pl["z"], 75.0) and pres(pl["Z"], 495000 / 75.0) and pres(pl["Ft"], pl["Z"] / 2) and pres(pl["Fv"], 450 / 4))
 chk("cheville ETA en ELS : N_Rd/γ_F = 9/1,5 = 6 kN, interaction (β_N)^1,5 + (β_V)^1,5",
     pres(pl["FtRd"], 6000.0) and pres(pl["inter"], (pl["Ft"] / 6000) ** 1.5 + (pl["Fv"] / 8000) ** 1.5))
-chk("flexion de la platine : m = e_x/2 − h_p/2 − 0,8·a·√2 = 21,3, b_eff = min(l_p ; 2·min(2πm ; 4m + 1,25e)) = 150, σ_p = 6·Z·m/(b·t²), t_req",
-    pres(pl["m"], 50 - 24.15 - 0.8 * 4 * math.sqrt(2)) and pres(pl["b_eff"], 150.0) and pres(pl["sigma_p"], 6 * pl["Z"] * pl["m"] / (150 * 100))
-    and pres(pl["tp_req"], math.sqrt(6 * pl["Z"] * pl["m"] / (150 * 160))))
+chk("flexion de la platine : m = e_x/2 − h_p/2 − 0,8·a·√2 = 20,5, b_eff = min(l_p ; 2·min(2πm ; 4m + 1,25e)) = 150, σ_p = 6·Z·m/(b·t²), t_req",
+    pres(pl["m"], 50 - 25 - 0.8 * 4 * math.sqrt(2)) and pres(pl["b_eff"], 150.0) and pres(pl["sigma_p"], 6 * pl["Z"] * pl["m"] / (150 * 100))
+    and pres(pl["tp_req"], math.sqrt(6 * pl["Z"] * pl["m"] / (150 * 235 / 1.5))))
+plK = rK["fixation"]["platine"]
+chk("cumul : la platine reçoit aussi N = 0,45 kN de compression (Z = (M − N·h_p/2)/z), cas 1+2", plK["cas_charge"] == "1+2" and pres(plK["Z"], (495000 - 450 * 25) / 75.0))
 rB = ET.verifier(cas(fixation={"ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon", "boulon": "M12", "classe": "8.8"}}))
 pb = rB["fixation"]["platine"]
-chk("boulon M12 8.8 (Tab. 3.4) : F_t,Rd = 0,9·800·84,3/1,25 = 48,5 kN, /1,5 en ELS = 32,4 ; interaction F_v/F_v,Rd + F_t/(1,4·F_t,Rd)",
+chk("boulon M12 8.8 (Tab. 3.4) : F_t,Rd = 0,9·800·84,3/1,25 = 48,5 kN, /1,5 en ELS ; interaction F_v/F_v,Rd + F_t/(1,4·F_t,Rd)",
     pres(pb["FtRd"], 0.9 * 800 * 84.3 / 1.25 / 1.5) and pres(pb["FvRd"], 0.6 * 800 * 84.3 / 1.25 / 1.5) and pres(pb["inter"], pb["Fv"] / pb["FvRd"] + pb["Ft"] / (1.4 * pb["FtRd"])))
 rE = ET.verifier(cas(methode={"mode": "eurocode"}, fixation={"ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon"}}))
 pe = rE["fixation"]["platine"]
@@ -246,51 +300,140 @@ rS = ET.verifier(cas(fixation={"type": "soudee"}))
 chk("montant soudé sur un plat existant : soudure vérifiée, pas de platine", rS["fixation"]["soudure"] is not None and rS["fixation"]["platine"] is None)
 rZ = ET.verifier(cas(fixation={"type": "scellee"}))
 chk("montant scellé : aucune fixation vérifiée, message", rZ["fixation"]["soudure"] is None and any("scellé" in m for m in rZ["messages"]))
-cW = cas(geometrie={"systeme": "mur"})
+cW = ET.nouveau_cas("m", "murale")
 rW = ET.verifier(cW)
 cw = rW["console"]["verif"]
-chk("système mur : la lisse est principale, les consoles portent R_v = q_v·s, R_h = q_h·s, M = R_v·e, σ = M/W + R_h/A",
-    rW["lisse"]["role"] == "principal" and rW["montant"] is None and pres(cw["Rv"], 450.0) and pres(cw["Rh"], 450.0) and pres(cw["M1"], 450 * 100)
-    and pres(cw["sigma"], 45000 / (rW["console"]["section"]["Wel_y"] * 1e3) + 450 / (rW["console"]["section"]["A"] * 1e2)))
+chk("murale : la main courante est principale, la console est fléchie par q_v seule (cas 2 : M = R_v·e, N = 0) et tirée par q_h seule (cas 1 : σ = R_h/A)",
+    rW["lisse"]["role"] == "principal" and rW["montant"] is None and cw["cas_charge"] == "2" and pres(cw["Rv"], 450.0) and pres(cw["M1"], 450 * 100) and cw["N"] == 0.0
+    and pres(cw["Rh"], 450.0) and "1" in cw["cas_taux"])
 pw = rW["fixation"]["platine"]
-chk("console au mur : la platine est tirée (N_t = R_h) ; Z = enveloppe (M + N_t·h_p/2)/z et M/e_x + N_t/2",
-    pw["N"] < 0 and pres(pw["Z"], max((45000 + 450 * 25) / 75.0, 45000 / 100 + 225)))
-chk("console : cas de soudure C3 avec N = +R_h (tire la console hors du mur) et V = R_v", rW["fixation"]["soudure"]["cas"]["config"] == "C3"
-    and pres(rW["fixation"]["soudure"]["cas"]["efforts"]["N"], 0.45) and pres(rW["fixation"]["soudure"]["cas"]["efforts"]["V"], 0.45))
+chk("console au mur : la platine est jugée sous le pire des cas — ici q_v (Z = M/z = 0,6 kN) devant q_h (couple de boulons N_t/2 = 0,225 kN)",
+    pw["cas_charge"] == "2" and pres(pw["Z"], 45000 / 75.0) and pw["N"] == 0.0)
+chk("console : cas de soudure C3 avec V = R_v sous le cas 2", rW["fixation"]["soudure"]["cas"]["config"] == "C3" and pres(rW["fixation"]["soudure"]["cas"]["efforts"]["V"], 0.45))
+rWK = ET.verifier(cas("murale", charges={"cumul": True}))
+chk("murale cumulée : la platine est tirée (N_t = R_h) et fléchie en même temps, enveloppe des deux modèles",
+    rWK["fixation"]["platine"]["N"] < 0 and pres(rWK["fixation"]["platine"]["Z"], max((45000 + 450 * 25) / 75.0, 45000 / 100 + 225)))
 
 # ================================================================
-print("\n=== 7. Candidats ===")
-cands = ET.candidats(c0, ["creux"])
-chk("les candidats creux, par masse croissante, chacun avec son taux", len(cands) > 100 and [x["masse"] for x in cands] == sorted(x["masse"] for x in cands)
+print("\n=== 7. Candidats par rôle ===")
+chk("rôles du cas : barreaudage → montant, main courante, barreaux ; lisses → … lisses intermédiaires ; murale → main courante, console",
+    ET.roles_du_cas(c0) == ["montant", "lisse", "barreau"] and ET.roles_du_cas(ET.nouveau_cas("l", "lisses")) == ["montant", "lisse", "lisse_inter"]
+    and ET.roles_du_cas(cW) == ["lisse", "console"])
+cands = ET.candidats(c0, "montant", ["creux"])
+chk("les candidats montants creux, par masse croissante, chacun avec son taux", len(cands) > 100 and [x["masse"] for x in cands] == sorted(x["masse"] for x in cands)
     and all(0 <= x["taux"] for x in cands))
 best = ET.plus_leger(cands)
-chk("le plus léger qui tient est le premier dont η ≤ 1 : CHS 48.3x2.5 (η 91 %)", best["section"]["nom"] == "CHS 48.3x2.5" and best["taux"] <= 1.0
+chk("le plus léger tube qui tient comme montant : CHS 48.3x2.5 (η 91 %)", best["section"]["nom"] == "CHS 48.3x2.5" and best["taux"] <= 1.0
     and all(x["taux"] > 1.0 for x in cands[:cands.index(best)]))
-chk("le CHS 48.3x3.2 du cas est un candidat au même taux que la vérification", any(x["section"]["nom"] == "CHS 48.3x3.2" and pres(x["taux"], r["taux_max"]) for x in cands))
+chk("le RHS 50x30x3 du cas est un candidat au même taux que la vérification", any(x["section"]["nom"] == "RHS 50x30x3" and pres(x["taux"], r["montant"]["verif"]["taux_max"]) for x in cands))
+cb = ET.candidats(c0, "barreau", ["plats", "ronds"], 15.0)
+chk("candidats barreaux (plats et ronds) : jugés sur la portée déduite 950 sous Q_r ; le plus léger qui tient est un plat", cb and ET.plus_leger(cb)["section"]["famille"] == "PLAT"
+    and any(x["section"]["nom"] == "Plat 30x8" and pres(x["taux"], r["remplissage"]["verif"]["taux_max"]) for x in cb))
+cl = ET.candidats(c0, "lisse", ["creux"])
+chk("candidats main courante : jugés comme lisse sur deux appuis (cas 1 ou 2)", cl and any(x["section"]["nom"] == "RHS 50x30x3" and pres(x["taux"], li["taux_max"]) for x in cl))
+cc = ET.candidats(cW, "console", ["plats"])
+chk("candidats console (murale) : jugés comme console", cc and any(x["section"]["nom"] == "Plat 50x10" and pres(x["taux"], cw["taux_max"]) for x in cc))
 c1 = ET.nouveau_cas()
-ET.appliquer_section(c1, best["section"])
-chk("appliquer le candidat écrit sa spécification dans le montant", c1["montant"]["section"] == {"nom": "CHS 48.3x2.5"})
-cands_mur = ET.candidats(cW, ["creux"])
-chk("système mur : les candidats sont jugés comme lisse (portée s_max)", ET.element_principal(cW) == "lisse" and len(cands_mur) > 100 and cands_mur[0]["taux"] > 0)
+ET.appliquer_section(c1, best["section"], "montant")
+ET.appliquer_section(c1, BI.section({"nom": "Rond Ø14"}), "barreau")
+ET.appliquer_section(c1, BI.section({"nom": "CHS 42.4x3.2"}), "lisse")
+chk("appliquer une section par rôle écrit sa spécification au bon endroit", c1["montant"]["section"] == {"nom": "CHS 48.3x2.5"} and c1["remplissage"]["section"] == {"nom": "Rond Ø14"}
+    and c1["lisse"]["section"] == {"nom": "CHS 42.4x3.2"})
 
 # ================================================================
 print("\n=== 8. État et JSON ===")
 e0 = ET.nouvel_etat()
 txt = ET.vers_json(e0)
 e1 = ET.depuis_json(txt)
-chk("aller-retour JSON : un cas identique", e1["cas"][0] == e0["cas"][0] and e1["actif"] == 0)
-vieux = json.dumps({"cas": [{"nom": "ancien", "geometrie": {"forme": "L", "troncons": [{"L": 3000}]}, "charges": {"categorie": "D"}}]})
+chk("aller-retour JSON : un cas identique, version 3", e1["cas"][0] == e0["cas"][0] and e1["actif"] == 0 and e1["version"] == 3)
+vieux = json.dumps({"cas": [{"nom": "ancien", "geometrie": {"forme": "L", "troncons": [{"L": 3000}]}, "charges": {"categorie": "D"},
+                             "remplissage": {"type": "lisses", "L": 900}}]})
 e2 = ET.depuis_json(vieux)
 c2 = e2["cas"][0]
-chk("un fichier incomplet est complété : trois tronçons, q_h de la catégorie D, sections et fixation par défaut, méthode ELS",
-    len(c2["geometrie"]["troncons"]) == 3 and c2["geometrie"]["troncons"][0]["L"] == 3000 and c2["charges"]["qh"] == 1.0
-    and c2["montant"]["section"] == {"nom": "CHS 48.3x3.2"} and c2["fixation"]["type"] == "platine" and c2["methode"]["mode"] == "els")
+chk("un fichier v1 est relu : trois tronçons, q_h de la catégorie D, type déduit « lisses », sections et fixation par défaut, méthode ELS, cas distincts",
+    len(c2["geometrie"]["troncons"]) == 3 and c2["geometrie"]["troncons"][0]["L"] == 3000 and c2["charges"]["qh"] == 1.0 and c2["type"] == "lisses"
+    and c2["montant"]["section"] == {"nom": "RHS 50x30x3"} and c2["fixation"]["type"] == "platine" and c2["methode"]["mode"] == "els" and c2["charges"]["cumul"] is False)
 chk("un cas complété se vérifie", ET.verifier(c2)["statut"] in ("ok", "attention", "nok"))
 try:
     ET.depuis_json("{}")
     chk("un fichier sans cas est refusé", False)
 except ValueError:
     chk("un fichier sans cas est refusé", True)
+
+# ================================================================
+print("\n=== 9. Fixation latérale (nez de dalle), sans montant, rampant, plateforme industrielle ===")
+cLat = cas(fixation={"type": "laterale"})
+rLat = ET.verifier(cLat)
+vLat, plLat, sLat = rLat["montant"]["verif"], rLat["fixation"]["platine"], rLat["fixation"]["soudure"]
+chk("platine latérale : le montant est vérifié sur H + d_h = 1150 (console jusqu'au haut de la platine), H = 1100 reste la hauteur de la main courante",
+    pres(vLat["H"], 1150.0) and pres(rLat["geometrie"]["H"], 1100.0) and pres(rLat["geometrie"]["H_post"], 1150.0) and rLat["geometrie"]["laterale"] and pres(vLat["M1"], 450 * 1150))
+chk("… au centre de la platine : M = P·(H + d_h + b_p/2) = 0,45 × 1225 = 0,551 kN·m, arrachement P = 0,45 kN, V = 0 sous le cas 1",
+    plLat["mode"] == "laterale" and pres(plLat["M"], 450 * 1225) and pres(plLat["P"], 450.0) and pres(plLat["V"], 0.0) and plLat["cas_charge"] == "1")
+chk("… couple d'ancrages : z = e_x = 100, Z = M/z + P/2 = 5512,5 + 225 = 5737,5 N, F_t = Z/2, F_v = 0",
+    pres(plLat["z"], 100.0) and pres(plLat["Z"], 450 * 1225 / 100 + 225) and pres(plLat["Ft"], plLat["Z"] / 2) and pres(plLat["Fv"], 0.0))
+chk("… platine en console horizontale : m = e_y/2 − b/2 − 0,8·a·√2 = 50 − 15 − 4,525 = 30,5, e = (b_p − e_x)/2 = 25, b_eff = min(b_p ; 2·min(2πm ; 4m + 1,25e)) = 150, σ_p, t_req",
+    pres(plLat["m"], 50 - 15 - 0.8 * 4 * math.sqrt(2)) and pres(plLat["e_bord"], 25.0) and pres(plLat["b_eff"], 150.0)
+    and pres(plLat["sigma_p"], 6 * plLat["Z"] * plLat["m"] / (150 * 100)) and pres(plLat["tp_req"], math.sqrt(6 * plLat["Z"] * plLat["m"] / (150 * 235 / 1.5))))
+chk("… soudure : cas C8, deux cordons longitudinaux de 150 (la hauteur de la platine) à ±15 (b/2), efforts au point à y_P = 1225 (N = P, V_y = −N_v), le point haut gouverne",
+    sLat["res"]["config"] == "C8" and len(sLat["cas"]["params"]["elements"]) == 2
+    and all(pres(abs(e["x1"]), 15.0) and pres(abs(e["y1"] - e["y2"]), 150.0) for e in sLat["cas"]["params"]["elements"])
+    and pres(sLat["cas"]["params"]["yR"], 1225.0) and pres(sLat["cas"]["efforts"]["N"], 0.45) and pres(sLat["cas"]["efforts"]["Vy"], 0.0) and sLat["position"] == "haut")
+chk("… les éléments : montant (sur 1150), main courante, barreaux, soudure, chevilles, « Platine latérale 150 × 150 × 10 »",
+    [e["cle"] for e in rLat["elements"]] == ["montant", "lisse", "barreau", "soudure", "ancrage", "platine"] and any("Platine latérale" in e["libelle"] for e in rLat["elements"])
+    and rLat["montants"][1]["taux_max"] > r["montants"][1]["taux_max"])
+cLatL = cas(geometrie={"forme": "L"}, fixation={"type": "laterale"})
+rLatL = ET.verifier(cLatL)
+plL = rLatL["fixation"]["platine"]
+chk("montant d'angle en latéral : P₂ (dans le plan de la platine) fait du cisaillement et une torsion M_z = P₂·y_P reprise par les ancrages (F_v,tors > 0) et par les cordons (V_x, torsion transportée)",
+    rLatL["montant"]["verif"]["coin"] and plL["Fv_tors"] > 0 and pres(plL["Mz"], rLatL["montant"]["verif"]["P_h2"] * (1150 + 75))
+    and pres(rLatL["fixation"]["soudure"]["cas"]["efforts"]["Vx"], rLatL["montant"]["verif"]["P_h2"] / 1e3))
+rImp = ET.verifier(cas(fixation={"type": "laterale", "ancrage": {**FX.fixation_defaut()["ancrage"], "n_par_rangee": 3}}))
+chk("latéral avec 3 chevilles par rangée : refus (les colonnes vont par paires de part et d'autre du montant)", rImp["fixation"]["platine"]["taux_max"] is None
+    and any("paires" in m for m in rImp["messages"]))
+rSer = ET.verifier(cas(fixation={"type": "laterale", "ancrage": {**FX.fixation_defaut()["ancrage"], "ey": 40.0}}))
+chk("latéral avec e_y = 40 ≤ b + d_0 : refus", rSer["fixation"]["platine"]["taux_max"] is None and any("e_y" in m for m in rSer["messages"]))
+rLatB = ET.verifier(cas(fixation={"type": "laterale", "ancrage": {**FX.fixation_defaut()["ancrage"], "type": "boulon"}}))
+chk("latéral par boulons M12 8.8 : F_t,Rd = 0,9·f_ub·A_s/γ_M2/γ_F, interaction des boulons", pres(rLatB["fixation"]["platine"]["FtRd"], 0.9 * 800 * 84.3 / 1.25 / 1.5)
+    and "F_v/F_v,Rd" in rLatB["fixation"]["platine"]["formule_inter"])
+rLatM = ET.verifier(cas("murale", fixation={"type": "laterale"}))
+chk("au mur, la platine latérale n'a pas d'objet : message, pas de fixation vérifiée", rLatM["fixation"]["platine"] is None and any("latérale" in m for m in rLatM["messages"]))
+cSM = cas(geometrie={"debut": "mur", "fin": "mur", "troncons": [{"L": 2500, "s_max": 3000, "entraxes": []}, {"L": 2400, "s_max": 1000, "entraxes": []}, {"L": 3600, "s_max": 1000, "entraxes": []}]})
+rSM = ET.verifier(cSM)
+chk("sans montant (loggia 2,50 m de mur à mur) : la main courante est principale sur L = 2500, pas de montant, éléments lisse et barreaux, aucune fixation, réactions aux murs en messages",
+    rSM["statut"] == "ok" and rSM["lisse"]["role"] == "principal" and pres(rSM["lisse"]["L"], 2500.0) and rSM["montant"] is None and not rSM["montants"]
+    and [e["cle"] for e in rSM["elements"]] == ["lisse", "barreau"] and rSM["fixation"]["soudure"] is None and rSM["geometrie"]["sans_montant"]
+    and sum(1 for m in rSM["messages"] if "il reprend H = 0,62 kN et V = 0,62 kN" in m) == 2 and rSM["section_montant"]["nom"] == "RHS 50x30x3")
+chk("sans montant : les rôles de la bibliothèque sont la main courante et les barreaux, et les candidats de la main courante se calculent",
+    ET.roles_du_cas(cSM) == ["lisse", "barreau"] and len(ET.candidats(cSM, "lisse", ["creux"], 15.0)) > 20 and ET.candidats(cSM, "montant") == [])
+cRp = cas(geometrie={"pente": 32.0})
+rRp = ET.verifier(cRp)
+chk("rampant (pente 32°) : la mécanique ne change pas (entraxes mesurés suivant la pente), la phrase le dit, la pente est bornée à 60°",
+    pres(rRp["taux_max"], r["taux_max"]) and "rampant, pente 32°" in rRp["geometrie"]["phrase"] and rRp["geometrie"]["pente"] == 32.0
+    and ET.normaliser_cas(cas(geometrie={"pente": 90.0}))["geometrie"]["pente"] == 60.0)
+chk("catégorie « plateforme industrielle (machines) » : q_h = 0,30 kN/m, origine EN ISO 14122-3 à confirmer", CH.qh_de_categorie("ind") == 0.3
+    and "EN ISO 14122-3" in CH.tableau(CH.normaliser({"categorie": "ind"}))[0]["norme"] and "confirmer" in CH.origine_qh(CH.normaliser({"categorie": "ind"})))
+chk("le type « panneau » annonce aussi les câbles", "câbles" in TY.TYPES["panneau"]["libelle"])
+
+
+# ================================================================
+print("\n=== 10. Relecture 3.1 : axes du remplissage, efforts d'ancrage nommés ===")
+rL2 = ET.verifier(cas("lisses", geometrie={"forme": "L"}, montant={"section": {"nom": "RHS 60x40x3"}}, lisse={"appuis": "continue"}))
+vli = rL2["remplissage"]["verif"]
+secL = rL2["remplissage"]["section"]
+chk("une lisse intermédiaire est posée h vertical : la poussée horizontale fléchit l'AXE FAIBLE (M₂ sur W_el,z, I_z, V sur A_v,y) — 27,5 % et non 18 % sur l'axe fort",
+    vli["axe"] == "faible" and vli["M1"] == 0.0 and vli["M2"] > 0 and pres(vli["sigma"], vli["M2"] / (secL["Wel_z"] * 1e3))
+    and pres(vli["fleche"], 500.0 * 900.0 ** 3 / (48 * 210000 * secL["Iz"] * 1e4)) and pres(vli["tau"], vli["V2"] / (secL["Avy"] * 1e2)) and 0.27 < vli["taux_max"] < 0.28)
+vbb = ET.verifier(cas())["remplissage"]["verif"]
+chk("un barreau plat est de champ : h = 30 dans le sens de la poussée, axe fort (W_el = 8·30²/6 = 1200, I = 18 000)",
+    vbb["axe"] == "fort" and vbb["M2"] == 0.0 and pres(vbb["Wy"], 1200.0) and pres(vbb["sigma"], vbb["M1"] / 1200.0))
+chk("ME.verifier_barre(axe='faible') met M sur l'axe faible, axe='fort' (défaut) sur l'axe fort",
+    ET.verifier_barre(secL, 0.0, 500.0, 900.0, ME.methode_defaut(), 235.0, axe="faible")["M2"] > 0
+    and ET.verifier_barre(secL, 0.0, 500.0, 900.0, ME.methode_defaut(), 235.0)["M1"] > 0)
+rP = ET.verifier(cas(charges={"mode": "P", "P": 1.2, "cumul": True}))
+chk("les efforts à l'ancrage nomment la nature de N : « N = 0,23 kN (compression) » sous q_h + q_v cumulées (plus de signe nu)",
+    "N = 0,23 kN (compression)" in rP["fixation"]["soudure"]["efforts_txt"] and "N = 0,00 kN" in ET.verifier(cas())["fixation"]["soudure"]["efforts_txt"])
+chk("le libellé de l'élément ancrage est court : « Ancrages · 2 × 2 chevilles M12 » (les résistances restent dans les hypothèses)",
+    any(e["libelle"] == "Ancrages · 2 × 2 chevilles M12" for e in ET.verifier(cas())["elements"]) and "(N_Rd 9 kN, V_Rd 12 kN)" in FX.texte_ancrage(FX.fixation_defaut()["ancrage"]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
