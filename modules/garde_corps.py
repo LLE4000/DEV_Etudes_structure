@@ -735,7 +735,9 @@ def _etape_detail(etat: Dict, cas: Dict, res: Dict):
         for titre, cle in (("1 · Montant principal", "montant"), ("Console", "console"), ("2 · Main courante", "lisse"), ("3 · Remplissage", "barre"), ("4 · Platine et ancrage", "platine")):
             b = fo.get(cle)
             if b and b.get("subs"):
-                st.markdown(f"**{titre}** — {b['cas']}" + (f" (autres cas : {b['autres']})" if b.get("autres") else "") + "  \n" + "  \n".join(FO.rendre(s) for s in b["subs"]))
+                # les groupes dans l'ordre de lecture : charges, sollicitations, contraintes, flèche, taux (la note les imprime de même)
+                st.markdown(f"**{titre}** — {b['cas']}" + (f" (autres cas : {b['autres']})" if b.get("autres") else "") + "  \n"
+                            + "  \n".join(f"*{lib}*  \n" + "  \n".join(FO.rendre(s) for s in subs) for lib, subs in b["groupes"]))
         sou = fo["soudure"]
         if sou["critere"]:
             st.markdown("**Soudure**  \n" + "  \n".join(FO.rendre(s) for s in sou["groupe"] + sou["point"] + sou["critere"]))

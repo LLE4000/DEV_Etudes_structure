@@ -20,6 +20,7 @@ from acier.garde_corps import etat as ET  # noqa: E402
 from acier.garde_corps import fixation as FX  # noqa: E402
 from acier.garde_corps import formules as FO  # noqa: E402
 from ndc_pdf import mathx as M  # noqa: E402
+from ndc_pdf import riche as RI  # noqa: E402
 
 OK, KO = [], []
 BLOCS = ("montant", "console", "lisse", "barre", "platine")
@@ -103,7 +104,28 @@ for cle, expr in FO.CRITERES_MATH.items():
 chk("la clé de méthode suit le mode", FO.cle_methode(res) == "els" and FO.cle_methode(ET.verifier(cas(methode={"mode": "eurocode"}))) == "eurocode")
 rE = ET.verifier(cas(methode={"mode": "eurocode"}))
 txtE = "\n".join(FO.rendre(s) for s in FO.toutes(rE)["montant"]["subs"])
-chk("en Eurocode, σ porte γ_Q et la limite f_y/γ_M0 est écrite", "γ_Q·M₁/W_el,y" in txtE and "σ_lim = fy/γM0" in txtE)
+chk("en Eurocode, σ porte γ_Q et la limite f_y/γ_M0 est écrite", "γ_Q·M₁/W_el,y" in txtE and "σ_lim = f_y/γ_M0" in txtE and "τ_lim = f_y/(√3·γ_M0)" in txtE)
+
+print("\n=== 3. Les groupes, dans l'ordre de lecture ===")
+GROUPES = [FO.CHARGES, FO.SOLLICITATIONS, FO.CONTRAINTES, FO.FLECHE, FO.TAUX]
+for cle in ("montant", "lisse", "barre"):
+    libs = [lib for lib, _ in t[cle]["groupes"]]
+    chk(f"{cle} : les groupes se suivent — charges, sollicitations, contraintes, flèche, taux (ceux qui existent), et « subs » les met à plat",
+        libs == [g for g in GROUPES if g in libs] and libs[-3:] == [FO.CONTRAINTES, FO.FLECHE, FO.TAUX]
+        and [s.nom for s in t[cle]["subs"]] == [s.nom for _, subs in t[cle]["groupes"] for s in subs], str(libs))
+noms_m = [s.nom for s in t["montant"]["subs"]]
+chk("montant : P₁ puis M₁, V, puis σ, η_σ, τ, η_τ (chaque taux suit sa contrainte), puis f, f_adm, η_f, puis η",
+    noms_m == ["P₁", "M₁", "V", "σ", "η_σ", "τ", "η_τ", "f", "f_adm", "η_f", "η"], str(noms_m))
+chk("un taux reprend le nombre IMPRIMÉ de sa contrainte : η_σ = σ/σ_adm = 91,2/160 (et non 91,25), η_f = f/f_adm = 7,01/11",
+    "η_σ = σ/σ_adm = 91,2/160 = 57,0 %" in txt and "η_f = f/f_adm = 7,01/11 = 63,7 %" in txt)
+chk("en ELS les limites s'appellent σ_adm et τ_adm ; en Eurocode σ_lim et τ_lim", "τ/τ_adm" in txt and "σ/σ_lim" in txtE)
+libs_p = [lib for lib, _ in t["platine"]["groupes"]]
+chk("platine : trois groupes — ancrages (efforts), ancrages (résistances et taux), platine en flexion", libs_p == [FO.ANCRAGES_EFFORTS, FO.ANCRAGES_RESISTANCES, FO.PLATINE_FLEXION], str(libs_p))
+chk("les autres cas sont aussi donnés en liste (libellé, taux)", t["montant"]["cas_taux"] and t["montant"]["cas_taux"][0][0] == "cas 2 · q_v seule" and 0 < t["montant"]["cas_taux"][0][1] < 0.1)
+tL = FO.toutes(ET.verifier(cas(geometrie={"forme": "L"})))
+chk("montant d'angle : P₂ et M₂ sans mention entre parenthèses (le titre du bloc dit l'angle)", [s.nom for s in tL["montant"]["subs"]][:5] == ["P₁", "P₂", "M₁", "M₂", "V"], str([s.nom for s in tL["montant"]["subs"]][:5]))
+chk("chaque morceau d'une substitution se compose en typographie mathématique (riche.tex puis mathx.parse)",
+    all(M.parse(RI.tex(p)) is not None for b in BLOCS for s in t[b]["subs"] for p in FO.morceaux(s)[0] + [FO.morceaux(s)[1]]))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

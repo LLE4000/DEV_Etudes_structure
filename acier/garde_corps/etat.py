@@ -328,7 +328,7 @@ def verifier(cas: Dict) -> Dict:
         masse += len(out["consoles"]) * BI.masse_lineaire(sec_c, e)
     for r in ana["reprises_mur"]:
         out["messages"].append(f"Ancrage de la main courante dans le mur ({r['ou']}) : il reprend H = {_kn(qh_lisse * r['trib']):.2f} kN "
-                               f"et V = {_kn(ch['qv'] * r['trib']):.2f} kN (service) — à justifier avec le fabricant de la cheville")
+                               f"et V = {_kn(ch['qv'] * r['trib']):.2f} kN (service) — à justifier avec le fabricant de la cheville".replace(".", ","))
     # le remplissage
     rp = cas["remplissage"]
     typ = rp.get("type", "barreaux")
@@ -421,7 +421,7 @@ def _fixation(cas: Dict, out: Dict, meth: Dict, fy: float, ac: Dict) -> Dict:
         cas_s = FX.cas_soudure(sec, _kn(N_trac) * g, _kn(P1) * g, _kn(P2) * g, L, soud, tp, meth, ac["nuance"])
         s = FX.verifier_soudure(cas_s)
         s["cas_charge"] = lab
-        s["efforts_txt"] = (f"N = {_kn(N_trac) * g:.2f} kN, V = {_kn(V) * g:.2f} kN, M = {M * g / 1e6:.3f} kN·m"
+        s["efforts_txt"] = (f"N = {_kn(N_trac) * g:.2f} kN, V = {_kn(V) * g:.2f} kN, M = {M * g / 1e6:.3f} kN·m".replace(".", ",")
                             + (" (efforts de calcul)" if g != 1.0 else " (efforts de service)"))
         if res["soudure"] is None or (s["taux"] or 0) > (res["soudure"]["taux"] or 0):
             res["soudure"] = s

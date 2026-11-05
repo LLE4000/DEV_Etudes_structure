@@ -87,17 +87,17 @@ def critere(res: Dict, g: Dict) -> List[Sub]:
         d = K.metal_base(sp, tp, tpar, ac["fy_min"], K.GAMMA_M0 if cle == "pleine" else m.gamma_F, service=(cle == "pleine_els"))
         out.append(Sub("σ_c", "sqrt(sp**2 + 3*(tp**2 + tpar**2))", {"sp": ("σ", sp), "tp": ("τ⊥", tp), "tpar": ("τ∥", tpar)}, d["sigma_c"], "N/mm²", 1))
         if cle == "pleine":
-            out.append(Sub("lim = fy/γM0", "fy/gM0", {"fy": ("f_y", ac["fy_min"]), "gM0": ("γ_M0", K.GAMMA_M0)}, d["lim_c"], "N/mm²", 1))
+            out.append(Sub("lim", "fy/gM0", {"fy": ("f_y", ac["fy_min"]), "gM0": ("γ_M0", K.GAMMA_M0)}, d["lim_c"], "N/mm²", 1))
         else:
-            out.append(Sub("lim = fy/γ_F", "fy/gF", {"fy": ("f_y", ac["fy_min"]), "gF": ("γ_F", m.gamma_F)}, d["lim_c"], "N/mm²", 1))
+            out.append(Sub("lim", "fy/gF", {"fy": ("f_y", ac["fy_min"]), "gF": ("γ_F", m.gamma_F)}, d["lim_c"], "N/mm²", 1))
         out.append(Sub("η", "sc/lim", {"sc": ("σ_c", d["sigma_c"]), "lim": ("lim", d["lim_c"])}, d["taux"], "", -1))
         return out
     if cle == "directionnelle":
         d = K.directionnelle(sp, tp, tpar, ac["fu"], ac["bw"], m.gamma_M2)
         out.append(Sub("σ_c", "sqrt(sp**2 + 3*(tp**2 + tpar**2))", {"sp": ("σ⊥", sp), "tp": ("τ⊥", tp), "tpar": ("τ∥", tpar)}, d["sigma_c"], "N/mm²", 1))
-        out.append(Sub("lim_c = fu/(βw·γM2)", "fu/(bw*gM2)", {"fu": ("f_u", ac["fu"]), "bw": ("β_w", ac["bw"]), "gM2": ("γ_M2", m.gamma_M2)}, d["lim_c"], "N/mm²", 1))
+        out.append(Sub("lim_c", "fu/(bw*gM2)", {"fu": ("f_u", ac["fu"]), "bw": ("β_w", ac["bw"]), "gM2": ("γ_M2", m.gamma_M2)}, d["lim_c"], "N/mm²", 1))
         out.append(Sub("η_c", "sc/lim", {"sc": ("σ_c", d["sigma_c"]), "lim": ("lim_c", d["lim_c"])}, d["taux_c"], "", -1))
-        out.append(Sub("lim_⊥ = 0,9·fu/γM2", "0.9*fu/gM2", {"fu": ("f_u", ac["fu"]), "gM2": ("γ_M2", m.gamma_M2)}, d["lim_perp"], "N/mm²", 1))
+        out.append(Sub("lim_⊥", "0.9*fu/gM2", {"fu": ("f_u", ac["fu"]), "gM2": ("γ_M2", m.gamma_M2)}, d["lim_perp"], "N/mm²", 1))
         out.append(Sub("η⊥", "abs(sp)/lim", {"sp": ("σ⊥", sp), "lim": ("lim_⊥", d["lim_perp"])}, d["taux_perp"], "", -1))
         out.append(Sub("η", "max(ec, ep)", {"ec": ("η_c", d["taux_c"]), "ep": ("η⊥", d["taux_perp"])}, d["taux"], "", -1))
         return out

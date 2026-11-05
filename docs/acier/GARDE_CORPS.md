@@ -26,9 +26,9 @@ vues) ; la note met les HYPOTHÈSES en tête et déroule 1 · montant, 2 · main
 | `acier/garde_corps/formules.py` | les formules écrites comme à la main, par BLOC (cas gouvernant, autres cas et leur taux, substitutions testées contre le moteur) : montant, console, main courante (deux appuis ou continue), barreaux, platine ; la soudure reprend celles du module Soudures |
 | `acier/garde_corps/methode.py` | les textes de méthode, courts (onglet Détail et page 2 de la note), les références |
 | `acier/garde_corps/schemas.py` | les six vues en dessin technique : élévation, coupe A-A, vue en plan, platine en plan, coupe sur la fixation, section |
-| `acier/garde_corps/note.py` | la note PDF en deux pages, les hypothèses en tête |
+| `acier/garde_corps/note.py` | la note PDF en deux pages, les hypothèses en tête, les symboles composés (`ndc_pdf/riche.py`) |
 | `modules/garde_corps.py` | l'écran : menu des types, cinq onglets, tableaux cliquables ; `modules/liaison.py` : la liaison état → widgets partagée |
-| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (87 + 39 + 64 + 55 + 47) ; `tools/captures_garde_corps.js` : captures et mesures aux trois formats, clic sur une ligne de tableau dans un vrai navigateur |
+| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (87 + 49 + 64 + 55 + 54) ; `tools/captures_garde_corps.js` : captures et mesures aux trois formats, clic sur une ligne de tableau dans un vrai navigateur |
 
 ## 2 · Le modèle
 
@@ -150,16 +150,25 @@ la carte RÉSULTAT (statut, η, élément gouvernant avec son critère et son ca
 
 ![note p1](images/garde_corps_note_p1.png)
 
+Version 3 (05/11/2026) : la note est composée pour être LUE — les symboles en vraie
+typographie (`ndc_pdf/riche.py` : q_h, W_el,y, σ_adm, s_trib avec leurs indices, jusque dans
+les hypothèses, les tableaux et la prose de méthode), les formules par groupe et peu de prose.
+
 Page 1 · CALCUL, les hypothèses d'abord : bandeau (statut, η, élément gouvernant, critère, cas
-de charge, méthode) ; HYPOTHÈSES (garde-corps, sections, matériau et limites, fixation) ; le
-tableau des QUATRE CHARGES avec leur origine et la règle des cas distincts ; les dessins
-(élévation et coupe A-A côte à côte, vue en plan) ; les CRITÈRES en typographie mathématique ;
-1 · MONTANT (cas gouvernant, autres cas et leur taux, P₁, M₁, σ, τ, f, η) ; 2 · MAIN COURANTE ;
-le RÉCAPITULATIF ; 3 · BARREAUX ; 4 · ANCRAGE (soudure, z, Z, F_t, F_v, résistances,
-interaction, m, b_eff, σ_p, t_req) ; la CONCLUSION. Page 2 · DÉTAILS ET MÉTHODE : platine en
-plan et coupe sur la fixation, les montants un à un avec leur cas, la section et la
-bibliothèque, la soudure (vue et formules du module Soudures), la méthode choisie, les
-références, le cartouche avec l'échelle de l'élévation.
+de charge, méthode) ; HYPOTHÈSES en lignes « libellé · valeur » (garde-corps, hauteur, montants,
+main courante, barreaux, lisse basse, acier, méthode, limites, fixation) ; les QUATRE CHARGES,
+une à une — le symbole et la valeur sur la première ligne, le nom dessous, l'origine en gris —
+et la règle des cas distincts ; les dessins (élévation et coupe A-A côte à côte, vue en plan).
+Puis 1 · MONTANT, 2 · MAIN COURANTE, le RÉCAPITULATIF (barres de taux), 3 · BARREAUX,
+4 · ANCRAGE, la CONCLUSION : chaque élément porte sa pastille η, son cas gouvernant et les
+autres cas avec leur taux, une ligne de données (H, s_trib, L, appuis), puis ses formules
+développées par GROUPE dans l'ordre de lecture — charges → sollicitations → contraintes (chaque
+taux sous sa contrainte, avec la limite) → flèche → taux — avec le résultat calé à droite de la
+colonne (en gras ; les η en vert ou en rouge). L'ancrage enchaîne soudure (résultante et critère
+du module Soudures), ancrages — efforts, ancrages — résistances et taux, platine en flexion.
+Page 2 · DÉTAILS ET MÉTHODE : platine en plan et coupe sur la fixation, les montants un à un
+avec leur cas, la section et la bibliothèque, la soudure (vue et formules par groupe), la
+méthode choisie, les références, le cartouche avec l'échelle de l'élévation.
 
 ![note p2](images/garde_corps_note_p2.png)
 
@@ -168,15 +177,18 @@ références, le cartouche avec l'échelle de l'élévation.
 - `tests/test_garde_corps_moteur.py` (87) : types, charges nommées et cas, géométrie (entraxes
   saisis, angles, mur), mécanique (console, poutre sur deux appuis et continue, limites),
   bibliothèque, vérification complète sous chaque cas, fixation, candidats par rôle, JSON ;
-- `tests/test_garde_corps_formules.py` (39) : plus de 300 substitutions ré-évaluées sur treize
-  cas, les blocs nomment leur cas gouvernant et les autres ;
+- `tests/test_garde_corps_formules.py` (49) : plus de 300 substitutions ré-évaluées sur treize
+  cas, les blocs nomment leur cas gouvernant et les autres, les groupes dans l'ordre de lecture,
+  chaque taux reprend le nombre imprimé, chaque morceau se compose ;
 - `tests/test_garde_corps_schemas.py` (64) : les six vues et leur contenu à l'échelle, le
   peintre, la pureté ;
 - `tests/test_garde_corps_ecran.py` (55) : navigation, écran, le menu des types, source unique,
   switch, tableaux cliquables (colonnes, familles par défaut, section retenue ◀, génération de
   la clé après un changement), cas multiples, note, étanchéité ;
-- `tests/test_garde_corps_note.py` (47) : deux pages sans débordement sur huit cas, les
-  hypothèses d'abord, le calcul 1 à 4, les dessins peints, la page 2, les variantes ;
+- `tests/test_garde_corps_note.py` (54) : deux pages sans débordement sur huit cas, les
+  hypothèses d'abord, les symboles composés (aucun « q_h » brut hors les cotes des dessins), le
+  calcul 1 à 4 dans l'ordre de lecture avec le résultat calé à droite, les dessins peints, la
+  page 2, les variantes ;
 - `tools/captures_garde_corps.js` : cinq états × trois largeurs, mesures de ce que l'œil voit,
   dont le CLIC sur une ligne de tableau dans un vrai navigateur (le sélecteur affiche la section
   cliquée).

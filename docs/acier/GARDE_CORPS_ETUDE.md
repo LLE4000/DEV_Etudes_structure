@@ -179,6 +179,26 @@ retenue par le bouton de la bibliothèque (contrôle du harnais et de la capture
 Voir le document de référence `GARDE_CORPS.md` §7. Composée en taille normale puis « serrée »
 si une colonne déborde ; `derniers_avertissements` vide sur les huit cas du test.
 
+Version 3 (05/11/2026), à la demande du bureau (« trop d'explications », « la nomenclature »,
+« charge répartie sur deux lignes », « qu'elle soit belle à voir ») :
+- **les symboles sont composés** — `ndc_pdf/riche.py` traduit la notation des substitutions
+  (« W_el,y », « P₁ », « √(…) », « t_p² ») vers le mini-LaTeX de `mathx` et compose les segments
+  « $…$ » d'un texte courant à la taille et dans la couleur du texte ; `auto()` compose les
+  symboles indicés d'une prose ordinaire (les textes de `methode.py`, les libellés du moteur) ;
+  la notation « q_h » reste la source unique (écran, JSON, tests), la note en est une vue ;
+- **l'ordre de lecture** — `formules.py` rend chaque bloc par GROUPE (charges, sollicitations,
+  contraintes avec la limite et le taux sous chaque contrainte, flèche, taux) ; « subs » reste la
+  liste à plat, dans le même ordre, pour l'écran et les tests ; un taux reprend le nombre
+  IMPRIMÉ de sa contrainte (η_σ = 91,2/160 et non 91,25/160) ;
+- **la mise en page** — hypothèses en lignes « libellé · valeur », charges en « symbole et
+  valeur, nom dessous, origine en gris », résultat de chaque formule calé à droite (gras, η en
+  couleur), pastille η par élément, barres de taux au récapitulatif, une légende d'une ligne ;
+  la prose d'explication (sous-titres, notations, « platine rigide ») a disparu ;
+- **ce qui garde sa notation** : les cotes des dessins (« e_x = 100 », « b_p 150 »), écrites par
+  le kit des schémas partagé avec l'écran SVG — à composer dans un lot ultérieur si le bureau le
+  souhaite ; les parenthèses des formules composées sont des tracés, pas des glyphes (le texte
+  extrait du PDF les perd : `tests/test_garde_corps_note.py` en tient compte).
+
 ## 7 · Architecture et lots
 
 ```

@@ -59,7 +59,7 @@ chk("|f| = √(f_x² + f_y² + f_z²) = √(0² + −157,9² + 747,9²) = 764 N/
 chk("σ_c = √(σ⊥² + 3·(τ⊥² + τ∥²)) = √(105,8² + 3 × (105,8² + 31,58²)) = 218,5 N/mm²",
     "σ_c = √(σ⊥² + 3·(τ⊥² + τ∥²)) = √(105,8² + 3 × (105,8² + 31,58²)) = 218,5 N/mm²" in L, str(L[8:9]))
 chk("lim_c = fu/(βw·γM2) = 360/(0,8 × 1,25) = 360 N/mm² ; η_c = σ_c/lim_c = 218,5/360 = 60,7 % ; η = max(η_c, η⊥) = 60,7 %",
-    any(l.startswith("lim_c = fu/(βw·γM2) = f_u/(β_w·γ_M2) = 360/(0,8 × 1,25) = 360 N/mm²") for l in L)
+    any(l.startswith("lim_c = f_u/(β_w·γ_M2) = 360/(0,8 × 1,25) = 360 N/mm²") for l in L)
     and "η_c = σ_c/lim_c = 218,5/360 = 60,7 %" in L and any(l.startswith("η = max(η_c, η⊥)") and l.endswith("= 60,7 %") for l in L), str(L[-6:]))
 L = FO.lignes(verif("C3", methode={"ec": "simplifiee"}))
 chk("simplifiée : f_vw,d = f_u/(√3·β_w·γ_M2) = 360/(√3 × 0,8 × 1,25) = 207,8 N/mm² ; F_w,Rd = 207,8 × 5 = 1039 N/mm ; η = 764,4/1039 = 73,6 %",
@@ -71,10 +71,10 @@ chk("ELS : τ_adm = k·g/10 = 100 × 9,81/10 = 98,1 N/mm² ; F_adm = 491 N/mm ; 
     and "η = |f|/F_adm = 764,4/490,5 = 155,8 %" in L and any(l.startswith("k équivalent Eurocode") and l.endswith("= 141 kg/(mm·cm)") for l in L), str(L[-4:]))
 L = FO.lignes(verif("C2", {"jonction": "pleine", "tB": 30, "tA": 30}, {"N": 400}))
 chk("pleine pénétration : A_w = a·l_eff + 2·a·l_eff = 20 × 200 + 2 × 5 × 200 = 6000 mm² (les trois lignes de gorge = t·l), lim = f_y/γ_M0 = 235/1 = 235 N/mm², η = 100/235 = 42,6 %",
-    "A_w = a·l_eff + 2·a·l_eff = 20 × 200 + 2 × 5 × 200 = 6000 mm²" in L and "lim = fy/γM0 = f_y/γ_M0 = 235/1 = 235 N/mm²" in L
+    "A_w = a·l_eff + 2·a·l_eff = 20 × 200 + 2 × 5 × 200 = 6000 mm²" in L and "lim = f_y/γ_M0 = 235/1 = 235 N/mm²" in L
     and "η = σ_c/lim = 100/235 = 42,6 %" in L, str(L))
 L = FO.lignes(verif("C2", {"jonction": "pleine", "tB": 30, "tA": 30}, {"N": 400}, {"mode": "els"}))
-chk("pleine pénétration en ELS : lim = f_y/γ_F = 235/1,5 = 156,7 N/mm²", "lim = fy/γ_F = f_y/γ_F = 235/1,5 = 156,7 N/mm²" in L, str(L[-2:]))
+chk("pleine pénétration en ELS : lim = f_y/γ_F = 235/1,5 = 156,7 N/mm²", "lim = f_y/γ_F = 235/1,5 = 156,7 N/mm²" in L, str(L[-2:]))
 chk("refus : aucune substitution", FO.toutes(verif("C3", {"a": 2.0})) == {"groupe": [], "point": [], "critere": []})
 
 print("\n=== 3. Les critères en typographie mathématique et la méthode du point ===")

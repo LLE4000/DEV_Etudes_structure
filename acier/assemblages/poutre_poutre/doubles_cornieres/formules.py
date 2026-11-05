@@ -119,10 +119,11 @@ def resultat(s):
     return fmt(s.res, s.nd) + (" " + s.unit if s.unit else "")
 
 
-def rendre(s):
-    """« Fv,Rd = αv·fub·A/γM2 = 0,6 × 800 × 245 / 1,25 = 94,08 kN »."""
+def morceaux(s):
+    """``(morceaux, résultat)`` : les membres « nom », « littéral », « numérique » (sans doublon)
+    et le résultat avec son unité — ``rendre`` les joint par « = », la note compose chacun."""
     if not s.template:
-        return s.nom + " = " + resultat(s)
+        return [s.nom], resultat(s)
     lit = litteral(s)
     num = numerique(s)
     parts = [s.nom]
@@ -130,8 +131,13 @@ def rendre(s):
         parts.append(lit)
     if num != lit and num != fmt(s.res, s.nd):
         parts.append(num)
-    parts.append(resultat(s))
-    return " = ".join(parts)
+    return parts, resultat(s)
+
+
+def rendre(s):
+    """« Fv,Rd = αv·fub·A/γM2 = 0,6 × 800 × 245 / 1,25 = 94,08 kN »."""
+    parts, res = morceaux(s)
+    return " = ".join(parts + [res])
 
 
 def evaluer(s):
