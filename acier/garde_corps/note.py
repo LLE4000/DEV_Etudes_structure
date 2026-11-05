@@ -1,22 +1,24 @@
 # -*- coding: utf-8 -*-
-"""Note de calcul « Garde-corps » — DEUX pages A4 paysage, sur le kit ``ndc_pdf`` des
-notes de l'application (palette Encre, mêmes marges et mêmes polices que les notes
+"""Note de calcul « Garde-corps » (version 2) — DEUX pages A4 paysage, sur le kit ``ndc_pdf``
+des notes de l'application (palette Encre, mêmes marges et mêmes polices que les notes
 d'assemblage, de plancher et de soudures).
 
-Page 1 · CALCUL : bandeau (statut, η max, élément gouvernant et critère, la méthode
-CHOISIE, la géométrie, les charges et leur origine, la méthode en trois lignes), puis trois
-colonnes — les DESSINS tels qu'à l'écran (élévation développée, vue en plan, détail de la
-fixation : les scènes de ``schemas.py`` peintes en vectoriel par le peintre du kit des
-assemblages, source unique) et les HYPOTHÈSES ; le tableau des CHARGES, celui des MONTANTS
-(ou des consoles) avec leur longueur tributaire, celui des ÉLÉMENTS ; la VÉRIFICATION DE
-L'ÉLÉMENT PRINCIPAL écrite comme à la main (le critère de la méthode choisie en typographie
-mathématique, puis les substitutions numériques de ``formules.py``, testées contre le
-moteur), la FIXATION (soudure, boulons ou chevilles, platine) et la CONCLUSION.
+Page 1 · CALCUL, les HYPOTHÈSES d'abord et peu de prose :
+- bandeau : statut, η max, l'élément gouvernant, son critère et son cas de charge, la méthode ;
+- colonne 1 : HYPOTHÈSES (garde-corps, sections, acier et limites, fixation), le tableau des
+  QUATRE CHARGES nommées avec leur origine et la règle des cas (distincts, ou cumul q_h + q_v),
+  les DESSINS (élévation, coupe A-A, vue en plan) peints depuis les mêmes scènes que l'écran ;
+- colonne 2 : le critère de la méthode en typographie mathématique, puis 1 · MONTANT PRINCIPAL
+  (ou la console au mur) et 2 · MAIN COURANTE, chacun avec son cas de charge gouvernant, les
+  autres cas et leur taux, et les formules DÉVELOPPÉES (substitutions numériques de
+  ``formules.py``, testées contre le moteur), le RÉCAPITULATIF des éléments ;
+- colonne 3 : 3 · BARREAUX (ou lisses intermédiaires, ou le panneau), 4 · ANCRAGE (soudure,
+  chevilles ou boulons, platine) avec leurs formules, la CONCLUSION.
 
-Page 2 · MÉTHODE ET DÉTAIL : les sections de ``methode.py`` de la méthode choisie (mêmes
-textes que l'onglet Détail), la soudure (sa vue du plan de joint peinte, ses formules du
-module Soudures), le détail de la lisse et du remplissage, la BIBLIOTHÈQUE (les sections
-essayées), la section de l'élément principal, les références et un cartouche.
+Page 2 · DÉTAILS ET MÉTHODE : la platine en plan et la coupe sur la fixation, le tableau des
+MONTANTS (ou des consoles), la SOUDURE (vue et formules du module Soudures), la section de
+l'élément principal et la BIBLIOTHÈQUE, les textes de MÉTHODE (``methode.py``) de la méthode
+choisie, les références, le cartouche.
 
 ``derniers_avertissements`` : débordements de colonne (vide si tout tient) ; la note est
 d'abord composée en taille normale, puis en taille réduite si une colonne déborde.
@@ -41,27 +43,28 @@ from . import charges as CH
 from . import etat as ET
 from . import fixation as FX
 from . import formules as FO
-from . import geometrie as GE
 from . import membres as ME
 from . import methode as MT
 from . import schemas as SC
+from . import types as TY
 
 A4L = landscape(A4)
 M, BAS, GAP = 22, 40, 12
-LARG = (318, 212)
+LARG = (286, 246)
 S_TAB_H, S_DATA = 5.6, 7.0
 LEAD_TAB = 8.8
 TITRE = "Garde-corps"
 STATUTS = {ET.OK: ("CONFORME", "ok"), ET.ATTENTION: ("CONFORME · ATTENTION", "att"), ET.NOK: ("NON CONFORME", "ko"), ET.REFUS: ("CALCUL IMPOSSIBLE", "mut")}
 MODES = {ME.ELS: "Méthode ELS du bureau", ME.EUROCODE: "Eurocode (ELU)"}
-MODES_PHRASE = {ME.ELS: "la méthode ELS du bureau (efforts de service, contraintes admissibles)", ME.EUROCODE: "l'Eurocode (efforts de calcul)"}
-LEGENDE = ("Dessins : pièces au trait fort, sections hachurées, cordons en ocre à leur taille a·√2, chevilles en gris, ◉ l'élément gouvernant et son "
-           "taux, flèches rouges dans le sens des charges (⊙ vers soi), cotes en mm. Chaque montant reçoit la charge de sa longueur tributaire ; un "
-           "montant d'angle, une demi-travée de chaque tronçon dans deux directions.")
-NOTATIONS = ("P : charge horizontale en tête du montant (q_h × s_trib) · N : charge verticale (q_v × s_trib) · M = P·H · W_el : module élastique "
+MODES_PHRASE = {ME.ELS: "la méthode ELS du bureau (charges de service, contraintes admissibles)", ME.EUROCODE: "l'Eurocode (efforts de calcul)"}
+LEGENDE = ("Dessins à l'échelle, en mm : pièces au trait fort, sections coupées hachurées, cordons en ocre à leur taille a·√2, chevilles en gris, "
+           "◉ l'élément gouvernant et son taux, flèches rouges dans le sens des charges (⊙ vers soi), A-A le plan de la coupe. Chaque montant reçoit "
+           "la charge de sa longueur tributaire ; un montant d'angle, une demi-travée de chaque tronçon dans deux directions.")
+NOTATIONS = ("P₁ : charge horizontale en tête du montant (q_h × s_trib) · N : charge verticale (q_v × s_trib) · M₁ = P₁·H · W_el : module élastique "
              "(h dans le sens de l'effort) · A_v : aire de cisaillement (EN 1993-1-1 §6.2.6, entière pour un plein) · f : flèche · η : taux · "
-             "Z : traction de la rangée de boulons tendue · m : bras de la platine en console.")
+             "Z : traction de la rangée de chevilles tendue · m : bras de la platine en console.")
 VARIANTES = ((1.0, "normale"), (0.92, "serrée"))
+TITRES_ROLE = {"montant": "MONTANT PRINCIPAL", "console": "CONSOLE", "lisse": "MAIN COURANTE", "barreau": "BARREAUX", "lisse_inter": "LISSES INTERMÉDIAIRES"}
 
 
 def _fmt(x, nd=1) -> str:
@@ -88,8 +91,14 @@ class Calcul:
     def __init__(self, etat: Dict, cas: Dict):
         self.etat, self.cas = etat, ET.normaliser_cas(cas)
         self.res = ET.verifier(self.cas)
-        self.vues = {cle: d for cle, _, d in SC.vues(self.res, SC.options_schemas(lvl=1))}
-        self.titres = {cle: t for cle, t, _ in SC.vues(self.res, SC.options_schemas(lvl=1))}
+        vues = SC.vues(self.res, SC.options_schemas(lvl=1))
+        self.vues = {cle: d for cle, _, d in vues}
+        self.titres = {cle: t for cle, t, _ in vues}
+        if "coupe" in self.vues:
+            # la coupe A-A, à côté de l'élévation, reçoit une police plus grande : elle est peinte petite
+            opt = SC.options_schemas(lvl=1)
+            opt.fs_force = 44.0
+            self.vues["coupe"] = SC.coupe(self.res, opt)
         self.meth = self.res["methode"]
         self.acier = self.res["acier"]
         self.fo = FO.toutes(self.res)
@@ -99,51 +108,73 @@ class Calcul:
     def systeme(self) -> str:
         return self.cas["geometrie"].get("systeme", "montants")
 
-    def sous_titre(self) -> str:
-        g = self.cas["geometrie"]
-        return "lisse ancrée dans un mur (consoles)" if self.systeme() == "mur" else "montants verticaux sur platine"
+    def type_libelle(self) -> str:
+        return TY.TYPES[TY.type_de(self.cas)]["libelle"]
 
-    def ligne_geometrie(self) -> str:
+    def sous_titre(self) -> str:
+        return self.type_libelle().lower() + ("" if self.systeme() == "mur" else " sur montants")
+
+    # --- les hypothèses, en lignes « libellé : texte »
+    def hyp_garde_corps(self) -> str:
         geo = self.res["geometrie"]
-        sec = self.res.get("section_montant") or {}
-        li = (self.res.get("lisse") or {}).get("section") or {}
-        rp = self.res.get("remplissage") or {}
-        s = f"Géométrie — {geo['phrase']} · H = {_g(geo['H'])} mm"
-        if self.systeme() == "montants":
-            s += f" · montants {sec.get('nom', '—')} · lisse haute {li.get('nom', '—')}"
-        else:
+        g = self.cas["geometrie"]
+        s = f"{self.type_libelle()} · {geo['phrase']} · H = {_g(geo['H'])} mm" + (" (au-dessus de la platine)" if self.systeme() == "montants" else " (au-dessus du sol)")
+        if self.systeme() == "mur":
             c = self.res.get("console") or {}
-            s += f" · lisse {li.get('nom', '—')} · consoles {(c.get('section') or {}).get('nom', '—')}, e = {_g(c.get('e', 0))} mm"
-        if rp.get("section"):
-            s += f" · {rp['libelle']} {rp['section']['nom']}" + (f" à {_g(rp['entraxe'])} mm" if rp.get("entraxe") else "")
-        elif rp:
-            s += f" · remplissage : {rp['libelle']}"
+            s += f" · consoles à e = {_g(c.get('e', 0))} mm du mur"
+        s += f" · portée de la main courante : {_g(geo['s_max'])} mm, {ME.APPUIS[self.cas['lisse'].get('appuis', 'deux')]}"
         return s
 
-    def ligne_charges(self) -> str:
-        return "Charges — " + CH.phrase(self.res["charges"]) + " · " + self.res["limites"]["nature"]
+    def hyp_sections(self) -> str:
+        res = self.res
+        parts = []
+        if self.systeme() == "montants":
+            parts.append(f"montants {(res.get('section_montant') or {}).get('nom', '—')}")
+        else:
+            c = res.get("console") or {}
+            parts.append(f"consoles {(c.get('section') or {}).get('nom', '—')}")
+        li = (res.get("lisse") or {}).get("section") or {}
+        parts.append(f"main courante {li.get('nom', '—')}")
+        rp = res.get("remplissage") or {}
+        if rp.get("type") == "barreaux" and rp.get("section"):
+            parts.append(f"barreaux {rp['section']['nom']} à e_b = {_g(rp['entraxe'])} mm, portée {_g(round(rp['L']))} mm (déduite de H, h_bas = {_g(rp['h_bas'])} mm et des sections)")
+            if rp.get("section_basse"):
+                parts.append(f"lisse basse {rp['section_basse']['nom']} (non calculée)")
+        elif rp.get("type") == "lisses" and rp.get("section"):
+            parts.append(f"{rp.get('n', 1)} lisses intermédiaires {rp['section']['nom']} à e_l = {_g(rp['entraxe'])} mm")
+        elif rp.get("type") == "panneau":
+            parts.append("panneau (verre, tôle) justifié par son fournisseur" + (f" · lisse basse {rp['section_basse']['nom']}" if rp.get("section_basse") else ""))
+        else:
+            parts.append("sans remplissage")
+        return " · ".join(parts)
 
-    def ligne_methode(self) -> str:
+    def hyp_methode(self) -> str:
         m, lim = self.meth, self.res["limites"]
         fl = f"L/{_g(m.get('fleche_val', 100))}" if m.get("fleche_mode", "L/x") == "L/x" else f"{_g(m.get('fleche_val', 0))} mm"
         if m["mode"] == ME.ELS:
-            return (f"Méthode ELS du bureau : σ = M/W_el + N/A ≤ σ_adm = {_g(lim['sigma'])} N/mm², τ = V/A_v ≤ τ_adm = {_g(lim['tau'])} N/mm², flèche ≤ {fl} · "
-                    f"acier {self.acier['nuance']} · soudure k = {_g(m.get('k', 100))} kg/(mm·cm) · résistances de calcul des ancrages / γ_F = {_g(m.get('gamma_F', 1.5))}")
-        return (f"Eurocode : charges × γ_Q = {_g(m.get('gamma_Q', 1.5))}, σ ≤ f_y/γ_M0 = {_fmt(lim['sigma'])} N/mm² (élastique, W_el), τ ≤ f_y/(√3·γ_M0) = {_fmt(lim['tau'])}, "
-                f"flèche ≤ {fl} sous efforts de service · acier {self.acier['nuance']} (f_y = {_g(self.acier['fy'])}) · soudure EN 1993-1-8 {m.get('ec', 'directionnelle')}, γ_M2 = {_g(m.get('gamma_M2', 1.25))}")
+            return (f"acier {self.acier['nuance']} · méthode ELS du bureau : charges de service sans coefficient, σ = M/W_el + N/A ≤ σ_adm = {_g(lim['sigma'])} N/mm², "
+                    f"τ = V/A_v ≤ τ_adm = {_g(lim['tau'])} N/mm², flèche ≤ {fl} · soudure k = {_g(m.get('k', 100))} kg/(mm·cm) · résistances de calcul des ancrages / γ_F = {_g(m.get('gamma_F', 1.5))}")
+        return (f"acier {self.acier['nuance']} (f_y = {_g(self.acier['fy'])}) · Eurocode : charges × γ_Q = {_g(m.get('gamma_Q', 1.5))}, σ ≤ f_y/γ_M0 = {_fmt(lim['sigma'])} N/mm² (élastique, W_el), "
+                f"τ ≤ f_y/(√3·γ_M0) = {_fmt(lim['tau'])}, flèche ≤ {fl} sous charges de service · soudure EN 1993-1-8 {m.get('ec', 'directionnelle')}, γ_M2 = {_g(m.get('gamma_M2', 1.25))}")
 
-    def ligne_fixation(self) -> str:
+    def hyp_fixation(self) -> str:
         fx = self.cas["fixation"]
-        r = self.res.get("fixation") or {}
         typ = fx.get("type", "platine")
-        s = "Fixation — " + FX.TYPES[typ]
+        s = FX.TYPES[typ]
         if typ == "scellee":
-            return s
+            return s + " : la fixation n'est pas vérifiée"
         pl = fx["platine"]
         s += f" : soudure {FX.texte_soudure(fx['soudure'])}"
         if typ == "platine":
-            s += (f" · platine {_g(pl['bp'])} × {_g(pl['lp'])} × {_g(pl['tp'])} · {FX.texte_ancrage(fx['ancrage'])}, rangées à e_x = {_g(fx['ancrage']['ex'])} mm")
+            s += (f" · platine {_g(pl['bp'])} × {_g(pl['lp'])} × {_g(pl['tp'])} mm · {FX.texte_ancrage(fx['ancrage'])}, rangées à e_x = {_g(fx['ancrage']['ex'])} mm, "
+                  f"e_y = {_g(fx['ancrage']['ey'])} mm")
         return s
+
+    def ligne_cas(self) -> str:
+        ch = self.res["charges"]
+        if ch.get("cumul"):
+            return "Cas de charge : q_h et q_v agissent ensemble (cas 1 + 2, côté sûr) ; Q_r et q_r en cas séparés (3 et 4) ; chaque élément est vérifié sous chaque cas, le pire gouverne."
+        return "Cas de charge : les quatre charges agissent SÉPARÉMENT (cas 1 à 4) — les charges de service d'un garde-corps ne se cumulent pas ; chaque élément est vérifié sous chaque cas, le pire gouverne."
 
 
 class Note:
@@ -153,23 +184,28 @@ class Note:
         self.C, self.doc, self.k = calc, doc_meta, k
         self.S = Encre()
         self.warnings: List[str] = []
-        self.s_tab = 6.4 * k
+        self.s_tab = 6.3 * k
         self.s_hyp = 6.1 * k
         self.lead = LEAD_TAB * k
         self.echelle = None
-        self.formules_p1: List[str] = []
 
     # --- briques
     def titre(self, d, fr, txt):
+        """Un titre de bloc en petites capitales espacées ; il se resserre avant de se tronquer."""
         S = self.S
         fr.down(10)
-        d.t(fr.x, fr.y, d.fit(txt, S.f_v, 6.2, fr.w - 1.3 * len(txt)), S.f_v, 6.2, S.acc, track=1.3)
+        size, track = 6.2, 1.3
+        while size > 5.0 and d.w(txt, S.f_v, size) + track * len(txt) > fr.w:
+            size -= 0.2
+            track -= 0.1
+        d.t(fr.x, fr.y, d.fit(txt, S.f_v, size, fr.w - track * len(txt)), S.f_v, size, S.acc, track=track)
         fr.down(3)
         d.line(fr.x, fr.y, fr.x1, fr.y, mix(S.rule, S.ink, 0.12), 0.5)
 
     def table(self, d, fr, titre, cols, lignes, note=None):
         S, st, lead = self.S, self.s_tab, self.lead
-        self.titre(d, fr, titre)
+        if titre:
+            self.titre(d, fr, titre)
         fr.down(8)
         xs, x = [], fr.x
         for ent, w, al in cols:
@@ -211,26 +247,69 @@ class Note:
             d.line(fr.x, fr.y + 1.5, fr.x1, fr.y + 1.5, mix(S.rule, S.ink, 0.06), 0.4)
         if note:
             fr.down(st * 1.3)
-            d.t(fr.x, fr.y, d.fit(note, S.f_b, st * 0.9, fr.w), S.f_b, st * 0.9, S.mut)
+            for l in d.wrap(note, S.f_b, st * 0.9, fr.w)[:3]:
+                d.t(fr.x, fr.y, l, S.f_b, st * 0.9, S.mut)
+                fr.down(st * 1.2)
+            fr.down(-st * 1.2)
         fr.down(2)
 
-    def paragraphe(self, d, fr, txt, size=None, col=None, gras=False):
+    def paragraphe(self, d, fr, txt, size=None, col=None, gras=False, indent=0):
         S = self.S
         size = size or self.s_hyp
-        for l in d.wrap(txt, "Carlito-Bold" if gras else S.f_b, size, fr.w):
+        for l in d.wrap(txt, "Carlito-Bold" if gras else S.f_b, size, fr.w - indent):
             fr.down(size * 1.3)
-            d.t(fr.x, fr.y, l, "Carlito-Bold" if gras else S.f_b, size, col or S.ink)
+            d.t(fr.x + indent, fr.y, l, "Carlito-Bold" if gras else S.f_b, size, col or S.ink)
+
+    def ligne_kv(self, d, fr, label, txt, col=None):
+        """« LABEL  texte… » : le libellé en gras, le texte à la suite puis en retrait."""
+        S = self.S
+        size = self.s_hyp
+        wl = d.w(label, "Carlito-Bold", size) + 4
+        mots = txt.split(" ")
+        lignes, cur, w_dispo = [], "", fr.w - wl
+        for mot in mots:
+            t = (cur + " " + mot).strip()
+            if d.w(t, S.f_b, size) <= w_dispo or not cur:
+                cur = t
+            else:
+                lignes.append(cur)
+                cur = mot
+                w_dispo = fr.w - 6
+        if cur:
+            lignes.append(cur)
+        fr.down(size * 1.32)
+        d.t(fr.x, fr.y, label, "Carlito-Bold", size, S.ink)
+        d.t(fr.x + wl, fr.y, lignes[0], S.f_b, size, col or S.ink)
+        for l in lignes[1:]:
+            fr.down(size * 1.32)
+            d.t(fr.x + 6, fr.y, l, S.f_b, size, col or S.ink)
 
     def substitutions(self, d, fr, titre, subs, indent=4):
         S = self.S
         if not subs:
             return
-        fr.down(self.s_hyp * 1.5)
-        d.t(fr.x, fr.y, titre.upper(), S.f_v, 5.4, S.mut, track=1.1)
+        if titre:
+            fr.down(self.s_hyp * 1.5)
+            d.t(fr.x, fr.y, titre.upper(), S.f_v, 5.4, S.mut, track=1.1)
         for sub in subs:
             for l in d.wrap(FO.rendre(sub), S.f_b, self.s_hyp, fr.w - indent):
                 fr.down(self.s_hyp * 1.3)
                 d.t(fr.x + indent, fr.y, l, S.f_b, self.s_hyp, S.ink)
+
+    def bloc(self, d, fr, titre, bloc, sous_titre=None):
+        """Un élément : « n · ÉLÉMENT — section · cas gouvernant », les autres cas et leur taux, les formules développées."""
+        if not bloc or not bloc.get("subs"):
+            return
+        S = self.S
+        self.titre(d, fr, titre + (" — " + bloc["cas"] if bloc.get("cas") else ""))
+        if sous_titre:
+            fr.down(1)
+            self.paragraphe(d, fr, sous_titre, size=self.s_hyp * 0.95, col=S.mut)
+        if bloc.get("autres"):
+            fr.down(1)
+            self.paragraphe(d, fr, "Autres cas : " + bloc["autres"] + ".", size=self.s_hyp * 0.95, col=S.mut)
+        self.substitutions(d, fr, None, bloc["subs"])
+        fr.down(2)
 
     # --- bandeau
     def bandeau(self, d):
@@ -259,148 +338,155 @@ class Note:
             d.t(x, y, t1, "Carlito-Bold", 8.6, col)
             x += d.w(t1, "Carlito-Bold", 8.6) + 5
             crit = ME.critere_texte(g["critere"]) if g["cle"] not in ("soudure", "ancrage", "platine") else g["critere"]
-            t2 = f"— gouverne : {g['libelle']} · {crit}"
+            cas_g = (next((e for e in res["elements"] if e["cle"] == g["cle"]), {}).get("detail") or {}).get("cas_charge")
+            t2 = f"— gouverne : {g['libelle']} · {crit}" + (f" · {CH.CAS_LIBELLES.get(cas_g, cas_g)}" if cas_g else "")
             t3 = FO.TITRES[FO.cle_methode(res)]
             wt = d.w(t3, "Carlito-Bold", 7.6)
             xr = W - M - wt
             d.t(x, y, d.fit(t2, S.f_b, 8, xr - x - 6), S.f_b, 8, S.ink)
             d.t(xr, y, t3, "Carlito-Bold", 7.6, S.acc)
-        y -= 12
-        for txt in (C.ligne_geometrie(), C.ligne_charges(), C.ligne_methode()):
-            d.t(M, y, d.fit(txt, S.f_b, S_DATA, W - 2 * M), S.f_b, S_DATA, S.ink)
-            y -= S_DATA * 1.4
-        y -= 2
+        y -= 6
         d.line(M, y, W - M, y, mix(S.rule, S.ink, 0.3), 0.6)
         return y - 4
 
-    # --- colonne 1 : dessins, hypothèses
-    def colonne_dessin(self, d, fr):
-        S, C = self.S, self.C
-        lignes = []
-        textes = [m for m in C.res.get("messages", []) if not m.startswith("Refus")]
-        textes.append("Montant : console encastrée en pied chargée en tête ; lisse : poutre sur deux appuis entre montants ; barreau ou lisse "
-                      "intermédiaire : poutre sur deux appuis sous q_r × entraxe ou Q_r à mi-portée (le pire des deux cas).")
-        textes.append(C.ligne_fixation())
-        for h in textes:
-            lignes.extend(d.wrap("• " + h, S.f_b, self.s_hyp, fr.w))
-        h_hyp = 13 + len(lignes) * self.s_hyp * 1.3 + 4
-        dispo = fr.room() - h_hyp - 13 - 8
-        vues = C.vues
-        self.titre(d, fr, "DESSINS — " + " · ".join(t.lower() for k, t in C.titres.items() if k != "section"))
-        if vues:
-            d0 = vues["elevation"]
-            h0 = min(max(80.0, fr.w * d0.viewbox[3] / d0.viewbox[2]), 0.5 * dispo)
-            fr.down(h0 + 2)
-            self.echelle = peindre_scene(d, d0, fr.x, fr.y, fr.w, h0)
-            autres = [(k, vues[k]) for k in ("plan", "detail") if k in vues]
-            if autres:
-                parts = {"plan": 0.42, "detail": 0.58} if len(autres) == 2 else {autres[0][0]: 1.0}
-                larg = {k: (fr.w - 4 * (len(autres) - 1)) * parts[k] for k, _ in autres}
-                h1 = min(max(70.0, max(larg[k] * dv.viewbox[3] / dv.viewbox[2] for k, dv in autres)), dispo - h0 - 8)
-                fr.down(h1 + 3)
-                x = fr.x
-                for k, dv in autres:
-                    peindre_scene(d, dv, x, fr.y, larg[k], h1 - 2)
-                    x += larg[k] + 4
-        else:
-            fr.down(20)
-            d.t(fr.x, fr.y + 6, (C.res.get("messages") or ["Calcul impossible"])[0][:90], S.f_b, self.s_hyp, S.ko)
+    # --- colonne 1 : hypothèses, charges, dessins
+    def hypotheses(self, d, fr):
+        C = self.C
         self.titre(d, fr, "HYPOTHÈSES")
-        fr.down(3)
-        for l in lignes:
-            fr.down(self.s_hyp * 1.3)
-            d.t(fr.x, fr.y, l, S.f_b, self.s_hyp, S.mut)
+        fr.down(2)
+        self.ligne_kv(d, fr, "Garde-corps", C.hyp_garde_corps())
+        self.ligne_kv(d, fr, "Sections", C.hyp_sections())
+        self.ligne_kv(d, fr, "Matériau et limites", C.hyp_methode())
+        self.ligne_kv(d, fr, "Fixation", C.hyp_fixation())
+        for m in [m for m in C.res.get("messages", []) if not m.startswith("Refus")][:2]:
+            self.ligne_kv(d, fr, "Note", m, col=self.S.mut)
+        fr.down(2)
 
-    # --- colonne 2 : charges, montants, éléments
     def table_charges(self, d, fr):
         C = self.C
-        ch = C.res["charges"]
         rows = []
-        if ch["mode"] == "P":
-            rows.append([("lab", "P par montant", True), ("num", _fmt(ch["P"], 2) + " kN"), ("ref", "saisie directe")])
-        else:
-            rows.append([("lab", "q_h horizontale", True), ("num", _fmt(ch["qh"], 2) + " kN/m"), ("ref", CH.origine_qh(ch).split(" — ")[0])])
-        rows.append([("lab", "q_v verticale"), ("num", _fmt(ch["qv"], 2) + " kN/m"), ("ref", "main courante, usage du bureau")])
+        for c in C.res["charges_tableau"]:
+            rows.append([("num", str(c["n"]), True), ("lab", f"{c['symbole']} — {c['nom']}", c["n"] == 1), ("num", _fmt(c["valeur"], 2) + " " + c["unite"], True), ("ref", c["norme"])])
+        ch = C.res["charges"]
         if ch.get("Q", 0) > 0:
-            rows.append([("lab", "Q ponctuelle"), ("num", _fmt(ch["Q"], 2) + " kN"), ("ref", f"sur la lisse, {C.meth.get('comb', 'somme')} avec q_h")])
-        rows.append([("lab", "q_r remplissage"), ("num", _fmt(ch["qr"], 2) + " kN/m²"), ("ref", "pression, usage du bureau")])
-        rows.append([("lab", "Q_r remplissage"), ("num", _fmt(ch["Qr"], 2) + " kN"), ("ref", "NBN B 03-004 (Q_kh,2)")])
+            rows.append([("num", "+"), ("lab", "Q — charge ponctuelle horizontale sur la main courante"), ("num", _fmt(ch["Q"], 2) + " kN"), ("ref", f"option, {C.meth.get('comb', 'somme')} avec q_h")])
         w = fr.w
-        cols = [("CHARGE", 58, "left"), ("VALEUR", 50, "right"), ("ORIGINE", w - 108, "left")]
-        self.table(d, fr, "CHARGES — " + C.res["limites"]["nature"], cols, rows,
-                   "Tab. 6.12 : valeurs recommandées de l'EN 1991-1-1 ; l'ANB belge peut en fixer d'autres." if ch["mode"] != "P" and ch["categorie"] != "perso" else None)
+        cols = [("N°", 12, "right"), ("CHARGE", w - 12 - 48 - 92, "left"), ("VALEUR", 48, "right"), ("ORIGINE", 92, "left")]
+        self.table(d, fr, "CHARGES — " + C.res["limites"]["nature"] + ", quatre cas de charge", cols, rows, C.ligne_cas())
 
-    def table_montants(self, d, fr):
+    def dessins(self, d, fr):
+        S, C = self.S, self.C
+        vues = C.vues
+        self.titre(d, fr, "DESSINS — élévation, coupe A-A, plan (détails p. 2)")
+        dispo = fr.room() - 6
+        if not vues:
+            fr.down(20)
+            d.t(fr.x, fr.y + 6, (C.res.get("messages") or ["Calcul impossible"])[0][:90], S.f_b, self.s_hyp, S.ko)
+            return
+        # l'élévation et la coupe A-A côte à côte (comme sur une planche), la vue en plan dessous
+        d0, dc = vues["elevation"], vues.get("coupe")
+        w0 = 0.72 * fr.w if dc is not None else fr.w
+        h0 = min(max(70.0, w0 * d0.viewbox[3] / d0.viewbox[2], (fr.w - w0 - 4) * dc.viewbox[3] / dc.viewbox[2] if dc is not None else 0.0), 0.66 * dispo)
+        fr.down(h0 + 3)
+        self.echelle = peindre_scene(d, d0, fr.x, fr.y, w0, h0)
+        if dc is not None:
+            peindre_scene(d, dc, fr.x + w0 + 4, fr.y, fr.w - w0 - 4, h0)
+        dp = vues.get("plan")
+        if dp is not None:
+            h1 = min(max(40.0, fr.w * dp.viewbox[3] / dp.viewbox[2]), dispo - h0 - 10)
+            fr.down(h1 + 3)
+            peindre_scene(d, dp, fr.x, fr.y, fr.w, h1 - 2)
+
+    # --- colonnes 2 et 3 : les éléments un à un, avec leurs formules
+    def critere(self, d, fr):
+        S, C = self.S, self.C
+        cle = FO.cle_methode(C.res)
+        self.titre(d, fr, "CRITÈRES — " + FO.TITRES[cle].split(" (")[0])
+        fr.down(2)
+        formula(d, fr, "", FO.CRITERES_MATH[cle], S.ms(), 7.0 * self.k, S.mut, S.f_b, 5.8, lead=1.0, min_size=5.0)
+
+    def element_principal(self, d, fr):
         C = self.C
         res = C.res
-        liste = res.get("montants") or res.get("consoles") or []
-        if not liste:
-            return
-        gouv = (res.get("montant") or res.get("console") or {}).get("nom")
-        rows = []
-        for v in liste[:14]:
-            g = v["nom"] == gouv
-            rows.append([("lab", v["nom"] + (" · angle" if v["coin"] else ""), g), ("num", _fmt(v["x"] / 1000, 2)), ("num", _fmt(v["trib1"] + v["trib2"], 0)),
-                         ("num", _fmt(v["P1"] / 1e3, 2) + (" + " + _fmt(v["P2"] / 1e3, 2) if v["P2"] > 0 else "")), ("eta", _pct(v["taux_max"]), v["taux_max"] <= 1.0, g)])
-        note = f"+ {len(liste) - 14} non montrés" if len(liste) > 14 else None
-        w = fr.w
-        nom = "CONSOLE" if C.systeme() == "mur" else "MONTANT"
-        cols = [(nom, w - 34 - 34 - 46 - 30, "left"), ("x (m)", 34, "right"), ("s_trib", 34, "right"), ("P (kN)", 46, "right"), ("η", 30, "right")]
-        self.table(d, fr, f"{nom}S — abscisse, longueur tributaire (mm), charge horizontale, taux", cols, rows, note)
+        if C.systeme() == "montants" and res.get("montant"):
+            m = res["montant"]
+            self.bloc(d, fr, f"1 · MONTANT {m['nom']} — {m['section']['nom']}", C.fo["montant"],
+                      f"Console encastrée en pied, hauteur H = {_g(m['verif']['H'])} mm, longueur tributaire s_trib = {_g(m['verif']['trib1'] + m['verif']['trib2'])} mm"
+                      + (" (montant d'angle, deux directions)" if m["verif"]["coin"] else "") + ".")
+        elif res.get("console"):
+            c = res["console"]
+            self.bloc(d, fr, f"1 · CONSOLE {c['nom']} — {c['section']['nom']}", C.fo["console"],
+                      f"Console encastrée dans le mur, longueur e = {_g(c['e'])} mm, longueur tributaire s_trib = {_g(c['verif']['trib1'] + c['verif']['trib2'])} mm.")
 
-    def table_elements(self, d, fr):
+    def main_courante(self, d, fr):
+        C = self.C
+        li = C.res.get("lisse")
+        if not li:
+            return
+        v = li["verif"]
+        mod = ME.APPUIS[li["appuis"]] if li["appuis"] != "continue" or li["n_travees"] >= 2 else ME.APPUIS["deux"]
+        self.bloc(d, fr, f"2 · MAIN COURANTE — {li['section']['nom']}", C.fo["lisse"],
+                  f"Poutre {mod}, portée L = {_g(v['L'])} mm (l'entraxe le plus grand) ; q_h fléchit l'axe faible (W_el,z), q_v l'axe fort (W_el,y)"
+                  + (f" ; coefficients des tables pour {li['n_travees']} travées : k_M = {_g(v['kM'])}, k_V = {_g(v['kV'])}, k_f = {_g(v['kf'])}" if v.get("kM") else "") + ".")
+
+    def remplissage(self, d, fr):
+        C = self.C
+        rp = C.res.get("remplissage") or {}
+        if rp.get("verif"):
+            v = rp["verif"]
+            nom = "BARREAUX" if rp["type"] == "barreaux" else "LISSES INTERMÉDIAIRES"
+            ent = f"e_b = {_g(rp['entraxe'])} mm" if rp["type"] == "barreaux" else f"e_l = {_g(rp['entraxe'])} mm"
+            self.bloc(d, fr, f"3 · {nom} — {rp['section']['nom']}", C.fo["barre"],
+                      f"Poutre sur deux appuis, portée L = {_g(round(v['L']))} mm, {ent} : Q_r à mi-portée (cas 3) ou q_r × entraxe (cas 4), le pire gouverne.")
+        elif rp.get("type") == "panneau":
+            self.titre(d, fr, "3 · PANNEAU")
+            fr.down(1)
+            self.paragraphe(d, fr, f"Remplissage en panneau (verre, tôle) : sa résistance sous Q_r = {_g(C.res['charges']['Qr'])} kN et q_r = {_g(C.res['charges']['qr'])} kN/m² "
+                                   "est à justifier par le fournisseur ; la lisse basse n'est pas calculée.")
+            fr.down(2)
+
+    def ancrage(self, d, fr):
+        S, C = self.S, self.C
+        fx = C.res.get("fixation") or {}
+        if not fx.get("soudure"):
+            if (C.cas["fixation"].get("type") == "scellee"):
+                self.titre(d, fr, "4 · ANCRAGE")
+                fr.down(1)
+                self.paragraphe(d, fr, "Montant scellé : la fixation n'est pas vérifiée (scellement à justifier séparément).")
+            return
+        s = fx["soudure"]
+        pl = fx.get("platine")
+        typ = C.cas["fixation"].get("type", "platine")
+        self.titre(d, fr, "4 · ANCRAGE" + (" — " + CH.CAS_LIBELLES.get(pl.get("cas_charge"), "") if pl and pl.get("cas_charge") else ""))
+        fr.down(2)
+        self.paragraphe(d, fr, f"Soudure ({s['res']['config']} du module Soudures, {CH.CAS_LIBELLES.get(s.get('cas_charge'), '')}) : η = {_pct(s['taux'])}, "
+                               f"{s['critere']}, {s['position']} — {s['efforts_txt']} ; détail en page 2.")
+        if pl and pl.get("taux_max") is not None:
+            self.paragraphe(d, fr, f"Platine rigide {_g(pl['bp'])} × {_g(pl['lp'])} × {_g(pl['tp'])}, {pl['n_total']} {pl.get('nom_ancrage') or 'chevilles'} en deux rangées "
+                                   "à ±e_x/2 : la rangée tendue reprend Z, l'appui se fait au nu comprimé du montant.", size=self.s_hyp * 0.95, col=S.mut)
+            self.substitutions(d, fr, None, C.fo["platine"]["subs"])
+        elif pl:
+            for m in pl.get("messages", []):
+                self.paragraphe(d, fr, m, col=S.ko)
+        fr.down(2)
+
+    def recapitulatif(self, d, fr):
         C = self.C
         res = C.res
         g = res.get("gouvernant") or {}
         rows = []
         for e in res.get("elements", []):
-            dd = e["detail"]
+            dd = e["detail"] if isinstance(e["detail"], dict) else {}
             gouv = e["cle"] == g.get("cle")
-            if e["cle"] in ("montant", "lisse", "barreau", "lisse_inter", "console"):
-                rows.append([("lab", e["libelle"].split(" · ")[0] + " · " + e["libelle"].split(" · ")[1] if " · " in e["libelle"] else e["libelle"], gouv),
-                             ("num", _fmt(dd["sigma"], 0)), ("num", _fmt(dd["fleche"], 1) + "/" + _fmt(dd["fleche_lim"], 0)), ("eta", _pct(e["taux"]), e["taux"] <= 1.0, gouv),
-                             ("ref", ME.critere_texte(e["critere"]))])
-            else:
-                rows.append([("lab", e["libelle"].split(" · ")[0], gouv), ("num", "—"), ("num", "—"), ("eta", _pct(e["taux"]), e["taux"] <= 1.0, gouv), ("ref", e["critere"][:22])])
+            cas_c = CH.CAS_LIBELLES.get(dd.get("cas_charge"), dd.get("cas_charge") or "—")
+            crit = ME.critere_texte(e["critere"]) if e["cle"] in ("montant", "lisse", "barreau", "lisse_inter", "console") else e["critere"]
+            rows.append([("lab", e["libelle"].split(" · ")[0] + (" · " + e["libelle"].split(" · ")[1] if " · " in e["libelle"] else ""), gouv),
+                         ("ref", cas_c.replace("cas ", "")), ("eta", _pct(e["taux"]), e["taux"] <= 1.0, gouv), ("ref", crit[:24])])
         if not rows:
             return
         w = fr.w
-        cols = [("ÉLÉMENT", w - 30 - 40 - 28 - 46, "left"), ("σ", 30, "right"), ("f / adm", 40, "right"), ("η", 28, "right"), ("CRITÈRE", 46, "left")]
-        self.table(d, fr, "ÉLÉMENTS — contrainte (N/mm²), flèche (mm), taux", cols, rows)
-
-    # --- colonne 3 : vérification de l'élément principal, fixation, conclusion
-    def verification(self, d, fr):
-        C, S = self.S, self.C
-        S, C = self.S, self.C
-        fo = C.fo
-        cle = FO.cle_methode(C.res)
-        princ = fo["montant"] or fo["console"]
-        if not princ:
-            return
-        nom = "DU MONTANT " + (C.res.get("montant") or {}).get("nom", "") if C.systeme() == "montants" else "DE LA CONSOLE " + (C.res.get("console") or {}).get("nom", "")
-        self.titre(d, fr, f"VÉRIFICATION {nom} — " + FO.TITRES[cle].split(" (")[0])
-        fr.down(2)
-        formula(d, fr, "", FO.CRITERES_MATH[cle], S.ms(), 7.0 * self.k, S.mut, S.f_b, 5.8, lead=1.0, min_size=5.0)
-        self.substitutions(d, fr, "Efforts et contraintes", princ)
-        self.formules_p1.append("montant" if fo["montant"] else "console")
-
-    def fixation(self, d, fr):
-        S, C = self.S, self.C
-        fx = C.res.get("fixation") or {}
-        if not fx.get("soudure"):
-            return
-        self.titre(d, fr, "FIXATION — soudure, ancrage, platine")
-        s = fx["soudure"]
-        txt = (f"Soudure ({s['res']['config']} du module Soudures) : η = {_pct(s['taux'])}, {s['critere']}, {s['position']} — {s['efforts_txt']} ; détail en page 2.")
-        fr.down(2)
-        self.paragraphe(d, fr, txt)
-        pl = fx.get("platine")
-        if pl and pl.get("taux_max") is not None:
-            self.substitutions(d, fr, "Boulons ou chevilles, platine", C.fo["platine"])
-            self.formules_p1.append("platine")
-        elif pl:
-            for m in pl.get("messages", []):
-                self.paragraphe(d, fr, m, col=S.ko)
+        cols = [("ÉLÉMENT", w - 58 - 28 - 54, "left"), ("CAS", 58, "left"), ("η", 28, "right"), ("CRITÈRE", 54, "left")]
+        self.table(d, fr, "RÉCAPITULATIF — éléments, cas gouvernants, taux", cols, rows)
 
     def conclusion(self, d, x, w):
         S, C = self.S, self.C
@@ -412,9 +498,12 @@ class Note:
             txt = (res["messages"] or ["Calcul impossible."])[0]
         else:
             crit = ME.critere_texte(g["critere"]) if g["cle"] not in ("soudure", "ancrage", "platine") else g["critere"]
-            porte = ("Le garde-corps porte les charges retenues : montants, lisse, remplissage et fixation vérifiés." if res["statut"] != ET.NOK else
-                     "Le garde-corps ne porte pas les charges retenues en l'état : section, entraxe, hauteur ou fixation à revoir (la bibliothèque donne le plus léger qui tient).")
-            txt = f"Taux maximal {_pct(res['taux_max'])} sur {g['libelle']} ({crit}), selon {MODES_PHRASE[C.meth['mode']]}. " + porte
+            cas_g = (next((e for e in res["elements"] if e["cle"] == g["cle"]), {}).get("detail") or {}).get("cas_charge")
+            elts = "montant principal, main courante, remplissage et ancrage" if C.systeme() == "montants" else "main courante, consoles et ancrage"
+            porte = (f"Le garde-corps porte les charges retenues : {elts} vérifiés." if res["statut"] != ET.NOK else
+                     "Le garde-corps ne porte pas les charges retenues en l'état : section, entraxe, hauteur ou ancrage à revoir (les tableaux de l'écran donnent le plus léger qui tient).")
+            txt = (f"Taux maximal {_pct(res['taux_max'])} sur {g['libelle']} ({crit}" + (f", {CH.CAS_LIBELLES.get(cas_g, cas_g)}" if cas_g else "") + f"), selon {MODES_PHRASE[C.meth['mode']]}. "
+                   + porte)
             if res.get("masse"):
                 txt += f" Masse indicative de l'acier : {_fmt(res['masse'], 0)} kg."
         lignes = d.wrap(txt, S.f_b, 6.6, w - 16)
@@ -438,14 +527,17 @@ class Note:
         for x in (x2, x3):
             d.line(x - GAP / 2, top, x - GAP / 2, BAS, S.rule, 0.45)
         f1, f2, f3 = Frame(x1, top, w1, BAS), Frame(x2, top, w2, BAS), Frame(x3, top, w3, BAS)
-        self.colonne_dessin(d, f1)
-        self.table_charges(d, f2)
-        self.table_montants(d, f2)
-        self.table_elements(d, f2)
+        self.hypotheses(d, f1)
+        self.table_charges(d, f1)
+        self.dessins(d, f1)
+        self.critere(d, f2)
+        self.element_principal(d, f2)
+        self.main_courante(d, f2)
+        self.recapitulatif(d, f2)
         hc = self.conclusion(d, x3, w3)
         f3.bottom = BAS + hc + 6
-        self.verification(d, f3)
-        self.fixation(d, f3)
+        self.remplissage(d, f3)
+        self.ancrage(d, f3)
         d.t(M, 24, d.fit(LEGENDE, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
         d.t(M, 16.5, d.fit(NOTATIONS, S.f_b, 5.6, W - 2 * M), S.f_b, 5.6, S.mut)
         for f in (f1, f2, f3):
@@ -458,23 +550,19 @@ CART_H = 40
 
 
 class Methode:
-    """Page 2 · MÉTHODE ET DÉTAIL."""
+    """Page 2 · DÉTAILS ET MÉTHODE."""
 
-    def __init__(self, calc: Calcul, doc_meta: Dict, k: float = 1.0, echelle: Optional[float] = None, formules_p1=()):
+    def __init__(self, calc: Calcul, doc_meta: Dict, k: float = 1.0, echelle: Optional[float] = None):
         self.C, self.doc, self.k = calc, doc_meta, k
         self.S = Encre()
         self.warnings: List[str] = []
         self.s = 6.3 * k
         self.echelle = echelle
-        self.formules_p1 = set(formules_p1)
         self.note1 = Note(calc, doc_meta, k)
 
     def titre(self, d, fr, txt):
-        S = self.S
-        fr.down(11)
-        d.t(fr.x, fr.y, d.fit(txt, S.f_v, 6.2, fr.w - 1.3 * len(txt)), S.f_v, 6.2, S.acc, track=1.3)
-        fr.down(3)
-        d.line(fr.x, fr.y, fr.x1, fr.y, mix(S.rule, S.ink, 0.12), 0.5)
+        fr.down(1)
+        self.note1.titre(d, fr, txt)
         fr.down(2)
 
     def paragraphe(self, d, fr, txt, col=None, gras=False):
@@ -489,73 +577,86 @@ class Methode:
         for p in sec["paragraphes"]:
             self.paragraphe(d, fr, p)
 
+    def details_fixation(self, d, fr):
+        C = self.C
+        vues = [(k, C.vues[k]) for k in ("platine", "pied") if k in C.vues]
+        if not vues:
+            return
+        self.titre(d, fr, "DÉTAIL DE L'ANCRAGE — " + ", ".join(C.titres[k].lower().replace("coupe sur la fixation", "coupe") for k, _ in vues))
+        parts = {"platine": 0.46, "pied": 0.54} if len(vues) == 2 else {vues[0][0]: 1.0}
+        larg = {k: (fr.w - 4 * (len(vues) - 1)) * parts[k] for k, _ in vues}
+        h = min(max(110.0, max(larg[k] * dv.viewbox[3] / dv.viewbox[2] for k, dv in vues)), 190.0)
+        fr.down(h + 3)
+        x = fr.x
+        for k, dv in vues:
+            peindre_scene(d, dv, x, fr.y, larg[k], h - 2)
+            x += larg[k] + 4
+
+    def table_montants(self, d, fr):
+        C = self.C
+        res = C.res
+        liste = res.get("montants") or res.get("consoles") or []
+        if not liste:
+            return
+        gouv = (res.get("montant") or res.get("console") or {}).get("nom")
+        rows = []
+        for v in liste[:16]:
+            g = v["nom"] == gouv
+            rows.append([("lab", v["nom"] + (" · angle" if v["coin"] else ""), g), ("num", _fmt(v["x"] / 1000, 2)), ("num", _fmt(v["trib1"] + v["trib2"], 0)),
+                         ("num", _fmt(v["P1"] / 1e3, 2) + (" + " + _fmt(v["P2"] / 1e3, 2) if v["P2"] > 0 else "")), ("num", _fmt(v["N"] / 1e3, 2)),
+                         ("ref", CH.CAS_LIBELLES.get(v.get("cas_charge"), "").replace("cas ", "")), ("eta", _pct(v["taux_max"]), v["taux_max"] <= 1.0, g)])
+        note = f"+ {len(liste) - 16} non montrés" if len(liste) > 16 else None
+        w = fr.w
+        nom = "CONSOLE" if C.systeme() == "mur" else "MONTANT"
+        cols = [(nom, w - 30 - 32 - 44 - 30 - 46 - 28, "left"), ("x (m)", 30, "right"), ("s_trib", 32, "right"), ("P (kN)", 44, "right"), ("N (kN)", 30, "right"), ("CAS", 46, "left"), ("η", 28, "right")]
+        self.note1.s_tab, self.note1.lead = 5.8 * self.k, 7.8 * self.k
+        self.note1.table(d, fr, f"{nom}S UN À UN — x, s_trib (mm), charges, cas, taux", cols, rows, note)
+
     def soudure(self, d, fr):
         C, S = self.C, self.S
         s = (C.res.get("fixation") or {}).get("soudure")
         if not s:
             return
-        self.titre(d, fr, "SOUDURE SUR LA PLATINE — " + FOS.TITRES[FOS.methode_du_point(s["res"], s["res"].get("gouvernant") or {})].split(" (")[0] if s["res"].get("gouvernant") else "SOUDURE")
+        g = s["res"].get("gouvernant") or {}
+        self.titre(d, fr, "SOUDURE SUR LA PLATINE — " + (FOS.TITRES[FOS.methode_du_point(s["res"], g)].split(" (")[0] if g else "module Soudures"))
         if C.vues_soudure:
             _, _, dv = C.vues_soudure[0]
-            h = min(max(90.0, fr.w * dv.viewbox[3] / dv.viewbox[2]), 150.0)
+            h = min(max(80.0, fr.w * 0.8 * dv.viewbox[3] / dv.viewbox[2]), 130.0)
             fr.down(h + 2)
-            peindre_scene(d, dv, fr.x, fr.y, fr.w, h)
+            peindre_scene(d, dv, fr.x + 0.1 * fr.w, fr.y, fr.w * 0.8, h)
         fo = C.fo["soudure"]
         self.note1.s_hyp = self.s * 0.97
         for titre, cle in (("Groupe", "groupe"), ("Point gouvernant", "point"), ("Critère", "critere")):
             self.note1.substitutions(d, fr, titre, fo[cle])
         fr.down(3)
 
-    def autres_formules(self, d, fr):
+    def section_et_bibliotheque(self, d, fr):
         C = self.C
-        fo = C.fo
-        blocs = [("La lisse", "lisse"), ("Le remplissage", "barre")]
-        if "platine" not in self.formules_p1:
-            blocs.append(("Platine et ancrage", "platine"))
-        if "montant" not in self.formules_p1 and fo["montant"]:
-            blocs.insert(0, ("Le montant", "montant"))
-        if "console" not in self.formules_p1 and fo["console"]:
-            blocs.insert(0, ("La console", "console"))
-        if not any(fo[c] for _, c in blocs):
-            return
-        self.titre(d, fr, "DÉTAIL DES AUTRES ÉLÉMENTS — comme à la main")
-        self.note1.s_hyp = self.s * 0.97
-        for titre, cle in blocs:
-            self.note1.substitutions(d, fr, titre, fo[cle])
-        fr.down(3)
-
-    def bibliotheque(self, d, fr):
-        C, S = self.C, self.S
+        dv = C.vues.get("section")
+        role = "lisse" if C.systeme() == "mur" else "montant"
+        self.titre(d, fr, "SECTION DE L'ÉLÉMENT PRINCIPAL ET BIBLIOTHÈQUE")
+        if dv is not None:
+            h = min(max(55.0, fr.w * 0.4 * dv.viewbox[3] / dv.viewbox[2]), 80.0)
+            fr.down(h + 2)
+            peindre_scene(d, dv, fr.x + fr.w * 0.3, fr.y, fr.w * 0.4, h)
         sec_cur = C.res.get("section_montant") or {}
         groupe = BI.groupe_de(sec_cur) if sec_cur else "creux"
-        cands = ET.candidats(C.cas, [groupe], 15.0)
+        cands = ET.candidats(C.cas, role, [groupe], 15.0)
         if not cands:
             return
         best = ET.plus_leger(cands)
         cur = sec_cur.get("nom")
-        montres = [c for c in cands if c["taux"] <= 1.6][:12]
+        montres = [c for c in cands if c["taux"] <= 1.6][:9]
         if best and best not in montres:
             montres.append(best)
-        rows = []
-        for c in montres:
-            s = c["section"]
-            rows.append([("lab", s["nom"], s["nom"] == cur), ("num", _fmt(s["masse"], 2)), ("eta", _pct(c["taux"]), c["taux"] <= 1.0, s["nom"] == cur)])
+        rows = [[("lab", c["section"]["nom"], c["section"]["nom"] == cur), ("num", _fmt(c["section"]["masse"], 2)), ("eta", _pct(c["taux"]), c["taux"] <= 1.0, c["section"]["nom"] == cur)]
+                for c in montres]
         w = fr.w
         cols = [("SECTION", w - 36 - 30, "left"), ("kg/m", 36, "right"), ("η", 30, "right")]
-        lib = "montant" if C.systeme() == "montants" else "lisse"
         self.note1.s_tab, self.note1.lead = 5.8 * self.k, 7.8 * self.k
-        self.note1.table(d, fr, f"BIBLIOTHÈQUE — {BI.GROUPES.get(groupe, groupe)} essayés comme {lib}, par masse croissante", cols, rows,
-                         f"Le plus léger qui tient : {best['section']['nom']} (η {_pct(best['taux'])}) ; la section retenue est en gras." if best else "Aucune section ≤ 15 kg/m ne tient.")
-
-    def section_vue(self, d, fr):
-        C = self.C
-        dv = C.vues.get("section")
-        if dv is None:
-            return
-        self.titre(d, fr, "SECTION DE L'ÉLÉMENT PRINCIPAL")
-        h = min(max(70.0, fr.w * 0.55 * dv.viewbox[3] / dv.viewbox[2]), 110.0)
-        fr.down(h + 2)
-        peindre_scene(d, dv, fr.x + fr.w * 0.2, fr.y, fr.w * 0.6, h)
+        self.note1.table(d, fr, None, cols, rows,
+                         f"{BI.GROUPES.get(groupe, groupe)} essayés comme {ET.ROLES[role]}, par masse croissante · le plus léger qui tient : {best['section']['nom']} (η {_pct(best['taux'])}) ; "
+                         "la section retenue est en gras." if best else "Aucune section ≤ 15 kg/m ne tient.")
 
     def cartouche(self, d):
         S, C, doc = self.S, self.C, self.doc
@@ -570,8 +671,8 @@ class Methode:
         m = C.meth
         meth = MODES[m["mode"]] + (f" · σ_adm {_g(m.get('sigma_adm', 160))} · τ_adm {_g(m.get('tau_adm', 90))}" if m["mode"] == ME.ELS else f" · γ_Q {_g(m.get('gamma_Q', 1.5))} · γ_M0 {_g(m.get('gamma_M0', 1))}")
         cases = [("CAS", cas["nom"], ident or "—", 0.18),
-                 ("GARDE-CORPS", C.sous_titre(), d.fit(C.res["geometrie"]["phrase"], S.f_b, 6.2, w * 0.28 - 12), 0.28),
-                 ("MÉTHODE", meth, f"flèche ≤ " + (f"L/{_g(m.get('fleche_val', 100))}" if m.get("fleche_mode", "L/x") == "L/x" else f"{_g(m.get('fleche_val', 0))} mm"), 0.20),
+                 ("GARDE-CORPS", C.type_libelle(), d.fit(C.res["geometrie"]["phrase"], S.f_b, 6.2, w * 0.28 - 12), 0.28),
+                 ("MÉTHODE", meth, "flèche ≤ " + (f"L/{_g(m.get('fleche_val', 100))}" if m.get("fleche_mode", "L/x") == "L/x" else f"{_g(m.get('fleche_val', 0))} mm"), 0.20),
                  ("ACIER", C.acier["nuance"], f"f_y {_g(C.acier['fy'])} N/mm² · f_u {_g(C.acier['fu'])}", 0.12),
                  ("DATE · INDICE", str(doc.get("date", "")), "indice " + str(doc.get("indice", "")), 0.11),
                  ("ÉCHELLE DE L'ÉLÉVATION", ech, "A4 paysage", 0.11)]
@@ -593,7 +694,7 @@ class Methode:
         d.t(M, y, self.doc.get("bureau", ""), S.f_v, 8.0, S.acc, track=1.4)
         d.t(W - M, y, TITRE + " · cas " + self.C.cas["nom"], S.f_b, 7.6, S.mut, "right")
         y -= 16
-        d.t(M, y, "MÉTHODE ET DÉTAIL", S.f_h, 13.5, S.ink)
+        d.t(M, y, "DÉTAILS ET MÉTHODE", S.f_h, 13.5, S.ink)
         d.t(W - M, y, d.fit("Références : " + " · ".join(MT.REFERENCES), S.f_b, 6.2, W - 2 * M - 150), S.f_b, 6.2, S.mut, "right")
         y -= 7
         d.line(M, y, W - M, y, S.ink, 1.0)
@@ -603,16 +704,14 @@ class Methode:
         frames = [Frame(M + i * (wc + GAP), top, wc, bas) for i in range(3)]
         for i in (1, 2):
             d.line(frames[i].x - GAP / 2, top, frames[i].x - GAP / 2, bas, S.rule, 0.45)
+        self.details_fixation(d, frames[0])
+        self.table_montants(d, frames[0])
+        self.section_et_bibliotheque(d, frames[0])
+        self.soudure(d, frames[1])
         els = self.C.meth["mode"] == ME.ELS
         secs = [s for s in MT.SECTIONS if not (s["titre"].startswith("Eurocode") and els) and not (s["titre"].startswith("Méthode ELS") and not els)]
-        for sec in secs[:2]:
-            self.section(d, frames[0], sec)
-        self.autres_formules(d, frames[0])
-        for sec in secs[2:]:
-            self.section(d, frames[1], sec)
-        self.bibliotheque(d, frames[1])
-        self.soudure(d, frames[2])
-        self.section_vue(d, frames[2])
+        for sec in secs:
+            self.section(d, frames[2], sec)
         self.cartouche(d)
         for f in frames:
             if f.overflow() > 1.0:
@@ -626,14 +725,14 @@ def _essai(calc, doc_meta, k, chemin):
     n1 = Note(calc, doc_meta, k)
     w = list(n1.construire(d))
     d.new_page(A4L)
-    n2 = Methode(calc, doc_meta, k, n1.echelle, n1.formules_p1)
+    n2 = Methode(calc, doc_meta, k, n1.echelle)
     w += n2.construire(d)
     d.save()
     return w
 
 
 def generer_note(etat: Dict, cas: Optional[Dict] = None, infos: Optional[Dict] = None, chemin: Optional[str] = None) -> bytes:
-    """La note (bytes PDF) : page 1 de calcul, page 2 de méthode et détail. ``infos`` : nom_projet, partie, date, indice."""
+    """La note (bytes PDF) : page 1 de calcul, page 2 de détails et méthode. ``infos`` : nom_projet, partie, date, indice."""
     global derniers_avertissements, derniere_variante
     cas = cas or ET.cas_actif(etat)
     infos = infos or {}

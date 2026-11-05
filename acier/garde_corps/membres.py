@@ -75,6 +75,33 @@ def console(P1: float, P2: float, N: float, L: float, E: float, Iy: float, Iz: f
             "formule_M": "M = P·H", "formule_V": "V = P", "formule_f": "f = P·H³/(3·E·I)"}
 
 
+# Poutre CONTINUE à travées égales sous charge répartie (tables classiques des poutres continues,
+# EI constant) : (moment maximal / qL², effort tranchant maximal / qL, flèche maximale × EI / qL⁴)
+# — deux travées : appui central ; trois travées : premier appui intermédiaire et travée de rive ;
+# quatre travées et plus : les valeurs de quatre travées, du côté sûr.
+COEF_CONTINUE = {2: (0.125, 0.625, 0.00541), 3: (0.100, 0.600, 0.0069), 4: (0.107, 0.607, 0.0065)}
+APPUIS = {"deux": "sur deux appuis (une travée)", "continue": "continue sur plusieurs appuis"}
+
+
+def coef_continue(n: int):
+    return COEF_CONTINUE[2 if n <= 2 else (3 if n == 3 else 4)]
+
+
+def poutre_continue(q: float, Q: float, L: float, n: int, E: float, I: float) -> Dict:
+    """Poutre continue sur n travées égales de portée L (mm) sous q (N/mm) : M, V et f par les
+    coefficients des tables ; une charge ponctuelle Q à mi-portée garde ses valeurs sur deux
+    appuis (QL/4, QL³/48EI), du côté sûr."""
+    if n <= 1:
+        return poutre(q, Q, L, E, I, "somme")
+    kM, kV, kf = coef_continue(n)
+    Mq, MQ = kM * q * L ** 2, Q * L / 4.0
+    Vq, VQ = kV * q * L, Q / 2.0
+    fq = kf * q * L ** 4 / (E * I) if I > 0 else float("inf")
+    fQ = Q * L ** 3 / (48.0 * E * I) if I > 0 else (float("inf") if Q else 0.0)
+    return {"M": Mq + MQ, "V": Vq + VQ, "f": fq + fQ, "Mq": Mq, "MQ": MQ, "fq": fq, "fQ": fQ, "comb": "somme", "n": n,
+            "kM": kM, "kV": kV, "kf": kf, "continue": True}
+
+
 def poutre(q: float, Q: float, L: float, E: float, I: float, comb: str = "somme") -> Dict:
     """Poutre sur deux appuis (L en mm) sous q (N/mm) répartie et Q (N) à mi-portée ; ``comb``
     « somme » (les deux agissent ensemble) ou « max » (deux cas séparés)."""

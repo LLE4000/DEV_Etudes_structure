@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
-"""Les charges d'un garde-corps et leur nature.
+"""Les QUATRE charges d'un garde-corps, nommées, et leur nature.
 
-- la charge LINÉAIRE HORIZONTALE q_h (kN/m) sur la lisse haute, à la hauteur de la main
-  courante (au plus 1,20 m) : EN 1991-1-1 §6.4, Tableau 6.12, par catégorie d'usage — les
-  valeurs ci-dessous sont les valeurs RECOMMANDÉES de l'EN ; l'annexe nationale belge (NBN EN
-  1991-1-1 ANB) peut en fixer d'autres : la page le dit, la note imprime la valeur retenue et
-  son origine, et une valeur libre est toujours possible ;
-- ou directement la charge PONCTUELLE P (kN) qui revient à chaque montant (mode « P ») ;
-- une charge VERTICALE q_v (kN/m) sur la main courante (usage du bureau) ;
-- une charge ponctuelle horizontale Q (kN) sur la lisse haute, en option ;
-- les charges du REMPLISSAGE : une pression q_r (kN/m²) et une charge ponctuelle Q_r (kN) —
-  deux cas séparés, le plus défavorable gouverne (NBN B 03-004 : Q_kh,2 = 0,5 kN sur le
-  remplissage).
+1. q_h — charge linéaire HORIZONTALE sur la main courante, à la hauteur H (au plus 1,20 m) :
+   EN 1991-1-1 §6.4, Tableau 6.12, par catégorie d'usage (NBN B 03-004 : Q_kh,1). Les valeurs
+   ci-dessous sont les valeurs RECOMMANDÉES de l'EN ; l'annexe nationale belge peut en fixer
+   d'autres : valeur libre toujours possible, la note imprime la valeur retenue et son origine.
+   Ou, directement, la charge ponctuelle P qui revient à chaque montant (mode « P »).
+2. q_v — charge linéaire VERTICALE sur la main courante (usage du bureau ; NBN B 03-004 Q_kv).
+3. Q_r — charge PONCTUELLE horizontale sur le remplissage (NBN B 03-004 : Q_kh,2 = 0,5 kN).
+4. q_r — PRESSION horizontale répartie sur le remplissage (kN/m², usage du bureau).
+
+CAS DE CHARGE : par défaut les quatre charges sont des cas DISTINCTS — chacune agit seule
+(pratique des normes de garde-corps : les charges de service ne se cumulent pas). L'option
+``cumul`` fait agir les charges 1 et 2 ensemble (côté sûr). Les charges 3 et 4 restent toujours
+des cas séparés. En option, une charge ponctuelle horizontale Q sur la main courante.
 
 NATURE : la méthode ELS du bureau prend les charges de service telles quelles (contraintes
 admissibles) ; la méthode Eurocode les multiplie par γ_Q pour les résistances, et garde les
@@ -31,14 +33,27 @@ CATEGORIES: List[Tuple[str, str, Optional[float], str]] = [
     ("perso", "valeur libre", None, ""),
 ]
 CATEGORIE_DEFAUT = "A"
-QV_DEFAUT = 0.5        # kN/m, charge verticale de service sur la main courante (usage du bureau)
-QR_DEFAUT = 0.5        # kN/m², pression de service sur le remplissage (usage du bureau)
-QR_PONCT_DEFAUT = 0.5  # kN, charge ponctuelle sur le remplissage (NBN B 03-004, Q_kh,2)
-H_MAX_APPLICATION = 1200.0   # mm : la charge linéaire s'applique au plus à 1,20 m (EN 1991-1-1 §6.4(1))
+QV_DEFAUT = 0.5        # kN/m
+QR_DEFAUT = 0.5        # kN/m²
+QR_PONCT_DEFAUT = 0.5  # kN (NBN B 03-004, Q_kh,2)
+H_MAX_APPLICATION = 1200.0   # mm (EN 1991-1-1 §6.4(1))
 SOURCE_QH = "EN 1991-1-1 §6.4 Tab. 6.12 (valeur recommandée — l'ANB belge peut en fixer une autre)"
 SOURCE_QV = "charge verticale de service sur la main courante, usage du bureau"
 SOURCE_QR = "pression de service sur le remplissage, usage du bureau"
 SOURCE_QR_PONCT = "charge ponctuelle sur le remplissage, NBN B 03-004 (Q_kh,2)"
+
+# Les quatre charges, dans l'ordre de la note : numéro, clé, symbole, nom, unité, norme
+CHARGES: List[Dict] = [
+    {"n": 1, "cle": "qh", "symbole": "q_h", "nom": "charge linéaire horizontale sur la main courante", "unite": "kN/m",
+     "norme": "EN 1991-1-1 §6.4, Tab. 6.12 (NBN B 03-004 : Q_kh,1)"},
+    {"n": 2, "cle": "qv", "symbole": "q_v", "nom": "charge linéaire verticale sur la main courante", "unite": "kN/m",
+     "norme": "usage du bureau (NBN B 03-004 : Q_kv, à confirmer)"},
+    {"n": 3, "cle": "Qr", "symbole": "Q_r", "nom": "charge ponctuelle horizontale sur le remplissage", "unite": "kN",
+     "norme": "NBN B 03-004 : Q_kh,2"},
+    {"n": 4, "cle": "qr", "symbole": "q_r", "nom": "pression horizontale répartie sur le remplissage", "unite": "kN/m²",
+     "norme": "usage du bureau"},
+]
+CAS_LIBELLES = {"1": "cas 1 · q_h seule", "2": "cas 2 · q_v seule", "3": "cas 3 · Q_r seule", "4": "cas 4 · q_r seule", "1+2": "cas 1 + 2 · q_h et q_v cumulées"}
 
 
 def categorie(cle: str) -> Tuple[str, str, Optional[float], str]:
@@ -54,7 +69,7 @@ def qh_de_categorie(cle: str) -> Optional[float]:
 
 def charges_defaut() -> Dict:
     return {"categorie": CATEGORIE_DEFAUT, "qh": qh_de_categorie(CATEGORIE_DEFAUT), "mode": "q", "P": 1.0,
-            "qv": QV_DEFAUT, "Q": 0.0, "qr": QR_DEFAUT, "Qr": QR_PONCT_DEFAUT}
+            "qv": QV_DEFAUT, "Q": 0.0, "qr": QR_DEFAUT, "Qr": QR_PONCT_DEFAUT, "cumul": False}
 
 
 def normaliser(ch: Dict) -> Dict:
@@ -68,6 +83,7 @@ def normaliser(ch: Dict) -> Dict:
         d["qh"] = q_cat
     d["qh"] = max(0.0, float(d.get("qh") or 0.0))
     d["mode"] = "P" if d.get("mode") == "P" else "q"
+    d["cumul"] = bool(d.get("cumul", False))
     for k in ("P", "qv", "Q", "qr", "Qr"):
         d[k] = max(0.0, float(d.get(k) or 0.0))
     return d
@@ -78,12 +94,37 @@ def libelle_categorie(cle: str) -> str:
 
 
 def origine_qh(ch: Dict) -> str:
-    """L'origine imprimable de la charge horizontale retenue."""
     if ch.get("mode") == "P":
         return "charge ponctuelle par montant saisie directement"
     if ch.get("categorie") == "perso":
         return "valeur libre saisie par le bureau"
     return f"catégorie {libelle_categorie(ch['categorie'])} — {SOURCE_QH}"
+
+
+def valeur(ch: Dict, cle: str) -> float:
+    return float(ch.get(cle) or 0.0)
+
+
+def tableau(ch: Dict) -> List[Dict]:
+    """Les quatre charges avec leur valeur et leur origine, pour les hypothèses de la note et l'écran."""
+    out = []
+    for c in CHARGES:
+        d = dict(c)
+        if c["cle"] == "qh" and ch.get("mode") == "P":
+            d.update({"symbole": "P", "nom": "charge ponctuelle horizontale en tête de chaque montant", "unite": "kN", "valeur": ch["P"],
+                      "norme": "saisie directe"})
+        else:
+            d["valeur"] = valeur(ch, c["cle"])
+            if c["cle"] == "qh":
+                d["norme"] = f"{libelle_categorie(ch['categorie'])} — " + ("valeur libre" if ch["categorie"] == "perso" else "Tab. 6.12 EN 1991-1-1, valeur recommandée")
+        out.append(d)
+    return out
+
+
+def phrase_cumul(ch: Dict) -> str:
+    if ch.get("cumul"):
+        return "charges 1 et 2 cumulées (côté sûr) ; charges 3 et 4 en cas séparés"
+    return "quatre cas de charge distincts : chaque charge agit seule, sans cumul"
 
 
 def phrase(ch: Dict) -> str:
@@ -96,6 +137,6 @@ def phrase(ch: Dict) -> str:
         s = f"q_h = {f(ch['qh'])} kN/m ({origine_qh(ch)})"
     s += f" · q_v = {f(ch['qv'])} kN/m"
     if ch.get("Q", 0) > 0:
-        s += f" · Q = {f(ch['Q'])} kN sur la lisse"
-    s += f" · remplissage q_r = {f(ch['qr'])} kN/m², Q_r = {f(ch['Qr'])} kN"
+        s += f" · Q = {f(ch['Q'])} kN sur la main courante"
+    s += f" · Q_r = {f(ch['Qr'])} kN · q_r = {f(ch['qr'])} kN/m² · {phrase_cumul(ch)}"
     return s

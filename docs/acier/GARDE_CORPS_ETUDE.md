@@ -201,6 +201,13 @@ tools/captures_garde_corps.js
 Lots livrés le 04/11/2026 : GC0 (cette étude), GC1 (moteur + tests), GC2 (schémas + écran),
 GC3 (note), GC4 (captures, docs, batterie, commit).
 
+Version 2, livrée le 05/11/2026 après la relecture du bureau (« présentation à 10 sur 100 ») :
+GC5a moteur (types en menu, quatre charges nommées en cas distincts, main courante sur deux
+appuis ou continue, portée des barreaux déduite, candidats par rôle, RHS par défaut), GC5b
+schémas de dessin technique (six vues), GC5c écran (menu des types, cinq onglets, tableaux
+cliquables), GC5d note (hypothèses en tête, 1 à 4 avec formules développées), GC5e docs,
+captures, batterie. Le document de référence est `docs/acier/GARDE_CORPS.md`.
+
 ## 8 · Points à trancher par le bureau (défauts retenus en attendant)
 
 - **P-1 · Valeurs belges du Tableau 6.12.** L'ANB (NBN EN 1991-1-1 ANB) n'a pas pu être lue
@@ -215,8 +222,17 @@ GC3 (note), GC4 (captures, docs, batterie, commit).
 - **P-5 · Angle d'un L ou d'un U sur platine** : le moment résultant √(M₁² + M₂²) est appliqué
   aux chevilles dans le sens de b_p avec h_p = h (approximation du côté sûr pour un tube rond,
   légèrement optimiste pour un rectangulaire chargé selon b).
-- **P-6 · Lisse continue sur plusieurs travées** : prise appuyée (qL²/8, côté sûr) ; la
-  continuité (qL²/10) n'est pas proposée.
+- **P-6 · Lisse continue sur plusieurs travées** : prise appuyée (qL²/8, côté sûr) par
+  défaut ; depuis la version 2, l'option « poutre continue » applique les coefficients des
+  tables (0,125 / 0,100 / 0,107 qL² pour 2 / 3 / ≥ 4 travées égales, flèche k_f·qL⁴/EI), la
+  charge ponctuelle gardant ses valeurs sur deux appuis.
+- **P-7 · Cas de charge distincts (version 2).** Les quatre charges (q_h, q_v, Q_r, q_r)
+  agissent séparément : c'est la pratique des normes de garde-corps (charges de service qui ne
+  se cumulent pas), demandée par le bureau et à confirmer contre la NBN B 03-004 §6 ; l'option
+  « cumul » (q_h + q_v ensemble) reste disponible, du côté sûr.
+- **P-8 · Sections par défaut (version 2)** : RHS 50x30x3 pour les montants et la main
+  courante (RHS demandés par le bureau), Plat 30x8 pour les barreaux, RHS 50x25x2.5 formé à
+  froid pour la lisse basse (non calculée), Plat 50x10 pour les consoles.
 
 ## 9 · Sources
 
