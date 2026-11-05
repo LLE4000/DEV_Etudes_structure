@@ -75,7 +75,7 @@ def _habiller(expr, numerique):
     """Opérateurs et constantes en typographie : ** → exposant, sqrt → √,
     abs → | |, * → · (littéral) ou × (numérique), point décimal → virgule,
     facteurs d'unités → 10³ / 10⁶."""
-    expr = expr.replace("**2", "²").replace("**3", "³")
+    expr = expr.replace("**1.5", "^1,5").replace("**2", "²").replace("**3", "³").replace("**4", "⁴")
     expr = re.sub(r"sqrt\(3\)", "√3", expr)
     expr = expr.replace("sqrt(", "√(")
     expr = re.sub(r"abs\(([^()]*)\)", r"|\1|", expr)

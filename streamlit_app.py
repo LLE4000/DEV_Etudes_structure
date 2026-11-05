@@ -17,6 +17,7 @@ from modules import (
     taux_armature,     # ⬅️ nouveau module
     assemblages,       # Acier → Assemblages métalliques (registre acier/registre.py)
     charges_plancher,  # Béton → Charges sur plancher (moteur plancher/charges)
+    soudures,          # Acier → Soudures (moteur acier/soudures)
 )
 
 st.set_page_config(page_title="Études Structure", layout="wide", initial_sidebar_state="collapsed")
@@ -65,6 +66,7 @@ pages = {
     "Taux d'armature": taux_armature.show,    # ⬅️ ajouté
     "Assemblages métalliques": assemblages.show,
     "Charges sur plancher": charges_plancher.show,
+    "Soudures": soudures.show,
 }
 
 # ---- Le projet d'assemblages suit l'écran ouvert, quelle que soit la page

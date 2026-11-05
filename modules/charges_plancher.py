@@ -27,8 +27,10 @@ from plancher.charges import bibliotheque as BIB
 from plancher.charges import resistances as RS
 from plancher.charges import methode as ME
 from plancher.charges import note as NT
+from modules import liaison as LI
 
 P = "chp_"
+REGISTRE: LI.Registre = {}       # clé de widget → chemin dans le cas (modules/liaison.py)
 VUES = ["Plan", "Coupe", "Balayage"]
 ETAPES = ["1 · Plancher", "2 · Charges", "3 · Répartiteur", "4 · Hypothèses", "5 · Méthode"]
 TYPES = {"hourdis": "Hourdis", "dalle": "Dalle BA", "predalle": "Prédalle"}
@@ -61,9 +63,10 @@ def _etat() -> Dict:
 
 
 def _reset_widgets():
-    """Les widgets des étapes relisent l'état au prochain rendu."""
-    for k in [k for k in st.session_state if k.startswith(P + "w_")]:
-        del st.session_state[k]
+    """Depuis un callback : les widgets des étapes prennent les valeurs de l'état
+    (modules/liaison.py — supprimer les clés ne suffisait pas, le navigateur gardait
+    l'ancienne valeur : défaut trouvé le 04/11/2026)."""
+    LI.synchroniser(P, REGISTRE, ET.cas_actif(_etat()))
 
 
 def _chemin(d: Dict, chemin):
@@ -89,9 +92,12 @@ def _num(label, chemin, cas, step=0.1, fmt="%.2f", min_value=None, nul_vaut_none
     if nul_vaut_none:
         conv = (lambda v: None if v in (None, 0, 0.0) else float(v))
         v0 = 0.0 if val is None else float(val)
+        LI.enregistrer(REGISTRE, cle, chemin, lambda v: 0.0 if v is None else float(v))
     else:
         conv = (lambda v: None if v is None else (int(v) if isinstance(step, int) else float(v)))
         v0 = val if val is not None else 0
+        entier = isinstance(step, int)
+        LI.enregistrer(REGISTRE, cle, chemin, lambda v, e=entier: (0 if e else 0.0) if v is None else (int(v) if e else float(v)))
     kw = {} if min_value is None else {"min_value": min_value}
     st.number_input(label, value=v0, step=step, format=fmt if not isinstance(step, int) else "%d", key=cle,
                     on_change=_ecrire, args=(chemin, cle, conv), help=help, **kw)
@@ -100,6 +106,7 @@ def _num(label, chemin, cas, step=0.1, fmt="%.2f", min_value=None, nul_vaut_none
 def _texte_w(label, chemin, cas, help=None):
     d, k = _chemin(cas, chemin)
     cle = P + "w_" + "_".join(str(c) for c in chemin)
+    LI.enregistrer(REGISTRE, cle, chemin, lambda v: v or "")
     st.text_input(label, value=d.get(k) or "", key=cle, on_change=_ecrire, args=(chemin, cle, None), help=help)
 
 
@@ -109,6 +116,7 @@ def _choix(label, chemin, cas, options, affichage=None, help=None, segmente=Fals
     cur = d.get(k)
     if cur not in options:
         cur = options[0]
+    LI.enregistrer(REGISTRE, cle, chemin, None, options)
     fmt = (lambda o: affichage.get(o, str(o))) if affichage else (lambda o: str(o))
     if segmente:
         st.segmented_control(label, options, default=cur, format_func=fmt, key=cle, on_change=_ecrire, args=(chemin, cle, None),
@@ -120,12 +128,13 @@ def _choix(label, chemin, cas, options, affichage=None, help=None, segmente=Fals
 def _case(label, chemin, cas, help=None):
     d, k = _chemin(cas, chemin)
     cle = P + "w_" + "_".join(str(c) for c in chemin)
+    LI.enregistrer(REGISTRE, cle, chemin, bool)
     st.checkbox(label, value=bool(d.get(k)), key=cle, on_change=_ecrire, args=(chemin, cle, bool), help=help)
 
 
 def _changer(toast: str = ""):
-    """Après un changement de l'état hors widgets : widgets relus, relance."""
-    _reset_widgets()
+    """Après un changement de l'état hors callback : synchronisation des widgets au rendu suivant, relance."""
+    LI.demander(P)
     if toast:
         st.toast(toast)
     st.rerun()
@@ -378,6 +387,7 @@ def _etape_hourdis(etat, cas):
     def _type():
         ET.appliquer_type_hourdis(cas, types[st.session_state[P + "w_type_cat"]])
         _reset_widgets()
+    LI.enregistrer(REGISTRE, P + "w_type_cat", ("plancher", "hourdis", "type_cat"), None, noms)
     st.selectbox("Type (catalogue ou fiche)", noms, index=noms.index(cur), key=P + "w_type_cat", on_change=_type)
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -440,6 +450,7 @@ def _parts_annexe_c(cas):
                 k, v = morceau.split(":")
                 parts[int(k.strip())] = float(v.strip().replace(",", "."))
         h["parts_annexe_C"] = parts or None
+    LI.enregistrer(REGISTRE, cle, ("plancher", "hourdis", "parts_annexe_C"), lambda parts: ", ".join(f"{k}:{v}" for k, v in (parts or {}).items()))
     st.text_input("Parts annexe C (0:part, 1:voisin…)", value=txt0, key=cle, on_change=_maj,
                   help="Figure C.1 de l'EN 1168 transcrite par le bureau ; vide = l'élément chargé porte tout")
 
@@ -807,6 +818,7 @@ def _val(x):
 def show():
     etat = _etat()
     cas = ET.cas_actif(etat)
+    LI.au_rendu(P, REGISTRE, cas)          # une synchronisation demandée hors callback se fait ici, avant tout widget
     _entete(etat, cas)
     try:
         plancher, charges, reps, params, index = ET.construire(etat, cas)
