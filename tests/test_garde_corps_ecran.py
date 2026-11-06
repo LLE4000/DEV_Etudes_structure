@@ -1,24 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Tests de l'écran « Garde-corps » (version 2) : AppTest sur l'application réelle. Chaque
-garantie rougit si on la retire :
+"""Tests de l'écran « Garde-corps » (version 3.2, disposition sans onglets) : AppTest sur
+l'application réelle. Chaque garantie rougit si on la retire :
 
   1. NAVIGATION : page dans le dictionnaire des pages, tuile à l'accueil, rendu sans
      exception, bouton Accueil, test de fumée inchangé.
-  2. ÉCRAN : le SWITCH ELS / Eurocode (ELS par défaut), les six dessins (SVG) avec leurs
-     légendes, la carte RÉSULTAT avec η, le cas gouvernant nommé et une barre par élément, cinq
-     onglets à libellé fixe, barre d'outils, le tableau des montants, la phrase de géométrie.
+  2. ÉCRAN : le SWITCH ELS / Eurocode (ELS par défaut) avec ses paramètres en popover ; DEUX
+     dessins à l'écran — l'élévation légendée et UN dessin de détail choisi par le sélecteur
+     ``gc_vue`` (coupe A-A par défaut ; plan, platine, fixation, section) ; la carte RÉSULTAT
+     avec η, le cas gouvernant nommé, UNE LIGNE PAR ÉLÉMENT (barre η) qui porte, pour chaque
+     élément dimensionné, son sélecteur de section et son bouton « ★ » nommant l'optimal ;
+     PLUS D'ONGLETS : trois cartes de saisie (DÉFINITION, CHARGES, FIXATION) et quatre volets de
+     détail repliés ; barre d'outils, le tableau des montants, la phrase de géométrie.
   3. LE TYPE EN MENU : cinq types ; chacun pose le système et le remplissage et change les
      champs (lisses, panneau, main courante seule, murale avec consoles).
   4. SOURCE UNIQUE : un widget écrit dans l'état, l'état nourrit le moteur, le dessin et la
      carte (entraxe maxi, entraxes saisis, H, catégorie, q_h libre, section du montant, section
-     libre, appuis de la main courante, cumul, entraxe des barreaux, h_bas, ancrage, fixation,
-     forme en L).
+     libre, appuis de la main courante, cumul, entraxe des barreaux, h_bas, ancrage, fixation —
+     le sélecteur de vue perd les dessins qui n'ont plus d'objet —, forme en L).
   5. LE SWITCH : même garde-corps, η suit le moteur en Eurocode ; flèche L/200.
-  6. TABLEAUX CLIQUABLES : un tableau par élément (montant, main courante, barreaux) avec les
-     colonnes attendues, RHS cochés par défaut pour le montant et la main courante, la section
-     retenue marquée ◀, le bouton « le plus léger qui tient » change la section ET le
-     sélecteur la montre ; la clé du tableau change de génération après un changement d'état
-     (la sélection repart de zéro : pas de boucle).
+  6. TABLEAUX CLIQUABLES (dans le popover « ★ » de chaque élément) : un tableau par élément
+     (montant, main courante, barreaux) avec les colonnes attendues, RHS cochés par défaut pour
+     le montant et la main courante, la section retenue marquée ◀, le bouton « Prendre
+     l'optimal » change la section ET le sélecteur la montre ; la clé du tableau change de
+     génération après un changement d'état (la sélection repart de zéro : pas de boucle).
   7. CAS MULTIPLES ET FICHIER : nouveau, copie, suppression, sélection, JSON.
   8. NOTE : le bouton produit un PDF de deux pages.
   9. ÉTANCHÉITÉ : seules des clés gc_.
@@ -39,8 +43,8 @@ from acier.garde_corps import etat as ET  # noqa: E402
 from acier.garde_corps import types as TY  # noqa: E402
 
 OK, KO = [], []
-ETAPES = ["1 · Garde-corps", "2 · Charges", "3 · Sections", "4 · Ancrage", "5 · Détail"]
-LEGENDES = ("ÉLÉVATION", "COUPE A-A", "VUE EN PLAN", "PLATINE EN PLAN", "COUPE SUR LA FIXATION", "SECTION")
+VUES = ["Coupe A-A", "Plan", "Platine", "Fixation", "Section"]      # les libellés du sélecteur de dessin de détail, dans l'ordre
+CARTES = ("DÉFINITION", "CHARGES", "FIXATION", "DÉTAIL")
 
 
 def chk(nom, cond, info=""):
@@ -94,6 +98,17 @@ def tables(at):
     return {d.key: d.value for d in at.dataframe if d.key}
 
 
+def popovers(at):
+    return [p.proto.popover.label for p in at.get("popover")]
+
+
+def vue(at, cle: str):
+    """Choisit le dessin de détail et rend le texte de l'écran."""
+    at.segmented_control(key="gc_vue").set_value(cle)
+    run(at)
+    return md(at)
+
+
 def app():
     at = AppTest.from_file(os.path.join(RACINE, "streamlit_app.py"), default_timeout=240)
     at.session_state["page"] = "Garde-corps"
@@ -122,11 +137,25 @@ m = md(at)
 chk("le switch : « Vérification à l'ELS » par défaut, « charges de service », contraintes admissibles — sans « méthode du bureau » ni « ELS du bureau »",
     at.segmented_control(key="gc_w_methode_mode").value == "els" and "Charges de service" in m and "contraintes admissibles" in m
     and "méthode du bureau" not in m.lower() and "ELS du bureau" not in m and "Vérification à l'ELS" in m)
-chk("six dessins SVG légendés : élévation, coupe A-A, plan, platine en plan, coupe sur la fixation, section", m.count("<svg") >= 6 and all(k in m for k in LEGENDES))
-chk("carte RÉSULTAT : Conforme, η = 64 %, le montant M2 gouverne par la flèche sous le cas 1, une barre par élément",
+sv = at.segmented_control(key="gc_vue")
+chk("deux dessins à l'écran : l'ÉLÉVATION légendée et UN dessin de détail — la coupe A-A par défaut ; le sélecteur offre coupe, plan, platine, fixation, section "
+    "(les deux vues de la soudure vivent dans leur popover : quatre SVG en tout)",
+    m.count("<svg") == 4 and "ÉLÉVATION" in m and "COUPE A-A" in m and "PLATINE EN PLAN" not in m and sv.value == "coupe" and list(sv.options) == VUES,
+    f"{m.count('<svg')} svg · {sv.value} · {list(sv.options)}")
+chk("le sélecteur de vue : platine en plan, coupe sur la fixation, section, vue en plan — un seul dessin de détail à la fois",
+    "PLATINE EN PLAN" in vue(at, "platine") and "COUPE A-A" not in md(at) and "COUPE SUR LA FIXATION" in vue(at, "pied") and ">SECTION<" in vue(at, "section")
+    and "VUE EN PLAN" in vue(at, "plan") and md(at).count("<svg") == 4)
+m = vue(at, "coupe")
+chk("carte RÉSULTAT : Conforme, η = 64 %, le montant M2 gouverne par la flèche sous le cas 1, une ligne par élément avec sa barre",
     "Conforme" in pastille(at) and "64 %" in eta(at) and "Montant principal M2" in m and "flèche" in m and "cas 1 · q_h seule" in m
-    and all(k in m for k in ("Main courante", "Barreaux", "Soudure", "Platine", "Ancrages · 2 × 2 chevilles M12")))
-chk("cinq onglets à libellé fixe", [t.label for t in at.tabs] == ETAPES)
+    and all(k in m for k in ("Main courante", "Barreaux", "Soudure", "Platine", "Ancrages", "2 × 2 chevilles M12")) and m.count('class="gc-row') == 6)
+chk("chaque élément dimensionné porte son sélecteur de section et son bouton « ★ » qui nomme le plus léger qui tient avec son taux (montant, main courante, barreaux)",
+    all(k in cles(at) for k in ("gc_w_montant_section", "gc_w_lisse_section", "gc_w_remplissage_section"))
+    and [p for p in popovers(at) if p.startswith("★")] == ["★ RHS 50x30x2.5 · 73 %", "★ RHS 50x30x2.5 · 9 %", "★ Plat 30x6 · 84 %"], str(popovers(at)))
+chk("plus d'onglets : trois cartes de saisie (DÉFINITION, CHARGES, FIXATION), le DÉTAIL en quatre volets repliés (efforts, formules, identification, méthode), "
+    "les paramètres de la méthode et les options de charge en popover",
+    len(at.tabs) == 0 and all(k in m for k in CARTES) and [e.label.split(" ")[0] for e in at.expander] == ["Efforts", "Les", "Identification", "Méthode"]
+    and all(not e.proto.expanded for e in at.expander) and "Paramètres" in popovers(at) and "Options" in popovers(at) and "gc_w_methode_fleche_val" in cles(at))
 chk("barre d'outils : Accueil, ＋ Cas, copie, Enregistrer, Ouvrir, Note, nom du cas", all(k in cles(at) for k in ("gc_btn_home", "gc_btn_new", "gc_btn_copy", "gc_btn_open", "gc_btn_note", "gc_w_nom")))
 chk("le tableau des montants : M1 … M5 avec leurs longueurs tributaires", "M5" in m and "450" in m and "s_trib" in m)
 chk("la phrase de géométrie : droit, 3,60 m en 4 travées de 0,90 m, 5 montants ; le type dans la légende", "3,60 m en 4 travées de 0,90 m" in m and "5 montants" in m
@@ -145,7 +174,7 @@ chk("type lisses : remplissage lisses, champs n et e_l, élément « Lisses inte
     and "gc_w_remplissage_n_lisses" in cles(at) and "Lisses intermédiaires" in md(at) and "Lisses horizontales" in md(at))
 at.selectbox(key="gc_w_type").set_value("murale"); run(at)
 c = cas_actif(at)
-chk("type murale : système mur, consoles C1 …, longueur e, section de console dans Sections, pas de montant",
+chk("type murale : système mur, consoles C1 …, longueur e, sélecteur de section de la console, pas de montant",
     c["geometrie"]["systeme"] == "mur" and "C1" in md(at) and "gc_w_fixation_console_e" in cles(at) and "gc_w_fixation_console_section" in cles(at)
     and "gc_w_montant_section" not in cles(at) and "Console" in md(at))
 at.selectbox(key="gc_w_type").set_value("panneau"); run(at)
@@ -202,20 +231,24 @@ at.number_input(key="gc_w_remplissage_h_bas").set_value(100.0); run(at)
 at.segmented_control(key="gc_w_fixation_ancrage_type").set_value("boulon"); run(at)
 chk("ancrage par boulons : M12 8.8, F_t,Rd calculé", cas_actif(at)["fixation"]["ancrage"]["type"] == "boulon" and "gc_w_fixation_ancrage_boulon" in cles(at) and "M12" in md(at))
 at.segmented_control(key="gc_w_fixation_ancrage_type").set_value("cheville"); run(at)
-n_svg = md(at).count("<svg")
+vue(at, "pied")
 at.segmented_control(key="gc_w_fixation_type").set_value("scellee"); run(at)
-chk("montant scellé : ni platine ni coupe sur la fixation ni soudure (quatre dessins de moins)", "scellé" in md(at).lower() and md(at).count("<svg") == n_svg - 4
-    and "PLATINE EN PLAN" not in md(at))
+sv = at.segmented_control(key="gc_vue")
+chk("montant scellé : le sélecteur de vue perd la platine et la coupe sur la fixation (il retombe sur la coupe A-A), plus de soudure (deux SVG : élévation et détail)",
+    "scellé" in md(at).lower() and list(sv.options) == ["Coupe A-A", "Plan", "Section"] and sv.value == "coupe" and md(at).count("<svg") == 2
+    and "PLATINE EN PLAN" not in md(at) and "Dessins de la soudure" not in popovers(at), f"{list(sv.options)} · {sv.value} · {md(at).count('<svg')}")
 at.segmented_control(key="gc_w_fixation_type").set_value("laterale"); run(at)
 c = cas_actif(at)
 labels_lat = [n.label for n in at.number_input]
 chk("platine latérale en nez de dalle : quatre fixations au choix, les champs d_h, b_p (hauteur), l_p (largeur), e_x vertical, e_y horizontal ; « Platine latérale (vue de face) » et "
-    "« Coupe horizontale sur la fixation » dessinées, arrachement P ; six dessins du garde-corps et UN dessin de soudure (le groupe C8 n'a qu'une vue, C5 en a deux)",
+    "« Coupe horizontale sur la fixation » au sélecteur, arrachement P dans le résumé ; élévation, détail et UN dessin de soudure (le groupe C8 n'a qu'une vue, C5 en a deux)",
     c["fixation"]["type"] == "laterale" and "gc_w_fixation_platine_d_h" in cles(at)
-    and all(any(l.startswith(k) for l in labels_lat) for k in ("d_h — descente", "b_p — hauteur de la platine", "l_p — largeur de la platine", "e_x — entraxe vertical", "e_y — entraxe horizontal"))
-    and "PLATINE LATÉRALE (VUE DE FACE)" in md(at) and "COUPE HORIZONTALE SUR LA FIXATION" in md(at) and "arrachement P" in md(at) and md(at).count("<svg") == n_svg - 1
+    and all(any(l.startswith(k) for l in labels_lat) for k in ("d_h — descente", "b_p — hauteur", "l_p — largeur", "e_x — entraxe vertical", "e_y — entraxe horizontal"))
+    and list(at.segmented_control(key="gc_vue").options) == VUES and "PLATINE LATÉRALE (VUE DE FACE)" in vue(at, "platine")
+    and "COUPE HORIZONTALE SUR LA FIXATION" in vue(at, "pied") and "arrachement P" in md(at) and md(at).count("<svg") == 3
     and "Ancrage latéral" in md(at) and "Platine rigide" not in md(at))
 at.segmented_control(key="gc_w_fixation_type").set_value("platine"); run(at)
+vue(at, "coupe")
 at.number_input(key="gc_w_geometrie_pente").set_value(32.0); run(at)
 chk("rampant : la pente 32° dans l'état et la phrase, « rampant » sur l'élévation, η inchangé", cas_actif(at)["geometrie"]["pente"] == 32.0 and "rampant, pente 32°" in md(at)
     and "ÉLÉVATION" in md(at))
@@ -230,9 +263,11 @@ at = run(app())
 at.selectbox(key="gc_w_geometrie_debut").set_value("mur"); run(at)
 at.selectbox(key="gc_w_geometrie_fin").set_value("mur"); run(at)
 at.number_input(key="gc_w_geometrie_troncons_0_s_max").set_value(4000.0); run(at)
-chk("les deux bouts ancrés et une seule travée : garde-corps SANS montant — la main courante porte de mur à mur (3600), pas de fixation, rôles lisse et barreaux, réactions aux murs",
+chk("les deux bouts ancrés et une seule travée : garde-corps SANS montant — la main courante porte de mur à mur (3600), pas de fixation (ni platine ni coupe au sélecteur), "
+    "rôles lisse et barreaux, réactions aux murs",
     "Sans montant" in md(at) and "porte de mur à mur" in md(at) and "gc_w_fixation_platine_bp" not in cles(at) and "gc_w_montant_section" not in cles(at)
-    and "il reprend H = 0,90 kN" in md(at) and eta_moteur(at) in eta(at))
+    and "il reprend H = 0,90 kN" in md(at) and eta_moteur(at) in eta(at) and list(at.segmented_control(key="gc_vue").options) == ["Coupe A-A", "Plan", "Section"]
+    and any("porte de mur à mur" in str(i.value) for i in at.info))
 at = run(app())
 at.selectbox(key="gc_w_charges_categorie").set_value("ind"); run(at)
 chk("catégorie « plateforme industrielle (machines) » : q_h = 0,30 kN/m, origine EN ISO 14122-3 à confirmer", cas_actif(at)["charges"]["qh"] == 0.3 and "EN ISO 14122-3" in md(at))
@@ -248,10 +283,12 @@ at.number_input(key="gc_w_methode_fleche_val").set_value(200.0); run(at)
 chk("flèche L/200 : le montant passe à 127 % (Non conforme)", "127 %" in eta(at) and "Non conforme" in pastille(at), eta(at))
 
 # ================================================================
-print("\n=== 6. Tableaux cliquables ===")
+print("\n=== 6. Tableaux cliquables (dans le popover « ★ » de chaque élément) ===")
 at = run(app())
 t = tables(at)
 chk("un tableau par élément : montant, main courante, barreaux (génération 0)", set(t) == {"gc_tab_montant_0", "gc_tab_lisse_0", "gc_tab_barreau_0"}, str(sorted(t)))
+chk("les réglages du tableau sont propres à chaque élément (familles, masse maxi, seulement ceux qui tiennent, tubes formés à froid)",
+    all(k in cles(at) for k in ("gc_lib_montant_masse", "gc_lib_montant_ok", "gc_lib_montant_froid", "gc_lib_lisse_masse", "gc_lib_barreau_masse")))
 df = t["gc_tab_montant_0"]
 chk("colonnes : Section, dimensions, kg/m, η σ_eq, η flèche, η, retenue ; 40 lignes par masse croissante",
     list(df.columns) == ["Section", "dimensions (mm)", "kg/m", "η σ_eq", "η flèche", "η", "retenue"] and len(df) == 40 and list(df["kg/m"]) == sorted(df["kg/m"]))
@@ -260,13 +297,14 @@ chk("RHS cochés par défaut pour le montant et la main courante, plats et ronds
     and all(s.startswith("RHS") for s in df["Section"]))
 ret = df[df["retenue"].str.startswith("◀")]
 chk("la section retenue RHS 50x30x3 est marquée ◀ (et ★ l'optimal, le plus léger qui tient), avec son η = 64 %", len(ret) == 1 and ret.iloc[0]["Section"] == "RHS 50x30x3" and int(ret.iloc[0]["η"]) == 64)
-chk("les boutons « le plus léger qui tient » existent par élément", all(k in cles(at) for k in ("gc_btn_best_montant", "gc_btn_best_lisse", "gc_btn_best_barreau")))
+chk("les boutons « Prendre l'optimal » existent par élément", all(k in cles(at) for k in ("gc_btn_best_montant", "gc_btn_best_lisse", "gc_btn_best_barreau")))
 at.button(key="gc_btn_best_montant").click(); run(at)
 c = cas_actif(at)
 nom = c["montant"]["section"]["nom"]
-chk("« le plus léger qui tient » : le montant devient un RHS plus léger qui tient, η ≤ 100 %", nom.startswith("RHS") and nom != "RHS 50x30x3"
+chk("« Prendre l'optimal » : le montant devient un RHS plus léger qui tient, η ≤ 100 %", nom.startswith("RHS") and nom != "RHS 50x30x3"
     and ET.verifier(c)["montant"]["verif"]["taux_max"] <= 1.0, nom)
-chk("le sélecteur de section AFFICHE la nouvelle section (liaison état → widget)", at.selectbox(key="gc_w_montant_section").value == nom)
+chk("le sélecteur de section AFFICHE la nouvelle section (liaison état → widget), et le bouton « ★ » dit « optimal retenu »",
+    at.selectbox(key="gc_w_montant_section").value == nom and "★ optimal retenu" in popovers(at), str(popovers(at)))
 t = tables(at)
 chk("après le changement, les tableaux changent de génération (clé _1) : la sélection repart de zéro", set(t) == {"gc_tab_montant_1", "gc_tab_lisse_1", "gc_tab_barreau_1"}, str(sorted(t)))
 chk("… et la ligne retenue est la nouvelle section", list(t["gc_tab_montant_1"][t["gc_tab_montant_1"]["retenue"].str.startswith("◀")]["Section"]) == [nom])

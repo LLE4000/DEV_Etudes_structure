@@ -51,7 +51,8 @@ fixation, conclusion ; méthode, soudure (vue et formules du module Soudures), b
 **Zéro clic pour un premier résultat, un clic pour la note.** Le cas par défaut est un
 garde-corps complet et conforme (droit 3,60 m, entraxe ≤ 1,00 m, H = 1,10 m, catégorie A,
 CHS 48,3 × 3,2 sur platine 150 × 150 × 10 à quatre chevilles M12, lisse CHS 42,4 × 3,2,
-barreaux plats 30 × 8 à 110 mm). Tout le reste se règle dans six onglets à libellé fixe.
+barreaux plats 30 × 8 à 110 mm). Tout le reste se règle sur UNE page, sans onglets (depuis la
+version 3.2 ; les versions 1 à 3.1 avaient des onglets à libellé fixe, refusés par le bureau — §5).
 
 ## 1 · Ce que l'application a déjà, et ce que le module réutilise
 
@@ -63,7 +64,7 @@ barreaux plats 30 × 8 à 110 mm). Tout le reste se règle dans six onglets à l
 | `acier/resistances.py` (F_t,Rd, F_v,Rd), `acier/donnees/bibliotheques.json` (boulons, classes, aciers) | les boulons de la platine, les nuances |
 | kit de dessin des assemblages (feuille de cotation, primitives, hachures, ruptures, rendu SVG, peintre PDF) et briques des schémas de soudure (flèches, ⊙, étiquettes, étendue) | les quatre vues |
 | kit `ndc_pdf`, `Sub` / `rendre` / `verifier` des formules d'assemblage | la note, les formules testables |
-| `modules/liaison.py` (liaison état → widgets), charte des écrans (barre d'outils, switch, carte résultat, onglets à libellé fixe) | l'écran |
+| `modules/liaison.py` (liaison état → widgets), charte des écrans (barre d'outils, switch, carte résultat, cartes de saisie) | l'écran |
 
 ## 2 · Le modèle mécanique
 
@@ -175,19 +176,44 @@ Quatre vues sur le kit des assemblages (`schemas.py`) :
 
 ## 5 · L'écran
 
-Barre d'outils (cas, ＋, copie, suppression, JSON, Note, nom), le switch de méthode avec une
-ligne qui dit ce qu'il change, à gauche les dessins, à droite la carte RÉSULTAT (statut, η, élément
-gouvernant, une barre par élément, masse indicative) et six onglets : **Garde-corps** (système,
-forme, tronçons avec L / entraxe maxi / entraxes saisis, H, extrémités, tableau des montants et
-de leurs longueurs tributaires), **Charges** (catégorie, q_h, P direct, q_v, Q, q_r, Q_r),
-**Sections** (montant et lisse, section libre avec ses dimensions, BIBLIOTHÈQUE : familles,
-masse maxi, « seulement ceux qui tiennent », bouton « le plus léger qui tient »),
-**Remplissage** (barreaux, lisses, panneau, aucun), **Fixation** (type, soudure avec ses
-dessins du module Soudures, platine, ancrage), **Détail** (tableau des éléments, des montants,
-formules comme à la main, paramètres de la méthode, identification, textes de méthode).
+**Disposition de la version 3.2 (06/11/2026).** Le bureau a refusé l'écran des versions 1 à
+3.1 — les dessins empilés (« quatre dessins l'un en dessous de l'autre »), l'onglet Sections
+(« un montant, puis une liste de tableaux, un montant, une liste de tableaux ») et le menu
+d'onglets (« charges, montant, ancrage… ça ne va pas du tout ») — et demandé « un truc beaucoup
+plus ergonomique ». Trois principes ont guidé la refonte :
 
-Liaison état → widgets (`modules/liaison.py`) : le sélecteur de section AFFICHE la section
-retenue par le bouton de la bibliothèque (contrôle du harnais et de la capture « biblio »).
+1. **Ce que le calcul PRODUIT à gauche, ce qu'on SAISIT à droite, tout visible d'un coup.**
+   Plus d'onglets : trois cartes de saisie (DÉFINITION, CHARGES, FIXATION) sous les yeux en
+   permanence, le détail (efforts, formules, identification, méthode) replié en bas, les
+   paramètres de la méthode et les options de charge en popover — un réglage rare ne prend pas
+   de place. Au téléphone les colonnes s'empilent : dessins, résultat, puis la saisie.
+2. **Un dessin de détail à la fois.** L'élévation reste toujours visible — c'est elle qui
+   répond à la saisie de la géométrie — et un sélecteur (coupe A-A, plan, platine, fixation,
+   section) montre le détail qu'on règle ; les vues sans objet quittent le sélecteur. La note
+   imprime toutes les vues.
+3. **Le profilé se choisit LÀ où son taux s'affiche.** Chaque ligne de la carte RÉSULTAT (nom,
+   critère, cas, barre η) porte, pour un élément dimensionné, son sélecteur de section et le
+   bouton « ★ » qui nomme le plus léger qui tient (« ★ RHS 50x30x2.5 · 73 % », « ★ optimal
+   retenu ») et ouvre en popover le tableau des profilés compatibles (familles, masse maxi,
+   « seulement ceux qui tiennent », « Prendre l'optimal », un clic retient, le popover reste
+   ouvert pour comparer). Ainsi la boucle de dimensionnement — voir η, changer la section, voir
+   η — tient sur quatre centimètres d'écran ; les tableaux n'encombrent plus la page.
+
+Un piège trouvé en mesurant : un conteneur Streamlit sans espacement (`gap=None`, pour serrer
+la ligne d'un élément contre ses widgets) rogne les blocs markdown de 16 px — Streamlit leur
+donne une marge basse négative qui compense l'espacement par défaut — et les lignes passaient
+SOUS les sélecteurs. La règle `.st-key-gc_k_res [data-testid="stMarkdownContainer"]
+{margin-bottom:0}` l'annule dans la carte, et la capture mesure qu'aucun enfant de la carte ne
+chevauche le suivant.
+
+Barre d'outils (cas, ＋, copie, suppression, JSON, Note, nom) et switch de méthode avec une
+ligne qui dit ce qu'il change, comme avant. Liaison état → widgets (`modules/liaison.py`) : le
+sélecteur de section AFFICHE la section retenue par un clic dans le tableau (contrôle du
+harnais et de la capture « biblio »).
+
+*Historique.* Les versions 1 à 3.1 avaient, à droite, la carte RÉSULTAT et des onglets à
+libellé fixe (Garde-corps, Charges, Sections, Ancrage, Détail ; six dans la version 1) et, à
+gauche, les six vues empilées.
 
 ## 6 · La note
 
@@ -263,6 +289,13 @@ qu'il y a zéro faute », « propose l'optimal ») : GC8a limites dérivées de 
 GC8b optimal à chaque profilé, GC8c relecture des douze notes avec recalcul indépendant (452
 grandeurs, aucun écart) et six défauts corrigés dont les lisses intermédiaires sur l'axe faible
 (P-13), GC8d suites, batterie, fusion dans `main` à la demande du bureau.
+
+Version 3.2, le 06/11/2026, après la relecture de l'écran (« quatre dessins l'un en dessous de
+l'autre », « un montant, une liste de tableaux », « un menu… ça ne va pas du tout », « revois
+entièrement la disposition ») : GC9a la disposition refondue (§5 : plus d'onglets, un dessin de
+détail au choix, la section et l'optimal sur la ligne de chaque élément, trois cartes de
+saisie, détail replié), GC9b harnais et captures qui suivent (62 contrôles, neuf états × quatre
+largeurs, mesure du non-chevauchement), GC9c docs, batterie, fusion dans `main`.
 
 ## 8 · Points à trancher par le bureau (défauts retenus en attendant)
 

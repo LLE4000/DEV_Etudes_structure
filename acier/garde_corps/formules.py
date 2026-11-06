@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Les formules de la vérification d'un garde-corps, écrites comme à la main — note (page 1)
-et écran (onglet Détail). Chaque ligne est une substitution « grandeur = formule = valeurs =
+et écran (volet « Les formules » du détail). Chaque ligne est une substitution « grandeur = formule = valeurs =
 résultat » (``Sub`` du kit des assemblages) dont ``verifier(sub)`` ré-évalue le gabarit
 imprimé pour retrouver le nombre du moteur : chaque formule de la note est TESTABLE
 (tests/test_garde_corps_formules.py). Rien n'est recalculé : les nombres sont ceux de
