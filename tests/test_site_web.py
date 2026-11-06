@@ -144,6 +144,17 @@ liens = [(p, h) for p in ("index.html", "garde-corps.html", "poutre.html")
          for h in re.findall(r'<a [^>]*href="([^"]+)"', open(os.path.join(WEB, p), encoding="utf-8").read()) if h.endswith(".html")]
 chk("aucun lien des pages ne vise une adresse en « .html »", not liens, liens[:4])
 
+# 8. la mise en ligne par la méthode « Workers » de Cloudflare : le projet s'appelle stab-methodes, son dossier est
+# site/web, servi tel quel (adresses sans « .html ») ; les outils de développement ne sont pas publiés
+wr = json.loads(re.sub(r"^\s*//.*$", "", open(os.path.join(WEB, "wrangler.jsonc"), encoding="utf-8").read(), flags=re.M))
+chk("wrangler.jsonc : le projet stab-methodes publie ce dossier, adresses sans « .html »",
+    wr.get("name") == "stab-methodes" and wr.get("assets", {}).get("directory") == "."
+    and wr["assets"].get("html_handling") == "auto-trailing-slash" and "main" not in wr, wr)
+ignore = {l.strip() for l in open(os.path.join(WEB, ".assetsignore"), encoding="utf-8") if l.strip() and not l.startswith("#")}
+chk("les outils de développement et la configuration ne sont pas publiés (.assetsignore)",
+    {"wrangler.jsonc", "README.md", "construire.py", "verifier_site.js", "outils", "__pycache__", ".wrangler"} <= ignore
+    and not ignore & {"index.html", "js", "css", "vendor", "moteur", "_headers"}, sorted(ignore))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

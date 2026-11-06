@@ -1,3 +1,6 @@
 # Bytecode Python (généré à l'exécution — jamais versionné)
 __pycache__/
 *.pyc
+
+# Wrangler (Cloudflare) : son dossier de travail local
+.wrangler/

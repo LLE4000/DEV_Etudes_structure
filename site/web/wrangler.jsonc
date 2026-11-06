@@ -1,0 +1,12 @@
+// Le site sur Cloudflare (méthode « Workers », fichiers statiques) : ce dossier est servi tel quel, avec les en-têtes
+// de _headers (cache, politique de sécurité). Dans Cloudflare, le projet porte le MÊME nom (« stab-methodes ») et son
+// dossier racine (« Path ») est site/web. .assetsignore retire ce qui ne sert qu'au développement.
+{
+  "name": "stab-methodes",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": ".",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "none"
+  }
+}

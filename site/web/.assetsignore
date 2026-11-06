@@ -1,0 +1,9 @@
+# Ce que Cloudflare ne publie pas : la configuration et les outils de développement du site
+wrangler.jsonc
+.assetsignore
+README.md
+construire.py
+verifier_site.js
+outils
+__pycache__
+.wrangler
