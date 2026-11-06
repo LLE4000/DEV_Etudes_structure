@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""Maquettes du site « Stab Méthodes » : l'APERÇU CLIQUABLE en une seule page (accueil, projets, établi du garde-corps, équipe),
-à ouvrir au téléphone comme au PC. Les quatre vues viennent des MÊMES fonctions que les pages statiques (construire.py) :
-les liens entre pages deviennent des ancres (#accueil, #projets, #garde-corps, #equipe), et le thème suit celui de l'appareil
-(le bouton soleil / lune le bascule).
+"""Maquettes du site « Stab Méthodes » : l'APERÇU CLIQUABLE en une seule page (accueil, projets, établis du garde-corps et
+des poutres béton armé, équipe, paramètres), à ouvrir au téléphone comme au PC. Les vues viennent des MÊMES fonctions que
+les pages statiques (construire.toutes_les_pages) : les liens entre pages deviennent des ancres (#accueil, #poutre…), et le
+thème suit celui de l'appareil (le bouton soleil / lune le bascule).
 
 Lancement : python3 site/maquettes/apercu.py <fichier_sortie.html>
 """
@@ -14,7 +14,7 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ICI)
 import construire as C  # noqa: E402
 
-VUES = (("accueil", C.accueil), ("projets", C.projets), ("garde-corps", C.module), ("equipe", C.equipe))
+VUES = tuple(C.toutes_les_pages())
 
 
 def css_theme_systeme(css: str) -> str:
@@ -34,7 +34,9 @@ def construire_apercu() -> str:
     for i, (cle, fn) in enumerate(VUES):
         _titre, corps, script = fn()
         vues += f'<div class="vpage" data-page="{cle}"{"" if i == 0 else " hidden"}>{corps}</div>'
-        scripts += script
+        # un script commun à plusieurs pages (l'établi) ne s'inclut qu'une fois : il câble tous les établis d'un coup
+        if script not in scripts:
+            scripts += script
     routeur = """
 document.documentElement.lang='fr';
 function MONTRER(p){

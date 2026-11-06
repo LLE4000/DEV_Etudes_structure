@@ -95,7 +95,7 @@ def pastille_validee(cle: str) -> str:
 
 
 def statut(niveau) -> str:
-    lib = {"p": "Conforme", "f": "Conforme, attention", "r": "Non conforme"}[niveau]
+    lib = {"p": "Conforme", "f": "Conforme, attention", "r": "Non conforme", "c": "À compléter"}[niveau]
     return f'<span class="status {niveau}"><span class="dot"></span>{lib}</span>'
 
 
@@ -132,48 +132,43 @@ def theme_btn() -> str:
     return f'<a class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{icon("sun-moon")}</a>'
 
 
-def nav(actif: str) -> str:
-    def item(ic, lib, cle, count=""):
-        c = f'<span class="count">{count}</span>' if count else ""
-        go = f' data-go="{cle}"' if cle in ("accueil", "projets", "equipe") else ""
-        return f'<a class="navitem{" on" if cle == actif else ""}"{go}>{icon(ic)}<span>{lib}</span>{c}</a>'
-    fams = ""
-    for cle, nom, mods in FAMILLES:
-        ouvert = cle == "beton"
-        fams += (f'<a class="navitem"><span class="fam modic {cle}" style="width:20px;height:20px;border-radius:6px">{MOD[mods[0][0]]}</span>'
-                 f'<span>{nom}</span><span class="count">{len(mods)}</span>{icon("chevron-down" if ouvert else "chevron-right")}</a>')
-        if ouvert:
-            fams += '<div class="navsub">' + "".join(f'<a class="navitem"><span>{n}</span></a>' for _, n in mods[:5]) + "</div>"
-    return (f'<nav class="nav"><div class="brand"><div class="logo">{LOGO}</div><div class="wordmark">Stab Méthodes<span>Bureau d\'études</span></div>{theme_btn()}</div>'
-            f'<div class="searchbtn">{icon("search")}<span>Rechercher</span><kbd>Ctrl K</kbd></div>'
-            + item("house", "Accueil", "accueil") + item("folder", "Projets", "projets", "4") + item("clock", "Récents", "recents")
-            + item("users", "Équipe", "equipe")
-            + '<div class="navlabel">Modules</div>' + fams
-            + f'<div class="navfoot"><div class="storage">Stockage · 38 Mo sur 1 Go<div class="bar"><b></b></div></div>'
-              f'<div class="me"><span class="avatar">LL</span><div class="who"><b>Mon compte</b><span>stab-methodes.be</span></div>'
-              f'<span class="spacer"></span>{icon("settings")}</div></div></nav>')
+# les pages des modules que la maquette montre ; les autres tuiles ne mènent nulle part
+PAGES_MODULES = {"garde_corps": "garde-corps", "poutre": "poutre"}
 
 
 def rail(actif: str) -> str:
-    def it(svg, on=False, go=""):
-        g = f' data-go="{go}"' if go else ""
-        return f'<a class="navitem{" on" if on else ""}"{g}>{svg}</a>'
+    """La barre d'icônes : cinq fonctions seulement, chacune nommée par une bulle au survol. « Modules » ouvre le volet des
+    modules (la seconde navigation) ; il est allumé quand on travaille dans un module."""
+    def it(ic, nom, cle, attr=""):
+        return f'<a class="navitem{" on" if cle == actif else ""}" data-tip="{nom}"{attr}>{icon(ic)}</a>'
     return (f'<nav class="nav"><div class="brand"><div class="logo">{LOGO}</div></div>'
-            + it(icon("house"), go="accueil") + it(icon("folder"), actif == "projets", "projets") + it(icon("clock"))
-            + it(icon("users"), actif == "equipe", "equipe") + '<div class="sep"></div>'
-            + it(MOD["poutre"]) + it(MOD["profil"]) + it(MOD["garde_corps"], actif == "garde_corps", "garde-corps") + '<div class="sep"></div>'
+            + it("house", "Accueil", "accueil", go("accueil")) + it("folder", "Projets", "projets", go("projets"))
+            + it("layout-grid", "Modules", "modules", ' data-modules="1"') + it("users", "Équipe", "equipe", go("equipe"))
+            + it("settings", "Paramètres", "parametres", go("parametres"))
             + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">'
-              f'<a class="navitem" data-theme-toggle="1" title="Thème clair ou sombre">{icon("sun-moon")}</a>{it(icon("settings"))}'
-              f'<span class="avatar">LL</span></div></nav>')
+              f'<a class="navitem" data-theme-toggle="1" data-tip="Thème clair ou sombre">{icon("sun-moon")}</a>'
+              f'<span class="avatar" title="Mon compte">LL</span></div></nav>' + modpanel())
+
+
+def modpanel() -> str:
+    """Le volet des modules, classés par famille ; la pastille dit qu'un administrateur a validé le module."""
+    corps = ""
+    for cle, nom, mods in FAMILLES:
+        corps += f'<div class="navlabel">{nom}</div>' + "".join(
+            f'<a class="navitem"{go(PAGES_MODULES.get(k, ""))}><span class="modic {cle}">{MOD[k]}</span><span>{esc(n)}</span>{pastille_validee(k)}</a>'
+            for k, n in mods)
+    return (f'<aside class="modpanel"><div class="mp-h"><div class="h2">Modules</div><span class="okleg">{icon("badge-check")}validé</span>'
+            f'<a class="btn icon ghost" data-modules="1" title="Fermer">{icon("x")}</a></div>{corps}</aside>')
 
 
 def mnav(actif: str) -> str:
-    """Les onglets du bas du téléphone (accueil et projets) : les mêmes entrées que la navigation du PC."""
+    """Les onglets du bas du téléphone : les cinq entrées de la barre du PC, dans le même ordre."""
     def it(ic, lib, cle, go=""):
         g = f' data-go="{go}"' if go else ""
         return f'<a class="{"on" if cle == actif else ""}"{g}>{icon(ic)}<span>{lib}</span></a>'
     return ('<nav class="mnav">' + it("house", "Accueil", "accueil", "accueil") + it("folder", "Projets", "projets", "projets")
-            + it("clock", "Récents", "recents") + it("layout-grid", "Modules", "modules", "accueil") + "</nav>")
+            + it("layout-grid", "Modules", "modules", "accueil") + it("users", "Équipe", "equipe", "equipe")
+            + it("settings", "Paramètres", "parametres", "parametres") + "</nav>")
 
 
 # le script commun : thème demandé par l'adresse, bouton de thème, liens entre les pages ; ALLER est remplacé par l'aperçu
@@ -184,10 +179,18 @@ SCRIPT_COMMUN = """
   if(q.get('theme')==='dark') root.dataset.theme='dark';
   function sombre(){return root.dataset.theme==='dark'||(!root.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);}
   window.ALLER=window.ALLER||function(p){location.href=p+'.html'+(root.dataset.theme==='dark'?'?theme=dark':'');};
+  var corps=document.body;
   document.addEventListener('click',function(ev){
-    var g=ev.target.closest('[data-go]'); if(g){ev.preventDefault();window.ALLER(g.dataset.go);return;}
+    var g=ev.target.closest('[data-go]'); if(g){ev.preventDefault();corps.classList.remove('show-modules','show-nouvelle');window.ALLER(g.dataset.go);return;}
     var t=ev.target.closest('[data-theme-toggle]'); if(t){root.dataset.theme=sombre()?'light':'dark';}
+    var m=ev.target.closest('[data-modules]'); if(m){corps.classList.toggle('show-modules');return;}
+    if(!ev.target.closest('.modpanel')) corps.classList.remove('show-modules');
+    var n=ev.target.closest('[data-nouvelle]'); if(n){corps.classList.add('show-nouvelle');return;}
+    if(ev.target.closest('[data-fermer-modal]')||ev.target.classList.contains('modal')) corps.classList.remove('show-nouvelle');
+    var o=ev.target.closest('.mopt'); if(o){document.querySelectorAll('.mopt.on').forEach(function(x){x.classList.remove('on');});o.classList.add('on');}
   });
+  if(q.get('modules')) corps.classList.add('show-modules');
+  if(q.get('nouvelle')) corps.classList.add('show-nouvelle');
 })();"""
 
 
@@ -212,7 +215,7 @@ def accueil() -> tuple:
         f'<span>·</span><span>{quand}</span></div></div></a>' for i, (svg, t, ch, ind, quand, e, n) in enumerate(cartes))
     familles = ""
     for cle, nom, mods in FAMILLES:
-        tuiles = "".join(f'<a class="tile"{go("garde-corps" if k == "garde_corps" else "")}><span class="modic {cle}">{MOD[k]}</span>'
+        tuiles = "".join(f'<a class="tile"{go(PAGES_MODULES.get(k, ""))}><span class="modic {cle}">{MOD[k]}</span>'
                          f'<div><b>{esc(n)}</b></div>{pastille_validee(k)}<span class="chev">{icon("chevron-right")}</span></a>'
                          for k, n in mods)
         familles += (f'<div class="fam {cle}"><div class="famhead"><span class="pill {cle}">{nom}</span><span class="muted">{len(mods)} modules</span></div>'
@@ -221,27 +224,24 @@ def accueil() -> tuple:
     choix = '<div class="seg full mfam">' + "".join(
         f'<button data-fam="{cle}" class="{"on" if cle == "beton" else ""}">{nom} · {len(mods)}</button>' for cle, nom, mods in FAMILLES) + "</div>"
     familles = f'{choix}<div class="fams" data-fam="beton">{familles}</div>'
-    sites = [("Réalex", "15 rapports · 4 dossiers", (12, 2, 1)), ("Résidence Les Tilleuls", "8 rapports · Namur", (8, 0, 0)),
-             ("École Saint-Joseph", "11 rapports · Liège", (9, 1, 1)), ("Hall logistique", "6 rapports · Charleroi", (5, 1, 0))]
-    lst = "".join(f'<div class="site"{go("projets" if n == "Réalex" else "")}><span class="ic">{icon("building-2")}</span><div><b>{n}</b><span>{s}</span></div><div class="chips">'
-                  + (f'<span class="chip p">{a}</span>' if a else "") + (f'<span class="chip f">{b}</span>' if b else "") + (f'<span class="chip r">{c}</span>' if c else "")
-                  + "</div></div>" for n, s, (a, b, c) in sites)
+    sites = [("Réalex", "4 dossiers", 15), ("Résidence Les Tilleuls", "2 dossiers", 8), ("École Saint-Joseph", "3 dossiers", 11), ("Hall logistique", "2 dossiers", 6)]
+    lst = "".join(f'<div class="site"{go("projets" if n == "Réalex" else "")}><span class="ic">{icon("building-2")}</span><div><b>{n}</b><span>{s}</span></div>'
+                  f'<span class="nb">{r} rapports</span></div>' for n, s, r in sites)
     feed = [("SM", "a2", "Sophie a diffusé l'<b>indice B</b> de <b>Garde-corps mezzanine</b>", "il y a 2 h"),
             ("TD", "a3", "Thomas a créé <b>Platine d'about P3</b> dans Hall logistique", "hier, 16:40"),
             ("LL", "", "Vous avez exporté <b>Dalle R+1 · zone B</b> en .stab", "hier, 11:05")]
     act = "".join(f'<div class="feed"><span class="avatar sm {c}">{i}</span><div>{t}<span class="when">{w}</span></div></div>' for i, c, t, w in feed)
     mhead = (f'<header class="mhead"><div class="logo">{LOGO}</div><span class="ttl">Stab Méthodes</span><span class="spacer"></span>'
              f'{theme_btn()}<a class="btn icon ghost" title="Notifications">{icon("bell")}</a><span class="avatar">LL</span></header>')
-    corps = (f'<div class="app">{nav("accueil")}<main class="main">{mhead}<div class="page">'
+    corps = (f'<div class="app rail">{rail("accueil")}<main class="main">{mhead}<div class="page">'
              f'<div class="hello"><div><div class="h1">Bonjour</div><div class="sub">Vendredi 6 novembre · 3 rapports en cours, 1 à diffuser</div></div>'
              f'<span class="spacer"></span><div class="bigsearch">{icon("search")}<span>Rechercher un module, un chantier, une note…</span><span class="kbd">Ctrl K</span></div>'
-             f'<a class="btn primary big" title="Nouveau calcul">{icon("plus")}<span class="lbl">Nouveau calcul</span></a></div>'
+             f'<a class="btn primary big" data-nouvelle="1" title="Nouvelle note">{icon("plus")}<span class="lbl">Nouvelle note</span></a></div>'
              f'<div><div class="sechead"><div class="h2">Reprendre</div><a class="btn ghost sm">Tout voir {icon("arrow-up-right")}</a></div>'
              f'<div class="resume">{reprendre}</div><div class="sechead"><div class="h2">Modules</div><span class="okleg">{icon("badge-check")}validé par un administrateur</span></div>{familles}</div>'
-             f'<aside class="side"><div class="card"><div class="sechead"><div class="h3">Chantiers actifs</div><a class="btn ghost sm">{icon("plus")}</a></div>{lst}'
-             f'<div class="legend" style="margin-top:12px">{legende(True)}<span>nombre de rapports</span></div></div>'
+             f'<aside class="side"><div class="card"><div class="sechead"><div class="h3">Chantiers actifs</div><a class="btn ghost sm">{icon("plus")}</a></div>{lst}</div>'
              f'<div class="card"><div class="sechead"><div class="h3">Activité du bureau</div></div>{act}</div></aside>'
-             f'</div>{mnav("accueil")}</main></div>')
+             f'</div>{mnav("accueil")}</main></div>{nouvelle_note()}')
     script = """
 (function(){
   var fams=document.querySelector('.fams');
@@ -251,6 +251,21 @@ def accueil() -> tuple:
   });});
 })();"""
     return "Accueil", corps, script
+
+
+def nouvelle_note() -> str:
+    """« Nouvelle note » : on choisit où la ranger (chantier, dossier), on la nomme, on choisit le module — un seul écran."""
+    opts = ""
+    for cle, nom, mods in FAMILLES:
+        opts += f'<div class="mlabel">{nom}</div>' + "".join(
+            f'<div class="mopt{" on" if k == "poutre" else ""}"><span class="modic {cle}">{MOD[k]}</span><span>{esc(n)}</span>{pastille_validee(k)}</div>'
+            for k, n in mods)
+    return (f'<div class="modal"><div class="mcard"><div class="mh"><span class="h2">Nouvelle note</span>'
+            f'<a class="btn icon ghost" data-fermer-modal="1" title="Fermer">{icon("x")}</a></div><div class="mb">'
+            f'<div class="mrow3"><label>Chantier{sel("Réalex")}</label><label>Dossier{sel("Étude de la dalle")}</label>'
+            f'<label>Nom de la note<div class="field text"><input value="Poutres R+1"></div></label></div>'
+            f'<div class="mgrid">{opts}</div></div>'
+            f'<div class="mf"><a class="btn" data-fermer-modal="1">Annuler</a><a class="btn primary"{go("poutre")}>{icon("plus")}Créer la note</a></div></div></div>')
 
 
 # ---------------------------------------------------------------- les projets
@@ -380,15 +395,26 @@ def equipe() -> tuple:
            f'<span class="muted" style="font-size:12px">Réservé aux administrateurs</span></header>')
     mhead = f'<header class="mhead"><div class="logo">{LOGO}</div><span class="ttl">Équipe</span><span class="spacer"></span></header>'
     corps = (f'<div class="app rail">{rail("equipe")}<main class="main">{top}{mhead}<div class="team"><section class="tmain">{invite}{membres}{validation}</section>'
-             f'{droits}</div>{mnav("")}</main></div>')
+             f'{droits}</div>{mnav("equipe")}</main></div>')
     return "Équipe", corps, ""
 
 
 # ---------------------------------------------------------------- le module garde-corps
-def ligne(label, champ, sym="", aide=False, full=False) -> str:
+def ligne(label, champ, sym="", aide=False, full=False, src="") -> str:
+    """Une ligne de saisie ; ``src`` dit d'où vient la valeur : « bureau » (la valeur des Paramètres, l'état normal : rien
+    ne s'affiche) ou « modifié:<valeur du bureau> » (changée pour cette note seulement : le champ porte « modifié » et la
+    valeur du bureau reste écrite en dessous)."""
     s = f'<span class="sym">{sym}</span>' if sym else ""
     a = icon("info") if aide else ""
-    return f'<div class="row{" full" if full else ""}"><label>{s}<span>{label}</span>{a}</label>{champ}</div>'
+    tag, origine = "", ""
+    if src.startswith("modifié:"):
+        bureau = src.split(":", 1)[1]
+        tag = '<span class="src mod" title="Changé pour cette note seulement">modifié</span>'
+        champ = f'<div class="avec-bureau">{champ}<span class="was">bureau : {bureau}</span></div>'
+        origine = ' data-src="modifie"'
+    elif src:
+        origine = ' data-src="bureau"'
+    return f'<div class="row{" full" if full else ""}"{origine}><label>{s}<span>{label}</span>{a}{tag}</label>{champ}</div>'
 
 
 def num(v, u, locked=False, focus=False) -> str:
@@ -417,80 +443,189 @@ def symb_math(s: str) -> str:
     return re.sub(r"([A-Za-zσητγ])_([A-Za-z0-9éèàùστη]+(?:,[A-Za-z0-9éèàù]+)*)", r"\1<sub>\2</sub>", esc(s))
 
 
-def element(e, gouv: bool) -> str:
-    """Une ligne du résultat : le nom et le taux, le profilé (un clic ouvre le sélecteur), la jauge ; le détail
-    (critère, cas, l'optimal, « Voir le calcul ») s'ouvre au clic — ouvert d'emblée pour l'élément qui gouverne."""
-    gc = D["gc"]
-    cle, nom, spec = e["cle"], e["nom"], e["section"]
-    if not spec:
-        if nom.startswith("Platine "):
-            nom, spec = "Platine", nom[len("Platine "):]
-        else:
-            spec = e["desc"].replace("cordon d'angle ", "").replace(" chevilles", "")
-    prof = (f'<button class="prof" data-pk="{cle}" title="Choisir le profilé"><span>{esc(spec)}</span>{icon("chevron-down")}</button>'
-            if cle in gc["selecteurs"] else f'<span class="prof"><span>{esc(spec)}</span></span>')
-    parts = [court(x) for x in (e["critere"], e["cas"]) if x]
-    acts = ""
-    o = gc["optimaux"].get(cle)
-    if o and not o["retenu"]:
-        acts += (f'<button class="opt" data-pk="{cle}" title="Le plus léger qui tient">{icon("star")}<span>{esc(o["nom"])}</span>'
-                 f'<span class="pct {o["niveau"]}">{o["taux"]}{NBSP}%</span></button>')
-    if cle in gc["calculs"]:
-        acts += f'<button class="btn sm" data-calcul="{cle}">{icon("calculator")}Voir le calcul</button>'
-    more = f'<div class="more"><div class="why">{symb(" · ".join(parts))}</div>' + (f'<div class="acts">{acts}</div>' if acts else "") + "</div>"
-    return (f'<div class="el{" gov open" if gouv else ""}" data-el="{cle}"><div class="l1"><b>{esc(nom)}</b>'
-            f'<span class="pct {e["niveau"]}">{e["taux"]}{NBSP}%</span></div><div class="l2">{prof}</div>'
-            f'<div class="bar"><b class="{e["niveau"]}" style="width:{min(e["taux"], 100)}%"></b></div>{more}</div>')
+def pc(t) -> str:
+    """Un taux tel qu'il s'affiche : entier, ou une décimale à la française."""
+    return f"{t:.1f}".replace(".", ",") if isinstance(t, float) and t != int(t) else f"{int(t)}"
 
 
-def selecteur_html(cle: str, titre: str, lst: list) -> str:
-    """Le sélecteur de profilés : trié par masse, le retenu (✓) et l'optimal (★) marqués ; la liste démarre quatre
-    rangs au-dessus de l'optimal et la molette la fait défiler."""
-    i_o = next((i for i, r in enumerate(lst) if r["optimal"]), 0)
+def nb(x, dec: int = 3) -> str:
+    """Une valeur (coefficient, dimension, résistance) écrite à la française, SANS autre arrondi que ``dec`` décimales :
+    1,25 reste 1,25 et 12,96 reste 12,96. ``pc`` est réservé aux taux — il arrondit à une décimale et ferait de
+    γ_M2 = 1,25 un « 1,2 ». Le chiffre affiché est relu et comparé à la valeur : un écart arrête la construction."""
+    s = f"{x:.{dec}f}".rstrip("0").rstrip(".")
+    assert abs(float(s) - x) <= 0.5 * 10 ** -dec + 1e-12, (x, s)
+    return s.replace(".", ",")
+
+
+def ligne_res(nom: str, piece: str, taux, niv: str, calcul: str = "", pk: str = "", gov: bool = False, leger: str = "") -> str:
+    """Une vérification du résultat, sur DEUX lignes : le nom et la pièce, puis la jauge et le taux. La ligne entière ouvre
+    le calcul détaillé ; la pièce, quand elle se choisit (profilé, armatures), ouvre le sélecteur. Composant commun à
+    tous les modules (``piece`` est déjà du HTML)."""
+    etoile = f'<span class="leger" title="{esc(leger)}">{icon("star")}</span>' if leger else ""
+    if pk:
+        p = f'<button class="prof" data-pk="{pk}" title="Choisir">{etoile}<span>{piece}</span>{icon("chevron-down")}</button>'
+    else:
+        p = f'<span class="prof"><span>{piece}</span></span>'
+    ouvre = f' data-calcul="{calcul}" title="Voir le calcul"' if calcul else ""
+    txt = f"{pc(taux)}{NBSP}%" if taux is not None else "à compléter"
+    return (f'<div class="el{" gov" if gov else ""}"{ouvre}><div class="l1"><b>{esc(nom)}</b>{p}</div>'
+            f'<div class="l2"><div class="bar"><b class="{niv}" style="width:{min(taux or 0, 100)}%"></b></div><span class="pct {niv}">{txt}</span></div></div>')
+
+
+def lignes_fx(lignes: list) -> str:
+    """Les lignes « symbole = formule = valeurs = résultat » d'un groupe (les taux en pastille de couleur)."""
+    out = ""
+    for li in lignes:
+        parts = li["parts"]
+        h = f'<span class="s">{symb_math(parts[0])}</span>' + "".join(f'<span class="eq">=</span><span>{symb_math(p)}</span>' for p in parts[1:])
+        res = f'<span class="chip {li["niveau"]}">{esc(li["res"])}</span>' if li["niveau"] else f'<span class="r">{esc(li["res"])}</span>'
+        out += f'<div class="fx">{h}<span class="eq">=</span>{res}</div>'
+    return out
+
+
+def fenetre_calcul(ident: str, titre: str, sous_titre: str, hyps: list, lignes: list, detail: str, pied: str = "") -> str:
+    """La grande fenêtre de calcul, LA MÊME pour tous les modules : les hypothèses, un tableau (vérification, formule,
+    valeur, limite, taux aligné à droite), puis le détail des formules sur deux colonnes."""
+    hyp = "".join(f"<span>{h}</span>" for h in hyps)
     rows = "".join(
-        f'<button class="pk-row{" cur" if r["retenue"] else ""}{" opt" if r["optimal"] else ""}" data-nom="{esc(r["nom"])}">'
-        f'<span class="mk">{icon("check") if r["retenue"] else (icon("star") if r["optimal"] else "")}</span>'
-        f'<span class="nm">{esc(r["nom"])}</span><span class="kg">{kg(r["kgm"])}</span>{chip(r["eta"], r["niveau"])}</button>' for r in lst)
-    fams = {"montant": [("RHS", True), ("SHS", False), ("CHS", False)], "lisse": [("RHS", True), ("SHS", False), ("CHS", False)],
-            "barreau": [("Plats", True), ("Ronds", True), ("Carrés", False)]}[cle]
-    froid = cle == "montant"
-    chips = "".join(f'<span class="fchip{" on" if on else ""}">{f}</span>' for f, on in fams)
-    chips += f'<span class="fchip{" on" if froid else ""}">{icon("check") if froid else ""}Formés à froid</span>'
-    return (f'<div class="flyout picker" id="pk-{cle}" data-debut="{max(0, i_o - 4)}"><div class="fl-h"><div><b>{titre}</b>'
-            f'<span>triés par masse · la molette fait défiler</span></div><button class="pcoll" data-fermer="1" title="Fermer">{icon("x")}</button></div>'
-            f'<div class="filters">{chips}</div><div class="pk-list">{rows}</div>'
-            f'<div class="fl-foot"><span>{icon("check")}retenu</span><span>{icon("star")}le plus léger qui tient</span><span>kg/m · taux η</span></div></div>')
+        f'<tr class="{"gov" if li.get("gov") else ""}"><td class="nm">{li["nom"]}{("<span>" + li["sous"] + "</span>") if li.get("sous") else ""}</td>'
+        f'<td class="fo">{li["formule"]}</td><td class="n v">{li["valeur"]}</td><td class="n">{li["limite"]}</td>'
+        f'<td class="n">{chip(pc(li["taux"]), li["niveau"])}</td></tr>' for li in lignes)
+    table = (f'<table class="vtab"><thead><tr><th>Vérification</th><th class="fo">Formule</th><th class="n">Valeur</th><th class="n">Limite</th>'
+             f'<th class="n">Taux</th></tr></thead><tbody>{rows}</tbody></table>')
+    return (f'<div class="flyout calcul" id="ck-{ident}"><div class="fl-h"><div><b>{titre}</b><span>{sous_titre}</span></div>'
+            f'<button class="pcoll" data-fermer="1" title="Fermer">{icon("x")}</button></div><div class="ck-hyp">{hyp}</div>'
+            f'<div class="ck-body">{table}<div class="ck-sub">Le détail du calcul</div><div class="ck-cols">{detail}</div>{pied}</div></div>')
 
 
-def calcul_html(cle: str, titre: str, section: str, c: dict) -> str:
-    """« Voir le calcul » : les formules du moteur, comme la note les imprime — symbole = formule = valeurs = résultat."""
-    groupes = ""
-    for g in c["groupes"]:
-        lignes = ""
-        for li in g["lignes"]:
-            parts = li["parts"]
-            h = f'<span class="s">{symb_math(parts[0])}</span>' + "".join(f'<span class="eq">=</span><span>{symb_math(p)}</span>' for p in parts[1:])
-            res = f'<span class="chip {li["niveau"]}">{esc(li["res"])}</span>' if li["niveau"] else f'<span class="r">{esc(li["res"])}</span>'
-            lignes += f'<div class="fx">{h}<span class="eq">=</span>{res}</div>'
-        groupes += f'<div class="ck-g"><div class="ck-t">{esc(g["titre"])}</div>{lignes}</div>'
-    autres = f'<div class="ck-autres">Autres cas : {symb_math(c["autres"])}</div>' if c["autres"] else ""
-    return (f'<div class="flyout calcul" id="ck-{cle}"><div class="fl-h"><div><b>{titre} · {esc(section)}</b>'
-            f'<span>{symb_math(c["cas"])} · les formules de la note</span></div><button class="pcoll" data-fermer="1" title="Fermer">{icon("x")}</button></div>'
-            f'<div class="ck-body">{groupes}{autres}</div></div>')
+def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: list, debut: int, unite: str) -> str:
+    """Le sélecteur, LE MÊME pour les profilés et les armatures : trié par ordre de grandeur, le retenu (✓) et l'optimal
+    (★, le plus léger qui tient) marqués, la molette fait défiler, un clic choisit ; sous la liste, les propriétés de la
+    ligne survolée (norme, sections, inerties) disent d'où viennent les écarts de taux."""
+    lignes = "".join(
+        f'<button class="pk-row{" cur" if r["cur"] else ""}{" opt" if r["opt"] else ""}" data-nom="{esc(r["nom"])}" data-prop="{esc(r.get("prop", ""))}">'
+        f'<span class="mk">{icon("check") if r["cur"] else (icon("star") if r["opt"] else "")}</span>'
+        f'<span class="nm">{esc(r["nom"])}</span><span class="kg">{r["col"]}</span>{chip(pc(r["taux"]), r["niveau"])}</button>' for r in rows)
+    prop0 = next((r.get("prop", "") for r in rows if r["cur"]), "")
+    return (f'<div class="flyout picker" id="pk-{ident}" data-debut="{debut}"><div class="fl-h"><div><b>{titre}</b><span>{sous_titre}</span></div>'
+            f'<button class="pcoll" data-fermer="1" title="Fermer">{icon("x")}</button></div><div class="filters">{filtres}</div>'
+            f'<div class="pk-list">{lignes}</div><div class="pk-prop">{prop0}</div>'
+            f'<div class="fl-foot"><span>{icon("check")}retenu</span><span>{icon("star")}le plus léger qui tient</span><span>{unite} · taux</span></div></div>')
+
+
+# le script commun à tous les établis : vues du dessin, onglets du téléphone, cadres repliables, volets (sélecteur et
+# grande fenêtre de calcul) ; ?vue= ?tab= ?replie=1 ?profils=1 ?calcul=<élément>|1 rejouent un état pour les captures
+SCRIPT_ETABLI = """
+(function(){
+var q=new URLSearchParams(location.search), tel=matchMedia('(max-width: 700px)');
+// chaque établi est câblé pour lui-même : l'aperçu en une page en porte plusieurs (garde-corps, poutre)
+document.querySelectorAll('.bench').forEach(function(bench){
+  var main=bench.closest('.main')||document;
+  function vue(k){bench.querySelectorAll('[data-vue]').forEach(function(e){e.classList.toggle('on',e.dataset.vue===k);});}
+  bench.querySelectorAll('.ctool [data-vue]').forEach(function(e){e.addEventListener('click',function(){vue(e.dataset.vue);});});
+  function tab(t){bench.dataset.tab=t;main.querySelectorAll('.mtabs button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===t);});}
+  main.querySelectorAll('.mtabs button').forEach(function(b){b.addEventListener('click',function(){tab(b.dataset.tab);});});
+  // les cadres se replient pour rendre la largeur au dessin
+  bench.querySelectorAll('[data-coll]').forEach(function(b){b.addEventListener('click',function(){bench.classList.toggle(b.dataset.coll==='g'?'sans-g':'sans-d');});});
+  // les volets : le sélecteur à hauteur de sa ligne, la grande fenêtre de calcul en haut ; au téléphone, ils montent du bas
+  function fermer(){bench.querySelectorAll('.flyout.on').forEach(function(f){f.classList.remove('on');});bench.querySelectorAll('.el.sel').forEach(function(e){e.classList.remove('sel');});bench.classList.remove('fly');}
+  function ouvrir(id,ancre){
+    fermer(); var f=document.getElementById(id); if(!f) return;
+    f.classList.add('on'); bench.classList.add('fly');
+    if(ancre&&ancre.classList.contains('el')) ancre.classList.add('sel');
+    if(!tel.matches&&ancre&&!f.classList.contains('calcul')){var b=bench.getBoundingClientRect(),a=ancre.getBoundingClientRect();
+      f.style.top=Math.max(10,Math.min(a.top-b.top-12,b.height-f.offsetHeight-10))+'px';}
+    var l=f.querySelector('.pk-list'); if(l){var r=l.querySelector('.pk-row'); l.scrollTop=(r?r.offsetHeight:34)*(+f.dataset.debut||0);}
+  }
+  bench.querySelectorAll('[data-pk]').forEach(function(b){b.addEventListener('click',function(ev){ev.stopPropagation();ouvrir('pk-'+b.dataset.pk,b.closest('.el')||b);});});
+  // la ligne ENTIÈRE ouvre le calcul détaillé
+  bench.querySelectorAll('[data-calcul]').forEach(function(b){b.addEventListener('click',function(ev){ev.stopPropagation();ouvrir('ck-'+b.dataset.calcul,b);});});
+  bench.querySelectorAll('[data-fermer]').forEach(function(b){b.addEventListener('click',fermer);});
+  document.addEventListener('click',function(ev){if(!ev.target.closest('.flyout,[data-pk],[data-calcul]')) fermer();});
+  // le sélecteur : survoler une ligne montre ses propriétés, cliquer la retient (le site relance le calcul)
+  bench.querySelectorAll('.picker').forEach(function(p){var pr=p.querySelector('.pk-prop');p.querySelectorAll('.pk-row').forEach(function(r){
+    r.addEventListener('mouseenter',function(){if(pr) pr.innerHTML=r.dataset.prop;});
+    r.addEventListener('click',function(){p.querySelectorAll('.pk-row.cur').forEach(function(x){x.classList.remove('cur');});r.classList.add('cur');
+      var b=bench.querySelector('.prof[data-pk="'+p.id.slice(3)+'"] span'); if(b) b.textContent=r.dataset.nom;});
+  });});
+  tab(q.get('tab')||'donnees'); if(q.get('vue')) vue(q.get('vue'));
+  if(q.get('replie')) bench.classList.add('sans-g','sans-d');
+  if(q.get('profils')) ouvrir('pk-'+bench.dataset.pk0,bench.querySelector('.prof[data-pk="'+bench.dataset.pk0+'"]').closest('.el'));
+  var c=q.get('calcul'); if(c){c=(c==='1'?bench.dataset.ck0:c); ouvrir('ck-'+c,bench.querySelector('.el[data-calcul="'+c+'"]'));}
+});
+})();"""
+
+
+def feuilles_dessin(vues: list, defaut: str, cartouche: str) -> str:
+    """La toile : les onglets des vues (sans vignettes en double), la feuille avec son cartouche, le zoom."""
+    tabs = "".join(f'<button data-vue="{v["cle"]}" class="{"on" if v["cle"] == defaut else ""}">{v["court"]}</button>' for v in vues)
+    feuilles = "".join(
+        f'<div class="view{" on" if v["cle"] == defaut else ""}" data-vue="{v["cle"]}"><div class="sheet"><div class="stitle"><b>{esc(v["titre"].upper())}</b>'
+        f'<span>{v.get("legende", "")}</span><span class="scale">mm · à l\'échelle</span></div><div class="draw">{v["svg"]}</div>{cartouche}</div></div>'
+        for v in vues)
+    return (f'<section class="canvas"><div class="ctool"><div class="seg">{tabs}</div><div class="zoom"><button>{icon("minus")}</button><span>100 %</span>'
+            f'<button>{icon("plus")}</button><button>{icon("maximize-2")}</button></div></div><div class="stage">{feuilles}</div></section>')
+
+
+def cartouche(rapport: str, chantier: str, indice: str) -> str:
+    return (f'<div class="cart"><div><span>Rapport</span><b>{rapport}</b></div><div><span>Chantier</span><b>{chantier}</b></div>'
+            f'<div><span>Indice</span><b>{indice}</b></div><div><span>Date</span><b>06/11/2026</b></div><div class="mark"><i></i>Stab Méthodes</div></div>')
+
+
+def barre_haut(chemin: list, titre: str, indice: str, etat: tuple, module_cle: str) -> str:
+    """La barre du haut d'un module : le fil d'Ariane (chaque partie cliquable), l'indice et son statut, la pastille de
+    validation du module, puis les actions : indices, .stab, imprimer, note PDF."""
+    fil = "".join(f'<span{go(cible)}>{esc(nom)}</span>{icon("chevron-right")}' for nom, cible in chemin)
+    if module_cle in VALIDES:
+        qui, quand = VALIDES[module_cle]
+        val = f'<span class="valid ok" title="Validé par {qui} le {quand}">{icon("badge-check")}Module validé</span>'
+    else:
+        val = f'<span class="valid non" title="Pas encore validé par un administrateur">{icon("shield-check")}Module à valider</span>'
+    return (f'<header class="top"><div class="crumbs">{icon("folder")}{fil}<b>{esc(titre)}</b></div><span class="indice">{indice}</span>'
+            f'<span class="tag {etat[0]} menu" title="Brouillon, diffusé ou old"><span class="dot"></span>{etat[1]}{icon("chevron-down")}</span>{val}'
+            f'<span class="spacer"></span><span class="saved">{icon("circle-check")}<span class="txt">Enregistré il y a 2 min</span></span>'
+            f'<span class="avstack"><span class="avatar sm">LL</span><span class="avatar sm a2">SM</span></span>'
+            f'<a class="btn ghost">{icon("history")}Indices</a><a class="btn">{icon("download")}.stab</a>'
+            f'<a class="btn" title="Imprimer la note">{icon("printer")}Imprimer</a><a class="btn primary">{icon("file-down")}Note PDF</a></header>')
+
+
+def elements_rapport(items: list, ajout: str) -> str:
+    """« Dans ce rapport » : les éléments de la note, de PLUSIEURS modules, groupés par module — on passe de l'un à
+    l'autre comme d'un calque à l'autre. ``items`` : [(module, [(nom, détail, taux|None, niveau, actif, cible)])]."""
+    corps, n = "", 0
+    for mod_cle, liste in items:
+        fam = next(c for c, _, ms in FAMILLES if any(k == mod_cle for k, _ in ms))
+        nom_mod = next(nm for c, _, ms in FAMILLES for k, nm in ms if k == mod_cle)
+        corps += f'<div class="nl-mod">{esc(nom_mod)}</div>'
+        for nom, det, taux, niv, actif, cible in liste:
+            n += 1
+            t = f"{pc(taux)}{NBSP}%" if taux is not None else "à compléter"
+            corps += (f'<div class="ni{" on" if actif else ""}"{go(cible)}><span class="modic {fam}">{MOD[mod_cle]}</span>'
+                      f'<span class="t">{esc(nom)} <span>· {esc(det)}</span></span><span class="pct {niv}">{t}</span></div>')
+    return (f'<div class="notelist"><div class="nl-h"><span class="kicker">Dans ce rapport · {n}</span></div>{corps}'
+            f'<div class="nl-add">{icon("plus")}{ajout}</div></div>')
+
+
+def etabli(rail_actif: str, top: str, mtop: str, donnees: str, dessin: str, resultat: str, volets: str, pk0: str, ck0: str) -> str:
+    mtabs = f'<div class="mtabs"><div class="seg full"><button data-tab="donnees">Données</button><button data-tab="dessin">Dessin</button><button data-tab="resultat">Résultat</button></div></div>'
+    mbar = f'<div class="mbar"><a class="btn">{icon("history")}Indices</a><a class="btn primary">{icon("file-down")}Note PDF</a></div>'
+    return (f'<div class="app rail">{rail(rail_actif)}<main class="main">{top}{mtop}{mtabs}'
+            f'<div class="bench" data-tab="donnees" data-pk0="{pk0}" data-ck0="{ck0}">{dessin}<section class="panel left">{donnees}</section>'
+            f'<section class="panel right">{resultat}</section>{volets}</div>{mbar}</main></div>')
 
 
 def module() -> tuple:
     gc = D["gc"]
-    vues = gc["vues"]
+    dft = D["gc_defauts"]
+    nuance = dft["nuance"]
     courts = {"elevation": "Élévation", "coupe": "Coupe A-A", "plan": "Plan", "platine": "Platine", "pied": "Fixation", "section": "Section"}
     legendes = {"elevation": f'{esc(gc["type"])} · {esc(gc["phrase"])}', "coupe": "dans l'axe d'un montant", "plan": "vue de dessus",
                 "platine": "platine sur la dalle, vue de dessus", "pied": "coupe à grande échelle, efforts du cas gouvernant", "section": "élément principal"}
-    # les garde-corps de la note, chacun vérifié par le moteur : on passe de l'un à l'autre comme d'un calque à l'autre
-    note = [("Façade", "barreaudage", gc, True), ("Nez de dalle", "platine latérale", D["gc_lat"], False), ("Retour en L", "lisses", D["gc_L"], False)]
-    items = "".join(f'<div class="ni{" on" if on else ""}"><span class="modic autres">{MOD["garde_corps"]}</span>'
-                    f'<span class="t">{n} <span>· {s}</span></span><span class="pct {d["niveau"]}">{d["eta"]}{NBSP}%</span></div>' for n, s, d, on in note)
-    notelist = (f'<div class="notelist"><div class="nl-h"><span class="kicker">Dans cette note · {len(note)}</span></div>{items}'
-                f'<div class="nl-add">{icon("plus")}Ajouter un garde-corps</div></div>')
+    vues = [dict(v, court=courts.get(v["cle"], v["titre"]), legende=legendes.get(v["cle"], "")) for v in gc["vues"]]
+    # les éléments du rapport (chacun vérifié par le moteur)
+    items = [("garde_corps", [("G1 Façade", "barreaudage", gc["eta"], gc["niveau"], True, ""),
+                              ("G2 Nez de dalle", "platine latérale", D["gc_lat"]["eta"], D["gc_lat"]["niveau"], False, ""),
+                              ("G3 Retour en L", "lisses", D["gc_L"]["eta"], D["gc_L"]["niveau"], False, "")])]
     # les données
     s1 = (ligne("Type", sel("Barreaudage vertical"), full=True) + ligne("Forme", seg(["Droit", "En L", "En U"], "Droit"), full=True)
           + ligne("Hauteur", num(f"1{NBSP}100", "mm", focus=True), "H", True) + ligne("Pente", num("0", "°"), "α"))
@@ -503,101 +638,81 @@ def module() -> tuple:
           + '<div class="hint">Quatre cas distincts : <b>chaque charge agit seule</b>. q<sub>h</sub> suit la catégorie, EN 1991-1-1 Tab. 6.12.</div>')
     donnees = (f'<div class="phead"><span class="h3">Données</span>{seg(["ELS", "Eurocode"], "ELS", full=False)}'
                f'<button class="pcoll" data-coll="g" title="Replier les données">{icon("panel-left")}</button></div>'
-               f'<div class="pbody">{notelist}'
+               f'<div class="pbody">{elements_rapport(items, "Ajouter un élément")}'
                + section(1, "Garde-corps", "", s1, True)
                + section(2, "Tronçons", "3,60 m · 4 × 0,90 m")
                + section(3, "Remplissage", "barreaux · e 110 mm")
                + section(4, "Charges", "", s4, True)
                + section(5, "Fixation", "platine · 4 chevilles M12")
-               + section(6, "Méthode", "S235 · flèche L/100") + "</div>")
-    # le dessin
-    tabs = "".join(f'<button data-vue="{v["cle"]}" class="{"on" if v["cle"] == "elevation" else ""}">{courts.get(v["cle"], v["titre"])}</button>' for v in vues)
-    feuilles = "".join(
-        f'<div class="view{" on" if v["cle"] == "elevation" else ""}" data-vue="{v["cle"]}"><div class="sheet"><div class="stitle"><b>{esc(v["titre"].upper())}</b>'
-        f'<span>{legendes.get(v["cle"], "")}</span><span class="scale">mm · à l\'échelle</span></div><div class="draw">{v["svg"]}</div>'
-        f'<div class="cart"><div><span>Rapport</span><b>Garde-corps terrasse R+1</b></div><div><span>Chantier</span><b>Réalex</b></div>'
-        f'<div><span>Indice</span><b>C</b></div><div><span>Date</span><b>06/11/2026</b></div><div class="mark"><i></i>Stab Méthodes</div></div></div></div>'
-        for v in vues)
-    minis = "".join(f'<div class="mini{" on" if v["cle"] == "elevation" else ""}" data-vue="{v["cle"]}"><div class="pic">{v["mini"]}</div>'
-                    f'<span>{courts.get(v["cle"], v["titre"])}</span></div>' for v in vues)
-    dessin = (f'<section class="canvas"><div class="ctool"><div class="seg">{tabs}</div><div class="zoom"><button>{icon("minus")}</button><span>100 %</span>'
-              f'<button>{icon("plus")}</button><button>{icon("maximize-2")}</button></div></div>'
-              f'<div class="stage">{feuilles}</div><div class="strip">{minis}</div></section>')
-    # le résultat
+               + section(6, "Méthode", f"{nuance} · flèche L/{int(dft['fleche_val'])} · bureau") + "</div>")
+    dessin = feuilles_dessin(vues, "elevation", cartouche("Garde-corps terrasse R+1", "Réalex", "C"))
+    # le résultat : une ligne par vérification, sur deux lignes ; la ligne entière ouvre le calcul
     gouv = gc["gouvernant"].split(" · ")[0]
-    els = "".join(element(e, e["nom"] == gouv) for e in gc["elements"])
+    cal = {"montant": "montant", "lisse": "lisse", "barreau": "barreau", "soudure": "soudure", "ancrage": "platine", "platine": "platine"}
+    rows = ""
+    for e in gc["elements"]:
+        # la nuance est la même pour tous les éléments : elle est dans « Méthode » et en tête du calcul, pas sur chaque ligne
+        nom, piece = e["nom"], e["section"]
+        if piece:
+            pass
+        elif nom.startswith("Platine "):
+            nom, piece = "Platine", nom[len("Platine "):]
+        else:
+            piece = e["desc"].replace("cordon d'angle ", "gorge ").replace(" chevilles", "")
+        o = gc["optimaux"].get(e["cle"])
+        leger = f"Plus léger qui tient : {o['nom']} · {o['taux']} %" if o and not o["retenu"] else ""
+        rows += ligne_res(nom, esc(piece), e["taux"], e["niveau"], calcul=cal.get(e["cle"], ""),
+                          pk=e["cle"] if e["cle"] in gc["selecteurs"] else "", gov=e["nom"] == gouv, leger=leger)
     resultat = (f'<div class="phead"><span class="h3">Résultat</span>{statut(gc["niveau"])}'
                 f'<button class="pcoll" data-coll="d" title="Replier le résultat">{icon("panel-right")}</button></div>'
                 f'<div class="pbody"><div class="verdict">{chip(gc["eta"], gc["niveau"], xl=True)}<div class="gov"><b>{esc(gouv)}</b>'
-                f'{esc(gc["critere"])} · {symb(gc["elements"][0]["cas"])}</div></div><div class="els">{els}</div></div>'
+                f'{esc(gc["critere"])} · {symb(gc["elements"][0]["cas"])}</div></div><div class="els">{rows}</div></div>'
                 f'<div class="pfoot"><div class="mass"><span>Masse indicative de l\'acier</span><b>{gc["masse"]}{NBSP}kg</b></div>'
                 f'<div class="legend">{legende()}</div></div>')
-    # les volets : un sélecteur par élément à profilé, un calcul par élément calculé
+    # les volets : un sélecteur par élément à profilé, une grande fenêtre de calcul par élément calculé
     noms = {e["cle"]: e["nom"] for e in gc["elements"]}
     secs = {e["cle"]: e["section"] for e in gc["elements"]}
-    volets = "".join(selecteur_html(k, f'{noms.get(k, k)} · profilé', lst) for k, lst in gc["selecteurs"].items())
-    volets += "".join(calcul_html(k, noms.get(k, k), secs.get(k, ""), c) for k, c in gc["calculs"].items())
-    top = (f'<header class="top"><div class="crumbs">{icon("folder")}<span{go("projets")}>Réalex</span>{icon("chevron-right")}<span{go("projets")}>Garde-corps</span>{icon("chevron-right")}'
-           f'<b>Garde-corps terrasse R+1</b></div><span class="indice">C</span>'
-           f'<span class="tag draft menu" title="Brouillon, diffusé ou old"><span class="dot"></span>Brouillon{icon("chevron-down")}</span>'
-           f'<span class="valid non" title="Pas encore validé par un administrateur">{icon("shield-check")}Module à valider</span>'
-           f'<span class="spacer"></span><span class="saved">{icon("circle-check")}<span class="txt">Enregistré il y a 2 min</span></span>'
-           f'<span class="avstack"><span class="avatar sm">LL</span><span class="avatar sm a2">SM</span></span>'
-           f'<a class="btn ghost">{icon("history")}Indices</a><a class="btn">{icon("download")}.stab</a>'
-           f'<a class="btn" title="Imprimer la note">{icon("printer")}Imprimer</a><a class="btn primary">{icon("file-down")}Note PDF</a></header>')
+    familles = {"montant": ["RHS", "SHS", "CHS"], "lisse": ["RHS", "SHS", "CHS"], "barreau": ["Plats", "Ronds", "Carrés"]}
+    volets = ""
+    for k, lst in gc["selecteurs"].items():
+        i_o = next((i for i, r in enumerate(lst) if r["optimal"]), 0)
+        filtres = "".join(f'<span class="fchip{" on" if j == 0 or (k == "barreau" and j == 1) else ""}">{f}</span>' for j, f in enumerate(familles[k]))
+        filtres += f'<span class="fchip{" on" if k == "montant" else ""}">{icon("check") if k == "montant" else ""}Formés à froid</span>'
+        rows_pk = [{"nom": r["nom"], "col": kg(r["kgm"]), "taux": r["eta"], "niveau": r["niveau"], "cur": r["retenue"], "opt": r["optimal"],
+                    "prop": r["prop"]} for r in lst]
+        volets += selecteur(k, f"{noms.get(k, k)} · profilé", "triés par masse · la molette fait défiler", filtres, rows_pk, max(0, i_o - 4), "kg/m")
+    hyps = [f"Acier <b>{nuance}</b> · f<sub>y</sub> = {pc(gc['fy'])} N/mm²", f"Méthode <b>ELS</b> · σ<sub>adm</sub> = f<sub>y</sub> / {pc(dft['gamma_adm'])}",
+            f"Flèche ≤ <b>L/{int(dft['fleche_val'])}</b>"]
+    titres = {"montant": f"{noms['montant']} · {secs['montant']}", "lisse": f"{noms['lisse']} · {secs['lisse']}",
+              "barreau": f"{noms['barreau']} · {secs['barreau']}", "platine": "Fixation · platine et ancrages", "soudure": "Soudure du montant sur la platine"}
+    for k, c in gc["calculs"].items():
+        lignes = [{"nom": r["verif"], "formule": (f"{symb_math(r['sym'])} = {symb_math(r['formule'])}" if r["formule"] else symb_math(r["sym"])),
+                   "valeur": r["valeur"], "limite": (f"{symb_math(r['sym_lim'])} = " if r["sym_lim"] else "") + r["limite"],
+                   "taux": r["taux"], "niveau": r["niveau"], "gov": i == 0} for i, r in enumerate(gc["tableau"].get(k, []))]
+        detail = "".join(f'<div class="ck-g"><div class="ck-t">{esc(g["titre"])}</div>{lignes_fx(g["lignes"])}</div>' for g in c["groupes"])
+        pied = f'<div class="ck-autres">Autres cas : {symb_math(c["autres"])}</div>' if c["autres"] else ""
+        sous = f"{symb_math(c['cas'])} · les formules de la note" if c["cas"] else "les formules de la note"
+        volets += fenetre_calcul(k, titres.get(k, k), sous, hyps, lignes, detail, pied)
+    top = barre_haut([("Réalex", "projets"), ("Garde-corps", "projets")], "Garde-corps terrasse R+1", "C", ("draft", "Brouillon"), "garde_corps")
     mtop = (f'<header class="mtop"><a class="btn icon ghost"{go("projets")} title="Retour aux projets">{icon("arrow-left")}</a><div class="t"><b>Garde-corps terrasse R+1</b><span>Réalex · indice C · brouillon</span></div>'
             f'{chip(gc["eta"], gc["niveau"])}</header>')
-    mtabs = f'<div class="mtabs"><div class="seg full"><button data-tab="donnees">Données</button><button data-tab="dessin">Dessin</button><button data-tab="resultat">Résultat</button></div></div>'
-    mbar = f'<div class="mbar"><a class="btn">{icon("history")}Indices</a><a class="btn primary">{icon("file-down")}Note PDF</a></div>'
-    corps = (f'<div class="app rail">{rail("garde_corps")}<main class="main">{top}{mtop}{mtabs}'
-             f'<div class="bench" data-tab="donnees">{dessin}<section class="panel left">{donnees}</section>'
-             f'<section class="panel right">{resultat}</section>{volets}</div>{mbar}</main></div>')
-    script = """
-(function(){
-  var q=new URLSearchParams(location.search), bench=document.querySelector('.bench'), tel=matchMedia('(max-width: 700px)');
-  function vue(k){document.querySelectorAll('[data-vue]').forEach(function(e){e.classList.toggle('on',e.dataset.vue===k);});}
-  document.querySelectorAll('[data-vue]').forEach(function(e){e.addEventListener('click',function(){vue(e.dataset.vue);});});
-  function tab(t){bench.dataset.tab=t;document.querySelectorAll('.mtabs button').forEach(function(b){b.classList.toggle('on',b.dataset.tab===t);});}
-  document.querySelectorAll('.mtabs button').forEach(function(b){b.addEventListener('click',function(){tab(b.dataset.tab);});});
-  // les cadres se replient pour rendre la largeur au dessin
-  document.querySelectorAll('[data-coll]').forEach(function(b){b.addEventListener('click',function(){bench.classList.toggle(b.dataset.coll==='g'?'sans-g':'sans-d');});});
-  // une ligne du résultat s'ouvre au clic, une seule à la fois
-  document.querySelectorAll('.el').forEach(function(el){el.addEventListener('click',function(ev){
-    if(ev.target.closest('[data-pk],[data-calcul]')) return;
-    var ouvert=el.classList.contains('open');
-    document.querySelectorAll('.el.open').forEach(function(x){x.classList.remove('open');});
-    if(!ouvert) el.classList.add('open');
-  });});
-  // les volets : à côté du résultat, à hauteur de la ligne ; au téléphone, ils montent du bas
-  function fermer(){document.querySelectorAll('.flyout.on').forEach(function(f){f.classList.remove('on');});bench.classList.remove('fly');}
-  function ouvrir(id,ancre){
-    fermer(); var f=document.getElementById(id); if(!f) return;
-    f.classList.add('on'); bench.classList.add('fly');
-    if(!tel.matches&&ancre){var b=bench.getBoundingClientRect(),a=ancre.getBoundingClientRect();
-      f.style.top=Math.max(14,Math.min(a.top-b.top-12,b.height-f.offsetHeight-14))+'px';}
-    var l=f.querySelector('.pk-list'); if(l){var r=l.querySelector('.pk-row'); l.scrollTop=(r?r.offsetHeight:34)*(+f.dataset.debut||0);}
-  }
-  document.querySelectorAll('[data-pk]').forEach(function(b){b.addEventListener('click',function(ev){ev.stopPropagation();ouvrir('pk-'+b.dataset.pk,b.closest('.el')||b);});});
-  document.querySelectorAll('[data-calcul]').forEach(function(b){b.addEventListener('click',function(ev){ev.stopPropagation();ouvrir('ck-'+b.dataset.calcul,b.closest('.el')||b);});});
-  document.querySelectorAll('[data-fermer]').forEach(function(b){b.addEventListener('click',fermer);});
-  document.addEventListener('click',function(ev){if(!ev.target.closest('.flyout,[data-pk],[data-calcul]')) fermer();});
-  // un clic sur un profilé le retient (la maquette montre le geste ; le site relance le calcul)
-  document.querySelectorAll('.picker').forEach(function(p){p.querySelectorAll('.pk-row').forEach(function(r){r.addEventListener('click',function(){
-    p.querySelectorAll('.pk-row.cur').forEach(function(x){x.classList.remove('cur');}); r.classList.add('cur');
-    var b=document.querySelector('.prof[data-pk="'+p.id.slice(3)+'"] span'); if(b) b.textContent=r.dataset.nom;
-  });});});
-  tab(q.get('tab')||'donnees'); if(q.get('vue')) vue(q.get('vue'));
-  if(q.get('replie')) bench.classList.add('sans-g','sans-d');
-  if(q.get('profils')) ouvrir('pk-montant',document.querySelector('.el[data-el="montant"]'));
-  if(q.get('calcul')) ouvrir('ck-'+q.get('calcul'),document.querySelector('.el[data-el="'+q.get('calcul')+'"]'));
-})();"""
-    return "Garde-corps terrasse R+1", corps, script
+    corps = etabli("modules", top, mtop, donnees, dessin, resultat, volets, "montant", "montant")
+    return "Garde-corps terrasse R+1", corps, SCRIPT_ETABLI
+
+
+def toutes_les_pages() -> list:
+    """Les pages de la maquette, dans l'ordre : (nom de fichier, fonction). Les pages de module vivent dans leur propre
+    fichier et importent les composants d'ici : on les charge ici seulement, pour éviter l'import circulaire."""
+    import page_parametres
+    import page_poutre
+    return [("accueil", accueil), ("projets", projets), ("garde-corps", module), ("poutre", page_poutre.poutre),
+            ("equipe", equipe), ("parametres", page_parametres.parametres)]
 
 
 def main():
     sortie = os.path.join(ICI, "pages")
     os.makedirs(sortie, exist_ok=True)
-    for nom, fn in (("accueil", accueil), ("projets", projets), ("garde-corps", module), ("equipe", equipe)):
+    for nom, fn in toutes_les_pages():
         with open(os.path.join(sortie, nom + ".html"), "w", encoding="utf-8") as f:
             f.write(page(*fn()))
         print(nom, os.path.getsize(os.path.join(sortie, nom + ".html")) // 1024, "ko")

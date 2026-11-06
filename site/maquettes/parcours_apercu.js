@@ -1,6 +1,7 @@
 // Parcours de l'aperçu cliquable (apercu.py), comme le ferait le bureau : téléphone en clair et en sombre, puis PC. Chaque pas
 // est mesuré à l'écran : la bonne vue affichée, aucun débordement, la feuille des profilés ouverte DEPUIS l'onglet Résultat, la
-// fiche du rapport (ses indices) montée du bas, le bouton de thème qui bascule le fond, aucune erreur JavaScript.
+// fiche du rapport (ses indices) montée du bas, la poutre (calcul d'une section, choix des armatures), les paramètres, le
+// volet des modules, la « Nouvelle note », le bouton de thème qui bascule le fond, aucune erreur JavaScript.
 //
 //   python3 site/maquettes/apercu.py <apercu.html> && node site/maquettes/parcours_apercu.js <apercu.html> <dossier_sortie>
 const { chromium } = require('playwright');
@@ -35,7 +36,7 @@ fs.writeFileSync(fichier, html);
     verif(`${fmt}/${scheme} rapport récent → module`, e.page === 'garde-corps' && e.sw <= w, JSON.stringify(e));
     if (fmt === 'tel') {
       await p.click('.mtabs button[data-tab="resultat"]');
-      await p.click('.vpage[data-page="garde-corps"] .el[data-el="montant"] .prof');
+      await p.click('.vpage[data-page="garde-corps"] .prof[data-pk="montant"]');
       await p.waitForTimeout(250);
       verif(`${fmt}/${scheme} sélecteur de profilés depuis Résultat`, await vis('.flyout.on .pk-row.cur'));
       await p.screenshot({ path: path.join(OUT, `apercu_${fmt}_${scheme}_profils.png`) });
@@ -74,6 +75,59 @@ fs.writeFileSync(fichier, html);
       await p.waitForTimeout(250);
       e = await etat();
       verif(`${fmt}/${scheme} rail → équipe`, e.page === 'equipe' && await vis('.team .invrow'), JSON.stringify(e));
+    }
+    if (fmt === 'pc') {
+      // la barre : Paramètres, puis le volet des modules, qui mène à la poutre
+      await p.click('.vpage[data-page="equipe"] .nav [data-go="parametres"]');
+      await p.waitForTimeout(250);
+      e = await etat();
+      verif(`${fmt}/${scheme} rail → paramètres`, e.page === 'parametres' && e.sw <= w && await vis('.pgrid'), JSON.stringify(e));
+      await p.click('.vpage[data-page="parametres"] .nav [data-modules]');
+      await p.waitForTimeout(250);
+      verif(`${fmt}/${scheme} rail → volet des modules`, await vis('.modpanel'));
+      await p.screenshot({ path: path.join(OUT, `apercu_${fmt}_${scheme}_modules.png`) });
+      await p.click('.vpage[data-page="parametres"] .modpanel [data-go="poutre"]');
+      await p.waitForTimeout(250);
+      e = await etat();
+      verif(`${fmt}/${scheme} volet → poutres béton armé`, e.page === 'poutre' && !(await vis('.modpanel')), JSON.stringify(e));
+      // la ligne d'une vérification ouvre le calcul de sa section ; la pièce ouvre le choix des armatures
+      await p.click('.vpage[data-page="poutre"] .el[data-calcul="A"]');
+      await p.waitForTimeout(200);
+      const lignes = await p.evaluate(() => document.querySelectorAll('.flyout.on .vtab tbody tr').length);
+      verif(`${fmt}/${scheme} poutre : calcul de la section A (5 vérifications)`, await vis('.flyout.on .vtab') && lignes === 5, `${lignes} lignes`);
+      await p.screenshot({ path: path.join(OUT, `apercu_${fmt}_${scheme}_poutre_calcul.png`) });
+      await p.click('.flyout.on [data-fermer]');
+      await p.click('.vpage[data-page="poutre"] .prof[data-pk="inf-A"]');
+      await p.waitForTimeout(200);
+      verif(`${fmt}/${scheme} poutre : choix des armatures, la disposition retenue en vue`, await vis('.flyout.on .pk-row.cur'));
+      await p.click('.flyout.on [data-fermer]');
+      // « Nouvelle note » : chantier, dossier, module, puis l'établi du module choisi
+      await p.evaluate(() => window.ALLER('accueil'));
+      await p.waitForTimeout(200);
+      await p.click('.vpage[data-page="accueil"] [data-nouvelle]');
+      await p.waitForTimeout(200);
+      verif(`${fmt}/${scheme} « Nouvelle note » ouvre le choix du module`, await vis('.mcard'));
+      await p.click('.vpage[data-page="accueil"] .mcard [data-go="poutre"]');
+      await p.waitForTimeout(250);
+      e = await etat();
+      verif(`${fmt}/${scheme} « Créer la note » → poutre, la fenêtre fermée`, e.page === 'poutre' && !(await vis('.mcard')), JSON.stringify(e));
+    } else {
+      // au téléphone : l'onglet Paramètres, puis la poutre, onglet Résultat, et le calcul d'une section monté du bas
+      await p.evaluate(() => window.ALLER('accueil'));
+      await p.waitForTimeout(200);
+      await p.click('.vpage[data-page="accueil"] .mnav [data-go="parametres"]');
+      await p.waitForTimeout(250);
+      e = await etat();
+      verif(`${fmt}/${scheme} onglet → paramètres`, e.page === 'parametres' && e.sw <= w && await vis('.pgrid'), JSON.stringify(e));
+      await p.evaluate(() => window.ALLER('poutre'));
+      await p.waitForTimeout(250);
+      await p.click('.vpage[data-page="poutre"] .mtabs button[data-tab="resultat"]');
+      await p.click('.vpage[data-page="poutre"] .el[data-calcul="B"]');
+      await p.waitForTimeout(250);
+      e = await etat();
+      verif(`${fmt}/${scheme} poutre : calcul de la section B depuis Résultat`, await vis('.flyout.on .vtab') && e.sw <= w, JSON.stringify(e));
+      await p.screenshot({ path: path.join(OUT, `apercu_${fmt}_${scheme}_poutre_calcul.png`) });
+      await p.click('.flyout.on [data-fermer]');
     }
     // le bouton de thème bascule
     const avant = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);

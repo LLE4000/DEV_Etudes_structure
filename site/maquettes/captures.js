@@ -25,6 +25,14 @@ const PLAN = [
   ['module_tablette', 'garde-corps.html', 1280, 800, ''],
   ['profils_tablette', 'garde-corps.html', 1280, 800, '?profils=1', false, '.flyout.on .pk-row.cur'],
   ['accueil_tablette', 'accueil.html', 1280, 800, ''],
+  ['modules', 'accueil.html', 1440, 900, '?modules=1', false, '.modpanel'],
+  ['nouvelle', 'accueil.html', 1440, 900, '?nouvelle=1', false, '.mcard'],
+  ['poutre', 'poutre.html', 1440, 900, ''],
+  ['poutre_calcul', 'poutre.html', 1440, 900, '?calcul=1', false, '.flyout.on .vtab'],
+  ['poutre_armatures', 'poutre.html', 1440, 900, '?profils=1', false, '.flyout.on .pk-row.cur'],
+  ['poutre_sections', 'poutre.html', 1440, 900, '?vue=AB&replie=1', false, '.view.on .sheet'],
+  ['poutre_tablette', 'poutre.html', 1280, 800, ''],
+  ['parametres', 'parametres.html', 1440, 900, '', true, '.pgrid'],
   ['equipe', 'equipe.html', 1440, 900, '', true, '.team .invrow'],
   ['tel_accueil', 'accueil.html', 390, 844, '', true, '.mnav'],
   ['tel_projets', 'projets.html', 390, 844, '', true, '.mlist'],
@@ -35,6 +43,10 @@ const PLAN = [
   ['tel_donnees', 'garde-corps.html', 390, 844, '?tab=donnees'],
   ['tel_sombre', 'accueil.html', 390, 844, '?theme=dark', false, '.mhead'],
   ['tel_equipe', 'equipe.html', 390, 844, '', true, '.team .invrow'],
+  ['tel_poutre', 'poutre.html', 390, 844, '?tab=resultat'],
+  ['tel_calcul', 'poutre.html', 390, 844, '?tab=resultat&calcul=1', false, '.flyout.on .vtab'],
+  ['tel_calcul_gc', 'garde-corps.html', 390, 844, '?tab=resultat&calcul=montant', false, '.flyout.on .vtab'],
+  ['tel_parametres', 'parametres.html', 390, 844, '', true, '.pgrid'],
 ];
 (async () => {
   const browser = await chromium.launch();
@@ -47,12 +59,30 @@ const PLAN = [
     page.on('pageerror', e => erreurs.push(e.message));
     await page.goto('file://' + path.join(PAGES, fichier) + q);
     await page.waitForTimeout(500);
-    const m = await page.evaluate(([attendu, autres]) => {
+    const m = await page.evaluate(([attendu, autres, mobile]) => {
       const vis = e => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
       const svg = [...document.querySelectorAll('.view.on svg, .thumb svg')].find(vis);
       const r = svg ? svg.getBoundingClientRect() : null;
       // un nom coupé se lit à l'œil : largeur du texte plus grande que la boîte qui le montre
-      const coupes = [...document.querySelectorAll('.prof span, .pk-row .nm, .el .l1 b, .ni .t')].filter(vis).filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.textContent);
+      // la mesure est EXACTE : scrollWidth et clientWidth sont arrondis au pixel, et un texte de 94,63 px dans une boîte de
+      // 94,55 px montre déjà ses points de suspension (« 942 m… ») avec scrollWidth = clientWidth = 95
+      const large = b => { const r = document.createRange(); r.selectNodeContents(b); return r.getBoundingClientRect().width; };
+      const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .pk-row .nm, .el .l1 b, .ni .t, .row > label > span:not(.sym)')].filter(vis)
+        .filter(b => b.scrollWidth > b.clientWidth + 1 || large(b) > b.getBoundingClientRect().width + 0.01).map(b => b.textContent);
+      // un contenu qui sort de sa boîte sans points de suspension : centré dans une boîte trop étroite, il est rogné des deux
+      // côtés (les entrées du volet des modules ont hérité un jour de la taille des icônes de la barre)
+      const rognes = [...document.querySelectorAll('.navitem')].filter(vis).filter(n => {
+        const b = n.getBoundingClientRect();
+        return [...n.children].filter(vis).some(c => { const r = c.getBoundingClientRect(); return r.left < b.left - 1 || r.right > b.right + 1; });
+      }).map(n => n.textContent.trim());
+      coupes.push(...rognes);
+      // au téléphone, un volet ouvert est une feuille qui monte du bas : toute la largeur, jamais une colonne écrasée
+      const etroits = mobile ? [...document.querySelectorAll('.flyout.on')].filter(vis)
+        .filter(f => f.getBoundingClientRect().width < innerWidth * 0.95).map(f => `${f.id} ${Math.round(f.getBoundingClientRect().width)} px`) : [];
+      // le tableau des vérifications tient dans sa fenêtre : la colonne des taux ne part pas hors de l'écran
+      etroits.push(...[...document.querySelectorAll('.vtab')].filter(vis).filter(t => {
+        const c = t.closest('.ck-body'); return c && t.getBoundingClientRect().right > c.getBoundingClientRect().right + 1;
+      }).map(t => `${t.closest('.flyout').id} : tableau coupé`));
       // l'élément attendu : visible, d'une taille réelle, et dans la fenêtre (au moins en partie)
       let vu = true;
       if (attendu) {
@@ -62,14 +92,15 @@ const PLAN = [
       }
       // ce qui appartient à l'autre format ne se voit pas ici
       const intrus = [...document.querySelectorAll(autres)].filter(vis).map(e => e.className.baseVal ?? e.className);
-      return { scrollW: document.documentElement.scrollWidth, w: innerWidth, svg: r ? `${Math.round(r.width)}×${Math.round(r.height)}` : '—', coupes, vu, intrus };
-    }, [attendu || '', mobile ? PROPRES_PC : PROPRES_TEL]);
-    const ok = erreurs.length === 0 && m.scrollW <= m.w && m.coupes.length === 0 && m.vu && m.intrus.length === 0;
+      return { scrollW: document.documentElement.scrollWidth, w: innerWidth, svg: r ? `${Math.round(r.width)}×${Math.round(r.height)}` : '—', coupes, vu, intrus, etroits };
+    }, [attendu || '', mobile ? PROPRES_PC : PROPRES_TEL, mobile]);
+    const ok = erreurs.length === 0 && m.scrollW <= m.w && m.coupes.length === 0 && m.vu && m.intrus.length === 0 && m.etroits.length === 0;
     if (!ok) ko++;
     console.log(`${ok ? 'OK' : 'KO'}  ${nom.padEnd(18)} ${w}×${h}  débordement ${m.scrollW}/${m.w}  dessin ${m.svg}`
       + `${attendu ? `  ${attendu} ${m.vu ? 'vu' : 'NON VU'}` : ''}`
       + `${m.coupes.length ? '  noms coupés : ' + m.coupes.join(', ') : ''}`
-      + `${m.intrus.length ? '  visibles à tort : ' + [...new Set(m.intrus)].join(', ') : ''}  ${erreurs.join(' | ').slice(0, 160)}`);
+      + `${m.intrus.length ? '  visibles à tort : ' + [...new Set(m.intrus)].join(', ') : ''}`
+      + `${m.etroits.length ? '  volet écrasé : ' + m.etroits.join(', ') : ''}  ${erreurs.join(' | ').slice(0, 160)}`);
     if (pleine === undefined ? mobile : pleine) {
       // une page entière : on agrandit la fenêtre à la hauteur du contenu (la navigation collante couvre alors toute la hauteur)
       const hh = await page.evaluate(() => document.documentElement.scrollHeight);
