@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "126e4be6ab0ae03e92224c9d56b11d8ea2a6c8e115262c3130ba5371015fd0b0",
+ "sha256": "b73a5bfc308163c18ac9cf80b52417e8a5f81016f40d68e5267bab0486f7a6cc",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -43,7 +43,9 @@
   "api_web/dessin_poutre.py",
   "api_web/garde_corps.py",
   "api_web/icones.py",
+  "api_web/parcours.py",
   "api_web/poutre.py",
+  "api_web/registre.py",
   "api_web/routeur.py",
   "beton/__init__.py",
   "beton/poutre/__init__.py",

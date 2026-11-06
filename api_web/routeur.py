@@ -1,30 +1,24 @@
 # -*- coding: utf-8 -*-
 """Le point d'entrée unique du travailleur du navigateur : une requête JSON → une réponse JSON.
 
-    {"module": "garde_corps" | "poutre", "action": "nouveau" | "calculer" | "modifier" | "choisir" | "selecteur" |
-     "activer" | "ajouter" | "dupliquer" | "supprimer", "etat": {...}, "chemin": [...], "valeur": ..., "role": "...",
-     "nom": "...", "familles": [...], "froid": true, "index": 0}
+    {"module": "<clé d'un module du registre>", "action": "nouveau" | "calculer" | "modifier" | "choisir" |
+     "selecteur" | "activer" | "ajouter" | "dupliquer" | "supprimer", "etat": {...}, "chemin": [...], "valeur": ...,
+     "role": "...", "nom": "...", "familles": [...], "froid": true, "index": 0}
 
 La réponse porte l'état de la note (à enregistrer), les fragments HTML des cadres (données, résultat, fenêtres de
 calcul, vues du dessin) et le résumé (taux, niveau, statut). Une erreur du moteur est rendue, jamais avalée.
+Les modules viennent du registre (api_web/registre.py) : chaque fichier qui déclare MODULE en est un.
 """
 import json
 import traceback
 
-from . import garde_corps
-
-MODULES = {"garde_corps": garde_corps}
-try:                                   # le module poutre, quand son moteur est présent dans le paquet
-    from . import poutre
-    MODULES["poutre"] = poutre
-except ImportError:                    # pragma: no cover
-    pass
+from . import registre
 
 
 def traiter(requete: str) -> str:
     try:
         q = json.loads(requete)
-        mod = MODULES[q["module"]]
+        mod = registre.module(q.get("module"))
         action = q.get("action", "calculer")
         etat = mod.normaliser(q["etat"]) if q.get("etat") and action != "nouveau" else mod.nouvel_etat()
         message = None

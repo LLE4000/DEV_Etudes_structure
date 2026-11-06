@@ -4,7 +4,8 @@
 même politique et les mêmes adresses qu'en ligne — un serveur qui les ignorerait laisserait passer un script que
 Cloudflare bloquera, ou un lien qui y perdrait sa note.
 
-    python3 site/web/outils/serveur_local.py [port]        (8770 par défaut, adresse 127.0.0.1)
+    python3 site/web/outils/serveur_local.py [port] [--dossier D]   (8770 par défaut, adresse 127.0.0.1 ; site/web par
+                                                                    défaut, ou la copie qu'écrit construire.py --dossier)
 
 Du format de Cloudflare, on lit ce que le site emploie : une adresse par ligne (``*`` pour « n'importe quoi »), puis
 ses en-têtes indentés ; un en-tête donné par plusieurs règles est joint par une virgule, comme chez Cloudflare.
@@ -45,6 +46,7 @@ def entetes(url: str, rg=None) -> dict:
 
 class Gestionnaire(http.server.SimpleHTTPRequestHandler):
     REGLES = regles()
+    RACINE_SITE = WEB
 
     def send_head(self):
         """Les adresses de Cloudflare Pages : « /poutre » sert poutre.html ; « /poutre.html » est redirigé vers
@@ -57,7 +59,7 @@ class Gestionnaire(http.server.SimpleHTTPRequestHandler):
             self.send_header("Content-Length", "0")
             self.end_headers()
             return None
-        if chemin != "/" and "." not in os.path.basename(chemin) and os.path.isfile(os.path.join(WEB, chemin.lstrip("/") + ".html")):
+        if chemin != "/" and "." not in os.path.basename(chemin) and os.path.isfile(os.path.join(self.RACINE_SITE, chemin.lstrip("/") + ".html")):
             self.path = chemin + ".html" + (f"?{requete}" if requete else "")
         return super().send_head()
 
@@ -71,7 +73,14 @@ class Gestionnaire(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8770
-    serveur = http.server.ThreadingHTTPServer(("127.0.0.1", port), functools.partial(Gestionnaire, directory=WEB))
-    print(f"site/web sur http://127.0.0.1:{port} (en-têtes de _headers appliqués)")
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("port", nargs="?", type=int, default=8770)
+    ap.add_argument("--dossier", default=WEB)
+    a = ap.parse_args()
+    dossier = os.path.abspath(a.dossier)
+    Gestionnaire.REGLES = regles(os.path.join(dossier, "_headers"))
+    Gestionnaire.RACINE_SITE = dossier
+    serveur = http.server.ThreadingHTTPServer(("127.0.0.1", a.port), functools.partial(Gestionnaire, directory=dossier))
+    print(f"{dossier} sur http://127.0.0.1:{a.port} (en-têtes de _headers appliqués)")
     serveur.serve_forever()

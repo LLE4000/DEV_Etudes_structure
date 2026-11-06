@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -52,9 +52,12 @@ const FILTRE = process.argv[4] || '';
     inline === undefined ? '' : 'servir avec site/web/outils/serveur_local.py');
   erreurs.splice(nCsp, erreurs.length - nCsp, ...erreurs.slice(nCsp).filter((x) => !/Content Security Policy/.test(x)));
   verif('accueil vide : il le dit', await p.isVisible('.vide'));
-  verif('accueil : les deux modules du site sont ouverts, les autres « bientôt »',
-    (await p.$$eval('.tile[data-nouvelle-module]', (t) => t.map((x) => x.dataset.nouvelleModule))).join() === 'poutre,garde_corps'
-    && (await p.$$eval('.tile.bientot', (t) => t.length)) >= 10);
+  // les tuiles ouvertes sont exactement les modules du registre (js/modules.js) ; les autres disent « bientôt »
+  const registre = await p.evaluate(async () => Object.keys((await import('./js/modules.js')).MODULES).sort().join());
+  const ouvertes = (await p.$$eval('.tile[data-nouvelle-module]', (t) => t.map((x) => x.dataset.nouvelleModule))).sort().join();
+  const total = await p.$$eval('.tile', (t) => t.length);
+  verif('accueil : les modules du registre sont ouverts, les autres « bientôt »',
+    ouvertes === registre && (await p.$$eval('.tile.bientot', (t) => t.length)) === total - registre.split(',').length, `${ouvertes} / ${registre}`);
   let m = await mesure();
   verif('accueil : rien ne déborde, aucun nom coupé', !m.deborde && !m.coupes.length, m.coupes.join(', '));
   await capture('accueil_vide');
@@ -177,6 +180,71 @@ const FILTRE = process.argv[4] || '';
     }
   }
 
+  // ---------------------------------------------------------------- chaque module du registre (contrôle commun)
+  // Le même contrôle pour TOUS les modules (js/modules.js, écrit depuis le registre) : la note se crée, le moteur
+  // démarre, le résultat et le dessin s'affichent à leur taille, rien ne déborde ni n'est coupé, la fenêtre de calcul
+  // et le sélecteur s'ouvrent, une saisie recalcule sans erreur et survit au rechargement.
+  //   filtre « modules » : tous ; « module:dalle » : celui-là.
+  if (!FILTRE || FILTRE === 'modules' || FILTRE.startsWith('module:')) {
+    await p.goto(`${BASE}/js/modules.js`);
+    const src = await p.evaluate(() => document.body.innerText);
+    const MODULES = JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1));
+    const choisis = FILTRE.startsWith('module:') ? [FILTRE.slice(7)] : Object.keys(MODULES);
+    verif(`modules : ${choisis.join(', ')} au registre`, choisis.every((k) => MODULES[k]), choisis.filter((k) => !MODULES[k]).join());
+    for (const cle of choisis.filter((k) => MODULES[k])) {
+      const nom = MODULES[cle].nom;
+      await nouvelle(cle, 'Contrôle', 'Tous les modules', `Essai ${nom}`);
+      if (await p.evaluate(() => document.getElementById('demarrage').classList.contains('erreur'))) continue;
+      const nEl = await p.$$eval('#resultat .el', (e) => e.length);
+      const verdictMod = await p.$('#resultat .verdict');
+      verif(`${cle} : le résultat s'affiche`, nEl > 0 || !!verdictMod, `${nEl} ligne(s)`);
+      const nVues = await p.$$eval('#vues button', (e) => e.length);
+      m = await mesure();
+      if (nVues) verif(`${cle} : le dessin est visible et à sa taille`, m.svg && m.svg[0] > 200 && m.svg[1] > 150, JSON.stringify(m.svg));
+      verif(`${cle} : rien ne déborde, aucun nom coupé, les valeurs à l'encre`, !m.deborde && !m.coupes.length && !m.gris.length,
+        [...m.coupes, ...m.gris].join(', '));
+      await capture(cle);
+      const c = await p.$('#resultat [data-calcul]');
+      if (c) {
+        await c.click();
+        await p.waitForTimeout(250);
+        verif(`${cle} : une ligne ouvre son calcul détaillé`, await p.isVisible('.flyout.on.calcul'));
+        m = await mesure();
+        verif(`${cle} : la fenêtre de calcul n'a aucun nom coupé`, !m.coupes.length, m.coupes.join(', '));
+        await capture(`${cle}_calcul`);
+        await p.keyboard.press('Escape');
+      }
+      const pk = await p.$('#resultat .prof[data-pk]');
+      if (pk) {
+        await pk.click();
+        await p.waitForSelector('.flyout.on.picker', { timeout: 60000 });
+        verif(`${cle} : le sélecteur s'ouvre`, await p.isVisible('.flyout.on.picker .pk-row, .flyout.on.picker .pk-vide'));
+        await capture(`${cle}_selecteur`);
+        await p.keyboard.press('Escape');
+      }
+      // une saisie : le premier nombre modifiable du cadre Données, augmenté de 10 %
+      const champ = await p.$('#donnees input[data-sorte="nombre"]:not([disabled])');
+      if (champ) {
+        const chemin = await champ.getAttribute('data-chemin');
+        const avant = (await champ.inputValue()).replace(/[\s  ]/g, '').replace(',', '.');
+        const x = Number(avant);
+        const neuf = Number.isFinite(x) && x !== 0 ? String(Math.round(x * 1.1 * 1000) / 1000).replace('.', ',') : '1';
+        await champ.fill(neuf);
+        await champ.press('Enter');
+        await calme();
+        await p.waitForTimeout(150);
+        const refus = await p.evaluate(() => { const t = document.getElementById('toast'); return t && !t.hidden && t.classList.contains('erreur') ? t.textContent : ''; });
+        const apres = (await p.inputValue(`#donnees input[data-chemin="${chemin}"]`)).replace(/[\s  ]/g, '');
+        verif(`${cle} : une saisie (${chemin} = ${neuf}) recalcule sans erreur`, !refus && apres === neuf.replace(/[\s  ]/g, ''), refus || `${avant} → ${apres}`);
+        await p.reload();
+        await pret();
+        await calme();
+        const relu = (await p.inputValue(`#donnees input[data-chemin="${chemin}"]`)).replace(/[\s  ]/g, '');
+        verif(`${cle} : rechargée, la note garde la saisie`, relu === apres, `${apres} → ${relu}`);
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- un fichier .stab piégé
   // Un .stab vient d'ailleurs (un collègue, un courriel) : rien de ce qu'il porte ne doit s'exécuter dans la page. Deux
   // fichiers : l'un que le moteur refuse (son dessin piégé n'est alors jamais remplacé par celui du moteur), l'autre
@@ -221,7 +289,7 @@ const FILTRE = process.argv[4] || '';
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
-  if (FILTRE !== 'piege') verif('accueil : le chantier « Réalex » est listé', (await p.textContent('#chantiers')).includes('Réalex'));
+  if (!FILTRE || ['garde', 'poutre'].includes(FILTRE)) verif('accueil : le chantier « Réalex » est listé', (await p.textContent('#chantiers')).includes('Réalex'));
   m = await mesure();
   verif('accueil : rien ne déborde, aucun nom coupé', !m.deborde && !m.coupes.length, m.coupes.join(', '));
   await capture('accueil');

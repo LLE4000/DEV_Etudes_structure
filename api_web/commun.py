@@ -99,7 +99,8 @@ def chip(taux, niv: str, xl: bool = False) -> str:
 
 
 STATUTS = {"p": ("p", "Conforme"), "f": ("f", "Conforme, attention"), "r": ("r", "Non conforme"), "c": ("c", "À compléter"),
-           "x": ("r", "Calcul impossible")}
+           "x": ("r", "Calcul impossible"),
+           "i": ("c", "Consultation")}
 
 
 def statut(niv: str) -> str:
@@ -200,6 +201,19 @@ def num(chemin: Sequence, valeur, unite: str = "", dec: int = 3, entier: bool = 
 def texte(chemin: Sequence, valeur: str, indice: str = "") -> str:
     return (f'<div class="field text"><input data-chemin="{_attr_chemin(chemin)}" data-sorte="texte" value="{esc(valeur or "")}"'
             f' placeholder="{esc(indice)}"></div>')
+
+
+def zone_texte(chemin: Sequence, valeur: str, lignes: int = 5, indice: str = "") -> str:
+    """Un texte sur plusieurs lignes (un tableau collé depuis Excel, une liste de couches…) : il part au moteur en
+    quittant la zone, comme un champ."""
+    return (f'<div class="field area"><textarea data-chemin="{_attr_chemin(chemin)}" data-sorte="texte" rows="{int(lignes)}"'
+            f' placeholder="{esc(indice)}" spellcheck="false">{esc(valeur or "")}</textarea></div>')
+
+
+def fichier(chemin: Sequence, libelle: str, accept: str = ".csv,.txt") -> str:
+    """Un bouton qui lit un fichier du PC : le moteur reçoit {"nom": …, "texte": …} au chemin donné (2 Mo au plus)."""
+    return (f'<label class="btn sm fichier">{icon("upload")}{esc(libelle)}<input type="file" data-chemin="{_attr_chemin(chemin)}"'
+            f' accept="{esc(accept)}" hidden></label>')
 
 
 def choix(chemin: Sequence, valeur, options: Iterable[Tuple], desactive: bool = False) -> str:

@@ -22,6 +22,7 @@ from acier.garde_corps import types as TY
 from . import commun as C
 
 MODULE = "garde_corps"
+PAGE = "garde-corps"
 MODES = {ME.ELS: "ELS", ME.EUROCODE: "Eurocode"}
 FIXATIONS_COURTES = {"platine": "Platine", "laterale": "Latérale", "soudee": "Soudé", "scellee": "Scellé"}
 JONCTIONS = {"angle": "Angle", "partielle": "Partielle", "pleine": "Pleine"}

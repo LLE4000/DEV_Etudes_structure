@@ -16,6 +16,7 @@ from . import commun as C
 from . import dessin_poutre as DP
 
 MODULE = "poutre"
+PAGE = "poutre"
 
 
 # ------------------------------------------------------------------ l'état de la note : des poutres

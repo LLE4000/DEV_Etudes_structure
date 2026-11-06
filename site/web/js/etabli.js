@@ -81,7 +81,7 @@ function afficherDonnees(elements, html) {
   // champ ne doit ni effacer ce qu'on tape, ni le valider à notre place
   const el0 = document.activeElement && zone.contains(document.activeElement) ? document.activeElement : null;
   const actif = el0 ? el0.dataset.chemin : null;
-  const brouillon = el0 && el0.tagName === "INPUT" && el0.type !== "checkbox" && el0.value !== el0.defaultValue
+  const brouillon = el0 && (el0.tagName === "INPUT" || el0.tagName === "TEXTAREA") && el0.type !== "checkbox" && el0.type !== "file" && el0.value !== el0.defaultValue
     ? { valeur: el0.value, debut: el0.selectionStart, fin: el0.selectionEnd } : null;
   const defile = zone.scrollTop;
   zone.innerHTML = elements + html;
@@ -142,13 +142,23 @@ function valider(el) {
   envoyer("modifier", { chemin: el.dataset.chemin.split("/"), valeur: lireChamp(el) });
 }
 $("#donnees").addEventListener("change", (ev) => {
+  const f = ev.target.closest("input[type=file][data-chemin]");
+  if (f) { lireFichier(f); return; }
   const el = ev.target.closest("select[data-chemin], input[type=checkbox][data-chemin]");
   if (el) valider(el);
 });
 $("#donnees").addEventListener("focusout", (ev) => {
-  const el = ev.target.closest("input[data-chemin]:not([type=checkbox])");
+  const el = ev.target.closest("input[data-chemin]:not([type=checkbox]):not([type=file]), textarea[data-chemin]");
   if (el && el.value !== el.defaultValue) valider(el);
 });
+
+// un fichier choisi (essais de sol, relevés…) part au moteur comme TEXTE : { nom, texte } ; le moteur le lit
+async function lireFichier(f) {
+  const fichier = f.files && f.files[0];
+  if (!fichier) return;
+  if (fichier.size > 2 * 1024 * 1024) { toast("Fichier trop gros (2 Mo au plus)", true); return; }
+  envoyer("modifier", { chemin: f.dataset.chemin.split("/"), valeur: { nom: fichier.name, texte: await fichier.text() } });
+}
 
 $("#donnees").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();

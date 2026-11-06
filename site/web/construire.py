@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
 """Construit le site « Stab Méthodes » (site/web), un site statique qui calcule DANS le navigateur :
 
-- les pages : l'accueil (index.html) et l'établi de chaque module disponible (garde-corps.html, poutre.html) ;
+- les pages : l'accueil (index.html) et l'établi de chaque module du registre (api_web/registre.py : un fichier
+  api_web/<clé>.py qui déclare MODULE est un module ; son établi est <PAGE>.html) ; js/modules.js, la même liste pour
+  les scripts de l'écran ;
 - la charte : css/charte.css est la COPIE de site/maquettes/charte.css (celle que le bureau a validée) ;
 - le PAQUET DU MOTEUR, moteur/moteur.zip : les fichiers Python que le site exécute (api_web, le moteur de chaque
   module, leurs données), relevés en faisant tourner l'API sur des cas variés, bibliothèques lourdes refusées.
   Le paquet est reproductible (dates fixes, ordre trié) : tests/test_site_web.py le reconstruit et le compare.
 
-    python3 site/web/construire.py
+    python3 site/web/construire.py                                  # le site, dans site/web
+    python3 site/web/construire.py --dossier /tmp/x --modules dalle # une copie à part, paquet relevé sur ces modules
 
 Les icônes et les noms des modules viennent du générateur des maquettes (une seule source) ; le cœur Python du
 navigateur (Pyodide) est déposé par outils/vendre_pyodide.py.
@@ -33,37 +36,27 @@ _spec.loader.exec_module(MQ)
 
 PYODIDE = "vendor/pyodide-0.29.5"
 DATE_ZIP = (2026, 1, 1, 0, 0, 0)
-# les pages des modules disponibles (clé du module → page) ; les autres tuiles de l'accueil disent « bientôt »
-PAGES = {"garde_corps": "garde-corps.html", "poutre": "poutre.html"}
-# les liens visent l'adresse SANS « .html », celle que Cloudflare Pages sert (il redirige « x.html » vers « x ») ;
-# l'accueil est « ./ ». js/notes.js porte les mêmes adresses (tests/test_site_web.py les lie).
-ADRESSES = {k: v[: -len(".html")] for k, v in PAGES.items()}
+# les modules du site : le registre (un fichier api_web/<clé>.py qui déclare MODULE) ; les autres tuiles de l'accueil
+# disent « bientôt »
+sys.path.insert(0, RACINE)
+from api_web import registre as REG  # noqa: E402
+
+_FAMILLES = {k for _, _, mods in MQ.FAMILLES for k, _ in mods}
+# clé → adresse de l'établi, SANS « .html » (Cloudflare la sert ainsi) ; une clé hors des familles de l'accueil n'a
+# ni nom ni icône : elle est écartée (tests/test_site_web.py le signale)
+ADRESSES = {k: v for k, v in REG.pages().items() if k in _FAMILLES}
+PAGES = {k: v + ".html" for k, v in ADRESSES.items()}
 ACCUEIL = "./"
-# des requêtes qui passent par tous les chemins de l'API : le paquet doit contenir ce qu'elles chargent
-SCENARIOS = r"""
-import json
-from api_web import routeur as R
-def q(**k):
-    r = json.loads(R.traiter(json.dumps(k)))
-    assert r["ok"], r.get("erreur")
-    return r
-e = q(module="garde_corps", action="nouveau")["etat"]
-q(module="garde_corps", action="selecteur", etat=e, role="montant")
-q(module="garde_corps", action="choisir", etat=e, role="montant", nom="RHS 60x40x3")
-for chemin, v in ((["type"], "lisses"), (["type"], "panneau"), (["type"], "murale"), (["type"], "main_courante"), (["fixation", "type"], "laterale"),
-                  (["fixation", "type"], "soudee"), (["fixation", "ancrage", "type"], "boulon"), (["methode", "mode"], "eurocode"), (["geometrie", "forme"], "U")):
-    q(module="garde_corps", action="modifier", etat=e, chemin=chemin, valeur=v)
-try:
-    import api_web.poutre  # noqa: F401
-    p = q(module="poutre", action="nouveau")["etat"]
-    q(module="poutre", action="selecteur", etat=p, role="inf-0")
-except ImportError:
-    pass
-"""
+# le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
+# être dans le paquet
+MAX_RELEVE = 120
+# les paquets de calcul propres au site, empaquetés ENTIERS (un import paresseux n'y manque jamais) ; acier et plancher,
+# qui portent aussi les écrans Streamlit, sont relevés fichier par fichier
+PAQUETS_ENTIERS = ("api_web", "beton", "bois", "sol", "flambement")
 INTERDITS = ("streamlit", "reportlab", "matplotlib", "pandas", "fitz", "scipy", "PIL")
 
 
-def fichiers_du_moteur() -> list:
+def fichiers_du_moteur(modules=None) -> list:
     """Les fichiers du dépôt que l'API charge (modules Python et données), relevés dans un sous-processus où les
     bibliothèques lourdes sont refusées : ce qui y manque manquerait aussi dans le navigateur."""
     sonde = f"""
@@ -83,7 +76,14 @@ def espion(f, *a, **k):
     except Exception: pass
     return _open(f, *a, **k)
 builtins.open = espion
-{SCENARIOS}
+from api_web import parcours as P, routeur as R
+echecs = []
+for cle in {list(modules or ADRESSES)!r}:
+    for desc, ok, err in P.parcourir(cle, R.traiter, maximum={MAX_RELEVE}):
+        if not ok:
+            echecs.append(cle + " · " + desc + " : " + str(err))
+if echecs:
+    sys.stderr.write("\\n".join(echecs[:20])); sys.exit(3)
 mods = {{os.path.relpath(m.__file__, RACINE) for m in list(sys.modules.values()) if getattr(m, "__file__", None) and os.path.abspath(m.__file__).startswith(RACINE + os.sep)}}
 print("\\n".join(sorted(mods | lus)))
 """
@@ -92,7 +92,9 @@ print("\\n".join(sorted(mods | lus)))
         raise SystemExit("Le relevé du moteur a échoué :\n" + p.stderr[-3000:])
     fichiers = {f for f in p.stdout.split() if f}
     # les paquets du site entiers (petits), pour qu'un import paresseux ne manque jamais
-    for paquet in ("api_web", "beton"):
+    for paquet in PAQUETS_ENTIERS:
+        if not os.path.isdir(os.path.join(RACINE, paquet)):
+            continue
         for d, _, fs in os.walk(os.path.join(RACINE, paquet)):
             fichiers |= {os.path.relpath(os.path.join(d, f), RACINE) for f in fs if f.endswith(".py")}
     return sorted(f for f in fichiers if "__pycache__" not in f and not f.endswith(".pyc"))
@@ -146,12 +148,19 @@ def modpanel() -> str:
             f'<a class="btn icon ghost" data-modules="1" title="Fermer">{MQ.icon("x")}</a></div>{corps}</aside>')
 
 
-def tete(titre: str) -> str:
+def tete(titre: str, css: str = "") -> str:
+    lien = f'<link rel="stylesheet" href="{css}">\n' if css else ""
     return ('<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
             f'<title>{titre}</title>\n<link rel="icon" href="favicon.svg" type="image/svg+xml">\n'
-            '<link rel="stylesheet" href="css/charte.css">\n<link rel="stylesheet" href="css/site.css">\n'
-            '<script src="js/theme.js"></script>\n</head>\n')
+            '<link rel="stylesheet" href="css/charte.css">\n<link rel="stylesheet" href="css/site.css">\n' + lien
+            + '<script src="js/theme.js"></script>\n</head>\n')
+
+
+def _sous_titre_modules() -> str:
+    tous = [k for _, _, mods in MQ.FAMILLES for k, _ in mods]
+    n = sum(k in PAGES for k in tous)
+    return "Tous les modules du bureau" if n == len(tous) else f"{n} modules sur {len(tous)} · les autres arrivent"
 
 
 def page_accueil() -> str:
@@ -182,7 +191,7 @@ def page_accueil() -> str:
              f'<button class="btn primary big" id="ouvrir-nouvelle">{MQ.icon("plus")}Nouvelle note</button></header>'
              f'<section><div class="sechead"><span class="h2">Reprendre</span><span class="muted" id="nb-notes"></span></div>'
              f'<div class="resume" id="recentes"></div></section>'
-             f'<section><div class="sechead"><span class="h2">Modules</span><span class="muted">Garde-corps et poutres béton armé · les autres arrivent</span></div>{tuiles}</section>'
+             f'<section><div class="sechead"><span class="h2">Modules</span><span class="muted">{_sous_titre_modules()}</span></div>{tuiles}</section>'
              f'</div><aside class="side"><div class="card"><div class="sechead"><span class="h3">Chantiers</span></div><div id="chantiers"></div></div>'
              f'<div class="card note-locale"><div class="h3">Où sont mes notes ?</div><p>Pour l\'instant, chaque note est enregistrée '
              f'<b>dans ce navigateur</b>, sur ce PC. Le bouton <b>.stab</b> d\'une note l\'exporte en fichier ; les comptes du bureau et le partage '
@@ -221,7 +230,8 @@ def page_module(cle: str, titre: str) -> str:
              f'<section class="panel right">{droite}</section><div id="volets"></div>{demarrage}</div></main></div>'
              f'<div class="toast" id="toast" hidden></div>'
              f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
-    return tete(f"{titre} · Stab Méthodes") + corps
+    css = f"css/modules/{cle}.css"
+    return tete(f"{titre} · Stab Méthodes", css if os.path.exists(os.path.join(ICI, css)) else "") + corps
 
 
 def favicon() -> str:
@@ -235,22 +245,56 @@ def ecrire(chemin: str, contenu, binaire: bool = False) -> None:
         f.write(contenu)
 
 
-def construire() -> dict:
-    """Écrit tout ; rend le manifeste du paquet."""
-    shutil.copyfile(os.path.join(MAQUETTES, "charte.css"), os.path.join(ICI, "css", "charte.css"))
-    ecrire(os.path.join(ICI, "index.html"), page_accueil())
-    ecrire(os.path.join(ICI, "garde-corps.html"), page_module("garde_corps", "Garde-corps"))
-    ecrire(os.path.join(ICI, "poutre.html"), page_module("poutre", "Poutres béton armé"))
-    ecrire(os.path.join(ICI, "favicon.svg"), favicon())
-    fichiers = fichiers_du_moteur()
+FIXES = ("js", "css", "_headers", "favicon.svg", ".assetsignore", "wrangler.jsonc", "LICENCES.md", "LICENCE-icones.txt")
+
+
+def modules_js() -> str:
+    """La liste des modules pour les scripts de l'écran (adresse, nom, famille) : la même que celle des pages."""
+    d = {}
+    for fam, _, mods in MQ.FAMILLES:
+        for k, nom in mods:
+            if k in ADRESSES:
+                d[k] = {"page": ADRESSES[k], "nom": nom, "famille": fam}
+    return ("// Écrit par site/web/construire.py depuis le registre des modules (api_web/registre.py) : ne pas modifier.\n"
+            f"export const MODULES = {json.dumps(d, ensure_ascii=False)};\n")
+
+
+def construire(dossier: str = ICI, modules=None) -> dict:
+    """Écrit tout dans ``dossier`` (le site lui-même, ou une copie à part pour vérifier un module pendant que d'autres
+    se construisent) ; le paquet du moteur est relevé sur ``modules`` (tous par défaut). Rend le manifeste."""
+    dossier = os.path.abspath(dossier)
+    if dossier != ICI:
+        os.makedirs(dossier, exist_ok=True)
+        for nom in FIXES:
+            src, dst = os.path.join(ICI, nom), os.path.join(dossier, nom)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst, dirs_exist_ok=True)
+            elif os.path.exists(src):
+                shutil.copyfile(src, dst)
+        lien = os.path.join(dossier, "vendor")      # le cœur Python (15 Mo) n'est pas recopié : un lien suffit
+        if not os.path.exists(lien):
+            os.symlink(os.path.join(ICI, "vendor"), lien)
+    shutil.copyfile(os.path.join(MAQUETTES, "charte.css"), os.path.join(dossier, "css", "charte.css"))
+    ecrire(os.path.join(dossier, "index.html"), page_accueil())
+    for cle, page in PAGES.items():
+        ecrire(os.path.join(dossier, page), page_module(cle, _module(cle)[1]))
+    ecrire(os.path.join(dossier, "js", "modules.js"), modules_js())
+    ecrire(os.path.join(dossier, "favicon.svg"), favicon())
+    fichiers = fichiers_du_moteur(modules)
     z = paquet(fichiers)
-    ecrire(os.path.join(ICI, "moteur", "moteur.zip"), z, binaire=True)
+    ecrire(os.path.join(dossier, "moteur", "moteur.zip"), z, binaire=True)
     manifeste = {"pyodide": PYODIDE, "sha256": hashlib.sha256(z).hexdigest(), "fichiers": fichiers}
-    ecrire(os.path.join(ICI, "moteur", "manifeste.json"), json.dumps(manifeste, ensure_ascii=False, indent=1) + "\n")
+    ecrire(os.path.join(dossier, "moteur", "manifeste.json"), json.dumps(manifeste, ensure_ascii=False, indent=1) + "\n")
     return manifeste
 
 
 if __name__ == "__main__":
-    m = construire()
-    print(f"site/web : 3 pages, paquet du moteur {len(m['fichiers'])} fichiers, "
-          f"{os.path.getsize(os.path.join(ICI, 'moteur', 'moteur.zip')) // 1024} ko (sha256 {m['sha256'][:12]})")
+    import argparse
+    ap = argparse.ArgumentParser(description="Construit le site Stab Méthodes")
+    ap.add_argument("--dossier", default=ICI, help="où écrire (par défaut : site/web)")
+    ap.add_argument("--modules", default="", help="relever le paquet sur ces modules seulement (clés séparées par des virgules)")
+    a = ap.parse_args()
+    mods = [m for m in a.modules.split(",") if m] or None
+    m = construire(a.dossier, mods)
+    print(f"{os.path.relpath(os.path.abspath(a.dossier), RACINE)} : {len(PAGES) + 1} pages ({', '.join(PAGES)}), paquet du moteur "
+          f"{len(m['fichiers'])} fichiers, {os.path.getsize(os.path.join(a.dossier, 'moteur', 'moteur.zip')) // 1024} ko (sha256 {m['sha256'][:12]})")

@@ -64,11 +64,11 @@ class Refus:
         if name.split(".")[0] in {SW.INTERDITS!r}:
             raise ImportError("refusé : " + name)
 sys.meta_path.insert(0, Refus())
-from api_web import routeur as R
+from api_web import routeur as R, registre as REG
 import api_web
 assert api_web.__file__.startswith({tmp!r}), api_web.__file__
 out = {{}}
-for m in sorted(R.MODULES):
+for m in REG.cles():
     r = json.loads(R.traiter(json.dumps({{"module": m, "action": "nouveau"}})))
     out[m] = (r["ok"], r.get("erreur"), (r.get("resume") or {{}}).get("taux"))
 print(json.dumps(out))
@@ -79,13 +79,12 @@ print(json.dumps(out))
     except Exception:  # noqa: BLE001
         res = {"_": (False, p.stderr[-400:], None)}
 chk("déballé seul, le paquet calcule chaque module", res and all(v[0] for v in res.values()), res)
-chk("le module garde-corps est dans le paquet", "garde_corps" in res, list(res))
+chk(f"chaque module du registre est dans le paquet ({len(SW.ADRESSES)})", sorted(res) == sorted(SW.ADRESSES), (list(res), list(SW.ADRESSES)))
 
 # 3. les pages et la charte
 chk("css/charte.css est la charte des maquettes", sha(os.path.join(WEB, "css", "charte.css")) == sha(os.path.join(RACINE, "site", "maquettes", "charte.css")))
-for nom, html in (("index.html", SW.page_accueil()), ("garde-corps.html", SW.page_module("garde_corps", "Garde-corps")),
-                  ("poutre.html", SW.page_module("poutre", "Poutres béton armé"))):
-    chk(f"{nom} est celle que le générateur écrit", open(os.path.join(WEB, nom), encoding="utf-8").read() == html)
+for nom, html in [("index.html", SW.page_accueil()), ("js/modules.js", SW.modules_js())] + [(SW.PAGES[k], SW.page_module(k, SW._module(k)[1])) for k in SW.PAGES]:
+    chk(f"{nom} est celle que le générateur écrit", os.path.exists(os.path.join(WEB, nom)) and open(os.path.join(WEB, nom), encoding="utf-8").read() == html)
 
 # 4. le cœur Python déposé
 v = os.path.join(WEB, SW.PYODIDE)
@@ -98,7 +97,7 @@ chk("la roue numpy a l'empreinte du pyodide-lock officiel", sha(os.path.join(v, 
 chk("le travailleur charge la version déposée", f'"../{SW.PYODIDE}/pyodide.mjs"' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
 
 # 5. les identifiants que les scripts cherchent existent dans leur page
-for js, page in (("etabli.js", "garde-corps.html"), ("etabli.js", "poutre.html"), ("accueil.js", "index.html")):
+for js, page in [("etabli.js", SW.PAGES[k]) for k in SW.PAGES] + [("accueil.js", "index.html")]:
     src = open(os.path.join(WEB, "js", js), encoding="utf-8").read()
     html = open(os.path.join(WEB, page), encoding="utf-8").read()
     ids = sorted(set(re.findall(r'\$\("#([\w-]+)', src)) | set(re.findall(r'getElementById\("([\w-]+)"', src)))
@@ -121,13 +120,13 @@ chk("le cœur Python reste en cache, le paquet du moteur est relu à chaque ouve
     "immutable" in SL.entetes(f"/{SW.PYODIDE}/pyodide.asm.wasm").get("Cache-Control", "")
     and SL.entetes("/moteur/manifeste.json").get("Cache-Control") == "no-cache")
 EN_LIGNE = re.compile(r"<script(?![^>]*\bsrc=)[^>]*>|\son[a-z]+\s*=", re.I)
-fautes = [p for p in ("index.html", "garde-corps.html", "poutre.html") if EN_LIGNE.search(open(os.path.join(WEB, p), encoding="utf-8").read())]
+fautes = [p for p in ["index.html"] + list(SW.PAGES.values()) if EN_LIGNE.search(open(os.path.join(WEB, p), encoding="utf-8").read())]
 chk("aucune page ne porte de script en ligne ni de gestionnaire « on…= »", not fautes, fautes)
 sys.path.insert(0, RACINE)
 from api_web import routeur as RT  # noqa: E402
 
 fautes = []
-for mod in ("garde_corps", "poutre"):
+for mod in SW.ADRESSES:
     out = json.loads(RT.traiter(json.dumps({"module": mod, "action": "nouveau"})))
     for k in ("resultat", "volets", "donnees", "elements", "statut_html"):
         if EN_LIGNE.search(out[k]):
@@ -137,10 +136,11 @@ chk("les fragments que Python rend n'ont ni script ni gestionnaire « on…= »"
 
 # 7. les adresses sans « .html » (Cloudflare Pages redirige « x.html » vers « x » ; la note ouverte n'a pas à survivre
 # à une redirection) : les pages générées et js/notes.js visent les mêmes adresses — deux copies, liées ici
-notes_js = open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read()
-pages_js = dict(re.findall(r'(\w+): \{ page: "([^"]+)"', notes_js))
-chk("js/notes.js vise les adresses du générateur (sans « .html »)", pages_js == SW.ADRESSES, (pages_js, SW.ADRESSES))
-liens = [(p, h) for p in ("index.html", "garde-corps.html", "poutre.html")
+modules_js = open(os.path.join(WEB, "js", "modules.js"), encoding="utf-8").read()
+pages_js = {k: v["page"] for k, v in json.loads(modules_js[modules_js.index("{"):modules_js.rindex("}") + 1]).items()}
+chk("js/modules.js vise les adresses du générateur (sans « .html »), et notes.js le lit",
+    pages_js == SW.ADRESSES and 'from "./modules.js"' in open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read(), (pages_js, SW.ADRESSES))
+liens = [(p, h) for p in ["index.html"] + list(SW.PAGES.values())
          for h in re.findall(r'<a [^>]*href="([^"]+)"', open(os.path.join(WEB, p), encoding="utf-8").read()) if h.endswith(".html")]
 chk("aucun lien des pages ne vise une adresse en « .html »", not liens, liens[:4])
 
@@ -154,6 +154,11 @@ ignore = {l.strip() for l in open(os.path.join(WEB, ".assetsignore"), encoding="
 chk("les outils de développement et la configuration ne sont pas publiés (.assetsignore)",
     {"wrangler.jsonc", "README.md", "construire.py", "verifier_site.js", "outils", "__pycache__", ".wrangler"} <= ignore
     and not ignore & {"index.html", "js", "css", "vendor", "moteur", "_headers"}, sorted(ignore))
+
+# 9. chaque module du registre a sa place dans les familles de l'accueil (nom, icône) : sinon il serait écarté du site
+from api_web import registre as REG2  # noqa: E402
+hors = [k for k in REG2.cles() if k not in SW.ADRESSES]
+chk("chaque module du registre est une clé des familles de l'accueil", not hors, hors)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
