@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Les textes de méthode du garde-corps, courts, écrits une fois : l'onglet Détail de l'écran
+"""Les textes de méthode du garde-corps, courts, écrits une fois : le volet « Méthode et sources » de l'écran
 et la page 2 de la note les lisent ici. Les hypothèses chiffrées (charges, limites, sections)
 sont imprimées par la note elle-même, en tête : ici, seulement les règles."""
 from typing import Dict, List

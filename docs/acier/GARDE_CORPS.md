@@ -1,6 +1,7 @@
 # Garde-corps — document de référence
 
-*Version 3, livrée le 05/11/2026 (version 2 le 05/11/2026, version 1 le 04/11/2026). Page
+*Version 3.2, livrée le 06/11/2026 (versions 3 et 3.1 le 05/11/2026, version 2 le 05/11/2026,
+version 1 le 04/11/2026). Page
 « Garde-corps » (tuile Autres), moteur `acier/garde_corps/`, étude de conception
 `docs/acier/GARDE_CORPS_ETUDE.md`.*
 
@@ -32,6 +33,18 @@ l'ELS, « 0.5 » et « 0.125 » à point décimal, N signé sans dire compressio
 « verre, tôle » sans câbles). L'écran propose l'OPTIMAL à chaque choix de profilé (★ le plus
 léger qui tient, son taux, le bouton « Prendre l'optimal », la ligne marquée ★ dans le tableau).
 
+**Version 3.2 — la disposition refondue (06/11/2026).** Le bureau a refusé l'écran de la 3.1 :
+« quatre dessins l'un en dessous de l'autre », « un montant, puis une liste de tableaux, un
+montant, une liste de tableaux », « un menu avec charges, montant, ancrage… ça ne va pas du
+tout ». PLUS D'ONGLETS. À gauche ce que le calcul PRODUIT : l'élévation, UN SEUL dessin de
+détail à la fois (coupe A-A, plan, platine, fixation, section — un sélecteur), et la carte
+RÉSULTAT qui porte une ligne par élément avec, pour chaque élément dimensionné, SA SECTION à
+choisir sur place et le bouton « ★ » qui nomme le plus léger qui tient et ouvre, en popover, le
+tableau des profilés (un clic retient). À droite ce qu'on SAISIT, en trois cartes toujours
+visibles : DÉFINITION, CHARGES, FIXATION. En bas, repliés : efforts, formules, identification,
+méthode ; les paramètres de la méthode en popover à côté du switch. Même moteur, mêmes clés de
+widgets, mêmes résultats (§6).
+
 ## 1 · Ce qui est livré
 
 | Pièce | Rôle |
@@ -44,11 +57,11 @@ léger qui tient, son taux, le bouton « Prendre l'optimal », la ligne marquée
 | `acier/garde_corps/fixation.py` | la soudure sur la platine comme cas du module Soudures (C6 tube, C3 plat, C8 section libre ; C8 à deux cordons longitudinaux pour la platine latérale) ; la platine boulonnée sur la dalle (bras de levier, rangée tendue, boulons EN 1993-1-8 ou chevilles ETA, flexion de la platine, épaisseur requise) ; la PLATINE LATÉRALE en nez de dalle (couple d'ancrages z = e_x, arrachement P, torsion d'un montant d'angle, platine en console du nu du montant à la colonne d'ancrages) |
 | `acier/garde_corps/etat.py` | les cas, les défauts (RHS 50x30x3), le JSON (version 3), la vérification complète sous chaque cas de charge (montants un à un — sur H + d_h en latéral —, main courante, barreaux ou lisses, consoles, soudure et platine ; sans montant : la main courante porte de mur à mur et ses réactions sont nommées), les CANDIDATS par rôle et le plus léger qui tient |
 | `acier/garde_corps/formules.py` | les formules écrites comme à la main, par BLOC (cas gouvernant, autres cas et leur taux, substitutions testées contre le moteur) : montant, console, main courante (deux appuis ou continue), barreaux, platine ; la soudure reprend celles du module Soudures |
-| `acier/garde_corps/methode.py` | les textes de méthode, courts (onglet Détail et page 2 de la note), les références |
+| `acier/garde_corps/methode.py` | les textes de méthode, courts (volet « Méthode et sources » de l'écran et page 2 de la note), les références |
 | `acier/garde_corps/schemas.py` | les six vues en dessin technique : élévation (inclinée pour un rampant), coupe A-A, vue en plan, platine en plan ou platine latérale vue de face, coupe sur la fixation ou coupe horizontale, section |
 | `acier/garde_corps/note.py` | la note PDF en deux pages, les hypothèses en tête, les symboles composés (`ndc_pdf/riche.py`), le résultat à la suite du calcul |
-| `modules/garde_corps.py` | l'écran : menu des types, cinq onglets, tableaux cliquables, quatre fixations, pente ; `modules/liaison.py` : la liaison état → widgets partagée |
-| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (110 + 62 + 75 + 59 + 71) ; `tools/captures_garde_corps.js` : huit états × quatre largeurs, mesures de ce que l'œil voit, clic sur une ligne de tableau dans un vrai navigateur |
+| `modules/garde_corps.py` | l'écran sans onglets (version 3.2) : élévation + un dessin de détail au choix, carte RÉSULTAT avec la section de chaque élément et son bouton « ★ » (tableau des profilés en popover), cartes DÉFINITION / CHARGES / FIXATION, détail replié ; `modules/liaison.py` : la liaison état → widgets partagée |
+| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (110 + 62 + 75 + 62 + 71) ; `tools/captures_garde_corps.js` : neuf états × quatre largeurs, mesures de ce que l'œil voit, clic sur une ligne de tableau (dans son popover) dans un vrai navigateur |
 
 ## 2 · Le modèle
 
@@ -198,41 +211,63 @@ suit la main courante.
 
 ![écran PC](images/garde_corps_pc.png)
 
-Barre d'outils du cas, switch de méthode (« Vérification à l'ELS » par défaut), les six dessins
-à gauche, la carte RÉSULTAT (statut, η, élément gouvernant avec son critère et son cas, une
-barre par élément, masse indicative) et cinq onglets à droite :
+Version 3.2 : PLUS D'ONGLETS, tout est à portée de main sur une page. Barre d'outils du cas,
+switch de méthode (« Vérification à l'ELS » par défaut) avec le popover **Paramètres** (nuance,
+E, flèche admissible, γ_adm, k, γ_F — ou γ_Q, γ_M0, γ_M2, critère des cordons en Eurocode), puis
+deux colonnes.
 
-1. **Garde-corps** — le TYPE en menu déroulant, la forme en plan, H (au-dessus de la dalle), la
-   PENTE du rampant, les tronçons (longueur, entraxe maxi, entraxes saisis), les extrémités
-   (les deux bouts ancrés et une seule travée : « Sans montant », l'écran le dit), le
-   remplissage du type (e_b et h_bas, ou le nombre et l'entraxe des lisses) avec la portée
-   déduite, le tableau des montants ;
-2. **Charges** — les quatre charges numérotées avec leur nom et leur origine, la catégorie
-   d'usage, la case « cumuler q_h et q_v », les options (P direct, Q) ;
-3. **Sections** — pour chaque élément du cas (montant, main courante avec son modèle sur deux
-   appuis ou continue, barreaux avec la lisse basse, ou lisses, ou console) : la section, son
-   taux et son cas, puis le TABLEAU des profilés compatibles (familles cochées — RHS par défaut
-   pour le montant et la main courante, plats et ronds pour les barreaux —, η σ, η flèche, η en
-   barre, la section retenue marquée ◀, l'OPTIMAL marqué ★) : un CLIC sur une ligne retient la
-   section ; au-dessus du tableau, la ligne « ★ Optimal pour … : section · kg/m · η » nomme le
-   plus léger qui tient parmi les familles cochées, et le bouton « Prendre l'optimal » le
-   retient (version 3.1 — à chaque choix de profilé) ;
-4. **Ancrage** — QUATRE fixations (platine boulonnée sur la dalle, platine latérale en nez de
-   dalle, soudé sur un plat existant, scellé), console au mur, soudure (jonction, gorge, t_p,
-   η et dessins du module Soudures), platine (b_p, l_p, e_x, n, e_y ; en latéral : d_h, b_p
-   hauteur, l_p largeur, e_x vertical, e_y horizontal, chevilles par paires), chevilles ou
-   boulons, les résultats (Z, F_t, F_v, interaction, m, σ_p, t_req face à t_p, arrachement P en
-   latéral) ; sans montant, l'onglet dit qu'il n'y a rien à fixer ;
-5. **Détail** — tableaux des éléments (avec leur cas) et des montants, les formules par bloc,
-   les paramètres de la méthode, l'identification de la note, la méthode et les sources.
+**À gauche, ce que le calcul produit.**
+
+- L'**ÉLÉVATION**, toujours, légendée du type et de la phrase de géométrie ; sous elle, UN SEUL
+  dessin de détail à la fois, choisi par le sélecteur **Coupe A-A · Plan · Platine · Fixation ·
+  Section** (les vues qui n'ont plus d'objet disparaissent du sélecteur : ni platine ni fixation
+  pour un montant scellé ou un garde-corps sans montant ; en latéral, « Platine latérale (vue de
+  face) » et « Coupe horizontale sur la fixation »). La note imprime toutes les vues.
+- La carte **RÉSULTAT** : statut, η, l'élément gouvernant avec son critère et son cas, la ligne
+  de méthode ; puis **une ligne par élément** — son nom, ce qui le décrit (portée, entraxe,
+  cordon, chevilles), son critère et son cas, sa barre η. Pour chaque élément DIMENSIONNÉ
+  (montant, main courante avec son modèle « 2 appuis | continue », barreaux ou lisses
+  intermédiaires, console), la ligne porte en dessous **sa section à choisir sur place** et le
+  bouton **« ★ RHS 50x30x2.5 · 73 % »**, qui nomme le plus léger qui tient parmi les familles
+  cochées (« ★ optimal retenu » quand c'est la section en place) et ouvre en popover le TABLEAU
+  des profilés compatibles : familles (RHS par défaut pour le montant et la main courante, plats
+  et ronds pour les barreaux), masse maxi, « seulement ceux qui tiennent », tubes formés à froid,
+  la ligne « ★ Optimal pour … » avec le bouton « Prendre l'optimal », et le tableau (section,
+  dimensions, kg/m, η σ_eq, η flèche, η en barre, ◀ la retenue, ★ l'optimal) — un CLIC sur une
+  ligne retient la section, le popover reste ouvert pour comparer. Soudure, ancrages et platine
+  n'ont qu'une ligne : leurs réglages sont dans la carte Fixation. La masse indicative ferme la
+  carte.
+
+**À droite, ce qu'on saisit, en trois cartes toujours visibles.**
+
+- **DÉFINITION** — le TYPE en menu déroulant, la forme en plan, H, la pente du rampant, les
+  tronçons (longueur, entraxe maxi, entraxes saisis), les extrémités (les deux bouts ancrés et
+  une seule travée : « Sans montant », la carte le dit), le remplissage du type (e_b, h_bas et la
+  lisse basse ; ou le nombre et l'entraxe des lisses ; ou h_bas du panneau) avec la portée des
+  barreaux déduite.
+- **CHARGES** — les quatre charges numérotées avec leur nom et leur origine, en quatre cellules
+  ; la catégorie d'usage, q_h (verrouillé hors « valeur libre »), q_v, Q_r, q_r sur une ligne ;
+  la case « cumuler q_h et q_v » ; le popover **Options** (P par montant saisie directement, Q
+  sur la main courante) ; la phrase des charges retenues.
+- **FIXATION** — QUATRE fixations en segments courts (platine sur la dalle, platine latérale en
+  nez de dalle, soudé sur plat existant, scellé), la console au mur, la soudure (jonction, gorge
+  ou pénétration, t_p, le popover **Dessins de la soudure**), la platine (b_p, l_p, e_x, par
+  rangée, e_y ; en latéral : d_h, b_p hauteur, l_p largeur, e_x vertical, e_y horizontal, par
+  paires), chevilles ou boulons, et le RÉSUMÉ chiffré sur une ligne (soudure, ancrages avec Z,
+  F_t, F_v, interaction, arrachement P en latéral, platine avec σ_p et l'épaisseur requise face
+  à t_p) ; sans montant, la carte dit qu'il n'y a rien à fixer.
+
+**En bas, repliés** : les efforts et taux (éléments avec leur cas, montants ou consoles un à
+un), les formules écrites comme à la main, l'identification de la note, la méthode et les
+sources. Au téléphone les colonnes s'empilent : dessins, résultat, puis la saisie.
+
+![PC, le tableau des profilés du montant dans son popover](images/garde_corps_pc_biblio.png)
 
 ![tablette](images/garde_corps_tablette_lisses.png) ![téléphone](images/garde_corps_telephone_murale.png)
 
-![PC, onglet Sections : l'optimal proposé](images/garde_corps_pc_sections.png)
-
-Version 3 — la fixation latérale sur PC (onglet Ancrage : d_h, b_p, l_p, e_x, e_y, arrachement
-P, les deux vues de détail) et le garde-corps sans montant au téléphone (« Non conforme » : un
-RHS 50x30x3 ne porte pas 3,60 m de mur à mur, η = 244 % en flèche) :
+La fixation latérale sur PC (carte Fixation : d_h, b_p, l_p, e_x, e_y ; la vue de face au
+sélecteur ; l'arrachement P dans le résumé) et le garde-corps sans montant au téléphone (« Non
+conforme » : un RHS 50x30x3 ne porte pas 3,60 m de mur à mur, η = 244 % en flèche) :
 
 ![PC, fixation latérale](images/garde_corps_pc_laterale.png) ![téléphone, sans montant](images/garde_corps_telephone_loggia.png)
 
@@ -290,11 +325,15 @@ l'échelle de l'élévation.
   de face et la coupe horizontale de la platine latérale (trous, bandes, z, m, P, V seulement
   s'il existe), les quatre vues sans montant, l'élévation inclinée du rampant, le peintre, la
   pureté ;
-- `tests/test_garde_corps_ecran.py` (59) : navigation, écran, le menu des types, source unique,
-  switch (« Vérification à l'ELS »), tableaux cliquables (colonnes, familles par défaut, section
-  retenue ◀, génération de la clé après un changement), la fixation latérale (champs, vues,
-  méthode « Ancrage latéral »), la pente, le garde-corps sans montant, la catégorie
-  industrielle, cas multiples, note, étanchéité ;
+- `tests/test_garde_corps_ecran.py` (62) : navigation, écran (deux dessins, le sélecteur de
+  vue et ce qu'il montre, une ligne par élément avec son sélecteur de section et son bouton
+  « ★ » nommant l'optimal, aucun onglet : trois cartes et quatre volets repliés, paramètres et
+  options en popover), le menu des types, source unique, switch (« Vérification à l'ELS »),
+  tableaux cliquables dans leur popover (colonnes, familles par défaut, réglages par élément,
+  section retenue ◀, « optimal retenu », génération de la clé après un changement), la fixation
+  latérale (champs, vues au sélecteur, méthode « Ancrage latéral »), le montant scellé et le
+  sans montant qui retirent des vues au sélecteur, la pente, la catégorie industrielle, cas
+  multiples, note, étanchéité ;
 - `tests/test_garde_corps_note.py` (71) : deux pages sans débordement sur douze cas, les
   hypothèses d'abord (« Vérification » et non « Méthode »), les symboles composés (aucun
   « q_h » brut hors les cotes des dessins), le calcul 1 à 4 dans l'ordre de lecture avec le
@@ -302,9 +341,13 @@ l'échelle de l'élévation.
   la page 2 et ses sections de méthode, les variantes — latérale, sans montant (titre « de mur
   à mur », réactions des murs), rampant industriel ; les conclusions construites sur les éléments
   réellement vérifiés, les limites 156,7 / 90,5, les références en section ;
-- `tools/captures_garde_corps.js` : huit états × quatre largeurs (défaut, lisses, murale,
-  biblio, nok, latérale, loggia, rampant), mesures de ce que l'œil voit, dont le CLIC sur une
-  ligne de tableau dans un vrai navigateur (le sélecteur affiche la section cliquée).
+- `tools/captures_garde_corps.js` : neuf états × quatre largeurs (défaut, lisses, murale,
+  biblio, nok, latérale, loggia, rampant, plan), mesures de ce que l'œil voit — exactement deux
+  dessins visibles, le sélecteur de vue et ses options, aucun onglet, une ligne et un bouton
+  « ★ » par élément dimensionné SANS CHEVAUCHEMENT (chaque élément de la carte finit avant que
+  le suivant commence : le défaut trouvé le 06/11/2026, un conteneur sans espacement et la marge
+  négative des blocs markdown de Streamlit, se mesure ainsi), dont le CLIC sur une ligne de
+  tableau dans son popover, dans un vrai navigateur (le sélecteur affiche la section cliquée).
 
 ## 9 · Couverture : ce que l'outil calcule, ce qu'il ne calcule pas
 

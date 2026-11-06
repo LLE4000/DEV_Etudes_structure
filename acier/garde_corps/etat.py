@@ -501,7 +501,7 @@ def element_principal(cas: Dict) -> str:
 
 
 def roles_du_cas(cas: Dict) -> List[str]:
-    """Les rôles que la bibliothèque peut dimensionner pour ce cas, dans l'ordre des onglets."""
+    """Les rôles que la bibliothèque peut dimensionner pour ce cas, dans l'ordre des lignes de la carte RÉSULTAT."""
     c = normaliser_cas(cas)
     out = []
     if c["geometrie"].get("systeme") == "mur":
