@@ -145,8 +145,12 @@ prime (décision écrite ici).
 
 ### 2.5 Statuts
 
-η ≤ 0,85 conforme ; ≤ 1 conforme avec attention ; > 1 non conforme ; refus sur données
-impossibles (aucune travée, section inconnue, rangées de boulons dans le montant).
+η < 0,95 conforme ; de 0,95 (inclus) à 1 conforme avec attention ; > 1 non conforme ; refus sur
+données impossibles (aucune travée, section inconnue, rangées de boulons dans le montant). Le
+seuil d'attention était 0,85 jusqu'au 06/11/2026 ; il porte depuis le CODE COULEUR des taux
+tranché par le bureau (P-14) : rouge au-dessus de 100 %, vert foncé de 95 à 100 %, vert pâle en
+dessous — à l'écran (pastilles, barres, cellules des tableaux de profilés) et dans la note
+(pastilles η des blocs).
 
 ## 3 · La bibliothèque
 
@@ -353,6 +357,13 @@ largeurs, mesure du non-chevauchement), GC9c docs, batterie, fusion dans `main`.
   la fléchit sur W_el,z et I_z ; les barreaux restent de champ (h dans le sens de la poussée).
   Si le bureau pose des lisses plates « à plat », il choisira la section dans l'autre sens
   (b × h inversés) — à trancher si le cas se présente.
+- **P-14 · Code couleur des taux (version 3.2, tranché par le bureau le 06/11/2026).** « 115 %,
+  ça doit être rouge ; de 95 à 100, vert foncé ; le reste vert pâle. » Les trois niveaux SONT
+  les trois statuts du moteur (`membres.statut` : nok, attention, ok), dont le seuil d'attention
+  passe de 0,85 à 0,95 (inclus) ; l'écran (`modules/garde_corps.py`, NIVEAU → pastilles, barres,
+  cellules du tableau des profilés par un `Styler` pandas) et la note (`note.couleurs_eta`) ne
+  portent que les couleurs — une seule source pour les seuils. Le texte d'un taux reste vert
+  foncé ou rouge là où un fond pâle ne se lit pas (η calé à droite des formules).
 
 ## 9 · Sources
 

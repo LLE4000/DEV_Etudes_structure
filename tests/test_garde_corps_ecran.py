@@ -41,6 +41,7 @@ from streamlit.testing.v1 import AppTest  # noqa: E402
 
 from acier.garde_corps import etat as ET  # noqa: E402
 from acier.garde_corps import types as TY  # noqa: E402
+from modules import garde_corps as GCM  # noqa: E402  (les aides pures de l'écran : pastilles du code couleur)
 
 OK, KO = [], []
 VUES = ["Coupe A-A", "Plan", "Platine", "Fixation", "Section"]      # les libellés du sélecteur de dessin de détail, dans l'ordre
@@ -152,6 +153,14 @@ chk("carte RÉSULTAT : Conforme, η = 64 %, le montant M2 gouverne par la flèch
 chk("chaque élément dimensionné porte son sélecteur de section et son bouton « ★ » qui nomme le plus léger qui tient avec son taux (montant, main courante, barreaux)",
     all(k in cles(at) for k in ("gc_w_montant_section", "gc_w_lisse_section", "gc_w_remplissage_section"))
     and [p for p in popovers(at) if p.startswith("★")] == ["★ RHS 50x30x2.5 · 73 %", "★ RHS 50x30x2.5 · 9 %", "★ Plat 30x6 · 84 %"], str(popovers(at)))
+chk("le code couleur des taux (bureau, 06/11/2026) : une pastille par taux — 115 % rouge, 97 % et 95 % vert foncé, 94,9 % vert pâle — portée par les statuts du moteur",
+    'gc-chip r">115 %' in GCM._chip(1.15) and 'gc-chip f">97 %' in GCM._chip(0.97) and 'gc-chip f">95 %' in GCM._chip(0.95) and 'gc-chip p">95 %' in GCM._chip(0.949)
+    and GCM.NIVEAU == {ET.NOK: "r", ET.ATTENTION: "f", ET.OK: "p"} and "vert foncé de 95 à 100 %" in m and ".gc-chip.r{background:#dc2626" in m)
+chk("le cas par défaut : sept pastilles au moins (η de la carte et une par élément), aucune rouge, le η de la carte en grande pastille pâle",
+    m.count('class="gc-chip') >= 7 and 'gc-chip r' not in m and 'gc-chip p big">η = 64 %' in eta(at), eta(at))
+sty_b = next(d for d in at.dataframe if d.key == "gc_tab_barreau_0").proto.arrow_data.styler.styles
+chk("le tableau des profilés colore ses cellules de taux par le même code (Styler pandas) : des rouges et des pâles dans le tableau des barreaux",
+    "#dc2626" in sty_b and "#dcfce7" in sty_b and "font-weight: 700" in sty_b)
 chk("plus d'onglets : trois cartes de saisie (DÉFINITION, CHARGES, FIXATION), le DÉTAIL en quatre volets repliés (efforts, formules, identification, méthode), "
     "les paramètres de la méthode et les options de charge en popover",
     len(at.tabs) == 0 and all(k in m for k in CARTES) and [e.label.split(" ")[0] for e in at.expander] == ["Efforts", "Les", "Identification", "Méthode"]
@@ -280,7 +289,15 @@ chk("Eurocode : « Efforts de calcul (ELU) », η suit le moteur", "Efforts de c
     and eta_moteur(at) in eta(at), eta(at))
 at.segmented_control(key="gc_w_methode_mode").set_value("els"); run(at)
 at.number_input(key="gc_w_methode_fleche_val").set_value(200.0); run(at)
-chk("flèche L/200 : le montant passe à 127 % (Non conforme)", "127 %" in eta(at) and "Non conforme" in pastille(at), eta(at))
+chk("flèche L/200 : le montant passe à 127 % (Non conforme), le η de la carte en grande pastille ROUGE, la pastille de statut rouge",
+    "127 %" in eta(at) and "Non conforme" in pastille(at) and 'gc-chip r big' in eta(at) and 'gc-pill nok' in pastille(at), eta(at))
+at.number_input(key="gc_w_methode_fleche_val").set_value(100.0); run(at)
+# une hauteur H qui met le montant entre 95 et 100 % (cherchée sur le moteur : le harnais ne connaît pas la mécanique)
+c0 = cas_actif(at)
+H_att = next((H for H in range(1150, 1400, 5) if 0.95 <= ET.verifier({**c0, "geometrie": {**c0["geometrie"], "H": float(H)}})["taux_max"] <= 1.0), None)
+at.number_input(key="gc_w_geometrie_H").set_value(float(H_att or 1260)); run(at)
+chk("entre 95 et 100 % : « Conforme, attention » en pastille VERT FONCÉ, le η de la carte en grande pastille vert foncé (le seuil d'attention du moteur, 0,95)",
+    H_att is not None and "Conforme, attention" in pastille(at) and 'gc-pill att' in pastille(at) and 'gc-chip f big' in eta(at), f"H = {H_att} · {eta(at)}")
 
 # ================================================================
 print("\n=== 6. Tableaux cliquables (dans le popover « ★ » de chaque élément) ===")

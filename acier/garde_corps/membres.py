@@ -32,7 +32,9 @@ SQRT3 = math.sqrt(3.0)
 # (CHS 48,3 × 3,2 à 1,20 m, H = 1,10 m, 0,5 kN/m) ne tient pas ; H/100 est la pratique des
 # garde-corps. C'est un choix du bureau, modifiable (L/x ou une valeur en mm).
 FLECHE_X_DEFAUT = 100.0
-SEUIL_ATTENTION, SEUIL_NOK = 0.85, 1.0
+# Les seuils du statut — et du CODE COULEUR des taux, tranché par le bureau le 06/11/2026 : rouge au-dessus de 100 %, vert foncé de
+# 95 à 100 % (« conforme, attention » : 0,95 inclus), vert pâle en dessous. L'écran et la note n'ajoutent que les couleurs (source unique).
+SEUIL_ATTENTION, SEUIL_NOK = 0.95, 1.0
 OK, ATTENTION, NOK, REFUS = "ok", "attention", "nok", "refus"
 ELS, EUROCODE = "els", "eurocode"
 
@@ -40,7 +42,7 @@ ELS, EUROCODE = "els", "eurocode"
 def statut(taux: Optional[float]) -> str:
     if taux is None:
         return REFUS
-    return NOK if taux > SEUIL_NOK else ATTENTION if taux > SEUIL_ATTENTION else OK
+    return NOK if taux > SEUIL_NOK else ATTENTION if taux >= SEUIL_ATTENTION else OK
 
 
 def methode_defaut() -> Dict:

@@ -169,7 +169,9 @@ chk("Eurocode : γ_Q = 1,5 sur σ et τ, limites fy/γM0 = 235 et fy/√3, la fl
     pres(ve["sigma"], 1.5 * v["sigma"]) and pres(ve["tau"], 1.5 * v["tau"]) and pres(ve["lim_sigma"], 235.0) and pres(ve["lim_tau"], 235 / math.sqrt(3))
     and pres(ve["fleche"], v["fleche"]) and pres(ve["fleche_lim"], v["fleche_lim"]))
 chk("flèche en mm : la limite est la valeur saisie", pres(ME.fleche_limite({**meth, "fleche_mode": "mm", "fleche_val": 25.0}, 1100.0), 25.0))
-chk("statuts : ≤ 0,85 ok, ≤ 1 attention, > 1 nok, None refus", ME.statut(0.85) == "ok" and ME.statut(0.9) == "attention" and ME.statut(1.01) == "nok" and ME.statut(None) == "refus")
+chk("statuts (code couleur du bureau, 06/11/2026) : < 0,95 ok (vert pâle), de 0,95 inclus à 1 attention (vert foncé), > 1 nok (rouge), None refus",
+    ME.statut(0.9) == "ok" and ME.statut(0.949) == "ok" and ME.statut(0.95) == "attention" and ME.statut(1.0) == "attention" and ME.statut(1.01) == "nok"
+    and ME.statut(None) == "refus" and ME.SEUIL_ATTENTION == 0.95)
 
 # ================================================================
 print("\n=== 4. Bibliothèque ===")

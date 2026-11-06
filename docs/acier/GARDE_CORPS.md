@@ -43,7 +43,10 @@ choisir sur place et le bouton « ★ » qui nomme le plus léger qui tient et o
 tableau des profilés (un clic retient). À droite ce qu'on SAISIT, en trois cartes toujours
 visibles : DÉFINITION, CHARGES, FIXATION. En bas, repliés : efforts, formules, identification,
 méthode ; les paramètres de la méthode en popover à côté du switch. Même moteur, mêmes clés de
-widgets, mêmes résultats (§6).
+widgets, mêmes résultats (§6). Et un CODE COULEUR des taux, le même partout (tableaux des
+profilés, pastilles, barres, pastilles η de la note) : ROUGE au-dessus de 100 %, VERT FONCÉ de
+95 à 100 %, VERT PÂLE en dessous — ce sont les trois statuts du moteur, dont le seuil
+d'attention passe de 0,85 à 0,95 (P-14 de l'étude).
 
 ## 1 · Ce qui est livré
 
@@ -61,7 +64,7 @@ widgets, mêmes résultats (§6).
 | `acier/garde_corps/schemas.py` | les six vues en dessin technique : élévation (inclinée pour un rampant), coupe A-A, vue en plan, platine en plan ou platine latérale vue de face, coupe sur la fixation ou coupe horizontale, section |
 | `acier/garde_corps/note.py` | la note PDF en deux pages, les hypothèses en tête, les symboles composés (`ndc_pdf/riche.py`), le résultat à la suite du calcul |
 | `modules/garde_corps.py` | l'écran sans onglets (version 3.2) : élévation + un dessin de détail au choix, carte RÉSULTAT avec la section de chaque élément et son bouton « ★ » (tableau des profilés en popover), cartes DÉFINITION / CHARGES / FIXATION, détail replié ; `modules/liaison.py` : la liaison état → widgets partagée |
-| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (110 + 62 + 75 + 62 + 71) ; `tools/captures_garde_corps.js` : neuf états × quatre largeurs, mesures de ce que l'œil voit, clic sur une ligne de tableau (dans son popover) dans un vrai navigateur |
+| `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (110 + 62 + 75 + 66 + 71) ; `tools/captures_garde_corps.js` : neuf états × quatre largeurs, mesures de ce que l'œil voit, clic sur une ligne de tableau (dans son popover) dans un vrai navigateur |
 
 ## 2 · Le modèle
 
@@ -233,10 +236,16 @@ deux colonnes.
   des profilés compatibles : familles (RHS par défaut pour le montant et la main courante, plats
   et ronds pour les barreaux), masse maxi, « seulement ceux qui tiennent », tubes formés à froid,
   la ligne « ★ Optimal pour … » avec le bouton « Prendre l'optimal », et le tableau (section,
-  dimensions, kg/m, η σ_eq, η flèche, η en barre, ◀ la retenue, ★ l'optimal) — un CLIC sur une
-  ligne retient la section, le popover reste ouvert pour comparer. Soudure, ancrages et platine
-  n'ont qu'une ligne : leurs réglages sont dans la carte Fixation. La masse indicative ferme la
-  carte.
+  dimensions, kg/m, η σ_eq, η flèche, η, ◀ la retenue, ★ l'optimal) — un CLIC sur une ligne
+  retient la section, le popover reste ouvert pour comparer. Soudure, ancrages et platine
+  n'ont qu'une ligne : leurs réglages sont dans la carte Fixation. La masse indicative et le
+  rappel du code couleur ferment la carte.
+- Le **code couleur des taux**, partout le même : chaque taux est une pastille — ROUGE au-dessus
+  de 100 %, VERT FONCÉ de 95 à 100 %, VERT PÂLE en dessous — et les barres η prennent la même
+  teinte ; dans le tableau des profilés, les trois colonnes η σ_eq, η flèche et η sont des
+  cellules colorées de même (un `Styler` pandas sur le `st.dataframe`). Le statut de la carte
+  (« Conforme » pâle, « Conforme, attention » vert foncé, « Non conforme » rouge) suit les mêmes
+  seuils, qui sont ceux du moteur.
 
 **À droite, ce qu'on saisit, en trois cartes toujours visibles.**
 
@@ -262,6 +271,12 @@ un), les formules écrites comme à la main, l'identification de la note, la mé
 sources. Au téléphone les colonnes s'empilent : dessins, résultat, puis la saisie.
 
 ![PC, le tableau des profilés du montant dans son popover](images/garde_corps_pc_biblio.png)
+
+Le code couleur sur un cas non conforme (catégorie C5, 3 kN/m) : les pastilles rouges du
+montant, de la soudure, des ancrages et de la platine, les pâles de la main courante et des
+barreaux, le η de la carte en grande pastille rouge :
+
+![PC, non conforme : le code couleur](images/garde_corps_pc_nok.png)
 
 ![tablette](images/garde_corps_tablette_lisses.png) ![téléphone](images/garde_corps_telephone_murale.png)
 
@@ -325,10 +340,12 @@ l'échelle de l'élévation.
   de face et la coupe horizontale de la platine latérale (trous, bandes, z, m, P, V seulement
   s'il existe), les quatre vues sans montant, l'élévation inclinée du rampant, le peintre, la
   pureté ;
-- `tests/test_garde_corps_ecran.py` (62) : navigation, écran (deux dessins, le sélecteur de
+- `tests/test_garde_corps_ecran.py` (66) : navigation, écran (deux dessins, le sélecteur de
   vue et ce qu'il montre, une ligne par élément avec son sélecteur de section et son bouton
-  « ★ » nommant l'optimal, aucun onglet : trois cartes et quatre volets repliés, paramètres et
-  options en popover), le menu des types, source unique, switch (« Vérification à l'ELS »),
+  « ★ » nommant l'optimal, le code couleur des taux — pastilles par niveau, grande pastille
+  rouge à 127 %, « Conforme, attention » vert foncé entre 95 et 100 %, cellules colorées du
+  tableau lues dans le Styler —, aucun onglet : trois cartes et quatre volets repliés,
+  paramètres et options en popover), le menu des types, source unique, switch (« Vérification à l'ELS »),
   tableaux cliquables dans leur popover (colonnes, familles par défaut, réglages par élément,
   section retenue ◀, « optimal retenu », génération de la clé après un changement), la fixation
   latérale (champs, vues au sélecteur, méthode « Ancrage latéral »), le montant scellé et le

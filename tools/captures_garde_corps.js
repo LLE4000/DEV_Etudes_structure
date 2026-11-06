@@ -24,7 +24,7 @@
 // ≥ 120 px de haut) ; le dessin de détail visible (≥ 200 × 120 px) ; exactement deux dessins SVG visibles (le reste vit dans des popovers
 // fermés) ; carte RÉSULTAT visible avec η ; les lignes de la carte ne se chevauchent pas (chaque élément de la carte finit avant que le
 // suivant commence) ; aucun onglet ; états spécifiques. Fichiers : apres_garde_corps_<état>_<largeur>.png. Code de sortie 1 dès qu'un
-// seuil n'est pas tenu.
+// seuil n'est pas tenu. Le code couleur des taux (rouge > 100 %, vert foncé 95–100 %, vert pâle en dessous) : pastilles comptées par niveau.
 const { chromium } = require('playwright');
 const OUT = process.argv[2] || '.';
 const ETATS = (process.argv[3] || 'defaut,lisses,murale,biblio,nok,laterale,loggia,rampant,plan').split(',');
@@ -151,6 +151,9 @@ async function agrandir(page, w) {
                    nLignes: [...document.querySelectorAll('.st-key-gc_k_res .gc-row')].filter(vis).length,
                    nSelecteurs: [...document.querySelectorAll('.st-key-gc_k_res [data-testid="stSelectbox"]')].filter(vis).length,
                    nEtoiles: [...document.querySelectorAll('.st-key-gc_k_res [data-testid="stPopoverButton"]')].filter(b => vis(b) && /★/.test(b.innerText)).length,
+                   // le code couleur des taux : une pastille par taux, rouge (r) au-dessus de 100 %, vert foncé (f) de 95 à 100 %, vert pâle (p) en dessous
+                   chips: ['r', 'f', 'p'].map(k => [...document.querySelectorAll('.gc-chip.' + k)].filter(vis).length),
+                   chipRouge: (() => { const c = [...document.querySelectorAll('.gc-chip.r')].filter(vis)[0]; return c ? getComputedStyle(c).backgroundColor : ''; })(),
                    pill: pill ? pill.innerText : '', eta: eta ? eta.innerText : '',
                    angle: /d'angle/.test(texte), console: /Console C/.test(texte), enL: /en L/.test(texte),
                    lissesInter: /Lisses intermédiaires/.test(texte), murale: /murale sur consoles/i.test(texte),
@@ -184,7 +187,11 @@ async function agrandir(page, w) {
         if (etat === 'murale') verdict('murale : des consoles C…', m.console && m.murale, `${m.eta}`);
         if (etat === 'biblio') verdict('biblio : le clic sur une ligne du tableau (dans le popover) retient une autre section, le sélecteur l\'AFFICHE (liaison état → widget), le popover reste ouvert',
                                        biblio.avant && biblio.apres && biblio.apres !== biblio.avant && m.popover, `avant ${biblio.avant} · après ${biblio.apres} · popover ${m.popover}`);
-        if (etat === 'nok') verdict('nok : Non conforme (C5, 3 kN/m)', /Non conforme/.test(m.pill), `${m.pill} · ${m.eta}`);
+        if (etat === 'nok') verdict('nok : Non conforme (C5, 3 kN/m), au moins une pastille ROUGE (fond rgb(220, 38, 38)) et aucune pâle pour le gouvernant',
+                                    /Non conforme/.test(m.pill) && m.chips[0] >= 1 && m.chipRouge === 'rgb(220, 38, 38)', `${m.pill} · ${m.eta} · pastilles r/f/p ${m.chips.join('/')} · ${m.chipRouge}`);
+        else verdict('code couleur : une pastille de taux par ligne d\'élément plus celle de la carte, aucune rouge sur un cas conforme',
+                     m.chips[0] + m.chips[1] + m.chips[2] >= m.nLignes + 1 && (m.chips[0] === 0 || !/Conforme$/.test(m.pill.trim())),
+                     `pastilles r/f/p ${m.chips.join('/')} pour ${m.nLignes} ligne(s)`);
         if (etat !== 'biblio') await agrandir(page, w);
         await page.screenshot({ path: `${OUT}/apres_garde_corps_${etat}_${w}.png`, fullPage: etat !== 'biblio' });
       } catch (e) {
