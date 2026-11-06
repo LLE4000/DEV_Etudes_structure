@@ -4,36 +4,42 @@
 // l'élément ATTENDU de chaque vue réellement vu : présent, visible, à l'écran (une feuille qui monte du bas, une liste en cartes),
 // et aucun élément propre à l'AUTRE format visible (le choix de famille du téléphone sur le PC, la barre latérale au téléphone).
 //
-//   node site/maquettes/captures.js <dossier_sortie>
+//   node site/maquettes/captures.js <dossier_sortie> [filtre]   (filtre : ne jouer que les vues dont le nom le contient)
 const { chromium } = require('playwright');
 const path = require('path');
 const OUT = process.argv[2] || '.';
+const FILTRE = process.argv[3] || '';
 const PAGES = path.join(__dirname, 'pages');
 const PROPRES_TEL = '.mfam, .mhead, .mnav, .mtop, .mtabs, .mbar, .mlist, .tile .chev, .drawer .grab, .drawer .dclose, .fscrim';
-const PROPRES_PC = '.nav, .top, .famhead, .tablecard, .phead, .zoom';
+const PROPRES_PC = '.nav, .top, .famhead, .tablecard, .phead, .zoom, .pcoll[data-coll]';
 // [nom, page, largeur, hauteur, adresse, page entière (par défaut : oui au téléphone), élément attendu à l'écran]
 const PLAN = [
   ['accueil', 'accueil.html', 1440, 900, '', true, '.resume'],
-  ['projets', 'projets.html', 1440, 900, '', false, '.drawer .timeline'],
+  ['projets', 'projets.html', 1440, 900, '', true, '.drawer .timeline'],
   ['module', 'garde-corps.html', 1440, 900, ''],
   ['module_sombre', 'garde-corps.html', 1440, 900, '?theme=dark'],
-  ['module_profils', 'garde-corps.html', 1440, 900, '?profils=1', false, '.sheetR'],
+  ['module_profils', 'garde-corps.html', 1440, 900, '?profils=1', false, '.flyout.on .pk-row.cur'],
+  ['module_calcul', 'garde-corps.html', 1440, 900, '?calcul=montant', false, '.flyout.on .ck-body'],
+  ['module_large', 'garde-corps.html', 1440, 900, '?replie=1', false, '.stage .sheet'],
   ['module_coupe', 'garde-corps.html', 1440, 900, '?vue=coupe'],
   ['module_tablette', 'garde-corps.html', 1280, 800, ''],
+  ['profils_tablette', 'garde-corps.html', 1280, 800, '?profils=1', false, '.flyout.on .pk-row.cur'],
   ['accueil_tablette', 'accueil.html', 1280, 800, ''],
+  ['equipe', 'equipe.html', 1440, 900, '', true, '.team .invrow'],
   ['tel_accueil', 'accueil.html', 390, 844, '', true, '.mnav'],
   ['tel_projets', 'projets.html', 390, 844, '', true, '.mlist'],
   ['tel_fiche', 'projets.html', 390, 844, '?fiche=1', false, '.drawer .timeline'],
   ['tel_resultat', 'garde-corps.html', 390, 844, '?tab=resultat'],
-  ['tel_profils', 'garde-corps.html', 390, 844, '?tab=resultat&profils=1', false, '.sheetR .ptable'],
+  ['tel_profils', 'garde-corps.html', 390, 844, '?tab=resultat&profils=1', false, '.flyout.on .pk-list'],
   ['tel_dessin', 'garde-corps.html', 390, 844, '?tab=dessin'],
   ['tel_donnees', 'garde-corps.html', 390, 844, '?tab=donnees'],
   ['tel_sombre', 'accueil.html', 390, 844, '?theme=dark', false, '.mhead'],
+  ['tel_equipe', 'equipe.html', 390, 844, '', true, '.team .invrow'],
 ];
 (async () => {
   const browser = await chromium.launch();
   let ko = 0;
-  for (const [nom, fichier, w, h, q, pleine, attendu] of PLAN) {
+  for (const [nom, fichier, w, h, q, pleine, attendu] of PLAN.filter(p => p[0].includes(FILTRE))) {
     const mobile = w <= 640;
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: mobile, hasTouch: mobile });
     const page = await ctx.newPage();
@@ -46,7 +52,7 @@ const PLAN = [
       const svg = [...document.querySelectorAll('.view.on svg, .thumb svg')].find(vis);
       const r = svg ? svg.getBoundingClientRect() : null;
       // un nom coupé se lit à l'œil : largeur du texte plus grande que la boîte qui le montre
-      const coupes = [...document.querySelectorAll('.optline b')].filter(vis).filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.textContent);
+      const coupes = [...document.querySelectorAll('.prof span, .pk-row .nm, .el .l1 b, .ni .t')].filter(vis).filter(b => b.scrollWidth > b.clientWidth + 1).map(b => b.textContent);
       // l'élément attendu : visible, d'une taille réelle, et dans la fenêtre (au moins en partie)
       let vu = true;
       if (attendu) {

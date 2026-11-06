@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""Maquettes du site « Stab Méthodes » : l'APERÇU CLIQUABLE en une seule page (accueil, projets, établi du garde-corps),
-à ouvrir au téléphone comme au PC. Les trois vues viennent des MÊMES fonctions que les pages statiques (construire.py) :
-les liens entre pages deviennent des ancres (#accueil, #projets, #garde-corps), et le thème suit celui de l'appareil
+"""Maquettes du site « Stab Méthodes » : l'APERÇU CLIQUABLE en une seule page (accueil, projets, établi du garde-corps, équipe),
+à ouvrir au téléphone comme au PC. Les quatre vues viennent des MÊMES fonctions que les pages statiques (construire.py) :
+les liens entre pages deviennent des ancres (#accueil, #projets, #garde-corps, #equipe), et le thème suit celui de l'appareil
 (le bouton soleil / lune le bascule).
 
 Lancement : python3 site/maquettes/apercu.py <fichier_sortie.html>
@@ -14,7 +14,7 @@ ICI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ICI)
 import construire as C  # noqa: E402
 
-VUES = (("accueil", C.accueil), ("projets", C.projets), ("garde-corps", C.module))
+VUES = (("accueil", C.accueil), ("projets", C.projets), ("garde-corps", C.module), ("equipe", C.equipe))
 
 
 def css_theme_systeme(css: str) -> str:

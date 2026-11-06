@@ -6,10 +6,13 @@ charges sur plancher pour les vignettes de l'accueil.
 
 Lancement : python3 site/maquettes/extraire_donnees.py (depuis la racine) → site/maquettes/donnees.json
 """
+import base64
 import copy
 import json
 import os
+import subprocess
 import sys
+import tempfile
 
 RACINE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, RACINE)
@@ -18,7 +21,9 @@ os.chdir(RACINE)
 from acier.garde_corps import bibliotheque as BI  # noqa: E402
 from acier.garde_corps import charges as CH  # noqa: E402
 from acier.garde_corps import etat as ET  # noqa: E402
+from acier.garde_corps import formules as FO  # noqa: E402
 from acier.garde_corps import membres as ME  # noqa: E402
+from acier.garde_corps import note as NO  # noqa: E402
 from acier.garde_corps import schemas as SC  # noqa: E402
 from acier.soudures import etat as SET  # noqa: E402
 from acier.soudures import schemas as SSC  # noqa: E402
@@ -48,6 +53,54 @@ def elements(res):
     return out
 
 
+def selecteur(cas, role, groupes, fams):
+    """Le sélecteur de profilé d'un élément : les candidats du moteur TRIÉS PAR MASSE (l'ordre de grandeur), le retenu et
+    l'optimal (le plus léger qui tient) marqués, chaque taux avec son niveau ; une fenêtre qui commence un peu avant
+    l'optimal et va bien au-delà du retenu, pour la molette."""
+    cands = sorted((c for c in ET.candidats(cas, role, groupes, 15.0) if c["section"]["famille"].replace("-F", "") in fams),
+                   key=lambda c: c["masse"])
+    best = ET.plus_leger(cands)
+    cur = ET.spec_du_role(cas, role).get("nom")
+    noms = [c["section"]["nom"] for c in cands]
+    i_o = noms.index(best["section"]["nom"]) if best else 0
+    i_c = noms.index(cur) if cur in noms else i_o
+    d, f = max(0, min(i_o, i_c) - 6), min(len(cands), max(i_o, i_c) + 16)
+    return [{"nom": c["section"]["nom"], "kgm": round(c["masse"], 2), "eta": round(min(c["taux"], 9.99) * 100),
+             "niveau": niveau(c["taux"]), "retenue": c["section"]["nom"] == cur,
+             "optimal": best is not None and c["section"]["nom"] == best["section"]["nom"]} for c in cands[d:f]]
+
+
+def calculs(res):
+    """« Voir le calcul » : les formules du moteur, groupe par groupe, telles que la note les imprime (FO.morceaux) ;
+    chaque taux porte son niveau pour la couleur. Rien n'est recalculé ici."""
+    out = {}
+    for cle, fn in (("montant", FO.montant), ("lisse", FO.lisse), ("barreau", FO.barre)):
+        b = fn(res)
+        if not b["groupes"]:
+            continue
+        groupes = []
+        for lib, subs in b["groupes"]:
+            lignes = []
+            for s in subs:
+                parts, r = FO.morceaux(s)
+                lignes.append({"parts": parts, "res": r, "niveau": niveau(s.res) if s.nom.startswith("η") else ""})
+            groupes.append({"titre": lib, "lignes": lignes})
+        out[cle] = {"cas": b["cas"], "autres": b["autres"], "groupes": groupes}
+    return out
+
+
+def apercu_note(cas):
+    """La première page de la VRAIE note (moteur → PDF → image) : l'aperçu d'un indice périmé, sous son filigrane."""
+    pdf = NO.generer_note(ET.nouvel_etat(), cas, {"nom_projet": "Réalex", "partie": "Garde-corps terrasse R+1", "indice": "A"})
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "note.pdf")
+        with open(src, "wb") as f:
+            f.write(pdf)
+        subprocess.run(["pdftoppm", "-png", "-r", "36", "-f", "1", "-l", "1", "-singlefile", src, os.path.join(tmp, "p1")], check=True)
+        with open(os.path.join(tmp, "p1.png"), "rb") as f:
+            return "data:image/png;base64," + base64.b64encode(f.read()).decode("ascii")
+
+
 def garde_corps(cas, prefixe):
     res = ET.verifier(cas)
     vues = [{"cle": k, "titre": t, "svg": SC.svg(d, f"{prefixe}_{k}"), "mini": SC.svg(d, f"{prefixe}_m_{k}")} for k, t, d in SC.vues(res)]
@@ -74,7 +127,9 @@ def garde_corps(cas, prefixe):
         if b is not None:
             optimaux[role] = {"nom": b["section"]["nom"], "taux": round(b["taux"] * 100), "niveau": niveau(b["taux"]),
                               "retenu": b["section"]["nom"] == ET.spec_du_role(cas, role).get("nom")}
+    selecteurs = {role: selecteur(cas, role, groupes, fams) for role, (groupes, fams) in defaut.items()}
     return {"eta": round(res["taux_max"] * 100), "niveau": niveau(res["taux_max"]), "statut": res["statut"], "optimaux": optimaux,
+            "selecteurs": selecteurs, "calculs": calculs(res),
             "gouvernant": g["libelle"], "critere": ME.critere_texte(g["critere"]), "phrase": res["geometrie"]["phrase"],
             "type": res["type_libelle"], "masse": round(res["masse"]), "elements": elements(res), "vues": vues,
             "table_montant": table, "optimal_montant": {"nom": best["section"]["nom"], "taux": round(best["taux"] * 100)} if best else None}
@@ -86,6 +141,7 @@ def main():
     # les seuils du code couleur, lus dans le moteur pour la légende (aucune copie à l'écran)
     donnees = {"seuils": {"attention": round(ME.SEUIL_ATTENTION * 100), "nok": round(ME.SEUIL_NOK * 100)},
                "gc": garde_corps(cas, "gc")}
+    donnees["note_page"] = apercu_note(cas)
     # une variante plus chargée pour les vignettes : catégorie C5 (non conforme) et une hauteur qui met le montant entre 95 et 100 %
     c5 = copy.deepcopy(cas)
     c5["charges"]["categorie"] = "C5"

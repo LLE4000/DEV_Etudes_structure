@@ -35,11 +35,11 @@ fs.writeFileSync(fichier, html);
     verif(`${fmt}/${scheme} rapport récent → module`, e.page === 'garde-corps' && e.sw <= w, JSON.stringify(e));
     if (fmt === 'tel') {
       await p.click('.mtabs button[data-tab="resultat"]');
-      await p.click('.vpage[data-page="garde-corps"] .optline');
+      await p.click('.vpage[data-page="garde-corps"] .el[data-el="montant"] .prof');
       await p.waitForTimeout(250);
-      verif(`${fmt}/${scheme} feuille des profilés depuis Résultat`, await vis('.sheetR .ptable'));
+      verif(`${fmt}/${scheme} sélecteur de profilés depuis Résultat`, await vis('.flyout.on .pk-row.cur'));
       await p.screenshot({ path: path.join(OUT, `apercu_${fmt}_${scheme}_profils.png`) });
-      await p.click('.sheetR [data-fermer]');
+      await p.click('.flyout.on [data-fermer]');
       await p.click('.mtop [data-go="projets"]');
     } else {
       await p.click('.vpage[data-page="garde-corps"] .nav [data-go="projets"]');
@@ -59,6 +59,22 @@ fs.writeFileSync(fichier, html);
     await p.waitForTimeout(250);
     e = await etat();
     verif(`${fmt}/${scheme} « Ouvrir » → module`, e.page === 'garde-corps', JSON.stringify(e));
+    if (fmt === 'pc') {
+      // « Voir le calcul » ouvre les formules ; les deux cadres se replient et le dessin prend la largeur
+      await p.click('.vpage[data-page="garde-corps"] [data-calcul="montant"]');
+      await p.waitForTimeout(200);
+      verif(`${fmt}/${scheme} « Voir le calcul » ouvre les formules`, await vis('.flyout.on .ck-body .fx'));
+      await p.click('.flyout.on [data-fermer]');
+      const avant = await p.evaluate(() => Math.round(document.querySelector('.view.on .sheet').getBoundingClientRect().width));
+      await p.click('[data-coll="g"]'); await p.click('[data-coll="d"]');
+      await p.waitForTimeout(400);
+      const apres = await p.evaluate(() => Math.round(document.querySelector('.view.on .sheet').getBoundingClientRect().width));
+      verif(`${fmt}/${scheme} cadres repliés : le dessin s'élargit`, apres > avant + 400, `${avant} → ${apres} px`);
+      await p.click('.vpage[data-page="garde-corps"] .nav [data-go="equipe"]');
+      await p.waitForTimeout(250);
+      e = await etat();
+      verif(`${fmt}/${scheme} rail → équipe`, e.page === 'equipe' && await vis('.team .invrow'), JSON.stringify(e));
+    }
     // le bouton de thème bascule
     const avant = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);
     await p.evaluate(() => window.ALLER('accueil'));
