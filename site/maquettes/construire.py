@@ -148,7 +148,7 @@ def nav(actif: str) -> str:
             + item("house", "Accueil", "accueil") + item("folder", "Projets", "projets", "4") + item("clock", "Récents", "recents")
             + '<div class="navlabel">Modules</div>' + fams
             + f'<div class="navfoot"><div class="storage">Stockage · 38 Mo sur 1 Go<div class="bar"><b></b></div></div>'
-              f'<div class="me"><span class="avatar">LL</span><div class="who"><b>Lucien Lejeune</b><span>stab-methodes.be</span></div>'
+              f'<div class="me"><span class="avatar">LL</span><div class="who"><b>Mon compte</b><span>stab-methodes.be</span></div>'
               f'<span class="spacer"></span>{icon("settings")}</div></div></nav>')
 
 
@@ -230,7 +230,7 @@ def accueil() -> tuple:
     mhead = (f'<header class="mhead"><div class="logo">{LOGO}</div><span class="ttl">Stab Méthodes</span><span class="spacer"></span>'
              f'{theme_btn()}<a class="btn icon ghost" title="Notifications">{icon("bell")}</a><span class="avatar">LL</span></header>')
     corps = (f'<div class="app">{nav("accueil")}<main class="main">{mhead}<div class="page">'
-             f'<div class="hello"><div><div class="h1">Bonjour Lucien</div><div class="sub">Vendredi 6 novembre · 3 rapports en cours, 1 à diffuser</div></div>'
+             f'<div class="hello"><div><div class="h1">Bonjour</div><div class="sub">Vendredi 6 novembre · 3 rapports en cours, 1 à diffuser</div></div>'
              f'<span class="spacer"></span><div class="bigsearch">{icon("search")}<span>Rechercher un module, un chantier, une note…</span><span class="kbd">Ctrl K</span></div>'
              f'<a class="btn primary big" title="Nouveau calcul">{icon("plus")}<span class="lbl">Nouveau calcul</span></a></div>'
              f'<div><div class="sechead"><div class="h2">Reprendre</div><a class="btn ghost sm">Tout voir {icon("arrow-up-right")}</a></div>'
