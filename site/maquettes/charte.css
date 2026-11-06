@@ -157,9 +157,10 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
 .avstack { display: flex; }
 .avstack .avatar { box-shadow: 0 0 0 2px var(--panel); margin-left: -4px; }
 .avstack .avatar:first-child { margin-left: 0; }
-.me .who { line-height: 1.2; }
-.me .who b { display: block; font-size: 12.5px; }
-.me .who span { font-size: 11px; color: var(--ink-3); }
+.me .who { line-height: 1.2; min-width: 0; }
+.me .who b { display: block; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.me .who span { display: block; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand .btn.icon { margin-left: auto; width: 28px; height: 28px; }
 
 /* la navigation repliée en rail, dans un module */
 .app.rail .nav { padding: 12px 10px; align-items: center; }
@@ -277,7 +278,7 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
 .bigsearch { display: flex; align-items: center; gap: 10px; height: 40px; width: 400px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--r); background: var(--panel); color: var(--ink-3); box-shadow: var(--shadow-1); white-space: nowrap; overflow: hidden; }
 .bigsearch > span:not(.kbd) { overflow: hidden; text-overflow: ellipsis; }
 .sechead { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
-.sechead .h2 { margin-right: auto; }
+.sechead .h2, .sechead .h3 { margin-right: auto; }
 .resume { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 30px; }
 .rcard { overflow: hidden; display: flex; flex-direction: column; }
 .thumb {
@@ -301,7 +302,7 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .tile { display: flex; gap: 12px; align-items: flex-start; padding: 13px 14px; border-radius: var(--r); background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-1); min-height: 74px; }
 .tile:hover { border-color: var(--accent-line); box-shadow: var(--shadow-2); }
-.tile .modic { width: 36px; height: 36px; border-radius: 10px; }
+.tile .modic { display: grid; width: 36px; height: 36px; border-radius: 10px; }
 .tile .modic svg { width: 21px; height: 21px; }
 .tile b { display: block; font-size: 13px; font-weight: 650; margin-bottom: 2px; }
 .tile span { display: block; font-size: 11.5px; color: var(--ink-3); line-height: 1.35; }
@@ -318,6 +319,9 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
 .feed { display: flex; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); font-size: 12.5px; line-height: 1.4; }
 .feed:first-of-type { border-top: 0; }
 .feed .when { color: var(--ink-3); font-size: 11.5px; display: block; margin-top: 2px; }
+.btn.big { height: 40px; padding: 0 16px; }
+/* au téléphone seulement : le choix de la famille et la flèche des tuiles */
+.seg.mfam, .tile .chev { display: none; }
 
 /* ---------------------------------------------------------------- les projets */
 .proj { display: grid; grid-template-columns: 268px 1fr 360px; min-height: calc(100vh - var(--top-h)); }
@@ -349,6 +353,18 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
 .ver b { font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
 .ver p { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
 .ver .when { font-size: 11.5px; color: var(--ink-3); margin-top: 3px; display: flex; align-items: center; gap: 6px; }
+/* au téléphone seulement : la liste en cartes et la fiche qui monte du bas */
+.mlist, .drawer .grab, .drawer .dclose, .fscrim { display: none; }
+.mrow { display: flex; gap: 12px; align-items: flex-start; padding: 13px 14px; border-top: 1px solid var(--line); }
+.mrow:first-child { border-top: 0; }
+.mrow .modic { width: 34px; height: 34px; border-radius: 9px; }
+.mrow .modic svg { width: 19px; height: 19px; }
+.mrow .mt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.mrow .mt b { font-size: 14px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mrow .mt > span { font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mrow .mm { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.mrow .mm .indice { height: 20px; min-width: 20px; font-size: 11px; }
+.mrow .mm .tag { height: 20px; font-size: 11px; }
 
 /* ---------------------------------------------------------------- l'établi d'un module */
 .bench { display: grid; grid-template-columns: 344px 1fr 340px; height: calc(100vh - var(--top-h)); min-height: 0; }
@@ -459,7 +475,9 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
 .ptable td.eta .chip { width: 54px; }
 .ptable tr.ret td { background: var(--panel-2); font-weight: 650; }
 .ptable tr.ret td:first-child { box-shadow: inset 3px 0 0 var(--ink-4); }
-.ptable .star { color: #E8A500; }
+.ptable .star { color: #E8A500; margin-left: 6px; vertical-align: -2px; }
+.ptable .star svg.i { width: 14px; height: 14px; }
+.ptable .tag { margin-left: 8px; }
 
 /* ---------------------------------------------------------------- tablette et téléphone */
 @media (max-width: 1360px) {
@@ -473,7 +491,8 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
   .proj { grid-template-columns: 236px 1fr 316px; }
   .bigsearch { width: 300px; }
 }
-.mtop, .mtabs, .mbar { display: none; }
+.mtop, .mtabs, .mbar, .mhead, .mnav { display: none; }
+[data-go], [data-fiche], [data-theme-toggle] { cursor: pointer; }
 @media (max-width: 700px) {
   body { font-size: 14px; }
   .app, .app.rail { grid-template-columns: 1fr; }
@@ -509,4 +528,83 @@ sub { font-size: .72em; vertical-align: -.25em; line-height: 0; }
   .sheet { height: auto; min-height: 300px; }
   .strip { padding: 0 12px 14px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
   .mini { width: 88px; } .mini .pic { width: 88px; height: 56px; }
+  /* la feuille des profilés s'ouvre aussi depuis l'onglet Résultat : elle monte du bas, par-dessus l'onglet ouvert */
+  .bench:not([data-tab="dessin"]) .canvas { display: block; flex: none; height: 0; }
+  .bench:not([data-tab="dessin"]) .canvas > :not(.scrim):not(.sheetR) { display: none; }
+  .scrim { position: fixed; z-index: 20; }
+  .sheetR { position: fixed; top: 44px; left: 0; right: 0; bottom: 0; width: auto; border-radius: 18px 18px 0 0; z-index: 21; }
+  .sheetR .sh { padding: 12px 14px; }
+  .filters { padding: 10px 14px; gap: 6px; }
+  .filters .spacer { display: none; }
+  .optimal { margin: 10px 14px 4px; flex-wrap: wrap; }
+  .ptable { padding: 4px 4px 12px; }
+  .ptable .table th, .ptable .table td { padding: 0 4px; }
+  .ptable .table td:first-child b { font-size: 12.5px; }
+  .ptable td.eta .chip { width: 42px; min-width: 0; padding: 0 3px; font-size: 11px; }
+
+  /* l'en-tête et les onglets du bas, pour l'accueil et les projets */
+  .mhead { display: flex; align-items: center; gap: 10px; height: 56px; padding: 0 16px; position: sticky; top: 0; z-index: 6;
+    background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  .mhead .logo { width: 28px; height: 28px; }
+  .mhead .ttl { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -.015em; white-space: nowrap; }
+  .mhead .btn.icon { width: 38px; height: 38px; }
+  .mhead .btn.icon svg.i { width: 19px; height: 19px; }
+  .mnav { display: grid; grid-template-columns: repeat(4, 1fr); position: sticky; bottom: 0; margin-top: auto; z-index: 7;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(12px); }
+  .mnav a { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 5px 0 3px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+  .mnav a svg.i { width: 22px; height: 22px; stroke-width: 1.7; }
+  .mnav a.on { color: var(--accent); }
+
+  /* l'accueil : une colonne, les rapports récents défilent de côté, une famille de modules à la fois */
+  .page { grid-template-columns: minmax(0, 1fr); padding: 18px 16px 26px; gap: 26px; }
+  .hello { flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 0; }
+  .hello > div:first-child { flex: 1 0 100%; }
+  .hello .h1 { font-size: 24px; }
+  .hello .spacer, .bigsearch .kbd, .hello .btn .lbl { display: none; }
+  .bigsearch { flex: 1 1 0; width: auto; min-width: 0; height: 44px; }
+  .hello .btn.big { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .hello .btn.big svg.i { width: 20px; height: 20px; }
+  .resume { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 78%; overflow-x: auto; scroll-snap-type: x mandatory;
+    margin: 0 -16px 28px; padding: 0 16px 4px; scroll-padding: 0 16px; scrollbar-width: none; }
+  .resume > * { scroll-snap-align: start; }
+  .seg.mfam { display: flex; margin-bottom: 12px; }
+  .mfam button { height: 34px; font-size: 13px; }
+  .fams .fam { display: none; margin-bottom: 0; }
+  .fams[data-fam="beton"] .fam.beton, .fams[data-fam="acier"] .fam.acier, .fams[data-fam="autres"] .fam.autres { display: block; }
+  .famhead { display: none; }
+  .tiles { grid-template-columns: minmax(0, 1fr); gap: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-1); }
+  .tile { align-items: center; min-height: 0; padding: 11px 14px; border: 0; border-top: 1px solid var(--line); border-radius: 0; box-shadow: none; }
+  .tile:first-child { border-top: 0; }
+  .tile > div { flex: 1; min-width: 0; }
+  .tile b { font-size: 14px; }
+  .tile span { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .chev { display: block; color: var(--ink-4); }
+  .side { position: static; }
+
+  /* les projets : les dossiers en pastilles qui défilent, les rapports en cartes, la fiche monte du bas */
+  .proj { display: block; min-height: 0; }
+  .tree { flex-direction: row; align-items: center; gap: 6px; overflow-x: auto; padding: 10px 16px; border-right: 0; border-bottom: 1px solid var(--line); scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent); }
+  .tree .field, .tree .navlabel { display: none; }
+  .node { flex: none; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--panel); }
+  .node.l1 { padding-left: 12px; }
+  .node .count { margin-left: 2px; }
+  .node.on { border-color: var(--accent-line); }
+  .tree .btn { flex: none; margin: 0 !important; }
+  .list { padding: 18px 16px 24px; }
+  .list .head { margin-bottom: 14px; }
+  .list .head .seg, .list .tablecard { display: none; }
+  .mlist { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-1); }
+  .fscrim { position: fixed; inset: 0; background: rgba(13, 21, 37, .32); z-index: 20; }
+  .show-fiche .fscrim { display: block; }
+  .drawer { position: fixed; left: 0; right: 0; bottom: 0; max-height: 86vh; overflow-y: auto; z-index: 21; border-left: 0; border-radius: 18px 18px 0 0;
+    padding: 8px 16px calc(18px + env(safe-area-inset-bottom)); box-shadow: var(--shadow-pop);
+    transform: translateY(104%); visibility: hidden; transition: transform .28s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .28s; }
+  .show-fiche .drawer { transform: none; visibility: visible; transition: transform .28s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
+  .drawer .grab { display: block; width: 40px; height: 4px; border-radius: 4px; background: var(--line-strong); margin: 2px auto 0; }
+  .drawer > * { flex-shrink: 0; }
+  .drawer .dclose { display: inline-flex; position: absolute; top: 6px; right: 8px; z-index: 2; }
+  .drawer .thumb { height: 150px; margin-top: 12px; }
 }
+@media (prefers-reduced-motion: reduce) { .drawer { transition: none !important; } }

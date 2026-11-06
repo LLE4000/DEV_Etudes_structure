@@ -3,6 +3,7 @@
 garde-corps) à partir des COMPOSANTS de la charte (charte.css) et des DONNÉES RÉELLES du moteur
 (donnees.json, extraites par extraire_donnees.py). Les fonctions de ce fichier préfigurent les
 composants React du site : barre de navigation, barre du haut, champ, pastille, carte, établi.
+Chaque page rend (titre, corps, script) : page() en fait un fichier, apercu.py les réunit en une page.
 
 Lancement : python3 site/maquettes/construire.py (depuis la racine) → site/maquettes/pages/*.html
 """
@@ -117,10 +118,24 @@ def kg(x) -> str:
 
 
 # ---------------------------------------------------------------- la navigation
+FICHE = ' data-fiche="1"'  # la carte qui ouvre la fiche du rapport, au téléphone
+
+
+def go(cible: str) -> str:
+    """Le lien vers une autre page de la maquette (vide : pas de lien)."""
+    return f' data-go="{cible}"' if cible else ""
+
+
+def theme_btn() -> str:
+    """Le bouton qui bascule le thème clair / sombre (les maquettes le montrent ; le site le rangera dans les réglages)."""
+    return f'<a class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{icon("sun-moon")}</a>'
+
+
 def nav(actif: str) -> str:
     def item(ic, lib, cle, count=""):
         c = f'<span class="count">{count}</span>' if count else ""
-        return f'<a class="navitem{" on" if cle == actif else ""}">{icon(ic)}<span>{lib}</span>{c}</a>'
+        go = f' data-go="{cle}"' if cle in ("accueil", "projets") else ""
+        return f'<a class="navitem{" on" if cle == actif else ""}"{go}>{icon(ic)}<span>{lib}</span>{c}</a>'
     fams = ""
     for cle, nom, mods in FAMILLES:
         ouvert = cle == "beton"
@@ -128,7 +143,7 @@ def nav(actif: str) -> str:
                  f'<span>{nom}</span><span class="count">{len(mods)}</span>{icon("chevron-down" if ouvert else "chevron-right")}</a>')
         if ouvert:
             fams += '<div class="navsub">' + "".join(f'<a class="navitem"><span>{n}</span></a>' for _, n, _ in mods[:5]) + "</div>"
-    return (f'<nav class="nav"><div class="brand"><div class="logo">{LOGO}</div><div class="wordmark">Stab Méthodes<span>Bureau d\'études</span></div></div>'
+    return (f'<nav class="nav"><div class="brand"><div class="logo">{LOGO}</div><div class="wordmark">Stab Méthodes<span>Bureau d\'études</span></div>{theme_btn()}</div>'
             f'<div class="searchbtn">{icon("search")}<span>Rechercher</span><kbd>Ctrl K</kbd></div>'
             + item("house", "Accueil", "accueil") + item("folder", "Projets", "projets", "4") + item("clock", "Récents", "recents")
             + '<div class="navlabel">Modules</div>' + fams
@@ -138,24 +153,49 @@ def nav(actif: str) -> str:
 
 
 def rail(actif: str) -> str:
-    def it(svg, on=False):
-        return f'<a class="navitem{" on" if on else ""}">{svg}</a>'
+    def it(svg, on=False, go=""):
+        g = f' data-go="{go}"' if go else ""
+        return f'<a class="navitem{" on" if on else ""}"{g}>{svg}</a>'
     return (f'<nav class="nav"><div class="brand"><div class="logo">{LOGO}</div></div>'
-            + it(icon("house")) + it(icon("folder"), actif == "projets") + it(icon("clock")) + '<div class="sep"></div>'
-            + it(MOD["poutre"]) + it(MOD["profil"]) + it(MOD["garde_corps"], actif == "garde_corps") + '<div class="sep"></div>'
-            + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">{it(icon("settings"))}'
+            + it(icon("house"), go="accueil") + it(icon("folder"), actif == "projets", "projets") + it(icon("clock")) + '<div class="sep"></div>'
+            + it(MOD["poutre"]) + it(MOD["profil"]) + it(MOD["garde_corps"], actif == "garde_corps", "garde-corps") + '<div class="sep"></div>'
+            + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">'
+              f'<a class="navitem" data-theme-toggle="1" title="Thème clair ou sombre">{icon("sun-moon")}</a>{it(icon("settings"))}'
               f'<span class="avatar">LL</span></div></nav>')
+
+
+def mnav(actif: str) -> str:
+    """Les onglets du bas du téléphone (accueil et projets) : les mêmes entrées que la navigation du PC."""
+    def it(ic, lib, cle, go=""):
+        g = f' data-go="{go}"' if go else ""
+        return f'<a class="{"on" if cle == actif else ""}"{g}>{icon(ic)}<span>{lib}</span></a>'
+    return ('<nav class="mnav">' + it("house", "Accueil", "accueil", "accueil") + it("folder", "Projets", "projets", "projets")
+            + it("clock", "Récents", "recents") + it("layout-grid", "Modules", "modules", "accueil") + "</nav>")
+
+
+# le script commun : thème demandé par l'adresse, bouton de thème, liens entre les pages ; ALLER est remplacé par l'aperçu
+# en une seule page (les vues y sont des ancres)
+SCRIPT_COMMUN = """
+(function(){
+  var q=new URLSearchParams(location.search), root=document.documentElement;
+  if(q.get('theme')==='dark') root.dataset.theme='dark';
+  function sombre(){return root.dataset.theme==='dark'||(!root.dataset.theme&&matchMedia('(prefers-color-scheme: dark)').matches);}
+  window.ALLER=window.ALLER||function(p){location.href=p+'.html'+(root.dataset.theme==='dark'?'?theme=dark':'');};
+  document.addEventListener('click',function(ev){
+    var g=ev.target.closest('[data-go]'); if(g){ev.preventDefault();window.ALLER(g.dataset.go);return;}
+    var t=ev.target.closest('[data-theme-toggle]'); if(t){root.dataset.theme=sombre()?'light':'dark';}
+  });
+})();"""
 
 
 def page(titre: str, corps: str, script: str = "") -> str:
     return (f'<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
             f'<title>{esc(titre)} · Stab Méthodes</title><link rel="stylesheet" href="../charte.css"></head><body>{corps}'
-            f'<script>(function(){{var q=new URLSearchParams(location.search);if(q.get("theme")==="dark")document.documentElement.dataset.theme="dark";}})();{script}</script>'
-            f'</body></html>')
+            f'<script>{SCRIPT_COMMUN}{script}</script></body></html>')
 
 
 # ---------------------------------------------------------------- l'accueil
-def accueil() -> str:
+def accueil() -> tuple:
     gc = D["gc"]
     vue = {v["cle"]: v for v in gc["vues"]}
     cartes = [
@@ -164,39 +204,54 @@ def accueil() -> str:
         (D["gc_lat"]["svg"], "Platine latérale nez de dalle", "Résidence Les Tilleuls", "B", "3 nov.", D["gc_lat"]["eta"], D["gc_lat"]["niveau"]),
     ]
     reprendre = "".join(
-        f'<a class="card rcard"><div class="thumb">{svg}{chip(e, n)}</div><div class="body"><div class="t">{esc(t)}</div>'
+        f'<a class="card rcard"{go("garde-corps" if i == 0 else "")}><div class="thumb">{svg}{chip(e, n)}</div><div class="body"><div class="t">{esc(t)}</div>'
         f'<div class="m">{icon("folder")}<span>{esc(ch)}</span><span>·</span><span class="indice" style="height:18px;min-width:18px;font-size:10.5px">{ind}</span>'
-        f'<span>·</span><span>{quand}</span></div></div></a>' for svg, t, ch, ind, quand, e, n in cartes)
+        f'<span>·</span><span>{quand}</span></div></div></a>' for i, (svg, t, ch, ind, quand, e, n) in enumerate(cartes))
     familles = ""
     for cle, nom, mods in FAMILLES:
-        tuiles = "".join(f'<a class="tile"><span class="modic {cle}">{MOD[k]}</span><div><b>{esc(n)}</b><span>{esc(s)}</span></div></a>'
+        tuiles = "".join(f'<a class="tile"{go("garde-corps" if k == "garde_corps" else "")}><span class="modic {cle}">{MOD[k]}</span>'
+                         f'<div><b>{esc(n)}</b><span>{esc(s)}</span></div><span class="chev">{icon("chevron-right")}</span></a>'
                          for k, n, s in mods)
-        familles += (f'<div class="fam"><div class="famhead"><span class="pill {cle}">{nom}</span><span class="muted">{len(mods)} modules</span></div>'
+        familles += (f'<div class="fam {cle}"><div class="famhead"><span class="pill {cle}">{nom}</span><span class="muted">{len(mods)} modules</span></div>'
                      f'<div class="tiles">{tuiles}</div></div>')
+    # au téléphone, une famille à la fois : le même choix que les trois blocs du PC
+    choix = '<div class="seg full mfam">' + "".join(
+        f'<button data-fam="{cle}" class="{"on" if cle == "beton" else ""}">{nom} · {len(mods)}</button>' for cle, nom, mods in FAMILLES) + "</div>"
+    familles = f'{choix}<div class="fams" data-fam="beton">{familles}</div>'
     sites = [("Réalex", "15 rapports · 4 dossiers", (12, 2, 1)), ("Résidence Les Tilleuls", "8 rapports · Namur", (8, 0, 0)),
              ("École Saint-Joseph", "11 rapports · Liège", (9, 1, 1)), ("Hall logistique", "6 rapports · Charleroi", (5, 1, 0))]
-    lst = "".join(f'<div class="site"><span class="ic">{icon("building-2")}</span><div><b>{n}</b><span>{s}</span></div><div class="chips">'
+    lst = "".join(f'<div class="site"{go("projets" if n == "Réalex" else "")}><span class="ic">{icon("building-2")}</span><div><b>{n}</b><span>{s}</span></div><div class="chips">'
                   + (f'<span class="chip p">{a}</span>' if a else "") + (f'<span class="chip f">{b}</span>' if b else "") + (f'<span class="chip r">{c}</span>' if c else "")
                   + "</div></div>" for n, s, (a, b, c) in sites)
     feed = [("SM", "a2", "Sophie a diffusé l'<b>indice B</b> de <b>Garde-corps mezzanine</b>", "il y a 2 h"),
             ("TD", "a3", "Thomas a créé <b>Platine d'about P3</b> dans Hall logistique", "hier, 16:40"),
             ("LL", "", "Vous avez exporté <b>Dalle R+1 · zone B</b> en .stab", "hier, 11:05")]
     act = "".join(f'<div class="feed"><span class="avatar sm {c}">{i}</span><div>{t}<span class="when">{w}</span></div></div>' for i, c, t, w in feed)
-    corps = (f'<div class="app">{nav("accueil")}<main class="main"><div class="page">'
+    mhead = (f'<header class="mhead"><div class="logo">{LOGO}</div><span class="ttl">Stab Méthodes</span><span class="spacer"></span>'
+             f'{theme_btn()}<a class="btn icon ghost" title="Notifications">{icon("bell")}</a><span class="avatar">LL</span></header>')
+    corps = (f'<div class="app">{nav("accueil")}<main class="main">{mhead}<div class="page">'
              f'<div class="hello"><div><div class="h1">Bonjour Lucien</div><div class="sub">Vendredi 6 novembre · 3 rapports en cours, 1 à diffuser</div></div>'
              f'<span class="spacer"></span><div class="bigsearch">{icon("search")}<span>Rechercher un module, un chantier, une note…</span><span class="kbd">Ctrl K</span></div>'
-             f'<a class="btn primary" style="height:40px;padding:0 16px">{icon("plus")}Nouveau calcul</a></div>'
+             f'<a class="btn primary big" title="Nouveau calcul">{icon("plus")}<span class="lbl">Nouveau calcul</span></a></div>'
              f'<div><div class="sechead"><div class="h2">Reprendre</div><a class="btn ghost sm">Tout voir {icon("arrow-up-right")}</a></div>'
              f'<div class="resume">{reprendre}</div><div class="sechead"><div class="h2">Modules</div></div>{familles}</div>'
              f'<aside class="side"><div class="card"><div class="sechead"><div class="h3">Chantiers actifs</div><a class="btn ghost sm">{icon("plus")}</a></div>{lst}'
              f'<div class="legend" style="margin-top:12px">{legende(True)}<span>nombre de rapports</span></div></div>'
              f'<div class="card"><div class="sechead"><div class="h3">Activité du bureau</div></div>{act}</div></aside>'
-             f'</div></main></div>')
-    return page("Accueil", corps)
+             f'</div>{mnav("accueil")}</main></div>')
+    script = """
+(function(){
+  var fams=document.querySelector('.fams');
+  document.querySelectorAll('.mfam button').forEach(function(b){b.addEventListener('click',function(){
+    fams.dataset.fam=b.dataset.fam;
+    document.querySelectorAll('.mfam button').forEach(function(x){x.classList.toggle('on',x===b);});
+  });});
+})();"""
+    return "Accueil", corps, script
 
 
 # ---------------------------------------------------------------- les projets
-def projets() -> str:
+def projets() -> tuple:
     gc = D["gc"]
     elev = {v["cle"]: v for v in gc["vues"]}["elevation"]["svg"]
     noeuds = (f'<div class="field text">{icon("search")}<input value="" placeholder="Filtrer les chantiers"></div>'
@@ -217,13 +272,20 @@ def projets() -> str:
               ("Garde-corps tribune", "flèche admissible L/200", D["gc_l200"]["eta"], D["gc_l200"]["niveau"], "A", "draft", "Brouillon", "3 nov.", "TD", "a3", False),
               ("Garde-corps escalier principal", "rampant · pente 32°", D["gc_rampant"]["eta"], D["gc_rampant"]["niveau"], "B", "pub", "Diffusé", "28 oct.", "LL", "", False)]
     rows = "".join(
-        f'<tr class="{"sel" if sel else ""}"><td><span class="mod"><span class="modic autres">{MOD["garde_corps"]}</span><span><b style="font-weight:650">{esc(n)}</b>'
+        f'<tr class="{"sel" if sel else ""}"{go("garde-corps" if sel else "")}><td><span class="mod"><span class="modic autres">{MOD["garde_corps"]}</span><span><b style="font-weight:650">{esc(n)}</b>'
         f'<span class="muted" style="display:block;font-size:11.5px">{esc(s)}</span></span></span></td><td>{chip(e, nv)}</td>'
         f'<td><span class="indice">{ind}</span></td><td><span class="tag {tc}"><span class="dot"></span>{tl}</span></td>'
         f'<td class="muted">{q}</td><td><span class="avatar sm {ac}">{av}</span></td><td class="n">{icon("ellipsis")}</td></tr>'
         for n, s, e, nv, ind, tc, tl, q, av, ac, sel in lignes)
-    table = (f'<div class="card"><table class="table"><thead><tr><th>Rapport</th><th>Résultat</th><th>Indice</th><th>État</th><th>Modifié</th><th>Par</th><th></th></tr></thead>'
+    table = (f'<div class="card tablecard"><table class="table"><thead><tr><th>Rapport</th><th>Résultat</th><th>Indice</th><th>État</th><th>Modifié</th><th>Par</th><th></th></tr></thead>'
              f'<tbody>{rows}</tbody></table></div>')
+    # au téléphone : les mêmes rapports en cartes ; la carte du rapport retenu ouvre sa fiche (indices compris)
+    cartes = "".join(
+        f'<a class="mrow"{FICHE if sel else ""}><span class="modic autres">{MOD["garde_corps"]}</span>'
+        f'<div class="mt"><b>{esc(n)}</b><span>{esc(s)}</span><div class="mm"><span class="indice">{ind}</span>'
+        f'<span class="tag {tc}"><span class="dot"></span>{tl}</span><span>{q}</span><span class="avatar sm {ac}">{av}</span></div></div>{chip(e, nv)}</a>'
+        for n, s, e, nv, ind, tc, tl, q, av, ac, sel in lignes)
+    cartes = f'<div class="mlist">{cartes}</div>'
     versions = [("C", True, "Brouillon", "draft", "Montant RHS 50x30x3 au lieu de RHS 50x30x4", "aujourd'hui, 14:32", "LL", "", False),
                 ("B", False, "Diffusé", "pub", "Catégorie A, entraxe maximal 1,00 m", "28 oct. 2026", "SM", "a2", True),
                 ("A", False, "Diffusé", "pub", "Première émission", "14 oct. 2026", "LL", "", True)]
@@ -232,22 +294,39 @@ def projets() -> str:
         f'<p>{esc(p)}</p><div class="when"><span class="avatar sm {ac}">{av}</span>{w}</div></div>'
         + (f'<a class="btn sm">{icon("file-text")}PDF</a>' if pdf else f'<a class="btn ghost sm">{icon("eye")}</a>') + "</div>"
         for i, cur, t, tc, p, w, av, ac, pdf in versions)
-    tiroir = (f'<aside class="drawer"><div class="thumb">{elev}</div>'
+    tiroir = (f'<aside class="drawer"><span class="grab"></span><a class="btn icon ghost dclose" data-fermer-fiche="1" title="Fermer">{icon("x")}</a>'
+              f'<div class="thumb">{elev}</div>'
               f'<div><div class="h2">Garde-corps terrasse R+1</div><div class="muted" style="margin-top:3px">Réalex / Garde-corps</div></div>'
               f'<div style="display:flex;align-items:center;gap:8px">{statut(gc["niveau"])}{chip(gc["eta"], gc["niveau"])}<span class="muted" style="font-size:12px">{esc(gc["gouvernant"].split(" · ")[0])} · {esc(gc["critere"])}</span></div>'
               f'<dl class="facts"><dt>Type</dt><dd>{esc(gc["type"])}</dd><dt>Géométrie</dt><dd>droit 3,60 m · 5 montants</dd><dt>Montants</dt><dd>RHS 50x30x3</dd>'
               f'<dt>Fixation</dt><dd>platine 150 × 150 × 10</dd><dt>Méthode</dt><dd>vérification ELS · S235</dd><dt>Masse</dt><dd>{gc["masse"]}{NBSP}kg</dd></dl>'
-              f'<div style="display:flex;gap:8px"><a class="btn primary" style="flex:1;justify-content:center">{icon("arrow-up-right")}Ouvrir</a>'
+              f'<div style="display:flex;gap:8px"><a class="btn primary" style="flex:1;justify-content:center"{go("garde-corps")}>{icon("arrow-up-right")}Ouvrir</a>'
               f'<a class="btn">{icon("file-down")}Note PDF</a><a class="btn icon">{icon("download")}</a></div>'
               f'<div><div class="kicker" style="margin-bottom:4px">Indices</div><div class="timeline">{tl}</div></div></aside>')
     top = (f'<header class="top"><div class="crumbs">{icon("folder")}<span>Projets</span>{icon("chevron-right")}<span>Réalex</span>{icon("chevron-right")}<b>Garde-corps</b></div>'
            f'<span class="spacer"></span><a class="btn">{icon("upload")}Importer .stab</a><a class="btn primary">{icon("plus")}Nouveau rapport</a></header>')
     liste = (f'<section class="list"><div class="head"><div><div class="kicker">Réalex · chantier</div><div class="h1" style="margin-top:4px">Garde-corps</div>'
              f'<div class="muted" style="margin-top:4px">5 rapports · 3 diffusés · mis à jour il y a 12 min</div></div><span class="spacer"></span>'
-             f'<div class="seg"><button class="on">Liste</button><button>Vignettes</button></div></div>{table}'
+             f'<div class="seg"><button class="on">Liste</button><button>Vignettes</button></div></div>{table}{cartes}'
              f'<div class="legend" style="margin-top:12px"><span>Résultat :</span>{legende(True)}</div></section>')
-    corps = f'<div class="app rail">{rail("projets")}<main class="main">{top}<div class="proj"><aside class="tree">{noeuds}</aside>{liste}{tiroir}</div></main></div>'
-    return page("Projets", corps)
+    mhead = (f'<header class="mhead"><div class="logo">{LOGO}</div><span class="ttl">Projets</span><span class="spacer"></span>'
+             f'<a class="btn icon" title="Importer .stab">{icon("upload")}</a><a class="btn icon primary" title="Nouveau rapport">{icon("plus")}</a></header>')
+    corps = (f'<div class="app rail">{rail("projets")}<main class="main">{top}{mhead}<div class="proj"><aside class="tree">{noeuds}</aside>{liste}'
+             f'<div class="fscrim" data-fermer-fiche="1"></div>{tiroir}</div>{mnav("projets")}</main></div>')
+    script = """
+(function(){
+  var proj=document.querySelector('.proj'), q=new URLSearchParams(location.search);
+  document.querySelectorAll('[data-fiche]').forEach(function(e){e.addEventListener('click',function(){proj.classList.add('show-fiche');});});
+  document.querySelectorAll('[data-fermer-fiche]').forEach(function(e){e.addEventListener('click',function(){proj.classList.remove('show-fiche');});});
+  if(q.get('fiche')) proj.classList.add('show-fiche');
+  // l'aperçu en une page rappelle cette fonction quand la vue Projets s'affiche (cachée, elle n'a pas de mesures)
+  window.RECENTRER=function(){
+    var on=document.querySelector('.tree .node.on'), t=document.querySelector('.tree');
+    if(on&&matchMedia('(max-width: 700px)').matches) t.scrollLeft+=on.getBoundingClientRect().left-t.getBoundingClientRect().left-16;
+  };
+  window.RECENTRER();
+})();"""
+    return "Projets", corps, script
 
 
 # ---------------------------------------------------------------- le module garde-corps
@@ -278,7 +357,7 @@ def section(n, titre, resume, contenu="", ouvert=False) -> str:
             f'<span class="sum">{"" if ouvert else esc(resume)}</span>{ch}</div>{corps}</div>')
 
 
-def module() -> str:
+def module() -> tuple:
     gc = D["gc"]
     vues = gc["vues"]
     courts = {"elevation": "Élévation", "coupe": "Coupe A-A", "plan": "Plan", "platine": "Platine", "pied": "Fixation", "section": "Section"}
@@ -334,12 +413,12 @@ def module() -> str:
                 f'<div class="meta">{icon("circle-check")}Vérification ELS · quatre cas distincts · S235</div></div>'
                 f'<div class="els">{els}</div><div class="foot"><div class="mass"><span>Masse indicative de l\'acier</span><b>{gc["masse"]}{NBSP}kg</b></div>'
                 f'<div class="legend">{legende()}</div></div>')
-    top = (f'<header class="top"><div class="crumbs">{icon("folder")}<span>Réalex</span>{icon("chevron-right")}<span>Garde-corps</span>{icon("chevron-right")}'
+    top = (f'<header class="top"><div class="crumbs">{icon("folder")}<span{go("projets")}>Réalex</span>{icon("chevron-right")}<span{go("projets")}>Garde-corps</span>{icon("chevron-right")}'
            f'<b>Garde-corps terrasse R+1</b></div><span class="indice">C</span><span class="tag draft"><span class="dot"></span>Brouillon</span>'
            f'<span class="spacer"></span><span class="saved">{icon("circle-check")}Enregistré il y a 2 min</span>'
            f'<span class="avstack"><span class="avatar sm">LL</span><span class="avatar sm a2">SM</span></span>'
            f'<a class="btn ghost">{icon("history")}Indices</a><a class="btn">{icon("download")}.stab</a><a class="btn primary">{icon("file-down")}Note PDF</a></header>')
-    mtop = (f'<header class="mtop"><a class="btn icon ghost">{icon("arrow-left")}</a><div class="t"><b>Garde-corps terrasse R+1</b><span>Réalex · indice C · brouillon</span></div>'
+    mtop = (f'<header class="mtop"><a class="btn icon ghost"{go("projets")} title="Retour aux projets">{icon("arrow-left")}</a><div class="t"><b>Garde-corps terrasse R+1</b><span>Réalex · indice C · brouillon</span></div>'
             f'{chip(gc["eta"], gc["niveau"])}</header>')
     mtabs = f'<div class="mtabs"><div class="seg full"><button data-tab="donnees">Données</button><button data-tab="dessin">Dessin</button><button data-tab="resultat">Résultat</button></div></div>'
     mbar = f'<div class="mbar"><a class="btn">{icon("history")}Indices</a><a class="btn primary">{icon("file-down")}Note PDF</a></div>'
@@ -357,7 +436,7 @@ def module() -> str:
   tab(q.get('tab')||'donnees'); if(q.get('vue')) vue(q.get('vue'));
   if(q.get('profils')) document.querySelector('.canvas').classList.add('show-profils');
 })();"""
-    return page("Garde-corps terrasse R+1", corps, script)
+    return "Garde-corps terrasse R+1", corps, script
 
 
 def profils(gc) -> str:
@@ -367,9 +446,9 @@ def profils(gc) -> str:
         cls = "ret" if r["retenue"] else ""
         etoile = f'<span class="star">{icon("star")}</span>' if r["optimal"] else ""
         marque = '<span class="tag draft" style="height:20px">retenue</span>' if r["retenue"] else ""
-        lignes += (f'<tr class="{cls}"><td><b style="font-weight:600">{esc(r["nom"])}</b></td>'
+        lignes += (f'<tr class="{cls}"><td><b style="font-weight:600">{esc(r["nom"])}</b>{etoile}{marque}</td>'
                    f'<td class="n">{kg(r["kgm"])}</td><td class="eta">{chip(r["eq"], r["n_eq"])}</td><td class="eta">{chip(r["fl"], r["n_fl"])}</td>'
-                   f'<td class="eta">{chip(r["eta"], r["n_eta"])}</td><td>{etoile}{marque}</td></tr>')
+                   f'<td class="eta">{chip(r["eta"], r["n_eta"])}</td></tr>')
     best = next((r for r in gc["table_montant"] if r["optimal"]), None)
     bandeau = (f'<div class="optimal">{icon("star")}<span><b>Optimal : {esc(best["nom"])}</b> · {kg(best["kgm"])} kg/m · η {best["eta"]}{NBSP}% · le plus léger qui tient</span>'
                f'<a class="btn primary sm">Prendre l\'optimal</a></div>') if best else ""
@@ -379,7 +458,7 @@ def profils(gc) -> str:
             f'<div class="filters"><span class="fchip on">RHS</span><span class="fchip">SHS</span><span class="fchip">CHS</span><span class="fchip">Plats</span><span class="fchip">Ronds</span>'
             f'<span class="spacer"></span><span class="fchip on">{icon("check")}Formés à froid</span><span class="fchip">Seulement ceux qui tiennent</span>'
             f'<span class="fchip">≤ 15 kg/m</span></div>{bandeau}'
-            f'<div class="ptable"><table class="table"><thead><tr><th>Section</th><th class="n">kg/m</th><th>η σ<sub>eq</sub></th><th>η flèche</th><th>η</th><th></th></tr></thead>'
+            f'<div class="ptable"><table class="table"><thead><tr><th>Section</th><th class="n">kg/m</th><th>η σ<sub>eq</sub></th><th>η flèche</th><th>η</th></tr></thead>'
             f'<tbody>{lignes}</tbody></table></div></div>')
 
 
@@ -388,7 +467,7 @@ def main():
     os.makedirs(sortie, exist_ok=True)
     for nom, fn in (("accueil", accueil), ("projets", projets), ("garde-corps", module)):
         with open(os.path.join(sortie, nom + ".html"), "w", encoding="utf-8") as f:
-            f.write(fn())
+            f.write(page(*fn()))
         print(nom, os.path.getsize(os.path.join(sortie, nom + ".html")) // 1024, "ko")
 
 
