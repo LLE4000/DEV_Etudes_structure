@@ -130,3 +130,22 @@ Le titre seul, sans explication : il dit ce que fait le module.
 - **Autres** : Garde-corps · Poutres bois · Rigidité du sol
 
 D'autres changements de noms suivront ; cette liste est la référence.
+
+## 10 · Première version du vrai site (06/11/2026)
+
+- **`site/web/`** : l'accueil, le garde-corps et les poutres béton armé, avec de **vrais calculs**. Le PC d'abord.
+- **Le calcul tourne dans le navigateur** : le moteur Python du dépôt, exécuté par Pyodide (Python 3.13 en
+  WebAssembly). Mêmes chiffres que Streamlit, parce que c'est le même code. Aucun serveur de calcul à payer.
+- **Rien n'est chargé ailleurs** : le cœur Python et numpy sont déposés dans le site, avec leurs empreintes
+  vérifiées (celles du paquet officiel) ; le paquet du moteur porte la sienne, vérifiée avant chaque exécution.
+- **Les notes** s'enregistrent dans le navigateur, le fichier **.stab** les emporte ; une note contient plusieurs
+  éléments (plusieurs garde-corps, plusieurs poutres). Les comptes, les projets partagés et les droits viendront
+  avec Supabase (§ 2 et 3).
+- **Un fichier .stab reçu ne peut rien exécuter** : à l'import, seules les données sont gardées (noms, chantier,
+  état) ; le dessin et le résumé sont refaits par le moteur. Tout nom (note, poutre, section, garde-corps) s'affiche
+  comme du texte. Vérifié dans le vrai navigateur avec des fichiers piégés.
+- **En ligne** : Cloudflare Pages relié au dépôt GitHub (dossier `site/web`, sans construction), le domaine
+  stab-methodes.be, et Cloudflare Access pour le garder privé (les adresses invitées reçoivent un code par e-mail)
+  en attendant les comptes. Les étapes : `site/web/README.md`.
+- **Reste à faire** : la note PDF sur le site, les comptes, les projets, l'équipe, les paramètres du bureau, puis
+  les autres modules, chacun avec son moteur extrait de l'écran Streamlit.
