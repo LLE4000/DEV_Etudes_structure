@@ -59,9 +59,13 @@ node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> garde|poutre|pieg
 ## Mettre le site en ligne sur stab-methodes.be (Cloudflare Pages, gratuit)
 
 1. **Cloudflare** → *Workers & Pages* → *Create* → *Pages* → *Connect to Git* → autoriser GitHub → choisir le dépôt
-   `DEV_Etudes_structure` et la branche du site.
+   `DEV_Etudes_structure` et la branche du site (aujourd'hui `claude/dalle-module-creation-sjmitr`).
    - *Framework preset* : **None** ; *Build command* : **vide** ; *Build output directory* : **`site/web`**.
+   - *Environment variables* : **`SKIP_DEPENDENCY_INSTALL` = `1`** (le site n'a rien à installer ; sans elle,
+     Cloudflare tenterait d'installer le `requirements.txt` de Streamlit).
    - *Save and Deploy* : le site est en ligne sur une adresse `….pages.dev` ; chaque poussée le met à jour.
+   - Les pages s'ouvrent sans « .html » (`/poutre`, `/garde-corps`) : c'est ainsi que Pages les sert, et les liens du
+     site visent déjà ces adresses.
 2. Dans le projet Pages → *Custom domains* → *Set up a custom domain* → **stab-methodes.be** (le domaine est déjà
    chez Cloudflare : la DNS se règle toute seule).
 3. **Le garder privé** (en attendant les comptes) : *Zero Trust* → *Access* → *Applications* → *Add an application*

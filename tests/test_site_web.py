@@ -135,6 +135,15 @@ for mod in ("garde_corps", "poutre"):
     fautes += [(mod, "vue", v["cle"]) for v in out["vues"] if EN_LIGNE.search(v["svg"])]
 chk("les fragments que Python rend n'ont ni script ni gestionnaire « on…= »", not fautes, fautes[:3])
 
+# 7. les adresses sans « .html » (Cloudflare Pages redirige « x.html » vers « x » ; la note ouverte n'a pas à survivre
+# à une redirection) : les pages générées et js/notes.js visent les mêmes adresses — deux copies, liées ici
+notes_js = open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read()
+pages_js = dict(re.findall(r'(\w+): \{ page: "([^"]+)"', notes_js))
+chk("js/notes.js vise les adresses du générateur (sans « .html »)", pages_js == SW.ADRESSES, (pages_js, SW.ADRESSES))
+liens = [(p, h) for p in ("index.html", "garde-corps.html", "poutre.html")
+         for h in re.findall(r'<a [^>]*href="([^"]+)"', open(os.path.join(WEB, p), encoding="utf-8").read()) if h.endswith(".html")]
+chk("aucun lien des pages ne vise une adresse en « .html »", not liens, liens[:4])
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

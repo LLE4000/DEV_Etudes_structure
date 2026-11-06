@@ -258,6 +258,22 @@ out = req(module="poutre", action="calculer", etat=e)
 fuites = [k for k, h in fragments_html(out).items() if "<img" in h]
 chk("un nom de section venu d'un fichier est échappé dans chaque fragment HTML", out["ok"] and not fuites, fuites or out.get("erreur"))
 
+# 11. deux sections du même nom (possible dans un fichier .stab, pas à l'écran) : le site désigne une section par son
+# nom (sélecteur, ligne gouvernante) — la seconde prend la première lettre libre, et son sélecteur est bien le sien
+e = copy.deepcopy(etat)
+e["poutres"][0]["sections"][1]["nom"] = "A"
+e["poutres"][0]["sections"][1]["M_inf"] = 200.0
+out = req(module="poutre", action="calculer", etat=e)
+noms = [s_["nom"] for s_ in out["etat"]["poutres"][0]["sections"]] if out["ok"] else out.get("erreur")
+chk("deux sections du même nom venues d'un fichier : la seconde prend la première lettre libre (B)", noms == ["A", "B"], noms)
+s = req(module="poutre", action="selecteur", etat=out["etat"], role="inf-1")
+taux_affiches = re.findall(r'class="chip \w">([^<]+)<', s["html"])
+# l'attendu : la seconde section SEULE dans sa poutre (aucun nom à confondre)
+p2 = dict(out["etat"]["poutres"][0])
+p2["sections"] = [p2["sections"][1]]
+attendus = [f"{C.pc(C.pct(min(c_['taux'], 9.99)))}{C.NBSP}%" for c_ in MO.candidats_armatures(p2, p2["sections"][0]["nom"], "inf")]
+chk("… et le sélecteur de la seconde calcule SA section (M = 200 kN·m), pas la première", taux_affiches == attendus, (taux_affiches[:3], attendus[:3]))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

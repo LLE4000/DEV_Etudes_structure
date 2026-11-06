@@ -2,9 +2,12 @@
 // Une note : { id, module, nom, chantier, dossier, indice, cree, modifie, etat (l'état du moteur), resume, vignette }.
 const CLE = "stab.notes.v1";
 
+// Les adresses SANS « .html » : Cloudflare Pages sert poutre.html à l'adresse « poutre » et redirige « poutre.html »
+// vers elle — une redirection qui n'a pas à porter le « ?note=… » de la note ouverte (outils/serveur_local.py fait de
+// même, en jetant la requête : un lien en « .html » perdrait sa note dans le parcours).
 export const MODULES = {
-  garde_corps: { page: "garde-corps.html", nom: "Garde-corps", famille: "autres" },
-  poutre: { page: "poutre.html", nom: "Poutres béton armé", famille: "beton" },
+  garde_corps: { page: "garde-corps", nom: "Garde-corps", famille: "autres" },
+  poutre: { page: "poutre", nom: "Poutres béton armé", famille: "beton" },
 };
 
 export function toutes() {

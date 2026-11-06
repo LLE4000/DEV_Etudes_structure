@@ -30,9 +30,20 @@ def normaliser(etat: Dict) -> Dict:
     poutres = etat.get("poutres") if isinstance(etat, dict) else None
     if not poutres:
         return nouvel_etat()
-    out = {"version": 1, "poutres": [EN.normaliser(p) for p in poutres]}
+    out = {"version": 1, "poutres": [_noms_uniques(EN.normaliser(p)) for p in poutres]}
     out["actif"] = min(max(0, int(etat.get("actif", 0) or 0)), len(out["poutres"]) - 1)
     return out
+
+
+def _noms_uniques(p: Dict) -> Dict:
+    """Le site désigne une section par son NOM (le sélecteur d'armatures, la ligne gouvernante) : deux sections du
+    même nom, ou une sans nom — possible dans un fichier .stab, pas à l'écran — prennent la première lettre libre."""
+    pris: List[str] = []
+    for s in p["sections"]:
+        if not s["nom"].strip() or s["nom"] in pris:
+            s["nom"] = EN.nom_section_suivant({"sections": [{"nom": n} for n in pris + [x["nom"] for x in p["sections"]]]})
+        pris.append(s["nom"])
+    return p
 
 
 def _poutre(etat: Dict) -> Dict:
@@ -413,4 +424,4 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
              "prop": f"{c['nom']} · A<sub>s</sub> = {C.fr(c['aire'], 0)} mm² · un lit à {C.nb(c['distance'], 2)} cm du parement"} for c in cands]
     face_txt = "inférieures" if face == "inf" else "supérieures"
     return C.selecteur(role, f"Armatures {face_txt} · section {C.esc(s['nom'])}", "triées par section d'acier · un clic retient la disposition",
-                       "", rows, max(0, min(i_o, i_c) - 4), "mm²")
+                       "", rows, max(0, min(i_o, i_c) - 4), "mm²", etoile="la plus petite section qui tient")

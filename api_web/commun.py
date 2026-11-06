@@ -155,7 +155,8 @@ def fenetre_calcul(ident: str, titre: str, sous_titre: str, hyps: Sequence[str],
             f'<div class="ck-body">{table}<div class="ck-sub">Le détail du calcul</div><div class="ck-cols">{detail}</div>{pied}</div></div>')
 
 
-def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[Dict], debut: int, unite: str) -> str:
+def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[Dict], debut: int, unite: str,
+              etoile: str = "le plus léger qui tient") -> str:
     """Le sélecteur, LE MÊME pour les profilés et les armatures : trié par ordre de grandeur, le retenu (✓) et l'optimal
     (★, le plus léger qui tient) marqués ; un clic choisit (le calcul est relancé) ; sous la liste, les propriétés de la
     ligne survolée. ``rows`` : nom, col (la colonne d'ordre de grandeur), taux (arrondi), niveau, cur, opt, prop."""
@@ -168,7 +169,7 @@ def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[
     return (f'<div class="flyout picker" id="pk-{esc(ident)}" data-pk="{esc(ident)}" data-debut="{debut}"><div class="fl-h"><div><b>{titre}</b><span>{sous_titre}</span></div>'
             f'<button class="pcoll" data-fermer="1" title="Fermer">{icon("x")}</button></div><div class="filters">{filtres}</div>'
             f'<div class="pk-list">{lignes}{vide}</div><div class="pk-prop">{prop0}</div>'
-            f'<div class="fl-foot"><span>{icon("check")}retenu</span><span>{icon("star")}le plus léger qui tient</span><span>{unite} · taux</span></div></div>')
+            f'<div class="fl-foot"><span>{icon("check")}retenu</span><span>{icon("star")}{etoile}</span><span>{unite} · taux</span></div></div>')
 
 
 # ------------------------------------------------------------------ saisie

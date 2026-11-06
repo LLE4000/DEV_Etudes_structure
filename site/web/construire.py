@@ -35,6 +35,10 @@ PYODIDE = "vendor/pyodide-0.29.5"
 DATE_ZIP = (2026, 1, 1, 0, 0, 0)
 # les pages des modules disponibles (clé du module → page) ; les autres tuiles de l'accueil disent « bientôt »
 PAGES = {"garde_corps": "garde-corps.html", "poutre": "poutre.html"}
+# les liens visent l'adresse SANS « .html », celle que Cloudflare Pages sert (il redirige « x.html » vers « x ») ;
+# l'accueil est « ./ ». js/notes.js porte les mêmes adresses (tests/test_site_web.py les lie).
+ADRESSES = {k: v[: -len(".html")] for k, v in PAGES.items()}
+ACCUEIL = "./"
 # des requêtes qui passent par tous les chemins de l'API : le paquet doit contenir ce qu'elles chargent
 SCENARIOS = r"""
 import json
@@ -120,8 +124,8 @@ def rail(actif: str) -> str:
     def it(ic, nom, cle, attr):
         return f'<a class="navitem{" on" if cle == actif else ""}" data-tip="{nom}"{attr}>{MQ.icon(ic)}</a>'
     bientot = ' aria-disabled="true" data-bientot="1"'
-    return (f'<nav class="nav"><a class="brand" href="index.html" title="Accueil"><div class="logo">{MQ.LOGO}</div></a>'
-            + it("house", "Accueil", "accueil", ' href="index.html"') + it("folder", "Projets · bientôt", "projets", bientot)
+    return (f'<nav class="nav"><a class="brand" href="{ACCUEIL}" title="Accueil"><div class="logo">{MQ.LOGO}</div></a>'
+            + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets · bientôt", "projets", bientot)
             + it("layout-grid", "Modules", "modules", ' data-modules="1"') + it("users", "Équipe · bientôt", "equipe", bientot)
             + it("settings", "Paramètres · bientôt", "parametres", bientot)
             + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">'
@@ -134,7 +138,7 @@ def modpanel() -> str:
         corps += f'<div class="navlabel">{nom_fam}</div>'
         for k, n in mods:
             if k in PAGES:
-                corps += f'<a class="navitem" href="{PAGES[k]}"><span class="modic {fam}">{MQ.MOD[k]}</span><span>{MQ.esc(n)}</span></a>'
+                corps += f'<a class="navitem" href="{ADRESSES[k]}"><span class="modic {fam}">{MQ.MOD[k]}</span><span>{MQ.esc(n)}</span></a>'
             else:
                 corps += (f'<a class="navitem bientot" aria-disabled="true"><span class="modic {fam}">{MQ.MOD[k]}</span><span>{MQ.esc(n)}</span>'
                           f'<span class="tag draft">bientôt</span></a>')
@@ -156,7 +160,7 @@ def page_accueil() -> str:
         t = ""
         for k, n in mods:
             if k in PAGES:
-                t += (f'<a class="tile" href="{PAGES[k]}" data-nouvelle-module="{k}"><span class="modic {fam}">{MQ.MOD[k]}</span>'
+                t += (f'<a class="tile" href="{ADRESSES[k]}" data-nouvelle-module="{k}"><span class="modic {fam}">{MQ.MOD[k]}</span>'
                       f'<span class="nm">{MQ.esc(n)}</span></a>')
             else:
                 t += (f'<div class="tile bientot" title="Ce module n\'est pas encore sur le site (il reste dans Streamlit)">'
@@ -192,7 +196,7 @@ def page_module(cle: str, titre: str) -> str:
     """L'établi d'un module : la toile du dessin sur toute la largeur, les données et le résultat en cadres flottants ;
     tout le contenu vient du moteur (le travailleur Pyodide)."""
     fam, nom = _module(cle)
-    top = (f'<header class="top"><div class="crumbs"><a href="index.html">{MQ.icon("house")}</a>{MQ.icon("chevron-right")}'
+    top = (f'<header class="top"><div class="crumbs"><a href="{ACCUEIL}">{MQ.icon("house")}</a>{MQ.icon("chevron-right")}'
            f'<span id="fil-chantier" class="muted"></span><span id="fil-sep">{MQ.icon("chevron-right")}</span>'
            f'<input id="nom-note" class="nomnote" value="" aria-label="Nom de la note" spellcheck="false"></div>'
            f'<span class="tag draft"><span class="dot"></span>Brouillon</span>'

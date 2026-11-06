@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Le site servi en local COMME sur Cloudflare Pages : les fichiers de site/web, avec les en-têtes de ``_headers``
-(la politique de sécurité comprise). verifier_site.js teste ainsi le site sous la même politique qu'en ligne — un
-serveur qui l'ignorerait laisserait passer un script que Cloudflare bloquera.
+(la politique de sécurité comprise) et les adresses sans « .html ». verifier_site.js teste ainsi le site sous la
+même politique et les mêmes adresses qu'en ligne — un serveur qui les ignorerait laisserait passer un script que
+Cloudflare bloquera, ou un lien qui y perdrait sa note.
 
     python3 site/web/outils/serveur_local.py [port]        (8770 par défaut, adresse 127.0.0.1)
 
@@ -44,6 +45,21 @@ def entetes(url: str, rg=None) -> dict:
 
 class Gestionnaire(http.server.SimpleHTTPRequestHandler):
     REGLES = regles()
+
+    def send_head(self):
+        """Les adresses de Cloudflare Pages : « /poutre » sert poutre.html ; « /poutre.html » est redirigé vers
+        « /poutre » (et « /index.html » vers « / »). Ici la redirection JETTE la requête (« ?note=… ») : plus sévère que
+        Cloudflare, elle fait échouer le parcours si un lien vise encore une page en « .html » avec sa note."""
+        chemin, _, requete = self.path.partition("?")
+        if chemin.endswith(".html"):
+            self.send_response(308)
+            self.send_header("Location", chemin[: -len("index.html")] if chemin.endswith("/index.html") else chemin[: -len(".html")])
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return None
+        if chemin != "/" and "." not in os.path.basename(chemin) and os.path.isfile(os.path.join(WEB, chemin.lstrip("/") + ".html")):
+            self.path = chemin + ".html" + (f"?{requete}" if requete else "")
+        return super().send_head()
 
     def end_headers(self):
         for n, v in entetes(self.path.split("?")[0].split("#")[0], self.REGLES).items():
