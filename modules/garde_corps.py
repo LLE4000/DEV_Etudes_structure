@@ -11,6 +11,8 @@ au choix (coupe A-A, plan, platine, fixation, section) ; la carte RÉSULTAT (sta
 gouvernant, son critère et son cas) qui porte UNE LIGNE PAR ÉLÉMENT — son taux en barre et, pour
 chaque élément dimensionné, SA SECTION à choisir sur place et le bouton « ★ optimal » qui nomme le
 plus léger qui tient et ouvre en popover le tableau des profilés compatibles (un clic retient).
+Un CODE COULEUR des taux, le même partout (pastilles, barres, cellules du tableau) : rouge au-dessus
+de 100 %, vert foncé de 95 à 100 %, vert pâle en dessous — les trois statuts du moteur.
 À DROITE ce qu'on SAISIT, en trois cartes toujours visibles : DÉFINITION (le type en menu, la
 forme, H, la pente, les tronçons, les extrémités, le remplissage), CHARGES (les quatre charges
 nommées en cas distincts, le cumul, les options), FIXATION (platine, latérale, soudée, scellée ;
@@ -59,6 +61,13 @@ AIDE_ROLE = {"montant": "La dimension h est dans le sens de la charge horizontal
              "console": "Plat vertical (h vertical) soudé sur la platine au mur ; longueur e dans la carte Fixation."}
 # Les libellés courts du sélecteur de fixation (les libellés complets, FX.TYPES, vont dans la note et l'aide)
 FIXATIONS_COURTES = {"platine": "platine sur la dalle", "laterale": "platine latérale (nez de dalle)", "soudee": "soudé sur plat existant", "scellee": "scellé (non vérifié)"}
+# Le CODE COULEUR des taux, tranché par le bureau le 06/11/2026 : ROUGE au-dessus de 100 %, VERT FONCÉ de 95 à 100 %, VERT PÂLE en dessous.
+# Les trois niveaux SONT les trois statuts du moteur (membres.statut, seuils SEUIL_ATTENTION / SEUIL_NOK : source unique) ; ici, les couleurs.
+NIVEAU = {ME.NOK: "r", ME.ATTENTION: "f", ME.OK: "p"}
+COULEUR_BARRE = {"r": "#dc2626", "f": "#15803d", "p": "#86efac"}
+COULEUR_CELLULE = {"r": ("#dc2626", "#ffffff"), "f": ("#15803d", "#ffffff"), "p": ("#dcfce7", "#166534")}       # (fond, texte) des cellules du tableau
+CODE_COULEUR = (f"rouge au-dessus de {ME.SEUIL_NOK * 100:.0f} %, vert foncé de {ME.SEUIL_ATTENTION * 100:.0f} à {ME.SEUIL_NOK * 100:.0f} %, "
+                "vert pâle en dessous")
 # Le dessin de détail : un seul à la fois, choisi par un sélecteur ; libellé court du sélecteur, légende sous le dessin
 VUES_DETAIL = {"coupe": "Coupe A-A", "plan": "Plan", "platine": "Platine", "pied": "Fixation", "section": "Section"}
 LEGENDES_DETAIL = {"coupe": "", "plan": "", "section": "élément principal", "pied": "coupe à grande échelle, efforts du cas gouvernant",
@@ -68,11 +77,14 @@ CSS = """<style>
 .gc-res .t,.gc-kt{font-size:11px;letter-spacing:.08em;color:#6b7280;font-weight:600}
 .gc-kt{margin:0 0 2px}
 .gc-pill{float:right;font-size:12px;border-radius:999px;padding:3px 10px;font-weight:600}
-.gc-pill.nok{background:#fee2e2;color:#b91c1c}.gc-pill.ok{background:#dcfce7;color:#15803d}.gc-pill.att{background:#ffedd5;color:#c2410c}.gc-pill.ref{background:#f3f4f6;color:#374151}
-.gc-eta{font-size:26px;font-weight:700;margin:2px 0 0;line-height:1.1}
+.gc-pill.nok{background:#dc2626;color:#fff}.gc-pill.ok{background:#dcfce7;color:#166534}.gc-pill.att{background:#15803d;color:#fff}.gc-pill.ref{background:#f3f4f6;color:#374151}
+.gc-eta{font-size:26px;font-weight:700;margin:4px 0 0;line-height:1.1}
+.gc-chip{display:inline-block;min-width:46px;text-align:center;border-radius:6px;padding:1px 6px;font-weight:700;font-variant-numeric:tabular-nums;font-size:12px;line-height:16px}
+.gc-chip.r{background:#dc2626;color:#fff}.gc-chip.f{background:#15803d;color:#fff}.gc-chip.p{background:#dcfce7;color:#166534}
+.gc-chip.big{font-size:22px;line-height:30px;padding:2px 12px;border-radius:8px;min-width:0}
 .gc-phrase{font-size:13.5px;margin:4px 0 6px}
 .gc-row{display:flex;flex-wrap:wrap;align-items:center;column-gap:10px;row-gap:3px;font-size:12.5px;margin:14px 0 4px}
-.gc-row>span:first-child{flex:1 1 230px;min-width:0}.gc-row .gc-trk{flex:0 0 150px}.gc-row .gc-v{flex:0 0 50px}
+.gc-row>span:first-child{flex:1 1 230px;min-width:0}.gc-row .gc-trk{flex:0 0 150px}.gc-row .gc-v{flex:0 0 56px}
 .gc-row.first{margin-top:8px}
 .gc-trk{height:6px;background:#f1f3f5;border-radius:3px;overflow:hidden}.gc-trk b{display:block;height:100%}
 .gc-v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
@@ -81,7 +93,7 @@ CSS = """<style>
 .gc-tab{width:100%;border-collapse:collapse;font-size:12.5px}.gc-tab th{text-align:left;font-size:10.5px;letter-spacing:.05em;color:#6b7280;padding:4px 6px;border-bottom:1px solid #e5e7eb}
 .gc-tab td{padding:4px 6px;border-bottom:1px solid #f3f4f6;vertical-align:top}.gc-tab td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .gc-tab tr.g td{font-weight:700;background:#fff7ed}.gc-tab tr.cur td{font-weight:700;background:#eff6ff}
-.gc-r{color:#b91c1c;font-weight:700}.gc-o{color:#c2410c;font-weight:700}.gc-g{color:#15803d;font-weight:700}.gc-i{color:#6b7280;font-weight:400}
+.gc-g{color:#15803d;font-weight:700}.gc-i{color:#6b7280;font-weight:400}
 .gc-leg{font-size:11.5px;color:#6b7280}
 .gc-switch{font-size:12.5px;color:#374151}
 .gc-ch{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:4px 12px;font-size:12px;margin:4px 0 2px;color:#374151}
@@ -191,12 +203,28 @@ def _fmt(x, nd=1):
     return f"{x:,.{nd}f}".replace(",", " ").replace(".", ",")
 
 
-def _cls(t):
-    return "gc-r" if t > 1 else ("gc-o" if t > 0.85 else "gc-g")
+def _niveau(t) -> str:
+    """Le niveau du code couleur d'un taux : « r » rouge, « f » vert foncé, « p » vert pâle — par le statut du moteur."""
+    return NIVEAU.get(ME.statut(t), "p")
 
 
-def _couleur(t):
-    return "#b91c1c" if t > 1 else ("#c2410c" if t > 0.85 else "#2563eb")
+def _chip(t, big: bool = False) -> str:
+    """Un taux en pastille colorée (« 115 % » rouge, « 97 % » vert foncé, « 64 % » vert pâle) ; ``big`` : le η de la carte."""
+    return f'<span class="gc-chip {_niveau(t)}{" big" if big else ""}">{"η = " if big else ""}{t * 100:.0f} %</span>'
+
+
+def _couleur(t) -> str:
+    """La teinte de la barre d'un taux."""
+    return COULEUR_BARRE[_niveau(t)]
+
+
+def _style_taux(v) -> str:
+    """Le style d'une cellule de taux (en % entier) du tableau des profilés — le même code couleur."""
+    try:
+        bg, fg = COULEUR_CELLULE[_niveau(float(v) / 100.0)]
+    except (TypeError, ValueError):
+        return ""
+    return f"background-color: {bg}; color: {fg}; font-weight: 700"
 
 
 def _noms_sections(groupes: Optional[List[str]]) -> List[str]:
@@ -480,7 +508,7 @@ def _popover_profils(cas: Dict, res: Dict, role: str):
             return
         if best is not None:
             with st.container(horizontal=True, wrap=True, gap="small", vertical_alignment="center", key=P + f"c_opt_{role}"):
-                st.markdown(f'<div class="gc-opt">★ Optimal pour {lib} : <b>{nom_best}</b> · {_fmt(best["section"]["masse"], 2)} kg/m · η = {best["taux"] * 100:.0f} % '
+                st.markdown(f'<div class="gc-opt">★ Optimal pour {lib} : <b>{nom_best}</b> · {_fmt(best["section"]["masse"], 2)} kg/m · η {_chip(best["taux"])} '
                             f'({ME.critere_texte(best["critere"])})' + (' · <span class="gc-g">retenu</span>' if retenu else '') + '</div>', unsafe_allow_html=True)
                 if st.button("Prendre l'optimal", key=P + f"btn_best_{role}", width="content", disabled=retenu,
                              help="Retient la section la plus légère qui tient, parmi les familles cochées et sous la masse maximale."):
@@ -496,14 +524,15 @@ def _popover_profils(cas: Dict, res: Dict, role: str):
                             "η σ_eq": int(round(min(c["taux_eq"], 9.99) * 100)), "η flèche": int(round(min(c["taux_fleche"], 9.99) * 100)),
                             "η": int(round(min(c["taux"], 9.99) * 100)),
                             "retenue": ("◀ " if c["section"]["nom"] == cur else "") + ("★" if c["section"]["nom"] == nom_best else "")} for c in montres])
-        # largeurs en pixels : le nom complet de la section se lit, et les sept colonnes tiennent dans le popover
+        # largeurs en pixels : le nom complet de la section se lit, et les sept colonnes tiennent dans le popover ;
+        # les trois colonnes de taux sont des cellules colorées par le code couleur (Styler pandas → st.dataframe)
         cfg = {"Section": st.column_config.TextColumn("Section", width=125), "dimensions (mm)": st.column_config.TextColumn("dimensions (mm)", width=92),
                "kg/m": st.column_config.NumberColumn("kg/m", format="%.2f", width=52),
-               "η σ_eq": st.column_config.NumberColumn("η σ_eq", format="%d %%", width=58), "η flèche": st.column_config.NumberColumn("η flèche", format="%d %%", width=62),
-               "η": st.column_config.ProgressColumn("η", min_value=0, max_value=150, format="%d %%", width=110),
-               "retenue": st.column_config.TextColumn("", width=36)}
-        ev = st.dataframe(df, hide_index=True, column_config=cfg, key=P + f"tab_{role}_{LI.generation(P)}", on_select="rerun", selection_mode="single-row",
-                          height=min(300, 35 * (len(df) + 1) + 12), width=600)
+               "η σ_eq": st.column_config.NumberColumn("η σ_eq", format="%d %%", width=62), "η flèche": st.column_config.NumberColumn("η flèche", format="%d %%", width=66),
+               "η": st.column_config.NumberColumn("η", format="%d %%", width=62), "retenue": st.column_config.TextColumn("", width=36)}
+        colonnes_taux = ["η σ_eq", "η flèche", "η"]
+        ev = st.dataframe(df.style.map(_style_taux, subset=colonnes_taux), hide_index=True, column_config=cfg, key=P + f"tab_{role}_{LI.generation(P)}",
+                          on_select="rerun", selection_mode="single-row", height=min(300, 35 * (len(df) + 1) + 12), width=560)
         rows = list(ev.selection.rows) if ev is not None and hasattr(ev, "selection") else []
         if rows:
             sec = montres[rows[0]]["section"]
@@ -511,7 +540,7 @@ def _popover_profils(cas: Dict, res: Dict, role: str):
                 ET.appliquer_section(cas, sec, role)
                 _changer(f"{sec['nom']} retenu pour {lib}")
         st.caption(f"{len(cands)} sections essayées par masse croissante ({len(montres)} montrées) ; ◀ la section retenue, ★ l'optimal ; "
-                   "la fixation est vérifiée pour la section retenue.")
+                   f"taux : {CODE_COULEUR} ; la fixation est vérifiée pour la section retenue.")
 
 
 def _ligne_html(e: Dict, gouv: bool, first: bool = False) -> str:
@@ -527,7 +556,7 @@ def _ligne_html(e: Dict, gouv: bool, first: bool = False) -> str:
     gris = " · ".join(infos + [crit] + ([cas_c] if cas_c else []))
     return (f'<div class="gc-row{" sel" if gouv else ""}{" first" if first else ""}"><span><b>{parts[0]}</b>{" ◀" if gouv else ""} '
             f'<span class="gc-i">{gris}</span></span><div class="gc-trk"><b style="width:{min(t, 1) * 100:.0f}%;background:{col}"></b></div>'
-            f'<span class="gc-v" style="color:{col}">{t * 100:.0f} %</span></div>')
+            f'<span class="gc-v">{_chip(t)}</span></div>')
 
 
 def _ligne_role(cas: Dict, res: Dict, role: str, e: Optional[Dict], gouv: bool, first: bool):
@@ -564,9 +593,7 @@ def _resultat(cas: Dict, res: Dict):
         eta = "—"
         phrase = (res["messages"] or ["Données manquantes"])[0]
     else:
-        t = res["taux_max"]
-        col = "#b91c1c" if t > 1 else ("#c2410c" if t > 0.85 else "#15803d")
-        eta = f'<span style="color:{col}">η = {t * 100:.0f} %</span>'
+        eta = _chip(res["taux_max"], big=True)
         crit = ME.critere_texte(g["critere"]) if g["cle"] not in ("soudure", "ancrage", "platine") else g["critere"]
         cas_g = (next((e for e in res["elements"] if e["cle"] == g["cle"]), {}).get("detail") or {}).get("cas_charge")
         phrase = f"<b>{g['libelle']}</b> — {crit}" + (f" · {CH.CAS_LIBELLES.get(cas_g, cas_g)}" if cas_g else "")
@@ -584,8 +611,8 @@ def _resultat(cas: Dict, res: Dict):
         autres = "".join(_ligne_html(e, bool(g and g["cle"] == e["cle"])) for e in res.get("elements", []) if e["cle"] not in roles)
         if res.get("masse"):
             autres += f'<div class="gc-note" style="margin-top:12px">Masse indicative de l\'acier : {_fmt(res["masse"], 0)} kg · {res["geometrie"]["phrase"]}</div>'
-        if autres:
-            st.markdown(autres, unsafe_allow_html=True)
+        autres += f'<div class="gc-note">Code couleur des taux : {CODE_COULEUR}.</div>'
+        st.markdown(autres, unsafe_allow_html=True)
     for msg in res.get("messages", []):
         if msg.startswith("Refus") or "DÉPASSÉ" in msg:
             st.warning(msg)
@@ -716,14 +743,13 @@ def _resume_fixation(res: Dict, lat: bool) -> str:
     s, pl = fix.get("soudure"), fix.get("platine")
     parts = []
     if s:
-        parts.append(f"soudure <span class='{_cls(s['taux'])}'>{s['taux'] * 100:.0f} %</span> ({s['critere']}, {s['position']}, "
-                     f"{CH.CAS_LIBELLES.get(s.get('cas_charge'), '')})")
+        parts.append(f"soudure {_chip(s['taux'])} ({s['critere']}, {s['position']}, {CH.CAS_LIBELLES.get(s.get('cas_charge'), '')})")
     if pl and pl.get("taux_max") is not None:
         arr = f", arrachement P = {_fmt(pl['P'] / 1e3, 2)} kN" if lat else ""
-        parts.append(f"ancrages <span class='{_cls(pl['taux_boulons'])}'>{pl['taux_boulons'] * 100:.0f} %</span> ({CH.CAS_LIBELLES.get(pl.get('cas_charge'), '')}{arr} : "
+        parts.append(f"ancrages {_chip(pl['taux_boulons'])} ({CH.CAS_LIBELLES.get(pl.get('cas_charge'), '')}{arr} : "
                      f"z = {_fmt(pl['z'])} mm, Z = {_fmt(pl['Z'] / 1e3, 2)} kN, F_t = {_fmt(pl['Ft'] / 1e3, 2)} kN ≤ {_fmt(pl['FtRd'] / 1e3, 2)}, "
                      f"F_v = {_fmt(pl['Fv'] / 1e3, 2)} kN ≤ {_fmt(pl['FvRd'] / 1e3, 2)}, interaction {pl['inter'] * 100:.0f} %)")
-        parts.append(f"platine <span class='{_cls(pl['taux_platine'])}'>{pl['taux_platine'] * 100:.0f} %</span> (m = {_fmt(pl['m'])} mm, b_eff = {_fmt(pl['b_eff'], 0)} mm, "
+        parts.append(f"platine {_chip(pl['taux_platine'])} (m = {_fmt(pl['m'])} mm, b_eff = {_fmt(pl['b_eff'], 0)} mm, "
                      f"σ_p = {_fmt(pl['sigma_p'])} ≤ {_fmt(pl['lim_sigma'], 0)} N/mm², épaisseur requise {_fmt(pl['tp_req'])} mm face à t_p = {_fmt(pl['tp'], 0)})")
     return " · ".join(parts)
 
@@ -824,10 +850,10 @@ def _detail(etat: Dict, cas: Dict, res: Dict):
                 M = max(abs(d.get("M1", 0.0)), abs(d.get("Mv", 0.0)), abs(d.get("Mh", 0.0)))
                 lignes += (f"<tr{cls}><td>{e['libelle']}</td><td>{cas_c}</td><td class='n'>{_fmt(M / 1e6, 3)}</td><td class='n'>{_fmt(max(abs(d.get('V1', 0.0)), abs(d.get('V2', 0.0))) / 1e3, 2)}</td>"
                            f"<td class='n'>{_fmt(d['sigma'])}</td><td class='n'>{_fmt(d['tau'], 2)}</td><td class='n'>{_fmt(d['fleche'], 2)} / {_fmt(d['fleche_lim'], 1)}</td>"
-                           f"<td class='n {_cls(e['taux'])}'>{e['taux'] * 100:.0f} %</td><td>{ME.critere_texte(e['critere'])}</td></tr>")
+                           f"<td class='n'>{_chip(e['taux'])}</td><td>{ME.critere_texte(e['critere'])}</td></tr>")
             else:
                 lignes += (f"<tr{cls}><td>{e['libelle']}</td><td>{cas_c}</td><td class='n'>—</td><td class='n'>—</td><td class='n'>—</td><td class='n'>—</td><td class='n'>—</td>"
-                           f"<td class='n {_cls(e['taux'])}'>{e['taux'] * 100:.0f} %</td><td>{e['critere']}</td></tr>")
+                           f"<td class='n'>{_chip(e['taux'])}</td><td>{e['critere']}</td></tr>")
         st.markdown("<table class='gc-tab'><tr><th>Élément</th><th>cas gouvernant</th><th class='n'>M (kN·m)</th><th class='n'>V (kN)</th><th class='n'>σ (N/mm²)</th><th class='n'>τ</th>"
                     "<th class='n'>flèche / adm. (mm)</th><th class='n'>η</th><th>critère</th></tr>" + lignes + "</table>", unsafe_allow_html=True)
         liste = res.get("montants") or res.get("consoles") or []
@@ -837,7 +863,7 @@ def _detail(etat: Dict, cas: Dict, res: Dict):
                 lignes += (f"<tr{' class=g' if v['nom'] == ((res.get('montant') or res.get('console') or {}).get('nom')) else ''}><td><b>{v['nom']}</b>{' · angle' if v['coin'] else ''}</td>"
                            f"<td class='n'>{_fmt(v['x'], 0)}</td><td class='n'>{_fmt(v['trib1'] + v['trib2'], 0)}</td><td class='n'>{_fmt(v['P1'] / 1e3, 2)}"
                            f"{' + ' + _fmt(v['P2'] / 1e3, 2) if v['P2'] > 0 else ''}</td><td class='n'>{_fmt(v['N'] / 1e3, 2)}</td><td class='n'>{_fmt(v['sigma'])}</td>"
-                           f"<td class='n'>{_fmt(v['fleche'], 2)}</td><td class='n {_cls(v['taux_max'])}'>{v['taux_max'] * 100:.0f} %</td></tr>")
+                           f"<td class='n'>{_fmt(v['fleche'], 2)}</td><td class='n'>{_chip(v['taux_max'])}</td></tr>")
             st.markdown("<table class='gc-tab'><tr><th>Montant / console</th><th class='n'>x (mm)</th><th class='n'>s_trib (mm)</th><th class='n'>P (kN)</th><th class='n'>N (kN)</th>"
                         "<th class='n'>σ</th><th class='n'>flèche</th><th class='n'>η</th></tr>" + lignes + "</table>", unsafe_allow_html=True)
             geo = res.get("geometrie") or {}

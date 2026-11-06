@@ -61,6 +61,7 @@ LEAD_TAB = 8.8
 LAB_W = 58
 TITRE = "Garde-corps"
 STATUTS = {ET.OK: ("CONFORME", "ok"), ET.ATTENTION: ("CONFORME · ATTENTION", "att"), ET.NOK: ("NON CONFORME", "ko"), ET.REFUS: ("CALCUL IMPOSSIBLE", "mut")}
+VERT_PALE = "#D9ECDF"     # le fond d'une pastille η en dessous du seuil d'attention (code couleur du bureau, 06/11/2026)
 MODES = {ME.ELS: "Vérification à l'ELS", ME.EUROCODE: "Eurocode (ELU)"}
 MODES_PHRASE = {ME.ELS: "vérification à l'ELS (charges de service, contraintes admissibles)", ME.EUROCODE: "vérification à l'ELU selon l'Eurocode (efforts de calcul)"}
 LEGENDE = ("Dessins à l'échelle, cotes en mm · ◉ l'élément gouvernant et son taux · flèches rouges : les charges (⊙ vers soi) · A-A : plan de la coupe · "
@@ -273,6 +274,17 @@ class Note:
         return RI.paragraphe(d, fr, s, font or self.S.f_b, size or self.s_txt, col, self.ms(col), lead, indent, max_lignes)
 
     # --- briques
+    def couleurs_eta(self, taux) -> Tuple[str, str]:
+        """(texte, fond) d'une pastille η — le code couleur des taux, les seuils du moteur (``membres.statut``) :
+        rouge au-dessus de 100 %, vert foncé de 95 à 100 %, vert pâle (texte vert) en dessous."""
+        S = self.S
+        s = ME.statut(taux)
+        if s == ET.NOK:
+            return "#FFFFFF", S.ko
+        if s == ET.ATTENTION:
+            return "#FFFFFF", S.ok
+        return S.ok, VERT_PALE
+
     def titre(self, d, fr, txt, taux=None):
         """Un titre de bloc en petites capitales espacées, sa pastille η à droite ; il se resserre avant de se tronquer."""
         S = self.S
@@ -281,7 +293,8 @@ class Note:
         if taux is not None:
             lab = "η " + _pct(taux)
             wc = d.w(lab, "Carlito-Bold", 5.8) + 10
-            chip(d, fr.x1 - wc, fr.y - 2.5, lab, "Carlito-Bold", 5.8, "#FFFFFF", S.ok if taux <= 1.0 else S.ko, pad=5, h=8.4)
+            fg, bg = self.couleurs_eta(taux)
+            chip(d, fr.x1 - wc, fr.y - 2.5, lab, "Carlito-Bold", 5.8, fg, bg, pad=5, h=8.4)
         avail = fr.w - (wc + 6 if wc else 0.0)
         size, track = 6.2, 1.3
         while size > 5.0 and d.w(txt, S.f_v, size) + track * len(txt) > avail:
