@@ -1,0 +1,141 @@
+/* Catalogue des profilés : la vue « Tableau » et la vue « Comparaison » sont des blocs HTML posés dans la feuille
+   (toujours sur papier blanc, comme les dessins) ; en-têtes et colonne des noms figés pendant le défilement. Le cadre
+   Données (familles et colonnes en cases, filtres sur deux lignes) et la fiche du résultat. Chargée par l'établi
+   catalogue-profiles seul (site/web/construire.py, page_module). */
+
+/* ---------------------------------------------------------------- la feuille porte le tableau ; il défile dedans */
+.sheet .draw:has(> .cat-tab), .sheet .draw:has(> .cat-comp) { display: block; position: relative; padding: 0; }
+.sheet:has(.cat-tab) .stitle .scale { display: none; }          /* un tableau n'a pas d'échelle */
+.cat-tab { position: absolute; inset: 4px 14px 10px; display: flex; flex-direction: column; gap: 6px; color: #0D1525; min-width: 0; }
+.cat-defile { flex: 1; min-height: 0; overflow: auto; border: 1px solid #E5E8ED; border-radius: 9px; overscroll-behavior: contain; background: #fff; }
+.cat-tpied { font-size: 10.5px; color: #8B95A7; line-height: 1.4; flex: none; }
+
+.cat-t { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cat-t th, .cat-t td { padding: 0 9px; height: 27px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; }
+.cat-t td { text-align: right; color: #1E2635; }
+.cat-t tbody tr:nth-child(even) td { background: #FAFBFC; }
+.cat-t tbody tr:hover td { background: #F1F3F7; }
+/* l'en-tête figé : le symbole, l'unité dessous */
+.cat-t thead th { position: sticky; top: 0; z-index: 2; background: #F4F5F8; color: #4A5568; font-weight: 650; text-align: right;
+  height: 40px; border-bottom: 1px solid #D3D8E0; vertical-align: middle; cursor: help; }
+.cat-t thead th .s { display: block; font-size: 12px; color: #0D1525; line-height: 1.15; }
+.cat-t thead th .s sub { font-size: 9px; }
+.cat-t thead th .s i { font-style: normal; color: #2B4BCF; margin-left: 3px; }
+.cat-t thead th .u { display: block; font-size: 10px; font-weight: 500; color: #8B95A7; line-height: 1.2; }
+.cat-t thead th.nm, .cat-t thead th.fa { text-align: left; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; cursor: default; }
+.cat-t thead th.tri { background: #E3E8FD; box-shadow: inset 0 -2px 0 #2B4BCF; }
+.cat-t td.tri { background: #F6F8FF !important; color: #0D1525; font-weight: 600; }
+/* la colonne des noms, figée à gauche */
+.cat-t th.nm, .cat-t td.nm { position: sticky; left: 0; z-index: 1; text-align: left; border-right: 1px solid #E5E8ED; }
+.cat-t thead th.nm { z-index: 3; }
+.cat-t td.nm { font-weight: 650; color: #0D1525; background: #fff; }
+.cat-t tbody tr:nth-child(even) td.nm { background: #FAFBFC; }
+.cat-t td.fa { text-align: left; color: #6B7280; font-size: 11.5px; }
+/* le profilé ouvert (la fiche), les comparés, les personnalisés */
+.cat-t tbody tr.on td { background: #EEF1FE !important; }
+.cat-t tbody tr.on td.nm { box-shadow: inset 3px 0 0 #2B4BCF; color: #2340B4; }
+.cat-t .cat-tag { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 4px; font-size: 9.5px; font-weight: 650; line-height: 15px;
+  color: #6B4BCF; background: #F2EEFD; vertical-align: 1px; letter-spacing: .02em; }
+.cat-t .cat-k { display: inline-grid; place-items: center; margin-left: 5px; width: 15px; height: 15px; border-radius: 50%; font-size: 9.5px; font-weight: 700;
+  color: #fff; background: #4A5568; vertical-align: 1px; }
+.cat-t tr.saut td { text-align: center; color: #8B95A7; font-size: 11px; height: 22px; background: #fff !important; letter-spacing: .1em; }
+.cat-tab.vide { display: grid; place-items: center; }
+.cat-vide { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 420px; text-align: center; color: #4A5568; font-size: 12.5px; }
+.cat-vide svg.i { width: 26px; height: 26px; color: #B7BFCB; }
+.cat-vide b { color: #0D1525; font-size: 13.5px; }
+.cat-vide span { color: #8B95A7; }
+
+/* ---------------------------------------------------------------- la comparaison : les sections, puis le tableau */
+.cat-comp { position: absolute; inset: 4px 14px 10px; display: flex; flex-direction: column; gap: 10px; color: #0D1525; min-width: 0; }
+.cat-cdes { flex: 0 1 46%; min-height: 120px; display: grid; place-items: center; }
+.cat-cdes svg { width: 100% !important; height: 100% !important; max-height: 100%; }
+.cat-comp .cat-defile { flex: 1 1 54%; }
+.cat-c thead th { text-align: right; font-size: 12px; color: #0D1525; cursor: default; height: 34px; }
+.cat-c td.nm .u { margin-left: 6px; color: #8B95A7; font-weight: 500; font-size: 10.5px; }
+.cat-c td.nm { cursor: help; }
+.cat-c td.nm sub { font-size: 9px; }
+
+/* ---------------------------------------------------------------- le cadre Données */
+.cat-puces { display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 2px 10px; }
+.cat-puces .case { font-size: 12.5px; white-space: nowrap; min-width: 0; }
+.cat-puces .case span { overflow: hidden; text-overflow: ellipsis; color: var(--ink); font-weight: 500; }
+.cat-puces .case small { margin-left: 5px; font-size: 10.5px; color: var(--ink-3); font-weight: 500; }
+.cat-puces .case sub { font-size: 9px; }
+/* les colonnes : le symbole et son unité en petit (« Surface m²/m » doit tenir dans le tiers du cadre) */
+.cat-cols { gap: 2px 6px; }
+.cat-cols .case small { margin-left: 3px; font-size: 9.5px; }
+.cat-actions { display: flex; flex-wrap: wrap; gap: 4px 16px; padding-top: 2px; }
+.cat-filtre { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2); }
+.cat-f1 { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; align-items: center; gap: 8px; }
+.cat-fn { width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--ink-2); background: var(--bg-sunken); }
+.cat-bornes { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 6px; padding-left: 28px; }
+.cat-b { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.cat-bornes .field { height: 32px; }
+.cat-cmp { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; align-items: center; gap: 8px; min-height: 30px; }
+.cat-cmp .nm { font-weight: 600; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-cmp:has(> .cat-ouvrir) { grid-template-columns: minmax(0, 1fr) 24px; }
+.cat-ouvrir { text-align: left; font-weight: 600; font-size: 12.5px; color: var(--ink); padding: 4px 8px; border-radius: 7px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; border: 1px solid var(--line); background: var(--panel); }
+.cat-ouvrir:hover { border-color: var(--accent-line); color: var(--accent-hover); }
+.cat-ouvrir.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-hover); }
+.cat-leger { display: flex; align-items: flex-start; gap: 7px; padding: 8px 10px; border-radius: var(--r); background: #FFF8E1;
+  border: 1px solid #F5DC8A; font-size: 12.5px; color: #5C4300; line-height: 1.4; }
+.cat-leger svg.i { width: 15px; height: 15px; color: #E0A100; fill: #E0A100; flex: none; margin-top: 1px; }
+.cat-leger b { color: #3D2C00; }
+[data-theme="dark"] .cat-leger { background: #2A2206; border-color: #5C4300; color: #F5DC8A; }
+[data-theme="dark"] .cat-leger b { color: #FFF1C2; }
+.cat-alerte { display: flex; align-items: flex-start; gap: 7px; font-size: 11.5px; line-height: 1.4; color: var(--nok); }
+.cat-alerte svg.i { width: 14px; height: 14px; flex: none; margin-top: 1px; }
+.msg .cat-etoile { display: inline-grid; vertical-align: -3px; margin-right: 5px; }
+.msg .cat-etoile svg.i { width: 14px; height: 14px; color: #E0A100; fill: #E0A100; }
+.pfoot .cat-nb { white-space: nowrap; }
+.cat-export { display: flex; flex-direction: column; gap: 6px; }
+.cat-export .field.area textarea { font-size: 11px; white-space: pre; overflow-x: auto; }
+
+/* ---------------------------------------------------------------- le résultat : l'en-tête, la fiche */
+.cat-v { align-items: flex-start; }
+.cat-vig { flex: none; width: 64px; height: 64px; border-radius: 12px; background: #F4F5F8; border: 1px solid var(--line); display: grid; place-items: center; padding: 4px; }
+.cat-vig svg { width: 100%; height: 100%; }
+.cat-vig.vide svg.i { width: 24px; height: 24px; color: var(--ink-4); }
+.cat-v .gov b { font-size: 16px; letter-spacing: -.01em; }
+.cat-n { display: block; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.cat-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.cat-tags .tag { height: 20px; font-size: 10.5px; background: var(--bg-sunken); color: var(--ink-2); padding: 0 7px; }
+.cat-tags .tag.perso { background: var(--autres-soft); color: var(--autres); }
+.cat-tags .tag.courant { background: var(--accent-soft); color: var(--accent-hover); }
+.cat-fiche { padding: 6px 16px 12px; border-top: 1px solid var(--line); }
+.cat-fh { font-size: 10.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); padding: 8px 0 2px; }
+.cat-fiche table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.cat-fiche td { padding: 3px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: baseline; }
+.cat-fiche tr.g td { padding: 10px 0 3px; border-bottom: 1px solid var(--line); font-size: 10.5px; font-weight: 650; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3); }
+.cat-fiche td.s { color: var(--ink); font-weight: 600; white-space: nowrap; }
+.cat-fiche td.s sub { font-size: 9.5px; }
+.cat-fiche td.n { text-align: right; font-weight: 600; color: var(--ink); white-space: nowrap; padding-right: 6px; }
+.cat-fiche td.u { width: 44px; color: var(--ink-3); font-size: 11.5px; white-space: nowrap; }
+.cat-fiche tr.f td { background: color-mix(in srgb, var(--accent-soft) 70%, transparent); }
+.cat-fiche tr.f td.s { box-shadow: inset 2px 0 0 var(--accent); padding-left: 6px; }
+.cat-i { display: inline-grid; margin-left: 4px; vertical-align: -2px; cursor: help; }
+.cat-i svg.i { width: 12px; height: 12px; color: var(--ink-4); }
+.cat-txt { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; }
+.cat-txt ul { margin: 0; padding-left: 18px; }
+.cat-txt li { margin: 2px 0; }
+.cat-txt li b { color: var(--ink); }
+
+/* tablette et téléphone : la colonne « Famille » laisse sa place aux valeurs (le nom du profilé porte déjà sa famille) */
+@media (max-width: 1360px) {
+  .cat-t th.fa, .cat-t td.fa { display: none; }
+}
+
+/* ---------------------------------------------------------------- téléphone : le tableau prend sa hauteur, défile en largeur */
+@media (max-width: 700px) {
+  .sheet:has(.cat-tab), .sheet .draw:has(> .cat-tab), .sheet:has(.cat-comp), .sheet .draw:has(> .cat-comp) { min-width: 0; }
+  .cat-tab, .cat-comp { position: static; padding: 2px 10px 10px; }
+  .cat-defile { max-height: 70vh; max-width: calc(100vw - 42px); }
+  .cat-cdes { height: 220px; flex: none; }
+}
+@media print {
+  .cat-tab, .cat-comp { position: static; }
+  .cat-defile { overflow: visible; max-height: none; border: 0; }
+  .cat-t thead th { position: static; }
+}

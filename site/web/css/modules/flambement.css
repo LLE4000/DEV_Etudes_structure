@@ -1,0 +1,33 @@
+/* Module « Flambement » : ce que son établi ajoute à la charte (css/charte.css) et au site (css/site.css).
+   L'avertissement « nouveau calcul » en tête du résultat, le λ̄ surligné, la vue « Toutes les barres » (un tableau posé
+   dans la feuille). Le graphique χ(λ̄) se dit hors échelle par sa vue (« echelle »: false, lu par js/etabli.js). */
+
+/* ---------------------------------------------------------------- l'avertissement en tête du résultat */
+.fl-nouveau .msg { border-top: 0; border-bottom: 1px solid #F3DFA8; background: #FFF8E6; color: #6B4A00; display: flex; align-items: center;
+  gap: 8px; font-size: 12px; padding: 9px 16px; }
+.fl-nouveau .msg b { color: #573C00; font-weight: 650; }
+.fl-nouveau .msg > span { min-width: 0; }
+.fl-nouveau .msg svg { width: 15px; height: 15px; flex: none; color: #B07A00; }
+[data-theme="dark"] .fl-nouveau .msg { background: rgba(224, 161, 0, .12); border-bottom-color: rgba(224, 161, 0, .3); color: #F2D48A; }
+[data-theme="dark"] .fl-nouveau .msg b { color: #FBE3A6; }
+[data-theme="dark"] .fl-nouveau .msg svg { color: #E0A100; }
+
+/* ---------------------------------------------------------------- les quatre nuances en segments : sur une tablette en portrait, le
+   cadre Données est étroit et « S460 » sortait du cadre (boutons sans retour à la ligne, qui ne rétrécissaient pas) */
+.rows .seg.full { min-width: 0; }
+.rows .seg.full button { min-width: 0; padding-left: 4px; padding-right: 4px; }
+
+/* ---------------------------------------------------------------- λ̄ : la barre posée sur la lettre (le macron combinant se décale) */
+.fl-barre { text-decoration: overline; text-decoration-thickness: 1px; font-style: inherit; display: inline !important; }
+
+/* ---------------------------------------------------------------- la vue « Toutes les barres » (sur la feuille, toujours claire) */
+.sheet .draw > .fl-vue { align-self: start; justify-self: stretch; width: 100%; min-height: 0; overflow: auto; padding: 4px 6px 8px; }
+.fl-vue .vtab { color: #0D1525; }
+.fl-vue .vtab th { color: #6B7588; border-bottom-color: #E5E8ED; background: #fff; text-transform: none; letter-spacing: 0; font-size: 11.5px;
+  font-weight: 600; white-space: normal; vertical-align: bottom; }
+.fl-vue .vtab td { border-bottom-color: #EEF1F5; white-space: nowrap; }
+.fl-vue .vtab td.nm { font-weight: 650; }
+.fl-vue .vtab td, .fl-vue .vtab th { padding-left: 7px; padding-right: 7px; }
+.fl-vue .vtab td:last-child, .fl-vue .vtab th:last-child { padding-right: 2px; }
+.fl-vue .vtab tr.on td { background: #EEF2FD; }
+.fl-vue .vtab tr.on td:first-child { box-shadow: inset 3px 0 0 #2B4BCF; }
