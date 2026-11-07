@@ -1,0 +1,141 @@
+/* Données béton : l'aide-mémoire du bureau. La vue « Tableau » est un bloc HTML posé dans la feuille (toujours sur
+   papier blanc, comme les dessins) ; en-têtes et première colonne figés pendant le défilement, unités sous les symboles,
+   lignes alternées, la ligne choisie surlignée. Le résultat : la valeur clé en grand, la fiche de la ligne, la source.
+   Chargée par l'établi donnees-beton seul (site/web/construire.py, page_module). */
+
+/* ---------------------------------------------------------------- la feuille porte le tableau ; il défile dedans */
+.sheet .draw:has(> .db-vue) { display: block; position: relative; padding: 0; }
+.sheet:has(.db-vue) .stitle .scale { display: none; }          /* un tableau n'a pas d'échelle */
+.db-vue { position: absolute; inset: 2px 14px 10px; display: flex; flex-direction: column; gap: 8px; color: #0D1525; min-width: 0; }
+.db-leg { font-size: 12px; line-height: 1.45; color: #4A5568; flex: none; }
+.db-leg b { color: #0D1525; font-weight: 650; }
+.db-leg sub, .db-pied sub { font-size: 9px; }
+/* le cadre du tableau suit ses lignes (au PC, cinq classes ne remplissent pas la feuille) et défile au-delà */
+.db-defile { flex: 0 1 auto; min-height: 0; overflow: auto; border: 1px solid #E5E8ED; border-radius: 9px; overscroll-behavior: contain; background: #fff; }
+.db-pied { font-size: 10.5px; color: #8B95A7; line-height: 1.45; flex: none; }
+.db-pied b { font-weight: 600; color: #4A5568; }
+.db-nw { white-space: nowrap; }
+.db-vue .mk { font-style: normal; color: #2B4BCF; font-size: 9px; }
+.db-vue .mk.r { color: #B91C1C; font-weight: 800; font-size: 11px; }
+
+.db-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.db-tab th, .db-tab td { padding: 0 10px; height: 34px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; }
+.db-tab td { text-align: right; color: #1E2635; position: relative; }
+.db-tab td + td { border-left: 1px solid #F3F4F7; }
+.db-tab tbody tr:nth-child(even) td, .db-tab tbody tr:nth-child(even) th.nm { background: #FAFBFC; }
+.db-tab tbody tr:hover td, .db-tab tbody tr:hover th.nm { background: #F1F3F7; }
+/* l'en-tête figé : le symbole, l'unité dessous ; le nom complet au survol */
+.db-tab thead th { position: sticky; top: 0; z-index: 2; background: #F4F5F8; color: #4A5568; font-weight: 650; text-align: right;
+  height: 42px; border-bottom: 1px solid #D3D8E0; vertical-align: middle; }
+.db-tab thead th[title] { cursor: help; }
+.db-tab thead th .s { display: block; font-size: 12.5px; color: #0D1525; line-height: 1.15; }
+.db-tab thead th .s sub { font-size: 9px; }
+.db-tab thead th .u { display: block; font-size: 10px; font-weight: 500; color: #8B95A7; line-height: 1.2; }
+.db-tab thead th small { display: block; font-size: 9.5px; font-weight: 500; color: #8B95A7; }
+/* la première colonne (classe, nuance, Ø, durée…), figée à gauche */
+.db-tab th.nm { position: sticky; left: 0; z-index: 1; text-align: left; font-weight: 700; color: #0D1525; background: #fff;
+  border-right: 1px solid #E5E8ED; }
+.db-tab thead th.nm { z-index: 3; background: #F4F5F8; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: #4A5568; }
+.db-tab thead th.nm small { text-transform: none; letter-spacing: 0; }
+/* la ligne choisie */
+.db-tab tbody tr.on td { background: #EEF1FE !important; color: #0D1525; font-weight: 650; }
+.db-tab tbody tr.on th.nm { background: #EEF1FE !important; color: #2340B4; box-shadow: inset 3px 0 0 #2B4BCF; }
+
+/* deux rangées d'en-tête : les groupes, puis les colonnes */
+.db-deux thead tr.r1 th { top: 0; height: 32px; font-size: 11px; text-align: center; letter-spacing: .01em; }
+.db-deux thead tr.r2 th { top: 32px; height: 40px; }
+.db-deux thead tr.r1 th.nm { height: 72px; }
+.db-tab thead th.grp { border-left: 1px solid #E5E8ED; }
+.db-tab thead th.grp small { display: inline; margin-left: 4px; }
+.db-tab thead th.grp.on { color: #0D1525; background: #E3E8FD; box-shadow: inset 0 -2px 0 #2B4BCF; }
+.db-tab thead th.k { text-align: center; }
+.db-tab thead th.k b { display: block; font-size: 12px; color: #0D1525; line-height: 1.15; }
+
+/* le tableau des armatures : serré comme l'image (seize colonnes tiennent dans la toile du PC à 1 440 px), la masse au milieu */
+.db-arm { font-size: 11.5px; }
+.db-arm th, .db-arm td { padding: 0 3px; height: 30px; }
+/* PC et tablette : les chiffres prennent la taille que la largeur de la toile permet (10 à 12 px) — mesuré à 1 440 px :
+   674 px de tableau pour 632 px de toile à 11,5 px ; ils tiennent à 11,2 px. Plus étroit, le tableau défile (Ø figés). */
+@media (min-width: 701px) {
+  .db-defile:has(> .db-arm) { container-type: inline-size; }
+  .db-arm { font-size: clamp(10px, calc((100cqw - 112px) / 47), 12px); }
+}
+.db-arm thead th .u, .db-arm thead th small { font-size: 9px; }
+.db-arm th.nm { text-align: center; min-width: 34px; }
+.db-tab .m { border-left: 1px solid #E5E8ED; border-right: 1px solid #E5E8ED; }
+.db-tab td.m { font-weight: 700; text-align: center; color: #33415C; }
+
+/* l'enrobage : la case choisie, la colonne de l'exposition, la classe proposée (●) */
+.db-enr td { text-align: center; min-width: 52px; }
+.db-enr thead th { text-align: center; }
+.db-enr thead th.on { background: #E3E8FD; box-shadow: inset 0 -2px 0 #2B4BCF; }
+.db-enr td.col { background: #F6F8FF !important; }
+.db-enr td.cur { box-shadow: inset 0 0 0 2px #2B4BCF; background: #E3E8FD !important; font-weight: 750; color: #0D1525; }
+/* la classe proposée : un point APRÈS le nombre (à gauche de la case, il semblait appartenir à la voisine) */
+.db-enr td .mk { margin-left: 3px; vertical-align: 3px; line-height: 1; }
+.db-enr tbody tr.on td:not(.cur):not(.col) { background: #F6F8FF !important; font-weight: 500; }
+
+/* le feu : a en gras, b_min en petit dessous ; une valeur à vérifier en rouge */
+.db-feu td { text-align: center; min-width: 50px; line-height: 1.1; height: 38px; }
+.db-feu td b { display: block; font-size: 13px; }
+.db-feu td small { display: block; font-size: 9.5px; color: #8B95A7; }
+.db-feu td.dout b { color: #B91C1C; }
+.db-feu td .mk { position: absolute; right: 4px; top: 3px; color: #B91C1C; font-weight: 800; font-size: 10px; }
+
+/* les ancrages : en attente des tableaux du bureau */
+.db-attente { display: grid; place-items: center; }
+.db-vide { display: flex; flex-direction: column; align-items: center; gap: 7px; max-width: 460px; text-align: center; color: #4A5568;
+  font-size: 13px; line-height: 1.45; padding: 18px; }
+/* (la feuille étire tout dessin à sa largeur : l'icône garde sa taille) */
+.sheet .draw .db-vide svg.i { width: 32px !important; height: 32px !important; max-width: 32px; flex: none; color: #8B95A7; }
+.db-vide b { color: #0D1525; font-size: 16px; }
+
+/* ---------------------------------------------------------------- le cadre Données : les sources */
+.db-src { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+.db-src svg.i { width: 14px; height: 14px; flex: none; margin-top: 2px; color: var(--ink-3); }
+.db-src b { color: var(--ink); font-weight: 600; }
+
+/* ---------------------------------------------------------------- le résultat : la valeur clé, la fiche */
+.db-verdict .chip.xl.c { color: var(--ink); background: var(--accent-soft); font-variant-numeric: tabular-nums; }
+.db-verdict .chip.xl small { font-size: 12.5px; color: var(--ink-2); opacity: 1; }
+.db-verdict .chip.xl small:last-child { margin: 0 0 0 4px; }
+.db-verdict .chip.xl small sub { font-size: 9px; }
+.db-verdict .gov { overflow-wrap: anywhere; }
+.db-v { align-items: center; }
+.db-v[data-calcul] { cursor: pointer; }
+.db-vig { flex: none; min-width: 52px; height: 46px; padding: 0 10px; border-radius: 11px; background: var(--bg-sunken); display: grid;
+  place-items: center; color: var(--ink-2); font-weight: 700; font-size: 17px; }
+.db-vig svg.i { width: 24px; height: 24px; }
+.db-fiche { padding: 4px 16px 12px; }
+.db-fiche table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.db-fiche td { padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); vertical-align: baseline; }
+.db-fiche tr.g td { padding: 11px 0 3px; border-bottom: 1px solid var(--line); font-size: 10.5px; font-weight: 650; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3); }
+.db-fiche td.s { color: var(--ink); font-weight: 600; white-space: nowrap; padding-right: 8px; }
+.db-fiche td.s[title] { cursor: help; }
+.db-fiche td.s sub { font-size: 9.5px; }
+.db-fiche td.n { text-align: right; font-weight: 650; color: var(--ink); padding-right: 6px; }
+.db-fiche td.u { width: 52px; color: var(--ink-3); font-size: 11.5px; white-space: nowrap; }
+.db-expo { margin: 2px 16px 12px; padding: 10px 12px; border-radius: var(--r); background: var(--panel-2); border: 1px solid var(--line);
+  font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+.db-expo p { margin: 0 0 6px; }
+.db-expo p:last-child { margin: 0; }
+.db-expo b { color: var(--ink); font-weight: 600; }
+.db-expo span { display: block; font-size: 10px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.db-regle { font-size: 12px; line-height: 1.45; color: var(--ink-2); padding: 3px 0; }
+.db-regle b { color: var(--ink); margin-right: 4px; }
+.pfoot .db-nb { white-space: nowrap; }
+
+/* ---------------------------------------------------------------- téléphone : le tableau prend sa hauteur, défile en largeur */
+@media (max-width: 700px) {
+  .sheet:has(.db-vue), .sheet .draw:has(> .db-vue) { min-width: 0; }
+  .db-vue { position: static; padding: 2px 10px 10px; }
+  .db-defile { max-height: 66vh; max-width: calc(100vw - 42px); }
+  .db-tab th, .db-tab td { padding: 0 8px; }
+  .db-attente { min-height: 260px; }
+}
+@media print {
+  .db-vue { position: static; }
+  .db-defile { overflow: visible; max-height: none; border: 0; }
+  .db-tab thead th, .db-tab th.nm { position: static; }
+}

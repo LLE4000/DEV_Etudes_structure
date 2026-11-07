@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "titre": "Longueurs d'ancrage et de recouvrement du bureau",
+  "etat": "Tableaux du bureau à venir",
+  "aide": "Fichier à remplir avec les tableaux du bureau : laisser « tableaux » vide tant qu'ils ne sont pas fournis. Format d'un tableau : docs/beton/DONNEES_BETON.md § 6 (et beton/donnees/ancrages.py). Aucune valeur ne s'invente ici.",
+  "tableaux": []
+}
