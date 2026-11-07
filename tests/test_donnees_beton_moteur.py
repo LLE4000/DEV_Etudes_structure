@@ -172,6 +172,10 @@ for nom, abime, mot in (
         ("une clé inconnue", variante(couleur="rouge"), "clé(s) inconnue(s)"),
         ("une clé de tableau illisible", variante(cle="a b"), "lettres, chiffres"),
         ("deux tableaux de même clé", {**EXEMPLE, "tableaux": EXEMPLE["tableaux"] * 2}, "même clé"),
+        # relecture adverse : le sélecteur de l'écran désigne une ligne par son LIBELLÉ — deux lignes de même libellé, la
+        # seconde ne se choisissait jamais (le sélecteur ouvrait la première)
+        ("deux lignes de même libellé", {**EXEMPLE, "tableaux": [{**EXEMPLE["tableaux"][0],
+                                                                  "lignes": EXEMPLE["tableaux"][0]["lignes"] * 2}]}, "même libellé"),
         ("une version inconnue", {**EXEMPLE, "version": 2}, "version"),
         ("« tableaux » qui n'est pas une liste", {**EXEMPLE, "tableaux": {}}, "doit être une liste")):
     ok, msg = refus(abime, mot)

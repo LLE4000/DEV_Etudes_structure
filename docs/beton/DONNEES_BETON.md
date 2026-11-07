@@ -103,10 +103,13 @@ Un tableau (exemple de **forme** : les cases `null` sont des cases vides, à rem
 - `source` est **obligatoire** : d'où vient le tableau ;
 - chaque ligne a **une valeur par colonne** : un nombre, ou `null` (case vide, affichée « — ») ;
 - `conditions` et `notes` : facultatives (textes).
+- deux lignes d'un même tableau ont des **libellés différents** : l'écran désigne une ligne par son libellé (le
+  sélecteur du résultat) ; deux libellés égaux sont refusés.
 
 Une forme fautive (ligne trop courte, valeur qui n'est pas un nombre, unité inconnue, source manquante, clé inconnue
-ou en double, version inconnue) est refusée par `ancrages.valider` avec l'endroit fautif ; le site affiche alors
-l'erreur **en rouge**, jamais un tableau tronqué. Une note qui visait un tableau retiré du fichier montre le premier.
+ou en double, libellé en double, version inconnue) est refusée par `ancrages.valider` avec l'endroit fautif ; le site affiche alors
+l'erreur **en rouge** — dans la toile, le cadre Données, le verdict et la liste de la note (« Fichier des ancrages
+illisible », avec l'endroit fautif) —, jamais un tableau tronqué ni « à venir ». Une note qui visait un tableau retiré du fichier montre le premier.
 
 ## 7 · Constats (écrits ici, rien n'est corrigé en silence)
 
@@ -125,7 +128,39 @@ l'erreur **en rouge**, jamais un tableau tronqué. Une note qui visait un tablea
   catalogue des profilés (déjà signalé).
 - Pas de **téléchargement** du tableau (CSV) : il viendrait par `C.bouton_telecharger` si le bureau le demande.
 
-## 9 · Les contrôles
+## 9 · La relecture adverse du 07/11/2026 (corrigé, figé par `tests/test_api_web_donnees_beton.py` § 10)
+
+Chaque défaut a été montré avant sa correction (le contrôle rougissait sur le code d'origine) et chaque correction a sa
+mutation (la retirer fait rougir le contrôle).
+
+1. **Non conservatif — un booléen lu comme un choix** : `False == 0` en Python ; `"delta_dev": false` d'un fichier
+   .stab abîmé devenait Δc_dev = 0 mm (c_nom de 30 à 20 mm), sans un mot ; `"ligne": true` ouvrait la ligne 2. Un
+   booléen n'est plus jamais un choix (relu ou saisi).
+2. **La fiche et le verdict du feu** écrivaient sans réserve les distances que le moteur de l'enrobage dit « à
+   vérifier dans la norme » (poteau, voile R180 et R240) — la toile seule les montrait en rouge, et au téléphone on lit
+   le résultat. Elles sont désormais en rouge, marquées « ! », dans la fiche, le verdict, la phrase et le sélecteur.
+3. **Le fichier des ancrages illisible** : la toile et le cadre Données disaient « à venir… aucune valeur proposée en
+   attendant », comme si rien n'avait été versé (le résultat seul le disait) ; la liste de la note disait « à venir »
+   même sous un tableau affiché. Tout dit maintenant « illisible » avec l'erreur, ou le tableau et la ligne ouverts.
+4. **Deux lignes de même libellé** dans un tableau d'ancrage : la seconde ne se choisissait jamais. Refusé (§ 6).
+5. **Les noms** : sans borne (un nom d'un million de caractères rendait une réponse de 4 Mo), une liste devenait
+   « [1, 2] », U+202E retournait l'affichage de la liste. Un nom est un texte de 80 caractères au plus, sans caractère
+   invisible ni de commande.
+6. **Les requêtes abîmées** : une rubrique en liste rendait `TypeError : unhashable type` ; un index illisible
+   `invalid literal for int()` ; « supprimer -5 » supprimait la PREMIÈRE consultation (l'index était ramené dans la
+   liste). Refus en français, rien n'est ouvert ni supprimé au hasard.
+7. **Les notes abîmées relues en silence** (un état qui n'est pas un objet, « consultations » vide mais pas une liste,
+   une clé inconnue, un tableau d'ancrage qui n'est pas un texte, une ligne négative) : erreur claire, comme le contrat.
+8. **Lisibilité** : « Δc_dev = » en fin de ligne et « 10 mm » à la suivante dans les verdicts (le « = » est lié par des
+   espaces insécables) ; « EN 1992- » / « 1-1 » dans la légende des vues au téléphone (la légende est du texte : un
+   gluon U+2060 suit chaque trait d'union) ; « f_yd », « E_s » à souligné dans un sous-titre.
+9. **Le jargon de développeur à l'écran** : les sources se nommaient par des chemins de code
+   (`beton/poutre/moteur.materiaux`, `C_MIN_DUR, CLASSE_STRUCTURALE_DEFAULT`, `tests/test_…py`). Elles se disent
+   maintenant dans les mots du bureau (« le calcul du module Poutre », « les tableaux de l'écran Enrobage ») ; restent
+   nommés les fichiers que le bureau ouvre lui-même (`beton_classes.json`, le fichier des ancrages à remplir) et la
+   page de documentation de son format. Ce document-ci garde les chemins (§ 1, § 2).
+
+## 10 · Les contrôles
 
 ```bash
 python3 tests/test_donnees_beton_moteur.py          # tableau 3.1, fichier des classes, aciers, ancrages, mutations

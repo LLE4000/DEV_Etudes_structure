@@ -20,6 +20,7 @@ la fenêtre « d'où viennent les valeurs », les formules avec leurs valeurs. C
 """
 import copy
 import re
+import unicodedata
 from typing import Dict, List, Optional, Sequence
 
 from beton.armatures import dessins as DS
@@ -55,6 +56,13 @@ TABLEAUX_ENROBAGE = (("durabilite", "Durabilité"), ("feu", "Feu"))
 EXPO_DEFAUT, STRUCT_DEFAUT = "XC1", "S4"
 assert EXPO_DEFAUT in ED.EXPO_CLASSES and STRUCT_DEFAUT in ED.CLASSES_STRUCTURALES
 DIAMETRES_ENROBAGE = tuple(d for d in T.DIAMETRES if ED.DIAM_BARRE_MIN <= d <= ED.DIAM_BARRE_MAX)
+# un nom de consultation : un texte d'une ligne de la liste « Dans cette note » (comme l'écran Enrobage du site, 80) ;
+# relecture adverse du 07/11/2026 : un nom d'un million de caractères rendait une réponse de 4 Mo, une liste devenait
+# « [1, 2] », U+202E retournait l'affichage de la liste de la note
+NOM_MAX = 80
+_INVISIBLES = ("Cc", "Cf", "Zl", "Zp")       # commandes, marques de sens, séparateurs de ligne et de paragraphe
+CLES_CONSULTATION = ("nom", "rubrique") + tuple(k for k, _ in RUBRIQUES)
+CLES_ANCRAGES = ("tableau", "ligne")
 
 
 # ------------------------------------------------------------------ l'état : des consultations
@@ -106,52 +114,90 @@ def _permis() -> Dict:
 
 
 def _lire_choix(valeur, permis: Sequence):
-    """Une valeur reçue de l'écran (un texte : « 500 », « C30/37 ») ramenée à celle de la liste permise, ou None."""
+    """Une valeur reçue de l'écran (un texte : « 500 », « C30/37 ») ramenée à celle de la liste permise, ou None.
+    Un booléen n'est JAMAIS un choix : ``False == 0`` en Python, et « delta_dev »: false d'un fichier abîmé devenait
+    Δc_dev = 0 mm (c_nom de 30 à 20 mm), sans un mot (relecture adverse du 07/11/2026)."""
+    if isinstance(valeur, bool):
+        return None
     for p in permis:
-        if valeur == p or (not isinstance(valeur, bool) and str(valeur) == str(p)):
+        if valeur == p or str(valeur) == str(p):
             return p
     return None
+
+
+def _refus_nom(nom) -> Optional[str]:
+    """Pourquoi un nom de consultation est refusé (None : il passe) : pas un texte, plus de NOM_MAX caractères, ou un
+    caractère invisible ou de commande (retour à la ligne, inversion du sens d'écriture U+202E, marque de sens…)."""
+    if not isinstance(nom, str):
+        return "Nom : un texte est attendu"
+    if len(nom) > NOM_MAX:
+        return f"Nom : {NOM_MAX} caractères au plus ({len(nom)} reçus)"
+    if any(unicodedata.category(x) in _INVISIBLES for x in nom):
+        return "Nom : un caractère invisible ou de commande (retour à la ligne, sens d'écriture…) n'y a pas sa place"
+    return None
+
+
+def _cles(d: Dict, permises: Sequence, ou: str) -> None:
+    inconnues = sorted(str(k) for k in d if k not in permises)
+    if inconnues:
+        raise ValueError(f"{ou} : clé(s) inconnue(s) {', '.join(inconnues)} — clés admises : {', '.join(permises)}"[:240])
 
 
 def _normaliser_consultation(c, i: int) -> Dict:
     if not isinstance(c, dict):
         raise ValueError(f"consultation {i + 1} illisible : un objet est attendu")
+    ou = f"consultation {i + 1}"
+    _cles(c, CLES_CONSULTATION, ou)
     out = _neuve(f"Consultation {i + 1}")
     if c.get("nom") is not None:
-        out["nom"] = str(c["nom"])
+        refus = _refus_nom(c["nom"])
+        if refus:
+            raise ValueError(f"{ou} : {refus[0].lower()}{refus[1:]}")
+        out["nom"] = c["nom"]
     if c.get("rubrique") is not None:
-        if c["rubrique"] not in NOMS:
-            raise ValueError(f"consultation {i + 1} : rubrique inconnue {c['rubrique']!r}")
+        if not isinstance(c["rubrique"], str) or c["rubrique"] not in NOMS:
+            raise ValueError(f"{ou} : rubrique inconnue {c['rubrique']!r}"[:240])
         out["rubrique"] = c["rubrique"]
     for rub, champs in _permis().items():
         lu = c.get(rub)
         if lu is None:
             continue
         if not isinstance(lu, dict):
-            raise ValueError(f"consultation {i + 1}, {rub} : un objet est attendu")
+            raise ValueError(f"{ou}, {rub} : un objet est attendu")
+        _cles(lu, tuple(champs), f"{ou}, {rub}")
         for k, permis in champs.items():
             if lu.get(k) is None:
                 continue
             v = _lire_choix(lu[k], permis)
             if v is None:
-                raise ValueError(f"consultation {i + 1}, {rub}/{k} : {lu[k]!r} n'est pas proposé ({' · '.join(map(str, permis))})"[:240])
+                raise ValueError(f"{ou}, {rub}/{k} : {lu[k]!r} n'est pas proposé ({' · '.join(map(str, permis))})"[:240])
             out[rub][k] = v
     an = c.get("ancrages")
-    if isinstance(an, dict):
+    if an is not None:
+        if not isinstance(an, dict):
+            raise ValueError(f"{ou}, ancrages : un objet est attendu")
+        _cles(an, CLES_ANCRAGES, f"{ou}, ancrages")
         # le fichier des tableaux évolue indépendamment des notes : une clé qui n'y est plus revient au premier
-        # tableau (None), une ligne hors du tableau à la première — c'est dit dans la fiche (le tableau ouvert)
-        t = an.get("tableau")
-        out["ancrages"]["tableau"] = t if isinstance(t, str) and t else None
-        li = an.get("ligne")
-        out["ancrages"]["ligne"] = li if isinstance(li, int) and not isinstance(li, bool) and li >= 0 else 0
+        # tableau, une ligne hors du tableau à la première (la toile montre le tableau ouvert) ; mais une clé qui
+        # n'est pas un texte, une ligne qui n'est pas un entier ≥ 0, sont une note ABÎMÉE
+        t, li = an.get("tableau"), an.get("ligne")
+        if t is not None and not isinstance(t, str):
+            raise ValueError(f"{ou}, ancrages/tableau : la clé d'un tableau (un texte) est attendue (reçu {t!r})"[:240])
+        if li is not None and (isinstance(li, bool) or not isinstance(li, int) or li < 0):
+            raise ValueError(f"{ou}, ancrages/ligne : un numéro de ligne (entier ≥ 0) est attendu (reçu {li!r})"[:240])
+        out["ancrages"]["tableau"] = t or None
+        out["ancrages"]["ligne"] = li or 0
     return out
 
 
 def normaliser(etat: Dict) -> Dict:
     """L'état reçu de l'écran (ou d'un fichier .stab) relu : clés manquantes complétées ; un choix qui n'est pas
-    proposé (une classe inconnue, une nuance B450…) lève une erreur claire — jamais remplacé en silence."""
-    cs = etat.get("consultations") if isinstance(etat, dict) else None
-    if not cs:
+    proposé (une classe inconnue, une nuance B450, un booléen…), une clé inconnue, un nom absurde lèvent une erreur
+    claire — jamais remplacés en silence. Une note vide, ou sans consultation, est une note neuve."""
+    if not isinstance(etat, dict):
+        raise ValueError("note illisible : un objet est attendu")
+    cs = etat.get("consultations")
+    if cs is None or cs == []:
         return nouvel_etat()
     if not isinstance(cs, list):
         raise ValueError("note illisible : « consultations » doit être une liste")
@@ -165,11 +211,22 @@ def _cons(etat: Dict) -> Dict:
     return etat["consultations"][etat["actif"]]
 
 
+def _index(index, n: int) -> int:
+    """La consultation que désigne ``index`` (un entier, ou son texte), ou ValueError en français. Jamais ramené dans
+    la liste : « supprimer -5 » supprimait la première consultation (relecture adverse du 07/11/2026)."""
+    i = index if isinstance(index, int) and not isinstance(index, bool) else (
+        int(index) if isinstance(index, str) and index.strip().isdigit() else None)
+    if i is None or not 0 <= i < n:
+        raise ValueError(f"Consultation introuvable : « {str(index)[:20]} » (la note en compte {n})")
+    return i
+
+
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
-    """Les consultations de la note : en ouvrir une, en ajouter, copier l'ouverte, en supprimer une (jamais la dernière)."""
+    """Les consultations de la note : en ouvrir une, en ajouter, copier l'ouverte, en supprimer une (jamais la
+    dernière). Un index qui ne désigne aucune consultation est refusé (ValueError) : rien n'est ouvert ni supprimé."""
     cs = etat["consultations"]
     if action == "activer":
-        etat["actif"] = min(max(0, int(index or 0)), len(cs) - 1)
+        etat["actif"] = _index(index, len(cs))
     elif action == "ajouter":
         pris = {c["nom"] for c in cs}
         k = len(cs) + 1
@@ -183,7 +240,7 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
         cs.append(c)
         etat["actif"] = len(cs) - 1
     elif action == "supprimer" and len(cs) > 1:
-        i = min(max(0, int(index or 0)), len(cs) - 1)
+        i = _index(index, len(cs))
         del cs[i]
         if etat["actif"] > i or etat["actif"] >= len(cs):
             etat["actif"] = max(0, etat["actif"] - 1)
@@ -222,10 +279,14 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return "Saisie inconnue"
     chemin = [str(x) for x in chemin]
     if chemin == ["nom"]:
-        c["nom"] = str(valeur if valeur is not None else "")
+        nom = "" if valeur is None else valeur
+        refus = _refus_nom(nom)
+        if refus:
+            return refus
+        c["nom"] = nom
         return None
     if chemin == ["rubrique"]:
-        if valeur not in NOMS:
+        if not isinstance(valeur, str) or valeur not in NOMS:
             return f"Rubrique inconnue : « {str(valeur)[:40]} »"
         c["rubrique"] = valeur
         return None
@@ -278,14 +339,32 @@ def _th(sym: str, unite: str, titre: str = "", cls: str = "n") -> str:
     return f'<th class="{cls}"{t}><span class="s">{C.symb_math(sym)}</span><span class="u">{_u(unite) or "&nbsp;"}</span></th>'
 
 
-_NORME = re.compile(r"(<option[^>]*>.*?</option>|<[^>]*>)|EN 1992-1-[12](?::2004)?", re.S)
+_NORME = re.compile(r"(<option[^>]*>.*?</option>|<[^>]*>)|EN 1992-1-[12](?::2004)?| = ", re.S)
 
 
 def _normes(h: str) -> str:
     """Les références de norme (« EN 1992-1-1 ») d'un fragment gardées sur une ligne : coupées à leurs traits d'union,
-    elles se lisaient « EN 1992-1- » puis « 1. » (relevé sur la capture du cadre Données, 1 440 px). Seul le TEXTE est
-    touché : ni une balise, ni un attribut (un « title »), ni une option de menu (qui n'admet pas de balise)."""
-    return _NORME.sub(lambda m: m.group(1) or f'<span class="db-nw">{m.group(0)}</span>', h)
+    elles se lisaient « EN 1992-1- » puis « 1. » (relevé sur la capture du cadre Données, 1 440 px). Et « symbole =
+    valeur » lié par des espaces insécables : « Δc_dev = » en fin de ligne, « 10 mm » à la suivante (relecture adverse
+    du 07/11/2026, verdicts de l'enrobage et du feu). Seul le TEXTE est touché : ni une balise, ni un attribut (un
+    « title »), ni une option de menu (qui n'admet pas de balise)."""
+    def f(m):
+        if m.group(1):
+            return m.group(1)
+        if m.group(0) == " = ":
+            return f"{C.NBSP}={C.NBSP}"
+        return f'<span class="db-nw">{m.group(0)}</span>'
+    return _NORME.sub(f, h)
+
+
+_NORME_TEXTE = re.compile(r"EN 1992-1-([12])")
+
+
+def _legende(t: str) -> str:
+    """Une légende de vue (du TEXTE : la page l'échappe, une balise n'y entre pas) dont les références « EN 1992-1-x »
+    ne se coupent plus : espace insécable après « EN », un gluon (U+2060, sans largeur) après chaque trait d'union.
+    Au téléphone, « … bureau et EN 1992- » puis « 1-1 » (capture du 07/11/2026, Aciers)."""
+    return _NORME_TEXTE.sub(lambda m: f"EN{C.NBSP}1992-⁠1-⁠{m.group(1)}", t)
 
 
 def _vue(tableau: str, legende: str, pied: str, classe: str = "") -> str:
@@ -361,7 +440,7 @@ def _r_classes(c: Dict) -> Dict:
                "E<sub>cm</sub> au GPa) ; la valeur exacte est dans la fiche.")
     else:
         leg = (f"<b>Méthode du bureau</b> : α<sub>b</sub> et μ lus dans {C.esc(K.FICHIER_CLASSES)} ; "
-               f"τ<sub>adm</sub> = k·f<sub>ck,cube</sub> / {C.nb(PM.GAMMA_TAU)}, k = {taus}, calculés par le moteur des poutres.")
+               f"τ<sub>adm</sub> = k·f<sub>ck,cube</sub> / {C.nb(PM.GAMMA_TAU)}, k = {taus}, calculés comme le module Poutre.")
     tab = f'<table class="db-tab"><thead><tr>{th}</tr></thead><tbody>{corps}</tbody></table>'
     pied = (f"{len(lignes)} classes · {C.esc(K.FICHIER_CLASSES)} (les classes des modules Poutre, Dalle et Prédalle) · "
             "la classe choisie est surlignée ; « Colonnes » (Données) passe de l'EN 1992-1-1 à la méthode du bureau.")
@@ -383,7 +462,7 @@ def _r_classes(c: Dict) -> Dict:
     messages = ""
     if x.get("tau_lim_fichier") is not None:
         messages += C.message(f"« tau_lim » de {C.esc(K.FICHIER_CLASSES)} ({C.qte(x['tau_lim_fichier'], 'N/mm²', 2)} pour "
-                              f"{C.esc(x['nom'])}) n'est lu par aucun moteur : les τ<sub>adm</sub> des modules Poutre, Dalle et "
+                              f"{C.esc(x['nom'])}) n'est lu par aucun module de calcul : les τ<sub>adm</sub> des modules Poutre, Dalle et "
                               "Prédalle sont calculés depuis f<sub>ck,cube</sub> (fiche, méthode du bureau).")
     # la fenêtre : les formules avec les valeurs de la classe
     fck = x["fck"]
@@ -401,16 +480,16 @@ def _r_classes(c: Dict) -> Dict:
                    f"{C.fr(x[cle], 3)} N/mm²") for b, k, cle in _k_tau()]
     fen = _fenetre(f"Béton {C.esc(x['nom'])} · d'où viennent les valeurs", "chaque valeur avec sa formule ou son fichier",
                    [f"Classe lue dans <b>{C.esc(K.FICHIER_CLASSES)}</b>", C.esc(EC.SOURCE_BETON),
-                    "τ<sub>adm</sub> : beton/poutre/moteur.materiaux"],
+                    "τ<sub>adm</sub> : le calcul du module Poutre"],
                    _texte_fx([("EN 1992-1-1 · tableau 3.1", ec2), ("Méthode du bureau", bureau)]),
-                   '<div class="ck-autres">Les fonctions du tableau 3.1 (beton/donnees/ec2.py) sont confrontées au tableau '
-                   'publié, de C12/15 à C90/105 (tests/test_donnees_beton_moteur.py).</div>')
+                   '<div class="ck-autres">Les formules du tableau 3.1 sont confrontées au tableau publié, de C12/15 à '
+                   'C90/105, à chaque contrôle du site.</div>')
     return {"ligne": x["nom"], "titre_ligne": "Classe", "table": _vue(tab, leg, pied), "legende": f"{len(lignes)} classes · {dict(K.GROUPES_CLASSES)[groupe]}",
             "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": [],
             "phrase": f"<b>Béton {C.esc(x['nom'])}</b> · f<sub>ck</sub> = {C.qte(x['fck'], 'MPa', 0)} · f<sub>ck,cube</sub> = {C.qte(x['fck_cube'], 'MPa', 0)}",
-            "sources": [f"Classes : <b>{C.esc(K.FICHIER_CLASSES)}</b> (beton/poutre/entree.classes_beton)",
-                        f"EN 1992-1-1 : beton/donnees/ec2.py ({C.esc(EC.SOURCE_BETON)})",
-                        "τ<sub>adm</sub> : beton/poutre/moteur.materiaux"]}
+            "sources": [f"Classes : <b>{C.esc(K.FICHIER_CLASSES)}</b>, le fichier des classes des modules Poutre, Dalle et Prédalle",
+                        f"f<sub>cm</sub>, f<sub>ctm</sub>, f<sub>ctk</sub>, E<sub>cm</sub> : les formules de l'{C.esc(EC.SOURCE_BETON)}",
+                        "α<sub>b</sub>, μ, τ<sub>adm</sub> : la méthode du bureau, comme le calcul du module Poutre"]}
 
 
 # ================================================================== rubrique 2 · aciers d'armature
@@ -428,9 +507,9 @@ def _r_aciers(c: Dict) -> Dict:
         on = ' class="on"' if li["nuance"] == x["nuance"] else ""
         corps += f'<tr{on}><th class="nm">{C.esc(li["nom"])}</th>' + "".join(f'<td>{C.fr(li[k], nd)}</td>' for k, _, _, _, nd, _ in cols) + "</tr>"
     tab = f'<table class="db-tab db-deux"><thead><tr class="r1">{h1}</tr><tr class="r2">{h2}</tr></thead><tbody>{corps}</tbody></table>'
-    leg = (f"<b>f<sub>yd</sub> = f<sub>yk</sub> / γ<sub>s</sub></b>, par le moteur des poutres : γ<sub>s</sub> = {gb}, le "
+    leg = (f"<b>f<sub>yd</sub> = f<sub>yk</sub> / γ<sub>s</sub></b>, comme le module Poutre : γ<sub>s</sub> = {gb}, le "
            f"« coefficient acier ELS » des modules béton (méthode du bureau) ; γ<sub>s</sub> = {ge}, {C.esc(EC.SOURCE_GAMMA_S)}.")
-    pied = (f"Nuances des modules Poutre, Dalle et Prédalle (beton/poutre/entree) · E<sub>s</sub> : {C.esc(EC.SOURCE_E_S)} · "
+    pied = (f"Nuances des modules Poutre, Dalle et Prédalle · E<sub>s</sub> : {C.esc(EC.SOURCE_E_S)} · "
             "ε<sub>yd</sub> = f<sub>yd</sub> / E<sub>s</sub>.")
     fiche = _fiche([("Nuance", [("f<sub>yk</sub>", C.fr(x["fyk"], 0), "MPa", "limite d'élasticité caractéristique")]),
                     ("Méthode du bureau", [("γ<sub>s</sub>", C.nb(x["gamma_bureau"]), "", "coefficient acier ELS des modules béton"),
@@ -441,8 +520,11 @@ def _r_aciers(c: Dict) -> Dict:
                                      ("ε<sub>yd</sub>", C.fr(x["eps_yd"], 2), "‰", "f_yd / E_s")]),
                     ("Tableau des armatures", [("ρ", C.fr(x["masse_volumique"], 0), "kg/m³", "masse volumique du tableau du bureau")])])
     verdict = C.verdict_valeur(x["fyk"], "MPa", f"Acier {x['nom']}",
-                               f"f<sub>yd</sub> = {C.qte(x['fyd_bureau'], 'MPa', 0)} · bureau<br>"
-                               f"f<sub>yd</sub> = {C.qte(x['fyd_ec2'], 'MPa', 0)} · EN 1992-1-1",
+                               # la source D'ABORD, puis la valeur (insécable) : « 435 MPa · » restait seul en fin de ligne,
+                               # et « (EN 1992-1-1) » se coupait après sa parenthèse (captures PC du 07/11/2026) ; la ligne
+                               # longue se coupe maintenant après « : »
+                               f"bureau{C.NBSP}: f<sub>yd</sub> = {C.qte(x['fyd_bureau'], 'MPa', 0)}<br>"
+                               f"EN 1992-1-1{C.NBSP}: f<sub>yd</sub> = {C.qte(x['fyd_ec2'], 'MPa', 0)}",
                                nd=0, symbole="f<sub>yk</sub>", calcul="source", classe="db-verdict")
     messages = C.message(f"γ<sub>s</sub> = {gb} est le « coefficient acier ELS » des modules Poutre, Dalle et Prédalle (méthode "
                          f"ancienne du bureau, réglable de {C.nb(DE_.GAMMA_S_MIN)} à {C.nb(DE_.GAMMA_S_MAX)}) ; γ<sub>s</sub> = {ge} "
@@ -453,16 +535,16 @@ def _r_aciers(c: Dict) -> Dict:
     fx = [_fx(["f_yd", "f_yk / γ_s", f"{n} / {gb}"], f"{C.fr(x['fyd_bureau'], 1)} MPa")]
     fx2 = [_fx(["f_yd", "f_yk / γ_s", f"{n} / {ge}"], f"{C.fr(x['fyd_ec2'], 1)} MPa"),
            _fx(["ε_yd", "f_yd / E_s", f"{C.fr(x['fyd_ec2'], 1)} / {C.fr(x['Es'] * 1000, 0)}"], f"{C.fr(x['eps_yd'], 3)} ‰")]
-    fen = _fenetre(f"Acier {C.esc(x['nom'])} · d'où viennent les valeurs", "f_yd par le moteur des poutres, E_s de l'EN 1992-1-1",
+    fen = _fenetre(f"Acier {C.esc(x['nom'])} · d'où viennent les valeurs", "f<sub>yd</sub> comme le module Poutre, E<sub>s</sub> de l'EN 1992-1-1",
                    [f"f<sub>yk</sub> = <b>{n} MPa</b>", f"bureau : γ<sub>s</sub> = <b>{gb}</b>", f"EN 1992-1-1 : γ<sub>s</sub> = <b>{ge}</b>",
                     f"E<sub>s</sub> = <b>{C.fr(x['Es'], 0)} GPa</b>"],
                    _texte_fx([("Méthode du bureau", fx), ("EN 1992-1-1", fx2)]))
     return {"ligne": x["nom"], "titre_ligne": "Nuance", "table": _vue(tab, leg, pied), "legende": "B400 et B500 · bureau et EN 1992-1-1",
             "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": [],
             "phrase": f"<b>Acier {C.esc(x['nom'])}</b> · f<sub>yk</sub> = {C.qte(x['fyk'], 'MPa', 0)}",
-            "sources": ["Nuances : beton/poutre/entree.NUANCES (« Qualité acier (B) » des modules béton)",
-                        f"γ<sub>s</sub> du bureau : beton/poutre/entree (défaut {gb}) ; f<sub>yd</sub> : beton/poutre/moteur.materiaux",
-                        f"E<sub>s</sub>, γ<sub>s</sub> = {ge} : beton/donnees/ec2.py"]}
+            "sources": ["Nuances : le champ « Qualité acier (B) » des modules Poutre, Dalle et Prédalle",
+                        f"γ<sub>s</sub> du bureau : le « coefficient acier ELS » de ces modules (défaut {gb}) ; f<sub>yd</sub> : leur calcul",
+                        f"E<sub>s</sub> : {C.esc(EC.SOURCE_E_S)} ; γ<sub>s</sub> = {ge} : {C.esc(EC.SOURCE_GAMMA_S)}"]}
 
 
 # ================================================================== rubrique 3 · tableau des armatures
@@ -491,7 +573,7 @@ def _r_armatures(c: Dict) -> Dict:
     leg = ("<b>Barres</b> : la section de n barres, en mm²." if lecture == "barres"
            else "<b>Par mètre</b> : n barres par mètre (e = 100/n cm) et les espacements fixes, en mm²/m.")
     leg += " La masse est celle d'une barre, en kg/m."
-    pied = (f"<b>{C.esc(T.LEGENDE_IMAGE)}.</b> Le tableau du bureau (« {C.esc(T.IMAGE)} »), recalculé par beton/armatures/tableau.py : "
+    pied = (f"<b>{C.esc(T.LEGENDE_IMAGE)}.</b> Le tableau du bureau (« {C.esc(T.IMAGE)} »), recalculé comme le module Tableau des armatures : "
             f"a = π·Ø²/4, arrondi au mm² ; masse ρ·a avec ρ = {C.fr(T.MASSE_VOLUMIQUE, 0)} kg/m³.")
     unite = "mm²" if lecture == "barres" else "mm²/m"
     grp_n = [(f"{n} barre{'s' if n > 1 else ''}" if lecture == "barres" else f"{n} /m · e {e} cm", C.fr(v, 0), unite, "")
@@ -510,13 +592,13 @@ def _r_armatures(c: Dict) -> Dict:
     fen = _fenetre(f"Barre Ø{d} · d'où viennent les valeurs", "le tableau du bureau, recalculé", [
         f"Tableau « {C.esc(T.IMAGE)} »", f"ρ = <b>{C.fr(T.MASSE_VOLUMIQUE, 0)} kg/m³</b>", "sections arrondies au mm²"],
         _texte_fx([(f"Une barre Ø{d}", fx), ("Exemples : 4 barres, e = 15 cm", fx2)]),
-        '<div class="ck-autres">Chaque case du tableau est relue dans l\'image du bureau par tests/test_armatures_moteur.py.</div>')
+        '<div class="ck-autres">Chaque case du tableau est relue dans l\'image du bureau à chaque contrôle du site.</div>')
     vues = [{"cle": "diametres", "titre": "Diamètres à l'échelle", "court": "Diamètres",
              "svg": DS.diametres("db_diam", d), "legende": f"Ø6 à Ø40 · section et masse linéique · Ø{d} encadré"}]
     return {"ligne": f"Ø{d}", "titre_ligne": "Diamètre", "table": _vue(html, leg, pied), "legende": T.LEGENDE_IMAGE,
             "verdict": verdict, "fiche": fiche, "messages": "", "fenetre": fen, "vues_plus": vues,
             "phrase": f"<b>Ø{d}</b> · a = {C.qte(li['aire'], 'mm²', 1)} · m = {li['masse_txt']}{C.NBSP}kg/m",
-            "sources": [f"beton/armatures/tableau.py : le tableau « {C.esc(T.IMAGE)} » recalculé, relu au chiffre près"]}
+            "sources": [f"Le tableau du bureau « {C.esc(T.IMAGE)} », recalculé comme le module Tableau des armatures et relu au chiffre près"]}
 
 
 # ================================================================== rubrique 4 · enrobages
@@ -559,8 +641,8 @@ def _r_durabilite(c: Dict) -> Dict:
     tab = f'<table class="db-tab db-enr"><thead><tr>{th}</tr></thead><tbody>{corps}</tbody></table>'
     leg = ("<b>c<sub>min,dur</sub> (mm)</b> selon la classe structurale (lignes) et la classe d'exposition (colonnes) — "
            "EN 1992-1-1 tab. 4.4N, valeurs de l'écran Enrobage ; <i class=\"mk\">●</i> la classe proposée par l'écran.")
-    pied = ("beton/enrobage/donnees.py (C_MIN_DUR, CLASSE_STRUCTURALE_DEFAULT) · colonnes X0 et XC1 : 5 mm de plus que le "
-            "tableau 4.4N de S4 à S6 (et S3 en XC1), côté sûr — relevé D4 de docs/beton/ENROBAGE_MOTEUR.md.")
+    pied = ("Les tableaux de l'écran Enrobage (enrobage minimal, classe proposée) · colonnes X0 et XC1 : 5 mm de plus que le "
+            "tableau 4.4N de S4 à S6 (et S3 en XC1), côté sûr — écart D4 relevé à l'extraction de l'écran Enrobage.")
     # la fiche : les termes du moteur (durabilité), dans l'ordre de l'écran
     termes = [t for t in res["termes"] if t["cle"] in ("c_min_b", "c_min_dur", "plancher", "delta_dur", "c_min", "delta_dev", "c_nom_dur")]
     info = ED.EXPOSITION_INFO[expo]
@@ -579,7 +661,7 @@ def _r_durabilite(c: Dict) -> Dict:
     fx = [_fx(["c_min", "max(c_min,b ; c_min,dur ; 10 mm)", f"max({dur['c_min_b']} ; {dur['c_min_dur']} ; {dur['plancher']})"],
               f"{C.fr(dur['c_min'], 0)} mm"),
           _fx(["c_nom", "c_min + Δc_dev", f"{dur['c_min']} + {dur['delta_dev']}"], f"{C.fr(res['c_nom_dur'], 0)} mm")]
-    fen = _fenetre(f"Enrobage {C.esc(expo)} · {C.esc(struct)} · d'où viennent les valeurs", "le moteur de l'écran Enrobage, pour une dalle sans étrier",
+    fen = _fenetre(f"Enrobage {C.esc(expo)} · {C.esc(struct)} · d'où viennent les valeurs", "le calcul de l'écran Enrobage, pour une dalle sans étrier",
                    [f"Exposition <b>{C.esc(expo)}</b>", f"Classe structurale <b>{C.esc(struct)}</b>", f"Ø = <b>{e['diam_barre']} mm</b>",
                     f"Δc<sub>dev</sub> = <b>{e['delta_dev']} mm</b>"],
                    _texte_fx([("EN 1992-1-1 §4.4.1", fx)])
@@ -589,11 +671,20 @@ def _r_durabilite(c: Dict) -> Dict:
     return {"ligne": expo, "titre_ligne": "Exposition", "table": _vue(tab, leg, pied), "legende": "enrobage minimal de durabilité (mm) · EN 1992-1-1 tab. 4.4N",
             "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": vues,
             "phrase": f"<b>{C.esc(expo)} · {C.esc(struct)}</b> · c<sub>min,dur</sub> = {C.qte(dur['c_min_dur'], 'mm', 0)} · c<sub>nom</sub> = {C.qte(res['c_nom_dur'], 'mm', 0)} (Ø{e['diam_barre']}, Δc<sub>dev</sub> {e['delta_dev']} mm)",
-            "sources": ["beton/enrobage/donnees.py : C_MIN_DUR, CLASSE_STRUCTURALE_DEFAULT, DELTAS_DEV (l'écran Enrobage)",
-                        "c<sub>nom</sub> : beton/enrobage/moteur.calculer (une dalle sans étrier)"]}
+            "sources": ["c<sub>min,dur</sub>, classe proposée, tolérances : les tableaux de l'écran Enrobage",
+                        "c<sub>nom</sub> : le calcul de l'écran Enrobage, pour une dalle sans étrier"]}
 
 
 FEU_ELEMENTS = (("Dalle", "dalle"), ("Voile", "voile"), ("Poutre", "poutre"), ("Poteau", "poteau"))
+DOUTE = "à vérifier dans la norme avant usage"
+ILLISIBLE = "Fichier des ancrages illisible"
+
+
+def _douteux(h: str) -> str:
+    """Une valeur que le moteur de l'enrobage dit « à vérifier dans la norme » : en rouge, marquée « ! », la raison au
+    survol — dans la fiche et le verdict comme dans la toile (relecture adverse du 07/11/2026 : la toile la montrait en
+    rouge, le résultat l'écrivait comme une valeur sûre ; au téléphone, c'est le résultat qu'on lit)."""
+    return f'<span class="db-dout" title="{DOUTE}">{h}<i class="db-ex">!</i></span>'
 
 
 def _alertes_feu(r: str) -> Dict:
@@ -636,19 +727,31 @@ def _r_feu(c: Dict) -> Dict:
     tab = f'<table class="db-tab db-deux db-feu"><thead><tr class="r1">{h1}</tr><tr class="r2">{h2}</tr></thead><tbody>{corps}</tbody></table>'
     leg = ("<b>Distance à l'axe a (mm)</b> des armatures principales, méthode tabulée de l'EN 1992-1-2 ; poutre et poteau : "
            "la largeur minimale b<sub>min</sub> (mm) en petit. <i class=\"mk r\">!</i> valeur à vérifier dans la norme (rouge).")
-    pied = f"beton/enrobage/donnees.py (tableaux FEU_…) · {C.symb_math(ED.CAPTION_FEU)}"
+    pied = f"Les tableaux feu de l'écran Enrobage · {C.symb_math(ED.CAPTION_FEU)}"
     al = _alertes_feu(r)
 
-    def var(lst):
-        return [(f"b ≥ {b}", f"{a}", "mm", f"largeur minimale {b} mm : distance à l'axe {a} mm") for b, a in lst]
-    fiche = _fiche([("Dalle · tab. 5.8", [("a", str(ED.FEU_DALLE[r]), "mm", "dalle pleine portant sur une direction")]),
-                    ("Voile · tab. 5.4", [("a", str(ED.FEU_VOILE[r]), "mm", "voile porteur exposé sur une face, μ_fi ≈ 0,7")]),
-                    ("Poutre · tab. 5.5", var(ED.FEU_POUTRE[r])),
-                    ("Poteau · tab. 5.2a", var(ED.FEU_POTEAU[r]))])
+    def val(typ, a):
+        return _douteux(str(a)) if al[typ] else str(a)
+
+    def titre(typ, tab):
+        return f"{typ} · tab. {tab}" + (" · à vérifier" if al[typ] else "")
+
+    def var(typ, lst):
+        return [(f"b ≥ {b}", val(typ, a), "mm", f"largeur minimale {b} mm : distance à l'axe {a} mm") for b, a in lst]
+
+    def a_eg(typ, a):
+        h = f"a{C.NBSP}={C.NBSP}{a}{C.NBSP}mm"
+        return _douteux(h) if al[typ] else h
+    fiche = _fiche([(titre("Dalle", "5.8"), [("a", val("Dalle", ED.FEU_DALLE[r]), "mm", "dalle pleine portant sur une direction")]),
+                    (titre("Voile", "5.4"), [("a", val("Voile", ED.FEU_VOILE[r]), "mm", "voile porteur exposé sur une face, μfi ≈ 0,7")]),
+                    (titre("Poutre", "5.5"), var("Poutre", ED.FEU_POUTRE[r])),
+                    (titre("Poteau", "5.2a"), var("Poteau", ED.FEU_POTEAU[r]))])
     minutes = int(r[1:])
+    poteau = _douteux("à vérifier") if al["Poteau"] else "selon b<sub>min</sub>"
     verdict = C.verdict_valeur(minutes, "min", f"Résistance au feu {r}",
-                               f"dalle : a = {ED.FEU_DALLE[r]}{C.NBSP}mm · voile : a = {ED.FEU_VOILE[r]}{C.NBSP}mm<br>"
-                               f"poutre, poteau : selon b<sub>min</sub> (fiche)", nd=0, symbole="R", calcul="source", classe="db-verdict")
+                               f"dalle : {a_eg('Dalle', ED.FEU_DALLE[r])} · voile : {a_eg('Voile', ED.FEU_VOILE[r])}<br>"
+                               f"poutre : selon b<sub>min</sub> · poteau : {poteau} (fiche)", nd=0, symbole="R", calcul="source",
+                               classe="db-verdict")
     vus = set()
     messages = ""
     for typ, _ in FEU_ELEMENTS:
@@ -663,12 +766,13 @@ def _r_feu(c: Dict) -> Dict:
                    [("Les tableaux de l'écran Enrobage", "".join(f'<div class="db-regle"><b>{C.esc(t)}</b> {C.esc(EM.TABLEAUX_FEU[t])} '
                                                                   f'({C.esc(EM.SECTIONS_FEU[t])})</div>' for t, _ in FEU_ELEMENTS)),
                     ("Hypothèse", f'<div class="db-regle">{C.symb_math(ED.CAPTION_FEU)}</div>')],
-                   '<div class="ck-autres">Écarts relevés avec la norme : docs/beton/ENROBAGE_MOTEUR.md, défauts D1 et D2.</div>')
+                   '<div class="ck-autres">Écarts relevés avec la norme à l\'extraction de l\'écran Enrobage : D1 (poteaux) et '
+                   'D2 (voiles R180 et R240), en rouge.</div>')
     return {"ligne": r, "titre_ligne": "Durée", "table": _vue(tab, leg, pied), "legende": "distance à l'axe a (mm) · EN 1992-1-2",
             "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": [],
-            "phrase": f"<b>Feu {C.esc(r)}</b> · dalle a = {ED.FEU_DALLE[r]}{C.NBSP}mm · voile a = {ED.FEU_VOILE[r]}{C.NBSP}mm",
-            "sources": ["beton/enrobage/donnees.py : FEU_DALLE, FEU_VOILE, FEU_POUTRE, FEU_POTEAU (l'écran Enrobage)",
-                        "avertissements : beton/enrobage/moteur.avertissements"]}
+            "phrase": f"<b>Feu {C.esc(r)}</b> · dalle {a_eg('Dalle', ED.FEU_DALLE[r])} · voile {a_eg('Voile', ED.FEU_VOILE[r])}",
+            "sources": ["Distances à l'axe : les tableaux feu de l'écran Enrobage (dalle, voile, poutre, poteau)",
+                        "Valeurs à vérifier : les avertissements de l'écran Enrobage"]}
 
 
 def _r_enrobages(c: Dict) -> Dict:
@@ -680,6 +784,20 @@ def _r_ancrages(c: Dict) -> Dict:
     d = _ancrages()
     t = _tableau_ancrage(c, d)
     fichier = C.esc(AN.FICHIER)
+    if t is None and d.get("erreur"):
+        # le fichier ne se relit pas : le DIRE partout où l'on regarde (relecture adverse du 07/11/2026 : la toile et le
+        # cadre Données disaient « à venir… aucune valeur proposée en attendant », comme si rien n'avait été versé)
+        err = C.esc(d["erreur"])
+        corps = (f'<div class="db-vide db-illisible">{C.icon("file-text")}<b>{C.esc(ILLISIBLE)}</b>'
+                 f"<span>Le fichier {fichier} a été rempli, mais il ne se relit pas :</span><span class=\"db-err\">{err}</span>"
+                 "<span>Aucun tableau n'est montré tant qu'il n'est pas corrigé (format : documentation du module, DONNEES_BETON.md § 6).</span></div>")
+        verdict = (f'<div class="verdict db-v"><span class="db-vig db-r">{C.icon("file-text")}</span><div class="gov"><b>{C.esc(ILLISIBLE)}</b>'
+                   "Le fichier à corriger est nommé ci-dessous.</div></div>")
+        fen = _fenetre("Ancrages et recouvrements · le fichier illisible", "aucune valeur tant qu'il n'est pas corrigé",
+                       [f"<b>{fichier}</b>"], [("L'erreur", f'<div class="db-regle">{err}</div>')])
+        return {"ligne": None, "titre_ligne": "Tableau", "table": f'<div class="db-vue db-attente">{corps}</div>',
+                "legende": f"{AN.FICHIER} · illisible", "verdict": verdict, "fiche": "", "messages": C.message(err, True), "fenetre": fen,
+                "vues_plus": [], "phrase": f"<b>{C.esc(ILLISIBLE)}</b>", "sources": [f"{fichier} (illisible : à corriger)"]}
     if t is None:
         etat = C.esc(d["etat"])
         corps = (f'<div class="db-vide">{C.icon("file-text")}<b>{etat}</b>'
@@ -690,8 +808,8 @@ def _r_ancrages(c: Dict) -> Dict:
                    f"Les tableaux de l'ingénieur s'afficheront ici.</div></div>")
         fiche = (f'<div class="db-expo"><p>Le fichier <b>{fichier}</b> attend les tableaux : un tableau par grandeur (ancrage droit, '
                  "recouvrement…), une ligne par cas (classe de béton, adhérence…), une colonne par diamètre.</p>"
-                 "<p><span>Format</span>docs/beton/DONNEES_BETON.md § 6 et beton/donnees/ancrages.py.</p></div>")
-        messages = C.message(f"{C.esc(d['erreur'])}", True) if d.get("erreur") else ""
+                 "<p><span>Format</span>la documentation du module, DONNEES_BETON.md § 6.</p></div>")
+        messages = ""
         fen = _fenetre("Ancrages et recouvrements · le fichier à remplir", "aucune valeur tant que le bureau n'a pas fourni ses tableaux",
                        [f"<b>{fichier}</b>", f"« {etat} »"],
                        [("Ce que contiendra un tableau", "".join(f'<div class="db-regle">{x}</div>' for x in (
@@ -765,7 +883,10 @@ def _rangs(c: Dict):
         return "enrobages", "Classe d'exposition", f"c<sub>min,dur</sub> en classe {s}", rows, "c<sub>min,dur</sub> mm"
     if rub == "enrobages":
         rows = [{"nom": x, "col": str(ED.FEU_DALLE[x]), "cur": x == c["enrobages"]["r"], "cible": ("enrobages/r", x),
-                 "prop": f"dalle a = {ED.FEU_DALLE[x]} mm · voile a = {ED.FEU_VOILE[x]} mm"} for x in ED.R_LEVELS]
+                 "prop": f"dalle a = {ED.FEU_DALLE[x]} mm · voile a = "
+                         + (_douteux(f"{ED.FEU_VOILE[x]} mm") if _alertes_feu(x)["Voile"] else f"{ED.FEU_VOILE[x]} mm")
+                         + " · poteau : " + (_douteux("à vérifier") if _alertes_feu(x)["Poteau"] else "selon b<sub>min</sub>")}
+                for x in ED.R_LEVELS]
         return "enrobages", "Durée de résistance au feu", "la distance à l'axe d'une dalle en colonne", rows, "a dalle mm"
     d = _ancrages()
     t = _tableau_ancrage(c, d)
@@ -803,7 +924,7 @@ def formulaire(etat: Dict, rendu: Dict) -> str:
                   "aciers": "B400 et B500 : f<sub>yd</sub> de la méthode du bureau et de l'EN 1992-1-1, E<sub>s</sub>.",
                   "armatures": "Le tableau des sections du bureau : n barres, par mètre, espacements fixes, masses.",
                   "enrobages": "c<sub>min,dur</sub> par classe structurale et exposition ; distances à l'axe au feu.",
-                  "ancrages": "Les tableaux d'ancrage et de recouvrement du bureau (à venir)."}[rub])
+                  "ancrages": "Les tableaux d'ancrage et de recouvrement du bureau, tels qu'il les fournit."}[rub])
     # 2 · les choix de la rubrique
     if rub == "classes":
         s2 = (L("Colonnes", C.segments(["classes", "groupe"], c["classes"]["groupe"], [("ec2", "EN 1992-1-1"), ("bureau", "Bureau")]), full=True)
@@ -836,7 +957,10 @@ def formulaire(etat: Dict, rendu: Dict) -> str:
     else:
         d = _ancrages()
         t = _tableau_ancrage(c, d)
-        if t is None:
+        if t is None and d.get("erreur"):
+            s2 = C.message(f"<b>{C.esc(ILLISIBLE)}</b> : {C.esc(AN.FICHIER)} ne se relit pas — {C.esc(d['erreur'])}", True)
+            resume2 = C.esc(ILLISIBLE)
+        elif t is None:
             s2 = C.aide(f"<b>{C.esc(d['etat'])}</b> : l'ingénieur fournira les tableaux du bureau ; ils seront versés dans "
                         f"{C.esc(AN.FICHIER)} et s'afficheront ici. Aucune valeur n'est proposée en attendant.")
             resume2 = C.esc(d["etat"])
@@ -861,13 +985,24 @@ def resume_note(etat: Dict, rendu: Dict) -> Dict:
             "gouvernant": f"{c.get('nom') or 'Consultation'} · {_resume_ligne(c, rendu)}"}
 
 
+def _resume_ancrages(c: Dict) -> str:
+    """Ce que la liste de la note dit d'une consultation des ancrages : « à venir » tant que le fichier est vide,
+    « illisible » s'il ne se relit pas, sinon le tableau et la ligne ouverts (la liste disait « à venir » même quand
+    les tableaux étaient affichés — relecture adverse du 07/11/2026)."""
+    d = _ancrages()
+    t = _tableau_ancrage(c, d)
+    if t is None:
+        return "illisible" if d.get("erreur") else "à venir"
+    return f"{t['titre']} · {t['lignes'][_ligne_ancrage(c, t)]['libelle']}"
+
+
 def _resume_court(c: Dict) -> str:
     """Ce que dit une consultation dans la liste de la note, sans la rendre entière : la rubrique et son choix."""
     rub = c["rubrique"]
     choix = {"classes": c["classes"]["classe"], "aciers": f"B{c['aciers']['nuance']}", "armatures": f"Ø{c['armatures']['d']}",
              "enrobages": (f"{c['enrobages']['classe_expo']} · {c['enrobages']['classe_struct']}" if c["enrobages"]["tableau"] == "durabilite"
                            else f"feu {c['enrobages']['r']}"),
-             "ancrages": "à venir"}[rub]
+             "ancrages": _resume_ancrages(c)}[rub]
     return f"{COURTS[rub]} · {choix}"
 
 
@@ -894,6 +1029,7 @@ def resultat(etat: Dict) -> Dict:
     pied = (f'<div class="pfoot"><div class="mass"><span>Aide-mémoire du bureau</span><b class="db-nb">{C.esc(NOMS[c["rubrique"]])}</b></div></div>')
     vues = [{"cle": "tableau", "titre": NOMS[c["rubrique"]], "court": "Tableau", "svg": _normes(rendu["table"]), "legende": rendu["legende"]}]
     vues += rendu["vues_plus"]
+    vues = [{**v, "legende": _legende(v["legende"])} for v in vues]
     return {"resultat": _normes(f'<div class="pbody">{corps}</div>{pied}'), "volets": _normes(rendu["fenetre"]), "vues": vues,
             "phrase": _normes(rendu["phrase"]), "statut_html": C.statut("i"), "resume": resume_note(etat, rendu),
             "donnees": _normes(formulaire(etat, rendu)), "elements": elements(etat)}

@@ -267,7 +267,7 @@ chk("la fiche : toutes les valeurs de C30/37, chacune à sa source",
               "αb": f"{f['alpha_b']:.2f}".replace(".", ","), "μB500": "0,1709", "μB400": "0,1904",
               "τadm,I": "0,56", "τadm,II": "1,13", "τadm,IV": "2,26"}, fiche)
 chk("« tau_lim » du fichier est dit lu par aucun moteur (sa valeur, 0,70 N/mm², affichée comme telle)",
-    "« tau_lim »" in r0["resultat"] and "0,70" in r0["resultat"] and "n'est lu par aucun moteur" in r0["resultat"])
+    "« tau_lim »" in r0["resultat"] and "0,70" in r0["resultat"] and "n'est lu par aucun module de calcul" in r0["resultat"])  # (le harnais suit : « moteur » est un mot de développeur)
 r2 = saisir(E0, "classes/classe", "C40/50")
 chk("choisir C40/50 (Données) : la rangée surlignée et le verdict suivent",
     [n for on, n, _ in rangees(vue(r2, "tableau")["svg"]) if on] == ["C40/50"] and "Béton C40/50" in r2["resultat"])
@@ -286,7 +286,8 @@ chk("B400 et B500 : f_yk ; f_yd = f_yk/1,5 (bureau) et f_yk/1,15 (EN 1992-1-1) ;
 chk("les deux γ_s sont nommés dans l'en-tête : bureau 1,5, EN 1992-1-1 1,15",
     "Bureau · γs = 1,5" in texte(vue(ra, "tableau")["svg"]) and "EN 1992-1-1 · γs = 1,15" in texte(vue(ra, "tableau")["svg"]))
 chk("le verdict : f_yk = 500 MPa ; f_yd 333 (bureau) et 435 (EN 1992-1-1)", "Acier B500" in ra["resultat"]
-    and re.search(r"333\s?MPa · bureau", texte(ra["resultat"])) and re.search(r"435\s?MPa · EN 1992-1-1", texte(ra["resultat"])))
+    # (le harnais suit : « EN 1992-1-1 : f_yd = 435 MPa », la source d'abord — relecture adverse du 07/11/2026)
+    and re.search(r"bureau\s?: fyd\s?=\s?333\s?MPa", texte(ra["resultat"])) and re.search(r"EN 1992-1-1\s?: fyd\s?=\s?435\s?MPa", texte(ra["resultat"])))
 ra4 = saisir(ra["etat"], "aciers/nuance", "400")
 chk("la nuance B400 (segment) : la rangée et la fiche suivent", ra4["etat"]["consultations"][0]["aciers"]["nuance"] == 400
     and [n for on, n, _ in rangees(vue(ra4, "tableau")["svg"]) if on] == ["B400"] and "Acier B400" in ra4["resultat"])
@@ -402,8 +403,10 @@ for nom, r in (("classes C30/37", r0), ("classes C40/50", r2), ("aciers B500", r
                ("armatures Ø16", r16), ("enrobages S4 · XC1", re_)):
     e = ecarts_formules(r["volets"])
     chk(f"{nom} : les formules réévaluées avec leurs valeurs écrites redonnent leur résultat", not e, e[:2])
-chk("la fenêtre a ses sources en tête (fichier, norme, moteur)", "beton_classes.json" in r0["volets"]
-    and "EN 1992-1-1:2004, tableau 3.1" in texte(r0["volets"]) and "beton/poutre/moteur.materiaux" in r0["volets"])
+# (le harnais suit : la source se nomme dans les mots du bureau — « le calcul du module Poutre » — et non plus par le chemin
+# du code, relecture adverse du 07/11/2026)
+chk("la fenêtre a ses sources en tête (fichier, norme, calcul du module Poutre)", "beton_classes.json" in r0["volets"]
+    and "EN 1992-1-1:2004, tableau 3.1" in texte(r0["volets"]) and "le calcul du module Poutre" in r0["volets"])
 
 # ================================================================================================ 8. saisies
 print("\n=== 8 · Saisies, refus, échappement, consultations")
@@ -512,6 +515,250 @@ chk("mutation « références de norme laissées sécables » : le contrôle de 
     avec(D, "_normes", lambda h: h, lambda: normes_coupees(saisir(E0, "rubrique", "aciers"))))
 chk("mutation « le nom échappé n'est plus échappé » : le contrôle d'échappement rougit",
     avec(C, "esc", lambda x: str(x), lambda: any("<img" in h for h in (lambda q: (q["resultat"], q["donnees"], q["elements"]))(saisir(E0, "nom", PIEGE)))))
+
+# ================================================================================================ 10. relecture adverse
+print("\n=== 10 · Relecture adverse du 07/11/2026 : ce qu'elle a trouvé, figé ici")
+CHOIX = [("classes", "groupe"), ("classes", "classe"), ("aciers", "nuance"), ("armatures", "lecture"), ("armatures", "d"),
+         ("enrobages", "tableau"), ("enrobages", "classe_expo"), ("enrobages", "classe_struct"), ("enrobages", "diam_barre"),
+         ("enrobages", "delta_dev"), ("enrobages", "r")]
+
+
+def booleens_admis() -> list:
+    """Les choix qu'un booléen (true / false d'un fichier .stab abîmé) remplit encore : False valait 0 et True 1 —
+    « delta_dev »: false donnait Δc_dev = 0 mm (c_nom de 30 à 20 mm), sans un mot ; NON CONSERVATIF."""
+    out = []
+    for rub, k in CHOIX:
+        for b in (True, False):
+            try:
+                n = D.normaliser({"consultations": [{rub: {k: b}}]})
+                out.append(("relu", rub, k, b, n["consultations"][0][rub][k]))
+            except ValueError:
+                pass
+            e = D.nouvel_etat()
+            if D.modifier(e, [rub, k], b) is None:
+                out.append(("saisi", rub, k, b, e["consultations"][0][rub][k]))
+    return out
+
+
+e = booleens_admis()
+chk("un booléen n'est jamais un choix (« delta_dev »: false n'est pas Δc_dev = 0 mm), ni relu ni saisi", not e, e[:3])
+
+NOM_MAX = getattr(D, "NOM_MAX", 80)
+
+
+def noms_admis() -> list:
+    """Les noms absurdes qu'une consultation accepte : trop longs (un nom d'un million de caractères rendait une
+    réponse de 4 Mo), pas un texte (une liste devenait « [1, 2] »), ou porteurs d'un caractère invisible ou de
+    commande (U+202E retourne l'affichage de la liste de la note)."""
+    out = []
+    for nom in ("x" * (NOM_MAX + 1), [1, 2], {"a": 1}, 12, "Dalle‮ R+1", "a\nb", "a‏b", "a b"):
+        e = D.nouvel_etat()
+        if D.modifier(e, ["nom"], nom) is None:
+            out.append(("saisi", repr(nom)[:24]))
+        try:
+            D.normaliser({"consultations": [{"nom": nom}]})
+            out.append(("relu", repr(nom)[:24]))
+        except ValueError:
+            pass
+    return out
+
+
+e = noms_admis()
+chk(f"un nom trop long (> {NOM_MAX}), qui n'est pas un texte ou qui porte un caractère invisible est refusé (saisi ou relu)",
+    not e, e[:4])
+ok_noms = [n for n in ("x" * NOM_MAX, "Dalle R+1 · enrobage", "", None) if saisir(E0, "nom", n).get("message") is not None]
+chk(f"… un nom ordinaire, vide, ou de {NOM_MAX} caractères passe", not ok_noms, ok_noms)
+long_ = saisir(E0, "nom", "x" * 1_000_000)
+chk("un nom d'un million de caractères : un refus lisible, une réponse de taille ordinaire (elle pesait 4 Mo)",
+    long_["ok"] and long_["message"] and long_["etat"] == E0 and len(json.dumps(long_)) < 100_000, len(json.dumps(long_)))
+
+
+def saisies_mal_dites() -> list:
+    """Les requêtes abîmées qui rendent une exception Python (anglais, nom de classe) au lieu d'un refus en français,
+    ou qui ouvrent ou SUPPRIMENT une consultation qu'aucun index ne désignait (« supprimer -5 » supprimait la
+    première : la borne ramenait l'index dans la liste)."""
+    out = []
+    e2 = req(action="ajouter", etat=E0)["etat"]
+    for q in (dict(action="modifier", etat=E0, chemin=["rubrique"], valeur=["classes"]),
+              dict(action="modifier", etat=E0, chemin=["rubrique"], valeur={"a": 1})):
+        r = req(**q)
+        if not (r.get("ok") and r.get("message") and r["etat"] == E0):
+            out.append((q["valeur"], r.get("erreur") or r.get("message")))
+    for action, index in (("activer", "abc"), ("activer", 7), ("activer", -1), ("activer", True), ("supprimer", -5),
+                          ("supprimer", 9), ("supprimer", "x"), ("supprimer", 1.5)):
+        r = req(action=action, etat=e2, index=index)
+        err = r.get("erreur") or ""
+        if r.get("ok") or "consultation" not in err.lower() or re.search(r"invalid|unhashable|cannot|Overflow|TypeError", err):
+            out.append((action, index, err[:60] or "acceptée"))
+    r = json.loads(R.traiter('{"module": "donnees_beton", "action": "activer", "index": 1e400, "etat": ' + json.dumps(e2) + "}"))
+    if r.get("ok") or "consultation" not in (r.get("erreur") or "").lower():
+        out.append(("activer", "1e400", (r.get("erreur") or "acceptée")[:60]))
+    return out
+
+
+e = saisies_mal_dites()
+chk("une saisie ou un index abîmés : un refus en français, aucune consultation ouverte ni supprimée au hasard", not e, e[:4])
+chk("… un index valable ouvre et supprime toujours", req(action="activer", etat=req(action="ajouter", etat=E0)["etat"], index=0)["etat"]["actif"] == 0
+    and len(req(action="supprimer", etat=req(action="ajouter", etat=E0)["etat"], index=1)["etat"]["consultations"]) == 1)
+
+
+def notes_relues_en_silence() -> list:
+    """Les notes abîmées que normaliser relit EN SILENCE (une note neuve, une clé jetée, un tableau devenu le premier)
+    au lieu de lever l'erreur claire que le contrat demande."""
+    out = []
+    for abime in ([1, 2], "note", {"consultations": {}}, {"consultations": 0}, {"consultations": [{"pirate": 1}]},
+                  {"consultations": [{"classes": {"classe": "C30/37", "pirate": 1}}]}, {"consultations": [{"ancrages": [1]}]},
+                  {"consultations": [{"ancrages": {"tableau": 5}}]}, {"consultations": [{"ancrages": {"ligne": -1}}]},
+                  {"consultations": [{"ancrages": {"ligne": True}}]}, {"consultations": [{"ancrages": {"x": 1}}]}):
+        try:
+            D.normaliser(abime)
+            out.append(json.dumps(abime, ensure_ascii=False)[:60])
+        except ValueError:
+            pass
+    return out
+
+
+e = notes_relues_en_silence()
+chk("une note abîmée (pas un objet, une clé inconnue, un tableau d'ancrage qui n'est pas un texte…) lève une erreur claire", not e, e[:4])
+chk("… une note vide ou sans consultation est une note neuve", all(D.normaliser(x) == D.nouvel_etat() for x in
+                                                                   ({}, {"consultations": []}, {"consultations": None})))
+
+
+def feu_sans_reserve(r) -> list:
+    """Les valeurs du feu que le moteur de l'enrobage dit « à vérifier dans la norme » (poteau : toutes ; voile : R180 et
+    R240) et que la FICHE ou le VERDICT du résultat écrivent comme des valeurs sûres. La toile les montrait en rouge,
+    le résultat non — et au téléphone, c'est le résultat qu'on lit."""
+    duree = r["etat"]["consultations"][r["etat"]["actif"]]["enrobages"]["r"]
+    att = {"Dalle": False, "Voile": duree in ("R180", "R240"), "Poutre": False, "Poteau": True}
+    out = []
+    groupes = re.findall(r'<tr class="g"><td colspan="3">(.*?)</td></tr>(.*?)(?=<tr class="g">|</table>)', r["resultat"], re.S)
+    vus = set()
+    for titre, corps in groupes:
+        typ = texte(titre).split(" ")[0]
+        if typ in att:
+            vus.add(typ)
+            marques = ["db-dout" in v for v in re.findall(r'<td class="n">(.*?)</td>', corps)]
+            if not marques or any(m != att[typ] for m in marques):
+                out.append(("fiche", duree, typ, marques))
+    gov = re.search(r'<div class="gov">(.*?)</div>', r["resultat"], re.S).group(1)
+    l1, _, l2 = gov.partition("<br>")
+    avant, _, voile = l1.partition("voile")
+    if "db-dout" in avant or ("db-dout" in voile) != att["Voile"] or "db-dout" not in l2:
+        out.append(("verdict", duree, texte(gov)))
+    return out + ([("groupes", sorted(vus))] if vus != set(att) else [])
+
+
+e = [x for d in ED.R_LEVELS for x in feu_sans_reserve(saisir(rf["etat"], "enrobages/r", d))]
+chk("feu, chaque durée : les valeurs « à vérifier » (poteau, voile R180 et R240) le sont aussi dans la fiche et le verdict, "
+    "les autres non", not e, e[:3])
+chk("mutation « avertissements du moteur tus » : la fiche n'a plus de réserve (le contrôle rougit)",
+    avec(EM, "avertissements", lambda res: [], lambda: feu_sans_reserve(saisir(rf["etat"], "enrobages/r", "R240"))))
+
+
+def egal_secable(r) -> list:
+    """Les « = » du verdict et de la phrase qu'une espace ordinaire laisse couper : « Δc_dev = » en fin de ligne,
+    « 10 mm » à la suivante (captures PC du 07/11/2026 : verdicts de l'enrobage et du feu)."""
+    gov = "".join(re.findall(r'<div class="gov">(.*?)</div>', r["resultat"], re.S))
+    return re.findall(r".{0,10}(?: =|= ).{0,10}", html.unescape(re.sub(r"<[^>]+>", "", gov + "\n" + r["phrase"])))
+
+
+TOUS = {"classes": r0, "bureau": rb, "aciers": ra, "armatures": rm, "nappe": rn, "durabilité": re_, "feu": rf2, "ancrages": rk}
+e = {k: egal_secable(r) for k, r in TOUS.items() if egal_secable(r)}
+chk("verdict et phrase : « symbole = valeur » ne se coupe jamais au « = » (espaces insécables)", not e, list(e.items())[:2])
+
+
+def legendes_secables(r) -> list:
+    """Les légendes des vues (du TEXTE, posé et échappé par la page : la protection par balise n'y entre pas) où
+    « EN 1992-1-x » se coupe — au téléphone, « … bureau et EN 1992- » puis « 1-1 » (capture du 07/11/2026, Aciers).
+    Gardée : « EN », espace insécable, « 1992 », chaque trait d'union suivi d'un gluon (U+2060, sans largeur)."""
+    gardees = ("EN 1992-⁠1-⁠1", "EN 1992-⁠1-⁠2")
+    return [m.group(0) for v in r["vues"] for m in re.finditer(r"EN\W{0,2}1992\W{0,2}1\W{0,2}[12]", v["legende"]) if m.group(0) not in gardees]
+
+
+e = {k: legendes_secables(r) for k, r in TOUS.items() if legendes_secables(r)}
+chk("chaque « EN 1992-1-x » d'une légende de vue se lit sur une ligne", not e, list(e.items())[:2])
+chk("… et la légende garde ses mots (la page les écrit tels quels)", "bureau et EN" in vue(ra, "tableau")["legende"]
+    and "1992" in vue(ra, "tableau")["legende"])
+
+JARGON = re.compile(r"\.py\b|\btests/|\bmoteurs?\b|\b(?!DONNEES_BETON\.md)[A-Z][A-Z0-9]*_[A-Z0-9_…]+|\b(?:moteur|entree|tableau|dessins)\.[a-z_]+"
+                    r"|\bbeton/(?!donnees/ancrages_recouvrements\.json)[a-z_/]+")
+SOULIGNE = re.compile(r"(?<![\w/])(?!beton_classes|ancrages_recouvrements|tau_lim)[A-Za-zΑ-Ωα-ω]+_[a-z]+")
+
+
+def jargon(r, sel: str = "") -> list:
+    """Les noms de CODE écrits à l'écran (fichier Python, fonction, constante, test, chemin d'un paquet) et les
+    symboles laissés à souligné (« f_yd » au lieu de f<sub>yd</sub>) : le bureau lit ses sources en français — le
+    fichier des classes, l'écran Enrobage, la norme. Restent nommés les FICHIERS que le bureau ouvre lui-même
+    (beton_classes.json, le fichier des ancrages à remplir) et la page de documentation de son format."""
+    tout = (r["resultat"] + r["volets"] + r["donnees"] + r["phrase"] + r["elements"] + sel
+            + "".join(v["svg"] for v in r["vues"] if v["svg"].startswith("<div")))
+    visible = html.unescape(re.sub(r"<[^>]+>", " ", tout)) + " " + " ".join(v["legende"] + " " + v["titre"] for v in r["vues"])
+    titres = " ".join(html.unescape(x) for x in re.findall(r'title="([^"]*)"', tout))
+    return sorted({m.group(0) for m in JARGON.finditer(visible + " " + titres)} | {m.group(0) for m in SOULIGNE.finditer(visible)})
+
+
+e = {k: jargon(r, req(action="selecteur", etat=r["etat"], role="ligne").get("html", "")) for k, r in TOUS.items()}
+e = {k: v for k, v in e.items() if v}
+chk("aucun nom de code à l'écran (ni fichier .py, ni fonction, ni constante, ni test), aucun symbole à souligné", not e, list(e.items())[:3])
+chk("mutation « une source écrite comme un chemin de code » : le contrôle du jargon rougit",
+    jargon({**r0, "phrase": r0["phrase"] + " (beton/poutre/moteur.materiaux)"}))
+
+with tempfile.TemporaryDirectory() as tmp:
+    AN.CHEMIN = os.path.join(tmp, "a.json")
+    try:
+        json.dump({**EXEMPLE, "tableaux": [{**EXEMPLE["tableaux"][0], "lignes": [{"libelle": "x", "valeurs": [1]}]}]},
+                  open(AN.CHEMIN, "w", encoding="utf-8"))
+        rz = saisir(E0, "rubrique", "ancrages")
+
+
+        def illisible_tu(rz) -> list:
+            return [nom for nom, h in (("toile", vue(rz, "tableau")["svg"]), ("données", rz["donnees"]),
+                                       ("verdict", rz["resultat"].split('<div class="els">')[0]), ("phrase", rz["phrase"]),
+                                       ("liste de la note", rz["elements"]))
+                    if "illisible" not in h or "à venir" in h]
+        tu = illisible_tu(rz)
+        chk("un fichier des ancrages abîmé : la toile, le cadre Données, le verdict et la phrase disent « illisible » (et non "
+            "« à venir… aucune valeur proposée en attendant », comme si rien n'avait été versé)", not tu, tu)
+        chk("… la toile dit l'endroit fautif", "valeur(s) attendue(s)" in vue(rz, "tableau")["svg"] and "<td" not in vue(rz, "tableau")["svg"])
+        lire_ = D._ancrages
+        chk("mutation « l'erreur du fichier tue » : le contrôle du fichier illisible rougit",
+            avec(D, "_ancrages", lambda: {**lire_(), "erreur": None}, lambda: illisible_tu(saisir(E0, "rubrique", "ancrages"))))
+        json.dump(EXEMPLE, open(AN.CHEMIN, "w", encoding="utf-8"), ensure_ascii=False)
+        rx = saisir(E0, "rubrique", "ancrages")
+        chk("un tableau d'ancrage : « ligne » = true n'ouvre pas la ligne 2 (un booléen n'est pas un index)",
+            saisir(rx["etat"], "ancrages/ligne", True)["message"] and saisir(rx["etat"], "ancrages/ligne", "1")["message"] is None)
+        e = jargon(rx, req(action="selecteur", etat=rx["etat"], role="ligne").get("html", ""))
+        chk("un tableau d'ancrage affiché : aucun nom de code", not e, e)
+        chk("la liste de la note nomme le tableau et la ligne ouverts (elle disait « à venir » sous un tableau affiché)",
+            "Forme A" in texte(rx["elements"]) and "ligne un" in texte(rx["elements"]) and "à venir" not in rx["elements"], texte(rx["elements"]))
+        chk("mutation « la liste dit toujours à venir » : le contrôle rougit",
+            avec(D, "_resume_ancrages", lambda c: "à venir", lambda: "à venir" in saisir(E0, "rubrique", "ancrages")["elements"]))
+    finally:
+        AN.CHEMIN = garde
+chk("le vrai fichier est relu après l'essai (vide)", AN.lire()["tableaux"] == [])
+
+
+def _ancien_lire_choix(valeur, permis):
+    """La lecture d'un choix AVANT la relecture adverse : ``valeur == p`` laissait passer True == 1, False == 0."""
+    for p in permis:
+        if valeur == p or (not isinstance(valeur, bool) and str(valeur) == str(p)):
+            return p
+    return None
+
+
+for nom, objet, attr, valeur, controle in (
+        ("un booléen lu comme un choix (l'ancienne lecture)", D, "_lire_choix", _ancien_lire_choix, booleens_admis),
+        ("nom jamais refusé", D, "_refus_nom", lambda n: None, noms_admis),
+        ("index ramené dans la liste (l'ancienne borne)", D, "_index", lambda index, n: min(max(0, int(index or 0)), n - 1), saisies_mal_dites),
+        ("valeur douteuse écrite sans réserve", D, "_douteux", lambda h: h,
+         lambda: feu_sans_reserve(saisir(rf["etat"], "enrobages/r", "R180"))),
+        ("« = » laissé sécable (et normes non gardées)", D, "_normes", lambda h: h, lambda: egal_secable(saisir(E0, "rubrique", "enrobages"))),
+        ("légende laissée sécable", D, "_legende", lambda t: t, lambda: legendes_secables(saisir(E0, "rubrique", "aciers")))):
+    try:
+        rouge = avec(objet, attr, valeur, controle)
+    except Exception as err:  # noqa: BLE001 — une mutation qui fait planter le contrôle le fait rougir aussi
+        rouge = f"exception : {err}"
+    chk(f"mutation « {nom} » : le contrôle rougit", rouge)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

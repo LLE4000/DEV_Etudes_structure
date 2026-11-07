@@ -25,7 +25,8 @@ Un tableau ::
      "notes": ["…"]}                                 facultatif
 
 Règle : une clé manquante, une valeur qui n'est pas un nombre (ou ``null`` : case vide), une ligne qui n'a pas autant
-de valeurs que de colonnes, une unité inconnue, deux tableaux de même clé lèvent ``ValueError`` avec l'endroit fautif —
+de valeurs que de colonnes, une unité inconnue, deux tableaux de même clé, deux lignes de même libellé dans un tableau
+(l'écran désigne une ligne par son libellé) lèvent ``ValueError`` avec l'endroit fautif —
 le site montre alors l'erreur, jamais un tableau tronqué.
 
 Bibliothèque standard seule (json, os, re) : le module tourne dans le navigateur (Pyodide).
@@ -106,8 +107,12 @@ def _tableau(t, i: int) -> dict:
         if not isinstance(vals, list) or len(vals) != len(entetes):
             raise ValueError(f"{oul} : {len(entetes)} valeur(s) attendue(s), une par colonne (reçu "
                              f"{len(vals) if isinstance(vals, list) else repr(vals)})")
-        out_l.append({"libelle": _texte(li.get("libelle"), f"{oul}, libelle"),
-                      "valeurs": [_nombre(v, f"{oul}, colonne n° {j + 1}") for j, v in enumerate(vals)]})
+        libelle = _texte(li.get("libelle"), f"{oul}, libelle")
+        # l'écran désigne une ligne par son libellé (le sélecteur) : deux libellés égaux, la seconde ligne ne se
+        # choisirait jamais
+        if any(x["libelle"] == libelle for x in out_l):
+            raise ValueError(f"{oul} : deux lignes ont le même libellé ({libelle!r}) — chaque ligne doit se distinguer"[:200])
+        out_l.append({"libelle": libelle, "valeurs": [_nombre(v, f"{oul}, colonne n° {j + 1}") for j, v in enumerate(vals)]})
     return {"cle": cle, "titre": _texte(t.get("titre"), f"{ou}, titre"), "grandeur": _texte(t.get("grandeur"), f"{ou}, grandeur"),
             "unite": unite, "source": _texte(t.get("source"), f"{ou}, source"),
             "conditions": _textes(t.get("conditions"), f"{ou}, conditions"),
