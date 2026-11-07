@@ -1,0 +1,14 @@
+/* Module « Poutres bois » : ce que son établi ajoute à la charte (css/charte.css) et au site (css/site.css).
+   Les chiffres clés de l'écran Streamlit sous les vérifications, et la liste des écarts connus avec l'EC5 au pied des
+   fenêtres de calcul. */
+
+/* ---------------------------------------------------------------- les chiffres clés du résultat */
+.bo-cles { padding: 12px 16px 12px; border-top: 1px solid var(--line); }
+.bo-cles .facts { gap: 5px 14px; font-variant-numeric: tabular-nums; }
+.bo-cles .facts dd { margin: 0; color: var(--ink); }
+
+/* ---------------------------------------------------------------- les écarts connus, au pied d'une fenêtre de calcul */
+.ck-autres.bo-ecarts { line-height: 1.45; }
+.ck-autres.bo-ecarts > b { display: block; margin-bottom: 4px; color: var(--ink-2); }
+.ck-autres.bo-ecarts ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.ck-autres.bo-ecarts li b { color: var(--ink-2); font-weight: 600; }
