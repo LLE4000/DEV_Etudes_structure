@@ -20,10 +20,12 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.dirname(os.path.dirname(ICI))
@@ -56,16 +58,13 @@ PAQUETS_ENTIERS = ("api_web", "beton", "bois", "sol", "flambement")
 INTERDITS = ("streamlit", "reportlab", "matplotlib", "pandas", "fitz", "scipy", "PIL")
 
 
-def fichiers_du_moteur(modules=None) -> list:
-    """Les fichiers du dépôt que l'API charge (modules Python et données), relevés dans un sous-processus où les
-    bibliothèques lourdes sont refusées : ce qui y manque manquerait aussi dans le navigateur."""
-    sonde = f"""
-import builtins, os, sys
-RACINE = {RACINE!r}
+_SONDE = """
+import builtins, json, os, sys
+RACINE = {racine!r}
 sys.path.insert(0, RACINE); os.chdir(RACINE)
 class Refus:
     def find_spec(self, name, path=None, target=None):
-        if name.split(".")[0] in {INTERDITS!r}:
+        if name.split(".")[0] in {interdits!r}:
             raise ImportError("refusé dans le navigateur : " + name)
 sys.meta_path.insert(0, Refus())
 lus = set(); _open = builtins.open
@@ -78,26 +77,56 @@ def espion(f, *a, **k):
 builtins.open = espion
 from api_web import parcours as P, routeur as R
 echecs = []
-for cle in {list(modules or ADRESSES)!r}:
-    for desc, ok, err in P.parcourir(cle, R.traiter, maximum={MAX_RELEVE}):
-        if not ok:
-            echecs.append(cle + " · " + desc + " : " + str(err))
+for desc, ok, err in P.parcourir({cle!r}, R.traiter, maximum={maximum}):
+    if not ok:
+        echecs.append({cle!r} + " · " + desc + " : " + str(err))
 if echecs:
     sys.stderr.write("\\n".join(echecs[:20])); sys.exit(3)
 mods = {{os.path.relpath(m.__file__, RACINE) for m in list(sys.modules.values()) if getattr(m, "__file__", None) and os.path.abspath(m.__file__).startswith(RACINE + os.sep)}}
-print("\\n".join(sorted(mods | lus)))
+print(json.dumps({{"fichiers": sorted(mods | lus), "numpy": "numpy" in sys.modules}}))
 """
+# un fichier qui importe numpy, même au fond d'une fonction que le parcours n'a pas suivie
+_IMPORTE_NUMPY = re.compile(r"^\s*(?:import\s+numpy\b|from\s+numpy\b)", re.M)
+
+
+def _releve_un(cle: str) -> dict:
+    """Le relevé d'UN module, dans son propre sous-processus (bibliothèques lourdes refusées) : les fichiers du dépôt
+    que son parcours charge, et s'il charge numpy — un module seul, pour que numpy chargé par un autre ne compte pas."""
+    sonde = _SONDE.format(racine=RACINE, interdits=INTERDITS, cle=cle, maximum=MAX_RELEVE)
     p = subprocess.run([sys.executable, "-c", sonde], capture_output=True, text=True, cwd=RACINE)
     if p.returncode != 0:
-        raise SystemExit("Le relevé du moteur a échoué :\n" + p.stderr[-3000:])
-    fichiers = {f for f in p.stdout.split() if f}
+        raise SystemExit(f"Le relevé du moteur a échoué ({cle}) :\n" + p.stderr[-3000:])
+    return json.loads(p.stdout.strip().splitlines()[-1])
+
+
+def releve(modules=None) -> dict:
+    """Le relevé du paquet du moteur : ``fichiers`` (les fichiers du dépôt que l'API charge, modules Python et données,
+    relevés en rejouant le parcours de chaque module là où les bibliothèques lourdes sont refusées : ce qui y manque
+    manquerait aussi dans le navigateur) et ``avec_numpy`` (les modules qui chargent numpy : le travailleur ne le charge
+    que pour eux — il pèse une à deux secondes au démarrage ; un fichier qui l'importe, même dans une fonction que le
+    parcours n'a pas suivie, compte). Un sous-processus par module, quatre à la fois."""
+    cles = list(modules or ADRESSES)
+    with ThreadPoolExecutor(max_workers=max(1, min(4, os.cpu_count() or 1))) as ex:
+        par_module = dict(zip(cles, ex.map(_releve_un, cles)))
+    fichiers = set().union(*(set(r["fichiers"]) for r in par_module.values()))
+    avec_numpy = []
+    for cle, r in par_module.items():
+        sources = [f for f in r["fichiers"] if f.endswith(".py")]
+        if r["numpy"] or any(_IMPORTE_NUMPY.search(open(os.path.join(RACINE, f), encoding="utf-8").read()) for f in sources):
+            avec_numpy.append(cle)
     # les paquets du site entiers (petits), pour qu'un import paresseux ne manque jamais
-    for paquet in PAQUETS_ENTIERS:
-        if not os.path.isdir(os.path.join(RACINE, paquet)):
+    for paquet_ in PAQUETS_ENTIERS:
+        if not os.path.isdir(os.path.join(RACINE, paquet_)):
             continue
-        for d, _, fs in os.walk(os.path.join(RACINE, paquet)):
+        for d, _, fs in os.walk(os.path.join(RACINE, paquet_)):
             fichiers |= {os.path.relpath(os.path.join(d, f), RACINE) for f in fs if f.endswith(".py")}
-    return sorted(f for f in fichiers if "__pycache__" not in f and not f.endswith(".pyc"))
+    return {"fichiers": sorted(f for f in fichiers if "__pycache__" not in f and not f.endswith(".pyc")),
+            "avec_numpy": sorted(avec_numpy)}
+
+
+def fichiers_du_moteur(modules=None) -> list:
+    """Les fichiers du dépôt que l'API charge (voir ``releve``)."""
+    return releve(modules)["fichiers"]
 
 
 def paquet(fichiers: list) -> bytes:
@@ -132,6 +161,17 @@ def rail(actif: str) -> str:
             + it("settings", "Paramètres · bientôt", "parametres", bientot)
             + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">'
               f'<a class="navitem" data-theme-toggle="1" data-tip="Thème clair ou sombre">{MQ.icon("sun-moon")}</a></div></nav>' + modpanel())
+
+
+def mnav(actif: str) -> str:
+    """Les onglets du bas du téléphone : les cinq entrées de la barre du PC, dans le même ordre (cahier des charges
+    § 1 bis) ; Projets, Équipe et Paramètres viendront avec les comptes."""
+    def it(ic, nom, cle, attr):
+        return f'<a class="{"on" if cle == actif else ""}"{attr}>{MQ.icon(ic)}<span>{nom}</span></a>'
+    bientot = ' aria-disabled="true" data-bientot="1" title="Bientôt"'
+    return ('<nav class="mnav">' + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets", "projets", bientot)
+            + it("layout-grid", "Modules", "modules", ' data-modules="1" role="button"') + it("users", "Équipe", "equipe", bientot)
+            + it("settings", "Paramètres", "parametres", bientot) + "</nav>")
 
 
 def modpanel() -> str:
@@ -185,7 +225,10 @@ def page_accueil() -> str:
              f'<div class="mlabel">Module</div><div class="mgrid">{options}</div></div>'
              f'<div class="mf"><button class="btn" data-fermer-modal="1">Annuler</button>'
              f'<button class="btn primary" id="nn-creer" disabled>{MQ.icon("plus")}Créer la note</button></div></div></div>')
-    corps = (f'<body data-page="accueil"><div class="app rail">{rail("accueil")}<main class="main">'
+    # au téléphone : l'en-tête (le nom du site, le thème) et les cinq entrées de la barre, en bas, dans le même ordre
+    mhead = (f'<header class="mhead"><div class="logo">{MQ.LOGO}</div><span class="ttl">Stab Méthodes</span><span class="spacer"></span>'
+             f'<button type="button" class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}</button></header>')
+    corps = (f'<body data-page="accueil"><div class="app rail">{rail("accueil")}<main class="main">{mhead}'
              f'<div class="page accueil"><div class="col">'
              f'<header class="hello"><div><h1 class="h1">Bonjour</h1><p class="muted" id="date"></p></div><span class="spacer"></span>'
              f'<button class="btn primary big" id="ouvrir-nouvelle">{MQ.icon("plus")}Nouvelle note</button></header>'
@@ -196,39 +239,84 @@ def page_accueil() -> str:
              f'<div class="card note-locale"><div class="h3">Où sont mes notes ?</div><p>Pour l\'instant, chaque note est enregistrée '
              f'<b>dans ce navigateur</b>, sur ce PC. Le bouton <b>.stab</b> d\'une note l\'exporte en fichier ; les comptes du bureau et le partage '
              f'viendront ensuite.</p><label class="btn sm" for="importer">{MQ.icon("upload")}Importer un fichier .stab</label>'
-             f'<input type="file" id="importer" accept=".stab,.json" hidden></div></aside></div></main></div>{modal}'
+             f'<input type="file" id="importer" accept=".stab,.json" hidden></div></aside></div>{mnav("accueil")}</main></div>{modal}'
+             f'<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/accueil.js"></script></body>\n</html>\n')
     return tete("Stab Méthodes") + corps
 
 
+def _bouton(icone: str, libelle: str, attrs: str, cls: str = "btn") -> str:
+    """Un bouton de la barre du haut : l'icône et son nom ; le nom se replie sous 1 100 px (la tablette), le titre
+    reste au survol et pour les lecteurs d'écran."""
+    return f'<button type="button" class="{cls}"{attrs}>{MQ.icon(icone)}<span class="lbl">{libelle}</span></button>'
+
+
+PDF_BIENTOT = "La note PDF arrive bientôt sur le site (elle reste dans Streamlit)"
+
+
 def page_module(cle: str, titre: str) -> str:
     """L'établi d'un module : la toile du dessin sur toute la largeur, les données et le résultat en cadres flottants ;
-    tout le contenu vient du moteur (le travailleur Pyodide)."""
+    tout le contenu vient du moteur (le travailleur Pyodide).
+
+    Trois formats, une seule page (les fonctions sont les mêmes, la disposition change, css/site.css) :
+    - PC (1 200 px et plus) : la barre du haut, les cadres flottants de la maquette ;
+    - tablette (701 à 1 199 px) : la toile en haut sur toute la largeur, les deux cadres dessous (portrait), ou la
+      toile à droite sur toute la hauteur et les deux cadres l'un sur l'autre à gauche (paysage) ;
+    - téléphone (700 px et moins) : l'en-tête compact (.mtop, les actions secondaires dans un menu), les onglets
+      Données · Dessin · Résultat (.mtabs) et la barre du bas (.mbar), le dessin des maquettes."""
     fam, nom = _module(cle)
-    top = (f'<header class="top"><div class="crumbs"><a href="{ACCUEIL}">{MQ.icon("house")}</a>{MQ.icon("chevron-right")}'
+    top = (f'<header class="top"><div class="crumbs"><a href="{ACCUEIL}" title="Accueil">{MQ.icon("house")}</a>{MQ.icon("chevron-right")}'
            f'<span id="fil-chantier" class="muted"></span><span id="fil-sep">{MQ.icon("chevron-right")}</span>'
-           f'<input id="nom-note" class="nomnote" value="" aria-label="Nom de la note" spellcheck="false"></div>'
+           f'<input id="nom-note" class="nomnote" data-nom-note="1" value="" aria-label="Nom de la note" spellcheck="false"></div>'
            f'<span class="tag draft"><span class="dot"></span>Brouillon</span>'
-           f'<span class="spacer"></span><span class="saved" id="enregistre">{MQ.icon("circle-check")}<span class="txt">—</span></span>'
-           f'<label class="btn ghost" title="Ouvrir un fichier .stab">{MQ.icon("upload")}Ouvrir<input type="file" id="ouvrir" accept=".stab,.json" hidden></label>'
-           f'<button class="btn" id="exporter" title="Exporter la note en fichier .stab">{MQ.icon("download")}.stab</button>'
-           f'<button class="btn" id="imprimer" title="Imprimer l\'écran">{MQ.icon("printer")}Imprimer</button>'
-           f'<button class="btn primary" disabled title="La note PDF arrive bientôt sur le site (elle reste dans Streamlit)">{MQ.icon("file-down")}Note PDF</button></header>')
+           f'<span class="spacer"></span><span class="saved enregistre" id="enregistre">{MQ.icon("circle-check")}<span class="txt">—</span></span>'
+           f'<label class="btn ghost" for="ouvrir" title="Ouvrir un fichier .stab">{MQ.icon("upload")}<span class="lbl">Ouvrir</span></label>'
+           + _bouton("download", ".stab", ' data-action="exporter" title="Exporter la note en fichier .stab"')
+           + _bouton("printer", "Imprimer", ' data-action="imprimer" title="Imprimer l\'écran"')
+           + _bouton("file-down", "Note PDF", f' disabled title="{PDF_BIENTOT}"', "btn primary") + '</header>')
+    # le téléphone : l'en-tête compact (retour, nom de la note, taux, menu), son menu, les onglets, la barre du bas
+    mtop = (f'<header class="mtop"><a class="btn icon ghost" href="{ACCUEIL}" title="Accueil" aria-label="Accueil">{MQ.icon("arrow-left")}</a>'
+            f'<div class="t"><input id="nom-note-m" class="nomnote" data-nom-note="1" value="" aria-label="Nom de la note" spellcheck="false">'
+            f'<span id="fil-m"></span></div><span class="calcule"></span>'
+            f'<button type="button" class="mchip" id="chip-m" data-vers-onglet="resultat" title="Voir le résultat"></button>'
+            f'<button type="button" class="btn icon ghost" id="menu-m" aria-haspopup="true" aria-expanded="false" aria-controls="mmenu" '
+            f'title="Plus d\'actions">{MQ.icon("ellipsis")}</button></header>')
+    mmenu = (f'<div class="mmenu" id="mmenu" hidden><div class="mm-h"><span class="saved enregistre">{MQ.icon("circle-check")}<span class="txt">—</span></span></div>'
+             f'<label class="mi" for="ouvrir">{MQ.icon("upload")}Ouvrir un fichier .stab</label>'
+             f'<button type="button" class="mi" data-action="exporter">{MQ.icon("download")}Exporter la note en .stab</button>'
+             f'<button type="button" class="mi" data-action="imprimer">{MQ.icon("printer")}Imprimer</button>'
+             f'<button type="button" class="mi" data-action="pdf" aria-disabled="true">{MQ.icon("file-down")}Note PDF<span class="tag draft">bientôt</span></button>'
+             f'<button type="button" class="mi" data-theme-toggle="1">{MQ.icon("sun-moon")}Thème clair ou sombre</button>'
+             f'<button type="button" class="mi" data-modules="1">{MQ.icon("layout-grid")}Tous les modules</button></div>')
+    mtabs = ('<nav class="mtabs" aria-label="Données, dessin, résultat"><div class="seg full">'
+             + "".join(f'<button type="button" data-onglet="{k}" aria-pressed="{"true" if k == "donnees" else "false"}"'
+                       f'{" class=\"on\"" if k == "donnees" else ""}>{t}</button>'
+                       for k, t in (("donnees", "Données"), ("dessin", "Dessin"), ("resultat", "Résultat")))
+             + '</div></nav>')
+    mbar = (f'<div class="mbar">{_bouton("download", "Exporter .stab", " data-action=\"exporter\"")}'
+            f'{_bouton("file-down", "Note PDF", " data-action=\"pdf\" aria-disabled=\"true\"", "btn primary")}</div>')
     gauche = (f'<div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span>'
               f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>'
               f'<div class="pbody" id="donnees"><div class="attente">Chargement…</div></div>')
     droite = (f'<div class="phead"><span class="h3">Résultat</span><span id="statut"></span>'
               f'<button class="pcoll" data-coll="d" title="Replier le résultat">{MQ.icon("panel-right")}</button></div>'
               f'<div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div>')
-    toile = (f'<section class="canvas"><div class="ctool"><div class="seg" id="vues"></div></div>'
+    # la barre de la toile : les vues, puis le zoom (réduire, ajuster, agrandir) et le plein écran
+    zoom = (f'<div class="zoom" id="zoom"><button type="button" data-zoom="moins" title="Réduire le dessin">{MQ.icon("zoom-out")}</button>'
+            f'<button type="button" class="zpct" data-zoom="ajuster" title="Ajuster le dessin à la feuille">100 %</button>'
+            f'<button type="button" data-zoom="plus" title="Agrandir le dessin">{MQ.icon("zoom-in")}</button>'
+            f'<button type="button" class="zplein" data-plein="1" title="Plein écran">{MQ.icon("maximize-2")}{MQ.icon("x")}</button></div>')
+    toile = (f'<section class="canvas"><div class="ctool"><div class="seg" id="vues"></div>{zoom}</div>'
              f'<div class="stage" id="stage"></div></section>')
     demarrage = (f'<div class="demarrage" id="demarrage"><div class="carte"><div class="logo">{MQ.LOGO}</div><b>Chargement du moteur de calcul</b>'
                  f'<span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div>'
                  f'<small>La première ouverture prend quelques secondes ; ensuite, chaque calcul est immédiat.</small></div></div>')
     corps = (f'<body data-page="module" data-module="{cle}" data-titre="{MQ.esc(nom)}"><div class="app rail">{rail("modules")}<main class="main">{top}'
+             f'{mtop}{mmenu}{mtabs}'
              f'<div class="bench" data-tab="donnees">{toile}<section class="panel left">{gauche}</section>'
-             f'<section class="panel right">{droite}</section><div id="volets"></div>{demarrage}</div></main></div>'
-             f'<div class="toast" id="toast" hidden></div>'
+             f'<section class="panel right">{droite}</section><div id="volets"></div>{demarrage}</div>{mbar}</main></div>'
+             f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>'
+             f'<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
     css = f"css/modules/{cle}.css"
     return tete(f"{titre} · Stab Méthodes", css if os.path.exists(os.path.join(ICI, css)) else "") + corps
@@ -280,10 +368,13 @@ def construire(dossier: str = ICI, modules=None) -> dict:
         ecrire(os.path.join(dossier, page), page_module(cle, _module(cle)[1]))
     ecrire(os.path.join(dossier, "js", "modules.js"), modules_js())
     ecrire(os.path.join(dossier, "favicon.svg"), favicon())
-    fichiers = fichiers_du_moteur(modules)
-    z = paquet(fichiers)
+    rel = releve(modules)
+    z = paquet(rel["fichiers"])
     ecrire(os.path.join(dossier, "moteur", "moteur.zip"), z, binaire=True)
-    manifeste = {"pyodide": PYODIDE, "sha256": hashlib.sha256(z).hexdigest(), "fichiers": fichiers}
+    # « avec_numpy » : les modules dont le travailleur charge numpy dès le démarrage (les autres s'en passent ; un
+    # import de numpy imprévu le fait charger à la demande, voir js/travailleur.js)
+    manifeste = {"pyodide": PYODIDE, "sha256": hashlib.sha256(z).hexdigest(), "fichiers": rel["fichiers"],
+                 "avec_numpy": rel["avec_numpy"]}
     ecrire(os.path.join(dossier, "moteur", "manifeste.json"), json.dumps(manifeste, ensure_ascii=False, indent=1) + "\n")
     return manifeste
 

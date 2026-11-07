@@ -1,7 +1,7 @@
 // L'accueil : reprendre une note, en créer une (chantier, dossier, nom, module), voir les chantiers. Les notes viennent
 // de ce navigateur (notes.js) ; rien n'est inventé : sans note, l'accueil le dit.
 import * as N from "./notes.js";
-import { cablerRail, esc } from "./commun.js";
+import { cablerRail, esc, toast, texteTaux } from "./commun.js";
 
 cablerRail();
 const $ = (s) => document.querySelector(s);
@@ -14,7 +14,9 @@ function afficher() {
   $("#nb-notes").textContent = rec.length ? "les plus récentes" : "";
   $("#recentes").innerHTML = rec.length ? rec.map((n) => {
     const r = n.resume || {};
-    const chip = r.taux != null ? `<span class="chip ${esc(r.niveau)}">${esc(String(r.taux))}&nbsp;%</span>` : "";
+    // le taux est déjà arrondi par le moteur : on l'écrit à la française (63,7 et non 63.7) ; « > 999 % » au-delà
+    const tx = texteTaux(r.taux);
+    const chip = tx.texte ? `<span class="chip ${esc(r.niveau)}"${tx.titre ? ` title="${esc(tx.titre)}"` : ""}>${esc(tx.texte)}</span>` : "";
     const lieu = [n.chantier, n.dossier].filter(Boolean).join(" › ") || "Sans chantier";
     return `<a class="card rcard" href="${N.MODULES[n.module].page}?note=${encodeURIComponent(n.id)}"><div class="thumb">${/^\s*<svg/.test(n.vignette || "") ? n.vignette : ""}</div>`
       + `<div class="body"><div class="t">${esc(n.nom)}</div><div class="m">${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}</div>`
@@ -74,4 +76,10 @@ $("#importer").addEventListener("change", async (ev) => {
     const n = await N.importer(f);
     location.href = `${N.MODULES[n.module].page}?note=${encodeURIComponent(n.id)}`;
   } catch (e) { alert(`Fichier refusé : ${e.message}`); }
+});
+
+// les entrées « bientôt » de la barre (Projets, Équipe, Paramètres) : elles viendront avec les comptes du bureau
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-bientot]");
+  if (b) { ev.preventDefault(); toast("Bientôt : avec les comptes du bureau."); }
 });

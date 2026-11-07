@@ -68,24 +68,150 @@ note = son élément le plus chargé).
 
 - **Cadre Données** : `C.section(n, titre, résumé, corps, ouvert, clé)` (sections numérotées, repliables) ;
   `C.ligne(libellé, champ, symbole, aide, full)` ; champs `C.num(chemin, valeur, unité, dec, entier, desactive, mini,
-  maxi)`, `C.texte`, `C.choix` (menu), `C.segments` (2 à 4 options), `C.case`, `C.zone_texte` (plusieurs lignes : un
-  tableau collé), `C.fichier` (le moteur reçoit `{"nom", "texte"}`), `C.aide`, `C.message`. Ajouter/retirer : boutons
-  `class="addrow"` / `class="moins"` avec `data-chemin=".../+"` ou `".../<i>/-"` (voir `api_web/poutre.py`).
+  maxi, auto)`, `C.texte(chemin, valeur, indice, desactive)`, `C.choix` (menu), `C.segments(chemin, valeur, options,
+  desactive)` (2 à 4 options), `C.case(chemin, valeur, texte, desactive)`, `C.zone_texte(…, desactive)` (plusieurs
+  lignes : un tableau collé), `C.fichier` (le moteur reçoit `{"nom", "texte"}`), `C.aide`, `C.message`.
+  Ajouter/retirer : boutons `class="addrow"` / `class="moins"` avec `data-chemin=".../+"` ou `".../<i>/-"` (voir
+  `api_web/poutre.py`).
 - **Résultat** : un **verdict** (`C.chip(taux, niveau, xl=True)` + la vérification gouvernante et sa comparaison
-  « valeur ≤ limite »), puis une ligne par vérification `C.ligne_res(nom, pièce, taux, niveau, calcul=, pk=, gov=)`
-  (deux lignes : nom et pièce, puis jauge et taux), groupées si utile (`<div class="elgrp">`), les avertissements
-  (`C.message`), le pied (`pfoot` : méthode + `C.legende()`).
-- **Fenêtre de calcul** : `C.fenetre_calcul(id, titre, sous_titre, hypothèses, lignes, détail)` — hypothèses en
-  pastilles, tableau vérification/formule/valeur/limite/taux, puis le **détail des formules** `C.lignes_fx` :
-  « symbole = expression = valeurs substituées = résultat », comme une note faite à la main.
-- **Sélecteur** : `C.selecteur(...)` — trié par ordre de grandeur, le retenu (✓) et l'optimal (★, le plus léger qui
-  tient) marqués.
+  « valeur ≤ limite » ; pour une valeur qui n'est pas un taux : `C.verdict_valeur`, ci-dessous), puis une ligne par
+  vérification `C.ligne_res(nom, pièce, taux, niveau, calcul=, pk=, gov=, leger=, sans_taux=)` (deux lignes : nom et
+  pièce, puis jauge et taux), groupées si utile (`<div class="elgrp">`), les avertissements (`C.message`), le pied
+  (`pfoot` : méthode + `C.legende()`).
+- **Fenêtre de calcul** : `C.fenetre_calcul(id, titre, sous_titre, hypothèses, lignes, détail, pied, colonnes)` —
+  hypothèses en pastilles, tableau vérification/formule/valeur/limite/taux, puis le **détail des formules**
+  `C.lignes_fx` : « symbole = expression = valeurs substituées = résultat », comme une note faite à la main.
+- **Sélecteur** : `C.selecteur(…, unite, etoile, pastille)` — trié par ordre de grandeur, le retenu (✓) et l'optimal
+  (★, le plus léger qui tient) marqués.
+- **Télécharger** un fichier propre au module : `C.bouton_telecharger(quoi, libellé)` et la fonction
+  `telecharger(etat, quoi)` du module (§ 4 ter).
 - **Couleur** : `C.niveau(taux)` (rouge > 100 %, vert foncé 95–100 %, vert pâle < 95 % — les seuils du moteur,
   `ME.statut`) ; rouge aussi quand le moteur déclare non conforme sous 100 %. `C.pct` arrondit **sans changer de
   bande**.
-- **Nombres** : `C.nb` (exact, virgule, espace fine des milliers) pour les données ; `C.fr(x, nd)` pour les résultats
-  (mm² entiers, cm au mm, contraintes au centième…). Unités toujours écrites ; indices en `<sub>`.
+- **Nombres** : `C.nb` (exact, virgule, sans séparateur de milliers — `C.num` les pose dans un champ) pour les
+  données ; `C.fr(x, nd)` pour les résultats (mm² entiers, cm au mm, contraintes au centième…) ; `C.qte(x, unité,
+  nd)` pour un nombre suivi de son unité. Unités toujours écrites ; indices en `<sub>` (`C.symb_math`).
 - **Icônes** : `C.icon(nom)` (Lucide, `api_web/icones.py`).
+
+### 4 bis. Les règles des nombres, et les briques ajoutées le 07/11/2026 (un exemple chacune)
+
+**L'arrondi est celui des formules des moteurs** (`acier.formats.F`, c'est-à-dire `acier.js.to_fixed`) : **demi vers
+l'extérieur**, sur la valeur binaire exacte du nombre. `C.fr`, `C.nb`, `C.pct`, `C.qte` et `C.num(entier=True)` le
+suivent tous ; la règle est appelée, pas recopiée. Un tableau et la formule voisine écrivent donc le même chiffre.
+Jamais de « -0 ». Un nombre de numpy (`numpy.int64`, `numpy.float32`) s'écrit comme un nombre Python.
+
+```python
+C.fr(490.5, 0)        # « 491 »  (l'ancien arrondi au pair écrivait « 490 » à côté de « 491 » dans la formule)
+C.fr(-490.5, 0)       # « -491 » (vers l'extérieur, pas vers +∞)
+C.fr(2.675, 2)        # « 2,67 » : 2,675 vaut 2,67499… en binaire — le moteur écrit la même chose
+C.fr(1234567.891, 2)  # « 1 234 567,89 » (espace fine insécable entre les milliers)
+C.fr(-0.04, 1)        # « 0,0 », jamais « -0,0 » ; C.fr(None) = C.fr(nan) = « — »
+C.nb(210000, 0)       # « 210000 » (seuls les zéros APRÈS la virgule s'ôtent ; c'était « 21 »)
+C.nb(0.5, 0)          # « 1 » (plantait)
+C.pct(0.635)          # 64 ; C.pct(-0.025) = -3 ; la bande de couleur est toujours gardée (94,98 % → 94)
+```
+
+**`C.qte(x, unité, nd=1)`** — la valeur et son unité liées par une espace insécable ; les espaces de l'unité deviennent
+insécables aussi. Au téléphone, « 1,380 » et « t / m³ » ne se séparent plus. L'unité est du HTML du module (jamais un
+texte saisi).
+
+```python
+C.qte(1380.5, "kg/m³")        # « 1 380,5 kg/m³ » (insécable)
+C.qte(1.38, "t / m³", 3)      # « 1,380 t / m³ » — aucune espace sécable
+C.qte(None, "kN")             # « — »
+```
+
+**Les taux** (`C.chip`, `C.ligne_res`) : la jauge est bornée à [0, 100] % (un taux NÉGATIF laisse la jauge vide ; une
+largeur CSS négative l'affichait pleine) ; au-delà de 999 %, le taux s'écrit **« > 999 % »** et sa valeur exacte est
+au survol (`title`), comme `acier.formats.pct` — un nombre de huit chiffres cassait la pastille. Sans taux,
+`ligne_res` écrit « à compléter », ou le texte neutre du module :
+
+```python
+C.ligne_res("Ø12 · e 15", "1 131 mm²/m", None, "c", sans_taux="consultation")   # pas « à compléter »
+C.chip(12345678, "r", xl=True)   # <span class="chip xl r" title="12 345 678 %"><small>η</small>&gt; 999 %</span>
+C.chip(None, "c")                # « — »
+```
+
+**`C.symb_math`** : toutes les lettres grecques (minuscules, majuscules, ϕ ϑ ϵ), la barre combinante (λ̄), une lettre
+grecque dans l'indice, ⊥ et ∥ : `C.symb_math("χ_LT · λ̄_LT · M_Rd,θ · σ_⊥")` → χ<sub>LT</sub> · λ̄<sub>LT</sub> ·
+M<sub>Rd,θ</sub> · σ<sub>⊥</sub>.
+
+**`C.verdict_valeur(x, unité, titre, comparaison="", niv="c", nd=1, symbole="", calcul="", classe="")`** — le verdict
+d'une valeur qui n'est PAS un pourcentage (kg/m³, mm²…), du même dessin que le verdict d'un taux : la valeur en grand
+et l'unité en petit dans la pastille, puis le titre (TEXTE, échappé) et la comparaison (HTML du module). `calcul` : la
+fenêtre de calcul que le verdict ouvre. Sa pastille ne se comprime jamais sous une comparaison longue (mesuré dans
+Chromium : 164 px tenus pour « 1 380,5 kg/m³ », 114 sans la règle).
+
+```python
+C.verdict_valeur(q["kg_m3_majore"], "kg/m³", "Taux d'armature",
+                 f"{C.qte(q['masse_acier_majoree'], 'kg')} d'acier pour {C.qte(q['Vc'], 'm³', 3)} de béton", calcul="q")
+C.verdict_valeur(x["As"], "mm²/m", f"{b['nom']} · {x['nom']}", f"≥ A<sub>s,req</sub> = {C.qte(b['As_req'], 'mm²/m', 0)}",
+                 niv="p", nd=0)
+```
+
+**`C.fenetre_calcul(…, colonnes=("Vérification", "Formule", "Valeur", "Limite", "Taux"))`** — les cinq titres du
+tableau, pour un module qui ne vérifie pas ; une ligne sans taux (`"taux": None`) porte « — » :
+
+```python
+C.fenetre_calcul("q", "Quantitatif", "P1", hyps, lignes, detail,
+                 colonnes=("Armature", "Formule", "Masse", "Apport au taux", "Part"))
+```
+
+**`C.selecteur(…, etoile="le plus léger qui tient", pastille="taux")`** — `etoile=""` retire la légende ★ du pied,
+`pastille=""` retire le « · taux » (ou le remplace : `pastille="part"`) ; une ligne sans taux (`"taux": None`) n'a pas
+de pastille :
+
+```python
+C.selecteur(role, titre, sous, "", rows, debut, "kg/m³", etoile="", pastille="part")
+```
+
+**`C.num(…, auto="auto · 3,5")` — « vide = automatique »** : le champ accepte d'être VIDÉ et montre son texte indicatif
+quand il l'est (`valeur` None). Il part comme un texte (l'écran refuse un nombre vide) ; le module le lit par
+**`C.lire_auto(valeur)`** : `None` pour un champ vidé (le module prend la valeur automatique), le nombre sinon, et
+`ValueError` (message en français, à rendre tel quel) pour tout autre texte. Le contrat commun l'éprouve.
+
+```python
+# cadre Données
+C.num(base + ["dist"], c["dist"], "cm", auto=f"auto · {C.nb(e_auto)}")
+# modifier(etat, chemin, valeur)
+try:
+    c["dist"] = C.lire_auto(valeur)        # None : l'axe redevient automatique
+except ValueError as e:
+    return str(e)
+```
+
+**État désactivé** de `C.texte`, `C.segments`, `C.case`, `C.zone_texte` (comme `C.num(desactive=True)` et
+`C.choix(desactive=True)`) : le champ reste lisible, ne répond plus, et porte la classe `locked` (et le cadenas pour
+les champs de texte) ; la feuille du site le montre (segments grisés, le retenu cerclé, curseur interdit, case
+estompée — contrôlé dans le navigateur, `verifier_site.js`) :
+
+```python
+C.texte(["nom"], d["nom"], desactive=verrouille)
+C.segments(["fyk"], d["fyk"], [(n, f"B{n}") for n in EN.NUANCES], desactive=verrouille)
+```
+
+### 4 ter. Télécharger un fichier propre au module (le JSON de l'écran Streamlit, un tableau CSV…)
+
+Le bouton : **`C.bouton_telecharger(quoi, libellé, icone="download")`** →
+`<button type="button" class="btn sm" data-telecharger="<quoi>">icône + libellé</button>` (tout échappé). L'écran
+envoie `{"module", "action": "telecharger", "etat", "quoi"}` ; le routeur appelle la fonction du module
+
+```python
+def telecharger(etat, quoi) -> dict | None:       # etat : déjà normalisé (normaliser)
+    if quoi == "json":
+        return {"nom": C.nom_fichier(etat["elements"][etat["actif"]]["nom"], "json"),   # un nom SÛR tiré d'un nom saisi
+                "type": "application/json",
+                "texte": json.dumps(etat_streamlit(etat), ensure_ascii=False, indent=2)}
+    return None                                    # « quoi » inconnu (ou lever ValueError("message en français"))
+```
+
+et répond `{"ok": true, "fichier": {"nom", "type", "texte"}}`, ou `{"ok": false, "erreur": "<message en français>"}`
+— jamais une exception — quand le module n'a pas de `telecharger`, que `quoi` est inconnu, que le nom est absurde
+(vide, plus de 120 caractères, « / », « \ », « .. », caractère de contrôle ou invisible — l'inversion du sens
+d'écriture U+202E, une marque de sens, un séparateur de ligne), que le type n'est pas `application/json`,
+`text/csv` ou `text/plain`, ou que le texte dépasse 5 Mo (UTF-8). Les règles sont `C.refus_fichier` ;
+`C.nom_fichier(nom saisi, extension)` rend toujours un nom qui les passe (« Poutre P1/2 : RDC » → « Poutre P1-2 -
+RDC.json »). Le contrat commun exige que **chaque bouton annoncé rende un fichier valide** (et un JSON qui se relit).
 
 ## 5. Les règles
 

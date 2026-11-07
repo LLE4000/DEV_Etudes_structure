@@ -5,6 +5,7 @@ const CLE = "stab.notes.v1";
 // Les modules du site viennent du registre (api_web/registre.py), écrits par construire.py dans js/modules.js :
 // adresses SANS « .html » (Cloudflare sert poutre.html à l'adresse « poutre »), nom, famille.
 import { MODULES } from "./modules.js";
+import { telecharger } from "./commun.js";
 export { MODULES };
 
 export function toutes() {
@@ -48,12 +49,8 @@ export function recentes(n = 6) {
 
 // le fichier .stab : la note entière, lisible et rechargeable
 export function exporter(note) {
-  const blob = new Blob([JSON.stringify({ format: "stab", version: 1, note }, null, 1)], { type: "application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `${(note.chantier ? note.chantier + " - " : "") + (note.nom || "note")}.stab`.replace(/[\\/:*?"<>|]/g, "_");
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  const nom = `${(note.chantier ? note.chantier + " - " : "") + (note.nom || "note")}`.replace(/[\\/:*?"<>|]/g, "_");
+  return telecharger(`${nom}.stab`, JSON.stringify({ format: "stab", version: 1, note }, null, 1), "application/json");
 }
 
 // Un .stab vient d'ailleurs : on n'en garde que des DONNÉES (des textes, l'état que le moteur relira). Le dessin et le

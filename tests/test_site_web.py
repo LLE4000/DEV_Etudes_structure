@@ -7,7 +7,12 @@
 - le paquet se suffit : déballé seul, sans le dépôt et sans les bibliothèques lourdes, il calcule ;
 - les pages et la charte sont celles que le générateur écrit (css/charte.css = la charte des maquettes) ;
 - le cœur Python déposé (vendor) a les empreintes relevées, et la roue numpy celle du pyodide-lock officiel ;
-- chaque élément que les scripts de l'écran cherchent par son identifiant existe dans sa page.
+- chaque élément que les scripts de l'écran cherchent par son identifiant existe dans sa page ;
+- les trois formats : chaque établi porte l'en-tête, les onglets et la barre du téléphone, la barre du zoom et du plein
+  écran ; l'accueil, les cinq entrées du bas dans l'ordre de la barre ; le seuil du téléphone (700 px) est le même
+  dans la charte, css/site.css et js/etabli.js (trois copies d'un même nombre, liées ici) ;
+- le travailleur ne charge numpy que pour les modules que le relevé a vus s'en servir (manifeste « avec_numpy ») ;
+- un nom de fichier venu du moteur est nettoyé avant le téléchargement (js/commun.js, joué par node).
 
     python3 tests/test_site_web.py
 """
@@ -41,7 +46,8 @@ def sha(chemin: str) -> str:
 # 1. le paquet du moteur suit le dépôt
 zip_chemin = os.path.join(WEB, "moteur", "moteur.zip")
 man = json.load(open(os.path.join(WEB, "moteur", "manifeste.json"), encoding="utf-8"))
-attendus = SW.fichiers_du_moteur()
+RELEVE = SW.releve()
+attendus = RELEVE["fichiers"]
 with zipfile.ZipFile(zip_chemin) as z:
     noms = sorted(z.namelist())
     differents = [n for n in noms if n in attendus and z.read(n) != open(os.path.join(RACINE, n), "rb").read()]
@@ -50,6 +56,12 @@ chk("le paquet contient exactement les fichiers que l'API charge", noms == sorte
 chk("chaque fichier du paquet est identique à celui du dépôt (sinon : python3 site/web/construire.py)", not differents, differents[:5])
 chk("le manifeste porte l'empreinte du paquet", man["sha256"] == sha(zip_chemin), (man["sha256"][:12], sha(zip_chemin)[:12]))
 chk("le manifeste liste les fichiers du paquet", man["fichiers"] == noms)
+# numpy pèse une à deux secondes au démarrage : le travailleur ne le charge d'emblée que pour ces modules-là
+chk(f"le manifeste nomme les modules qui chargent numpy, comme le relevé ({', '.join(RELEVE['avec_numpy'])})",
+    man.get("avec_numpy") == RELEVE["avec_numpy"] and set(RELEVE["avec_numpy"]) < set(SW.ADRESSES), (man.get("avec_numpy"), RELEVE["avec_numpy"]))
+TRAV = open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read()
+chk("le travailleur lit « avec_numpy » et guette un import de numpy imprévu (la requête est alors rejouée)",
+    "man.avec_numpy" in TRAV and "GuetNumpy" in TRAV and "sys.meta_path.insert(0, GuetNumpy())" in TRAV and "guet.demande" in TRAV)
 
 # 2. le paquet se suffit (déballé seul, sans le dépôt, bibliothèques lourdes refusées)
 with tempfile.TemporaryDirectory() as tmp:
@@ -97,12 +109,91 @@ chk("la roue numpy a l'empreinte du pyodide-lock officiel", sha(os.path.join(v, 
 chk("le travailleur charge la version déposée", f'"../{SW.PYODIDE}/pyodide.mjs"' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
 
 # 5. les identifiants que les scripts cherchent existent dans leur page
-for js, page in [("etabli.js", SW.PAGES[k]) for k in SW.PAGES] + [("accueil.js", "index.html")]:
+for js, page in [(js, SW.PAGES[k]) for k in SW.PAGES for js in ("etabli.js", "toile.js")] + [("accueil.js", "index.html")]:
     src = open(os.path.join(WEB, "js", js), encoding="utf-8").read()
     html = open(os.path.join(WEB, page), encoding="utf-8").read()
     ids = sorted(set(re.findall(r'\$\("#([\w-]+)', src)) | set(re.findall(r'getElementById\("([\w-]+)"', src)))
     absents = [i for i in ids if f'id="{i}"' not in html]
     chk(f"{js} → {page} : les {len(ids)} identifiants cherchés existent", not absents, absents)
+
+# 5 bis. les trois formats : ce que le téléphone et la tablette trouvent dans chaque page (la disposition est dans
+# css/site.css et se vérifie dans le vrai navigateur : verifier_site.js, filtre « formats »)
+for k in SW.PAGES:
+    html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
+    onglets = re.findall(r'data-onglet="(\w+)"', html)
+    manque = [x for x in ('class="mtop"', 'class="mtabs"', 'class="mbar"', 'id="mmenu"', 'id="menu-m"', 'id="nom-note-m"', 'id="chip-m"',
+                          'data-zoom="plus"', 'data-zoom="moins"', 'data-zoom="ajuster"', 'data-plein="1"', 'id="ouvrir"') if x not in html]
+    chk(f"{SW.PAGES[k]} : l'en-tête, le menu, les onglets Données · Dessin · Résultat, la barre du bas, le zoom et le plein écran",
+        not manque and onglets == ["donnees", "dessin", "resultat"], (manque, onglets))
+    # les actions du téléphone sont celles du PC (mêmes fonctions, autre disposition)
+    actions = lambda frag: sorted(set(re.findall(r'data-action="(\w+)"', frag)))
+    haut = html[html.index('<header class="top"'):html.index("</header>")]
+    tel = html[html.index('<header class="mtop"'):html.index('<div class="bench"')] + html[html.index('<div class="mbar"'):html.index("</main>")]
+    chk(f"{SW.PAGES[k]} : le téléphone offre les actions de la barre du haut (ouvrir, exporter, imprimer)",
+        set(actions(haut)) <= set(actions(tel)) and 'for="ouvrir"' in haut and 'for="ouvrir"' in tel, (actions(haut), actions(tel)))
+acc = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
+nav_pc = re.findall(r'data-tip="([^"·]+?)(?: · bientôt)?"', acc[acc.index('<nav class="nav"'):acc.index("</nav>")])
+nav_tel = re.findall(r"<span>([^<]+)</span></a>", acc[acc.index('<nav class="mnav"'):])[:5]
+chk("accueil : au téléphone, l'en-tête et les cinq entrées de la barre, dans le même ordre", 'class="mhead"' in acc
+    and [x.strip() for x in nav_pc[:5]] == nav_tel, (nav_pc, nav_tel))
+# le seuil du téléphone : la charte (maquettes), la feuille du site et le script de l'établi disent le même nombre
+seuils = {"charte.css": set(re.findall(r"max-width:\s*(\d+)px\)\s*\{\s*body", open(os.path.join(WEB, "css", "charte.css"), encoding="utf-8").read())),
+          "site.css": set(re.findall(r"@media \(max-width:\s*(\d+)px\)", open(os.path.join(WEB, "css", "site.css"), encoding="utf-8").read())),
+          "etabli.js": set(re.findall(r'matchMedia\("\(max-width:\s*(\d+)px\)"\)', open(os.path.join(WEB, "js", "etabli.js"), encoding="utf-8").read()))}
+chk("le seuil du téléphone est le même dans la charte, css/site.css et js/etabli.js (700 px)",
+    all(v == {"700"} for v in seuils.values()), seuils)
+
+# 5 ter. un nom de fichier rendu par le moteur (télécharger) ou tiré d'une note : jamais de chemin, jamais « .. »
+NOMS = {"../../dossier/essai..json": "essai.json", "C:\\x\\a:b?.json": "a_b_.json", "...": "fichier", "note<script>.json": "note_script_.json",
+        " .cache": "cache", "a/../../b": "b",
+        # les caractères INVISIBLES : l'inversion du sens d'écriture (U+202E) ferait lire « facture[U+202E]nosj.exe » comme un
+        # « .exe » ; les marques de sens, les séparateurs de ligne, l'espace sans largeur
+        "facture\u202enosj.exe.json": "facture_nosj.exe.json", "a\u200fb\u2028c\u200bd.json": "a_b_c_d.json", "\u2066x\u2069.csv": "_x_.csv"}
+essai = ("const m = await import(" + json.dumps("file://" + os.path.join(WEB, "js", "commun.js")) + ");"
+         "console.log(JSON.stringify(" + json.dumps(list(NOMS)) + ".map((n) => m.nomDeFichier(n)).concat([m.nomDeFichier('a'.repeat(300) + '.json')])));")
+try:
+    sortie = subprocess.run(["node", "--input-type=module", "-e", essai], capture_output=True, text=True, timeout=60)
+    lus = json.loads(sortie.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    lus = [str(e)]
+chk("un nom de fichier venu du moteur est nettoyé (ni chemin, ni « .. », ni caractère réservé ni invisible ; l'extension survit)",
+    lus[:-1] == list(NOMS.values()) and len(lus[-1]) == 150 and lus[-1].endswith(".json"), lus)
+
+# 5 quater. le taux d'une note (en-tête du téléphone, carte de l'accueil) s'écrit comme les pastilles du moteur : la
+# même fonction écrit les deux (js/commun.js, texteTaux), et elle écrit ce qu'écrit commun._taux_txt — « > 999 % » au
+# delà du plafond, la valeur exacte au survol. Le plafond est une COPIE (deux langages) : liée ici.
+sys.path.insert(0, RACINE)
+from api_web import commun as CW  # noqa: E402
+import html as _html  # noqa: E402
+
+COMMUN_JS = open(os.path.join(WEB, "js", "commun.js"), encoding="utf-8").read()
+plafond_js = re.findall(r"export const PLAFOND_TAUX = (\d+);", COMMUN_JS)
+chk(f"le plafond des taux est le même à l'écran (js/commun.js) et dans le moteur (commun.PLAFOND_TAUX = {CW.PLAFOND_TAUX})",
+    plafond_js == [str(CW.PLAFOND_TAUX)], plafond_js)
+TAUX = [0, 64, 63.7, -3, 99.5, 100.2, 999, 999.4, 1000, 1040.8, 12345678, 101, 5.5]
+essai = ("const m = await import(" + json.dumps("file://" + os.path.join(WEB, "js", "commun.js")) + ");"
+         "console.log(JSON.stringify(" + json.dumps(TAUX) + ".map((t) => m.texteTaux(t)).concat([m.texteTaux(null), m.texteTaux(undefined), m.texteTaux('abc')])));")
+try:
+    sortie = subprocess.run(["node", "--input-type=module", "-e", essai], capture_output=True, text=True, timeout=60)
+    ecrits = json.loads(sortie.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    ecrits = [str(e)] * (len(TAUX) + 3)
+
+
+def _attendu(t):
+    txt, titre = CW._taux_txt(t)
+    return {"texte": _html.unescape(txt), "titre": _html.unescape(titre.split('"')[1]) if titre else ""}
+
+
+ecarts = [(t, e, _attendu(t)) for t, e in zip(TAUX, ecrits) if e != _attendu(t)]
+chk(f"l'écran écrit le taux comme la pastille du moteur ({len(TAUX)} taux, dont « > 999 % » et sa valeur exacte au survol)",
+    not ecarts and len(ecrits) == len(TAUX) + 3, ecarts[:3] or ecrits[-3:])
+chk("un taux absent ou illisible ne s'écrit pas (ni « null % », ni « NaN % »)", ecrits[-3:] == [{"texte": "", "titre": ""}] * 3, ecrits[-3:])
+ETABLI_JS = open(os.path.join(WEB, "js", "etabli.js"), encoding="utf-8").read()
+ACCUEIL_JS = open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read()
+chk("l'en-tête du téléphone et la carte de l'accueil écrivent le taux par texteTaux (jamais String(taux) à la main)",
+    "texteTaux(res.taux)" in ETABLI_JS and "texteTaux(r.taux)" in ACCUEIL_JS
+    and not re.search(r"String\((res|r)\.taux\)", ETABLI_JS + ACCUEIL_JS))
 
 # 6. la politique de sécurité (_headers) et ce qui la rend possible : aucun script écrit dans une page, aucun
 # gestionnaire « on…= » dans les pages ni dans les fragments que Python rend (la politique les bloquerait : un bouton

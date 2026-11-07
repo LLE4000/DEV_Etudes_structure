@@ -11,12 +11,17 @@ Pour chaque module :
 - chaque ligne qui annonce un calcul a sa fenêtre ; chaque sélecteur annoncé répond ;
 - un texte saisi est échappé dans tous les fragments HTML ; aucun fragment ne porte de script ni de « on…= » ;
 - une note abîmée rend une erreur lisible, jamais une exception ;
+- chaque jauge du résultat est bornée à [0, 100] % ;
+- chaque champ « vide = automatique » (C.num(auto=…)) accepte d'être vidé et refuse un texte qui n'est pas un nombre ;
+- chaque bouton « télécharger » annoncé (C.bouton_telecharger) rend un fichier valide (nom sûr, type permis, 5 Mo au
+  plus, un JSON qui se relit) ; un téléchargement inconnu rend un refus lisible ;
 - les éléments de la note s'ajoutent et le dernier ne se supprime pas.
 
     python3 tests/test_api_web_modules.py            # tous les modules
     python3 tests/test_api_web_modules.py dalle sol  # ceux-là seulement
 """
 import copy
+import html
 import json
 import os
 import re
@@ -25,6 +30,7 @@ import sys
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
+from api_web import commun as C  # noqa: E402
 from api_web import parcours as P  # noqa: E402
 from api_web import registre as REG  # noqa: E402
 from api_web import routeur as R  # noqa: E402
@@ -48,6 +54,17 @@ SEGMENTS_ON = re.compile(r'<button type="button" class="on" data-chemin="([^"]+)
 CASES = re.compile(r'<input type="checkbox" data-chemin="([^"]+)" data-sorte="case"( checked)?')
 EN_LIGNE = re.compile(r"<script|\son[a-z]+\s*=", re.I)
 PIEGE = '<img src=x onerror=alert(1)>'
+
+
+def json_lisible(f) -> bool:
+    """Un fichier déclaré JSON se relit en JSON (les autres types : rien de plus à lire)."""
+    if f.get("type") != "application/json":
+        return True
+    try:
+        json.loads(f["texte"])
+        return True
+    except ValueError:
+        return False
 
 
 def fragments(r):
@@ -119,6 +136,31 @@ def un_module(cle):
             break
     else:
         chk(f"{cle} : une note abîmée rend une réponse lisible (erreur ou note relue), jamais une exception", True)
+    # les jauges : bornées à [0, 100] % (une largeur négative s'afficherait PLEINE)
+    largeurs = [float(w) for w in re.findall(r'<div class="bar"><b class="\w*" style="width:(-?[0-9.]+)%"', r["resultat"])]
+    chk(f"{cle} : chaque jauge du résultat est bornée à [0, 100] % ({len(largeurs)})", all(0 <= w <= 100 for w in largeurs),
+        [w for w in largeurs if not 0 <= w <= 100])
+    # les champs « vide = automatique » (C.num(auto=…)) : vidés, ils sont acceptés ; un texte qui n'est pas un nombre
+    # est refusé avec un message, la note intacte
+    autos = re.findall(r'<input data-chemin="([^"]+)" data-sorte="texte"[^>]*data-vide="auto"', r["donnees"])
+    mal = []
+    for chemin in autos:
+        vide = req(module=cle, action="modifier", etat=copy.deepcopy(etat), chemin=chemin.split("/"), valeur="")
+        faux = req(module=cle, action="modifier", etat=copy.deepcopy(etat), chemin=chemin.split("/"), valeur="pas un nombre")
+        if not vide.get("ok") or vide.get("message") or not faux.get("ok") or not faux.get("message") or faux["etat"] != etat:
+            mal.append((chemin, vide.get("message") or vide.get("erreur"), faux.get("message") or faux.get("erreur")))
+    chk(f"{cle} : chaque champ « vide = automatique » accepte le vide et refuse un texte ({len(autos)})", not mal, mal[:3])
+    # télécharger : chaque bouton annoncé (C.bouton_telecharger, data-telecharger) rend un fichier valide
+    quois = list(dict.fromkeys(q for h in fragments(r).values() for q in re.findall(r'data-telecharger="([^"]*)"', h)))
+    fichiers = [(q, req(module=cle, action="telecharger", etat=copy.deepcopy(etat), quoi=html.unescape(q))) for q in quois]
+    mauvais = [(q, f.get("erreur") or C.refus_fichier(f.get("fichier")) or "le JSON ne se relit pas") for q, f in fichiers
+               if not f.get("ok") or C.refus_fichier(f.get("fichier")) or not json_lisible(f["fichier"])]
+    chk(f"{cle} : chaque bouton « télécharger » annoncé rend un fichier valide ({len(quois)})", not mauvais, mauvais[:3])
+    if quois:
+        chk(f"{cle} : le module qui annonce un téléchargement le déclare (telecharger)", callable(getattr(mod, "telecharger", None)))
+    inconnu = req(module=cle, action="telecharger", etat=copy.deepcopy(etat), quoi="pas-un-fichier-connu")
+    chk(f"{cle} : un téléchargement inconnu rend un refus lisible, jamais une exception",
+        inconnu.get("ok") is False and isinstance(inconnu.get("erreur"), str) and "Traceback" not in inconnu["erreur"], inconnu)
     # les éléments
     a = req(module=cle, action="ajouter", etat=copy.deepcopy(etat))
     chk(f"{cle} : « ajouter » donne un élément de plus dans la liste",

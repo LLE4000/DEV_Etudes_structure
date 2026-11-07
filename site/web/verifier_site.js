@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -12,7 +12,10 @@ const OUT = process.argv[3] || '.';
 const FILTRE = process.argv[4] || '';
 
 (async () => {
-  const b = await chromium.launch();
+  // une locale UTF-8 pour Chromium : sous la locale « C » d'un serveur, il ne sait pas écrire un nom de fichier accentué
+  // sur le disque et enregistre « download » (mesuré : « Contrôle - « essai ».json » → « download ») — les postes du bureau
+  // sont en UTF-8
+  const b = await chromium.launch({ env: { ...process.env, LANG: process.env.LANG || 'C.UTF-8' } });
   let ko = 0;
   const verif = (nom, cond, info = '') => { console.log(`${cond ? 'OK' : 'KO'}  ${nom}${info ? '  ' + info : ''}`); if (!cond) ko++; };
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
@@ -25,7 +28,7 @@ const FILTRE = process.argv[4] || '';
   const mesure = () => p.evaluate(() => {
     const vis = (e) => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
     const large = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
-    const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, .row > label > span:not(.sym), .ni .t, .pk-row .nm, .tile .nm')]
+    const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, .row > label > span:not(.sym), .ni .t, .pk-row .nm, .tile .nm, .rows .seg.full button')]
       .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim());
     const svg = [...document.querySelectorAll('.view.on svg')].find(vis);
     const r = svg ? svg.getBoundingClientRect() : null;
@@ -37,7 +40,13 @@ const FILTRE = process.argv[4] || '';
     // le contenu de la vue ouverte (un dessin, ou un tableau) : sa taille lue à l'écran
     const bloc = [...document.querySelectorAll('.view.on .draw > *')].find(vis);
     const rb = bloc ? bloc.getBoundingClientRect() : null;
-    return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, gris, svg: r ? [Math.round(r.width), Math.round(r.height)] : null,
+    // un champ de TEXTE (un nom) s'écrit sans chiffres tabulaires : le trait d'union, rendu dans la police CALCULÉE du
+    // champ, a sa largeur ordinaire (en tabulaire, « Garde-corps 1 » se lisait « Garde - corps 1 »)
+    const trait = (cs, fvn) => { const t = document.createElement('span'); t.style.cssText = `position:absolute;white-space:pre;font:${cs.font};font-variant-numeric:${fvn}`;
+      t.textContent = '-'; document.body.appendChild(t); const l = t.getBoundingClientRect().width; t.remove(); return l; };
+    const tabulaires = [...document.querySelectorAll('#donnees .field.text input, #donnees .field.area textarea')].filter(vis)
+      .filter((e) => { const cs = getComputedStyle(e); return trait(cs, cs.fontVariantNumeric) > trait(cs, 'normal') + 0.2; }).map((e) => e.dataset.chemin);
+    return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, gris, tabulaires, svg: r ? [Math.round(r.width), Math.round(r.height)] : null,
       vue: rb ? [Math.round(rb.width), Math.round(rb.height)] : null };
   });
   const verdict = () => p.evaluate(() => document.querySelector('.verdict')?.textContent.replace(/\s+/g, ' ').trim() || '');
@@ -90,6 +99,7 @@ const FILTRE = process.argv[4] || '';
     verif('garde-corps : le dessin est visible et à sa taille', m.svg && m.svg[0] > 400 && m.svg[1] > 300, JSON.stringify(m.svg));
     verif('garde-corps : rien ne déborde, aucun nom coupé', !m.deborde && !m.coupes.length, m.coupes.join(', '));
     verif('garde-corps : chaque valeur saisie s\'écrit à l\'encre', !m.gris.length, m.gris.join(', '));
+    verif('garde-corps : un nom s\'écrit sans chiffres tabulaires (« Garde-corps 1 », pas « Garde - corps 1 »)', !m.tabulaires.length, m.tabulaires.join(', '));
     await capture('garde_corps');
     // une saisie
     await p.fill('input[data-chemin="geometrie/H"]', '1300');
@@ -119,6 +129,10 @@ const FILTRE = process.argv[4] || '';
     await p.selectOption('select[data-chemin="type"]', 'lisses');
     await calme();
     verif('type « lisses » : la ligne des lisses intermédiaires apparaît', (await p.textContent('#resultat')).includes('Lisses intermédiaires'));
+    // « Lisses intermédiaires (2) » et son profilé ne tiennent pas sur une ligne du cadre de 316 px : le profilé passe
+    // dessous, entier (il se coupait en « RHS 50×25×2,… », l'épaisseur cachée)
+    m = await mesure();
+    verif('type « lisses » : aucun nom coupé dans le résultat (le profilé des lisses se lit en entier)', !m.coupes.length && !m.deborde, m.coupes.join(', '));
     // un deuxième garde-corps
     await p.click('[data-ajouter]');
     await calme();
@@ -212,8 +226,8 @@ const FILTRE = process.argv[4] || '';
       const nVues = await p.$$eval('#vues button', (e) => e.length);
       m = await mesure();
       if (nVues) verif(`${cle} : la vue (dessin ou tableau) est visible et à sa taille`, m.vue && m.vue[0] > 200 && m.vue[1] > 120, JSON.stringify(m.vue));
-      verif(`${cle} : rien ne déborde, aucun nom coupé, les valeurs à l'encre`, !m.deborde && !m.coupes.length && !m.gris.length,
-        [...m.coupes, ...m.gris].join(', '));
+      verif(`${cle} : rien ne déborde, aucun nom coupé, les valeurs à l'encre, les noms sans chiffres tabulaires`,
+        !m.deborde && !m.coupes.length && !m.gris.length && !m.tabulaires.length, [...m.coupes, ...m.gris, ...m.tabulaires].join(', '));
       await capture(cle);
       const c = await p.$('#resultat [data-calcul]');
       if (c) {
@@ -254,6 +268,740 @@ const FILTRE = process.argv[4] || '';
         verif(`${cle} : rechargée, la note garde la saisie`, relu === apres, `${apres} → ${relu}`);
       }
     }
+  }
+
+  // ---------------------------------------------------------------- les FORMATS : téléphone et tablettes
+  // Chaque module, au téléphone (390 × 844, tactile), en tablette portrait (820 × 1 180), en tablette paysage
+  // (1 180 × 820), en petite tablette paysage (1 024 × 768) et au petit portable (1 280 × 800) : chaque cadre atteignable et
+  // VISIBLE à sa taille, la toile assez grande, rien qui déborde, aucun nom coupé, la fenêtre de calcul et le sélecteur
+  // dans l'écran, le zoom qui grossit le dessin, la légende de chaque vue lisible, le cartouche sans chevauchement.
+  // Seuils de la toile (la place offerte au dessin, mesurée à l'écran) : 300 px de large au téléphone (la largeur moins
+  // les marges de la feuille : en dessous, un dessin de 1 m de dalle s'écrit en 6 px), 500 × 300 en tablette portrait
+  // (la toile y avait 62 px), 600 × 400 en tablette paysage 1 180 (450 px dans la disposition du PC), 500 × 400 à
+  // 1 024 × 768, 400 × 400 au petit portable 1 280 × 800 (la disposition du PC, les deux cadres ouverts autour).
+  //   filtre « formats » : tous les modules ; « formats:dalle » : celui-là. FORMATS=tel,tablettes,communs,numpy,accueil
+  //   (variable d'environnement) n'en joue qu'une partie — pour prouver une correction par mutation sans tout rejouer.
+  const PARTIES = (process.env.FORMATS || 'accueil,tel,tablettes,communs,numpy').split(',');
+  if (!FILTRE || FILTRE === 'formats' || FILTRE.startsWith('formats:')) {
+    await p.goto(`${BASE}/`);
+    const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const choisis = FILTRE.startsWith('formats:') ? [FILTRE.slice(8)] : Object.keys(MODS);
+    // le travailleur, vu de la page : une réponse peut être SIMULÉE (window.__simuler) ou RETOUCHÉE (window.__retoucher),
+    // pour les gestes dont le moteur n'a pas encore la réponse (télécharger) ou qu'aucun module ne produit (zéro vue)
+    const proxyTravailleur = () => {
+      const W = window.Worker;
+      window.Worker = class extends W {
+        set onmessage(f) {
+          this.__f = f;
+          super.onmessage = (ev) => (window.__retoucher && ev.data && ev.data.type === 'reponse'
+            ? f({ data: { ...ev.data, json: window.__retoucher(ev.data.json) } }) : f(ev));
+        }
+        get onmessage() { return this.__f; }
+        postMessage(m) {
+          const rep = window.__simuler && m && typeof m.requete === 'string' ? window.__simuler(JSON.parse(m.requete)) : null;
+          if (rep) { setTimeout(() => this.__f({ data: { type: 'reponse', id: m.id, json: JSON.stringify(rep) } }), 30); return; }
+          super.postMessage(m);
+        }
+      };
+    };
+    const contexte = async (w, h, tel) => {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel, acceptDownloads: true });
+      await c.addInitScript(proxyTravailleur);
+      const pg = await c.newPage();
+      pg.erreurs = [];
+      pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
+      pg.requetes = [];
+      c.on('request', (r) => pg.requetes.push(r.url()));
+      return pg;
+    };
+    const vis = (pg, s) => pg.evaluate((s) => { const e = document.querySelector(s); return !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true }); }, s);
+    const boite = (pg, s) => pg.evaluate((s) => {
+      const e = [...document.querySelectorAll(s)].find((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
+      if (!e) return null;
+      const r = e.getBoundingClientRect();
+      return { g: Math.round(r.left), h: Math.round(r.top), l: Math.round(r.width), t: Math.round(r.height), d: Math.round(r.right), b: Math.round(r.bottom), W: innerWidth, H: innerHeight };
+    }, s);
+    const dansEcran = (r) => r && r.g >= -1 && r.h >= -1 && r.d <= r.W + 1 && r.b <= r.H + 1;
+    // ce que l'œil voit, comme mesure() : débordement, noms coupés ; et le contenu de la vue ouverte
+    const mesurer = (pg) => pg.evaluate(() => {
+      const vis = (e) => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const large = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
+      const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, .row > label > span:not(.sym), .ni .t, .pk-row .nm, .tile .nm, .rows .seg.full button, .mtabs button, .mbar .btn, .mmenu .mi')]
+        .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim().slice(0, 40));
+      // la grande pastille du verdict : son texte tient dans sa boîte (une pastille comprimée coupait « η »)
+      const xl = [...document.querySelectorAll('.verdict .chip.xl')].filter(vis).filter((e) => large(e) > e.getBoundingClientRect().width + 0.5).map((e) => e.textContent);
+      return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, xl };
+    });
+    // la place offerte au dessin (la zone .draw de la vue ouverte) et le dessin lui-même (son viewBox projeté à l'écran)
+    const toile = (pg) => pg.evaluate(() => {
+      const d = [...document.querySelectorAll('.view.on .draw')].find((e) => e.checkVisibility());
+      if (!d) return null;
+      const r = d.getBoundingClientRect();
+      const svg = d.querySelector(':scope > svg');
+      let dessin = null, texte = null;
+      if (svg && svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width) {
+        const m = svg.getScreenCTM(), vb = svg.viewBox.baseVal;
+        dessin = [Math.round(vb.width * m.a), Math.round(vb.height * m.d)];
+        const t = [...svg.querySelectorAll('text')].map((x) => x.getBoundingClientRect().height).filter((x) => x > 0).sort((a, b) => a - b);
+        texte = t.length ? Math.round(t[Math.floor(t.length / 2)] * 10) / 10 : null;
+      }
+      return { l: Math.round(r.width), t: Math.round(r.height), dessin, texte, svg: !!svg };
+    });
+    // chaque vue : sa légende visible et entière (ni coupée, ni cachée) ; une vue qui est un tableau MONTRE ses cases
+    // (comptées à travers chaque parent qui les rogne : un tableau présent dans la page mais dans une zone de 0 px de
+    // haut n'est pas vu)
+    const legendes = (pg) => pg.evaluate(async () => {
+      const out = [];
+      const vu = (e, borne) => {
+        let r = e.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1 || !e.checkVisibility({ visibilityProperty: true, opacityProperty: true })) return false;
+        for (let a = e.parentElement; a && a !== borne.parentElement; a = a.parentElement) {
+          if (getComputedStyle(a).overflow === 'visible') continue;
+          const p = a.getBoundingClientRect();
+          r = { left: Math.max(r.left, p.left), top: Math.max(r.top, p.top), right: Math.min(r.right, p.right), bottom: Math.min(r.bottom, p.bottom) };
+          if (r.right - r.left < 1 || r.bottom - r.top < 1) return false;
+        }
+        return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth;
+      };
+      for (const b of [...document.querySelectorAll('#vues [data-vue]')]) {
+        b.click();
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const l = document.querySelector('.view.on .stitle .leg');
+        if (l) {
+          const ok = l.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && l.getBoundingClientRect().width > 20
+            && l.scrollWidth <= l.clientWidth + 1 && l.scrollHeight <= l.clientHeight + 1;
+          if (!ok) out.push(`${b.dataset.vue} : « ${l.textContent.slice(0, 40)} »`);
+        }
+        const d = [...document.querySelectorAll('.view.on .draw')].find((e) => e.checkVisibility());
+        if (d && !d.querySelector(':scope > svg')) {
+          // un tableau : ses CASES à l'écran (sa légende et son pied sont dans le même bloc, ils ne prouvent rien) ;
+          // un bloc sans tableau (le message d'une note vide, un texte) : ses textes à l'écran
+          // un bloc qui COMMENCE par du texte (une méthode rédigée, puis des tableaux plus bas) se juge comme de la prose :
+          // son premier tableau peut être sous le pli et se lire en défilant (vue « méthode » du plancher)
+          const t0 = document.createTreeWalker(d, NodeFilter.SHOW_TEXT);
+          let premier = t0.nextNode();
+          while (premier && !premier.data.trim()) premier = t0.nextNode();
+          const tableau = !!d.querySelector('td') && !!premier && !!premier.parentElement.closest('table');
+          const w = document.createTreeWalker(tableau ? d.querySelector('table') : d, NodeFilter.SHOW_TEXT);
+          let total = 0, lus = 0;
+          for (let n = w.nextNode(); n; n = w.nextNode()) {
+            if (tableau && !n.parentElement.closest('td')) continue;
+            if (!n.data.trim()) continue;
+            total++;
+            const rg = document.createRange(); rg.selectNodeContents(n);
+            const r = rg.getBoundingClientRect();
+            const boite = { getBoundingClientRect: () => r, checkVisibility: () => n.parentElement.checkVisibility({ visibilityProperty: true, opacityProperty: true }), parentElement: n.parentElement };
+            if (vu(boite, d)) lus++;
+          }
+          // six cases d'un tableau ; trois textes d'un bloc de prose (un long texte se lit en défilant)
+          if (lus < Math.min(tableau ? 6 : 3, total) || !total) out.push(`${b.dataset.vue} : contenu invisible (${lus} texte(s) vu(s) sur ${total})`);
+        }
+      }
+      document.querySelector('#vues [data-vue]')?.click();
+      return out;
+    });
+    // la barre de la toile : les vues et le zoom ne passent sous aucun cadre (le point touché est bien dans la barre)
+    const barreToile = (pg) => pg.evaluate(() => {
+      const f = [];
+      for (const e of [document.getElementById('vues'), ...document.querySelectorAll('#zoom button')]) {
+        if (!e.checkVisibility({ visibilityProperty: true, opacityProperty: true })) continue;
+        const r = e.getBoundingClientRect();
+        for (const x of [r.left + 4, (r.left + r.right) / 2, r.right - 4]) {
+          const t = document.elementFromPoint(x, (r.top + r.bottom) / 2);
+          if (!t || !t.closest('.ctool')) f.push(`${e.id || e.dataset.zoom || e.className} couvert par ${t ? (t.className || t.tagName) : 'rien'}`);
+        }
+      }
+      return [...new Set(f)];
+    });
+    // le cartouche : ses cases ne se chevauchent pas, l'indice et la date se lisent en entier
+    const cartouche = (pg) => pg.evaluate(() => {
+      const c = [...document.querySelectorAll('.view.on .cart')].find((e) => e.checkVisibility());
+      if (!c) return ['pas de cartouche visible'];
+      const cases = [...c.children].filter((e) => e.checkVisibility({ visibilityProperty: true }));
+      const fautes = [];
+      cases.forEach((e, i) => {
+        const r = e.getBoundingClientRect();
+        if (i && r.left < cases[i - 1].getBoundingClientRect().right - 0.5) fautes.push(`${e.textContent.trim()} chevauche`);
+        if (r.right > c.getBoundingClientRect().right + 0.5) fautes.push(`${e.textContent.trim()} sort du cartouche`);
+        for (const x of e.children) if ((e.classList.contains('dt') || e.classList.contains('ind') || x.tagName === 'SPAN') && x.scrollWidth > x.clientWidth + 1) fautes.push(`« ${x.textContent} » coupé`);
+      });
+      // le nom de la note garde une place lisible (un chantier au nom long le réduisait à « P… »)
+      const n0 = cases[0] && cases[0].querySelector('b');
+      if (n0 && n0.getBoundingClientRect().width < 60) fautes.push(`la note réduite à ${Math.round(n0.getBoundingClientRect().width)} px`);
+      return fautes;
+    });
+    // le zoom : « + » grossit le dessin (le texte du dessin, lu à l'écran), « ajuster » le remet à sa feuille
+    const zoom = async (pg) => {
+      // sur la première vue qui est un dessin (un tableau ne se zoome pas : il défile)
+      const k = await pg.evaluate(() => { const v = [...document.querySelectorAll('#stage .view')].find((x) => x.querySelector('.draw > svg')); return v ? v.dataset.vue : null; });
+      if (!k) return { saute: true };
+      await pg.click(`#vues [data-vue="${k}"]`);
+      const lire = () => pg.evaluate(() => { const t = [...document.querySelectorAll('.view.on .draw > svg text')].find((x) => x.getBoundingClientRect().height > 0); return t ? t.getBoundingClientRect().height : document.querySelector('.view.on .draw > svg').getBoundingClientRect().width; });
+      const a = await lire();
+      await pg.click('#zoom [data-zoom="plus"]'); await pg.click('#zoom [data-zoom="plus"]');
+      await pg.waitForTimeout(100);
+      const z = await lire();
+      const pct = await pg.textContent('#zoom .zpct');
+      await pg.click('#zoom [data-zoom="ajuster"]');
+      await pg.waitForTimeout(100);
+      const r = await lire();
+      await pg.click('#vues [data-vue]');
+      return { a, z, r, pct, ok: z >= a * 1.4 && Math.abs(r - a) < 0.5 };
+    };
+    // la fenêtre de calcul et le sélecteur s'ouvrent et tiennent dans l'écran
+    const volets = async (pg, cle, fmt) => {
+      const c = await pg.$('#resultat [data-calcul]');
+      if (c) {
+        await c.click();
+        await pg.waitForTimeout(250);
+        const r = await boite(pg, '.flyout.on.calcul');
+        verif(`${cle} · ${fmt} : la fenêtre de calcul s'ouvre et tient dans l'écran`, dansEcran(r) && r.l > 280 && r.t > 200, JSON.stringify(r));
+        const m = await mesurer(pg);
+        verif(`${cle} · ${fmt} : la fenêtre de calcul ne déborde pas`, !m.deborde, JSON.stringify(m));
+        if (fmt === 'téléphone') await pg.screenshot({ path: path.join(OUT, `site_${cle}_tel_calcul.png`) });
+        await pg.click('.flyout.on [data-fermer]');
+        await pg.waitForTimeout(150);
+        verif(`${cle} · ${fmt} : la fenêtre de calcul se referme`, !(await vis(pg, '.flyout.on')));
+      }
+      const pk = await pg.$('#resultat .prof[data-pk]');
+      if (pk) {
+        await pk.click();
+        await pg.waitForSelector('.flyout.on.picker', { timeout: 60000 });
+        await pg.waitForTimeout(200);
+        const r = await boite(pg, '.flyout.on.picker');
+        const lignes = await pg.$$eval('.flyout.on.picker .pk-row', (x) => x.filter((e) => e.checkVisibility()).length);
+        verif(`${cle} · ${fmt} : le sélecteur s'ouvre et tient dans l'écran`, dansEcran(r) && (lignes > 0 || await vis(pg, '.flyout.on .pk-vide')), JSON.stringify({ ...r, lignes }));
+        if (fmt === 'téléphone') await pg.screenshot({ path: path.join(OUT, `site_${cle}_tel_selecteur.png`) });
+        await pg.click('.flyout.on [data-fermer]');
+        await pg.waitForTimeout(150);
+      }
+    };
+    // une note neuve, par l'accueil (la fenêtre « Nouvelle note » à ce format)
+    const neuve = async (pg, cle, fmt) => {
+      await pg.goto(`${BASE}/index.html`);
+      await pg.click('#ouvrir-nouvelle');
+      const mc = await boite(pg, '#nouvelle .mcard');
+      verif(`${cle} · ${fmt} : « Nouvelle note » s'ouvre dans l'écran`, dansEcran(mc), JSON.stringify(mc));
+      // un chantier au nom long : le fil d'Ariane, l'en-tête du téléphone et le cartouche doivent le tenir (c'est lui qui,
+      // en écrasant la case « Note », faisait chevaucher « Note » et « Chantier »)
+      await pg.fill('#nn-chantier', 'Résidence Les Tilleuls, bâtiment B — phase 2 (logements)'); await pg.fill('#nn-nom', `${MODS[cle].nom} · ${fmt}`);
+      await pg.click(`.mopt[data-module="${cle}"]`);
+      await Promise.all([pg.waitForNavigation(), pg.click('#nn-creer')]);
+      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      const ko = await pg.evaluate(() => document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : '');
+      verif(`${cle} · ${fmt} : le moteur démarre`, !ko, ko);
+      return !ko;
+    };
+
+    // ------------------------------------------------ l'accueil au téléphone
+    if (PARTIES.includes('accueil')) {
+      const t = await contexte(390, 844, true);
+      await t.goto(`${BASE}/index.html`);
+      await t.waitForTimeout(300);
+      const acc = { mhead: await boite(t, '.mhead'), mnav: await boite(t, '.mnav'), bouton: await boite(t, '#ouvrir-nouvelle'), rail: await vis(t, '.nav') };
+      const m = await mesurer(t);
+      verif('accueil · téléphone : l\'en-tête en haut, les cinq entrées en bas, « Nouvelle note » à la taille du doigt, rien ne déborde',
+        acc.mhead && acc.mhead.h === 0 && acc.mnav && acc.mnav.b === acc.mnav.H && (await t.$$eval('.mnav a', (x) => x.length)) === 5 && acc.bouton && acc.bouton.t >= 44
+        && !acc.rail && !m.deborde && !m.coupes.length, JSON.stringify({ ...acc, ...m }));
+      await t.screenshot({ path: path.join(OUT, 'site_accueil_tel.png') });
+      await t.click('.mnav [data-modules]');
+      await t.waitForTimeout(200);
+      const mp = await boite(t, '.modpanel');
+      verif('accueil · téléphone : « Modules » ouvre le volet des modules dans l\'écran', dansEcran(mp) && mp.g === 0, JSON.stringify(mp));
+      await t.context().close();
+    }
+
+    for (const cle of choisis.filter((k) => MODS[k])) {
+      // ------------------------------------------------ le téléphone
+      const t = await contexte(390, 844, true);
+      if (PARTIES.includes('tel') && await neuve(t, cle, 'téléphone')) {
+        const fixe = async () => ({ mtop: await boite(t, '.mtop'), mtabs: await boite(t, '.mtabs'), mbar: await boite(t, '.mbar') });
+        for (const [onglet, cadre, autres] of [['donnees', '.panel.left', ['.canvas', '.panel.right']], ['dessin', '.canvas', ['.panel.left', '.panel.right']],
+          ['resultat', '.panel.right', ['.canvas', '.panel.left']]]) {
+         try {
+          await t.click(`.mtabs [data-onglet="${onglet}"]`);
+          await t.waitForTimeout(250);
+          const r = await boite(t, cadre);
+          const caches = [];
+          for (const a of autres) if (await vis(t, a)) caches.push(a);
+          verif(`${cle} · téléphone : l'onglet ${onglet} montre son cadre, sur toute la largeur, et lui seul`, r && r.l >= 370 && r.t >= 200 && !caches.length,
+            JSON.stringify({ r, caches }));
+          const m = await mesurer(t);
+          verif(`${cle} · téléphone · ${onglet} : rien ne déborde, aucun nom coupé`, !m.deborde && !m.coupes.length && !m.xl.length, JSON.stringify(m));
+          await t.screenshot({ path: path.join(OUT, `site_${cle}_tel_${onglet}.png`) });
+          // l'en-tête et les onglets restent en haut, la barre en bas, même la page défilée
+          await t.evaluate(() => scrollTo(0, 700));
+          await t.waitForTimeout(120);
+          const f = await fixe();
+          verif(`${cle} · téléphone · ${onglet} : l'en-tête et les onglets restent en haut, la barre en bas (page défilée)`,
+            f.mtop && f.mtop.h === 0 && f.mtabs && f.mtabs.h >= f.mtop.b - 1 && f.mtabs.h <= f.mtop.b + 1 && f.mbar && f.mbar.b === f.mbar.H, JSON.stringify(f));
+          await t.evaluate(() => scrollTo(0, 0));
+          if (onglet === 'donnees') {
+            // des champs en 16 px au moins (sinon iOS agrandit la page au toucher), des cibles de 36 px au moins
+            const petits = await t.$$eval('#donnees input:not([type=checkbox]):not([type=file]), #donnees select, #donnees textarea',
+              (x) => x.filter((e) => e.checkVisibility()).filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`));
+            verif(`${cle} · téléphone : chaque champ s'écrit en 16 px au moins`, !petits.length, petits.slice(0, 4).join(', '));
+          }
+          const cibles = await t.evaluate(() => {
+            const s = '.mtop button, .mtop a.btn, .mtabs button, .mbar .btn, #vues button, .zoom button, .sechd, .ni, .nl-add, #donnees .seg button, #donnees .field, .case, .addrow, .moins, .elements .ni.on .x, #resultat .el, #resultat .prof[data-pk]';
+            const tous = [...document.querySelectorAll(s)].filter((e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
+            return tous.filter((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < 35.5; })
+              .map((e) => `${e.className || e.tagName} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`);
+          });
+          verif(`${cle} · téléphone · ${onglet} : les cibles des briques communes font 36 px au moins`, !cibles.length, cibles.slice(0, 4).join(', '));
+          if (onglet === 'dessin') {
+            const tl = await toile(t);
+            verif(`${cle} · téléphone : la toile offre 300 px de large au moins au dessin`, tl && tl.l >= 300, JSON.stringify(tl));
+            const lg = await legendes(t);
+            verif(`${cle} · téléphone : la légende de chaque vue se lit en entier, le contenu de chaque tableau se voit`, !lg.length, lg.join(' | '));
+            const bt = await barreToile(t);
+            verif(`${cle} · téléphone : la barre de la toile (vues, zoom) n'est couverte par rien`, !bt.length, bt.join(', '));
+            const z = await zoom(t);
+            if (!z.saute) verif(`${cle} · téléphone : « + » grossit le dessin, « ajuster » le remet`, z.ok, JSON.stringify(z));
+            // le plein écran : la vue couvre l'écran
+            await t.click('#zoom [data-plein]');
+            await t.waitForTimeout(250);
+            const pe = await boite(t, '.canvas');
+            const fe = await boite(t, '.view.on .sheet');
+            verif(`${cle} · téléphone : le plein écran donne l'écran entier à la vue`, pe && pe.g === 0 && pe.h === 0 && pe.l === pe.W && pe.t === pe.H && fe && fe.t > pe.H * 0.6,
+              JSON.stringify({ pe, fe }));
+            await t.screenshot({ path: path.join(OUT, `site_${cle}_tel_plein.png`) });
+            await t.click('#zoom [data-plein]');
+            await t.waitForTimeout(150);
+            verif(`${cle} · téléphone : le plein écran se quitte`, !(await t.evaluate(() => document.querySelector('.bench').classList.contains('plein'))));
+          }
+          if (onglet === 'resultat') await volets(t, cle, 'téléphone');
+         } catch (e) { verif(`${cle} · téléphone · ${onglet} : le parcours va au bout`, false, String(e.message).split('\n')[0]); await t.keyboard.press('Escape'); }
+        }
+        // le menu des actions : il s'ouvre, tient dans l'écran, et se referme
+        await t.click('#menu-m');
+        const mm = await boite(t, '#mmenu');
+        verif(`${cle} · téléphone : le menu des actions s'ouvre dans l'écran`, dansEcran(mm) && (await t.$$eval('#mmenu .mi', (x) => x.filter((e) => e.checkVisibility()).length)) >= 6, JSON.stringify(mm));
+        await t.click('.mtabs [data-onglet="donnees"]');
+        verif(`${cle} · téléphone : un geste ailleurs referme le menu`, !(await vis(t, '#mmenu')));
+        verif(`${cle} · téléphone : aucune erreur JavaScript`, !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
+      }
+      await t.context().close();
+
+      // ------------------------------------------------ les tablettes (une seule note, la fenêtre change de taille)
+      const g = await contexte(820, 1180, false);
+      if (PARTIES.includes('tablettes') && await neuve(g, cle, 'tablette portrait')) {
+        for (const [fmt, w, h, seuil, nom] of [['tablette portrait', 820, 1180, [500, 300], 'tab_portrait'], ['tablette paysage', 1180, 820, [600, 400], 'tab_paysage'],
+          ['petite tablette paysage', 1024, 768, [500, 400], 'tab_paysage_1024'], ['petit portable', 1280, 800, [400, 400], 'portable_1280']]) {
+         try {
+          await g.setViewportSize({ width: w, height: h });
+          await g.waitForTimeout(400);
+          const cadres = { donnees: await boite(g, '.panel.left'), resultat: await boite(g, '.panel.right'), toile: await boite(g, '.canvas') };
+          verif(`${cle} · ${fmt} : les données, le résultat et la toile sont visibles ensemble, chacun à sa taille`,
+            Object.values(cadres).every((r) => r && r.l >= 280 && r.t >= 240 && dansEcran(r)), JSON.stringify(cadres));
+          const tl = await toile(g);
+          verif(`${cle} · ${fmt} : la toile offre ${seuil[0]} × ${seuil[1]} px au moins au dessin`, tl && tl.l >= seuil[0] && tl.t >= seuil[1], JSON.stringify(tl));
+          // la barre du haut : rien ne s'y chevauche (« Brouillon » passait sous le nom de la note)
+          const haut = await g.evaluate(() => {
+            const els = [...document.querySelectorAll('.top > *, .top .crumbs > *')].filter((e) => !e.classList.contains('crumbs') && !e.classList.contains('spacer')
+              && e.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map((e) => ({ n: (e.id || e.className || e.tagName).toString().slice(0, 20), r: e.getBoundingClientRect() }));
+            const f = [];
+            for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
+              const a = els[i].r, b = els[j].r;
+              if (a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom && b.top < a.bottom) f.push(`${els[i].n} / ${els[j].n}`);
+            }
+            const top = document.querySelector('.top').getBoundingClientRect();
+            els.forEach((e) => { if (e.r.right > top.right + 0.5) f.push(`${e.n} sort de la barre`); });
+            // le nom de la note, trop long pour sa place : il finit par « … », jamais coupé au milieu d'une lettre
+            const nn = document.getElementById('nom-note');
+            if (nn.scrollWidth > nn.clientWidth + 1 && getComputedStyle(nn).textOverflow !== 'ellipsis') f.push('nom de la note coupé net (sans « … »)');
+            return f;
+          });
+          verif(`${cle} · ${fmt} : la barre du haut ne se chevauche pas`, !haut.length, haut.join(', '));
+          const ca = await cartouche(g);
+          verif(`${cle} · ${fmt} : le cartouche ne se chevauche pas, l'indice et la date se lisent`, !ca.length, ca.join(', '));
+          if (nom === 'portable_1280') {
+            // le cadre le plus étroit (304 px) : chaque section des données ouverte, chaque champ mesuré
+            await g.evaluate(() => document.querySelectorAll('#donnees .sec:not(.open) > .sechd').forEach((h) => h.click()));
+            await g.waitForTimeout(200);
+          }
+          const m = await mesurer(g);
+          verif(`${cle} · ${fmt} : rien ne déborde, aucun nom coupé, la pastille du verdict entière`, !m.deborde && !m.coupes.length && !m.xl.length, JSON.stringify(m));
+          // une comparaison longue à côté de la grande pastille (soudures, pleine pénétration) : elle ne la comprime pas
+          const xl = await g.evaluate(() => {
+            const gv = document.querySelector('.verdict .gov'), c = document.querySelector('.verdict .chip.xl');
+            if (!gv || !c || !c.checkVisibility()) return null;
+            const ajout = document.createTextNode(' · σ⊥ = 218,5 N/mm² ≤ 0,9·fu/γM2 = 259,2 N/mm² (pleine pénétration, métal de base)');
+            gv.appendChild(ajout);
+            const r = document.createRange(); r.selectNodeContents(c);
+            const out = { texte: Math.round(r.getBoundingClientRect().width), boite: Math.round(c.getBoundingClientRect().width) };
+            ajout.remove();
+            return out;
+          });
+          if (xl) verif(`${cle} · ${fmt} : une comparaison longue ne comprime pas la grande pastille du verdict`, xl.texte <= xl.boite + 0.5, JSON.stringify(xl));
+          const lg = await legendes(g);
+          verif(`${cle} · ${fmt} : la légende de chaque vue se lit en entier, le contenu de chaque tableau se voit`, !lg.length, lg.join(' | '));
+          const bt = await barreToile(g);
+          verif(`${cle} · ${fmt} : la barre de la toile (vues, zoom) n'est couverte par rien`, !bt.length, bt.join(', '));
+          await g.screenshot({ path: path.join(OUT, `site_${cle}_${nom}.png`) });
+          const z = await zoom(g);
+          if (!z.saute) verif(`${cle} · ${fmt} : « + » grossit le dessin, « ajuster » le remet`, z.ok, JSON.stringify(z));
+          await volets(g, cle, fmt);
+         } catch (e) { verif(`${cle} · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); await g.keyboard.press('Escape'); }
+        }
+        // un nom d'élément long : ce sont ses dernières lettres qui cèdent, jamais les dimensions qui le suivent
+        await g.setViewportSize({ width: 820, height: 1180 });
+        await g.waitForTimeout(300);
+        // le champ du nom de l'élément : celui dont la valeur ouvre l'intitulé de l'élément ouvert de la liste
+        const champNom = await g.evaluate(() => {
+          const t = document.querySelector('.ni.on .t');
+          if (!t || ![...t.children].some((e) => e.tagName === 'SPAN' && !e.classList.contains('nom'))) return null;
+          const intitule = t.textContent.trim();
+          const c = [...document.querySelectorAll('#donnees input[data-sorte="texte"]')].filter((e) => e.value.trim() && intitule.startsWith(e.value.trim()))
+            .sort((a, b) => b.value.length - a.value.length)[0];
+          return c ? c.dataset.chemin : null;
+        });
+        if (champNom) {
+          await g.fill(`#donnees input[data-chemin="${champNom}"]`, 'Poutre de rive très longue du bâtiment B, file 12 à 18, niveau +3');
+          await g.press(`#donnees input[data-chemin="${champNom}"]`, 'Enter');
+          await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+          await g.waitForTimeout(150);
+          // les dimensions (le dernier <span> de l'intitulé) entières et dans leur ligne ; le nom, lui, peut céder
+          const ni = await g.evaluate(() => {
+            const t = document.querySelector('.ni.on .t');
+            const d = [...t.children].filter((e) => e.tagName === 'SPAN' && !e.classList.contains('nom')).pop();
+            const rt = t.getBoundingClientRect(), rd = d.getBoundingClientRect();
+            return { dims: d.textContent, entieres: d.scrollWidth <= d.clientWidth + 1 && rd.right <= rt.right + 0.5 && rd.left >= rt.left - 0.5, largeur: Math.round(rd.width) };
+          });
+          verif(`${cle} · tablette portrait : un nom long se coupe, les dimensions restent entières`, ni.entieres && ni.largeur > 20, JSON.stringify(ni));
+        }
+        verif(`${cle} · tablettes : aucune erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+      }
+      await g.context().close();
+    }
+
+    // ------------------------------------------------ les gestes communs, une fois (tablette portrait)
+    if (PARTIES.includes('communs') && (choisis.includes('soudures') || choisis.includes('poutre'))) {
+      const g = await contexte(820, 1180, false);
+      // une feuille qui met les en-têtes de tableau en capitales (la charte le fait ; soudures.css le défait pour les
+      // siens) : posée AVANT l'affichage, comme une feuille de module
+      await g.context().addInitScript(() => document.addEventListener('DOMContentLoaded', () => {
+        const st = document.createElement('style');
+        st.textContent = '.vtab th { text-transform: uppercase !important; }';
+        document.head.appendChild(st);
+      }));
+      const cle = choisis.includes('soudures') ? 'soudures' : 'poutre';
+      if (await neuve(g, cle, 'gestes communs')) {
+        // les lettres grecques d'un en-tête en capitales gardent leur casse : l'œil (innerText applique la casse) doit
+        // lire η, σ, τ là où le texte porte η, σ, τ
+        const grec = await g.evaluate(async () => {
+          const out = { vus: 0, fautes: [] };
+          for (const b of [...document.querySelectorAll('#vues [data-vue]')]) {
+            b.click();
+            await new Promise((r) => requestAnimationFrame(r));
+            for (const th of document.querySelectorAll('.view.on .vtab th')) {
+              if (!/[Ͱ-Ͽ]/.test(th.textContent)) continue;
+              out.vus++;
+              const lu = th.innerText;
+              if (/[ΗΣΤΓ]/.test(lu) && !/[ΗΣΤΓ]/.test(th.textContent)) out.fautes.push(`${th.textContent} → ${lu}`);
+            }
+          }
+          document.querySelector('#vues [data-vue]').click();
+          return out;
+        });
+        if (cle === 'soudures') verif('en-têtes en capitales : η reste η, σ reste σ (jamais « H », « Σ »)', grec.vus > 0 && !grec.fautes.length, JSON.stringify(grec));
+        // l'état VERROUILLÉ des briques (C.segments, C.texte, C.case avec desactive=True) se VOIT : les fragments rendus
+        // par les briques elles-mêmes (Python), posés dans le cadre Données à côté des mêmes briques actives, et comparés
+        // à l'œil (couleurs calculées) — un segment désactivé ressemblait trait pour trait à un segment actif
+        const BRIQUES = [
+          'import json, sys',
+          'sys.path.insert(0, sys.argv[1])',
+          'from api_web import commun as C',
+          'o = [("a", "Rive"), ("b", "Continue"), ("c", "Encastrée")]',
+          'print(json.dumps({k: C.segments(["essai", "s"], "a", o, desactive=v) + C.texte(["essai", "t"], "D1", desactive=v)',
+          '                  + C.case(["essai", "c"], True, "Appui libre", desactive=v) for k, v in (("actif", False), ("verrou", True))}))',
+        ].join('\n');
+        const fr = require('child_process').spawnSync(process.env.PYTHON || 'python3', ['-c', BRIQUES, path.join(__dirname, '..', '..')], { encoding: 'utf8' });
+        let briques = null;
+        try { briques = JSON.parse(fr.stdout); } catch (e) { /* le contrôle rougit */ }
+        const verrou = briques && await g.evaluate((b) => {
+          const z = document.querySelector('#donnees');
+          z.insertAdjacentHTML('afterbegin', `<div class="rows" id="essai-actif">${b.actif}</div><div class="rows" id="essai-verrou">${b.verrou}</div>`);
+          const cs = (s) => getComputedStyle(document.querySelector(s));
+          const diff = (s, p) => cs(`#essai-actif ${s}`)[p] !== cs(`#essai-verrou ${s}`)[p];
+          const out = {
+            segment: diff('.seg button:not(.on)', 'color'), retenu: diff('.seg button.on', 'backgroundColor') || diff('.seg button.on', 'color'),
+            bande: diff('.seg', 'backgroundColor'), curseur: cs('#essai-verrou .seg button').cursor, texte: diff('.field', 'backgroundColor'),
+            case: diff('.case', 'color'), lisible: cs('#essai-verrou .seg button.on').color !== cs('#essai-verrou .seg').backgroundColor,
+          };
+          document.getElementById('essai-actif').remove(); document.getElementById('essai-verrou').remove();
+          return out;
+        }, briques);
+        verif('l\'état verrouillé des briques se voit (segments, texte, case), le choix retenu reste lisible',
+          verrou && verrou.segment && verrou.retenu && verrou.bande && verrou.curseur === 'not-allowed' && verrou.texte && verrou.case && verrou.lisible,
+          JSON.stringify(verrou || String(fr.stderr).slice(0, 200)));
+        // télécharger un fichier propre au module : le moteur rend { fichier: { nom, type, texte } } ; ici la réponse
+        // est simulée (le routeur de l'autre équipe la rendra) — le nom arrive piégé et repart nettoyé
+        await g.evaluate(() => {
+          document.querySelector('#donnees').insertAdjacentHTML('afterbegin', '<button type="button" class="btn sm" data-telecharger="essai">Télécharger</button>');
+          window.__vu = null;
+          window.__simuler = (q) => {
+            if (q.action !== 'telecharger') return null;
+            window.__vu = q;
+            return q.quoi === 'essai' ? { ok: true, fichier: { nom: '../../dossier/essai..json', type: 'application/json', texte: '{"écran": "Streamlit", "a": 1}' } }
+              : { ok: false, erreur: 'pas de fichier pour cette note' };
+          };
+        });
+        const [dl] = await Promise.all([g.waitForEvent('download', { timeout: 20000 }), g.click('#donnees [data-telecharger="essai"]')]);
+        const contenu = require('fs').readFileSync(await dl.path(), 'utf8');
+        const vu = await g.evaluate(() => window.__vu);
+        verif('télécharger : la requête part au moteur (action, quoi, état) et le fichier arrive sous un nom nettoyé',
+          vu && vu.action === 'telecharger' && vu.quoi === 'essai' && vu.etat && dl.suggestedFilename() === 'essai.json' && contenu === '{"écran": "Streamlit", "a": 1}',
+          JSON.stringify({ nom: dl.suggestedFilename(), contenu, action: vu && vu.action, quoi: vu && vu.quoi }));
+        await g.evaluate(() => { document.querySelector('[data-telecharger="essai"]').dataset.telecharger = 'refuse'; });
+        await g.click('#donnees [data-telecharger="refuse"]');
+        await g.waitForTimeout(400);
+        const tst = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
+        verif('télécharger : un refus du moteur s\'affiche en message', tst.vu && tst.erreur && /refusé.*pas de fichier pour cette note/.test(tst.texte), JSON.stringify(tst));
+        // un module qui ne rend aucune vue : un texte neutre (ni « impossible », ni erreur)
+        await g.evaluate(() => {
+          window.__simuler = null;
+          window.__retoucher = (json) => { const r = JSON.parse(json); if (r.ok && r.vues) r.vues = []; return JSON.stringify(r); };
+        });
+        // « ajouter » recalcule toujours (contrat commun) : sa réponse arrive sans vue
+        await g.click('#donnees [data-ajouter]');
+        await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+        await g.waitForTimeout(300);
+        const sv = await g.evaluate(() => ({ texte: document.getElementById('stage').textContent.trim(), zoom: document.getElementById('zoom').checkVisibility() }));
+        verif('aucune vue : un texte neutre, sans barre de zoom', sv.texte === 'Pas de dessin pour cette note.' && !sv.zoom, JSON.stringify(sv));
+        await g.evaluate(() => { window.__retoucher = null; });
+        // une réponse illisible du moteur (un « Infinity », que JSON ne connaît pas) : un message, et l'établi reste
+        // vivant — la requête restait sans réponse, la file du moteur bloquée, « Calcul… » sans fin
+        const nAvant = await g.$$eval('.elements .ni', (e) => e.length);
+        await g.evaluate(() => { window.__retoucher = (json) => { window.__retoucher = null; return json.replace(/"ok": true/, '"ok": true, "x": Infinity'); }; });
+        await g.click('#donnees [data-ajouter]');
+        const libre = await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 10000 }).then(() => true, () => false);
+        const ill = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
+        await g.click('#donnees [data-ajouter]');
+        const repart = await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 30000 }).then(() => true, () => false);
+        const nApres = await g.$$eval('.elements .ni', (e) => e.length);
+        verif('une réponse illisible du moteur : un message, et le calcul suivant passe (la file du moteur ne se bloque pas)',
+          libre && ill.vu && ill.erreur && /réponse illisible du moteur/.test(ill.texte) && repart && nApres === nAvant + 1, JSON.stringify({ libre, ...ill, repart, nAvant, nApres }));
+        // les erreurs de la réponse illisible sont attendues : la console les dit, la page n'a pas levé
+        g.erreurs = g.erreurs.filter((x) => !/réponse illisible du moteur/.test(x));
+        verif('gestes communs : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+      }
+      await g.context().close();
+      // le taux d'une note au-delà de 999 % : l'en-tête du téléphone et la carte de l'accueil écrivent « > 999 % » (la
+      // valeur exacte au survol), comme les pastilles du moteur ; un taux de huit chiffres en sortait
+      const tt = await contexte(390, 844, true);
+      if (await neuve(tt, cle, 'taux énorme')) {
+        await tt.evaluate(() => { window.__retoucher = (json) => { const r = JSON.parse(json); if (r.ok && r.resume) r.resume.taux = 12345678; return JSON.stringify(r); }; });
+        await tt.click('#donnees [data-ajouter]');
+        await tt.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+        await tt.evaluate(() => { window.__retoucher = null; });
+        const ch = await tt.evaluate(() => {
+          const c = document.getElementById('chip-m'), r = c.getBoundingClientRect(), m = document.getElementById('menu-m').getBoundingClientRect();
+          return { texte: c.textContent, titre: c.title, vu: c.checkVisibility(), l: Math.round(r.width), entier: c.scrollWidth <= c.clientWidth + 1 && r.right <= m.left + 0.5,
+            nom: Math.round(document.getElementById('nom-note-m').getBoundingClientRect().width) };
+        });
+        verif('taux de plus de 999 % · téléphone : l\'en-tête écrit « > 999 % » (la valeur exacte au survol), la pastille entière, le nom lisible',
+          ch.vu && ch.texte === '>\u00a0999\u00a0%' && ch.titre === '12\u202f345\u202f678\u00a0%' && ch.entier && ch.l <= 90 && ch.nom >= 150, JSON.stringify(ch));
+        await tt.goto(`${BASE}/index.html`);
+        await tt.waitForTimeout(300);
+        const ca = await tt.evaluate(() => {
+          const c = document.querySelector('#recentes .rcard .chip');
+          if (!c) return null;
+          const r = c.getBoundingClientRect(), m = c.closest('.m').getBoundingClientRect();
+          return { texte: c.textContent, titre: c.title, vu: c.checkVisibility(), dedans: r.right <= m.right + 0.5 && c.scrollWidth <= c.clientWidth + 1 };
+        });
+        verif('taux de plus de 999 % · accueil : la carte de la note écrit « > 999 % », la valeur exacte au survol, la pastille dans sa carte',
+          ca && ca.vu && ca.texte === '>\u00a0999\u00a0%' && ca.titre === '12\u202f345\u202f678\u00a0%' && ca.dedans, JSON.stringify(ca));
+        verif('taux de plus de 999 % : aucune erreur JavaScript', !tt.erreurs.length, tt.erreurs.join(' | ').slice(0, 300));
+      }
+      await tt.context().close();
+    }
+
+    // ------------------------------------------------ numpy : chargé pour ceux qui s'en servent, à la demande sinon
+    if (PARTIES.includes('numpy')) {
+      const man = await (await p.request.get(`${BASE}/moteur/manifeste.json`)).json();
+      const sans = Object.keys(MODS).find((k) => !(man.avec_numpy || []).includes(k));
+      const avec = (man.avec_numpy || []).find((k) => MODS[k]);
+      if (sans) {
+        const g = await contexte(1280, 800, false);
+        await g.goto(`${BASE}/${MODS[sans].page}`);
+        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        const ok = await g.evaluate(() => document.getElementById('demarrage').hidden);
+        verif(`numpy : ${sans} démarre sans le charger`, ok && !g.requetes.some((u) => /numpy-.*\.whl/.test(u)), g.requetes.filter((u) => /numpy/.test(u)).join(', '));
+        await g.context().close();
+      }
+      if (avec) {
+        // le manifeste « oublie » ce module : numpy doit être chargé à la demande (le guet du travailleur) et la note
+        // calculée quand même
+        const g = await contexte(1280, 800, false);
+        await g.context().route('**/moteur/manifeste.json', async (route) => {
+          const r = await route.fetch();
+          const j = await r.json();
+          j.avec_numpy = [];
+          await route.fulfill({ response: r, json: j });
+        });
+        await g.goto(`${BASE}/${MODS[avec].page}`);
+        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        const etat = await g.evaluate(() => ({ ok: document.getElementById('demarrage').hidden, resultat: !!document.querySelector('#resultat .verdict, #resultat .el') }));
+        verif(`numpy : ${avec} oublié du manifeste se calcule quand même (numpy chargé à la demande)`,
+          etat.ok && etat.resultat && g.requetes.some((u) => /numpy-.*\.whl/.test(u)), JSON.stringify({ ...etat, numpy: g.requetes.filter((u) => /numpy/.test(u)) }));
+        await g.context().close();
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------- télécharger, de bout en bout
+  // Le protocole entier, sans rien simuler : un bouton RENDU PAR UN MODULE (C.bouton_telecharger, en Python) → le clic
+  // → le travailleur → le routeur (action « telecharger », contrôle du fichier par refus_fichier) → le Blob → le fichier
+  // que Chromium enregistre, sous la politique de sécurité du site. Aucun module publié ne propose encore de fichier :
+  // le navigateur reçoit ici un paquet du moteur où le module des poutres en propose (le code AJOUT, ajouté à
+  // api_web/poutre.py à la volée ; le manifeste suit l'empreinte du paquet). Rien de ceci n'est publié.
+  //   filtre « telecharger »
+  if (!FILTRE || FILTRE === 'telecharger') {
+    const fs = require('fs');
+    const AJOUT = [
+      '# --- ajouté à la volée par site/web/verifier_site.js (télécharger, de bout en bout) : jamais publié',
+      'import json as _json_essai',
+      '_resultat_publie = resultat',
+      '',
+      '',
+      'def resultat(etat):',
+      '    r = _resultat_publie(etat)',
+      '    b = "".join(C.bouton_telecharger(q, t) for q, t in (("json", "JSON de la note"), ("nom-piege", "Nom piégé"),',
+      '                                                         ("type-html", "Page HTML"), ("inconnu", "Inconnu")))',
+      '    r["donnees"] = \'<div class="essai-telecharger">\' + b + "</div>" + r["donnees"]',
+      '    r["volets"] = r["volets"].replace(\'<div class="ck-sub">\', C.bouton_telecharger("json", "JSON de la note") + \'<div class="ck-sub">\')',
+      '    return r',
+      '',
+      '',
+      'def telecharger(etat, quoi):',
+      '    if quoi == "json":',
+      '        return {"nom": C.nom_fichier("Poutre P1/2 : RDC « essai »", "json"), "type": "application/json",',
+      '                "texte": _json_essai.dumps(etat, ensure_ascii=False)}',
+      '    if quoi == "nom-piege":',
+      '        return {"nom": "../../poutre.json", "type": "application/json", "texte": "{}"}',
+      '    if quoi == "type-html":',
+      '        return {"nom": "page.html", "type": "text/html", "texte": "<script>window.__piege = 1</script>"}',
+      '    return None',
+    ].join('\n');
+    // le paquet d'essai : celui du site, où api_web/poutre.py reçoit AJOUT (Python le réécrit ; le texte passe en base64)
+    const ZIPPER = [
+      'import base64, io, sys, zipfile',
+      'ajout = base64.b64decode(sys.argv[1])',
+      'src = zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()))',
+      'out = io.BytesIO()',
+      'with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:',
+      '    for i in src.infolist():',
+      '        d = src.read(i)',
+      '        z.writestr(i, d + b"\\n\\n" + ajout + b"\\n" if i.filename == "api_web/poutre.py" else d)',
+      'sys.stdout.buffer.write(out.getvalue())',
+    ].join('\n');
+    const zip0 = await (await p.request.get(`${BASE}/moteur/moteur.zip`)).body();
+    const fait = require('child_process').spawnSync(process.env.PYTHON || 'python3', ['-I', '-c', ZIPPER, Buffer.from(AJOUT).toString('base64')],
+      { input: zip0, maxBuffer: 1 << 27 });
+    const zipEssai = fait.stdout;
+    const shaEssai = require('crypto').createHash('sha256').update(zipEssai || '').digest('hex');
+    verif('télécharger : le paquet d\'essai se prépare (le module des poutres y propose des fichiers)', fait.status === 0 && zipEssai.length > zip0.length / 2,
+      String(fait.stderr || fait.error || '').slice(0, 300));
+    const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const prepare = async (w, h, tel) => {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel, acceptDownloads: true });
+      await c.route('**/moteur/manifeste.json', async (route) => {
+        const r = await route.fetch();
+        const j = await r.json();
+        j.sha256 = shaEssai;
+        await route.fulfill({ response: r, json: j });
+      });
+      await c.route('**/moteur/moteur.zip*', (route) => route.fulfill({ status: 200, contentType: 'application/zip', body: zipEssai }));
+      // toute violation de la politique de sécurité est notée (un fichier qui s'exécuterait, une ressource refusée…)
+      await c.addInitScript(() => {
+        window.__csp = [];
+        document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
+      });
+      const pg = await c.newPage();
+      pg.erreurs = [];
+      pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
+      return pg;
+    };
+    const ouvrir = async (pg, cle) => {
+      const rep = await pg.goto(`${BASE}/${MODS[cle].page}?chantier=${encodeURIComponent('Contrôle')}&nom=${encodeURIComponent('Essai télécharger')}`);
+      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      return rep;
+    };
+    const visible = (pg, s) => pg.evaluate((s) => [...document.querySelectorAll(s)].some((e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true })
+      && e.getBoundingClientRect().width > 20 && e.getBoundingClientRect().height > 20), s);
+    const message = (pg) => pg.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
+    const etatNote = (pg) => pg.evaluate(() => {
+      const id = new URLSearchParams(location.search).get('note');
+      return { id, etat: JSON.parse(localStorage.getItem('stab.notes.v1'))[id].etat };
+    });
+    // un clic qui ne doit RIEN faire télécharger : le refus du routeur arrive en message
+    const refuse = async (pg, sel, motif, nom) => {
+      const att = pg.waitForEvent('download', { timeout: 3000 }).then((d) => d.suggestedFilename(), () => null);
+      await pg.click(sel);
+      const fichier = await att;
+      const t = await message(pg);
+      verif(`télécharger · ${nom} : refusé, aucun fichier enregistré, un message en français`, fichier === null && t.vu && t.erreur && motif.test(t.texte),
+        JSON.stringify({ fichier, ...t }));
+    };
+    const NOM = 'Poutre P1-2 - RDC « essai ».json';
+
+    // ------------------------------------------------ au PC
+    const g = await prepare(1440, 900, false);
+    const rep = await ouvrir(g, 'poutre');
+    verif('télécharger · PC : le bouton rendu par le module (C.bouton_telecharger) est posé et visible', await visible(g, '#donnees [data-telecharger="json"]'));
+    const [dl] = await Promise.all([g.waitForEvent('download', { timeout: 30000 }), g.click('#donnees [data-telecharger="json"]')]);
+    const contenu = fs.readFileSync(await dl.path(), 'utf8');
+    const note = await etatNote(g);
+    let relu = null;
+    try { relu = JSON.parse(contenu); } catch (e) { /* illisible : le contrôle rougit */ }
+    verif('télécharger · PC : le clic → le routeur → le fichier enregistré sous le nom donné par le module, avec l\'état de la note',
+      dl.suggestedFilename() === NOM && relu !== null && JSON.stringify(relu) === JSON.stringify(note.etat),
+      JSON.stringify({ nom: dl.suggestedFilename(), contenu: contenu.slice(0, 80) }));
+    const t0 = await message(g);
+    verif('télécharger · PC : un message dit le fichier téléchargé', t0.vu && !t0.erreur && t0.texte === `${NOM} téléchargé`, JSON.stringify(t0));
+    await refuse(g, '#donnees [data-telecharger="nom-piege"]', /^Téléchargement refusé : Le fichier « nom-piege » est refusé : le nom du fichier ne peut contenir/, 'un nom de fichier qui remonte les dossiers');
+    await refuse(g, '#donnees [data-telecharger="type-html"]', /^Téléchargement refusé : .*type de fichier non permis : « text\/html »/, 'une page HTML');
+    await refuse(g, '#donnees [data-telecharger="inconnu"]', /^Téléchargement refusé : Fichier inconnu : « inconnu »/, 'un fichier que le module ne connaît pas');
+    // depuis la fenêtre de calcul : le fichier arrive, la fenêtre reste ouverte
+    await g.click('#resultat [data-calcul]');
+    await g.waitForTimeout(250);
+    const [dl2] = await Promise.all([g.waitForEvent('download', { timeout: 30000 }), g.click('.flyout.on.calcul [data-telecharger="json"]')]);
+    await g.waitForTimeout(300);
+    verif('télécharger · PC : depuis la fenêtre de calcul, le fichier arrive et la fenêtre reste ouverte',
+      dl2.suggestedFilename() === NOM && await visible(g, '.flyout.on.calcul'), dl2.suggestedFilename());
+    await g.keyboard.press('Escape');
+    // la note elle-même (.stab) passe par le même chemin d'enregistrement
+    const [dl3] = await Promise.all([g.waitForEvent('download', { timeout: 30000 }), g.click('.top [data-action="exporter"]')]);
+    let stab = null;
+    try { stab = JSON.parse(fs.readFileSync(await dl3.path(), 'utf8')); } catch (e) { /* illisible : le contrôle rougit */ }
+    verif('exporter la note : le fichier « chantier - nom.stab » arrive, la note entière',
+      dl3.suggestedFilename() === 'Contrôle - Essai télécharger.stab' && stab && stab.format === 'stab' && stab.note.id === note.id, dl3.suggestedFilename());
+    const csp = rep.headers()['content-security-policy'] || '';
+    const apres = await g.evaluate(() => ({ csp: window.__csp, piege: window.__piege }));
+    verif('télécharger · PC : sous la politique de sécurité du site, aucune violation, rien du fichier exécuté, aucune erreur JavaScript',
+      /script-src 'self'/.test(csp) && !apres.csp.length && apres.piege === undefined && !g.erreurs.length,
+      JSON.stringify({ csp: csp.slice(0, 40), violations: apres.csp, erreurs: g.erreurs.slice(0, 3) }));
+    // un module publié sans fichier à proposer : le VRAI routeur refuse, en français
+    await ouvrir(g, 'dalle');
+    await g.evaluate(() => document.querySelector('#donnees').insertAdjacentHTML('afterbegin', '<button type="button" class="btn sm" data-telecharger="json">JSON</button>'));
+    await refuse(g, '#donnees [data-telecharger="json"]', /^Téléchargement refusé : Ce module ne propose aucun fichier à télécharger\.$/, 'un module sans fichier (dalle)');
+    await g.context().close();
+
+    // ------------------------------------------------ au téléphone (le même bouton, dans l'onglet Données)
+    const tl = await prepare(390, 844, true);
+    await ouvrir(tl, 'poutre');
+    verif('télécharger · téléphone : le bouton du module est posé et visible', await visible(tl, '#donnees [data-telecharger="json"]'));
+    const [dl4] = await Promise.all([tl.waitForEvent('download', { timeout: 30000 }), tl.click('#donnees [data-telecharger="json"]')]);
+    let relu4 = null;
+    try { relu4 = JSON.parse(fs.readFileSync(await dl4.path(), 'utf8')); } catch (e) { /* illisible : le contrôle rougit */ }
+    verif('télécharger · téléphone : le fichier arrive sous le même nom, avec l\'état de la note',
+      dl4.suggestedFilename() === NOM && relu4 && JSON.stringify(relu4) === JSON.stringify((await etatNote(tl)).etat), dl4.suggestedFilename());
+    verif('télécharger · téléphone : aucune violation de la politique de sécurité, aucune erreur JavaScript',
+      !(await tl.evaluate(() => window.__csp.length)) && !tl.erreurs.length, tl.erreurs.join(' | ').slice(0, 300));
+    await tl.context().close();
   }
 
   // ---------------------------------------------------------------- un fichier .stab piégé
@@ -299,7 +1047,8 @@ const FILTRE = process.argv[4] || '';
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (les formats et « télécharger » travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  if (!FILTRE.startsWith('formats') && FILTRE !== 'telecharger') verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

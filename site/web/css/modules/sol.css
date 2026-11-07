@@ -109,3 +109,11 @@
 .sol-carte .sh2 .pct { flex: none; }
 .sol-tab th, .sol-tab td { padding: 6px 8px; }
 .sol-tab td.g:not(:first-child) { white-space: normal; min-width: 150px; }
+
+/* au téléphone : des tableaux plus serrés, pour que leurs premières colonnes se lisent sans défiler en largeur
+   (le tableau SCIA faisait 500 px dans une vue de 368) */
+@media (max-width: 700px) {
+  .sol-tab { font-size: 11px; }
+  .sol-tab th, .sol-tab td { padding: 5px 5px; }
+  .sol-tab th { font-size: 10px; white-space: normal; }
+}

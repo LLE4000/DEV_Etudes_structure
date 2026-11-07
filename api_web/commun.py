@@ -1,22 +1,33 @@
 # -*- coding: utf-8 -*-
 """Ce que les modules du site partagent : le code couleur, les nombres à la française et les COMPOSANTS de l'écran
-(ligne de résultat, grande fenêtre de calcul, sélecteur, champs de saisie, sections repliables).
+(ligne de résultat, verdict, grande fenêtre de calcul, sélecteur, champs de saisie, sections repliables, bouton de
+téléchargement).
 
 Ils sont écrits ici, en Python, et tournent dans le navigateur avec le moteur (Pyodide) : l'écran ne fait qu'afficher
 les fragments HTML qu'on lui rend et renvoyer ce que l'utilisateur saisit. Il ne calcule rien, ne recopie aucun seuil.
 Les classes CSS sont celles de la charte (site/web/css/charte.css), reprise des maquettes validées par le bureau.
+
+L'arrondi est celui des formules des moteurs (``acier.formats.F``, c'est-à-dire ``acier.js.to_fixed``) : DEMI VERS
+L'EXTÉRIEUR, appliqué à la valeur binaire exacte du nombre. Un tableau et la formule voisine écrivent donc le même
+chiffre (490,5 → « 491 » des deux côtés). La règle n'est pas recopiée ici : ``_fixe`` appelle ``to_fixed``.
 """
+import decimal
 import html
 import math
+import numbers
 import re
+import unicodedata
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
+from acier import js as JS
 from acier.garde_corps import membres as ME
 
 from .icones import ICONES
 
-NBSP = " "
+NBSP = "\u00a0"              # espace insécable : entre un nombre et son unité
+FINE = "\u202f"              # espace fine insécable : entre les milliers
 NIVEAUX = {ME.NOK: "r", ME.ATTENTION: "f", ME.OK: "p"}
+PLAFOND_TAUX = 999           # au-delà, un taux s'écrit « > 999 % » (la valeur exacte au survol) : comme acier.formats.pct
 
 
 # ------------------------------------------------------------------ code couleur et nombres
@@ -28,11 +39,45 @@ def niveau(t: Optional[float]) -> str:
     return NIVEAUX.get(ME.statut(t), "p")
 
 
-def pct(t: float, nd: int = 0):
-    """Un taux à afficher, arrondi au plus proche SANS quitter la bande de sa couleur : 94,98 % s'affiche 94 % (95 % se
-    lirait vert foncé), 100,2 % s'affiche 101 % (100 % se lirait admis), 63,7 % reste 64 %."""
+def _fini(x) -> bool:
+    """Un nombre réel fini — un nombre de numpy aussi (numpy.int64, numpy.float32 : ce ne sont ni des ``int`` ni des
+    ``float`` de Python, et ``fr`` les écrivait « — »)."""
+    return isinstance(x, numbers.Real) and not isinstance(x, bool) and math.isfinite(x)
+
+
+def _fixe(x: float, nd: int) -> str:
+    """``x`` écrit avec ``nd`` décimales (point décimal), arrondi DEMI VERS L'EXTÉRIEUR sur la valeur binaire exacte :
+    la règle des moteurs (``acier.js.to_fixed``), appelée — pas recopiée. La précision décimale est élargie pour qu'un
+    très grand nombre (1e30) s'écrive au lieu de lever. Le signe d'un zéro est ôté : jamais « -0 ». Un nombre de numpy
+    passe d'abord en nombre Python (``to_fixed`` tronquait un numpy.float32 à l'entier)."""
+    x = int(x) if isinstance(x, numbers.Integral) else float(x)
+    with decimal.localcontext() as ctx:
+        ctx.prec = 420                            # 309 chiffres pour le plus grand flottant, plus les décimales
+        s = JS.to_fixed(x, int(nd))
+    if s.startswith("-") and not s.strip("-0."):
+        s = s[1:]
+    return s
+
+
+def _grouper(ent: str) -> str:
+    """La partie entière en tranches de trois chiffres, séparées par l'espace fine insécable."""
+    signe, chiffres = ("-", ent[1:]) if ent.startswith("-") else ("", ent)
+    tranches = []
+    while len(chiffres) > 3:
+        chiffres, tranches = chiffres[:-3], [chiffres[-3:]] + tranches
+    return signe + FINE.join([chiffres] + tranches)
+
+
+def pct(t: Optional[float], nd: int = 0):
+    """Un taux à afficher, arrondi au plus proche (demi vers l'extérieur, comme les formules des moteurs) SANS quitter
+    la bande de sa couleur : 94,98 % s'affiche 94 % (95 % se lirait vert foncé), 100,2 % s'affiche 101 % (100 % se
+    lirait admis), 63,7 % reste 64 %, 63,5 % donne 64 %. None (ou un taux non numérique) : None."""
+    if t is None or (isinstance(t, float) and math.isnan(t)):
+        return None
     x, n, k = t * 100, niveau(t), 10 ** nd
-    v = math.floor(x * k + 0.5) / k
+    if math.isinf(x):
+        return x
+    v = float(_fixe(x, nd))
     if n == "r":
         v = max(v, 100 + 1 / k)
     elif n == "f":
@@ -43,25 +88,53 @@ def pct(t: float, nd: int = 0):
 
 
 def pc(v) -> str:
-    """Un taux déjà arrondi (pct), écrit à la française : « 64 » ou « 63,7 »."""
-    return f"{v:.1f}".replace(".", ",") if isinstance(v, float) and v != int(v) else f"{int(v)}"
+    """Un taux déjà arrondi (pct), écrit à la française : « 64 » ou « 63,7 » ; « — » s'il manque."""
+    if v is None:
+        return "—"
+    if isinstance(v, float) and math.isinf(v):
+        return "∞" if v > 0 else "-∞"
+    return _fixe(v, 1).replace(".", ",") if isinstance(v, float) and v != int(v) else f"{int(v)}"
 
 
 def fr(x: Optional[float], nd: int = 1) -> str:
-    """Un nombre à la française : virgule décimale, espace insécable fine entre les milliers."""
-    if x is None:
+    """Un nombre de RÉSULTAT à la française : ``nd`` décimales, virgule décimale, espace fine insécable entre les
+    milliers, arrondi demi vers l'extérieur comme les formules des moteurs (490,5 → « 491 », 1,25 → « 1,3 » ; 2,675
+    vaut 2,67499… en binaire → « 2,67 », comme le moteur). « — » si absent ou non fini ; jamais « -0 »."""
+    if x is None or not _fini(x):
         return "—"
-    return f"{x:,.{nd}f}".replace(",", " ").replace(".", ",")
+    ent, _, dec = _fixe(x, nd).partition(".")
+    return _grouper(ent) + ("," + dec if dec else "")
 
 
 def nb(x: Optional[float], dec: int = 3) -> str:
     """Une valeur saisie (coefficient, dimension) écrite telle quelle, sans arrondi au-delà de ``dec`` décimales :
-    1,25 reste 1,25 (un format de taux en ferait « 1,2 »). Le chiffre écrit est relu et comparé à la valeur."""
+    1,25 reste 1,25 (un format de taux en ferait « 1,2 »), 210000 reste 210000 (seuls les zéros APRÈS la virgule
+    s'ôtent), 0,5 à zéro décimale donne 1 (demi vers l'extérieur). Pas de séparateur de milliers (``num`` les pose
+    dans un champ). Le chiffre écrit est relu et comparé à la valeur ; jamais « -0 » ; « — » si non fini."""
     if x is None:
         return ""
-    s = f"{float(x):.{dec}f}".rstrip("0").rstrip(".")
-    assert abs(float(s) - float(x)) <= 0.5 * 10 ** -dec + 1e-12, (x, s)
+    if not _fini(float(x)):
+        return "—"
+    s = _fixe(float(x), dec)
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    assert abs(float(s) - float(x)) <= 0.5 * 10 ** -dec * (1 + 1e-9) + 1e-12 * max(1.0, abs(float(x))), (x, s)
     return s.replace(".", ",")
+
+
+def qte(x: Optional[float], unite: str, nd: int = 1) -> str:
+    """Une QUANTITÉ : la valeur (``fr``) et son unité liées par une espace insécable — « 1 380,5 kg/m³ » ne se coupe
+    jamais entre le nombre et l'unité, ni dans l'unité (« t / m³ » : ses espaces deviennent insécables). ``unite`` est
+    du HTML du module (« mm<sup>2</sup> » permis ; jamais un texte saisi). « — » si la valeur manque."""
+    if x is None or not _fini(x):
+        return "—"
+    u = _insecable(unite)
+    return f"{fr(x, nd)}{NBSP}{u}" if u else fr(x, nd)
+
+
+def _insecable(h: str) -> str:
+    """Les espaces d'un texte HTML rendues insécables, HORS des balises (« <span class="u"> » garde la sienne)."""
+    return re.sub(r"(<[^>]*>)| ", lambda m: m.group(1) or NBSP, str(h or ""))
 
 
 def lire_nombre(v) -> Optional[float]:
@@ -70,7 +143,7 @@ def lire_nombre(v) -> Optional[float]:
         return float(v)
     if not isinstance(v, str):
         return None
-    s = v.replace(" ", "").replace("\xa0", "").replace(" ", "").replace(",", ".")
+    s = v.replace(" ", "").replace(NBSP, "").replace(FINE, "").replace(",", ".")
     try:
         x = float(s)
     except ValueError:
@@ -78,24 +151,59 @@ def lire_nombre(v) -> Optional[float]:
     return x if math.isfinite(x) else None
 
 
+def lire_auto(v) -> Optional[float]:
+    """La lecture d'un champ « vide = automatique » (``num(..., auto=…)``) : un champ VIDÉ rend None — le module
+    prend alors la valeur automatique ; un nombre rend ce nombre ; tout autre texte lève ValueError avec un message
+    à montrer tel quel (texte simple), l'état restant intact."""
+    if v is None or (isinstance(v, str) and not v.strip()):
+        return None
+    x = lire_nombre(v)
+    if x is None:
+        t = str(v).strip()
+        t = t if len(t) <= 40 else t[:39] + "…"
+        raise ValueError(f"« {t} » n'est pas un nombre : laisser le champ vide pour la valeur automatique.")
+    return x
+
+
 # ------------------------------------------------------------------ texte
 def esc(s) -> str:
     return html.escape(str(s), quote=True)
 
 
+_GRECQUES = "Α-Ωα-ωϐϑϕϖϰϱϵ"
+_CAR_INDICE = rf"A-Za-z0-9éèàùêç{_GRECQUES}⊥∥"
+_SYMBOLE = re.compile(rf"([A-Za-z{_GRECQUES}][\u0300-\u036f]*)_([{_CAR_INDICE}]+(?:,[{_CAR_INDICE}]+)*)")
+
+
 def symb_math(s: str) -> str:
-    """Un symbole du moteur écrit comme dans la note : q_h → q<sub>h</sub>, W_el,y → W<sub>el,y</sub> (texte échappé)."""
-    return re.sub(r"([A-Za-zσητγαμ])_([A-Za-z0-9éèàùστη]+(?:,[A-Za-z0-9éèàù]+)*)", r"\1<sub>\2</sub>", html.escape(str(s), quote=False))
+    """Un symbole du moteur écrit comme dans la note : q_h → q<sub>h</sub>, W_el,y → W<sub>el,y</sub>, χ_LT →
+    χ<sub>LT</sub>, λ̄_LT → λ̄<sub>LT</sub>, σ_⊥ → σ<sub>⊥</sub>, M_Rd,θ → M<sub>Rd,θ</sub> : toutes les lettres
+    grecques, minuscules et majuscules (et leurs variantes ϕ ϑ ϵ), portent un indice (texte échappé)."""
+    return _SYMBOLE.sub(r"\1<sub>\2</sub>", html.escape(str(s), quote=False))
 
 
 def icon(nom: str) -> str:
     return ICONES[nom]
 
 
+def _taux_txt(taux) -> Tuple[str, str]:
+    """(texte, attribut title) d'un taux déjà arrondi : « 64 % » ; au-delà de 999 %, « > 999 % » et la valeur exacte
+    au survol (un nombre de huit chiffres casse la pastille) ; « — » s'il manque."""
+    if taux is None:
+        return "—", ""
+    if taux > PLAFOND_TAUX:
+        ent, _, dec = pc(taux).partition(",")
+        exact = (ent if not ent.lstrip("-").isdigit() else _grouper(ent)) + ("," + dec if dec else "")
+        return f"&gt;{NBSP}{PLAFOND_TAUX}{NBSP}%", f' title="{exact}{NBSP}%"'
+    return f"{pc(taux)}{NBSP}%", ""
+
+
 def chip(taux, niv: str, xl: bool = False) -> str:
+    """La pastille d'un taux (déjà arrondi, ``pct``) dans sa couleur ; ``xl`` : la grande pastille du verdict (η)."""
+    txt, titre = _taux_txt(taux)
     if xl:
-        return f'<span class="chip xl {niv}"><small>η</small>{pc(taux)}{NBSP}%</span>'
-    return f'<span class="chip {niv}">{pc(taux)}{NBSP}%</span>'
+        return f'<span class="chip xl {niv}"{titre}><small>η</small>{txt}</span>'
+    return f'<span class="chip {niv}"{titre}>{txt}</span>'
 
 
 STATUTS = {"p": ("p", "Conforme"), "f": ("f", "Conforme, attention"), "r": ("r", "Non conforme"), "c": ("c", "À compléter"),
@@ -114,20 +222,49 @@ def legende() -> str:
 
 
 # ------------------------------------------------------------------ résultat, calcul, sélecteur
-def ligne_res(nom: str, piece: str, taux, niv: str, calcul: str = "", pk: str = "", gov: bool = False, leger: str = "") -> str:
+def _largeur(taux) -> float:
+    """La longueur de la jauge, bornée à [0, 100] % : un taux négatif (une traction comptée en η_N) laisse la jauge
+    VIDE — une largeur CSS négative serait ignorée par le navigateur et la jauge s'afficherait pleine."""
+    if taux is None or (isinstance(taux, float) and math.isnan(taux)):
+        return 0
+    return max(0, min(taux, 100))
+
+
+def ligne_res(nom: str, piece: str, taux, niv: str, calcul: str = "", pk: str = "", gov: bool = False, leger: str = "",
+              sans_taux: str = "à compléter") -> str:
     """Une vérification du résultat, sur DEUX lignes : le nom et la pièce, puis la jauge et le taux. La ligne entière
     ouvre le calcul détaillé ; la pièce, quand elle se choisit (profilé, armatures), ouvre le sélecteur. ``taux`` est
-    déjà arrondi (pct) ; None : à compléter. ``piece`` est déjà du HTML."""
+    déjà arrondi (pct) ; None : le texte ``sans_taux`` (« à compléter » ; un module de consultation choisit le sien,
+    « consultation », « — »…). ``piece`` est déjà du HTML. La jauge est bornée à [0, 100] % ; un taux de plus de
+    999 % s'écrit « > 999 % » (la valeur exacte au survol)."""
     etoile = f'<span class="leger" title="{esc(leger)}">{icon("star")}</span>' if leger else ""
     if pk:
         p = f'<button class="prof" data-pk="{esc(pk)}" title="Choisir">{etoile}<span>{piece}</span>{icon("chevron-down")}</button>'
     else:
         p = f'<span class="prof"><span>{piece}</span></span>'
     ouvre = f' data-calcul="{esc(calcul)}" title="Voir le calcul"' if calcul else ""
-    txt = f"{pc(taux)}{NBSP}%" if taux is not None else "à compléter"
-    largeur = min(taux or 0, 100)
+    txt, titre = _taux_txt(taux) if taux is not None else (esc(sans_taux), "")
     return (f'<div class="el{" gov" if gov else ""}"{ouvre}><div class="l1"><b>{esc(nom)}</b>{p}</div>'
-            f'<div class="l2"><div class="bar"><b class="{niv}" style="width:{largeur}%"></b></div><span class="pct {niv}">{txt}</span></div></div>')
+            f'<div class="l2"><div class="bar"><b class="{niv}" style="width:{_largeur(taux)}%"></b></div>'
+            f'<span class="pct {niv}"{titre}>{txt}</span></div></div>')
+
+
+def verdict_valeur(x: Optional[float], unite: str, titre: str, comparaison: str = "", niv: str = "c", nd: int = 1,
+                   symbole: str = "", calcul: str = "", classe: str = "") -> str:
+    """Le VERDICT d'une valeur qui n'est PAS un pourcentage (un taux d'armature en kg/m³, une section en mm²…) : le
+    même dessin que le verdict d'un taux (``chip(…, xl=True)`` puis la vérification et sa comparaison), la valeur
+    (``fr(x, nd)``) en grand et l'unité en petit dans la pastille. ``titre`` est du TEXTE (échappé) ; ``comparaison``,
+    ``unite`` et ``symbole`` sont du HTML du module (« ≥ A<sub>s,req</sub> = 1 206 mm² ») ; ``calcul`` : la fenêtre
+    de calcul que le verdict ouvre ; ``classe`` : une classe de plus pour la feuille du module.
+
+    La pastille ne se comprime jamais (``flex:none``) : sous une comparaison longue, la charte la réduisait à 114 px
+    pour « 1 380,5 kg/m³ » qui en demande 164 (mesuré dans Chromium, colonne du résultat de 316 px)."""
+    s = f"<small>{symbole}</small>" if symbole else ""
+    u = f"<small>{_insecable(unite)}</small>" if unite else ""
+    ouvre = f' data-calcul="{esc(calcul)}" title="Voir le calcul"' if calcul else ""
+    cls = f"verdict {esc(classe)}" if classe else "verdict"
+    return (f'<div class="{cls}"{ouvre}><span class="chip xl {niv}" style="flex:none">{s}{fr(x, nd)}{u}</span>'
+            f'<div class="gov"><b>{esc(titre)}</b>{comparaison}</div></div>')
 
 
 def lignes_fx(lignes: List[Dict]) -> str:
@@ -141,36 +278,50 @@ def lignes_fx(lignes: List[Dict]) -> str:
     return out
 
 
-def fenetre_calcul(ident: str, titre: str, sous_titre: str, hyps: Sequence[str], lignes: List[Dict], detail: str, pied: str = "") -> str:
+COLONNES = ("Vérification", "Formule", "Valeur", "Limite", "Taux")
+
+
+def fenetre_calcul(ident: str, titre: str, sous_titre: str, hyps: Sequence[str], lignes: List[Dict], detail: str, pied: str = "",
+                   colonnes: Sequence[str] = COLONNES) -> str:
     """La grande fenêtre de calcul, LA MÊME pour tous les modules : les hypothèses, un tableau (vérification, formule,
-    valeur, limite, taux), puis le détail des formules sur deux colonnes."""
+    valeur, limite, taux), puis le détail des formules sur deux colonnes. ``colonnes`` : les cinq titres du tableau,
+    pour un module qui ne vérifie pas (un quantitatif : « Armature, Formule, Masse, Apport au taux, Part ») ; du HTML
+    du module. Une ligne sans taux (``taux`` None) porte « — »."""
+    if len(colonnes) != 5:
+        raise ValueError(f"fenetre_calcul : cinq titres de colonnes attendus, pas {len(colonnes)}")
+    c = list(colonnes)
     hyp = "".join(f"<span>{h}</span>" for h in hyps)
     rows = "".join(
         f'<tr class="{"gov" if li.get("gov") else ""}"><td class="nm">{li["nom"]}{("<span>" + li["sous"] + "</span>") if li.get("sous") else ""}</td>'
         f'<td class="fo">{li["formule"]}</td><td class="n v">{li["valeur"]}</td><td class="n">{li["limite"]}</td>'
-        f'<td class="n">{chip(li["taux"], li["niveau"])}</td></tr>' for li in lignes)
-    table = (f'<table class="vtab"><thead><tr><th>Vérification</th><th class="fo">Formule</th><th class="n">Valeur</th><th class="n">Limite</th>'
-             f'<th class="n">Taux</th></tr></thead><tbody>{rows}</tbody></table>')
+        f'<td class="n">{chip(li.get("taux"), li["niveau"])}</td></tr>' for li in lignes)
+    table = (f'<table class="vtab"><thead><tr><th>{c[0]}</th><th class="fo">{c[1]}</th><th class="n">{c[2]}</th><th class="n">{c[3]}</th>'
+             f'<th class="n">{c[4]}</th></tr></thead><tbody>{rows}</tbody></table>')
     return (f'<div class="flyout calcul" id="ck-{esc(ident)}"><div class="fl-h"><div><b>{titre}</b><span>{sous_titre}</span></div>'
             f'<button class="pcoll" data-fermer="1" title="Fermer">{icon("x")}</button></div><div class="ck-hyp">{hyp}</div>'
             f'<div class="ck-body">{table}<div class="ck-sub">Le détail du calcul</div><div class="ck-cols">{detail}</div>{pied}</div></div>')
 
 
 def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[Dict], debut: int, unite: str,
-              etoile: str = "le plus léger qui tient") -> str:
+              etoile: str = "le plus léger qui tient", pastille: str = "taux") -> str:
     """Le sélecteur, LE MÊME pour les profilés et les armatures : trié par ordre de grandeur, le retenu (✓) et l'optimal
     (★, le plus léger qui tient) marqués ; un clic choisit (le calcul est relancé) ; sous la liste, les propriétés de la
-    ligne survolée. ``rows`` : nom, col (la colonne d'ordre de grandeur), taux (arrondi), niveau, cur, opt, prop."""
+    ligne survolée. ``rows`` : nom, col (la colonne d'ordre de grandeur), taux (arrondi ; None : pas de pastille),
+    niveau, cur, opt, prop. Le pied dit « ✓ retenu · ★ <etoile> · <unite> · <pastille> » : ``etoile=""`` retire la
+    légende ★ et ``pastille=""`` le « · taux » (un module de consultation, sans optimal ni vérification)."""
     lignes = "".join(
         f'<button class="pk-row{" cur" if r["cur"] else ""}{" opt" if r["opt"] else ""}" data-choix="{esc(r["nom"])}" data-prop="{esc(r.get("prop", ""))}">'
         f'<span class="mk">{icon("check") if r["cur"] else (icon("star") if r["opt"] else "")}</span>'
-        f'<span class="nm">{esc(r["nom"])}</span><span class="kg">{r["col"]}</span>{chip(r["taux"], r["niveau"])}</button>' for r in rows)
+        f'<span class="nm">{esc(r["nom"])}</span><span class="kg">{r["col"]}</span>'
+        f'{chip(r["taux"], r["niveau"]) if r.get("taux") is not None else ""}</button>' for r in rows)
     prop0 = next((r.get("prop", "") for r in rows if r["cur"]), "")
     vide = "" if rows else '<div class="pk-vide">Aucune section dans cette sélection.</div>'
+    leg_etoile = f'<span>{icon("star")}{etoile}</span>' if etoile else ""
+    leg_unite = f"{unite} · {pastille}" if pastille else unite
     return (f'<div class="flyout picker" id="pk-{esc(ident)}" data-pk="{esc(ident)}" data-debut="{debut}"><div class="fl-h"><div><b>{titre}</b><span>{sous_titre}</span></div>'
             f'<button class="pcoll" data-fermer="1" title="Fermer">{icon("x")}</button></div><div class="filters">{filtres}</div>'
             f'<div class="pk-list">{lignes}{vide}</div><div class="pk-prop">{prop0}</div>'
-            f'<div class="fl-foot"><span>{icon("check")}retenu</span><span>{icon("star")}{etoile}</span><span>{unite} · taux</span></div></div>')
+            f'<div class="fl-foot"><span>{icon("check")}retenu</span>{leg_etoile}<span>{leg_unite}</span></div></div>')
 
 
 # ------------------------------------------------------------------ saisie
@@ -185,29 +336,44 @@ def ligne(label: str, champ: str, sym: str = "", aide: str = "", full: bool = Fa
     return f'<div class="row{" full" if full else ""}"><label>{s}<span>{label}</span>{a}</label>{champ}</div>'
 
 
-def num(chemin: Sequence, valeur, unite: str = "", dec: int = 3, entier: bool = False, desactive: bool = False, mini=None, maxi=None) -> str:
-    """Un champ numérique lié à un CHEMIN de l'état (« geometrie/H ») : l'écran renvoie le texte tapé, le moteur le lit."""
-    v = "" if valeur is None else (str(int(round(float(valeur)))) if entier else nb(valeur, dec))
+def num(chemin: Sequence, valeur, unite: str = "", dec: int = 3, entier: bool = False, desactive: bool = False, mini=None, maxi=None,
+        auto: str = "") -> str:
+    """Un champ numérique lié à un CHEMIN de l'état (« geometrie/H ») : l'écran renvoie le texte tapé, le moteur le lit.
+
+    ``auto`` (« vide = automatique ») : le texte indicatif du champ vide (« auto · 3,5 ») ; le champ accepte alors
+    d'être VIDÉ. Il part comme un texte (l'écran refuse un nombre vide) et le module le lit par ``lire_auto`` : None
+    pour un champ vidé (il prend l'automatique), le nombre sinon, un message pour tout autre texte. ``valeur`` None :
+    le champ s'affiche vide, le texte indicatif en clair."""
+    if valeur is None or not _fini(float(valeur)):
+        v = ""
+    elif entier:
+        v = _fixe(float(valeur), 0)
+    else:
+        v = nb(valeur, dec)
     if v and not entier and abs(float(valeur)) >= 1000:
         ent, _, dec_ = v.partition(",")
-        v = f"{int(ent):,}".replace(",", " ") + ("," + dec_ if dec_ else "")
+        v = f"{int(ent):,}".replace(",", FINE) + ("," + dec_ if dec_ else "")
     lim = (f' data-min="{mini}"' if mini is not None else "") + (f' data-max="{maxi}"' if maxi is not None else "")
     u = f'<span class="u">{unite}</span>' if unite else ""
     lk = icon("lock") if desactive else ""
-    return (f'<div class="field{" locked" if desactive else ""}">{lk}<input data-chemin="{_attr_chemin(chemin)}" data-sorte="{"entier" if entier else "nombre"}"'
-            f' inputmode="decimal" value="{esc(v)}"{lim}{" disabled" if desactive else ""}>{u}</div>')
+    sorte = "texte" if auto else ("entier" if entier else "nombre")
+    vide = f' data-vide="auto" placeholder="{esc(auto)}"' if auto else ""
+    return (f'<div class="field{" locked" if desactive else ""}">{lk}<input data-chemin="{_attr_chemin(chemin)}" data-sorte="{sorte}"'
+            f' inputmode="decimal" value="{esc(v)}"{lim}{vide}{" disabled" if desactive else ""}>{u}</div>')
 
 
-def texte(chemin: Sequence, valeur: str, indice: str = "") -> str:
-    return (f'<div class="field text"><input data-chemin="{_attr_chemin(chemin)}" data-sorte="texte" value="{esc(valeur or "")}"'
-            f' placeholder="{esc(indice)}"></div>')
+def texte(chemin: Sequence, valeur: str, indice: str = "", desactive: bool = False) -> str:
+    """Un texte d'une ligne (un nom, une liste courte) ; ``desactive`` : verrouillé, comme ``num``."""
+    lk = icon("lock") if desactive else ""
+    return (f'<div class="field text{" locked" if desactive else ""}">{lk}<input data-chemin="{_attr_chemin(chemin)}" data-sorte="texte"'
+            f' value="{esc(valeur or "")}" placeholder="{esc(indice)}"{" disabled" if desactive else ""}></div>')
 
 
-def zone_texte(chemin: Sequence, valeur: str, lignes: int = 5, indice: str = "") -> str:
+def zone_texte(chemin: Sequence, valeur: str, lignes: int = 5, indice: str = "", desactive: bool = False) -> str:
     """Un texte sur plusieurs lignes (un tableau collé depuis Excel, une liste de couches…) : il part au moteur en
-    quittant la zone, comme un champ."""
-    return (f'<div class="field area"><textarea data-chemin="{_attr_chemin(chemin)}" data-sorte="texte" rows="{int(lignes)}"'
-            f' placeholder="{esc(indice)}" spellcheck="false">{esc(valeur or "")}</textarea></div>')
+    quittant la zone, comme un champ ; ``desactive`` : verrouillé."""
+    return (f'<div class="field area{" locked" if desactive else ""}"><textarea data-chemin="{_attr_chemin(chemin)}" data-sorte="texte" rows="{int(lignes)}"'
+            f' placeholder="{esc(indice)}" spellcheck="false"{" disabled" if desactive else ""}>{esc(valeur or "")}</textarea></div>')
 
 
 def fichier(chemin: Sequence, libelle: str, accept: str = ".csv,.txt") -> str:
@@ -223,16 +389,18 @@ def choix(chemin: Sequence, valeur, options: Iterable[Tuple], desactive: bool = 
             f'{icon("chevron-down")}</div>')
 
 
-def segments(chemin: Sequence, valeur, options: Iterable[Tuple]) -> str:
-    """Un choix court en segments (deux à quatre options)."""
-    bt = "".join(f'<button type="button" class="{"on" if k == valeur else ""}" data-chemin="{_attr_chemin(chemin)}" data-sorte="choix" data-valeur="{esc(k)}">{esc(t)}</button>'
+def segments(chemin: Sequence, valeur, options: Iterable[Tuple], desactive: bool = False) -> str:
+    """Un choix court en segments (deux à quatre options) ; ``desactive`` : verrouillé (aucun segment ne répond)."""
+    off = " disabled" if desactive else ""
+    bt = "".join(f'<button type="button" class="{"on" if k == valeur else ""}" data-chemin="{_attr_chemin(chemin)}" data-sorte="choix" data-valeur="{esc(k)}"{off}>{esc(t)}</button>'
                  for k, t in options)
-    return f'<div class="seg full">{bt}</div>'
+    return f'<div class="seg full{" locked" if desactive else ""}">{bt}</div>'
 
 
-def case(chemin: Sequence, valeur: bool, texte_: str) -> str:
-    return (f'<label class="case"><input type="checkbox" data-chemin="{_attr_chemin(chemin)}" data-sorte="case"{" checked" if valeur else ""}>'
-            f'<span>{texte_}</span></label>')
+def case(chemin: Sequence, valeur: bool, texte_: str, desactive: bool = False) -> str:
+    """Une case à cocher ; ``desactive`` : verrouillée."""
+    return (f'<label class="case"><input type="checkbox" data-chemin="{_attr_chemin(chemin)}" data-sorte="case"{" checked" if valeur else ""}'
+            f'{" disabled" if desactive else ""}><span>{texte_}</span></label>')
 
 
 def section(n: int, titre: str, resume: str, corps: str, ouvert: bool = True, cle: str = "") -> str:
@@ -248,3 +416,65 @@ def aide(texte_: str) -> str:
 
 def message(texte_: str, grave: bool = False) -> str:
     return f'<div class="msg{" grave" if grave else ""}">{texte_}</div>'
+
+
+# ------------------------------------------------------------------ télécharger un fichier propre au module
+TYPES_FICHIER = ("application/json", "text/csv", "text/plain")
+NOM_FICHIER_MAX = 120                  # caractères
+TEXTE_FICHIER_MAX = 5 * 1024 * 1024    # octets, en UTF-8 (5 Mo)
+_INTERDITS_NOM = re.compile(r'[\\/:*?"<>|]+')
+# les caractères INVISIBLES d'un nom : contrôle, mise en forme (l'inversion du sens d'écriture, U+202E, fait lire un
+# « .json » comme un « .exe »), séparateurs de ligne et de paragraphe
+_INVISIBLES = ("Cc", "Cf", "Zl", "Zp")
+
+
+def _visible(s: str) -> str:
+    """``s`` sans ses caractères invisibles (chacun devient « - »)."""
+    return "".join("-" if unicodedata.category(ch) in _INVISIBLES else ch for ch in s)
+
+
+def bouton_telecharger(quoi: str, libelle: str, icone: str = "download") -> str:
+    """Un bouton qui fait télécharger un fichier PROPRE AU MODULE (le JSON de l'écran Streamlit, un tableau CSV…) :
+    l'écran envoie {"action": "telecharger", "quoi": <quoi>} et le routeur appelle ``telecharger(etat, quoi)`` du
+    module, qui rend {"nom", "type", "texte"}. ``quoi`` et ``libelle`` sont échappés."""
+    return f'<button type="button" class="btn sm" data-telecharger="{esc(quoi)}">{icon(icone)}{esc(libelle)}</button>'
+
+
+def nom_fichier(base, extension: str) -> str:
+    """Un nom de fichier SÛR tiré d'un nom saisi (« Poutre P1/2 : RDC » → « Poutre P1-2 - RDC.json ») : sans
+    / \\ : * ? " < > | ni caractère de contrôle ou invisible (inversion du sens d'écriture…), sans « .. », 120
+    caractères au plus extension comprise ; « note » si rien ne reste. Le nom rendu passe toujours le contrôle du
+    routeur (``refus_fichier``)."""
+    ext = ("." + str(extension).lstrip(".")) if extension else ""
+    s = _INTERDITS_NOM.sub("-", _visible(str(base or "")))
+    s = re.sub(r"\.{2,}", ".", " ".join(s.split())).strip(" .-") or "note"
+    s = s[:max(1, NOM_FICHIER_MAX - len(ext))].rstrip(" .") or "note"
+    return s + ext
+
+
+def refus_fichier(f) -> Optional[str]:
+    """Pourquoi un fichier rendu par ``telecharger`` d'un module est refusé (texte simple), ou None s'il est bon : un
+    dictionnaire {"nom", "type", "texte"} ; un nom non vide, de 120 caractères au plus, sans « / », « \\ », « .. » ni
+    caractère de contrôle ou invisible ; un type parmi TYPES_FICHIER ; un texte de 5 Mo au plus (UTF-8)."""
+    if not isinstance(f, dict):
+        return "le module n'a pas rendu de fichier"
+    nom, typ, texte_ = f.get("nom"), f.get("type"), f.get("texte")
+    if not isinstance(nom, str) or not nom.strip(" ."):
+        return "le nom du fichier est vide"
+    if len(nom) > NOM_FICHIER_MAX:
+        return f"le nom du fichier dépasse {NOM_FICHIER_MAX} caractères"
+    if "/" in nom or "\\" in nom or ".." in nom:
+        return "le nom du fichier ne peut contenir ni « / », ni « \\ », ni « .. »"
+    if _visible(nom) != nom:
+        return "le nom du fichier contient un caractère de contrôle ou invisible"
+    if typ not in TYPES_FICHIER:
+        return f"type de fichier non permis : « {str(typ)[:40]} » (permis : {', '.join(TYPES_FICHIER)})"
+    if not isinstance(texte_, str):
+        return "le contenu du fichier n'est pas un texte"
+    try:
+        taille = len(texte_.encode("utf-8"))
+    except UnicodeEncodeError:
+        return "le contenu du fichier n'est pas un texte valide"
+    if taille > TEXTE_FICHIER_MAX:
+        return f"le fichier dépasse 5 Mo ({fr(taille / 1024 / 1024, 1)} Mo)"
+    return None

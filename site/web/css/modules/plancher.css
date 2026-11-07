@@ -94,3 +94,12 @@
   .secard .lit, .chp-tete { grid-template-columns: 30px 84px minmax(0, 1fr) 24px; }
   .chp-doc td.chp-src { min-width: 160px; }
 }
+
+/* la fiche d'engin : deux lignes par appui (nom · dx · dy · retirer, puis a · b · P · φ). Sur la grille à quatre
+   colonnes, φ tombait dans la colonne de 22 px du bouton « retirer » (un champ de 22 px, illisible et trop petit au
+   doigt) : une grille de douze colonnes donne à chaque champ sa part, le bouton garde la sienne. */
+.chp-ap { grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.chp-ap > :nth-child(1) { grid-column: span 3; }
+.chp-ap > :nth-child(2), .chp-ap > :nth-child(3) { grid-column: span 4; }
+.chp-ap > :nth-child(4) { grid-column: span 1; justify-self: end; }
+.chp-ap > :nth-child(n+5) { grid-column: span 3; }

@@ -32,6 +32,7 @@ import re
 import sys
 import types
 import warnings
+from decimal import Decimal
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(RACINE)
@@ -81,6 +82,36 @@ NOMBRE = re.compile(r"−?-?\d[\d   ]*(?:,\d+)?")
 
 def nombres(s: str):
     return [sans_blanc(x).replace("−", "-") for x in NOMBRE.findall(html.unescape(re.sub(r"<[^>]+>", " ", s)))]
+
+
+def meme_nombre(st: str, site: str, brut=None) -> bool:
+    """Le même nombre affiché par les deux écrans. Deux écarts seulement sont permis, ceux des deux règles d'écriture :
+    - le DEMI exact : le site arrondit demi vers l'extérieur comme les formules du moteur (commun.fr), l'écran
+      Streamlit au pair (format Python) — 1 122,5 s'écrit « 1 123 » sur le site et « 1 122 » dans Streamlit : le
+      chiffre de Streamlit est alors PAIR et celui du site le dépasse d'une unité du dernier rang, en valeur absolue ;
+      quand la valeur brute ``brut`` est connue, elle doit être un demi EXACT à ce rang (sa valeur binaire) ;
+    - le signe d'un zéro : Streamlit écrit « -0,0 », le site jamais.
+    Tout autre écart (un chiffre de plus, un rang, un signe) reste un écart."""
+    a, b = chiffre(st), chiffre(site)
+    if a == b:
+        return True
+    if a.lstrip("-") == b.lstrip("-"):
+        return not a.strip("-0,")                         # le seul signe permis : celui d'un zéro
+    nd = len(a.partition(",")[2])
+    if nd != len(b.partition(",")[2]) or not re.fullmatch(r"-?\d+(,\d+)?", a) or not re.fullmatch(r"-?\d+(,\d+)?", b):
+        return False
+    ua, ub = int(a.replace(",", "").lstrip("-")), int(b.replace(",", "").lstrip("-"))
+    meme_signe = a.startswith("-") == b.startswith("-") or ua == 0
+    if brut is not None:
+        d = abs(Decimal(float(brut))).scaleb(nd)
+        if d - int(d) != Decimal("0.5"):
+            return False
+    return meme_signe and ua % 2 == 0 and ub == ua + 1
+
+
+def memes_nombres(st, site, bruts=None) -> bool:
+    bruts = bruts or [None] * len(st)
+    return len(st) == len(site) == len(bruts) and all(meme_nombre(x, y, z) for x, y, z in zip(st, site, bruts))
 
 
 # ====================================================================== le faux « st »
@@ -334,21 +365,34 @@ def lecture_streamlit(res: dict) -> dict:
     return out
 
 
+def taux_lu(titre: str, texte: str) -> str:
+    """Le taux qu'un œil lit : le chiffre écrit ; au-delà de 999 % la brique écrit « > 999 % » et la valeur exacte au
+    survol (attribut title, commun._taux_txt) — c'est elle qu'on compare."""
+    t = titre if titre and texte.startswith("&gt;") else texte
+    return re.sub(r"[\s\u00a0\u202f%]+", "", html.unescape(t))
+
+
+def contenu_chip(h: str) -> str:
+    """Le texte d'une pastille rendue par la brique (sans sa balise ni son title)."""
+    return re.sub(r"^<span[^>]*>|</span>$", "", h)
+
+
 def lecture_site(r: dict) -> dict:
     """Ce que le site affiche : son verdict, ses lignes, ses messages, ses tableaux, ses fenêtres de calcul."""
     h = r["resultat"]
-    v = re.search(r'<span class="chip xl (\w)"><small>η</small>([\d,]+)', h)
-    lectures = re.findall(r'<b>([^<]*)</b><span class="prof"><span>(méthode choisie ◀|à titre indicatif)</span></span></div><div class="l2">'
-                          r'.*?<span class="pct (\w)">([\d,]+)', h)
+    v = re.search(r'<span class="chip xl (\w)"(?: title="([^"]*)")?><small>η</small>([^<]+)</span>', h)
+    lectures = [(nom, sel, niv, taux_lu(ti, tx)) for nom, sel, niv, ti, tx in
+                re.findall(r'<b>([^<]*)</b><span class="prof"><span>(méthode choisie ◀|à titre indicatif)</span></span></div><div class="l2">'
+                           r'.*?<span class="pct (\w)"(?: title="([^"]*)")?>([^<]+)</span>', h)]
     msgs = [(bool(g), html.unescape(re.sub(r"<sub>(.*?)</sub>", r"_\1", t))) for g, t in re.findall(r'<div class="msg( grave)?">(.*?)</div>', h)]
     raison = re.search(r"<b>Calcul impossible</b>(.*?)</div>", re.sub(r"<sub>(.*?)</sub>", r"_\1", h))
     vues = {x["cle"]: x["svg"] for x in r["vues"]}
     cordons = re.findall(r'<tr class="(?:gov)?"><td class="nm">(.*?)<span>(.*?) · le plus chargé : (.*?)</span></td><td class="n">(.*?)</td>'
-                         r'<td class="n">(.*?)</td><td class="n">(.*?)</td><td class="n">(.*?)</td><td class="n"><span class="chip (\w)">(.*?)</span></td></tr>',
+                         r'<td class="n">(.*?)</td><td class="n">(.*?)</td><td class="n">(.*?)</td><td class="n"><span class="chip (\w)"(?: title="[^"]*")?>(.*?)</span></td></tr>',
                          vues.get("cordons", ""))
     points = re.findall(r'<tr class="(?:gov)?"><td class="nm">(.*?)<span>(.*?)</span></td>' + r'<td class="n">(.*?)</td>' * 5
-                        + r'<td class="n"><span class="chip \w">(.*?)</span></td>' * 4 + "</tr>", vues.get("points", ""))
-    return {"eta": v.group(2) if v else None, "niveau": v.group(1) if v else None, "lectures": lectures, "messages": msgs,
+                        + r'<td class="n"><span class="chip \w"(?: title="[^"]*")?>(.*?)</span></td>' * 4 + "</tr>", vues.get("points", ""))
+    return {"eta": taux_lu(v.group(2), v.group(3)) if v else None, "niveau": v.group(1) if v else None, "lectures": lectures, "messages": msgs,
             "raison": html.unescape(raison.group(1)) if raison else None, "cordons": cordons, "points": points}
 
 
@@ -454,22 +498,22 @@ def parite_cas(etat: dict) -> list:
     for cs, cw, ch in zip(rs["cordons"], rw["cordons"], res_site.get("chaines", [])):
         nom, a_, l_, le, nat, f, eta, pos = cs
         if (html.unescape(cw[0]), html.unescape(cw[1]), html.unescape(cw[2])) != (html.unescape(nom), nat, pos) \
-                or [chiffre(x) for x in (a_, l_, le, f)] != [chiffre(x) for x in cw[3:7]] \
-                or int(eta) != int(f"{ch['taux'] * 100:.0f}") or sans_blanc(cw[8]) != sans_blanc(C.chip(C.pct(ch["taux"]), "p")[len('<span class="chip p">'):-7]):
+                or not memes_nombres((a_, l_, le, f), cw[3:7], [ch[k] for k in ("a", "l", "l_eff", "f_max")]) \
+                or int(eta) != int(f"{ch['taux'] * 100:.0f}") or sans_blanc(cw[8]) != sans_blanc(contenu_chip(C.chip(C.pct(ch["taux"]), "p"))):
             out.append(f"cordon {nom} : {cs} ≠ {cw}")
     # le détail par point
     if len(rs["points"]) != len(rw["points"]):
         out.append(f"détail par point : {len(rs['points'])} ≠ {len(rw['points'])} lignes")
     for ps, pw, pt in zip(rs["points"], rw["points"], res_site.get("points", [])):
-        if (html.unescape(ps[0]), ps[1]) != (html.unescape(pw[0]), pw[1]) or [chiffre(x) for x in ps[2:7]] != [chiffre(x) for x in pw[2:7]]:
+        if (html.unescape(ps[0]), ps[1]) != (html.unescape(pw[0]), pw[1]) or not memes_nombres(ps[2:7], pw[2:7], [pt[k] for k in ("f", "sigma_perp", "tau_perp", "tau_par", "sigma_c")]):
             out.append(f"point {ps[:3]} ≠ {pw[:3]}")
         for k, cle in enumerate(("taux_directionnelle", "taux_simplifiee", "taux_bureau", "taux")):
-            if int(ps[7 + k]) != int(f"{pt[cle] * 100:.0f}") or sans_blanc(pw[7 + k]) != sans_blanc(f"{C.pc(C.pct(pt[cle]))} %"):
+            if int(ps[7 + k]) != int(f"{pt[cle] * 100:.0f}") or sans_blanc(pw[7 + k]) != sans_blanc(contenu_chip(C.chip(C.pct(pt[cle]), "p"))):
                 out.append(f"point {ps[:2]} : {cle}")
     # les efforts réduits au point de référence (cadre Efforts)
     if rs["efforts"] is not None:
         m = re.search(r"Au point de référence.*?</div>", r["donnees"])
-        if not m or nombres(rs["efforts"]) != nombres(m.group(0)):
+        if not m or not memes_nombres(nombres(rs["efforts"]), nombres(m.group(0))):
             out.append("efforts réduits différents")
     # les formules du point gouvernant : chacune dans la fenêtre de calcul du cordon gouvernant
     g = res_site.get("gouvernant")
@@ -823,8 +867,8 @@ for cfg in CF.CONFIGS:
         if r["resume"]["taux"] != C.pct(res["taux_max"]) or r["resume"]["niveau"] != C.niveau(res["taux_max"]):
             ecarts.append((cfg, "résumé"))
         for i, ch in enumerate(res["chaines"]):
-            ligne = re.search(rf'<div class="el[^"]*" data-calcul="c{i}".*?<span class="pct (\w)">([\d,]+)', r["resultat"])
-            if not ligne or ligne.group(2) != C.pc(C.pct(ch["taux"])) or ligne.group(1) != C.niveau(ch["taux"]):
+            ligne = re.search(rf'<div class="el[^"]*" data-calcul="c{i}".*?<span class="pct (\w)"(?: title="([^"]*)")?>([^<]+)', r["resultat"])
+            if not ligne or taux_lu(ligne.group(2), ligne.group(3)) != C.pc(C.pct(ch["taux"])) or ligne.group(1) != C.niveau(ch["taux"]):
                 ecarts.append((cfg, f"ligne {ch['nom']}"))
             if f'id="ck-c{i}"' not in r["volets"]:
                 ecarts.append((cfg, f"fenêtre {ch['nom']}"))
@@ -1169,9 +1213,13 @@ lim_tab = re.search(r'<td class="n">([^<]*N/mm)</td><td class="n"><span class="c
 lim_fx = re.search(r"F<sub>adm</sub></span>.*?<span class=\"r\">([^<]*)</span>", fen).group(1)
 chk("ELS : la limite du tableau et du verdict s'écrit comme la formule du moteur (F_adm = 98,1 × 5 = 490,5 → « 491 N/mm » partout)",
     lim_tab == lim_fx == "491 N/mm" and "F<sub>adm</sub> = 491 N/mm" in r_["resultat"], (lim_tab, lim_fx))
-with mutant(S, "_fr_moteur", lambda x, nd: C.fr(x, nd)):
+# l'arrondi au pair (format Python) : l'ancienne règle de C.fr — commun.fr arrondit désormais comme le moteur
+with mutant(S, "_fr_moteur", lambda x, nd: f"{x:,.{nd}f}".replace(",", "\u202f").replace(".", ",")):
     r_m = S.resultat(e_)
-    chk("mutation : la limite arrondie au pair (C.fr) → « 490 » à côté de « 491 » (le contrôle le voit)", "F<sub>adm</sub> = 490 N/mm" in r_m["resultat"])
+    chk("mutation : la limite arrondie au pair (format Python, l'ancien C.fr) → « 490 » à côté de « 491 » (le contrôle le voit)",
+        "F<sub>adm</sub> = 490 N/mm" in r_m["resultat"])
+with mutant(S, "_fr_moteur", lambda x, nd: C.fr(x, nd)):
+    chk("commun.fr écrit la limite comme le moteur : « 491 N/mm » (490,5, demi vers l'extérieur)", "F<sub>adm</sub> = 491 N/mm" in S.resultat(e_)["resultat"])
 
 e_ = cas_fixe("C6", troncons={"n": 1, "l": 60.0})
 h_ = S.resultat(e_)["resultat"]

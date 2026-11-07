@@ -1,13 +1,21 @@
-// L'établi d'un module (garde-corps.html, poutre.html) : il envoie au moteur ce que l'utilisateur saisit et affiche les
+// L'établi d'un module (garde-corps.html, poutre.html…) : il envoie au moteur ce que l'utilisateur saisit et affiche les
 // fragments qu'il reçoit (données, résultat, fenêtres de calcul, sélecteurs, dessins). Il ne calcule rien.
+//
+// Une seule page pour les trois formats : les fonctions sont les mêmes au PC, à la tablette et au téléphone, seule la
+// disposition change (css/site.css). Au téléphone, les onglets Données · Dessin · Résultat choisissent le cadre visible,
+// les actions de la barre du haut passent dans un menu, et les volets montent du bas.
 import { Moteur } from "./moteur.js";
 import * as N from "./notes.js";
-import { cablerRail, toast, esc } from "./commun.js";
+import { cablerRail, toast, esc, telecharger, garderGrec, texteTaux } from "./commun.js";
+import { cablerToile } from "./toile.js";
 
 const MODULE = document.body.dataset.module;
 const $ = (s, r = document) => r.querySelector(s);
 const bench = $(".bench");
 const etapes = $("#demarrage-etape");
+const telephone = matchMedia("(max-width: 700px)");
+const memoire = { lire(k, d) { try { return JSON.parse(sessionStorage.getItem(k) || "null") ?? d; } catch (e) { return d; } },
+  ecrire(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage bloqué */ } } };
 cablerRail();
 
 // ------------------------------------------------------------------ la note
@@ -17,31 +25,36 @@ if (!note || note.module !== MODULE) {
   note = N.nouvelle({ module: MODULE, nom: q.get("nom") || "", chantier: q.get("chantier") || "", dossier: q.get("dossier") || "" });
   history.replaceState(null, "", `?note=${note.id}`);
 }
-const nom = $("#nom-note");
+// le nom de la note : le champ de la barre du haut (PC, tablette) et celui de l'en-tête du téléphone
+const noms = [...document.querySelectorAll("[data-nom-note]")];
 function afficherEntete() {
-  nom.value = note.nom || "";
+  noms.forEach((n) => { if (n !== document.activeElement) n.value = note.nom || ""; });
   document.title = `${note.nom || N.MODULES[MODULE].nom} · Stab Méthodes`;
   const fil = [note.chantier, note.dossier].filter(Boolean).join(" › ");
   $("#fil-chantier").textContent = fil || "Sans chantier";
+  $("#fil-m").textContent = `${fil || "Sans chantier"} · ${N.MODULES[MODULE].nom}`;
 }
 afficherEntete();
-nom.addEventListener("change", () => { note.nom = nom.value.trim() || N.MODULES[MODULE].nom; enregistrer(); afficherEntete(); });
+noms.forEach((n) => n.addEventListener("change", () => { note.nom = n.value.trim() || N.MODULES[MODULE].nom; enregistrer(); afficherEntete(); }));
+noms.forEach((n) => n.addEventListener("keydown", (ev) => { if (ev.key === "Enter") n.blur(); }));
 
 function enregistrer() {
   const ok = N.ecrire(note);
-  const s = $("#enregistre");
-  s.classList.toggle("attente", !ok);
-  s.querySelector(".txt").textContent = ok ? `Enregistré dans ce navigateur · ${N.quand(note.modifie)}` : "Non enregistré (stockage plein ?)";
+  document.querySelectorAll(".enregistre").forEach((s) => {
+    s.classList.toggle("attente", !ok);
+    s.querySelector(".txt").textContent = ok ? `Enregistré dans ce navigateur · ${N.quand(note.modifie)}` : "Non enregistré (stockage plein ?)";
+  });
 }
 
 // ------------------------------------------------------------------ le moteur
-const moteur = new Moteur((t) => { if (etapes) etapes.textContent = t; });
-const indic = $("#calcule");
+const moteur = new Moteur((t) => { if (etapes) etapes.textContent = t; }, MODULE);
 let enCours = 0;
 function occupe(plus) {
   enCours += plus;
-  indic.classList.toggle("on", enCours > 0);
-  indic.textContent = enCours > 0 ? "Calcul…" : "";
+  document.querySelectorAll(".calcule").forEach((i) => {
+    i.classList.toggle("on", enCours > 0);
+    i.textContent = enCours > 0 && !i.closest(".mtop") ? "Calcul…" : "";
+  });
 }
 
 async function envoyer(action, extra = {}) {
@@ -55,9 +68,10 @@ async function envoyer(action, extra = {}) {
 }
 
 // ------------------------------------------------------------------ l'affichage
-const ouvertes = new Set(JSON.parse(sessionStorage.getItem(`stab.sec.${MODULE}`) || "null") || []);
+const ouvertes = new Set(memoire.lire(`stab.sec.${MODULE}`, []));
 let premier = true;
 let vueCourante = null;
+const toile = cablerToile({ bench, stage: $("#stage"), barre: $("#zoom") });
 
 function appliquer(r) {
   note.etat = r.etat;
@@ -67,13 +81,28 @@ function appliquer(r) {
   note.vignette = v ? v.svg : "";
   enregistrer();
   $("#statut").innerHTML = r.statut_html || "";
+  afficherResume(r.resume || {});
   $("#resultat").innerHTML = r.resultat;
   const ouvert = $(".flyout.on.calcul");
   $("#volets").innerHTML = r.volets || "";
   if (ouvert) ouvrir(ouvert.id, $(`#resultat [data-calcul="${ouvert.id.slice(3)}"]`), true);
   afficherVues(r.vues || [], r.phrase || "");
   afficherDonnees(r.elements || "", r.donnees);
+  [$("#resultat"), $("#volets"), $("#donnees")].forEach(garderGrec);
   if (r.message) toast(r.message, true);
+}
+
+// le taux de la note dans l'en-tête du téléphone (le moteur l'a déjà arrondi : on l'écrit à la française)
+function afficherResume(res) {
+  const c = $("#chip-m");
+  const avecTaux = res.taux !== null && res.taux !== undefined;
+  c.className = `mchip chip ${avecTaux && ["p", "f", "r"].includes(res.niveau) ? res.niveau : "c"}`;
+  // un module de consultation (niveau « i ») n'a pas de taux : son statut n'apprend rien, la place va au nom ; un taux
+  // de plus de 999 % s'écrit « > 999 % » (la valeur exacte au survol), comme les pastilles du moteur
+  const tx = texteTaux(res.taux);
+  c.textContent = avecTaux ? tx.texte : (res.niveau === "i" ? "" : res.statut || "");
+  c.title = tx.titre || "Voir le résultat";
+  c.hidden = !c.textContent;
 }
 
 function afficherDonnees(elements, html) {
@@ -86,6 +115,7 @@ function afficherDonnees(elements, html) {
     ? { valeur: el0.value, debut: el0.selectionStart, fin: el0.selectionEnd } : null;
   const defile = zone.scrollTop;
   zone.innerHTML = elements + html;
+  separerNoms(zone);
   // les sections gardent leur état (ouvert, fermé) d'un calcul à l'autre
   zone.querySelectorAll(".sec[data-sec]").forEach((s) => {
     const cle = s.dataset.sec;
@@ -104,28 +134,98 @@ function afficherDonnees(elements, html) {
   }
 }
 
+// « Dans cette note » : chaque élément s'écrit « nom · dimensions ». Le nom passe dans son propre <span class="nom">
+// pour que ce soit LUI qui se coupe (points de suspension) quand la place manque, jamais les dimensions qui le suivent.
+function separerNoms(zone) {
+  zone.querySelectorAll(".ni .t").forEach((t) => {
+    if (t.querySelector(":scope > .nom")) return;
+    const avant = [];
+    for (const n of t.childNodes) { if (n.nodeType === 1 && n.tagName === "SPAN") break; avant.push(n); }
+    if (!avant.length) return;
+    const nom = document.createElement("span");
+    nom.className = "nom";
+    avant.forEach((n) => nom.append(n));
+    nom.normalize();
+    if (nom.lastChild && nom.lastChild.nodeType === 3) nom.lastChild.data = nom.lastChild.data.replace(/\s+$/, "");
+    t.prepend(nom);
+  });
+}
+
 // « mm · à l'échelle » : sur un dessin seulement — pas sur un tableau (vue HTML), ni sur une vue que le module dit hors
 // échelle (une courbe, un diagramme : « echelle »: false)
-const echelle = (v) => v.echelle !== false && /^\s*<svg/.test(v.svg || "");
+const estDessin = (v) => /^\s*<svg/.test(v.svg || "");
+const echelle = (v) => v.echelle !== false && estDessin(v);
 
 function afficherVues(vues, phrase) {
   const onglets = $("#vues"), stage = $("#stage");
-  if (!vues.length) { onglets.innerHTML = ""; stage.innerHTML = '<div class="attente">Pas de dessin : le calcul est impossible.</div>'; return; }
+  bench.classList.toggle("sans-vue", !vues.length);
+  if (!vues.length) {
+    // un module de consultation peut n'avoir aucune vue pour une note : rien d'anormal, on le dit sans alarmer
+    onglets.innerHTML = "";
+    stage.innerHTML = '<div class="sansvue">Pas de dessin pour cette note.</div>';
+    toile.vue(null);
+    return;
+  }
   if (!vues.some((v) => v.cle === vueCourante)) vueCourante = vues[0].cle;
-  onglets.innerHTML = vues.map((v) => `<button data-vue="${esc(v.cle)}" class="${v.cle === vueCourante ? "on" : ""}">${esc(v.court)}</button>`).join("");
+  onglets.innerHTML = vues.map((v) => `<button type="button" data-vue="${esc(v.cle)}" class="${v.cle === vueCourante ? "on" : ""}">${esc(v.court)}</button>`).join("");
+  requestAnimationFrame(marquerDebord);
   const date = new Date().toLocaleDateString("fr-BE");
   const cart = `<div class="cart"><div><span>Note</span><b>${esc(note.nom || "")}</b></div><div><span>Chantier</span><b>${esc(note.chantier || "—")}</b></div>`
-    + `<div><span>Indice</span><b>${esc(note.indice || "A")}</b></div><div><span>Date</span><b>${date}</b></div><div class="mark"><i></i>Stab Méthodes</div></div>`;
-  stage.innerHTML = vues.map((v) => `<div class="view${v.cle === vueCourante ? " on" : ""}" data-vue="${esc(v.cle)}"><div class="sheet"><div class="stitle">`
-    + `<b>${esc(v.titre.toUpperCase())}</b><span>${v.cle === vues[0].cle ? phrase : esc(v.legende || "")}</span>${echelle(v) ? '<span class="scale">mm · à l\'échelle</span>' : ""}</div>`
-    + `<div class="draw">${v.svg}</div>${cart}</div></div>`).join("");
+    + `<div class="ind"><span>Indice</span><b>${esc(note.indice || "A")}</b></div><div class="dt"><span>Date</span><b>${date}</b></div>`
+    + `<div class="mark"><i></i><span>Stab Méthodes</span></div></div>`;
+  // chaque vue porte SA légende ; la phrase du module (la note en une ligne) se lit sous le titre de la première
+  stage.innerHTML = vues.map((v, i) => `<div class="view${v.cle === vueCourante ? " on" : ""}" data-vue="${esc(v.cle)}"><div class="sheet"><div class="stitle">`
+    + `<b>${esc(v.titre)}</b>${v.legende ? `<span class="leg">${esc(v.legende)}</span>` : ""}${echelle(v) ? '<span class="scale">mm · à l\'échelle</span>' : ""}</div>`
+    + `${i === 0 && phrase ? `<div class="sphrase">${phrase}</div>` : ""}`
+    + `<div class="draw${estDessin(v) ? " dessin" : " bloc"}">${v.svg}</div>${cart}</div></div>`).join("");
+  garderGrec(stage);
+  toile.vue(vueCourante);
 }
+
+// trop de vues pour la largeur : la bande défile, son bord droit s'estompe (on devine la suite)
+function marquerDebord() {
+  const o = $("#vues");
+  o.classList.toggle("defile", o.scrollWidth > o.clientWidth + 1);
+}
+// (à chaque changement de taille de la bande, transitions comprises : la toile anime sa marge quand un cadre se replie)
+new ResizeObserver(marquerDebord).observe($("#vues"));
 
 $("#vues").addEventListener("click", (ev) => {
   const b = ev.target.closest("[data-vue]");
   if (!b) return;
   vueCourante = b.dataset.vue;
   bench.querySelectorAll("[data-vue]").forEach((e) => e.classList.toggle("on", e.dataset.vue === vueCourante));
+  toile.vue(vueCourante);
+});
+
+// ------------------------------------------------------------------ le téléphone : onglets, menu
+function onglet(t) {
+  bench.dataset.tab = t;
+  document.querySelectorAll(".mtabs [data-onglet]").forEach((b) => {
+    b.classList.toggle("on", b.dataset.onglet === t);
+    b.setAttribute("aria-pressed", b.dataset.onglet === t ? "true" : "false");
+  });
+  fermer();
+  if (telephone.matches) scrollTo({ top: 0 });
+  if (t === "dessin") requestAnimationFrame(() => toile.vue(vueCourante));
+}
+document.addEventListener("click", (ev) => {
+  const o = ev.target.closest("[data-onglet], [data-vers-onglet]");
+  if (o) onglet(o.dataset.onglet || o.dataset.versOnglet);
+});
+
+const menu = $("#mmenu"), menuBouton = $("#menu-m");
+function menuOuvert(on) {
+  menu.hidden = !on;
+  menuBouton.setAttribute("aria-expanded", on ? "true" : "false");
+}
+menuBouton.addEventListener("click", (ev) => { ev.stopPropagation(); menuOuvert(menu.hidden); });
+document.addEventListener("click", (ev) => {
+  if (menu.hidden || ev.target.closest("#menu-m")) return;
+  // un geste ailleurs referme le menu ; un choix du menu aussi, après avoir agi (une étiquette « Ouvrir » ouvre le
+  // choix du fichier APRÈS le clic : le menu ne disparaît qu'ensuite)
+  if (!ev.target.closest("#mmenu")) menuOuvert(false);
+  else if (ev.target.closest(".mi")) setTimeout(() => menuOuvert(false));
 });
 
 // ------------------------------------------------------------------ la saisie
@@ -138,7 +238,7 @@ function lireChamp(el) {
 // seulement si leur valeur diffère de celle du moteur (defaultValue), même après un rafraîchissement
 function valider(el) {
   if (el.dataset.sorte === "nombre" || el.dataset.sorte === "entier") {
-    const t = el.value.replace(/[\s  ]/g, "").replace(",", ".");
+    const t = el.value.replace(/[\s  ]/g, "").replace(",", ".");
     const x = Number(t);
     const ko = t === "" || !Number.isFinite(x) || (el.dataset.min !== undefined && x < +el.dataset.min) || (el.dataset.max !== undefined && x > +el.dataset.max);
     el.closest(".field").classList.toggle("erreur", ko);
@@ -177,7 +277,7 @@ $("#donnees").addEventListener("click", (ev) => {
     const s = hd.parentElement;
     s.classList.toggle("open");
     if (s.classList.contains("open")) ouvertes.add(s.dataset.sec); else ouvertes.delete(s.dataset.sec);
-    sessionStorage.setItem(`stab.sec.${MODULE}`, JSON.stringify([...ouvertes]));
+    memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
     return;
   }
   const sup = ev.target.closest("[data-supprimer]");
@@ -196,6 +296,8 @@ $("#donnees").addEventListener("click", (ev) => {
 function fermer() {
   bench.querySelectorAll(".flyout.on").forEach((f) => f.classList.remove("on"));
   bench.querySelectorAll(".el.sel").forEach((e) => e.classList.remove("sel"));
+  bench.classList.remove("fly");
+  document.documentElement.classList.remove("volet-ouvert");
 }
 
 function ouvrir(id, ancre, garder = false) {
@@ -203,8 +305,11 @@ function ouvrir(id, ancre, garder = false) {
   const f = document.getElementById(id);
   if (!f) return;
   f.classList.add("on");
+  // au téléphone, le volet monte du bas, par-dessus l'onglet ouvert ; le fond s'assombrit et ne défile plus
+  bench.classList.add("fly");
+  document.documentElement.classList.toggle("volet-ouvert", telephone.matches);
   if (ancre && ancre.classList.contains("el")) ancre.classList.add("sel");
-  if (ancre && !f.classList.contains("calcul")) {
+  if (ancre && !f.classList.contains("calcul") && !telephone.matches) {
     const b = bench.getBoundingClientRect(), a = ancre.getBoundingClientRect();
     f.style.top = Math.max(10, Math.min(a.top - b.top - 12, b.height - f.offsetHeight - 10)) + "px";
   }
@@ -223,6 +328,7 @@ async function ouvrirSelecteur(role, ancre) {
   const ancien = document.getElementById(`pk-${role}`);
   if (ancien) ancien.remove();
   $("#volets").insertAdjacentHTML("beforeend", r.html);
+  garderGrec(document.getElementById(`pk-${role}`));
   ouvrir(`pk-${role}`, ancre);
 }
 
@@ -268,13 +374,55 @@ $("#volets").addEventListener("mouseover", (ev) => {
   if (p) p.innerHTML = r.dataset.prop || "";
 });
 
+// au toucher, pas de survol : le premier appui sur une ligne du sélecteur montre ses propriétés… et la choisit ; on
+// montre donc les propriétés dès que le doigt se pose
+$("#volets").addEventListener("pointerdown", (ev) => {
+  const r = ev.target.closest(".pk-row");
+  if (!r || ev.pointerType === "mouse") return;
+  const p = r.closest(".picker").querySelector(".pk-prop");
+  if (p) p.innerHTML = r.dataset.prop || "";
+});
+
 document.addEventListener("click", (ev) => { if (!ev.target.closest(".flyout,[data-pk],[data-calcul]")) fermer(); });
-document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") fermer(); });
-bench.querySelectorAll("[data-coll]").forEach((b) => b.addEventListener("click", () => bench.classList.toggle(b.dataset.coll === "g" ? "sans-g" : "sans-d")));
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { fermer(); menuOuvert(false); } });
+bench.querySelectorAll("[data-coll]").forEach((b) => b.addEventListener("click", () => {
+  bench.classList.toggle(b.dataset.coll === "g" ? "sans-g" : "sans-d");
+  requestAnimationFrame(() => toile.vue(vueCourante));
+}));
+
+// ------------------------------------------------------------------ un fichier propre au module (export JSON…)
+// Le module pose dans ses fragments <button data-telecharger="<quoi>"> ; le moteur rend le fichier
+// ({"fichier": {"nom", "type", "texte"}}) et le navigateur l'enregistre sous ce nom, nettoyé (commun.js).
+async function telechargerFichier(quoi) {
+  occupe(1);
+  try {
+    const r = await moteur.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi }));
+    const f = r && r.ok ? r.fichier : null;
+    if (!f || typeof f.nom !== "string" || typeof f.texte !== "string") {
+      toast(`Téléchargement refusé : ${(r && !r.ok && r.erreur) || "le moteur n'a pas rendu de fichier"}`, true);
+      if (r && r.trace) console.error(r.trace);
+      return;
+    }
+    toast(`${telecharger(f.nom, f.texte, f.type || "application/octet-stream")} téléchargé`);
+  } finally { occupe(-1); }
+}
+// à la capture : les volets arrêtent la propagation de leurs clics
+bench.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-telecharger]");
+  if (!b) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  telechargerFichier(b.dataset.telecharger);
+}, true);
 
 // ------------------------------------------------------------------ fichier, impression
-$("#exporter").addEventListener("click", () => N.exporter(note));
-$("#imprimer").addEventListener("click", () => window.print());
+document.addEventListener("click", (ev) => {
+  const a = ev.target.closest("[data-action]");
+  if (!a) return;
+  if (a.dataset.action === "exporter") N.exporter(note);
+  else if (a.dataset.action === "imprimer") window.print();
+  else if (a.dataset.action === "pdf") toast("La note PDF arrive bientôt sur le site ; elle reste dans Streamlit.");
+});
 $("#ouvrir").addEventListener("change", async (ev) => {
   const f = ev.target.files[0];
   if (!f) return;

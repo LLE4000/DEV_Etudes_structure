@@ -12,6 +12,10 @@ a { color: inherit; text-decoration: none; }
 .show-modules .modpanel { display: flex; }
 
 /* ---------------------------------------------------------------- l'établi : barre du haut */
+/* le fil d'Ariane cède la place (un chantier au nom long glissait le nom de la note sous « Brouillon ») */
+.top .crumbs { overflow: hidden; flex: 0 1 auto; }
+#fil-chantier { min-width: 0; max-width: 24vw; overflow: hidden; text-overflow: ellipsis; }
+.crumbs .nomnote { flex: 0 1 260px; width: auto; min-width: 110px; text-overflow: ellipsis; }   /* coupé : « … », pas au milieu d'une lettre */
 .crumbs a { display: grid; place-items: center; color: var(--ink-3); }
 .crumbs a:hover { color: var(--ink); }
 .nomnote { border: 1px solid transparent; border-radius: 6px; background: transparent; font-weight: 650; color: var(--ink); padding: 2px 6px;
@@ -44,6 +48,15 @@ a { color: inherit; text-decoration: none; }
 label.fichier { width: max-content; }
 .case { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-2); cursor: pointer; padding: 2px 0; }
 .case input { width: 15px; height: 15px; accent-color: var(--accent); flex: none; }
+/* l'état VERROUILLÉ des briques (desactive=True) se voit : la charte n'en avait que pour un champ, et un segment
+   désactivé ressemblait trait pour trait à un segment actif (les couleurs de .seg button passent devant le grisé du
+   navigateur) ; la valeur retenue reste lisible */
+.seg.locked { background: var(--panel-2); box-shadow: inset 0 0 0 1px var(--line); }
+.seg.locked button { cursor: not-allowed; }
+.seg.locked button:not(.on) { color: var(--ink-4); }
+.seg.locked button.on { color: var(--ink-2); background: var(--panel-2); box-shadow: 0 0 0 1px var(--line-strong); }
+.case:has(> input:disabled) { color: var(--ink-3); cursor: not-allowed; }
+.field.locked textarea { color: var(--ink-2); }
 .rows .seg.full button { height: 28px; }
 .msg { font-size: 12px; color: var(--ink-2); padding: 8px 16px; border-top: 1px solid var(--line); line-height: 1.4; }
 .msg.grave { color: var(--nok); font-weight: 600; }
@@ -75,6 +88,9 @@ label.fichier { width: max-content; }
 .el { transition: background .12s; }
 .el:hover { background: var(--bg); }
 .el.gov:hover { background: var(--accent-soft); }
+/* le nom de la vérification et la pièce : si les deux ne tiennent pas sur une ligne, la pièce passe dessous, à droite,
+   entière (« RHS 50×25×2,… » cachait l'épaisseur des lisses d'un garde-corps, au PC) */
+.el .l1 { flex-wrap: wrap; row-gap: 3px; }
 
 /* ---------------------------------------------------------------- le démarrage du moteur */
 .demarrage { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 82%, transparent);
@@ -155,3 +171,243 @@ label.fichier { width: max-content; }
 .moins:hover { background: var(--bg-sunken); color: var(--nok); }
 .moins svg.i { width: 13px; height: 13px; }
 button.addrow { justify-content: flex-start; width: max-content; }
+
+/* ================================================================ les trois formats de l'établi
+   Une seule page ; seule la disposition change (js/etabli.js ne connaît que les onglets du téléphone) :
+   - PC, 1 200 px et plus : les cadres flottants de la maquette (charte) ;
+   - tablette, 701 à 1 199 px : la toile en haut sur toute la largeur, les deux cadres dessous (portrait) ; en paysage,
+     la toile à droite sur toute la hauteur, les données au-dessus du résultat à gauche. Les cadres flottants y
+     écrasaient la toile (62 px à 820 px de large, 450 px à 1 180) ; la barre du haut ne se replie en icônes que
+     jusqu'à 1 100 px ;
+   - téléphone, 700 px et moins : l'en-tête, les onglets et la barre du bas de la maquette (.mtop, .mtabs, .mbar). */
+
+/* ---------------------------------------------------------------- partout : un champ de TEXTE n'a pas de chiffres tabulaires */
+/* la charte les donne à tous les champs ; le trait d'union d'Inter y prend la largeur d'un chiffre (10,4 px au lieu de
+   7,4 en 16 px) et un nom s'écrivait « Garde - corps 1 » */
+.field.text input, .field.area textarea { font-variant-numeric: normal; }
+
+/* ---------------------------------------------------------------- partout : les lettres grecques gardent leur casse */
+.gr { text-transform: none; }
+.sheet .stitle b { text-transform: uppercase; }
+
+/* ---------------------------------------------------------------- la feuille : titre, légende, phrase, cartouche */
+/* la légende de CHAQUE vue se lit en entier (la charte la cachait sous 1 360 px, et la première vue la remplaçait par
+   la phrase) : elle passe à la ligne plutôt que d'être coupée */
+.sheet { container: feuille / inline-size; }
+.sheet .stitle { flex-wrap: wrap; row-gap: 2px; white-space: normal; }
+.sheet .stitle b { flex: none; }
+.sheet .stitle .leg, .sheet .stitle .scale { display: inline-block; }
+.sheet .stitle .leg { flex: 1 1 14em; min-width: 0; overflow: visible; text-overflow: clip; white-space: normal; line-height: 1.35; color: #5B6575; }
+.sheet .sphrase { padding: 3px 16px 0; font-size: 11.5px; line-height: 1.4; color: #4A5568; }
+.sansvue { padding: 40px 18px; color: var(--ink-3); font-size: 13px; text-align: center; }
+.bench.sans-vue .zoom { display: none; }
+/* le cartouche : le nom de la note cède la place (points de suspension), jamais l'indice ni la date ; il ne
+   s'efface plus jusqu'à zéro (à 1 024 px, « Note » et « Chantier » se chevauchaient) */
+.cart > div { flex: none; }
+.cart > div:first-child { flex: 1 1 0; min-width: 6em; }
+.cart > div:nth-child(2) { flex: 0 1 auto; min-width: 4.5em; max-width: 34%; }
+.cart > div > span, .cart > div > b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cart .mark span { white-space: nowrap; }
+@container feuille (max-width: 640px) { .cart > div { padding: 6px 9px; } .cart .mark span { display: none; } }
+@container feuille (max-width: 440px) { .cart .ind { display: none; } }
+
+/* le contenu de la vue : un dessin se centre ; un BLOC (un tableau) remplit la vue, son contenu en haut à gauche, et
+   défile dedans — centré, il sortait de la feuille par la gauche au téléphone. « stretch » et non « start » : un
+   module qui place son tableau en position absolue (inset) le verrait sinon réduit à sa hauteur propre, et sa zone
+   qui défile à zéro (le tableau des armatures disparaissait en tablette) */
+.sheet .draw { overflow: hidden; }
+.sheet .draw > :not(svg) { justify-self: stretch; align-self: stretch; min-width: 0; max-width: 100%; overflow: auto; }
+@media (min-width: 701px) {
+  .sheet .draw { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+  .sheet .draw > :not(svg) { max-height: 100%; }
+}
+
+/* ---------------------------------------------------------------- le zoom et le plein écran de la toile */
+/* la barre de la toile : les vues au milieu, le zoom à droite ; trop de vues pour la largeur, elles défilent (sept
+   vues de soudures poussaient le zoom sous le cadre du résultat, à 1 180 px) */
+.ctool { grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(max-content, 1fr); }
+.ctool > .seg { min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.ctool > .seg::-webkit-scrollbar { display: none; }
+.ctool > .seg button { flex: none; }
+.ctool > .seg.defile { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+.ctool .zoom { display: flex; }
+.zoom button { width: 30px; height: 28px; }
+.zoom button:hover { background: var(--bg); color: var(--ink); }
+.zoom .zpct { width: auto; min-width: 50px; padding: 0 6px; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.zoom svg.i { width: 16px; height: 16px; }
+.zoom .zplein svg.i + svg.i, .bench.plein .zoom .zplein svg.i:first-child { display: none; }
+.bench.plein .zoom .zplein svg.i + svg.i { display: block; }
+.zoom.sans-zoom [data-zoom] { display: none; }
+.sheet .draw.dessin { touch-action: pan-x pan-y; }
+.sheet .draw.zoome { touch-action: none; cursor: grab; }
+.sheet .draw.zoome:active { cursor: grabbing; }
+/* plein écran : la toile couvre la fenêtre (le menu du navigateur reste ; le mode existe aussi au téléphone) */
+.bench.plein .canvas { position: fixed; inset: 0; z-index: 45; display: flex !important; flex-direction: column; padding: 0 12px;
+  background: var(--bg); }
+.bench.plein .ctool { padding-top: 10px; }
+.bench.plein .stage { flex: 1; min-height: 0; padding: 10px 0 12px; }
+.bench.plein .sheet { height: 100%; min-height: 0; }
+html.plein-ecran, html.plein-ecran body { overflow: hidden; }
+
+/* une ligne de segments : à côté du libellé s'ils tiennent, sinon sur leur propre ligne, sur toute la largeur
+   (« Platine · Latérale · Soudé · Scellé », « Directionnelle · Simplifiée » ne tenaient pas dans les 178 px du cadre
+   de 304 px, sous 1 360 px) */
+.row.full:has(> .seg.full) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.row.full:has(> .seg.full) > label { flex: 0 0 84px; }
+.row.full:has(> .seg.full) > .seg.full { flex: 1 1 auto; min-width: 0; }
+/* un libellé long passe à la ligne plutôt que d'être coupé (« sur la main courante » dans le cadre de 304 px, sous
+   1 360 px) */
+.row > label { white-space: normal; line-height: 1.3; }
+.row > label > span:not(.sym):not(.aide) { overflow: visible; text-overflow: clip; min-width: 0; }
+.row > label > .aide { flex: none; }
+
+/* ---------------------------------------------------------------- le résultat, la liste des éléments */
+/* la grande pastille du verdict garde sa largeur : une comparaison longue la comprimait et coupait « η » */
+.verdict .chip.xl { flex-shrink: 0; }
+.verdict .gov { overflow-wrap: anywhere; }
+/* « Dans cette note » : le NOM se coupe (points de suspension), les dimensions qui le suivent restent lisibles */
+.ni .t { display: flex; align-items: baseline; gap: .3em; }
+.ni .t > .nom { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); font-weight: 600; }
+.ni .t > span:not(.nom) { flex: 0 0 auto; min-width: 0; max-width: calc(100% - 2.8em); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* au toucher, pas de survol : la croix de l'élément ouvert reste visible */
+@media (hover: none) { .elements .ni.on .x { display: grid; } }
+
+/* ---------------------------------------------------------------- le téléphone : rien de ces barres ailleurs */
+.mmenu[hidden], .mchip[hidden] { display: none !important; }
+.mmenu { display: none; }
+
+/* ================================================================ tablette : 701 à 1 199 px */
+/* la barre du haut, jusqu'à 1 100 px */
+@media (min-width: 701px) and (max-width: 1100px) {
+  /* la barre du haut garde ses icônes ; les noms des boutons passent au survol (title) */
+  .top { gap: 8px; padding: 0 12px 0 16px; }
+  .top .btn .lbl { display: none; }
+  .top .btn, .top label.btn { width: 36px; height: 34px; padding: 0; justify-content: center; }
+  #fil-chantier { max-width: 20vw; }
+  .top .tag { flex: none; }
+}
+@media (min-width: 701px) and (max-width: 1199px) {
+  /* portrait : la toile en haut, sur toute la largeur ; les données et le résultat côte à côte dessous */
+  .bench { --g: 10px; display: grid; gap: var(--g); padding: var(--g); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 11fr) minmax(0, 9fr); grid-template-areas: "toile toile" "donnees resultat"; }
+  #volets { display: contents; }
+  .bench > .canvas { grid-area: toile; position: relative; inset: auto; padding: 0; min-height: 0; background: none; }
+  .bench > .canvas .ctool { padding-top: 0; }
+  .bench > .canvas .stage { padding: 8px 0 0; }
+  .bench > .panel { position: relative; inset: auto; width: auto; min-width: 0; min-height: 0; }
+  .bench > .panel.left { grid-area: donnees; }
+  .bench > .panel.right { grid-area: resultat; }
+  /* un cadre replié laisse sa largeur à l'autre ; les deux repliés, la toile prend la hauteur */
+  .bench.sans-g { grid-template-columns: auto minmax(0, 1fr); }
+  .bench.sans-d { grid-template-columns: minmax(0, 1fr) auto; }
+  .bench.sans-g.sans-d { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .bench.sans-g .panel.left, .bench.sans-d .panel.right { align-self: start; }
+  .bench.sans-g.sans-d .panel.right { justify-self: end; }
+  /* les volets : le sélecteur à côté de sa ligne, par-dessus les données ; la fenêtre de calcul sur tout l'établi */
+  .flyout { left: var(--g); right: auto; }
+  .flyout.calcul { right: var(--g); width: auto; top: var(--g); max-height: calc(100% - 2 * var(--g)); }
+  .ck-body { max-height: calc(100vh - var(--top-h) - 150px); }
+  .zoom button { width: 36px; height: 32px; }
+  /* le pied du résultat tient sur une ligne quand le cadre est large (paysage) : une ligne de résultat de plus */
+  .pfoot { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 16px; }
+  .pfoot .mass { flex: 0 1 auto; gap: 12px; }
+  .pfoot .legend { margin-left: auto; }
+
+  /* l'accueil : la colonne des chantiers passe sous les modules */
+  .page.accueil { grid-template-columns: minmax(0, 1fr); }
+  .accueil .side { position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+/* paysage (1 024 × 768, 1 180 × 820) : la toile à droite sur toute la hauteur, les données au-dessus du résultat à gauche (la
+   toile sous les données lui laissait 220 px de haut : un texte de dalle de 6 px) */
+@media (min-width: 701px) and (max-width: 1199px) and (orientation: landscape) {
+  .bench { grid-template-columns: 318px minmax(0, 1fr); grid-template-rows: minmax(0, 11fr) minmax(0, 9fr);
+    grid-template-areas: "donnees toile" "resultat toile"; }
+  .bench.sans-g { grid-template-columns: 318px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .bench.sans-d { grid-template-columns: 318px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .bench.sans-g.sans-d { grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .bench.sans-g.sans-d .panel.right { justify-self: start; }
+  /* le sélecteur s'ouvre à droite du résultat, sur la toile */
+  .flyout { left: calc(318px + 2 * var(--g)); }
+}
+
+/* ================================================================ téléphone : 700 px et moins */
+@media (max-width: 700px) {
+  /* l'en-tête : retour, nom de la note (on le change en le touchant), taux, menu des actions */
+  .mtop { gap: 4px; padding: 0 4px; }
+  .mtop .btn.icon { width: 44px; height: 44px; flex: none; }
+  .mtop .btn.icon svg.i { width: 20px; height: 20px; }
+  .mtop .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .mtop .nomnote { width: 100%; min-width: 0; height: 26px; padding: 0 4px; margin-left: -4px; font-size: 16px; font-weight: 700;
+    text-overflow: ellipsis; }
+  .mtop #fil-m { font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mtop .calcule { margin: 0; flex: none; }
+  .mtop .mchip { flex: none; height: 36px; min-width: 50px; padding: 0 9px; border: 0; font-size: 13px; font-family: inherit; cursor: pointer; }
+  .mmenu { position: fixed; top: 52px; right: 8px; z-index: 30; display: flex; flex-direction: column; width: min(300px, calc(100vw - 16px));
+    padding: 6px; background: var(--panel); border: 1px solid var(--frame); border-radius: 14px; box-shadow: var(--shadow-pop); }
+  .mmenu .mm-h { padding: 6px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+  .mmenu .mm-h .saved .txt { display: inline; }
+  .mmenu .mi { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 0 12px; border-radius: 10px;
+    font-size: 15px; font-weight: 550; color: var(--ink); text-align: left; cursor: pointer; }
+  .mmenu .mi:hover, .mmenu .mi:active { background: var(--bg); }
+  .mmenu .mi svg.i { width: 19px; height: 19px; color: var(--ink-2); }
+  .mmenu .mi .tag { margin-left: auto; }
+  .mmenu .mi[aria-disabled="true"] { color: var(--ink-3); }
+  /* les onglets, puis la barre du bas */
+  .mtabs { padding: 8px 12px; }
+  .mtabs .seg button { height: 40px; font-size: 14.5px; }
+  .mbar { padding-left: 12px; padding-right: 12px; }
+  .mbar .btn { height: 46px; gap: 8px; }
+  .mbar .btn[aria-disabled="true"] { opacity: .55; }
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
+  .demarrage { position: fixed; z-index: 35; }
+  .demarrage .carte { width: min(360px, calc(100vw - 32px)); }
+  .modpanel { left: 0; width: min(320px, 88vw); z-index: 32; }
+  html.volet-ouvert, html.volet-ouvert body { overflow: hidden; }
+
+  /* la toile : les vues défilent de côté, le zoom reste à droite */
+  .ctool { overflow: visible; -webkit-mask-image: none; mask-image: none; gap: 8px; }
+  .ctool > .seg { flex: 1 1 auto; }
+  .ctool > .seg button { flex: none; height: 36px; padding: 0 12px; font-size: 13px; }
+  .ctool .zoom { flex: none; }
+  .zoom button { width: 38px; height: 36px; }
+  .zoom .zpct { min-width: 50px; }
+  .sheet .sphrase { padding: 3px 14px 0; }
+
+  /* les champs en 16 px au moins : sous cette taille, iOS agrandit la page au toucher d'un champ (la règle passe
+     devant les feuilles des modules, qui écrivent leurs champs en 12,5 px) */
+  .bench input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), .bench select, .bench textarea,
+  .mtop input, .modal input { font-size: 16px !important; }
+  /* des cibles que le doigt touche sans viser : 40 px et plus */
+  #donnees .field:not(.area) { height: 42px; }
+  .rows .seg.full button, .seg.full button { height: 38px; }
+  .ni { height: 46px; }
+  .elements .ni .x { width: 36px; height: 36px; }
+  .nl-add { min-height: 42px; }
+  .sechd { min-height: 50px; }
+  .case { min-height: 40px; }
+  .case input { width: 20px; height: 20px; }
+  .addrow { min-height: 40px; }
+  .moins { width: 36px; height: 36px; }
+  .prof { height: 36px; }
+  .pk-row { height: 46px; }
+  .fchip { height: 36px; padding: 0 13px; font-size: 13px; }
+  .flyout .fl-h .pcoll { width: 40px; height: 40px; }
+
+  /* l'accueil : une colonne ; le bouton « Nouvelle note » garde son nom, sur toute la largeur */
+  .page.accueil { grid-template-columns: minmax(0, 1fr); }
+  .accueil .resume:has(.vide) { grid-auto-columns: 100%; }
+  .accueil .hello .btn.big { width: 100%; height: 46px; padding: 0 16px; justify-content: center; font-size: 14.5px; }
+  .accueil .hello .btn.big svg.i { width: 18px; height: 18px; }
+  .accueil .famille { margin-bottom: 4px; }
+  .accueil .tile { min-height: 52px; }
+  .mhead .btn.icon { width: 44px; height: 44px; }
+  .mnav a[aria-disabled="true"] { opacity: .45; }
+  /* « Nouvelle note » : une colonne, des champs et des boutons à la taille du doigt */
+  .modal { padding: 10px; align-items: end; }
+  .mcard { max-height: calc(100svh - 20px); }
+  .mrow3 { grid-template-columns: minmax(0, 1fr); }
+  .mrow3 input { height: 44px; }
+  .mgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mopt { min-height: 46px; }
+  .mcard .mf .btn { height: 44px; }
+}

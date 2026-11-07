@@ -10,7 +10,9 @@ navigation, paramètres, résultat sur deux lignes, fenêtre de calcul, rapports
 - **Le calcul est celui du moteur Python du dépôt**, exécuté dans le navigateur : les mêmes chiffres, les mêmes
   formules, la même note PDF que Streamlit.
 - **Gratuit** : le site sur Cloudflare Pages, les données sur Supabase, le domaine chez OVH.
-- **Le PC d'abord.** Le téléphone n'est pas prioritaire : il doit fonctionner, sans plus d'effort.
+- **Le PC d'abord.** Le téléphone n'est pas prioritaire : il doit fonctionner, sans plus d'effort. Depuis le
+  07/11/2026, l'établi est **complet** au téléphone et à la tablette (§ 10 bis) : les mêmes fonctions qu'au PC, une
+  disposition propre à chaque format.
 - Premier module : le garde-corps (il fixe le style) ; ensuite le menu Béton, en commençant par les poutres
   (maquette faite : `site/maquettes/pages/poutre.html`). **Avant le site**, le calcul des poutres doit sortir de
   l'écran Streamlit (`modules/poutre.py` mêle calcul et écran) pour devenir un moteur aux formules nommées et
@@ -149,3 +151,54 @@ D'autres changements de noms suivront ; cette liste est la référence.
   en attendant les comptes. Les étapes : `site/web/README.md`.
 - **Reste à faire** : la note PDF sur le site, les comptes, les projets, l'équipe, les paramètres du bureau, puis
   les autres modules, chacun avec son moteur extrait de l'écran Streamlit.
+
+## 10 bis · Téléphone et tablette (07/11/2026)
+
+Les relecteurs des modules ont trouvé l'établi inutilisable hors du PC : au téléphone, seul le cadre Données était
+atteignable (aucun onglet) ; en tablette portrait, les deux cadres flottants écrasaient la toile à 62 px. Les réponses
+retenues (gabarit commun : `site/web/construire.py`, `css/site.css`, `js/etabli.js`, `js/toile.js`) :
+
+- **Une seule page, trois dispositions** ; les fonctions, les champs et les résultats sont les mêmes partout.
+  - **PC et petit portable** (1 200 px et plus) : la maquette — la toile sur toute la largeur, les deux cadres
+    flottants qu'on replie.
+  - **Tablette portrait** (701 à 1 199 px) : la toile en haut sur toute la largeur (au moins 500 × 300 px offerts au
+    dessin), les données et le résultat côte à côte dessous ; chaque cadre se replie.
+  - **Tablette paysage** (701 à 1 199 px : 1 024 × 768, 1 180 × 820) : la toile à droite sur toute la hauteur (au
+    moins 500 × 400 px), les données au-dessus du résultat à gauche. Les cadres flottants laissaient 450 px au dessin
+    à 1 180 px.
+  - **Téléphone** (700 px et moins) : le dessin des maquettes — en-tête compact (retour, nom de la note, taux, menu des
+    actions : ouvrir, exporter, imprimer, thème, modules), onglets Données · Dessin · Résultat toujours visibles, barre
+    du bas ; la fenêtre de calcul et le sélecteur montent du bas. Champs en 16 px (iOS n'agrandit plus la page), cibles
+    de 36 px au moins, aucun défilement de côté. L'accueil a son en-tête et les cinq entrées en bas (§ 1 bis).
+- **La toile** : zoom (− / + / ajuster, Ctrl + molette, pincer au doigt ; le dessin agrandi glisse) et **plein écran**
+  de la vue (§ 8) ; la légende de **chaque** vue se lit ; un tableau défile dans sa feuille, aligné en haut à gauche ;
+  un module sans vue affiche « Pas de dessin pour cette note. » (et non « le calcul est impossible »).
+- **Corrections de la charte, faites dans la feuille du site** (la charte reste la copie des maquettes) : le cartouche
+  ne se chevauche plus à ≤ 1 024 px ; dans « Dans cette note », c'est le nom long qui se coupe, jamais les dimensions ;
+  les lettres grecques d'un en-tête en capitales gardent leur casse (η ne devient plus « H ») ; la grande pastille du
+  verdict ne se comprime plus.
+- **Un fichier propre au module** (export du JSON de l'écran Streamlit…) : bouton `data-telecharger`, action
+  `telecharger` du routeur, fichier rendu par le moteur et enregistré par le navigateur sous un nom nettoyé (ni
+  chemin, ni « .. », ni caractère invisible). Vérifié de bout en bout dans Chromium (filtre « telecharger ») : du
+  bouton rendu par la brique au fichier enregistré, au PC et au téléphone, refus compris.
+- **Le démarrage** : numpy n'est chargé que pour les modules qui s'en servent (garde-corps, choix de profilé, soudures),
+  relevés par la construction du site ; un import imprévu le fait charger à la demande ; le paquet du moteur arrive
+  pendant que Python démarre. Mesures ci-dessous.
+- **Vérifié dans le vrai navigateur** : `site/web/verifier_site.js`, filtre « formats » (chaque module, quatre formats,
+  ce que l'œil voit : tailles lues, visibilité, débordements, noms coupés).
+
+**Mesure du démarrage (07/11/2026, Chromium de Playwright, serveur local, PC à 4 cœurs).** Du début de la navigation
+au premier résultat affiché ; le site d'avant (copie figée) et celui d'après servis tour à tour sur le même port,
+trois tours, une ouverture à cache vide puis trois à cache plein par tour ; médianes.
+
+| Établi | Avant, cache plein | Après, cache plein | Avant, cache vide | Après, cache vide |
+|---|---|---|---|---|
+| Poutres béton armé (sans numpy) | 2,46 s | **2,14 s** (− 0,31 s, − 13 %) | 2,61 s | 2,19 s |
+| Soudures (avec numpy) | 3,10 s | 3,16 s (inchangé, au bruit près) | 3,08 s | 3,21 s |
+
+D'où vient le temps (poutre, cache plein) : le démarrage de Python lui-même (Pyodide : WebAssembly et bibliothèque
+standard) ≈ 1,8 s ; numpy ≈ 0,34 s (épargné désormais à quatre modules : poutres, dalles, taux d'armature, tableau des
+armatures) ; le paquet du moteur ≈ 40 ms ; le premier calcul ≈ 0,1 s (0,7 s pour soudures, qui importe numpy). Les
+« ~6 s » relevés par les relecteurs l'étaient sur une machine chargée (le même parcours y mesurait 3,5 à 7,5 s). Ce qui
+reste à gagner est dans Pyodide (un instantané de la mémoire après démarrage, par exemple) : non fait.
+

@@ -57,7 +57,7 @@ def saisir(etat, chemin, valeur):
     return out
 
 
-LIGNE = re.compile(r'<div class="el( gov)?"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span>([^<]*)</span>.*?<span class="pct (\w)">([^<]+)</span>', re.S)
+LIGNE = re.compile(r'<div class="el( gov)?"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span>([^<]*)</span>.*?<span class="pct (\w)"(?: title="[^"]*")?>([^<]+)</span>', re.S)
 GROUPE = re.compile(r'<div class="elgrp">([^<]+)<span class="pct (\w)">([^<]+)</span></div>')
 CHAMPS = re.compile(r'<input data-chemin="([^"]+)" data-sorte="(nombre|entier|texte)"[^>]*?value="([^"]*)"')
 SEG_ON = re.compile(r'<button type="button" class="on" data-chemin="([^"]+)" data-sorte="choix" data-valeur="([^"]*)"')
@@ -70,6 +70,12 @@ def niv(v):
 
 
 def pct_txt(t):
+    """Le taux d'une ligne tel que la brique commune l'écrit (au-delà de 999 % : « > 999 % », l'exact au survol)."""
+    return C._taux_txt(C.pct(t))[0]
+
+
+def pct_groupe(t):
+    """Le taux d'un titre de groupe, écrit par le module lui-même (sans plafond)."""
     return f"{C.pc(C.pct(t))}{C.NBSP}%"
 
 
@@ -111,7 +117,7 @@ def controle_resultat(r, nom_cas):
     for (titre, n, t), groupe in zip(groupes, (MO.TRANSVERSAL, MO.LONGITUDINAL)):
         vs = [v for v in m["verifications"] if v["groupe"] == groupe]
         tg = max(v["taux"] for v in vs)
-        if (titre, n, t) != (K.GROUPES[groupe][0], "r" if any(v["etat"] == MO.NOK for v in vs) else C.niveau(tg), pct_txt(tg)):
+        if (titre, n, t) != (K.GROUPES[groupe][0], "r" if any(v["etat"] == MO.NOK for v in vs) else C.niveau(tg), pct_groupe(tg)):
             fautes.append(f"groupe {groupe}")
     if len(groupes) != 2:
         fautes.append(f"{len(groupes)} groupes")

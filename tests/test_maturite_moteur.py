@@ -23,6 +23,7 @@ reste la référence. Chaque contrôle rougit si l'on retire ce qu'il protège.
 
     /usr/bin/python3.12 tests/test_maturite_moteur.py       (streamlit, matplotlib et pandas requis pour la parité)
 """
+import arrondi_affichage as AA  # noqa: E402  (tests/, le même dossier)
 import ast
 import contextlib
 import copy
@@ -946,7 +947,7 @@ if AB is not None:
         def voit(texte, ou, nom):
             nonlocal n
             n += 1
-            if texte not in ou:
+            if not AA.present(texte, ou):     # au demi exact près (le site arrondit demi vers l'extérieur, l'écran au pair)
                 out.append(f"{nom} : « {texte} » absent du site")
         # ① « fck(t j à T °C) » — « x MPa · y % de fck(28) » ; la légende « t_e = x j »
         m1 = _re.match(r"([-\d.]+) MPa · ([-\d]+) % de fck\(28\)$", blocs[0][1])

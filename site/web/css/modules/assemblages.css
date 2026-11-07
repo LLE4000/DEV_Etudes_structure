@@ -88,3 +88,8 @@ button.addrow { text-align: left; }
 /* le pied d'un sélecteur : « A<sub>s</sub> mm² · taux », « h<sub>p</sub> mm · taux » — sans l'espace que la charte met
    entre les morceaux d'une pastille (inline-flex : « A ₛ mm² ») ; ce morceau-là n'a pas d'icône */
 .flyout.picker .fl-foot > span:last-child { display: inline; }
+
+/* au téléphone : les segments à la hauteur des cibles tactiles du site (36 px), comme les autres briques */
+@media (max-width: 700px) {
+  .rows .seg.full button { min-height: 36px; }
+}

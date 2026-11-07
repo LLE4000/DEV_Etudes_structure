@@ -29,6 +29,7 @@ reste la référence. Chaque contrôle rougit si l'on retire ce qu'il protège (
 
     /usr/bin/python3.12 tests/test_sol_moteur.py       (streamlit, pandas, matplotlib requis pour la parité)
 """
+import arrondi_affichage as AA  # noqa: E402  (tests/, le même dossier)
 import ast
 import contextlib
 import copy
@@ -1526,17 +1527,19 @@ def ecarts_site(f):
             for a, b in zip(_cellules(ts, "sol-tr"), tst):
                 att = [_v(b["z sous assise [m]"], 2), _v(b["Δσ [kPa]"], 1), _v(b["σ'v0 [kPa]"], 1), "—" if b["Δσ/σ'v0"] is None else _v(b["Δσ/σ'v0"], 2),
                        _v(b["M [MPa]"], 1), _v(b["dw [mm]"], 3), _txt(b["couche"] or "—")]
-                out += [f"tranche {a} ≠ {att}"] if a != att else []
+                # au demi exact près : le site arrondit demi vers l'extérieur, l'écran au pair (tests/arrondi_affichage.py) ;
+                # l'écran a déjà arrondi ses cellules par round() : la valeur brute n'est pas lisible ici
+                out += [f"tranche {a} ≠ {att}"] if not AA.memes_nombres(att, a) else []
         for e in ev:                                             # chaque nombre de chaque avertissement de l'écran
             if e[0] in ("warning", "error", "info"):
                 out += [f"message « {e[1][:50]} » : {x}" for x in re.findall(r"\d+(?:\.\d+)?", e[1])
-                        if x.replace(".", ",") not in res_t + vol_t]
+                        if not AA.present(x.replace(".", ","), res_t + vol_t)]
     elif f["mode"] == "abaque":
         for a, b in zip(_cellules(vues["abaque_tab"], "sol-ab"), dfs[0]):
             ck = next(c for c in b if c.startswith("k pour B"))
             att = [_txt(b["Catégorie"]), _txt(b["Type de sol"]), _v(b["γ [kN/m³]"], 1), _txt(b["M [MPa]"]), _txt(b["k plaque 0,30 m"]),
                    _txt(b[ck]).replace(".", ","), _txt(b["q pour w réf [kPa]"])]
-            out += [f"abaque {a} ≠ {att}"] if a != att else []
+            out += [f"abaque {a} ≠ {att}"] if not AA.memes_cellules(att, a) else []     # au demi exact près
     else:
         for e in ev:
             if e[0] == "bloc":
@@ -1545,7 +1548,7 @@ def ecarts_site(f):
             elif e[0] == "dataframe":                            # les théories : chaque k du tableau
                 out += [f"théorie {x['Méthode']}" for x in e[1] if f"{_v(x['k [MN/m³]'], 2)}MN/m³" not in res_t]
             elif e[0] == "latex" and "=" in e[1] and "dfrac{q}" not in e[1]:
-                out += [f"détail {x}" for x in re.findall(r"= ([0-9 .]+)\\[, ]\\text", e[1]) if _txt(x).replace(".", ",") not in vol_t]
+                out += [f"détail {x}" for x in re.findall(r"= ([0-9 .]+)\\[, ]\\text", e[1]) if not AA.present(_txt(x).replace(".", ","), vol_t)]
     return out
 
 
