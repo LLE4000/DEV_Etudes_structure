@@ -104,6 +104,15 @@ site tel qu'il est.
 - **Corbeille** de 30 jours pour une note supprimée.
 - **Sauvegarde quotidienne** de toute la base, et export `.stab` à tout moment.
 - Si un calcul plante, la note garde ses **données** : on la rouvre, on corrige, on relance.
+- **Un échec d'enregistrement se voit, à toutes les largeurs** (07/11/2026, refonte de l'établi, lot 0 bis) : l'indicateur
+  de la barre du haut — au téléphone, la 2ᵉ ligne de l'en-tête — passe au rouge (« Non enregistré : stockage plein ») et
+  y reste jusqu'à la prochaine écriture réussie ; un message, dit une fois, offre « Exporter .stab ». Avant, le texte
+  était caché sous 1 360 px : l'échec y était muet.
+- **Une mémoire des notes illisible n'est jamais écrasée** (07/11/2026, lot 0 bis) : abîmée, elle n'a aucune note
+  lisible, mais elle n'est pas « vide ». Avant toute écriture, son texte brut est copié à part, tel quel, une fois
+  (`stab.notes.v1.illisible.<heure>`) ; si la copie échoue, rien n'est écrit et l'écran dit « Non enregistré : la
+  mémoire des notes est illisible ». L'accueil le signale et rend ce texte en fichier. Avant, la première écriture
+  remplaçait la mémoire par la seule note ouverte (30 notes → 1, mesuré).
 
 ## 8 · L'écran d'un module
 

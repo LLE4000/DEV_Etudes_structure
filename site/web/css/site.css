@@ -22,8 +22,49 @@ a { color: inherit; text-decoration: none; }
   min-width: 120px; width: 260px; outline: 0; }
 .nomnote:hover { border-color: var(--line); }
 .nomnote:focus { border-color: var(--accent); background: var(--panel); }
-.saved svg.i { color: var(--ok-ink, #15803d); }
-.saved.attente svg.i { color: var(--ink-4); }
+/* ---------------------------------------------------------------- l'enregistrement de la note (.et-enr, #et-alerte) */
+/* Visible aux TROIS formats : aucune règle ne cache .et-enr ni son texte (.et-enr-txt), à aucune largeur. L'ancien
+   indicateur (.saved .txt) était caché par la charte sous 1 360 px : un échec d'enregistrement n'y laissait qu'une
+   coche grise, muette (verifier_site.js, filtre « enregistrement » ; tests/test_site_web.py lit cette feuille). Seul le mot
+   « Enregistré · » cède sous 1 100 px (tablette, téléphone) : l'heure et l'icône disent la même chose ; un échec, lui,
+   s'écrit en entier. */
+.et-enr { display: inline-flex; align-items: center; gap: 5px; flex: none; font-size: 12px; line-height: 16px; color: var(--ink-3); white-space: nowrap; }
+.et-enr-ic { display: inline-flex; flex: none; }
+.et-enr-ic svg.i { width: 15px; height: 15px; }
+.et-enr-ic svg.i:not(.et-i-neuf) { display: none; }
+.et-enr[data-enr="ok"] .et-enr-ic svg.i, .et-enr[data-enr="echec"] .et-enr-ic svg.i { display: none; }
+.et-enr[data-enr="ok"] .et-enr-ic svg.et-i-ok, .et-enr[data-enr="echec"] .et-enr-ic svg.et-i-echec { display: block; }
+.et-enr[data-enr="neuf"] .et-enr-ic { color: var(--ink-4); }
+.et-enr[data-enr="ok"] .et-enr-ic { color: var(--ok-ink, #15803d); }
+/* l'échec : rouge et gras, sur un fond rouge pâle — il ne s'efface pas tant qu'une écriture n'a pas réussi */
+.et-enr[data-enr="echec"] { padding: 2px 8px 2px 6px; border-radius: 6px; background: color-mix(in srgb, var(--nok) 10%, transparent); }
+.et-enr[data-enr="echec"] .et-enr-ic, .et-enr[data-enr="echec"] .et-enr-txt { color: var(--nok); font-weight: 650; }
+/* le message d'un échec (ou d'une mémoire illisible gardée à part) : posé sous la barre du haut, il reste jusqu'à ce
+   qu'on le ferme ; « Exporter .stab » y est à portée */
+.et-alerte { position: fixed; z-index: 48; top: calc(var(--top-h) + 10px); left: 50%; transform: translateX(-50%); width: min(600px, calc(100vw - 24px));
+  display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 12px; background: var(--panel); color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--nok) 50%, var(--line)); box-shadow: var(--shadow-pop); font-size: 12.5px; line-height: 1.45; }
+.et-alerte[hidden], .et-alerte [hidden] { display: none !important; }
+.et-alerte-ic { display: inline-flex; flex: none; color: var(--nok); }
+.et-alerte-ic svg.i { width: 18px; height: 18px; }
+.et-alerte-txt { flex: 1; min-width: 0; }
+.et-alerte .btn { flex: none; }
+.et-alerte.info { border-color: var(--accent-line); }
+.et-alerte.info .et-alerte-ic { color: var(--accent); }
+/* l'accueil : la mémoire des notes illisible, ou sa copie gardée à part */
+.et-memoire { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--r-lg); background: color-mix(in srgb, var(--nok) 7%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--nok) 40%, var(--line)); color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
+.et-memoire[hidden] { display: none !important; }
+.et-memoire b { color: var(--nok); }
+.et-mem-l { display: flex; align-items: center; gap: 12px; }
+.et-mem-l + .et-mem-l { padding-top: 8px; border-top: 1px solid color-mix(in srgb, var(--nok) 20%, var(--line)); }
+.et-mem-l p { flex: 1; min-width: 0; }
+.et-mem-l .btn { flex: none; }
+/* au doigt (tablette, téléphone) : des boutons de 44 px */
+@media (pointer: coarse) {
+  .et-alerte .btn, .et-mem-l .btn { height: 44px; }
+  .et-alerte .btn.icon { width: 44px; }
+}
 .calcule { font-size: 11.5px; color: var(--ink-3); margin-right: auto; display: inline-flex; align-items: center; gap: 6px; }
 .calcule.on::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent-line); border-top-color: var(--accent);
   animation: tourne .7s linear infinite; }
@@ -164,7 +205,7 @@ label.fichier { width: max-content; }
 /* ---------------------------------------------------------------- impression : le dessin et le résultat */
 @page { size: A4 landscape; margin: 9mm; }
 @media print {
-  .nav, .modpanel, .top .btn, .top label.btn, .pcoll, .ctool, .panel.left, .demarrage, #volets, .toast, .saved { display: none !important; }
+  .nav, .modpanel, .top .btn, .top label.btn, .pcoll, .ctool, .panel.left, .demarrage, #volets, .toast, .top .et-enr, .et-alerte { display: none !important; }
   body, .main { background: #fff; }
   .app.rail { grid-template-columns: 1fr; }
   .top { height: auto; padding: 0 0 6px; border: 0; }
@@ -308,6 +349,8 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .top .btn, .top label.btn { width: 36px; height: 34px; padding: 0; justify-content: center; }
   #fil-chantier { max-width: 20vw; }
   .top .tag { flex: none; }
+  /* l'enregistrement en court : « ✓ 17:08 » (le mot « Enregistré » au survol) ; un échec s'écrit toujours en entier */
+  .et-enr-mot:not(:empty) { display: none; }
 }
 @media (min-width: 701px) and (max-width: 1199px) {
   /* portrait : la toile en haut, sur toute la largeur ; les données et le résultat côte à côte dessous */
@@ -362,13 +405,18 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mtop .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .mtop .nomnote { width: 100%; min-width: 0; height: 26px; padding: 0 4px; margin-left: -4px; font-size: 16px; font-weight: 700;
     text-overflow: ellipsis; }
-  .mtop #fil-m { font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* la 2ᵉ ligne : l'état de l'enregistrement (le même indicateur que la barre du PC), puis le fil ; un échec y garde
+     toute sa place, le fil cède */
+  .mtop .et-l2 { display: flex; align-items: center; gap: 6px; min-width: 0; height: 16px; }
+  .mtop .et-l2 .et-enr { font-size: 12px; }
+  .et-enr-mot:not(:empty) { display: none; }
+  .mtop .et-l2 .et-enr-ic svg.i { width: 13px; height: 13px; }
+  .mtop .et-l2 .et-enr[data-enr="echec"] { padding: 0 6px 0 4px; border-radius: 4px; }
+  .mtop #fil-m { flex: 1 1 0; min-width: 0; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mtop .calcule { margin: 0; flex: none; }
   .mtop .mchip { flex: none; height: 36px; min-width: 50px; padding: 0 9px; border: 0; font-size: 13px; font-family: inherit; cursor: pointer; }
   .mmenu { position: fixed; top: 52px; right: 8px; z-index: 30; display: flex; flex-direction: column; width: min(300px, calc(100vw - 16px));
     padding: 6px; background: var(--panel); border: 1px solid var(--frame); border-radius: 14px; box-shadow: var(--shadow-pop); }
-  .mmenu .mm-h { padding: 6px 10px 10px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
-  .mmenu .mm-h .saved .txt { display: inline; }
   .mmenu .mi { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 0 12px; border-radius: 10px;
     font-size: 15px; font-weight: 550; color: var(--ink); text-align: left; cursor: pointer; }
   .mmenu .mi:hover, .mmenu .mi:active { background: var(--bg); }
@@ -382,6 +430,13 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mbar .btn { height: 46px; gap: 8px; }
   .mbar .btn[aria-disabled="true"] { opacity: .55; }
   .toast { bottom: calc(80px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
+  .et-alerte { top: 118px; flex-wrap: wrap; padding: 10px; }
+  .et-alerte-txt { flex: 1 1 calc(100% - 80px); }
+  .et-alerte .btn { height: 44px; }
+  .et-alerte .et-alerte-stab { flex: 1 1 auto; justify-content: center; }
+  .et-alerte .btn.icon { width: 44px; }
+  .et-mem-l { flex-direction: column; align-items: stretch; gap: 8px; }
+  .et-mem-l .btn { height: 44px; justify-content: center; }
   .demarrage { position: fixed; z-index: 35; }
   .demarrage .carte { width: min(360px, calc(100vw - 32px)); }
   .modpanel { left: 0; width: min(320px, 88vw); z-index: 32; }

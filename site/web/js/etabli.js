@@ -24,6 +24,7 @@ cablerRail();
 // ------------------------------------------------------------------ la note
 const q = new URLSearchParams(location.search);
 let note = q.get("note") && N.lire(q.get("note"));
+const relue = !!note && note.module === MODULE;   // une note déjà enregistrée, rouverte
 if (!note || note.module !== MODULE) {
   note = N.nouvelle({ module: MODULE, nom: q.get("nom") || "", chantier: q.get("chantier") || "", dossier: q.get("dossier") || "" });
   history.replaceState(null, "", `?note=${note.id}`);
@@ -41,13 +42,62 @@ afficherEntete();
 noms.forEach((n) => n.addEventListener("change", () => { note.nom = n.value.trim() || N.MODULES[MODULE].nom; enregistrer(); afficherEntete(); }));
 noms.forEach((n) => n.addEventListener("keydown", (ev) => { if (ev.key === "Enter") n.blur(); }));
 
-function enregistrer() {
-  const ok = N.ecrire(note);
-  document.querySelectorAll(".enregistre").forEach((s) => {
-    s.classList.toggle("attente", !ok);
-    s.querySelector(".txt").textContent = ok ? `Enregistré dans ce navigateur · ${N.quand(note.modifie)}` : "Non enregistré (stockage plein ?)";
+// ------------------------------------------------------------------ l'enregistrement : visible aux trois formats
+// Chaque indicateur .et-enr (la barre du haut au PC et à la tablette, la 2ᵉ ligne de l'en-tête au téléphone : le même
+// composant, construire.enregistrement) dit l'état de la DERNIÈRE écriture. Un échec y reste, en rouge, jusqu'à la
+// prochaine écriture réussie, et ouvre une fois le message #et-alerte, qui offre « Exporter .stab ». Aucune règle de la
+// feuille ne les cache : l'ancien texte (.saved .txt) l'était sous 1 360 px par la charte, et l'échec y était muet
+// (verifier_site.js, filtre « enregistrement »).
+const indicateurs = [...document.querySelectorAll(".et-enr")];
+const alerte = $("#et-alerte");
+let alerteDite = "";   // la raison que le message a déjà dite : il ne revient pas à chaque saisie qui échoue
+// l'heure seule aujourd'hui, la date sinon (l'indicateur est court ; la date entière est au survol)
+const heure = (t) => (new Date(t).toDateString() === new Date().toDateString()
+  ? new Date(t).toLocaleTimeString("fr-BE", { hour: "2-digit", minute: "2-digit" })
+  : new Date(t).toLocaleDateString("fr-BE", { day: "numeric", month: "short" }));
+function direEnregistrement(etat, mot, texte, titre) {
+  indicateurs.forEach((e) => {
+    e.dataset.enr = etat;
+    e.querySelector(".et-enr-mot").textContent = mot;
+    e.querySelector(".et-enr-txt").textContent = texte;
+    e.title = titre;
   });
 }
+// SUITE : ce que l'utilisateur peut faire, selon la raison du refus (notes.RAISONS dit la raison)
+const SUITE = {
+  plein: "Cette note n'est gardée nulle part : exportez-la en fichier .stab pour ne pas la perdre.",
+  illisible: "Sa copie de sauvegarde n'a pas pu être faite : rien n'y est écrit, pour ne pas effacer ce qu'elle contient. "
+    + "Exportez cette note en fichier .stab pour la garder.",
+  indisponible: "Cette note n'est gardée nulle part : exportez-la en fichier .stab pour ne pas la perdre.",
+};
+function direAlerte(sorte, texte) {
+  alerte.classList.toggle("info", sorte === "info");
+  alerte.querySelector(".et-alerte-txt").textContent = texte;
+  alerte.querySelector(".et-alerte-stab").hidden = sorte === "info";
+  alerte.hidden = false;
+}
+function enregistrer() {
+  const ok = N.ecrire(note), b = N.bilan();
+  if (ok) {
+    direEnregistrement("ok", "Enregistré · ", heure(note.modifie), `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
+    if (alerteDite) { alerteDite = ""; alerte.hidden = true; }
+    // la mémoire des notes était illisible : son texte vient d'être gardé à part (notes.js), on le dit une fois
+    if (b.copie) {
+      direAlerte("info", "La mémoire des notes de ce navigateur était illisible : son texte est gardé à part, tel quel (l'accueil permet "
+        + "de le télécharger). Cette note est enregistrée dans une mémoire neuve.");
+    }
+    return;
+  }
+  const r = N.RAISONS[b.raison] || N.RAISONS.indisponible;
+  direEnregistrement("echec", "", `Non enregistré : ${r.court}`, `Non enregistré : ${r.long}`);
+  if (alerteDite !== b.raison) {
+    alerteDite = b.raison;
+    direAlerte("echec", `Non enregistré : ${r.long}. ${SUITE[b.raison] || SUITE.indisponible}`);
+  }
+}
+if (relue) direEnregistrement("ok", "Enregistré · ", heure(note.modifie), `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
+else direEnregistrement("neuf", "", "Pas encore enregistré", "La note s'enregistre dans ce navigateur dès le premier calcul");
+alerte.addEventListener("click", (ev) => { if (ev.target.closest("[data-fermer-alerte]")) alerte.hidden = true; });
 
 // ------------------------------------------------------------------ le moteur
 const moteur = new Moteur((t) => { if (etapes) etapes.textContent = t; }, MODULE);
@@ -494,7 +544,7 @@ $("#ouvrir").addEventListener("change", async (ev) => {
   try {
     const n = await N.importer(f);
     location.href = `${N.MODULES[n.module].page}?note=${n.id}`;
-  } catch (e) { toast(`Fichier refusé : ${e.message}`, true); }
+  } catch (e) { toast(`Import impossible : ${e.message}`, true); }
 });
 
 // ------------------------------------------------------------------ démarrage

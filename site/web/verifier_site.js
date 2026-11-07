@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -1454,6 +1454,257 @@ const FILTRE = process.argv[4] || '';
     }
   }
 
+  // ---------------------------------------------------------------- l'enregistrement, vu à l'écran
+  // Un échec d'enregistrement se LIT à toutes les largeurs (1 440, 1 280, 820 et 390 px) : l'indicateur .et-enr — la
+  // barre du haut au PC et à la tablette, la 2ᵉ ligne de l'en-tête au téléphone — passe au rouge, en entier, et y RESTE
+  // (au-delà des 7 s d'un message éphémère) ; le message #et-alerte le dit une fois, avec « Exporter .stab », qui
+  // exporte bien la note ; fermé, il ne revient pas à chaque saisie ; une écriture qui réussit efface tout. Défaut d'avant :
+  // la charte cachait le texte (.saved .txt) sous 1 360 px — à 1 280 et 820 px, une coche grise, muette ; au téléphone,
+  // rien tant que le menu restait fermé. Puis la mémoire des notes ABÎMÉE : jamais réécrite sans que son texte soit
+  // copié à part ; la copie impossible, rien n'est écrit et l'écran le dit ; l'accueil le signale et rend le texte tel quel.
+  //   filtre « enregistrement »
+  if (!FILTRE || FILTRE === 'enregistrement') {
+    const fs = require('fs');
+    await p.goto(`${BASE}/`);
+    const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const CLE = 'stab.notes.v1', PREFIXE = 'stab.notes.v1.illisible.';
+    // la mémoire d'un bureau, abîmée : 30 notes, le JSON tronqué d'un octet (la mesure du jury)
+    const trente = {};
+    for (let i = 0; i < 30; i++) {
+      const id = `abime${String(i).padStart(2, '0')}`;
+      trente[id] = { id, module: 'poutre', nom: `Poutre P${i + 1}`, chantier: 'Réalex', dossier: 'Fondations', indice: 'A', cree: 1762500000000 + i,
+        modifie: 1762500000000 + i, etat: null, resume: { taux: 40 + i, niveau: 'p' }, vignette: '' };
+    }
+    const ABIME = JSON.stringify(trente).slice(0, -1);
+    const ouvrirContexte = async (w, h, tel, tactile, init) => {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tactile, acceptDownloads: true });
+      if (init) await c.addInitScript(init);
+      const pg = await c.newPage();
+      pg.erreurs = [];
+      pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error' && !/enregistrement impossible|copie de la mémoire/.test(m.text())) pg.erreurs.push(m.text().slice(0, 300)); });
+      return pg;
+    };
+    const demarre = async (pg) => {
+      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      return pg.evaluate(() => (document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : ''));
+    };
+    const calmePg = (pg) => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+    // une saisie dans le premier champ numérique VISIBLE des données (une valeur qui change à chaque appel)
+    let saisies = 0;
+    const saisir = async (pg) => {
+      const sel = await pg.evaluate(() => {
+        const e = [...document.querySelectorAll('#donnees input[data-sorte="nombre"]:not([disabled])')].find((x) => x.checkVisibility());
+        return e ? e.dataset.chemin : null;
+      });
+      if (!sel) return false;
+      const champ = `#donnees input[data-chemin="${sel}"]`;
+      const v = Number(String(await pg.inputValue(champ)).replace(/\s/g, '').replace(',', '.')) || 10;
+      await pg.fill(champ, String(Math.round(v * (1.01 + 0.01 * (++saisies % 5)) * 100) / 100).replace('.', ','));
+      await pg.press(champ, 'Enter');
+      await calmePg(pg);
+      await pg.waitForTimeout(150);
+      return true;
+    };
+    // ce que l'œil voit de l'indicateur VISIBLE à ce format (il y en a un, et un seul) : son état, son texte entier (ni
+    // caché, ni coupé par un parent, ni couvert), sa couleur comparée à celle de --nok ; et le message
+    const lireEnr = (pg) => pg.evaluate(() => {
+      const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const vis = [...document.querySelectorAll('.et-enr')].filter(vu);
+      const e = vis[0];
+      const t = e ? e.querySelector('.et-enr-txt') : null;
+      const sonde = document.createElement('span'); sonde.style.color = 'var(--nok)'; document.body.appendChild(sonde);
+      const rouge = getComputedStyle(sonde).color; sonde.remove();
+      let entier = false, couvert = [], boite = null;
+      if (t && vu(t)) {
+        const rg = document.createRange(); rg.selectNodeContents(t);
+        const r = rg.getBoundingClientRect();
+        boite = { l: Math.round(r.width), h: Math.round(r.height), g: Math.round(r.left), d: Math.round(r.right), y: Math.round(r.top) };
+        // le texte entier dans chaque parent qui rogne, et dans la fenêtre
+        entier = r.width > 20 && r.height > 6 && r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5
+          && t.scrollWidth <= t.clientWidth + 1;
+        for (let a = t.parentElement; a && entier; a = a.parentElement) {
+          if (getComputedStyle(a).overflow === 'visible') continue;
+          const q = a.getBoundingClientRect();
+          if (r.left < q.left - 0.5 || r.right > q.right + 0.5 || r.top < q.top - 0.5 || r.bottom > q.bottom + 0.5) entier = false;
+        }
+        // rien ne le couvre : trois points du texte appartiennent à l'indicateur
+        for (const x of [r.left + 3, (r.left + r.right) / 2, r.right - 3]) {
+          const f = document.elementFromPoint(x, (r.top + r.bottom) / 2);
+          if (!f || !f.closest('.et-enr')) couvert.push(f ? (f.id || f.className || f.tagName).toString().slice(0, 30) : 'rien');
+        }
+      }
+      const al = document.getElementById('et-alerte');
+      const bt = al && al.querySelector('.et-alerte-stab');
+      const ra = al && vu(al) ? al.getBoundingClientRect() : null;
+      const rb = bt && vu(bt) ? bt.getBoundingClientRect() : null;
+      return { visibles: vis.length, etat: e ? e.dataset.enr : null, texte: t ? t.textContent : null, titre: e ? e.title : '', entier, couvert, boite,
+        rouge: !!t && getComputedStyle(t).color === rouge, couleur: t ? getComputedStyle(t).color : null,
+        alerte: ra ? { texte: al.querySelector('.et-alerte-txt').textContent, info: al.classList.contains('info'),
+          dedans: ra.left >= -0.5 && ra.right <= innerWidth + 0.5 && ra.top >= -0.5 && ra.bottom <= innerHeight + 0.5,
+          bouton: rb ? { texte: bt.textContent.trim(), h: Math.round(rb.height), l: Math.round(rb.width) } : null } : null,
+        deborde: document.documentElement.scrollWidth > innerWidth };
+    });
+    const lireMemoire = (pg) => pg.evaluate((k) => {
+      const out = { principal: localStorage.getItem(k), copies: {} };
+      for (let i = 0; i < localStorage.length; i++) { const c = localStorage.key(i); if (c.startsWith(k + '.illisible.')) out.copies[c] = localStorage.getItem(c); }
+      return out;
+    }, CLE);
+    const telechargement = async (pg, sel) => {
+      const [dl] = await Promise.all([pg.waitForEvent('download', { timeout: 15000 }), pg.click(sel)]);
+      return { nom: dl.suggestedFilename(), texte: fs.readFileSync(await dl.path(), 'utf8') };
+    };
+
+    // ------------------------------------------------ 1. le stockage plein, aux quatre largeurs
+    for (const [fmt, w, h, tel, tactile, attendre] of [['PC 1440', 1440, 900, false, false, true], ['portable 1280', 1280, 800, false, false, false],
+      ['tablette 820', 820, 1180, false, true, false], ['téléphone 390', 390, 844, true, true, true]]) {
+      const nom = `enregistrement · ${fmt}`;
+      const pg = await ouvrirContexte(w, h, tel, tactile);
+      try {
+        await pg.goto(`${BASE}/${MODS.poutre.page}?nom=${encodeURIComponent(`Essai d'enregistrement · ${fmt}`)}&chantier=R%C3%A9alex`);
+        const ko0 = await demarre(pg);
+        verif(`${nom} : le moteur démarre`, !ko0, ko0);
+        let e = await lireEnr(pg);
+        verif(`${nom} : l'indicateur d'enregistrement est visible, un seul, « enregistré » après le premier calcul`,
+          e.visibles === 1 && e.etat === 'ok' && e.entier && /\d{2}:\d{2}/.test(e.texte) && !e.alerte, JSON.stringify(e));
+        // le stockage devient plein : chaque écriture lève l'exception du navigateur
+        await pg.evaluate(() => {
+          window.__setItem = Storage.prototype.setItem;
+          Storage.prototype.setItem = function () { throw new DOMException('Le quota est dépassé', 'QuotaExceededError'); };
+        });
+        verif(`${nom} : une saisie part au moteur`, await saisir(pg));
+        e = await lireEnr(pg);
+        verif(`${nom} : l'ÉCHEC se lit — « Non enregistré : stockage plein », visible, entier, non couvert, en rouge`,
+          e.visibles === 1 && e.etat === 'echec' && e.texte === 'Non enregistré : stockage plein' && e.entier && !e.couvert.length && e.rouge && !e.deborde,
+          JSON.stringify(e));
+        verif(`${nom} : le message le dit, dans l'écran, avec « Exporter .stab »`,
+          e.alerte && !e.alerte.info && e.alerte.dedans && /^Non enregistré : le stockage de ce navigateur est plein\./.test(e.alerte.texte)
+          && e.alerte.bouton && e.alerte.bouton.texte === 'Exporter .stab' && e.alerte.bouton.h >= (tactile ? 44 : 24), JSON.stringify(e.alerte));
+        await pg.screenshot({ path: path.join(OUT, `site_enregistrement_echec_${fmt.split(' ')[1]}.png`) });
+        if (attendre) {
+          // persistant : bien après les 7 s d'un message éphémère
+          await pg.waitForTimeout(7600);
+          const e2 = await lireEnr(pg);
+          verif(`${nom} : 7,6 s plus tard, l'échec et le message sont toujours là`, e2.etat === 'echec' && e2.entier && e2.rouge && e2.alerte, JSON.stringify(e2));
+        }
+        // « Exporter .stab » : la note entière, rechargeable
+        const f = await telechargement(pg, '#et-alerte .et-alerte-stab');
+        let stab = null;
+        try { stab = JSON.parse(f.texte); } catch (x) { /* dit plus bas */ }
+        verif(`${nom} : « Exporter .stab » du message exporte la note (son état de calcul compris)`,
+          /\.stab$/.test(f.nom) && stab && stab.format === 'stab' && stab.note && stab.note.module === 'poutre' && stab.note.etat && typeof stab.note.etat === 'object',
+          `${f.nom} · ${f.texte.replace(/\s+/g, ' ').slice(0, 80)}`);
+        // fermé, le message ne revient pas à la saisie suivante ; l'indicateur, lui, reste rouge
+        await pg.click('#et-alerte [data-fermer-alerte]');
+        await saisir(pg);
+        e = await lireEnr(pg);
+        verif(`${nom} : le message fermé ne revient pas à chaque saisie ; l'indicateur reste rouge`, !e.alerte && e.etat === 'echec' && e.entier && e.rouge, JSON.stringify(e));
+        // le stockage revient : une écriture réussie efface l'échec
+        await pg.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
+        await saisir(pg);
+        e = await lireEnr(pg);
+        verif(`${nom} : le stockage revenu, la saisie suivante s'enregistre et l'indicateur le dit`, e.etat === 'ok' && e.entier && !e.rouge && !e.alerte, JSON.stringify(e));
+        verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
+      } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
+      await pg.context().close();
+    }
+
+    // ------------------------------------------------ 2. la mémoire des notes abîmée, et sa copie impossible
+    // (chaque copie « stab.notes.v1.illisible.* » est refusée par le navigateur ; les autres écritures passent)
+    const refuserCopies = () => {
+      const o = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (k, v) {
+        if (String(k).startsWith('stab.notes.v1.illisible.')) throw new DOMException('Le quota est dépassé', 'QuotaExceededError');
+        return o.call(this, k, v);
+      };
+    };
+    for (const [fmt, w, h, tel] of [['PC', 1440, 900, false], ['téléphone', 390, 844, true]]) {
+      const nom = `mémoire abîmée, copie impossible · ${fmt}`;
+      const pg = await ouvrirContexte(w, h, tel, tel, refuserCopies);
+      try {
+        await pg.goto(`${BASE}/`);
+        await pg.evaluate(([k, v]) => localStorage.setItem(k, v), [CLE, ABIME]);
+        await pg.goto(`${BASE}/${MODS.poutre.page}`);
+        const ko0 = await demarre(pg);
+        verif(`${nom} : le moteur démarre`, !ko0, ko0);
+        const e = await lireEnr(pg);
+        const mem = await lireMemoire(pg);
+        verif(`${nom} : RIEN n'est écrit — la mémoire abîmée reste à l'octet, aucune copie`, mem.principal === ABIME && !Object.keys(mem.copies).length,
+          `${(mem.principal || '').length} caractères · ${Object.keys(mem.copies).length} copie(s)`);
+        verif(`${nom} : l'écran le dit — « Non enregistré : mémoire illisible », en rouge, entier ; le message « Non enregistré : la mémoire des notes est illisible » avec « Exporter .stab »`,
+          e.etat === 'echec' && e.texte === 'Non enregistré : mémoire illisible' && e.entier && !e.couvert.length && e.rouge
+          && e.alerte && e.alerte.texte.startsWith('Non enregistré : la mémoire des notes est illisible.') && e.alerte.bouton && e.alerte.bouton.texte === 'Exporter .stab',
+          JSON.stringify(e));
+        await pg.screenshot({ path: path.join(OUT, `site_enregistrement_illisible_${tel ? 'tel' : 'pc'}.png`) });
+        // l'accueil : il le signale et rend le texte brut, tel quel
+        await pg.goto(`${BASE}/`);
+        await pg.waitForTimeout(300);
+        const a = await pg.evaluate(() => {
+          const z = document.getElementById('et-memoire');
+          const r = z.getBoundingClientRect();
+          return { vu: z.checkVisibility({ visibilityProperty: true, opacityProperty: true }), texte: z.textContent, h: Math.round(r.height), haut: Math.round(r.top),
+            date: document.getElementById('date').textContent, deborde: document.documentElement.scrollWidth > innerWidth };
+        });
+        verif(`${nom} : l'accueil signale la mémoire illisible (ses notes ne s'affichent pas, rien n'est effacé)`,
+          a.vu && /mémoire des notes de ce navigateur est illisible/.test(a.texte) && /illisible/.test(a.date) && !a.deborde && a.haut < 400, JSON.stringify(a));
+        const f = await telechargement(pg, '#et-memoire [data-texte-brut]');
+        verif(`${nom} : l'accueil rend le texte de la mémoire abîmée, à l'octet`, f.texte === ABIME && /\.txt$/.test(f.nom), `${f.nom} · ${f.texte.length} caractères`);
+        await pg.screenshot({ path: path.join(OUT, `site_accueil_memoire_illisible_${tel ? 'tel' : 'pc'}.png`) });
+        verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
+      } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
+      await pg.context().close();
+    }
+
+    // ------------------------------------------------ 3. la mémoire abîmée, copiée : la note s'écrit, le texte survit
+    {
+      const nom = 'mémoire abîmée, copiée';
+      const pg = await ouvrirContexte(1440, 900, false, false);
+      try {
+        await pg.goto(`${BASE}/`);
+        await pg.evaluate(([k, v]) => localStorage.setItem(k, v), [CLE, ABIME]);
+        await pg.goto(`${BASE}/${MODS.poutre.page}`);
+        const ko0 = await demarre(pg);
+        verif(`${nom} : le moteur démarre`, !ko0, ko0);
+        const e = await lireEnr(pg);
+        const mem = await lireMemoire(pg);
+        const copies = Object.entries(mem.copies);
+        let principal = null;
+        try { principal = JSON.parse(mem.principal); } catch (x) { /* dit plus bas */ }
+        verif(`${nom} : le texte d'origine est copié à part, à l'octet, une fois ; la note s'écrit dans une mémoire neuve`,
+          copies.length === 1 && copies[0][1] === ABIME && principal && Object.keys(principal).length === 1, `${copies.length} copie(s) · ${mem.principal && mem.principal.slice(0, 60)}`);
+        verif(`${nom} : l'écran dit « enregistré », et une fois que la mémoire était illisible et que son texte est gardé`,
+          e.etat === 'ok' && e.alerte && e.alerte.info && /était illisible/.test(e.alerte.texte) && !e.alerte.bouton, JSON.stringify(e));
+        await saisir(pg);
+        const mem2 = await lireMemoire(pg);
+        verif(`${nom} : la saisie suivante ne copie rien de plus`, Object.keys(mem2.copies).length === 1, Object.keys(mem2.copies).join(', '));
+        await pg.close();
+        verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
+        // l'accueil, aux trois formats : la copie est signalée et se télécharge
+        for (const [fmt, w, h, tel] of [['PC', 1440, 900, false], ['tablette', 820, 1180, false], ['téléphone', 390, 844, true]]) {
+          const c2 = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: fmt !== 'PC', acceptDownloads: true,
+            storageState: await pg.context().storageState() });
+          const g = await c2.newPage();
+          await g.goto(`${BASE}/`);
+          await g.waitForTimeout(300);
+          const a = await g.evaluate(() => {
+            const z = document.getElementById('et-memoire'), bt = z.querySelector('[data-copie]');
+            const r = z.getBoundingClientRect(), rb = bt ? bt.getBoundingClientRect() : null;
+            return { vu: z.checkVisibility({ visibilityProperty: true, opacityProperty: true }), texte: z.textContent.replace(/\s+/g, ' ').slice(0, 160),
+              haut: Math.round(r.top), dedans: r.left >= 0 && r.right <= innerWidth, bouton: rb ? Math.round(rb.height) : 0, notes: document.querySelectorAll('#recentes .rcard').length,
+              deborde: document.documentElement.scrollWidth > innerWidth };
+          });
+          verif(`${nom} · accueil ${fmt} : la copie gardée à part est signalée, dans l'écran, son bouton à la taille du ${tel ? 'doigt' : 'pointeur'}`,
+            a.vu && /gardée à part/.test(a.texte) && a.dedans && !a.deborde && a.haut < 400 && a.bouton >= (tel ? 44 : 24) && a.notes === 1, JSON.stringify(a));
+          const f = await telechargement(g, '#et-memoire [data-copie]');
+          verif(`${nom} · accueil ${fmt} : la copie se télécharge, à l'octet`, f.texte === ABIME, `${f.nom} · ${f.texte.length} caractères`);
+          await g.screenshot({ path: path.join(OUT, `site_accueil_memoire_copie_${fmt === 'téléphone' ? 'tel' : fmt.toLowerCase()}.png`) });
+          await c2.close();
+        }
+      } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
+      await pg.context().close();
+    }
+  }
+
   // ---------------------------------------------------------------- un fichier .stab piégé
   // Un .stab vient d'ailleurs (un collègue, un courriel) : rien de ce qu'il porte ne doit s'exécuter dans la page. Deux
   // fichiers : l'un que le moteur refuse (son dessin piégé n'est alors jamais remplacé par celui du moteur), l'autre
@@ -1497,8 +1748,8 @@ const FILTRE = process.argv[4] || '';
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats, « télécharger », « météo » et la sonde travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (les formats, « télécharger », « météo », la sonde et l'enregistrement travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

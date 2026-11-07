@@ -169,8 +169,58 @@ for k in SW.PAGES:
     tel = html[html.index('<header class="mtop"'):html.index('<div class="bench"')] + html[html.index('<div class="mbar"'):html.index("</main>")]
     chk(f"{SW.PAGES[k]} : le téléphone offre les actions de la barre du haut (ouvrir, exporter, imprimer)",
         set(actions(haut)) <= set(actions(tel)) and 'for="ouvrir"' in haut and 'for="ouvrir"' in tel, (actions(haut), actions(tel)))
+# l'enregistrement de la note : le MÊME indicateur (construire.enregistrement) dans la barre du haut (PC, tablette) et
+# sur la 2ᵉ ligne de l'en-tête du téléphone, et le message d'échec qui offre « Exporter .stab », dans chaque établi
+IND, ALERTE = SW.enregistrement(), SW.alerte_enregistrement()
+fautes = []
+for k in SW.PAGES:
+    html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
+    haut = html[html.index('<header class="top"'):html.index("</header>")]
+    tel = html[html.index('<header class="mtop"'):html.index('<div class="mmenu"')]
+    if not (IND in haut and IND in tel and html.count(IND) == 2 and tel.index(IND) < tel.index('id="fil-m"') and ALERTE in html
+            and 'class="saved' not in html):
+        fautes.append(SW.PAGES[k])
+chk("chaque établi : le même indicateur d'enregistrement dans la barre du haut et sur la 2ᵉ ligne de l'en-tête du téléphone, "
+    "et le message d'échec avec « Exporter .stab » (plus d'ancien .saved)",
+    not fautes and 'data-action="exporter"' in ALERTE and "Exporter .stab" in ALERTE and 'data-enr="neuf"' in IND, fautes[:3])
+chk("l'accueil porte le signal d'une mémoire des notes illisible (#et-memoire)", 'id="et-memoire"' in open(os.path.join(WEB, "index.html"), encoding="utf-8").read())
+
+
+# aucune règle des feuilles du site ne CACHE l'indicateur (.et-enr), son texte (.et-enr-txt) ni la 2ᵉ ligne du téléphone
+# (.et-l2), à aucune largeur — l'impression mise à part (le papier n'a pas d'état d'enregistrement). C'est la règle de la
+# charte « .saved .txt { display: none } » sous 1 360 px qui rendait l'échec muet ; la charte ne nomme pas .et-enr.
+def _sans_impression(css: str) -> str:
+    """La feuille sans ses blocs « @media print { … } » (accolades comptées)."""
+    out, i = [], 0
+    for m in re.finditer(r"@media\s+print\s*\{", css):
+        if m.start() < i:
+            continue
+        out.append(css[i:m.start()])
+        j, prof = m.end(), 1
+        while prof and j < len(css):
+            prof += {"{": 1, "}": -1}.get(css[j], 0)
+            j += 1
+        i = j
+    return "".join(out) + css[i:]
+
+
+PROTEGES = re.compile(r"\.(?:et-enr|et-enr-txt|et-l2)(?![\w-])")
+CACHE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\.0*)?\s*(?:;|!|$)|content-visibility\s*:\s*hidden", re.I)
+caches = []
+feuilles = ["site.css", "charte.css"] + [os.path.join("modules", f) for f in sorted(os.listdir(os.path.join(WEB, "css", "modules")))]
+for f in feuilles:
+    css = _sans_impression(re.sub(r"/\*.*?\*/", "", open(os.path.join(WEB, "css", f), encoding="utf-8").read(), flags=re.S))
+    for sel, decl in re.findall(r"([^{}]+)\{([^{}]*)\}", css):
+        if not CACHE.search(decl):
+            continue
+        for un in sel.split(","):
+            sujet = re.split(r"[\s>+~]+", un.strip())[-1]
+            if PROTEGES.search(sujet):
+                caches.append(f"{f} : {un.strip()}")
+chk("aucune règle des feuilles du site ne cache l'indicateur d'enregistrement, son texte ou la 2ᵉ ligne du téléphone (hors impression)",
+    not caches, caches[:4])
 acc = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
-nav_pc = re.findall(r'data-tip="([^"·]+?)(?: · bientôt)?"', acc[acc.index('<nav class="nav"'):acc.index("</nav>")])
+nav_pc =re.findall(r'data-tip="([^"·]+?)(?: · bientôt)?"', acc[acc.index('<nav class="nav"'):acc.index("</nav>")])
 nav_tel = re.findall(r"<span>([^<]+)</span></a>", acc[acc.index('<nav class="mnav"'):])[:5]
 chk("accueil : au téléphone, l'en-tête et les cinq entrées de la barre, dans le même ordre", 'class="mhead"' in acc
     and [x.strip() for x in nav_pc[:5]] == nav_tel, (nav_pc, nav_tel))
@@ -232,6 +282,110 @@ ACCUEIL_JS = open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read(
 chk("l'en-tête du téléphone et la carte de l'accueil écrivent le taux par texteTaux (jamais String(taux) à la main)",
     "texteTaux(res.taux)" in ETABLI_JS and "texteTaux(r.taux)" in ACCUEIL_JS
     and not re.search(r"String\((res|r)\.taux\)", ETABLI_JS + ACCUEIL_JS))
+
+# 5 quinquies. la mémoire des notes ABÎMÉE n'est jamais écrasée en silence (js/notes.js, joué par node, localStorage
+# simulé). Une mémoire illisible n'est pas une mémoire vide : son texte brut est copié une fois à part
+# (« stab.notes.v1.illisible.<heure> ») AVANT toute écriture, et si la copie échoue, rien n'est écrit et l'écriture est
+# refusée (ecrire rend false, raison « illisible »). Défaut mesuré avant la correction : 30 notes, le JSON tronqué d'un
+# octet, une écriture → 1 note, le texte d'origine perdu.
+ESSAI_NOTES = r"""
+const m = await import(%s);
+class Memoire {
+  constructor(refuser = () => null, depart = {}) { this.m = new Map(Object.entries(depart)); this.refuser = refuser; }
+  get length() { return this.m.size; }
+  key(i) { return [...this.m.keys()][i] ?? null; }
+  getItem(k) { return this.m.has(k) ? this.m.get(k) : null; }
+  setItem(k, v) { const e = this.refuser(k); if (e) throw e; this.m.set(k, String(v)); }
+  removeItem(k) { this.m.delete(k); }
+}
+const CLE = "stab.notes.v1", t = 1762500000000;
+const trente = {};
+for (let i = 0; i < 30; i++) {
+  const id = `n${String(i).padStart(2, "0")}`;
+  trente[id] = { id, module: "poutre", nom: `Poutre P${i + 1}`, chantier: "Réalex", dossier: "Fondations", indice: "A", cree: t + i, modifie: t + i,
+                 etat: { poutres: [{ nom: `P${i + 1}`, b: 25, h: 50 }] }, resume: { taux: 40 + i, niveau: "p" }, vignette: "" };
+}
+const entier = JSON.stringify(trente), abime = entier.slice(0, -1);
+const plein = () => new DOMException("plein", "QuotaExceededError");
+const out = { longueur: abime.length };
+// chaque scène dans son propre localStorage simulé ; une exception y est notée, les autres scènes se jouent quand même
+const jouer = (nom, memoire, f) => { globalThis.localStorage = memoire; try { out[nom] = f(memoire); } catch (e) { out[nom] = { erreur: String(e) }; } };
+const copiesDe = (mem) => [...mem.m.keys()].filter((k) => k.startsWith("stab.notes.v1.illisible."));
+// LE DÉFAUT MESURÉ PAR LE JURY, avec la seule API d'avant (nouvelle, ecrire) : 30 notes, le JSON tronqué d'un octet, une
+// écriture → le texte d'origine doit survivre, sous sa clé ou dans une copie
+jouer("jury", new Memoire(() => null, { [CLE]: abime }), (mem) => {
+  const ok = m.ecrire(m.nouvelle({ module: "poutre", nom: "Nouvelle" }));
+  return { ok, survit: [...mem.m.values()].includes(abime), cles: mem.m.size };
+});
+// A. la même mémoire abîmée, vue de près : lue « illisible » ; la copie, une fois, datée ; la mémoire neuve ensuite
+jouer("copie", new Memoire(() => null, { [CLE]: abime }), (mem) => {
+  const avant = { etat: m.memoire().etat, lisibles: Object.keys(m.toutes()).length, recentes: m.recentes().length };
+  const ok = m.ecrire(m.nouvelle({ module: "poutre", nom: "Nouvelle" })), b = m.bilan();
+  const ok2 = m.ecrire(m.nouvelle({ module: "poutre", nom: "Deuxième" }));
+  return { avant, ok, ok2, b, copies: copiesDe(mem).length, liste: m.copies().map((c) => [c.taille, c.quand !== null]),
+           texte: m.texteCopie(b.copie) === abime, apres: { etat: m.memoire().etat, notes: Object.keys(m.toutes()).length } };
+});
+// B. mémoire abîmée, la copie échoue : rien n'est écrit, l'écriture est refusée et dit pourquoi
+jouer("sans_copie", new Memoire((k) => (k.startsWith("stab.notes.v1.illisible.") ? plein() : null), { [CLE]: abime }), (mem) => {
+  const ok = m.ecrire(m.nouvelle({ module: "poutre" })), b = m.bilan ? m.bilan() : null, sup = m.supprimer("n00");
+  return { ok, b, sup, intacte: mem.getItem(CLE) === abime, cles: [...mem.m.keys()] };
+});
+// C. autre chose qu'un objet de notes (un tableau) : illisible aussi
+jouer("tableau", new Memoire(() => null, { [CLE]: "[1,2]" }), (mem) => {
+  const etat = m.memoire ? m.memoire().etat : null, ok = m.ecrire(m.nouvelle({ module: "poutre" }));
+  return { etat, ok, survit: [...mem.m.values()].includes("[1,2]") };
+});
+// D. mémoire absente puis lue : une écriture ordinaire, sans copie ; les 30 notes lisibles restent
+jouer("absente", new Memoire(), (mem) => {
+  const etat = m.memoire().etat, ok = m.ecrire(m.nouvelle({ module: "poutre" }));
+  return { etat, ok, b: m.bilan(), cles: [...mem.m.keys()] };
+});
+jouer("lue", new Memoire(() => null, { [CLE]: entier }), (mem) => {
+  const ok = m.ecrire(m.nouvelle({ module: "poutre" }));
+  return { etat: m.memoire().etat, ok, notes: Object.keys(m.toutes()).length, copies: copiesDe(mem).length };
+});
+// E. stockage plein : refus « plein » ; l'import d'un .stab refuse d'ouvrir une note qu'il n'a pas pu enregistrer
+jouer("plein", new Memoire(() => plein(), { [CLE]: entier }), (mem) => ({ ok: m.ecrire(m.nouvelle({ module: "poutre" })), b: m.bilan ? m.bilan() : null,
+  intacte: mem.getItem(CLE) === entier }));
+globalThis.localStorage = new Memoire(() => plein(), { [CLE]: entier });
+const fichier = { text: async () => JSON.stringify({ format: "stab", version: 1, note: { module: "poutre", nom: "Importée", etat: { poutres: [] } } }) };
+try { await m.importer(fichier); out.importer = "ouverte"; } catch (e) { out.importer = e.message; }
+console.log(JSON.stringify(out));
+""" % json.dumps("file://" + os.path.join(WEB, "js", "notes.js"))
+try:
+    sortie = subprocess.run(["node", "--input-type=module", "-e", ESSAI_NOTES], capture_output=True, text=True, timeout=60)
+    JN = json.loads(sortie.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    JN = {"_": str(e), "stderr": locals().get("sortie") and sortie.stderr[-400:]}
+J = JN.get("jury", {})
+chk("notes.js : le défaut du jury — 30 notes, le JSON tronqué d'un octet, une écriture : le texte d'origine SURVIT (sous sa clé ou dans une copie)",
+    J.get("ok") is True and J.get("survit") is True, (J, JN.get("stderr")))
+A = JN.get("copie", {})
+chk("notes.js : une mémoire abîmée (30 notes, le JSON tronqué d'un octet) se lit « illisible », sans note lisible — jamais « vide »",
+    A.get("avant") == {"etat": "illisible", "lisibles": 0, "recentes": 0}, (A.get("avant"), JN.get("stderr")))
+chk("notes.js : écrire sur une mémoire abîmée copie d'abord son texte brut à part (stab.notes.v1.illisible.<heure>) — le texte d'origine survit, "
+    "à l'octet ; la note s'écrit ensuite dans une mémoire neuve",
+    A.get("ok") is True and A.get("texte") is True and (A.get("b") or {}).get("copie", "").startswith("stab.notes.v1.illisible.")
+    and A.get("apres") == {"etat": "lue", "notes": 2}, A)
+chk("notes.js : la copie se fait UNE fois (deux écritures, une copie), datée et mesurée (copies())",
+    A.get("ok2") is True and A.get("copies") == 1 and A.get("liste") == [[JN.get("longueur"), True]] and JN["longueur"] > 1000, (A.get("liste"), JN.get("longueur")))
+B = JN.get("sans_copie", {})
+chk("notes.js : si la copie échoue, RIEN n'est écrit — ecrire et supprimer rendent false, raison « illisible » ; la mémoire abîmée reste intacte",
+    B.get("ok") is False and B.get("sup") is False and (B.get("b") or {}).get("raison") == "illisible" and B.get("intacte") is True
+    and B.get("cles") == ["stab.notes.v1"], B)
+chk("notes.js : autre chose qu'un objet de notes (un tableau JSON) est illisible aussi : copié avant d'écrire",
+    JN.get("tableau") == {"etat": "illisible", "ok": True, "survit": True}, JN.get("tableau"))
+chk("notes.js : une mémoire absente s'écrit sans copie ; une mémoire lue garde ses 30 notes et n'est pas copiée",
+    (JN.get("absente") or {}).get("etat") == "absente" and JN["absente"].get("ok") is True and JN["absente"].get("cles") == ["stab.notes.v1"]
+    and JN.get("lue") == {"etat": "lue", "ok": True, "notes": 31, "copies": 0}, (JN.get("absente"), JN.get("lue")))
+chk("notes.js : stockage plein → ecrire rend false, raison « plein », la mémoire intacte ; un .stab importé qui ne s'enregistre pas ne s'ouvre "
+    "pas (l'établi l'aurait remplacé par une note neuve, sans un mot)",
+    (JN.get("plein") or {}).get("ok") is False and (JN["plein"].get("b") or {}).get("raison") == "plein" and JN["plein"].get("intacte") is True
+    and "pas pu être enregistrée" in str(JN.get("importer")) and "plein" in str(JN.get("importer")), (JN.get("plein"), JN.get("importer")))
+NOTES_JS = open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read()
+chk("notes.js : toute écriture de la mémoire passe par changer() (une seule porte : ecrire et supprimer)",
+    len(re.findall(r"localStorage\.setItem\(CLE", NOTES_JS)) == 1 and "return changer(" in NOTES_JS
+    and len(re.findall(r"return changer\(", NOTES_JS)) == 2, re.findall(r"localStorage\.setItem\([^)]*\)", NOTES_JS))
 
 # 6. la politique de sécurité (_headers) et ce qui la rend possible : aucun script écrit dans une page, aucun
 # gestionnaire « on…= » dans les pages ni dans les fragments que Python rend (la politique les bloquerait : un bouton

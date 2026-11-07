@@ -38,6 +38,13 @@ navigateur ── js/etabli.js ──► js/travailleur.js (Pyodide) ──► a
   l'empreinte est celle du `pyodide-lock.json` officiel (`outils/vendre_pyodide.py`). Rien n'est chargé ailleurs.
 - Les notes s'enregistrent **dans le navigateur** (localStorage) ; le bouton **.stab** les exporte en fichier, et
   l'accueil les réimporte. Les comptes du bureau, le partage et les droits viendront avec Supabase.
+- **L'enregistrement se voit** : l'indicateur `.et-enr` (`construire.enregistrement`, le même dans la barre du haut et
+  sur la 2ᵉ ligne de l'en-tête du téléphone) dit l'état de la dernière écriture ; un échec y reste en rouge et ouvre une
+  fois le message `#et-alerte`, avec « Exporter .stab ». Aucune règle de feuille ne le cache (`tests/test_site_web.py`).
+- **Une mémoire des notes abîmée** (`stab.notes.v1` illisible) n'est réécrite qu'après la copie de son texte brut dans
+  `stab.notes.v1.illisible.<heure>` ; la copie impossible, rien n'est écrit (`js/notes.js`, `changer`). L'accueil le
+  signale et rend ce texte en fichier. Joué par node dans `tests/test_site_web.py`, et dans Chromium (filtre
+  `enregistrement`).
 
 ## Trois formats, une seule page
 
@@ -169,6 +176,7 @@ node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> formats:dalle    
 FORMATS=tel node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> formats:dalle   # … le téléphone seul
 node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> telecharger          # télécharger, de bout en bout
 node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> meteo                # la météo du lieu (Open-Meteo intercepté)
+node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> enregistrement       # l'échec d'enregistrement visible, la mémoire abîmée gardée
 #   (FORMATS : accueil, tel, tablettes, communs, numpy — pour prouver une correction par mutation sans tout rejouer)
 ```
 

@@ -229,7 +229,7 @@ def page_accueil() -> str:
     mhead = (f'<header class="mhead"><div class="logo">{MQ.LOGO}</div><span class="ttl">Stab Méthodes</span><span class="spacer"></span>'
              f'<button type="button" class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}</button></header>')
     corps = (f'<body data-page="accueil"><div class="app rail">{rail("accueil")}<main class="main">{mhead}'
-             f'<div class="page accueil"><div class="col">'
+             f'<div class="page accueil"><div class="col"><div class="et-memoire" id="et-memoire" role="alert" hidden></div>'
              f'<header class="hello"><div><h1 class="h1">Bonjour</h1><p class="muted" id="date"></p></div><span class="spacer"></span>'
              f'<button class="btn primary big" id="ouvrir-nouvelle">{MQ.icon("plus")}Nouvelle note</button></header>'
              f'<section><div class="sechead"><span class="h2">Reprendre</span><span class="muted" id="nb-notes"></span></div>'
@@ -254,6 +254,28 @@ def _bouton(icone: str, libelle: str, attrs: str, cls: str = "btn") -> str:
 PDF_BIENTOT = "La note PDF arrive bientôt sur le site (elle reste dans Streamlit)"
 
 
+def enregistrement() -> str:
+    """L'indicateur d'enregistrement de la note (.et-enr) : le MÊME composant dans la barre du haut (PC, tablette) et sur
+    la 2ᵉ ligne de l'en-tête du téléphone ; js/etabli.js y écrit l'état de la dernière écriture (neuf, enregistré,
+    échec). Aucune règle ne le cache, ni son texte (.et-enr-txt) : un échec doit se lire à toutes les largeurs.
+    L'ancien indicateur (.saved .txt) était caché par la charte sous 1 360 px — l'échec y était muet."""
+    return ('<span class="et-enr" data-enr="neuf" role="status">'
+            f'<span class="et-enr-ic">{MQ.icon("clock", "i et-i-neuf")}{MQ.icon("circle-check", "i et-i-ok")}'
+            f'{MQ.icon("triangle-alert", "i et-i-echec")}</span>'
+            '<span class="et-enr-mot"></span><span class="et-enr-txt">Pas encore enregistré</span></span>')
+
+
+def alerte_enregistrement() -> str:
+    """Le message d'un échec d'enregistrement (#et-alerte) : dit une fois, il reste jusqu'à ce qu'on le ferme ou qu'une
+    écriture réussisse, et offre « Exporter .stab » (la note n'est alors gardée nulle part ailleurs). Le même aux trois
+    formats ; js/etabli.js l'écrit."""
+    return (f'<div class="et-alerte" id="et-alerte" role="alert" hidden><span class="et-alerte-ic">{MQ.icon("triangle-alert")}</span>'
+            '<span class="et-alerte-txt"></span>'
+            f'<button type="button" class="btn sm primary et-alerte-stab" data-action="exporter">{MQ.icon("download")}Exporter .stab</button>'
+            f'<button type="button" class="btn icon ghost et-alerte-x" data-fermer-alerte="1" title="Fermer le message" '
+            f'aria-label="Fermer le message">{MQ.icon("x")}</button></div>')
+
+
 def page_module(cle: str, titre: str) -> str:
     """L'établi d'un module : la toile du dessin sur toute la largeur, les données et le résultat en cadres flottants ;
     tout le contenu vient du moteur (le travailleur Pyodide).
@@ -269,7 +291,7 @@ def page_module(cle: str, titre: str) -> str:
            f'<span id="fil-chantier" class="muted"></span><span id="fil-sep">{MQ.icon("chevron-right")}</span>'
            f'<input id="nom-note" class="nomnote" data-nom-note="1" value="" aria-label="Nom de la note" spellcheck="false"></div>'
            f'<span class="tag draft"><span class="dot"></span>Brouillon</span>'
-           f'<span class="spacer"></span><span class="saved enregistre" id="enregistre">{MQ.icon("circle-check")}<span class="txt">—</span></span>'
+           f'<span class="spacer"></span>{enregistrement()}'
            f'<label class="btn ghost" for="ouvrir" title="Ouvrir un fichier .stab">{MQ.icon("upload")}<span class="lbl">Ouvrir</span></label>'
            + _bouton("download", ".stab", ' data-action="exporter" title="Exporter la note en fichier .stab"')
            + _bouton("printer", "Imprimer", ' data-action="imprimer" title="Imprimer l\'écran"')
@@ -277,12 +299,11 @@ def page_module(cle: str, titre: str) -> str:
     # le téléphone : l'en-tête compact (retour, nom de la note, taux, menu), son menu, les onglets, la barre du bas
     mtop = (f'<header class="mtop"><a class="btn icon ghost" href="{ACCUEIL}" title="Accueil" aria-label="Accueil">{MQ.icon("arrow-left")}</a>'
             f'<div class="t"><input id="nom-note-m" class="nomnote" data-nom-note="1" value="" aria-label="Nom de la note" spellcheck="false">'
-            f'<span id="fil-m"></span></div><span class="calcule"></span>'
+            f'<span class="et-l2">{enregistrement()}<span id="fil-m"></span></span></div><span class="calcule"></span>'
             f'<button type="button" class="mchip" id="chip-m" data-vers-onglet="resultat" title="Voir le résultat"></button>'
             f'<button type="button" class="btn icon ghost" id="menu-m" aria-haspopup="true" aria-expanded="false" aria-controls="mmenu" '
             f'title="Plus d\'actions">{MQ.icon("ellipsis")}</button></header>')
-    mmenu = (f'<div class="mmenu" id="mmenu" hidden><div class="mm-h"><span class="saved enregistre">{MQ.icon("circle-check")}<span class="txt">—</span></span></div>'
-             f'<label class="mi" for="ouvrir">{MQ.icon("upload")}Ouvrir un fichier .stab</label>'
+    mmenu = (f'<div class="mmenu" id="mmenu" hidden><label class="mi" for="ouvrir">{MQ.icon("upload")}Ouvrir un fichier .stab</label>'
              f'<button type="button" class="mi" data-action="exporter">{MQ.icon("download")}Exporter la note en .stab</button>'
              f'<button type="button" class="mi" data-action="imprimer">{MQ.icon("printer")}Imprimer</button>'
              f'<button type="button" class="mi" data-action="pdf" aria-disabled="true">{MQ.icon("file-down")}Note PDF<span class="tag draft">bientôt</span></button>'
@@ -315,7 +336,7 @@ def page_module(cle: str, titre: str) -> str:
              f'{mtop}{mmenu}{mtabs}'
              f'<div class="bench" data-tab="donnees">{toile}<section class="panel left">{gauche}</section>'
              f'<section class="panel right">{droite}</section><div id="volets"></div>{demarrage}</div>{mbar}</main></div>'
-             f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>'
+             f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
     css = f"css/modules/{cle}.css"
