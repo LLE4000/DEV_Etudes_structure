@@ -93,11 +93,18 @@ _GEO_EXEMPLE = {"results": [{"id": 2800866, "name": "Bruxelles", "latitude": 50.
                              "admin1": "Bruxelles-Capitale", "country": "Belgique", "timezone": "Europe/Brussels"}], "generationtime_ms": 0.5}
 
 
+def _marque(p: Dict, coulage: Optional[int]) -> Dict:
+    """Le plan porte le COULAGE dont le bouton vient (son rang dans la note) : une récupération qui revient alors qu'un
+    autre coulage est ouvert est refusée — elle allait dans le coulage OUVERT, celui qu'on regardait au retour : une copie
+    (même lieu, mêmes dates) perdait ses corrections à la main, et celui du clic restait sans météo."""
+    return p if "erreur" in p or coulage is None else dict(p, coulage=coulage)
+
+
 def _meteo_exemple(trouve: bool = True, horaire: bool = False) -> Dict:
     """Ce que le navigateur rendrait pour la récupération d'exemple : {"lieu", "plan", "geocodage", "reponses"}."""
     x = EXEMPLE_METEO
     pos = {"latitude": 50.85045, "longitude": 4.34878}
-    p = MT.plan(x["lieu"], x["debut"], x["fin"], x["aujourdhui"], horaire=horaire, position=pos if horaire else None)
+    p = _marque(MT.plan(x["lieu"], x["debut"], x["fin"], x["aujourdhui"], horaire=horaire, position=pos if horaire else None), 0)
     reps = []
     for a in p["appels"]:
         d0 = _dt.date.fromisoformat(a["debut"])
@@ -261,21 +268,21 @@ def _dates_meteo(c: Dict, auj: _dt.date):
     return debut, fin
 
 
-def plan_meteo(c: Dict, auj: Optional[_dt.date] = None) -> Dict:
+def plan_meteo(c: Dict, auj: Optional[_dt.date] = None, coulage: Optional[int] = None) -> Dict:
     """Le plan de la récupération du coulage (le bouton « Récupérer la météo ») ; {"erreur": message} si elle est
-    impossible (pas de lieu, fin avant le coulage, dates hors de portée)."""
+    impossible (pas de lieu, fin avant le coulage, dates hors de portée). ``coulage`` : son rang dans la note (_marque)."""
     auj = auj or aujourdhui()
     debut, fin = _dates_meteo(c, auj)
     try:
-        return MT.plan(c["temperature"]["lieu"], debut, fin, auj)
+        return _marque(MT.plan(c["temperature"]["lieu"], debut, fin, auj), coulage)
     except ValueError as e:
         return {"erreur": str(e)}
 
 
-def plan_horaire(c: Dict, auj: Optional[_dt.date] = None) -> Dict:
+def plan_horaire(c: Dict, auj: Optional[_dt.date] = None, coulage: Optional[int] = None) -> Dict:
     """Le plan du détail horaire (le second bouton) : le lieu trouvé, les dates de la récupération gardée."""
     try:
-        return MT.plan_horaire(c["temperature"]["meteo"], auj or aujourdhui())
+        return _marque(MT.plan_horaire(c["temperature"]["meteo"], auj or aujourdhui()), coulage)
     except ValueError as e:
         return {"erreur": str(e)}
 
@@ -289,17 +296,26 @@ def _plan_recu(valeur) -> Optional[_dt.date]:
 
 
 MODIFIEE = "Lieu ou dates modifiés pendant la récupération : cliquez à nouveau sur « Récupérer la météo »."
+AUTRE_COULAGE = ("Un autre coulage a été ouvert pendant la récupération : rien n'est importé. Revenez au coulage voulu et cliquez à "
+                 "nouveau sur « Récupérer la météo ».")
 
 
-def _importer_meteo(c: Dict, valeur) -> Optional[str]:
+def _autre_coulage(valeur, coulage: int) -> bool:
+    """La récupération vient-elle d'un autre coulage que celui qui est ouvert (le plan porte son rang) ?"""
+    return isinstance(valeur.get("plan"), dict) and valeur["plan"].get("coulage") != coulage
+
+
+def _importer_meteo(c: Dict, valeur, coulage: int) -> Optional[str]:
     """La météo que le navigateur a récupérée ({"lieu", "plan", "geocodage", "reponses"}, BRUTS) : relue par le moteur
     (beton/maturite/meteo.py) contre le plan du coulage, écrite en relevé (modifiable ensuite), et GARDÉE dans la note
     (la récupération : lieu, dates, jour et heure, réponses). Un refus rend un message ; le coulage reste intact."""
     auj = _plan_recu(valeur) if isinstance(valeur, dict) else None
     if auj is None:
         return "Météo illisible : le navigateur n'a pas rendu le plan de la récupération. Rechargez la page et recommencez."
+    if _autre_coulage(valeur, coulage):
+        return AUTRE_COULAGE
     t = c["temperature"]
-    p = plan_meteo(c, auj)
+    p = plan_meteo(c, auj, coulage)
     if "erreur" in p:
         return f"Météo non récupérée — {p['erreur']}"
     if valeur.get("plan") != p:
@@ -318,7 +334,7 @@ def _importer_meteo(c: Dict, valeur) -> Optional[str]:
     return None
 
 
-def _importer_horaire(c: Dict, valeur) -> Optional[str]:
+def _importer_horaire(c: Dict, valeur, coulage: int) -> Optional[str]:
     """Le détail horaire récupéré (à la demande) : relu contre le plan horaire de la récupération gardée, et gardé."""
     rec = c["temperature"]["meteo"]
     if not rec:
@@ -326,7 +342,9 @@ def _importer_horaire(c: Dict, valeur) -> Optional[str]:
     auj = _plan_recu(valeur) if isinstance(valeur, dict) else None
     if auj is None:
         return "Détail horaire illisible : le navigateur n'a pas rendu le plan de la récupération."
-    p = plan_horaire(c, auj)
+    if _autre_coulage(valeur, coulage):
+        return AUTRE_COULAGE
+    p = plan_horaire(c, auj, coulage)
     if "erreur" in p:
         return f"Détail horaire non récupéré — {p['erreur']}"
     if valeur.get("plan") != p:
@@ -349,7 +367,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     k = "/".join(ch)
     try:
         if k in ("temperature/meteo", "temperature/meteo_horaire"):
-            msg = (_importer_meteo if k == "temperature/meteo" else _importer_horaire)(c, valeur)
+            msg = (_importer_meteo if k == "temperature/meteo" else _importer_horaire)(c, valeur, etat["actif"])
             if msg:
                 etat["coulages"][etat["actif"]] = avant
                 return msg
@@ -486,7 +504,7 @@ def _cure(r: Dict) -> str:
     if tp["mode"] == "releve":
         return "relevé à saisir · 20 °C"
     if tp["mode"] == "meteo":
-        return "météo à récupérer · 20 °C"
+        return "températures effacées · 20 °C" if tp["meteo"] else "météo à récupérer · 20 °C"
     return f"{_deg(tp['T'])} °C constante"
 
 
@@ -543,7 +561,7 @@ AIDE_METEO = ("La météo est une importation de données, à la demande : le na
               "température constante, ou un relevé.")
 
 
-def _section_meteo(c: Dict, r: Dict) -> str:
+def _section_meteo(c: Dict, r: Dict, coulage: int) -> str:
     """La cure « Météo du lieu » : le lieu, les dates, le bouton (le plan du moteur), puis ce qui a été récupéré — le
     lieu trouvé, le jour et l'heure, le badge et les mesures de l'écran, le détail horaire à la demande, et les
     températures reçues, modifiables."""
@@ -562,7 +580,7 @@ def _section_meteo(c: Dict, r: Dict) -> str:
              aide=f"Le dernier jour du relevé : le contrôle ou le décoffrage (« Fin (décoffrage) » de l'écran Streamlit). Vide : "
                   f"aujourd'hui, ou le début + 5 j s'il est à venir. Prévisions jusqu'à + {HORIZON_PREVISION_J} j ; au-delà, les jours "
                   "sont prolongés.")
-         + C.bouton_meteo(["temperature", "meteo"], "Récupérer à nouveau la météo" if mt else "Récupérer la météo", plan_meteo(c, auj)))
+         + C.bouton_meteo(["temperature", "meteo"], "Récupérer à nouveau la météo" if mt else "Récupérer la météo", plan_meteo(c, auj, coulage)))
     if mt:
         if mt["demande_changee"]:
             s += C.message("Lieu ou dates modifiés depuis la récupération — cliquez à nouveau sur « Récupérer la météo ».")
@@ -573,7 +591,7 @@ def _section_meteo(c: Dict, r: Dict) -> str:
         if mt["modifie"]:
             s += C.aide("Températures corrigées à la main depuis la récupération ; « Récupérer à nouveau la météo » remet celles du service.")
         if mt["horaire"] is None:
-            s += C.bouton_meteo(["temperature", "meteo_horaire"], "Charger le détail horaire (facultatif)", plan_horaire(c, auj), petit=True)
+            s += C.bouton_meteo(["temperature", "meteo_horaire"], "Charger le détail horaire (facultatif)", plan_horaire(c, auj, coulage), petit=True)
         else:
             s += C.aide(f"Détail horaire chargé le {_quand(mt['horaire_recupere'])} : T min h et T max h de chaque jour, dans la vue « Tableau ».")
     if mt or t["releve"] or c.get(BROUILLON):
@@ -606,7 +624,7 @@ def formulaire(etat: Dict, r: Dict) -> str:
                + C.aide("Une cure variable (chantier en cours, hiver) : « Relevé » pour coller les températures journalières, "
                         "« Météo du lieu » pour les récupérer chez Open-Meteo."))
     elif t["mode"] == "meteo":
-        s2 += _section_meteo(c, r)
+        s2 += _section_meteo(c, r, etat["actif"])
     else:
         s2 += (L("Lieu", C.texte(["temperature", "lieu"], t["lieu"], "ex. Bruxelles"), full=True)
                + '<div class="grp">Températures moyennes journalières</div>'

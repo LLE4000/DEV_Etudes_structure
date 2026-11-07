@@ -25,9 +25,12 @@ La logique est celle de l'écran Streamlit ``modules/age_beton.py`` (v3.2), RECO
                         d'ailleurs), et ce que l'écran en dit.
 
 Ce qui diffère de l'écran, et pourquoi : une réponse MAL FORMÉE (une température en texte, des dates qui ne sont pas des
-dates, des listes de longueurs différentes) est refusée avec un message, au lieu d'être lue de travers ; une période de
-plus de 400 jours est refusée (le relevé n'en garde pas plus) ; les jours reçus doivent se suivre (le relevé est jour par
-jour). Rien de ceci n'arrive avec une réponse conforme au format documenté d'Open-Meteo.
+dates, des listes de longueurs différentes, une date qui n'existe pas) est refusée avec un message, au lieu d'être lue
+de travers ; une période de plus de 400 jours est refusée (le relevé n'en garde pas plus) ; chaque jour reçu doit être l'un
+de ceux que l'appel a demandés, et les jours servis doivent être EXACTEMENT ceux du coulage au dernier jour servi (le
+relevé est jour par jour, et son jour 1 est le coulage : une réponse qui commençait un jour plus tard, ou la veille du
+coulage, décalait tous les âges sans un mot). Rien de ceci n'arrive avec une réponse conforme au format documenté
+d'Open-Meteo, qui rend exactement les jours demandés.
 
 Bibliothèques : la bibliothèque standard et numpy (``np.mean`` : la prolongation de l'écran, au bit près).
 """
@@ -163,7 +166,8 @@ def _nombre(v, quoi):
 
 def _paires(rep, bloc: str, variable: str, motif, source: str):
     """Les couples (instant, valeur) d'une réponse, comme ``zip(bloc.get("time", []), bloc.get(variable, []))`` de
-    l'écran ; contrôlés : listes de même longueur, instants au format attendu, valeurs numériques ou null."""
+    l'écran ; contrôlés : listes de même longueur, instants au format attendu ET qui existent (un 30 février, une
+    25e heure sont refusés en français — Python les refusait plus loin, en anglais), valeurs numériques ou null."""
     if not isinstance(rep, dict):
         raise ValueError(f"réponse du service météo illisible ({source})")
     b = rep.get(bloc, {})
@@ -174,10 +178,24 @@ def _paires(rep, bloc: str, variable: str, motif, source: str):
         raise ValueError(f"réponse du service météo illisible ({source} : les dates et les températures ne se répondent pas)")
     if len(t) > _MAX_VALEURS_HORAIRES:
         raise ValueError(f"réponse du service météo trop longue ({source})")
+    lire = _dt.date.fromisoformat if motif is _JOUR else _dt.datetime.fromisoformat
     for x in t:
         if not isinstance(x, str) or not motif.match(x):
             raise ValueError(f"réponse du service météo illisible ({source} : instant « {str(x)[:20]} »)")
+        try:
+            lire(x)
+        except ValueError:
+            raise ValueError(f"réponse du service météo illisible ({source} : instant impossible « {x} »)") from None
     return [(x, _nombre(y, x)) for x, y in zip(t, v)]
+
+
+def _dans_l_appel(appel: dict, jour: str) -> None:
+    """Un jour reçu doit être l'un de ceux que l'appel a DEMANDÉS : une réponse qui déborde (un jour avant le coulage,
+    une autre année) décalerait le relevé — le jour 1 du calcul ne serait plus le coulage."""
+    if not appel["debut"] <= jour <= appel["fin"]:
+        raise ValueError(f"réponse du service météo hors des dates demandées ({appel['source']} : le "
+                         f"{_fr(_dt.date.fromisoformat(jour))}, pour une demande du {_fr(_dt.date.fromisoformat(appel['debut']))} au "
+                         f"{_fr(_dt.date.fromisoformat(appel['fin']))})")
 
 
 def lire_geocodage(rep):
@@ -215,15 +233,25 @@ def lire_journalier(p: dict, reponses) -> dict:
     """Les températures moyennes JOURNALIÈRES sur [debut, fin] : les réponses de l'archive puis des prévisions, dans
     l'ordre du plan ; un jour déjà reçu n'est pas repris ; au-delà de l'horizon, la série est PROLONGÉE à la moyenne des
     5 derniers jours servis (drapeau ``d_extra``) ; ``d_prev`` : le jour est postérieur au jour de la récupération.
-    Module : ``meteo_journaliere``, recopiée. ValueError si aucune température n'est exploitable pour prolonger."""
+    Module : ``meteo_journaliere``, recopiée. ValueError si aucune température n'est exploitable pour prolonger, et
+    (le site seul) si un jour reçu n'a pas été demandé ou si les jours servis ne vont pas exactement du coulage au dernier
+    jour servi."""
     aujourdhui = _date(p["aujourdhui"], "jour de la récupération")
-    fin, fin_dispo = _date(p["fin"], "fin"), _date(p["fin_dispo"], "fin servie")
+    debut, fin, fin_dispo = _date(p["debut"], "coulage"), _date(p["fin"], "fin"), _date(p["fin_dispo"], "fin servie")
     dates, temps = [], []
     for appel, rep in _appels(p, reponses):
         for d, t in _paires(rep, "daily", JOURNALIER["daily"], _JOUR, appel["source"]):
+            _dans_l_appel(appel, d)
             if d not in dates:
                 dates.append(d)
                 temps.append(float(t) if t is not None else float("nan"))
+    # les jours servis sont EXACTEMENT ceux du coulage au dernier jour servi, dans l'ordre : le jour 1 du relevé est le
+    # coulage (une réponse qui commence plus tard décalait tous les âges, sans un mot)
+    attendus = [(debut + _dt.timedelta(days=i)).isoformat() for i in range((fin_dispo - debut).days + 1)]
+    if dates != attendus:
+        manque = next((d for d in attendus if d not in dates), None)
+        raise ValueError(f"réponse incomplète du service météo : le {_fr(_dt.date.fromisoformat(manque))} manque" if manque
+                         else "réponse du service météo illisible (les jours ne se suivent pas)")
     prevision = [(_dt.date.fromisoformat(d) > aujourdhui) for d in dates]
     extrapole = [False] * len(dates)
     n_extra = (fin - fin_dispo).days
@@ -243,10 +271,12 @@ def lire_journalier(p: dict, reponses) -> dict:
 
 def lire_horaire(p: dict, reponses) -> dict:
     """Les températures HORAIRES (le détail de contrôle, chargé à la demande), tronquées à ce que les API couvrent ; un
-    instant qui ne suit pas le précédent n'est pas repris. Module : ``meteo_horaire``, recopiée."""
+    instant qui ne suit pas le précédent n'est pas repris. Module : ``meteo_horaire``, recopiée ; le site refuse en plus
+    un instant d'un jour que l'appel n'a pas demandé."""
     h_times, h_temps = [], []
     for appel, rep in _appels(p, reponses):
         for ht, hv in _paires(rep, "hourly", HORAIRE["hourly"], _HEURE, appel["source"]):
+            _dans_l_appel(appel, ht[:10])
             if not h_times or ht > h_times[-1]:
                 h_times.append(ht)
                 h_temps.append(float(hv) if hv is not None else float("nan"))
@@ -410,6 +440,10 @@ def normaliser(rec):
         out["horaire"] = {"aujourdhui": auj, "recupere": _recupere(h["recupere"], "la date du détail horaire"),
                           "reponses": _reponses_gardees(h["reponses"], len(ph["appels"]), "hourly", HORAIRE["hourly"], _HEURE,
                                                         "réponses horaires")}
+        try:
+            lire_horaire(ph, out["horaire"]["reponses"])          # elles se relisent (dates demandées, comme à l'import)
+        except ValueError as e:
+            raise ValueError(f"temperature/meteo/horaire : {e}") from None
     return out
 
 

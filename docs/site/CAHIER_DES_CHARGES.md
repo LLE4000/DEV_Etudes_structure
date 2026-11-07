@@ -206,8 +206,9 @@ connexion extérieure. Réponse retenue :
 - **Dans le module Maturité** : une troisième source de cure, « Météo du lieu », à côté de « Constante » et « Relevé » ;
   le lieu, les dates, le bouton ; le badge de Streamlit (jours mesurés, prévus, prolongés), la date de récupération, les
   températures reçues visibles (vue « Météo du lieu », tableau jour par jour) et **modifiables** ensuite ; le détail
-  horaire à la demande. Les refus (pas de réseau, lieu introuvable, service en panne, dates hors de portée) arrivent en
-  message.
+  horaire à la demande. Les refus (pas de réseau, lieu introuvable, service en panne, dates hors de portée, réponse
+  dont les jours ne sont pas ceux demandés, réponse de plus de 5 Mo, autre coulage ouvert pendant la récupération)
+  arrivent en message.
 - Le détail : `site/web/README.md` (la météo du lieu), `docs/beton/MATURITE_MOTEUR.md` § 4 bis.
 
 **Mesure du démarrage (07/11/2026, Chromium de Playwright, serveur local, PC à 4 cœurs).** Du début de la navigation

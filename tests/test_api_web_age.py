@@ -496,7 +496,7 @@ bt = boutons(e_m)
 pl = bt[0][1] if bt else {}
 chk("le bouton « Récupérer la météo » porte le PLAN du moteur (data-meteo) : géocodage du lieu, archive puis prévisions, dates de l'écran",
     len(bt) == 1 and bt[0][0] == "temperature/meteo" and not bt[0][2] and "Récupérer la météo</span>" in e_m["donnees"]
-    and pl == MT.plan(MT.LIEU_DEFAUT, AUJ - A._dt.timedelta(days=14), AUJ, AUJ)
+    and pl == dict(MT.plan(MT.LIEU_DEFAUT, AUJ - A._dt.timedelta(days=14), AUJ, AUJ), coulage=0)
     and [a["source"] for a in pl["appels"]] == ["archive", "prevision"] and pl["geocodage"] == {"name": MT.LIEU_DEFAUT, "count": 1, "language": "fr"}, pl)
 chk("sans récupération : T = 20 °C par défaut, dit dans le résultat ; ni relevé, ni badge ; les champs Lieu, Début, Fin (« Coulage », « Fin (décoffrage) » de l'écran)",
     "Météo pas encore récupérée" in e_m["resultat"] and all(champ(e_m, k) for k in ("temperature/lieu", "temperature/debut", "temperature/fin"))
@@ -542,6 +542,14 @@ c3 = o3["etat"]["coulages"][0]
 chk("les températures se corrigent à la main : le calcul les suit, la récupération reste gardée, l'écran dit « corrigées à la main »",
     o3["message"] is None and c3["temperature"]["meteo"] == rec and c3["temperature"]["mode"] == "meteo"
     and "corrigées à la main" in o3["donnees"] and M.calculer(c3)["temperature"]["T"] != m_o["temperature"]["T"], o3["message"])
+# (relecture adverse) les températures EFFACÉES après une récupération : le résultat disait « Météo pas encore récupérée »
+# sous la date de la récupération — il dit ce qui s'est passé, et comment les retrouver
+o3b = saisir(o["etat"], "temperature/releve", "")
+chk("températures effacées à la main après une récupération : « Températures de la météo effacées » (T = 20 °C), et non « Météo pas encore "
+    "récupérée », que contredisait la date de récupération écrite au-dessus ; le résumé de la section le dit aussi",
+    o3b["message"] is None and "Températures de la météo effacées" in o3b["resultat"] and "pas encore récupérée" not in o3b["resultat"]
+    and "Open-Meteo · récupérée le 07/11/2026" in texte(o3b["donnees"]) and "températures effacées · 20 °C" in o3b["donnees"]
+    and "météo à récupérer" not in o3b["donnees"], (o3b["message"], texte(o3b["resultat"])[-300:]))
 o4 = saisir(o["etat"], "temperature/lieu", "Namur")
 chk("lieu changé depuis la récupération : « Lieu ou dates modifiés depuis la récupération » (comme l'écran) ; le bouton porte le nouveau lieu",
     "Lieu ou dates modifiés depuis la récupération" in o4["donnees"] and boutons(o4)[0][1]["lieu"] == "Namur")
@@ -565,6 +573,24 @@ o5 = saisir(o5["etat"], "temperature/meteo", v5)
 chk("coulage récent, fin au-delà de l'horizon : jours mesurés, prévus, prolongés (badge), avertissement de prolongation, variante défavorable",
     o5["message"] is None and "5 j mesurés · 16 j de prévision · 7 j prolongés" in texte(o5["donnees"])
     and "prolongé(s) au-delà des prévisions" in o5["resultat"] and "Défavorable à 10 j" in o5["resultat"], (o5["message"], texte(o5["donnees"])[:300]))
+# (relecture adverse) un AUTRE coulage ouvert pendant la récupération : elle allait dans le coulage ouvert au retour. Une
+# copie (même lieu, mêmes dates, plan identique) y perdait ses corrections à la main, et le coulage du clic restait sans
+# météo. Le plan porte le rang du coulage du bouton : la récupération qui revient ailleurs est refusée, la note intacte.
+deux = req(module="age", action="dupliquer", etat=o3["etat"])                      # coulage 2 = copie, corrigée à la main
+v_1 = navigateur(req(module="age", action="activer", etat=deux["etat"], index=0))  # le clic sur le bouton du coulage 1
+o_x = req(module="age", action="modifier", etat=copy.deepcopy(deux["etat"]), chemin=["temperature", "meteo"], valeur=v_1)  # … revenu sur le 2
+v_2 = navigateur(deux)
+o_2 = saisir(deux["etat"], "temperature/meteo", v_2)
+chk("une récupération lancée sur un coulage et revenue alors qu'un autre est ouvert (une copie : même lieu, mêmes dates) est refusée — le "
+    "coulage ouvert garde ses corrections à la main ; depuis son propre bouton, elle passe",
+    deux["etat"]["actif"] == 1 and v_1["plan"]["coulage"] == 0 and o_x["ok"] and o_x["message"] and "Un autre coulage a été ouvert" in o_x["message"]
+    and o_x["etat"] == deux["etat"] and boutons(deux)[0][1]["coulage"] == 1 and o_2["message"] is None
+    and o_2["etat"]["coulages"][1]["temperature"]["releve"] == c_o["temperature"]["releve"]
+    and o_2["etat"]["coulages"][0] == deux["etat"]["coulages"][0], (o_x.get("message"), o_2["message"]))
+vh_1 = navigateur(req(module="age", action="activer", etat=o["etat"] | {"coulages": [o["etat"]["coulages"][0]] * 2}, index=0), "temperature/meteo_horaire")
+oh_x = req(module="age", action="modifier", etat=o["etat"] | {"coulages": [o["etat"]["coulages"][0]] * 2, "actif": 1},
+           chemin=["temperature", "meteo_horaire"], valeur=vh_1)
+chk("… de même pour le détail horaire", oh_x["ok"] and oh_x["message"] and "Un autre coulage a été ouvert" in oh_x["message"], oh_x.get("message"))
 # les refus : jamais une exception, la note intacte
 REFUS_M = [("lieu introuvable", "temperature/meteo", None, lambda e_: FO.recuperer(boutons(saisir(e_, "temperature/lieu", "Atlantide")["etat"] and
                                                                                           saisir(e_, "temperature/lieu", "Atlantide"))[0][1], FO.FauxService(AUJ)),
@@ -574,6 +600,10 @@ REFUS_M = [("lieu introuvable", "temperature/meteo", None, lambda e_: FO.recuper
            ("une réponse de moins", "temperature/meteo", None, lambda e_: dict(navigateur(e_m), reponses=navigateur(e_m)["reponses"][:1]), "Météo refusée"),
            ("le plan d'un autre lieu (changé pendant la récupération)", "temperature/meteo", None,
             lambda e_: dict(navigateur(e_m), plan=dict(navigateur(e_m)["plan"], lieu="Namur")), "modifiés pendant la récupération"),
+           # (relecture adverse) une archive qui commence un jour APRÈS le coulage était lue : le relevé glissait d'un jour
+           ("l'archive qui commence le lendemain du coulage", "temperature/meteo", None,
+            lambda e_: (lambda x: ([x["reponses"][0]["daily"][k].pop(0) for k in ("time", "temperature_2m_mean")], x)[1])(navigateur(e_m)),
+            "le 24/10/2026 manque"),
            ("sans plan", "temperature/meteo", None, lambda e_: {"reponses": []}, "Météo illisible"),
            ("rien d'utile (une liste)", "temperature/meteo", None, lambda e_: [1, 2], "Météo illisible"),
            ("le détail horaire avant la météo", "temperature/meteo_horaire", None, lambda e_: vh, "Récupérez d'abord la météo")]

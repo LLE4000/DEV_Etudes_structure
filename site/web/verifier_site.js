@@ -1084,6 +1084,8 @@ const FILTRE = process.argv[4] || '';
         if (mode.lent) await new Promise((r) => setTimeout(r, mode.lent));
         if (mode.coupe) return route.abort('internetdisconnected');
         if (mode.panne) return route.fulfill({ status: 500, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: true, reason: 'Panne simulée du service' }) });
+        // une réponse ÉNORME (8 Mo) : la page ne la lit pas (relecture adverse : elle était lue toute, puis envoyée au moteur)
+        if (mode.enorme) return route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: `{"bourrage":"${'x'.repeat(8 * 1024 * 1024)}"}` });
         const q = Object.fromEntries(u.searchParams);
         let corps;
         if (u.hostname.startsWith('geocoding-api')) {
@@ -1091,6 +1093,8 @@ const FILTRE = process.argv[4] || '';
           corps = g ? { results: [g], generationtime_ms: 0.61 } : { generationtime_ms: 0.43 };
         } else {
           const js = jours(q.start_date, q.end_date);
+          // une archive qui commence le LENDEMAIN du jour demandé (relecture adverse : le relevé glissait d'un jour, sans un mot)
+          if (mode.decale && u.hostname.startsWith('archive-api')) js.shift();
           corps = { latitude: 50.85, longitude: 4.35, generationtime_ms: 0.2, utc_offset_seconds: 3600, timezone: 'Europe/Brussels', timezone_abbreviation: 'GMT+1', elevation: 28 };
           if (q.hourly) {
             corps.hourly_units = { time: 'iso8601', [q.hourly]: '°C' };
@@ -1270,6 +1274,34 @@ const FILTRE = process.argv[4] || '';
     g.mode.coupe = false;
     await refus('service en panne', async () => { g.mode.panne = true; }, /^Service météo en panne \(erreur 500 — Panne simulée du service\)/);
     g.mode.panne = false;
+    // (relecture adverse) une réponse dont les jours ne sont pas ceux demandés, une réponse énorme : refusées en message
+    await refus('archive décalée d\'un jour', async () => { g.mode.decale = true; }, new RegExp(`^Météo refusée — réponse incomplète du service météo : le ${fr(debut)} manque`));
+    g.mode.decale = false;
+    const aE = await refus('réponse énorme (8 Mo)', async () => { g.mode.enorme = true; }, /^Réponse trop volumineuse du service météo \(plus de 5 Mo\)/);
+    g.mode.enorme = false;
+    verif('météo · PC · réponse énorme : refusée dès le géocodage, aucun autre appel', aE.length === 1 && /geocoding-api/.test(aE[0]), JSON.stringify(aE));
+    // (relecture adverse) un AUTRE coulage ouvert pendant la récupération : la météo allait dans le coulage ouvert au retour —
+    // une copie (même lieu, mêmes dates) perdait ses corrections à la main, et celui du clic restait sans météo
+    await g.click('#donnees [data-dupliquer]');
+    await tranquille(g);
+    await g.click('.elements .ni[data-activer="0"]');
+    await tranquille(g);
+    const c1 = await lire(g);
+    g.mode.lent = 2500;
+    await g.click('#donnees [data-meteo-chemin="temperature/meteo"]');
+    await attendre(g, () => !!document.querySelector('#donnees [data-meteo].attente'), 3000);
+    await g.click('.elements .ni[data-activer="1"]');
+    await attendre(g, () => !document.querySelector('#donnees [data-meteo].attente'), 30000);
+    await tranquille(g);
+    await g.waitForTimeout(200);
+    g.mode.lent = 0;
+    const c2 = await lire(g);
+    await g.click('.elements .ni[data-activer="0"]');
+    await tranquille(g);
+    const c1b = await lire(g);
+    verif('météo · PC · un autre coulage ouvert pendant la récupération : rien n\'est importé, un message le dit ; la copie ouverte garde ses corrections à la main, le coulage du clic aussi',
+      c2.toast.vu && c2.toast.erreur && /^Un autre coulage a été ouvert pendant la récupération/.test(c2.toast.texte) && c2.releve === c1.releve
+      && c1b.releve === c1.releve && c2.hints.some((x) => /corrigées à la main/.test(x)), JSON.stringify({ toast: c2.toast, r2: (c2.releve || '').slice(0, 40), r1: (c1.releve || '').slice(0, 40) }));
     // dates hors de portée : le bouton est grisé, le message est écrit dessous — aucun appel
     const n0 = g.journal.length;
     await saisirDate(g, 'temperature/fin', fr(decale(auj, 30)));

@@ -1376,6 +1376,40 @@ if AB is not None:
                 abimes.append(f"{nom} : message « {x} » (attendu : « {motif} »)")
     chk("7 réponses mal formées (texte, jour manquant, date, longueurs, booléen, nombre de réponses) sont refusées, chacune avec le message qui "
         "dit ce qui ne va pas (le jour qui manque, la valeur illisible…)", not abimes, abimes)
+    # 10.3 bis (relecture adverse) : une réponse dont les JOURS ne sont pas ceux demandés était LUE — le relevé commençait
+    # alors un autre jour que le coulage, et tous les âges glissaient sans un mot : une archive qui commence un jour plus
+    # tard (le jour 1 du calcul devenait le lendemain du coulage), qui rend la veille du coulage (un jour chaud AVANT le
+    # coulage comptait dans la maturité : non conservatif), un détail horaire d'une autre année ; et une date qui n'existe
+    # pas (30 février, 25 h) passait le motif, puis faisait dire à Python « day is out of range for month », en anglais.
+    d0 = _dt.date.fromisoformat(p["debut"])
+    r6 = _copy.deepcopy(bon); r6[0]["daily"]["time"].pop(0); r6[0]["daily"]["temperature_2m_mean"].pop(0)
+    r7 = _copy.deepcopy(bon); r7[0]["daily"]["time"].insert(0, (d0 - _dt.timedelta(days=1)).isoformat()); r7[0]["daily"]["temperature_2m_mean"].insert(0, 30.0)
+    r8 = _copy.deepcopy(bon); r8[0]["daily"]["time"][0] = "2026-02-30"
+    r9 = _copy.deepcopy(bon); r9[1]["daily"]["time"] = r9[1]["daily"]["time"][::-1]; r9[1]["daily"]["temperature_2m_mean"] = r9[1]["daily"]["temperature_2m_mean"][::-1]
+    ph = MT.plan(None, d0, _dt.date.fromisoformat(p["fin"]), AUJ_M, horaire=True, position={"latitude": 50.85045, "longitude": 4.34878})
+    bon_h = FO.recuperer(ph, FO.FauxService(AUJ_M))["reponses"]
+    h1 = _copy.deepcopy(bon_h); h1[0]["hourly"]["time"] = [x.replace("2026-", "2025-", 1) for x in h1[0]["hourly"]["time"]]
+    h2 = _copy.deepcopy(bon_h); h2[0]["hourly"]["time"][5] = h2[0]["hourly"]["time"][5][:11] + "25:00"
+    abimes = []
+    for nom, lire_, reps, motif in (
+            ("l'archive commence un jour plus tard", MT.lire_journalier, r6, f"le {d0:%d/%m/%Y} manque"),
+            ("l'archive rend la veille du coulage", MT.lire_journalier, r7, f"hors des dates demandées (archive : le {d0 - _dt.timedelta(days=1):%d/%m/%Y}"),
+            ("un 30 février", MT.lire_journalier, r8, "instant impossible « 2026-02-30 »"),
+            ("des prévisions dans le désordre", MT.lire_journalier, r9, "les jours ne se suivent pas"),
+            ("un détail horaire d'une autre année", MT.lire_horaire, h1, "hors des dates demandées"),
+            ("une 25e heure", MT.lire_horaire, h2, "instant impossible")):
+        try:
+            lire_(ph if lire_ is MT.lire_horaire else p, reps)
+            abimes.append(f"{nom} : accepté")
+        except ValueError as x:
+            if motif not in str(x):
+                abimes.append(f"{nom} : message « {x} » (attendu : « {motif} »)")
+    chk("6 réponses dont les jours ne sont pas ceux demandés (archive décalée d'un jour, veille du coulage, 30 février, jours dans le "
+        "désordre, horaire d'une autre année, 25e heure) sont refusées en français, chacune avec le jour en cause — le relevé commence "
+        "toujours au coulage", not abimes, abimes)
+    chk("une réponse conforme (les jours demandés, exactement) est lue : le relevé commence au coulage et va jour par jour jusqu'à la fin",
+        MT.lire_journalier(p, bon)["d_dates"][0] == p["debut"] and MT.lire_journalier(p, bon)["d_dates"][-1] == p["fin"]
+        and len(MT.lire_horaire(ph, bon_h)["h_times"]) == 24 * len(MT.lire_journalier(p, bon)["d_dates"]))
     for mal_p, attendu in (((None, J(0), J(5)), "lieu"), (("Namur", J(5), J(0)), "précède"), (("Namur", J(-500), J(0)), "400"),
                            (("Namur", J(17), J(30)), "horizon")):
         try:
@@ -1405,6 +1439,23 @@ if AB is not None:
         except ValueError:
             pass
     chk("8 récupérations gardées abîmées (un .stab venu d'ailleurs) sont refusées par la relecture stricte", not refus, refus)
+    # (relecture adverse) une note qui garde des jours non demandés : refusée à la relecture, comme à l'importation — le
+    # journalier décalé d'un jour, et le détail horaire d'une autre année (seul son FORMAT était relu)
+    rec_h = dict(_copy.deepcopy(rec), horaire=MT.enregistrement_horaire(ph, bon_h, "2026-11-07T10:06"))
+    chk("une note qui garde le détail horaire tel que reçu se relit à l'identique", MT.normaliser(json.loads(json.dumps(rec_h))) == rec_h)
+    refus = []
+    for nom, f_ in (("détail horaire d'une autre année", lambda r: r["horaire"]["reponses"][0]["hourly"].update(time=h1[0]["hourly"]["time"])),
+                    ("journalier qui commence un jour plus tard", lambda r: [r["reponses"][0]["daily"][k].pop(0) for k in ("time", "temperature_2m_mean")])):
+        r_ = _copy.deepcopy(rec_h)
+        f_(r_)
+        try:
+            MT.normaliser(r_)
+            refus.append(f"{nom} : accepté")
+        except ValueError as x:
+            if "temperature/meteo" not in str(x):
+                refus.append(f"{nom} : message « {x} »")
+    chk("une note dont la récupération gardée porte des jours non demandés (horaire d'une autre année, journalier décalé) est refusée à la relecture",
+        not refus, refus)
 
     # 10.5 mutations : un défaut plausible du plan ou de la lecture, glissé dans meteo.py, fait rougir la parité
     def _prevision_large(p_, reps):

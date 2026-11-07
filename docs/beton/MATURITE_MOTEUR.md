@@ -33,9 +33,9 @@ Le site les **reproduit** (parité : mêmes chiffres que Streamlit) et les **sig
 | `beton/maturite/meteo.py` | la **météo du lieu**, sans réseau : le **plan** des appels à Open-Meteo (géocodage, archive, prévisions — `_plages_endpoints` de l'écran) et la **lecture** des réponses (`geocode_open_meteo`, `meteo_journaliere`, `meteo_horaire`), recopiés au bit près ; ce que la note **garde** d'une récupération (§ 4 bis) |
 | `beton/maturite/entree.py` | les valeurs de l'écran au premier affichage, ses bornes, la normalisation stricte d'un coulage (ValueError avec le chemin du champ) |
 | `beton/maturite/moteur.py` | `calculer` : tout ce que l'écran affiche (et ce que le site ajoute, nommé comme tel) ; `candidats_classes` : le sélecteur de ③ ; le **format complet** (entrée, sortie) dans sa docstring |
-| `tests/test_maturite_moteur.py` | parité au bit près avec l'écran rejoué (faux `st`), contrôles à la main, couverture, relevé, format, pureté, **mutations**, **de bout en bout** (ce que l'écran affiche est lu sur le site) et la **météo** (section 10 : plan et lecture contre l'écran, faux `requests`) — 189 contrôles |
+| `tests/test_maturite_moteur.py` | parité au bit près avec l'écran rejoué (faux `st`), contrôles à la main, couverture, relevé, format, pureté, **mutations**, **de bout en bout** (ce que l'écran affiche est lu sur le site) et la **météo** (section 10 : plan et lecture contre l'écran, faux `requests`) — 193 contrôles |
 | `tests/faux_open_meteo.py` | un faux Open-Meteo au **format documenté** du service (géocodage, archive, prévisions, journalier et horaire, erreurs 400 / 429) : les tests n'appellent jamais le vrai service |
-| `api_web/age.py`, `api_web/dessin_age.py`, `site/web/css/modules/age.css`, `tests/test_api_web_age.py` | le module du site, ses graphiques SVG, sa feuille de style, ses tests (66 contrôles, plus les 21 du contrat commun) |
+| `api_web/age.py`, `api_web/dessin_age.py`, `site/web/css/modules/age.css`, `tests/test_api_web_age.py` | le module du site, ses graphiques SVG, sa feuille de style, ses tests (69 contrôles, plus les 21 du contrat commun) |
 
 numpy est **nécessaire** à la parité : `np.exp` et `math.exp` peuvent différer au dernier bit, et le module mélange les
 deux (`math.exp` pour le facteur de maturité, `np.exp` pour β_cc). Le moteur fait exactement les mêmes appels.
@@ -150,6 +150,24 @@ pas, des listes de longueurs différentes, un jour manquant entre l'archive et l
 message** (l'écran l'aurait lue de travers : `float("12.5")`, un relevé décalé) ; une période de plus de 400 jours est
 refusée ; le détail horaire d'une période sans jour servi est refusé (bouton grisé) au lieu d'un tableau vide ; « -0.0 »
 s'écrit « 0,0 ». Rien de ceci n'arrive avec une réponse conforme au format d'Open-Meteo.
+
+**Relecture adverse du 07/11/2026** — trois trous bouchés, chacun figé par un contrôle qui rougit sans sa correction :
+
+- **les jours reçus doivent être ceux DEMANDÉS** : chaque jour d'une réponse doit tomber dans les dates de son appel, et
+  les jours servis doivent aller EXACTEMENT du coulage au dernier jour servi. Une archive qui commençait un jour plus tard
+  était lue : le relevé partait du lendemain du coulage et tous les âges glissaient d'un jour, sans un mot ; une archive
+  qui rendait la veille du coulage (un jour chaud) la faisait compter dans la maturité — non conservatif. De même pour
+  le détail horaire (un jour d'une autre année était gardé), relu aussi à l'ouverture d'une note (`meteo.normaliser`) ;
+- **une date qui n'existe pas** (30 février, 25 h) passait le motif AAAA-MM-JJ, puis Python la refusait en anglais (« day
+  is out of range for month ») : elle est refusée en français, l'instant en cause nommé ;
+- **des températures effacées à la main** après une récupération faisaient dire au résultat « Météo pas encore
+  récupérée », sous la date de la récupération : il dit « Températures de la météo effacées » (avertissement
+  `meteo_effacee`) et comment les retrouver.
+
+Côté écran (`api_web/age.py`, `js/meteo.js`) : le plan du bouton porte le **rang du coulage** (`coulage`) — une
+récupération revenue alors qu'un autre coulage est ouvert allait dans celui-ci (une copie, même lieu et mêmes dates, y
+perdait ses corrections à la main) : elle est refusée, la note intacte ; une réponse n'est **lue que jusqu'à 5 Mo**
+(au-delà, rien ne part au moteur : une réponse énorme était lue toute, puis envoyée au travailleur).
 
 **La preuve** (`tests/test_maturite_moteur.py`, section 10) : l'écran Streamlit va chercher sa météo
 (`geocode_open_meteo`, `meteo_journaliere`, `meteo_horaire`) chez un faux `requests` ; le site fait son plan, et le même

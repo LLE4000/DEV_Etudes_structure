@@ -26,6 +26,10 @@ const PERMIS = Object.freeze({
 
 export const DELAI_MS = 20000;        // l'écran Streamlit attend 20 s (timeout=20)
 export const ATTENTE_429_MS = 2000;   // … et réessaie une fois, 2 s après un « trop de demandes » (429)
+// Une réponse n'est lue que jusqu'à 5 Mo : le plus gros appel permis (le détail horaire de 400 jours, 9 600 instants)
+// en fait environ 0,3 Mo. Au-delà, la lecture s'arrête et rien ne part au moteur (une réponse énorme figeait la page,
+// puis traversait tout entière jusqu'au travailleur avant d'être refusée).
+export const TAILLE_MAX = 5 * 1024 * 1024;
 
 const SECOURS = "saisissez une température constante ou un relevé (le calcul reste possible hors ligne)";
 export const MESSAGES = Object.freeze({
@@ -33,6 +37,7 @@ export const MESSAGES = Object.freeze({
   delai: `Le service météo ne répond pas (${DELAI_MS / 1000} s) : réessayez plus tard, ou ${SECOURS}.`,
   sature: `Service météo saturé (Open-Meteo limite le nombre de demandes) : réessayez dans quelques minutes, ou ${SECOURS}.`,
   illisible: `Réponse illisible du service météo : réessayez plus tard, ou ${SECOURS}.`,
+  volumineuse: `Réponse trop volumineuse du service météo (plus de ${TAILLE_MAX / 1024 / 1024} Mo) : elle n'est pas lue. Réessayez plus tard, ou ${SECOURS}.`,
   plan: "Le plan de la récupération est illisible : rechargez la page, puis cliquez à nouveau.",
   panne: (code, raison) => `Service météo en panne (erreur ${code}${raison ? ` — ${raison}` : ""}) : réessayez plus tard, ou ${SECOURS}.`,
 });
@@ -49,6 +54,28 @@ export function adresse(source, parametres) {
   return `${ADRESSES[source]}?${q}`;
 }
 
+// Le corps d'une réponse, lu morceau par morceau et jamais au-delà de TAILLE_MAX : le texte, ou null s'il est trop gros
+// (la taille annoncée suffit à refuser sans rien lire). Le JSON est ensuite lu par JSON.parse.
+async function lireCorps(rep) {
+  const annonce = Number(rep.headers && rep.headers.get ? rep.headers.get("content-length") : NaN);
+  if (Number.isFinite(annonce) && annonce > TAILLE_MAX) { try { await rep.body?.cancel(); } catch (e) { /* déjà fermé */ } return null; }
+  if (!rep.body) return "";                     // une réponse sans corps : illisible, dit plus bas
+  const lecteur = rep.body.getReader();
+  const morceaux = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await lecteur.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > TAILLE_MAX) { try { await lecteur.cancel(); } catch (e) { /* déjà fermé */ } return null; }
+    morceaux.push(value);
+  }
+  const tout = new Uint8Array(total);
+  let i = 0;
+  for (const m of morceaux) { tout.set(m, i); i += m.byteLength; }
+  return new TextDecoder().decode(tout);
+}
+
 // Un appel : la réponse JSON, ou un refus en français. Un « trop de demandes » (429) est réessayé une fois, comme l'écran.
 async function appeler(source, parametres, o) {
   let url;
@@ -56,13 +83,15 @@ async function appeler(source, parametres, o) {
   for (let essai = 0; essai < 2; essai++) {
     const ctl = new AbortController();
     const minuterie = setTimeout(() => ctl.abort(), o.delai);
-    let rep, json = null, lu = false;
+    let rep, json = null, lu = false, texte = "";
     try {
       rep = await o.fetch(url, { signal: ctl.signal, credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer" });
-      try { json = await rep.json(); lu = true; } catch (e) { if (e && e.name === "AbortError") throw e; }
+      texte = await lireCorps(rep);
+      if (texte !== null) { try { json = JSON.parse(texte); lu = true; } catch (e) { /* illisible : dit plus bas */ } }
     } catch (e) {
       return { ok: false, erreur: e && e.name === "AbortError" ? MESSAGES.delai : MESSAGES.reseau };
     } finally { clearTimeout(minuterie); }
+    if (texte === null) return { ok: false, erreur: MESSAGES.volumineuse };
     if (rep.status === 429) {
       if (essai === 0) { await o.attendre(ATTENTE_429_MS); continue; }
       return { ok: false, erreur: MESSAGES.sature };

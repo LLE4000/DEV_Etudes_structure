@@ -233,29 +233,40 @@ const plan = %s;
 const journal = [];
 const geo = {results: [{name: "Bruxelles", admin1: "Bruxelles-Capitale", country: "Belgique", latitude: 50.85045, longitude: 4.34878}]};
 const jour = (u) => ({daily: {time: [new URL(u).searchParams.get("start_date")], temperature_2m_mean: [7.5]}});
+// de VRAIES réponses (Response de node, comme celles de fetch) : le corps se lit comme dans le navigateur
+const reponse = (status, corps, entetes = {}) => new Response(typeof corps === "string" || corps instanceof ReadableStream ? corps : JSON.stringify(corps),
+  {status, headers: {"content-type": "application/json", ...entetes}});
+// une réponse ÉNORME (50 Mo, par morceaux de 64 ko, sans taille annoncée) : on compte ce qui en est tiré
+let tire = 0;
+const enorme = () => new ReadableStream({pull(c) { if (tire >= 50 * 1024 * 1024) return c.close(); const b = new Uint8Array(65536).fill(32); tire += b.byteLength; c.enqueue(b); }});
 const service = (mode) => async (u, init) => {
   journal.push(u);
   if (mode === "reseau") throw new TypeError("Failed to fetch");
   if (mode === "lent") return new Promise((ok, ko) => init.signal.addEventListener("abort", () => ko(Object.assign(new Error("abort"), {name: "AbortError"}))));
-  if (mode === "429" || (mode === "429-puis" && journal.filter((x) => x === u).length === 1)) return {status: 429, ok: false, json: async () => ({reason: "Too many"})};
-  if (mode === "500") return {status: 500, ok: false, json: async () => ({error: true, reason: "Panne <b>simulée</b>"})};
-  if (mode === "illisible") return {status: 200, ok: true, json: async () => { throw new SyntaxError("x"); }};
-  if (u.startsWith(m.ADRESSES.geocodage)) return {status: 200, ok: true, json: async () => (mode === "inconnu" ? {generationtime_ms: 0.4} : geo)};
-  return {status: 200, ok: true, json: async () => jour(u)};
+  if (mode === "429" || (mode === "429-puis" && journal.filter((x) => x === u).length === 1)) return reponse(429, {reason: "Too many"});
+  if (mode === "500") return reponse(500, {error: true, reason: "Panne <b>simulée</b>"});
+  if (mode === "illisible") return reponse(200, "pas du JSON {");
+  if (mode === "enorme") return reponse(200, enorme());
+  if (mode === "annonce") return reponse(200, enorme(), {"content-length": String(50 * 1024 * 1024)});
+  if (u.startsWith(m.ADRESSES.geocodage)) return reponse(200, mode === "inconnu" ? {generationtime_ms: 0.4} : geo);
+  return reponse(200, jour(u));
 };
 const out = {};
-for (const mode of ["bon", "inconnu", "reseau", "lent", "429", "429-puis", "500", "illisible"]) {
+for (const mode of ["bon", "inconnu", "reseau", "lent", "429", "429-puis", "500", "illisible", "enorme", "annonce"]) {
+  tire = 0;
   journal.length = 0;
   const attentes = [];
   const r = await m.recupererMeteo(plan, {fetch: service(mode), attendre: async (ms) => attentes.push(ms), delai: 50});
-  out[mode] = {r, journal: [...journal], attentes};
+  out[mode] = {r, journal: [...journal], attentes, tire};
 }
 out.erreur = await m.recupererMeteo({erreur: "Période entièrement au-delà"}, {fetch: service("bon")});
 out.malicieux = await m.recupererMeteo({...plan, appels: [{source: "ailleurs", parametres: {}}]}, {fetch: service("bon")});
 journal.length = 0;
 out.parametre = await m.recupererMeteo({...plan, appels: [{source: "archive", parametres: {start_date: "2026-11-01", callback: "x"}}]}, {fetch: service("bon")});
 out.parametre_journal = [...journal];
+journal.length = 0;
 out.position = await m.recupererMeteo({...plan, lieu: undefined, geocodage: undefined, position: {latitude: 50.5, longitude: 4.9}}, {fetch: service("bon")});
+out.position_journal = [...journal];
 out.adresse = m.adresse("geocodage", {name: "Saint-Gilles & Co/1 «é»", count: 1, language: "fr"});
 console.log(JSON.stringify(out));
 """
@@ -290,9 +301,23 @@ chk("js/meteo.js : un plan impossible (dates hors de portée) rend son message, 
     JM.get("erreur") == {"ok": False, "erreur": "Période entièrement au-delà"} and not JM.get("malicieux", {}).get("ok", True)
     and not JM.get("parametre", {}).get("ok", True) and "callback" in JM["parametre"]["erreur"]
     and all("callback" not in u for u in JM.get("parametre_journal", ["callback"])), (JM.get("malicieux"), JM.get("parametre")))
-chk("js/meteo.js : un plan qui donne la position (le détail horaire) ne géocode pas ; les paramètres sont encodés",
-    JM.get("position", {}).get("r", JM.get("position", {})).get("ok") is not False and JM.get("position", {}).get("ok")
-    and JM.get("adresse") == MTO.ADRESSES["geocodage"] + "?name=Saint-Gilles+%26+Co%2F1+%C2%AB%C3%A9%C2%BB&count=1&language=fr", (JM.get("position"), JM.get("adresse")))
+# (relecture adverse : ce contrôle ne regardait que « ok » — un écran qui géocodait quand même le passait ; il lit
+# maintenant le journal des appels : aucun géocodage, chaque appel du plan à la position donnée)
+chk("js/meteo.js : un plan qui donne la position (le détail horaire) ne géocode pas — chaque appel part à la position donnée ; les "
+    "paramètres sont encodés",
+    JM.get("position", {}).get("ok") and len(JM.get("position_journal", [])) == len(PLAN_M["appels"])
+    and not any("geocoding" in u for u in JM["position_journal"]) and all("latitude=50.5&longitude=4.9&" in u for u in JM["position_journal"])
+    and JM.get("adresse") == MTO.ADRESSES["geocodage"] + "?name=Saint-Gilles+%26+Co%2F1+%C2%AB%C3%A9%C2%BB&count=1&language=fr",
+    (JM.get("position"), JM.get("position_journal"), JM.get("adresse")))
+# une réponse énorme (relecture adverse : elle était lue tout entière, puis envoyée au travailleur) : la lecture s'arrête à
+# 5 Mo, rien ne part au moteur, le message le dit ; annoncée trop grosse, elle n'est même pas lue
+ENO = JM.get("enorme", {})
+chk("js/meteo.js : une réponse énorme (50 Mo) n'est lue que jusqu'à 5 Mo, puis refusée en message ; annoncée trop grosse, elle n'est pas lue du tout",
+    ENO.get("r", {}).get("ok") is False and "trop volumineuse" in ENO["r"].get("erreur", "") and "hors ligne" in ENO["r"]["erreur"]
+    and 5 * 1024 * 1024 < ENO.get("tire", 0) <= 5 * 1024 * 1024 + 4 * 65536 and len(ENO.get("journal", [])) == 1
+    and JM.get("annonce", {}).get("r", {}).get("ok") is False and "trop volumineuse" in JM["annonce"]["r"].get("erreur", "")
+    and JM["annonce"].get("tire", 99e9) <= 4 * 65536,
+    {k: (JM.get(k, {}).get("r"), JM.get(k, {}).get("tire")) for k in ("enorme", "annonce")})
 chk("le cœur Python reste en cache, le paquet du moteur est relu à chaque ouverture",
     "immutable" in SL.entetes(f"/{SW.PYODIDE}/pyodide.asm.wasm").get("Cache-Control", "")
     and SL.entetes("/moteur/manifeste.json").get("Cache-Control") == "no-cache")

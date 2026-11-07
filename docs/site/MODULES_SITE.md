@@ -229,6 +229,11 @@ encodés — puis l'écran envoie `{"action": "modifier", "chemin": <chemin>, "v
 et les **garde dans la note** (`meteo.enregistrement` ; relu strictement par `meteo.normaliser`) : la note recalcule
 ensuite hors ligne. Un refus rend un message, la note intacte. Le modèle : `api_web/age.py` (`_importer_meteo`).
 
+Une note à **plusieurs éléments** : le plan du bouton porte le **rang de l'élément** (`age.py` : `_marque`, clé
+`coulage`), et le module refuse une récupération revenue alors qu'un autre élément est ouvert — l'écran envoie
+« modifier » à l'élément OUVERT au retour, pas à celui du clic (une copie, même lieu et mêmes dates, y perdait ses
+corrections à la main). `js/meteo.js` ne lit pas une réponse de plus de 5 Mo.
+
 ```python
 p = MT.plan(c["temperature"]["lieu"], debut, fin, aujourdhui())        # ValueError → {"erreur": str(e)}
 s += C.bouton_meteo(["temperature", "meteo"], "Récupérer la météo", p)

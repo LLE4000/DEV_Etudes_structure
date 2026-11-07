@@ -118,7 +118,12 @@ def _temperature(e: dict, avert: list) -> dict:
     if syn is None:
         # le module, sans météo récupérée (ou sans aucune température exploitable) : T = 20 °C, « manuelle »
         out["T"] = 20.0
-        if t["mode"] == "meteo" and not rel["temps"]:
+        if t["mode"] == "meteo" and not rel["temps"] and t["meteo"]:
+            # la météo a été récupérée, puis ses températures effacées à la main : le dire (« pas encore récupérée »
+            # contredisait la date de récupération écrite au-dessus)
+            avert.append({"code": "meteo_effacee", "message": "Températures de la météo effacées : T = 20 °C par défaut. « Récupérer à "
+                          "nouveau la météo » remet celles du service (ou saisissez-les, une ligne par jour)."})
+        elif t["mode"] == "meteo" and not rel["temps"]:
             avert.append({"code": "meteo_absente", "message": "Météo pas encore récupérée : T = 20 °C par défaut. Renseignez le lieu et "
                           "les dates, puis « Récupérer la météo » (ou saisissez une température constante, un relevé)."})
         else:

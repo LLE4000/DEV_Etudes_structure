@@ -110,9 +110,12 @@ quelles variables                     appel, vers Open-Meteo SEULEMENT          
   service s'affiche comme du texte). Les trois adresses sont des copies liées par `tests/test_site_web.py` (moteur,
   `js/meteo.js`, `_headers`).
 - **Les refus arrivent en message**, jamais en exception : pas de réseau, service muet (20 s), saturé (un second essai
-  2 s après un « trop de demandes », comme l'écran), en panne (avec sa raison), réponse illisible — dits par
-  `js/meteo.js` ; lieu introuvable, réponse incomplète, lieu ou dates changés pendant la récupération, dates hors de
-  portée (le bouton est alors grisé et le message écrit dessous) — dits par le moteur. La note reste intacte.
+  2 s après un « trop de demandes », comme l'écran), en panne (avec sa raison), réponse illisible, réponse de plus de
+  5 Mo (lue morceau par morceau, jamais au-delà ; rien ne part au moteur) — dits par `js/meteo.js` ; lieu introuvable,
+  réponse incomplète ou dont les jours ne sont pas ceux demandés (le jour en cause nommé : le jour 1 du relevé est
+  toujours le coulage), lieu ou dates changés pendant la récupération, un autre coulage ouvert pendant la récupération
+  (le plan du bouton porte le rang du coulage), dates hors de portée (le bouton est alors grisé et le message écrit
+  dessous) — dits par le module. La note reste intacte.
 - Pendant la récupération, le bouton et l'indicateur disent « Récupération de la météo… ». Ensuite : le lieu trouvé, la
   date et l'heure de la récupération, le badge de l'écran (jours mesurés, prévus, prolongés), les mesures, la vue
   « Météo du lieu » et le tableau jour par jour ; les températures se corrigent à la main (l'écran le dit) ; le détail
@@ -120,8 +123,11 @@ quelles variables                     appel, vers Open-Meteo SEULEMENT          
 - **Vérifié dans Chromium** (`verifier_site.js`, filtre « meteo ») : les appels vers Open-Meteo sont INTERCEPTÉS et
   reçoivent des réponses au format du service (aucun appel réel) — qu'ils arrivent à l'interception prouve que la
   politique de sécurité les laisse partir ; au PC, au téléphone et à la tablette ; la note rechargée se recalcule sans
-  aucun appel ; lieu introuvable, réseau coupé, service en panne, dates hors de portée en message. Deux mutations le
-  prouvent : la politique sans Open-Meteo (plus aucun appel, « Pas de réseau ») et l'indicateur retiré.
+  aucun appel ; lieu introuvable, réseau coupé, service en panne, archive décalée d'un jour, réponse énorme (8 Mo), un
+  autre coulage ouvert pendant la récupération, dates hors de portée en message. Des mutations le prouvent : la
+  politique sans Open-Meteo (plus aucun appel, « Pas de réseau »), l'indicateur retiré ; et, à la relecture, la lecture
+  sans plafond de taille, le plan sans le rang du coulage, les jours servis non comparés au coulage — chacune fait
+  rougir exactement son contrôle.
 
 ## Le démarrage
 
