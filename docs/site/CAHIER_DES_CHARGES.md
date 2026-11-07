@@ -4,6 +4,11 @@ Ce que le bureau a demandé pour le site (stab-methodes.be), et les réponses re
 montrent sont dans `site/maquettes/` (voir son README). Mis à jour le 06/11/2026 (relecture des maquettes :
 navigation, paramètres, résultat sur deux lignes, fenêtre de calcul, rapports multi-modules, poutres béton armé).
 
+**Refonte de l'établi (07/11/2026)** : spécification retenue, en cours de réalisation — `docs/site/REFONTE_ETABLI.md`.
+Ses décisions (D1 à D9 : ouvrir un calcul n'écrit rien, « Chantiers », navigation à libellés, panneaux accrochés…)
+réécriront ici les § 1 bis, § 5 et § 8 au fil des lots qui les réalisent ; d'ici là, ces paragraphes décrivent le
+site tel qu'il est.
+
 ## 1 · Principes
 
 - Le site remplace Streamlit comme écran principal ; **Streamlit reste en secours**, sur le même moteur.
