@@ -139,7 +139,8 @@ D'autres changements de noms suivront ; cette liste est la référence.
 - **Le calcul tourne dans le navigateur** : le moteur Python du dépôt, exécuté par Pyodide (Python 3.13 en
   WebAssembly). Mêmes chiffres que Streamlit, parce que c'est le même code. Aucun serveur de calcul à payer.
 - **Rien n'est chargé ailleurs** : le cœur Python et numpy sont déposés dans le site, avec leurs empreintes
-  vérifiées (celles du paquet officiel) ; le paquet du moteur porte la sienne, vérifiée avant chaque exécution.
+  vérifiées (celles du paquet officiel) ; le paquet du moteur porte la sienne, vérifiée avant chaque exécution. Le
+  calcul n'a besoin d'aucun réseau. Seule exception, de **données** et à la demande : la météo d'un lieu (§ 10 ter).
 - **Les notes** s'enregistrent dans le navigateur, le fichier **.stab** les emporte ; une note contient plusieurs
   éléments (plusieurs garde-corps, plusieurs poutres). Les comptes, les projets partagés et les droits viendront
   avec Supabase (§ 2 et 3).
@@ -186,6 +187,28 @@ retenues (gabarit commun : `site/web/construire.py`, `css/site.css`, `js/etabli.
   pendant que Python démarre. Mesures ci-dessous.
 - **Vérifié dans le vrai navigateur** : `site/web/verifier_site.js`, filtre « formats » (chaque module, quatre formats,
   ce que l'œil voit : tailles lues, visibilité, débordements, noms coupés).
+
+## 10 ter · La météo du lieu (07/11/2026)
+
+Demande de l'ingénieur : l'écran Streamlit « Âge / maturité du béton » allait chercher les températures du lieu du
+chantier (Open-Meteo) pour calculer la maturité ; le site ne le faisait pas, sa politique de sécurité interdisant toute
+connexion extérieure. Réponse retenue :
+
+- **La météo est une IMPORTATION de données, à la demande** — jamais du code. Le calcul reste possible hors ligne
+  (température constante, relevé saisi) ; une météo récupérée est **gardée dans la note** (le lieu trouvé, les dates, le
+  jour et l'heure, les réponses du service), qui se recalcule ensuite **sans aucun appel**, et se transmet dans le .stab.
+- **La politique de sécurité s'ouvre à trois adresses, et à elles seules** : `connect-src 'self'` plus le géocodage,
+  l'archive et les prévisions d'Open-Meteo (gratuit, sans clé). Rien d'autre n'en vient (ni script, ni feuille, ni
+  image) ; ce qui est reçu est relu par le moteur (des dates et des nombres) et tout nom renvoyé s'affiche comme du texte.
+- **Le moteur décide, le navigateur transporte** : le moteur fait le plan des appels (la logique de l'écran Streamlit,
+  prouvée au bit près), le navigateur les fait et rend les réponses brutes, le moteur les lit. Une brique commune,
+  réutilisable par d'autres modules : `C.bouton_meteo` (`docs/site/MODULES_SITE.md` § 4).
+- **Dans le module Maturité** : une troisième source de cure, « Météo du lieu », à côté de « Constante » et « Relevé » ;
+  le lieu, les dates, le bouton ; le badge de Streamlit (jours mesurés, prévus, prolongés), la date de récupération, les
+  températures reçues visibles (vue « Météo du lieu », tableau jour par jour) et **modifiables** ensuite ; le détail
+  horaire à la demande. Les refus (pas de réseau, lieu introuvable, service en panne, dates hors de portée) arrivent en
+  message.
+- Le détail : `site/web/README.md` (la météo du lieu), `docs/beton/MATURITE_MOTEUR.md` § 4 bis.
 
 **Mesure du démarrage (07/11/2026, Chromium de Playwright, serveur local, PC à 4 cœurs).** Du début de la navigation
 au premier résultat affiché ; le site d'avant (copie figée) et celui d'après servis tour à tour sur le même port,

@@ -473,8 +473,9 @@ def releve(ident: str, r: Dict) -> str:
     # les jours gradués : tous jusqu'à 12, sinon un pas rond ; les dates (JJ/MM) sous les jours quand elles tiennent
     pas_j = max(1, int(graduations(0, n, 8)[2])) if n > 12 else 1
     jours = [j for j in range(1, n + 1) if j == 1 or j % pas_j == 0]
-    larg_j = (rp.x1 - rp.x0) / n * pas_j
-    pas_d = 1 if larg_j >= _largeur("00/00", 13.0) + 6 else 2
+    # une date n'est écrite que si elle a sa place après la précédente (le jour 1 et le jour 2 sont voisins quand les
+    # autres jours vont de deux en deux : leurs dates se chevauchaient, « 24/1025/10 » au téléphone)
+    l_date, x_date = _largeur("00/00", 13.0) + 6, float("-inf")
     g = [svg_leg, f'<rect x="{_f(rp.x0)}" y="{_f(rp.y0)}" width="{_f(rp.x1 - rp.x0)}" height="{_f(rp.y1 - rp.y0)}" fill="#FBFCFE"/>']
     for v in _ticks(a_t, b_t, p_t):
         y = rp.Y(v)
@@ -486,7 +487,8 @@ def releve(ident: str, r: Dict) -> str:
     for j in jours:
         x = rp.X(j)
         g.append(f'<line x1="{_f(x)}" y1="{_f(rp.y1)}" x2="{_f(x)}" y2="{_f(rp.y1 + 5)}" stroke="{AXE}"/>' + _txt(x, rp.y1 + 21, str(j), T_NOM, "middle", GRIS))
-        if dates[j - 1] and jours.index(j) % pas_d == 0:
+        if dates[j - 1] and x - x_date >= l_date:
+            x_date = x
             _, m, jj = dates[j - 1].split("-")
             g.append(_txt(x, rp.y1 + 39, f"{jj}/{m}", 13.0, "middle", GRIS_CLAIR))
     # les barres

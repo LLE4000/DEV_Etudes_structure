@@ -47,6 +47,7 @@
 .age-mini span { display: block; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
 .age-mini b { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .age-fichier { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.age-prov { color: var(--ink-3); }
 .age-fichier > span { font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* la fenêtre de calcul : les formules de l'EC2, écrites une fois */

@@ -22,7 +22,8 @@ navigateur ── js/etabli.js ──► js/travailleur.js (Pyodide) ──► a
 
 - `js/` n'affiche que des fragments HTML que le moteur rend ; il ne calcule rien. `etabli.js` pose les fragments,
   `toile.js` porte le zoom et le plein écran du dessin, `travailleur.js` fait tourner Python, `notes.js` garde les
-  notes, `commun.js` ce que toutes les pages partagent (thème, messages, fichiers à télécharger).
+  notes, `commun.js` ce que toutes les pages partagent (thème, messages, fichiers à télécharger), `meteo.js` va chercher
+  la météo d'un lieu chez Open-Meteo quand l'ingénieur le demande (ci-dessous).
 - `api_web/` (à la racine du dépôt) relie l'écran au moteur : les champs, les effets de bord de la saisie, le résultat,
   les fenêtres de calcul, les sélecteurs. Testé en Python ordinaire : `tests/test_api_web.py` (garde-corps) et
   `tests/test_api_web_poutre.py` (poutres).
@@ -84,6 +85,44 @@ Toute réponse du routeur est du **JSON strict** : un nombre non fini (un taux i
 ne se lit pas en JavaScript et la requête restait sans réponse ; l'écran, de son côté, change une réponse illisible en
 message (`moteur.js`), la file des calculs ne se bloque plus.
 
+## La météo du lieu (Open-Meteo) : une importation de données, à la demande
+
+Le module **Maturité du béton** offre trois sources pour la température de cure : *Constante*, *Relevé* (collé ou lu dans
+un fichier) et **Météo du lieu** — ce que faisait le mode « Météo » de l'écran Streamlit. Le calcul, lui, reste
+**possible hors ligne** : sans réseau, une température constante ou un relevé saisi suffisent ; et une météo récupérée
+est GARDÉE dans la note, qui se recalcule ensuite sans aucun appel.
+
+```
+moteur (Python)                       écran (js/meteo.js)                         moteur (Python)
+meteo.plan : quelles dates à    ──►   bouton data-meteo (C.bouton_meteo) ;  ──►   « modifier » : {lieu, plan, geocodage,
+l'archive, aux prévisions,            au clic : géocodage, puis chaque            reponses} BRUTS → meteo.lire_* (au bit
+quelles variables                     appel, vers Open-Meteo SEULEMENT            près de l'écran Streamlit) → relevé
+                                                                                  modifiable + récupération GARDÉE
+```
+
+- **Le moteur fait le plan** (`beton/maturite/meteo.py`, la logique de l'écran Streamlit recopiée : archive jusqu'à J−7,
+  prévisions de J−6 à J+16, jours au-delà prolongés) ; le bouton le porte. **Le navigateur fait les appels** : il
+  construit lui-même chaque adresse — la base vient de `js/meteo.js`, jamais du plan ; seuls les paramètres permis
+  partent, encodés — puis rend les réponses **brutes** au module, qui les lit, les contrôle et les garde.
+- **La politique de sécurité** ne s'ouvre qu'à ces données : `connect-src 'self'` et **exactement** les trois adresses
+  d'Open-Meteo (géocodage, archive, prévisions). Aucun script, aucune feuille, aucune image ne vient d'ailleurs ; rien
+  de ce qui est reçu ne s'exécute (des nombres et des dates, relus par le moteur ; un nom de lieu piégé renvoyé par le
+  service s'affiche comme du texte). Les trois adresses sont des copies liées par `tests/test_site_web.py` (moteur,
+  `js/meteo.js`, `_headers`).
+- **Les refus arrivent en message**, jamais en exception : pas de réseau, service muet (20 s), saturé (un second essai
+  2 s après un « trop de demandes », comme l'écran), en panne (avec sa raison), réponse illisible — dits par
+  `js/meteo.js` ; lieu introuvable, réponse incomplète, lieu ou dates changés pendant la récupération, dates hors de
+  portée (le bouton est alors grisé et le message écrit dessous) — dits par le moteur. La note reste intacte.
+- Pendant la récupération, le bouton et l'indicateur disent « Récupération de la météo… ». Ensuite : le lieu trouvé, la
+  date et l'heure de la récupération, le badge de l'écran (jours mesurés, prévus, prolongés), les mesures, la vue
+  « Météo du lieu » et le tableau jour par jour ; les températures se corrigent à la main (l'écran le dit) ; le détail
+  horaire (T min h, T max h) se charge à part, à la demande, comme dans Streamlit.
+- **Vérifié dans Chromium** (`verifier_site.js`, filtre « meteo ») : les appels vers Open-Meteo sont INTERCEPTÉS et
+  reçoivent des réponses au format du service (aucun appel réel) — qu'ils arrivent à l'interception prouve que la
+  politique de sécurité les laisse partir ; au PC, au téléphone et à la tablette ; la note rechargée se recalcule sans
+  aucun appel ; lieu introuvable, réseau coupé, service en panne, dates hors de portée en message. Deux mutations le
+  prouvent : la politique sans Open-Meteo (plus aucun appel, « Pas de réseau ») et l'indicateur retiré.
+
 ## Le démarrage
 
 Le travailleur charge le cœur Python, le paquet du moteur (en même temps), puis numpy **seulement pour les modules qui
@@ -120,6 +159,7 @@ node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> formats          
 node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> formats:dalle        # … un seul module
 FORMATS=tel node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> formats:dalle   # … le téléphone seul
 node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> telecharger          # télécharger, de bout en bout
+node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> meteo                # la météo du lieu (Open-Meteo intercepté)
 #   (FORMATS : accueil, tel, tablettes, communs, numpy — pour prouver une correction par mutation sans tout rejouer)
 ```
 
@@ -141,7 +181,8 @@ node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> telecharger      
 
 `_headers` règle le cache (le cœur Python ne change jamais à adresse égale ; le paquet du moteur est relu à chaque
 ouverture) et la **politique de sécurité** : tout vient du site lui-même, aucun script écrit dans une page ne
-s'exécute, seul le WebAssembly de Pyodide est compilé. `outils/serveur_local.py` applique ce fichier en local comme
+s'exécute, seul le WebAssembly de Pyodide est compilé ; la seule ouverture est de DONNÉES — les pages peuvent
+interroger les trois adresses d'Open-Meteo (la météo du lieu, ci-dessus), rien d'autre. `outils/serveur_local.py` applique ce fichier en local comme
 Cloudflare, et `verifier_site.js` vérifie d'abord qu'elle est active : tout le parcours tourne sous elle.
 
 ## Ce qui reste à faire

@@ -85,6 +85,7 @@ note = son élément le plus chargé).
   (★, le plus léger qui tient) marqués.
 - **Télécharger** un fichier propre au module : `C.bouton_telecharger(quoi, libellé)` et la fonction
   `telecharger(etat, quoi)` du module (§ 4 ter).
+- **Importer la météo d'un lieu** (Open-Meteo), à la demande : `C.bouton_meteo(chemin, libellé, plan)` (§ 4 quater).
 - **Couleur** : `C.niveau(taux)` (rouge > 100 %, vert foncé 95–100 %, vert pâle < 95 % — les seuils du moteur,
   `ME.statut`) ; rouge aussi quand le moteur déclare non conforme sous 100 %. `C.pct` arrondit **sans changer de
   bande**.
@@ -213,6 +214,26 @@ d'écriture U+202E, une marque de sens, un séparateur de ligne), que le type n'
 `C.nom_fichier(nom saisi, extension)` rend toujours un nom qui les passe (« Poutre P1/2 : RDC » → « Poutre P1-2 -
 RDC.json »). Le contrat commun exige que **chaque bouton annoncé rende un fichier valide** (et un JSON qui se relit).
 
+### 4 quater. Importer la météo d'un lieu (Open-Meteo), à la demande
+
+Le bouton : **`C.bouton_meteo(chemin, libellé, plan, petit=False)`** → `<button class="btn meteo" data-meteo="<plan,
+JSON échappé>" data-meteo-chemin="<chemin>">`. Le **plan** vient du moteur (`beton/maturite/meteo.plan(lieu, début, fin,
+aujourd'hui, horaire=False, position=None)`) : le lieu à géocoder (ou sa position), les plages de dates de l'archive et
+des prévisions, les variables. Un plan impossible (`{"erreur": "…"}` : pas de lieu, dates hors de portée…) grise le
+bouton et écrit le message dessous.
+
+Au clic, `js/meteo.js` fait les appels — vers les trois adresses d'Open-Meteo et elles seules, paramètres filtrés et
+encodés — puis l'écran envoie `{"action": "modifier", "chemin": <chemin>, "valeur": {"lieu", "plan", "geocodage",
+"reponses"}}` : les réponses BRUTES. Le module les relit avec le moteur (`meteo.lire_geocodage`, `lire_journalier`,
+`lire_horaire` ; le plan reçu doit être celui qu'il recalcule, sinon « lieu ou dates modifiés pendant la récupération »)
+et les **garde dans la note** (`meteo.enregistrement` ; relu strictement par `meteo.normaliser`) : la note recalcule
+ensuite hors ligne. Un refus rend un message, la note intacte. Le modèle : `api_web/age.py` (`_importer_meteo`).
+
+```python
+p = MT.plan(c["temperature"]["lieu"], debut, fin, aujourdhui())        # ValueError → {"erreur": str(e)}
+s += C.bouton_meteo(["temperature", "meteo"], "Récupérer la météo", p)
+```
+
 ## 5. Les règles
 
 1. **Parité fonctionnelle avec Streamlit** : chaque champ, option, résultat, avertissement et dessin de l'écran
@@ -225,7 +246,8 @@ RDC.json »). Le contrat commun exige que **chaque bouton annoncé rende un fich
 3. **Rien de neuf sans le dire** : un module qui n'a pas de calcul dans Streamlit (flambement) porte un avertissement
    visible « nouveau calcul, à valider par le bureau », et ses tests reproduisent des exemples publiés.
 4. **Sécurité** : tout texte venu de l'état est échappé (`C.esc`) dans le HTML ; aucun `<script>`, aucun `on…=`,
-   aucune ressource externe (politique de sécurité du site).
+   aucune ressource externe (politique de sécurité du site). Seule ouverture, de DONNÉES et à la demande : la météo d'un
+   lieu chez Open-Meteo (`C.bouton_meteo`, § 4 quater) ; ce qu'elle renvoie est relu par le moteur et échappé.
 5. **Beau et lisible** : la charte des maquettes (`site/maquettes`) ; des dessins de dessinateur (traits, cotes,
    hachures, échelle) comme `acier/garde_corps/schemas.py` et `api_web/dessin_poutre.py` ; les nombres alignés ; rien
    de coupé ; le français du bureau (pas d'anglicisme, pas de jargon de développeur).

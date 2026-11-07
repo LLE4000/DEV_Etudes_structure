@@ -12,6 +12,8 @@
   ``case``, ``zone_texte`` ;
 - télécharger : ``bouton_telecharger``, ``nom_fichier``, ``refus_fichier`` et le routeur (fichier rendu, ou un refus en
   français — jamais une exception) ;
+- la météo du lieu : ``bouton_meteo`` (le PLAN du moteur sur le bouton, échappé ; grisé avec son message quand la
+  récupération est impossible) ;
 - la RÉTRO-COMPATIBILITÉ : les sorties par défaut sont celles de la version précédente des briques, au caractère près
   (références relevées sur elle ; les icônes y sont nommées « {nom} »).
 
@@ -395,6 +397,26 @@ inconnu = json.loads(R.traiter(json.dumps({"module": "pas_un_module", "action": 
 chk("routeur : un module inconnu → {ok: false} (comme toute autre action)", inconnu.get("ok") is False and inconnu.get("erreur"), inconnu)
 autre = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "nouveau"})))
 chk("routeur : les autres actions inchangées (une note neuve de poutre se calcule)", autre.get("ok") and "resultat" in autre, autre.get("erreur"))
+
+# ------------------------------------------------------------------ 9 bis. importer la météo du lieu
+print("\n=== bouton_meteo")
+import html as _html  # noqa: E402
+import re as _re  # noqa: E402
+
+plan = {"version": 1, "lieu": 'Saint-Gilles "<img src=x onerror=alert(1)>" & Cie', "appels": [{"source": "archive", "parametres": {"start_date": "2026-11-01"}}]}
+b = C.bouton_meteo(["temperature", "meteo"], "Récupérer <la> météo", plan)
+m = _re.fullmatch(r'<div class="meteo-bt"><button type="button" class="btn meteo" data-meteo="([^"]*)" data-meteo-chemin="temperature/meteo">'
+                  + _re.escape(ICONES["cloud-sun"]) + r'<span>Récupérer &lt;la&gt; météo</span></button></div>', b)
+chk("bouton_meteo : <button class=\"btn meteo\" data-meteo=<plan> data-meteo-chemin=…> icône + libellé ; tout échappé (aucune balise du lieu)",
+    m is not None and "<img" not in b and json.loads(_html.unescape(m.group(1))) == plan, b)
+chk("bouton_meteo : le plan se relit à l'identique depuis l'attribut (JSON compact, accents gardés)",
+    m is not None and json.loads(_html.unescape(m.group(1)))["lieu"] == plan["lieu"] and "\\u" not in _html.unescape(m.group(1)))
+g = C.bouton_meteo(["temperature", "meteo"], "Récupérer la météo", {"erreur": "Période <b>au-delà</b> de l'horizon"})
+chk("bouton_meteo : un plan impossible ({\"erreur\"}) grise le bouton et écrit le message dessous (échappé, grave)",
+    ' disabled><svg' in g and g.endswith('<div class="msg grave">Période &lt;b&gt;au-delà&lt;/b&gt; de l&#x27;horizon</div>'), g)
+chk("bouton_meteo : un bouton secondaire (petit) ; un plan absent est un plan impossible, jamais une exception",
+    lambda: 'class="btn meteo sm"' in C.bouton_meteo(["t", "h"], "Détail", {"appels": []}, petit=True)
+    and " disabled>" in C.bouton_meteo(["t"], "x", None) and "le plan de la récupération manque" in C.bouton_meteo(["t"], "x", None))
 
 # ------------------------------------------------------------------ 10. la réponse est du JSON STRICT
 print("\n=== réponse en JSON strict")

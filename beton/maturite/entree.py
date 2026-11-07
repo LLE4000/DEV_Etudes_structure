@@ -9,13 +9,17 @@ import copy
 import datetime as _dt
 import math
 
+from . import meteo as MT
 from . import releve as RL
 from .ec2 import CIMENTS, CLASSES, EA_EC2
 
 # les classes de ciment : la clé courte du site → le libellé du module (la clé de CIMENTS)
 CIMENT_LIBELLES = {"R": "Classe R — durcissement rapide", "N": "Classe N — durcissement normal", "S": "Classe S — durcissement lent"}
 assert set(CIMENT_LIBELLES.values()) == set(CIMENTS)
-MODES_TEMPERATURE = ("constante", "releve")          # « Manuel » et « Météo » de l'écran
+# « Manuel » et « Météo » de l'écran : la température constante ; le relevé saisi (collé, lu dans un fichier) ; la météo du
+# lieu récupérée chez Open-Meteo (le navigateur fait les appels, beton/maturite/meteo.py en lit les réponses)
+MODES_TEMPERATURE = ("constante", "releve", "meteo")
+MODES_RELEVE = ("releve", "meteo")                    # les modes où la cure suit un relevé jour par jour
 MODES_SEUIL = ("pct", "mpa")                          # « Pourcentage de fck(28) » et « Résistance (MPa) »
 POURCENTAGES = tuple(range(30, 101, 5))              # le curseur « Pourcentage » : 30 à 100 %, pas de 5
 # bornes des champs de l'écran
@@ -34,7 +38,8 @@ def nouvel_element(nom: str = "Coulage 1") -> dict:
     28 j, seuil 75 %, cible de l'optimisation = f_ck(28 j) = 30,0 MPa en max(3 ; 28/2) = 14,0 j, les sept classes au
     comparateur, aucun essai (mesure 0), T de cure de l'essai = T."""
     return {"nom": nom, "classe": "C30/37", "ciment": "N", "date_coulage": None,
-            "temperature": {"mode": "constante", "T": 20.0, "releve": "", "fichier": "", "lieu": ""},
+            "temperature": {"mode": "constante", "T": 20.0, "releve": "", "fichier": "", "lieu": "",
+                            "debut": None, "fin": None, "meteo": None},
             "avance": False, "Ea_kJ": EA_EC2 / 1000.0,
             "age": 28,
             "seuil": {"mode": "pct", "pct": 75, "mpa": 20.0, "afficher": False},
@@ -57,7 +62,7 @@ def age_max(element: dict) -> int:
     """La borne haute du curseur « Âge » : le nombre de jours du relevé (au moins 2), 28 sans relevé exploitable —
     ``int(max(age_max, 2))`` du module."""
     t = element["temperature"]
-    if t["mode"] == "releve" and t.get("releve"):
+    if t["mode"] in MODES_RELEVE and t.get("releve"):
         rel = RL.lire(t["releve"])
         if rel["temps"] and RL.synthese(rel) is not None:
             return int(max(len(rel["temps"]), 2))
@@ -144,6 +149,13 @@ def normaliser(element) -> dict:
     t["fichier"] = _texte(t["fichier"], "temperature/fichier", 300)
     t["lieu"] = _texte(t["lieu"], "temperature/lieu", 200)
     RL.lire(t["releve"])                                           # un relevé illisible lève ici, avec sa ligne
+    # les dates de la récupération météo (« Coulage », « Fin (décoffrage) » de l'écran) : None = celles de l'écran au
+    # premier affichage ; la récupération gardée, relue strictement (meteo.normaliser)
+    for k in ("debut", "fin"):
+        if t[k] is not None and not isinstance(t[k], str):
+            raise ValueError(f"temperature/{k} : une date est attendue (reçu {t[k]!r})")
+        t[k] = lire_date(t[k])
+    t["meteo"] = MT.normaliser(t["meteo"])
     e["avance"] = _booleen(e["avance"], "avance")
     e["Ea_kJ"] = _nombre(e["Ea_kJ"], "Ea_kJ", EA_MIN, EA_MAX)
     e["age"] = _nombre(e["age"], "age", 1, age_max(e), entier=True)

@@ -11,6 +11,11 @@
      un clic retient la classe.
   5. Les éléments de la note (plusieurs coulages), l'échappement de tout texte venu de l'état, du JSON strict.
   6. Pureté : le module du site et ses dessins se chargent et répondent sans streamlit, matplotlib, pandas, requests.
+  7. La météo du lieu (Open-Meteo, importée à la demande) : la troisième source de la cure, le bouton qui porte le PLAN
+     du moteur, la récupération relue et GARDÉE dans la note (le relevé écrit, modifiable), le calcul refait hors ligne
+     (.stab), le badge, la date de récupération, le détail horaire, les refus (lieu introuvable, réponse abîmée, plan
+     changé, dates hors de portée) en message — jamais une exception —, l'échappement de ce que le service renvoie. Les
+     réponses viennent d'un faux Open-Meteo (tests/faux_open_meteo.py, au format documenté) : le réseau n'est jamais appelé.
 
     python3.12 tests/test_api_web_age.py
 """
@@ -25,11 +30,13 @@ import sys
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
+import faux_open_meteo as FO  # noqa: E402  (tests/ : le faux Open-Meteo)
 from api_web import age as A  # noqa: E402
 from api_web import commun as C  # noqa: E402
 from api_web import dessin_age as DA  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 from beton.maturite import entree as EN  # noqa: E402
+from beton.maturite import meteo as MT  # noqa: E402
 from beton.maturite import moteur as M  # noqa: E402
 from beton.maturite.ec2 import CLASSES  # noqa: E402
 
@@ -109,7 +116,7 @@ INVENTAIRE = [
     ("Température : Manuel / Météo", "section 2, segments Constante / Relevé", champ(r_const, "temperature/mode")),
     ("T moyenne (°C) (−5 à 60)", "section 2, champ", champ(r_const, "temperature/T") and 'data-min="-5.0" data-max="60.0"' in r_const["donnees"]),
     ("Lieu du chantier", "section 2 (relevé), champ", champ(r_rel, "temperature/lieu")),
-    ("Coulage / Fin (décoffrage) / Récupérer la météo (Open-Meteo)", "section 2 : le relevé SE SAISIT (zone de texte, fichier)",
+    ("Température : Météo — le relevé peut aussi se saisir", "section 2 « Relevé » : zone de texte, fichier",
      '<textarea data-chemin="temperature/releve"' in r_rel["donnees"] and 'type="file" data-chemin="temperature/fichier"' in r_rel["donnees"]),
     ("badge « lieu — n j mesurés · n j de prévision · n j prolongés »", "section 2, aide",
      "Namur — 6 j mesurés · 3 j de prévision · 3 j prolongés" in texte(r_rel["donnees"])),
@@ -424,6 +431,20 @@ for k in (dict(temperature__T=60.0, optim__delai=3650.0, optim__afficher=True), 
         fautes.append((k, x))
 chk("les valeurs extrêmes admises (délai et âge d'essai de 10 ans à 60 °C, 200 MPa) se calculent en JSON strict", not fautes, fautes)
 
+# les dates sous l'axe du relevé (la vue « Températures ») : jamais deux qui se chevauchent, quelle que soit la durée — le
+# jour 1 et le jour 2 sont voisins quand les autres jours vont de deux en deux (« 24/1025/10 » au téléphone, vu sur la
+# capture de la météo du lieu)
+chev = []
+for n_ in range(1, 61):
+    rel_ = "\n".join(f"{(A._dt.date(2026, 10, 1) + A._dt.timedelta(days=i)).isoformat()};10" for i in range(n_))
+    svg_r = DA.releve("r", M.calculer(coulage(temperature__mode="releve", temperature__releve=rel_, age=min(n_, 28) if n_ > 1 else 1)))
+    xs = [float(x) for x, t in re.findall(r'<text x="([0-9.]+)" y="[0-9.]+"[^>]*>(\d\d/\d\d)</text>', svg_r)]
+    lw = DA._largeur("00/00", 13.0)
+    chev += [(n_, round(b - a, 1)) for a, b in zip(xs, xs[1:]) if b - a < lw + 2]
+    if n_ <= 11 and len(xs) != n_:
+        chev.append((n_, f"{len(xs)} dates sur {n_} jours"))
+chk("relevé de 1 à 60 jours : les dates sous l'axe ne se chevauchent jamais (et chaque jour a la sienne jusqu'à 11 jours)", not chev, chev[:4])
+
 # ------------------------------------------------------------------ 6. pureté
 print("\n=== 6. Pureté : le module du site se charge et répond sans streamlit ni matplotlib ===")
 SOUS = r'''
@@ -446,6 +467,162 @@ reqs = [{"module": "age", "action": "nouveau"}, {"module": "age", "action": "cal
 pr = subprocess.run([sys.executable, "-I", "-c", SOUS, RACINE], input=json.dumps(reqs), capture_output=True, text=True, check=False)
 res = json.loads(pr.stdout) if pr.returncode == 0 else {"ok": [], "interdits": [pr.stderr[-300:]]}
 chk("le module « age » répond (nouveau, relevé, sélecteur) avec streamlit, matplotlib, pandas, requests REFUSÉS", res["ok"] == [True] * 3 and not res["interdits"], res)
+
+# ------------------------------------------------------------------ 7. la météo du lieu
+print("\n=== 7. La météo du lieu (Open-Meteo, importée à la demande ; faux service au format documenté) ===")
+AUJ = A._dt.date(2026, 11, 7)
+A.aujourdhui = lambda: AUJ                                   # le jour de l'écran, figé (le plan du bouton en dépend)
+A.maintenant = lambda: "2026-11-07T10:30"                   # l'heure de la récupération, figée
+BOUTON = re.compile(r'<button type="button" class="btn meteo( sm)?" data-meteo="([^"]*)" data-meteo-chemin="([^"]+)"( disabled)?>')
+
+
+def boutons(r):
+    """Les boutons météo du cadre Données : [(chemin, plan, grisé, petit)]."""
+    return [(ch, json.loads(html.unescape(pl)), bool(gr), bool(sm)) for sm, pl, ch, gr in BOUTON.findall(r["donnees"])]
+
+
+def navigateur(r, chemin="temperature/meteo", service=None):
+    """Ce que le navigateur ferait au clic du bouton : le plan du bouton exécuté chez le faux Open-Meteo."""
+    b = next(x for x in boutons(r) if x[0] == chemin)
+    return FO.recuperer(b[1], service or FO.FauxService(AUJ))
+
+
+e_m = saisir(note(coulage(age=10)), "temperature/mode", "meteo")
+c_m = e_m["etat"]["coulages"][0]
+chk("« Météo du lieu » : la troisième source de la cure, à côté de « Constante » et « Relevé » ; le lieu de l'écran (« Bruxelles, Belgique »)",
+    re.search(r'data-chemin="temperature/mode" data-sorte="choix" data-valeur="meteo"[^>]*>Météo du lieu<', e_m["donnees"])
+    and c_m["temperature"]["mode"] == "meteo" and c_m["temperature"]["lieu"] == MT.LIEU_DEFAUT)
+bt = boutons(e_m)
+pl = bt[0][1] if bt else {}
+chk("le bouton « Récupérer la météo » porte le PLAN du moteur (data-meteo) : géocodage du lieu, archive puis prévisions, dates de l'écran",
+    len(bt) == 1 and bt[0][0] == "temperature/meteo" and not bt[0][2] and "Récupérer la météo</span>" in e_m["donnees"]
+    and pl == MT.plan(MT.LIEU_DEFAUT, AUJ - A._dt.timedelta(days=14), AUJ, AUJ)
+    and [a["source"] for a in pl["appels"]] == ["archive", "prevision"] and pl["geocodage"] == {"name": MT.LIEU_DEFAUT, "count": 1, "language": "fr"}, pl)
+chk("sans récupération : T = 20 °C par défaut, dit dans le résultat ; ni relevé, ni badge ; les champs Lieu, Début, Fin (« Coulage », « Fin (décoffrage) » de l'écran)",
+    "Météo pas encore récupérée" in e_m["resultat"] and all(champ(e_m, k) for k in ("temperature/lieu", "temperature/debut", "temperature/fin"))
+    and "auto · 24/10/2026" in e_m["donnees"] and "auto · 07/11/2026" in e_m["donnees"] and "<textarea" not in e_m["donnees"])
+d_c = saisir(e_m["etat"], "date_coulage", "02/11/2026")
+chk("la date de coulage du béton est le coulage par défaut de la météo (fin = coulage + 5 j quand il est récent)",
+    boutons(d_c)[0][1]["debut"] == "2026-11-02" and boutons(d_c)[0][1]["fin"] == "2026-11-07"
+    and boutons(saisir(e_m["etat"], "temperature/debut", "05/11/2026")["etat"] and saisir(e_m["etat"], "temperature/debut", "05/11/2026"))[0][1]["fin"] == "2026-11-10")
+avant = req(module="age", action="calculer", etat=e_m["etat"])
+v = navigateur(e_m)
+o = saisir(e_m["etat"], "temperature/meteo", v)
+c_o = o["etat"]["coulages"][0]
+p_att = MT.plan(MT.LIEU_DEFAUT, "2026-10-24", "2026-11-07", AUJ)
+j_att = MT.lire_journalier(p_att, v["reponses"])
+chk("la récupération (réponses BRUTES du navigateur) est lue par le moteur : le relevé est écrit (une ligne par jour, mesurés), le mode reste « météo »",
+    o["message"] is None and c_o["temperature"]["mode"] == "meteo" and c_o["temperature"]["releve"] == MT.releve(j_att)
+    and len(c_o["temperature"]["releve"].splitlines()) == 15, o["message"])
+rec = c_o["temperature"]["meteo"]
+chk("… et GARDÉE dans la note : le lieu demandé et trouvé, les dates (fixées), le jour et l'heure, les réponses réduites à ce qui est lu",
+    rec and rec["lieu"] == MT.LIEU_DEFAUT and rec["geocodage"]["name"] == "Bruxelles" and rec["recupere"] == "2026-11-07T10:30"
+    and (rec["debut"], rec["fin"], rec["aujourdhui"]) == ("2026-10-24", "2026-11-07", "2026-11-07")
+    and (c_o["temperature"]["debut"], c_o["temperature"]["fin"]) == ("2026-10-24", "2026-11-07")
+    and set(rec["reponses"][0]["daily"]) == {"time", "temperature_2m_mean"} and len(rec["reponses"]) == 2, rec and list(rec))
+t_o = texte(o["donnees"])
+chk("l'écran dit d'où viennent les températures : le badge de l'écran Streamlit (lieu trouvé — n j mesurés), la date de récupération, la position",
+    "Bruxelles, Bruxelles-Capitale, Belgique — 15 j mesurés" in t_o and "Open-Meteo · récupérée le 07/11/2026 à 10:30 · 50,85°\u00a0N\u00a0·\u00a04,35°\u00a0E" in t_o
+    and all(x in t_o for x in ("T min", "T moy", "T max")) and "Récupérer à nouveau la météo" in t_o, t_o[:400])
+chk("les températures reçues sont visibles (vue « Météo du lieu » : la courbe des jours ; vue « Tableau » : une ligne par jour, mesurées) et modifiables (zone du relevé)",
+    [x["cle"] for x in o["vues"]] == ["courbe", "releve", "tableau"] and o["vues"][1]["titre"] == "Météo du lieu"
+    and "Open-Meteo" in o["vues"][1]["legende"] and o["vues"][2]["svg"].count("<tr") - 1 == 15 and o["vues"][2]["svg"].count(">mesuré<") == 15
+    and '<textarea data-chemin="temperature/releve"' in o["donnees"] and "Températures journalières (modifiables)" in o["donnees"], [x["cle"] for x in o["vues"]])
+m_o = M.calculer(c_o)
+chk("la maturité est recalculée avec la météo (f_ck(10 j) n'est plus celle de 20 °C ; t_e suit le relevé jour par jour)",
+    m_o["temperature"]["source"] == "releve" and m_o["age"]["fck"] != M.calculer(c_m)["age"]["fck"]
+    and f'{C.fr(m_o["age"]["fck"], 1)}<small>' in o["resultat"] and "météo de Bruxelles" in o["phrase"], (m_o["age"]["fck"], avant["resume"]))
+stab = json.loads(json.dumps(o["etat"]))
+o2 = req(module="age", action="calculer", etat=stab)
+chk("la note rechargée (.stab, JSON) garde la récupération et se recalcule HORS LIGNE à l'identique (aucun appel : le moteur relit ce qu'elle garde)",
+    o2["ok"] and o2["etat"] == o["etat"] and o2["resultat"] == o["resultat"] and o2["donnees"] == o["donnees"])
+o3 = saisir(o["etat"], "temperature/releve", c_o["temperature"]["releve"].replace(";7,", ";2,", 1) if ";7," in c_o["temperature"]["releve"]
+            else c_o["temperature"]["releve"].replace(";", ";1", 1))
+c3 = o3["etat"]["coulages"][0]
+chk("les températures se corrigent à la main : le calcul les suit, la récupération reste gardée, l'écran dit « corrigées à la main »",
+    o3["message"] is None and c3["temperature"]["meteo"] == rec and c3["temperature"]["mode"] == "meteo"
+    and "corrigées à la main" in o3["donnees"] and M.calculer(c3)["temperature"]["T"] != m_o["temperature"]["T"], o3["message"])
+o4 = saisir(o["etat"], "temperature/lieu", "Namur")
+chk("lieu changé depuis la récupération : « Lieu ou dates modifiés depuis la récupération » (comme l'écran) ; le bouton porte le nouveau lieu",
+    "Lieu ou dates modifiés depuis la récupération" in o4["donnees"] and boutons(o4)[0][1]["lieu"] == "Namur")
+# le détail horaire, à la demande
+bh = [b for b in boutons(o) if b[0] == "temperature/meteo_horaire"]
+chk("« Charger le détail horaire (facultatif) » : un second bouton, petit, dont le plan donne la position (sans géocodage) et demande l'horaire",
+    len(bh) == 1 and bh[0][3] and "position" in bh[0][1] and "geocodage" not in bh[0][1]
+    and all(a["parametres"].get("hourly") == "temperature_2m" for a in bh[0][1]["appels"]), bh)
+vh = navigateur(o, "temperature/meteo_horaire")
+oh = saisir(o["etat"], "temperature/meteo_horaire", vh)
+tab = next(x["svg"] for x in oh["vues"] if x["cle"] == "tableau")
+ext = MT.extremes_horaires(MT.lire_horaire(bh[0][1], vh["reponses"]))
+chk("le détail horaire est gardé ; le tableau ajoute T min h et T max h de chaque jour (les extrêmes horaires du moteur) ; le bouton s'efface",
+    oh["message"] is None and oh["etat"]["coulages"][0]["temperature"]["meteo"]["horaire"] is not None and "T min h" in tab and "T max h" in tab
+    and f"<td>{C.fr(ext['2026-10-24'][0], 1).replace('-', '−')}</td><td>{C.fr(ext['2026-10-24'][1], 1).replace('-', '−')}</td>" in tab
+    and not [b for b in boutons(oh) if b[0] == "temperature/meteo_horaire"] and "Détail horaire chargé le 07/11/2026 à 10:30" in oh["donnees"], oh["message"])
+# au-delà de l'horizon : prévisions et prolongation, la variante défavorable
+o5 = saisir(saisir(e_m["etat"], "temperature/debut", "03/11/2026")["etat"], "temperature/fin", "30/11/2026")
+v5 = navigateur(o5)
+o5 = saisir(o5["etat"], "temperature/meteo", v5)
+chk("coulage récent, fin au-delà de l'horizon : jours mesurés, prévus, prolongés (badge), avertissement de prolongation, variante défavorable",
+    o5["message"] is None and "5 j mesurés · 16 j de prévision · 7 j prolongés" in texte(o5["donnees"])
+    and "prolongé(s) au-delà des prévisions" in o5["resultat"] and "Défavorable à 10 j" in o5["resultat"], (o5["message"], texte(o5["donnees"])[:300]))
+# les refus : jamais une exception, la note intacte
+REFUS_M = [("lieu introuvable", "temperature/meteo", None, lambda e_: FO.recuperer(boutons(saisir(e_, "temperature/lieu", "Atlantide")["etat"] and
+                                                                                          saisir(e_, "temperature/lieu", "Atlantide"))[0][1], FO.FauxService(AUJ)),
+            "Lieu introuvable : « Atlantide »"),
+           ("une température en texte dans la réponse", "temperature/meteo", None,
+            lambda e_: (lambda x: (x["reponses"][0]["daily"]["temperature_2m_mean"].__setitem__(1, "douze"), x)[1])(navigateur(e_m)), "Météo refusée"),
+           ("une réponse de moins", "temperature/meteo", None, lambda e_: dict(navigateur(e_m), reponses=navigateur(e_m)["reponses"][:1]), "Météo refusée"),
+           ("le plan d'un autre lieu (changé pendant la récupération)", "temperature/meteo", None,
+            lambda e_: dict(navigateur(e_m), plan=dict(navigateur(e_m)["plan"], lieu="Namur")), "modifiés pendant la récupération"),
+           ("sans plan", "temperature/meteo", None, lambda e_: {"reponses": []}, "Météo illisible"),
+           ("rien d'utile (une liste)", "temperature/meteo", None, lambda e_: [1, 2], "Météo illisible"),
+           ("le détail horaire avant la météo", "temperature/meteo_horaire", None, lambda e_: vh, "Récupérez d'abord la météo")]
+mal = []
+for nom, chemin, _, fab, mot in REFUS_M:
+    base = e_m["etat"]
+    if nom == "lieu introuvable":
+        base = saisir(e_m["etat"], "temperature/lieu", "Atlantide")["etat"]
+    out = req(module="age", action="modifier", etat=copy.deepcopy(base), chemin=chemin.split("/"), valeur=fab(base))
+    if not out.get("ok") or not out.get("message") or mot not in out["message"] or out["etat"] != base:
+        mal.append((nom, out.get("message") or out.get("erreur")))
+chk(f"{len(REFUS_M)} récupérations refusées (lieu introuvable, réponse abîmée, une de moins, plan changé, sans plan, détail horaire seul) : "
+    "un message en français, la note intacte, jamais une exception", not mal, mal)
+o6 = saisir(e_m["etat"], "temperature/debut", "01/12/2026")
+b6 = boutons(saisir(o6["etat"], "temperature/fin", "05/12/2026"))
+chk("dates hors de portée (au-delà de l'horizon des prévisions) : le bouton est grisé et le message dit pourquoi, avant tout appel",
+    b6 and b6[0][2] and "horizon des prévisions" in b6[0][1].get("erreur", "")
+    and "horizon des prévisions (16 j" in saisir(o6["etat"], "temperature/fin", "05/12/2026")["donnees"], b6)
+o7 = saisir(o["etat"], "temperature/fin", "01/10/2026")
+chk("une fin avant le coulage est refusée avec un message (la note intacte) ; un coulage après la fin la remet en automatique",
+    o7["message"] and "Fin de la météo" in o7["message"] and "précède le début" in o7["message"] and o7["etat"] == o["etat"]
+    and saisir(o["etat"], "temperature/debut", "20/11/2026")["etat"]["coulages"][0]["temperature"]["fin"] is None, o7["message"])
+# l'échappement : un lieu saisi piégé (il part dans le plan du bouton) et un nom de lieu piégé RENDU PAR LE SERVICE
+FO.LIEUX["piege"] = dict(FO.LIEUX["namur"], name='Piège<img src=x onerror=alert(1)>', admin1='"><script>x()</script>')
+fuites = []
+p1 = saisir(e_m["etat"], "temperature/lieu", PIEGE)
+for k_, h in (("données", p1["donnees"]), ("résultat", p1["resultat"])):
+    if "<img" in h:
+        fuites.append(("lieu saisi", k_))
+e_p = saisir(e_m["etat"], "temperature/lieu", "Piège")["etat"]
+r_p = saisir(e_p, "temperature/meteo", navigateur(saisir(e_p, "temperature/mode", "meteo")))
+frag = {"données": r_p["donnees"], "résultat": r_p["resultat"], "fenêtres": r_p["volets"], "éléments": r_p["elements"], "phrase": r_p["phrase"],
+        "dessins": "".join(x["svg"] for x in r_p["vues"]), "section": r_p["donnees"]}
+fuites += [("nom rendu par le service", k_) for k_, h in frag.items() if "<img" in h or "<script" in h]
+chk("un lieu saisi piégé (dans le plan du bouton) et un nom de lieu piégé rendu par le service sont échappés dans tous les fragments",
+    not fuites and r_p["message"] is None and "Piège&lt;img" in r_p["donnees"], (fuites, r_p["message"]))
+del FO.LIEUX["piege"]
+# un .stab abîmé : la récupération gardée est relue strictement
+ab = copy.deepcopy(o["etat"])
+ab["coulages"][0]["temperature"]["meteo"]["reponses"][0]["daily"]["temperature_2m_mean"][0] = "<b>"
+r_ab = req(module="age", action="calculer", etat=ab)
+chk("une récupération gardée abîmée (.stab venu d'ailleurs) rend une erreur lisible, jamais une exception",
+    not r_ab["ok"] and "meteo" in r_ab["erreur"] and "Traceback" not in r_ab["erreur"], r_ab.get("erreur"))
+# le parcours propre du module passe par la météo (récupérée, lieu introuvable, détail horaire, réponse de moins)
+journal = [req(module="age", **dict(q, etat=copy.deepcopy(q["etat"]))) for q in A.PARCOURS if q.get("chemin", [""])[0:1] == ["temperature"]
+           and q.get("chemin", ["", ""])[1:2] and q["chemin"][1].startswith("meteo")]
+chk("le parcours de l'écran passe par la météo : récupérée, lieu introuvable, réponse incomplète, détail horaire (sans erreur, refus en message)",
+    len(journal) == 4 and all(x["ok"] for x in journal) and journal[0]["message"] is None and "Lieu introuvable" in journal[1]["message"]
+    and "Météo refusée" in journal[2]["message"] and journal[3]["message"] is None, [(x.get("message"), x.get("erreur")) for x in journal])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

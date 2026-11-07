@@ -8,6 +8,7 @@ import { Moteur } from "./moteur.js";
 import * as N from "./notes.js";
 import { cablerRail, toast, esc, telecharger, garderGrec, texteTaux } from "./commun.js";
 import { cablerToile } from "./toile.js";
+import { recupererMeteo } from "./meteo.js";
 
 const MODULE = document.body.dataset.module;
 const $ = (s, r = document) => r.querySelector(s);
@@ -49,11 +50,13 @@ function enregistrer() {
 // ------------------------------------------------------------------ le moteur
 const moteur = new Moteur((t) => { if (etapes) etapes.textContent = t; }, MODULE);
 let enCours = 0;
+let meteoEnCours = null;   // le chemin du bouton météo dont la récupération court (une à la fois)
 function occupe(plus) {
   enCours += plus;
+  const on = enCours > 0 || !!meteoEnCours;
   document.querySelectorAll(".calcule").forEach((i) => {
-    i.classList.toggle("on", enCours > 0);
-    i.textContent = enCours > 0 && !i.closest(".mtop") ? "Calcul…" : "";
+    i.classList.toggle("on", on);
+    i.textContent = on && !i.closest(".mtop") ? (meteoEnCours ? "Récupération de la météo…" : "Calcul…") : "";
   });
 }
 
@@ -124,6 +127,7 @@ function afficherDonnees(elements, html) {
   });
   premier = false;
   zone.scrollTop = defile;
+  marquerMeteo();
   if (actif) {
     const el = zone.querySelector(`[data-chemin="${CSS.escape(actif)}"]:not(button)`);
     if (el) {
@@ -413,6 +417,63 @@ bench.addEventListener("click", (ev) => {
   ev.preventDefault();
   ev.stopPropagation();
   telechargerFichier(b.dataset.telecharger);
+}, true);
+
+// ------------------------------------------------------------------ la météo du lieu (Open-Meteo), à la demande
+// Le module pose <button data-meteo="<plan>" data-meteo-chemin="…"> (commun.bouton_meteo) : le PLAN vient du moteur ;
+// js/meteo.js fait les appels vers Open-Meteo et rend les réponses BRUTES, qui partent au module (« modifier » sur le
+// chemin du bouton). Le module les lit, les garde dans la note, et le calcul se fait hors ligne. Une seule récupération à
+// la fois ; pendant ce temps, le bouton dit « Récupération de la météo… ».
+function marquerMeteo() {
+  document.querySelectorAll("#donnees [data-meteo]").forEach((b) => {
+    const attend = !!meteoEnCours && b.dataset.meteoChemin === meteoEnCours;
+    b.classList.toggle("attente", attend);
+    if (attend) {
+      if (b.dataset.etaitGrise === undefined) b.dataset.etaitGrise = b.disabled ? "1" : "";
+      b.disabled = true;
+      b.setAttribute("aria-busy", "true");
+      const t = b.querySelector("span");
+      if (t) { t.dataset.libelle = t.dataset.libelle || t.textContent; t.textContent = "Récupération de la météo…"; }
+    }
+  });
+}
+
+async function importerMeteo(b) {
+  if (meteoEnCours) return;
+  let plan = null;
+  try { plan = JSON.parse(b.dataset.meteo); } catch (e) { /* le plan illisible est refusé par recupererMeteo */ }
+  const chemin = b.dataset.meteoChemin || "";
+  meteoEnCours = chemin;
+  marquerMeteo();
+  occupe(0);
+  try {
+    const r = await recupererMeteo(plan);
+    if (!r.ok) { toast(r.erreur, true); return; }
+    const rep = await envoyer("modifier", { chemin: chemin.split("/"), valeur: r.valeur });
+    if (rep && !rep.message) toast("Météo récupérée : la note garde les températures, le calcul se fait hors ligne.");
+  } catch (e) {
+    toast(`La météo n'a pas pu être récupérée : ${e.message}`, true);
+  } finally {
+    meteoEnCours = null;
+    // le bouton revient à lui-même (le cadre Données a pu être refait entre-temps : chaque bouton retrouve son libellé)
+    document.querySelectorAll("#donnees [data-meteo].attente").forEach((x) => {
+      x.classList.remove("attente");
+      x.removeAttribute("aria-busy");
+      x.disabled = x.dataset.etaitGrise === "1";
+      delete x.dataset.etaitGrise;
+      const t = x.querySelector("span");
+      if (t && t.dataset.libelle) t.textContent = t.dataset.libelle;
+    });
+    occupe(0);
+  }
+}
+// à la capture, comme « télécharger » : rien d'autre ne réagit à ce clic
+bench.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-meteo]");
+  if (!b) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (!b.disabled) importerMeteo(b);
 }, true);
 
 // ------------------------------------------------------------------ fichier, impression

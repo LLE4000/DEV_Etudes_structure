@@ -29,11 +29,13 @@ Le site les **reproduit** (parité : mêmes chiffres que Streamlit) et les **sig
 | Pièce | Rôle |
 |---|---|
 | `beton/maturite/ec2.py` | les formules du module, **recopiées** (même code, même ordre d'opérations, mêmes appels numpy) : β_cc, f_ck(t), âge équivalent, facteur de maturité, seuil par dichotomie, classe minimale, classe estimée d'un essai, variante défavorable, âge équivalent à un âge donné |
-| `beton/maturite/releve.py` | le relevé de températures journalières : sa **lecture** (tableau collé, fichier) — le site ne peut pas appeler Open-Meteo — et sa **synthèse**, recopiée du mode « Météo » de l'écran |
+| `beton/maturite/releve.py` | le relevé de températures journalières : sa **lecture** (tableau collé, fichier, ou écrit par la météo récupérée) et sa **synthèse**, recopiée du mode « Météo » de l'écran |
+| `beton/maturite/meteo.py` | la **météo du lieu**, sans réseau : le **plan** des appels à Open-Meteo (géocodage, archive, prévisions — `_plages_endpoints` de l'écran) et la **lecture** des réponses (`geocode_open_meteo`, `meteo_journaliere`, `meteo_horaire`), recopiés au bit près ; ce que la note **garde** d'une récupération (§ 4 bis) |
 | `beton/maturite/entree.py` | les valeurs de l'écran au premier affichage, ses bornes, la normalisation stricte d'un coulage (ValueError avec le chemin du champ) |
 | `beton/maturite/moteur.py` | `calculer` : tout ce que l'écran affiche (et ce que le site ajoute, nommé comme tel) ; `candidats_classes` : le sélecteur de ③ ; le **format complet** (entrée, sortie) dans sa docstring |
-| `tests/test_maturite_moteur.py` | parité au bit près avec l'écran rejoué (faux `st`), contrôles à la main, couverture, relevé, format, pureté, **mutations**, et **de bout en bout** : ce que l'écran affiche est lu sur le site (162 contrôles, quelques secondes) |
-| `api_web/age.py`, `api_web/dessin_age.py`, `site/web/css/modules/age.css`, `tests/test_api_web_age.py` | le module du site, ses graphiques SVG, sa feuille de style, ses tests (44 contrôles, plus les 17 du contrat commun) |
+| `tests/test_maturite_moteur.py` | parité au bit près avec l'écran rejoué (faux `st`), contrôles à la main, couverture, relevé, format, pureté, **mutations**, **de bout en bout** (ce que l'écran affiche est lu sur le site) et la **météo** (section 10 : plan et lecture contre l'écran, faux `requests`) — 189 contrôles |
+| `tests/faux_open_meteo.py` | un faux Open-Meteo au **format documenté** du service (géocodage, archive, prévisions, journalier et horaire, erreurs 400 / 429) : les tests n'appellent jamais le vrai service |
+| `api_web/age.py`, `api_web/dessin_age.py`, `site/web/css/modules/age.css`, `tests/test_api_web_age.py` | le module du site, ses graphiques SVG, sa feuille de style, ses tests (66 contrôles, plus les 21 du contrat commun) |
 
 numpy est **nécessaire** à la parité : `np.exp` et `math.exp` peuvent différer au dernier bit, et le module mélange les
 deux (`math.exp` pour le facteur de maturité, `np.exp` pour β_cc). Le moteur fait exactement les mêmes appels.
@@ -100,12 +102,12 @@ site le disent). Ciments : R = CEM 42,5R · CEM 52,5N · CEM 52,5R ; N = CEM 32,
 - **④ Comparateur** : les classes choisies (sauf celle du coulage) avec le ciment du comparateur, à T.
 - **⑤ Essai** : la classe estimée d'après une mesure, comparée à celle du coulage (± 8 %).
 
-## 4 · Le relevé (ce qui remplace Open-Meteo)
+## 4 · Le relevé
 
 Le mode « Météo » de l'écran va chercher chez Open-Meteo les températures moyennes journalières (archive + prévision,
-jours au-delà de l'horizon de 16 j prolongés à la moyenne des 5 derniers jours prévus). Le site calcule **hors ligne**
-(rien d'extérieur, politique de sécurité) : le relevé se **saisit** — une ligne par jour, collée (un tableau Excel, le
-tableau « Données météo » de Streamlit tel quel) ou lue dans un fichier .csv/.txt :
+jours au-delà de l'horizon de 16 j prolongés à la moyenne des 5 derniers jours prévus). Sur le site, ces températures
+deviennent un **relevé** — récupéré chez Open-Meteo à la demande (§ 4 bis), ou **saisi** hors ligne : une ligne par
+jour, collée (un tableau Excel, le tableau « Données météo » de Streamlit tel quel) ou lue dans un fichier .csv/.txt :
 
     9,5                          la température moyenne du jour (°C)
     2026-11-03;8,0               précédée de sa date (AAAA-MM-JJ ou JJ/MM/AAAA), à chaque ligne, jours consécutifs
@@ -117,6 +119,49 @@ précédent). Une fois les températures en main, la synthèse est celle du modu
 par la moyenne, comptes mesurés / prévus / prolongés, T min / moy / max, variante défavorable (− 3 °C sur les jours
 prévus et prolongés), t_e du relevé.
 
+## 4 bis · La météo du lieu (Open-Meteo), importée à la demande
+
+La troisième source de la cure, « Météo du lieu » (`temperature.mode = "meteo"`), à côté de « Constante » et « Relevé ».
+Le site calcule **hors ligne** ; la météo est une **importation de données**, faite par le navigateur quand l'ingénieur
+clique « Récupérer la météo » :
+
+1. **le plan** (`meteo.plan(lieu, début, fin, aujourd'hui)`) : le géocodage du lieu (`name`, `count=1`,
+   `language=fr`), puis l'archive pour les jours jusqu'à J−7 et les prévisions de J−6 à J+16
+   (`start_date`, `end_date`, `timezone=auto`, `daily=temperature_2m_mean`) — `_plages_endpoints` de l'écran. Les dates
+   par défaut sont celles de l'écran : le début = la date de coulage, sinon aujourd'hui − 14 j ; la fin = max(aujourd'hui,
+   début + 5 j). Plan impossible (pas de lieu, fin avant le début, plus de 400 jours, période entièrement au-delà de
+   l'horizon) : `ValueError`, le bouton est grisé et le message écrit ;
+2. **les appels** : `site/web/js/meteo.js`, vers les trois adresses d'Open-Meteo et elles seules (la politique de
+   sécurité du site n'en permet pas d'autre) ; les réponses partent BRUTES au module ;
+3. **la lecture** : `lire_geocodage` (le premier résultat ; « nom, région, pays » ; None → « Lieu introuvable »),
+   `lire_journalier` (jours sans doublon ; `d_prev` : postérieur au jour de la récupération ; prolongation à la moyenne
+   des 5 derniers jours servis, `np.mean`), `lire_horaire` et `extremes_horaires` (T min h, T max h de chaque jour) —
+   `meteo_journaliere`, `meteo_horaire`, `geocode_open_meteo` de l'écran, au bit près ;
+4. **ce que la note garde** (`temperature.meteo`, `meteo.enregistrement`) : le lieu demandé et trouvé (nom, région, pays,
+   position), les dates, le jour du plan et l'heure de la récupération, les réponses **réduites à ce qui est lu** (les
+   instants et les températures), et le détail horaire s'il a été chargé ; relu STRICTEMENT par `meteo.normaliser` (un
+   .stab vient d'ailleurs : clés connues, nombres bornés, réponses qui se relisent). Les températures sont écrites en
+   **relevé** (`meteo.releve`), que l'ingénieur peut corriger à la main ; `meteo.synthese` dit alors `modifie` (le relevé
+   n'est plus celui reçu) et `demande_changee` (le lieu ou les dates ne sont plus ceux de la récupération). Le calcul suit
+   le relevé — la suite est celle du § 4, et la note se recalcule **sans aucun appel**.
+
+Ce qui diffère de l'écran : une réponse **mal formée** (une température en texte ou en booléen, des dates qui n'en sont
+pas, des listes de longueurs différentes, un jour manquant entre l'archive et les prévisions) est **refusée avec un
+message** (l'écran l'aurait lue de travers : `float("12.5")`, un relevé décalé) ; une période de plus de 400 jours est
+refusée ; le détail horaire d'une période sans jour servi est refusé (bouton grisé) au lieu d'un tableau vide ; « -0.0 »
+s'écrit « 0,0 ». Rien de ceci n'arrive avec une réponse conforme au format d'Open-Meteo.
+
+**La preuve** (`tests/test_maturite_moteur.py`, section 10) : l'écran Streamlit va chercher sa météo
+(`geocode_open_meteo`, `meteo_journaliere`, `meteo_horaire`) chez un faux `requests` ; le site fait son plan, et le même
+faux service (`tests/faux_open_meteo.py`, au format documenté) rend les réponses que le navigateur rendrait : sur
+30 scénarios (passé, à cheval, futur, au-delà de l'horizon, bornes J−6 et J+16, jours et heures sans donnée, lieu
+introuvable, refus) et 2 113 périodes de `plages`, **mêmes appels** (adresses, paramètres un à un et dans l'ordre),
+même lieu trouvé, **mêmes températures au bit près**, mêmes refus ; huit mutations du plan et de la lecture (retard de
+l'archive, horizon, prolongation, fuseau, géocodage, variable, « prévision » dès le jour même, nom du lieu) rougissent
+toutes. Cinq coulages « météo » de la section 3 sont rejoués dans l'écran avec la météo que l'écran va **lui-même**
+chercher (le faux rend les réponses que la note garde) : badge, mesures, tableau « Données météo » avec T min h / T max h,
+figure — tout est identique, et lu sur le site (section 9).
+
 ## 5 · La preuve de parité
 
 `tests/test_maturite_moteur.py` rejoue `show()` de l'écran avec un faux `st` : chaque coulage est traduit en saisies
@@ -125,10 +170,12 @@ après « Récupérer la météo » ; des espions relèvent `_bloc`, `_mini_metr
 `t_real_for_target`, `classe_min_pour_delai`, `classe_estimee_depuis_mesure`, `age_equiv_from_series`, le tableau
 « Données météo », les légendes, et le dict `ab_rapport`.
 
-- **107 coulages** (46 écrits pour couvrir chaque branche, 21 classes × ciments, 40 tirés au sort, graine fixe) ;
-- **160 728 comparaisons numériques, toutes identiques AU BIT PRÈS** (les 500 points de chaque courbe compris) ;
+- **113 coulages** (46 écrits pour couvrir chaque branche, 21 classes × ciments, 40 tirés au sort, graine fixe, 6 en
+  météo du lieu) ;
+- **171 526 comparaisons numériques, toutes identiques AU BIT PRÈS** (les 500 points de chaque courbe compris) ;
   les textes de l'écran (blocs, légendes, badge du relevé) sont réécrits depuis le moteur et comparés ;
-- **couverture** : 41 situations atteintes (chaque état de ①②③⑤, chaque ciment, chaque classe, t_e ≥ 28, seuil
+- **couverture** : 48 situations atteintes (dont la météo : récupérée, archive, prévisions, prolongée, détail horaire,
+  pas encore récupérée) (chaque état de ①②③⑤, chaque ciment, chaque classe, t_e ≥ 28, seuil
   daté, E_a ajusté, essai cohérent / dessus / sous / t_e ≥ 28 / hors domaine, repère t_e = 28 j dans et hors de l'axe,
   relevé prévu / prolongé / sans donnée / défavorable / vide, âge au-delà de l'axe…) ;
 - **valeurs par défaut** : `nouvel_element()` est l'écran au premier affichage, lu dans les widgets rejoués ;
@@ -138,7 +185,7 @@ après « Récupérer la météo » ; des espions relèvent `_bloc`, `_mini_metr
   par ③, classe inférieure à l'essai, jour sans donnée à 0 °C) : la parité rougit **à chaque fois** ;
 - **pureté** : dans un sous-processus où `sys.meta_path` refuse streamlit, matplotlib, pandas, requests, scipy…, le
   moteur se charge et calcule les 107 coulages, sous 3.12 et 3.13, avec les mêmes résultats au bit près ;
-- **de bout en bout** (section 9, ajoutée à la relecture) : sur 33 coulages variés, chaque valeur que l'écran Streamlit
+- **de bout en bout** (section 9, ajoutée à la relecture) : sur 39 coulages variés (dont 6 en météo du lieu), chaque valeur que l'écran Streamlit
   AFFICHE (blocs ①②③⑤, légendes t_e et défavorable, mesures et badge du relevé, tableau « Données météo », annotations et
   légendes de la figure : 486 valeurs) est lue, au même arrondi, dans les fragments HTML et SVG que le site rend
   (`api_web/routeur.traiter`). Cinq défauts d'affichage glissés dans le site (arrondi, date, valeur de l'essai, t_e du
@@ -146,10 +193,9 @@ après « Récupérer la météo » ; des espions relèvent `_bloc`, `_mini_metr
 
 ## 6 · Ce que le site ne couvre pas (par rapport à Streamlit)
 
-- **La récupération météo** (géocodage du lieu, archive et prévisions Open-Meteo, prolongation automatique au-delà de
-  16 j, détail horaire T min h / T max h, cache, re-essai) : remplacée par le relevé saisi (§4). Les jours prévus et
-  prolongés se déclarent dans le relevé ; la prolongation se saisit (le site n'invente pas de températures).
-- Les dates « Coulage » et « Fin (décoffrage) » du mode Météo : les dates du relevé en tiennent lieu.
+- Le **cache** de 30 min de l'écran (une seconde demande identique ne repart pas) : sur le site, la récupération est
+  GARDÉE dans la note et ne repart qu'à un nouveau clic. Le re-essai unique après un « trop de demandes » (429) est fait
+  par le navigateur (`js/meteo.js`), comme l'écran. La récupération météo elle-même est couverte (§ 4 bis).
 - La structure `ab_rapport` (préparée pour un futur PDF, sans PDF dans l'écran) : le bouton Note PDF du site est grisé.
 
 Tout le reste est sur le site (l'inventaire champ par champ est le test n° 1 de `tests/test_api_web_age.py`), avec en
@@ -205,3 +251,7 @@ défavorable, moyenne, t_e cumulé), la vue « Tableau » (les valeurs jour par 
 - **La tablette en hauteur** : le graphique était coupé à droite (la grille de la feuille prenait la largeur qu'il
   aurait eue à pleine hauteur) ; `age.css` borne les pistes.
 - **Le signe moins** des températures négatives (« −5 °C », plus « -5 °C »).
+- **Les dates sous l'axe du relevé** (vue « Températures », 07/11/2026, vu sur la capture de la météo du lieu au
+  téléphone) : au-delà de 12 jours, le jour 1 et le jour 2 sont voisins alors que les autres vont de deux en deux, et
+  leurs dates se chevauchaient (« 24/1025/10 ») ; une date n'est plus écrite que si elle a sa place après la précédente
+  (`tests/test_api_web_age.py` : relevés de 1 à 60 jours, mutation vue).

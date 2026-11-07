@@ -18,10 +18,15 @@ ENTRÉE — un coulage (JSON). Unités : °C, jours, MPa, kJ/mol.
      "classe": "C30/37",                 « Classe béton » (C20/25 … C50/60)
      "ciment": "N",                      « Classe ciment » : R (s = 0,20), N (0,25), S (0,38)
      "date_coulage": null,               « Date de coulage » (AAAA-MM-JJ) : date les seuils
-     "temperature": {"mode": "constante" | "releve",          « Manuel » | « Météo » (sans réseau : relevé saisi)
+     "temperature": {"mode": "constante" | "releve" | "meteo", « Manuel » | « Météo » : relevé saisi, ou météo du lieu
                      "T": 20.0,          « T moyenne (°C) » (−5 à 60), mode constante
-                     "releve": "",       le relevé journalier collé (beton/maturite/releve.py : format)
-                     "fichier": "", "lieu": ""},              le nom du fichier lu, le lieu (texte libre)
+                     "releve": "",       le relevé journalier (beton/maturite/releve.py : format) — collé, lu, ou écrit
+                                         par la météo récupérée (et corrigé à la main si l'on veut)
+                     "fichier": "", "lieu": "",               le nom du fichier lu, le lieu (« Lieu du chantier »)
+                     "debut": null, "fin": null,              « Coulage », « Fin (décoffrage) » de la météo (AAAA-MM-JJ ;
+                                                              null : les dates de l'écran au premier affichage)
+                     "meteo": null | {...}},                  la récupération GARDÉE (beton/maturite/meteo.py : lieu,
+                                                              dates, jour et heure, réponses d'Open-Meteo réduites)
      "avance": false, "Ea_kJ": 33.256,   « ⚙️ » et « Ea [kJ/mol] » (20 à 60) ; sans ⚙️, E_a = 4000·R
      "age": 28,                          « Âge (jours réels) » : entier, 1 à 28 (1 à n jours du relevé)
      "seuil": {"mode": "pct" | "mpa", "pct": 75, "mpa": 20.0, "afficher": false},                       ②
@@ -36,10 +41,11 @@ SORTIE de calculer — JSON strict (sans NaN), nombres non arrondis (le site for
      "temperature": {"mode", "source": "manuelle" | "releve", "lieu", "T" (T de calcul : la constante ou la moyenne
                      du relevé), "Ea", "Ea_kJ", "Ea_R", "T_abs", "facteur" (jours équivalents par jour réel à T),
                      "t28_reel" (28/facteur), "t3_reel" (3/facteur, site), "releve": <synthèse> | None,
-                     "defav": {...} | None},
+                     "defav": {...} | None, "meteo": <meteo.synthese> | None (mode meteo, météo récupérée)},
      "age": <①>, "seuil": <②>, "optim": <③>, "comparateur": <④>, "essai": <⑤>,
      "courbes": {"t", "ref", "defav", "comparateur", "opt", "seuil", "lab", "point", "t28", "titre"},   la figure
-     "tableau": {...},                    les valeurs jour par jour (le site : vue « Tableau »)
+     "tableau": {...},                    les valeurs jour par jour (le site : vue « Tableau ») ; « horaire » : chaque
+                                          ligne porte T_min_h et T_max_h (le détail horaire de la météo est chargé)
      "avertissements": [{"code", "message"}, ...]}
 
   <①> age = {"t", "age_max", "t_e", "fck", "pct", "hors_domaine" (t_e ≤ 3 j), "etat": "ok" | "warn",
@@ -64,6 +70,7 @@ import math
 import numpy as np
 
 from . import entree as EN
+from . import meteo as MT
 from . import releve as RL
 from .ec2 import (CIMENT_DETAIL, CIMENTS, CLASSES, EA_EC2, HORIZON_PREVISION_J, R_GAZ, T_REF_K, age_equivalent,
                   age_equivalent_point, beta_cc, classe_estimee_depuis_mesure, classe_min_pour_delai, facteur_maturite,
@@ -95,21 +102,29 @@ def _num(x):
 
 # ------------------------------------------------------------------ la température
 def _temperature(e: dict, avert: list) -> dict:
-    """Le mode Manuel ou le relevé : T de calcul, profil, variante défavorable — ``_saisie_temperature`` du module."""
+    """Le mode Manuel, le relevé ou la météo du lieu : T de calcul, profil, variante défavorable — ``_saisie_temperature``
+    du module. La météo récupérée est un relevé comme un autre (la note garde ses températures, le calcul se fait hors
+    ligne) ; ``meteo`` dit d'où il vient (``meteo.synthese`` : lieu trouvé, dates, récupération, relevé modifié depuis)."""
     t = e["temperature"]
     out = {"mode": t["mode"], "source": "manuelle", "lieu": t["lieu"], "fichier": t["fichier"], "releve": None, "defav": None,
-           "profil": None, "jours": None}
+           "profil": None, "jours": None, "meteo": None}
     if t["mode"] == "constante":
         out["T"] = t["T"]
         return out
+    if t["mode"] == "meteo" and t["meteo"]:
+        out["meteo"] = MT.synthese(t["meteo"], t["releve"], t["lieu"], t["debut"], t["fin"])
     rel = RL.lire(t["releve"])
     syn = RL.synthese(rel) if rel["temps"] else None
     if syn is None:
         # le module, sans météo récupérée (ou sans aucune température exploitable) : T = 20 °C, « manuelle »
         out["T"] = 20.0
-        avert.append({"code": "releve_vide" if not rel["temps"] else "releve_inexploitable",
-                      "message": "Aucun relevé : T = 20 °C par défaut. Collez les températures journalières (ou lisez un fichier)."
-                      if not rel["temps"] else "Aucune température exploitable sur la période : T = 20 °C par défaut."})
+        if t["mode"] == "meteo" and not rel["temps"]:
+            avert.append({"code": "meteo_absente", "message": "Météo pas encore récupérée : T = 20 °C par défaut. Renseignez le lieu et "
+                          "les dates, puis « Récupérer la météo » (ou saisissez une température constante, un relevé)."})
+        else:
+            avert.append({"code": "releve_vide" if not rel["temps"] else "releve_inexploitable",
+                          "message": "Aucun relevé : T = 20 °C par défaut. Collez les températures journalières (ou lisez un fichier)."
+                          if not rel["temps"] else "Aucune température exploitable sur la période : T = 20 °C par défaut."})
         return out
     out.update(T=syn["T_moy"], source="releve", profil=syn["profil"], defav=syn["defav"])
     out["releve"] = {k: syn[k] for k in ("T_rempl", "n_nan", "n_extra", "n_prev", "n_mes", "T_min", "T_max", "t_prol", "n_jours",
@@ -297,6 +312,7 @@ def calculer(element: dict) -> dict:
         out["temperature"]["defav"] = dict(out["temperature"]["defav"])
     out["courbes"] = _courbes(out, beton_label, ciment, fck28, s_ref, T, Ea, defav, t28_real, t_sel, fck_val)
     out["tableau"] = _tableau(out, fck28, s_ref, T, Ea, profil_temps, defav, tp.get("jours"))
+    _extremes_horaires(out["tableau"], tp.get("meteo"))
     seuil["releve"] = _seuil_releve(seuil, out["tableau"]) if profil_temps else None
     if seuil["releve"] and seuil["releve"]["optimiste"]:
         sr = seuil["releve"]
@@ -390,6 +406,15 @@ def _tableau(out, fck28, s_ref, T, Ea, profil, defav, jours) -> dict:
     for li in lignes:
         li["pct"] = li["fck"] / fck28 * 100.0
     return {"releve": bool(profil), "defav": defav is not None, "classes": autres, "lignes": lignes}
+
+
+def _extremes_horaires(tableau: dict, meteo) -> None:
+    """Le détail horaire de la météo, quand il est chargé : T min h et T max h de chaque jour du relevé (``None`` pour un
+    jour sans valeur horaire) — les colonnes du tableau « Données météo » de l'écran."""
+    tableau["horaire"] = bool(meteo and meteo["horaire"] is not None and tableau["releve"])
+    if tableau["horaire"]:
+        for li in tableau["lignes"]:
+            li["T_min_h"], li["T_max_h"] = meteo["horaire"].get(li.get("date"), (None, None))
 
 
 # ------------------------------------------------------------------ le sélecteur de classe (③)

@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -1053,6 +1053,294 @@ const FILTRE = process.argv[4] || '';
     await tl.context().close();
   }
 
+  // ---------------------------------------------------------------- la météo du lieu (Open-Meteo), de bout en bout
+  // Le vrai écran, le vrai moteur, la vraie politique de sécurité ; seul Open-Meteo est remplacé : chaque demande vers ses
+  // trois adresses est INTERCEPTÉE (page.route) et reçoit une réponse au format documenté du service (la machine n'a pas de
+  // réseau, et un contrôle n'appelle jamais le vrai service). Qu'une demande arrive à l'interception prouve que la politique
+  // de sécurité la laisse partir : bloquée par connect-src, elle échouerait avant (« Pas de réseau »), sans être vue ici.
+  // Le parcours : la cure « Météo du lieu », le clic, l'indicateur « Récupération de la météo… », les appels (adresses,
+  // paramètres), les températures reçues (badge, relevé, vues), la maturité recalculée, la note rechargée qui garde tout et
+  // se recalcule SANS AUCUN appel, le détail horaire, une correction à la main ; puis les refus — lieu introuvable, réseau
+  // coupé, service en panne, dates hors de portée — en message, la note intacte ; au PC, au téléphone et à la tablette.
+  //   filtre « meteo »
+  if (!FILTRE || FILTRE === 'meteo') {
+    const OPEN_METEO = /^https:\/\/(geocoding-api|archive-api|api)\.open-meteo\.com\//;
+    const CORS = { 'access-control-allow-origin': '*' };
+    const LIEUX = {
+      bruxelles: { id: 2800866, name: 'Bruxelles', latitude: 50.85045, longitude: 4.34878, elevation: 28.0, feature_code: 'PPLC', country_code: 'BE',
+        admin1_id: 2800867, timezone: 'Europe/Brussels', population: 1019022, country_id: 2802361, country: 'Belgique', admin1: 'Bruxelles-Capitale' },
+    };
+    // la température d'un jour (°C, au dixième) et d'une heure : déterministes, inventées
+    const tJour = (iso) => { const k = Math.round(Date.parse(iso + 'T00:00:00Z') / 864e5); return Math.round((5.5 + 7 * Math.sin(k / 11) + 0.3 * (k % 5)) * 10) / 10; };
+    const tHeure = (iso, h) => Math.round((tJour(iso) + 3.5 * Math.sin((h - 9) * Math.PI / 12)) * 10) / 10;
+    const jours = (d0, d1) => { const out = []; for (let t = Date.parse(d0 + 'T00:00:00Z'); t <= Date.parse(d1 + 'T00:00:00Z'); t += 864e5) out.push(new Date(t).toISOString().slice(0, 10)); return out; };
+    const decale = (iso, n) => new Date(Date.parse(iso + 'T00:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+    const fr = (iso) => iso.split('-').reverse().join('/');
+    // le faux Open-Meteo : chaque demande journalisée, la réponse tirée de ses paramètres ; « mode » : coupe, panne, lent
+    const brancher = async (c, journal, mode) => {
+      await c.route(OPEN_METEO, async (route) => {
+        const u = new URL(route.request().url());
+        journal.push(route.request().url());
+        if (mode.lent) await new Promise((r) => setTimeout(r, mode.lent));
+        if (mode.coupe) return route.abort('internetdisconnected');
+        if (mode.panne) return route.fulfill({ status: 500, headers: CORS, contentType: 'application/json', body: JSON.stringify({ error: true, reason: 'Panne simulée du service' }) });
+        const q = Object.fromEntries(u.searchParams);
+        let corps;
+        if (u.hostname.startsWith('geocoding-api')) {
+          const g = LIEUX[(q.name || '').split(',')[0].trim().toLowerCase()];
+          corps = g ? { results: [g], generationtime_ms: 0.61 } : { generationtime_ms: 0.43 };
+        } else {
+          const js = jours(q.start_date, q.end_date);
+          corps = { latitude: 50.85, longitude: 4.35, generationtime_ms: 0.2, utc_offset_seconds: 3600, timezone: 'Europe/Brussels', timezone_abbreviation: 'GMT+1', elevation: 28 };
+          if (q.hourly) {
+            corps.hourly_units = { time: 'iso8601', [q.hourly]: '°C' };
+            corps.hourly = { time: js.flatMap((d) => [...Array(24).keys()].map((h) => `${d}T${String(h).padStart(2, '0')}:00`)), [q.hourly]: js.flatMap((d) => [...Array(24).keys()].map((h) => tHeure(d, h))) };
+          } else {
+            corps.daily_units = { time: 'iso8601', [q.daily]: '°C' };
+            corps.daily = { time: js, [q.daily]: js.map(tJour) };
+          }
+        }
+        return route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify(corps) });
+      });
+    };
+    const preparer = async (w, h, tel) => {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
+      const journal = [], mode = {};
+      await brancher(c, journal, mode);
+      await c.addInitScript(() => {
+        window.__csp = [];
+        document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
+      });
+      const pg = await c.newPage();
+      pg.journal = journal; pg.mode = mode; pg.erreurs = []; pg.ailleurs = [];
+      pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
+      // aucune autre adresse extérieure n'est jamais demandée
+      c.on('request', (r) => { const u = r.url(); if (!u.startsWith(BASE) && !OPEN_METEO.test(u) && !/^(data|blob):/.test(u)) pg.ailleurs.push(u); });
+      return pg;
+    };
+    const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const ouvrir = async (pg) => {
+      const rep = await pg.goto(`${BASE}/${MODS.age.page}?chantier=${encodeURIComponent('Contrôle météo')}&nom=${encodeURIComponent('Dalle R+2')}`);
+      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      return rep;
+    };
+    const tranquille = (pg) => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 90000 });
+    const saisirDate = async (pg, chemin, v) => { await pg.fill(`#donnees input[data-chemin="${chemin}"]`, v); await pg.press(`#donnees input[data-chemin="${chemin}"]`, 'Enter'); await tranquille(pg); };
+    const lire = (pg) => pg.evaluate(() => {
+      const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const b = document.querySelector('#donnees [data-meteo-chemin="temperature/meteo"]');
+      const rb = b ? b.getBoundingClientRect() : null;
+      const t = document.getElementById('toast');
+      const ta = document.querySelector('#donnees textarea[data-chemin="temperature/releve"]');
+      const hints = [...document.querySelectorAll('#donnees .hint, #donnees .msg')].filter(vis).map((x) => x.textContent.replace(/\s+/g, ' ').trim());
+      return { plan: b ? JSON.parse(b.dataset.meteo) : null, bouton: b ? { vu: vis(b), l: Math.round(rb.width), h: Math.round(rb.height), grise: b.disabled, texte: b.textContent.trim() } : null,
+        toast: { vu: vis(t), texte: t.textContent, erreur: t.classList.contains('erreur') }, releve: ta ? ta.value : null, releveVu: vis(ta), hints,
+        verdict: document.querySelector('#resultat .verdict')?.textContent.replace(/\s+/g, ' ').trim() || '',
+        vues: [...document.querySelectorAll('#vues [data-vue]')].map((x) => x.dataset.vue) };
+    });
+    // ce que l'œil voit : rien ne déborde, aucun libellé coupé (segments de la cure, bouton, badge)
+    const regard = (pg) => pg.evaluate(() => {
+      const vis = (e) => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const large = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
+      const coupes = [...document.querySelectorAll('#donnees .rows .seg.full button, #donnees .btn.meteo > span, #donnees .row > label > span:not(.sym)')]
+        .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.5).map((e) => e.textContent.trim());
+      return { deborde: document.documentElement.scrollWidth > innerWidth, coupes };
+    });
+    const attendre = (pg, f, ms = 60000) => pg.waitForFunction(f, null, { timeout: ms }).then(() => true, () => false);
+    const ligneReleve = (d, src) => { const t = tJour(d); return `${d};${(Number.isInteger(t) ? t.toFixed(1) : String(t)).replace('.', ',')};${src}`; };
+
+    // ------------------------------------------------ au PC
+    const g = await preparer(1440, 900, false);
+    const rep = await ouvrir(g);
+    verif('météo · PC : la page est servie avec la politique de sécurité qui permet les trois adresses d\'Open-Meteo, et elles seules',
+      /connect-src 'self' https:\/\/geocoding-api\.open-meteo\.com https:\/\/archive-api\.open-meteo\.com https:\/\/api\.open-meteo\.com;/.test(rep.headers()['content-security-policy'] || ''),
+      (rep.headers()['content-security-policy'] || '').slice(0, 200));
+    const v20 = (await lire(g)).verdict;
+    await g.click('#donnees button[data-chemin="temperature/mode"][data-valeur="meteo"]');
+    await tranquille(g);
+    let L = await lire(g);
+    verif('météo · PC : « Météo du lieu » ouvre le lieu, les dates et le bouton « Récupérer la météo », visible, sur la largeur du cadre',
+      L.plan && L.bouton && L.bouton.vu && L.bouton.l > 250 && L.bouton.h >= 32 && !L.bouton.grise && L.bouton.texte === 'Récupérer la météo'
+      && (await g.inputValue('#donnees input[data-chemin="temperature/lieu"]')) === 'Bruxelles, Belgique', JSON.stringify(L.bouton));
+    const auj = L.plan.aujourdhui;
+    const debut = decale(auj, -10), fin = decale(auj, 18);
+    await saisirDate(g, 'temperature/debut', fr(debut));
+    await saisirDate(g, 'temperature/fin', fr(fin));
+    L = await lire(g);
+    const plan = L.plan;
+    verif('météo · PC : le plan du bouton suit les dates saisies (archive puis prévisions, 2 jours prolongés au-delà de l\'horizon)',
+      plan.debut === debut && plan.fin === fin && plan.appels.map((a) => a.source).join() === 'archive,prevision' && plan.n_prolonges === 2, JSON.stringify(plan).slice(0, 300));
+    let m = await regard(g);
+    verif('météo · PC : rien ne déborde, aucun libellé coupé (« Météo du lieu », le bouton, les champs Lieu, Début, Fin)', !m.deborde && !m.coupes.length, m.coupes.join(', '));
+    // le clic : l'indicateur pendant la récupération (le faux service répond en 0,8 s)
+    g.mode.lent = 800;
+    await g.click('#donnees [data-meteo-chemin="temperature/meteo"]');
+    const pendant = await attendre(g, () => {
+      const b = document.querySelector('#donnees [data-meteo-chemin="temperature/meteo"]');
+      const c = [...document.querySelectorAll('.calcule')].find((x) => x.checkVisibility() && x.textContent);
+      return b && b.disabled && b.textContent.trim() === 'Récupération de la météo…' && b.checkVisibility() && c && c.textContent === 'Récupération de la météo…';
+    }, 5000);
+    verif('météo · PC : pendant la récupération, le bouton et l\'indicateur disent « Récupération de la météo… » (le bouton ne répond plus)', pendant);
+    await tranquille(g);
+    g.mode.lent = 0;
+    L = await lire(g);
+    const nJ = jours(debut, fin).length, nMes = jours(debut, auj).length, nPrev = jours(decale(auj, 1), plan.fin_dispo).length;
+    const att = [`https://geocoding-api.open-meteo.com/v1/search?name=Bruxelles%2C+Belgique&count=1&language=fr`]
+      .concat(plan.appels.map((a) => `https://${a.source === 'archive' ? 'archive-api' : 'api'}.open-meteo.com/v1/${a.source === 'archive' ? 'archive' : 'forecast'}?latitude=50.85045&longitude=4.34878`
+        + `&start_date=${a.debut}&end_date=${a.fin}&timezone=auto&daily=temperature_2m_mean`));
+    verif('météo · PC : le navigateur a fait les appels du plan, vers Open-Meteo seulement (géocodage, archive, prévisions ; paramètres encodés) — la politique de sécurité les laisse passer',
+      JSON.stringify(g.journal) === JSON.stringify(att) && !g.ailleurs.length, JSON.stringify({ journal: g.journal, att, ailleurs: g.ailleurs }));
+    const badge = `Bruxelles, Bruxelles-Capitale, Belgique — ${nMes} j mesurés · ${nPrev} j de prévision · 2 j prolongés`;
+    verif('météo · PC : les températures reçues : le badge (lieu trouvé, jours mesurés / prévus / prolongés), la date de récupération, un message',
+      L.hints.some((x) => x === badge) && L.hints.some((x) => x.startsWith(`Open-Meteo · récupérée le ${fr(auj)} à `)) && L.toast.vu && !L.toast.erreur
+      && /^Météo récupérée/.test(L.toast.texte), JSON.stringify({ hints: L.hints.slice(0, 6), toast: L.toast }));
+    const lignes = (L.releve || '').split('\n');
+    verif('météo · PC : le relevé reçu est écrit, jour par jour, modifiable (une ligne par jour : date;T;source)',
+      L.releveVu && lignes.length === nJ && lignes[0] === ligneReleve(debut, 'mesuré') && lignes[nMes] === ligneReleve(decale(auj, 1), 'prévision')
+      && lignes[nJ - 1].endsWith(';prolongé'), JSON.stringify({ n: lignes.length, nJ, l0: lignes[0], att0: ligneReleve(debut, 'mesuré') }));
+    verif('météo · PC : la maturité est recalculée (le verdict n\'est plus celui de 20 °C), les vues « Températures » et « Tableau » sont là',
+      L.verdict && L.verdict !== v20 && L.vues.join() === 'courbe,releve,tableau', JSON.stringify({ v20, v: L.verdict, vues: L.vues }));
+    await g.screenshot({ path: path.join(OUT, 'site_meteo_pc.png') });
+    // les vues : la courbe des températures et le tableau, vus à l'écran
+    await g.click('#vues [data-vue="releve"]');
+    await g.waitForTimeout(250);
+    const courbe = await g.evaluate(() => { const s = [...document.querySelectorAll('.view.on .draw > svg')].find((x) => x.checkVisibility()); const r = s && s.getBoundingClientRect();
+      return { titre: document.querySelector('.view.on .stitle b')?.textContent, leg: document.querySelector('.view.on .stitle .leg')?.textContent, l: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0 }; });
+    verif('météo · PC : la vue « Météo du lieu » montre la courbe des températures reçues, à sa taille, sa légende dit Open-Meteo',
+      courbe.titre === 'Météo du lieu' && /Open-Meteo/.test(courbe.leg || '') && courbe.l > 400 && courbe.h > 250, JSON.stringify(courbe));
+    await g.screenshot({ path: path.join(OUT, 'site_meteo_pc_temperatures.png') });
+    await g.click('#vues [data-vue="tableau"]');
+    await g.waitForTimeout(250);
+    const tab = await g.evaluate(() => { const rows = [...document.querySelectorAll('.view.on .age-tab tbody tr')]; const r0 = rows[0];
+      return { n: rows.length, vu: !!r0 && r0.checkVisibility(), cases: r0 ? [...r0.children].map((x) => x.textContent) : [] }; });
+    verif('météo · PC : le tableau montre une ligne par jour reçu (date, température, source)',
+      tab.n === nJ && tab.vu && tab.cases[1] === fr(debut) && tab.cases[3] === 'mesuré', JSON.stringify(tab));
+    // la note rechargée : tout est gardé, et rien n'est redemandé à Open-Meteo (le calcul se refait hors ligne)
+    const nAppels = g.journal.length;
+    await g.reload();
+    await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    await tranquille(g);
+    const R = await lire(g);
+    verif('météo · PC : rechargée, la note garde les températures, le badge et la maturité — sans AUCUN nouvel appel (calcul hors ligne)',
+      R.releve === L.releve && R.hints.includes(badge) && R.verdict === L.verdict && g.journal.length === nAppels, JSON.stringify({ appels: g.journal.length - nAppels, v: R.verdict }));
+    // le détail horaire, à la demande : la position, sans géocodage ; T min h / T max h dans le tableau
+    await g.click('#donnees [data-meteo-chemin="temperature/meteo_horaire"]');
+    await tranquille(g);
+    const hor = g.journal.slice(nAppels);
+    await g.click('#vues [data-vue="tableau"]');
+    await g.waitForTimeout(250);
+    const th = await g.evaluate(() => [...document.querySelectorAll('.view.on .age-tab thead th')].map((x) => x.textContent));
+    const t0 = await g.evaluate(() => [...document.querySelector('.view.on .age-tab tbody tr').children].map((x) => x.textContent));
+    const hs = [...Array(24).keys()].map((h) => tHeure(debut, h));
+    const f1 = (x) => (Math.round(x * 10) / 10).toFixed(1).replace('.', ',').replace('-', '−');
+    verif('météo · PC : « Charger le détail horaire » : appels horaires à la position trouvée (sans géocodage) ; le tableau ajoute T min h, T max h',
+      hor.length === plan.appels.length && hor.every((u) => /latitude=50\.85045&longitude=4\.34878/.test(u) && /hourly=temperature_2m/.test(u) && !/geocoding/.test(u))
+      && th.includes('T min h°C') && th.includes('T max h°C') && t0[4] === f1(Math.min(...hs)) && t0[5] === f1(Math.max(...hs)), JSON.stringify({ hor, th, t0 }));
+    await g.screenshot({ path: path.join(OUT, 'site_meteo_pc_tableau.png') });
+    // une correction à la main : le calcul la suit, l'écran le dit, la récupération reste
+    const corrige = L.releve.replace(/^([^;]+);[^;]+;/, '$1;-4,0;');
+    await g.fill('#donnees textarea[data-chemin="temperature/releve"]', corrige);
+    await g.evaluate(() => document.activeElement.blur());
+    await tranquille(g);
+    const C2 = await lire(g);
+    verif('météo · PC : une température corrigée à la main recalcule la maturité ; l\'écran dit « corrigées à la main » et garde la récupération',
+      C2.releve === corrige && C2.verdict !== R.verdict && C2.hints.some((x) => /corrigées à la main/.test(x)) && C2.hints.includes(badge.replace(`${nMes} j mesurés`, `${nMes} j mesurés`)),
+      JSON.stringify({ v: C2.verdict, hints: C2.hints.slice(0, 8) }));
+    // les refus : chacun en message, la note intacte
+    const refus = async (nom, avant, motif) => {
+      const r0 = await lire(g);
+      const n0 = g.journal.length;
+      await avant();
+      await g.click('#donnees [data-meteo-chemin="temperature/meteo"]');
+      await tranquille(g);
+      await g.waitForTimeout(200);
+      const r1 = await lire(g);
+      verif(`météo · PC · ${nom} : un message en français, la note intacte (températures et maturité inchangées), jamais une exception`,
+        r1.toast.vu && r1.toast.erreur && motif.test(r1.toast.texte) && r1.releve === r0.releve && r1.verdict === r0.verdict && !r1.bouton.grise,
+        JSON.stringify({ toast: r1.toast, appels: g.journal.slice(n0) }));
+      return g.journal.slice(n0);
+    };
+    await saisirDate(g, 'temperature/lieu', 'Atlantide');
+    const a1 = await refus('lieu introuvable', async () => {}, /^Lieu introuvable : « Atlantide »/);
+    verif('météo · PC · lieu introuvable : le géocodage seul est demandé', a1.length === 1 && /geocoding-api.*name=Atlantide/.test(a1[0]), JSON.stringify(a1));
+    await g.screenshot({ path: path.join(OUT, 'site_meteo_pc_introuvable.png') });
+    await saisirDate(g, 'temperature/lieu', 'Bruxelles, Belgique');
+    await refus('réseau coupé', async () => { g.mode.coupe = true; }, /^Pas de réseau : la météo n'a pas pu être récupérée.*hors ligne/);
+    g.mode.coupe = false;
+    await refus('service en panne', async () => { g.mode.panne = true; }, /^Service météo en panne \(erreur 500 — Panne simulée du service\)/);
+    g.mode.panne = false;
+    // dates hors de portée : le bouton est grisé, le message est écrit dessous — aucun appel
+    const n0 = g.journal.length;
+    await saisirDate(g, 'temperature/fin', fr(decale(auj, 30)));
+    await saisirDate(g, 'temperature/debut', fr(decale(auj, 25)));
+    const H = await lire(g);
+    const msgVu = await g.evaluate(() => { const m = document.querySelector('#donnees .meteo-bt + .msg.grave'); return !!m && m.checkVisibility() && m.getBoundingClientRect().height > 10 ? m.textContent : ''; });
+    verif('météo · PC · dates hors de portée : le bouton grisé, le message (horizon des prévisions) visible dessous, aucun appel',
+      H.bouton.grise && /horizon des prévisions/.test(msgVu) && g.journal.length === n0, JSON.stringify({ b: H.bouton, msgVu }));
+    await g.screenshot({ path: path.join(OUT, 'site_meteo_pc_hors_portee.png') });
+    const csp = await g.evaluate(() => window.__csp);
+    // les erreurs attendues : la ressource refusée (réseau coupé) et la réponse 500 de la panne simulée
+    const err = g.erreurs.filter((x) => !/Failed to load resource: (net::ERR_INTERNET_DISCONNECTED|the server responded with a status of 500)/.test(x));
+    verif('météo · PC : aucune violation de la politique de sécurité, aucune autre adresse extérieure, aucune erreur JavaScript',
+      !csp.length && !g.ailleurs.length && !err.length, JSON.stringify({ csp, ailleurs: g.ailleurs, err }));
+    await g.context().close();
+
+    // ------------------------------------------------ au téléphone et à la tablette : le même geste, dans l'onglet Données
+    for (const [fmt, w, h, tel, nom] of [['téléphone', 390, 844, true, 'tel'], ['tablette portrait', 820, 1180, false, 'tab']]) {
+      const t = await preparer(w, h, tel);
+      await ouvrir(t);
+      if (tel) await t.click('.mtabs [data-onglet="donnees"]');
+      await t.click('#donnees button[data-chemin="temperature/mode"][data-valeur="meteo"]');
+      await tranquille(t);
+      let M = await lire(t);
+      const mm = await regard(t);
+      verif(`météo · ${fmt} : la cure « Météo du lieu », le bouton visible et à la taille du doigt, rien ne déborde, aucun libellé coupé`,
+        M.bouton && M.bouton.vu && M.bouton.h >= (tel ? 40 : 32) && M.bouton.l >= (tel ? 300 : 250) && !mm.deborde && !mm.coupes.length, JSON.stringify({ b: M.bouton, ...mm }));
+      await t.locator('#donnees [data-meteo-chemin="temperature/meteo"]').scrollIntoViewIfNeeded();
+      await t.click('#donnees [data-meteo-chemin="temperature/meteo"]');
+      await tranquille(t);
+      M = await lire(t);
+      const n = jours(M.plan.debut, M.plan.fin).length;
+      verif(`météo · ${fmt} : récupérée — le badge, la date de récupération et le relevé reçu (${n} j) se lisent dans les données`,
+        M.hints.includes(`Bruxelles, Bruxelles-Capitale, Belgique — ${n} j mesurés`) && M.hints.some((x) => x.startsWith('Open-Meteo · récupérée le '))
+        && M.releveVu && M.releve.split('\n').length === n && t.journal.length === 3, JSON.stringify({ hints: M.hints.slice(0, 5), appels: t.journal.length }));
+      const m2 = await regard(t);
+      verif(`météo · ${fmt} : après la récupération, rien ne déborde, aucun libellé coupé`, !m2.deborde && !m2.coupes.length, JSON.stringify(m2));
+      await t.locator('#donnees .age-mini').scrollIntoViewIfNeeded();
+      await t.screenshot({ path: path.join(OUT, `site_meteo_${nom}_donnees.png`) });
+      if (tel) await t.click('.mtabs [data-onglet="dessin"]');
+      await t.click('#vues [data-vue="releve"]');
+      await t.waitForTimeout(300);
+      const vue = await t.evaluate(() => { const s = [...document.querySelectorAll('.view.on .draw > svg')].find((x) => x.checkVisibility()); const r = s && s.getBoundingClientRect(); return r ? [Math.round(r.width), Math.round(r.height)] : null; });
+      verif(`météo · ${fmt} : la vue des températures reçues est visible, à sa taille`, vue && vue[0] >= (tel ? 300 : 500) && vue[1] > 150, JSON.stringify(vue));
+      await t.screenshot({ path: path.join(OUT, `site_meteo_${nom}_temperatures.png`) });
+      await t.click('#vues [data-vue="tableau"]');
+      await t.waitForTimeout(300);
+      const tb = await t.evaluate(() => [...document.querySelectorAll('.view.on .age-tab tbody tr')].filter((x) => x.checkVisibility()).length);
+      verif(`météo · ${fmt} : le tableau des jours reçus se voit`, tb === n, `${tb} / ${n}`);
+      await t.screenshot({ path: path.join(OUT, `site_meteo_${nom}_tableau.png`) });
+      // le refus au téléphone : réseau coupé → un message visible
+      if (tel) {
+        await t.click('.mtabs [data-onglet="donnees"]');
+        t.mode.coupe = true;
+        await t.locator('#donnees [data-meteo-chemin="temperature/meteo"]').scrollIntoViewIfNeeded();
+        await t.click('#donnees [data-meteo-chemin="temperature/meteo"]');
+        await tranquille(t);
+        await t.waitForTimeout(200);
+        const T = await lire(t);
+        const r = await t.evaluate(() => { const x = document.getElementById('toast').getBoundingClientRect(); return x.right <= innerWidth + 0.5 && x.left >= -0.5 && x.bottom <= innerHeight + 0.5; });
+        verif('météo · téléphone · réseau coupé : le message « Pas de réseau » se lit, dans l\'écran ; les températures restent',
+          T.toast.vu && T.toast.erreur && /^Pas de réseau/.test(T.toast.texte) && r && T.releve === M.releve, JSON.stringify(T.toast));
+        await t.screenshot({ path: path.join(OUT, 'site_meteo_tel_pas_de_reseau.png') });
+      }
+      const err = t.erreurs.filter((x) => !/Failed to load resource: net::ERR_INTERNET_DISCONNECTED/.test(x));
+      verif(`météo · ${fmt} : aucune violation de la politique de sécurité, aucune autre adresse, aucune erreur JavaScript`,
+        !(await t.evaluate(() => window.__csp.length)) && !t.ailleurs.length && !err.length, JSON.stringify({ ailleurs: t.ailleurs, err }));
+      await t.context().close();
+    }
+  }
+
   // ---------------------------------------------------------------- un fichier .stab piégé
   // Un .stab vient d'ailleurs (un collègue, un courriel) : rien de ce qu'il porte ne doit s'exécuter dans la page. Deux
   // fichiers : l'un que le moteur refuse (son dessin piégé n'est alors jamais remplacé par celui du moteur), l'autre
@@ -1096,8 +1384,8 @@ const FILTRE = process.argv[4] || '';
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats et « télécharger » travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && FILTRE !== 'telecharger') verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (les formats, « télécharger » et « météo » travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

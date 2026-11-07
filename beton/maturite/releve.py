@@ -2,8 +2,9 @@
 """Le RELEVÉ de températures journalières d'un coulage : sa lecture (un tableau collé ou un fichier texte) et sa
 synthèse.
 
-L'écran Streamlit (``modules/age_beton.py``, mode « Météo ») va chercher ces températures chez Open-Meteo ; le site ne
-le peut pas (rien d'extérieur, calcul hors ligne) : le relevé SE SAISIT. Une fois les températures en main, la
+L'écran Streamlit (``modules/age_beton.py``, mode « Météo ») va chercher ces températures chez Open-Meteo ; sur le site,
+elles arrivent de même, à la demande (``meteo.py`` lit les réponses et les écrit en relevé), ou le relevé SE SAISIT —
+collé, lu dans un fichier — et le calcul reste hors ligne. Une fois les températures en main, la
 synthèse (``synthese``) est celle du module, RECOPIÉE de ``_saisie_temperature`` (lignes 498 à 587) : jour sans donnée
 remplacé par la moyenne, comptes des jours mesurés, prévus et prolongés, T min / moy / max, variante défavorable
 (jours prévus − 3 °C), t_e du relevé — au bit près.

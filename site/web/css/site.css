@@ -58,6 +58,17 @@ label.fichier { width: max-content; }
 .case:has(> input:disabled) { color: var(--ink-3); cursor: not-allowed; }
 .field.locked textarea { color: var(--ink-2); }
 .rows .seg.full button { height: 28px; }
+/* importer la météo du lieu (commun.bouton_meteo) : un bouton sur toute la largeur du cadre ; pendant la récupération, il le
+   dit (« Récupération de la météo… », l'icône tourne) ; grisé quand la récupération est impossible (le message dessous) */
+.meteo-bt { padding: 4px 0 2px; }
+.btn.meteo { width: 100%; justify-content: center; height: 34px; color: var(--accent-hover); border-color: var(--accent-line); background: var(--accent-soft); box-shadow: none; }
+.btn.meteo:hover:not(:disabled) { background: color-mix(in srgb, var(--accent-soft) 70%, var(--accent-line)); }
+[data-theme="dark"] .btn.meteo { color: var(--accent); }
+.btn.meteo.sm { height: 30px; background: var(--panel); color: var(--ink-2); border-color: var(--line-strong); }
+.btn.meteo:disabled { cursor: not-allowed; }
+.btn.meteo.attente { cursor: progress; opacity: .85; }
+.btn.meteo.attente svg.i { animation: tourne 1.2s linear infinite; }
+.btn.meteo > span { overflow: hidden; text-overflow: ellipsis; }
 .msg { font-size: 12px; color: var(--ink-2); padding: 8px 16px; border-top: 1px solid var(--line); line-height: 1.4; }
 .msg.grave { color: var(--nok); font-weight: 600; }
 
@@ -392,6 +403,8 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   /* des cibles que le doigt touche sans viser : 40 px et plus */
   #donnees .field:not(.area) { height: 42px; }
   .rows .seg.full button, .seg.full button { height: 38px; }
+  .btn.meteo { height: 42px; font-size: 14px; }
+  .btn.meteo.sm { height: 38px; font-size: 13px; }
   .ni { height: 46px; }
   .elements .ni .x { width: 36px; height: 36px; }
   .nl-add { min-height: 42px; }

@@ -7,8 +7,11 @@ Le calcul est celui du moteur ``beton/maturite`` (extrait de l'écran Streamlit 
 reproduit les nombres au bit près — tests/test_maturite_moteur.py). Ce fichier MET EN FORME : il ne calcule rien.
 
 Ce qui change par rapport à Streamlit, et pourquoi :
-- le mode « Météo » ne va pas chercher Open-Meteo (le site calcule hors ligne, rien d'extérieur) : le relevé
-  journalier SE SAISIT (tableau collé ou fichier lu) — le moteur en fait la même synthèse que l'écran ;
+- la température de cure a TROIS sources : constante, relevé saisi (tableau collé ou fichier lu), ou météo du lieu
+  (Open-Meteo, comme le mode « Météo » de l'écran). La météo est une IMPORTATION de données à la demande : le moteur
+  fait le plan des appels (beton/maturite/meteo.py), le bouton le porte (C.bouton_meteo), le navigateur fait les appels
+  vers les trois adresses d'Open-Meteo et rend les réponses brutes, que ce module lit et GARDE dans la note — les
+  températures deviennent un relevé (modifiable à la main), et le calcul se fait hors ligne ;
 - une saisie hors du domaine de l'écran (que Streamlit ramène en silence à sa borne) est REFUSÉE avec un message, et
   une saisie absurde aussi (délai ou âge d'essai au-delà de 10 ans, résistance au-delà de 200 MPa : l'écran n'a pas de
   borne haute) ;
@@ -19,9 +22,11 @@ Ce qui change par rapport à Streamlit, et pourquoi :
 """
 import copy
 import datetime as _dt
+import math
 from typing import Dict, List, Optional, Sequence
 
 from beton.maturite import entree as EN
+from beton.maturite import meteo as MT
 from beton.maturite import moteur as M
 from beton.maturite import releve as RL
 from beton.maturite.ec2 import CIMENT_DETAIL, CLASSES, HORIZON_PREVISION_J
@@ -35,17 +40,20 @@ PAGE = "maturite-beton"
 BROUILLON = "saisie_refusee"            # le site : un relevé refusé, gardé à l'écran avec son erreur (pas un champ du moteur)
 CIMENTS_COURTS = {"R": "R · rapide", "N": "N · normal", "S": "S · lent"}
 CIMENTS_SEGMENTS = {"R": "Rapide", "N": "Normal", "S": "Lent"}
+SOURCES_CURE = [("constante", "Constante"), ("releve", "Relevé"), ("meteo", "Météo du lieu")]
 AGES_USUELS = (3, 7, 14, 28)
 NOMS_CHAMPS = {"nom": ("Nom", ""), "classe": ("Classe", ""), "ciment": ("Ciment", ""), "date_coulage": ("Date de coulage", ""),
                "temperature/mode": ("Cure", ""), "temperature/T": ("Température de cure", "°C"), "temperature/lieu": ("Lieu", ""),
-               "temperature/releve": ("Relevé", ""), "avance": ("Énergie d'activation ajustée", ""),
+               "temperature/releve": ("Relevé", ""), "temperature/debut": ("Début de la météo", ""), "temperature/fin": ("Fin de la météo", ""),
+               "temperature/meteo": ("Météo du lieu", ""), "temperature/meteo_horaire": ("Détail horaire", ""),
+               "avance": ("Énergie d'activation ajustée", ""),
                "Ea_kJ": ("Énergie d'activation", "kJ/mol"), "age": ("Âge", "j"), "seuil/mode": ("Cible du seuil", ""),
                "seuil/pct": ("Pourcentage du seuil", "%"), "seuil/mpa": ("Résistance du seuil", "MPa"), "seuil/afficher": ("Seuil affiché", ""),
                "optim/mpa": ("Résistance cible", "MPa"), "optim/delai": ("Délai", "j"), "optim/afficher": ("Classe affichée", ""),
                "comparateur/classes": ("Classes comparées", ""), "comparateur/ciment": ("Ciment du comparateur", ""),
                "comparateur/afficher": ("Comparateur affiché", ""), "essai/mpa": ("Mesure de l'essai", "MPa"),
                "essai/age": ("Âge de l'essai", "j"), "essai/T": ("T de cure de l'essai", "°C"), "essai/afficher": ("Essai affiché", "")}
-TEXTES = {"nom", "temperature/lieu", "date_coulage"}
+TEXTES = {"nom", "temperature/lieu", "date_coulage", "temperature/debut", "temperature/fin"}
 CHOIX = {"classe", "ciment", "temperature/mode", "seuil/mode", "comparateur/ciment"}
 CASES = {"avance", "seuil/afficher", "optim/afficher", "comparateur/afficher", "essai/afficher"}
 NOMBRES = {"temperature/T", "Ea_kJ", "seuil/mpa", "optim/mpa", "optim/delai", "essai/mpa", "essai/age", "essai/T"}
@@ -66,8 +74,62 @@ def _etat_releve(**k) -> Dict:
     return {"version": 1, "coulages": [e], "actif": 0}
 
 
+def aujourdhui() -> _dt.date:
+    """Le jour où l'écran est rendu (celui du navigateur, dans Pyodide) : il partage les dates de la météo entre
+    l'archive et les prévisions (le plan du bouton), comme l'écran Streamlit avec ``date.today()``."""
+    return _dt.date.today()
+
+
+def maintenant() -> str:
+    """Le jour et l'heure d'une récupération de la météo (AAAA-MM-JJTHH:MM), écrits dans la note."""
+    return _dt.datetime.now().strftime("%Y-%m-%dT%H:%M")
+
+
+# une récupération d'exemple (le parcours de l'écran, aucun appel) : Bruxelles, du 27/10 au 25/11/2026, récupérée le
+# 07/11/2026 — l'archive jusqu'au 31/10, les prévisions du 01/11 au 23/11, deux jours prolongés. Les réponses ont le format
+# d'Open-Meteo ; les températures sont inventées.
+EXEMPLE_METEO = {"lieu": MT.LIEU_DEFAUT, "debut": "2026-10-27", "fin": "2026-11-25", "aujourdhui": "2026-11-07"}
+_GEO_EXEMPLE = {"results": [{"id": 2800866, "name": "Bruxelles", "latitude": 50.85045, "longitude": 4.34878, "country_code": "BE",
+                             "admin1": "Bruxelles-Capitale", "country": "Belgique", "timezone": "Europe/Brussels"}], "generationtime_ms": 0.5}
+
+
+def _meteo_exemple(trouve: bool = True, horaire: bool = False) -> Dict:
+    """Ce que le navigateur rendrait pour la récupération d'exemple : {"lieu", "plan", "geocodage", "reponses"}."""
+    x = EXEMPLE_METEO
+    pos = {"latitude": 50.85045, "longitude": 4.34878}
+    p = MT.plan(x["lieu"], x["debut"], x["fin"], x["aujourdhui"], horaire=horaire, position=pos if horaire else None)
+    reps = []
+    for a in p["appels"]:
+        d0 = _dt.date.fromisoformat(a["debut"])
+        jours = [d0 + _dt.timedelta(days=i) for i in range((_dt.date.fromisoformat(a["fin"]) - d0).days + 1)]
+        if horaire:
+            reps.append({"hourly_units": {"time": "iso8601", "temperature_2m": "°C"},
+                         "hourly": {"time": [f"{d.isoformat()}T{h:02d}:00" for d in jours for h in range(24)],
+                                    "temperature_2m": [round(6 + d.toordinal() % 5 + 3 * math.sin((h - 9) / 24 * 2 * math.pi), 1)
+                                                       for d in jours for h in range(24)]}})
+        else:
+            reps.append({"daily_units": {"time": "iso8601", "temperature_2m_mean": "°C"},
+                         "daily": {"time": [d.isoformat() for d in jours], "temperature_2m_mean": [round(6 + d.toordinal() % 5 + 0.3, 1) for d in jours]}})
+    return {"lieu": None if horaire else x["lieu"], "plan": p, "geocodage": None if horaire else (_GEO_EXEMPLE if trouve else {"generationtime_ms": 0.4}),
+            "reponses": reps if trouve else []}
+
+
+def _etat_meteo(importee: bool = False) -> Dict:
+    """La note d'exemple en mode météo ; ``importee`` : la récupération d'exemple déjà faite et gardée."""
+    e = EN.nouvel_element("Dalle R+2")
+    x = EXEMPLE_METEO
+    e["temperature"].update(mode="meteo", lieu=x["lieu"], debut=x["debut"], fin=x["fin"])
+    if importee:
+        v = _meteo_exemple()
+        e["temperature"]["meteo"] = MT.enregistrement(v["plan"], v["geocodage"], v["reponses"], "2026-11-07T08:30")
+        e["temperature"]["releve"] = MT.releve(MT.lire_journalier(v["plan"], v["reponses"]))
+        e["age"] = 20
+    return {"version": 1, "coulages": [e], "actif": 0}
+
+
 # les requêtes de plus du parcours de l'écran (api_web/parcours.py) : le relevé collé ou lu, un relevé refusé, un essai,
-# une date, le sélecteur de classe, une note où tout est affiché
+# une date, le sélecteur de classe, une note où tout est affiché ; la météo du lieu : récupérée, lieu introuvable, le
+# détail horaire, une réponse qui ne suit pas le plan
 PARCOURS = [
     {"action": "modifier", "chemin": ["temperature", "mode"], "valeur": "releve", "etat": _etat_releve()},
     {"action": "modifier", "chemin": ["temperature", "releve"], "valeur": EXEMPLE_RELEVE.replace("9,5", "10,5"), "etat": _etat_releve()},
@@ -82,6 +144,13 @@ PARCOURS = [
     {"action": "choisir", "role": "classe", "nom": "C35/45"},
     {"action": "calculer", "etat": _etat_releve(seuil__afficher=True, optim__afficher=True, comparateur__afficher=True, essai__mpa=12.0,
                                                 essai__afficher=True)},
+    {"action": "modifier", "chemin": ["temperature", "mode"], "valeur": "meteo"},
+    {"action": "modifier", "chemin": ["temperature", "meteo"], "valeur": _meteo_exemple(), "etat": _etat_meteo()},
+    {"action": "modifier", "chemin": ["temperature", "meteo"], "valeur": _meteo_exemple(trouve=False), "etat": _etat_meteo()},
+    {"action": "modifier", "chemin": ["temperature", "meteo"], "valeur": dict(_meteo_exemple(), reponses=[]), "etat": _etat_meteo()},
+    {"action": "modifier", "chemin": ["temperature", "meteo_horaire"], "valeur": _meteo_exemple(horaire=True), "etat": _etat_meteo(True)},
+    {"action": "modifier", "chemin": ["temperature", "releve"], "valeur": "8\n9\n10", "etat": _etat_meteo(True)},
+    {"action": "modifier", "chemin": ["temperature", "fin"], "valeur": "30/12/2027", "etat": _etat_meteo(True)},
 ]
 
 
@@ -183,6 +252,94 @@ def _releve(c: Dict, texte: str, nom: Optional[str] = None) -> Optional[str]:
     return None
 
 
+def _dates_meteo(c: Dict, auj: _dt.date):
+    """Les dates de la récupération : celles saisies, sinon celles de l'écran au premier affichage (le coulage = la date
+    de coulage du béton, sinon aujourd'hui − 14 j ; la fin = max(aujourd'hui, coulage + 5 j))."""
+    t = c["temperature"]
+    debut = _dt.date.fromisoformat(t["debut"]) if t["debut"] else MT.dates_par_defaut(c["date_coulage"], auj)[0]
+    fin = _dt.date.fromisoformat(t["fin"]) if t["fin"] else MT.dates_par_defaut(debut.isoformat(), auj)[1]
+    return debut, fin
+
+
+def plan_meteo(c: Dict, auj: Optional[_dt.date] = None) -> Dict:
+    """Le plan de la récupération du coulage (le bouton « Récupérer la météo ») ; {"erreur": message} si elle est
+    impossible (pas de lieu, fin avant le coulage, dates hors de portée)."""
+    auj = auj or aujourdhui()
+    debut, fin = _dates_meteo(c, auj)
+    try:
+        return MT.plan(c["temperature"]["lieu"], debut, fin, auj)
+    except ValueError as e:
+        return {"erreur": str(e)}
+
+
+def plan_horaire(c: Dict, auj: Optional[_dt.date] = None) -> Dict:
+    """Le plan du détail horaire (le second bouton) : le lieu trouvé, les dates de la récupération gardée."""
+    try:
+        return MT.plan_horaire(c["temperature"]["meteo"], auj or aujourdhui())
+    except ValueError as e:
+        return {"erreur": str(e)}
+
+
+def _plan_recu(valeur) -> Optional[_dt.date]:
+    """Le jour du plan que le navigateur a exécuté (il le renvoie avec les réponses) ; None s'il est illisible."""
+    try:
+        return _dt.date.fromisoformat(valeur["plan"]["aujourdhui"])
+    except (TypeError, KeyError, ValueError):
+        return None
+
+
+MODIFIEE = "Lieu ou dates modifiés pendant la récupération : cliquez à nouveau sur « Récupérer la météo »."
+
+
+def _importer_meteo(c: Dict, valeur) -> Optional[str]:
+    """La météo que le navigateur a récupérée ({"lieu", "plan", "geocodage", "reponses"}, BRUTS) : relue par le moteur
+    (beton/maturite/meteo.py) contre le plan du coulage, écrite en relevé (modifiable ensuite), et GARDÉE dans la note
+    (la récupération : lieu, dates, jour et heure, réponses). Un refus rend un message ; le coulage reste intact."""
+    auj = _plan_recu(valeur) if isinstance(valeur, dict) else None
+    if auj is None:
+        return "Météo illisible : le navigateur n'a pas rendu le plan de la récupération. Rechargez la page et recommencez."
+    t = c["temperature"]
+    p = plan_meteo(c, auj)
+    if "erreur" in p:
+        return f"Météo non récupérée — {p['erreur']}"
+    if valeur.get("plan") != p:
+        return MODIFIEE
+    try:
+        geo = MT.lire_geocodage(valeur.get("geocodage"))
+        if geo is None:
+            return f"Lieu introuvable : « {t['lieu']} ». Précisez la ville et le pays (ex. « Namur, Belgique »)."
+        j = MT.lire_journalier(p, valeur.get("reponses"))
+        texte = MT.releve(j)
+        rec = MT.enregistrement(p, valeur["geocodage"], valeur["reponses"], maintenant())
+    except ValueError as e:
+        return f"Météo refusée — {e}."
+    t.update(releve=texte, meteo=rec, debut=p["debut"], fin=p["fin"], mode="meteo")
+    c.pop(BROUILLON, None)
+    return None
+
+
+def _importer_horaire(c: Dict, valeur) -> Optional[str]:
+    """Le détail horaire récupéré (à la demande) : relu contre le plan horaire de la récupération gardée, et gardé."""
+    rec = c["temperature"]["meteo"]
+    if not rec:
+        return "Récupérez d'abord la météo du lieu : le détail horaire la complète."
+    auj = _plan_recu(valeur) if isinstance(valeur, dict) else None
+    if auj is None:
+        return "Détail horaire illisible : le navigateur n'a pas rendu le plan de la récupération."
+    p = plan_horaire(c, auj)
+    if "erreur" in p:
+        return f"Détail horaire non récupéré — {p['erreur']}"
+    if valeur.get("plan") != p:
+        return MODIFIEE
+    try:
+        MT.lire_horaire(p, valeur.get("reponses"))
+        rec["horaire"] = MT.enregistrement_horaire(p, valeur["reponses"], maintenant())
+        c["temperature"]["meteo"] = MT.normaliser(rec)
+    except ValueError as e:
+        return f"Détail horaire refusé — {e}."
+    return None
+
+
 def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     """Écrit une saisie dans le coulage ouvert. Le moteur relit le coulage : une valeur hors du domaine de l'écran est
     refusée avec un message, et le coulage reste intact."""
@@ -191,7 +348,12 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     ch = [str(x) for x in chemin]
     k = "/".join(ch)
     try:
-        if k == "temperature/releve":
+        if k in ("temperature/meteo", "temperature/meteo_horaire"):
+            msg = (_importer_meteo if k == "temperature/meteo" else _importer_horaire)(c, valeur)
+            if msg:
+                etat["coulages"][etat["actif"]] = avant
+                return msg
+        elif k == "temperature/releve":
             msg = _releve(c, "" if valeur is None else str(valeur))
             if msg:
                 return msg
@@ -215,12 +377,21 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             texte = "" if valeur is None else str(valeur).strip()
             if k == "date_coulage":
                 c[k] = EN.lire_date(texte)
+            elif k in ("temperature/debut", "temperature/fin"):
+                t = c["temperature"]
+                t[ch[1]] = EN.lire_date(texte)
+                if t["debut"] and t["fin"] and t["fin"] < t["debut"]:
+                    if k == "temperature/fin":
+                        raise ValueError("temperature/fin : elle précède le début")
+                    t["fin"] = None          # le coulage passe après la fin : elle redevient automatique (l'écran la recale)
             elif k == "nom":
                 c[k] = texte[:200]
             else:
                 c["temperature"]["lieu"] = texte[:200]
         elif k in CHOIX:
             _poser(c, ch, str(valeur))
+            if k == "temperature/mode" and c["temperature"]["mode"] == "meteo" and not c["temperature"]["lieu"]:
+                c["temperature"]["lieu"] = MT.LIEU_DEFAUT          # « Lieu du chantier » de l'écran au premier affichage
         elif k in CASES:
             _poser(c, ch, bool(valeur) if isinstance(valeur, bool) else str(valeur).lower() in ("true", "1", "oui"))
         elif k in NOMBRES or k in ENTIERS:
@@ -306,18 +477,112 @@ def _date_fr(iso: Optional[str]) -> str:
 
 
 def _cure(r: Dict) -> str:
+    """La cure en une ligne (TEXTE : le nom du lieu vient d'Open-Meteo, celui qui l'écrit en HTML l'échappe)."""
     tp = r["temperature"]
     if tp["source"] == "releve":
+        if tp["mode"] == "meteo" and tp["meteo"]:
+            return f"météo de {tp['meteo']['nom']} · {tp['releve']['n_jours']} j · T moy {_mpa(tp['T'])} °C"
         return f"relevé de {tp['releve']['n_jours']} j · T moy {_mpa(tp['T'])} °C"
     if tp["mode"] == "releve":
         return "relevé à saisir · 20 °C"
+    if tp["mode"] == "meteo":
+        return "météo à récupérer · 20 °C"
     return f"{_deg(tp['T'])} °C constante"
 
 
 def _cure_courte(r: Dict) -> str:
     """La cure en deux mots, pour la liste des coulages de la note (la ligne doit tenir sur une tablette)."""
     tp = r["temperature"]
-    return "relevé" if tp["mode"] == "releve" else f"{_deg(tp['T'])} °C"
+    return {"releve": "relevé", "meteo": "météo"}.get(tp["mode"]) or f"{_deg(tp['T'])} °C"
+
+
+def _quand(iso: str) -> str:
+    """« 2026-11-07T14:32 » → « 07/11/2026 à 14:32 »."""
+    d = _dt.datetime.fromisoformat(iso)
+    return f"{d:%d/%m/%Y} à {d:%H:%M}"
+
+
+def _position(mt: Dict) -> str:
+    """La position du lieu trouvé, à la française : « 50,85° N · 4,35° E »."""
+    lat, lon = mt["latitude"], mt["longitude"]
+    return (f"{C.fr(abs(lat), 2)}°{C.NBSP}{'N' if lat >= 0 else 'S'}{C.NBSP}·{C.NBSP}"
+            f"{C.fr(abs(lon), 2)}°{C.NBSP}{'E' if lon >= 0 else 'O'}")
+
+
+def _synthese_releve(etiquette: str, tp: Dict) -> str:
+    """Le badge de l'écran (« lieu — n j mesurés · n j de prévision · n j prolongés ») et la rangée de mesures (T min,
+    T moy, T max, t_e, t_e défavorable) d'un relevé exploitable. ``etiquette`` est du HTML (échappé par l'appelant)."""
+    rel = tp["releve"]
+    badge = f"<b>{etiquette}</b> — {rel['n_mes']} j mesuré{'s' if rel['n_mes'] > 1 else ''}"
+    if rel["n_prev"]:
+        badge += f" · {rel['n_prev']} j de prévision"
+    if rel["n_extra"]:
+        badge += f" · {rel['n_extra']} j prolongé{'s' if rel['n_extra'] > 1 else ''}"
+    mini = (f'<div class="age-mini"><div><span>T min</span><b>{_mpa(rel["T_min"])} °C</b></div>'
+            f'<div><span>T moy</span><b>{_mpa(tp["T"])} °C</b></div><div><span>T max</span><b>{_mpa(rel["T_max"])} °C</b></div>'
+            f'<div><span>t<sub>e</sub></span><b>{_j(rel["t_e_releve"])} j</b></div>'
+            + (f'<div><span>t<sub>e</sub> défav.</span><b>{_j(rel["t_e_releve_defav"])} j</b></div>' if rel["t_e_releve_defav"] is not None else "")
+            + "</div>")
+    return C.aide(badge) + mini
+
+
+def _zone_releve(c: Dict, indice: str) -> str:
+    """La zone du relevé (une ligne par jour), avec le relevé refusé gardé à l'écran et son erreur."""
+    br = c.get(BROUILLON)
+    out = C.zone_texte(["temperature", "releve"], br["texte"] if br else c["temperature"]["releve"], 8, indice)
+    if br:
+        out += C.message(f"{C.esc(br['erreur'])} — le calcul garde le relevé précédent.", True)
+    return out
+
+
+AIDE_FORMAT = ("Format : la température moyenne du jour (°C), précédée de sa date si l'on veut (AAAA-MM-JJ ou JJ/MM/AAAA), "
+               "suivie de sa source (mesuré, prévision, prolongé) ; « — » : jour sans donnée. Le tableau « Données météo » "
+               "de Streamlit se colle tel quel. Les jours prévus et prolongés donnent la variante défavorable (− 3 °C).")
+AIDE_METEO = ("La météo est une importation de données, à la demande : le navigateur interroge Open-Meteo (géocodage, archive, "
+              "prévisions) ; la note garde les températures reçues, et le calcul se fait hors ligne. Sans réseau : une "
+              "température constante, ou un relevé.")
+
+
+def _section_meteo(c: Dict, r: Dict) -> str:
+    """La cure « Météo du lieu » : le lieu, les dates, le bouton (le plan du moteur), puis ce qui a été récupéré — le
+    lieu trouvé, le jour et l'heure, le badge et les mesures de l'écran, le détail horaire à la demande, et les
+    températures reçues, modifiables."""
+    L = C.ligne
+    t, tp = c["temperature"], r["temperature"]
+    auj = aujourdhui()
+    d0, f0 = _dates_meteo(dict(c, temperature=dict(t, debut=None, fin=None)), auj)
+    f0 = _dates_meteo(dict(c, temperature=dict(t, fin=None)), auj)[1]
+    mt = tp["meteo"]
+    s = (L("Lieu", C.texte(["temperature", "lieu"], t["lieu"], "ex. Bruxelles, Belgique"), full=True,
+           aide="La ville et le pays du chantier : le premier lieu trouvé par Open-Meteo est retenu, et nommé sous le bouton.")
+         + L("Début", C.texte(["temperature", "debut"], _date_fr(t["debut"]), f"auto · {d0:%d/%m/%Y}"), full=True,
+             aide="Le premier jour du relevé : le coulage (« Coulage » de l'écran Streamlit), passé (chantier en cours) ou à venir. "
+                  "Vide : la date de coulage du béton, sinon il y a 14 jours.")
+         + L("Fin", C.texte(["temperature", "fin"], _date_fr(t["fin"]), f"auto · {f0:%d/%m/%Y}"), full=True,
+             aide=f"Le dernier jour du relevé : le contrôle ou le décoffrage (« Fin (décoffrage) » de l'écran Streamlit). Vide : "
+                  f"aujourd'hui, ou le début + 5 j s'il est à venir. Prévisions jusqu'à + {HORIZON_PREVISION_J} j ; au-delà, les jours "
+                  "sont prolongés.")
+         + C.bouton_meteo(["temperature", "meteo"], "Récupérer à nouveau la météo" if mt else "Récupérer la météo", plan_meteo(c, auj)))
+    if mt:
+        if mt["demande_changee"]:
+            s += C.message("Lieu ou dates modifiés depuis la récupération — cliquez à nouveau sur « Récupérer la météo ».")
+        s += C.aide(f'<span class="age-prov">Open-Meteo · récupérée le {_quand(mt["recupere"])} · {_position(mt)}</span>')
+    if tp["releve"]:
+        s += _synthese_releve(C.esc(mt["label"]) if mt else (C.esc(t["lieu"]) or "Relevé"), tp)
+    if mt:
+        if mt["modifie"]:
+            s += C.aide("Températures corrigées à la main depuis la récupération ; « Récupérer à nouveau la météo » remet celles du service.")
+        if mt["horaire"] is None:
+            s += C.bouton_meteo(["temperature", "meteo_horaire"], "Charger le détail horaire (facultatif)", plan_horaire(c, auj), petit=True)
+        else:
+            s += C.aide(f"Détail horaire chargé le {_quand(mt['horaire_recupere'])} : T min h et T max h de chaque jour, dans la vue « Tableau ».")
+    if mt or t["releve"] or c.get(BROUILLON):
+        s += ('<div class="grp">Températures journalières (modifiables)</div>'
+              + _zone_releve(c, "Une ligne par jour : 2026-11-03;8,0;mesuré"))
+    else:
+        s += C.aide(f"Renseignez le lieu et les dates — passées (chantier en cours) ou à venir (prévisions jusqu'à + {HORIZON_PREVISION_J} j) — "
+                    "puis récupérez la météo. T = 20 °C par défaut.")
+    return s + C.aide(AIDE_METEO)
 
 
 # ------------------------------------------------------------------ le cadre Données
@@ -332,41 +597,27 @@ def formulaire(etat: Dict, r: Dict) -> str:
           + C.aide(f"Classe {m['ciment']} : {C.esc(m['ciment_detail'])} — s = {C.nb(m['s'], 2)} (EC2 §3.1.2)")
           + L("Coulage", C.texte(["date_coulage"], _date_fr(c["date_coulage"]), "JJ/MM/AAAA"), full=True,
               aide="La date du coulage date le seuil ② ; vide : le seuil est donné en jours."))
-    # 2 · la cure
+    # 2 · la cure : constante, relevé saisi, ou météo du lieu
     t = c["temperature"]
-    s2 = L("Cure", C.segments(["temperature", "mode"], t["mode"], [("constante", "Constante"), ("releve", "Relevé")]), full=True)
+    s2 = L("Cure", C.segments(["temperature", "mode"], t["mode"], SOURCES_CURE), full=True)
     if t["mode"] == "constante":
         s2 += (L("température", C.num(["temperature", "T"], t["T"], "°C", mini=EN.T_MIN, maxi=EN.T_MAX), "T",
                  "Température de cure, constante (−5 à 60 °C).")
-               + C.aide("Une cure variable (chantier en cours, hiver) : passer en « Relevé » et coller les températures journalières."))
+               + C.aide("Une cure variable (chantier en cours, hiver) : « Relevé » pour coller les températures journalières, "
+                        "« Météo du lieu » pour les récupérer chez Open-Meteo."))
+    elif t["mode"] == "meteo":
+        s2 += _section_meteo(c, r)
     else:
-        br = c.get(BROUILLON)
         s2 += (L("Lieu", C.texte(["temperature", "lieu"], t["lieu"], "ex. Bruxelles"), full=True)
                + '<div class="grp">Températures moyennes journalières</div>'
-               + C.zone_texte(["temperature", "releve"], br["texte"] if br else t["releve"], 8,
-                              "Une ligne par jour, du coulage au dernier jour :\n9,5\n2026-11-03;8,0\n04/11/2026;7,0;prévision")
+               + _zone_releve(c, "Une ligne par jour, du coulage au dernier jour :\n9,5\n2026-11-03;8,0\n04/11/2026;7,0;prévision")
                + f'<div class="age-fichier">{C.fichier(["temperature", "fichier"], "Lire un fichier", ".csv,.txt,.tsv")}'
                + (f'<span>{C.esc(t["fichier"])}</span>' if t["fichier"] else "<span>.csv ou .txt</span>") + "</div>")
-        if br:
-            s2 += C.message(f"{C.esc(br['erreur'])} — le calcul garde le relevé précédent.", True)
-        rel = tp["releve"]
-        if rel:
-            badge = f"<b>{C.esc(t['lieu']) or 'Relevé'}</b> — {rel['n_mes']} j mesuré{'s' if rel['n_mes'] > 1 else ''}"
-            if rel["n_prev"]:
-                badge += f" · {rel['n_prev']} j de prévision"
-            if rel["n_extra"]:
-                badge += f" · {rel['n_extra']} j prolongé{'s' if rel['n_extra'] > 1 else ''}"
-            mini = (f'<div class="age-mini"><div><span>T min</span><b>{_mpa(rel["T_min"])} °C</b></div>'
-                    f'<div><span>T moy</span><b>{_mpa(tp["T"])} °C</b></div><div><span>T max</span><b>{_mpa(rel["T_max"])} °C</b></div>'
-                    f'<div><span>t<sub>e</sub></span><b>{_j(rel["t_e_releve"])} j</b></div>'
-                    + (f'<div><span>t<sub>e</sub> défav.</span><b>{_j(rel["t_e_releve_defav"])} j</b></div>' if rel["t_e_releve_defav"] is not None else "")
-                    + "</div>")
-            s2 += C.aide(badge) + mini
-        s2 += C.aide("Format : la température moyenne du jour (°C), précédée de sa date si l'on veut (AAAA-MM-JJ ou JJ/MM/AAAA), "
-                     "suivie de sa source (mesuré, prévision, prolongé) ; « — » : jour sans donnée. Le tableau « Données météo » "
-                     "de Streamlit se colle tel quel. Les jours prévus et prolongés donnent la variante défavorable (− 3 °C).")
-        s2 += C.aide(f"Le site calcule hors ligne : il ne va pas chercher la météo (Open-Meteo, prévisions à {HORIZON_PREVISION_J} j, "
-                     "dans Streamlit). Les températures se saisissent ici.")
+        if tp["releve"]:
+            s2 += _synthese_releve(C.esc(t["lieu"]) or "Relevé", tp)
+        s2 += C.aide(AIDE_FORMAT)
+        s2 += C.aide(f"Les températures du lieu peuvent aussi se récupérer chez Open-Meteo (prévisions à {HORIZON_PREVISION_J} j) : "
+                     "« Météo du lieu ».")
     # 3 · l'âge choisi ①
     borne = a["age_max"]
     usuels = [(x, f"{x} j") for x in AGES_USUELS if x <= borne]
@@ -423,7 +674,7 @@ def formulaire(etat: Dict, r: Dict) -> str:
     r7 = f"{C.nb(es['mpa'])} MPa à {C.nb(es['age'])} j → ≈ {ex['classe']}" if ex["actif"] else "aucun essai"
     r8 = f"E<sub>a</sub> = {C.nb(tp['Ea_kJ'], 1)} kJ/mol" + (" · ajustée" if c["avance"] else " · EC2")
     return (C.section(1, "Béton", f"{m['classe']} · ciment {m['ciment']} · s = {C.nb(m['s'], 2)}", s1, True, "bt")
-            + C.section(2, "Température de cure", _cure(r), s2, True, "tp")
+            + C.section(2, "Température de cure", C.esc(_cure(r)), s2, True, "tp")
             + C.section(3, "Résistance à un âge", f"{a['t']} j → {_mpa(a['fck'], 2)} MPa", s3, True, "ag")
             + C.section(4, "Seuil de résistance", r4, s4, False, "se")
             + C.section(5, "Classe pour un délai", r5, s5, False, "op")
@@ -539,8 +790,13 @@ def _verdict(r: Dict, nom: str) -> str:
 
 def _hypotheses(r: Dict) -> List[str]:
     m, tp = r["materiau"], r["temperature"]
-    cure = (f"Cure : <b>relevé</b> de {tp['releve']['n_jours']} j · T<sub>moy</sub> = {_mpa(tp['T'])} °C" if tp["source"] == "releve"
-            else f"Cure à <b>{_deg(tp['T'])} °C</b> constante")
+    if tp["source"] == "releve" and tp["meteo"]:
+        cure = (f"Cure : <b>météo de {C.esc(tp['meteo']['nom'])}</b> (Open-Meteo, récupérée le {_quand(tp['meteo']['recupere'])}"
+                f"{', corrigée à la main' if tp['meteo']['modifie'] else ''}) · {tp['releve']['n_jours']} j · T<sub>moy</sub> = {_mpa(tp['T'])} °C")
+    elif tp["source"] == "releve":
+        cure = f"Cure : <b>relevé</b> de {tp['releve']['n_jours']} j · T<sub>moy</sub> = {_mpa(tp['T'])} °C"
+    else:
+        cure = f"Cure à <b>{_deg(tp['T'])} °C</b> constante"
     return [f"Béton <b>{C.esc(m['classe'])}</b> · f<sub>ck</sub> = {m['fck28']} MPa · f<sub>cm</sub> = {C.nb(m['fcm'])} MPa",
             f"Ciment <b>{m['ciment']}</b> · s = {C.nb(m['s'], 2)} · {C.esc(m['ciment_detail'])}",
             cure, f"E<sub>a</sub> = {C.nb(tp['Ea_kJ'], 3)} kJ/mol · E<sub>a</sub>/R = {_v(tp['Ea_R'], 1)} K"]
@@ -728,9 +984,12 @@ def _vue_tableau(r: Dict) -> str:
     """Les valeurs que la courbe trace, jour par jour (le moteur : ``tableau``) — un tableau HTML posé dans la feuille."""
     tb = r["tableau"]
     rel = tb["releve"]
+    hor = tb.get("horaire")
     tete = '<th>Âge<small>j</small></th>'
     if rel:
         tete += '<th>Date</th><th>T<small>°C</small></th><th class="g">Source</th>'
+    if hor:
+        tete += '<th>T min h<small>°C</small></th><th>T max h<small>°C</small></th>'
     tete += '<th>t<sub>e</sub><small>j</small></th><th>f<sub>ck</sub>(t)<small>MPa</small></th><th>f<sub>ck</sub>(t) / f<sub>ck</sub><small>%</small></th>'
     if rel:
         tete += '<th>à T<sub>moy</sub><small>MPa</small></th>'
@@ -748,6 +1007,8 @@ def _vue_tableau(r: Dict) -> str:
         if rel:
             tr += f'<td class="d">{_date_fr(li["date"]) if li.get("date") else "—"}</td>'
             tr += f'<td>{_mpa(li["T_brut"]) if li["T_brut"] is not None else "—"}</td><td class="s {li["source"]}">{sources[li["source"]]}</td>'
+        if hor:
+            tr += f'<td>{_mpa(li["T_min_h"])}</td><td>{_mpa(li["T_max_h"])}</td>'
         tr += f'<td>{_j(li["t_e"], 2)}</td><td class="f">{_mpa(li["fck"], 2)}</td><td>{C.fr(li["pct"], 0).replace("-", "−")}</td>'
         if rel:
             tr += f'<td>{_mpa(li["fck_moyenne"], 2)}</td>'
@@ -760,6 +1021,8 @@ def _vue_tableau(r: Dict) -> str:
     if rel:
         pied += (" Avec un relevé : f<sub>ck</sub>(t) suit le relevé jour par jour (comme ①), « à T<sub>moy</sub> » est la valeur de la "
                  "courbe (la température moyenne, comme Streamlit).")
+    if hor:
+        pied += " T min h, T max h : les extrêmes horaires du jour (Open-Meteo, détail horaire) ; « — » : aucune valeur horaire."
     if tb["classes"]:
         pied += f" Les classes comparées ④ avec le ciment {C.esc(r['comparateur']['ciment'])}."
     return (f'<div class="age-vue"><div class="age-defile"><table class="age-tab"><thead><tr>{tete}</tr></thead><tbody>{corps}</tbody></table></div>'
@@ -804,9 +1067,13 @@ def resultat(etat: Dict) -> Dict:
     vues = [{"cle": "courbe", "titre": "Résistance au jeune âge", "court": "Courbe", "svg": DA.courbe("age_courbe", r), "legende": titre_courbe,
              "echelle": False}]
     if tp["source"] == "releve":
-        rel = tp["releve"]
-        vues.append({"cle": "releve", "titre": "Relevé des températures", "court": "Températures", "svg": DA.releve("age_releve", r), "echelle": False,
-                     "legende": f"{tp['lieu'] or 'relevé'} · {rel['n_jours']} j · T moy {_mpa(tp['T'])} °C · t_e {_j(rel['t_e_releve'])} j"})
+        rel, mt = tp["releve"], tp["meteo"]
+        if mt:
+            titre, leg = "Météo du lieu", f"{mt['label']} · Open-Meteo, {_quand(mt['recupere'])}" + (" · corrigée à la main" if mt["modifie"] else "")
+        else:
+            titre, leg = "Relevé des températures", tp["lieu"] or "relevé"
+        vues.append({"cle": "releve", "titre": titre, "court": "Températures", "svg": DA.releve("age_releve", r), "echelle": False,
+                     "legende": f"{leg} · {rel['n_jours']} j · T moy {_mpa(tp['T'])} °C · t_e {_j(rel['t_e_releve'])} j"})
     vues.append({"cle": "tableau", "titre": "Valeurs jour par jour", "court": "Tableau", "svg": _vue_tableau(r),
                  "legende": "âge, âge équivalent, résistance" + (" · classes comparées" if r["tableau"]["classes"] else "")})
     date = f" · coulé le {_date_fr(c['date_coulage'])}" if c["date_coulage"] else ""

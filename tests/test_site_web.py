@@ -12,7 +12,11 @@
   écran ; l'accueil, les cinq entrées du bas dans l'ordre de la barre ; le seuil du téléphone (700 px) est le même
   dans la charte, css/site.css et js/etabli.js (trois copies d'un même nombre, liées ici) ;
 - le travailleur ne charge numpy que pour les modules que le relevé a vus s'en servir (manifeste « avec_numpy ») ;
-- un nom de fichier venu du moteur est nettoyé avant le téléchargement (js/commun.js, joué par node).
+- un nom de fichier venu du moteur est nettoyé avant le téléchargement (js/commun.js, joué par node) ;
+- la politique de sécurité : tout du site, aucun script en ligne ; la seule ouverture est de DONNÉES — connect-src permet
+  EXACTEMENT les trois adresses d'Open-Meteo (la météo du lieu, importée à la demande), copies liées ici de
+  beton/maturite/meteo.py et de js/meteo.js ; js/meteo.js (joué par node, fetch simulé) ne construit d'adresse que vers
+  elles, n'envoie que les paramètres permis, et change chaque panne en message.
 
     python3 tests/test_site_web.py
 """
@@ -201,12 +205,94 @@ chk("l'en-tête du téléphone et la carte de l'accueil écrivent le taux par te
 sys.path.insert(0, os.path.join(WEB, "outils"))
 import serveur_local as SL  # noqa: E402
 
-for url in ("/index.html", "/poutre.html", "/js/travailleur.js", f"/{SW.PYODIDE}/pyodide.asm.wasm", "/moteur/moteur.zip"):
+from beton.maturite import meteo as MTO  # noqa: E402  (les adresses d'Open-Meteo : la source)
+
+HOTES_METEO = [re.match(r"(https://[^/]+)/", u).group(1) for u in MTO.ADRESSES.values()]
+for url in ("/index.html", "/poutre.html", "/maturite-beton.html", "/js/travailleur.js", f"/{SW.PYODIDE}/pyodide.asm.wasm", "/moteur/moteur.zip"):
     csp = SL.entetes(url).get("Content-Security-Policy", "")
     d = {x.split()[0]: x.split()[1:] for x in (y.strip() for y in csp.split(";")) if x}
-    chk(f"{url} : politique de sécurité stricte (tout du site, aucun script en ligne, WebAssembly seul permis)",
+    # connect-src : le site lui-même, et EXACTEMENT les trois adresses d'Open-Meteo (la météo du lieu, des DONNÉES
+    # importées à la demande) — rien d'autre ; aucun script, aucune feuille, aucune image n'en vient
+    chk(f"{url} : politique de sécurité stricte (tout du site, aucun script en ligne, WebAssembly seul permis ; connect-src : le site et les "
+        "trois adresses d'Open-Meteo, rien d'autre)",
         d.get("default-src") == ["'self'"] and d.get("script-src") == ["'self'", "'wasm-unsafe-eval'"] and d.get("object-src") == ["'none'"]
-        and d.get("frame-ancestors") == ["'none'"] and "'unsafe-eval'" not in csp and d.get("connect-src") == ["'self'"], csp)
+        and d.get("frame-ancestors") == ["'none'"] and "'unsafe-eval'" not in csp and d.get("connect-src") == ["'self'"] + HOTES_METEO
+        and not any("open-meteo" in " ".join(v) for k, v in d.items() if k != "connect-src"), csp)
+# les trois adresses : une SOURCE (le moteur), deux copies NOMMÉES (l'écran, la politique de sécurité), liées ici
+METEO_JS = open(os.path.join(WEB, "js", "meteo.js"), encoding="utf-8").read()
+copie_js = dict(re.findall(r'^\s+(geocodage|archive|prevision): "(https://[^"]+)",$', METEO_JS, re.M))
+chk("les adresses d'Open-Meteo sont les mêmes dans le moteur (meteo.ADRESSES), l'écran (js/meteo.js) et la politique de sécurité (_headers)",
+    copie_js == MTO.ADRESSES and len(HOTES_METEO) == 3 and len(set(HOTES_METEO)) == 3, (copie_js, MTO.ADRESSES))
+chk("seul js/meteo.js appelle l'extérieur : aucun autre script de l'écran ne nomme un hôte ni n'appelle fetch vers un tiers",
+    all("open-meteo" not in open(os.path.join(WEB, "js", f), encoding="utf-8").read() for f in os.listdir(os.path.join(WEB, "js")) if f != "meteo.js")
+    and 'from "./meteo.js"' in open(os.path.join(WEB, "js", "etabli.js"), encoding="utf-8").read())
+# js/meteo.js joué par node, fetch simulé : ce qui part (adresses, paramètres), ce qui revient (réponses brutes), les pannes
+ESSAI_METEO = r"""
+const m = await import(%s);
+const plan = %s;
+const journal = [];
+const geo = {results: [{name: "Bruxelles", admin1: "Bruxelles-Capitale", country: "Belgique", latitude: 50.85045, longitude: 4.34878}]};
+const jour = (u) => ({daily: {time: [new URL(u).searchParams.get("start_date")], temperature_2m_mean: [7.5]}});
+const service = (mode) => async (u, init) => {
+  journal.push(u);
+  if (mode === "reseau") throw new TypeError("Failed to fetch");
+  if (mode === "lent") return new Promise((ok, ko) => init.signal.addEventListener("abort", () => ko(Object.assign(new Error("abort"), {name: "AbortError"}))));
+  if (mode === "429" || (mode === "429-puis" && journal.filter((x) => x === u).length === 1)) return {status: 429, ok: false, json: async () => ({reason: "Too many"})};
+  if (mode === "500") return {status: 500, ok: false, json: async () => ({error: true, reason: "Panne <b>simulée</b>"})};
+  if (mode === "illisible") return {status: 200, ok: true, json: async () => { throw new SyntaxError("x"); }};
+  if (u.startsWith(m.ADRESSES.geocodage)) return {status: 200, ok: true, json: async () => (mode === "inconnu" ? {generationtime_ms: 0.4} : geo)};
+  return {status: 200, ok: true, json: async () => jour(u)};
+};
+const out = {};
+for (const mode of ["bon", "inconnu", "reseau", "lent", "429", "429-puis", "500", "illisible"]) {
+  journal.length = 0;
+  const attentes = [];
+  const r = await m.recupererMeteo(plan, {fetch: service(mode), attendre: async (ms) => attentes.push(ms), delai: 50});
+  out[mode] = {r, journal: [...journal], attentes};
+}
+out.erreur = await m.recupererMeteo({erreur: "Période entièrement au-delà"}, {fetch: service("bon")});
+out.malicieux = await m.recupererMeteo({...plan, appels: [{source: "ailleurs", parametres: {}}]}, {fetch: service("bon")});
+journal.length = 0;
+out.parametre = await m.recupererMeteo({...plan, appels: [{source: "archive", parametres: {start_date: "2026-11-01", callback: "x"}}]}, {fetch: service("bon")});
+out.parametre_journal = [...journal];
+out.position = await m.recupererMeteo({...plan, lieu: undefined, geocodage: undefined, position: {latitude: 50.5, longitude: 4.9}}, {fetch: service("bon")});
+out.adresse = m.adresse("geocodage", {name: "Saint-Gilles & Co/1 «é»", count: 1, language: "fr"});
+console.log(JSON.stringify(out));
+"""
+PLAN_M = MTO.plan("Bruxelles, Belgique", "2026-10-24", "2026-11-07", "2026-11-07")
+try:
+    sortie = subprocess.run(["node", "--input-type=module", "-e", ESSAI_METEO % (json.dumps("file://" + os.path.join(WEB, "js", "meteo.js")), json.dumps(PLAN_M))],
+                            capture_output=True, text=True, timeout=60)
+    JM = json.loads(sortie.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    JM = {"_": str(e), "stderr": locals().get("sortie") and sortie.stderr[-400:]}
+bon = JM.get("bon", {})
+att_urls = [MTO.ADRESSES["geocodage"] + "?name=Bruxelles%2C+Belgique&count=1&language=fr"] + [
+    MTO.ADRESSES[a["source"]] + "?" + "&".join(f"{k}={str(v).replace(':', '%3A')}" for k, v in MTO.parametres(a, {"latitude": 50.85045, "longitude": 4.34878}).items())
+    for a in PLAN_M["appels"]]
+chk("js/meteo.js : le géocodage puis chaque appel du plan, vers les adresses d'Open-Meteo, paramètres dans l'ordre de l'écran (latitude, longitude, dates, fuseau, variable), encodés",
+    bon.get("journal") == att_urls, (bon.get("journal"), att_urls, JM.get("stderr")))
+chk("js/meteo.js : les réponses BRUTES partent au module avec le plan et le lieu ({lieu, plan, geocodage, reponses})",
+    bon.get("r", {}).get("ok") and bon["r"]["valeur"]["plan"] == PLAN_M and bon["r"]["valeur"]["lieu"] == "Bruxelles, Belgique"
+    and bon["r"]["valeur"]["geocodage"]["results"][0]["name"] == "Bruxelles" and len(bon["r"]["valeur"]["reponses"]) == 2, bon.get("r"))
+chk("js/meteo.js : un lieu introuvable part au module sans réponses (c'est le module qui le dit), sans autre appel",
+    JM.get("inconnu", {}).get("r", {}).get("valeur", {}).get("reponses") == [] and len(JM["inconnu"]["journal"]) == 1, JM.get("inconnu"))
+MSG = {"reseau": "Pas de réseau", "lent": "ne répond pas", "429": "saturé", "500": "Service météo en panne (erreur 500 — Panne <b>simulée</b>)",
+       "illisible": "Réponse illisible"}
+chk("js/meteo.js : pas de réseau, service muet (délai), saturé (429 deux fois), en panne (500 et sa raison), réponse illisible → un message en "
+    "français, jamais une exception ; le calcul hors ligne est rappelé",
+    all(not JM.get(k, {}).get("r", {}).get("ok", True) and v in JM[k]["r"]["erreur"] and "hors ligne" in JM[k]["r"]["erreur"] for k, v in MSG.items()),
+    {k: JM.get(k, {}).get("r") for k in MSG})
+chk("js/meteo.js : un « trop de demandes » (429) est réessayé une fois, 2 s après (comme l'écran) — chaque appel du plan, puis il passe ; deux 429 de suite arrêtent tout",
+    JM.get("429-puis", {}).get("r", {}).get("ok") and JM["429-puis"]["attentes"] == [2000] * 3 and len(JM["429-puis"]["journal"]) == 6
+    and JM.get("429", {}).get("attentes") == [2000] and len(JM["429"]["journal"]) == 2, {k: JM.get(k, {}).get("attentes") for k in ("429", "429-puis")})
+chk("js/meteo.js : un plan impossible (dates hors de portée) rend son message, sans appel ; une source inconnue ou un paramètre non permis sont refusés",
+    JM.get("erreur") == {"ok": False, "erreur": "Période entièrement au-delà"} and not JM.get("malicieux", {}).get("ok", True)
+    and not JM.get("parametre", {}).get("ok", True) and "callback" in JM["parametre"]["erreur"]
+    and all("callback" not in u for u in JM.get("parametre_journal", ["callback"])), (JM.get("malicieux"), JM.get("parametre")))
+chk("js/meteo.js : un plan qui donne la position (le détail horaire) ne géocode pas ; les paramètres sont encodés",
+    JM.get("position", {}).get("r", JM.get("position", {})).get("ok") is not False and JM.get("position", {}).get("ok")
+    and JM.get("adresse") == MTO.ADRESSES["geocodage"] + "?name=Saint-Gilles+%26+Co%2F1+%C2%AB%C3%A9%C2%BB&count=1&language=fr", (JM.get("position"), JM.get("adresse")))
 chk("le cœur Python reste en cache, le paquet du moteur est relu à chaque ouverture",
     "immutable" in SL.entetes(f"/{SW.PYODIDE}/pyodide.asm.wasm").get("Cache-Control", "")
     and SL.entetes("/moteur/manifeste.json").get("Cache-Control") == "no-cache")

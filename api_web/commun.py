@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Ce que les modules du site partagent : le code couleur, les nombres à la française et les COMPOSANTS de l'écran
 (ligne de résultat, verdict, grande fenêtre de calcul, sélecteur, champs de saisie, sections repliables, bouton de
-téléchargement).
+téléchargement, bouton d'importation de la météo).
 
 Ils sont écrits ici, en Python, et tournent dans le navigateur avec le moteur (Pyodide) : l'écran ne fait qu'afficher
 les fragments HTML qu'on lui rend et renvoyer ce que l'utilisateur saisit. Il ne calcule rien, ne recopie aucun seuil.
@@ -13,6 +13,7 @@ chiffre (490,5 → « 491 » des deux côtés). La règle n'est pas recopiée ic
 """
 import decimal
 import html
+import json
 import math
 import numbers
 import re
@@ -478,3 +479,26 @@ def refus_fichier(f) -> Optional[str]:
     if taille > TEXTE_FICHIER_MAX:
         return f"le fichier dépasse 5 Mo ({fr(taille / 1024 / 1024, 1)} Mo)"
     return None
+
+
+# ------------------------------------------------------------------ importer la météo du lieu (Open-Meteo), à la demande
+def bouton_meteo(chemin: Sequence, libelle: str, plan, petit: bool = False) -> str:
+    """Un bouton qui IMPORTE la météo d'un lieu (Open-Meteo), à la demande de l'utilisateur — une importation de
+    DONNÉES, jamais du code ; le calcul reste hors ligne.
+
+    ``plan`` : le PLAN calculé par le moteur (``beton.maturite.meteo.plan``) — le lieu à géocoder (ou sa position), les
+    plages de dates de l'archive et des prévisions, les variables. Il part sur le bouton (``data-meteo``, JSON échappé) ;
+    au clic, l'écran (``js/meteo.js``) construit lui-même les adresses — vers les trois d'Open-Meteo, et elles seules —,
+    fait les appels, puis envoie au module ``{"action": "modifier", "chemin": <chemin>, "valeur": {"lieu", "plan",
+    "geocodage", "reponses"}}`` : les réponses BRUTES, que le module lit (``meteo.py``) et GARDE dans la note. Pendant
+    la récupération, le bouton dit « Récupération de la météo… » ; un refus (pas de réseau, lieu introuvable, service en
+    panne) arrive en message, jamais une exception.
+
+    ``plan`` = ``{"erreur": "<message>"}`` : la récupération est impossible (pas de lieu, dates hors de portée…) — le
+    bouton est grisé et le message écrit dessous. ``libelle`` et le message sont des TEXTES (échappés) ; ``petit`` : un
+    bouton secondaire (le détail horaire)."""
+    erreur = plan.get("erreur") if isinstance(plan, dict) else "le plan de la récupération manque"
+    donnees = json.dumps(plan if isinstance(plan, dict) else {"erreur": erreur}, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
+    b = (f'<button type="button" class="btn meteo{" sm" if petit else ""}" data-meteo="{esc(donnees)}" data-meteo-chemin="{_attr_chemin(chemin)}"'
+         f'{" disabled" if erreur else ""}>{icon("cloud-sun")}<span>{esc(libelle)}</span></button>')
+    return f'<div class="meteo-bt">{b}</div>' + (message(esc(erreur), True) if erreur else "")
