@@ -1,0 +1,90 @@
+/* Le module « Assemblages métalliques » : les vues de la toile qui sont des documents (prédimensionnement, note
+   texte, méthode, validation) et les tableaux larges des fenêtres de calcul. Couleurs et tailles : celles de la charte
+   (variables de css/charte.css), rien d'inventé. */
+
+/* une vue « document » occupe toute la feuille et défile ; la feuille garde son titre et son cartouche */
+.sheet .draw > .asm-doc { align-self: stretch; justify-self: stretch; width: 100%; height: 100%; min-height: 0; overflow: auto;
+  padding: 4px 4px 12px; color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
+.asm-doc h4 { margin: 14px 0 6px; font-size: 10.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.asm-doc h4:first-child { margin-top: 2px; }
+.asm-doc p { margin: 4px 0 8px; max-width: 82ch; }
+.asm-doc ul { margin: 4px 0 10px; padding-left: 18px; max-width: 86ch; }
+.asm-doc li { margin: 2px 0; }
+.asm-doc b { color: var(--ink); font-weight: 650; }
+.asm-doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; background: var(--bg); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+.asm-note { color: var(--ink-3); font-size: 11.5px; }
+.asm-txt { margin: 0; padding: 12px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; line-height: 1.5; white-space: pre-wrap; user-select: text; }
+
+/* les chiffres clés en tête d'une vue */
+.asm-kpi { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 8px; }
+.asm-kpi > div { display: flex; flex-direction: column; gap: 1px; padding: 7px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); min-width: 0; }
+.asm-kpi span { font-size: 10.5px; color: var(--ink-3); }
+.asm-kpi b { font-size: 13px; color: var(--ink); font-weight: 650; }
+
+/* les tableaux d'une vue ou d'une fenêtre : la charte (vtab), serrés, les cellules longues repliées */
+.vtab.asm-tab { font-size: 12px; margin: 2px 0 6px; }
+.vtab.asm-tab td, .vtab.asm-tab th { padding: 6px 8px; }
+.vtab.asm-tab td:first-child { color: var(--ink); }
+.vtab.asm-tab .chip { min-width: 0; height: 20px; font-size: 11px; padding: 0 6px; }
+.ck-cols .asm-large { grid-column: 1 / -1; }
+
+/* les en-têtes des tableaux du module portent des symboles et des unités (η, n1, h_p (mm), E_d / R_d) : sans
+   majuscules forcées (« η » deviendrait « Η », lu « H » ; « mm » deviendrait « MM ») */
+.vtab.asm-tab th { text-transform: none; letter-spacing: 0; font-size: 11px; }
+.vtab.asm-tab td.n, .vtab.asm-tab th.n { white-space: nowrap; }
+.vtab.asm-tab .nw { white-space: nowrap; }
+/* la matrice aile A · aile B : les cellules « E_d / R_d · η » ne se coupent pas */
+.vtab.asm-mat td { white-space: nowrap; }
+.vtab.asm-mat td:last-child { white-space: normal; color: var(--ink-3); font-size: 11.5px; }
+/* le titre d'un exemple publié (vue Validation) : en clair, pas en capitales (VEd, kN gardent leur casse) */
+.asm-doc h5 { margin: 16px 0 2px; font-size: 13px; font-weight: 650; color: var(--ink); line-height: 1.4; }
+
+/* le menu Configuration : toute la largeur du cadre (les noms des sept attaches sont longs) */
+.asm-config { margin: 2px 0 4px; }
+.asm-config .field.select { width: 100%; }
+.grp .aide { display: inline-grid; vertical-align: -2px; margin-left: 4px; cursor: help; }
+.grp .aide svg.i { width: 12px; height: 12px; color: var(--ink-4); }
+
+/* ------------------------------------------------------------------ pied de poteau */
+/* les quatre critères de l'épaisseur requise, sous la ligne Platine du résultat : en retrait, plus serrés */
+.els .asm-sous { border-bottom: 1px solid var(--line); background: var(--panel-2); padding: 2px 0 4px; }
+.els .asm-sous .el { padding: 5px 16px 6px 30px; gap: 4px; border-bottom: 0; }
+.els .asm-sous .el .l1 b { font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.els .asm-sous .el .l2 .bar { height: 4px; }
+.els .asm-sous .el .l2 .pct { font-size: 12px; }
+/* l'épaisseur requise en tête de la fenêtre Platine : la ligne d'état, puis une pastille par critère */
+.asm-etat { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 8px 12px; border-radius: 8px;
+  border-left: 4px solid var(--att); background: var(--ok-bg); color: var(--ink-2); font-size: 12.5px; }
+.asm-etat.r { border-left-color: var(--nok); background: color-mix(in srgb, var(--nok) 9%, var(--panel)); }
+.asm-etat b { color: var(--ink); font-weight: 650; font-size: 13px; }
+.asm-crit { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 7px 0 2px; font-size: 12px; color: var(--ink-2); }
+.asm-crit span { white-space: nowrap; }
+/* le calcul à la main « libellé · valeur » : les lignes fortes (le moment pris) en gras */
+.vtab.asm-kv td { padding: 5px 8px; vertical-align: top; }
+.vtab.asm-kv td:first-child { width: 40%; color: var(--ink-2); }
+.vtab.asm-kv td:last-child { color: var(--ink); }
+.vtab.asm-kv tr.fort td { font-weight: 650; color: var(--ink); }
+/* un tableau large (boulon par boulon, tiges, rangées) défile de côté plutôt que de déborder */
+.asm-defile { overflow-x: auto; max-width: 100%; }
+/* la table des boulons : l'en-tête des colonnes ; les cartes des éléments et raidisseurs : le bouton retirer à droite */
+.lit.asm-th > span { font-size: 10.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.secard .sh2 .asm-fin { margin-left: auto; }
+.secard .sh2 .muted { color: var(--ink-3); font-weight: 500; white-space: nowrap; }
+.secard .row { margin: 0; }
+/* les noms de vérification longs (pied de poteau : « Tendue — tronçon en T du boulon le plus sollicité ») se replient
+   au lieu de pousser le tableau hors de sa fenêtre */
+.flyout.calcul .vtab td.nm { white-space: normal; min-width: 170px; }
+button.addrow { text-align: left; }
+/* les paramètres retenus (fenêtre Géométrie) : une valeur longue se replie au lieu de pousser le tableau */
+.vtab.asm-tab.asm-param td.n { white-space: normal; text-align: left; }
+.vtab.asm-tab.asm-param th.n { text-align: left; }        /* l'en-tête « Valeur » au-dessus de ses valeurs */
+.vtab.asm-tab.asm-param td:first-child { width: 46%; }
+/* une formule sans espace (« NRk,c = N⁰Rk,c·(Ac,N/A⁰c,N)·ψs,N… ») se coupe plutôt que d'élargir la fenêtre (tablette) */
+.flyout.calcul .vtab td.fo { overflow-wrap: anywhere; }
+/* un segment trop long pour sa colonne (tablette : « Toute la platine », « Tube RHS / SHS », Cotes « Complète ») se
+   replie sur deux lignes au lieu d'être rogné ou de faire défiler la colonne */
+.rows .seg.full button { padding: 3px 6px; white-space: normal; height: auto; min-height: 28px; line-height: 1.15; }
+/* le pied d'un sélecteur : « A<sub>s</sub> mm² · taux », « h<sub>p</sub> mm · taux » — sans l'espace que la charte met
+   entre les morceaux d'une pastille (inline-flex : « A ₛ mm² ») ; ce morceau-là n'a pas d'icône */
+.flyout.picker .fl-foot > span:last-child { display: inline; }
