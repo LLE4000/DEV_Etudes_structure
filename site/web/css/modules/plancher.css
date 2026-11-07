@@ -1,0 +1,96 @@
+/* Module « Charges sur plancher » : ce que son établi ajoute à la charte (css/charte.css) et au site (css/site.css).
+   Les cartes des charges (appuis et répartiteurs), la bibliothèque d'engins, les fiches, puis les vues en tableau de la
+   toile (détail, méthode, bibliothèque) et le balayage. */
+
+/* ---------------------------------------------------------------- le cadre Données */
+.secard .sh2 .chp-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.secard .sh2 .chp-act { margin-left: auto; display: flex; gap: 2px; flex: none; }
+.secard .sh2 .indice { flex: none; }
+.chp-tete { display: grid; grid-template-columns: 30px 76px minmax(0, 1fr) 24px; gap: 6px; font-size: 10px; font-weight: 650;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding-top: 2px; }
+.secard .lit { grid-template-columns: 30px 76px minmax(0, 1fr) 24px; }
+.secard .lit > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 650; color: var(--ink-2); font-size: 12px; }
+.secard .lit .field { height: 30px; padding: 0 7px; }
+.secard .lit .field input, .secard .lit .field select { font-size: 12px; }
+.secard .lit .field.select { padding-right: 22px; }
+.secard .lit .field.select svg.i { right: 5px; width: 13px; height: 13px; }
+.secard .sh2 .chp-tot { font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+.secard .lit.chp-dec { grid-template-columns: 20px minmax(0, 1fr) 20px minmax(0, 1fr); margin-left: 36px; }
+.secard .lit.chp-dec > span { font-weight: 600; color: var(--ink-3); font-size: 11px; text-align: right; }
+.secard .chp-dyn { padding: 0 0 0 36px; }
+.secard .hint.chp-src-eng { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.verdict .chip.xl { flex: none; }
+.msg .chp-ou { display: block; margin-top: 6px; color: var(--ink-2); font-weight: 400; }
+.msg .chp-ou b { font-weight: 650; color: var(--ink); }
+.chp-ajouts { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+.chp-portes { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font-size: 12px; }
+.chp-portes > span { font-size: 10.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); width: 100%; }
+.chp-portes .case { font-size: 12px; }
+
+/* la bibliothèque d'engins : vignette, nom, source, « Poser » */
+.chp-lib { display: flex; flex-direction: column; gap: 6px; }
+.chp-eng { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 8px; align-items: center; border: 1px solid var(--line);
+  border-radius: var(--r); padding: 6px 8px; background: var(--panel); }
+.chp-eng .chp-pic { width: 64px; height: 42px; display: grid; place-items: center; background: #fff; border-radius: 6px; overflow: hidden; }
+.chp-eng .chp-pic svg { width: 64px !important; height: 42px !important; }
+.chp-eng-t { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.chp-eng-t b { font-size: 12.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chp-eng-t span { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chp-eng-t small { font-size: 10.5px; color: var(--ink-3); line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.chp-eng .addrow { padding: 2px 4px; }
+
+/* la nouvelle fiche d'engin : un tableau d'appuis éditable */
+.chp-ap { display: grid; grid-template-columns: 46px repeat(2, minmax(0, 1fr)) 22px; gap: 4px 4px; align-items: center; }
+.chp-ap + .chp-ap { border-top: 1px dashed var(--line); padding-top: 6px; }
+.chp-ap .field { height: 28px; padding: 0 5px; }
+.chp-ap .field input { font-size: 12px; }
+.chp-ap .field.text input { font-weight: 600; }
+.chp-ap-h { font-size: 10px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-3); }
+.chp-ap-h span { white-space: nowrap; }
+
+/* ---------------------------------------------------------------- la fenêtre de calcul : petits tableaux du détail */
+.ck-g .chp-sous { margin: 10px 0 2px; }
+.chp-mini small { color: var(--ink-3); font-size: 10.5px; white-space: nowrap; }
+.ck-cols > .ck-g.chp-pleine { grid-column: 1 / -1; }
+.ck-g .chp-defile { max-width: 100%; overflow-x: auto; }
+.ck-g .chp-mini td { white-space: nowrap; }
+.chp-mini { font-size: 12px; margin: 2px 0 4px; }
+.chp-mini th { padding: 6px 8px 4px; font-size: 10.5px; text-transform: none; letter-spacing: .02em; }
+.chp-mini td { padding: 5px 8px; }
+
+/* ---------------------------------------------------------------- la toile : tableaux, texte, balayage (feuille toujours claire) */
+.sheet .draw > .chp-doc, .sheet .draw > .chp-vue { align-self: stretch; justify-self: stretch; width: 100%; height: 100%; min-height: 0; overflow: auto; padding: 2px 4px 6px; }
+.sheet .draw .chp-vue svg, .sheet .draw .chp-doc svg { width: 100% !important; height: auto !important; max-height: none; }
+.chp-doc { color: #26303F; }
+.chp-doc:not(.chp-large) { max-width: 920px; justify-self: center; }
+.chp-doc h4 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6B7588; font-weight: 700; margin: 16px 0 6px; }
+.chp-doc h4:first-child, .chp-doc .chp-chap + h4 { margin-top: 6px; }
+.chp-doc p, .chp-doc li { font-size: 12.5px; line-height: 1.55; margin: 0 0 8px; }
+.chp-doc ul { margin: 0; padding-left: 18px; }
+.chp-doc .chp-chap { font-size: 12px; color: #5B667A; background: #F1F4F8; border-radius: 8px; padding: 8px 10px; margin: 0 0 10px; }
+.chp-doc .vtab, .chp-tab { color: #0D1525; font-size: 12px; }
+.chp-doc .vtab th { color: #6B7588; border-bottom-color: #E5E8ED; position: sticky; top: 0; background: #fff; z-index: 1; text-transform: none; letter-spacing: .02em; font-size: 11px; }
+.chp-doc .vtab td { border-bottom-color: #EEF1F5; padding: 6px 8px; vertical-align: top; }
+.chp-doc .vtab td.nm { white-space: normal; min-width: 120px; }
+.chp-doc .vtab td b { font-weight: 650; }
+.chp-doc .vtab td > b + span { display: block; font-size: 11px; color: #6B7588; }
+.chp-doc .vtab td.n .chip { vertical-align: middle; }
+.chp-doc .chp-meth { font-size: 11.5px; color: #5B667A; line-height: 1.45; margin: 0 0 6px; }
+.chp-doc .chp-meth b { color: #26303F; font-weight: 600; }
+.chp-doc .chip { min-width: 52px; height: 20px; font-size: 11px; padding: 0 6px; }
+.chp-doc td.chp-src { font-size: 11px; color: #6B7588; line-height: 1.4; min-width: 220px; }
+.chp-doc td.chp-pc { width: 64px; padding: 4px; }
+.sheet .draw .chp-doc .chp-pc svg { width: 60px !important; height: 38px !important; }
+.chp-bal { display: flex; flex-direction: column; gap: 6px; }
+.chp-bal .chp-bal-b { flex: none; }
+.chp-bal .chp-leg { font-size: 12px; color: #26303F; margin: 0 0 4px; padding: 6px 10px; background: #F1F4F8; border-radius: 8px; }
+.chp-bal .chp-bal-p { flex: 1; min-height: 160px; position: relative; }
+.sheet .draw .chp-bal .chp-bal-p svg { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+
+[data-theme="dark"] .chp-eng .chp-pic { background: #fff; }
+
+/* ---------------------------------------------------------------- tablette et téléphone */
+@media (max-width: 760px) {
+  .secard .lit, .chp-tete { grid-template-columns: 30px 84px minmax(0, 1fr) 24px; }
+  .chp-doc td.chp-src { min-width: 160px; }
+}

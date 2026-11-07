@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "12f7ba92de8bc7052e0baeda4eae687ae66bcd7ea7d030aabf1d04f5786d1422",
+ "sha256": "cfaf80bd17368f3222e0573f44081ac2398d38065819700869e94dcb7ef82454",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -49,12 +49,14 @@
   "api_web/commun.py",
   "api_web/dalle.py",
   "api_web/dessin_dalle.py",
+  "api_web/dessin_plancher.py",
   "api_web/dessin_poutre.py",
   "api_web/dessin_profil.py",
   "api_web/dessin_taux.py",
   "api_web/garde_corps.py",
   "api_web/icones.py",
   "api_web/parcours.py",
+  "api_web/plancher.py",
   "api_web/poutre.py",
   "api_web/profil.py",
   "api_web/registre.py",
@@ -80,6 +82,23 @@
   "beton/taux/moteur.py",
   "beton/taux/saisie.py",
   "beton/treillis.py",
-  "beton_classes.json"
+  "beton_classes.json",
+  "plancher/__init__.py",
+  "plancher/charges/__init__.py",
+  "plancher/charges/bibliotheque.py",
+  "plancher/charges/dessin.py",
+  "plancher/charges/diffusion.py",
+  "plancher/charges/etat.py",
+  "plancher/charges/methode.py",
+  "plancher/charges/modele.py",
+  "plancher/charges/operations.py",
+  "plancher/charges/parametres.py",
+  "plancher/charges/repartiteurs.py",
+  "plancher/charges/resistances.py",
+  "plancher/charges/symboles.py",
+  "plancher/charges/verification.py",
+  "plancher/donnees/engins.json",
+  "plancher/donnees/hourdis.json",
+  "plancher/donnees/plateaux.json"
  ]
 }

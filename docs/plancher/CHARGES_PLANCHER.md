@@ -1,5 +1,16 @@
 # Charges sur plancher — document de référence (moteur, lot 1 · écran, lot 2 · note, lot 3)
 
+> **Défaut NON CONSERVATIF connu du moteur (relecture indépendante du site, 07/11/2026) — non corrigé, à trancher par
+> le bureau.** Avec une part du tranchant P-3 `part_tranchant_element` **< 1** et **sans répartition active** (hourdis
+> « posés », ou parts de l'annexe C absentes), `verification._efforts_hourdis` ne donne à l'élément chargé que
+> `part × P` de chaque charge concentrée et le reste `(1 − part) × P` n'est porté par **aucun** élément (la boucle de
+> partage ne s'exécute que vers les voisins de l'annexe C) : l'effort tranchant est sous-estimé — étançon de 100 kN,
+> part 0,7, hourdis posés : Σ réactions = 70 kN. Le même calcul tourne dans l'écran Streamlit (même moteur). Défaut
+> par défaut inactif (part = 1). Le site le reproduit et l'écrit en rouge dans le résultat
+> (`api_web/plancher._alerte_p3`, `tests/test_api_web_plancher.py` § 6 bis) ; la correction (garder `1 × P` sur
+> l'élément chargé quand rien ne peut partir aux voisins) change un résultat : elle appartient au moteur et à sa
+> batterie de cas gelés (`tests/ref_chp.json`).
+
 *Lot 1 livré le 02/11/2026 : le moteur, sans écran. Lot 2 livré le 02/11/2026 :
 l'écran (section 8). Lot 3 livré le 02/11/2026 : la note PDF et l'onglet
 Méthode (section 9). Étude de conception : `CHARGES_PLANCHER_ETUDE.md`
