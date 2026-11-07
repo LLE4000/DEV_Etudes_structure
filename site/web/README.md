@@ -23,7 +23,10 @@ navigateur ── js/etabli.js ──► js/travailleur.js (Pyodide) ──► a
 - `js/` n'affiche que des fragments HTML que le moteur rend ; il ne calcule rien. `etabli.js` pose les fragments,
   `toile.js` porte le zoom et le plein écran du dessin, `travailleur.js` fait tourner Python, `notes.js` garde les
   notes, `commun.js` ce que toutes les pages partagent (thème, messages, fichiers à télécharger), `meteo.js` va chercher
-  la météo d'un lieu chez Open-Meteo quand l'ingénieur le demande (ci-dessous).
+  la météo d'un lieu chez Open-Meteo quand l'ingénieur le demande (ci-dessous). `sonde.js` date le démarrage quand
+  l'adresse d'un établi porte `?sonde=1` — une mesure, fermée par défaut (sans elle, rien ne change : `verifier_site.js`,
+  filtre `sonde`) ; `outils/mesurer_demarrage.js` et `outils/couverture_donnees.js` en tirent les mesures datées de
+  `docs/site/mesures/`.
 - `api_web/` (à la racine du dépôt) relie l'écran au moteur : les champs, les effets de bord de la saisie, le résultat,
   les fenêtres de calcul, les sélecteurs. Testé en Python ordinaire : `tests/test_api_web.py` (garde-corps) et
   `tests/test_api_web_poutre.py` (poutres).

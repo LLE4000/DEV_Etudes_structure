@@ -67,6 +67,40 @@ TRAV = open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read()
 chk("le travailleur lit « avec_numpy » et guette un import de numpy imprévu (la requête est alors rejouée)",
     "man.avec_numpy" in TRAV and "GuetNumpy" in TRAV and "sys.meta_path.insert(0, GuetNumpy())" in TRAV and "guet.demande" in TRAV)
 
+# 1 bis. la sonde du démarrage (js/sonde.js) : une MESURE, fermée par défaut. Une seule porte — performance.mark ne
+# s'écrit nulle part ailleurs dans js/ — qui ne s'ouvre que sur « sonde=1 » dans l'adresse ; fermée, elle ne marque
+# rien et rend la promesse qu'on lui donne telle quelle. Joué par node ; le comportement de l'établi entier, avec et sans
+# la sonde, se contrôle dans le vrai navigateur (verifier_site.js, filtre « sonde »).
+JS = os.path.join(WEB, "js")
+hors_porte = [f for f in sorted(os.listdir(JS)) if f.endswith(".js") and f != "sonde.js"
+              and "performance.mark" in open(os.path.join(JS, f), encoding="utf-8").read()]
+chk("la sonde du démarrage n'a qu'une porte : performance.mark ne s'écrit que dans js/sonde.js", not hors_porte, hors_porte)
+SONDE_URL = json.dumps("file://" + os.path.join(JS, "sonde.js"))
+ESSAI_SONDE = """
+const p = Promise.resolve(1), lus = [];
+for (const [cle, adresse] of [["a", "http://x/poutre?note=n1"], ["b", "http://x/poutre?sonde=0"], ["c", "http://x/poutre?sonde=oui"],
+                              ["d", "http://x/poutre?sonde=1&note=n1"]]) {
+  globalThis.self = { location: { href: adresse } };
+  performance.clearMarks();
+  const m = await import(%s + "?" + cle);
+  m.marquer("x"); m.marquerUneFois("y"); m.marquerUneFois("y");
+  const meme = m.finir("z", p) === p;
+  await new Promise((ok) => setTimeout(ok, 0));
+  lus.push({ sonde: m.SONDE, meme, marques: performance.getEntriesByType("mark").map((e) => e.name), absolues: m.marquesAbsolues().map((e) => e[0]) });
+}
+console.log(JSON.stringify(lus));
+""" % SONDE_URL
+try:
+    sortie = subprocess.run(["node", "--input-type=module", "-e", ESSAI_SONDE], capture_output=True, text=True, timeout=60)
+    sondes = json.loads(sortie.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    sondes = [str(e)]
+FERMEE = {"sonde": False, "meme": True, "marques": [], "absolues": []}
+chk("sonde fermée (adresse sans « sonde=1 », ou « sonde=0 », « sonde=oui ») : aucune marque, la même promesse rendue",
+    sondes[:3] == [FERMEE] * 3, sondes[:3])
+chk("sonde ouverte (« ?sonde=1 ») : chaque marque une fois, préfixée « stab: », la fin d'une promesse marquée",
+    sondes[3:] == [{"sonde": True, "meme": False, "marques": ["stab:x", "stab:y", "stab:z"], "absolues": ["x", "y", "z"]}], sondes[3:])
+
 # 2. le paquet se suffit (déballé seul, sans le dépôt, bibliothèques lourdes refusées)
 with tempfile.TemporaryDirectory() as tmp:
     with zipfile.ZipFile(zip_chemin) as z:

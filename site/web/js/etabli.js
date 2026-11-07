@@ -9,7 +9,9 @@ import * as N from "./notes.js";
 import { cablerRail, toast, esc, telecharger, garderGrec, texteTaux } from "./commun.js";
 import { cablerToile } from "./toile.js";
 import { recupererMeteo } from "./meteo.js";
+import { SONDE, marquer, marquerUneFois } from "./sonde.js";
 
+marquer("etabli_debut");   // la sonde du démarrage (js/sonde.js) : rien sans « ?sonde=1 »
 const MODULE = document.body.dataset.module;
 const $ = (s, r = document) => r.querySelector(s);
 const bench = $(".bench");
@@ -63,7 +65,9 @@ function occupe(plus) {
 async function envoyer(action, extra = {}) {
   occupe(1);
   try {
+    marquerUneFois("requete1_envoyee");
     const r = await moteur.demander(() => ({ module: MODULE, action, etat: note.etat, ...extra }));
+    marquerUneFois("reponse1_recue");
     if (!r.ok) { toast(`Le moteur a refusé : ${r.erreur}`, true); console.error(r.trace || r.erreur); return null; }
     if (r.etat) appliquer(r);
     return r;
@@ -498,8 +502,11 @@ $("#ouvrir").addEventListener("change", async (ev) => {
   try {
     await moteur.pret;
     const r = await envoyer(note.etat ? "calculer" : "nouveau");
+    marquer("reponse1_appliquee");
     if (!r) throw new Error("le premier calcul a échoué");
     $("#demarrage").hidden = true;
+    // la sonde : deux images plus tard, le navigateur a peint le premier résultat
+    if (SONDE) requestAnimationFrame(() => requestAnimationFrame(() => marquer("premier_rendu")));
   } catch (e) {
     const d = $("#demarrage");
     d.classList.add("erreur");

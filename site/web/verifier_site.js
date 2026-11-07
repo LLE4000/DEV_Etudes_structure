@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -1373,6 +1373,87 @@ const FILTRE = process.argv[4] || '';
     }
   }
 
+  // ---------------------------------------------------------------- la SONDE du démarrage (js/sonde.js)
+  // Une MESURE, fermée par défaut. Sans « ?sonde=1 », l'établi fait EXACTEMENT ce qu'il faisait : aucune marque
+  // « stab: » sur la page, aucun message de plus entre la page et le travailleur (les types reçus sont lus sur le vrai
+  // Worker), l'adresse du travailleur sans « sonde », le même écran (#donnees, #resultat, au caractère près, comparés
+  // à ceux de la page sondée). Avec « ?sonde=1 » : les marques de la page et du travailleur, dans l'ordre du démarrage,
+  // l'import du module daté à part de son premier calcul, sans erreur. Poutre (sans numpy) et charges sur plancher
+  // (numpy chargé d'emblée), au PC et au téléphone.
+  //   filtre « sonde ».
+  if (!FILTRE || FILTRE === 'sonde') {
+    await p.goto(`${BASE}/`);
+    const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const espion = () => {
+      window.__messages = []; window.__travailleurs = [];
+      const W = window.Worker;
+      window.Worker = class extends W {
+        constructor(url, o) {
+          super(url, o);
+          window.__travailleurs.push(String(url));
+          this.addEventListener('message', (ev) => window.__messages.push(ev.data && ev.data.type));
+        }
+      };
+    };
+    const charger = async (cle, fmt, sonde) => {
+      const tel = fmt === 'téléphone';
+      const c = await b.newContext({ viewport: tel ? { width: 390, height: 844 } : { width: 1440, height: 900 }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
+      await c.addInitScript(espion);
+      const pg = await c.newPage();
+      const err = [];
+      pg.on('pageerror', (e) => err.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error') err.push(m.text().slice(0, 300)); });
+      await pg.goto(`${BASE}/${MODS[cle].page}${sonde ? '?sonde=1' : ''}`);
+      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      if (sonde) await pg.waitForFunction(() => globalThis.__sonde && performance.getEntriesByName('stab:premier_rendu').length, null, { timeout: 60000 });
+      else await pg.waitForTimeout(1500);   // le temps qu'un message de trop arrive, s'il devait arriver
+      const lu = await pg.evaluate(() => ({
+        echec: document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : '',
+        page: performance.getEntriesByType('mark').filter((m) => m.name.startsWith('stab:')).map((m) => [m.name.slice(5), m.startTime]),
+        travailleur: globalThis.__sonde ? globalThis.__sonde.marques.map(([k, t]) => [k, t - performance.timeOrigin]) : null,
+        details: globalThis.__sonde ? globalThis.__sonde.details : null,
+        sonde: globalThis.__sonde !== undefined,
+        types: [...new Set(window.__messages)].sort(), adresses: window.__travailleurs,
+        donnees: document.getElementById('donnees').innerHTML, resultat: document.getElementById('resultat').innerHTML,
+      }));
+      await c.close();
+      return { ...lu, err };
+    };
+    for (const cle of ['poutre', 'plancher']) {
+      for (const fmt of ['PC', 'téléphone']) {
+        const sans = await charger(cle, fmt, false);
+        const avec = await charger(cle, fmt, true);
+        const nom = `sonde · ${cle} · ${fmt}`;
+        verif(`${nom} : sans « ?sonde=1 », le moteur démarre, aucune marque, aucun message de plus (étape, prêt, réponse), le travailleur à son adresse d'avant`,
+          !sans.echec && !sans.page.length && !sans.sonde && JSON.stringify(sans.types) === '["etape","pret","reponse"]'
+          && sans.adresses.length === 1 && !/sonde/.test(sans.adresses[0]) && !sans.err.length,
+          JSON.stringify({ echec: sans.echec, page: sans.page, types: sans.types, adresses: sans.adresses, err: sans.err }).slice(0, 400));
+        verif(`${nom} : avec ou sans la sonde, le même écran (#donnees, #resultat au caractère près)`,
+          sans.donnees === avec.donnees && sans.resultat === avec.resultat && sans.donnees.length > 100,
+          `${sans.donnees.length}/${avec.donnees.length} · ${sans.resultat.length}/${avec.resultat.length}`);
+        // les marques, dans l'ordre du démarrage : la page, puis le travailleur, ramenés à la même origine
+        const P = Object.fromEntries(avec.page), T = Object.fromEntries((avec.travailleur || []).filter(([k]) => !k.startsWith('wasm_')));
+        const ordre = [['page', 'etabli_debut'], ['page', 'moteur_cree'], ['trav', 'travailleur_debut'], ['trav', 'manifeste_debut'], ['trav', 'loadPyodide_debut'],
+          ['trav', 'loadPyodide_fin'], ['trav', 'empreinte_debut'], ['trav', 'deballage_fin'], ['trav', 'numpy_attendu'], ['trav', 'routeur_importe'],
+          ['trav', 'pret'], ['page', 'pret_recu'], ['page', 'requete1_envoyee'], ['trav', 'module_import_debut'], ['trav', 'module_import_fin'],
+          ['trav', 'requete1_debut'], ['trav', 'requete1_traitee'], ['trav', 'reponse1_postee'], ['page', 'reponse1_recue'],
+          ['page', 'reponse1_appliquee'], ['page', 'premier_rendu']];
+        const temps = ordre.map(([o, k]) => (o === 'page' ? P : T)[k]);
+        const manque = ordre.filter((_, i) => temps[i] == null).map(([o, k]) => `${o}.${k}`);
+        const desordre = ordre.filter((_, i) => i && temps[i] != null && temps[i - 1] != null && temps[i] < temps[i - 1] - 2).map(([o, k]) => `${o}.${k}`);
+        const wasm = (avec.travailleur || []).some(([k]) => k.startsWith('wasm_'));
+        const numpy = cle === 'plancher' ? T.numpy_debut != null && T.numpy_fin != null && T.numpy_import_fin != null : T.numpy_debut == null;
+        verif(`${nom} : avec « ?sonde=1 », les marques de la page et du travailleur dans l'ordre du démarrage (wasm, numpy ${cle === 'plancher' ? 'chargé' : 'absent'})`,
+          !avec.echec && !manque.length && !desordre.length && wasm && numpy && !avec.err.length,
+          JSON.stringify({ echec: avec.echec, manque, desordre, wasm, numpy, err: avec.err }).slice(0, 400));
+        const D = avec.details || {};
+        verif(`${nom} : la sonde sépare l'import du module de son premier calcul, sans erreur, et mesure une requête ordinaire`,
+          !D.import_erreur && !D.sonde_erreur && D.modules_apres_module > D.modules_apres_routeur && D.calculer_ms > 0 && D.cles_ms > 0
+          && JSON.stringify(avec.types) === '["etape","pret","reponse","sonde"]', JSON.stringify({ ...D, types: avec.types }).slice(0, 400));
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- un fichier .stab piégé
   // Un .stab vient d'ailleurs (un collègue, un courriel) : rien de ce qu'il porte ne doit s'exécuter dans la page. Deux
   // fichiers : l'un que le moteur refuse (son dessin piégé n'est alors jamais remplacé par celui du moteur), l'autre
@@ -1416,8 +1497,8 @@ const FILTRE = process.argv[4] || '';
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats, « télécharger » et « météo » travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (les formats, « télécharger », « météo » et la sonde travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

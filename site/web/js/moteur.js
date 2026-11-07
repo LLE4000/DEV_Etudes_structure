@@ -1,11 +1,16 @@
 // Le client du travailleur : une requête à la fois, dans l'ordre (chaque requête part avec l'état laissé par la
 // précédente — deux saisies rapides ne s'écrasent pas).
+import { SONDE, marquer } from "./sonde.js";
+
 export class Moteur {
   // module : la clé du module de la page — le travailleur ne charge numpy que si ce module s'en sert
   // (moteur/manifeste.json, « avec_numpy »)
   constructor(surEtape, module = "") {
     const url = new URL("./travailleur.js", import.meta.url);
     if (module) url.searchParams.set("module", module);
+    // la sonde du démarrage (js/sonde.js) passe au travailleur ; sans elle, son adresse ne change pas
+    if (SONDE) url.searchParams.set("sonde", "1");
+    marquer("moteur_cree");
     this.w = new Worker(url, { type: "module" });
     this.n = 0;
     this.attentes = new Map();
@@ -13,7 +18,9 @@ export class Moteur {
     this.pret = new Promise((ok, ko) => { this._ok = ok; this._ko = ko; });
     this.w.onmessage = ({ data }) => {
       if (data.type === "etape") surEtape && surEtape(data.texte);
-      else if (data.type === "pret") this._ok();
+      else if (data.type === "pret") { marquer("pret_recu"); this._ok(); }
+      // les mesures du travailleur : il ne les envoie qu'avec la sonde (js/travailleur.js, envoyerSonde)
+      else if (data.type === "sonde") globalThis.__sonde = data;
       else if (data.type === "erreur") this._ko(new Error(data.texte));
       else if (data.type === "reponse") {
         const r = this.attentes.get(data.id);
