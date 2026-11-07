@@ -818,16 +818,29 @@ chk(f"les {len(cles)} grandeurs sont nommées dans la docstring du moteur ET dan
 
 # ------------------------------------------------------------------ 7. pureté
 print("\n=== 7. Pureté : le moteur se charge et calcule SANS streamlit, avec la seule bibliothèque standard ===")
-non_std = []
-for dossier, _, fichiers in os.walk(os.path.join(RACINE, "beton")):
-    for f in fichiers:
-        if f.endswith(".py"):
-            arbre = ast.parse(lire(os.path.relpath(os.path.join(dossier, f), RACINE)))
-            for n in ast.walk(arbre):
-                noms = [a.name for a in n.names] if isinstance(n, ast.Import) else \
-                    [n.module] if isinstance(n, ast.ImportFrom) and n.level == 0 else []
-                non_std += [f"{f}: {x}" for x in noms if x.split(".")[0] not in sys.stdlib_module_names | {"beton"}]
-chk("aucun fichier de beton/ n'importe autre chose que la bibliothèque standard (lecture des sources)", not non_std, non_std)
+def _importations(sous_dossier):
+    """(fichier, module importé) pour chaque importation absolue des sources de beton/<sous_dossier>."""
+    out = []
+    for dossier, _, fichiers in os.walk(os.path.join(RACINE, "beton", sous_dossier)):
+        for f in fichiers:
+            if f.endswith(".py"):
+                arbre = ast.parse(lire(os.path.relpath(os.path.join(dossier, f), RACINE)))
+                for n in ast.walk(arbre):
+                    noms = [a.name for a in n.names] if isinstance(n, ast.Import) else \
+                        [n.module] if isinstance(n, ast.ImportFrom) and n.level == 0 else []
+                    out += [(os.path.relpath(os.path.join(dossier, f), RACINE), x.split(".")[0]) for x in noms]
+    return out
+
+
+# le moteur POUTRE : la seule bibliothèque standard (le paquet beton/ porte aussi d'autres moteurs du site, dont
+# beton/maturite qui emploie numpy, permis sur le site : la règle propre au moteur poutre ne s'étend pas à eux)
+non_std = [f"{f}: {x}" for f, x in _importations("poutre") if x not in sys.stdlib_module_names | {"beton"}]
+chk("aucun fichier de beton/poutre/ n'importe autre chose que la bibliothèque standard (lecture des sources)", not non_std, non_std)
+# tout beton/ : jamais une bibliothèque absente du navigateur (règle du site, docs/site/MODULES_SITE.md §1)
+REFUSEES = {"streamlit", "pandas", "matplotlib", "scipy", "reportlab", "PIL", "fitz", "requests"}
+refusees = [f"{f}: {x}" for f, x in _importations("") if x in REFUSEES]
+chk("aucun fichier de beton/ n'importe une bibliothèque absente du navigateur (streamlit, pandas, matplotlib…)",
+    not refusees, refusees)
 
 SOUS_PROCESSUS = r'''
 import json, sys

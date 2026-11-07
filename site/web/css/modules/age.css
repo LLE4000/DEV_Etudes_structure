@@ -1,0 +1,72 @@
+/* Maturité du béton : la courbe et le relevé sont des graphiques (leur vue dit « echelle »: false, la feuille n'écrit
+   pas « mm · à l'échelle »), le tableau des valeurs défile dans la feuille, les petits éléments du cadre Données (cases
+   des classes, mesures du relevé, fichier) et les formules de l'EC2 de la fenêtre de calcul.
+   Chargée par l'établi maturite-beton seul. */
+
+/* le graphique tient dans la feuille : sans ces pistes bornées, la grille de la feuille prend la largeur que le
+   graphique AURAIT à pleine hauteur (tablette en hauteur : toile étroite et haute) et le coupe à droite */
+.sheet .draw:has(> svg.age-graphe) { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); }
+
+/* le tableau des valeurs, sur toute la hauteur de la feuille ; il défile dedans */
+.sheet .draw:has(> .age-vue) { display: block; position: relative; padding: 0; }
+.age-vue { position: absolute; inset: 4px 16px 12px; display: flex; flex-direction: column; gap: 8px; color: #0D1525; min-width: 0; }
+.age-defile { flex: 1; min-height: 0; overflow: auto; border: 1px solid #E5E8ED; border-radius: 9px; overscroll-behavior: contain; }
+.age-pied { font-size: 11px; color: #6B7686; line-height: 1.45; }
+.age-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+.age-tab th, .age-tab td { padding: 0 10px; height: 29px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; text-align: right; }
+.age-tab thead th { position: sticky; top: 0; z-index: 2; height: 40px; background: #F4F5F8; color: #4A5568; font-weight: 650; font-size: 11.5px;
+  border-bottom: 1px solid #D3D8E0; text-align: right; line-height: 1.15; }
+.age-tab thead th small { display: block; font-size: 10px; font-weight: 500; color: #8B95A7; }
+.age-tab thead th:first-child, .age-tab tbody th { text-align: center; position: sticky; left: 0; z-index: 1; background: #fff; border-right: 1px solid #E5E8ED; width: 44px; }
+.age-tab thead th:first-child { z-index: 3; background: #F4F5F8; }
+.age-tab tbody th { font-weight: 700; color: #33415C; }
+.age-tab tbody tr:nth-child(even) td { background: #FAFBFC; }
+.age-tab td.f { font-weight: 700; color: #0D1525; }
+.age-tab td.d { color: #4A5568; }
+.age-tab th.g, .age-tab td.s { text-align: left; }
+.age-tab td.s::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.age-tab td.s.mesure::before { background: #2e6fb0; }
+.age-tab td.s.prevision::before { background: #d97706; }
+.age-tab td.s.prolonge::before { background: #9AA3AF; }
+.age-tab tr.dom td, .age-tab tr.dom th { color: #9AA4B4; }
+.age-tab tr.dom td.f { color: #8B95A7; }
+.age-tab tbody tr.on th { color: #2B4BCF; box-shadow: inset 3px 0 0 #2B4BCF; background: #EEF1FE; }
+.age-tab tbody tr.on td { background: #F1F4FF; color: #0D1525; }
+.age-tab tbody tr:hover td, .age-tab tbody tr:hover th { background: #F1F3F7; }
+
+/* le résultat : la résistance à l'âge choisi, en grand */
+.age-v .chip.xl { font-size: 25px; }
+.age-v .chip.xl small { margin: 0 0 0 2px; font-size: 12.5px; }
+.age-v .chip.xl.c { color: var(--ink); }
+
+/* le cadre Données : les classes comparées, les mesures du relevé, le fichier */
+.age-classes { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 4px 8px; }
+.age-classes .case { font-variant-numeric: tabular-nums; }
+.age-mini { display: flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 9px; padding: 5px 6px; }
+.age-mini > div { flex: 1; min-width: 0; text-align: center; }
+.age-mini span { display: block; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; }
+.age-mini b { display: block; font-size: 12.5px; font-weight: 700; color: var(--ink); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.age-fichier { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.age-fichier > span { font-size: 11.5px; color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+
+/* la fenêtre de calcul : les formules de l'EC2, écrites une fois */
+.age-ec2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 28px; padding: 6px 0 4px; font-size: 13px; color: var(--ink); }
+.age-ec2 > div { line-height: 1.5; }
+.age-ec2 > div span { display: block; font-size: 11.5px; color: var(--ink-3); }
+.age-ec2 > div.dom { grid-column: 1 / -1; font-size: 12px; color: var(--ink-2); }
+
+/* téléphone : le tableau prend sa hauteur et défile en largeur ; les classes sur trois colonnes */
+@media (max-width: 700px) {
+  .sheet:has(.age-vue), .sheet .draw:has(> .age-vue) { min-width: 0; }
+  .age-vue { position: static; padding: 2px 10px 10px; }
+  .age-defile { max-height: 72vh; max-width: calc(100vw - 42px); }
+  .age-ec2 { grid-template-columns: minmax(0, 1fr); }
+}
+@media print {
+  .age-vue { position: static; }
+  .age-defile { overflow: visible; max-height: none; border: 0; }
+  .age-tab thead th, .age-tab tbody th { position: static; }
+}
+
+/* une ligne de consultation (l'essai ⑤) : sa barre en gris, sans code couleur */
+.el .bar b.c { background: #C3CAD5; }

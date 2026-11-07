@@ -1,0 +1,66 @@
+/* Enrobage du béton : le verdict (l'enrobage retenu en mm, pas un taux), la décomposition de c_min sous le verdict,
+   les barres neutres (part de chaque exigence dans l'enrobage retenu), le guide des classes d'exposition dans le cadre
+   Données, les règles en pied de fenêtre et la vue « Tableaux » (un bloc HTML posé dans la feuille, sur papier blanc
+   comme les dessins). Chargée par l'établi enrobage seul. */
+
+/* ---------------------------------------------------------------- le résultat */
+.en-v { cursor: pointer; }
+.en-v:hover, .en-dec:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.chip.xl.en-c { background: var(--accent-soft); color: var(--ink); font-variant-numeric: tabular-nums; flex: none; }
+.chip.xl.en-c small { order: 2; margin: 0 0 0 2px; font-size: 13px; color: var(--ink-2); opacity: 1; }
+.en-v .gov { font-variant-numeric: tabular-nums; }
+.en-dec { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); cursor: pointer; }
+.en-dec > div { background: var(--panel); padding: 7px 16px 8px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.en-dec span { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.en-dec b { font-size: 13px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.en-dec > div.g { background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel)); }
+.en-dec > div.g b { color: var(--ink); font-weight: 700; }
+.en-dec > div.g span { color: var(--ink-2); }
+#resultat .bar b.c { background: #A9B4C6; }
+[data-theme="dark"] #resultat .bar b.c { background: #56627A; }
+#resultat .el .l2 .pct.c { color: var(--ink); }
+.en-leg { font-size: 11px; color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- les données : le guide de l'écran */
+.en-guide { font-size: 12px; line-height: 1.5; color: var(--ink-2); padding: 2px 0 4px; }
+.en-guide p { margin: 0 0 6px; }
+.en-guide ul { margin: 0 0 8px; padding-left: 18px; }
+.en-guide li { margin: 1px 0; }
+.en-guide b { color: var(--ink); font-weight: 650; }
+.en-guide .en-regle { background: var(--accent-soft); border-radius: 7px; padding: 6px 9px; }
+
+/* ---------------------------------------------------------------- la fenêtre de calcul : les règles */
+.en-regles { margin: 4px 0 2px; padding-left: 18px; font-size: 11.5px; line-height: 1.5; color: var(--ink-2); }
+.en-regles b { color: var(--ink); font-weight: 650; }
+
+/* ---------------------------------------------------------------- la vue « Tableaux » */
+.sheet .draw:has(> .en-vue) { display: block; position: relative; padding: 0; }
+.sheet:has(.en-vue) .stitle .scale { display: none; }
+.en-vue { position: absolute; inset: 6px 16px 12px; display: flex; flex-direction: column; gap: 14px; color: #0D1525; min-width: 0; overflow: auto; }
+.en-bloc { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.en-tt { font-size: 12px; font-weight: 650; color: #33415C; }
+.en-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; border: 1px solid #E5E8ED; border-radius: 9px; overflow: hidden; }
+.en-tab th, .en-tab td { padding: 0 8px; height: 30px; text-align: center; white-space: nowrap; border-bottom: 1px solid #EEF0F3; }
+.en-tab tbody tr:last-child th, .en-tab tbody tr:last-child td { border-bottom: 0; }
+.en-tab thead th { background: #F4F5F8; color: #4A5568; font-weight: 650; font-size: 11.5px; border-bottom: 1px solid #D3D8E0; }
+.en-tab tbody th { text-align: left; font-weight: 700; color: #33415C; background: #fff; border-right: 1px solid #E5E8ED; }
+.en-tab tbody th small { font-weight: 500; color: #8B95A7; font-size: 10.5px; }
+.en-tab td.col, .en-tab tr.lig td, .en-tab td.lig { background: #F3F6FD; }
+.en-tab td.on, .en-tab tr.lig td.on { background: #2B4BCF; color: #fff; font-weight: 700; border-radius: 4px; }
+.en-tab.feu td small { display: block; font-size: 10px; color: #8B95A7; line-height: 1; margin-top: 3px; }
+.en-tab.feu td { height: 38px; line-height: 1.15; }
+.en-tab.feu td.on small { color: #DCE3FB; }
+.en-pied { font-size: 11px; color: #6B7686; line-height: 1.45; }
+@media (max-width: 700px) {
+  .en-vue { position: static; inset: auto; padding: 4px 8px 10px; }
+  .en-tab { font-size: 11.5px; }
+  .en-tab th, .en-tab td { padding: 0 4px; }
+}
+
+/* les quatre types d'élément tiennent dans la ligne (le segment de la charte prévoit deux ou trois mots courts) ; sur
+   tablette (colonne Données d'environ 290 px), le libellé se resserre et le texte des segments aussi */
+.sec[data-sec="el"] .seg.full button { padding: 0 4px; min-width: 0; }
+@media (max-width: 1360px) {
+  .sec[data-sec="el"] .row.full { grid-template-columns: 66px minmax(0, 1fr); }
+  .sec[data-sec="el"] .seg.full button { padding: 0 2px; font-size: 11.5px; }
+}

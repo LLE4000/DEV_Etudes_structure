@@ -1,0 +1,111 @@
+/* Rigidité du sol : un module de CONSULTATION (k se calcule, il ne se vérifie pas à un taux). Chargée par l'établi
+   rigidite-sol seul. Les briques communes restent celles de la charte ; ici, ce qu'elles n'avaient pas : la valeur de k
+   en grand, la plage de k sur une barre, les cartes de couches, l'import d'un essai, les tableaux de la toile. */
+
+/* le verdict : k en grand (MN/m³), violet comme les courbes de k */
+.chip.xl.sol-k { background: #F1ECFE; color: #4C1D95; gap: 6px; }
+.chip.xl.sol-k small { font-size: 14px; font-style: italic; }
+.chip.xl.sol-k small.u { font-size: 12px; font-style: normal; margin-left: 4px; opacity: .7; }
+.chip.xl.sol-k.c { background: var(--bg-sunken); color: var(--ink-3); }
+[data-theme="dark"] .chip.xl.sol-k { background: #241A44; color: #C4B5FD; }
+.verdict.sol-v { align-items: center; }
+.verdict.sol-v .gov { font-size: 12px; }
+
+/* une ligne de résultat sans taux : la plage de k sur une barre commune à la note */
+.bar.sol-bar b.sol-k { background: #8B5CF6; }
+.bar.sol-bar b.sol-k.att { background: #F59E0B; }
+.bar.sol-bar b.sol-k.r { background: var(--nok); }
+.el .l2 .pct.sol-kv { min-width: 0; font-size: 12.5px; }
+.el .l2 .pct.sol-kv.r { color: var(--nok); }
+.el .l2 .pct.sol-kv.att { color: #B45309; }
+.pbody > .msg:first-of-type { margin-top: 0; }
+
+/* les cartes : sondages (liste) et couches (saisie) */
+.sol-carte .sh2 .pct { font-size: 12px; }
+.sol-carte .sh2 .pct.c { color: #B45309; }
+.sol-carte .hint { padding: 0; }
+.sol-trace { font-size: 10px; font-weight: 700; color: var(--accent-hover); background: var(--accent-soft); border-radius: 5px; padding: 1px 6px; }
+.sol-couche { gap: 7px; }
+.sol-couche .sh2 .sol-z { color: var(--ink-3); font-weight: 500; font-variant-numeric: tabular-nums; }
+.sol-couche .sh2 .aide { display: inline-grid; color: var(--ink-4); cursor: help; }
+.sol-couche .sh2 .aide svg.i { width: 13px; height: 13px; }
+.sol-couche .sh2 .moins { margin-left: auto; }
+.sol-couche > .field.select { height: 32px; }
+.sol-couche .trio .field { padding: 0 6px; }
+.sol-couche .trio .field .u { font-size: 11px; white-space: nowrap; }
+.sol-couche .trio label > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sol-couche .trio label.sol-vide { visibility: hidden; }
+.sol-leg { font-size: 11px; color: var(--ink-3); line-height: 1.45; }
+.sol-leg span { display: inline-flex; align-items: center; gap: 3px; font-weight: 600; }
+.sol-leg svg.i { width: 12px; height: 12px; }
+.sol-leg .ok { color: var(--att); }
+.sol-leg .att { color: #B45309; }
+
+/* l'import d'un essai */
+.sol-import { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sol-reprise { display: flex; flex-direction: column; gap: 4px; }
+.sol-attente { gap: 8px; border-color: var(--accent-line); background: color-mix(in srgb, var(--accent-soft) 45%, var(--panel)); }
+.sol-attente .sh2 { font-weight: 500; align-items: flex-start; }
+.sol-attente .sh2 svg.i { width: 15px; height: 15px; color: var(--accent); flex: none; margin-top: 1px; }
+.sol-attente .msg { border-top: 0; padding: 0; }
+.sol-attente .row { grid-template-columns: minmax(0, 1fr) 116px; }
+.sol-decs { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.sol-dec { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 8px; padding: 5px 8px; font-size: 11.5px; align-items: baseline;
+  border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.sol-dec .m { text-align: right; }
+.sol-dec b { grid-column: 1 / -1; }
+.sol-dec:last-child { border-bottom: 0; }
+.sol-dec span { color: var(--ink-3); white-space: nowrap; }
+.sol-dec b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sol-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sol-actions .addrow { margin-right: 6px; }
+.btn.sol-dl, .btn.sol-suppr { text-decoration: none; color: var(--ink-2); }
+.btn.sol-dl svg.i, .btn.sol-suppr svg.i, .sol-actions .btn svg.i { width: 14px; height: 14px; }
+.btn.sol-suppr { color: var(--nok); }
+.rows .msg { border-top: 0; padding: 2px 0; }
+.sol-memo { font-size: 12px; line-height: 1.55; color: var(--ink-2); }
+.sol-memo b { color: var(--ink); font-weight: 650; }
+
+/* les dessins de ce module sont des graphiques (ou des coupes à l'échelle qui portent leur propre mention) */
+.sheet:has(.sol-graphe) .stitle .scale, .sheet:has(.sol-vue) .stitle .scale { display: none; }
+
+/* les tableaux de la toile (vue « Tableau », « Découpage ») : sur papier blanc, ils défilent dans la feuille */
+.sheet .draw:has(> .sol-vue) { display: block; position: relative; padding: 0; }
+.sol-vue { position: absolute; inset: 4px 16px 12px; color: #0D1525; min-width: 0; }
+.sol-defile { height: 100%; overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 18px; padding-bottom: 6px; }
+.sol-t { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #33415C; padding: 4px 2px 6px; }
+.sol-pied { font-size: 11px; color: #8B95A7; padding: 6px 2px 0; line-height: 1.4; }
+.sol-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; color: #0D1525; }
+.sol-tab th, .sol-tab td { padding: 6px 10px; border-bottom: 1px solid #EEF0F3; white-space: nowrap; }
+.sol-tab th { position: sticky; top: 0; background: #F4F5F8; color: #4A5568; font-weight: 650; font-size: 11px; border-bottom: 1px solid #D3D8E0; }
+.sol-tab .g { text-align: left; }
+.sol-tab .d { text-align: right; }
+.sol-tab tbody tr:nth-child(even) td { background: #FAFBFC; }
+.sol-tab tbody tr:hover td { background: #F1F3F7; }
+.sol-tab td:first-child { font-weight: 600; }
+.sol-tab.sol-ab td:first-child { font-weight: 500; color: #4A5568; }
+.sol-tab.sol-ab td:nth-child(2) { font-weight: 600; }
+
+/* dans la fenêtre de calcul : le tableau des tranches et les phrases */
+.flyout .sol-tab { font-size: 11.5px; }
+.flyout .sol-tab th { background: var(--panel-2); color: var(--ink-3); border-bottom-color: var(--line); position: static; }
+.flyout .sol-tab td { border-bottom-color: var(--line); color: var(--ink); }
+.flyout .sol-tab tbody tr:nth-child(even) td { background: transparent; }
+.flyout .sol-pied { color: var(--ink-3); }
+.sol-note { font-size: 12px; color: var(--ink-2); padding: 12px 0 2px; line-height: 1.45; }
+.sol-vtab td.fo { font-style: normal; }
+
+@media (max-width: 700px) {
+  .sol-vue { position: static; }
+  .sheet .draw:has(> .sol-vue) { padding: 0 10px 10px; }
+}
+
+/* corrections après relecture des captures */
+.verdict.sol-v .chip.xl.sol-k { flex: none; }
+.ck-g .sol-note { padding: 0 0 4px; font-size: 11.5px; color: var(--ink-3); }
+.verdict.sol-v { flex-direction: column; align-items: flex-start; gap: 8px; }
+.verdict.sol-v .gov { font-size: 12.5px; }
+.sol-carte .sh2 .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sol-carte .sh2 .pct { flex: none; }
+.sol-tab th, .sol-tab td { padding: 6px 8px; }
+.sol-tab td.g:not(:first-child) { white-space: normal; min-width: 150px; }
