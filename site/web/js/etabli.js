@@ -62,8 +62,9 @@ let vueCourante = null;
 function appliquer(r) {
   note.etat = r.etat;
   note.resume = r.resume;
-  const v = (r.vues || [])[0];
-  if (v) note.vignette = v.svg;
+  // la vignette de l'accueil : le premier DESSIN (une vue peut être un tableau, illisible en vignette)
+  const v = (r.vues || []).find((x) => /^\s*<svg/.test(x.svg || ""));
+  note.vignette = v ? v.svg : "";
   enregistrer();
   $("#statut").innerHTML = r.statut_html || "";
   $("#resultat").innerHTML = r.resultat;
@@ -103,6 +104,10 @@ function afficherDonnees(elements, html) {
   }
 }
 
+// « mm · à l'échelle » : sur un dessin seulement — pas sur un tableau (vue HTML), ni sur une vue que le module dit hors
+// échelle (une courbe, un diagramme : « echelle »: false)
+const echelle = (v) => v.echelle !== false && /^\s*<svg/.test(v.svg || "");
+
 function afficherVues(vues, phrase) {
   const onglets = $("#vues"), stage = $("#stage");
   if (!vues.length) { onglets.innerHTML = ""; stage.innerHTML = '<div class="attente">Pas de dessin : le calcul est impossible.</div>'; return; }
@@ -112,7 +117,7 @@ function afficherVues(vues, phrase) {
   const cart = `<div class="cart"><div><span>Note</span><b>${esc(note.nom || "")}</b></div><div><span>Chantier</span><b>${esc(note.chantier || "—")}</b></div>`
     + `<div><span>Indice</span><b>${esc(note.indice || "A")}</b></div><div><span>Date</span><b>${date}</b></div><div class="mark"><i></i>Stab Méthodes</div></div>`;
   stage.innerHTML = vues.map((v) => `<div class="view${v.cle === vueCourante ? " on" : ""}" data-vue="${esc(v.cle)}"><div class="sheet"><div class="stitle">`
-    + `<b>${esc(v.titre.toUpperCase())}</b><span>${v.cle === vues[0].cle ? phrase : esc(v.legende || "")}</span><span class="scale">mm · à l'échelle</span></div>`
+    + `<b>${esc(v.titre.toUpperCase())}</b><span>${v.cle === vues[0].cle ? phrase : esc(v.legende || "")}</span>${echelle(v) ? '<span class="scale">mm · à l\'échelle</span>' : ""}</div>`
     + `<div class="draw">${v.svg}</div>${cart}</div></div>`).join("");
 }
 

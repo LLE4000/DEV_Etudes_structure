@@ -1,0 +1,71 @@
+/* Taux d'armature : le chiffre du quantitatif (kg/m³), la synthèse, les cartes des familles et des zones, les pastilles
+   de couleur des familles (celles du dessin et du tableau), et la vue « Tableau » (un bloc HTML posé dans la feuille,
+   toujours sur papier blanc, comme les dessins). Chargée par l'établi taux-armature seul. */
+
+/* ---------------------------------------------------------------- le résultat */
+.tx-verdict { cursor: pointer; }
+.tx-verdict .gov .tx-l { display: block; }
+.tx-verdict:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+.chip.xl.tx-taux { background: var(--acier-soft); color: var(--ink); font-variant-numeric: tabular-nums; }
+.chip.xl.tx-taux small { order: 2; margin: 0 0 0 4px; font-size: 12.5px; color: var(--ink-2); opacity: 1; }
+.tx-synth { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
+.tx-synth > div { background: var(--panel); padding: 8px 16px 9px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.tx-synth span { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tx-synth b { font-size: 13px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#resultat .bar b.c { background: #A9B4C6; }
+[data-theme="dark"] #resultat .bar b.c { background: #56627A; }
+.tx-note-barre { padding: 8px 16px 2px; font-size: 11px; color: var(--ink-3); }
+.tx-leg { gap: 4px 12px; }
+.tx-lg { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.tx-lg i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* ---------------------------------------------------------------- les données : familles, types, zones */
+.tx-pastille { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
+.tx-carte .sh2 .tx-sp { flex: 1; }
+.tx-carte .sh2 .muted { font-size: 11.5px; white-space: nowrap; }
+.tx-carte .row.full { grid-template-columns: 58px minmax(0, 1fr); }
+.tx-carte .trio .field.select { height: 30px; padding: 0 6px; }
+.tx-carte .trio .field.select select { font-size: 12.5px; }
+.lit.tx-type, .lit.tx-zone { grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr) 24px; }
+.lit.tx-type .field.text, .lit.tx-zone .field.text { height: 32px; }
+.tx-sans { color: var(--ink-3); font-size: 12px; padding: 0 8px; height: 32px; display: flex; align-items: center; }
+.tx-bilan { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.tx-bilan.ko { color: var(--nok); font-weight: 600; }
+.tx-ajouts { display: flex; flex-wrap: wrap; gap: 4px 18px; padding-top: 2px; }
+
+/* ---------------------------------------------------------------- la vue « Tableau » */
+.sheet .draw:has(> .tx-vue) { display: block; position: relative; padding: 0; place-items: normal; }
+.sheet:has(.tx-vue) .stitle .scale { display: none; }
+.tx-vue { position: absolute; inset: 6px 16px 12px; display: flex; flex-direction: column; gap: 8px; color: #0D1525; min-width: 0; justify-self: stretch; }
+.tx-defile { flex: 0 1 auto; min-height: 0; overflow: auto; border: 1px solid #E5E8ED; border-radius: 9px; overscroll-behavior: contain; }
+.tx-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.tx-tab th, .tx-tab td { padding: 0 10px; height: 36px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; text-align: right; }
+.tx-tab thead th { position: sticky; top: 0; z-index: 1; background: #F4F5F8; color: #4A5568; font-weight: 650; font-size: 11.5px; border-bottom: 1px solid #D3D8E0; height: 40px; }
+.tx-tab thead th small { display: block; font-size: 10px; font-weight: 500; color: #8B95A7; }
+.tx-tab tbody th, .tx-tab tfoot th { text-align: left; font-weight: 700; color: #0D1525; }
+.tx-tab .po { text-align: left; color: #4A5568; }
+.tx-tab td.co { width: 18px; padding-right: 0; text-align: center; }
+.tx-tab td.co i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+.tx-tab td.kg { font-weight: 700; color: #0D1525; }
+.tx-tab tbody tr:nth-child(even) td, .tx-tab tbody tr:nth-child(even) th { background: #FAFBFC; }
+.tx-tab tbody tr:hover td, .tx-tab tbody tr:hover th { background: #F1F3F7; }
+.tx-tab tbody tr.on th { color: #2B4BCF; box-shadow: inset 3px 0 0 #2B4BCF; }
+.tx-tab tfoot th, .tx-tab tfoot td { background: #F4F5F8; border-bottom: 0; border-top: 1px solid #D3D8E0; font-weight: 700; }
+.tx-pied { font-size: 11px; color: #8B95A7; line-height: 1.45; }
+.tx-vide { margin: auto; max-width: 340px; text-align: center; font-size: 12.5px; color: #8B95A7; line-height: 1.5; padding-top: 60px; }
+.tx-vide b { display: block; font-size: 14px; color: #0D1525; margin-bottom: 4px; }
+
+@media (max-width: 700px) {
+  .tx-synth > div { padding: 8px 14px; }
+  .tx-vue { position: static; inset: auto; padding: 4px 10px 10px; }
+  .sheet:has(.tx-vue), .sheet .draw:has(> .tx-vue) { min-width: 0; min-height: 0; }
+  .tx-tab { font-size: 12px; }
+  .tx-tab th, .tx-tab td { padding: 0 7px; height: 34px; }
+  /* la position se lit en entier, sur deux lignes au besoin (elle était coupée « Armatures inférieures… ») ; les
+     colonnes de chiffres défilent dans le cadre */
+  .tx-tab .po { white-space: normal; min-width: 118px; max-width: 150px; line-height: 1.25; padding-top: 5px; padding-bottom: 5px; }
+}
+@media print {
+  .tx-vue { position: static; }
+  .tx-defile { overflow: visible; border: 0; }
+}

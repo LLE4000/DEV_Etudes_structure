@@ -184,21 +184,28 @@ const FILTRE = process.argv[4] || '';
     }
   }
 
+  const avecDessin = new Set();   // les pages des modules qui ont au moins un dessin : leur vignette en est un
   // ---------------------------------------------------------------- chaque module du registre (contrôle commun)
   // Le même contrôle pour TOUS les modules (js/modules.js, écrit depuis le registre) : la note se crée, le moteur
   // démarre, le résultat et le dessin s'affichent à leur taille, rien ne déborde ni n'est coupé, la fenêtre de calcul
   // et le sélecteur s'ouvrent, une saisie recalcule sans erreur et survit au rechargement.
   //   filtre « modules » : tous ; « module:dalle » : celui-là.
   if (!FILTRE || FILTRE === 'modules' || FILTRE.startsWith('module:')) {
-    await p.goto(`${BASE}/js/modules.js`);
-    const src = await p.evaluate(() => document.body.innerText);
-    const MODULES = JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1));
+    // la liste comme la page la lit : un module JavaScript (toujours en UTF-8), et non le fichier affiché en texte
+    await p.goto(`${BASE}/`);
+    const MODULES = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    verif('modules : les noms sont lus tels que la page les lit (accents intacts)', Object.values(MODULES).every((x) => !/[ÃÂ]/.test(x.nom)),
+      Object.values(MODULES).map((x) => x.nom).join(', '));
     const choisis = FILTRE.startsWith('module:') ? [FILTRE.slice(7)] : Object.keys(MODULES);
     verif(`modules : ${choisis.join(', ')} au registre`, choisis.every((k) => MODULES[k]), choisis.filter((k) => !MODULES[k]).join());
     for (const cle of choisis.filter((k) => MODULES[k])) {
       const nom = MODULES[cle].nom;
       await nouvelle(cle, 'Contrôle', 'Tous les modules', `Essai ${nom}`);
       if (await p.evaluate(() => document.getElementById('demarrage').classList.contains('erreur'))) continue;
+      // les vues : un dessin porte l'échelle, un tableau jamais ; le module a-t-il un dessin (pour sa vignette) ?
+      const vuesLues = await p.$$eval('#stage .view', (vs) => vs.map((v) => ({ svg: !!v.querySelector('.draw > svg'), echelle: !!v.querySelector('.scale') })));
+      if (vuesLues.some((v) => v.svg)) avecDessin.add(MODULES[cle].page);
+      verif(`${cle} : « à l'échelle » n'est jamais écrit sur un tableau`, vuesLues.every((v) => v.svg || !v.echelle), JSON.stringify(vuesLues));
       const nEl = await p.$$eval('#resultat .el', (e) => e.length);
       const verdictMod = await p.$('#resultat .verdict');
       verif(`${cle} : le résultat s'affiche`, nEl > 0 || !!verdictMod, `${nEl} ligne(s)`);
@@ -293,6 +300,11 @@ const FILTRE = process.argv[4] || '';
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
+  const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
+    v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));
+  verif('accueil : chaque vignette est un dessin ou reste vide, jamais un tableau', vignettes.every((x) => x.v === '' || x.v === 'svg'), JSON.stringify(vignettes));
+  verif('accueil : la note d\'un module qui a un dessin le montre en vignette', vignettes.every((x) => !avecDessin.has(x.page) || x.v === 'svg'), JSON.stringify(vignettes));
   if (!FILTRE || ['garde', 'poutre'].includes(FILTRE)) verif('accueil : le chantier « Réalex » est listé', (await p.textContent('#chantiers')).includes('Réalex'));
   m = await mesure();
   verif('accueil : rien ne déborde, aucun nom coupé', !m.deborde && !m.coupes.length, m.coupes.join(', '));

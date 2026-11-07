@@ -1,0 +1,91 @@
+/* Tableau des armatures : la vue « Tableau » est un bloc HTML posé dans la feuille (toujours sur papier blanc, comme
+   les dessins) ; en-têtes et colonne des Ø figés pendant le défilement. Chargée par l'établi tableau-armatures seul. */
+
+/* la feuille porte le tableau sur toute sa hauteur ; il défile dedans */
+.sheet .draw:has(> .arm-vue) { display: block; position: relative; padding: 0; }
+.sheet:has(.arm-vue) .stitle .scale { display: none; }
+.arm-vue { position: absolute; inset: 2px 14px 10px; display: flex; flex-direction: column; gap: 8px; color: #0D1525; min-width: 0; }
+.arm-leg { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 11.5px; color: #4A5568; }
+.arm-leg .lect { flex-basis: 100%; color: #8B95A7; }
+/* une marque de la légende passe à la ligne plutôt que de sortir de la feuille (tablette : « la plus économique · Ø8 ·
+   12,5 cm = 402 mm²/m » dépassait à droite) ; sa pastille ne se tasse pas */
+.arm-leg .lg { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.arm-leg .lg i { flex: none; }
+.arm-leg .lg i { display: inline-grid; place-items: center; width: 16px; height: 14px; border-radius: 4px; font-style: normal; font-size: 10px; font-weight: 700; }
+.arm-leg .lg.ok i { background: #DCFCE7; box-shadow: inset 0 0 0 1px #86EFAC; }
+.arm-leg .lg.opt i { color: #B07D00; background: #FFF6D6; box-shadow: inset 0 0 0 1.5px #E0A100; }
+.arm-leg .lg.cur i { color: #2B4BCF; background: #EEF1FE; box-shadow: inset 0 0 0 1.5px #2B4BCF; }
+.arm-defile { flex: 1; min-height: 0; overflow: auto; border: 1px solid #E5E8ED; border-radius: 9px; overscroll-behavior: contain; }
+.arm-pied { font-size: 10.5px; color: #8B95A7; line-height: 1.4; }
+.arm-pied b { font-weight: 600; color: #4A5568; }
+
+.arm-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 11.5px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.arm-tab th, .arm-tab td { padding: 0 2px; height: 30px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; }
+.arm-tab td + td { border-left: 1px solid #F0F2F5; }
+.arm-tab td:last-child { padding-right: 4px; }
+/* au PC, le tableau remplit la feuille : les rangées se partagent sa hauteur (12 rangées sous un en-tête de 68 px) et
+   les chiffres prennent la taille que sa largeur permet (de 10 à 12 px) — rien n'est coupé de 1 280 à 1 920 px */
+@media (min-width: 701px) {
+  .arm-defile { container-type: size; }
+  .arm-tab { font-size: clamp(10px, calc((100cqw - 222px) / 32.5), 12px); }
+  .arm-tab tbody td, .arm-tab tbody th { height: max(28px, calc((100cqh - 70px) / 12)); }
+}
+.arm-tab td { text-align: right; position: relative; color: #0D1525; }
+.arm-tab tbody tr:nth-child(even) td, .arm-tab tbody tr:nth-child(even) th { background: #FAFBFC; }
+/* l'en-tête, deux rangées figées ; la colonne des Ø figée à gauche */
+.arm-tab thead th { position: sticky; z-index: 2; background: #F4F5F8; color: #4A5568; font-weight: 650; text-align: center; border-bottom: 1px solid #D3D8E0; }
+.arm-tab thead tr.r1 th { top: 0; height: 34px; font-size: 11px; letter-spacing: .01em; }
+.arm-tab thead tr.r2 th { top: 34px; height: 34px; }
+.arm-tab thead th small { display: block; font-size: 9.5px; font-weight: 500; color: #8B95A7; letter-spacing: 0; }
+.arm-tab thead th.g small { display: inline; margin-left: 4px; }
+.arm-tab thead th.g .ou { display: block; font-size: 9.5px; font-weight: 500; color: #8B95A7; }
+.arm-tab thead th.g .ou small { margin-left: 3px; }
+.arm-tab thead th.g.on { color: #0D1525; }
+.arm-tab thead tr.r2 th b { display: block; font-size: 11.5px; color: #0D1525; line-height: 1.1; }
+.arm-tab thead tr.r2 th.cur { background: #E3E8FD; box-shadow: inset 0 -2px 0 #2B4BCF; }
+.arm-tab th.d { position: sticky; left: 0; z-index: 1; width: 30px; text-align: center; font-weight: 700; background: #fff; border-right: 1px solid #E5E8ED; }
+.arm-tab thead th.d { z-index: 3; background: #F4F5F8; }
+.arm-tab tbody th.d.hc { color: #B7BFCB; }
+.arm-tab th.m, .arm-tab td.m { border-left: 1px solid #E5E8ED; border-right: 1px solid #E5E8ED; }
+.arm-tab td.m { font-weight: 700; text-align: center; color: #33415C; }
+.arm-tab thead th.m { min-width: 44px; }
+.arm-tab tbody tr.cur th.d { color: #2B4BCF; box-shadow: inset 3px 0 0 #2B4BCF; background: #EEF1FE; }
+.arm-tab tbody tr.cur td { background: #F6F8FF; }
+.arm-tab tbody tr:hover td, .arm-tab tbody tr:hover th { background: #F1F3F7; }
+
+/* les cases : hors sujet (colonnes d'une nappe en mode barres), hors critères, suffit, la plus économique, la retenue */
+.arm-tab .hs { color: #C3CAD5; }
+.arm-tab thead th.hs { color: #B7BFCB; }
+.arm-tab td.hc { color: #9AA4B4; }
+.arm-tab td.ok { background: #DCFCE7 !important; color: #14532D; }
+.arm-tab td.ok.hc { background: #F0FBF3 !important; color: #5B8A6B; }
+.arm-tab td.opt { box-shadow: inset 0 0 0 2px #E0A100; background: #FFF6D6 !important; color: #5C4300; font-weight: 700; }
+.arm-tab td.cur { box-shadow: inset 0 0 0 2px #2B4BCF; font-weight: 700; }
+.arm-tab td.cur.opt { box-shadow: inset 0 0 0 2px #2B4BCF, inset 0 0 0 4px #E0A100; }
+.arm-tab td .mk { position: absolute; left: 3px; top: 2px; font-style: normal; font-size: 9px; line-height: 1; }
+.arm-tab td.opt .mk { color: #B07D00; }
+.arm-tab td.cur .mk { color: #2B4BCF; }
+
+/* le résultat : l'en-tête (la section retenue), l'étoile, la fiche de la disposition */
+.arm-entete .chip.xl small { margin: 0 0 0 5px; font-size: 12px; }
+/* la grande pastille garde sa largeur (« 1 256,6 mm² ») ; c'est le nom du repère, à côté, qui passe à la ligne */
+.arm-entete .chip.xl { flex: none; }
+.arm-entete .gov { min-width: 0; overflow-wrap: anywhere; }
+.arm-entete .chip.xl.c { color: var(--ink); }
+.arm-or { color: #E0A100; font-weight: 700; }
+.arm-fiche { display: flex; flex-direction: column; gap: 6px; padding: 10px 16px 12px; border-bottom: 1px solid var(--line); }
+.arm-fiche > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 12.5px; }
+.arm-fiche span { color: var(--ink-2); white-space: nowrap; }
+.arm-fiche b { font-weight: 650; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* téléphone : le tableau prend sa hauteur, défile en largeur (Ø figés) */
+@media (max-width: 700px) {
+  .sheet:has(.arm-vue), .sheet .draw:has(> .arm-vue) { min-width: 0; }
+  .arm-vue { position: static; padding: 2px 10px 10px; }
+  .arm-defile { max-height: 72vh; max-width: calc(100vw - 42px); }
+}
+@media print {
+  .arm-vue { position: static; }
+  .arm-defile { overflow: visible; max-height: none; border: 0; }
+  .arm-tab thead th, .arm-tab th.d { position: static; }
+}
