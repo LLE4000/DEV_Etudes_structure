@@ -71,7 +71,7 @@ const SUITE = {
   indisponible: "Cette note n'est gardée nulle part : exportez-la en fichier .stab pour ne pas la perdre.",
 };
 function direAlerte(sorte, texte) {
-  alerte.classList.toggle("info", sorte === "info");
+  alerte.classList.toggle("et-info", sorte === "info");
   alerte.querySelector(".et-alerte-txt").textContent = texte;
   alerte.querySelector(".et-alerte-stab").hidden = sorte === "info";
   alerte.hidden = false;

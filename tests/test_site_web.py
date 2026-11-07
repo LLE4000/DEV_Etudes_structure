@@ -219,8 +219,15 @@ for f in feuilles:
                 caches.append(f"{f} : {un.strip()}")
 chk("aucune règle des feuilles du site ne cache l'indicateur d'enregistrement, son texte ou la 2ᵉ ligne du téléphone (hors impression)",
     not caches, caches[:4])
+# les classes posées sur un composant « et- » (l'indicateur, le message, le signal de l'accueil) portent elles aussi le
+# préfixe « et- » (spécification de la refonte, B.2.6) : une classe nue (« .et-alerte.info ») peut rencontrer une règle de
+# la charte ou du <style> d'un module. Les :not(…) sont retirés : ils ne posent pas de classe sur l'élément.
+_css_site = re.sub(r":not\([^)]*\)", "", re.sub(r"/\*.*?\*/", "", open(os.path.join(WEB, "css", "site.css"), encoding="utf-8").read(), flags=re.S))
+nues = sorted({c for compose in re.findall(r"[\w-]*(?:\.[\w-]+|\[[^\]]*\]|:{1,2}[\w-]+)+", _css_site) if ".et-" in compose
+               for c in re.findall(r"\.([\w-]+)", compose) if not c.startswith("et-")})
+chk("les classes posées sur un composant « et- » portent le préfixe « et- » (B.2.6)", not nues, nues)
 acc = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
-nav_pc =re.findall(r'data-tip="([^"·]+?)(?: · bientôt)?"', acc[acc.index('<nav class="nav"'):acc.index("</nav>")])
+nav_pc = re.findall(r'data-tip="([^"·]+?)(?: · bientôt)?"', acc[acc.index('<nav class="nav"'):acc.index("</nav>")])
 nav_tel = re.findall(r"<span>([^<]+)</span></a>", acc[acc.index('<nav class="mnav"'):])[:5]
 chk("accueil : au téléphone, l'en-tête et les cinq entrées de la barre, dans le même ordre", 'class="mhead"' in acc
     and [x.strip() for x in nav_pc[:5]] == nav_tel, (nav_pc, nav_tel))

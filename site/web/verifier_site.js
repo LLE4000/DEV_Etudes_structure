@@ -1540,7 +1540,7 @@ const FILTRE = process.argv[4] || '';
       const rb = bt && vu(bt) ? bt.getBoundingClientRect() : null;
       return { visibles: vis.length, etat: e ? e.dataset.enr : null, texte: t ? t.textContent : null, titre: e ? e.title : '', entier, couvert, boite,
         rouge: !!t && getComputedStyle(t).color === rouge, couleur: t ? getComputedStyle(t).color : null,
-        alerte: ra ? { texte: al.querySelector('.et-alerte-txt').textContent, info: al.classList.contains('info'),
+        alerte: ra ? { texte: al.querySelector('.et-alerte-txt').textContent, info: al.classList.contains('et-info'),
           dedans: ra.left >= -0.5 && ra.right <= innerWidth + 0.5 && ra.top >= -0.5 && ra.bottom <= innerHeight + 0.5,
           bouton: rb ? { texte: bt.textContent.trim(), h: Math.round(rb.height), l: Math.round(rb.width) } : null } : null,
         deborde: document.documentElement.scrollWidth > innerWidth };

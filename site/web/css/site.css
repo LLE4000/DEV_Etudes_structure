@@ -49,8 +49,8 @@ a { color: inherit; text-decoration: none; }
 .et-alerte-ic svg.i { width: 18px; height: 18px; }
 .et-alerte-txt { flex: 1; min-width: 0; }
 .et-alerte .btn { flex: none; }
-.et-alerte.info { border-color: var(--accent-line); }
-.et-alerte.info .et-alerte-ic { color: var(--accent); }
+.et-alerte.et-info { border-color: var(--accent-line); }
+.et-alerte.et-info .et-alerte-ic { color: var(--accent); }
 /* l'accueil : la mémoire des notes illisible, ou sa copie gardée à part */
 .et-memoire { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: var(--r-lg); background: color-mix(in srgb, var(--nok) 7%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--nok) 40%, var(--line)); color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
