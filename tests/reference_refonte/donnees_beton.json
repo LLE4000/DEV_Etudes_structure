@@ -1,0 +1,739 @@
+{
+ "module": "donnees_beton",
+ "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "cas": [
+  {
+   "nom": "note neuve",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}],
+   "photo": {
+    "messages": [null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Classes de béton · C30/37"
+    },
+    "statut": "Consultation",
+    "phrase": "Béton C30/37 · f ck = 30 MPa · f ck,cube = 37 MPa",
+    "resultat": [
+     ["f ck", "30 MPa"],
+     ["Béton C30/37 f ck,cube =", "37 MPa"],
+     ["E cm =", "33 GPa", "·"],
+     ["f ctm =", "2,9 MPa"],
+     ["Classe C30/37 D'où viennent les valeurs Classes de béton « tau_lim » de beton_classes.json", "(0,70 N/mm²"],
+     ["pour C30/37) n'est lu par aucun module de calcul : les τ adm des modules Poutre, Dalle et Prédalle sont calculés depuis f ck,cube (fiche, méthode du bureau). Classe f ck", "30 MPa"],
+     ["f ck,cube", "37 MPa"],
+     ["EN 1992-1-1 · tableau 3.1 f cm", "38 MPa"],
+     ["f ctm", "2,9 MPa"],
+     ["f ctk,0,05", "2,0 MPa"],
+     ["f ctk,0,95", "3,8 MPa"],
+     ["E cm", "33 GPa"],
+     ["Méthode du bureau α b", "12,96"],
+     ["μ B500", "0,1709"],
+     ["μ B400", "0,1904"],
+     ["τ adm,I", "0,56 N/mm²"],
+     ["τ adm,II", "1,13 N/mm²"],
+     ["τ adm,IV", "2,26 N/mm²"],
+     ["Aide-mémoire du bureau Classes de béton"]
+    ],
+    "calculs": [
+     ["Béton C30/37 · d'où viennent les valeurs chaque valeur avec sa formule ou son fichier Classe lue dans beton_classes.json EN 1992-1-1:2004 , tableau 3.1 τ adm : le calcul du module Poutre Les valeurs, une à une EN 1992-1-1 · tableau 3.1 f cm = f ck +", "8", "=", "30", "+", "8", "=", "38 MPa"],
+     ["f ctm = 0,30·f ck ^(2/3) =", "0,30", "×", "30^(2/3)", "=", "2,896 MPa"],
+     ["f ctk,0,05 = 0,7·f ctm =", "0,7", "×", "2,896", "=", "2,028 MPa"],
+     ["f ctk,0,95 = 1,3·f ctm =", "1,3", "×", "2,896", "=", "3,765 MPa"],
+     ["E cm = 22·(f cm /10)^0,3 =", "22", "×", "(38/10)^0,3", "=", "32,84 GPa"],
+     ["Méthode du bureau α b = valeur du fichier des classes =", "12,96"],
+     ["μ B500 = valeur du fichier des classes =", "0,1709"],
+     ["μ B400 = valeur du fichier des classes =", "0,1904"],
+     ["τ adm,I = k I ·f ck,cube /", "1,05", "=", "0,016", "×", "37", "/", "1,05", "=", "0,564 N/mm²"],
+     ["τ adm,II = k II ·f ck,cube /", "1,05", "=", "0,032", "×", "37", "/", "1,05", "=", "1,128 N/mm²"],
+     ["τ adm,IV = k IV ·f ck,cube /", "1,05", "=", "0,064", "×", "37", "/", "1,05", "=", "2,255 N/mm²"],
+     ["Les formules du tableau 3.1 sont confrontées au tableau publié, de C12/15 à C90/105, à chaque contrôle du site."]
+    ],
+    "avis": ["« tau_lim » de beton_classes.json (0,70 N/mm² pour C30/37) n'est lu par aucun module de calcul : les τ adm des modules Poutre, Dalle et Prédalle sont calculés depuis f ck,cube (fiche, méthode du bureau)."],
+    "champs": {
+     "classes/classe": "C30/37",
+     "classes/groupe": "ec2",
+     "nom": "Consultation 1",
+     "rubrique": "classes"
+    },
+    "verrous": [],
+    "menus": {
+     "classes/classe": "5 · 0797e7845e8c",
+     "classes/groupe": "2 · ec48dc43a96c",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Classes de béton",
+      "court": "Tableau",
+      "legende": "5 classes · EN 1992-⁠1-⁠1 · tableau 3.1",
+      "nombres": "0,1 1,5 1,8 1992-1-1 1992-1-1:2004 2,0 2,2 2,2 2,5 2,6 2,9 2,9 20 25 25 28 3,2 3,3 3,5 3,8 3.1 30 30 30 31 33 33 34 35 35 37 38 4,2 4,6 40 43 45 48 5 50 C20/25 C25/30 C30/37 C35/45 C40/50 ctk,0,05 ctk,0,95"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "classes", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0},
+    "selecteurs": {
+     "ligne": [
+      ["Classe de béton les classes du bureau · un clic l'ouvre C20/25", "20"],
+      ["C25/30", "25"],
+      ["C30/37", "30"],
+      ["C35/45", "35"],
+      ["C40/50", "40 f"],
+      ["ck =", "30 MPa", "·"],
+      ["f ck,cube =", "37 MPa", "·"],
+      ["E cm =", "33 GPa", "·"],
+      ["α b =", "12,96"],
+      ["retenu f ck MPa"]
+     ]
+    },
+    "fichiers": {}
+   }
+  },
+  {
+   "nom": "aciers B400",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["rubrique"], "valeur": "aciers"}, {"action": "choisir", "role": "ligne", "nom": "B400"}],
+   "photo": {
+    "messages": [null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Aciers d'armature · B400"
+    },
+    "statut": "Consultation",
+    "phrase": "Acier B400 · f yk = 400 MPa",
+    "resultat": [
+     ["f yk", "400 MPa"],
+     ["Acier B400 bureau : f yd =", "267 MPa"],
+     ["EN 1992-1-1 : f yd =", "348 MPa"],
+     ["Nuance B400 D'où viennent les valeurs Aciers d'armature γ s =", "1,5"],
+     ["est le « coefficient acier ELS » des modules Poutre, Dalle et Prédalle (méthode ancienne du bureau, réglable de", "1"],
+     ["à", "2)", ";"],
+     ["γ s =", "1,15"],
+     ["est la valeur recommandée de l' EN 1992-1-1 à l'ELU — l'annexe nationale belge est à confirmer par le bureau. ρ =", "7 860 kg/m³", ":"],
+     ["la masse volumique du tableau des armatures du bureau (l'usage courant est", "7", "850 kg/m³", ";"],
+     ["les masses du tableau sont plus fortes de", "0,13 %)."],
+     ["Nuance f yk", "400 MPa"],
+     ["Méthode du bureau γ s", "1,5 f"],
+     ["yd", "266,7 MPa"],
+     ["EN 1992-1-1 γ s", "1,15 f"],
+     ["yd", "347,8 MPa"],
+     ["E s", "200 GPa"],
+     ["ε yd", "1,74 ‰"],
+     ["Tableau des armatures ρ", "7 860 kg/m³"],
+     ["Aide-mémoire du bureau Aciers d'armature"]
+    ],
+    "calculs": [
+     ["Acier B400 · d'où viennent les valeurs f yd comme le module Poutre, E s de l' EN 1992-1-1 f yk =", "400 MPa"],
+     ["bureau : γ s =", "1,5"],
+     ["EN 1992-1-1 : γ s =", "1,15 E"],
+     ["s =", "200 GPa"],
+     ["Les valeurs, une à une Méthode du bureau f yd = f yk / γ s =", "400", "/", "1,5", "=", "266,7 MPa"],
+     ["EN 1992-1-1 f yd = f yk / γ s =", "400", "/", "1,15", "=", "347,8 MPa"],
+     ["ε yd = f yd / E s =", "347,8", "/", "200 000", "=", "1,739 ‰"]
+    ],
+    "avis": ["γ s = 1,5 est le « coefficient acier ELS » des modules Poutre, Dalle et Prédalle (méthode ancienne du bureau, réglable de 1 à 2) ; γ s = 1,15 est la valeur recommandée de l'EN 1992-1-1 à l'ELU — l'annexe nationale belge est à confirmer par le bureau.", "ρ = 7 860 kg/m³ : la masse volumique du tableau des armatures du bureau (l'usage courant est 7 850 kg/m³ ; les masses du tableau sont plus fortes de 0,13 %)."],
+    "champs": {
+     "aciers/nuance": "400",
+     "nom": "Consultation 1",
+     "rubrique": "aciers"
+    },
+    "verrous": [],
+    "menus": {
+     "aciers/nuance": "2 · ce418c003bdf",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Aciers d'armature",
+      "court": "Tableau",
+      "legende": "B400 et B500 · bureau et EN 1992-⁠1-⁠1",
+      "nombres": "1,15 1,15, 1,5 1,5, 1,74 1992-1-1 1992-1-1:2004 1992-1-1:2004 2,17 2.1N 200 200 267 333 348 400 435 500 B400 B500 §3.2.7(4)"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "aciers", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 400}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0}
+   }
+  },
+  {
+   "nom": "enrobages : XD3/XS3, R120",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["rubrique"], "valeur": "enrobages"}, {"action": "choisir", "role": "ligne", "nom": "XD3/XS3"}, {"action": "modifier", "chemin": ["enrobages", "r"], "valeur": "R120"}],
+   "photo": {
+    "messages": [null, null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Enrobages · XD3/XS3"
+    },
+    "statut": "Consultation",
+    "phrase": "XD3/XS3 · S4 · c min,dur = 45 mm · c nom = 55 mm (Ø20, Δc dev 10 mm)",
+    "resultat": [
+     ["c nom", "55 mm"],
+     ["XD3/XS3 · S4 · Ø20 c min =", "45 mm", "·"],
+     ["Δc dev =", "10 mm"],
+     ["c min,dur =", "45 mm"],
+     ["(tab. 4.4N) Exposition XD3/XS3 D'où viennent les valeurs Enrobages", "10 mm"],
+     ["par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage. XD3/XS3 · Alternativement humide et sec / zones de marnage et embruns Chlorures avec cycles humide/sec (XD3) ou zones de marnage/embruns (XS3). Exemples Tabliers de ponts, dalles de parking exposées aux sels ; ouvrages en zone de marée. La choisir Cas le plus sévère : sels + alternance humide/sec, embruns marins directs. Durabilité · dalle, sans étrier c min,b", "20 mm"],
+     ["c min,dur", "45 mm"],
+     ["c min ≥", "10 mm", "10 mm"],
+     ["Δc dur", "0 mm"],
+     ["c min", "45 mm"],
+     ["Δc dev", "10 mm"],
+     ["c nom,dur", "55 mm"],
+     ["Classe structurale proposée S6 retenue S4 Aide-mémoire du bureau Enrobages"]
+    ],
+    "calculs": [
+     ["Enrobage XD3/XS3 · S4 · d'où viennent les valeurs le calcul de l'écran Enrobage, pour une dalle sans étrier Exposition XD3/XS3 Classe structurale S4 Ø =", "20 mm"],
+     ["Δc dev =", "10 mm"],
+     ["Les valeurs, une à une EN 1992-1-1 §4.4.1 c min = max(c min,b ; c min,dur ;", "10 mm)", "="],
+     ["max(20 ;", "45", ";", "10)", "=", "45 mm"],
+     ["c nom = c min + Δc dev =", "45", "+", "10", "=", "55 mm"],
+     ["Les règles c min,b EN 1992-1-1 §4.4.1.2(3), tab. 4.2 : adhérence, barre individuelle — c min,b = Ø de la barre principale c min,dur EN 1992-1-1 §4.4.1.2(5), tab. 4.4N : durabilité selon la classe structurale (tab. 4.3N) et l'exposition c min ≥", "10 mm"],
+     ["EN 1992-1-1 éq. (4.2) :", "10 mm"],
+     ["au moins Δc dur EN 1992-1-1 §4.4.1.2(6) à", "(8)", ":"],
+     ["Δc dur,γ , Δc dur,st , Δc dur,add — laissés à", "0"],
+     ["par l'écran (valeurs recommandées) c min EN 1992-1-1 §4.4.1.2(2), éq. (4.2) : c min = max(c min,b ; c min,dur + Δc dur,γ − Δc dur,st − Δc dur,add ;", "10 mm)"],
+     ["Δc dev EN 1992-1-1 §4.4.1.3(1)P :", "10 mm"],
+     ["recommandé ;", "(3)", "10", "≥"],
+     ["Δc dev ≥", "5 mm"],
+     ["avec contrôle de la qualité, jusqu'à", "0"],
+     ["avec mesure précise c nom,dur EN 1992-1-1 §4.4.1.1(2), éq. (4.1) : c nom = c min + Δc dev"]
+    ],
+    "avis": ["10 mm par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage."],
+    "champs": {
+     "enrobages/classe_expo": "XD3/XS3",
+     "enrobages/classe_struct": "S4",
+     "enrobages/delta_dev": "10",
+     "enrobages/diam_barre": "20",
+     "enrobages/tableau": "durabilite",
+     "nom": "Consultation 1",
+     "rubrique": "enrobages"
+    },
+    "verrous": [],
+    "menus": {
+     "enrobages/classe_expo": "7 · a938fe36b2e2",
+     "enrobages/classe_struct": "6 · 015e9f56d03a",
+     "enrobages/delta_dev": "3 · a3b31392c2ba",
+     "enrobages/diam_barre": "12 · 6b34ad2ec5d3",
+     "enrobages/tableau": "2 · 6848af491652",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Enrobages",
+      "court": "Tableau",
+      "legende": "enrobage minimal de durabilité (mm) · EN 1992-⁠1-⁠1 tab. 4.4N",
+      "nombres": "10 10 10 10 10 10 15 15 15 15 1992-1-1 20 20 20 20 20 25 25 25 25 25 25 30 30 30 30 30 30 35 35 35 35 35 4.4N 4.4N, 40 40 40 40 45 45 45 5 50 50 55 D4 S1 S2 S3 S3 S4 S4 S5 S6 S6 X0 X0 XC1 XC1 XC1), XC2/XC3 XC4 XD1/XS1 XD2/XS2 XD3/XS3"
+     },
+     {
+      "cle": "coupe",
+      "titre": "Coupe d'enrobage",
+      "court": "Coupe",
+      "legende": "dalle · XD3/XS3 · S4 · Ø20 · enrobage nominal 55 mm",
+      "nombres": "/2 10 10 45 55 55 65 65 Ø20"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "enrobages", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XD3/XS3", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R120"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0}
+   }
+  },
+  {
+   "nom": "armatures Ø40",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["rubrique"], "valeur": "armatures"}, {"action": "choisir", "role": "ligne", "nom": "Ø40"}],
+   "photo": {
+    "messages": [null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Tableau des armatures · Ø40"
+    },
+    "statut": "Consultation",
+    "phrase": "Ø40 · a = 1 256,6 mm² · m = 9,877 kg/m",
+    "resultat": [
+     ["a", "1 256,6 mm²"],
+     ["Barre Ø40 m =", "9,877 kg/m"],
+     ["ρ =", "7 860 kg/m³"],
+     ["(tableau du bureau) Diamètre Ø40 D'où viennent les valeurs Tableau des armatures Une barre Ø40 a", "1 256,6 mm²"],
+     ["m", "9,877 kg/m"],
+     ["Nombre de barres", "1"],
+     ["barre", "1 257 mm²", "2"],
+     ["barres", "2 513 mm²", "3"],
+     ["barres", "3 770 mm²", "4"],
+     ["barres", "5 027 mm²", "5"],
+     ["barres", "6 283 mm²", "6"],
+     ["barres", "7 540 mm²", "7"],
+     ["barres", "8 796 mm²", "8"],
+     ["barres", "10 053 mm²", "9"],
+     ["barres", "11 310 mm²", "10"],
+     ["barres", "12 566 mm²"],
+     ["Espacement fixe e =", "15 cm", "8 378 mm²/m"],
+     ["e =", "30 cm", "4 189 mm²/m"],
+     ["e =", "35 cm", "3 590 mm²/m"],
+     ["e =", "40 cm", "3 142 mm²/m"],
+     ["Aide-mémoire du bureau Tableau des armatures"]
+    ],
+    "calculs": [
+     ["Barre Ø40 · d'où viennent les valeurs le tableau du bureau, recalculé Tableau « Tableau armature.png » ρ =", "7 860 kg/m³"],
+     ["sections arrondies au mm² Les valeurs, une à une Une barre Ø40 a = π·Ø²/4 = π × 40² /", "4", "=", "1 256,6 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "1 256,6", "×", "10⁻⁶", "=", "9,877 kg/m"],
+     ["Exemples :", "4"],
+     ["barres, e =", "15 cm"],
+     ["A = n·a =", "4", "×", "1 256,6", "=", "5 026,5 mm²"],
+     ["A/m = a·100 / e =", "1 256,6", "×", "100", "/", "15", "=", "8 377,6 mm²/m"],
+     ["Chaque case du tableau est relue dans l'image du bureau à chaque contrôle du site."]
+    ],
+    "avis": [],
+    "champs": {
+     "armatures/d": "40",
+     "armatures/lecture": "barres",
+     "nom": "Consultation 1",
+     "rubrique": "armatures"
+    },
+    "verrous": [],
+    "menus": {
+     "armatures/d": "12 · 6b34ad2ec5d3",
+     "armatures/lecture": "2 · 499dc2d33a6c",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 101 11 310 113 113 12 12 566 126 14 141 144 15 151 154 157 16 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 201 201 224 226 226 236 25 251 254 262 28 28 283 283 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 402 402 440 452 452 462 471 491 5 5 027 5 362 5 542 5 630 5 655 5,556 50 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 9 9,877 905 924 94 942 982 π·Ø²/4,"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique · Ø40 encadré",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "armatures", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 40}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0}
+   }
+  },
+  {
+   "nom": "classes du bureau",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["classes", "groupe"], "valeur": "bureau"}],
+   "photo": {
+    "messages": [null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Classes de béton · C30/37"
+    },
+    "statut": "Consultation",
+    "phrase": "Béton C30/37 · f ck = 30 MPa · f ck,cube = 37 MPa",
+    "resultat": [
+     ["f ck", "30 MPa"],
+     ["Béton C30/37 f ck,cube =", "37 MPa"],
+     ["E cm =", "33 GPa", "·"],
+     ["f ctm =", "2,9 MPa"],
+     ["Classe C30/37 D'où viennent les valeurs Classes de béton « tau_lim » de beton_classes.json", "(0,70 N/mm²"],
+     ["pour C30/37) n'est lu par aucun module de calcul : les τ adm des modules Poutre, Dalle et Prédalle sont calculés depuis f ck,cube (fiche, méthode du bureau). Classe f ck", "30 MPa"],
+     ["f ck,cube", "37 MPa"],
+     ["EN 1992-1-1 · tableau 3.1 f cm", "38 MPa"],
+     ["f ctm", "2,9 MPa"],
+     ["f ctk,0,05", "2,0 MPa"],
+     ["f ctk,0,95", "3,8 MPa"],
+     ["E cm", "33 GPa"],
+     ["Méthode du bureau α b", "12,96"],
+     ["μ B500", "0,1709"],
+     ["μ B400", "0,1904"],
+     ["τ adm,I", "0,56 N/mm²"],
+     ["τ adm,II", "1,13 N/mm²"],
+     ["τ adm,IV", "2,26 N/mm²"],
+     ["Aide-mémoire du bureau Classes de béton"]
+    ],
+    "calculs": [
+     ["Béton C30/37 · d'où viennent les valeurs chaque valeur avec sa formule ou son fichier Classe lue dans beton_classes.json EN 1992-1-1:2004 , tableau 3.1 τ adm : le calcul du module Poutre Les valeurs, une à une EN 1992-1-1 · tableau 3.1 f cm = f ck +", "8", "=", "30", "+", "8", "=", "38 MPa"],
+     ["f ctm = 0,30·f ck ^(2/3) =", "0,30", "×", "30^(2/3)", "=", "2,896 MPa"],
+     ["f ctk,0,05 = 0,7·f ctm =", "0,7", "×", "2,896", "=", "2,028 MPa"],
+     ["f ctk,0,95 = 1,3·f ctm =", "1,3", "×", "2,896", "=", "3,765 MPa"],
+     ["E cm = 22·(f cm /10)^0,3 =", "22", "×", "(38/10)^0,3", "=", "32,84 GPa"],
+     ["Méthode du bureau α b = valeur du fichier des classes =", "12,96"],
+     ["μ B500 = valeur du fichier des classes =", "0,1709"],
+     ["μ B400 = valeur du fichier des classes =", "0,1904"],
+     ["τ adm,I = k I ·f ck,cube /", "1,05", "=", "0,016", "×", "37", "/", "1,05", "=", "0,564 N/mm²"],
+     ["τ adm,II = k II ·f ck,cube /", "1,05", "=", "0,032", "×", "37", "/", "1,05", "=", "1,128 N/mm²"],
+     ["τ adm,IV = k IV ·f ck,cube /", "1,05", "=", "0,064", "×", "37", "/", "1,05", "=", "2,255 N/mm²"],
+     ["Les formules du tableau 3.1 sont confrontées au tableau publié, de C12/15 à C90/105, à chaque contrôle du site."]
+    ],
+    "avis": ["« tau_lim » de beton_classes.json (0,70 N/mm² pour C30/37) n'est lu par aucun module de calcul : les τ adm des modules Poutre, Dalle et Prédalle sont calculés depuis f ck,cube (fiche, méthode du bureau)."],
+    "champs": {
+     "classes/classe": "C30/37",
+     "classes/groupe": "bureau",
+     "nom": "Consultation 1",
+     "rubrique": "classes"
+    },
+    "verrous": [],
+    "menus": {
+     "classes/classe": "5 · 0797e7845e8c",
+     "classes/groupe": "2 · ec48dc43a96c",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Classes de béton",
+      "court": "Tableau",
+      "legende": "5 classes · Méthode du bureau",
+      "nombres": "0,016 0,032 0,064 0,1363 0,1513 0,1555 0,1709 0,1709 0,1868 0,1904 0,1975 0,2060 0,2161 0,38 0,46 0,56 0,69 0,76 0,76 0,91 1,05, 1,13 1,37 1,52 1,52 1,83 10,37 12,96 15,56 17,59 1992-1-1 2,26 2,74 20 25 25 3,05 30 30 35 37 40 45 5 50 8,70 B400 B500 C20/25 C25/30 C30/37 C35/45 C40/50"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "classes", "classes": {"groupe": "bureau", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0}
+   }
+  },
+  {
+   "nom": "ancrages : tableaux à venir",
+   "sorte": "limite",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["rubrique"], "valeur": "ancrages"}],
+   "photo": {
+    "messages": [null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Ancrages et recouvrements"
+    },
+    "statut": "Consultation",
+    "phrase": "Tableaux du bureau à venir",
+    "resultat": [
+     ["Tableaux du bureau à venir Les tableaux de l'ingénieur s'afficheront ici. D'où viennent les valeurs Ancrages et recouvrements Le fichier beton/donnees/ancrages_recouvrements.json attend les tableaux : un tableau par grandeur (ancrage droit, recouvrement…), une ligne par cas (classe de béton, adhérence…), une colonne par diamètre. Format la documentation du module, DONNEES_BETON.md §", "6."],
+     ["Aide-mémoire du bureau Ancrages et recouvrements"]
+    ],
+    "calculs": [
+     ["Ancrages et recouvrements · le fichier à remplir aucune valeur tant que le bureau n'a pas fourni ses tableaux beton/donnees/ancrages_recouvrements.json « Tableaux du bureau à venir » Les valeurs, une à une Ce que contiendra un tableau titre · grandeur (l bd , l", "0", "…)", "·"],
+     ["unité (mm, cm, m ou Ø) source : d'où vient le tableau (obligatoire) conditions : béton, acier, adhérence, forme des barres… colonnes : les diamètres ; lignes : un libellé et une valeur par colonne (null : case vide)"]
+    ],
+    "avis": [],
+    "champs": {
+     "nom": "Consultation 1",
+     "rubrique": "ancrages"
+    },
+    "verrous": [],
+    "menus": {
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Ancrages et recouvrements",
+      "court": "Tableau",
+      "legende": "beton/donnees/ancrages_recouvrements.json",
+      "nombres": ""
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "ancrages", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0}
+   }
+  },
+  {
+   "nom": "résistance au feu R240 (PARCOURS)",
+   "sorte": "limite",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["rubrique"], "valeur": "enrobages"}, {"action": "modifier", "chemin": ["enrobages", "r"], "valeur": "R240"}],
+   "photo": {
+    "messages": [null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Enrobages · XC1"
+    },
+    "statut": "Consultation",
+    "phrase": "XC1 · S4 · c min,dur = 20 mm · c nom = 30 mm (Ø20, Δc dev 10 mm)",
+    "resultat": [
+     ["c nom", "30 mm"],
+     ["XC1 · S4 · Ø20 c min =", "20 mm", "·"],
+     ["Δc dev =", "10 mm"],
+     ["c min,dur =", "20 mm"],
+     ["(tab. 4.4N) Exposition XC1 D'où viennent les valeurs Enrobages", "10 mm"],
+     ["par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage. XC1 · Sec, ou humide en permanence Corrosion induite par carbonatation, ambiance sèche ou toujours humide. Exemples Intérieur de bâtiments (humidité faible) ; béton en permanence immergé dans l'eau. La choisir Élément intérieur au sec, OU totalement noyé sous l'eau sans alternance. Durabilité · dalle, sans étrier c min,b", "20 mm"],
+     ["c min,dur", "20 mm"],
+     ["c min ≥", "10 mm", "10 mm"],
+     ["Δc dur", "0 mm"],
+     ["c min", "20 mm"],
+     ["Δc dev", "10 mm"],
+     ["c nom,dur", "30 mm"],
+     ["Classe structurale proposée S2 retenue S4 Aide-mémoire du bureau Enrobages"]
+    ],
+    "calculs": [
+     ["Enrobage XC1 · S4 · d'où viennent les valeurs le calcul de l'écran Enrobage, pour une dalle sans étrier Exposition XC1 Classe structurale S4 Ø =", "20 mm"],
+     ["Δc dev =", "10 mm"],
+     ["Les valeurs, une à une EN 1992-1-1 §4.4.1 c min = max(c min,b ; c min,dur ;", "10 mm)", "="],
+     ["max(20 ;", "20", ";", "10)", "=", "20 mm"],
+     ["c nom = c min + Δc dev =", "20", "+", "10", "=", "30 mm"],
+     ["Les règles c min,b EN 1992-1-1 §4.4.1.2(3), tab. 4.2 : adhérence, barre individuelle — c min,b = Ø de la barre principale c min,dur EN 1992-1-1 §4.4.1.2(5), tab. 4.4N : durabilité selon la classe structurale (tab. 4.3N) et l'exposition c min ≥", "10 mm"],
+     ["EN 1992-1-1 éq. (4.2) :", "10 mm"],
+     ["au moins Δc dur EN 1992-1-1 §4.4.1.2(6) à", "(8)", ":"],
+     ["Δc dur,γ , Δc dur,st , Δc dur,add — laissés à", "0"],
+     ["par l'écran (valeurs recommandées) c min EN 1992-1-1 §4.4.1.2(2), éq. (4.2) : c min = max(c min,b ; c min,dur + Δc dur,γ − Δc dur,st − Δc dur,add ;", "10 mm)"],
+     ["Δc dev EN 1992-1-1 §4.4.1.3(1)P :", "10 mm"],
+     ["recommandé ;", "(3)", "10", "≥"],
+     ["Δc dev ≥", "5 mm"],
+     ["avec contrôle de la qualité, jusqu'à", "0"],
+     ["avec mesure précise c nom,dur EN 1992-1-1 §4.4.1.1(2), éq. (4.1) : c nom = c min + Δc dev"]
+    ],
+    "avis": ["10 mm par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage."],
+    "champs": {
+     "enrobages/classe_expo": "XC1",
+     "enrobages/classe_struct": "S4",
+     "enrobages/delta_dev": "10",
+     "enrobages/diam_barre": "20",
+     "enrobages/tableau": "durabilite",
+     "nom": "Consultation 1",
+     "rubrique": "enrobages"
+    },
+    "verrous": [],
+    "menus": {
+     "enrobages/classe_expo": "7 · a938fe36b2e2",
+     "enrobages/classe_struct": "6 · 015e9f56d03a",
+     "enrobages/delta_dev": "3 · a3b31392c2ba",
+     "enrobages/diam_barre": "12 · 6b34ad2ec5d3",
+     "enrobages/tableau": "2 · 6848af491652",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Enrobages",
+      "court": "Tableau",
+      "legende": "enrobage minimal de durabilité (mm) · EN 1992-⁠1-⁠1 tab. 4.4N",
+      "nombres": "10 10 10 10 10 10 15 15 15 15 1992-1-1 20 20 20 20 20 25 25 25 25 25 25 30 30 30 30 30 30 35 35 35 35 35 4.4N 4.4N, 40 40 40 40 45 45 45 5 50 50 55 D4 S1 S2 S3 S3 S4 S4 S5 S6 S6 X0 X0 XC1 XC1 XC1), XC2/XC3 XC4 XD1/XS1 XD2/XS2 XD3/XS3"
+     },
+     {
+      "cle": "coupe",
+      "titre": "Coupe d'enrobage",
+      "court": "Coupe",
+      "legende": "dalle · XC1 · S4 · Ø20 · enrobage nominal 30 mm",
+      "nombres": "/2 10 10 20 30 30 40 40 Ø20"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "enrobages", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R240"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0}
+   }
+  },
+  {
+   "nom": "rubrique inconnue refusée",
+   "sorte": "limite",
+   "attendu": {
+    "message": true
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["rubrique"], "valeur": "pas-une-rubrique"}],
+   "photo": {
+    "messages": [null, "Rubrique inconnue : « pas-une-rubrique »"],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 1 · Classes de béton · C30/37"
+    },
+    "statut": "Consultation",
+    "phrase": "Béton C30/37 · f ck = 30 MPa · f ck,cube = 37 MPa",
+    "resultat": [
+     ["f ck", "30 MPa"],
+     ["Béton C30/37 f ck,cube =", "37 MPa"],
+     ["E cm =", "33 GPa", "·"],
+     ["f ctm =", "2,9 MPa"],
+     ["Classe C30/37 D'où viennent les valeurs Classes de béton « tau_lim » de beton_classes.json", "(0,70 N/mm²"],
+     ["pour C30/37) n'est lu par aucun module de calcul : les τ adm des modules Poutre, Dalle et Prédalle sont calculés depuis f ck,cube (fiche, méthode du bureau). Classe f ck", "30 MPa"],
+     ["f ck,cube", "37 MPa"],
+     ["EN 1992-1-1 · tableau 3.1 f cm", "38 MPa"],
+     ["f ctm", "2,9 MPa"],
+     ["f ctk,0,05", "2,0 MPa"],
+     ["f ctk,0,95", "3,8 MPa"],
+     ["E cm", "33 GPa"],
+     ["Méthode du bureau α b", "12,96"],
+     ["μ B500", "0,1709"],
+     ["μ B400", "0,1904"],
+     ["τ adm,I", "0,56 N/mm²"],
+     ["τ adm,II", "1,13 N/mm²"],
+     ["τ adm,IV", "2,26 N/mm²"],
+     ["Aide-mémoire du bureau Classes de béton"]
+    ],
+    "calculs": [
+     ["Béton C30/37 · d'où viennent les valeurs chaque valeur avec sa formule ou son fichier Classe lue dans beton_classes.json EN 1992-1-1:2004 , tableau 3.1 τ adm : le calcul du module Poutre Les valeurs, une à une EN 1992-1-1 · tableau 3.1 f cm = f ck +", "8", "=", "30", "+", "8", "=", "38 MPa"],
+     ["f ctm = 0,30·f ck ^(2/3) =", "0,30", "×", "30^(2/3)", "=", "2,896 MPa"],
+     ["f ctk,0,05 = 0,7·f ctm =", "0,7", "×", "2,896", "=", "2,028 MPa"],
+     ["f ctk,0,95 = 1,3·f ctm =", "1,3", "×", "2,896", "=", "3,765 MPa"],
+     ["E cm = 22·(f cm /10)^0,3 =", "22", "×", "(38/10)^0,3", "=", "32,84 GPa"],
+     ["Méthode du bureau α b = valeur du fichier des classes =", "12,96"],
+     ["μ B500 = valeur du fichier des classes =", "0,1709"],
+     ["μ B400 = valeur du fichier des classes =", "0,1904"],
+     ["τ adm,I = k I ·f ck,cube /", "1,05", "=", "0,016", "×", "37", "/", "1,05", "=", "0,564 N/mm²"],
+     ["τ adm,II = k II ·f ck,cube /", "1,05", "=", "0,032", "×", "37", "/", "1,05", "=", "1,128 N/mm²"],
+     ["τ adm,IV = k IV ·f ck,cube /", "1,05", "=", "0,064", "×", "37", "/", "1,05", "=", "2,255 N/mm²"],
+     ["Les formules du tableau 3.1 sont confrontées au tableau publié, de C12/15 à C90/105, à chaque contrôle du site."]
+    ],
+    "avis": ["« tau_lim » de beton_classes.json (0,70 N/mm² pour C30/37) n'est lu par aucun module de calcul : les τ adm des modules Poutre, Dalle et Prédalle sont calculés depuis f ck,cube (fiche, méthode du bureau)."],
+    "champs": {
+     "classes/classe": "C30/37",
+     "classes/groupe": "ec2",
+     "nom": "Consultation 1",
+     "rubrique": "classes"
+    },
+    "verrous": [],
+    "menus": {
+     "classes/classe": "5 · 0797e7845e8c",
+     "classes/groupe": "2 · ec48dc43a96c",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Classes de béton",
+      "court": "Tableau",
+      "legende": "5 classes · EN 1992-⁠1-⁠1 · tableau 3.1",
+      "nombres": "0,1 1,5 1,8 1992-1-1 1992-1-1:2004 2,0 2,2 2,2 2,5 2,6 2,9 2,9 20 25 25 28 3,2 3,3 3,5 3,8 3.1 30 30 30 31 33 33 34 35 35 37 38 4,2 4,6 40 43 45 48 5 50 C20/25 C25/30 C30/37 C35/45 C40/50 ctk,0,05 ctk,0,95"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "classes", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 0}
+   }
+  },
+  {
+   "nom": "consultation ajoutée",
+   "sorte": "limite",
+   "attendu": {
+    "elements": 2
+   },
+   "pas": [{"action": "nouveau"}, {"action": "ajouter"}, {"action": "modifier", "chemin": ["rubrique"], "valeur": "aciers"}],
+   "photo": {
+    "messages": [null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Consultation 2 · Aciers d'armature · B500"
+    },
+    "statut": "Consultation",
+    "phrase": "Acier B500 · f yk = 500 MPa",
+    "resultat": [
+     ["f yk", "500 MPa"],
+     ["Acier B500 bureau : f yd =", "333 MPa"],
+     ["EN 1992-1-1 : f yd =", "435 MPa"],
+     ["Nuance B500 D'où viennent les valeurs Aciers d'armature γ s =", "1,5"],
+     ["est le « coefficient acier ELS » des modules Poutre, Dalle et Prédalle (méthode ancienne du bureau, réglable de", "1"],
+     ["à", "2)", ";"],
+     ["γ s =", "1,15"],
+     ["est la valeur recommandée de l' EN 1992-1-1 à l'ELU — l'annexe nationale belge est à confirmer par le bureau. ρ =", "7 860 kg/m³", ":"],
+     ["la masse volumique du tableau des armatures du bureau (l'usage courant est", "7", "850 kg/m³", ";"],
+     ["les masses du tableau sont plus fortes de", "0,13 %)."],
+     ["Nuance f yk", "500 MPa"],
+     ["Méthode du bureau γ s", "1,5 f"],
+     ["yd", "333,3 MPa"],
+     ["EN 1992-1-1 γ s", "1,15 f"],
+     ["yd", "434,8 MPa"],
+     ["E s", "200 GPa"],
+     ["ε yd", "2,17 ‰"],
+     ["Tableau des armatures ρ", "7 860 kg/m³"],
+     ["Aide-mémoire du bureau Aciers d'armature"]
+    ],
+    "calculs": [
+     ["Acier B500 · d'où viennent les valeurs f yd comme le module Poutre, E s de l' EN 1992-1-1 f yk =", "500 MPa"],
+     ["bureau : γ s =", "1,5"],
+     ["EN 1992-1-1 : γ s =", "1,15 E"],
+     ["s =", "200 GPa"],
+     ["Les valeurs, une à une Méthode du bureau f yd = f yk / γ s =", "500", "/", "1,5", "=", "333,3 MPa"],
+     ["EN 1992-1-1 f yd = f yk / γ s =", "500", "/", "1,15", "=", "434,8 MPa"],
+     ["ε yd = f yd / E s =", "434,8", "/", "200 000", "=", "2,174 ‰"]
+    ],
+    "avis": ["γ s = 1,5 est le « coefficient acier ELS » des modules Poutre, Dalle et Prédalle (méthode ancienne du bureau, réglable de 1 à 2) ; γ s = 1,15 est la valeur recommandée de l'EN 1992-1-1 à l'ELU — l'annexe nationale belge est à confirmer par le bureau.", "ρ = 7 860 kg/m³ : la masse volumique du tableau des armatures du bureau (l'usage courant est 7 850 kg/m³ ; les masses du tableau sont plus fortes de 0,13 %)."],
+    "champs": {
+     "aciers/nuance": "500",
+     "nom": "Consultation 2",
+     "rubrique": "aciers"
+    },
+    "verrous": [],
+    "menus": {
+     "aciers/nuance": "2 · ce418c003bdf",
+     "rubrique": "5 · 4b5601308c91"
+    },
+    "actions": ["calcul:source", "pk:ligne"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Aciers d'armature",
+      "court": "Tableau",
+      "legende": "B400 et B500 · bureau et EN 1992-⁠1-⁠1",
+      "nombres": "1,15 1,15, 1,5 1,5, 1,74 1992-1-1 1992-1-1:2004 1992-1-1:2004 2,17 2.1N 200 200 267 333 348 400 435 500 B400 B500 §3.2.7(4)"
+     }
+    ],
+    "etat": {"version": 1, "consultations": [{"nom": "Consultation 1", "rubrique": "classes", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}, {"nom": "Consultation 2", "rubrique": "aciers", "classes": {"groupe": "ec2", "classe": "C30/37"}, "aciers": {"nuance": 500}, "armatures": {"lecture": "barres", "d": 12}, "enrobages": {"tableau": "durabilite", "classe_expo": "XC1", "classe_struct": "S4", "diam_barre": 20, "delta_dev": 10, "r": "R60"}, "ancrages": {"tableau": null, "ligne": 0}}], "actif": 1},
+    "elements": [
+     {
+      "phrase": "Béton C30/37 · f ck = 30 MPa · f ck,cube = 37 MPa",
+      "resultat": [
+       ["f ck", "30 MPa"],
+       ["Béton C30/37 f ck,cube =", "37 MPa"],
+       ["E cm =", "33 GPa", "·"],
+       ["f ctm =", "2,9 MPa"],
+       ["Classe C30/37 D'où viennent les valeurs Classes de béton « tau_lim » de beton_classes.json", "(0,70 N/mm²"],
+       ["pour C30/37) n'est lu par aucun module de calcul : les τ adm des modules Poutre, Dalle et Prédalle sont calculés depuis f ck,cube (fiche, méthode du bureau). Classe f ck", "30 MPa"],
+       ["f ck,cube", "37 MPa"],
+       ["EN 1992-1-1 · tableau 3.1 f cm", "38 MPa"],
+       ["f ctm", "2,9 MPa"],
+       ["f ctk,0,05", "2,0 MPa"],
+       ["f ctk,0,95", "3,8 MPa"],
+       ["E cm", "33 GPa"],
+       ["Méthode du bureau α b", "12,96"],
+       ["μ B500", "0,1709"],
+       ["μ B400", "0,1904"],
+       ["τ adm,I", "0,56 N/mm²"],
+       ["τ adm,II", "1,13 N/mm²"],
+       ["τ adm,IV", "2,26 N/mm²"],
+       ["Aide-mémoire du bureau Classes de béton"]
+      ]
+     },
+     {
+      "phrase": "Acier B500 · f yk = 500 MPa",
+      "resultat": [
+       ["f yk", "500 MPa"],
+       ["Acier B500 bureau : f yd =", "333 MPa"],
+       ["EN 1992-1-1 : f yd =", "435 MPa"],
+       ["Nuance B500 D'où viennent les valeurs Aciers d'armature γ s =", "1,5"],
+       ["est le « coefficient acier ELS » des modules Poutre, Dalle et Prédalle (méthode ancienne du bureau, réglable de", "1"],
+       ["à", "2)", ";"],
+       ["γ s =", "1,15"],
+       ["est la valeur recommandée de l' EN 1992-1-1 à l'ELU — l'annexe nationale belge est à confirmer par le bureau. ρ =", "7 860 kg/m³", ":"],
+       ["la masse volumique du tableau des armatures du bureau (l'usage courant est", "7", "850 kg/m³", ";"],
+       ["les masses du tableau sont plus fortes de", "0,13 %)."],
+       ["Nuance f yk", "500 MPa"],
+       ["Méthode du bureau γ s", "1,5 f"],
+       ["yd", "333,3 MPa"],
+       ["EN 1992-1-1 γ s", "1,15 f"],
+       ["yd", "434,8 MPa"],
+       ["E s", "200 GPa"],
+       ["ε yd", "2,17 ‰"],
+       ["Tableau des armatures ρ", "7 860 kg/m³"],
+       ["Aide-mémoire du bureau Aciers d'armature"]
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

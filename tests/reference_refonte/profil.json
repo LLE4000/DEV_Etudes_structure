@@ -1,0 +1,1140 @@
+{
+ "module": "profil",
+ "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "cas": [
+  {
+   "nom": "note neuve",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}],
+   "photo": {
+    "messages": [null],
+    "resume": {
+     "taux": 0,
+     "niveau": "p",
+     "statut": "Conforme",
+     "gouvernant": "P1 · HEA 100 · flexion autour de y"
+    },
+    "statut": "Conforme",
+    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+    "resultat": [
+     ["η", "0 %"],
+     ["HEA", "100", "·"],
+     ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
+     ["M y,Rd =", "17,1 kN·m"],
+     ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
+     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+     ["Profilés comparés", "24"],
+     ["(HEA) ·", "24"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · HEA", "100 M"],
+     ["y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M HEA", "100", "·", "16,67 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "0 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "0 kN·m"],
+     ["M y,Rd =", "17,1 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "0 kN"],
+     ["V z,Rd =", "102,5 kN", "0 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "21,24", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "499,1 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "72,76", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "17,1 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "7,56", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "102,5 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "0", "/", "17,1", "=", "0,000"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "0", "/", "102,5", "=", "0,000"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "0,000", "+", "0,000", "=", "0,000"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,000 ;", "0,000", ";", "0,000)", "=", "0,000 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "0,000", "=", "0,000"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau."],
+    "champs": {
+     "Iy_min": "0",
+     "My": "0",
+     "Vz": "0",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": false,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section HEA 100",
+      "court": "Section",
+      "legende": "HEA 100 · à l'échelle",
+      "nombres": "0 0 100 100 100 10365:2017 12 12 133,812 16,672 21,238 26,762 349,244 5 5 53-62) 7,558 72,759 8 8 96 96"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "24 profilés · 24 tiennent",
+      "nombres": "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 012,89 1 033,17 1 259,63 1 335,51 1 479,34 1 673,06 1 678,46 1 890,94 1 954,56 10 367,1 10 455,6 10 819,1 10,125 100 100 1000 102,734 103,195 104,782 106,347 10⁻³ 11 189,2 11 271,3 11 723,9 111 936 112,071 112,535 114 116,98 12 178,8 12 638,7 120 124,375 124,803 13 547,5 13 674 13,214 133 133,48 133,551 133,812 138,835 139,758 14 004,5 14,474 140 141 213 142,765 152 155,073 155,364 158,985 16,672 160 163,335 166,236 171 175 184 177,688 177,775 178,035 18 264,6 18,084 180 184,57 189,691 19,89 190 197,545 2 311,35 2 510,4 2 768,82 2 896,56 20,674 200 204,481 21,238 210 211,765 215 308 22 929,8 220 220,14 224,38 226,465 230 230,735 230,897 24,663 240 241,645 25,18 25,337 250 251,62 26,762 260 260,485 27 694,5 270 272,281 28,763 280 282,121 285,835 290 293,614 3 550,12 3 667,58 3 692,36 30,437 300 303 454 31,418 31,75 310 320 320,535 33 091,4 330 340 340,19 346,855 349,244 35,524 350 360 37,285 38,483 38,774 388,669 389,322 390 4 145,79 4 762,65 4 786,88 400 41,14 42,26 420,639 422 090 44,958 440 45 071,4 45,254 450 465,684 48,965 490 495,735 5 409,95 5 474,5 50,51 500 515,233 525,791 53,834 540 55,617 550 553 865 57,335 570,923 590 6 240,82 6 309,58 6 985,26 60,319 600 606,18 615,575 63 724,2 631,024 64,344 640 65,79 650 675,094 68,158 690 691,139 7 436,02 7 682,38 7 763,59 7 886,86 7,558 700 72,759 721,272 74,725 751,423 76,357 76,84 76,947 781,594 790 8 563,85 8,458 800 811,922 83,725 836,446 842,58 86 978,1 86,825 88,34 890 9 465,36 9 485,16 900 903,167 924,607 93,215 933,633 96 97,27 97,634 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 0 0 100 100 100 100 100 100 100 120 150 20 200 250 300 40 50 60 80 95 95 95"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 0.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 0},
+    "selecteurs": {
+     "profil": [
+      ["P1 · profilé triés par masse · un clic retient le profilé HD HEA HEAA HEB HEM HL HP IPE IPE A IPE O IPN HEA", "100", "16,7", "0 %"],
+      ["HEA", "120", "19,9", "0 %"],
+      ["HEA", "140", "24,7", "0 %"],
+      ["HEA", "160", "30,4", "0 %"],
+      ["HEA", "180", "35,5", "0 %"],
+      ["HEA", "200", "42,3", "0 %"],
+      ["HEA", "220", "50,5", "0 %"],
+      ["HEA", "240", "60,3", "0 %"],
+      ["HEA", "260", "68,2", "0 %"],
+      ["HEA", "280", "76,4", "0 %"],
+      ["HEA", "300", "88,3", "0 %"],
+      ["HEA", "320", "97,6", "0 %"],
+      ["HEA", "340", "104,8", "0 %"],
+      ["HEA", "360", "112,1", "0 %"],
+      ["HEA", "400", "124,8", "0 %"],
+      ["HEA", "450", "139,8", "0 %"],
+      ["HEA", "500", "155,1", "0 %"],
+      ["HEA", "550", "166,2", "0 %"],
+      ["HEA", "600", "177,8", "0 %"],
+      ["HEA", "650", "189,7", "0 %"],
+      ["HEA", "700", "204,5", "0 %"],
+      ["HEA", "800", "224,4", "0 %"],
+      ["HEA", "900", "251,6", "0 %"],
+      ["HEA", "1000", "272,3", "0 %"],
+      ["HEA", "100", "·"],
+      ["h × b =", "96", "×", "100 mm", "·"],
+      ["A =", "21,24 cm²", "·"],
+      ["I y =", "349,2 cm⁴", "·"],
+      ["W el,y =", "72,8 cm³", "·"],
+      ["A v,z =", "7,56 cm²", "·"],
+      ["η =", "0,000"],
+      ["retenu le plus léger qui tient kg/m · taux"]
+     ]
+    },
+    "fichiers": {}
+   }
+  },
+  {
+   "nom": "IPE, M_y = 150, V_z = 100",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["familles", "IPE"], "valeur": true}, {"action": "modifier", "chemin": ["familles", "HEA"], "valeur": false}, {"action": "modifier", "chemin": ["My"], "valeur": "150"}, {"action": "modifier", "chemin": ["Vz"], "valeur": "100"}],
+   "photo": {
+    "messages": [null, null, null, null, null],
+    "resume": {
+     "taux": 89,
+     "niveau": "p",
+     "statut": "Conforme",
+     "gouvernant": "P1 · IPE 330 · flexion autour de y"
+    },
+    "statut": "Conforme",
+    "phrase": "IPE 330 · S235 · M y,Ed = 150 kN·m · V z,Ed = 100 kN",
+    "resultat": [
+     ["η", "89 %"],
+     ["IPE", "330", "·"],
+     ["flexion autour de y |M y,Ed | =", "150 kN·m", "≤"],
+     ["M y,Rd =", "167,6 kN·m"],
+     ["Profilé Profilé retenu IPE", "330", "89 %", "★"],
+     ["Le plus léger qui tient IPE", "330", "·", "49,1 kg/m", "·", "89 %"],
+     ["Optimal de l'écran IPE", "330", "·", "49,1 kg/m", "·", "89 %"],
+     ["Profilés comparés", "23"],
+     ["(IPE) ·", "12"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "150 kN·m", "89 %"],
+     ["Cisaillement selon z V z,Ed =", "100 kN", "24 %"],
+     ["Masse du profilé retenu", "49,1 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · IPE", "330 M"],
+     ["y,Ed =", "150 kN·m", "·"],
+     ["V z,Ed =", "100 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M IPE", "330", "·", "49,15 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "150 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "150 kN·m"],
+     ["M y,Rd =", "167,6 kN·m", "89 %"],
+     ["Cisaillement selon z V z,Ed =", "100 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "100 kN"],
+     ["V z,Rd =", "418,0 kN", "24 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "62,61", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "1 471,3 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "713,19", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "167,6 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "30,81", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "418,0 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "150", "/", "167,6", "=", "0,895"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "100", "/", "418,0", "=", "0,239"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "0,895", "+", "0,000", "=", "0,895"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,895 ;", "0,000", ";", "0,239)", "=", "0,895 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "0,895", "=", "0,895"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": [],
+    "champs": {
+     "Iy_min": "0",
+     "My": "150",
+     "Vz": "100",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": false,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": true,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section IPE 330",
+      "court": "Section",
+      "legende": "IPE 330 · à l'échelle",
+      "nombres": "100 10365:2017 11 767,6 11,5 11,5 150 160 160 18 18 19-57) 30,812 330 330 330 49,148 62,609 7,5 7,5 713,188 788,147 98,518"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "23 profilés · 12 tiennent",
+      "nombres": "1 043,46 1 156,49 1 205,22 1 205,222 1 317,01 1 317,83 1 499,77 1 675,87 1 866,14 1 866,144 1 928,03 1 943,28 10,227 10,23 10,324 10,37 100 100 100 100,851 105,416 105,521 108,666 10⁻³ 11 767,6 11,252 11,815 11,82 114,57 114,575 115,526 116,445 12,306 12,895 120 120 122,452 122,76 127,277 13,211 133,924 134,422 136,269 14,002 14,47 14,471 140 140 142,369 146,334 146,426 147,181 148,82 148,823 15,772 15,88 15,882 15,883 15,919 150 708 155,99 16 266,5 16,427 16,662 160 160 166 068 170,604 171,021 173,748 176,407 18,799 180 180 187,492 19,146 194,328 196,809 196,81 196,896 2 141,7 2 440,73 2 667,6 2 771,97 20,035 20,092 20,79 20,794 200 200 204,887 205 829 214,17 22,14 22,165 22,361 220 220 220,364 221,335 23 129,8 23,948 240 240 240 284 25,684 250,823 251,997 253,296 253,3 254,057 26,15 26,152 26,197 27,668 270 270 278 210 28,474 28,485 280,719 283,636 3 069,59 3 185,898 3 185,9 3 387,36 3 891,87 3,577 3,691 30,708 30,812 300 300 307,942 317,766 324,323 328,46 328,464 33 744,8 33,106 33,11 33,372 330 330 34,204 35,141 36,069 360 360 361,08 37,252 39,118 399,204 4 018,89 4 410,83 4 766,26 400 400 419,871 42,244 42,56 42,56 42,699 428,897 436,19 436,192 44,918 45,947 450 450 47,273 48 200,8 49,148 5 289,45 5 402,33 5 790,1 5,085 5,789 50,85 500 500 514,865 52,961 53,814 541,242 55,19 55,193 550 550 557,101 57,095 587,39 587,394 59,878 6 6 241,14 6 873,44 6,306 600 600 603,781 610,076 62,203 62,609 66,307 67 120,1 68,315 7 142,74 7,643 7,644 70,63 70,632 709,874 713,188 72,347 72,733 750 750x134 750x147 750x173 750x196 750x220 753 762 77,32 77,578 770 779 788,147 8 175,02 8 356,51 8,104 8,489 8,646 8,936 8,94 80 80 80,14 80,504 825,52 825,524 83,79 84,468 869,332 89,499 89,5 9 441,32 9,658 90,688 903,693 92 087,7 95,894 98,518 98,825"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 100 100 100 100 100 150 150 200 200 200 250 330 330 50 50 89 89 95 95 95"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["IPE"], "acier": "S235", "My": 150.0, "Vz": 100.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 0}
+   }
+  },
+  {
+   "nom": "chargé près de 100 % (IPE 300 imposé, M_y = 130 kN·m)",
+   "sorte": "référence",
+   "attendu": {
+    "taux": [95, 100]
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["auto"], "valeur": false}, {"action": "choisir", "role": "profil", "nom": "IPE 300"}, {"action": "modifier", "chemin": ["My"], "valeur": "130"}],
+   "photo": {
+    "messages": [null, null, null, null],
+    "resume": {
+     "taux": 99,
+     "niveau": "f",
+     "statut": "Conforme, attention",
+     "gouvernant": "P1 · IPE 300 · flexion autour de y"
+    },
+    "statut": "Conforme, attention",
+    "phrase": "IPE 300 · S235 · M y,Ed = 130 kN·m · V z,Ed = 0 kN",
+    "resultat": [
+     ["η", "99 %"],
+     ["IPE", "300", "·"],
+     ["flexion autour de y |M y,Ed | =", "130 kN·m", "≤"],
+     ["M y,Rd =", "130,9 kN·m"],
+     ["Profilé Profilé retenu IPE", "300", "99 %", "★"],
+     ["Le plus léger qui tient IPE", "300", "·", "42,2 kg/m", "·", "99 %"],
+     ["Optimal de l'écran IPE", "300", "·", "42,2 kg/m", "·", "99 %"],
+     ["Profilés comparés", "47"],
+     ["(HEA, IPE) ·", "30"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "130 kN·m", "99 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Masse du profilé retenu", "42,2 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · IPE", "300 M"],
+     ["y,Ed =", "130 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M IPE", "300", "·", "42,24 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "130 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "130 kN·m"],
+     ["M y,Rd =", "130,9 kN·m", "99 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "0 kN"],
+     ["V z,Rd =", "348,5 kN", "0 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "53,81", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "1 264,6 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "557,10", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "130,9 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "25,68", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "348,5 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "130", "/", "130,9", "=", "0,993"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "0", "/", "348,5", "=", "0,000"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "0,993", "+", "0,000", "=", "0,993"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,993 ;", "0,000", ";", "0,000)", "=", "0,993 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "0,993", "=", "0,993"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": [],
+    "champs": {
+     "Iy_min": "0",
+     "My": "130",
+     "Vz": "0",
+     "acier": "S235",
+     "auto": false,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": true,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section IPE 300",
+      "court": "Section",
+      "legende": "IPE 300 · à l'échelle",
+      "nombres": "0 10,7 10,7 10365:2017 130 15 15 150 150 19-57) 25,684 300 300 300 42,244 53,814 557,101 603,781 7,1 7,1 8 356,51 80,504"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "47 profilés · 30 tiennent",
+      "nombres": "1 012,89 1 033,17 1 043,46 1 044,526 1 044,53 1 156,49 1 259,63 1 317,01 1 317,83 1 335,51 1 479,34 1 499,77 1 617,325 1 617,33 1 673,06 1 675,87 1 678,46 1 890,94 1 928,03 1 943,28 1 954,56 10 367,1 10 455,6 10 819,1 10,1 10,105 10,125 10,24 10,24 10,324 10,37 100 100 100 100 100,851 1000 102,734 103,195 104,782 105,416 105,521 106,347 107,367 107,37 108,666 10⁻³ 11 189,2 11 271,3 11 723,9 11 767,6 11,252 11,556 11,56 111 936 112,071 112,535 114 115,526 116,445 116,98 12 178,8 12 638,7 12,306 12,54 12,542 12,895 120 120 120 122,452 122,76 124,375 124,803 127,277 128,98 128,98 13 547,5 13 674 13,211 13,214 13,34 13,343 13,76 13,765 133 133,48 133,551 133,812 133,924 134,422 136,269 138,835 139,758 14 004,5 14,002 14,474 140 140 140 141 213 142,33 142,33 142,369 142,765 146,334 146,426 147,181 15,58 15,582 15,772 15,883 15,919 150 708 152 155,073 155,364 155,99 158,985 16 266,5 16,427 16,662 16,672 160 160 160 163,335 166 068 166,236 170,568 170,57 170,604 171 171,021 173,748 175 184 176,407 177,688 177,775 178,035 18 264,6 18,02 18,022 18,084 18,799 180 180 180 184,57 187,492 188,408 188,41 189,691 19,098 19,1 19,146 19,89 190 194,328 196,896 197,545 2 141,7 2 311,35 2 440,73 2 510,4 2 667,6 2 761,11 2 761,112 2 768,82 2 771,97 2 896,56 20,035 20,092 20,674 200 200 200 204,481 204,887 205 829 21,238 210 211,765 214,17 215 308 219,52 219,523 22 929,8 22,14 22,165 22,361 22,665 22,67 220 220 220 220,14 220,364 221,335 224,38 226,465 23 129,8 23,93 23,934 23,948 230 230,735 230,897 24,663 240 240 240 240 284 241,645 25,18 25,337 25,684 250 250,823 251,29 251,291 251,62 251,997 254,057 26,197 26,762 260 260,485 27 694,5 27,668 270 270 270 272,281 278 210 28,474 28,485 28,69 28,692 28,763 280 280,719 282,121 283,636 284,669 284,67 285,835 29,25 29,255 290 293,614 3 069,59 3 387,36 3 550,12 3 667,58 3 692,36 3 891,87 3,577 3,691 30,437 30,708 30,812 300 300 300 303 454 307,942 31,418 31,75 310 317,766 32,958 32,96 320 320,535 324,323 33 091,4 33 744,8 33,372 330 330 330 34,204 340 340,19 346,855 349,244 35,141 35,524 350 356,06 356,062 36,069 36,885 36,89 360 360 360 361,08 37,252 37,285 37,39 37,394 378,03 378,033 38,483 38,774 388,669 389,322 39,118 390 399,204 4 018,89 4 145,79 4 410,83 4 762,65 4 766,26 4 786,88 4,94 4,944 400 400 400 41,14 419,871 42,244 42,26 42,699 420,639 422 090 428,897 43,917 43,92 44,918 44,958 440 45 071,4 45,254 45,947 450 450 450 465,684 47,273 47,83 47,834 48 200,8 48,965 49,148 490 495,735 5 289,45 5 402,33 5 409,95 5 474,5 5 790,1 5,085 5,789 5,83 5,832 50,51 50,85 500 500 500 509,075 509,08 514,865 515,233 52,961 520,176 520,18 525,791 53,814 53,834 54,615 54,62 540 541,242 55,617 550 550 550 553 865 557,101 57,095 57,335 570,923 59,878 590 6 6 240,82 6 241,14 6 309,58 6 873,44 6 985,26 6,306 60,319 600 600 600 603,781 606,18 61,21 61,215 610,076 615,575 62,203 62,609 63 724,2 631,024 64,344 640 65,79 650 66,136 66,14 66,307 67 120,1 675,094 68,158 68,315 690 691,139 7 142,74 7 436,02 7 682,38 7 763,59 7 886,86 7,2 7,201 7,558 7,643 7,644 7,74 7,745 700 709,874 713,188 715,45 715,454 72,347 72,733 72,759 721,272 74,725 750 750x134 750x147 750x173 750x196 750x220 751,423 753 76,357 76,84 76,947 760,306 760,31 762 77,32 77,566 77,57 77,578 770 779 781,594 788,147 790 8 175,02 8 356,51 8 563,85 8,104 8,458 8,489 8,646 8,86 8,86 8,864 8,864 80 80 80,14 80,504 800 81,94 81,943 811,922 83,725 83,79 836,446 84,468 842,58 86 978,1 86,825 869,332 88,34 890 9 441,32 9 465,36 9 485,16 9,658 90,688 900 903,167 903,693 92 087,7 924,607 93,215 933,633 95,894 96 97,27 97,634 98,518 98,825 99,298 99,3 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 100 100 100 100 100 150 150 200 200 200 250 300 300 300 50 50 95 95 95 99 99"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA", "IPE"], "acier": "S235", "My": 130.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": "IPE 300"}], "actif": 0}
+   }
+  },
+  {
+   "nom": "flexion, effort normal et déversement",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["My"], "valeur": "80"}, {"action": "modifier", "chemin": ["avec_N"], "valeur": true}, {"action": "modifier", "chemin": ["N"], "valeur": "200"}, {"action": "modifier", "chemin": ["flambement"], "valeur": true}, {"action": "modifier", "chemin": ["Lcr_y"], "valeur": "4"}, {"action": "modifier", "chemin": ["Lcr_z"], "valeur": "4"}, {"action": "modifier", "chemin": ["deversement"], "valeur": true}, {"action": "modifier", "chemin": ["L_LT"], "valeur": "4"}],
+   "photo": {
+    "messages": [null, null, null, null, null, null, null, null, null],
+    "resume": {
+     "taux": 79,
+     "niveau": "p",
+     "statut": "Conforme",
+     "gouvernant": "P1 · HEA 220 · interaction N + M"
+    },
+    "statut": "Conforme",
+    "phrase": "HEA 220 · S235 · M y,Ed = 80 kN·m · V z,Ed = 0 kN · N Ed = 200 kN",
+    "resultat": [
+     ["η", "79 %"],
+     ["HEA", "220", "·"],
+     ["interaction N + M η N + η My + η Mz =", "0,132", "+", "0,661", "+", "0,000", "=", "0,793", "≤", "1"],
+     ["Profilé Profilé retenu HEA", "220", "79 %", "★"],
+     ["Le plus léger qui tient HEA", "220", "·", "50,5 kg/m", "·", "79 %"],
+     ["Optimal de l'écran HEA", "220", "·", "50,5 kg/m", "·", "79 %"],
+     ["Profilés comparés", "24"],
+     ["(HEA) ·", "18"],
+     ["tiennent Résistance de la section Effort normal N Ed =", "200 kN", "13 %"],
+     ["Flexion autour de y M y,Ed =", "80 kN·m", "66 %"],
+     ["Interaction N + M η N + η My + η Mz", "79 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Instabilité Flambement χ z =", "0,741", "·"],
+     ["axe z-z", "18 %"],
+     ["Déversement non vérifié : le module ne calcule ni M cr ni χ LT ; la longueur L LT saisie n'est pas utilisée. Masse du profilé retenu", "50,5 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · HEA", "220 M"],
+     ["y,Ed =", "80 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["N Ed =", "200 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M E =", "210 000 N/mm²", "·"],
+     ["courbe b (α =", "0,34 HEA)", "220", "·", "50,51 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Effort normal N Ed =", "200 kN"],
+     ["η = N Ed / N Rd N Ed =", "200 kN"],
+     ["N Rd =", "1 512,1 kN", "13 %"],
+     ["Flexion autour de y M y,Ed =", "80 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "80 kN·m"],
+     ["M y,Rd =", "121,1 kN·m", "66 %"],
+     ["Interaction N + M η N + η My + η Mz η N + η My + η Mz ≤", "1", "0,793", "1", "79 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "0 kN"],
+     ["V z,Rd =", "280,5 kN", "0 %"],
+     ["Flambement χ z =", "0,741", "·"],
+     ["axe z-z η b = N Ed / min(N b,Rd,y ; N b,Rd,z ) N Ed =", "200 kN"],
+     ["N b,Rd =", "1 120,6 kN", "18 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "64,34", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "1 512,1 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "515,23", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "121,1 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "20,67", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "280,5 kN"],
+     ["Taux de la section η N = N Ed / N Rd =", "200", "/", "1 512,1", "=", "0,132"],
+     ["η My = |M y,Ed | / M y,Rd =", "80", "/", "121,1", "=", "0,661"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "0", "/", "280,5", "=", "0,000"],
+     ["η NM = η N + η My + η Mz =", "0,132", "+", "0,661", "+", "0,000", "=", "0,793"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,793 ;", "0,000", ";", "0,000)", "=", "0,793"],
+     ["Flambement selon y-y N cr,y = π²·E·I y / L cr,y ² = π² ×", "210 000", "×", "5 409,95", "×", "10⁴", "/", "(4", "×", "10³)²", "×", "10⁻³", "=", "7 008,0 kN"],
+     ["λ y = √(A·f y / N cr,y ) = √(64,34 × 10² ×", "235", "/", "(7 008,0", "×", "10³))", "=", "0,465"],
+     ["φ y = 0,5·(1 + α·( λ y −", "0,2)", "+"],
+     ["λ y ²) =", "0,5", "×", "(1", "+", "0,34", "×", "(0,465", "−", "0,2)", "+", "0,465²)", "=", "0,653"],
+     ["χ y =", "1", "/"],
+     ["(φ y + √(φ y ² − λ y ²)) ≤", "1", "=", "1", "/", "(0,653", "+", "√(0,653²", "−", "0,465²))", "=", "0,900 N"],
+     ["b,Rd,y = χ y ·A·f y / γ M1 =", "0,900", "×", "64,34", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "1 360,3 kN"],
+     ["Flambement selon z-z N cr,z = π²·E·I z / L cr,z ² = π² ×", "210 000", "×", "1 954,56", "×", "10⁴", "/", "(4", "×", "10³)²", "×", "10⁻³", "=", "2 531,9 kN"],
+     ["λ z = √(A·f y / N cr,z ) = √(64,34 × 10² ×", "235", "/", "(2 531,9", "×", "10³))", "=", "0,773"],
+     ["φ z = 0,5·(1 + α·( λ z −", "0,2)", "+"],
+     ["λ z ²) =", "0,5", "×", "(1", "+", "0,34", "×", "(0,773", "−", "0,2)", "+", "0,773²)", "=", "0,896"],
+     ["χ z =", "1", "/"],
+     ["(φ z + √(φ z ² − λ z ²)) ≤", "1", "=", "1", "/", "(0,896", "+", "√(0,896²", "−", "0,773²))", "=", "0,741 N"],
+     ["b,Rd,z = χ z ·A·f y / γ M1 =", "0,741", "×", "64,34", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "1 120,6 kN"],
+     ["Taux du profilé η b = N Ed / min(N b,Rd,y ; N b,Rd,z ) =", "200", "/", "1 120,6", "=", "0,178"],
+     ["η = max(η section ; η b ) = max(0,793 ;", "0,178)", "=", "0,793"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": ["Déversement non vérifié : le module ne calcule ni M cr ni χ LT ; la longueur L LT saisie n'est pas utilisée."],
+    "champs": {
+     "Iy_min": "0",
+     "L_LT": "4",
+     "Lcr_y": "4",
+     "Lcr_z": "4",
+     "My": "80",
+     "N": "200",
+     "Vz": "0",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": true,
+     "avec_T": false,
+     "avec_Vy": false,
+     "courbe": "b",
+     "deversement": true,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": false,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": true,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3",
+     "courbe": "5 · b246bf66538e"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section HEA 220",
+      "court": "Section",
+      "legende": "HEA 220 · à l'échelle",
+      "nombres": "0 1 954,56 10365:2017 11 11 177,688 18 18 20,674 200 210 210 220 220 220 5 409,95 50,51 515,233 53-62) 64,344 7 7 80"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "24 profilés · 18 tiennent",
+      "nombres": "1 012,89 1 033,17 1 259,63 1 335,51 1 479,34 1 673,06 1 678,46 1 890,94 1 954,56 10 367,1 10 455,6 10 819,1 10,125 10,51 10,87 10,87 100 100 1000 102,734 103,195 103,396 103,4 104,782 106,347 10⁻³ 11 189,2 11 271,3 11 723,9 111 936 112,071 112,535 114 116,98 12 178,8 12 638,7 12,13 12,23 12,23 120 124,375 124,803 13 547,5 13 674 13,214 13,897 13,9 133 133,48 133,551 133,812 134,75 134,75 138,835 139,758 14 004,5 14,23 14,474 140 141 213 142,765 143,67 152 155,073 155,364 158,985 16,53 16,533 16,672 160 163,335 166,236 17,85 171 175 184 176,59 176,59 177,688 177,775 178,035 18 264,6 18,084 180 184,57 189,691 19,89 190 197,545 2 311,35 2 510,4 2 768,82 2 896,56 20,08 20,082 20,674 200 204,481 21,238 210 211,765 215 308 22 929,8 22,92 220 220,14 224,38 226,465 23,96 23,964 230 230,735 230,897 24,663 240 241,645 246,2 246,204 25,18 25,337 250 251,62 26,658 26,66 26,762 260 260,485 27 694,5 270 272,281 28,763 280 282,121 285,835 29,67 29,85 29,855 290 293,614 3 550,12 3 667,58 3 692,36 3,07 3,28 3,65 3,96 30,437 300 303 454 31,418 31,75 310 320 320,535 33 091,4 330 34,588 34,59 340 340,19 346,855 349,244 35,524 350 353,697 353,7 360 37,285 38,483 38,774 388,669 389,322 39,62 390 4 145,79 4 762,65 4 786,88 4,24 4,5 4,79 400 41,14 42,26 42,359 42,36 420,639 422 090 44,958 440 45 071,4 45,254 450 465,684 48,965 490 495,735 5 409,95 5 474,5 5,11 5,496 5,5 5,66 50,5 50,501 50,51 500 507,95 507,954 515,233 525,791 53,834 540 55,617 550 553 865 57,3 57,335 570,923 590 6 240,82 6 309,58 6 985,26 6,24 6,244 6,32 60,319 600 606,18 61,5 61,502 615,575 63 724,2 631,024 64,344 640 65,79 650 675,094 68,158 690 691,139 7 436,02 7 682,38 7 763,59 7 886,86 7,01 7,409 7,41 7,49 7,558 700 72,759 721,272 74,725 751,423 76,357 76,84 76,947 781,594 79,299 79,3 790 8 563,85 8,03 8,458 8,72 8,722 8,87 800 811,922 83,725 836,446 842,58 86 978,1 86,825 88,34 89,07 890 9 465,36 9 485,16 9,74 9,74 900 903,167 924,607 93,215 933,633 96 97,27 97,634 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 100 100 100 100 100 150 150 200 200 200 220 220 250 300 50 50 79 79 95 95 95"
+     },
+     {
+      "cle": "flambement",
+      "titre": "Flambement",
+      "court": "Flambement",
+      "legende": "courbes χ(λ̄) · courbe b retenue",
+      "nombres": "0,0 0,0 0,13 0,2 0,21 0,34 0,4 0,465 0,49 0,5 0,6 0,741 0,76 0,773 0,8 0,900 1,0 1,0 1,5 1993-1-1 2,0 2,5 a0 a0 §6.3.1.2)"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 80.0, "Vz": 0.0, "avec_N": true, "N": 200.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": true, "Lcr_y": 4.0, "Lcr_z": 4.0, "courbe": "b", "deversement": true, "L_LT": 4.0, "profil": null}], "actif": 0}
+   }
+  },
+  {
+   "nom": "moment énorme 1e308 refusé (PARCOURS)",
+   "sorte": "limite",
+   "attendu": {
+    "message": true
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["My"], "valeur": "1e308"}],
+   "photo": {
+    "messages": [null, "M_y,Ed : au plus 1 000 000 en valeur absolue (au-delà, le calcul déborde) : saisie refusée"],
+    "resume": {
+     "taux": 0,
+     "niveau": "p",
+     "statut": "Conforme",
+     "gouvernant": "P1 · HEA 100 · flexion autour de y"
+    },
+    "statut": "Conforme",
+    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+    "resultat": [
+     ["η", "0 %"],
+     ["HEA", "100", "·"],
+     ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
+     ["M y,Rd =", "17,1 kN·m"],
+     ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
+     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+     ["Profilés comparés", "24"],
+     ["(HEA) ·", "24"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · HEA", "100 M"],
+     ["y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M HEA", "100", "·", "16,67 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "0 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "0 kN·m"],
+     ["M y,Rd =", "17,1 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "0 kN"],
+     ["V z,Rd =", "102,5 kN", "0 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "21,24", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "499,1 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "72,76", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "17,1 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "7,56", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "102,5 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "0", "/", "17,1", "=", "0,000"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "0", "/", "102,5", "=", "0,000"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "0,000", "+", "0,000", "=", "0,000"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,000 ;", "0,000", ";", "0,000)", "=", "0,000 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "0,000", "=", "0,000"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau."],
+    "champs": {
+     "Iy_min": "0",
+     "My": "0",
+     "Vz": "0",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": false,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section HEA 100",
+      "court": "Section",
+      "legende": "HEA 100 · à l'échelle",
+      "nombres": "0 0 100 100 100 10365:2017 12 12 133,812 16,672 21,238 26,762 349,244 5 5 53-62) 7,558 72,759 8 8 96 96"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "24 profilés · 24 tiennent",
+      "nombres": "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 012,89 1 033,17 1 259,63 1 335,51 1 479,34 1 673,06 1 678,46 1 890,94 1 954,56 10 367,1 10 455,6 10 819,1 10,125 100 100 1000 102,734 103,195 104,782 106,347 10⁻³ 11 189,2 11 271,3 11 723,9 111 936 112,071 112,535 114 116,98 12 178,8 12 638,7 120 124,375 124,803 13 547,5 13 674 13,214 133 133,48 133,551 133,812 138,835 139,758 14 004,5 14,474 140 141 213 142,765 152 155,073 155,364 158,985 16,672 160 163,335 166,236 171 175 184 177,688 177,775 178,035 18 264,6 18,084 180 184,57 189,691 19,89 190 197,545 2 311,35 2 510,4 2 768,82 2 896,56 20,674 200 204,481 21,238 210 211,765 215 308 22 929,8 220 220,14 224,38 226,465 230 230,735 230,897 24,663 240 241,645 25,18 25,337 250 251,62 26,762 260 260,485 27 694,5 270 272,281 28,763 280 282,121 285,835 290 293,614 3 550,12 3 667,58 3 692,36 30,437 300 303 454 31,418 31,75 310 320 320,535 33 091,4 330 340 340,19 346,855 349,244 35,524 350 360 37,285 38,483 38,774 388,669 389,322 390 4 145,79 4 762,65 4 786,88 400 41,14 42,26 420,639 422 090 44,958 440 45 071,4 45,254 450 465,684 48,965 490 495,735 5 409,95 5 474,5 50,51 500 515,233 525,791 53,834 540 55,617 550 553 865 57,335 570,923 590 6 240,82 6 309,58 6 985,26 60,319 600 606,18 615,575 63 724,2 631,024 64,344 640 65,79 650 675,094 68,158 690 691,139 7 436,02 7 682,38 7 763,59 7 886,86 7,558 700 72,759 721,272 74,725 751,423 76,357 76,84 76,947 781,594 790 8 563,85 8,458 800 811,922 83,725 836,446 842,58 86 978,1 86,825 88,34 890 9 465,36 9 485,16 900 903,167 924,607 93,215 933,633 96 97,27 97,634 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 0 0 100 100 100 100 100 100 100 120 150 20 200 250 300 40 50 60 80 95 95 95"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 0.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 0}
+   }
+  },
+  {
+   "nom": "longueur de flambement négative refusée",
+   "sorte": "limite",
+   "attendu": {
+    "message": true
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["Lcr_y"], "valeur": "-1"}],
+   "photo": {
+    "messages": [null, "L_cr,y ne peut pas être négatif (l'écran Streamlit le borne à 0) : saisie refusée"],
+    "resume": {
+     "taux": 0,
+     "niveau": "p",
+     "statut": "Conforme",
+     "gouvernant": "P1 · HEA 100 · flexion autour de y"
+    },
+    "statut": "Conforme",
+    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+    "resultat": [
+     ["η", "0 %"],
+     ["HEA", "100", "·"],
+     ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
+     ["M y,Rd =", "17,1 kN·m"],
+     ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
+     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+     ["Profilés comparés", "24"],
+     ["(HEA) ·", "24"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · HEA", "100 M"],
+     ["y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M HEA", "100", "·", "16,67 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "0 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "0 kN·m"],
+     ["M y,Rd =", "17,1 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "0 kN"],
+     ["V z,Rd =", "102,5 kN", "0 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "21,24", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "499,1 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "72,76", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "17,1 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "7,56", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "102,5 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "0", "/", "17,1", "=", "0,000"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "0", "/", "102,5", "=", "0,000"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "0,000", "+", "0,000", "=", "0,000"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,000 ;", "0,000", ";", "0,000)", "=", "0,000 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "0,000", "=", "0,000"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau."],
+    "champs": {
+     "Iy_min": "0",
+     "My": "0",
+     "Vz": "0",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": false,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section HEA 100",
+      "court": "Section",
+      "legende": "HEA 100 · à l'échelle",
+      "nombres": "0 0 100 100 100 10365:2017 12 12 133,812 16,672 21,238 26,762 349,244 5 5 53-62) 7,558 72,759 8 8 96 96"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "24 profilés · 24 tiennent",
+      "nombres": "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 012,89 1 033,17 1 259,63 1 335,51 1 479,34 1 673,06 1 678,46 1 890,94 1 954,56 10 367,1 10 455,6 10 819,1 10,125 100 100 1000 102,734 103,195 104,782 106,347 10⁻³ 11 189,2 11 271,3 11 723,9 111 936 112,071 112,535 114 116,98 12 178,8 12 638,7 120 124,375 124,803 13 547,5 13 674 13,214 133 133,48 133,551 133,812 138,835 139,758 14 004,5 14,474 140 141 213 142,765 152 155,073 155,364 158,985 16,672 160 163,335 166,236 171 175 184 177,688 177,775 178,035 18 264,6 18,084 180 184,57 189,691 19,89 190 197,545 2 311,35 2 510,4 2 768,82 2 896,56 20,674 200 204,481 21,238 210 211,765 215 308 22 929,8 220 220,14 224,38 226,465 230 230,735 230,897 24,663 240 241,645 25,18 25,337 250 251,62 26,762 260 260,485 27 694,5 270 272,281 28,763 280 282,121 285,835 290 293,614 3 550,12 3 667,58 3 692,36 30,437 300 303 454 31,418 31,75 310 320 320,535 33 091,4 330 340 340,19 346,855 349,244 35,524 350 360 37,285 38,483 38,774 388,669 389,322 390 4 145,79 4 762,65 4 786,88 400 41,14 42,26 420,639 422 090 44,958 440 45 071,4 45,254 450 465,684 48,965 490 495,735 5 409,95 5 474,5 50,51 500 515,233 525,791 53,834 540 55,617 550 553 865 57,335 570,923 590 6 240,82 6 309,58 6 985,26 60,319 600 606,18 615,575 63 724,2 631,024 64,344 640 65,79 650 675,094 68,158 690 691,139 7 436,02 7 682,38 7 763,59 7 886,86 7,558 700 72,759 721,272 74,725 751,423 76,357 76,84 76,947 781,594 790 8 563,85 8,458 800 811,922 83,725 836,446 842,58 86 978,1 86,825 88,34 890 9 465,36 9 485,16 900 903,167 924,607 93,215 933,633 96 97,27 97,634 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 0 0 100 100 100 100 100 100 100 120 150 20 200 250 300 40 50 60 80 95 95 95"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 0.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 0}
+   }
+  },
+  {
+   "nom": "aucun profilé ne tient (M_y = 5000)",
+   "sorte": "limite",
+   "attendu": {
+    "niveau": "r",
+    "avis": "Aucun profilé"
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["My"], "valeur": "5000"}],
+   "photo": {
+    "messages": [null, null],
+    "resume": {
+     "taux": 190,
+     "niveau": "r",
+     "statut": "Non conforme",
+     "gouvernant": "P1 · HEA 1000 · flexion autour de y"
+    },
+    "statut": "Non conforme",
+    "phrase": "HEA 1000 · S235 · M y,Ed = 5 000 kN·m · V z,Ed = 0 kN",
+    "resultat": [
+     ["η", "190 %"],
+     ["HEA", "1000", "·"],
+     ["flexion autour de y |M y,Ed | =", "5 000 kN·m", ">"],
+     ["M y,Rd =", "2 629,5 kN·m"],
+     ["Profilé Profilé retenu HEA", "1000", "190 %", "★"],
+     ["Le plus léger qui tient aucun Optimal de l'écran aucun Profilés comparés", "24"],
+     ["(HEA) ·", "0"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "5 000 kN·m", "190 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Aucun profilé de la sélection ne tient : l'écran retient le moins chargé, HEA", "1000."],
+     ["Masse du profilé retenu", "272,3 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · HEA", "1000 M"],
+     ["y,Ed =", "5 000 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M HEA", "1000", "·", "272,28 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "5 000 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "5 000 kN·m"],
+     ["M y,Rd =", "2 629,5 kN·m", "190 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "0 kN"],
+     ["V z,Rd =", "2 504,2 kN", "0 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "346,86", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "8 151,1 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "11 189,20", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "2 629,5 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "184,57", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "2 504,2 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "5 000", "/", "2 629,5", "=", "1,902"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "0", "/", "2 504,2", "=", "0,000"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "1,902", "+", "0,000", "=", "1,902"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(1,902 ;", "0,000", ";", "0,000)", "=", "1,902 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "1,902", "=", "1,902"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": ["⚠ Aucun profilé de la sélection ne tient : l'écran retient le moins chargé, HEA 1000."],
+    "champs": {
+     "Iy_min": "0",
+     "My": "5 000",
+     "Vz": "0",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": false,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section HEA 1000",
+      "court": "Section",
+      "legende": "HEA 1000 · à l'échelle",
+      "nombres": "0 1000 10365:2017 11 189,2 14 004,5 16,5 16,5 184,57 272,281 30 30 300 300 31 31 346,855 5 000 53-62) 553 865 933,633 990 990"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "24 profilés · 0 tiennent",
+      "nombres": "1 012,89 1 033,17 1 125,186 1 125,19 1 259,63 1 267,626 1 267,63 1 335,51 1 438,249 1 438,25 1 479,34 1 673,06 1 678,46 1 689,11 1 689,115 1 890,94 1 954,56 10 367,1 10 455,6 10 819,1 10,125 100 100 1000 102,734 103,195 104,782 106,347 10⁻³ 11 189,2 11 271,3 11 723,9 111 936 112,071 112,535 114 116,98 12 178,8 12 638,7 120 124,375 124,803 13 547,5 13 674 13 694,676 13 694,68 13,214 133 133,48 133,551 133,812 138,835 139,758 14 004,5 14,474 140 141 213 142,765 152 155,073 155,364 158,985 16,672 160 163,335 166,236 171 175 184 177,688 177,775 178,035 18 264,6 18,084 180 184,57 189,691 19,89 190 190,15 190,153 197,545 2 100,58 2 100,583 2 311,35 2 510,4 2 543,69 2 543,69 2 768,82 2 896,56 20 006,766 20 006,77 20,674 200 204,481 21,238 210 211,765 215 308 22 929,8 220 220,14 224,31 224,315 224,38 226,465 230 230,735 230,897 24,663 240 241,645 25,18 25,337 250 251,62 26,762 260 260,485 27 694,5 270 272,281 276,95 276,953 28,763 280 282,121 285,835 29 242,52 29 242,522 290 293,614 3 151,649 3 151,65 3 550,12 3 667,58 3 692,36 30,437 300 303 454 31,418 31,75 310 320 320,535 33 091,4 330 340 340,19 340,926 340,93 346,855 349,244 35,524 350 360 37,285 38,483 38,774 388,649 388,65 388,669 389,322 390 4 129,51 4 129,51 4 145,79 4 762,65 4 786,88 400 41,14 42,26 420,639 422 090 44,958 440 444,477 444,48 45 071,4 45,254 450 465,684 48,965 490 495,735 5 409,95 5 474,22 5 474,22 5 474,5 50,51 500 513,21 513,21 515,233 525,791 53,834 540 55,617 550 553 865 57,335 570,923 590 599,32 599,32 6 240,82 6 309,58 6 985,26 60,319 600 606,18 615,575 63 724,2 631,024 64,344 640 65,79 650 675,094 68,158 690 691,139 7 246,45 7 246,451 7 436,02 7 682,38 7 763,59 7 886,86 7,558 700 72,759 721,272 734,547 734,55 74,725 751,423 76,357 76,84 76,947 781,594 790 8 563,85 8,458 800 811,922 83,725 836,446 842,58 86 978,1 86,825 88,34 890 9 465,36 9 485,16 9 665,029 9 665,03 900 903,167 920,527 920,53 924,607 93,215 933,633 96 97,27 97,634 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 100 100 100 100 100 1000 150 150 190 200 200 200 250 300 50 50 95 95 95"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 5000.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 0}
+   }
+  },
+  {
+   "nom": "effort tranchant négatif (signe admis)",
+   "sorte": "limite",
+   "attendu": {
+    "sans_message": true
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["Vz"], "valeur": "-50"}],
+   "photo": {
+    "messages": [null, null],
+    "resume": {
+     "taux": 49,
+     "niveau": "p",
+     "statut": "Conforme",
+     "gouvernant": "P1 · HEA 100 · cisaillement selon z"
+    },
+    "statut": "Conforme",
+    "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = −50 kN",
+    "resultat": [
+     ["η", "49 %"],
+     ["HEA", "100", "·"],
+     ["cisaillement selon z |V z,Ed | =", "50 kN", "≤"],
+     ["V z,Rd =", "102,5 kN"],
+     ["Profilé Profilé retenu HEA", "100", "49 %", "★"],
+     ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "49 %"],
+     ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "49 %"],
+     ["Profilés comparés", "24"],
+     ["(HEA) ·", "24"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "50 kN", "49 %"],
+     ["Masse du profilé retenu", "16,7 kg/m"]
+    ],
+    "calculs": [
+     ["P1 · HEA", "100 M"],
+     ["y,Ed =", "0 kN·m", "·"],
+     ["V z,Ed =", "−50 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M HEA", "100", "·", "16,67 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "0 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "0 kN·m"],
+     ["M y,Rd =", "17,1 kN·m", "0 %"],
+     ["Cisaillement selon z V z,Ed =", "50 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "50 kN"],
+     ["V z,Rd =", "102,5 kN", "49 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "21,24", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "499,1 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "72,76", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "17,1 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "7,56", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "102,5 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "0", "/", "17,1", "=", "0,000"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "50", "/", "102,5", "=", "0,488"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "0,000", "+", "0,000", "=", "0,000"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,000 ;", "0,000", ";", "0,488)", "=", "0,488 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "0,488", "=", "0,488"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": [],
+    "champs": {
+     "Iy_min": "0",
+     "My": "0",
+     "Vz": "-50",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": false,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P1"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section HEA 100",
+      "court": "Section",
+      "legende": "HEA 100 · à l'échelle",
+      "nombres": "0 100 100 100 10365:2017 12 12 133,812 16,672 21,238 26,762 349,244 5 5 53-62) 7,558 72,759 8 8 96 96 −50"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "24 profilés · 24 tiennent",
+      "nombres": "1 012,89 1 033,17 1 259,63 1 335,51 1 479,34 1 673,06 1 678,46 1 890,94 1 954,56 1,997 10 367,1 10 455,6 10 819,1 10,125 100 100 1000 102,734 103,195 104,782 106,347 10⁻³ 11 189,2 11 271,3 11 723,9 11,607 11,61 111 936 112,071 112,535 114 116,98 12 178,8 12 638,7 12,81 12,812 120 124,375 124,803 13 547,5 13 674 13,214 133 133,48 133,551 133,812 138,835 139,758 14 004,5 14,474 14,635 14,64 140 141 213 142,765 152 155,073 155,364 158,985 16,672 160 163,335 166,236 17,82 17,825 171 175 184 177,688 177,775 178,035 18 264,6 18,084 180 184,57 189,691 19,89 190 197,545 2 2 311,35 2 510,4 2 768,82 2 896,56 2,256 2,26 2,65 2,654 20,378 20,38 20,674 200 204,481 21,238 210 211,765 215 308 22 929,8 220 220,14 224,38 226,465 230 230,735 230,897 24,663 240 241,645 25,18 25,337 25,46 25,461 250 251,62 26,762 260 260,485 27 694,5 27,889 27,89 270 272,281 28,763 280 282,121 285,835 290 293,614 3 550,12 3 667,58 3 692,36 3,15 3,15 3,57 3,571 3,95 3,953 30,437 300 303 454 31,418 31,75 310 320 320,535 33 091,4 330 340 340,19 346,855 349,244 35,524 350 36,397 36,4 360 37,285 38,483 38,774 388,669 389,322 390 4 145,79 4 762,65 4 786,88 4,4 4,402 4,93 4,932 400 41,14 42,26 420,639 422 090 43,57 43,573 44,958 440 45 071,4 45,254 450 465,684 48,76 48,762 48,965 490 495,735 5 409,95 5 474,5 5,6 5,601 50,51 500 515,233 525,791 53,834 540 55,617 550 553 865 57,335 570,923 590 6 240,82 6 309,58 6 985,26 6,428 6,43 60,319 600 606,18 615,575 63 724,2 631,024 64,344 640 65,79 650 675,094 68,158 690 691,139 7 436,02 7 682,38 7 763,59 7 886,86 7,526 7,53 7,558 700 72,759 721,272 74,725 751,423 76,357 76,84 76,947 781,594 790 8 563,85 8,197 8,2 8,458 8,958 8,96 800 811,922 83,725 836,446 842,58 86 978,1 86,825 88,34 890 9 465,36 9 485,16 9,88 9,884 900 903,167 924,607 93,215 933,633 96 97,27 97,634 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 100 100 100 100 100 100 100 120 150 20 200 250 300 40 49 49 50 60 80 95 95 95"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 0.0, "Vz": -50.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 0}
+   }
+  },
+  {
+   "nom": "élément ajouté",
+   "sorte": "limite",
+   "attendu": {
+    "elements": 2
+   },
+   "pas": [{"action": "nouveau"}, {"action": "ajouter"}, {"action": "modifier", "chemin": ["My"], "valeur": "60"}],
+   "photo": {
+    "messages": [null, null, null],
+    "resume": {
+     "taux": 87,
+     "niveau": "p",
+     "statut": "Conforme",
+     "gouvernant": "P2 · HEA 180 · flexion autour de y"
+    },
+    "statut": "Conforme",
+    "phrase": "HEA 180 · S235 · M y,Ed = 60 kN·m · V z,Ed = 0 kN",
+    "resultat": [
+     ["η", "87 %"],
+     ["HEA", "180", "·"],
+     ["flexion autour de y |M y,Ed | =", "60 kN·m", "≤"],
+     ["M y,Rd =", "69,0 kN·m"],
+     ["Profilé Profilé retenu HEA", "180", "87 %", "★"],
+     ["Le plus léger qui tient HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
+     ["Optimal de l'écran HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
+     ["Profilés comparés", "24"],
+     ["(HEA) ·", "20"],
+     ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "60 kN·m", "87 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+     ["Masse du profilé retenu", "35,5 kg/m"]
+    ],
+    "calculs": [
+     ["P2 · HEA", "180 M"],
+     ["y,Ed =", "60 kN·m", "·"],
+     ["V z,Ed =", "0 kN", "·"],
+     ["EN 1993-1-1, section élastique Acier S235 · f y =", "235 N/mm²"],
+     ["γ M0 =", "1", "·"],
+     ["γ M1 =", "1"],
+     ["Section élastique (W el ) · interaction linéaire N + M HEA", "180", "·", "35,52 kg/m"],
+     ["Vérification Formule Valeur Limite Taux Flexion autour de y M y,Ed =", "60 kN·m"],
+     ["η = |M y,Ed | / M y,Rd |M y,Ed | =", "60 kN·m"],
+     ["M y,Rd =", "69,0 kN·m", "87 %"],
+     ["Cisaillement selon z V z,Ed =", "0 kN"],
+     ["η = |V z,Ed | / V z,Rd |V z,Ed | =", "0 kN"],
+     ["V z,Rd =", "196,4 kN", "0 %"],
+     ["Le détail du calcul Résistances de section (élastiques) N Rd = A·f y / γ M0 =", "45,25", "×", "10²", "×", "235", "/", "1", "×", "10⁻³", "=", "1 063,5 kN"],
+     ["M y,Rd = W el,y ·f y / γ M0 =", "293,61", "×", "10³", "×", "235", "/", "1", "×", "10⁻⁶", "=", "69,0 kN·m"],
+     ["V z,Rd = A v,z ·f y / (√3·γ M0 ) =", "14,47", "×", "10²", "×", "235", "/", "(√3", "×", "1)", "×", "10⁻³", "=", "196,4 kN"],
+     ["Taux de la section η My = |M y,Ed | / M y,Rd =", "60", "/", "69,0", "=", "0,870"],
+     ["η Vz = |V z,Ed | / V z,Rd =", "0", "/", "196,4", "=", "0,000"],
+     ["η NM = η N + η My + η Mz =", "0,000", "+", "0,870", "+", "0,000", "=", "0,870"],
+     ["η section = max(η NM ; η Vy ; η Vz ) = max(0,870 ;", "0,000", ";", "0,000)", "=", "0,870 Taux"],
+     ["du profilé η = η section (sans flambement calculé) =", "0,870", "=", "0,870"],
+     ["Unités de l'écran : aires en cm², modules en cm³, inerties en cm⁴, longueurs en m, f y et E en N/mm² ; 10², 10³ et 10⁴ ramènent en mm, 10⁻³ et 10⁻⁶ rendent les N et N·mm du calcul en kN et kN·m."]
+    ],
+    "avis": [],
+    "champs": {
+     "Iy_min": "0",
+     "My": "60",
+     "Vz": "0",
+     "acier": "S235",
+     "auto": true,
+     "avec_Mz": false,
+     "avec_N": false,
+     "avec_T": false,
+     "avec_Vy": false,
+     "deversement": false,
+     "familles/HD": false,
+     "familles/HEA": true,
+     "familles/HEAA": false,
+     "familles/HEB": false,
+     "familles/HEM": false,
+     "familles/HL": false,
+     "familles/HP": false,
+     "familles/IPE": false,
+     "familles/IPE A": false,
+     "familles/IPE O": false,
+     "familles/IPN": false,
+     "flambement": false,
+     "gamma_M0": "1",
+     "gamma_M1": "1",
+     "nom": "P2"
+    },
+    "verrous": [],
+    "menus": {
+     "acier": "3 · c2d0d73f97d3"
+    },
+    "actions": ["calcul:profil", "pk:profil"],
+    "vues": [
+     {
+      "cle": "section",
+      "titre": "Section HEA 180",
+      "court": "Section",
+      "legende": "HEA 180 · à l'échelle",
+      "nombres": "0 102,734 10365:2017 14,474 15 15 171 171 180 180 180 2 510,4 293,614 35,524 45,254 53-62) 6 6 60 9,5 9,5 924,607"
+     },
+     {
+      "cle": "tableau",
+      "titre": "Tableau des profilés",
+      "court": "Tableau",
+      "legende": "24 profilés · 20 tiennent",
+      "nombres": "1 012,89 1 033,17 1 259,63 1 335,51 1 479,34 1 673,06 1 678,46 1 890,94 1 954,56 10 367,1 10 455,6 10 819,1 10,125 100 100 1000 102,734 103,195 104,782 106,347 10⁻³ 11 189,2 11 271,3 11 723,9 11,046 11,05 111 936 112,071 112,535 114 115,98 115,98 116,98 12 178,8 12 638,7 120 124,375 124,803 13 547,5 13 674 13,214 13,5 13,502 133 133,48 133,551 133,812 138,835 139,758 14 004,5 14,474 140 141 213 142,765 15,21 15,212 152 155,073 155,364 158,985 16,672 160 163,335 164,336 164,34 166,236 17,259 17,26 171 175 184 177,688 177,775 178,035 18 264,6 18,084 180 184,57 189,691 19,89 190 197,545 2 311,35 2 510,4 2 768,82 2 896,56 2,28 2,282 2,69 2,692 20,269 20,27 20,674 200 204,481 21,238 210 211,765 215 308 22 929,8 220 220,14 224,38 226,465 230 230,735 230,897 24,663 240 240,08 240,081 241,645 25,18 25,207 25,21 25,337 250 251,62 26,762 260 260,485 27 694,5 270 272,281 28,763 280 282,121 285,835 290 293,614 3 550,12 3 667,58 3 692,36 3,32 3,323 30,437 30,52 30,524 300 303 454 31,418 31,75 310 320 320,535 33 091,4 330 340 340,19 346,855 349,244 35,524 350 350,91 350,91 360 37,285 37,82 37,82 38,483 38,774 388,669 389,322 390 4 145,79 4 762,65 4 786,88 4,09 4,091 4,66 4,664 400 41,14 42,26 420,639 422 090 44,958 440 45 071,4 45,254 450 465,684 48,965 49,55 49,554 490 495,735 5 409,95 5 474,5 5,33 5,334 50,51 500 515,233 525,791 53,834 540 55,617 550 553 865 57,335 570,923 590 6 240,82 6 309,58 6 985,26 6,159 6,16 60,319 600 606,18 615,575 63 724,2 631,024 64,344 640 65,69 65,691 65,79 650 675,094 68,158 690 691,139 7 436,02 7 682,38 7 763,59 7 886,86 7,19 7,192 7,558 700 72,759 721,272 74,725 751,423 76,357 76,84 76,947 781,594 790 8 563,85 8,458 8,81 8,815 800 811,922 83,725 836,446 842,58 86 978,1 86,825 86,957 86,96 88,34 890 9 465,36 9 485,16 900 903,167 924,607 93,215 933,633 96 97,27 97,634 990"
+     },
+     {
+      "cle": "courbe",
+      "titre": "Taux et masse",
+      "court": "Taux / masse",
+      "legende": "le taux de chaque profilé de la sélection en fonction de sa masse",
+      "nombres": "0 0 100 100 100 100 100 150 150 180 180 200 200 200 250 300 50 50 87 87 95 95 95"
+     }
+    ],
+    "etat": {"version": 1, "elements": [{"nom": "P1", "familles": ["HEA"], "acier": "S235", "My": 0.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}, {"nom": "P2", "familles": ["HEA"], "acier": "S235", "My": 60.0, "Vz": 0.0, "avec_N": false, "N": 0.0, "avec_Mz": false, "Mz": 0.0, "avec_Vy": false, "Vy": 0.0, "avec_T": false, "T": 0.0, "gamma_M0": 1.0, "gamma_M1": 1.0, "Iy_min": 0.0, "flambement": false, "Lcr_y": 0.0, "Lcr_z": 0.0, "courbe": "b", "deversement": false, "L_LT": 0.0, "profil": null}], "actif": 1},
+    "elements": [
+     {
+      "phrase": "HEA 100 · S235 · M y,Ed = 0 kN·m · V z,Ed = 0 kN",
+      "resultat": [
+       ["η", "0 %"],
+       ["HEA", "100", "·"],
+       ["flexion autour de y |M y,Ed | =", "0 kN·m", "≤"],
+       ["M y,Rd =", "17,1 kN·m"],
+       ["Profilé Profilé retenu HEA", "100", "0 %", "★"],
+       ["Le plus léger qui tient HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+       ["Optimal de l'écran HEA", "100", "·", "16,7 kg/m", "·", "0 %"],
+       ["Profilés comparés", "24"],
+       ["(HEA) ·", "24"],
+       ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "0 kN·m", "0 %"],
+       ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+       ["Aucun effort saisi : tous les profilés « tiennent » et l'écran retient le premier du tableau. Masse du profilé retenu", "16,7 kg/m"]
+      ]
+     },
+     {
+      "phrase": "HEA 180 · S235 · M y,Ed = 60 kN·m · V z,Ed = 0 kN",
+      "resultat": [
+       ["η", "87 %"],
+       ["HEA", "180", "·"],
+       ["flexion autour de y |M y,Ed | =", "60 kN·m", "≤"],
+       ["M y,Rd =", "69,0 kN·m"],
+       ["Profilé Profilé retenu HEA", "180", "87 %", "★"],
+       ["Le plus léger qui tient HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
+       ["Optimal de l'écran HEA", "180", "·", "35,5 kg/m", "·", "87 %"],
+       ["Profilés comparés", "24"],
+       ["(HEA) ·", "20"],
+       ["tiennent Résistance de la section Flexion autour de y M y,Ed =", "60 kN·m", "87 %"],
+       ["Cisaillement selon z V z,Ed =", "0 kN", "0 %"],
+       ["Masse du profilé retenu", "35,5 kg/m"]
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

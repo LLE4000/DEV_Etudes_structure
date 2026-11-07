@@ -1,0 +1,1115 @@
+{
+ "module": "armatures",
+ "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "cas": [
+  {
+   "nom": "note neuve",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}],
+   "photo": {
+    "messages": [null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · 4Ø12 · 452 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · 4Ø12 retenu · A s,req = 400 mm² · ★ 2Ø16",
+    "resultat": [
+     ["", "452 mm²"],
+     ["Repère", "1", "·"],
+     ["4Ø12 ≥ A s,req =", "400 mm²"],
+     ["taux", "88 %", "·"],
+     ["suffit Retenue 4Ø12 ·", "452 mm²", "88 %"],
+     ["Économique ★ 2Ø16 ·", "402 mm²", "99 %"],
+     ["Barres retenues · 4Ø12 Section", "452 mm²"],
+     ["Masse des barres", "3,556 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "452 mm²", "88 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "452", "=", "88 %"],
+     ["Repère", "1", "·"],
+     ["la plus économique 2Ø16 =", "402 mm²", "·"],
+     ["lu par mètre :", "2"],
+     ["barres/m, e =", "50 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 2Ø16 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 2Ø16 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "402 mm²", "99 %"],
+     ["Le détail du calcul Une barre Ø16 a = π·Ø²/4 = π × 16² /", "4", "=", "201,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "201,1", "×", "10⁻⁶", "=", "1,580 kg/m", "2"],
+     ["barres Ø16 A s = n·a =", "2", "×", "201,1", "=", "402 mm²"],
+     ["M = n·m =", "2", "×", "1,580", "=", "3,161 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "2", "=", "50,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "402", "=", "99 %"]
+    ],
+    "avis": [],
+    "champs": {
+     "As_req": "400",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "6",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "10",
+     "n_min": "1",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "chemin:optimal", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 2Ø16 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 400 402 402 402 440 452 452 462 471 491 4Ø12 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 9 9,877 905 91 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø12 lus par mètre · 4 barres/m",
+      "nombres": "000 1 125 250 250 3,56 4 452 4Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 400.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 0},
+    "selecteurs": {
+     "disp": [
+      ["Barres · disposition triées par section · un clic retient la disposition · A s,req =", "400 mm²"],
+      ["1Ø6", "28", "999 %"],
+      ["1Ø8", "50", "796 %"],
+      ["2Ø6", "57", "707 %"],
+      ["1Ø10", "79", "509 %"],
+      ["3Ø6", "85", "472 %"],
+      ["2Ø8", "101", "398 %"],
+      ["1Ø12", "113", "354 %"],
+      ["4Ø6", "113", "354 %"],
+      ["5Ø6", "141", "283 %"],
+      ["3Ø8", "151", "265 %"],
+      ["1Ø14", "154", "260 %"],
+      ["2Ø10", "157", "255 %"],
+      ["6Ø6", "170", "236 %"],
+      ["7Ø6", "198", "202 %"],
+      ["1Ø16", "201", "199 %"],
+      ["4Ø8", "201", "199 %"],
+      ["2Ø12", "226", "177 %"],
+      ["8Ø6", "226", "177 %"],
+      ["3Ø10", "236", "170 %"],
+      ["5Ø8", "251", "159 %"],
+      ["9Ø6", "254", "157 %"],
+      ["10Ø6", "283", "141 %"],
+      ["6Ø8", "302", "133 %"],
+      ["2Ø14", "308", "130 %"],
+      ["1Ø20", "314", "127 %"],
+      ["4Ø10", "314", "127 %"],
+      ["3Ø12", "339", "118 %"],
+      ["7Ø8", "352", "114 %"],
+      ["5Ø10", "393", "102 %"],
+      ["2Ø16", "402", "99 %"],
+      ["8Ø8", "402", "99 %"],
+      ["4Ø12", "452", "88 %"],
+      ["9Ø8", "452", "88 %"],
+      ["3Ø14", "462", "87 %"],
+      ["6Ø10", "471", "85 %"],
+      ["1Ø25", "491", "81 %"],
+      ["10Ø8", "503", "80 %"],
+      ["7Ø10", "550", "73 %"],
+      ["5Ø12", "565", "71 %"],
+      ["3Ø16", "603", "66 %"],
+      ["1Ø28", "616", "65 %"],
+      ["4Ø14", "616", "65 %"],
+      ["2Ø20", "628", "64 %"],
+      ["8Ø10", "628", "64 %"],
+      ["6Ø12", "679", "59 %"],
+      ["1Ø30", "707", "57 %"],
+      ["9Ø10", "707", "57 %"],
+      ["5Ø14", "770", "52 %"],
+      ["10Ø10", "785", "51 %"],
+      ["7Ø12", "792", "51 %"],
+      ["1Ø32", "804", "50 %"],
+      ["4Ø16", "804", "50 %"],
+      ["8Ø12", "905", "44 %"],
+      ["6Ø14", "924", "43 %"],
+      ["3Ø20", "942", "42 %"],
+      ["2Ø25", "982", "41 %"],
+      ["5Ø16", "1 005", "40 %"],
+      ["9Ø12", "1 018", "39 %"],
+      ["7Ø14", "1 078", "37 %"],
+      ["10Ø12", "1 131", "35 %"],
+      ["6Ø16", "1 206", "33 %"],
+      ["2Ø28", "1 232", "32 %"],
+      ["8Ø14", "1 232", "32 %"],
+      ["1Ø40", "1 257", "32 %"],
+      ["4Ø20", "1 257", "32 %"],
+      ["9Ø14", "1 385", "29 %"],
+      ["7Ø16", "1 407", "28 %"],
+      ["2Ø30", "1 414", "28 %"],
+      ["3Ø25", "1 473", "27 %"],
+      ["10Ø14", "1 539", "26 %"],
+      ["5Ø20", "1 571", "25 %"],
+      ["2Ø32", "1 608", "25 %"],
+      ["8Ø16", "1 608", "25 %"],
+      ["9Ø16", "1 810", "22 %"],
+      ["3Ø28", "1 847", "22 %"],
+      ["6Ø20", "1 885", "21 %"],
+      ["4Ø25", "1 963", "20 %"],
+      ["10Ø16", "2 011", "20 %"],
+      ["3Ø30", "2 121", "19 %"],
+      ["7Ø20", "2 199", "18 %"],
+      ["3Ø32", "2 413", "17 %"],
+      ["5Ø25", "2 454", "16 %"],
+      ["4Ø28", "2 463", "16 %"],
+      ["2Ø40", "2 513", "16 %"],
+      ["8Ø20", "2 513", "16 %"],
+      ["4Ø30", "2 827", "14 %"],
+      ["9Ø20", "2 827", "14 %"],
+      ["6Ø25", "2 945", "14 %"],
+      ["5Ø28", "3 079", "13 %"],
+      ["10Ø20", "3 142", "13 %"],
+      ["4Ø32", "3 217", "12 %"],
+      ["7Ø25", "3 436", "12 %"],
+      ["5Ø30", "3 534", "11 %"],
+      ["6Ø28", "3 695", "11 %"],
+      ["3Ø40", "3 770", "11 %"],
+      ["8Ø25", "3 927", "10 %"],
+      ["5Ø32", "4 021", "10 %"],
+      ["6Ø30", "4 241", "9 %"],
+      ["7Ø28", "4 310", "9 %"],
+      ["9Ø25", "4 418", "9 %"],
+      ["6Ø32", "4 825", "8 %"],
+      ["10Ø25", "4 909", "8 %"],
+      ["8Ø28", "4 926", "8 %"],
+      ["7Ø30", "4 948", "8 %"],
+      ["4Ø40", "5 027", "8 %"],
+      ["9Ø28", "5 542", "7 %"],
+      ["7Ø32", "5 630", "7 %"],
+      ["8Ø30", "5 655", "7 %"],
+      ["10Ø28", "6 158", "6 %"],
+      ["5Ø40", "6 283", "6 %"],
+      ["9Ø30", "6 362", "6 %"],
+      ["8Ø32", "6 434", "6 %"],
+      ["10Ø30", "7 069", "6 %"],
+      ["9Ø32", "7 238", "6 %"],
+      ["6Ø40", "7 540", "5 %"],
+      ["10Ø32", "8 042", "5 %"],
+      ["7Ø40", "8 796", "5 %"],
+      ["8Ø40", "10 053", "4 %"],
+      ["9Ø40", "11 310", "4 %"],
+      ["10Ø40", "12 566", "3 %"],
+      ["4Ø12 · A s =", "452 mm²", "·", "3,556 kg/m", "·"],
+      ["lues par mètre : e =", "25 cm"],
+      ["retenu la plus économique qui suffit mm² · taux"]
+     ]
+    },
+    "fichiers": {}
+   }
+  },
+  {
+   "nom": "nappe, A_s,req = 754 mm²/m (Ø12/15 = 753,98 : juste insuffisant)",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["mode"], "valeur": "nappe"}, {"action": "modifier", "chemin": ["As_req"], "valeur": "754"}],
+   "photo": {
+    "messages": [null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · Ø12 · 15 cm · 754 mm²/m"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · Ø12 · 15 cm retenu · A s,req = 754 mm²/m · ★ Ø14 · 20 cm",
+    "resultat": [
+     ["", "753,98 mm²/m"],
+     ["Repère", "1", "·"],
+     ["Ø12 ·", "15 cm", "<"],
+     ["A s,req =", "754 mm²/m"],
+     ["taux", "101 %", "·"],
+     ["ne suffit pas Retenue Ø12 ·", "15 cm", "·", "753,98 mm²/m", "101 %"],
+     ["Économique ★ Ø14 ·", "20 cm", "·", "770 mm²/m", "98 %"],
+     ["Nappe retenue · Ø12 Section par mètre", "754 mm²/m"],
+     ["Masse de la nappe", "5,93 kg/m²"],
+     ["Barres par mètre", "6,67", "·"],
+     ["e =", "15 cm"],
+     ["Jour entre barres e − Ø =", "138 mm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["La disposition retenue Ø12 ·", "15 cm"],
+     ["ne suffit pas :", "753,98 mm²/m", "<", "754 mm²/m"],
+     ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue Ø12 ·", "15 cm", "=", "754 mm²/m", "·", "6,67"],
+     ["barres/m · jour e − Ø =", "138 mm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Nappe par mètre · Ø12 ·", "15 cm"],
+     ["Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section Ø12 ·", "15 cm", "·"],
+     ["case du tableau A s,req ≤ A s = π·Ø²/4 · 100/e A s,req =", "754 mm²/m"],
+     ["A s =", "753,98 mm²/m", "101 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m"],
+     ["Nappe Ø12, par mètre n =", "100", "/"],
+     ["e =", "100", "/", "15", "=", "6,67"],
+     ["barres/m A s = a·100 / e =", "113,1", "×", "100", "/", "15", "=", "754 mm²/m"],
+     ["M = n·m =", "6,67", "×", "0,889", "=", "5,93 kg/m²"],
+     ["Section requise η = A s,req / A s =", "754", "/", "753,98", "=", "101 %"],
+     ["Repère", "1", "·"],
+     ["la plus économique Ø14 ·", "20 cm", "=", "770 mm²/m", "·", "5,00"],
+     ["barres/m · jour e − Ø =", "186 mm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Nappe par mètre · Ø14 ·", "20 cm"],
+     ["Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section Ø14 ·", "20 cm", "·"],
+     ["case du tableau A s,req ≤ A s = n·π·Ø²/4, n = 100/e A s,req =", "754 mm²/m"],
+     ["A s =", "770 mm²/m", "98 %"],
+     ["Le détail du calcul Une barre Ø14 a = π·Ø²/4 = π × 14² /", "4", "=", "153,9 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "153,9", "×", "10⁻⁶", "=", "1,210 kg/m"],
+     ["Nappe Ø14, par mètre e =", "100", "/"],
+     ["n =", "100", "/", "5", "=", "20,0 cm"],
+     ["A s = n·a =", "5", "×", "153,9", "=", "770 mm²/m"],
+     ["M = n·m =", "5,00", "×", "1,210", "=", "6,05 kg/m²"],
+     ["Section requise η = A s,req / A s =", "754", "/", "770", "=", "98 %"]
+    ],
+    "avis": ["⚠ La disposition retenue Ø12 · 15 cm ne suffit pas : 753,98 mm²/m < 754 mm²/m requis."],
+    "champs": {
+     "As_req": "754",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "6",
+     "e_max": "40",
+     "e_min": "10",
+     "espacement": "e15",
+     "mode": "nappe",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "espacement": "15 · 65bb2f1efecc",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "chemin:optimal", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 100/n 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 402 402 440 452 452 462 471 491 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 754 770 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 9 9,877 905 92 924 94 942 982 Ø12 Ø14 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "Nappe Ø12 · e = 15 cm · 6,67 barres/m",
+      "nombres": "000 1 15 150 150 5,93 6,67 75 754 Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "nappe", "As_req": 754.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 0}
+   }
+  },
+  {
+   "nom": "barres, A_s,req = 440 mm² (4Ø12 tient à 97 %)",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["As_req"], "valeur": "440"}],
+   "photo": {
+    "messages": [null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · 4Ø12 · 452 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · 4Ø12 retenu · A s,req = 440 mm² · ★ 4Ø12",
+    "resultat": [
+     ["", "452 mm²"],
+     ["Repère", "1", "·"],
+     ["4Ø12 ≥ A s,req =", "440 mm²"],
+     ["taux", "97 %", "·"],
+     ["suffit Retenue 4Ø12 ·", "452 mm²", "97 %"],
+     ["Économique ★ 4Ø12 ·", "452 mm²", "97 %"],
+     ["Barres retenues · 4Ø12 Section", "452 mm²"],
+     ["Masse des barres", "3,556 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "440 mm²"],
+     ["A s =", "452 mm²", "97 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "440", "/", "452", "=", "97 %"],
+     ["Repère", "1", "·"],
+     ["la plus économique 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "440 mm²"],
+     ["A s =", "452 mm²", "97 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "440", "/", "452", "=", "97 %"]
+    ],
+    "avis": [],
+    "champs": {
+     "As_req": "440",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "6",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "10",
+     "n_min": "1",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 402 402 440 440 452 452 452 462 471 491 4Ø12 4Ø12 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 89 898 9 9,877 905 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø12 lus par mètre · 4 barres/m",
+      "nombres": "000 1 125 250 250 3,56 4 452 4Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 440.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 0}
+   }
+  },
+  {
+   "nom": "barres, Ø20 imposé, 2 400 mm²",
+   "sorte": "référence",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["d"], "valeur": "20"}, {"action": "modifier", "chemin": ["As_req"], "valeur": "2400"}, {"action": "modifier", "chemin": ["n_max"], "valeur": "8"}],
+   "photo": {
+    "messages": [null, null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · 4Ø20 · 1 257 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · 4Ø20 retenu · A s,req = 2 400 mm² · ★ 3Ø32",
+    "resultat": [
+     ["", "1 257 mm²"],
+     ["Repère", "1", "·"],
+     ["4Ø20 < A s,req =", "2 400 mm²"],
+     ["taux", "191 %", "·"],
+     ["ne suffit pas Retenue 4Ø20 ·", "1 257 mm²", "191 %"],
+     ["Économique ★ 3Ø32 ·", "2 413 mm²", "99 %"],
+     ["Barres retenues · 4Ø20 Section", "1 257 mm²"],
+     ["Masse des barres", "9,877 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø20", "314,2 mm²", "·", "2,469 kg/m"],
+     ["La disposition retenue 4Ø20 ne suffit pas :", "1 257 mm²", "<", "2 400 mm²"],
+     ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue 4Ø20 =", "1 257 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø20 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø20 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "2 400 mm²"],
+     ["A s =", "1 257 mm²", "191 %"],
+     ["Le détail du calcul Une barre Ø20 a = π·Ø²/4 = π × 20² /", "4", "=", "314,2 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "314,2", "×", "10⁻⁶", "=", "2,469 kg/m", "4"],
+     ["barres Ø20 A s = n·a =", "4", "×", "314,2", "=", "1 257 mm²"],
+     ["M = n·m =", "4", "×", "2,469", "=", "9,877 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "2 400", "/", "1 257", "=", "191 %"],
+     ["Repère", "1", "·"],
+     ["la plus économique 3Ø32 =", "2 413 mm²", "·"],
+     ["lu par mètre :", "3"],
+     ["barres/m, e =", "33,3 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 3Ø32 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 3Ø32 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "2 400 mm²"],
+     ["A s =", "2 413 mm²", "99 %"],
+     ["Le détail du calcul Une barre Ø32 a = π·Ø²/4 = π × 32² /", "4", "=", "804,2 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "804,2", "×", "10⁻⁶", "=", "6,321 kg/m", "3"],
+     ["barres Ø32 A s = n·a =", "3", "×", "804,2", "=", "2 413 mm²"],
+     ["M = n·m =", "3", "×", "6,321", "=", "18,964 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "3", "=", "33,3 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "2 400", "/", "2 413", "=", "99 %"]
+    ],
+    "avis": ["⚠ La disposition retenue 4Ø20 ne suffit pas : 1 257 mm² < 2 400 mm² requis."],
+    "champs": {
+     "As_req": "2 400",
+     "d": "20",
+     "d_max": "40",
+     "d_min": "6",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "8",
+     "n_min": "1",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "chemin:optimal", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 400 2 413 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 28 283 283 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 3Ø32 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 402 402 440 452 452 462 471 491 4Ø20 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 9 9,877 905 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø20 lus par mètre · 4 barres/m",
+      "nombres": "000 1 1 257 125 250 250 4 4Ø20 9,88"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 2400.0, "d": 20, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 8, "e_min": 10.0, "e_max": 40.0}], "actif": 0}
+   }
+  },
+  {
+   "nom": "A_s,req nul",
+   "sorte": "limite",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["As_req"], "valeur": "0"}],
+   "photo": {
+    "messages": [null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · 4Ø12 · 452 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · 4Ø12 retenu",
+    "resultat": [
+     ["", "452 mm²"],
+     ["Repère", "1", "·"],
+     ["4Ø12 aucune section requise : le tableau en consultation Retenue 4Ø12 ·", "452 mm²"],
+     ["à compléter Barres retenues · 4Ø12 Section", "452 mm²"],
+     ["Masse des barres", "3,556 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s =", "452 mm²"],
+     ["pas de section requise", "0 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre)"]
+    ],
+    "avis": [],
+    "champs": {
+     "As_req": "0",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "6",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "10",
+     "n_min": "1",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 402 402 440 452 452 462 471 491 4Ø12 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 9 9,877 905 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø12 lus par mètre · 4 barres/m",
+      "nombres": "000 1 125 250 250 3,56 4 452 4Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 0.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 0}
+   }
+  },
+  {
+   "nom": "A_s,req négatif refusé",
+   "sorte": "limite",
+   "attendu": {
+    "message": true
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["As_req"], "valeur": "-5"}],
+   "photo": {
+    "messages": [null, "Saisie refusée : la section requise ne peut pas être négative"],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · 4Ø12 · 452 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · 4Ø12 retenu · A s,req = 400 mm² · ★ 2Ø16",
+    "resultat": [
+     ["", "452 mm²"],
+     ["Repère", "1", "·"],
+     ["4Ø12 ≥ A s,req =", "400 mm²"],
+     ["taux", "88 %", "·"],
+     ["suffit Retenue 4Ø12 ·", "452 mm²", "88 %"],
+     ["Économique ★ 2Ø16 ·", "402 mm²", "99 %"],
+     ["Barres retenues · 4Ø12 Section", "452 mm²"],
+     ["Masse des barres", "3,556 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "452 mm²", "88 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "452", "=", "88 %"],
+     ["Repère", "1", "·"],
+     ["la plus économique 2Ø16 =", "402 mm²", "·"],
+     ["lu par mètre :", "2"],
+     ["barres/m, e =", "50 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 2Ø16 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 2Ø16 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "402 mm²", "99 %"],
+     ["Le détail du calcul Une barre Ø16 a = π·Ø²/4 = π × 16² /", "4", "=", "201,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "201,1", "×", "10⁻⁶", "=", "1,580 kg/m", "2"],
+     ["barres Ø16 A s = n·a =", "2", "×", "201,1", "=", "402 mm²"],
+     ["M = n·m =", "2", "×", "1,580", "=", "3,161 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "2", "=", "50,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "402", "=", "99 %"]
+    ],
+    "avis": [],
+    "champs": {
+     "As_req": "400",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "6",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "10",
+     "n_min": "1",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "chemin:optimal", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 2Ø16 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 400 402 402 402 440 452 452 462 471 491 4Ø12 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 9 9,877 905 91 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø12 lus par mètre · 4 barres/m",
+      "nombres": "000 1 125 250 250 3,56 4 452 4Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 400.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 0}
+   }
+  },
+  {
+   "nom": "zéro barre refusé",
+   "sorte": "limite",
+   "attendu": {
+    "message": true
+   },
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["n"], "valeur": "0"}],
+   "photo": {
+    "messages": [null, "Saisie refusée : le nombre de barres va de 1 à 200"],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · 4Ø12 · 452 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · 4Ø12 retenu · A s,req = 400 mm² · ★ 2Ø16",
+    "resultat": [
+     ["", "452 mm²"],
+     ["Repère", "1", "·"],
+     ["4Ø12 ≥ A s,req =", "400 mm²"],
+     ["taux", "88 %", "·"],
+     ["suffit Retenue 4Ø12 ·", "452 mm²", "88 %"],
+     ["Économique ★ 2Ø16 ·", "402 mm²", "99 %"],
+     ["Barres retenues · 4Ø12 Section", "452 mm²"],
+     ["Masse des barres", "3,556 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "452 mm²", "88 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "452", "=", "88 %"],
+     ["Repère", "1", "·"],
+     ["la plus économique 2Ø16 =", "402 mm²", "·"],
+     ["lu par mètre :", "2"],
+     ["barres/m, e =", "50 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 2Ø16 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 2Ø16 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "402 mm²", "99 %"],
+     ["Le détail du calcul Une barre Ø16 a = π·Ø²/4 = π × 16² /", "4", "=", "201,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "201,1", "×", "10⁻⁶", "=", "1,580 kg/m", "2"],
+     ["barres Ø16 A s = n·a =", "2", "×", "201,1", "=", "402 mm²"],
+     ["M = n·m =", "2", "×", "1,580", "=", "3,161 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "2", "=", "50,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "402", "=", "99 %"]
+    ],
+    "avis": [],
+    "champs": {
+     "As_req": "400",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "6",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "10",
+     "n_min": "1",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "chemin:optimal", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 2Ø16 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 400 402 402 402 440 452 452 462 471 491 4Ø12 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 9 9,877 905 91 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø12 lus par mètre · 4 barres/m",
+      "nombres": "000 1 125 250 250 3,56 4 452 4Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 400.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 0}
+   }
+  },
+  {
+   "nom": "Ø min plus grand que Ø max",
+   "sorte": "limite",
+   "attendu": {},
+   "pas": [{"action": "nouveau"}, {"action": "modifier", "chemin": ["d_min"], "valeur": "32"}, {"action": "modifier", "chemin": ["d_max"], "valeur": "10"}],
+   "photo": {
+    "messages": [null, null, "Saisie refusée : Ø mini (32) plus grand que Ø maxi (10)"],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 1 · 4Ø12 · 452 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 1 · 4Ø12 retenu · A s,req = 400 mm² · ★ 1Ø32",
+    "resultat": [
+     ["", "452 mm²"],
+     ["Repère", "1", "·"],
+     ["4Ø12 ≥ A s,req =", "400 mm²"],
+     ["taux", "88 %", "·"],
+     ["suffit Retenue 4Ø12 ·", "452 mm²", "88 %"],
+     ["Économique ★ 1Ø32 ·", "804 mm²", "50 %"],
+     ["Barres retenues · 4Ø12 Section", "452 mm²"],
+     ["Masse des barres", "3,556 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "1", "·"],
+     ["disposition retenue 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "452 mm²", "88 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "452", "=", "88 %"],
+     ["Repère", "1", "·"],
+     ["la plus économique 1Ø32 =", "804 mm²", "·"],
+     ["lu par mètre :", "1"],
+     ["barre/m, e =", "100 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 1Ø32 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 1Ø32 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "400 mm²"],
+     ["A s =", "804 mm²", "50 %"],
+     ["Le détail du calcul Une barre Ø32 a = π·Ø²/4 = π × 32² /", "4", "=", "804,2 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "804,2", "×", "10⁻⁶", "=", "6,321 kg/m", "1"],
+     ["barres Ø32 A s = n·a =", "1", "×", "804,2", "=", "804 mm²"],
+     ["M = n·m =", "1", "×", "6,321", "=", "6,321 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "1", "=", "100,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "400", "/", "804", "=", "50 %"]
+    ],
+    "avis": [],
+    "champs": {
+     "As_req": "400",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "32",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "10",
+     "n_min": "1",
+     "nom": "Repère 1"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "chemin:optimal", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 1Ø32 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 400 402 402 440 452 452 462 471 491 4Ø12 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 804 81 85 898 9 9,877 905 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø12 lus par mètre · 4 barres/m",
+      "nombres": "000 1 125 250 250 3,56 4 452 4Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 400.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 32, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 0}
+   }
+  },
+  {
+   "nom": "repère ajouté",
+   "sorte": "limite",
+   "attendu": {
+    "elements": 2
+   },
+   "pas": [{"action": "nouveau"}, {"action": "ajouter"}, {"action": "modifier", "chemin": ["As_req"], "valeur": "900"}],
+   "photo": {
+    "messages": [null, null, null],
+    "resume": {
+     "taux": null,
+     "niveau": "i",
+     "statut": "Consultation",
+     "gouvernant": "Repère 2 · 4Ø12 · 452 mm²"
+    },
+    "statut": "Consultation",
+    "phrase": "Repère 2 · 4Ø12 retenu · A s,req = 900 mm² · ★ 8Ø12",
+    "resultat": [
+     ["", "452 mm²"],
+     ["Repère", "2", "·"],
+     ["4Ø12 < A s,req =", "900 mm²"],
+     ["taux", "199 %", "·"],
+     ["ne suffit pas Retenue 4Ø12 ·", "452 mm²", "199 %"],
+     ["Économique ★ 8Ø12 ·", "905 mm²", "99 %"],
+     ["Barres retenues · 4Ø12 Section", "452 mm²"],
+     ["Masse des barres", "3,556 kg/m"],
+     ["Lues par mètre", "4"],
+     ["barres/m · e =", "25 cm"],
+     ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+     ["La disposition retenue 4Ø12 ne suffit pas :", "452 mm²", "<", "900 mm²"],
+     ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+    ],
+    "calculs": [
+     ["Repère", "2", "·"],
+     ["disposition retenue 4Ø12 =", "452 mm²", "·"],
+     ["lu par mètre :", "4"],
+     ["barres/m, e =", "25 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 4Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 4Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "900 mm²"],
+     ["A s =", "452 mm²", "199 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "4"],
+     ["barres Ø12 A s = n·a =", "4", "×", "113,1", "=", "452 mm²"],
+     ["M = n·m =", "4", "×", "0,889", "=", "3,556 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "4", "=", "25,0 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "900", "/", "452", "=", "199 %"],
+     ["Repère", "2", "·"],
+     ["la plus économique 8Ø12 =", "905 mm²", "·"],
+     ["lu par mètre :", "8"],
+     ["barres/m, e =", "12,5 cm"],
+     ["Tableau du bureau · ρ =", "7 860 kg/m³"],
+     ["Barres · 8Ø12 Sections arrondies au mm² · masses au gramme Vérification Formule Valeur Limite Taux Section 8Ø12 · case du tableau A s,req ≤ A s = n·π·Ø²/4 A s,req =", "900 mm²"],
+     ["A s =", "905 mm²", "99 %"],
+     ["Le détail du calcul Une barre Ø12 a = π·Ø²/4 = π × 12² /", "4", "=", "113,1 mm²"],
+     ["m = ρ·a·10⁻⁶ =", "7 860", "×", "113,1", "×", "10⁻⁶", "=", "0,889 kg/m", "8"],
+     ["barres Ø12 A s = n·a =", "8", "×", "113,1", "=", "905 mm²"],
+     ["M = n·m =", "8", "×", "0,889", "=", "7,112 kg/m"],
+     ["e =", "100", "/"],
+     ["n =", "100", "/", "8", "=", "12,5 cm"],
+     ["(lu par mètre) Section requise η = A s,req / A s =", "900", "/", "905", "=", "99 %"]
+    ],
+    "avis": ["⚠ La disposition retenue 4Ø12 ne suffit pas : 452 mm² < 900 mm² requis."],
+    "champs": {
+     "As_req": "900",
+     "d": "12",
+     "d_max": "40",
+     "d_min": "6",
+     "mode": "barres",
+     "n": "4",
+     "n_max": "10",
+     "n_min": "1",
+     "nom": "Repère 2"
+    },
+    "verrous": [],
+    "menus": {
+     "d": "12 · 6b34ad2ec5d3",
+     "d_max": "12 · 6b34ad2ec5d3",
+     "d_min": "12 · 6b34ad2ec5d3",
+     "mode": "2 · 499dc2d33a6c"
+    },
+    "actions": ["calcul:disp", "calcul:opt", "chemin:optimal", "pk:disp"],
+    "vues": [
+     {
+      "cle": "tableau",
+      "titre": "Tableau des sections d’armatures",
+      "court": "Tableau",
+      "legende": "Tableau des sections d’armatures en mm² et espacement fixe (cm)",
+      "nombres": "0,222 0,395 0,617 0,889 1 1 005 1 018 1 026 1 047 1 078 1 131 1 206 1 227 1 232 1 232 1 257 1 257 1 340 1 385 1 402 1 407 1 414 1 473 1 539 1 539 1 571 1 608 1 608 1 636 1 759 1 767 1 810 1 847 1 885 1 963 1,210 1,580 10 10 10 053 10,0 100,0 101 11 310 11,1 113 113 12 12 566 12,5 126 14 14,3 141 144 15 151 154 157 16 16,7 168 170 188 196 198 2 2 011 2 011 2 020 2 053 2 094 2 121 2 199 2 298 2 356 2 413 2 454 2 463 2 513 2 513 2 681 2 827 2 827 2 945 2,469 20 20,0 201 201 224 226 226 236 25 25,0 251 254 262 28 28 283 283 3 3 079 3 142 3 142 3 217 3 272 3 436 3 534 3 590 3 695 3 770 3 927 3,858 30 30 302 308 314 314 32 323 33,3 335 339 35 352 377 385 393 4 4 021 4 105 4 189 4 241 4 310 4 418 4 712 4 825 4 909 4 926 4 948 4,840 40 40 402 402 440 452 452 462 471 491 4Ø12 5 5 027 5 362 5 542 5 630 5 655 5,556 50 50,0 503 503 513 524 550 565 57 574 6 6 6 158 6 283 6 362 6 434 6,321 603 616 616 628 628 670 679 68 7 7 069 7 238 7 540 7 860 707 707 71 754 770 785 785 79 792 8 8 8 042 8 378 8 796 804 804 81 85 898 8Ø12 9 9,877 900 905 905 924 94 942 982 ρ·π·Ø²/4"
+     },
+     {
+      "cle": "nappe",
+      "titre": "Nappe d'un mètre",
+      "court": "Par mètre",
+      "legende": "4Ø12 lus par mètre · 4 barres/m",
+      "nombres": "000 1 125 250 250 3,56 4 452 4Ø12"
+     },
+     {
+      "cle": "diametres",
+      "titre": "Diamètres à l'échelle",
+      "court": "Diamètres",
+      "legende": "Ø6 à Ø40 · section et masse linéique",
+      "nombres": "0,222 0,395 0,617 0,889 1 1,210 1,580 113 154 2,469 20 201 257 28 3,858 314 4,840 491 5,556 50 6,321 616 7 707 79 804 860 9,877 Ø10 Ø12 Ø14 Ø16 Ø20 Ø25 Ø28 Ø30 Ø32 Ø40 Ø6 Ø8"
+     }
+    ],
+    "etat": {"version": 1, "reperes": [{"nom": "Repère 1", "mode": "barres", "As_req": 400.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}, {"nom": "Repère 2", "mode": "barres", "As_req": 900.0, "d": 12, "n": 4, "espacement": "e15", "e_libre": 15.0, "d_min": 6, "d_max": 40, "n_min": 1, "n_max": 10, "e_min": 10.0, "e_max": 40.0}], "actif": 1},
+    "elements": [
+     {
+      "phrase": "Repère 1 · 4Ø12 retenu · A s,req = 400 mm² · ★ 2Ø16",
+      "resultat": [
+       ["", "452 mm²"],
+       ["Repère", "1", "·"],
+       ["4Ø12 ≥ A s,req =", "400 mm²"],
+       ["taux", "88 %", "·"],
+       ["suffit Retenue 4Ø12 ·", "452 mm²", "88 %"],
+       ["Économique ★ 2Ø16 ·", "402 mm²", "99 %"],
+       ["Barres retenues · 4Ø12 Section", "452 mm²"],
+       ["Masse des barres", "3,556 kg/m"],
+       ["Lues par mètre", "4"],
+       ["barres/m · e =", "25 cm"],
+       ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+       ["Masse volumique du tableau ρ =", "7 860 kg/m³"]
+      ]
+     },
+     {
+      "phrase": "Repère 2 · 4Ø12 retenu · A s,req = 900 mm² · ★ 8Ø12",
+      "resultat": [
+       ["", "452 mm²"],
+       ["Repère", "2", "·"],
+       ["4Ø12 < A s,req =", "900 mm²"],
+       ["taux", "199 %", "·"],
+       ["ne suffit pas Retenue 4Ø12 ·", "452 mm²", "199 %"],
+       ["Économique ★ 8Ø12 ·", "905 mm²", "99 %"],
+       ["Barres retenues · 4Ø12 Section", "452 mm²"],
+       ["Masse des barres", "3,556 kg/m"],
+       ["Lues par mètre", "4"],
+       ["barres/m · e =", "25 cm"],
+       ["Une barre Ø12", "113,1 mm²", "·", "0,889 kg/m"],
+       ["La disposition retenue 4Ø12 ne suffit pas :", "452 mm²", "<", "900 mm²"],
+       ["requis. Masse volumique du tableau ρ =", "7 860 kg/m³"]
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}
