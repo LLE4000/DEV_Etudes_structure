@@ -262,6 +262,15 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 - 15. En C8, les étiquettes « cordon 1 · a 5 » et « arc 3 · a 5 » se superposent quand le point gauche de l'arc tombe au milieu d'un segment. Dessin du moteur (schemas.py), partagé avec Streamlit et la note : non corrigé.
 - Nombre de tronçons sans maximum : à n = 200, 400 lignes de résultat.
 
+### Assemblages · pied de poteau (et toute configuration dont une pince est non conforme)
+
+*Relevé du 07/11/2026 par l'étude « modifier sur le dessin » (docs/site/DESSIN_CLIQUABLE_ETUDE.md), reproduit en CPython.*
+
+- AFFICHAGE QUI MINIMISE — calcul « à la main », une tige déplacée à 30 mm du bord pour 1,2·d₀ = 31,2 mm (platine 500, tige 1 à x = 220) : le moteur déclare la géométrie non valide et ne calcule plus les résistances qui en dépendent ; son η max tombe à 0,03 %. L'écran Streamlit écrit « PLATINE NON VÉRIFIÉE » avec ce η ; le site écrivait **« 0 % · Non conforme »** en tête, gouvernant « Trous · pression diamétrale 0,2 kN ≤ 535,8 kN », pendant que la ligne « Géométrie Tab. 3.3 » disait 104 %. Le verdict était juste, le chiffre en tête trompait.
+- **Corrigé sur le site, à l'affichage seulement** (les nombres du moteur sont intacts, la parité avec l'écran Streamlit l'est aussi hors de la pastille de tête) : `api_web/assemblages.py`, `eta_R` porte le taux affiché au rapport de la pire pince non conforme, et `_cause_geometrie` nomme la pince (« Géométrie · pince des boulons au bord de la platine · 30,0 mm < 31,2 mm (e ≥ 1,2·d0) ») ou, sans pince en cause, l'alerte bloquante (« Géométrie non valide »). Figé par `tests/test_api_web_assemblages_pied.py` §7 bis (mutation : 7 contrôles rougissent).
+- Même correction pour « Vérifié sous réserve » : le site l'écrivait aussi sous « Non conforme » ; il ne s'écrit plus que sous un verdict vérifié, comme le titre « – sous réserve des alertes » de l'écran Streamlit (`ecran_resultats.py:48`, `manuel/ecran.py:349`).
+- À trancher par le bureau pour l'écran Streamlit : la même tête (η max du moteur) s'y affiche encore.
+
 ## 3. Ce que le site ne reprend pas de l'écran Streamlit
 
 Partout : la note PDF (hors périmètre du site, bouton grisé). Le reste, module par module :

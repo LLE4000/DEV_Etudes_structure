@@ -35,6 +35,7 @@ import importlib
 import io
 import json
 import logging
+import math
 import os
 import random
 import re
@@ -664,7 +665,14 @@ for nom, R, u, e in RESULTATS[:40]:
         ligne = [x for x in lignes if x[2] == grp]
         if info and (not ligne or ligne[0][3] != "c"):
             defauts.append((nom, "information grise", grp))
-    if f"{C.pc(A.taux(R.eta_max))}{C.NBSP}%" not in r["resultat"].split('class="verdict"')[1][:300]:
+    # la pastille du verdict : le η max du moteur (celui de l'écran Streamlit), porté au rapport de la pire pince
+    # NON conforme quand il est plus grand (07/11/2026 : le moteur qui trouve la géométrie non valide ne calcule plus
+    # les résistances qui en dépendent, et son η max écrivait « 0 % » sous « Non conforme »)
+    eta_v = R.eta_max
+    ko = [x for x in (R.get("dist") or []) if not x.ok]
+    if ko and isinstance(eta_v, (int, float)) and math.isfinite(eta_v):
+        eta_v = max(eta_v, max(A._taux_distance(x) for x in ko))
+    if f"{C.pc(A.taux(eta_v))}{C.NBSP}%" not in r["resultat"].split('class="verdict"')[1][:300]:
         defauts.append((nom, "verdict"))
     c = R.ck.get("tpq")
     if c is not None and c.active and (N_tp := C.lire_nombre(u.get("tp_u"))):
@@ -683,7 +691,9 @@ for nom, R, u, e in RESULTATS[:40]:
             _aide, lf = cfg.formules(R, c)
             if not lf or lf[-1]["parts"][0] != "η" or C.lignes_fx(lf) not in fen:
                 defauts.append((nom, "détail", c.key))
-    if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve")) + bool(PI.note_information(R)):
+    # « Vérifié sous réserve » : seulement sous un verdict vérifié (comme le titre « – sous réserve des alertes » de
+    # l'écran Streamlit, ecran_resultats.py:48 et manuel/ecran.py:349)
+    if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve") and R.verified) + bool(PI.note_information(R)):
         defauts.append((nom, "alertes", len(R.alerts)))
     S = PI.SMA if PI.CA.est_manuel_R(R) else PI.SCO
     el = A._actif(e)
@@ -842,6 +852,62 @@ for complet in (False, True):
     fuites += [(complet, k) for k in ("resultat", "volets", "donnees", "elements", "phrase") if "<img" in r[k]]
     fuites += [(complet, v["cle"]) for v in r["vues"] if "<img" in v["svg"]]
 chk("un texte saisi n'entre jamais brut dans un fragment (deux modes)", not fuites, fuites)
+
+# =====================================================================================================================
+print("\n=== 7 bis. Géométrie non conforme : la tête de la note dit la vraie cause et son taux ===")
+# Défaut du 07/11/2026 (trouvé par l'étude « modifier sur le dessin ») : calcul « à la main », une tige déplacée à
+# 30 mm du bord pour 1,2·d₀ = 31,2 mm. Le moteur ne calcule plus les résistances qui dépendent de la géométrie ; son
+# η max tombait à 0,03 %, et la tête écrivait « 0 % · Non conforme · Trous · pression diamétrale 0,2 kN ≤ 535,8 kN »
+# quand la ligne « Géométrie » disait 104 %. Un chiffre en tête qui minimise est un défaut d'affichage NON conservatif.
+
+
+def tige_au_bord(x):
+    e = neuf()
+    assert A.modifier(e, ["v", "mode"], E.MODE_MANUEL) is None
+    assert A.modifier(e, ["v", "bp_u"], "500") is None
+    assert A.modifier(e, ["v", "tiges", "1", "x"], x) is None
+    return e
+
+
+e = tige_au_bord("220")
+R = r_de(e)
+res = A.resultat(e)
+tete = res["resume"]
+geo = re.search(r'data-calcul="geometrie".*?<span class="pct [a-z]+">(\d+)\s*%</span>', res["resultat"], re.S)
+chk("tige à 30 mm du bord : le moteur la dit non conforme (pince 30 < 31,2 mm)",
+    not R.verified and not R.dist_ok and A._pince_ko(R) is not None and abs(A._pince_ko(R).val - 30.0) < 1e-9, R.statut)
+chk("tige à 30 mm du bord : la tête de la note écrit 104 %, rouge, « Non conforme » (et non 0 %)",
+    tete["taux"] == 104 and tete["niveau"] == "r" and tete["statut"] == "Non conforme", tete)
+chk("tige à 30 mm du bord : le taux de tête égale celui de la ligne « Géométrie » du résultat",
+    geo is not None and int(geo.group(1)) == tete["taux"], geo.group(0)[-80:] if geo else res["resultat"][:300])
+chk("tige à 30 mm du bord : le gouvernant nommé est la pince, pas une vérification satisfaite",
+    tete["gouvernant"].endswith("Géométrie · pince des boulons au bord de la platine") and "Trous" not in tete["gouvernant"],
+    tete["gouvernant"])
+v = plat(re.search(r'<div class="verdict">.*?</div></div>', res["resultat"], re.S).group(0))
+chk("tige à 30 mm du bord : le verdict écrit la comparaison de la pince (30,0 mm < 31,2 mm, e ≥ 1,2·d0)",
+    "104%" in v and "Géométrie · pince des boulons au bord de la platine" in v and "30,0 mm < 31,2 mm (e ≥ 1,2·d0)" in v, v)
+marques = re.findall(r'<div class="el gov"[^>]*><div class="l1"><b>([^<]+)</b>', res["resultat"])
+chk("tige à 30 mm du bord : la ligne marquée gouvernante est « Géométrie » (pas « Trous » à 0 %)", marques == ["Géométrie"], marques)
+chk("tige à 30 mm du bord : « Dans cette note » écrit aussi 104 %", "104" in plat(res["elements"]), plat(res["elements"])[:200])
+chk("tige à 30 mm du bord : pas de « Vérifié sous réserve » sous « Non conforme »",
+    "Vérifié sous réserve" not in res["resultat"], texte(res["resultat"])[-300:])
+# l'état voisin, conforme, est intact : la règle ne touche qu'une géométrie non conforme
+e0 = tige_au_bord("210")
+t0 = A.resultat(e0)["resume"]
+chk("tige à 40 mm du bord (conforme) : la tête garde le taux du moteur (79 %) et son gouvernant",
+    t0["taux"] == A.taux(A.eta_R(r_de(e0))) == 79 and "Géométrie" not in t0["gouvernant"], t0)
+# sans pince en cause, une alerte bloquante seule (boulon dans l'emprise du poteau) : la tête la nomme
+e1 = neuf()
+assert A.modifier(e1, ["v", "mode"], E.MODE_MANUEL) is None
+assert A.modifier(e1, ["v", "tiges", "0", "x"], "0") is None and A.modifier(e1, ["v", "tiges", "0", "y"], "0") is None
+R1 = r_de(e1)
+t1 = A.resultat(e1)["resume"]
+if R1.dist_ok and not R1.geo_ok and A.eta_R(R1) <= 1:
+    chk("boulon dans l'emprise du poteau : la tête nomme « Géométrie non valide », pas une vérification satisfaite",
+        t1["gouvernant"].endswith("Géométrie non valide") and t1["niveau"] == "r", t1)
+else:
+    chk("boulon dans l'emprise du poteau : cas d'essai valide (géométrie bloquante, pinces conformes, η ≤ 1)", False,
+        (R1.dist_ok, R1.geo_ok, A.eta_R(R1)))
 
 # =====================================================================================================================
 print("\n=== 8. Mutations : chaque copie protégée rougit ===")

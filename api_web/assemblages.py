@@ -733,9 +733,49 @@ def taux_c(c, nd: int = 1):
 
 
 def eta_R(R):
-    """Le taux affiché d'un assemblage : son η max, borné à 100 % quand sa vérification gouvernante est vérifiée."""
+    """Le taux affiché d'un assemblage : son η max, borné à 100 % quand sa vérification gouvernante est vérifiée ; une
+    pince ou un entraxe NON conforme (Tableau 3.3) le porte au moins à son propre rapport. Le moteur qui trouve la
+    géométrie non valide ne calcule plus les résistances qui en dépendent : pied de poteau « à la main », une tige à
+    30 mm du bord pour 1,2·d₀ = 31,2 mm, son η max tombait à 0,03 % et la tête de la note écrivait « 0 % » à côté de
+    « Non conforme », quand la ligne « Géométrie » disait 104 %."""
     g = R.get("gov")
-    return eta_vu(R.eta_max, g.ok if g is not None else bool(R.verified))
+    eta = eta_vu(R.eta_max, g.ok if g is not None else bool(R.verified))
+    p = _pince_ko(R)
+    if p is not None:
+        t = _taux_distance(p)
+        if not isinstance(eta, (int, float)) or (math.isfinite(eta) and t > eta):
+            return t
+    return eta
+
+
+def _pince_ko(R):
+    """La pince ou l'entraxe non conforme le plus défavorable (Tableau 3.3), ou None."""
+    ko = [x for x in (R.get("dist") or []) if not x.ok]
+    return max(ko, key=_taux_distance) if ko else None
+
+
+def _cause_geometrie(R):
+    """La géométrie quand c'est ELLE qui gouverne, sinon None : (titre, détail). Une pince non conforme dont le rapport
+    dépasse le η du moteur ; ou, sans pince en cause, une alerte bloquante (élément hors platine, boulon dans
+    l'emprise d'un élément…) quand le moteur n'a rien trouvé au-delà de 100 % — la tête nomme alors la vraie cause
+    au lieu d'une vérification satisfaite (« Trous · pression diamétrale 0,2 kN ≤ 535,8 kN »)."""
+    if R.get("dist_ok", True) and R.get("geo_ok", True):
+        return None
+    g = R.get("gov")
+    eta = eta_vu(R.eta_max, g.ok if g is not None else bool(R.verified))
+    fini = isinstance(eta, (int, float)) and math.isfinite(eta)
+    p = _pince_ko(R)
+    if p is not None and fini and _taux_distance(p) >= eta:
+        regle = f" ({C.esc(p.rule)})" if getattr(p, "rule", "") else ""
+        cmp_ = f"{C.fr(p.val, 1)} mm &lt; {C.fr(p.min, 1)} mm" if p.min and p.val < p.min else \
+            (f"{C.fr(p.val, 1)} mm &gt; {C.fr(p.max, 1)} mm" if p.max else "")
+        return f"Géométrie · {_minuscule(p.lab)}", f"{cmp_}{regle}"
+    if p is None and fini and eta <= 1:
+        bloc = [a for a in (R.get("alerts") or []) if getattr(a, "block", False)]
+        if bloc:
+            a = bloc[0]
+            return "Géométrie non valide", C.esc(a.msg) + (f" · {C.esc(a.why)}" if getattr(a, "why", "") else "")
+    return None
 
 
 def niveau_c(c) -> str:
@@ -1212,7 +1252,11 @@ def resume_note(etat: Dict, bilans: List[Dict]) -> Dict:
     el = etat["assemblages"][i]
     cfg = pour(_cfg(el), b["R"])
     g = b["R"].gov
-    gouv = f"{_repere(el, i)} · {cfg.court}" + (f" · {g.grp} · {_court(cfg, g)}" if g else "")
+    cause = _cause_geometrie(b["R"])
+    if cause is not None:
+        gouv = f"{_repere(el, i)} · {cfg.court} · {cause[0]}"
+    else:
+        gouv = f"{_repere(el, i)} · {cfg.court}" + (f" · {g.grp} · {_court(cfg, g)}" if g else "")
     return {"taux": taux(b["taux"]), "niveau": b["niveau"], "statut": b["statut"], "gouvernant": gouv}
 
 
@@ -1239,7 +1283,9 @@ def _messages(cfg: Config, R) -> str:
     for a in R.alerts:
         titre, det = cfg.N.ligne_alerte(a, R)
         out += C.message(f"<b>{C.esc(titre)}</b>" + (f" — {C.esc(det)}" if det else ""), grave=a.block)
-    if R.get("reserve"):
+    # « Vérifié sous réserve » ne s'écrit que d'un assemblage VÉRIFIÉ : sous « Non conforme » (une tige hors des
+    # pinces), la phrase contredisait le verdict
+    if R.get("reserve") and R.verified:
         out += C.message("Vérifié sous réserve : voir les remarques ci-dessus et la fenêtre de la pièce concernée.")
     return out
 
@@ -1254,6 +1300,11 @@ def _minuscule(s: str) -> str:
 
 def _verdict(cfg: Config, R, niv: str) -> str:
     g = R.gov
+    cause = _cause_geometrie(R)
+    if cause is not None:
+        titre, detail = cause
+        return (f'<div class="verdict">{C.chip(taux(eta_R(R)), niv, xl=True)}<div class="gov"><b>{C.esc(titre)}</b>'
+                f'{detail}</div></div>')
     if g is None:
         return f'<div class="verdict">{C.chip(taux(eta_R(R)), niv, xl=True)}<div class="gov"><b>{C.esc(R.statut)}</b></div></div>'
     motif = ""
@@ -1268,14 +1319,15 @@ def _verdict(cfg: Config, R, niv: str) -> str:
             f'{_comparaison(cfg, g)}{suite}{C.esc(motif)}</div></div>')
 
 
-def _rangee_geometrie(R) -> str:
-    """La ligne « Géométrie » du résultat : le Tableau 3.3 (pinces et entraxes), conforme ou non selon le moteur."""
+def _rangee_geometrie(R, gov: bool = False) -> str:
+    """La ligne « Géométrie » du résultat : le Tableau 3.3 (pinces et entraxes), conforme ou non selon le moteur ;
+    marquée gouvernante quand c'est elle que la tête nomme (``_cause_geometrie``)."""
     dist = list(R.get("dist") or [])
     t = max([_taux_distance(x) for x in dist] or [0.0])
     niv = "r" if not (R.get("dist_ok", True) and R.get("geo_ok", True)) else C.niveau(t)
     n = len(dist)
     txt = (f"{n} pinces et entraxes" if n > 1 else "1 distance au bord") if dist else "géométrie"
-    return C.ligne_res("Géométrie", f"Tab. 3.3 · {txt}", C.pct(t), niv, calcul="geometrie")
+    return C.ligne_res("Géométrie", f"Tab. 3.3 · {txt}", C.pct(t), niv, calcul="geometrie", gov=gov)
 
 
 def resultat(etat: Dict) -> Dict:
@@ -1310,7 +1362,10 @@ def resultat(etat: Dict) -> Dict:
         cfg = pour(cfg, R)
         niv = niveau_R(R)
         rows = ""
-        gouv = R.gov
+        # la ligne marquée gouvernante est celle que la tête nomme : la géométrie quand c'est elle (une tige hors des
+        # pinces), sinon la vérification gouvernante du moteur
+        geo_gouverne = _cause_geometrie(R) is not None
+        gouv = None if geo_gouverne else R.gov
         # lignes de plus (pied de poteau : les quatre critères de l'épaisseur requise, sous la ligne Platine) — un
         # texte va à la fin, un dict {groupe: html} sous la ligne de ce groupe
         extra = cfg.lignes_resultat(R, u) if cfg.lignes_resultat else ""
@@ -1324,7 +1379,7 @@ def resultat(etat: Dict) -> Dict:
             if isinstance(extra, dict):
                 rows += extra.pop(grp, "")
         rows += "".join(extra.values()) if isinstance(extra, dict) else extra
-        rows += _rangee_geometrie(R)
+        rows += _rangee_geometrie(R, gov=geo_gouverne)
         if cfg.predim and R.get("pd") is not None and R.pd.get("pick") is not None:
             pick = R.pd.pick
             rows += f'<div class="elgrp">{"Mode prédimensionnement" if R.pred else "Prédimensionnement"}</div>'

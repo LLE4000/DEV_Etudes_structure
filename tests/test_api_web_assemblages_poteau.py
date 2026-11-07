@@ -35,6 +35,7 @@ import json
 import logging
 import os
 import random
+import math
 import re
 import sys
 
@@ -51,6 +52,33 @@ OK, KO = [], []
 TIRAGES = int(os.environ.get("TIRAGES", "40"))       # jeux tirés au hasard par configuration (partie 3)
 CAS_ECRAN = int(os.environ.get("CAS_ECRAN", "10"))   # jeux rejoués dans l'écran Streamlit (partie 4)
 
+
+
+def eta_tete(R):
+    """Le taux de TÊTE attendu : le η max du moteur (celui de l'écran Streamlit), porté au rapport de la pire pince
+    NON conforme quand il est plus grand (07/11/2026 : le moteur qui trouve la géométrie non valide ne calcule plus ce
+    qui en dépend, et la tête montrait un taux qui minimise). « Vérifié sous réserve » ne s'écrit plus que sous un
+    verdict vérifié, comme dans l'écran Streamlit."""
+    eta = R.eta_max
+    ko = [x for x in (R.get("dist") or []) if not x.ok]
+    if ko and isinstance(eta, (int, float)) and math.isfinite(eta):
+        eta = max(eta, max(A._taux_distance(x) for x in ko))
+    return eta
+
+
+def geometrie_gouverne(R):
+    """La tête nomme la GÉOMÉTRIE (et la ligne « Géométrie » est marquée gouvernante) : une pince non conforme dont le
+    rapport atteint le η du moteur, ou, sans pince en cause, une alerte bloquante quand le moteur reste sous 100 %."""
+    if R.get("dist_ok", True) and R.get("geo_ok", True):
+        return False
+    g = R.get("gov")
+    eta = A.eta_vu(R.eta_max, g.ok if g is not None else bool(R.verified))
+    if not (isinstance(eta, (int, float)) and math.isfinite(eta)):
+        return False
+    ko = [x for x in (R.get("dist") or []) if not x.ok]
+    if ko:
+        return max(A._taux_distance(x) for x in ko) >= eta
+    return eta <= 1 and any(a.block for a in R.alerts)
 
 def chk(nom, cond, info=""):
     (OK if cond else KO).append((nom, info))
@@ -546,10 +574,11 @@ for cle in POTEAU:
         trouve = [(b, t) for _g, _c, b, _n, t in lignes][:len(attendu)]
         if [t for _, t in trouve] != attendu or [b for b, _ in trouve] != noms:
             defauts.append((nom, "lignes", trouve, attendu))
-        if f"{C.pc(A.taux(R.eta_max))}{C.NBSP}%" not in r["resultat"].split('class="verdict"')[1][:300]:
+        if f"{C.pc(A.taux(eta_tete(R)))}{C.NBSP}%" not in r["resultat"].split('class="verdict"')[1][:300]:
             defauts.append((nom, "verdict"))
         gov = [x for x in lignes if x[0]]
-        if R.gov is not None and (len(gov) != 1 or gov[0][2] != C.esc(R.gov.grp)):
+        att_gov = "Géométrie" if geometrie_gouverne(R) else (R.gov.grp if R.gov is not None else None)
+        if att_gov is not None and (len(gov) != 1 or gov[0][2] != C.esc(att_gov)):
             defauts.append((nom, "ligne gouvernante", gov))
         pot = [x for x in lignes if x[2] == "Poteau porteur"]
         if pot and f"{'aile' if R.aile else 'âme'}</span>" not in r["resultat"].split("<b>Poteau porteur</b>")[1][:400]:
@@ -563,7 +592,7 @@ for cle in POTEAU:
                 _aide, lf = cfg.formules(R, c)
                 if not lf or lf[-1]["parts"][0] != "η" or lf[-1]["res"] != f"{C.pc(A.taux(c.eta, 1))} %" or C.lignes_fx(lf) not in fen:
                     defauts.append((nom, "détail", c.key))
-        if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve")) + bool(R.get("pred")):
+        if r["resultat"].count('class="msg') != len(R.alerts) + bool(R.get("reserve") and R.verified) + bool(R.get("pred")):
             defauts.append((nom, "alertes", len(R.alerts)))
         opt = M.options_ecran(R, el["cotation"], A._hl(R))
         opt.interactive, opt.poignees, opt.editables, opt.locked = False, False, el["cotation"] >= 1, None
@@ -697,7 +726,7 @@ for cle in POTEAU:
     attendu = []
     for p in heb:
         R = cfg.calculer(A.a_calculer(cfg, dict(u, prof_P=p["n"])))
-        attendu.append((p["n"], f"{C.pc(C.pct(min(R.eta_max, 9.99)))}{C.NBSP}%", R.verified))
+        attendu.append((p["n"], f"{C.pc(C.pct(min(eta_tete(R), 9.99)))}{C.NBSP}%", R.verified))
     opt = next((n for n, _t, ok in attendu if ok), None)
     chk(f"{cle} : sélecteur du poteau (HEB, triés par hauteur), taux recalculés, ✓ sur {u['prof_P']}, ★ sur le plus petit qui tient",
         "Poteau · profilé" in h and [(n, t) for _c, _o, n, _n, t in rows] == [(n, t) for n, t, _ in attendu]
