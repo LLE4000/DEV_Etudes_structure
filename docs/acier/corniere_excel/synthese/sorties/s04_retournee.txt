@@ -1,0 +1,44 @@
+# S04 — cornière retournée (B) et ailes inégales
+
+## 1. Configuration B, cas de contrôle (même cornière, même charge, retournée)
+M3 = M4 = R·(X' − e/2) = 2.88630 kN·m, indépendant de la position de l'ancrage (tant qu'il est sous la section 3)
+section 3 : σ = M/W + R/A = 256.56 + 9.502 = 266.06 N/mm² (face côté congé COMPRIMÉE), τ = 0 → taux 112.42 % (avec le τ = R/(L·e) du classeur : 112.64 %)
+configuration A, même équilibre (P0) : taux 3 = 76,91 % (s02) ; classeur : 88.86 % ; M3(B)/M3(classeur A) = 1.224
+formule du classeur Mmax·Ye/YH appliquée à B : 2.35870 kN·m, soit 18.3 % sous le vrai M3
+
+| Y_B (mm sous la face supérieure) | y_a (mm au-dessus du bout libre) | c (mm) | u_V | H (kN) | par ancrage (kN) | H(B)/H(A, P0) | H(B)/classeur A |
+| 45 | 75 | 0 | 7.5 | 38.48 | 12.83 | 1.133 | 0.900 |
+| 45 | 75 | 0 | 0.0 | 42.76 | 14.25 | 1.259 | 1.000 |
+| 45 | 75 | 10 | 7.5 | 44.40 | 14.80 | 1.308 | 1.038 |
+| 60 | 60 | 0 | 7.5 | 48.10 | 16.04 | 1.417 | 1.125 |
+| 60 | 60 | 0 | 0.0 | 53.45 | 17.82 | 1.574 | 1.250 |
+| 60 | 60 | 10 | 7.5 | 57.73 | 19.24 | 1.700 | 1.350 |
+| 85 | 35 | 0 | 7.5 | 82.47 | 27.49 | 2.429 | 1.929 |
+| 85 | 35 | 0 | 0.0 | 91.63 | 30.54 | 2.698 | 2.143 |
+| 85 | 35 | 10 | 7.5 | 115.45 | 38.48 | 3.400 | 2.700 |
+| 95 | 25 | 0 | 7.5 | 115.45 | 38.48 | 3.400 | 2.700 |
+| 95 | 25 | 0 | 0.0 | 128.28 | 42.76 | 3.778 | 3.000 |
+| 95 | 25 | 10 | 7.5 | 192.42 | 64.14 | 5.667 | 4.500 |
+référence A : P0 H = 33.956 kN ; classeur (C82 × 3) = 42.760 kN
+section nette au droit de l'ancrage en B (3 trous Ø18 sur 300 mm, hypothèse) : σ = 324.5 N/mm² → 137.1 %
+en A, le moment est nul à l'ancrage : la section nette n'y travaille qu'en effort normal (11.59 N/mm²)
+compression du mur au bout libre (Y_B = 85) : 82.47 kN, soit 274.9 N/mm de cornière
+compression du mur au bout libre (Y_B = 45) : 38.48 kN, soit 128.3 N/mm de cornière
+
+## 1b. Configuration A : effet de la hauteur d'ancrage Y (X = 75 mm, mêmes charges)
+   Y = 65 mm : taux 3 du classeur 77.82 % ; taux 3 en P0 66.12 % ; traction P0 H = 44.40 kN ; traction du classeur n·C82 = 58.31 kN
+   Y = 85 mm : taux 3 du classeur 88.86 % ; taux 3 en P0 76.91 % ; traction P0 H = 33.96 kN ; traction du classeur n·C82 = 42.76 kN
+   Y = 105 mm : taux 3 du classeur 95.38 % ; taux 3 en P0 83.63 % ; traction P0 H = 27.49 kN ; traction du classeur n·C82 = 33.76 kN
+   → monter l'ancrage soulage l'ancrage mais charge la section 3 (Ye/YH → 1)
+
+## 2. Ce que deviennent les jeux en B
+ancrage décalé de -10 mm vers le haut (Y_B = 75) : H = 64.14 kN ; M3 inchangé 2.8863 kN·m
+ancrage décalé de +10 mm vers le bas (Y_B = 95) : H = 115.45 kN ; M3 inchangé 2.8863 kN·m
+Xj = 20 mm : M3 = 3.7415 kN·m, taux 3 = 144.54 %, H = 106.90 kN
+
+## 3. Ailes inégales — L150x100x12 (catalogue du site : r1 = 12, r2 = 6), configuration A, même charge
+catalogue du site : h = 150.0, b = 100.0, t = 12.0, r1 = 12.0, r2 = 6.0
+grande aile horizontale (150 × 100), r = 12, Y = 65 : classeur taux 1 = 128.3 %, taux 3 = 131.1 %, traction totale 58.31 kN | P0 : taux 3 = 114.6 %, H = 45.39 kN
+grande aile horizontale (150 × 100), r = 6, Y = 65 : classeur taux 1 = 143.3 %, taux 3 = 150.2 %, traction totale 58.31 kN | P0 : taux 3 = 130.5 %, H = 45.39 kN
+grande aile verticale (100 × 150), r = 12, Y = 115 : classeur taux 1 = 128.3 %, taux 3 = 157.4 %, traction totale 30.54 kN | P0 : taux 3 = 142.1 %, H = 25.66 kN
+grande aile verticale (100 × 150), r = 6, Y = 115 : classeur taux 1 = 143.3 %, taux 3 = 167.7 %, traction totale 30.54 kN | P0 : taux 3 = 151.2 %, H = 25.66 kN

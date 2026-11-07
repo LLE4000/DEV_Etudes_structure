@@ -1,0 +1,99 @@
+CATALOGUE CORNIERES du classeur face à acier/donnees/profiles.json — produit par catalogue.py
+
+en-têtes : ['Nom', 'Largeur', 'Hauteur', 'Épaisseur', 'rayon', 'Poids kg/m', 'ACIER']
+lignes de données : 58 (dont 'NON STANDARD' sans dimension) ; cornières du site (L + LI) : 233
+
+ligne | nom classeur     | larg×haut×e (classeur) | r cl. | kg/m cl. || site (nom)        | h×b×t        | r1   | r2   | kg/m site | Δr vs r1 | Δr vs r2 | Δmasse
+    2 | L200x200x20      |  200×200 ×20           |    18 |      60 || L 200x200x20      | 200×200×20    |   18 |    9 |    59.933 |   +0.0   |   +9.0   |  +0.11%
+    3 | L180x180x18      |  180×180 ×18           |    18 |    48.6 || L 180x180x18      | 180×180×18    |   18 |    9 |    48.598 |   +0.0   |   +9.0   |  +0.00%
+    4 | L150x150x18      |  150×150 ×18           |    16 |    40.1 || L 150x150x18      | 150×150×18    |   16 |    8 |    40.062 |   +0.0   |   +8.0   |  +0.09%
+    5 | L150x150x15      |  150×150 ×15           |    16 |    33.8 || L 150x150x15      | 150×150×15    |   16 |    8 |    33.775 |   +0.0   |   +8.0   |  +0.08%
+    6 | L150x100x12      |  150×100 ×12           |     6 |    21.6 || L 150x100x12      | 150×100×12    |   12 |    6 |    22.541 |   -6.0   |   +0.0   |  -4.17%
+    7 | L150x100x12      |  100×150 ×12           |     6 |    21.6 || L 150x100x12      | 150×100×12    |   12 |    6 |    22.541 |   -6.0   |   +0.0   |  -4.17%
+    8 | L120x120x15      |  120×120 ×15           |    13 |    26.6 || L 120x120x15      | 120×120×15    |   13 |  6.5 |    26.636 |   +0.0   |   +6.5   |  -0.14%
+    9 | L120x120x12      |  120×120 ×12           |    13 |    21.6 || L 120x120x12      | 120×120×12    |   13 |  6.5 |    21.620 |   +0.0   |   +6.5   |  -0.09%
+   10 | L120x80x11       |  120×80  ×11           |   5.5 |    17.8 || ABSENTE du site
+   11 | L120x80x11       |   80×120 ×11           |   5.5 |    17.8 || ABSENTE du site
+   12 | L100x100x12      |  100×100 ×12           |    12 |    17.8 || L 100x100x12      | 100×100×12    |   12 |    6 |    17.831 |   +0.0   |   +6.0   |  -0.17%
+   13 | L100x100x10      |  100×100 ×10           |    12 |    15.1 || L 100x100x10      | 100×100×10    |   12 |    6 |    15.036 |   +0.0   |   +6.0   |  +0.42%
+   14 | L100x75x9        |  100×75  ×9            |     6 |   11.79 || ABSENTE du site
+   15 | L100x75x9        |   75×100 ×9            |     6 |   11.79 || ABSENTE du site
+   16 | L90x90x9         |   90×90  ×9            |    11 |    12.2 || L 90x90x9         | 90×90×9     |   11 |  5.5 |    12.183 |   +0.0   |   +5.5   |  +0.14%
+   17 | L90x60x8         |   90×60  ×8            |     4 |     9.6 || ABSENTE du site
+   18 | L90x60x8         |   60×90  ×8            |     4 |     9.6 || ABSENTE du site
+   19 | L80x80x8         |   80×80  ×8            |    10 |    9.66 || L 80x80x8         | 80×80×8     |   10 |    5 |     9.630 |   +0.0   |   +5.0   |  +0.31%
+   20 | L80x60x8         |   80×60  ×8            |     8 |    8.34 || ABSENTE du site
+   21 | L80x60x8         |   60×80  ×8            |     8 |    8.34 || ABSENTE du site
+   22 | L80x60x7         |   80×60  ×7            |     8 |    7.36 || ABSENTE du site
+   23 | L80x60x7         |   60×80  ×7            |     8 |    7.36 || ABSENTE du site
+   24 | L80x50x7         |   80×50  ×7            |     6 |    7.36 || ABSENTE du site
+   25 | L80x50x7         |   50×80  ×7            |     6 |    7.36 || ABSENTE du site
+   26 | L70x70x7         |   70×70  ×7            |     9 |    7.38 || L 70x70x7         | 70×70×7     |    9 |  4.5 |     7.377 |   +0.0   |   +4.5   |  +0.05%
+   27 | L70x50x6         |   70×50  ×6            |     6 |     5.4 || ABSENTE du site
+   28 | L70x50x6         |   50×70  ×6            |     6 |     5.4 || ABSENTE du site
+   29 | L60x60x8         |   60×60  ×8            |     8 |    7.09 || L 60x60x8         | 60×60×8     |    8 |    4 |     7.088 |   +0.0   |   +4.0   |  +0.03%
+   30 | L60x60x6         |   60×60  ×6            |     8 |    5.42 || L 60x60x6         | 60×60×6     |    8 |    4 |     5.423 |   +0.0   |   +4.0   |  -0.06%
+   31 | L60x40x5         |   60×40  ×5            |     6 |    3.76 || ABSENTE du site
+   32 | L60x40x5         |   40×60  ×5            |     6 |    3.76 || ABSENTE du site
+   33 | L50x50x6         |   50×50  ×6            |     7 |    4.47 || L 50x50x6         | 50×50×6     |    7 |  3.5 |     4.469 |   +0.0   |   +3.5   |  +0.03%
+   34 | L50x50x5         |   50×50  ×5            |     7 |    3.77 || L 50x50x5         | 50×50×5     |    7 |  3.5 |     3.770 |   +0.0   |   +3.5   |  -0.00%
+   35 | L50x40x5         |   50×40  ×5            |     5 |    3.52 || ABSENTE du site
+   36 | L50x40x5         |   40×50  ×5            |     5 |    3.52 || ABSENTE du site
+   37 | L50x30x5         |   50×30  ×5            |     5 |    2.96 || ABSENTE du site
+   38 | L50x30x5         |   30×50  ×5            |     5 |    2.96 || ABSENTE du site
+   39 | L45x45x5         |   45×45  ×5            |     7 |    3.38 || L 45x45x5         | 45×45×5     |    7 |  3.5 |     3.378 |   +0.0   |   +3.5   |  +0.07%
+   40 | L45x45x4.5       |   45×45  ×4.5          |     7 |    3.04 || L 45x45x4.5       | 45×45×4.5   |    7 |  3.5 |     3.062 |   +0.0   |   +3.5   |  -0.71%
+   41 | L45x30x4         |   45×30  ×4            |     4 |    2.24 || ABSENTE du site
+   42 | L45x30x4         |   30×45  ×4            |     4 |    2.24 || ABSENTE du site
+   43 | L40x40x5         |   40×40  ×5            |     6 |    2.97 || L 40x40x5         | 40×40×5     |    6 |    3 |     2.974 |   +0.0   |   +3.0   |  -0.14%
+   44 | L40x40x4         |   40×40  ×4            |     6 |    2.42 || L 40x40x4         | 40×40×4     |    6 |    3 |     2.417 |   +0.0   |   +3.0   |  +0.13%
+   45 | L40x25x4         |   40×25  ×4            |     4 |    1.93 || ABSENTE du site
+   46 | L40x25x4         |   25×40  ×4            |     4 |    1.93 || ABSENTE du site
+   47 | L35x35x4         |   35×35  ×4            |     5 |     2.1 || L 35x35x4         | 35×35×4     |    5 |  2.5 |     2.093 |   +0.0   |   +2.5   |  +0.31%
+   48 | L35x35x3.5       |   35×35  ×3.5          |   3.5 |    1.85 || ABSENTE du site
+   49 | L35x35x3         |   35×35  ×3            |     5 |     1.6 || ABSENTE du site
+   50 | L35x20x3.5       |   35×20  ×3.5          |     4 |    1.43 || ABSENTE du site
+   51 | L35x20x3.5       |   20×35  ×3.5          |     4 |    1.43 || ABSENTE du site
+   52 | L30x30x5         |   30×30  ×5            |     5 |    2.27 || ABSENTE du site
+   53 | L30x30x4         |   30×30  ×4            |     5 |    1.78 || L 30x30x4         | 30×30×4     |    5 |  2.5 |     1.779 |   +0.0   |   +2.5   |  +0.03%
+   54 | L30x30x3         |   30×30  ×3            |     5 |    1.36 || L 30x30x3         | 30×30×3     |    5 |  2.5 |     1.363 |   +0.0   |   +2.5   |  -0.25%
+   55 | L30x20x3         |   30×20  ×3            |     4 |    1.12 || ABSENTE du site
+   56 | L30x20x3         |   20×30  ×3            |     4 |    1.12 || ABSENTE du site
+   57 | L25x25x3         |   25×25  ×3            |     4 |    1.12 || L 25x25x3         | 25×25×3     |  3.5 |    2 |     1.114 |   +0.5   |   +2.0   |  +0.54%
+   58 | L20x20x3         |   20×20  ×3            |     4 |    0.88 || L 20x20x3         | 20×20×3     |  3.5 |    2 |     0.879 |   +0.5   |   +2.0   |  +0.17%
+   59 | NON STANDARD     | (pas de dimension : renvoie vers P8!K4:K7)
+
+bilan : présentes au site 26, absentes 31 ; rayon = r1 du site : 22, = r2 (rayon d'extrémité) : 2, autre : 2 ; dimensions différentes : 0
+écart de masse : de -4.17% (L150x100x12, ligne 6) à +0.54% (L25x25x3, ligne 57)
+lignes où le rayon du classeur n'est pas le congé r1 du site :
+   ligne 6 L150x100x12 : r classeur = 6, r1 site = 12, r2 site = 6 (Δ = -6 mm)
+   ligne 7 L150x100x12 : r classeur = 6, r1 site = 12, r2 site = 6 (Δ = -6 mm)
+   ligne 58 L20x20x3 : r classeur = 4, r1 site = 3.5, r2 site = 2 (Δ = +0.5 mm)
+   ligne 57 L25x25x3 : r classeur = 4, r1 site = 3.5, r2 site = 2 (Δ = +0.5 mm)
+
+doublons de nom (VLOOKUP exact rend la première ligne ; la seconde est INATTEIGNABLE) :
+   L150x100x12  lignes [6, 7] : larg×haut = 150×100 puis 100×150 → le classeur prend toujours 150×100
+   L120x80x11   lignes [10, 11] : larg×haut = 120×80 puis 80×120 → le classeur prend toujours 120×80
+   L100x75x9    lignes [14, 15] : larg×haut = 100×75 puis 75×100 → le classeur prend toujours 100×75
+   L90x60x8     lignes [17, 18] : larg×haut = 90×60 puis 60×90 → le classeur prend toujours 90×60
+   L80x60x8     lignes [20, 21] : larg×haut = 80×60 puis 60×80 → le classeur prend toujours 80×60
+   L80x60x7     lignes [22, 23] : larg×haut = 80×60 puis 60×80 → le classeur prend toujours 80×60
+   L80x50x7     lignes [24, 25] : larg×haut = 80×50 puis 50×80 → le classeur prend toujours 80×50
+   L70x50x6     lignes [27, 28] : larg×haut = 70×50 puis 50×70 → le classeur prend toujours 70×50
+   L60x40x5     lignes [31, 32] : larg×haut = 60×40 puis 40×60 → le classeur prend toujours 60×40
+   L50x40x5     lignes [35, 36] : larg×haut = 50×40 puis 40×50 → le classeur prend toujours 50×40
+   L50x30x5     lignes [37, 38] : larg×haut = 50×30 puis 30×50 → le classeur prend toujours 50×30
+   L45x30x4     lignes [41, 42] : larg×haut = 45×30 puis 30×45 → le classeur prend toujours 45×30
+   L40x25x4     lignes [45, 46] : larg×haut = 40×25 puis 25×40 → le classeur prend toujours 40×25
+   L35x20x3.5   lignes [50, 51] : larg×haut = 35×20 puis 20×35 → le classeur prend toujours 35×20
+   L30x20x3     lignes [55, 56] : larg×haut = 30×20 puis 20×30 → le classeur prend toujours 30×20
+
+colonne G 'ACIER' : ligne 2 = 235, ligne 3 = 355 — c'est la liste de validation de P8!C3 (nuance), sans lien avec la cornière de la ligne
+
+noms distincts (hors NON STANDARD) : 42 ; présents au site : 25 ; absents : 17 → L100x75x9, L120x80x11, L30x20x3, L30x30x5, L35x20x3.5, L35x35x3, L35x35x3.5, L40x25x4, L45x30x4, L50x30x5, L50x40x5, L60x40x5, L70x50x6, L80x50x7, L80x60x7, L80x60x8, L90x60x8
+L150x100x12 (150 horizontale × 100 verticale), charge du cas de contrôle : taux max avec r = 6 (classeur) = 159.8528% ; avec r = 12 (site, r1) = 145.5820%
+
+sensibilité du cas de contrôle (L120×120×15) au rayon r — taux de la section 3 :
+   r =   13 mm : taux section 3 = 88.8621% ; taux section 1 = 75.8021%
+   r =  6.5 mm : taux section 3 = 98.9366% ; taux section 1 = 86.2025%
+   r =    0 mm : taux section 3 = 109.0162% ; taux section 1 = 96.6112%

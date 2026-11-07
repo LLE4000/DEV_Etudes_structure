@@ -1,0 +1,4 @@
+1469 tout iter 13 résolution 0.66 s total 0.73 s H 33.531
+1469 bas iter 5 résolution 0.27 s total 0.34 s H 33.531
+4725 tout iter 14 résolution 3.88 s total 4.14 s H 33.897
+4725 bas iter 6 résolution 1.74 s total 1.97 s H 33.897

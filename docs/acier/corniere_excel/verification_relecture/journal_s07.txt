@@ -1,0 +1,43 @@
+# S07 — maillage de la coupe (cas de contrôle)
+maillage : 4725 nœuds, 1120 éléments à 9 nœuds, 9450 inconnues ; calcul 1.94 s (CPython, numpy seul)
+traction de l'ancrage H = 33.897 kN à y = 85.13 mm ; compression du mur 33.897 kN centrée à y = 0.00 mm ; contact au-dessus de l'ancrage 0.000 kN ; V = 42.760 kN ; itérations de contact 6
+corps libre P0 : H = 33.956 kN ; classeur : H = 41.381 kN (sections), 42.760 kN (ancrages, C82 × 3) ; le classeur dépasse le maillage de 26 % sur la traction
+| section | M classeur (kN·m) | σ classeur | M maillage | N maillage (kN) | σ poutre (M, N du maillage) | fibre côté congé | fibre opposée |
+| 1 | 2.0097 | 178.64 | 2.0099 | 0.12 | 178.69 | 200.73 | -174.88 |
+| 2 | 2.5656 | 65.45 | 2.5828 | 1.20 | 66.03 | 1.71 | -124.70 |
+| 3 | 2.3587 | 209.66 | 1.9374 | 42.87 | 181.74 | 203.64 | -159.12 |
+| 4 | 2.8966 | 73.89 | 2.1166 | 43.93 | 59.22 | 1.64 | -97.47 |
+S1 : fibre côté congé / poutre = 1.123 ; S3 : 1.121 ; S3 fibre maillée / σ3 du classeur = 0.971
+S2 : |fibre opposée| / σ2 du classeur = 1.905 (fibre côté congé 1.71) ; S4 : 1.319 (fibre côté congé 1.64)
+M3 classeur / M3 maillé = 1.217 ; H sections classeur / H maillé = 1.221
+M3 maillé / M3 classeur − 1 = -17.9 % ; M1 maillé / M1 classeur − 1 = 0.01 %
+section 1 : M maillage / statique exacte R·(X − u) = 1.0001 (charge répartie sur 10 mm)
+pic à la surface du congé : 236.4 N/mm² à 2.95 mm le long de l'arc depuis le pied côté aile horizontale (u = 25.08, y = 15.33) ; poutre au même point 181.6 → rapport 1.30 ; 99.9 % de σ_adm ; ×1.32 sur σ1 du classeur
+von Mises nodal maximal (déformation plane) : 207.1 N/mm²
+B (Y_B = 85) : H = 82.580 kN (corps libre 82.466) ; contact au bout libre 82.580 kN à y = 0.00 ; section 3 : M = 2.8867 kN·m (corps libre 2.8863), N = -42.89 kN
+B : H maillé / corps libre − 1 = 0.14 %
+mur raide : M3 maillé = 1.9374 kN·m (classeur +22 %)
+mur souple (module de réaction de Winkler, maillage fin, écrou ± 3 mm) : pivot trouvé et section 3 NOMINALE |M|/W + N/A face au classeur (209.66 N/mm²)
+   mur   100000 N/mm³ : H = 33.90 kN (à y = 85.13) ; pivot à 0.00 mm ; M3 = 1.9374 kN·m ; N3 = 42.87 kN ; σ3 nominale 181.7 N/mm² (-13.3 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 76.91 %
+   mur     1000 N/mm³ : H = 34.65 kN (à y = 85.14) ; pivot à 1.86 mm ; M3 = 1.9807 kN·m ; N3 = 42.88 kN ; σ3 nominale 185.6 N/mm² (-11.5 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 78.54 %
+   mur      300 N/mm³ : H = 35.26 kN (à y = 85.14) ; pivot à 3.30 mm ; M3 = 2.0156 kN·m ; N3 = 42.88 kN ; σ3 nominale 188.7 N/mm² (-10.0 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 79.86 %
+   mur      100 N/mm³ : H = 36.22 kN (à y = 85.14) ; pivot à 5.47 mm ; M3 = 2.0704 kN·m ; N3 = 42.88 kN ; σ3 nominale 193.6 N/mm² (-7.7 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 81.92 %
+   mur       30 N/mm³ : H = 38.04 kN (à y = 85.15) ; pivot à 9.28 mm ; M3 = 2.1746 kN·m ; N3 = 42.87 kN ; σ3 nominale 202.8 N/mm² (-3.3 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 85.84 %
+   mur       20 N/mm³ : H = 38.91 kN (à y = 85.16) ; pivot à 10.99 mm ; M3 = 2.2231 kN·m ; N3 = 42.84 kN ; σ3 nominale 207.1 N/mm² (-1.2 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 87.74 %
+   mur       10 N/mm³ : H = 40.77 kN (à y = 85.17) ; pivot à 14.38 mm ; M3 = 2.3042 kN·m ; N3 = 42.80 kN ; σ3 nominale 214.3 N/mm² (+2.2 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 91.75 %
+   mur        5 N/mm³ : H = 42.99 kN (à y = 85.19) ; pivot à 18.06 mm ; M3 = 2.3687 kN·m ; N3 = 42.79 kN ; σ3 nominale 220.1 N/mm² (+5.0 % sur le classeur) ; taux poutre (même pivot, V sur l'axe) 96.58 %
+   variante rondelle ÉLASTIQUE ± 15 mm, mur 30 N/mm³ : H = 37.53 kN à y = 86.15 ; pivot 9.26 mm ; σ3 nominale 203.6 N/mm² (-2.9 %)
+   de mur raide à 30 N/mm³ : σ3 nominale 181.7 → 202.8 N/mm² (+11.6 %, soit 8.9 points de σ_adm)
+   σ3 nominale = classeur vers 16 N/mm³ (interpolation logarithmique entre 10 et 20)
+   poutre, résultante d'ancrage et cisaillement sur l'axe : σ3 nominale = classeur pour un pivot à 11.94 mm
+effet de levier (maillage FIN, mur raide, écrou ± 3 mm) : raideur axiale d'une cheville → traction totale, contact au-dessus de l'ancrage
+          30 kN/mm : H =  33.90 kN ; contact en tête   0.00 kN
+         100 kN/mm : H =  33.98 kN ; contact en tête   0.00 kN
+         200 kN/mm : H =  34.03 kN ; contact en tête   0.00 kN
+         250 kN/mm : H =  34.04 kN ; contact en tête   0.00 kN
+         300 kN/mm : H =  36.54 kN ; contact en tête   1.76 kN
+        1000 kN/mm : H =  53.73 kN ; contact en tête  13.95 kN
+      100000 kN/mm : H =  93.24 kN ; contact en tête  47.98 kN
+ancrage infiniment raide (maillage fin) : H = 95.78 kN, dont contact en tête 50.20 kN ; 2.24 fois la traction du classeur
+(pour mémoire, maillage gros n_t = 6, n_c = 8, n_leg = 20, 30 kN/mm : H = 33.53 kN, 1.1 % sous le maillage fin)
+déplacement maximal 1.0934 mm ; amplification du dessin ×5

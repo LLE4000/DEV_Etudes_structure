@@ -1,0 +1,14 @@
+horizontale : max à u = 26.021 (à 1.979 du pied), t 15.1515, M 2.09434, σeq 183.185, taux 77.402 ; S1 179.398 ; rapport σeq 1.02111
+verticale classeur : max à y = 26.345 (à 1.655), t 15.1058, M 2.42718, σeq 213.365, taux 90.154 ; S3 210.307 ; rapport 1.01454
+verticale P0 : max à y = 26.386, t 15.1006, M 1.99032, σeq 184.465, taux 77.943
+rapports flexion seule cas de contrôle : s=47 -> 1.02137 ; s=57 -> 1.01467
+seuil flexion seule X' = 33.233
+seuil σeq X' = 30.567
+seuil σeq Y' (S4 > S3, X = 75) = 33.020 ; flexion seule : même formule que X' -> 33,233
+e+0,8r : S1 1.0553  S3 1.0456
+cornières égales du site : 197
+désignations du classeur : 42
+  s = 40 : site égales 1.086 (L 300x300x35) ; classeur 1.052 (L200x200x20) ; site L+LI 1.086 (L 300x300x35)
+  s = 20 : site égales 1.271 (L 300x300x35) ; classeur 1.178 (L200x200x20) ; site L+LI 1.271 (L 300x300x35)
+  s = 10 : site égales 1.720 (L 300x300x35) ; classeur 1.513 (L200x200x20) ; site L+LI 1.720 (L 300x300x35)
+  s =  5 : site égales 2.684 (L 300x300x35) ; classeur 2.269 (L200x200x20) ; site L+LI 2.684 (L 300x300x35)

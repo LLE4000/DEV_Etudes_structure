@@ -1,0 +1,20 @@
+# E07 — architecture
+
+## 1. Le moteur actuel du site sur le cas de contrôle
+moteur actuel (modèle « lame », M = V·e) : σ_ELS = 285.07 N/mm², σ_éq,ELS = 285.54 ; U_σ = 120.65 % ; la cornière est vérifiée au nu du mur avec M = R·X = 3.2070 kN·m sur 300 mm et l'épaisseur e
+classeur : section 3 = 88.86 % ; écart du moteur actuel : +35.8 %
+
+## 2. Géométrie partagée : L laminée et cornière PRS
+L120×120×15 (contour_L, r1 = 13, r2 = 6,5) : A = 33.932 cm², Iy = 444.88 cm⁴, Iyz = -260.22 cm⁴, yc = 35.15 mm, It = 26.43 cm⁴ (fiche : 33,93 ; 444,88 ; −260,22 ; 35,15 ; 26,43)
+PRS 120×120, aile horizontale 15 mm, aile verticale 12 mm, cordon intérieur a = 6 mm (côté 8.49 mm) : A = 30.960 cm², Iy = 386.71 cm⁴, Iz = 435.53 cm⁴, Iyz = -238.98 cm⁴, centre (37.50 ; 32.04) mm, It = 20.19 cm⁴ (It de deux plats minces séparés : 19.55 cm⁴)
+Remarque : la section continue (cordon compté comme matière) est une idéalisation — entre le plat vertical et le plat horizontal, la continuité n'est assurée que par le cordon et le contact.
+
+## 3. Épaisseur locale t(s) : congé laminé et cordon
+  s =  12.0 mm : L laminée (e = 15, r = 13) t = — ; PRS aile horizontale (th = 15, plat vertical 12, cordon 8.49) t = 23.485
+  s =  15.0 mm : L laminée (e = 15, r = 13) t = 28.000 ; PRS aile horizontale (th = 15, plat vertical 12, cordon 8.49) t = 20.485
+  s =  18.0 mm : L laminée (e = 15, r = 13) t = 19.693 ; PRS aile horizontale (th = 15, plat vertical 12, cordon 8.49) t = 17.485
+  s =  20.0 mm : L laminée (e = 15, r = 13) t = 17.753 ; PRS aile horizontale (th = 15, plat vertical 12, cordon 8.49) t = 15.485
+  s =  22.0 mm : L laminée (e = 15, r = 13) t = 16.467 ; PRS aile horizontale (th = 15, plat vertical 12, cordon 8.49) t = 15.000
+  s =  24.0 mm : L laminée (e = 15, r = 13) t = 15.631 ; PRS aile horizontale (th = 15, plat vertical 12, cordon 8.49) t = 15.000
+  s =  28.0 mm : L laminée (e = 15, r = 13) t = 15.000 ; PRS aile horizontale (th = 15, plat vertical 12, cordon 8.49) t = 15.000
+Sections du classeur transposées au PRS : 1 = pied du cordon sur l'aile horizontale (s = tv + z), 2 = nu du plat vertical (s = tv, t = th + z), 3 = pied du cordon sur le plat vertical (y = th + z), 4 = interface des deux plats (y = th) : cette dernière n'est PAS une section d'acier continue — elle se vérifie comme un assemblage (cordon + contact).

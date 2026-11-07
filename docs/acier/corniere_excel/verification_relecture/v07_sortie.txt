@@ -1,0 +1,9 @@
+statique (contact au talon, V sur l'axe) : H = 33.96 kN
+cheville                           30 kN/mm | gros : H =  33.53 kN, tête   0.00 kN | fin : H =  33.90 kN, tête   0.00 kN
+cheville                          100 kN/mm | gros : H =  33.54 kN, tête   0.00 kN | fin : H =  33.98 kN, tête   0.00 kN
+cheville                          200 kN/mm | gros : H =  33.54 kN, tête   0.00 kN | fin : H =  34.03 kN, tête   0.00 kN
+cheville                          250 kN/mm | gros : H =  33.55 kN, tête   0.00 kN | fin : H =  34.04 kN, tête   0.00 kN
+cheville                          300 kN/mm | gros : H =  36.27 kN, tête   1.95 kN | fin : H =  36.54 kN, tête   1.76 kN
+cheville                         1000 kN/mm | gros : H =  53.43 kN, tête  14.30 kN | fin : H =  53.73 kN, tête  13.95 kN
+cheville                       100000 kN/mm | gros : H =  92.67 kN, tête  48.41 kN | fin : H =  93.24 kN, tête  47.98 kN
+cheville  infinie (k_anc = 1e7 N/mm par mm) | gros : H =  95.25 kN, tête  50.85 kN | fin : H =  95.78 kN, tête  50.20 kN

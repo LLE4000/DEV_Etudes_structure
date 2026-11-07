@@ -1,0 +1,49 @@
+# E04 — ELS, ELU et efforts par ancrage
+
+## 1. Le passage ELS → ELU du classeur
+C71/C70 = 68.9 / 42.76 = 1.61132 ; N_ELU = ρ·N_ELS = 22.9667 kN (C85), V_ELU = 22.9667 kN (C86) ; valeurs tapées à côté : G85 = 24,68 kN, G86 = 22,97 kN
+Avec γG = 1,35 et γQ = 1,50 appliqués aux MÊMES charges caractéristiques, le rapport ELU/ELS caractéristique est compris entre 1,35 (tout permanent) et 1,50 (tout variable) :
+   G/(G+Q) = 1.00 → ELU/ELS = 1.3500
+   G/(G+Q) = 0.75 → ELU/ELS = 1.3875
+   G/(G+Q) = 0.50 → ELU/ELS = 1.4250
+   G/(G+Q) = 0.25 → ELU/ELS = 1.4625
+   G/(G+Q) = 0.00 → ELU/ELS = 1.5000
+Le rapport du classeur, 1.6113, dépasse 1,50 : 68,9 kN ne peut pas venir de 42,76 kN par les coefficients de l'EN 1990 (6.10) sur les mêmes charges. Les deux réactions viennent de calculs ou de combinaisons différents.
+   si 42,76 kN était une combinaison fréquente (ψ1 = 0,5) : il faudrait G/Q = 2.657 pour retrouver 68,9 kN
+   si 42,76 kN était une combinaison quasi permanente (ψ2 = 0,3) : il faudrait G/Q = 3.890 pour retrouver 68,9 kN
+
+## 2. Feuille « E10A BD » (lue dans le relevé) : charges par appui et par mètre
+| volée | G (D, kN/m) | Q (G, kN/m) | G+Q | G+0,5Q | 1,35G+1,5Q | ELU/ELS car. |
+|---|---|---|---|---|---|---|
+| 1 | 4.403 | 2.662 | 7.065 | 5.734 | 9.937 | 1.4065 |
+| 2 | 10.310 | 6.156 | 16.466 | 13.388 | 23.152 | 1.4061 |
+| 4 | 4.125 | 2.647 | 6.772 | 5.449 | 9.539 | 1.4086 |
+| 6 | 10.215 | 6.156 | 16.371 | 13.293 | 23.025 | 1.4064 |
+| 7 | 8.494 | 5.115 | 13.610 | 11.052 | 19.140 | 1.4064 |
+| 9 | 10.323 | 6.156 | 16.480 | 13.402 | 23.171 | 1.4060 |
+| 10 | 13.488 | 7.197 | 20.685 | 17.086 | 29.004 | 1.4022 |
+| 12 | 21.535 | 9.130 | 30.665 | 26.100 | 42.768 | 1.3947 |
+Coïncidences à 0,5 % près avec 42,76 ou 68,9 : volée 12 : 1,35G+1,5Q = 42.7678 kN/m ≈ 42.76 (+0.018 %)
+D3 = G3 = 1.345 (diviseur commun : largeur probable de la volée, m) ; F2 = 4.0 kN/m² (charge d'exploitation probable).
+
+## 3. Efforts par ancrage — cas de contrôle (coupe de 300 mm, 3 ancrages)
+| méthode | N_ELS | V_ELS | N_ELU | V_ELU (kN par ancrage) | hypothèse ELU |
+|---|---|---|---|---|---|
+| classeur (bras Y − 1 cm, R·X) | 14.253 | 14.253 | 22.967 | 22.967 | × 68,9/42,76 |
+| corps libre, pivot à l'arête (maillage), V sur l'axe | 11.319 | 14.253 | 18.238 | 22.967 | × 68,9/42,76 (même réaction ELU) |
+| idem, ELU = 1,35·G + 1,5·Q avec G/Q de la volée 12 (G = 30.03, Q = 12.73 kN, HYPOTHÈSE) | 11.319 | 14.253 | 15.786 | 19.879 | R_ELU = 59.64 kN (×1.3947) |
+Bras de levier qui redonne G85 = 24,68 kN avec R_ELU = 68,9 kN, X = 75 mm et 3 ancrages : z = 69.79 mm, soit une compression à 15.21 mm au-dessus du dessous de la cornière (≈ e = 15 mm : bord inférieur d'une platine qui serait l'aile verticale AU-DESSUS de l'aile horizontale — interprétation).
+Actions à donner à PROFIS pour la platine de 300 mm (aile verticale) à l'ELU, si on le laisse répartir : V = 68.9 kN vers le bas, M = V·X = 5.168 kN·m autour de l'axe horizontal du mur (bras compté depuis la face du béton), N = 0.
+
+## 4. Cornière longue : un coefficient global sur l'ELS ne donne pas l'ELU par ancrage
+Hypothèse d'illustration : G = 30 kN répartis sur 2,00 m ; Q = 30 kN sur 300 mm centrés à 0,40 m ; ancrages raides (100 et 30 kN/mm).
+contrôle de superposition : N(G+Q) − N(G) − N(Q) = +0.1153, -0.2213, +0.1060 kN (le contact unilatéral n'est pas linéaire : la combinaison se calcule chargée, pas par superposition)
+ELU calculé directement sur la combinaison 1,35·G + 1,5·Q : N = 35.30, 22.23, 10.37 kN ; V = 43.26, 32.72, 9.51 kN
+coefficient global équivalent sur la réaction totale : (1,35·G + 1,5·Q)/(G + Q) = 1.4250
+| ancrage | N_G seul | N_Q seul | N_ELS (G+Q) | N_ELU (1,35G+1,5Q) | coef. global × N_ELS | écart | V_ELS | V_ELU | V global | écart |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 (z = 200) | 7.28 | 16.87 | 24.26 | 35.30 | 34.58 | -2.0 % | 29.72 | 43.26 | 42.35 | -2.1 % |
+| 2 (z = 1000) | 9.26 | 6.70 | 15.74 | 22.23 | 22.43 | +0.9 % | 23.07 | 32.72 | 32.87 | +0.5 % |
+| 3 (z = 1800) | 7.28 | 0.26 | 7.64 | 10.37 | 10.89 | +5.0 % | 7.22 | 9.51 | 10.28 | +8.1 % |
+avec le rapport du classeur (×1.6113) : N_ELU = 39.10, 25.36, 12.31 kN
+platine RIGIDE de 2 m (répartition « R/n » des tractions, ce que donnerait une platine unique dans un logiciel qui la suppose rigide) : N_ELU = 22.63 kN par ancrage, contre 35.30 kN pour l'ancrage le plus chargé du modèle longitudinal (+56 %).

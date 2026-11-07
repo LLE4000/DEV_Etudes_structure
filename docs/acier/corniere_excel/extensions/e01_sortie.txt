@@ -1,0 +1,48 @@
+# E01 — diagrammes continus (cas de contrôle L120x120x15, configuration A)
+
+## 1. Reproduction de la méthode du classeur
+M1 = 2.009720 kN·m   cache C35 = 2.009720   écart +4.44e-16   attendu 2.00972
+M2 = 2.565600 kN·m   cache C45 = 2.565600   écart +0.00e+00   attendu 2.56560
+M3 = 2.358697 kN·m   cache C57 = 2.358697   écart +0.00e+00   attendu 2.35870
+M4 = 2.896645 kN·m   cache C65 = 2.896645   écart +0.00e+00   attendu 2.89665
+taux section 1 = 75.8021 %   cache I37 = 75.8021 %
+taux section 2 = 27.9043 %   cache I47 = 27.9043 %
+taux section 3 = 88.8621 %   cache I57 = 88.8621 %
+taux section 4 = 31.4443 %   cache I67 = 31.4443 %
+taux max = 88.8621 % (section 3)   cache D3 = 88.8621 %
+N ancrage ELS (C82) = 14.2533 kN (cache 14.2533) ; V ancrage ELS (C83) = 14.2533 kN (cache 14.2533)
+
+## 2. Les formules lues comme un équilibre
+Modèle E : H_E = Mmax/(Y' − e/2) = 3.20700 / 0.0775 = 41.3806 kN
+Nœud filaire (u = y = e/2) : aile horizontale R·(X' − e/2) = 2.88630 kN·m ; aile verticale du modèle E H_E·(Y' − e/2) = 3.20700 kN·m ; saut = R·e/2 = 0.32070 kN·m (11.11 %)
+Le modèle E n'est donc pas l'équilibre d'un nœud filaire : son aile verticale reçoit R·X' (bras compté depuis le nu du mur) quand l'aile horizontale ne délivre que R·(X' − e/2) au nœud.
+P0  pivot y=0, V sur l'axe de l'aile          H =  33.956 kN   M3 = 1.93552   M4 = 2.37695 kN·m   taux 3 (convention classeur) =  73.03 %   N/ancrage = 11.319 kN
+P1  pivot y=e/2, V sur l'axe (nœud filaire)   H =  37.243 kN   M3 = 2.12283   M4 = 2.60698 kN·m   taux 3 (convention classeur) =  80.03 %   N/ancrage = 12.414 kN
+P10 pivot y=10 mm (C76), V sur l'axe          H =  38.484 kN   M3 = 2.19359   M4 = 2.69388 kN·m   taux 3 (convention classeur) =  82.68 %   N/ancrage = 12.828 kN
+P15 pivot y=e, V sur l'axe                    H =  41.233 kN   M3 = 2.35027   M4 = 2.88630 kN·m   taux 3 (convention classeur) =  88.55 %   N/ancrage = 13.744 kN
+Q1  pivot y=e/2, V au nu du mur               H =  41.381 kN   M3 = 2.03800   M4 = 2.57595 kN·m   taux 3 (convention classeur) =  76.86 %   N/ancrage = 13.794 kN
+Pivot qui redonne EXACTEMENT M3 et M4 du classeur avec V sur l'axe de l'aile : yP* = Y' − (X' − e/2)(Y' − e/2)/X' = 15.2500 mm ; H = 41.3806 kN ; M3 = 2.358697 ; M4 = 2.896645 kN·m
+
+## 3. Balayage continu (pas 0,02 mm environ)
+Aile horizontale : σ_éq max = 183.185 N/mm² à u = 26.025 mm (-1.975 mm du pied du congé), t = 15.151 mm, M = 2.09417 kN·m, taux = 77.402 % (section 1 : 75.802 %, rapport 1.0211)
+   u =  15.00  t = 28.000  M = 2.56560  σ =  65.449  σ_éq =  66.040  taux =  27.90 %
+   u =  21.50  t = 16.745  M = 2.28787  σ = 163.198  σ_éq = 163.863  taux =  69.24 %
+   u =  25.99  t = 15.156  M = 2.09545  σ = 182.459  σ_éq = 183.185  taux =  77.40 %
+   u =  28.00  t = 15.000  M = 2.00951  σ = 178.623  σ_éq = 179.379  taux =  75.79 %
+Aile verticale, modèle E : σ_éq max = 213.365 N/mm² à y = 26.340 mm (-1.660 mm du pied du congé), t = 15.106, M = 2.42739 kN·m, taux = 90.154 % (section 3 : 88.862 %, rapport 1.0145)
+   y =  15.00  t = 28.000  M = 2.89665  σ =  73.894  σ_éq =  74.418  taux =  31.44 %
+   y =  21.49  t = 16.746  M = 2.62798  σ = 187.426  σ_éq = 188.005  taux =  79.44 %
+   y =  26.01  t = 15.154  M = 2.44115  σ = 212.614  σ_éq = 213.237  taux =  90.10 %
+   y =  28.00  t = 15.000  M = 2.35859  σ = 209.653  σ_éq = 210.298  taux =  88.86 %
+Aile verticale, modèle E + effort normal R et tranchant H_E : σ_éq max = 222.738 à y = 26.375 (taux 94.115 %) ; en section 3 : 92.845 %
+Aile verticale, P1 (nœud filaire) + N + vrai tranchant : σ_éq max = 201.405 à y = 26.375 (taux 85.101 %) ; section 3 : 83.961 %
+
+## 4. Effort normal et tranchant (équilibre de la cornière isolée, frottement nul)
+Aile horizontale (e ≤ u < X') : V = R = 42.760 kN ; N = 0 ; au-delà de la charge : 0.
+Aile verticale (e ≤ y < Y') : N = +R = 42.760 kN (traction) ; V = H (modèle E : 41.381 kN ; P1 : 37.243 kN) ; au-dessus de l'ancrage : 0.
+Contraintes moyennes en section 3 (L·e = 4500 mm²) : σ_N = R/(L·e) = 9.502 ; τ_H(E) = 9.196 ; τ du classeur = R/(L·e) = 9.502 N/mm²
+
+## Figures
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e01_schema_moments.png
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e01_diagrammes.png
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e01_efforts_NV.png

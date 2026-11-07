@@ -1,0 +1,4 @@
+mur 1e+04 N/mm par mm : N = [28.86 14.92 -0.  ] ; contact en tête 6.96 kN ; N1/(H/3) = 2.55
+mur 1e+05 N/mm par mm : N = [41.52 21.38 -0.  ] ; contact en tête 20.50 kN ; N1/(H/3) = 3.67
+mur 1e+06 N/mm par mm : N = [96.63 35.99 -0.  ] ; contact en tête 69.88 kN ; N1/(H/3) = 8.54
+mur 1e+07 N/mm par mm : N = [291.7   91.48  -0.  ] ; contact en tête 247.37 kN ; N1/(H/3) = 25.77

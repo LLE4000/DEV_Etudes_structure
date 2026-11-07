@@ -1,0 +1,26 @@
+# S09 — chiffres repris des autres analyses
+
+## Support souple (analyse critique, c03c_mur) : contrainte nominale linéarisée de la section 3 face au classeur
+   (modèle de c03c : rondelle Ø30 RIGIDE appuyée de y = 70 à 100 mm, cheville δ = 0,1 mm, cisaillement en e/2)
+   mur       rigide : pivot à 0.00 mm ; traction 40.78 kN ; résultante d'ancrage à y_T = 70.8 mm (axe 85) ; S3 nominale 164.35 N/mm² (-21.6 % sur le classeur 209.66)
+   mur   1000 N/mm³ : pivot à 2.84 mm ; traction 40.79 kN ; résultante d'ancrage à y_T = 73.6 mm (axe 85) ; S3 nominale 174.60 N/mm² (-16.7 % sur le classeur 209.66)
+   mur    300 N/mm³ : pivot à 4.74 mm ; traction 39.39 kN ; résultante d'ancrage à y_T = 78.0 mm (axe 85) ; S3 nominale 184.40 N/mm² (-12.0 % sur le classeur 209.66)
+   mur    100 N/mm³ : pivot à 7.34 mm ; traction 36.63 kN ; résultante d'ancrage à y_T = 86.1 mm (axe 85) ; S3 nominale 198.57 N/mm² (-5.3 % sur le classeur 209.66)
+   mur     30 N/mm³ : pivot à 11.76 mm ; traction 33.08 kN ; résultante d'ancrage à y_T = 99.0 mm (axe 85) ; S3 nominale 217.57 N/mm² (+3.8 % sur le classeur 209.66)
+   lecture : la résultante d'ancrage passe du bord BAS de la rondelle (mur rigide) à son bord HAUT (30 N/mm³) ; le « +3,8 % » vient de ce saut, propre à la rondelle rigide, pas de la seule montée du pivot (voir s07 : écrou ± 3 mm)
+
+## Second maillage (analyse critique, c03b_convergence) : pic au congé selon le pas
+   pas 1.00 mm (3600 nœuds) : pic de contrainte principale au congé 238.4 N/mm² ; traction 41.07 kN
+   pas 0.50 mm (13919 nœuds) : pic de contrainte principale au congé 237.5 N/mm² ; traction 40.78 kN
+   pas 0.25 mm (54717 nœuds) : pic de contrainte principale au congé 236.5 N/mm² ; traction 40.82 kN
+
+## Seuil de Y sans cisaillement (analyse critique, c05) : 38.25 mm
+
+## Pyodide 3.13.2 + numpy 2.2.5 sous Node (extensions, e06)
+   1469 nœuds : 0.79 s ; traction 33.531 kN
+   4725 nœuds : 4.55 s ; traction 33.897 kN
+   chargement de Pyodide et numpy : 1.71 s
+
+## Géométrie partagée (extensions, e07)
+   L120×120×15 (contour_L, r1 = 13, r2 = 6,5) : A = 33.932 cm², Iy = 444.88 cm⁴, Iyz = -260.22 cm⁴, yc = 35.15 mm, It = 26.43 cm⁴ (fiche : 33,93 ; 444,88 ; −260,22 ; 35,15 ; 26,43)
+   PRS 120×120, aile horizontale 15 mm, aile verticale 12 mm, cordon intérieur a = 6 mm (côté 8.49 mm) : A = 30.960 cm², Iy = 386.71 cm⁴, Iz = 435.53 cm⁴, Iyz = -238.98 cm⁴, centre (37.50 ; 32.04) mm, It = 20.19 cm⁴ (It de deux plats minces séparés : 19.55 cm⁴)

@@ -1,0 +1,34 @@
+§2 — section indéformable, ancrages rigides, contact en tête permis : dépendance à la pénalité du mur kw
+  kw = 1e+04 N/mm par mm : N = 28.86 / 14.92 / 0.00 kN ; N1/(H/3) = 2.55 ; contact en tête 6.96 kN sur z = 0–1985 mm ; nœuds où haut ET bas sont en contact : 58
+  kw = 1e+05 N/mm par mm : N = 41.52 / 21.38 / 0.00 kN ; N1/(H/3) = 3.67 ; contact en tête 20.50 kN sur z = 0–1890 mm ; nœuds où haut ET bas sont en contact : 90
+  kw = 1e+06 N/mm par mm : N = 96.63 / 35.99 / 0.00 kN ; N1/(H/3) = 8.54 ; contact en tête 69.88 kN sur z = 0–1855 mm ; nœuds où haut ET bas sont en contact : 46
+  kw = 1e+07 N/mm par mm : N = 291.70 / 91.48 / 0.00 kN ; N1/(H/3) = 25.77 ; contact en tête 247.37 kN sur z = 80–1830 mm ; nœuds où haut ET bas sont en contact : 33
+  sans contact en tête (même balayage) :
+  kw = 1e+04 : N = 25.13 / 8.83 / 0.00 kN ; N1/(H/3) = 2.22
+  kw = 1e+05 : N = 25.16 / 8.80 / 0.00 kN ; N1/(H/3) = 2.22
+  kw = 1e+06 : N = 25.17 / 8.79 / 0.00 kN ; N1/(H/3) = 2.22
+  kw = 1e+07 : N = 25.23 / 8.72 / 0.00 kN ; N1/(H/3) = 2.23
+
+§3 — cisaillement des ancrages
+  règle du levier (poutre rigide sur appuis égaux) : V = 30.29 / 14.25 / -1.78 kN
+  poutre continue, flexion verticale seule, appuis rigides : V = 29.66 / 15.51 / -2.41 kN (ΣV = 42.760) ; V3 / règle du levier = 1.35
+  48EI/s³ (s = 800 mm, EI = 934.3 kN·m²) = 87.6 kN/mm
+  modèle longitudinal (flexion biaxiale + torsion), raideur verticale des ancrages k_V :
+    k_V =     1e+06 kN/mm (k_N = 100 + aile) : V = 29.84 / 15.15 / -2.23 kN
+    k_V =       100 kN/mm (k_N = 100 + aile) : V = 29.90 / 15.04 / -2.17 kN
+    k_V =        30 kN/mm (k_N = 100 + aile) : V = 29.99 / 14.85 / -2.08 kN
+    k_V =        10 kN/mm (k_N = 100 + aile) : V = 30.11 / 14.61 / -1.96 kN
+    k_V =         5 kN/mm (k_N = 100 + aile) : V = 30.18 / 14.48 / -1.89 kN
+    k_V =         1 kN/mm (k_N = 100 + aile) : V = 30.26 / 14.31 / -1.81 kN
+    k_V =       0.1 kN/mm (k_N = 100 + aile) : V = 30.29 / 14.26 / -1.78 kN
+    tableau du §5.3, rigides               : V = 29.93 / 14.97 / -2.14 kN ; V3 / règle du levier = 1.20
+    tableau du §5.3, raides 100/30 + aile  : V = 29.99 / 14.85 / -2.08 kN ; V3 / règle du levier = 1.17
+    tableau du §5.3, souples 10/5 + aile   : V = 30.16 / 14.51 / -1.91 kN ; V3 / règle du levier = 1.07
+
+§6 — torsion ×1000 selon la raideur des ancrages
+  ancrages rigides               : N = 25.16 / 8.80 / 0.00 ; G·It ×1000 : 23.46 / 10.50 / 0.00 ; E et G ×1000 : 24.13 / 9.69 / 0.13 kN (R/n : 11.32)
+  ancrages raides 100/30 + aile  : N = 24.04 / 9.55 / 0.37 ; G·It ×1000 : 11.88 / 11.12 / 10.96 ; E et G ×1000 : 11.48 / 11.31 / 11.17 kN (R/n : 11.32)
+  ancrages souples 10/5 + aile   : N = 20.87 / 10.28 / 2.81 ; G·It ×1000 : 11.45 / 11.27 / 11.23 ; E et G ×1000 : 11.35 / 11.32 / 11.29 kN (R/n : 11.32)
+  k_θ·s/(G·It), s = 800 mm, ancrages rigides : 2.7e+05
+  k_θ·s/(G·It), s = 800 mm, ancrages raides 100 + aile : 12.1
+  k_θ·s/(G·It), s = 800 mm, ancrages souples 10 + aile : 2.4

@@ -1,0 +1,22 @@
+σ3 du classeur (flexion seule) = 209.662 N/mm²
+
+# A. Modèle de c03c (rondelle Ø30 rigide, cheville δ = 0,1 mm)
+mur     rigide : T = 40.78 kN ; pivot y_c = 0.00 mm ; centre des forces de contact rondelle–aile y_T = 70.78 mm (lu) ; par la statique 70.78 mm ; nœuds de rondelle en contact de y = 70.0 à 73.5 mm (rondelle 70 à 100)
+mur   30 N/mm³ : T = 33.08 kN ; pivot y_c = 11.76 mm ; centre des forces de contact rondelle–aile y_T = 99.02 mm (lu) ; par la statique 99.02 mm ; nœuds de rondelle en contact de y = 96.0 à 100.0 mm (rondelle 70 à 100)
+
+# B. Modèle de s07 (écrou ± 3 mm, 30 kN/mm par cheville, cisaillement à mi-épaisseur), maillage fin
+mur   100000 N/mm³ : H = 33.897 kN à y = 85.13 ; pivot y_c = 0.00 mm ; M3 = 1.9374 kN·m ; N3 = 42.87 kN ; σ3 nominale = 181.74 N/mm² (-13.3 % / classeur) ; contact en tête 0.00 kN
+mur     1000 N/mm³ : H = 34.654 kN à y = 85.14 ; pivot y_c = 1.86 mm ; M3 = 1.9807 kN·m ; N3 = 42.88 kN ; σ3 nominale = 185.59 N/mm² (-11.5 % / classeur) ; contact en tête 0.00 kN
+mur      300 N/mm³ : H = 35.263 kN à y = 85.14 ; pivot y_c = 3.30 mm ; M3 = 2.0156 kN·m ; N3 = 42.88 kN ; σ3 nominale = 188.69 N/mm² (-10.0 % / classeur) ; contact en tête 0.00 kN
+mur      100 N/mm³ : H = 36.220 kN à y = 85.14 ; pivot y_c = 5.47 mm ; M3 = 2.0704 kN·m ; N3 = 42.88 kN ; σ3 nominale = 193.57 N/mm² (-7.7 % / classeur) ; contact en tête 0.00 kN
+mur       30 N/mm³ : H = 38.035 kN à y = 85.15 ; pivot y_c = 9.28 mm ; M3 = 2.1746 kN·m ; N3 = 42.87 kN ; σ3 nominale = 202.82 N/mm² (-3.3 % / classeur) ; contact en tête 0.00 kN
+rondelle élastique ± 15 mm, mur 30 N/mm³ : H = 37.531 kN à y = 86.15 ; pivot 9.26 mm ; σ3 nominale = 203.59 (-2.9 %)
+montée de σ3 nominale entre mur raide et 30 N/mm³ (modèle s07) : +11.6 % (181.7 → 202.8 N/mm², soit 8.9 points de σ_adm)
+
+# C. Poutre (V sur l'axe, σ = M/W + N/A, τ = H/A), pivot au point trouvé
+pivot  0.00 mm : H = 33.96 kN ; taux 3 = 76.91 % (classeur 88,86 %)
+pivot  9.28 mm : H = 38.12 kN ; taux 3 = 85.84 % (classeur 88,86 %)
+pivot 11.76 mm : H = 39.41 kN ; taux 3 = 88.62 % (classeur 88,86 %)
+  résultante d'ancrage à y_T =  85.0 mm (pivot 11,76) : σ3 nominale 209.2 N/mm² (-0.2 %)
+  résultante d'ancrage à y_T =  92.5 mm (pivot 11,76) : σ3 nominale 214.5 N/mm² (+2.3 %)
+  résultante d'ancrage à y_T =  99.0 mm (pivot 11,76) : σ3 nominale 218.3 N/mm² (+4.1 %)

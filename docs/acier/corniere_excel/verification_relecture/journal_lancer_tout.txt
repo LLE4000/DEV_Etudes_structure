@@ -1,0 +1,21 @@
+== s01_classeur
+== s02_controle
+== s03_continus
+== s04_retournee
+== s05_longue
+== s06_elu
+== s07_maillage
+== s08_catalogue
+== s09_reprises
+== f_a_coupe
+== f_b_diagrammes
+== f_c_retournee
+== f_d_longue
+== f_e_maillage
+fig_a_coupe_A.png 1880 x 1800
+fig_b_diagrammes.png 1840 x 2580
+fig_c_retournee.png 1920 x 2220
+fig_d_longue.png 1920 x 2620
+fig_e_maillage.png 2000 x 1480
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/ANALYSE_CORNIERE_EXCEL.md 721 lignes
+1463 nombres lus dans le document ; 0 non retrouvés dans les sorties :

@@ -1,0 +1,12 @@
+Y = 65: classeur S3 77.82 % ; P0 S3 66.12 % ; H(P0) 44.40 kN ; traction classeur 58.31 kN
+Y = 85: classeur S3 88.86 % ; P0 S3 76.91 % ; H(P0) 33.96 kN ; traction classeur 42.76 kN
+Y = 105: classeur S3 95.38 % ; P0 S3 83.63 % ; H(P0) 27.49 kN ; traction classeur 33.76 kN
+c03c mur rigide: T = 40.78 kN, y_c = 0.00 -> résultante d'ancrage à y_T = 70.8 mm (axe à 85, rondelle 70 à 100)
+c03c 30 N/mm³: T = 33.08 kN, y_c = 11.76 -> résultante d'ancrage à y_T = 99.0 mm (axe à 85, rondelle 70 à 100)
+poutre pivot 11,8 mm : H 39.43 kN, S3 88.66 %
+rigides: bras 57 -> 142.6 N/mm² ; bras m = 59.6 -> 148.8 N/mm² (63%)
+souples: bras 57 -> 119.6 N/mm² ; bras m = 59.6 -> 124.7 N/mm² (53%)
+k_pl = 3E(l_eff e³/12)/Y³ = 81.4 kN/mm
+rapport ELU/ELS max avec K_FI = 1,1 : 1.650 ; volée 12 : 1.534
+48EI/s³ (s = 800) = 87.6 kN/mm
+seuil analytique de levier (talon articulé, ancrage, débord 35 mm) : 217 kN/mm par cheville

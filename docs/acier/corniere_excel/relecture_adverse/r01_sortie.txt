@@ -1,0 +1,85 @@
+/usr/local/lib/python3.12/dist-packages/openpyxl/worksheet/_reader.py:329: UserWarning: Data Validation extension is not supported and will be removed
+  warn(msg)
+Feuilles : ["'P8 '", "'E10A BD'", "'CORNIERES'"]
+'P8 ': formules numériques 93, formules texte 8, total formules 101, constantes 137, dims A1:R90
+'E10A BD': formules numériques 37, formules texte 0, total formules 37, constantes 38, dims A1:I48
+'CORNIERES': formules numériques 0, formules texte 0, total formules 0, constantes 352, dims A1:G59
+Zone d'impression : 'P8 '!$A$1:$I$104  sauts de ligne : [67]
+Noms définis : [('ListeCorniere', 'CORNIERES!$A$2:$A$56')]
+  format C3: '"S"0'  valeur cache 355
+  format C8: '0" cm"'  valeur cache 30
+  format C12: '0.00"kN"'  valeur cache 42.76
+  format C13: '0" mm"'  valeur cache 75
+  format C14: '0" mm"'  valeur cache 0
+  format C16: '0" mm"'  valeur cache 85
+  format C17: '0" mm"'  valeur cache 0
+  format C25: '0" mm"'  valeur cache 77.5
+  format C76: '0" cm"'  valeur cache 1
+  format G85: '"OK, on a dans Hilti : "\\ 0.00\\ "kN"'  valeur cache 24.68
+  format G86: '"OK, on a dans Hilti : "\\ 0.00\\ "kN"'  valeur cache 22.97
+  format C82: '0.00"kN"'  valeur cache 14.25333333333333
+  format C83: '0.00"kN"'  valeur cache 14.253333333333332
+  format C88: '0.0" N/mm²"'  valeur cache 59.388888888888886
+  format C90: '0.0" N/mm²"'  valeur cache 13.574603174603173
+  format D3: '0.0%'  valeur cache 0.8886208216062588
+Mises en forme conditionnelles :
+   C88 expression None ['C88<=#REF!']
+   C88 expression None ['C88>#REF!']
+   C90 expression None ['C90<=#REF!']
+   C90 expression None ['C90>#REF!']
+   D3 cellIs lessThanOrEqual ['1']
+   D3 cellIs greaterThan ['1']
+   C38 G31 G34 G37 expression None ['C31<=#REF!']
+   C38 G31 G34 G37 expression None ['C31>#REF!']
+   G41 G44 G47 expression None ['G41<=#REF!']
+   G41 G44 G47 expression None ['G41>#REF!']
+   G51 G54 G57 expression None ['G51<=#REF!']
+   G51 G54 G57 expression None ['G51>#REF!']
+   G61 G64 G67 expression None ['G61<=#REF!']
+   G61 G64 G67 expression None ['G61>#REF!']
+   I37 cellIs lessThanOrEqual ['1']
+   I37 cellIs greaterThan ['1']
+   I47 cellIs lessThanOrEqual ['1']
+   I47 cellIs greaterThan ['1']
+   I57 cellIs lessThanOrEqual ['1']
+   I57 cellIs greaterThan ['1']
+   I67 cellIs lessThanOrEqual ['1']
+   I67 cellIs greaterThan ['1']
+Validations :
+  A20 lu par : []
+  A21 lu par : []
+  C53 lu par : []
+  C54 lu par : []
+  C33 lu par : ['C35']
+  C43 lu par : ['C45']
+  C25 lu par : ['C56', 'C64']
+  C17 lu par : ['C56', 'C64']
+  C76 lu par : ['C82']
+  C14 lu par : ['C34', 'C44', 'C54', 'C55', 'C63', 'C78']
+  C5 lu par : ['A21', 'C90', 'D5']
+  C4 lu par : ['A20', 'D4']
+  L22 lu par : []
+  C71 lu par : ['C85', 'C86']
+  G85 lu par : []
+  G86 lu par : []
+Formules qui citent 'E10A' : []
+Formules qui citent CORNIERES : [('P8 ', 'C4'), ('P8 ', 'C5'), ('P8 ', 'C6'), ('P8 ', 'C7')]
+Mon modèle en symboles : 51 cellules comparées au cache, écart relatif max 0.00e+00
+  C35 = 2.009720   (cache 2.0097199999999997)
+  C45 = 2.565600   (cache 2.5656)
+  C57 = 2.358697   (cache 2.358696774193548)
+  C65 = 2.896645   (cache 2.8966451612903223)
+  D3 = 0.888621   (cache 0.8886208216062588)
+  I37 = 0.758021   (cache 0.758021120240043)
+  I47 = 0.279043   (cache 0.2790430908213164)
+  I57 = 0.888621   (cache 0.8886208216062588)
+  I67 = 0.314443   (cache 0.3144429552371843)
+  G37 = 179.398332   (cache 179.3983317901435)
+  G47 = 66.040198   (cache 66.04019816104488)
+  G57 = 210.306928   (cache 210.3069277801479)
+  G67 = 74.418166   (cache 74.41816607280028)
+  C82 = 14.253333   (cache 14.25333333333333)
+  C85 = 22.966667   (cache 22.966666666666665)
+Zones de texte liées : 28 ['$C$19', '$C$20', '$C$21', '$C$13', '$C$14', '$C$6', '$C$6', '$C$23', '$C$24', '$C$25', '$C$4', '$C$7', '$C$16', '$C$5', '$C$35', '$C$45', '$C$78', 'C$63', '$C$65', '$C$57', '$C$12', '$C$17', '', '', '', '', '$A$20', '$A$21']
+Formes <xdr:sp> : 28
+Textes <a:t> du dessin : ['47 mm', '60 mm', ' ', '75 mm', '0 mm', '15 mm', '15 mm', '57 mm', '70 mm', '78 mm', '120 mm', '13 mm', '85 mm', '120 mm', '2,01 kN.m', '2,57 kN.m', '3,21 kN.m', '3,21 kN.m', '2,90 kN.m', '2,36 kN.m', '42,76kN', '0 mm', '1', '2', '4', '3', '45 mm', '35 mm']

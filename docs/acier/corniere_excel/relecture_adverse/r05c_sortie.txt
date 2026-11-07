@@ -1,0 +1,7 @@
+h = 0.25: H = 33.947 kN à y = 85.02 ; mur sous l'ancrage 33.947 kN centré à y = 0.00 ; mur au-dessus 0.000 kN ; appui vertical 42.760 kN ; itérations 16
+   pic côté aile horizontale : σ1 = 237.7 N/mm² à 2.98 mm du pied ; / σadm 100.43%
+   pic côté aile verticale : σ1 = 236.1 N/mm² à 2.54 mm du pied ; / σadm 99.75%
+
+real	0m34.594s
+user	0m32.418s
+sys	0m2.793s

@@ -1,0 +1,6 @@
+N_ELS = [24.27 15.73  7.64]
+N_ELU = [35.31 22.22 10.37]  V_ELU = [43.26 32.73  9.51]
+1,425 × N_ELS = [34.59 22.42 10.89]  écarts [-2.   0.9  5. ] %
+1,611 × N_ELS = [39.11 25.35 12.32]
+superposition 1,35 N_G + 1,5 N_Q = [35.142 22.541 10.214]  écart max 0.323 kN
+platine rigide : 22.63 kN par ancrage ; / N1 calculé -35.9%

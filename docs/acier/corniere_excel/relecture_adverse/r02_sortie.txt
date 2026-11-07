@@ -1,0 +1,88 @@
+== §3.1 cas de contrôle
+  M = ['2.009720', '2.565600', '2.358697', '2.896645']  taux = ['75.8021', '27.9043', '88.8621', '31.4443']  Mmax 3.207
+  sadm 236.6667 tadm 136.6396
+== §3.2
+  M2-M1 0.55588  H 41.3806  M4-M3 0.53795  M3/M1 1.17364  H/R 0.96774 Ye/Xe 1.21277  ((e+r)/e)^2 3.4844
+== §1.2 variantes de l'équilibre (N par ancrage, M3, taux 3)
+  classeur sections    H 41.381  N/anc 13.794  M3(H·Ye) 2.35870  taux3 88.86
+  classeur ancrages    H 42.760  N/anc 14.253  M3(H·Ye) 2.43732  taux3 91.81
+  Hilti 15,21          H 45.952  N/anc 15.317  M3(H·Ye) 2.61927  taux3 98.62
+  P0                   H 33.956  N/anc 11.319  M3 1.93552  taux3 76.91  taux4 27.93
+  P1                   H 37.243  N/anc 12.414  M3 2.12283  taux3 83.96  taux4 30.42
+  Q1                   H 41.381  N/anc 13.794  M3 2.03800  taux3 80.84  taux4 30.13
+  P15                  H 41.233  N/anc 13.744  M3 2.35027  taux3 92.53  taux4 33.46
+  pivot y_P* 15.250 ; Hilti bras 69.793 -> pivot 15.207 ; G85/C85 7.4601%
+  saut au nœud : R(X-e/2) 2.88630 vs H(Y-e/2) 3.20700  rapport 1.1111
+== §2.2 jeux
+  contrôle  M1 2.00972 M3 2.35870 taux1 75.80 taux3 88.86 max 88.86 N/anc 14.253
+  Xj=20     M1 2.86492 M3 2.98768 taux1 107.83 taux3 112.43 max 112.43 N/anc 18.054
+  Yj=20     M1 2.00972 M3 2.53271 taux1 75.80 taux3 95.38 max 95.38 N/anc 14.253
+  Xj=Yj=20  M1 2.86492 M3 3.20810 taux1 107.83 taux3 120.69 max 120.69 N/anc 18.054
+  C76=2     M1 2.00972 M3 2.35870 taux1 75.80 taux3 88.86 max 88.86 N/anc 16.446
+  Yj=-20    M1 2.00972 M3 2.06363 taux1 75.80 taux3 77.82 max 77.82 N/anc 14.253
+  Xj=5      M1 2.22352 M3 2.51594 taux1 83.80 taux3 94.75 max 94.75 N/anc 15.204
+  Xj=10     M1 2.43732 M3 2.67319 taux1 91.81 taux3 100.64 max 100.64 N/anc 16.154
+  Yj=1      M1 2.00972 M3 2.36950 taux1 75.80 taux3 89.27 max 89.27 N/anc 14.253
+  Yj=1e6    M1 2.00972 M3 3.20693 taux1 75.80 taux3 120.65 max 120.65 N/anc 14.253
+  C76=20    M1 2.00972 M3 2.35870 taux1 75.80 taux3 88.86 max 88.86 N/anc -9.296
+  L=3000    M1 2.00972 M3 2.35870 taux1 7.58 taux3 8.89 max 8.89 N/anc 14.253
+  Xj à 100 % : 9.4551 mm
+  Yj à 100 % : 41.8284 mm
+  pente Xj (pt/mm) 1.178 ; pente Yj secante 20 mm 0.326 ; 1er mm 0.405
+== domaine
+  X=120: taux [147.92, 48.54, 141.91, 50.1]
+  X=125: taux [155.94, 50.84, 147.81, 52.17]
+  X=130: taux [163.96, 53.14, 153.71, 54.25]
+  X=135: taux [171.98, 55.43, 159.61, 56.32]
+  X=140: taux [180.01, 57.73, 165.51, 58.4]
+  X=145: taux [188.03, 60.03, 171.41, 60.48]
+  X=150: taux [196.06, 62.33, 177.32, 62.56]
+  Y=25 : M3 -0.5498
+== seuil Y sous lequel le classeur n'est plus sûr en section 3
+  P0: Y* = 33.179 mm ; vérif à Y=85 : classeur-équilibre = 11.95 pt
+  P1: Y* = 43.547 mm ; vérif à Y=85 : classeur-équilibre = 4.90 pt
+  Q1: Y* = 33.605 mm ; vérif à Y=85 : classeur-équilibre = 8.02 pt
+  1,25e+1,5r = 38.25
+== §3.3 ancrages
+  C88 59.389  C90 13.5746  demi-trou 18.274 (+34.6 %)  ELU/ELS 1.61132  N_ELU 22.9667  G85/C85 1.0746
+== §3.4 EC3
+  gamma 1.3500: admissible 88.86  EC3 élast 79.98  EC3 plast 53.15  rapport adm/plast 1.672
+  gamma 1.5000: admissible 88.86  EC3 élast 88.86  EC3 plast 59.06  rapport adm/plast 1.505
+  gamma 1.6113: admissible 88.86  EC3 élast 95.46  EC3 plast 63.44  rapport adm/plast 1.401
+  V/Vpl ELU 0.0747
+== module du site (M = V·e, b = 1 m, e = X)
+  e = 7.5 cm : σeq 285.541 -> /236,67 120.65 %  ; /155 (défaut du site) 184.22 % ; τ/0,8 1187.8 % ; ELU 1,35 /186 207.2 %
+  e = 4.7 cm : σeq 179.398 -> /236,67 75.80 %  ; /155 (défaut du site) 115.74 % ; τ/0,8 1187.8 % ; ELU 1,35 /186 130.2 %
+== §5.3 largeur d'appui (diffusion 45°)
+  b_min milieu 206 ; bout 253 ; b=100 -> facteur 1.5464
+  L = 194.0: taux [117.22, 43.15, 137.42, 48.63]
+  L = 250.0: taux [90.96, 33.49, 106.63, 37.73]
+== §5.5 ELS/ELU
+  psi 0.5: G/Q = 2.657
+  psi 0.3: G/Q = 3.890
+  PROFIS V·X = 5.1675 kN·m
+  volée 12 : G 21.5353 Q 9.1301 1,35G+1,5Q 42.7678 écart/C12 0.0183%
+  rapport volée 12 1.39466 ; P0 N_ELU par ancrage 15.786 ; V_ELU 19.879 ; avec 1,6113 : 18.238
+== Annexe C — E10A BD
+  volée  1: G 4.403 Q 2.662 G+Q 7.065 ELU 9.937 rapport 1.4065
+  volée  2: G 10.310 Q 6.156 G+Q 16.466 ELU 23.152 rapport 1.4061
+  volée  4: G 4.125 Q 2.647 G+Q 6.772 ELU 9.539 rapport 1.4086
+  volée  6: G 10.215 Q 6.156 G+Q 16.371 ELU 23.025 rapport 1.4064
+  volée  7: G 8.494 Q 5.115 G+Q 13.610 ELU 19.140 rapport 1.4064
+  volée  9: G 10.323 Q 6.156 G+Q 16.480 ELU 23.171 rapport 1.4060
+  volée 10: G 13.488 Q 7.197 G+Q 20.685 ELU 29.004 rapport 1.4022
+  volée 12: G 21.535 Q 9.130 G+Q 30.665 ELU 42.768 rapport 1.3947
+  (poids+charge)/2 volée 12 = 41.245 (-3.543%) ; volées 10+12 = 69.066 (0.241%) ; 42,76/0,3 = 142.53 ; rapport 4.65
+== §6.1 configuration B
+  y_a = 35: H = 82.466
+  y_a = 75: H = 38.484
+  y_a = 25: H = 115.452
+  y_a = 45: H = 64.140
+  M3B 2.8863 σ 266.062 taux 112.42 ; classeur 2.3587 (-18.28%) ; B/A(P0) 2.429
+  section nette 324.466 -> 137.10 % ; pression 274.9 N/mm
+  Xj = 20 en B : 144.54 %
+  (B) moment aile horizontale au nœud = R(X - e/2) = moment aile verticale : continuité exacte
+== §6.2 ailes inégales L150×100×12
+  150h×100v r12: taux1 128.27 taux3 131.07 traction tot 58.31 | P0 taux3 114.61 H 45.39
+  100h×150v r12: taux1 128.27 taux3 157.36 traction tot 30.54 | P0 taux3 142.13 H 25.66
+  150h×100v r6: taux1 143.30 taux3 150.18 traction tot 58.31 | P0 taux3 130.54 H 45.39

@@ -1,0 +1,45 @@
+# S03 — diagrammes continus et congé (cas de contrôle)
+
+## 1. Maxima le long des ailes (pas de 0,01 mm)
+Aile horizontale (statique exacte ; τ = R/(L·t)) :
+   nu de l'autre aile (section 2 ou 4)    s =  15.00 mm  t = 28.000  M = 2.56560 kN·m  σ =  65.449  σ_éq =  66.040 N/mm²  taux =  27.90 %
+   milieu du congé                        s =  21.50 mm  t = 16.742  M = 2.28766 kN·m  σ = 163.239  σ_éq = 163.904 N/mm²  taux =  69.26 %
+   MAXIMUM                                s =  26.02 mm  t = 15.152  M = 2.09438 kN·m  σ = 182.459  σ_éq = 183.185 N/mm²  taux =  77.40 %
+   pied du congé (section 1 ou 3)         s =  28.00 mm  t = 15.000  M = 2.00972 kN·m  σ = 178.642  σ_éq = 179.398 N/mm²  taux =  75.80 %
+   maximum à 1.98 mm avant le pied du congé, +2.11 % sur la section de référence
+Aile verticale, méthode du classeur (M = H·(Y' − y), τ = R/(L·t)) :
+   nu de l'autre aile (section 2 ou 4)    s =  15.00 mm  t = 28.000  M = 2.89665 kN·m  σ =  73.894  σ_éq =  74.418 N/mm²  taux =  31.44 %
+   milieu du congé                        s =  21.50 mm  t = 16.742  M = 2.62767 kN·m  σ = 187.501  σ_éq = 188.080 N/mm²  taux =  79.47 %
+   MAXIMUM                                s =  26.34 mm  t = 15.106  M = 2.42739 kN·m  σ = 212.739  σ_éq = 213.365 N/mm²  taux =  90.15 %
+   pied du congé (section 1 ou 3)         s =  28.00 mm  t = 15.000  M = 2.35870 kN·m  σ = 209.662  σ_éq = 210.307 N/mm²  taux =  88.86 %
+   maximum à 1.66 mm avant le pied du congé, +1.45 % sur la section de référence
+Aile verticale, équilibre P0 (pivot à l'arête, V sur l'axe ; σ = M/W + N/A, τ = H/A) :
+   nu de l'autre aile (section 2 ou 4)    s =  15.00 mm  t = 28.000  M = 2.37695 kN·m  σ =  65.727  σ_éq =  66.099 N/mm²  taux =  27.93 %
+   milieu du congé                        s =  21.50 mm  t = 16.742  M = 2.15624 kN·m  σ = 162.375  σ_éq = 162.796 N/mm²  taux =  68.79 %
+   MAXIMUM                                s =  26.39 mm  t = 15.100  M = 1.99019 kN·m  σ = 184.008  σ_éq = 184.465 N/mm²  taux =  77.94 %
+   pied du congé (section 1 ou 3)         s =  28.00 mm  t = 15.000  M = 1.93552 kN·m  σ = 181.548  σ_éq = 182.018 N/mm²  taux =  76.91 %
+   maximum à 1.61 mm avant le pied du congé, +1.34 % sur la section de référence
+
+## 2. Quand la section « e + r » dépasserait-elle la section e ?
+σ2 > σ1 ⇔ X + Xj < e + r·(e+r)²/((e+r)² − e²) = 33.23 mm (charge à 5.23 mm du pied du congé) ; même seuil pour Y + Yj
+avec le critère du classeur (σ_éq, cisaillement compris) : σ_éq,2 > σ_éq,1 ⇔ X + Xj < 30.57 mm ; σ_éq,4 > σ_éq,3 ⇔ Y + Yj < 33.02 mm (à X = 75 mm) ; le seuil en flexion seule (33.23 mm) est une condition nécessaire
+
+## 3. Convention « 0,8·r » (analogie EN 1993-1-8, à confirmer)
+coupe à e + 0,8·r = 25.4 mm avec l'épaisseur e : σ = 188.5 N/mm² (+5.5 % sur S1) ; aile verticale 219.2 (+4.6 % sur S3)
+
+## 4. Généralisation : rapport pic dans le congé / contrainte au pied du congé (flexion seule)
+La charge (ou l'ancrage) est à la distance s du pied du congé ; le rapport ne dépend que de e, r et s.
+catalogue du site, cornières égales (r = r1) : 197 cornières
+   s =   40 mm : pic/pied de 1.005 (L 55x55x4) à 1.086 (L 300x300x35) ; pic/max(S1, S2) au plus 1.086 (L 250x250x35) — 175 cornières
+   s =   20 mm : pic/pied de 1.009 (L 30x30x3) à 1.271 (L 300x300x35) ; pic/max(S1, S2) au plus 1.271 (L 250x250x35) — 194 cornières
+   s =   10 mm : pic/pied de 1.025 (L 20x20x3) à 1.720 (L 300x300x35) ; pic/max(S1, S2) au plus 1.607 (L 200x200x27) — 197 cornières
+   s =    5 mm : pic/pied de 1.093 (L 20x20x3) à 2.684 (L 300x300x35) ; pic/max(S1, S2) au plus 2.082 (L 180x180x16) — 197 cornières
+catalogue du classeur (rayon de la colonne E) : 42 cornières
+   s =   40 mm : pic/pied de 1.005 (L90x60x8) à 1.052 (L200x200x20) ; pic/max(S1, S2) au plus 1.052 (L200x200x20) — 19 cornières
+   s =   20 mm : pic/pied de 1.008 (L35x35x3.5) à 1.178 (L200x200x20) ; pic/max(S1, S2) au plus 1.178 (L200x200x20) — 37 cornières
+   s =   10 mm : pic/pied de 1.029 (L20x20x3) à 1.513 (L200x200x20) ; pic/max(S1, S2) au plus 1.513 (L200x200x20) — 42 cornières
+   s =    5 mm : pic/pied de 1.105 (L20x20x3) à 2.269 (L200x200x20) ; pic/max(S1, S2) au plus 1.997 (L150x150x15) — 42 cornières
+cas de contrôle (e = 15, r = 13) : s = 47 mm → 1.0214 ; s = 57 mm → 1.0147
+
+courbes écrites : /tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/synthese/sorties/s03_courbes.json
+P0 : H0 = 33.956 kN ; M0 au pied du congé (section 3) = 1.93552 ; au nu (section 4) = 2.37695 kN·m

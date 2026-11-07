@@ -1,0 +1,102 @@
+CONTRÔLES MÉCANIQUES COMPLÉMENTAIRES — produit par complements.py (cas de contrôle L120×120×15)
+
+== 1. Équilibre du modèle et position du pivot ==
+modèle des sections 3-4 : pivot au nu du mur, au plan moyen de l'aile horizontale (e/2 = 7.5 mm du dessous)
+   ΣM/pivot : R·X − H·YH = 3207000.0 − 41380.645·77.5 = -4.66e-10 N·mm ; H = 41.3806 kN au total, 13.7935 kN par ancrage
+modèle des ancrages (P8!C82) : bras Y − jeu = 85.0 − 10.0 = 75.0 mm → traction totale 42.7600 kN, 14.2533 kN par ancrage (pivot à 10.0 mm du dessous)
+   rapport des deux tractions : 1.03333 (= YH/(Y − jeu) = 1.03333)
+Hilti (P8!G85 = 24,68 kN/ancrage, ELU) : si l'excentrement est X = 75.0 mm et la traction également partagée, bras = R_ELU·X/(n·N) = 69.793 mm → pivot à 15.207 mm du dessous
+   écart classeur / Hilti sur la traction ELU : 22.9667 / 24,68 − 1 = -6.942% ; cisaillement : 22.9667 / 22,97 − 1 = -0.0145%
+effet d'un pivot unique à la hauteur c (au-dessus du dessous) sur l'aile verticale :
+     c (mm)    H (kN)  M3 (kN·m)  M4 (kN·m)    taux 3    taux 4  N/ancrage ELS (kN)
+      0.000   37.7294    2.15058    2.64106  81.0716%  28.7106%             12.5765   arête inférieure
+      7.500   41.3806    2.35870    2.89665  88.8621%  31.4443%             13.7935   e/2 (classeur, sections)
+     10.000   42.7600    2.43732    2.99320  91.8063%  32.4780%             14.2533   jeu 1 cm (classeur, ancrages)
+     15.207   45.9499    2.61915        nan  98.6172%      nan%             15.3166   implicite Hilti
+   (M4 n'a de sens que si le pivot est sous la section 4, c ≤ e)
+
+== 2. Aile verticale : efforts intérieurs du modèle du classeur (entre l'ancrage et la section 3) ==
+effort normal (traction) = R = 42.76 kN → σ_N = R/(L·e) = 9.5022 N/mm² (le classeur l'appelle τ, P8!G54)
+effort tranchant = H = 41.3806 kN → τ_H = H/(L·e) = 9.1957 N/mm²
+classeur : √(σ_M² + 3·(R/Le)²) = 210.3069 N/mm² → 88.8621%
+σ_M + σ_N et τ_H : √((209.6619 + 9.5022)² + 3·9.1957²) = 219.7421 N/mm² → 92.8488% (+4.486%)
+avec en plus le pivot des ancrages (c = 10.0 mm) : σ_éq = 226.7510 N/mm² → 95.8103%
+
+== 3. Le maximum de σ le long des congés (théorie des poutres, épaisseur variable) ==
+aile horizontale : σ_éq maximal à 11.021 mm du nu de l'autre aile, soit 1.979 mm AVANT le pied du congé (côté angle), épaisseur 15.1516 mm (+0.1516), σ = 182.4591, σ_éq = 183.1852 N/mm² → 77.4022% (classeur section 1 : 75.8021%, +2.111%)
+aile verticale : σ_éq maximal à 11.345 mm du nu de l'autre aile, soit 1.655 mm AVANT le pied du congé (côté angle), épaisseur 15.1058 mm (+0.1058), σ = 212.7385, σ_éq = 213.3654 N/mm² → 90.1544% (classeur section 3 : 88.8621%, +1.454%)
+la section 2 (e + r) dépasse la section 1 (e) seulement si X − e < r·(e+r)²/((e+r)² − e²) = 18.233 mm, soit X < 33.233 mm (le pied du congé est à 28.0 mm) ; même seuil pour Y entre les sections 4 et 3
+rapport (pic de σ dans le congé) / (σ au pied du congé), cornières du classeur, charge à s du pied du congé :
+   s =    5 mm : pic/pied au plus 2.2695 (L200x200x20)
+   s =   10 mm : pic/pied au plus 1.5132 (L200x200x20)
+   s =   20 mm : pic/pied au plus 1.1777 (L200x200x20)
+   s =   40 mm : pic/pied au plus 1.0521 (L200x200x20)
+
+== 3 bis. Diagrammes continus du modèle du classeur (mêmes hypothèses, aucune interpolation) ==
+aile horizontale, u = distance au dos (nu du mur) ; M(u) = R·(X + Xj − u) ; épaisseur e + r − √(r² − (u − e − r)²) dans le congé
+     u (mm) repère                  M (kN·m)   t (mm)  σ (N/mm²)  taux σ_éq
+       0.00 nu du mur (nœud)         3.20700      nan        nan       nan%
+       7.50 plan moyen aile vert.    2.88630      nan        nan       nan%
+      15.00 section 2 (nu int.)      2.56560   28.000     65.449    27.904%
+      21.50 milieu du congé          2.28766   16.742    163.239    69.255%
+      26.00 ≈ maximum (2 mm avant)   2.09524   15.155    182.459    77.402%
+      28.00 section 1 (pied congé)   2.00972   15.000    178.642    75.802%
+      51.50 mi-portée                1.00486   15.000     89.321    38.377%
+      75.00 charge                   0.00000   15.000      0.000     6.954%
+aile verticale, y = hauteur au-dessus du dessous ; M(y) = H·(Y + Yj − y), nul à l'ancrage
+     y (mm) repère                  M (kN·m)   t (mm)  σ (N/mm²)  taux σ_éq
+       7.50 pivot (nœud)             3.20700      nan        nan       nan%
+      15.00 section 4                2.89665   28.000     73.894    31.444%
+      21.50 milieu du congé          2.62767   16.742    187.501    79.470%
+      26.00 ≈ maximum (2 mm avant)   2.44146   15.155    212.609    90.098%
+      28.00 section 3 (pied congé)   2.35870   15.000    209.662    88.862%
+      56.50 mi-hauteur               1.17935   15.000    104.831    44.837%
+      85.00 ancrage                  0.00000   15.000      0.000     6.954%
+   (t = nan : la coupe traverse l'autre aile — le nœud d'angle, où la théorie des poutres ne s'applique pas)
+
+== 4. Part du cisaillement dans σ_éq ; sensibilité à la longueur reprise ==
+section 1 : σ_éq/σ − 1 = +0.4235%
+section 2 : σ_éq/σ − 1 = +0.9033%
+section 3 : σ_éq/σ − 1 = +0.3076%
+section 4 : σ_éq/σ − 1 = +0.7093%
+L = 250 mm : taux max = 106.6345%
+L = 300 mm : taux max = 88.8621%
+L = 350 mm : taux max = 76.1675%
+cisaillement maximal de Jourawski au plan neutre (1,5 × moyen), section 1 : 14.2533 N/mm² ; σ_éq correspondant (σ = 0) = √3·τ = 24.6875 N/mm²
+
+== 5. Pour situer : l'ELU de la note (68,9 kN, P8!C71) ==
+R_ELU / R_ELS = 1.61132 ; le classeur vérifie σ_éq(ELS) ≤ f_y/1.5 soit 1.5·σ_éq(ELS) ≤ f_y
+section 3 à l'ELU, élastique, f_y/1,0 : σ_éq = 338.8715 N/mm² → 95.4568%
+   rapport au taux du classeur : 1.07421 (= 1.61132/1.5)
+section 3 à l'ELU, plastique : M3,Ed = 3.80061 kN·m ; M_pl = L·e²/4·f_y = 5.99062 kN·m → 63.4427% ; V_Ed/V_pl = 7.4703%
+section 1 à l'ELU, plastique : 54.0561% ; élastique σ_éq : 81.4276%
+section 2 à l'ELU, plastique : 19.8045% ; élastique σ_éq : 29.9752%
+section 4 à l'ELU, plastique : 22.3600% ; élastique σ_éq : 33.7779%
+
+== 6. Ancrages ==
+N_ELS = Mmax/((Y − jeu)·n) = 3.2070 kN·m / (0.075 m × 3) = 14.25333 kN ; V_ELS = R/n = 14.25333 kN
+N = V ici parce que X = Y − jeu (75.0 = 75.0) : coïncidence du cas, pas une règle
+pression diamétrale (C88) = V_ELS/(d·e) = 59.3889 N/mm² ; à l'ELU ×1.6113 = 95.6944 N/mm²
+arrachement (C90) = V_ELS/(2·(haut − Y)·e) = 13.5746 N/mm² ; à l'ELU = 21.8730 N/mm²
+   en retranchant le demi-trou (d0 = d + 2 = 18.0 mm, hypothèse) : longueur 26.0 mm → 18.2735 N/mm² ELS (+34.62%)
+   aucune de ces deux contraintes n'est comparée à une limite (les mises en forme de C88 et C90 visent #REF!)
+
+== 7. Ce que le classeur calcule hors de la géométrie (aucun contrôle de domaine) ==
+X = 20 mm < e + r = 28 mm (charge sur le congé) : M1 = -0.3421, M3 = +0.6290 kN·m, ρ3 = +0.7355, taux max = 24.63%, N_ELS = 3.801 kN
+Y = 25 mm < e + r = 28 mm (ancrage dans le congé) : M1 = +2.0097, M3 = -0.5498 kN·m, ρ3 = -0.1714, taux max = 75.80%, N_ELS = 71.27 kN
+X + Xj = 75 + 50 = 125 mm > largeur 120 mm : M1 = +4.1477, M3 = +3.9312 kN·m, ρ3 = +0.7355, taux max = 155.94%, N_ELS = 23.76 kN
+Y = jeu = 10 mm (bras d'ancrage nul) : M1 = +2.0097, M3 = -23.0904 kN·m, ρ3 = -7.2000, taux max = 867.27%, N_ELS = 1.069e+12 kN
+
+== 8. E10A BD : retrouver 42,76 kN (ELS) et 68,9 kN (ELU) ? ==
+cible 42.76 kN : volées 2+6 : (G+Q)/2 = 44.166 (+3.29%) ; volées 6+9 : (G+Q)/2 = 44.184 (+3.33%) ; volée 12 : (G+Q)/2 = 41.245 (-3.54%) ; volées 2+9 : (G+Q)/2 = 44.312 (+3.63%)
+cible 68.9 kN : volées 10+12 : (G+Q)/2 = 69.066 (+0.24%) ; volées 9+12 : (G+Q)/2 = 63.410 (-7.97%) ; volées 2+12 : (G+Q)/2 = 63.392 (-7.99%) ; volées 6+12 : (G+Q)/2 = 63.264 (-8.18%)
+volée 12 : rapport ELU/ELS avec 1,35 G + 1,5 Q = 1.3947 ; rapport de la note 68,9/42,76 = 1.6113 (supérieur à 1,5, le plus grand coefficient d'EN 1990)
+42,76 kN sur 0,30 m = 142.53 kN/m ; plus grande réaction linéaire de E10A BD (D+G) = 30.6654 kN/m
+
+== 9. Le moteur actuel du site (modèle « lame », lecture seule) sur le même cas ==
+entrée : t = 15.0 mm, V = 42.76 kN ponctuelle sur L = 0.3 m, e = 7.5 cm (= X), γ_ELU = 1.61132, limites σ = 236.6667, τ = 136.6396, σ_éq,ELU = 355.0 N/mm²
+site : M_ELS = 10.69000 kN·m/m (× 0,30 m = 3.20700 kN·m = Mmax du classeur 3.20700) ; σ_ELS = 285.0667 ; τ_ELS = 9.5022 ; σ_éq,ELS = 285.5414 N/mm²
+site : U_σ = 120.6513% ; U_ELU = 129.6051% ; classeur (section 3) : 88.8621%
+   le site vérifie la section au NU DU MUR, épaisseur e, moment entier R·X : c'est M_max/W_e = 285.0667 N/mm², sans congé ni rapport Ye/YH
+   avec ses défauts (σ_lim,ELS = 155, τ_lim,ELS = 0,8) : U_τ = 1187.8%
+contrôle : fichiers de /home/user/integ/acier ajoutés ou modifiés par ce script : aucun

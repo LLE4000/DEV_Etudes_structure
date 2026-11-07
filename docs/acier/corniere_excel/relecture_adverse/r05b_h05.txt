@@ -1,0 +1,21 @@
+h = 0.5 : 14911 nœuds
+rondelle ±3, mur raide: H = 33.947 kN à y = 85.02 ; mur sous l'ancrage 33.947 kN centré à y = 0.00 ; mur au-dessus 0.000 kN ; appui vertical 42.760 kN ; itérations 16
+     section 3 : M = 1.9344 kN·m, σ nominal = 181.46 (-13.45% / classeur 209,66)
+     pic au congé σ1 = 240.0 N/mm² à 3.07 mm du pied (u = 24.93) ; poutre 181.3 ; rapport 1.324 ; / σadm 101.415%
+     pied du congé (28, 15) : 203.5
+     pied du congé (15, 28) : 206.2
+     section 2 : bas -125.66, haut 6.90 (×1.920) ; section 4 au mur -98.09 (×1.327)
+rondelle ±3, mur 1000 N/mm³: H = 34.712 kN à y = 85.03 ; mur sous l'ancrage 34.712 kN centré à y = 1.88 ; mur au-dessus 0.000 kN ; appui vertical 42.760 kN ; itérations 5
+     section 3 : M = 1.9782 kN·m, σ nominal = 185.35 (-11.60% / classeur 209,66)
+rondelle ±3, mur 30 N/mm³: H = 38.094 kN à y = 85.05 ; mur sous l'ancrage 38.094 kN centré à y = 9.29 ; mur au-dessus 0.000 kN ; appui vertical 42.760 kN ; itérations 3
+     section 3 : M = 2.1718 kN·m, σ nominal = 202.56 (-3.39% / classeur 209,66)
+rondelle ±15, mur raide: H = 33.748 kN à y = 85.53 ; mur sous l'ancrage 33.748 kN centré à y = 0.00 ; mur au-dessus 0.000 kN ; appui vertical 42.760 kN ; itérations 16
+     section 3 : M = 1.9400 kN·m, σ nominal = 181.95 (-13.22% / classeur 209,66)
+rondelle ±15, mur 1000 N/mm³: H = 34.467 kN à y = 85.62 ; mur sous l'ancrage 34.467 kN centré à y = 1.88 ; mur au-dessus 0.000 kN ; appui vertical 42.760 kN ; itérations 5
+     section 3 : M = 1.9845 kN·m, σ nominal = 185.90 (-11.33% / classeur 209,66)
+rondelle ±15, mur 30 N/mm³: H = 37.526 kN à y = 86.17 ; mur sous l'ancrage 37.526 kN centré à y = 9.26 ; mur au-dessus 0.000 kN ; appui vertical 42.760 kN ; itérations 3
+     section 3 : M = 2.1813 kN·m, σ nominal = 203.41 (-2.98% / classeur 209,66)
+
+real	0m18.534s
+user	0m20.122s
+sys	0m0.948s

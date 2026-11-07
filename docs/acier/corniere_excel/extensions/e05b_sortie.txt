@@ -1,0 +1,24 @@
+b_rond=   3 k_mur=100000 k_anc=     300 N/mm/mm (=    30.0 kN/mm par ancrage)  H= 33.53 kN  bas= 33.53 kN à y= 0.00  haut=  0.00 kN  it=5
+b_rond=   3 k_mur=100000 k_anc=    1000 N/mm/mm (=   100.0 kN/mm par ancrage)  H= 33.54 kN  bas= 33.54 kN à y= 0.00  haut=  0.00 kN  it=5
+b_rond=   3 k_mur=100000 k_anc=    3000 N/mm/mm (=   300.0 kN/mm par ancrage)  H= 36.27 kN  bas= 34.32 kN à y= 0.00  haut=  1.95 kN  it=5
+b_rond=   3 k_mur=100000 k_anc=   10000 N/mm/mm (=  1000.0 kN/mm par ancrage)  H= 53.43 kN  bas= 39.12 kN à y= 0.00  haut= 14.30 kN  it=7
+b_rond=   3 k_mur=100000 k_anc=  100000 N/mm/mm (= 10000.0 kN/mm par ancrage)  H= 76.17 kN  bas= 43.25 kN à y= 0.27  haut= 32.92 kN  it=5
+b_rond=   3 k_mur=100000 k_anc=   1e+07 N/mm/mm (=1000000.0 kN/mm par ancrage)  H= 95.25 kN  bas= 44.41 kN à y= 0.35  haut= 50.85 kN  it=4
+b_rond=   3 k_mur=1000 k_anc=     300 N/mm/mm (=    30.0 kN/mm par ancrage)  H= 34.23 kN  bas= 34.23 kN à y= 1.76  haut=  0.00 kN  it=3
+b_rond=   3 k_mur=1000 k_anc=    1000 N/mm/mm (=   100.0 kN/mm par ancrage)  H= 34.51 kN  bas= 34.51 kN à y= 2.43  haut=  0.00 kN  it=3
+b_rond=   3 k_mur=1000 k_anc=    3000 N/mm/mm (=   300.0 kN/mm par ancrage)  H= 34.74 kN  bas= 34.68 kN à y= 2.77  haut=  0.06 kN  it=3
+b_rond=   3 k_mur=1000 k_anc=   10000 N/mm/mm (=  1000.0 kN/mm par ancrage)  H= 50.17 kN  bas= 38.98 kN à y= 3.21  haut= 11.20 kN  it=5
+b_rond=   3 k_mur=1000 k_anc=  100000 N/mm/mm (= 10000.0 kN/mm par ancrage)  H= 70.15 kN  bas= 43.12 kN à y= 3.63  haut= 27.04 kN  it=4
+b_rond=   3 k_mur=1000 k_anc=   1e+07 N/mm/mm (=1000000.0 kN/mm par ancrage)  H= 75.18 kN  bas= 44.09 kN à y= 3.73  haut= 31.09 kN  it=3
+b_rond=  15 k_mur=100000 k_anc=     300 N/mm/mm (=    30.0 kN/mm par ancrage)  H= 33.69 kN  bas= 33.69 kN à y= 0.00  haut=  0.00 kN  it=5
+b_rond=  15 k_mur=100000 k_anc=    1000 N/mm/mm (=   100.0 kN/mm par ancrage)  H= 33.94 kN  bas= 33.94 kN à y= 0.00  haut=  0.00 kN  it=5
+b_rond=  15 k_mur=100000 k_anc=    3000 N/mm/mm (=   300.0 kN/mm par ancrage)  H= 36.63 kN  bas= 35.15 kN à y= 0.00  haut=  1.48 kN  it=5
+b_rond=  15 k_mur=100000 k_anc=   10000 N/mm/mm (=  1000.0 kN/mm par ancrage)  H= 53.55 kN  bas= 40.61 kN à y= 0.00  haut= 12.94 kN  it=7
+b_rond=  15 k_mur=100000 k_anc=  100000 N/mm/mm (= 10000.0 kN/mm par ancrage)  H= 72.13 kN  bas= 46.75 kN à y= 0.48  haut= 25.38 kN  it=5
+b_rond=  15 k_mur=100000 k_anc=   1e+07 N/mm/mm (=1000000.0 kN/mm par ancrage)  H= 91.99 kN  bas= 51.14 kN à y= 0.70  haut= 40.85 kN  it=4
+b_rond=  15 k_mur=1000 k_anc=     300 N/mm/mm (=    30.0 kN/mm par ancrage)  H= 34.37 kN  bas= 34.37 kN à y= 1.76  haut=  0.00 kN  it=3
+b_rond=  15 k_mur=1000 k_anc=    1000 N/mm/mm (=   100.0 kN/mm par ancrage)  H= 34.88 kN  bas= 34.88 kN à y= 2.45  haut=  0.00 kN  it=3
+b_rond=  15 k_mur=1000 k_anc=    3000 N/mm/mm (=   300.0 kN/mm par ancrage)  H= 35.66 kN  bas= 35.66 kN à y= 2.81  haut=  0.00 kN  it=3
+b_rond=  15 k_mur=1000 k_anc=   10000 N/mm/mm (=  1000.0 kN/mm par ancrage)  H= 50.43 kN  bas= 40.65 kN à y= 3.33  haut=  9.78 kN  it=5
+b_rond=  15 k_mur=1000 k_anc=  100000 N/mm/mm (= 10000.0 kN/mm par ancrage)  H= 65.48 kN  bas= 47.16 kN à y= 3.96  haut= 18.31 kN  it=3
+b_rond=  15 k_mur=1000 k_anc=   1e+07 N/mm/mm (=1000000.0 kN/mm par ancrage)  H= 73.76 kN  bas= 51.35 kN à y= 4.39  haut= 22.41 kN  it=3

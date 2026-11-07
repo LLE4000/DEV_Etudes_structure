@@ -1,0 +1,63 @@
+# E05 — maillage de la coupe (prototype), cas de contrôle
+
+## 1. Maillages et temps (CPython 3.12, numpy seul, solveur bande)
+maillage gros: 1469 nœuds, 336 éléments Q9, 2938 inconnues, demi-largeur de bande 97, |det J| min 5.411 ; maillage+rigidités 0.06 s, numérotation+assemblage 0.01 s, résolution (contact, 5 itérations) 0.26 s ; total 0.34 s
+maillage fin: 4725 nœuds, 1120 éléments Q9, 9450 inconnues, demi-largeur de bande 169, |det J| min 1.570 ; maillage+rigidités 0.19 s, numérotation+assemblage 0.04 s, résolution (contact, 6 itérations) 1.59 s ; total 1.84 s
+
+## 2. Convergence (cas A-ref)
+gros: H = 33.531 kN ; σ fibre int. S1 = 199.40, S3 = 203.11 ; pic de surface 238.56 N/mm² à s = 3.21 mm
+fin: H = 33.897 kN ; σ fibre int. S1 = 200.73, S3 = 203.64 ; pic de surface 236.41 N/mm² à s = 2.98 mm
+écart gros/fin sur le pic de surface : 0.90 %
+
+## 3. Cas calculés (maillage fin)
+A-ref: H = 33.897 kN à y = 85.13 ; contact sous l'ancrage 33.897 kN à y = 0.00 ; contact au-dessus 0.000 kN (y = 0.00) ; V = 42.760 kN ; charge en x = 74.989 ; itérations de contact 6
+   corps libre avec le pivot trouvé (V sur l'axe) : H = 33.897 kN
+A-mur: H = 34.654 kN à y = 85.14 ; contact sous l'ancrage 34.654 kN à y = 1.86 ; contact au-dessus 0.000 kN (y = 0.00) ; V = 42.760 kN ; charge en x = 74.989 ; itérations de contact 3
+   corps libre avec le pivot trouvé (V sur l'axe) : H = 34.654 kN
+A-rigide: H = 95.781 kN à y = 83.45 ; contact sous l'ancrage 45.581 kN à y = 0.60 ; contact au-dessus 50.200 kN (y = 101.19) ; V = 42.760 kN ; charge en x = 74.989 ; itérations de contact 5
+   corps libre avec le pivot trouvé (V sur l'axe) : H = nan kN
+B-Y85: H = 82.580 kN à y = 34.95 ; contact sous l'ancrage 82.580 kN à y = 0.00 ; contact au-dessus 0.000 kN (y = 0.00) ; V = 42.760 kN ; charge en x = 74.989 ; itérations de contact 6
+   corps libre avec le pivot trouvé (V sur l'axe) : H = 82.580 kN
+B-Y45: H = 38.520 kN à y = 75.01 ; contact sous l'ancrage 38.520 kN à y = 0.09 ; contact au-dessus 0.000 kN (y = 0.00) ; V = 42.760 kN ; charge en x = 74.989 ; itérations de contact 5
+   corps libre avec le pivot trouvé (V sur l'axe) : H = 38.520 kN
+
+## 4. Sections 1 à 4 : classeur, poutre continue, maillage (contraintes de flexion, N/mm²)
+| section | classeur M (kN·m) | classeur σ | FE M (kN·m) A-ref | FE N (kN) | σ poutre avec M,N du FE | FE fibre intérieure | FE fibre extérieure | rapport fibre/poutre |
+| 1 | 2.0097 | 178.64 | 2.0099 | 0.118 | 178.69 | 200.73 | -174.88 | 1.123 |
+| 2 | 2.5656 | 65.45 | 2.5828 | 1.203 | 66.03 | 1.71 | -124.70 | 0.026 |
+| 3 | 2.3587 | 209.66 | 1.9374 | 42.874 | 181.74 | 203.64 | -159.12 | 1.121 |
+| 4 | 2.8966 | 73.89 | 2.1166 | 43.933 | 59.22 | 1.64 | -97.47 | 0.028 |
+A-mur: S1 M = 2.0099 kN·m, fibre int. 200.6 ; S2 M = 2.5832 kN·m, fibre int. 1.7 ; S3 M = 1.9807 kN·m, fibre int. 208.1 ; S4 M = 2.1698 kN·m, fibre int. 1.6
+A-rigide: S1 M = 2.0099 kN·m, fibre int. 201.0 ; S2 M = 2.5797 kN·m, fibre int. 1.4 ; S3 M = 1.6373 kN·m, fibre int. 173.9 ; S4 M = 1.9685 kN·m, fibre int. 1.6
+contrôle statique section 1: M_FE = 2.00992 ; R·(x_q − u) = 2.00923 kN·m ; écart +0.034 %
+contrôle statique section 2: M_FE = 2.58283 ; R·(x_q − u) = 2.56511 kN·m ; écart +0.691 %
+
+## 5. Contrainte le long de la surface intérieure (A-ref)
+pic FE sur la surface : 236.42 N/mm² à s = 2.92 mm (point u = 25.11, y = 15.33) ; taux 99.90 % de σ_adm (contrainte de surface, τ nul)
+   côté aile horizontale (s ≤ milieu de l'arc): FE 236.42 à s = 2.92 ; poutre (M classeur) 181.66 ; poutre (M, N du FE) 181.66
+   côté aile verticale: FE 234.94 à s = 18.02 ; poutre (M classeur) 212.14 ; poutre (M, N du FE) 183.53
+von Mises nodal max hors voisinage des appuis (8 mm de l'ancrage, 3 mm de l'arête de contact) : 207.14 N/mm² en u = 25.15, y = 15.32
+von Mises nodal max absolu : 207.14 N/mm² en u = 25.15, y = 15.32 (singularité d'appui)
+
+## 6. Configuration B (aile horizontale en haut)
+B-Y85: H = 82.580 kN ; contact 82.580 kN à y = 0.00 (bout libre en y = 0) ; corps libre (pivot trouvé, V sur l'axe) H = 82.580 kN ; S1: M = 2.0099, fibre (congé) -199.9 ; S3: M = 2.8867 kN·m, N = -42.889 kN, fibre int. -297.8 ; S4: M = 2.6249 kN·m, N = -43.883 kN, fibre int. -1.6 ; corps libre : M3 = M4 = R·(X − e/2) = 2.8863 kN·m
+   surface intérieure : |σ| max 327.5 N/mm² (signe -1) à s = 18.88
+B-Y45: H = 38.520 kN ; contact 38.520 kN à y = 0.09 (bout libre en y = 0) ; corps libre (pivot trouvé, V sur l'axe) H = 38.520 kN ; S1: M = 2.0099, fibre (congé) -199.9 ; S3: M = 2.8867 kN·m, N = -42.900 kN, fibre int. -297.5 ; S4: M = 2.6249 kN·m, N = -43.883 kN, fibre int. -1.6 ; corps libre : M3 = M4 = R·(X − e/2) = 2.8863 kN·m
+   surface intérieure : |σ| max 327.5 N/mm² (signe -1) à s = 18.88
+
+## 7. Effet de levier selon la raideur de l'ancrage (maillage gros, A, mur raide)
+k =      30 kN/mm par cheville : H = 33.53 kN ; contact en tête (y > Y) = 0.00 kN
+k =     100 kN/mm par cheville : H = 33.54 kN ; contact en tête (y > Y) = 0.00 kN
+k =     200 kN/mm par cheville : H = 33.54 kN ; contact en tête (y > Y) = 0.00 kN
+k =     300 kN/mm par cheville : H = 36.27 kN ; contact en tête (y > Y) = 1.95 kN
+k =     500 kN/mm par cheville : H = 44.30 kN ; contact en tête (y > Y) = 7.71 kN
+k =    1000 kN/mm par cheville : H = 53.43 kN ; contact en tête (y > Y) = 14.30 kN
+k =    3000 kN/mm par cheville : H = 63.79 kN ; contact en tête (y > Y) = 22.04 kN
+k =   10000 kN/mm par cheville : H = 76.17 kN ; contact en tête (y > Y) = 32.92 kN
+k =  100000 kN/mm par cheville : H = 92.67 kN ; contact en tête (y > Y) = 48.41 kN
+
+## Figures
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e05_ef_vonmises.png
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e05_surface_interieure.png
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e05_effet_levier.png
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e05_ef_zoom_angle.png

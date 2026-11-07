@@ -1,0 +1,33 @@
+{
+ "python": "3.13.2",
+ "numpy": "2.2.5",
+ "cas": [
+  {
+   "maillage": "gros",
+   "noeuds": 1469,
+   "inconnues": 2938,
+   "demi_bande": 97,
+   "t_maillage_assemblage": 0.16618157200000017,
+   "t_resolution": 0.6206464899999999,
+   "iterations": 5,
+   "t_contraintes": 0.005342537999999841,
+   "t_total": 0.7921706,
+   "H_kN": 33.531002378970065,
+   "vm_max": 205.27177064239282
+  },
+  {
+   "maillage": "fin",
+   "noeuds": 4725,
+   "inconnues": 9450,
+   "demi_bande": 169,
+   "t_maillage_assemblage": 0.4570167540000001,
+   "t_resolution": 4.0803442059999995,
+   "iterations": 6,
+   "t_contraintes": 0.01248083300000058,
+   "t_total": 4.549841793000001,
+   "H_kN": 33.89713085244223,
+   "vm_max": 207.13534942999794
+  }
+ ],
+ "t_chargement_pyodide_numpy": 1.705738282
+}

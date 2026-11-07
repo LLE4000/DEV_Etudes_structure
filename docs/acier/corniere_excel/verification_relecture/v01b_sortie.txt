@@ -1,0 +1,7 @@
+classeur : σ3 = 209.662 N/mm², taux 3 = 88.86 %
+poutre, ancrage sur son axe : σ3 nominale = classeur pour un pivot à 11.94 mm ; taux 3 = classeur pour 11.97 mm
+maillage s07, mur 30 N/mm³ : H = 38.04 kN à y = 85.15 ; pivot 9.28 mm ; σ3 nominale 202.8 N/mm² (-3.3 % / classeur)
+maillage s07, mur 20 N/mm³ : H = 38.91 kN à y = 85.16 ; pivot 10.99 mm ; σ3 nominale 207.1 N/mm² (-1.2 % / classeur)
+maillage s07, mur 10 N/mm³ : H = 40.77 kN à y = 85.17 ; pivot 14.38 mm ; σ3 nominale 214.3 N/mm² (+2.2 % / classeur)
+maillage s07, mur 5 N/mm³ : H = 42.99 kN à y = 85.19 ; pivot 18.06 mm ; σ3 nominale 220.1 N/mm² (+5.0 % / classeur)
+seuil (interpolation logarithmique entre 20 et 10 N/mm³) : σ3 nominale = classeur vers 16 N/mm³

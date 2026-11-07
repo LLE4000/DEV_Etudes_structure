@@ -1,0 +1,38 @@
+Maillage : 13919 nœuds, 13440 éléments (pas 0.5 mm) — 0.3 s
+Cas de base (cheville δ = 0.1 mm, mur rigide) : résultante sous la rondelle à y = 70.78 mm (axe Y = 85.0) ; T par le ressort = 40.78 kN
+Cas de base : 23 itérations de contact ; ΣV tige = 142.533 N/mm (q = 142.533) ; T = 135.925 N/mm ; C = 135.925 N/mm
+  mur, sous la rondelle : C = 135.925 N/mm, résultante à y_c = 0.00 mm, contact jusqu'à y = 0.00 mm ; au droit de la rondelle : 0.000 N/mm ; en tête (y > Y + 15) : 0.000 N/mm
+  traction totale des chevilles T = 40.78 kN (classeur, sections : R·X/YH = 41.38 kN ; ancrages : R·X/(Y − 10) = 42.76 kN)
+Validation x = 50 mm : M_EF = 3562.6 N·mm/mm (statique 3563.3) ; σ fibre EF = 95.30 MPa, poutre = 95.02 MPa (+0.29 %)
+Validation y = 50 mm (aile verticale) : N = 142.53 N/mm (q = 142.53), V = 135.75 (T = 135.92), M = 2824.1
+Sections du classeur, contraintes EF (cas de base) :
+  S1 : L = 15.00 mm ; N = -1.02 N/mm, |M| = 6692.5 N·mm/mm (classeur 6699.1) ; σ linéarisé = 178.54 ; σ max réel = 202.75 MPa ; classeur σ = 178.64 MPa → réel/classeur = 1.135
+  S2 : L = 28.00 mm ; N = +14.79 N/mm, |M| = 8753.2 N·mm/mm (classeur 8552.0) ; σ linéarisé = 67.52 ; σ max réel = 126.05 MPa ; classeur σ = 65.45 MPa → réel/classeur = 1.926
+  S3 : L = 15.00 mm ; N = +141.55 N/mm, |M| = 5809.1 N·mm/mm (classeur 7862.3) ; σ linéarisé = 164.35 ; σ max réel = 186.16 MPa ; classeur σ = 209.66 MPa → réel/classeur = 0.888
+  S4 : L = 28.00 mm ; N = +159.36 N/mm, |M| = 6878.8 N·mm/mm (classeur 9655.5) ; σ linéarisé = 58.34 ; σ max réel = 91.06 MPa ; classeur σ = 73.89 MPa → réel/classeur = 1.232
+  S2 : σ_xx max = 126.05 MPa à y = 0.00 mm ; σ_xx en fibre haute (y = e + r) = 4.58 MPa (bord libre vertical) ; W effectif = M/σ_max = 69.44 mm³/mm contre W(e+r) = 130.67 et W(e) = 37.50 → épaisseur équivalente √(6 W_eff) = 20.41 mm
+  S4 : W effectif = 75.54 mm³/mm → épaisseur équivalente 21.29 mm (classeur : e + r = 28)
+Congé (surface) : σ1 max = 237.50 MPa à (24.97, 15.36), angle -103.5° (270° = pied côté aile horizontale, 180° = pied côté aile verticale) ; von Mises max = 232.69
+Coin (x, y ≤ e + r + 15) : von Mises max = 234.80 MPa en (0.70, 0.00)
+Face intérieure aile verticale : σ1 max = 186.37 à y = 28.00 ; aile horizontale : |σ| max = 202.75 à x = 28.00
+Taux « pic élastique » : 100.4 % (classeur : 88.86 %)
+Balayage EF : aile horizontale σ max = 229.18 MPa à x = 26.01 ; aile verticale σ max = 210.49 MPa à y = 26.01 (classeur S3 = 209.66)
+Cheville       rigide : T = 93.83 kN, y_c = 0.39 mm, résultante rondelle y = 71.0 mm, levier en tête Q = 3.15 kN, σ_S3 = 156.5 MPa
+Cheville  δ = 0.01 mm : T = 56.37 kN, y_c = 0.25 mm, résultante rondelle y = 70.2 mm, levier en tête Q = 8.91 kN, σ_S3 = 168.6 MPa
+Cheville  δ = 0.02 mm : T = 50.74 kN, y_c = 0.17 mm, résultante rondelle y = 70.2 mm, levier en tête Q = 5.58 kN, σ_S3 = 174.6 MPa
+Cheville  δ = 0.05 mm : T = 41.16 kN, y_c = 0.00 mm, résultante rondelle y = 70.1 mm, levier en tête Q = 0.00 kN, σ_S3 = 185.1 MPa
+Cheville   δ = 0.1 mm : T = 40.78 kN, y_c = 0.00 mm, résultante rondelle y = 70.8 mm, levier en tête Q = 0.00 kN, σ_S3 = 186.2 MPa
+Cheville   δ = 0.2 mm : T = 34.78 kN, y_c = 0.00 mm, résultante rondelle y = 83.0 mm, levier en tête Q = 0.00 kN, σ_S3 = 203.0 MPa
+Cheville   δ = 0.5 mm : T = 28.88 kN, y_c = 0.00 mm, résultante rondelle y = 99.9 mm, levier en tête Q = 0.00 kN, σ_S3 = 219.5 MPa
+Cheville   δ = 1.0 mm : T = 28.86 kN, y_c = 0.00 mm, résultante rondelle y = 100.0 mm, levier en tête Q = 0.00 kN, σ_S3 = 219.6 MPa
+Mur           rigide (cheville δ = 0,1 mm) : T = 40.78 kN, y_c = 0.00 mm, contact jusqu'à 0.0 mm, σ_S3 = 186.2 MPa
+Mur   k = 5000 N/mm³ (cheville δ = 0,1 mm) : T = 41.19 kN, y_c = 1.36 mm, contact jusqu'à 3.5 mm, σ_S3 = 190.7 MPa
+Mur   k = 1000 N/mm³ (cheville δ = 0,1 mm) : T = 40.79 kN, y_c = 2.84 mm, contact jusqu'à 8.4 mm, σ_S3 = 197.9 MPa
+Mur    k = 300 N/mm³ (cheville δ = 0,1 mm) : T = 39.39 kN, y_c = 4.74 mm, contact jusqu'à 14.0 mm, σ_S3 = 209.1 MPa
+Mur    k = 100 N/mm³ (cheville δ = 0,1 mm) : T = 36.63 kN, y_c = 7.34 mm, contact jusqu'à 22.4 mm, σ_S3 = 225.4 MPa
+Mur     k = 30 N/mm³ (cheville δ = 0,1 mm) : T = 33.08 kN, y_c = 11.76 mm, contact jusqu'à 37.5 mm, σ_S3 = 247.0 MPa
+Réaction verticale de la tige à x_V = 0.0 mm (cheville δ = 0,1 mm) : T = 41.65 kN, σ_S3 = 183.7 MPa, N_S3 = 141.5 N/mm, M_S3 = 5727 N·mm/mm
+Réaction verticale de la tige à x_V = 7.5 mm (cheville δ = 0,1 mm) : T = 40.78 kN, σ_S3 = 186.2 MPa, N_S3 = 141.6 N/mm, M_S3 = 5809 N·mm/mm
+Réaction verticale de la tige à x_V = 15.0 mm (cheville δ = 0,1 mm) : T = 36.58 kN, σ_S3 = 197.9 MPa, N_S3 = 141.7 N/mm, M_S3 = 6200 N·mm/mm
+Figures : c03_carte_vm.png, c03_sections.png, c03_balayage.png
+→ c03_ef_h0.5.json (348 s)

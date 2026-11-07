@@ -1,0 +1,591 @@
+INVENTAIRE DU CLASSEUR — produit par inventaire.py (lecture des formules et des valeurs en cache)
+
+Feuille « P8  » : 101 formules, 137 constantes (textes compris)
+Feuille « E10A BD » : 37 formules, 38 constantes (textes compris)
+Feuille « CORNIERES » : 0 formules, 352 constantes (textes compris)
+
+== 1. Formules, antécédents, dépendants ==
+P8!D3    =MAX(I37,I47,I57,I67)                                                  => 0.8886208216062588
+        lit : I37, I47, I57, I67
+        lue par : RIEN (cellule terminale)
+P8!C4    =IF($B$3="NON STANDARD",K4,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,2,FALSE())) => 120
+        lit : 293 cellules (plage)
+        lue par : formule P8!A20; zone de texte « ZoneTexte 12 » du dessin
+P8!C5    =IF($B$3="NON STANDARD",K5,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,3,FALSE())) => 120
+        lit : 293 cellules (plage)
+        lue par : formule P8!A21; formule P8!C90; zone de texte « ZoneTexte 15 » du dessin
+P8!C6    =IF($B$3="NON STANDARD",K6,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,4,FALSE())) => 15
+        lit : 293 cellules (plage)
+        lue par : formule P8!C19; formule P8!C20; formule P8!C23; formule P8!C24; formule P8!C25; formule P8!C31; formule P8!C41; formule P8!C51; formule P8!C61; formule P8!C88; formule P8!C90; zone de texte « ZoneTexte 7 » du dessin; zone de texte « ZoneTexte 8 » du dessin
+P8!C7    =IF($B$3="NON STANDARD",K7,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,5,FALSE())) => 13
+        lit : 293 cellules (plage)
+        lue par : formule P8!C19; formule P8!C23; formule P8!C41; formule P8!C61; zone de texte « ZoneTexte 13 » du dessin
+P8!C19   =$C$13-$C$7-$C$6                                                       => 47
+        lit : C13, C6, C7
+        lue par : formule P8!C33; zone de texte « ZoneTexte 2 » du dessin
+P8!A20   =C4-C13                                                                => 45
+        lit : C13, C4
+        lue par : zone de texte « ZoneTexte 29 » du dessin
+P8!C20   =$C$13-$C$6                                                            => 60
+        lit : C13, C6
+        lue par : formule P8!C43; zone de texte « ZoneTexte 3 » du dessin
+P8!A21   =C5-C16                                                                => 35
+        lit : C16, C5
+        lue par : zone de texte « ZoneTexte 30 » du dessin
+P8!L22   =3.7*0.19*1230                                                         => 864.69
+        lit : —
+        lue par : RIEN (cellule terminale)
+P8!C23   =$C$16-$C$6-$C$7                                                       => 57
+        lit : C16, C6, C7
+        lue par : formule P8!C56; zone de texte « ZoneTexte 9 » du dessin
+P8!C24   =C16-$C$6                                                              => 70
+        lit : C16, C6
+        lue par : formule P8!C64; zone de texte « ZoneTexte 10 » du dessin
+P8!C25   =$C$16-$C$6/2                                                          => 77.5
+        lit : C16, C6
+        lue par : formule P8!C56; formule P8!C64; zone de texte « ZoneTexte 11 » du dessin
+P8!C31   =$C$6                                                                  => 15
+        lit : C6
+        lue par : formule P8!C32; formule P8!G34; formule P8!F35
+P8!F31   =C35                                                                   => 2.0097199999999997
+        lit : C35
+        lue par : formule P8!G31
+P8!G31   =F31*10^6/F32                                                          => 178.64177777777775
+        lit : F31, F32
+        lue par : formule P8!I31; formule P8!F37; formule P8!G37
+P8!H31   =C3/$C$10                                                              => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I31
+P8!I31   =G31/H31                                                               => 0.7548244131455398
+        lit : G31, H31
+        lue par : RIEN (cellule terminale)
+P8!C32   =$C$8*10*C31^2/6                                                       => 11250
+        lit : C31, C8
+        lue par : formule P8!F32
+P8!F32   =C32                                                                   => 11250
+        lit : C32
+        lue par : formule P8!G31
+P8!C33   =$C$19                                                                 => 47
+        lit : C19
+        lue par : formule P8!C35
+P8!C34   =C14                                                                   => 0
+        lit : C14
+        lue par : formule P8!C35
+P8!F34   =$C$12                                                                 => 42.76
+        lit : C12
+        lue par : RIEN (cellule terminale)
+P8!G34   =($C$12)*1000/($C$8*10*$C$31)                                          => 9.502222222222223
+        lit : C12, C31, C8
+        lue par : formule P8!I34; formule P8!F37; formule P8!G37
+P8!H34   =C3/$C$10/SQRT(3)                                                      => 136.63956370821143
+        lit : C10, C3
+        lue par : formule P8!I34
+P8!I34   =G34/H34                                                               => 0.06954224650858704
+        lit : G34, H34
+        lue par : RIEN (cellule terminale)
+P8!C35   =$C$12*(($C$33+$C$34)/1000)                                            => 2.0097199999999997
+        lit : C12, C33, C34
+        lue par : formule P8!F31; zone de texte « ZoneTexte 16 » du dessin
+P8!F35   =$C$8*10&" x "&$C$31                                                   => '300 x 15'
+        lit : C31, C8
+        lue par : RIEN (cellule terminale)
+P8!F37   ="√(" & TEXT(G31,"0,0") & "² + 3 × " & TEXT(G34,"0,0") & "²) ="        => '√(178,6² + 3 × 9,5²) ='
+        lit : G31, G34
+        lue par : RIEN (cellule terminale)
+P8!G37   =(G31^2+3*G34^2)^0.5                                                   => 179.3983317901435
+        lit : G31, G34
+        lue par : formule P8!I37
+P8!H37   =C3/$C$10                                                              => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I37
+P8!I37   =G37/H37                                                               => 0.758021120240043
+        lit : G37, H37
+        lue par : formule P8!D3
+P8!C41   =$C$6+$C$7                                                             => 28
+        lit : C6, C7
+        lue par : formule P8!C42; formule P8!G44; formule P8!F45
+P8!F41   =C45                                                                   => 2.5656
+        lit : C45
+        lue par : formule P8!G41
+P8!G41   =F41*10^6/F42                                                          => 65.44897959183673
+        lit : F41, F42
+        lue par : formule P8!I41; formule P8!F47; formule P8!G47
+P8!H41   =$C$3/$C$10                                                            => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I41
+P8!I41   =G41/H41                                                               => 0.27654498419085943
+        lit : G41, H41
+        lue par : RIEN (cellule terminale)
+P8!C42   =$C$8*10*C41^2/6                                                       => 39200
+        lit : C41, C8
+        lue par : formule P8!F42
+P8!F42   =C42                                                                   => 39200
+        lit : C42
+        lue par : formule P8!G41
+P8!C43   =$C$20                                                                 => 60
+        lit : C20
+        lue par : formule P8!C45
+P8!C44   =C14                                                                   => 0
+        lit : C14
+        lue par : formule P8!C45
+P8!F44   =$C$12                                                                 => 42.76
+        lit : C12
+        lue par : formule P8!G44
+P8!G44   =(F44)*1000/(C8*10*C41)                                                => 5.09047619047619
+        lit : C41, C8, F44
+        lue par : formule P8!I44; formule P8!F47; formule P8!G47
+P8!H44   =$C$3/$C$10/SQRT(3)                                                    => 136.63956370821143
+        lit : C10, C3
+        lue par : formule P8!I44
+P8!I44   =G44/H44                                                               => 0.03725477491531448
+        lit : G44, H44
+        lue par : RIEN (cellule terminale)
+P8!C45   =$C$12*(($C$43+$C$44)/1000)                                            => 2.5656
+        lit : C12, C43, C44
+        lue par : formule P8!F41; zone de texte « ZoneTexte 17 » du dessin
+P8!F45   =C8*10&" x "&C41                                                       => '300 x 28'
+        lit : C41, C8
+        lue par : RIEN (cellule terminale)
+P8!F47   ="√(" & TEXT(G41,"0,0") & "² + 3 × " & TEXT(G44,"0,0") & "²) ="        => '√(65,4² + 3 × 5,1²) ='
+        lit : G41, G44
+        lue par : RIEN (cellule terminale)
+P8!G47   =(G41^2+3*G44^2)^0.5                                                   => 66.04019816104488
+        lit : G41, G44
+        lue par : formule P8!I47
+P8!H47   =$C$3/$C$10                                                            => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I47
+P8!I47   =G47/H47                                                               => 0.2790430908213164
+        lit : G47, H47
+        lue par : formule P8!D3
+P8!C51   =$C$6                                                                  => 15
+        lit : C6
+        lue par : formule P8!C52; formule P8!G54; formule P8!F55
+P8!F51   =C57                                                                   => 2.358696774193548
+        lit : C57
+        lue par : formule P8!G51
+P8!G51   =F51*10^6/F52                                                          => 209.66193548387093
+        lit : F51, F52
+        lue par : formule P8!I51; formule P8!F57; formule P8!G57
+P8!H51   =$C$3/$C$10                                                            => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I51
+P8!I51   =G51/H51                                                               => 0.8858955020445252
+        lit : G51, H51
+        lue par : RIEN (cellule terminale)
+P8!C52   =$C$8*10*C51^2/6                                                       => 11250
+        lit : C51, C8
+        lue par : formule P8!F52
+P8!F52   =C52                                                                   => 11250
+        lit : C52
+        lue par : formule P8!G51
+P8!C53   =$C$13                                                                 => 75
+        lit : C13
+        lue par : RIEN (cellule terminale)
+P8!C54   =C14                                                                   => 0
+        lit : C14
+        lue par : RIEN (cellule terminale)
+P8!F54   =$C$12                                                                 => 42.76
+        lit : C12
+        lue par : formule P8!G54
+P8!G54   =($F$54)*1000/($C$8*10*$C$51)                                          => 9.502222222222223
+        lit : C51, C8, F54
+        lue par : formule P8!I54; formule P8!F57; formule P8!G57
+P8!H54   =$C$3/$C$10/SQRT(3)                                                    => 136.63956370821143
+        lit : C10, C3
+        lue par : formule P8!I54
+P8!I54   =G54/H54                                                               => 0.06954224650858704
+        lit : G54, H54
+        lue par : RIEN (cellule terminale)
+P8!C55   =($C$13+$C$14)/1000*$C$12                                              => 3.207
+        lit : C12, C13, C14
+        lue par : formule P8!C57
+P8!F55   =$C$8*10&" x "&$C$51                                                   => '300 x 15'
+        lit : C51, C8
+        lue par : RIEN (cellule terminale)
+P8!C56   =($C$23+$C$17)/($C$25+$C$17)                                           => 0.7354838709677419
+        lit : C17, C23, C25
+        lue par : formule P8!C57
+P8!C57   =C56*C55                                                               => 2.358696774193548
+        lit : C55, C56
+        lue par : formule P8!F51; zone de texte « ZoneTexte 21 » du dessin
+P8!F57   ="√(" & TEXT(G51,"0,0") & "² + 3 × " & TEXT(G54,"0,0") & "²) ="        => '√(209,7² + 3 × 9,5²) ='
+        lit : G51, G54
+        lue par : RIEN (cellule terminale)
+P8!G57   =(G51^2+3*G54^2)^0.5                                                   => 210.3069277801479
+        lit : G51, G54
+        lue par : formule P8!I57
+P8!H57   =$C$3/$C$10                                                            => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I57
+P8!I57   =G57/H57                                                               => 0.8886208216062588
+        lit : G57, H57
+        lue par : formule P8!D3
+P8!C61   =$C$6+$C$7                                                             => 28
+        lit : C6, C7
+        lue par : formule P8!C62; formule P8!G64; formule P8!F65
+P8!F61   =C65                                                                   => 2.8966451612903223
+        lit : C65
+        lue par : formule P8!G61
+P8!G61   =F61*10^6/F62                                                          => 73.89400921658986
+        lit : F61, F62
+        lue par : formule P8!I61; formule P8!F67; formule P8!G67
+P8!H61   =$C$3/$C$10                                                            => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I61
+P8!I61   =G61/H61                                                               => 0.31222820795742195
+        lit : G61, H61
+        lue par : RIEN (cellule terminale)
+P8!C62   =$C$8*10*C61^2/6                                                       => 39200
+        lit : C61, C8
+        lue par : formule P8!F62
+P8!F62   =C62                                                                   => 39200
+        lit : C62
+        lue par : formule P8!G61
+P8!C63   =($C$13+$C$14)/1000*$C$12                                              => 3.207
+        lit : C12, C13, C14
+        lue par : formule P8!C65; zone de texte « ZoneTexte 19 » du dessin
+P8!C64   =($C$24+$C$17)/($C$25+$C$17)                                           => 0.9032258064516129
+        lit : C17, C24, C25
+        lue par : formule P8!C65
+P8!F64   =$C$12                                                                 => 42.76
+        lit : C12
+        lue par : formule P8!G64
+P8!G64   =($F$64)*1000/($C$8*10*$C$61)                                          => 5.09047619047619
+        lit : C61, C8, F64
+        lue par : formule P8!I64; formule P8!F67; formule P8!G67
+P8!H64   =$C$3/$C$10/SQRT(3)                                                    => 136.63956370821143
+        lit : C10, C3
+        lue par : formule P8!I64
+P8!I64   =G64/H64                                                               => 0.03725477491531448
+        lit : G64, H64
+        lue par : RIEN (cellule terminale)
+P8!C65   =C64*C63                                                               => 2.8966451612903223
+        lit : C63, C64
+        lue par : formule P8!F61; zone de texte « ZoneTexte 20 » du dessin
+P8!F65   =C8*10&" x "&C61                                                       => '300 x 28'
+        lit : C61, C8
+        lue par : RIEN (cellule terminale)
+P8!F67   ="√(" & TEXT(G61,"0,0") & "² + 3 × " & TEXT(G64,"0,0") & "²) ="        => '√(73,9² + 3 × 5,1²) ='
+        lit : G61, G64
+        lue par : RIEN (cellule terminale)
+P8!G67   =(G61^2+3*G64^2)^0.5                                                   => 74.41816607280028
+        lit : G61, G64
+        lue par : formule P8!I67
+P8!H67   =$C$3/$C$10                                                            => 236.66666666666666
+        lit : C10, C3
+        lue par : formule P8!I67
+P8!I67   =G67/H67                                                               => 0.3144429552371843
+        lit : G67, H67
+        lue par : formule P8!D3
+P8!C70   =C12                                                                   => 42.76
+        lit : C12
+        lue par : formule P8!C83; formule P8!C85; formule P8!C86
+P8!D73   =C8                                                                    => 30
+        lit : C8
+        lue par : RIEN (cellule terminale)
+P8!C75   =C16/10                                                                => 8.5
+        lit : C16
+        lue par : formule P8!C82
+P8!C78   =($C$13+$C$14)/1000*$C$12                                              => 3.207
+        lit : C12, C13, C14
+        lue par : formule P8!C82; zone de texte « ZoneTexte 18 » du dessin
+P8!C82   =C78/(C75*0.01-C76*0.01)/C73                                           => 14.25333333333333
+        lit : C73, C75, C76, C78
+        lue par : formule P8!C85
+P8!C83   =C70/C73                                                               => 14.253333333333332
+        lit : C70, C73
+        lue par : formule P8!C86; formule P8!C88; formule P8!C90
+P8!C85   =(C71/C70)*C82                                                         => 22.966666666666665
+        lit : C70, C71, C82
+        lue par : RIEN (cellule terminale)
+P8!C86   =(C71/C70)*C83                                                         => 22.96666666666667
+        lit : C70, C71, C83
+        lue par : RIEN (cellule terminale)
+P8!C88   =C83*10^3/(C74*C6)                                                     => 59.388888888888886
+        lit : C6, C74, C83
+        lue par : RIEN (cellule terminale)
+P8!C90   =C83*1000/(2*(C5-C16)*C6)                                              => 13.574603174603173
+        lit : C16, C5, C6, C83
+        lue par : RIEN (cellule terminale)
+E10A BD!C4    =B4/100                                                                => 11.845
+        lit : B4
+        lue par : formule E10A BD!D4
+E10A BD!D4    =C4/2/$D$3                                                             => 4.403345724907063
+        lit : C4, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F4    =E4*$F$2                                                               => 7.16
+        lit : E4, F2
+        lue par : formule E10A BD!G4
+E10A BD!G4    =F4/2/$G$3                                                             => 2.6617100371747213
+        lit : F4, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!C5    =B5/100                                                                => 27.7333
+        lit : B5
+        lue par : formule E10A BD!D5
+E10A BD!D5    =C5/2/$D$3                                                             => 10.309776951672863
+        lit : C5, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F5    =E5*$F$2                                                               => 16.56
+        lit : E5, F2
+        lue par : formule E10A BD!G5
+E10A BD!G5    =F5/2/$G$3                                                             => 6.156133828996282
+        lit : F5, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!C6    =B6/100                                                                => 11.0967
+        lit : B6
+        lue par : formule E10A BD!D6
+E10A BD!D6    =C6/2/$D$3                                                             => 4.125167286245353
+        lit : C6, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F6    =E6*$F$2                                                               => 7.12
+        lit : E6, F2
+        lue par : formule E10A BD!G6
+E10A BD!G6    =F6/2/$G$3                                                             => 2.646840148698885
+        lit : F6, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!C7    =B7/100                                                                => 27.4787
+        lit : B7
+        lue par : formule E10A BD!D7
+E10A BD!D7    =C7/2/$D$3                                                             => 10.215130111524164
+        lit : C7, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F7    =E7*$F$2                                                               => 16.56
+        lit : E7, F2
+        lue par : formule E10A BD!G7
+E10A BD!G7    =F7/2/$G$3                                                             => 6.156133828996282
+        lit : F7, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!C8    =B8/100                                                                => 22.8497
+        lit : B8
+        lue par : formule E10A BD!D8
+E10A BD!D8    =C8/2/$D$3                                                             => 8.494312267657993
+        lit : C8, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F8    =E8*$F$2                                                               => 13.76
+        lit : E8, F2
+        lue par : formule E10A BD!G8
+E10A BD!G8    =F8/2/$G$3                                                             => 5.115241635687732
+        lit : F8, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!C9    =B9/100                                                                => 27.770100000000003
+        lit : B9
+        lue par : formule E10A BD!D9
+E10A BD!D9    =C9/2/$D$3                                                             => 10.323457249070634
+        lit : C9, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F9    =E9*$F$2                                                               => 16.56
+        lit : E9, F2
+        lue par : formule E10A BD!G9
+E10A BD!G9    =F9/2/$G$3                                                             => 6.156133828996282
+        lit : F9, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!C10   =B10/100                                                               => 36.2821
+        lit : B10
+        lue par : formule E10A BD!D10
+E10A BD!D10   =C10/2/$D$3                                                            => 13.487769516728624
+        lit : C10, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F10   =E10*$F$2                                                              => 19.36
+        lit : E10, F2
+        lue par : formule E10A BD!G10
+E10A BD!G10   =F10/2/$G$3                                                            => 7.197026022304833
+        lit : F10, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!I10   =3.29*4                                                                => 13.16
+        lit : —
+        lue par : RIEN (cellule terminale)
+E10A BD!C11   =B11/100                                                               => 57.93
+        lit : B11
+        lue par : formule E10A BD!D11
+E10A BD!D11   =C11/2/$D$3                                                            => 21.53531598513011
+        lit : C11, D3
+        lue par : RIEN (cellule terminale)
+E10A BD!F11   =E11*$F$2                                                              => 24.56
+        lit : E11, F2
+        lue par : formule E10A BD!G11
+E10A BD!G11   =F11/2/$G$3                                                            => 9.130111524163569
+        lit : F11, G3
+        lue par : RIEN (cellule terminale)
+E10A BD!I13   =6.59*2                                                                => 13.18
+        lit : —
+        lue par : RIEN (cellule terminale)
+E10A BD!H15   =36.28/2+8.7                                                           => 26.84
+        lit : —
+        lue par : RIEN (cellule terminale)
+E10A BD!I15   =10.73+11.54                                                           => 22.27
+        lit : —
+        lue par : RIEN (cellule terminale)
+E10A BD!H16   =5.58*4                                                                => 22.32
+        lit : —
+        lue par : RIEN (cellule terminale)
+
+== 2. Constantes lues par une formule (SAISIES et données) ==
+P8!B3    = 'L120x120x15'  lue par : formule P8!C4; formule P8!C4; formule P8!C5; formule P8!C5; formule P8!C6; formule P8!C6; formule P8!C7; formule P8!C7
+P8!C3    = 355         lue par : formule P8!H31; formule P8!H34; formule P8!H37; formule P8!H41; formule P8!H44; formule P8!H47; formule P8!H51; formule P8!H54; formule P8!H57; formule P8!H61; formule P8!H64; formule P8!H67
+P8!K4    = 120         lue par : formule P8!C4
+P8!K5    = 120         lue par : formule P8!C5
+P8!K6    = 15          lue par : formule P8!C6
+P8!K7    = 13          lue par : formule P8!C7
+P8!C8    = 30          lue par : formule P8!C32; formule P8!G34; formule P8!F35; formule P8!C42; formule P8!G44; formule P8!F45; formule P8!C52; formule P8!G54; formule P8!F55; formule P8!C62; formule P8!G64; formule P8!F65; formule P8!D73
+P8!C10   = 1.5         lue par : formule P8!H31; formule P8!H34; formule P8!H37; formule P8!H41; formule P8!H44; formule P8!H47; formule P8!H51; formule P8!H54; formule P8!H57; formule P8!H61; formule P8!H64; formule P8!H67
+P8!C12   = 42.76       lue par : formule P8!F34; formule P8!G34; formule P8!C35; formule P8!F44; formule P8!C45; formule P8!F54; formule P8!C55; formule P8!C63; formule P8!F64; formule P8!C70; formule P8!C78; zone de texte « ZoneTexte 22 » du dessin
+P8!C13   = 75          lue par : formule P8!C19; formule P8!A20; formule P8!C20; formule P8!C53; formule P8!C55; formule P8!C63; formule P8!C78; zone de texte « ZoneTexte 5 » du dessin
+P8!C14   = 0           lue par : formule P8!C34; formule P8!C44; formule P8!C54; formule P8!C55; formule P8!C63; formule P8!C78; zone de texte « ZoneTexte 6 » du dessin
+P8!C16   = 85          lue par : formule P8!A21; formule P8!C23; formule P8!C24; formule P8!C25; formule P8!C75; formule P8!C90; zone de texte « ZoneTexte 14 » du dessin
+P8!C17   = 0           lue par : formule P8!C56; formule P8!C56; formule P8!C64; formule P8!C64; zone de texte « ZoneTexte 23 » du dessin
+P8!C71   = 68.9        lue par : formule P8!C85; formule P8!C86
+P8!C73   = 3           lue par : formule P8!C82; formule P8!C83
+P8!C74   = 16          lue par : formule P8!C88
+P8!C76   = 1           lue par : formule P8!C82
+E10A BD!F2    = 4           lue par : formule E10A BD!F4; formule E10A BD!F5; formule E10A BD!F6; formule E10A BD!F7; formule E10A BD!F8; formule E10A BD!F9; formule E10A BD!F10; formule E10A BD!F11
+E10A BD!D3    = 1.345       lue par : formule E10A BD!D4; formule E10A BD!D5; formule E10A BD!D6; formule E10A BD!D7; formule E10A BD!D8; formule E10A BD!D9; formule E10A BD!D10; formule E10A BD!D11
+E10A BD!G3    = 1.345       lue par : formule E10A BD!G4; formule E10A BD!G5; formule E10A BD!G6; formule E10A BD!G7; formule E10A BD!G8; formule E10A BD!G9; formule E10A BD!G10; formule E10A BD!G11
+E10A BD!B4    = 1184.5      lue par : formule E10A BD!C4
+E10A BD!E4    = 1.79        lue par : formule E10A BD!F4
+E10A BD!B5    = 2773.33     lue par : formule E10A BD!C5
+E10A BD!E5    = 4.14        lue par : formule E10A BD!F5
+E10A BD!B6    = 1109.67     lue par : formule E10A BD!C6
+E10A BD!E6    = 1.78        lue par : formule E10A BD!F6
+E10A BD!B7    = 2747.87     lue par : formule E10A BD!C7
+E10A BD!E7    = 4.14        lue par : formule E10A BD!F7
+E10A BD!B8    = 2284.97     lue par : formule E10A BD!C8
+E10A BD!E8    = 3.44        lue par : formule E10A BD!F8
+E10A BD!B9    = 2777.01     lue par : formule E10A BD!C9
+E10A BD!E9    = 4.14        lue par : formule E10A BD!F9
+E10A BD!B10   = 3628.21     lue par : formule E10A BD!C10
+E10A BD!E10   = 4.84        lue par : formule E10A BD!F10
+E10A BD!B11   = 5793        lue par : formule E10A BD!C11
+E10A BD!E11   = 6.14        lue par : formule E10A BD!F11
+
+== 3. Constantes NUMÉRIQUES lues par rien (hors feuille CORNIERES) ==
+P8!G85   = 24.68
+P8!G86   = 22.97
+E10A BD!A4    = 1
+E10A BD!A5    = 2
+E10A BD!A6    = 4
+E10A BD!A7    = 6
+E10A BD!A8    = 7
+E10A BD!A9    = 9
+E10A BD!A10   = 10
+E10A BD!A11   = 12
+
+== 4. Formules lues par rien (ni formule, ni dessin) ==
+P8!D3    =MAX(I37,I47,I57,I67)  => 0.8886208216062588
+P8!L22   =3.7*0.19*1230  => 864.69
+P8!I31   =G31/H31  => 0.7548244131455398
+P8!F34   =$C$12  => 42.76
+P8!I34   =G34/H34  => 0.06954224650858704
+P8!F35   =$C$8*10&" x "&$C$31  => '300 x 15'
+P8!F37   ="√(" & TEXT(G31,"0,0") & "² + 3 × " & TEXT(G34,"0,0") & "²) ="  => '√(178,6² + 3 × 9,5²) ='
+P8!I41   =G41/H41  => 0.27654498419085943
+P8!I44   =G44/H44  => 0.03725477491531448
+P8!F45   =C8*10&" x "&C41  => '300 x 28'
+P8!F47   ="√(" & TEXT(G41,"0,0") & "² + 3 × " & TEXT(G44,"0,0") & "²) ="  => '√(65,4² + 3 × 5,1²) ='
+P8!I51   =G51/H51  => 0.8858955020445252
+P8!C53   =$C$13  => 75
+P8!C54   =C14  => 0
+P8!I54   =G54/H54  => 0.06954224650858704
+P8!F55   =$C$8*10&" x "&$C$51  => '300 x 15'
+P8!F57   ="√(" & TEXT(G51,"0,0") & "² + 3 × " & TEXT(G54,"0,0") & "²) ="  => '√(209,7² + 3 × 9,5²) ='
+P8!I61   =G61/H61  => 0.31222820795742195
+P8!I64   =G64/H64  => 0.03725477491531448
+P8!F65   =C8*10&" x "&C61  => '300 x 28'
+P8!F67   ="√(" & TEXT(G61,"0,0") & "² + 3 × " & TEXT(G64,"0,0") & "²) ="  => '√(73,9² + 3 × 5,1²) ='
+P8!D73   =C8  => 30
+P8!C85   =(C71/C70)*C82  => 22.966666666666665
+P8!C86   =(C71/C70)*C83  => 22.96666666666667
+P8!C88   =C83*10^3/(C74*C6)  => 59.388888888888886
+P8!C90   =C83*1000/(2*(C5-C16)*C6)  => 13.574603174603173
+E10A BD!D4    =C4/2/$D$3  => 4.403345724907063
+E10A BD!G4    =F4/2/$G$3  => 2.6617100371747213
+E10A BD!D5    =C5/2/$D$3  => 10.309776951672863
+E10A BD!G5    =F5/2/$G$3  => 6.156133828996282
+E10A BD!D6    =C6/2/$D$3  => 4.125167286245353
+E10A BD!G6    =F6/2/$G$3  => 2.646840148698885
+E10A BD!D7    =C7/2/$D$3  => 10.215130111524164
+E10A BD!G7    =F7/2/$G$3  => 6.156133828996282
+E10A BD!D8    =C8/2/$D$3  => 8.494312267657993
+E10A BD!G8    =F8/2/$G$3  => 5.115241635687732
+E10A BD!D9    =C9/2/$D$3  => 10.323457249070634
+E10A BD!G9    =F9/2/$G$3  => 6.156133828996282
+E10A BD!D10   =C10/2/$D$3  => 13.487769516728624
+E10A BD!G10   =F10/2/$G$3  => 7.197026022304833
+E10A BD!I10   =3.29*4  => 13.16
+E10A BD!D11   =C11/2/$D$3  => 21.53531598513011
+E10A BD!G11   =F11/2/$G$3  => 9.130111524163569
+E10A BD!I13   =6.59*2  => 13.18
+E10A BD!H15   =36.28/2+8.7  => 26.84
+E10A BD!I15   =10.73+11.54  => 22.27
+E10A BD!H16   =5.58*4  => 22.32
+
+== 5. Renvois d'une feuille à l'autre ==
+P8!C4 lit la feuille CORNIERES
+P8!C5 lit la feuille CORNIERES
+P8!C6 lit la feuille CORNIERES
+P8!C7 lit la feuille CORNIERES
+Formules hors « E10A BD » qui la lisent : 0 ; formules de « E10A BD » qui lisent ailleurs : 0
+
+== 6. Zones de texte du dessin (P8) liées à une cellule ==
+ZoneTexte 2    -> P8!C19  affiche '47 mm'         (cellule : 47)
+ZoneTexte 3    -> P8!C20  affiche '60 mm'         (cellule : 60)
+ZoneTexte 4    -> P8!C21  affiche ' '             (cellule : VIDE)
+ZoneTexte 5    -> P8!C13  affiche '75 mm'         (cellule : 75)
+ZoneTexte 6    -> P8!C14  affiche '0 mm'          (cellule : 0)
+ZoneTexte 7    -> P8!C6   affiche '15 mm'         (cellule : 15)
+ZoneTexte 8    -> P8!C6   affiche '15 mm'         (cellule : 15)
+ZoneTexte 9    -> P8!C23  affiche '57 mm'         (cellule : 57)
+ZoneTexte 10   -> P8!C24  affiche '70 mm'         (cellule : 70)
+ZoneTexte 11   -> P8!C25  affiche '78 mm'         (cellule : 77.5)
+ZoneTexte 12   -> P8!C4   affiche '120 mm'        (cellule : 120)
+ZoneTexte 13   -> P8!C7   affiche '13 mm'         (cellule : 13)
+ZoneTexte 14   -> P8!C16  affiche '85 mm'         (cellule : 85)
+ZoneTexte 15   -> P8!C5   affiche '120 mm'        (cellule : 120)
+ZoneTexte 16   -> P8!C35  affiche '2,01 kN.m'     (cellule : 2.0097199999999997)
+ZoneTexte 17   -> P8!C45  affiche '2,57 kN.m'     (cellule : 2.5656)
+ZoneTexte 18   -> P8!C78  affiche '3,21 kN.m'     (cellule : 3.207)
+ZoneTexte 19   -> P8!C63  affiche '3,21 kN.m'     (cellule : 3.207)
+ZoneTexte 20   -> P8!C65  affiche '2,90 kN.m'     (cellule : 2.8966451612903223)
+ZoneTexte 21   -> P8!C57  affiche '2,36 kN.m'     (cellule : 2.358696774193548)
+ZoneTexte 22   -> P8!C12  affiche '42,76kN'       (cellule : 42.76)
+ZoneTexte 23   -> P8!C17  affiche '0 mm'          (cellule : 0)
+ZoneTexte 29   -> P8!A20  affiche '45 mm'         (cellule : 45)
+ZoneTexte 30   -> P8!A21  affiche '35 mm'         (cellule : 35)
+
+== 7. Listes de validation, noms définis, mises en forme conditionnelles ==
+validation de P8!B3 : liste CORNIERES!$A$2:$A$59
+validation de P8!C3 : liste CORNIERES!$G$2:$G$3
+validation de P8!C3 : liste CORNIERES!$G$2:$G$3
+nom défini ListeCorniere = CORNIERES!$A$2:$A$56
+nom défini _xlnm.Print_Area = CORNIERES!$A$1:$F$59
+nom défini _xlnm.Print_Area = 'P8 '!$A$1:$I$104
+MFC C88                : ['C88&lt;=#REF!', 'C88&gt;#REF!']
+MFC C90                : ['C90&lt;=#REF!', 'C90&gt;#REF!']
+MFC D3                 : ['1', '1']
+MFC G31 G34 G37 C38    : ['C31&lt;=#REF!', 'C31&gt;#REF!']
+MFC G41 G44 G47        : ['G41&lt;=#REF!', 'G41&gt;#REF!']
+MFC G51 G54 G57        : ['G51&lt;=#REF!', 'G51&gt;#REF!']
+MFC G61 G64 G67        : ['G61&lt;=#REF!', 'G61&gt;#REF!']
+MFC I37                : ['1', '1']
+MFC I47                : ['1', '1']
+MFC I57                : ['1', '1']
+MFC I67                : ['1', '1']
+formules qui utilisent ListeCorniere : 0
+noms de la liste CORNIERES!A2:A59 : 58, distincts : 43
+noms en double (15) : L100x75x9, L120x80x11, L150x100x12, L30x20x3, L35x20x3.5, L40x25x4, L45x30x4, L50x30x5, L50x40x5, L60x40x5, L70x50x6, L80x50x7, L80x60x7, L80x60x8, L90x60x8
+lignes de la liste hors du nom ListeCorniere (A57:A59) : ['L25x25x3', 'L20x20x3', 'NON STANDARD']
+
+== 8. Feuille E10A BD : recalcul des colonnes ==
+D3 = G3 = 1.345 (diviseur commun) ; F2 = 4 (multiplie la surface)
+volée | masse B (kg) | poids C=B/100 (kN) | D=C/2/D3 (kN/m) | surface E (m²) | F=E·F2 (kN) | G=F/2/G3 (kN/m) | D+G (kN/m) | (C+F)/2 (kN)
+    1 |      1184.50 |            11.8450 |          4.4033 |           1.79 |        7.16 |          2.6617 |     7.0651 |       9.5025
+    2 |      2773.33 |            27.7333 |         10.3098 |           4.14 |       16.56 |          6.1561 |    16.4659 |      22.1467
+    4 |      1109.67 |            11.0967 |          4.1252 |           1.78 |        7.12 |          2.6468 |     6.7720 |       9.1083
+    6 |      2747.87 |            27.4787 |         10.2151 |           4.14 |       16.56 |          6.1561 |    16.3713 |      22.0193
+    7 |      2284.97 |            22.8497 |          8.4943 |           3.44 |       13.76 |          5.1152 |    13.6096 |      18.3048
+    9 |      2777.01 |            27.7701 |         10.3235 |           4.14 |       16.56 |          6.1561 |    16.4796 |      22.1651
+   10 |      3628.21 |            36.2821 |         13.4878 |           4.84 |       19.36 |          7.1970 |    20.6848 |      27.8210
+   12 |      5793.00 |            57.9300 |         21.5353 |           6.14 |       24.56 |          9.1301 |    30.6654 |      41.2450
+cellules isolées : I10 = 13.16, I13 = 13.18, H15 = 26.84, I15 = 22.27, H16 = 22.32
+  I13/I10 - 1 = +0.1520% ; I15/H16 - 1 = -0.2240%
+  H15 = C10/2 + 8,7 : C10/2 = 18.1410 ; F10/2 = 9.6800

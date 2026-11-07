@@ -1,0 +1,160 @@
+# S01 — le classeur relu
+
+## 1. Structure
+feuille « P8  » : 101 formules (93 numériques, 8 de texte), 137 constantes
+feuille « E10A BD » : 37 formules (37 numériques, 0 de texte), 38 constantes
+feuille « CORNIERES » : 0 formules (0 numériques, 0 de texte), 352 constantes
+formules hors de « E10A BD » qui la lisent : 0
+zones de texte du dessin liées à une cellule : 24 → C19, C20, C21, C13, C14, C6, C6, C23, C24, C25, C4, C7, C16, C5, C35, C45, C78, C63, C65, C57, C12, C17, A20, A21 ; sans lien : 4
+liste de validation de B3 : CORNIERES!$A$2:$A$59
+liste de validation de C3 : CORNIERES!$G$2:$G$3
+liste de validation de C3 : CORNIERES!$G$2:$G$3
+nom défini ListeCorniere : CORNIERES!$A$2:$A$56
+zone d'impression : 'P8 '!$A$1:$I$104 ; sauts de page après les lignes [67]
+format de C8 : '0" cm"'
+format de C25 : '0" mm"'
+format de C76 : '0" cm"'
+format de C12 : '0.00"kN"'
+format de C13 : '0" mm"'
+format de C14 : '0" mm"'
+format de C16 : '0" mm"'
+format de C17 : '0" mm"'
+format de C3 : '"S"0'
+libellé B43 : 'Xe =' (à côté de C43 = $C$20, soit Xe+r)
+A12 = 'Réaction max (ELS) : p. 15' ; B12 = 'Rmax =' ; C12 = 42.76 (la mention de page est dans le libellé A12)
+formules de P8 qui lisent C4 : ['A20']
+formules de P8 qui lisent C5 : ['A21', 'C90']
+formules de P8 qui lisent A20 : aucune
+formules de P8 qui lisent A21 : aucune
+C90 = =C83*1000/(2*(C5-C16)*C6) (recalcule haut. − Y, ne lit pas A21)
+mise en forme conditionnelle C88 : expression  C88<=#REF!
+mise en forme conditionnelle C88 : expression  C88>#REF!
+mise en forme conditionnelle C90 : expression  C90<=#REF!
+mise en forme conditionnelle C90 : expression  C90>#REF!
+mise en forme conditionnelle D3 : cellIs lessThanOrEqual 1
+mise en forme conditionnelle D3 : cellIs greaterThan 1
+mise en forme conditionnelle C38 G31 G34 G37 : expression  C31<=#REF!
+mise en forme conditionnelle C38 G31 G34 G37 : expression  C31>#REF!
+mise en forme conditionnelle G41 G44 G47 : expression  G41<=#REF!
+mise en forme conditionnelle G41 G44 G47 : expression  G41>#REF!
+mise en forme conditionnelle G51 G54 G57 : expression  G51<=#REF!
+mise en forme conditionnelle G51 G54 G57 : expression  G51>#REF!
+mise en forme conditionnelle G61 G64 G67 : expression  G61<=#REF!
+mise en forme conditionnelle G61 G64 G67 : expression  G61>#REF!
+mise en forme conditionnelle I37 : cellIs lessThanOrEqual 1
+mise en forme conditionnelle I37 : cellIs greaterThan 1
+mise en forme conditionnelle I47 : cellIs lessThanOrEqual 1
+mise en forme conditionnelle I47 : cellIs greaterThan 1
+mise en forme conditionnelle I57 : cellIs lessThanOrEqual 1
+mise en forme conditionnelle I57 : cellIs greaterThan 1
+mise en forme conditionnelle I67 : cellIs lessThanOrEqual 1
+mise en forme conditionnelle I67 : cellIs greaterThan 1
+
+## 2. Formules de P8 recalculées telles qu'elles sont écrites
+93 formules numériques de P8 recalculées ; plus grand écart relatif au cache 0.0e+00 (L22)
+
+## 3. Méthode réécrite en symboles face aux valeurs enregistrées (cas de contrôle)
+92 cellules comparées ; plus grand écart relatif 2.5e-16 (C82) ; formules numériques hors modèle : L22
+M1 = 2.009720 kN·m (attendu par l'ingénieur 2.00972) ; taux 75.8021 %
+M2 = 2.565600 kN·m (attendu par l'ingénieur 2.5656) ; taux 27.9043 %
+M3 = 2.358697 kN·m (attendu par l'ingénieur 2.3587) ; taux 88.8621 %
+M4 = 2.896645 kN·m (attendu par l'ingénieur 2.89665) ; taux 31.4443 %
+taux max 88.8621 % en section 3 (D3 en cache : 88.8621 %)
+
+## 4. Parité sur des saisies tirées au hasard
+592 saisies (cornière du catalogue lue sur sa première ligne, comme RECHERCHEV, ou « NON STANDARD » ; f_y, γ, L, R, X, Xj, Y, Yj, n, d, jeu, R_ELU variés) ; 54464 comparaisons ; plus grand écart relatif 2.0e-15 (C85)
+
+## 5. Annexe A — formules numériques de P8 (cellule | formule | symbole | valeur en cache)
+| D3 | `=MAX(I37,I47,I57,I67)` | taux max = MAX(I37 ; I47 ; I57 ; I67) | 88,86 % |
+| C4 | `=IF($B$3="NON STANDARD",K4,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,2,FALSE()))` | larg. (aile horizontale) — catalogue col. 2 ou K4 | 120 |
+| C5 | `=IF($B$3="NON STANDARD",K5,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,3,FALSE()))` | haut. (aile verticale) — col. 3 ou K5 | 120 |
+| C6 | `=IF($B$3="NON STANDARD",K6,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,4,FALSE()))` | e — col. 4 ou K6 | 15 |
+| C7 | `=IF($B$3="NON STANDARD",K7,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,5,FALSE()))` | r (congé) — col. 5 ou K7 | 13 |
+| C19 | `=$C$13-$C$7-$C$6` | Xe = X − r − e | 47 |
+| A20 | `=C4-C13` | larg. − X (dessin) | 45 |
+| C20 | `=$C$13-$C$6` | Xe+r = X − e | 60 |
+| A21 | `=C5-C16` | haut. − Y (dessin) | 35 |
+| L22 | `=3.7*0.19*1230` | 3,7 × 0,19 × 1 230 (isolée, sens inconnu) | 864,69 |
+| C23 | `=$C$16-$C$6-$C$7` | Ye = Y − e − r | 57 |
+| C24 | `=C16-$C$6` | Ye+r = Y − e | 70 |
+| C25 | `=$C$16-$C$6/2` | YH = Y − e/2 | 77,5 |
+| C31 | `=$C$6` | t₁ = e | 15 |
+| F31 | `=C35` | copie de M1 | 2,00972 kN·m |
+| G31 | `=F31*10^6/F32` | σ₁ = M1/W₁ | 178,642 |
+| H31 | `=C3/$C$10` | σ_adm = f_y/γ | 236,667 |
+| I31 | `=G31/H31` | σ₁/σ_adm | 75,48 % |
+| C32 | `=$C$8*10*C31^2/6` | W₁ = L·e²/6 | 11 250 |
+| F32 | `=C32` | copie de W₁ | 11 250 |
+| C33 | `=$C$19` | Xe | 47 |
+| C34 | `=C14` | Xj | 0 |
+| F34 | `=$C$12` | copie de R | 42,76 kN |
+| G34 | `=($C$12)*1000/($C$8*10*$C$31)` | τ₁ = R/(L·e) | 9,502 |
+| H34 | `=C3/$C$10/SQRT(3)` | τ_adm = f_y/(γ·√3) | 136,64 |
+| I34 | `=G34/H34` | τ₁/τ_adm | 6,95 % |
+| C35 | `=$C$12*(($C$33+$C$34)/1000)` | M1 = R·(Xe + Xj) | 2,00972 kN·m |
+| G37 | `=(G31^2+3*G34^2)^0.5` | σ_éq,1 = √(σ₁² + 3τ₁²) | 179,398 |
+| H37 | `=C3/$C$10` | σ_adm | 236,667 |
+| I37 | `=G37/H37` | taux 1 | 75,80 % |
+| C41 | `=$C$6+$C$7` | t₂ = e + r | 28 |
+| F41 | `=C45` | copie de M2 | 2,5656 kN·m |
+| G41 | `=F41*10^6/F42` | σ₂ = M2/W₂ | 65,449 |
+| H41 | `=$C$3/$C$10` | σ_adm | 236,667 |
+| I41 | `=G41/H41` | σ₂/σ_adm | 27,65 % |
+| C42 | `=$C$8*10*C41^2/6` | W₂ = L·(e+r)²/6 | 39 200 |
+| F42 | `=C42` | copie de W₂ | 39 200 |
+| C43 | `=$C$20` | Xe+r (libellé B43 « Xe = ») | 60 |
+| C44 | `=C14` | Xj | 0 |
+| F44 | `=$C$12` | copie de R | 42,76 kN |
+| G44 | `=(F44)*1000/(C8*10*C41)` | τ₂ = R/(L·(e+r)) | 5,09 |
+| H44 | `=$C$3/$C$10/SQRT(3)` | τ_adm | 136,64 |
+| I44 | `=G44/H44` | τ₂/τ_adm | 3,73 % |
+| C45 | `=$C$12*(($C$43+$C$44)/1000)` | M2 = R·(Xe+r + Xj) | 2,5656 kN·m |
+| G47 | `=(G41^2+3*G44^2)^0.5` | σ_éq,2 | 66,04 |
+| H47 | `=$C$3/$C$10` | σ_adm | 236,667 |
+| I47 | `=G47/H47` | taux 2 | 27,90 % |
+| C51 | `=$C$6` | t₃ = e | 15 |
+| F51 | `=C57` | copie de M3 | 2,3587 kN·m |
+| G51 | `=F51*10^6/F52` | σ₃ = M3/W₃ | 209,662 |
+| H51 | `=$C$3/$C$10` | σ_adm | 236,667 |
+| I51 | `=G51/H51` | σ₃/σ_adm | 88,59 % |
+| C52 | `=$C$8*10*C51^2/6` | W₃ = L·e²/6 | 11 250 |
+| F52 | `=C52` | copie de W₃ | 11 250 |
+| C53 | `=$C$13` | X (affiché, non relu) | 75 |
+| C54 | `=C14` | Xj (affiché, non relu) | 0 |
+| F54 | `=$C$12` | copie de R | 42,76 kN |
+| G54 | `=($F$54)*1000/($C$8*10*$C$51)` | τ₃ = R/(L·e) | 9,502 |
+| H54 | `=$C$3/$C$10/SQRT(3)` | τ_adm | 136,64 |
+| I54 | `=G54/H54` | τ₃/τ_adm | 6,95 % |
+| C55 | `=($C$13+$C$14)/1000*$C$12` | Mmax = R·(X + Xj) | 3,207 kN·m |
+| C56 | `=($C$23+$C$17)/($C$25+$C$17)` | ρ₃ = (Ye + Yj)/(YH + Yj) | 0,73548 |
+| C57 | `=C56*C55` | M3 = ρ₃·Mmax | 2,3587 kN·m |
+| G57 | `=(G51^2+3*G54^2)^0.5` | σ_éq,3 | 210,307 |
+| H57 | `=$C$3/$C$10` | σ_adm | 236,667 |
+| I57 | `=G57/H57` | taux 3 | 88,86 % |
+| C61 | `=$C$6+$C$7` | t₄ = e + r | 28 |
+| F61 | `=C65` | copie de M4 | 2,89665 kN·m |
+| G61 | `=F61*10^6/F62` | σ₄ = M4/W₄ | 73,894 |
+| H61 | `=$C$3/$C$10` | σ_adm | 236,667 |
+| I61 | `=G61/H61` | σ₄/σ_adm | 31,22 % |
+| C62 | `=$C$8*10*C61^2/6` | W₄ = L·(e+r)²/6 | 39 200 |
+| F62 | `=C62` | copie de W₄ | 39 200 |
+| C63 | `=($C$13+$C$14)/1000*$C$12` | Mmax (2ᵉ copie) | 3,207 kN·m |
+| C64 | `=($C$24+$C$17)/($C$25+$C$17)` | ρ₄ = (Ye+r + Yj)/(YH + Yj) | 0,90323 |
+| F64 | `=$C$12` | copie de R | 42,76 kN |
+| G64 | `=($F$64)*1000/($C$8*10*$C$61)` | τ₄ = R/(L·(e+r)) | 5,09 |
+| H64 | `=$C$3/$C$10/SQRT(3)` | τ_adm | 136,64 |
+| I64 | `=G64/H64` | τ₄/τ_adm | 3,73 % |
+| C65 | `=C64*C63` | M4 = ρ₄·Mmax | 2,89665 kN·m |
+| G67 | `=(G61^2+3*G64^2)^0.5` | σ_éq,4 | 74,418 |
+| H67 | `=$C$3/$C$10` | σ_adm | 236,667 |
+| I67 | `=G67/H67` | taux 4 | 31,44 % |
+| C70 | `=C12` | R_ELS | 42,76 kN |
+| D73 | `=C8` | L en cm (affichage) | 30 cm |
+| C75 | `=C16/10` | Y en cm | 8,5 cm |
+| C78 | `=($C$13+$C$14)/1000*$C$12` | Mmax (3ᵉ copie) | 3,207 kN·m |
+| C82 | `=C78/(C75*0.01-C76*0.01)/C73` | N_ELS = Mmax/((Y − jeu)·n) | 14,253 kN |
+| C83 | `=C70/C73` | V_ELS = R/n | 14,253 kN |
+| C85 | `=(C71/C70)*C82` | N_ELU = N_ELS·R_ELU/R_ELS | 22,967 kN |
+| C86 | `=(C71/C70)*C83` | V_ELU = V_ELS·R_ELU/R_ELS | 22,967 kN |
+| C88 | `=C83*10^3/(C74*C6)` | pression diamétrale V_ELS/(d·e) | 59,389 N/mm² |
+| C90 | `=C83*1000/(2*(C5-C16)*C6)` | arrachement V_ELS/(2·(haut. − Y)·e) | 13,575 N/mm² |

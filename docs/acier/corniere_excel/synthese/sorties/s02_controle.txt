@@ -1,0 +1,103 @@
+# S02 — cas de contrôle L120x120x15, S355, L = 300 mm, R = 42,76 kN, X = 75, Y = 85, Xj = Yj = 0, γ = 1,50
+
+## 1. Les quatre sections (méthode du classeur)
+| section | t (mm) | W (mm³) | bras (mm) | M (kN·m) | σ | τ | σ_éq (N/mm²) | taux |
+| 1 | 15 | 11250 | 47.0 | 2.00972 | 178.642 | 9.502 | 179.398 | 75.80 % |
+| 2 | 28 | 39200 | 60.0 | 2.56560 | 65.449 | 5.090 | 66.040 | 27.90 % |
+| 3 | 15 | 11250 | 57.0 | 2.35870 | 209.662 | 9.502 | 210.307 | 88.86 % |
+| 4 | 28 | 39200 | 70.0 | 2.89665 | 73.894 | 5.090 | 74.418 | 31.44 % |
+σ_adm = f_y/γ = 236.667 ; τ_adm = σ_adm/√3 = 136.640 N/mm² ; Mmax = R·(X + Xj) = 3.2070 kN·m
+taux max = 88.8621 % en section 3
+σ_éq/σ − 1 : S1 +0.42 % ; S2 +0.90 % ; S3 +0.31 % ; S4 +0.71 %
+
+## 2. Ancrages (classeur)
+N_ELS = Mmax/((Y − jeu)·n) = 3.2070/((85 − 10)·3) = 14.2533 kN (C82)
+V_ELS = R/n = 14.2533 kN (C83)
+R_ELU/R_ELS = 68.9/42.76 = 1.61132 ; N_ELU = 22.9667 ; V_ELU = 22.9667 kN
+G85 = 24,68 kN (tapé) / C85 = 1.0746 ; G86 = 22,97 / C86 = 1.00015
+C88 pression diamétrale V_ELS/(d·e) = 59.389 N/mm² (×ρ_ELU 95.69) ; C90 arrachement V_ELS/(2·(haut. − Y)·e) = 13.575 N/mm² (×ρ_ELU 21.87)
+arrachement en déduisant un demi-trou Ø18 (hypothèse) : 18.27 N/mm² (+34.6 %)
+
+## 3. Pourquoi les quatre moments diffèrent
+H = Mmax/YH = 41.381 kN ; H/R = X/YH = 0.96774
+M2 − M1 = R·r = 0.55588 kN·m ; M4 − M3 = H·r = 0.53795 kN·m
+M3/M1 = (H/R)·(Ye/Xe) = 0.96774 × 1.21277 = 1.17364
+W(e+r)/W(e) = ((e+r)/e)² = 3.4844 ; σ2/σ1 = 0.3664 ; σ4/σ3 = 0.3524
+ordre : M1 = 2.00972 < M3 = 2.35870 < M2 = 2.56560 < M4 = 2.89665 < Mmax = 3.20700
+au nœud filaire (u = y = e/2) : aile horizontale R·(X − e/2) = 2.88630 ; aile verticale du classeur H·(Y − e/2) = 3.20700 kN·m ; saut R·e/2 = 0.32070 kN·m (11.1 %)
+
+## 4. Les jeux (méthode du classeur ; recoupée par les formules réévaluées)
+| saisie | M1 | M3 | M4 (kN·m) | H (kN) | taux 1 | taux 3 | taux max | N_ELS | V_ELS (kN) |
+| cas de contrôle | 2.00972 | 2.35870 | 2.89665 | 41.381 | 75.80 % | 88.86 % | 88.86 % | 14.253 | 14.253 |
+| Xj = 20 | 2.86492 | 2.98768 | 3.66908 | 52.415 | 107.83 % | 112.43 % | 112.43 % | 18.054 | 14.253 |
+| Yj = 20 | 2.00972 | 2.53271 | 2.96031 | 32.892 | 75.80 % | 95.38 % | 95.38 % | 14.253 | 14.253 |
+| Xj = Yj = 20 | 2.86492 | 3.20810 | 3.74972 | 41.664 | 107.83 % | 120.69 % | 120.69 % | 18.054 | 14.253 |
+| jeu C76 = 2 cm | 2.00972 | 2.35870 | 2.89665 | 41.381 | 75.80 % | 88.86 % | 88.86 % | 16.446 | 14.253 |
+| Yj = −20 | 2.00972 | 2.06363 | 2.78870 | 55.774 | 75.80 % | 77.82 % | 77.82 % | 14.253 | 14.253 |
+| Xj = −20 | 1.15452 | 1.72971 | 2.12421 | 30.346 | 43.92 % | 65.34 % | 65.34 % | 10.452 | 14.253 |
+| C76 = 20 (« 20 mm » tapé dans une case en cm) | 2.00972 | 2.35870 | 2.89665 | 41.381 | 75.80 % | 88.86 % | 88.86 % | -9.296 | 14.253 |
+| C8 = 300 (« 300 mm » tapé dans une case en cm) | 2.00972 | 2.35870 | 2.89665 | 41.381 | 7.58 % | 8.89 % | 8.89 % | 14.253 | 14.253 |
+taux max = 100 % pour Xj = 9.455 mm ou pour Yj = 41.83 mm ; +1 mm de Xj : +1.18 point ; +1 mm de Yj : +0.40 point
+Yj → ∞ : taux 3 → 120.65 % (Mmax entier sur l'épaisseur e)
+Xj = 5 mm : taux max 94.75 %
+Xj = 10 mm : taux max 100.64 %
+Xj = 20 mm : taux max 112.43 %
+
+## 5. Pivots et corps libre (aile verticale)
+Statique cohérente d'une section de l'aile verticale : σ = M/W + N/A (N = R, traction), τ = V/A (V = H).
+| variante | y_P (mm) | u_V (mm) | H (kN) | N/ancrage (kN) | M3 (kN·m) | M4 (kN·m) | taux 3 cohérent | taux 3 « convention classeur » |
+| classeur, sections (H avec u_V = 0, M avec u_V = e/2) | 7.50 | 0.0 | 41.381 | 13.794 | 2.35870 | 2.89665 | 92.85 % | 88.86 % |
+| classeur, ancrages (C76 : pivot à 1 cm) | 10.00 | 0.0 | 42.760 | 14.253 | 2.43732 | 2.99320 | 95.81 % | 91.81 % |
+| Hilti (G85 = 24,68 kN ⇒ pivot) | 15.21 | 0.0 | 45.950 | 15.317 | 2.61915 | 3.21650 | 102.66 % | 98.62 % |
+| P0 : pivot à l'arête, V sur l'axe (maillage, mur raide) | 0.00 | 7.5 | 33.956 | 11.319 | 1.93552 | 2.37695 | 76.91 % | 73.03 % |
+| P1 : pivot à e/2, V sur l'axe (nœud filaire) | 7.50 | 7.5 | 37.243 | 12.414 | 2.12283 | 2.60698 | 83.96 % | 80.03 % |
+| Q1 : pivot à e/2, V au nu du mur | 7.50 | 0.0 | 41.381 | 13.794 | 2.03800 | 2.57595 | 80.84 % | 76.86 % |
+| P10 : pivot à 1 cm, V sur l'axe | 10.00 | 7.5 | 38.484 | 12.828 | 2.19359 | 2.69388 | 86.63 % | 82.68 % |
+| P15 : pivot à e (mur souple), V sur l'axe | 15.00 | 7.5 | 41.233 | 13.744 | 2.35027 | 2.88630 | 92.53 % | 88.55 % |
+bras implicite de Hilti z = R_ELU·X/(n·G85) = 69.79 mm ⇒ pivot à 15.21 mm au-dessus du dessous ; N_ELS correspondant = 15.317 kN ; G85/C85 − 1 = 7.46 %
+pivot qui redonne exactement M3 et M4 du classeur avec V sur l'axe : y_P* = Y − (X − e/2)(Y − e/2)/X = 15.250 mm
+« correction » partielle à NE PAS faire (moment du classeur + N/A) : taux 3 = 92.85 % (double compte)
+σ_N = R/(L·e) = 9.502 N/mm² (le « τ » du classeur en section 3) ; τ_H = H/(L·e) = 9.196 N/mm²
+Q1 : la statique cohérente dépasse le classeur si Y < 33.6 mm (Y = 30 mm : +82.8 %)
+P1 : la statique cohérente dépasse le classeur si Y < 43.5 mm (Y = 30 mm : +95.3 %)
+P0 : la statique cohérente dépasse le classeur si Y < 33.2 mm (Y = 30 mm : +50.9 %)
+P1, flexion + effort normal sans τ : seuil Y < 38.25 mm (formule fermée 1,25·e + 1,5·r = 38.25 mm)
+
+## 6. Sensibilités
+r = 13.0 mm : taux 3 = 88.86 % ; taux max 88.86 %
+r =  6.5 mm : taux 3 = 98.94 % ; taux max 98.94 %
+r =  0.0 mm : taux 3 = 109.02 % ; taux max 109.02 %
+L = 250 mm : taux max = 106.63 %
+L = 300 mm : taux max = 88.86 %
+L = 350 mm : taux max = 76.17 %
+Largeur d'appui c de la charge, diffusion à 45° jusqu'à la section 1 : b_eff = min(L, c + 2·Xe) (charge loin des bouts)
+   c = 50 mm : b_eff = 144 mm ; taux 1 = 157.9 % (σ1 × 2.08)
+   c = 100 mm : b_eff = 194 mm ; taux 1 = 117.2 % (σ1 × 1.55)
+   c = 150 mm : b_eff = 244 mm ; taux 1 = 93.2 % (σ1 × 1.23)
+   c = 206 mm : b_eff = 300 mm ; taux 1 = 75.8 % (σ1 × 1.00)
+   c = 300 mm : b_eff = 300 mm ; taux 1 = 75.8 % (σ1 × 1.00)
+   largeur d'appui qui rend toute la longueur reprise efficace : 206 mm (charge au milieu), 253 mm (charge en bout de cornière)
+
+## 7. Domaine : ce que le classeur rend sans alerte
+X = 20 mm (charge sur le congé) : M1 = -0.342, M3 = 0.629 kN·m, ρ3 = 0.735, taux max 24.6 %, N_ELS = 3.80 kN, C90 = 13.57
+X + Xj = 125 > larg. = 120 : M1 = 4.148, M3 = 3.931 kN·m, ρ3 = 0.735, taux max 155.9 %, N_ELS = 23.76 kN, C90 = 13.57
+X = 140 > larg. : M1 = 4.789, M3 = 4.403 kN·m, ρ3 = 0.735, taux max 180.0 %, N_ELS = 26.61 kN, C90 = 13.57
+Y = 25 mm (ancrage dans le congé) : M1 = 2.010, M3 = -0.550 kN·m, ρ3 = -0.171, taux max 75.8 %, N_ELS = 71.27 kN, C90 = 5.00
+Y = 130 > haut. : M1 = 2.010, M3 = 2.670 kN·m, ρ3 = 0.833, taux max 100.5 %, N_ELS = 8.91 kN, C90 = -47.51
+Y = jeu = 10 mm : C82 = nan (division par zéro dans le classeur)
+
+## 8. Situer la méthode : EC3 (section 3, statique du classeur, γ_M0 = 1,0)
+γ = 1.3500 : admissible 88.86 % ; EC3 élastique 79.98 % ; EC3 plastique 53.15 %
+γ = 1.5000 : admissible 88.86 % ; EC3 élastique 88.86 % ; EC3 plastique 59.06 %
+γ = 1.6113 : admissible 88.86 % ; EC3 élastique 95.46 % ; EC3 plastique 63.44 %
+rapport admissible / EC3 plastique : de 1.505 (γ = 1,50) à 1.672 (γ = 1,35)
+V_Ed/V_pl à l'ELU (R_ELU) = 0.075
+
+## 9. Le moteur actuel du site sur le cas de contrôle (lecture seule)
+e = X = 7,5 cm (moment au nu du mur) : σ_ELS = 285.07 N/mm², σ_éq = 285.54, U_σ = 120.65 % (classeur 88.86 % ; écart +35.8 %)
+e = Xe = 4,7 cm : σ_ELS = 178.64 N/mm², σ_éq = 179.40, U_σ = 75.80 % (classeur 88.86 % ; écart -14.7 %)
+e = X·Ye/YH = 5,516 cm : σ_ELS = 209.66 N/mm², σ_éq = 210.31, U_σ = 88.86 % (classeur 88.86 % ; écart +0.0 %)
+   (les trois lignes ci-dessus SAISISSENT σ_lim,ELS = τ_lim·√3 = σ_eq,lim,ELU = f_y/1,5 et γ_ELU = 1,0 ; ce ne sont pas les défauts du site)
+défauts de l'écran du site (acier/corniere/entree.py, CHAMPS) : gamma_ELU = 1.35, sig_lim_ELS = 155, tau_lim_ELS = 0.8, sig_lim_ELU = 186
+TOUTES valeurs par défaut du site (γ_ELU 1,35 ; σ_lim,ELS 155 ; τ_lim,ELS 0,8 ; σ_eq,lim,ELU 186 N/mm²), e = 7,5 cm : U_σ = 184.22 %, U_τ = 1187.8 %, U_ELU = 207.2 %
+vérification « longitudinale » sur 200 entraxes de 10 à 1463 cm : max |U_long/U_ELU − 1| = 4.4e-16

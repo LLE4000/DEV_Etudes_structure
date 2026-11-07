@@ -1,0 +1,46 @@
+# E03 — cornière longue (2,00 m, 3 ancrages)
+
+## 1. Section L120×120×15
+contour recalculé (sans rayons de bout d'aile) : A = 34.113 cm², centre de gravité (35.31 ; 35.31) mm, ∫(y−yG)² = 451.61 cm⁴, ∫(u−uG)² = 451.61, ∫(u−uG)(y−yG) = -263.50 cm⁴
+catalogue du site : A = 33.9315 cm², Iy = Iz = 444.881 cm⁴, Iyz = -260.219 cm⁴, It = 26.4262 cm⁴, yc = zc = 35.1483 mm
+retenu : I_uu = I_yy = 444.9 cm⁴, I_uy = -260.2 cm⁴ (signe du contour), It = 26.43 cm⁴, G·It = 21.405 kN·m², E·I = 934.3 kN·m², centre de cisaillement S = (7.5 ; 7.5) mm
+
+## 2. Raideurs
+tronçon en T : m = (Y − e) − 0,8·r = 59.6 mm ; 2πm = 374.5 ; 4m + 1,25·e_bord = 282.1 → l_eff = 282.1 mm
+flexion locale de l'aile verticale (console de 85 mm, largeur l_eff) : k_pl = 3EI/z³ = 81.4 kN/mm
+G·It / 800 mm = 26.76 kN·m/rad ; G·It / 200 mm = 107.03 kN·m/rad
+ancrage 10 kN/mm + aile → 8.9 kN/mm ; k_θ = 64.3 kN·m/rad ; rapport k_θ·s/(G·It) (s = 800) = 2.40
+ancrage 30 kN/mm + aile → 21.9 kN/mm ; k_θ = 158.4 kN·m/rad ; rapport k_θ·s/(G·It) (s = 800) = 5.92
+ancrage 100 kN/mm + aile → 44.9 kN/mm ; k_θ = 324.2 kN·m/rad ; rapport k_θ·s/(G·It) (s = 800) = 12.12
+
+## 3. Répartition entre les trois ancrages (z = 200, 1000, 1800 mm) — charge 42,76 kN sur 300 mm centrée à z = 400
+Référence « R/n » : V = 14.25 kN et N = H/3 = 11.32 kN par ancrage (H = R·(X − e/2)/Y = 33.96 kN, corps libre de la coupe, pivot à l'arête) ; le classeur donnerait N = V = 14.25 kN.
+| ancrages | N1 | N2 | N3 (kN) | V1 | V2 | V3 (kN) | N1/(H/3) | V1/(R/3) | couple max (kN·m) | τ torsion max (N/mm²) | σz max (N/mm²) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| rigides — répartie 300 mm | 25.16 | 8.80 | 0.00 | 29.93 | 14.97 | -2.14 | 2.22 | 2.10 | 1.970 | 111.8 | 85.0 |
+| rigides — ponctuelle | 25.01 | 8.95 | 0.00 | 29.96 | 14.92 | -2.11 | 2.21 | 2.10 | 2.046 | 116.2 | 110.3 |
+| rigides, avec effet de levier — répartie 300 mm | 41.52 | 21.38 | 0.00 | 29.69 | 15.45 | -2.38 | 3.67 | 2.08 | 1.965 | 111.5 | 81.1 |
+| rigides, avec effet de levier — ponctuelle | 48.89 | 24.70 | 0.00 | 29.59 | 15.64 | -2.48 | 4.32 | 2.08 | 2.053 | 116.5 | 105.4 |
+| raides (100/30 kN/mm) + aile — répartie 300 mm | 24.04 | 9.55 | 0.37 | 29.99 | 14.85 | -2.08 | 2.12 | 2.10 | 1.879 | 106.7 | 84.5 |
+| souples (10/5 kN/mm) + aile — répartie 300 mm | 20.87 | 10.28 | 2.81 | 30.16 | 14.51 | -1.91 | 1.84 | 2.12 | 1.621 | 92.0 | 84.7 |
+| cornière 1000 fois plus raide, ancrages souples — répartie 300 mm | 11.35 | 11.32 | 11.29 | 30.29 | 14.25 | -1.78 | 1.00 | 2.12 | 1.920 | 109.0 | 102.1 |
+contrôle d'équilibre rigides : ΣV = 42.760 kN ; ΣN − ΣC = 0.0000 kN ; contact en tête (levier) 0.00 kN ; itérations de contact 21
+contrôle d'équilibre rigides, avec effet de levier : ΣV = 42.760 kN ; ΣN − ΣC = 0.0000 kN ; contact en tête (levier) 20.50 kN ; itérations de contact 14
+contrôle d'équilibre raides (100/30 kN/mm) + aile : ΣV = 42.760 kN ; ΣN − ΣC = 0.0000 kN ; contact en tête (levier) 0.00 kN ; itérations de contact 20
+contrôle d'équilibre souples (10/5 kN/mm) + aile : ΣV = 42.760 kN ; ΣN − ΣC = 0.0000 kN ; contact en tête (levier) 0.00 kN ; itérations de contact 15
+contrôle d'équilibre cornière 1000 fois plus raide, ancrages souples : ΣV = 42.758 kN ; ΣN − ΣC = 0.0023 kN ; contact en tête (levier) 0.00 kN ; itérations de contact 1
+
+## 4. Conséquences locales (ELS, méthode des contraintes admissibles, σ_adm = 236,7)
+rigides : ancrage le plus chargé N = 25.16 kN → aile verticale, section 3 sur l_eff = 282 mm : σ ≈ 143 N/mm² (60 %) ; torsion entre charge et ancrage : τ = T·e/It = 112 N/mm² (82 % de τ_adm = 136.6)
+rigides, avec effet de levier : ancrage le plus chargé N = 41.52 kN → aile verticale, section 3 sur l_eff = 282 mm : σ ≈ 231 N/mm² (97 %) ; torsion entre charge et ancrage : τ = T·e/It = 112 N/mm² (82 % de τ_adm = 136.6)
+raides (100/30 kN/mm) + aile : ancrage le plus chargé N = 24.04 kN → aile verticale, section 3 sur l_eff = 282 mm : σ ≈ 137 N/mm² (58 %) ; torsion entre charge et ancrage : τ = T·e/It = 107 N/mm² (78 % de τ_adm = 136.6)
+souples (10/5 kN/mm) + aile : ancrage le plus chargé N = 20.87 kN → aile verticale, section 3 sur l_eff = 282 mm : σ ≈ 120 N/mm² (51 %) ; torsion entre charge et ancrage : τ = T·e/It = 92 N/mm² (67 % de τ_adm = 136.6)
+Pour mémoire, cas de contrôle (3 ancrages sur 300 mm, charge au droit) : section 3 = 88,86 % (classeur).
+
+## 5. Variante : ancrages à 400, 1000, 1600 mm (un ancrage au droit de la charge)
+rigides : N = 32.14, 1.82, 0.00 kN ; V = 42.74, 0.05, -0.02 kN ; τ torsion max = 73 N/mm²
+raides (100/30 kN/mm) + aile : N = 29.10, 4.70, 0.18 kN ; V = 38.75, 8.01, -4.01 kN ; τ torsion max = 73 N/mm²
+souples (10/5 kN/mm) + aile : N = 23.19, 8.15, 2.61 kN ; V = 36.43, 12.66, -6.33 kN ; τ torsion max = 74 N/mm²
+
+## Figures
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e03_longitudinal.png

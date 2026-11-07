@@ -1,0 +1,58 @@
+# S05 — cornière longue 2,00 m, 3 ancrages
+
+## 1. Section et raideurs
+L120x120x15 (catalogue du site) : Iy = Iz = 444.881 cm⁴, Iyz = -260.219 cm⁴, It = 26.4262 cm⁴, Wel = 52.4304 cm³
+G·It = 21.41 kN·m² ; E·I = 934.3 kN·m² (rapport 44)
+tronçon en T (analogie EN 1993-1-8, à confirmer) : m = (Y − e) − 0,8·r = 59.6 mm ; l_eff = min(2π·m ; 4·m + 1,25·(h − Y)) = min(374.5 ; 282.1) = 282.1 mm
+flexion locale de l'aile : k_pl = 3·E·(l_eff·e³/12)/Y³ = 81.4 kN/mm — console de longueur Y ENCASTRÉE au talon (bloc d'angle supposé ne pas tourner par rapport à la section indéformable) ; console de longueur Ye = 57 mm encastrée en section 3 : 270.0 kN/mm
+ancrage 10 kN/mm + aile → 8.9 kN/mm ; k_θ·s/(G·It) (s = 800 mm) = 2.40
+ancrage 30 kN/mm + aile → 21.9 kN/mm ; k_θ·s/(G·It) (s = 800 mm) = 5.92
+ancrage 100 kN/mm + aile → 44.9 kN/mm ; k_θ·s/(G·It) (s = 800 mm) = 12.12
+
+## 2. Répartition entre les ancrages
+référence « R/n » : V = 14.25 kN et N = H/3 = 11.32 kN par ancrage (H = R·(X − e/2)/Y = 33.96 kN) ; le classeur donnerait N = V = 14.25 kN
+règle du levier d'une poutre rigide : V_i = R/n + R·e_z·(z_i − z_G)/Σ(z_i − z_G)² = 30.29 / 14.25 / -1.78 kN
+| hypothèse | N1 | N2 | N3 (kN) | V1 | V2 | V3 (kN) | N1/(H/3) | V1/(R/3) | T max (kN·m) | τ torsion (N/mm²) | M long max (kN·m) | σz max (N/mm²) |
+| ancrages rigides | 25.16 | 8.80 | 0.00 | 29.93 | 14.97 | -2.14 | 2.22 | 2.10 | 1.970 | 112 | 4.64 | 85 |
+   contrôle : ΣV = 42.760 kN ; ΣN − ΣC = 0.0000 kN ; contact en tête 0.00 kN ; itérations 21
+| ancrages raides (100 / 30 kN/mm) + aile | 24.04 | 9.55 | 0.37 | 29.99 | 14.85 | -2.08 | 2.12 | 2.10 | 1.879 | 107 | 4.65 | 85 |
+   contrôle : ΣV = 42.760 kN ; ΣN − ΣC = 0.0000 kN ; contact en tête 0.00 kN ; itérations 20
+| ancrages souples (10 / 5 kN/mm) + aile | 20.87 | 10.28 | 2.81 | 30.16 | 14.51 | -1.91 | 1.84 | 2.12 | 1.621 | 92 | 4.70 | 85 |
+   contrôle : ΣV = 42.760 kN ; ΣN − ΣC = 0.0000 kN ; contact en tête 0.00 kN ; itérations 15
+τ_adm = 136.6 N/mm² ; torsion : ancrages rigides 82 % ; ancrages raides (100 / 30 kN/mm) + aile 78 % ; ancrages souples (10 / 5 kN/mm) + aile 67 %
+
+## 2b. « R/n » en traction : il faut une cornière raide en torsion PAR RAPPORT AUX ancrages (k_θ·s/(G·It) → 0)
+ancrages rigides : N = 25.16 / 8.80 / 0.00 ; G·It ×1000 : 23.46 / 10.50 / 0.00 ; E et G ×1000 : 24.13 / 9.69 / 0.13 kN ; k_θ·s/(G·It) (s = 800) = 2.7e+05
+ancrages raides (100 / 30 kN/mm) + aile : N = 24.04 / 9.55 / 0.37 ; G·It ×1000 : 11.88 / 11.12 / 10.96 ; E et G ×1000 : 11.48 / 11.31 / 11.17 kN ; k_θ·s/(G·It) (s = 800) = 12.1
+ancrages souples (10 / 5 kN/mm) + aile : N = 20.87 / 10.28 / 2.81 ; G·It ×1000 : 11.45 / 11.27 / 11.23 ; E et G ×1000 : 11.35 / 11.32 / 11.29 kN ; k_θ·s/(G·It) (s = 800) = 2.4
+
+## 2c. Cisaillement : règle du levier = limite d'ancrages SOUPLES devant la cornière ; ancrages raides = poutre continue
+k_V = 1e+06 kN/mm (k_N = 100 kN/mm + aile) : V = 29.84 / 15.15 / -2.23 kN
+k_V = 100 kN/mm (k_N = 100 kN/mm + aile) : V = 29.90 / 15.04 / -2.17 kN
+k_V = 30 kN/mm (k_N = 100 kN/mm + aile) : V = 29.99 / 14.85 / -2.08 kN
+k_V = 10 kN/mm (k_N = 100 kN/mm + aile) : V = 30.11 / 14.61 / -1.96 kN
+k_V = 5 kN/mm (k_N = 100 kN/mm + aile) : V = 30.18 / 14.48 / -1.89 kN
+k_V = 1 kN/mm (k_N = 100 kN/mm + aile) : V = 30.26 / 14.31 / -1.81 kN
+k_V = 0.1 kN/mm (k_N = 100 kN/mm + aile) : V = 30.29 / 14.26 / -1.78 kN
+V3 / règle du levier : rigides 1.20 ; raides 1.17 ; souples 1.07
+poutre continue, flexion verticale seule, appuis rigides : V = 29.66 / 15.51 / -2.41 kN
+raideur de flexion d'une travée 48·E·I/s³ (s = 800 mm) = 87.6 kN/mm
+
+## 2d. Pourquoi l'« effet de levier » n'a pas de sens dans ce modèle (section indéformable)
+ancrages rigides, contact en tête permis, pénalité du mur kw variable : le résultat ne converge pas, il suit kw
+   kw = 1e+04 N/mm par mm : N = 28.86 / 14.92 / 0.00 kN ; N1/(H/3) = 2.55 ; contact en tête 6.96 kN ; nœuds où le haut ET le bas touchent : 58
+   kw = 1e+05 N/mm par mm : N = 41.52 / 21.38 / 0.00 kN ; N1/(H/3) = 3.67 ; contact en tête 20.50 kN ; nœuds où le haut ET le bas touchent : 90
+   kw = 1e+06 N/mm par mm : N = 96.63 / 35.99 / 0.00 kN ; N1/(H/3) = 8.54 ; contact en tête 69.88 kN ; nœuds où le haut ET le bas touchent : 46
+   kw = 1e+07 N/mm par mm : N = 291.70 / 91.48 / 0.00 kN ; N1/(H/3) = 25.77 ; contact en tête 247.37 kN ; nœuds où le haut ET le bas touchent : 33
+   (sans contact en tête, le même balayage donne N1/(H/3) = 2.22 ; 2.22 ; 2.22 ; 2.23)
+
+## 3. Conséquence locale : aile verticale au droit de l'ancrage le plus chargé, largeur l_eff
+σ = 6·N1·bras/(l_eff·e²) + V1/(l_eff·e) — bras m (tronçon en T, cohérent avec l_eff) ; pour mémoire bras Ye = Y − e − r (section 3)
+ancrages rigides : N1 = 25.16 kN, V1 = 29.93 kN → bras m = 59.6 : σ = 148.8 N/mm² (62.9 %) ; bras Ye = 57 : 142.6 N/mm² (60.3 %)
+ancrages raides (100 / 30 kN/mm) + aile : N1 = 24.04 kN, V1 = 29.99 kN → bras m = 59.6 : σ = 142.5 N/mm² (60.2 %) ; bras Ye = 57 : 136.6 N/mm² (57.7 %)
+ancrages souples (10 / 5 kN/mm) + aile : N1 = 20.87 kN, V1 = 30.16 kN → bras m = 59.6 : σ = 124.7 N/mm² (52.7 %) ; bras Ye = 57 : 119.6 N/mm² (50.5 %)
+
+## 4. Variante : ancrages à 400, 1 000, 1 600 mm (un ancrage au droit de la charge)
+ancrages rigides : N = 32.14, 1.82, 0.00 kN ; V = 42.74, 0.05, -0.02 kN ; τ torsion max = 73 N/mm²
+ancrages raides (100 / 30 kN/mm) + aile : N = 29.10, 4.70, 0.16 kN ; V = 38.75, 8.01, -4.01 kN ; τ torsion max = 73 N/mm²
+ancrages souples (10 / 5 kN/mm) + aile : N = 23.19, 8.15, 2.61 kN ; V = 36.43, 12.66, -6.33 kN ; τ torsion max = 74 N/mm²

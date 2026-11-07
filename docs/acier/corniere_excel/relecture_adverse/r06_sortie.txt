@@ -1,0 +1,8 @@
+cornières du site : 233  égales : 197
+lignes de données : 57  ; dernière : NON STANDARD
+désignations : 42  doubles : 15  lignes jamais lues : [7, 11, 15, 18, 21, 23, 25, 28, 32, 36, 38, 42, 46, 51, 56]
+présentes : 26 lignes, 25 désignations
+absentes : 31 lignes, ['L100x75x9', 'L120x80x11', 'L30x20x3', 'L30x30x5', 'L35x20x3.5', 'L35x35x3', 'L35x35x3.5', 'L40x25x4', 'L45x30x4', 'L50x30x5', 'L50x40x5', 'L60x40x5', 'L70x50x6', 'L80x50x7', 'L80x60x7', 'L80x60x8', 'L90x60x8'] 17
+rayon = r1 : 22  = r2 : [('L150x100x12', 6, 12.0), ('L150x100x12', 6, 12.0)]  autre : [('L25x25x3', 4, 3.5, 2.0), ('L20x20x3', 4, 3.5, 2.0)]
+masse : de -4.17% (L150x100x12 21.6 / 22.541) à +0.54% (L25x25x3)
+colonne G : [235, 355]

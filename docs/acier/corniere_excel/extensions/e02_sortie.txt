@@ -1,0 +1,63 @@
+# E02 — cornière retournée (B) et ailes inégales
+
+## 1. Cas de contrôle L120×120×15 : configuration A face à B
+| | M1 | M2 | M3 | M4 (kN·m) | taux 1 | taux 3 | traction totale ancrages (kN) |
+|---|---|---|---|---|---|---|---|
+| A, méthode du classeur | 2.0097 | 2.5656 | 2.3587 | 2.8966 | 75.80 % | 88.86 % | 42.76 |
+| A, corps libre (pivot y = 0, V sur l'axe, + N) | 2.0097 | 2.5656 | 1.9355 | 2.3770 | 75.80 % | 77.03 % | 33.96 |
+| B, ancrage à 85 mm sous le dessus (y_a = 35), convention classeur (uV = 0) | 2.0097 | 2.5656 | 3.2070 | 3.2070 | 75.80 % | 124.66 % | 91.63 |
+| B, ancrage à 85 mm sous le dessus (y_a = 35), V sur l'axe (uV = e/2) | 2.0097 | 2.5656 | 2.8863 | 2.8863 | 75.80 % | 112.64 % | 82.47 |
+| B, ancrage à 60 mm sous le dessus (y_a = 60), convention classeur (uV = 0) | 2.0097 | 2.5656 | 3.2070 | 3.2070 | 75.80 % | 124.66 % | 53.45 |
+| B, ancrage à 60 mm sous le dessus (y_a = 60), V sur l'axe (uV = e/2) | 2.0097 | 2.5656 | 2.8863 | 2.8863 | 75.80 % | 112.64 % | 48.10 |
+| B, ancrage à 45 mm sous le dessus (y_a = 75), convention classeur (uV = 0) | 2.0097 | 2.5656 | 3.2070 | 3.2070 | 75.80 % | 124.66 % | 42.76 |
+| B, ancrage à 45 mm sous le dessus (y_a = 75), V sur l'axe (uV = e/2) | 2.0097 | 2.5656 | 2.8863 | 2.8863 | 75.80 % | 112.64 % | 38.48 |
+
+B, Y_B = 85 : section nette au droit de l'ancrage (3 trous Ø18 sur 300 mm) σ = 324.5 N/mm² → 137.1 % ; compression du mur au bout libre C = H = 82.47 kN, soit 274.9 N/mm de cornière
+B, Y_B = 45 : section nette au droit de l'ancrage (3 trous Ø18 sur 300 mm) σ = 324.5 N/mm² → 137.1 % ; compression du mur au bout libre C = H = 38.48 kN, soit 128.3 N/mm de cornière
+Rapport traction B (Y_B = 85, V sur l'axe) / A (corps libre pivot 0) = 2.429 ; B / A classeur = 1.929
+Rapport moment section 3, B / A classeur = 1.224 (V sur l'axe) ; 1.360 (convention classeur)
+maillage B-Y85 : H = 82.580 kN ; corps libre (uV = e/2, c = 0) : 82.466 kN ; écart +0.14 %
+maillage B-Y45 : H = 38.520 kN ; corps libre (uV = e/2, c = 0) : 38.484 kN ; écart +0.09 %
+
+## 2. Configuration B : position de l'ancrage
+Le bras de levier est la distance de l'ancrage au BOUT LIBRE (contact) : l'ancrage doit être le plus PRÈS DE L'ANGLE possible, à l'inverse de A où il doit être le plus haut possible (loin de l'angle).
+  Y_B =  45.0 mm (rondelle Ø30 : bord haut à 30 mm du dessus ; pied du congé à 28) : H =  38.48 kN ; taux section 3 = 112.64 % (indépendant de Y_B)
+  Y_B =  50.0 mm (rondelle Ø30 : bord haut à 35 mm du dessus ; pied du congé à 28) : H =  41.23 kN ; taux section 3 = 112.64 % (indépendant de Y_B)
+  Y_B =  60.0 mm (rondelle Ø30 : bord haut à 45 mm du dessus ; pied du congé à 28) : H =  48.10 kN ; taux section 3 = 112.64 % (indépendant de Y_B)
+  Y_B =  70.0 mm (rondelle Ø30 : bord haut à 55 mm du dessus ; pied du congé à 28) : H =  57.73 kN ; taux section 3 = 112.64 % (indépendant de Y_B)
+  Y_B =  85.0 mm (rondelle Ø30 : bord haut à 70 mm du dessus ; pied du congé à 28) : H =  82.47 kN ; taux section 3 = 112.64 % (indépendant de Y_B)
+  Y_B =  95.0 mm (rondelle Ø30 : bord haut à 80 mm du dessus ; pied du congé à 28) : H = 115.45 kN ; taux section 3 = 112.64 % (indépendant de Y_B)
+
+## 3. Ailes inégales — L150×100×12 (catalogue du site : r1 = 12 mm), configuration A
+grande aile horizontale (150 × 100) : X = 75, Y = 65 (bord libre à 35 mm) → classeur : taux 1 = 128.3 %, taux 3 = 131.1 %, max = 131.1 %, traction totale 58.31 kN | corps libre (pivot 0) : taux 3 = 114.6 %, H = 45.39 kN
+grande aile verticale (100 × 150) : X = 75, Y = 115 (bord libre à 35 mm) → classeur : taux 1 = 128.3 %, taux 3 = 157.4 %, max = 157.4 %, traction totale 30.54 kN | corps libre (pivot 0) : taux 3 = 142.3 %, H = 25.66 kN
+Avec le rayon du classeur pour cette cornière (6 mm, CORNIERES!E6) au lieu de r1 = 12 :
+  grande aile horizontale (150 × 100) : taux 1 = 143.3 % (r = 6) contre 128.3 % (r = 12) ; taux 3 = 150.2 % contre 131.1 %
+  grande aile verticale (100 × 150) : taux 1 = 143.3 % (r = 6) contre 128.3 % (r = 12) ; taux 3 = 167.7 % contre 157.4 %
+
+## 4. Catalogue CORNIERES du classeur : doublons de nom et rayons
+57 lignes de cornières ; 15 noms en double (VLOOKUP exact, P8!C4:C7, ne lit que la première) :
+  L150x100x12 : ligne 6 (150 × 100) lue ; ligne 7 (100 × 150) inaccessible
+  L120x80x11 : ligne 10 (120 × 80) lue ; ligne 11 (80 × 120) inaccessible
+  L100x75x9 : ligne 14 (100 × 75) lue ; ligne 15 (75 × 100) inaccessible
+  L90x60x8 : ligne 17 (90 × 60) lue ; ligne 18 (60 × 90) inaccessible
+  L80x60x8 : ligne 20 (80 × 60) lue ; ligne 21 (60 × 80) inaccessible
+  L80x60x7 : ligne 22 (80 × 60) lue ; ligne 23 (60 × 80) inaccessible
+  L80x50x7 : ligne 24 (80 × 50) lue ; ligne 25 (50 × 80) inaccessible
+  L70x50x6 : ligne 27 (70 × 50) lue ; ligne 28 (50 × 70) inaccessible
+  L60x40x5 : ligne 31 (60 × 40) lue ; ligne 32 (40 × 60) inaccessible
+  L50x40x5 : ligne 35 (50 × 40) lue ; ligne 36 (40 × 50) inaccessible
+  L50x30x5 : ligne 37 (50 × 30) lue ; ligne 38 (30 × 50) inaccessible
+  L45x30x4 : ligne 41 (45 × 30) lue ; ligne 42 (30 × 45) inaccessible
+  L40x25x4 : ligne 45 (40 × 25) lue ; ligne 46 (25 × 40) inaccessible
+  L35x20x3.5 : ligne 50 (35 × 20) lue ; ligne 51 (20 × 35) inaccessible
+  L30x20x3 : ligne 55 (30 × 20) lue ; ligne 56 (20 × 30) inaccessible
+Rayon du classeur ≠ r1 du catalogue du site (EN 10056-1) pour 4 lignes présentes dans les deux :
+  L150x100x12 (ligne 6) : classeur r = 6 ; site r1 = 12, r2 = 6  ← égal à r2 (rayon de bout d'aile)
+  L150x100x12 (ligne 7) : classeur r = 6 ; site r1 = 12, r2 = 6  ← égal à r2 (rayon de bout d'aile)
+  L25x25x3 (ligne 57) : classeur r = 4 ; site r1 = 3.5, r2 = 2
+  L20x20x3 (ligne 58) : classeur r = 4 ; site r1 = 3.5, r2 = 2
+Lignes du classeur absentes du catalogue du site : 31 (L100x75x9, L120x80x11, L30x20x3, L30x30x5, L35x20x3.5, L35x35x3, L35x35x3.5, L40x25x4, L45x30x4, L50x30x5, L50x40x5, L60x40x5, L70x50x6, L80x50x7, L80x60x7, L80x60x8, L90x60x8)
+
+## Figures
+/tmp/claude-0/-home-user/092afadd-796a-54d4-b802-037ae1cad731/scratchpad/corniere_excel/figures/e02_A_contre_B.png

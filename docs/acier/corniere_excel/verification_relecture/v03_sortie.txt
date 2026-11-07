@@ -1,0 +1,41 @@
+== point 4 : moteur actuel du site (lecture seule), cas de contrôle
+   défauts de l'écran (CHAMPS) : gamma_ELU = 1.35, sig_lim_ELS = 155, tau_lim_ELS = 0.8, sig_lim_ELU = 186, s = 30
+   tout par défaut (γ_ELU 1,35 ; σ_lim 155 ; τ_lim 0,8 ; σ_eq,lim,ELU 186) : σ_éq,ELS = 285.541 ; U_σ = 184.22 % ; U_τ = 1187.8 % ; U_ELU = 207.2 % ; U_long,ELU = 207.2 %
+   σ_lim,ELS = f_y/1,5 = 236.67 saisi : U_σ = 120.65 %
+   (γ_ELU = 1,0 et limites par défaut : U_ELU = 153.5 %)
+
+== point 5 : hauteur de l'ancrage Y (configuration A, X = 75)
+   Y = 65 mm : taux 3 classeur 77.82 % ; taux 3 P0 66.12 % ; traction P0 H = 44.40 kN ; traction du classeur (3 × C82) = 58.31 kN
+   Y = 85 mm : taux 3 classeur 88.86 % ; taux 3 P0 76.91 % ; traction P0 H = 33.96 kN ; traction du classeur (3 × C82) = 42.76 kN
+   Y = 105 mm : taux 3 classeur 95.38 % ; taux 3 P0 83.63 % ; traction P0 H = 27.49 kN ; traction du classeur (3 × C82) = 33.76 kN
+
+== point 8 : aile verticale au droit de l'ancrage le plus chargé (analogie du tronçon en T)
+   m = (Y − e) − 0,8·r = 59.6 mm ; l_eff = min(2π·m ; 4·m + 1,25·(h − Y)) = min(374.5 ; 282.1) = 282.1 mm
+   k_pl = 3·E·(l_eff·e³/12)/Y³ = 81.4 kN/mm (console de longueur Y encastrée au talon)
+   variante : console de longueur Y − (e + r) = 57 mm encastrée en section 3 : 270.0 kN/mm
+   ancrages rigides : N1 = 25.16 kN, V1 = 29.93 kN → bras Ye = 57 : 142.6 N/mm² (60.3 %) ; bras m = 59.6 : 148.8 N/mm² (62.9 %)
+   ancrages raides (100 / 30 kN/mm) + aile : N1 = 24.04 kN, V1 = 29.99 kN → bras Ye = 57 : 136.6 N/mm² (57.7 %) ; bras m = 59.6 : 142.5 N/mm² (60.2 %)
+   ancrages souples (10 / 5 kN/mm) + aile : N1 = 20.87 kN, V1 = 30.16 kN → bras Ye = 57 : 119.6 N/mm² (50.5 %) ; bras m = 59.6 : 124.7 N/mm² (52.7 %)
+
+== point 9 : seuils sous lesquels la section « e + r » dépasse la section « e »
+   aile horizontale : flexion seule X' < 33.233 mm ; σ_éq du classeur X' < 30.567 mm
+   aile verticale (X = 75) : flexion seule Y' < 33.233 mm ; σ_éq du classeur Y' < 33.020 mm
+   aile verticale (X = 40) : flexion seule Y' < 33.233 mm ; σ_éq du classeur Y' < 32.462 mm
+
+== point 10 : rapport ELU/ELS avec K_FI (EN 1990, annexe B, tableau B3)
+   K_FI = 1.0 : rapport maximal (tout variable) 1.500 ; volée 12 : 1.395 ; C71/C70 = 1.611
+   K_FI = 1.1 : rapport maximal (tout variable) 1.650 ; volée 12 : 1.534 ; C71/C70 = 1.611
+
+== points 11 et 14 : lecture du classeur (openpyxl)
+   C4 lue par : ['A20']
+   C5 lue par : ['A21', 'C90']
+   A20 lue par : []
+   A21 lue par : []
+   C16 lue par : ['A21', 'C23', 'C24', 'C25', 'C75', 'C90']
+   C90 = =C83*1000/(2*(C5-C16)*C6)
+   A12 = 'Réaction max (ELS) : p. 15' ; C12 = 42.76 ; B12 = 'Rmax ='
+
+== point 12 : catalogue du site
+   cornières : 233 (L 197, LI 36) ; courant = true : 95 ; false : 138
+   L 300x300x35 : courant = False ; r1 = None
+   PROFILES.md : complémentaires hors liste EN 10056-1 (gamme étendue du lamineur, hors « séries courantes ») ;
