@@ -53,8 +53,9 @@ def resultat(etat) -> dict                        # voir ci-dessous
 ```
 
 `resultat(etat)` rend : `resultat` (HTML du cadre Résultat), `volets` (fenêtres de calcul `C.fenetre_calcul`),
-`vues` (`[{cle, titre, court, svg, legende}]` — titre, court et légende sont du TEXTE, la page les échappe ; le svg est
-du HTML), `phrase` (HTML, sous le titre de la première vue), `statut_html` (`C.statut(niveau)`), `resume`
+`vues` (`[{cle, titre, court, svg, legende}]` — titre, court et légende sont du TEXTE, la page les échappe ; `svg` est
+du HTML posé dans la toile : un dessin `<svg …>`, ou un bloc `<div …>` quand la vue est un tableau — catalogue,
+tableau des armatures), `phrase` (HTML, sous le titre de la première vue), `statut_html` (`C.statut(niveau)`), `resume`
 (`{taux, niveau, statut, gouvernant}` — `taux` arrondi par `C.pct` ou None ; `niveau` parmi `p f r c x i` ; `i` =
 « Consultation » pour un module sans vérification : tableau, catalogue, courbe), `donnees` (HTML du cadre Données),
 `elements` (HTML de la liste des éléments de la note, comme garde-corps et poutre).

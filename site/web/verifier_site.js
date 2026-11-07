@@ -34,7 +34,11 @@ const FILTRE = process.argv[4] || '';
     const encre = getComputedStyle(sonde).color; sonde.remove();
     const gris = [...document.querySelectorAll('.field:not(.locked) input, .field:not(.locked) select')].filter(vis)
       .filter((e) => getComputedStyle(e).color !== encre).map((e) => e.dataset.chemin || e.id);
-    return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, gris, svg: r ? [Math.round(r.width), Math.round(r.height)] : null };
+    // le contenu de la vue ouverte (un dessin, ou un tableau) : sa taille lue à l'écran
+    const bloc = [...document.querySelectorAll('.view.on .draw > *')].find(vis);
+    const rb = bloc ? bloc.getBoundingClientRect() : null;
+    return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, gris, svg: r ? [Math.round(r.width), Math.round(r.height)] : null,
+      vue: rb ? [Math.round(rb.width), Math.round(rb.height)] : null };
   });
   const verdict = () => p.evaluate(() => document.querySelector('.verdict')?.textContent.replace(/\s+/g, ' ').trim() || '');
   const pret = () => p.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
@@ -200,7 +204,7 @@ const FILTRE = process.argv[4] || '';
       verif(`${cle} : le résultat s'affiche`, nEl > 0 || !!verdictMod, `${nEl} ligne(s)`);
       const nVues = await p.$$eval('#vues button', (e) => e.length);
       m = await mesure();
-      if (nVues) verif(`${cle} : le dessin est visible et à sa taille`, m.svg && m.svg[0] > 200 && m.svg[1] > 150, JSON.stringify(m.svg));
+      if (nVues) verif(`${cle} : la vue (dessin ou tableau) est visible et à sa taille`, m.vue && m.vue[0] > 200 && m.vue[1] > 120, JSON.stringify(m.vue));
       verif(`${cle} : rien ne déborde, aucun nom coupé, les valeurs à l'encre`, !m.deborde && !m.coupes.length && !m.gris.length,
         [...m.coupes, ...m.gris].join(', '));
       await capture(cle);
