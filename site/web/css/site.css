@@ -121,11 +121,19 @@ label.fichier { width: max-content; }
 .accueil .tile.bientot { opacity: .62; box-shadow: none; }
 .accueil .tile.bientot:hover { border-color: var(--line); box-shadow: none; }
 .accueil .tile .tag { flex: none; display: inline-flex; font-size: 10px; height: 18px; }
-.accueil .resume { margin-bottom: 0; }
-.accueil .rcard { cursor: pointer; }
+/* « Reprendre » : des cartes basses, la vignette à gauche. Les grandes cartes de la maquette (vignette de 150 px au-dessus
+   du nom) prenaient la moitié de l'écran pour six notes ; une ligne de 70 px dit la même chose (nom, module, lieu, date,
+   taux) et laisse les modules à portée. Mesuré par verifier_site.js (« Reprendre » compacte). */
+.accueil .resume { margin-bottom: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.accueil .rcard { cursor: pointer; flex-direction: row; align-items: stretch; height: 70px; }
 .accueil .rcard:hover { border-color: var(--accent-line); box-shadow: var(--shadow-2); }
+.accueil .rcard .thumb { flex: none; width: 84px; height: auto; padding: 6px; border-bottom: 0; border-right: 1px solid var(--line); }
 .accueil .rcard .thumb svg { width: 100% !important; height: 100% !important; }
-.accueil .rcard .m .chip { margin-left: auto; height: 20px; font-size: 11px; min-width: 0; padding: 0 6px; }
+.accueil .rcard .body { flex: 1; min-width: 0; padding: 8px 10px 8px 12px; gap: 2px; justify-content: center; }
+.accueil .rcard .t { font-size: 13px; line-height: 1.3; }
+.accueil .rcard .m { font-size: 11.5px; line-height: 1.35; gap: 4px; }
+.accueil .rcard .ou { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.accueil .rcard .m .chip { margin-left: auto; height: 18px; font-size: 10.5px; min-width: 0; padding: 0 6px; }
 .accueil .rcard .supp { margin-left: 4px; color: var(--ink-4); display: grid; }
 .accueil .rcard .supp:hover { color: var(--nok); }
 .vide { padding: 22px; border: 1px dashed var(--line-strong); border-radius: var(--r-lg); color: var(--ink-3); text-align: center; grid-column: 1 / -1; }
@@ -278,6 +286,10 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
 
 /* ================================================================ tablette : 701 à 1 199 px */
 /* la barre du haut, jusqu'à 1 100 px */
+@media (min-width: 701px) and (max-width: 1199px) {
+  /* « Reprendre » : deux cartes par ligne, le nom garde sa place à côté de la vignette */
+  .accueil .resume { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (min-width: 701px) and (max-width: 1100px) {
   /* la barre du haut garde ses icônes ; les noms des boutons passent au survol (title) */
   .top { gap: 8px; padding: 0 12px 0 16px; }
@@ -395,7 +407,11 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
 
   /* l'accueil : une colonne ; le bouton « Nouvelle note » garde son nom, sur toute la largeur */
   .page.accueil { grid-template-columns: minmax(0, 1fr); }
-  .accueil .resume:has(.vide) { grid-auto-columns: 100%; }
+  /* « Reprendre » : deux cartes l'une sous l'autre, les suivantes au glissé */
+  .accueil .resume { grid-template-columns: none; grid-template-rows: repeat(2, auto); grid-auto-columns: 86%; gap: 8px; }
+  .accueil .rcard { height: 62px; }
+  .accueil .rcard .thumb { width: 70px; padding: 5px; }
+  .accueil .resume:has(.vide) { grid-template-rows: none; grid-auto-columns: 100%; }
   .accueil .hello .btn.big { width: 100%; height: 46px; padding: 0 16px; justify-content: center; font-size: 14.5px; }
   .accueil .hello .btn.big svg.i { width: 18px; height: 18px; }
   .accueil .famille { margin-bottom: 4px; }

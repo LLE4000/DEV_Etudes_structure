@@ -494,6 +494,55 @@ const FILTRE = process.argv[4] || '';
       return !ko;
     };
 
+    // « Reprendre » compacte : six notes semées dans ce navigateur, puis le bloc MESURÉ à l'écran. Les grandes cartes de la
+    // maquette (vignette de 150 px au-dessus du nom) prenaient ~460 px au PC pour six notes ; le bureau les a voulues
+    // « deux fois plus petites et plus élégantes ».
+    const reprendre = async (pg) => {
+      await pg.evaluate((mods) => {
+        const notes = {}, t = Date.now();
+        const svg = '<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="22" width="88" height="16" fill="none" stroke="#7a8699"/></svg>';
+        mods.slice(0, 6).forEach((m, i) => {
+          const id = `reprendre-${i}`;
+          notes[id] = { id, module: m, nom: `Note ${i + 1} — un nom assez long pour devoir être coupé`, chantier: 'Résidence Les Tilleuls, bâtiment B', dossier: 'Phase 2',
+            indice: '', cree: t - i * 6e4, modifie: t - i * 6e4, etat: null, resume: { taux: 63.7 + 7 * i, niveau: 'ok' }, vignette: svg };
+        });
+        localStorage.setItem('stab.notes.v1', JSON.stringify(notes));
+      }, Object.keys(MODS));
+      await pg.reload();
+      await pg.waitForTimeout(300);
+      return pg.evaluate(() => {
+        const vu = (e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const cs = [...document.querySelectorAll('#recentes .rcard')];
+        const bloc = document.getElementById('recentes').getBoundingClientRect();
+        const r = (e) => e.getBoundingClientRect();
+        return {
+          n: cs.length,
+          h: Math.max(...cs.map((c) => Math.round(r(c).height))),
+          bloc: Math.round(bloc.height),
+          // les cartes ENTIÈREMENT visibles, sur combien de lignes et de colonnes
+          lignes: new Set(cs.filter((c) => r(c).right <= innerWidth + 0.5).map((c) => Math.round(r(c).top))).size,
+          colonnes: new Set(cs.filter((c) => r(c).right <= innerWidth + 0.5).map((c) => Math.round(r(c).left))).size,
+          // la vignette à gauche, moins de la moitié de la carte ; le nom, la pastille et le ✕ dans la carte
+          gauche: cs.every((c) => { const t = r(c.querySelector('.thumb')), k = r(c); return t.left - k.left < 2 && t.width < k.width / 2 && vu(c.querySelector('.thumb svg')); }),
+          dedans: cs.every((c) => ['.t', '.chip', '.supp'].every((s) => { const e = c.querySelector(s), a = r(e), k = r(c); return vu(e) && a.right <= k.right + 0.5 && a.bottom <= k.bottom + 0.5; })),
+          deborde: document.documentElement.scrollWidth > innerWidth,
+        };
+      });
+    };
+    if (PARTIES.includes('accueil')) {
+      for (const [fmt, w, h, tel, hmax, cols, lignes, blocmax] of [['PC', 1440, 900, false, 76, 3, 2, 165], ['tablette', 820, 1180, false, 76, 2, 3, 250],
+        ['téléphone', 390, 844, true, 66, 1, 2, 150]]) {
+        const g = await contexte(w, h, tel);
+        await g.goto(`${BASE}/index.html`);
+        const q = await reprendre(g);
+        verif(`accueil · ${fmt} : « Reprendre » compacte — des cartes basses (≤ ${hmax} px), la vignette à gauche, ${cols} par ligne, le bloc ≤ ${blocmax} px`,
+          q.n === 6 && q.h <= hmax && q.colonnes === cols && q.lignes === lignes && q.bloc <= blocmax && q.gauche && q.dedans && !q.deborde, JSON.stringify(q));
+        await g.screenshot({ path: path.join(OUT, `site_accueil_reprendre_${fmt === 'téléphone' ? 'tel' : fmt.toLowerCase()}.png`) });
+        verif(`accueil · ${fmt} : « Reprendre » sans erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+        await g.context().close();
+      }
+    }
+
     // ------------------------------------------------ l'accueil au téléphone
     if (PARTIES.includes('accueil')) {
       const t = await contexte(390, 844, true);

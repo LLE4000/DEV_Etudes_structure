@@ -19,7 +19,8 @@ function afficher() {
     const chip = tx.texte ? `<span class="chip ${esc(r.niveau)}"${tx.titre ? ` title="${esc(tx.titre)}"` : ""}>${esc(tx.texte)}</span>` : "";
     const lieu = [n.chantier, n.dossier].filter(Boolean).join(" › ") || "Sans chantier";
     return `<a class="card rcard" href="${N.MODULES[n.module].page}?note=${encodeURIComponent(n.id)}"><div class="thumb">${/^\s*<svg/.test(n.vignette || "") ? n.vignette : ""}</div>`
-      + `<div class="body"><div class="t">${esc(n.nom)}</div><div class="m">${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}</div>`
+      + `<div class="body"><div class="t" title="${esc(n.nom)}">${esc(n.nom)}</div>`
+      + `<div class="m"><span class="ou" title="${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}">${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}</span></div>`
       + `<div class="m">${esc(N.quand(n.modifie))}${chip}<span class="supp" data-supprimer="${esc(n.id)}" title="Supprimer la note">✕</span></div></div></a>`;
   }).join("") : `<div class="vide"><b>Aucune note pour l'instant</b>« Nouvelle note » en crée une ; elle s'enregistre dans ce navigateur.</div>`;
   // les chantiers : leurs dossiers et leurs notes
