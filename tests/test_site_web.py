@@ -171,18 +171,22 @@ for k in SW.PAGES:
         set(actions(haut)) <= set(actions(tel)) and 'for="ouvrir"' in haut and 'for="ouvrir"' in tel, (actions(haut), actions(tel)))
 # l'enregistrement de la note : le MÊME indicateur (construire.enregistrement) dans la barre du haut (PC, tablette) et
 # sur la 2ᵉ ligne de l'en-tête du téléphone, et le message d'échec qui offre « Exporter .stab », dans chaque établi
-IND, ALERTE = SW.enregistrement(), SW.alerte_enregistrement()
+IND, ALERTE, REVOIR = SW.enregistrement(), SW.alerte_enregistrement(), SW.menu_enregistrement()
 fautes = []
 for k in SW.PAGES:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     haut = html[html.index('<header class="top"'):html.index("</header>")]
     tel = html[html.index('<header class="mtop"'):html.index('<div class="mmenu"')]
+    menu = html[html.index('<div class="mmenu"'):html.index('<nav class="mtabs"')]
+    # au téléphone, la 2ᵉ ligne n'écrit que l'état d'un échec : le menu ⋯ le dit EN ENTIER, en première entrée
     if not (IND in haut and IND in tel and html.count(IND) == 2 and tel.index(IND) < tel.index('id="fil-m"') and ALERTE in html
-            and 'class="saved' not in html):
+            and 'class="saved' not in html and html.count(REVOIR) == 1 and menu.index(REVOIR) < menu.index('class="mi"')):
         fautes.append(SW.PAGES[k])
 chk("chaque établi : le même indicateur d'enregistrement dans la barre du haut et sur la 2ᵉ ligne de l'en-tête du téléphone, "
-    "et le message d'échec avec « Exporter .stab » (plus d'ancien .saved)",
-    not fautes and 'data-action="exporter"' in ALERTE and "Exporter .stab" in ALERTE and 'data-enr="neuf"' in IND, fautes[:3])
+    "le message d'échec avec « Exporter .stab » (plus d'ancien .saved), et l'échec en entier en tête du menu ⋯",
+    not fautes and 'data-action="exporter"' in ALERTE and "Exporter .stab" in ALERTE and 'data-enr="neuf"' in IND
+    and re.search(r'<span class="et-enr-txt"><span class="et-enr-etat">[^<]+</span><span class="et-enr-raison"></span></span>', IND)
+    and "data-revoir-alerte" in REVOIR and " hidden>" in REVOIR, fautes[:3])
 chk("l'accueil porte le signal d'une mémoire des notes illisible (#et-memoire)", 'id="et-memoire"' in open(os.path.join(WEB, "index.html"), encoding="utf-8").read())
 
 
@@ -204,7 +208,11 @@ def _sans_impression(css: str) -> str:
     return "".join(out) + css[i:]
 
 
-PROTEGES = re.compile(r"\.(?:et-enr|et-enr-txt|et-l2)(?![\w-])")
+PROTEGES = re.compile(r"\.(?:et-enr|et-enr-txt|et-enr-etat|et-l2)(?![\w-])")
+# la RAISON d'un échec (.et-enr-raison) ne cède qu'au téléphone (.mtop), où la 2ᵉ ligne tient entre le retour et la
+# pastille de la note : la barre du haut (PC, tablette) la dit toujours
+RAISON = re.compile(r"\.et-enr-raison(?![\w-])")
+raisons = []
 CACHE = re.compile(r"display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\.0*)?\s*(?:;|!|$)|content-visibility\s*:\s*hidden", re.I)
 caches = []
 feuilles = ["site.css", "charte.css"] + [os.path.join("modules", f) for f in sorted(os.listdir(os.path.join(WEB, "css", "modules")))]
@@ -217,8 +225,30 @@ for f in feuilles:
             sujet = re.split(r"[\s>+~]+", un.strip())[-1]
             if PROTEGES.search(sujet):
                 caches.append(f"{f} : {un.strip()}")
-chk("aucune règle des feuilles du site ne cache l'indicateur d'enregistrement, son texte ou la 2ᵉ ligne du téléphone (hors impression)",
+            if RAISON.search(sujet) and not re.search(r"\.mtop(?![\w-])", un):
+                raisons.append(f"{f} : {un.strip()}")
+chk("aucune règle des feuilles du site ne cache l'indicateur d'enregistrement, son texte, son état ou la 2ᵉ ligne du téléphone (hors impression)",
     not caches, caches[:4])
+chk("la raison d'un échec d'enregistrement n'est cachée qu'au téléphone (une règle sans .mtop la cacherait dans la barre du haut)",
+    not raisons, raisons[:4])
+# la pastille la plus large de l'en-tête du téléphone, dans verifier_site.js (filtre « enregistrement ») : une COPIE NOMMÉE
+# du statut « calcul impossible » du moteur, le plus long des statuts qu'écrit la pastille quand la note n'a pas de taux
+# (niveaux c et x, et les statuts écrits en clair par les modules)
+sys.path.insert(0, RACINE)
+from api_web import commun as _CW  # noqa: E402
+_harnais = open(os.path.join(WEB, "verifier_site.js"), encoding="utf-8").read()
+_pastille = re.findall(r"const PASTILLE_LA_PLUS_LARGE = '([^']+)';", _harnais)
+_sans_taux = {_CW.STATUTS["c"][1], _CW.STATUTS["x"][1]}
+for _f in sorted(os.listdir(os.path.join(RACINE, "api_web"))):
+    if _f.endswith(".py"):
+        for _ligne in open(os.path.join(RACINE, "api_web", _f), encoding="utf-8"):
+            # « "statut": "À compléter" if vides else "À corriger" » sur une ligne sans taux : les deux textes
+            _m = re.search(r'"statut":\s*("[^"]*"(?:\s+if\s+[^"]+?\s+else\s+"[^"]*")?)', _ligne)
+            if _m and '"taux": None' in _ligne:
+                _sans_taux |= set(re.findall(r'"([^"]*)"', _m.group(1)))
+chk(f"verifier_site.js : la pastille la plus large essayée est le statut « calcul impossible » du moteur, le plus long des statuts sans taux "
+    f"({len(_sans_taux)} statuts)", _pastille == [_CW.STATUTS["x"][1]] and all(len(x) <= len(_pastille[0]) for x in _sans_taux),
+    (_pastille, sorted(_sans_taux, key=len)[-3:]))
 # les classes posées sur un composant « et- » (l'indicateur, le message, le signal de l'accueil) portent elles aussi le
 # préfixe « et- » (spécification de la refonte, B.2.6) : une classe nue (« .et-alerte.info ») peut rencontrer une règle de
 # la charte ou du <style> d'un module. Les :not(…) sont retirés : ils ne posent pas de classe sur l'élément.

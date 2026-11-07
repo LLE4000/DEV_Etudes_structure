@@ -108,6 +108,11 @@ site tel qu'il est.
   de la barre du haut — au téléphone, la 2ᵉ ligne de l'en-tête — passe au rouge (« Non enregistré : stockage plein ») et
   y reste jusqu'à la prochaine écriture réussie ; un message, dit une fois, offre « Exporter .stab ». Avant, le texte
   était caché sous 1 360 px : l'échec y était muet.
+  Au téléphone (07/11/2026, relecture du lot 0 bis), la 2ᵉ ligne tient entre le retour et la pastille de la note : elle
+  écrit « ⚠ Non enregistré » seul, en rouge, entier ; la raison (« stockage plein », « mémoire illisible ») est dans le
+  message, au survol, et en tête du menu ⋯, dont l'entrée rouvre le message. Mesuré avant : « Non enregistré : stockage
+  plein » passait sous la pastille « À compléter » du plancher à 390 px, et « … mémoire illisible » sous toute pastille
+  à 360 px. Au pire (pastille « Calcul impossible », 320 px), le texte finit par « … », jamais sous la pastille.
 - **Une mémoire des notes illisible n'est jamais écrasée** (07/11/2026, lot 0 bis) : abîmée, elle n'a aucune note
   lisible, mais elle n'est pas « vide ». Avant toute écriture, son texte brut est copié à part, tel quel, une fois
   (`stab.notes.v1.illisible.<heure>`) ; si la copie échoue, rien n'est écrit et l'écran dit « Non enregistré : la

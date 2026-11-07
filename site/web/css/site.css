@@ -23,11 +23,12 @@ a { color: inherit; text-decoration: none; }
 .nomnote:hover { border-color: var(--line); }
 .nomnote:focus { border-color: var(--accent); background: var(--panel); }
 /* ---------------------------------------------------------------- l'enregistrement de la note (.et-enr, #et-alerte) */
-/* Visible aux TROIS formats : aucune règle ne cache .et-enr ni son texte (.et-enr-txt), à aucune largeur. L'ancien
-   indicateur (.saved .txt) était caché par la charte sous 1 360 px : un échec d'enregistrement n'y laissait qu'une
-   coche grise, muette (verifier_site.js, filtre « enregistrement » ; tests/test_site_web.py lit cette feuille). Seul le mot
-   « Enregistré · » cède sous 1 100 px (tablette, téléphone) : l'heure et l'icône disent la même chose ; un échec, lui,
-   s'écrit en entier. */
+/* Visible aux TROIS formats : aucune règle ne cache .et-enr, son texte (.et-enr-txt) ni son état (.et-enr-etat), à
+   aucune largeur. L'ancien indicateur (.saved .txt) était caché par la charte sous 1 360 px : un échec d'enregistrement
+   n'y laissait qu'une coche grise, muette (verifier_site.js, filtre « enregistrement » ; tests/test_site_web.py lit cette
+   feuille). Seul le mot « Enregistré · » cède sous 1 100 px (tablette, téléphone) : l'heure et l'icône disent la même
+   chose ; un échec, lui, s'écrit en entier dans la barre du haut — au téléphone, sa raison (.et-enr-raison) cède, elle
+   seule (voir le bloc du téléphone). */
 .et-enr { display: inline-flex; align-items: center; gap: 5px; flex: none; font-size: 12px; line-height: 16px; color: var(--ink-3); white-space: nowrap; }
 .et-enr-ic { display: inline-flex; flex: none; }
 .et-enr-ic svg.i { width: 15px; height: 15px; }
@@ -39,6 +40,9 @@ a { color: inherit; text-decoration: none; }
 /* l'échec : rouge et gras, sur un fond rouge pâle — il ne s'efface pas tant qu'une écriture n'a pas réussi */
 .et-enr[data-enr="echec"] { padding: 2px 8px 2px 6px; border-radius: 6px; background: color-mix(in srgb, var(--nok) 10%, transparent); }
 .et-enr[data-enr="echec"] .et-enr-ic, .et-enr[data-enr="echec"] .et-enr-txt { color: var(--nok); font-weight: 650; }
+/* l'état et la raison prennent la couleur et la taille du texte : la charte peint chaque <span> de l'en-tête du téléphone
+   en gris (« .mtop .t span », 0-2-1) — mesuré : « Non enregistré » s'y écrivait en gris sur le fond rouge pâle */
+.et-enr .et-enr-txt > .et-enr-etat, .et-enr .et-enr-txt > .et-enr-raison { color: inherit; font-size: inherit; }
 /* le message d'un échec (ou d'une mémoire illisible gardée à part) : posé sous la barre du haut, il reste jusqu'à ce
    qu'on le ferme ; « Exporter .stab » y est à portée */
 .et-alerte { position: fixed; z-index: 48; top: calc(var(--top-h) + 10px); left: 50%; transform: translateX(-50%); width: min(600px, calc(100vw - 24px));
@@ -405,13 +409,19 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mtop .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   .mtop .nomnote { width: 100%; min-width: 0; height: 26px; padding: 0 4px; margin-left: -4px; font-size: 16px; font-weight: 700;
     text-overflow: ellipsis; }
-  /* la 2ᵉ ligne : l'état de l'enregistrement (le même indicateur que la barre du PC), puis le fil ; un échec y garde
-     toute sa place, le fil cède */
-  .mtop .et-l2 { display: flex; align-items: center; gap: 6px; min-width: 0; height: 16px; }
-  .mtop .et-l2 .et-enr { font-size: 12px; }
+  /* la 2ᵉ ligne : l'état de l'enregistrement (le même indicateur que la barre du PC), puis le fil, qui cède le premier.
+     Elle tient ENTRE le retour et la pastille de la note : un échec y écrit « Non enregistré » seul, en rouge (B.3 :
+     « point rouge et texte rouge ») ; sa raison (« : stockage plein ») n'y tenait pas — mesuré à 390 px, plancher, pastille
+     « À compléter » de 93 px : le texte entier passait SOUS la pastille — elle reste dans le message, le title et le
+     menu ⋯ (.et-mi-enr). Et l'indicateur ne sort jamais de sa colonne : au pire (une pastille plus large encore, un
+     écran plus étroit), son texte se termine par « … », jamais sous la pastille (verifier_site.js, « enregistrement »). */
+  .mtop .et-l2 { display: flex; align-items: center; gap: 5px; min-width: 0; height: 16px; }
+  .mtop .et-l2 .et-enr { flex: 0 1 auto; min-width: 0; max-width: 100%; gap: 4px; font-size: 12px; }
+  .mtop .et-l2 .et-enr-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .mtop .et-enr-raison { display: none; }
   .et-enr-mot:not(:empty) { display: none; }
   .mtop .et-l2 .et-enr-ic svg.i { width: 13px; height: 13px; }
-  .mtop .et-l2 .et-enr[data-enr="echec"] { padding: 0 6px 0 4px; border-radius: 4px; }
+  .mtop .et-l2 .et-enr[data-enr="echec"] { padding: 0 4px 0 3px; border-radius: 4px; }
   .mtop #fil-m { flex: 1 1 0; min-width: 0; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mtop .calcule { margin: 0; flex: none; }
   .mtop .mchip { flex: none; height: 36px; min-width: 50px; padding: 0 9px; border: 0; font-size: 13px; font-family: inherit; cursor: pointer; }
@@ -423,6 +433,10 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mmenu .mi svg.i { width: 19px; height: 19px; color: var(--ink-2); }
   .mmenu .mi .tag { margin-left: auto; }
   .mmenu .mi[aria-disabled="true"] { color: var(--ink-3); }
+  /* l'échec d'enregistrement en entier, en tête du menu ; le toucher rouvre son message */
+  .mmenu .et-mi-enr { margin-bottom: 4px; color: var(--nok); font-weight: 650; background: color-mix(in srgb, var(--nok) 8%, transparent); }
+  .mmenu .et-mi-enr svg.i { color: var(--nok); }
+  .mmenu .et-mi-enr[hidden] { display: none; }
   /* les onglets, puis la barre du bas */
   .mtabs { padding: 8px 12px; }
   .mtabs .seg button { height: 40px; font-size: 14.5px; }

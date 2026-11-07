@@ -1462,12 +1462,20 @@ const FILTRE = process.argv[4] || '';
   // la charte cachait le texte (.saved .txt) sous 1 360 px — à 1 280 et 820 px, une coche grise, muette ; au téléphone,
   // rien tant que le menu restait fermé. Puis la mémoire des notes ABÎMÉE : jamais réécrite sans que son texte soit
   // copié à part ; la copie impossible, rien n'est écrit et l'écran le dit ; l'accueil le signale et rend le texte tel quel.
+  // Au téléphone (390 et 360 px, poutre et plancher), la 2ᵉ ligne de l'en-tête tient entre le retour et la pastille de la
+  // note : l'échec y écrit « Non enregistré » seul, entier, dans sa colonne, jamais sous la pastille — même la plus large
+  // que le moteur écrit (PASTILLE_LA_PLUS_LARGE) ; la raison est dans le title, le message, et le menu ⋯, dont l'entrée
+  // rouvre le message. Défaut d'avant (relecture du lot 0 bis) : « Non enregistré : stockage plein » passait SOUS la
+  // pastille « À compléter » du plancher à 390 px, et « … mémoire illisible » sous toute pastille à 360 px.
   //   filtre « enregistrement »
   if (!FILTRE || FILTRE === 'enregistrement') {
     const fs = require('fs');
     await p.goto(`${BASE}/`);
     const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
     const CLE = 'stab.notes.v1', PREFIXE = 'stab.notes.v1.illisible.';
+    // la pastille de la note la plus large que l'en-tête du téléphone puisse porter : un statut sans taux. COPIE NOMMÉE de
+    // api_web/commun.py, STATUTS["x"] ; tests/test_site_web.py la lie (elle est le plus long des statuts sans taux).
+    const PASTILLE_LA_PLUS_LARGE = 'Calcul impossible';
     // la mémoire d'un bureau, abîmée : 30 notes, le JSON tronqué d'un octet (la mesure du jury)
     const trente = {};
     for (let i = 0; i < 30; i++) {
@@ -1506,8 +1514,10 @@ const FILTRE = process.argv[4] || '';
       await pg.waitForTimeout(150);
       return true;
     };
-    // ce que l'œil voit de l'indicateur VISIBLE à ce format (il y en a un, et un seul) : son état, son texte entier (ni
-    // caché, ni coupé par un parent, ni couvert), sa couleur comparée à celle de --nok ; et le message
+    // ce que l'œil voit de l'indicateur VISIBLE à ce format (il y en a un, et un seul) : son état, son texte LU (innerText :
+    // ce que les règles laissent voir, pas ce que le DOM garde), entier (ni caché, ni coupé par un parent, ni couvert),
+    // dans sa colonne au téléphone (entre le retour et la pastille), sa couleur comparée à celle de --nok ; le message ; et
+    // l'entrée du menu ⋯ qui dit l'échec en entier
     const lireEnr = (pg) => pg.evaluate(() => {
       const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
       const vis = [...document.querySelectorAll('.et-enr')].filter(vu);
@@ -1515,7 +1525,7 @@ const FILTRE = process.argv[4] || '';
       const t = e ? e.querySelector('.et-enr-txt') : null;
       const sonde = document.createElement('span'); sonde.style.color = 'var(--nok)'; document.body.appendChild(sonde);
       const rouge = getComputedStyle(sonde).color; sonde.remove();
-      let entier = false, couvert = [], boite = null;
+      let entier = false, couvert = [], boite = null, colonne = true;
       if (t && vu(t)) {
         const rg = document.createRange(); rg.selectNodeContents(t);
         const r = rg.getBoundingClientRect();
@@ -1528,18 +1538,41 @@ const FILTRE = process.argv[4] || '';
           const q = a.getBoundingClientRect();
           if (r.left < q.left - 0.5 || r.right > q.right + 0.5 || r.top < q.top - 0.5 || r.bottom > q.bottom + 0.5) entier = false;
         }
-        // rien ne le couvre : trois points du texte appartiennent à l'indicateur
-        for (const x of [r.left + 3, (r.left + r.right) / 2, r.right - 3]) {
+        // rien ne le couvre : trois points du texte VU (rogné par ses parents, s'il l'est) appartiennent à l'indicateur
+        let g = r.left, d = r.right;
+        for (let a = t; a; a = a.parentElement) {
+          if (getComputedStyle(a).overflow === 'visible') continue;
+          const q = a.getBoundingClientRect();
+          g = Math.max(g, q.left); d = Math.min(d, q.right);
+        }
+        for (const x of [g + 3, (g + d) / 2, d - 3]) {
           const f = document.elementFromPoint(x, (r.top + r.bottom) / 2);
           if (!f || !f.closest('.et-enr')) couvert.push(f ? (f.id || f.className || f.tagName).toString().slice(0, 30) : 'rien');
         }
+        // au téléphone, l'indicateur entier reste dans sa colonne (.mtop .t), sans déborder vers la pastille
+        const col = e.closest('.mtop .t');
+        if (col) {
+          const q = col.getBoundingClientRect(), ri = e.getBoundingClientRect();
+          colonne = ri.left >= q.left - 0.5 && ri.right <= q.right + 0.5;
+        }
       }
+      const chip = document.getElementById('chip-m');
+      const mi = document.querySelector('[data-revoir-alerte]');
+      const rmi = mi && vu(mi) ? mi.getBoundingClientRect() : null;
       const al = document.getElementById('et-alerte');
       const bt = al && al.querySelector('.et-alerte-stab');
       const ra = al && vu(al) ? al.getBoundingClientRect() : null;
       const rb = bt && vu(bt) ? bt.getBoundingClientRect() : null;
-      return { visibles: vis.length, etat: e ? e.dataset.enr : null, texte: t ? t.textContent : null, titre: e ? e.title : '', entier, couvert, boite,
-        rouge: !!t && getComputedStyle(t).color === rouge, couleur: t ? getComputedStyle(t).color : null,
+      // la couleur de ce qui s'écrit : chaque élément VU qui porte du texte (pas seulement le conteneur — une règle de la
+      // charte peut repeindre un <span> intérieur)
+      const porteurs = (x) => [x, ...x.querySelectorAll('*')].filter((y) => vu(y) && [...y.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()));
+      const couleurs = (x) => (x ? porteurs(x).map((y) => getComputedStyle(y).color) : []);
+      const enRouge = (x) => { const c = couleurs(x); return c.length > 0 && c.every((y) => y === rouge); };
+      return { visibles: vis.length, etat: e ? e.dataset.enr : null, texte: t ? t.innerText : null, titre: e ? e.title : '', entier, couvert, colonne, boite,
+        rouge: enRouge(t), couleur: [...new Set(couleurs(t))].join(' / '),
+        pastille: chip && vu(chip) ? `${chip.textContent} · ${Math.round(chip.getBoundingClientRect().width)} px` : '',
+        menu: { cache: !mi || mi.hidden, vu: !!rmi, texte: mi ? mi.innerText : null, h: rmi ? Math.round(rmi.height) : 0,
+          rouge: enRouge(mi) },
         alerte: ra ? { texte: al.querySelector('.et-alerte-txt').textContent, info: al.classList.contains('et-info'),
           dedans: ra.left >= -0.5 && ra.right <= innerWidth + 0.5 && ra.top >= -0.5 && ra.bottom <= innerHeight + 0.5,
           bouton: rb ? { texte: bt.textContent.trim(), h: Math.round(rb.height), l: Math.round(rb.width) } : null } : null,
@@ -1555,13 +1588,18 @@ const FILTRE = process.argv[4] || '';
       return { nom: dl.suggestedFilename(), texte: fs.readFileSync(await dl.path(), 'utf8') };
     };
 
-    // ------------------------------------------------ 1. le stockage plein, aux quatre largeurs
-    for (const [fmt, w, h, tel, tactile, attendre] of [['PC 1440', 1440, 900, false, false, true], ['portable 1280', 1280, 800, false, false, false],
-      ['tablette 820', 820, 1180, false, true, false], ['téléphone 390', 390, 844, true, true, true]]) {
-      const nom = `enregistrement · ${fmt}`;
+    // ------------------------------------------------ 1. le stockage plein, aux quatre largeurs, et au téléphone de 360 px
+    // (la poutre ; le plancher, dont la pastille « À compléter » est la plus large des pastilles d'ouverture)
+    // CE QUI SE LIT : la barre du haut (PC, tablette) dit l'échec EN ENTIER ; la 2ᵉ ligne du téléphone, « Non enregistré »
+    for (const [fmt, w, h, tel, tactile, attendre, mod] of [['PC 1440', 1440, 900, false, false, true, 'poutre'],
+      ['portable 1280', 1280, 800, false, false, false, 'poutre'], ['tablette 820', 820, 1180, false, true, false, 'poutre'],
+      ['téléphone 390', 390, 844, true, true, true, 'poutre'], ['téléphone 390', 390, 844, true, true, false, 'plancher'],
+      ['téléphone 360', 360, 780, true, true, false, 'plancher'], ['téléphone 360', 360, 780, true, true, false, 'poutre']]) {
+      const nom = `enregistrement · ${mod} · ${fmt}`;
+      const lu = tel ? 'Non enregistré' : 'Non enregistré : stockage plein';
       const pg = await ouvrirContexte(w, h, tel, tactile);
       try {
-        await pg.goto(`${BASE}/${MODS.poutre.page}?nom=${encodeURIComponent(`Essai d'enregistrement · ${fmt}`)}&chantier=R%C3%A9alex`);
+        await pg.goto(`${BASE}/${MODS[mod].page}?nom=${encodeURIComponent(`Essai d'enregistrement · ${fmt}`)}&chantier=R%C3%A9alex`);
         const ko0 = await demarre(pg);
         verif(`${nom} : le moteur démarre`, !ko0, ko0);
         let e = await lireEnr(pg);
@@ -1574,13 +1612,13 @@ const FILTRE = process.argv[4] || '';
         });
         verif(`${nom} : une saisie part au moteur`, await saisir(pg));
         e = await lireEnr(pg);
-        verif(`${nom} : l'ÉCHEC se lit — « Non enregistré : stockage plein », visible, entier, non couvert, en rouge`,
-          e.visibles === 1 && e.etat === 'echec' && e.texte === 'Non enregistré : stockage plein' && e.entier && !e.couvert.length && e.rouge && !e.deborde,
-          JSON.stringify(e));
+        verif(`${nom} : l'ÉCHEC se lit — « ${lu} », visible, entier, non couvert${tel ? ', dans sa colonne' : ''}, en rouge ; la raison au survol`,
+          e.visibles === 1 && e.etat === 'echec' && e.texte === lu && e.entier && !e.couvert.length && e.colonne && e.rouge && !e.deborde
+          && e.titre === 'Non enregistré : le stockage de ce navigateur est plein', JSON.stringify(e));
         verif(`${nom} : le message le dit, dans l'écran, avec « Exporter .stab »`,
           e.alerte && !e.alerte.info && e.alerte.dedans && /^Non enregistré : le stockage de ce navigateur est plein\./.test(e.alerte.texte)
           && e.alerte.bouton && e.alerte.bouton.texte === 'Exporter .stab' && e.alerte.bouton.h >= (tactile ? 44 : 24), JSON.stringify(e.alerte));
-        await pg.screenshot({ path: path.join(OUT, `site_enregistrement_echec_${fmt.split(' ')[1]}.png`) });
+        await pg.screenshot({ path: path.join(OUT, `site_enregistrement_echec_${mod}_${fmt.split(' ')[1]}.png`) });
         if (attendre) {
           // persistant : bien après les 7 s d'un message éphémère
           await pg.waitForTimeout(7600);
@@ -1592,18 +1630,55 @@ const FILTRE = process.argv[4] || '';
         let stab = null;
         try { stab = JSON.parse(f.texte); } catch (x) { /* dit plus bas */ }
         verif(`${nom} : « Exporter .stab » du message exporte la note (son état de calcul compris)`,
-          /\.stab$/.test(f.nom) && stab && stab.format === 'stab' && stab.note && stab.note.module === 'poutre' && stab.note.etat && typeof stab.note.etat === 'object',
+          /\.stab$/.test(f.nom) && stab && stab.format === 'stab' && stab.note && stab.note.module === mod && stab.note.etat && typeof stab.note.etat === 'object',
           `${f.nom} · ${f.texte.replace(/\s+/g, ' ').slice(0, 80)}`);
         // fermé, le message ne revient pas à la saisie suivante ; l'indicateur, lui, reste rouge
         await pg.click('#et-alerte [data-fermer-alerte]');
         await saisir(pg);
         e = await lireEnr(pg);
         verif(`${nom} : le message fermé ne revient pas à chaque saisie ; l'indicateur reste rouge`, !e.alerte && e.etat === 'echec' && e.entier && e.rouge, JSON.stringify(e));
+        if (tel) {
+          // la raison, au doigt : le menu ⋯ dit l'échec EN ENTIER (une entrée de 44 px au moins, en rouge), et la toucher
+          // rouvre le message, avec « Exporter .stab »
+          await pg.click('#menu-m');
+          await pg.waitForTimeout(150);
+          const e1 = await lireEnr(pg);
+          verif(`${nom} : le menu ⋯ dit l'échec en entier — « Non enregistré : stockage plein », en rouge, une cible du doigt`,
+            e1.menu.vu && e1.menu.texte === 'Non enregistré : stockage plein' && e1.menu.h >= 44 && e1.menu.rouge, JSON.stringify(e1.menu));
+          await pg.screenshot({ path: path.join(OUT, `site_enregistrement_echec_${mod}_${fmt.split(' ')[1]}_menu.png`), clip: { x: 0, y: 0, width: w, height: 420 } });
+          await pg.click('[data-revoir-alerte]');
+          await pg.waitForTimeout(150);
+          const e2 = await lireEnr(pg);
+          const menuFerme = await pg.evaluate(() => document.getElementById('mmenu').hidden);
+          verif(`${nom} : le toucher rouvre le message (la raison, « Exporter .stab ») et referme le menu`,
+            menuFerme && e2.alerte && !e2.alerte.info && e2.alerte.dedans && /^Non enregistré : le stockage de ce navigateur est plein\./.test(e2.alerte.texte)
+            && e2.alerte.bouton && e2.alerte.bouton.texte === 'Exporter .stab' && e2.alerte.bouton.h >= 44, JSON.stringify(e2.alerte));
+          await pg.click('#et-alerte [data-fermer-alerte]');
+          // la pastille la plus large que le moteur écrive (un statut sans taux) : l'échec reste entier, dans sa colonne,
+          // jamais dessous (la pastille reprend son texte à la réponse suivante)
+          await pg.evaluate((t) => { const c = document.getElementById('chip-m'); c.textContent = t; c.hidden = false; }, PASTILLE_LA_PLUS_LARGE);
+          const e3 = await lireEnr(pg);
+          verif(`${nom} : sous la pastille la plus large (« ${PASTILLE_LA_PLUS_LARGE} »), « Non enregistré » reste entier, dans sa colonne, non couvert`,
+            e3.etat === 'echec' && e3.texte === lu && e3.entier && !e3.couvert.length && e3.colonne && e3.rouge, JSON.stringify(e3));
+          await pg.screenshot({ path: path.join(OUT, `site_enregistrement_echec_${mod}_${fmt.split(' ')[1]}_pastille.png`), clip: { x: 0, y: 0, width: w, height: 120 } });
+          if (w === 360) {
+            // plus étroit encore (320 px, hors des formats du bureau) : la place manque, le texte se termine par « … » —
+            // dans sa colonne, en rouge, jamais sous la pastille
+            await pg.setViewportSize({ width: 320, height: h });
+            await pg.waitForTimeout(150);
+            const e4 = await lireEnr(pg);
+            verif(`${nom} : à 320 px sous la même pastille, « Non enregistré » peut finir par « … » mais reste dans sa colonne, en rouge, non couvert`,
+              e4.etat === 'echec' && e4.texte === lu && !e4.couvert.length && e4.colonne && e4.rouge && !e4.deborde, JSON.stringify(e4));
+            await pg.screenshot({ path: path.join(OUT, `site_enregistrement_echec_${mod}_320_pastille.png`), clip: { x: 0, y: 0, width: 320, height: 120 } });
+            await pg.setViewportSize({ width: w, height: h });
+          }
+        }
         // le stockage revient : une écriture réussie efface l'échec
         await pg.evaluate(() => { Storage.prototype.setItem = window.__setItem; });
         await saisir(pg);
         e = await lireEnr(pg);
-        verif(`${nom} : le stockage revenu, la saisie suivante s'enregistre et l'indicateur le dit`, e.etat === 'ok' && e.entier && !e.rouge && !e.alerte, JSON.stringify(e));
+        verif(`${nom} : le stockage revenu, la saisie suivante s'enregistre et l'indicateur le dit (et le menu ⋯ ne dit plus d'échec)`,
+          e.etat === 'ok' && e.entier && !e.rouge && !e.alerte && e.menu.cache, JSON.stringify(e));
         verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
       } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
       await pg.context().close();
@@ -1618,24 +1693,38 @@ const FILTRE = process.argv[4] || '';
         return o.call(this, k, v);
       };
     };
-    for (const [fmt, w, h, tel] of [['PC', 1440, 900, false], ['téléphone', 390, 844, true]]) {
-      const nom = `mémoire abîmée, copie impossible · ${fmt}`;
+    for (const [fmt, w, h, tel, mod] of [['PC', 1440, 900, false, 'poutre'], ['téléphone', 390, 844, true, 'poutre'], ['téléphone 360', 360, 780, true, 'plancher']]) {
+      const nom = `mémoire abîmée, copie impossible · ${mod} · ${fmt}`;
+      const lu = tel ? 'Non enregistré' : 'Non enregistré : mémoire illisible';
       const pg = await ouvrirContexte(w, h, tel, tel, refuserCopies);
       try {
         await pg.goto(`${BASE}/`);
         await pg.evaluate(([k, v]) => localStorage.setItem(k, v), [CLE, ABIME]);
-        await pg.goto(`${BASE}/${MODS.poutre.page}`);
+        await pg.goto(`${BASE}/${MODS[mod].page}`);
         const ko0 = await demarre(pg);
         verif(`${nom} : le moteur démarre`, !ko0, ko0);
         const e = await lireEnr(pg);
         const mem = await lireMemoire(pg);
         verif(`${nom} : RIEN n'est écrit — la mémoire abîmée reste à l'octet, aucune copie`, mem.principal === ABIME && !Object.keys(mem.copies).length,
           `${(mem.principal || '').length} caractères · ${Object.keys(mem.copies).length} copie(s)`);
-        verif(`${nom} : l'écran le dit — « Non enregistré : mémoire illisible », en rouge, entier ; le message « Non enregistré : la mémoire des notes est illisible » avec « Exporter .stab »`,
-          e.etat === 'echec' && e.texte === 'Non enregistré : mémoire illisible' && e.entier && !e.couvert.length && e.rouge
+        verif(`${nom} : l'écran le dit — « ${lu} », en rouge, entier, non couvert${tel ? ', dans sa colonne' : ''} ; le message « Non enregistré : la mémoire des notes est illisible » avec « Exporter .stab »`,
+          e.etat === 'echec' && e.texte === lu && e.entier && !e.couvert.length && e.colonne && e.rouge && e.titre === 'Non enregistré : la mémoire des notes est illisible'
           && e.alerte && e.alerte.texte.startsWith('Non enregistré : la mémoire des notes est illisible.') && e.alerte.bouton && e.alerte.bouton.texte === 'Exporter .stab',
           JSON.stringify(e));
-        await pg.screenshot({ path: path.join(OUT, `site_enregistrement_illisible_${tel ? 'tel' : 'pc'}.png`) });
+        if (tel) {
+          await pg.click('#et-alerte [data-fermer-alerte]');
+          await pg.click('#menu-m');
+          await pg.waitForTimeout(150);
+          const e1 = await lireEnr(pg);
+          verif(`${nom} : le menu ⋯ dit l'échec en entier — « Non enregistré : mémoire illisible »`,
+            e1.menu.vu && e1.menu.texte === 'Non enregistré : mémoire illisible' && e1.menu.h >= 44 && e1.menu.rouge, JSON.stringify(e1.menu));
+          await pg.click('[data-revoir-alerte]');
+          await pg.waitForTimeout(150);
+          const e2 = await lireEnr(pg);
+          verif(`${nom} : le toucher rouvre le message de la mémoire illisible`,
+            e2.alerte && e2.alerte.texte.startsWith('Non enregistré : la mémoire des notes est illisible.') && e2.alerte.bouton, JSON.stringify(e2.alerte));
+        }
+        await pg.screenshot({ path: path.join(OUT, `site_enregistrement_illisible_${mod}_${tel ? 'tel' + w : 'pc'}.png`) });
         // l'accueil : il le signale et rend le texte brut, tel quel
         await pg.goto(`${BASE}/`);
         await pg.waitForTimeout(300);
@@ -1649,7 +1738,7 @@ const FILTRE = process.argv[4] || '';
           a.vu && /mémoire des notes de ce navigateur est illisible/.test(a.texte) && /illisible/.test(a.date) && !a.deborde && a.haut < 400, JSON.stringify(a));
         const f = await telechargement(pg, '#et-memoire [data-texte-brut]');
         verif(`${nom} : l'accueil rend le texte de la mémoire abîmée, à l'octet`, f.texte === ABIME && /\.txt$/.test(f.nom), `${f.nom} · ${f.texte.length} caractères`);
-        await pg.screenshot({ path: path.join(OUT, `site_accueil_memoire_illisible_${tel ? 'tel' : 'pc'}.png`) });
+        await pg.screenshot({ path: path.join(OUT, `site_accueil_memoire_illisible_${tel ? 'tel' + w : 'pc'}.png`) });
         verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
       } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
       await pg.context().close();

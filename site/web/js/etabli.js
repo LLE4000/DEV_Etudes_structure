@@ -48,20 +48,28 @@ noms.forEach((n) => n.addEventListener("keydown", (ev) => { if (ev.key === "Ente
 // prochaine écriture réussie, et ouvre une fois le message #et-alerte, qui offre « Exporter .stab ». Aucune règle de la
 // feuille ne les cache : l'ancien texte (.saved .txt) l'était sous 1 360 px par la charte, et l'échec y était muet
 // (verifier_site.js, filtre « enregistrement »).
+// Le texte d'un indicateur : l'ÉTAT (.et-enr-etat), puis, en échec, la RAISON (.et-enr-raison, « : stockage plein »). Au
+// téléphone, la 2ᵉ ligne n'écrit que l'état (la raison n'y tient pas à côté de la pastille de la note) : l'entrée du
+// menu ⋯ (revoir) dit l'échec en entier et rouvre le message.
 const indicateurs = [...document.querySelectorAll(".et-enr")];
 const alerte = $("#et-alerte");
+const revoir = $("[data-revoir-alerte]");
 let alerteDite = "";   // la raison que le message a déjà dite : il ne revient pas à chaque saisie qui échoue
+let alerteEchec = "";  // le texte du message du dernier échec : « revoir » le rouvre
 // l'heure seule aujourd'hui, la date sinon (l'indicateur est court ; la date entière est au survol)
 const heure = (t) => (new Date(t).toDateString() === new Date().toDateString()
   ? new Date(t).toLocaleTimeString("fr-BE", { hour: "2-digit", minute: "2-digit" })
   : new Date(t).toLocaleDateString("fr-BE", { day: "numeric", month: "short" }));
-function direEnregistrement(etat, mot, texte, titre) {
+function direEnregistrement(etat, mot, texte, raison, titre) {
   indicateurs.forEach((e) => {
     e.dataset.enr = etat;
     e.querySelector(".et-enr-mot").textContent = mot;
-    e.querySelector(".et-enr-txt").textContent = texte;
+    e.querySelector(".et-enr-etat").textContent = texte;
+    e.querySelector(".et-enr-raison").textContent = raison;
     e.title = titre;
   });
+  revoir.hidden = etat !== "echec";
+  revoir.querySelector(".et-mi-enr-txt").textContent = etat === "echec" ? texte + raison : "";
 }
 // SUITE : ce que l'utilisateur peut faire, selon la raison du refus (notes.RAISONS dit la raison)
 const SUITE = {
@@ -79,8 +87,8 @@ function direAlerte(sorte, texte) {
 function enregistrer() {
   const ok = N.ecrire(note), b = N.bilan();
   if (ok) {
-    direEnregistrement("ok", "Enregistré · ", heure(note.modifie), `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
-    if (alerteDite) { alerteDite = ""; alerte.hidden = true; }
+    direEnregistrement("ok", "Enregistré · ", heure(note.modifie), "", `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
+    if (alerteDite) { alerteDite = ""; alerteEchec = ""; alerte.hidden = true; }
     // la mémoire des notes était illisible : son texte vient d'être gardé à part (notes.js), on le dit une fois
     if (b.copie) {
       direAlerte("info", "La mémoire des notes de ce navigateur était illisible : son texte est gardé à part, tel quel (l'accueil permet "
@@ -89,15 +97,19 @@ function enregistrer() {
     return;
   }
   const r = N.RAISONS[b.raison] || N.RAISONS.indisponible;
-  direEnregistrement("echec", "", `Non enregistré : ${r.court}`, `Non enregistré : ${r.long}`);
+  direEnregistrement("echec", "", "Non enregistré", ` : ${r.court}`, `Non enregistré : ${r.long}`);
+  alerteEchec = `Non enregistré : ${r.long}. ${SUITE[b.raison] || SUITE.indisponible}`;
   if (alerteDite !== b.raison) {
     alerteDite = b.raison;
-    direAlerte("echec", `Non enregistré : ${r.long}. ${SUITE[b.raison] || SUITE.indisponible}`);
+    direAlerte("echec", alerteEchec);
   }
 }
-if (relue) direEnregistrement("ok", "Enregistré · ", heure(note.modifie), `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
-else direEnregistrement("neuf", "", "Pas encore enregistré", "La note s'enregistre dans ce navigateur dès le premier calcul");
+if (relue) direEnregistrement("ok", "Enregistré · ", heure(note.modifie), "", `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
+else direEnregistrement("neuf", "", "Pas encore enregistré", "", "La note s'enregistre dans ce navigateur dès le premier calcul");
 alerte.addEventListener("click", (ev) => { if (ev.target.closest("[data-fermer-alerte]")) alerte.hidden = true; });
+// le menu ⋯ (téléphone) : l'échec en entier ; le toucher rouvre son message (le menu se referme seul, comme pour ses
+// autres entrées)
+revoir.addEventListener("click", () => { if (alerteEchec) direAlerte("echec", alerteEchec); });
 
 // ------------------------------------------------------------------ le moteur
 const moteur = new Moteur((t) => { if (etapes) etapes.textContent = t; }, MODULE);

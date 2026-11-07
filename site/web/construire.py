@@ -258,11 +258,26 @@ def enregistrement() -> str:
     """L'indicateur d'enregistrement de la note (.et-enr) : le MÊME composant dans la barre du haut (PC, tablette) et sur
     la 2ᵉ ligne de l'en-tête du téléphone ; js/etabli.js y écrit l'état de la dernière écriture (neuf, enregistré,
     échec). Aucune règle ne le cache, ni son texte (.et-enr-txt) : un échec doit se lire à toutes les largeurs.
-    L'ancien indicateur (.saved .txt) était caché par la charte sous 1 360 px — l'échec y était muet."""
+    L'ancien indicateur (.saved .txt) était caché par la charte sous 1 360 px — l'échec y était muet.
+    Le texte (.et-enr-txt) porte l'ÉTAT (.et-enr-etat, « Non enregistré ») puis, en échec, la RAISON (.et-enr-raison,
+    « : stockage plein »), dans la même ligne de texte : la 2ᵉ ligne du téléphone n'a pas la place des deux à côté de
+    la pastille de la note (mesuré : « Non enregistré : stockage plein » passait SOUS la pastille « À compléter », à
+    390 px) ; elle n'y écrit que l'état, la raison restant dans le message (#et-alerte), dans le title et dans le menu ⋯
+    (menu_enregistrement)."""
     return ('<span class="et-enr" data-enr="neuf" role="status">'
             f'<span class="et-enr-ic">{MQ.icon("clock", "i et-i-neuf")}{MQ.icon("circle-check", "i et-i-ok")}'
             f'{MQ.icon("triangle-alert", "i et-i-echec")}</span>'
-            '<span class="et-enr-mot"></span><span class="et-enr-txt">Pas encore enregistré</span></span>')
+            '<span class="et-enr-mot"></span><span class="et-enr-txt"><span class="et-enr-etat">Pas encore enregistré</span>'
+            '<span class="et-enr-raison"></span></span></span>')
+
+
+def menu_enregistrement() -> str:
+    """L'entrée du menu ⋯ du téléphone qui dit un échec d'enregistrement EN ENTIER (« Non enregistré : stockage plein »)
+    et rouvre son message (#et-alerte, avec « Exporter .stab ») : la 2ᵉ ligne de l'en-tête n'y écrit que « Non
+    enregistré », et un message fermé ne revient pas de lui-même. Cachée hors échec ; js/etabli.js l'écrit. Une cible de
+    46 px, comme les autres entrées du menu (au doigt, toute cible ≥ 44 px)."""
+    return (f'<button type="button" class="mi et-mi-enr" data-revoir-alerte="1" hidden>{MQ.icon("triangle-alert")}'
+            '<span class="et-mi-enr-txt"></span></button>')
 
 
 def alerte_enregistrement() -> str:
@@ -303,7 +318,7 @@ def page_module(cle: str, titre: str) -> str:
             f'<button type="button" class="mchip" id="chip-m" data-vers-onglet="resultat" title="Voir le résultat"></button>'
             f'<button type="button" class="btn icon ghost" id="menu-m" aria-haspopup="true" aria-expanded="false" aria-controls="mmenu" '
             f'title="Plus d\'actions">{MQ.icon("ellipsis")}</button></header>')
-    mmenu = (f'<div class="mmenu" id="mmenu" hidden><label class="mi" for="ouvrir">{MQ.icon("upload")}Ouvrir un fichier .stab</label>'
+    mmenu = (f'<div class="mmenu" id="mmenu" hidden>{menu_enregistrement()}<label class="mi" for="ouvrir">{MQ.icon("upload")}Ouvrir un fichier .stab</label>'
              f'<button type="button" class="mi" data-action="exporter">{MQ.icon("download")}Exporter la note en .stab</button>'
              f'<button type="button" class="mi" data-action="imprimer">{MQ.icon("printer")}Imprimer</button>'
              f'<button type="button" class="mi" data-action="pdf" aria-disabled="true">{MQ.icon("file-down")}Note PDF<span class="tag draft">bientôt</span></button>'

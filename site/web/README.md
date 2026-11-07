@@ -41,6 +41,10 @@ navigateur ── js/etabli.js ──► js/travailleur.js (Pyodide) ──► a
 - **L'enregistrement se voit** : l'indicateur `.et-enr` (`construire.enregistrement`, le même dans la barre du haut et
   sur la 2ᵉ ligne de l'en-tête du téléphone) dit l'état de la dernière écriture ; un échec y reste en rouge et ouvre une
   fois le message `#et-alerte`, avec « Exporter .stab ». Aucune règle de feuille ne le cache (`tests/test_site_web.py`).
+  Au téléphone, la 2ᵉ ligne n'écrit que l'état (« Non enregistré ») : sa raison (`.et-enr-raison`) ne tient pas à côté
+  de la pastille de la note ; elle reste au survol, dans le message et en tête du menu ⋯ (`construire.menu_enregistrement`,
+  qui rouvre le message). Le filtre `enregistrement` le mesure à 390 et 360 px, poutre et plancher, sous la pastille la
+  plus large (« Calcul impossible »), et à 320 px (le texte finit par « … », jamais sous la pastille).
 - **Une mémoire des notes abîmée** (`stab.notes.v1` illisible) n'est réécrite qu'après la copie de son texte brut dans
   `stab.notes.v1.illisible.<heure>` ; la copie impossible, rien n'est écrit (`js/notes.js`, `changer`). L'accueil le
   signale et rend ce texte en fichier. Joué par node dans `tests/test_site_web.py`, et dans Chromium (filtre
