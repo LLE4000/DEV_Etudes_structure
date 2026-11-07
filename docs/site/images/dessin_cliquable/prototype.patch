@@ -1,0 +1,724 @@
+diff --git a/api_web/dalle.py b/api_web/dalle.py
+index 8c1b735..907bb9f 100644
+--- a/api_web/dalle.py
++++ b/api_web/dalle.py
+@@ -881,10 +881,10 @@ def resultat(etat: Dict) -> Dict:
+     for i, s in enumerate(r["sections"]):
+         nom = s["nom"] if not s["nom"].lower().startswith("section") else s["titre"]
+         vues.append({"cle": f"c{i}", "titre": f"Coupes · {s['titre']}", "court": f"Coupe {nom}"[:24],
+-                     "svg": DD.svg_coupe(f"dl_c{i}", s, r["dalle"]),
++                     "svg": DD.svg_coupe(f"dl_c{i}", s, r["dalle"], i),
+                      "legende": f"barres coupées en points, barres parallèles en traits · principale {s['principale'].upper()}"})
+         vues.append({"cle": f"p{i}", "titre": f"Plan des nappes · {s['titre']}", "court": f"Plan {nom}"[:24],
+-                     "svg": DD.svg_plan(f"dl_p{i}", s, r["dalle"]),
++                     "svg": DD.svg_plan(f"dl_p{i}", s, r["dalle"], i),
+                      "legende": f"vue de dessus · X horizontales, Y verticales · principale {s['principale'].upper()}"})
+     phrase = (f"{C.nb(d['b'])} × {C.nb(d['h'])} cm · {C.esc(d['beton'])} · B{d['fyk']} · principale {d['dir_principale']} · "
+               f"barres coupées en points")
+diff --git a/api_web/dessin_dalle.py b/api_web/dessin_dalle.py
+index 69f2a2f..85a4b71 100644
+--- a/api_web/dessin_dalle.py
++++ b/api_web/dessin_dalle.py
+@@ -20,8 +20,11 @@ centrées sur la bande, celles d'un renfort intercalées d'une demi-maille (la c
+ Le style est celui des dessins du site (api_web/dessin_poutre.py) : traits noirs, béton gris clair, cotes fines,
+ sollicitations en rouge. Les textes venus de l'état (noms) sont échappés ici.
+ """
++import re
+ from html import escape
+-from typing import Dict, List, Tuple
++from typing import Dict, List, Optional, Tuple
++
++from .dessin_poutre import _prise
+ 
+ ENCRE, BETON, COTE, EFFORT = "#15181F", "#E6EAEF", "#7F8C9A", "#9C3341"
+ PAPIER_PLAN = "#F1F3F6"
+@@ -142,9 +145,21 @@ def _texte_vue(b_mm: float, W: float) -> str:
+ 
+ 
+ # ------------------------------------------------------------------ la coupe
+-def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float, y0: float) -> Tuple[str, float]:
++FACES_TXT = {"inf": "inférieure", "sup": "supérieure"}
++
++
++def _face_champ(i: int, cote: str, d_: str, principale: str) -> Tuple[str, str]:
++    """La face ``cote``/``d_`` de la section ``i`` : toutes ses lignes du cadre Données (couches, axe yG, ajout)."""
++    return (f"sections/{i}/faces/{cote}_{d_}/",
++            f"Nappe {FACES_TXT[cote]} · barres {d_.upper()}" + (" (principale)" if d_ == principale else ""))
++
++
++def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float, y0: float,
++           i_sec: Optional[int] = None) -> Tuple[str, float]:
+     """Une coupe de la bande perpendiculaire à la direction ``dk`` (ses barres en points, celles de l'autre direction en
+-    traits), posée à l'ordonnée ``y0`` : (svg, hauteur occupée)."""
++    traits), posée à l'ordonnée ``y0`` : (svg, hauteur occupée). ``i_sec`` (le site) : l'indice de la section — les
++    éléments de la coupe deviennent cliquables (zones de prise posées PAR-DESSUS le dessin, qui ne change pas)."""
++    prises = []
+     autre = "x" if dk == "y" else "y"
+     x0, W = fenetre(b_mm)
+     g = []
+@@ -219,8 +234,21 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float
+                 g.append(_ligne(xl, yy - 0.3 * u, xl + 0.7 * u, yy - 0.3 * u, _teinte(j), 0.24 * u))
+             g.append(_txt(xl + 1.0 * u, yy, f"{d_.upper()} · {escape(c['libelle'])} · axe à {_mm(c['e'] * 10.0)}", 0.78 * u,
+                           ancre="start", gras=False))
++            if i_sec is not None:
++                lg = len(f"{d_.upper()} · {c['libelle']} · axe à {_mm(c['e'] * 10.0)}") * 0.78 * u * 0.56 + 1.4 * u
++                prises.append(_prise("", _face_champ(i_sec, cote, d_, principale), [(xl - 0.2 * u, yy - 1.0 * u, lg, 1.25 * u)]))
+         n_max = max(n_max, len(lignes))
+     hauteur = (y_leg + (n_max + 0.6) * 1.3 * u) - y0
++    if i_sec is not None:
++        m = 0.25 * u
++        prises.append(_prise("", ("b h beton fyk", "Dalle · épaisseur et matériaux"), [(0, yc, W, h_mm)]))
++        prises.append(_prise("", ("h", "Épaisseur de la dalle"), [(-2.0 * u, yc, 1.4 * u, h_mm)]))
++        prises.append(_prise("", ("b", "Largeur de calcul"), [(0, y_cote - 1.2 * u, W, 1.5 * u)]))
++        for cote in ("inf", "sup"):
++            for d_ in (dk, autre):
++                zs = [(0, yc + y - c["d"] / 2 - m, W, c["d"] + 2 * m) for co, dd, j, c, y in couches if co == cote and dd == d_]
++                prises.append(_prise("", _face_champ(i_sec, cote, d_, principale), zs))
++        g.append("".join(prises))
+     return "".join(g), hauteur
+ 
+ 
+@@ -238,17 +266,23 @@ def _efforts(s: Dict) -> str:
+     return txt
+ 
+ 
+-def svg_coupe(ident: str, s: Dict, dalle: Dict) -> str:
+-    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle."""
++def svg_coupe(ident: str, s: Dict, dalle: Dict, i: Optional[int] = None) -> str:
++    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle. ``i`` (le site) : l'indice de
++    la section, ses éléments deviennent cliquables."""
+     b_mm, h_mm = dalle["b"] * 10.0, dalle["h"] * 10.0
+     _, W = fenetre(b_mm)
+     u = max(W, 420.0) / 34.0
+     p = s["principale"]
+     g, y = [], 0.0
+     g.append(_txt(max(W, 27.8 * u) / 2, 0.2 * u, _efforts(s), 0.9 * u, couleur=EFFORT))
++    if i is not None:
++        lf = len(re.sub(r"<[^>]+>", "", _efforts(s))) * 0.9 * u * 0.56 + 0.8 * u
++        k = f"sections/{i}/"
++        g.append(_prise("", (" ".join(k + x for x in ("Mx_inf", "Mx_sup", "My_inf", "My_sup", "V")), f"Sollicitations · {s['titre']}"),
++                        [(max(W, 27.8 * u) / 2 - lf / 2, -0.75 * u, lf, 1.25 * u)]))
+     y = 0.9 * u
+     for dk in (p, "x" if p == "y" else "y"):
+-        morceau, hh = _coupe(s, dk, p, b_mm, h_mm, u, y)
++        morceau, hh = _coupe(s, dk, p, b_mm, h_mm, u, y, i)
+         g.append(morceau)
+         y += hh + 0.8 * u
+     largeur = max(W + 8.4 * u, 31.0 * u)            # une bande étroite garde la place des titres et de la légende
+@@ -258,8 +292,9 @@ def svg_coupe(ident: str, s: Dict, dalle: Dict) -> str:
+ 
+ 
+ # ------------------------------------------------------------------ le plan des nappes
+-def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float) -> Tuple[str, float]:
+-    """La nappe ``cote`` vue de dessus, dans un carré de la largeur vue : barres X horizontales, Y verticales."""
++def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float, i: Optional[int] = None) -> Tuple[str, float]:
++    """La nappe ``cote`` vue de dessus, dans un carré de la largeur vue : barres X horizontales, Y verticales. ``i`` (le
++    site) : la nappe et chaque ligne de sa légende deviennent cliquables."""
+     x0, W = fenetre(b_mm)
+     g = [f'<g transform="translate({_f(dx)} 0)">']
+     g.append(_txt(W / 2, -2.6 * u, "Nappe inférieure" if cote == "inf" else "Nappe supérieure", 1.0 * u))
+@@ -310,6 +345,14 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float)
+             g.append(_txt(1.1 * u, yy, f"{dk.upper()} {_nom_couche(j)} · {escape(c['libelle'])} · {sens}", 0.8 * u,
+                           ancre="start", gras=dk == principale and j == 0))
+             n += 1
++    if i is not None:
++        ch_x, ch_y = _face_champ(i, cote, "x", principale), _face_champ(i, cote, "y", principale)
++        g.append(_prise("", (f"{ch_x[0]} {ch_y[0]}", f"Nappe {FACES_TXT[cote]} · barres X et Y"), [(0, 0, W, W)]))
++        n = 0
++        for dk in (principale, "x" if principale == "y" else "y"):
++            for _ in s["faces"][f"{cote}_{dk}"]["couches"]:
++                g.append(_prise("", _face_champ(i, cote, dk, principale), [(-0.2 * u, y_leg + n * 1.35 * u - 1.0 * u, W + 0.4 * u, 1.25 * u)]))
++                n += 1
+     g.append("</g>")
+     return "".join(g), y_leg + n * 1.35 * u
+ 
+@@ -326,15 +369,15 @@ def _repere(x, y, u, principale: str) -> str:
+     return out
+ 
+ 
+-def svg_plan(ident: str, s: Dict, dalle: Dict) -> str:
++def svg_plan(ident: str, s: Dict, dalle: Dict, i: Optional[int] = None) -> str:
+     """Les nappes inférieure et supérieure d'une section, côte à côte, à la même échelle, avec le repère des directions."""
+     b_mm = dalle["b"] * 10.0
+     _, W = fenetre(b_mm)
+     u = max(W, 420.0) / 16.0
+     p = s["principale"]
+     gap = 4.2 * u
+-    g1, h1 = _plan(s, "inf", p, b_mm, u, 0.0)
+-    g2, h2 = _plan(s, "sup", p, b_mm, u, W + gap)
++    g1, h1 = _plan(s, "inf", p, b_mm, u, 0.0, i)
++    g2, h2 = _plan(s, "sup", p, b_mm, u, W + gap, i)
+     y_rep = h1 + 2.8 * u                            # le repère, sous la légende de la nappe inférieure
+     rep = _repere(0.3 * u, y_rep, u, p)
+     haut = max(y_rep + 0.8 * u, h2)
+diff --git a/api_web/dessin_poutre.py b/api_web/dessin_poutre.py
+index 0131cec..a273957 100644
+--- a/api_web/dessin_poutre.py
++++ b/api_web/dessin_poutre.py
+@@ -7,8 +7,9 @@ convention de dessin, pas une donnée de calcul.
+ Le style suit les dessins du garde-corps : traits noirs, béton gris clair, cotes fines, efforts en rouge. Le site
+ (api_web/poutre.py) et les maquettes (site/maquettes/extraire_donnees.py) dessinent avec ce MÊME fichier.
+ """
++import re
+ from html import escape
+-from typing import List, Tuple
++from typing import Dict, List, Optional, Tuple
+ 
+ ENCRE, BETON, ACIER, COTE, EFFORT = "#15181F", "#E6EAEF", "#33415C", "#7F8C9A", "#9C3341"
+ POLICE = "system-ui,Arial,sans-serif"
+@@ -43,56 +44,101 @@ def _cote_v(x, y1, y2, texte, taille=15.0, cote_droit=False) -> str:
+             + _txt(xt, (y1 + y2) / 2, texte, taille, extra=f' transform="rotate(-90 {_f(xt)} {_f((y1 + y2) / 2)})"'))
+ 
+ 
++def _larg_txt(texte: str, taille: float) -> float:
++    """La largeur APPROCHÉE d'un texte du dessin (mm), pour sa zone de prise : 0,58 fois la taille par caractère."""
++    return len(re.sub(r"<[^>]+>", "", texte)) * taille * 0.58
++
++
++def _prise(contenu: str, champ, zones: List[Tuple[float, float, float, float]], anneau: str = "") -> str:
++    """Un élément du dessin que l'écran peut ouvrir sur la toile (la bulle d'édition, js/edition.js). ``champ`` :
++    (chemins, nom) — les chemins sont ceux du cadre Données (``data-chemin``, séparés par une espace ; un chemin
++    terminé par « / » vaut toutes ses lignes), le nom est du TEXTE (échappé ici). ``zones`` : les rectangles de prise
++    (x, y, largeur, hauteur, en mm) ; ``anneau`` : un contour de prise de plus (l'étrier : un trait épais, invisible).
++    Sans ``champ`` (la maquette, la note), le dessin est rendu tel quel."""
++    if not champ:
++        return contenu
++    chemins, nom = champ
++    z = "".join(f'<rect class="zone" x="{_f(x)}" y="{_f(y)}" width="{_f(w)}" height="{_f(h)}" rx="8" fill="transparent"/>'
++                for x, y, w, h in zones)
++    return (f'<g class="prise" data-champs="{escape(chemins)}" data-titre="{escape(nom)}" tabindex="0" role="button" '
++            f'aria-label="{escape(nom)}"><title>{escape(nom)}</title>{contenu}{anneau}{z}</g>')
++
++
+ def _attache(x, y1, y2) -> str:
+     return f'<line x1="{_f(x)}" y1="{_f(y1)}" x2="{_f(x)}" y2="{_f(y2)}" stroke="{COTE}" stroke-width=".8" stroke-dasharray="4 3"/>'
+ 
+ 
+ def section(b_cm: float, h_cm: float, c_cm: float, d_et_mm: float, lits_inf: List[Tuple[int, int, float]],
+             lits_sup: List[Tuple[int, int, float]], etrier: str, efforts: str, dx: float = 0.0,
+-            tendu: str = "inf") -> Tuple[str, float, float]:
++            tendu: str = "inf", champs: Optional[Dict[str, Tuple[str, str]]] = None) -> Tuple[str, float, float]:
+     """Le groupe SVG d'une coupe, décalé de ``dx`` : (svg, largeur occupée, hauteur occupée) en mm.
+ 
+     ``lits_*`` : [(n, Ø mm, distance parement → axe en cm), …] — valeurs du module poutre. ``tendu`` : la face tendue
+-    (« inf » en travée, « sup » sur appui) ; la hauteur utile d se cote depuis la face comprimée jusqu'aux armatures tendues."""
++    (« inf » en travée, « sup » sur appui) ; la hauteur utile d se cote depuis la face comprimée jusqu'aux armatures tendues.
++
++    ``champs`` (le site) : pour chaque élément (« beton », « b », « h », « c », « inf », « sup », « etrier »,
++    « efforts »), les chemins des DONNÉES qu'il représente et son nom — l'élément devient cliquable sur la toile
++    (``_prise``). La cote d n'en a pas : elle se calcule, elle ne se saisit pas."""
+     b, h, c, de = b_cm * 10, h_cm * 10, c_cm * 10, d_et_mm
++    ch = champs or {}
+     g = []
+     # le béton, puis l'étrier (épaisseur réelle, angles arrondis comme un façonnage)
+-    g.append(f'<rect x="0" y="0" width="{_f(b)}" height="{_f(h)}" fill="{BETON}" stroke="{ENCRE}" stroke-width="2.2"/>')
+-    g.append(f'<rect x="{_f(c + de / 2)}" y="{_f(c + de / 2)}" width="{_f(b - 2 * c - de)}" height="{_f(h - 2 * c - de)}" '
+-             f'rx="{_f(2.5 * de)}" fill="none" stroke="{ACIER}" stroke-width="{_f(de)}" stroke-linejoin="round"/>')
++    g.append(_prise(f'<rect x="0" y="0" width="{_f(b)}" height="{_f(h)}" fill="{BETON}" stroke="{ENCRE}" stroke-width="2.2"/>',
++                    ch.get("beton"), [(0, 0, b, h)]))
++    ex, ey, ew, eh = c + de / 2, c + de / 2, b - 2 * c - de, h - 2 * c - de
++    trait = f'x="{_f(ex)}" y="{_f(ey)}" width="{_f(ew)}" height="{_f(eh)}" rx="{_f(2.5 * de)}" fill="none"'
++    etrier_svg = f'<rect {trait} stroke="{ACIER}" stroke-width="{_f(de)}" stroke-linejoin="round"/>'
++    # la prise de l'étrier : son trait, élargi (invisible), et son étiquette sous la coupe
++    anneau = f'<rect class="zone anneau" {trait} stroke="transparent" stroke-width="{_f(max(3 * de, 18))}" pointer-events="stroke"/>'
++    etiquette_etrier = _txt(b / 2, h + 118, etrier, 14, couleur=ACIER, gras=False)
++    le = _larg_txt(etrier, 14)
+ 
+     def barres(lits, en_bas):
+-        out, y_axes = [], []
++        out, y_axes, d_max = [], [], 0
+         for n, d, dist_cm in lits:
+             y = h - dist_cm * 10 if en_bas else dist_cm * 10
+             y_axes.append(y)
++            d_max = max(d_max, d)
+             x0, x1 = c + de + d / 2, b - c - de - d / 2
+             for k in range(n):
+                 x = x0 if n == 1 else x0 + (x1 - x0) * k / (n - 1)
+                 out.append(f'<circle cx="{_f(x)}" cy="{_f(y)}" r="{_f(d / 2)}" fill="{ENCRE}"/>')
+-        return "".join(out), y_axes
++        return "".join(out), y_axes, d_max
++
++    s_inf, y_inf, d_inf = barres(lits_inf, True)
++    s_sup, y_sup, d_sup = barres(lits_sup, False)
++    # les étiquettes des armatures, sous et au-dessus de la coupe ; l'étrier sur le côté
++    lab_inf = " + ".join(f"{n}Ø{d}" for n, d, _ in lits_inf)
++    lab_sup = " + ".join(f"{n}Ø{d}" for n, d, _ in lits_sup)
+ 
+-    s_inf, y_inf = barres(lits_inf, True)
+-    s_sup, y_sup = barres(lits_sup, False)
+-    g += [s_inf, s_sup]
++    def zone_lits(y_axes, d_max, y_lab, lab, taille=17):
++        zs = []
++        if y_axes:
++            m = d_max / 2 + 7
++            zs.append((c + de - 7, min(y_axes) - m, b - 2 * (c + de) + 14, max(y_axes) - min(y_axes) + 2 * m))
++        lw = max(_larg_txt(lab, taille), 40) + 16
++        zs.append((b / 2 - lw / 2, y_lab - taille - 3, lw, taille + 9))
++        return zs
++
++    # l'étrier passe SOUS les barres (une barre se prend avant l'étrier qui l'entoure)
++    g.append(_prise(etrier_svg + etiquette_etrier, ch.get("etrier"), [(b / 2 - le / 2 - 8, h + 118 - 17, le + 16, 23)], anneau))
++    g.append(_prise(s_inf + _txt(b / 2, h + 92, lab_inf, 17), ch.get("inf"), zone_lits(y_inf, d_inf, h + 92, lab_inf)))
++    g.append(_prise(s_sup + _txt(b / 2, -44, lab_sup, 17), ch.get("sup"), zone_lits(y_sup, d_sup, -44, lab_sup)))
+     # les cotes : b dessous, h à gauche, d utile à droite (de la face comprimée à l'axe des armatures tendues), l'enrobage
+     # en haut à gauche
+-    g.append(_attache(0, h + 8, h + 58) + _attache(b, h + 8, h + 58) + _cote_h(0, b, h + 50, f"b = {_f(b)}"))
+-    g.append(_attache(-8, 0, 0) + _attache(-8, h, h) + _cote_v(-48, 0, h, f"h = {_f(h)}"))
++    g.append(_prise(_attache(0, h + 8, h + 58) + _attache(b, h + 8, h + 58) + _cote_h(0, b, h + 50, f"b = {_f(b)}"),
++                    ch.get("b"), [(-8, h + 26, b + 16, 32)]))
++    g.append(_prise(_attache(-8, 0, 0) + _attache(-8, h, h) + _cote_v(-48, 0, h, f"h = {_f(h)}"), ch.get("h"), [(-80, -6, 44, h + 12)]))
+     y_tendu = y_sup if tendu == "sup" else y_inf
+     if y_tendu:
+         yd = sum(y_tendu) / len(y_tendu)
+         y0 = h if tendu == "sup" else 0.0  # la face comprimée
+         g.append(_attache(b + 8, y0, y0) + f'<line x1="{_f(b)}" y1="{_f(yd)}" x2="{_f(b + 64)}" y2="{_f(yd)}" stroke="{COTE}" stroke-width=".8" stroke-dasharray="4 3"/>'
+                  + _cote_v(b + 48, min(y0, yd), max(y0, yd), f"d = {_f(abs(yd - y0))}", cote_droit=True))
+-    g.append(_txt(c / 2, -12, f"c = {_f(c)}", 13, couleur=COTE, gras=False))
+-    # les étiquettes des armatures, sous et au-dessus de la coupe ; l'étrier sur le côté
+-    lab_inf = " + ".join(f"{n}Ø{d}" for n, d, _ in lits_inf)
+-    lab_sup = " + ".join(f"{n}Ø{d}" for n, d, _ in lits_sup)
+-    g.append(_txt(b / 2, h + 92, lab_inf, 17))
+-    g.append(_txt(b / 2, -44, lab_sup, 17))
+-    g.append(_txt(b / 2, h + 118, etrier, 14, couleur=ACIER, gras=False))
+-    g.append(_txt(b / 2, -76, efforts, 14.5, couleur=EFFORT))
++    lc = _larg_txt(f"c = {_f(c)}", 13)
++    g.append(_prise(_txt(c / 2, -12, f"c = {_f(c)}", 13, couleur=COTE, gras=False), ch.get("c"), [(c / 2 - lc / 2 - 8, -27, lc + 16, 20)]))
++    lf = _larg_txt(efforts, 14.5)
++    g.append(_prise(_txt(b / 2, -76, efforts, 14.5, couleur=EFFORT), ch.get("efforts"), [(b / 2 - lf / 2 - 8, -94, lf + 16, 24)]))
+     return f'<g transform="translate({_f(dx)} 0)">{"".join(g)}</g>', b, h
+ 
+ 
+@@ -102,7 +148,7 @@ def svg(ident: str, coupes: List[dict], titre: str = "") -> str:
+     parts, x, hmax = [], 0.0, 0.0
+     for k, cp in enumerate(coupes):
+         g, w, hh = section(cp["b"], cp["h"], cp["c"], cp["d_et"], cp["inf"], cp["sup"], cp["etrier"], cp["efforts"], dx=x,
+-                           tendu=cp.get("tendu", "inf"))
++                           tendu=cp.get("tendu", "inf"), champs=cp.get("champs"))
+         parts.append(g)
+         if len(coupes) > 1:
+             parts.append(_txt(x + w / 2, -108, escape(cp["nom"]), 18))
+diff --git a/api_web/poutre.py b/api_web/poutre.py
+index 8711d2e..4a73081 100644
+--- a/api_web/poutre.py
++++ b/api_web/poutre.py
+@@ -319,9 +319,23 @@ def _efforts_svg(s: Dict) -> str:
+     return " · ".join(morceaux)
+ 
+ 
+-def _coupe(s: Dict) -> Dict:
++def _champs(i: int, nom: str) -> Dict:
++    """Ce que chaque élément de la coupe de la section ``i`` représente dans les DONNÉES : les chemins du cadre Données
++    (``data-chemin`` ; un chemin terminé par « / » vaut toutes ses lignes — les lits, les lignes d'étriers et leurs
++    boutons d'ajout et de retrait) et le nom de l'élément. L'écran ouvre ces champs-là sur le dessin (js/edition.js) :
++    il ne connaît ni la poutre ni ses données."""
++    s, sec = f"sections/{i}/", f"section {nom}"
++    return {"beton": ("b h beton fyk", "Poutre · section et matériaux"),
++            "b": ("b", "Largeur de la poutre"), "h": ("h", "Hauteur de la poutre"), "c": ("enrobage", "Enrobage"),
++            "inf": (s + "inf/", f"Armatures inférieures · {sec}"), "sup": (s + "sup/", f"Armatures supérieures · {sec}"),
++            "etrier": (f"{s}etriers/ {s}pas", f"Étriers · {sec}"),
++            "efforts": (f"{s}M_inf {s}M_sup {s}V", f"Sollicitations · {sec}")}
++
++
++def _coupe(s: Dict, i: int) -> Dict:
+     geo = s["geometrie"]
+-    return {"nom": f"Section {s['nom']}", "b": geo["b"], "h": geo["h"], "c": geo["enrobage_calcul"], "d_et": geo["etriers"]["d_max"],
++    return {"nom": f"Section {s['nom']}", "champs": _champs(i, s["nom"]),
++            "b": geo["b"], "h": geo["h"], "c": geo["enrobage_calcul"], "d_et": geo["etriers"]["d_max"],
+             "inf": [(lit["n"], lit["d"], lit["distance"]) for lit in geo["inf"]["lits"]],
+             "sup": [(lit["n"], lit["d"], lit["distance"]) for lit in geo["sup"]["lits"]],
+             "etrier": f"{geo['etriers']['resume']} · e = {C.nb(geo['etriers']['pas'])} cm", "efforts": _efforts_svg(s),
+@@ -400,7 +414,7 @@ def resultat(etat: Dict) -> Dict:
+                                          f"M<sub>sup</sub> = {C.nb(s['M_sup'])} kN·m" if s["M_sup"] else "", f"V = {C.nb(s['V'])} kN") if x)
+         volets += C.fenetre_calcul(f"s{i}", f"{C.esc(p.get('nom') or 'Poutre')} · section {C.esc(s['nom'])}", f"{efforts} · méthode du bureau",
+                                    hyps, lignes, detail)
+-    coupes = [_coupe(s) for s in r["sections"]]
++    coupes = [_coupe(s, i) for i, s in enumerate(r["sections"])]
+     vues = [{"cle": f"s{i}", "titre": f"Section {s['nom']}", "court": f"Section {s['nom']}", "svg": DP.svg(f"pba_{i}", [c]),
+              "legende": f"{s['geometrie']['inf']['libelle']} · {s['geometrie']['sup']['libelle']}"} for i, (s, c) in enumerate(zip(r["sections"], coupes))]
+     if len(coupes) > 1:
+diff --git a/site/web/css/site.css b/site/web/css/site.css
+index 40135f2..8a5ec1f 100644
+--- a/site/web/css/site.css
++++ b/site/web/css/site.css
+@@ -427,3 +427,35 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
+   .mopt { min-height: 46px; }
+   .mcard .mf .btn { height: 44px; }
+ }
++
++/* ================================================================ la bulle d'édition de la toile (js/edition.js)
++   Le moteur étiquette les éléments de ses dessins (<g class="prise" data-champs="…">, une zone de prise .zone) ; le
++   survol, le clavier (Tab) et l'élément ouvert les soulignent d'une teinte et d'un contour pointillé. La bulle montre
++   les lignes du cadre Données : à côté de l'élément au PC et à la tablette, en feuille du bas au téléphone. */
++.draw .prise { cursor: pointer; outline: none; }
++.draw .prise .zone { transition: fill .12s, stroke .12s; }
++.draw .prise:is(:hover, :focus-visible, .sel) .zone:not(.anneau) {
++  fill: color-mix(in srgb, var(--accent) 10%, transparent); stroke: var(--accent); stroke-width: 1.5px; stroke-dasharray: 5 3;
++  vector-effect: non-scaling-stroke; }
++.draw .prise.sel .zone:not(.anneau) { fill: color-mix(in srgb, var(--accent) 15%, transparent); stroke-dasharray: none; }
++.draw .prise:is(:hover, :focus-visible, .sel) .zone.anneau { stroke: color-mix(in srgb, var(--accent) 28%, transparent); }
++.bulle { position: absolute; z-index: 8; top: 0; left: 0; width: 304px; max-height: min(72vh, 540px); display: flex; flex-direction: column;
++  background: var(--panel); border: 1px solid var(--frame); border-radius: 14px; box-shadow: var(--shadow-pop); overflow: hidden; }
++.bulle[hidden] { display: none; }
++.bulle .bl-h { display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--line); }
++.bulle .bl-h b { margin-right: auto; font-size: 13px; line-height: 1.3; }
++.bulle .bl-autres { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px 12px; border-bottom: 1px solid var(--line);
++  font-size: 11px; color: var(--ink-3); }
++.bulle .bl-autres[hidden] { display: none; }
++.bulle .bl-autres .fchip { height: 24px; font-size: 11px; }
++.bulle .bl-corps { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; overflow-y: auto; overscroll-behavior: contain; }
++.bulle .bl-pied { padding: 7px 14px 9px; border-top: 1px solid var(--line); font-size: 11px; color: var(--ink-3); }
++@media (max-width: 700px) {
++  .bulle { position: fixed; left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; max-height: 56svh; z-index: 22;
++    border-radius: 18px 18px 0 0; padding-bottom: env(safe-area-inset-bottom); }
++  .bulle .bl-h { padding: 6px 6px 6px 16px; }
++  .bulle .bl-h .pcoll { width: 40px; height: 40px; }
++  .bulle .bl-corps { padding: 12px 16px; }
++  .bulle .bl-autres .fchip { height: 34px; }
++}
++@media print { .draw .prise .zone { fill: transparent !important; stroke: transparent !important; } .bulle { display: none !important; } }
+diff --git a/site/web/js/edition.js b/site/web/js/edition.js
+new file mode 100644
+index 0000000..03aa332
+--- /dev/null
++++ b/site/web/js/edition.js
+@@ -0,0 +1,220 @@
++// La bulle d'édition de la toile. Le MOTEUR étiquette les éléments de ses dessins : un groupe
++// <g class="prise" data-champs="b h" data-titre="…"> dit quelles DONNÉES il représente — des chemins du cadre Données
++// (data-chemin), séparés par une espace ; un chemin terminé par « / » vaut toutes ses lignes. Un clic, un appui du doigt
++// ou Entrée sur l'élément ouvre la bulle à côté de lui (au téléphone : une feuille en bas de l'écran). Elle montre les
++// LIGNES MÊMES du cadre Données, recopiées à chaque calcul : mêmes champs, mêmes unités, même état, et la saisie part par
++// le même chemin (etabli.js, cablerSaisie). L'écran ne connaît aucun module : il lit des étiquettes. Il ne calcule rien.
++//
++// Le glisser reste au zoom (toile.js) : la bulle ne s'ouvre que sur un APPUI — le pointeur relâché sans avoir bougé de
++// plus de SEUIL pixels, un seul doigt posé.
++const SEUIL = 8;
++const ECART = 12;     // entre l'élément et la bulle, et entre la bulle et le bord de la place libre
++
++export function cablerEdition({ bench, stage, donnees, telephone, cablerSaisie }) {
++  const bulle = document.createElement("div");
++  bulle.className = "bulle";
++  bulle.hidden = true;
++  bulle.setAttribute("role", "dialog");
++  bulle.setAttribute("aria-labelledby", "bulle-titre");
++  const croix = document.querySelector("#zoom .zplein svg.i:last-child");   // l'icône « x » de la page (Lucide)
++  bulle.innerHTML = '<div class="bl-h"><b id="bulle-titre"></b><button type="button" class="pcoll" data-fermer-bulle="1" title="Fermer" '
++    + `aria-label="Fermer">${croix ? croix.outerHTML : "×"}</button></div><div class="bl-autres" hidden></div><div class="bl-corps"></div>`
++    + '<div class="bl-pied">Les champs du cadre Données · le calcul se relance à chaque saisie</div>';
++  bench.append(bulle);
++  const corps = bulle.querySelector(".bl-corps");
++  const titre = bulle.querySelector("#bulle-titre");
++  const autres = bulle.querySelector(".bl-autres");
++  let voisins = [];      // les autres éléments sous le point touché (des couches serrées, une barre dans le béton)
++  cablerSaisie(corps);
++  bulle.addEventListener("click", (ev) => {
++    if (ev.target.closest("[data-fermer-bulle]")) { fermer(true); return; }
++    const v = ev.target.closest("[data-voisin]");
++    if (v && voisins[+v.dataset.voisin]) ouvrir(voisins[+v.dataset.voisin], "voisin");
++  });
++
++  let ouverte = null;   // { vue, champs, rang, titre } : l'élément ouvert, retrouvé dans le dessin reposé après chaque calcul
++
++  // les lignes du cadre Données que nomment les chemins, dans l'ordre du cadre. Une « ligne » est le plus grand
++  // conteneur d'un champ dont TOUS les champs sont demandés (une ligne de saisie, un lit, un trio de moments, une couche
++  // de dalle avec son type, son treillis et son axe) — sans jamais franchir une section du cadre : aucune liste de
++  // classes propre à un module, la règle vaut pour tous.
++  function lignes(champs) {
++    const voulus = champs.split(/\s+/).filter(Boolean);
++    const vise = (c) => voulus.some((v) => (v.endsWith("/") ? c.startsWith(v) : c === v));
++    const pur = (e) => [...e.querySelectorAll("[data-chemin]")].every((x) => vise(x.dataset.chemin));
++    const out = [];
++    donnees.querySelectorAll("[data-chemin]").forEach((el) => {
++      if (!vise(el.dataset.chemin)) return;
++      let l = el;
++      while (l.parentElement && l.parentElement !== donnees && !l.parentElement.matches(".rows, .sec, .secards") && pur(l.parentElement)) l = l.parentElement;
++      if (!out.some((o) => o.contains(l))) out.push(l);
++    });
++    return out;
++  }
++
++  // recopier les lignes ; le champ en cours de frappe survit (comme dans le cadre Données, etabli.js)
++  function remplir() {
++    const el0 = document.activeElement && corps.contains(document.activeElement) ? document.activeElement : null;
++    const actif = el0 ? el0.dataset.chemin : null;
++    const brouillon = el0 && (el0.tagName === "INPUT" || el0.tagName === "TEXTAREA") && el0.type !== "checkbox" && el0.value !== el0.defaultValue
++      ? { valeur: el0.value, debut: el0.selectionStart, fin: el0.selectionEnd } : null;
++    const defile = corps.scrollTop;
++    corps.replaceChildren();
++    let parent = null, groupe = null;
++    for (const l of lignes(ouverte.champs)) {
++      const copie = l.cloneNode(true);
++      // des lignes sœurs dans un conteneur de mise en page (.trio) gardent ce conteneur ; une ligne de .rows va seule
++      if (l.parentElement.matches(".rows")) { corps.append(copie); parent = groupe = null; continue; }
++      if (l.parentElement !== parent) { parent = l.parentElement; groupe = parent.cloneNode(false); corps.append(groupe); }
++      groupe.append(copie);
++    }
++    if (!corps.children.length) corps.innerHTML = '<div class="hint">Rien à saisir pour cet élément.</div>';
++    corps.scrollTop = defile;
++    if (actif) {
++      const el = corps.querySelector(`[data-chemin="${CSS.escape(actif)}"]:not(button)`);
++      if (el) {
++        if (brouillon) el.value = brouillon.valeur;
++        el.focus({ preventScroll: true });
++        if (brouillon) { try { el.setSelectionRange(brouillon.debut, brouillon.fin); } catch (e) { /* champ sans curseur */ } }
++      }
++    }
++  }
++
++  // l'élément ouvert dans le dessin tel qu'il est MAINTENANT (le calcul repose les vues)
++  function element() {
++    if (!ouverte) return null;
++    const vue = stage.querySelector(`.view[data-vue="${CSS.escape(ouverte.vue)}"]`);
++    if (!vue) return null;
++    const memes = vue.querySelectorAll(`.draw [data-champs="${CSS.escape(ouverte.champs)}"]`);
++    return memes[ouverte.rang] || memes[0] || null;
++  }
++
++  // à côté de l'élément, dans la place libre de la toile : à droite, sinon à gauche, sinon dessous ; au téléphone, la
++  // feuille du bas (CSS) — l'élément est alors ramené au-dessus d'elle
++  function placer() {
++    const el = element();
++    stage.querySelectorAll(".prise.sel").forEach((e) => e.classList.remove("sel"));
++    if (!el) { fermer(); return; }
++    el.classList.add("sel");
++    bulle.classList.toggle("feuille", telephone.matches);
++    if (telephone.matches) {
++      bulle.style.left = bulle.style.top = "";
++      const a = el.getBoundingClientRect(), haut = innerHeight - bulle.offsetHeight - ECART;
++      if (a.bottom > haut) scrollBy({ top: Math.min(a.bottom - haut, a.top - 60), behavior: "smooth" });
++      return;
++    }
++    const b = bench.getBoundingClientRect(), s = stage.getBoundingClientRect();
++    let a = el.getBoundingClientRect();
++    // un GRAND élément (le béton d'une section) : la bulle se pose à côté du point touché, comme un menu — posée à côté
++    // de l'élément entier, elle couvrait le reste du dessin. Le point est gardé en fraction de l'élément : le dessin
++    // reposé après un calcul change d'échelle, le point le suit.
++    if (ouverte.point && a.width * a.height > bulle.offsetWidth * bulle.offsetHeight / 2) {
++      const px = a.left + ouverte.point.fx * a.width, py = a.top + ouverte.point.fy * a.height;
++      a = { left: px - 4, right: px + 4, top: py - 4, bottom: py + 4, width: 8, height: 8 };
++    }
++    let g = Math.max(s.left, 0), d = Math.min(s.right, innerWidth);
++    const haut = Math.max(s.top, 0), bas = Math.min(s.bottom, innerHeight);
++    // les cadres flottants (PC) recouvrent la toile : la place libre est entre eux
++    for (const p of bench.querySelectorAll(".panel")) {
++      const r = p.getBoundingClientRect();
++      if (r.width < 60 || r.bottom < haut || r.top > bas || r.right <= g || r.left >= d) continue;
++      if (r.left + r.width / 2 < (s.left + s.right) / 2) g = Math.max(g, r.right); else d = Math.min(d, r.left);
++    }
++    // quatre places (à droite, à gauche, dessous, dessus), chacune ramenée dans la place libre ; on garde celle qui
++    // couvre le moins l'élément (à égalité, dans cet ordre)
++    const w = bulle.offsetWidth, h = bulle.offsetHeight;
++    const cx = a.left + a.width / 2, cy = a.top + a.height / 2;
++    const dans = ([x, y]) => [Math.min(Math.max(x, g + ECART), d - ECART - w), Math.min(Math.max(y, haut + ECART), bas - ECART - h)];
++    const couvre = ([x, y]) => Math.max(0, Math.min(x + w, a.right) - Math.max(x, a.left)) * Math.max(0, Math.min(y + h, a.bottom) - Math.max(y, a.top));
++    const places = [[a.right + ECART, cy - h / 2], [a.left - ECART - w, cy - h / 2], [cx - w / 2, a.bottom + ECART], [cx - w / 2, a.top - ECART - h]].map(dans);
++    const [x, y] = places.reduce((m, p) => (couvre(p) < couvre(m) - 1 ? p : m));
++    bulle.style.left = `${Math.round(x - b.left)}px`;
++    bulle.style.top = `${Math.round(y - b.top)}px`;
++  }
++
++  function ouvrir(el, sorte, x, y) {
++    const vue = el.closest(".view");
++    const memes = [...vue.querySelectorAll(`.draw [data-champs="${CSS.escape(el.dataset.champs)}"]`)];
++    const r = el.getBoundingClientRect();
++    const point = x === undefined || !r.width || !r.height ? null : { fx: (x - r.left) / r.width, fy: (y - r.top) / r.height };
++    if (sorte !== "voisin") {
++      // tous les éléments sous le point, du dessus vers le dessous ; celui qu'on ouvre d'abord est le plus haut
++      const sous = x === undefined ? [] : document.elementsFromPoint(x, y).map((e) => e.closest(".prise")).filter((p) => p && vue.contains(p));
++      voisins = [...new Set([el, ...sous])];
++    }
++    ouverte = { vue: vue.dataset.vue, champs: el.dataset.champs, rang: memes.indexOf(el), titre: el.dataset.titre || "", point: point || ouverte?.point || null };
++    titre.textContent = ouverte.titre;
++    autres.hidden = voisins.length < 2;
++    autres.innerHTML = voisins.length < 2 ? "" : '<span>Aussi ici :</span>' + voisins.map((p, k) => (p === el ? ""
++      : `<button type="button" class="fchip" data-voisin="${k}"></button>`)).join("");
++    autres.querySelectorAll("[data-voisin]").forEach((b) => { b.textContent = voisins[+b.dataset.voisin].dataset.titre || ""; });
++    remplir();
++    bulle.hidden = false;
++    placer();
++    if (!ouverte) return;
++    // à la souris et au clavier, le premier champ prend la main ; au doigt, non (le clavier de l'écran cacherait le dessin)
++    if (sorte === "mouse" || sorte === "clavier") {
++      const c = corps.querySelector("input:not([disabled]):not([type=checkbox]), select:not([disabled])");
++      if (c) { c.focus({ preventScroll: true }); if (c.select) c.select(); }
++    }
++  }
++
++  // Échap : le brouillon en cours est abandonné (il ne part pas au moteur en quittant le champ), la main revient au dessin
++  function fermer(rendre = false) {
++    if (!ouverte) return;
++    const el = element();
++    const actif = document.activeElement;
++    if (actif && corps.contains(actif) && "defaultValue" in actif) actif.value = actif.defaultValue;
++    ouverte = null;
++    bulle.hidden = true;
++    stage.querySelectorAll(".prise.sel").forEach((e) => e.classList.remove("sel"));
++    if (rendre && el) el.focus({ preventScroll: true });
++  }
++
++  // ------------------------------------------------------------------ l'appui (et non le glisser)
++  const poses = new Set();
++  let appui = null;
++  stage.addEventListener("pointerdown", (ev) => {
++    poses.add(ev.pointerId);
++    if (poses.size > 1 || (ev.pointerType === "mouse" && ev.button !== 0)) { appui = null; return; }   // pincer
++    if (!ev.target.closest(".view.on .draw")) { appui = null; return; }
++    appui = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, el: ev.target.closest("[data-champs]") };
++  });
++  stage.addEventListener("pointermove", (ev) => {
++    if (appui && ev.pointerId === appui.id && Math.hypot(ev.clientX - appui.x, ev.clientY - appui.y) > SEUIL) appui = null;
++    if (ouverte && poses.size) requestAnimationFrame(placer);     // le dessin glisse ou se pince : la bulle le suit
++  });
++  const lacher = (ev) => {
++    poses.delete(ev.pointerId);
++    const a = appui;
++    if (!a || ev.pointerId !== a.id) return;
++    appui = null;
++    if (ev.type !== "pointerup") return;
++    if (a.el) ouvrir(a.el, ev.pointerType, ev.clientX, ev.clientY);
++    else fermer();                                               // un appui sur le fond du dessin referme
++  };
++  document.addEventListener("pointerup", lacher);
++  document.addEventListener("pointercancel", lacher);
++  stage.addEventListener("wheel", () => { if (ouverte) requestAnimationFrame(placer); }, { passive: true });
++  document.querySelector("#zoom")?.addEventListener("click", () => { if (ouverte) requestAnimationFrame(placer); });
++  new ResizeObserver(() => { if (ouverte) placer(); }).observe(stage);
++
++  // au clavier : Tab parcourt les éléments du dessin (tabindex du moteur), Entrée ou Espace ouvre
++  stage.addEventListener("keydown", (ev) => {
++    const el = ev.target.closest && ev.target.closest(".view.on .draw [data-champs]");
++    if (!el || (ev.key !== "Enter" && ev.key !== " ")) return;
++    ev.preventDefault();
++    ouvrir(el, "clavier");
++  });
++
++  // un geste hors de la toile et de la bulle (le cadre Données, un onglet, la barre des vues) la referme
++  document.addEventListener("pointerdown", (ev) => {
++    if (ouverte && !bulle.contains(ev.target) && !stage.contains(ev.target)) fermer();
++  });
++
++  return {
++    // après chaque calcul : les lignes recopiées de nouveau, la bulle replacée à côté de l'élément reposé
++    rafraichir() { if (!ouverte) return; remplir(); placer(); },
++    fermer,
++  };
++}
+diff --git a/site/web/js/etabli.js b/site/web/js/etabli.js
+index 28a0fff..d0871d3 100644
+--- a/site/web/js/etabli.js
++++ b/site/web/js/etabli.js
+@@ -8,6 +8,7 @@ import { Moteur } from "./moteur.js";
+ import * as N from "./notes.js";
+ import { cablerRail, toast, esc, telecharger, garderGrec, texteTaux } from "./commun.js";
+ import { cablerToile } from "./toile.js";
++import { cablerEdition } from "./edition.js";
+ 
+ const MODULE = document.body.dataset.module;
+ const $ = (s, r = document) => r.querySelector(s);
+@@ -72,6 +73,8 @@ const ouvertes = new Set(memoire.lire(`stab.sec.${MODULE}`, []));
+ let premier = true;
+ let vueCourante = null;
+ const toile = cablerToile({ bench, stage: $("#stage"), barre: $("#zoom") });
++// la bulle d'édition de la toile : un élément du dessin que le moteur a étiqueté (data-champs) s'ouvre sur le dessin
++const edition = cablerEdition({ bench, stage: $("#stage"), donnees: $("#donnees"), telephone, cablerSaisie: (z) => cablerSaisie(z) });
+ 
+ function appliquer(r) {
+   note.etat = r.etat;
+@@ -89,6 +92,7 @@ function appliquer(r) {
+   afficherVues(r.vues || [], r.phrase || "");
+   afficherDonnees(r.elements || "", r.donnees);
+   [$("#resultat"), $("#volets"), $("#donnees")].forEach(garderGrec);
++  edition.rafraichir();
+   if (r.message) toast(r.message, true);
+ }
+ 
+@@ -246,16 +250,28 @@ function valider(el) {
+   }
+   envoyer("modifier", { chemin: el.dataset.chemin.split("/"), valeur: lireChamp(el) });
+ }
+-$("#donnees").addEventListener("change", (ev) => {
+-  const f = ev.target.closest("input[type=file][data-chemin]");
+-  if (f) { lireFichier(f); return; }
+-  const el = ev.target.closest("select[data-chemin], input[type=checkbox][data-chemin]");
+-  if (el) valider(el);
+-});
+-$("#donnees").addEventListener("focusout", (ev) => {
+-  const el = ev.target.closest("input[data-chemin]:not([type=checkbox]):not([type=file]), textarea[data-chemin]");
+-  if (el && el.value !== el.defaultValue) valider(el);
+-});
++// la saisie est câblée sur une RACINE : le cadre Données, et la bulle d'édition de la toile (js/edition.js), qui montre
++// les MÊMES lignes — mêmes champs, mêmes chemins, même envoi
++function cablerSaisie(zone) {
++  zone.addEventListener("change", (ev) => {
++    const f = ev.target.closest("input[type=file][data-chemin]");
++    if (f) { lireFichier(f); return; }
++    const el = ev.target.closest("select[data-chemin], input[type=checkbox][data-chemin]");
++    if (el) valider(el);
++  });
++  zone.addEventListener("focusout", (ev) => {
++    const el = ev.target.closest("input[data-chemin]:not([type=checkbox]):not([type=file]), textarea[data-chemin]");
++    if (el && el.value !== el.defaultValue) valider(el);
++  });
++  zone.addEventListener("keydown", (ev) => {
++    if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
++  });
++  zone.addEventListener("click", (ev) => {
++    const seg = ev.target.closest("button[data-chemin][data-valeur]");
++    if (seg) { if (!seg.classList.contains("on")) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); }
++  });
++}
++cablerSaisie($("#donnees"));
+ 
+ // un fichier choisi (essais de sol, relevés…) part au moteur comme TEXTE : { nom, texte } ; le moteur le lit
+ async function lireFichier(f) {
+@@ -265,13 +281,8 @@ async function lireFichier(f) {
+   envoyer("modifier", { chemin: f.dataset.chemin.split("/"), valeur: { nom: fichier.name, texte: await fichier.text() } });
+ }
+ 
+-$("#donnees").addEventListener("keydown", (ev) => {
+-  if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
+-});
+-
+ $("#donnees").addEventListener("click", (ev) => {
+-  const seg = ev.target.closest("button[data-chemin][data-valeur]");
+-  if (seg) { if (!seg.classList.contains("on")) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
++  if (ev.target.closest("button[data-chemin][data-valeur]")) return;   // la saisie (cablerSaisie)
+   const hd = ev.target.closest(".sechd[data-replier]");
+   if (hd) {
+     const s = hd.parentElement;
+@@ -384,7 +395,7 @@ $("#volets").addEventListener("pointerdown", (ev) => {
+ });
+ 
+ document.addEventListener("click", (ev) => { if (!ev.target.closest(".flyout,[data-pk],[data-calcul]")) fermer(); });
+-document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { fermer(); menuOuvert(false); } });
++document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { fermer(); menuOuvert(false); edition.fermer(true); } });
+ bench.querySelectorAll("[data-coll]").forEach((b) => b.addEventListener("click", () => {
+   bench.classList.toggle(b.dataset.coll === "g" ? "sans-g" : "sans-d");
+   requestAnimationFrame(() => toile.vue(vueCourante));
+diff --git a/tests/test_api_web_modules.py b/tests/test_api_web_modules.py
+index 9c83d40..9c581a3 100644
+--- a/tests/test_api_web_modules.py
++++ b/tests/test_api_web_modules.py
+@@ -126,6 +126,23 @@ def un_module(cle):
+         if out.get("ok"):
+             fuites += [(chemin, k) for k, h in fragments(out).items() if "<img" in h]
+     chk(f"{cle} : un texte saisi est échappé dans tous les fragments ({len(textes)} champ(s) texte)", not fuites, fuites[:3])
++    # les éléments du dessin qui s'ouvrent sur la toile (data-champs, js/edition.js) : chaque chemin qu'un dessin nomme
++    # existe dans le cadre Données (sinon la bulle s'ouvrirait vide), et chaque élément porte un nom ; vérifié aussi
++    # sur une note à deux éléments de liste (la seconde section, la vue « toutes »)
++    def _orphelins(rep):
++        tous = set(re.findall(r'data-chemin="([^"]+)"', rep["donnees"]))
++        prises = re.findall(r'<g class="prise" data-champs="([^"]*)" data-titre="([^"]*)"', fragments(rep)["dessins"])
++        vise = lambda t: any(c == t or (t.endswith("/") and c.startswith(t)) for c in tous)  # noqa: E731
++        return prises, [t for ch, _ in prises for t in ch.split() if not vise(t)] + [ch for ch, ti in prises if not ti.strip()]
++    prises, orphelins = _orphelins(r)
++    plus = [m for m in re.findall(r'data-chemin="([^"]*/\+)"', r["donnees"])][:1]
++    if plus:
++        r2 = req(module=cle, action="modifier", etat=copy.deepcopy(etat), chemin=plus[0].split("/"), valeur="1")
++        if r2.get("ok"):
++            p2, o2 = _orphelins(r2)
++            prises, orphelins = prises + p2, orphelins + o2
++    chk(f"{cle} : chaque élément cliquable des dessins ({len(prises)}) ouvre des champs du cadre Données, et porte un nom",
++        not orphelins, orphelins[:3])
+     scripts = [k for k, h in fragments(r).items() if EN_LIGNE.search(h)]
+     chk(f"{cle} : aucun fragment ne porte de script ni de gestionnaire « on…= »", not scripts, scripts)
+     # une note abîmée
