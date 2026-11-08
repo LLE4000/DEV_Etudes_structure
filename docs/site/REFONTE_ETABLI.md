@@ -5,7 +5,8 @@
 - **Date** : 07/11/2026.
 - **Statut** : **spécification retenue, en cours de réalisation.** Le lot 0 (référence figée, sonde du démarrage,
   mesures « avant ») est versé avec ce document ; les lots suivants suivent l'ordre de B.4
-  (0 → 0 bis → S1 → S2 → S3 → S4 → M1 à M5 → C → V).
+  (0 → 0 bis → S1 → S2 → S3 → S4 → M1 à M5 → C → V), **resserré par l'ingénieur le 07/11/2026** : S2 et S3 d'abord
+  sur la poutre seule, au PC (voir « Le pilote » ci-dessous).
 - **Ce qui suit** est la copie fidèle de la spécification finale : l'avis du jury sur les trois propositions
   (« atelier », « note », « doigt »), puis la spécification en lots. Elle n'est pas retouchée ; une correction s'y
   portera en révision datée, au pied de ce document. Les chemins `/tmp/…` et `/home/user/…` qu'elle cite désignent
@@ -34,6 +35,39 @@ Citées mot pour mot telles que le jury les reprend (A.1) ; « … » marque une
    bloquant ».
 
 Et pour l'une comme pour l'autre : « Valider avec des cas de référence et des cas limites par module ».
+
+## Le pilote « Poutres béton armé » (07/11/2026)
+
+**Décision de l'ingénieur** (07/11/2026), qui resserre l'ordre de B.4 : *un seul module d'abord* — « commencer
+uniquement par la poutre béton et voir ce que ça donne ; si c'est bon, on fait tous les autres comme ça » — et *le
+PC d'abord* (la tablette vérifiée, le téléphone seulement « pas cassé »). Les lots S2 et S3 sont donc réalisés sur la
+poutre seule ; les 17 autres modules gardent l'établi d'avant, à l'octet (tests/test_site_web.py le vérifie page par
+page), jusqu'à son avis.
+
+**Ce que fait le pilote** :
+- la carte de l'accueil ouvre le calcul lui-même, sans fenêtre « Nouvelle note » ; la note est **provisoire** : rien
+  n'est écrit tant que l'utilisateur ne modifie rien (ouvrir pour regarder ne remplit plus la liste des notes). La
+  première saisie, un renommage ou « Enregistrer comme note… » l'écrivent, et l'adresse prend alors `?note=` ;
+- « Enregistrer comme note… » (barre du haut, menu ⋯ du téléphone) donne le nom, le chantier et le dossier (les
+  chantiers et dossiers déjà connus sont proposés) ; une fois la note écrite, le même bouton la « classe » ;
+- à gauche, la **liste** : la note, ses éléments (le bloc « Dans cette note » du moteur, déplacé tel quel), puis les
+  étapes de l'élément ouvert ; les étapes secondaires (la « Méthode ») sous « Options », repliées ;
+- au centre, le dessin : un clic sur une pièce (le béton, les barres, les efforts) choisit son étape ; un glisser
+  déplace la vue sans rien choisir ; l'étape choisie est surlignée ;
+- à droite, les **propriétés** de l'étape choisie (le cadre Données du moteur, filtré : rien n'est copié) au-dessus du
+  **résultat** ; chacun se replie ; les deux panneaux se replient en bande ;
+- aucun calcul ne change : les 239 cas de référence restent identiques, calcul et affichage.
+
+**Comment l'étendre à un autre module** : l'ajouter à `ETABLI_COMPACT` (`site/web/construire.py`) ; marquer ses
+étapes secondaires (`commun.section(…, secondaire=True)`) ; poser sur les pièces de ses dessins
+`<g data-sel="<clé d'étape>">` (pour la poutre : `dessin_poutre._cible`, les clés `pt`, `so`, `arm<i>`). Le contrat
+est vérifié par `tests/test_api_web_poutre.py` §12 (chaque pièce désigne une étape qui existe) et dans le navigateur
+par le filtre « pilote » de `site/web/verifier_site.js` (chaque champ du cadre Données s'atteint par une étape de la
+liste ; rien n'est écrit avant la première saisie ; le clic sur le dessin ; le rangement ; les replis).
+
+**Les fichiers** : `site/web/js/compact.js` (la liste, le choix d'étape, le dessin cliquable),
+`site/web/js/rangement.js` (« Enregistrer comme note… »), `site/web/css/etabli.css` (la disposition, scopée par
+`body[data-etabli="compact"]`), et dans `site/web/js/etabli.js` la note provisoire.
 
 ---
 

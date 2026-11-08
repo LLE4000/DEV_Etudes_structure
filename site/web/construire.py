@@ -49,6 +49,10 @@ _FAMILLES = {k for _, _, mods in MQ.FAMILLES for k, _ in mods}
 ADRESSES = {k: v for k, v in REG.pages().items() if k in _FAMILLES}
 PAGES = {k: v + ".html" for k, v in ADRESSES.items()}
 ACCUEIL = "./"
+# L'établi COMPACT (liste des éléments et des étapes à gauche, dessin au centre, propriétés et résultat à droite), en
+# PILOTE sur ces modules seulement (docs/site/REFONTE_ETABLI.md) : les autres gardent l'établi d'avant. Leur carte de
+# l'accueil ouvre le calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
+ETABLI_COMPACT = ("poutre",)
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
@@ -188,8 +192,8 @@ def modpanel() -> str:
             f'<a class="btn icon ghost" data-modules="1" title="Fermer">{MQ.icon("x")}</a></div>{corps}</aside>')
 
 
-def tete(titre: str, css: str = "") -> str:
-    lien = f'<link rel="stylesheet" href="{css}">\n' if css else ""
+def tete(titre: str, css: str = "", css2: str = "") -> str:
+    lien = "".join(f'<link rel="stylesheet" href="{c}">\n' for c in (css2, css) if c)
     return ('<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
             f'<title>{titre}</title>\n<link rel="icon" href="favicon.svg" type="image/svg+xml">\n'
@@ -209,7 +213,8 @@ def page_accueil() -> str:
         t = ""
         for k, n in mods:
             if k in PAGES:
-                t += (f'<a class="tile" href="{ADRESSES[k]}" data-nouvelle-module="{k}"><span class="modic {fam}">{MQ.MOD[k]}</span>'
+                ouvre = f'data-module="{k}"' if k in ETABLI_COMPACT else f'data-nouvelle-module="{k}"'
+                t += (f'<a class="tile" href="{ADRESSES[k]}" {ouvre}><span class="modic {fam}">{MQ.MOD[k]}</span>'
                       f'<span class="nm">{MQ.esc(n)}</span></a>')
             else:
                 t += (f'<div class="tile bientot" title="Ce module n\'est pas encore sur le site (il reste dans Streamlit)">'
@@ -354,8 +359,66 @@ def page_module(cle: str, titre: str) -> str:
              f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
+    if cle in ETABLI_COMPACT:
+        corps = compact(corps)
     css = f"css/modules/{cle}.css"
-    return tete(f"{titre} · Stab Méthodes", css if os.path.exists(os.path.join(ICI, css)) else "") + corps
+    return tete(f"{titre} · Stab Méthodes", css if os.path.exists(os.path.join(ICI, css)) else "",
+                "css/etabli.css" if cle in ETABLI_COMPACT else "") + corps
+
+
+def compact(corps: str) -> str:
+    """L'établi COMPACT, tiré de l'établi ordinaire (les mêmes fragments du moteur, les mêmes identifiants : #donnees,
+    #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
+    - à gauche, la LISTE : la note, ses éléments (« Dans cette note »), puis les étapes de l'élément ouvert, les étapes
+      secondaires sous « Options » ; un clic choisit l'étape ;
+    - au centre, le dessin (un clic sur une pièce choisit son étape) ;
+    - à droite, les PROPRIÉTÉS de l'étape choisie (le cadre Données, filtré) au-dessus du RÉSULTAT ; chacun se replie ;
+    - la barre du haut gagne « Enregistrer comme note… »."""
+    gauche_av = ('<div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span>'
+                 f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>'
+                 '<div class="pbody" id="donnees"><div class="attente">Chargement…</div></div>')
+    droite_av = ('<div class="phead"><span class="h3">Résultat</span><span id="statut"></span>'
+                 f'<button class="pcoll" data-coll="d" title="Replier le résultat">{MQ.icon("panel-right")}</button></div>'
+                 '<div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div>')
+    gauche = ('<div class="phead"><span class="h3">Éléments et étapes</span><span class="calcule" id="calcule"></span>'
+              f'<button class="pcoll" data-coll="g" title="Replier la liste">{MQ.icon("panel-left")}</button></div>'
+              '<nav class="pbody et-liste" id="liste" aria-label="Éléments et étapes de la note"><div class="attente">Chargement…</div></nav>')
+    droite = ('<div class="et-props"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="props" '
+              f'aria-expanded="true" title="Replier les propriétés">{MQ.icon("chevron-down")}</button><span class="h3">Propriétés</span>'
+              '<span class="et-choix" id="et-choix"></span>'
+              f'<button class="pcoll" data-coll="d" title="Replier le panneau">{MQ.icon("panel-right")}</button></div>'
+              '<div class="pbody" id="donnees"><div class="attente">Chargement…</div></div></div>'
+              '<div class="et-res"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="res" '
+              f'aria-expanded="true" title="Replier le résultat">{MQ.icon("chevron-down")}</button><span class="h3">Résultat</span>'
+              '<span id="statut"></span></div>'
+              '<div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div></div>')
+    assert gauche_av in corps and droite_av in corps, "le gabarit de l'établi a changé : compact() doit suivre"
+    corps = corps.replace(gauche_av, gauche).replace(droite_av, droite)
+    corps = corps.replace('<body data-page="module"', '<body data-page="module" data-etabli="compact"', 1)
+    # « Enregistrer comme note… » : à côté de l'indicateur d'enregistrement (barre du haut), et dans le menu ⋯ du téléphone
+    bouton = (f'<button type="button" class="btn sm et-ranger" data-ranger="1" title="Nommer la note et la ranger dans un chantier">'
+              f'{MQ.icon("folder")}<span class="lbl">Enregistrer comme note…</span></button>')
+    marque = '<label class="btn ghost" for="ouvrir"'
+    assert marque in corps
+    corps = corps.replace(marque, bouton + marque, 1)
+    # (au téléphone, l'échec d'enregistrement reste la PREMIÈRE entrée du menu : « Enregistrer comme note… » le suit)
+    revoir = menu_enregistrement()
+    assert corps.count('<div class="mmenu" id="mmenu" hidden>' + revoir) == 1
+    corps = corps.replace('<div class="mmenu" id="mmenu" hidden>' + revoir, '<div class="mmenu" id="mmenu" hidden>' + revoir
+                          + f'<button type="button" class="mi" data-ranger="1">{MQ.icon("folder")}<span class="et-mi-ranger">Enregistrer comme note…</span></button>', 1)
+    # la fenêtre « Enregistrer comme note » : le nom, le chantier, le dossier (texte, avec les chantiers déjà connus)
+    fenetre = ('<div class="et-rangement" id="et-rangement" role="dialog" aria-modal="true" aria-labelledby="et-rg-titre" hidden>'
+               '<form class="et-rg-carte" id="et-rg-form"><div class="et-rg-h"><b id="et-rg-titre">Enregistrer comme note</b>'
+               f'<button type="button" class="btn icon ghost" data-fermer-rangement="1" aria-label="Fermer">{MQ.icon("x")}</button></div>'
+               '<label class="et-rg-l">Nom de la note<input id="et-rg-nom" class="field-in" autocomplete="off" spellcheck="false" maxlength="200"></label>'
+               '<label class="et-rg-l">Chantier<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans chantier"></label>'
+               '<label class="et-rg-l">Dossier<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans dossier"></label>'
+               '<datalist id="et-rg-chantiers"></datalist><datalist id="et-rg-dossiers"></datalist>'
+               '<p class="et-rg-aide">La note est enregistrée dans ce navigateur ; « Exporter .stab » en garde une copie en fichier.</p>'
+               '<div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button>'
+               '<button type="submit" class="btn primary">Enregistrer</button></div></form></div>')
+    corps = corps.replace('<div class="toast" id="toast"', fenetre + '<div class="toast" id="toast"', 1)
+    return corps
 
 
 def favicon() -> str:

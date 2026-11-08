@@ -7,9 +7,10 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/charte.css">
 <link rel="stylesheet" href="css/site.css">
+<link rel="stylesheet" href="css/etabli.css">
 <script src="js/theme.js"></script>
 </head>
-<body data-page="module" data-module="poutre" data-titre="Poutres béton armé"><div class="app rail"><nav class="nav"><a class="brand" href="./" title="Accueil"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div></a><a class="navitem" data-tip="Accueil" href="./"><svg
+<body data-page="module" data-etabli="compact" data-module="poutre" data-titre="Poutres béton armé"><div class="app rail"><nav class="nav"><a class="brand" href="./" title="Accueil"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div></a><a class="navitem" data-tip="Accueil" href="./"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -200,7 +201,20 @@
   <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
   <path d="M12 9v4" />
   <path d="M12 17h.01" />
-</svg></span><span class="et-enr-mot"></span><span class="et-enr-txt"><span class="et-enr-etat">Pas encore enregistré</span><span class="et-enr-raison"></span></span></span><label class="btn ghost" for="ouvrir" title="Ouvrir un fichier .stab"><svg
+</svg></span><span class="et-enr-mot"></span><span class="et-enr-txt"><span class="et-enr-etat">Pas encore enregistré</span><span class="et-enr-raison"></span></span></span><button type="button" class="btn sm et-ranger" data-ranger="1" title="Nommer la note et la ranger dans un chantier"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg><span class="lbl">Enregistrer comme note…</span></button><label class="btn ghost" for="ouvrir" title="Ouvrir un fichier .stab"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -348,7 +362,20 @@
   <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
   <path d="M12 9v4" />
   <path d="M12 17h.01" />
-</svg><span class="et-mi-enr-txt"></span></button><label class="mi" for="ouvrir"><svg
+</svg><span class="et-mi-enr-txt"></span></button><button type="button" class="mi" data-ranger="1"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+</svg><span class="et-mi-ranger">Enregistrer comme note…</span></button><label class="mi" for="ouvrir"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -507,7 +534,7 @@
 >
   <path d="M18 6 6 18" />
   <path d="m6 6 12 12" />
-</svg></button></div></div><div class="stage" id="stage"></div></section><section class="panel left"><div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span><button class="pcoll" data-coll="g" title="Replier les données"><svg
+</svg></button></div></div><div class="stage" id="stage"></div></section><section class="panel left"><div class="phead"><span class="h3">Éléments et étapes</span><span class="calcule" id="calcule"></span><button class="pcoll" data-coll="g" title="Replier la liste"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -521,7 +548,20 @@
 >
   <rect width="18" height="18" x="3" y="3" rx="2" />
   <path d="M9 3v18" />
-</svg></button></div><div class="pbody" id="donnees"><div class="attente">Chargement…</div></div></section><section class="panel right"><div class="phead"><span class="h3">Résultat</span><span id="statut"></span><button class="pcoll" data-coll="d" title="Replier le résultat"><svg
+</svg></button></div><nav class="pbody et-liste" id="liste" aria-label="Éléments et étapes de la note"><div class="attente">Chargement…</div></nav></section><section class="panel right"><div class="et-props"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="props" aria-expanded="true" title="Replier les propriétés"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m6 9 6 6 6-6" />
+</svg></button><span class="h3">Propriétés</span><span class="et-choix" id="et-choix"></span><button class="pcoll" data-coll="d" title="Replier le panneau"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -535,7 +575,20 @@
 >
   <rect width="18" height="18" x="3" y="3" rx="2" />
   <path d="M15 3v18" />
-</svg></button></div><div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div></section><div id="volets"></div><div class="demarrage" id="demarrage"><div class="carte"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div><b>Chargement du moteur de calcul</b><span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div><small>La première ouverture prend quelques secondes ; ensuite, chaque calcul est immédiat.</small></div></div></div><div class="mbar"><button type="button" class="btn" data-action="exporter"><svg
+</svg></button></div><div class="pbody" id="donnees"><div class="attente">Chargement…</div></div></div><div class="et-res"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="res" aria-expanded="true" title="Replier le résultat"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m6 9 6 6 6-6" />
+</svg></button><span class="h3">Résultat</span><span id="statut"></span></div><div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div></div></section><div id="volets"></div><div class="demarrage" id="demarrage"><div class="carte"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div><b>Chargement du moteur de calcul</b><span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div><small>La première ouverture prend quelques secondes ; ensuite, chaque calcul est immédiat.</small></div></div></div><div class="mbar"><button type="button" class="btn" data-action="exporter"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -610,5 +663,19 @@
 >
   <path d="M18 6 6 18" />
   <path d="m6 6 12 12" />
-</svg></button></div><div class="toast" id="toast" role="status" hidden></div><script type="module" src="js/etabli.js"></script></body>
+</svg></button></div><div class="et-rangement" id="et-rangement" role="dialog" aria-modal="true" aria-labelledby="et-rg-titre" hidden><form class="et-rg-carte" id="et-rg-form"><div class="et-rg-h"><b id="et-rg-titre">Enregistrer comme note</b><button type="button" class="btn icon ghost" data-fermer-rangement="1" aria-label="Fermer"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+</svg></button></div><label class="et-rg-l">Nom de la note<input id="et-rg-nom" class="field-in" autocomplete="off" spellcheck="false" maxlength="200"></label><label class="et-rg-l">Chantier<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans chantier"></label><label class="et-rg-l">Dossier<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans dossier"></label><datalist id="et-rg-chantiers"></datalist><datalist id="et-rg-dossiers"></datalist><p class="et-rg-aide">La note est enregistrée dans ce navigateur ; « Exporter .stab » en garde une copie en fichier.</p><div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button><button type="submit" class="btn primary">Enregistrer</button></div></form></div><div class="toast" id="toast" role="status" hidden></div><script type="module" src="js/etabli.js"></script></body>
 </html>

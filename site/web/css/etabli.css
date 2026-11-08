@@ -1,0 +1,141 @@
+/* L'établi COMPACT (pilote : « Poutres béton armé », site/web/construire.py ETABLI_COMPACT ; docs/site/REFONTE_ETABLI.md).
+   À gauche la LISTE (la note, ses éléments, les étapes de l'élément ouvert, « Options » repliées), au centre le DESSIN,
+   à droite les PROPRIÉTÉS de l'étape choisie au-dessus du RÉSULTAT. Les cadres sont ACCROCHÉS (plus de cadres flottants)
+   et se replient. Tout est scopé par body[data-etabli="compact"] : les autres modules gardent l'établi d'avant. */
+
+[hidden] { display: none !important; }
+
+/* les cadres sont pleins (ni verre dépoli ni ombre) à toutes les largeurs */
+[data-etabli="compact"] .panel { box-shadow: none; background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
+[data-etabli="compact"] .phead { height: 40px; padding: 0 6px 0 12px; }
+
+/* ------------------------------------------------------------------ PC (1 200 px et plus) : trois colonnes accrochées */
+@media (min-width: 1200px) {
+  [data-etabli="compact"] .bench { --pl: 280px; --pr: 392px; --g: 0px; }
+  [data-etabli="compact"] .bench.sans-g { --pl: 44px; }
+  [data-etabli="compact"] .bench.sans-d { --pr: 44px; }
+  [data-etabli="compact"] .panel { top: 0; bottom: 0; border-radius: 0; border: 0; }
+  [data-etabli="compact"] .panel.left { left: 0; border-right: 1px solid var(--line); }
+  [data-etabli="compact"] .panel.right { right: 0; border-left: 1px solid var(--line); }
+  [data-etabli="compact"] .canvas { padding: 0 calc(var(--pr) + 14px) 0 calc(var(--pl) + 14px); }
+  /* un panneau replié garde sa bande sur toute la hauteur (il est accroché, pas flottant) */
+  [data-etabli="compact"] .bench.sans-g .panel.left, [data-etabli="compact"] .bench.sans-d .panel.right { bottom: 0; }
+}
+[data-etabli="compact"] .phead .h3 { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-right: 0; }
+[data-etabli="compact"] .panel.left .phead .h3 { margin-right: auto; }
+/* le fil de la note (chantier › dossier) ne s'efface pas devant le champ du nom, là où la barre a la place (1 400 px et
+   plus) : c'est le nom qui se coupe. Plus étroit, il se coupe comme ailleurs (sinon il passait sous « Brouillon ») */
+@media (min-width: 1400px) { [data-etabli="compact"] #fil-chantier { flex: none; } }
+
+/* ------------------------------------------------------------------ la liste */
+.et-liste { padding: 4px 0 12px; }
+.et-liste .attente { padding: 14px; color: var(--ink-3); }
+.et-note { display: flex; align-items: center; gap: 8px; padding: 8px 12px 6px; min-width: 0; }
+.et-note .et-note-t { min-width: 0; flex: 1; }
+.et-note b { display: block; font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-note span { display: block; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-liste .elements { padding: 2px 6px 6px; border-bottom: 1px solid var(--line); }
+@media (min-width: 701px) { .et-liste .elements .ni { height: 30px; } }
+.et-g { display: flex; align-items: center; gap: 6px; padding: 10px 12px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3); }
+.et-g .et-g-el { text-transform: none; letter-spacing: 0; font-weight: 650; color: var(--ink-2); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.et-li { display: flex; align-items: center; gap: 8px; width: calc(100% - 12px); margin: 0 6px; height: 30px; padding: 0 8px; border-radius: 8px;
+  text-align: left; color: var(--ink); cursor: pointer; position: relative; }
+.et-li:hover { background: var(--bg); }
+.et-li.on { background: var(--accent-soft); }
+.et-li.on::before { content: ""; position: absolute; left: -6px; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; background: var(--accent); }
+.et-li .n { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700;
+  color: var(--ink-2); background: var(--bg-sunken); flex: none; }
+.et-li.on .n { background: var(--accent); color: var(--on-accent); }
+.et-li .tt { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 62%; }
+.et-li .sum { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; text-align: right; }
+.et-li .ic { width: 18px; display: grid; place-items: center; color: var(--ink-3); flex: none; }
+.et-li .ic svg.i { width: 14px; height: 14px; }
+.et-li.et-tout .tt { font-weight: 650; }
+.et-options summary { list-style: none; }
+.et-options summary::-webkit-details-marker { display: none; }
+.et-options > summary .ic { transition: transform .15s ease; }
+.et-options[open] > summary .ic { transform: rotate(90deg); }
+.et-options .et-li { padding-left: 14px; }
+.et-li .mod { font-size: 10.5px; font-weight: 650; color: var(--accent-hover); flex: none; }
+
+/* ------------------------------------------------------------------ le panneau de droite : propriétés, puis résultat */
+.et-props, .et-res { display: flex; flex-direction: column; min-height: 0; }
+/* les propriétés prennent la hauteur de l'étape choisie (au plus 60 %) ; le résultat, le reste */
+.et-props { flex: 0 1 auto; max-height: 60%; border-bottom: 1px solid var(--line); }
+.et-res { flex: 1 1 0; }
+.et-props.et-ferme, .et-res.et-ferme { flex: none; }
+.et-props.et-ferme > :not(.phead), .et-res.et-ferme > :not(.phead) { display: none; }
+.et-props.et-ferme { border-bottom: 1px solid var(--line); }
+.et-props:not(.et-ferme) + .et-res.et-ferme { flex: none; }
+.et-res .resultat { flex: 1; min-height: 0; }
+.phead.et-sous { gap: 6px; padding-left: 6px; }
+.et-replier { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--ink-3); flex: none; }
+.et-replier:hover { background: var(--bg); color: var(--ink); }
+.et-replier svg.i { width: 15px; height: 15px; transition: transform .15s ease; }
+.et-ferme .et-replier svg.i { transform: rotate(-90deg); }
+.et-choix { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-choix .et-tout-voir { font-weight: 600; color: var(--accent-hover); cursor: pointer; margin-left: 6px; }
+.et-res .phead #statut { margin-left: auto; }
+/* le panneau replié : sa bande de 44 px garde le bouton */
+[data-etabli="compact"] .bench.sans-d .panel.right .et-res { display: none; }
+[data-etabli="compact"] .bench.sans-d .panel.right .et-props > :not(.phead) { display: none; }
+[data-etabli="compact"] .bench.sans-d .panel.right .et-props .phead > :not(.pcoll) { display: none; }
+[data-etabli="compact"] .bench.sans-d .panel.right .et-props .phead { padding: 0 7px; border-bottom: 0; }
+[data-etabli="compact"] .bench.sans-d .panel.right .et-props { border-bottom: 0; }
+
+/* les propriétés : l'étape choisie seule (le cadre Données, filtré ; rien n'est copié) */
+[data-etabli="compact"] #donnees > .elements { display: none; }
+[data-etabli="compact"] #donnees[data-choix]:not([data-choix="tout"]) .sec:not(.et-choisie) { display: none; }
+[data-etabli="compact"] #donnees[data-choix]:not([data-choix="tout"]) .sec.et-choisie > .sechd { display: none; }
+[data-etabli="compact"] #donnees[data-choix]:not([data-choix="tout"]) .sec.et-choisie > .rows { display: flex; padding-top: 12px; }
+[data-etabli="compact"] #donnees[data-choix="tout"] .sec[data-secondaire]:not(.et-choisie) { display: none; }
+[data-etabli="compact"] #donnees .sec { border-bottom: 1px solid var(--line); }
+[data-etabli="compact"] #donnees .sechd { padding: 9px 12px; }
+[data-etabli="compact"] #donnees .rows { padding: 0 12px 12px; gap: 7px; }
+
+/* ------------------------------------------------------------------ le dessin : les pièces qu'on peut choisir */
+[data-etabli="compact"] .draw [data-sel] { cursor: pointer; }
+@media (hover: hover) {
+  [data-etabli="compact"] .draw [data-sel]:hover { filter: drop-shadow(0 0 2px rgba(43, 75, 207, .55)); }
+}
+[data-etabli="compact"] .draw [data-sel].et-sel { filter: drop-shadow(0 0 3px rgba(43, 75, 207, .9)); }
+
+/* ------------------------------------------------------------------ « Enregistrer comme note… » */
+.et-ranger { flex: none; }
+/* la barre du haut gagne ce bouton : « Ouvrir » (un fichier .stab, rare) passe en icône, le fil de la note garde sa place */
+@media (max-width: 1599px) { [data-etabli="compact"] .top label.btn[for="ouvrir"] .lbl { display: none; } }
+.et-rangement { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(13, 21, 37, .32); }
+.et-rg-carte { width: min(420px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-2);
+  padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.et-rg-h { display: flex; align-items: center; }
+.et-rg-h b { margin-right: auto; font-size: 15px; }
+.et-rg-l { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.et-rg-l .field-in { height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 10px; font: inherit; font-weight: 500;
+  color: var(--ink); background: var(--panel); }
+.et-rg-l .field-in:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.et-rg-aide { font-size: 11.5px; color: var(--ink-3); margin: 0; }
+.et-rg-b { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ------------------------------------------------------------------ tablette (701 à 1 199 px) : la grille de l'établi */
+/* portrait : le dessin en haut sur toute la largeur, la liste et le panneau de droite côte à côte dessous */
+@media (min-width: 701px) and (max-width: 1199px) {
+  [data-etabli="compact"] .bench > .panel { border: 1px solid var(--line); border-radius: 12px; }
+  [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+}
+/* tablette en paysage : la toile à droite sur toute la hauteur ; à gauche, la liste au-dessus des propriétés et du résultat
+   (trois colonnes laissaient moins de 600 px au dessin, moins de 500 à 1 024 px) */
+@media (min-width: 701px) and (max-width: 1199px) and (orientation: landscape) {
+  [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: 318px minmax(0, 1fr); grid-template-rows: minmax(0, 2fr) minmax(0, 3fr); }
+}
+
+/* ------------------------------------------------------------------ téléphone : les onglets ; la liste sert de sommaire */
+@media (max-width: 700px) {
+  [data-etabli="compact"] .bench[data-tab="donnees"] .panel.right { display: flex; }
+  [data-etabli="compact"] .bench[data-tab="donnees"] .panel.right .et-res { display: none; }
+  [data-etabli="compact"] .bench[data-tab="resultat"] .panel.right .et-props { display: none; }
+  [data-etabli="compact"] .bench[data-tab="resultat"] .panel.right .et-res { flex: 1 0 auto; }
+  [data-etabli="compact"] .panel.left .phead, [data-etabli="compact"] .et-sous .pcoll { display: none; }
+  [data-etabli="compact"] .et-li { height: 44px; }
+  [data-etabli="compact"] .et-ranger .lbl { display: none; }
+}

@@ -404,9 +404,12 @@ def case(chemin: Sequence, valeur: bool, texte_: str, desactive: bool = False) -
             f'{" disabled" if desactive else ""}><span>{texte_}</span></label>')
 
 
-def section(n: int, titre: str, resume: str, corps: str, ouvert: bool = True, cle: str = "") -> str:
-    """Une section repliable du cadre Données (le numéro, le titre, un résumé quand elle est repliée)."""
-    return (f'<div class="sec{" open" if ouvert else ""}" data-sec="{esc(cle or n)}"><div class="sechd" data-replier="1"><span class="n">{n}</span>'
+def section(n: int, titre: str, resume: str, corps: str, ouvert: bool = True, cle: str = "", *, secondaire: bool = False) -> str:
+    """Une section repliable du cadre Données (le numéro, le titre, un résumé quand elle est repliée). ``secondaire`` : une
+    étape d'OPTIONS (méthode, réglages) que l'établi compact range sous « Options », repliée — le moteur le dit, l'écran
+    le lit (data-secondaire). Sans lui, la sortie est la même, à l'octet près."""
+    sec2 = ' data-secondaire="1"' if secondaire else ""
+    return (f'<div class="sec{" open" if ouvert else ""}" data-sec="{esc(cle or n)}"{sec2}><div class="sechd" data-replier="1"><span class="n">{n}</span>'
             f'<span class="tt">{titre}</span><span class="sum">{resume}</span>{icon("chevron-down")}</div>'
             f'<div class="rows">{corps}</div></div>')
 

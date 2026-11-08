@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -65,9 +65,12 @@ const FILTRE = process.argv[4] || '';
     inline === undefined ? '' : 'servir avec site/web/outils/serveur_local.py');
   erreurs.splice(nCsp, erreurs.length - nCsp, ...erreurs.slice(nCsp).filter((x) => !/Content Security Policy/.test(x)));
   verif('accueil vide : il le dit', await p.isVisible('.vide'));
-  // les tuiles ouvertes sont exactement les modules du registre (js/modules.js) ; les autres disent « bientôt »
+  // les tuiles ouvertes sont exactement les modules du registre (js/modules.js) ; les autres disent « bientôt ». Une tuile
+  // ouvre la fenêtre « Nouvelle note » (data-nouvelle-module) ou, pour l'établi compact (construire.ETABLI_COMPACT), le
+  // calcul lui-même (data-module : un lien direct)
   const registre = await p.evaluate(async () => Object.keys((await import('./js/modules.js')).MODULES).sort().join());
-  const ouvertes = (await p.$$eval('.tile[data-nouvelle-module]', (t) => t.map((x) => x.dataset.nouvelleModule))).sort().join();
+  const ouvertes = (await p.$$eval('.tile[data-nouvelle-module], .tile[data-module]',
+    (t) => t.map((x) => x.dataset.nouvelleModule || x.dataset.module))).sort().join();
   const total = await p.$$eval('.tile', (t) => t.length);
   verif('accueil : les modules du registre sont ouverts, les autres « bientôt »',
     ouvertes === registre && (await p.$$eval('.tile.bientot', (t) => t.length)) === total - registre.split(',').length, `${ouvertes} / ${registre}`);
@@ -566,16 +569,24 @@ const FILTRE = process.argv[4] || '';
       const t = await contexte(390, 844, true);
       if (PARTIES.includes('tel') && await neuve(t, cle, 'téléphone')) {
         const fixe = async () => ({ mtop: await boite(t, '.mtop'), mtabs: await boite(t, '.mtabs'), mbar: await boite(t, '.mbar') });
-        for (const [onglet, cadre, autres] of [['donnees', '.panel.left', ['.canvas', '.panel.right']], ['dessin', '.canvas', ['.panel.left', '.panel.right']],
-          ['resultat', '.panel.right', ['.canvas', '.panel.left']]]) {
+        // l'établi compact (construire.ETABLI_COMPACT) : « Données » montre la liste ET les propriétés de l'étape choisie,
+        // « Résultat » le résultat seul (le même panneau de droite, l'autre moitié)
+        const compactTel = await t.evaluate(() => document.body.dataset.etabli === 'compact');
+        const ONGLETS = compactTel
+          ? [['donnees', '.panel.left', ['.canvas', '.et-res'], ['.et-props']], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
+            ['resultat', '.panel.right', ['.canvas', '.panel.left', '.et-props'], ['.et-res']]]
+          : [['donnees', '.panel.left', ['.canvas', '.panel.right'], []], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
+            ['resultat', '.panel.right', ['.canvas', '.panel.left'], []]];
+        for (const [onglet, cadre, autres, aussi] of ONGLETS) {
          try {
           await t.click(`.mtabs [data-onglet="${onglet}"]`);
           await t.waitForTimeout(250);
           const r = await boite(t, cadre);
-          const caches = [];
+          const caches = [], manquent = [];
           for (const a of autres) if (await vis(t, a)) caches.push(a);
-          verif(`${cle} · téléphone : l'onglet ${onglet} montre son cadre, sur toute la largeur, et lui seul`, r && r.l >= 370 && r.t >= 200 && !caches.length,
-            JSON.stringify({ r, caches }));
+          for (const a of aussi) if (!(await vis(t, a))) manquent.push(a);
+          verif(`${cle} · téléphone : l'onglet ${onglet} montre son cadre, sur toute la largeur, et lui seul${aussi.length ? ` (avec ${aussi.join(', ')})` : ''}`,
+            r && r.l >= 370 && r.t >= 200 && !caches.length && !manquent.length, JSON.stringify({ r, caches, manquent }));
           const m = await mesurer(t);
           verif(`${cle} · téléphone · ${onglet} : rien ne déborde, aucun nom coupé`, !m.deborde && !m.coupes.length && !m.xl.length, JSON.stringify(m));
           await t.screenshot({ path: path.join(OUT, `site_${cle}_tel_${onglet}.png`) });
@@ -814,7 +825,7 @@ const FILTRE = process.argv[4] || '';
           window.__retoucher = (json) => { const r = JSON.parse(json); if (r.ok && r.vues) r.vues = []; return JSON.stringify(r); };
         });
         // « ajouter » recalcule toujours (contrat commun) : sa réponse arrive sans vue
-        await g.click('#donnees [data-ajouter]');
+        await g.click('#donnees [data-ajouter], #liste [data-ajouter]');
         await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
         await g.waitForTimeout(300);
         const sv = await g.evaluate(() => ({ texte: document.getElementById('stage').textContent.trim(), zoom: document.getElementById('zoom').checkVisibility() }));
@@ -824,10 +835,10 @@ const FILTRE = process.argv[4] || '';
         // vivant — la requête restait sans réponse, la file du moteur bloquée, « Calcul… » sans fin
         const nAvant = await g.$$eval('.elements .ni', (e) => e.length);
         await g.evaluate(() => { window.__retoucher = (json) => { window.__retoucher = null; return json.replace(/"ok": true/, '"ok": true, "x": Infinity'); }; });
-        await g.click('#donnees [data-ajouter]');
+        await g.click('#donnees [data-ajouter], #liste [data-ajouter]');
         const libre = await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 10000 }).then(() => true, () => false);
         const ill = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
-        await g.click('#donnees [data-ajouter]');
+        await g.click('#donnees [data-ajouter], #liste [data-ajouter]');
         const repart = await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 30000 }).then(() => true, () => false);
         const nApres = await g.$$eval('.elements .ni', (e) => e.length);
         verif('une réponse illisible du moteur : un message, et le calcul suivant passe (la file du moteur ne se bloque pas)',
@@ -842,7 +853,7 @@ const FILTRE = process.argv[4] || '';
       const tt = await contexte(390, 844, true);
       if (await neuve(tt, cle, 'taux énorme')) {
         await tt.evaluate(() => { window.__retoucher = (json) => { const r = JSON.parse(json); if (r.ok && r.resume) r.resume.taux = 12345678; return JSON.stringify(r); }; });
-        await tt.click('#donnees [data-ajouter]');
+        await tt.click('#donnees [data-ajouter], #liste [data-ajouter]');
         await tt.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
         await tt.evaluate(() => { window.__retoucher = null; });
         const ch = await tt.evaluate(() => {
@@ -1578,6 +1589,16 @@ const FILTRE = process.argv[4] || '';
           bouton: rb ? { texte: bt.textContent.trim(), h: Math.round(rb.height), l: Math.round(rb.width) } : null } : null,
         deborde: document.documentElement.scrollWidth > innerWidth };
     });
+    // l'établi compact (construire.ETABLI_COMPACT) ouvert sans note : rien n'est écrit tant qu'on ne modifie rien — la
+    // mémoire reste à l'octet, l'indicateur dit « Pas encore enregistré » ; la première saisie écrit (ou échoue)
+    const ecrireAlaSaisie = async (pg, nom) => {
+      if (!(await pg.evaluate(() => document.body.dataset.etabli === 'compact' && !new URLSearchParams(location.search).get('note')))) return;
+      const avant = await lireMemoire(pg), e0 = await lireEnr(pg);
+      verif(`${nom} : établi compact — à l'ouverture, RIEN n'est écrit (ni note, ni copie) et l'indicateur dit « Pas encore enregistré »`,
+        avant.principal === ABIME && !Object.keys(avant.copies).length && e0.etat === 'neuf' && e0.texte === 'Pas encore enregistré',
+        JSON.stringify({ copies: Object.keys(avant.copies).length, etat: e0.etat, texte: e0.texte }));
+      verif(`${nom} : établi compact — une saisie part au moteur`, await saisir(pg));
+    };
     const lireMemoire = (pg) => pg.evaluate((k) => {
       const out = { principal: localStorage.getItem(k), copies: {} };
       for (let i = 0; i < localStorage.length; i++) { const c = localStorage.key(i); if (c.startsWith(k + '.illisible.')) out.copies[c] = localStorage.getItem(c); }
@@ -1703,6 +1724,7 @@ const FILTRE = process.argv[4] || '';
         await pg.goto(`${BASE}/${MODS[mod].page}`);
         const ko0 = await demarre(pg);
         verif(`${nom} : le moteur démarre`, !ko0, ko0);
+        await ecrireAlaSaisie(pg, nom);
         const e = await lireEnr(pg);
         const mem = await lireMemoire(pg);
         verif(`${nom} : RIEN n'est écrit — la mémoire abîmée reste à l'octet, aucune copie`, mem.principal === ABIME && !Object.keys(mem.copies).length,
@@ -1754,6 +1776,7 @@ const FILTRE = process.argv[4] || '';
         await pg.goto(`${BASE}/${MODS.poutre.page}`);
         const ko0 = await demarre(pg);
         verif(`${nom} : le moteur démarre`, !ko0, ko0);
+        await ecrireAlaSaisie(pg, nom);
         const e = await lireEnr(pg);
         const mem = await lireMemoire(pg);
         const copies = Object.entries(mem.copies);
@@ -1792,6 +1815,141 @@ const FILTRE = process.argv[4] || '';
       } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
       await pg.context().close();
     }
+  }
+
+  // ---------------------------------------------------------------- l'établi compact (pilote « Poutres béton armé »)
+  // La carte de l'accueil ouvre le calcul lui-même ; RIEN n'est écrit tant qu'on ne modifie rien ; la liste montre les
+  // éléments et les étapes, et chaque étape choisie montre SES propriétés seules ; chaque champ du cadre Données s'atteint
+  // par une étape (R1 : rien d'inatteignable) ; un clic sur une pièce du dessin choisit son étape (un glisser, non) ; le
+  // choix survit au calcul suivant ; « Enregistrer comme note… » nomme, range et écrit ; les cadres se replient.
+  //   filtre « pilote »
+  if (!FILTRE || FILTRE === 'pilote') {
+    const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    const g = await c.newPage();
+    g.erreurs = [];
+    g.on('pageerror', (e) => g.erreurs.push(e.message));
+    g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+    const nNotes = () => g.evaluate(() => { try { return Object.keys(JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')).length; } catch (e) { return -1; } });
+    const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+    const lireEtat = () => g.evaluate(() => {
+      const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      return { choix: document.getElementById('donnees').dataset.choix, url: location.search,
+        visibles: [...document.querySelectorAll('#donnees > .sec[data-sec]')].filter(vu).map((x) => x.dataset.sec),
+        liste: [...document.querySelectorAll('#liste [data-choix].on')].map((x) => x.dataset.choix),
+        surlignees: [...new Set([...document.querySelectorAll('#stage .view.on [data-sel].et-sel')].map((x) => x.dataset.sel))],
+        enr: (document.querySelector('.top .et-enr') || {}).dataset?.enr, titre: document.getElementById('et-choix').textContent };
+    });
+    try {
+      await g.goto(`${BASE}/index.html`);
+      await Promise.all([g.waitForNavigation(), g.click('.tile[data-module="poutre"]')]);
+      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      let e = await lireEtat();
+      verif('pilote : la carte de l\'accueil ouvre le calcul lui-même (sans fenêtre « Nouvelle note »)',
+        /poutre(\.html)?$/.test(new URL(g.url()).pathname) && !e.url && (await g.$$eval('#liste .elements .ni', (x) => x.length)) === 1, `${g.url()} · ${e.url}`);
+      verif('pilote : l\'ouvrir pour regarder n\'écrit rien (aucune note), l\'indicateur dit « Pas encore enregistré »',
+        (await nNotes()) === 0 && e.enr === 'neuf', JSON.stringify({ notes: await nNotes(), enr: e.enr }));
+      // « Toutes les étapes » : les étapes principales, pas la « Méthode » (sous « Options », repliée)
+      verif('pilote : « Toutes les étapes » montre les étapes principales ; la « Méthode » attend sous « Options »',
+        e.choix === 'tout' && e.liste.includes('tout') && e.visibles.length >= 3 && !e.visibles.includes('me')
+        && !(await g.evaluate(() => document.querySelector('#liste .et-options').open)), JSON.stringify(e));
+      // chaque étape choisie : SES propriétés seules ; et chaque champ du cadre Données se voit par l'une d'elles
+      const cles = await g.$$eval('#donnees > .sec[data-sec]', (x) => x.map((y) => y.dataset.sec));
+      const champs = await g.$$eval('#donnees [data-chemin]', (x) => [...new Set(x.map((y) => y.dataset.chemin))]);
+      const vus = new Set();
+      const seules = [];
+      for (const k of cles) {
+        if (k === 'me') await g.click('#liste .et-options > summary');
+        await g.click(`#liste .et-li[data-choix="${k}"]`);
+        await g.waitForTimeout(120);
+        e = await lireEtat();
+        if (!(e.choix === k && e.visibles.length === 1 && e.visibles[0] === k && e.liste.length === 1 && e.liste[0] === k && e.titre.includes('tout voir'))) seules.push(`${k}: ${JSON.stringify(e)}`);
+        (await g.$$eval('#donnees [data-chemin]', (x) => x.filter((y) => y.checkVisibility()).map((y) => y.dataset.chemin))).forEach((x) => vus.add(x));
+      }
+      verif(`pilote : chaque étape de la liste (${cles.join(', ')}) montre ses propriétés, et elles seules`, cles.length >= 4 && !seules.length, seules.join(' | ').slice(0, 400));
+      const caches = champs.filter((x) => !vus.has(x));
+      verif(`pilote : chacun des ${champs.length} champs du cadre Données s'atteint par une étape de la liste`, !caches.length, caches.join(', '));
+      await g.screenshot({ path: path.join(OUT, 'site_pilote_etape.png') });
+      // « · tout voir » revient à toutes les étapes
+      await g.click('#et-choix [data-choix="tout"]');
+      e = await lireEtat();
+      verif('pilote : « tout voir » revient à toutes les étapes', e.choix === 'tout' && e.visibles.length >= 3, JSON.stringify(e));
+      // le dessin : un clic sur les barres choisit les armatures ; un GLISSER sur la section ne choisit rien
+      const centre = async (sel, bas = false) => {
+        const r = await g.$eval(`#stage .view.on ${sel}`, (x) => { const q = x.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2, h: q.height }; });
+        return bas ? { x: r.x, y: r.y + r.h / 2 - 4 } : r;
+      };
+      const pt = await centre('[data-sel="pt"] rect');
+      await g.mouse.move(pt.x, pt.y);
+      await g.mouse.down();
+      await g.mouse.move(pt.x + 60, pt.y + 30, { steps: 6 });
+      await g.mouse.up();
+      e = await lireEtat();
+      verif('pilote : glisser sur le dessin (déplacer la vue) ne choisit rien', e.choix === 'tout', JSON.stringify(e));
+      await g.click('#zoom [data-zoom="ajuster"]');
+      await g.waitForTimeout(150);
+      const arm = await centre('[data-sel="arm0"]', true);
+      await g.mouse.click(arm.x, arm.y);
+      await g.waitForTimeout(150);
+      e = await lireEtat();
+      verif('pilote : un clic sur les barres du dessin choisit « Armatures » : la liste, les propriétés et le dessin le disent',
+        e.choix === 'arm0' && e.liste.join() === 'arm0' && e.visibles.join() === 'arm0' && e.surlignees.join() === 'arm0', JSON.stringify(e));
+      await g.screenshot({ path: path.join(OUT, 'site_pilote_clic_dessin.png') });
+      // une saisie : la note s'écrit (la première), l'adresse la nomme ; le choix et le surlignage survivent au calcul
+      const lit = await g.$eval('#donnees > .sec.et-choisie input[data-sorte="nombre"]', (x) => x.dataset.chemin);
+      await g.fill(`#donnees input[data-chemin="${lit}"]`, '3');
+      await g.press(`#donnees input[data-chemin="${lit}"]`, 'Enter');
+      await tranquille();
+      await g.waitForTimeout(200);
+      e = await lireEtat();
+      verif('pilote : la PREMIÈRE saisie écrit la note (une seule), l\'adresse la nomme, l\'indicateur dit « Enregistré »',
+        (await nNotes()) === 1 && /^\?note=/.test(e.url) && e.enr === 'ok', JSON.stringify({ notes: await nNotes(), url: e.url, enr: e.enr }));
+      verif('pilote : l\'étape choisie et son surlignage survivent au calcul', e.choix === 'arm0' && e.surlignees.join() === 'arm0' && e.visibles.join() === 'arm0', JSON.stringify(e));
+      // « Enregistrer comme note… » : le nom, le chantier, le dossier ; l'en-tête, la liste et le cartouche le disent
+      await g.click('.top [data-ranger]');
+      verif('pilote : « Classer la note… » ouvre la fenêtre, le nom déjà rempli', (await g.isVisible('#et-rangement')) && (await g.inputValue('#et-rg-nom')) === 'Poutres béton armé');
+      await g.fill('#et-rg-nom', 'Poutres R+2');
+      await g.fill('#et-rg-chantier', 'Réalex');
+      await g.fill('#et-rg-dossier', 'Étude de la dalle');
+      await g.click('#et-rg-form [type=submit]');
+      await g.waitForTimeout(200);
+      const r = await g.evaluate(() => {
+        const id = new URLSearchParams(location.search).get('note'), n = JSON.parse(localStorage.getItem('stab.notes.v1'))[id];
+        return { nom: n.nom, chantier: n.chantier, dossier: n.dossier, entete: document.getElementById('nom-note').value, fil: document.getElementById('fil-chantier').textContent,
+          liste: document.querySelector('#liste .et-note').textContent, cartouche: [...document.querySelectorAll('#stage .view.on .cart b')].map((x) => x.textContent).slice(0, 2).join(' | '),
+          ouverte: !document.getElementById('et-rangement').hidden };
+      });
+      verif('pilote : « Enregistrer comme note » écrit le nom, le chantier et le dossier ; l\'en-tête, la liste et le cartouche les disent',
+        r.nom === 'Poutres R+2' && r.chantier === 'Réalex' && r.dossier === 'Étude de la dalle' && r.entete === 'Poutres R+2' && r.fil.includes('Réalex')
+        && r.liste.includes('Poutres R+2') && r.liste.includes('Réalex') && r.cartouche === 'Poutres R+2 | Réalex' && !r.ouverte, JSON.stringify(r));
+      // « Ajouter une poutre » depuis la liste : un deuxième élément, ouvert
+      await g.click('#liste [data-ajouter]');
+      await tranquille();
+      await g.waitForTimeout(200);
+      verif('pilote : « Ajouter une poutre » (dans la liste) ajoute un élément et l\'ouvre',
+        (await g.$$eval('#liste .elements .ni', (x) => x.length)) === 2 && (await g.$eval('#liste .elements .ni.on .nom', (x) => x.textContent)) === 'V2');
+      // les replis : les propriétés, puis le panneau de la liste (la toile gagne la place)
+      await g.click('[data-et-replier="props"]');
+      const p1 = await g.evaluate(() => ({ donnees: document.getElementById('donnees').checkVisibility(), resultat: document.getElementById('resultat').checkVisibility() }));
+      await g.click('[data-et-replier="props"]');
+      verif('pilote : les propriétés se replient (le résultat reste) et se déplient', !p1.donnees && p1.resultat && (await g.evaluate(() => document.getElementById('donnees').checkVisibility())), JSON.stringify(p1));
+      const l0 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
+      await g.click('.panel.left [data-coll="g"]');
+      await g.waitForTimeout(400);
+      const l1 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
+      const bande = await g.$eval('.panel.left', (x) => { const q = x.getBoundingClientRect(); return { l: Math.round(q.width), t: Math.round(q.height) }; });
+      verif('pilote : la liste se replie en une bande sur toute la hauteur, la toile gagne la place', l1 > l0 + 150 && bande.l <= 50 && bande.t > 600, JSON.stringify({ l0, l1, bande }));
+      await g.click('.panel.left [data-coll="g"]');
+      await g.waitForTimeout(300);
+      // rouverte depuis l'accueil, la note est reprise (aucune nouvelle note ne s'écrit)
+      await g.goto(`${BASE}/index.html`);
+      await Promise.all([g.waitForNavigation(), g.click('#recentes .rcard')]);
+      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
+      verif('pilote : rouverte depuis « Reprendre », la note est la même (aucune autre ne s\'écrit)',
+        (await nNotes()) === 1 && (await g.inputValue('#nom-note')) === 'Poutres R+2' && (await g.$$eval('#liste .elements .ni', (x) => x.length)) === 2);
+      await g.screenshot({ path: path.join(OUT, 'site_pilote_reprise.png') });
+      verif('pilote : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+    } catch (x) { verif('pilote : le parcours va au bout', false, String(x.message).split('\n')[0]); }
+    await c.close();
   }
 
   // ---------------------------------------------------------------- un fichier .stab piégé
@@ -1837,8 +1995,8 @@ const FILTRE = process.argv[4] || '';
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats, « télécharger », « météo », la sonde et l'enregistrement travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (les formats, « télécharger », « météo », la sonde, l'enregistrement et le pilote travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

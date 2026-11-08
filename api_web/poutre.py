@@ -191,7 +191,7 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
             + C.section(2, "Sections et sollicitations", f"{len(p['sections'])} section(s)", s2, True, "so")
             + blocs
             + C.section(n, "Méthode", f"γ<sub>s</sub> {C.nb(p['gamma_s'])} · jeux {C.nb(p['jeu_premier_lit'])} / {C.nb(p['jeu_entre_lits'])} cm",
-                        s_meth, False, "me"))
+                        s_meth, False, "me", secondaire=True))
 
 
 def _detail_lits(lits: List[Dict]) -> str:
@@ -319,9 +319,13 @@ def _efforts_svg(s: Dict) -> str:
     return " · ".join(morceaux)
 
 
-def _coupe(s: Dict) -> Dict:
+def _coupe(s: Dict, i: int = 0) -> Dict:
+    """Une coupe à dessiner ; ``cibles`` dit à quelle étape des données (clé de section du cadre Données) le béton et ses
+    cotes (« pt »), les armatures de CETTE section (« arm<i> ») et ses efforts (« so ») renvoient — le clic sur le dessin
+    sélectionne l'étape."""
     geo = s["geometrie"]
     return {"nom": f"Section {s['nom']}", "b": geo["b"], "h": geo["h"], "c": geo["enrobage_calcul"], "d_et": geo["etriers"]["d_max"],
+            "cibles": {"beton": "pt", "armatures": f"arm{i}", "efforts": "so"},
             "inf": [(lit["n"], lit["d"], lit["distance"]) for lit in geo["inf"]["lits"]],
             "sup": [(lit["n"], lit["d"], lit["distance"]) for lit in geo["sup"]["lits"]],
             "etrier": f"{geo['etriers']['resume']} · e = {C.nb(geo['etriers']['pas'])} cm", "efforts": _efforts_svg(s),
@@ -400,7 +404,7 @@ def resultat(etat: Dict) -> Dict:
                                          f"M<sub>sup</sub> = {C.nb(s['M_sup'])} kN·m" if s["M_sup"] else "", f"V = {C.nb(s['V'])} kN") if x)
         volets += C.fenetre_calcul(f"s{i}", f"{C.esc(p.get('nom') or 'Poutre')} · section {C.esc(s['nom'])}", f"{efforts} · méthode du bureau",
                                    hyps, lignes, detail)
-    coupes = [_coupe(s) for s in r["sections"]]
+    coupes = [_coupe(s, i) for i, s in enumerate(r["sections"])]
     vues = [{"cle": f"s{i}", "titre": f"Section {s['nom']}", "court": f"Section {s['nom']}", "svg": DP.svg(f"pba_{i}", [c]),
              "legende": f"{s['geometrie']['inf']['libelle']} · {s['geometrie']['sup']['libelle']}"} for i, (s, c) in enumerate(zip(r["sections"], coupes))]
     if len(coupes) > 1:

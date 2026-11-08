@@ -274,6 +274,39 @@ p2["sections"] = [p2["sections"][1]]
 attendus = [f"{C.pc(C.pct(min(c_['taux'], 9.99)))}{C.NBSP}%" for c_ in MO.candidats_armatures(p2, p2["sections"][0]["nom"], "inf")]
 chk("… et le sélecteur de la seconde calcule SA section (M = 200 kN·m), pas la première", taux_affiches == attendus, (taux_affiches[:3], attendus[:3]))
 
+# 12. l'établi compact (site/web/js/compact.js, pilote) : un clic sur une pièce du dessin choisit l'étape du cadre Données
+# que la pièce nomme (<g data-sel="…">). Chaque cible est donc une étape qui EXISTE (data-sec), et chaque coupe désigne
+# les armatures de SA section ; la « Méthode » est la seule étape secondaire (sous « Options », repliée).
+def etapes_de(out):
+    return re.findall(r'<div class="sec[^"]*" data-sec="([^"]+)"', out["donnees"])
+
+
+def cibles_de(vue):
+    return set(re.findall(r'data-sel="([^"]+)"', vue["svg"]))
+
+
+for nom_cas, e_cas in (("une section", req(module="poutre", action="nouveau")["etat"]), ("deux sections", etat)):
+    out = req(module="poutre", action="calculer", etat=e_cas)
+    cles = etapes_de(out)
+    n_sec = len(out["etat"]["poutres"][out["etat"].get("actif", 0)]["sections"])
+    # une vue par section (s0, s1…) ; à partir de deux sections, la vue « toutes » les montre côte à côte
+    vues = {v["cle"]: cibles_de(v) for v in out["vues"] if v["svg"].lstrip().startswith("<svg")}
+    par_vue = list(vues.values())
+    attendu = {f"s{i}": {"pt", "so", f"arm{i}"} for i in range(n_sec)}
+    if n_sec > 1:
+        attendu["toutes"] = {"pt", "so"} | {f"arm{i}" for i in range(n_sec)}
+    chk(f"dessin cliquable ({nom_cas}) : chaque coupe marque le béton (pt), ses efforts (so) et SES armatures (arm i)",
+        vues == attendu, (vues, attendu))
+    chk(f"dessin cliquable ({nom_cas}) : chaque pièce désigne une étape du cadre Données",
+        set().union(*par_vue) <= set(cles) if par_vue else False, (par_vue, cles))
+    secondaires = re.findall(r'data-sec="([^"]+)" data-secondaire="1"', out["donnees"])
+    chk(f"établi compact ({nom_cas}) : seule la « Méthode » est secondaire (sous « Options »)", secondaires == ["me"], secondaires)
+# un nom piégé ne sort pas de son attribut : la cible est une clé du moteur, jamais une saisie
+from api_web import dessin_poutre as DP  # noqa: E402
+g = DP._cible({"beton": 'x" onclick="alert(1)'}, "beton", "<rect/>")
+chk("une cible de pièce est échappée dans son attribut", 'onclick="' not in g and "&quot;" in g, g)
+chk("sans cible, le dessin est le même, à l'octet près", DP._cible(None, "beton", "<rect/>") == "<rect/>" and DP._cible({}, "beton", "<rect/>") == "<rect/>")
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

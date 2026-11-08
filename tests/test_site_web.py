@@ -154,6 +154,34 @@ for js, page in [(js, SW.PAGES[k]) for k in SW.PAGES for js in ("etabli.js", "to
     absents = [i for i in ids if f'id="{i}"' not in html]
     chk(f"{js} → {page} : les {len(ids)} identifiants cherchés existent", not absents, absents)
 
+# 5 bis (avant). l'établi COMPACT (pilote : construire.ETABLI_COMPACT, « Poutres béton armé ») : ses pages portent la
+# liste, les propriétés, le résultat et la fenêtre « Enregistrer comme note » (les identifiants que js/compact.js et
+# js/rangement.js cherchent) ; les AUTRES modules gardent l'établi d'avant, sans rien de ce pilote. À l'accueil, la tuile
+# d'un module compact ouvre le calcul lui-même (lien direct) ; les autres ouvrent la fenêtre « Nouvelle note ».
+_src_compact = open(os.path.join(WEB, "js", "compact.js"), encoding="utf-8").read()
+_src_rangement = open(os.path.join(WEB, "js", "rangement.js"), encoding="utf-8").read()
+# js/rangement.js cherche ses éléments par un raccourci $("et-…") = document.getElementById
+_ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact + _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
+chk("le pilote compact est la seule poutre (les autres modules attendent l'avis du bureau)", SW.ETABLI_COMPACT == ("poutre",), SW.ETABLI_COMPACT)
+for k in SW.PAGES:
+    html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
+    if k in SW.ETABLI_COMPACT:
+        absents = [i for i in _ids_compact if f'id="{i}"' not in html]
+        chk(f"{SW.PAGES[k]} (établi compact) : la liste, les propriétés, le résultat, « Enregistrer comme note » ; "
+            f"les {len(_ids_compact)} identifiants cherchés existent, une seule fois",
+            not absents and 'data-etabli="compact"' in html and 'href="css/etabli.css"' in html
+            and all(html.count(f'id="{i}"') == 1 for i in _ids_compact) and html.count('data-ranger="1"') == 2
+            and html.count('data-et-replier=') == 2, (absents, _ids_compact))
+    else:
+        chk(f"{SW.PAGES[k]} : l'établi d'avant, rien du pilote compact",
+            "data-etabli" not in html and "etabli.css" not in html and "data-ranger" not in html and 'id="liste"' not in html)
+_tuiles = {k: a for a, k in re.findall(r'<a class="tile" href="[^"]+" data-(module|nouvelle-module)="(\w+)"',
+                                       open(os.path.join(WEB, "index.html"), encoding="utf-8").read())}
+chk("accueil : la tuile d'un module compact ouvre le calcul (lien direct), les autres « Nouvelle note »",
+    _tuiles and all(a == ("module" if k in SW.ETABLI_COMPACT else "nouvelle-module") for k, a in _tuiles.items())
+    and set(_tuiles) == set(SW.PAGES)
+    and ".tile[data-nouvelle-module]" in open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read(), _tuiles)
+
 # 5 bis. les trois formats : ce que le téléphone et la tablette trouvent dans chaque page (la disposition est dans
 # css/site.css et se vérifie dans le vrai navigateur : verifier_site.js, filtre « formats »)
 for k in SW.PAGES:

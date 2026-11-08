@@ -47,19 +47,30 @@ def _attache(x, y1, y2) -> str:
     return f'<line x1="{_f(x)}" y1="{_f(y1)}" x2="{_f(x)}" y2="{_f(y2)}" stroke="{COTE}" stroke-width=".8" stroke-dasharray="4 3"/>'
 
 
+def _cible(cibles, cle: str, contenu: str) -> str:
+    """Un morceau du dessin, enveloppé dans un groupe qui dit à QUELLE ÉTAPE des données il appartient (``data-sel`` = la
+    clé de la section du cadre Données : « pt », « so », « arm0 »…) — l'écran s'en sert pour sélectionner l'étape d'un clic
+    sur le dessin. Sans ``cibles`` (les maquettes, la note), le morceau est rendu TEL QUEL, à l'octet près."""
+    if not cibles or not cibles.get(cle) or not contenu:
+        return contenu
+    return f'<g data-sel="{escape(cibles[cle], quote=True)}">{contenu}</g>'
+
+
 def section(b_cm: float, h_cm: float, c_cm: float, d_et_mm: float, lits_inf: List[Tuple[int, int, float]],
             lits_sup: List[Tuple[int, int, float]], etrier: str, efforts: str, dx: float = 0.0,
-            tendu: str = "inf") -> Tuple[str, float, float]:
+            tendu: str = "inf", cibles=None) -> Tuple[str, float, float]:
     """Le groupe SVG d'une coupe, décalé de ``dx`` : (svg, largeur occupée, hauteur occupée) en mm.
 
     ``lits_*`` : [(n, Ø mm, distance parement → axe en cm), …] — valeurs du module poutre. ``tendu`` : la face tendue
-    (« inf » en travée, « sup » sur appui) ; la hauteur utile d se cote depuis la face comprimée jusqu'aux armatures tendues."""
+    (« inf » en travée, « sup » sur appui) ; la hauteur utile d se cote depuis la face comprimée jusqu'aux armatures tendues.
+    ``cibles`` (facultatif) : {"beton": clé, "armatures": clé, "efforts": clé} — les étapes des données que le béton et
+    ses cotes, les armatures et l'étrier, les efforts désignent (voir ``_cible``)."""
     b, h, c, de = b_cm * 10, h_cm * 10, c_cm * 10, d_et_mm
     g = []
     # le béton, puis l'étrier (épaisseur réelle, angles arrondis comme un façonnage)
-    g.append(f'<rect x="0" y="0" width="{_f(b)}" height="{_f(h)}" fill="{BETON}" stroke="{ENCRE}" stroke-width="2.2"/>')
-    g.append(f'<rect x="{_f(c + de / 2)}" y="{_f(c + de / 2)}" width="{_f(b - 2 * c - de)}" height="{_f(h - 2 * c - de)}" '
-             f'rx="{_f(2.5 * de)}" fill="none" stroke="{ACIER}" stroke-width="{_f(de)}" stroke-linejoin="round"/>')
+    g.append(_cible(cibles, "beton", f'<rect x="0" y="0" width="{_f(b)}" height="{_f(h)}" fill="{BETON}" stroke="{ENCRE}" stroke-width="2.2"/>'))
+    g.append(_cible(cibles, "armatures", f'<rect x="{_f(c + de / 2)}" y="{_f(c + de / 2)}" width="{_f(b - 2 * c - de)}" height="{_f(h - 2 * c - de)}" '
+             f'rx="{_f(2.5 * de)}" fill="none" stroke="{ACIER}" stroke-width="{_f(de)}" stroke-linejoin="round"/>'))
 
     def barres(lits, en_bas):
         out, y_axes = [], []
@@ -74,25 +85,25 @@ def section(b_cm: float, h_cm: float, c_cm: float, d_et_mm: float, lits_inf: Lis
 
     s_inf, y_inf = barres(lits_inf, True)
     s_sup, y_sup = barres(lits_sup, False)
-    g += [s_inf, s_sup]
+    g += [_cible(cibles, "armatures", s_inf), _cible(cibles, "armatures", s_sup)]
     # les cotes : b dessous, h à gauche, d utile à droite (de la face comprimée à l'axe des armatures tendues), l'enrobage
     # en haut à gauche
-    g.append(_attache(0, h + 8, h + 58) + _attache(b, h + 8, h + 58) + _cote_h(0, b, h + 50, f"b = {_f(b)}"))
-    g.append(_attache(-8, 0, 0) + _attache(-8, h, h) + _cote_v(-48, 0, h, f"h = {_f(h)}"))
+    g.append(_cible(cibles, "beton", _attache(0, h + 8, h + 58) + _attache(b, h + 8, h + 58) + _cote_h(0, b, h + 50, f"b = {_f(b)}")))
+    g.append(_cible(cibles, "beton", _attache(-8, 0, 0) + _attache(-8, h, h) + _cote_v(-48, 0, h, f"h = {_f(h)}")))
     y_tendu = y_sup if tendu == "sup" else y_inf
     if y_tendu:
         yd = sum(y_tendu) / len(y_tendu)
         y0 = h if tendu == "sup" else 0.0  # la face comprimée
-        g.append(_attache(b + 8, y0, y0) + f'<line x1="{_f(b)}" y1="{_f(yd)}" x2="{_f(b + 64)}" y2="{_f(yd)}" stroke="{COTE}" stroke-width=".8" stroke-dasharray="4 3"/>'
-                 + _cote_v(b + 48, min(y0, yd), max(y0, yd), f"d = {_f(abs(yd - y0))}", cote_droit=True))
-    g.append(_txt(c / 2, -12, f"c = {_f(c)}", 13, couleur=COTE, gras=False))
+        g.append(_cible(cibles, "armatures", _attache(b + 8, y0, y0) + f'<line x1="{_f(b)}" y1="{_f(yd)}" x2="{_f(b + 64)}" y2="{_f(yd)}" stroke="{COTE}" stroke-width=".8" stroke-dasharray="4 3"/>'
+                 + _cote_v(b + 48, min(y0, yd), max(y0, yd), f"d = {_f(abs(yd - y0))}", cote_droit=True)))
+    g.append(_cible(cibles, "beton", _txt(c / 2, -12, f"c = {_f(c)}", 13, couleur=COTE, gras=False)))
     # les étiquettes des armatures, sous et au-dessus de la coupe ; l'étrier sur le côté
     lab_inf = " + ".join(f"{n}Ø{d}" for n, d, _ in lits_inf)
     lab_sup = " + ".join(f"{n}Ø{d}" for n, d, _ in lits_sup)
-    g.append(_txt(b / 2, h + 92, lab_inf, 17))
-    g.append(_txt(b / 2, -44, lab_sup, 17))
-    g.append(_txt(b / 2, h + 118, etrier, 14, couleur=ACIER, gras=False))
-    g.append(_txt(b / 2, -76, efforts, 14.5, couleur=EFFORT))
+    g.append(_cible(cibles, "armatures", _txt(b / 2, h + 92, lab_inf, 17)))
+    g.append(_cible(cibles, "armatures", _txt(b / 2, -44, lab_sup, 17)))
+    g.append(_cible(cibles, "armatures", _txt(b / 2, h + 118, etrier, 14, couleur=ACIER, gras=False)))
+    g.append(_cible(cibles, "efforts", _txt(b / 2, -76, efforts, 14.5, couleur=EFFORT)))
     return f'<g transform="translate({_f(dx)} 0)">{"".join(g)}</g>', b, h
 
 
@@ -102,7 +113,7 @@ def svg(ident: str, coupes: List[dict], titre: str = "") -> str:
     parts, x, hmax = [], 0.0, 0.0
     for k, cp in enumerate(coupes):
         g, w, hh = section(cp["b"], cp["h"], cp["c"], cp["d_et"], cp["inf"], cp["sup"], cp["etrier"], cp["efforts"], dx=x,
-                           tendu=cp.get("tendu", "inf"))
+                           tendu=cp.get("tendu", "inf"), cibles=cp.get("cibles"))
         parts.append(g)
         if len(coupes) > 1:
             parts.append(_txt(x + w / 2, -108, escape(cp["nom"]), 18))

@@ -10,6 +10,8 @@ import { cablerRail, toast, esc, telecharger, garderGrec, texteTaux } from "./co
 import { cablerToile } from "./toile.js";
 import { recupererMeteo } from "./meteo.js";
 import { SONDE, marquer, marquerUneFois } from "./sonde.js";
+import { cablerCompact } from "./compact.js";
+import { cablerRangement } from "./rangement.js";
 
 marquer("etabli_debut");   // la sonde du démarrage (js/sonde.js) : rien sans « ?sonde=1 »
 const MODULE = document.body.dataset.module;
@@ -17,6 +19,9 @@ const $ = (s, r = document) => r.querySelector(s);
 const bench = $(".bench");
 const etapes = $("#demarrage-etape");
 const telephone = matchMedia("(max-width: 700px)");
+// l'établi COMPACT (pilote : « Poutres béton armé », construire.ETABLI_COMPACT) : la liste à gauche, les propriétés de
+// l'étape choisie et le résultat à droite (js/compact.js) ; les autres modules gardent l'établi d'avant
+const COMPACT = document.body.dataset.etabli === "compact";
 const memoire = { lire(k, d) { try { return JSON.parse(sessionStorage.getItem(k) || "null") ?? d; } catch (e) { return d; } },
   ecrire(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage bloqué */ } } };
 cablerRail();
@@ -25,10 +30,18 @@ cablerRail();
 const q = new URLSearchParams(location.search);
 let note = q.get("note") && N.lire(q.get("note"));
 const relue = !!note && note.module === MODULE;   // une note déjà enregistrée, rouverte
+// PROVISOIRE : le calcul ouvert depuis sa carte (établi compact, sans nom ni chantier demandés). La note n'existe qu'en
+// mémoire : RIEN n'est écrit tant que l'utilisateur ne modifie rien (ouvrir pour regarder ne remplit pas la liste des
+// notes). La première saisie, un renommage ou « Enregistrer comme note… » l'écrivent, et l'adresse prend alors ?note=.
+let provisoire = false;
 if (!note || note.module !== MODULE) {
   note = N.nouvelle({ module: MODULE, nom: q.get("nom") || "", chantier: q.get("chantier") || "", dossier: q.get("dossier") || "" });
-  history.replaceState(null, "", `?note=${note.id}`);
+  provisoire = COMPACT && !["nom", "chantier", "dossier"].some((k) => q.get(k));
+  if (!provisoire) history.replaceState(null, "", `?note=${note.id}`);
 }
+// les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
+// « selecteur » ne font que la lire
+const MODIFIENT = new Set(["modifier", "choisir", "ajouter", "dupliquer", "supprimer", "activer"]);
 // le nom de la note : le champ de la barre du haut (PC, tablette) et celui de l'en-tête du téléphone
 const noms = [...document.querySelectorAll("[data-nom-note]")];
 function afficherEntete() {
@@ -39,7 +52,14 @@ function afficherEntete() {
   $("#fil-m").textContent = `${fil || "Sans chantier"} · ${N.MODULES[MODULE].nom}`;
 }
 afficherEntete();
-noms.forEach((n) => n.addEventListener("change", () => { note.nom = n.value.trim() || N.MODULES[MODULE].nom; enregistrer(); afficherEntete(); }));
+noms.forEach((n) => n.addEventListener("change", () => { note.nom = n.value.trim() || N.MODULES[MODULE].nom; enregistrer(); apresEntete(); }));
+// renommée ou classée : l'en-tête, la liste (établi compact) et le cartouche du dessin le disent tout de suite
+function apresEntete() {
+  afficherEntete();
+  if (compact) compact.majNote();
+  document.querySelectorAll('#stage .cart [data-cart="nom"]').forEach((b) => { b.textContent = note.nom || ""; });
+  document.querySelectorAll('#stage .cart [data-cart="chantier"]').forEach((b) => { b.textContent = note.chantier || "—"; });
+}
 noms.forEach((n) => n.addEventListener("keydown", (ev) => { if (ev.key === "Enter") n.blur(); }));
 
 // ------------------------------------------------------------------ l'enregistrement : visible aux trois formats
@@ -85,6 +105,7 @@ function direAlerte(sorte, texte) {
   alerte.hidden = false;
 }
 function enregistrer() {
+  if (provisoire) { provisoire = false; history.replaceState(null, "", `?note=${note.id}`); rangement.libeller(); }
   const ok = N.ecrire(note), b = N.bilan();
   if (ok) {
     direEnregistrement("ok", "Enregistré · ", heure(note.modifie), "", `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
@@ -94,7 +115,7 @@ function enregistrer() {
       direAlerte("info", "La mémoire des notes de ce navigateur était illisible : son texte est gardé à part, tel quel (l'accueil permet "
         + "de le télécharger). Cette note est enregistrée dans une mémoire neuve.");
     }
-    return;
+    return true;
   }
   const r = N.RAISONS[b.raison] || N.RAISONS.indisponible;
   direEnregistrement("echec", "", "Non enregistré", ` : ${r.court}`, `Non enregistré : ${r.long}`);
@@ -103,13 +124,20 @@ function enregistrer() {
     alerteDite = b.raison;
     direAlerte("echec", alerteEchec);
   }
+  return false;
 }
 if (relue) direEnregistrement("ok", "Enregistré · ", heure(note.modifie), "", `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
-else direEnregistrement("neuf", "", "Pas encore enregistré", "", "La note s'enregistre dans ce navigateur dès le premier calcul");
+else if (provisoire) {
+  direEnregistrement("neuf", "", "Pas encore enregistré", "",
+    "Rien n'est écrit tant que vous ne modifiez rien : la note s'enregistre dans ce navigateur à la première saisie");
+} else direEnregistrement("neuf", "", "Pas encore enregistré", "", "La note s'enregistre dans ce navigateur dès le premier calcul");
 alerte.addEventListener("click", (ev) => { if (ev.target.closest("[data-fermer-alerte]")) alerte.hidden = true; });
 // le menu ⋯ (téléphone) : l'échec en entier ; le toucher rouvre son message (le menu se referme seul, comme pour ses
 // autres entrées)
 revoir.addEventListener("click", () => { if (alerteEchec) direAlerte("echec", alerteEchec); });
+// « Enregistrer comme note… » (l'établi compact) : nommer, ranger, écrire la note provisoire
+const rangement = cablerRangement({ note: () => note, provisoire: () => provisoire,
+  apres: () => { const ok = enregistrer(); apresEntete(); return ok; } });
 
 // ------------------------------------------------------------------ le moteur
 const moteur = new Moteur((t) => { if (etapes) etapes.textContent = t; }, MODULE);
@@ -131,7 +159,7 @@ async function envoyer(action, extra = {}) {
     const r = await moteur.demander(() => ({ module: MODULE, action, etat: note.etat, ...extra }));
     marquerUneFois("reponse1_recue");
     if (!r.ok) { toast(`Le moteur a refusé : ${r.erreur}`, true); console.error(r.trace || r.erreur); return null; }
-    if (r.etat) appliquer(r);
+    if (r.etat) appliquer(r, action);
     return r;
   } finally { occupe(-1); }
 }
@@ -141,14 +169,16 @@ const ouvertes = new Set(memoire.lire(`stab.sec.${MODULE}`, []));
 let premier = true;
 let vueCourante = null;
 const toile = cablerToile({ bench, stage: $("#stage"), barre: $("#zoom") });
+// la liste de l'établi compact porte le bloc « Dans cette note » : ses boutons répondent par agirElement
+const compact = COMPACT ? cablerCompact({ cle: MODULE, note: () => note, agir: agirElement }) : null;
 
-function appliquer(r) {
+function appliquer(r, action) {
   note.etat = r.etat;
   note.resume = r.resume;
   // la vignette de l'accueil : le premier DESSIN (une vue peut être un tableau, illisible en vignette)
   const v = (r.vues || []).find((x) => /^\s*<svg/.test(x.svg || ""));
   note.vignette = v ? v.svg : "";
-  enregistrer();
+  if (!provisoire || MODIFIENT.has(action)) enregistrer();
   $("#statut").innerHTML = r.statut_html || "";
   afficherResume(r.resume || {});
   $("#resultat").innerHTML = r.resultat;
@@ -202,6 +232,7 @@ function afficherDonnees(elements, html) {
       if (brouillon) { try { el.setSelectionRange(brouillon.debut, brouillon.fin); } catch (e) { /* champ sans curseur */ } }
     }
   }
+  if (compact) compact.rafraichir();
 }
 
 // « Dans cette note » : chaque élément s'écrit « nom · dimensions ». Le nom passe dans son propre <span class="nom">
@@ -240,7 +271,7 @@ function afficherVues(vues, phrase) {
   onglets.innerHTML = vues.map((v) => `<button type="button" data-vue="${esc(v.cle)}" class="${v.cle === vueCourante ? "on" : ""}">${esc(v.court)}</button>`).join("");
   requestAnimationFrame(marquerDebord);
   const date = new Date().toLocaleDateString("fr-BE");
-  const cart = `<div class="cart"><div><span>Note</span><b>${esc(note.nom || "")}</b></div><div><span>Chantier</span><b>${esc(note.chantier || "—")}</b></div>`
+  const cart = `<div class="cart"><div><span>Note</span><b data-cart="nom">${esc(note.nom || "")}</b></div><div><span>Chantier</span><b data-cart="chantier">${esc(note.chantier || "—")}</b></div>`
     + `<div class="ind"><span>Indice</span><b>${esc(note.indice || "A")}</b></div><div class="dt"><span>Date</span><b>${date}</b></div>`
     + `<div class="mark"><i></i><span>Stab Méthodes</span></div></div>`;
   // chaque vue porte SA légende ; la phrase du module (la note en une ligne) se lit sous le titre de la première
@@ -339,6 +370,21 @@ $("#donnees").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
 });
 
+// « Dans cette note » : supprimer, ouvrir, ajouter, copier un élément. Le bloc vient du cadre Données ; l'établi compact
+// le déplace dans la liste de gauche (js/compact.js) : les deux cadres répondent par cette même fonction.
+function agirElement(ev) {
+  const sup = ev.target.closest("[data-supprimer]");
+  if (sup) {
+    ev.stopPropagation();
+    if (confirm("Supprimer cet élément de la note ?")) envoyer("supprimer", { index: +sup.dataset.supprimer });
+    return true;
+  }
+  const act = ev.target.closest("[data-activer]");
+  if (act) { if (!act.classList.contains("on")) envoyer("activer", { index: +act.dataset.activer }); return true; }
+  if (ev.target.closest("[data-ajouter]")) { envoyer("ajouter"); return true; }
+  if (ev.target.closest("[data-dupliquer]")) { envoyer("dupliquer"); return true; }
+  return false;
+}
 $("#donnees").addEventListener("click", (ev) => {
   const seg = ev.target.closest("button[data-chemin][data-valeur]");
   if (seg) { if (!seg.classList.contains("on")) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
@@ -350,16 +396,7 @@ $("#donnees").addEventListener("click", (ev) => {
     memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
     return;
   }
-  const sup = ev.target.closest("[data-supprimer]");
-  if (sup) {
-    ev.stopPropagation();
-    if (confirm("Supprimer cet élément de la note ?")) envoyer("supprimer", { index: +sup.dataset.supprimer });
-    return;
-  }
-  const act = ev.target.closest("[data-activer]");
-  if (act && !act.classList.contains("on")) { envoyer("activer", { index: +act.dataset.activer }); return; }
-  if (ev.target.closest("[data-ajouter]")) { envoyer("ajouter"); return; }
-  if (ev.target.closest("[data-dupliquer]")) envoyer("dupliquer");
+  agirElement(ev);
 });
 
 // ------------------------------------------------------------------ les volets : calcul détaillé et sélecteur
