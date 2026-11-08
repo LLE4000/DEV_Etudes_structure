@@ -336,6 +336,13 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
 /* au toucher, pas de survol : la croix de l'élément ouvert reste visible */
 @media (hover: none) { .elements .ni.on .x { display: grid; } }
 
+/* « À VÉRIFIER » (niveau « v ») : conforme au calcul, une disposition constructive reste à vérifier — en ambre, jamais dans
+   le vert foncé des taux de 95 à 100 % (commun.STATUTS) */
+:root { --vrf: #B86E00; --vrf-fond: #FFF2D6; --vrf-encre: #8A5A00; }
+[data-theme="dark"] { --vrf: #E0A33C; --vrf-fond: #3A2C10; --vrf-encre: #F2C46B; }
+.status.v, .chip.v { background: var(--vrf); color: #fff; }
+.pct.v, .el .l2 .pct.v { color: var(--vrf); }
+
 /* ---------------------------------------------------------------- le téléphone : rien de ces barres ailleurs */
 .mmenu[hidden], .mchip[hidden] { display: none !important; }
 .mmenu { display: none; }

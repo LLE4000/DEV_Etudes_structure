@@ -171,7 +171,9 @@ for k in SW.PAGES:
             f"les {len(_ids_compact)} identifiants cherchés existent, une seule fois",
             not absents and 'data-etabli="compact"' in html and 'href="css/etabli.css"' in html
             and all(html.count(f'id="{i}"') == 1 for i in _ids_compact) and html.count('data-ranger="1"') == 2
-            and html.count('data-et-replier=') == 2, (absents, _ids_compact))
+            # les deux colonnes se replient (boutons communs .pcoll) et s'élargissent (poignées), l'état s'annule
+            and all(html.count(f'data-{a}="{c}"') == 1 for a in ("coll", "poignee") for c in "gd")
+            and all(html.count(f'data-historique="{h}"') == 1 for h in ("annuler", "retablir")), (absents, _ids_compact))
     else:
         chk(f"{SW.PAGES[k]} : l'établi d'avant, rien du pilote compact",
             "data-etabli" not in html and "etabli.css" not in html and "data-ranger" not in html and 'id="liste"' not in html)

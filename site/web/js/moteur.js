@@ -35,12 +35,13 @@ export class Moteur {
     this.w.onerror = (e) => this._ko(new Error(e.message || "le travailleur s'est arrêté"));
   }
 
-  // fabrique : une fonction qui construit la requête AU MOMENT où son tour arrive (elle lit l'état le plus récent)
-  demander(fabrique) {
+  // fabrique : une fonction qui construit la requête AU MOMENT où son tour arrive (elle lit l'état le plus récent) ;
+  // options.note : la requête fait une note PDF (le travailleur charge d'abord le paquet de la note, js/travailleur.js)
+  demander(fabrique, options = {}) {
     const tour = this.file.then(() => new Promise((ok) => {
       const id = ++this.n;
       this.attentes.set(id, ok);
-      this.w.postMessage({ id, requete: JSON.stringify(typeof fabrique === "function" ? fabrique() : fabrique) });
+      this.w.postMessage({ id, requete: JSON.stringify(typeof fabrique === "function" ? fabrique() : fabrique), note: !!options.note });
     }));
     this.file = tour.catch(() => {});
     return tour;

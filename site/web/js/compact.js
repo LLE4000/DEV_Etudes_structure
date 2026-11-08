@@ -1,15 +1,15 @@
 // L'établi COMPACT (pilote : « Poutres béton armé » ; css/etabli.css, site/web/construire.py compact()).
 //
-// La LISTE de gauche est DÉRIVÉE du cadre Données que le moteur rend (rien n'est copié ni recalculé ici) :
-//   - la note (son nom, son chantier) ;
-//   - ses éléments (« Dans cette note » : le bloc .elements du moteur, DÉPLACÉ dans la liste, avec ses boutons) ;
-//   - les étapes de l'élément ouvert : chaque section .sec[data-sec] du cadre Données (numéro, titre, résumé) ; celles
-//     que le moteur dit secondaires (data-secondaire) sous « Options », repliées.
-// Choisir une étape (dans la liste, ou d'un clic sur le dessin : les pièces portent data-sel = la clé de leur étape)
-// montre ses PROPRIÉTÉS à droite : le cadre Données lui-même, filtré par la feuille de style (#donnees[data-choix]).
-// « Toutes les étapes » montre tout, comme l'établi d'avant. Le choix tient d'un calcul à l'autre (session).
-import { esc } from "./commun.js";
-
+// Trois colonnes : les DONNÉES à gauche (les éléments de la note, puis les rubriques du module en accordéon), le DESSIN au
+// centre, les RÉSULTATS à droite. Ce fichier ne calcule rien et ne recopie rien du moteur : il relie ce que le moteur a
+// rendu.
+//   - la SÉLECTION : une pièce du dessin porte data-sel (« s0.lit-inf-1 »), la ligne des données qui la règle porte
+//     data-cible (la même clé ; « beton » pour la section de béton). Un clic sur l'une choisit l'autre : la rubrique
+//     s'ouvre, la ligne se déplie et s'éclaire, la pièce s'éclaire sur le dessin. Échap ou un clic dans le vide la
+//     relâche.
+//   - la SECTION COURANTE : la rubrique « Armatures » montre une section à la fois (.et-arm[data-section]) ; elle suit
+//     l'onglet du dessin, et inversement.
+//   - les COLONNES se redimensionnent (poignées .et-poignee, PC), la largeur est gardée dans ce navigateur.
 const memoire = {
   lire(k, d) { try { return JSON.parse(sessionStorage.getItem(k) || "null") ?? d; } catch (e) { return d; } },
   ecrire(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage bloqué */ } },
@@ -21,146 +21,187 @@ const reglages = {
 
 // le seuil au-delà duquel un appui sur le dessin est un glisser (on déplace la vue) et non un choix ; plus large au doigt
 const SEUIL = { mouse: 5, pen: 8, touch: 10 };
+// les largeurs permises des colonnes (px), et celles d'origine (la feuille de style)
+const LARGEURS = { g: [264, 560], d: [280, 560] };
 
-export function cablerCompact({ cle, note, agir = () => false }) {
-  const liste = document.getElementById("liste");
+export function cablerCompact({ cle, note, ouvrirRubrique, vue }) {
   const donnees = document.getElementById("donnees");
   const stage = document.getElementById("stage");
-  const titreChoix = document.getElementById("et-choix");
-  const memo = () => `stab.choix.${cle}.${note().id}`;
-  let choix = memoire.lire(memo(), "tout");
+  const bench = document.querySelector(".bench");
+  const memo = () => `stab.compact.${cle}.${note().id}`;
+  const etat = memoire.lire(memo(), { sel: "", courante: 0 });
+  let sel = etat.sel || "";
+  let courante = +etat.courante || 0;
+  const garder = () => memoire.ecrire(memo(), { sel, courante });
 
-  // ------------------------------------------------------------ les sous-cadres repliables (propriétés, résultat)
-  const r0 = reglages.lire();
-  document.querySelectorAll("[data-et-replier]").forEach((b) => {
-    const cadre = b.closest(".et-props, .et-res");
-    const k = b.dataset.etReplier;
-    const appliquerRepli = (ferme) => {
-      cadre.classList.toggle("et-ferme", ferme);
-      b.setAttribute("aria-expanded", ferme ? "false" : "true");
-      b.title = `${ferme ? "Déplier" : "Replier"} ${k === "props" ? "les propriétés" : "le résultat"}`;
-    };
-    appliquerRepli(!!(r0.replis || {})[k]);
-    b.addEventListener("click", () => {
-      const r = reglages.lire();
-      r.replis = r.replis || {};
-      r.replis[k] = !cadre.classList.contains("et-ferme");
-      reglages.ecrire(r);
-      appliquerRepli(r.replis[k]);
+  // ------------------------------------------------------------ la section courante (rubrique Armatures, dessin)
+  function poserCourante() {
+    const blocs = [...donnees.querySelectorAll(".et-arm[data-section]")];
+    if (!blocs.length) return;
+    if (!blocs.some((b) => +b.dataset.section === courante)) courante = 0;
+    blocs.forEach((b) => b.classList.toggle("on", +b.dataset.section === courante));
+    donnees.querySelectorAll("[data-section-courante]").forEach((b) => {
+      const on = +b.dataset.sectionCourante === courante;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
     });
-  });
+    donnees.querySelectorAll(".secard[data-section]").forEach((c) => c.classList.toggle("et-courante", +c.dataset.section === courante));
+  }
+  function choisirSection(i, versDessin = true) {
+    courante = i;
+    garder();
+    poserCourante();
+    if (versDessin && vue.courante() !== "toutes") vue.choisir(`s${i}`);
+  }
 
-  // ------------------------------------------------------------ la liste, refaite après chaque réponse du moteur
-  function etapes() {
-    return [...donnees.querySelectorAll(":scope > .sec[data-sec]")].map((s) => {
-      const hd = s.querySelector(":scope > .sechd");
-      return {
-        cle: s.dataset.sec,
-        n: hd ? (hd.querySelector(".n") || {}).textContent || "" : "",
-        titre: hd ? (hd.querySelector(".tt") || {}).innerHTML || "" : "",
-        resume: hd ? (hd.querySelector(".sum") || {}).innerHTML || "" : "",
-        secondaire: s.hasAttribute("data-secondaire"),
-      };
+  // ------------------------------------------------------------ la sélection (données ↔ dessin)
+  const indice = (k) => { const m = /^s(\d+)\./.exec(k || ""); return m ? +m[1] : null; };
+  const cibleDonnees = (k) => {
+    if (!k) return null;
+    if (/\.beton$/.test(k)) return donnees.querySelector('[data-cible="beton"]');
+    return donnees.querySelector(`[data-cible="${CSS.escape(k)}"]`);
+  };
+  function surligner() {
+    stage.querySelectorAll(".pc[data-sel]").forEach((g) => {
+      const k = g.dataset.sel;
+      g.classList.toggle("et-sel", !!sel && (k === sel || (sel === "beton" && /\.beton$/.test(k))));
     });
+    donnees.querySelectorAll("[data-cible]").forEach((e) => e.classList.toggle("et-cible", !!sel && e.dataset.cible === (/\.beton$/.test(sel) ? "beton" : sel)));
   }
-
-  const ligne = (e) => `<button type="button" class="et-li" data-choix="${esc(e.cle)}" title="${esc(texte(e.titre))}">`
-    + `<span class="n">${esc(e.n)}</span><span class="tt">${e.titre}</span><span class="sum">${e.resume}</span></button>`;
-
-  // l'en-tête de la liste : le nom de la note et son chantier (refait aussi quand on la renomme ou la classe)
-  function teteNote() {
-    const n = note();
-    const fil = [n.chantier, n.dossier].filter(Boolean).join(" › ") || "Note non classée";
-    return `<div class="et-note"><div class="et-note-t"><b>${esc(n.nom || "Note sans nom")}</b><span>${esc(fil)}</span></div></div>`;
+  // depuis le DESSIN : la rubrique s'ouvre, la ligne se déplie et vient sous les yeux
+  function choisirPiece(k) {
+    sel = k || "";
+    const i = indice(sel);
+    if (i !== null && i !== courante) { courante = i; poserCourante(); }
+    garder();
+    const c = cibleDonnees(sel);
+    if (c) {
+      const rub = c.closest(".sec[data-sec]");
+      if (rub && !rub.classList.contains("open")) ouvrirRubrique(rub.dataset.sec);
+      surligner();
+      requestAnimationFrame(() => c.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+    } else surligner();
   }
-  function majNote() {
-    const t = liste.querySelector(".et-note");
-    if (t) t.outerHTML = teteNote();
-  }
-
-  function rafraichir() {
-    const tout = etapes();
-    // le bloc des éléments du moteur (avec ses boutons Ajouter, Copier, ✕) passe dans la liste, tel quel ; refaite sans
-    // nouvelle réponse du moteur, la liste reprend le bloc qu'elle porte déjà
-    const elements = donnees.querySelector(":scope > .elements") || liste.querySelector(".et-els > .elements");
-    // le nom de l'élément ouvert (« V1 ») : etabli.separerNoms l'a posé dans son <span class="nom">
-    const actif = elements ? elements.querySelector(".ni.on .t") : null;
-    const nomActif = actif ? (actif.querySelector(".nom") || actif).textContent.trim() : "";
-    const ouvertes = !!reglages.lire().options;
-    const principales = tout.filter((e) => !e.secondaire);
-    const options = tout.filter((e) => e.secondaire);
-    const corps = `<div class="et-g">Étapes${nomActif ? ` · <span class="et-g-el">${esc(nomActif)}</span>` : ""}</div>`
-      + `<button type="button" class="et-li et-tout" data-choix="tout"><span class="ic">≡</span><span class="tt">Toutes les étapes</span>`
-      + `<span class="sum">${principales.length}</span></button>`
-      + principales.map(ligne).join("")
-      + (options.length ? `<details class="et-options"${ouvertes ? " open" : ""}><summary class="et-li"><span class="ic">›</span>`
-        + `<span class="tt">Options</span><span class="sum">${options.length}</span></summary>${options.map(ligne).join("")}</details>` : "");
-    liste.innerHTML = teteNote() + '<div class="et-els"></div>' + corps;
-    if (elements) liste.querySelector(".et-els").append(elements);
-    const det = liste.querySelector(".et-options");
-    if (det) det.addEventListener("toggle", () => { const r = reglages.lire(); r.options = det.open; reglages.ecrire(r); });
-    appliquer();
-  }
-
-  function appliquer() {
-    const tout = etapes();
-    if (choix !== "tout" && !tout.some((e) => e.cle === choix)) choix = "tout";
-    donnees.dataset.choix = choix;
-    donnees.querySelectorAll(":scope > .sec[data-sec]").forEach((s) => s.classList.toggle("et-choisie", s.dataset.sec === choix));
-    liste.querySelectorAll("[data-choix]").forEach((b) => {
-      b.classList.toggle("on", b.dataset.choix === choix);
-      b.setAttribute("aria-current", b.dataset.choix === choix ? "true" : "false");
-    });
-    // une étape d'Options choisie : le repli « Options » s'ouvre pour la montrer
-    const det = liste.querySelector(".et-options");
-    if (det && det.querySelector(`[data-choix="${CSS.escape(choix)}"]`)) det.open = true;
-    const e = tout.find((x) => x.cle === choix);
-    titreChoix.innerHTML = e ? `${e.titre}<span class="et-tout-voir" data-choix="tout" role="button" tabindex="0">· tout voir</span>` : "Toutes les étapes";
+  // depuis les DONNÉES : la pièce s'éclaire sur le dessin (rien ne défile)
+  function choisirLigne(k) {
+    if (k === sel) return;
+    sel = k;
+    const i = indice(sel);
+    if (i !== null && i !== courante) choisirSection(i);
+    garder();
     surligner();
   }
+  function relacher() { if (!sel) return; sel = ""; garder(); surligner(); }
 
-  // le dessin : les pièces de l'étape choisie, surlignées
-  function surligner() {
-    stage.querySelectorAll("[data-sel]").forEach((g) => g.classList.toggle("et-sel", g.dataset.sel === choix));
-  }
-
-  function choisir(k) {
-    choix = k || "tout";
-    memoire.ecrire(memo(), choix);
-    appliquer();
-    donnees.scrollTop = 0;
-  }
-
-  liste.addEventListener("click", (ev) => {
-    if (agir(ev)) return;   // un bouton du bloc des éléments (ouvrir, ajouter, copier, supprimer) : js/etabli.js
-    const b = ev.target.closest("[data-choix]");
-    if (b && !b.closest("summary")) choisir(b.dataset.choix);
+  // la sélection AVANT l'appui : un clic sur un bouton le focalise, et le « focusin » ci-dessous choisit sa ligne avant
+  // que le « click » n'arrive — sans ce relevé, le chevron d'une ligne non choisie la choisissait PUIS la repliait
+  let avantAppui = "";
+  donnees.addEventListener("pointerdown", () => { avantAppui = sel; }, true);
+  donnees.addEventListener("click", (ev) => {
+    const sc = ev.target.closest("[data-section-courante]");
+    if (sc) { choisirSection(+sc.dataset.sectionCourante); return; }
+    const dep = ev.target.closest("[data-deplier]");
+    if (dep) {
+      const p = dep.closest(".et-piece");
+      if (p) {
+        // le chevron d'une ligne DÉJÀ choisie la replie ou la déplie ; sinon, elle devient la sélection, dépliée
+        const dejaChoisie = p.dataset.cible === avantAppui && p.classList.contains("et-cible");
+        if (dejaChoisie) { p.classList.toggle("et-replie"); avantAppui = sel; return; }
+        p.classList.remove("et-replie");
+        choisirLigne(p.dataset.cible);
+        avantAppui = sel;
+      }
+      return;
+    }
+    const carte = ev.target.closest(".secard[data-section]");
+    if (carte && !ev.target.closest("button")) choisirSection(+carte.dataset.section);
   });
-  titreChoix.addEventListener("click", (ev) => { if (ev.target.closest("[data-choix]")) choisir("tout"); });
-  titreChoix.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && ev.target.closest("[data-choix]")) choisir("tout"); });
+  donnees.addEventListener("focusin", (ev) => {
+    const p = ev.target.closest("[data-cible]");
+    if (p) choisirLigne(p.dataset.cible);
+  });
 
-  // ------------------------------------------------------------ le dessin choisit l'étape d'une pièce
   // On lit l'APPUI (pointerdown) : la toile capture ensuite le pointeur pour déplacer la vue, et le « click » tomberait
-  // sur le fond. Au relâcher, un pointeur qui a peu bougé choisit la pièce appuyée ; au-delà du seuil, c'était un glisser.
+  // sur le fond. Au relâcher, un pointeur qui a peu bougé choisit la pièce appuyée (ou relâche la sélection, dans le
+  // vide) ; au-delà du seuil, c'était un glisser.
   let appui = null;
   stage.addEventListener("pointerdown", (ev) => {
-    const g = ev.target.closest && ev.target.closest(".draw [data-sel]");
-    appui = g ? { g, x: ev.clientX, y: ev.clientY, id: ev.pointerId, seuil: SEUIL[ev.pointerType] || 5 } : null;
+    if (!ev.target.closest || !ev.target.closest(".draw")) { appui = null; return; }
+    const g = ev.target.closest(".draw [data-sel]");
+    appui = { g, x: ev.clientX, y: ev.clientY, id: ev.pointerId, seuil: SEUIL[ev.pointerType] || 5 };
   }, true);
   window.addEventListener("pointerup", (ev) => {
     const a = appui;
     appui = null;
     if (!a || ev.pointerId !== a.id) return;
     if (Math.hypot(ev.clientX - a.x, ev.clientY - a.y) > a.seuil) return;
-    choisir(a.g.dataset.sel);
+    if (a.g) choisirPiece(a.g.dataset.sel); else relacher();
   }, true);
   window.addEventListener("pointercancel", () => { appui = null; }, true);
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && sel && !document.querySelector(".flyout.on") && !ev.target.closest("input, select, textarea")) relacher();
+  });
 
-  return { rafraichir, majNote, surligner, choisir, choix: () => choix };
-}
+  // ------------------------------------------------------------ les colonnes : largeur réglable (PC)
+  const pc = matchMedia("(min-width: 1200px)");
+  function poserLargeurs() {
+    const l = reglages.lire().largeurs || {};
+    for (const k of ["g", "d"]) {
+      const v = pc.matches && l[k] ? Math.min(LARGEURS[k][1], Math.max(LARGEURS[k][0], l[k])) : null;
+      if (v) bench.style.setProperty(k === "g" ? "--pl-r" : "--pr-r", `${v}px`);
+      else bench.style.removeProperty(k === "g" ? "--pl-r" : "--pr-r");
+    }
+  }
+  poserLargeurs();
+  pc.addEventListener("change", () => { poserLargeurs(); vue.ajuster(); });
+  document.querySelectorAll(".et-poignee[data-poignee]").forEach((p) => {
+    const k = p.dataset.poignee;
+    p.addEventListener("pointerdown", (ev) => {
+      if (!pc.matches || ev.button !== 0) return;
+      ev.preventDefault();
+      p.setPointerCapture(ev.pointerId);
+      const panneau = document.querySelector(k === "g" ? ".panel.left" : ".panel.right");
+      const x0 = ev.clientX, w0 = panneau.getBoundingClientRect().width;
+      bench.classList.add("et-redim");
+      const bouger = (e) => {
+        const w = Math.round(Math.min(LARGEURS[k][1], Math.max(LARGEURS[k][0], w0 + (k === "g" ? 1 : -1) * (e.clientX - x0))));
+        bench.style.setProperty(k === "g" ? "--pl-r" : "--pr-r", `${w}px`);
+      };
+      const finir = () => {
+        p.removeEventListener("pointermove", bouger);
+        bench.classList.remove("et-redim");
+        const r = reglages.lire();
+        r.largeurs = r.largeurs || {};
+        r.largeurs[k] = Math.round(panneau.getBoundingClientRect().width);
+        reglages.ecrire(r);
+        vue.ajuster();
+      };
+      p.addEventListener("pointermove", bouger);
+      p.addEventListener("pointerup", finir, { once: true });
+      p.addEventListener("pointercancel", finir, { once: true });
+    });
+    p.addEventListener("dblclick", () => {
+      const r = reglages.lire();
+      if (r.largeurs) delete r.largeurs[k];
+      reglages.ecrire(r);
+      poserLargeurs();
+      vue.ajuster();
+    });
+  });
 
-function texte(html) {
-  const d = document.createElement("div");
-  d.innerHTML = html;
-  return d.textContent;
+  // ------------------------------------------------------------ après chaque réponse du moteur
+  function rafraichir() {
+    poserCourante();
+    // la pièce choisie a pu disparaître (un lit retiré) : la sélection tombe
+    if (sel && !cibleDonnees(sel) && !stage.querySelector(`[data-sel="${CSS.escape(sel)}"]`)) sel = "";
+    surligner();
+  }
+  // l'onglet du dessin choisit la section courante (« Toutes » la laisse)
+  function vueChoisie(k) {
+    const m = /^s(\d+)$/.exec(k || "");
+    if (m && +m[1] !== courante) choisirSection(+m[1], false);
+    surligner();
+  }
+
+  return { rafraichir, surligner, vueChoisie, majNote() {}, courante: () => courante };
 }

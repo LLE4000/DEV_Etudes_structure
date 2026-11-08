@@ -48,7 +48,7 @@ class GuetNumpy:
 sys.meta_path.insert(0, GuetNumpy())
 GuetNumpy`;
 
-let py = null, traiter = null, guet = null, numpy = null;
+let py = null, traiter = null, guet = null, numpy = null, manifeste = null, note = null;
 const chargerNumpy = () => (numpy = numpy || (marquer("numpy_debut"), finir("numpy_fin", py.loadPackage("numpy", { messageCallback: () => {} }))));
 const compterModules = () => py.runPython("import sys\nlen(sys.modules)");
 
@@ -56,7 +56,7 @@ const pret = (async () => {
   etape("Python démarre dans le navigateur…");
   // le manifeste et le paquet arrivent pendant que Python démarre
   marquer("manifeste_debut");
-  const man = await (await fetch(new URL("moteur/manifeste.json", base), { cache: "no-cache" })).json();
+  const man = manifeste = await (await fetch(new URL("moteur/manifeste.json", base), { cache: "no-cache" })).json();
   marquer("manifeste_fin");
   const zipP = finir("paquet_recu", fetch(new URL(`moteur/moteur.zip?v=${man.sha256.slice(0, 16)}`, base)).then((r) => r.arrayBuffer()));
   marquer("loadPyodide_debut");
@@ -130,6 +130,24 @@ function envoyerSonde(json) {
   });
 }
 
+// La NOTE PDF : son paquet (le générateur de l'écran Streamlit, reportlab, les polices — moteur/note.zip, deux Mo) n'est
+// chargé qu'à la PREMIÈRE demande de note (la page le dit : « note » dans le message, js/moteur.js), vérifié contre son
+// empreinte, puis déballé à côté du moteur. Les notes suivantes sont immédiates.
+function chargerNote() {
+  note = note || (async () => {
+    const m = manifeste && manifeste.note;
+    if (!m) throw new Error("le paquet de la note PDF manque à ce site (manifeste sans « note »)");
+    const zip = await (await fetch(new URL(`moteur/note.zip?v=${m.sha256.slice(0, 16)}`, base))).arrayBuffer();
+    const h = hex(await crypto.subtle.digest("SHA-256", zip));
+    if (h !== m.sha256) throw new Error(`Le paquet de la note ne correspond pas à son manifeste (${h.slice(0, 12)} ≠ ${m.sha256.slice(0, 12)})`);
+    py.unpackArchive(zip, "zip", { extractDir: "/moteur" });
+    py.runPython("import importlib\nimportlib.invalidate_caches()");
+  })();
+  // un échec (réseau coupé) n'est pas retenu : la demande suivante réessaie
+  note.catch(() => { note = null; });
+  return note;
+}
+
 let nRequetes = 0;   // SONDE seulement : la première requête est datée
 onmessage = async ({ data }) => {
   let json;
@@ -138,6 +156,7 @@ onmessage = async ({ data }) => {
     await pret;
     if (premiere) sonderImport();
     if (premiere) marquer("requete1_debut");
+    if (data.note) await chargerNote();
     json = traiter(data.requete);
     if (premiere) marquer("requete1_traitee");
     if (!numpy && guet.demande) {

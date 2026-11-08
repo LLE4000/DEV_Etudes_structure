@@ -51,7 +51,10 @@ const TYPE_SUR = /^[a-z]+\/[\w.+-]+(;\s*charset=[\w-]+)?$/i;
 // Un texte rendu en fichier, enregistré par le navigateur sous ce nom (un Blob : rien ne quitte la page, rien ne
 // s'exécute — la politique de sécurité du site n'a rien à permettre de plus).
 export function telecharger(nom, texte, type = "application/octet-stream") {
-  const blob = new Blob([String(texte ?? "")], { type: TYPE_SUR.test(type || "") ? type : "application/octet-stream" });
+  // un fichier BINAIRE (la note PDF) arrive en base 64 : { base64: "…" } ; un texte part tel quel
+  const contenu = texte && typeof texte === "object" && typeof texte.base64 === "string"
+    ? Uint8Array.from(atob(texte.base64), (c) => c.charCodeAt(0)) : String(texte ?? "");
+  const blob = new Blob([contenu], { type: TYPE_SUR.test(type || "") ? type : "application/octet-stream" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = nomDeFichier(nom);

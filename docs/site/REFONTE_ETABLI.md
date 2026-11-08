@@ -69,6 +69,37 @@ liste ; rien n'est écrit avant la première saisie ; le clic sur le dessin ; le
 `site/web/js/rangement.js` (« Enregistrer comme note… »), `site/web/css/etabli.css` (la disposition, scopée par
 `body[data-etabli="compact"]`), et dans `site/web/js/etabli.js` la note provisoire.
 
+## La finalisation du module « Poutres béton armé » (08/11/2026)
+
+**Demande de l'ingénieur** (« STAB MÉTHODES — finalisation du module poutres béton armé ») : trois colonnes — à gauche
+TOUTES les données, au centre un dessin technique interactif et éditable, à droite UNIQUEMENT les résultats — ; le
+ferraillage détaillé (lits multiples positionnés, cadres multiples, épingles, latérales) ; des résultats compacts avec
+une fenêtre de détail comme le garde-corps ; des états honnêtes (jamais « Conforme » sans effort) ; la note PDF validée
+de Streamlit, dans le site ; le `.stab` sans `.json`. Elle **remplace** la disposition du pilote ci-dessus (liste à
+gauche, propriétés et résultat à droite).
+
+**Ce qui est fait** :
+- **Données** (colonne de gauche, largeur réglable) : « Poutres de la note » (ouvrir, renommer, copier, supprimer,
+  ajouter), puis quatre rubriques en **accordéon** (une seule ouverte) : 1 Poutre, 2 Sections et sollicitations (copier,
+  retirer, ajouter une section), 3 Armatures de la section courante (lits : n, Ø, répartition, position ; latérales ;
+  cadres et épingles : type, Ø, barres entourées ; pas ; « Proposer » ouvre le sélecteur, qui ne propose que des
+  dispositions qui se posent), 4 Options (méthode, γs, jeux, granulat, latérales automatiques). « Annuler » et
+  « Rétablir » (Ctrl+Z, Ctrl+Maj+Z) dans l'en-tête.
+- **Dessin** : la coupe cotée (`api_web/coupe_ba.py`), fond clair, juste sous la barre ; chaque lit, cadre, groupe de
+  latérales est une pièce (`data-sel`) dont la ligne des données porte la même clé (`data-cible`) : un clic d'un côté
+  choisit l'autre (la rubrique s'ouvre, la ligne se déplie, la pièce s'éclaire) ; un glisser déplace la vue.
+- **Résultats** : le verdict, puis par section son état et, pour chaque vérification, DEUX lignes (nom, pièce, taux ;
+  valeur comparée à sa limite — le nécessaire face au posé pour les aciers) ; la ligne ouvre SA fenêtre (hypothèses,
+  ligne du tableau, formules avec les valeurs, critère, référence) ; « Dispositions constructives » dit son état en mots,
+  sans pourcentage ; sans V, « non effectuée ».
+- **Note PDF** dans le navigateur, **.stab** et **import Streamlit** : `docs/beton/POUTRE_FERRAILLAGE.md` § 4.
+
+**Les contrôles** : `tests/test_api_web_poutre.py` (§ 12 à 14 : la correspondance dessin ↔ données, les états, le
+ferraillage détaillé), `tests/test_note_poutre.py` (la parité de la note), `tests/test_poutre_moteur.py` (la parité du
+calcul, inchangée), et le filtre « pilote » de `site/web/verifier_site.js` (accordéon, chaque champ atteignable, clic sur
+le dessin dans les deux sens, annuler et rétablir, chaque fenêtre de détail, la note PDF téléchargée, le nom du .stab,
+l'import Streamlit, le redimensionnement).
+
 ---
 
 # Refonte de l'établi Stab Méthodes : avis du jury sur les trois propositions, puis spécification finale en lots

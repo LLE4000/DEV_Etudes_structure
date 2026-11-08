@@ -158,8 +158,19 @@ const FILTRE = process.argv[4] || '';
     // ---------------------------------------------------------------- la poutre
     await nouvelle('poutre', 'Réalex', 'Étude de la dalle', 'Poutres R+1');
     let v = await verdict();
-    verif('poutre neuve : un résultat (sans effort, trois vérifications)', /\d+\s?%/.test(v) && (await p.$$eval('#resultat .el', (e) => e.length)) === 3, v);
-    // les efforts de la section A : la flexion et l'effort tranchant entrent en jeu
+    // (établi compact) une poutre neuve n'a aucun effort : « Données incomplètes », jamais un taux ; les cinq
+    // vérifications et les dispositions sont listées, le tranchant et les étriers « non effectuée »
+    const resNeuf = await p.textContent('#resultat');
+    verif('poutre neuve : « Données incomplètes » sans taux, six lignes, le tranchant « non effectuée »',
+      v.includes('Données incomplètes') && !/\d+\s?%/.test(v) && (await p.$$eval('#resultat .el', (e) => e.length)) === 6
+      && resNeuf.includes('non effectuée'), v);
+    // les efforts de la section A : la flexion et l'effort tranchant entrent en jeu (rubrique « Sections et
+    // sollicitations » : l'accordéon n'en garde qu'une ouverte)
+    const ouvrir = async (k) => {
+      if (!(await p.$eval(`#donnees > .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await p.click(`#donnees > .sec[data-sec="${k}"] > .sechd`);
+      await p.waitForTimeout(100);
+    };
+    await ouvrir('so');
     for (const [ch, x] of [['sections/0/M_inf', '122'], ['sections/0/V', '60']]) {
       await p.fill(`input[data-chemin="${ch}"]`, x);
       await p.press(`input[data-chemin="${ch}"]`, 'Enter');
@@ -168,8 +179,9 @@ const FILTRE = process.argv[4] || '';
     v = await verdict();
     const nEl = await p.$$eval('#resultat .el', (e) => e.length);
     const vSaisi = await p.inputValue('input[data-chemin="sections/0/V"]');
-    verif('M = 122 kN·m et V = 60 kN : cinq vérifications, le tranchant et les étriers compris',
-      nEl === 5 && (await p.textContent('#resultat')).includes('Effort tranchant'), `${nEl} lignes, V affiché ${vSaisi} · ${v}`);
+    const resEff = await p.textContent('#resultat');
+    verif('M = 122 kN·m et V = 60 kN : cinq vérifications et les dispositions, le tranchant et les étriers calculés',
+      nEl === 6 && resEff.includes('Effort tranchant') && !resEff.includes('non effectuée') && /\d+\s?%/.test(v), `${nEl} lignes, V affiché ${vSaisi} · ${v}`);
     m = await mesure();
     verif('poutre : la coupe est visible et à sa taille', m.svg && m.svg[0] > 200 && m.svg[1] > 300, JSON.stringify(m.svg));
     verif('poutre : rien ne déborde, aucun nom coupé', !m.deborde && !m.coupes.length, m.coupes.join(', '));
@@ -191,6 +203,7 @@ const FILTRE = process.argv[4] || '';
       await capture('poutre_armatures');
       await p.keyboard.press('Escape');
     }
+    await ouvrir('pt');
     const h = await p.$('input[data-chemin$="/h"], input[data-chemin="h"]');
     if (h) {
       const avant = await verdict();
@@ -1818,13 +1831,18 @@ const FILTRE = process.argv[4] || '';
   }
 
   // ---------------------------------------------------------------- l'établi compact (pilote « Poutres béton armé »)
-  // La carte de l'accueil ouvre le calcul lui-même ; RIEN n'est écrit tant qu'on ne modifie rien ; la liste montre les
-  // éléments et les étapes, et chaque étape choisie montre SES propriétés seules ; chaque champ du cadre Données s'atteint
-  // par une étape (R1 : rien d'inatteignable) ; un clic sur une pièce du dessin choisit son étape (un glisser, non) ; le
-  // choix survit au calcul suivant ; « Enregistrer comme note… » nomme, range et écrit ; les cadres se replient.
+  // Trois colonnes : les DONNÉES (éléments de la note, rubriques en accordéon), le DESSIN, les RÉSULTATS. La carte de
+  // l'accueil ouvre le calcul lui-même ; RIEN n'est écrit tant qu'on ne modifie rien ; une seule rubrique ouverte à la
+  // fois et chaque champ s'atteint (R1 : rien d'inatteignable) ; un clic sur une pièce du dessin ouvre SA ligne dans les
+  // données (un glisser, non), et une ligne choisie éclaire sa pièce ; la sélection survit au calcul ; « Annuler » et
+  // « Rétablir » ; chaque vérification (deux lignes) ouvre SA fenêtre de détail ; une note sans effort dit « Données
+  // incomplètes », jamais « Conforme » ; la note PDF se fait dans le navigateur ; le .stab garde son nom (pas de .json) ;
+  // un enregistrement Streamlit s'ouvre ; « Enregistrer comme note… » nomme, range et écrit ; les colonnes se replient et
+  // se redimensionnent.
   //   filtre « pilote »
   if (!FILTRE || FILTRE === 'pilote') {
-    const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    const fs = require('fs');
+    const c = await b.newContext({ viewport: { width: 1440, height: 900 }, acceptDownloads: true });
     const g = await c.newPage();
     g.erreurs = [];
     g.on('pageerror', (e) => g.erreurs.push(e.message));
@@ -1833,11 +1851,11 @@ const FILTRE = process.argv[4] || '';
     const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
     const lireEtat = () => g.evaluate(() => {
       const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
-      return { choix: document.getElementById('donnees').dataset.choix, url: location.search,
-        visibles: [...document.querySelectorAll('#donnees > .sec[data-sec]')].filter(vu).map((x) => x.dataset.sec),
-        liste: [...document.querySelectorAll('#liste [data-choix].on')].map((x) => x.dataset.choix),
+      return { url: location.search,
+        ouvertes: [...document.querySelectorAll('#donnees > .sec[data-sec].open')].map((x) => x.dataset.sec),
+        cibles: [...document.querySelectorAll('#donnees .et-cible[data-cible]')].filter(vu).map((x) => x.dataset.cible),
         surlignees: [...new Set([...document.querySelectorAll('#stage .view.on [data-sel].et-sel')].map((x) => x.dataset.sel))],
-        enr: (document.querySelector('.top .et-enr') || {}).dataset?.enr, titre: document.getElementById('et-choix').textContent };
+        enr: (document.querySelector('.top .et-enr') || {}).dataset?.enr, statut: document.getElementById('statut').textContent.trim() };
     });
     try {
       await g.goto(`${BASE}/index.html`);
@@ -1845,66 +1863,129 @@ const FILTRE = process.argv[4] || '';
       await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
       let e = await lireEtat();
       verif('pilote : la carte de l\'accueil ouvre le calcul lui-même (sans fenêtre « Nouvelle note »)',
-        /poutre(\.html)?$/.test(new URL(g.url()).pathname) && !e.url && (await g.$$eval('#liste .elements .ni', (x) => x.length)) === 1, `${g.url()} · ${e.url}`);
+        /poutre(\.html)?$/.test(new URL(g.url()).pathname) && !e.url && (await g.$$eval('#donnees .elements .ni', (x) => x.length)) === 1, `${g.url()} · ${e.url}`);
       verif('pilote : l\'ouvrir pour regarder n\'écrit rien (aucune note), l\'indicateur dit « Pas encore enregistré »',
         (await nNotes()) === 0 && e.enr === 'neuf', JSON.stringify({ notes: await nNotes(), enr: e.enr }));
-      // « Toutes les étapes » : les étapes principales, pas la « Méthode » (sous « Options », repliée)
-      verif('pilote : « Toutes les étapes » montre les étapes principales ; la « Méthode » attend sous « Options »',
-        e.choix === 'tout' && e.liste.includes('tout') && e.visibles.length >= 3 && !e.visibles.includes('me')
-        && !(await g.evaluate(() => document.querySelector('#liste .et-options').open)), JSON.stringify(e));
-      // chaque étape choisie : SES propriétés seules ; et chaque champ du cadre Données se voit par l'une d'elles
+      verif('pilote : une note sans effort dit « Données incomplètes », jamais « Conforme »',
+        e.statut === 'Données incomplètes' && (await g.$eval('#resultat', (x) => x.textContent)).includes('Données incomplètes'), e.statut);
+      verif('pilote : une seule rubrique ouverte, la « Poutre »', e.ouvertes.join() === 'pt', JSON.stringify(e.ouvertes));
+      // l'accordéon : chaque rubrique ouverte ferme les autres ; chaque champ s'atteint (une pièce choisie montre son détail)
       const cles = await g.$$eval('#donnees > .sec[data-sec]', (x) => x.map((y) => y.dataset.sec));
       const champs = await g.$$eval('#donnees [data-chemin]', (x) => [...new Set(x.map((y) => y.dataset.chemin))]);
       const vus = new Set();
-      const seules = [];
+      const accordeon = [];
+      const noterVus = async () => (await g.$$eval('#donnees [data-chemin]', (x) => x.filter((y) => y.checkVisibility()).map((y) => y.dataset.chemin))).forEach((x) => vus.add(x));
       for (const k of cles) {
-        if (k === 'me') await g.click('#liste .et-options > summary');
-        await g.click(`#liste .et-li[data-choix="${k}"]`);
-        await g.waitForTimeout(120);
+        // un en-tête ouvre sa rubrique fermée (un clic sur celui d'une rubrique ouverte la refermerait)
+        if (!(await g.$eval(`#donnees > .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees > .sec[data-sec="${k}"] > .sechd`);
+        await g.waitForTimeout(100);
         e = await lireEtat();
-        if (!(e.choix === k && e.visibles.length === 1 && e.visibles[0] === k && e.liste.length === 1 && e.liste[0] === k && e.titre.includes('tout voir'))) seules.push(`${k}: ${JSON.stringify(e)}`);
-        (await g.$$eval('#donnees [data-chemin]', (x) => x.filter((y) => y.checkVisibility()).map((y) => y.dataset.chemin))).forEach((x) => vus.add(x));
+        if (e.ouvertes.join() !== k) accordeon.push(`${k}: ${e.ouvertes.join()}`);
+        await noterVus();
+        const pieces = await g.$$eval(`#donnees > .sec[data-sec="${k}"] .et-piece [data-deplier].et-dep`, (x) => x.length);
+        for (let i = 0; i < pieces; i++) {
+          await g.click(`#donnees > .sec[data-sec="${k}"] .et-piece:has(.et-dep) >> nth=${i} >> .et-dep`);
+          await g.waitForTimeout(60);
+          await noterVus();
+        }
       }
-      verif(`pilote : chaque étape de la liste (${cles.join(', ')}) montre ses propriétés, et elles seules`, cles.length >= 4 && !seules.length, seules.join(' | ').slice(0, 400));
+      verif(`pilote : accordéon — chaque rubrique (${cles.join(', ')}) s'ouvre seule`, cles.length === 4 && !accordeon.length, accordeon.join(' | '));
       const caches = champs.filter((x) => !vus.has(x));
-      verif(`pilote : chacun des ${champs.length} champs du cadre Données s'atteint par une étape de la liste`, !caches.length, caches.join(', '));
-      await g.screenshot({ path: path.join(OUT, 'site_pilote_etape.png') });
-      // « · tout voir » revient à toutes les étapes
-      await g.click('#et-choix [data-choix="tout"]');
-      e = await lireEtat();
-      verif('pilote : « tout voir » revient à toutes les étapes', e.choix === 'tout' && e.visibles.length >= 3, JSON.stringify(e));
-      // le dessin : un clic sur les barres choisit les armatures ; un GLISSER sur la section ne choisit rien
-      const centre = async (sel, bas = false) => {
-        const r = await g.$eval(`#stage .view.on ${sel}`, (x) => { const q = x.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2, h: q.height }; });
-        return bas ? { x: r.x, y: r.y + r.h / 2 - 4 } : r;
-      };
-      const pt = await centre('[data-sel="pt"] rect');
+      verif(`pilote : chacun des ${champs.length} champs des données s'atteint (rubrique ouverte, pièce dépliée)`, !caches.length, caches.join(', '));
+      await g.screenshot({ path: path.join(OUT, 'site_pilote_rubriques.png') });
+      // le dessin : un GLISSER ne choisit rien ; un clic sur un lit l'ouvre dans « Armatures »
+      await g.keyboard.press('Escape');
+      const centre = async (sel) => g.$eval(`#stage .view.on ${sel}`, (x) => { const q = x.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; });
+      await g.click('#donnees > .sec[data-sec="pt"] > .sechd');
+      const pt = await centre('[data-sel="s0.beton"] rect');
       await g.mouse.move(pt.x, pt.y);
       await g.mouse.down();
       await g.mouse.move(pt.x + 60, pt.y + 30, { steps: 6 });
       await g.mouse.up();
       e = await lireEtat();
-      verif('pilote : glisser sur le dessin (déplacer la vue) ne choisit rien', e.choix === 'tout', JSON.stringify(e));
+      verif('pilote : glisser sur le dessin (déplacer la vue) ne choisit rien', !e.surlignees.length && e.ouvertes.join() === 'pt', JSON.stringify(e));
       await g.click('#zoom [data-zoom="ajuster"]');
       await g.waitForTimeout(150);
-      const arm = await centre('[data-sel="arm0"]', true);
-      await g.mouse.click(arm.x, arm.y);
-      await g.waitForTimeout(150);
+      const an = await centre('[data-sel="s0.lit-inf-0"] text.an');
+      await g.mouse.click(an.x, an.y);
+      await g.waitForTimeout(250);
       e = await lireEtat();
-      verif('pilote : un clic sur les barres du dessin choisit « Armatures » : la liste, les propriétés et le dessin le disent',
-        e.choix === 'arm0' && e.liste.join() === 'arm0' && e.visibles.join() === 'arm0' && e.surlignees.join() === 'arm0', JSON.stringify(e));
+      verif('pilote : un clic sur l\'étiquette « L1 » du dessin ouvre « Armatures », éclaire la ligne du lit et ses barres',
+        e.ouvertes.join() === 'arm' && e.cibles.join() === 's0.lit-inf-0' && e.surlignees.join() === 's0.lit-inf-0', JSON.stringify(e));
       await g.screenshot({ path: path.join(OUT, 'site_pilote_clic_dessin.png') });
-      // une saisie : la note s'écrit (la première), l'adresse la nomme ; le choix et le surlignage survivent au calcul
-      const lit = await g.$eval('#donnees > .sec.et-choisie input[data-sorte="nombre"]', (x) => x.dataset.chemin);
-      await g.fill(`#donnees input[data-chemin="${lit}"]`, '3');
-      await g.press(`#donnees input[data-chemin="${lit}"]`, 'Enter');
+      // une ligne des données éclaire sa pièce sur le dessin
+      await g.click('#donnees [data-cible="s0.cadre-0"] select[data-chemin$="/d"]');
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(100);
+      e = await lireEtat();
+      verif('pilote : choisir le cadre C1 dans les données l\'éclaire sur le dessin', e.surlignees.join() === 's0.cadre-0' && e.cibles.join() === 's0.cadre-0', JSON.stringify(e));
+      // la première saisie écrit la note ; la sélection survit au calcul
+      await g.fill('#donnees input[data-chemin="sections/0/inf/0/n"]', '3');
+      await g.press('#donnees input[data-chemin="sections/0/inf/0/n"]', 'Enter');
       await tranquille();
       await g.waitForTimeout(200);
       e = await lireEtat();
       verif('pilote : la PREMIÈRE saisie écrit la note (une seule), l\'adresse la nomme, l\'indicateur dit « Enregistré »',
         (await nNotes()) === 1 && /^\?note=/.test(e.url) && e.enr === 'ok', JSON.stringify({ notes: await nNotes(), url: e.url, enr: e.enr }));
-      verif('pilote : l\'étape choisie et son surlignage survivent au calcul', e.choix === 'arm0' && e.surlignees.join() === 'arm0' && e.visibles.join() === 'arm0', JSON.stringify(e));
-      // « Enregistrer comme note… » : le nom, le chantier, le dossier ; l'en-tête, la liste et le cartouche le disent
+      verif('pilote : la rubrique ouverte et la sélection survivent au calcul', e.ouvertes.join() === 'arm' && e.surlignees.length === 1, JSON.stringify(e));
+      // annuler, rétablir (boutons et clavier)
+      const nLit = () => g.inputValue('#donnees input[data-chemin="sections/0/inf/0/n"]');
+      await g.click('[data-historique="annuler"]');
+      await tranquille();
+      await g.waitForTimeout(150);
+      const apresAnnuler = await nLit();
+      await g.click('[data-historique="retablir"]');
+      await tranquille();
+      await g.waitForTimeout(150);
+      const apresRetablir = await nLit();
+      await g.click('#stage');
+      await g.keyboard.press('Control+z');
+      await tranquille();
+      await g.waitForTimeout(150);
+      const apresCtrlZ = await nLit();
+      verif('pilote : « Annuler » rend 2 barres, « Rétablir » 3, Ctrl+Z annule encore', apresAnnuler === '2' && apresRetablir === '3' && apresCtrlZ === '2',
+        JSON.stringify({ apresAnnuler, apresRetablir, apresCtrlZ }));
+      // des efforts : un taux ; chaque vérification sur deux lignes ouvre SA fenêtre de détail
+      await g.click('#donnees > .sec[data-sec="so"] > .sechd');
+      for (const [ch, v] of [['sections/0/M_inf', '60'], ['sections/0/V', '40']]) {
+        await g.fill(`#donnees input[data-chemin="${ch}"]`, v);
+        await g.press(`#donnees input[data-chemin="${ch}"]`, 'Enter');
+        await tranquille();
+      }
+      await g.waitForTimeout(200);
+      // DEUX lignes : la 1ʳᵉ (nom, pièce, taux) et la 2ᵉ (la comparaison) ne passent jamais à la ligne
+      const lignes = await g.$$eval('#resultat .el.vc[data-calcul]', (x) => x.map((y) => {
+        const h = (s) => Math.round(y.querySelector(s).getBoundingClientRect().height);
+        return { k: y.dataset.calcul, l1: h('.l1'), l2: h('.l2'), n: y.children.length };
+      }));
+      verif('pilote : avec des efforts, l\'état dit un taux (plus « Données incomplètes »)', !(await lireEtat()).statut.includes('incomplètes') && lignes.length >= 6, JSON.stringify(lignes));
+      verif('pilote : chaque vérification tient sur deux lignes (aucune ne passe à la ligne)', lignes.every((l) => l.n === 2 && l.l1 <= 26 && l.l2 <= 20), JSON.stringify(lignes));
+      const fen = [];
+      for (const l of lignes) {
+        await g.click(`#resultat .el.vc[data-calcul="${l.k}"]`);
+        await g.waitForTimeout(80);
+        if (!(await g.isVisible(`#ck-${l.k}`))) fen.push(l.k);
+        await g.keyboard.press('Escape');
+      }
+      verif('pilote : chaque ligne du résultat ouvre SA fenêtre de détail (formules, critère, référence)', !fen.length && (await g.$$eval('#volets .ck-crit', (x) => x.length)) >= lignes.length, fen.join(', '));
+      await g.click('#resultat .el.vc[data-calcul="s0-inf"]');
+      await g.screenshot({ path: path.join(OUT, 'site_pilote_detail.png') });
+      await g.keyboard.press('Escape');
+      // la note PDF, faite dans le navigateur
+      const [pdf] = await Promise.all([g.waitForEvent('download', { timeout: 120000 }), g.click('.top [data-action="pdf"]')]);
+      const fpdf = path.join(OUT, 'site_pilote_note.pdf');
+      await pdf.saveAs(fpdf);
+      const tete = fs.readFileSync(fpdf).subarray(0, 5).toString();
+      verif('pilote : « Note PDF » télécharge la note de calcul (PDF fait dans le navigateur)', /\.pdf$/.test(pdf.suggestedFilename()) && tete === '%PDF-' && fs.statSync(fpdf).size > 30000,
+        `${pdf.suggestedFilename()} · ${tete}`);
+      // le .stab : un nom qui finit par .stab (jamais .stab.json), toute la note dedans
+      const [stab] = await Promise.all([g.waitForEvent('download'), g.click('.top [data-action="exporter"]')]);
+      const fstab = path.join(OUT, 'site_pilote.stab');
+      await stab.saveAs(fstab);
+      const lu = JSON.parse(fs.readFileSync(fstab, 'utf8'));
+      verif('pilote : « .stab » enregistre « ….stab » (pas de « .json »), avec toute la note', /\.stab$/.test(stab.suggestedFilename()) && lu.format === 'stab' && lu.note.etat.poutres[0].sections[0].V === 40,
+        stab.suggestedFilename());
+      // « Enregistrer comme note… » : le nom, le chantier, le dossier
       await g.click('.top [data-ranger]');
       verif('pilote : « Classer la note… » ouvre la fenêtre, le nom déjà rempli', (await g.isVisible('#et-rangement')) && (await g.inputValue('#et-rg-nom')) === 'Poutres béton armé');
       await g.fill('#et-rg-nom', 'Poutres R+2');
@@ -1915,37 +1996,58 @@ const FILTRE = process.argv[4] || '';
       const r = await g.evaluate(() => {
         const id = new URLSearchParams(location.search).get('note'), n = JSON.parse(localStorage.getItem('stab.notes.v1'))[id];
         return { nom: n.nom, chantier: n.chantier, dossier: n.dossier, entete: document.getElementById('nom-note').value, fil: document.getElementById('fil-chantier').textContent,
-          liste: document.querySelector('#liste .et-note').textContent, cartouche: [...document.querySelectorAll('#stage .view.on .cart b')].map((x) => x.textContent).slice(0, 2).join(' | '),
-          ouverte: !document.getElementById('et-rangement').hidden };
+          cartouche: [...document.querySelectorAll('#stage .view.on .cart b')].map((x) => x.textContent).slice(0, 2).join(' | '), ouverte: !document.getElementById('et-rangement').hidden };
       });
-      verif('pilote : « Enregistrer comme note » écrit le nom, le chantier et le dossier ; l\'en-tête, la liste et le cartouche les disent',
+      verif('pilote : « Enregistrer comme note » écrit le nom, le chantier et le dossier ; l\'en-tête et le cartouche les disent',
         r.nom === 'Poutres R+2' && r.chantier === 'Réalex' && r.dossier === 'Étude de la dalle' && r.entete === 'Poutres R+2' && r.fil.includes('Réalex')
-        && r.liste.includes('Poutres R+2') && r.liste.includes('Réalex') && r.cartouche === 'Poutres R+2 | Réalex' && !r.ouverte, JSON.stringify(r));
-      // « Ajouter une poutre » depuis la liste : un deuxième élément, ouvert
-      await g.click('#liste [data-ajouter]');
+        && r.cartouche === 'Poutres R+2 | Réalex' && !r.ouverte, JSON.stringify(r));
+      // « Ajouter une poutre » : un deuxième élément, ouvert
+      await g.click('#donnees [data-ajouter]');
       await tranquille();
       await g.waitForTimeout(200);
-      verif('pilote : « Ajouter une poutre » (dans la liste) ajoute un élément et l\'ouvre',
-        (await g.$$eval('#liste .elements .ni', (x) => x.length)) === 2 && (await g.$eval('#liste .elements .ni.on .nom', (x) => x.textContent)) === 'V2');
-      // les replis : les propriétés, puis le panneau de la liste (la toile gagne la place)
-      await g.click('[data-et-replier="props"]');
-      const p1 = await g.evaluate(() => ({ donnees: document.getElementById('donnees').checkVisibility(), resultat: document.getElementById('resultat').checkVisibility() }));
-      await g.click('[data-et-replier="props"]');
-      verif('pilote : les propriétés se replient (le résultat reste) et se déplient', !p1.donnees && p1.resultat && (await g.evaluate(() => document.getElementById('donnees').checkVisibility())), JSON.stringify(p1));
+      verif('pilote : « Ajouter une poutre » ajoute un élément et l\'ouvre',
+        (await g.$$eval('#donnees .elements .ni', (x) => x.length)) === 2 && (await g.$eval('#donnees .elements .ni.on .nom', (x) => x.textContent)) === 'V2');
+      // les colonnes : repli (la toile gagne la place), poignée (la largeur suit et se garde)
       const l0 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
       await g.click('.panel.left [data-coll="g"]');
       await g.waitForTimeout(400);
       const l1 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
       const bande = await g.$eval('.panel.left', (x) => { const q = x.getBoundingClientRect(); return { l: Math.round(q.width), t: Math.round(q.height) }; });
-      verif('pilote : la liste se replie en une bande sur toute la hauteur, la toile gagne la place', l1 > l0 + 150 && bande.l <= 50 && bande.t > 600, JSON.stringify({ l0, l1, bande }));
+      verif('pilote : les données se replient en une bande sur toute la hauteur, la toile gagne la place', l1 > l0 + 150 && bande.l <= 50 && bande.t > 600, JSON.stringify({ l0, l1, bande }));
       await g.click('.panel.left [data-coll="g"]');
-      await g.waitForTimeout(300);
+      await g.waitForTimeout(400);
+      const w0 = await g.$eval('.panel.left', (x) => x.getBoundingClientRect().width);
+      // on vise le TRAIT (le bord du panneau), comme à la main
+      const h = await g.$eval('.panel.left', (x) => { const q = x.getBoundingClientRect(); return { x: q.right - 0.5, y: q.top + 300 }; });
+      await g.mouse.move(h.x, h.y);
+      await g.mouse.down();
+      await g.mouse.move(h.x + 80, h.y, { steps: 8 });
+      await g.mouse.up();
+      await g.waitForTimeout(200);
+      const w1 = await g.$eval('.panel.left', (x) => x.getBoundingClientRect().width);
+      await g.reload();
+      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
+      const w2 = await g.$eval('.panel.left', (x) => x.getBoundingClientRect().width);
+      verif('pilote : la poignée élargit les données de 80 px, et la largeur se garde au rechargement', Math.abs(w1 - w0 - 80) <= 2 && Math.abs(w2 - w1) <= 1, JSON.stringify({ w0, w1, w2 }));
+      await g.dblclick('.bench > .et-poignee[data-poignee="g"]');
+      // un enregistrement de l'écran Streamlit (poutre_ba.json) s'ouvre : une note du site, la poutre traduite
+      const fst = path.join(OUT, 'poutre_ba.json');
+      fs.writeFileSync(fst, JSON.stringify({ version: '2.39', beams: [{ id: 1, nom: 'Poutre 1', sections: [{ id: 1, nom: 'A' }] }],
+        values: { b1_b: 25, b1_h: 55, b1_beton: 'C25/30', b1_sec1_M_inf: 95, b1_sec1_V: 50, b1_sec1_nlits_inf: 2, b1_sec1_n_as_inf: 3, 'b1_sec1_ø_as_inf': 16 } }));
+      await Promise.all([g.waitForNavigation(), g.setInputFiles('#ouvrir', fst)]);
+      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
+      await tranquille();
+      const st = await g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1'))[id];
+        return { nom: n.nom, p: n.etat && n.etat.poutres && n.etat.poutres[0] }; });
+      verif('pilote : un enregistrement Streamlit (poutre_ba.json) s\'ouvre en note du site, la poutre traduite',
+        st.nom === 'poutre_ba' && st.p && st.p.b === 25 && st.p.beton === 'C25/30' && st.p.sections[0].inf.length === 2, JSON.stringify(st).slice(0, 200));
       // rouverte depuis l'accueil, la note est reprise (aucune nouvelle note ne s'écrit)
       await g.goto(`${BASE}/index.html`);
-      await Promise.all([g.waitForNavigation(), g.click('#recentes .rcard')]);
+      const avant = await nNotes();
+      await Promise.all([g.waitForNavigation(), g.click('#recentes .rcard >> nth=1')]);
       await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
       verif('pilote : rouverte depuis « Reprendre », la note est la même (aucune autre ne s\'écrit)',
-        (await nNotes()) === 1 && (await g.inputValue('#nom-note')) === 'Poutres R+2' && (await g.$$eval('#liste .elements .ni', (x) => x.length)) === 2);
+        (await nNotes()) === avant && (await g.inputValue('#nom-note')) === 'Poutres R+2' && (await g.$$eval('#donnees .elements .ni', (x) => x.length)) === 2);
       await g.screenshot({ path: path.join(OUT, 'site_pilote_reprise.png') });
       verif('pilote : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
     } catch (x) { verif('pilote : le parcours va au bout', false, String(x.message).split('\n')[0]); }

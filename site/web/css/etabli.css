@@ -1,105 +1,168 @@
 /* L'établi COMPACT (pilote : « Poutres béton armé », site/web/construire.py ETABLI_COMPACT ; docs/site/REFONTE_ETABLI.md).
-   À gauche la LISTE (la note, ses éléments, les étapes de l'élément ouvert, « Options » repliées), au centre le DESSIN,
-   à droite les PROPRIÉTÉS de l'étape choisie au-dessus du RÉSULTAT. Les cadres sont ACCROCHÉS (plus de cadres flottants)
-   et se replient. Tout est scopé par body[data-etabli="compact"] : les autres modules gardent l'établi d'avant. */
+   Trois colonnes accrochées au PC : les DONNÉES à gauche (éléments de la note, rubriques en accordéon), le DESSIN au
+   centre sur fond clair, les RÉSULTATS à droite. Les colonnes se replient et se redimensionnent. Tout est scopé par
+   body[data-etabli="compact"] : les autres modules gardent l'établi d'avant. */
 
 [hidden] { display: none !important; }
 
 /* les cadres sont pleins (ni verre dépoli ni ombre) à toutes les largeurs */
 [data-etabli="compact"] .panel { box-shadow: none; background: var(--panel); -webkit-backdrop-filter: none; backdrop-filter: none; }
-[data-etabli="compact"] .phead { height: 40px; padding: 0 6px 0 12px; }
+[data-etabli="compact"] .phead { height: 40px; padding: 0 6px 0 12px; gap: 2px; }
+[data-etabli="compact"] .phead .h3 { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-right: auto; }
+[data-etabli="compact"] .phead #statut { margin-right: 4px; }
+.et-hist { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-2); flex: none; }
+.et-hist:hover:not(:disabled) { background: var(--bg); color: var(--ink); }
+.et-hist:disabled { color: var(--ink-4); cursor: default; }
+.et-hist svg.i { width: 16px; height: 16px; }
 
 /* ------------------------------------------------------------------ PC (1 200 px et plus) : trois colonnes accrochées */
 @media (min-width: 1200px) {
-  [data-etabli="compact"] .bench { --pl: 280px; --pr: 392px; --g: 0px; }
+  [data-etabli="compact"] .bench { --pl: var(--pl-r, 340px); --pr: var(--pr-r, 352px); --g: 0px; }
   [data-etabli="compact"] .bench.sans-g { --pl: 44px; }
   [data-etabli="compact"] .bench.sans-d { --pr: 44px; }
   [data-etabli="compact"] .panel { top: 0; bottom: 0; border-radius: 0; border: 0; }
   [data-etabli="compact"] .panel.left { left: 0; border-right: 1px solid var(--line); }
   [data-etabli="compact"] .panel.right { right: 0; border-left: 1px solid var(--line); }
-  [data-etabli="compact"] .canvas { padding: 0 calc(var(--pr) + 14px) 0 calc(var(--pl) + 14px); }
-  /* un panneau replié garde sa bande sur toute la hauteur (il est accroché, pas flottant) */
+  [data-etabli="compact"] .canvas { padding: 0 var(--pr) 0 var(--pl); }
   [data-etabli="compact"] .bench.sans-g .panel.left, [data-etabli="compact"] .bench.sans-d .panel.right { bottom: 0; }
+  /* la poignée : à cheval sur le bord intérieur de chaque colonne (10 px, le trait au milieu) */
+  .bench > .et-poignee { position: absolute; top: 0; bottom: 0; width: 10px; z-index: 12; cursor: col-resize; touch-action: none; }
+  .bench > .et-poignee[data-poignee="g"] { left: calc(var(--pl) - 5px); }
+  .bench > .et-poignee[data-poignee="d"] { right: calc(var(--pr) - 5px); }
+  .et-poignee::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4.5px; width: 1px; background: transparent; transition: background .12s; }
+  .et-poignee:hover::after, .et-redim .et-poignee::after { background: var(--accent); width: 2px; left: 4px; }
+  .bench.sans-g > .et-poignee[data-poignee="g"], .bench.sans-d > .et-poignee[data-poignee="d"], .bench.plein > .et-poignee { display: none; }
+  .bench.et-redim, .bench.et-redim * { user-select: none; }
+  .bench.et-redim .canvas, .bench.et-redim .panel { transition: none !important; }
 }
-[data-etabli="compact"] .phead .h3 { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); margin-right: 0; }
-[data-etabli="compact"] .panel.left .phead .h3 { margin-right: auto; }
+@media (max-width: 1199px) { .et-poignee { display: none; } }
 /* le fil de la note (chantier › dossier) ne s'efface pas devant le champ du nom, là où la barre a la place (1 400 px et
    plus) : c'est le nom qui se coupe. Plus étroit, il se coupe comme ailleurs (sinon il passait sous « Brouillon ») */
 @media (min-width: 1400px) { [data-etabli="compact"] #fil-chantier { flex: none; } }
 
-/* ------------------------------------------------------------------ la liste */
-.et-liste { padding: 4px 0 12px; }
-.et-liste .attente { padding: 14px; color: var(--ink-3); }
-.et-note { display: flex; align-items: center; gap: 8px; padding: 8px 12px 6px; min-width: 0; }
-.et-note .et-note-t { min-width: 0; flex: 1; }
-.et-note b { display: block; font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.et-note span { display: block; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.et-liste .elements { padding: 2px 6px 6px; border-bottom: 1px solid var(--line); }
-@media (min-width: 701px) { .et-liste .elements .ni { height: 30px; } }
-.et-g { display: flex; align-items: center; gap: 6px; padding: 10px 12px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
-  text-transform: uppercase; color: var(--ink-3); }
-.et-g .et-g-el { text-transform: none; letter-spacing: 0; font-weight: 650; color: var(--ink-2); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.et-li { display: flex; align-items: center; gap: 8px; width: calc(100% - 12px); margin: 0 6px; height: 30px; padding: 0 8px; border-radius: 8px;
-  text-align: left; color: var(--ink); cursor: pointer; position: relative; }
-.et-li:hover { background: var(--bg); }
-.et-li.on { background: var(--accent-soft); }
-.et-li.on::before { content: ""; position: absolute; left: -6px; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; background: var(--accent); }
-.et-li .n { width: 18px; height: 18px; border-radius: 5px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700;
-  color: var(--ink-2); background: var(--bg-sunken); flex: none; }
-.et-li.on .n { background: var(--accent); color: var(--on-accent); }
-.et-li .tt { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; max-width: 62%; }
-.et-li .sum { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; text-align: right; }
-.et-li .ic { width: 18px; display: grid; place-items: center; color: var(--ink-3); flex: none; }
-.et-li .ic svg.i { width: 14px; height: 14px; }
-.et-li.et-tout .tt { font-weight: 650; }
-.et-options summary { list-style: none; }
-.et-options summary::-webkit-details-marker { display: none; }
-.et-options > summary .ic { transition: transform .15s ease; }
-.et-options[open] > summary .ic { transform: rotate(90deg); }
-.et-options .et-li { padding-left: 14px; }
-.et-li .mod { font-size: 10.5px; font-weight: 650; color: var(--accent-hover); flex: none; }
+/* ------------------------------------------------------------------ la toile : fond clair, la feuille sans cadre */
+[data-etabli="compact"] .canvas { background: var(--paper); }
+[data-etabli="compact"] .ctool { padding: 6px 10px 0; }
+[data-etabli="compact"] .ctool .seg { box-shadow: none; border: 1px solid var(--line); }
+[data-etabli="compact"] .ctool .zoom { box-shadow: none; }
+[data-etabli="compact"] .stage { padding: 4px 6px 6px; }
+[data-etabli="compact"] .sheet { border: 0; border-radius: 0; box-shadow: none; background: var(--paper); }
+[data-etabli="compact"] .sheet .stitle { padding: 6px 12px 0; }
+[data-etabli="compact"] .sheet .draw { padding: 4px 10px 6px; }
+[data-etabli="compact"] .cart { border-top-color: #EEF0F3; }
+[data-etabli="compact"] .bench.plein .canvas { padding: 0 12px; }
 
-/* ------------------------------------------------------------------ le panneau de droite : propriétés, puis résultat */
-.et-props, .et-res { display: flex; flex-direction: column; min-height: 0; }
-/* les propriétés prennent la hauteur de l'étape choisie (au plus 60 %) ; le résultat, le reste */
-.et-props { flex: 0 1 auto; max-height: 60%; border-bottom: 1px solid var(--line); }
-.et-res { flex: 1 1 0; }
-.et-props.et-ferme, .et-res.et-ferme { flex: none; }
-.et-props.et-ferme > :not(.phead), .et-res.et-ferme > :not(.phead) { display: none; }
-.et-props.et-ferme { border-bottom: 1px solid var(--line); }
-.et-props:not(.et-ferme) + .et-res.et-ferme { flex: none; }
-.et-res .resultat { flex: 1; min-height: 0; }
-.phead.et-sous { gap: 6px; padding-left: 6px; }
-.et-replier { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--ink-3); flex: none; }
-.et-replier:hover { background: var(--bg); color: var(--ink); }
-.et-replier svg.i { width: 15px; height: 15px; transition: transform .15s ease; }
-.et-ferme .et-replier svg.i { transform: rotate(-90deg); }
-.et-choix { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.et-choix .et-tout-voir { font-weight: 600; color: var(--accent-hover); cursor: pointer; margin-left: 6px; }
-.et-res .phead #statut { margin-left: auto; }
-/* le panneau replié : sa bande de 44 px garde le bouton */
-[data-etabli="compact"] .bench.sans-d .panel.right .et-res { display: none; }
-[data-etabli="compact"] .bench.sans-d .panel.right .et-props > :not(.phead) { display: none; }
-[data-etabli="compact"] .bench.sans-d .panel.right .et-props .phead > :not(.pcoll) { display: none; }
-[data-etabli="compact"] .bench.sans-d .panel.right .et-props .phead { padding: 0 7px; border-bottom: 0; }
-[data-etabli="compact"] .bench.sans-d .panel.right .et-props { border-bottom: 0; }
-
-/* les propriétés : l'étape choisie seule (le cadre Données, filtré ; rien n'est copié) */
-[data-etabli="compact"] #donnees > .elements { display: none; }
-[data-etabli="compact"] #donnees[data-choix]:not([data-choix="tout"]) .sec:not(.et-choisie) { display: none; }
-[data-etabli="compact"] #donnees[data-choix]:not([data-choix="tout"]) .sec.et-choisie > .sechd { display: none; }
-[data-etabli="compact"] #donnees[data-choix]:not([data-choix="tout"]) .sec.et-choisie > .rows { display: flex; padding-top: 12px; }
-[data-etabli="compact"] #donnees[data-choix="tout"] .sec[data-secondaire]:not(.et-choisie) { display: none; }
-[data-etabli="compact"] #donnees .sec { border-bottom: 1px solid var(--line); }
-[data-etabli="compact"] #donnees .sechd { padding: 9px 12px; }
-[data-etabli="compact"] #donnees .rows { padding: 0 12px 12px; gap: 7px; }
-
-/* ------------------------------------------------------------------ le dessin : les pièces qu'on peut choisir */
-[data-etabli="compact"] .draw [data-sel] { cursor: pointer; }
+/* le dessin : les pièces qu'on choisit, et la pièce choisie */
+[data-etabli="compact"] .coupe-ba .pc[data-sel] { cursor: pointer; }
 @media (hover: hover) {
-  [data-etabli="compact"] .draw [data-sel]:hover { filter: drop-shadow(0 0 2px rgba(43, 75, 207, .55)); }
+  [data-etabli="compact"] .coupe-ba .pc[data-sel]:hover circle { fill: #3C4A63; }
+  [data-etabli="compact"] .coupe-ba .pc.cadre[data-sel]:hover .st { stroke: #2B3A55; }
+  [data-etabli="compact"] .coupe-ba .pc[data-sel]:hover text.an { fill: var(--accent); }
 }
-[data-etabli="compact"] .draw [data-sel].et-sel { filter: drop-shadow(0 0 3px rgba(43, 75, 207, .9)); }
+[data-etabli="compact"] .coupe-ba .pc.et-sel circle { fill: var(--accent); }
+[data-etabli="compact"] .coupe-ba .pc.et-sel polyline { stroke: var(--accent); }
+[data-etabli="compact"] .coupe-ba .pc.et-sel text { fill: var(--accent); }
+[data-etabli="compact"] .coupe-ba .pc.cadre.et-sel .st { stroke: var(--accent); }
+[data-etabli="compact"] .coupe-ba .pc.cadre.et-sel line { stroke: var(--accent); }
+[data-etabli="compact"] .coupe-ba .pc.beton.et-sel rect { stroke: var(--accent); }
+[data-etabli="compact"] .coupe-ba .pc.lat.et-sel circle { fill: var(--accent); }
+
+/* ------------------------------------------------------------------ les données : éléments, puis rubriques */
+[data-etabli="compact"] #donnees { padding-bottom: 24px; }
+[data-etabli="compact"] #donnees .elements { padding: 4px 6px 8px; border-bottom: 1px solid var(--line); }
+@media (min-width: 701px) { [data-etabli="compact"] #donnees .elements .ni { height: 32px; } }
+[data-etabli="compact"] .elements .ni .x { width: 24px; height: 24px; }
+[data-etabli="compact"] .elements .ni.on .x { display: grid; }
+[data-etabli="compact"] .elements .ni .x svg.i { width: 14px; height: 14px; }
+[data-etabli="compact"] #donnees .sec { border-bottom: 1px solid var(--line); }
+[data-etabli="compact"] #donnees .sechd { padding: 10px 12px; }
+[data-etabli="compact"] #donnees .sec.open > .sechd { background: var(--panel-2); }
+[data-etabli="compact"] #donnees .rows { padding: 8px 12px 14px; gap: 7px; }
+
+/* une PIÈCE réglable (un lit, un cadre, les latérales, une section) : la ligne courte, et son détail quand elle est choisie */
+.et-piece { position: relative; border-radius: 9px; transition: background .12s; }
+.et-piece.et-cible { background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent-line); }
+.et-piece .et-l1 { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 2px; }
+.et-piece .et-l1 > .field { flex: 0 0 56px; min-width: 0; }
+.et-piece .et-l1 > .field.select { flex: 0 0 82px; }
+.et-piece .et-l1 > .field:has(.u) { flex-basis: 104px; }
+.et-tag { flex: none; min-width: 30px; height: 22px; padding: 0 5px; border-radius: 6px; display: grid; place-items: center; font-size: 11px;
+  font-weight: 700; letter-spacing: .02em; color: var(--ink-2); background: var(--bg-sunken); cursor: pointer; }
+.et-tag.c { color: #46536B; }
+.et-tag.l { cursor: default; font-size: 10px; }
+.et-piece.et-cible .et-tag { background: var(--accent); color: var(--on-accent); }
+.et-as { flex: 1 1 auto; min-width: 0; text-align: right; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-dep { flex: none; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--ink-3); }
+.et-dep:hover { background: var(--bg); color: var(--ink); }
+.et-dep svg.i { width: 15px; height: 15px; transition: transform .15s ease; }
+.et-piece.et-cible:not(.et-replie) .et-dep svg.i { transform: rotate(180deg); }
+.et-piece .moins { flex: none; }
+.et-piece .et-det { display: none; flex-direction: column; gap: 6px; padding: 4px 8px 10px 38px; }
+.et-piece.et-cible:not(.et-replie) .et-det { display: flex; }
+.et-piece .et-det .row { min-height: 30px; }
+.et-piece .et-det .seg.full button { font-size: 11.5px; }
+.et-info { padding: 0; font-size: 11.5px; }
+.et-e { font-weight: 600; }
+.et-e.p { color: var(--ink-2); } .et-e.v { color: var(--vrf); } .et-e.r { color: var(--nok); }
+.et-grp { display: flex; flex-direction: column; gap: 2px; }
+.et-grp + .et-grp { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.et-grp > .grp { display: flex; align-items: center; gap: 8px; padding: 2px 0 4px; }
+.et-grp-s { font-size: 11px; font-weight: 550; letter-spacing: 0; text-transform: none; color: var(--ink-3); margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.et-prop { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 8px; border-radius: 7px; font-size: 11.5px; font-weight: 600;
+  letter-spacing: 0; text-transform: none; color: var(--accent-hover); background: var(--accent-soft); }
+.et-prop:hover { box-shadow: 0 0 0 1px var(--accent-line); }
+.et-prop svg.i { width: 13px; height: 13px; }
+.et-avance .row { min-height: 30px; }
+.et-avance .row label { color: var(--ink-3); }
+.et-adds { display: flex; gap: 6px; }
+.et-adds .addrow { flex: 1; }
+.et-arm { display: none; flex-direction: column; gap: 4px; }
+.et-arm.on { display: flex; }
+.et-secsel { margin-bottom: 6px; }
+.et-secsel button { min-width: 40px; }
+[data-etabli="compact"] .secard.et-courante { box-shadow: 0 0 0 1px var(--accent-line); }
+[data-etabli="compact"] .secard.et-cible { background: var(--accent-soft); }
+[data-etabli="compact"] .secard .sh2 { gap: 6px; }
+[data-etabli="compact"] .secard .sh2 .field.text { flex: 1 1 auto; min-width: 0; height: 28px; }
+[data-etabli="compact"] .secard .sh2 .moins { flex: none; }
+.et-meth { flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+.et-meth > b { font-size: 12.5px; }
+.et-meth > .hint { flex-basis: 100%; }
+
+/* ------------------------------------------------------------------ les résultats : deux lignes par vérification */
+[data-etabli="compact"] .verdict { padding: 10px 12px; gap: 10px; cursor: pointer; }
+[data-etabli="compact"] .verdict.et-incomplet { cursor: default; }
+[data-etabli="compact"] .verdict .gov b { font-size: 12.5px; }
+.elgrp.et-sgrp { padding: 9px 8px 6px 12px; gap: 6px; flex-wrap: wrap; row-gap: 1px; }
+.elgrp.et-sgrp { text-transform: none; letter-spacing: 0; }
+.et-sgrp .et-sn { font-weight: 700; font-size: 12px; color: var(--ink); }
+.et-sgrp .et-st { font-size: 11px; font-weight: 650; }
+.et-st.p, .et-st.f { color: var(--att); } .et-st.v { color: var(--vrf); } .et-st.r { color: var(--nok); } .et-st.c { color: var(--ink-3); }
+.et-sgrp .et-sef { flex-basis: 100%; order: 3; font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-sgrp .et-tout { margin-left: auto; width: 26px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: var(--ink-3); }
+.et-sgrp .et-tout:hover { background: var(--panel); color: var(--ink); box-shadow: 0 0 0 1px var(--line-strong); }
+.et-sgrp .et-tout svg.i { width: 14px; height: 14px; }
+.el.vc { padding: 7px 12px 8px; gap: 3px; }
+.el.vc.fixe { cursor: default; }
+/* la 1ʳᵉ ligne ne passe JAMAIS à la ligne (site.css le permet aux autres résultats) : la pièce se coupe (…), le taux reste */
+.el.vc .l1 { gap: 8px; min-height: 22px; flex-wrap: nowrap; }
+.el.vc .l1 .prof { min-width: 0; flex: 0 1 auto; }
+.el.vc .l1 b { font-size: 12.5px; flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.el.vc .l1 .prof { margin-left: 0; margin-right: 0; flex: 0 1 auto; font-size: 11.5px; }
+.el.vc .l1 .pct { flex: none; min-width: 40px; text-align: right; font-size: 12.5px; font-weight: 650; color: var(--ink); }
+.el.vc .l1 .pct.f { color: var(--att); } .el.vc .l1 .pct.v { color: var(--vrf); } .el.vc .l1 .pct.r { color: var(--nok); }
+.el.vc .l2 { gap: 10px; }
+.el.vc .l2 .cmp { flex: 1 1 auto; min-width: 0; font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.el.vc .l2 .bar { flex: 0 0 48px; height: 4px; }
+.et-mot { flex: none; font-size: 11px; font-weight: 650; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
+.et-mot.p { color: #2E6B47; background: #E5F3EA; }
+.et-mot.v { color: var(--vrf-encre); background: var(--vrf-fond); }
+.et-mot.r { color: #A3242F; background: #FCE6E8; }
+.et-mot.c { color: var(--ink-3); background: var(--bg-sunken); }
+[data-theme="dark"] .et-mot.p { color: #8FD3A8; background: #17301F; }
+[data-theme="dark"] .et-mot.r { color: #F2A0A8; background: #3B1A1E; }
+.ck-crit { display: flex; flex-direction: column; gap: 3px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
+.ck-crit b { color: var(--ink); font-weight: 650; margin-right: 6px; }
 
 /* ------------------------------------------------------------------ « Enregistrer comme note… » */
 .et-ranger { flex: none; }
@@ -118,24 +181,27 @@
 .et-rg-b { display: flex; justify-content: flex-end; gap: 8px; }
 
 /* ------------------------------------------------------------------ tablette (701 à 1 199 px) : la grille de l'établi */
-/* portrait : le dessin en haut sur toute la largeur, la liste et le panneau de droite côte à côte dessous */
 @media (min-width: 701px) and (max-width: 1199px) {
   [data-etabli="compact"] .bench > .panel { border: 1px solid var(--line); border-radius: 12px; }
-  [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+  [data-etabli="compact"] .bench > .canvas { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  [data-etabli="compact"] .et-tag, [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist { min-height: 32px; min-width: 32px; }
+  [data-etabli="compact"] .et-piece .et-l1 { min-height: 40px; }
 }
-/* tablette en paysage : la toile à droite sur toute la hauteur ; à gauche, la liste au-dessus des propriétés et du résultat
-   (trois colonnes laissaient moins de 600 px au dessin, moins de 500 à 1 024 px) */
 @media (min-width: 701px) and (max-width: 1199px) and (orientation: landscape) {
-  [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: 318px minmax(0, 1fr); grid-template-rows: minmax(0, 2fr) minmax(0, 3fr); }
+  [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); }
+  [data-etabli="compact"] .flyout { left: calc(340px + 2 * var(--g)); }
 }
 
-/* ------------------------------------------------------------------ téléphone : les onglets ; la liste sert de sommaire */
+/* ------------------------------------------------------------------ téléphone : les onglets Données · Dessin · Résultat */
 @media (max-width: 700px) {
-  [data-etabli="compact"] .bench[data-tab="donnees"] .panel.right { display: flex; }
-  [data-etabli="compact"] .bench[data-tab="donnees"] .panel.right .et-res { display: none; }
-  [data-etabli="compact"] .bench[data-tab="resultat"] .panel.right .et-props { display: none; }
-  [data-etabli="compact"] .bench[data-tab="resultat"] .panel.right .et-res { flex: 1 0 auto; }
-  [data-etabli="compact"] .panel.left .phead, [data-etabli="compact"] .et-sous .pcoll { display: none; }
-  [data-etabli="compact"] .et-li { height: 44px; }
   [data-etabli="compact"] .et-ranger .lbl { display: none; }
+  [data-etabli="compact"] .et-piece .et-l1 { min-height: 46px; }
+  [data-etabli="compact"] .et-tag { min-width: 40px; height: 32px; }
+  [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist { width: 40px; height: 40px; }
+  [data-etabli="compact"] .et-piece .et-det { padding-left: 8px; }
+  [data-etabli="compact"] .panel .phead .pcoll { display: none; }
+  /* « Annuler » et « Rétablir » restent à portée au téléphone : l'en-tête des données s'affiche (la charte le cache) */
+  [data-etabli="compact"] .panel.left .phead { display: flex; height: 44px; }
+  [data-etabli="compact"] .el.vc { padding: 10px 14px; }
+  [data-etabli="compact"] .el.vc .l2 .cmp { white-space: normal; }
 }

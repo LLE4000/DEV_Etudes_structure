@@ -11,6 +11,7 @@ L'arrondi est celui des formules des moteurs (``acier.formats.F``, c'est-à-dire
 L'EXTÉRIEUR, appliqué à la valeur binaire exacte du nombre. Un tableau et la formule voisine écrivent donc le même
 chiffre (490,5 → « 491 » des deux côtés). La règle n'est pas recopiée ici : ``_fixe`` appelle ``to_fixed``.
 """
+import base64
 import decimal
 import html
 import json
@@ -209,7 +210,11 @@ def chip(taux, niv: str, xl: bool = False) -> str:
 
 STATUTS = {"p": ("p", "Conforme"), "f": ("f", "Conforme, attention"), "r": ("r", "Non conforme"), "c": ("c", "À compléter"),
            "x": ("r", "Calcul impossible"),
-           "i": ("c", "Consultation")}
+           "i": ("c", "Consultation"),
+           # « n » : le calcul tourne mais ne dit rien (aucune sollicitation) ; « v » : conforme au calcul, une
+           # disposition constructive reste à vérifier (espacement sous le minimum) — jamais « Conforme » tout court
+           "n": ("c", "Données incomplètes"),
+           "v": ("v", "À vérifier")}
 
 
 def statut(niv: str) -> str:
@@ -250,6 +255,31 @@ def ligne_res(nom: str, piece: str, taux, niv: str, calcul: str = "", pk: str = 
             f'<span class="pct {niv}"{titre}>{txt}</span></div></div>')
 
 
+def ligne_verif(nom: str, comparaison: str, taux, niv: str, calcul: str = "", pk: str = "", piece: str = "", gov: bool = False,
+                etat_txt: str = "") -> str:
+    """Une vérification en DEUX LIGNES au plus (l'établi compact) : 1) le nom, la pièce (quand elle se choisit : un
+    bouton qui ouvre le sélecteur) et le taux ; 2) ce qu'on compare, en clair (« néc. 1 206 ≤ posé 1 257 mm² »), et une
+    jauge fine. La ligne entière ouvre la fenêtre de détail ``calcul``.
+
+    ``taux`` (déjà arrondi, ``pct``) est un TAUX D'UTILISATION ; une vérification qui n'en a pas (une disposition
+    constructive, une vérification non effectuée) passe ``taux`` None et dit son état en mots (``etat_txt``, dans la
+    couleur ``niv``) — jamais un rapport fourni / minimum déguisé en pourcentage. ``comparaison`` et ``piece`` sont du
+    HTML du module ; ``nom`` et ``etat_txt`` du texte (échappés)."""
+    ouvre = f' data-calcul="{esc(calcul)}" title="Voir le détail"' if calcul else ""
+    p = (f'<button class="prof" data-pk="{esc(pk)}" title="Choisir une disposition"><span>{piece}</span>{icon("chevron-down")}</button>'
+         if pk else (f'<span class="prof"><span>{piece}</span></span>' if piece else ""))
+    if taux is not None:
+        txt, titre = _taux_txt(taux)
+        droite = f'<span class="pct {niv}"{titre}>{txt}</span>'
+        jauge = f'<div class="bar"><b class="{niv}" style="width:{_largeur(taux)}%"></b></div>'
+    else:
+        droite = f'<span class="et-mot {niv}">{esc(etat_txt or "—")}</span>'
+        jauge = ""
+    cls = "el vc" + (" gov" if gov else "") + ("" if calcul else " fixe")
+    return (f'<div class="{cls}"{ouvre}><div class="l1"><b>{esc(nom)}</b>{p}{droite}</div>'
+            f'<div class="l2"><span class="cmp">{comparaison}</span>{jauge}</div></div>')
+
+
 def verdict_valeur(x: Optional[float], unite: str, titre: str, comparaison: str = "", niv: str = "c", nd: int = 1,
                    symbole: str = "", calcul: str = "", classe: str = "") -> str:
     """Le VERDICT d'une valeur qui n'est PAS un pourcentage (un taux d'armature en kg/m³, une section en mm²…) : le
@@ -282,6 +312,14 @@ def lignes_fx(lignes: List[Dict]) -> str:
 COLONNES = ("Vérification", "Formule", "Valeur", "Limite", "Taux")
 
 
+def _case_taux(li: Dict) -> str:
+    """La dernière case d'une ligne du tableau : la pastille du taux ; une ligne qui n'a pas de taux mais un ÉTAT (une
+    disposition constructive : « OK », « À vérifier ») le dit en mots, dans sa couleur (``etat_txt``)."""
+    if li.get("etat_txt"):
+        return f'<span class="chip {li["niveau"]}">{esc(li["etat_txt"])}</span>'
+    return chip(li.get("taux"), li["niveau"])
+
+
 def fenetre_calcul(ident: str, titre: str, sous_titre: str, hyps: Sequence[str], lignes: List[Dict], detail: str, pied: str = "",
                    colonnes: Sequence[str] = COLONNES) -> str:
     """La grande fenêtre de calcul, LA MÊME pour tous les modules : les hypothèses, un tableau (vérification, formule,
@@ -295,7 +333,7 @@ def fenetre_calcul(ident: str, titre: str, sous_titre: str, hyps: Sequence[str],
     rows = "".join(
         f'<tr class="{"gov" if li.get("gov") else ""}"><td class="nm">{li["nom"]}{("<span>" + li["sous"] + "</span>") if li.get("sous") else ""}</td>'
         f'<td class="fo">{li["formule"]}</td><td class="n v">{li["valeur"]}</td><td class="n">{li["limite"]}</td>'
-        f'<td class="n">{chip(li.get("taux"), li["niveau"])}</td></tr>' for li in lignes)
+        f'<td class="n">{_case_taux(li)}</td></tr>' for li in lignes)
     table = (f'<table class="vtab"><thead><tr><th>{c[0]}</th><th class="fo">{c[1]}</th><th class="n">{c[2]}</th><th class="n">{c[3]}</th>'
              f'<th class="n">{c[4]}</th></tr></thead><tbody>{rows}</tbody></table>')
     return (f'<div class="flyout calcul" id="ck-{esc(ident)}"><div class="fl-h"><div><b>{titre}</b><span>{sous_titre}</span></div>'
@@ -424,6 +462,9 @@ def message(texte_: str, grave: bool = False) -> str:
 
 # ------------------------------------------------------------------ télécharger un fichier propre au module
 TYPES_FICHIER = ("application/json", "text/csv", "text/plain")
+# les fichiers BINAIRES, rendus en base 64 (clé « base64 » à la place de « texte ») : la note de calcul PDF
+TYPES_BINAIRES = ("application/pdf",)
+BINAIRE_MAX = 15 * 1024 * 1024        # octets, décodés (15 Mo)
 NOM_FICHIER_MAX = 120                  # caractères
 TEXTE_FICHIER_MAX = 5 * 1024 * 1024    # octets, en UTF-8 (5 Mo)
 _INTERDITS_NOM = re.compile(r'[\\/:*?"<>|]+')
@@ -459,7 +500,8 @@ def nom_fichier(base, extension: str) -> str:
 def refus_fichier(f) -> Optional[str]:
     """Pourquoi un fichier rendu par ``telecharger`` d'un module est refusé (texte simple), ou None s'il est bon : un
     dictionnaire {"nom", "type", "texte"} ; un nom non vide, de 120 caractères au plus, sans « / », « \\ », « .. » ni
-    caractère de contrôle ou invisible ; un type parmi TYPES_FICHIER ; un texte de 5 Mo au plus (UTF-8)."""
+    caractère de contrôle ou invisible ; un type parmi TYPES_FICHIER ; un texte de 5 Mo au plus (UTF-8). Un fichier
+    BINAIRE (TYPES_BINAIRES : la note PDF) porte « base64 » à la place de « texte » : du base 64 valide, 15 Mo au plus."""
     if not isinstance(f, dict):
         return "le module n'a pas rendu de fichier"
     nom, typ, texte_ = f.get("nom"), f.get("type"), f.get("texte")
@@ -471,8 +513,19 @@ def refus_fichier(f) -> Optional[str]:
         return "le nom du fichier ne peut contenir ni « / », ni « \\ », ni « .. »"
     if _visible(nom) != nom:
         return "le nom du fichier contient un caractère de contrôle ou invisible"
+    if typ in TYPES_BINAIRES:
+        b64 = f.get("base64")
+        if not isinstance(b64, str) or not b64:
+            return "le contenu du fichier n'est pas un binaire en base 64"
+        try:
+            n = len(base64.b64decode(b64, validate=True))
+        except (ValueError, TypeError):
+            return "le contenu du fichier n'est pas un binaire en base 64 valide"
+        if n > BINAIRE_MAX:
+            return f"le fichier dépasse 15 Mo ({fr(n / 1024 / 1024, 1)} Mo)"
+        return None
     if typ not in TYPES_FICHIER:
-        return f"type de fichier non permis : « {str(typ)[:40]} » (permis : {', '.join(TYPES_FICHIER)})"
+        return f"type de fichier non permis : « {str(typ)[:40]} » (permis : {', '.join(TYPES_FICHIER + TYPES_BINAIRES)})"
     if not isinstance(texte_, str):
         return "le contenu du fichier n'est pas un texte"
     try:

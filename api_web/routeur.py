@@ -14,7 +14,9 @@ TÉLÉCHARGER un fichier propre au module (le bouton ``commun.bouton_telecharger
 
     {"module", "action": "telecharger", "etat", "quoi"} → telecharger(etat normalisé, quoi) du module
                                                         → {"nom": str, "type": str, "texte": str}
-    réponse : {"ok": true, "fichier": {"nom", "type", "texte"}}
+    réponse : {"ok": true, "fichier": {"nom", "type", "texte"}} — ou {"nom", "type", "base64"} pour un fichier binaire
+              (commun.TYPES_BINAIRES : la note PDF) ; un module qui attend « infos » (telecharger(etat, quoi, infos))
+              reçoit celles de la requête (le nom, le chantier, l'indice de la note)
               {"ok": false, "erreur": "<message en français>"} : module sans ``telecharger``, ``quoi`` inconnu (le
               module rend None, ou lève ValueError avec son message), nom absurde, type hors liste, texte de plus de
               5 Mo (les règles : ``commun.refus_fichier``). Jamais une exception.
@@ -70,8 +72,13 @@ def telecharger(mod, q: dict) -> dict:
         etat = mod.normaliser(q["etat"]) if q.get("etat") else mod.nouvel_etat()
     except Exception as e:  # noqa: BLE001 — une note abîmée : un message, pas une exception
         return _refus(f"La note ne se relit pas, le fichier n'est pas préparé : {e}")
+    # « infos » (le nom, le chantier, l'indice de la note : la page de garde d'une note PDF) : passées au module qui
+    # les attend (un paramètre « infos »), jamais aux autres
+    import inspect
+    kw = {"infos": q.get("infos") if isinstance(q.get("infos"), dict) else {}} \
+        if "infos" in inspect.signature(fonction).parameters else {}
     try:
-        f = fonction(etat, quoi)
+        f = fonction(etat, quoi, **kw)
     except ValueError as e:  # le refus du module, déjà dit en français
         return _refus(str(e) or f"Fichier inconnu : « {_court(quoi)} ».")
     except Exception as e:  # noqa: BLE001 — l'écran montre l'erreur ; la trace part dans la console
@@ -82,6 +89,8 @@ def telecharger(mod, q: dict) -> dict:
     raison = C.refus_fichier(f)
     if raison:
         return _refus(f"Le fichier « {_court(quoi)} » est refusé : {raison}.")
+    if f["type"] in C.TYPES_BINAIRES:
+        return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "base64": f["base64"]}}
     return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "texte": f["texte"]}}
 
 

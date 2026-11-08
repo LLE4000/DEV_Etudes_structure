@@ -128,10 +128,11 @@ export function recentes(n = 6) {
   return Object.values(toutes()).filter((x) => x && Object.hasOwn(MODULES, x.module)).sort((a, b) => b.modifie - a.modifie).slice(0, n);
 }
 
-// le fichier .stab : la note entière, lisible et rechargeable
+// le fichier .stab : la note entière, lisible et rechargeable. Il part comme un fichier BINAIRE (octet-stream) et non
+// comme du JSON : un navigateur qui voit « application/json » ajoute « .json » au nom (« note.stab.json »).
 export function exporter(note) {
   const nom = `${(note.chantier ? note.chantier + " - " : "") + (note.nom || "note")}`.replace(/[\\/:*?"<>|]/g, "_");
-  return telecharger(`${nom}.stab`, JSON.stringify({ format: "stab", version: 1, note }, null, 1), "application/json");
+  return telecharger(`${nom}.stab`, JSON.stringify({ format: "stab", version: 1, note }, null, 1), "application/octet-stream");
 }
 
 // Un .stab vient d'ailleurs : on n'en garde que des DONNÉES (des textes, l'état que le moteur relira). Le dessin et le
@@ -139,10 +140,35 @@ export function exporter(note) {
 // l'ouverture de la note (verifier_site.js : « .stab piégé »).
 const texte = (x, defaut = "") => (typeof x === "string" ? x : defaut).slice(0, 200);
 
+// Un ENREGISTREMENT DE L'ÉCRAN STREAMLIT « Poutre en béton armé » (poutre_ba.json : {"beams", "values"}) s'ouvre aussi :
+// il devient une note « Poutres béton armé » dont l'état porte le fichier tel quel ({"streamlit": …}, des données
+// seulement : nombres, textes, booléens) ; le moteur le traduit au premier calcul (api_web/poutre_streamlit.py).
+const PRIMITIF = (x) => x === null || ["number", "string", "boolean"].includes(typeof x);
+function depuisStreamlit(d, nomFichier) {
+  if (!d || !Array.isArray(d.beams) || !d.values || typeof d.values !== "object" || Array.isArray(d.values)) return null;
+  const values = {};
+  for (const [k, v] of Object.entries(d.values)) {
+    if (typeof k === "string" && k.length <= 120 && PRIMITIF(v) && (typeof v !== "string" || v.length <= 400)) values[k] = v;
+  }
+  if (!Object.keys(values).some((k) => /^b\d+_/.test(k))) return null;
+  const beams = d.beams.slice(0, 50).map((b) => ({
+    id: Number(b && b.id), nom: texte(b && b.nom),
+    sections: (Array.isArray(b && b.sections) ? b.sections : []).slice(0, 50).map((s) => ({ id: Number(s && s.id), nom: texte(s && s.nom) })),
+  }));
+  const n = nouvelle({ module: "poutre", nom: texte(String(nomFichier || "").replace(/\.json$/i, "")) || MODULES.poutre.nom });
+  n.etat = { streamlit: { beams, values } };
+  return n;
+}
+
 export async function importer(fichier) {
   const d = JSON.parse(await fichier.text());
+  const st = d && d.format !== "stab" ? depuisStreamlit(d, fichier.name) : null;
+  if (st) {
+    if (!ecrire(st)) throw new Error(`la note n'a pas pu être enregistrée dans ce navigateur : ${RAISONS[dernier.raison].long}`);
+    return st;
+  }
   const src = d && d.format === "stab" ? d.note : null;
-  if (!src || !Object.hasOwn(MODULES, src.module)) throw new Error("ce fichier n'est pas une note .stab du site");
+  if (!src || !Object.hasOwn(MODULES, src.module)) throw new Error("ce fichier n'est ni une note .stab du site, ni un enregistrement Streamlit « Poutre en béton armé »");
   const n = nouvelle({ module: src.module, nom: texte(src.nom), chantier: texte(src.chantier), dossier: texte(src.dossier) });
   Object.assign(n, { indice: texte(src.indice, "A") || "A", etat: src.etat && typeof src.etat === "object" ? src.etat : null });
   // une note lue mais pas enregistrée ne s'ouvre pas : l'établi l'aurait remplacée, sans un mot, par une note neuve

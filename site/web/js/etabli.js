@@ -152,25 +152,76 @@ function occupe(plus) {
   });
 }
 
-async function envoyer(action, extra = {}) {
+async function envoyer(action, extra = {}, { sansHistorique = false } = {}) {
   occupe(1);
   try {
     marquerUneFois("requete1_envoyee");
-    const r = await moteur.demander(() => ({ module: MODULE, action, etat: note.etat, ...extra }));
+    let avant = null;
+    const r = await moteur.demander(() => { avant = note.etat; return { module: MODULE, action, etat: note.etat, ...extra }; });
     marquerUneFois("reponse1_recue");
     if (!r.ok) { toast(`Le moteur a refusé : ${r.erreur}`, true); console.error(r.trace || r.erreur); return null; }
-    if (r.etat) appliquer(r, action);
+    if (r.etat) {
+      if (!sansHistorique) retenir(action, avant, r.etat);
+      appliquer(r, action);
+    }
     return r;
   } finally { occupe(-1); }
 }
+
+// ------------------------------------------------------------------ annuler, rétablir (établi compact)
+// Chaque modification RÉUSSIE garde l'état d'avant (50 au plus) ; « Annuler » le rend au moteur, qui recalcule, et la
+// note s'enregistre. Une nouvelle modification efface ce qu'on pouvait rétablir. Ouvrir un autre élément n'est pas une
+// modification. Dans un champ, Ctrl+Z reste celui du champ.
+const hist = { avant: [], apres: [] };
+const HIST_MAX = 50;
+function retenir(action, avant, apres) {
+  if (!COMPACT || !avant || !MODIFIENT.has(action) || action === "activer") return;
+  if (JSON.stringify(avant) === JSON.stringify(apres)) return;
+  hist.avant.push(avant);
+  if (hist.avant.length > HIST_MAX) hist.avant.shift();
+  hist.apres.length = 0;
+  majHistorique();
+}
+function majHistorique() {
+  document.querySelectorAll("[data-historique]").forEach((b) => {
+    b.disabled = !(b.dataset.historique === "annuler" ? hist.avant : hist.apres).length;
+  });
+}
+let enHistorique = false;
+async function historiser(sens) {
+  const de = sens === "annuler" ? hist.avant : hist.apres, vers = sens === "annuler" ? hist.apres : hist.avant;
+  if (!de.length || enHistorique) return;
+  enHistorique = true;
+  try {
+    vers.push(note.etat);
+    note.etat = de.pop();
+    majHistorique();
+    const r = await envoyer("calculer", {}, { sansHistorique: true });
+    if (r) toast(sens === "annuler" ? "Modification annulée" : "Modification rétablie");
+  } finally { enHistorique = false; }
+}
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("[data-historique]");
+  if (b && !b.disabled) historiser(b.dataset.historique);
+});
+document.addEventListener("keydown", (ev) => {
+  if (!COMPACT || !(ev.ctrlKey || ev.metaKey) || ev.altKey) return;
+  if (ev.target.closest && ev.target.closest("input, textarea, select, [contenteditable]")) return;
+  const k = ev.key.toLowerCase();
+  if (k === "z" && !ev.shiftKey) { ev.preventDefault(); historiser("annuler"); }
+  else if ((k === "z" && ev.shiftKey) || k === "y") { ev.preventDefault(); historiser("retablir"); }
+});
 
 // ------------------------------------------------------------------ l'affichage
 const ouvertes = new Set(memoire.lire(`stab.sec.${MODULE}`, []));
 let premier = true;
 let vueCourante = null;
 const toile = cablerToile({ bench, stage: $("#stage"), barre: $("#zoom") });
-// la liste de l'établi compact porte le bloc « Dans cette note » : ses boutons répondent par agirElement
-const compact = COMPACT ? cablerCompact({ cle: MODULE, note: () => note, agir: agirElement }) : null;
+// l'établi compact : la sélection données ↔ dessin, la section courante, les colonnes réglables (js/compact.js)
+const compact = COMPACT ? cablerCompact({
+  cle: MODULE, note: () => note, ouvrirRubrique,
+  vue: { courante: () => vueCourante, choisir: choisirVue, ajuster: () => requestAnimationFrame(() => toile.vue(vueCourante)) },
+}) : null;
 
 function appliquer(r, action) {
   note.etat = r.etat;
@@ -195,7 +246,7 @@ function appliquer(r, action) {
 function afficherResume(res) {
   const c = $("#chip-m");
   const avecTaux = res.taux !== null && res.taux !== undefined;
-  c.className = `mchip chip ${avecTaux && ["p", "f", "r"].includes(res.niveau) ? res.niveau : "c"}`;
+  c.className = `mchip chip ${avecTaux && ["p", "f", "v", "r"].includes(res.niveau) ? res.niveau : "c"}`;
   // un module de consultation (niveau « i ») n'a pas de taux : son statut n'apprend rien, la place va au nom ; un taux
   // de plus de 999 % s'écrit « > 999 % » (la valeur exacte au survol), comme les pastilles du moteur
   const tx = texteTaux(res.taux);
@@ -216,11 +267,21 @@ function afficherDonnees(elements, html) {
   zone.innerHTML = elements + html;
   separerNoms(zone);
   // les sections gardent leur état (ouvert, fermé) d'un calcul à l'autre
-  zone.querySelectorAll(".sec[data-sec]").forEach((s) => {
-    const cle = s.dataset.sec;
-    if (premier) { if (s.classList.contains("open")) ouvertes.add(cle); }
-    else s.classList.toggle("open", ouvertes.has(cle));
-  });
+  if (COMPACT) {
+    // une rubrique à la fois : celle gardée de la session, sinon la première que le moteur ouvre
+    const secs = [...zone.querySelectorAll(".sec[data-sec]")];
+    let k = [...ouvertes].find((c) => secs.some((s) => s.dataset.sec === c));
+    if (premier && !k) k = (secs.find((s) => s.classList.contains("open")) || secs[0] || {}).dataset?.sec;
+    secs.forEach((s) => s.classList.toggle("open", s.dataset.sec === k));
+    ouvertes.clear();
+    if (k) ouvertes.add(k);
+  } else {
+    zone.querySelectorAll(".sec[data-sec]").forEach((s) => {
+      const cle = s.dataset.sec;
+      if (premier) { if (s.classList.contains("open")) ouvertes.add(cle); }
+      else s.classList.toggle("open", ouvertes.has(cle));
+    });
+  }
   premier = false;
   zone.scrollTop = defile;
   marquerMeteo();
@@ -291,12 +352,17 @@ function marquerDebord() {
 // (à chaque changement de taille de la bande, transitions comprises : la toile anime sa marge quand un cadre se replie)
 new ResizeObserver(marquerDebord).observe($("#vues"));
 
+function choisirVue(k) {
+  if (!bench.querySelector(`#vues [data-vue="${CSS.escape(k)}"]`)) return;
+  vueCourante = k;
+  bench.querySelectorAll("[data-vue]").forEach((e) => e.classList.toggle("on", e.dataset.vue === vueCourante));
+  toile.vue(vueCourante);
+}
 $("#vues").addEventListener("click", (ev) => {
   const b = ev.target.closest("[data-vue]");
   if (!b) return;
-  vueCourante = b.dataset.vue;
-  bench.querySelectorAll("[data-vue]").forEach((e) => e.classList.toggle("on", e.dataset.vue === vueCourante));
-  toile.vue(vueCourante);
+  choisirVue(b.dataset.vue);
+  if (compact) compact.vueChoisie(vueCourante);
 });
 
 // ------------------------------------------------------------------ le téléphone : onglets, menu
@@ -391,13 +457,38 @@ $("#donnees").addEventListener("click", (ev) => {
   const hd = ev.target.closest(".sechd[data-replier]");
   if (hd) {
     const s = hd.parentElement;
+    if (COMPACT && !s.classList.contains("open")) { ouvrirRubrique(s.dataset.sec); return; }
     s.classList.toggle("open");
     if (s.classList.contains("open")) ouvertes.add(s.dataset.sec); else ouvertes.delete(s.dataset.sec);
     memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
     return;
   }
+  // le sélecteur d'armatures (« Proposer ») et « Renommer » d'un élément, posés dans les données
+  const pk = ev.target.closest("[data-pk]");
+  if (pk) { ev.stopPropagation(); ouvrirSelecteur(pk.dataset.pk, pk); return; }
+  if (ev.target.closest("[data-renommer]")) { ev.stopPropagation(); renommer(); return; }
   agirElement(ev);
 });
+
+// l'établi compact : ouvrir UNE rubrique (les autres se replient) — un clic sur son en-tête, ou une pièce du dessin
+function ouvrirRubrique(cle) {
+  const zone = $("#donnees");
+  zone.querySelectorAll(".sec[data-sec]").forEach((x) => x.classList.toggle("open", x.dataset.sec === cle));
+  ouvertes.clear();
+  ouvertes.add(cle);
+  memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
+  const s = zone.querySelector(`.sec[data-sec="${CSS.escape(cle)}"]`);
+  if (s) requestAnimationFrame(() => s.scrollIntoView({ block: "nearest" }));
+}
+// « Renommer » l'élément ouvert : son champ « Nom » (rubrique 1), choisi
+function renommer() {
+  const champ = $('#donnees input[data-chemin="nom"]');
+  if (!champ) return;
+  const rub = champ.closest(".sec[data-sec]");
+  if (rub && COMPACT) ouvrirRubrique(rub.dataset.sec); else if (rub) rub.classList.add("open");
+  champ.focus();
+  champ.select();
+}
 
 // ------------------------------------------------------------------ les volets : calcul détaillé et sélecteur
 function fermer() {
@@ -502,15 +593,19 @@ bench.querySelectorAll("[data-coll]").forEach((b) => b.addEventListener("click",
 // ({"fichier": {"nom", "type", "texte"}}) et le navigateur l'enregistre sous ce nom, nettoyé (commun.js).
 async function telechargerFichier(quoi) {
   occupe(1);
+  // la note PDF : la première se prépare quelques secondes (le paquet de la note se charge), on le dit
+  if (quoi === "note_pdf") toast("Préparation de la note de calcul PDF…");
   try {
-    const r = await moteur.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi }));
+    // le nom, le chantier, l'indice de la note : la page de garde d'une note PDF (un module qui ne les attend pas les ignore)
+    const infos = { nom: note.nom || "", chantier: note.chantier || "", indice: note.indice || "A", date: new Date().toLocaleDateString("fr-BE") };
+    const r = await moteur.demander(() => ({ module: MODULE, action: "telecharger", etat: note.etat, quoi, infos }), { note: quoi === "note_pdf" });
     const f = r && r.ok ? r.fichier : null;
-    if (!f || typeof f.nom !== "string" || typeof f.texte !== "string") {
+    if (!f || typeof f.nom !== "string" || (typeof f.texte !== "string" && typeof f.base64 !== "string")) {
       toast(`Téléchargement refusé : ${(r && !r.ok && r.erreur) || "le moteur n'a pas rendu de fichier"}`, true);
       if (r && r.trace) console.error(r.trace);
       return;
     }
-    toast(`${telecharger(f.nom, f.texte, f.type || "application/octet-stream")} téléchargé`);
+    toast(`${telecharger(f.nom, f.base64 ? { base64: f.base64 } : f.texte, f.type || "application/octet-stream")} téléchargé`);
   } finally { occupe(-1); }
 }
 // à la capture : les volets arrêtent la propagation de leurs clics
@@ -585,7 +680,10 @@ document.addEventListener("click", (ev) => {
   if (!a) return;
   if (a.dataset.action === "exporter") N.exporter(note);
   else if (a.dataset.action === "imprimer") window.print();
-  else if (a.dataset.action === "pdf") toast("La note PDF arrive bientôt sur le site ; elle reste dans Streamlit.");
+  else if (a.dataset.action === "pdf") {
+    if (COMPACT) telechargerFichier("note_pdf");
+    else toast("La note PDF arrive bientôt sur le site ; elle reste dans Streamlit.");
+  }
 });
 $("#ouvrir").addEventListener("change", async (ev) => {
   const f = ev.target.files[0];

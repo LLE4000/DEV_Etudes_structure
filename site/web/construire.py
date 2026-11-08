@@ -145,6 +145,82 @@ def paquet(fichiers: list) -> bytes:
     return tampon.getvalue()
 
 
+# ------------------------------------------------------------------ le paquet de la NOTE PDF (chargé à la demande)
+# La note de calcul PDF des modules qui en font une (aujourd'hui : « Poutres béton armé ») est faite dans le navigateur
+# par le générateur VALIDÉ de l'écran Streamlit (modules/export_pdf.py, ndc_pdf/) et reportlab, en Python pur. Ce paquet
+# pèse trop pour le démarrage : le travailleur ne le charge qu'à la première demande de note (moteur/note.zip, empreinte
+# dans le manifeste) et le déballe à côté du moteur. Les fichiers de reportlab sont RELEVÉS en faisant de vraies notes
+# dans un sous-processus où fontTools, le Pillow réel et les accélérateurs C sont refusés (comme dans le navigateur).
+NOTE_SOURCES = os.path.join(RACINE, "site", "note_pdf")
+NOTE_POLICES = ("Carlito-Regular.ttf", "Carlito-Bold.ttf", "Carlito-Italic.ttf", "Poppins-Medium.ttf",
+                "DejaVuSans.ttf", "DejaVuSans-Bold.ttf")
+_SONDE_NOTE = """
+import builtins, json, os, sys
+RACINE, STUB = {racine!r}, {stub!r}
+sys.path.insert(0, STUB); sys.path.insert(1, RACINE); os.chdir(RACINE)
+class Refus:
+    def find_spec(self, name, path=None, target=None):
+        racine = name.split(".")[0]
+        if racine in ("fontTools", "_rl_accel", "rl_accel", "streamlit", "numpy", "matplotlib") or name == "reportlab.lib._rl_accel":
+            raise ImportError("refusé dans le navigateur : " + name)
+sys.meta_path.insert(0, Refus())
+lus = set(); _open = builtins.open
+def espion(f, *a, **k):
+    try: lus.add(os.path.abspath(f))
+    except Exception: pass
+    return _open(f, *a, **k)
+builtins.open = espion
+from api_web import poutre as P, note_poutre as NP
+etat = P.nouvel_etat()
+for ch, v in ((["sections", 0, "M_inf"], 120), (["sections", 0, "V"], 80), (["sections", 0, "inf", "+"], 1), (["sections", 0, "etriers", "+"], "epingle"),
+              (["sections", "+"], 1), (["sections", 1, "M_sup"], 90), (["sections", 0, "laterales", "n"], 1)):
+    P.modifier(etat, ch, v)
+P.gerer_elements(etat, "dupliquer")
+NP.fichier(etat, {{"nom": "relevé"}})
+import reportlab
+base = os.path.dirname(os.path.dirname(os.path.abspath(reportlab.__file__)))
+mods = {{os.path.abspath(m.__file__) for m in list(sys.modules.values()) if getattr(m, "__file__", None)}}
+rl = sorted(os.path.relpath(f, base) for f in mods | lus if f.startswith(os.path.join(base, "reportlab") + os.sep) and not f.endswith(".pyc"))
+print(json.dumps({{"base": base, "reportlab": rl, "version": reportlab.Version}}))
+"""
+
+
+def releve_note() -> dict:
+    """Ce que la note PDF charge (sous-processus, comme le navigateur) : {"base", "reportlab": [fichiers], "version"}."""
+    sonde = _SONDE_NOTE.format(racine=RACINE, stub=NOTE_SOURCES)
+    p = subprocess.run([sys.executable, "-c", sonde], capture_output=True, text=True, cwd=RACINE,
+                       env={**os.environ, "NDC_FONT_DIR": os.path.join(RACINE, "ndc_pdf", "fonts")})
+    if p.returncode != 0:
+        raise SystemExit("Le relevé de la note PDF a échoué :\n" + p.stderr[-3000:])
+    return json.loads(p.stdout.strip().splitlines()[-1])
+
+
+def paquet_note() -> tuple:
+    """(octets du zip, description) : le générateur de la note, reportlab relevé (et sa licence), les polices de la mise
+    en page, le Pillow factice. Reproductible : mêmes fichiers → mêmes octets."""
+    rel = releve_note()
+    entrees = [("modules/export_pdf.py", os.path.join(RACINE, "modules", "export_pdf.py"))]
+    for f in sorted(os.listdir(os.path.join(RACINE, "ndc_pdf"))):
+        if f.endswith(".py"):
+            entrees.append((f"ndc_pdf/{f}", os.path.join(RACINE, "ndc_pdf", f)))
+    entrees += [(f"ndc_pdf/fonts/{f}", os.path.join(RACINE, "ndc_pdf", "fonts", f)) for f in NOTE_POLICES]
+    entrees += [(f.replace(os.sep, "/"), os.path.join(rel["base"], f)) for f in rel["reportlab"]]
+    entrees.append(("reportlab/license.txt", os.path.join(rel["base"], "reportlab", "license.txt")))
+    for d, _, fs in os.walk(NOTE_SOURCES):
+        for f in sorted(fs):
+            if f.endswith((".py", ".txt")) and "__pycache__" not in d:
+                src = os.path.join(d, f)
+                entrees.append((os.path.relpath(src, NOTE_SOURCES).replace(os.sep, "/"), src))
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for nom, src in sorted(set(entrees)):
+            info = zipfile.ZipInfo(nom, DATE_ZIP)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            with open(src, "rb") as f:
+                z.writestr(info, f.read())
+    return tampon.getvalue(), {"reportlab": rel["version"], "fichiers": len(set(entrees))}
+
+
 # ------------------------------------------------------------------ les morceaux des pages
 def _module(cle: str):
     for fam, nom_fam, mods in MQ.FAMILLES:
@@ -369,31 +445,32 @@ def page_module(cle: str, titre: str) -> str:
 def compact(corps: str) -> str:
     """L'établi COMPACT, tiré de l'établi ordinaire (les mêmes fragments du moteur, les mêmes identifiants : #donnees,
     #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
-    - à gauche, la LISTE : la note, ses éléments (« Dans cette note »), puis les étapes de l'élément ouvert, les étapes
-      secondaires sous « Options » ; un clic choisit l'étape ;
-    - au centre, le dessin (un clic sur une pièce choisit son étape) ;
-    - à droite, les PROPRIÉTÉS de l'étape choisie (le cadre Données, filtré) au-dessus du RÉSULTAT ; chacun se replie ;
+    - à gauche, les DONNÉES : les éléments de la note, puis les rubriques du module en accordéon (une ouverte à la fois),
+      avec « Annuler » et « Rétablir » dans l'en-tête ;
+    - au centre, le DESSIN : un clic sur une pièce l'ouvre dans les données (et une ligne des données la montre sur le
+      dessin) ;
+    - à droite, les RÉSULTATS seuls, compacts ; un clic ouvre le détail ;
+    - les deux colonnes se replient et se REDIMENSIONNENT (une poignée sur leur bord intérieur) ;
     - la barre du haut gagne « Enregistrer comme note… »."""
     gauche_av = ('<div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span>'
-                 f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>'
-                 '<div class="pbody" id="donnees"><div class="attente">Chargement…</div></div>')
+                 f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')
     droite_av = ('<div class="phead"><span class="h3">Résultat</span><span id="statut"></span>'
-                 f'<button class="pcoll" data-coll="d" title="Replier le résultat">{MQ.icon("panel-right")}</button></div>'
-                 '<div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div>')
-    gauche = ('<div class="phead"><span class="h3">Éléments et étapes</span><span class="calcule" id="calcule"></span>'
-              f'<button class="pcoll" data-coll="g" title="Replier la liste">{MQ.icon("panel-left")}</button></div>'
-              '<nav class="pbody et-liste" id="liste" aria-label="Éléments et étapes de la note"><div class="attente">Chargement…</div></nav>')
-    droite = ('<div class="et-props"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="props" '
-              f'aria-expanded="true" title="Replier les propriétés">{MQ.icon("chevron-down")}</button><span class="h3">Propriétés</span>'
-              '<span class="et-choix" id="et-choix"></span>'
-              f'<button class="pcoll" data-coll="d" title="Replier le panneau">{MQ.icon("panel-right")}</button></div>'
-              '<div class="pbody" id="donnees"><div class="attente">Chargement…</div></div></div>'
-              '<div class="et-res"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="res" '
-              f'aria-expanded="true" title="Replier le résultat">{MQ.icon("chevron-down")}</button><span class="h3">Résultat</span>'
-              '<span id="statut"></span></div>'
-              '<div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div></div>')
+                 f'<button class="pcoll" data-coll="d" title="Replier le résultat">{MQ.icon("panel-right")}</button></div>')
+    gauche = ('<div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span>'
+              f'<button type="button" class="et-hist" data-historique="annuler" title="Annuler (Ctrl+Z)" aria-label="Annuler" disabled>{MQ.icon("undo-2")}</button>'
+              f'<button type="button" class="et-hist" data-historique="retablir" title="Rétablir (Ctrl+Maj+Z)" aria-label="Rétablir" disabled>{MQ.icon("redo-2")}</button>'
+              f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')
+    droite = ('<div class="phead"><span class="h3">Résultats</span><span id="statut"></span>'
+              f'<button class="pcoll" data-coll="d" title="Replier les résultats">{MQ.icon("panel-right")}</button></div>')
     assert gauche_av in corps and droite_av in corps, "le gabarit de l'établi a changé : compact() doit suivre"
     corps = corps.replace(gauche_av, gauche).replace(droite_av, droite)
+    # les poignées qui redimensionnent les deux colonnes (PC) : à CHEVAL sur le bord intérieur de chaque panneau, posées
+    # dans l'établi et non dans le panneau (qui rogne ce qui dépasse : son bord, le trait qu'on vise, n'était pas saisissable)
+    for cote, nom in (("left", "g"), ("right", "d")):
+        marque = f'<section class="panel {cote}">'
+        assert corps.count(marque) == 1
+        corps = corps.replace(marque, f'<div class="et-poignee" data-poignee="{nom}" role="separator" aria-orientation="vertical" '
+                              f'title="Glisser pour élargir ; double-clic : largeur d\'origine"></div>' + marque, 1)
     corps = corps.replace('<body data-page="module"', '<body data-page="module" data-etabli="compact"', 1)
     # « Enregistrer comme note… » : à côté de l'indicateur d'enregistrement (barre du haut), et dans le menu ⋯ du téléphone
     bouton = (f'<button type="button" class="btn sm et-ranger" data-ranger="1" title="Nommer la note et la ranger dans un chantier">'
@@ -406,6 +483,15 @@ def compact(corps: str) -> str:
     assert corps.count('<div class="mmenu" id="mmenu" hidden>' + revoir) == 1
     corps = corps.replace('<div class="mmenu" id="mmenu" hidden>' + revoir, '<div class="mmenu" id="mmenu" hidden>' + revoir
                           + f'<button type="button" class="mi" data-ranger="1">{MQ.icon("folder")}<span class="et-mi-ranger">Enregistrer comme note…</span></button>', 1)
+    # la note PDF : le module la prépare dans le navigateur (js/etabli.js, action « telecharger », quoi = « note_pdf »)
+    for avant, apres in ((_bouton("file-down", "Note PDF", f' disabled title="{PDF_BIENTOT}"', "btn primary"),
+                          _bouton("file-down", "Note PDF", ' data-action="pdf" title="Préparer la note de calcul PDF"', "btn primary")),
+                         ('data-action="pdf" aria-disabled="true">' + MQ.icon("file-down") + 'Note PDF<span class="tag draft">bientôt</span>',
+                          'data-action="pdf">' + MQ.icon("file-down") + 'Note PDF'),
+                         (_bouton("file-down", "Note PDF", ' data-action="pdf" aria-disabled="true"', "btn primary"),
+                          _bouton("file-down", "Note PDF", ' data-action="pdf"', "btn primary"))):
+        assert corps.count(avant) == 1, avant
+        corps = corps.replace(avant, apres, 1)
     # la fenêtre « Enregistrer comme note » : le nom, le chantier, le dossier (texte, avec les chantiers déjà connus)
     fenetre = ('<div class="et-rangement" id="et-rangement" role="dialog" aria-modal="true" aria-labelledby="et-rg-titre" hidden>'
                '<form class="et-rg-carte" id="et-rg-form"><div class="et-rg-h"><b id="et-rg-titre">Enregistrer comme note</b>'
@@ -472,8 +558,12 @@ def construire(dossier: str = ICI, modules=None) -> dict:
     ecrire(os.path.join(dossier, "moteur", "moteur.zip"), z, binaire=True)
     # « avec_numpy » : les modules dont le travailleur charge numpy dès le démarrage (les autres s'en passent ; un
     # import de numpy imprévu le fait charger à la demande, voir js/travailleur.js)
+    # la note PDF : son paquet à part, chargé à la première demande (js/travailleur.js)
+    zn, dn = paquet_note()
+    ecrire(os.path.join(dossier, "moteur", "note.zip"), zn, binaire=True)
     manifeste = {"pyodide": PYODIDE, "sha256": hashlib.sha256(z).hexdigest(), "fichiers": rel["fichiers"],
-                 "avec_numpy": rel["avec_numpy"]}
+                 "avec_numpy": rel["avec_numpy"],
+                 "note": {"sha256": hashlib.sha256(zn).hexdigest(), "octets": len(zn), **dn}}
     ecrire(os.path.join(dossier, "moteur", "manifeste.json"), json.dumps(manifeste, ensure_ascii=False, indent=1) + "\n")
     return manifeste
 

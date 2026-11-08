@@ -82,7 +82,7 @@ def un_module(cle):
         return
     chk(f"{cle} : la réponse porte tout ce que l'écran pose", all(k in r for k in CLES_REPONSE), [k for k in CLES_REPONSE if k not in r])
     chk(f"{cle} : le résumé a un taux, un niveau de couleur connu, un statut",
-        set(r["resume"]) >= {"taux", "niveau", "statut", "gouvernant"} and r["resume"]["niveau"] in ("p", "f", "r", "c", "x", "i"), r["resume"])
+        set(r["resume"]) >= {"taux", "niveau", "statut", "gouvernant"} and r["resume"]["niveau"] in C.STATUTS, r["resume"])
     chk(f"{cle} : chaque vue a une clé, un titre et un contenu (dessin SVG, ou bloc HTML : un tableau)",
         all(v.get("cle") and v.get("titre") and v.get("court") and v.get("svg", "").lstrip().startswith(("<svg", "<div")) for v in r["vues"]),
         [v.get("cle") for v in r["vues"]])
