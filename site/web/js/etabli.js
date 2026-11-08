@@ -248,10 +248,11 @@ function afficherResume(res) {
   const avecTaux = res.taux !== null && res.taux !== undefined;
   c.className = `mchip chip ${avecTaux && ["p", "f", "v", "r"].includes(res.niveau) ? res.niveau : "c"}`;
   // un module de consultation (niveau « i ») n'a pas de taux : son statut n'apprend rien, la place va au nom ; un taux
-  // de plus de 999 % s'écrit « > 999 % » (la valeur exacte au survol), comme les pastilles du moteur
+  // de plus de 999 % s'écrit « > 999 % » (la valeur exacte au survol), comme les pastilles du moteur ; un statut trop
+  // long pour l'en-tête a sa forme courte (res.court, commun.STATUTS_COURTS), le statut entier au survol
   const tx = texteTaux(res.taux);
-  c.textContent = avecTaux ? tx.texte : (res.niveau === "i" ? "" : res.statut || "");
-  c.title = tx.titre || "Voir le résultat";
+  c.textContent = avecTaux ? tx.texte : (res.niveau === "i" ? "" : res.court || res.statut || "");
+  c.title = tx.titre || (res.court ? `${res.statut} · voir le résultat` : "Voir le résultat");
   c.hidden = !c.textContent;
 }
 

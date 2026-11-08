@@ -325,7 +325,12 @@ out = req(module="poutre", action="nouveau")
 chk("une poutre neuve (aucun effort) : « Données incomplètes », sans taux, jamais « Conforme »",
     out["resume"]["niveau"] == "n" and out["resume"]["statut"] == "Données incomplètes" and out["resume"]["taux"] is None
     and "Conforme" not in out["statut_html"] and "Données incomplètes" in out["resultat"], (out["resume"], out["statut_html"]))
-non_eff = re.findall(r'<div class="el vc fixe"><div class="l1"><b>([^<]+)</b><span class="et-mot c">non effectuée</span>', out["resultat"])
+# la pastille de l'en-tête du téléphone n'a la place que d'un mot : la forme courte (commun.STATUTS_COURTS), lue par
+# js/etabli.js ; une note calculée n'en a pas (son taux s'y écrit)
+_js_etabli = open(os.path.join(RACINE, "site", "web", "js", "etabli.js"), encoding="utf-8").read()
+chk("téléphone : la pastille d'une note sans effort dit « Incomplet » (le statut entier au survol)",
+    out["resume"].get("court") == "Incomplet" == C.STATUTS_COURTS["n"] and "res.court || res.statut" in _js_etabli, out["resume"])
+non_eff =re.findall(r'<div class="el vc fixe"><div class="l1"><b>([^<]+)</b><span class="et-mot c">non effectuée</span>', out["resultat"])
 chk("sans effort tranchant : τ et étriers « non effectuée » (et pourquoi), sans taux", non_eff == ["Effort tranchant", "Étriers"]
     and "sans effort tranchant (V = 0)" in out["resultat"], non_eff)
 dispo = re.findall(r'<b>Dispositions constructives</b><span class="et-mot (\w)">([^<]+)</span>', out["resultat"])

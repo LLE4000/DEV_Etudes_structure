@@ -609,8 +609,11 @@ def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
     nivs = [_niveau_note(x) for x in resultats]
     niv = next((n for n in ("x", "r", "n", "v") if n in nivs), _niveau_note(r))
     g = r["gouvernant"]
-    return {"taux": C.pct(t) if niv != "n" else None, "niveau": niv, "statut": C.STATUTS[niv][1],
-            "gouvernant": f"{etat['poutres'][i].get('nom') or 'Poutre'} · section {g['section']} · {g['nom']}"}
+    out = {"taux": C.pct(t) if niv != "n" else None, "niveau": niv, "statut": C.STATUTS[niv][1],
+           "gouvernant": f"{etat['poutres'][i].get('nom') or 'Poutre'} · section {g['section']} · {g['nom']}"}
+    if niv in C.STATUTS_COURTS:
+        out["court"] = C.STATUTS_COURTS[niv]   # la pastille du téléphone
+    return out
 
 
 def elements(etat: Dict, resultats: List[Dict]) -> str:

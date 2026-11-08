@@ -215,6 +215,9 @@ STATUTS = {"p": ("p", "Conforme"), "f": ("f", "Conforme, attention"), "r": ("r",
            # disposition constructive reste à vérifier (espacement sous le minimum) — jamais « Conforme » tout court
            "n": ("c", "Données incomplètes"),
            "v": ("v", "À vérifier")}
+# la pastille de l'en-tête du téléphone n'a la place que d'un mot (à 360 px, « Données incomplètes » y prenait 152 px et
+# coupait l'état de l'enregistrement) : la forme courte d'un statut trop long pour elle, le statut entier au survol
+STATUTS_COURTS = {"n": "Incomplet"}
 
 
 def statut(niv: str) -> str:
