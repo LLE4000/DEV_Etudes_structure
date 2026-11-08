@@ -259,7 +259,7 @@
   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
   <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
   <rect x="6" y="14" width="12" height="8" rx="1" />
-</svg><span class="lbl">Imprimer</span></button><button type="button" class="btn primary" disabled title="La note PDF arrive bientôt sur le site (elle reste dans Streamlit)"><svg
+</svg><span class="lbl">Imprimer</span></button><button type="button" class="btn primary" data-action="pdf" title="Préparer la note de calcul PDF"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -420,7 +420,7 @@
   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
   <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
   <rect x="6" y="14" width="12" height="8" rx="1" />
-</svg>Imprimer</button><button type="button" class="mi" data-action="pdf" aria-disabled="true"><svg
+</svg>Imprimer</button><button type="button" class="mi" data-action="pdf"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -436,7 +436,7 @@
   <path d="M14 2v4a2 2 0 0 0 2 2h4" />
   <path d="M12 18v-6" />
   <path d="m9 15 3 3 3-3" />
-</svg>Note PDF<span class="tag draft">bientôt</span></button><button type="button" class="mi" data-theme-toggle="1"><svg
+</svg>Note PDF</button><button type="button" class="mi" data-theme-toggle="1"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -534,7 +534,35 @@
 >
   <path d="M18 6 6 18" />
   <path d="m6 6 12 12" />
-</svg></button></div></div><div class="stage" id="stage"></div></section><section class="panel left"><div class="phead"><span class="h3">Éléments et étapes</span><span class="calcule" id="calcule"></span><button class="pcoll" data-coll="g" title="Replier la liste"><svg
+</svg></button></div></div><div class="stage" id="stage"></div></section><div class="et-poignee" data-poignee="g" role="separator" aria-orientation="vertical" title="Glisser pour élargir ; double-clic : largeur d'origine"></div><section class="panel left"><div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span><button type="button" class="et-hist" data-historique="annuler" title="Annuler (Ctrl+Z)" aria-label="Annuler" disabled><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M9 14 4 9l5-5" />
+  <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />
+</svg></button><button type="button" class="et-hist" data-historique="retablir" title="Rétablir (Ctrl+Maj+Z)" aria-label="Rétablir" disabled><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m15 14 5-5-5-5" />
+  <path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13" />
+</svg></button><button class="pcoll" data-coll="g" title="Replier les données"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -548,20 +576,7 @@
 >
   <rect width="18" height="18" x="3" y="3" rx="2" />
   <path d="M9 3v18" />
-</svg></button></div><nav class="pbody et-liste" id="liste" aria-label="Éléments et étapes de la note"><div class="attente">Chargement…</div></nav></section><section class="panel right"><div class="et-props"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="props" aria-expanded="true" title="Replier les propriétés"><svg
-  class="i"
-  xmlns="http://www.w3.org/2000/svg"
- 
- 
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m6 9 6 6 6-6" />
-</svg></button><span class="h3">Propriétés</span><span class="et-choix" id="et-choix"></span><button class="pcoll" data-coll="d" title="Replier le panneau"><svg
+</svg></button></div><div class="pbody" id="donnees"><div class="attente">Chargement…</div></div></section><div class="et-poignee" data-poignee="d" role="separator" aria-orientation="vertical" title="Glisser pour élargir ; double-clic : largeur d'origine"></div><section class="panel right"><div class="phead"><span class="h3">Résultats</span><span id="statut"></span><button class="pcoll" data-coll="d" title="Replier les résultats"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -575,20 +590,7 @@
 >
   <rect width="18" height="18" x="3" y="3" rx="2" />
   <path d="M15 3v18" />
-</svg></button></div><div class="pbody" id="donnees"><div class="attente">Chargement…</div></div></div><div class="et-res"><div class="phead et-sous"><button type="button" class="et-replier" data-et-replier="res" aria-expanded="true" title="Replier le résultat"><svg
-  class="i"
-  xmlns="http://www.w3.org/2000/svg"
- 
- 
-  viewBox="0 0 24 24"
-  fill="none"
-  stroke="currentColor"
-  stroke-width="2"
-  stroke-linecap="round"
-  stroke-linejoin="round"
->
-  <path d="m6 9 6 6 6-6" />
-</svg></button><span class="h3">Résultat</span><span id="statut"></span></div><div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div></div></section><div id="volets"></div><div class="demarrage" id="demarrage"><div class="carte"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div><b>Chargement du moteur de calcul</b><span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div><small>La première ouverture prend quelques secondes ; ensuite, chaque calcul est immédiat.</small></div></div></div><div class="mbar"><button type="button" class="btn" data-action="exporter"><svg
+</svg></button></div><div id="resultat" class="resultat"><div class="pbody"><div class="attente">Chargement…</div></div></div></section><div id="volets"></div><div class="demarrage" id="demarrage"><div class="carte"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div><b>Chargement du moteur de calcul</b><span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div><small>La première ouverture prend quelques secondes ; ensuite, chaque calcul est immédiat.</small></div></div></div><div class="mbar"><button type="button" class="btn" data-action="exporter"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -603,7 +605,7 @@
   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
   <polyline points="7 10 12 15 17 10" />
   <line x1="12" x2="12" y1="15" y2="3" />
-</svg><span class="lbl">Exporter .stab</span></button><button type="button" class="btn primary" data-action="pdf" aria-disabled="true"><svg
+</svg><span class="lbl">Exporter .stab</span></button><button type="button" class="btn primary" data-action="pdf"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  

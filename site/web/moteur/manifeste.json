@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "7e96e50a6eda0945ab0f09e91f455d436fc06c536d17fb2df589ef5ea74df938",
+ "sha256": "d6d4a31eccd2a267be35b05d1008713ca026b22a35ee82409758d4b58981813e",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -153,6 +153,7 @@
   "api_web/catalogue.py",
   "api_web/commun.py",
   "api_web/corniere.py",
+  "api_web/coupe_ba.py",
   "api_web/dalle.py",
   "api_web/dessin_age.py",
   "api_web/dessin_bois.py",
@@ -172,9 +173,11 @@
   "api_web/flambement.py",
   "api_web/garde_corps.py",
   "api_web/icones.py",
+  "api_web/note_poutre.py",
   "api_web/parcours.py",
   "api_web/plancher.py",
   "api_web/poutre.py",
+  "api_web/poutre_streamlit.py",
   "api_web/predalle.py",
   "api_web/profil.py",
   "api_web/registre.py",
@@ -207,6 +210,7 @@
   "beton/maturite/moteur.py",
   "beton/maturite/releve.py",
   "beton/poutre/__init__.py",
+  "beton/poutre/dispositions.py",
   "beton/poutre/entree.py",
   "beton/poutre/geometrie.py",
   "beton/poutre/moteur.py",
@@ -260,5 +264,11 @@
   "plancher",
   "profil",
   "soudures"
- ]
+ ],
+ "note": {
+  "sha256": "863c22097a1c7ea148fe05c91fa78a631e1a0d97ded480189139d9b547622886",
+  "octets": 2069956,
+  "reportlab": "5.1.0",
+  "fichiers": 86
+ }
 }
