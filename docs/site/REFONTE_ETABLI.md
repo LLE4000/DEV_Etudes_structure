@@ -100,6 +100,58 @@ calcul, inchangée), et le filtre « pilote » de `site/web/verifier_site.js` (a
 le dessin dans les deux sens, annuler et rétablir, chaque fenêtre de détail, la note PDF téléchargée, le nom du .stab,
 l'import Streamlit, le redimensionnement).
 
+## La deuxième passe : ergonomie et dessin (08/11/2026, suite)
+
+**Demande de l'ingénieur** (« STAB MÉTHODES — MODULE POUTRES BA — deuxième passe d'amélioration ergonomique et
+graphique », 28 remarques) : une interface moins chargée, à la finition d'un logiciel d'ingénierie — à gauche la
+navigation et les données, au centre un dessin technique de grande qualité, à droite les résultats et vérifications —
+sans perdre une fonction ni la fiabilité du calcul. Priorité : simplifier la gauche, redessiner les étriers,
+synchroniser les résultats par section. Signalé de vive voix : deux étriers sur les barres 1 → 3 et 2 → 4 donnaient,
+dans la note PDF, un étrier hors de la poutre. (Les trois captures annotées annoncées ne sont pas parvenues : la passe
+s'appuie sur les 28 remarques écrites.)
+
+**Ce qui est fait, et pourquoi** :
+- **Gauche, une arborescence** : chaque poutre « nom · b × h cm » (ni taux, ni pastille : le résultat est à droite) ;
+  un clic ouvre une poutre (l'autre se replie), un clic sur la poutre ouverte la replie ; ses actions (renommer, copier
+  CETTE poutre, supprimer) dans un menu « ⋯ » discret. Sous la poutre ouverte, ses quatre rubriques : **une ouverte par
+  défaut**, un en-tête ouvre ou referme SA rubrique sans toucher aux autres (plusieurs ouvertes si on le veut). Le dessin
+  amène à la rubrique d'une pièce : celles qu'il avait ouvertes se replient, celles ouvertes à la main restent.
+- **Armatures compactes** : « Inférieures · A_s requis 1 212 mm² », puis une ligne par lit « L1 | 4 | Ø20 | 1 257 mm² »
+  dont le détail (répartition en trois modes nommés et dessinés — Uniforme, Superposée, Centrée —, position,
+  espacements libres contrôlés et leur état) ne s'ouvre que sur le lit choisi ; une ligne par cadre « C1 · Ø10 · 2 brins
+  · barres 1–3 », son détail (type, Ø, les barres entourées : un clic par bout, « Toute la largeur ») sur le cadre
+  choisi. Une pastille seulement sur une ligne repliée qui porte un défaut. Libellés courts (« y_G imposé »), le reste
+  dans l'info-bulle.
+- **Sections** : un bouton rond choisit la section courante (rubrique 2), un sélecteur la change (rubrique 3) ; la
+  section choisie à gauche est celle du dessin et la seule vérifiée à droite ; « Toutes » au centre montre toutes les
+  coupes et tous les blocs.
+- **Dessin** : un en-tête technique (« SECTION A · 25 × 50 cm · C30/37 · B500 », les aciers, les étriers) et une bande
+  compacte des trois efforts, sans couleur d'alerte ; plus de « mm · à l'échelle » ; le zoom (icône « ajuster » au lieu
+  de « 100 % », qui laissait croire à une échelle d'impression) n'apparaît qu'au survol de la toile (au doigt, après
+  un appui). Le béton en contour net sur un semis discret de granulats ; chaque cadre à sa place réelle (x0, x1 du
+  moteur), cintré, fermé à 135° en haut à gauche ; acier en double trait. Un cadre choisi (sur le dessin, son étiquette
+  ou sa ligne) passe au-dessus des autres et montre deux **poignées** : on les glisse, elles s'aimantent aux barres du
+  lit 1 inférieur (jamais entre deux barres, jamais un cadre sur une seule barre).
+- **Droite** : le nom de la poutre, puis un **bloc par section** — en-tête « SECTION A · Non conforme » coloré par son
+  état (vert pâle conforme, ambre à vérifier, rouge non conforme, gris données incomplètes), repliable, « tout le
+  calcul » à droite ; le grand indicateur global est retiré. Chaque vérification sur deux lignes (le nom et ce qu'elle
+  nomme — barres posées, ce que demande la bande de τ, les brins —, le taux ; la valeur et sa limite en clair, une jauge
+  fine) ; un clic ouvre la fenêtre de détail. Les **dispositions** sont une liste de contrôle rangée par état : non
+  conformes (avec ce qu'il faut corriger), à examiner (« Marquer examinée… », justification facultative gardée dans la
+  note), examinées et justifiées par l'ingénieur (« Annuler »), conformes automatiquement (une ligne chacune). Un clic
+  sur une observation montre sa pièce au dessin et dans les données. Une non-conformité n'a jamais de bouton.
+- **Note PDF** : la coupe pose barres et cadres aux positions du moteur (le défaut signalé est corrigé), chaque
+  observation a sa ligne (et sa justification) ; `docs/beton/POUTRE_FERRAILLAGE.md` § 4.
+
+**Les contrôles** : `tests/test_api_web_poutre.py` § 15 à 19 (les barres entourées et leurs refus, le ramenage d'un
+cadre quand une barre disparaît, la justification et son empreinte, une non-conformité qui ne se justifie pas, la liste
+rangée par état, chaque observation qui désigne une pièce, l'en-tête des vues, les poignées cachées, le menu ⋯),
+`tests/test_poutre_dispositions.py` (les états), `tests/test_note_poutre.py` (les coupes de la note mesurées), et le
+filtre « pilote » de `site/web/verifier_site.js` (l'arborescence sans taux, l'accordéon à plusieurs rubriques, la
+navigation depuis le dessin qui garde les rubriques ouvertes à la main, les poignées visibles sur le seul cadre choisi
+et glissées jusqu'à une barre, les barres choisies dans les données, la synchronisation section ↔ dessin ↔ résultats,
+« Toutes », la justification enregistrée, le zoom discret, le menu ⋯).
+
 ---
 
 # Refonte de l'établi Stab Méthodes : avis du jury sur les trois propositions, puis spécification finale en lots

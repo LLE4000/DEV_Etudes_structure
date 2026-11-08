@@ -341,7 +341,9 @@ def photographier(cle: str, case: dict) -> dict:
                   "nombres": nombres(v.get("svg", ""))} for v in rep.get("vues", [])],
         "etat": etat,
     }
-    n = (rep.get("elements") or "").count("data-activer=")
+    # les éléments de la note : leur liste (« elements »), ou, dans l'établi compact où ils sont l'ARBORESCENCE des
+    # données (la poutre, deuxième passe 11/2026), le cadre Données
+    n = (rep.get("elements") or "").count("data-activer=") or (rep.get("donnees") or "").count("data-activer=")
     if n > 1:                                         # chaque élément ouvert à son tour : sa phrase et son résultat
         photo["elements"] = []                        # (le résumé, lui, est celui de la NOTE : son élément le plus chargé)
         for k in range(n):

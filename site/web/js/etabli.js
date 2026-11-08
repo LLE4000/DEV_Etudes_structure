@@ -214,12 +214,19 @@ document.addEventListener("keydown", (ev) => {
 
 // ------------------------------------------------------------------ l'affichage
 const ouvertes = new Set(memoire.lire(`stab.sec.${MODULE}`, []));
+// (établi compact) les rubriques ouvertes À LA MAIN (un clic sur leur en-tête) : elles restent ouvertes quand le dessin
+// amène à une autre rubrique ; celles que le dessin a ouvertes se replient quand il en ouvre une autre
+const voulues = new Set(COMPACT ? memoire.lire(`stab.sec.${MODULE}.voulues`, []) : []);
+function garderRubriques() {
+  memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
+  if (COMPACT) memoire.ecrire(`stab.sec.${MODULE}.voulues`, [...voulues]);
+}
 let premier = true;
 let vueCourante = null;
 const toile = cablerToile({ bench, stage: $("#stage"), barre: $("#zoom") });
 // l'établi compact : la sélection données ↔ dessin, la section courante, les colonnes réglables (js/compact.js)
 const compact = COMPACT ? cablerCompact({
-  cle: MODULE, note: () => note, ouvrirRubrique,
+  cle: MODULE, note: () => note, ouvrirRubrique, envoyer,
   vue: { courante: () => vueCourante, choisir: choisirVue, ajuster: () => requestAnimationFrame(() => toile.vue(vueCourante)) },
 }) : null;
 
@@ -232,7 +239,11 @@ function appliquer(r, action) {
   if (!provisoire || MODIFIENT.has(action)) enregistrer();
   $("#statut").innerHTML = r.statut_html || "";
   afficherResume(r.resume || {});
+  // le résultat refait garde sa position de lecture (une liste de contrôle dépliée, une justification qu'on vient de
+  // valider : on reste à l'endroit où l'on travaillait)
+  const defR = $("#resultat .pbody") ? $("#resultat .pbody").scrollTop : 0;
   $("#resultat").innerHTML = r.resultat;
+  if (defR && $("#resultat .pbody")) $("#resultat .pbody").scrollTop = defR;
   const ouvert = $(".flyout.on.calcul");
   $("#volets").innerHTML = r.volets || "";
   if (ouvert) ouvrir(ouvert.id, $(`#resultat [data-calcul="${ouvert.id.slice(3)}"]`), true);
@@ -269,13 +280,13 @@ function afficherDonnees(elements, html) {
   separerNoms(zone);
   // les sections gardent leur état (ouvert, fermé) d'un calcul à l'autre
   if (COMPACT) {
-    // une rubrique à la fois : celle gardée de la session, sinon la première que le moteur ouvre
+    // les rubriques gardées de la session ; à la première ouverture, celle que le moteur ouvre (une seule, par défaut)
     const secs = [...zone.querySelectorAll(".sec[data-sec]")];
-    let k = [...ouvertes].find((c) => secs.some((s) => s.dataset.sec === c));
-    if (premier && !k) k = (secs.find((s) => s.classList.contains("open")) || secs[0] || {}).dataset?.sec;
-    secs.forEach((s) => s.classList.toggle("open", s.dataset.sec === k));
-    ouvertes.clear();
-    if (k) ouvertes.add(k);
+    if (premier && !secs.some((s) => ouvertes.has(s.dataset.sec))) {
+      const k = (secs.find((s) => s.classList.contains("open")) || secs[0] || {}).dataset?.sec;
+      if (k) ouvertes.add(k);
+    }
+    secs.forEach((s) => s.classList.toggle("open", ouvertes.has(s.dataset.sec)));
   } else {
     zone.querySelectorAll(".sec[data-sec]").forEach((s) => {
       const cle = s.dataset.sec;
@@ -315,9 +326,14 @@ function separerNoms(zone) {
 }
 
 // « mm · à l'échelle » : sur un dessin seulement — pas sur un tableau (vue HTML), ni sur une vue que le module dit hors
-// échelle (une courbe, un diagramme : « echelle »: false)
+// échelle (une courbe, un diagramme : « echelle »: false). L'établi compact ne l'écrit pas : le dessin s'ajuste à la
+// feuille, il n'est à aucune échelle d'impression (les cotes disent les dimensions).
 const estDessin = (v) => /^\s*<svg/.test(v.svg || "");
-const echelle = (v) => v.echelle !== false && estDessin(v);
+const echelle = (v) => !COMPACT && v.echelle !== false && estDessin(v);
+// le titre d'une vue : l'EN-TÊTE technique que le module compose (« entete » : la section, ses aciers, ses étriers, la
+// bande des efforts), sinon le titre et la légende
+const titreVue = (v) => (v.entete ? `<div class="stitle et-stitle">${v.entete}</div>`
+  : `<div class="stitle"><b>${esc(v.titre)}</b>${v.legende ? `<span class="leg">${esc(v.legende)}</span>` : ""}${echelle(v) ? '<span class="scale">mm · à l\'échelle</span>' : ""}</div>`);
 
 function afficherVues(vues, phrase) {
   const onglets = $("#vues"), stage = $("#stage");
@@ -337,8 +353,7 @@ function afficherVues(vues, phrase) {
     + `<div class="ind"><span>Indice</span><b>${esc(note.indice || "A")}</b></div><div class="dt"><span>Date</span><b>${date}</b></div>`
     + `<div class="mark"><i></i><span>Stab Méthodes</span></div></div>`;
   // chaque vue porte SA légende ; la phrase du module (la note en une ligne) se lit sous le titre de la première
-  stage.innerHTML = vues.map((v, i) => `<div class="view${v.cle === vueCourante ? " on" : ""}" data-vue="${esc(v.cle)}"><div class="sheet"><div class="stitle">`
-    + `<b>${esc(v.titre)}</b>${v.legende ? `<span class="leg">${esc(v.legende)}</span>` : ""}${echelle(v) ? '<span class="scale">mm · à l\'échelle</span>' : ""}</div>`
+  stage.innerHTML = vues.map((v, i) => `<div class="view${v.cle === vueCourante ? " on" : ""}" data-vue="${esc(v.cle)}"><div class="sheet">${titreVue(v)}`
     + `${i === 0 && phrase ? `<div class="sphrase">${phrase}</div>` : ""}`
     + `<div class="draw${estDessin(v) ? " dessin" : " bloc"}">${v.svg}</div>${cart}</div></div>`).join("");
   garderGrec(stage);
@@ -443,12 +458,15 @@ function agirElement(ev) {
   const sup = ev.target.closest("[data-supprimer]");
   if (sup) {
     ev.stopPropagation();
-    if (confirm("Supprimer cet élément de la note ?")) envoyer("supprimer", { index: +sup.dataset.supprimer });
+    if (confirm(sup.dataset.confirmer || "Supprimer cet élément de la note ?")) envoyer("supprimer", { index: +sup.dataset.supprimer });
     return true;
   }
   const act = ev.target.closest("[data-activer]");
   if (act) { if (!act.classList.contains("on")) envoyer("activer", { index: +act.dataset.activer }); return true; }
   if (ev.target.closest("[data-ajouter]")) { envoyer("ajouter"); return true; }
+  // (établi compact) « Copier » dans le menu ⋯ d'un élément : CET élément, la copie s'insère après lui
+  const dup = ev.target.closest("[data-dupliquer-index]");
+  if (dup) { envoyer("dupliquer", { index: +dup.dataset.dupliquerIndex }); return true; }
   if (ev.target.closest("[data-dupliquer]")) { envoyer("dupliquer"); return true; }
   return false;
 }
@@ -457,32 +475,47 @@ $("#donnees").addEventListener("click", (ev) => {
   if (seg) { if (!seg.classList.contains("on")) envoyer("modifier", { chemin: seg.dataset.chemin.split("/"), valeur: seg.dataset.valeur }); return; }
   const hd = ev.target.closest(".sechd[data-replier]");
   if (hd) {
-    const s = hd.parentElement;
-    if (COMPACT && !s.classList.contains("open")) { ouvrirRubrique(s.dataset.sec); return; }
+    const s = hd.parentElement, k = s.dataset.sec;
     s.classList.toggle("open");
-    if (s.classList.contains("open")) ouvertes.add(s.dataset.sec); else ouvertes.delete(s.dataset.sec);
-    memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
+    const on = s.classList.contains("open");
+    if (on) ouvertes.add(k); else ouvertes.delete(k);
+    // (établi compact) un en-tête ouvre ou referme SA rubrique, sans toucher aux autres : on en garde plusieurs ouvertes
+    // si on le veut ; ce choix fait à la main survit à la navigation depuis le dessin
+    if (COMPACT) { if (on) voulues.add(k); else voulues.delete(k); }
+    garderRubriques();
     return;
   }
   // le sélecteur d'armatures (« Proposer ») et « Renommer » d'un élément, posés dans les données
   const pk = ev.target.closest("[data-pk]");
   if (pk) { ev.stopPropagation(); ouvrirSelecteur(pk.dataset.pk, pk); return; }
-  if (ev.target.closest("[data-renommer]")) { ev.stopPropagation(); renommer(); return; }
+  const rn = ev.target.closest("[data-renommer]");
+  if (rn) {
+    ev.stopPropagation();
+    // (établi compact) le menu ⋯ d'une poutre qui n'est pas ouverte : elle s'ouvre d'abord, son nom se choisit ensuite
+    const i = Number(rn.dataset.renommer);
+    if (COMPACT && rn.closest(".et-pt") && Number.isInteger(i) && note.etat && i !== note.etat.actif) envoyer("activer", { index: i }).then((r) => { if (r) renommer(); });
+    else renommer();
+    return;
+  }
   agirElement(ev);
 });
 
-// l'établi compact : ouvrir UNE rubrique (les autres se replient) — un clic sur son en-tête, ou une pièce du dessin
+// l'établi compact : le DESSIN amène à la rubrique d'une pièce. Elle s'ouvre ; les rubriques que le dessin avait ouvertes
+// se replient, celles ouvertes à la main (voulues) restent ouvertes
 function ouvrirRubrique(cle) {
   const zone = $("#donnees");
-  zone.querySelectorAll(".sec[data-sec]").forEach((x) => x.classList.toggle("open", x.dataset.sec === cle));
-  ouvertes.clear();
-  ouvertes.add(cle);
-  memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
+  zone.querySelectorAll(".sec[data-sec]").forEach((x) => {
+    const k = x.dataset.sec, on = k === cle || voulues.has(k);
+    x.classList.toggle("open", on);
+    if (on) ouvertes.add(k); else ouvertes.delete(k);
+  });
+  garderRubriques();
   const s = zone.querySelector(`.sec[data-sec="${CSS.escape(cle)}"]`);
   if (s) requestAnimationFrame(() => s.scrollIntoView({ block: "nearest" }));
 }
 // « Renommer » l'élément ouvert : son champ « Nom » (rubrique 1), choisi
 function renommer() {
+  if (compact) compact.deplierPoutre();
   const champ = $('#donnees input[data-chemin="nom"]');
   if (!champ) return;
   const rub = champ.closest(".sec[data-sec]");

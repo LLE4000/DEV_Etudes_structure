@@ -13,7 +13,11 @@
   effort est « Données incomplètes », jamais « Conforme » ; sans V, τ et étriers sont « non effectuée » ; les dispositions
   constructives disent leur état en mots, sans taux ; chaque pièce du dessin a sa ligne dans les données (et
   réciproquement) ; les clés du ferraillage détaillé (position, répartition, entraxe, barres entourées, latérales,
-  copie de section) se saisissent, se vident (automatique) et se refusent comme les autres.
+  copie de section) se saisissent, se vident (automatique) et se refusent comme les autres ;
+- la deuxième passe (11/2026) : à gauche l'ARBORESCENCE (chaque poutre « nom · b × h cm », sans taux, son menu ⋯) ; les
+  barres qu'un cadre entoure se choisissent (« de-à ») et ne désignent jamais une barre absente ; à droite un BLOC par
+  section, coloré par son état, et la LISTE DE CONTRÔLE des dispositions (une observation « à examiner » se justifie,
+  une non-conformité non) ; au centre l'en-tête technique de chaque vue et les poignées du cadre choisi.
 
     python3 tests/test_api_web_poutre.py
 """
@@ -94,18 +98,19 @@ niv = {MO.NOK: "r", MO.WARN: "v"}.get(ref["statut_complet"], niv)
 chk("le résumé : taux, couleur et gouvernant du moteur",
     r["resume"]["taux"] == C.pct(ref["taux_max"]) and r["resume"]["niveau"] == niv and r["resume"]["gouvernant"].endswith(f"section {g['section']} · {g['nom']}"),
     (r["resume"], ref["taux_max"], g))
-grp = re.findall(r'<div class="elgrp et-sgrp" data-section="\d+"><span class="et-sn">Section ([^<]+)</span><span class="et-st (\w)">([^<]+)</span>', r["resultat"])
-etat_sec = {MO.NOK: ("r", "Non conforme"), MO.WARN: ("v", "À vérifier")}
-chk("un en-tête par section, avec son état (méthode et dispositions)",
-    grp == [(s["nom"], *etat_sec.get(s["statut_complet"], (C.niveau(s["taux_max"]), C.STATUTS[C.niveau(s["taux_max"])][1]))) for s in ref["sections"]], grp)
+grp = re.findall(r'<section class="et-bloc (\w+)" data-section="(\d+)">.*?<span class="n">Section ([^<]+)</span><span class="e">([^<]+)</span>', r["resultat"], re.S)
+etat_sec = {MO.NOK: ("nok", "Non conforme"), MO.WARN: ("warn", "À vérifier")}
+chk("un BLOC par section, son en-tête coloré par son état (méthode et dispositions)",
+    grp == [(*etat_sec.get(s["statut_complet"], ("ok", "Conforme"))[:1], str(i), s["nom"], etat_sec.get(s["statut_complet"], ("ok", "Conforme"))[1])
+            for i, s in enumerate(ref["sections"])], grp)
 cles_v = [f"s{i}-{v['cle']}" for i, s in enumerate(ref["sections"]) for v in s["verifications"]]
 ouvre = re.findall(r'<div class="el vc[^"]*" data-calcul="(s\d-\w+)"', r["resultat"])
 chk("chaque vérification ouvre SA fenêtre de détail, et chaque section a la sienne (tout le calcul)",
     all(f'id="ck-{k}"' in r["volets"] for k in cles_v) and all(f'id="ck-s{i}"' in r["volets"] for i in range(len(p["sections"])))
-    and [k for k in ouvre if not k.endswith("-dispo")] == cles_v, (ouvre, cles_v))
-chk("une ligne « Dispositions constructives » par section, avec sa fenêtre",
-    [k for k in ouvre if k.endswith("-dispo")] == [f"s{i}-dispo" for i in range(len(p["sections"]))]
-    and all(f'id="ck-s{i}-dispo"' in r["volets"] for i in range(len(p["sections"]))), ouvre)
+    and ouvre == cles_v and re.findall(r'class="et-tout" data-calcul="(s\d)"', r["resultat"]) == [f"s{i}" for i in range(len(p["sections"]))], (ouvre, cles_v))
+chk("une ligne « Dispositions constructives » par section, qui déplie SA liste de contrôle (pas de fenêtre à part)",
+    re.findall(r'class="el vc et-dispo" data-dispo="(\d)"', r["resultat"]) == [str(i) for i in range(len(p["sections"]))]
+    and re.findall(r'class="et-obs-l" data-dispo-l="(\d)"', r["resultat"]) == [str(i) for i in range(len(p["sections"]))], ouvre)
 chk("une vue par section, et « Toutes » quand il y en a plusieurs", [v["cle"] for v in r["vues"]] == ["s0", "s1", "toutes"], [v["cle"] for v in r["vues"]])
 chk("le choix d'armatures s'ouvre sur les deux faces de chaque section, depuis le résultat et depuis les données",
     re.findall(r'data-pk="([^"]+)"', r["resultat"]) == ["inf-0", "sup-0", "inf-1", "sup-1"]
@@ -137,10 +142,10 @@ champs = re.findall(r'<input data-chemin="([^"]+)" data-sorte="(\w+)"[^>]*?value
 champs += [(c_, "choix", v_) for c_, v_ in re.findall(r'<select data-chemin="([^"]+)" data-sorte="choix"[^>]*>.*?<option value="([^"]*)" selected', r["donnees"], re.S)]
 champs += re.findall(r'<button type="button" class="on" data-chemin="([^"]+)" data-sorte="(choix)" data-valeur="([^"]*)"', r["donnees"])
 # poutre (nom, béton, acier, b, h, enrobage) + par section (nom, M_inf, M_sup, V ; par lit : n, Ø, répartition, position
-# [+ entraxe horizontal] ; y_G imposé des deux faces ; latérales n et Ø ; par ligne d'étriers : type, Ø, barre « de »
-# [+ « à » pour un cadre] ; pas) + options (γs, deux jeux, d_g, Ø et écart des latérales automatiques)
+# [+ entraxe horizontal] ; y_G imposé des deux faces ; latérales n et Ø ; par ligne d'étriers : type, Ø — ses barres se
+# CHOISISSENT, data-plage, plus bas ; pas) + options (γs, deux jeux, d_g, Ø et écart des latérales automatiques)
 n_attendu = 6 + 6 + sum(4 + sum(4 + (lit.get("rep") == "entraxe") for f in ("inf", "sup") for lit in s_[f]) + 2 + 2
-                        + sum(3 + (e_["type"] == "etrier") for e_ in s_["etriers"]) + 1 for s_ in p["sections"])
+                        + sum(2 for _e in s_["etriers"]) + 1 for s_ in p["sections"])
 chk(f"le cadre Données porte tous les champs de la poutre ({len(champs)})", len(champs) == n_attendu, (len(champs), n_attendu))
 vus = {c_ for c_, _, _ in champs}
 chk("les champs couvrent la poutre, les efforts, les lits, les étriers et la méthode",
@@ -200,7 +205,8 @@ chk("la dernière section ne se retire pas", msg and len(e["poutres"][0]["sectio
 msg = P.modifier(e, ["sections", "0", "inf", "0", "-"], 1)
 chk("le dernier lit d'une face ne se retire pas", msg and len(e["poutres"][0]["sections"][0]["inf"]) == 1, msg)
 h = P.formulaire(e)
-chk("une section seule n'a pas de bouton « Retirer »", 'data-chemin="sections/0/-"' not in h)
+chk("une section seule : « Supprimer la section » reste dans son menu ⋯, grisé (jamais actif)",
+    re.search(r'<button type="button" role="menuitem" class="danger" data-chemin="sections/0/-" data-valeur="1" disabled>', h) is not None, h[:200])
 P.modifier(e, ["sections", "+"], 1)
 chk("la section ajoutée prend la première lettre libre (A)", [s["nom"] for s in e["poutres"][0]["sections"]] == ["B", "A"])
 
@@ -236,7 +242,13 @@ rn = req(module="poutre", action="calculer", etat=e)
 t_max = max(MO.verifier(x)["taux_max"] for x in e["poutres"])
 chk("le résumé de la note est sa poutre la plus chargée (ici V1, fermée)",
     rn["resume"]["taux"] == C.pct(t_max) and rn["resume"]["gouvernant"].startswith("V1 ·"), (rn["resume"], t_max))
-chk("la liste montre chaque poutre avec son taux", len(re.findall(r'class="ni[ "]', rn["elements"])) == 3 and 'class="ni on" data-activer="1"' in rn["elements"])
+pts_ = re.findall(r'<div class="et-pt( on)?" data-poutre="(\d)">.*?<span class="nom">([^<]+)</span><span class="dim">([^<]+)</span>', rn["donnees"], re.S)
+arbre_ = rn["donnees"].split('class="et-pt-corps"')[0] + "".join(x.split("</div></div>", 1)[-1] for x in rn["donnees"].split('class="et-pt-corps"')[1:])
+chk("l'arborescence montre chaque poutre « nom · b × h cm », l'ouverte développée — sans taux ni pastille d'état",
+    [(o, i, n) for o, i, n, _ in pts_] == [("", "0", "V1"), (" on", "1", "V2"), ("", "2", "V2 (copie)")]
+    and all(d == f"· {C.nb(x['b'])} × {C.nb(x['h'])} cm" for (*_, d), x in zip(pts_, e["poutres"]))
+    and rn["donnees"].count('class="et-pt-corps"') == 1 and rn["elements"] == ""
+    and not re.search(r'class="(chip|status|pct)\b', rn["donnees"].split('class="et-pt-corps"')[0]), pts_)
 P.gerer_elements(e, "supprimer", 0)
 chk("supprimer la première garde la poutre ouverte", len(e["poutres"]) == 2 and e["actif"] == 0 and e["poutres"][0]["nom"] == "V2")
 P.gerer_elements(e, "supprimer", 0)
@@ -269,7 +281,8 @@ e = copy.deepcopy(etat)
 P.modifier(e, ["nom"], '<script>alert("x")</script>')
 out = req(module="poutre", action="calculer", etat=e)
 fuites = [k for k, h in fragments_html(out).items() if "<script>" in h]
-chk("un nom de poutre saisi est échappé dans chaque fragment HTML", not fuites and "&lt;script&gt;" in out["elements"] and "&lt;script&gt;" in out["volets"], fuites)
+chk("un nom de poutre saisi est échappé dans chaque fragment HTML", not fuites and "&lt;script&gt;" in out["donnees"] and "&lt;script&gt;" in out["volets"]
+    and "&lt;script&gt;" in out["resultat"], fuites)
 # un nom de section ne se saisit pas à l'écran, mais un fichier .stab peut en porter un
 e = copy.deepcopy(etat)
 e["poutres"][0]["sections"][0]["nom"] = '<img src=x onerror=alert(1)>'
@@ -331,20 +344,20 @@ _js_etabli = open(os.path.join(RACINE, "site", "web", "js", "etabli.js"), encodi
 chk("téléphone : la pastille d'une note sans effort dit « Incomplet » (le statut entier au survol)",
     out["resume"].get("court") == "Incomplet" == C.STATUTS_COURTS["n"] and "res.court || res.statut" in _js_etabli, out["resume"])
 non_eff =re.findall(r'<div class="el vc fixe"><div class="l1"><b>([^<]+)</b><span class="et-mot c">non effectuée</span>', out["resultat"])
-chk("sans effort tranchant : τ et étriers « non effectuée » (et pourquoi), sans taux", non_eff == ["Effort tranchant", "Étriers"]
+chk("sans effort tranchant : τ et étriers « non effectuée » (et pourquoi), sans taux", non_eff == ["Effort tranchant", "Espacement des étriers"]
     and "sans effort tranchant (V = 0)" in out["resultat"], non_eff)
 dispo = re.findall(r'<b>Dispositions constructives</b><span class="et-mot (\w)">([^<]+)</span>', out["resultat"])
-chk("les dispositions constructives disent leur état en mots, sans pourcentage", dispo == [("p", "OK")], dispo)
+chk("les dispositions constructives disent leur état en mots, sans pourcentage", dispo == [("p", "Conforme")], dispo)
 e = P.nouvel_etat()
 for chemin, valeur in ((["sections", "0", "M_inf"], "40"), (["sections", "0", "V"], "20"), (["sections", "0", "pas"], "20"), (["sections", "0", "inf", "+"], 1)):
     P.modifier(e, chemin, valeur)
 out = req(module="poutre", action="calculer", etat=e)
 d0 = MO.verifier(out["etat"]["poutres"][0])["sections"][0]["dispositions"]
-chk("deux lits Ø16 au jeu du bureau (1 cm) : 14 mm libres < 25 mm, « À vérifier » (en ambre, pas en vert)",
-    any(it["cle"] == "entre_lits" and abs(it["libre"] - 14.0) < 1e-9 and it["mini"] == 25.0 and it["etat"] == "warn" for it in d0["items"])
-    and out["resume"]["niveau"] == "v" and 'class="status v"' in out["statut_html"], (out["resume"], [i for i in d0["items"] if i["etat"] != "ok"]))
+chk("deux lits Ø16 au jeu du bureau (1 cm) : 14 mm libres < 25 mm, NON CONFORME (EC2 8.2(2) : un minimum, pas un avis)",
+    any(it["cle"] == "entre_lits" and abs(it["libre"] - 14.0) < 1e-9 and it["mini"] == 25.0 and it["etat"] == "nok" for it in d0["items"])
+    and out["resume"]["niveau"] == "r", (out["resume"], [i for i in d0["items"] if i["etat"] != "ok"]))
 chk("… et les Options le disent, avec le jeu qui suffirait (2,1 cm : 1 + 2,1 + 1 = 4,1 cm d'entraxe, 41 − 16 = 25 mm libres)",
-    f"14{C.NBSP}mm</b> libres" in out["donnees"] and f"porter ce jeu à 2,1{C.NBSP}cm" in out["donnees"])
+    f"gardent 14{C.NBSP}mm libres" in out["donnees"] and "non conforme" in out["donnees"] and f"Porter ce jeu à 2,1{C.NBSP}cm" in out["donnees"])
 
 # 14. le ferraillage détaillé se saisit, se vide (automatique), se refuse
 e = copy.deepcopy(etat)
@@ -387,6 +400,151 @@ from api_web import dessin_poutre as DP  # noqa: E402
 g = DP._cible({"beton": 'x" onclick="alert(1)'}, "beton", "<rect/>")
 chk("une cible de pièce est échappée dans son attribut", 'onclick="' not in g and "&quot;" in g, g)
 chk("sans cible, le dessin est le même, à l'octet près", DP._cible(None, "beton", "<rect/>") == "<rect/>" and DP._cible({}, "beton", "<rect/>") == "<rect/>")
+
+# 15. (deuxième passe) les barres qu'un cadre entoure : « plage », jamais une barre absente
+def sec0(e_):
+    return e_["poutres"][0]["sections"][0]
+
+
+e = P.nouvel_etat()
+for chemin, valeur in ((["sections", "0", "inf", "0", "n"], "4"), (["sections", "0", "inf", "0", "d"], "20"), (["sections", "0", "etriers", "+"], "etrier")):
+    P.modifier(e, chemin, valeur)
+m1 = P.modifier(e, ["sections", "0", "etriers", "0", "plage"], "1-3")
+m2 = P.modifier(e, ["sections", "0", "etriers", "1", "plage"], "4–2")
+chk("le cas du bureau : deux cadres sur les barres 1 → 3 et 2 → 4 (l'ordre des bouts, le tiret long : indifférents)",
+    m1 is None and m2 is None and sec0(e)["etriers"] == [{"type": "etrier", "d": 10, "de": 1, "a": 3}, {"type": "etrier", "d": 10, "de": 2, "a": 4}],
+    (m1, m2, sec0(e)["etriers"]))
+res0 = MO.verifier(e["poutres"][0])["sections"][0]
+xs0 = res0["geometrie"]["inf"]["lits"][0]["x"]
+cds = res0["geometrie"]["etriers"]["cadres"]
+c0, b0 = res0["geometrie"]["enrobage_calcul"], e["poutres"][0]["b"]
+chk("… le moteur pose chaque cadre autour de SES barres, dans l'enrobage (jamais hors de la poutre)",
+    all(c0 - 1e-9 <= k["x0"] < k["x1"] <= b0 - c0 + 1e-9 for k in cds) and cds[0]["x0"] < xs0[0] - 1.0 and cds[0]["x1"] > xs0[2] + 1.0
+    and xs0[0] < cds[1]["x0"] < xs0[1] - 1.0 and cds[1]["x1"] > xs0[3] + 1.0 and xs0[2] < cds[0]["x1"] < xs0[3], (cds, xs0))
+out = req(module="poutre", action="calculer", etat=e)
+g_cadres = re.findall(r'<g class="pc cadre" data-sel="s0\.cadre-(\d)" data-cadre="\d" data-type="(\w+)" data-brins="\d" data-de="(\d+)" data-a="(\d+)">', out["vues"][0]["svg"])
+chk("… et le dessin dit, pour chaque cadre, les barres que le moteur lui a données", g_cadres == [("0", "etrier", "1", "3"), ("1", "etrier", "2", "4")], g_cadres)
+pick = re.findall(r'<div class="et-barres" data-plage="sections/0/etriers/(\d)/plage" data-type="(\w+)" data-de="(\d)" data-a="(\d)" data-n="(\d)">(.*?)</div>', out["donnees"])
+chk("… et les données : le choix des barres de chaque cadre, ses bouts éclairés, aucune barre de trop",
+    [(k, t, d_, a_, n_) for k, t, d_, a_, n_, _ in pick] == [("0", "etrier", "1", "3", "4"), ("1", "etrier", "2", "4", "4")]
+    and all(re.findall(r'data-barre="(\d)"', h_) == ["1", "2", "3", "4"] for *_, h_ in pick)
+    and re.findall(r'class="b on bout" data-barre="(\d)"', pick[1][5]) == ["2", "4"], pick)
+refus = []
+for valeur in ("3-3", "2-7", "0-2", "x", "1-2-3", "5"):
+    avant = copy.deepcopy(e)
+    msg = P.modifier(e, ["sections", "0", "etriers", "1", "plage"], valeur)
+    if not msg or e != avant:
+        refus.append((valeur, msg))
+chk("une plage impossible (une seule barre, une barre absente, la barre 0, un texte, trois bouts) est refusée, la poutre intacte", not refus, refus)
+out = req(module="poutre", action="modifier", etat=e, chemin=["sections", "0", "etriers", "1", "plage"], valeur="2-7")
+chk("… refusée par l'écran : le message dit les barres qui existent, l'état renvoyé est l'ancien",
+    out["ok"] and out["message"] == "Le lit 1 inférieur compte 4 barres : barres 1 à 4" and out["etat"] == e, out.get("message"))
+e2 = copy.deepcopy(e)
+P.modifier(e2, ["sections", "0", "etriers", "1", "plage"], "")
+e3 = copy.deepcopy(e)
+P.modifier(e3, ["sections", "0", "etriers", "1", "plage"], "1-4")
+chk("« Toute la largeur » (vide) et « 1-4 » sur quatre barres écrivent le même cadre complet (sans de ni à)",
+    sec0(e2)["etriers"][1] == sec0(e3)["etriers"][1] == {"type": "etrier", "d": 10}, (sec0(e2)["etriers"], sec0(e3)["etriers"]))
+e4 = copy.deepcopy(e)
+P.modifier(e4, ["sections", "0", "etriers", "1", "type"], "epingle")
+m4 = P.modifier(e4, ["sections", "0", "etriers", "1", "plage"], "3")
+chk("une épingle se pose sur UNE barre (« 3 »)", m4 is None and sec0(e4)["etriers"][1] == {"type": "epingle", "d": 10, "de": 3}, (m4, sec0(e4)["etriers"]))
+msg = P.modifier(e, ["sections", "0", "inf", "0", "n"], "3")
+chk("retirer une barre au lit 1 ramène le cadre qui l'entourait sur les barres qui restent, et le dit",
+    msg == "Le lit 1 inférieur compte moins de barres — C2 : cadre ramené aux barres 2 à 3." and sec0(e)["etriers"][1] == {"type": "etrier", "d": 10, "de": 2, "a": 3}
+    and sec0(e)["etriers"][0] == {"type": "etrier", "d": 10, "de": 1, "a": 3}, (msg, sec0(e)["etriers"]))
+out = req(module="poutre", action="choisir", etat=e, role="inf-0", nom="2Ø20")
+chk("… le sélecteur aussi : 2Ø20 posés, les deux cadres reviennent sur toute la largeur (aucune barre absente)",
+    out["ok"] and [x for x in out["etat"]["poutres"][0]["sections"][0]["etriers"]] == [{"type": "etrier", "d": 10}, {"type": "etrier", "d": 10}],
+    out["etat"]["poutres"][0]["sections"][0]["etriers"] if out["ok"] else out.get("erreur"))
+
+# 16. la liste de contrôle : une observation « à examiner » se justifie (et se garde) ; une non-conformité, jamais
+e = P.nouvel_etat()
+for chemin, valeur in ((["b"], "40"), (["h"], "60"), (["sections", "0", "M_inf"], "150"), (["sections", "0", "V"], "80"), (["sections", "0", "pas"], "20"),
+                       (["sections", "0", "inf", "0", "n"], "5"), (["sections", "0", "inf", "0", "d"], "20"), (["sections", "0", "sup", "0", "d"], "16"),
+                       (["sections", "0", "etriers", "+"], "etrier")):
+    m_ = P.modifier(e, chemin, valeur)
+    assert m_ is None, (chemin, m_)
+out = req(module="poutre", action="calculer", etat=e)
+d_ = MO.verifier(e["poutres"][0])["sections"][0]["dispositions"]
+warn = [it for it in d_["items"] if it["etat"] == "warn"]
+boutons = re.findall(r'data-justifier="0" data-obs="([^"]+)" data-empreinte="([^"]*)"', out["resultat"])
+chk("un cadre intérieur sous deux barres hautes : « à examiner », et SEULES ces observations ont « Marquer examinée… »",
+    warn and sorted(boutons) == sorted((it["id"], it["empreinte"]) for it in warn) and MO.verifier(e["poutres"][0])["statut"] != MO.NOK
+    and 'class="et-bloc warn"' in out["resultat"], (boutons, [it["id"] for it in warn]))
+cible = warn[0]
+out = req(module="poutre", action="modifier", etat=e, chemin=["sections", "0", "justifs", cible["id"]],
+          valeur={"texte": "  Barres de montage Ø8 au plan.  ", "empreinte": cible["empreinte"]})
+s_j = out["etat"]["poutres"][0]["sections"][0]
+chk("… la justification se garde dans la note (texte nettoyé, empreinte de ce qui a été examiné)",
+    out["ok"] and not out["message"] and s_j.get("justifs") == {cible["id"]: {"texte": "Barres de montage Ø8 au plan.", "empreinte": cible["empreinte"]}}, s_j.get("justifs"))
+obs_j = re.search(r'<div class="et-obs j" data-obs="' + re.escape(cible["id"]) + r'".*?</div></div>', out["resultat"], re.S)
+chk("… l'observation passe « Examinée — justifiée », son texte cité, « Annuler » à côté",
+    obs_j is not None and "Examinée — justifiée" in obs_j.group(0) and "« Barres de montage Ø8 au plan. »" in obs_j.group(0)
+    and f'data-dejustifier="0" data-obs="{cible["id"]}"' in obs_j.group(0), obs_j.group(0)[:300] if obs_j else out["resultat"][:300])
+reste = len(warn) - 1
+chk("… et l'en-tête de la section le compte", (f'class="et-bloc ok"' in out["resultat"] and "Conforme · 1 justification" in out["resultat"]) if not reste
+    else 'class="et-bloc warn"' in out["resultat"], re.findall(r'<span class="e">([^<]+)</span>', out["resultat"]))
+e_j = out["etat"]
+P.modifier(e_j, ["b"], "45")
+it_ = next(x for x in MO.verifier(e_j["poutres"][0])["sections"][0]["dispositions"]["items"] if x["id"] == cible["id"])
+chk("la géométrie change : la justification ne vaut plus (« à examiner » de nouveau, « justification à revoir »)",
+    it_["etat_eff"] == "warn" and it_.get("justification_perimee") == "Barres de montage Ø8 au plan.", it_)
+out = req(module="poutre", action="modifier", etat=out["etat"], chemin=["sections", "0", "justifs", cible["id"]], valeur=None)
+chk("« Annuler » retire la justification (la clé disparaît de la note)", out["ok"] and "justifs" not in out["etat"]["poutres"][0]["sections"][0], out["etat"]["poutres"][0]["sections"][0].get("justifs"))
+# une non-conformité : 2 lits Ø20 au jeu du bureau (10 mm libres < 25 mm)
+e5 = P.nouvel_etat()
+for chemin, valeur in ((["sections", "0", "M_inf"], "40"), (["sections", "0", "V"], "20"), (["sections", "0", "inf", "0", "d"], "20"), (["sections", "0", "inf", "+"], 1)):
+    P.modifier(e5, chemin, valeur)
+nok = next(x for x in MO.verifier(e5["poutres"][0])["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
+out = req(module="poutre", action="modifier", etat=e5, chemin=["sections", "0", "justifs", nok["id"]], valeur={"texte": "vu", "empreinte": nok["empreinte"]})
+nok2 = next(x for x in MO.verifier(out["etat"]["poutres"][0])["sections"][0]["dispositions"]["items"] if x["id"] == nok["id"])
+chk("une NON-CONFORMITÉ (10 mm < 25 mm) ne se justifie pas : aucun bouton, et même forcée dans la note elle reste non conforme",
+    nok["etat"] == "nok" and nok2["etat_eff"] == "nok" and f'data-obs="{nok["id"]}" data-empreinte' not in out["resultat"]
+    and 'class="et-bloc nok"' in out["resultat"], (nok["etat"], nok2["etat_eff"]))
+grp_ = re.findall(r'<div class="et-obs-g (\w)">([^<]+)<span>(\d+)</span>', out["resultat"])
+items5 = MO.verifier(out["etat"]["poutres"][0])["sections"][0]["dispositions"]["items"]
+chk("la liste de contrôle se range par état : non conformes, à examiner, justifiées, conformes automatiquement",
+    [(t, str(sum(x["etat_eff"] == e_ for x in items5))) for e_, t in P.GROUPES_OBS if any(x["etat_eff"] == e_ for x in items5)] == [g_[1:] for g_ in grp_]
+    and grp_[0][:2] == ("r", "Non conformes"), grp_)
+conformes = re.findall(r'<div class="et-obs p"[^>]*>.*?</div></div>', out["resultat"], re.S)
+chk("une observation conforme tient en une ligne (ni mot d'état, ni bouton)", conformes and not any('class="et-mot' in x or "<button" in x for x in conformes), conformes[:1])
+pieces_ = set().union(*(set(re.findall(r'data-sel="([^"]+)"', v["svg"])) for v in out["vues"]))
+mal = [k for k in re.findall(r'data-piece="([^"]+)"', out["resultat"]) if k not in pieces_]
+chk("chaque observation désigne une pièce du dessin (un clic la montre)", not mal and 'data-piece="s0.lit-inf-1"' in out["resultat"], mal)
+
+# 17. le dessin : l'en-tête technique de chaque vue ; les poignées des cadres cachées tant que rien n'est choisi
+out = req(module="poutre", action="calculer", etat=etat)
+ent = out["vues"][0]["entete"]
+chk("chaque vue a son en-tête : la section et ses matériaux, les aciers, les étriers, et la bande des trois efforts",
+    all("entete" in v for v in out["vues"]) and "<b>SECTION A</b>" in ent and "· 20 × 40 cm · C30/37 · B500" in ent
+    and "Inf. 2Ø16 · Sup. 2Ø16" in ent and "1 cadre Ø10 · e = 30 cm" in ent and ent.count("<span><i>") == 3 and ">122,0<" in ent and ">60,0<" in ent, ent)
+chk("le dessin ne porte plus « mm · à l'échelle » (il s'ajuste à la feuille) : l'écran ne l'écrit pas pour l'établi compact",
+    "const echelle = (v) => !COMPACT &&" in _js_etabli)
+svg0 = out["vues"][0]["svg"]
+chk("les poignées des cadres sont cachées tant que le cadre n'est pas choisi ; une zone de saisie élargit chaque acier",
+    svg0.count('<g class="poignees" visibility="hidden">') == len(re.findall(r'<g class="pc cadre" data-sel="[^"]+" data-cadre=', svg0)) > 0
+    and 'class="zone"' in svg0
+    and 'pointer-events="stroke"' in svg0, svg0.count('class="poignees"'))
+
+# 18. le résultat : le nom de la poutre, puis les sections — plus de grand verdict global
+chk("le résultat commence par le nom de la poutre, sans grand indicateur global (ni verdict, ni pastille XL)",
+    out["resultat"].startswith('<div class="pbody"><div class="et-rp"><b>V1</b><span>20 × 40 cm · C30/37 · B500</span></div>')
+    and 'class="verdict' not in out["resultat"] and "chip xl" not in out["resultat"], out["resultat"][:160])
+tau_ = re.search(r'<b>Effort tranchant</b><span class="prof"><span>([^<]+)</span></span>', out["resultat"])
+chk("l'effort tranchant nomme ce que demande sa bande à côté de son titre (jamais « pas besoin d'étriers » seul)",
+    tau_ is not None and tau_.group(1) in P.BESOINS_COURTS.values(), tau_.group(0) if tau_ else "")
+
+# 19. le menu ⋯ d'une poutre : renommer, copier CETTE poutre (la copie s'insère après elle), supprimer (jamais la dernière)
+e = P.nouvel_etat()
+out = req(module="poutre", action="calculer", etat=e)
+chk("une poutre seule : son menu offre « Renommer », « Copier la poutre » et « Supprimer » grisé",
+    'data-renommer="0"' in out["donnees"] and 'data-dupliquer-index="0"' in out["donnees"]
+    and re.search(r'class="danger" data-supprimer="0" data-confirmer="Supprimer la poutre « V1 » de la note \?" disabled>', out["donnees"]) is not None)
+P.gerer_elements(e, "ajouter")
+out = req(module="poutre", action="dupliquer", etat=e, index=0)
+chk("« Copier la poutre » (V1, V2 ouverte) : la copie de V1 s'insère après elle, et s'ouvre",
+    out["ok"] and [x["nom"] for x in out["etat"]["poutres"]] == ["V1", "V1 (copie)", "V2"] and out["etat"]["actif"] == 1, [x["nom"] for x in out["etat"]["poutres"]])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

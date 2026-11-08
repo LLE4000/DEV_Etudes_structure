@@ -161,12 +161,15 @@ def un_module(cle):
     inconnu = req(module=cle, action="telecharger", etat=copy.deepcopy(etat), quoi="pas-un-fichier-connu")
     chk(f"{cle} : un téléchargement inconnu rend un refus lisible, jamais une exception",
         inconnu.get("ok") is False and isinstance(inconnu.get("erreur"), str) and "Traceback" not in inconnu["erreur"], inconnu)
-    # les éléments
+    # les éléments : leur liste (« elements »), ou, dans l'établi compact où ils sont l'ARBORESCENCE des données (la
+    # poutre, deuxième passe 11/2026), le cadre Données
+    def n_elements(rep):
+        return rep["elements"].count('data-activer="') or rep["donnees"].count('data-activer="')
     a = req(module=cle, action="ajouter", etat=copy.deepcopy(etat))
     chk(f"{cle} : « ajouter » donne un élément de plus dans la liste",
-        a.get("ok") and a["elements"].count('data-activer="') == r["elements"].count('data-activer="') + 1, a.get("erreur"))
+        a.get("ok") and n_elements(a) == n_elements(r) + 1 >= 2, a.get("erreur") or (n_elements(a), n_elements(r)))
     s = req(module=cle, action="supprimer", etat=copy.deepcopy(etat), index=0)
-    chk(f"{cle} : le dernier élément ne se supprime pas", s.get("ok") and s["elements"].count('data-activer="') == r["elements"].count('data-activer="'))
+    chk(f"{cle} : le dernier élément ne se supprime pas", s.get("ok") and n_elements(s) == n_elements(r))
 
 
 choisis = sys.argv[1:] or REG.cles()

@@ -13,7 +13,8 @@ export function cablerToile({ bench, stage, barre }) {
   let cle = null;
   const etat = () => zooms.get(cle) || { z: 1, x: 0, y: 0 };
   const dessin = () => stage.querySelector(".view.on .draw > svg");
-  const pct = barre.querySelector(".zpct");
+  // le pourcentage : le bouton lui-même, ou son <span class="v"> quand le bouton porte une icône (l'établi compact)
+  const pct = barre.querySelector(".zpct .v") || barre.querySelector(".zpct");
   const plein = barre.querySelector("[data-plein]");
 
   // la taille du SVG avant transformation, et son coin à l'écran, lus sous la transformation qu'il porte vraiment

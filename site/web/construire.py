@@ -478,6 +478,12 @@ def compact(corps: str) -> str:
     marque = '<label class="btn ghost" for="ouvrir"'
     assert marque in corps
     corps = corps.replace(marque, bouton + marque, 1)
+    # « ajuster » le dessin : une icône — « 100 % » laissait croire à une échelle d'impression, le dessin s'ajuste à la
+    # feuille ; le pourcentage reste dans le bouton, caché par la feuille de l'établi (js/toile.js l'écrit)
+    avant = '<button type="button" class="zpct" data-zoom="ajuster" title="Ajuster le dessin à la feuille">100 %</button>'
+    assert corps.count(avant) == 1, avant
+    corps = corps.replace(avant, '<button type="button" class="zpct" data-zoom="ajuster" title="Ajuster le dessin à la feuille" '
+                          f'aria-label="Ajuster le dessin à la feuille">{MQ.icon("scan")}<span class="v">100 %</span></button>', 1)
     # (au téléphone, l'échec d'enregistrement reste la PREMIÈRE entrée du menu : « Enregistrer comme note… » le suit)
     revoir = menu_enregistrement()
     assert corps.count('<div class="mmenu" id="mmenu" hidden>' + revoir) == 1
