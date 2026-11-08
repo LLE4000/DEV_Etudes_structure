@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "cb3b4461cd4edc6f57f5d8bd726c330e6d2a26ccefda5cf8ad4f678df63c313b",
+ "sha256": "fcf66b316848974fd3a6c74592c199de84138b01445062a6e534b996967921db",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -266,8 +266,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "863c22097a1c7ea148fe05c91fa78a631e1a0d97ded480189139d9b547622886",
-  "octets": 2069956,
+  "sha256": "81c92ce2cf781626a44d446cdb5827b71fe111903a49f706385ff7c2c2b432f1",
+  "octets": 2070870,
   "reportlab": "5.1.0",
   "fichiers": 86
  }
