@@ -2300,7 +2300,7 @@
     "phrase": "",
     "resultat": [
      ["V1", "20", "×", "40 cm", "·"],
-     ["C30/37 · B500 Section A Données incomplètes V =", "0 kN"],
+     ["C30/37 · B500 Section A Non conforme V =", "0 kN"],
      ["Hauteur", "15 %"],
      ["h min =", "6,00 cm", "≤"],
      ["h =", "40,0 cm"],
