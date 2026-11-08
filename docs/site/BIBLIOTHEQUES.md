@@ -78,7 +78,7 @@ propre (`construire.page_bibliotheque`) :
 | 1 | **Bétons** | classes C12/15 à C90/105 × f_ck, f_ck,cube, f_cm, f_ctm, f_ctk,0,05, f_ctk,0,95, E_cm, ε_c2, ε_cu2, f_cd ; les valeurs du bureau (α_b, μ_B500, μ_B400, τ_adm) pour les cinq classes qui en ont | classe, γ_c (1,5), α_cc → la fiche de la classe | `beton/donnees/ec2.py` (existant, à compléter des ε et de f_cd), `beton_classes.json` |
 | 2 | **Aciers d'armature** | B400, B500 (A, B, C) × f_yk, f_yd (γ_s 1,15 EC2 et 1,5 bureau), E_s, ε_yd, k, ε_uk, classe de ductilité ; les treillis soudés (désignation, Ø, mailles, section par mètre) | nuance, γ_s → la fiche ; treillis → sa section | `beton/poutre/moteur.materiaux`, `beton/treillis.py` (existants) ; k, ε_uk (EN 1992-1-1 annexe C, à ajouter) |
 | 3 | **Sections et masses** | Ø × n barres (1 à 10) : A_s et masse ; Ø × espacement : A_s par mètre | A_s requis (barres ou nappe) → les dispositions qui suffisent, la plus économique ; ou Ø et n (ou e) → A_s | `beton/armatures` (existant, inchangé) |
-| 4 | **Enrobages et feu** | c_min,dur : classe structurale S1-S6 × exposition (EC2, avec le libellé belge de la NIT 260) ; les modifications de classe structurale ; feu : distance à l'axe a et b_min par durée R, pour poutre, poteau, dalle, voile | élément, exposition, classe de béton, durée d'utilisation (50/100 ans), contrôle qualité, Ø barre, Ø étrier, Δc_dev, feu (R, b_min), coulé contre le sol → **c_nom** et sa chaîne (c_min,b, classe structurale calculée, c_min,dur, c_min, Δc_dev, a, c_feu) | **nouveau** `beton/bibliotheque/enrobage.py` aux valeurs de la norme (§ 4) ; l'ancien `beton/enrobage` garde l'écran Streamlit |
+| 4 | **Enrobages et feu** | c_min,dur : classe structurale S1-S6 × exposition (EC2, avec le libellé belge de la NIT 260) ; les modifications de classe structurale ; feu : distance à l'axe a et b_min par durée R, pour poutre (tableau 5.5) et dalle (tableau 5.8) — poteau et voile dits « non transcrits » tant que l'ingénieur n'a pas relu les tableaux 5.2a et 5.4 (§ 4, Feu) | élément, exposition, classe de béton, durée d'utilisation (50/100 ans), contrôle qualité, Ø barre, Ø étrier, Δc_dev, feu (R, b_min), coulé contre le sol → **c_nom** et sa chaîne (c_min,b, classe structurale calculée, c_min,dur, c_min, Δc_dev, a, c_feu) | **nouveau** `beton/bibliotheque/enrobage.py` aux valeurs de la norme (§ 4) ; l'ancien `beton/enrobage` garde l'écran Streamlit |
 | 5 | **Ancrages et recouvrements** (un seul menu) | l_bd et l_0 : Ø (6 à 50) × classe de béton (C20/25 à C50/60), B500, bonnes conditions, σ_sd = f_yd ; un sélecteur bonnes / médiocres conditions ; l_0 pour un recouvrement de plus de 50 % | Ø, classe, conditions d'adhérence, forme de l'ancrage (droit, crochet/coude/boucle avec c_d), barre transversale soudée, taux σ_sd/f_yd (ou A_s,req / A_s,prov), proportion recouverte, pression transversale → **l_bd**, **l_0**, leurs minimums, les facteurs α | **nouveau** `beton/bibliotheque/ancrages.py` (EN 1992-1-1 §8.4.2-8.4.4, §8.7.3, γ_c 1,5, γ_s 1,15 ; validé contre la NIT 260, § 4) |
 
 Les tableaux sont **calculés** par les moteurs, jamais recopiés (R3) ; la NIT 260 sert de **contrôle** dans les
@@ -169,8 +169,13 @@ c_min,dur = 10, c_min = 12, c_nom = 22 mm) devient un cas de test.
 50 %)**, Ø 6 à 50 × C20/25 à C50/60. Recalculés par l'EN 1992-1-1 (§8.4.2 : f_bd = 2,25 η1 η2 f_ctd, f_ctd = f_ctk,0,05
 / γ_c, γ_c = 1,5 ; §8.4.3 : l_b,rqd = Ø/4 · σ_sd / f_bd avec σ_sd = f_yd = 500/1,15 ; η2 = (132 − Ø)/100 au-delà
 de 32 mm ; §8.7.3 : l_0 = α6 · l_b,rqd, α6 = 1,5 pour plus de 50 % recouvert), ils se retrouvent **à l'arrondi
-au centimètre près** (écarts de ± 1 cm pour Ø ≤ 32, jusqu'à 2 à 3 cm pour Ø 40 et 50 ; les coefficients ≈ 47 Ø
-… ≈ 25 Ø de la NIT sont ceux de ce calcul). La NIT elle-même note que ses valeurs sont des approximations valables
+au centimètre près**. Mesuré le 08/11/2026 par `tests/test_bibliotheque_moteur.py` sur les 154 cases : la case du
+moteur (arrondie au cm **supérieur**) s'écarte de la NIT (arrondie au plus près) d'au plus **2 cm jusqu'à Ø 32**
+(C35/45 Ø 32 : 1 040 pour 1 020 ; C30/37 Ø 32, l_0 : 1 720 pour 1 740) et de **3 cm (l_bd) à 5 cm (l_0) à Ø 50**
+(C30/37 : 2 180 pour 2 210, 3 270 pour 3 320) ; la longueur calculée reste à **1,5 %** de la NIT une fois son arrondi
+retiré. La NIT a pris f_ctk,0,05 à sa manière (C30/37 : 2,0 MPa imprimé, là où 0,7 · f_ctm donne 2,03) ; le moteur suit
+la relation analytique du tableau 3.1, comme `beton/donnees/ec2.py` ; les coefficients ≈ 47 Ø … ≈ 25 Ø de la NIT sont
+ceux de ce calcul. La NIT elle-même note que ses valeurs sont des approximations valables
 pour Ø ≤ 32 mm, arrondies au centimètre. Conditions médiocres : × 1,43 (η1 = 0,7) ; réductions : taux de
 contrainte, 0,7 pour un ancrage courbe tendu avec c_d > 3 Ø, 0,7 pour une barre transversale soudée ; jamais sous
 10 Ø ni 100 mm ; recouvrement jamais sous 15 Ø ni 200 mm ; Ø 40 et 50 recouverts seulement si la section fait plus
@@ -185,13 +190,17 @@ encore applicable en Belgique sans son annexe nationale : la bibliothèque le di
 
 **Feu.** Le moteur actuel reproduit des valeurs de l'écran Streamlit qui s'écartent de l'EN 1992-1-2 (D1 : poteaux
 lus dans la colonne μ_fi = 0,2 et non 0,7 ; D2 : voiles R180/R240), **non conservatives** et signalées en rouge à
-l'écran. La bibliothèque prendra les valeurs de la norme (μ_fi = 0,7 annoncé = μ_fi = 0,7 appliqué).
+l'écran. La bibliothèque prend les valeurs de la norme : les **poutres** (tableau 5.5, avec a_sd = a + 10 mm pour les
+barres d'angle d'un lit unique) et les **dalles** (tableau 5.8) sont transcrites, identiques à celles de l'écran
+Streamlit ; les **poteaux** (tableau 5.2a) et les **voiles** (tableau 5.4) **ne le sont pas** (`FEU_A_TRANSCRIRE`) :
+leurs valeurs à l'écran Streamlit sont douteuses et cette session n'a pas le texte — la rubrique le dit et ne donne
+aucune valeur, jusqu'à ce que l'ingénieur transcrive les deux tableaux depuis l'EN 1992-1-2 (μ_fi = 0,7).
 
 ## 5. Les lots
 
 | Lot | Contenu | Fermeture |
 |---|---|---|
-| **BIB1** moteur | `beton/bibliotheque/` : `ancrages.py` (§8.4, §8.7), `enrobage.py` (4.4N, 4.3N, feu aux valeurs de la norme, libellés belges), `aciers.py` (k, ε_uk, ductilité), les ε et f_cd des bétons | tests : l'exemple p. 49 de la NIT, les tableaux 24 et 25 à ± 1 cm (Ø ≤ 32) ; mutations ; aucun module existant touché |
+| **BIB1** moteur — **fait le 08/11/2026** | `beton/bibliotheque/` : `ancrages.py` (§8.4, §8.7), `enrobage.py` (4.4N, 4.3N, feu aux valeurs de la norme pour poutres et dalles, libellés belges), `aciers.py` (k, ε_uk, ductilité), les ε et f_cd des bétons dans `beton/donnees/ec2.py` | `tests/test_bibliotheque_moteur.py` (114 contrôles) : l'exemple p. 49 de la NIT, les tableaux 24 et 25 à 2 cm (Ø ≤ 32) et 5 cm (Ø 50), le tableau 20, le tableau 21 sur ses extrêmes, les déformations du tableau 3.1 ; 15 mutations ; aucun module existant touché |
 | **BIB2** page | `api_web/biblio_beton.py`, `construire.page_bibliotheque`, `css/bibliotheque.css`, `js/bibliotheque.js` : les cinq rubriques, tableau à sélection, barre de paramètres, bande de valeur, « Pourquoi ? » | tests Python ; `verifier_site.js` filtre « bibliotheque » (chaque rubrique, chaque case, aucun défilement à 1 440 × 900 et 1 180 × 820, au doigt) ; captures PC et tablette regardées ; relecture de l'ingénieur |
 | **BIB3** accueil | Calculs et bibliothèques, `MASQUES`, rail et menu du téléphone | tests `test_site_web`, harnais accueil ; captures |
 | **BIB4** la poutre | bouton et panneau « Bibliothèque », préremplissage, « Utiliser cette valeur », « Inclure dans la note », `etat.fiches`, bloc « Justifications », vue, PDF (brique `table` du kit) ; puis dalle et prédalle (même établi) | gel de la poutre : regel accepté par la garde (champ `fiches` ajouté, note ancienne identique) ; tests note PDF ; harnais « pilote » ; captures |

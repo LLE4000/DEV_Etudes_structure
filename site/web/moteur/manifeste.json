@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "34612876ea999ea23052e7b9487d9f338eaf008da4b8babe0bbd4ce28a3e9fbd",
+ "sha256": "cf16455ec9835e4f0afd77fbbe6b08ff94c9fde27150230d38e7dfc28fbc90c9",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -192,6 +192,10 @@
   "beton/armatures/dessins.py",
   "beton/armatures/moteur.py",
   "beton/armatures/tableau.py",
+  "beton/bibliotheque/__init__.py",
+  "beton/bibliotheque/aciers.py",
+  "beton/bibliotheque/ancrages.py",
+  "beton/bibliotheque/enrobage.py",
   "beton/dalle/__init__.py",
   "beton/dalle/entree.py",
   "beton/dalle/fichier.py",
