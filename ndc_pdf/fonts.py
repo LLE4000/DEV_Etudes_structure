@@ -101,14 +101,20 @@ def register_all():
     global _registered
     if _registered:
         return
-    from fontTools.ttLib import TTFont as _FT
+    try:
+        from fontTools.ttLib import TTFont as _FT
+    except ImportError:
+        # (site, 11/2026) le navigateur n'embarque pas fontTools : la table des caractères est lue par reportlab,
+        # qui l'a déjà décodée en chargeant la police (charToGlyph)
+        _FT = None
     for name, fn in FONTS.items():
         path = os.path.join(FONT_DIR, fn)
         if not os.path.exists(path):
             continue
         try:
-            pdfmetrics.registerFont(TTFont(name, path))
-            _cmaps[name] = set(_FT(path).getBestCmap().keys())
+            police = TTFont(name, path)
+            pdfmetrics.registerFont(police)
+            _cmaps[name] = set(_FT(path).getBestCmap().keys()) if _FT else set(police.face.charToGlyph.keys())
         except Exception:
             pass
     for fam, r, b, i, bi in FAMILIES:

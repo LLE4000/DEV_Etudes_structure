@@ -667,6 +667,9 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             x1 = sx0 + sw - dst * s - rr
             xs = [(x0 + x1) / 2.0] if n == 1 else \
                  [x0 + i * (x1 - x0) / (n - 1) for i in range(n)]
+            if lyr.get("xs"):
+                # (site, 11/2026) les abscisses imposées (mm depuis la face gauche) : la répartition détaillée
+                xs = [sx0 + float(xm) * s for xm in lyr["xs"]]
             for bx in xs:
                 if st.dia_colors:
                     c.setFillColor(_coul_dia(dia))

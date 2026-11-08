@@ -113,10 +113,15 @@ def _coupe_depuis_R(R, stirrups, pas, peau=None):
     d_cadre = max(float(g.get("d", 8) or 8) for g in stirrups)
 
     def _lits(geo):
+        # (site, 11/2026) clés FACULTATIVES d'un lit : « x » (cm depuis la face gauche, une par barre — la
+        # répartition du ferraillage détaillé) et « label » (« L1 : 2Ø16 »). Absentes : le rendu d'origine.
         lits, labs = [], []
         for lit in geo["lits"]:
-            lits.append(dict(n=int(lit["n"]), dia=int(lit["d"]), e=lit["e"] * 10.0))
-            labs.append((f"Lit {lit['i']} : {lit['n']} Ø{lit['d']}",
+            l_ = dict(n=int(lit["n"]), dia=int(lit["d"]), e=lit["e"] * 10.0)
+            if lit.get("x"):
+                l_["xs"] = [x * 10.0 for x in lit["x"]]
+            lits.append(l_)
+            labs.append((lit.get("label") or f"Lit {lit['i']} : {lit['n']} Ø{lit['d']}",
                          f"{fn(lit['As'], 0)} mm²"))
         return lits, labs
 
@@ -332,6 +337,37 @@ def _verif_tranchant(Sh, R, num):
     )
 
 
+def _verif_dispositions(dispo, num):
+    """(site, 11/2026) Les DISPOSITIONS CONSTRUCTIVES d'une section (beton/poutre/dispositions.controler) : une ligne
+    par contrôle (espacement libre et son minimum EC2 8.2(2), enrobage, barres dans l'étrier, angles des cadres),
+    puis un verdict par contrôle qui n'est pas « ok ». Rien n'est recalculé : les valeurs sont celles du contrôle."""
+    etats = {"ok": "ok", "warn": "att", "nok": "ko"}
+    faces = {"inf": "inf.", "sup": "sup."}
+
+    def court(it):
+        """Le libellé court d'un contrôle (la colonne n'en tient pas plus) ; le verdict garde le texte entier."""
+        f, j = faces.get(it.get("face"), ""), it.get("lit")
+        return {"lit": f"Lit {f} L{(j or 0) + 1} : entre barres", "entre_lits": f"Lits {f} L{j} – L{(j or 0) + 1}",
+                "faces": "Entre faces inf. et sup.", "enrobage": "Enrobage c + Ø étrier",
+                "laterales": "Latérales"}.get(it["cle"], it["texte"])
+    items = [("f", "Espacement libre minimal",
+              rf"s_{{min}} = \max{{Ø ; d_g + 5 ; 20}} = \res{{{fn(dispo['s_min_ref'], 0)} \u{{mm}}}}"),
+             ("t", f"pour Ø20, granulat de {fn(dispo['dg'], 0)} mm (EC2 8.2(2), valeurs recommandées)")]
+    verdicts = []
+    for it in dispo["items"]:
+        if it.get("libre") is not None and it.get("mini"):
+            items.append(("v", court(it), None, f"{fn(it['libre'], 0)} ≥ {fn(it['mini'], 0)}"
+                          if it["libre"] >= it["mini"] else f"{fn(it['libre'], 0)} < {fn(it['mini'], 0)}", "mm"))
+        if it["etat"] != "ok":
+            txt = it["texte"] + (f" : {fn(it['libre'], 0)} mm (minimum {fn(it['mini'], 0)} mm)"
+                                 if it.get("libre") is not None and it.get("mini") else "")
+            verdicts.append(dict(etat=etats[it["etat"]], texte=_unites_insecables(txt)))
+    if not verdicts:
+        verdicts.append(dict(etat="ok", texte="Espacements, enrobage et cadres conformes aux dispositions constructives"))
+    items.append(("k", 0))
+    return dict(num=num, titre="Dispositions constructives", items=items, verdicts=verdicts)
+
+
 def construire_sections(resultats):
     """Liste SECTIONS (une planche par section) depuis les résultats réels.
 
@@ -348,10 +384,15 @@ def construire_sections(resultats):
                   _verif_armatures(R, "sup", 3)]
         if Sh:
             verifs.append(_verif_tranchant(Sh, R, 4))
+        # (site, 11/2026) « dispositions » : le contrôle des dispositions constructives (beton/poutre/dispositions)
+        # — une vérification de plus ; « etat_label » : l'état de la planche quand le site en sait plus que la
+        # méthode (dispositions, section sans effort). Absents : la note d'origine.
+        if res.get("dispositions"):
+            verifs.append(_verif_dispositions(res["dispositions"], len(verifs) + 1))
         sections.append(dict(
             poutre=res["poutre"], section=res["section"],
             beton=R["beton"], acier=f"B{int(R['fyk'])}",
-            etat=ETAT_LABELS.get(R["etat_global"], "Non vérifié"),
+            etat=res.get("etat_label") or ETAT_LABELS.get(R["etat_global"], "Non vérifié"),
             coupe=_coupe_depuis_R(R, res.get("stirrups"),
                                   (Sh or {}).get("pas"), peau=res.get("peau")),
             blocs=_blocs_depuis_R(R, res.get("ta_global")),

@@ -1,0 +1,5 @@
+Le paquet de la NOTE DE CALCUL PDF du site (moteur/note.zip), construit par site/web/construire.py (paquet_note) et
+chargé par le travailleur du navigateur à la première demande de note : le générateur validé de l'écran Streamlit
+(modules/export_pdf.py, ndc_pdf/), reportlab (licence BSD, reportlab/license.txt), les polices de la mise en page
+« Encre » (Carlito : SIL Open Font License 1.1 ; Poppins : SIL Open Font License 1.1 ; DejaVu Sans : licence libre
+DejaVu, dérivée de Bitstream Vera) et un Pillow factice (PIL/), la note n'ayant aucune image matricielle.
