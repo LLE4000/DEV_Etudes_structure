@@ -582,12 +582,12 @@ const FILTRE = process.argv[4] || '';
       const t = await contexte(390, 844, true);
       if (PARTIES.includes('tel') && await neuve(t, cle, 'téléphone')) {
         const fixe = async () => ({ mtop: await boite(t, '.mtop'), mtabs: await boite(t, '.mtabs'), mbar: await boite(t, '.mbar') });
-        // l'établi compact (construire.ETABLI_COMPACT) : « Données » montre la liste ET les propriétés de l'étape choisie,
-        // « Résultat » le résultat seul (le même panneau de droite, l'autre moitié)
+        // l'établi compact (construire.ETABLI_COMPACT, finalisé) : trois cadres comme les autres modules — « Données »
+        // montre la liste des éléments ET les rubriques (le panneau de gauche), « Résultat » le résultat seul
         const compactTel = await t.evaluate(() => document.body.dataset.etabli === 'compact');
         const ONGLETS = compactTel
-          ? [['donnees', '.panel.left', ['.canvas', '.et-res'], ['.et-props']], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
-            ['resultat', '.panel.right', ['.canvas', '.panel.left', '.et-props'], ['.et-res']]]
+          ? [['donnees', '.panel.left', ['.canvas', '.panel.right'], ['#donnees .elements', '#donnees > .sec.open']], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
+            ['resultat', '.panel.right', ['.canvas', '.panel.left'], ['#resultat .el']]]
           : [['donnees', '.panel.left', ['.canvas', '.panel.right'], []], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
             ['resultat', '.panel.right', ['.canvas', '.panel.left'], []]];
         for (const [onglet, cadre, autres, aussi] of ONGLETS) {
@@ -731,6 +731,12 @@ const FILTRE = process.argv[4] || '';
           return c ? c.dataset.chemin : null;
         });
         if (champNom) {
+          // un établi en accordéon (la poutre) : la rubrique du champ s'ouvre d'abord, par son en-tête
+          const rub = await g.evaluate((c) => {
+            const s = document.querySelector(`#donnees input[data-chemin="${c}"]`)?.closest('#donnees > .sec[data-sec]');
+            return s && !s.classList.contains('open') ? s.dataset.sec : null;
+          }, champNom);
+          if (rub) { await g.click(`#donnees > .sec[data-sec="${rub}"] > .sechd`); await g.waitForTimeout(150); }
           await g.fill(`#donnees input[data-chemin="${champNom}"]`, 'Poutre de rive très longue du bâtiment B, file 12 à 18, niveau +3');
           await g.press(`#donnees input[data-chemin="${champNom}"]`, 'Enter');
           await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });

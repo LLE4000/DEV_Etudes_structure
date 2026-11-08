@@ -70,8 +70,11 @@
 /* ------------------------------------------------------------------ les données : éléments, puis rubriques */
 [data-etabli="compact"] #donnees { padding-bottom: 24px; }
 [data-etabli="compact"] #donnees .elements { padding: 4px 6px 8px; border-bottom: 1px solid var(--line); }
-@media (min-width: 701px) { [data-etabli="compact"] #donnees .elements .ni { height: 32px; } }
-[data-etabli="compact"] .elements .ni .x { width: 24px; height: 24px; }
+/* rangée dense et boutons de 24 px à la souris ; au téléphone, la règle commune (36 px au doigt) s'applique */
+@media (min-width: 701px) {
+  [data-etabli="compact"] #donnees .elements .ni { height: 32px; }
+  [data-etabli="compact"] .elements .ni .x { width: 24px; height: 24px; }
+}
 [data-etabli="compact"] .elements .ni.on .x { display: grid; }
 [data-etabli="compact"] .elements .ni .x svg.i { width: 14px; height: 14px; }
 [data-etabli="compact"] #donnees .sec { border-bottom: 1px solid var(--line); }
