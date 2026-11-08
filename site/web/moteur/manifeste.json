@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "fcf66b316848974fd3a6c74592c199de84138b01445062a6e534b996967921db",
+ "sha256": "a98110623ffe658ebc6f52c79a339aa1bcd966dd826cbc2d9639e5dfd36384cf",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -170,12 +170,14 @@
   "api_web/dessin_taux.py",
   "api_web/donnees_beton.py",
   "api_web/enrobage.py",
+  "api_web/etabli_compact.py",
   "api_web/flambement.py",
   "api_web/garde_corps.py",
   "api_web/icones.py",
   "api_web/note_poutre.py",
   "api_web/parcours.py",
   "api_web/plancher.py",
+  "api_web/plaque_compact.py",
   "api_web/poutre.py",
   "api_web/poutre_streamlit.py",
   "api_web/predalle.py",
@@ -266,8 +268,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "81c92ce2cf781626a44d446cdb5827b71fe111903a49f706385ff7c2c2b432f1",
-  "octets": 2070870,
+  "sha256": "976b6a06c4187e4ebbb168f33ea038653fb0126bd56117338b61662878070b74",
+  "octets": 2071628,
   "reportlab": "5.1.0",
   "fichiers": 86
  }
