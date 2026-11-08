@@ -515,7 +515,8 @@ function ouvrirRubrique(cle) {
   const s = zone.querySelector(`.sec[data-sec="${CSS.escape(cle)}"]`);
   if (s) requestAnimationFrame(() => s.scrollIntoView({ block: "nearest" }));
 }
-// « Renommer » l'élément ouvert : son champ « Nom » (rubrique 1), choisi
+// « Renommer » l'élément ouvert : son champ « Nom », choisi — sur la ligne de l'élément dans l'arborescence (établi
+// compact), dans sa rubrique ailleurs (qui s'ouvre alors)
 function renommer() {
   if (compact) compact.deplierPoutre();
   const champ = $('#donnees input[data-chemin="nom"]');
@@ -617,8 +618,44 @@ $("#volets").addEventListener("pointerdown", (ev) => {
   if (p) p.innerHTML = r.dataset.prop || "";
 });
 
+// une aide ⓘ : à la souris, son texte au survol (title) ; au DOIGT, le survol n'existe pas — un appui l'ouvre dans une
+// bulle près de l'icône (R1 : l'explication se lit sur les trois formats, y compris celles rangées dans ⓘ pour condenser
+// les données) ; un second appui, un appui ailleurs, Échap ou un défilement la ferment. Au doigt, l'icône (13 px) est
+// une cible trop petite : le LIBELLÉ du champ qui la porte l'ouvre aussi (une zone d'appui agrandie autour de l'icône
+// débordait de sa boîte — le harnais « formats » la voyait, à raison, comme un nom coupé)
+const bulle = document.createElement("div");
+bulle.className = "aide-bulle";
+bulle.setAttribute("role", "tooltip");
+bulle.hidden = true;
+document.body.appendChild(bulle);
+let aideOuverte = null;
+let pointeur = "mouse";
+document.addEventListener("pointerdown", (ev) => { pointeur = ev.pointerType || "mouse"; }, true);
+function fermerAide() { bulle.hidden = true; aideOuverte = null; }
+document.addEventListener("click", (ev) => {
+  let a = ev.target.closest(".aide[title]");
+  if (!a && pointeur !== "mouse") {
+    // (un libellé qui contient son champ le choisit, comme avant : seul un libellé sans contrôle ouvre l'aide)
+    const l = ev.target.closest("label");
+    if (l && !l.querySelector("input, select, textarea, button")) a = l.querySelector(".aide[title]");
+  }
+  if (!a) { if (aideOuverte && !ev.target.closest(".aide-bulle")) fermerAide(); return; }
+  ev.preventDefault();
+  ev.stopPropagation();
+  if (aideOuverte === a) { fermerAide(); return; }
+  bulle.textContent = a.title;
+  bulle.style.left = "0px";
+  bulle.style.top = "0px";
+  bulle.hidden = false;
+  const r = a.getBoundingClientRect(), bw = bulle.offsetWidth, bh = bulle.offsetHeight;
+  bulle.style.left = `${Math.round(Math.min(Math.max(8, r.left + r.width / 2 - bw / 2), innerWidth - bw - 8))}px`;
+  bulle.style.top = `${Math.round(r.bottom + 6 + bh > innerHeight - 8 ? Math.max(8, r.top - bh - 6) : r.bottom + 6)}px`;
+  aideOuverte = a;
+}, true);
+document.addEventListener("scroll", () => { if (aideOuverte) fermerAide(); }, true);
+
 document.addEventListener("click", (ev) => { if (!ev.target.closest(".flyout,[data-pk],[data-calcul]")) fermer(); });
-document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { fermer(); menuOuvert(false); } });
+document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { fermer(); menuOuvert(false); fermerAide(); } });
 bench.querySelectorAll("[data-coll]").forEach((b) => b.addEventListener("click", () => {
   bench.classList.toggle(b.dataset.coll === "g" ? "sans-g" : "sans-d");
   requestAnimationFrame(() => toile.vue(vueCourante));

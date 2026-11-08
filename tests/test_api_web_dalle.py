@@ -65,6 +65,16 @@ def niveau_de(v):
     return "r" if v["etat"] == MO.NOK else C.niveau(v["taux"])
 
 
+NOMS = re.compile(r'(?:<span class="nom">([^<]+)</span>|<input data-chemin="nom" data-sorte="texte" value="([^"]*)"[^>]*>)'
+                  r'<span class="dim">([^<]+)</span>')
+
+
+def noms_arbre(html):
+    """(nom, dimensions) de chaque élément de l'arborescence : le nom d'un élément fermé s'écrit, celui de l'élément
+    OUVERT est un champ, sur sa ligne même (11/2026)."""
+    return [(a or b, d) for a, b, d in NOMS.findall(html)]
+
+
 def dalle_de(etat, i=None):
     d = etat["dalles"][etat["actif"] if i is None else i]
     return {k: v for k, v in d.items() if k != "verrou"}
@@ -266,6 +276,11 @@ chk("dalle verrouillée : le cadre Données est en lecture seule (aucun champ, l
     "l'arborescence, et aucun sélecteur",
     'data-sorte="nombre"' not in r8["donnees"] and 'data-chemin="verrou"' in r8["donnees"] and "data-pk=" not in r8["resultat"]
     and re.search(r'<span class="t">' + re.escape(C.icon("lock")) + r'<span class="nom">Dalle 1</span>', r8["donnees"]) is not None)
+chk("dalle verrouillée : son nom se LIT sur sa ligne (aucun champ « nom »), et « Renommer » du menu ⋯ est grisé — il n'aurait "
+    "aucun champ où poser le curseur ; déverrouillée, le nom redevient un champ et « Renommer » s'active",
+    'data-chemin="nom"' not in r8["donnees"] and re.search(r'data-renommer="0" disabled>', r8["donnees"]) is not None
+    and 'data-chemin="nom"' in (r9 := saisir(r8["etat"], "verrou", False))["donnees"]
+    and re.search(r'data-renommer="0">', r9["donnees"]) is not None)
 chk("… et déverrouillée, elle se modifie de nouveau", saisir(r8["etat"], "verrou", False)["etat"] == etat)
 
 # ------------------------------------------------------------------ 6. le sélecteur de la nappe de base
@@ -462,7 +477,7 @@ don = ar["donnees"]
 chk("l'arborescence : « Dalles » et leur nombre, chaque dalle « nom · b × h cm » (sans taux), « Ajouter une dalle » ; la liste "
     "« Dans cette note » de l'ancien écran n'existe plus",
     re.search(r'<div class="et-arbre-h"><span>Dalles</span><span class="n">1</span></div>', don) is not None
-    and re.findall(r'<span class="nom">([^<]+)</span><span class="dim">([^<]+)</span>', don) == [("Dalle 1", "· 100 × 20 cm")]
+    and noms_arbre(don) == [("Dalle 1", "· 100 × 20 cm")]
     and 'data-ajouter="1"' in don and "Ajouter une dalle" in don and ar["elements"] == "" and "%" not in re.search(
         r'<div class="et-pt-l">.*?</button>', don, re.S).group(0))
 chk("sous la dalle ouverte, ses quatre rubriques dans l'ordre de la poutre : Dalle, Sections et sollicitations, Armatures, Options",
@@ -502,6 +517,19 @@ chk("l'en-tête de la vue : la section, la bande, les matériaux et la direction
     "<b>Section A</b><span>· 100 × 20 cm · C30/37 · B500 · principale Y</span>" in ent
     and ">Inf. Y Treillis 10/10/100/100 + 3 Ø12 · X Treillis 10/10/100/100<" in ent and ">Sup. Y Treillis 10/10/100/100 · X Treillis 10/10/100/100<" in ent
     and ent.count("<span><i>") == 5 and "<sub>x,inf</sub><b>28,0</b>" in ent and "<i>V</i><b>60,0</b>" in ent, ent[:400])
+tete_on = re.search(r'<div class="et-pt on" data-dalle="0"><div class="et-pt-l">(.*?)<div class="et-mn">', don, re.S).group(1)
+rub1 = re.search(r'<div class="sec[^"]*" data-sec="dl".*?(?=<div class="sec[^"]*" data-sec="so")', don, re.S).group(0)
+chk("le NOM de l'élément ouvert se modifie sur sa ligne de l'arborescence ; la rubrique 1 n'a plus de ligne Nom et tient en "
+    "3 lignes de deux champs (béton | acier, b | h…), l'acier en menu déroulant ; les explications dans les ⓘ",
+    '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-pt-nom"' in tete_on and 'data-chemin="nom"' not in rub1
+    and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 3 == rub1.count('class="row2 n2"')
+    and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None and 'class="hint"' not in rub1,
+    (tete_on[-300:], re.findall(r'<div class="row[^"]*"', rub1)))
+aides_ = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', don)]
+chk("condensées, les données ne perdent aucune explication : les paragraphes d'aide d'avant (direction principale, γs et "
+    "jeu communs à la note) sont dans les ⓘ de leur champ",
+    any(t.startswith("La direction principale ordonne les vérifications") for t in aides_)
+    and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 2, aides_)
 chk("chaque vue dit ce qu'on lit sur son dessin, en dernière ligne de son en-tête (la légende : barres coupées en points, X horizontales…)",
     len(ar["vues"]) == 5 and all(re.findall(r'<div class="lg">([^<]*)</div>(?=</div>)', v_["entete"])
                                  == [P.LEGENDES["p" if v_["cle"][0] == "p" else "c"]] == [v_["legende"]] for v_ in ar["vues"]),

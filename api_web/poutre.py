@@ -499,12 +499,12 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
     p = _poutre(etat)
     res = res or MO.verifier(p)
     L = C.ligne
+    # condensée (demande de l'ingénieur, 11/2026) : le nom se modifie dans l'arborescence ; béton et acier, largeur et
+    # hauteur, chacun sur une ligne ; l'enrobage dessous
     s1 = ('<div class="et-piece et-plat" data-cible="beton">'
-          + L("Nom", C.texte(["nom"], p.get("nom"), "ex. P AXE H"), full=True)
-          + L("Béton", C.choix(["beton"], p.get("beton"), [(k, k) for k in EN.classes_beton()]), full=True)
-          + L("Acier", C.segments(["fyk"], p.get("fyk"), [(n, f"B{n}") for n in EN.NUANCES]), full=True)
-          + L("b largeur", C.num(["b"], p.get("b"), "cm"))
-          + L("h hauteur", C.num(["h"], p.get("h"), "cm"))
+          + C.ligne2(("Béton", C.choix(["beton"], p.get("beton"), [(k, k) for k in EN.classes_beton()]), ""),
+                     ("Acier", C.choix(["fyk"], p.get("fyk"), [(n, f"B{n}") for n in EN.NUANCES]), ""))
+          + C.ligne2(("b largeur", C.num(["b"], p.get("b"), "cm"), ""), ("h hauteur", C.num(["h"], p.get("h"), "cm"), ""))
           + L("c enrobage", C.num(["enrobage"], p.get("enrobage"), "cm"), "", "Distance du parement au nu de l'étrier.")
           + "</div>")
     seule = len(p["sections"]) == 1
@@ -550,15 +550,18 @@ def _options(p: Dict) -> str:
               if libre16 < smin16 else "")
     return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
             f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
-            + L("γ<sub>s</sub> acier", C.num(["gamma_s"], p.get("gamma_s"), ""), "", "Coefficient de l'acier : f_yd = f_yk / γ_s.")
-            + L("Jeu sous L1", C.num(["jeu_premier_lit"], p.get("jeu_premier_lit"), "cm"), "", "Ajouté sous le lit 1, après l'enrobage et l'étrier.")
-            + L("Jeu entre lits", C.num(["jeu_entre_lits"], p.get("jeu_entre_lits"), "cm"), "", "Ajouté entre les demi-diamètres arrondis de deux lits.")
+            + C.ligne2(("Jeu sous L1", C.num(["jeu_premier_lit"], p.get("jeu_premier_lit"), "cm"), "Ajouté sous le lit 1, après l'enrobage et l'étrier."),
+                       ("Jeu entre lits", C.num(["jeu_entre_lits"], p.get("jeu_entre_lits"), "cm"),
+                        "Ajouté entre les demi-diamètres arrondis de deux lits."))
             + alerte
-            + L("d<sub>g</sub> granulat", C.num(["dg"], dg, "mm"), "", "Le plus gros granulat : espacement libre minimal EC2 8.2(2) = max(Ø ; d_g + 5 mm ; 20 mm).")
-            + L("Latérales auto Ø", C.choix(["peau_d"], int(p.get("peau_d") or EN.DEFAUTS_DETAIL["peau_d"]),
-                                              [(x, f"Ø{x}") for x in EN.DIAMETRES_LATERAUX]), "", "Le Ø des armatures de peau automatiques.")
-            + L("Latérales auto s<sub>max</sub>", C.num(["peau_smax"], p.get("peau_smax") or EN.DEFAUTS_DETAIL["peau_smax"], "cm"), "",
-                "Au-delà de cet écart entre les lits 1, des barres latérales sont ajoutées (règle de la note PDF)."))
+            + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], p.get("gamma_s"), ""), "Coefficient de l'acier : f_yd = f_yk / γ_s."),
+                       ("d<sub>g</sub> granulat", C.num(["dg"], dg, "mm"),
+                        "Le plus gros granulat : espacement libre minimal EC2 8.2(2) = max(Ø ; d_g + 5 mm ; 20 mm)."))
+            + C.ligne2(("Peau auto Ø", C.choix(["peau_d"], int(p.get("peau_d") or EN.DEFAUTS_DETAIL["peau_d"]),
+                                                [(x, f"Ø{x}") for x in EN.DIAMETRES_LATERAUX]),
+                        "Le Ø des armatures latérales (de peau) automatiques."),
+                       ("Peau s<sub>max</sub>", C.num(["peau_smax"], p.get("peau_smax") or EN.DEFAUTS_DETAIL["peau_smax"], "cm"),
+                        "Au-delà de cet écart entre les lits 1, des barres latérales (de peau) sont ajoutées (règle de la note PDF).")))
 
 
 def _detail_lits(lits: List[Dict]) -> str:

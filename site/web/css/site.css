@@ -324,6 +324,19 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
 .row > label { white-space: normal; line-height: 1.3; }
 .row > label > span:not(.sym):not(.aide) { overflow: visible; text-overflow: clip; min-width: 0; }
 .row > label > .aide { flex: none; }
+/* DEUX champs sur une ligne (commun.ligne2 : béton et acier, b et h…) : libellé court, champ, libellé court, champ ;
+   les explications au survol de l'icône ⓘ du libellé */
+.row2 { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0 8px; }
+.row2 > label { color: var(--ink-2); font-size: 12.5px; display: flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; }
+.row2 > label .aide { display: inline-grid; flex: none; cursor: help; }
+.row2 > label svg.i { width: 13px; height: 13px; color: var(--ink-4); }
+.row2 > .field, .row2 > .seg { min-width: 0; }
+.row2 > .dl-ro { justify-self: end; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* la bulle d'une aide ⓘ ouverte d'un appui (js/etabli.js) : au doigt, le survol qui montre « title » n'existe pas */
+.aide-bulle { position: fixed; z-index: 60; max-width: min(300px, calc(100vw - 16px)); padding: 8px 10px; border-radius: 8px;
+  background: var(--ink); color: var(--panel); font-size: 12.5px; font-weight: 400; line-height: 1.4; white-space: normal;
+  box-shadow: var(--shadow-pop); }
+.aide-bulle[hidden] { display: none; }
 
 /* ---------------------------------------------------------------- le résultat, la liste des éléments */
 /* la grande pastille du verdict garde sa largeur : une comparaison longue la comprimait et coupait « η » */

@@ -539,13 +539,13 @@ def _options(p: Dict) -> str:
     L = C.ligne
     return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
             f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
-            + L("γ<sub>s</sub> acier", C.num(["gamma_s"], p["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX), "",
-                "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes les "
-                "prédalles de la note.")
-            + L("Jeu premier lit", C.num(["jeu_premier_lit"], p["jeu_premier_lit"], "cm", mini=0), "",
-                "Ajouté à l'axe automatique des couches SUPÉRIEURES seulement (la base principale est en fond de moule, les "
-                "autres couches inférieures posées sur la prédalle). Commun à toutes les prédalles de la note.")
-            + C.aide("γ<sub>s</sub> et le jeu sont communs à toutes les prédalles de la note, comme dans l'écran Streamlit.")
+            + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], p["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX),
+                        "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes "
+                        "les prédalles de la note, comme dans l'écran Streamlit."),
+                       ("Jeu 1er lit", C.num(["jeu_premier_lit"], p["jeu_premier_lit"], "cm", mini=0),
+                        "Ajouté à l'axe automatique des couches SUPÉRIEURES seulement (la base principale est en fond de moule, "
+                        "les autres couches inférieures posées sur la prédalle). Commun à toutes les prédalles de la note, comme "
+                        "dans l'écran Streamlit."))
             + '<div class="et-gh"><span class="t">Reprendre une note Streamlit</span></div>'
             + C.aide("Le fichier « predalle_ba.json » de l'écran Streamlit (bouton Enregistrer) : ses prédalles remplacent "
                      "celles de cette note ; ce que l'écran y remplaçait en silence est signalé.")
@@ -561,24 +561,27 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     if p["verrou"]:
         return _formulaire_verrouille(p, r)
     L = C.ligne
+    # condensée (demande de l'ingénieur, 11/2026) : le nom se modifie dans l'arborescence ; deux champs par ligne, les
+    # explications dans l'infobulle ⓘ de leur champ
     s1 = ('<div class="et-piece et-plat" data-cible="beton">'
-          + L("Nom", C.texte(["nom"], p["nom"], "ex. Plancher haut R+1"), full=True)
-          + L("Béton", C.choix(["beton"], p["beton"], [(k, k) for k in MO.classes_beton()]), full=True)
-          + L("Acier", C.segments(["fyk"], p["fyk"], [(n, f"B{n}") for n in EN.NUANCES]), full=True)
-          + L("b bande", C.num(["b"], p["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX), "",
-              "Largeur de la bande étudiée : 100 cm = un mètre courant. Moments et effort tranchant sont ceux de la bande.")
-          + L("h épaisseur totale", C.num(["h"], p["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX), "",
-              "Prédalle et béton coulé en place ensemble : c'est h qui entre dans les formules.")
-          + L("h<sub>p</sub> prédalle", C.num(["h_pre"], p["h_pre"], "cm", mini=EN.H_PRE_MIN, maxi=EN.h_pre_max(p["h"])), "",
-              f"Épaisseur de la prédalle préfabriquée : de {C.nb(EN.H_PRE_MIN)} à {C.nb(EN.h_pre_max(p['h']))} cm ici (au moins "
-              "1 cm coulé en place, 15 cm au plus). Elle fixe la position des couches inférieures.")
-          + _lecture("coulé en place", f"{C.nb(p['h'] - p['h_pre'])} cm", "h − h<sub>p</sub>")
-          + L("c enrobage", C.num(["enrobage"], p["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), "",
-              "Du parement au nu des armatures (fond de moule de la prédalle, dessus de dalle). 0 est lu 3 cm, comme dans "
-              "l'écran Streamlit.")
-          + L("Principale", C.segments(["dir_principale"], p["dir_principale"], [("Y", "Direction Y"), ("X", "Direction X")]), full=True)
-          + C.aide("La base inférieure de la direction principale est posée DANS la prédalle (fond de moule) ; la base "
-                   "secondaire et tous les renforts inférieurs SUR la prédalle. Elle ordonne aussi les vérifications et les coupes.")
+          + C.ligne2(("Béton", C.choix(["beton"], p["beton"], [(k, k) for k in MO.classes_beton()]), ""),
+                     ("Acier", C.choix(["fyk"], p["fyk"], [(n, f"B{n}") for n in EN.NUANCES]), ""))
+          + C.ligne2(("b bande", C.num(["b"], p["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX),
+                      "Largeur de la bande étudiée : 100 cm = un mètre courant. Moments et effort tranchant sont ceux de la bande."),
+                     ("h totale", C.num(["h"], p["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX),
+                      "Épaisseur totale : prédalle et béton coulé en place ensemble ; c'est h qui entre dans les formules."))
+          + C.ligne2(("h<sub>p</sub> prédalle", C.num(["h_pre"], p["h_pre"], "cm", mini=EN.H_PRE_MIN, maxi=EN.h_pre_max(p["h"])),
+                      f"Épaisseur de la prédalle préfabriquée : de {C.nb(EN.H_PRE_MIN)} à {C.nb(EN.h_pre_max(p['h']))} cm ici (au "
+                      "moins 1 cm coulé en place, 15 cm au plus). Elle fixe la position des couches inférieures."),
+                     ("c enrobage", C.num(["enrobage"], p["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX),
+                      "Du parement au nu des armatures (fond de moule de la prédalle, dessus de dalle). 0 est lu 3 cm, comme "
+                      "dans l'écran Streamlit."))
+          + C.ligne2(("Principale", C.segments(["dir_principale"], p["dir_principale"], [("Y", "Y"), ("X", "X")]),
+                      "La base inférieure de la direction principale est posée DANS la prédalle (fond de moule) ; la base "
+                      "secondaire et tous les renforts inférieurs SUR la prédalle. Elle ordonne aussi les vérifications et les "
+                      "coupes."),
+                     ("coulé h − h<sub>p</sub>", f'<span class="dl-ro">{C.nb(p["h"] - p["h_pre"])} cm</span>',
+                      "Épaisseur du béton coulé en place au chantier, sur la prédalle."))
           + "</div>" + C.case(["verrou"], False, "Verrouiller la prédalle (lecture seule)"))
     contenus, resumes = [], []
     for i, (s, rs) in enumerate(zip(p["sections"], r["sections"])):

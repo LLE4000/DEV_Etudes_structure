@@ -61,6 +61,16 @@ def saisir(etat, chemin, valeur):
     return out
 
 
+NOMS = re.compile(r'(?:<span class="nom">([^<]+)</span>|<input data-chemin="nom" data-sorte="texte" value="([^"]*)"[^>]*>)'
+                  r'<span class="dim">([^<]+)</span>')
+
+
+def noms_arbre(html):
+    """(nom, dimensions) de chaque élément de l'arborescence : le nom d'un élément fermé s'écrit, celui de l'élément
+    OUVERT est un champ, sur sa ligne même (11/2026)."""
+    return [(a or b, d) for a, b, d in NOMS.findall(html)]
+
+
 def pd(etat, i=None):
     return etat["predalles"][etat["actif"] if i is None else i]
 
@@ -308,7 +318,7 @@ r2 = req(action="calculer", etat=deux)
 chk("le résumé de la note : la prédalle la plus chargée, même si l'ouverte l'est moins",
     r2["resume"]["gouvernant"].startswith("Prédalle 2") and r2["resume"]["taux"] == C.pct(max(moteur(deux, 0)["taux_max"], moteur(deux, 1)["taux_max"])))
 chk("l'arborescence : chaque prédalle « nom · b × h cm », sans taux (le résultat est à droite) ; la liste de l'ancien écran n'existe plus",
-    r2["donnees"].count('class="et-pt-t') == 2 and re.findall(r'<span class="nom">([^<]+)</span><span class="dim">([^<]+)</span>', r2["donnees"])
+    r2["donnees"].count('class="et-pt-t') == 2 and noms_arbre(r2["donnees"])
     == [("Prédalle 1", "· 100 × 22 cm"), ("Prédalle 2", "· 100 × 22 cm")] and r2["elements"] == "")
 sup = req(action="supprimer", etat=copy.deepcopy(deux), index=0)
 chk("supprimer : il en reste une, ouverte", len(sup["etat"]["predalles"]) == 1 and sup["etat"]["predalles"][0]["nom"] == "Prédalle 2")
@@ -750,7 +760,7 @@ ar = req(action="calculer", etat=E)
 don = ar["donnees"]
 chk("l'arborescence : « Prédalles » et leur nombre, chaque prédalle « nom · b × h cm » (sans taux), « Ajouter une prédalle »",
     re.search(r'<div class="et-arbre-h"><span>Prédalles</span><span class="n">1</span></div>', don) is not None
-    and re.findall(r'<span class="nom">([^<]+)</span><span class="dim">([^<]+)</span>', don) == [("Prédalle 1", "· 100 × 22 cm")]
+    and noms_arbre(don) == [("Prédalle 1", "· 100 × 22 cm")]
     and 'data-ajouter="1"' in don and "Ajouter une prédalle" in don and ar["elements"] == ""
     and "%" not in re.search(r'<div class="et-pt-l">.*?</button>', don, re.S).group(0))
 chk("sous la prédalle ouverte, ses quatre rubriques dans l'ordre de la poutre : Prédalle, Sections et sollicitations, Armatures, Options",
@@ -793,6 +803,19 @@ chk("l'en-tête de la vue : la section, la bande et la peau, les matériaux, la 
     "<b>Section A</b><span>· 100 × 22 cm, prédalle 6 cm · C30/37 · B500 · principale Y</span>" in ent
     and ">Inf. Y Treillis 10/10/100/100 + 3 Ø12 · X Treillis 10/10/100/100<" in ent and ">Sup. Y Treillis 10/10/100/100 · X Treillis 10/10/100/100<" in ent
     and ent.count("<span><i>") == 5 and "<sub>x,inf</sub><b>30,0</b>" in ent and "<i>V</i><b>60,0</b>" in ent, ent[:400])
+tete_on = re.search(r'<div class="et-pt on" data-predalle="0"><div class="et-pt-l">(.*?)<div class="et-mn">', don, re.S).group(1)
+rub1 = re.search(r'<div class="sec[^"]*" data-sec="pd".*?(?=<div class="sec[^"]*" data-sec="so")', don, re.S).group(0)
+chk("le NOM de l'élément ouvert se modifie sur sa ligne de l'arborescence ; la rubrique 1 n'a plus de ligne Nom et tient en "
+    "4 lignes de deux champs (béton | acier, b | h…), l'acier en menu déroulant ; les explications dans les ⓘ",
+    '<input data-chemin="nom" data-sorte="texte" value="Prédalle 1" class="et-pt-nom"' in tete_on and 'data-chemin="nom"' not in rub1
+    and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 4 == rub1.count('class="row2 n2"')
+    and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None and 'class="hint"' not in rub1,
+    (tete_on[-300:], re.findall(r'<div class="row[^"]*"', rub1)))
+aides_ = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', don)]
+chk("condensées, les données ne perdent aucune explication : les paragraphes d'aide d'avant (la base principale posée "
+    "DANS la prédalle, γs et jeu communs à la note) sont dans les ⓘ de leur champ",
+    any(t.startswith("La base inférieure de la direction principale est posée DANS la prédalle") for t in aides_)
+    and sum("Commun à toutes les prédalles de la note" in t for t in aides_) == 2, aides_)
 chk("chaque vue dit ce qu'on lit sur son dessin, en dernière ligne de son en-tête (la légende : barres coupées en points, X horizontales…)",
     len(ar["vues"]) == 5 and all(re.findall(r'<div class="lg">([^<]*)</div>(?=</div>)', v_["entete"])
                                  == [P.LEGENDES["p" if v_["cle"][0] == "p" else "c"]] == [v_["legende"]] for v_ in ar["vues"]),

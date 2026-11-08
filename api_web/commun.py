@@ -381,6 +381,17 @@ def ligne(label: str, champ: str, sym: str = "", aide: str = "", full: bool = Fa
     return f'<div class="row{" full" if full else ""}"><label>{s}<span>{label}</span>{a}</label>{champ}</div>'
 
 
+def ligne2(*paires: Tuple[str, str, str]) -> str:
+    """DEUX champs (ou plus) sur une seule ligne : les données condensées (demande de l'ingénieur, 11/2026 — « béton et
+    acier sur la même ligne, la largeur et la hauteur sur la même ligne »). Chaque paire (libellé HTML court, champ, aide
+    en texte : au survol de son icône ⓘ, jamais en paragraphe)."""
+    out = ""
+    for label, champ, aide in paires:
+        a = f'<span class="aide" title="{esc(aide)}">{icon("info")}</span>' if aide else ""
+        out += f'<label><span>{label}</span>{a}</label>{champ}'
+    return f'<div class="row2 n{len(paires)}">{out}</div>'
+
+
 def num(chemin: Sequence, valeur, unite: str = "", dec: int = 3, entier: bool = False, desactive: bool = False, mini=None, maxi=None,
         auto: str = "") -> str:
     """Un champ numérique lié à un CHEMIN de l'état (« geometrie/H ») : l'écran renvoie le texte tapé, le moteur le lit.

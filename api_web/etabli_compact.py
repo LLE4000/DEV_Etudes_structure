@@ -61,23 +61,34 @@ def arbre(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, c
     """La colonne de gauche : l'ARBORESCENCE de la note. Chaque élément ``(nom, dimensions, verrou)`` — le nom en texte,
     les dimensions en HTML (« · 25 × 50 cm ») — s'écrit sans taux ni pastille (le résultat est à droite) ; l'élément
     ouvert (``actif``) se développe et montre ``corps``, ses rubriques ; un clic sur un autre l'ouvre (le premier se
-    replie). Renommer, copier, supprimer : dans le menu « ⋯ » de l'élément. ``marque`` : l'attribut qui porte le rang
-    (``data-poutre``, ``data-dalle``…)."""
+    replie). Le NOM de l'élément ouvert se modifie sur sa ligne même (champ « nom » : les rubriques n'ont plus de champ
+    Nom, demande de l'ingénieur, 11/2026) — sauf verrouillé, où il se lit ; « Renommer » du menu « ⋯ » y place le
+    curseur. Copier, supprimer : dans le même menu. ``marque`` : l'attribut qui porte le rang (``data-poutre``,
+    ``data-dalle``…)."""
     out = ""
     seul = len(elements) == 1
     for i, (nom_txt, dims, verrou) in enumerate(elements):
         on = i == actif
         nom = C.esc(nom_txt)
-        actions = (action(f'data-renommer="{i}"', "pencil", "Renommer")
+        # (verrouillé, le nom se lit sans se modifier : « Renommer » n'aurait aucun champ où poser le curseur)
+        actions = (action(f'data-renommer="{i}"', "pencil", "Renommer", False, not verrou)
                    + action(f'data-dupliquer-index="{i}"', "copy", f"Copier {genre.le}")
                    + action(f'data-supprimer="{i}" data-confirmer="Supprimer {genre.le} « {nom} » de la note ?"', "trash-2",
                             f"Supprimer {genre.le}", True, not seul))
         cadenas = C.icon("lock") if verrou else ""
         dedans = f'<div class="et-pt-corps">{corps}</div>' if on else ""
-        out += (f'<div class="et-pt{" on" if on else ""}" data-{marque}="{i}"><div class="et-pt-l">'
-                f'<button type="button" class="et-pt-t{" on" if on else ""}" data-activer="{i}" aria-expanded="{"true" if on else "false"}" '
-                f'title="{"Replier ou déplier" if on else f"Ouvrir {genre.ce}"}">{C.icon("chevron-right")}'
-                f'<span class="t">{cadenas}<span class="nom">{nom}</span><span class="dim">{dims}</span></span></button>'
+        if on and not verrou:
+            # le chevron replie ou déplie l'élément ; le nom est un champ (la ligne garde son allure de titre)
+            tete = (f'<button type="button" class="et-pt-t on et-pt-chev" data-activer="{i}" aria-expanded="true" title="Replier ou déplier">'
+                    f'{C.icon("chevron-right")}</button>'
+                    f'<span class="t et-pt-n"><input data-chemin="nom" data-sorte="texte" value="{nom}" class="et-pt-nom" '
+                    f'size="{max(4, len(nom_txt) + 1)}" spellcheck="false" aria-label="Nom de {genre.ce}" title="Nom de {genre.ce} : '
+                    f'cliquer pour le modifier"><span class="dim">{dims}</span></span>')
+        else:
+            tete = (f'<button type="button" class="et-pt-t{" on" if on else ""}" data-activer="{i}" aria-expanded="{"true" if on else "false"}" '
+                    f'title="{"Replier ou déplier" if on else f"Ouvrir {genre.ce}"}">{C.icon("chevron-right")}'
+                    f'<span class="t">{cadenas}<span class="nom">{nom}</span><span class="dim">{dims}</span></span></button>')
+        out += (f'<div class="et-pt{" on" if on else ""}" data-{marque}="{i}"><div class="et-pt-l">{tete}'
                 f'{menu(actions, f"Actions de {genre.le}")}</div>{dedans}</div>')
     return (f'<div class="et-arbre"><div class="et-arbre-h"><span>{genre.liste}</span><span class="n">{len(elements)}</span></div>'
             f'{out}<button type="button" class="et-pt-add" data-ajouter="1">{C.icon("plus")}Ajouter {genre.un}</button></div>')

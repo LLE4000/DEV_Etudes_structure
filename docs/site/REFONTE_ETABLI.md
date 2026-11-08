@@ -192,6 +192,45 @@ que le calcul est identique : 18 cas sur 18, moteur, état et nombres des fenêt
 les filtres « formats », « module » et « plaques » de `site/web/verifier_site.js` (l'arborescence, le clic sur une
 couche du dessin, « ↺ », la section courante qui garde le genre de la vue, le menu ⋯).
 
+## Les données condensées, le nom sur sa ligne, les poignées au doigt (08/11/2026, troisième passe)
+
+**Demande de l'ingénieur** : « Poutre A » et ses trois petits points dans la colonne de gauche — pourquoi ne pas
+modifier le nom là, directement (on gagne trois lignes) ? Béton « C30/37 » et acier « B500 » en menus déroulants sur
+une même ligne, la largeur et la hauteur sur une même ligne, l'enrobage dessous : condenser au maximum (sur un écran de
+PC, la rubrique prenait beaucoup de lignes pour dire peu). Et sur la tablette, les poignées des étriers se voient mais
+ne bougent pas.
+
+**Ce qui est fait** :
+- **Le nom sur sa ligne** : l'élément ouvert de l'arborescence porte son nom en champ (`etabli_compact.arbre`, chemin
+  « nom », la largeur de son texte, l'allure du titre ; un cadre au survol et au focus) ; le chevron seul replie ou
+  déplie. Les rubriques n'ont plus de champ « Nom » ; « Renommer » (menu ⋯) pose le curseur dans ce champ, le nom
+  choisi. Un élément verrouillé (dalle, prédalle) lit son nom sans champ, et son « Renommer » est grisé — il n'aurait
+  aucun champ où poser le curseur.
+- **Deux champs par ligne** : `commun.ligne2` (libellé court, champ, libellé court, champ). Poutre : béton et acier
+  (deux menus), b et h, puis c — six lignes deviennent trois. Dalle : béton et acier, b et h, c et la direction
+  principale — huit lignes (avec un paragraphe d'aide) deviennent trois. Prédalle : béton et acier, b et h, h_p et c,
+  la direction principale et le coulé en place — dix deviennent quatre. Les options aussi, deux par ligne.
+- **Aucune explication perdue** : les paragraphes d'aide vont dans l'icône ⓘ de leur champ. Au doigt, le survol qui
+  montre une infobulle n'existe pas : un appui sur une ⓘ ouvre son texte dans une bulle, un second appui ou un appui
+  ailleurs la ferme (`js/etabli.js`, toutes les pages ; R1 : ce qui se lit à la souris se lit au doigt). L'icône
+  (13 px) étant une petite cible, au doigt le LIBELLÉ du champ ouvre aussi sa bulle. (Une première version agrandissait
+  la zone d'appui de l'icône par un pseudo-élément invisible : il débordait de sa boîte, et le harnais « formats » l'a
+  vu au téléphone comme un nom coupé, sur quatorze modules — il avait raison, la mesure ne doit voir déborder rien.)
+- **Les poignées au doigt** : un appui qui bouge, le navigateur le prenait pour faire défiler la page et annulait le
+  glisser (`pointercancel` : la poignée revenait à sa place). Un appui qui commence sur une poignée du cadre choisi lui
+  est désormais refusé (`touchstart` non passif, sur la toile) ; ailleurs, le doigt fait défiler comme avant.
+- Au téléphone, le chevron et le champ du nom font 40 px (cibles au doigt), le nom s'écrit en 16 px.
+
+**Les contrôles** : `tests/test_api_web_poutre.py`, `test_api_web_dalle.py`, `test_api_web_predalle.py` (le nom en champ
+sur la ligne de l'élément ouvert et nulle part ailleurs, le nombre de lignes de la rubrique 1, l'acier en menu, le
+verrou qui grise « Renommer ») ; `tests/test_reference_refonte.py` vert SANS regel (239 sur 239 : le calcul et ce qui
+s'affiche des fenêtres de calcul sont identiques) ; dans le navigateur, les filtres « pilote » (« Renommer » pose le
+curseur, Entrée écrit le nom dans la note, une saisie directe aussi), « plaques », « formats » (le nom long se coupe,
+les dimensions restent entières ; cibles de 36 px et champs en 16 px au téléphone) et « doigt » (tablette tactile : la
+poignée glissée jusqu'à la 3ᵉ barre sans annulation, la bulle d'une ⓘ ouverte et fermée d'un appui) de
+`site/web/verifier_site.js` ; le contrôle « aucun nom coupé » de « formats » mesure aussi les libellés à deux champs
+par ligne (`.row2`). Chaque contrôle nouveau a été vu rouge sans sa correction.
+
 ---
 
 # Refonte de l'établi Stab Méthodes : avis du jury sur les trois propositions, puis spécification finale en lots

@@ -242,13 +242,24 @@ rn = req(module="poutre", action="calculer", etat=e)
 t_max = max(MO.verifier(x)["taux_max"] for x in e["poutres"])
 chk("le résumé de la note est sa poutre la plus chargée (ici V1, fermée)",
     rn["resume"]["taux"] == C.pct(t_max) and rn["resume"]["gouvernant"].startswith("V1 ·"), (rn["resume"], t_max))
-pts_ = re.findall(r'<div class="et-pt( on)?" data-poutre="(\d)">.*?<span class="nom">([^<]+)</span><span class="dim">([^<]+)</span>', rn["donnees"], re.S)
+# le nom d'une poutre fermée s'écrit ; celui de la poutre OUVERTE est un champ, sur sa ligne même (11/2026)
+pts_ = [(o, i, n1 or n2, d_) for o, i, n1, n2, d_ in re.findall(
+    r'<div class="et-pt( on)?" data-poutre="(\d)">.*?(?:<span class="nom">([^<]+)</span>|<input data-chemin="nom" data-sorte="texte" '
+    r'value="([^"]*)"[^>]*>)<span class="dim">([^<]+)</span>', rn["donnees"], re.S)]
 arbre_ = rn["donnees"].split('class="et-pt-corps"')[0] + "".join(x.split("</div></div>", 1)[-1] for x in rn["donnees"].split('class="et-pt-corps"')[1:])
 chk("l'arborescence montre chaque poutre « nom · b × h cm », l'ouverte développée — sans taux ni pastille d'état",
     [(o, i, n) for o, i, n, _ in pts_] == [("", "0", "V1"), (" on", "1", "V2"), ("", "2", "V2 (copie)")]
     and all(d == f"· {C.nb(x['b'])} × {C.nb(x['h'])} cm" for (*_, d), x in zip(pts_, e["poutres"]))
     and rn["donnees"].count('class="et-pt-corps"') == 1 and rn["elements"] == ""
     and not re.search(r'class="(chip|status|pct)\b', rn["donnees"].split('class="et-pt-corps"')[0]), pts_)
+tete_on = re.search(r'<div class="et-pt on" data-poutre="1"><div class="et-pt-l">(.*?)<div class="et-mn">', rn["donnees"], re.S).group(1)
+rub1 = re.search(r'<div class="sec[^"]*" data-sec="pt".*?(?=<div class="sec[^"]*" data-sec="so")', rn["donnees"], re.S).group(0)
+chk("le NOM de la poutre ouverte se modifie sur sa ligne de l'arborescence (champ « nom », le chevron à côté replie) ; la "
+    "rubrique « Poutre » n'a plus de ligne Nom, et ses données tiennent en trois lignes (béton | acier, b | h, enrobage)",
+    re.search(r'<button type="button" class="et-pt-t on et-pt-chev" data-activer="1"[^>]*>', tete_on) is not None
+    and '<input data-chemin="nom" data-sorte="texte" value="V2" class="et-pt-nom"' in tete_on and 'data-chemin="nom"' not in rub1
+    and rub1.count('class="row2 n2"') == 2 and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None
+    and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 3, (tete_on[:300], re.findall(r'<div class="row[^"]*"', rub1)))
 P.gerer_elements(e, "supprimer", 0)
 chk("supprimer la première garde la poutre ouverte", len(e["poutres"]) == 2 and e["actif"] == 0 and e["poutres"][0]["nom"] == "V2")
 P.gerer_elements(e, "supprimer", 0)

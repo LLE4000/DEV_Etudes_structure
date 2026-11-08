@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|doigt]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -348,7 +348,8 @@ const FILTRE = process.argv[4] || '';
     const mesurer = (pg) => pg.evaluate(() => {
       const vis = (e) => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
       const large = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
-      const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, .row > label > span:not(.sym), .ni .t, .pk-row .nm, .tile .nm, .rows .seg.full button, .mtabs button, .mbar .btn, .mmenu .mi')]
+      // (et les libellés à deux champs par ligne, .row2 : données condensées, 11/2026)
+      const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, .row > label > span:not(.sym), .row2 > label > span, .ni .t, .pk-row .nm, .tile .nm, .rows .seg.full button, .mtabs button, .mbar .btn, .mmenu .mi')]
         .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim().slice(0, 40));
       // la grande pastille du verdict : son texte tient dans sa boîte (une pastille comprimée coupait « η »)
       const xl = [...document.querySelectorAll('.verdict .chip.xl')].filter(vis).filter((e) => large(e) > e.getBoundingClientRect().width + 0.5).map((e) => e.textContent);
@@ -625,7 +626,7 @@ const FILTRE = process.argv[4] || '';
             // (et celles de l'établi compact : l'arborescence, ses menus, les pièces, les barres d'un cadre, les blocs et la
             // liste de contrôle des résultats)
             const s = '.mtop button, .mtop a.btn, .mtabs button, .mbar .btn, #vues button, .zoom button, .sechd, .ni, .nl-add, #donnees .seg button, #donnees .field, .case, .addrow, .moins, .elements .ni.on .x, #resultat .el, #resultat .prof[data-pk]'
-              + ', .et-pt-t, .et-mn-b, .et-mn-l button, .et-pt-add, .et-tag, .et-dep, .et-add, .et-ret, .et-prop, .et-barres .b, .et-large, .et-sec-pick, .et-hist, .et-bloc-t, .et-tout, .et-just, .et-obs';
+              + ', .et-pt-t, .et-pt-nom, .et-mn-b, .et-mn-l button, .et-pt-add, .et-tag, .et-dep, .et-add, .et-ret, .et-prop, .et-barres .b, .et-large, .et-sec-pick, .et-hist, .et-bloc-t, .et-tout, .et-just, .et-obs';
             const tous = [...document.querySelectorAll(s)].filter((e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
             return tous.filter((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < 35.5; })
               .map((e) => `${e.className || e.tagName} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`);
@@ -729,10 +730,13 @@ const FILTRE = process.argv[4] || '';
         // un nom d'élément long : ce sont ses dernières lettres qui cèdent, jamais les dimensions qui le suivent
         await g.setViewportSize({ width: 820, height: 1180 });
         await g.waitForTimeout(300);
-        // le champ du nom de l'élément : celui dont la valeur ouvre l'intitulé de l'élément ouvert de la liste
+        // le champ du nom de l'élément : celui dont la valeur ouvre l'intitulé de l'élément ouvert de la liste — ou
+        // (établi compact) le champ posé sur la ligne même de l'élément ouvert, dans l'arborescence
         const champNom = await g.evaluate(() => {
-          const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t');
+          const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n');
           if (!t || ![...t.children].some((e) => e.tagName === 'SPAN' && !e.classList.contains('nom'))) return null;
+          const surLaLigne = t.querySelector('input[data-chemin]');
+          if (surLaLigne) return surLaLigne.dataset.chemin;
           const intitule = t.textContent.trim();
           const c = [...document.querySelectorAll('#donnees input[data-sorte="texte"]')].filter((e) => e.value.trim() && intitule.startsWith(e.value.trim()))
             .sort((a, b) => b.value.length - a.value.length)[0];
@@ -751,7 +755,7 @@ const FILTRE = process.argv[4] || '';
           await g.waitForTimeout(150);
           // les dimensions (le dernier <span> de l'intitulé) entières et dans leur ligne ; le nom, lui, peut céder
           const ni = await g.evaluate(() => {
-            const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t');
+            const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n');
             const d = [...t.children].filter((e) => e.tagName === 'SPAN' && !e.classList.contains('nom')).pop();
             const rt = t.getBoundingClientRect(), rd = d.getBoundingClientRect();
             return { dims: d.textContent, entieres: d.scrollWidth <= d.clientWidth + 1 && rd.right <= rt.right + 0.5 && rd.left >= rt.left - 0.5, largeur: Math.round(rd.width) };
@@ -1891,9 +1895,13 @@ const FILTRE = process.argv[4] || '';
       verif('pilote : une note sans effort dit « Données incomplètes », jamais « Conforme »',
         etatBloc === 'Données incomplètes' && !e.statut.includes('Conforme') && (await g.$eval('#resultat .et-bloc', (x) => x.classList.contains('inc'))), `${etatBloc} · ${e.statut}`);
       verif('pilote : une seule rubrique ouverte par défaut, la « Poutre »', e.ouvertes.join() === 'pt', JSON.stringify(e.ouvertes));
-      // l'arborescence : la poutre ouverte « nom · b × h cm », sans taux ni pastille ; ses quatre rubriques dessous
-      const arbre = await g.evaluate(() => { const t = document.querySelector('#donnees .et-pt.on .et-pt-t'); return { t: t.textContent.replace(/\s+/g, ' ').trim(), pastille: !!t.closest('.et-pt-l').querySelector('.chip, .pct, .status, .et-pt-e') }; });
-      verif('pilote : l\'arborescence nomme la poutre « V1 · 20 × 40 cm », sans taux ni pastille', /^V1\s*· 20 × 40 cm$/.test(arbre.t) && !arbre.pastille, JSON.stringify(arbre));
+      // l'arborescence : la poutre ouverte « nom · b × h cm », sans taux ni pastille ; son NOM est un champ, sur sa ligne
+      // (la rubrique « Poutre » n'a plus de champ « Nom ») ; ses quatre rubriques dessous
+      const arbre = await g.evaluate(() => { const l = document.querySelector('#donnees .et-pt.on .et-pt-l'), n = l.querySelector('input.et-pt-nom');
+        return { t: `${n ? n.value : ''}${l.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim(), champ: !!n && n.dataset.chemin === 'nom',
+          ailleurs: document.querySelectorAll('#donnees [data-chemin="nom"]').length, pastille: !!l.querySelector('.chip, .pct, .status, .et-pt-e') }; });
+      verif('pilote : l\'arborescence nomme la poutre « V1 · 20 × 40 cm », le nom en champ sur sa ligne (seul champ « nom »), sans taux ni pastille',
+        /^V1\s*· 20 × 40 cm$/.test(arbre.t) && arbre.champ && arbre.ailleurs === 1 && !arbre.pastille, JSON.stringify(arbre));
       // l'accordéon : un en-tête ouvre SA rubrique sans fermer les autres (plusieurs, si on le veut), et la referme ;
       // chaque champ s'atteint (une pièce choisie montre son détail)
       const cles = await g.$$eval('#donnees .et-pt.on .sec[data-sec]', (x) => x.map((y) => y.dataset.sec));
@@ -2109,13 +2117,38 @@ const FILTRE = process.argv[4] || '';
         avantJ.warn >= 1 && avantJ.nok >= 1 && avantJ.nokBouton === 0 && apresJ.justifs && Object.values(apresJ.justifs)[0].texte === 'Barres de montage Ø8 prévues au plan.'
         && apresJ.j.length === 1 && apresJ.j[0].includes('Examinée — justifiée'), JSON.stringify({ avantJ, apresJ }));
       await g.screenshot({ path: path.join(OUT, 'site_pilote_liste.png') });
+      // ---- le NOM se modifie sur la ligne de la poutre : « Renommer » (menu ⋯) y pose le curseur, le nom choisi ; Entrée
+      // l'écrit dans la note ; puis une saisie directe dans le champ (sans le menu) le rend
+      const nomNote = () => g.evaluate(() => { const id = new URLSearchParams(location.search).get('note');
+        const l = document.querySelector('#donnees .et-pt.on .et-pt-l');
+        return { note: JSON.parse(localStorage.getItem('stab.notes.v1'))[id].etat.poutres[0].nom,
+          ligne: `${l.querySelector('.et-pt-nom').value}${l.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim() }; });
+      await g.click('#donnees .et-pt[data-poutre="0"] [data-menu]');
+      await g.click('#donnees .et-pt[data-poutre="0"] .et-mn-l [data-renommer="0"]');
+      await g.waitForTimeout(150);
+      const rn0 = await g.evaluate(() => { const a = document.activeElement;
+        return { champ: !!a && a.matches('#donnees .et-pt.on .et-pt-l input.et-pt-nom'), choisi: !!a && a.value.length > 0 && a.selectionStart === 0 && a.selectionEnd === a.value.length }; });
+      await g.keyboard.type('V1 bis');
+      await g.keyboard.press('Enter');
+      await tranquille();
+      await g.waitForTimeout(200);
+      const rn1 = await nomNote();
+      await g.fill('#donnees .et-pt.on .et-pt-nom', 'V1');
+      await g.press('#donnees .et-pt.on .et-pt-nom', 'Enter');
+      await tranquille();
+      await g.waitForTimeout(200);
+      const rn2 = await nomNote();
+      verif('pilote : « Renommer » (menu ⋯) pose le curseur dans le nom, sur la ligne de la poutre ; Entrée l\'écrit dans la note ; une saisie directe aussi',
+        rn0.champ && rn0.choisi && rn1.note === 'V1 bis' && /^V1 bis\s*· 20 × 40 cm$/.test(rn1.ligne) && rn2.note === 'V1' && /^V1\s*· 20 × 40 cm$/.test(rn2.ligne),
+        JSON.stringify({ rn0, rn1, rn2 }));
       // ---- le menu ⋯ d'une poutre : « Copier la poutre » (insérée après elle), « Supprimer » (confirmé)
       await g.click('#donnees .et-pt[data-poutre="0"] [data-menu]');
       const mn = await g.$eval('#donnees .et-pt[data-poutre="0"] .et-mn-l', (x) => { const q = x.getBoundingClientRect(); return { vu: x.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight }; });
       await g.click('#donnees .et-pt[data-poutre="0"] .et-mn-l [data-dupliquer-index="0"]');
       await tranquille();
       await g.waitForTimeout(200);
-      const noms = () => g.$$eval('#donnees .et-arbre .et-pt .nom', (x) => x.map((y) => y.textContent));
+      // le nom de chaque élément : en texte sur sa ligne, ou dans le champ de la ligne de l'élément ouvert
+      const noms = () => g.$$eval('#donnees .et-arbre .et-pt > .et-pt-l', (x) => x.map((y) => { const n = y.querySelector('.et-pt-nom'); return n ? n.value : y.querySelector('.nom').textContent; }));
       const n1 = await noms();
       g.once('dialog', (d) => d.accept());
       await g.click('#donnees .et-pt[data-poutre="1"] [data-menu]');
@@ -2160,7 +2193,7 @@ const FILTRE = process.argv[4] || '';
       await tranquille();
       await g.waitForTimeout(200);
       verif('pilote : « Ajouter une poutre » ajoute une poutre à l\'arborescence et l\'ouvre',
-        (await g.$$eval('#donnees .et-arbre .et-pt', (x) => x.length)) === 2 && (await g.$eval('#donnees .et-pt.on .nom', (x) => x.textContent)) === 'V2');
+        (await g.$$eval('#donnees .et-arbre .et-pt', (x) => x.length)) === 2 && (await g.$eval('#donnees .et-pt.on .et-pt-nom', (x) => x.value)) === 'V2');
       // les colonnes : repli (la toile gagne la place), poignée (la largeur suit et se garde)
       const l0 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
       await g.click('.panel.left [data-coll="g"]');
@@ -2211,6 +2244,82 @@ const FILTRE = process.argv[4] || '';
     await c.close();
   }
 
+  // ---------------------------------------------------------------- les poignées d'un cadre, AU DOIGT (tablette)
+  // Signalé par l'ingénieur (11/2026) : sur tablette, les poignées se voient mais ne bougent pas — le navigateur prenait
+  // l'appui pour faire défiler la page et annulait le glisser (pointercancel). Les événements tactiles sont ceux de
+  // Chromium (CDP Input.dispatchTouchEvent), avec leurs gestes par défaut : un glisser à la souris ne le voit pas.
+  if (!FILTRE || FILTRE === 'pilote' || FILTRE === 'doigt') {
+    const c = await b.newContext({ viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true });
+    const g = await c.newPage();
+    g.erreurs = [];
+    g.on('pageerror', (e) => g.erreurs.push(e.message));
+    try {
+      await g.goto(`${BASE}/poutre.html`);
+      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+      const cdp = await c.newCDPSession(g);
+      const touche = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+      if (!(await g.$eval('#donnees .sec[data-sec="arm"]', (x) => x.classList.contains('open')))) await g.click('#donnees .sec[data-sec="arm"] > .sechd');
+      await g.fill('#donnees input[data-chemin="sections/0/inf/0/n"]', '4');
+      await g.press('#donnees input[data-chemin="sections/0/inf/0/n"]', 'Enter');
+      await tranquille();
+      await g.waitForTimeout(300);
+      const etriers = () => g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id]; return n ? n.etat.poutres[0].sections[0].etriers : null; });
+      // choisir le cadre d'un appui sur son trait, puis glisser la poignée « a » (sur la 4e barre) jusqu'à la 3e
+      const tr = await g.$eval('#stage .view.on .pc.cadre[data-cadre="0"] path', (x) => { const q = x.getBoundingClientRect(); return { x: q.left + 2, y: q.top + q.height / 2 }; });
+      await touche('touchStart', tr.x, tr.y);
+      await g.waitForTimeout(60);
+      await touche('touchEnd');
+      await g.waitForTimeout(250);
+      const h = await g.$eval('#stage .view.on .pc.cadre.et-sel .poignee[data-bout="a"] .o', (x) => { const q = x.getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; });
+      const b3 = await g.evaluate(() => { const cs = [...document.querySelectorAll('#stage .view.on .pc.lit[data-sel$=".lit-inf-0"] > circle')]; cs.sort((u, v) => +u.getAttribute('cx') - +v.getAttribute('cx')); const q = cs[2].getBoundingClientRect(); return { x: q.left + q.width / 2, y: q.top + q.height / 2 }; });
+      await g.evaluate(() => { window.__annule = 0; window.addEventListener('pointercancel', () => { window.__annule += 1; }, true); });
+      await touche('touchStart', h.x, h.y);
+      for (let i = 1; i <= 10; i++) { await touche('touchMove', h.x + (b3.x - h.x) * i / 10, h.y); await g.waitForTimeout(30); }
+      await touche('touchEnd');
+      await tranquille().catch(() => {});
+      await g.waitForTimeout(400);
+      const apres = await etriers();
+      const annule = await g.evaluate(() => window.__annule);
+      verif('doigt : sur tablette, la poignée d\'un cadre se glisse au doigt (sans annulation) jusqu\'à la 3e barre — le cadre entoure 1 → 3',
+        annule === 0 && apres && apres[0].de === 1 && apres[0].a === 3, JSON.stringify({ annule, apres }));
+      // les explications rangées dans ⓘ (données condensées) : au doigt, pas de survol — un appui ouvre la bulle, un second
+      // la ferme ; le LIBELLÉ du champ l'ouvre aussi (l'icône seule est une petite cible) ; une autre ⓘ (deux champs sur une
+      // ligne) change le texte ; un appui ailleurs la ferme
+      const lireBulle = () => g.evaluate(() => { const x = document.querySelector('.aide-bulle'); const q = x && x.getBoundingClientRect();
+        return { vu: !!x && x.checkVisibility({ visibilityProperty: true, opacityProperty: true }), texte: x ? x.textContent : '',
+          dedans: !!q && q.left >= 0 && q.top >= 0 && q.right <= innerWidth && q.bottom <= innerHeight }; });
+      for (const k of ['pt', 'op']) if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.tap(`#donnees .sec[data-sec="${k}"] > .sechd`);
+      const enr = '#donnees .row:has(input[data-chemin="enrobage"]) .aide';
+      await g.$eval(enr, (x) => x.scrollIntoView({ block: 'center' }));
+      await g.waitForTimeout(150);
+      await g.tap(enr);
+      const b1 = await lireBulle();
+      await g.tap(enr);
+      const b2 = await lireBulle();
+      await g.tap('#donnees .row:has(input[data-chemin="enrobage"]) > label > span:not(.aide):not(.sym)');
+      const b2l = await lireBulle();
+      const jeu = '#donnees .row2:has(input[data-chemin="jeu_premier_lit"]) .aide';
+      await g.$eval(jeu, (x) => x.scrollIntoView({ block: 'center' }));
+      await g.waitForTimeout(150);
+      await g.tap(jeu);
+      const b3b = await lireBulle();
+      // (un appui sur le libellé « Méthode », sans aide, tout près et dans l'écran : rien ne défile, c'est bien l'appui
+      // ailleurs qui la ferme)
+      await g.tap('#donnees .row.et-meth > label > span');
+      const b4 = await lireBulle();
+      verif('doigt : une aide ⓘ s\'ouvre d\'un appui (bulle dans l\'écran, son texte), se ferme d\'un second ; le libellé du champ l\'ouvre aussi ; celle d\'un champ à deux par ligne aussi ; un appui ailleurs la ferme',
+        b1.vu && b1.dedans && b1.texte.startsWith('Distance du parement') && !b2.vu && b2l.vu && b2l.texte.startsWith('Distance du parement')
+        && b3b.vu && b3b.dedans && b3b.texte.startsWith('Ajouté sous le lit 1') && !b4.vu,
+        JSON.stringify({ b1, b2, b2l, b3b, b4 }));
+      verif('doigt : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+    } catch (x) {
+      verif('doigt : le parcours va au bout', false, String(x.message).split('\n').slice(0, 3).join(' | '));
+      await g.screenshot({ path: path.join(OUT, 'site_doigt_echec.png') }).catch(() => {});
+    }
+    await c.close();
+  }
+
   // ---------------------------------------------------------------- l'établi compact des DALLES et des PRÉDALLES
   // Les fonctions aux places de la poutre (docs/site/REFONTE_ETABLI.md, « Un seul établi pour les trois modules béton
   // armé ») : l'arborescence « nom · b × h cm » et son menu ⋯, les quatre rubriques, un bloc par section (« Données
@@ -2239,18 +2348,21 @@ const FILTRE = process.argv[4] || '';
       const sync = () => g.evaluate(() => ({ vue: document.querySelector('#vues .on')?.dataset.vue,
         blocs: [...document.querySelectorAll('#resultat .et-bloc')].filter((x) => !x.hidden).map((x) => x.dataset.section),
         arm: document.querySelector('#donnees .et-arm.on')?.dataset.section }));
-      const noms = () => g.$$eval('#donnees .et-arbre .et-pt .nom', (x) => x.map((y) => y.textContent));
+      // le nom de chaque élément : en texte sur sa ligne, ou dans le champ de la ligne de l'élément ouvert
+      const noms = () => g.$$eval('#donnees .et-arbre .et-pt > .et-pt-l', (x) => x.map((y) => { const n = y.querySelector('.et-pt-nom'); return n ? n.value : y.querySelector('.nom').textContent; }));
       try {
         await g.goto(`${BASE}/index.html`);
         await Promise.all([g.waitForNavigation(), g.click(`.tile[data-module="${cle}"]`)]);
         await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        // le nom de l'élément ouvert : un champ sur sa ligne (le seul champ « nom » : la rubrique n'en a plus)
         const arbre = await g.evaluate(() => {
-          const t = document.querySelector('#donnees .et-pt.on .et-pt-t');
-          return { n: document.querySelectorAll('#donnees .et-arbre .et-pt').length, t: t.textContent.replace(/\s+/g, ' ').trim(),
-            pastille: !!t.closest('.et-pt-l').querySelector('.chip, .pct, .status') };
+          const l = document.querySelector('#donnees .et-pt.on .et-pt-l'), n = l.querySelector('input.et-pt-nom');
+          return { n: document.querySelectorAll('#donnees .et-arbre .et-pt').length, t: `${n ? n.value : ''}${l.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim(),
+            champ: !!n && n.dataset.chemin === 'nom', ailleurs: document.querySelectorAll('#donnees [data-chemin="nom"]').length,
+            pastille: !!l.querySelector('.chip, .pct, .status') };
         });
-        verif(`plaques ${cle} : l'arborescence nomme l'élément « ${nom} · ${dims} », sans taux ni pastille`,
-          arbre.n === 1 && arbre.t.replace(/\s*·\s*/, ' · ') === `${nom} · ${dims}` && !arbre.pastille, JSON.stringify(arbre));
+        verif(`plaques ${cle} : l'arborescence nomme l'élément « ${nom} · ${dims} », le nom en champ sur sa ligne (seul champ « nom »), sans taux ni pastille`,
+          arbre.n === 1 && arbre.t.replace(/\s*·\s*/, ' · ') === `${nom} · ${dims}` && arbre.champ && arbre.ailleurs === 1 && !arbre.pastille, JSON.stringify(arbre));
         const rubs = await g.$$eval('#donnees .et-pt.on .sec[data-sec]', (x) => x.map((y) => y.dataset.sec + (y.classList.contains('open') ? '*' : '')));
         verif(`plaques ${cle} : quatre rubriques aux places de la poutre (élément, sections et sollicitations, armatures, options), la première seule ouverte`,
           rubs.join() === `${rub1}*,so,arm,op`, rubs.join());
@@ -2382,7 +2494,7 @@ const FILTRE = process.argv[4] || '';
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote et les plaques travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

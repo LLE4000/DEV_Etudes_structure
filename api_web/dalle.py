@@ -438,12 +438,12 @@ def _options(d: Dict) -> str:
     L = C.ligne
     return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
             f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
-            + L("γ<sub>s</sub> acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX), "",
-                "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes les "
-                "dalles de la note.")
-            + L("Jeu premier lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0), "",
-                "Ajouté à l'axe automatique de chaque couche. Commun à toutes les dalles de la note.")
-            + C.aide("γ<sub>s</sub> et le jeu sont communs à toutes les dalles de la note, comme dans l'écran Streamlit.")
+            + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX),
+                        "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes "
+                        "les dalles de la note, comme dans l'écran Streamlit."),
+                       ("Jeu 1er lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0),
+                        "Ajouté à l'axe automatique de chaque couche. Commun à toutes les dalles de la note, comme dans l'écran "
+                        "Streamlit."))
             + '<div class="et-gh"><span class="t">Reprendre une note Streamlit</span></div>'
             + C.aide("Le fichier « dalle_ba.json » de l'écran Streamlit (bouton Enregistrer) : ses dalles remplacent celles "
                      "de cette note ; ce que l'écran y remplaçait en silence est signalé.")
@@ -459,17 +459,18 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     if d["verrou"]:
         return _formulaire_verrouille(d, r)
     L = C.ligne
+    # condensée (demande de l'ingénieur, 11/2026) : le nom se modifie dans l'arborescence ; deux champs par ligne, les
+    # explications dans l'infobulle ⓘ de leur champ
     s1 = ('<div class="et-piece et-plat" data-cible="beton">'
-          + L("Nom", C.texte(["nom"], d["nom"], "ex. Plancher haut"), full=True)
-          + L("Béton", C.choix(["beton"], d["beton"], [(k, k) for k in MO.classes_beton()]), full=True)
-          + L("Acier", C.segments(["fyk"], d["fyk"], [(n, f"B{n}") for n in EN.NUANCES]), full=True)
-          + L("b bande", C.num(["b"], d["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX), "",
-              "Largeur de la bande étudiée : 100 cm = un mètre courant. Moments et effort tranchant sont ceux de la bande.")
-          + L("h épaisseur", C.num(["h"], d["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX))
-          + L("c enrobage", C.num(["enrobage"], d["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), "",
-              "Du parement au nu des armatures. 0 est lu 3 cm, comme dans l'écran Streamlit.")
-          + L("Principale", C.segments(["dir_principale"], d["dir_principale"], [("Y", "Direction Y"), ("X", "Direction X")]), full=True)
-          + C.aide("La direction principale ordonne les vérifications, les coupes et la note ; aucune formule ne la lit.")
+          + C.ligne2(("Béton", C.choix(["beton"], d["beton"], [(k, k) for k in MO.classes_beton()]), ""),
+                     ("Acier", C.choix(["fyk"], d["fyk"], [(n, f"B{n}") for n in EN.NUANCES]), ""))
+          + C.ligne2(("b bande", C.num(["b"], d["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX),
+                      "Largeur de la bande étudiée : 100 cm = un mètre courant. Moments et effort tranchant sont ceux de la bande."),
+                     ("h épaisseur", C.num(["h"], d["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX), ""))
+          + C.ligne2(("c enrobage", C.num(["enrobage"], d["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX),
+                      "Du parement au nu des armatures. 0 est lu 3 cm, comme dans l'écran Streamlit."),
+                     ("Principale", C.segments(["dir_principale"], d["dir_principale"], [("Y", "Y"), ("X", "X")]),
+                      "La direction principale ordonne les vérifications, les coupes et la note ; aucune formule ne la lit."))
           + "</div>" + C.case(["verrou"], False, "Verrouiller la dalle (lecture seule)"))
     contenus, resumes = [], []
     for i, (s, rs) in enumerate(zip(d["sections"], r["sections"])):

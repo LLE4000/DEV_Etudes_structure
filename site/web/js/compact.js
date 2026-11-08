@@ -269,6 +269,14 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     try { h.setPointerCapture(ev.pointerId); } catch (e) { /* pointeur déjà relâché */ }
     g.classList.add("et-glisse");
   }, true);
+  // AU DOIGT, le navigateur prend un appui qui bouge pour faire défiler la page (la feuille du dessin l'autorise :
+  // touch-action « pan-x pan-y » ; celui d'une poignée, élément SVG, n'est pas appliqué) et ANNULE le glisser
+  // (pointercancel : la poignée revenait à sa place). Un appui qui commence sur une poignée du cadre choisi lui est
+  // refusé ; ailleurs sur le dessin, le doigt fait défiler comme avant. (Écouteur non passif : posé sur la toile, pas
+  // sur le document, que le navigateur rend passif.)
+  stage.addEventListener("touchstart", (ev) => {
+    if (ev.target.closest && ev.target.closest(".view.on .pc.cadre.et-sel .poignee")) ev.preventDefault();
+  }, { passive: false });
   window.addEventListener("pointermove", (ev) => {
     if (!glisse || ev.pointerId !== glisse.id) return;
     ev.preventDefault();
@@ -451,8 +459,20 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   });
 
   // ------------------------------------------------------------ après chaque réponse du moteur
+  // le NOM de l'élément ouvert (un champ, sur sa ligne de l'arborescence) a la largeur de son texte : les dimensions
+  // le suivent, sans vide (l'attribut size, en caractères moyens, laissait un blanc)
+  const regle = document.createElement("canvas").getContext("2d");
+  function ajusterNom(n = donnees.querySelector(".et-pt-nom")) {
+    if (!n) return;
+    const st = getComputedStyle(n);
+    regle.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`;
+    const bords = parseFloat(st.paddingLeft) + parseFloat(st.paddingRight) + parseFloat(st.borderLeftWidth) + parseFloat(st.borderRightWidth);
+    n.style.width = `${Math.ceil(regle.measureText(n.value || n.placeholder || "").width + bords + 4)}px`;
+  }
+  donnees.addEventListener("input", (ev) => { if (ev.target.classList && ev.target.classList.contains("et-pt-nom")) ajusterNom(ev.target); });
   function rafraichir() {
     poserPoutre();
+    ajusterNom();
     // la section courante est celle du dessin (une vue « Toutes » reste choisie)
     const nSec = donnees.querySelectorAll(".et-arm[data-section]").length;
     if (nSec && courante >= nSec) courante = 0;
