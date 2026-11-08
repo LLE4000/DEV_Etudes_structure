@@ -540,9 +540,10 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
     sw, sh = bw - 2 * ci, bh - 2 * ci
     r = max(1.6, dst * s * 2.0)
 
-    def _cadre_plein(dia, color, hooks):
-        """Rectangle périmétrique d'un étrier fermé ; en mode acier, un
-        second passage plus fin trace le reflet cylindrique."""
+    def _cadre_rect(rx, ry, rw, rh, rr, dia, color, hooks):
+        """Un étrier fermé sur sa ligne moyenne (rx, ry, rw, rh), angles de
+        rayon rr, crochets en haut à gauche ; en mode acier, un second
+        passage plus fin trace le reflet cylindrique."""
         w_tr = max(0.9, dia * s * 0.85)
         w_hk = max(0.8, dia * s * 0.8)
         if st.dia_colors:
@@ -550,25 +551,42 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         passes = [(color, w_tr, w_hk)]
         if st.steel and not st.dia_colors:
             passes.append((_ACIER["reflet"], w_tr * 0.34, w_hk * 0.34))
-        hk = min(sw * 0.34, max(5.0, dia * s * 6.0))
+        hk = min(rw * 0.34, max(5.0, dia * s * 6.0))
         e = max(1.8, dia * s * 1.7)
         u = 0.7071
         for col, wt, wh in passes:
             c.setStrokeColor(col)
             c.setLineWidth(wt)
-            c.roundRect(sx0, sy0, sw, sh, r, stroke=1, fill=0)
+            c.roundRect(rx, ry, rw, rh, rr, stroke=1, fill=0)
             if hooks:
                 c.saveState()
                 c.setStrokeColor(col)
                 c.setLineWidth(wh)
                 for k in (0, 1):
-                    px = sx0 + r * 0.75 - k * e * u
-                    py = sy0 + sh - r * 0.25 - k * e * u
+                    px = rx + rr * 0.75 - k * e * u
+                    py = ry + rh - rr * 0.25 - k * e * u
                     p = c.beginPath()
                     p.moveTo(px, py)
                     p.lineTo(px + hk * u, py - hk * u)
                     c.drawPath(p)
                 c.restoreState()
+
+    def _cadre_plein(dia, color, hooks):
+        """Rectangle périmétrique d'un étrier fermé (rendu d'origine)."""
+        _cadre_rect(sx0, sy0, sw, sh, r, dia, color, hooks)
+
+    def _cadre_exact(g, color):
+        """(site, 11/2026) Un étrier fermé à sa place EXACTE : `x0`, `x1` =
+        ses nus extérieurs (mm depuis la face gauche du béton, calculés par
+        le moteur), ses branches haute et basse au nu de l'enrobage. Ligne
+        moyenne à Ø/2 des nus ; crochets en haut à gauche, sur chacun."""
+        dia = float(g.get("dia", 8) or 8)
+        rx = ox + (float(g["x0"]) + dia / 2.0) * s
+        rw = (float(g["x1"]) - float(g["x0"]) - dia) * s
+        ry = oy + (cov + dia / 2.0) * s
+        rh = bh - 2.0 * (cov + dia / 2.0) * s
+        rr = max(1.2, min(dia * s * 2.0, rw / 2.2, rh / 2.2))
+        _cadre_rect(rx, ry, rw, rh, rr, dia, color, True)
 
     def _teinte(i):
         """Alternance des teintes entre groupes (1er = accent)."""
@@ -604,6 +622,11 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         k_ferme = 0
         for g in cadres:
             dia = float(g.get("dia", 8) or 8)
+            if int(g.get("brins", 2)) != 1 and g.get("x0") is not None and g.get("x1") is not None:
+                # (site, 11/2026) la géométrie exacte du moteur : chaque cadre à sa place, crochets compris
+                _cadre_exact(g, _coul_groupe(k_ferme))
+                k_ferme += 1
+                continue
             if int(g.get("brins", 2)) == 1:
                 attente.append(("epingle", dia,
                                 _clampb(g.get("de"), (n1_ref + 1) // 2),
@@ -668,8 +691,10 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             xs = [(x0 + x1) / 2.0] if n == 1 else \
                  [x0 + i * (x1 - x0) / (n - 1) for i in range(n)]
             if lyr.get("xs"):
-                # (site, 11/2026) les abscisses imposées (mm depuis la face gauche) : la répartition détaillée
-                xs = [sx0 + float(xm) * s for xm in lyr["xs"]]
+                # (site, 11/2026) les abscisses imposées, en mm depuis la face GAUCHE DU BÉTON (ox, et non le nu de
+                # l'enrobage : depuis sx0, chaque barre glissait d'un enrobage vers la droite et un cadre posé sur la
+                # dernière barre sortait de la poutre — tests/test_note_poutre.py le mesure)
+                xs = [ox + float(xm) * s for xm in lyr["xs"]]
             for bx in xs:
                 if st.dia_colors:
                     c.setFillColor(_coul_dia(dia))
@@ -753,6 +778,9 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
         w_main = max(0.9, dst * s * 0.85)
         x_pl = ox + ci + w_main + r_t
         x_pr = ox + bw - ci - w_main - r_t
+        if peau.get("xs"):
+            # (site, 11/2026) les axes exacts du moteur (mm depuis la face gauche du béton)
+            x_pl, x_pr = ox + float(peau["xs"][0]) * s, ox + float(peau["xs"][1]) * s
         for y_mm in peau["ys"]:
             yy = oy + y_mm * s
             for xc in (x_pl, x_pr):

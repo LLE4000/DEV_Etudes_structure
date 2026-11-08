@@ -101,7 +101,7 @@ def construire_doc(infos, date_defaut=""):
     )
 
 
-def _coupe_depuis_R(R, stirrups, pas, peau=None):
+def _coupe_depuis_R(R, stirrups, pas, peau=None, cadres_geo=None):
     """Payload de la coupe : millimètres, valeurs réelles du moteur.
     Multi-lits : liste complète avec la position d'axe RÉELLE (e, mm).
     Étriers/épingles : tous les groupes, avec leur position (de barre →
@@ -132,6 +132,12 @@ def _coupe_depuis_R(R, stirrups, pas, peau=None):
     # inférieur ; None = toute la largeur)
     cadres = [dict(dia=float(g.get("d", 8) or 8), brins=int(g.get("brins", 2)),
                    de=g.get("from"), a=g.get("to")) for g in stirrups]
+    # (site, 11/2026) « cadres_geo » : l'emprise EXACTE de chaque ligne calculée par le moteur (nus extérieurs, mm
+    # depuis la face gauche du béton) — le dessin pose chaque cadre à sa place au lieu de la déduire des indices
+    if cadres_geo and len(cadres_geo) == len(cadres):
+        for g, cg in zip(cadres, cadres_geo):
+            if int(g["brins"]) != 1:
+                g["x0"], g["x1"] = float(cg["x0"]), float(cg["x1"])
 
     # légende : une ligne par groupe, mêmes formes que la légende d'origine
     # (pas d'étrier sur les fermés, positions portées par le dessin)
@@ -182,6 +188,8 @@ def _coupe_depuis_R(R, stirrups, pas, peau=None):
             dia=float(peau["d"]),
             ys=[y * 10.0 for y in peau["ys"]],
             label=f"Armature de peau : 2×{int(peau['n'])} Ø{int(peau['d'])}")
+        if peau.get("xs"):
+            out["peau"]["xs"] = [x * 10.0 for x in peau["xs"]]
     return out
 
 
@@ -338,33 +346,40 @@ def _verif_tranchant(Sh, R, num):
 
 
 def _verif_dispositions(dispo, num):
-    """(site, 11/2026) Les DISPOSITIONS CONSTRUCTIVES d'une section (beton/poutre/dispositions.controler) : une ligne
-    par contrôle (espacement libre et son minimum EC2 8.2(2), enrobage, barres dans l'étrier, angles des cadres),
-    puis un verdict par contrôle qui n'est pas « ok ». Rien n'est recalculé : les valeurs sont celles du contrôle."""
-    etats = {"ok": "ok", "warn": "att", "nok": "ko"}
+    """(site, 11/2026) Les DISPOSITIONS CONSTRUCTIVES d'une section (beton/poutre/dispositions.controler), COMPACTES :
+    la planche n'a qu'une page et ce bloc vient en dernier — il ne doit jamais la faire déborder (une observation sortie
+    de la page serait perdue sans un mot). Le minimum EC2 sur une ligne ; les contrôles conformes en une phrase ; un
+    verdict par observation qui ne l'est pas (non conforme, à examiner, ou examinée et justifiée par l'ingénieur, avec
+    sa justification). Rien n'est recalculé : les valeurs sont celles du contrôle."""
+    etats = {"ok": "ok", "warn": "att", "nok": "ko", "just": "ok"}
     faces = {"inf": "inf.", "sup": "sup."}
 
     def court(it):
-        """Le libellé court d'un contrôle (la colonne n'en tient pas plus) ; le verdict garde le texte entier."""
+        """Le libellé court d'un contrôle conforme (la phrase des conformes)."""
         f, j = faces.get(it.get("face"), ""), it.get("lit")
-        return {"lit": f"Lit {f} L{(j or 0) + 1} : entre barres", "entre_lits": f"Lits {f} L{j} – L{(j or 0) + 1}",
-                "faces": "Entre faces inf. et sup.", "enrobage": "Enrobage c + Ø étrier",
-                "laterales": "Latérales"}.get(it["cle"], it["texte"])
-    items = [("f", "Espacement libre minimal",
-              rf"s_{{min}} = \max{{Ø ; d_g + 5 ; 20}} = \res{{{fn(dispo['s_min_ref'], 0)} \u{{mm}}}}"),
-             ("t", f"pour Ø20, granulat de {fn(dispo['dg'], 0)} mm (EC2 8.2(2), valeurs recommandées)")]
-    verdicts = []
+        return {"lit": f"L{(j or 0) + 1} {f}", "entre_lits": f"L{j}–L{(j or 0) + 1} {f}",
+                "faces": "faces", "enrobage": "enrobage c + Ø étrier", "laterales": "latérales"}.get(it["cle"], it["texte"])
+    items = [("f", f"Espacement libre minimal — EC2 8.2(2), pour Ø20 et un granulat de {fn(dispo['dg'], 0)} mm",
+              rf"s_{{min}} = max(Ø ; d_g + 5 ; 20) = \res{{{fn(dispo['s_min_ref'], 0)} \u{{mm}}}}")]
+    conformes, verdicts = [], []
     for it in dispo["items"]:
-        if it.get("libre") is not None and it.get("mini"):
-            items.append(("v", court(it), None, f"{fn(it['libre'], 0)} ≥ {fn(it['mini'], 0)}"
-                          if it["libre"] >= it["mini"] else f"{fn(it['libre'], 0)} < {fn(it['mini'], 0)}", "mm"))
-        if it["etat"] != "ok":
-            txt = it["texte"] + (f" : {fn(it['libre'], 0)} mm (minimum {fn(it['mini'], 0)} mm)"
-                                 if it.get("libre") is not None and it.get("mini") else "")
-            verdicts.append(dict(etat=etats[it["etat"]], texte=_unites_insecables(txt)))
+        eff = it.get("etat_eff", it["etat"])
+        if eff == "ok":
+            if it.get("libre") is not None and it.get("mini"):
+                conformes.append(f"{court(it)} {fn(it['libre'], 0)} ≥ {fn(it['mini'], 0)}")
+            continue
+        txt = it["texte"] + (f" : {fn(it['libre'], 0)} mm (minimum {fn(it['mini'], 0)} mm)"
+                             if it.get("libre") is not None and it.get("mini") else "")
+        if eff == "just":
+            j = (it.get("justification") or "").strip()
+            txt += " — examinée et justifiée par l'ingénieur" + (f" : {j}" if j else "")
+        verdicts.append(dict(etat=etats[eff], texte=_unites_insecables(txt)))
+    if conformes:
+        items.append(("p", "Conformes (mm) : " + " · ".join(conformes)))
     if not verdicts:
         verdicts.append(dict(etat="ok", texte="Espacements, enrobage et cadres conformes aux dispositions constructives"))
-    items.append(("k", 0))
+    # chaque verdict est désigné par son rang (la planche ne dessine que ceux qu'on lui désigne)
+    items.extend(("k", i) for i in range(len(verdicts)))
     return dict(num=num, titre="Dispositions constructives", items=items, verdicts=verdicts)
 
 
@@ -394,7 +409,8 @@ def construire_sections(resultats):
             beton=R["beton"], acier=f"B{int(R['fyk'])}",
             etat=res.get("etat_label") or ETAT_LABELS.get(R["etat_global"], "Non vérifié"),
             coupe=_coupe_depuis_R(R, res.get("stirrups"),
-                                  (Sh or {}).get("pas"), peau=res.get("peau")),
+                                  (Sh or {}).get("pas"), peau=res.get("peau"),
+                                  cadres_geo=res.get("cadres_geo")),
             blocs=_blocs_depuis_R(R, res.get("ta_global")),
             verifs=verifs,
         ))

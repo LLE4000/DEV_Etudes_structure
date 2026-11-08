@@ -150,8 +150,9 @@ pl = NP.resultats(CAS["poutre neuve (sans effort)"])
 chk("une section sans effort n'est jamais « Vérifié » : « Données incomplètes »", pl[0]["etat_label"] == NP.ETAT_INCOMPLET
     and ND.construire_sections(pl)[0]["etat"] == NP.ETAT_INCOMPLET, pl[0].get("etat_label"))
 pl = NP.resultats(cas((S0 + ["M_inf"], 40), (S0 + ["V"], 20), (S0 + ["pas"], 20), (S0 + ["inf", "+"], 1)))
-chk("deux lits Ø16 au jeu du bureau : la planche est « À surveiller » (14 mm libres < 25 mm)", pl[0]["etat_label"] == "À surveiller"
-    and any(v["etat"] == "att" and "14 mm" in v["texte"] for v in ND.construire_sections(pl)[0]["verifs"][-1]["verdicts"]), pl[0]["etat_label"])
+chk("deux lits Ø16 au jeu du bureau : la planche est « Non vérifié » (14 mm libres < 25 mm : non conforme, EC2 8.2(2))",
+    pl[0]["etat_label"] == "Non vérifié"
+    and any(v["etat"] == "ko" and "14 mm" in v["texte"] for v in ND.construire_sections(pl)[0]["verifs"][-1]["verdicts"]), pl[0]["etat_label"])
 pl = NP.resultats(CAS["latérales imposées (h = 90)"])
 chk("les latérales imposées (3 Ø12 par face) remplacent la règle automatique", pl[0]["peau"]["n"] == 3 and pl[0]["peau"]["d"] == 12
     and "2×3 Ø12" in ND.construire_sections(pl)[0]["coupe"]["peau"]["label"], pl[0]["peau"])
@@ -254,6 +255,118 @@ for mauvais in ({"beams": "x", "values": {}}, {"beams": [], "values": {"autre": 
         chk(f"un fichier qui n'en est pas un est refusé ({str(mauvais)[:40]})", False)
     except ValueError as err:
         chk(f"un fichier qui n'en est pas un est refusé avec un message ({str(mauvais)[:40]})", "Streamlit" in str(err) or "aucune poutre" in str(err), err)
+
+# ---------------------------------------------------------------- la COUPE DESSINÉE de la planche = la géométrie du moteur
+# On espionne le canevas pendant le dessin de chaque coupe (cercles, rectangles arrondis) et on relit les positions en mm
+# depuis la face gauche et le bas du béton. Le cas du bureau (11/2026) : quatre barres en lit 1, deux étriers 1 → 3 et
+# 2 → 4 — la planche décalait chaque barre d'un enrobage vers la droite et posait le second étrier hors de la poutre.
+import ndc_pdf.kit as KIT  # noqa: E402
+import ndc_pdf.section as SEC  # noqa: E402
+import ndc_pdf.styles as STY  # noqa: E402
+import tempfile  # noqa: E402
+
+
+def coupes_dessinees(etat):
+    """Chaque coupe dessinée par la note : {"b", "h", "c", "barres": [(x, y, r)], "cadres": [(x, y, w, h)]} en mm."""
+    vues, vrai = [], SEC.draw_section
+
+    def espion(c, x, y, w, h, sec, st, **kw):
+        tr = {"cercles": [], "rr": [], "rects": []}
+
+        class Canevas:
+            def __getattr__(self, n):
+                return getattr(c, n)
+
+            def circle(self, cx, cy, r, *a, **k):
+                tr["cercles"].append((cx, cy, r))
+                return c.circle(cx, cy, r, *a, **k)
+
+            def roundRect(self, x_, y_, w_, h_, r_, *a, **k):
+                tr["rr"].append((x_, y_, w_, h_))
+                return c.roundRect(x_, y_, w_, h_, r_, *a, **k)
+
+            def rect(self, x_, y_, w_, h_, *a, **k):
+                tr["rects"].append((x_, y_, w_, h_, k.get("stroke"), k.get("fill")))
+                return c.rect(x_, y_, w_, h_, *a, **k)
+        out = vrai(Canevas(), x, y, w, h, sec, st, **kw)
+        b, hh = sec["b"], sec["h"]
+        ox, oy, bw, _ = next(r for r in tr["rects"] if r[4] == 1 and r[5] == 0 and abs(r[2] / r[3] - b / hh) < 1e-3)[:4]
+        s_ = bw / b
+        vues.append({"b": b, "h": hh, "c": sec["enrobage"],
+                     "barres": [((cx - ox) / s_, (cy - oy) / s_, r / s_) for cx, cy, r in tr["cercles"]
+                                if r / s_ >= 2.9 and -1 <= (cx - ox) / s_ <= b + 1],
+                     "cadres": [((x_ - ox) / s_, (y_ - oy) / s_, w_ / s_, h_ / s_) for x_, y_, w_, h_ in tr["rr"]]})
+        return out
+    STY.draw_section = KIT.draw_section = espion
+    try:
+        fd, chemin = tempfile.mkstemp(suffix=".pdf")
+        os.close(fd)
+        d = NP.document(etat, {}, chemin)
+        os.remove(chemin)
+    finally:
+        STY.draw_section, KIT.draw_section = vrai, vrai
+    return vues, d.warnings
+
+
+def poutre_bureau(etriers, inf=None, sup=None, b=25.0, h=50.0, **sec):
+    p = EN.nouvelle_poutre()
+    p.update({"nom": "P AXE H SS3", "b": b, "h": h})
+    p["sections"][0].update({"M_inf": 90.0, "M_sup": 50.0, "V": 30.0, "pas": 20.0, "etriers": etriers,
+                             "inf": inf or [{"n": 4, "d": 20}], "sup": sup or [{"n": 3, "d": 16}]})
+    p["sections"][0].update(sec)
+    return p
+
+
+CAS_COUPE = {
+    "bureau : 4Ø20, étriers 1→3 et 2→4": poutre_bureau([{"type": "etrier", "d": 10, "de": 1, "a": 3}, {"type": "etrier", "d": 10, "de": 2, "a": 4}]),
+    "trois cadres sur 6Ø20 (complet, 2→3, 4→5)": poutre_bureau(
+        [{"type": "etrier", "d": 8}, {"type": "etrier", "d": 8, "de": 2, "a": 3}, {"type": "etrier", "d": 8, "de": 4, "a": 5}],
+        inf=[{"n": 6, "d": 20}], sup=[{"n": 6, "d": 16}], b=40.0),
+    "deux lits superposés, étrier + épingle": poutre_bureau([{"type": "etrier", "d": 10}, {"type": "epingle", "d": 8}],
+                                                           inf=[{"n": 4, "d": 20}, {"n": 2, "d": 20, "rep": "aligne"}], b=30.0),
+    "trois lits, latérales, cadre intérieur 2→3": poutre_bureau([{"type": "etrier", "d": 10}, {"type": "etrier", "d": 10, "de": 2, "a": 3}],
+                                                                inf=[{"n": 4, "d": 25}, {"n": 4, "d": 20, "pos": 5.0}, {"n": 2, "d": 16, "rep": "aligne", "pos": 4.5}],
+                                                                sup=[{"n": 4, "d": 16}], b=35.0, h=90.0),
+}
+for nom, p in CAS_COUPE.items():
+    vues, deb = coupes_dessinees({"poutres": [p]})
+    v = vues[0]
+    geo = MO.verifier(p)["sections"][0]["geometrie"]
+    manquent = []
+    for face in ("inf", "sup"):
+        for j, lit in enumerate(geo[face]["lits"]):
+            y = lit["distance"] * 10.0 if face == "inf" else v["h"] - lit["distance"] * 10.0
+            for x in lit["x"]:
+                if not any(abs(bx - x * 10.0) < 0.2 and abs(by - y) < 0.2 for bx, by, _ in v["barres"]):
+                    manquent.append(f"{face} L{j + 1} x={x * 10.0:.1f}")
+    chk(f"note · {nom} : chaque barre est dessinée où le moteur la place (mm, face gauche du béton)", not manquent,
+        (manquent, sorted(round(b_[0], 1) for b_ in v["barres"])))
+    fermes = [cd for cd in geo["etriers"]["cadres"] if cd["type"] != "epingle"]
+    ecarts = []
+    for cd in fermes:
+        x0, x1, de = cd["x0"] * 10.0, cd["x1"] * 10.0, float(cd["d"])
+        if not any(abs(x - (x0 + de / 2)) < 0.2 and abs(x + w - (x1 - de / 2)) < 0.2 and abs(y - (v["c"] + de / 2)) < 0.2 for x, y, w, _ in v["cadres"]):
+            ecarts.append((round(x0, 1), round(x1, 1)))
+    dedans = all(-0.01 <= x - 0.0 and x + w <= v["b"] + 0.01 for x, _, w, _ in v["cadres"])
+    chk(f"note · {nom} : chaque cadre à son emprise exacte (nus extérieurs du moteur), tous DANS le béton",
+        not ecarts and dedans and len(v["cadres"]) == len(fermes), (ecarts, [(round(x, 1), round(x + w, 1)) for x, _, w, _ in v["cadres"]]))
+    chk(f"note · {nom} : la planche ne déborde pas (rien ne sort de la page)", not deb, deb)
+    sec_n = ND.construire_sections(NP.resultats({"poutres": [p]}))[0]
+    vd = sec_n["verifs"][-1]
+    designes = sorted(it[1] for it in vd["items"] if it[0] == "k")
+    chk(f"note · {nom} : chaque observation des dispositions a son verdict sur la planche ({len(vd['verdicts'])})",
+        designes == list(range(len(vd["verdicts"]))), (designes, len(vd["verdicts"])))
+b_ = CAS_COUPE["bureau : 4Ø20, étriers 1→3 et 2→4"]
+vd = ND.construire_sections(NP.resultats({"poutres": [b_]}))[0]["verifs"][-1]
+chk("note · le cas du bureau : les DEUX cadres sans barre haute dans un angle sont écrits (C1 et C2)",
+    sum(1 for k in vd["verdicts"] if k["texte"].startswith("Cadre C")) == 2, [k["texte"] for k in vd["verdicts"]])
+bj = copy.deepcopy(b_)
+r0 = MO.verifier(bj)["sections"][0]
+it1 = next(x for x in r0["dispositions"]["items"] if x["id"] == "angles_cadre:1")
+bj["sections"][0]["justifs"] = {"angles_cadre:1": {"texte": "Barre de montage HA12 au plan F-12.", "empreinte": it1["empreinte"]}}
+vd = ND.construire_sections(NP.resultats({"poutres": [bj]}))[0]["verifs"][-1]
+chk("note · une observation justifiée s'écrit avec sa justification (« examinée et justifiée par l'ingénieur »)",
+    any("examinée et justifiée par l'ingénieur : Barre de montage HA12" in k["texte"] for k in vd["verdicts"]), [k["texte"] for k in vd["verdicts"]])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

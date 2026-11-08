@@ -60,7 +60,18 @@ def resultats(etat: Dict) -> List[Dict]:
                     lit["x"] = list(geo["x"])
                     lit["label"] = f"L{j + 1} : {geo['n']}Ø{geo['d']}"
             lat = rs["geometrie"]["laterales"]
-            pl["peau"] = {"d": lat["d"], "n": lat["n"], "ys": list(lat["ys"])} if lat["n"] else None
+            # les axes des latérales : au contact du nu intérieur de l'étrier (le dessin du site, dispositions.py)
+            xg = rs["grandeurs"]["enrobage_calcul"] + rs["grandeurs"]["d_etrier"] / 10.0 + float(lat["d"]) / 20.0
+            pl["peau"] = ({"d": lat["d"], "n": lat["n"], "ys": list(lat["ys"]), "xs": [xg, p["b"] - xg]}
+                          if lat["n"] else None)
+            # l'emprise exacte de chaque ligne d'effort tranchant (mm depuis la face gauche) : le dessin la pose telle quelle
+            cads = rs["geometrie"]["etriers"]["cadres"]
+            pl["cadres_geo"] = [{"x0": cd["x0"] * 10.0, "x1": cd["x1"] * 10.0} for cd in cads]
+            if len(pl.get("stirrups") or []) != len(cads):
+                # sans effort tranchant, la planche Streamlit ne garde que la première ligne : le dessin les veut toutes
+                pl["stirrups"] = [{"type": cd["type"], "d": cd["d"], "brins": cd["brins"],
+                                   "from": None if cd["complet"] else cd["de"], "to": None if cd["complet"] else cd["a"]}
+                                  for cd in cads]
             pl["dispositions"] = rs["dispositions"]
             if not rs["sollicitee"]:
                 pl["etat_label"] = ETAT_INCOMPLET
@@ -70,22 +81,33 @@ def resultats(etat: Dict) -> List[Dict]:
     return out
 
 
-def pdf(etat: Dict, infos: Optional[Dict] = None) -> bytes:
-    """La note PDF (octets) : garde A4 portrait + une planche A4 paysage par section, comme ``generer_rapport_pdf``
-    (même construction, même repli en trois colonnes si une planche déborde)."""
+def document(etat: Dict, infos: Optional[Dict], chemin: str):
+    """Le document construit (pas encore écrit) : la garde et les planches, comme ``generer_rapport_pdf`` (même
+    construction, même repli en trois colonnes si une planche déborde). ``d.warnings`` : ce qui déborde encore."""
     from modules import export_pdf as EP
     from ndc_pdf import data as ndc_data
-    import tempfile
     infos = infos or {}
     planches = resultats(etat)
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     sections = ndc_data.construire_sections(planches)
+    d = EP._style_ndc(2).build(chemin, sections=sections, doc=doc_meta)
+    if d.warnings:
+        d = EP._style_ndc(3).build(chemin, sections=sections, doc=doc_meta)
+    return d
+
+
+def pdf(etat: Dict, infos: Optional[Dict] = None) -> bytes:
+    """La note PDF (octets) : garde A4 portrait + une planche A4 paysage par section. Une planche qui déborde encore en
+    trois colonnes est REFUSÉE avec un message : ce qui sort de la page serait perdu sans un mot (une observation des
+    dispositions, un verdict) — jamais une note tronquée."""
+    import tempfile
     fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_poutre_")
     os.close(fd)
     try:
-        d = EP._style_ndc(2).build(chemin, sections=sections, doc=doc_meta)
+        d = document(etat, infos, chemin)
         if d.warnings:
-            d = EP._style_ndc(3).build(chemin, sections=sections, doc=doc_meta)
+            raise ValueError("La note ne tient pas sur sa planche (" + " ; ".join(d.warnings) + ") : elle ne sort pas "
+                             "tronquée. Réduire le nombre d'observations de la section (dispositions constructives).")
         d.save()
         with open(chemin, "rb") as f:
             return f.read()
