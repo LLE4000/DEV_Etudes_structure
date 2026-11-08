@@ -48,10 +48,28 @@ LIT_DEFAUT = {"n": 2, "d": 16}
 ETRIER_DEFAUT = {"type": "etrier", "d": 10}
 PAS_DEFAUT = 30.0            # cm
 
-CLES_POUTRE = frozenset(DEFAUTS_POUTRE) | {"sections"}
-CLES_SECTION = frozenset({"nom", "M_inf", "M_sup", "V", "inf", "sup", "etriers", "pas", "yG_inf", "yG_sup"})
-CLES_LIT = frozenset({"n", "d"})
-CLES_ETRIER = frozenset({"type", "d"})
+# ---- le FERRAILLAGE DÉTAILLÉ (site, 11/2026) : des clés FACULTATIVES, absentes du module Streamlit. Absentes (ou à leur
+#      valeur par défaut), la poutre normalisée est celle d'avant, à l'octet : la parité avec l'écran est intacte.
+#   lit     « pos »  : position imposée (cm) — lit 1 : du parement à l'axe ; lit i > 1 : entraxe VERTICAL depuis le lit
+#                      précédent (axe à axe). Absente : la position automatique du module (enrobage, jeux).
+#           « rep »  : répartition HORIZONTALE — « uniforme » (défaut : entre les montants de l'étrier), « aligne »
+#                      (sur les barres du lit 1 de la face, les angles d'abord), « entraxe » (groupe centré, entraxe « sh »).
+#           « sh »   : entraxe horizontal (cm, axe à axe) quand « rep » vaut « entraxe ».
+#   étrier  « de », « a » : les barres du lit 1 INFÉRIEUR que le cadre entoure (1 à n ; absentes : toute la largeur) —
+#                      une épingle n'a qu'une position, « de ». Comme les clés shear_line*_from/_to du module (dessin).
+#   section « laterales » : {"n": barres par face latérale (absent : automatique, la règle des armatures de peau du
+#                      PDF Streamlit), "d": Ø} — dessin, note et dispositions ; elles n'entrent pas dans le calcul.
+#   poutre  « dg » (mm) : le plus gros granulat, pour l'espacement libre minimal (EC2 8.2(2)) ; « peau_d » (mm) et
+#           « peau_smax » (cm) : les armatures de peau automatiques (paramètres avancés du module).
+REPARTITIONS = ("uniforme", "aligne", "entraxe")
+DIAMETRES_LATERAUX = (8, 10, 12, 16)            # « Armatures technologiques » du module : Ø (mm)
+DEFAUTS_DETAIL = {"dg": 20.0, "peau_d": 10, "peau_smax": 30.0}
+
+CLES_POUTRE = frozenset(DEFAUTS_POUTRE) | {"sections"} | frozenset(DEFAUTS_DETAIL)
+CLES_SECTION = frozenset({"nom", "M_inf", "M_sup", "V", "inf", "sup", "etriers", "pas", "yG_inf", "yG_sup", "laterales"})
+CLES_LIT = frozenset({"n", "d", "pos", "rep", "sh"})
+CLES_ETRIER = frozenset({"type", "d", "de", "a"})
+CLES_LATERALES = frozenset({"n", "d"})
 
 
 # ============================================================ les classes de béton
@@ -161,8 +179,19 @@ def _lits(x, chemin: str) -> list:
         if not isinstance(lit, dict):
             raise ValueError(f"{c} : {{\"n\": …, \"d\": …}} attendu (reçu {lit!r})")
         _cles(lit, CLES_LIT, c)
-        out.append({"n": _entier(_val(lit, "n", LIT_DEFAUT["n"]), f"{c}.n", minimum=1),
-                    "d": _entier(_val(lit, "d", LIT_DEFAUT["d"]), f"{c}.d", permis=DIAMETRES)})
+        x = {"n": _entier(_val(lit, "n", LIT_DEFAUT["n"]), f"{c}.n", minimum=1),
+             "d": _entier(_val(lit, "d", LIT_DEFAUT["d"]), f"{c}.d", permis=DIAMETRES)}
+        # le détail : seulement s'il diffère du défaut (la poutre d'avant reste la même, à l'octet)
+        if lit.get("pos") is not None:
+            x["pos"] = _nombre(lit["pos"], f"{c}.pos", strict=True)
+        rep = lit.get("rep")
+        if rep is not None and rep != "uniforme":
+            if rep not in REPARTITIONS:
+                raise ValueError(f"{c}.rep : {' | '.join(REPARTITIONS)} attendu (reçu {rep!r})")
+            x["rep"] = rep
+        if lit.get("sh") is not None:
+            x["sh"] = _nombre(lit["sh"], f"{c}.sh", strict=True)
+        out.append(x)
     return out
 
 
@@ -178,9 +207,28 @@ def _etriers(x, chemin: str) -> list:
         t = _val(e, "type", ETRIER_DEFAUT["type"])
         if not isinstance(t, str) or t.strip().lower() not in _TYPES:
             raise ValueError(f"{c}.type : « etrier » (2 brins) ou « epingle » (1 brin) attendu (reçu {t!r})")
-        out.append({"type": _TYPES[t.strip().lower()],
-                    "d": _entier(_val(e, "d", ETRIER_DEFAUT["d"]), f"{c}.d", permis=DIAMETRES_ETRIERS)})
+        x = {"type": _TYPES[t.strip().lower()],
+             "d": _entier(_val(e, "d", ETRIER_DEFAUT["d"]), f"{c}.d", permis=DIAMETRES_ETRIERS)}
+        for k in ("de", "a"):
+            if e.get(k) is not None:
+                x[k] = _entier(e[k], f"{c}.{k}", minimum=1)
+        out.append(x)
     return out
+
+
+def _laterales(x, chemin: str):
+    """Les armatures latérales imposées : {"n": par face, "d": Ø} ; None (absentes) : la règle automatique."""
+    if x is None:
+        return None
+    if not isinstance(x, dict):
+        raise ValueError(f"{chemin} : {{\"n\": …, \"d\": …}} attendu (reçu {x!r})")
+    _cles(x, CLES_LATERALES, chemin)
+    out = {}
+    if x.get("n") is not None:
+        out["n"] = _entier(x["n"], f"{chemin}.n", minimum=0)
+    if x.get("d") is not None:
+        out["d"] = _entier(x["d"], f"{chemin}.d", permis=DIAMETRES_LATERAUX)
+    return out or None
 
 
 def _section(s, i: int, nom_defaut: str) -> dict:
@@ -197,6 +245,9 @@ def _section(s, i: int, nom_defaut: str) -> dict:
     out["pas"] = _nombre(_val(s, "pas", PAS_DEFAUT), f"{c}.pas", strict=True)
     for k in ("yG_inf", "yG_sup"):
         out[k] = None if s.get(k) is None else _nombre(s[k], f"{c}.{k}", strict=True)
+    lat = _laterales(s.get("laterales"), f"{c}.laterales")
+    if lat is not None:
+        out["laterales"] = lat
     return out
 
 
@@ -218,6 +269,13 @@ def normaliser(poutre: dict) -> dict:
     p["gamma_s"] = _nombre(_val(poutre, "gamma_s", DEFAUTS_POUTRE["gamma_s"]), "gamma_s", strict=True)
     for k in ("enrobage", "jeu_premier_lit", "jeu_entre_lits"):
         p[k] = _nombre(_val(poutre, k, DEFAUTS_POUTRE[k]), k)
+    # le détail du ferraillage : seulement s'il diffère du défaut
+    if poutre.get("dg") is not None and float(poutre["dg"]) != DEFAUTS_DETAIL["dg"]:
+        p["dg"] = _nombre(poutre["dg"], "dg", strict=True)
+    if poutre.get("peau_d") is not None and poutre["peau_d"] != DEFAUTS_DETAIL["peau_d"]:
+        p["peau_d"] = _entier(poutre["peau_d"], "peau_d", permis=DIAMETRES_LATERAUX)
+    if poutre.get("peau_smax") is not None and float(poutre["peau_smax"]) != DEFAUTS_DETAIL["peau_smax"]:
+        p["peau_smax"] = _nombre(poutre["peau_smax"], "peau_smax", strict=True)
     sections = poutre.get("sections")
     if sections is None:
         p["sections"] = [nouvelle_section("A")]

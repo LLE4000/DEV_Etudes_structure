@@ -113,6 +113,7 @@ face, chacune calculée par ``verifier`` (le Ø change la position du lit, donc 
 """
 import math
 
+from . import dispositions as DI
 from . import entree as E
 from . import geometrie as G
 from .entree import classes_beton, nom_section_suivant, normaliser, nouvelle_poutre, nouvelle_section  # noqa: F401
@@ -366,16 +367,24 @@ def _verifications(c: dict, s: dict) -> list:
     return out
 
 
-def _geometrie(p: dict, s: dict, c: dict) -> dict:
+def _geometrie(p: dict, s: dict, c: dict, dispo: dict) -> dict:
+    """La géométrie pour le dessin et la note : les lits (positions, abscisses), les lignes d'effort tranchant (emprise),
+    les armatures latérales. Les clés d'avant gardent leurs valeurs ; « x », « rep », « pos », « cadres » et
+    « laterales » s'y ajoutent (site)."""
     g, geo = c["g"], c["geo"]
     out = {"b": g["b"], "h": g["h"], "enrobage": p["enrobage"], "enrobage_calcul": g["enrobage_calcul"]}
     for face in ("inf", "sup"):
-        out[face] = {"lits": [{"n": lit["n"], "d": lit["d"], "distance": e, "As": lit["n"] * G.aire_barre(lit["d"])}
-                              for lit, e in zip(s[face], geo[face]["distances"])],
-                     "As": geo[face]["As"], "yG": geo[face]["yG"], "yG_calcule": geo[face]["yG_calcule"],
+        lits = []
+        for lit, e, xs in zip(s[face], geo[face]["distances"], dispo["abscisses"][face]):
+            lits.append({"n": lit["n"], "d": lit["d"], "distance": e, "As": lit["n"] * G.aire_barre(lit["d"]),
+                         "x": xs, "rep": lit.get("rep", "uniforme"), "pos": lit.get("pos"), "sh": lit.get("sh")})
+        out[face] = {"lits": lits, "As": geo[face]["As"], "yG": geo[face]["yG"], "yG_calcule": geo[face]["yG_calcule"],
                      "libelle": G.libelle_lits(s[face])}
-    out["etriers"] = {"lignes": [{"type": e["type"], "d": e["d"], "brins": E.BRINS[e["type"]]} for e in s["etriers"]],
-                      "d_max": g["d_etrier"], "pas": g["pas"], "Ast": g["Ast"], "resume": G.resume_etriers(s["etriers"])}
+    out["etriers"] = {"lignes": [{"type": e["type"], "d": e["d"], "brins": E.BRINS[e["type"]], "de": e.get("de"),
+                                  "a": e.get("a")} for e in s["etriers"]],
+                      "d_max": g["d_etrier"], "pas": g["pas"], "Ast": g["Ast"], "resume": G.resume_etriers(s["etriers"]),
+                      "cadres": dispo["cadres"], "brins": sum(E.BRINS[e["type"]] for e in s["etriers"])}
+    out["laterales"] = dispo["laterales"]
     return out
 
 
@@ -383,9 +392,20 @@ def _section(p: dict, s: dict, mat: dict) -> dict:
     c = _calcul(p, s, mat)
     verifs = _verifications(c, s)
     gouv = max(verifs, key=lambda v: v["taux"])
+    dispo = DI.controler(p, s, c["g"]["enrobage_calcul"], c["g"]["d_etrier"],
+                         {f: c["geo"][f]["distances"] for f in ("inf", "sup")})
+    # « statut » : la méthode du bureau seule (parité avec l'écran Streamlit) ; « statut_complet » y ajoute les
+    # dispositions constructives (site). « sollicitee » : la section porte au moins un effort — sans aucun, ses
+    # vérifications ne disent rien de la poutre (elles passent toutes), le site la dit « données incomplètes » et
+    # jamais « conforme ». « non_verifiees » : les vérifications que le module ne fait pas, et pourquoi (sans effort
+    # tranchant, ni τ ni étriers : l'écran Streamlit ne les montre pas et les tient pour « ok »).
+    non_verifiees = [] if s["V"] > 0 else [{"cle": k, "nom": NOMS[k], "raison": "sans effort tranchant (V = 0)"}
+                                           for k in ("tau", "pas")]
     return {"nom": s["nom"], "M_inf": s["M_inf"], "M_sup": s["M_sup"], "V": s["V"],
-            "statut": c["statut"], "taux_max": gouv["taux"], "gouvernant": gouv["cle"],
-            "grandeurs": c["g"], "verifications": verifs, "geometrie": _geometrie(p, s, c)}
+            "statut": c["statut"], "statut_complet": fusion_statuts(c["statut"], dispo["etat"]),
+            "sollicitee": s["M_inf"] > 0 or s["M_sup"] > 0 or s["V"] > 0, "non_verifiees": non_verifiees,
+            "taux_max": gouv["taux"], "gouvernant": gouv["cle"],
+            "grandeurs": c["g"], "verifications": verifs, "dispositions": dispo, "geometrie": _geometrie(p, s, c, dispo)}
 
 
 # ============================================================ l'API
@@ -403,6 +423,8 @@ def verifier(poutre: dict) -> dict:
                                  f"{G.ENROBAGE_SI_NUL:g} cm (il lit « enrobage or 3,0 »)."})
     return {"reference": REFERENCE, "poutre": p, "materiaux": mat, "sections": sections,
             "taux_max": gouv_v["taux"], "statut": fusion_statuts(*(sec["statut"] for sec in sections)),
+            "statut_complet": fusion_statuts(*(sec["statut_complet"] for sec in sections)),
+            "sollicitee": all(sec["sollicitee"] for sec in sections),
             "gouvernant": {"section": gouv_s["nom"], "cle": gouv_v["cle"], "nom": gouv_v["nom"], "taux": gouv_v["taux"]},
             "avertissements": avert}
 
@@ -426,11 +448,17 @@ def candidats_armatures(poutre: dict, nom_section: str, face: str) -> list:
             essai[face] = [{"n": n, "d": d}]
             c = _calcul(p, essai, mat)
             g = c["g"]
+            # les dispositions constructives du lit (site) : « possible » faux quand les barres se chevauchent ou
+            # sortent de l'étrier (le site ne la propose pas), « serree » sous l'espacement minimal de l'EC2
+            dispo = DI.controler(p, essai, g["enrobage_calcul"], g["d_etrier"],
+                                 {f: c["geo"][f]["distances"] for f in ("inf", "sup")})
+            etats_lit = [it["etat"] for it in dispo["items"] if it["face"] == face and it["cle"] in ("lit", "cadre")]
             out.append({"n": n, "d": d, "nom": f"{n}Ø{d}", "aire": g[f"As_{face}"],
                         "distance": g[f"dist_lit1_{face}"], "yG": g[f"yG_{face}"],
                         "taux": g[f"besoin_{face}"] / g[f"As_{face}"], "etat": c["etats"][face],
                         "ok": c["etats"][face] == OK, "statut_section": c["statut"],
-                        "retenue": s[face] == [{"n": n, "d": d}], "optimal": False})
+                        "possible": DI.NOK not in etats_lit, "serree": DI.WARN in etats_lit,
+                        "retenue": [{"n": x["n"], "d": x["d"]} for x in s[face]] == [{"n": n, "d": d}], "optimal": False})
     out.sort(key=lambda x: (x["aire"], x["n"]))
     optimal = next((x for x in out if x["ok"]), None)
     if optimal is not None:
