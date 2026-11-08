@@ -1,6 +1,22 @@
 {
  "module": "poutre",
  "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "regels": [
+  {
+   "date": "2026-11-08",
+   "commit": "98085c7",
+   "raison": "Finalisation de « Poutres béton armé », demandée par l'ingénieur : le moteur ajoute le ferraillage détaillé et les dispositions constructives EC2 8.2(2) (commit 96f43b4) — aucune valeur d'avant ne disparaît des fenêtres de calcul ; une note sans effort dit « Données incomplètes », plus jamais « Conforme » (défaut non conservatif corrigé, docs/site/REFONTE_ETABLI.md, « Un seul établi pour les trois modules béton armé ») ; le sélecteur de barres de la note neuve ne propose plus les dispositions de 1 885 à 4 825 mm².",
+   "note": "regel fait avant la garde : écarts recalculés par elle le 08/11/2026",
+   "ecarts": ["note neuve : verdict, taux 30 → None", "note neuve : verdict, niveau 'p' → 'n'", "note neuve : verdict, statut 'Conforme' → 'Données incomplètes'", "note neuve : valeurs qui ne se voient plus [\"1 885\", \"2 454\", \"2 945\", \"3 217\", \"4 021\", \"4 825\"]", "moments nuls (valeur minimale admise) : verdict, taux 30 → None", "moments nuls (valeur minimale admise) : verdict, niveau 'p' → 'n'", "moments nuls (valeur minimale admise) : verdict, statut 'Conforme' → 'Données incomplètes'", "largeur négative refusée : verdict, taux 30 → None", "largeur négative refusée : verdict, niveau 'p' → 'n'", "largeur négative refusée : verdict, statut 'Conforme' → 'Données incomplètes'", "nombre illisible refusé : verdict, taux 30 → None", "nombre illisible refusé : verdict, niveau 'p' → 'n'", "nombre illisible refusé : verdict, statut 'Conforme' → 'Données incomplètes'", "dernier lit non retiré : verdict, taux 30 → None", "dernier lit non retiré : verdict, niveau 'p' → 'n'", "dernier lit non retiré : verdict, statut 'Conforme' → 'Données incomplètes'", "poutres ajoutée, copiée, la première supprimée : verdict, taux 37 → None", "poutres ajoutée, copiée, la première supprimée : verdict, niveau 'p' → 'n'", "poutres ajoutée, copiée, la première supprimée : verdict, statut 'Conforme' → 'Données incomplètes'", "note abîmée : verdict, taux 30 → None", "note abîmée : verdict, niveau 'p' → 'n'", "note abîmée : verdict, statut 'Conforme' → 'Données incomplètes'"]
+  },
+  {
+   "date": "2026-11-08",
+   "commit": "50c37dd",
+   "raison": "Deuxième passe de l'écran (les 28 remarques de l'ingénieur) : les dispositions constructives passent de la fenêtre de calcul à la liste de contrôle du résultat, où une disposition conforme se lit sur une ligne, sans sa valeur (l'espacement libre des armatures latérales, 235 mm, ne s'affiche plus) ; le calcul est inchangé.",
+   "note": "regel fait avant la garde : écarts recalculés par elle le 08/11/2026",
+   "ecarts": ["poutre 30 × 60 réaliste (3Ø20, M = 120 kN·m, V = 40 kN, étriers à 20 cm) : valeurs qui ne se voient plus [\"235\"]", "chargée près de 100 % (M = 142 kN·m, V = 60 kN) : valeurs qui ne se voient plus [\"235\", \"8\"]", "deux sections (sur appui M_sup = 90 kN·m) : valeurs qui ne se voient plus [\"235\", \"237\", \"8\"]", "moments nuls (valeur minimale admise) : valeurs qui ne se voient plus [\"8\"]", "largeur négative refusée : valeurs qui ne se voient plus [\"8\"]", "nombre illisible refusé : valeurs qui ne se voient plus [\"8\"]", "dernier lit non retiré : valeurs qui ne se voient plus [\"8\"]", "surchargée (M = 400 kN·m) : valeurs qui ne se voient plus [\"235\", \"8\"]", "poutres ajoutée, copiée, la première supprimée : valeurs qui ne se voient plus [\"20\", \"8\"]", "note abîmée : valeurs qui ne se voient plus [\"8\"]"]
+  }
+ ],
  "cas": [
   {
    "nom": "note neuve",

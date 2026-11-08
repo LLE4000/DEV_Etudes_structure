@@ -10,6 +10,12 @@ PHOTO est comparée à celle gelée dans ``tests/reference_refonte/<clé>.json``
     /usr/bin/python3.12 tests/test_reference_refonte.py                 # compare tous les modules, nomme chaque écart
     /usr/bin/python3.12 tests/test_reference_refonte.py poutre dalle    # ces modules-là
     /usr/bin/python3.12 tests/test_reference_refonte.py --geler [clés]  # RÉGÉNÈRE les photos (après un changement VOULU)
+    /usr/bin/python3.12 tests/test_reference_refonte.py --geler --accepter="raison" clé  # … malgré un écart de CALCUL
+
+LE REGEL EST GARDÉ (révision du 08/11/2026 de docs/site/REFONTE_ETABLI.md, règle B.2.1 revue) : refaire la photo d'un
+module est permis quand seul l'ÉCRAN change ; un écart de CALCUL (état de la note, messages, avis, verdict, une valeur
+montrée qui ne se voit plus — voir ``garde``) fait REFUSER ``--geler``, sauf ``--accepter="raison"`` : la raison et
+les écarts s'écrivent alors dans la photo elle-même (clé « regels »), où ils durent plus qu'un message de commit.
 
 Par module : au moins trois cas de RÉFÉRENCE (la note neuve, un exemple publié ou réaliste, un cas chargé près de
 100 %) et au moins trois cas LIMITES (valeur minimale ou nulle admise, valeur hors domaine refusée avec son message,
@@ -558,6 +564,44 @@ def ecarts(gele: dict, vu: dict) -> list:
     return out
 
 
+# ====================================================================== la garde du regel (--geler)
+# Ce qui ne dépend PAS de la mise en page, et qu'un regel ne change donc jamais en silence : l'état de la note, les
+# messages et l'erreur, les avis, le verdict (taux, niveau, statut du résumé), et les VALEURS montrées par le résultat,
+# les fenêtres de calcul, les éléments, les sélecteurs et la phrase (un nombre de l'ancienne photo qui ne se voit plus
+# nulle part dans la nouvelle : un bloc déplacé garde ses valeurs, une valeur retirée de l'écran est nommée). Les
+# dessins n'y sont pas : leurs cotes suivent la mise en page.
+# (les milliers : l'espace fine de C.fr, ou l'espace ordinaire qui la remplace dans les groupes gelés — « 3 217 » est
+# UN nombre)
+_VALEUR = re.compile(r"[-−+]?(?:\d{1,3}(?: \d{3})+|\d+)(?:,\d+)?")
+_MONTRE = ("resultat", "calculs", "elements", "selecteurs", "phrase")
+
+
+def _valeurs(photo: dict) -> set:
+    return set(_VALEUR.findall(json.dumps([photo.get(k) for k in _MONTRE], ensure_ascii=False).replace(_MILLIERS, " ")))
+
+
+def garde(ancien: dict, neuf: dict) -> list:
+    """Les écarts de CALCUL, nommés, entre l'ancienne photo d'un module et la nouvelle (deux fichiers gelés :
+    ``{"cas": [{"nom", "photo"}…]}``) ; un cas nouveau n'a rien à garder, un cas retiré est un écart."""
+    out = []
+    avant = {c["nom"]: c["photo"] for c in ancien.get("cas", [])}
+    apres = {c["nom"]: c["photo"] for c in neuf.get("cas", [])}
+    out += [f"{nom} : cas retiré" for nom in avant if nom not in apres]
+    for nom, b in apres.items():
+        a = avant.get(nom)
+        if a is None:
+            continue
+        out += [f"{nom} : {k} changé" for k in ("etat", "messages", "erreur") if a.get(k) != b.get(k)]
+        if collections.Counter(a.get("avis") or []) != collections.Counter(b.get("avis") or []):
+            out.append(f"{nom} : avis changés")
+        ra, rb = a.get("resume") or {}, b.get("resume") or {}
+        out += [f"{nom} : verdict, {k} {ra.get(k)!r} → {rb.get(k)!r}" for k in ("taux", "niveau", "statut") if ra.get(k) != rb.get(k)]
+        perdues = sorted(_valeurs(a) - _valeurs(b))
+        if perdues:
+            out.append(f"{nom} : valeurs qui ne se voient plus {_court(perdues, 160)}")
+    return out
+
+
 # ====================================================================== écrire et relire les photos
 def _dump(x, retrait=0) -> str:
     """Un JSON lisible et stable pour git : les dictionnaires dépliés, une liste de nombres ou de textes sur UNE ligne,
@@ -584,20 +628,37 @@ def _fichier(cle: str) -> str:
     return os.path.join(DOSSIER, f"{cle}.json")
 
 
-def geler(cle: str) -> None:
-    sortie = {"module": cle,
-              "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
-              "cas": []}
+def geler(cle: str, raison: str = "", dossier: str = "") -> bool:
+    """Régénère la photo du module — GARDÉE : un écart de calcul (``garde``) la fait refuser, sauf ``raison`` (alors
+    écrite, avec les écarts et la date, dans la clé « regels » de la photo). Rend True si la photo est écrite."""
+    chemin = os.path.join(dossier, f"{cle}.json") if dossier else _fichier(cle)
+    ancien = None
+    if os.path.exists(chemin):
+        with open(chemin, encoding="utf-8") as f:
+            ancien = json.load(f)
+    cas = []
     for case in CAS[cle]:
         t0 = time.time()
         photo = photographier(cle, case)
         manque = manquements(photo, case["attendu"])
         chk(f"{cle} · {case['nom']} : gelé, et montre ce qu'il annonce ({time.time() - t0:.2f} s)", not manque, manque)
-        sortie["cas"].append({"nom": case["nom"], "sorte": case["sorte"], "attendu": case["attendu"], "pas": case["pas"],
-                              "photo": photo})
-    os.makedirs(DOSSIER, exist_ok=True)
-    with open(_fichier(cle), "w", encoding="utf-8") as f:
+        cas.append({"nom": case["nom"], "sorte": case["sorte"], "attendu": case["attendu"], "pas": case["pas"], "photo": photo})
+    ecarts_calcul = garde(ancien, {"cas": cas}) if ancien else []
+    regels = list((ancien or {}).get("regels", []))
+    if ecarts_calcul and not raison:
+        chk(f"{cle} : le regel ne change que l'écran — sinon « --accepter=raison » (photo NON écrite)", False,
+            "\n".join(ecarts_calcul[:40]))
+        return False
+    if ecarts_calcul:
+        regels.append({"date": _dt.date.today().isoformat(), "raison": raison, "ecarts": ecarts_calcul[:80]})
+        chk(f"{cle} : regel accepté malgré {len(ecarts_calcul)} écart(s) de calcul — raison écrite dans la photo", True)
+    sortie = {"module": cle,
+              "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+              **({"regels": regels} if regels else {}), "cas": cas}
+    os.makedirs(os.path.dirname(chemin), exist_ok=True)
+    with open(chemin, "w", encoding="utf-8") as f:
         f.write(_dump(sortie) + "\n")
+    return True
 
 
 def comparer(cle: str) -> None:
@@ -626,6 +687,9 @@ def comparer(cle: str) -> None:
 def main(argv) -> int:
     t0 = time.time()
     geler_ = "--geler" in argv
+    raison = next((a.split("=", 1)[1].strip() for a in argv if a.startswith("--accepter=")), "")
+    if any(a.startswith("--accepter") for a in argv):          # (sans elle, le compte reste celui du gel : 239)
+        chk("« --accepter » ne sert qu'avec « --geler », et porte une raison", geler_ and bool(raison), argv)
     choisis = [a for a in argv if not a.startswith("--")] or REG.cles()
     inconnus = [c for c in choisis if c not in REG.cles()]
     chk("les modules demandés sont au registre", not inconnus, inconnus)
@@ -637,7 +701,10 @@ def main(argv) -> int:
         refs = sum(c["sorte"] == "référence" for c in CAS[cle])
         lims = sum(c["sorte"] == "limite" for c in CAS[cle])
         chk(f"{cle} : au moins 3 cas de référence et 3 cas limites ({refs} + {lims})", refs >= 3 and lims >= 3)
-        (geler if geler_ else comparer)(cle)
+        if geler_:
+            geler(cle, raison)
+        else:
+            comparer(cle)
     print(f"\nDurée : {time.time() - t0:.1f} s")
     print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
     for nom, info in KO:

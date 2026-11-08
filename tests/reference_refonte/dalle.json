@@ -1,6 +1,15 @@
 {
  "module": "dalle",
  "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "regels": [
+  {
+   "date": "2026-11-08",
+   "commit": "b3ec83a",
+   "raison": "Dalles sur l'établi de la poutre : une note sans effort dit « Données incomplètes », plus jamais « Conforme » (défaut non conservatif corrigé, docs/site/REFONTE_ETABLI.md, « Un seul établi pour les trois modules béton armé ») ; aucune valeur ne disparaît.",
+   "note": "regel fait avant la garde : écarts recalculés par elle le 08/11/2026",
+   "ecarts": ["note neuve : verdict, taux 38 → None", "note neuve : verdict, niveau 'p' → 'n'", "note neuve : verdict, statut 'Conforme' → 'Données incomplètes'", "moment négatif refusé (PARCOURS) : verdict, taux 38 → None", "moment négatif refusé (PARCOURS) : verdict, niveau 'p' → 'n'", "moment négatif refusé (PARCOURS) : verdict, statut 'Conforme' → 'Données incomplètes'", "espacement de 600 mm refusé : verdict, taux 40 → None", "espacement de 600 mm refusé : verdict, niveau 'p' → 'n'", "espacement de 600 mm refusé : verdict, statut 'Conforme' → 'Données incomplètes'", "distance vidée : automatique : verdict, taux 38 → None", "distance vidée : automatique : verdict, niveau 'p' → 'n'", "distance vidée : automatique : verdict, statut 'Conforme' → 'Données incomplètes'", "section ajoutée, dalle ajoutée : verdict, taux 77 → None", "section ajoutée, dalle ajoutée : verdict, niveau 'p' → 'n'", "section ajoutée, dalle ajoutée : verdict, statut 'Conforme' → 'Données incomplètes'", "fichier Streamlit illisible refusé : verdict, taux 38 → None", "fichier Streamlit illisible refusé : verdict, niveau 'p' → 'n'", "fichier Streamlit illisible refusé : verdict, statut 'Conforme' → 'Données incomplètes'"]
+  }
+ ],
  "cas": [
   {
    "nom": "note neuve",

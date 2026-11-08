@@ -7,6 +7,11 @@
   mesures « avant ») est versé avec ce document ; les lots suivants suivent l'ordre de B.4
   (0 → 0 bis → S1 → S2 → S3 → S4 → M1 à M5 → C → V), **resserré par l'ingénieur le 07/11/2026** : S2 et S3 d'abord
   sur la poutre seule, au PC (voir « Le pilote » ci-dessous).
+- **Au 08/11/2026** : faits, les lots 0, 0 bis (et 0 ter) et M1 (poutre, dalle, prédalle) — S2 et S3 pour ces trois
+  modules — sous la forme de l'établi de la poutre. **Révision du 08/11/2026, au pied de ce document** : l'écran de la
+  poutre devient la référence de tous les modules, la présentation se refait module par module dans les lots M, le
+  regel des photos est gardé (`garde`, `--accepter`), S1 est réduit, D7 revue ; ordre M5 → M4 → M2 → M3, puis C (avec
+  l'accord de l'ingénieur) et V.
 - **Ce qui suit** est la copie fidèle de la spécification finale : l'avis du jury sur les trois propositions
   (« atelier », « note », « doigt »), puis la spécification en lots. Elle n'est pas retouchée ; une correction s'y
   portera en révision datée, au pied de ce document. Les chemins `/tmp/…` et `/home/user/…` qu'elle cite désignent
@@ -867,3 +872,65 @@ Flambement, profil, bois, catalogue, maturité (age), armatures, enrobage, donn�
    - le clavier virtuel ;
    - la hauteur réelle de Safari (≈ 390×664) ;
    - les seuils d'appui de 5 et 10 px (figés par N3 et N12, pas mesurés au vrai doigt).
+---
+
+## Révision du 08/11/2026 — l'écran de la poutre devient la référence (étape 1, décidée avec l'ingénieur)
+
+**Pourquoi.** Les modules ont été faits un à un, sans modèle commun. L'ingénieur a validé, sur la poutre puis sur les
+dalles et les prédalles, une organisation qu'il veut retrouver partout. Suivre la spécification ci-dessus jusqu'au lot V
+avec l'écran de B.3, puis refaire chaque module à cette organisation, ferait chaque module deux fois — et ses tests
+avec. **Décision de l'ingénieur (08/11/2026)** : la présentation se refait **module par module, dans les lots M** ; les
+points suivants remplacent ce qui, plus haut, les contredit. Le reste de la spécification tient.
+
+1. **L'écran de référence** remplace B.3 (« Dispositions », « La liste », « Le panneau ») pour tous les modules :
+   l'établi compact de la poutre, décrit dans les sections datées en tête de ce document et rendu par
+   `api_web/etabli_compact.py`.
+   - À gauche, l'arborescence de la note : chaque élément « nom · dimensions », le nom de l'élément ouvert modifiable sur
+     sa ligne, son menu ⋯ (renommer, copier, supprimer) ; sous l'élément ouvert, ses rubriques numérotées en accordéon
+     (une ouverte par défaut, les secondaires repliées), les données condensées à deux champs par ligne
+     (`commun.ligne2`), les explications dans les ⓘ (une bulle au doigt).
+   - Au centre, le dessin sous son en-tête technique (`entete`) ; chaque pièce cliquable sous la clé de sa ligne de
+     données (`data-sel` = `data-cible`).
+   - À droite, les résultats : un bloc par section ou par élément (`bloc`), coloré par son état, deux lignes par
+     vérification, « tout le calcul ».
+   - Au téléphone, les onglets Données · Dessin · Résultat (D6 inchangée).
+   - De B.3 restent : les seuils de densité et de cibles au doigt, la persistance, l'enregistrement (son tableau), le
+     démarrage vu par l'utilisateur.
+
+2. **B.2.1 revue — le regel des photos est GARDÉ.** « Jamais de `--geler` » devient : une photo se refait quand l'ÉCRAN
+   change ; `tests/test_reference_refonte.py --geler` **refuse** quand le CALCUL change (état de la note, messages,
+   avis, verdict, une valeur qui ne se voit plus : fonction `garde`), sauf `--accepter="raison"` — la raison s'écrit
+   alors, avec les écarts, dans la photo elle-même (clé « regels »). Les trois regels faits avant la garde y sont écrits,
+   leurs écarts recalculés par elle :
+   - poutre `98085c7` : le moteur ajoute les dispositions constructives EC2 8.2(2) à la demande de l'ingénieur (aucune
+     valeur d'avant ne disparaît) ; une note sans effort dit « Données incomplètes » au lieu de « Conforme » ; le
+     sélecteur de barres de la note neuve ne propose plus les dispositions de 1 885 à 4 825 mm² ;
+   - poutre `50c37dd` : les dispositions passent de la fenêtre de calcul à la liste de contrôle du résultat ;
+     l'espacement libre des armatures latérales (235 mm) ne s'affiche plus ;
+   - dalle et prédalle `b3ec83a` : une note sans effort dit « Données incomplètes » au lieu de « Conforme ».
+   Les 15 autres modules sont tels que le lot 0 les a gelés. La garde est figée par `tests/test_reference_garde.py`
+   (chacun de ses contrôles vu rouge sans elle).
+
+3. **S1 réduit.** Les briques communes sont celles de `api_web/etabli_compact.py` (arbre, menu, rubriques, en-tête,
+   bloc, carte de section), de `api_web/plaque_compact.py` (dalles, prédalles) et `commun.ligne2` ;
+   `section(…, secondaire=True)` reste (D5). Sont abandonnés, remplacés par ces briques : `liste_elements`, `objet`,
+   `repli`, `cible`, `zone`, et les contrôles K1 à K6 qui les testaient. Le contrat de sélection devient : « chaque pièce
+   du dessin a sa ligne dans les données, sous la même clé », testé module par module (comme
+   `tests/test_api_web_dalle.py`). `marquer_modifies` (« Options · n modifiée(s) ») attend une demande de l'ingénieur.
+
+4. **D7 revue.** Aucun champ d'ÉCRAN dans l'état de la note (ni identifiant, ni état d'interface). Un champ de
+   DONNÉES demandé par l'ingénieur est permis — la poutre : lits multiples, cadres, justifications des observations —,
+   avec la lecture des anciens `.stab` prouvée par un test, et l'écart accepté par la garde du regel.
+
+5. **Un lot M, module par module** :
+   1. le module passe sur l'établi compact (`construire.ETABLI_COMPACT`), données condensées — la carte de l'accueil
+      ouvre alors le calcul directement : S2 et S3 se font ainsi, module par module ;
+   2. l'ingénieur le regarde sur le site et donne ses remarques ;
+   3. elles sont corrigées ;
+   4. il est fermé quand : les cas de référence passent (un regel seulement par la garde), ses tests et le harnais aux
+      trois formats (et au doigt) sont verts, ses captures sont regardées.
+
+6. **Ordre.** M5 (les 8 modules simples) → M4 (plancher, sol, taux) → M2 (assemblages et kit des schémas) → M3
+   (garde-corps, soudures, cornière, qui dépendent du kit) ; un module que l'ingénieur utilise davantage peut passer
+   devant. S4 (démarrage) quand il tombe bien : la présentation ne le défait pas. C (chantiers et dossiers) attend
+   l'accord de l'ingénieur : c'est une migration de format. V à la fin.

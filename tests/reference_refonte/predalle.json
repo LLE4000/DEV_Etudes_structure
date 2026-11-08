@@ -1,6 +1,15 @@
 {
  "module": "predalle",
  "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "regels": [
+  {
+   "date": "2026-11-08",
+   "commit": "b3ec83a",
+   "raison": "Prédalles sur l'établi de la poutre : une note sans effort dit « Données incomplètes », plus jamais « Conforme » (défaut non conservatif corrigé, docs/site/REFONTE_ETABLI.md, « Un seul établi pour les trois modules béton armé ») ; aucune valeur ne disparaît.",
+   "note": "regel fait avant la garde : écarts recalculés par elle le 08/11/2026",
+   "ecarts": ["note neuve : verdict, taux 42 → None", "note neuve : verdict, niveau 'p' → 'n'", "note neuve : verdict, statut 'Conforme' → 'Données incomplètes'", "prédalle plus épaisse que la dalle refusée : verdict, taux 42 → None", "prédalle plus épaisse que la dalle refusée : verdict, niveau 'p' → 'n'", "prédalle plus épaisse que la dalle refusée : verdict, statut 'Conforme' → 'Données incomplètes'", "dalle de 6 cm refusée : verdict, taux 42 → None", "dalle de 6 cm refusée : verdict, niveau 'p' → 'n'", "dalle de 6 cm refusée : verdict, statut 'Conforme' → 'Données incomplètes'", "distance vidée : automatique : verdict, taux 42 → None", "distance vidée : automatique : verdict, niveau 'p' → 'n'", "distance vidée : automatique : verdict, statut 'Conforme' → 'Données incomplètes'", "nappe de la prédalle déplacée (dist = 8 cm) : verdict, taux 42 → None", "nappe de la prédalle déplacée (dist = 8 cm) : verdict, niveau 'p' → 'n'", "nappe de la prédalle déplacée (dist = 8 cm) : verdict, statut 'Conforme' → 'Données incomplètes'", "prédalle ajoutée : verdict, taux 69 → None", "prédalle ajoutée : verdict, niveau 'p' → 'n'", "prédalle ajoutée : verdict, statut 'Conforme' → 'Données incomplètes'"]
+  }
+ ],
  "cas": [
   {
    "nom": "note neuve",
