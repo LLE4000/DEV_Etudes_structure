@@ -489,6 +489,29 @@ def _bande_dalle(c, ox0, y0, core_w, zone_h, sec, sch, st, lab, sc, dernier):
     return exag
 
 
+def _etiquettes_droite(sec, st):
+    """Les étiquettes que draw_section écrit à droite de la coupe, chacune (texte, police, corps) : les lits (un libellé
+    par lit dès que les lits sont listés), le ou les cadres, l'armature de peau. Sert à réserver leur place."""
+    gras, fin = (st.font_bold, st.label_size), (st.font, st.label_size - 0.6)
+    if sec.get("lits_inf") or sec.get("lits_sup"):
+        lits = ((sec.get("labs_sup") or [(sec.get("lab_sup"), sec.get("lab_sup2"))])
+                + (sec.get("labs_inf") or [(sec.get("lab_inf"), sec.get("lab_inf2"))]))
+    else:
+        lits = [(sec.get("lab_sup"), sec.get("lab_sup2")), (sec.get("lab_inf"), sec.get("lab_inf2"))]
+    out = []
+    for txt, sub in lits:
+        out += [(txt, *gras), (sub, *fin)]
+    labs_c = sec.get("labs_cadre")
+    if labs_c:
+        out += [(t, st.font_bold if i == 0 else st.font, st.label_size - (0 if i == 0 else 0.4)) for i, t in enumerate(labs_c)]
+    else:
+        out += [(sec.get("lab_cadre"), *gras), (sec.get("lab_cadre2"), *fin)]
+    peau = sec.get("peau")
+    if peau and peau.get("ys"):
+        out.append((peau.get("label", "Armature de peau"), *gras))
+    return [(t, f, z) for t, f, z in out if t]
+
+
 def draw_section(c, x, y, w, h, sec, st, label_w=104):
     """
     Dessine la coupe dans le rectangle (x, y, w, h).
@@ -509,7 +532,16 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
 
     pad_l, pad_b, pad_t = 44, 30, 30
     lab = label_w if st.leader_side == "right" else 0
-    core_w = w - pad_l - lab - 12
+    # (site, 11/2026) la place à droite de la coupe : le coude des lignes de rappel (lx = ox + bw + 46), 4 pt, puis les
+    # étiquettes. L'échelle n'en réservait que lab + 12, soit lab − 38 pour le texte quand la LARGEUR fixe l'échelle :
+    # une étiquette plus longue (« Armature de peau : 2×12 Ø10 (auto) ») sortait du cadre. La réserve suit désormais
+    # l'étiquette la plus longue, entre lab + 12 (une coupe dont les étiquettes tenaient est dessinée à l'identique) et
+    # 46 + lab (au-delà, l'étiquette est réduite : _etiq) — tests/test_note_poutre.py le mesure
+    droite = lab + 12
+    if st.leader_side == "right":
+        texte = max((string_width(t, f, z) for t, f, z in _etiquettes_droite(sec, st)), default=0.0)
+        droite = min(46 + lab, max(droite, 51 + texte))
+    core_w = w - pad_l - droite
     core_h = h - pad_b - pad_t
     s = min(core_w / b_mm, core_h / h_mm)
     bw, bh = b_mm * s, h_mm * s
@@ -828,13 +860,22 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
     if st.leader_side == "right":
         lx = ox + bw + 46
         tx = lx + 4
+        x_max = x + w - 1.0       # le bord droit du cadre de la coupe : aucune étiquette ne le passe
+
+        def _etiq(yy, txt, font, size, color):
+            """Une étiquette à droite de la coupe ; plus longue que la place qui reste, elle est réduite (au plus de
+            30 %) plutôt que de sortir du cadre."""
+            lw = string_width(txt, font, size)
+            place = x_max - tx
+            if lw > place > 0:
+                size = max(size * 0.7, size * place / lw)
+            draw_text(c, tx, yy, txt, font, size, color)
 
         def _annot(xsl, yl, yy, txt, sub):
             _leader(c, xsl[-1], yl, lx - 14, yy, lx, st, st.ink)
-            draw_text(c, tx, yy + 1.6, txt, st.font_bold, st.label_size, st.ink)
+            _etiq(yy + 1.6, txt, st.font_bold, st.label_size, st.ink)
             if sub:
-                draw_text(c, tx, yy - st.label_size + 0.4, sub, st.font,
-                          st.label_size - 0.6, st.muted)
+                _etiq(yy - st.label_size + 0.4, sub, st.font, st.label_size - 0.6, st.muted)
 
         if multi:
             # un libellé par lit ; les étiquettes s'écartent du parement
@@ -866,26 +907,22 @@ def draw_section(c, x, y, w, h, sec, st, label_w=104):
             # une ligne par groupe (étriers, épingles), empilées sous la
             # ligne de rappel — 1er groupe en accent, suivants en encre
             yline = yy
-            for i, lab in enumerate(labs_c):
-                draw_text(c, tx, yline + 1.6, lab,
-                          st.font_bold if i == 0 else st.font,
-                          st.label_size - (0 if i == 0 else 0.4),
-                          st.accent if i == 0 else st.ink)
+            for i, lab_c in enumerate(labs_c):
+                _etiq(yline + 1.6, lab_c, st.font_bold if i == 0 else st.font,
+                      st.label_size - (0 if i == 0 else 0.4), st.accent if i == 0 else st.ink)
                 yline -= st.label_size + 2.2
             y_bas_cadre = yline + 1.6
         else:
-            draw_text(c, tx, yy + 1.6, sec["lab_cadre"], st.font_bold, st.label_size, st.accent)
+            _etiq(yy + 1.6, sec["lab_cadre"], st.font_bold, st.label_size, st.accent)
             if sec.get("lab_cadre2"):
-                draw_text(c, tx, yy - st.label_size + 0.4, sec["lab_cadre2"], st.font,
-                          st.label_size - 0.6, st.muted)
+                _etiq(yy - st.label_size + 0.4, sec["lab_cadre2"], st.font, st.label_size - 0.6, st.muted)
             y_bas_cadre = yy - st.label_size + 0.4
 
         # armature de peau : ligne de rappel dédiée, sous le bloc du cadre
         if peau_anchor is not None:
             yp = y_bas_cadre - 14
             _leader(c, peau_anchor[0], peau_anchor[1], lx - 14, yp, lx, st, st.muted)
-            draw_text(c, tx, yp + 1.6, sec["peau"].get("label", "Armature de peau"),
-                      st.font_bold, st.label_size, st.ink)
+            _etiq(yp + 1.6, sec["peau"].get("label", "Armature de peau"), st.font_bold, st.label_size, st.ink)
 
     # ---- repère / échelle
     if st.title:

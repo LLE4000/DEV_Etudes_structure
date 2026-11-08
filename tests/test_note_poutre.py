@@ -266,12 +266,25 @@ import ndc_pdf.styles as STY  # noqa: E402
 import tempfile  # noqa: E402
 
 
-def coupes_dessinees(etat):
-    """Chaque coupe dessinée par la note : {"b", "h", "c", "barres": [(x, y, r)], "cadres": [(x, y, w, h)]} en mm."""
-    vues, vrai = [], SEC.draw_section
+def coupes_dessinees(etat, retouche=None):
+    """Chaque coupe dessinée par la note : {"b", "h", "c", "barres": [(x, y, r)], "cadres": [(x, y, w, h)]} en mm, et
+    {"bord": le bord droit du cadre de la coupe, "textes": [(texte, gauche, droite)]} en points — chaque texte écrit par
+    la coupe, mesuré dans sa police et son corps réels. ``retouche(sec)`` : un changement des données de la coupe avant
+    le dessin (une étiquette plus longue que nature)."""
+    vues, vrai, vrai_texte = [], SEC.draw_section, SEC.draw_text
 
     def espion(c, x, y, w, h, sec, st, **kw):
         tr = {"cercles": [], "rr": [], "rects": []}
+        textes = []
+        if retouche is not None:
+            sec = copy.deepcopy(sec)
+            retouche(sec)
+
+        def texte(c_, x_, y_, txt, font, size, color=None, align="left", **k):
+            lw = vrai_texte(c_, x_, y_, txt, font, size, color, align, **k)
+            g = x_ - (lw if align == "right" else (lw / 2 if align == "center" else 0))
+            textes.append((txt, g, g + lw))
+            return lw
 
         class Canevas:
             def __getattr__(self, n):
@@ -288,14 +301,19 @@ def coupes_dessinees(etat):
             def rect(self, x_, y_, w_, h_, *a, **k):
                 tr["rects"].append((x_, y_, w_, h_, k.get("stroke"), k.get("fill")))
                 return c.rect(x_, y_, w_, h_, *a, **k)
-        out = vrai(Canevas(), x, y, w, h, sec, st, **kw)
+        SEC.draw_text = texte
+        try:
+            out = vrai(Canevas(), x, y, w, h, sec, st, **kw)
+        finally:
+            SEC.draw_text = vrai_texte
         b, hh = sec["b"], sec["h"]
         ox, oy, bw, _ = next(r for r in tr["rects"] if r[4] == 1 and r[5] == 0 and abs(r[2] / r[3] - b / hh) < 1e-3)[:4]
         s_ = bw / b
         vues.append({"b": b, "h": hh, "c": sec["enrobage"],
                      "barres": [((cx - ox) / s_, (cy - oy) / s_, r / s_) for cx, cy, r in tr["cercles"]
                                 if r / s_ >= 2.9 and -1 <= (cx - ox) / s_ <= b + 1],
-                     "cadres": [((x_ - ox) / s_, (y_ - oy) / s_, w_ / s_, h_ / s_) for x_, y_, w_, h_ in tr["rr"]]})
+                     "cadres": [((x_ - ox) / s_, (y_ - oy) / s_, w_ / s_, h_ / s_) for x_, y_, w_, h_ in tr["rr"]],
+                     "bord": x + w, "textes": textes})
         return out
     STY.draw_section = KIT.draw_section = espion
     try:
@@ -367,6 +385,30 @@ bj["sections"][0]["justifs"] = {"angles_cadre:1": {"texte": "Barre de montage HA
 vd = ND.construire_sections(NP.resultats({"poutres": [bj]}))[0]["verifs"][-1]
 chk("note · une observation justifiée s'écrit avec sa justification (« examinée et justifiée par l'ingénieur »)",
     any("examinée et justifiée par l'ingénieur : Barre de montage HA12" in k["texte"] for k in vd["verdicts"]), [k["texte"] for k in vd["verdicts"]])
+
+# ---------------------------------------------------------------- les ÉTIQUETTES de la coupe restent DANS son cadre
+# (retour du bureau, 11/2026) « Armature de peau : 2×1 Ø10 » sortait du panneau gris : l'échelle ne réservait pas la
+# place du coude des lignes de rappel, et dès que la LARGEUR fixait l'échelle, toute la colonne d'étiquettes glissait de
+# 34 pt vers la droite (de 20 à 30 pt hors du cadre). Chaque texte écrit par la coupe est mesuré, dans sa police et son
+# corps réels, contre le bord droit du cadre ; des proportions où la largeur gouverne, d'autres où c'est la hauteur.
+sortis, peaux = [], 0
+for b, h in ((20, 50), (25, 50), (30, 50), (40, 60), (60, 70), (100, 50), (25, 90)):
+    p = poutre_bureau([{"type": "etrier", "d": 10}, {"type": "etrier", "d": 8, "de": 2, "a": 3}], b=float(b), h=float(h))
+    vues, _ = coupes_dessinees({"poutres": [p]})
+    v = vues[0]
+    peaux += sum(1 for t in v["textes"] if t[0].startswith("Armature de peau"))
+    sortis += [(f"{b}×{h}", t[0], round(t[2] - v["bord"], 1)) for t in v["textes"] if t[2] > v["bord"] + 0.01]
+chk("note · aucune étiquette de la coupe ne sort de son cadre (sept proportions, latérales et deux groupes d'étriers)",
+    not sortis and peaux == 7, (sortis[:4], peaux))
+# une étiquette un peu plus longue que la place (le garde-fou, jusqu'à 30 % de réduction du corps) : elle est réduite
+# pour tenir dans le cadre, au lieu d'en sortir
+LONGUE = "Armature de peau : 2×12 Ø10 (auto)"
+vues, _ = coupes_dessinees({"poutres": [poutre_bureau([{"type": "etrier", "d": 10}], b=30.0)]},
+                           retouche=lambda s_: s_["peau"].update(label=LONGUE))
+t_ = next((t for t in vues[0]["textes"] if t[0] == LONGUE), None)
+largeur_pleine = SEC.string_width(LONGUE, "Poppins-Medium", 6.4)
+chk("note · une étiquette plus longue que la place est réduite pour tenir dans le cadre (garde-fou)",
+    t_ is not None and t_[2] <= vues[0]["bord"] + 0.01 and t_[2] - t_[1] < largeur_pleine - 5, (t_, vues[0]["bord"], largeur_pleine))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
