@@ -449,15 +449,17 @@ def candidats_armatures(poutre: dict, nom_section: str, face: str) -> list:
             c = _calcul(p, essai, mat)
             g = c["g"]
             # les dispositions constructives du lit (site) : « possible » faux quand les barres se chevauchent ou
-            # sortent de l'étrier (le site ne la propose pas), « serree » sous l'espacement minimal de l'EC2
+            # sortent de l'étrier (la disposition ne se pose pas : le site ne la propose pas), « serree » sous
+            # l'espacement minimal de l'EC2 (elle se pose, mais n'est pas conforme)
             dispo = DI.controler(p, essai, g["enrobage_calcul"], g["d_etrier"],
                                  {f: c["geo"][f]["distances"] for f in ("inf", "sup")})
-            etats_lit = [it["etat"] for it in dispo["items"] if it["face"] == face and it["cle"] in ("lit", "cadre")]
+            du_lit = [it for it in dispo["items"] if it["face"] == face and it["cle"] in ("lit", "cadre")]
             out.append({"n": n, "d": d, "nom": f"{n}Ø{d}", "aire": g[f"As_{face}"],
                         "distance": g[f"dist_lit1_{face}"], "yG": g[f"yG_{face}"],
                         "taux": g[f"besoin_{face}"] / g[f"As_{face}"], "etat": c["etats"][face],
                         "ok": c["etats"][face] == OK, "statut_section": c["statut"],
-                        "possible": DI.NOK not in etats_lit, "serree": DI.WARN in etats_lit,
+                        "possible": not any(it["impossible"] for it in du_lit),
+                        "serree": any(it["etat"] == DI.NOK and not it["impossible"] for it in du_lit),
                         "retenue": [{"n": x["n"], "d": x["d"]} for x in s[face]] == [{"n": n, "d": d}], "optimal": False})
     out.sort(key=lambda x: (x["aire"], x["n"]))
     optimal = next((x for x in out if x["ok"]), None)

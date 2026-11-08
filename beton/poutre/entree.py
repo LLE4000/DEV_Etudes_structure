@@ -61,12 +61,16 @@ PAS_DEFAUT = 30.0            # cm
 #                      PDF Streamlit), "d": Ø} — dessin, note et dispositions ; elles n'entrent pas dans le calcul.
 #   poutre  « dg » (mm) : le plus gros granulat, pour l'espacement libre minimal (EC2 8.2(2)) ; « peau_d » (mm) et
 #           « peau_smax » (cm) : les armatures de peau automatiques (paramètres avancés du module).
+#   section « justifs » : {identifiant d'une observation : {"texte", "empreinte"}} — les dispositions « à examiner » que
+#                      l'ingénieur a examinées et justifiées (beton/poutre/dispositions.py) ; absente : aucune.
 REPARTITIONS = ("uniforme", "aligne", "entraxe")
 DIAMETRES_LATERAUX = (8, 10, 12, 16)            # « Armatures technologiques » du module : Ø (mm)
 DEFAUTS_DETAIL = {"dg": 20.0, "peau_d": 10, "peau_smax": 30.0}
 
 CLES_POUTRE = frozenset(DEFAUTS_POUTRE) | {"sections"} | frozenset(DEFAUTS_DETAIL)
-CLES_SECTION = frozenset({"nom", "M_inf", "M_sup", "V", "inf", "sup", "etriers", "pas", "yG_inf", "yG_sup", "laterales"})
+CLES_SECTION = frozenset({"nom", "M_inf", "M_sup", "V", "inf", "sup", "etriers", "pas", "yG_inf", "yG_sup", "laterales",
+                          "justifs"})
+JUSTIF_MAX = 600                                # caractères d'une justification
 CLES_LIT = frozenset({"n", "d", "pos", "rep", "sh"})
 CLES_ETRIER = frozenset({"type", "d", "de", "a"})
 CLES_LATERALES = frozenset({"n", "d"})
@@ -231,6 +235,28 @@ def _laterales(x, chemin: str):
     return out or None
 
 
+def _justifs(x, chemin: str):
+    """Les justifications de l'ingénieur : {identifiant : {"texte" (≤ JUSTIF_MAX caractères, peut être vide),
+    "empreinte"}} ; None ou vide : aucune (la clé disparaît, la section d'avant reste la même à l'octet)."""
+    if not x:
+        return None
+    if not isinstance(x, dict):
+        raise ValueError(f"{chemin} : {{identifiant : {{\"texte\", \"empreinte\"}}}} attendu (reçu {x!r})")
+    out = {}
+    for k, v in x.items():
+        c = f"{chemin}[{k!r}]"
+        if not isinstance(k, str) or not k.strip():
+            raise ValueError(f"{chemin} : identifiant d'observation attendu (reçu {k!r})")
+        if not isinstance(v, dict):
+            raise ValueError(f"{c} : {{\"texte\", \"empreinte\"}} attendu (reçu {v!r})")
+        _cles(v, frozenset({"texte", "empreinte"}), c)
+        texte = _texte(v.get("texte") or "", f"{c}.texte").strip()
+        if len(texte) > JUSTIF_MAX:
+            raise ValueError(f"{c}.texte : {JUSTIF_MAX} caractères au plus (reçu {len(texte)})")
+        out[k] = {"texte": texte, "empreinte": _texte(v.get("empreinte") or "", f"{c}.empreinte")}
+    return out or None
+
+
 def _section(s, i: int, nom_defaut: str) -> dict:
     c = f"sections[{i}]"
     if not isinstance(s, dict):
@@ -248,6 +274,9 @@ def _section(s, i: int, nom_defaut: str) -> dict:
     lat = _laterales(s.get("laterales"), f"{c}.laterales")
     if lat is not None:
         out["laterales"] = lat
+    js = _justifs(s.get("justifs"), f"{c}.justifs")
+    if js is not None:
+        out["justifs"] = js
     return out
 
 

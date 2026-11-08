@@ -5,8 +5,12 @@ dispositions.py ; site, 11/2026), vérifiés à la main.
 - sans aucune clé du détail, la poutre normalisée et son calcul sont ceux d'avant (la parité Streamlit est intacte) ;
 - les positions imposées (« pos ») placent les lits ; d et y_G les suivent (Σ A·e / Σ A) ;
 - les abscisses : uniforme entre les montants de l'étrier, « aligne » sur le lit 1, « entraxe » centré ;
-- s_min = max(Ø ; d_g + 5 ; 20 mm) ; deux lits Ø16 au jeu du bureau (1 cm) : 14 mm libres → « à vérifier » ;
-- des barres qui se chevauchent, ou qui sortent de l'étrier, sont « non conformes » ;
+- s_min = max(Ø ; d_g + 5 ; 20 mm) ; deux lits Ø16 au jeu du bureau (1 cm) : 14 mm libres → « non conforme » (décision
+  du bureau, 11/2026 : un espacement sous le minimum de l'EC2 est une non-conformité, pas une observation) ;
+- des barres qui se chevauchent, ou qui sortent de l'étrier, sont « non conformes » et « impossibles » (le sélecteur ne
+  les propose pas) ; un espacement positif sous s_min est non conforme mais se pose (« serrée ») ;
+- EC2 8.2(3) : des lits dont les barres ne sont pas superposées sont « à examiner » ;
+- une observation « à examiner » se justifie (pour l'empreinte examinée) ; une non-conformité jamais ;
 - les latérales automatiques suivent la règle de la note PDF ; imposées, elles la remplacent ;
 - l'emprise d'un cadre partiel, d'une épingle ; un cadre intérieur sans barre haute dans ses angles est signalé ;
 - A_st compte les branches réelles (cadre = 2, épingle = 1) ;
@@ -83,8 +87,8 @@ chk("s_min = max(Ø ; d_g + 5 ; 20) : Ø16, d_g 20 → 25 mm ; Ø32 → 32 mm ; 
     DI.s_min(16, 16, 20) == 25 and DI.s_min(32, 16, 20) == 32 and DI.s_min(12, 12, 10) == 20)
 p = poutre(s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
 it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
-chk("deux lits Ø16 au jeu du bureau : 3 cm d'entraxe, 14 mm libres < 25 mm → « à vérifier »",
-    proche(it["libre"], 14.0) and it["mini"] == 25 and it["etat"] == DI.WARN, it)
+chk("deux lits Ø16 au jeu du bureau : 3 cm d'entraxe, 14 mm libres < 25 mm → « non conforme », mais posable",
+    proche(it["libre"], 14.0) and it["mini"] == 25 and it["etat"] == DI.NOK and not it["impossible"], it)
 p = poutre(jeu_entre_lits=2.1, s={"inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]})
 it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
 chk("… avec un jeu de 2,1 cm : 25 mm libres → conforme", proche(it["libre"], 25.0) and it["etat"] == DI.OK, it)
@@ -98,7 +102,7 @@ chk("un entraxe qui sort les barres de l'étrier → « non conforme » (barres 
     any(x["cle"] == "cadre" and x["etat"] == DI.NOK for x in dis["items"]), [x["texte"] for x in dis["items"] if x["etat"] != "ok"])
 p = poutre(enrobage=1.5, s={"inf": [{"n": 2, "d": 32}], "etriers": [{"type": "etrier", "d": 6}]})
 it = next(x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "enrobage")
-chk("enrobage 1,5 cm + Ø6 = 21 mm < Ø32 → « à vérifier » (adhérence)", proche(it["libre"], 21.0) and it["etat"] == DI.WARN, it)
+chk("enrobage 1,5 cm + Ø6 = 21 mm < Ø32 → « non conforme » (adhérence, c_min,b = Ø)", proche(it["libre"], 21.0) and it["etat"] == DI.NOK, it)
 
 # 5. les latérales
 p = poutre(h=90.0)
@@ -137,7 +141,73 @@ chk("sans aucun effort : « sollicitee » faux (section et poutre) ; τ et étri
 r = MO.verifier(poutre(s={"V": 30.0}))
 chk("avec V : rien de non vérifié", r["sections"][0]["sollicitee"] and r["sections"][0]["non_verifiees"] == [])
 r = MO.verifier(poutre(s={"M_inf": 40.0, "V": 20.0, "pas": 20.0, "inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]}))
-chk("« statut » reste celui de la méthode ; « statut_complet » y ajoute les dispositions", r["statut"] == MO.OK and r["statut_complet"] == MO.WARN, (r["statut"], r["statut_complet"]))
+chk("« statut » reste celui de la méthode ; « statut_complet » y ajoute les dispositions (14 mm libres : non conforme)",
+    r["statut"] == MO.OK and r["statut_complet"] == MO.NOK, (r["statut"], r["statut_complet"]))
+
+# 9. EC2 8.2(3) : les lits superposés
+p = poutre(b=30.0, s={"inf": [{"n": 4, "d": 20}, {"n": 3, "d": 20}]})
+dis = MO.verifier(p)["sections"][0]["dispositions"]
+it = next((x for x in dis["items"] if x["cle"] == "superposes"), None)
+chk("L1 4Ø20, L2 3Ø20 répartis : la barre du milieu de L2 n'est au-dessus d'aucune barre → « à examiner » (EC2 8.2(3))",
+    it is not None and it["etat"] == DI.WARN and it["id"] == "superposes:inf:1" and "1 barre non superposée" in it["texte"], it)
+p = poutre(b=30.0, s={"inf": [{"n": 4, "d": 20}, {"n": 3, "d": 20, "rep": "aligne"}]})
+chk("… « superposée » (sur les barres de L1) : rien à examiner", not any(x["cle"] == "superposes" for x in MO.verifier(p)["sections"][0]["dispositions"]["items"]))
+p = poutre(b=30.0, s={"inf": [{"n": 4, "d": 20}, {"n": 2, "d": 16}]})
+chk("… deux barres réparties sous quatre : sur les angles, superposées (Ø différents, à ½ Ø près)",
+    not any(x["cle"] == "superposes" for x in MO.verifier(p)["sections"][0]["dispositions"]["items"]))
+
+p = poutre(b=30.0, s={"inf": [{"n": 3, "d": 20}], "sup": [{"n": 2, "d": 16}], "etriers": [{"type": "etrier", "d": 10}, {"type": "epingle", "d": 8}]})
+it = next((x for x in MO.verifier(p)["sections"][0]["dispositions"]["items"] if x["cle"] == "epingle"), None)
+chk("une épingle sur la barre du milieu sous deux barres hautes d'angle : rien à accrocher en haut → « à examiner »",
+    it is not None and it["id"] == "epingle:1" and it["etat"] == DI.WARN, it)
+p = poutre(b=30.0, s={"inf": [{"n": 3, "d": 20}], "sup": [{"n": 3, "d": 16}], "etriers": [{"type": "etrier", "d": 10}, {"type": "epingle", "d": 8}]})
+chk("… trois barres hautes : l'épingle tient sa barre haute", not any(x["cle"] == "epingle" for x in MO.verifier(p)["sections"][0]["dispositions"]["items"]))
+
+# 10. les identifiants, les empreintes et les justifications de l'ingénieur
+p = poutre(b=40.0, s={"M_inf": 60.0, "V": 30.0, "pas": 20.0, "inf": [{"n": 5, "d": 20}], "sup": [{"n": 2, "d": 16}],
+                      "etriers": [{"type": "etrier", "d": 8}, {"type": "etrier", "d": 8, "de": 2, "a": 4}]})
+r = MO.verifier(p)["sections"][0]
+chk("le cas d'essai passe la méthode du bureau (seules les dispositions parlent)", r["statut"] == MO.OK, [(v["cle"], v["etat"]) for v in r["verifications"]])
+ids = [x["id"] for x in r["dispositions"]["items"]]
+chk("chaque observation a un identifiant stable, unique dans la section", len(ids) == len(set(ids)) and "angles_cadre:1" in ids and "faces" in ids, ids)
+ang = next(x for x in r["dispositions"]["items"] if x["id"] == "angles_cadre:1")
+chk("sans justification : le cadre intérieur est « à examiner », la section aussi", ang["etat_eff"] == DI.WARN and r["statut_complet"] == MO.WARN
+    and r["dispositions"]["compte"][DI.WARN] == 1, (ang, r["statut_complet"]))
+pj = copy.deepcopy(p)
+pj["sections"][0]["justifs"] = {"angles_cadre:1": {"texte": "  Deux barres de montage HA10 prévues au plan.  ", "empreinte": ang["empreinte"]}}
+pj = EN.normaliser(pj)
+chk("la justification se normalise (texte rogné)", pj["sections"][0]["justifs"]["angles_cadre:1"]["texte"] == "Deux barres de montage HA10 prévues au plan.")
+rj = MO.verifier(pj)["sections"][0]
+aj = next(x for x in rj["dispositions"]["items"] if x["id"] == "angles_cadre:1")
+chk("justifiée pour l'empreinte examinée : « examinée » (just), jamais « ok » ; la section n'est plus « à vérifier »",
+    aj["etat"] == DI.WARN and aj["etat_eff"] == DI.JUST and aj["justification"].startswith("Deux barres") and rj["statut_complet"] == MO.OK
+    and rj["dispositions"]["compte"][DI.JUST] == 1, (aj, rj["statut_complet"]))
+pk = copy.deepcopy(pj)
+pk["sections"][0]["etriers"][1]["a"] = 3                     # le cadre change : ce qui a été examiné n'est plus là
+rk = MO.verifier(pk)["sections"][0]
+ak = next(x for x in rk["dispositions"]["items"] if x["id"] == "angles_cadre:1")
+chk("la disposition change : la justification devient « à revoir », l'observation redevient « à examiner »",
+    ak["etat_eff"] == DI.WARN and "justification" not in ak and ak["justification_perimee"].startswith("Deux barres") and rk["statut_complet"] == MO.WARN, ak)
+pn = copy.deepcopy(poutre(s={"M_inf": 40.0, "V": 20.0, "pas": 20.0, "inf": [{"n": 2, "d": 16}, {"n": 2, "d": 16}]}))
+itn = next(x for x in MO.verifier(pn)["sections"][0]["dispositions"]["items"] if x["cle"] == "entre_lits")
+pn["sections"][0]["justifs"] = {itn["id"]: {"texte": "Validé", "empreinte": itn["empreinte"]}}
+rn = MO.verifier(EN.normaliser(pn))["sections"][0]
+itn2 = next(x for x in rn["dispositions"]["items"] if x["cle"] == "entre_lits")
+chk("une NON-CONFORMITÉ ne se justifie pas : 14 mm pour 25 mm reste non conforme, justification ou pas",
+    itn2["etat_eff"] == DI.NOK and "justification" not in itn2 and rn["statut_complet"] == MO.NOK, itn2)
+for mauvais, quoi in (({"x": "texte"}, "valeur non dict"), ({"x": {"texte": "a", "auteur": "b"}}, "clé inconnue"),
+                      ({"x": {"texte": "a" * 601}}, "texte trop long"), ({"": {"texte": "a"}}, "identifiant vide")):
+    q = copy.deepcopy(poutre())
+    q["sections"][0]["justifs"] = mauvais
+    try:
+        EN.normaliser(q)
+        refuse = False
+    except ValueError:
+        refuse = True
+    chk(f"justifications refusées : {quoi}", refuse)
+q = copy.deepcopy(poutre())
+q["sections"][0]["justifs"] = {}
+chk("aucune justification : la clé disparaît (la section d'avant, à l'octet)", "justifs" not in EN.normaliser(q)["sections"][0])
 
 # 8. le sélecteur : des marques, rien de retiré, l'optimal de Streamlit
 p = poutre(s={"M_inf": 120.0})
