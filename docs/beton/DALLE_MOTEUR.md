@@ -11,7 +11,9 @@
 *Livré le 07/11/2026. Moteur `beton/dalle/` et base des treillis `beton/treillis.py` : bibliothèque standard seule,
 Python 3.12 et 3.13 (donc Pyodide 0.29.5). Extrait de l'écran Streamlit `modules/dalle.py` v2.2 (dalle
 BIDIRECTIONNELLE), qui reste la **référence** ; la preuve de parité est `tests/test_dalle_moteur.py`. Le module du site
-qui l'emploie est `api_web/dalle.py` (dessins : `api_web/dessin_dalle.py`, tests : `tests/test_api_web_dalle.py`).*
+qui l'emploie est `api_web/dalle.py` (dessins : `api_web/dessin_dalle.py`, tests : `tests/test_api_web_dalle.py`) ;
+son écran est l'établi compact des trois modules béton armé, aux places de la poutre (`api_web/plaque_compact.py`,
+`api_web/etabli_compact.py` ; `docs/site/REFONTE_ETABLI.md`, « Un seul établi pour les trois modules béton armé »).*
 
 ## 1 · Ce qui est livré
 

@@ -1,51 +1,14 @@
-/* Module « Prédalles » : ce que son établi ajoute à la charte (css/charte.css) et au site (css/site.css).
-   Les mêmes dispositions que l'établi des dalles (le tableau des sollicitations d'une section, les couches d'armatures
-   d'une nappe sur deux rangées, les étiquettes « auto » des axes, la lecture seule) — l'écran Streamlit prédalle est la
-   copie adaptée de l'écran dalle — plus les étiquettes de POSE des couches : dans la prédalle, sur la prédalle. */
+/* Module « Prédalles » : ce que son établi ajoute à l'établi compact (css/etabli.css), commun aux poutres, aux dalles et
+   aux prédalles : la lecture seule d'une prédalle verrouillée et son cadenas, la POSE de chaque couche (dans la
+   prédalle, sur la prédalle, depuis le dessus) et le périmètre vérifié. */
 
-/* ---------------------------------------------------------------- les sections et leurs sollicitations */
-.dl-sec .sh2 .dl-st { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dl-sec .row.full { grid-template-columns: 52px minmax(0, 1fr); }
-.dl-mom { display: grid; grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr); gap: 5px 6px; align-items: center; }
-.dl-mom .dl-h { font-size: 11px; color: var(--ink-3); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dl-mom .dl-d { font-size: 12px; font-weight: 700; color: var(--ink); text-align: center; }
-.dl-mom .dl-vh { font-size: 11px; color: var(--ink-3); padding-left: 2px; }
-.dl-mom .field, .dl-couche .field { height: 30px; padding: 0 7px; }
-.dl-mom .field input, .dl-couche .field input, .dl-couche .field select { font-size: 12.5px; }
-
-/* ---------------------------------------------------------------- les nappes : une rangée de titre, puis les couches */
-.rows .grp.dl-face { display: flex; align-items: baseline; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line); margin-top: 2px; }
-.rows .grp.dl-face:first-of-type { border-top: 0; }
-.rows .grp.dl-face span { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: 11.5px; color: var(--ink-2); font-weight: 650;
-  font-variant-numeric: tabular-nums; }
-.dl-couche { display: grid; grid-template-columns: 22px minmax(0, 1fr) minmax(0, 1.12fr) 68px; gap: 5px 6px; align-items: center; }
-.dl-couche + .dl-couche { padding-top: 6px; border-top: 1px dashed var(--line); }
-.dl-n { width: 22px; height: 22px; border-radius: 6px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700;
-  color: var(--ink-2); background: var(--bg-sunken); }
-.dl-info { font-size: 11.5px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 2px; }
-.dl-tag, .dl-raz { justify-self: start; font-size: 10.5px; font-weight: 650; line-height: 18px; padding: 0 6px; border-radius: 5px; white-space: nowrap; }
-.dl-tag { color: var(--ink-3); background: var(--bg-sunken); }
-.dl-raz { color: var(--accent-hover); background: var(--accent-soft); cursor: pointer; }
-.dl-raz:hover { box-shadow: inset 0 0 0 1px var(--accent-line); }
-[data-theme="dark"] .dl-raz { color: var(--accent); }
-.dl-couche .moins { justify-self: start; }
-.hint .dl-raz { margin-left: 4px; }
-
-/* ---------------------------------------------------------------- une dalle verrouillée : lecture seule */
+/* ---------------------------------------------------------------- une prédalle verrouillée : lecture seule */
 .dl-ro { justify-self: end; text-align: right; font-size: 12.5px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
 .sechd .tt svg.i { width: 13px; height: 13px; vertical-align: -1px; color: var(--ink-3); }
-.ni .t svg.i { width: 12px; height: 12px; margin-right: 4px; vertical-align: -1px; color: var(--ink-3); }
+.et-pt-t .t > svg.i { flex: none; width: 12px; height: 12px; color: var(--ink-3); align-self: center; }
 
-/* ---------------------------------------------------------------- une couche de prédalle : trois rangées
-   (type et nappe ; détail et axe ; la pose, qui dit la règle de l'axe automatique) */
-.pd-couche { display: grid; grid-template-columns: 22px minmax(0, 0.92fr) minmax(0, 1.3fr) 28px; gap: 5px 6px; align-items: center; }
-.pd-couche + .pd-couche { padding-top: 7px; border-top: 1px dashed var(--line); }
-.pd-couche .field { height: 30px; padding: 0 7px; }
-.pd-couche .field input, .pd-couche .field select { font-size: 12.5px; }
-.pd-couche .moins, .pd-couche .pd-raz { justify-self: center; }
-.pd-raz { padding: 0 7px; font-size: 13px; }
-.pd-pose { grid-column: 2 / -1; display: flex; align-items: center; gap: 6px; font-size: 11px; line-height: 15px; color: var(--ink-3);
-  margin-top: -1px; min-width: 0; }
+/* ---------------------------------------------------------------- la pose d'une couche (son détail), et sa règle d'axe */
+.pd-pose { display: flex; align-items: center; gap: 6px; font-size: 11.5px; line-height: 15px; color: var(--ink-2); min-width: 0; }
 .pd-pose span { min-width: 0; }
 /* le pictogramme de la pose : une coupe en miniature (api_web/predalle.py, PICTOS_POSE) */
 .pd-m { flex: none; width: 18px; height: 12px; overflow: visible; }
@@ -55,6 +18,6 @@
 .pd-m .barre { fill: var(--ink); }
 [data-theme="dark"] .pd-m .peau { fill: #4A5568; stroke: #8C97A6; }
 
-/* ---------------------------------------------------------------- le périmètre vérifié, sous le résultat et la fenêtre de calcul */
+/* ---------------------------------------------------------------- le périmètre vérifié, sous les résultats et la fenêtre de calcul */
 .pbody > .hint { padding: 10px 16px 14px; border-top: 1px solid var(--line); }
 .ck-body > .hint { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }

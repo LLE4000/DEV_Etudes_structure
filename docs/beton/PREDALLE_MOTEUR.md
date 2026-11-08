@@ -3,7 +3,9 @@
 *Livré le 07/11/2026. Moteur `beton/predalle/` : bibliothèque standard seule, Python 3.12 et 3.13 (donc Pyodide 0.29.5).
 Extrait de l'écran Streamlit `modules/predalle.py` v1.1, qui reste la **référence** ; la preuve de parité est
 `tests/test_predalle_moteur.py`. Le module du site est `api_web/predalle.py` (dessins : `api_web/dessin_predalle.py`,
-feuille de style : `site/web/css/modules/predalle.css`, tests : `tests/test_api_web_predalle.py`).*
+feuille de style : `site/web/css/modules/predalle.css`, tests : `tests/test_api_web_predalle.py`) ; son écran est
+l'établi compact des trois modules béton armé, aux places de la poutre (`api_web/plaque_compact.py`,
+`api_web/etabli_compact.py` ; `docs/site/REFONTE_ETABLI.md`, « Un seul établi pour les trois modules béton armé »).*
 
 > **À LIRE AVANT D'EMPLOYER LE MODULE — défauts NON CONSERVATIFS de l'écran Streamlit, reproduits (parité) et signalés
 > sur le site** (détail §8) :
@@ -30,6 +32,7 @@ feuille de style : `site/web/css/modules/predalle.css`, tests : `tests/test_api_
 | `beton/predalle/fichier.py` | la lecture d'un fichier de l'écran (« 💾 Enregistrer » : `predalle_ba.json`, migration v1 comprise), avec ce que l'écran y remplace en silence |
 | `tests/test_predalle_moteur.py` | données, contrôles à la main, parité (calcul, couches, écran, note PDF, fichier), couverture, sélecteur, fichiers, format, pureté, **mutations** |
 | `api_web/predalle.py`, `api_web/dessin_predalle.py`, `site/web/css/modules/predalle.css` | le module du site : saisie, résultat, fenêtres de calcul, sélecteur, coupes et plan à l'échelle |
+| `api_web/plaque_compact.py`, `api_web/etabli_compact.py` | l'établi compact partagé avec les dalles (et, pour les briques, la poutre) : arborescence, rubriques, nappes et couches, en-tête des vues, un bloc par section |
 | `tests/test_api_web_predalle.py` | ce que le site affiche = ce que le moteur calcule ; saisies, refus, effets de bord, sélecteur, fichier Streamlit, avertissements, dessins, échappement |
 
 ## 2 · Ce qu'est l'écran prédalle — et pourquoi le moteur emploie celui des dalles
@@ -133,7 +136,7 @@ saisi ignoré. Un témoin (le moteur rechargé sans altération) reste vert.
 
 | Écran Streamlit | Site |
 |---|---|
-| plusieurs prédalles ; 📋 copier, 🗑️ supprimer (jamais la 1) ; nom | « Dans cette note » : ajouter, copier, supprimer (jamais la dernière), activer ; nom |
+| plusieurs prédalles ; 📋 copier, 🗑️ supprimer (jamais la 1) ; nom | l'arborescence de la note : « Ajouter une prédalle », ouvrir ; le menu ⋯ de chacune : renommer, copier (insérée après elle), supprimer (jamais la dernière) |
 | 🔒 verrouiller une prédalle | « Verrouiller la prédalle » : lecture seule, aucun sélecteur |
 | classe de béton, B400 / B500, largeur de bande, épaisseur, **Prédalle (cm)**, enrobage, direction principale | section 1 « Prédalle » : les mêmes champs, le coulé en place (h − h_p) affiché, la peau bornée et refusée hors bornes |
 | sections : ➕ ajouter, 📋 copier, 🗑️ supprimer, nom ; Mx inf / Mx sup / My inf / My sup / V max | section 2 : une carte par section (tableau X / Y × inf. / sup., V), copier, retirer, ajouter |

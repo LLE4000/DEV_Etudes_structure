@@ -152,6 +152,46 @@ navigation depuis le dessin qui garde les rubriques ouvertes à la main, les poi
 et glissées jusqu'à une barre, les barres choisies dans les données, la synchronisation section ↔ dessin ↔ résultats,
 « Toutes », la justification enregistrée, le zoom discret, le menu ⋯).
 
+## Un seul établi pour les trois modules béton armé (08/11/2026, suite)
+
+**Demande de l'ingénieur** : les modules « Poutres », « Dalles » et « Prédalles » béton armé se ressemblent ; leur
+interface doit être la même, « les fonctions mises au même endroit ». Les notes PDF des dalles et prédalles restent
+comme elles sont pour l'instant (dans Streamlit) ; dans la note de la poutre, « Armature de peau » dépassait du canevas.
+
+**Ce qui est fait** :
+- **Une source pour les trois écrans** : `api_web/etabli_compact.py` porte les briques communes — l'arborescence
+  (`arbre` : « nom · dimensions », le menu « ⋯ » renommer / copier CET élément / supprimer, jamais le dernier), l'en-tête
+  technique d'une vue (`entete` : trois lignes et la bande des efforts, sans couleur d'alerte), la tête des résultats
+  et le bloc d'une section (`bloc` : en-tête coloré par l'état, deux lignes par vérification, « tout le calcul »), la
+  carte d'une section et le choix de la section courante. La poutre les utilise (son rendu est resté identique à
+  l'octet, prouvé avant le changement suivant) ; `api_web/plaque_compact.py` les assemble pour les dalles et les
+  prédalles, dont les écrans Streamlit sont la même famille.
+- **Dalles et prédalles, aux places de la poutre** : à gauche l'arborescence, sous l'élément ouvert quatre rubriques
+  (1 l'élément, 2 « Sections et sollicitations » — une carte par section, ses quatre moments et V —, 3 « Armatures » de
+  la section courante — les quatre nappes, chaque couche sur une ligne qui se déplie : axe, pose, section au mètre,
+  « Retirer » —, 4 « Options », repliée) ; au centre les coupes et le plan de chaque section et « Toutes », chacune sous
+  son en-tête technique (dont la dernière ligne est la légende du dessin : barres coupées en points, X horizontales…),
+  chaque couche cliquable (`data-sel` = `data-cible` : `s<i>.<face>-<j>`) ; à droite un bloc par section. Les efforts
+  ne sont plus écrits en rouge sur le dessin : la bande de l'en-tête les donne une fois. Un axe ou un centre de
+  gravité saisi garde son « ↺ » (revenir à l'automatique ; l'infobulle dit ce qu'il serait), comme l'écran d'avant :
+  la comparaison aux photos figées l'avait vu disparaître, il est rétabli.
+- **L'état d'une section** (le même ordre pour les trois modules) : *non conforme* d'abord — une non-conformité
+  trouvée sans aucun effort (acier excessif, d utile ≤ 0, barres trop serrées) n'est jamais cachée —, puis *données
+  incomplètes* (aucun effort), puis à vérifier / conforme. L'ordre inverse, en place jusque-là dans le bloc de la
+  poutre, montrait gris un cas rouge : défaut non conservatif, corrigé et figé par un test de chaque module.
+- **La note PDF** : seule la poutre la fait dans le site (`construire.NOTE_PDF`) ; ailleurs les boutons restent grisés
+  « bientôt ». Dans la note de la poutre, les étiquettes à droite de la coupe se réduisent si elles manquent de place
+  (jamais sous 70 % du corps) et la colonne d'étiquettes s'élargit : rien ne sort du cadre (`ndc_pdf/section.py`).
+
+**Les contrôles** : `tests/test_api_web_dalle.py` § 13 et `tests/test_api_web_predalle.py` § 12 (l'arborescence, les
+rubriques, le menu, la copie par rang, chaque couche dessinée et saisie sous la même clé, la section courante, l'en-tête,
+la tête des résultats), § 3 et § 10 (non conforme sans effort), `tests/test_api_web_poutre.py` § 13 (le même cas pour la
+poutre), `tests/test_note_poutre.py` (aucun texte hors du cadre, sept proportions de coupe), `tests/test_site_web.py`
+(les trois pages compactes, la note PDF de la seule poutre), `tests/test_reference_refonte.py` (regelé après la preuve
+que le calcul est identique : 18 cas sur 18, moteur, état et nombres des fenêtres de calcul), et dans le navigateur
+les filtres « formats », « module » et « plaques » de `site/web/verifier_site.js` (l'arborescence, le clic sur une
+couche du dessin, « ↺ », la section courante qui garde le genre de la vue, le menu ⋯).
+
 ---
 
 # Refonte de l'établi Stab Méthodes : avis du jury sur les trois propositions, puis spécification finale en lots

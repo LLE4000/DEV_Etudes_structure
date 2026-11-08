@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -2211,6 +2211,133 @@ const FILTRE = process.argv[4] || '';
     await c.close();
   }
 
+  // ---------------------------------------------------------------- l'établi compact des DALLES et des PRÉDALLES
+  // Les fonctions aux places de la poutre (docs/site/REFONTE_ETABLI.md, « Un seul établi pour les trois modules béton
+  // armé ») : l'arborescence « nom · b × h cm » et son menu ⋯, les quatre rubriques, un bloc par section (« Données
+  // incomplètes » sans effort), un clic sur une couche du DESSIN qui la déplie dans les données, la section courante que
+  // le dessin et les résultats suivent (la vue garde son genre : du plan au plan), « ↺ » qui rend un axe saisi à
+  // l'automatique.
+  if (!FILTRE || FILTRE === 'plaques') {
+    for (const [cle, nom, dims, rub1] of [['dalle', 'Dalle 1', '100 × 20 cm', 'dl'], ['predalle', 'Prédalle 1', '100 × 22 cm', 'pd']]) {
+      const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+      const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+      const ouvrirRub = async (k) => {
+        if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
+        await g.waitForTimeout(80);
+      };
+      const saisir = async (chemin, v) => {
+        const s = `#donnees input[data-chemin="${chemin}"]`;
+        await g.fill(s, v);
+        await g.press(s, 'Enter');
+        await tranquille();
+        await g.waitForTimeout(150);
+      };
+      const sync = () => g.evaluate(() => ({ vue: document.querySelector('#vues .on')?.dataset.vue,
+        blocs: [...document.querySelectorAll('#resultat .et-bloc')].filter((x) => !x.hidden).map((x) => x.dataset.section),
+        arm: document.querySelector('#donnees .et-arm.on')?.dataset.section }));
+      const noms = () => g.$$eval('#donnees .et-arbre .et-pt .nom', (x) => x.map((y) => y.textContent));
+      try {
+        await g.goto(`${BASE}/index.html`);
+        await Promise.all([g.waitForNavigation(), g.click(`.tile[data-module="${cle}"]`)]);
+        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        const arbre = await g.evaluate(() => {
+          const t = document.querySelector('#donnees .et-pt.on .et-pt-t');
+          return { n: document.querySelectorAll('#donnees .et-arbre .et-pt').length, t: t.textContent.replace(/\s+/g, ' ').trim(),
+            pastille: !!t.closest('.et-pt-l').querySelector('.chip, .pct, .status') };
+        });
+        verif(`plaques ${cle} : l'arborescence nomme l'élément « ${nom} · ${dims} », sans taux ni pastille`,
+          arbre.n === 1 && arbre.t.replace(/\s*·\s*/, ' · ') === `${nom} · ${dims}` && !arbre.pastille, JSON.stringify(arbre));
+        const rubs = await g.$$eval('#donnees .et-pt.on .sec[data-sec]', (x) => x.map((y) => y.dataset.sec + (y.classList.contains('open') ? '*' : '')));
+        verif(`plaques ${cle} : quatre rubriques aux places de la poutre (élément, sections et sollicitations, armatures, options), la première seule ouverte`,
+          rubs.join() === `${rub1}*,so,arm,op`, rubs.join());
+        const e0 = await g.$eval('#resultat .et-bloc', (x) => ({ e: x.querySelector('.et-bloc-h .e').textContent, inc: x.classList.contains('inc') }));
+        verif(`plaques ${cle} : sans effort, le bloc de la section dit « Données incomplètes » (gris), jamais « Conforme »`, e0.e === 'Données incomplètes' && e0.inc, JSON.stringify(e0));
+        // un moment saisi dans la carte de la section : le bloc se colore, la bande de l'en-tête le porte (une fois)
+        await ouvrirRub('so');
+        await saisir('sections/0/My_inf', '20');
+        const e1 = await g.evaluate(() => ({ e: document.querySelector('#resultat .et-bloc .et-bloc-h .e').textContent,
+          ok: document.querySelector('#resultat .et-bloc').classList.contains('ok'),
+          bande: [...document.querySelectorAll('#stage .view.on .et-eff span')].map((x) => x.textContent.replace(/\s+/g, '')) }));
+        verif(`plaques ${cle} : M_y,inf = 20 saisi — le bloc dit « Conforme » (vert), la bande de l'en-tête porte M_y,inf 20,0 kN·m`,
+          e1.e === 'Conforme' && e1.ok && e1.bande.includes('My,inf20,0kN·m'), JSON.stringify(e1));
+        // le DESSIN → les données : un clic sur la couche de base de la nappe inférieure Y
+        await g.keyboard.press('Escape');
+        const k0 = 's0.inf_y-0';
+        const pt = await g.$eval(`#stage .view.on [data-sel="${k0}"]`, (x) => {
+          const q = (x.querySelector('circle, line, path, rect') || x).getBoundingClientRect();
+          return { x: q.left + q.width / 2, y: q.top + q.height / 2 };
+        });
+        await g.mouse.click(pt.x, pt.y);
+        await g.waitForTimeout(300);
+        const vu = await g.evaluate((k) => {
+          const v = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const p = document.querySelector(`#donnees [data-cible="${k}"]`);
+          return { arm: document.querySelector('#donnees .sec[data-sec="arm"]').classList.contains('open'), cible: !!p && p.classList.contains('et-cible'),
+            det: v(p && p.querySelector('.et-det')), sel: [...new Set([...document.querySelectorAll('#stage .view.on [data-sel].et-sel')].map((x) => x.dataset.sel))] };
+        }, k0);
+        verif(`plaques ${cle} : un clic sur une couche du dessin ouvre « Armatures » et y déplie SA ligne (axe, section au mètre) ; la pièce s'éclaire`,
+          vu.arm && vu.cible && vu.det && vu.sel.join() === k0, JSON.stringify(vu));
+        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_couche.png`) });
+        // « ↺ » : l'axe saisi revient à l'automatique d'un clic
+        const axe = 'sections/0/faces/inf_y/couches/0/dist';
+        await saisir(axe, '5');
+        const raz = await g.$(`#donnees .et-raz[data-chemin="${axe}"]`);
+        const razVu = !!raz && await raz.evaluate((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
+        if (raz) { await raz.click(); await tranquille(); await g.waitForTimeout(150); }
+        const apres = await g.evaluate((a) => ({ v: document.querySelector(`#donnees input[data-chemin="${a}"]`)?.value,
+          ph: document.querySelector(`#donnees input[data-chemin="${a}"]`)?.placeholder, raz: !!document.querySelector(`#donnees .et-raz[data-chemin="${a}"]`) }), axe);
+        verif(`plaques ${cle} : un axe saisi (5 cm) montre « ↺ » ; un clic le rend à l'automatique (champ vide, « auto · … »)`,
+          razVu && apres.v === '' && /^auto · /.test(apres.ph || '') && !apres.raz, JSON.stringify({ razVu, apres }));
+        // la section courante : une seconde section ; du PLAN de A au plan de B, le bloc de B seul à droite
+        await ouvrirRub('so');
+        await g.click('#donnees .et-add[data-chemin="sections/+"]');
+        await tranquille();
+        await g.waitForTimeout(200);
+        await g.click('#vues [data-vue="p0"]');
+        await g.waitForTimeout(150);
+        await ouvrirRub('arm');
+        await g.click('#donnees .et-secsel [data-section-courante="1"]');
+        await g.waitForTimeout(250);
+        const s1 = await sync();
+        await g.click('#donnees .et-secsel [data-section-courante="0"]');
+        await g.waitForTimeout(250);
+        const s0 = await sync();
+        verif(`plaques ${cle} : la section B choisie depuis le plan de A : le plan de B, son bloc seul, ses armatures ; puis retour au plan de A`,
+          s1.vue === 'p1' && s1.blocs.join() === '1' && s1.arm === '1' && s0.vue === 'p0' && s0.blocs.join() === '0' && s0.arm === '0', JSON.stringify({ s1, s0 }));
+        await g.click('#vues [data-vue="toutes"]');
+        await g.waitForTimeout(200);
+        const st = await sync();
+        verif(`plaques ${cle} : la vue « Toutes » montre les blocs des deux sections`, st.vue === 'toutes' && st.blocs.join() === '0,1', JSON.stringify(st));
+        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_toutes.png`) });
+        // le menu ⋯ de l'élément : « Copier » (inséré après lui, ouvert), « Supprimer » (confirmé)
+        await g.click(`#donnees .et-pt[data-${cle}="0"] [data-menu]`);
+        const mn = await g.$eval(`#donnees .et-pt[data-${cle}="0"] .et-mn-l`, (x) => { const q = x.getBoundingClientRect(); return { vu: x.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight }; });
+        await g.click(`#donnees .et-pt[data-${cle}="0"] .et-mn-l [data-dupliquer-index="0"]`);
+        await tranquille();
+        await g.waitForTimeout(200);
+        const n1 = await noms();
+        const ouverte = await g.$eval('#donnees .et-pt.on', (x, k) => x.dataset[k], cle);
+        g.once('dialog', (d) => d.accept());
+        await g.click(`#donnees .et-pt[data-${cle}="1"] [data-menu]`);
+        await g.click(`#donnees .et-pt[data-${cle}="1"] .et-mn-l [data-supprimer="1"]`);
+        await tranquille();
+        await g.waitForTimeout(200);
+        const n2 = await noms();
+        verif(`plaques ${cle} : le menu ⋯ s'ouvre dans l'écran ; « Copier » insère la copie après l'élément et l'ouvre ; « Supprimer » (confirmé) la retire`,
+          mn.vu && mn.dedans && n1.join() === `${nom},${nom} (copie)` && ouverte === '1' && n2.join() === nom, JSON.stringify({ mn, n1, ouverte, n2 }));
+        verif(`plaques ${cle} : aucune erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+      } catch (x) {
+        verif(`plaques ${cle} : le parcours va au bout`, false, String(x.message).split('\n').slice(0, 3).join(' | '));
+        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_echec.png`) }).catch(() => {});
+      }
+      await c.close();
+    }
+  }
+
   // ---------------------------------------------------------------- un fichier .stab piégé
   // Un .stab vient d'ailleurs (un collègue, un courriel) : rien de ce qu'il porte ne doit s'exécuter dans la page. Deux
   // fichiers : l'un que le moteur refuse (son dessin piégé n'est alors jamais remplacé par celui du moteur), l'autre
@@ -2254,8 +2381,8 @@ const FILTRE = process.argv[4] || '';
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats, « télécharger », « météo », la sonde, l'enregistrement et le pilote travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote et les plaques travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

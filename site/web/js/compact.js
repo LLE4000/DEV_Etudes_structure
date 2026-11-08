@@ -1,14 +1,16 @@
-// L'établi COMPACT (pilote : « Poutres béton armé » ; css/etabli.css, site/web/construire.py compact()).
+// L'établi COMPACT des trois modules béton armé — poutres, dalles, prédalles (css/etabli.css, site/web/construire.py
+// compact() ; leurs fragments : api_web/etabli_compact.py, api_web/plaque_compact.py).
 //
-// Trois colonnes : les DONNÉES à gauche (l'arborescence de la note : chaque poutre, et sous la poutre ouverte ses
+// Trois colonnes : les DONNÉES à gauche (l'arborescence de la note : chaque élément, et sous l'élément ouvert ses
 // rubriques), le DESSIN au centre, les RÉSULTATS à droite. Ce fichier ne calcule rien et ne recopie rien du moteur : il
 // relie ce que le moteur a rendu.
-//   - la SÉLECTION : une pièce du dessin porte data-sel (« s0.lit-inf-1 »), la ligne des données qui la règle porte
-//     data-cible (la même clé ; « beton » pour la section de béton), une observation des résultats data-piece. Un clic
+//   - la SÉLECTION : une pièce du dessin porte data-sel (« s0.lit-inf-1 », « s0.inf_y-0 »), la ligne des données qui la
+//     règle porte data-cible (la même clé ; « beton » pour le béton), une observation des résultats data-piece. Un clic
 //     sur l'une choisit les autres : la rubrique s'ouvre, la ligne se déplie et s'éclaire, la pièce s'éclaire sur le
 //     dessin. Échap ou un clic dans le vide la relâche.
-//   - la SECTION COURANTE : celle qu'on règle à gauche (.et-arm[data-section]) est celle du dessin (sa vue « s<i> ») et
-//     celle des résultats (.et-bloc[data-section] : les autres blocs se cachent ; la vue « Toutes » les montre tous).
+//   - la SECTION COURANTE : celle qu'on règle à gauche (.et-arm[data-section]) est celle du dessin (ses vues :
+//     « s<i> » pour une poutre, « c<i> » et « p<i> » — coupes, plan — pour une dalle) et celle des résultats
+//     (.et-bloc[data-section] : les autres blocs se cachent ; la vue « Toutes » les montre tous).
 //   - les CADRES s'éditent au dessin : les poignées du cadre choisi glissent d'une barre à l'autre du lit 1 inférieur
 //     (aimantées : jamais entre deux barres), et dans les données (les barres entourées, un clic par bout).
 //   - la LISTE DE CONTRÔLE des dispositions : une observation « à examiner » se marque examinée, avec une justification
@@ -87,11 +89,19 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
       if (l) l.classList.toggle("ouvert", on);
     });
   }
+  // la section d'une vue : « s1 » (une poutre), « c1 » ou « p1 » (les coupes, le plan d'une dalle) → 1 ; « toutes » → null
+  const indiceVue = (k) => { const m = /^[a-z]+(\d+)$/.exec(k || ""); return m ? +m[1] : null; };
+  // la vue d'une section : du même GENRE que la vue ouverte (des coupes aux coupes, du plan au plan), sinon sa première
+  function vueSection(i) {
+    const cles = [...document.querySelectorAll("#vues [data-vue]")].map((b) => b.dataset.vue).filter((k) => indiceVue(k) === i);
+    const genre = (/^([a-z]+)\d+$/.exec(vue.courante() || "") || [])[1];
+    return cles.find((k) => k.replace(/\d+$/, "") === genre) || cles[0] || `s${i}`;
+  }
   // la section choisie à gauche est celle du dessin et des résultats (même depuis la vue « Toutes »)
   function choisirSection(i) {
     courante = i;
     garder();
-    vue.choisir(`s${i}`);
+    vue.choisir(vueSection(i));
     poserCourante();
     surligner();
   }
@@ -140,7 +150,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     const i = indice(sel);
     if (i !== null && i !== courante) {
       courante = i;
-      if (vue.courante() !== "toutes") vue.choisir(`s${i}`);
+      if (vue.courante() !== "toutes") vue.choisir(vueSection(i));
       poserCourante();
     }
     garder();
@@ -446,7 +456,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     // la section courante est celle du dessin (une vue « Toutes » reste choisie)
     const nSec = donnees.querySelectorAll(".et-arm[data-section]").length;
     if (nSec && courante >= nSec) courante = 0;
-    if (vue.courante() !== "toutes" && vue.courante() !== `s${courante}`) vue.choisir(`s${courante}`);
+    if (vue.courante() !== "toutes" && indiceVue(vue.courante()) !== courante) vue.choisir(vueSection(courante));
     poserCourante();
     // la pièce choisie a pu disparaître (un lit retiré) : la sélection tombe
     if (sel && !cibleDonnees(sel) && !stage.querySelector(`[data-sel="${CSS.escape(sel)}"]`)) sel = "";
@@ -455,8 +465,8 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   }
   // l'onglet du dessin choisit la section courante (« Toutes » la garde, et montre tous les blocs de résultats)
   function vueChoisie(k) {
-    const m = /^s(\d+)$/.exec(k || "");
-    if (m) courante = +m[1];
+    const i = indiceVue(k);
+    if (i !== null) courante = i;
     garder();
     poserCourante();
     surligner();

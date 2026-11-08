@@ -24,6 +24,7 @@ requêtes JSON que le navigateur).
     python3 tests/test_api_web_predalle.py
 """
 import copy
+import html
 import json
 import os
 import re
@@ -34,6 +35,7 @@ sys.path.insert(0, RACINE)
 
 from api_web import commun as C  # noqa: E402
 from api_web import dessin_predalle as DP  # noqa: E402
+from api_web import plaque_compact as PC  # noqa: E402
 from api_web import predalle as P  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 from beton import treillis as TR  # noqa: E402
@@ -75,6 +77,17 @@ def texte(html):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html)).replace("&gt;", ">").replace("&lt;", "<").replace("&amp;", "&").strip()
 
 
+# une ligne de vérification (C.ligne_verif) : (gouvernante, section, nom, niveau, taux) ; l'état d'un bloc de section
+LIGNE = re.compile(r'<div class="el vc( gov)?" data-calcul="(s\d+)-\w+"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)"[^>]*>([^<]+)</span></div>', re.S)
+CMP = re.compile(r'<div class="el vc( gov)?"[^>]*><div class="l1"><b>([^<]+)</b>.*?<div class="l2"><span class="cmp">(.*?)</span>', re.S)
+BLOC = re.compile(r'<section class="et-bloc (\w+)" data-section="(\d+)">.*?<span class="n">([^<]+)</span><span class="e">([^<]+)</span>', re.S)
+
+
+def fenetre(volets, ident):
+    """La fenêtre de calcul ``ck-<ident>`` seule (jusqu'à la fenêtre suivante)."""
+    return re.search(r'id="ck-' + re.escape(ident) + r'".*?(?=<div class="flyout calcul"|$)', volets, re.S).group(0)
+
+
 def note_type():
     """La note des tests de l'écran (tests/test_predalle.py) : Mx = My = 30, sup 12 / 9, V 60, renfort 3 Ø12 en inf. Y,
     plus une section d'appui."""
@@ -98,8 +111,7 @@ chk("une note neuve : une prédalle « Prédalle 1 », 100 × 22 cm dont 6 cm de
 E = note_type()
 rep = req(action="calculer", etat=E)
 m = moteur(E)
-lignes = re.findall(r'<div class="el( gov)?" data-calcul="(s\d)"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)">([^<]+)</span></div></div>',
-                    rep["resultat"])
+lignes = LIGNE.findall(rep["resultat"])
 attendu = [(f"s{i}", P.nom_ligne(v), niveau_de(v), f"{C.pc(C.pct(v['taux']))}{C.NBSP}%")
            for i, s in enumerate(m["sections"]) for v in s["verifications"]]
 chk(f"chaque vérification du moteur a sa ligne, dans l'ordre de l'écran Streamlit, avec son taux et sa couleur ({len(attendu)} lignes)",
@@ -110,9 +122,10 @@ chk("la ligne gouvernante est marquée (une seule) : celle du moteur",
     len(gov) == 1 and gov[0][1] == f"s{g['section']}" and gov[0][2] == P.nom_ligne(next(v for v in m["sections"][g["section"]]["verifications"]
                                                                                       if v["cle"] == g["cle"])), gov)
 v_g = next(v for v in m["sections"][g["section"]]["verifications"] if v["cle"] == g["cle"])
-chk("le verdict : le taux le plus fort, sa couleur, la section et la comparaison « valeur ≤ limite »",
-    f'chip xl {niveau_de(v_g)}' in rep["resultat"] and f"{C.pc(C.pct(g['taux']))}" in texte(rep["resultat"].split('class="els"')[0])
-    and m["sections"][g["section"]]["titre"] in rep["resultat"].split('class="els"')[0])
+gov_cmp = [c_ for g_, _, c_ in CMP.findall(rep["resultat"]) if g_]
+chk("la ligne gouvernante dit sa comparaison « valeur ≤ limite », nommée ; chaque section a son bloc, coloré par son état",
+    len(gov_cmp) == 1 and " ≤ " in gov_cmp[0] and [(c_, n_) for c_, _, n_, _ in BLOC.findall(rep["resultat"])]
+    == [("ok", "Section A"), ("ok", "Section B")], (gov_cmp, BLOC.findall(rep["resultat"])))
 chk("le résumé de la note : taux, niveau, statut, gouvernant (prédalle · section · vérification)",
     rep["resume"]["taux"] == C.pct(m["taux_max"]) and rep["resume"]["niveau"] == ("r" if m["statut"] == "nok" else C.niveau(m["taux_max"]))
     and rep["resume"]["gouvernant"].startswith("Prédalle 1 · Section"), rep["resume"])
@@ -137,10 +150,13 @@ chk("acier excessif (Ø25/100 sur 20 × 8) : non conforme et ROUGE alors que le 
 # ------------------------------------------------------------------ 2. la fenêtre de calcul
 print("\n=== 2. La fenêtre de calcul : hypothèses, tableau, formules substituées ===")
 v = rep["volets"]
-chk("une fenêtre par section (ck-s0, ck-s1)", 'id="ck-s0"' in v and 'id="ck-s1"' in v and v.count('class="flyout calcul"') == 2)
+n_verifs = sum(len(s_["verifications"]) for s_ in m["sections"])
+chk("une fenêtre par vérification, et une par section (ck-s0, ck-s1 : tout le calcul de la section) — comme la poutre",
+    'id="ck-s0"' in v and 'id="ck-s1"' in v and v.count('class="flyout calcul"') == n_verifs + 2
+    and all(f'id="ck-s{i}-{x["cle"]}"' in v for i, s_ in enumerate(m["sections"]) for x in s_["verifications"]))
 chk("les hypothèses disent la peau et le coulé en place (« dont prédalle 6 cm et 16 cm coulés en place »)",
     "dont prédalle <b>6 cm</b> et 16 cm coulés en place" in v and "jeu premier lit 0 cm (nappes supérieures)" in v)
-fen0 = v.split('id="ck-s1"')[0]
+fen0 = fenetre(v, "s0")
 chk("l'axe de chaque couche et sa règle : base principale c + ⌈Ø/2⌉ = 3 + 0,5 = 3,5 cm dans la prédalle ; renfort h_p + ⌈Ø/2⌉ = 6 + 1 = 7 cm sur la prédalle",
     re.search(r"e<sub>1</sub></span><span class=\"eq\">=</span><span>c \+ ⌈Ø/2⌉</span><span class=\"eq\">=</span><span>3 \+ 0,5</span>"
               r"<span class=\"eq\">=</span><span class=\"r\">3,5 cm · dans la prédalle", fen0) is not None
@@ -181,9 +197,12 @@ e7 = saisir(copy.deepcopy(E), "h_pre", "7,5")["etat"]
 f7 = moteur(e7)["sections"][0]["faces"]
 chk("peau 7,5 cm : la base principale reste en fond de moule (3,5), la base secondaire passe à 8,0 et le renfort à 8,5",
     [f7["inf_y"]["couches"][0]["e"], f7["inf_x"]["couches"][0]["e"], f7["inf_y"]["couches"][1]["e"]] == [3.5, 8.0, 8.5])
-chk("… et le cadre Données suit : les champs d'axe montrent 3,5 / 8 / 8,5, le coulé en place 14,5 cm",
-    'data-chemin="sections/0/faces/inf_x/couches/0/dist" data-sorte="nombre" inputmode="decimal" value="8"' in req(action="calculer", etat=e7)["donnees"]
-    and "14,5 cm" in req(action="calculer", etat=e7)["donnees"])
+d7 = req(action="calculer", etat=e7)["donnees"]
+chk("… et le cadre Données suit : les axes automatiques disent 3,5 / 8 / 8,5 (le champ vide, « auto · 8 »), le coulé en place 14,5 cm",
+    'data-chemin="sections/0/faces/inf_x/couches/0/dist" data-sorte="texte" inputmode="decimal" value="" data-vide="auto" placeholder="auto · 8"' in d7
+    and 'data-chemin="sections/0/faces/inf_y/couches/0/dist" data-sorte="texte" inputmode="decimal" value="" data-vide="auto" placeholder="auto · 3,5"' in d7
+    and 'data-chemin="sections/0/faces/inf_y/couches/1/dist" data-sorte="texte" inputmode="decimal" value="" data-vide="auto" placeholder="auto · 8,5"' in d7
+    and "14,5 cm" in d7)
 ej = saisir(copy.deepcopy(E), "jeu_premier_lit", "1")["etat"]
 fj = moteur(ej)["sections"][0]["faces"]
 chk("jeu premier lit 1 cm : nappes supérieures à 4,5 cm, nappes inférieures inchangées (3,5 / 6,5 / 7,0)",
@@ -222,8 +241,9 @@ chk("un axe saisi (9,5) est imposé ; vidé, il revient à l'automatique ; l'aut
     c1["dist"] == 9.5 and pd(e2)["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] is None
     and pd(e3)["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] is None)
 yg = saisir(copy.deepcopy(E), "sections/0/faces/inf_y/yG", "5,25")["etat"]
-chk("un centre de gravité saisi remplace Σ As·e / Σ As, et « revenir au calcul » l'efface",
-    moteur(yg)["sections"][0]["grandeurs"]["yG_inf_y"] == 5.25 and "revenir au calcul" in req(action="calculer", etat=yg)["donnees"]
+chk("un centre de gravité saisi remplace Σ As·e / Σ As (son champ le montre), et VIDÉ il revient au calcul",
+    moteur(yg)["sections"][0]["grandeurs"]["yG_inf_y"] == 5.25
+    and 'data-chemin="sections/0/faces/inf_y/yG" data-sorte="texte" inputmode="decimal" value="5,25" data-vide="auto"' in req(action="calculer", etat=yg)["donnees"]
     and pd(saisir(yg, "sections/0/faces/inf_y/yG", "")["etat"])["sections"][0]["faces"]["inf_y"]["yG"] is None)
 ea = copy.deepcopy(E)
 for _ in range(3):
@@ -287,8 +307,9 @@ deux = saisir(a["etat"], "sections/0/My_inf", "80")["etat"]
 r2 = req(action="calculer", etat=deux)
 chk("le résumé de la note : la prédalle la plus chargée, même si l'ouverte l'est moins",
     r2["resume"]["gouvernant"].startswith("Prédalle 2") and r2["resume"]["taux"] == C.pct(max(moteur(deux, 0)["taux_max"], moteur(deux, 1)["taux_max"])))
-chk("la liste « Dans cette note » : chaque prédalle, ses épaisseurs (totale et peau), son taux",
-    r2["elements"].count('data-activer="') == 2 and "22 (6) cm" in r2["elements"])
+chk("l'arborescence : chaque prédalle « nom · b × h cm », sans taux (le résultat est à droite) ; la liste de l'ancien écran n'existe plus",
+    r2["donnees"].count('class="et-pt-t') == 2 and re.findall(r'<span class="nom">([^<]+)</span><span class="dim">([^<]+)</span>', r2["donnees"])
+    == [("Prédalle 1", "· 100 × 22 cm"), ("Prédalle 2", "· 100 × 22 cm")] and r2["elements"] == "")
 sup = req(action="supprimer", etat=copy.deepcopy(deux), index=0)
 chk("supprimer : il en reste une, ouverte", len(sup["etat"]["predalles"]) == 1 and sup["etat"]["predalles"][0]["nom"] == "Prédalle 2")
 
@@ -313,6 +334,9 @@ chk("une peau de 12 cm sur 8 cm : reprise à 7 cm comme l'écran, et c'est dit",
 # ------------------------------------------------------------------ 8. les avertissements
 print("\n=== 8. Les avertissements ===")
 rr = req(action="calculer", etat=E)["resultat"]
+bloc0 = re.search(r'<section class="et-bloc \w+" data-section="0">.*?</section>', rr, re.S).group(0)
+chk("les avertissements d'une section sont posés DANS son bloc (sous ses vérifications)",
+    "posées toutes deux sur la prédalle" in bloc0 and "les bases X et Y supérieures sont calculées au même niveau" in bloc0)
 chk("couches croisées sur la peau (renfort Y à 7,0, base X à 6,5) : dit, avec les axes",
     "posées toutes deux sur la prédalle" in rr and "axe 7,0 cm" in rr and "axe 6,5 cm" in rr)
 chk("les bases supérieures X et Y au même niveau : dit en une phrase par section", "les bases X et Y supérieures sont calculées au même niveau" in rr)
@@ -331,9 +355,10 @@ chk("base Ø12 à 4,0 cm dans une peau de 3 cm : « sort de la peau », message 
 # ------------------------------------------------------------------ 9. les dessins
 print("\n=== 9. Les dessins ===")
 vues = rep["vues"]
-chk("deux vues par section : la coupe et le plan, titres et légendes en texte",
-    [x["cle"] for x in vues] == ["c0", "p0", "c1", "p1"] and all(x["svg"].startswith("<svg") for x in vues)
-    and all("<" not in x["titre"] + x["court"] + x["legende"] for x in vues))
+chk("deux vues par section : la coupe et le plan, puis « Toutes » ; titres en texte, chacune sous son en-tête technique",
+    [x["cle"] for x in vues] == ["c0", "p0", "c1", "p1", "toutes"] and all(x["svg"].startswith("<svg") for x in vues)
+    and all("<" not in x["titre"] + x["court"] + x["legende"] for x in vues) and all(x["entete"].startswith('<div class="et-ent">') for x in vues)
+    and "<b>Section A</b><span>· 100 × 22 cm, prédalle 6 cm · C30/37 · B500 · principale Y</span>" in vues[0]["entete"])
 sv = vues[0]["svg"]
 chk("la coupe : la peau hachurée (hachures dessinées, aucun motif SVG à identifiant partagé), le plan de reprise, les deux bétons nommés",
     'stroke="#8C97A6"' in sv and "<pattern" not in sv and "prédalle préfabriquée · 60 mm" in sv and "béton coulé en place · 160 mm" in sv)
@@ -350,7 +375,7 @@ chk("une bande de 2,50 m : seule sa partie centrale est dessinée, et la cote le
 PIEGE = '<img src=x onerror=alert(1)>'
 ep = saisir(saisir(copy.deepcopy(E), "nom", PIEGE)["etat"], "sections/0/nom", PIEGE)["etat"]
 rp = req(action="calculer", etat=ep)
-fuites = [k for k in ("resultat", "volets", "donnees", "elements", "phrase") if "<img" in rp[k]] + [x["cle"] for x in rp["vues"] if "<img" in x["svg"]]
+fuites = [k for k in ("resultat", "volets", "donnees", "elements", "phrase") if "<img" in rp[k]] + [x["cle"] for x in rp["vues"] if "<img" in x["svg"] + x["entete"]]
 chk("un nom piégé (prédalle, section) est échappé dans tous les fragments et dans les dessins", not fuites, fuites)
 chk("dessin_predalle.positions : base centrée sur la bande, renfort intercalé d'une demi-maille, « n barres » réparties",
     DP.positions({"type": "barres", "esp": 150}, 1000, 0)[0] == 500 - 3 * 150
@@ -390,25 +415,27 @@ chk("un fichier Streamlit aux valeurs absurdes : refusé, la note intacte", o["m
 # le verdict d'une prédalle non conforme nomme une vérification NON conforme (d utile ≤ 0, acier excessif sous 100 %)
 ej30 = saisir(copy.deepcopy(e0), "jeu_premier_lit", "30")["etat"]
 rj = req(action="calculer", etat=ej30)
-verdict = rj["resultat"].split('class="els"')[0]
-chk("jeu de 30 cm sur 22 cm : d ≤ 0 en haut, taux sous 100 % ; le verdict ROUGE nomme la nappe supérieure et dit « d = … ≤ 0 », "
-    "le résumé de la note aussi",
-    "chip xl r" in verdict and "supérieure" in verdict and "≤ 0" in verdict and rj["resume"]["niveau"] == "r"
-    and "supérieure" in rj["resume"]["gouvernant"], (texte(verdict), rj["resume"]))
-chk("… et la ligne du résultat dit pourquoi elle est rouge sous 100 % (« d utile ≤ 0 »)",
-    re.search(r'<b>Supérieure Y</b>.*?d utile ≤ 0.*?<span class="pct r">', rj["resultat"]) is not None)
+cj = CMP.findall(rj["resultat"])
+chk("jeu de 30 cm sur 22 cm, SANS AUCUN EFFORT : d ≤ 0 en haut, taux sous 100 % ; le bloc dit « Non conforme » (jamais « Données "
+    "incomplètes », qui cacherait la non-conformité), le résumé de la note nomme la nappe supérieure, en rouge",
+    BLOC.findall(rj["resultat"]) == [("nok", "0", "Section A", "Non conforme")] and rj["resume"]["niveau"] == "r"
+    and "supérieure" in rj["resume"]["gouvernant"], (BLOC.findall(rj["resultat"]), rj["resume"]))
+chk("… la ligne gouvernante est la nappe supérieure, rouge sous 100 %, et sa comparaison dit pourquoi (« d = … ≤ 0 »)",
+    any(g_ and n.startswith("Supérieure") and "≤ 0" in c_ for g_, n, c_ in cj)
+    and re.search(r'<b>Supérieure Y</b>.*?<span class="pct r"', rj["resultat"]) is not None, [(x[0], x[1]) for x in cj])
 ax = req(action="nouveau")["etat"]
 for chemin, v in (("b", "20"), ("h", "8"), ("h_pre", "4"), ("sections/0/faces/inf_x/couches/0/type", "barres"),
                   ("sections/0/faces/inf_x/couches/0/d", "25"), ("sections/0/faces/inf_x/couches/0/esp", "100")):
     ax = saisir(ax, chemin, v)["etat"]
 r_ax = req(action="calculer", etat=ax)
-vex = texte(r_ax["resultat"].split('class="els"')[0])
+c_ax = CMP.findall(r_ax["resultat"])
 m_ax = moteur(ax)["sections"][0]["verifications"]
-chk("acier excessif SEUL en défaut (sans moment, Ø25/100 sur 20 × 8 : taux 2 %, hauteur conforme à 69 %) : le verdict rouge "
-    "nomme « inférieure X » et compare A_s > A_s,max — et non la hauteur, plus chargée mais conforme",
+chk("acier excessif SEUL en défaut (sans moment, Ø25/100 sur 20 × 8 : taux 2 %, hauteur conforme à 69 %) : la ligne gouvernante est "
+    "« Inférieure X » et compare A_s > A_s,max — et non la hauteur, plus chargée mais conforme ; le bloc et la note sont rouges",
     [v["cle"] for v in m_ax if v["etat"] == "nok"] == ["inf_x"] and max(m_ax, key=lambda v: v["taux"])["cle"] == "hauteur"
-    and "chip xl r" in r_ax["resultat"] and "inférieure X" in vex and "As,max" in vex and "acier excessif" in vex
-    and r_ax["resume"]["niveau"] == "r" and r_ax["resume"]["gouvernant"].endswith("inférieure X"), (vex, r_ax["resume"]))
+    and [(n, "A<sub>s,max</sub>" in c_ and "acier excessif" in c_) for g_, n, c_ in c_ax if g_] == [("Inférieure X", True)]
+    and BLOC.findall(r_ax["resultat"])[0][0] == "nok"
+    and r_ax["resume"]["niveau"] == "r" and r_ax["resume"]["gouvernant"].endswith("inférieure X"), (c_ax, r_ax["resume"]))
 
 
 # ------------------------------------------------------------------ 11. bout à bout : l'écran Streamlit rejoué face au SITE
@@ -543,11 +570,10 @@ def site_affiche(etat, k):
     e = dict(copy.deepcopy(etat), actif=k)
     rep = req(action="calculer", etat=e)
     assert rep["ok"], rep
-    lignes = [(int(c[1:]), n, niv, int(t.replace(C.NBSP + "%", "")))
-              for _, c, n, niv, t in re.findall(r'<div class="el( gov)?" data-calcul="(s\d+)"[^>]*><div class="l1"><b>([^<]+)</b>'
-                                                r'.*?<span class="pct (\w)">([^<]+)</span></div></div>', rep["resultat"])]
+    lignes = [(int(c[1:]), n, niv, int(t.replace(C.NBSP + "%", ""))) for _, c, n, niv, t in LIGNE.findall(rep["resultat"])]
     groupes = []
-    for i, fen in enumerate(rep["volets"].split('<div class="flyout calcul"')[1:]):
+    # (les fenêtres de SECTION, « ck-s<i> », dans l'ordre : chacune détaille toutes ses vérifications)
+    for i, fen in enumerate(re.findall(r'<div class="flyout calcul" id="ck-s\d+">.*?(?=<div class="flyout calcul"|$)', rep["volets"], re.S)):
         gs = []
         for g_ in fen.split('<div class="ck-g">')[1:]:
             fx = {}
@@ -557,9 +583,9 @@ def site_affiche(etat, k):
                 fx[sym + "#"] = texte(ligne)          # la ligne entière : « hmin = hu,min + yG = 11,6 + 6,5 = 18,1 cm »
             gs.append(fx)
         groupes.append(gs)
-    secs = re.findall(r'<div class="elgrp">.*?<span class="pct (\w)">', rep["resultat"])
-    liste = re.findall(r'data-activer="\d+".*?<span class="pct (\w)">([^<]+)</span>', rep["elements"])
-    return {"lignes": lignes, "groupes": groupes, "sections": secs, "liste": liste, "resume": rep["resume"]}
+    # l'état de chaque section : la couleur de l'en-tête de son bloc (rouge : « Non conforme »)
+    secs = ["r" if c_ == "nok" else c_ for c_, _, _, _ in BLOC.findall(rep["resultat"])]
+    return {"lignes": lignes, "groupes": groupes, "sections": secs, "resume": rep["resume"]}
 
 
 NOMS_BLOCS = {"Vérification de la hauteur": "Hauteur", "Vérification de l'effort tranchant": "Effort tranchant"}
@@ -621,8 +647,9 @@ def comparer_bout_a_bout(nom_cas, predalles):
         for i, s_ in enumerate(e_p["sections"]):
             if (s_["etat"] == "nok") != (site["sections"][i] == "r"):
                 ecart.append((p["nom"], f"état de la section {i}", s_["etat"], site["sections"][i]))
-        if (e_p["etat"] == "nok") != (site["liste"][k][0] == "r"):
-            ecart.append((p["nom"], "état de la prédalle (liste de la note)", e_p["etat"], site["liste"][k]))
+        # l'état de la prédalle : rouge dès qu'un de ses blocs l'est (l'arborescence ne porte plus de pastille)
+        if (e_p["etat"] == "nok") != ("r" in site["sections"]):
+            ecart.append((p["nom"], "état de la prédalle (ses blocs)", e_p["etat"], site["sections"]))
     return ecart
 
 
@@ -716,6 +743,83 @@ if D is not None:
     v_tau = next(v for v in tl["verifications"] if v["cle"] == "tau")
     chk("à la limite exacte τ = τ_adm,I : 100 % vert foncé (conforme), comme l'écran (✅)", abs(v_tau["taux"] - 1) < 1e-12 and v_tau["etat"] == "ok"
         and C.pct(v_tau["taux"]) == 100 and C.niveau(v_tau["taux"]) == "f", v_tau["taux"])
+
+# ------------------------------------------------------------------ 12. l'établi compact : les fonctions aux places de la poutre
+print("\n=== 12. L'établi compact : les fonctions aux places de la poutre ===")
+ar = req(action="calculer", etat=E)
+don = ar["donnees"]
+chk("l'arborescence : « Prédalles » et leur nombre, chaque prédalle « nom · b × h cm » (sans taux), « Ajouter une prédalle »",
+    re.search(r'<div class="et-arbre-h"><span>Prédalles</span><span class="n">1</span></div>', don) is not None
+    and re.findall(r'<span class="nom">([^<]+)</span><span class="dim">([^<]+)</span>', don) == [("Prédalle 1", "· 100 × 22 cm")]
+    and 'data-ajouter="1"' in don and "Ajouter une prédalle" in don and ar["elements"] == ""
+    and "%" not in re.search(r'<div class="et-pt-l">.*?</button>', don, re.S).group(0))
+chk("sous la prédalle ouverte, ses quatre rubriques dans l'ordre de la poutre : Prédalle, Sections et sollicitations, Armatures, Options",
+    re.findall(r'<div class="sec[^"]*" data-sec="([^"]+)"', don) == ["pd", "so", "arm", "op"]
+    and re.findall(r'<span class="tt">([^<]+)</span>', don) == ["Prédalle", "Sections et sollicitations", "Armatures", "Options"]
+    and re.search(r'<div class="sec" data-sec="op" data-secondaire="1">', don) is not None)
+menu_ = re.search(r'<div class="et-mn-l" role="menu" hidden>(.*?)</div></div>', don, re.S).group(1)
+chk("le menu « ⋯ » de la prédalle : Renommer, Copier la prédalle, Supprimer la prédalle (grisé : c'est la seule)",
+    'data-renommer="0"' in menu_ and 'data-dupliquer-index="0"' in menu_ and "Copier la prédalle" in menu_
+    and re.search(r'data-supprimer="0" data-confirmer="Supprimer la prédalle « Prédalle 1 » de la note \?" disabled>', menu_) is not None)
+trois = req(action="ajouter", etat=req(action="ajouter", etat=copy.deepcopy(E))["etat"])["etat"]
+cp3 = req(action="dupliquer", etat=trois, index=0)
+chk("« Copier » du menu « ⋯ » d'une prédalle (index) : CETTE prédalle, copiée juste après elle et ouverte (comme la poutre)",
+    [p["nom"] for p in cp3["etat"]["predalles"]] == ["Prédalle 1", "Prédalle 1 (copie)", "Prédalle 2", "Prédalle 3"] and cp3["etat"]["actif"] == 1
+    and re.findall(r'<div class="et-pt( on)?" data-predalle="(\d)">', cp3["donnees"]) == [("", "0"), (" on", "1"), ("", "2"), ("", "3")],
+    ([p["nom"] for p in cp3["etat"]["predalles"]], cp3["etat"]["actif"]))
+cibles = set(re.findall(r'data-cible="([^"]+)"', don))
+sels = set(re.findall(r'data-sel="([^"]+)"', "".join(v["svg"] for v in ar["vues"])))
+couches_ = {f"s{i}.{f}-{j}" for i, s_ in enumerate(pd(E)["sections"]) for f in EN.FACES for j in range(len(s_["faces"][f]["couches"]))}
+chk("chaque couche de chaque section a sa ligne dans les données (data-cible) et sa pièce sur les dessins (data-sel), sous la "
+    "MÊME clé ; le béton et les efforts aussi",
+    len(couches_) == 9 and couches_ <= cibles and couches_ <= sels and {"beton", "s0.efforts", "s1.efforts"} <= cibles
+    and {"s0.beton", "s1.beton"} <= sels, (sorted(couches_ - cibles)[:3], sorted(couches_ - sels)[:3]))
+chk("les vues : les coupes et le plan de chaque section, puis « Toutes » dès deux sections",
+    [v["cle"] for v in ar["vues"]] == ["c0", "p0", "c1", "p1", "toutes"])
+for cle_ in ("c0", "p0", "c1", "p1"):
+    sv_ = next(v for v in ar["vues"] if v["cle"] == cle_)["svg"]
+    chk(f"la vue {cle_} ne porte que les pièces de SA section (s{cle_[1:]}.…)", sv_.count("data-sel=") > 0
+        and all(k.startswith(f"s{cle_[1:]}.") for k in re.findall(r'data-sel="([^"]+)"', sv_)))
+chk("« Toutes » : la coupe principale de chaque section, ses pièces cliquables (s0 et s1)",
+    {k.split(".")[0] for k in re.findall(r'data-sel="([^"]+)"', ar["vues"][-1]["svg"])} == {"s0", "s1"})
+chk("la section courante : ses armatures (.et-arm), son résumé (.et-r3) et son bloc de résultats (.et-bloc) par section ; le choix "
+    "de la section courante dès deux sections",
+    re.findall(r'<div class="et-arm( on)?" data-section="(\d)">', don) == [(" on", "0"), ("", "1")]
+    and len(re.findall(r'class="et-r3" data-section="\d"', don)) == 2 and len(re.findall(r'data-section-courante="\d"', don)) == 4
+    and [b_[1] for b_ in BLOC.findall(ar["resultat"])] == ["0", "1"])
+ent = ar["vues"][0]["entete"]
+chk("l'en-tête de la vue : la section, la bande et la peau, les matériaux, la direction principale ; les nappes (la principale "
+    "d'abord) ; la bande des quatre moments et de V, une fois",
+    "<b>Section A</b><span>· 100 × 22 cm, prédalle 6 cm · C30/37 · B500 · principale Y</span>" in ent
+    and ">Inf. Y Treillis 10/10/100/100 + 3 Ø12 · X Treillis 10/10/100/100<" in ent and ">Sup. Y Treillis 10/10/100/100 · X Treillis 10/10/100/100<" in ent
+    and ent.count("<span><i>") == 5 and "<sub>x,inf</sub><b>30,0</b>" in ent and "<i>V</i><b>60,0</b>" in ent, ent[:400])
+chk("chaque vue dit ce qu'on lit sur son dessin, en dernière ligne de son en-tête (la légende : barres coupées en points, X horizontales…)",
+    len(ar["vues"]) == 5 and all(re.findall(r'<div class="lg">([^<]*)</div>(?=</div>)', v_["entete"])
+                                 == [P.LEGENDES["p" if v_["cle"][0] == "p" else "c"]] == [v_["legende"]] for v_ in ar["vues"]),
+    [(v_["cle"], v_["legende"]) for v_ in ar["vues"]])
+chk("le dessin d'une section, dans l'établi, n'écrit plus les efforts (ils sont dans la bande de l'en-tête, une fois, sans rouge)",
+    "#9C3341" not in ar["vues"][0]["svg"] and "kN·m" not in ar["vues"][0]["svg"] and "kN·m" in DP.svg_coupe("t", m["sections"][0], m["predalle"]))
+chk("la tête des résultats : le nom de la prédalle et ses dimensions (comme la poutre)",
+    '<div class="et-rp"><b>Prédalle 1</b><span>100 × 22 cm, prédalle 6 cm · C30/37 · B500</span></div>' in ar["resultat"])
+chk("une prédalle n'a pas de note PDF sur le site : rien à télécharger (le bouton reste « bientôt », construire.NOTE_PDF)",
+    not hasattr(P, "telecharger"))
+# un axe ou un centre de gravité SAISI se rend à l'automatique d'un clic (« ↺ », comme l'écran d'avant du site) ; la
+# pose de la couche dit ce que serait l'automatique (une fois : la ligne de la couche ne le répète pas)
+RAZ = r'<button type="button" class="et-raz" data-chemin="{}" data-valeur="" title="([^"]+)"'
+ax_ = saisir(saisir(copy.deepcopy(E), "sections/0/faces/inf_x/couches/0/dist", "8")["etat"], "sections/0/faces/inf_y/yG", "4")
+d_ax = ax_["donnees"]
+e_auto = moteur(ax_["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["e_auto"]
+t_ax = re.search(RAZ.format("sections/0/faces/inf_x/couches/0/dist"), d_ax)
+chk("un axe saisi : « ↺ Revenir à l'axe automatique (… cm) » à côté du champ ; un centre de gravité imposé aussi ; la pose dit "
+    "l'automatique une seule fois ; aucun bouton sur un champ automatique",
+    t_ax is not None and html.unescape(t_ax.group(1)) == f"Revenir à l'axe automatique ({PC._cm(e_auto)} cm)"
+    and re.search(RAZ.format("sections/0/faces/inf_y/yG"), d_ax) is not None
+    and set(re.findall(r'class="et-raz" data-chemin="([^"]+)"', d_ax)) == {"sections/0/faces/inf_x/couches/0/dist", "sections/0/faces/inf_y/yG"}
+    and html.unescape(d_ax).count("l'automatique serait") == 1 and 'class="et-raz"' not in don, (t_ax and t_ax.group(1), d_ax.count('class="et-raz"')))
+raz_ = saisir(ax_["etat"], "sections/0/faces/inf_x/couches/0/dist", "")
+chk("… et « ↺ » (la valeur vidée) rend l'axe automatique : la clé du moteur redevient None, le bouton disparaît",
+    pd(raz_["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] is None
+    and re.search(RAZ.format("sections/0/faces/inf_x/couches/0/dist"), raz_["donnees"]) is None)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

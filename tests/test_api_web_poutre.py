@@ -358,6 +358,17 @@ chk("deux lits Ø16 au jeu du bureau (1 cm) : 14 mm libres < 25 mm, NON CONFORME
     and out["resume"]["niveau"] == "r", (out["resume"], [i for i in d0["items"] if i["etat"] != "ok"]))
 chk("… et les Options le disent, avec le jeu qui suffirait (2,1 cm : 1 + 2,1 + 1 = 4,1 cm d'entraxe, 41 − 16 = 25 mm libres)",
     f"gardent 14{C.NBSP}mm libres" in out["donnees"] and "non conforme" in out["donnees"] and f"Porter ce jeu à 2,1{C.NBSP}cm" in out["donnees"])
+# une non-conformité trouvée SANS AUCUN EFFORT (deux lits trop serrés) n'est pas cachée par « Données incomplètes » :
+# le bloc de la section est rouge, comme la note (l'ordre de poutre._etat_bloc : non conforme d'abord)
+e = P.nouvel_etat()
+for chemin, valeur in ((["sections", "0", "pas"], "20"), (["sections", "0", "inf", "+"], 1)):
+    P.modifier(e, chemin, valeur)
+out = req(module="poutre", action="calculer", etat=e)
+r0 = MO.verifier(out["etat"]["poutres"][0])
+blocs_etat = re.findall(r'<section class="et-bloc (\w+)" data-section="\d+">.*?<span class="e">([^<]+)</span>', out["resultat"])
+chk("sans effort mais deux lits trop serrés : le bloc de la section est « Non conforme » (rouge), jamais « Données incomplètes »",
+    not r0["sollicitee"] and r0["statut_complet"] == MO.NOK and blocs_etat == [("nok", "Non conforme")] and out["resume"]["niveau"] == "r",
+    (blocs_etat, out["resume"]))
 
 # 14. le ferraillage détaillé se saisit, se vide (automatique), se refuse
 e = copy.deepcopy(etat)

@@ -4,6 +4,10 @@ pour chaque section quatre nappes — inférieure et supérieure, directions X e
 barres Ø/e ou de « n barres »), les champs de saisie, le résultat section par section, la grande fenêtre de calcul, le
 sélecteur de la nappe de base et les dessins — rendus en fragments HTML.
 
+L'écran est l'établi COMPACT, celui de la poutre (api_web/etabli_compact.py, api_web/plaque_compact.py) : à gauche
+l'arborescence de la note (chaque dalle, et sous la dalle ouverte ses quatre rubriques), au centre les vues sous leur
+en-tête technique, à droite un bloc par section. Les couches des données et des dessins portent la même clé.
+
 Le calcul est celui du moteur ``beton/dalle`` (extrait de l'écran Streamlit modules/dalle.py v2.2, dont il reproduit
 les résultats au bit près — tests/test_dalle_moteur.py). Ce fichier MET EN FORME : il ne calcule rien.
 
@@ -19,6 +23,7 @@ Ce que le site fait de plus que l'écran Streamlit, sans changer un chiffre :
 """
 import copy
 import json
+import sys
 from typing import Dict, List, Optional, Sequence
 
 from beton import treillis as TR
@@ -28,6 +33,8 @@ from beton.dalle import moteur as MO
 
 from . import commun as C
 from . import dessin_dalle as DD
+from . import etabli_compact as E
+from . import plaque_compact as PC
 
 MODULE = "dalle"
 PAGE = "dalle"
@@ -48,8 +55,8 @@ PARCOURS = [
     {"action": "choisir", "role": "inf_y-0", "nom": "Ø12/150"},
 ]
 
-TYPES = (("treillis", "Treillis"), ("barres", "Barres"), ("n_barres", "n barres"))   # les libellés de l'écran
-FACES_TXT = {"inf": "inférieure", "sup": "supérieure"}
+TYPES = PC.TYPES
+FACES_TXT = PC.FACES_TXT
 MOTIFS = {"hauteur_insuffisante": "hauteur insuffisante", "d_utile_negatif": "d utile ≤ 0",
           "acier_insuffisant": "acier insuffisant", "acier_excessif": "acier excessif (A<sub>s</sub> &gt; A<sub>s,max</sub>)",
           "cisaillement_excessif": "τ &gt; τ<sub>adm,I</sub> (pas d'étriers dans une dalle)"}
@@ -121,8 +128,9 @@ def _nom_libre(etat: Dict) -> str:
 
 
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
-    """Les dalles de la note : en ouvrir une, en ajouter, copier l'ouverte, en supprimer une (jamais la dernière). Une
-    dalle ajoutée prend le γs et le jeu de la note (paramètres communs, comme dans l'écran Streamlit)."""
+    """Les dalles de la note : en ouvrir une, en ajouter, en copier une (``index`` ; sans : l'ouverte), en supprimer une
+    (jamais la dernière). Une dalle ajoutée prend le γs et le jeu de la note (paramètres communs, comme dans l'écran
+    Streamlit)."""
     ds = etat["dalles"]
     if action == "activer":
         etat["actif"] = min(max(0, int(index or 0)), len(ds) - 1)
@@ -133,10 +141,12 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
         ds.append(_site(d))
         etat["actif"] = len(ds) - 1
     elif action == "dupliquer":
-        d = copy.deepcopy(ds[etat["actif"]])
+        # la dalle désignée (le menu « ⋯ » de l'arborescence ; sans rang : l'ouverte), copiée juste après elle
+        i = etat["actif"] if index is None else min(max(0, int(index)), len(ds) - 1)
+        d = copy.deepcopy(ds[i])
         d["nom"] = f"{d.get('nom') or 'Dalle'} (copie)"
-        ds.append(d)
-        etat["actif"] = len(ds) - 1
+        ds.insert(i + 1, d)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(ds) > 1:
         i = min(max(0, int(index or 0)), len(ds) - 1)
         del ds[i]
@@ -395,73 +405,11 @@ def choisir_section(etat: Dict, role: str, nom: str) -> None:
     etat["dalles"][etat["actif"]] = _site(_moteur(travail), False)
 
 
-# ------------------------------------------------------------------ le cadre Données
-def _attr(chemin) -> str:
-    return C._attr_chemin(chemin)
-
-
-def _bouton(chemin, texte: str, icone: str = "plus", titre: str = "") -> str:
-    t = f' title="{C.esc(titre)}"' if titre else ""
-    return f'<button type="button" class="addrow" data-chemin="{_attr(chemin)}" data-valeur="1"{t}>{C.icon(icone)}{texte}</button>'
-
-
-def _retirer(chemin, titre: str) -> str:
-    return (f'<button type="button" class="moins" data-chemin="{_attr(chemin)}" data-valeur="1" title="{C.esc(titre)}">'
-            f'{C.icon("x")}</button>')
-
-
-def _titre_face(f: str, principale: str) -> str:
-    cote, dk = f.split("_")
-    return f"{FACES_TXT[cote].capitalize()} {dk.upper()}" + (" · principale" if dk == principale else "")
-
-
-def _couche(i: int, f: str, j: int, c: Dict, geo_c: Dict) -> str:
-    base = ["sections", i, "faces", f, "couches", j]
-    numero = f'<span class="dl-n" title="{"Couche de base" if j == 0 else f"Renfort {j}"}">{j + 1 if j == 0 else f"R{j}"}</span>'
-    if c["type"] == "treillis":
-        opts = TR.liste_choix()
-        if c["treillis"] not in opts:
-            opts = opts + [c["treillis"]]          # un ancien fichier : la désignation reste utilisable
-        nappe = C.choix(base + ["treillis"], c["treillis"], [(x, x) for x in opts])
-        t = geo_c["treillis"]
-        detail = (f'<span class="dl-info" title="Fils porteurs Ø{t[0]} tous les {t[2]} mm ; fils de répartition Ø{t[1]} tous '
-                  f'les {t[3]} mm (non comptés, comme dans l\'écran Streamlit)">Ø{t[0]}/{t[2]}</span>')
-    else:
-        nappe = C.choix(base + ["d"], c["d"], [(x, f"Ø{x}") for x in EN.DIAMETRES])
-        detail = (C.num(base + ["esp"], c["esp"], "mm", entier=True, mini=EN.ESP_MIN, maxi=EN.ESP_MAX) if c["type"] == "barres"
-                  else C.num(base + ["n"], c["n"], "barres", entier=True, mini=EN.N_MIN, maxi=EN.N_MAX))
-    retirer = _retirer(base + ["-"], "Retirer ce renfort") if j > 0 else "<span></span>"
-    if c["dist"] is None:
-        etat_axe = ('<span class="dl-tag" title="Axe de la couche, du parement à l\'axe des barres — automatique : enrobage '
-                    '+ ½ Ø arrondi au 0,5 cm supérieur + jeu premier lit. Une autre valeur saisie l\'impose.">auto</span>')
-    else:
-        etat_axe = (f'<button type="button" class="dl-raz" data-chemin="{_attr(base + ["dist"])}" data-valeur="" '
-                    f'title="Axe saisi : cliquer pour revenir à l\'axe automatique ({C.nb(geo_c["e_auto"])} cm)">saisi ↺</button>')
-    axe = (f'<div class="dl-axe" title="Axe de la couche : du parement à l\'axe des barres (cm)">'
-           f'{C.num(base + ["dist"], geo_c["e"], "cm")}</div>')
-    return (f'<div class="dl-couche">{numero}{C.choix(base + ["type"], c["type"], TYPES)}{nappe}{retirer}'
-            f'<span></span>{detail}{axe}{etat_axe}</div>')
-
-
-def _face(i: int, f: str, face: Dict, geo: Dict, principale: str) -> str:
-    out = (f'<div class="grp dl-face">{_titre_face(f, principale)}'
-           f'<span>{C.fr(geo["As_pm"], 0)} mm²/m</span></div>')
-    out += "".join(_couche(i, f, j, c, geo["couches"][j]) for j, c in enumerate(face["couches"]))
-    if len(face["couches"]) < EN.MAX_COUCHES:
-        out += _bouton(["sections", i, "faces", f, "couches", "+"], "Ajouter un renfort",
-                       titre="Treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées dans le plan de la base")
-    yG_champ = C.num(["sections", i, "faces", f, "yG"], geo["yG"], "cm")
-    if face["yG"] is None:
-        return out + C.ligne("centre de gravité", yG_champ, "y<sub>G</sub>",
-                             "Calculé : Σ As·e / Σ As (du parement au centre de gravité des couches) ; une valeur saisie le remplace.")
-    return (out + C.ligne("centre de gravité", yG_champ, "y<sub>G</sub>", "Valeur saisie : elle remplace Σ As·e / Σ As.")
-            + C.aide(f'y<sub>G</sub> imposé (calculé : {C.fr(geo["yG_calcule"], 2)} cm) · '
-                     f'<button type="button" class="dl-raz" data-chemin="{_attr(["sections", i, "faces", f, "yG"])}" data-valeur="">'
-                     f'revenir au calcul</button>'))
-
-
-def _resume_face(geo: Dict) -> str:
-    return geo["couches"][0]["valeur"] + (f" +{len(geo['couches']) - 1}" if len(geo["couches"]) > 1 else "")
+# ------------------------------------------------------------------ les données : l'arborescence (colonne de gauche)
+# la légende des dessins (dernière ligne de l'en-tête de chaque vue : ce qu'on y lit)
+LEGENDES = {"c": "barres coupées en points, barres parallèles en traits", "p": "vue de dessus · barres X horizontales, Y verticales"}
+AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — enrobage + ½ Ø arrondi au 0,5 cm supérieur + jeu "
+            "premier lit ; une valeur saisie l'impose.")
 
 
 def _lecture(label: str, valeur: str, sym: str = "") -> str:
@@ -480,76 +428,73 @@ def _formulaire_verrouille(d: Dict, r: Dict) -> str:
         mom = " · ".join(f"{SOLLICITATIONS[k]} {C.nb(s[k])}" for k in EN.MOMENTS)
         s2 += f'<div class="grp">{C.esc(rs["titre"])}</div>' + _lecture("moments (kN·m)", mom) + _lecture("effort tranchant", f"{C.nb(s['V'])} kN", "V")
         for f in MO.ordre_faces(rs["principale"]):
-            s2 += _lecture(_titre_face(f, rs["principale"]).lower(), C.esc(rs["faces"][f]["libelle"]))
-    titre1 = d["nom"] if d["nom"].lower().startswith("dalle") else f"Dalle {d['nom']}"
-    return (C.section(1, f"{C.esc(titre1)} {C.icon('lock')}", "verrouillée", s1, True, "dl")
-            + C.section(2, "Sections et armatures", f"{len(d['sections'])} section(s)", s2, True, "sl"))
+            s2 += _lecture(PC.titre_face(f).lower() + (" · principale" if f.endswith(rs["principale"]) else ""),
+                           C.esc(rs["faces"][f]["libelle"]))
+    return (C.section(1, f"Dalle {C.icon('lock')}", "verrouillée", s1, True, "dl")
+            + C.section(2, "Sections et armatures", f"{len(d['sections'])} section(s)", s2, False, "sl"))
 
 
-def formulaire(etat: Dict, r: Dict) -> str:
+def _options(d: Dict) -> str:
+    L = C.ligne
+    return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
+            f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
+            + L("γ<sub>s</sub> acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX), "",
+                "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes les "
+                "dalles de la note.")
+            + L("Jeu premier lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0), "",
+                "Ajouté à l'axe automatique de chaque couche. Commun à toutes les dalles de la note.")
+            + C.aide("γ<sub>s</sub> et le jeu sont communs à toutes les dalles de la note, comme dans l'écran Streamlit.")
+            + '<div class="et-gh"><span class="t">Reprendre une note Streamlit</span></div>'
+            + C.aide("Le fichier « dalle_ba.json » de l'écran Streamlit (bouton Enregistrer) : ses dalles remplacent celles "
+                     "de cette note ; ce que l'écran y remplaçait en silence est signalé.")
+            + C.fichier(["fichier_streamlit"], "Ouvrir un fichier Streamlit", ".json"))
+
+
+def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
+    """Les quatre rubriques de la dalle ouverte, aux places de celles de la poutre : 1 Dalle, 2 Sections et
+    sollicitations, 3 Armatures (de la section courante), 4 Options. ``r`` : son calcul (``MO.verifier``), refait s'il
+    manque."""
     d = _actif(etat)
+    r = r or _calculer(d)
     if d["verrou"]:
         return _formulaire_verrouille(d, r)
     L = C.ligne
-    p = d["dir_principale"]
-    s1 = (L("Nom", C.texte(["nom"], d["nom"], "ex. Plancher haut"), full=True)
+    s1 = ('<div class="et-piece et-plat" data-cible="beton">'
+          + L("Nom", C.texte(["nom"], d["nom"], "ex. Plancher haut"), full=True)
           + L("Béton", C.choix(["beton"], d["beton"], [(k, k) for k in MO.classes_beton()]), full=True)
           + L("Acier", C.segments(["fyk"], d["fyk"], [(n, f"B{n}") for n in EN.NUANCES]), full=True)
-          + L("largeur de bande", C.num(["b"], d["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX), "b",
+          + L("b bande", C.num(["b"], d["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX), "",
               "Largeur de la bande étudiée : 100 cm = un mètre courant. Moments et effort tranchant sont ceux de la bande.")
-          + L("épaisseur", C.num(["h"], d["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX), "h")
-          + L("enrobage", C.num(["enrobage"], d["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), "c",
+          + L("h épaisseur", C.num(["h"], d["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX))
+          + L("c enrobage", C.num(["enrobage"], d["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), "",
               "Du parement au nu des armatures. 0 est lu 3 cm, comme dans l'écran Streamlit.")
-          + L("Principale", C.segments(["dir_principale"], p, [("Y", "Direction Y"), ("X", "Direction X")]), full=True)
+          + L("Principale", C.segments(["dir_principale"], d["dir_principale"], [("Y", "Direction Y"), ("X", "Direction X")]), full=True)
           + C.aide("La direction principale ordonne les vérifications, les coupes et la note ; aucune formule ne la lit.")
-          + C.case(["verrou"], False, "Verrouiller la dalle (lecture seule)"))
-    # 2 · les sections et leurs sollicitations
-    cartes = ""
+          + "</div>" + C.case(["verrou"], False, "Verrouiller la dalle (lecture seule)"))
+    contenus, resumes = [], []
     for i, (s, rs) in enumerate(zip(d["sections"], r["sections"])):
-        t_s = gouvernante_section(rs)["taux"]
-        niv = "r" if rs["statut"] == MO.NOK else C.niveau(t_s)
-        pct = f'<span class="pct {niv}">{C.pc(C.pct(t_s))}{C.NBSP}%</span>'
-        retirer = _retirer(["sections", i, "-"], "Retirer la section") if len(d["sections"]) > 1 else ""
-        ch = ["sections", i]
-        indice = s["nom"] if len(s["nom"]) <= 3 else str(i + 1)      # « A », « B2 » ; un nom long : son rang
-        cartes += (f'<div class="secard dl-sec"><div class="sh2"><span class="indice">{C.esc(indice)}</span>'
-                   f'<span class="dl-st">{C.esc(rs["titre"])}</span>{pct}{retirer}</div>'
-                   + L("Nom", C.texte(ch + ["nom"], s["nom"], "ex. A, travée"), full=True)
-                   + '<div class="dl-mom"><span></span><span class="dl-h">M<sub>inf</sub> · bas tendu</span>'
-                     '<span class="dl-h">M<sub>sup</sub> · haut tendu</span>'
-                   + f'<span class="dl-d">X</span>{C.num(ch + ["Mx_inf"], s["Mx_inf"], "kN·m")}{C.num(ch + ["Mx_sup"], s["Mx_sup"], "kN·m")}'
-                   + f'<span class="dl-d">Y</span>{C.num(ch + ["My_inf"], s["My_inf"], "kN·m")}{C.num(ch + ["My_sup"], s["My_sup"], "kN·m")}'
-                   + f'<span class="dl-d">V</span>{C.num(ch + ["V"], s["V"], "kN")}<span class="dl-vh">effort tranchant max.</span></div>'
-                   + _bouton(ch + ["copie"], "Copier la section", "copy", "Une nouvelle section, avec ces sollicitations et ces armatures")
-                   + "</div>")
-    s2 = (f'<div class="secards">{cartes}</div>' + _bouton(["sections", "+"], "Ajouter une section")
-          + C.aide("M<sub>x</sub> : moments portés par les barres X, M<sub>y</sub> par les barres Y, sur la bande de "
-                   "largeur b ; inf. tend le bas (travée), sup. tend le haut (appui). Valeurs de service, en positif."))
-    blocs = ""
-    for i, (s, rs) in enumerate(zip(d["sections"], r["sections"])):
-        corps = C.aide("Par couche : le type, le treillis ou le Ø, puis l'espacement ou le nombre de barres, et l'axe "
-                       "(cm, du parement à l'axe) — automatique tant que rien n'est saisi.")
+        verifs = {v["cle"]: v for v in rs["verifications"]}
+        corps = ""
         for f in MO.ordre_faces(rs["principale"]):
-            corps += _face(i, f, s["faces"][f], rs["faces"][f], rs["principale"])
-        p_ = rs["principale"]
-        resume = f"inf. {p_.upper()} {_resume_face(rs['faces']['inf_' + p_])} · sup. {p_.upper()} {_resume_face(rs['faces']['sup_' + p_])}" 
-        blocs += C.section(3 + i, f"Armatures · {C.esc(rs['titre'][0].lower() + rs['titre'][1:])}", C.esc(resume), corps, i == 0, f"arm{i}")
-    s_meth = (L("coefficient acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX), "γ<sub>s</sub>",
-                "fyd = fyk / γs — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes les dalles de la note.")
-              + L("jeu premier lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0), "j",
-                  "Ajouté à l'axe automatique de chaque couche. Commun à toutes les dalles de la note.")
-              + C.aide("γ<sub>s</sub> et le jeu sont communs à toutes les dalles de la note, comme dans l'écran Streamlit.")
-              + '<div class="grp">Reprendre une note Streamlit</div>'
-              + C.aide("Le fichier « dalle_ba.json » de l'écran Streamlit (bouton Enregistrer) : ses dalles remplacent celles "
-                       "de cette note ; ce que l'écran y remplaçait en silence est signalé.")
-              + C.fichier(["fichier_streamlit"], "Ouvrir un fichier Streamlit", ".json"))
-    n = 3 + len(d["sections"])
-    titre1 = d["nom"] if d["nom"].lower().startswith("dalle") else f"Dalle {d['nom']}"
-    return (C.section(1, C.esc(titre1), f"{C.nb(d['b'])} × {C.nb(d['h'])} cm · {C.esc(d['beton'])} · B{d['fyk']} · {p}",
-                      s1, True, "dl")
-            + C.section(2, "Sections et sollicitations", f"{len(d['sections'])} section(s)", s2, True, "so")
-            + blocs
-            + C.section(n, "Méthode", f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu {C.nb(d['jeu_premier_lit'])} cm", s_meth, False, "me"))
+            couches = "".join(PC.couche(EN, i, f, j, c, rs["faces"][f]["couches"][j], aide_axe=AIDE_AXE)
+                              for j, c in enumerate(s["faces"][f]["couches"]))
+            corps += PC.nappe(EN, i, f, s["faces"][f], rs["faces"][f], verifs[f], rs["principale"], couches,
+                              "Un renfort : treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées dans le plan de la base")
+        contenus.append(corps)
+        resumes.append(PC.resume_armatures(rs))
+    s3, r3 = PC.rubrique_armatures([s["nom"] for s in d["sections"]], contenus, resumes)
+    return PC.formulaire("dl", "Dalle", f"{C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm", s1,
+                         PC.cartes(d["sections"]), len(d["sections"]), s3, r3,
+                         f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu {C.nb(d['jeu_premier_lit'])} cm", _options(d))
+
+
+def arbre(etat: Dict, r: Optional[Dict] = None) -> str:
+    """La colonne de gauche : l'ARBORESCENCE de la note (api_web/etabli_compact.py, la même que la poutre). Chaque
+    dalle, « nom · b × h cm » (un cadenas si elle est verrouillée), sans taux ni pastille ; la dalle ouverte montre ses
+    quatre rubriques. Copier, supprimer, renommer : dans le menu « ⋯ » de la dalle."""
+    elements = [(d.get("nom") or f"Dalle {i + 1}", f"· {C.nb(d['b'])} × {C.nb(d['h'])} cm", d["verrou"])
+                for i, d in enumerate(etat["dalles"])]
+    return E.arbre(E.DALLE, elements, etat["actif"], formulaire(etat, r), "dalle")
 
 
 # ------------------------------------------------------------------ le résultat
@@ -760,28 +705,23 @@ def _calculer(d: Dict) -> Dict:
 
 
 def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
-    """Le résumé de la NOTE : sa dalle la plus chargée — une dalle non conforme d'abord (la règle de gouvernante())."""
+    """Le résumé de la NOTE : sa dalle la plus chargée — une dalle non conforme d'abord (la règle de gouvernante()) ;
+    « Données incomplètes » dès qu'une section n'a aucun effort (comme la poutre)."""
     gouv = [gouvernante(r) for r in resultats]
     k = max(range(len(resultats)), key=lambda j: _cle_gouv(gouv[j][1]))
     r, (i_s, v) = resultats[k], gouv[k]
-    niv = "r" if r["statut"] == MO.NOK else C.niveau(v["taux"])
-    return {"taux": C.pct(v["taux"]), "niveau": niv, "statut": C.STATUTS[niv][1],
-            "gouvernant": f"{etat['dalles'][k].get('nom') or 'Dalle'} · {r['sections'][i_s]['titre']} · {nom_minuscule(v)}"}
+    nivs = [PC.niveau_element(MO, _MOI, x) for x in resultats]
+    niv = next((n for n in ("r", "n") if n in nivs), C.niveau(v["taux"]))
+    out = {"taux": C.pct(v["taux"]) if niv != "n" else None, "niveau": niv, "statut": C.STATUTS[niv][1],
+           "gouvernant": f"{etat['dalles'][k].get('nom') or 'Dalle'} · {r['sections'][i_s]['titre']} · {nom_minuscule(v)}"}
+    if niv in C.STATUTS_COURTS:
+        out["court"] = C.STATUTS_COURTS[niv]   # la pastille du téléphone
+    return out
 
 
 def elements(etat: Dict, resultats: List[Dict]) -> str:
-    items = ""
-    for i, (d, r) in enumerate(zip(etat["dalles"], resultats)):
-        t = gouvernante(r)[1]["taux"]
-        niv = "r" if r["statut"] == MO.NOK else C.niveau(t)
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer">{C.icon("x")}</button>' if len(etat["dalles"]) > 1 else ""
-        verrou = C.icon("lock") if d["verrou"] else ""
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{verrou}{C.esc(d.get("nom") or f"Dalle {i + 1}")} '
-                  f'<span>· {C.nb(d["b"])} × {C.nb(d["h"])} · {C.esc(d["beton"])}</span></span>'
-                  f'<span class="pct {niv}">{C.pc(C.pct(t))}{C.NBSP}%</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Dans cette note · {len(etat["dalles"])}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier la dalle ouverte">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter une dalle</div></div>')
+    """Rien : les dalles de la note sont l'ARBORESCENCE des données (``arbre``), avec leurs rubriques."""
+    return ""
 
 
 def _optimaux(d: Dict, r: Dict) -> Dict:
@@ -796,23 +736,25 @@ def _optimaux(d: Dict, r: Dict) -> Dict:
     return out
 
 
-def _avertissements(r: Dict) -> str:
-    """Les avertissements du moteur ; les nappes X et Y d'une même face calculées au même niveau sont dites en une
-    phrase par section."""
+def _avertissements(r: Dict, i: Optional[int] = None) -> str:
+    """Les avertissements du moteur : ceux de la section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de la dalle
+    entière ; les nappes X et Y d'une même face calculées au même niveau sont dites en une phrase."""
     out = ""
-    confondues: Dict[int, List[Dict]] = {}
+    confondues: List[Dict] = []
     for a in r["avertissements"]:
+        if a.get("section") != i:
+            continue
         if a["code"] == "nappes_confondues":
-            confondues.setdefault(a["section"], []).append(a)
+            confondues.append(a)
         elif a["code"] == "enrobage_nul":
             out += C.message("Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm.")
         else:
             out += C.message(C.esc(a["message"]), grave=a["code"] == "d_utile_negatif")
-    for i, xs in confondues.items():
+    if confondues:
         s = r["sections"][i]
-        faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in xs)
-        axes = " ; ".join(f"{'inf.' if a['face'] == 'inf' else 'sup.'} {C.fr(a['e_x'], 1)} et {C.fr(a['e_y'], 1)} cm" for a in xs)
-        mini = max(a["ecart_mini"] for a in xs)
+        faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in confondues)
+        axes = " ; ".join(f"{'inf.' if a['face'] == 'inf' else 'sup.'} {C.fr(a['e_x'], 1)} et {C.fr(a['e_y'], 1)} cm" for a in confondues)
+        mini = max(a["ecart_mini"] for a in confondues)
         out += C.message(f"{C.esc(s['titre'])} : les nappes X et Y {faces} sont calculées au même niveau ({axes}), comme dans "
                          f"l'écran Streamlit. Croisées, l'une passe sur l'autre (au moins {C.fr(mini, 1)} cm plus loin du "
                          f"parement) : son d est plus petit. Saisir son axe pour en tenir compte.")
@@ -837,60 +779,25 @@ def resultat(etat: Dict) -> Dict:
     d = _actif(etat)
     r = _calculer(d)
     resultats = [r if i == etat["actif"] else _calculer(q) for i, q in enumerate(etat["dalles"])]
-    i_g, v_g = gouvernante(r)
-    t = v_g["taux"]
-    niv = "r" if r["statut"] == MO.NOK else C.niveau(t)
-    s_g = r["sections"][i_g]
-    verdict = (f'<div class="verdict">{C.chip(C.pct(t), niv, xl=True)}<div class="gov"><b>{C.esc(s_g["titre"])} · '
-               f'{C.esc(nom_minuscule(v_g))}</b>{_verdict(v_g, s_g)}</div></div>')
+    nom = d.get("nom") or "Dalle"
+    hyps = _hypotheses(d, r["materiaux"])
     opt = {} if d["verrou"] else _optimaux(d, r)
-    rows = ""
+    gouv = gouvernante(r)
+    blocs, volets = "", ""
     for i, s in enumerate(r["sections"]):
-        t_s = gouvernante_section(s)["taux"]
-        n_s = "r" if s["statut"] == MO.NOK else C.niveau(t_s)
-        rows += (f'<div class="elgrp">{C.esc(s["titre"])} · principale {s["principale"].upper()}'
-                 f'<span class="pct {n_s}">{C.pc(C.pct(t_s))}{C.NBSP}%</span></div>')
-        for v in s["verifications"]:
-            face = v["cle"] in EN.FACES
-            o = opt.get((i, v["cle"])) if face else None
-            leger = f"Plus petite nappe de base qui tient : {o['nom']} · {C.pc(C.pct(o['taux']))} %" if o else ""
-            piece = _piece(v, s)
-            if _sous_limite_non_conforme(v):          # non conforme sous 100 % : la ligne dit pourquoi
-                piece += " · " + ("acier excessif" if "acier_excessif" in v["motifs"] else "d utile ≤ 0")
-            rows += C.ligne_res(nom_ligne(v), piece, C.pct(v["taux"]), _niv(v), calcul=f"s{i}",
-                                pk=f"{v['cle']}-{i}" if face and not d["verrou"] else "",
-                                gov=(i == i_g and v is v_g), leger=leger)
+        h, v = PC.bloc(_MOI, i, s, nom, hyps, gouv, opt, d["verrou"], pied=_avertissements(r, i))
+        blocs += h
+        volets += v
+    dims = f"{C.nb(d['b'])} × {C.nb(d['h'])} cm · {C.esc(d['beton'])} · B{d['fyk']}"
     pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur dalle</span>'
             f'<b>v{C.esc(MO.REFERENCE.split(" v")[-1])}</b></div><div class="legend">{C.legende()}</div></div>')
-    volets = ""
-    hyps = _hypotheses(d, r["materiaux"])
-    for i, s in enumerate(r["sections"]):
-        v_s = gouvernante_section(s)
-        lignes = [_ligne_tableau(v, s, v is v_s) for v in s["verifications"]]
-        detail = ""
-        for v in s["verifications"]:
-            titre = v["titre"]
-            if v["cle"] == "hauteur" and v.get("face"):
-                cote, dk = v["face"].split("_")
-                titre += f" · famille {cote}. {dk.upper()}, la plus exigeante"
-            detail += (f'<div class="ck-g"><div class="ck-t">{C.esc(titre)}</div>'
-                       f'{C.lignes_fx([_formule(f) for f in v["formules"]] + [_taux_fx(v, s)])}</div>')
-        volets += C.fenetre_calcul(f"s{i}", f"{C.esc(d['nom'])} · {C.esc(s['titre'])}",
-                                   f"{_efforts_txt(s)} · méthode du bureau", hyps, lignes, detail)
-    vues = []
-    for i, s in enumerate(r["sections"]):
-        nom = s["nom"] if not s["nom"].lower().startswith("section") else s["titre"]
-        vues.append({"cle": f"c{i}", "titre": f"Coupes · {s['titre']}", "court": f"Coupe {nom}"[:24],
-                     "svg": DD.svg_coupe(f"dl_c{i}", s, r["dalle"]),
-                     "legende": f"barres coupées en points, barres parallèles en traits · principale {s['principale'].upper()}"})
-        vues.append({"cle": f"p{i}", "titre": f"Plan des nappes · {s['titre']}", "court": f"Plan {nom}"[:24],
-                     "svg": DD.svg_plan(f"dl_p{i}", s, r["dalle"]),
-                     "legende": f"vue de dessus · X horizontales, Y verticales · principale {s['principale'].upper()}"})
-    phrase = (f"{C.nb(d['b'])} × {C.nb(d['h'])} cm · {C.esc(d['beton'])} · B{d['fyk']} · principale {d['dir_principale']} · "
-              f"barres coupées en points")
-    return {"resultat": f'<div class="pbody">{verdict}<div class="els">{rows}</div>{_avertissements(r)}</div>{pied}',
-            "volets": volets, "vues": vues, "phrase": phrase, "statut_html": C.statut(niv),
-            "resume": resume_note(etat, resultats), "donnees": formulaire(etat, r), "elements": elements(etat, resultats)}
+    # l'état de la NOTE (toutes ses dalles) dans l'en-tête du panneau : utile dès deux dalles ; seule, chaque section dit le sien
+    nivs = [PC.niveau_element(MO, _MOI, x) for x in resultats]
+    statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
+    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}<div class="et-blocs">{blocs}</div>'
+                        f'{_avertissements(r)}</div>{pied}',
+            "volets": volets, "vues": PC.vues(r["sections"], r["dalle"], DD, "dl", dims, LEGENDES), "phrase": "", "statut_html": statut,
+            "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base
@@ -929,3 +836,6 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     return C.selecteur(role, f"Nappe {FACES_TXT[face.split('_')[0]]} {dk.upper()} · {C.esc(EN.libelle_section(s['nom']))}",
                        f"couche de base{princ} · triée par section au mètre · un clic la retient{note}", filtres, rows,
                        max(0, min(i_o, i_c) - 4), "mm²/m", etoile="la plus petite section qui tient")
+
+
+_MOI = sys.modules[__name__]   # ce module, que api_web/plaque_compact.py lit (ses formules mises en mots)

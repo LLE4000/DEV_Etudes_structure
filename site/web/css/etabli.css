@@ -1,6 +1,7 @@
-/* L'établi COMPACT (pilote : « Poutres béton armé », site/web/construire.py ETABLI_COMPACT ; docs/site/REFONTE_ETABLI.md).
-   Trois colonnes accrochées au PC : les DONNÉES à gauche (l'arborescence de la note : chaque poutre, et sous la poutre
-   ouverte ses rubriques), le DESSIN au centre sur fond clair, avec son en-tête technique, les RÉSULTATS à droite (un bloc
+/* L'établi COMPACT des trois modules béton armé — poutres, dalles, prédalles (site/web/construire.py ETABLI_COMPACT ;
+   docs/site/REFONTE_ETABLI.md ; leurs fragments : api_web/etabli_compact.py, api_web/plaque_compact.py).
+   Trois colonnes accrochées au PC : les DONNÉES à gauche (l'arborescence de la note : chaque élément, et sous l'élément
+   ouvert ses rubriques), le DESSIN au centre sur fond clair, avec son en-tête technique, les RÉSULTATS à droite (un bloc
    par section). Les colonnes se replient et se redimensionnent. Tout est scopé par body[data-etabli="compact"] : les
    autres modules gardent l'établi d'avant.
 
@@ -84,14 +85,20 @@
 [data-etabli="compact"] .sheet .stitle.et-stitle { display: block; padding: 10px 14px 0; white-space: normal; }
 .et-ent { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
 .et-ent-t { min-width: 0; flex: 1 1 260px; display: flex; flex-direction: column; gap: 2px; }
-.sheet .et-ent-t .l1 { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 6px; font-size: 13px; color: #0D1525; }
+/* la 1ʳᵉ ligne coule comme du texte : trop longue (une prédalle au téléphone), elle passe à la ligne entre deux mots,
+   jamais devant le « · » qui sépare le titre de la suite */
+.sheet .et-ent-t .l1 { display: block; font-size: 13px; color: #0D1525; }
 .sheet .et-ent-t .l1 b { font-size: 12.5px; letter-spacing: .06em; font-weight: 700; text-transform: uppercase; }
-.sheet .et-ent-t .l1 span { display: inline; font-size: 12.5px; color: #4A5568; overflow: visible; font-weight: 500; }
+.sheet .et-ent-t .l1 span { display: inline; margin-left: 6px; font-size: 12.5px; color: #4A5568; overflow: visible; font-weight: 500; white-space: normal; }
 .sheet .et-ent-t .l2, .sheet .et-ent-t .l3 { font-size: 12px; line-height: 1.35; color: #4A5568; font-variant-numeric: tabular-nums; }
 .sheet .et-ent-t .l3 { color: #6B7480; }
-.et-eff { flex: none; display: flex; align-items: stretch; border: 1px solid #E5E8ED; border-radius: 8px; background: #FAFBFC; overflow: hidden; }
-.sheet .et-eff span { display: flex; align-items: baseline; gap: 3px; padding: 4px 10px; font-size: 11.5px; color: #6B7480; overflow: visible; white-space: nowrap; }
-.sheet .et-eff span + span { border-left: 1px solid #E5E8ED; }
+/* (dalles, prédalles) la légende du dessin, sous les aciers : ce qu'on y lit */
+.sheet .et-ent-t .lg { font-size: 11px; line-height: 1.35; color: #8B95A7; }
+/* la bande passe à la ligne quand la place manque (les cinq efforts d'une dalle au téléphone) : chaque case porte ses
+   filets gauche et haut, ceux de la première colonne et de la première rangée sont rognés par le cadre */
+.et-eff { flex: 0 1 auto; max-width: 100%; display: flex; flex-wrap: wrap; align-items: stretch; border: 1px solid #E5E8ED; border-radius: 8px; background: #FAFBFC; overflow: hidden; }
+.sheet .et-eff span { display: flex; align-items: baseline; gap: 3px; padding: 4px 10px; font-size: 11.5px; color: #6B7480; overflow: visible; white-space: nowrap;
+  border-left: 1px solid #E5E8ED; border-top: 1px solid #E5E8ED; margin: -1px 0 0 -1px; }
 .et-eff i { font-style: italic; font-family: "Times New Roman", Georgia, serif; font-size: 13px; color: #1B2230; }
 .et-eff sub { font-size: 9px; color: #4A5568; margin-right: 4px; }
 .sheet .et-eff b { font-size: 12.5px; font-weight: 650; color: #0D1525; font-variant-numeric: tabular-nums; letter-spacing: 0; text-transform: none; }
@@ -116,6 +123,18 @@
 [data-etabli="compact"] .coupe-ba .poignee { cursor: ew-resize; touch-action: none; }
 [data-etabli="compact"] .coupe-ba .poignee:hover .o, [data-etabli="compact"] .coupe-ba .et-glisse .poignee .o { fill: #EEF1FE; }
 [data-etabli="compact"] .coupe-ba .pc.lit > circle.et-visee { fill: #2B4BCF; }
+/* les dessins des dalles et des prédalles (api_web/dessin_dalle.py, dessin_predalle.py) : chaque couche (ses points dans
+   une coupe, ses traits dans l'autre et dans le plan), le béton, les sollicitations */
+[data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc[data-sel] { cursor: pointer; }
+@media (hover: hover) {
+  [data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc.couche[data-sel]:hover > circle { fill: #3C4A63; }
+  [data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc.couche[data-sel]:hover > line { stroke: #3C4A63; }
+}
+[data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc.couche.et-sel > circle { fill: #2B4BCF; }
+[data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc.couche.et-sel > line { stroke: #2B4BCF; }
+[data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc.beton.et-sel > line { stroke: #2B4BCF; }
+[data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc.beton.et-sel > rect:first-child { fill: #E3E9FB; }
+[data-etabli="compact"] .draw > svg:not(.coupe-ba) .pc.efforts.et-sel text { fill: #2B4BCF; }
 
 /* ------------------------------------------------------------------ les données : l'arborescence */
 [data-etabli="compact"] #donnees { padding-bottom: 24px; }
@@ -218,6 +237,12 @@
 .et-ret { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 8px; margin-top: 2px; border-radius: 7px; font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
 .et-ret:hover { background: color-mix(in srgb, var(--nok) 9%, transparent); color: var(--nok); }
 .et-ret svg.i { width: 13px; height: 13px; }
+/* un axe ou un centre de gravité SAISI (dalles, prédalles) : le champ et « ↺ », qui le rend à l'automatique */
+.et-auto { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.et-auto > .field { flex: 1 1 auto; min-width: 0; }
+.et-raz { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; color: var(--ink-3); }
+.et-raz:hover { background: var(--accent-soft); color: var(--accent-hover); }
+.et-raz svg.i { width: 14px; height: 14px; }
 .et-arm { display: none; flex-direction: column; gap: 4px; }
 .et-arm.on { display: flex; }
 .et-secsel { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; }
@@ -265,6 +290,22 @@
 .et-meth > .hint { flex-basis: 100%; }
 .et-plat { display: flex; flex-direction: column; gap: 6px; }
 
+/* les dalles et les prédalles (api_web/plaque_compact.py) : une section, ses quatre moments (X / Y × inf. / sup.) et V */
+.et-mom { display: grid; grid-template-columns: 16px minmax(0, 1fr) minmax(0, 1fr); gap: 4px 6px; align-items: center; }
+.et-mom .h { font-size: 10.5px; font-weight: 600; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-mom .d { font-size: 11.5px; font-weight: 700; color: var(--ink-2); text-align: center; }
+.et-mom .vh { font-size: 11px; color: var(--ink-3); padding-left: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-mom > .field { height: 28px; min-width: 0; }
+/* une couche : son repère, son type, puis le treillis — ou le Ø et l'espacement (le nombre et le Ø) */
+.et-piece .et-l1 > .et-ty { flex: 0 0 88px; min-width: 0; }
+.et-piece .et-l1 > .et-tr { flex: 1 1 auto; min-width: 0; }
+.et-piece .et-l1 > .et-dia { flex: 0 0 64px; min-width: 0; }
+.et-piece .et-l1 > .et-e { flex: 1 1 60px; min-width: 52px; }
+.et-piece .et-l1 > div > .field { height: 28px; width: 100%; min-width: 0; }
+/* la nappe de la direction principale */
+.et-princ { flex: none; height: 16px; padding: 0 5px; border-radius: 5px; display: grid; place-items: center; font-size: 10px; font-weight: 700;
+  letter-spacing: .03em; color: var(--accent-hover); background: var(--accent-soft); }
+
 /* ------------------------------------------------------------------ les résultats : la poutre, puis un bloc par section */
 [data-etabli="compact"] #resultat > .pbody { padding: 0 0 12px; }
 .et-rp { display: flex; flex-direction: column; gap: 1px; padding: 11px 14px 9px; }
@@ -287,6 +328,8 @@
 .et-bloc.replie .et-bloc-c { display: none; }
 .et-bloc-ef { padding: 7px 12px 5px; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .et-bloc .els { display: flex; flex-direction: column; }
+/* les avertissements d'une section, sous ses vérifications (dalles, prédalles) */
+.et-bloc-c > .msg { margin: 0 10px 10px; }
 /* une vérification : deux lignes (le nom, la pièce, le taux ; la valeur et sa limite, une jauge fine) */
 .et-bloc .el.vc { padding: 7px 12px 8px; gap: 3px; border-bottom: 0; border-top: 1px solid var(--line); }
 .el.vc.fixe { cursor: default; }
@@ -371,7 +414,7 @@
   [data-etabli="compact"] .bench > .panel { border: 1px solid var(--line); border-radius: 12px; }
   [data-etabli="compact"] .bench > .canvas { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
   [data-etabli="compact"] .et-tag, [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b,
-  [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout { min-height: 32px; min-width: 32px; }
+  [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout, [data-etabli="compact"] .et-raz { min-height: 32px; min-width: 32px; }
   [data-etabli="compact"] .et-piece .et-l1 { min-height: 40px; }
   [data-etabli="compact"] .et-barres .b { width: 34px; height: 32px; }
   [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just { height: 32px; }
@@ -389,8 +432,11 @@
   [data-etabli="compact"] .et-piece .et-l1 { min-height: 46px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field { height: 36px; flex-basis: 58px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field.select { flex-basis: 84px; }
+  [data-etabli="compact"] .et-piece .et-l1 > div > .field, [data-etabli="compact"] .et-mom > .field { height: 36px; }
+  [data-etabli="compact"] .et-piece .et-l1 > .et-ty { flex-basis: 92px; }
   [data-etabli="compact"] .et-tag { min-width: 40px; height: 36px; }
-  [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b, [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout { width: 40px; height: 40px; }
+  [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b, [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout,
+  [data-etabli="compact"] .et-raz { width: 40px; height: 40px; }
   [data-etabli="compact"] .et-mn-b { opacity: 1 !important; }
   [data-etabli="compact"] .et-mn-l button { height: 44px; font-size: 14px; }
   [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just,

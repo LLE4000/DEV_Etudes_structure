@@ -26,6 +26,7 @@ from beton.poutre import moteur as MO
 
 from . import commun as C
 from . import coupe_ba as CB
+from . import etabli_compact as E
 
 MODULE = "poutre"
 PAGE = "poutre"
@@ -297,10 +298,6 @@ def choisir_section(etat: Dict, role: str, nom: str) -> None:
 
 
 # ------------------------------------------------------------------ petits morceaux d'écran
-def _ch(*c) -> str:
-    return C._attr_chemin(list(c))
-
-
 def _cm(x: Optional[float]) -> str:
     return C.fr(x, 1) if x is not None else "—"
 
@@ -331,27 +328,6 @@ def _point(etat: Optional[str]) -> str:
         return ""
     niv, txt = ETATS_OBS[etat]
     return f'<span class="et-pt-e {niv}" title="{C.esc(txt)}"></span>'
-
-
-def _menu(items: str, titre: str) -> str:
-    """Un menu discret « ⋯ » : le bouton, et la liste (cachée) de ses actions."""
-    return (f'<div class="et-mn"><button type="button" class="et-mn-b" data-menu="1" aria-haspopup="menu" aria-expanded="false" '
-            f'title="{C.esc(titre)}">{C.icon("ellipsis")}</button><div class="et-mn-l" role="menu" hidden>{items}</div></div>')
-
-
-def _action(attrs: str, icone: str, texte: str, danger: bool = False, actif: bool = True) -> str:
-    return (f'<button type="button" role="menuitem" class="{"danger" if danger else ""}" {attrs}{"" if actif else " disabled"}>'
-            f'{C.icon(icone)}{C.esc(texte)}</button>')
-
-
-def _plus(chemin: Sequence, valeur: str, texte: str) -> str:
-    return (f'<button type="button" class="et-add" data-chemin="{C._attr_chemin(chemin)}" data-valeur="{C.esc(valeur)}">'
-            f'{C.icon("plus")}{C.esc(texte)}</button>')
-
-
-def _retirer(chemin: Sequence, texte: str) -> str:
-    return (f'<button type="button" class="et-ret" data-chemin="{C._attr_chemin(chemin)}" data-valeur="1">'
-            f'{C.icon("trash-2")}{C.esc(texte)}</button>')
 
 
 # ------------------------------------------------------------------ les données : l'arborescence (colonne de gauche)
@@ -425,7 +401,7 @@ def _lit(i: int, face: str, j: int, lit: Dict, n_lits: int, rs: Dict) -> str:
                        "Entraxe vertical, axe à axe depuis le lit précédent ; vide : demi-Ø arrondis + jeu entre lits (méthode du bureau).")
     det += _espacements(dispo, face, j)
     if n_lits > 1:
-        det += _retirer(ch + ["-"], "Retirer ce lit")
+        det += E.retirer(ch + ["-"], "Retirer ce lit")
     return f'<div class="et-piece" data-cible="{cible}">{tete}<div class="et-det">{det}</div></div>'
 
 
@@ -434,7 +410,7 @@ def _face(i: int, face: str, s: Dict, rs: Dict) -> str:
     geo = rs["geometrie"][face]
     v = next(x for x in rs["verifications"] if x["cle"] == face)
     corps = "".join(_lit(i, face, j, lit, len(s[face]), rs) for j, lit in enumerate(s[face]))
-    ajouter = _plus(["sections", i, face, "+"], "1", "Lit") if len(s[face]) < EN.MAX_LITS else ""
+    ajouter = E.plus(["sections", i, face, "+"], "1", "Lit") if len(s[face]) < EN.MAX_LITS else ""
     yg = C.ligne("y<sub>G</sub> imposé", C.num(["sections", i, f"yG_{face}"], s[f"yG_{face}"], "cm", auto=f"auto · {_cm(geo['yG_calcule'])}"),
                  "", "Centre de gravité des lits de la face, mesuré depuis le parement. Vide : calculé (Σ A·e / Σ A) sur les "
                      "positions réelles des lits. L'imposer remplace le calcul dans d = h − y_G.")
@@ -482,13 +458,13 @@ def _cadres(i: int, s: Dict, rs: Dict) -> str:
             niv, txt = ETATS_OBS[it["etat_eff"]]
             det += f'<div class="et-esp {niv}"><span class="et-pt-e {niv}"></span>{C.esc(it["texte"].split(" : ", 1)[-1])}<span class="et-esp-t">{txt}</span></div>'
         if len(s["etriers"]) > 1:
-            det += _retirer(ch + ["-"], "Retirer cette ligne")
+            det += E.retirer(ch + ["-"], "Retirer cette ligne")
         out += f'<div class="et-piece" data-cible="s{i}.cadre-{k}">{tete}<div class="et-det">{det}</div></div>'
     pas = C.ligne("e espacement", C.num(["sections", i, "pas"], s["pas"], "cm"), "",
                   "Espacement LONGITUDINAL des cadres, le long de la poutre (le pas). La configuration de la section — combien "
                   "de cadres, lesquels entourent quelles barres — se règle ligne par ligne.")
-    ajouts = (f'<div class="et-pied">{_plus(["sections", i, "etriers", "+"], "etrier", "Cadre")}'
-              f'{_plus(["sections", i, "etriers", "+"], "epingle", "Épingle")}</div>')
+    ajouts = (f'<div class="et-pied">{E.plus(["sections", i, "etriers", "+"], "etrier", "Cadre")}'
+              f'{E.plus(["sections", i, "etriers", "+"], "epingle", "Épingle")}</div>')
     return (f'<div class="et-grp"><div class="et-gh"><span class="t">Étriers</span><span class="et-req">{geo["brins"]}{C.NBSP}brins · '
             f'A<sub>st</sub> <b>{_mm(geo["Ast"])}</b>{C.NBSP}mm²</span></div>{pas}{out}{ajouts}</div>')
 
@@ -523,7 +499,7 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
     p = _poutre(etat)
     res = res or MO.verifier(p)
     L = C.ligne
-    s1 = (f'<div class="et-piece et-plat" data-cible="beton">'
+    s1 = ('<div class="et-piece et-plat" data-cible="beton">'
           + L("Nom", C.texte(["nom"], p.get("nom"), "ex. P AXE H"), full=True)
           + L("Béton", C.choix(["beton"], p.get("beton"), [(k, k) for k in EN.classes_beton()]), full=True)
           + L("Acier", C.segments(["fyk"], p.get("fyk"), [(n, f"B{n}") for n in EN.NUANCES]), full=True)
@@ -532,30 +508,18 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
           + L("c enrobage", C.num(["enrobage"], p.get("enrobage"), "cm"), "", "Distance du parement au nu de l'étrier.")
           + "</div>")
     seule = len(p["sections"]) == 1
-    cartes = ""
-    for i, s in enumerate(p["sections"]):
-        actions = (_action(f'data-chemin="{_ch("sections", i, "dup")}" data-valeur="1"', "copy", "Copier la section")
-                   + _action(f'data-chemin="{_ch("sections", i, "-")}" data-valeur="1"', "trash-2", "Supprimer la section", True, not seule))
-        cartes += (f'<div class="et-sec et-piece" data-cible="s{i}.efforts" data-section="{i}">'
-                   f'<div class="et-sec-h"><button type="button" class="et-sec-pick" data-section-courante="{i}" '
-                   f'title="Afficher et vérifier cette section"><span class="o"></span></button>'
-                   f'{C.texte(["sections", i, "nom"], s["nom"], "nom")}{_menu(actions, "Actions de la section")}</div>'
-                   f'<div class="trio">'
-                   f'<label><span>M<sub>inf</sub></span>{C.num(["sections", i, "M_inf"], s["M_inf"], "kN·m")}</label>'
-                   f'<label><span>M<sub>sup</sub></span>{C.num(["sections", i, "M_sup"], s["M_sup"], "kN·m")}</label>'
-                   f'<label><span>V</span>{C.num(["sections", i, "V"], s["V"], "kN")}</label></div></div>')
-    s2 = (f'<div class="et-secs">{cartes}</div><div class="et-pied">{_plus(["sections", "+"], "1", "Section")}'
-          f'<span class="et-pied-a" title="M_inf tend le bas (travée), M_sup tend le haut (appui) ; valeurs de service (ELS).">'
-          f'M<sub>inf</sub> travée · M<sub>sup</sub> appui · ELS</span></div>')
-    onglets = "".join(f'<button type="button" data-section-courante="{i}" class="{"on" if i == 0 else ""}">{C.esc(s["nom"])}</button>'
-                      for i, s in enumerate(p["sections"]))
-    blocs = ""
-    for i, s in enumerate(p["sections"]):
-        rs = res["sections"][i]
-        blocs += (f'<div class="et-arm{" on" if i == 0 else ""}" data-section="{i}">'
-                  + _face(i, "inf", s, rs) + _face(i, "sup", s, rs) + _cadres(i, s, rs) + _laterales(i, s, rs) + "</div>")
-    s3 = ((f'<div class="et-secsel"><span>Section</span><div class="seg" role="group" aria-label="Section réglée, dessinée et vérifiée">{onglets}</div></div>'
-           if not seule else "") + blocs)
+    cartes = "".join(E.carte_section(i, s["nom"], ["sections", i, "dup"], ["sections", i, "-"], seule,
+                                     f'<div class="trio">'
+                                     f'<label><span>M<sub>inf</sub></span>{C.num(["sections", i, "M_inf"], s["M_inf"], "kN·m")}</label>'
+                                     f'<label><span>M<sub>sup</sub></span>{C.num(["sections", i, "M_sup"], s["M_sup"], "kN·m")}</label>'
+                                     f'<label><span>V</span>{C.num(["sections", i, "V"], s["V"], "kN")}</label></div>')
+                     for i, s in enumerate(p["sections"]))
+    s2 = (f'<div class="et-secs">{cartes}</div>'
+          + E.pied_sections("M_inf tend le bas (travée), M_sup tend le haut (appui) ; valeurs de service (ELS).",
+                            "M<sub>inf</sub> travée · M<sub>sup</sub> appui · ELS"))
+    s3 = E.armatures([s["nom"] for s in p["sections"]],
+                     [_face(i, "inf", s, res["sections"][i]) + _face(i, "sup", s, res["sections"][i]) + _cadres(i, s, res["sections"][i])
+                      + _laterales(i, s, res["sections"][i]) for i, s in enumerate(p["sections"])])
     noms = " · ".join(C.esc(s["nom"]) for s in p["sections"][:3]) + (" …" if len(p["sections"]) > 3 else "")
     resumes3 = "".join(f'<span class="et-r3" data-section="{i}">{C.esc(_resume_section(s))}</span>' for i, s in enumerate(p["sections"]))
     return (C.section(1, "Poutre", f"{C.esc(p['beton'])} · B{p['fyk']} · c = {C.nb(p['enrobage'])} cm", s1, True, "pt")
@@ -565,26 +529,13 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
 
 
 def arbre(etat: Dict, res: Optional[Dict] = None) -> str:
-    """La colonne de gauche : l'ARBORESCENCE de la note. Chaque poutre, « nom · b × h cm », sans taux ni pastille (le
-    résultat est à droite) ; la poutre ouverte se développe et montre ses quatre rubriques ; un clic sur une autre
-    l'ouvre (la première se replie). Copier, supprimer, renommer : dans le menu « ⋯ » de la poutre."""
-    out = ""
-    seule = len(etat["poutres"]) == 1
-    for i, p in enumerate(etat["poutres"]):
-        on = i == etat["actif"]
-        nom = C.esc(p.get("nom") or f"Poutre {i + 1}")
-        actions = (_action(f'data-renommer="{i}"', "pencil", "Renommer")
-                   + _action(f'data-dupliquer-index="{i}"', "copy", "Copier la poutre")
-                   + _action(f'data-supprimer="{i}" data-confirmer="Supprimer la poutre « {nom} » de la note ?"', "trash-2",
-                             "Supprimer la poutre", True, not seule))
-        corps = f'<div class="et-pt-corps">{formulaire(etat, res)}</div>' if on else ""
-        out += (f'<div class="et-pt{" on" if on else ""}" data-poutre="{i}"><div class="et-pt-l">'
-                f'<button type="button" class="et-pt-t{" on" if on else ""}" data-activer="{i}" aria-expanded="{"true" if on else "false"}" '
-                f'title="{"Replier ou déplier" if on else "Ouvrir cette poutre"}">{C.icon("chevron-right")}'
-                f'<span class="t"><span class="nom">{nom}</span><span class="dim">· {C.nb(p["b"])} × {C.nb(p["h"])} cm</span></span></button>'
-                f'{_menu(actions, "Actions de la poutre")}</div>{corps}</div>')
-    return (f'<div class="et-arbre"><div class="et-arbre-h"><span>Poutres</span><span class="n">{len(etat["poutres"])}</span></div>'
-            f'{out}<button type="button" class="et-pt-add" data-ajouter="1">{C.icon("plus")}Ajouter une poutre</button></div>')
+    """La colonne de gauche : l'ARBORESCENCE de la note (api_web/etabli_compact.py, la même que les dalles et les
+    prédalles). Chaque poutre, « nom · b × h cm », sans taux ni pastille (le résultat est à droite) ; la poutre ouverte se
+    développe et montre ses quatre rubriques ; un clic sur une autre l'ouvre (la première se replie). Copier, supprimer,
+    renommer : dans le menu « ⋯ » de la poutre."""
+    elements = [(p.get("nom") or f"Poutre {i + 1}", f"· {C.nb(p['b'])} × {C.nb(p['h'])} cm", False)
+                for i, p in enumerate(etat["poutres"])]
+    return E.arbre(E.POUTRE, elements, etat["actif"], formulaire(etat, res), "poutre")
 
 
 def _options(p: Dict) -> str:
@@ -642,13 +593,14 @@ def _niv(v: Dict) -> str:
 
 
 def _etat_bloc(rs: Dict):
-    """L'état d'une SECTION, la couleur de l'en-tête de son bloc : « Données incomplètes » sans aucun effort (ses
-    vérifications passent toutes et ne disent rien) ; sinon non conforme, à vérifier (une observation à examiner), ou
-    conforme — avec le nombre d'observations justifiées par l'ingénieur, s'il y en a."""
-    if not rs["sollicitee"]:
-        return "inc", "Données incomplètes"
+    """L'état d'une SECTION, la couleur de l'en-tête de son bloc : NON CONFORME d'abord — une non-conformité trouvée
+    sans aucun effort (barres trop serrées, acier excessif) n'est jamais cachée par « Données incomplètes » ; puis
+    « Données incomplètes » sans aucun effort (ses vérifications passent toutes et ne disent rien) ; sinon à vérifier
+    (une observation à examiner), ou conforme — avec le nombre d'observations justifiées par l'ingénieur, s'il y en a."""
     if rs["statut_complet"] == MO.NOK:
         return "nok", "Non conforme"
+    if not rs["sollicitee"]:
+        return "inc", "Données incomplètes"
     if rs["statut_complet"] == MO.WARN:
         return "warn", "À vérifier"
     nj = rs["dispositions"]["compte"].get(DI.JUST, 0)
@@ -816,17 +768,11 @@ def _resume_etriers(geo: Dict) -> str:
 
 
 def _entete(p: Dict, titre: str, lignes: List[str], efforts: Optional[Dict]) -> str:
-    """L'en-tête technique d'une vue : trois lignes (la section et ses matériaux ; les aciers ; les étriers) et, à
-    droite, la bande compacte des efforts — une fois, sans couleur d'alerte."""
-    l1 = (f'<div class="l1"><b>{C.esc(titre)}</b><span>· {C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}</span></div>')
-    corps = "".join(f'<div class="l{k + 2}">{C.esc(t)}</div>' for k, t in enumerate(lignes))
-    bande = ""
-    if efforts is not None:
-        bande = ('<div class="et-eff">'
-                 f'<span><i>M</i><sub>inf</sub><b>{C.fr(efforts["M_inf"], 1)}</b><small>kN·m</small></span>'
-                 f'<span><i>M</i><sub>sup</sub><b>{C.fr(efforts["M_sup"], 1)}</b><small>kN·m</small></span>'
-                 f'<span><i>V</i><b>{C.fr(efforts["V"], 1)}</b><small>kN</small></span></div>')
-    return f'<div class="et-ent"><div class="et-ent-t">{l1}{corps}</div>{bande}</div>'
+    """L'en-tête technique d'une vue (api_web/etabli_compact.py) : trois lignes (la section et ses matériaux ; les
+    aciers ; les étriers) et, à droite, la bande compacte des efforts — une fois, sans couleur d'alerte."""
+    bande = None if efforts is None else [("M", "inf", efforts["M_inf"], "kN·m"), ("M", "sup", efforts["M_sup"], "kN·m"),
+                                          ("V", "", efforts["V"], "kN")]
+    return E.entete(titre, f'{C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}', lignes, bande)
 
 
 def _coupe(s: Dict, i: int, titre: str = "", sous_titre: str = "") -> Dict:
@@ -1020,12 +966,7 @@ def _bloc(i: int, s: Dict, nom_p: str, hyps: List[str], gouv: Dict, niv_note: st
     detail = "".join(f'<div class="ck-g"><div class="ck-t">{C.esc(v["nom"])}</div>{C.lignes_fx([_formule(f) for f in v["formules"]])}</div>'
                      for v in s["verifications"])
     volets += C.fenetre_calcul(f"s{i}", f"{nom_p} · section {C.esc(s['nom'])}", f"{_efforts_txt(s)} · méthode du bureau", hyps, lignes, detail)
-    entete = (f'<div class="et-bloc-h"><button type="button" class="et-bloc-t" data-bloc="{i}" aria-expanded="true" title="Replier ou déplier">'
-              f'{C.icon("chevron-down")}<span class="n">Section {C.esc(s["nom"])}</span><span class="e">{C.esc(etat_txt)}</span></button>'
-              f'<button type="button" class="et-tout" data-calcul="s{i}" title="Tout le calcul de la section">{C.icon("file-text")}</button></div>')
-    html = (f'<section class="et-bloc {cls}" data-section="{i}">{entete}<div class="et-bloc-c">'
-            f'<div class="et-bloc-ef">{_efforts_txt(s)}</div><div class="els">{rows}</div></div></section>')
-    return html, volets
+    return E.bloc(i, f"Section {s['nom']}", cls, etat_txt, _efforts_txt(s), rows), volets
 
 
 def resultat(etat: Dict) -> Dict:
@@ -1041,7 +982,7 @@ def resultat(etat: Dict) -> Dict:
         blocs += h
         volets += v
     messages = "".join(C.message(C.esc(a["message"])) for a in r.get("avertissements", []))
-    tete = (f'<div class="et-rp"><b>{nom_p}</b><span>{C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}</span></div>')
+    tete = E.tete_resultats(nom_p, f'{C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}')
     pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur poutre</span><b>{C.esc(MO.REFERENCE.split(" (")[0].split()[-1])}</b></div>'
             f'<div class="legend">{C.legende()}</div></div>')
     # l'état de la NOTE (toutes ses poutres) dans l'en-tête du panneau : utile dès deux poutres ; seule, chaque section dit le sien

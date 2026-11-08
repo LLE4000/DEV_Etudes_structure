@@ -19,10 +19,16 @@ centrées sur la bande, celles d'un renfort intercalées d'une demi-maille ; les
 Les raidisseurs (treillis de levage et de rigidité des prédalles) ne sont pas dessinés : l'écran Streamlit ne les
 connaît pas. Style des dessins du site (api_web/dessin_poutre.py, api_web/dessin_dalle.py) : traits noirs, béton gris
 clair, cotes fines, sollicitations en rouge. Les textes venus de l'état (noms) sont échappés ici.
+
+Les PIÈCES (l'établi compact) : les mêmes que celles des dalles (api_web/dessin_dalle.py, ``piece``) — chaque couche
+``s<i>.<face>-<j>``, le béton ``s<i>.beton``, les sollicitations ``s<i>.efforts`` ; sans rang de section, le dessin est
+le même qu'avant, à l'octet près.
 """
 import math
 from html import escape
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
+
+from .dessin_dalle import piece
 
 ENCRE, BETON, COTE, EFFORT = "#15181F", "#E6EAEF", "#7F8C9A", "#9C3341"
 PEAU, HACHURE = "#D3DAE3", "#8C97A6"                          # la prédalle préfabriquée : un gris plus soutenu, hachuré
@@ -158,7 +164,8 @@ def _pose_txt(c: Dict) -> str:
 
 
 # ------------------------------------------------------------------ la coupe
-def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: float, u: float, y0: float) -> Tuple[str, float]:
+def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: float, u: float, y0: float,
+           i: Optional[int] = None) -> Tuple[str, float]:
     """Une coupe de la bande perpendiculaire à la direction ``dk`` (ses barres en points, celles de l'autre direction en
     traits), posée à l'ordonnée ``y0`` : (svg, hauteur occupée)."""
     autre = "x" if dk == "y" else "y"
@@ -176,24 +183,26 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: f
                 couches.append((cote, d_, j, c, y))
     y_bas = max([h_mm] + [y + c["d"] / 2 for *_, c, y in couches])
     # le béton : coulé en place (uni) au-dessus, prédalle (hachurée, plus soutenue) dessous ; bordés de lignes de rupture
-    g.append(f'<rect x="0" y="{_f(yc)}" width="{_f(W)}" height="{_f(h_mm - hp_mm)}" fill="{BETON}"/>')
-    g.append(f'<rect x="0" y="{_f(yp)}" width="{_f(W)}" height="{_f(hp_mm)}" fill="{PEAU}"/>')
-    g.append(_hachures(0, yp, W, hp_mm, 0.55 * u, 0.035 * u))
-    g.append(_ligne(0, yc, W, yc, ENCRE, 0.09 * u) + _ligne(0, yc + h_mm, W, yc + h_mm, ENCRE, 0.09 * u))
-    g.append(_ligne(0, yp, W, yp, ENCRE, 0.06 * u))              # le plan de reprise prédalle / coulé en place
+    g.append(piece(i, "beton", f'<rect x="0" y="{_f(yc)}" width="{_f(W)}" height="{_f(h_mm - hp_mm)}" fill="{BETON}"/>'
+                   + f'<rect x="0" y="{_f(yp)}" width="{_f(W)}" height="{_f(hp_mm)}" fill="{PEAU}"/>'
+                   + _hachures(0, yp, W, hp_mm, 0.55 * u, 0.035 * u)
+                   + _ligne(0, yc, W, yc, ENCRE, 0.09 * u) + _ligne(0, yc + h_mm, W, yc + h_mm, ENCRE, 0.09 * u)
+                   + _ligne(0, yp, W, yp, ENCRE, 0.06 * u), "beton"))  # (le dernier trait : le plan de reprise)
     g.append(_rupture_v(0, yc, yc + h_mm, u) + _rupture_v(W, yc, yc + h_mm, u))
     # les barres de l'autre direction : des traits (épaisseur = Ø), puis celles de la direction coupée : des points
     for cote, d_, j, c, y in couches:
         if d_ == autre:
-            g.append(_ligne(0, yc + y, W, yc + y, _teinte(j), max(c["d"], 0.04 * u)))
+            g.append(piece(i, f"{cote}_{d_}-{j}", _ligne(0, yc + y, W, yc + y, _teinte(j), max(c["d"], 0.04 * u))))
     for cote, d_, j, c, y in couches:
         if d_ == dk:
             r = c["d"] / 2
+            points = ""
             for x in positions(c, b_mm, j):
                 xv = x - x0
                 if r <= xv <= W - r:
-                    g.append(f'<circle cx="{_f(xv)}" cy="{_f(yc + y)}" r="{_f(r)}" fill="{_couleur(j)}" stroke="#FFFFFF" '
-                             f'stroke-width="{_f(max(0.3 * r, 0.03 * u))}" paint-order="stroke"/>')
+                    points += (f'<circle cx="{_f(xv)}" cy="{_f(yc + y)}" r="{_f(r)}" fill="{_couleur(j)}" stroke="#FFFFFF" '
+                               f'stroke-width="{_f(max(0.3 * r, 0.03 * u))}" paint-order="stroke"/>')
+            g.append(piece(i, f"{cote}_{d_}-{j}", points))
     # les noms des deux bétons, à droite dans chaque zone, là où aucune barre ne passe (sinon la clé sous la coupe suffit)
     occupe = sorted((y - c["d"] / 2, y + c["d"] / 2) for *_, c, y in couches)
     for texte, z0, z1 in (("PRÉDALLE", h_mm - hp_mm, h_mm), ("COULÉ EN PLACE", 0.0, h_mm - hp_mm)):
@@ -281,27 +290,31 @@ def _efforts(s: Dict) -> str:
     return txt
 
 
-def svg_coupe(ident: str, s: Dict, predalle: Dict) -> str:
-    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle."""
+def svg_coupe(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> str:
+    """Les deux coupes d'une section (la direction principale d'abord), à la même échelle ; ``i`` : le rang de la
+    section, pour ses pièces cliquables."""
     b_mm, h_mm, hp_mm = predalle["b"] * 10.0, predalle["h"] * 10.0, predalle["h_pre"] * 10.0
     _, W = fenetre(b_mm)
     u = max(W, 420.0) / 34.0
     p = s["principale"]
     g, y = [], 0.0
-    g.append(_txt(max(W, 27.8 * u) / 2, 0.2 * u, _efforts(s), 0.9 * u, couleur=EFFORT))
-    y = 0.9 * u
+    if i is None:
+        g.append(_txt(max(W, 27.8 * u) / 2, 0.2 * u, _efforts(s), 0.9 * u, couleur=EFFORT))
+    # (l'établi compact, rang i : les efforts sont écrits UNE fois, dans la bande de l'en-tête de la vue, sans rouge)
+    y = 0.9 * u if i is None else 0.0
     for dk in (p, "x" if p == "y" else "y"):
-        morceau, hh = _coupe(s, dk, p, b_mm, h_mm, hp_mm, u, y)
+        morceau, hh = _coupe(s, dk, p, b_mm, h_mm, hp_mm, u, y, i)
         g.append(morceau)
         y += hh + 0.8 * u
     largeur = max(W + 10.2 * u, 32.8 * u)
-    vb = f"{_f(-5.0 * u)} {_f(-1.2 * u)} {_f(largeur)} {_f(y + 0.6 * u)}"
+    haut = -1.2 * u if i is None else -0.3 * u
+    vb = f"{_f(-5.0 * u)} {_f(haut)} {_f(largeur)} {_f(y + 0.6 * u - haut - 1.2 * u)}"
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '
             f'aria-label="Coupes de la prédalle, section {escape(s["nom"])}">{"".join(g)}</svg>')
 
 
 # ------------------------------------------------------------------ le plan des nappes
-def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float) -> Tuple[str, float]:
+def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float, i: Optional[int] = None) -> Tuple[str, float]:
     """La nappe ``cote`` vue de dessus, dans un carré de la largeur vue : barres X horizontales, Y verticales."""
     x0, W = fenetre(b_mm)
     g = [f'<g transform="translate({_f(dx)} 0)">']
@@ -318,14 +331,16 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float)
     for _, dk, j, c in traits:
         ep = max(c["d"], 0.04 * u)
         marge = c["d"] / 2 + 0.1 * u
+        barres = ""
         for p in positions(c, b_mm, j):
             v = p - x0
             if not marge < v < W - marge:
                 continue
             if dk == "x":
-                g.append(_ligne(0.1 * u, W - v, W - 0.1 * u, W - v, _couleur(j), ep))
+                barres += _ligne(0.1 * u, W - v, W - 0.1 * u, W - v, _couleur(j), ep)
             else:
-                g.append(_ligne(v, 0.1 * u, v, W - 0.1 * u, _couleur(j), ep))
+                barres += _ligne(v, 0.1 * u, v, W - 0.1 * u, _couleur(j), ep)
+        g.append(piece(i, f"{cote}_{dk}-{j}", barres))
     g.append(_cote_h(0, W, -1.0 * u, _texte_vue(b_mm, W), u))
     for dk in ("x", "y"):
         c = s["faces"][f"{cote}_{dk}"]["couches"][0]
@@ -366,18 +381,41 @@ def _repere(x, y, u, principale: str) -> str:
     return out
 
 
-def svg_plan(ident: str, s: Dict, predalle: Dict) -> str:
-    """Les nappes inférieure et supérieure d'une section, côte à côte, à la même échelle, avec le repère des directions."""
+def svg_plan(ident: str, s: Dict, predalle: Dict, i: Optional[int] = None) -> str:
+    """Les nappes inférieure et supérieure d'une section, côte à côte, à la même échelle, avec le repère des directions ;
+    ``i`` : le rang de la section, pour ses pièces cliquables."""
     b_mm = predalle["b"] * 10.0
     _, W = fenetre(b_mm)
     u = max(W, 420.0) / 16.0
     p = s["principale"]
     gap = 5.2 * u
-    g1, h1 = _plan(s, "inf", p, b_mm, u, 0.0)
-    g2, h2 = _plan(s, "sup", p, b_mm, u, W + gap)
+    g1, h1 = _plan(s, "inf", p, b_mm, u, 0.0, i)
+    g2, h2 = _plan(s, "sup", p, b_mm, u, W + gap, i)
     y_rep = max(h1, h2) + 2.8 * u
     rep = _repere(0.3 * u, y_rep, u, p)
     haut = y_rep + 0.8 * u
     vb = f"{_f(-0.8 * u)} {_f(-3.8 * u)} {_f(2 * W + gap + 3.4 * u)} {_f(haut + 4.0 * u)}"
     return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '
             f'aria-label="Plan des nappes, section {escape(s["nom"])}">{g1}{g2}{rep}</svg>')
+
+
+# ------------------------------------------------------------------ toutes les sections (l'établi compact, vue « Toutes »)
+def svg_toutes(ident: str, sections: List[Dict], predalle: Dict) -> str:
+    """Toutes les sections l'une sous l'autre, à la même échelle : pour chacune, son nom et ses sollicitations, puis sa
+    coupe perpendiculaire à sa direction principale (la prédalle hachurée), avec ses pièces cliquables."""
+    b_mm, h_mm, hp_mm = predalle["b"] * 10.0, predalle["h"] * 10.0, predalle["h_pre"] * 10.0
+    _, W = fenetre(b_mm)
+    u = max(W, 420.0) / 34.0
+    large = max(W, 27.8 * u)
+    g, y = [], 0.0
+    for i, s in enumerate(sections):
+        g.append(_txt(0, y + 0.3 * u, escape(s["titre"]), 1.05 * u, ancre="start"))
+        g.append(piece(i, "efforts", _txt(large, y + 0.3 * u, _efforts(s), 0.85 * u, ancre="end", couleur=COTE, gras=False), "efforts"))
+        y += 1.0 * u
+        morceau, hh = _coupe(s, s["principale"], s["principale"], b_mm, h_mm, hp_mm, u, y, i)
+        g.append(morceau)
+        y += hh + 1.8 * u
+    largeur = max(W + 10.2 * u, 32.8 * u)
+    vb = f"{_f(-5.0 * u)} {_f(-1.4 * u)} {_f(largeur)} {_f(y)}"
+    return (f'<svg id="{escape(ident)}" xmlns="http://www.w3.org/2000/svg" viewBox="{vb}" width="100%" role="img" '
+            f'aria-label="Toutes les sections de la prédalle">{"".join(g)}</svg>')

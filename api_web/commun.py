@@ -259,7 +259,7 @@ def ligne_res(nom: str, piece: str, taux, niv: str, calcul: str = "", pk: str = 
 
 
 def ligne_verif(nom: str, comparaison: str, taux, niv: str, calcul: str = "", pk: str = "", piece: str = "", gov: bool = False,
-                etat_txt: str = "") -> str:
+                etat_txt: str = "", leger: str = "") -> str:
     """Une vérification en DEUX LIGNES au plus (l'établi compact) : 1) le nom, la pièce (quand elle se choisit : un
     bouton qui ouvre le sélecteur) et le taux ; 2) ce qu'on compare, en clair (« néc. 1 206 ≤ posé 1 257 mm² »), et une
     jauge fine. La ligne entière ouvre la fenêtre de détail ``calcul``.
@@ -267,9 +267,12 @@ def ligne_verif(nom: str, comparaison: str, taux, niv: str, calcul: str = "", pk
     ``taux`` (déjà arrondi, ``pct``) est un TAUX D'UTILISATION ; une vérification qui n'en a pas (une disposition
     constructive, une vérification non effectuée) passe ``taux`` None et dit son état en mots (``etat_txt``, dans la
     couleur ``niv``) — jamais un rapport fourni / minimum déguisé en pourcentage. ``comparaison`` et ``piece`` sont du
-    HTML du module ; ``nom`` et ``etat_txt`` du texte (échappés)."""
+    HTML du module ; ``nom``, ``etat_txt`` et ``leger`` du texte (échappés). ``leger`` : une disposition plus légère
+    qui tient (l'étoile du sélecteur), dite par une étoile dans le bouton de la pièce et au survol ; sans lui, la sortie
+    est la même, à l'octet près."""
     ouvre = f' data-calcul="{esc(calcul)}" title="Voir le détail"' if calcul else ""
-    p = (f'<button class="prof" data-pk="{esc(pk)}" title="Choisir une disposition"><span>{piece}</span>{icon("chevron-down")}</button>'
+    etoile = f'<span class="leger" title="{esc(leger)}">{icon("star")}</span>' if leger and pk else ""
+    p = (f'<button class="prof" data-pk="{esc(pk)}" title="Choisir une disposition">{etoile}<span>{piece}</span>{icon("chevron-down")}</button>'
          if pk else (f'<span class="prof"><span>{piece}</span></span>' if piece else ""))
     if taux is not None:
         txt, titre = _taux_txt(taux)

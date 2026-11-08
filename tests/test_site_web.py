@@ -162,7 +162,9 @@ _src_compact = open(os.path.join(WEB, "js", "compact.js"), encoding="utf-8").rea
 _src_rangement = open(os.path.join(WEB, "js", "rangement.js"), encoding="utf-8").read()
 # js/rangement.js cherche ses éléments par un raccourci $("et-…") = document.getElementById
 _ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact + _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
-chk("le pilote compact est la seule poutre (les autres modules attendent l'avis du bureau)", SW.ETABLI_COMPACT == ("poutre",), SW.ETABLI_COMPACT)
+chk("l'établi compact : les trois modules béton armé qui se ressemblent (poutres, dalles, prédalles), leurs fonctions aux "
+    "mêmes places ; les autres modules attendent l'avis du bureau", SW.ETABLI_COMPACT == ("poutre", "dalle", "predalle"), SW.ETABLI_COMPACT)
+chk("… seule la poutre fait sa note PDF dans le site (les notes des dalles et prédalles restent à venir)", SW.NOTE_PDF == ("poutre",), SW.NOTE_PDF)
 for k in SW.PAGES:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     if k in SW.ETABLI_COMPACT:
@@ -174,6 +176,16 @@ for k in SW.PAGES:
             # les deux colonnes se replient (boutons communs .pcoll) et s'élargissent (poignées), l'état s'annule
             and all(html.count(f'data-{a}="{c}"') == 1 for a in ("coll", "poignee") for c in "gd")
             and all(html.count(f'data-historique="{h}"') == 1 for h in ("annuler", "retablir")), (absents, _ids_compact))
+        # la note PDF : la page dit si son module la fait (body data-note-pdf, que js/etabli.js lit) ; sans elle, les
+        # boutons « Note PDF » restent grisés « bientôt » sur les trois formats
+        _corps = re.search(r"<body[^>]*>", html).group(0)
+        _pdf = re.findall(r'<button([^>]*)>((?:(?!</button>).)*?Note PDF(?:(?!</button>).)*?)</button>', html, re.S)
+        _grise = [("disabled" in a_ or 'aria-disabled="true"' in a_) for a_, _ in _pdf]
+        chk(f"{SW.PAGES[k]} : la note PDF {'se fait dans le navigateur' if k in SW.NOTE_PDF else 'reste « bientôt » (boutons grisés)'} — "
+            "barre du haut, menu du téléphone, barre du bas",
+            len(_pdf) == 3 and (('data-note-pdf="1"' in _corps) == (k in SW.NOTE_PDF))
+            and all(g_ == (k not in SW.NOTE_PDF) for g_ in _grise)
+            and all(("bientôt" in a_ + c_) == (k not in SW.NOTE_PDF) for a_, c_ in _pdf[:2]), (_corps, _pdf))
     else:
         chk(f"{SW.PAGES[k]} : l'établi d'avant, rien du pilote compact",
             "data-etabli" not in html and "etabli.css" not in html and "data-ranger" not in html and 'id="liste"' not in html)

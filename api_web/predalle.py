@@ -4,6 +4,10 @@ chaque section quatre nappes — inférieure et supérieure, directions X et Y �
 Ø/e ou de « n barres »), les champs de saisie, le résultat section par section, la grande fenêtre de calcul, le
 sélecteur de la nappe de base et les dessins — rendus en fragments HTML.
 
+L'écran est l'établi COMPACT, celui de la poutre et des dalles (api_web/etabli_compact.py, api_web/plaque_compact.py) :
+à gauche l'arborescence de la note (chaque prédalle, et sous la prédalle ouverte ses quatre rubriques), au centre les vues
+sous leur en-tête technique, à droite un bloc par section. Les couches des données et des dessins portent la même clé.
+
 Une prédalle est une dalle dont la partie basse (la PEAU, h_pre) est préfabriquée : la base inférieure de la direction
 principale y est posée en fond de moule, les autres couches inférieures SUR la peau, le reste est coulé en place. Le
 calcul est celui du moteur ``beton/predalle`` (extrait de l'écran Streamlit modules/predalle.py v1.1, dont il reproduit
@@ -23,6 +27,7 @@ Ce que le site fait de plus que l'écran Streamlit, sans changer un chiffre :
 """
 import copy
 import json
+import sys
 from typing import Dict, List, Optional, Sequence
 
 from beton import treillis as TR
@@ -32,6 +37,8 @@ from beton.predalle import moteur as MO
 
 from . import commun as C
 from . import dessin_predalle as DP
+from . import etabli_compact as E
+from . import plaque_compact as PC
 
 MODULE = "predalle"
 PAGE = "predalle"
@@ -55,14 +62,17 @@ PARCOURS = [
     {"action": "choisir", "role": "inf_y-0", "nom": "Ø12/150"},
 ]
 
-TYPES = (("treillis", "Treillis"), ("barres", "Barres"), ("n_barres", "n barres"))   # les libellés de l'écran
-FACES_TXT = {"inf": "inférieure", "sup": "supérieure"}
+TYPES = PC.TYPES
+FACES_TXT = PC.FACES_TXT
 POSES_TXT = {"predalle": "dans la prédalle", "sur_predalle": "sur la prédalle", "superieure": "depuis le dessus"}
 POSES_AIDE = {"predalle": "Axe automatique : la base principale est posée en fond de moule, DANS la prédalle — enrobage + ½ Ø "
                           "arrondi au 0,5 cm (sans jeu premier lit).",
               "sur_predalle": "Axe automatique : couche posée SUR la prédalle, au chantier — épaisseur de la prédalle + ½ Ø "
                               "arrondi au 0,5 cm.",
               "superieure": "Axe automatique, depuis le dessus : enrobage + ½ Ø arrondi au 0,5 cm + jeu premier lit."}
+# la légende des dessins (dernière ligne de l'en-tête de chaque vue : ce qu'on y lit)
+LEGENDES = {"c": "prédalle hachurée · barres coupées en points, barres parallèles en traits",
+            "p": "vue de dessus · barres X horizontales, Y verticales"}
 MOTIFS = {"hauteur_insuffisante": "hauteur insuffisante", "d_utile_negatif": "d utile ≤ 0",
           "acier_insuffisant": "acier insuffisant", "acier_excessif": "acier excessif (A<sub>s</sub> &gt; A<sub>s,max</sub>)",
           "cisaillement_excessif": "τ &gt; τ<sub>adm,I</sub> (pas d'étriers dans une dalle)"}
@@ -134,8 +144,9 @@ def _nom_libre(etat: Dict) -> str:
 
 
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
-    """Les prédalles de la note : en ouvrir une, en ajouter, copier l'ouverte, en supprimer une (jamais la dernière).
-    Une prédalle ajoutée prend le γs et le jeu de la note (paramètres communs, comme dans l'écran Streamlit)."""
+    """Les prédalles de la note : en ouvrir une, en ajouter, en copier une (``index`` ; sans : l'ouverte), en supprimer
+    une (jamais la dernière). Une prédalle ajoutée prend le γs et le jeu de la note (paramètres communs, comme dans
+    l'écran Streamlit)."""
     ps = etat["predalles"]
     if action == "activer":
         etat["actif"] = min(max(0, int(index or 0)), len(ps) - 1)
@@ -146,10 +157,12 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
         ps.append(_site(p))
         etat["actif"] = len(ps) - 1
     elif action == "dupliquer":
-        p = copy.deepcopy(ps[etat["actif"]])
+        # la prédalle désignée (le menu « ⋯ » de l'arborescence ; sans rang : l'ouverte), copiée juste après elle
+        i = etat["actif"] if index is None else min(max(0, int(index)), len(ps) - 1)
+        p = copy.deepcopy(ps[i])
         p["nom"] = f"{p.get('nom') or 'Prédalle'} (copie)"
-        ps.append(p)
-        etat["actif"] = len(ps) - 1
+        ps.insert(i + 1, p)
+        etat["actif"] = i + 1
     elif action == "supprimer" and len(ps) > 1:
         i = min(max(0, int(index or 0)), len(ps) - 1)
         del ps[i]
@@ -468,26 +481,7 @@ def choisir_section(etat: Dict, role: str, nom: str) -> None:
     etat["predalles"][etat["actif"]] = _site(_moteur(travail), False)
 
 
-# ------------------------------------------------------------------ le cadre Données
-def _attr(chemin) -> str:
-    return C._attr_chemin(chemin)
-
-
-def _bouton(chemin, texte: str, icone: str = "plus", titre: str = "") -> str:
-    t = f' title="{C.esc(titre)}"' if titre else ""
-    return f'<button type="button" class="addrow" data-chemin="{_attr(chemin)}" data-valeur="1"{t}>{C.icon(icone)}{texte}</button>'
-
-
-def _retirer(chemin, titre: str) -> str:
-    return (f'<button type="button" class="moins" data-chemin="{_attr(chemin)}" data-valeur="1" title="{C.esc(titre)}">'
-            f'{C.icon("x")}</button>')
-
-
-def _titre_face(f: str, principale: str) -> str:
-    cote, dk = f.split("_")
-    return f"{FACES_TXT[cote].capitalize()} {dk.upper()}" + (" · principale" if dk == principale else "")
-
-
+# ------------------------------------------------------------------ les données : l'arborescence (colonne de gauche)
 REGLES_TXT = {"predalle": "c + ½ Ø", "sur_predalle": "h<sub>p</sub> + ½ Ø", "superieure": "c + ½ Ø + j"}
 # Le pictogramme de la POSE d'une couche : une coupe en miniature (la peau hachurée en bas, ou le dessus de la dalle),
 # et la barre à sa place — dans la peau, posée sur la peau, ou sous le dessus. Dessiné à la main : aucun identifiant.
@@ -503,58 +497,15 @@ def _picto_pose(pose: str) -> str:
     return f'<svg class="pd-m pd-{pose}" viewBox="0 0 18 12" aria-hidden="true">{PICTOS_POSE[pose]}</svg>'
 
 
-def _couche(i: int, f: str, j: int, c: Dict, geo_c: Dict) -> str:
-    """Une couche sur trois rangées : le type et la nappe ; le détail (fils, espacement ou nombre) et l'axe ; puis OÙ
-    la règle de la prédalle la pose (dans la prédalle, sur la prédalle, depuis le dessus) — ou l'axe saisi."""
-    base = ["sections", i, "faces", f, "couches", j]
-    numero = f'<span class="dl-n" title="{"Couche de base" if j == 0 else f"Renfort {j}"}">{j + 1 if j == 0 else f"R{j}"}</span>'
-    if c["type"] == "treillis":
-        opts = TR.liste_choix()
-        if c["treillis"] not in opts:
-            opts = opts + [c["treillis"]]          # un ancien fichier : la désignation reste utilisable
-        nappe = C.choix(base + ["treillis"], c["treillis"], [(x, x) for x in opts])
-        t = geo_c["treillis"]
-        detail = (f'<span class="dl-info" title="Fils porteurs Ø{t[0]} tous les {t[2]} mm ; fils de répartition Ø{t[1]} tous '
-                  f'les {t[3]} mm (non comptés, comme dans l\'écran Streamlit)">Ø{t[0]} / {t[2]} mm</span>')
-    else:
-        nappe = C.choix(base + ["d"], c["d"], [(x, f"Ø{x}") for x in EN.DIAMETRES])
-        detail = (C.num(base + ["esp"], c["esp"], "mm", entier=True, mini=EN.ESP_MIN, maxi=EN.ESP_MAX) if c["type"] == "barres"
-                  else C.num(base + ["n"], c["n"], "barres", entier=True, mini=EN.N_MIN, maxi=EN.N_MAX))
-    retirer = _retirer(base + ["-"], "Retirer ce renfort") if j > 0 else "<span></span>"
+def _pose(c: Dict, geo_c: Dict) -> str:
+    """OÙ la règle de la prédalle pose une couche (dans la prédalle, sur la prédalle, depuis le dessus), et l'axe
+    automatique qu'elle en tire — ou, l'axe saisi, ce que l'automatique serait : la ligne du détail de la couche."""
     pose = geo_c["pose"]
-    marque = _picto_pose(pose)
     if c["dist"] is None:
-        raz = "<span></span>"
-        ligne = f'{marque}<span title="{C.esc(POSES_AIDE[pose])}">axe auto · {POSES_TXT[pose]} ({REGLES_TXT[pose]})</span>'
+        txt = f"axe auto · {POSES_TXT[pose]} ({REGLES_TXT[pose]})"
     else:
-        raz = (f'<button type="button" class="dl-raz pd-raz" data-chemin="{_attr(base + ["dist"])}" data-valeur="" '
-               f'title="Revenir à l\'axe automatique ({C.nb(geo_c["e_auto"])} cm, {POSES_TXT[pose]})">↺</button>')
-        ligne = f'{marque}<span>axe saisi · l\'automatique serait {C.nb(geo_c["e_auto"])} cm, {POSES_TXT[pose]}</span>'
-    axe = C.num(base + ["dist"], geo_c["e"], "cm")
-    return (f'<div class="pd-couche">{numero}{C.choix(base + ["type"], c["type"], TYPES)}{nappe}{retirer}'
-            f'<span></span>{detail}{axe}{raz}<span></span><div class="pd-pose">{ligne}</div></div>')
-
-
-def _face(i: int, f: str, face: Dict, geo: Dict, principale: str) -> str:
-    out = (f'<div class="grp dl-face">{_titre_face(f, principale)}'
-           f'<span>{C.fr(geo["As_pm"], 0)} mm²/m</span></div>')
-    out += "".join(_couche(i, f, j, c, geo["couches"][j]) for j, c in enumerate(face["couches"]))
-    if len(face["couches"]) < EN.MAX_COUCHES:
-        pose = "sur la prédalle" if f.startswith("inf") else "dans le plan de la base"
-        out += _bouton(["sections", i, "faces", f, "couches", "+"], "Ajouter un renfort",
-                       titre=f"Treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées {pose}")
-    yG_champ = C.num(["sections", i, "faces", f, "yG"], geo["yG"], "cm")
-    if face["yG"] is None:
-        return out + C.ligne("centre de gravité", yG_champ, "y<sub>G</sub>",
-                             "Calculé : Σ As·e / Σ As (du parement au centre de gravité des couches) ; une valeur saisie le remplace.")
-    return (out + C.ligne("centre de gravité", yG_champ, "y<sub>G</sub>", "Valeur saisie : elle remplace Σ As·e / Σ As.")
-            + C.aide(f'y<sub>G</sub> imposé (calculé : {C.fr(geo["yG_calcule"], 2)} cm) · '
-                     f'<button type="button" class="dl-raz" data-chemin="{_attr(["sections", i, "faces", f, "yG"])}" data-valeur="">'
-                     f'revenir au calcul</button>'))
-
-
-def _resume_face(geo: Dict) -> str:
-    return geo["couches"][0]["valeur"] + (f" +{len(geo['couches']) - 1}" if len(geo["couches"]) > 1 else "")
+        txt = f"axe saisi · l'automatique serait {C.nb(geo_c['e_auto'])} cm, {POSES_TXT[pose]}"
+    return f'<div class="pd-pose" title="{C.esc(POSES_AIDE[pose])}">{_picto_pose(pose)}<span>{txt}</span></div>'
 
 
 def _lecture(label: str, valeur: str, sym: str = "") -> str:
@@ -578,91 +529,82 @@ def _formulaire_verrouille(p: Dict, r: Dict) -> str:
         mom = " · ".join(f"{SOLLICITATIONS[k]} {C.nb(s[k])}" for k in EN.MOMENTS)
         s2 += f'<div class="grp">{C.esc(rs["titre"])}</div>' + _lecture("moments (kN·m)", mom) + _lecture("effort tranchant", f"{C.nb(s['V'])} kN", "V")
         for f in MO.ordre_faces(rs["principale"]):
-            s2 += _lecture(_titre_face(f, rs["principale"]).lower(), C.esc(rs["faces"][f]["libelle"]))
-    return (C.section(1, f"{C.esc(_titre_predalle(p))} {C.icon('lock')}", "verrouillée", s1, True, "pd")
-            + C.section(2, "Sections et armatures", f"{len(p['sections'])} section(s)", s2, True, "sl"))
+            s2 += _lecture(PC.titre_face(f).lower() + (" · principale" if f.endswith(rs["principale"]) else ""),
+                           C.esc(rs["faces"][f]["libelle"]))
+    return (C.section(1, f"Prédalle {C.icon('lock')}", "verrouillée", s1, True, "pd")
+            + C.section(2, "Sections et armatures", f"{len(p['sections'])} section(s)", s2, False, "sl"))
 
 
-def formulaire(etat: Dict, r: Dict) -> str:
+def _options(p: Dict) -> str:
+    L = C.ligne
+    return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
+            f'{C.esc(MO.REFERENCE)} · ELS, z = 0,9·d</span></div>'
+            + L("γ<sub>s</sub> acier", C.num(["gamma_s"], p["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX), "",
+                "f_yd = f_yk / γ_s — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes les "
+                "prédalles de la note.")
+            + L("Jeu premier lit", C.num(["jeu_premier_lit"], p["jeu_premier_lit"], "cm", mini=0), "",
+                "Ajouté à l'axe automatique des couches SUPÉRIEURES seulement (la base principale est en fond de moule, les "
+                "autres couches inférieures posées sur la prédalle). Commun à toutes les prédalles de la note.")
+            + C.aide("γ<sub>s</sub> et le jeu sont communs à toutes les prédalles de la note, comme dans l'écran Streamlit.")
+            + '<div class="et-gh"><span class="t">Reprendre une note Streamlit</span></div>'
+            + C.aide("Le fichier « predalle_ba.json » de l'écran Streamlit (bouton Enregistrer) : ses prédalles remplacent "
+                     "celles de cette note ; ce que l'écran y remplaçait en silence est signalé.")
+            + C.fichier(["fichier_streamlit"], "Ouvrir un fichier Streamlit", ".json"))
+
+
+def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
+    """Les quatre rubriques de la prédalle ouverte, aux places de celles de la poutre et des dalles : 1 Prédalle,
+    2 Sections et sollicitations, 3 Armatures (de la section courante), 4 Options. ``r`` : son calcul, refait s'il
+    manque."""
     p = _actif(etat)
+    r = r or _calculer(p)
     if p["verrou"]:
         return _formulaire_verrouille(p, r)
     L = C.ligne
-    pr = p["dir_principale"]
-    coule = p["h"] - p["h_pre"]
-    s1 = (L("Nom", C.texte(["nom"], p["nom"], "ex. Plancher haut R+1"), full=True)
+    s1 = ('<div class="et-piece et-plat" data-cible="beton">'
+          + L("Nom", C.texte(["nom"], p["nom"], "ex. Plancher haut R+1"), full=True)
           + L("Béton", C.choix(["beton"], p["beton"], [(k, k) for k in MO.classes_beton()]), full=True)
           + L("Acier", C.segments(["fyk"], p["fyk"], [(n, f"B{n}") for n in EN.NUANCES]), full=True)
-          + L("largeur de bande", C.num(["b"], p["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX), "b",
+          + L("b bande", C.num(["b"], p["b"], "cm", entier=True, mini=EN.B_MIN, maxi=EN.B_MAX), "",
               "Largeur de la bande étudiée : 100 cm = un mètre courant. Moments et effort tranchant sont ceux de la bande.")
-          + '<div class="grp">Épaisseurs</div>'
-          + L("épaisseur totale", C.num(["h"], p["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX), "h",
+          + L("h épaisseur totale", C.num(["h"], p["h"], "cm", entier=True, mini=EN.H_MIN, maxi=EN.H_MAX), "",
               "Prédalle et béton coulé en place ensemble : c'est h qui entre dans les formules.")
-          + L("prédalle", C.num(["h_pre"], p["h_pre"], "cm", mini=EN.H_PRE_MIN, maxi=EN.h_pre_max(p["h"])), "h<sub>p</sub>",
-              f"Épaisseur de la prédalle préfabriquée : de {C.nb(EN.H_PRE_MIN)} à {C.nb(EN.h_pre_max(p['h']))} cm ici : au moins 1 cm coulé en place, 15 cm au plus. "
-              "Elle fixe la position des couches inférieures.")
-          + _lecture("coulé en place", f"{C.nb(coule)} cm", "h − h<sub>p</sub>")
-          + L("enrobage", C.num(["enrobage"], p["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), "c",
+          + L("h<sub>p</sub> prédalle", C.num(["h_pre"], p["h_pre"], "cm", mini=EN.H_PRE_MIN, maxi=EN.h_pre_max(p["h"])), "",
+              f"Épaisseur de la prédalle préfabriquée : de {C.nb(EN.H_PRE_MIN)} à {C.nb(EN.h_pre_max(p['h']))} cm ici (au moins "
+              "1 cm coulé en place, 15 cm au plus). Elle fixe la position des couches inférieures.")
+          + _lecture("coulé en place", f"{C.nb(p['h'] - p['h_pre'])} cm", "h − h<sub>p</sub>")
+          + L("c enrobage", C.num(["enrobage"], p["enrobage"], "cm", mini=0, maxi=EN.ENROBAGE_MAX), "",
               "Du parement au nu des armatures (fond de moule de la prédalle, dessus de dalle). 0 est lu 3 cm, comme dans "
               "l'écran Streamlit.")
-          + L("Principale", C.segments(["dir_principale"], pr, [("Y", "Direction Y"), ("X", "Direction X")]), full=True)
+          + L("Principale", C.segments(["dir_principale"], p["dir_principale"], [("Y", "Direction Y"), ("X", "Direction X")]), full=True)
           + C.aide("La base inférieure de la direction principale est posée DANS la prédalle (fond de moule) ; la base "
                    "secondaire et tous les renforts inférieurs SUR la prédalle. Elle ordonne aussi les vérifications et les coupes.")
-          + C.case(["verrou"], False, "Verrouiller la prédalle (lecture seule)"))
-    cartes = ""
+          + "</div>" + C.case(["verrou"], False, "Verrouiller la prédalle (lecture seule)"))
+    contenus, resumes = [], []
     for i, (s, rs) in enumerate(zip(p["sections"], r["sections"])):
-        t_s = gouvernante_section(rs)["taux"]
-        niv = "r" if rs["statut"] == MO.NOK else C.niveau(t_s)
-        pct = f'<span class="pct {niv}">{C.pc(C.pct(t_s))}{C.NBSP}%</span>'
-        retirer = _retirer(["sections", i, "-"], "Retirer la section") if len(p["sections"]) > 1 else ""
-        ch = ["sections", i]
-        indice = s["nom"] if len(s["nom"]) <= 3 else str(i + 1)
-        cartes += (f'<div class="secard dl-sec"><div class="sh2"><span class="indice">{C.esc(indice)}</span>'
-                   f'<span class="dl-st">{C.esc(rs["titre"])}</span>{pct}{retirer}</div>'
-                   + L("Nom", C.texte(ch + ["nom"], s["nom"], "ex. A, travée"), full=True)
-                   + '<div class="dl-mom"><span></span><span class="dl-h">M<sub>inf</sub> · bas tendu</span>'
-                     '<span class="dl-h">M<sub>sup</sub> · haut tendu</span>'
-                   + f'<span class="dl-d">X</span>{C.num(ch + ["Mx_inf"], s["Mx_inf"], "kN·m")}{C.num(ch + ["Mx_sup"], s["Mx_sup"], "kN·m")}'
-                   + f'<span class="dl-d">Y</span>{C.num(ch + ["My_inf"], s["My_inf"], "kN·m")}{C.num(ch + ["My_sup"], s["My_sup"], "kN·m")}'
-                   + f'<span class="dl-d">V</span>{C.num(ch + ["V"], s["V"], "kN")}<span class="dl-vh">tranchant max.</span></div>'
-                   + _bouton(ch + ["copie"], "Copier la section", "copy", "Une nouvelle section, avec ces sollicitations et ces armatures")
-                   + "</div>")
-    s2 = (f'<div class="secards">{cartes}</div>' + _bouton(["sections", "+"], "Ajouter une section")
-          + C.aide("M<sub>x</sub> : moments portés par les barres X, M<sub>y</sub> par les barres Y, sur la bande de "
-                   "largeur b ; inf. tend le bas (travée), sup. tend le haut (appui). Valeurs de service, en positif."))
-    blocs = ""
-    for i, (s, rs) in enumerate(zip(p["sections"], r["sections"])):
-        corps = C.aide("Par couche : le type, le treillis ou le Ø, l'espacement ou le nombre de barres, puis l'axe (cm, du "
-                       "parement à l'axe) — automatique selon la pose (dans ou sur la prédalle, ou depuis le dessus) tant que "
-                       "rien n'est saisi.")
+        verifs = {v["cle"]: v for v in rs["verifications"]}
+        corps = ""
         for f in MO.ordre_faces(rs["principale"]):
-            corps += _face(i, f, s["faces"][f], rs["faces"][f], rs["principale"])
-        p_ = rs["principale"]
-        complet = (f"nappe inférieure {p_.upper()} (principale) : {rs['faces']['inf_' + p_]['libelle']} · "
-                   f"{C.fr(rs['faces']['inf_' + p_]['As_pm'], 0)} mm²/m")
-        resume = f'<span title="{C.esc(complet)}">{p_.upper()} {C.esc(_resume_face(rs["faces"]["inf_" + p_]))}</span>'
-        # « Armatures · section A » ; une section nommée : « Armatures · Travée » (le titre court laisse voir le résumé)
-        nom_court = rs["titre"][0].lower() + rs["titre"][1:] if len(s["nom"]) <= 3 or s["nom"].lower().startswith("section") else s["nom"]
-        blocs += C.section(3 + i, f"Armatures · {C.esc(nom_court)}", resume, corps, i == 0, f"arm{i}")
-    s_meth = (L("coefficient acier", C.num(["gamma_s"], p["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX), "γ<sub>s</sub>",
-                "fyd = fyk / γs — 1,5 par défaut (méthode ancienne) ; 1,15 donne 435 N/mm² en B500. Commun à toutes les prédalles de la note.")
-              + L("jeu premier lit", C.num(["jeu_premier_lit"], p["jeu_premier_lit"], "cm", mini=0), "j",
-                  "Ajouté à l'axe automatique des couches SUPÉRIEURES seulement (la base principale est en fond de moule, les "
-                  "autres couches inférieures posées sur la prédalle). Commun à toutes les prédalles de la note.")
-              + C.aide("γ<sub>s</sub> et le jeu sont communs à toutes les prédalles de la note, comme dans l'écran Streamlit.")
-              + '<div class="grp">Reprendre une note Streamlit</div>'
-              + C.aide("Le fichier « predalle_ba.json » de l'écran Streamlit (bouton Enregistrer) : ses prédalles remplacent "
-                       "celles de cette note ; ce que l'écran y remplaçait en silence est signalé.")
-              + C.fichier(["fichier_streamlit"], "Ouvrir un fichier Streamlit", ".json"))
-    n = 3 + len(p["sections"])
-    # le résumé d'une section repliée : court (il partage la ligne avec le titre), le détail au survol
-    complet = (f"bande {C.nb(p['b'])} × {C.nb(p['h'])} cm dont prédalle {C.nb(p['h_pre'])} cm · {p['beton']} · B{p['fyk']} · "
-               f"principale {pr}")
-    resume1 = f'<span title="{C.esc(complet)}">{C.nb(p["h"])} ({C.nb(p["h_pre"])}) cm · {C.esc(p["beton"])}</span>'
-    return (C.section(1, C.esc(_titre_predalle(p)), resume1, s1, True, "pd")
-            + C.section(2, "Sections et sollicitations", f"{len(p['sections'])} section(s)", s2, True, "so")
-            + blocs
-            + C.section(n, "Méthode", f"γ<sub>s</sub> {C.nb(p['gamma_s'])} · jeu {C.nb(p['jeu_premier_lit'])} cm", s_meth, False, "me"))
+            couches = "".join(PC.couche(EN, i, f, j, c, g, details=_pose(c, g), aide_axe=POSES_AIDE[g["pose"]], dit_auto=False)
+                              for j, (c, g) in enumerate(zip(s["faces"][f]["couches"], rs["faces"][f]["couches"])))
+            pose = "sur la prédalle" if f.startswith("inf") else "dans le plan de la base"
+            corps += PC.nappe(EN, i, f, s["faces"][f], rs["faces"][f], verifs[f], rs["principale"], couches,
+                              f"Un renfort : treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées {pose}")
+        contenus.append(corps)
+        resumes.append(PC.resume_armatures(rs))
+    s3, r3 = PC.rubrique_armatures([s["nom"] for s in p["sections"]], contenus, resumes)
+    resume1 = f"{C.esc(p['beton'])} · B{p['fyk']} · h<sub>p</sub> = {C.nb(p['h_pre'])} cm"
+    return PC.formulaire("pd", "Prédalle", resume1, s1, PC.cartes(p["sections"]), len(p["sections"]), s3, r3,
+                         f"γ<sub>s</sub> {C.nb(p['gamma_s'])} · jeu {C.nb(p['jeu_premier_lit'])} cm", _options(p))
+
+
+def arbre(etat: Dict, r: Optional[Dict] = None) -> str:
+    """La colonne de gauche : l'ARBORESCENCE de la note (api_web/etabli_compact.py, la même que la poutre et les
+    dalles). Chaque prédalle, « nom · b × h cm » (un cadenas si elle est verrouillée) ; la prédalle ouverte montre ses
+    quatre rubriques. Copier, supprimer, renommer : dans le menu « ⋯ » de la prédalle."""
+    elements = [(q.get("nom") or f"Prédalle {i + 1}", f"· {C.nb(q['b'])} × {C.nb(q['h'])} cm", q["verrou"])
+                for i, q in enumerate(etat["predalles"])]
+    return E.arbre(E.PREDALLE, elements, etat["actif"], formulaire(etat, r), "predalle")
 
 
 # ------------------------------------------------------------------ le résultat
@@ -886,29 +828,22 @@ def _calculer(p: Dict) -> Dict:
 
 def resume_note(etat: Dict, resultats: List[Dict]) -> Dict:
     """Le résumé de la NOTE : sa prédalle la plus chargée — une prédalle non conforme d'abord (la règle de
-    gouvernante())."""
+    gouvernante()) ; « Données incomplètes » dès qu'une section n'a aucun effort (comme la poutre et les dalles)."""
     gouv = [gouvernante(r) for r in resultats]
     k = max(range(len(resultats)), key=lambda j: _cle_gouv(gouv[j][1]))
     r, (i_s, v) = resultats[k], gouv[k]
-    niv = "r" if r["statut"] == MO.NOK else C.niveau(v["taux"])
-    return {"taux": C.pct(v["taux"]), "niveau": niv, "statut": C.STATUTS[niv][1],
-            "gouvernant": f"{etat['predalles'][k].get('nom') or 'Prédalle'} · {r['sections'][i_s]['titre']} · {nom_minuscule(v)}"}
+    nivs = [PC.niveau_element(MO, _MOI, x) for x in resultats]
+    niv = next((n for n in ("r", "n") if n in nivs), C.niveau(v["taux"]))
+    out = {"taux": C.pct(v["taux"]) if niv != "n" else None, "niveau": niv, "statut": C.STATUTS[niv][1],
+           "gouvernant": f"{etat['predalles'][k].get('nom') or 'Prédalle'} · {r['sections'][i_s]['titre']} · {nom_minuscule(v)}"}
+    if niv in C.STATUTS_COURTS:
+        out["court"] = C.STATUTS_COURTS[niv]   # la pastille du téléphone
+    return out
 
 
 def elements(etat: Dict, resultats: List[Dict]) -> str:
-    items = ""
-    for i, (p, r) in enumerate(zip(etat["predalles"], resultats)):
-        t = gouvernante(r)[1]["taux"]
-        niv = "r" if r["statut"] == MO.NOK else C.niveau(t)
-        sup = f'<button class="x" data-supprimer="{i}" title="Supprimer">{C.icon("x")}</button>' if len(etat["predalles"]) > 1 else ""
-        verrou = C.icon("lock") if p["verrou"] else ""
-        items += (f'<div class="ni{" on" if i == etat["actif"] else ""}" data-activer="{i}"><span class="t">{verrou}'
-                  f'{C.esc(p.get("nom") or f"Prédalle {i + 1}")} '
-                  f'<span>· {C.nb(p["h"])} ({C.nb(p["h_pre"])}) cm · {C.esc(p["beton"])}</span></span>'
-                  f'<span class="pct {niv}">{C.pc(C.pct(t))}{C.NBSP}%</span>{sup}</div>')
-    return (f'<div class="elements"><div class="nl-h"><span class="kicker">Dans cette note · {len(etat["predalles"])}</span>'
-            f'<button class="nl-add" data-dupliquer="1" title="Copier la prédalle ouverte">{C.icon("copy")}Copier</button></div>{items}'
-            f'<div class="nl-add" data-ajouter="1">{C.icon("plus")}Ajouter une prédalle</div></div>')
+    """Rien : les prédalles de la note sont l'ARBORESCENCE des données (``arbre``), avec leurs rubriques."""
+    return ""
 
 
 def _optimaux(p: Dict, r: Dict) -> Dict:
@@ -923,24 +858,26 @@ def _optimaux(p: Dict, r: Dict) -> Dict:
     return out
 
 
-def _avertissements(r: Dict) -> str:
-    """Les avertissements du moteur ; les bases X et Y d'une même face calculées trop près l'une de l'autre sont dites en une
-    phrase par section."""
+def _avertissements(r: Dict, i: Optional[int] = None) -> str:
+    """Les avertissements du moteur : ceux de la section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de la
+    prédalle entière ; les bases X et Y d'une même face calculées trop près l'une de l'autre sont dites en une phrase."""
     out = ""
-    confondues: Dict[int, List[Dict]] = {}
+    confondues: List[Dict] = []
     for a in r["avertissements"]:
+        if a.get("section") != i:
+            continue
         if a["code"] == "nappes_confondues":
-            confondues.setdefault(a["section"], []).append(a)
+            confondues.append(a)
         elif a["code"] == "enrobage_nul":
             out += C.message("Enrobage nul : comme l'écran Streamlit, le calcul pose les couches avec un enrobage de 3 cm.")
         else:
             out += C.message(C.esc(a["message"]), grave=a["code"] in ("d_utile_negatif", "base_hors_predalle"))
-    for i, xs in confondues.items():
+    if confondues:
         s = r["sections"][i]
-        faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in xs)
-        axes = " ; ".join(f"{'inf.' if a['face'] == 'inf' else 'sup.'} {C.fr(a['e_x'], 1)} et {C.fr(a['e_y'], 1)} cm" for a in xs)
-        mini = max(a["ecart_mini"] for a in xs)
-        meme = all(abs(a["e_x"] - a["e_y"]) < 1e-9 for a in xs)
+        faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in confondues)
+        axes = " ; ".join(f"{'inf.' if a['face'] == 'inf' else 'sup.'} {C.fr(a['e_x'], 1)} et {C.fr(a['e_y'], 1)} cm" for a in confondues)
+        mini = max(a["ecart_mini"] for a in confondues)
+        meme = all(abs(a["e_x"] - a["e_y"]) < 1e-9 for a in confondues)
         niveau = "au même niveau" if meme else "à des niveaux trop proches pour se croiser"
         out += C.message(f"{C.esc(s['titre'])} : les bases X et Y {faces} sont calculées {niveau} ({axes}), comme dans "
                          f"l'écran Streamlit. Croisées, l'une passe sur l'autre (il faut au moins {C.fr(mini, 1)} cm d'axe à "
@@ -975,60 +912,25 @@ def resultat(etat: Dict) -> Dict:
     p = _actif(etat)
     r = _calculer(p)
     resultats = [r if i == etat["actif"] else _calculer(q) for i, q in enumerate(etat["predalles"])]
-    i_g, v_g = gouvernante(r)
-    t = v_g["taux"]
-    niv = "r" if r["statut"] == MO.NOK else C.niveau(t)
-    s_g = r["sections"][i_g]
-    verdict = (f'<div class="verdict">{C.chip(C.pct(t), niv, xl=True)}<div class="gov"><b>{C.esc(s_g["titre"])} · '
-               f'{C.esc(nom_minuscule(v_g))}</b>{_verdict(v_g, s_g)}</div></div>')
+    nom = p.get("nom") or "Prédalle"
+    hyps = _hypotheses(p, r["materiaux"])
     opt = {} if p["verrou"] else _optimaux(p, r)
-    rows = ""
+    gouv = gouvernante(r)
+    blocs, volets = "", ""
     for i, s in enumerate(r["sections"]):
-        t_s = gouvernante_section(s)["taux"]
-        n_s = "r" if s["statut"] == MO.NOK else C.niveau(t_s)
-        rows += (f'<div class="elgrp">{C.esc(s["titre"])} · principale {s["principale"].upper()}'
-                 f'<span class="pct {n_s}">{C.pc(C.pct(t_s))}{C.NBSP}%</span></div>')
-        for v in s["verifications"]:
-            face = v["cle"] in EN.FACES
-            o = opt.get((i, v["cle"])) if face else None
-            leger = f"Plus petite nappe de base qui tient : {o['nom']} · {C.pc(C.pct(o['taux']))} %" if o else ""
-            piece = _piece(v, s)
-            if _sous_limite_non_conforme(v):          # non conforme sous 100 % : la ligne dit pourquoi
-                piece += " · " + ("acier excessif" if "acier_excessif" in v["motifs"] else "d utile ≤ 0")
-            rows += C.ligne_res(nom_ligne(v), piece, C.pct(v["taux"]), _niv(v), calcul=f"s{i}",
-                                pk=f"{v['cle']}-{i}" if face and not p["verrou"] else "",
-                                gov=(i == i_g and v is v_g), leger=leger)
+        h, v = PC.bloc(_MOI, i, s, nom, hyps, gouv, opt, p["verrou"], pied_calcul=C.aide(PERIMETRE), pied=_avertissements(r, i))
+        blocs += h
+        volets += v
+    dims = f"{C.nb(p['b'])} × {C.nb(p['h'])} cm, prédalle {C.nb(p['h_pre'])} cm · {C.esc(p['beton'])} · B{p['fyk']}"
     pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur prédalle</span>'
             f'<b>v{C.esc(MO.REFERENCE.split(" v")[-1])}</b></div><div class="legend">{C.legende()}</div></div>')
-    volets = ""
-    hyps = _hypotheses(p, r["materiaux"])
-    for i, s in enumerate(r["sections"]):
-        v_s = gouvernante_section(s)
-        lignes = [_ligne_tableau(v, s, v is v_s) for v in s["verifications"]]
-        detail = ""
-        for v in s["verifications"]:
-            titre = v["titre"]
-            if v["cle"] == "hauteur" and v.get("face"):
-                cote, dk = v["face"].split("_")
-                titre += f" · la famille {cote}. {dk.upper()} gouverne (la plus exigeante)"
-            detail += (f'<div class="ck-g"><div class="ck-t">{C.esc(titre)}</div>'
-                       f'{C.lignes_fx([_formule(f) for f in v["formules"]] + [_taux_fx(v, s)])}</div>')
-        volets += C.fenetre_calcul(f"s{i}", f"{C.esc(p['nom'])} · {C.esc(s['titre'])}",
-                                   f"{_efforts_txt(s)} · méthode du bureau", hyps, lignes, detail, pied=C.aide(PERIMETRE))
-    vues = []
-    for i, s in enumerate(r["sections"]):
-        nom = s["nom"] if not s["nom"].lower().startswith("section") else s["titre"]
-        vues.append({"cle": f"c{i}", "titre": f"Coupes · {s['titre']}", "court": f"Coupe {nom}"[:24],
-                     "svg": DP.svg_coupe(f"pd_c{i}", s, r["predalle"]),
-                     "legende": f"prédalle hachurée · barres coupées en points · principale {s['principale'].upper()}"})
-        vues.append({"cle": f"p{i}", "titre": f"Plan des nappes · {s['titre']}", "court": f"Plan {nom}"[:24],
-                     "svg": DP.svg_plan(f"pd_p{i}", s, r["predalle"]),
-                     "legende": "vue de dessus · barres X horizontales, Y verticales"})
-    phrase = (f"{C.nb(p['b'])} × {C.nb(p['h'])} cm, dont prédalle {C.nb(p['h_pre'])} cm · {C.esc(p['beton'])} · B{p['fyk']} · "
-              f"principale {p['dir_principale']}")
-    return {"resultat": f'<div class="pbody">{verdict}<div class="els">{rows}</div>{_avertissements(r)}{C.aide(PERIMETRE)}</div>{pied}',
-            "volets": volets, "vues": vues, "phrase": phrase, "statut_html": C.statut(niv),
-            "resume": resume_note(etat, resultats), "donnees": formulaire(etat, r), "elements": elements(etat, resultats)}
+    # l'état de la NOTE (toutes ses prédalles) dans l'en-tête du panneau : utile dès deux prédalles
+    nivs = [PC.niveau_element(MO, _MOI, x) for x in resultats]
+    statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
+    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}<div class="et-blocs">{blocs}</div>'
+                        f'{_avertissements(r)}{C.aide(PERIMETRE)}</div>{pied}',
+            "volets": volets, "vues": PC.vues(r["sections"], r["predalle"], DP, "pd", dims, LEGENDES), "phrase": "", "statut_html": statut,
+            "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base
@@ -1070,3 +972,6 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     return C.selecteur(role, f"Nappe {FACES_TXT[face.split('_')[0]]} {dk.upper()} · {C.esc(EN.libelle_section(s['nom']))}",
                        f"couche de base{princ}, {pose} · triée par section au mètre · un clic la retient{note}", filtres, rows,
                        max(0, min(i_o, i_c) - 4), "mm²/m", etoile="la plus petite section qui tient")
+
+
+_MOI = sys.modules[__name__]   # ce module, que api_web/plaque_compact.py lit (ses formules mises en mots)

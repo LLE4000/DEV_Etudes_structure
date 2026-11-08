@@ -46,11 +46,13 @@ domaine de l'écran lève ValueError.
 SORTIE de verifier — JSON-sérialisable, nombres non arrondis (le site formate)
 ------
     {"reference": "modules/dalle.py v2.2", "dalle": {...} (l'entrée normalisée), "materiaux": {...},
-     "sections": [<section>, ...], "taux_max", "statut": "ok" | "nok",
+     "sections": [<section>, ...], "taux_max", "statut": "ok" | "nok", "sollicitee" (toutes ses sections le sont),
      "gouvernant": {"section" (indice), "nom", "cle", "titre", "taux"}, "avertissements": [{"code", "message"}, ...]}
 
   <section> = {"nom", "titre" (« Section A »), "Mx_inf", "Mx_sup", "My_inf", "My_sup", "V",
                "principale" ("x" | "y"), "statut" (l'etat_global de l'écran), "taux_max", "gouvernant" (une cle),
+               "sollicitee" (la section porte au moins un effort ; sans aucun, ses vérifications passent toutes et ne
+               disent rien : le site l'écrit « Données incomplètes », jamais « Conforme » — comme le moteur des poutres),
                "grandeurs": {...} (ci-dessous), "faces": {<face>: <geometrie de la face>},
                "verifications": [<verification>, ...]}   dans l'ordre de l'écran : hauteur, inf. principale,
                                                          inf. secondaire, sup. principale, sup. secondaire, puis tau
@@ -396,7 +398,8 @@ def _section(d: dict, s: dict, mat: dict) -> dict:
     return {"nom": s["nom"], "titre": libelle_section(s["nom"]), "Mx_inf": s["Mx_inf"], "Mx_sup": s["Mx_sup"],
             "My_inf": s["My_inf"], "My_sup": s["My_sup"], "V": s["V"], "principale": c["g"]["principale"],
             "statut": c["statut"], "taux_max": gouv["taux"], "gouvernant": gouv["cle"], "grandeurs": c["g"],
-            "faces": c["faces"], "verifications": verifs}
+            "faces": c["faces"], "verifications": verifs,
+            "sollicitee": any(s[k] > 0 for k in E.MOMENTS) or s["V"] > 0}
 
 
 # ============================================================ les avertissements
@@ -442,6 +445,7 @@ def verifier(dalle: dict) -> dict:
     i_g, v_g = max(((i, v) for i, sec in enumerate(sections) for v in sec["verifications"]), key=lambda x: x[1]["taux"])
     return {"reference": REFERENCE, "dalle": d, "materiaux": mat, "sections": sections, "taux_max": v_g["taux"],
             "statut": fusion_statuts(*(s["statut"] for s in sections)),
+            "sollicitee": all(s["sollicitee"] for s in sections),
             "gouvernant": {"section": i_g, "nom": sections[i_g]["nom"], "cle": v_g["cle"], "titre": v_g["titre"],
                            "taux": v_g["taux"]},
             "avertissements": _avertissements(d, sections)}

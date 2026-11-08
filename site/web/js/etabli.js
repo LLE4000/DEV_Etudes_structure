@@ -19,9 +19,11 @@ const $ = (s, r = document) => r.querySelector(s);
 const bench = $(".bench");
 const etapes = $("#demarrage-etape");
 const telephone = matchMedia("(max-width: 700px)");
-// l'établi COMPACT (pilote : « Poutres béton armé », construire.ETABLI_COMPACT) : la liste à gauche, les propriétés de
-// l'étape choisie et le résultat à droite (js/compact.js) ; les autres modules gardent l'établi d'avant
+// l'établi COMPACT (les trois modules béton armé, construire.ETABLI_COMPACT) : l'arborescence de la note à gauche, le
+// dessin au centre, un bloc de résultats par section à droite (js/compact.js) ; les autres modules gardent l'établi d'avant
 const COMPACT = document.body.dataset.etabli === "compact";
+// le module fait sa note PDF dans le navigateur (construire.NOTE_PDF) ; sinon « Note PDF » dit qu'elle arrive bientôt
+const NOTE_PDF = document.body.dataset.notePdf === "1";
 const memoire = { lire(k, d) { try { return JSON.parse(sessionStorage.getItem(k) || "null") ?? d; } catch (e) { return d; } },
   ecrire(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage bloqué */ } } };
 cablerRail();
@@ -715,7 +717,7 @@ document.addEventListener("click", (ev) => {
   if (a.dataset.action === "exporter") N.exporter(note);
   else if (a.dataset.action === "imprimer") window.print();
   else if (a.dataset.action === "pdf") {
-    if (COMPACT) telechargerFichier("note_pdf");
+    if (NOTE_PDF) telechargerFichier("note_pdf");
     else toast("La note PDF arrive bientôt sur le site ; elle reste dans Streamlit.");
   }
 });

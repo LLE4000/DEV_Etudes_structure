@@ -49,10 +49,14 @@ _FAMILLES = {k for _, _, mods in MQ.FAMILLES for k, _ in mods}
 ADRESSES = {k: v for k, v in REG.pages().items() if k in _FAMILLES}
 PAGES = {k: v + ".html" for k, v in ADRESSES.items()}
 ACCUEIL = "./"
-# L'établi COMPACT (liste des éléments et des étapes à gauche, dessin au centre, propriétés et résultat à droite), en
-# PILOTE sur ces modules seulement (docs/site/REFONTE_ETABLI.md) : les autres gardent l'établi d'avant. Leur carte de
-# l'accueil ouvre le calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
-ETABLI_COMPACT = ("poutre",)
+# L'établi COMPACT (l'arborescence de la note à gauche, le dessin et son en-tête au centre, un bloc de résultats par
+# section à droite), sur ces modules seulement (docs/site/REFONTE_ETABLI.md) : les trois modules béton armé, leurs
+# fonctions aux mêmes places (api_web/etabli_compact.py) ; les autres gardent l'établi d'avant. Leur carte de l'accueil
+# ouvre le calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
+ETABLI_COMPACT = ("poutre", "dalle", "predalle")
+# … et parmi eux, ceux dont le site fait la NOTE PDF (le module rend « telecharger note_pdf ») : les autres gardent le
+# bouton « Note PDF » grisé, « bientôt » (la note reste dans Streamlit)
+NOTE_PDF = ("poutre",)
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
@@ -436,13 +440,13 @@ def page_module(cle: str, titre: str) -> str:
              f'<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
     if cle in ETABLI_COMPACT:
-        corps = compact(corps)
+        corps = compact(corps, cle in NOTE_PDF)
     css = f"css/modules/{cle}.css"
     return tete(f"{titre} · Stab Méthodes", css if os.path.exists(os.path.join(ICI, css)) else "",
                 "css/etabli.css" if cle in ETABLI_COMPACT else "") + corps
 
 
-def compact(corps: str) -> str:
+def compact(corps: str, note_pdf: bool = True) -> str:
     """L'établi COMPACT, tiré de l'établi ordinaire (les mêmes fragments du moteur, les mêmes identifiants : #donnees,
     #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
     - à gauche, les DONNÉES : les éléments de la note, puis les rubriques du module en accordéon (une ouverte à la fois),
@@ -451,7 +455,9 @@ def compact(corps: str) -> str:
       dessin) ;
     - à droite, les RÉSULTATS seuls, compacts ; un clic ouvre le détail ;
     - les deux colonnes se replient et se REDIMENSIONNENT (une poignée sur leur bord intérieur) ;
-    - la barre du haut gagne « Enregistrer comme note… »."""
+    - la barre du haut gagne « Enregistrer comme note… » ;
+    - ``note_pdf`` : le module fait sa note PDF dans le navigateur — le bouton « Note PDF » s'allume (sinon il reste
+      grisé, « bientôt »), et la page le dit (body data-note-pdf, que js/etabli.js lit)."""
     gauche_av = ('<div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span>'
                  f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')
     droite_av = ('<div class="phead"><span class="h3">Résultat</span><span id="statut"></span>'
@@ -490,7 +496,9 @@ def compact(corps: str) -> str:
     corps = corps.replace('<div class="mmenu" id="mmenu" hidden>' + revoir, '<div class="mmenu" id="mmenu" hidden>' + revoir
                           + f'<button type="button" class="mi" data-ranger="1">{MQ.icon("folder")}<span class="et-mi-ranger">Enregistrer comme note…</span></button>', 1)
     # la note PDF : le module la prépare dans le navigateur (js/etabli.js, action « telecharger », quoi = « note_pdf »)
-    for avant, apres in ((_bouton("file-down", "Note PDF", f' disabled title="{PDF_BIENTOT}"', "btn primary"),
+    if note_pdf:
+        corps = corps.replace('<body data-page="module" data-etabli="compact"', '<body data-page="module" data-etabli="compact" data-note-pdf="1"', 1)
+    for avant, apres in () if not note_pdf else ((_bouton("file-down", "Note PDF", f' disabled title="{PDF_BIENTOT}"', "btn primary"),
                           _bouton("file-down", "Note PDF", ' data-action="pdf" title="Préparer la note de calcul PDF"', "btn primary")),
                          ('data-action="pdf" aria-disabled="true">' + MQ.icon("file-down") + 'Note PDF<span class="tag draft">bientôt</span>',
                           'data-action="pdf">' + MQ.icon("file-down") + 'Note PDF'),
