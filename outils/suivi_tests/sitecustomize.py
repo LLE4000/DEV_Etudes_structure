@@ -55,8 +55,16 @@ if _FICHIER and _RACINE:
             return False
         return False
 
+    _present = [True]
+
     def _audit(evenement, args):
         try:
+            if _present[0]:
+                # le suivi s'efface de sys.modules dès le premier événement (on ne peut pas pendant son propre import) :
+                # une suite qui relève « les modules du dépôt chargés » (tests/test_site_web.py, le paquet du moteur) ne
+                # doit pas le compter — il n'est pas un fichier de l'API
+                _present[0] = False
+                sys.modules.pop("sitecustomize", None)
             if evenement == "open":
                 chemin, mode, drapeaux = args[0], args[1], args[2]
                 if mode is None:
