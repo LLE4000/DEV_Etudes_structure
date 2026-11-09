@@ -1,267 +1,245 @@
-# Cornières ancrées — le moteur sans Streamlit et le module du site
+# Cornières d'appui — le moteur refondu sur la méthode du classeur (10/11/2026)
 
-*Livré le 07/11/2026. Moteur `acier/corniere/` : bibliothèque standard, et le catalogue des profilés
-`acier/profiles` (numpy, présent dans le navigateur) ; Python 3.12 et 3.13 (donc Pyodide 0.29.5). Extrait de
-l'écran Streamlit `modules/corniere.py` (293 lignes), qui reste la **référence** et n'est pas modifié ; la preuve
-de parité est `tests/test_corniere_moteur.py`. Le module du site est `api_web/corniere.py` (établi
-`corniere.html`), ses dessins `api_web/dessin_corniere.py`, ses tests `tests/test_api_web_corniere.py`.*
-
-> **⚠ Défaut NON CONSERVATIF de l'écran Streamlit, reproduit (parité) et signalé à chaque calcul.** La
-> vérification « longitudinale (entre fixations) » de `modules/corniere.py` est provisoire (« TODO » dans son code) :
-> sur un panneau de largeur s, M_long = V_loc·e = V·s·e et W_long = s·t²/6, donc **s se simplifie** et σ_long
-> redonne exactement le σ du calcul transversal (U_long = U_ELU, au bit près). La flexion de la cornière entre
-> fixations (q·s²/8) et la concentration de l'effort autour de chaque fixation **ne sont vérifiées nulle part** :
-> une cornière peut être déclarée conforme « entre fixations » quel que soit l'entraxe s (10 cm ou 1,50 m donnent le
-> même taux). Côté non sûr dès que les fixations sont espacées. Le site le dit en tête des avertissements du résultat
-> (« **Côté non sûr** : … ») et dans le pied de la fenêtre longitudinale ; il ne le corrige pas (règle de parité).
-> Les ancrages ne sont pas vérifiés non plus (l'écran le dit, le site aussi). Détail : § 8, points 1 et 2.
+*Moteur `acier/corniere/` (`entree.py`, `statique.py`, `moteur.py`) : bibliothèque standard, le catalogue des profilés
+`acier/profiles` (numpy, présent dans le navigateur) et les nuances d'`acier/flambement/normes.py` ; Python 3.12 et
+3.13 (Pyodide). Référence : le **classeur de l'ingénieur**, feuille `P8`, analysé dans
+`docs/acier/corniere_excel/ANALYSE_CORNIERE_EXCEL.md` (07/11) ; les choix sont ceux de `CORNIERE_DECISIONS.md` (10/11),
+qui font foi. Preuve : `tests/test_corniere_moteur.py` (106 contrôles, 15 s). Ce document dit ce qui est LIVRÉ par le
+lot « moteur » ; l'écran du site (`api_web/corniere.py`), les vues (`acier/corniere/schemas.py`) et la note PDF
+(`acier/corniere/note.py`) sont les lots suivants : au moment de ce lot, `api_web/corniere.py` est encore l'ancien et
+ne se charge plus (il lit `MO.LINEAIRE`) — c'est attendu.*
 
 ## 1 · Ce qui est livré
 
 | Pièce | Rôle |
 |---|---|
-| `acier/corniere/entree.py` | les défauts et le domaine de chaque champ de l'écran (`CHAMPS`), la section proposée à l'ouverture, le catalogue des cornières (familles L et LI d'`acier/profiles`, triées par masse), la désignation du bureau, la relecture d'une désignation tapée, la normalisation stricte |
-| `acier/corniere/moteur.py` | le calcul de l'écran **mot pour mot** (`calculer`), la section, les quatre vérifications, les formules du détail, les avertissements, le sélecteur trié par masse — et le **format complet** dans sa docstring |
-| `api_web/corniere.py` | le module du site : note à plusieurs cornières, cadre Données, résultat, fenêtres de calcul, sélecteur |
-| `api_web/dessin_corniere.py` | les quatre dessins à l'échelle (coupe, élévation, efforts, section) |
-| `tests/test_corniere_moteur.py` | parité avec l'écran, contrôles à la main, couverture, catalogue, sélecteur, format, pureté, **mutations** |
-| `tests/test_api_web_corniere.py` | ce que le site affiche = ce que le moteur calcule ; saisies, refus, sélecteur, éléments, échappement, dessins |
+| `acier/corniere/entree.py` | les champs du § 2 des décisions (mm, kN, N/mm²), leurs défauts et leur domaine ; le catalogue (familles L et LI, tri par masse, désignation tapée) ; les nuances du site (source unique) ; `normaliser` stricte ; la relecture d'une note v1 (modèle lame) |
+| `acier/corniere/statique.py` | la statique d'UNE combinaison (une position de la charge, une de l'ancrage) : M, N, V le long des deux ailes pour chaque mode et configuration ; l'épaisseur du congé t(s) ; la recherche du maximum (grille ≤ 0,1 mm puis section dorée) |
+| `acier/corniere/moteur.py` | l'enveloppe des neuf combinaisons, les vérifications (S1–S4, maxima, section nette), les ancrages, les diagrammes, les formules du détail (avec la cellule du classeur en historique), les avertissements, la comparaison des modes, la garde, le sélecteur — et le **contrat complet** dans sa docstring |
+| `tests/test_corniere_moteur.py` | cas de contrôle à 1e-9 face aux 93 formules de `P8` codées dans le test, 240 saisies au sort, enveloppe, équilibre, B, ailes inégales, maxima, L_eff, formules, domaine, relecture v1, sélecteur, pureté 3.12 et 3.13, 28 mutations |
 
-## 2 · L'API
+## 2 · L'API et le contrat
 
 ```python
 from acier.corniere import moteur as M
 
-M.nouvelle_corniere() -> dict          # « Cornière 1 », L 100x100x10, linéaire 5 kN/m, e 2,3 cm, γ 1,35, s 30 cm…
-M.normaliser(corniere) -> dict         # complétée et contrôlée ; ValueError hors du domaine de l'écran
-M.verifier(corniere) -> dict           # le calcul complet
-M.candidats(corniere, familles=None)   # les 233 cornières du catalogue, triées par masse, chacune calculée
-M.optimal(corniere) -> dict | None     # la plus légère qui tient
-M.nom_catalogue("80x80x8") -> "L 80x80x8"   ;   M.designation("L 45x45x4.5") -> "L 45×45×4,5"
+M.nouvelle_corniere()                 # L 120×120×15, A, historique, S355, coef 1,5, R = 35 kN, L = 300, X = 75 ± 20, Y = 85 ± 10, 3 Ø16
+M.normaliser(c)                       # complétée et contrôlée ; ValueError hors domaine, jamais une valeur ramenée en silence
+M.verifier(c)                         # le calcul complet (= calculer(c, diagrammes=True, annexes=True))
+M.calculer(c, diagrammes=False, annexes=False)   # le même sans les tableaux des diagrammes ni la comparaison / la garde (le sélecteur)
+M.combinaisons(c)                     # les 1, 3 ou 9 combinaisons de jeux, la nominale d'abord
+M.candidats(c, familles=None)         # les 233 cornières triées par masse, chacune calculée avec les charges de c
+M.optimal(c)                          # la plus légère qui tient ET dans le domaine
+M.section(c) · M.cornieres() · M.section_catalogue(nom) · M.nom_catalogue("80x80x8") · M.designation("L 45x45x4.5")
 ```
 
-**Entrée** (une clé absente ou `null` prend le défaut de l'écran) : `nom`, `standard` (le bouton « Utiliser une
-cornière standard »), `profil` (nom au catalogue), `A`, `B`, `t` (saisie libre, mm), `charge` (`"lineaire"` ou
-`"ponctuelle"` ; les libellés de l'écran sont admis), `V` (kN/m ou kN), `L` (m, charge ponctuelle), `e` (cm),
-`gamma_ELU`, `s` (cm), `bord` (cm), `sig_lim_ELS`, `tau_lim_ELS`, `sig_lim_ELU` (N/mm²).
+**Entrée** (une clé absente ou `null` prend le défaut ; `a`, `R_ELU`, `uV` vides = auto) : `nom`, `standard`, `profil`
+(catalogue) ou `A`, `B`, `t`, `r` (saisie libre), `aile_horizontale` (« A » : la première aile du nom porte la
+charge), `configuration` (« A » en bas, « B » en haut), `fy` (235, 275, 355, 460), `coef` (σ_adm = f_y/coef,
+τ_adm = σ_adm/√3), `R` (kN ELS), `L`, `X`, `dx`, `a` (vide = L), `R_ELU` (vide = 1,5·R), `Y`, `dy`, `n`, `d`
+(d0 = d + 2), `mode` (« historique » ou « equilibre » ; B impose l'équilibre), `jeu_ancrage` (le C76 du classeur),
+`yc`, `uV` (vide = e/2), `v1` (relue d'une note du module d'avant). Y se compte depuis la **face extérieure de l'aile
+horizontale** dans les deux configurations : la même cote pour le même trou quand on retourne la cornière.
 
-**Domaine** = les bornes des `st.number_input` de l'écran (lues dans l'écran par le test) : A et B de 10 à 300 mm,
-t de 2 à 20 mm, V ≥ 0, L de 0,1 à 5 m, e ≥ 0, γ ≥ 1, s ≥ 10 cm, bord ≥ 0, σ_lim,ELS ≥ 10, τ_lim,ELS ≥ 0,1,
-σ_eq,lim,ELU ≥ 10 N/mm². Hors domaine : **ValueError** avec un message (« excentricité e = -1 cm hors du domaine de
-l'écran Streamlit (au moins 0 cm) ») — jamais de valeur ramenée en silence. Une cornière du catalogue peut avoir
-t > 20 mm (38 sur 233, jusqu'à 35 mm) : c'est le même calcul, la borne de 20 mm n'est que celle de la saisie libre.
+**Domaine** (ValueError avec message) : e + r < X − dx et X + dx ≤ larg (la charge sur la partie droite pour ses
+trois positions) ; Y − dy − d0/2 ≥ e + r et Y + dy + d0/2 ≤ haut (l'ancrage, trou compris, dans la partie droite — les
+mêmes deux conditions en A et en B) ; t < A, t < B, e + r < A, e + r < B ; r ≥ 0 ; L > 0 ; R ≥ 0 ; coef ≥ 1 ; dx ≥ 0 ;
+dy ≥ 0 ; n ≥ 1 entier ; d > 0 ; n·d0 < L ; a > 0 ou vide ; R_ELU ≥ 0 ou vide ; 0 ≤ jeu_ancrage < Y ; 0 ≤ yc < bras le plus
+court (A : Y − dy ; B : haut − Y − dy) ; 0 ≤ uV ≤ e ; f_y parmi les nuances du site ; nom ≤ 60 caractères.
 
-**Deux refus de plus que l'écran** (ajoutés à la relecture, chacun avec son message ; aucun chiffre admis ne change) :
+**Sortie** (JSON strict, nombres non arrondis ; le contrat clé par clé est dans la docstring de `moteur.py`) :
+`corniere`, `section` (dont `larg`, `haut`, `e`, `r`, masse et aire — calculées en saisie libre, +0,5 % sans les
+arrondis de bout d'aile), `configuration`, `mode` (effectif) et `mode_demande`, `materiau`, `geometrie` (sections
+repères, congé, bloc d'angle, positions de la charge et de l'ancrage, L_eff), `combinaisons`, `efforts` (Mmax, H,
+H_sections, C, M_angle), `verifications` (S1, S2, S3, S4, max_h, max_v, nette en B — chacune avec s, t, largeur, W, A,
+M signé, N, V, σ, τ, σ_éq, taux, taux_σ, taux_τ, ok, `verdict`, sa **combinaison**, sa **cellule** en historique),
+`informations` (pression diamétrale, arrachement, compression du mur ou pression sur le support, taux de l'autre mode,
+L_eff), `ancrages` (N et V ELS et ELU par ancrage, positions z, bras, méthode), `diagrammes` (par aile : les points de
+l'enveloppe, les trois courbes de moment, les tronçons N/V, les repères), `maxima`, `comparaison`, `garde`,
+`taux_max`, `statut`, `gouvernant`, `calcul` (les blocs de formules « symbole = expression = valeurs = résultat »),
+`hypotheses`, `avertissements`.
 
-- **t ≥ A ou t ≥ B** en saisie libre (« épaisseur t = 12 mm ≥ aile A = 12 mm : ce n'est pas une cornière ») :
-  l'écran l'accepte parce qu'il ne lit que t, mais il n'y a plus ni aile B où poser la charge ni contour à dessiner
-  (le dessin tombait sur une division par zéro) ;
-- **un calcul qui déborde** (V, e, s ou γ démesurés : V = 10²⁰⁰ kN/m, s = 10³⁰⁸ cm…) : une contrainte devient infinie
-  ou indéterminée, l'écran Streamlit s'arrête sur une `OverflowError` ; le moteur refuse (« valeurs trop grandes : le
-  calcul déborde »). Le contrôle est mené à t = 2 mm, l'épaisseur la plus faible du domaine : aucune cornière du
-  sélecteur ne déborde donc.
+Signe des moments : M > 0 quand la face côté congé (l'intérieur de l'angle) est tendue — tout positif en A (u_V = e/2),
+tout négatif en B. Abscisse commune `s` = distance au dos de l'autre aile : la charge est à s = X′, l'ancrage à s = Y′,
+dans les deux configurations ; sous s = e le bloc d'angle ; le congé entre e et e + r.
 
-« -0 » est relu 0 (le champ n'écrit jamais « -0 »).
+## 3 · La méthode
 
-**Sortie de `verifier`** (JSON strict, nombres non arrondis) : `corniere` (normalisée), `section` (`source`,
-`designation`, `famille`, `A`, `B`, `t`, `r1`, `r2`, `masse` — `None` en saisie libre, comme l'écran —, `aire`,
-`yc`, `zc`, `norme`), `grandeurs` (§ 4), `verifications` (`els_sigma`, `els_tau`, `elu`, `long_elu` : valeur,
-limite, taux = valeur / limite, `ok` = valeur ≤ limite), `verdicts` (les ✅ / ❌ de l'écran), `taux_max`, `statut`,
-`gouvernant`, `calcul` (les formules, groupées : efforts, section, ELS, ELU ; panneau, efforts, contraintes — chaque
-résultat se retrouve à partir de ses seuls termes), `avertissements` (`ancrages_non_verifies`,
-`longitudinal_provisoire`, et `excentricite_hors_aile` quand e > B).
+### 3.1 Géométrie commune
+e = t ; r = congé (r1 au catalogue, saisi sinon) ; larg = aile qui porte la charge, haut = l'autre ; X′ = X + Δx,
+Y′ = Y + Δy pour une combinaison ; W(t) = L·t²/6, A(t) = L·t ; épaisseur dans le congé t(s) = e + r − √(r² − (e + r − s)²)
+pour e ≤ s ≤ e + r, t = e au-delà. Sections repères : S1 (aile horizontale, s = e + r, t = e), S2 (s = e, t = e + r),
+S3 (aile verticale, s = e + r, t = e), S4 (s = e, t = e + r). Contraintes sur la fibre la plus sollicitée :
+σ = |M|/W + |N|/A, τ = |V|/A, σ_éq = √(σ² + 3τ²), taux = σ_éq/σ_adm.
 
-## 3 · La méthode de l'écran
+### 3.2 Les jeux : trois positions et l'enveloppe (décisions § 3.0)
+La charge à X − dx, X, X + dx ; l'ancrage à Y − dy, Y, Y + dy : neuf combinaisons (une quand dx = dy = 0, trois quand un
+seul jeu est nul), la nominale d'abord. Chaque grandeur vérifiée — chaque section, chaque point des diagrammes, la
+traction, la compression du mur, la section nette, la largeur efficace — est calculée pour chaque combinaison et garde
+la plus défavorable, avec la combinaison qui la gouverne (« charge à X + 20, ancrage à Y − 10 » ; à égalité la
+nominale). L'enveloppe retrouve seule que l'ancrage haut charge les sections en A et l'ancrage bas la traction (en B
+aussi, « bas » = vers le bout libre = Y + dy).
 
-Modèle **lame** : la cornière est vérifiée comme une plaque d'épaisseur t ; seules t, les charges et les critères
-entrent dans le calcul (A et B n'y entrent pas).
+| Cas de contrôle (L120×120×15, R = 42,76, X = 75, Y = 85) | taux max | M1 | M3 | traction / ancrage |
+|---|---|---|---|---|
+| dx = dy = 0 (P8 exactement) | **88,86 %** (S3) | 2,00972 | 2,35870 | 14,253 kN |
+| dx = 20 | 112,43 % | 2,86492 | 2,98768 | 18,054 |
+| dy = 20 | 95,38 % | 2,00972 | 2,53271 | 14,253 (les ancrages du classeur ne lisent pas Yj) |
+| dx = dy = 20 | 120,69 % | 2,86492 | 3,20810 | 18,054 |
+| jeu_ancrage = 20 | 88,86 % | — | — | 16,446 |
 
-1. **Efforts par mètre courant.** Charge linéaire : V_ELS = V, V_ELU = γ_ELU·V (kN/m). Charge ponctuelle (champ
-   L de la barre latérale) : V_ELS = V / L, V_ELU = γ_ELU·V / L. M = V·e (kN·m/m), e en m = e / 100.
-2. **Section** (b = 1 000 mm) : I = b·t³/12, W = b·t²/6, A_z = b·t.
-3. **Transversal.** σ = M·10⁶ / W, τ = V·10³ / A_z, σ_eq = √(σ² + 3·τ²), à l'ELS et à l'ELU.
-4. **Longitudinal** (« entre fixations », provisoire dans l'écran) : panneau b = 10·s (mm), V_loc = V·s/100 (kN),
-   M_long = V_loc·e (kN·m), σ_long = M_long·10⁶ / (b·t²/6), τ_long = V_loc·10³ / (b·t), σ_eq,long.
-5. **Taux et verdicts.** U_σ = σ_eq,ELS / σ_lim,ELS ; U_τ = τ_ELS / τ_lim,ELS ; U_ELU = σ_eq,ELU / σ_eq,lim,ELU ;
-   U_long = σ_eq,long,ELU / σ_eq,lim,ELU. ✅ ELS si σ_eq,ELS ≤ σ_lim,ELS **et** τ_ELS ≤ τ_lim,ELS ; ✅ ELU si
-   σ_eq,ELU ≤ σ_eq,lim,ELU ; ✅ longitudinal si σ_eq,long,ELU ≤ σ_eq,lim,ELU. Comparaisons larges (≤).
+Les diagrammes rendent, par aile, **une courbe de moment par position de la charge** (chacune enveloppe des trois
+positions de l'ancrage, point par point ; l'ancrage qui gouverne la section de référence est nommé) et l'**enveloppe**
+(le maximum point par point des courbes, qui est aussi celui des neuf combinaisons), les contraintes σ, τ, σ_éq et le
+taux de l'enveloppe, l'épaisseur t(s), les tronçons N/V, les repères (sections, congé, bloc d'angle, positions de la
+charge, bande de l'ancrage, contact, maximum). Le pas : ≈ r/26 dans le congé, ≈ 1/40 de la partie droite.
 
-Chaque expression de `calculer` est celle de l'écran, **dans le même ordre d'opérations** : les flottants sont
-identiques au bit près (100 % des comparaisons).
+### 3.3 Mode historique (A) — `P8` mot pour mot
+Xe = X − r − e (`C19`), Xe+r = X − e (`C20`), Ye = Y − e − r (`C23`), Ye+r = Y − e (`C24`), YH = Y − e/2 (`C25`), tous
+NOMINAUX ; le jeu de la charge Xj = Δx s'ajoute dans les moments : M1 = R·(Xe + Xj) (`C35`), M2 = R·(Xe+r + Xj) (`C45`),
+Mmax = R·(X + Xj) (`C55`) ; le jeu de l'ancrage Yj = Δy entre dans ρ₃ = (Ye + Yj)/(YH + Yj) (`C56`) et ρ₄ (`C64`) ;
+M3 = ρ₃·Mmax (`C57`), M4 = ρ₄·Mmax (`C65`) ; σᵢ = Mᵢ/Wᵢ (`G31`…), τᵢ = R/(L·tᵢ) (`G34`… — le classeur, même dans
+l'aile verticale où c'est en réalité un effort normal), σ_éq,ᵢ (`G37`…), taux (`I37`, `I47`, `I57`, `I67`) ; le verdict
+est le maximum des quatre (`D3`). Diagrammes : M(s) = R·(X′ − s) sur l'aile horizontale, M(s) = H_s·(Y′ − s) sur la
+verticale avec H_s = Mmax/(YH + Yj). Ancrages : N_ELS = Mmax/((Y − jeu_ancrage)·n) (`C82`), V_ELS = R/n (`C83`), ELU ×
+R_ELU/R (`C85`, `C86`) ; pression diamétrale V_ELS/(d·e) (`C88`) et arrachement V_ELS/(2·(haut − Y)·e) (`C90`) en
+information, Y nominal comme le classeur. Les **maxima du congé** sont calculés et rendus (vue Contraintes) mais restent
+en **information** dans ce mode (`verdict: false`) : le classeur ne les a pas, et son cas de contrôle doit rendre
+88,8621 %.
 
-## 4 · D'où vient chaque grandeur
+Exemple, le cas de contrôle (dx = dy = 0, jeu 10, R_ELU = 68,9) : M1 = 2,009720 ; M2 = 2,565600 ; M3 = 2,358697 ;
+M4 = 2,896645 kN·m ; σ₃ = 209,662, τ₃ = 9,502, σ_éq,3 = 210,307 N/mm², σ_adm = 236,667 → **88,8621 %** en S3 ;
+N_ELS = V_ELS = 14,2533 kN, N_ELU = V_ELU = 22,9667 kN (rapport 1,61132) ; maximum du congé à 1,66 mm du pied de S3
+(+1,45 %, 90,15 %, information) ; comparaison : l'équilibre P0 donne 77,94 %.
 
-`grandeurs` → variable locale de `show()` dans `modules/corniere.py`.
+### 3.4 Mode équilibre (A) — un seul corps libre
+Pour une combinaison : H = R·(X′ − u_V)/(Y′ − y_c) (pivot y_c depuis le dessous, cisaillement d'ancrage à u_V du nu du
+mur, frottement nul). Aile horizontale : M = R·(X′ − s), V = R, N = 0. Aile verticale sous l'ancrage :
+M = H·(Y′ − s) − R·(e/2 − u_V), N = +R, V = H ; rien au-dessus. Vérifications : S1–S4 et le **maximum le long de t(s)
+dans chaque aile** (dans le verdict). Ancrages : N_ELS = H/n, V_ELS = R/n, ELU × R_ELU/R ; compression du mur C = H à
+y_c (information) ; arrachement avec l'ancrage le plus près du bord (Y + dy).
 
-| Grandeur | Sens | Dans l'écran |
+Exemple, le cas de contrôle en P0 (y_c = 0, u_V = 7,5) : H = 33,956 kN, M3 = 1,93552 kN·m, S3 76,91 %, maximum de l'aile
+verticale 77,94 % (verdict) ; en P1 (y_c = 7,5) : H = 37,243, S3 83,96 % ; en Q1 (y_c = 7,5, u_V = 0) : H = 41,381,
+M3 = 2,03800, 80,84 %.
+
+**Garde** (mode historique) : le moteur calcule aussi l'équilibre P1 (y_c = e/2, u_V = e/2) ; si son taux sur l'aile
+verticale (S3, S4) dépasse celui de la méthode historique, un avertissement **rouge** le dit avec les deux chiffres
+(ancrage bas : Y = 40 mm sur le cas de contrôle, 46,3 % contre 45,0 % ; le seuil est 43,5 mm). Dans chaque mode, le
+taux maximal de l'autre mode est rendu en information (`comparaison`).
+
+### 3.5 Configuration B — aile horizontale en haut (toujours l'équilibre)
+y_a = haut − Y′ (hauteur de l'ancrage au-dessus du bout libre), contact à c = y_c du bout libre :
+H = R·(X′ − u_V)/(y_a − c). Aile horizontale comme en A (face du congé comprimée). Aile verticale entre l'angle et
+l'ancrage : **M = R·(X′ − e/2) constant** (statique de la partie au-dessus de la coupe, où seule la charge agit : il
+ne dépend pas de l'ancrage), N = −R, V = 0 ; entre l'ancrage et le contact : M = H·(y − c), V = H, N = 0. **Section
+nette** au droit du trou (largeur L − n·d0, épaisseur e), la face la plus sollicitée du trou — au-dessus (M = R·(X′ −
+e/2), N = −R) ou au-dessous (M = R·(X′ − u_V), V = H). **Pression sur le support** au bout libre C/L (N/mm), en
+information et en avertissement. Les formules du classeur donneraient −18,3 % sur M3 : le mode historique est
+imposé à « équilibre » en B (avertissement `mode_impose_B` quand il était demandé).
+
+Exemple, le cas de contrôle retourné (Y = 85, dx = 0) : H = 82,47 kN (bras 35 mm), M3 = M4 = 2,886 kN·m, σ = 256,56 +
+9,50 = 266,06 N/mm² → S3 112,42 % ; section nette (3 trous Ø18 sur 300) **137,1 %**, qui gouverne ; C/L = 274,9 N/mm ;
+Y = 45 → H = 38,48 kN ; c = 10 → 115,45 kN ; ancrage décalé de 10 mm vers le bout libre → 115,45 kN, vers l'angle →
+64,14 kN ; dx = 20 → S3 144,54 %.
+
+### 3.6 Ailes inégales, largeur d'appui, ancrages
+L'orientation est le paramètre `aile_horizontale` (le catalogue reste la source unique, r1 = congé) : L150×100×12,
+150 horizontal, Y = 65 → taux 1 128,3 %, taux 3 131,1 %, traction 58,31 kN ; 100 horizontal, Y = 115 → 128,3 %,
+157,4 %, 30,54 kN. Largeur d'appui `a` : L_eff = min(L ; a + 2·Xe) avec Xe = X′ − r − e (diffusion à 45° jusqu'à la
+section 1), appliquée à toute l'aile horizontale (W et A) : a = 100 → L_eff = 194, σ₁ × 1,546, taux 1 117,2 % ; a vide →
+L. Ancrages : n sur L à l'entraxe L/n, le premier à L/(2n) (z = 50, 150, 250 pour n = 3) ; N et V ELS et ELU par ancrage,
+la combinaison qui gouverne N ; R_ELU vide = 1,5·R dit « auto » (avertissement `R_ELU_auto`).
+
+## 4 · D'où vient chaque grandeur (mode historique : la cellule de `P8`)
+
+| Grandeur | Cellule | Dans le moteur |
 |---|---|---|
-| `b_trans`, `t` | largeur de lame (1 000 mm), épaisseur (mm) | `b_trans_mm`, `t_mm` |
-| `I_trans`, `W_trans`, `Az_trans` | b·t³/12, b·t²/6, b·t | `I_trans`, `W_trans`, `Az_trans` |
-| `V_ELS`, `V_ELU` | efforts par mètre (kN/m) | `V_ELS`, `V_ELU` |
-| `e_m` | e en m | `e_m` |
-| `M_ELS`, `M_ELU` | V·e (kN·m/m), affichés « M (ELS) » / « M (ELU) » | `V_ELS*e_m`, `V_ELU*e_m` (dans le markdown) |
-| `M_ELS_Nmm`, `M_ELU_Nmm` | les mêmes en N·mm par mètre | `M_ELS_Nmm`, `M_ELU_Nmm` |
-| `sigma_ELS`, `sigma_ELU`, `tau_ELS`, `tau_ELU` | contraintes transversales | mêmes noms |
-| `sigma_eq_ELS`, `sigma_eq_ELU` | √(σ² + 3τ²) | mêmes noms |
-| `b_long`, `I_long`, `W_long`, `Az_long` | le panneau de largeur s | `b_long_mm`, `I_long`, `W_long`, `Az_long` |
-| `Vloc_ELS`, `Vloc_ELU` | V·s (kN) | mêmes noms |
-| `Mlong_ELS`, `Mlong_ELU` | V_loc·e (kN·m) | `Mlong_ELS_kNm`, `Mlong_ELU_kNm` |
-| `sigma_long_ELS`, `sigma_long_ELU`, `tau_long_ELS`, `tau_long_ELU` | contraintes du panneau | mêmes noms |
-| `sigma_eq_long_ELS`, `sigma_eq_long_ELU` | σ_eq du panneau | mêmes noms |
-| `U_sigma`, `U_tau`, `U_ELU`, `U_long_ELU` | les taux des bandeaux (÷ 100) | mêmes noms |
-| `ok_els`, `ok_elu`, `ok_long` | les ✅ / ❌ | `ok_els`, `ok_elu`, `ok_long` (« ✅ » / « ❌ ») |
+| larg, haut, e, r | `C4`…`C7` (ou `K4`…`K7` en saisie libre) | `section` |
+| Xe, Xe+r, Ye, Ye+r, YH | `C19`, `C20`, `C23`, `C24`, `C25` | formules des blocs S1–S4 (nominales) |
+| M1, M2, Mmax, ρ₃, M3, ρ₄, M4 | `C35`, `C45`, `C55`, `C56`, `C57`, `C64`, `C65` | `verifications[Sᵢ].M`, formules `M_bras_j`, `Mmax_j`, `rho`, `M_rho` |
+| tᵢ, Wᵢ, σᵢ, τᵢ, σ_éq,ᵢ | `C31`/`C32`/`G31`/`G34`/`G37` (S1) … `C61`/`C62`/`G61`/`G64`/`G67` (S4) | `verifications[Sᵢ]` : t, W, sigma, tau, sigma_eq |
+| taux σ, taux τ, taux | `I31`, `I34`, `I37` … `I61`, `I64`, `I67` | taux_sigma, taux_tau, taux |
+| σ_adm, τ_adm | `H31`, `H34` | `materiau` |
+| taux max | `D3` | `taux_max` |
+| N_ELS, V_ELS, N_ELU, V_ELU | `C82`, `C83`, `C85`, `C86` | `ancrages` |
+| pression diamétrale, arrachement | `C88`, `C90` | `ancrages`, `informations` |
+| R, R_ELU, L, X, Xj, Y, Yj, n, d, jeu | `C12`, `C71`, `C8` (cm), `C13`, `C14`, `C16`, `C17`, `C73`, `C74`, `C76` (cm) | l'entrée, en mm |
 
-`I_trans`, `I_long`, `sigma_eq_long_ELS` et `tau_long_ELS` sont calculées par l'écran sans entrer dans un verdict ;
-le moteur les rend pour la parité (et le détail du calcul).
+Le test code les **93 formules de `P8`** (annexe A de l'analyse) dans les unités du classeur et les évalue par un petit
+interpréteur indépendant : sur le cas de contrôle et sur 240 saisies au sort, chaque cellule qui a une grandeur dans le
+moteur lui est égale à 1e-9 (58 cellules ; les copies `F31` = `C35`… et `L22` = 864,69 sont vérifiées comme telles).
 
-## 5 · La preuve de parité (`tests/test_corniere_moteur.py`, 158 contrôles, ~3 s)
+## 5 · Avertissements, informations, hypothèses
 
-- **Les défauts et les bornes** du moteur sont LUS dans l'écran : ses `st.number_input`, `st.radio`, `st.toggle`,
-  `st.selectbox` sont enregistrés par un faux `st` (12 champs numériques, le type de charge, la section proposée,
-  la liste de 41 sections).
-- **L'écran est exécuté** (`show()`) avec un faux `st` qui sert les saisies de chaque cas et enregistre ce qui
-  s'affiche ; une trace (`sys.settrace`) relève **toutes** les variables locales de `show()` à son retour. Une
-  variable ajoutée à l'écran fait rougir le test tant qu'elle n'est pas comparée. **99 cornières** : les 41
-  sections de la liste de l'écran (au catalogue ou en saisie libre), la saisie libre aux bornes, les charges
-  linéaires et ponctuelles (L = 0,1 et 5 m), V = 0, e = 0, γ = 1 et 1,5, s = 10 et 150 cm, chaque verdict ✅ et ❌
-  (ELS par σ seul, par τ seul, par les deux ; ELU seul ; tout), les critères au minimum de l'écran, des valeurs non
-  rondes, t = 25 et 35 mm (catalogue), 30 tirages à graine fixe et 3 **bornes exactes** construites (τ = τ_lim,
-  σ_eq = σ_lim, σ_eq,ELU = σ_eq,lim : ✅, donc « ≤ » et non « < »). **4 719 comparaisons numériques, toutes
-  identiques au bit près**, plus les textes affichés (bandeaux ELS / ELU / longitudinal avec leurs pourcentages et
-  leurs icônes, épaisseur, largeur de lame, moments et contraintes du markdown).
-- **Couverture** : les cas atteignent 30 situations exigées (chaque verdict, chaque vérification ok / nok, chaque
-  charge, catalogue / saisie / liste, familles L et LI, V = 0, e = 0, t > 20, bornes exactes).
-- **À la main** : deux cornières recalculées en N et mm dans le test.
-- **Sélecteur** : les 233 cornières du catalogue repassées une à une par l'écran (saisie libre, même t) pour deux
-  jeux de charges : taux et verdicts identiques, tri par masse, optimal = la première qui tient **et dont l'aile B
-  reçoit la charge** (e ≤ B ; avec e = 80 mm, L 45×45×7 « tient » à l'écran mais son aile fait 45 mm : l'optimal est
-  L 80×80×7).
-- **Format** : JSON strict, normalisation idempotente, 30 saisies refusées (dont t ≥ aile et les calculs qui
-  débordent), 12 bornes admises, les 3 069 formules
-  recalculées à partir de leurs seuls termes, gouvernant et statut, désignations relues, avertissement e > B.
-- **Pureté** : un sous-processus dont `sys.meta_path` refuse streamlit, pandas, reportlab, matplotlib, scipy,
-  PIL, fitz charge le moteur et calcule les 99 cornières et le sélecteur ; seuls la bibliothèque standard et numpy
-  sont chargés — sous Python 3.12 et 3.13, résultats identiques.
-- **Mutations** : le moteur est rechargé depuis ses sources, modifié d'**une** ligne, et repassé par les contrôles
-  ci-dessus (bornes lues dans l'écran, parité avec les écrans rejoués, refus, formules, sélecteur). Les **30
-  mutations** sont toutes rejetées : I, W, A_z, largeur de bande, γ oublié, charge ponctuelle non répartie, e lu en
-  dm, √(σ² + τ²), τ de l'ELS dans l'ELU, panneau 100·s, V·s sans /100, σ_eq,long avec τ_ELS, U_τ avec τ_ELU,
-  « ≤ » devenu « < », ELS sans τ, longitudinal comparé à σ_lim,ELS, épaisseur ou ailes du catalogue faussées,
-  valeur de la vérification τ, terme faux d'une formule, gouvernant au plus petit taux, sélecteur trié par nom,
-  optimal le plus lourd, optimal qui oublie l'aile B, t ≥ aile admise, calcul qui déborde admis, défaut de e, borne
-  de t, section proposée, saisie négative ramenée à la borne. Une
-  mutation **témoin** (un commentaire) n'est rejetée par aucun contrôle.
+Toujours (niveau info) : « Chevilles non vérifiées : efforts N et V par ancrage fournis pour Hilti PROFIS, ELS et
+ELU séparés » ; « Pic de contrainte au congé non vérifié (≈ 1,3 × la contrainte de poutre : statique seulement, à
+considérer en fatigue) » ; « Effet de levier non couvert si les chevilles sont très raides (> ≈ 250 kN/mm) ». Selon le
+cas : `equilibre_plus_severe` (rouge, la garde), `pression_support` (attention, B), `mode_impose_B`, `R_ELU_auto`,
+`note_v1` (attention), `fy_epaisseur` (e > 40 mm : le Tableau 3.1 réduit f_y, la valeur saisie est gardée). Les lignes
+d'information (pression diamétrale, arrachement, compression du mur, pression sur le support, taux de l'autre mode,
+L_eff) n'entrent pas dans le verdict. Les `hypotheses` disent la méthode aux contraintes admissibles (« efforts ELS non
+majorés, coefficient sur f_y : ce n'est pas une justification EC3 aux états limites »), la configuration et le mode,
+le pivot et u_V, les jeux et le nombre de combinaisons, L_eff, R_ELU.
 
-## 6 · L'écran Streamlit, champ par champ, et le site
+## 6 · Ce qui n'est pas couvert
 
-| Écran Streamlit | Site |
-|---|---|
-| bouton « Utiliser une cornière standard » | section 1 : segments **Catalogue / Saisie libre** |
-| menu « Section » (41 sections, ordre alphabétique) | champ **Désignation** (« 80x80x8 », « L 80×80×8 »…) et **sélecteur** de la ligne « Cornière » du résultat : les 233 cornières EN 10056-1 triées par masse, ✓ la retenue, ★ la plus légère qui tient, filtres ailes égales / inégales, propriétés au survol |
-| bandeau « Dimensions : A × B × t mm — kg/m » | fiche de la cornière (ailes, t, congés, masse, aire, norme) |
-| largeurs A, B et épaisseur t (saisie libre) | section 1, en saisie libre (mêmes bornes) |
-| « Type de charge » linéaire / ponctuelle | section 2 : segments |
-| V (kN/m ou kN), e, coefficient global ELU, légende M = V × e | section 2 |
-| L, longueur d'influence (barre latérale) | section 2, sous V, quand la charge est ponctuelle |
-| s, distance de l'âme au bord du mur | section 3 (le bord est dit sans effet sur le calcul) |
-| σ_lim,ELS, τ_lim,ELS, σ_eq,lim,ELU, légende S235 | section 4 |
-| métriques t, b = 1 000 mm, poids | hypothèses de la fenêtre de calcul ; masse au pied du résultat |
-| efforts, section, contraintes ELS / ELU (markdown) | fenêtre « transversal » : tableau + détail des formules substituées |
-| bandeaux ELS (σ_eq/lim, τ/lim) et ELU | lignes du résultat (une par vérification, colorées), verdict gouvernant |
-| panneau, efforts locaux, moments, contraintes, bandeau longitudinal | groupe « Longitudinal » du résultat et sa fenêtre de calcul |
-| « 3) Vérification des ancrages : à compléter » | avertissement du résultat, aide de la section 3, renvoi « fixation non vérifiée » du dessin |
-| « Notes & hypothèses » | hypothèses des fenêtres, pied de la fenêtre longitudinale, avertissement « provisoire » |
-| — (aucun dessin) | **quatre dessins à l'échelle** : coupe (schéma statique), élévation entre fixations, efforts (diagrammes V et M), section cotée |
-| — (une cornière à la fois) | **plusieurs cornières par note** (ajouter, copier, supprimer, ouvrir) |
+- la **cornière longue** à ancrages multiples (modèle longitudinal, analyse § 5) : tranche courte seulement, R/n et
+  traction partagée ; les ancrages sont déjà positionnés sur L ;
+- les **chevilles** (cône de béton, bords, support) : efforts fournis, rien de vérifié ;
+- le **pic de contrainte** au congé (contrainte de pointe ≈ 1,3 × la poutre, fatigue) ; le **support souple** (pivot
+  qui remonte) et l'**effet de levier** (chevilles très raides) : avertis, pas calculés ;
+- les cornières **PRS** (deux plats soudés) ; le maillage de contrôle ;
+- f_y au-delà de 40 mm d'épaisseur (averti, non réduit) ; la nuance S420 (absente des sources du site).
 
-**Hors du site** : le bouton « Accueil » de l'écran (la navigation du site le remplace). Aucun calcul de l'écran
-n'est omis.
+## 7 · La preuve (`tests/test_corniere_moteur.py`, 106 contrôles, ~15 s)
 
-## 7 · Ce qui n'est pas couvert
+1 cas de contrôle à 1e-9 face aux 93 formules de `P8` codées dans le test, et aux chiffres de l'analyse à leur dernière
+décimale (M1…M4, 88,8621 %, σ, τ, σ_éq, ancrages, pression, arrachement, ρ₃, ρ₄, H) ; cellules nommées. 2 P8 sur 110
+saisies sans jeu (une combinaison : P8 exactement) et 130 avec jeux (l'enveloppe = P8 à Xj = +dx, Yj = +dy pour les
+sections, Xj = +dx pour les ancrages). 3 l'enveloppe : 1/3/9 combinaisons, positions nommées, le tableau des jeux,
+dy < 0 refusé, balayage (aucune grandeur ne baisse quand dx ou dy croît : A historique, A équilibre avec y_c = 0 et
+y_c = 5 / u_V = 0, B), combinaisons gouvernantes justes, diagrammes face à une statique recalculée dans le test (trois
+courbes, enveloppe = max point par point, σ_éq des neuf combinaisons, t(s)). 4 équilibre P0, P1, Q1, comparaison,
+garde (Y = 40 rouge, Y = 45 et 85 rien). 5 B : 82,47 kN, 2,886 kN·m, 112,42 %, nette 137,1 % qui gouverne, moment
+indépendant de l'ancrage, Y = 45, c = 10, u_V = 0, jeux, mode imposé, pression sur le support, arrachement vers le bout
+libre. 6 ailes inégales. 7 maxima (S1 +2,11 % à 1,98 mm ; S3 +1,45 % à 1,66 mm ; information en historique, verdict en
+équilibre ; jamais sous une grille fine indépendante). 8 L_eff. 9 les 11 428 formules de 131 cornières recalculées à
+partir de leurs seuls termes (1e-9), blocs et combinaisons, taux/ok/état/gouvernant. 10 domaine : 40 refus avec leur message, 18 bornes
+admises, -0, idempotence, JSON strict, entrée intacte, défauts du § 2, nuances (source unique), masse en saisie libre.
+11 relecture v1 : les six photos du gel d'avant la refonte et une saisie libre. 12 sélecteur. 13 pureté (sources ;
+sous-processus sans streamlit, pandas, reportlab, matplotlib, scipy, PIL, fitz, sous 3.12 et 3.13, résultats identiques).
+14 **28 mutations** rechargées depuis les sources (ρ₃ sans Yj, pivot, N en B, nette sans trous, L_eff, dx oublié,
+M_angle, u_V, M de l'équilibre sans le terme R·(e/2 − u_V), t(s), σ_éq, τ, bras, ELU, enveloppe inversée, maximum
+grossier, garde muette, gouvernant, verdict, refus, défaut, tri, optimal, v1, diagrammes, positions, nuance, contact)
+toutes rejetées, 1 à 9 reproches chacune ; témoin (un commentaire) non rejeté.
 
-- les **ancrages** (non vérifiés dans l'écran : le site le dit, sans rien calculer de neuf) ;
-- la **flexion de la cornière entre fixations** (le « TODO » de l'écran : M = q·s²/8 n'est pas calculé) ;
-- la **position et le diamètre de la fixation** sur le dessin sont une convention de dessin (M6 à M20 selon l'aile),
-  sans effet sur le calcul ;
-- la note de calcul PDF (hors périmètre du site : le bouton est grisé).
+## 8 · Écarts et conventions notés pendant le lot (à lire avec les décisions)
 
-## 8 · Défauts constatés dans l'écran Streamlit (reproduits par le moteur, non corrigés)
+- **B, moment entre l'ancrage et l'angle** : les décisions écrivent R·(X′ − u_V) ; la statique de la partie au-dessus de
+  la coupe (« certain, sans hypothèse de pivot ») donne **R·(X′ − e/2)** autour de l'axe de l'aile, identique avec
+  u_V = e/2 (le défaut, le seul cas chiffré par l'analyse : 2,886 kN·m). Le moteur rend R·(X′ − e/2) ; le saut
+  R·(e/2 − u_V) à l'ancrage est le couple du cisaillement d'ancrage excentré, et la section nette regarde les deux faces.
+- **Maxima du congé en historique** : calculés (vue Contraintes, +1,45 % sur S3) mais hors verdict, pour que la méthode
+  historique rende le classeur exactement (88,8621 %, § 1 et § 3.2 des décisions) ; en équilibre ils entrent dans le
+  verdict (§ 3.3).
+- **Arrachement** (`C90`) : Y nominal en historique (P8 mot pour mot), l'ancrage le plus près du bord (Y + dy) en
+  équilibre.
+- **Nuances** : les décisions citent 235, 275, 355, 420, 460 ; les sources du site (`acier/flambement/normes.py`,
+  Tableau 3.1 ; `acier/donnees/bibliotheques.json`) n'ont pas S420 ; le moteur lit la première (f_y pour t ≤ 40 mm) et
+  admet 235, 275, 355, 460 — ajouter S420 se fait là, pas ici.
+- **Relecture v1** : « charges et ancrage aux défauts » poserait la charge hors des petites cornières (X = 75 sur une
+  L 45) et ferait refuser la note ; les défauts sont donc posés **dans les ailes** de la cornière relue, au rapport du
+  cas de contrôle (X, dx sur larg/120 ; Y, dy sur haut/120 ; d ramené au trou qui tient), l'avis disant qu'ils sont à
+  ressaisir. La L 120 redonne les défauts exacts. Le congé d'une saisie libre v1, inconnu du modèle lame, vaut 0.
+- **Masse en saisie libre** : calculée sans les arrondis de bout d'aile (+0,5 % sur la L 120×120×15), dite « calculée ».
 
-1. **Le modèle lame ignore la géométrie de la cornière** : A et B n'entrent pas dans le calcul, seule t compte ;
-   deux cornières de même épaisseur ont les mêmes taux, quelles que soient leurs ailes. L'écran ne contrôle pas non plus que
-   la charge tombe sur l'aile : avec e > B, il calcule comme si de rien n'était. Le moteur le **signale**
-   (avertissement `excentricite_hors_aile`, sans changer un chiffre).
-2. **NON CONSERVATIF — la vérification longitudinale répète la transversale** : M_long = V_loc·e sur un panneau de
-   largeur s donne σ_long = σ transversal (s se simplifie : `sigma_long_ELU` = `sigma_ELU`, U_long = U_ELU). La
-   flexion entre fixations, annoncée « TODO » dans le code, n'est pas calculée, et le modèle « par mètre courant »
-   suppose l'aile fixée tenue tout du long alors qu'elle ne l'est qu'aux fixations : **côté non sûr** dès que les
-   fixations sont espacées (q·s²/8 n'est vérifié nulle part, s ne change aucun taux). Voir l'encadré en tête.
-3. **τ_lim,ELS = 0,8 N/mm² par défaut** : un ordre de grandeur cent fois plus faible qu'un cisaillement admissible
-   d'acier (S235 : ≈ 90 N/mm² à l'ELS). Côté sûr, mais c'est ce critère qui gouverne la cornière neuve (62,5 %) et
-   qui écarte au sélecteur toute cornière de moins de 6,25 mm d'épaisseur pour 5 kN/m (τ = V/t ≤ 0,8). Probable confusion d'unité ou de grandeur.
-4. **Les bandeaux sont verts même quand ❌** : les verdicts ELS et ELU sont écrits dans `st.success` (vert), le
-   longitudinal dans `st.info` (bleu), quel que soit le résultat ; et le pourcentage est arrondi à l'unité
-   (`:.0f`) : 100,4 % s'affiche « 100% ❌ ». Le site colore selon le taux et le verdict, et arrondit sans changer
-   de bande (101 %). L'écran arrondit aussi « au pair » (format Python) : la cornière neuve, U_τ = 62,5 %, s'y lit
-   « 62% » ; le site arrondit au plus proche (63 %) et sa fenêtre de calcul écrit 62,5 %. Relevé à la relecture sur
-   24 cas rejoués (écran Streamlit face aux fragments du site) : aucun autre écart que ces arrondis d'un point.
-5. **La longueur d'influence L est dans la barre latérale** (`st.sidebar`), loin de la charge, et n'apparaît que
-   pour une charge ponctuelle ; sur téléphone elle est repliée.
-6. **La distance au bord du mur est demandée et jamais utilisée.**
-7. **La liste des cornières** (`ANGLES_STD`, 41 sections) est triée par ordre **alphabétique** : la section
-   proposée à l'ouverture est « 100x100x10 » (et non la plus petite) ; le commentaire « inégales et autres
-   tailles » est placé avant des cornières égales. Voir § 9 pour ses écarts au catalogue.
-8. Le code de l'écran porte des séquences `\(` `\)` dans des chaînes non brutes (LaTeX du markdown) : Python 3.12
-   émet `SyntaxWarning: invalid escape sequence` au chargement (une erreur dans une version future).
+## 9 · L'ancien modèle lame (07/11 – 10/11)
 
-9. **t ≥ A accepté** : une saisie libre 10 × 10 × 20 est calculée (seul t compte) ; ce n'est pas une cornière.
-10. **Débordement** : V, e ou s démesurés font tomber l'écran sur une `OverflowError` Python.
-
-Le site **refuse** ce que l'écran refuse (bornes de ses champs), avec un message, et les deux cas 9 et 10 (§ 2) ;
-aucune saisie n'est ramenée en silence.
-
-## 9 · La liste de l'écran face au catalogue `acier/profiles`
-
-Le site propose le catalogue de l'application (`acier/donnees/profiles.json`, EN 10056-1 : 233 cornières, familles
-L et LI), source unique des profilés, au lieu de la liste recopiée dans l'écran. Constat (le test exige qu'il soit
-écrit ici) :
-
-- **10 sections de la liste de l'écran sont absentes du catalogue** : `15x15x3`, `30x30x5`, `80x80x12`,
-  `40x20x4`, `40x25x4`, `50x30x5`, `60x40x6`, `70x50x6`, `80x40x6`, `80x60x7`. Elles restent calculables en
-  saisie libre (même t, donc mêmes taux : le modèle lame ne lit que t), sans masse.
-- **Les 31 autres** ont des masses supérieures de +1,7 à +2,5 % à celles du catalogue (100x100x10 : 15,32 kg/m à
-  l'écran, 15,04 kg/m au catalogue).
-- **`90x90x10` est fausse** : 18,54 kg/m à l'écran, 13,45 kg/m au catalogue (+38 %) — la masse d'une 120×120×10.
-
-La masse n'entre pas dans le calcul (elle n'est qu'affichée) : ces écarts ne changent aucun taux.
-
-## 10 · Le module du site (`api_web/corniere.py`, `api_web/dessin_corniere.py`)
-
-- **La note** : `{"version": 1, "cornieres": [<cornière du moteur>, …], "actif": 0}` ; ajouter (« Cornière n »,
-  le premier nom libre), copier (« (copie) »), ouvrir, supprimer (jamais la dernière) ; le résumé de la note est sa
-  cornière la plus chargée.
-- **Données** : 1 Cornière (nom, origine catalogue / saisie libre, désignation tapée relue au catalogue — « 80x80x8 »,
-  « L 80×80×8 », ailes dans un ordre ou dans l'autre —, fiche du catalogue ou trio A, B, t) ; 2 Charges (type, V,
-  L si ponctuelle, e, γ_ELU) ; 3 Ancrages (s, bord) ; 4 Critères (trio σ_lim,ELS, τ_lim,ELS, σ_eq,lim,ELU). Toute
-  saisie passe par `normaliser` du moteur : hors du domaine de l'écran, elle est refusée avec son message.
-- **Résultat** : verdict (taux gouvernant, comparaison « valeur ≤ limite »), ligne « Cornière » (sélecteur, ★ quand
-  une plus légère tient), groupes Transversal et Longitudinal (une ligne par vérification, colorée par `C.niveau`,
-  rouge dès qu'elle ne tient pas), avertissements titrés en gras (le grave — charge au-delà de l'aile — en tête, puis
-  « Côté non sûr » pour la vérification longitudinale et « Ancrages non vérifiés »), masse.
-- **Sélecteur** : les 233 cornières triées par masse, ✓ la retenue, ★ la plus légère qui tient et dont l'aile B
-  reçoit la charge ; une cornière qui tient mais dont l'aile B est plus courte que e est **grise** (l'en-tête et la
-  ligne disent pourquoi), une qui ne tient pas est rouge.
-- **Fenêtres de calcul** : transversal (efforts, section, contraintes ELS et ELU) et longitudinal (panneau, efforts,
-  contraintes, hypothèse provisoire) ; chaque ligne « symbole = expression = valeurs = résultat » est écrite à partir
-  des termes du moteur, et le test la réévalue : les valeurs écrites redonnent le résultat à l'arrondi près.
-- **Dessins** : quatre vues à l'échelle, reconstruites jusqu'à ce que leur texte se lise à 13 px dans la toile de
-  l'établi (626 × 682 px au format PC) ; aucun indice « _ » brut. Une vue qu'on ne sait pas dessiner (proportions
-  absurdes : s ou e de plusieurs kilomètres face à une aile de 20 mm) est remplacée par un cadre « Dessin impossible à
-  cette échelle » ; le calcul est rendu normalement.
-- **Saisie** : les champs réécrivent la valeur saisie sans l'arrondir (6 décimales) ; un nom de plus de 60 caractères
-  est refusé ; une note dont l'indice de la cornière ouverte est abîmé s'ouvre sur la première.
-- **Vérification** : `tests/test_api_web_corniere.py` (68 contrôles, dont un **bout à bout** : l'écran Streamlit rejoué (faux `st`) face aux chiffres que le site AFFICHE, sur 7 cas — taux à ±1 point, contraintes à ½ unité affichée, rouge ⇔ ❌), le contrat commun
-  `tests/test_api_web_modules.py corniere` (17), et `site/web/verifier_site.js … module:corniere` (19, dans
-  Chromium, moteur dans le navigateur) ; les captures des quatre vues, des fenêtres, du sélecteur, de la saisie libre,
-  de la charge ponctuelle, de deux cornières et des formats tablette et téléphone ont été relues (aucun texte coupé,
-  aucun débordement mesuré, toutes sections ouvertes).
+Le premier moteur `acier/corniere` (07/11) reproduisait au bit près l'écran Streamlit `modules/corniere.py` : une bande
+d'acier de 1 m, M = V·e sur W = b·t²/6, sans congé, sans aile verticale, sans ancrage, et une vérification
+« longitudinale » qui répétait la transversale (défaut non conservatif, `docs/site/DEFAUTS_STREAMLIT.md`). L'analyse du
+classeur l'a mesuré : 120,65 % sur le cas de contrôle avec σ_lim = f_y/1,5 saisie, 184,22 % avec ses défauts. Il est
+**retiré** avec sa preuve de parité, remplacé par la méthode du classeur ; **l'écran Streamlit n'est plus reproduit par
+le site** (il reste tel quel dans l'application du bureau). Les notes enregistrées avec lui (version 1 : clés V, e, s,
+gamma_ELU, bord, sig_lim_*) se rouvrent : le nom et la cornière sont gardés, le reste est à ressaisir (§ 8).

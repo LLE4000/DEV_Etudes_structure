@@ -1,39 +1,58 @@
 # -*- coding: utf-8 -*-
-"""Moteur « Cornières » (acier/corniere) : la PARITÉ avec l'écran Streamlit modules/corniere.py, qui reste la
-référence. Chaque contrôle rougit si l'on retire ce qu'il protège.
+"""Moteur « Cornières » refondu (acier/corniere) : la méthode du classeur de l'ingénieur (feuille P8), les deux
+configurations, les deux modes, l'enveloppe des jeux — décisions docs/acier/CORNIERE_DECISIONS.md § 7. Chaque chiffre
+vient de l'analyse docs/acier/corniere_excel/ANALYSE_CORNIERE_EXCEL.md (sorties synthese/sorties/*.txt) ; chaque
+contrôle rougit si l'on retire ce qu'il protège (§ 14, mutations).
 
-  1. Données : les défauts et les bornes du moteur (entree.CHAMPS, la section proposée, le type de charge) sont LUS
-     dans l'écran lui-même — ses st.number_input, st.radio, st.toggle, st.selectbox, rejoués avec un faux « st ».
-  2. À la main : deux cornières recalculées ici, formules écrites en N et en mm.
-  3. Parité : l'écran est EXÉCUTÉ (show()) avec un faux « st » qui sert les saisies du cas et enregistre ce qui
-     s'affiche ; une trace (sys.settrace) relève TOUTES les variables locales de show() à son retour. On compare au
-     moteur, AU BIT PRÈS (égalité stricte des flottants) : chaque grandeur, chaque ✅ / ❌, et ce que l'écran écrit
-     (pourcentages, épaisseur, moments affichés). Une variable ajoutée à l'écran fait rougir le test tant qu'elle
-     n'est pas comparée. Les 41 sections de la liste de l'écran, la saisie libre, les charges linéaires et
-     ponctuelles, des tirages à graine fixe et des bornes exactes (≤ et non <).
-  4. Couverture : chaque verdict ✅ et ❌, chaque borne, chaque type de charge… est effectivement atteint.
-  5. Catalogue : la liste de l'écran (ANGLES_STD) face au catalogue acier/profiles — sections absentes, masses
-     différentes : le constat est ÉCRIT dans docs/acier/CORNIERE_MOTEUR.md, et le test exige qu'il y soit.
-  6. Sélecteur : chaque cornière du catalogue repassée par l'écran (saisie libre, même t) ; tri par masse, optimal.
-  7. Format : JSON strict, normalisation (défauts, ValueError hors du domaine de l'écran), formules recalculées à
-     partir de leurs seuls termes, grandeurs documentées.
-  8. Pureté : le moteur se charge et calcule dans un sous-processus où sys.meta_path REFUSE streamlit, pandas,
-     reportlab, matplotlib, scipy, PIL, fitz : seuls la bibliothèque standard et numpy (le catalogue) y sont chargés,
-     sous Python 3.12 et sous 3.13 (celui de Pyodide) s'il est installé — résultats identiques.
-  9. Mutations : le moteur rechargé depuis ses sources, modifié d'UNE ligne (formule, coefficient, unité, « ≤ »,
-     gouvernant, sélecteur, défaut, borne, refus), est rejeté par les contrôles ci-dessus ; un témoin ne l'est pas.
+  1. CAS DE CONTRÔLE (L120×120×15, S355, L = 300, R = 42,76 kN, X = 75, Y = 85, dx = dy = 0, jeu 10, R_ELU = 68,9) :
+     M1 = 2,009720, M2 = 2,565600, M3 = 2,358697, M4 = 2,896645 kN·m, 88,8621 % en section 3, N_ELS = V_ELS = 14,2533,
+     N_ELU = V_ELU = 22,9667 kN, pression diamétrale 59,389, arrachement 13,575 — à 1e-9 face aux formules de P8
+     recalculées ici, et aux chiffres de l'analyse à leur dernière décimale ; les cellules dans les formules.
+  2. P8 MOT POUR MOT : les 93 formules de l'annexe A, CODÉES TELLES QU'ELLES SONT ÉCRITES (cellules, unités cm du
+     classeur) et évaluées par un petit interpréteur indépendant du moteur, sur ≥ 200 saisies tirées au sort
+     (dx, dy, jeu, L, X, Y, R, R_ELU, e, r, f_y, coef, n, d) : dx = dy = 0 d'abord (une seule combinaison, P8 exactement,
+     cellule par cellule), puis avec des jeux (l'enveloppe = P8 à Xj = +dx, Yj = +dy pour les sections, à Xj = +dx
+     pour les ancrages, que Yj ne touche pas).
+  3. L'ENVELOPPE : une combinaison quand dx = dy = 0, trois, neuf ; aucune grandeur ne baisse quand dx ou dy croît
+     (balayage, A historique, A équilibre, B) ; la combinaison gouvernante est rendue et juste (ancrage HAUT pour S3
+     en A, ancrage BAS pour la traction, en B l'ancrage bas) ; les jeux du tableau § 2.2 (dx = 20 → 112,43 %, dy = 20 →
+     95,38 %, les deux → 120,69 %, jeu_ancrage = 20 → 16,446 kN, dy = −20 refusé) ; les diagrammes : les trois courbes
+     de moment sont celles des trois positions de la charge (statique recalculée ici) et l'enveloppe est leur maximum
+     point par point, l'enveloppe de σ_éq celle des neuf combinaisons.
+  4. ÉQUILIBRE A : P0 (pivot à l'arête, u_V = e/2) 76,91 %, H = 33,956 kN ; P1 (pivot e/2) 83,96 % ; Q1 (u_V = 0) 80,84 % ;
+     la comparaison des modes ; la GARDE (ancrage bas Y = 40 : avertissement rouge avec les deux chiffres ; Y = 85 : rien).
+  5. CONFIGURATION B : H = 82,47 kN, M3 = M4 = 2,886 kN·m constant de l'ancrage à l'angle, N = −R, taux 112,42 %,
+     section nette (3 Ø18) 137,1 % qui gouverne, Y = 45 → 38,48 kN, c = 10 → 115,45 kN, jeux (ancrage vers le bout
+     libre → traction ×1,4), mode imposé, pression sur le support.
+  6. AILES INÉGALES L150×100×12 (r = 12) : 150 horizontal, Y = 65 → taux 1 128,3 %, taux 3 131,1 %, traction 58,31 kN ;
+     100 horizontal, Y = 115 → 157,4 %, 30,54 kN.
+  7. LE MAXIMUM DU CONGÉ : S1 +2,11 % à 1,98 mm du pied, S3 +1,45 % à 1,66 mm ; en information en historique
+     (88,86 % reste le verdict), dans le verdict en équilibre (77,94 % en P0) ; jamais sous une grille fine indépendante.
+  8. L_eff : a = 100 → L_eff = 194, σ1 × 1,55, 117,2 % ; a vide → L.
+  9. FORMULES : chaque résultat se retrouve à partir de ses seuls termes (table des clés) ; les blocs portent leur
+     combinaison ; les cellules en historique.
+ 10. DOMAINE : les refus (charge dans l'angle, au-delà de l'aile, ancrage dans le congé, hors de l'aile, t ≥ aile,
+     nuance, coef, dy < 0…) avec message ; les bornes admises ; -0 ; idempotence ; JSON strict ; entrée intacte ;
+     les défauts du § 2 ; les nuances du site (source unique acier/flambement/normes).
+ 11. RELECTURE V1 : les vraies notes du gel d'avant la refonte (tests/reference_refonte/corniere.json au 10/11,
+     copiées ici) s'ouvrent : nom et section gardés, charge et ancrage posés dans les ailes, v1 vrai, avertissement.
+ 12. SÉLECTEUR : les 233 cornières triées par masse, chacune calculée avec les charges (taux = celui du calcul),
+     hors domaine avec la raison, optimal = la plus légère qui tient et dans le domaine, retenue, familles.
+ 13. PURETÉ : sources (bibliothèque standard, acier.profiles, acier.flambement.normes) ; sous-processus où sys.meta_path
+     REFUSE streamlit, pandas, reportlab, matplotlib, scipy, PIL, fitz — sous Python 3.12 et 3.13, résultats identiques.
+ 14. MUTATIONS : le moteur rechargé depuis ses sources, modifié d'UNE formule clé (ρ₃ sans dy, pivot, N en B, section
+     nette sans trous, L_eff, dx oublié, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, garde, gouvernant, verdict,
+     refus, défaut, sélecteur, v1, diagrammes, positions, nuance), est rejeté ; un témoin ne l'est pas.
 
-    /usr/bin/python3.12 tests/test_corniere_moteur.py       (streamlit requis pour la parité)
+    /usr/bin/python3.12 tests/test_corniere_moteur.py
 """
 import ast
 import copy
 import json
-import logging
 import math
 import os
 import random
 import re
-import shutil
 import subprocess
 import sys
 import types
@@ -44,628 +63,827 @@ sys.path.insert(0, RACINE)
 
 from acier.corniere import entree as E  # noqa: E402
 from acier.corniere import moteur as M  # noqa: E402
+from acier.corniere import statique as ST  # noqa: E402
 
 OK, KO = [], []
 
 
+def chk(nom, cond, info=""):
+    (OK if cond else KO).append((nom, info))
+    print(("  OK    " if cond else "  ECHEC ") + nom + (f"   [{str(info)[:700]}]" if info and not cond else ""))
+
+
+def pres(a, b, tol=1e-9):
+    """Égalité relative (tol), absolue sous 1."""
+    return a is not None and b is not None and abs(a - b) <= tol * max(1.0, abs(a), abs(b))
+
+
+def dec(a, b, nd):
+    """a écrit avec nd décimales vaut b (l'analyse cite ses chiffres arrondis)."""
+    return abs(a - b) <= 0.5 * 10 ** (-nd) + 1e-12
+
+
 def lire(*chemin):
-    f = os.path.join(RACINE, *chemin)
-    if not os.path.exists(f):
-        return ""
-    with open(f, encoding="utf-8") as fh:
+    with open(os.path.join(RACINE, *chemin), encoding="utf-8") as fh:
         return fh.read()
 
 
-def chk(nom, cond, info=""):
-    (OK if cond else KO).append((nom, info))
-    print(("  OK    " if cond else "  ECHEC ") + nom + (f"   [{str(info)[:600]}]" if info and not cond else ""))
+def V(res, cle):
+    return next(v for v in res["verifications"] if v["cle"] == cle)
 
 
-ECART = {"n": 0, "bit": 0}
+def formule(res, bloc, symbole):
+    b = next(x for x in res["calcul"] if x["cle"] == bloc)
+    return next(f for f in b["formules"] if f["symbole"] == symbole)
 
 
-def egal(a, b):
-    """Égalité STRICTE (au bit près pour les flottants) ; les booléens et les textes aussi."""
-    if isinstance(a, (int, float)) and isinstance(b, (int, float)) and not isinstance(a, bool) and not isinstance(b, bool):
-        ECART["n"] += 1
-        if a == b and math.copysign(1, a) == math.copysign(1, b):
-            ECART["bit"] += 1
-            return True
-        return False
-    return a == b and type(a) is type(b)
+# le cas de contrôle du classeur
+CAS = dict(M.nouvelle_corniere(), R=42.76, dx=0.0, dy=0.0, R_ELU=68.9)
 
 
-# ------------------------------------------------------------------ l'écran, rejoué
-# la liste de l'écran, relue dans SA source (une variable locale de show())
-ARBRE = ast.parse(lire("modules", "corniere.py"))
-TABLE = next(ast.literal_eval(n.value) for n in ast.walk(ARBRE)
-             if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", None) == "ANGLES_STD")
-
-try:
-    logging.disable(logging.WARNING)
-    import streamlit  # noqa: F401,E402 — l'écran l'importe
-    import modules.corniere as MC  # noqa: E402
-    import modules.navigation as NAV  # noqa: E402
-except ImportError as e:  # pragma: no cover — la parité EXIGE l'écran
-    MC = None
-    chk("streamlit et modules/corniere.py se chargent (indispensables à la parité)", False, e)
-
-L_STD = "Utiliser une cornière **standard**"
-L_SEC, L_TYPE = "Section", "Type de charge"
-L_A, L_B, L_T = "Largeur aile A (mm)", "Largeur aile B (mm)", "Épaisseur t (mm)"
-L_VLIN, L_VPON = "Effort tranchant V (kN/m)", "Effort tranchant V (kN)"
-L_E, L_G = "Excentricité e (cm) – distance charge/cornière", "Coefficient global (ELU)"
-L_S, L_BORD = "Espacement des fixations s (cm)", "Distance de l’âme au bord du mur (cm)"
-L_SIG, L_TAU, L_SIGU = "σ_lim, ELS (N/mm²)", "τ_lim, ELS (N/mm²)", "σ_eq lim, ELU (N/mm²)"
-L_L = "Longueur d’influence L pour charge ponctuelle (m)"
-RADIO = {"Linéaire (kN/m)": "lineaire", "Ponctuelle (kN)": "ponctuelle"}
-# champ du moteur → libellé du champ de l'écran (le V a deux libellés selon le type de charge)
-LIBELLE = {"A": L_A, "B": L_B, "t": L_T, "V": L_VLIN, "L": L_L, "e": L_E, "gamma_ELU": L_G, "s": L_S, "bord": L_BORD,
-           "sig_lim_ELS": L_SIG, "tau_lim_ELS": L_TAU, "sig_lim_ELU": L_SIGU}
-
-
-class Colonne:
-    def __init__(self, st):
-        self.st = st
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *a):
-        return False
-
-    def metric(self, label, value, *a, **k):
-        self.st.ev.append(("metric", label, value))
-
-    def write(self, *a, **k):
-        self.st.ev.append(("write",) + a)
+# ------------------------------------------------------------------ P8 : les 93 formules, telles qu'elles sont écrites
+P8 = {
+    "D3": "=MAX(I37,I47,I57,I67)",
+    "C4": "=IF($B$3=\"NON STANDARD\",K4,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,2,FALSE()))",
+    "C5": "=IF($B$3=\"NON STANDARD\",K5,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,3,FALSE()))",
+    "C6": "=IF($B$3=\"NON STANDARD\",K6,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,4,FALSE()))",
+    "C7": "=IF($B$3=\"NON STANDARD\",K7,VLOOKUP('P8 '!$B$3,CORNIERES!$A$2:$E$59,5,FALSE()))",
+    "C19": "=$C$13-$C$7-$C$6", "A20": "=C4-C13", "C20": "=$C$13-$C$6", "A21": "=C5-C16", "L22": "=3.7*0.19*1230",
+    "C23": "=$C$16-$C$6-$C$7", "C24": "=C16-$C$6", "C25": "=$C$16-$C$6/2",
+    "C31": "=$C$6", "F31": "=C35", "G31": "=F31*10^6/F32", "H31": "=C3/$C$10", "I31": "=G31/H31",
+    "C32": "=$C$8*10*C31^2/6", "F32": "=C32", "C33": "=$C$19", "C34": "=C14", "F34": "=$C$12",
+    "G34": "=($C$12)*1000/($C$8*10*$C$31)", "H34": "=C3/$C$10/SQRT(3)", "I34": "=G34/H34",
+    "C35": "=$C$12*(($C$33+$C$34)/1000)", "G37": "=(G31^2+3*G34^2)^0.5", "H37": "=C3/$C$10", "I37": "=G37/H37",
+    "C41": "=$C$6+$C$7", "F41": "=C45", "G41": "=F41*10^6/F42", "H41": "=$C$3/$C$10", "I41": "=G41/H41",
+    "C42": "=$C$8*10*C41^2/6", "F42": "=C42", "C43": "=$C$20", "C44": "=C14", "F44": "=$C$12",
+    "G44": "=(F44)*1000/(C8*10*C41)", "H44": "=$C$3/$C$10/SQRT(3)", "I44": "=G44/H44",
+    "C45": "=$C$12*(($C$43+$C$44)/1000)", "G47": "=(G41^2+3*G44^2)^0.5", "H47": "=$C$3/$C$10", "I47": "=G47/H47",
+    "C51": "=$C$6", "F51": "=C57", "G51": "=F51*10^6/F52", "H51": "=$C$3/$C$10", "I51": "=G51/H51",
+    "C52": "=$C$8*10*C51^2/6", "F52": "=C52", "C53": "=$C$13", "C54": "=C14", "F54": "=$C$12",
+    "G54": "=($F$54)*1000/($C$8*10*$C$51)", "H54": "=$C$3/$C$10/SQRT(3)", "I54": "=G54/H54",
+    "C55": "=($C$13+$C$14)/1000*$C$12", "C56": "=($C$23+$C$17)/($C$25+$C$17)", "C57": "=C56*C55",
+    "G57": "=(G51^2+3*G54^2)^0.5", "H57": "=$C$3/$C$10", "I57": "=G57/H57",
+    "C61": "=$C$6+$C$7", "F61": "=C65", "G61": "=F61*10^6/F62", "H61": "=$C$3/$C$10", "I61": "=G61/H61",
+    "C62": "=$C$8*10*C61^2/6", "F62": "=C62", "C63": "=($C$13+$C$14)/1000*$C$12", "C64": "=($C$24+$C$17)/($C$25+$C$17)",
+    "F64": "=$C$12", "G64": "=($F$64)*1000/($C$8*10*$C$61)", "H64": "=$C$3/$C$10/SQRT(3)", "I64": "=G64/H64",
+    "C65": "=C64*C63", "G67": "=(G61^2+3*G64^2)^0.5", "H67": "=$C$3/$C$10", "I67": "=G67/H67",
+    "C70": "=C12", "D73": "=C8", "C75": "=C16/10", "C78": "=($C$13+$C$14)/1000*$C$12",
+    "C82": "=C78/(C75*0.01-C76*0.01)/C73", "C83": "=C70/C73", "C85": "=(C71/C70)*C82", "C86": "=(C71/C70)*C83",
+    "C88": "=C83*10^3/(C74*C6)", "C90": "=C83*1000/(2*(C5-C16)*C6)",
+}
+assert len(P8) == 93
 
 
-class FauxSt:
-    """Un « st » qui SERT les saisies d'un cas (par libellé de champ) et ENREGISTRE ce que l'écran afficherait.
-    Les bornes des champs ne sont pas appliquées ici : le moteur les applique (normaliser), le test le vérifie."""
-    AFFICHAGES = ("header", "subheader", "divider", "caption", "info", "success", "markdown", "write", "warning", "error",
-                  "set_page_config")
-
-    def __init__(self, saisies):
-        self.saisies = dict(saisies)
-        self.ev, self.widgets = [], []
-        self.sidebar = self
-
-    def __getattr__(self, nom):
-        if nom in FauxSt.AFFICHAGES:
-            return lambda *a, **k: self.ev.append((nom,) + a)
-        raise AttributeError(nom)
-
-    def columns(self, spec, **_):
-        return [Colonne(self) for _ in range(spec if isinstance(spec, int) else len(spec))]
-
-    def button(self, *_, **__):
-        return False
-
-    def toggle(self, label, value=False, **_):
-        self.widgets.append(("toggle", label, value))
-        return self.saisies.get(label, value)
-
-    def selectbox(self, label, options, index=0, **_):
-        self.widgets.append(("selectbox", label, list(options), index))
-        return self.saisies.get(label, list(options)[index])
-
-    def radio(self, label, options, index=0, **_):
-        self.widgets.append(("radio", label, list(options), index))
-        return self.saisies.get(label, list(options)[index])
-
-    def number_input(self, label, min_value=None, max_value=None, value=None, step=None, **_):
-        self.widgets.append(("number_input", label, min_value, max_value, value, step))
-        return self.saisies.get(label, value)
-
-
-def ecran(saisies):
-    """show() exécuté avec un faux st : (ce qui s'affiche, les variables locales de show() à son retour)."""
-    faux, pris = FauxSt(saisies), {}
-    code = MC.show.__code__
-
-    def trace(frame, event, arg):
-        if event == "call":
-            return trace if frame.f_code is code else None
-        if event == "return" and frame.f_code is code:
-            pris.update(frame.f_locals)
-        return trace
-    vrai, vrai_nav = MC.st, NAV.st
-    MC.st, NAV.st = faux, faux
-    sys.settrace(trace)
-    try:
-        MC.show()
-    finally:
-        sys.settrace(None)
-        MC.st, NAV.st = vrai, vrai_nav
-    return faux, pris
-
-
-def saisies_de(c, cle_ecran=None):
-    """Les saisies de l'écran pour la cornière c (format du moteur). ``cle_ecran`` : la section de la liste de l'écran
-    à choisir (sinon : saisie libre avec les dimensions de la section du moteur)."""
-    sec = M.section(M.normaliser(c))
-    s = {L_STD: cle_ecran is not None, L_TYPE: {v: k for k, v in RADIO.items()}[c["charge"]]}
-    if cle_ecran is not None:
-        s[L_SEC] = cle_ecran
-    else:
-        s.update({L_A: sec["A"], L_B: sec["B"], L_T: sec["t"]})
-    s[L_VLIN if c["charge"] == "lineaire" else L_VPON] = c["V"]
-    s.update({L_E: c["e"], L_G: c["gamma_ELU"], L_S: c["s"], L_BORD: c["bord"], L_SIG: c["sig_lim_ELS"],
-              L_TAU: c["tau_lim_ELS"], L_SIGU: c["sig_lim_ELU"], L_L: c["L"]})
+def _traduire(fx):
+    """Une formule Excel → une expression Python (références → V("…"), IF, VLOOKUP, MAX, SQRT, ^)."""
+    s = fx[1:].replace("$", "").replace("'P8 '!", "")
+    s = re.sub(r"CORNIERES!([A-Z]+\d+):([A-Z]+\d+)", "CAT", s)
+    s = s.replace("FALSE()", "False")
+    s = re.sub(r"\b([A-Z]{1,2})(\d+)\b", r'V("\1\2")', s)
+    s = s.replace('")="', '")=="')
+    s = s.replace("^", "**")
+    s = s.replace("IF(", "IF_(").replace("VLOOKUP(", "VLOOKUP_(").replace("MAX(", "max(").replace("SQRT(", "SQRT_(")
     return s
 
 
-# ------------------------------------------------------------------ les cas, au format du moteur
-def corn(nom="C", profil=None, A=60.0, B=60.0, t=6.0, charge="lineaire", **k):
-    c = dict(M.nouvelle_corniere(), nom=nom, A=A, B=B, t=t, charge=charge)
-    c["standard"] = profil is not None
-    if profil:
-        c["profil"] = profil
-    c.update(k)
-    return M.normaliser(c)
+_EXPR = {cle: compile(_traduire(fx), cle, "eval") for cle, fx in P8.items()}
 
 
-def nom_catalogue(cle):
-    v = TABLE[cle]
-    return f"L {v['A']:g}x{v['B']:g}x{v['t']:g}"
+def p8(saisies):
+    """Toutes les cellules de P8 pour des saisies {cellule: valeur} (unités DU CLASSEUR : C8 et C76 en cm)."""
+    memo = {}
+
+    def V(ref):
+        if ref in saisies:
+            return saisies[ref]
+        if ref in memo:
+            return memo[ref]
+        if ref not in _EXPR:
+            raise KeyError(ref)
+        memo[ref] = eval(_EXPR[ref], env)
+        return memo[ref]
+
+    def IF_(c, a, b):
+        return a if c else b
+
+    def VLOOKUP_(*a):
+        return float("nan")                 # la branche jamais retenue (B3 = NON STANDARD : K4..K7) ; Python évalue les deux
+
+    env = {"V": V, "IF_": IF_, "VLOOKUP_": VLOOKUP_, "CAT": None, "SQRT_": math.sqrt, "max": max, "__builtins__": {}}
+    cellules = {cle: V(cle) for cle in P8}
+    cellules.update({k: v for k, v in saisies.items() if isinstance(v, (int, float))})
+    return cellules
 
 
-CAT = {p["nom"] for p in M.cornieres()}
-CAS = []      # (description, cornière du moteur, section de la liste de l'écran ou None)
-CAS.append(("défauts de l'écran (nouvelle_corniere)", M.nouvelle_corniere(), "100x100x10"))
-for cle in TABLE:   # chaque section de la liste de l'écran : au catalogue (même A, B, t) ou en saisie libre
-    v = TABLE[cle]
-    if nom_catalogue(cle) in CAT:
-        CAS.append((f"liste de l'écran {cle} = catalogue {nom_catalogue(cle)}", corn(cle, nom_catalogue(cle), V=12.0, e=4.0), cle))
-    else:
-        CAS.append((f"liste de l'écran {cle} (absente du catalogue) = saisie libre", corn(cle, None, v["A"], v["B"], v["t"], V=12.0, e=4.0), cle))
-CAS += [
-    ("saisie libre 60 × 60 × 6 (défauts de la saisie)", corn("S", None), None),
-    ("saisie libre 150 × 90 × 7,5, charge forte", corn("S2", None, 150, 90, 7.5, V=40.0, e=6.5), None),
-    ("saisie libre t = 2 mm (borne basse)", corn("S3", None, 30, 30, 2.0, V=1.0, e=1.0), None),
-    ("saisie libre t = 20 mm (borne haute)", corn("S4", None, 300, 300, 20.0, V=150.0, e=12.0), None),
-    ("ponctuelle 8 kN sur L = 0,6 m, catalogue L 80x80x8", corn("P1", "L 80x80x8", charge="ponctuelle", V=8.0, L=0.6), None),
-    ("ponctuelle sur L = 0,1 m (borne basse)", corn("P2", "L 60x60x6", charge="ponctuelle", V=2.0, L=0.1, e=3.0), None),
-    ("ponctuelle sur L = 5 m (borne haute)", corn("P3", None, 70, 70, 7.0, charge="ponctuelle", V=60.0, L=5.0, e=5.0), None),
-    ("V = 0 : tout est nul", corn("V0", "L 50x50x5", V=0.0), None),
-    ("e = 0 : cisaillement seul", corn("E0", "L 50x50x5", e=0.0, V=3.0), None),
-    ("γ_ELU = 1 (borne basse)", corn("G1", "L 70x70x7", gamma_ELU=1.0, V=20.0, e=5.0), None),
-    ("γ_ELU = 1,5", corn("G15", "L 70x70x7", gamma_ELU=1.5, V=20.0, e=5.0), None),
-    ("s = 10 cm (borne basse), ailes inégales L 100x65x8", corn("S10", "L 100x65x8", s=10.0, V=15.0, e=4.5), None),
-    ("s = 150 cm, L 150x100x12", corn("S150", "L 150x100x12", s=150.0, V=30.0, e=7.0), None),
-    ("ELS non conforme par σ seulement (τ admis)", corn("NS", "L 40x40x4", V=3.0, e=12.0, tau_lim_ELS=5.0), None),
-    ("ELS non conforme par τ seulement (σ admis)", corn("NT", "L 40x40x4", V=4.0, e=0.5), None),
-    ("ELS non conforme par σ et par τ", corn("NST", "L 30x30x3", V=6.0, e=10.0), None),
-    ("ELS admis, ELU non conforme (σ_lim,ELS haut)", corn("NU", "L 50x50x6", V=6.0, e=10.0, sig_lim_ELS=400.0, tau_lim_ELS=5.0), None),
-    ("tout non conforme, grande excentricité", corn("NX", "L 60x60x6", V=25.0, e=20.0), None),
-    ("critères au minimum de l'écran (10 ; 0,1 ; 10)", corn("CM", "L 120x120x12", V=1.0, e=1.0, sig_lim_ELS=10.0, tau_lim_ELS=0.1, sig_lim_ELU=10.0), None),
-    ("critères Eurocode S355 (σ 355, τ 205, σ_eq 355)", corn("S355", "L 90x90x9", V=35.0, e=6.0, sig_lim_ELS=355.0, tau_lim_ELS=205.0, sig_lim_ELU=355.0), None),
-    ("distance au bord 0 et 25 cm (sans effet sur le calcul)", corn("BD", "L 80x80x10", bord=25.0), None),
-    ("valeurs non rondes (V = 7,35 ; e = 3,15 ; γ = 1,43 ; s = 27,5)", corn("NR", "L 75x75x8", V=7.35, e=3.15, gamma_ELU=1.43, s=27.5), None),
-    ("catalogue t = 25 mm (au-delà de la saisie libre de l'écran : même code, borne de champ contournée)",
-     corn("T25", "L 200x200x25", V=200.0, e=8.0), None),
-    ("catalogue t = 35 mm, la plus lourde", corn("T35", "L 250x250x35", V=300.0, e=10.0), None),
+def saisies_p8(c, sec, Xj, Yj):
+    """Les saisies du classeur pour une cornière du moteur (B3 = NON STANDARD, dimensions dans K4..K7)."""
+    jeu = c["jeu_ancrage"]
+    return {"B3": "NON STANDARD", "K4": sec["larg"], "K5": sec["haut"], "K6": sec["e"], "K7": sec["r"], "C3": c["fy"], "C8": c["L"] / 10,
+            "C10": c["coef"], "C12": c["R"], "C13": c["X"], "C14": Xj, "C16": c["Y"], "C17": Yj,
+            "C71": c["R_ELU"] if c["R_ELU"] is not None else 1.5 * c["R"], "C73": c["n"], "C74": c["d"], "C76": jeu / 10}
+
+
+# cellule de P8 ↔ grandeur du moteur (historique) ; S = section, V = verification, R = résultat
+CORRESPONDANCE = [
+    ("D3", lambda r: r["taux_max"]), ("C4", lambda r: r["section"]["larg"]), ("C5", lambda r: r["section"]["haut"]),
+    ("C6", lambda r: r["section"]["e"]), ("C7", lambda r: r["section"]["r"]),
+    ("C19", lambda r: formule(r, "S1", "Xe")["resultat"]), ("C20", lambda r: formule(r, "S2", "Xe+r")["resultat"]),
+    ("C23", lambda r: formule(r, "S3", "Ye")["resultat"]), ("C24", lambda r: formule(r, "S4", "Ye+r")["resultat"]),
+    ("C25", lambda r: formule(r, "S3", "YH")["resultat"]),
+    ("H31", lambda r: r["materiau"]["sigma_adm"]), ("H34", lambda r: r["materiau"]["tau_adm"]),
+    ("C55", lambda r: r["efforts"]["Mmax"]), ("C56", lambda r: formule(r, "S3", "ρ₃")["resultat"]), ("C64", lambda r: formule(r, "S4", "ρ₄")["resultat"]),
+    ("C78", lambda r: formule(r, "ancrages", "Mmax")["resultat"]),
+    ("C82", lambda r: r["ancrages"]["N_ELS"]), ("C83", lambda r: r["ancrages"]["V_ELS"]), ("C85", lambda r: r["ancrages"]["N_ELU"]),
+    ("C86", lambda r: r["ancrages"]["V_ELU"]), ("C88", lambda r: r["ancrages"]["pression_diametrale"]), ("C90", lambda r: r["ancrages"]["arrachement"]),
 ]
-# bornes EXACTES : la valeur égale la limite au flottant près ; ✅ attendu (≤ et non <)
-CAS += [
-    ("borne exacte τ_ELS = τ_lim,ELS = 0,8 (V = 8 kN/m, t = 10)", corn("BT", "L 100x100x10", V=8.0, e=1.0), None),
-]
-_g = M.calculer(10.0, 30.0, "lineaire", 1.0, 6.0, 1.35, 30.0, 155.0, 0.8, 186.0)
-CAS += [
-    ("borne exacte σ_eq,ELS = σ_lim,ELS (limite construite)", corn("BS", "L 100x100x10", V=30.0, e=6.0, sig_lim_ELS=_g["sigma_eq_ELS"], tau_lim_ELS=5.0), None),
-    ("borne exacte σ_eq,ELU = σ_eq,lim,ELU (limite construite)", corn("BU", "L 100x100x10", V=30.0, e=6.0, sig_lim_ELU=_g["sigma_eq_ELU"], tau_lim_ELS=5.0), None),
-]
+for _k, _l0, _M in (("S1", 31, "C35"), ("S2", 41, "C45"), ("S3", 51, "C57"), ("S4", 61, "C65")):
+    CORRESPONDANCE += [(f"C{_l0}", lambda r, k=_k: V(r, k)["t"]), (f"C{_l0 + 1}", lambda r, k=_k: V(r, k)["W"]),
+                       (_M, lambda r, k=_k: V(r, k)["M"]), (f"G{_l0}", lambda r, k=_k: V(r, k)["sigma"]),
+                       (f"I{_l0}", lambda r, k=_k: V(r, k)["taux_sigma"]), (f"G{_l0 + 3}", lambda r, k=_k: V(r, k)["tau"]),
+                       (f"I{_l0 + 3}", lambda r, k=_k: V(r, k)["taux_tau"]), (f"G{_l0 + 6}", lambda r, k=_k: V(r, k)["sigma_eq"]),
+                       (f"I{_l0 + 6}", lambda r, k=_k: V(r, k)["taux"])]
+COPIES = {"F31": "C35", "F32": "C32", "C33": "C19", "F41": "C45", "F42": "C42", "C43": "C20", "F51": "C57", "F52": "C52",
+          "F61": "C65", "F62": "C62", "C63": "C55", "C70": "C12", "C53": "C13", "F34": "C12", "F44": "C12", "F54": "C12", "F64": "C12",
+          "C34": "C14", "C44": "C14", "C54": "C14"}
 
 
-def aleatoire(rng, k):
-    """Une cornière tirée au sort (graine fixe) : catalogue ou saisie libre, charge, excentricité, critères."""
-    cat = rng.random() < 0.6
-    p = rng.choice(M.cornieres()) if cat else None
-    charge = rng.choice(("lineaire", "ponctuelle"))
-    t = round(rng.uniform(2.0, 20.0) * 2) / 2
-    A, B = round(rng.uniform(10, 300), 1), round(rng.uniform(10, 300), 1)
-    A, B = (max(A, 2 * t), max(B, 2 * t)) if t >= min(A, B) else (A, B)     # une cornière : ailes plus larges que t
-    return corn(f"Aléa {k}", p["nom"] if cat and p["t"] <= 20 else None, A, B, t,
-                charge, V=round(rng.uniform(0, 60), 2), L=round(rng.uniform(0.1, 5.0), 2), e=round(rng.uniform(0, 25), 2),
-                gamma_ELU=rng.choice((1.0, 1.35, 1.5, round(rng.uniform(1, 2), 2))), s=float(rng.choice(range(10, 121, 5))),
-                bord=round(rng.uniform(0, 20), 1), sig_lim_ELS=rng.choice((155.0, 160.0, 235.0)),
-                tau_lim_ELS=rng.choice((0.8, 2.5, 90.0, round(rng.uniform(0.1, 120), 2))), sig_lim_ELU=rng.choice((186.0, 235.0, 355.0)))
-
-
-RNG = random.Random(20261107)
-CAS += [(f"tirage {k:02d} (graine 20261107)", aleatoire(RNG, k), None) for k in range(1, 31)]
-
-# variable locale de show() ↔ grandeur du moteur
-CORRESPONDANCE = (
-    ("b_trans_mm", "b_trans"), ("t_mm", "t"), ("I_trans", "I_trans"), ("W_trans", "W_trans"), ("Az_trans", "Az_trans"),
-    ("V_ELS", "V_ELS"), ("V_ELU", "V_ELU"), ("e_m", "e_m"), ("M_ELS_Nmm", "M_ELS_Nmm"), ("M_ELU_Nmm", "M_ELU_Nmm"),
-    ("sigma_ELS", "sigma_ELS"), ("sigma_ELU", "sigma_ELU"), ("tau_ELS", "tau_ELS"), ("tau_ELU", "tau_ELU"),
-    ("sigma_eq_ELS", "sigma_eq_ELS"), ("sigma_eq_ELU", "sigma_eq_ELU"), ("b_long_mm", "b_long"), ("I_long", "I_long"),
-    ("W_long", "W_long"), ("Az_long", "Az_long"), ("Vloc_ELS", "Vloc_ELS"), ("Vloc_ELU", "Vloc_ELU"),
-    ("Mlong_ELS_kNm", "Mlong_ELS"), ("Mlong_ELU_kNm", "Mlong_ELU"), ("sigma_long_ELS", "sigma_long_ELS"),
-    ("sigma_long_ELU", "sigma_long_ELU"), ("tau_long_ELS", "tau_long_ELS"), ("tau_long_ELU", "tau_long_ELU"),
-    ("sigma_eq_long_ELS", "sigma_eq_long_ELS"), ("sigma_eq_long_ELU", "sigma_eq_long_ELU"),
-    ("U_sigma", "U_sigma"), ("U_tau", "U_tau"), ("U_ELU", "U_ELU"), ("U_long_ELU", "U_long_ELU"))
-# les entrées : variable de show() ↔ champ de la cornière normalisée
-ENTREES = (("V_char", "V"), ("e", "e"), ("gamma_ELU", "gamma_ELU"), ("s", "s"), ("edge", "bord"), ("sig_lim_ELS", "sig_lim_ELS"),
-           ("tau_lim_ELS", "tau_lim_ELS"), ("sig_lim_ELU", "sig_lim_ELU"))
-VERDICTS = (("ok_els", "els"), ("ok_elu", "elu"), ("ok_long", "long"))
-# ce que show() garde et qui n'est pas une grandeur : les colonnes, la liste, les aides, les choix des widgets
-HORS_CALCUL = {"left", "right", "c1", "c2", "c3", "navigation", "to_m", "to_mm", "ANGLES_STD", "use_std", "sel", "charge_type"}
-COMPAREES = {a for a, _ in CORRESPONDANCE} | {a for a, _ in ENTREES} | {a for a, _ in VERDICTS} | {"A", "B", "t", "kg_m", "V_unit", "L"}
-
-
-def comparer(c, cle_ecran, ev, loc, mod=None):
-    """La cornière c (moteur, ou ``mod`` : un mutant) contre l'écran : variables locales et affichage. Rend la liste
-    des écarts."""
-    ecarts = []
-    res = (mod or M).verifier(c)
-    g, sec = res["grandeurs"], res["section"]
-
-    def cmp(nom, a, b):
-        if not egal(a, b):
-            ecarts.append(f"{nom} : moteur {a!r} ≠ écran {b!r}")
-    for a, k in CORRESPONDANCE:
-        cmp(k, g[k], loc[a])
-    for a, k in ENTREES:
-        cmp(k, res["corniere"][k], float(loc[a]))
-    for a, k in VERDICTS:
-        cmp(f"verdict {k}", res["verdicts"][k], loc[a] == "✅")
-        cmp(f"grandeur {a}", g[a], loc[a] == "✅")
-    cmp("t (section)", float(sec["t"]), float(loc["t"]))
-    cmp("A (section)", float(sec["A"]), float(loc["A"]))
-    cmp("B (section)", float(sec["B"]), float(loc["B"]))
-    cmp("type de charge", "kN/m" if c["charge"] == "lineaire" else "kN", loc["V_unit"])
-    if c["charge"] == "ponctuelle":
-        cmp("L", c["L"], float(loc["L"]))
-    if not c["standard"] and cle_ecran is None:
-        cmp("masse en saisie libre (aucune, comme l'écran)", sec["masse"], loc["kg_m"])
-    cmp("M_ELS (kN·m/m) × 10⁶ = M_ELS_Nmm", g["M_ELS"] * 1e6, loc["M_ELS_Nmm"])
-    cmp("M_ELU (kN·m/m) × 10⁶ = M_ELU_Nmm", g["M_ELU"] * 1e6, loc["M_ELU_Nmm"])
-    # les variables de show() : toutes comparées (une nouvelle fait rougir)
-    autres = set(loc) - HORS_CALCUL - COMPAREES
-    if autres:
-        ecarts.append(f"variables de show() non comparées : {sorted(autres)}")
-    # l'affichage
-    succes = [e[1] for e in ev if e[0] == "success"]
-    infos = [e[1] for e in ev if e[0] == "info"]
-    v = {x["cle"]: x for x in res["verifications"]}
-    ico = {True: "✅", False: "❌"}
-    cmp("bandeau ELS", f"ELS : σ_eq/lim = {v['els_sigma']['taux'] * 100:.0f}% ; τ/lim = {v['els_tau']['taux'] * 100:.0f}%  {ico[res['verdicts']['els']]}",
-        succes[0] if succes else None)
-    cmp("bandeau ELU", f"ELU : σ_eq/lim = {v['elu']['taux'] * 100:.0f}%  {ico[res['verdicts']['elu']]}", succes[1] if len(succes) > 1 else None)
-    cmp("bandeau longitudinal", f"ELU (longitudinal) : σ_eq/lim = {v['long_elu']['taux'] * 100:.0f}% {ico[res['verdicts']['long']]}", infos[-1] if infos else None)
-    metr = {e[1]: e[2] for e in ev if e[0] == "metric"}
-    cmp("épaisseur affichée", f"{sec['t']:.1f} mm", metr.get("Épaisseur t"))
-    cmp("largeur de lame affichée", "1000 mm", metr.get("Largeur de lame b"))
-    md = "\n".join(e[1] for e in ev if e[0] == "markdown")
-    for txt in (f"M (ELS) = **{g['M_ELS']:.3f} kN·m/m**", f"M (ELU) = **{g['M_ELU']:.3f} kN·m/m**", f"V (ELU) = **{g['V_ELU']:.2f} kN/m**",
-                f"σ_eq(ELU)=**{g['sigma_eq_ELU']:.1f}**", f"V_loc(ELU)=**{g['Vloc_ELU']:.2f} kN**", f"σ_eq_long(ELU)=**{g['sigma_eq_long_ELU']:.1f}** N/mm²"):
-        if txt not in md:
-            ecarts.append(f"l'écran n'affiche pas « {txt} »")
-    return ecarts, res
-
-
-def faits(c, res, cle_ecran):
-    """Ce que le cas atteint (couverture), lu dans les sorties CONTRÔLÉES contre l'écran."""
-    out = {f"charge {c['charge']}", "catalogue" if c["standard"] else "saisie libre"}
-    out |= {f"verdict {k} {'✅' if x else '❌'}" for k, x in res["verdicts"].items()}
-    out |= {f"{v['cle']} {v['etat']}" for v in res["verifications"]}
-    if cle_ecran is not None:
-        out.add("liste de l'écran")
-    if res["section"]["famille"]:
-        out.add(f"famille {res['section']['famille']}")
-    g = res["grandeurs"]
-    if not res["verdicts"]["els"]:
-        out.add("ELS ❌ par " + "+".join(k for k, x in (("σ", g["sigma_eq_ELS"] > c["sig_lim_ELS"]), ("τ", g["tau_ELS"] > c["tau_lim_ELS"])) if x))
-    if c["V"] == 0:
-        out.add("V = 0")
-    if c["e"] == 0:
-        out.add("e = 0")
-    if res["section"]["t"] > 20:
-        out.add("t > 20 mm")
-    for v in res["verifications"]:
-        if v["taux"] == 1.0 and v["ok"]:
-            out.add(f"borne exacte {v['cle']}")
-    return out
-
-
-# ------------------------------------------------------------------ 1. données : défauts et bornes LUS dans l'écran
-print("=== 1. Données : les défauts et les bornes du moteur sont ceux de l'écran ===")
-if MC is not None:
-    ev0, loc0 = ecran({})
-    w0 = ecran({})[0].widgets
-    ev1, _ = ecran({L_STD: False, L_TYPE: "Ponctuelle (kN)"})
-    widgets = {w[1]: w for w in ev1.widgets}
-    widgets.update({w[1]: w for w in w0})
-    WIDGETS = widgets
-
-    def ecarts_bornes(E_):
-        """Les défauts et bornes du module d'entrée ``E_`` face aux st.number_input de l'écran, et la section proposée."""
-        out = []
-        for k, (defaut, mini, maxi, _u, _l) in E_.CHAMPS.items():
-            w = WIDGETS.get(LIBELLE[k])
-            if w is None or w[0] != "number_input":
-                out.append(f"{k} : champ « {LIBELLE[k]} » introuvable")
-            elif (w[4], w[2], w[3]) != (defaut, mini, maxi):
-                out.append(f"{k} : écran (défaut {w[4]}, min {w[2]}, max {w[3]}) ≠ moteur ({defaut}, {mini}, {maxi})")
-        sel_ = WIDGETS.get(L_SEC)
-        if sel_ is None or nom_catalogue(sel_[2][sel_[3]]) != E_.PROFIL_DEFAUT or E_.nouvelle_corniere()["profil"] != E_.PROFIL_DEFAUT:
-            out.append("section proposée à l'ouverture")
-        return out
-    bornes = ecarts_bornes(E)
-    chk(f"les {len(E.CHAMPS)} champs numériques : défaut, minimum et maximum du moteur = ceux des st.number_input de l'écran",
-        not bornes, bornes)
-    vpon = widgets.get(L_VPON)
-    chk("le V d'une charge ponctuelle a le même défaut et la même borne que celui d'une charge linéaire",
-        vpon is not None and (vpon[4], vpon[2], vpon[3]) == (E.CHAMPS["V"][0], E.CHAMPS["V"][1], E.CHAMPS["V"][2]), vpon)
-    radio = widgets.get(L_TYPE)
-    chk("le type de charge : les deux options de l'écran, linéaire par défaut",
-        radio is not None and [RADIO[x] for x in radio[2]] == list(E.CHARGES) and E.nouvelle_corniere()["charge"] == RADIO[radio[2][radio[3]]],
-        radio)
-    tog = widgets.get(L_STD)
-    sel = widgets.get(L_SEC)
-    chk("à l'ouverture : cornière standard, la première de la liste de l'écran (« 100x100x10 », tri alphabétique) = PROFIL_DEFAUT",
-        tog is not None and tog[2] is True and E.nouvelle_corniere()["standard"] is True and sel is not None
-        and sel[2] == sorted(TABLE) and nom_catalogue(sel[2][sel[3]]) == E.PROFIL_DEFAUT, (tog, sel and sel[2][:3]))
-    chk("la liste de l'écran relue dans sa source est celle qu'il propose (41 sections)", sel is not None and sorted(sel[2]) == sorted(TABLE) and len(TABLE) == 41)
-    ecarts, _ = comparer(M.nouvelle_corniere(), "100x100x10", ev0.ev, loc0)
-    chk("nouvelle_corniere() calculée = l'écran au premier affichage, au bit près", not ecarts, ecarts[:4])
-
-# ------------------------------------------------------------------ 2. à la main
-print("\n=== 2. Contrôles à la main (N et mm) ===")
-
-
-def proche(a, b, tol=1e-12):
-    return abs(a - b) <= tol * max(abs(a), abs(b), 1e-300)
-
-
-# H1 : L 100x100x10 (t = 10 mm), V = 5 kN/m, e = 2,3 cm, γ = 1,35 — bande de 1 000 mm
-r1 = M.verifier(M.nouvelle_corniere())["grandeurs"]
-W = 1000 * 10 ** 2 / 6                        # 16 666,7 mm³ par mètre
-M_els = 5.0 * 23.0                            # N·mm/mm = 5 N/mm × 23 mm → × 1000 mm : 115 000 N·mm
-sig = M_els * 1000 / W
-tau = 5.0 * 1000 / (1000 * 10)
-chk(f"H1 σ_ELS = V·e / (b·t²/6) = 115 000 / 16 667 = {sig:.3f} N/mm² ; τ_ELS = V/(b·t) = {tau:.3f} N/mm²",
-    proche(r1["sigma_ELS"], sig) and proche(r1["tau_ELS"], tau), (r1["sigma_ELS"], r1["tau_ELS"]))
-chk("H1 σ_eq,ELS = √(σ² + 3τ²) et U_τ = 0,5 / 0,8 = 62,5 % (le taux gouvernant de la cornière neuve)",
-    proche(r1["sigma_eq_ELS"], math.sqrt(sig ** 2 + 3 * tau ** 2)) and r1["U_tau"] == 0.625)
-sig_u, tau_u = 1.35 * sig, 1.35 * tau
-chk(f"H1 ELU : σ = {sig_u:.4f}, τ = {tau_u:.4f}, σ_eq / 186 = {math.sqrt(sig_u ** 2 + 3 * tau_u ** 2) / 186:.5f}",
-    proche(r1["U_ELU"], math.sqrt(sig_u ** 2 + 3 * tau_u ** 2) / 186))
-chk("H1 longitudinal : sur un panneau de s = 300 mm, V_loc = 1,5 kN et σ_long,ELU = σ_ELU (la largeur s se simplifie)",
-    proche(r1["Vloc_ELS"], 1.5) and proche(r1["sigma_long_ELU"], sig_u) and proche(r1["U_long_ELU"], r1["U_ELU"]))
-# H2 : charge ponctuelle 8 kN répartie sur 0,6 m, L 80x80x8, e = 2,3 cm
-r2 = M.verifier(corn("P", "L 80x80x8", charge="ponctuelle", V=8.0, L=0.6))["grandeurs"]
-q = 8.0 / 0.6                                  # kN/m = N/mm
-chk(f"H2 ponctuelle : V_ELS = 8 / 0,6 = {q:.4f} kN/m, V_ELU = 1,35 × 8 / 0,6, σ_ELS = q·e / (t²/6) = {q * 23 / (64 / 6):.3f} N/mm²",
-    proche(r2["V_ELS"], q) and proche(r2["V_ELU"], 1.35 * 8 / 0.6) and proche(r2["sigma_ELS"], q * 23 / (8 ** 2 / 6)), r2["sigma_ELS"])
-
-# ------------------------------------------------------------------ 3. parité
-COUV = set()
-ECRANS = []        # (cornière, section de la liste, affichage, variables de show()) : l'écran rejoué, gardé pour les mutants
-SELECTEUR_ECRAN = {}   # cornière du catalogue → (taux, ok) de l'écran, cornière neuve (défauts)
-if MC is not None:
-    print("\n=== 3. Parité avec modules/corniere.py, cas par cas (calcul + affichage), au bit près ===")
-    _, loc = ecran({})
-    rendues = set(loc) - HORS_CALCUL
-    chk(f"chacune des {len(rendues)} variables de show() (hors colonnes et widgets) est comparée au moteur",
-        rendues <= COMPAREES and COMPAREES - rendues <= {"L"}, sorted(rendues ^ COMPAREES))
-    for k, (desc, c, cle_ecran) in enumerate(CAS):
-        ev, loc = ecran(saisies_de(c, cle_ecran))
-        ECRANS.append((c, cle_ecran, ev.ev, loc))
-        ecarts, res = comparer(c, cle_ecran, ev.ev, loc)
-        COUV |= faits(c, res, cle_ecran)
-        chk(f"cas {k + 1:02d} · {desc}", not ecarts, ecarts[:4])
-    chk(f"{len(CAS)} cornières comparées : au moins 80", len(CAS) >= 80, len(CAS))
-    print(f"     {ECART['n']} comparaisons numériques : {ECART['bit']} identiques au bit près")
-    chk("toutes les comparaisons numériques sont identiques AU BIT PRÈS (c'est le même calcul)", ECART["n"] == ECART["bit"] and ECART["n"] > 4000,
-        (ECART["n"], ECART["bit"]))
-
-    print("\n=== 4. Couverture : ce que les cas atteignent réellement ===")
-    ATTENDUS = (["charge lineaire", "charge ponctuelle", "catalogue", "saisie libre", "liste de l'écran", "famille L", "famille LI",
-                 "V = 0", "e = 0", "t > 20 mm", "ELS ❌ par σ", "ELS ❌ par τ", "ELS ❌ par σ+τ"]
-                + [f"verdict {k} {x}" for k in ("els", "elu", "long") for x in ("✅", "❌")]
-                + [f"{k} {e}" for k in ("els_sigma", "els_tau", "elu", "long_elu") for e in ("ok", "nok")]
-                + ["borne exacte els_tau", "borne exacte els_sigma", "borne exacte elu"])
-    manque = [a for a in ATTENDUS if a not in COUV]
-    chk(f"les cas atteignent les {len(ATTENDUS)} situations attendues (verdicts, charges, bornes exactes…)", not manque, manque)
-
-# ------------------------------------------------------------------ 5. la liste de l'écran face au catalogue
-print("\n=== 5. La liste de l'écran (ANGLES_STD) face au catalogue acier/profiles ===")
-absentes = [k for k in TABLE if nom_catalogue(k) not in CAT]
-ecarts_masse = {k: TABLE[k]["kg_m"] / M.section_catalogue(nom_catalogue(k))["masse"] - 1 for k in TABLE if nom_catalogue(k) in CAT}
-fausses = sorted(k for k, x in ecarts_masse.items() if abs(x) > 0.05)
-doc = lire("docs", "acier", "CORNIERE_MOTEUR.md")
-chk(f"{len(absentes)} sections de la liste de l'écran sont absentes du catalogue, toutes nommées dans la doc ({', '.join(absentes)})",
-    all(f"`{k}`" in doc for k in absentes) and len(absentes) == 10, [k for k in absentes if f"`{k}`" not in doc])
-chk(f"masses de la liste de l'écran : {len(ecarts_masse)} présentes au catalogue, écart courant +1,7 à +2,4 % ; "
-    f"fausse(s) de plus de 5 % : {fausses} — écrite(s) dans la doc",
-    fausses == ["90x90x10"] and "18,54" in doc and all(-0.001 < x < 0.025 for k, x in ecarts_masse.items() if k not in fausses),
-    {k: round(x, 4) for k, x in ecarts_masse.items()})
-chk("toutes les sections de la liste de l'écran ont t ≤ 20 mm et A, B dans les bornes de la saisie libre (10 à 300 mm)",
-    all(2 <= v["t"] <= 20 and 10 <= v["A"] <= 300 and 10 <= v["B"] <= 300 for v in TABLE.values()))
-
-# ------------------------------------------------------------------ 6. sélecteur
-print("\n=== 6. Sélecteur : chaque cornière du catalogue repassée par l'écran ===")
-for desc, c in (("défauts", M.nouvelle_corniere()), ("ponctuelle forte, S355", corn("X", "L 60x60x6", charge="ponctuelle", V=30.0, L=0.5, e=6.0,
-                                                                                         sig_lim_ELS=355.0, tau_lim_ELS=205.0, sig_lim_ELU=355.0))):
-    cands = M.candidats(c)
-    ecarts = []
-    if MC is not None:
-        for x in cands:
-            s = saisies_de(c)                       # l'écran en saisie libre, aux dimensions de la cornière candidate
-            s.update({L_A: x["A"], L_B: x["B"], L_T: x["t"]})
-            _, loc = ecran(s)
-            taux = max(loc["U_sigma"], loc["U_tau"], loc["U_ELU"], loc["U_long_ELU"])
-            ok = loc["ok_els"] == loc["ok_elu"] == loc["ok_long"] == "✅"
-            if desc == "défauts":
-                SELECTEUR_ECRAN[x["nom"]] = (taux, ok)
-            if not (egal(x["taux"], taux) and x["ok"] == ok):
-                ecarts.append(f"{x['nom']} : {x['taux']!r}/{x['ok']} ≠ {taux!r}/{ok}")
-    masses = [x["masse"] for x in cands]
-    premier = next((x for x in cands if x["ok"] and x["B"] >= c["e"] * 10.0), None)
-    marques = (sum(x["optimal"] for x in cands) == (premier is not None) and (premier is None or premier["optimal"])
-               and all(x["aile"] == (x["B"] >= c["e"] * 10.0) for x in cands)
-               and [x["nom"] for x in cands if x["retenue"]] == ([c["profil"]] if c["standard"] else []))
-    chk(f"sélecteur ({desc}) : {len(cands)} cornières L et LI triées par masse, taux et verdicts = l'écran ; "
-        f"la plus légère qui tient = {premier and premier['nom']}",
-        not ecarts and masses == sorted(masses) and len(cands) == len(M.cornieres()) and marques and
-        {x["famille"] for x in cands} == {"L", "LI"}, (ecarts[:3], marques))
-C_HORS = corn("H", "L 100x100x10", e=8.0)          # e = 80 mm : les petites cornières qui « tiennent » ont B < 80 mm
-CANDS_HORS = M.candidats(C_HORS)
-leg = next(x for x in CANDS_HORS if x["ok"])
-opt_h = M.optimal(C_HORS)
-chk(f"e = 80 mm : la plus légère qui tient à l'écran ({leg['nom']}, B = {leg['B']:g} mm) n'est PAS proposée, la charge tomberait "
-    f"au-delà de son aile ; l'optimal est {opt_h and opt_h['nom']} (B ≥ e)",
-    leg["B"] < 80 and not leg["optimal"] and not leg["aile"] and opt_h is not None and opt_h["B"] >= 80 and opt_h["ok"]
-    and all(not (x["ok"] and x["aile"]) for x in CANDS_HORS[:CANDS_HORS.index(opt_h)]), (leg["nom"], opt_h and opt_h["nom"]))
-chk("candidats(familles=['LI']) : les seules cornières à ailes inégales",
-    {x["famille"] for x in M.candidats(M.nouvelle_corniere(), ["LI"])} == {"LI"})
-chk("aucune cornière ne tient : aucun optimal (V = 500 kN/m, e = 25 cm)",
-    not any(x["optimal"] for x in M.candidats(corn("Z", "L 60x60x6", V=500.0, e=25.0))) and M.optimal(corn("Z", "L 60x60x6", V=500.0, e=25.0)) is None)
-
-# ------------------------------------------------------------------ 7. format
-print("\n=== 7. Format : JSON, normalisation, domaine de l'écran, formules ===")
-tous = [M.verifier(c) for _, c, _ in CAS]
-chk("la sortie de verifier() est du JSON strict (sans NaN) et se relit à l'identique",
-    all(json.loads(json.dumps(r, allow_nan=False)) == r for r in tous))
-chk("« -0 » est relu 0 (le champ n'écrit jamais « -0 »)", math.copysign(1, M.normaliser({"V": -0.0})["V"]) == 1.0)
-chk("normaliser() est idempotente et {} donne nouvelle_corniere()",
-    all(M.normaliser(M.normaliser(c)) == M.normaliser(c) for _, c, _ in CAS) and M.normaliser({}) == M.nouvelle_corniere())
-entree = copy.deepcopy(CAS[5][1])
-M.verifier(entree)
-M.candidats(entree)
-chk("verifier() et candidats() ne modifient pas la cornière reçue", entree == CAS[5][1])
-chk("les libellés de l'écran pour le type de charge sont admis (même sens)",
-    M.normaliser({"charge": "Ponctuelle (kN)"})["charge"] == "ponctuelle" and M.normaliser({"charge": "Linéaire (kN/m)"})["charge"] == "lineaire")
-REFUS = (("aile A 9,9 mm", {"A": 9.9}), ("aile B 300,5 mm", {"B": 300.5}), ("t 1,9 mm", {"t": 1.9}), ("t 20,5 mm", {"t": 20.5}),
-         ("V négatif", {"V": -0.1}), ("L 0,05 m", {"L": 0.05}), ("L 5,1 m", {"L": 5.1}), ("e négative", {"e": -0.1}),
-         ("γ 0,99", {"gamma_ELU": 0.99}), ("s 9,9 cm", {"s": 9.9}), ("bord négatif", {"bord": -1}), ("σ_lim,ELS 9,9", {"sig_lim_ELS": 9.9}),
-         ("τ_lim,ELS 0,09", {"tau_lim_ELS": 0.09}), ("σ_eq,lim,ELU 9", {"sig_lim_ELU": 9}), ("V en texte", {"V": "5"}),
-         ("t booléen", {"t": True}), ("e infinie", {"e": float("inf")}), ("s indéterminé", {"s": float("nan")}), ("clé inconnue", {"epaisseur": 6}),
-         ("profil inconnu", {"profil": "L 99x99x9"}), ("profil qui n'est pas une cornière", {"profil": "IPE 200"}),
-         ("type de charge « répartie »", {"charge": "repartie"}), ("standard « oui »", {"standard": "oui"}), ("nom numérique", {"nom": 3}),
-         ("épaisseur ≥ aile A (saisie libre)", {"standard": False, "A": 12, "t": 12}),
-         ("épaisseur ≥ aile B", {"standard": False, "B": 15, "t": 16}),
-         ("calcul qui déborde (V = 1e200)", {"V": 1e200}), ("calcul qui déborde (e = 1e300)", {"e": 1e300}),
-         ("panneau sans fin (s = 1e308)", {"s": 1e308}), ("γ = 1e308", {"gamma_ELU": 1e308}))
-
-
-def refus_manques(M_):
-    """Les saisies hors du domaine que le moteur ``M_`` n'a PAS refusées par un ValueError."""
+def ecarts_p8(mod, c, Xj, Yj, tol=1e-9):
+    """Le moteur ``mod`` (historique, enveloppe) face à P8 évalué à (Xj, Yj) : la liste des cellules qui diffèrent."""
+    r = mod.calculer(c, diagrammes=False, annexes=False)
+    cel = p8(saisies_p8(r["corniere"], r["section"], Xj, Yj))
     out = []
-    for nom, champ in REFUS:
+    for ref, lecteur in CORRESPONDANCE:
+        if ref == "C90" and lecteur(r) is None:
+            continue
+        if not pres(lecteur(r), cel[ref], tol):
+            out.append(f"{ref} : moteur {lecteur(r)!r} ≠ P8 {cel[ref]!r}")
+    return out, cel
+
+
+# ------------------------------------------------------------------ 1. le cas de contrôle
+print("=== 1. Cas de contrôle du classeur (A, historique, dx = dy = 0) ===")
+R0 = M.verifier(CAS)
+S = {k: V(R0, k) for k in ("S1", "S2", "S3", "S4")}
+ecarts, CEL0 = ecarts_p8(M, CAS, 0.0, 0.0)
+chk(f"les {len(CORRESPONDANCE)} cellules de P8 qui ont une grandeur dans le moteur : égales à 1e-9 (interpréteur indépendant)", not ecarts, ecarts[:4])
+chk("toutes les 93 formules sont évaluées à un nombre, les copies sont des copies, L22 = 864,69",
+    all(isinstance(CEL0[k], (int, float)) and math.isfinite(CEL0[k]) for k in P8) and all(CEL0[a] == CEL0[b] for a, b in COPIES.items())
+    and pres(CEL0["L22"], 864.69, 1e-12) and CEL0["C33"] == CEL0["C19"] and CEL0["C63"] == CEL0["C78"] == CEL0["C55"])
+chk("M1 = 2,009720 ; M2 = 2,565600 ; M3 = 2,358697 ; M4 = 2,896645 kN·m (six décimales de l'analyse)",
+    dec(S["S1"]["M"], 2.009720, 6) and dec(S["S2"]["M"], 2.565600, 6) and dec(S["S3"]["M"], 2.358697, 6) and dec(S["S4"]["M"], 2.896645, 6),
+    [S[k]["M"] for k in S])
+chk("taux 75,8021 / 27,9043 / 88,8621 / 31,4443 % ; taux_max = 88,8621 % en section 3 (statut ok)",
+    dec(100 * S["S1"]["taux"], 75.8021, 4) and dec(100 * S["S2"]["taux"], 27.9043, 4) and dec(100 * S["S3"]["taux"], 88.8621, 4)
+    and dec(100 * S["S4"]["taux"], 31.4443, 4) and dec(100 * R0["taux_max"], 88.8621, 4) and R0["gouvernant"]["cle"] == "S3" and R0["statut"] == "ok",
+    (100 * R0["taux_max"], R0["gouvernant"]))
+chk("σ₁ = 178,642 ; τ₁ = 9,502 ; σ_éq,1 = 179,398 ; σ₃ = 209,662 ; σ_éq,3 = 210,307 N/mm² ; σ_adm = 236,667 ; τ_adm = 136,640",
+    dec(S["S1"]["sigma"], 178.642, 3) and dec(S["S1"]["tau"], 9.502, 3) and dec(S["S1"]["sigma_eq"], 179.398, 3) and dec(S["S3"]["sigma"], 209.662, 3)
+    and dec(S["S3"]["sigma_eq"], 210.307, 3) and dec(R0["materiau"]["sigma_adm"], 236.667, 3) and dec(R0["materiau"]["tau_adm"], 136.640, 3))
+A0 = R0["ancrages"]
+chk("ancrages : N_ELS = V_ELS = 14,2533 kN ; N_ELU = V_ELU = 22,9667 kN (R_ELU = 68,9 : rapport 1,61132) ; z = 50, 150, 250 mm",
+    dec(A0["N_ELS"], 14.2533, 4) and dec(A0["V_ELS"], 14.2533, 4) and dec(A0["N_ELU"], 22.9667, 4) and dec(A0["V_ELU"], 22.9667, 4)
+    and dec(A0["rapport_ELU"], 1.61132, 5) and A0["positions_z"] == [50.0, 150.0, 250.0] and A0["bras"] == 75.0, A0)
+chk("information : pression diamétrale 59,389 N/mm², arrachement 13,575 N/mm² (sans limite), compression du mur 42,760 kN",
+    dec(A0["pression_diametrale"], 59.389, 3) and dec(A0["arrachement"], 13.575, 3) and dec(A0["compression_mur"], 42.760, 3)
+    and {i["cle"] for i in R0["informations"]} >= {"pression_diametrale", "arrachement", "compression_mur", "autre_mode"})
+chk("H_sections = Mmax/YH = 41,381 kN ; Mmax = 3,2070 kN·m ; ρ₃ = 0,73548 ; ρ₄ = 0,90323",
+    dec(R0["efforts"]["H_sections"], 41.381, 3) and dec(R0["efforts"]["Mmax"], 3.2070, 4) and dec(CEL0["C56"], 0.73548, 5) and dec(CEL0["C64"], 0.90323, 5))
+cellules = {f["cellule"] for b in R0["calcul"] for f in b["formules"] if f.get("cellule")}
+chk("les cellules du classeur sont nommées dans les formules du mode historique (C19, C20, C23, C24, C25, C35, C45, C55, C56, C57, C64, C65, "
+    "I37…I67, C82, C83, C85, C86, C88, C90, H31, H34)",
+    {"C19", "C20", "C23", "C24", "C25", "C35", "C45", "C55", "C56", "C57", "C64", "C65", "I37", "I47", "I57", "I67", "C82", "C83", "C85", "C86",
+     "C88", "C90", "H31", "H34", "C32", "G31", "G34", "G37", "I31", "I34"} <= cellules, sorted(cellules))
+chk("une seule combinaison (dx = dy = 0) : « charge à X, ancrage à Y », nominale", len(R0["combinaisons"]) == 1
+    and R0["combinaisons"][0]["libelle"] == "charge à X, ancrage à Y" and R0["combinaisons"][0]["position_ancrage"] == "nominal")
+chk("mode historique, configuration A, S355, coef 1,5 ; hypothèses dites (contraintes admissibles, P8, sans jeu)",
+    R0["mode"] == "historique" and R0["configuration"] == "A" and R0["materiau"]["nuance"] == "S355"
+    and any("contraintes admissibles" in h for h in R0["hypotheses"]) and any("P8" in h for h in R0["hypotheses"]) and any("Sans jeu" in h for h in R0["hypotheses"]))
+
+
+# ------------------------------------------------------------------ 2. P8 sur des saisies au sort
+print("\n=== 2. P8 mot pour mot : ≥ 200 saisies tirées au sort ===")
+FY = list(E.FY_ADMIS)
+
+
+def saisie_au_sort(rng, k, avec_jeux):
+    """Une cornière dans le domaine : saisie libre (ailes, e, r) ou catalogue, charges et ancrage tirés au sort."""
+    for _ in range(200):
+        if rng.random() < 0.5:
+            p = rng.choice(M.cornieres())
+            base = dict(standard=True, profil=p["nom"], aile_horizontale=rng.choice(("A", "B")))
+            larg, haut = (p["h"], p["b"]) if base["aile_horizontale"] == "A" else (p["b"], p["h"])
+            e, r = p["t"], p.get("r1") or 0.0
+        else:
+            e = round(rng.uniform(4.0, 25.0), 1)
+            r = round(rng.uniform(0.0, 1.4 * e), 1)
+            larg, haut = round(rng.uniform(3 * (e + r) + 20, 250), 0), round(rng.uniform(3 * (e + r) + 20, 250), 0)
+            base = dict(standard=False, A=larg, B=haut, t=e, r=r, aile_horizontale="A")
+        d = rng.choice((8.0, 10.0, 12.0, 16.0, 20.0))
+        dx = round(rng.uniform(0.0, 15.0), 1) if avec_jeux else 0.0
+        dy = round(rng.uniform(0.0, 10.0), 1) if avec_jeux else 0.0
+        X_lo, X_hi = e + r + dx + 1.0, larg - dx
+        Y_lo, Y_hi = e + r + (d + 2) / 2 + dy, haut - (d + 2) / 2 - dy
+        if X_hi <= X_lo or Y_hi <= Y_lo:
+            continue
+        R = round(rng.uniform(1.0, 150.0), 2)
+        L = round(rng.uniform(100.0, 600.0), 1)
+        n = rng.choice((1, 2, 3, 4, 5))
+        if n * (d + 2) >= L:
+            continue
+        Y = round(rng.uniform(Y_lo, Y_hi), 1)
+        c = dict(M.nouvelle_corniere(f"Tirage {k}"), **base, fy=rng.choice(FY), coef=round(rng.uniform(1.0, 2.0), 2), R=R, L=L,
+                 X=round(rng.uniform(X_lo, X_hi), 1), dx=dx, R_ELU=round(rng.uniform(R, 2 * R), 2), Y=Y, dy=dy, n=n, d=d,
+                 jeu_ancrage=0.0 if k % 10 == 0 else round(rng.uniform(0.0, max(0.0, Y - 5.0)), 1), mode="historique", configuration="A")
         try:
-            M_.verifier(dict(M_.nouvelle_corniere(), **champ))
-            out.append(f"{nom} : accepté")
+            return M.normaliser(c)
         except ValueError:
-            pass
-        except Exception as e:  # noqa: BLE001 — une autre exception n'est pas un refus : c'est une panne
-            out.append(f"{nom} : {type(e).__name__} {e}")
+            continue
+    raise AssertionError("pas de saisie dans le domaine")
+
+
+RNG = random.Random(20261110)
+TIRAGES_SANS = [saisie_au_sort(RNG, k, False) for k in range(1, 111)]
+TIRAGES_AVEC = [saisie_au_sort(RNG, k, True) for k in range(111, 241)]
+fautes = []
+for c in TIRAGES_SANS:
+    ec, _ = ecarts_p8(M, c, 0.0, 0.0)
+    fautes += [f"{c['nom']} {x}" for x in ec[:1]]
+chk(f"{len(TIRAGES_SANS)} saisies sans jeu : chaque cellule de P8 (sections, ancrages, D3) = le moteur à 1e-9 (une seule combinaison)",
+    not fautes, fautes[:4])
+chk("ces saisies couvrent catalogue et saisie libre, les deux ailes horizontales, 1 à 5 ancrages, les quatre nuances, des jeux d'ancrage nuls",
+    {c["standard"] for c in TIRAGES_SANS} == {True, False} and {c["aile_horizontale"] for c in TIRAGES_SANS} == {"A", "B"}
+    and {c["n"] for c in TIRAGES_SANS} >= {1, 2, 3, 4, 5} and {c["fy"] for c in TIRAGES_SANS} == set(FY) and any(c["jeu_ancrage"] == 0 for c in TIRAGES_SANS))
+fautes = []
+for c in TIRAGES_AVEC:
+    ec, _ = ecarts_p8(M, c, c["dx"], c["dy"])
+    fautes += [f"{c['nom']} {x}" for x in ec[:1]]
+chk(f"{len(TIRAGES_AVEC)} saisies avec jeux (dx jusqu'à 15, dy jusqu'à 10) : l'enveloppe = P8 à Xj = +dx, Yj = +dy (sections), Xj = +dx (ancrages)",
+    not fautes and sum(1 for c in TIRAGES_AVEC if c["dx"] > 0 and c["dy"] > 0) >= 100, fautes[:4])
+chk(f"{len(TIRAGES_SANS) + len(TIRAGES_AVEC)} saisies en tout : au moins 200", len(TIRAGES_SANS) + len(TIRAGES_AVEC) >= 200)
+# avec jeux, l'ancrage de P8 ne lit pas Yj : l'enveloppe des ancrages ne change pas avec dy
+c = TIRAGES_AVEC[0]
+ra, rb = M.calculer(dict(c, dy=0.0), diagrammes=False), M.calculer(dict(c, dy=10.0), diagrammes=False)
+chk("les ancrages du classeur (C82…C90) ne lisent pas Yj : dy ne change ni N_ELS, ni V_ELS, ni la pression, ni l'arrachement en historique",
+    ra["ancrages"]["N_ELS"] == rb["ancrages"]["N_ELS"] and ra["ancrages"]["arrachement"] == rb["ancrages"]["arrachement"]
+    and ra["ancrages"]["pression_diametrale"] == rb["ancrages"]["pression_diametrale"])
+
+
+# ------------------------------------------------------------------ 3. l'enveloppe
+print("\n=== 3. L'enveloppe des neuf combinaisons ===")
+chk("combinaisons : 1 (dx = dy = 0), 3 (dx seul), 3 (dy seul), 9 (les deux), la nominale d'abord",
+    len(M.combinaisons(CAS)) == 1 and len(M.combinaisons(dict(CAS, dx=20.0))) == 3 and len(M.combinaisons(dict(CAS, dy=10.0))) == 3
+    and len(M.combinaisons(dict(CAS, dx=20.0, dy=10.0))) == 9 and M.combinaisons(dict(CAS, dx=20.0, dy=10.0))[0]["libelle"] == "charge à X, ancrage à Y")
+cb9 = M.combinaisons(dict(CAS, dx=20.0, dy=10.0))
+chk("chaque combinaison porte X′, Y′, son libellé et ses positions (A : Y + dy = ancrage HAUT ; charge X + dx = loin)",
+    {(x["jeu_charge"], x["jeu_ancrage"]) for x in cb9} == {(a, b) for a in (-20.0, 0.0, 20.0) for b in (-10.0, 0.0, 10.0)}
+    and all(x["X"] == 75 + x["jeu_charge"] and x["Y"] == 85 + x["jeu_ancrage"] for x in cb9)
+    and next(x for x in cb9 if x["jeu_charge"] == 20 and x["jeu_ancrage"] == 10)["libelle"] == "charge à X + 20, ancrage à Y + 10"
+    and next(x for x in cb9 if x["jeu_ancrage"] == 10)["position_ancrage"] == "haut" and next(x for x in cb9 if x["jeu_charge"] == 20)["position_charge"] == "loin")
+cbB = M.combinaisons(dict(CAS, configuration="B", dy=10.0))
+chk("en B, Y + dy est l'ancrage BAS (vers le bout libre) et Y − dy le haut", next(x for x in cbB if x["jeu_ancrage"] == 10)["position_ancrage"] == "bas"
+    and next(x for x in cbB if x["jeu_ancrage"] == -10)["position_ancrage"] == "haut")
+J = {lib: M.verifier(dict(CAS, **kw)) for lib, kw in (("dx20", dict(dx=20.0)), ("dy20", dict(dy=20.0)), ("dxdy20", dict(dx=20.0, dy=20.0)),
+                                                       ("jeu20", dict(jeu_ancrage=20.0)))}
+chk("jeux du § 2.2 : dx = 20 → 112,43 % (M1 2,86492, M3 2,98768, traction 18,054 kN) ; dy = 20 → 95,38 % (M3 2,53271, traction inchangée) ; "
+    "les deux → 120,69 % (M3 3,20810) ; jeu_ancrage = 20 → 16,446 kN (taux inchangé)",
+    dec(100 * J["dx20"]["taux_max"], 112.43, 2) and dec(V(J["dx20"], "S1")["M"], 2.86492, 5) and dec(V(J["dx20"], "S3")["M"], 2.98768, 5)
+    and dec(J["dx20"]["ancrages"]["N_ELS"], 18.054, 3)
+    and dec(100 * J["dy20"]["taux_max"], 95.38, 2) and dec(V(J["dy20"], "S3")["M"], 2.53271, 5) and dec(J["dy20"]["ancrages"]["N_ELS"], 14.253, 3)
+    and dec(100 * J["dxdy20"]["taux_max"], 120.69, 2) and dec(V(J["dxdy20"], "S3")["M"], 3.20810, 5)
+    and dec(J["jeu20"]["ancrages"]["N_ELS"], 16.446, 3) and dec(100 * J["jeu20"]["taux_max"], 88.86, 2),
+    {k: (100 * r["taux_max"], r["ancrages"]["N_ELS"]) for k, r in J.items()})
+chk("la combinaison gouvernante est rendue et juste : S3 → charge loin + ancrage HAUT ; S1 → charge loin, ancrage nominal (indifférent) ; "
+    "traction → charge loin, ancrage nominal (les ancrages du classeur ne lisent pas Yj)",
+    V(J["dxdy20"], "S3")["combinaison"]["libelle"] == "charge à X + 20, ancrage à Y + 20" and V(J["dxdy20"], "S3")["combinaison"]["position_ancrage"] == "haut"
+    and V(J["dxdy20"], "S1")["combinaison"]["libelle"] == "charge à X + 20, ancrage à Y"
+    and J["dxdy20"]["ancrages"]["combinaison_N"]["libelle"] == "charge à X + 20, ancrage à Y")
+try:
+    M.normaliser(dict(CAS, dy=-20.0))
+    chk("dy = −20 est refusé (dy ≥ 0 : le jeu joue dans les deux sens par l'enveloppe)", False)
+except ValueError as e:
+    chk("dy = −20 est refusé (dy ≥ 0 : le jeu joue dans les deux sens par l'enveloppe)", "dy" in str(e), e)
+
+
+def grandeurs(r):
+    """Les grandeurs vérifiées qui ne doivent pas baisser quand un jeu croît."""
+    g = {v["cle"]: v["taux"] for v in r["verifications"]}
+    g.update(N_ELS=r["ancrages"]["N_ELS"], H=r["ancrages"]["H"], Mmax=r["efforts"]["Mmax"], taux_max=r["taux_max"])
+    if r["efforts"]["M_angle"] is not None:
+        g["M_angle"] = r["efforts"]["M_angle"]
+    return g
+
+
+def balayage(base, cle, valeurs):
+    """Les grandeurs qui BAISSENT (au-delà de 1e-12) quand ``cle`` croît."""
+    prev, baisses = None, []
+    for x in valeurs:
+        g = grandeurs(M.calculer(dict(base, **{cle: x}), diagrammes=False, annexes=False))
+        if prev is not None:
+            baisses += [f"{cle} = {x} : {k} {prev[k]} → {g[k]}" for k in g if g[k] < prev[k] * (1 - 1e-12) - 1e-12]
+        prev = g
+    return baisses
+
+
+baisses = []
+for lib, base in (("A historique", CAS), ("A équilibre", dict(CAS, mode="equilibre")), ("B", dict(CAS, configuration="B")),
+                  ("A équilibre, u_V = 0, y_c = 5", dict(CAS, mode="equilibre", uV=0.0, yc=5.0))):
+    baisses += [f"{lib} : {x}" for x in balayage(base, "dx", [0.0, 5.0, 10.0, 15.0, 20.0])]
+    baisses += [f"{lib} : {x}" for x in balayage(base, "dy", [0.0, 2.5, 5.0, 7.5, 10.0])]
+    baisses += [f"{lib} : {x}" for x in balayage(dict(base, dx=10.0), "dy", [0.0, 5.0, 10.0])]
+chk("balayage : aucune grandeur vérifiée (S1…S4, maxima, nette, N_ELS, H, Mmax, M_angle, taux_max) ne baisse quand dx ou dy croît — "
+    "A historique, A équilibre (y_c = 0 et y_c = 5, u_V = 0), B", not baisses, baisses[:5])
+
+
+# les diagrammes : statique indépendante
+def M_attendu(r, cb, aile, s):
+    """Le moment (kN·m, signé : + = face côté congé tendue) de la combinaison ``cb`` à l'abscisse s, recalculé ici."""
+    c, sec, e, r_ = r["corniere"], r["section"], r["section"]["e"], r["section"]["r"]
+    R, Xp, Yp = c["R"], cb["X"], cb["Y"]
+    uV = c["uV"] if c["uV"] is not None else e / 2
+    if aile == "horizontale":
+        return (1 if r["configuration"] == "A" else -1) * R * (Xp - s) / 1e3 if s <= Xp else 0.0
+    if r["configuration"] == "B":
+        ya, cc = sec["haut"] - Yp, c["yc"]
+        H = R * (Xp - uV) / (ya - cc)
+        if s <= Yp:
+            return -R * (Xp - e / 2) / 1e3
+        return -H * (sec["haut"] - cc - s) / 1e3 if s <= sec["haut"] - cc else 0.0
+    if s >= Yp:
+        return 0.0
+    if r["mode"] == "historique":
+        Hs = R * Xp / (c["Y"] - e / 2 + (Yp - c["Y"]))
+        return Hs * (Yp - s) / 1e3
+    H = R * (Xp - uV) / (Yp - c["yc"])
+    return (H * (Yp - s) - R * (e / 2 - uV)) / 1e3
+
+
+def seq_attendu(r, cb, aile, s):
+    """σ_éq d'une combinaison à s, recalculée ici (N et V de la statique, t(s) du congé, largeur L ou L_eff)."""
+    c, sec, e, r_ = r["corniere"], r["section"], r["section"]["e"], r["section"]["r"]
+    R, Xp, Yp = c["R"], cb["X"], cb["Y"]
+    uV = c["uV"] if c["uV"] is not None else e / 2
+    Mi = M_attendu(r, cb, aile, s) * 1e3
+    if aile == "horizontale":
+        N, Vv = 0.0, (R if s <= Xp else 0.0)
+        Lw = min(c["L"], c["a"] + 2 * (Xp - r_ - e)) if c["a"] is not None else c["L"]
+    else:
+        Lw = c["L"]
+        if r["configuration"] == "B":
+            H = R * (Xp - uV) / (sec["haut"] - Yp - c["yc"])
+            N, Vv = (-R, 0.0) if s <= Yp else ((0.0, H) if s <= sec["haut"] - c["yc"] else (0.0, 0.0))
+        elif r["mode"] == "historique":
+            N, Vv = 0.0, (R if s < Yp else 0.0)
+        else:
+            H = R * (Xp - uV) / (Yp - c["yc"])
+            N, Vv = (R, H) if s < Yp else (0.0, 0.0)
+    t = e + r_ - math.sqrt(max(r_ * r_ - (e + r_ - s) ** 2, 0.0)) if s < e + r_ else e
+    W, A = Lw * t * t / 6, Lw * t
+    sig = abs(Mi) * 1e3 / W + abs(N) * 1e3 / A
+    tau = abs(Vv) * 1e3 / A
+    return math.sqrt(sig * sig + 3 * tau * tau)
+
+
+def fautes_diagrammes(r):
+    """Les écarts entre les diagrammes rendus et la statique recalculée : trois courbes (une par charge, à l'ancrage
+    qui gouverne), enveloppe = max point par point des courbes et des neuf combinaisons."""
+    out = []
+    for aile in ("horizontale", "verticale"):
+        d = r["diagrammes"][aile]
+        jeux_charge = sorted(set(cb["jeu_charge"] for cb in r["combinaisons"]))
+        if [cc["jeu_charge"] for cc in d["courbes"]] != jeux_charge:
+            out.append(f"{aile} : {len(d['courbes'])} courbes pour {len(jeux_charge)} positions de la charge")
+            continue
+        for cc in d["courbes"]:
+            cbs = [cb for cb in r["combinaisons"] if cb["jeu_charge"] == cc["jeu_charge"]]
+            for s, Mc in cc["points"]:
+                attendu = max((M_attendu(r, cb, aile, s) for cb in cbs), key=abs)
+                if not pres(abs(Mc), abs(attendu), 1e-9):
+                    out.append(f"{aile} courbe Δx = {cc['jeu_charge']} s = {s} : {Mc} ≠ {attendu}")
+                    break
+            if aile == "verticale" and cc["ancrage"] is not None:
+                cb_g = next(cb for cb in cbs if cb["jeu_ancrage"] == cc["ancrage"])
+                s_ref = r["section"]["e"] + r["section"]["r"]
+                if any(abs(M_attendu(r, cb, aile, s_ref)) > abs(M_attendu(r, cb_g, aile, s_ref)) * (1 + 1e-9) for cb in cbs):
+                    out.append(f"{aile} courbe Δx = {cc['jeu_charge']} : l'ancrage rendu ({cc['ancrage']}) ne gouverne pas S3")
+        for i, pt in enumerate(d["points"]):
+            s = pt["s"]
+            Mmax_courbes = max((cc["points"][i][1] for cc in d["courbes"]), key=abs)
+            if not pres(abs(pt["M"]), abs(Mmax_courbes), 1e-9) or any(cc["points"][i][0] != s for cc in d["courbes"]):
+                out.append(f"{aile} s = {s} : enveloppe M {pt['M']} ≠ max des courbes {Mmax_courbes}")
+                break
+            seq = max(seq_attendu(r, cb, aile, s) for cb in r["combinaisons"])
+            if not pres(pt["sigma_eq"], seq, 1e-9) or not pres(pt["taux"], seq / r["materiau"]["sigma_adm"], 1e-9):
+                out.append(f"{aile} s = {s} : enveloppe σ_éq {pt['sigma_eq']} ≠ {seq}")
+                break
+            if not pres(pt["t"], ST.t_conge(s, r["section"]["e"], r["section"]["r"]), 1e-12):
+                out.append(f"{aile} s = {s} : t")
+                break
     return out
 
 
-refusees = refus_manques(M)
-chk(f"{len(REFUS)} saisies hors du domaine de l'écran lèvent ValueError (jamais de substitution silencieuse)", not refusees, refusees)
-for nom, champ in (("aile A 10 mm", {"A": 10}), ("aile 300 mm", {"B": 300}), ("t 2 mm", {"t": 2}), ("t 20 mm", {"t": 20}), ("V nul", {"V": 0}),
-                   ("L 0,1 m", {"L": 0.1}), ("L 5 m", {"L": 5}), ("γ 1", {"gamma_ELU": 1}), ("s 10 cm", {"s": 10}), ("τ_lim 0,1", {"tau_lim_ELS": 0.1}),
-                   ("t juste sous l'aile (A = 10,5, t = 10)", {"standard": False, "A": 10.5, "t": 10}), ("V = 1e12 (grand, fini)", {"V": 1e12})):
-    try:
-        M.verifier(dict(M.nouvelle_corniere(), **champ))
-        chk(f"borne admise comme à l'écran : {nom}", True)
-    except ValueError as e:
-        chk(f"borne admise comme à l'écran : {nom}", False, e)
-# « formule = valeurs = résultat » : chaque résultat se retrouve à partir des seuls termes que le moteur donne
+DIAG = {lib: M.verifier(dict(CAS, **kw)) for lib, kw in (("A hist 20/10", dict(dx=20.0, dy=10.0)), ("A éq 20/10", dict(mode="equilibre", dx=20.0, dy=10.0)),
+                                                          ("B 20/10", dict(configuration="B", dx=20.0, dy=10.0)), ("A hist 0/0", {}),
+                                                          ("A éq u_V = 0", dict(mode="equilibre", uV=0.0, dx=10.0, dy=5.0)),
+                                                          ("B c = 10", dict(configuration="B", yc=10.0, dx=5.0, dy=5.0, a=120.0)))}
+fd = [f"{lib} : {x}" for lib, r in DIAG.items() for x in fautes_diagrammes(r)[:2]]
+chk("diagrammes : une courbe de moment par position de la charge (la statique recalculée ici, à l'ancrage qui gouverne S3 — nommé), "
+    "l'enveloppe = le maximum point par point des courbes, σ_éq = le maximum des neuf combinaisons, t(s) du congé — A historique, A équilibre "
+    "(u_V = 0 aussi), B (c = 10, a = 120 aussi)", not fd, fd[:4])
+d = DIAG["A hist 20/10"]["diagrammes"]["verticale"]
+chk("diagrammes : repères (sections, congé, bloc d'angle, charge et ses trois positions, ancrage et sa bande, maximum), tronçons N/V, "
+    "les trois courbes de l'aile verticale prennent l'ancrage haut (Δy = +10)",
+    d["reperes"]["ancrage"]["bande"] == [75.0, 95.0] and d["reperes"]["ancrage"]["positions"] == [75.0, 85.0, 95.0]
+    and DIAG["A hist 20/10"]["diagrammes"]["horizontale"]["reperes"]["charge"]["positions"] == [55.0, 75.0, 95.0]
+    and d["reperes"]["conge"] == [15.0, 28.0] and d["reperes"]["bloc_angle"] == [0.0, 15.0] and [x["cle"] for x in d["reperes"]["sections"]] == ["S3", "S4"]
+    and all(cc["ancrage"] == 10.0 for cc in d["courbes"]) and d["troncons"] == [{"de": 15.0, "a": 95.0, "N": 0.0, "V": 42.76}]
+    and pres(d["reperes"]["maximum"]["taux"], V(DIAG["A hist 20/10"], "max_v")["taux"]), d["reperes"])
+dB = DIAG["B 20/10"]["diagrammes"]["verticale"]
+chk("B : à la section 3 le moment ne dépend pas de l'ancrage (égalité → l'ancrage nominal est nommé), sous l'ancrage la courbe suit l'ancrage bas ; "
+    "tronçons N = −R puis V = H ; contact repéré au bout libre (s = haut)",
+    all(cc["ancrage"] == 0.0 for cc in dB["courbes"]) and dB["troncons"][0]["N"] == -42.76 and dB["troncons"][1]["V"] > 0 and dB["reperes"]["contact"] == 120.0
+    and all(pres(abs(M_), abs(M_attendu(DIAG["B 20/10"], next(cb for cb in DIAG["B 20/10"]["combinaisons"] if cb["jeu_charge"] == cc["jeu_charge"]
+                                                                  and cb["jeu_ancrage"] == 10.0), "verticale", s_)))
+            for cc in dB["courbes"] for s_, M_ in cc["points"] if 95.0 < s_ < 120.0))
+chk("sans jeu, une seule courbe, égale à l'enveloppe", len(DIAG["A hist 0/0"]["diagrammes"]["horizontale"]["courbes"]) == 1
+    and all(pres(abs(p["M"]), abs(q[1])) for p, q in zip(DIAG["A hist 0/0"]["diagrammes"]["horizontale"]["points"],
+                                                        DIAG["A hist 0/0"]["diagrammes"]["horizontale"]["courbes"][0]["points"])))
+
+
+# ------------------------------------------------------------------ 4. mode équilibre, A
+print("\n=== 4. Mode équilibre (A), comparaison, garde ===")
+P0 = M.verifier(dict(CAS, mode="equilibre", yc=0.0))
+P1 = M.verifier(dict(CAS, mode="equilibre", yc=7.5))
+Q1 = M.verifier(dict(CAS, mode="equilibre", yc=7.5, uV=0.0))
+chk("P0 (pivot à l'arête, u_V = e/2) : H = 33,956 kN, M3 = 1,93552, M4 = 2,37695 kN·m, taux 3 = 76,91 % (σ = M/W + N/A, τ = H/A), N/ancrage 11,319 kN",
+    dec(P0["ancrages"]["H"], 33.956, 3) and dec(V(P0, "S3")["M"], 1.93552, 5) and dec(V(P0, "S4")["M"], 2.37695, 5) and dec(100 * V(P0, "S3")["taux"], 76.91, 2)
+    and dec(P0["ancrages"]["N_ELS"], 11.319, 3) and V(P0, "S3")["N"] == 42.76 and pres(V(P0, "S3")["V"], P0["ancrages"]["H"]),
+    (P0["ancrages"]["H"], V(P0, "S3")))
+chk("P1 (pivot e/2) : H = 37,243 kN, M3 = 2,12283, taux 3 = 83,96 % ; Q1 (pivot e/2, u_V = 0) : H = 41,381, M3 = 2,03800, taux 3 = 80,84 %",
+    dec(P1["ancrages"]["H"], 37.243, 3) and dec(V(P1, "S3")["M"], 2.12283, 5) and dec(100 * V(P1, "S3")["taux"], 83.96, 2)
+    and dec(Q1["ancrages"]["H"], 41.381, 3) and dec(V(Q1, "S3")["M"], 2.03800, 5) and dec(100 * V(Q1, "S3")["taux"], 80.84, 2),
+    (P1["ancrages"]["H"], V(P1, "S3")["taux"], Q1["ancrages"]["H"], V(Q1, "S3")["M"], V(Q1, "S3")["taux"]))
+chk("en équilibre, les maxima du congé entrent dans le verdict : P0 → 77,94 % (maximum de l'aile verticale, à 1,61 mm du pied) ; "
+    "les formules sont sans cellule", dec(100 * P0["taux_max"], 77.94, 2) and P0["gouvernant"]["cle"] == "max_v" and V(P0, "max_v")["verdict"]
+    and dec(V(P0, "max_v")["recul"], 1.61, 2) and not any(f.get("cellule") for b in P0["calcul"] for f in b["formules"]))
+chk("comparaison des modes (information) : en historique le taux de l'équilibre (77,94 %), en équilibre celui de l'historique (88,86 %)",
+    R0["comparaison"]["mode"] == "equilibre" and dec(100 * R0["comparaison"]["taux_max"], 77.94, 2)
+    and P0["comparaison"]["mode"] == "historique" and dec(100 * P0["comparaison"]["taux_max"], 88.86, 2)
+    and next(i for i in R0["informations"] if i["cle"] == "autre_mode")["valeur"] == R0["comparaison"]["taux_max"])
+chk("garde du mode historique : équilibre P1 (83,96 %) sous l'historique (88,86 %) sur le cas de contrôle → pas d'avertissement",
+    R0["garde"]["depasse"] is False and dec(100 * R0["garde"]["taux_equilibre_P1"], 83.96, 2) and dec(100 * R0["garde"]["taux_historique"], 88.86, 2)
+    and not any(a["code"] == "equilibre_plus_severe" for a in R0["avertissements"]) and R0["garde"]["yc"] == 7.5 and R0["garde"]["uV"] == 7.5)
+RG = M.verifier(dict(CAS, Y=40.0))
+ag = next((a for a in RG["avertissements"] if a["code"] == "equilibre_plus_severe"), None)
+chk("ancrage bas (Y = 40 < 43,5 mm) : l'équilibre P1 dépasse l'historique → avertissement ROUGE avec les deux chiffres",
+    RG["garde"]["depasse"] and ag is not None and ag["niveau"] == "rouge" and f"{100 * RG['garde']['taux_equilibre_P1']:.1f}" in ag["message"]
+    and f"{100 * RG['garde']['taux_historique']:.1f}" in ag["message"] and RG["avertissements"][0] is ag, (RG["garde"], ag))
+chk("Y = 45 : l'historique reste du côté sûr (seuil P1 à 43,5 mm)", M.verifier(dict(CAS, Y=45.0))["garde"]["depasse"] is False)
+chk("le mode équilibre n'a ni garde ni cellule ; ses hypothèses nomment y_c et u_V", P0["garde"] is None and any("y_c = 0" in h and "u_V = 7,5" in h for h in P0["hypotheses"]))
+
+
+# ------------------------------------------------------------------ 5. configuration B
+print("\n=== 5. Configuration B (aile horizontale en haut) ===")
+B = M.verifier(dict(CAS, configuration="B"))
+vB = {v["cle"]: v for v in B["verifications"]}
+chk("B : H = 82,47 kN (bras 35 mm), M3 = M4 = 2,886 kN·m, N = −R, V = 0 entre l'ancrage et l'angle, σ = 256,56 + 9,50 = 266,06, taux 3 = 112,42 %",
+    dec(B["ancrages"]["H"], 82.47, 2) and B["ancrages"]["bras"] == 35.0 and dec(abs(vB["S3"]["M"]), 2.886, 3) and dec(abs(vB["S4"]["M"]), 2.886, 3)
+    and vB["S3"]["N"] == -42.76 and vB["S3"]["V"] == 0.0 and dec(vB["S3"]["sigma"], 266.06, 2) and dec(100 * vB["S3"]["taux"], 112.42, 2)
+    and vB["S3"]["M"] < 0 and vB["S1"]["M"] < 0, (B["ancrages"]["H"], vB["S3"]))
+chk("B : section nette (3 trous Ø18 sur 300) 137,1 %, face du dessus du trou (M = R·(X′ − e/2), N = −R), elle GOUVERNE ; statut nok",
+    dec(100 * vB["nette"]["taux"], 137.1, 1) and vB["nette"]["face"] == "dessus" and vB["nette"]["largeur"] == 246.0 and B["gouvernant"]["cle"] == "nette"
+    and B["statut"] == "nok" and vB["nette"]["s"] == 85.0, vB["nette"])
+chk("B : le moment est constant de l'ancrage à l'angle (statique de la partie au-dessus de la coupe) et ne dépend pas de l'ancrage : Y = 45 et Y = 105 → même M3",
+    pres(abs(V(M.verifier(dict(CAS, configuration="B", Y=45.0)), "S3")["M"]), abs(vB["S3"]["M"]))
+    and pres(abs(V(M.verifier(dict(CAS, configuration="B", Y=105.0)), "S3")["M"]), abs(vB["S3"]["M"])))
+chk("B : Y = 45 → H = 38,48 kN ; c = 10 (u_V = 7,5) → 115,45 kN ; u_V = 0 → 91,63 kN ; ancrage à Y + 10 (vers le bout libre) → 115,45, Y − 10 → 64,14",
+    dec(M.verifier(dict(CAS, configuration="B", Y=45.0))["ancrages"]["H"], 38.48, 2) and dec(M.verifier(dict(CAS, configuration="B", yc=10.0))["ancrages"]["H"], 115.45, 2)
+    and dec(M.verifier(dict(CAS, configuration="B", uV=0.0))["ancrages"]["H"], 91.63, 2) and dec(M.verifier(dict(CAS, configuration="B", Y=95.0))["ancrages"]["H"], 115.45, 2)
+    and dec(M.verifier(dict(CAS, configuration="B", Y=75.0))["ancrages"]["H"], 64.14, 2))
+BJ = M.verifier(dict(CAS, configuration="B", dy=10.0, dx=20.0))
+chk("B avec jeux : la traction est gouvernée par l'ancrage BAS et la charge loin (115,45 × (95 − 7,5)/(75 − 7,5) = 149,6 kN) ; "
+    "les sections par la charge loin, ancrage nominal (indifférent) ; dx = 20 → taux 3 144,54 %",
+    BJ["ancrages"]["combinaison_N"]["position_ancrage"] == "bas" and BJ["ancrages"]["combinaison_N"]["position_charge"] == "loin"
+    and dec(BJ["ancrages"]["H"], 42.76 * 87.5 / 25.0, 2) and V(BJ, "S3")["combinaison"]["libelle"] == "charge à X + 20, ancrage à Y"
+    and dec(100 * V(BJ, "S3")["taux"], 144.54, 2), (BJ["ancrages"], V(BJ, "S3")["taux"]))
+chk("B : mode équilibre imposé (historique demandé → avertissement mode_impose_B), pression sur le support C/L = 274,9 N/mm en information et en avertissement",
+    B["mode"] == "equilibre" and B["mode_demande"] == "historique" and any(a["code"] == "mode_impose_B" for a in B["avertissements"])
+    and dec(B["ancrages"]["pression_support"], 274.9, 1) and any(a["code"] == "pression_support" and a["niveau"] == "attention" for a in B["avertissements"])
+    and next(i for i in B["informations"] if i["cle"] == "pression_support")["valeur"] == B["ancrages"]["pression_support"] and B["comparaison"] is None)
+chk("B : l'arrachement se compte vers le bout libre (haut − Y′, ancrage le plus bas) ; M_angle rendu dans les efforts",
+    pres(B["ancrages"]["arrachement"], 14.253333333333334 * 1e3 / (2 * 35 * 15)) and pres(BJ["ancrages"]["arrachement"], 14.253333333333334 * 1e3 / (2 * 25 * 15))
+    and dec(B["efforts"]["M_angle"], 2.886, 3) and R0["efforts"]["M_angle"] is None)
+
+
+# ------------------------------------------------------------------ 6. ailes inégales
+print("\n=== 6. Ailes inégales (L 150x100x12, r1 = 12) ===")
+I1 = M.verifier(dict(CAS, profil="L 150x100x12", aile_horizontale="A", Y=65.0))
+I2 = M.verifier(dict(CAS, profil="L 150x100x12", aile_horizontale="B", Y=115.0))
+chk("150 horizontal × 100 vertical, Y = 65 : taux 1 = 128,3 %, taux 3 = 131,1 %, traction totale 58,31 kN ; la fiche dit larg = 150, haut = 100, r = 12",
+    dec(100 * V(I1, "S1")["taux"], 128.3, 1) and dec(100 * V(I1, "S3")["taux"], 131.1, 1) and dec(I1["ancrages"]["H"], 58.31, 2)
+    and (I1["section"]["larg"], I1["section"]["haut"], I1["section"]["r"]) == (150.0, 100.0, 12.0), (V(I1, "S1")["taux"], V(I1, "S3")["taux"], I1["ancrages"]["H"]))
+chk("100 horizontal × 150 vertical, Y = 115 : taux 1 = 128,3 %, taux 3 = 157,4 %, traction 30,54 kN (statut nok)",
+    dec(100 * V(I2, "S1")["taux"], 128.3, 1) and dec(100 * V(I2, "S3")["taux"], 157.4, 1) and dec(I2["ancrages"]["H"], 30.54, 2) and I2["statut"] == "nok"
+    and (I2["section"]["larg"], I2["section"]["haut"]) == (100.0, 150.0))
+chk("l'orientation est un paramètre : la même désignation, les deux orientations, deux calculs différents ; le catalogue reste la source (r1 = 12, pas 6)",
+    V(I1, "S3")["taux"] != V(I2, "S3")["taux"] and M.section_catalogue("L 150x100x12")["r1"] == 12.0 and I1["section"]["r2"] == 6.0)
+
+
+# ------------------------------------------------------------------ 7. le maximum du congé
+print("\n=== 7. Le maximum le long du congé ===")
+mh, mv = V(R0, "max_h"), V(R0, "max_v")
+chk("aile horizontale : maximum à 1,98 mm avant le pied du congé (s = 26,02), +2,11 % sur la section 1, 77,40 % ; t = 15,152",
+    dec(mh["recul"], 1.98, 2) and dec(mh["s"], 26.02, 2) and dec(100 * mh["ecart"], 2.11, 2) and dec(100 * mh["taux"], 77.40, 2) and dec(mh["t"], 15.152, 3)
+    and mh["reference"] == "S1" and mh["dans_conge"], mh)
+chk("aile verticale (méthode du classeur) : maximum à 1,66 mm du pied (s = 26,34), +1,45 % sur la section 3, 90,15 %, M = 2,427 kN·m, t = 15,106",
+    dec(mv["recul"], 1.66, 2) and dec(mv["s"], 26.34, 2) and dec(100 * mv["ecart"], 1.45, 2) and dec(100 * mv["taux"], 90.15, 2) and dec(mv["M"], 2.427, 3)
+    and dec(mv["t"], 15.106, 3), mv)
+chk("en historique les maxima sont en INFORMATION (verdict faux) : le verdict reste 88,8621 % ; maxima rendus aussi sous « maxima »",
+    not mh["verdict"] and not mv["verdict"] and R0["maxima"]["horizontale"] is mh and R0["maxima"]["verticale"] is mv)
+
+
+def max_grille_fine(r, aile, pas=0.002):
+    """Le maximum de σ_éq sur une grille fine indépendante, sur tout le congé et la partie droite (coudes compris)."""
+    sec, c = r["section"], r["corniere"]
+    e, rr = sec["e"], sec["r"]
+    fin = sec["larg"] if aile == "horizontale" else sec["haut"]
+    pts = [e + i * pas for i in range(int(rr / pas) + 1)] + [e + rr + i * 0.5 for i in range(int((fin - e - rr) / 0.5) + 1)]
+    pts += [cb["X" if aile == "horizontale" else "Y"] + d_ for cb in r["combinaisons"] for d_ in (-1e-9, 0.0, 1e-9)]
+    pts = [p for p in pts if e <= p <= fin]
+    return max(max(seq_attendu(r, cb, aile, s) for cb in r["combinaisons"]) for s in pts)
+
+
+fautes = []
+for lib, r in list(DIAG.items()) + [("P0", P0), ("B", B), ("I2", I2)]:
+    for aile in ("horizontale", "verticale"):
+        vmax = V(r, "max_h" if aile == "horizontale" else "max_v")
+        fin = max_grille_fine(r, aile)
+        if vmax["sigma_eq"] < fin * (1 - 1e-7):
+            fautes.append(f"{lib} {aile} : {vmax['sigma_eq']} < grille fine {fin}")
+chk("le maximum rendu n'est jamais sous celui d'une grille fine indépendante (pas 0,002 mm dans le congé, coudes compris) — six cas, deux ailes",
+    not fautes, fautes[:3])
+chk("le maximum porte sa combinaison et le moment, l'effort normal et le tranchant du point ; ses formules commencent par t(s)",
+    mv["combinaison"]["libelle"] == "charge à X, ancrage à Y" and formule(R0, "max_v", "t(s)")["termes"][2]["valeur"] == mv["s"]
+    and pres(formule(R0, "max_v", "t(s)")["resultat"], mv["t"]))
+
+
+# ------------------------------------------------------------------ 8. largeur d'appui
+print("\n=== 8. Largeur d'appui a et L_eff ===")
+LA = M.verifier(dict(CAS, a=100.0))
+chk("a = 100 : L_eff = min(300 ; 100 + 2·47) = 194 mm, σ₁ × 1,55 (300/194 = 1,546), taux 1 = 117,2 % — l'aile horizontale seule (S3 inchangée)",
+    LA["geometrie"]["L_eff"] == 194.0 and dec(LA["geometrie"]["facteur_L_eff"], 1.546, 3) and dec(100 * V(LA, "S1")["taux"], 117.2, 1)
+    and V(LA, "S1")["largeur"] == 194.0 and V(LA, "S3")["largeur"] == 300.0 and pres(V(LA, "S3")["taux"], V(R0, "S3")["taux"])
+    and LA["gouvernant"]["cle"] == "S1" and any(i["cle"] == "L_eff" for i in LA["informations"]) and formule(LA, "largeur_efficace", "L_eff")["resultat"] == 194.0,
+    (LA["geometrie"], V(LA, "S1")["taux"]))
+chk("a vide → L_eff = L, facteur 1, sans information L_eff ; a = 206 → tout L efficace ; a = 50 → 157,9 %",
+    R0["geometrie"]["L_eff"] == 300.0 and R0["geometrie"]["facteur_L_eff"] == 1.0 and not any(i["cle"] == "L_eff" for i in R0["informations"])
+    and M.verifier(dict(CAS, a=206.0))["geometrie"]["L_eff"] == 300.0 and dec(100 * V(M.verifier(dict(CAS, a=50.0)), "S1")["taux"], 157.9, 1))
+LAJ = M.verifier(dict(CAS, a=100.0, dx=20.0))
+chk("avec dx, L_eff suit X′ : la plus petite largeur (charge proche, Xe = 27 → 154 mm) est rendue avec sa combinaison, mais S1 garde la combinaison qui "
+    "la gouverne (charge loin : M1 plus grand malgré L_eff plus large)",
+    LAJ["geometrie"]["L_eff"] == 154.0 and LAJ["geometrie"]["combinaison_L_eff"]["position_charge"] == "proche"
+    and V(LAJ, "S1")["combinaison"]["position_charge"] == "loin" and V(LAJ, "S1")["largeur"] == 234.0, (LAJ["geometrie"]["L_eff"], V(LAJ, "S1")))
+
+
+# ------------------------------------------------------------------ 9. formules
+print("\n=== 9. Formules : chaque résultat à partir de ses seuls termes ===")
 FORMULES = {
-    "V_ELS_lin": lambda t: t["V"],
-    "V_ELU_lin": lambda t: t["V"] * t["γ_ELU"],
-    "V_ELS_ponct": lambda t: t["V"] / t["L"],
-    "V_ELU_ponct": lambda t: (t["V"] * t["γ_ELU"]) / t["L"],
-    "M": lambda t: list(t.values())[0] * (t["e"] / 100.0),
-    "I": lambda t: t["b"] * t["t"] ** 3 / 12.0,
-    "W": lambda t: t["b"] * t["t"] ** 2 / 6.0,
-    "Az": lambda t: t["b"] * t["t"],
-    "sigma": lambda t: t["M"] * 1e6 / t["W"],
-    "tau": lambda t: t["V"] * 1e3 / t["A_z"],
-    "sigma_eq": lambda t: math.sqrt(t["σ"] ** 2 + 3.0 * t["τ"] ** 2),
-    "taux": lambda t: list(t.values())[0] / list(t.values())[1],
-    "b_long": lambda t: t["s"] * 10.0,
-    "Vloc": lambda t: list(t.values())[0] * (t["s"] / 100.0),
-    "Mlong": lambda t: list(t.values())[0] * (t["e"] / 100.0),
-    "sigma_long": lambda t: t["M_long"] * 1e6 / t["W_long"],
-    "tau_long": lambda t: t["V_loc"] * 1e3 / t["A_z,long"],
+    "sigma_adm": lambda t, v: t["f_y"] / t["coef"], "tau_adm": lambda t, v: t["σ_adm"] / math.sqrt(3),
+    "Xp": lambda t, v: v[0] + v[1], "Yp": lambda t, v: v[0] + v[1],
+    "Xe": lambda t, v: v[0] - t["r"] - t["e"], "Xer": lambda t, v: v[0] - t["e"], "Ye": lambda t, v: t["Y"] - t["e"] - t["r"],
+    "Yer": lambda t, v: t["Y"] - t["e"], "YH": lambda t, v: t["Y"] - t["e"] / 2,
+    "M_bras_j": lambda t, v: t["R"] * (v[1] + t["Xj"]) / 1000, "Mmax_j": lambda t, v: t["R"] * (t["X"] + t["Xj"]) / 1000,
+    "rho": lambda t, v: (v[0] + t["Yj"]) / (t["YH"] + t["Yj"]), "M_bras": lambda t, v: t["R"] * v[1] / 1000, "M_rho": lambda t, v: v[0] * t["Mmax"],
+    "H_hist": lambda t, v: t["Mmax"] * 1000 / (t["YH"] + t["Yj"]), "M_hist_v": lambda t, v: t["H_s"] * (t["Y′"] - t["s"]) / 1000,
+    "M_lin": lambda t, v: t["R"] * (t["X′"] - t["s"]) / 1000, "bras_A": lambda t, v: t["Y′"] - t["y_c"],
+    "H_eq": lambda t, v: t["R"] * (t["X′"] - t["u_V"]) / t["bras"],
+    "M_eq_A": lambda t, v: (t["H"] * (t["Y′"] - t["s"]) - t["R"] * (t["e"] / 2 - t["u_V"])) / 1000,
+    "y_a": lambda t, v: t["haut"] - t["Y′"], "bras_B": lambda t, v: t["y_a"] - t["c"], "M_angle_B": lambda t, v: t["R"] * (t["X′"] - t["e"] / 2) / 1000,
+    "M_bas_B": lambda t, v: t["H"] * (t["s_c"] - t["s"]) / 1000,
+    "t_conge": lambda t, v: t["e"] + t["r"] - math.sqrt(t["r"] ** 2 - (t["e"] + t["r"] - t["s"]) ** 2),
+    "W": lambda t, v: t["b"] * t["t"] ** 2 / 6, "A": lambda t, v: t["b"] * t["t"], "sigma_M": lambda t, v: t["M"] * 1e6 / t["W"],
+    "sigma_MN": lambda t, v: abs(t["M"]) * 1e6 / t["W"] + abs(t["N"]) * 1e3 / t["A"], "tau_RLt": lambda t, v: t["R"] * 1e3 / (t["b"] * t["t"]),
+    "tau_VA": lambda t, v: abs(t["V"]) * 1e3 / t["A"], "sigma_eq": lambda t, v: math.sqrt(t["σ"] ** 2 + 3 * t["τ"] ** 2),
+    "taux": lambda t, v: v[0] / v[1], "N_ELS_hist": lambda t, v: t["Mmax"] * 1000 / ((t["Y"] - t["jeu"]) * t["n"]),
+    "N_ELS_eq": lambda t, v: t["H"] / t["n"], "V_ELS": lambda t, v: t["R"] / t["n"], "rapport_ELU": lambda t, v: t["R_ELU"] / t["R"],
+    "ELU": lambda t, v: v[0] * t["ρ_ELU"], "R_ELU_auto": lambda t, v: 1.5 * t["R"], "p_diam": lambda t, v: t["V_ELS"] * 1e3 / (t["d"] * t["e"]),
+    "arrachement": lambda t, v: t["V_ELS"] * 1e3 / (2 * (t["haut"] - t["Y"]) * t["e"]), "L_eff": lambda t, v: min(t["L"], t["a"] + 2 * v[2]),
+    "d0": lambda t, v: t["d"] + 2, "b_net": lambda t, v: t["L"] - t["n"] * t["d0"], "pression_support": lambda t, v: t["C"] * 1e3 / t["L"],
 }
 
 
 def fautes_formules(resultats):
-    """Les formules dont le résultat ne se retrouve pas à partir de leurs seuls termes, et les vérifications dont
-    valeur / limite / taux / ok ne se tiennent pas ; rend (fautes, nombre de formules)."""
+    """Les formules dont le résultat ne se retrouve pas à partir de leurs termes (1e-9), les blocs sans combinaison là
+    où il en faut une, les vérifications dont taux, ok, résultat de formule ne se tiennent pas ; (fautes, nombre)."""
     out, n = [], 0
     for res in resultats:
-        c = res["corniere"]
-        for groupe, blocs in res["calcul"].items():
-            for b in blocs:
-                for f in b["formules"]:
-                    n += 1
-                    t = {x["symbole"]: x["valeur"] for x in f["termes"]}
-                    if f["cle"] not in FORMULES or FORMULES[f["cle"]](t) != f["resultat"]:
-                        out.append(f"{c['nom']}/{groupe}/{f['symbole']} : {f['resultat']!r}")
-        v = {x["cle"]: x for x in res["verifications"]}
-        g = res["grandeurs"]
-        if not (v["els_sigma"]["valeur"] == g["sigma_eq_ELS"] and v["els_tau"]["valeur"] == g["tau_ELS"] and v["elu"]["valeur"] == g["sigma_eq_ELU"]
-                and v["long_elu"]["valeur"] == g["sigma_eq_long_ELU"] and all(x["taux"] == x["valeur"] / x["limite"] for x in v.values())
-                and all(x["ok"] == (x["valeur"] <= x["limite"]) for x in v.values())):
-            out.append(f"{c['nom']} : valeur / limite / taux / ok des vérifications")
-        gov = max(res["verifications"], key=lambda x: x["taux"])
+        for b in res["calcul"]:
+            for f in b["formules"]:
+                n += 1
+                t = {x["symbole"]: x["valeur"] for x in f["termes"]}
+                vals = [x["valeur"] for x in f["termes"]]
+                try:
+                    attendu = FORMULES[f["cle"]](t, vals)
+                except Exception as err:  # noqa: BLE001
+                    out.append(f"{res['corniere']['nom']}/{b['cle']}/{f['symbole']} : {type(err).__name__} {err}")
+                    continue
+                if not pres(attendu, f["resultat"], 1e-9):
+                    out.append(f"{res['corniere']['nom']}/{b['cle']}/{f['symbole']} : {f['resultat']!r} ≠ {attendu!r}")
+            if b["cle"] not in ("materiau",) and b["combinaison"] is None:
+                out.append(f"{res['corniere']['nom']}/{b['cle']} : sans combinaison")
+        for v in res["verifications"]:
+            bloc = next(x for x in res["calcul"] if x["cle"] == v["cle"])
+            ftx = next(f for f in bloc["formules"] if f["symbole"] == "taux")
+            if not (pres(v["taux"], v["sigma_eq"] / v["sigma_adm"]) and v["ok"] == (v["taux"] <= 1.0) and v["etat"] == ("ok" if v["ok"] else "nok")
+                    and ftx["resultat"] == v["taux"] and bloc["combinaison"] == v["combinaison"]):
+                out.append(f"{res['corniere']['nom']}/{v['cle']} : taux, ok, état ou bloc")
+        gov = max((v for v in res["verifications"] if v["verdict"]), key=lambda v: v["taux"])
         if not (res["gouvernant"]["cle"] == gov["cle"] and res["taux_max"] == gov["taux"]
-                and res["statut"] == ("ok" if all(x["ok"] for x in res["verifications"]) else "nok")
-                and (res["statut"] == "ok") == all(res["verdicts"].values())):
-            out.append(f"{c['nom']} : gouvernant, taux maximal ou statut")
+                and res["statut"] == ("ok" if all(v["ok"] for v in res["verifications"] if v["verdict"]) else "nok")):
+            out.append(f"{res['corniere']['nom']} : gouvernant / taux_max / statut")
     return out, n
 
 
-fautes, n_f = fautes_formules(tous)
-chk(f"« formule = valeurs = résultat » : les {n_f} formules se recalculent AU BIT PRÈS à partir de leurs seuls termes ; "
-    "valeur / limite = taux, ok = (valeur ≤ limite)", not fautes and n_f > 2000, fautes[:4])
-chk("le gouvernant est la vérification au plus grand taux (la première de l'ordre de l'écran à égalité) ; statut nok dès qu'une ne tient pas",
-    all(r["gouvernant"]["cle"] == max(r["verifications"], key=lambda x: x["taux"])["cle"] and r["taux_max"] == max(x["taux"] for x in r["verifications"])
-        and r["statut"] == ("ok" if all(x["ok"] for x in r["verifications"]) else "nok") for r in tous))
-chk("statut ok ⇔ les trois ✅ de l'écran", all((r["statut"] == "ok") == all(r["verdicts"].values()) for r in tous))
-cles = sorted(tous[0]["grandeurs"])
-sans_doc = [k for k in cles if f"`{k}`" not in doc or k not in M.__doc__]
-chk(f"les {len(cles)} grandeurs sont nommées dans la docstring du moteur ET dans docs/acier/CORNIERE_MOTEUR.md", not sans_doc, sans_doc)
+TOUS = [R0, P0, P1, Q1, B, BJ, I1, I2, LA, LAJ, RG] + list(J.values()) + list(DIAG.values()) + [M.verifier(c) for c in TIRAGES_AVEC[:40]] + \
+       [M.verifier(dict(c, mode="equilibre", yc=round(0.3 * (c["Y"] - c["dy"]), 1))) for c in TIRAGES_AVEC[40:70]] + \
+       [M.verifier(dict(c, configuration="B")) for c in TIRAGES_SANS[:40] if c["Y"] + c["dy"] + c["d"] / 2 + 1 <= M.section(c)["haut"]]
+ff, nf = fautes_formules(TOUS)
+chk(f"« symbole = expression = valeurs = résultat » : les {nf} formules de {len(TOUS)} cornières se recalculent à partir de leurs seuls termes ; "
+    "chaque bloc porte sa combinaison ; taux, ok, état, gouvernant, statut se tiennent", not ff and nf > 3000, ff[:4])
+chk("le bloc d'une section nomme sa combinaison (S3 : « charge à X + 20, ancrage à Y + 20 ») et le bloc des ancrages la sienne",
+    next(b for b in J["dxdy20"]["calcul"] if b["cle"] == "S3")["combinaison"]["libelle"] == "charge à X + 20, ancrage à Y + 20"
+    and next(b for b in J["dxdy20"]["calcul"] if b["cle"] == "ancrages")["combinaison"]["libelle"] == "charge à X + 20, ancrage à Y")
 
-ESSAIS_NOMS = (("L 80×80×8", "L 80x80x8"), ("80x80x8", "L 80x80x8"), ("l80*80*8", "L 80x80x8"), (" 100 x 65 x 8 ", "L 100x65x8"),
-               ("65x100x8", "L 100x65x8"), ("L 45×45×4,5", "L 45x45x4.5"), ("L 45x45x4.5", "L 45x45x4.5"), ("L 99x99x9", None),
-               ("IPE 200", None), ("", None), (None, None), ("80x80", None))
-mauvais_noms = [(x, E.nom_catalogue(x), y) for x, y in ESSAIS_NOMS if E.nom_catalogue(x) != y]
-chk(f"une désignation tapée se relit au catalogue ({len(ESSAIS_NOMS)} essais : ×, *, espaces, ailes inversées, virgule ; inconnue → None)",
-    not mauvais_noms, mauvais_noms)
-chk("la désignation du bureau : « L 45×45×4,5 » (signe ×, virgule) ; chaque cornière du catalogue se relit depuis sa désignation",
-    M.designation("L 45x45x4.5") == "L 45×45×4,5" and all(E.nom_catalogue(M.designation(p["nom"])) == p["nom"] for p in M.cornieres()))
-hors = [(r["corniere"]["nom"], r["corniere"]["e"], r["section"]["B"]) for r in tous
-        if ("excentricite_hors_aile" in {a["code"] for a in r["avertissements"]}) != (r["corniere"]["e"] * 10.0 > r["section"]["B"])]
-n_hors = sum("excentricite_hors_aile" in {a["code"] for a in r["avertissements"]} for r in tous)
-chk(f"avertissement « charge au-delà de l'aile B » ⇔ e > B ({n_hors} cornières sur {len(tous)}) ; un constat, aucun chiffre ne change "
-    "(les grandeurs sont celles de l'écran, contrôlées plus haut)", not hors and 0 < n_hors < len(tous), hors[:3])
-chk("chaque résultat porte les deux avertissements de l'écran : ancrages non vérifiés, longitudinal provisoire",
-    all({"ancrages_non_verifies", "longitudinal_provisoire"} <= {a["code"] for a in r["avertissements"]} for r in tous))
 
-# ------------------------------------------------------------------ 8. pureté
-print("\n=== 8. Pureté : le moteur se charge et calcule SANS streamlit ===")
+# ------------------------------------------------------------------ 10. domaine
+print("\n=== 10. Domaine : refus, bornes, défauts, nuances, JSON ===")
+D = M.nouvelle_corniere()
+chk("les défauts du § 2 : L 120x120x15 du catalogue, aile A, configuration A, S355, coef 1,5, R = 35, L = 300, X = 75 ± 20, a vide, R_ELU vide, "
+    "Y = 85 ± 10, n = 3, d = 16, historique, jeu 10, y_c = 0, u_V vide, v1 faux",
+    D == {"nom": "Cornière 1", "standard": True, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A",
+          "configuration": "A", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 20.0, "a": None, "R_ELU": None, "Y": 85.0, "dy": 10.0,
+          "n": 3, "d": 16.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": None, "v1": False}, D)
+RD = M.verifier(D)
+chk("la cornière neuve tient (taux < 100 %), R_ELU auto = 52,5 kN dit en information, L_eff = L",
+    RD["statut"] == "ok" and RD["taux_max"] < 1.0 and RD["ancrages"]["R_ELU"] == 52.5 and RD["ancrages"]["R_ELU_auto"]
+    and any(a["code"] == "R_ELU_auto" for a in RD["avertissements"]) and RD["geometrie"]["L_eff"] == 300.0, (RD["taux_max"], RD["ancrages"]["R_ELU"]))
+chk("les nuances du site viennent d'une source unique (acier/flambement/normes, Tableau 3.1) : 235, 275, 355, 460 ; S355 ↔ 355",
+    E.FY_ADMIS == (235.0, 275.0, 355.0, 460.0) and E.nuance_de(355.0) == "S355" and E.nuance_de(300.0) is None
+    and "from acier.flambement import normes" in lire("acier", "corniere", "entree.py") and not re.search(r"\b235\.0\b.*\b275\.0\b", lire("acier", "corniere", "entree.py")))
+REFUS = (("charge dans l'angle (X − dx = 28 ≤ e + r)", {"X": 48.0, "dx": 20.0}, "dans l'angle"), ("charge au-delà de l'aile (X + dx = 125)", {"X": 105.0}, "au-delà"),
+         ("ancrage dans le congé (Y − dy − 9 < 28)", {"Y": 45.0}, "congé"), ("ancrage hors de l'aile (Y + dy + 9 > 120)", {"Y": 105.0}, "sort"),
+         ("t ≥ aile (saisie libre)", {"standard": False, "A": 12.0, "t": 12.0}, "cornière"), ("e + r atteint l'aile", {"standard": False, "A": 30.0, "B": 30.0, "t": 15.0, "r": 15.0}, "partie droite"),
+         ("congé négatif", {"standard": False, "r": -1.0}, "congé"), ("nuance inconnue (300)", {"fy": 300.0}, "nuance"), ("coef < 1", {"coef": 0.9}, "au moins 1"),
+         ("R négative", {"R": -1.0}, "négative"), ("L nulle", {"L": 0.0}, "positive"), ("dx négatif", {"dx": -1.0}, "dx"), ("dy négatif", {"dy": -1.0}, "dy"),
+         ("n = 0", {"n": 0}, "au moins 1"), ("n non entier", {"n": 2.5}, "entier"), ("d nul", {"d": 0.0}, "positif"), ("trous qui mangent L (n = 20, Ø16)", {"n": 20}, "section nette"),
+         ("a nulle", {"a": 0.0}, "positive"), ("R_ELU négative", {"R_ELU": -5.0}, "négative"), ("jeu d'ancrage ≥ Y", {"jeu_ancrage": 85.0}, "jeu"),
+         ("jeu d'ancrage négatif", {"jeu_ancrage": -1.0}, "jeu"), ("y_c au-delà du bras (A : 75)", {"yc": 75.0}, "pivot"), ("y_c négatif", {"yc": -1.0}, "pivot"),
+         ("y_c au-delà du bras en B (haut − Y − dy = 25)", {"configuration": "B", "yc": 25.0}, "pivot"), ("u_V > e", {"uV": 16.0}, "u_V"), ("u_V < 0", {"uV": -1.0}, "u_V"),
+         ("aile horizontale « C »", {"aile_horizontale": "C"}, "choix"), ("configuration « haut »", {"configuration": "haut"}, "choix"), ("mode « lame »", {"mode": "lame"}, "choix"),
+         ("profil inconnu", {"profil": "L 99x99x9"}, "catalogue"), ("profil qui n'est pas une cornière", {"profil": "IPE 200"}, "catalogue"),
+         ("clé inconnue", {"epaisseur": 6}, "inconnue"), ("R en texte", {"R": "35"}, "nombre"), ("t booléen", {"standard": False, "t": True}, "nombre"),
+         ("X infini", {"X": float("inf")}, "infini"), ("Y indéterminé", {"Y": float("nan")}, "indéterminé"), ("nom numérique", {"nom": 3}, "texte"),
+         ("nom trop long", {"nom": "x" * 61}, "60"), ("standard « oui »", {"standard": "oui"}, "vrai ou faux"), ("v1 en texte", {"v1": "oui"}, "vrai ou faux"))
+
+
+def refus_manques(mod):
+    out = []
+    for nom, champ, mot in REFUS:
+        try:
+            mod.normaliser(dict(mod.nouvelle_corniere(), **champ))
+            out.append(f"{nom} : accepté")
+        except ValueError as err:
+            if mot.lower() not in str(err).lower():
+                out.append(f"{nom} : message « {err} » sans « {mot} »")
+        except Exception as err:  # noqa: BLE001
+            out.append(f"{nom} : {type(err).__name__} {err}")
+    return out
+
+
+rf = refus_manques(M)
+chk(f"{len(REFUS)} saisies hors du domaine lèvent ValueError avec un message qui dit quoi (jamais une valeur ramenée en silence)", not rf, rf[:4])
+for nom, champ in (("X − dx juste au-delà de l'angle (X = 48,1)", {"X": 48.1}), ("X + dx = larg (X = 100)", {"X": 100.0}), ("ancrage au ras du congé (Y − dy − 9 = 28 : Y = 47)", {"Y": 47.0}),
+                   ("ancrage au ras du bord (Y + dy + 9 = 120 : Y = 101)", {"Y": 101.0}), ("dx = dy = 0", {"dx": 0.0, "dy": 0.0}), ("coef = 1", {"coef": 1.0}),
+                   ("R = 0", {"R": 0.0}), ("n = 1", {"n": 1}), ("n = 3.0 (entier écrit en flottant)", {"n": 3.0}), ("jeu d'ancrage 0", {"jeu_ancrage": 0.0}),
+                   ("y_c juste sous le bras (74,9)", {"yc": 74.9}), ("u_V = e", {"uV": 15.0}), ("u_V = 0", {"uV": 0.0}), ("a = L", {"a": 300.0}), ("a > L", {"a": 400.0}),
+                   ("R_ELU = 0", {"R_ELU": 0.0}), ("saisie libre r = 0", {"standard": False, "r": 0.0}), ("t = 44 mm (f_y réduit : avertissement)", {"standard": False, "A": 200.0, "B": 200.0, "t": 44.0, "r": 10.0, "X": 100.0, "Y": 150.0})):
+    try:
+        rr = M.verifier(dict(M.nouvelle_corniere(), **champ))
+        chk(f"borne admise : {nom}", True)
+    except ValueError as err:
+        chk(f"borne admise : {nom}", False, err)
+RZ = M.verifier(dict(CAS, R=0.0))
+chk("R = 0 : tout est nul, statut ok, rapport ELU indéfini (None), N_ELU = 0", RZ["taux_max"] == 0.0 and RZ["statut"] == "ok" and RZ["ancrages"]["rapport_ELU"] is None
+    and RZ["ancrages"]["N_ELU"] == 0.0 and RZ["ancrages"]["H"] == 0.0)
+chk("t = 44 mm : avertissement fy_epaisseur (Tableau 3.1), sans refus",
+    any(a["code"] == "fy_epaisseur" for a in M.verifier(dict(M.nouvelle_corniere(), standard=False, A=200.0, B=200.0, t=44.0, r=10.0, X=100.0, Y=150.0))["avertissements"]))
+chk("« -0 » est relu 0", math.copysign(1, M.normaliser(dict(CAS, yc=-0.0))["yc"]) == 1.0)
+chk("normaliser() est idempotente, {} donne la cornière neuve, None vaut absent, a/R_ELU/uV vides restent vides",
+    all(M.normaliser(M.normaliser(r["corniere"])) == r["corniere"] for r in TOUS) and M.normaliser({}) == D and M.normaliser({"R": None, "a": None}) == D)
+entree = copy.deepcopy(CAS)
+M.verifier(entree)
+M.candidats(entree)
+chk("verifier() et candidats() ne modifient pas la cornière reçue", entree == CAS)
+chk("la sortie est du JSON strict (sans NaN) et se relit à l'identique", all(json.loads(json.dumps(r, allow_nan=False)) == r for r in TOUS))
+chk("les avertissements permanents : chevilles non vérifiées, pic au congé, effet de levier (niveau info), avec leurs textes",
+    all({"chevilles_non_verifiees", "pic_conge", "effet_levier"} <= {a["code"] for a in r["avertissements"]} for r in TOUS)
+    and any("Hilti PROFIS" in a["message"] for a in R0["avertissements"]) and any("1,3" in a["message"] for a in R0["avertissements"])
+    and any("250 kN/mm" in a["message"] for a in R0["avertissements"]))
+chk("saisie libre : masse et aire calculées (120×120×15, r = 13 : 26,8 kg/m, +0,5 % sur le catalogue 26,64 qui a les arrondis de bout d'aile), dites « calculée »",
+    dec(M.section(dict(D, standard=False))["masse"], 26.8, 1) and M.section(dict(D, standard=False))["masse_source"] == "calculée"
+    and M.section(D)["masse_source"] == "catalogue" and M.section(dict(D, standard=False))["source"] == "saisie")
+chk("une désignation tapée se relit au catalogue, la désignation du bureau (×, virgule)",
+    M.nom_catalogue("120x120x15") == "L 120x120x15" and M.nom_catalogue("L 100×65×8") == "L 100x65x8" and M.nom_catalogue("65 x 100 x 8") == "L 100x65x8"
+    and M.nom_catalogue("L 45×45×4,5") == "L 45x45x4.5" and M.nom_catalogue("IPE 200") is None and M.designation("L 45x45x4.5") == "L 45×45×4,5")
+
+
+# ------------------------------------------------------------------ 11. relecture d'une note v1
+print("\n=== 11. Relecture d'une note du module d'avant (v1, modèle lame) ===")
+# les cornières des photos de tests/reference_refonte/corniere.json AVANT la refonte (état au 10/11/2026), copiées telles quelles
+V1 = [
+    {"nom": "Cornière 1", "standard": True, "profil": "L 100x100x10", "A": 60.0, "B": 60.0, "t": 6.0, "charge": "lineaire", "V": 5.0, "L": 1.0, "e": 2.3,
+     "gamma_ELU": 1.35, "s": 30.0, "bord": 2.0, "sig_lim_ELS": 155.0, "tau_lim_ELS": 0.8, "sig_lim_ELU": 186.0},
+    {"nom": "Cornière 1", "standard": True, "profil": "L 45x45x4.5", "A": 60.0, "B": 60.0, "t": 6.0, "charge": "lineaire", "V": 5.0, "L": 1.0, "e": 2.3,
+     "gamma_ELU": 1.35, "s": 30.0, "bord": 2.0, "sig_lim_ELS": 155.0, "tau_lim_ELS": 0.8, "sig_lim_ELU": 186.0},
+    {"nom": "Cornière 1", "standard": True, "profil": "L 100x100x10", "A": 60.0, "B": 60.0, "t": 6.0, "charge": "lineaire", "V": 8.0, "L": 1.0, "e": 2.3,
+     "gamma_ELU": 1.35, "s": 30.0, "bord": 2.0, "sig_lim_ELS": 155.0, "tau_lim_ELS": 0.8, "sig_lim_ELU": 186.0},
+    {"nom": "Cornière 1", "standard": True, "profil": "L 100x65x8", "A": 60.0, "B": 60.0, "t": 6.0, "charge": "ponctuelle", "V": 5.0, "L": 1.0, "e": 2.3,
+     "gamma_ELU": 1.35, "s": 30.0, "bord": 2.0, "sig_lim_ELS": 155.0, "tau_lim_ELS": 0.8, "sig_lim_ELU": 186.0},
+    {"nom": "Cornière 1", "standard": True, "profil": "L 100x100x10", "A": 60.0, "B": 60.0, "t": 6.0, "charge": "lineaire", "V": 5.0, "L": 1.0, "e": 25.0,
+     "gamma_ELU": 1.35, "s": 30.0, "bord": 2.0, "sig_lim_ELS": 155.0, "tau_lim_ELS": 0.8, "sig_lim_ELU": 186.0},
+    {"nom": "Cornière 3", "standard": True, "profil": "L 100x100x10", "A": 60.0, "B": 60.0, "t": 6.0, "charge": "lineaire", "V": 5.0, "L": 1.0, "e": 2.3,
+     "gamma_ELU": 1.35, "s": 30.0, "bord": 2.0, "sig_lim_ELS": 155.0, "tau_lim_ELS": 0.8, "sig_lim_ELU": 186.0},
+    # une saisie libre du module d'avant (65 × 100 × 8)
+    {"nom": "Libre", "standard": False, "profil": "L 100x100x10", "A": 65.0, "B": 100.0, "t": 8.0, "charge": "ponctuelle", "V": 12.0, "L": 0.6, "e": 4.0,
+     "gamma_ELU": 1.35, "s": 30.0, "bord": 2.0, "sig_lim_ELS": 155.0, "tau_lim_ELS": 0.8, "sig_lim_ELU": 186.0},
+]
+fautes, relues = [], []
+for v1 in V1:
+    try:
+        c1 = M.normaliser(v1)
+        r1 = M.verifier(c1)
+        relues.append((v1, c1, r1))
+    except ValueError as err:
+        fautes.append(f"{v1['profil']} : refusée ({err})")
+chk(f"les {len(V1)} notes v1 (dont les six photos du gel d'avant la refonte) s'ouvrent : rien n'est refusé", not fautes and len(relues) == len(V1), fautes)
+chk("le nom et la section sont gardés (catalogue : profil ; saisie libre : A, B, t, congé 0) ; tout le reste prend les défauts (mode, configuration, nuance, n, d…) "
+    "et v1 est vrai",
+    all(c1["nom"] == v1["nom"] and c1["standard"] == v1["standard"] and c1["profil"] == v1["profil"] and c1["v1"] is True and c1["mode"] == "historique"
+        and c1["configuration"] == "A" and c1["fy"] == 355.0 and c1["coef"] == 1.5 and c1["R"] == 35.0 and c1["L"] == 300.0 and c1["n"] == 3 for v1, c1, _ in relues)
+    and relues[6][1]["A"] == 65.0 and relues[6][1]["B"] == 100.0 and relues[6][1]["t"] == 8.0 and relues[6][1]["r"] == 0.0)
+chk("la charge et l'ancrage sont posés DANS les ailes, au rapport du cas de contrôle (L 100 : X = 62,5 ± 16,5, Y = 71 ± 8,5, Ø16 ; L 45x45x4,5 : X = 28 ± 7,5, "
+    "Y = 32 ± 4, Ø16 au ras du bord) ; la L 120 redonnerait les défauts exacts",
+    (relues[0][1]["X"], relues[0][1]["dx"], relues[0][1]["Y"], relues[0][1]["dy"], relues[0][1]["d"]) == (62.5, 16.5, 71.0, 8.5, 16.0)
+    and (relues[1][1]["X"], relues[1][1]["dx"], relues[1][1]["Y"], relues[1][1]["dy"], relues[1][1]["d"]) == (28.0, 7.5, 32.0, 4.0, 16.0)
+    and {k: M.normaliser(dict(V1[0], profil="L 120x120x15"))[k] for k in ("X", "dx", "Y", "dy", "d")} == {"X": 75.0, "dx": 20.0, "Y": 85.0, "dy": 10.0, "d": 16.0},
+    [(c1["X"], c1["dx"], c1["Y"], c1["dy"], c1["d"]) for _, c1, _ in relues])
+chk("l'avertissement « note_v1 » (attention) porte le texte des décisions ; il est en tête ; une note v2 ne l'a pas ; v1 traverse normaliser (idempotent)",
+    all(r1["avertissements"][0]["code"] == "note_v1" and r1["avertissements"][0]["niveau"] == "attention" and r1["avertissements"][0]["message"] == E.AVIS_V1 for _, _, r1 in relues)
+    and "modèle lame" in E.AVIS_V1 and "ressaisir" in E.AVIS_V1 and not any(a["code"] == "note_v1" for a in R0["avertissements"])
+    and all(M.normaliser(c1)["v1"] is True for _, c1, _ in relues) and all(E.est_v1(v1) for v1 in V1) and not E.est_v1(CAS) and not E.est_v1({"nom": "x"}))
+chk("les anciens chiffres ne sont plus calculés : aucune clé du modèle lame dans la sortie (V, e, s, gamma_ELU, sig_lim…), le résultat est celui du nouveau calcul",
+    all(not ({"V", "e", "s", "gamma_ELU", "sig_lim_ELS", "tau_lim_ELS", "sig_lim_ELU", "bord", "charge"} & set(c1)) for _, c1, _ in relues)
+    and all("taux_max" in r1 and r1["mode"] == "historique" for _, _, r1 in relues))
+
+
+# ------------------------------------------------------------------ 12. le sélecteur
+print("\n=== 12. Sélecteur : les 233 cornières du catalogue ===")
+CANDS = M.candidats(CAS)
+masses = [x["masse"] for x in CANDS]
+hors = [x for x in CANDS if not x["domaine"]]
+dedans = [x for x in CANDS if x["domaine"]]
+chk(f"{len(CANDS)} cornières (toutes celles du catalogue, L et LI), triées par masse ; {len(hors)} hors domaine avec leur raison (la charge au-delà de l'aile, "
+    "l'ancrage hors de l'aile…), aucune calculée ; les autres calculées",
+    len(CANDS) == len(M.cornieres()) == 233 and masses == sorted(masses) and {x["famille"] for x in CANDS} == {"L", "LI"} and len(hors) > 50
+    and all(x["raison"] and x["taux"] is None and not x["ok"] for x in hors) and all(x["taux"] is not None and x["raison"] is None for x in dedans)
+    and any("au-delà" in x["raison"] for x in hors) and any("sort" in x["raison"] or "congé" in x["raison"] for x in hors), [x["raison"] for x in hors[:2]])
+ecarts = []
+for x in RNG.sample(dedans, 12) + [x for x in CANDS if x["retenue"]]:
+    r = M.verifier(dict(CAS, profil=x["nom"]))
+    if not (x["taux"] == r["taux_max"] and x["ok"] == (r["statut"] == "ok")):
+        ecarts.append(x["nom"])
+chk("chaque cornière du sélecteur est calculée avec les charges de la cornière ouverte : taux = taux_max du calcul complet, ok = statut (13 vérifiées)", not ecarts, ecarts)
+premier = next((x for x in CANDS if x["ok"] and x["domaine"]), None)
+chk(f"optimal = la plus légère qui tient ET dans le domaine ({premier and premier['nom']}) ; une seule ; retenue = L 120x120x15 (qui tient) ; optimal() la rend",
+    premier is not None and premier["optimal"] and sum(x["optimal"] for x in CANDS) == 1 and [x["nom"] for x in CANDS if x["retenue"]] == ["L 120x120x15"]
+    and M.optimal(CAS)["nom"] == premier["nom"] and all(not (x["ok"] and x["domaine"]) for x in CANDS[:CANDS.index(premier)]))
+chk("candidats(familles=['LI']) : les seules cornières à ailes inégales ; aucune ne tient (R = 500) → pas d'optimal ; en B et en équilibre le sélecteur calcule aussi",
+    {x["famille"] for x in M.candidats(CAS, ["LI"])} == {"LI"} and M.optimal(dict(CAS, R=500.0)) is None
+    and any(x["ok"] for x in M.candidats(dict(CAS, configuration="B"))) and any(x["ok"] for x in M.candidats(dict(CAS, mode="equilibre"))))
+CB = M.candidats(dict(CAS, configuration="B"))
+chk("en B, le taux du sélecteur est celui du calcul complet (section nette comprise)",
+    all(x["taux"] == M.calculer(dict(CAS, configuration="B", profil=x["nom"]), diagrammes=False)["taux_max"] for x in RNG.sample([x for x in CB if x["domaine"]], 5)))
+
+
+# ------------------------------------------------------------------ 13. pureté
+print("\n=== 13. Pureté : bibliothèque standard, le catalogue, les nuances ; sous-processus sans streamlit ===")
 non_std = []
-for dossier, _, fichiers in os.walk(os.path.join(RACINE, "acier", "corniere")):
-    for f in fichiers:
-        if f.endswith(".py"):
-            arbre = ast.parse(lire(os.path.relpath(os.path.join(dossier, f), RACINE)))
-            for n in ast.walk(arbre):
-                noms = [a.name for a in n.names] if isinstance(n, ast.Import) else \
-                    [n.module] if isinstance(n, ast.ImportFrom) and n.level == 0 else []
-                non_std += [f"{f}: {x}" for x in noms if x.split(".")[0] not in sys.stdlib_module_names and not x.startswith("acier.profiles")]
-chk("acier/corniere n'importe que la bibliothèque standard et le catalogue acier.profiles (lecture des sources)", not non_std, non_std)
+for f in sorted(os.listdir(os.path.join(RACINE, "acier", "corniere"))):
+    if f.endswith(".py"):
+        arbre = ast.parse(lire("acier", "corniere", f))
+        for n in ast.walk(arbre):
+            noms = [a.name for a in n.names] if isinstance(n, ast.Import) else [n.module] if isinstance(n, ast.ImportFrom) and n.level == 0 and n.module else []
+            non_std += [f"{f}: {x}" for x in noms if x.split(".")[0] not in sys.stdlib_module_names and not x.startswith(("acier.profiles", "acier.flambement"))]
+chk("acier/corniere n'importe que la bibliothèque standard, le catalogue acier.profiles et les nuances acier.flambement.normes (lecture des sources)", not non_std, non_std)
 SOUS_PROCESSUS = r'''
 import json, sys
 avant = set(sys.modules)
@@ -690,10 +908,9 @@ sortie["tiers"] = sorted(charges - set(sys.stdlib_module_names) - {"acier"})
 sortie["interdits"] = sorted(m for m in sys.modules if m.split(".")[0] in INTERDITS)
 print(json.dumps(sortie))
 '''
-cs = [c for _, c, _ in CAS]
-attendu = {"res": json.loads(json.dumps(tous)), "cands": json.loads(json.dumps(M.candidats(cs[0])))}
-interpretes = [sys.executable] + [x for x in (shutil.which("python3.13"), "/usr/bin/python3.13")
-                                  if x and os.path.exists(x) and os.path.realpath(x) != os.path.realpath(sys.executable)][:1]
+cs = [CAS, dict(CAS, configuration="B"), dict(CAS, mode="equilibre", dx=20.0, dy=10.0), dict(CAS, profil="L 150x100x12", aile_horizontale="B", Y=115.0, a=100.0)]
+attendu = json.loads(json.dumps({"res": [M.verifier(c) for c in cs], "cands": M.candidats(cs[0])}))
+interpretes = [sys.executable] + [x for x in ("/usr/bin/python3.13",) if os.path.exists(x) and os.path.realpath(x) != os.path.realpath(sys.executable)]
 for exe in interpretes:
     pr = subprocess.run([exe, "-I", "-c", SOUS_PROCESSUS, RACINE], input=json.dumps(cs), capture_output=True, text=True, check=False)
     if pr.returncode != 0:
@@ -701,32 +918,33 @@ for exe in interpretes:
         continue
     out = json.loads(pr.stdout)
     v = ".".join(map(str, out["version"]))
-    chk(f"Python {v} : streamlit, pandas, reportlab… REFUSÉS par sys.meta_path, et le moteur calcule quand même ({len(out['res'])} cornières, "
-        "le sélecteur)", out["refus"] and not out["interdits"], (out["refus"], out["interdits"]))
+    chk(f"Python {v} : streamlit, pandas, reportlab… REFUSÉS par sys.meta_path, et le moteur calcule quand même (4 cornières, le sélecteur)",
+        out["refus"] and not out["interdits"], (out["refus"], out["interdits"]))
     chk(f"Python {v} : seuls la bibliothèque standard et numpy (le catalogue acier/profiles) sont chargés", set(out["tiers"]) <= {"numpy"}, out["tiers"])
     diff = [i for i, (a, b) in enumerate(zip(out["res"], attendu["res"])) if a != b] + (["cands"] if out["cands"] != attendu["cands"] else [])
     chk(f"Python {v} : résultats identiques à ceux de ce processus", not diff, diff[:3])
 if len(interpretes) == 1:
     print("     (python3.13 absent : le calcul sous la version de Pyodide n'est pas rejoué sur cette machine)")
 
-# ------------------------------------------------------------------ 9. mutations : chaque contrôle rougit si l'on retire ce qu'il protège
-print("\n=== 9. Mutations : le moteur modifié d'UNE ligne est rejeté par les contrôles ci-dessus ===")
+
+# ------------------------------------------------------------------ 14. mutations
+print("\n=== 14. Mutations : le moteur modifié d'UNE formule clé est rejeté ===")
 PAQUET = sys.modules["acier.corniere"]
+NOMS_MODULES = ("entree", "statique", "moteur")
 
 
 def charger_mutant(mutations):
-    """Le moteur (entree + moteur) rechargé depuis ses SOURCES, après des remplacements [(fichier, avant, après)] ;
-    rend (E, M) mutants. Chaque « avant » doit figurer UNE fois dans la source (sinon la mutation est périmée)."""
-    noms = ("entree", "moteur")
-    sauve = {n: sys.modules[f"acier.corniere.{n}"] for n in noms}
-    sauve_attr = {n: getattr(PAQUET, n) for n in noms}
+    """Les trois modules rechargés depuis leurs SOURCES après des remplacements [(module, avant, après)] ; chaque
+    « avant » doit figurer UNE fois dans la source (sinon la mutation est périmée). Rend le moteur mutant."""
+    sauve = {n: sys.modules[f"acier.corniere.{n}"] for n in NOMS_MODULES}
+    sauve_attr = {n: getattr(PAQUET, n) for n in NOMS_MODULES}
     mods = {}
     try:
-        for n in noms:
+        for n in NOMS_MODULES:
             chemin = os.path.join(RACINE, "acier", "corniere", n + ".py")
             src = lire("acier", "corniere", n + ".py")
-            for fichier, avant, apres in mutations:
-                if fichier == n:
+            for module, avant, apres in mutations:
+                if module == n:
                     if src.count(avant) != 1:
                         raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans {n}.py)")
                     src = src.replace(avant, apres)
@@ -737,94 +955,120 @@ def charger_mutant(mutations):
             exec(compile(src, chemin, "exec"), m.__dict__)
             mods[n] = m
     finally:
-        sys.modules.update({f"acier.corniere.{n}": sauve[n] for n in noms})
-        for n in noms:
+        sys.modules.update({f"acier.corniere.{n}": sauve[n] for n in NOMS_MODULES})
+        for n in NOMS_MODULES:
             setattr(PAQUET, n, sauve_attr[n])
-    return mods["entree"], mods["moteur"]
+    return mods["moteur"]
 
 
-def rejets(E_, M_):
-    """Ce que les contrôles de ce fichier reprochent au moteur (E_, M_) : bornes et défauts lus dans l'écran, parité
-    avec l'écran rejoué (les 99 cornières), refus, formules et statuts, sélecteur. Rend la liste des reproches."""
-    out = [f"bornes : {x}" for x in ecarts_bornes(E_)]
-    res_ = []
-    for c, cle_ecran, ev, loc in ECRANS:
-        try:
-            ecarts, r = comparer(c, cle_ecran, ev, loc, M_)
-            res_.append(r)
-            out += [f"parité {c['nom']} : {x}" for x in ecarts[:1]]
-        except Exception as e:  # noqa: BLE001 — un mutant qui casse est rejeté
-            out.append(f"parité {c['nom']} : {type(e).__name__}")
-    out += [f"refus : {x}" for x in refus_manques(M_)]
-    out += [f"formules : {x}" for x in fautes_formules(res_)[0][:2]]
+def rejets(mod):
+    """Ce que les contrôles de ce fichier reprochent au moteur ``mod`` : le cas de contrôle, P8 sur des tirages, B,
+    P0/P1/Q1, les jeux, les maxima, L_eff, la garde, les refus, les défauts, les formules, les diagrammes, le sélecteur,
+    la relecture v1, les positions."""
+    out = []
     try:
-        cands = M_.candidats(M_.nouvelle_corniere())
-        masses = [x["masse"] for x in cands]
-        premier = next((x for x in cands if x["ok"]), None)
-        if masses != sorted(masses) or not (premier and premier["optimal"]) or sum(x["optimal"] for x in cands) != 1:
-            out.append("sélecteur : tri ou optimal")
-        o_h = M_.optimal(C_HORS)
-        if not (o_h and o_h["B"] >= C_HORS["e"] * 10.0 and o_h["nom"] == opt_h["nom"]):
-            out.append("sélecteur : optimal dont l'aile B ne reçoit pas la charge")
-        out += [f"sélecteur {x['nom']}" for x in cands
-                if x["nom"] in SELECTEUR_ECRAN and (not egal(x["taux"], SELECTEUR_ECRAN[x["nom"]][0]) or x["ok"] != SELECTEUR_ECRAN[x["nom"]][1])][:1]
-    except Exception as e:  # noqa: BLE001
-        out.append(f"sélecteur : {type(e).__name__}")
+        r0 = mod.verifier(CAS)
+        if not (dec(100 * r0["taux_max"], 88.8621, 4) and r0["gouvernant"]["cle"] == "S3" and dec(r0["ancrages"]["N_ELS"], 14.2533, 4) and dec(r0["ancrages"]["N_ELU"], 22.9667, 4)
+                and all(dec(V(r0, k)["M"], m, 6) for k, m in (("S1", 2.009720), ("S2", 2.565600), ("S3", 2.358697), ("S4", 2.896645)))
+                and dec(r0["ancrages"]["pression_diametrale"], 59.389, 3) and dec(r0["ancrages"]["arrachement"], 13.575, 3) and r0["ancrages"]["positions_z"] == [50.0, 150.0, 250.0]):
+            out.append("cas de contrôle")
+        for c in TIRAGES_SANS[:8] + TIRAGES_AVEC[:12]:
+            ec, _ = ecarts_p8(mod, c, c["dx"], c["dy"])
+            if ec:
+                out.append(f"P8 {c['nom']} : {ec[0]}")
+                break
+        b = mod.verifier(dict(CAS, configuration="B"))
+        if not (dec(b["ancrages"]["H"], 82.47, 2) and dec(100 * V(b, "S3")["taux"], 112.42, 2) and dec(100 * V(b, "nette")["taux"], 137.1, 1) and b["gouvernant"]["cle"] == "nette"):
+            out.append("configuration B")
+        if not dec(mod.verifier(dict(CAS, configuration="B", yc=10.0))["ancrages"]["H"], 115.45, 2):
+            out.append("B avec contact à c = 10")
+        p0 = mod.verifier(dict(CAS, mode="equilibre"))
+        if not (dec(100 * V(p0, "S3")["taux"], 76.91, 2) and dec(100 * p0["taux_max"], 77.94, 2) and dec(100 * V(mod.verifier(dict(CAS, mode="equilibre", yc=7.5)), "S3")["taux"], 83.96, 2)
+                and dec(100 * V(mod.verifier(dict(CAS, mode="equilibre", yc=7.5, uV=0.0)), "S3")["taux"], 80.84, 2)):
+            out.append("équilibre P0 / P1 / Q1")
+        j = mod.verifier(dict(CAS, dx=20.0, dy=20.0))
+        if not (dec(100 * j["taux_max"], 120.69, 2) and dec(100 * mod.verifier(dict(CAS, dx=20.0))["taux_max"], 112.43, 2)
+                and dec(100 * mod.verifier(dict(CAS, dy=20.0))["taux_max"], 95.38, 2) and V(j, "S3")["combinaison"]["position_ancrage"] == "haut"):
+            out.append("jeux et enveloppe")
+        if not (dec(V(r0, "max_h")["recul"], 1.98, 2) and dec(100 * V(r0, "max_h")["ecart"], 2.11, 2) and dec(V(r0, "max_v")["recul"], 1.66, 2) and dec(100 * V(r0, "max_v")["ecart"], 1.45, 2)):
+            out.append("maximum du congé")
+        la = mod.verifier(dict(CAS, a=100.0))
+        if not (la["geometrie"]["L_eff"] == 194.0 and dec(100 * V(la, "S1")["taux"], 117.2, 1)):
+            out.append("L_eff")
+        if not (mod.verifier(dict(CAS, Y=40.0))["garde"]["depasse"] and any(a["code"] == "equilibre_plus_severe" for a in mod.verifier(dict(CAS, Y=40.0))["avertissements"])
+                and not r0["garde"]["depasse"]):
+            out.append("garde")
+        out += [f"refus : {x}" for x in refus_manques(mod)[:2]]
+        if mod.nouvelle_corniere() != D:
+            out.append("défauts")
+        ff_, _ = fautes_formules([r0, b, p0, j, la])
+        out += [f"formules : {x}" for x in ff_[:2]]
+        out += [f"diagrammes : {x}" for x in fautes_diagrammes(mod.verifier(dict(CAS, dx=20.0, dy=10.0)))[:1]]
+        cands = mod.candidats(CAS)
+        ms = [x["masse"] for x in cands]
+        prem = next((x for x in cands if x["ok"] and x["domaine"]), None)
+        if ms != sorted(ms) or not (prem and prem["optimal"]) or sum(x["optimal"] for x in cands) != 1 or len(cands) != 233:
+            out.append("sélecteur : tri, optimal")
+        c1 = mod.normaliser(V1[0])
+        if not (c1["v1"] is True and (c1["X"], c1["Y"]) == (62.5, 71.0) and mod.verifier(c1)["avertissements"][0]["code"] == "note_v1"):
+            out.append("relecture v1")
+        baisses_ = balayage(dict(CAS, mode="equilibre"), "dy", [0.0, 5.0, 10.0]) if False else []
+        out += baisses_
+    except AssertionError:
+        raise
+    except Exception as err:  # noqa: BLE001 — un mutant qui casse est rejeté
+        out.append(f"{type(err).__name__} : {err}")
     return out
 
 
 MUTATIONS = (
-    ("I = b·t³/12 → /12,5", [("moteur", "I_trans = b_trans_mm * t_mm**3 / 12.0", "I_trans = b_trans_mm * t_mm**3 / 12.5")]),
-    ("W = b·t²/6 → /6,5", [("moteur", "W_trans = b_trans_mm * t_mm**2 / 6.0", "W_trans = b_trans_mm * t_mm**2 / 6.5")]),
-    ("A_z = b·t → b·t/2", [("moteur", "Az_trans = b_trans_mm * t_mm\n", "Az_trans = b_trans_mm * t_mm / 2\n")]),
-    ("bande de 1 000 mm → 1 000,5", [("moteur", "B_TRANS = 1000.0", "B_TRANS = 1000.5")]),
-    ("γ_ELU oublié (linéaire)", [("moteur", "V_ELU = V_char * gamma_ELU\n", "V_ELU = V_char\n")]),
-    ("charge ponctuelle non répartie sur L", [("moteur", "V_ELS = V_char / L", "V_ELS = V_char")]),
-    ("e en cm lu en dm", [("moteur", "e_m = e / 100.0", "e_m = e / 10.0")]),
-    ("√(σ² + 3τ²) → √(σ² + τ²)", [("moteur", "sigma_eq_ELS = math.sqrt(sigma_ELS**2 + 3.0 * tau_ELS**2)", "sigma_eq_ELS = math.sqrt(sigma_ELS**2 + tau_ELS**2)")]),
-    ("τ de l'ELU dans σ_eq,ELU → celui de l'ELS", [("moteur", "sigma_eq_ELU = math.sqrt(sigma_ELU**2 + 3.0 * tau_ELU**2)", "sigma_eq_ELU = math.sqrt(sigma_ELU**2 + 3.0 * tau_ELS**2)")]),
-    ("panneau b = 10·s → 100·s", [("moteur", "b_long_mm = s * 10.0", "b_long_mm = s * 100.0")]),
-    ("V_loc = V·s sans /100", [("moteur", "Vloc_ELU = V_ELU * (s / 100.0)", "Vloc_ELU = V_ELU * s")]),
-    ("σ_eq,long avec τ_long,ELS", [("moteur", "sigma_eq_long_ELU = math.sqrt(sigma_long_ELU**2 + 3.0 * tau_long_ELU**2)", "sigma_eq_long_ELU = math.sqrt(sigma_long_ELU**2 + 3.0 * tau_long_ELS**2)")]),
-    ("U_τ avec τ_ELU", [("moteur", "U_tau = tau_ELS / tau_lim_ELS", "U_tau = tau_ELU / tau_lim_ELS")]),
-    ("ELS : « ≤ » devenu « < »", [("moteur", "ok_els = sigma_eq_ELS <= sig_lim_ELS and tau_ELS <= tau_lim_ELS", "ok_els = sigma_eq_ELS < sig_lim_ELS and tau_ELS < tau_lim_ELS")]),
-    ("ELS sans le contrôle de τ", [("moteur", "ok_els = sigma_eq_ELS <= sig_lim_ELS and tau_ELS <= tau_lim_ELS", "ok_els = sigma_eq_ELS <= sig_lim_ELS")]),
-    ("longitudinal comparé à σ_lim,ELS", [("moteur", "ok_long = sigma_eq_long_ELU <= sig_lim_ELU", "ok_long = sigma_eq_long_ELU <= sig_lim_ELS")]),
-    ("épaisseur du catalogue remplacée par l'aile", [("moteur", '"A": p["h"], "B": p["b"], "t": p["t"]', '"A": p["h"], "B": p["b"], "t": p["b"] / 10')]),
-    ("ailes A et B échangées", [("moteur", '"A": p["h"], "B": p["b"], "t": p["t"]', '"A": p["b"], "B": p["h"], "t": p["t"]')]),
-    ("valeur de la vérification τ : τ_ELU", [("moteur", '"els_tau": (g["tau_ELS"]', '"els_tau": (g["tau_ELU"]')]),
-    ("terme faux dans la formule de W", [("moteur", '_f("W", "W", [("b", b, "mm"), ("t", t, "mm")]', '_f("W", "W", [("b", b, "mm"), ("t", t + 1, "mm")]')]),
-    ("gouvernant : le plus petit taux", [("moteur", 'gov = max(ver, key=lambda v: v["taux"])', 'gov = min(ver, key=lambda v: v["taux"])')]),
-    ("sélecteur trié par nom", [("entree", 'key=lambda p: (p["masse"], p["nom"])', 'key=lambda p: (p["nom"], p["masse"])')]),
-    ("optimal : la plus LOURDE qui tient", [("moteur", 'premier = next((x for x in out if x["ok"] and x["aile"]), None)', 'premier = next((x for x in reversed(out) if x["ok"] and x["aile"]), None)')]),
-    ("optimal : l'aile B oubliée (la charge peut tomber dans le vide)", [("moteur", 'premier = next((x for x in out if x["ok"] and x["aile"]), None)', 'premier = next((x for x in out if x["ok"]), None)')]),
-    ("épaisseur ≥ aile admise", [("entree", "    if out[\"t\"] >= aile:", "    if out[\"t\"] > 1e9:")]),
-    ("calcul qui déborde admis", [("moteur", "        if not fini:\n", "        if False:\n")]),
-    ("défaut de e : 2,5 cm", [("entree", '"e": (2.3, 0.0, None', '"e": (2.5, 0.0, None')]),
-    ("borne haute de t : 25 mm", [("entree", '"t": (6.0, 2.0, 20.0', '"t": (6.0, 2.0, 25.0')]),
-    ("section proposée : L 20x20x3", [("entree", 'PROFIL_DEFAUT = "L 100x100x10"', 'PROFIL_DEFAUT = "L 20x20x3"')]),
-    ("une saisie négative ramenée à la borne au lieu d'être refusée", [("entree", "        v = _nombre(k, v)", "        v = max(_nombre(k, v) if not (isinstance(v, (int, float)) and v < CHAMPS[k][1]) else CHAMPS[k][1], CHAMPS[k][1] or 0.0)")]),
+    ("ρ₃ sans Δy : H_s = Mmax/YH, l'ancrage haut ne charge plus la section 3", [("statique", "Hs = Mmax / (YH + Yj)", "Hs = Mmax / YH")]),
+    ("pivot des sections YH = Y − e au lieu de Y − e/2", [("statique", "YH = g[\"Y\"] - e / 2.0", "YH = g[\"Y\"] - e")]),
+    ("N oublié dans l'aile verticale en B", [("statique", "N_v=lambda s: -R if s <= Yp else 0.0", "N_v=lambda s: 0.0")]),
+    ("section nette sans les trous", [("moteur", "b_net = c[\"L\"] - c[\"n\"] * E.d0(c)", "b_net = c[\"L\"]")]),
+    ("L_eff oubliée", [("moteur", "return min(c[\"L\"], c[\"a\"] + 2.0 * (st[\"Xp\"] - r - e))", "return c[\"L\"]")]),
+    ("dx oublié dans les combinaisons", [("moteur", "\"X\": c[\"X\"] + a, \"Y\": c[\"Y\"] + b", "\"X\": c[\"X\"], \"Y\": c[\"Y\"] + b")]),
+    ("moment constant en B : R·X′ au lieu de R·(X′ − e/2)", [("statique", "M_angle = R * (Xp - e / 2.0)", "M_angle = R * Xp")]),
+    ("H de l'équilibre sans u_V", [("statique", "H = R * (Xp - uV) / bras\n        st.update(H=H, bras=bras,", "H = R * Xp / bras\n        st.update(H=H, bras=bras,")]),
+    ("moment de l'aile verticale (équilibre A) sans le terme R·(e/2 − u_V)", [("statique", "M_v=lambda s: H * (Yp - s) - R * (e / 2.0 - uV) if s < Yp else 0.0", "M_v=lambda s: H * (Yp - s) if s < Yp else 0.0")]),
+    ("épaisseur du congé t(s) = e partout", [("statique", "return e + r - math.sqrt(max(r * r - w * w, 0.0))", "return e")]),
+    ("σ_éq = √(σ² + τ²)", [("statique", "math.sqrt(sigma * sigma + 3.0 * tau * tau)", "math.sqrt(sigma * sigma + tau * tau)")]),
+    ("τ du classeur oublié dans l'aile verticale", [("statique", "V_v=lambda s: R if s < Yp else 0.0,\n                  N_v=lambda s: 0.0)", "V_v=lambda s: 0.0,\n                  N_v=lambda s: 0.0)")]),
+    ("bras de la traction historique Y au lieu de Y − jeu", [("statique", "H=Mmax / (g[\"Y\"] - g[\"jeu_ancrage\"])", "H=Mmax / g[\"Y\"]")]),
+    ("rapport ELU figé à 1,5", [("moteur", "rapport = (R_ELU / R) if R > 0 else None", "rapport = 1.5 if R > 0 else None")]),
+    ("enveloppe : la combinaison la moins défavorable", [("moteur", "if best is None or et[\"taux\"] > best[\"taux\"] * (1.0 + EPS):", "if best is None or et[\"taux\"] < best[\"taux\"] * (1.0 + EPS):")]),
+    ("maximum au pas de 1 mm sans affinage", [("statique", "PAS_CONGE = 0.1 ", "PAS_CONGE = 1.0 "), ("statique", "affiner: bool = True", "affiner: bool = False")]),
+    ("garde muette", [("moteur", "\"depasse\": t_eq > t_hist * (1.0 + 1e-9)", "\"depasse\": False")]),
+    ("gouvernant : le plus petit taux", [("moteur", "return max((v for v in verifs if v[\"verdict\"]), key=lambda v: v[\"taux\"])", "return min((v for v in verifs if v[\"verdict\"]), key=lambda v: v[\"taux\"])")]),
+    ("les maxima du congé entrent dans le verdict historique", [("moteur", "v = _maximum(ctx, aile, verdict=not hist)", "v = _maximum(ctx, aile, verdict=True)")]),
+    ("charge au-delà de l'aile admise", [("entree", "_exiger(X + dx <= larg,", "_exiger(True or X + dx <= larg,")]),
+    ("défaut de dx : 0", [("entree", "\"dx\": (20.0, \"mm\"", "\"dx\": (0.0, \"mm\"")]),
+    ("sélecteur trié par nom", [("entree", "key=lambda p: (p[\"masse\"], p[\"nom\"])", "key=lambda p: (p[\"nom\"], p[\"masse\"])")]),
+    ("optimal : la plus LOURDE qui tient", [("moteur", "premier = next((x for x in out if x[\"ok\"] and x[\"domaine\"]), None)", "premier = next((x for x in reversed(out) if x[\"ok\"] and x[\"domaine\"]), None)")]),
+    ("relecture v1 sans l'indicateur", [("entree", "out[\"v1\"] = True", "out[\"v1\"] = False")]),
+    ("diagrammes : l'enveloppe ne regarde que la combinaison nominale", [("moteur", "        for st in ctx[\"stats\"]:\n            m, nn, vv = S.efforts(st, aile, s)", "        for st in ctx[\"stats\"][:1]:\n            m, nn, vv = S.efforts(st, aile, s)")]),
+    ("positions des ancrages depuis le bord", [("moteur", "\"positions_z\": [c[\"L\"] / (2 * n) + i * c[\"L\"] / n for i in range(n)]", "\"positions_z\": [i * c[\"L\"] / n for i in range(n)]")]),
+    ("nuance quelconque admise", [("entree", "_exiger(out[\"fy\"] in FY_ADMIS,", "_exiger(True or out[\"fy\"] in FY_ADMIS,")]),
+    ("B : le contact ignore c", [("statique", "bras = ya - c\n", "bras = ya\n")]),
 )
-TEMOIN = ("témoin : un commentaire changé", [("moteur", "# Taux\n", "# Taux (témoin)\n")])
-if ECRANS:
-    survivants, n_rejets = [], []
-    for nom, muts in MUTATIONS:
-        try:
-            E_m, M_m = charger_mutant(muts)
-            r = rejets(E_m, M_m)
-        except AssertionError as e:
-            r, survivants = [], survivants + [f"{nom} : {e}"]
-            continue
-        n_rejets.append(len(r))
-        if not r:
-            survivants.append(nom)
-    chk(f"{len(MUTATIONS)} mutations volontaires du moteur (formules, coefficients, unités, « ≤ », gouvernant, sélecteur, défauts, "
-        f"bornes, refus) : TOUTES rejetées (de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
-    E_t, M_t = charger_mutant(TEMOIN[1])
-    chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(E_t, M_t))
-    chk("après les mutations, le moteur chargé est intact (mêmes résultats)", [M.verifier(c) for _, c, _ in CAS] == tous)
+TEMOIN = ("témoin : un commentaire changé", [("moteur", "# les sections repères :", "# les sections repères (témoin) :")])
+survivants, n_rejets = [], []
+for nom, muts in MUTATIONS:
+    try:
+        rej = rejets(charger_mutant(muts))
+    except AssertionError as err:
+        survivants.append(f"{nom} : {err}")
+        continue
+    n_rejets.append(len(rej))
+    if not rej:
+        survivants.append(nom)
+chk(f"{len(MUTATIONS)} mutations volontaires (une par formule clé : ρ₃, pivot, N en B, nette, L_eff, dx, M_angle, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, "
+    f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact) : TOUTES rejetées "
+    f"(de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
+chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(charger_mutant(TEMOIN[1])))
+chk("après les mutations, le moteur chargé est intact (mêmes résultats)", M.verifier(CAS) == R0 and M.candidats(CAS) == CANDS)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
-    print("   -", nom, "|", str(info)[:300])
+    print("   -", nom, "|", str(info)[:400])
 sys.exit(1 if KO else 0)

@@ -1,331 +1,715 @@
 # -*- coding: utf-8 -*-
-"""Cornière ancrée — le MOTEUR, sans Streamlit. Extrait de l'écran ``modules/corniere.py``, qui reste la RÉFÉRENCE :
-``tests/test_corniere_moteur.py`` rejoue l'écran avec un faux ``st`` et prouve, cas par cas, que ce moteur rend les
-mêmes grandeurs AU BIT PRÈS, les mêmes ✅ / ❌ et les mêmes pourcentages. Méthode, provenance de chaque grandeur,
-défauts constatés dans l'écran : ``docs/acier/CORNIERE_MOTEUR.md``.
+"""Cornière d'appui — le MOTEUR refondu sur la méthode du classeur de l'ingénieur (feuille ``P8``), décisions du
+10/11/2026 (``docs/acier/CORNIERE_DECISIONS.md``) ; ce qui est livré et la preuve : ``docs/acier/CORNIERE_MOTEUR.md``.
 
-Bibliothèque standard (math) ; le catalogue des cornières vient d'``acier.profiles`` (numpy, présent dans le
-navigateur).
+Deux configurations (A : aile horizontale en bas, celle du classeur ; B : en haut, retournée), deux modes pour A
+(« historique » : P8 mot pour mot, chaque grandeur avec la cellule du classeur ; « équilibre » : un corps libre, pivot
+y_c et ligne d'action u_V, N et V exacts) — B se calcule toujours en équilibre. Les jeux par l'ENVELOPPE : la charge à
+X − dx, X, X + dx, l'ancrage à Y − dy, Y, Y + dy (neuf combinaisons, une seule quand dx = dy = 0) ; chaque grandeur
+vérifiée garde la plus défavorable avec la combinaison qui la gouverne. La statique d'une combinaison : ``statique.py``.
+
+Bibliothèque standard (math) ; le catalogue des cornières (``acier.profiles``) charge numpy, présent dans le
+navigateur. Unités : mm, kN, kN·m (moments rendus), N/mm². Nombres non arrondis ; sortie JSON-sérialisable.
 
 API
 ---
-    nouvelle_corniere() -> dict                  une cornière aux valeurs par défaut de l'écran
-    normaliser(corniere) -> dict                 copie complétée et contrôlée (ValueError hors du domaine de l'écran,
-                                                 épaisseur ≥ aile, calcul qui déborde)
-    calculer(t, V, charge, L, e, gamma_ELU, s, sig_lim_ELS, tau_lim_ELS, sig_lim_ELU) -> dict
-                                                 les grandeurs de l'écran, mot pour mot
-    verifier(corniere) -> dict                   le calcul complet, ses vérifications et ses formules
-    candidats(corniere, familles=None) -> list   le sélecteur : les cornières du catalogue triées par masse
-    optimal(corniere, familles=None) -> dict | None   la plus légère qui tient
-    cornieres(familles=None), section_catalogue(nom)   le catalogue (acier/profiles)
-    designation(nom) -> str                      « L 45x45x4.5 » → « L 45×45×4,5 »
-    nom_catalogue(texte) -> str | None           une désignation tapée (« 80x80x8 », « L 80×80×8 ») → le nom au catalogue
+    nouvelle_corniere(nom="Cornière 1") -> dict      les défauts du § 2 (L 120×120×15, A, historique, 35 kN, 75 ± 20, 85 ± 10…)
+    normaliser(corniere) -> dict                     copie complétée et contrôlée ; ValueError hors domaine (entree.normaliser)
+    calculer(corniere, diagrammes=True, annexes=True) -> dict   le calcul complet (ci-dessous) ; sans les tableaux des
+                                                     diagrammes ni la comparaison / la garde quand on les coupe (le sélecteur)
+    verifier(corniere) -> dict                       = calculer(corniere) : tout
+    combinaisons(corniere) -> list                   les 1, 3 ou 9 combinaisons de jeux, la nominale d'abord
+    candidats(corniere, familles=None) -> list       le sélecteur : les cornières du catalogue triées par masse, chacune
+                                                     calculée avec les charges de ``corniere``
+    optimal(corniere, familles=None) -> dict | None  la plus légère qui tient ET dont la charge et l'ancrage sont dans le domaine
+    cornieres(), section_catalogue(nom), designation(nom), nom_catalogue(texte), section(c), est_v1(c), depuis_v1(c)
+                                                     (entree)
 
-ENTRÉE — un dict JSON ; une clé absente ou ``null`` prend le défaut de l'écran :
+ENTRÉE — un dict JSON ; une clé absente ou ``null`` prend le défaut (a, R_ELU, uV : vide = auto) ; mm, kN, N/mm² :
 ------
     {"nom": "Cornière 1",
-     "standard": true,              le bouton « Utiliser une cornière standard » : true = du catalogue
-     "profil": "L 100x100x10",      la cornière du catalogue (acier/profiles, familles L et LI)
-     "A": 60.0, "B": 60.0,          largeurs des ailes en saisie libre (mm, 10 à 300)
-     "t": 6.0,                      épaisseur en saisie libre (mm, 2 à 20)
-     "charge": "lineaire",          « lineaire » (V en kN/m) ou « ponctuelle » (V en kN, réparti sur L)
-     "V": 5.0,                      effort tranchant caractéristique (kN/m ou kN, ≥ 0)
-     "L": 1.0,                      longueur d'influence d'une charge ponctuelle (m, 0,1 à 5)
-     "e": 2.3,                      excentricité, distance charge – cornière (cm, ≥ 0)
-     "gamma_ELU": 1.35,             coefficient global ELU (≥ 1)
-     "s": 30.0,                     espacement des fixations (cm, ≥ 10)
-     "bord": 2.0,                   distance de l'âme au bord du mur (cm, ≥ 0) — l'écran ne s'en sert pas
-     "sig_lim_ELS": 155.0,          σ_lim,ELS (N/mm², ≥ 10)
-     "tau_lim_ELS": 0.8,            τ_lim,ELS (N/mm², ≥ 0,1)
-     "sig_lim_ELU": 186.0}          σ_eq,lim,ELU (N/mm², ≥ 10)
+     "standard": true, "profil": "L 120x120x15",   catalogue (acier/profiles, familles L et LI) …
+     "A": 120, "B": 120, "t": 15, "r": 13,          … ou saisie libre (ailes, épaisseur, congé)
+     "aile_horizontale": "A",                       laquelle des ailes porte la charge (A = la première du nom, h au catalogue)
+     "configuration": "A",                          A = aile horizontale en bas (classeur), B = en haut (retournée)
+     "fy": 355, "coef": 1.5,                        nuance du site (235, 275, 355, 460) ; σ_adm = f_y/coef, τ_adm = σ_adm/√3
+     "R": 35, "L": 300, "X": 75, "dx": 20,          réaction ELS (kN) sur la longueur reprise L ; charge à X ± dx du nu du mur
+     "a": null, "R_ELU": null,                      largeur d'appui réelle (vide = L) ; réaction ELU (vide = 1,5·R, « auto »)
+     "Y": 85, "dy": 10, "n": 3, "d": 16,            ancrage à Y ± dy de la face extérieure de l'aile horizontale ; n ancrages Ø d
+     "mode": "historique",                          ou "equilibre" (sans effet en B : toujours équilibre)
+     "jeu_ancrage": 10,                             mode historique : le C76 du classeur, bras de la traction Y − jeu_ancrage
+     "yc": 0, "uV": null,                           mode équilibre : pivot (A : depuis le dessous ; B : depuis le bout libre),
+                                                    ligne d'action du cisaillement d'ancrage depuis le nu du mur (vide = e/2)
+     "v1": false}                                   vrai : relue d'une note du module d'avant (modèle lame) → avertissement note_v1
 
-SORTIE de verifier — JSON-sérialisable, nombres non arrondis (le site formate) :
+SORTIE de calculer / verifier
 ------
-    {"reference": "modules/corniere.py",
-     "corniere": {...},             l'entrée normalisée
-     "section": {"source": "catalogue" | "saisie", "nom", "designation", "famille", "A", "B", "t", "r1", "r2",
-                 "masse" (kg/m, None en saisie libre comme à l'écran), "aire" (cm²), "yc", "zc", "norme"},
-     "grandeurs": {...},            toutes les grandeurs de l'écran (ci-dessous)
-     "verifications": [<verification>, ...],   els_sigma, els_tau, elu, long_elu (l'ordre de l'écran)
-     "verdicts": {"els", "elu", "long"},        les ✅ (true) / ❌ (false) de l'écran
-     "taux_max", "statut": "ok" | "nok", "gouvernant": {"cle", "nom", "groupe", "taux"},
-     "calcul": {"transversal": [<bloc>, ...], "longitudinal": [<bloc>, ...]},
-     "avertissements": [{"code", "message"}, ...]}
-        codes : « ancrages_non_verifies » et « longitudinal_provisoire » (toujours : ce que l'écran dit en légende),
-        « excentricite_hors_aile » (e > B : un constat géométrique, aucun chiffre ne change)
+    {"reference": …, "corniere": {…} (normalisée),
+     "section": {"source": "catalogue"|"saisie", "nom", "designation", "famille", "A", "B", "t", "r1", "r2", "masse" (kg/m),
+                 "aire" (cm²), "masse_source": "catalogue"|"calculée", "norme", "aile_horizontale", "larg", "haut", "e", "r"},
+     "configuration": "A"|"B", "mode": "historique"|"equilibre" (le mode EFFECTIF), "mode_demande",
+     "materiau": {"fy", "nuance", "coef", "sigma_adm", "tau_adm"},
+     "geometrie": {"e", "r", "larg", "haut", "L", "X", "dx", "Y", "dy", "n", "d", "d0", "a" (None = L), "L_eff" (la plus
+                   petite des combinaisons), "facteur_L_eff" (L/L_eff), "combinaison_L_eff", "yc", "uV" (effectif),
+                   "jeu_ancrage", "sections": [{"cle", "nom", "aile", "s", "t"}] (S1 à S4), "conge": [e, e + r],
+                   "bloc_angle": [0, e], "positions_charge": [X′…], "positions_ancrage": [Y′…], "s_contact" (B)},
+     "combinaisons": [<combinaison>, …]  — la nominale d'abord (1, 3 ou 9),
+     "efforts": {"R", "R_ELU", "R_ELU_auto" (bool), "rapport_ELU" (R_ELU/R, None si R = 0), "Mmax" (kN·m, enveloppe = R·(X + dx)),
+                 "H" (kN, traction totale des ancrages = compression du mur, enveloppe), "combinaison_H", "bras_H" (mm),
+                 "H_sections" (historique : Mmax/(YH + dy), le H implicite des sections, None sinon), "C" (= H),
+                 "M_angle" (B : R·(X′ − e/2) enveloppe, kN·m, None en A)},
+     "verifications": [<verification>, …]  — S1, S2, S3, S4, max_h, max_v, et nette (B) ; ``verdict`` dit si la ligne
+                 entre dans le verdict (en historique, les maxima du congé sont en information : le classeur ne les a pas),
+     "informations": [<information>, …]  — pression diamétrale, arrachement, compression du mur (A) ou pression sur le
+                 support (B), taux de l'autre mode (A), L_eff (si a),
+     "ancrages": {"n", "d", "d0", "positions_z": [L/(2n) + i·L/n], "N_ELS", "V_ELS", "N_ELU", "V_ELU" (kN, par ancrage),
+                  "combinaison_N", "bras" (mm : Y − jeu_ancrage en historique, Y′ − y_c ou y_a − c en équilibre), "H",
+                  "pression_diametrale", "arrachement" (N/mm², information), "compression_mur" (kN, A : résultante à y_c),
+                  "pression_support" (N/mm, B), "methode": "historique"|"equilibre"},
+     "diagrammes": {"horizontale": <diagramme>, "verticale": <diagramme>} (None quand diagrammes=False),
+     "maxima": {"horizontale": <verification max_h>, "verticale": <verification max_v>},
+     "comparaison": {"mode", "taux_max", "gouvernant": {"cle", "nom"}} — l'autre mode, en A ; None en B,
+     "garde": {"taux_historique", "taux_equilibre_P1", "depasse", "yc", "uV"} — mode historique ; None sinon,
+     "taux_max", "statut": "ok"|"nok", "gouvernant": {"cle", "nom", "aile", "s", "taux", "combinaison"},
+     "calcul": [<bloc>, …], "hypotheses": [str, …], "avertissements": [{"code", "niveau", "message"}, …]}
 
-  <verification> = {"cle", "nom", "groupe" ("transversal" | "longitudinal"), "etat_limite" ("ELS" | "ELU"),
-                    "symbole", "valeur", "limite", "symbole_limite", "unite" ("N/mm²"),
-                    "taux" (valeur / limite : le pourcentage de l'écran divisé par 100), "ok" (valeur ≤ limite),
-                    "etat" ("ok" | "nok")}
-  <bloc> = {"cle", "titre", "formules": [{"cle", "symbole", "termes": [{"symbole", "valeur", "unite"}, ...],
-                                          "resultat", "unite"}, ...]}
-     chaque résultat se retrouve à partir de ses seuls termes (le test le prouve) : le site écrit la phrase
-     « symbole = expression = valeurs = résultat », il ne recalcule rien.
+  <combinaison> = {"jeu_charge": −dx|0|+dx, "jeu_ancrage": −dy|0|+dy, "X": X′, "Y": Y′, "libelle": "charge à X + 20, ancrage à Y − 10",
+                   "position_charge": "proche"|"nominale"|"loin", "position_ancrage": "haut"|"nominal"|"bas"}
+     (en A, Y + dy est l'ancrage HAUT ; en B, le BAS : Y se compte depuis la face extérieure de l'aile horizontale)
+  <verification> = {"cle": "S1"|"S2"|"S3"|"S4"|"max_h"|"max_v"|"nette", "nom", "aile": "horizontale"|"verticale", "s" (mm, distance
+                    au dos de l'autre aile), "t" (mm), "largeur" (mm : L, L_eff, ou L − n·d0), "W" (mm³), "A" (mm²), "M" (kN·m,
+                    signé : > 0 = face côté congé tendue), "N" (kN, > 0 traction), "V" (kN), "sigma", "tau", "sigma_eq" (N/mm²),
+                    "sigma_adm", "taux" (σ_éq/σ_adm), "taux_sigma" (σ/σ_adm), "taux_tau" (τ/τ_adm), "ok", "etat": "ok"|"nok",
+                    "verdict" (bool), "combinaison": <combinaison>, "cellule" (historique : "I37"…, sinon None),
+                    et pour max_h / max_v : "reference" ("S1"|"S3"), "ecart" (taux/taux_ref − 1), "recul" (mm avant le pied du
+                    congé, e + r − s), "dans_conge" (bool)}
+  <information> = {"cle", "nom", "valeur", "unite", "combinaison" (ou None), "texte"}
+  <diagramme> = {"aile", "fin" (mm), "largeur" (mm, la plus petite des combinaisons), "points": [<point>, …] (l'ENVELOPPE :
+                 point par point, la plus défavorable des combinaisons), "courbes": [{"jeu_charge", "X", "ancrage" (le jeu
+                 d'ancrage qui gouverne la section de référence pour cette charge), "points": [[s, M], …]}, …] (une courbe
+                 par position de la charge, chacune enveloppe des trois positions de l'ancrage ; l'enveloppe des points
+                 est leur maximum point par point), "troncons": [{"de", "a", "N", "V"}] (étiquettes des efforts, enveloppe),
+                 "reperes": {"sections": [{"cle", "s", "t"}], "conge": [e, e + r], "bloc_angle": [0, e], "charge": {"X",
+                 "positions"} (horizontale), "ancrage": {"Y", "positions", "bande", "d0"} (verticale), "contact" (B),
+                 "maximum": {"s", "taux", "sigma_eq"}}}
+  <point> = {"s", "t", "M" (kN·m), "N", "V" (kN), "sigma", "tau", "sigma_eq" (N/mm²), "taux"}
+  <bloc> = {"cle", "titre", "combinaison" (ou None), "formules": [{"cle", "symbole", "termes": [{"symbole", "valeur", "unite"}],
+            "resultat", "unite", "cellule" (historique)}]} — chaque résultat se retrouve à partir de ses seuls termes :
+     sigma_adm f_y/coef · tau_adm σ_adm/√3 · Xp X + Δx · Yp Y + Δy · Xe X − r − e (historique : X nominal, C19 ; équilibre :
+     X′) · Xer X − e (C20 ; équilibre X′ − e) · Ye Y − e − r · Yer Y − e · YH Y − e/2 · M_bras_j R·(bras + Xj)/1000 (C35,
+     C45) · Mmax_j R·(X + Xj)/1000 (C55, C78) · rho (Y_réf + Yj)/(YH + Yj) · M_rho ρ·Mmax · H_hist Mmax·1000/(YH + Yj) ·
+     M_hist_v H_s·(Y′ − s)/1000 · M_bras R·bras/1000 · M_lin R·(X′ − s)/1000 · bras_A Y′ − y_c · H_eq R·(X′ − u_V)/bras ·
+     M_eq_A (H·(Y′ − s) − R·(e/2 − u_V))/1000 · y_a haut − Y′ · bras_B y_a − c · M_angle_B R·(X′ − e/2)/1000 · M_bas_B H·(s_c − s)/1000 ·
+     t_conge e + r − √(r² − (e + r − s)²) · W b·t²/6 · A b·t · sigma_M M·10⁶/W · sigma_MN |M|·10⁶/W + |N|·10³/A ·
+     tau_RLt R·10³/(b·t) · tau_VA |V|·10³/A · sigma_eq √(σ² + 3τ²) · taux valeur/limite · N_ELS_hist Mmax·1000/((Y − jeu)·n) ·
+     N_ELS_eq H/n · V_ELS R/n · rapport_ELU R_ELU/R · ELU x·ρ_ELU · R_ELU_auto 1,5·R · p_diam V·10³/(d·e) ·
+     arrachement V·10³/(2·(haut − Y)·e) · L_eff min(L ; a + 2·Xe) · d0 d + 2 · b_net L − n·d0 · pression_support C·10³/L.
 
-  grandeurs (mm, N/mm², kN, kN/m, kN·m, kN·m/m, N·mm/m) — les noms des variables de l'écran :
-     modèle lame     b_trans t I_trans W_trans Az_trans
-     efforts         V_ELS V_ELU e_m M_ELS M_ELU M_ELS_Nmm M_ELU_Nmm
-     transversal     sigma_ELS sigma_ELU tau_ELS tau_ELU sigma_eq_ELS sigma_eq_ELU
-     longitudinal    b_long I_long W_long Az_long Vloc_ELS Vloc_ELU Mlong_ELS Mlong_ELU sigma_long_ELS
-                     sigma_long_ELU tau_long_ELS tau_long_ELU sigma_eq_long_ELS sigma_eq_long_ELU
-     taux et verdicts U_sigma U_tau U_ELU U_long_ELU ok_els ok_elu ok_long
+  avertissements (code · niveau) : chevilles_non_verifiees · info ; pic_conge · info ; effet_levier · info ;
+     pression_support · attention (B) ; equilibre_plus_severe · rouge (historique : la garde) ; mode_impose_B · info ;
+     R_ELU_auto · info ; note_v1 · attention ; fy_epaisseur · info (e > 40 mm).
 
-SORTIE de candidats — les cornières du catalogue, triées par masse (puis par nom), chacune calculée par
-``calculer`` : [{"nom", "designation", "famille", "A", "B", "t", "masse", "aire", "taux" (le plus grand des
-quatre), "ok" (les trois ✅ de l'écran), "aile" (e ≤ B : la charge tombe sur l'aile B), "retenue" (la cornière
-retenue), "optimal" (la plus légère « ok » dont l'aile B reçoit la charge)}, ...]
+SORTIE de candidats — les cornières du catalogue, triées par masse : [{"nom", "designation", "famille", "A", "B", "t", "r1",
+"masse", "aire", "taux" (taux_max, None hors domaine), "ok", "domaine" (bool), "raison" (le refus, ou None), "retenue",
+"optimal"}, …] ; optimal = la plus légère « ok » et dans le domaine.
 """
 import math
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 from . import entree as E
-from .entree import (CHARGES, FAMILLES, LINEAIRE, PONCTUELLE, REFERENCE, cornieres, designation,  # noqa: F401 — l'API
-                     nom_catalogue, nouvelle_corniere, section_catalogue)
+from . import statique as S
+from .entree import (AVIS_V1, EQUILIBRE, HISTORIQUE, REFERENCE, cornieres, depuis_v1, designation,  # noqa: F401 — l'API
+                     est_v1, nom_catalogue, nouvelle_corniere, normaliser, section, section_catalogue)
+from .statique import HORIZONTALE, VERTICALE
 
 OK, NOK = "ok", "nok"
-TRANSVERSAL, LONGITUDINAL = "transversal", "longitudinal"
-B_TRANS = 1000.0                 # le modèle lame : une bande de 1 m de cornière (vérification par mètre courant)
-T_MIN = 2.0                      # l'épaisseur la plus faible du domaine (saisie libre) : les contraintes y sont les plus fortes
+INFO, ATTENTION, ROUGE = "info", "attention", "rouge"
+EPS = 1e-12                       # à égalité (à EPS relatif près), la combinaison nominale garde la main
+
+# les sections repères : (clé, nom, aile, s(e, r), t(e, r), cellule du taux dans P8)
+SECTIONS = (("S1", "Section 1 · aile horizontale, pied du congé", HORIZONTALE, lambda e, r: e + r, lambda e, r: e, "I37"),
+            ("S2", "Section 2 · aile horizontale, nu de l'aile verticale", HORIZONTALE, lambda e, r: e, lambda e, r: e + r, "I47"),
+            ("S3", "Section 3 · aile verticale, pied du congé", VERTICALE, lambda e, r: e + r, lambda e, r: e, "I57"),
+            ("S4", "Section 4 · aile verticale, nu de l'aile horizontale", VERTICALE, lambda e, r: e, lambda e, r: e + r, "I67"))
+NOMS = {"max_h": "Maximum le long de l'aile horizontale (congé)", "max_v": "Maximum le long de l'aile verticale (congé)",
+        "nette": "Section nette au droit des ancrages (aile verticale)"}
 
 
-def normaliser(c: Dict) -> Dict:
-    """La cornière relue par l'entrée (défauts et domaine de l'écran, ``entree.normaliser``), puis un dernier refus :
-    des valeurs si grandes que le calcul DÉBORDE (une contrainte infinie ou indéterminée ; l'écran Streamlit s'arrête
-    alors sur une erreur Python) lèvent ValueError. Le contrôle est mené à l'épaisseur de la cornière et à la plus
-    faible du domaine (2 mm) : les contraintes décroissent avec t, aucune cornière du sélecteur ne déborde donc."""
-    c = E.normaliser(c)
-    for t in (c["t"], T_MIN):
-        try:
-            g = _calcul_de(c, t)
-            fini = all(math.isfinite(x) for x in g.values() if not isinstance(x, bool))
-        except OverflowError:
-            fini = False
-        if not fini:
-            raise ValueError("valeurs trop grandes : le calcul déborde (une contrainte devient infinie) — revoir V, e, s, L et γ_ELU")
-    return c
-
-# les quatre vérifications : (clé, nom, groupe, état limite) — l'ordre des taux de l'écran
-VERIFICATIONS = (("els_sigma", "Contrainte équivalente", TRANSVERSAL, "ELS"),
-                 ("els_tau", "Cisaillement", TRANSVERSAL, "ELS"),
-                 ("elu", "Contrainte équivalente", TRANSVERSAL, "ELU"),
-                 ("long_elu", "Contrainte équivalente", LONGITUDINAL, "ELU"))
+# ------------------------------------------------------------------ les combinaisons de jeux
+def _signe(x: float) -> str:
+    return f" + {E._g(x)}" if x > 0 else f" − {E._g(-x)}" if x < 0 else ""
 
 
-# ------------------------------------------------------------------ le calcul de l'écran, mot pour mot
-def calculer(t, V_char, charge, L, e, gamma_ELU, s, sig_lim_ELS, tau_lim_ELS, sig_lim_ELU) -> Dict:
-    """Les grandeurs de l'écran ``modules/corniere.py`` (« CALCULS utilitaires » à « Taux »), chaque expression
-    reprise DANS LE MÊME ORDRE D'OPÉRATIONS : les flottants sont identiques au bit près. ``t`` en mm, ``V_char`` en
-    kN/m (linéaire) ou kN (ponctuelle), ``L`` en m, ``e`` et ``s`` en cm, les limites en N/mm²."""
-    # Modèle lame : b = 1000 mm (vérif par mètre courant)
-    b_trans_mm = B_TRANS
-    t_mm = float(t)
-    I_trans = b_trans_mm * t_mm**3 / 12.0
-    W_trans = b_trans_mm * t_mm**2 / 6.0
-    Az_trans = b_trans_mm * t_mm
-    # Efforts (ELS et ELU) ; une charge ponctuelle est ramenée par mètre de cornière sur la longueur L
-    if charge == LINEAIRE:
-        V_ELS = V_char
-        V_ELU = V_char * gamma_ELU
-    else:
-        V_ELS = V_char / L
-        V_ELU = (V_char * gamma_ELU) / L
-    # Moment transversal M = V * e (par mètre) → N·mm/mm
-    e_m = e / 100.0
-    M_ELS_Nmm = V_ELS * e_m * 1e6
-    M_ELU_Nmm = V_ELU * e_m * 1e6
-    # Contraintes transversales
-    sigma_ELS = M_ELS_Nmm / W_trans if W_trans > 0 else 0.0
-    sigma_ELU = M_ELU_Nmm / W_trans if W_trans > 0 else 0.0
-    tau_ELS = (V_ELS * 1e3) / Az_trans if Az_trans > 0 else 0.0
-    tau_ELU = (V_ELU * 1e3) / Az_trans if Az_trans > 0 else 0.0
-    sigma_eq_ELS = math.sqrt(sigma_ELS**2 + 3.0 * tau_ELS**2)
-    sigma_eq_ELU = math.sqrt(sigma_ELU**2 + 3.0 * tau_ELU**2)
-    # Longitudinal (entre fixations) : un panneau de largeur s
-    b_long_mm = s * 10.0
-    I_long = b_long_mm * t_mm**3 / 12.0
-    W_long = b_long_mm * t_mm**2 / 6.0
-    Az_long = b_long_mm * t_mm
-    Vloc_ELS = V_ELS * (s / 100.0)
-    Vloc_ELU = V_ELU * (s / 100.0)
-    Mlong_ELS_kNm = Vloc_ELS * e_m
-    Mlong_ELU_kNm = Vloc_ELU * e_m
-    sigma_long_ELS = (Mlong_ELS_kNm * 1e6) / W_long if W_long > 0 else 0.0
-    sigma_long_ELU = (Mlong_ELU_kNm * 1e6) / W_long if W_long > 0 else 0.0
-    tau_long_ELS = (Vloc_ELS * 1e3) / Az_long if Az_long > 0 else 0.0
-    tau_long_ELU = (Vloc_ELU * 1e3) / Az_long if Az_long > 0 else 0.0
-    sigma_eq_long_ELS = math.sqrt(sigma_long_ELS**2 + 3.0 * tau_long_ELS**2)
-    sigma_eq_long_ELU = math.sqrt(sigma_long_ELU**2 + 3.0 * tau_long_ELU**2)
-    # Taux
-    U_sigma = sigma_eq_ELS / sig_lim_ELS if sig_lim_ELS > 0 else 0.0
-    U_tau = tau_ELS / tau_lim_ELS if tau_lim_ELS > 0 else 0.0
-    U_ELU = sigma_eq_ELU / sig_lim_ELU if sig_lim_ELU > 0 else 0.0
-    U_long_ELU = sigma_eq_long_ELU / sig_lim_ELU if sig_lim_ELU > 0 else 0.0
-    # les ✅ / ❌ de l'écran
-    ok_els = sigma_eq_ELS <= sig_lim_ELS and tau_ELS <= tau_lim_ELS
-    ok_elu = sigma_eq_ELU <= sig_lim_ELU
-    ok_long = sigma_eq_long_ELU <= sig_lim_ELU
-    return {"b_trans": b_trans_mm, "t": t_mm, "I_trans": I_trans, "W_trans": W_trans, "Az_trans": Az_trans,
-            "V_ELS": V_ELS, "V_ELU": V_ELU, "e_m": e_m, "M_ELS": V_ELS * e_m, "M_ELU": V_ELU * e_m,
-            "M_ELS_Nmm": M_ELS_Nmm, "M_ELU_Nmm": M_ELU_Nmm,
-            "sigma_ELS": sigma_ELS, "sigma_ELU": sigma_ELU, "tau_ELS": tau_ELS, "tau_ELU": tau_ELU,
-            "sigma_eq_ELS": sigma_eq_ELS, "sigma_eq_ELU": sigma_eq_ELU,
-            "b_long": b_long_mm, "I_long": I_long, "W_long": W_long, "Az_long": Az_long,
-            "Vloc_ELS": Vloc_ELS, "Vloc_ELU": Vloc_ELU, "Mlong_ELS": Mlong_ELS_kNm, "Mlong_ELU": Mlong_ELU_kNm,
-            "sigma_long_ELS": sigma_long_ELS, "sigma_long_ELU": sigma_long_ELU,
-            "tau_long_ELS": tau_long_ELS, "tau_long_ELU": tau_long_ELU,
-            "sigma_eq_long_ELS": sigma_eq_long_ELS, "sigma_eq_long_ELU": sigma_eq_long_ELU,
-            "U_sigma": U_sigma, "U_tau": U_tau, "U_ELU": U_ELU, "U_long_ELU": U_long_ELU,
-            "ok_els": ok_els, "ok_elu": ok_elu, "ok_long": ok_long}
+def combinaisons(c: Dict) -> List[Dict]:
+    """Les positions de la charge (X − dx, X, X + dx) croisées avec celles de l'ancrage (Y − dy, Y, Y + dy) : une seule
+    combinaison quand dx = dy = 0, trois quand un seul jeu est nul, neuf sinon. La nominale d'abord, puis par jeux
+    croissants en valeur absolue — l'ordre dans lequel une égalité est départagée."""
+    return _combinaisons(normaliser(c))
 
 
-def _calcul_de(c: Dict, t: float) -> Dict:
-    return calculer(t, c["V"], c["charge"], c["L"], c["e"], c["gamma_ELU"], c["s"], c["sig_lim_ELS"], c["tau_lim_ELS"],
-                    c["sig_lim_ELU"])
-
-
-# ------------------------------------------------------------------ la section
-def section(c: Dict) -> Dict:
-    """La cornière calculée : celle du catalogue (``standard``) ou la saisie libre A × B × t (sans masse, comme à
-    l'écran, qui n'en affiche pas en saisie libre)."""
-    if c["standard"]:
-        p = section_catalogue(c["profil"])
-        return {"source": "catalogue", "nom": p["nom"], "designation": designation(p["nom"]), "famille": p["famille"],
-                "A": p["h"], "B": p["b"], "t": p["t"], "r1": p.get("r1") or 0.0, "r2": p.get("r2") or 0.0,
-                "masse": p["masse"], "aire": p["A"], "yc": p.get("yc"), "zc": p.get("zc"), "norme": "EN 10056-1"}
-    return {"source": "saisie", "nom": None, "designation": f"{_g(c['A'])} × {_g(c['B'])} × {_g(c['t'])}",
-            "famille": None, "A": c["A"], "B": c["B"], "t": c["t"], "r1": 0.0, "r2": 0.0, "masse": None, "aire": None,
-            "yc": None, "zc": None, "norme": None}
-
-
-def _g(x: float) -> str:
-    return f"{x:g}".replace(".", ",")
-
-
-# ------------------------------------------------------------------ les formules, pour le détail du calcul
-def _f(cle: str, symbole: str, termes, resultat: float, unite: str) -> Dict:
-    return {"cle": cle, "symbole": symbole, "termes": [{"symbole": s, "valeur": v, "unite": u} for s, v, u in termes],
-            "resultat": resultat, "unite": unite}
-
-
-def _blocs(c: Dict, g: Dict) -> Dict[str, List[Dict]]:
-    """Les formules de l'écran, groupées comme une note faite à la main ; chaque résultat est une grandeur de
-    ``calculer`` (aucun calcul nouveau)."""
-    V, gam, e, s, L = c["V"], c["gamma_ELU"], c["e"], c["s"], c["L"]
-    b, t = g["b_trans"], g["t"]
-    if c["charge"] == LINEAIRE:
-        eff = [_f("V_ELS_lin", "V_ELS", [("V", V, "kN/m")], g["V_ELS"], "kN/m"),
-               _f("V_ELU_lin", "V_ELU", [("γ_ELU", gam, ""), ("V", V, "kN/m")], g["V_ELU"], "kN/m")]
-    else:
-        eff = [_f("V_ELS_ponct", "V_ELS", [("V", V, "kN"), ("L", L, "m")], g["V_ELS"], "kN/m"),
-               _f("V_ELU_ponct", "V_ELU", [("γ_ELU", gam, ""), ("V", V, "kN"), ("L", L, "m")], g["V_ELU"], "kN/m")]
-    eff += [_f("M", "M_ELS", [("V_ELS", g["V_ELS"], "kN/m"), ("e", e, "cm")], g["M_ELS"], "kN·m/m"),
-            _f("M", "M_ELU", [("V_ELU", g["V_ELU"], "kN/m"), ("e", e, "cm")], g["M_ELU"], "kN·m/m")]
-    sec = [_f("I", "I", [("b", b, "mm"), ("t", t, "mm")], g["I_trans"], "mm⁴"),
-           _f("W", "W", [("b", b, "mm"), ("t", t, "mm")], g["W_trans"], "mm³"),
-           _f("Az", "A_z", [("b", b, "mm"), ("t", t, "mm")], g["Az_trans"], "mm²")]
-
-    def contraintes(el, M, Vx, sig, tau, eq):
-        return [_f("sigma", f"σ_{el}", [("M", M, "kN·m/m"), ("W", g["W_trans"], "mm³")], sig, "N/mm²"),
-                _f("tau", f"τ_{el}", [("V", Vx, "kN/m"), ("A_z", g["Az_trans"], "mm²")], tau, "N/mm²"),
-                _f("sigma_eq", f"σ_eq,{el}", [("σ", sig, "N/mm²"), ("τ", tau, "N/mm²")], eq, "N/mm²")]
-    els = contraintes("ELS", g["M_ELS"], g["V_ELS"], g["sigma_ELS"], g["tau_ELS"], g["sigma_eq_ELS"])
-    els += [_f("taux", "U_σ", [("σ_eq,ELS", g["sigma_eq_ELS"], "N/mm²"), ("σ_lim,ELS", c["sig_lim_ELS"], "N/mm²")], g["U_sigma"], ""),
-            _f("taux", "U_τ", [("τ_ELS", g["tau_ELS"], "N/mm²"), ("τ_lim,ELS", c["tau_lim_ELS"], "N/mm²")], g["U_tau"], "")]
-    elu = contraintes("ELU", g["M_ELU"], g["V_ELU"], g["sigma_ELU"], g["tau_ELU"], g["sigma_eq_ELU"])
-    elu += [_f("taux", "U_ELU", [("σ_eq,ELU", g["sigma_eq_ELU"], "N/mm²"), ("σ_eq,lim,ELU", c["sig_lim_ELU"], "N/mm²")], g["U_ELU"], "")]
-    bl = g["b_long"]
-    pan = [_f("b_long", "b", [("s", s, "cm")], bl, "mm"),
-           _f("I", "I_long", [("b", bl, "mm"), ("t", t, "mm")], g["I_long"], "mm⁴"),
-           _f("W", "W_long", [("b", bl, "mm"), ("t", t, "mm")], g["W_long"], "mm³"),
-           _f("Az", "A_z,long", [("b", bl, "mm"), ("t", t, "mm")], g["Az_long"], "mm²")]
-    eff_l = [_f("Vloc", "V_loc,ELS", [("V_ELS", g["V_ELS"], "kN/m"), ("s", s, "cm")], g["Vloc_ELS"], "kN"),
-             _f("Vloc", "V_loc,ELU", [("V_ELU", g["V_ELU"], "kN/m"), ("s", s, "cm")], g["Vloc_ELU"], "kN"),
-             _f("Mlong", "M_long,ELS", [("V_loc,ELS", g["Vloc_ELS"], "kN"), ("e", e, "cm")], g["Mlong_ELS"], "kN·m"),
-             _f("Mlong", "M_long,ELU", [("V_loc,ELU", g["Vloc_ELU"], "kN"), ("e", e, "cm")], g["Mlong_ELU"], "kN·m")]
-
-    def contraintes_long(el, M, Vx, sig, tau, eq):
-        return [_f("sigma_long", f"σ_long,{el}", [("M_long", M, "kN·m"), ("W_long", g["W_long"], "mm³")], sig, "N/mm²"),
-                _f("tau_long", f"τ_long,{el}", [("V_loc", Vx, "kN"), ("A_z,long", g["Az_long"], "mm²")], tau, "N/mm²"),
-                _f("sigma_eq", f"σ_eq,long,{el}", [("σ", sig, "N/mm²"), ("τ", tau, "N/mm²")], eq, "N/mm²")]
-    lng = contraintes_long("ELS", g["Mlong_ELS"], g["Vloc_ELS"], g["sigma_long_ELS"], g["tau_long_ELS"], g["sigma_eq_long_ELS"])
-    lng += contraintes_long("ELU", g["Mlong_ELU"], g["Vloc_ELU"], g["sigma_long_ELU"], g["tau_long_ELU"], g["sigma_eq_long_ELU"])
-    lng += [_f("taux", "U_long,ELU", [("σ_eq,long,ELU", g["sigma_eq_long_ELU"], "N/mm²"), ("σ_eq,lim,ELU", c["sig_lim_ELU"], "N/mm²")],
-               g["U_long_ELU"], "")]
-    return {TRANSVERSAL: [{"cle": "efforts", "titre": "Efforts par mètre courant", "formules": eff},
-                          {"cle": "section", "titre": "Section · modèle lame (b = 1 000 mm)", "formules": sec},
-                          {"cle": "els", "titre": "Contraintes à l'ELS", "formules": els},
-                          {"cle": "elu", "titre": "Contraintes à l'ELU", "formules": elu}],
-            LONGITUDINAL: [{"cle": "panneau", "titre": "Panneau entre fixations (largeur s)", "formules": pan},
-                           {"cle": "efforts", "titre": "Efforts du panneau", "formules": eff_l},
-                           {"cle": "contraintes", "titre": "Contraintes", "formules": lng}]}
-
-
-# ------------------------------------------------------------------ la vérification
-def _verifications(c: Dict, g: Dict) -> List[Dict]:
-    lignes = {"els_sigma": (g["sigma_eq_ELS"], c["sig_lim_ELS"], g["U_sigma"], "σ_eq,ELS", "σ_lim,ELS"),
-              "els_tau": (g["tau_ELS"], c["tau_lim_ELS"], g["U_tau"], "τ_ELS", "τ_lim,ELS"),
-              "elu": (g["sigma_eq_ELU"], c["sig_lim_ELU"], g["U_ELU"], "σ_eq,ELU", "σ_eq,lim,ELU"),
-              "long_elu": (g["sigma_eq_long_ELU"], c["sig_lim_ELU"], g["U_long_ELU"], "σ_eq,long,ELU", "σ_eq,lim,ELU")}
+def _combinaisons(c: Dict) -> List[Dict]:
+    dx, dy, cfg = c["dx"], c["dy"], c["configuration"]
+    jx = [0.0] + ([-dx, dx] if dx > 0 else [])
+    jy = [0.0] + ([-dy, dy] if dy > 0 else [])
     out = []
-    for cle, nom, groupe, el in VERIFICATIONS:
-        val, lim, taux, sym, sym_l = lignes[cle]
-        ok = val <= lim
-        out.append({"cle": cle, "nom": nom, "groupe": groupe, "etat_limite": el, "symbole": sym, "valeur": val,
-                    "limite": lim, "symbole_limite": sym_l, "unite": "N/mm²", "taux": taux, "ok": ok,
-                    "etat": OK if ok else NOK})
+    for a in jx:
+        for b in jy:
+            pos_c = "nominale" if a == 0 else ("loin" if a > 0 else "proche")
+            haut_bas = ("haut", "bas") if cfg == "A" else ("bas", "haut")
+            pos_a = "nominal" if b == 0 else (haut_bas[0] if b > 0 else haut_bas[1])
+            out.append({"jeu_charge": a, "jeu_ancrage": b, "X": c["X"] + a, "Y": c["Y"] + b,
+                        "libelle": f"charge à X{_signe(a)}, ancrage à Y{_signe(b)}",
+                        "position_charge": pos_c, "position_ancrage": pos_a})
     return out
 
 
-def verifier(c: Dict) -> Dict:
-    """Le calcul de l'écran pour une cornière : grandeurs, quatre vérifications, verdicts, formules."""
-    c = normaliser(c)
+# ------------------------------------------------------------------ le contexte d'un calcul
+def _contexte(c: Dict, mode: Optional[str] = None, yc: Optional[float] = None, uV: Optional[float] = None) -> Dict:
+    """Tout ce que le calcul lit : la section, le matériau, le mode effectif, les combinaisons et leur statique.
+    ``mode``, ``yc``, ``uV`` forcés servent à la comparaison des modes et à la garde."""
     sec = section(c)
-    g = _calcul_de(c, sec["t"])
-    ver = _verifications(c, g)
-    gov = max(ver, key=lambda v: v["taux"])            # à égalité, la première dans l'ordre de l'écran
-    av = [{"code": "ancrages_non_verifies",
-           "message": "Ancrages non vérifiés, comme dans l'écran Streamlit : efforts par fixation, entraxes, béton et bords "
-                      "à justifier selon l'ETA."},
-          {"code": "longitudinal_provisoire",
-           "message": "Côté non sûr : la vérification « longitudinale » de l'écran Streamlit redonne le calcul transversal "
-                      "(s se simplifie) ; la flexion entre fixations (q·s²/8) n'est vérifiée nulle part."}]
-    if c["e"] * 10.0 > sec["B"]:
-        # un CONSTAT géométrique (aucun chiffre ne change) : l'écran ne compare jamais e à l'aile B
-        av.append({"code": "excentricite_hors_aile",
-                   "message": f"La charge tombe au-delà de l'aile B : e = {_g(c['e'] * 10.0)} mm > B = {_g(sec['B'])} mm "
-                              "(e compté depuis le dos de l'aile fixée). L'écran Streamlit ne le contrôle pas ; le calcul "
-                              "est mené quand même."})
-    return {"reference": REFERENCE, "corniere": c, "section": sec, "grandeurs": g, "verifications": ver,
-            "verdicts": {"els": g["ok_els"], "elu": g["ok_elu"], "long": g["ok_long"]},
-            "taux_max": gov["taux"], "statut": OK if all(v["ok"] for v in ver) else NOK,
-            "gouvernant": {"cle": gov["cle"], "nom": gov["nom"], "groupe": gov["groupe"], "etat_limite": gov["etat_limite"],
-                           "taux": gov["taux"]},
-            "calcul": _blocs(c, g), "avertissements": av}
+    e, r, larg, haut = sec["e"], sec["r"], sec["larg"], sec["haut"]
+    cfg = c["configuration"]
+    mode_eff = EQUILIBRE if cfg == "B" else (mode or c["mode"])
+    uV_eff = (c["uV"] if c["uV"] is not None else e / 2.0) if uV is None else uV
+    yc_eff = c["yc"] if yc is None else yc
+    sigma_adm = c["fy"] / c["coef"]
+    g = {"e": e, "r": r, "larg": larg, "haut": haut, "L": c["L"], "R": c["R"], "Y": c["Y"], "yc": yc_eff, "uV": uV_eff,
+         "jeu_ancrage": c["jeu_ancrage"]}
+    combos = _combinaisons(c)
+    stats = [S.statique(g, mode_eff, cfg, cb["X"], cb["Y"]) for cb in combos]
+
+    def largeur(aile: str, st: Dict) -> float:
+        """La largeur d'une coupe : L, ou L_eff = min(L ; a + 2·Xe) sur l'aile horizontale quand a est donnée."""
+        if aile == HORIZONTALE and c["a"] is not None:
+            return min(c["L"], c["a"] + 2.0 * (st["Xp"] - r - e))
+        return c["L"]
+
+    return {"c": c, "sec": sec, "e": e, "r": r, "larg": larg, "haut": haut, "cfg": cfg, "mode": mode_eff, "uV": uV_eff,
+            "yc": yc_eff, "sigma_adm": sigma_adm, "tau_adm": sigma_adm / math.sqrt(3.0), "g": g, "combos": combos,
+            "stats": stats, "largeur": largeur}
+
+
+def _etat(ctx: Dict, aile: str, s: float, t: float, st: Dict, largeur: Optional[float] = None) -> Dict:
+    """Les grandeurs d'une coupe pour UNE combinaison."""
+    M, N, V = S.efforts(st, aile, s)
+    Lw = ctx["largeur"](aile, st) if largeur is None else largeur
+    W, A = S.module_aire(Lw, t)
+    sigma, tau, seq = S.contraintes(M, N, V, Lw, t)
+    return {"s": s, "t": t, "largeur": Lw, "W": W, "A": A, "M": M / 1e3, "N": N, "V": V, "sigma": sigma, "tau": tau,
+            "sigma_eq": seq, "sigma_adm": ctx["sigma_adm"], "taux": seq / ctx["sigma_adm"], "taux_sigma": sigma / ctx["sigma_adm"],
+            "taux_tau": tau / ctx["tau_adm"]}
+
+
+def _pire(ctx: Dict, cle: str, nom: str, aile: str, s: float, t: float, verdict: bool = True, cellule: Optional[str] = None,
+          largeur: Optional[float] = None, etats: Optional[Callable[[Dict], List[Dict]]] = None) -> Dict:
+    """L'ENVELOPPE d'une coupe : la combinaison au plus grand taux (à EPS près, la nominale garde la main)."""
+    best, best_cb = None, None
+    for cb, st in zip(ctx["combos"], ctx["stats"]):
+        for et in (etats(st) if etats else [_etat(ctx, aile, s, t, st, largeur)]):
+            if best is None or et["taux"] > best["taux"] * (1.0 + EPS):
+                best, best_cb = et, cb
+    out = {"cle": cle, "nom": nom, "aile": aile}
+    out.update(best)
+    out.update({"ok": best["taux"] <= 1.0, "etat": OK if best["taux"] <= 1.0 else NOK, "verdict": verdict,
+                "combinaison": best_cb, "cellule": cellule})
+    return out
+
+
+# ------------------------------------------------------------------ les vérifications
+def _sections(ctx: Dict) -> List[Dict]:
+    e, r, hist = ctx["e"], ctx["r"], ctx["mode"] == HISTORIQUE
+    return [_pire(ctx, cle, nom, aile, fs(e, r), ft(e, r), cellule=cel if hist else None) for cle, nom, aile, fs, ft, cel in SECTIONS]
+
+
+def _coudes(ctx: Dict, aile: str) -> List[float]:
+    """Les abscisses où les efforts changent de pente : la charge, l'ancrage, le contact (B)."""
+    if aile == HORIZONTALE:
+        return [st["Xp"] for st in ctx["stats"]]
+    pts = [st["Yp"] for st in ctx["stats"]]
+    if ctx["cfg"] == "B":
+        pts += [st["s_contact"] for st in ctx["stats"]]
+    return pts
+
+
+def _maximum(ctx: Dict, aile: str, verdict: bool) -> Dict:
+    """Le maximum de σ_éq (enveloppe des combinaisons) le long d'une aile : le congé au pas ≤ 0,1 mm, les coudes de
+    la partie droite (les efforts y sont linéaires), puis la section dorée."""
+    e, r = ctx["e"], ctx["r"]
+    fin = ctx["larg"] if aile == HORIZONTALE else ctx["haut"]
+    ref = "S1" if aile == HORIZONTALE else "S3"
+
+    def f(s: float) -> float:
+        t = S.t_conge(s, e, r)
+        return max(S.contraintes(*S.efforts(st, aile, s), ctx["largeur"](aile, st), t)[2] for st in ctx["stats"])
+
+    absc = S.abscisses_exploration(e, r, fin, _coudes(ctx, aile))
+    s_max, _ = S.maximum(f, absc)
+    v = _pire(ctx, "max_h" if aile == HORIZONTALE else "max_v", NOMS["max_h" if aile == HORIZONTALE else "max_v"], aile, s_max,
+              S.t_conge(s_max, e, r), verdict=verdict)
+    v.update({"reference": ref, "recul": e + r - s_max, "dans_conge": s_max < e + r - 1e-9})
+    return v
+
+
+def _nette(ctx: Dict) -> Dict:
+    """Configuration B : la section nette au droit du trou (largeur L − n·d0, épaisseur e), la face la plus
+    sollicitée du trou — juste au-dessus (M = R·(X′ − e/2), N = −R, V = 0) ou juste au-dessous (M = H·bras, V = H)."""
+    c = ctx["c"]
+    b_net = c["L"] - c["n"] * E.d0(c)
+
+    def etats(st: Dict) -> List[Dict]:
+        dessus = dict(_etat(ctx, VERTICALE, st["Yp"], ctx["e"], st, largeur=b_net), face="dessus")
+        dessous = dict(_etat(ctx, VERTICALE, st["Yp"] + 1e-9, ctx["e"], st, largeur=b_net), s=st["Yp"], face="dessous")
+        return [dessus, dessous]
+
+    return _pire(ctx, "nette", NOMS["nette"], VERTICALE, 0.0, ctx["e"], largeur=b_net, etats=etats)
+
+
+def _verifications(ctx: Dict) -> List[Dict]:
+    """S1 à S4, les deux maxima (dans le verdict en équilibre, en information en historique : le classeur ne les a
+    pas, et son cas de contrôle doit rendre 88,86 %), la section nette en B."""
+    hist = ctx["mode"] == HISTORIQUE
+    out = _sections(ctx)
+    for aile in (HORIZONTALE, VERTICALE):
+        v = _maximum(ctx, aile, verdict=not hist)
+        ref = next(x for x in out if x["cle"] == v["reference"])
+        v["ecart"] = v["taux"] / ref["taux"] - 1.0 if ref["taux"] > 0 else 0.0
+        out.append(v)
+    if ctx["cfg"] == "B":
+        out.append(_nette(ctx))
+    return out
+
+
+def _taux_max(verifs: List[Dict]) -> Dict:
+    """La vérification gouvernante parmi celles du verdict (la première à égalité)."""
+    return max((v for v in verifs if v["verdict"]), key=lambda v: v["taux"])
+
+
+# ------------------------------------------------------------------ les ancrages
+def _ancrages(ctx: Dict) -> Dict:
+    c, n, R = ctx["c"], ctx["c"]["n"], ctx["c"]["R"]
+    best, best_cb = None, None
+    for cb, st in zip(ctx["combos"], ctx["stats"]):
+        if best is None or st["H"] > best["H"] * (1.0 + EPS):
+            best, best_cb = st, cb
+    R_ELU = c["R_ELU"] if c["R_ELU"] is not None else E.RAPPORT_ELU_DEFAUT * R
+    rapport = (R_ELU / R) if R > 0 else None
+    N_ELS, V_ELS = best["H"] / n, R / n
+    e, haut, Y = ctx["e"], ctx["haut"], c["Y"]
+    # l'arrachement : le classeur lit Y nominal (C90) ; en équilibre, l'ancrage le plus près du bord (enveloppe)
+    Y_bord = Y if ctx["mode"] == HISTORIQUE else max(cb["Y"] for cb in ctx["combos"])
+    out = {"n": n, "d": c["d"], "d0": E.d0(c), "positions_z": [c["L"] / (2 * n) + i * c["L"] / n for i in range(n)],
+           "N_ELS": N_ELS, "V_ELS": V_ELS, "N_ELU": N_ELS * rapport if rapport is not None else 0.0,
+           "V_ELU": V_ELS * rapport if rapport is not None else 0.0, "rapport_ELU": rapport, "R_ELU": R_ELU,
+           "R_ELU_auto": c["R_ELU"] is None, "combinaison_N": best_cb, "bras": best["bras"], "H": best["H"],
+           "pression_diametrale": V_ELS * 1e3 / (c["d"] * e), "Y_bord": Y_bord,
+           "arrachement": V_ELS * 1e3 / (2.0 * (haut - Y_bord) * e) if haut > Y_bord else None,
+           "methode": ctx["mode"], "compression_mur": best["H"] if ctx["cfg"] == "A" else None,
+           "pression_support": best["H"] * 1e3 / c["L"] if ctx["cfg"] == "B" else None}
+    return out
+
+
+# ------------------------------------------------------------------ les diagrammes
+def _enveloppe_points(ctx: Dict, aile: str, absc: List[float]) -> List[Dict]:
+    e, r = ctx["e"], ctx["r"]
+    pts = []
+    for s in absc:
+        t = S.t_conge(s, e, r)
+        M = N = V = 0.0
+        sig = tau = seq = 0.0
+        for st in ctx["stats"]:
+            m, nn, vv = S.efforts(st, aile, s)
+            sg, ta, sq = S.contraintes(m, nn, vv, ctx["largeur"](aile, st), t)
+            if abs(m) > abs(M):
+                M = m
+            if abs(nn) > abs(N):
+                N = nn
+            if abs(vv) > abs(V):
+                V = vv
+            sig, tau, seq = max(sig, sg), max(tau, ta), max(seq, sq)
+        pts.append({"s": s, "t": t, "M": M / 1e3, "N": N, "V": V, "sigma": sig, "tau": tau, "sigma_eq": seq, "taux": seq / ctx["sigma_adm"]})
+    return pts
+
+
+def _diagramme(ctx: Dict, aile: str, verifs: List[Dict]) -> Dict:
+    c, e, r = ctx["c"], ctx["e"], ctx["r"]
+    fin = ctx["larg"] if aile == HORIZONTALE else ctx["haut"]
+    coudes = _coudes(ctx, aile)
+    vmax = next(v for v in verifs if v["cle"] == ("max_h" if aile == HORIZONTALE else "max_v"))
+    absc = (S.grille(e, e + r, max(r / 26.0, 1e-6)) if r > 0 else [e]) + S.grille(e + r, fin, max((fin - e - r) / 40.0, 1e-6))
+    absc += [x for x in coudes if e <= x <= fin] + [vmax["s"]]
+    absc = sorted(set(round(x, 9) for x in absc))
+    points = _enveloppe_points(ctx, aile, absc)
+    # une courbe de moment par position de la charge, enveloppe des positions de l'ancrage
+    courbes = []
+    s_ref = e + r
+    for jc in sorted(set(cb["jeu_charge"] for cb in ctx["combos"])):
+        paires = [(cb, st) for cb, st in zip(ctx["combos"], ctx["stats"]) if cb["jeu_charge"] == jc]
+        pts = []
+        for s in absc:
+            M = 0.0
+            for _, st in paires:
+                m = S.efforts(st, aile, s)[0]
+                if abs(m) > abs(M):
+                    M = m
+            pts.append([s, M / 1e3])
+        gouv = max(paires, key=lambda p: (abs(S.efforts(p[1], aile, s_ref)[0]), -abs(p[0]["jeu_ancrage"])))[0]
+        courbes.append({"jeu_charge": jc, "X": paires[0][0]["X"], "ancrage": gouv["jeu_ancrage"] if aile == VERTICALE else None,
+                        "points": pts})
+    # les tronçons : N et V en étiquettes (enveloppe)
+    R, Hmax = c["R"], max(st["H"] for st in ctx["stats"])
+    Xmax, Ymin, Ymax = max(st["Xp"] for st in ctx["stats"]), min(st["Yp"] for st in ctx["stats"]), max(st["Yp"] for st in ctx["stats"])
+    if aile == HORIZONTALE:
+        troncons = [{"de": e, "a": Xmax, "N": 0.0, "V": R}]
+    elif ctx["cfg"] == "B":
+        troncons = [{"de": e, "a": Ymax, "N": -R, "V": 0.0}, {"de": Ymin, "a": max(st["s_contact"] for st in ctx["stats"]), "N": 0.0, "V": Hmax}]
+    elif ctx["mode"] == HISTORIQUE:
+        troncons = [{"de": e, "a": Ymax, "N": 0.0, "V": R}]
+    else:
+        troncons = [{"de": e, "a": Ymax, "N": R, "V": Hmax}]
+    reperes = {"sections": [{"cle": v["cle"], "s": v["s"], "t": v["t"]} for v in verifs if v["aile"] == aile and v["cle"].startswith("S")],
+               "conge": [e, e + r], "bloc_angle": [0.0, e], "maximum": {"s": vmax["s"], "taux": vmax["taux"], "sigma_eq": vmax["sigma_eq"]}}
+    if aile == HORIZONTALE:
+        reperes["charge"] = {"X": c["X"], "positions": sorted(set(st["Xp"] for st in ctx["stats"]))}
+    else:
+        reperes["ancrage"] = {"Y": c["Y"], "positions": sorted(set(st["Yp"] for st in ctx["stats"])), "bande": [c["Y"] - c["dy"], c["Y"] + c["dy"]],
+                              "d0": E.d0(c)}
+        if ctx["cfg"] == "B":
+            reperes["contact"] = ctx["stats"][0]["s_contact"]
+    return {"aile": aile, "fin": fin, "largeur": min(ctx["largeur"](aile, st) for st in ctx["stats"]), "points": points,
+            "courbes": courbes, "troncons": troncons, "reperes": reperes}
+
+
+# ------------------------------------------------------------------ les formules du détail
+def _f(cle: str, symbole: str, termes, resultat: float, unite: str, cellule: Optional[str] = None) -> Dict:
+    return {"cle": cle, "symbole": symbole, "termes": [{"symbole": s, "valeur": v, "unite": u} for s, v, u in termes],
+            "resultat": resultat, "unite": unite, "cellule": cellule}
+
+
+def _bloc(cle: str, titre: str, combinaison: Optional[Dict], formules: List[Dict]) -> Dict:
+    return {"cle": cle, "titre": titre, "combinaison": combinaison, "formules": formules}
+
+
+def _formules_coupe(ctx: Dict, v: Dict, hist: bool, cellules: Tuple[str, ...] = ()) -> List[Dict]:
+    """W, A, σ, τ, σ_éq, taux d'une coupe (les cellules du classeur, en historique : W, σ, τ, σ_éq, taux, taux σ, taux τ)."""
+    cel = [x or None for x in cellules] + [None] * 7
+    f = [_f("W", "W", [("b", v["largeur"], "mm"), ("t", v["t"], "mm")], v["W"], "mm³", cel[0])]
+    if hist:
+        f += [_f("sigma_M", "σ", [("M", v["M"], "kN·m"), ("W", v["W"], "mm³")], v["sigma"], "N/mm²", cel[1]),
+              _f("tau_RLt", "τ", [("R", ctx["c"]["R"], "kN"), ("b", v["largeur"], "mm"), ("t", v["t"], "mm")], v["tau"], "N/mm²", cel[2])]
+    else:
+        f += [_f("A", "A", [("b", v["largeur"], "mm"), ("t", v["t"], "mm")], v["A"], "mm²"),
+              _f("sigma_MN", "σ", [("M", v["M"], "kN·m"), ("W", v["W"], "mm³"), ("N", v["N"], "kN"), ("A", v["A"], "mm²")], v["sigma"], "N/mm²"),
+              _f("tau_VA", "τ", [("V", v["V"], "kN"), ("A", v["A"], "mm²")], v["tau"], "N/mm²")]
+    f += [_f("sigma_eq", "σ_éq", [("σ", v["sigma"], "N/mm²"), ("τ", v["tau"], "N/mm²")], v["sigma_eq"], "N/mm²", cel[3]),
+          _f("taux", "taux", [("σ_éq", v["sigma_eq"], "N/mm²"), ("σ_adm", v["sigma_adm"], "N/mm²")], v["taux"], "", cel[4]),
+          _f("taux", "σ/σ_adm", [("σ", v["sigma"], "N/mm²"), ("σ_adm", v["sigma_adm"], "N/mm²")], v["taux_sigma"], "", cel[5]),
+          _f("taux", "τ/τ_adm", [("τ", v["tau"], "N/mm²"), ("τ_adm", ctx["tau_adm"], "N/mm²")], v["taux_tau"], "", cel[6])]
+    return f
+
+
+def _formules_moment(ctx: Dict, v: Dict, st: Dict) -> List[Dict]:
+    """Les formules qui mènent au moment d'une coupe (mode et configuration) ; s = v["s"]. En historique, P8 mot pour
+    mot : les bras C19, C20, C23, C24, C25 sont NOMINAUX et le jeu Xj (C14) s'ajoute dans C35, C45, C55 ; Yj (C17)
+    entre dans ρ (C56, C64)."""
+    c, e, r, hist = ctx["c"], ctx["e"], ctx["r"], ctx["mode"] == HISTORIQUE
+    cb = v["combinaison"]
+    s, Xp, Yp, R = v["s"], st["Xp"], st["Yp"], c["R"]
+    jx, jy = cb["jeu_charge"], cb["jeu_ancrage"]
+    f: List[Dict] = []
+    if hist:
+        if v["aile"] == HORIZONTALE:
+            if v["cle"] == "S1":
+                f += [_f("Xe", "Xe", [("X", c["X"], "mm"), ("r", r, "mm"), ("e", e, "mm")], c["X"] - r - e, "mm", "C19"),
+                      _f("M_bras_j", "M1", [("R", R, "kN"), ("Xe", c["X"] - r - e, "mm"), ("Xj", jx, "mm")], abs(v["M"]), "kN·m", "C35")]
+            elif v["cle"] == "S2":
+                f += [_f("Xer", "Xe+r", [("X", c["X"], "mm"), ("e", e, "mm")], c["X"] - e, "mm", "C20"),
+                      _f("M_bras_j", "M2", [("R", R, "kN"), ("Xe+r", c["X"] - e, "mm"), ("Xj", jx, "mm")], abs(v["M"]), "kN·m", "C45")]
+            else:
+                f += [_f("Xp", "X′", [("X", c["X"], "mm"), ("Xj", jx, "mm")], Xp, "mm", "C13 + C14"),
+                      _f("M_lin", "M(s)", [("R", R, "kN"), ("X′", Xp, "mm"), ("s", s, "mm")], abs(v["M"]), "kN·m")]
+            return f
+        f += [_f("Mmax_j", "Mmax", [("R", R, "kN"), ("X", c["X"], "mm"), ("Xj", jx, "mm")], st["Mmax"] / 1e3, "kN·m", "C55"),
+              _f("YH", "YH", [("Y", c["Y"], "mm"), ("e", e, "mm")], st["YH"], "mm", "C25")]
+        if v["cle"] == "S3":
+            f += [_f("Ye", "Ye", [("Y", c["Y"], "mm"), ("e", e, "mm"), ("r", r, "mm")], c["Y"] - e - r, "mm", "C23"),
+                  _f("rho", "ρ₃", [("Ye", c["Y"] - e - r, "mm"), ("Yj", jy, "mm"), ("YH", st["YH"], "mm")], st["rho3"], "", "C56"),
+                  _f("M_rho", "M3", [("ρ₃", st["rho3"], ""), ("Mmax", st["Mmax"] / 1e3, "kN·m")], v["M"], "kN·m", "C57")]
+        elif v["cle"] == "S4":
+            f += [_f("Yer", "Ye+r", [("Y", c["Y"], "mm"), ("e", e, "mm")], c["Y"] - e, "mm", "C24"),
+                  _f("rho", "ρ₄", [("Ye+r", c["Y"] - e, "mm"), ("Yj", jy, "mm"), ("YH", st["YH"], "mm")], st["rho4"], "", "C64"),
+                  _f("M_rho", "M4", [("ρ₄", st["rho4"], ""), ("Mmax", st["Mmax"] / 1e3, "kN·m")], v["M"], "kN·m", "C65")]
+        else:
+            f += [_f("Yp", "Y′", [("Y", c["Y"], "mm"), ("Yj", jy, "mm")], Yp, "mm", "C16 + C17"),
+                  _f("H_hist", "H_s", [("Mmax", st["Mmax"] / 1e3, "kN·m"), ("YH", st["YH"], "mm"), ("Yj", jy, "mm")], st["H_sections"], "kN"),
+                  _f("M_hist_v", "M(s)", [("H_s", st["H_sections"], "kN"), ("Y′", Yp, "mm"), ("s", s, "mm")], v["M"], "kN·m")]
+        return f
+    f.append(_f("Xp", "X′", [("X", c["X"], "mm"), ("Δx", jx, "mm")], Xp, "mm"))
+    if v["aile"] == HORIZONTALE:
+        if v["cle"] == "S1":
+            f += [_f("Xe", "Xe", [("X′", Xp, "mm"), ("r", r, "mm"), ("e", e, "mm")], Xp - r - e, "mm"),
+                  _f("M_bras", "M1", [("R", R, "kN"), ("Xe", Xp - r - e, "mm")], abs(v["M"]), "kN·m")]
+        elif v["cle"] == "S2":
+            f += [_f("Xer", "Xe+r", [("X′", Xp, "mm"), ("e", e, "mm")], Xp - e, "mm"),
+                  _f("M_bras", "M2", [("R", R, "kN"), ("Xe+r", Xp - e, "mm")], abs(v["M"]), "kN·m")]
+        else:
+            f.append(_f("M_lin", "M(s)", [("R", R, "kN"), ("X′", Xp, "mm"), ("s", s, "mm")], abs(v["M"]), "kN·m"))
+        return f
+    f.append(_f("Yp", "Y′", [("Y", c["Y"], "mm"), ("Δy", jy, "mm")], Yp, "mm"))
+    if ctx["cfg"] == "A":
+        f.append(_f("bras_A", "Y′ − y_c", [("Y′", Yp, "mm"), ("y_c", ctx["yc"], "mm")], st["bras"], "mm"))
+        f.append(_f("H_eq", "H", [("R", R, "kN"), ("X′", Xp, "mm"), ("u_V", ctx["uV"], "mm"), ("bras", st["bras"], "mm")], st["H"], "kN"))
+        f.append(_f("M_eq_A", "M(s)", [("H", st["H"], "kN"), ("Y′", Yp, "mm"), ("s", s, "mm"), ("R", R, "kN"), ("e", e, "mm"), ("u_V", ctx["uV"], "mm")],
+                    v["M"], "kN·m"))
+        return f
+    f.append(_f("y_a", "y_a", [("haut", ctx["haut"], "mm"), ("Y′", Yp, "mm")], st["ya"], "mm"))
+    f.append(_f("bras_B", "y_a − c", [("y_a", st["ya"], "mm"), ("c", ctx["yc"], "mm")], st["bras"], "mm"))
+    f.append(_f("H_eq", "H", [("R", R, "kN"), ("X′", Xp, "mm"), ("u_V", ctx["uV"], "mm"), ("bras", st["bras"], "mm")], st["H"], "kN"))
+    if s <= Yp + 1e-12 and abs(abs(v["M"]) * 1e3 - st["M_angle"]) <= 1e-9 * max(1.0, st["M_angle"]):
+        f.append(_f("M_angle_B", "M", [("R", R, "kN"), ("X′", Xp, "mm"), ("e", e, "mm")], abs(v["M"]), "kN·m"))
+    else:
+        f.append(_f("M_bas_B", "M(s)", [("H", st["H"], "kN"), ("s_c", st["s_contact"], "mm"), ("s", s, "mm")], abs(v["M"]), "kN·m"))
+    return f
+
+
+def _statique_de(ctx: Dict, cb: Dict) -> Dict:
+    return ctx["stats"][ctx["combos"].index(cb)]
+
+
+def _calcul(ctx: Dict, verifs: List[Dict], anc: Dict, geo: Dict) -> List[Dict]:
+    c, hist = ctx["c"], ctx["mode"] == HISTORIQUE
+    blocs = [_bloc("materiau", "Matériau · contraintes admissibles", None,
+                   [_f("sigma_adm", "σ_adm", [("f_y", c["fy"], "N/mm²"), ("coef", c["coef"], "")], ctx["sigma_adm"], "N/mm²", "H31" if hist else None),
+                    _f("tau_adm", "τ_adm", [("σ_adm", ctx["sigma_adm"], "N/mm²")], ctx["tau_adm"], "N/mm²", "H34" if hist else None)])]
+    if c["a"] is not None:
+        st = _statique_de(ctx, geo["combinaison_L_eff"])
+        blocs.append(_bloc("largeur_efficace", "Largeur efficace de l'aile horizontale (diffusion à 45° jusqu'à la section 1)", geo["combinaison_L_eff"],
+                           [_f("Xp", "X′", [("X", c["X"], "mm"), ("Δx", geo["combinaison_L_eff"]["jeu_charge"], "mm")], st["Xp"], "mm"),
+                            _f("Xe", "Xe′", [("X′", st["Xp"], "mm"), ("r", ctx["r"], "mm"), ("e", ctx["e"], "mm")], st["Xp"] - ctx["r"] - ctx["e"], "mm"),
+                            _f("L_eff", "L_eff", [("L", c["L"], "mm"), ("a", c["a"], "mm"), ("Xe′", st["Xp"] - ctx["r"] - ctx["e"], "mm")], geo["L_eff"], "mm")]))
+    CEL = {"S1": ("C32", "G31", "G34", "G37", "I37", "I31", "I34"), "S2": ("C42", "G41", "G44", "G47", "I47", "I41", "I44"),
+           "S3": ("C52", "G51", "G54", "G57", "I57", "I51", "I54"), "S4": ("C62", "G61", "G64", "G67", "I67", "I61", "I64")}
+    for v in verifs:
+        st = _statique_de(ctx, v["combinaison"])
+        f = []
+        if v["cle"] == "nette":
+            f += [_f("d0", "d0", [("d", c["d"], "mm")], anc["d0"], "mm"),
+                  _f("b_net", "b_net", [("L", c["L"], "mm"), ("n", c["n"], ""), ("d0", anc["d0"], "mm")], v["largeur"], "mm")]
+            f += _formules_moment(ctx, v, st)
+        else:
+            if v["cle"] in ("max_h", "max_v") and v["dans_conge"]:
+                f.append(_f("t_conge", "t(s)", [("e", ctx["e"], "mm"), ("r", ctx["r"], "mm"), ("s", v["s"], "mm")], v["t"], "mm"))
+            f += _formules_moment(ctx, v, st)
+        f += _formules_coupe(ctx, v, hist, CEL.get(v["cle"], ()) if hist else ())
+        blocs.append(_bloc(v["cle"], v["nom"], v["combinaison"], f))
+    # ancrages
+    st = _statique_de(ctx, anc["combinaison_N"])
+    fa = []
+    if hist:
+        fa.append(_f("Mmax_j", "Mmax", [("R", c["R"], "kN"), ("X", c["X"], "mm"), ("Xj", anc["combinaison_N"]["jeu_charge"], "mm")], st["Mmax"] / 1e3, "kN·m", "C78"))
+        fa.append(_f("N_ELS_hist", "N_ELS", [("Mmax", st["Mmax"] / 1e3, "kN·m"), ("Y", c["Y"], "mm"), ("jeu", c["jeu_ancrage"], "mm"), ("n", c["n"], "")],
+                     anc["N_ELS"], "kN", "C82"))
+    else:
+        if ctx["cfg"] == "A":
+            fa.append(_f("bras_A", "Y′ − y_c", [("Y′", st["Yp"], "mm"), ("y_c", ctx["yc"], "mm")], st["bras"], "mm"))
+        else:
+            fa.append(_f("y_a", "y_a", [("haut", ctx["haut"], "mm"), ("Y′", st["Yp"], "mm")], st["ya"], "mm"))
+            fa.append(_f("bras_B", "y_a − c", [("y_a", st["ya"], "mm"), ("c", ctx["yc"], "mm")], st["bras"], "mm"))
+        fa.append(_f("H_eq", "H", [("R", c["R"], "kN"), ("X′", st["Xp"], "mm"), ("u_V", ctx["uV"], "mm"), ("bras", st["bras"], "mm")], st["H"], "kN"))
+        fa.append(_f("N_ELS_eq", "N_ELS", [("H", st["H"], "kN"), ("n", c["n"], "")], anc["N_ELS"], "kN"))
+    fa.append(_f("V_ELS", "V_ELS", [("R", c["R"], "kN"), ("n", c["n"], "")], anc["V_ELS"], "kN", "C83" if hist else None))
+    if anc["R_ELU_auto"]:
+        fa.append(_f("R_ELU_auto", "R_ELU", [("R", c["R"], "kN")], anc["R_ELU"], "kN"))
+    if anc["rapport_ELU"] is not None:
+        fa += [_f("rapport_ELU", "ρ_ELU", [("R_ELU", anc["R_ELU"], "kN"), ("R", c["R"], "kN")], anc["rapport_ELU"], "", "C71/C70" if hist else None),
+               _f("ELU", "N_ELU", [("N_ELS", anc["N_ELS"], "kN"), ("ρ_ELU", anc["rapport_ELU"], "")], anc["N_ELU"], "kN", "C85" if hist else None),
+               _f("ELU", "V_ELU", [("V_ELS", anc["V_ELS"], "kN"), ("ρ_ELU", anc["rapport_ELU"], "")], anc["V_ELU"], "kN", "C86" if hist else None)]
+    fa.append(_f("p_diam", "p_diam", [("V_ELS", anc["V_ELS"], "kN"), ("d", c["d"], "mm"), ("e", ctx["e"], "mm")], anc["pression_diametrale"], "N/mm²", "C88" if hist else None))
+    if anc["arrachement"] is not None:
+        fa.append(_f("arrachement", "σ_arr", [("V_ELS", anc["V_ELS"], "kN"), ("haut", ctx["haut"], "mm"), ("Y", anc["Y_bord"], "mm"), ("e", ctx["e"], "mm")],
+                     anc["arrachement"], "N/mm²", "C90" if hist else None))
+    if anc["pression_support"] is not None:
+        fa.append(_f("pression_support", "p_support", [("C", st["H"], "kN"), ("L", c["L"], "mm")], anc["pression_support"], "N/mm"))
+    blocs.append(_bloc("ancrages", "Ancrages · efforts par ancrage", anc["combinaison_N"], fa))
+    return blocs
+
+
+# ------------------------------------------------------------------ hypothèses, avertissements
+def _hypotheses(ctx: Dict, anc: Dict, geo: Dict) -> List[str]:
+    c = ctx["c"]
+    h = [f"Méthode aux contraintes admissibles : σ_adm = f_y/{E._g(c['coef'])} = {ctx['sigma_adm']:.1f} N/mm², τ_adm = σ_adm/√3 = "
+         f"{ctx['tau_adm']:.1f} N/mm², σ_éq = √(σ² + 3τ²) ≤ σ_adm sur les efforts ELS non majorés — ce n'est pas une justification "
+         "EC3 aux états limites.",
+         f"Configuration {ctx['cfg']} : {E.LIBELLES_CONFIGURATION[ctx['cfg']]} ; {E.LIBELLES_MODE[ctx['mode']]}.",
+         "Tranche courte : la longueur reprise L est la largeur de toutes les sections ; les n ancrages se partagent R et la traction."]
+    if ctx["mode"] == HISTORIQUE:
+        h.append(f"Formules de la feuille P8 : sections avec le pivot e/2 (YH = Y − e/2) et τ = R/(L·t) dans les deux ailes ; traction "
+                 f"d'ancrage sur le bras Y − jeu = {E._g(c['Y'] - c['jeu_ancrage'])} mm (C76 = {E._g(c['jeu_ancrage'])} mm).")
+    elif ctx["cfg"] == "A":
+        h.append(f"Un seul corps libre, frottement nul au mur : compression du mur à y_c = {E._g(ctx['yc'])} mm du dessous, cisaillement "
+                 f"d'ancrage à u_V = {E._g(ctx['uV'])} mm du nu du mur ; N = +R et V = H dans l'aile verticale.")
+    else:
+        h.append(f"Corps libre de la cornière retournée, frottement nul : contact au bout libre (c = {E._g(ctx['yc'])} mm), cisaillement "
+                 f"d'ancrage à u_V = {E._g(ctx['uV'])} mm ; moment constant R·(X′ − e/2) de l'ancrage à l'angle, N = −R ; section nette au trou.")
+    jeux = (f"Jeux par l'enveloppe : charge à X − {E._g(c['dx'])}, X, X + {E._g(c['dx'])} ; ancrage à Y − {E._g(c['dy'])}, Y, Y + {E._g(c['dy'])} ; "
+            f"{len(ctx['combos'])} combinaison(s), chaque grandeur garde la plus défavorable.") if (c["dx"] > 0 or c["dy"] > 0) else \
+        "Sans jeu (dx = dy = 0) : une seule combinaison, la charge à X et l'ancrage à Y."
+    h.append(jeux)
+    if c["a"] is not None:
+        h.append(f"Largeur d'appui a = {E._g(c['a'])} mm : largeur efficace de l'aile horizontale L_eff = min(L ; a + 2·Xe) = "
+                 f"{geo['L_eff']:.1f} mm (σ × {geo['facteur_L_eff']:.3f}).")
+    h.append("R_ELU = 1,5·R (auto)." if anc["R_ELU_auto"] else f"R_ELU = {E._g(anc['R_ELU'])} kN (saisie).")
+    return h
+
+
+def _avertissements(ctx: Dict, anc: Dict, garde: Optional[Dict]) -> List[Dict]:
+    c = ctx["c"]
+    av = [{"code": "chevilles_non_verifiees", "niveau": INFO,
+           "message": "Chevilles non vérifiées : efforts N et V par ancrage fournis pour Hilti PROFIS, ELS et ELU séparés."},
+          {"code": "pic_conge", "niveau": INFO,
+           "message": "Pic de contrainte au congé non vérifié (contrainte de pointe ≈ 1,3 × la contrainte de poutre : statique seulement, "
+                      "à considérer en fatigue)."},
+          {"code": "effet_levier", "niveau": INFO,
+           "message": "Effet de levier non couvert si les chevilles sont très raides (> ≈ 250 kN/mm)."}]
+    if c.get("v1"):
+        av.insert(0, {"code": "note_v1", "niveau": ATTENTION, "message": AVIS_V1})
+    if garde is not None and garde["depasse"]:
+        av.insert(0, {"code": "equilibre_plus_severe", "niveau": ROUGE,
+                      "message": f"Équilibre P1 (pivot e/2, u_V = e/2) plus sévère que la méthode historique sur l'aile verticale : "
+                                 f"{100 * garde['taux_equilibre_P1']:.1f} % contre {100 * garde['taux_historique']:.1f} % — ancrage bas, la méthode "
+                                 "historique n'est plus du côté sûr."})
+    if ctx["cfg"] == "B":
+        av.append({"code": "pression_support", "niveau": ATTENTION,
+                   "message": f"Pression du bout libre sur le support à vérifier : C = {anc['H']:.2f} kN, soit {anc['pression_support']:.1f} N/mm "
+                              "de cornière (le support n'est pas connu du module)."})
+        if c["mode"] == HISTORIQUE:
+            av.append({"code": "mode_impose_B", "niveau": INFO,
+                       "message": "En configuration B, les formules du classeur ne s'appliquent pas (elles donneraient −18 % sur M3) : "
+                                  "calcul en mode équilibre."})
+    if anc["R_ELU_auto"]:
+        av.append({"code": "R_ELU_auto", "niveau": INFO,
+                   "message": f"R_ELU = 1,5·R = {anc['R_ELU']:.2f} kN (auto) : à remplacer par la combinaison réelle 1,35·G + 1,5·Q."})
+    if ctx["e"] > E.T_FY_REDUIT:
+        av.append({"code": "fy_epaisseur", "niveau": INFO,
+                   "message": f"Épaisseur {E._g(ctx['e'])} mm > 40 mm : le Tableau 3.1 réduit f_y au-delà de 40 mm ; la valeur saisie est gardée."})
+    return av
+
+
+# ------------------------------------------------------------------ le calcul complet
+def _geometrie(ctx: Dict) -> Dict:
+    c, e, r = ctx["c"], ctx["e"], ctx["r"]
+    best, best_cb = None, None
+    for cb, st in zip(ctx["combos"], ctx["stats"]):
+        Lw = ctx["largeur"](HORIZONTALE, st)
+        if best is None or Lw < best * (1.0 - EPS):
+            best, best_cb = Lw, cb
+    geo = {"e": e, "r": r, "larg": ctx["larg"], "haut": ctx["haut"], "L": c["L"], "X": c["X"], "dx": c["dx"], "Y": c["Y"], "dy": c["dy"],
+           "n": c["n"], "d": c["d"], "d0": E.d0(c), "a": c["a"], "L_eff": best, "facteur_L_eff": c["L"] / best, "combinaison_L_eff": best_cb,
+           "yc": ctx["yc"], "uV": ctx["uV"], "jeu_ancrage": c["jeu_ancrage"],
+           "sections": [{"cle": cle, "nom": nom, "aile": aile, "s": fs(e, r), "t": ft(e, r)} for cle, nom, aile, fs, ft, _ in SECTIONS],
+           "conge": [e, e + r], "bloc_angle": [0.0, e],
+           "positions_charge": sorted(set(st["Xp"] for st in ctx["stats"])), "positions_ancrage": sorted(set(st["Yp"] for st in ctx["stats"])),
+           "s_contact": ctx["stats"][0]["s_contact"] if ctx["cfg"] == "B" else None}
+    return geo
+
+
+def _efforts(ctx: Dict, anc: Dict) -> Dict:
+    c = ctx["c"]
+    hist = ctx["mode"] == HISTORIQUE
+    return {"R": c["R"], "R_ELU": anc["R_ELU"], "R_ELU_auto": anc["R_ELU_auto"], "rapport_ELU": anc["rapport_ELU"],
+            "Mmax": max(st["Mmax"] for st in ctx["stats"]) / 1e3, "H": anc["H"], "combinaison_H": anc["combinaison_N"], "bras_H": anc["bras"],
+            "H_sections": max(st["H_sections"] for st in ctx["stats"]) if hist else None, "C": anc["H"],
+            "M_angle": max(st["M_angle"] for st in ctx["stats"]) / 1e3 if ctx["cfg"] == "B" else None}
+
+
+def _informations(ctx: Dict, anc: Dict, geo: Dict, comparaison: Optional[Dict]) -> List[Dict]:
+    c = ctx["c"]
+    inf = [{"cle": "pression_diametrale", "nom": "Pression diamétrale (ELS)", "valeur": anc["pression_diametrale"], "unite": "N/mm²",
+            "combinaison": None, "texte": "V_ELS/(d·e), sans limite (C88 du classeur)"}]
+    if anc["arrachement"] is not None:
+        inf.append({"cle": "arrachement", "nom": "Arrachement vers le bord (ELS)", "valeur": anc["arrachement"], "unite": "N/mm²",
+                    "combinaison": None, "texte": f"V_ELS/(2·(haut − Y)·e) avec Y = {E._g(anc['Y_bord'])} mm, sans limite (C90 du classeur)"})
+    if ctx["cfg"] == "A":
+        inf.append({"cle": "compression_mur", "nom": "Compression du mur", "valeur": anc["compression_mur"], "unite": "kN",
+                    "combinaison": anc["combinaison_N"],
+                    "texte": f"C = H, résultante à y_c = {E._g(ctx['yc'])} mm du dessous" if ctx["mode"] == EQUILIBRE
+                    else f"C = H = Mmax/(Y − jeu), le couple des ancrages (bras {E._g(anc['bras'])} mm)"})
+    else:
+        inf.append({"cle": "pression_support", "nom": "Pression du bout libre sur le support", "valeur": anc["pression_support"], "unite": "N/mm",
+                    "combinaison": anc["combinaison_N"], "texte": f"C = H = {anc['H']:.2f} kN au bout libre, rapportée à L"})
+    if comparaison is not None:
+        inf.append({"cle": "autre_mode", "nom": f"Taux maximal en mode {E.LIBELLES_MODE[comparaison['mode']]}", "valeur": comparaison["taux_max"],
+                    "unite": "", "combinaison": None, "texte": f"gouvernant : {comparaison['gouvernant']['nom']}"})
+    if c["a"] is not None:
+        inf.append({"cle": "L_eff", "nom": "Largeur efficace de l'aile horizontale", "valeur": geo["L_eff"], "unite": "mm",
+                    "combinaison": geo["combinaison_L_eff"], "texte": f"min(L ; a + 2·Xe) : σ de l'aile horizontale × {geo['facteur_L_eff']:.3f}"})
+    return inf
+
+
+def calculer(c: Dict, diagrammes: bool = True, annexes: bool = True) -> Dict:
+    """Le calcul complet d'une cornière (contrat dans la docstring du module). ``diagrammes`` : les tableaux de points
+    des deux ailes ; ``annexes`` : la comparaison avec l'autre mode (A) et la garde (historique) — coupés pour le
+    sélecteur, qui n'en a pas besoin."""
+    c = normaliser(c)
+    ctx = _contexte(c)
+    verifs = _verifications(ctx)
+    anc = _ancrages(ctx)
+    geo = _geometrie(ctx)
+    gov = _taux_max(verifs)
+    comparaison = garde = None
+    if annexes and ctx["cfg"] == "A":
+        autre = EQUILIBRE if ctx["mode"] == HISTORIQUE else HISTORIQUE
+        v2 = _verifications(_contexte(c, mode=autre))
+        g2 = _taux_max(v2)
+        comparaison = {"mode": autre, "taux_max": g2["taux"], "gouvernant": {"cle": g2["cle"], "nom": g2["nom"]}}
+    if annexes and ctx["mode"] == HISTORIQUE:
+        v3 = _sections(_contexte(c, mode=EQUILIBRE, yc=ctx["e"] / 2.0, uV=ctx["e"] / 2.0))
+        t_eq = max(v["taux"] for v in v3 if v["aile"] == VERTICALE)
+        t_hist = max(v["taux"] for v in verifs if v["aile"] == VERTICALE and v["cle"].startswith("S"))
+        garde = {"taux_historique": t_hist, "taux_equilibre_P1": t_eq, "depasse": t_eq > t_hist * (1.0 + 1e-9), "yc": ctx["e"] / 2.0, "uV": ctx["e"] / 2.0}
+    res = {"reference": REFERENCE, "corniere": c, "section": ctx["sec"], "configuration": ctx["cfg"], "mode": ctx["mode"], "mode_demande": c["mode"],
+           "materiau": {"fy": c["fy"], "nuance": E.nuance_de(c["fy"]), "coef": c["coef"], "sigma_adm": ctx["sigma_adm"], "tau_adm": ctx["tau_adm"]},
+           "geometrie": geo, "combinaisons": ctx["combos"], "efforts": _efforts(ctx, anc), "verifications": verifs,
+           "informations": _informations(ctx, anc, geo, comparaison), "ancrages": anc,
+           "diagrammes": {HORIZONTALE: _diagramme(ctx, HORIZONTALE, verifs), VERTICALE: _diagramme(ctx, VERTICALE, verifs)} if diagrammes else None,
+           "maxima": {HORIZONTALE: next(v for v in verifs if v["cle"] == "max_h"), VERTICALE: next(v for v in verifs if v["cle"] == "max_v")},
+           "comparaison": comparaison, "garde": garde,
+           "taux_max": gov["taux"], "statut": OK if all(v["ok"] for v in verifs if v["verdict"]) else NOK,
+           "gouvernant": {"cle": gov["cle"], "nom": gov["nom"], "aile": gov["aile"], "s": gov["s"], "taux": gov["taux"], "combinaison": gov["combinaison"]},
+           "calcul": _calcul(ctx, verifs, anc, geo), "hypotheses": _hypotheses(ctx, anc, geo), "avertissements": _avertissements(ctx, anc, garde)}
+    return res
+
+
+def verifier(c: Dict) -> Dict:
+    """Le calcul complet, diagrammes et annexes compris."""
+    return calculer(c, diagrammes=True, annexes=True)
 
 
 # ------------------------------------------------------------------ le sélecteur
 def candidats(c: Dict, familles=None) -> List[Dict]:
-    """Les cornières du catalogue (familles L et LI par défaut), TRIÉES PAR MASSE, chacune calculée avec les
-    charges et les critères de ``c`` ; ``optimal`` marque la plus légère qui tient (les trois ✅ de l'écran) ET dont
-    l'aile B reçoit la charge (e ≤ B : l'écran ne le contrôle pas, mais proposer une cornière où la charge tombe dans
-    le vide serait une faute ; ``aile`` le dit pour chaque ligne)."""
+    """Les cornières du catalogue (familles L et LI par défaut), TRIÉES PAR MASSE, chacune calculée avec les charges,
+    l'ancrage et les hypothèses de ``c`` ; hors domaine (la charge dans l'angle ou au-delà de l'aile, l'ancrage hors
+    de la partie droite…), la raison est donnée et la cornière n'est pas calculée ; ``optimal`` = la plus légère qui
+    tient ET dans le domaine ; ``retenue`` = celle de ``c``."""
     c = normaliser(c)
     out = []
     for p in cornieres(familles):
-        g = _calcul_de(c, p["t"])
-        ok = g["ok_els"] and g["ok_elu"] and g["ok_long"]
-        out.append({"nom": p["nom"], "designation": designation(p["nom"]), "famille": p["famille"], "A": p["h"], "B": p["b"],
-                    "t": p["t"], "r1": p.get("r1") or 0.0, "masse": p["masse"], "aire": p["A"],
-                    "taux": max(g["U_sigma"], g["U_tau"], g["U_ELU"], g["U_long_ELU"]), "ok": ok,
-                    "aile": c["e"] * 10.0 <= p["b"],
-                    "retenue": bool(c["standard"] and p["nom"] == c["profil"]), "optimal": False})
-    premier = next((x for x in out if x["ok"] and x["aile"]), None)
+        cp = dict(c, standard=True, profil=p["nom"])
+        ligne = {"nom": p["nom"], "designation": designation(p["nom"]), "famille": p["famille"], "A": p["h"], "B": p["b"], "t": p["t"],
+                 "r1": p.get("r1") or 0.0, "masse": p["masse"], "aire": p["A"], "taux": None, "ok": False, "domaine": True, "raison": None,
+                 "retenue": bool(c["standard"] and p["nom"] == c["profil"]), "optimal": False}
+        try:
+            r = calculer(cp, diagrammes=False, annexes=False)
+            ligne.update(taux=r["taux_max"], ok=r["statut"] == OK)
+        except ValueError as err:
+            ligne.update(domaine=False, raison=str(err))
+        out.append(ligne)
+    premier = next((x for x in out if x["ok"] and x["domaine"]), None)
     if premier is not None:
         premier["optimal"] = True
     return out
 
 
 def optimal(c: Dict, familles=None) -> Optional[Dict]:
-    """La cornière la plus légère qui tient (None si aucune du catalogue ne tient)."""
+    """La cornière la plus légère qui tient et dans le domaine (None si aucune)."""
     return next((x for x in candidats(c, familles) if x["optimal"]), None)

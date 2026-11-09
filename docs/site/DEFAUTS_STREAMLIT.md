@@ -112,7 +112,7 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 
 Écran : `modules/corniere.py` · doc : `docs/acier/CORNIERE_MOTEUR.md`
 
-- NON CONSERVATIF : la vérification « longitudinale (entre fixations) » répète la transversale. M_long = V·s·e sur W = s·t²/6, donc s se simplifie et U_long = U_ELU au bit près. La flexion de la cornière entre fixations (q·s²/8, « TODO » du code) et la concentration de l'effort aux fixations ne sont vérifiées nulle part : un entraxe de 10 cm ou de 1,50 m donne le même taux.
+- NON CONSERVATIF : la vérification « longitudinale (entre fixations) » répète la transversale. M_long = V·s·e sur W = s·t²/6, donc s se simplifie et U_long = U_ELU au bit près. La flexion de la cornière entre fixations (q·s²/8, « TODO » du code) et la concentration de l'effort aux fixations ne sont vérifiées nulle part : un entraxe de 10 cm ou de 1,50 m donne le même taux. **Le site ne le reproduit plus depuis le 10/11/2026** : le module Cornières du site est refondu sur la méthode du classeur de l'ingénieur (feuille P8 — `docs/acier/CORNIERE_DECISIONS.md`, `docs/acier/CORNIERE_MOTEUR.md`), le modèle lame et sa vérification longitudinale ont disparu du site (le modèle lame donnait 120,65 % sur le cas de contrôle du classeur, 88,86 %). L'écran Streamlit, lui, n'est pas modifié et garde ce défaut.
 
 ### Poutres béton armé
 
@@ -238,6 +238,7 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 
 ### Cornières
 
+- Depuis le 10/11/2026 le site ne reproduit plus cet écran (module refondu sur le classeur de l'ingénieur, `docs/acier/CORNIERE_MOTEUR.md`) : les défauts ci-dessous restent ceux de l'écran Streamlit, qui n'est pas modifié.
 - Modèle lame : seule t entre dans le calcul, A et B n'y jouent aucun rôle, et e > B (charge au-delà de l'aile) n'est jamais contrôlé.
 - τ_lim,ELS = 0,8 N/mm² par défaut, environ cent fois sous un cisaillement d'acier : côté sûr, mais c'est lui qui gouverne (62,5 % sur la cornière neuve) et il écarte toute cornière de t < 6,25 mm pour 5 kN/m.
 - Bandeaux verts (st.success) même quand ❌, longitudinal en bleu. Pourcentages arrondis au pair (:.0f) : 100,4 % s'écrit « 100% ❌ », 62,5 % s'écrit « 62% ».
@@ -390,9 +391,9 @@ l'intégration du 09/11/2026 — pour le garde-corps, les soudures et les charge
 
 ### Cornières
 
-- Les 10 sections de la liste de l'écran absentes du catalogue (15x15x3, 30x30x5, 80x80x12, 40x20x4, 40x25x4, 50x30x5, 60x40x6, 70x50x6, 80x40x6, 80x60x7) ne s'obtiennent qu'en saisie libre (mêmes taux, seul t compte), donc sans la masse que l'écran affichait.
-- Les masses affichées sont celles du catalogue acier/profiles, pas celles de la liste de l'écran (+1,7 à +2,5 %, et 90x90x10 faux de +38 %) : choix volontaire, documenté.
-- Aucun autre champ, résultat, avertissement ni légende de l'écran Streamlit ne manque. Le bouton « Accueil » est remplacé par la navigation du site.
+- **Le site ne reproduit plus l'écran Streamlit depuis le 10/11/2026** : le module est refondu sur la méthode du classeur de l'ingénieur (feuille P8 : deux configurations, deux modes, jeux par l'enveloppe — `docs/acier/CORNIERE_DECISIONS.md`, `docs/acier/CORNIERE_MOTEUR.md`). Aucun champ ni résultat du modèle lame (V, e, s, γ_ELU, σ_lim,ELS, τ_lim,ELS, σ_eq,lim,ELU, transversal, longitudinal) n'existe plus sur le site ; les grandeurs sont celles du classeur (R, L, X, Y, jeux, ancrages, nuance, coefficient).
+- Une note enregistrée avec l'ancien module (version 1) se rouvre : le nom et la cornière sont gardés, la charge et l'ancrage prennent des défauts posés dans les ailes, un avis le dit (« note d'avant le 10/11/2026, modèle lame : charges et ancrage à ressaisir, les anciens chiffres ne sont plus calculés »).
+- Le catalogue acier/profiles (233 cornières, r1 = congé) reste la source des sections, l'orientation d'une cornière inégale est un paramètre ; la liste de 41 sections de l'écran et ses masses ne sont pas reprises.
 
 ### Soudures
 
