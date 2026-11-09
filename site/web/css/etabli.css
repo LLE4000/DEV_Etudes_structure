@@ -481,6 +481,13 @@
 /* ------------------------------------------------------------------ les JUSTIFICATIONS de la bibliothèque (api_web/fiches.py) */
 /* à gauche, sous l'arborescence : une ligne par fiche (titre, valeur), son menu ⋯ ; un clic ouvre la vue au centre */
 .et-fiches { border-top: 1px solid var(--line); margin-top: 6px; }
+/* l'en-tête « JUSTIFICATIONS (n) » (fiches.bloc) : il porte encore la classe de l'en-tête de l'ancienne arborescence ;
+   ses règles, retirées avec elle (e043d15), sont rendues ICI, à lui seul (relecture du 10/11/2026 : « Justifications1 »
+   en texte courant, ni capitales, ni pastille — tests/test_etabli_compact.py § 6 bis le garde) */
+.et-fiches > .et-arbre-h { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--line); }
+.et-fiches > .et-arbre-h .n { min-width: 18px; height: 16px; padding: 0 4px; border-radius: 8px; display: grid; place-items: center; background: var(--bg-sunken);
+  color: var(--ink-2); letter-spacing: 0; }
 .et-fi { display: flex; align-items: center; min-height: 40px; padding: 0 6px 0 8px; border-bottom: 1px solid var(--line); }
 .et-fi-t { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px; text-align: left; border-radius: 7px; color: var(--ink); }
 .et-fi-t:hover { background: var(--bg); }

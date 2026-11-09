@@ -291,8 +291,11 @@ def _css(chemin):
 
 
 def ctl_css_ancienne():
+    # (l'en-tête « JUSTIFICATIONS (n) » du bloc des fiches porte encore la classe .et-arbre-h : ses règles, rendues à lui
+    # seul sous « .et-fiches > », ne sont pas celles de l'ancienne arborescence — contrôle suivant)
     return [(c, m) for c in ("css/etabli.css", "css/modules/dalle.css", "css/modules/poutre.css")
-            if os.path.exists(os.path.join(RACINE, "site", "web", c)) for m in _ANC.findall(_css(c))]
+            if os.path.exists(os.path.join(RACINE, "site", "web", c))
+            for m in _ANC.findall(re.sub(r"\.et-fiches\s*>\s*\.et-arbre-h", "", _css(c)))]
 
 
 chk("css/etabli.css et les feuilles des établis compacts ne portent plus aucune règle de l'ancienne arborescence "
@@ -303,6 +306,22 @@ chk("css/etabli.css et les feuilles des établis compacts ne portent plus aucune
 chk("le retrait n'a emporté aucune règle vivante : au téléphone, « + Lit », « Retirer », « Large », « Justifier » restent à 44 px",
     '[data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, '
     '[data-etabli="compact"] .et-just { height: 44px; font-size: 13px; }' in _css("css/etabli.css"))
+# (relecture du 10/11/2026) … ni le style d'un fragment VIVANT : le bloc « Justifications » des fiches de la bibliothèque
+# (api_web/fiches.bloc, poutre) a pour en-tête un .et-arbre-h — son style était parti avec l'ancienne arborescence, et
+# l'œil lisait « Justifications1 » en texte courant (ni capitales, ni pastille du compte). Chaque classe de l'établi
+# (« et-… ») que le bloc rend a sa règle dans css/etabli.css, et l'en-tête a la sienne : capitales, et le compte en pastille.
+FI = importlib.import_module("api_web.fiches")
+_bloc = FI.bloc([{"titre": "Enrobage poutre XC1 C30/37", "symbole": "c_nom", "texte": "", "valeur": 26, "unite": "mm"}])
+_cls_bloc = sorted({k for a in re.findall(r'class="([^"]+)"', _bloc) for k in a.split() if k.startswith("et-")})
+_css_et = _css("css/etabli.css")
+_sans_regle = [k for k in _cls_bloc if not re.search(r"\." + re.escape(k) + r"(?![-\w])[^{}]*\{", _css_et)]
+_tete = re.search(r'<div class="et-fiches"><div class="([^"]+)"><span>Justifications</span><span class="n">1</span></div>', _bloc)
+chk("le bloc « Justifications » des fiches (fiches.bloc) garde son style : chaque classe « et-… » qu'il rend a sa règle, "
+    "son en-tête s'écrit en capitales et son compte en pastille (« JUSTIFICATIONS 1 », pas « Justifications1 »)",
+    _cls_bloc and not _sans_regle and _tete is not None
+    and re.search(r"\.et-fiches\s*>\s*\." + _tete.group(1) + r"\s*\{[^}]*display:\s*flex[^}]*text-transform:\s*uppercase", _css_et) is not None
+    and re.search(r"\.et-fiches\s*>\s*\." + _tete.group(1) + r"\s+\.n\s*\{[^}]*background:", _css_et) is not None,
+    {"classes": _cls_bloc, "sans_regle": _sans_regle, "tete": _tete and _tete.group(1)})
 _src = {cle: inspect.getsource(importlib.import_module(f"api_web.{cle}").arbre) for cle in CO.ETABLI_COMPACT}
 chk("chaque établi compact (construire.ETABLI_COMPACT) rend sa colonne compacte, en dur — et charge seul css/etabli.css ; "
     "la page de l'ancien module Prédalles redirige",

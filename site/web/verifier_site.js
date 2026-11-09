@@ -2702,6 +2702,15 @@ const FILTRE = process.argv[4] || '';
       const fi = await g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1'))[id];
         return { ferme: document.getElementById('et-bibliotheque').hidden, fiches: (n.etat.fiches || []).map((f) => f.titre), bloc: (document.querySelector('#donnees .et-fiches .n') || {}).textContent,
           onglet: !!document.querySelector('#vues [data-vue="fiche-0"]'), focus: !!document.activeElement && document.activeElement.matches('.top [data-action="bibliotheque"]') }; });
+      // l'en-tête du bloc, VU (relecture du 10/11/2026 : son style était parti avec l'ancienne arborescence, l'œil lisait
+      // « Justifications1 ») : en capitales, à sa hauteur, le compte en pastille détachée du mot
+      const tj = await g.evaluate(() => { const h = document.querySelector('#donnees .et-fiches > div:first-child'), n = h && h.querySelector('.n'), t = h && h.querySelector('span');
+        if (!h || !n || !t) return null;
+        const r = h.getBoundingClientRect(), rn = n.getBoundingClientRect(), rt = t.getBoundingClientRect();
+        return { capitales: getComputedStyle(h).textTransform === 'uppercase', h: Math.round(r.height), ecart: Math.round(rn.left - rt.right),
+          pastille: getComputedStyle(n).backgroundColor !== 'rgba(0, 0, 0, 0)', vu: h.checkVisibility({ visibilityProperty: true, opacityProperty: true }) }; });
+      verif('pilote : l\'en-tête du bloc des justifications se lit « JUSTIFICATIONS 1 » — en capitales, à sa hauteur (24 px et plus), le compte en pastille détachée du mot',
+        !!tj && tj.vu && tj.capitales && tj.h >= 24 && tj.ecart >= 4 && tj.pastille, JSON.stringify(tj));
       await g.click('#donnees [data-vue-fiche="fiche-0"]');
       await g.waitForTimeout(250);
       const vf = await g.evaluate(() => { const v = document.querySelector('#stage .view.on'); const f = v && v.querySelector('.et-fiche'); const r = f && f.getBoundingClientRect();
