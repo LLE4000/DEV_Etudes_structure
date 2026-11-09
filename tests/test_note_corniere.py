@@ -25,7 +25,7 @@ note du site est construit par le moteur (nouvelle cornière + modifications), {
 - MUTATIONS (chacune doit faire rougir un contrôle) : une cornière oubliée, une donnée non transmise au moteur (la
   tolérance dy), le mode mal nommé, un gabarit de formule faux, l'indice de la note perdu, l'η max du bandeau pris sur
   une autre vérification (la parité lit la LIGNE du bandeau et la ligne du sommaire de la garde, pas « η max » n'importe
-  où dans la page — relecture adverse du 11/11/2026).
+  où dans la page — relecture adverse du 10/11/2026).
 
     python3 tests/test_note_corniere.py
 """
@@ -153,7 +153,7 @@ def ecarts_parite(e, octets):
         # le bandeau : statut, η max, gouvernante, combinaison, configuration et mode — lus SUR LA LIGNE du bandeau
         # (« NON CONFORME η max 222,0 % — gouverne : … · … Configuration B · équilibre »), pas chacun quelque part dans la
         # page : le récapitulatif répète « η max … », et un bandeau qui imprimerait un autre taux s'y cachait (relecture
-        # adverse du 11/11/2026 : la mutation « η max du bandeau pris sur S1 » survivait)
+        # adverse du 10/11/2026 : la mutation « η max du bandeau pris sur S1 » survivait)
         g = res["gouvernant"]
         bandeau = (f"{NT.STATUTS[res['statut']][0]} η max {NT._pct(res['taux_max'])} — gouverne : {g['nom']} · {g['combinaison']['libelle']} "
                    f"Configuration {res['configuration']} · {E.LIBELLES_MODE[res['mode']]}")

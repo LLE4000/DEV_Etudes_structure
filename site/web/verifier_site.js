@@ -2939,7 +2939,7 @@ const FILTRE = process.argv[4] || '';
   // (toast, valeur rendue) ; une note v1 (modèle lame) rouverte avec son avis ; puis les trois formats — PC 1440,
   // tablette 1024 × 768, iPhone 13 (390 × 844, tactile) — pour A, B et A en équilibre : rien ne déborde, aucun nom coupé
   // (les TITRES des blocs compris : « Ancrages » se réduisait à 6 px sous un état d'en-tête trop long, et « Mode méthode
-  // historique (classeur P8) » était coupé en A équilibre — relecture du 11/11/2026), les cibles à 44 px au doigt, les
+  // historique (classeur P8) » était coupé en A équilibre — relecture du 10/11/2026), les cibles à 44 px au doigt, les
   // champs en 16 px au téléphone. Les captures : site_corniere_*.png (A, B et A-equilibre aux trois formats, les quatre
   // vues, le sélecteur, la saisie refusée, la note v1).
   //   filtre « corniere » ; « module:corniere » le rejoue aussi (après le contrôle commun).
@@ -4188,7 +4188,7 @@ const FILTRE = process.argv[4] || '';
     // compact), sinon le taux de tête (η)
     // (le chiffre lu, et la forme sous laquelle la note l'écrit : « 58,5 cm », « = 1194 mm 2 », « 804 mm² », « 14 % »).
     // Le chip du verdict arrondit η à l'unité (commun.pct) ; une note qui imprime η à la décimale (les cornières :
-    // « η max 95,8 % ») le porte à la précision du chip — son η max est à moins d'une unité du chip (11/11/2026)
+    // « η max 95,8 % ») le porte à la précision du chip — son η max est à moins d'une unité du chip (10/11/2026)
     const CHIFFRES = [
       ['h min', /hmin\s*=\s*(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s,posé', /As,posé\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['A s,néc', /As,néc\s*=\s*(\d+)/, (v) => `= ${v} mm`],

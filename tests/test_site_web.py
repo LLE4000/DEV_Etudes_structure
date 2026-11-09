@@ -263,7 +263,7 @@ chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutr
 import inspect  # noqa: E402
 import importlib  # noqa: E402
 chk("la note PDF se fait dans le site pour la poutre, la dalle, le garde-corps, les soudures, les charges sur plancher, "
-    "les assemblages et les cornières d'appui (11/11/2026) ; chacun rend « telecharger(etat, quoi, infos) » et a sa note "
+    "les assemblages et les cornières d'appui (10/11/2026) ; chacun rend « telecharger(etat, quoi, infos) » et a sa note "
     "riche au relevé du paquet de la note",
     SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere")
     and sorted(SW.NOTES_RELEVE) == sorted(SW.NOTE_PDF) and set(SW.NOTE_PDF) <= set(ETABLIS)
@@ -544,7 +544,7 @@ _redir_code = re.sub(r"//[^\n]*", "", _redir_js)   # le code seul : les commenta
 chk("js/redirection.js : location.replace(vers + la requête + l'ancre), lu dans body data-vers ; aucune adresse écrite en dur dans le code",
     "location.replace(vers + location.search + location.hash)" in _redir_code and "dataset.vers" in _redir_code
     and not any(k in _redir_code or v in _redir_code for k, v in SW.REDIRECTIONS.items()), _redir_code)
-chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026) et des cornières (11/11/2026), un sous-ensemble de l'établi compact",
+chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026) et des cornières (10/11/2026), un sous-ensemble de l'établi compact",
     set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere"} and len(SW.ARBRE_COMPACT) == 3 and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
 EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
 for k in ETABLIS:

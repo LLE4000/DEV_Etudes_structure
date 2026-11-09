@@ -301,7 +301,7 @@ for nom_cas, etat in ETATS.items():
 
 
 # la 1ʳᵉ ligne d'un résultat et l'en-tête d'un bloc ne passent jamais à la ligne : dans les 316 px de la colonne du PC, un
-# nom trop long est coupé à l'ellipse et l'état d'un en-tête trop long mange le TITRE du bloc. Mesuré le 11/11/2026 dans
+# nom trop long est coupé à l'ellipse et l'état d'un en-tête trop long mange le TITRE du bloc. Mesuré le 10/11/2026 dans
 # Chromium (relecture de l'écran) : « Ancrages · efforts par ancrage · chevilles non vérifiées » laissait 6 px au titre,
 # « Mode méthode historique (classeur P8) » demandait 241 px pour 185, « Comparaison des modes · garde dépassée » 173 pour
 # 166. Le budget, en caractères (la vérité en pixels est le contrôle « aucun nom coupé » de verifier_site.js, qui lit
@@ -627,11 +627,11 @@ MUTATIONS = [
      'return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows, theme=True)',
      'return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows)',
      lambda m: controle_resultat(m, E_DEF, "")),
-    ("l'état de l'en-tête du bloc Ancrages redevient long (le titre du bloc disparaissait à l'écran, 11/11/2026)",
+    ("l'état de l'en-tête du bloc Ancrages redevient long (le titre du bloc disparaissait à l'écran, 10/11/2026)",
      'return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows, theme=True)',
      'return E.bloc(1, "Ancrages", "inc", "efforts par ancrage · chevilles non vérifiées", efforts, rows, theme=True)',
      lambda m: noms_longs(m)),
-    ("le nom de la ligne du bloc Comparaison redevient le libellé entier du mode (coupé à l\'ellipse en A équilibre, 11/11/2026)",
+    ("le nom de la ligne du bloc Comparaison redevient le libellé entier du mode (coupé à l\'ellipse en A équilibre, 10/11/2026)",
      'rows += C.ligne_verif(f"Mode {MODES_COURTS[cp[\'mode\']]}"', 'rows += C.ligne_verif(f"Mode {EN.LIBELLES_MODE[cp[\'mode\']]}"',
      lambda m: noms_longs(m)),
     ("la fenêtre « efforts » n'est plus annoncée par la ligne Efforts",

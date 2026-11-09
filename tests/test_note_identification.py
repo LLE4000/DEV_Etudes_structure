@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """L'IDENTIFICATION imprimée par la note PDF des SEPT modules du site qui la font (poutre, dalle, garde-corps, soudures,
-charges sur plancher, assemblages, cornières d'appui depuis le 11/11/2026) : TOUJOURS celle de la note du site (R2 : une
+charges sur plancher, assemblages, cornières d'appui depuis le 10/11/2026) : TOUJOURS celle de la note du site (R2 : une
 source unique) — son nom, son chantier, son indice, sa date (``infos`` que la page envoie, js/etabli.js).
 
 Défaut corrigé (09/11/2026) : les notes des soudures et du plancher imprimaient « indice 0 » sous une note du site

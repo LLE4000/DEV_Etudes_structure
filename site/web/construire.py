@@ -263,7 +263,7 @@ for k in ("engins", "repartiteurs", "hourdis"):
 from api_web import note_assemblages as NA
 etat = NA.etat_releve()
 """,
-    # deux cornières d'appui (intégration du 11/11/2026, docs/acier/CORNIERE_MOTEUR.md § 12) : la première en configuration
+    # deux cornières d'appui (intégration du 10/11/2026, docs/acier/CORNIERE_MOTEUR.md § 12) : la première en configuration
     # A, méthode historique, avec R_ELU saisie et la largeur d'appui a (la ligne L_eff) ; la seconde retournée (B, mode
     # équilibre verrouillé) avec l'ancrage à Y = 45 et sans jeu dy — la section nette, les formules de B, la garde du site
     "corniere": """
