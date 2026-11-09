@@ -13,6 +13,11 @@
    "date": "2026-11-09",
    "raison": "fusion Dalle/Prédalle du 09/11/2026 : état version 2 (clés type, empilement), chemins nappes ; une note NEUVE a ses nappes empilées (DALLES_FUSION.md § 4.3) — base secondaire posée sur la principale : d plus petit, h_min 3,5 → 4,5 cm, avis nappes_confondues disparu",
    "ecarts": ["note neuve : etat changé", "note neuve : avis changés", "note neuve : valeurs qui ne se voient plus [\"1,0\", \"18\"]", "dalle 22 cm réaliste (M_y = 30, M_x = 15 kN·m/m) : etat changé", "dalle 22 cm réaliste (M_y = 30, M_x = 15 kN·m/m) : avis changés", "dalle 22 cm réaliste (M_y = 30, M_x = 15 kN·m/m) : valeurs qui ne se voient plus [\"1,0\", \"270\", \"68\"]", "chargée près de 100 % (M_y = 38,5 kN·m/m) : etat changé", "chargée près de 100 % (M_y = 38,5 kN·m/m) : avis changés", "chargée près de 100 % (M_y = 38,5 kN·m/m) : valeurs qui ne se voient plus [\"1,0\"]", "barres Ø12/150 en nappe inférieure Y : etat changé", "barres Ø12/150 en nappe inférieure Y : avis changés", "barres Ø12/150 en nappe inférieure Y : valeurs qui ne se voient plus [\"1,1\", \"185\", \"270\", \"4,0\", \"68\"]", "moment négatif refusé (PARCOURS) : etat changé", "moment négatif refusé (PARCOURS) : avis changés", "moment négatif refusé (PARCOURS) : valeurs qui ne se voient plus [\"1,0\", \"18\"]", "espacement de 600 mm refusé : etat changé", "espacement de 600 mm refusé : avis changés", "espacement de 600 mm refusé : valeurs qui ne se voient plus [\"1,1\", \"16,0\", \"4\", \"4,0\"]", "distance vidée : automatique : etat changé", "distance vidée : automatique : avis changés", "distance vidée : automatique : valeurs qui ne se voient plus [\"1,0\", \"18\"]", "section ajoutée, dalle ajoutée : etat changé", "section ajoutée, dalle ajoutée : avis changés", "section ajoutée, dalle ajoutée : valeurs qui ne se voient plus [\"1\", \"1,0\", \"18\"]", "fichier Streamlit illisible refusé : etat changé", "fichier Streamlit illisible refusé : avis changés", "fichier Streamlit illisible refusé : valeurs qui ne se voient plus [\"1,0\", \"18\"]"]
+  },
+  {
+   "date": "2026-11-09",
+   "raison": "Décision de l'ingénieur du 09/11/2026 : nappes toujours empilées (anciennes notes comprises), renfort de la direction secondaire posé sur sa nappe (S3)",
+   "ecarts": ["note neuve : etat changé", "dalle 22 cm réaliste (M_y = 30, M_x = 15 kN·m/m) : etat changé", "chargée près de 100 % (M_y = 38,5 kN·m/m) : etat changé", "barres Ø12/150 en nappe inférieure Y : etat changé", "moment négatif refusé (PARCOURS) : etat changé", "espacement de 600 mm refusé : etat changé", "distance vidée : automatique : etat changé", "section ajoutée, dalle ajoutée : etat changé", "fichier Streamlit illisible refusé : etat changé"]
   }
  ],
  "cas": [
@@ -226,7 +231,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -286,7 +290,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0},
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0},
     "selecteurs": {
      "inf_y-0": [
       ["Nappe inférieure Y · Section A couche de base (principale) · triée par section au mètre · un clic la retient Treillis Barres Treillis 5/5/150/150", "131", "230 %"],
@@ -740,7 +744,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -800,7 +803,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
    }
   },
   {
@@ -1021,7 +1024,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -1081,7 +1083,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 38.5, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 38.5, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
    }
   },
   {
@@ -1342,7 +1344,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -1406,7 +1407,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 150 Ø12/150"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 22, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 15.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 60.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
    }
   },
   {
@@ -1621,7 +1622,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -1681,7 +1681,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
    }
   },
   {
@@ -1896,7 +1896,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -1960,7 +1959,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 150 Ø12/150"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "barres", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
    }
   },
   {
@@ -2175,7 +2174,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -2235,7 +2233,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
    }
   },
   {
@@ -2450,7 +2448,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -2510,7 +2507,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}, {"nom": "B", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}, {"nom": "Dalle 2", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 1},
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}, {"nom": "B", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 30.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}, {"nom": "Dalle 2", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 1},
     "elements": [
      {
       "phrase": "",
@@ -2787,7 +2784,6 @@
      "b": "100",
      "beton": "C30/37",
      "dir_principale": "Y",
-     "empilement": true,
      "enrobage": "3",
      "fyk": "500",
      "gamma_s": "1,5",
@@ -2847,7 +2843,7 @@
       "nombres": "000 000 1 1 10/10/100/100 10/10/100/100 10/10/100/100 10/10/100/100 100 100 100 100"
      }
     ],
-    "etat": {"version": 2, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee", "empilement": true}], "actif": 0}
+    "etat": {"version": 3, "dalles": [{"nom": "Dalle 1", "b": 100, "h": 20, "beton": "C30/37", "fyk": 500, "enrobage": 3.0, "dir_principale": "Y", "gamma_s": 1.5, "jeu_premier_lit": 0.0, "sections": [{"nom": "A", "Mx_inf": 0.0, "Mx_sup": 0.0, "My_inf": 0.0, "My_sup": 0.0, "V": 0.0, "faces": {"inf_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_x": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "inf_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}, "sup_y": {"couches": [{"type": "treillis", "treillis": "10/10/100/100", "d": 12, "esp": 150, "n": 3, "dist": null}], "yG": null}}}], "verrou": false, "type": "coulee"}], "actif": 0}
    }
   }
  ]
