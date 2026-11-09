@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|doigt]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|doigt|bibliotheque]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -2489,12 +2489,116 @@ const FILTRE = process.argv[4] || '';
     });
   }
 
+  //   filtre « bibliotheque » : la page Bibliothèque Béton armé (docs/site/BIBLIOTHEQUES.md § 2.2), aux quatre formats.
+  //   Chaque rubrique : le tableau se voit D'UN COUP (PC et tablette : son cadre ne défile ni en hauteur ni en largeur),
+  //   la case allumée est à l'écran, rien ne déborde ; puis les gestes (PC) : une case cliquée règle les paramètres, un
+  //   paramètre réglé allume la case, « Pourquoi ? » s'ouvre et se ferme, l'adresse garde l'état et le restitue.
+  if (!FILTRE || FILTRE === 'bibliotheque') {
+    const FORMATS_BIB = [['pc', 1440, 900, false], ['tablette', 1180, 820, false], ['portrait', 820, 1180, false], ['tel', 390, 844, true]];
+    const RUBRIQUES_BIB = ['betons', 'aciers', 'sections', 'enrobages', 'ancrages'];
+    const attendreBib = (pg) => pg.waitForFunction(() => {
+      const d = document.getElementById('demarrage'), c = document.getElementById('bib-corps');
+      return d && (d.hidden || d.classList.contains('erreur')) && c && c.getAttribute('aria-busy') !== 'true' && document.querySelector('#bib-tableau .bib-tab, #bib-tableau .bib-vide');
+    }, null, { timeout: 180000 });
+    const calmeBib = async (pg) => { await pg.waitForTimeout(60); await attendreBib(pg); };
+    // ce que l'œil voit : le tableau entier dans son cadre, le cadre dans l'écran, la case allumée visible, la bande visible
+    const mesureBib = (pg) => pg.evaluate(() => {
+      const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const cadre = document.getElementById('bib-tableau');
+      const r = cadre.getBoundingClientRect();
+      const cur = document.querySelector('#bib-tableau .cur');
+      const rc = cur ? cur.getBoundingClientRect() : null;
+      const bande = document.getElementById('bib-bande').getBoundingClientRect();
+      const large = (e) => { const g = document.createRange(); g.selectNodeContents(e); return g.getBoundingClientRect().width; };
+      const coupes = [...document.querySelectorAll('.bib-m .bib-mt, .bib-pl, .bib-tab th.nm, .bib-bande-b .btn span')]
+        .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim().slice(0, 40));
+      return { deborde: document.documentElement.scrollWidth > innerWidth, defileY: cadre.scrollHeight > cadre.clientHeight + 1, defileX: cadre.scrollWidth > cadre.clientWidth + 1,
+        cadre: [Math.round(r.width), Math.round(r.height)], cadreDansEcran: r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1,
+        curVisible: !!rc && rc.top >= r.top - 1 && rc.bottom <= r.bottom + 1 && rc.left >= r.left - 1 && rc.right <= r.right + 1 && vis(cur),
+        bandeVisible: bande.height > 30 && bande.bottom <= innerHeight + 1, coupes, titre: document.getElementById('bib-titre').textContent,
+        valeur: (document.querySelector('.bib-val') || {}).textContent, vide: !!document.querySelector('#bib-tableau .bib-vide') };
+    });
+    for (const [nomF, w, h, tel] of FORMATS_BIB) {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+      await g.goto(`${BASE}/bibliotheque-beton`);
+      await attendreBib(g);
+      for (const r of RUBRIQUES_BIB) {
+        await g.click(`.bib-m[data-rubrique="${r}"]`);
+        await calmeBib(g);
+        const m = await mesureBib(g);
+        const url = new URL(g.url());
+        verif(`bibliothèque ${nomF} · ${r} : la rubrique s'ouvre, son titre et son adresse (?rubrique=${r})`, m.titre.length > 3 && url.searchParams.get('rubrique') === r, `${m.titre} · ${url.search}`);
+        verif(`bibliothèque ${nomF} · ${r} : rien ne déborde, aucun nom coupé`, !m.deborde && !m.coupes.length, m.coupes.join(', '));
+        if (!tel) {
+          verif(`bibliothèque ${nomF} · ${r} : le tableau se voit d'un coup (son cadre ne défile pas) et tient dans l'écran avec la bande`,
+            !m.defileY && !m.defileX && m.cadreDansEcran && m.bandeVisible, JSON.stringify(m));
+        } else {
+          verif(`bibliothèque ${nomF} · ${r} : le cadre du tableau et la bande sont dans la page`, m.cadre[0] > 200 && m.cadre[1] > 120, JSON.stringify(m.cadre));
+        }
+        verif(`bibliothèque ${nomF} · ${r} : la case allumée est visible, la valeur retenue est écrite`, m.curVisible && /\d/.test(m.valeur || ''), JSON.stringify({ cur: m.curVisible, v: m.valeur }));
+        await g.screenshot({ path: path.join(OUT, `site_bib_${r}_${nomF}.png`) });
+      }
+      if (nomF === 'pc') {
+        // les gestes, sur les ancrages : la case cliquée règle Ø et classe ; Ø réglé allume la case ; « Pourquoi ? »
+        await g.click('.bib-m[data-rubrique="ancrages"]');
+        await calmeBib(g);
+        const avant = await g.$eval('.bib-val', (x) => x.textContent);
+        await g.click('#bib-tableau td[data-sel*="\\"phi\\": 25"][data-sel*="C40/50"]');
+        await calmeBib(g);
+        const apres = await g.evaluate(() => ({ v: document.querySelector('.bib-val').textContent, phi: document.querySelector('.bib-barre select[data-param="phi"]').value,
+          classe: document.querySelector('.bib-barre select[data-param="classe"]').value, cur: document.querySelector('#bib-tableau .cur')?.dataset.sel, url: location.search }));
+        verif('bibliothèque pc · ancrages : cliquer la case [Ø 25 ; C40/50] règle Ø et classe, la bande et l\'adresse suivent',
+          apres.phi === '25' && apres.classe === 'C40/50' && apres.v !== avant && /phi=25/.test(apres.url) && /C40%2F50|C40\/50/.test(apres.url), JSON.stringify(apres));
+        await g.selectOption('.bib-barre select[data-param="phi"]', '12');
+        await calmeBib(g);
+        const cur = await g.$eval('#bib-tableau .cur', (x) => JSON.parse(x.dataset.sel));
+        verif('bibliothèque pc · ancrages : régler Ø 12 allume la case [Ø 12 ; C40/50]', cur.phi === 12 && cur.classe === 'C40/50', JSON.stringify(cur));
+        await g.click('.bib-barre .seg[data-param="conditions"] button[data-valeur="mediocres"]');
+        await calmeBib(g);
+        const v2 = await g.$eval('.bib-val', (x) => x.textContent);
+        verif('bibliothèque pc · ancrages : « autres conditions » change la valeur (η1 = 0,7)', v2 !== apres.v, `${apres.v} → ${v2}`);
+        await g.click('[data-pourquoi]');
+        await g.waitForTimeout(120);
+        const pq = await g.evaluate(() => { const p = document.getElementById('bib-pourquoi'); return { ouvert: !p.hidden && p.checkVisibility(), lignes: p.querySelectorAll('.bib-pq-t tr').length, sources: p.querySelectorAll('.bib-src').length }; });
+        verif('bibliothèque pc · ancrages : « Pourquoi ? » ouvre la justification (termes, sources)', pq.ouvert && pq.lignes >= 12 && pq.sources >= 1, JSON.stringify(pq));
+        await g.screenshot({ path: path.join(OUT, 'site_bib_pourquoi_pc.png') });
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(80);
+        verif('bibliothèque pc · ancrages : Échap ferme la justification', await g.$eval('#bib-pourquoi', (p) => p.hidden));
+        // l'adresse restitue l'état
+        const adresse = g.url();
+        await g.goto(adresse);
+        await attendreBib(g);
+        const relu = await g.evaluate(() => ({ v: document.querySelector('.bib-val').textContent, cur: document.querySelector('#bib-tableau .cur')?.dataset.sel,
+          cond: document.querySelector('.bib-barre .seg[data-param="conditions"] button.on')?.dataset.valeur }));
+        verif('bibliothèque pc · ancrages : l\'adresse rouverte redonne le même état (Ø 12, C40/50, autres conditions, même valeur)',
+          relu.v === v2 && JSON.parse(relu.cur).phi === 12 && relu.cond === 'mediocres', JSON.stringify(relu));
+        // les enrobages : l'exemple de la NIT 260
+        await g.goto(`${BASE}/bibliotheque-beton?rubrique=enrobages&element=dalle&exposition=XC1&classe=C30%2F37&phi=12&phi_etrier=0`);
+        await attendreBib(g);
+        const nit = await g.evaluate(() => ({ v: document.querySelector('.bib-val').textContent.replace(/\s/g, ''), cur: document.querySelector('#bib-tableau .cur')?.textContent,
+          ligne: document.querySelector('#bib-tableau tr.on th.nm')?.textContent.trim().slice(0, 2) }));
+        verif('bibliothèque pc · enrobages : l\'exemple de la NIT 260 (dalle XC1 C30/37 Ø 12) → 22 mm, case [S2 ; XC1] = 10', nit.v === '22mm' && nit.cur === '10' && nit.ligne === 'S2', JSON.stringify(nit));
+        await g.click('.bib-barre .seg[data-param="vue"] button[data-valeur="feu"]');
+        await calmeBib(g);
+        verif('bibliothèque pc · enrobages : la vue « feu » montre le tableau 5.8 de la dalle', (await g.$$eval('#bib-tableau .bib-feu tbody tr', (x) => x.length)) === 6);
+        await g.screenshot({ path: path.join(OUT, 'site_bib_enrobages_feu_pc.png') });
+      }
+      verif(`bibliothèque ${nomF} : aucune erreur JavaScript`, g.erreurs.length === 0, g.erreurs.join(' | ').slice(0, 300));
+      await c.close();
+    }
+  }
+
   // ---------------------------------------------------------------- retour à l'accueil
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote et les plaques travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt', 'bibliotheque'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

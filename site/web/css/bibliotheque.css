@@ -1,0 +1,169 @@
+/* La page d'une BIBLIOTHÈQUE (docs/site/BIBLIOTHEQUES.md § 2.2) : le menu des rubriques à gauche, la barre de
+   paramètres, LE TABLEAU sur toute la largeur (sans défilement sur PC et tablette : le harnais le mesure), la bande de
+   la valeur retenue, les sources ; « Pourquoi ? » dans un volet à droite. Chargée par bibliotheque-*.html seul
+   (site/web/construire.py, page_bibliotheque). Les couleurs sont celles du thème (clair et sombre). */
+
+.bib { position: relative; flex: 1; display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 0;
+  height: calc(100vh - var(--top-h)); }
+.bib-menu { border-right: 1px solid var(--line); background: var(--panel); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bib-m { display: grid; grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center;
+  min-height: 56px; padding: 6px 10px; border-radius: 10px; text-align: left; color: var(--ink-2); cursor: pointer; }
+.bib-m svg.i { grid-row: 1 / span 2; width: 20px; height: 20px; color: var(--ink-3); }
+.bib-m .bib-mt { font-weight: 650; font-size: 13.5px; color: var(--ink); line-height: 1.2; }
+.bib-m .bib-ms { font-size: 11.5px; color: var(--ink-3); line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bib-m:hover { background: var(--bg); }
+.bib-m.on { background: var(--accent-soft); }
+.bib-m.on svg.i, .bib-m.on .bib-mt { color: var(--accent-hover); }
+.bib-corps { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 12px 20px 14px; gap: 10px; }
+.bib-corps[aria-busy="true"] .bib-tableau, .bib-corps[aria-busy="true"] .bib-bande { opacity: .55; transition: opacity .15s .12s; }
+
+/* ---------------------------------------------------------------- la barre de paramètres : une ou deux lignes */
+.bib-barre { display: flex; flex-direction: column; gap: 6px; flex: none; }
+.bib-barre-l { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: end; }
+.bib-p { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.bib-pl { display: flex; align-items: center; gap: 4px; min-height: 14px; font-size: 10.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); }
+.bib-pl sub { text-transform: none; letter-spacing: 0; }
+.bib-pl.m { text-transform: none; letter-spacing: .02em; font-size: 11.5px; }   /* un symbole : σ ne devient pas Σ */
+.bib-case .aide { display: inline-flex; color: var(--ink-4); cursor: help; }
+.bib-case .aide svg.i { width: 13px; height: 13px; }
+.bib-pl .aide { display: inline-flex; color: var(--ink-4); cursor: help; }
+.bib-pl .aide svg.i { width: 13px; height: 13px; }
+.bib-p .field { height: 30px; }
+.bib-p .field input { width: 72px; text-align: right; }
+.bib-p .field.select select { appearance: none; border: 0; outline: 0; background: transparent; font-weight: 500; font-size: 13px; padding-right: 4px; max-width: 260px; }
+.bib-p .seg { height: 30px; align-items: center; }
+.bib-p .seg button { height: 24px; }
+.bib-case { height: 30px; font-size: 12.5px; color: var(--ink-2); }
+.bib-p-case { justify-content: flex-end; }                       /* une case à cocher : sans ligne de libellé, posée sur la ligne des contrôles */
+.bib-tab.bib-petit { width: auto; min-width: 46%; }               /* un petit tableau (trois colonnes) ne s'étire pas sur toute la largeur */
+.bib-case input { width: 15px; height: 15px; accent-color: var(--accent); }
+
+/* ---------------------------------------------------------------- le tableau */
+/* (le cadre prend la hauteur de son tableau, la bande le suit de près ; il ne défile que si l'écran est trop bas) */
+.bib-tableau { flex: 0 1 auto; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--panel);
+  overscroll-behavior: contain; }
+.bib-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.bib-tab th, .bib-tab td { height: 36px; padding: 0 10px; white-space: nowrap; border-bottom: 1px solid var(--line); text-align: right; }
+.bib-tab td + td { border-left: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
+.bib-tab thead th { position: sticky; top: 0; z-index: 2; background: var(--panel-2); color: var(--ink-2); font-weight: 650; height: 44px; vertical-align: middle;
+  border-bottom: 1px solid var(--line-strong); }
+.bib-tab thead th[title] { cursor: help; }
+.bib-tab thead th .s { display: block; font-size: 12.5px; color: var(--ink); line-height: 1.15; }
+.bib-tab thead th .s sub { font-size: 9px; }
+.bib-tab thead th .u { display: block; font-size: 10px; font-weight: 500; color: var(--ink-3); line-height: 1.2; }
+.bib-tab thead tr.r1 th { height: 30px; font-size: 11px; text-align: center; }
+.bib-tab thead tr.r2 th { top: 30px; height: 40px; }
+.bib-tab thead tr.r1 th[rowspan] { height: 70px; }
+.bib-tab thead th.k { text-align: center; }
+.bib-tab thead th.k b { display: block; font-size: 12.5px; color: var(--ink); line-height: 1.15; }
+.bib-tab thead th.k small { display: block; font-size: 9.5px; font-weight: 500; color: var(--ink-3); }
+.bib-tab thead th.tx { text-align: left; }
+.bib-tab th.nm { position: sticky; left: 0; z-index: 1; text-align: left; font-weight: 700; color: var(--ink); background: var(--panel); border-right: 1px solid var(--line); }
+.bib-tab th.nm small { font-size: 10px; font-weight: 500; color: var(--ink-3); margin-left: 4px; }
+.bib-tab thead th.nm { z-index: 3; background: var(--panel-2); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.bib-tab thead th.nm .u { text-transform: none; letter-spacing: 0; }
+.bib-tab tbody tr:nth-child(even) td, .bib-tab tbody tr:nth-child(even) th.nm { background: color-mix(in srgb, var(--panel-2) 55%, var(--panel)); }
+.bib-tab td[data-sel] { cursor: pointer; }
+.bib-tab tbody tr:hover td { background: var(--bg-sunken); }
+/* la colonne du paramètre, la ligne du paramètre, la case allumée */
+.bib-tab thead th.on { color: var(--accent-hover); box-shadow: inset 0 -2px 0 var(--accent); }
+.bib-tab thead th.on .s { color: var(--accent-hover); }
+.bib-tab tbody tr.on th.nm { color: var(--accent-hover); box-shadow: inset 3px 0 0 var(--accent); }
+.bib-tab tbody tr.on td, .bib-tab td.col { background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel)) !important; }
+.bib-tab td.cur { box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft) !important; font-weight: 750; color: var(--ink); }
+.bib-tab td.ok { color: var(--ok-ink); }
+.bib-tab td.opt { font-weight: 700; }
+.bib-tab td .mk { color: var(--accent); font-style: normal; font-size: 10px; margin-left: 3px; vertical-align: 2px; }
+.bib-tab td.vide { color: var(--ink-4); }
+.bib-tab td.tx { text-align: left; color: var(--ink-2); font-size: 12px; white-space: normal; min-width: 240px; line-height: 1.3; }
+.bib-tab td.m { color: var(--ink-2); border-right: 1px solid var(--line); }
+.bib-tab thead th.m { border-right: 1px solid var(--line); }
+/* le feu : a en gras, la largeur dessous */
+.bib-feu td { text-align: center; line-height: 1.1; height: 40px; }
+.bib-feu td b { display: block; font-size: 13.5px; }
+.bib-feu td small { display: block; font-size: 9.5px; color: var(--ink-3); }
+.bib-enr td, .bib-anc td { text-align: center; min-width: 58px; }
+.bib-enr thead th, .bib-anc thead th { text-align: center; }
+.bib-sections { font-size: 12.5px; }
+.bib-sections th, .bib-sections td { padding: 0 6px; height: 34px; }
+.bib-sections td { text-align: center; }
+/* un tableau qui n'existe pas (le feu des poteaux et des voiles) : la bibliothèque le dit */
+.bib-vide { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; height: 100%; min-height: 220px;
+  padding: 24px; text-align: center; color: var(--ink-2); font-size: 13px; line-height: 1.45; }
+.bib-vide svg.i { width: 28px; height: 28px; color: var(--att, #B86E00); }
+.bib-vide b { color: var(--ink); font-size: 15px; }
+.bib-vide span { max-width: 520px; }
+
+/* ---------------------------------------------------------------- la bande de la valeur retenue */
+.bib-bande { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 16px; border: 1px solid var(--line);
+  border-radius: var(--r-lg); background: var(--panel); }
+.bib-bande-v { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1 1 460px; }
+.bib-val { font-size: 30px; font-weight: 750; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; line-height: 1; }
+.bib-val small { font-size: 14px; font-weight: 600; color: var(--ink-3); margin-left: 5px; letter-spacing: 0; }
+.bib-bande-t { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.bib-sym { font-weight: 700; font-size: 13.5px; }
+.bib-sym sub { font-size: 9.5px; }
+.bib-nom { font-size: 12.5px; color: var(--ink-2); }
+.bib-phr { font-size: 12px; color: var(--ink-3); line-height: 1.35; }
+.bib-av { display: flex; gap: 7px; align-items: flex-start; flex: 1 1 100%; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4;
+  color: var(--vrf-encre, #8A5A00); background: var(--vrf-fond, #FFF2D6); }
+.bib-av svg.i { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.bib-bande-b { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.bib-sources { flex: none; display: flex; flex-wrap: wrap; gap: 3px 18px; font-size: 11px; line-height: 1.4; color: var(--ink-3); }
+.bib-src { display: inline-flex; gap: 5px; align-items: flex-start; }
+.bib-src svg.i { width: 12px; height: 12px; flex: none; margin-top: 2px; }
+
+/* ---------------------------------------------------------------- « Pourquoi ? » : le volet de la justification */
+.bib-pq { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: flex-end; background: color-mix(in srgb, var(--ink) 28%, transparent); }
+.bib-pq[hidden] { display: none; }
+.bib-pq-c { width: min(760px, 100vw); height: 100%; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; box-shadow: var(--shadow-pop); }
+.bib-pq-h { display: flex; align-items: flex-start; gap: 8px; padding: 14px 10px 12px 18px; border-bottom: 1px solid var(--line); }
+.bib-pq-h > div { margin-right: auto; min-width: 0; }
+.bib-pq-h b { display: block; font-size: 14px; }
+.bib-pq-h span { display: block; font-size: 12px; color: var(--ink-3); }
+.bib-pq-b { overflow: auto; padding: 6px 18px 18px; }
+.bib-pq-t { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.bib-pq-t td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.35; }
+.bib-pq-t td.s { font-weight: 650; white-space: nowrap; width: 84px; }
+.bib-pq-t td.s sub { font-size: 9px; }
+.bib-pq-t td.nm { color: var(--ink-2); width: 30%; }
+.bib-pq-t td.n { text-align: right; font-weight: 650; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bib-pq-t td.n .u { color: var(--ink-3); font-weight: 500; font-size: 11.5px; }
+.bib-pq-t td.rg { color: var(--ink-3); font-size: 11.5px; padding-left: 10px; }
+.bib-pq-t tr.maj td { background: var(--accent-soft); color: var(--ink); }
+.bib-pq-t tr.maj td.nm { color: var(--accent-hover); font-weight: 650; }
+.bib-pq-b .bib-av { margin-top: 10px; }
+.bib-pq-s { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- tablette : le menu se resserre sous 1 100 px ; la colonne
+   « usage » des aciers (du texte) se retire, la classe de ductilité reste dans le nom de la nuance et dans « Pourquoi ? » */
+@media (max-width: 1100px) {
+  .bib { grid-template-columns: 72px minmax(0, 1fr); }
+  .bib-aciers td.tx, .bib-aciers th.tx { display: none; }
+  .bib-menu { padding: 8px 6px; }
+  .bib-m { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; justify-items: center; row-gap: 3px; min-height: 56px; padding: 6px 2px; }
+  .bib-m svg.i { grid-row: auto; }
+  .bib-m .bib-mt { font-size: 10.5px; }
+  .bib-m .bib-ms { display: none; }
+  .bib-corps { padding: 10px 12px 12px; }
+}
+/* ---------------------------------------------------------------- téléphone : le menu en bandeau, les champs au doigt */
+@media (max-width: 700px) {
+  .bib { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: auto; min-height: calc(100svh - 56px); }
+  .bib-menu { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px 8px; gap: 4px; }
+  .bib-m { flex: none; min-height: 46px; padding: 4px 10px; grid-template-columns: 18px auto; row-gap: 0; }
+  .bib-m svg.i { width: 16px; height: 16px; }
+  .bib-m .bib-mt { font-size: 12.5px; }
+  .bib-corps { padding: 10px 12px 14px; gap: 8px; }
+  .bib-barre-l { gap: 6px 10px; }
+  .bib-p .field, .bib-p .seg, .bib-case { height: 40px; }
+  .bib-p .seg button { height: 34px; }
+  .bib-barre input, .bib-barre select { font-size: 16px !important; }
+  .bib-tableau { flex: none; max-height: 60svh; }
+  .bib-tab th, .bib-tab td { height: 42px; }
+  .bib-val { font-size: 24px; }
+  .bib-bande-v { flex-basis: 100%; }
+  .bib-bande-b { margin-left: 0; width: 100%; }
+  .bib-bande-b .btn { flex: 1; height: 42px; justify-content: center; }
+  .bib-pq-c { width: 100vw; }
+}

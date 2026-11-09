@@ -74,6 +74,9 @@ def eps_yd(fyd: float) -> float:
 # Les relations analytiques de la colonne de droite du tableau 3.1 (déformations en ‰) ; tests/test_bibliotheque_moteur.py
 # les confronte aux valeurs imprimées, de C12/15 à C90/105.
 SOURCE_FCD = "EN 1992-1-1:2004 §3.1.6(1)P, éq. (3.15) : f_cd = α_cc · f_ck / γ_c"
+# les classes de résistance du tableau 3.1 : (f_ck, f_ck,cube) en MPa, de C12/15 à C90/105
+CLASSES_3_1 = ((12, 15), (16, 20), (20, 25), (25, 30), (30, 37), (35, 45), (40, 50), (45, 55), (50, 60), (55, 67), (60, 75), (70, 85),
+               (80, 95), (90, 105))
 GAMMA_C = 1.5                # tableau 2.1N, ELU durable et transitoire
 ALPHA_CC_RECOMMANDE = 1.0    # §3.1.6(1)P : valeur recommandée ; l'annexe belge (ANB) est à confirmer par le bureau (0,85 en usage)
 

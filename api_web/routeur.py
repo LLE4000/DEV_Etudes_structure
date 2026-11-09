@@ -8,7 +8,8 @@
 La réponse porte l'état de la note (à enregistrer), les fragments HTML des cadres (données, résultat, fenêtres de
 calcul, vues du dessin) et le résumé (taux, niveau, statut). Une erreur du moteur est rendue, jamais avalée. La réponse
 est du JSON STRICT : un nombre non fini (un taux infini) part comme null, jamais « Infinity » que le navigateur ne lit pas.
-Les modules viennent du registre (api_web/registre.py) : chaque fichier qui déclare MODULE en est un.
+Les modules viennent du registre (api_web/registre.py) : chaque fichier qui déclare MODULE en est un. Les BIBLIOTHÈQUES
+(action « consulter », sans module ni note) sont à part : ``BIBLIOTHEQUES`` ci-dessous.
 
 TÉLÉCHARGER un fichier propre au module (le bouton ``commun.bouton_telecharger(quoi, …)``, ``data-telecharger``) :
 
@@ -21,12 +22,28 @@ TÉLÉCHARGER un fichier propre au module (le bouton ``commun.bouton_telecharger
               module rend None, ou lève ValueError avec son message), nom absurde, type hors liste, texte de plus de
               5 Mo (les règles : ``commun.refus_fichier``). Jamais une exception.
 """
+import importlib
 import json
 import math
 import traceback
 
 from . import commun as C
 from . import registre
+
+# les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : hors du registre des modules — une consultation n'est pas
+# une note. L'action « consulter » les sert : {"action": "consulter", "bibliotheque": "beton", "rubrique": "ancrages",
+# "params": {...}, "hote": "page" | "note"} → les fragments de la rubrique (api_web/biblio_<clé>.consulter)
+BIBLIOTHEQUES = {"beton": "api_web.biblio_beton"}
+
+
+def consulter(q: dict) -> dict:
+    """Une rubrique d'une bibliothèque rendue pour ses paramètres (la béton armé par défaut) ; une bibliothèque
+    inconnue est refusée (ValueError, que ``traiter`` rend en erreur lisible)."""
+    nom = q.get("bibliotheque", "beton")
+    if nom not in BIBLIOTHEQUES:
+        raise ValueError(f"bibliothèque inconnue : {nom!r} ({', '.join(BIBLIOTHEQUES)})")
+    mod = importlib.import_module(BIBLIOTHEQUES[nom])
+    return {"ok": True, **mod.consulter(q.get("rubrique"), q.get("params") or {}, q.get("hote", "page"))}
 
 
 def _sans_infini(x):
@@ -97,6 +114,8 @@ def telecharger(mod, q: dict) -> dict:
 def traiter(requete: str) -> str:
     try:
         q = json.loads(requete)
+        if q.get("action") == "consulter":
+            return _json(consulter(q))
         mod = registre.module(q.get("module"))
         action = q.get("action", "calculer")
         if action == "telecharger":

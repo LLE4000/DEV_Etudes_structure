@@ -54,6 +54,11 @@ ACCUEIL = "./"
 # fonctions aux mêmes places (api_web/etabli_compact.py) ; les autres gardent l'établi d'avant. Leur carte de l'accueil
 # ouvre le calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
 ETABLI_COMPACT = ("poutre", "dalle", "predalle")
+# les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : une page par famille, hors du registre des modules (une
+# consultation n'est pas une note) ; la clé est celle que le routeur reçoit (action « consulter », « bibliotheque ») :
+# clé → (module de rendu, titre, famille)
+BIBLIOTHEQUES = {"beton": ("api_web.biblio_beton", "Béton armé", "beton")}
+PAGES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}.html" for k in BIBLIOTHEQUES}
 # … et parmi eux, ceux dont le site fait la NOTE PDF (le module rend « telecharger note_pdf ») : les autres gardent le
 # bouton « Note PDF » grisé, « bientôt » (la note reste dans Streamlit)
 NOTE_PDF = ("poutre",)
@@ -446,6 +451,36 @@ def page_module(cle: str, titre: str) -> str:
                 "css/etabli.css" if cle in ETABLI_COMPACT else "") + corps
 
 
+def page_bibliotheque(cle: str) -> str:
+    """La page d'une BIBLIOTHÈQUE (docs/site/BIBLIOTHEQUES.md § 2.2) : à gauche le menu de ses rubriques, à droite la
+    barre de paramètres, LE TABLEAU sur toute la largeur, la bande de la valeur retenue et les sources ; « Pourquoi ? »
+    dans un volet. Sans les trois colonnes de l'établi, sans note : tout le HTML vient de ``consulter`` (le travailleur),
+    js/bibliotheque.js le pose et tient l'adresse (?rubrique=…&…). Au téléphone, le menu devient un bandeau et la barre
+    du bas est celle de l'accueil."""
+    chemin, titre, _fam = BIBLIOTHEQUES[cle]
+    B = importlib.import_module(chemin)
+    top = (f'<header class="top"><div class="crumbs"><a href="{ACCUEIL}" title="Accueil">{MQ.icon("house")}</a>{MQ.icon("chevron-right")}'
+           f'<span>Bibliothèque</span>{MQ.icon("chevron-right")}<b>{MQ.esc(titre)}</b>{MQ.icon("chevron-right")}<span id="bib-titre"></span></div>'
+           f'<span class="tag pub">{MQ.icon("book-open")}Bibliothèque</span><span class="spacer"></span>'
+           f'<button type="button" class="btn ghost" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}<span class="lbl">Thème</span></button></header>')
+    mhead = (f'<header class="mhead"><a class="btn icon ghost" href="{ACCUEIL}" title="Accueil" aria-label="Accueil">{MQ.icon("arrow-left")}</a>'
+             f'<span class="ttl">{MQ.esc(titre)}</span><span class="spacer"></span>'
+             f'<button type="button" class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}</button></header>')
+    demarrage = (f'<div class="demarrage" id="demarrage"><div class="carte"><div class="logo">{MQ.LOGO}</div><b>Chargement du moteur de calcul</b>'
+                 f'<span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div>'
+                 f'<small>La première ouverture prend quelques secondes ; ensuite, chaque consultation est immédiate.</small></div></div>')
+    pourquoi = ('<div class="bib-pq" id="bib-pourquoi" role="dialog" aria-modal="true" aria-label="Pourquoi cette valeur" hidden>'
+                '<div class="bib-pq-c" id="bib-pq-corps"></div></div>')
+    corps = (f'<body data-page="bibliotheque" data-bibliotheque="{cle}" data-titre="{MQ.esc(titre)}"><div class="app rail">{rail("modules")}<main class="main">{top}{mhead}'
+             f'<div class="bib"><nav class="bib-menu" id="bib-menu" aria-label="Rubriques">{B.menu()}</nav>'
+             f'<section class="bib-corps" id="bib-corps" aria-busy="false"><div class="bib-barre" id="bib-barre"></div>'
+             f'<div class="bib-tableau" id="bib-tableau"><div class="attente">Chargement…</div></div>'
+             f'<div class="bib-bande" id="bib-bande"></div><div class="bib-sources" id="bib-sources"></div></section>{demarrage}</div>'
+             f'{mnav("modules")}</main></div>{pourquoi}<div class="toast" id="toast" role="status" hidden></div>'
+             f'<script type="module" src="js/bibliotheque.js"></script></body>\n</html>\n')
+    return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css") + corps
+
+
 def compact(corps: str, note_pdf: bool = True) -> str:
     """L'établi COMPACT, tiré de l'établi ordinaire (les mêmes fragments du moteur, les mêmes identifiants : #donnees,
     #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
@@ -565,6 +600,8 @@ def construire(dossier: str = ICI, modules=None) -> dict:
     ecrire(os.path.join(dossier, "index.html"), page_accueil())
     for cle, page in PAGES.items():
         ecrire(os.path.join(dossier, page), page_module(cle, _module(cle)[1]))
+    for cle, page in PAGES_BIBLIOTHEQUES.items():
+        ecrire(os.path.join(dossier, page), page_bibliotheque(cle))
     ecrire(os.path.join(dossier, "js", "modules.js"), modules_js())
     ecrire(os.path.join(dossier, "favicon.svg"), favicon())
     rel = releve(modules)
@@ -590,5 +627,6 @@ if __name__ == "__main__":
     a = ap.parse_args()
     mods = [m for m in a.modules.split(",") if m] or None
     m = construire(a.dossier, mods)
-    print(f"{os.path.relpath(os.path.abspath(a.dossier), RACINE)} : {len(PAGES) + 1} pages ({', '.join(PAGES)}), paquet du moteur "
+    print(f"{os.path.relpath(os.path.abspath(a.dossier), RACINE)} : {len(PAGES) + 1 + len(PAGES_BIBLIOTHEQUES)} pages ({', '.join(PAGES)} ; "
+          f"bibliothèques : {', '.join(PAGES_BIBLIOTHEQUES)}), paquet du moteur "
           f"{len(m['fichiers'])} fichiers, {os.path.getsize(os.path.join(a.dossier, 'moteur', 'moteur.zip')) // 1024} ko (sha256 {m['sha256'][:12]})")

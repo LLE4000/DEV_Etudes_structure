@@ -81,9 +81,9 @@ def _nombre(x, nom, mini=None, maxi=None) -> float:
     if not math.isfinite(v):
         raise ValueError(f"{nom} : nombre illisible « {x} »")
     if mini is not None and v < mini:
-        raise ValueError(f"{nom} : au moins {mini:g}")
+        raise ValueError(f"{nom} : au moins {_g(mini)}")
     if maxi is not None and v > maxi:
-        raise ValueError(f"{nom} : au plus {maxi:g}")
+        raise ValueError(f"{nom} : au plus {_g(maxi)}")
     return v
 
 
@@ -179,6 +179,11 @@ def calculer(params: dict) -> dict:
     return res
 
 
+def _g(x) -> str:
+    """Un nombre dans une règle, en français (« 1,15 »)."""
+    return f"{x:g}".replace(".", ",")
+
+
 def termes(res: dict) -> list:
     """La justification : [{cle, symbole, nom, valeur, unite, regle}] dans l'ordre du calcul."""
     p, ad, al = res["entree"], res["adherence"], res["alphas"]
@@ -188,34 +193,34 @@ def termes(res: dict) -> list:
     def t(cle, symbole, nom, valeur, unite, regle):
         out.append({"cle": cle, "symbole": symbole, "nom": nom, "valeur": valeur, "unite": unite, "regle": regle})
 
-    lim = f" (limité à C60/75 : f_ck = {ad['fck_bd']:g})" if ad["fck_bd"] < res["fck"] else ""
+    lim = f" (limité à C60/75 : f_ck = {_g(ad['fck_bd'])})" if ad["fck_bd"] < res["fck"] else ""
     t("fctk", "f_ctk,0,05", "traction caractéristique, fractile 5 %", ad["fctk_005"], "MPa", f"0,7 · f_ctm — tableau 3.1{lim}")
-    t("fctd", "f_ctd", "traction de calcul", ad["fctd"], "MPa", f"α_ct · f_ctk,0,05 / γ_c = {ALPHA_CT:g} · f_ctk,0,05 / {GAMMA_C:g} — §3.1.6(2)P")
+    t("fctd", "f_ctd", "traction de calcul", ad["fctd"], "MPa", f"α_ct · f_ctk,0,05 / γ_c = {_g(ALPHA_CT)} · f_ctk,0,05 / {_g(GAMMA_C)} — §3.1.6(2)P")
     t("eta1", "η1", "conditions d'adhérence", ad["eta1"], "", "1,0 bonnes conditions, 0,7 autres — §8.4.2(2), figure 8.2")
     t("eta2", "η2", "diamètre", ad["eta2"], "", "1,0 pour Ø ≤ 32 mm, (132 − Ø)/100 au-delà — §8.4.2(2)")
     t("fbd", "f_bd", "contrainte d'adhérence de calcul", ad["fbd"], "MPa", "2,25 · η1 · η2 · f_ctd — §8.4.2(2), éq. (8.2)")
-    t("fyd", "f_yd", "limite d'élasticité de calcul", res["fyd"], "MPa", f"f_yk / γ_s = {p['fyk']} / {GAMMA_S:g} — §3.2.7")
+    t("fyd", "f_yd", "limite d'élasticité de calcul", res["fyd"], "MPa", f"f_yk / γ_s = {p['fyk']} / {_g(GAMMA_S)} — §3.2.7")
     t("sigma", "σ_sd", "contrainte de la barre à l'origine de l'ancrage", res["sigma_sd"], "MPa",
-      f"{p['taux']:g} · f_yd" + (" (barre pleinement sollicitée)" if p["taux"] >= 1 else " (taux σ_sd / f_yd, ou A_s,req / A_s,prov)") + " — §8.4.3(2)")
+      f"{_g(p['taux'])} · f_yd" + (" (barre pleinement sollicitée)" if p["taux"] >= 1 else " (taux σ_sd / f_yd, ou A_s,req / A_s,prov)") + " — §8.4.3(2)")
     t("lb_rqd", "l_b,rqd", "longueur d'ancrage de référence", res["lb_rqd"], "mm", "(Ø/4) · σ_sd / f_bd — §8.4.3(2), éq. (8.3)")
     forme = dict(FORMES)[p["forme"]]
-    cd = "c_d non précisé" if p["c_d"] is None else f"c_d = {p['c_d']:g} mm"
+    cd = "c_d non précisé" if p["c_d"] is None else f"c_d = {_g(p['c_d'])} mm"
     t("alpha1", "α1", "forme de la barre", al["alpha1"], "", f"{forme}, {cd} — tableau 8.2 (0,7 si crochet, coude ou boucle tendus avec c_d > 3 Ø)")
     t("alpha2", "α2", "enrobage", al["alpha2"], "", f"{cd} — tableau 8.2, borné à [0,7 ; 1,0]")
-    t("alpha3", "α3", "confinement par armatures transversales", al["alpha3"], "", f"1 − K·λ, K = {p['K']:g}, λ = {p['lam']:g} — tableau 8.2, figure 8.4")
+    t("alpha3", "α3", "confinement par armatures transversales", al["alpha3"], "", f"1 − K·λ, K = {_g(p['K'])}, λ = {_g(p['lam'])} — tableau 8.2, figure 8.4")
     t("alpha4", "α4", "barre transversale soudée", al["alpha4"], "", "0,7 si une barre transversale soudée (§8.6) — tableau 8.2")
-    t("alpha5", "α5", "pression transversale", al["alpha5"], "", f"1 − 0,04 · p, p = {p['p']:g} MPa — tableau 8.2, borné à [0,7 ; 1,0]")
+    t("alpha5", "α5", "pression transversale", al["alpha5"], "", f"1 − 0,04 · p, p = {_g(p['p'])} MPa — tableau 8.2, borné à [0,7 ; 1,0]")
     if al["produit_235"] > al["alpha2"] * al["alpha3"] * al["alpha5"] + 1e-12:
         t("prod", "α2·α3·α5", "produit borné", al["produit_235"], "", "≥ 0,7 — §8.4.4(1), éq. (8.4)")
     part, kphi, pl = LB_MIN[p["sollicitation"]]
     lb = res["lbd"]
     t("lbd_brut", "α1…α5 · l_b,rqd", "longueur d'ancrage avant minimum", lb["brut"], "mm", "α1 · α2 · α3 · α4 · α5 · l_b,rqd — éq. (8.4)")
-    t("lbd_min", "l_b,min", "longueur d'ancrage minimale", lb["min"], "mm", f"max({part:g} l_b,rqd ; {kphi:g} Ø ; {pl:g} mm) — §8.4.4(1), éq. (8.6){'' if p['sollicitation'] == 'traction' else ' (8.7)'}")
+    t("lbd_min", "l_b,min", "longueur d'ancrage minimale", lb["min"], "mm", f"max({_g(part)} l_b,rqd ; {_g(kphi)} Ø ; {_g(pl)} mm) — §8.4.4(1), éq. (8.6){'' if p['sollicitation'] == 'traction' else ' (8.7)'}")
     t("lbd", "l_bd", "LONGUEUR D'ANCRAGE DE CALCUL", lb["valeur"], "mm", "max(α1…α5 · l_b,rqd ; l_b,min) — §8.4.4(1)" + (" ; le minimum gouverne" if lb["gouverne_min"] else ""))
     l0 = res["l0"]
-    t("alpha6", "α6", "proportion de barres recouvertes dans la section", l0["alpha6"], "", f"(ρ1/25)^0,5 dans [1,0 ; 1,5], ρ1 = {p['rho1']:g} % — §8.7.3(1), tableau 8.3")
+    t("alpha6", "α6", "proportion de barres recouvertes dans la section", l0["alpha6"], "", f"(ρ1/25)^0,5 dans [1,0 ; 1,5], ρ1 = {_g(p['rho1'])} % — §8.7.3(1), tableau 8.3")
     t("l0_brut", "α1 α2 α3 α5 α6 · l_b,rqd", "longueur de recouvrement avant minimum", l0["brut"], "mm", "éq. (8.10)")
-    t("l0_min", "l_0,min", "longueur de recouvrement minimale", l0["min"], "mm", f"max({L0_MIN[0]:g} α6 l_b,rqd ; {L0_MIN[1]:g} Ø ; {L0_MIN[2]:g} mm) — éq. (8.11)")
+    t("l0_min", "l_0,min", "longueur de recouvrement minimale", l0["min"], "mm", f"max({_g(L0_MIN[0])} α6 l_b,rqd ; {_g(L0_MIN[1])} Ø ; {_g(L0_MIN[2])} mm) — éq. (8.11)")
     t("l0", "l_0", "LONGUEUR DE RECOUVREMENT DE CALCUL", l0["valeur"], "mm", "max(α1 α2 α3 α5 α6 · l_b,rqd ; l_0,min) — §8.7.3(1)" + (" ; le minimum gouverne" if l0["gouverne_min"] else ""))
     return out
 
@@ -225,7 +230,7 @@ def avertissements(res: dict) -> list:
     out = []
     if p["phi"] > PHI_GRANDE:
         out.append({"code": "gros_diametre", "message": (
-            f"Ø {p['phi']:g} > 32 mm : barre de gros diamètre (§8.8) — recouvrement non admis, sauf dans une section "
+            f"Ø {_g(p['phi'])} > 32 mm : barre de gros diamètre (§8.8) — recouvrement non admis, sauf dans une section "
             "d'au moins 1 m ou sous 80 % de la résistance de calcul ; armatures de confinement en zone d'ancrage.")})
     if p["forme"] == "courbe" and p["c_d"] is None and p["sollicitation"] == "traction":
         out.append({"code": "cd_inconnu", "message": "c_d non précisé : α1 = α2 = 1,0 (aucune réduction) — préciser c_d pour en profiter."})

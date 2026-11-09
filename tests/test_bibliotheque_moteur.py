@@ -217,7 +217,7 @@ chk("les paramètres se relisent en chaînes avec virgule (« 0,5 »)", abs(A.ca
 for nom, params, mot in (("classe illisible", {"classe": "C30"}, "illisible"), ("classe hors tableau", {"classe": "C95/110"}, "hors du tableau"),
                          ("Ø 60", {"phi": 60}, "au plus 50"), ("Ø 4", {"phi": 4}, "au moins 6"), ("f_yk 450", {"fyk": 450}, "n'est pas permis"),
                          ("conditions « moyennes »", {"conditions": "moyennes"}, "n'est pas permis"), ("taux 1,2", {"taux": 1.2}, "au plus 1"),
-                         ("K 0,2", {"K": 0.2}, "au plus 0.1"), ("Ø booléen", {"phi": True}, "nombre est attendu"), ("ρ1 négatif", {"rho1": -1}, "au moins 0")):
+                         ("K 0,2", {"K": 0.2}, "au plus 0,1"), ("Ø booléen", {"phi": True}, "nombre est attendu"), ("ρ1 négatif", {"rho1": -1}, "au moins 0")):
     ok, msg = refus(lambda p=params: A.calculer(p), mot)
     chk(f"refus « {nom} » en français", ok, msg)
 ok, msg = refus(lambda: A.tableau("lb_rqd"), "lbd")

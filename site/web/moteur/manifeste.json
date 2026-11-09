@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "cf16455ec9835e4f0afd77fbbe6b08ff94c9fde27150230d38e7dfc28fbc90c9",
+ "sha256": "8b225fa33b5355bf735fa4568b4d6c600c9b5776e3eb7273824bfa23177f35a8",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -149,6 +149,7 @@
   "api_web/assemblages_pied.py",
   "api_web/assemblages_poteau.py",
   "api_web/assemblages_poutre.py",
+  "api_web/biblio_beton.py",
   "api_web/bois.py",
   "api_web/catalogue.py",
   "api_web/commun.py",
