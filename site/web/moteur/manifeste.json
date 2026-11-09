@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "ab5b30ad9fc2f7ae8c890bfb5bde4b9d6720ada8225bc9f0cfb49f6a6e62f24f",
+ "sha256": "217ac1b6c18e4e191ecc689bbe1deca2b547811175223896f56a65eaa0c68ef4",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -178,8 +178,12 @@
   "api_web/flambement.py",
   "api_web/garde_corps.py",
   "api_web/icones.py",
+  "api_web/note_assemblages.py",
+  "api_web/note_cas.py",
+  "api_web/note_dalle.py",
   "api_web/note_poutre.py",
   "api_web/parcours.py",
+  "api_web/pdf_reunion.py",
   "api_web/plancher.py",
   "api_web/plaque_compact.py",
   "api_web/poutre.py",
@@ -276,9 +280,22 @@
   "soudures"
  ],
  "note": {
-  "sha256": "3a1e7b9415e81e805bd9315132e42ff10c168642e8033dc3630d552696f0eff7",
-  "octets": 2075891,
+  "sha256": "fadcfff3ad8989ba1c79f4d72e95b73a4d2cb1e8dc72a23fdb57a5dbff2f44e6",
+  "octets": 2193898,
   "reportlab": "5.1.0",
-  "fichiers": 86
+  "fichiers": 104,
+  "modules": [
+   "assemblages",
+   "dalle",
+   "garde_corps",
+   "plancher",
+   "poutre",
+   "soudures"
+  ],
+  "avec_numpy": [
+   "garde_corps",
+   "plancher",
+   "soudures"
+  ]
  }
 }

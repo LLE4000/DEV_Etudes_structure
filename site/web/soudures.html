@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="css/modules/soudures.css">
 <script src="js/theme.js"></script>
 </head>
-<body data-page="module" data-module="soudures" data-titre="Soudures"><div class="app rail"><nav class="nav"><a class="brand" href="./" title="Accueil"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div></a><a class="navitem" data-tip="Accueil" href="./"><svg
+<body data-page="module" data-module="soudures" data-titre="Soudures" data-note-pdf="1"><div class="app rail"><nav class="nav"><a class="brand" href="./" title="Accueil"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div></a><a class="navitem" data-tip="Accueil" href="./"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -260,7 +260,7 @@
   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
   <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
   <rect x="6" y="14" width="12" height="8" rx="1" />
-</svg><span class="lbl">Imprimer</span></button><button type="button" class="btn primary" disabled title="La note PDF arrive bientôt sur le site (elle reste dans Streamlit)"><svg
+</svg><span class="lbl">Imprimer</span></button><button type="button" class="btn primary" data-action="pdf" title="Préparer la note de calcul PDF"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -408,7 +408,7 @@
   <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
   <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
   <rect x="6" y="14" width="12" height="8" rx="1" />
-</svg>Imprimer</button><button type="button" class="mi" data-action="pdf" aria-disabled="true"><svg
+</svg>Imprimer</button><button type="button" class="mi" data-action="pdf"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -424,7 +424,7 @@
   <path d="M14 2v4a2 2 0 0 0 2 2h4" />
   <path d="M12 18v-6" />
   <path d="m9 15 3 3 3-3" />
-</svg>Note PDF<span class="tag draft">bientôt</span></button><button type="button" class="mi" data-theme-toggle="1"><svg
+</svg>Note PDF</button><button type="button" class="mi" data-theme-toggle="1"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -565,7 +565,7 @@
   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
   <polyline points="7 10 12 15 17 10" />
   <line x1="12" x2="12" y1="15" y2="3" />
-</svg><span class="lbl">Exporter .stab</span></button><button type="button" class="btn primary" data-action="pdf" aria-disabled="true"><svg
+</svg><span class="lbl">Exporter .stab</span></button><button type="button" class="btn primary" data-action="pdf"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
