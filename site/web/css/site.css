@@ -215,7 +215,7 @@ label.fichier { width: max-content; }
    carte : leur grille ne commence qu'à la deuxième colonne, quel que soit leur nombre. La carte ne se mesure pas
    (container-type: size) : la hauteur de la rangée est celle du bloc des modules, la carte la prend (plancher : deux rangées
    de tuiles, 2 × 56 + 8 px) ; et sa mise en page suit la hauteur reçue (requête de conteneur) : deux rangées (PC large, quatre
-   colonnes) → les rubriques sur deux colonnes ; trois rangées (tablette, petit PC) → une seule colonne. */
+   colonnes) → les rubriques sur deux colonnes ; trois rangées et plus → une seule colonne. (De 701 à 1 360 px : plus bas.) */
 .accueil .fam-b > .tiles { grid-column: 2 / -1; grid-template-columns: subgrid; }
 /* (relecture du 09/11/2026) une famille de PEU de modules (une seule rangée, plus basse que le plancher de la carte) : ses
    tuiles gardent la hauteur d'une tuile, en haut du bloc — sans cela, la rangée unique s'étirait à 120 px */
@@ -237,6 +237,36 @@ label.fichier { width: max-content; }
 @container bib (min-height: 150px) {
   .accueil .tile.biblio .bib-c { gap: 12px; padding: 14px; }
   .accueil .tile.biblio .bib-r { grid-template-rows: none; grid-auto-flow: row; gap: 5px; }
+}
+/* (petits chantiers, 10/11/2026) DE 701 À 1 360 PX, la forme du PC : la charte n'y donne que trois colonnes — la carte et
+   DEUX colonnes de modules, les cinq modules du Béton et de l'Acier sur TROIS rangées, la carte aussi (mesuré : 231 × 184 à
+   820, 351 × 184 à 1 180). Quatre colonnes, comme au-dessus de 1 360 px, pour TOUTES les familles (un seul rythme) : la
+   carte sur la première, ses modules sur trois — deux rangées, la carte à la hauteur du bloc de ses modules (120 px).
+   Plus étroite (141 px à 701, 261 à 1 180), la carte pose l'icône AU-DESSUS du titre (demande de l'ingénieur) et ses
+   rubriques à la suite, « · » entre elles (la forme du téléphone) ; sous 900 px, l'icône et les marges se resserrent, et
+   l'icône des tuiles passe à 30 px (« d'armature » se coupait à 701 px) — les tuiles gardent leur hauteur (56 px). */
+@media (min-width: 701px) and (max-width: 1360px) {
+  .accueil .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .accueil .tile.biblio .bib-c { padding: 9px 11px; gap: 5px; }
+  .accueil .tile.biblio .bib-h { flex-direction: column; align-items: flex-start; gap: 5px; }
+  .accueil .tile.biblio .modic { width: 28px; height: 28px; border-radius: 8px; }
+  .accueil .tile.biblio .modic svg { width: 17px; height: 17px; }
+  .accueil .tile.biblio .bib-r { display: block; font-size: 11px; line-height: 1.35; color: var(--ink-3); }
+  .accueil .tile.biblio .bib-r li { display: inline; font-size: inherit; line-height: inherit; color: inherit; white-space: normal; }
+  /* le « · » reste au bout de la rubrique qu'il suit : une ligne ne commence jamais par lui */
+  .accueil .tile.biblio .bib-r li:not(:last-child)::after { content: "\00a0· "; }
+  .accueil .tile.biblio .bib-r svg.i { display: none; }
+}
+@media (min-width: 701px) and (max-width: 899px) {
+  .accueil .tile:not(.biblio) { gap: 8px; padding: 9px 10px; min-height: 56px; }
+  .accueil .tile:not(.biblio) .modic { width: 30px; height: 30px; border-radius: 8px; }
+  .accueil .tile:not(.biblio) .modic svg { width: 18px; height: 18px; }
+  .accueil .tile.biblio .bib-c { padding: 8px 10px; gap: 3px; }
+  .accueil .tile.biblio .bib-h { gap: 3px; }
+  .accueil .tile.biblio .modic { width: 24px; height: 24px; border-radius: 7px; }
+  .accueil .tile.biblio .modic svg { width: 15px; height: 15px; }
+  .accueil .tile.biblio .nm { line-height: 1.2; }
+  .accueil .tile.biblio .bib-r { line-height: 1.3; }
 }
 .accueil .tile.bientot { opacity: .62; box-shadow: none; }
 .accueil .tile.bientot:hover { border-color: var(--line); box-shadow: none; }

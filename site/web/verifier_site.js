@@ -3475,6 +3475,10 @@ const FILTRE = process.argv[4] || '';
           o.coupes = textes.filter((e) => e.scrollWidth > e.clientWidth + 1 || plage(e).width > R(e).width + 0.5).map((e) => e.textContent.trim().slice(0, 30));
           o.rubriques = [...carte.querySelectorAll('.bib-r li')].filter(vu).map((e) => e.textContent.trim()).join(',');
           o.titre = carte.querySelector('.nm').textContent.replace(/\s+/g, ' ').trim();
+          // (petits chantiers, 10/11/2026) les rangées de ses modules, lues à l'écran ; l'icône au-dessus du titre ou à sa gauche
+          o.rangees = new Set(rt.map((t) => Math.round(t.top))).size;
+          const ri = R(carte.querySelector('.modic')), rn = R(carte.querySelector('.nm'));
+          o.icone = ri.bottom <= rn.top + 0.5 ? 'dessus' : ri.right <= rn.left + 0.5 ? 'gauche' : 'autre';
           const t0 = tuiles[0] ? getComputedStyle(tuiles[0]) : null, cs = getComputedStyle(carte);
           o.distincte = !!t0 && cs.borderTopColor !== t0.borderTopColor && getComputedStyle(carte.querySelector('.modic')).backgroundColor !== getComputedStyle(tuiles[0].querySelector('.modic')).backgroundColor;
         }
@@ -3498,7 +3502,8 @@ const FILTRE = process.argv[4] || '';
     };
     for (const [nomF, opts, sombre] of [['PC 1440', { viewport: { width: 1440, height: 900 } }], ['PC 1280', { viewport: { width: 1280, height: 800 } }],
       ['tablette 1180', { viewport: { width: 1180, height: 820 }, hasTouch: true }], ['tablette 1024', { viewport: { width: 1024, height: 768 }, hasTouch: true }],
-      ['portrait 820', { viewport: { width: 820, height: 1180 }, hasTouch: true }], ['téléphone', { ...devices['iPhone 13'] }],
+      ['portrait 820', { viewport: { width: 820, height: 1180 }, hasTouch: true }], ['petite tablette 701', { viewport: { width: 701, height: 1000 }, hasTouch: true }],
+      ['téléphone', { ...devices['iPhone 13'] }],
       ['PC 1440 sombre', { viewport: { width: 1440, height: 900 } }, true], ['téléphone sombre', { ...devices['iPhone 13'] }, true]]) {
       const c = await b.newContext({ deviceScaleFactor: 2, ...opts });
       if (sombre) await c.addInitScript(() => { try { localStorage.setItem('stab.theme', 'dark'); } catch (e) { /* le thème du système */ } });
@@ -3517,6 +3522,12 @@ const FILTRE = process.argv[4] || '';
       if (!tel) {
         verif(`accueil · ${nomF} : la carte est ÉTROITE et HAUTE — une colonne (≤ une tuile), toute la hauteur du bloc de ses modules, à GAUCHE de chacun, aucun sous elle`,
           etroiteHaute(avec), JSON.stringify(avec.map((f) => ({ fam: f.fam, carte: f.carte, bloc: f.bloc, large: f.large, n: f.n, sous: f.sous }))));
+        // (petits chantiers, 10/11/2026) de 701 à 1 360 px comme au PC : les cinq modules du Béton et de l'Acier sur DEUX rangées
+        // (ils en prenaient trois, la carte aussi) ; la carte, plus étroite, pose son icône AU-DESSUS du titre ; au PC large, à gauche
+        const etroit = (opts.viewport || {}).width <= 1360;
+        verif(`accueil · ${nomF} : les modules du Béton et de l'Acier sur DEUX rangées, la carte à leur hauteur (120 px), son icône ${etroit ? 'AU-DESSUS du' : 'à gauche du'} titre`,
+          avec.every((f) => f.rangees === 2 && Math.abs(f.carte.t - 120) <= 1 && f.icone === (etroit ? 'dessus' : 'gauche')),
+          JSON.stringify(avec.map((f) => ({ fam: f.fam, rangees: f.rangees, carte: f.carte.t, icone: f.icone }))));
         verif(`accueil · ${nomF} : un seul rythme de colonnes — la carte sur la première, ses modules sur TOUTES les suivantes, celles des familles sans bibliothèque`,
           rythme(m.familles), JSON.stringify({ pistes: m.familles.map((f) => [f.fam, f.pistes]), avec: avec.map((f) => [f.carte.g, f.gauches]) }));
         if (nomF === 'PC 1440') {

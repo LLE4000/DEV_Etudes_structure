@@ -66,6 +66,14 @@ Enrobage.
     sur trois colonnes : deux rangées, 3 + 2) ; 268 × 184 à 1 280, 351 × 184 à 1 180, 299 × 184 à 1 024, 231 × 184 à 820
     (sur deux colonnes : trois rangées, 2 + 2 + 1). Relu le même jour à 1 920 × 1 080, 1 366 × 768, 1 361 et 1 360
     (la bascule de quatre à trois colonnes), 1 100, 960, 768, 701 et 700 : la même forme, rien ne déborde.
+    *Révision du 10/11/2026 (petits chantiers, demande de l'ingénieur) : de 701 à 1 360 px, la forme du PC — QUATRE
+    colonnes pour toutes les familles (`css/site.css`, la charte n'en donnait que trois), la carte sur la première, les
+    cinq modules du Béton et de l'Acier sur deux rangées, la carte à leur hauteur (120 px, mesurés à 701, 820, 1 024,
+    1 180, 1 280 et 1 360 ; elle faisait 184 px, trois rangées) ; la carte, plus étroite (141 à 261 px), pose l'icône
+    AU-DESSUS du titre et ses rubriques à la suite, séparées par « · » (sous 900 px, l'icône et les marges se resserrent,
+    l'icône des tuiles passe à 30 px : « d'armature » se coupait à 701). Au-dessus de 1 360 px et au téléphone, rien ne
+    change. Contrôle : `verifier_site.js`, filtre « bibliotheque » (deux rangées, 120 px, l'icône au-dessus du titre de
+    701 à 1 360, à gauche à 1 440 ; un format 701 px ajouté).*
   - **La carte met la hauteur à profit** : l'icône du livre et « Bibliothèque » / « Béton armé » en tête (le titre sur
     deux lignes, jamais tronqué), puis ses rubriques **en liste**, chacune avec l'icône de son menu (les titres et les
     icônes de `RUBRIQUES`, une source). Sa mise en page suit la hauteur qu'elle reçoit (requête de conteneur) : à deux
