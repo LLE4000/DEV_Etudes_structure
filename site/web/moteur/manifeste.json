@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "9a80286e5a537c88b95a13b89320afb5c16dc49a9f3ee198dec102fb3768f186",
+ "sha256": "a8d7a219f565bb31f139c42538f5db5b720328cb5e6576e53fc42a40f2fbcce1",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -102,6 +102,8 @@
   "acier/corniere/__init__.py",
   "acier/corniere/entree.py",
   "acier/corniere/moteur.py",
+  "acier/corniere/schemas.py",
+  "acier/corniere/statique.py",
   "acier/donnees/bibliotheques.json",
   "acier/donnees/preferences_profiles.json",
   "acier/donnees/profiles.json",
@@ -181,6 +183,7 @@
   "api_web/icones.py",
   "api_web/note_assemblages.py",
   "api_web/note_cas.py",
+  "api_web/note_corniere.py",
   "api_web/note_dalle.py",
   "api_web/note_poutre.py",
   "api_web/parcours.py",
@@ -281,12 +284,13 @@
   "soudures"
  ],
  "note": {
-  "sha256": "9233e2774f2e06a8f2c1d52e64ab6571c7ce2537a2f865101a40650d6b4ff3bc",
-  "octets": 2197404,
+  "sha256": "e5c170440a038608e9d02979bf4f442a963adf1f0a2d9e781fc230705a768884",
+  "octets": 2223065,
   "reportlab": "5.1.0",
-  "fichiers": 104,
+  "fichiers": 107,
   "modules": [
    "assemblages",
+   "corniere",
    "dalle",
    "garde_corps",
    "plancher",
@@ -294,6 +298,7 @@
    "soudures"
   ],
   "avec_numpy": [
+   "corniere",
    "garde_corps",
    "plancher",
    "soudures"
