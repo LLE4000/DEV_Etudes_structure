@@ -68,7 +68,9 @@ PALETTE = dict(ink="#15181F", accent="#33415C", muted="#6E7480", ko="#9C3341",
                inink="#0B3D91", inbord="#C9B95A", hover="#FFE37A", hotbg="#FDECEA",
                hatch="#7F8C9A",
                # pieds de poteau : béton, mortier, tige d'ancrage
-               beton="#EEEBE3", mortier="#D8D2C4", tige="#8E97A6")
+               beton="#EEEBE3", mortier="#D8D2C4", tige="#8E97A6",
+               # cornières d'appui : la résultante de compression contre le mur (vert, comme la figure de l'analyse)
+               comp="#1B7F4E")
 
 PAS_HACHURES = 5.0          # mm, hachures à 45° des parties coupées
 SEGMENTS_ARC = 6            # segments par quart de cercle (congés)
@@ -1124,6 +1126,46 @@ def style_de(cls, ctx, p=None):
     elif "bsp" in c:
         # son point de départ au nu de la face
         st.update(fill=ko, stroke="#FFFFFF", sw=0.8)
+    # --- cornières d'appui : sections repères, courbes des diagrammes, bandes, résultante de compression
+    elif "sc" in c:
+        # trait d'une section vérifiée (1 à 4) : orange soutenu
+        st.update(stroke=p["weld"], sw=2.4)
+    elif "scb" in c:
+        # pastille numérotée d'une section : disque orange cerclé de blanc
+        st.update(fill=p["weld"], stroke="#FFFFFF", sw=1.2)
+    elif "env" in c:
+        # l'ENVELOPPE des combinaisons : rouge, en gras
+        st.update(stroke=ko, sw=2.8)
+    elif "cvm" in c:
+        # la courbe de la position nominale : rouge, trait moyen
+        st.update(stroke=ko, sw=1.4)
+    elif "cvf" in c:
+        # les courbes des positions extrêmes : rouge, trait fin
+        st.update(stroke=ko, sw=0.8)
+    elif "sig" in c:
+        # la contrainte équivalente le long de l'aile : encre
+        st.update(stroke=ink, sw=2.0)
+    elif "lim" in c:
+        # la limite (σ_adm, taux 100 %) : rouge interrompu
+        st.update(stroke=ko, sw=1.0, dash=(6, 3))
+    elif "fzd" in c:
+        # fût d'une charge déplacée (position extrême d'un jeu) : rouge interrompu, plus fin
+        st.update(stroke=ko, sw=1.2, dash=(5, 3))
+    elif "tol" in c:
+        # bande de tolérance d'une position (ancrage à Y ± dy) : gris translucide
+        st.update(fill=p["hatch"], fo=0.18)
+    elif "cong" in c:
+        # zone du congé (épaisseur variable) : orange très clair
+        st.update(fill=p["weld"], fo=0.12)
+    elif "fc" in c:
+        # résultante de compression contre le mur : fût vert
+        st.update(stroke=p["comp"], sw=1.8)
+    elif "fch" in c:
+        # sa pointe
+        st.update(fill=p["comp"])
+    elif "fcp" in c:
+        # le pivot (point d'application) : disque vert cerclé de blanc
+        st.update(fill=p["comp"], stroke="#FFFFFF", sw=1.0)
     # texte
     if "tx" in c:
         st.update(tfill=ink, bold=True)
@@ -1138,8 +1180,12 @@ def style_de(cls, ctx, p=None):
         st.update(tfill=ko, bold=True)
     elif "cart" in k:
         st.update(tfill=ink)
-    elif "gb" in k:
+    elif "gb" in k or "scg" in k:
+        # bouton d'un groupe de boulons, numéro d'une section dans sa pastille : blanc gras
         st.update(tfill="#FFFFFF", bold=True)
+    elif "fcl" in k:
+        # étiquette de la résultante de compression : vert, gras
+        st.update(tfill=p["comp"], bold=True)
     elif "dl" in k or "gp" in k or "ef" in k:
         if "ed" in k:
             st.update(tfill=p["inink"], bold=True)
@@ -1265,6 +1311,23 @@ def _css(p, pre):
         f"#{pre} .lv{{stroke:{p['calc']};stroke-width:1.3;stroke-dasharray:3 2;fill:none}}"
         f"#{pre} .bs{{stroke:{ko};stroke-width:3.2;fill:none}}"
         f"#{pre} .bsp{{fill:{ko};stroke:#fff;stroke-width:.8}}"
+        # cornières d'appui : sections repères, courbes, bandes, résultante de compression
+        f"#{pre} .sc{{stroke:{p['weld']};stroke-width:2.4;fill:none}}"
+        f"#{pre} .scb{{fill:{p['weld']};stroke:#fff;stroke-width:1.2}}"
+        f"#{pre} .scg text{{fill:#fff;font-weight:700;font-family:system-ui,Arial,sans-serif}}"
+        f"#{pre} .env{{stroke:{ko};stroke-width:2.8;fill:none}}"
+        f"#{pre} .cvm{{stroke:{ko};stroke-width:1.4;fill:none}}"
+        f"#{pre} .cvf{{stroke:{ko};stroke-width:.8;fill:none}}"
+        f"#{pre} .sig{{stroke:{ink};stroke-width:2;fill:none}}"
+        f"#{pre} .lim{{stroke:{ko};stroke-width:1;stroke-dasharray:6 3;fill:none}}"
+        f"#{pre} .fzd{{stroke:{ko};stroke-width:1.2;stroke-dasharray:5 3;fill:none}}"
+        f"#{pre} .tol{{fill:{p['hatch']};fill-opacity:.18;stroke:none}}"
+        f"#{pre} .cong{{fill:{p['weld']};fill-opacity:.12;stroke:none}}"
+        f"#{pre} .fc{{stroke:{p['comp']};stroke-width:1.8;fill:none}}"
+        f"#{pre} .fch{{fill:{p['comp']};stroke:none}}"
+        f"#{pre} .fcp{{fill:{p['comp']};stroke:#fff;stroke-width:1}}"
+        f"#{pre} .fcl .hit{{fill:#fff;fill-opacity:.85;stroke:none}}"
+        f"#{pre} .fcl text{{fill:{p['comp']};font-weight:600;font-family:system-ui,Arial,sans-serif}}"
     )
 
 
@@ -1329,6 +1392,9 @@ def _prim_svg(p, ctx=(), palette=None):
         if p.get("action"):
             attrs += (f' data-action="{_esc(p["action"])}" tabindex="0" role="button"'
                       f' aria-label="{_esc(p.get("aria") or p["action"])}"')
+        if p.get("sel"):
+            # une PIÈCE qu'une donnée pilote (établi compact) : la clé de sa ligne dans les données
+            attrs += f' data-sel="{_esc(p["sel"])}"'
         if "x" in p:
             attrs += f' transform="translate({_n(p["x"])} {_n(p["y"])})' + (" rotate(-90)" if p.get("rot") else "") + '"'
         if p.get("id") and "x" in p:
