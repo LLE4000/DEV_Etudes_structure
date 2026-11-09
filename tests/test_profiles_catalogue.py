@@ -154,6 +154,39 @@ finally:
     CAT.CHEMIN_PREFS = orig
 chk("le fichier de préférences livré est lisible et porte les défauts du bureau", isinstance(CAT.preferences()["colonnes"], list))
 
+# ------------------------------------------------------------------ tubes formés à froid : le c/t est la largeur plate
+# (docs/acier/PROFILES.md § 7, demandé par docs/site/DEFAUTS_STREAMLIT.md — petits chantiers, 10/11/2026) : le
+# catalogue écrit (b − 2·r_o)/t ; finis à chaud (r_o = 1,5·t) c'est le b − 3t de l'EN 1993-1-5 §4.4(2), formés à froid
+# (r_o ≥ 2·t) il est PLUS PETIT — du côté dangereux pour qui classerait avec. Le paragraphe de la doc dit les nombres
+# que ce contrôle recompte (une copie nommée, liée ici).
+import math  # noqa: E402
+from acier.profiles import familles as FAM  # noqa: E402
+
+
+def _classe_paroi(ct, fy):
+    e = math.sqrt(235.0 / fy)
+    return 1 if ct <= 33 * e else 2 if ct <= 38 * e else 3 if ct <= 42 * e else 4
+
+
+tubes = [p for p in CAT.profils() if FAM.FAMILLES[p["famille"]].get("norme_creux") and p.get("cf_tf") is not None]
+froids = [p for p in tubes if FAM.FAMILLES[p["famille"]]["norme_creux"] == "EN 10219"]
+chauds = [p for p in tubes if FAM.FAMILLES[p["famille"]]["norme_creux"] == "EN 10210"]
+b3t = lambda p, k: (p[k] - 3 * p["t"]) / p["t"]   # noqa: E731
+ecarts = sorted({round(b3t(p, "b") - p["cf_tf"], 2) for p in froids})   # (le catalogue arrondit ses c/t)
+change = {fy: sum(1 for p in froids if max(_classe_paroi(p["cf_tf"], fy), _classe_paroi(p["cw_tw"], fy))
+                  != max(_classe_paroi(b3t(p, "b"), fy), _classe_paroi(b3t(p, "h"), fy))) for fy in (235, 275, 355, 460)}
+doc = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "acier", "PROFILES.md"), encoding="utf-8").read()
+doc_plat = " ".join(doc.split())
+chk(f"tubes formés à froid : c/t du catalogue = (b − 2·r_o)/t, plus petit que (b − 3t)/t de {ecarts[0]:g} à {ecarts[-1]:g} sur "
+    f"{len(froids)} tubes ; finis à chaud : égal ({len(chauds)} tubes) ; classes changées {change}",
+    froids and chauds and all(e > 0 for e in ecarts) and ecarts[0] == 1 and ecarts[-1] == 3
+    and all(abs(b3t(p, "b") - p["cf_tf"]) < 1e-3 and abs(b3t(p, "h") - p["cw_tw"]) < 1e-3 for p in chauds),
+    (ecarts, change))
+chk("docs/acier/PROFILES.md § 7 dit la largeur plate des tubes formés à froid et les nombres mesurés",
+    "(b − 2·r_o)/t" in doc_plat and "b − 3t" in doc_plat and f"sur les {len(froids)} tubes du catalogue" in doc_plat
+    and f"{change[235]} tubes changent de classe en S235, {change[275]} en S275, {change[355]} en S355, {change[460]} en S460" in doc_plat,
+    change)
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

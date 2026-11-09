@@ -158,4 +158,17 @@ assemblages garde ses 90 dimensions (copie TENUE par le test de croisement).
   EN 10219 Blue Book) : la disponibilité réelle est celle du fournisseur.
 - Pas de classification de section ici (elle dépend de f_y) : les élancements c/t sont
   donnés, le classement reste au module qui vérifie.
+- **Tubes rectangulaires et carrés : le c/t du catalogue est la largeur PLATE nominale**,
+  (b − 2·r_o)/t et (h − 2·r_o)/t, r_o le rayon extérieur de la norme du tube. Finis à chaud
+  (EN 10210, r_o = 1,5·t), c'est exactement le b − 3t que l'EN 1993-1-5 §4.4(2) prend pour la
+  paroi d'un tube. **Formés à froid (EN 10219, r_o = 2·t, 2,5·t ou 3·t selon t), il est PLUS
+  PETIT que (b − 3t)/t, de 1 à 3, sur les 233 tubes du catalogue** (RHS-F et SHS-F) : un
+  classement qui le lirait tel quel donnerait une classe trop basse, du côté dangereux. Mesuré
+  (10/11/2026) en compression pure, classe de la pire paroi : 7 tubes changent de classe en
+  S235, 9 en S275, 29 en S355, 27 en S460. Le module Flambement prend b − 3t pour TOUS les
+  tubes (`acier/flambement/section.py`, `B_MOINS_3T`) ; tout autre module qui classe un tube
+  formé à froid doit faire de même. (Relevé : `docs/site/DEFAUTS_STREAMLIT.md`, « Le catalogue
+  des profilés partagé » ; les valeurs du catalogue ne changent pas — c'est la largeur plate
+  publiée, la lire comme une largeur de paroi EC3 est l'erreur ; `tests/test_profiles_catalogue.py`
+  recompte ces nombres et rougit si ce paragraphe ne les dit plus.)
 - Pas de HE heavy (HE 1000 × 393…), ni UAP, ni T, ni Z/Sigma formés à froid.
