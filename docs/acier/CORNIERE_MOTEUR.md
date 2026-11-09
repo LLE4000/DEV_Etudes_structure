@@ -6,7 +6,8 @@
 `docs/acier/corniere_excel/ANALYSE_CORNIERE_EXCEL.md` (07/11) ; les choix sont ceux de `CORNIERE_DECISIONS.md` (10/11),
 qui font foi. Preuve : `tests/test_corniere_moteur.py` (106 contrôles, 15 s). Ce document dit ce qui est LIVRÉ : le
 moteur (lot « moteur »), les vues (`acier/corniere/schemas.py`, lot « schémas », § 10), le module du site
-(`api_web/corniere.py`, lot « écran », § 11) ; la note PDF (`api_web/note_corniere.py`) est le lot « note ».*
+(`api_web/corniere.py`, lot « écran », § 11) et la note PDF (`acier/corniere/note.py`, `api_web/note_corniere.py`,
+lot « note », § 12).*
 
 ## 1 · Ce qui est livré
 
@@ -363,3 +364,57 @@ rouverte avec son avis, puis A et B au PC 1440, à la tablette 1024 et à l'iPho
 **Ce que l'intégration fait ensuite** : `construire.NOTE_PDF` reçoit « corniere » quand `api_web/note_corniere.py` est
 là, avec sa note riche (`NOTES_RELEVE["corniere"]` : deux cornières, A historique et B) ; le gel `corniere.json` est
 regelé par ce lot (commit distinct).
+## 12 · La note PDF (lot « note », 11/11/2026) — `acier/corniere/note.py`
+
+**Ce qu'elle est.** Une note = la page de garde du site (A4 portrait — projet, partie, date, indice, sommaire avec le
+statut et la page de chaque cornière : `ndc_pdf.styles.Style.garde_lignes`, la garde des notes Poutre, Dalle et
+Assemblages), puis, PAR CORNIÈRE, deux pages A4 paysage sur le kit `ndc_pdf` (palette Encre, polices et marges des
+notes du garde-corps et des soudures) :
+
+| Page | Contenu |
+|---|---|
+| 1 · CALCUL | bandeau (statut, η max, section gouvernante et sa combinaison de jeux, configuration et mode) ; colonne 1 : HYPOTHÈSES en lignes « libellé · valeur » (cornière, configuration, acier, méthode aux contraintes admissibles avec le coefficient et σ_adm, τ_adm, le mode — pivot, frottement nul, jeu C76 —, les jeux, la tranche, L_eff), CHARGE ET ANCRAGE (R ELS, R_ELU auto ou saisie, X ± dx, a, n × Ø à Y ± dy, entraxes), la COUPE cotée ; colonnes 2 et 3 : **1 · géométrie des sections** (W et A par (b, t), largeur efficace, d0 et b_net en B), **2 · efforts et bras de levier** (la chaîne de chaque section S1 à S4 — et nette en B — avec la combinaison qui la gouverne et, en historique, les cellules du classeur), **3 · vérification des sections** (tableau s/t, M, σ, τ, σ_éq, η de S1 à S4, des maxima du congé — « (info) » en historique — et de la section nette ; puis les formules de la section gouvernante), **4 · ancrages** (N et V par ancrage ELS puis ELU, pression diamétrale, arrachement, pression sur le support ; les informations : compression du mur, taux de l'autre mode, L_eff), RÉCAPITULATIF (barres, combinaisons), CONCLUSION (taux, conformité, efforts à donner au calcul des chevilles) |
+| 2 · DÉTAILS ET MÉTHODE | les trois vues des schémas peintes par le peintre de scène du kit (MOMENTS : une courbe par position de la charge, l'enveloppe en gras, la bande ± dy ; CONTRAINTES : t(s), σ_éq, le maximum ◉ ; ÉLÉVATION : la tranche, les ancrages, la diffusion de la charge) ; les textes de MÉTHODE (`methode.py` : modèle et contraintes admissibles ; mode historique, équilibre ou configuration B ; ce qui change quand on retourne la cornière ; jeux et enveloppe ; largeur efficace) ; LIMITES ET AVERTISSEMENTS = les avertissements du moteur tels quels (rouge, attention, information) ; RÉFÉRENCES ; cartouche (cornière, section, configuration · mode, acier, date · indice, échelle de la coupe) |
+| 3 · SUITE (si besoin) | la note est composée en taille normale, puis serrée (0,92) ; si une colonne déborde encore, ses derniers blocs passent un à un sur une page de suite (le mécanisme de la note du garde-corps : `Suite`, `mise_en_page`, `BLOCS`), la colonne d'origine dit « Suite p. 3 : … », le sommaire compte la page. Sur les onze états d'essai aucune cornière n'en a besoin (trois notes serrées) ; une note qui ne tiendrait toujours pas est refusée avec un message, jamais tronquée |
+
+Les dessins sont ceux de l'écran (`schemas.coupe`, `moments`, `contraintes`, `elevation`, `interactif=False`), peints
+par `doubles_cornieres.rapport.peindre` (qui honore l'opacité du congé et de la bande de tolérance) ; les vues à
+l'échelle sont reconstruites par `schemas.ajuster` pour un texte de 5,6 pt dans leur boîte ; une vue impossible
+(proportions extrêmes) laisse le cadre « Dessin impossible à cette échelle », le calcul est rendu. Les légendes sont
+`schemas.legende` (source unique écran / note).
+
+**Les formules** (`acier/corniere/formules.py`). Le moteur nomme chaque formule (`calcul` : clé, symbole, termes,
+résultat, cellule) ; `formules.GABARITS` ajoute le seul savoir qui manque pour l'écrire — l'expression Python des termes,
+dans l'ordre du moteur — et en fait des substitutions `Sub` du kit des assemblages : « M3 = ρ₃·Mmax = 0,7657 × 3,325
+= 2,546 kN·m ». Chaque ligne est ré-évaluée deux fois par le test : avec les nombres imprimés (`verifier`, l'arrondi
+d'affichage) et avec les termes exacts (`exact`, 1e-9) — 1 017 formules sur 12 cornières, aucun écart ; chaque clé du
+moteur a son gabarit et chaque gabarit sert. La note renomme « taux » en η et le moment d'une section repère par son
+numéro (M3) ; η_σ et η_τ (I31, I34…) restent des lignes du détail, non imprimées. Les cellules du classeur sont
+imprimées avec les étiquettes (« S3 — charge à X + 20, ancrage à Y + 10 · C55 C25 C23 C56 C57 »). Les nombres des
+messages du moteur passent par `note.francais` (virgule française) : le moteur écrit certains nombres de ses
+avertissements et hypothèses avec le point (« 52.50 kN », « 236.7 N/mm² ») — à corriger dans le moteur, la note ne
+fait que formater.
+
+**La plomberie du site** (`api_web/note_corniere.py`). `fichier(etat, infos) -> {"nom", "type", "base64"}`, le contrat
+de `note_poutre.fichier` : `api_web/corniere.telecharger(etat, "note_pdf", infos)` l'appelle par import paresseux ;
+`infos_doc` traduit la note du site (nom, chantier, indice, date) comme la poutre (projet = chantier ou nom ; partie =
+nom ou « Cornières d'appui » ; indice ou « A » ; date ou le jour) ; le fichier s'appelle « Note de calcul - <nom>.pdf ».
+`FICHIERS` déclare ce que la note charge en plus de l'écran et du paquet de la note de la poutre : `acier/corniere/
+note.py`, `formules.py`, `methode.py` et `acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py` (le paquet de
+la note, `construire.paquet_note`, les reçoit dès que « corniere » entre dans `NOTE_PDF` avec sa note riche dans
+`NOTES_RELEVE`). Dans le navigateur (sonde du test : fontTools, accélérateurs C, streamlit, matplotlib, pandas, scipy,
+pymupdf refusés ; Pillow factice ; les seules polices du paquet), la note se fait et son texte est celui de CPython ;
+numpy est déjà chargé par le catalogue des cornières. Génération : 0,25 à 0,85 s par note en CPython (une à deux
+cornières), ≈ 150 ko par cornière.
+
+**La preuve** (`tests/test_note_corniere.py`, 59 contrôles, ~20 s) : onze états (A historique, A équilibre, B avec
+Y = 85 et Y = 45, ailes inégales 150 et 100 horizontal, L 40×40×4, L 250×250×35 en équilibre à quatre ancrages, deux
+cornières dans une note, la garde avec R_ELU saisie, une note v1 relue) ; la parité avec `verifier` par pdftotext (nom,
+statut, η max, gouvernante et combinaison, chaque taux, M1 à M4, H, N et V ELS et ELU, le résultat de chaque formule
+écrite, les sections de méthode, les avertissements, les textes des dessins, le sommaire de la garde) ; l'identification
+piégée (accents, guillemets, « & », indice « C ») dans la garde et l'en-tête de chaque page, jamais « indice 0 » ni
+« indice A » ; la page de suite forcée (1 + 3 + 3 pages, sommaire juste) ; les refus (hors domaine avec le nom et le
+message du moteur, note vide) ; la sonde du navigateur ; cinq mutations qui rougissent (une cornière oubliée, la
+tolérance dy non transmise, le mode mal nommé, un gabarit faux, l'indice perdu). `tests/test_note_identification.py`
+range déjà « corniere » avec la poutre, la dalle et les assemblages (garde + « date · indice » sur chaque page) :
+l'intégration n'a plus qu'à compter sept modules.

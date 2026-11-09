@@ -110,7 +110,7 @@ def ecarts(module: str, octets: bytes, etat: dict) -> list:
     tout = norm(" ".join(tx))
     out += [f"« {x} » imprimé" for x in INTERDITS if x in tout]
     tete = "Note de calcul · 03/04/2026 · indice C"
-    if module in ("poutre", "dalle", "assemblages"):
+    if module in ("poutre", "dalle", "assemblages", "corniere"):     # corniere : la même garde, dès son intégration (NOTE_PDF)
         g = plat(tx[0])
         for lab, val in (("PROJET", CHANTIER), ("PARTIE", NOM), ("DATE", "03/04/2026"), ("INDICE", "C")):
             if plat(lab + val) not in g:
