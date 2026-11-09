@@ -64,5 +64,7 @@ Python, sans `os.listdir`, le suivi laisserait passer un changement).
 ### Mesure
 
 Avant (lot 3, 09/11/2026) : 103 suites, une à la fois, 1 845 s (le catalogue 512 s, les pieds de poteau 355 s, les
-modules 153 s). Après : la mesure du premier passage parallèle et celle d'un passage « rien n'a bougé » sont notées
-ici dès qu'elles sont faites.
+modules 153 s). Premier passage du lanceur (09/11/2026, 02:08 UTC, quatre agents de code au travail à côté) : 105
+suites en 757 s sur 4 processus, 8411 OK ; 20 suites non suivies (node, pdftotext, python -I), toujours rejouées ; le
+premier passage a trouvé un défaut du suivi lui-même (il se comptait parmi les modules du dépôt : corrigé, il s'efface
+de `sys.modules` au premier événement). La mesure d'un passage « rien n'a bougé » sera notée au prochain lot.
