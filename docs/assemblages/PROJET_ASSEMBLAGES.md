@@ -125,6 +125,12 @@ rend les octets du PDF :
    document. Une entrée dont le calcul échoue donne une page d'erreur et une
    pastille « calcul impossible » : le rapport sort quand même.
 
+*09/11/2026* — le même rapport se fait sur le site, pour toute la note d'assemblages (`api_web/note_assemblages.py`,
+docs/site/MODULES_SITE.md § 4 quinquies) : la garde et le récapitulatif viennent des fonctions ci-dessus, les notes
+de leurs générateurs ; seule la réunion change (Python pur, `api_web/pdf_reunion.py`, le navigateur n'a pas pymupdf).
+Pour cela `rapport_projet` charge pymupdf dans `notes()` et `generer_rapport()`, plus en tête de module — rapport
+Streamlit identique avant/après (16 pages, même texte page à page, mêmes signets).
+
 Sur la page Projet, **📄 Générer PDF** (désactivé si le projet est vide) puis
 « ⬇️ Télécharger le rapport PDF », nommé `AAA_Assemblages Partie#Indice_Date.pdf`.
 Le bouton de téléchargement disparaît dès que le projet change après la

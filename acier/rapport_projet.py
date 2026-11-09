@@ -20,7 +20,6 @@ import os
 import tempfile
 from datetime import datetime
 
-import pymupdf
 from reportlab.lib.pagesizes import A4, landscape
 
 from acier import registre
@@ -100,6 +99,10 @@ def notes(projet, infos):
     """``[(entrée, info, octets, nb_pages), …]`` dans l'ordre du projet ;
     ``info`` = ``{"etat", "eta", "gov"}`` (taux maximal et vérification
     dimensionnante, None / message en cas d'échec)."""
+    # pymupdf est chargé ICI, pas en tête du module : la garde et le récapitulatif
+    # (lignes_sommaire, _recap…) servent aussi la note du site, dans un navigateur
+    # qui n'a pas pymupdf (api_web/note_assemblages.py) — sans effet sur le rapport
+    import pymupdf
     out = []
     for e in modele.entrees(projet):
         try:
@@ -188,6 +191,7 @@ def _recap(S, d, doc, elems):
 
 def generer_rapport(projet, infos):
     """Le rapport (bytes) : garde(s), récapitulatif, notes ; signets."""
+    import pymupdf                    # chargé ici : voir notes()
     infos = infos or {}
     elems = notes(projet, infos)
     S = Encre()

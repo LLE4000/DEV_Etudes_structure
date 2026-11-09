@@ -239,9 +239,17 @@ p = MT.plan(c["temperature"]["lieu"], debut, fin, aujourdhui())        # ValueEr
 s += C.bouton_meteo(["temperature", "meteo"], "Récupérer la météo", p)
 ```
 
-### 4 quinquies. La note PDF d'un module « à cas » (le générateur validé de l'écran Streamlit)
+### 4 quinquies. La note PDF d'un module sur le site (09/11/2026)
 
-Décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site. Pour un module dont la note est
+Décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site, et elles disent **les chiffres
+du site**. La note n'est JAMAIS réécrite : c'est le générateur validé de Streamlit qui la fait, dans le navigateur
+(Pyodide, reportlab en Python pur), sur le résultat que l'écran du site affiche. Le module rend
+`telecharger(etat, quoi, infos)` pour `quoi = "note_pdf"` (`{"nom", "type": "application/pdf", "base64"}` ;
+`infos` = le nom, le chantier, l'indice et la date de la note) ; le bouton « Note PDF » du ruban s'allume quand la clé
+du module est dans `site/web/construire.NOTE_PDF`, et le paquet de la note (`moteur/note.zip`, chargé à la première
+note) porte ce que le générateur charge. Modèles : `api_web/note_poutre.py` (poutre), `api_web/note_assemblages.py`.
+
+**Modules « à cas »** (`api_web/note_cas.py`) : pour un module dont la note est
 faite de CAS et dont l'état du site EST l'état du moteur, `telecharger(etat, "note_pdf", infos)` rend
 `note_cas.fichier(NOTE, etat, infos)` (`api_web/note_cas.py`) : le générateur validé n'est pas réécrit ; un cas seul,
 c'est `generer_note` telle quelle ; plusieurs cas, ses pages (`Note`, `Methode`) posées l'une après l'autre dans UN
@@ -276,12 +284,44 @@ moteurs, celui de Streamlit).
 page dit « Indice A » (ou l'indice de révision saisi, « C »…) et le PDF écrit « indice 0 » — sauf si l'on vide le
 champ. La poutre et le garde-corps impriment l'indice de la note du site.
 
+**Assemblages métalliques** (`api_web/note_assemblages.py`) : la note du site est le **rapport de projet** de l'écran
+Streamlit (`acier/rapport_projet.py`), pour TOUTE la note — une garde avec sommaire (une ligne par assemblage, sa
+pastille d'état, sa page), le récapitulatif (repère, configuration, profilés, efforts, η max, vérification
+dimensionnante, état), puis la note de deux pages de CHAQUE assemblage, faite par son générateur
+(`acier/assemblages/<famille>/<configuration>/note.py` ; le pied de poteau aiguille lui-même vers `manuel/note.py`
+quand il est calculé à la main), avec un signet par partie. Fichier : « Note de calcul - <nom de la note>.pdf ».
+
+- **Réunir sans pymupdf** : Streamlit met les PDF bout à bout avec pymupdf, absent du navigateur. Le site les réunit en
+  Python pur (`api_web/pdf_reunion.py`) : les pages sont recopiées octet pour octet (flux, polices incorporées), seuls
+  les numéros d'objets changent. Preuve (`tests/test_note_assemblages.py`) : texte pdftotext et rendu au pixel de
+  chaque note seule = ses pages dans le document réuni ; pour une même note, le PDF du site et le rapport de Streamlit
+  ont le même texte page à page, les mêmes signets, le même titre, le même auteur.
+- **Les chiffres de l'écran** : le taux du récapitulatif est celui de la tête du résultat (le η max du moteur, porté
+  au rapport de la pire pince non conforme quand c'est la géométrie qui gouverne — elle est alors nommée), un taux
+  hors échelle s'écrit « > 999 % » comme dans la note de l'assemblage ; chaque page d'assemblage dit le η, le verdict,
+  les taux des pièces, les efforts, les profilés et les boulons de l'écran (contrôlé sur seize états, sept
+  configurations, les deux modes du pied de poteau, la moitié non conformes).
+- **Refus** : un assemblage « à compléter » (dimension vide), « à corriger » (saisie que l'écran refuse) ou dont le
+  calcul est impossible ne part pas dans une note — elle est refusée avec un message qui le nomme (Streamlit
+  calculait les deux premiers en silence et posait une page « calcul impossible » pour le troisième).
+- **Les informations de la garde** : chantier → PROJET (à défaut le nom de la note), nom de la note → PARTIE quand un
+  chantier est donné, indice, date ; chaque note d'assemblage porte « partie · repère » et sa visserie
+  (`rapport_projet.infos_note`).
+- **Ce que la note charge dans le navigateur** (relevé par `tests/test_note_assemblages.py` § 7, refusés : fontTools,
+  accélérateurs C, streamlit, numpy, matplotlib, pymupdf/fitz, pandas, scipy) : les huit `note.py`,
+  `acier/assemblages/note_kit.py`, `acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py` (son peintre),
+  `acier/rapport_projet.py`, `ndc_pdf/*`, reportlab, le Pillow factice, et les six polices du paquet (Carlito ×3,
+  Poppins-Medium, DejaVuSans ×2) ; **pas de numpy**. `note_assemblages.etat_releve()` est la note à rejouer pour le
+  relevé (les sept configurations et le pied de poteau dans ses deux modes). `acier/rapport_projet.py` charge pymupdf
+  dans les deux fonctions qui s'en servent, plus en tête de module (sinon le navigateur ne pouvait pas charger sa garde
+  et son récapitulatif ; rapport Streamlit identique avant/après : 16 pages, même texte, mêmes signets).
+
 ## 5. Les règles
 
 1. **Parité fonctionnelle avec Streamlit** : chaque champ, option, résultat, avertissement et dessin de l'écran
    Streamlit existe sur le site (l'organisation peut et doit être meilleure). La note PDF : le générateur validé de
-   Streamlit, porté tel quel (§ 4 quinquies, la poutre : `api_web/note_poutre.py`) ; tant qu'un module ne l'a pas, son
-   bouton reste grisé. Ce qui manque est écrit dans le rapport et dans la doc du moteur.
+   Streamlit, porté tel quel (§ 4 quinquies ; la poutre : `api_web/note_poutre.py`) ; tant qu'un module n'est pas dans
+   `construire.NOTE_PDF`, son bouton est grisé. Ce qui manque est écrit dans le rapport et dans la doc du moteur.
 2. **Le calcul est celui de Streamlit** : on extrait, on ne réécrit pas. Les défauts trouvés dans le module Streamlit
    sont **reproduits** (parité) et **écrits** (doc, rapport), surtout s'ils sont non conservatifs — on ne les corrige
    pas en silence. Exception : une saisie que Streamlit ramène en silence à une valeur fausse (négatif → 0…) est

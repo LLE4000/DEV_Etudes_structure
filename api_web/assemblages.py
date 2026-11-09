@@ -1690,6 +1690,17 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     return s["rendre"](cfg, el["values"], familles)
 
 
+# ===================================================================== la note PDF
+def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
+    """« note_pdf » : la note de calcul PDF de TOUTE la note — garde, récapitulatif, puis la note de chaque assemblage,
+    faite par son générateur validé de l'écran Streamlit (api_web/note_assemblages.py) ; ``infos`` : le nom, le
+    chantier, l'indice et la date de la note."""
+    if quoi != "note_pdf":
+        return None
+    from . import note_assemblages as NA
+    return NA.fichier(etat, infos)
+
+
 # ===================================================================== les familles
 # chargées en DERNIER : elles décrivent leurs configurations avec les briques ci-dessus (enregistrer, champs…)
 from . import assemblages_poutre  # noqa: E402,F401
