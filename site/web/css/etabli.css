@@ -440,7 +440,6 @@
 
 /* ------------------------------------------------------------------ téléphone : les onglets Données · Dessin · Résultat */
 @media (max-width: 700px) {
-  /* le chevron et le NOM de l'élément ouvert, au doigt (le nom s'écrit en 16 px : .bench input, site.css) */
   /* la ligne de l'élément, au doigt : le nom (16 px, .bench input de site.css), la liste, copier, supprimer à 44 px
      (petits chantiers, 10/11/2026 ; c'étaient 40 px) */
   [data-etabli="compact"] .et-elt-nom { height: 44px; min-width: 48px; }
@@ -456,7 +455,7 @@
   [data-etabli="compact"] .et-raz { width: 44px; height: 44px; }
   [data-etabli="compact"] .et-mn-b { opacity: 1 !important; }
   [data-etabli="compact"] .et-mn-l button { height: 44px; font-size: 14px; }
-  [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just,
+  [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just { height: 44px; font-size: 13px; }
   [data-etabli="compact"] .et-barres { gap: 5px; }
   [data-etabli="compact"] .et-barres .b { width: 44px; height: 44px; font-size: 13px; }
   [data-etabli="compact"] .et-sec-pick { width: 44px; height: 44px; }

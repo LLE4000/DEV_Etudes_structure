@@ -298,6 +298,11 @@ def ctl_css_ancienne():
 chk("css/etabli.css et les feuilles des établis compacts ne portent plus aucune règle de l'ancienne arborescence "
     "(.et-pt…, .et-arbre-h) ; la pastille .et-pt-e reste", not ctl_css_ancienne() and ".et-pt-e" in _css("css/etabli.css"),
     ctl_css_ancienne())
+# (le premier retrait avait emporté, avec « .et-pt-add », la règle à plusieurs sélecteurs qui le portait : « + Lit »,
+# « + Section » retombaient à 26 px au téléphone — le harnais « formats » l'a trouvé ; la règle est gardée ici)
+chk("le retrait n'a emporté aucune règle vivante : au téléphone, « + Lit », « Retirer », « Large », « Justifier » restent à 44 px",
+    '[data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, '
+    '[data-etabli="compact"] .et-just { height: 44px; font-size: 13px; }' in _css("css/etabli.css"))
 _src = {cle: inspect.getsource(importlib.import_module(f"api_web.{cle}").arbre) for cle in CO.ETABLI_COMPACT}
 chk("chaque établi compact (construire.ETABLI_COMPACT) rend sa colonne compacte, en dur — et charge seul css/etabli.css ; "
     "la page de l'ancien module Prédalles redirige",
