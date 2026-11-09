@@ -526,6 +526,48 @@ chk("le y_G calculé affiché et l'axe automatique viennent de dalle_positions (
     and actif(saisir(e0, "sections/0/faces/inf_x/yG", C.nb(POS.yG_calcule(d0, d0["sections"][0], "inf_x")))["etat"])["sections"][0]["faces"]["inf_x"]["yG"] is None
     and actif(saisir(e0, "sections/0/faces/inf_x/couches/0/dist", "3,5")["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] == 3.5)
 
+# ------------------------------------------------------------------ 8 bis. les nappes confondues (relecture du 09/11/2026)
+print("\n=== 8 bis. Les nappes confondues, dites selon leur cause ===")
+
+
+def messages(rep):
+    """Les messages du résultat, en texte."""
+    return [re.sub(r"<[^>]+>", "", m).replace("&#x27;", "'") for m in re.findall(r'<div class="msg[^"]*">(.*?)</div>', rep["resultat"], flags=re.S)]
+
+
+def note_confondue(type_, *saisies):
+    e_ = req(action="nouveau")["etat"]
+    for ch, v in (("type", type_),) + saisies:
+        o_ = req(action="modifier", etat=e_, chemin=ch.split("/"), valeur=v)
+        assert o_["ok"] and not o_["message"], (ch, v, o_.get("message"))
+        e_ = o_["etat"]
+    return o_
+
+
+SAISIE_SUP = (("sections/0/faces/sup_x/couches/0/dist", "3,5"), ("sections/0/My_sup", "20"))
+PHRASE_SAISI = ("un axe saisi les y pose", "Rendre l'axe saisi à l'automatique (↺) pose la direction secondaire sur la principale")
+
+
+def ctl_confondues():
+    """Faces SUPÉRIEURES (le site y empile : seul un axe saisi confond les bases), dalle coulée ET prédalle : la même
+    phrase, qui dit comment rendre l'axe ; faces INFÉRIEURES d'une prédalle (la règle de pose : h_p 4 cm, base Ø16) :
+    la phrase de la prédalle, « comme dans l'écran Streamlit »."""
+    sup_c = [m for m in messages(note_confondue("coulee", *SAISIE_SUP)) if "confondu" in m or "niveau" in m]
+    sup_p = [m for m in messages(note_confondue("predalle", *SAISIE_SUP)) if "confondu" in m or "niveau" in m]
+    inf_p = [m for m in messages(note_confondue("predalle", ("h_pre", "4"), ("sections/0/nappes/inf/mode", "barres"),
+                                                ("sections/0/faces/inf_y/couches/0/d", "16"), ("sections/0/My_inf", "25")))
+             if "niveaux trop proches" in m or "même niveau" in m]
+    return (len(sup_c) == len(sup_p) == len(inf_p) == 1
+            and all(t in m for t in PHRASE_SAISI for m in sup_c + sup_p) and "comme dans l'écran Streamlit" not in sup_p[0]
+            and "les bases X et Y inférieures" in inf_p[0] and "comme dans l'écran Streamlit" in inf_p[0]
+            and not any(t in inf_p[0] for t in PHRASE_SAISI))
+
+
+chk("nappes confondues par un axe saisi (faces supérieures) : la dalle coulée ET la prédalle disent « un axe saisi les y pose … "
+    "Rendre l'axe saisi à l'automatique (↺) » (non « comme dans l'écran Streamlit … Saisir son axe », faux depuis que le site "
+    "empile) ; les bases inférieures d'une prédalle trop proches par la règle de pose gardent la phrase de la prédalle",
+    ctl_confondues(), [messages(note_confondue("predalle", *SAISIE_SUP))])
+
 # ------------------------------------------------------------------ 9. les mutations : une altération du code fait rougir un contrôle
 print("\n=== 9. Les mutations ===")
 
@@ -602,6 +644,9 @@ def _resultat_qui_garde(etat):
 
 muter("l'avis reste dans l'état rendu (il se redirait à chaque ouverture)", P, "resultat", _resultat_qui_garde,
       lambda: P.CLE_AVIS not in req(action="calculer", etat={"version": 1, "dalles": [{"nom": "A"}]})["etat"])
+muter("une prédalle dit ses bases supérieures confondues avec la phrase d'avant l'empilement (« comme dans l'écran Streamlit … "
+      "Saisir son axe ») — la relecture du 09/11/2026 retirée", P, "_avertissements_de",
+      lambda d, r, i=None: AP.avertissements(r, i) if P.est_predalle(d) else P._avertissements(r, i), ctl_confondues)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

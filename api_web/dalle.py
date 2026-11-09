@@ -1000,8 +1000,18 @@ def _optimaux(d: Dict, r: Dict) -> Dict:
 
 def _avertissements_de(d: Dict, r: Dict, i: Optional[int] = None) -> str:
     """Les avertissements selon le type : ceux de la dalle coulée (ci-dessous), ou ceux de la prédalle (api_web/predalle :
-    base qui sort de la peau, couches croisées sur la prédalle, bases X et Y trop proches)."""
-    return AP.avertissements(r, i) if est_predalle(d) else _avertissements(r, i)
+    base qui sort de la peau, couches croisées sur la prédalle, bases X et Y trop proches). Des bases SUPÉRIEURES
+    confondues d'une prédalle sont dites comme celles de la dalle coulée : le site y pose la direction secondaire sur la
+    principale (api_web/dalle_positions), seul un axe SAISI les y met — la phrase de l'aide prédalle (« comme dans l'écran
+    Streamlit… Saisir son axe ») ne vaut plus que pour ses faces INFÉRIEURES, posées par la règle de la prédalle
+    (relecture du 09/11/2026)."""
+    if not est_predalle(d):
+        return _avertissements(r, i)
+
+    def sup(a):
+        return a["code"] == "nappes_confondues" and a.get("face") == "sup"
+    return (AP.avertissements(dict(r, avertissements=[a for a in r["avertissements"] if not sup(a)]), i)
+            + _avertissements(dict(r, avertissements=[a for a in r["avertissements"] if sup(a)]), i))
 
 
 def _avertissements(r: Dict, i: Optional[int] = None) -> str:
