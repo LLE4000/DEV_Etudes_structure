@@ -1,0 +1,2385 @@
+{
+ "_": "Note du garde-corps, générateur du 09/11/2026 (commit e4c173c) : pages, empreinte SHA-256 du texte de chaque page (pdftotext -layout), variante retenue, débordements relevés — tests/test_note_garde_corps_grille.py",
+ "etats": {
+  "barreaudage · L · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "dd406664a88e04a79cd1ff65fab1a18a244c14142e6375ff8b6f584c63e86cc7",
+    "bf1d395f1460ff1d99081e5ec2884238fa6dbb4b55134524f2c09099bfa6e77b"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "6e55724f77f3e40f9335d12d679cb835d545e4f40627ab75822717eb863d40ed",
+    "d3c51669c169b88994bf728da636361b8e0ffdb6067de6638c1400174676ee69"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "b3c557333b4cb90a7360eb0c27b1d33e822e7ef87fba7cee9103afef04f906bc",
+    "54d29dc309ce41bd70d09b5859d6e72a98339c1f630c11c3dfd089af9bc05324"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "80db279f8040b3dbe3133a167c88ad2d623232eb81e37c4e9a186c258782879d",
+    "082b2f4e6da70ebba984773bcb3a9d3e5e4451aaaac0c54d80ed7661e6d8498b"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0d4a5766b141bd5d2fd64fa1e67563d640921465d9aa86a9c688fcdc9f7af95f",
+    "594e0bb8c747ab6b19fad805a19c234e4ad86598ec0e452f458c284f861a3a9f"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · cumul · scellee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 7 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "9270b6c4bed20c088b77b90bcd75035bfaaae673424497d9936df7b169dd56ed",
+    "c3b3b3f4c1266296cb23961f80f39a531a8a8f9cc2b7d6079e75382743727b59"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "7f1e328eba33db91f99507ec28927bb31362893f2f7672f35ccaf2e92298122e",
+    "6608e78e4dacb96cf859f565a0005338f738c716a75f8721f2d91cde1ed5264b"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 24 pt",
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "1370a42a039bb13e0771db43817339ea6ea7eac540618e571ed25c9e3ecfe4ea",
+    "0199d111c60da5fd6e5cf5357d1e56e2842f7011766436479417ac36755162ef"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0c21b20e583b1c8ec0246d0f65462d62f41ae41b136b075a3c59f9046cfade5d",
+    "42a77aed8749840d3f800c6055c500fa54448e66c7c2899ce96a0398fffa68a0"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · L · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "5d15f0349cf3b36b10762bcce22cb60e2559d89acbbfacfd529a1ccbe980f9ec",
+    "df24a3a569720cc54bc3125d09d215a0494f9225b1e262b21bab4e3824ffaaa9"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "2b18ac54251b1d623c5a70c9b5581c05b700d797217cadd3d4b45fa720f46ac1",
+    "ac05ff093035f5cd21f031b7afb8b70147d8a2393912c170d1cac7aeb157066b"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · L · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ce9004eaa0a8109fcab45aa22b21b73d064d1a959425736f9db94b31ca288492",
+    "8e26ab5864d2db2d59740a7dc43c04062d9ae29c19cce13065c899efee6a96cf"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "bda98204d6009d195a87492d8feb602c13059ba6872d25d3ee7f14814f27b230",
+    "efc48bf6a2a1ea83a6abb76e0a9cc0189ff001a65cb80366bc3194ff58e7c73e"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · L · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ec1b69990f2d5c5c7ef52e9dcd2a451583db37fe6806081f158b798048efa7fd",
+    "5cf0ce0a4ad1be9d4412d41ae368c589416b24adfe5efa5c57a8449141664c18"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "24151cb3a6b13462f4e826e9e01a240216aff1e1701348451ba09cee92becf3b",
+    "1757723d05a511d9a7b514b2448ee6a2a38da85844951b6a40a6f8425698f4e7"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · L · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "3b84d74a91613381b0713f4a50bfe19f0c9a3d082bc8289cb42e6b324b80ba81",
+    "61aad7a54472d1c3468424990bab94236d8a25631591c76d7136b16577327e09"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "acb87e1c97e3817324d25deb93609a49198b22d96364f84c12ffb62ea85f5ab1",
+    "ed5acf8b854e2aee059b45a8f0eb4c54e3b1f32677436a122f73db74fb52065f"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "9b816dc0477dea659608148bb34a09508af6e2563036d36d7fc1cd00372e1cd3",
+    "5415658eb3decf07ad72f247c1834f825f950e2347ef097b70688e276531efdd"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "aefbf2675f6c0eedd508d84e27b69dcce02e1ab6d367d158570926ec010e2723",
+    "e67e10b6d6bccc8f545dc2e5db6afb22682b1dbbb629a85653c9077d244d2928"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "6b08ae3eebc391cd5da999658db5b6c12c9ed96c8429f9fe183972f8fbbe982f",
+    "b18286c6ba98c45688a107fe22aba90ceb24f7cfc239e3494a51081f0884b4a2"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b4ed9bf0b7218e151269e22a88ab8f8789131bc1c9e178fee06d6c9cf56c61ca",
+    "137d6c43afeb0a0460f76a6930f1372b9e23d16e1baaf52c7d2e0824a8873843"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · scellee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 7 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "84151952c755257716af012b2c3f267742b12388c4265409d52d13953bde2b84",
+    "0b1212becc14190f84c4e9b531b8ecff1d3e3a6112e372197a3c97819a944fc6"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "0cc11d3cfc775a45da6047f34c0d92b6530e5b92ff90a75140a68460e2b6b8a2",
+    "bb73910e453307ab4d431f2fbc9c6f85b4a823e87c8911829e9f0955b63accf0"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 24 pt",
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "84a29f5698e9605c8bcdf02e4d822eb4f8e1c224e91947c3acfe9cd6c3ae684d",
+    "a9c149faa74be471f118a84380b45dd64be0d8142a4f754e8efe93c4470a36f6"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b7bb510c4e1ca960346bc70aabe6b74bee56a5304131aa4178a3f89f8d705cc5",
+    "4cafc67a87de0c70b832c7788a3f76e2d96fa57f6c3c48d778b7a116af1dee8a"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "39540916f8a99e3a651647b41b673c2c934719c44f5babd954458f361224698e",
+    "9ebccb3ebd86c8cf6a93d2b2047c5ba021c7a753a81f37f95afc793bdfed83c0"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ff11050d228ba658ac3e685e6c91baf8dfc7dbad4bdd19c7f6adcf6c3be3a577",
+    "47a4987d867a312d8d182e841c48944dccd5e1776650ff05b349cef3eeb0b6e1"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "e5c964ea4fc588b3632320692d8494cd76b79e2a16ee6fbb6e8a9f01b105c7b2",
+    "f3859ebd4f38bdf6b1bb07ab88e23d220f5f8f9ccc4239fb871ac9193630cbb7"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "2d588d93f068c08f1ffee107e22f66110173b35b61ff2541a972b3c8f707c1fe",
+    "37112fcf9bb6804c92cd3b2066922c12d3346655203e51442e52e9ab079e5415"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · U · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ed862cb32230570f99acd0f26b3e090ade8518cc292ff944b7a3788a3c6d0282",
+    "b4471224f1f5a1168c68e39e8680006b86159115a05ffdae30b94775c6183894"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "22bf9b4f7ea46a0a66aeeae3e6273e7245dec96f8edc64d8dae219adee3f5ff6",
+    "f2b189cca2faaf7abfc075cbc04e3a3a04e3690698e868e8937323778af78d8f"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · U · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "d040671b04b634827ebdd653097594585584229a496f2a506d06ea8905173e96",
+    "8acb87f95aad8547bd90670dbbc01b8a93150c4e36b849cd8bd241582acf12e7"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · cumul · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "108b19b51859b281b6f86a0a3c96ffae950d8c0cd46eb83320b1ee2273983473",
+    "3ab971b7a779d6837495f0d8feefcff8ccdb3e0cb000f6a17630facce3f41d0c"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 6 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "b030ec13e8d8431e66d29fc1f8890cc1566f17f3463293f6b096161274df7876",
+    "0689ab4c42c1b75eba547964089cbc4896a65d89ef60eaa4bef2f56d21139a9b"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · cumul · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "75fec2b055b907cfbae23c8ce4d6e75355768e3f0a51870593d42c8cc5ed69fe",
+    "3b8638d99f3fa023344e3de2206361e83bcf7131e40d96d900282379bc1eada8"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 6 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "901570c059ddff8a92bcb07016855dda29e05cdac034943c4680ea5de82f9fd4",
+    "b00de2d01c3fff247ae5332990cb0c2d6842d919dc61877a2f616eac4012ec03"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "8e4f6eb2580b66858dd8380e5bfef24dac3ba5358d79bc45245201904e48e1b3",
+    "0c0a037b272ce7ce1e51ae67a28e2fa6c3ca12ca1245c7b90486bf01b1476065"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0f2ea1a1c761a7d14f73af20dfcc34686be24fba83a28975be106465732c22c1",
+    "d7942d8c79d0ef6d483aa698f8df0341921314e970a91ae7eaac8980420f6205"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · cumul · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "c65b6d6cec99e8bd9a42d9eb866d2e98aac04a404f992ae4cd8cd3b0c2f03482",
+    "85f7e763f4220d18cc2e639b1be4e36a95230bfe168326fd2a8dd9df5a81c523"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · cumul · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "9023dc8af9c386a176a7155c33da8157069e27f7020833d3999cb8beb7f2d489",
+    "515fd583986fb656edc87a154a78c09c60f7f8091f5d37d873985bdff21c69f5"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "8818007c05952bf62ca2032ada8054fa00695cc0749b61ec5923aed85714807c",
+    "671c4b719753bec69cbf4ec044df7f5b8f1b46e104f7890fb0418d906d112868"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "bd527a4742bbdeffb00a0e9e7032b554303f32a07bee6a13d064302f1f9ecb81",
+    "03de24344773a88b18e9253a9571f76a7a6a38f23fd4673c517b873c36913ac7"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "eef9855ae24de6ecbed757fae6c5d02ce26adcd7c92277d10050b32c769ae92d",
+    "5b62780e0e187a9223e7dbd6bbc84ad5cb28141db3c2402ce5944893c4dab2db"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "1766b313f0301104fc47dc96463d9e4fa60e579edde45bd299c525d0561f53ca",
+    "a96fa7cf52f4021db1f3d14190c95dc10a60547c8923c4c7494c9f6d4fb27ea1"
+   ],
+   "variante": "serrée"
+  },
+  "barreaudage · droite · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "af52f8f3003911f113359a2b982fde8957d6d7dd610a4b88edc7064b55b03395",
+    "bff7c3d78dd97d8760611b580043cc0774e071571d5ea8480dff034b41eeb3a3"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ffb90c5253145467a37d0b41cf350df4b81469fed1d233909aed7768bf24e7c2",
+    "6820ec99943b8e340ef28a4fccef5d8a8dcf5bd9e8a88488bea1618680e0369a"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · séparées · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "675bb9d5de46f4d558d51cec026c6d5323450eefbc56feeac5ce4ead160e797b",
+    "2cbe11f483326aef50aa5aa0badaaa99ecc93e4607feef4823322da7bd66aa74"
+   ],
+   "variante": "normale"
+  },
+  "barreaudage · droite · séparées · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ed0a27b950ff8672dc6f00f61d218c5ee454b8f711c535599cdd604a9c85f2fb",
+    "c6c2c9ede9853263b2126e1f4c009b8e5ed1a401495d0755b7ca29d0cdbe2293"
+   ],
+   "variante": "normale"
+  },
+  "lisses · L · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "0b8d85b8f24d4fe224082b8d6d0ccf64f85b2f74d5d1808cfd009a03a914695d",
+    "b55d32e52d2439c98824c101985e3670acb5a83087c01f4e88eeadb7371cdd3c"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "d28ac264a7df49e99a20a424eb7bab976d0c95a1f643f16d228b8f0f916de867",
+    "cc88e05f3c265f55502aa8b44ad695b347b83ca71803b64f557a6c96a14e301e"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "549a7ba6584587edb7d5d3608dcf422c31ccc9b55902539ea012ac86fbd3df83",
+    "c3462b260f2e1461705aa04204787851941db81e8bf657efd43bc6122e921dce"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "365f2a39fef17f2eb979d6a4586c06499e1248454e54af32a391ff4e2946392e",
+    "9a46b6045e061ad26a7d096e914a0f6f5d067e69aba47499d1d4ff8e801853a6"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "4ef18aa6e0f17842dfc821e79b75ef38cb9c951e18702cc08cb2532b5662c197",
+    "49004dcae708446945b0e2551f195b4b0f64970c9d7f52362a275155051302f1"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · cumul · scellee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 7 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "cd1799e6116e0bda32ba8c4342b8d30d1d08f123bcf3dee2426585db86195a68",
+    "a01a52f485400120fac8beeb3bea3160daf990ad310cb977316289b927b5bdbc"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "4aa8b83d6a0bfbc5f0ea5d5c81e778b767b2324ef68668147d6abce3baddf61e",
+    "548e32c9be60b9bb905003261046f8562044f24dc5d9475fe10cca21a996b5d1"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 24 pt",
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "e1bf941a01a6f0f7bf536cd7720c8e1a1a9564928486bec91711522945746d3b",
+    "7b627080d59e70c61769de0603821189af2a41b2b063589d8b97f355e7217675"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "07485a112ddfba3abe526bc2e78fcc1ea15382b418991bb0d5d46077b2ac9dde",
+    "c7546a311a5807b398bc58b040e4b7bfc0c3a80ee985d924d55777345bb1a865"
+   ],
+   "variante": "normale"
+  },
+  "lisses · L · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b4a172132f5d071d8265178a93d52c562a921501e3bf0689c4274ec6fc4f4410",
+    "56b50af4dceba2078353933d8c599265844168b5ced01392b6d548eeca30b680"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "a781b5e16e5a7db784b38fe742fe4b53648a12060dc65bbbe2eca0b59bd19c74",
+    "cacc6fde34b1205fd8674064ad189250098b742defe55d4ea8b849af735f36a0"
+   ],
+   "variante": "normale"
+  },
+  "lisses · L · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "1f010f50a61605803532842effc6fef2e0b8f573ddb627bac881eb0820f47267",
+    "95806d8eb56d0d7c2e8936defffd907afbc758ed450900605b877dc124e2fa2f"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "4f54163d6dda1a86495bc45f48035aa3949fcc101195c22a29718f02bc0c0624",
+    "c9370e63a4a8f720aa6ddd66238a9b76a62d3cd4e5bcec7d78cccdeaae210e28"
+   ],
+   "variante": "normale"
+  },
+  "lisses · L · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b137942b4e53946d38457780750fde4e00445fb76a6f8b1f7cdc0c2114499c48",
+    "e07feac5e5f4cfc39c25da35656e46a3d7acac369f3a18656eae0dcb2cff85bc"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "57a91aac99136cbeea9940d5f8fca602d5bff8bdf7e24a3a6475675e52680b40",
+    "0adb5aa7357c0825a3b20bb4b9273a097bad0fbaeb7b9d943b46c46915f08699"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · L · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "d9568c9ddbc87f712698eab92111be9e9fb32ec60edaa7641e80bfb6d68698b3",
+    "888a8bae9d0281a88d711aa0d5dad4e92fa6b0d2ddc6af730cd3fbd7f4f918c4"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "db4995f3d011188113374fe22f0175939edfdf8367ad6608e81e2a8af626b183",
+    "67555071ea8a7b692db672ad4bd2cbce7f35f452ef043ba5805eb376ddd6a3be"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "dd02ff245d522859430f2ee004a17a5dedc5f74e73e89073004f9d36ac424f5a",
+    "fc68b30fb347827875074f99762eb9684fcaed934dea3b1b485de4575eafe35e"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 28 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "b59b0d778251478ecbb89a0b57d4ed2f1d2864eaa5d244e759a3ea5ec5e1ea10",
+    "59571ee9add5377ee75b2287916134c244acf7d61c9c4a399456f347e1fc86de"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 59 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "a0516b9a0e5037ecfb5e587a52b183a8d15961a610ae182f75ec56a8c44a6b64",
+    "ebb0c8b805fd8500f34d85105e98f4b38d6ae7fd91c4cd95c7c2a1dc79c5b0fe"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6807759f2f3aef8368460f7b24eedcd71b8e8b6d760eb1331a77daf5dd42c6ad",
+    "10ac1b1894fb51f189b0d5629237eec740f95d24c12c48b10166822a25bc8815"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · scellee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 7 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "2cd682ecd861c50e8f9e3d1a66141a71c6dbc2897f87957deb24affdf177351e",
+    "7b114a5d980c0380cca6d24474b5071074f012c595870e47084dbb66a8d4a6f9"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "6d0cbae16a2c5d96325c4955c12cdeb42e9700d4424652e8bb2fd41dcf614052",
+    "e6a5cd2b34b993084e1eedd5afc5135203649bb42bdef958e77d7be6736e9910"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 24 pt",
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "85ee9b3b31c0181f6311bc81c6134e045954212e979d712ddb7aa39f01426a52",
+    "9c2fb67584065197d6543e5c2318a7361a1281e59915be0c7992918a2f9dadb8"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ad134a3c42874fd4e85ccd52598db796f9d028d84677e7661250a39c8eda6b7c",
+    "32a4680e08cd8fa4c8fc1c82cea88d6518d63350ec270e1e059c96da55ec5ab1"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b483200337eaf5cf4d90af18ce17c375b6f604ee2f550296c9a89535bc25a897",
+    "00b29b4b6910521d7abb5550cd9c6a35ef4e79501cfad0f47359e2798213c262"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "cb5618a77db01f8e912e480a42e5c388d6a4212b40b9d0fe57202d200511de79",
+    "031f98050d754c1d0133e47562fc08a6d58bcd0f6a49e9d21028879ca3808dc7"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "35ba8ba6df97f0a5afd2e44a7a4a06e9d3d4222b6b47b9e7ddbfd59a84f4c4a5",
+    "7788dd6573043300382137f2f84cd1c523f029c0a0688a5b8f7fc772b5f65571"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "96f8d21b4c6f55d4a9568cbb6d2be40bb77f8039c92bce326d75ec3203e20318",
+    "f8543758946a63cc03b2922c2fd4186021d53f754295e112561fd92709373fd9"
+   ],
+   "variante": "normale"
+  },
+  "lisses · U · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "01e7d572509e38326e6b5141d9dfc2901c829c40a72c1883f2c255e8b9904063",
+    "d933a2c4cc9cec6a39dc392633830b8fa72e513e584cb4fbdde1812621aee30d"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "7e712839cdee3ebc87d5426ca68fc0f9f1037659b053ff340e0c9928d1ba147a",
+    "260b778fd4ebcc888c31f460229ba5afcecd839ec86caaa9519effb0c4492fd0"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · U · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "6187268ee0515e758757de4accf38262ad713545e07361911727440910c91bb5",
+    "568abcca0a981af8b5bfac0ea693e29f619fce73bb09c1364e9360aacad57cdd"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · cumul · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "a990f90b65c7de483b3adae684c41970be8c33ff042cfa7892f57d17abb46662",
+    "6c3a69dff721db95cc22befd950f6f1333b008c21445e964791987bf58814405"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 6 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "e9b0a2086e81bb02fc5a5e015e4ca03fb40673d0d96789d397410680e3b37321",
+    "b1125ec2c6ed5a37944bbb425aacf83e31c3e974188d3744ded4fa6ea27f878a"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · cumul · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6551a56ac625c398ff66b8e7913d435329e015103d346b5d9c1e1559c70cab22",
+    "8ef50555ccd4926400c500a572a66bd5cfc8cd90c11bc5c1560e064df7d74a6a"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 6 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "98314b8b84a7399392945865f359d2d535f4db13985ae07e08d56c1dac776450",
+    "f683f7191f73dfa180b92d1a66723c88f3bff2171f7dbe46b4cba1e8c6bd3372"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "3ecd85e324aa3fccb17baf0c3b2b2a7bba43165487235651901f7f2f2043def9",
+    "06f33f3bd3e59c525e6d93a8184faf781410057c31db697ed0747acb339682f1"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "4099f52c59a265344981e6cecda6abd64b2ae180e7c293b9f3c6dee896421f60",
+    "83ed2d6fd700bb270eaf6bd3c7a268919aeddee23e449095d11e687b9b688c8d"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · cumul · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "eba24e4658bced1d2cd6688b1d330a7516f648f549562f91305b4bba44bd8b44",
+    "fe6c10c6d28b89a2c91274d3cc7970e702256b308479c891912c480111a33c6a"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · cumul · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "9aac33c32b055071ad55fd86edda31491acc6b3ff64caa9faf175bb4939ee9f6",
+    "c0beb3011ddabe1fc2e1884b70d415a323ee4a7efd46851de425e4e184479309"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "297e09fe5bcc1062cfd418a5a3f1ee14143b1cc5825771848a07da80560a5270",
+    "e46ea6552fba0e3cbbe3c194812fc85155433c9448e988841bfa506429883202"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "cc597e7fca425d3c8d54fde6843554a32e3ed1899dfb2eed9c42f75fbbf01b02",
+    "3ad66d6982c96a87894804db19ade4130f45a6166452b9280a7a12880d1f0e11"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "e793195d3835684c9e5398352cd275e5804499e01242cf11eb67e2bcb9cad6c3",
+    "3feb495fb507f8b580869da800b9743d74ce5ad3625116ed7fb762d4249c95fa"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "867a33d05b4b7a049eb93a7ee0201f62cf3690c3351ed3d3561741bf12a51fb7",
+    "35d1cb58a781126156c981f92a4a8a0be6e1b78c99585cd756bc5ee5f7fe6bbd"
+   ],
+   "variante": "serrée"
+  },
+  "lisses · droite · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "26a6fa3729343bb333787d026122f95cecc6285f6a492044198e4e2da7add1b3",
+    "036e65941fea50143385a78402097c3c31bccdf5f37f9759afb96a90eb35628e"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "718626b5514c23ca24a75612d5dfab75aa998baffad2897b43b857956c76b641",
+    "555d4f18d3b4f9f4e1453cb0416b70002e28618c20097456bc8188fb64a20357"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · séparées · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "2ccc2fa9d90bcc8866136e244bb483f744ca95a10eee84e7743fd3181c371ef5",
+    "4c4119498f65711d1e6c6ee02984db75e0533384bc93c3f353d38c85003505b4"
+   ],
+   "variante": "normale"
+  },
+  "lisses · droite · séparées · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "379c688918f41f9d1be574a73d38131bce09b16683229dd1e3f39fe87c4cbb94",
+    "8a285f4b8929f377714a34d71a43e50af8509060674a1aafea11c79f72a5e33e"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · L · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "5fb52b591c12336a743cb6b47206ffff5d97c08dc07e0737b41804b09a5c7b49",
+    "32c955c06a5648aa428972801eeced3600caa5f787ead76ec346c67493be61c8"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "e6a0d9b68ae991520df4dadac0005bac14eb19ed6ced2aac7d2a614d213c7624",
+    "21b75486e83d3a41ec79af689578e03c3058bf875511d6dcd23f06e97eab4d96"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "8ea692fb57acca5dd642053566de23be433870050a52313d32be994f76589bcb",
+    "d3d239dd435edc1d68720f9e4341ecb17b679404d9017385b07901191d9d36b7"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "95b8321bdc8096315ce4f7149ac015ced8811ac3762a05da4ac7ad595d8cef6b",
+    "e10c2648eafb5f33bc78a96a8a8a3c18d6d3f82a47ab3074fac529543e2e85ce"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "c7920590bd70204cc13369131964b0ea37e7934eacca7308ccd345e7b6edeca7",
+    "0a07806dfee5b01fe1954214415194f115d77853e0ae4590aeb08cf873f724c9"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · L · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b507abab76ee8d1d33ceb800b5dc8e13dba5bf30e9a5ca776dda804dbf14f500",
+    "213437603ed40f9e2d5f9e297cd021d7388523ac1433762154fe3542cdc434e5"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "05f8dfc7a94a5b0ef093b5f9d8888343bab473525550536dfcd364e3f84fbd03",
+    "8a5c4091ecefbd4de695992d94bf6dc903f09d80c7192d9964a7c197771a9e9e"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 15 pt",
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "8716a84f38956339545cd6127e06616b5b4419b91f2887cc847b8143d2147eaf",
+    "882d1bb5323bfd4b0993ef333b5e311a4cd8ace50762897fdc7182a2ef633a05"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6c5d110f8dc7912df976dd6b29a6696fe40810dc708a8931747406de0d4f1f93",
+    "2e2c383260b64fc7814f062275f642cfdbdf08b337de6309c20ddf1911ff3708"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · L · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "1a793a22bd6afcad37a69f78b02b5bafc4747149291671f89ff6eb01376e3a81",
+    "c54a20355ba27cd315cd70c6e03cdf3cf5c71eefbf7efbfef9395a8428819d1f"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "d7f3e259fb0571b7e396a2ca1ec500b4a2b7f8c3f90ce7dd004a272398778c40",
+    "3643dda49ba57f508cd53e7260aa52f43fb7ebf3bd6929dc150c61de95e78d5a"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · L · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "8a623220901cc628c84517ed07d6dc73db6ee97c8cc187dd062f5824136c1db7",
+    "38f7a5b37e368fae97c187ce6f36f088aa64b09c5ac883b336f3181509070e58"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "79658d4a0e4016770bf400672c86b340cccf590e37604f3e037125366450df8b",
+    "cfd528484e41bb84fee0aa60848bddfe25d1ef9316534ddc0ee8d8e0592ef36d"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · L · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "d3305ef35027ab39d990a24374da10c896429aa8c9068320643951402cdf0cfd",
+    "3ef5a4d83332113a39eb1dfe0dd07b66999894c5fc19ffe89da83fa62c3b011a"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · L · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "50c8a9bee2364498f91395ada0cfa05a376a08f6835453ff9e8723da8b5d7df3",
+    "96ea972061786d8c70e000bd922366f8380c2552bb0163904031aff8349e858b"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · L · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "134541dadeadfcfc21160ea7e8996d028a43de539c1c580a876480c3552da27c",
+    "60b9f39b771d79578fd7606c10b3cc5fbfe473c9f041578b13eb535c74147cb0"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "19061a543b7ba1e6c9fd1123ca902454e1b48b4ea7079147a50e2b4b6332b630",
+    "2875eef401e47d256e4be8edc03eb0e8b71b7264f79fd338cf3798e4f4945e5d"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "bb99ff00a39b1223cb0f39386e3b7c466140c942f49a9716d67af5c2cc7dcc10",
+    "b317eafde68ca731090ec9a93d0245c324013264e529c41b7e9b0a6a4f95eb13"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "381bf0a7d5b7b768165cc38e6d4105e5e5f493e472d0ef1ab5aed9561452eeb2",
+    "0d50e4ff88575d3f2f0889729c0de93c8077c4d7021e562bf5b0d863d42cced8"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "612f9183d88c854c75104b135ba5603d27f5eff67668f3787112b7cccdca632a",
+    "540cc6642738dd70f59cd39489d9556be17c0492a7969ed7f74b6ab963949c87"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "528e46358476e6dbe2b8c58562655696940248d3362af26afefe35c7a1169179",
+    "15c3a71e8ee06e163fd7d5ebd0015abb120b9fa4f4b23959492c64650969b3dd"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · U · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "82d14b58d08e6de0b8d3c972f2b42216cf74605c44b28bc5141c5286bd4a8024",
+    "256ea22bf4ebd7fa7979febb028abad52454f4e8b9d7abe59478c24b76241b45"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "d56ba2647cbf30eed9164ac21fdf65bea1cd8ad28910e754ffd221164f9c3cff",
+    "2f4442c6079098ecb21ee9c53fb0be40b975961c3245815c46813c229003ddfe"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 15 pt",
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "56f967196dca1b51b7b221bed5adff63db483833bd4d1cfb9051d7c6e21578fd",
+    "b0d7bea6ce5ecd5b6f3bda8280529a283cf23442906787fd85772b7c895dd87e"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "462e626bcc4cc79d961c81300318729c07afc97801d202a7b51ba5ecf95f1766",
+    "ad5559abca7cfb705a4d8cfae66a9782be1fb78ba8cd7c31e486232845f554d2"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "169b4a79e9e19e58cc7c980b82377d72c895c7c3eedb6357c63ad6de15a93cea",
+    "b429c2f080e33e63529654bce2fae14320301861d4a07c9acfbd0d53f2666f1b"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6ef8bc3746a6cf5253d5f835f155771245c00446dcc8f24e0584927b95280ce2",
+    "1d084ba7bdf42d6caeb21368e0ddb41aa598c111b7bc99c7a22a412a39f2eee8"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "bbdbe5597bb74f62232a320909cde4ff835f9d72f68e1a4a8b8679f0b2d63a1e",
+    "ec3931430f34bdb72a78fae1599cdb99d3e5bcd1b48b7f4334fa387d09d66c25"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ea9b761c3414018d646bf80aec7f5f90b95a5fc8a306b792d8627898f85024de",
+    "688f0aaecb68be505f007c82d36eec52638cb985bdaeb0ef5a04fcf40ba6d1e3"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · U · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "226fd95125bcd3320d1f715214634d86594318fe2e80b6de7139b19bbc877716",
+    "4e8ca46c47786b37e59df23e2f57de91eeb9b0e730a74ca48c00f706caaed6c6"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · U · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "9844e08fd62e1ac83c1c5af6475563cf550a775ab2392522ff86b0e8cf73d873",
+    "e4fc2b813215944d5adf2078870fd7f5560ab653e875163e8b94e0fd8c68dcbf"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · U · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "5b84a83a0c1a6743cc498a36c30d344403375b518295505f402f30a084cf6856",
+    "93652a4c109349f41f170bf2391c4a03df9d7009083c54f9ccd4f55aceb830f3"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · droite · cumul · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "06fe747e2a229176d5496772e6c1ea970f7224e76190092711a85fde38ee12f0",
+    "d192cba72a3b0a77ee38610908766f40e3176e91b92a6b230f81474ecc14b546"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · droite · cumul · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "1c286b09ffed250616d6d5f73bab73b385850042cd7fca82e2f344a07bf228c7",
+    "298b1338194e54efe022cb0dedd8f4d492ddc1ca77802b23203fefcd5be5e4d9"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · droite · cumul · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "4079930a5ce00c7caf3f358f1328baa76aa136e88036e6fa5c79892cc13365ca",
+    "a333d2d19559c866b6d1ae7a037b54fb6af9cb8d5e8b9fd4a1b0252693295e09"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · cumul · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "d92caad3e9462ce6a9ed74851d6023df9049ff9ca9f5b020e081b5c3d35ec191",
+    "e13109cf2c9f2195aa7a94fbe2916c8978f54d2dc971e4ed6a4d6320d97e63ec"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · droite · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ca9793529a6fe97dafe7663d226322ee20b4a35da2bab61747d714c0b60b8949",
+    "75b66a66cf5e07d13b4e2e8843a3dd424d5358f1fa6d220bcffb2e6fc4fb2db5"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "d208b75231118125124b809195a61c50ec86184ef9c8daaf1a856e167af4f9c5",
+    "7027bd9a255d452babfec6145a145dce2a03ad8204fb2f954ad42e06bcf495e4"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · cumul · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0752f01076f6a2d1bb58413ec6becc41b0b39c47774047b70323a7d83ea36ac5",
+    "da8f4058b509d7b2e4770eba41c944e77985afda0fc4ed198af29257e75249ef"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · cumul · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b609bba9e18912a15c2bb20d439574cd5794ce6f6086689c539cbc4c11dcaaf9",
+    "9a6335f1b69b32ed882283e488695ea6d5dee45d5e67db10ae8a4d3ad776590c"
+   ],
+   "variante": "serrée"
+  },
+  "main_courante · droite · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0d6d63aff30df9ed1470fb6bbd95f1e6dcd16cbe4c0ec0441c3af7115886a21b",
+    "d00d8f6e357016b493343ac7bd46885ad1ec9b932429ec6c54e0b1bb6f10847b"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "05a16f0cc7429291c459afed2b65bef118d6d1af074ca710a5f4d64de47ff8de",
+    "dd3e1581851093e5bdc3769ae1b8cefacb61324cfb358d62f5a7b4ffa0f9c0dd"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "1c2e5d79b787cf0661d536a190c3417428c7fced148e1fc7dbb4d140a6956120",
+    "39ca0a9d052ebd8c1e0d2992a5fdba5551dace88f3bbd7d49934f23fed6fa772"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "210690af2ea66a2f91a51450f2723e69b16623dde20bf6b7ef65d7336ca88aa6",
+    "3d5e4cd90ce8c522a20f5d5508faf0e6cde3a306debe2637def14a62a872c787"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "5bcbc25c158d315395db515fd46e544540979f2fa82e5f086ed386b6b750af76",
+    "68f3346e0152e9706eda7d7ce56d87ae096cca9552b86776f3954936fed870d0"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "c9ce5b830593a066371cabd16d4f9a21d302859e6c25acb694aaf7f8d159d791",
+    "1eee2275275b01cd142ccd78e0df3976c188d6910a15c9484c18e305cf96758e"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · séparées · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "d2a817dfaa1400a260fd8de2c15bbc3ce2d02801471e218482b3de7fa87aa67c",
+    "fb97422d69e208d2037118ee1cea4e3552576a75d9cb65b8bcc88fb78c2eee36"
+   ],
+   "variante": "normale"
+  },
+  "main_courante · droite · séparées · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "e3cfb10f3d91675e9408d2c1d1fc3b1f6a83a0c737e56c73d272721ab2ad6518",
+    "e67fb72310d414a5a349f680061e794f5b98ba3d4bbb189249802fa8501396b2"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · cumul · laterale · els": {
+   "debordements": [
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "bb7d4e3eff36d2c942c96b4661cfddae516df03f0bff1d09e2ea517f72265d2b",
+    "cb2bf05b56c4368f579562c05db14ae0a0d2e9bf908c73d2c731d5b2324f2423"
+   ],
+   "variante": "serrée"
+  },
+  "murale · L · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "ae5fccb66b941c6ae2ac477f4002b174c72f45fd843cb5668b0e08c2c80250ac",
+    "dd30ff63bef84649dbda22770ce2d52b04e4bfb3f6b635115440e1ca34fafb84"
+   ],
+   "variante": "serrée"
+  },
+  "murale · L · cumul · platine · els": {
+   "debordements": [
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "127e3d238a3d50b9d847be6d5917342e313e5050de40205eaba36772906bc1a5",
+    "d14c1f79cf2091f2e63a8759af550a4679215a7c1827bc50f0d32e691aee8580"
+   ],
+   "variante": "serrée"
+  },
+  "murale · L · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 12 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "6791f315a37aa32df32125ae5fa0c245115e6a670df0a810fe84b4fc97203786",
+    "7174e351e2e835badfccdff4df5806b984d230e8d813de6faa5adab19f2dfa50"
+   ],
+   "variante": "serrée"
+  },
+  "murale · L · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "97a1eca38d692ecf50342ff2ca759442cfb9260c3e1e18120efec48228cfc853",
+    "74092fbd97a85670709a299cb098f93b3959e6223564a31bb764880d043cea7b"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "ce0f2516661ee4a4895ff1c6773c0db7bfc7f688b813e0bbfad0b8ff9c5087cf",
+    "680933944b3400ebfd6db8ffc607517c094901396eadad242ac708f8dea646be"
+   ],
+   "variante": "serrée"
+  },
+  "murale · L · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "75903559a881e85769ec3477790d32b7de18fe1a6f8761c626cbfed7eb2850fd",
+    "5da68b7de5cf039c3e0b5e270c7b71814648f64266338581cf4beef2212d00d2"
+   ],
+   "variante": "serrée"
+  },
+  "murale · L · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "f7983910281d8be7eb6df20c8e0e3374bf1a1b33adb2c8d3134e644ff0464236",
+    "e96009aa0a87e17e21fef83ae11e529832255c502b705b7e29df7c8132335e14"
+   ],
+   "variante": "serrée"
+  },
+  "murale · L · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "2359e8f1834813eac7b6852cfe82407c6f25204ece24e395c5ca9ba8d20f782e",
+    "5a8283e467277b12f17d636eeb6296f02ca0fb268d4be79b8afeb131b876744d"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "13168826e671efeda9c042a16efe9f208605e378e0336016a7b9806ebe3619d4",
+    "f028375d41e34bfbc8cf02134b0a455b63099a73ee95531affdf6695ce133797"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "a50530d5d9c260dd4386ef616f809979c9b186a356de9599c473059599923194",
+    "cf681b51d9e550e4b9d190d7ce940822eaf5aaf58e1201fafc9e02ca55b43b39"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "bbba984487191cfa145290dc91db8a9e3596531ad94638121b67e76165695ed7",
+    "b3ee92a3a448e62c24c18d28d75f342d49e6be2eebed3c7063c246cb880b4a6f"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6c9a62196d9cb77ec697af09910c0ff6b34fcac551211f91f041e7851ae08369",
+    "7a8e5adde4b5df870ffc7d751a116b531ce1e6bd7d854071b2e0dfc0d0670a7f"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "c9b6eadc4bad8899c58824da8d941721ecb307b2b436161b65b43647a5d40785",
+    "c1a3256f0101048c9f353020a9bf4d0dd7394ed7d4a4e9b3c9a577a350bee6d7"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · séparées · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b76defde46db04935a87ba5305e52bccbcd007c1b77ed61896e7f3433a972a26",
+    "b404cc4912e01cb9b63c98911d8ba503c4d47369ba46db419fb4a8390c793c71"
+   ],
+   "variante": "normale"
+  },
+  "murale · L · séparées · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b2dadea4d88a5ef1fb42e5cafbd560616a3c438be0122fbfb1fc4b461f0482dc",
+    "a8c4189e7e442f240152b82265861367adfaa51fa68617c5275f6e6b1f021a5a"
+   ],
+   "variante": "normale"
+  },
+  "murale · U · cumul · laterale · els": {
+   "debordements": [
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "8c1e1a23c8a13d536683cdc08e70f6b76e74adf7cd0713d42de80feeafbd4fc7",
+    "87f68caae1b31f525725c4e6165300a132b5d143be135e97191b5bcb609f3203"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "60e805ad55fdeabebd807aa95b1a47b39a2c58cf4e4bdc20faa63250f11d8eb5",
+    "bd46342f96a924af2e842ea9d47b85ab25930a9028df97ad6bbde3dc4c3aa82e"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · cumul · platine · els": {
+   "debordements": [
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "591b5dde47750fe6e496d4cd255f74f5a8e23d9e0cff1ea3452ab55e6c7078ae",
+    "9fdd0fa94e195017c9e98753e917120c33cdf5d1bab16dfbc5e500e3d4c984f7"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 12 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "f0bc13fcea50ae6ce843c835279fdfbf1937ae7b938b52a181b024708ad182c5",
+    "7ad248d99002771cb0c1efb853ae4e905a2bb77314166282f1a876015d38afd8"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "183d528db8a8a1eb80e175f716d425e30945e7250f45831a4adc669f01e88995",
+    "223104a9b62673d06fe37f9b867458f11075f514951d9b032178a2229d8fccaf"
+   ],
+   "variante": "normale"
+  },
+  "murale · U · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "930c5db1e9d3bd79dbae6e18a50bccd99659d156b4d137b32aff260d6eec958b",
+    "0d6fa94408c7065805b5ad18fb7f54c4ce8f3b9636aa8fa3fd9350f6e0ebb4b6"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "e0589e77ecf367cfdfcb3cf848ba7cac2418c05afbf5827e539f841f3fd693cc",
+    "903355b3f20863158a546966a84898b8b9e2a5d39a7af5e690a88b8ca775834b"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "3bf60135ef65c447bf3b1fd7ea6b887be654a0e5d5a6aa809d42c8ffe486708e",
+    "f0b41379a5d1204fa8fcb2ed5b9701de08bed3615196c1e6db9b3d28f54ba41d"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "c3eb4d19bfa1a1b6085f36afddad721cc54c492f9b6b287e9f18346f7f03ee84",
+    "bd4e4158ecd0f8c06703874a103d3acbfddbe7b4710ee5714664e27e2f42d33a"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "292a605297a9ac56a7e28906107c8e5137cd15a34b0442506405d744fe5422a4",
+    "045d91a8085d7a7d7d932377cda2170b06a38357f4a03833480372bd7dbe2324"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6c55a3d38353a430effc357cee87cdc11a7d6efbe97cfcc50847a47b3714e70d",
+    "fa650961d196cc747ae8d674ce1e131cc4e50124c42add7798bca51bc0d37d76"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "1357792213fc2c9b19833b54512f59f1f062b16a65aa0a2fce4211367be56b44",
+    "061ca97f0149f312a2cdb75d981e9d399a359561ddd2a513fda6fd90a48d8bf6"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "760ce0150d17cb4fef201e9cda22231cb98ef5482c0999b68fdbb47ca1cb3914",
+    "f66afef414573fd4ade05c89c1dbb8238db3527750e1f06d6da768772832d777"
+   ],
+   "variante": "normale"
+  },
+  "murale · U · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "77ab769063c06ff8f3c0a2cd89738baf6bfdd0436f92e20e2f1635bf702b4c74",
+    "03f80086c4f608a4d9abc0834350204a139d12f67e14c4044e4a62bd1879f35b"
+   ],
+   "variante": "normale"
+  },
+  "murale · U · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 19 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "bd0b5b8ac8f8ff6198397d35bdb2c42cd172d3e10dade540453358ecabf9139a",
+    "7e263d8c7d3f19c85345b48e9ddb0f1b3c49dcaac48af404142aaa92592543f9"
+   ],
+   "variante": "serrée"
+  },
+  "murale · U · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 19 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "d659ceffcdeb7355ded68dce2d890678b48236b9dac1199b5cd299fdb3ccd1de",
+    "92d627802ca8b45e01686af4253e69d832cd4b3893e048bd02036f232aeedba5"
+   ],
+   "variante": "serrée"
+  },
+  "murale · droite · cumul · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "09344b8fce1114ab8306292b3033a5076bc5778f3e4fa58ea9dc1b55a5a8eb7b",
+    "b497ed4438df20b6a8af3d60dd5b08a0c32f518957b03a7b909d122a9a45828c"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · cumul · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "2231a9203c947de5198e480c7c1ec2c405a118050ec4efcfbfb5e1dd5fe285db",
+    "76c5be0b1ddaf11967a13c653883734a733ab0d3adfd7113999cb482a43b4e53"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · cumul · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "e98dd1e2074b660adc19169196048f9a61f97ebf4d5826aa8a18a6c95652e075",
+    "13aee76ac850fcd0be3e3fade53a064eca8cfc4124b4b2e9180b598290b0a827"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · cumul · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "e9216180fc0f08fc0d285bf1f11b51d1dafb9325473fc6f9692ba09f80d6e30a",
+    "f52f829e292dc91a0ce3118cfc78eb96973d221ef1a8bf1bffa5b110e7f0f067"
+   ],
+   "variante": "serrée"
+  },
+  "murale · droite · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "cccb9c1f6d96cd1c5cc766f73b1be4c5a18aca1e22277ea60d02ab1005175484",
+    "9245938a2b0d17561eaca4b1c067e7b9bb9bcd1f69837ee0121dec49a92279ba"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "e0e13b4c4d7aa38cf7622053138a154bf16c05e56e9cdc48cab7cb33179dc72f",
+    "dd0ffe5df8dbce3c640e8c3cc9a08fe055bc9b297a5991daed358a82d3427c4a"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · cumul · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "a7709bcb60cce5ccb93aa13379baa5e20ddde6c219ae67e3153fc417d401087a",
+    "de7c03acdd0f8d755ed1c7e06346256afd9828f4353c8f41af4d989ed3f6416d"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · cumul · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "9e65213a3e855ba22c9453860ac7565b672e86873f1efe90547da0a728821b61",
+    "e93ba5cd27b1c7daadf4109d112e85dedaf88165b6f96b8261ce89dd17c972a3"
+   ],
+   "variante": "serrée"
+  },
+  "murale · droite · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "d112094777cafd893de86bb5c17975d1b615068891594a0a074ad4160b2a4a7e",
+    "7f39a8cc30abc8bb2158ff8775866f83ac4064c9694685809355fda445a48b2b"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "c0900d1403a0fb8f019cb6f4ddf383c654af5b8383d24b906fb6ecf45474e91d",
+    "0bed0aafb7fbd0c06d85349794d02fa1f7b3612932cc53f269e6729e3aaffe64"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6b6c99ae6d79b50ae73cae7b7453f968ff38b5eef706d344ee3a984647ba59a8",
+    "a9c045a8707c71bb76360dc952000c0ac9f35bc281214e0ee5a154964f1f7e5e"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "9424de8b051fcd5647179e867b7862dbef89dd71eb8eda1290616e7973d0e121",
+    "8d79c2a91d6e827b316f0d1ca1eefc90629ae3a355299563a67bd327d38b6d68"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "7b3346e6bc604e9228669506602b599b1337af815f0e838a90dddd7b10723e1f",
+    "55b47f32646cd3d661c4fc79075092c8fe8d726bd90696ef1a5d9691b7bd0c43"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "7f6982c91a580030a9e17b17216f1383035bef6468debb2ed5b3c43f44cc324b",
+    "4ca8839ce3b054d2095df017f35db0a15c041fceac2a01d21348a64656ca1d3d"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · séparées · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "36d71633022c795f6e26bfc4dc29230aa78f84eb65efffa562d67a4138f9b1ba",
+    "566c07c58accd830e9a04e71cbc8a8c15e7d0a093a2eb0edf4c9f0d34266ff6c"
+   ],
+   "variante": "normale"
+  },
+  "murale · droite · séparées · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "4f0f86c14de6b9d5a9c8a0fcac5873d2608a11410297a1dd53de38aefce0fdb4",
+    "9614876201c436692e2afb0420a9fbde0a4e603fa2c916c762c78ba8c6b5fdc6"
+   ],
+   "variante": "normale"
+  },
+  "panneau · L · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "ec2dcb713e8442ebb34544f8ec23bdfa6371849d1ccf2d2fc64ec52687861272",
+    "55c3397af37f4008e388b836cf602debbd5c319a835fc21eeb574598c0f9f977"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "5763df3ef4b32a06654ec9b5ce922e88b727447f7ac0cca9e68a844e2beb38f7",
+    "b5780b03da1eed8482a1f00cbc979bddc0e547c2e6dcdafcfb1d959196460a91"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "60c0a1ca8e357374df14c857b5a5a4c53b73f591b25417f61379fea696fce61f",
+    "bcd458df7e76b6fdf0bd17023d3a4d0032b511c59838a55677f516445a95e426"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 11 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "c775bcdf30e202b76fedea8583b7ad2dd58c19e5e6d2b3a079ab35811e330eaa",
+    "9ae9f7a3f772d400ccfca6519726c75b985251e51349b8a4d912c184c12ebaac"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0888c5b73e14954b03a8458d6fee3d365b3723f3293e95ad1db39b6cd73f2fdf",
+    "9d747b60f604f5f23c7412bb520ce40d85ff5ae39acd7a8351f32079e8a6acb0"
+   ],
+   "variante": "normale"
+  },
+  "panneau · L · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0129c4e7dd5ec69efd51bbb3d4ea40c0195698e0bc65917e9e050c917066efa0",
+    "2adb6b7da67fc2563de5bd62c172b28eccdf3cebef075bca0f7fccadd770b097"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "5d7f3530da5f82de42c8cd38b3d2061d6b013ed372a89de741a363b0513b610f",
+    "641f09c2514b8a9c79cb96d715d9f54df3330d714ae321b6ee5e3395a2fd322b"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 15 pt",
+    "page 2, colonne 22 : 27 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "9dbe46a3760b1f704579fde092f097a4efb74b0152076f669f72ab2a842efdcf",
+    "6d7cafd73e1987dd6cb0bec3c3da7a457e2fcb00052ad1d60aa71bad57a3de2d"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "30b7765fb3c5ccd0fb583d76b731f1bf4cd8c8b973fbf3ee3cb75430f2f7c7f0",
+    "b1f179ca2b1bc8623ab6028ee065bc979afc5aa9a24281f27b37a41d12c19139"
+   ],
+   "variante": "normale"
+  },
+  "panneau · L · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "a9d35436c6660caba3f2cd5829d78c5b883451c5c45870ab3340fcceaebe2bf7",
+    "ac474a8820b74aea035da83794b2b0f41ecdf8699ee63a1c436d3f0842b1cbed"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b8e60b0e935d8b96a20af033ac782b97ed45a6e6cb971899dc6a9151c7fe9322",
+    "b85cd0b3b29d3ed7b64e4ba530b209714dd3952d55c27fed97d87f053b72cf5d"
+   ],
+   "variante": "normale"
+  },
+  "panneau · L · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "a9dffafe21a8888edd9163e1158ff33aaaafbfddd2938e9a8352ec661ca5ebc8",
+    "2a30d99dce1374f567287f789948ecf91aa1c2eea566c781809cd4312b343e83"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "8140108a02ee88ffcc5419cf3263e4cb6bbb64e92ef87d3066f3925147066100",
+    "eb074b17214fe550945219750f8828e2d96671211fb242e25479bc80345154f2"
+   ],
+   "variante": "normale"
+  },
+  "panneau · L · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "9a34e1e52f0e47f5bebfc4c15442cf8a48132c42b97e50ce23382eabbd3b4375",
+    "6a3a2a0cab71276157ce5540481d2e498592ea531375e0f07fb79cdf9878ae4c"
+   ],
+   "variante": "normale"
+  },
+  "panneau · L · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "502f8bb0cc23def70d73fa822754012a5c6f1482368fb6e2b98a690e2f9f4b02",
+    "1bbfb71fde8dca3047ebea244462bfe86e548d7b9a0eaa2228cc61e78c184b45"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · L · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 9 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "ad19fc56032e009ef1b3e5b8cf2722f7c21c7f3ab7c0b484a19b25ca40e624b5",
+    "2a52338e8014b60183d463b7659f1b0a7744bd052f4e0ba20caac72fbca23d1b"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · cumul · laterale · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "3ad0a70a1b45f159eb2de4d548a43200ca258e1a436597ab112625120c2575f0",
+    "40b7d574f40218cff6f05d011ad36a5a1ed5cc773aedd6a929b3517d724b949b"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · cumul · laterale · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "407b10f22f22447386101116aab449d2c478fa7c0005815a5894fd5d392bf288",
+    "3aaa8215a0d687377177210d888656462fdafdffbf97a6eff5beaa9d402aa951"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · cumul · platine · els": {
+   "debordements": [
+    "page 1, colonne 320 : 19 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "0df53a225835b2087545d44ad2eaf38cb0b75943969d01b9deb689dae7a70afd",
+    "6544bad381348b83f4e15a41d3942e698a310c85f33cfecc6d6c9ead2c58e2f2"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · cumul · platine · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 50 pt",
+    "page 2, colonne 22 : 73 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "0cfffaf31e1e6106a93751ec03b4c7141cbe878155c55798b913451d81373a8e",
+    "09ccf49b34a2b24e74dd882794d765011867e46b6c24fdb9e61c6b6aadfb550a"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "b0e749f96d589ddd7ef400e0082de58eb5853846486c208d9491f6f4caa8cc0e",
+    "c87ed7299eab4cfd531a101b3545f1b7c851d90c9202394bab2d4e2611eb2abd"
+   ],
+   "variante": "normale"
+  },
+  "panneau · U · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "721037234d26fcbeeba8d4124fb6201cd63d8622ca15905ae0d08985975a790b",
+    "39bce0b2ca820baa1135b5b5b1f09607069d893925be721d2c54a3a56231148f"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · cumul · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "1046c7deeabc4b440b3b1c17f5a936c7362caa7001bb4f4b095c0deb4e2b4c9f",
+    "6f68a5400414b8526de27223a2715eaa9b6b8994e2b24475ef61343531ea232c"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · cumul · soudee · eurocode": {
+   "debordements": [
+    "page 1, colonne 320 : 15 pt",
+    "page 2, colonne 22 : 89 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "cd2f0248297a574be4dba14564c07da8ef1becabadfb00afd37de17a18a46907",
+    "0a7ab52ee15e1082fba93d97a2f7c65308d73d39d024635fffada80c4a99cc3e"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "9e6f3bece27ad498cd1b91f3092dc3d3621681169a8a0838cd52887df662d68c",
+    "443b6de58bb01b6b8f50e612d358b8b2ca083453d0769998012117a7fbb1d44c"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "312f74ec2813f5100190159f8e2a72bc192032949c3609b87d5ba2636b062140",
+    "a0e3315501cf57fd22371357e3c04098b786da4a0ad4013d9a24e708eaf0e7d9"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "42fc499fed4aef0efd3d6b9076e2dc04a05d530be9859eeb7cf774efd329e681",
+    "bf144281e377572ac8c53b6f0bf2a969793d593f3dc082f1c4de7ada88e5e527"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "f7498da2427f66f83f503fc34487a10813c5dadb290a90bd5397d2d7b109dce6",
+    "dcb6c1b3f3eabadd58c09c98197cf278a7a9035bb3fe2214da848ee973e21a89"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "4d71815ab3fbed6e0c9ef22742541c88effaad342d1e1e5842779e63585dedd1",
+    "1a1b264a4774806c092cd0495540a2a90632beda22c34b160834a0186bf2eea2"
+   ],
+   "variante": "normale"
+  },
+  "panneau · U · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "5694647f92cdbc60395ff4beaec4302c61384e9fb15419b49df5af84e72e95fb",
+    "6e710b42aa3949ca4931e2ec1c6864b707b3015c7ab20515e4b75639da03ff91"
+   ],
+   "variante": "normale"
+  },
+  "panneau · U · séparées · soudee · els": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "420bbd361408d50afe0c9fb231a9e40c0ae9f5c73c8cf91d8d77d6ccda6b8753",
+    "6d36c6f095f696358a634d833bd8512f2700348fb0c41e105a3478cdcaeaf681"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · U · séparées · soudee · eurocode": {
+   "debordements": [
+    "page 2, colonne 22 : 42 pt"
+   ],
+   "pages": 2,
+   "sha": [
+    "779637f8176751b79ed6912c985b367d11cd045122f9fdbc00666c9eff2f3f06",
+    "d6be08794b057aca5b3edc1829cf9a37b3846863dd7dd4dc9568800ff09ff162"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · droite · cumul · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "2f17f8c10ad4a4434df770c0dad7d61377bdd7891c5ac29b52f5754ee34adaa1",
+    "2b38467320b8e6a0d4d31b46cc517cdaeed72bb1e1108a6d56801f2d39f7a605"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · droite · cumul · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0ce050bdd68279cc167d81058d0050480b70a2f7210165a16c35a4c3e0892d1f",
+    "9501db66af8e9674d2636721c33a9e678239883fd3e683e947ba5e366c33ff71"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · droite · cumul · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "7539bf230748fcf2ee6f1ab53da9bb9b74ee9600865ac9d057a24c7e83249493",
+    "18b839f52114c5bfd7fc66830e546351960c5b22464c3dbc64e931eb40e9c33e"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · cumul · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "fa479e2d25dbdf339518b48ecdd9994e34c5222f0435dda4eb4b46aebb94a1e6",
+    "e6416c508bc02c226cb69d936ccdc5abae337f2440a43464d38ac82ab8153769"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · droite · cumul · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "dbe619b648508e2e03f3539fdcd73ca141996c6ed5c2f5fdb98a6409b8dfe74d",
+    "cb564df2cd5f4cdfad2290ac9816119b2a603dd14f1b7947762ae63f60e1b994"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · cumul · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6e3b9e0f5ee9124488ab71e401ce6f62f1bc7661a0d8a6a71a6ab0340bd91347",
+    "9dc80151a6d40edc6a200b045536d96d16b25abf508b8116e587539c0ef23f4a"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · cumul · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "96f9cd14f3353d373ed3ed1c92c55d4e6846222674c3531262b5e1fd86336275",
+    "a493ecd1eccbe6f1a5d958c509d8bf60eeb60fbd4f73ed15ff712f7ea8dadfc4"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · cumul · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "289749c12aa221be152b8e5720a3da337da0ab2d470102420bfa846a54bd3e01",
+    "7fe4cf19ad4a34c74007b27d5ac137cf0a97233cab3f5312ffd1af85d44b458d"
+   ],
+   "variante": "serrée"
+  },
+  "panneau · droite · séparées · laterale · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "8a35928217e70f9ff1b1db7ee6e37ed741e0647f633d7a11203dab295d32c33d",
+    "11efc2a1166bcf26d377f329f0b232929897648180501a6abeb7132925157190"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · séparées · laterale · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "7dd3987c4abaec19bfb90140fb908f787c3b1fdb0bf255079ef01ca2ea319c4b",
+    "10825af7c18088f4d86ec647013043e0e210801a4ba2d20dfe69ad325dfd1855"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · séparées · platine · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "273a638b48f43b9eba338e77be081e14b57045af7d818f7cc74552d6f14d05e2",
+    "d26a9a85d3664acc7add550a0f94e672d11edc24386c82438b0d95aa44ec071d"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · séparées · platine · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "6c43abdffd0b4213a1d513de9e7670ef4b970647c789d12c5e5876dc23b227da",
+    "95de3d4040542d40c1d2904128596bea42d4d4a5300f2914d6daff271dff3b15"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · séparées · scellee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "3aa75413c43b12456050b5c43db9e624016cb114fea10b4663b0128757ed13cf",
+    "5e825020d422dea2925871dc8a625445611671cef09aa691efeec7f42b968f7d"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · séparées · scellee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "8ff47ed1045a938eab0aa32cdd6cc3de9fa3950b616d364e4ef77fa8311c406c",
+    "79d1012b5c633e4af7e9cfdbfe8fe1a1b6b0600bba521b3cb8dbe08d29ac2676"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · séparées · soudee · els": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "e6d5147e8bd6f60d811a557a5d8cafd7bef4851fb28d90dd7de080b265d20d76",
+    "d1f67205ced7bce63bc9381b2a6acb372d6895892efc306f98fb2266bb45c324"
+   ],
+   "variante": "normale"
+  },
+  "panneau · droite · séparées · soudee · eurocode": {
+   "debordements": [],
+   "pages": 2,
+   "sha": [
+    "0797fd706b5cebf353e46902f87e4e83c7b118833e3473f93ac85ef2be4b4f48",
+    "ae70c8f5afb2370b332351f6a3b06e332863d0277ce5829693b4d7c420d241cd"
+   ],
+   "variante": "normale"
+  }
+ },
+ "infos": {
+  "date": "09/11/2026",
+  "indice": "A",
+  "nom_projet": "Grille",
+  "partie": "Garde-corps"
+ }
+}
