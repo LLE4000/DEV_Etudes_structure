@@ -531,4 +531,8 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
   téléphone (barre du bas, menu) télécharge la note, CSP puis prédalle, en 1,1 s puis 0,2 s ; son texte (pdftotext) est
   IDENTIQUE à celui de la note faite en CPython pour le même état. Le harnais (`verifier_site.js`) ne la contrôle pas
   encore : c'est à l'intégration de l'y ajouter.
+  *Révision du 09/11/2026 (intégration de nuit)* : c'est fait — `NOTE_PDF` nomme « dalle », le paquet de la note est
+  relevé sur une note riche de la dalle (`construire.NOTES_RELEVE`, CSP puis prédalle) et porte les deux fichiers ; le
+  harnais (filtre « note_pdf ») télécharge la note au PC, à la tablette et au téléphone et y retrouve les noms des
+  dalles, h_min, A_s,néc et A_s que l'écran montre (docs/site/MODULES_SITE.md § 4 quinquies, « Le branchement »).
 - Les fiches de la bibliothèque (BIB4) ne sont pas dans la note de la dalle (la dalle n'en a pas encore).

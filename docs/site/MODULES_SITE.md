@@ -249,6 +249,36 @@ du site**. La note n'est JAMAIS réécrite : c'est le générateur validé de St
 du module est dans `site/web/construire.NOTE_PDF`, et le paquet de la note (`moteur/note.zip`, chargé à la première
 note) porte ce que le générateur charge. Modèles : `api_web/note_poutre.py` (poutre), `api_web/note_assemblages.py`.
 
+**Le branchement (intégration du 09/11/2026)** — `NOTE_PDF` = poutre, dalle, garde-corps, soudures, charges sur
+plancher, assemblages. Il tient en trois points, chacun prouvé :
+
+- **Le bouton** : `construire.boutons_note_pdf` est UN composant posé aux trois emplacements (barre du haut du PC et de
+  la tablette, menu ⋯ et barre du bas du téléphone) par `page_module`, pour TOUTE page d'établi, compacte ou non (avant,
+  seul `compact()` l'allumait : le garde-corps, les soudures, le plancher et les assemblages restaient grisés) ; la page
+  le dit (`body data-note-pdf="1"`, que `js/etabli.js` lit). `tests/test_site_web.py` le contrôle sur chaque page.
+- **Le paquet de la note** (`moteur/note.zip`) est RELEVÉ : pour chaque module de `NOTE_PDF`, une vraie note « riche »
+  (`construire.NOTES_RELEVE` : plusieurs éléments, les chemins rares — les deux types de dalle, les sept configurations
+  d'assemblage et le pied de poteau dans ses deux modes…) est demandée au routeur, comme le fait le navigateur, dans un
+  sous-processus où fontTools, le Pillow réel, les accélérateurs C de reportlab, streamlit, matplotlib, pandas, scipy et
+  pymupdf sont refusés et où ne se lisent que les six polices du paquet. Le paquet porte les fichiers du dépôt qu'elles
+  chargent HORS du paquet du moteur (le travailleur déballe les deux au même endroit, `/moteur`), tout `ndc_pdf/`,
+  reportlab relevé, les polices, le Pillow factice ; il est reproductible. Mesuré au 09/11/2026 : 104 fichiers,
+  2,19 Mo (2,07 Mo avant, poutre seule) ; en plus de la poutre : `modules/export_pdf_dalle.py`, `modules/treillis.py`,
+  les huit `note.py` des assemblages, `note_kit.py`, `rapport.py` des doubles cornières, `acier/rapport_projet.py`,
+  `acier/garde_corps/{note,methode}.py`, `acier/soudures/note.py`, `plancher/charges/{note,peintre}.py` — exactement
+  les fichiers que les lots avaient déclarés ; aucun fichier de reportlab ni police de plus. **numpy** : les notes du
+  garde-corps, des soudures et du plancher le chargent (leur écran aussi : `avec_numpy`) ; le manifeste les nomme
+  (`note.avec_numpy`) et le travailleur charge numpy AVANT leur note. Preuve : `tests/test_site_web.py` § 2 bis — le
+  paquet est celui que le générateur écrit, il ne répète rien du paquet du moteur, et, déballé SEUL avec le paquet du
+  moteur (sans le dépôt, reportlab et Pillow pris dans les paquets), il fait la note de chaque module, au même texte
+  page à page que celle du dépôt (mutation : sans les générateurs de `modules/`, la poutre et la dalle rougissent).
+- **Le vrai navigateur** : `verifier_site.js`, filtre « note_pdf » — pour chaque module dont la page dit
+  `data-note-pdf`, au PC (1440), à la tablette (1024) et au téléphone (iPhone 13), la note riche semée dans le
+  navigateur, le bouton mesuré visible et actif, le clic, le téléchargement (%PDF-, pages par pdfinfo), le NOM de chaque
+  élément et les chiffres que l'écran montre (taux de la liste, η de tête, h_min et A_s du béton armé) retrouvés dans le
+  texte du PDF, aucune erreur JavaScript. Préparation mesurée le 09/11/2026 (du clic au téléchargement) : 1,2 à 1,7 s
+  (poutre, dalle, soudures, plancher), 2,3 à 2,7 s (garde-corps), 4,7 à 5,5 s (assemblages, 8 assemblages, 18 pages).
+
 **Modules « à cas »** (`api_web/note_cas.py`) : pour un module dont la note est
 faite de CAS et dont l'état du site EST l'état du moteur, `telecharger(etat, "note_pdf", infos)` rend
 `note_cas.fichier(NOTE, etat, infos)` (`api_web/note_cas.py`) : le générateur validé n'est pas réécrit ; un cas seul,

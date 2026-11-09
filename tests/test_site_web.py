@@ -131,6 +131,80 @@ print(json.dumps(out))
 chk("déballé seul, le paquet calcule chaque module", res and all(v[0] for v in res.values()), res)
 chk(f"chaque module du registre est dans le paquet ({len(SW.ADRESSES)})", sorted(res) == sorted(SW.ADRESSES), (list(res), list(SW.ADRESSES)))
 
+# 2 bis. le paquet de la NOTE PDF (moteur/note.zip : chargé à la première note, déballé À CÔTÉ du moteur, js/travailleur.js)
+# — son empreinte au manifeste ; il est celui que le générateur écrit (reproductible ; relevé en faisant la note « riche »
+# de CHAQUE module de NOTE_PDF, construire.NOTES_RELEVE) ; il ne répète rien du paquet du moteur ; et, déballé seul AVEC
+# le paquet du moteur — sans le dépôt, reportlab et Pillow pris dans les paquets, fontTools, les accélérateurs C et les
+# bibliothèques lourdes refusés, les seules polices du paquet —, il fait la note de chaque module, et c'est la MÊME que
+# celle du dépôt (texte page à page) : ce que le navigateur fera.
+note_chemin = os.path.join(WEB, "moteur", "note.zip")
+mn = man.get("note") or {}
+chk("le manifeste porte l'empreinte et la taille du paquet de la note",
+    os.path.exists(note_chemin) and mn.get("sha256") == sha(note_chemin) and mn.get("octets") == os.path.getsize(note_chemin), mn)
+octets_note, desc_note = SW.paquet_note(man["fichiers"])
+chk("le paquet de la note est celui que le générateur écrit, relevé sur la note de chaque module de NOTE_PDF "
+    "(sinon : python3 site/web/construire.py)",
+    octets_note == open(note_chemin, "rb").read() and desc_note["modules"] == sorted(SW.NOTE_PDF) and mn.get("modules") == sorted(SW.NOTE_PDF),
+    (desc_note["modules"], mn.get("modules")))
+with zipfile.ZipFile(note_chemin) as z_note:
+    noms_note = sorted(z_note.namelist())
+chk(f"le paquet de la note ne répète rien du paquet du moteur ({len(noms_note)} fichiers ; le travailleur les déballe au même endroit)",
+    not set(noms_note) & set(noms), sorted(set(noms_note) & set(noms))[:5])
+chk(f"le manifeste nomme les modules dont la note charge numpy ({', '.join(desc_note['avec_numpy']) or 'aucun'}), et le "
+    "travailleur charge numpy pour eux AVANT la note",
+    mn.get("avec_numpy") == desc_note["avec_numpy"] and "m.avec_numpy.includes(MODULE)) await chargerNumpy()" in TRAV, mn.get("avec_numpy"))
+ESSAI_NOTE = """
+import base64, json, os, sys
+TMP, CLE = {tmp!r}, {cle!r}
+sys.path = [TMP] + [p for p in sys.path if p and not p.startswith({racine!r})]
+class Refus:
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] in {refus!r} or name == "reportlab.lib._rl_accel":
+            raise ImportError("refusé : " + name)
+sys.meta_path.insert(0, Refus())
+from api_web import routeur as R
+{etat}
+r = json.loads(R.traiter(json.dumps({{"module": CLE, "action": "telecharger", "etat": etat, "quoi": "note_pdf",
+                                      "infos": {{"nom": "Essai paquet", "chantier": "Contrôle", "indice": "B", "date": "09/11/2026"}}}})))
+import PIL, reportlab, api_web
+lus = sorted({{os.path.relpath(m.__file__, TMP) for m in list(sys.modules.values()) if getattr(m, "__file__", None) and m.__file__.startswith(TMP)}})
+print(json.dumps({{"ok": r.get("ok"), "erreur": r.get("erreur"), "base64": (r.get("fichier") or {{}}).get("base64"),
+                   "depuis_paquets": all(m.__file__.startswith(TMP) for m in (PIL, reportlab, api_web)),
+                   "fonttools": "fontTools" in sys.modules}}))
+"""
+
+
+def _texte_pdf(octets: bytes) -> list:
+    p_ = subprocess.run(["pdftotext", "-layout", "-", "-"], input=octets, capture_output=True)
+    return p_.stdout.decode("utf-8", "replace").split("\f")[:-1]
+
+
+from api_web import routeur as _R  # noqa: E402
+import base64  # noqa: E402
+with tempfile.TemporaryDirectory() as tmp:
+    for z_ in (zip_chemin, note_chemin):
+        with zipfile.ZipFile(z_) as z:
+            z.extractall(tmp)
+    env_ = {k_: v_ for k_, v_ in os.environ.items() if k_ != "NDC_FONT_DIR"}
+    for k in SW.NOTE_PDF:
+        code = ESSAI_NOTE.format(tmp=tmp, cle=k, racine=RACINE, refus=SW.NOTE_REFUS, etat=SW.NOTES_RELEVE[k].strip())
+        p = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=tmp, env=env_)
+        try:
+            o = json.loads(p.stdout.strip().splitlines()[-1])
+        except Exception:  # noqa: BLE001
+            o = {"ok": False, "erreur": p.stderr[-600:]}
+        # la même note, faite depuis le dépôt (ce processus)
+        _ns = {}
+        exec(SW.NOTES_RELEVE[k], _ns)  # noqa: S102 — le code de construire.NOTES_RELEVE
+        r_d = json.loads(_R.traiter(json.dumps({"module": k, "action": "telecharger", "etat": _ns["etat"], "quoi": "note_pdf",
+                                                "infos": {"nom": "Essai paquet", "chantier": "Contrôle", "indice": "B", "date": "09/11/2026"}})))
+        t_p = _texte_pdf(base64.b64decode(o["base64"])) if o.get("ok") and o.get("base64") else []
+        t_d = _texte_pdf(base64.b64decode(r_d["fichier"]["base64"])) if r_d.get("ok") else ["(dépôt : " + str(r_d.get("erreur")) + ")"]
+        chk(f"paquets du moteur et de la note déballés seuls : la note PDF de « {k} » se fait (reportlab, Pillow factice, polices "
+            f"et générateurs pris dans les paquets, fontTools refusé), {len(t_p)} pages, le même texte que celle du dépôt",
+            o.get("ok") is True and o.get("depuis_paquets") is True and o.get("fonttools") is False and t_p and t_p == t_d,
+            o.get("erreur") or (len(t_p), len(t_d)))
+
 # 3. les pages et la charte
 chk("css/charte.css est la charte des maquettes", sha(os.path.join(WEB, "css", "charte.css")) == sha(os.path.join(RACINE, "site", "maquettes", "charte.css")))
 for nom, html in [("index.html", SW.page_accueil()), ("js/modules.js", SW.modules_js())] + [(SW.PAGES[k], SW.page(k)) for k in SW.PAGES]:
@@ -167,7 +241,17 @@ _src_rangement = open(os.path.join(WEB, "js", "rangement.js"), encoding="utf-8")
 _ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact + _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
 chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutres, dalles — les prédalles ont rejoint les dalles), leurs "
     "fonctions aux mêmes places ; les autres modules attendent l'avis du bureau", SW.ETABLI_COMPACT == ("poutre", "dalle"), SW.ETABLI_COMPACT)
-chk("… seule la poutre fait sa note PDF dans le site (la note des dalles reste à venir)", SW.NOTE_PDF == ("poutre",), SW.NOTE_PDF)
+# la NOTE PDF (décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site, celle de la dalle
+# dit les chiffres du site) : les modules qui en ont une, chacun avec son ``telecharger(etat, quoi, infos)`` et sa note
+# « riche » pour le relevé du paquet de la note (construire.NOTES_RELEVE)
+import inspect  # noqa: E402
+import importlib  # noqa: E402
+chk("la note PDF se fait dans le site pour la poutre, la dalle, le garde-corps, les soudures, les charges sur plancher et "
+    "les assemblages ; chacun rend « telecharger(etat, quoi, infos) » et a sa note riche au relevé du paquet de la note",
+    SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages")
+    and sorted(SW.NOTES_RELEVE) == sorted(SW.NOTE_PDF) and set(SW.NOTE_PDF) <= set(ETABLIS)
+    and all("infos" in inspect.signature(getattr(importlib.import_module(f"api_web.{k}"), "telecharger")).parameters for k in SW.NOTE_PDF),
+    (SW.NOTE_PDF, sorted(SW.NOTES_RELEVE)))
 for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     if k in SW.ETABLI_COMPACT:
@@ -179,19 +263,21 @@ for k in ETABLIS:
             # les deux colonnes se replient (boutons communs .pcoll) et s'élargissent (poignées), l'état s'annule
             and all(html.count(f'data-{a}="{c}"') == 1 for a in ("coll", "poignee") for c in "gd")
             and all(html.count(f'data-historique="{h}"') == 1 for h in ("annuler", "retablir")), (absents, _ids_compact))
-        # la note PDF : la page dit si son module la fait (body data-note-pdf, que js/etabli.js lit) ; sans elle, les
-        # boutons « Note PDF » restent grisés « bientôt » sur les trois formats
-        _corps = re.search(r"<body[^>]*>", html).group(0)
-        _pdf = re.findall(r'<button([^>]*)>((?:(?!</button>).)*?Note PDF(?:(?!</button>).)*?)</button>', html, re.S)
-        _grise = [("disabled" in a_ or 'aria-disabled="true"' in a_) for a_, _ in _pdf]
-        chk(f"{SW.PAGES[k]} : la note PDF {'se fait dans le navigateur' if k in SW.NOTE_PDF else 'reste « bientôt » (boutons grisés)'} — "
-            "barre du haut, menu du téléphone, barre du bas",
-            len(_pdf) == 3 and (('data-note-pdf="1"' in _corps) == (k in SW.NOTE_PDF))
-            and all(g_ == (k not in SW.NOTE_PDF) for g_ in _grise)
-            and all(("bientôt" in a_ + c_) == (k not in SW.NOTE_PDF) for a_, c_ in _pdf[:2]), (_corps, _pdf))
     else:
         chk(f"{SW.PAGES[k]} : l'établi d'avant, rien du pilote compact",
             "data-etabli" not in html and "etabli.css" not in html and "data-ranger" not in html and 'id="liste"' not in html)
+    # la note PDF, sur TOUTE page d'établi (compacte ou non : construire.boutons_note_pdf, un composant, trois emplacements) :
+    # la page dit si son module la fait (body data-note-pdf, que js/etabli.js lit) ; le bouton « Note PDF » est alors
+    # allumé (data-action="pdf") dans la barre du haut, le menu ⋯ et la barre du bas du téléphone — sinon grisé, « bientôt »
+    _corps = re.search(r"<body[^>]*>", html).group(0)
+    _pdf = re.findall(r'<button([^>]*)>((?:(?!</button>).)*?Note PDF(?:(?!</button>).)*?)</button>', html, re.S)
+    _grise = [("disabled" in a_ or 'aria-disabled="true"' in a_) for a_, _ in _pdf]
+    chk(f"{SW.PAGES[k]} : la note PDF {'se fait dans le navigateur' if k in SW.NOTE_PDF else 'reste « bientôt » (boutons grisés)'} — "
+        "barre du haut, menu du téléphone, barre du bas",
+        len(_pdf) == 3 and (('data-note-pdf="1"' in _corps) == (k in SW.NOTE_PDF))
+        and all(g_ == (k not in SW.NOTE_PDF) for g_ in _grise)
+        and all(('data-action="pdf"' in a_) == (k in SW.NOTE_PDF or i_ > 0) for i_, (a_, _) in enumerate(_pdf))
+        and all(("bientôt" in a_ + c_) == (k not in SW.NOTE_PDF) for a_, c_ in _pdf[:2]), (_corps, _pdf))
 # 5 ter. la BIBLIOTHÈQUE d'une note (docs/site/BIBLIOTHEQUES.md § 2.4) : le bouton « Bibliothèque » (barre du haut et menu ⋯ du
 # téléphone) et le panneau #et-bibliotheque — le gabarit de la page de la bibliothèque, les identifiants que js/biblio.js et
 # js/biblio_note.js cherchent, la feuille css/bibliotheque.css — dans la page d'un module qui sait préremplir sa bibliothèque

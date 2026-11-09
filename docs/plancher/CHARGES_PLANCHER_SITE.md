@@ -115,7 +115,9 @@ site « Conforme » (vert pâle).
 
 ## 5. Ce qui n'est pas couvert
 
-- La note PDF (deux pages) : hors périmètre du site, elle reste dans Streamlit.
+- La note PDF (deux pages) : hors périmètre du site, elle reste dans Streamlit. *Révision du 09/11/2026* : elle se fait
+  désormais sur le site, par le générateur validé inchangé, deux pages par cas (`api_web/note_cas.py`,
+  docs/site/MODULES_SITE.md § 4 quinquies) ; le bouton « Note PDF » est allumé aux trois formats.
 - Télécharger le fichier JSON au format de l'écran Streamlit : le site n'a pas de brique « fichier à télécharger » pour un
   module (besoin commun). Le `.stab` du site porte la note entière ; le site **ouvre** le JSON de l'écran Streamlit.
 - Le glisser-déposer sur le plan : remplacé par la saisie des positions (demande du bureau). Les invites et les « toasts »

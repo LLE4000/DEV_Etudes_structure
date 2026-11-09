@@ -130,9 +130,11 @@ function envoyerSonde(json) {
   });
 }
 
-// La NOTE PDF : son paquet (le générateur de l'écran Streamlit, reportlab, les polices — moteur/note.zip, deux Mo) n'est
-// chargé qu'à la PREMIÈRE demande de note (la page le dit : « note » dans le message, js/moteur.js), vérifié contre son
-// empreinte, puis déballé à côté du moteur. Les notes suivantes sont immédiates.
+// La NOTE PDF : son paquet (les générateurs des écrans Streamlit, reportlab, les polices — moteur/note.zip, quelques Mo)
+// n'est chargé qu'à la PREMIÈRE demande de note (la page le dit : « note » dans le message, js/moteur.js), vérifié contre
+// son empreinte, puis déballé à côté du moteur (le paquet du moteur porte déjà ce qu'il ne répète pas). Si le relevé a vu
+// la note de ce module charger numpy (manifeste « note.avec_numpy »), numpy est chargé AVANT la note — sans quoi le guet
+// la ferait refaire une fois. Les notes suivantes sont immédiates.
 function chargerNote() {
   note = note || (async () => {
     const m = manifeste && manifeste.note;
@@ -140,6 +142,7 @@ function chargerNote() {
     const zip = await (await fetch(new URL(`moteur/note.zip?v=${m.sha256.slice(0, 16)}`, base))).arrayBuffer();
     const h = hex(await crypto.subtle.digest("SHA-256", zip));
     if (h !== m.sha256) throw new Error(`Le paquet de la note ne correspond pas à son manifeste (${h.slice(0, 12)} ≠ ${m.sha256.slice(0, 12)})`);
+    if (Array.isArray(m.avec_numpy) && m.avec_numpy.includes(MODULE)) await chargerNumpy();
     py.unpackArchive(zip, "zip", { extractDir: "/moteur" });
     py.runPython("import importlib\nimportlib.invalidate_caches()");
   })();

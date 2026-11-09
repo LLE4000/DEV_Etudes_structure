@@ -185,7 +185,8 @@ comme elles sont pour l'instant (dans Streamlit) ; dans la note de la poutre, «
   incomplètes* (aucun effort), puis à vérifier / conforme. L'ordre inverse, en place jusque-là dans le bloc de la
   poutre, montrait gris un cas rouge : défaut non conservatif, corrigé et figé par un test de chaque module.
 - **La note PDF** : seule la poutre la fait dans le site (`construire.NOTE_PDF`) ; ailleurs les boutons restent grisés
-  « bientôt ». Dans la note de la poutre, les étiquettes à droite de la coupe se réduisent si elles manquent de place
+  « bientôt ». *(Révision du 09/11/2026 : la dalle, le garde-corps, les soudures, les charges sur plancher et les
+  assemblages la font aussi, sur toutes leurs pages, compactes ou non — docs/site/MODULES_SITE.md § 4 quinquies.)* Dans la note de la poutre, les étiquettes à droite de la coupe se réduisent si elles manquent de place
   (jamais sous 70 % du corps) et la colonne d'étiquettes s'élargit : rien ne sort du cadre (`ndc_pdf/section.py`).
 
 **Les contrôles** : `tests/test_api_web_dalle.py` § 13 et `tests/test_api_web_predalle.py` § 12 (l'arborescence, les
