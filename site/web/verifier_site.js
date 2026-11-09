@@ -2178,6 +2178,40 @@ const FILTRE = process.argv[4] || '';
       await pg.context().close();
     }
 
+    // ------------------------------------------------ 2 bis. à la tablette, le NOM de la note se lit en entier
+    // (relecture du 10/11/2026 : « Enregistrer comme note… » sur toute page, ses cibles de 44 px et l'étiquette « Non
+    // enregistrée » serraient le champ du nom à 110 px — « Assemblage… » — et le cachaient à la poutre en paysage, 1 px vu
+    // à 1 180 px). Ce que l'œil voit : la part du champ que la barre ne coupe pas, contre la largeur du texte du nom.
+    for (const [fmt, w, h] of [['tablette portrait', 820, 1180], ['tablette paysage', 1180, 820]]) {
+      const pg = await ctxO(w, h, false, true);
+      const coupes = [];
+      for (const [cle, mod] of Object.entries(MODS)) {
+        if (mod.vers) continue;
+        try {
+          await pg.goto(`${BASE}/${mod.page}`);
+          const ko = await pretO(pg);
+          const m = await pg.evaluate(() => {
+            const cr = document.querySelector('.top .crumbs').getBoundingClientRect(), nom = document.getElementById('nom-note'), r = nom.getBoundingClientRect();
+            const cs = getComputedStyle(nom), t = document.createElement('span');
+            t.style.cssText = `position:absolute;white-space:pre;font:${cs.font}`; t.textContent = nom.value; document.body.appendChild(t);
+            const texte = t.getBoundingClientRect().width; t.remove();
+            const vu = Math.min(r.right, cr.right) - Math.max(r.left, cr.left);
+            return { nom: nom.value, vu: Math.round(vu), texte: Math.round(texte), deborde: document.documentElement.scrollWidth > innerWidth };
+          });
+          // (le champ a ses marges intérieures et son cadre, 2 × 7 px : le texte tient dans la part vue moins 14 px)
+          if (ko || m.deborde || m.vu < m.texte + 14) coupes.push(`${cle} : ${ko || ''}${JSON.stringify(m)}`);
+        } catch (x) { coupes.push(`${cle} : ${String(x.message).split('\n')[0]}`); }
+      }
+      verif(`ouverture · ${fmt} (${w} px, au doigt) : à chaque module ouvert, le nom de la note se lit EN ENTIER dans la barre du haut, rien ne déborde`,
+        !coupes.length, coupes.join(' | ').slice(0, 600));
+      if (w === 1180) {
+        await pg.goto(`${BASE}/${MODS.poutre.page}`);
+        await pretO(pg);
+        await pg.screenshot({ path: path.join(OUT, 'site_ouverture_nom_poutre_1180.png'), clip: { x: 0, y: 0, width: w, height: 64 } });
+      }
+      await pg.context().close();
+    }
+
     // ------------------------------------------------ 3 à 5. le garde-corps aux trois formats : ranger, saisir, rouvrir
     const t0 = Date.now() - 3 * 86400000;   // une note de trois jours
     for (const [fmt, w, h, tel, tactile] of FMT_O) {

@@ -83,6 +83,16 @@ a { color: inherit; text-decoration: none; }
 .et-ranger { flex: none; }
 /* la barre du haut gagne ce bouton : « Ouvrir » (un fichier .stab, rare) passe en icône, le fil de la note garde sa place */
 @media (min-width: 701px) and (max-width: 1599px) { .top label.btn[for="ouvrir"] .lbl { display: none; } }
+/* À LA TABLETTE (701 à 1 199 px), le NOM de la note garde sa place (relecture du 10/11/2026 : depuis que toute page porte
+   ce bouton et ses cibles de 44 px, le champ du nom tombait de 237 à 110 px — « Assemblage… », « Charges sur… » — et
+   disparaissait à la poutre en paysage, 1 px vu à 1 180 px) : « Enregistrer comme note… » y est une icône (son nom au
+   survol, comme les autres boutons sous 1 100 px), et l'étiquette « Non enregistrée » d'une note provisoire ne redit pas
+   l'indicateur qui la suit (« Pas encore enregistré ») — comme au téléphone ; l'indice d'une note écrite reste.
+   (verifier_site.js, filtre « ouverture » : le nom mesuré à la tablette, chaque module.) */
+@media (min-width: 701px) and (max-width: 1199px) {
+  .top .et-ranger .lbl { display: none; }
+  .top .et-ind[data-provisoire="1"] { display: none; }
+}
 .et-rangement { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(13, 21, 37, .32); }
 .et-rangement[hidden] { display: none !important; }
 .et-rg-carte { width: min(420px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-2);

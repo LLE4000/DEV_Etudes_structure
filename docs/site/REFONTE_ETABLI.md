@@ -985,3 +985,21 @@ brique et le format). Mise en page seule (R1 : les mêmes briques aux trois form
 - **Le harnais suit** : `cibles44` (chaque bouton vu de l'établi, mesuré à l'écran : tablettes et chaque onglet du
   téléphone), la ligne de l'élément et ses menus à 44 px ; la fenêtre de calcul s'ouvre en touchant le NOM d'une ligne de
   résultat — le milieu de la ligne tombe désormais sur la pièce, cible de 44 px qui ouvre le sélecteur.
+
+## Révision du 10/11/2026 (relecture du lot) : le nom de la note à la tablette ; l'en-tête des justifications
+
+- **Le NOM de la note se lit à la tablette** (701 à 1 199 px). Mesuré à la relecture : « Enregistrer comme note… » sur
+  toute page, les boutons de 44 px (`flex: none`) et l'étiquette « Non enregistrée » serraient le champ du nom de 237 à
+  110 px (« Assemblage… », « Charges sur… ») et le cachaient à la poutre en paysage (1 px vu à 1 180 px ; 32 avant le
+  lot). Décidé (mise en page seule, R1 tenu : la même information aux trois formats) : à la tablette, « Enregistrer
+  comme note… » est une icône (son nom au survol, comme les autres boutons sous 1 100 px) et l'étiquette d'une note
+  PROVISOIRE ne redit pas l'indicateur qui la suit (« Pas encore enregistré ») — comme au téléphone ; l'indice d'une
+  note écrite reste. Après : le nom entier dans chaque module à 820 et 1 180 px (la poutre : 144 et 203 px pour un
+  texte de 124). Au PC (1 200 px et plus), rien ne change : la poutre à 1 280 px garde un nom coupé (103 px vus pour
+  124 ; 110 avant le lot) — un point de mise en page ouvert, pas une régression du lot. Contrôle : `verifier_site.js`,
+  filtre « ouverture » § 2 bis (chaque module, 820 et 1 180 px, au doigt : le texte du nom tient dans la part vue du
+  champ).
+- **L'en-tête « JUSTIFICATIONS (n) »** du bloc des fiches (`api_web/fiches.bloc`, poutre) porte la classe `.et-arbre-h`
+  de l'ancienne arborescence : ses règles étaient parties avec elle (e043d15) et l'œil lisait « Justifications1 ». Elles
+  sont rendues à lui seul (`.et-fiches > .et-arbre-h`, `css/etabli.css`) ; `tests/test_etabli_compact.py` § 6 bis et le
+  filtre « pilote » le gardent.
