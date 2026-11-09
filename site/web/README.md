@@ -184,21 +184,45 @@ node site/web/verifier_site.js http://127.0.0.1:8770 <dossier> enregistrement   
 #   (FORMATS : accueil, tel, tablettes, communs, numpy — pour prouver une correction par mutation sans tout rejouer)
 ```
 
-## Mettre le site en ligne sur stab-methodes.be (Cloudflare Pages, gratuit)
+## Mettre le site en ligne sur stab-methodes.be (Cloudflare, gratuit)
 
-1. **Cloudflare** → *Workers & Pages* → *Create* → *Pages* → *Connect to Git* → autoriser GitHub → choisir le dépôt
-   `DEV_Etudes_structure` et la branche du site (aujourd'hui `claude/dalle-module-creation-sjmitr`).
-   - *Framework preset* : **None** ; *Build command* : **vide** ; *Build output directory* : **`site/web`**.
-   - *Environment variables* : **`SKIP_DEPENDENCY_INSTALL` = `1`** (le site n'a rien à installer ; sans elle,
-     Cloudflare tenterait d'installer le `requirements.txt` de Streamlit).
-   - *Save and Deploy* : le site est en ligne sur une adresse `….pages.dev` ; chaque poussée le met à jour.
-   - Les pages s'ouvrent sans « .html » (`/poutre`, `/garde-corps`) : c'est ainsi que Pages les sert, et les liens du
-     site visent déjà ces adresses.
-2. Dans le projet Pages → *Custom domains* → *Set up a custom domain* → **stab-methodes.be** (le domaine est déjà
-   chez Cloudflare : la DNS se règle toute seule).
-3. **Le garder privé** (en attendant les comptes) : *Zero Trust* → *Access* → *Applications* → *Add an application*
-   → *Self-hosted* → domaine `stab-methodes.be` → règle *Allow* → *Emails* : les adresses des collègues. Chacun
-   reçoit un code par e-mail pour entrer. Gratuit jusqu'à 50 personnes.
+*Révision du 09/11/2026 : deux projets ont pu être créés (un projet Pages « dev-etudes-structure », dont l'adresse
+`dev-etudes-structure.pages.dev` suit chaque poussée, et un Worker « stab-methodes », la méthode « Workers » du
+06/11 — wrangler.jsonc — prise quand l'import Git de Pages tournait en rond). N'en garder QU'UN : celui qui se met déjà
+à jour à chaque poussée. Le domaine, la protection et le test ci-dessous valent pour les deux.*
+
+**0. Voir ce qui existe** : Cloudflare → *Workers & Pages* → la liste des projets. Ouvrir celui dont le dernier
+déploiement porte le dernier commit de la branche du site.
+
+**1. Le projet suit la bonne branche**
+- Projet **Pages** → *Settings* → *Builds & deployments* : dépôt `DEV_Etudes_structure`, *Production branch* =
+  `claude/dalle-module-creation-sjmitr` ; *Build command* **vide** ; *Build output directory* **`site/web`** ;
+  variable **`SKIP_DEPENDENCY_INSTALL` = `1`** (sinon Cloudflare tente d'installer le `requirements.txt` de Streamlit).
+- Projet **Worker** → *Settings* → *Build* : même dépôt et même branche, *Path* (dossier racine) **`site/web`** ;
+  wrangler.jsonc y fait le reste (fichiers statiques, `_headers`).
+- Les pages s'ouvrent sans « .html » (`/poutre`, `/garde-corps`) : les liens du site visent déjà ces adresses.
+
+**2. Le domaine, avec ET sans « www »** (le domaine est chez Cloudflare : la DNS se règle toute seule)
+- Pages : *Custom domains* → *Set up a custom domain* → `stab-methodes.be`, puis une seconde fois
+  `www.stab-methodes.be`. Worker : *Settings* → *Domains & Routes* → *Add* → *Custom domain*, les deux aussi.
+- Attendre l'état **Active** (le certificat : de quelques minutes à quelques heures).
+- (Variante : ne brancher que `stab-methodes.be` et renvoyer `www` vers lui — *Rules* → *Redirect Rules* → modèle
+  « Redirect from WWW to root », avec un enregistrement DNS `www` au nuage orange.)
+
+**3. Le garder privé** (en attendant les comptes) : *Zero Trust* → *Access* → *Applications* → *Add an application*
+→ *Self-hosted* → nom « Stab Méthodes » → **toutes les adresses** : `stab-methodes.be`, `www.stab-methodes.be`, et
+l'adresse technique (`dev-etudes-structure.pages.dev` et `*.dev-etudes-structure.pages.dev` pour Pages ; pour un
+Worker, couper plutôt l'adresse `….workers.dev` et les « preview URLs » dans *Domains & Routes*) → règle *Allow* →
+*Include* → *Emails* : les adresses des collègues. Chacun reçoit un code par e-mail. Gratuit jusqu'à 50 personnes.
+Une adresse oubliée ici reste ouverte à tous (le 07/11, `.pages.dev` répondait sans code).
+
+**4. Le test d'une minute** (fenêtre de navigation privée, au PC ou au téléphone)
+1. `https://dev-etudes-structure.pages.dev` → la page Cloudflare demande l'e-mail (sinon : non protégé, voir 3).
+2. `https://stab-methodes.be` → le code, puis l'accueil ; ouvrir « Dalles béton armé » : les types disent « Dalle CSP »
+   (la dernière version est en ligne).
+3. `https://www.stab-methodes.be` → la même chose (une erreur : `www` n'est pas branché, voir 2).
+
+Ensuite, chaque poussée sur la branche met le site à jour en une à deux minutes.
 
 `_headers` règle le cache (le cœur Python ne change jamais à adresse égale ; le paquet du moteur est relu à chaque
 ouverture) et la **politique de sécurité** : tout vient du site lui-même, aucun script écrit dans une page ne
