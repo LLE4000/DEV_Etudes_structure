@@ -9,6 +9,9 @@
 # aucune feuille n'en vient (script-src, style-src restent 'self'), et le calcul reste possible hors ligne. Ces trois hôtes
 # sont des COPIES de beton/maturite/meteo.py (ADRESSES) et de js/meteo.js : tests/test_site_web.py les lie.
 # outils/serveur_local.py applique ce fichier comme Cloudflare : verifier_site.js teste le site SOUS cette politique.
+# Les moteurs de recherche n'indexent rien du site et n'en suivent aucun lien (X-Robots-Tag, sur TOUTE adresse : les pages,
+# leurs fichiers, le moteur) : le site est un outil du bureau, pas une vitrine (petits chantiers, 10/11/2026) —
+# tests/test_site_web.py le vérifie.
 /vendor/*
   Cache-Control: public, max-age=31536000, immutable
 /moteur/*
@@ -18,3 +21,4 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: same-origin
   X-Frame-Options: DENY
+  X-Robots-Tag: noindex, nofollow

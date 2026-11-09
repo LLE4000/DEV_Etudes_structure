@@ -887,6 +887,12 @@ for url in ("/index.html", "/poutre.html", "/maturite-beton.html", "/js/travaill
         d.get("default-src") == ["'self'"] and d.get("script-src") == ["'self'", "'wasm-unsafe-eval'"] and d.get("object-src") == ["'none'"]
         and d.get("frame-ancestors") == ["'none'"] and "'unsafe-eval'" not in csp and d.get("connect-src") == ["'self'"] + HOTES_METEO
         and not any("open-meteo" in " ".join(v) for k, v in d.items() if k != "connect-src"), csp)
+# les moteurs de recherche : ni indexation ni liens suivis, sur TOUTE adresse (petits chantiers, 10/11/2026) — l'en-tête
+# X-Robots-Tag de _headers, que outils/serveur_local.py applique comme Cloudflare
+_robots = {u: SL.entetes(u).get("X-Robots-Tag") for u in ("/", "/index.html", "/poutre", "/garde-corps.html", "/bibliotheque-beton", "/js/etabli.js",
+                                                           "/css/site.css", "/moteur/moteur.zip", f"/{SW.PYODIDE}/pyodide.asm.wasm", "/favicon.svg")}
+chk("X-Robots-Tag: noindex, nofollow sur toute adresse du site (pages, scripts, feuilles, moteur, cœur Python) — une fois chacune",
+    all(v == "noindex, nofollow" for v in _robots.values()), _robots)
 # les trois adresses : une SOURCE (le moteur), deux copies NOMMÉES (l'écran, la politique de sécurité), liées ici
 METEO_JS = open(os.path.join(WEB, "js", "meteo.js"), encoding="utf-8").read()
 copie_js = dict(re.findall(r'^\s+(geocodage|archive|prevision): "(https://[^"]+)",$', METEO_JS, re.M))
