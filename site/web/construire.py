@@ -223,7 +223,9 @@ P.gerer_elements(etat, "ajouter")
 for ch, v in ((["type"], "predalle"), (["sections", 0, "My_inf"], 22), (["sections", 0, "faces", "inf_y", "couches", "+"], 1)):
     assert P.modifier(etat, ch, v) is None, ch
 """,
-    # une fixation latérale à l'Eurocode, puis un garde-corps mural
+    # une fixation latérale à l'Eurocode, puis un garde-corps mural, puis un garde-corps en U avec « Cumuler qh et qv » :
+    # sa note a une PAGE DE SUITE (le récapitulatif de la page 1, la bibliothèque de la page 2 : acier/garde_corps/note.Suite),
+    # un chemin que les deux premiers ne prennent pas (relecture du 09/11/2026)
     "garde_corps": """
 from api_web import garde_corps as G
 etat = G.nouvel_etat()
@@ -231,6 +233,9 @@ for ch, v in ((["fixation", "type"], "laterale"), (["methode", "mode"], "eurocod
     assert G.modifier(etat, ch, v) is None, ch
 G.gerer_elements(etat, "ajouter")
 assert G.modifier(etat, ["type"], "murale") is None
+G.gerer_elements(etat, "ajouter")
+for ch, v in ((["geometrie", "forme"], "U"), (["charges", "cumul"], True)):
+    assert G.modifier(etat, ch, v) is None, ch
 """,
     # le cas C3 de départ, puis une C5 sur IPE 300 à l'ELS
     "soudures": """

@@ -22,10 +22,11 @@ en Python ordinaire.
   est refusée, jamais tronquée ;
 - MUTATIONS (chacune doit faire rougir un contrôle) : un garde-corps oublié, des infos mal transmises, la page de suite
   oubliée dans la note entière, la taille toujours « normale » ou toujours « serrée » ;
-- comme dans le navigateur (sonde calquée sur celle du paquet de la note) : sans fontTools ni accélérateurs C, avec le
-  Pillow factice et les seules polices du paquet, la note se fait et son texte est celui de CPython ; ses polices sont
-  celles du paquet ; numpy est déjà chargé par l'écran du module ; les fichiers du dépôt qu'elle charge en plus sont
-  ceux que ``garde_corps.NOTE.fichiers`` déclare.
+- comme dans le navigateur (sonde calquée sur celle du paquet de la note), PAGE DE SUITE COMPRISE : sans fontTools ni
+  accélérateurs C, avec le Pillow factice et les seules polices du paquet, la note se fait et son texte est celui de
+  CPython ; ses polices sont celles du paquet ; numpy est déjà chargé par l'écran du module ; les fichiers du dépôt
+  qu'elle charge en plus sont ceux que ``garde_corps.NOTE.fichiers`` déclare ; et la note « riche » du relevé du paquet
+  (construire.NOTES_RELEVE) passe elle aussi par la page de suite (relecture du 09/11/2026).
 
     python3 tests/test_note_garde_corps.py
 """
@@ -35,6 +36,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
@@ -277,10 +279,32 @@ for k, nom_k in NT.VARIANTES:
         NC.disposition = vrai_disp
     chk(f"mutation « toujours la taille {nom_k} » : un contrôle rougit (tailles, ou refus du débordement)", rouge, ks)
 
-# 6. comme dans le navigateur
+# 6. comme dans le navigateur — page de suite comprise (relecture du 09/11/2026 : la sonde, le relevé du paquet de la
+# note et le harnais ne passaient que par des notes de deux pages ; un module refusé dans le navigateur, chargé sur le
+# seul chemin de la page de suite, laissait cette suite et la construction au vert)
 e_nav = [ETATS["neuve (un garde-corps)"], ETATS["trois garde-corps (dont un NON CONFORME, H = 1600, en taille serrée)"],
-         ETATS["fixation latérale, Eurocode (taille serrée)"], ETATS["consoles au mur, puis main courante de mur à mur"]]
+         ETATS["fixation latérale, Eurocode (taille serrée)"], ETATS["consoles au mur, puis main courante de mur à mur"],
+         deborde]
 infos_nav = {"nom": "relevé", "chantier": "C", "indice": "B", "date": "01/01/2026"}
+sys.path.insert(0, os.path.join(RACINE, "site", "web"))
+try:
+    import construire as K  # noqa: E402
+finally:
+    sys.path.pop(0)
+_ns = {}
+exec(K.NOTES_RELEVE["garde_corps"], _ns)  # noqa: S102 — le code de construire.NOTES_RELEVE
+reports_riche = []
+for c in _ns["etat"]["cas"]:
+    fd_r, ch_r = tempfile.mkstemp(suffix=".pdf")
+    os.close(fd_r)
+    try:
+        NT.generer_note(_ns["etat"], c, {}, chemin=ch_r)
+    finally:
+        os.remove(ch_r)
+    reports_riche.append((c["nom"], NT.derniers_reports, list(NT.derniers_avertissements)))
+chk("la note « riche » du relevé du paquet de la note (construire.NOTES_RELEVE, rejouée paquets déballés par "
+    "test_site_web.py et dans le vrai navigateur par le harnais « note_pdf ») passe par la page de suite, sans débordement",
+    any(r for _n, r, _w in reports_riche) and not any(w for _n, _r, w in reports_riche), reports_riche)
 s = O.sonde("garde_corps", e_nav, infos_nav)
 chk("navigateur : sans fontTools ni accélérateurs C, avec le Pillow factice et les polices du paquet, la note se fait",
     "erreur" not in s and s["fonttools"] is False and s["rl_accel"] is False and s["pil"].startswith(O.STUB), s.get("erreur") or s)
