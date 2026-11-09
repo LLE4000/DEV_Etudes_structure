@@ -300,7 +300,11 @@ quand il est calculé à la main), avec un signet par partie. Fichier : « Note 
   au rapport de la pire pince non conforme quand c'est la géométrie qui gouverne — elle est alors nommée), un taux
   hors échelle s'écrit « > 999 % » comme dans la note de l'assemblage ; chaque page d'assemblage dit le η, le verdict,
   les taux des pièces, les efforts, les profilés et les boulons de l'écran (contrôlé sur seize états, sept
-  configurations, les deux modes du pied de poteau, la moitié non conformes).
+  configurations, les deux modes du pied de poteau, la moitié non conformes) — sauf quand la GÉOMÉTRIE gouverne : la
+  page de l'assemblage (générateur validé, non modifié) garde alors le η max du MOTEUR, écrit « NON VÉRIFIÉ » et nomme
+  la pince en cause, mais pas le taux de pince de l'écran (relecture du 09/11/2026 : platine d'about, M24, N = 50 kN,
+  tp = 12 mm, e2 = 30 mm < 1,2·d0 = 31,2 mm → page « η max 51,7 % », écran et récapitulatif « 104 % »). Le verdict est
+  juste ; le chiffre de la page n'est pas celui de l'écran.
 - **Refus** : un assemblage « à compléter » (dimension vide), « à corriger » (saisie que l'écran refuse) ou dont le
   calcul est impossible ne part pas dans une note — elle est refusée avec un message qui le nomme (Streamlit
   calculait les deux premiers en silence et posait une page « calcul impossible » pour le troisième).

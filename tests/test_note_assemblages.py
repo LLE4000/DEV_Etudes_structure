@@ -294,6 +294,19 @@ if chk("un état où la géométrie gouverne la tête de l'écran (pince non con
     ok_geo, info_geo = controle_geometrie(GEO)
     chk("géométrie : le récapitulatif dit le taux de la tête de l'écran (pas le η du moteur seul) et nomme la géométrie",
         ok_geo, info_geo)
+    # (relecture du 09/11/2026) la PAGE de l'assemblage reste celle du générateur validé : quand la géométrie gouverne,
+    # elle écrit le η max du MOTEUR et « NON VÉRIFIÉ », pas le taux de pince de l'écran. L'écart est MESURÉ ici et ÉCRIT
+    # (MODULES_SITE.md § 4 quinquies, qui disait que chaque page d'assemblage porte le η de l'écran) : ce contrôle lie
+    # l'écrit à la mesure
+    p_geo = texte(note(GEO)[1], 3, 3)
+    m_geo = _ETA_PDF.search(p_geo)
+    eta_page, eta_tete = (pourcent(m_geo.group(1)) if m_geo else None), pourcent(chiffres_ecran(ecran(GEO))["taux"])
+    with open(os.path.join(RACINE, "docs", "site", "MODULES_SITE.md"), encoding="utf-8") as fh:
+        doc_site = fh.read()
+    chk("géométrie : la page de l'assemblage garde le η max du moteur (pas le taux de l'écran) avec « NON VÉRIFIÉ » — "
+        "écart écrit dans MODULES_SITE.md",
+        eta_page is not None and abs(eta_page - eta_tete) >= 1.0 and "NON VÉRIFIÉ" in p_geo
+        and "sauf quand la GÉOMÉTRIE gouverne" in doc_site, (eta_page, eta_tete))
 
 # ===================================================================== 4. la parité avec le rapport de projet Streamlit
 print("— 4. parité avec le rapport de projet de l'écran Streamlit")
