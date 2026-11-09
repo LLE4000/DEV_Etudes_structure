@@ -189,6 +189,30 @@ for k in SW.PAGES:
     else:
         chk(f"{SW.PAGES[k]} : l'établi d'avant, rien du pilote compact",
             "data-etabli" not in html and "etabli.css" not in html and "data-ranger" not in html and 'id="liste"' not in html)
+# 5 ter. la BIBLIOTHÈQUE d'une note (docs/site/BIBLIOTHEQUES.md § 2.4) : le bouton « Bibliothèque » (barre du haut et menu ⋯ du
+# téléphone) et le panneau #et-bibliotheque — le gabarit de la page de la bibliothèque, les identifiants que js/biblio.js et
+# js/biblio_note.js cherchent, la feuille css/bibliotheque.css — dans la page d'un module qui sait préremplir sa bibliothèque
+# (api_web/<cle>.bibliotheque_prefill) ; rien de tout cela dans les autres pages
+_src_biblio = open(os.path.join(WEB, "js", "biblio.js"), encoding="utf-8").read() + open(os.path.join(WEB, "js", "biblio_note.js"), encoding="utf-8").read()
+_ids_biblio = sorted(set(re.findall(r'\$\("#([\w-]+)', _src_biblio)) | set(re.findall(r'getElementById\("([\w-]+)"', _src_biblio)))
+_avec = [k for k in SW.PAGES if k in SW.ETABLI_COMPACT and SW._bibliotheque_du_module(k)]
+chk("la poutre ouvre la bibliothèque béton armé dans sa note (bibliotheque_prefill) ; les dalles et prédalles pas encore", _avec == ["poutre"], _avec)
+_page_bib = open(os.path.join(WEB, "bibliotheque-beton.html"), encoding="utf-8").read()
+chk(f"bibliotheque-beton.html : les {len(_ids_biblio)} identifiants que js/biblio.js cherche existent, une seule fois (hors ceux du panneau d'une note)",
+    all(_page_bib.count(f'id="{i}"') == 1 for i in _ids_biblio if i != "et-bibliotheque"), [i for i in _ids_biblio if _page_bib.count(f'id="{i}"') != 1])
+for k in SW.PAGES:
+    html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
+    _corps = re.search(r"<body[^>]*>", html).group(0)
+    if k in _avec:
+        absents = [i for i in _ids_biblio if f'id="{i}"' not in html]
+        chk(f"{SW.PAGES[k]} : « Bibliothèque » dans la barre du haut et le menu ⋯, le panneau avec ses {len(_ids_biblio)} identifiants (une fois chacun), "
+            "le menu des cinq rubriques, la feuille css/bibliotheque.css, et la page le dit (body data-bibliotheque)",
+            not absents and all(html.count(f'id="{i}"') == 1 for i in _ids_biblio) and html.count('data-action="bibliotheque"') == 2
+            and 'data-bibliotheque="beton"' in _corps and 'href="css/bibliotheque.css"' in html and len(re.findall(r'class="bib-m(?: on)?" data-rubrique="', html)) == 5
+            and html.index('data-action="bibliotheque"') < html.index('data-ranger="1"'), (absents, html.count('data-action="bibliotheque"')))
+    else:
+        chk(f"{SW.PAGES[k]} : sans bibliothèque de note (ni bouton, ni panneau, ni feuille, ni data-bibliotheque)",
+            'data-action="bibliotheque"' not in html and 'id="et-bibliotheque"' not in html and "bibliotheque.css" not in html and "data-bibliotheque" not in _corps)
 _tuiles = {k: a for a, k in re.findall(r'<a class="tile" href="[^"]+" data-(module|nouvelle-module)="(\w+)"',
                                        open(os.path.join(WEB, "index.html"), encoding="utf-8").read())}
 chk("accueil : la tuile d'un module compact ouvre le calcul (lien direct), les autres « Nouvelle note » ; les modules masqués n'ont pas de tuile",

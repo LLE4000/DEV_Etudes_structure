@@ -474,3 +474,60 @@
   [data-etabli="compact"] .ctool .seg button { min-width: 36px; }
   [data-etabli="compact"] .zoom .zpct { width: 36px; }
 }
+
+/* ------------------------------------------------------------------ les JUSTIFICATIONS de la bibliothèque (api_web/fiches.py) */
+/* à gauche, sous l'arborescence : une ligne par fiche (titre, valeur), son menu ⋯ ; un clic ouvre la vue au centre */
+.et-fiches { border-top: 1px solid var(--line); margin-top: 6px; }
+.et-fi { display: flex; align-items: center; min-height: 40px; padding: 0 6px 0 8px; border-bottom: 1px solid var(--line); }
+.et-fi-t { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 6px; text-align: left; border-radius: 7px; color: var(--ink); }
+.et-fi-t:hover { background: var(--bg); }
+.et-fi-t svg.i { flex: none; width: 15px; height: 15px; color: var(--accent); }
+.et-fi-t .t { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.et-fi-t .nom { font-size: 12.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-fi-t .dim { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.et-fi-t .dim sub { font-size: 8.5px; }
+@media (hover: hover) { .et-fi:not(:hover) .et-mn-b:not([aria-expanded="true"]) { opacity: 0; } }
+/* au centre, la vue « Justification » : la fiche est un bloc (pas un dessin), qui défile si elle est longue */
+[data-etabli="compact"] .sheet .draw.bloc { overflow: auto; place-items: start center; }
+.et-fiche { width: 100%; max-width: 980px; margin: 0 auto; padding: 10px 14px 14px; font-size: 12.5px; color: var(--ink); display: flex; flex-direction: column; gap: 10px; }
+.et-fiche-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.et-fiche-ht { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.et-fiche-ht .k { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; }
+.et-fiche-ht b { font-size: 15px; }
+.et-fiche-ht .ph { font-size: 12px; color: var(--ink-2); line-height: 1.35; }
+.et-fiche-v { flex: none; text-align: right; }
+.et-fiche-v b { display: block; font-size: 26px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+.et-fiche-v b small { font-size: 13px; color: var(--ink-3); margin-left: 4px; font-weight: 600; letter-spacing: 0; }
+.et-fiche-v span { font-size: 12.5px; font-weight: 650; color: var(--ink-2); }
+.et-fiche-t { width: 100%; border-collapse: collapse; font-size: 12px; }
+.et-fiche-t td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.35; }
+.et-fiche-t td.s { font-weight: 650; white-space: nowrap; width: 84px; }
+.et-fiche-t td.s sub { font-size: 9px; }
+.et-fiche-t td.nm { color: var(--ink-2); width: 30%; }
+.et-fiche-t td.n { text-align: right; font-weight: 650; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.et-fiche-t td.n .u { color: var(--ink-3); font-weight: 500; font-size: 11px; }
+.et-fiche-t td.rg { color: var(--ink-3); font-size: 11px; padding-left: 10px; }
+.et-fiche-t tr.maj td { background: var(--accent-soft); color: var(--ink); }
+.et-fiche-t tr.maj td.nm { color: var(--accent-hover); font-weight: 650; }
+.et-fiche-av { display: flex; gap: 7px; align-items: flex-start; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.4;
+  color: var(--vrf-encre, #8A5A00); background: var(--vrf-fond, #FFF2D6); }
+.et-fiche-av svg.i { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.et-fiche-x .k { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 700; margin-bottom: 4px; }
+.et-fiche-xc { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.et-fiche-xt { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12px; font-variant-numeric: tabular-nums; }
+.et-fiche-xt th, .et-fiche-xt td { height: 30px; padding: 0 8px; white-space: nowrap; border-bottom: 1px solid var(--line); text-align: right; }
+.et-fiche-xt thead th { background: var(--panel-2); color: var(--ink-2); font-weight: 650; font-size: 11.5px; }
+.et-fiche-xt thead th sub { font-size: 8.5px; }
+.et-fiche-xt th.nm { text-align: left; font-weight: 700; }
+.et-fiche-xt tbody tr.on th.nm { color: var(--accent-hover); box-shadow: inset 3px 0 0 var(--accent); }
+.et-fiche-xt td.col, .et-fiche-xt tr.on td { background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel)); }
+.et-fiche-xt td.cur { box-shadow: inset 0 0 0 2px var(--accent); background: var(--accent-soft); font-weight: 750; }
+.et-fiche-x .src, .et-fiche-s .src { display: inline-flex; gap: 5px; align-items: flex-start; font-size: 11px; color: var(--ink-3); line-height: 1.4; margin-top: 4px; }
+.et-fiche-x .src svg.i, .et-fiche-s svg.i { width: 12px; height: 12px; flex: none; margin-top: 2px; }
+.et-fiche-p { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 11px; color: var(--ink-3); }
+.et-fiche-s { display: flex; flex-wrap: wrap; gap: 3px 14px; }
+@media (max-width: 700px) {
+  [data-etabli="compact"] .et-fi, [data-etabli="compact"] .et-fi-t { min-height: 46px; height: auto; }
+  .et-fiche-h { flex-direction: column; gap: 6px; }
+  .et-fiche-v { text-align: left; }
+}

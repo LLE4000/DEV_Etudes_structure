@@ -297,8 +297,9 @@ def modpanel() -> str:
             f'<a class="btn icon ghost" data-modules="1" title="Fermer">{MQ.icon("x")}</a></div>{corps}</aside>')
 
 
-def tete(titre: str, css: str = "", css2: str = "") -> str:
-    lien = "".join(f'<link rel="stylesheet" href="{c}">\n' for c in (css2, css) if c)
+def tete(titre: str, *feuilles: str) -> str:
+    """L'en-tête d'une page : la charte, site.css, puis les feuilles données, dans cet ordre (une vide est ignorée)."""
+    lien = "".join(f'<link rel="stylesheet" href="{c}">\n' for c in feuilles if c)
     return ('<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n'
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
             f'<title>{titre}</title>\n<link rel="icon" href="favicon.svg" type="image/svg+xml">\n'
@@ -472,11 +473,41 @@ def page_module(cle: str, titre: str) -> str:
              f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
+    # la bibliothèque de la famille, dans un panneau de la note (docs/site/BIBLIOTHEQUES.md § 2.4) : pour un module de
+    # l'établi compact qui sait la préremplir ; sa feuille de style vient avec
+    biblio = _bibliotheque_du_module(cle) if cle in ETABLI_COMPACT else None
     if cle in ETABLI_COMPACT:
-        corps = compact(corps, cle in NOTE_PDF)
+        corps = compact(corps, cle in NOTE_PDF, biblio)
     css = f"css/modules/{cle}.css"
-    return tete(f"{titre} · Stab Méthodes", css if os.path.exists(os.path.join(ICI, css)) else "",
-                "css/etabli.css" if cle in ETABLI_COMPACT else "") + corps
+    return tete(f"{titre} · Stab Méthodes", "css/etabli.css" if cle in ETABLI_COMPACT else "", "css/bibliotheque.css" if biblio else "",
+                css if os.path.exists(os.path.join(ICI, css)) else "") + corps
+
+
+def _gabarit_bibliotheque(B, dedans: str = "") -> str:
+    """Le gabarit d'une bibliothèque — le menu des rubriques à gauche ; la barre de paramètres, LE TABLEAU, la bande de
+    la valeur retenue et les sources à droite ; les identifiants que js/biblio.js cherche — le même dans sa page et dans
+    le panneau d'une note (un composant, deux hôtes). ``dedans`` : ce que la page y ajoute (son écran de démarrage)."""
+    return (f'<div class="bib"><nav class="bib-menu" id="bib-menu" aria-label="Rubriques">{B.menu()}</nav>'
+            f'<section class="bib-corps" id="bib-corps" aria-busy="false"><div class="bib-barre" id="bib-barre"></div>'
+            f'<div class="bib-tableau" id="bib-tableau"><div class="attente">Chargement…</div></div>'
+            f'<div class="bib-bande" id="bib-bande"></div><div class="bib-sources" id="bib-sources"></div></section>{dedans}</div>')
+
+
+def _pourquoi_bibliotheque() -> str:
+    """Le volet « Pourquoi ? » d'une bibliothèque (js/biblio.js l'ouvre et le remplit)."""
+    return ('<div class="bib-pq" id="bib-pourquoi" role="dialog" aria-modal="true" aria-label="Pourquoi cette valeur" hidden>'
+            '<div class="bib-pq-c" id="bib-pq-corps"></div></div>')
+
+
+def _bibliotheque_du_module(cle: str):
+    """La bibliothèque qu'un module ouvre dans son panneau (docs/site/BIBLIOTHEQUES.md § 2.4) : celle de sa famille, si
+    le module sait la préremplir (``bibliotheque_prefill`` dans api_web/<cle>.py) ; sinon aucune — et pas de bouton."""
+    fam = _module(cle)[0]
+    cles = [k for k, (_, _, f) in BIBLIOTHEQUES.items() if f == fam]
+    if not cles:
+        return None
+    mod = importlib.import_module(f"api_web.{cle}")
+    return cles[0] if callable(getattr(mod, "bibliotheque_prefill", None)) else None
 
 
 def page_bibliotheque(cle: str) -> str:
@@ -497,19 +528,14 @@ def page_bibliotheque(cle: str) -> str:
     demarrage = (f'<div class="demarrage" id="demarrage"><div class="carte"><div class="logo">{MQ.LOGO}</div><b>Chargement du moteur de calcul</b>'
                  f'<span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div>'
                  f'<small>La première ouverture prend quelques secondes ; ensuite, chaque consultation est immédiate.</small></div></div>')
-    pourquoi = ('<div class="bib-pq" id="bib-pourquoi" role="dialog" aria-modal="true" aria-label="Pourquoi cette valeur" hidden>'
-                '<div class="bib-pq-c" id="bib-pq-corps"></div></div>')
     corps = (f'<body data-page="bibliotheque" data-bibliotheque="{cle}" data-titre="{MQ.esc(titre)}"><div class="app rail">{rail("modules")}<main class="main">{top}{mhead}'
-             f'<div class="bib"><nav class="bib-menu" id="bib-menu" aria-label="Rubriques">{B.menu()}</nav>'
-             f'<section class="bib-corps" id="bib-corps" aria-busy="false"><div class="bib-barre" id="bib-barre"></div>'
-             f'<div class="bib-tableau" id="bib-tableau"><div class="attente">Chargement…</div></div>'
-             f'<div class="bib-bande" id="bib-bande"></div><div class="bib-sources" id="bib-sources"></div></section>{demarrage}</div>'
-             f'{mnav("modules")}</main></div>{pourquoi}<div class="toast" id="toast" role="status" hidden></div>'
+             f'{_gabarit_bibliotheque(B, demarrage)}'
+             f'{mnav("modules")}</main></div>{_pourquoi_bibliotheque()}<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/bibliotheque.js"></script></body>\n</html>\n')
     return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css") + corps
 
 
-def compact(corps: str, note_pdf: bool = True) -> str:
+def compact(corps: str, note_pdf: bool = True, bibliotheque=None) -> str:
     """L'établi COMPACT, tiré de l'établi ordinaire (les mêmes fragments du moteur, les mêmes identifiants : #donnees,
     #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
     - à gauche, les DONNÉES : les éléments de la note, puis les rubriques du module en accordéon (une ouverte à la fois),
@@ -520,7 +546,10 @@ def compact(corps: str, note_pdf: bool = True) -> str:
     - les deux colonnes se replient et se REDIMENSIONNENT (une poignée sur leur bord intérieur) ;
     - la barre du haut gagne « Enregistrer comme note… » ;
     - ``note_pdf`` : le module fait sa note PDF dans le navigateur — le bouton « Note PDF » s'allume (sinon il reste
-      grisé, « bientôt »), et la page le dit (body data-note-pdf, que js/etabli.js lit)."""
+      grisé, « bientôt »), et la page le dit (body data-note-pdf, que js/etabli.js lit) ;
+    - ``bibliotheque`` (la clé d'une bibliothèque, docs/site/BIBLIOTHEQUES.md § 2.4) : un bouton discret « Bibliothèque »
+      dans la barre du haut et dans le menu ⋯ du téléphone, et le PANNEAU #et-bibliotheque (le gabarit de la page de la
+      bibliothèque, dans une fenêtre modale large ; js/biblio_note.js) — la page le dit (body data-bibliotheque)."""
     gauche_av = ('<div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span>'
                  f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')
     droite_av = ('<div class="phead"><span class="h3">Résultat</span><span id="statut"></span>'
@@ -581,6 +610,24 @@ def compact(corps: str, note_pdf: bool = True) -> str:
                '<div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button>'
                '<button type="submit" class="btn primary">Enregistrer</button></div></form></div>')
     corps = corps.replace('<div class="toast" id="toast"', fenetre + '<div class="toast" id="toast"', 1)
+    if bibliotheque:
+        chemin_b, titre_b, _fam_b = BIBLIOTHEQUES[bibliotheque]
+        B = importlib.import_module(chemin_b)
+        corps = corps.replace('<body data-page="module" data-etabli="compact"', f'<body data-page="module" data-etabli="compact" data-bibliotheque="{bibliotheque}"', 1)
+        # le bouton du ruban, discret, avant « Enregistrer comme note… » ; l'entrée du menu ⋯ du téléphone, après elle
+        bouton_b = _bouton("book-open", "Bibliothèque", f' data-action="bibliotheque" title="Consulter la {MQ.esc(titre_b)} sans quitter la note"', "btn ghost et-biblio")
+        marque = '<button type="button" class="btn sm et-ranger"'
+        assert corps.count(marque) == 1
+        corps = corps.replace(marque, bouton_b + marque, 1)
+        marque = '<span class="et-mi-ranger">Enregistrer comme note…</span></button>'
+        assert corps.count(marque) == 1
+        corps = corps.replace(marque, marque + f'<button type="button" class="mi" data-action="bibliotheque">{MQ.icon("book-open")}Bibliothèque</button>', 1)
+        panneau = (f'<div class="et-bib" id="et-bibliotheque" role="dialog" aria-modal="true" aria-labelledby="et-bib-titre" hidden><div class="et-bib-c">'
+                   f'<div class="et-bib-h"><span class="tag pub">{MQ.icon("book-open")}Bibliothèque</span><b id="et-bib-titre">{MQ.esc(titre_b)}</b>'
+                   f'<span class="sep">›</span><span id="bib-titre"></span>'
+                   f'<button type="button" class="btn icon ghost" data-fermer-bibliotheque="1" aria-label="Fermer la bibliothèque" title="Fermer (Échap)">{MQ.icon("x")}</button></div>'
+                   f'{_gabarit_bibliotheque(B)}{_pourquoi_bibliotheque()}</div></div>')
+        corps = corps.replace('<div class="toast" id="toast"', panneau + '<div class="toast" id="toast"', 1)
     return corps
 
 

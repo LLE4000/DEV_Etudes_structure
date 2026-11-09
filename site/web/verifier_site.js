@@ -644,6 +644,20 @@ const FILTRE = process.argv[4] || '';
             const petits = await t.$$eval('#donnees input:not([type=checkbox]):not([type=file]), #donnees select, #donnees textarea',
               (x) => x.filter((e) => e.checkVisibility()).filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`));
             verif(`${cle} · téléphone : chaque champ s'écrit en 16 px au moins`, !petits.length, petits.slice(0, 4).join(', '));
+            if (await t.$('#et-bibliotheque')) {
+              // la bibliothèque de la note au téléphone : l'entrée du menu ⋯ ouvre une feuille plein écran, qui se referme
+              await t.click('#menu-m');
+              await t.click('#mmenu [data-action="bibliotheque"]');
+              await t.waitForFunction(() => { const p = document.getElementById('et-bibliotheque'); return p && !p.hidden && p.querySelector('#bib-corps').getAttribute('aria-busy') === 'false' && p.querySelector('.bib-val'); }, null, { timeout: 60000 });
+              await t.waitForTimeout(250);
+              const pb = await boite(t, '#et-bibliotheque .et-bib-c');
+              const mb = await mesurer(t);
+              verif(`${cle} · téléphone : « Bibliothèque » (menu ⋯) ouvre une feuille plein écran, rien ne déborde`, pb && pb.l === pb.W && pb.t >= pb.H - 1 && !mb.deborde, JSON.stringify({ pb, mb }));
+              await t.screenshot({ path: path.join(OUT, `site_${cle}_tel_bibliotheque.png`) });
+              await t.click('#et-bibliotheque [data-fermer-bibliotheque]');
+              await t.waitForTimeout(150);
+              verif(`${cle} · téléphone : la bibliothèque se referme`, await t.$eval('#et-bibliotheque', (x) => x.hidden));
+            }
           }
           const cibles = await t.evaluate(() => {
             // (et celles de l'établi compact : l'arborescence, ses menus, les pièces, les barres d'un cadre, les blocs et la
@@ -2181,20 +2195,75 @@ const FILTRE = process.argv[4] || '';
       const n2 = await noms();
       verif('pilote : le menu ⋯ d\'une poutre s\'ouvre dans l\'écran ; « Copier la poutre » l\'insère après elle ; « Supprimer » (confirmé) la retire',
         mn.vu && mn.dedans && n1.join() === 'V1,V1 (copie)' && n2.join() === 'V1', JSON.stringify({ mn, n1, n2 }));
-      // la note PDF, faite dans le navigateur
+      // ---- la BIBLIOTHÈQUE de la note (docs/site/BIBLIOTHEQUES.md § 2.4, § 2.5) : le bouton du ruban ouvre un grand panneau,
+      // prérempli depuis la poutre ; « Utiliser cette valeur » écrit c (une saisie ordinaire) ; « Inclure dans la note »
+      // ajoute une fiche (bloc « Justifications », vue J1) ; Échap referme et rend le focus ; la note PDF et le .stab
+      // emportent la fiche ; le menu ⋯ de la fiche la retire
+      const bibPret = () => g.waitForFunction(() => { const p = document.getElementById('et-bibliotheque');
+        return p && !p.hidden && p.querySelector('#bib-corps').getAttribute('aria-busy') === 'false' && p.querySelector('#bib-tableau .cur') && p.querySelector('.bib-val'); }, null, { timeout: 60000 });
+      await g.click('.top [data-action="bibliotheque"]');
+      await bibPret();
+      await g.waitForTimeout(250);
+      const bb = await g.evaluate(() => { const p = document.getElementById('et-bibliotheque'), c = p.querySelector('.et-bib-c').getBoundingClientRect(), u = p.querySelector('[data-utiliser]');
+        return { l: Math.round(c.width), t: Math.round(c.height), dedans: c.left >= 0 && c.right <= innerWidth && c.top >= 0 && c.bottom <= innerHeight,
+          rubrique: p.querySelector('.bib-m.on').dataset.rubrique, classe: p.querySelector('[data-param="classe"]').value, phi: p.querySelector('[data-param="phi"]').value,
+          element: (p.querySelector('.seg[data-param="element"] button.on') || {}).dataset?.valeur, utiliser: u.textContent.trim(), grise: u.disabled, titre: u.title,
+          tableau: p.querySelector('#bib-tableau').scrollHeight <= p.querySelector('#bib-tableau').clientHeight + 1 }; });
+      verif('pilote : « Bibliothèque » ouvre un grand panneau dans l\'écran, sur « Enrobages », prérempli depuis la poutre (poutre, C30/37, Ø 16), le tableau entier ; « Utiliser cette valeur » nomme c',
+        bb.dedans && bb.l >= 1100 && bb.t >= 700 && bb.rubrique === 'enrobages' && bb.classe === 'C30/37' && bb.phi === '16' && bb.element === 'poutre' && bb.tableau
+        && !bb.grise && /^Utiliser cette valeur · c = [\d,]+ cm$/.test(bb.utiliser) && /c enrobage/.test(bb.titre), JSON.stringify(bb));
+      await g.screenshot({ path: path.join(OUT, 'site_pilote_bibliotheque.png') });
+      const cAvant = await g.$eval('#donnees input[data-chemin="enrobage"]', (x) => x.value);
+      const cBib = bb.utiliser.replace(/^.*c = /, '').replace(/ cm$/, '');
+      await g.click('#et-bibliotheque [data-utiliser]');
+      await tranquille();
+      await bibPret();
+      await g.waitForTimeout(250);
+      const cApres = await g.$eval('#donnees input[data-chemin="enrobage"]', (x) => x.value);
+      verif('pilote : « Utiliser cette valeur » écrit c_nom (en cm) dans « c enrobage » de la poutre, le panneau reste ouvert et se relit depuis la note',
+        cApres === cBib && cApres !== cAvant && !(await g.$eval('#et-bibliotheque', (x) => x.hidden)) && (await g.$eval('#et-bibliotheque [data-utiliser]', (x) => x.textContent.trim())) === bb.utiliser,
+        JSON.stringify({ cAvant, cBib, cApres }));
+      await g.click('#et-bibliotheque [data-inclure="fiche"]');
+      await tranquille();
+      await g.waitForTimeout(300);
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(150);
+      const fi = await g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1'))[id];
+        return { ferme: document.getElementById('et-bibliotheque').hidden, fiches: (n.etat.fiches || []).map((f) => f.titre), bloc: (document.querySelector('#donnees .et-fiches .n') || {}).textContent,
+          onglet: !!document.querySelector('#vues [data-vue="fiche-0"]'), focus: !!document.activeElement && document.activeElement.matches('.top [data-action="bibliotheque"]') }; });
+      await g.click('#donnees [data-vue-fiche="fiche-0"]');
+      await g.waitForTimeout(250);
+      const vf = await g.evaluate(() => { const v = document.querySelector('#stage .view.on'); const f = v && v.querySelector('.et-fiche'); const r = f && f.getBoundingClientRect();
+        return { vue: v && v.dataset.vue, titre: f && f.querySelector('.et-fiche-ht b').textContent, visible: !!r && r.width > 400 && r.height > 200 && r.top >= 0,
+          lignes: f ? f.querySelectorAll('.et-fiche-t tr').length : 0, extrait: !!(f && f.querySelector('.et-fiche-xt td.cur')) }; });
+      verif('pilote : « Inclure dans la note » ajoute une fiche (état, bloc « Justifications 1 », onglet J1) ; Échap referme et rend le focus ; la fiche se lit au centre (lignes, extrait, case)',
+        fi.ferme && fi.fiches.length === 1 && /^Enrobage poutre/.test(fi.fiches[0]) && fi.bloc === '1' && fi.onglet && fi.focus
+        && vf.vue === 'fiche-0' && vf.titre === fi.fiches[0] && vf.visible && vf.lignes >= 6 && vf.extrait, JSON.stringify({ fi, vf }));
+      await g.screenshot({ path: path.join(OUT, 'site_pilote_justification.png') });
+      // la note PDF, faite dans le navigateur — avec la page des justifications et la fiche J1
       const [pdf] = await Promise.all([g.waitForEvent('download', { timeout: 120000 }), g.click('.top [data-action="pdf"]')]);
       const fpdf = path.join(OUT, 'site_pilote_note.pdf');
       await pdf.saveAs(fpdf);
       const tete = fs.readFileSync(fpdf).subarray(0, 5).toString();
-      verif('pilote : « Note PDF » télécharge la note de calcul (PDF fait dans le navigateur)', /\.pdf$/.test(pdf.suggestedFilename()) && tete === '%PDF-' && fs.statSync(fpdf).size > 30000,
-        `${pdf.suggestedFilename()} · ${tete}`);
-      // le .stab : un nom qui finit par .stab (jamais .stab.json), toute la note dedans
+      const txtPdf = require('child_process').execSync(`pdftotext -layout "${fpdf}" -`, { encoding: 'utf8' });
+      verif('pilote : « Note PDF » télécharge la note de calcul (PDF fait dans le navigateur), avec la page « Justifications de la bibliothèque » et la fiche J1',
+        /\.pdf$/.test(pdf.suggestedFilename()) && tete === '%PDF-' && fs.statSync(fpdf).size > 30000 && /Justifications de la bibliothèque/.test(txtPdf) && /Enrobage poutre/.test(txtPdf),
+        `${pdf.suggestedFilename()} · ${tete} · ${txtPdf.length} caractères`);
+      // le .stab : un nom qui finit par .stab (jamais .stab.json), toute la note dedans — la fiche aussi
       const [stab] = await Promise.all([g.waitForEvent('download'), g.click('.top [data-action="exporter"]')]);
       const fstab = path.join(OUT, 'site_pilote.stab');
       await stab.saveAs(fstab);
       const lu = JSON.parse(fs.readFileSync(fstab, 'utf8'));
-      verif('pilote : « .stab » enregistre « ….stab » (pas de « .json »), avec toute la note', /\.stab$/.test(stab.suggestedFilename()) && lu.format === 'stab' && lu.note.etat.poutres[0].sections[0].V === 40,
-        stab.suggestedFilename());
+      verif('pilote : « .stab » enregistre « ….stab » (pas de « .json »), avec toute la note (la fiche comprise)', /\.stab$/.test(stab.suggestedFilename()) && lu.format === 'stab' && lu.note.etat.poutres[0].sections[0].V === 40
+        && (lu.note.etat.fiches || []).length === 1, stab.suggestedFilename());
+      // le menu ⋯ de la fiche la retire : plus de bloc, plus d'onglet, plus de clé « fiches » dans l'état
+      await g.click('#donnees .et-fi[data-fiche="0"] [data-menu]');
+      await g.click('#donnees .et-fi[data-fiche="0"] .et-mn-l [data-fiche-retirer="0"]');
+      await tranquille();
+      await g.waitForTimeout(200);
+      verif('pilote : le menu ⋯ de la fiche la retire — plus de bloc « Justifications », plus d\'onglet J1, l\'état sans clé « fiches »',
+        !(await g.$('#donnees .et-fiches')) && !(await g.$('#vues [data-vue="fiche-0"]'))
+        && (await g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); return !('fiches' in JSON.parse(localStorage.getItem('stab.notes.v1'))[id].etat); })));
       // « Enregistrer comme note… » : le nom, le chantier, le dossier
       await g.click('.top [data-ranger]');
       verif('pilote : « Classer la note… » ouvre la fenêtre, le nom déjà rempli', (await g.isVisible('#et-rangement')) && (await g.inputValue('#et-rg-nom')) === 'Poutres béton armé');

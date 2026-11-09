@@ -167,3 +167,25 @@
   .bib-bande-b .btn { flex: 1; height: 42px; justify-content: center; }
   .bib-pq-c { width: 100vw; }
 }
+
+/* ---------------------------------------------------------------- le panneau « Bibliothèque » d'une note (docs/site/BIBLIOTHEQUES.md
+   § 2.4) : le même gabarit .bib, dans une fenêtre modale large, presque toute la hauteur ; au téléphone, une feuille
+   plein écran. Chargée par la page d'un module dont la famille a une bibliothèque (construire.compact). */
+.et-bib { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(13, 21, 37, .32); }
+.et-bib[hidden] { display: none; }
+.et-bib-c { position: relative; width: min(1240px, 100vw - 32px); height: min(92vh, 100vh - 32px); display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-2); overflow: hidden; }
+.et-bib-h { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--line); flex: none; }
+.et-bib-h .tag { flex: none; }
+.et-bib-h b { flex: none; font-size: 14px; }
+.et-bib-h .sep { color: var(--ink-4); }
+.et-bib-h #bib-titre { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.et-bib .bib { height: auto; min-height: 0; flex: 1 1 auto; }
+.et-bib .bib-corps { padding: 10px 16px 12px; }
+.et-bib .bib-pq { position: absolute; }                              /* « Pourquoi ? » se range dans le panneau, pas sur la note */
+.et-bib .bib-pq-c { width: min(640px, 100%); }
+@media (max-width: 700px) {
+  .et-bib-c { width: 100vw; height: 100svh; border-radius: 0; border: 0; }
+  .et-bib .bib { min-height: 0; }
+  .et-bib .bib-pq-c { width: 100vw; }
+}

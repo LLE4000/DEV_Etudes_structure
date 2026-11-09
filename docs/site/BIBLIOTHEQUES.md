@@ -104,34 +104,53 @@ profil, assemblages, soudures) restent des calculs.
 
 ### 2.4 Le bouton « Bibliothèque » de chaque calcul
 
-- Dans le ruban du haut (`construire.page_module`, à côté de « Ouvrir »), un bouton discret `data-action="bibliotheque"`
-  (icône livre, libellé caché sous 1 100 px comme les autres) ; dans le menu ⋯ du téléphone, l'entrée « Bibliothèque ».
+- Dans le ruban du haut (`construire.compact`, avant « Enregistrer comme note… »), un bouton discret
+  `data-action="bibliotheque"` (icône livre, libellé caché sous 1 100 px comme les autres) ; dans le menu ⋯ du
+  téléphone, l'entrée « Bibliothèque ». Un module l'a quand il sait préremplir sa bibliothèque
+  (`api_web/<cle>.bibliotheque_prefill`, `construire._bibliotheque_du_module`) : la poutre aujourd'hui ; dalle et
+  prédalle quand elles l'auront (le panneau et le script sont prêts pour les trois).
 - Il ouvre un **grand panneau** (`#et-bibliotheque`, fenêtre modale comme `#et-rangement` mais de
-  `min(1240px, 100vw − 32px)` et presque toute la hauteur ; au téléphone, une feuille plein écran) qui contient la
-  bibliothèque de la famille du module, rendue par `consulter` avec les **paramètres connus de la note** : pour la
-  poutre, le béton, les Ø des barres et de l'étrier, l'enrobage saisi, l'élément « poutre », b ; pour les dalles, idem
-  avec « dalle ».
-- Rien du calcul ne change tant qu'on ne clique pas « Utiliser cette valeur » (qui écrit, par exemple, c_nom dans le
-  champ « c enrobage » de la poutre, par le chemin `modifier` ordinaire, et le dit par un message) ; « Fermer »
-  revient à la note telle quelle.
+  `min(1240px, 100vw − 32px)` et presque toute la hauteur ; au téléphone, une feuille plein écran) qui contient le
+  **même gabarit** que la page de la bibliothèque (`construire._gabarit_bibliotheque`, câblé par le même
+  `js/biblio.js` ; `js/biblio_note.js` porte ce qui est propre à la note). Le routeur (action « bibliotheque ») rend la
+  rubrique avec les **paramètres connus de la note** — pour la poutre : l'élément « poutre », le béton, le plus gros Ø
+  des lits et des cadres, b ; les ancrages, bétons, aciers et sections reçoivent les leurs — et ouvre les **Enrobages**
+  d'abord. Les paramètres changés à l'écran priment ; à chaque ouverture, le panneau repart de la note.
+- Rien du calcul ne change tant qu'on ne clique pas « Utiliser cette valeur » : le routeur nomme la **cible**
+  (`bibliotheque_cibles` : le chemin `modifier`, la valeur, le libellé — c_nom en cm dans « c enrobage », la classe
+  dans « Béton », la nuance dans « Acier ») ; le bouton dit ce qu'il écrira (« Utiliser cette valeur · c = 2,6 cm »,
+  l'ancienne valeur au survol) et reste **grisé avec la raison** quand le module ne connaît pas la valeur (une classe
+  hors des tableaux du bureau) ou qu'aucun champ ne la reçoit (ancrages, sections). Après l'écriture, le panneau se
+  relit depuis la note (la case allumée suit) ; Échap et « Fermer » reviennent à la note telle quelle, le focus au bouton.
 
 ### 2.5 « Inclure dans la note » et le PDF
 
 - Deux insertions, depuis la bande de valeur du panneau : la **fiche justificative** (valeur retenue, paramètres,
-  lignes de justification, formules, référence) et l'**extrait de tableau** (la ligne et la colonne de la case, la
-  case marquée, avec l'en-tête et la source).
-- Elles s'écrivent dans l'état de la note : `etat.fiches = [ {id, rubrique, sorte: "fiche" | "extrait", titre,
-  params, valeur, lignes, formules, sources, extrait, date, moteur} ]` — **une copie figée** de tout ce qu'il faut
-  pour relire la fiche sans le moteur (traçabilité des notes anciennes ; c'est une copie d'un run gelé au sens de R2,
-  comme D-013). Le précédent est `justifs` des sections de la poutre : clé ajoutée aux clés admises, absente dans une
-  note ancienne (qui reste identique à l'octet), relue strictement.
-- Dans l'établi compact, sous l'arborescence, un bloc **« Justifications (n) »** de la note : une ligne par fiche
-  (titre, valeur), menu ⋯ (retirer, monter, descendre) ; au centre, une vue « Justification » montre la fiche choisie.
-- Dans la note PDF : après les planches, des pages A4 **paysage**, même charte (`ndc_pdf/styles.py`), « Justifications
-  de la bibliothèque » : deux ou trois fiches par page (bloc clé-valeur, formules en `riche`, source en pied), un
-  extrait de tableau par fiche quand il y en a un. Il faut pour cela **une brique `table` dans `ndc_pdf/kit.py`**,
-  tirée des deux copies locales des notes garde-corps et soudures (qui la reprendront : une source).
-- Le gabarit du PDF n'est pas refait : la page de garde, le cartouche et les planches restent.
+  lignes de justification avec leur règle, sources) et l'**extrait de tableau** (le tableau entier de la rubrique,
+  la ligne et la case retenues marquées, avec l'en-tête et la source) — la même fiche figée, la sorte dit ce qu'on
+  met en avant.
+- Elles s'écrivent dans l'état de la note : `etat.fiches = [ {id, sorte: "fiche" | "extrait", bibliotheque, rubrique,
+  titre, symbole, valeur, texte, unite, phrase, params, lignes: [{symbole, nom, valeur, texte, unite, regle}], sources,
+  avertissements, extrait: {titre, entetes, lignes, case, source}, date, moteur} ]` — **une copie figée** de tout ce
+  qu'il faut pour relire la fiche sans le moteur (traçabilité des notes anciennes ; c'est une copie d'un run gelé au
+  sens de R2, comme D-013 : `texte` est la valeur telle que la bande l'affichait, `moteur` nomme la bibliothèque et sa
+  version). `api_web/fiches.py` (partagé par poutre, dalle, prédalle) la **relit strictement** (clé inconnue, sorte,
+  extrait non rectangulaire, case hors du tableau, textes bornés, 24 fiches au plus : refusé avec un message, l'état
+  intact) ; la clé `fiches` est **absente** tant que la note n'en a aucune — une note ancienne reste identique à
+  l'octet, le gel (`test_reference_refonte`) n'a pas bougé. Le routeur sert l'action « fiches » (ajouter, retirer,
+  monter, descendre) comme « modifier » : l'état, les fragments, un message ; « Annuler » la défait.
+- Dans l'établi compact, sous l'arborescence, le bloc **« Justifications (n) »** de la note : une ligne par fiche
+  (titre, valeur), menu ⋯ (monter, descendre, retirer) ; un clic ouvre au centre la vue « J1 » (clé `fiche-0` — jamais
+  « s0 », que js/compact.js lit comme une section) : titre, valeur en grand, phrase des paramètres, lignes, extrait
+  (la case allumée), sources, date. Rien de tout cela tant que la note n'a aucune fiche (très peu de texte permanent).
+- Dans la note PDF (`ndc_pdf/styles.Style.justifications`, `build(fiches=…)`) : après les planches, des pages A4
+  **paysage**, même charte, « Justifications de la bibliothèque », annoncées au sommaire de la garde ; **deux colonnes**,
+  chaque fiche commence dans une colonne neuve et se poursuit dans la suivante (« J2 (suite) ») — le flux des planches,
+  jamais une fiche tronquée ; l'extrait est un tableau (la ligne et la case retenues en gras) qui tient entier dans sa
+  colonne (douze colonnes du tableau 3.1 comprises). La brique **`ndc_pdf.kit.table`** porte le corps des tableaux :
+  les notes garde-corps et soudures l'appellent (leurs copies locales sont retirées), les fiches aussi — une source.
+- Le gabarit du PDF n'est pas refait : la page de garde, le cartouche et les planches restent ; sans fiche, le document
+  est celui d'avant.
 
 ## 3. Correspondance ancien → nouveau
 
@@ -207,7 +226,7 @@ aucune valeur, jusqu'à ce que l'ingénieur transcrive les deux tableaux depuis 
 | **BIB1** moteur — **fait le 08/11/2026** | `beton/bibliotheque/` : `ancrages.py` (§8.4, §8.7), `enrobage.py` (4.4N, 4.3N, feu aux valeurs de la norme pour poutres et dalles, libellés belges), `aciers.py` (k, ε_uk, ductilité), les ε et f_cd des bétons dans `beton/donnees/ec2.py` | `tests/test_bibliotheque_moteur.py` (114 contrôles) : l'exemple p. 49 de la NIT, les tableaux 24 et 25 à 2 cm (Ø ≤ 32) et 5 cm (Ø 50), le tableau 20, le tableau 21 sur ses extrêmes, les déformations du tableau 3.1 ; 15 mutations ; aucun module existant touché |
 | **BIB2** page — **fait le 08/11/2026** | `api_web/biblio_beton.py` (hors du registre des modules : action « consulter » du routeur, `consulter(rubrique, params, hote)`), `construire.page_bibliotheque` (page `bibliotheque-beton`), `css/bibliotheque.css`, `js/bibliotheque.js` : les cinq rubriques, tableau à sélection (chaque case porte les paramètres qu'un clic règle), barre de paramètres, bande de valeur, « Pourquoi ? » en volet, l'adresse qui garde l'état ; trois icônes Lucide ajoutées (book-open, anchor, flame) | `tests/test_api_web_bibliotheque.py` (101 contrôles : valeurs = moteurs, chaque case allume sa case, refus doux, échappement, routeur, page, mutations) ; `verifier_site.js` filtre « bibliotheque » (100 contrôles : 1 440 × 900, 1 180 × 820, 820 × 1 180, 390 × 844 — le tableau se voit d'un coup sur PC et tablette, la case allumée visible, les gestes, l'adresse rouverte) ; captures regardées ; **relecture de l'ingénieur attendue** |
 | **BIB3** accueil — **fait le 09/11/2026** | `site/maquettes/construire.py` : `MASQUES` (donnees_beton, armatures, enrobage) ; `construire.py` : la carte « Bibliothèque Béton armé » (`.tile.biblio`, icône livre, rubriques en sous-titre) en tête du bloc Béton, le volet « Modules » (rail du PC, onglet du téléphone) commence par le groupe **Bibliothèques**, les masqués quittent les tuiles, le volet et « Nouvelle note » ; `js/modules.js` les garde avec `masque: true` (pages servies, notes existantes ouvrables, note neuve par l'adresse) ; `css/site.css` `.tile.biblio` | `tests/test_site_web.py` § 4 ter (carte en tête du bloc, rubriques, drapeau `masque`, volet, options, pages masquées toujours écrites) ; `verifier_site.js` accueil (registre visible, masqués absents, carte en tête, volet) et le repli par l'adresse pour un module masqué (`nouvelle()`, `neuve()` — le harnais SUIT : la fenêtre « Nouvelle note » ne les propose plus) ; captures accueil PC et téléphone regardées |
-| **BIB4** la poutre | bouton et panneau « Bibliothèque », préremplissage, « Utiliser cette valeur », « Inclure dans la note », `etat.fiches`, bloc « Justifications », vue, PDF (brique `table` du kit) ; puis dalle et prédalle (même établi) | gel de la poutre : regel accepté par la garde (champ `fiches` ajouté, note ancienne identique) ; tests note PDF ; harnais « pilote » ; captures |
+| **BIB4** la poutre — **fait le 09/11/2026** | `api_web/fiches.py` (relecture stricte, gestion, bloc, vues), `routeur` (actions « bibliotheque », « fiches »), `poutre.py` (`bibliotheque_prefill`, `bibliotheque_cibles`, `fiches`, `normaliser`), `biblio_beton._fiche` (texte, phrase, moteur), `ndc_pdf/kit.table` + `styles.justifications` (deux colonnes, suite), `note_poutre`, `construire` (bouton, menu ⋯, panneau = gabarit partagé), `js/biblio.js` (câblage partagé page + panneau), `js/biblio_note.js`, `css` ; dalle et prédalle : au prochain lot (le panneau et le script les attendent) | `tests/test_api_web_fiches.py` (44 contrôles : préremplissage, cibles possibles ou non, utiliser = modifier, fiches ajouter/monter/descendre/retirer, clé absente, 12 fiches abîmées refusées, échappement, PDF lu par pdftotext, brique table, 3 mutations) ; `test_site_web` (203 : bouton, panneau, identifiants, rien ailleurs) ; gel inchangé (239) ; notes garde-corps et soudures inchangées ; harnais « pilote » (panneau prérempli, utiliser, inclure, J1, PDF avec la fiche, .stab, retirer), « formats:poutre » (feuille plein écran au téléphone), « bibliotheque » ; captures regardées |
 | **BIB5** acier | Bibliothèque Acier (catalogue sous le gabarit), bouton « Bibliothèque » des calculs acier | tests catalogue inchangés (moteur intact) ; harnais ; captures |
 
 Ordre : BIB1 → BIB2 → BIB3 (court, pour que la bibliothèque se trouve) → BIB4 → BIB5, puis les autres modules de

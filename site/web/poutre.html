@@ -8,9 +8,10 @@
 <link rel="stylesheet" href="css/charte.css">
 <link rel="stylesheet" href="css/site.css">
 <link rel="stylesheet" href="css/etabli.css">
+<link rel="stylesheet" href="css/bibliotheque.css">
 <script src="js/theme.js"></script>
 </head>
-<body data-page="module" data-etabli="compact" data-note-pdf="1" data-module="poutre" data-titre="Poutres béton armé"><div class="app rail"><nav class="nav"><a class="brand" href="./" title="Accueil"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div></a><a class="navitem" data-tip="Accueil" href="./"><svg
+<body data-page="module" data-etabli="compact" data-bibliotheque="beton" data-note-pdf="1" data-module="poutre" data-titre="Poutres béton armé"><div class="app rail"><nav class="nav"><a class="brand" href="./" title="Accueil"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 18h14M12 6v12"/><path d="M8.5 6v0M15.5 18" /></svg></div></a><a class="navitem" data-tip="Accueil" href="./"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -215,7 +216,21 @@
   <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
   <path d="M12 9v4" />
   <path d="M12 17h.01" />
-</svg></span><span class="et-enr-mot"></span><span class="et-enr-txt"><span class="et-enr-etat">Pas encore enregistré</span><span class="et-enr-raison"></span></span></span><button type="button" class="btn sm et-ranger" data-ranger="1" title="Nommer la note et la ranger dans un chantier"><svg
+</svg></span><span class="et-enr-mot"></span><span class="et-enr-txt"><span class="et-enr-etat">Pas encore enregistré</span><span class="et-enr-raison"></span></span></span><button type="button" class="btn ghost et-biblio" data-action="bibliotheque" title="Consulter la Béton armé sans quitter la note"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 7v14" />
+  <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+</svg><span class="lbl">Bibliothèque</span></button><button type="button" class="btn sm et-ranger" data-ranger="1" title="Nommer la note et la ranger dans un chantier"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -389,7 +404,21 @@
   stroke-linejoin="round"
 >
   <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
-</svg><span class="et-mi-ranger">Enregistrer comme note…</span></button><label class="mi" for="ouvrir"><svg
+</svg><span class="et-mi-ranger">Enregistrer comme note…</span></button><button type="button" class="mi" data-action="bibliotheque"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 7v14" />
+  <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+</svg>Bibliothèque</button><label class="mi" for="ouvrir"><svg
   class="i"
   xmlns="http://www.w3.org/2000/svg"
  
@@ -697,5 +726,113 @@
 >
   <path d="M18 6 6 18" />
   <path d="m6 6 12 12" />
-</svg></button></div><label class="et-rg-l">Nom de la note<input id="et-rg-nom" class="field-in" autocomplete="off" spellcheck="false" maxlength="200"></label><label class="et-rg-l">Chantier<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans chantier"></label><label class="et-rg-l">Dossier<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans dossier"></label><datalist id="et-rg-chantiers"></datalist><datalist id="et-rg-dossiers"></datalist><p class="et-rg-aide">La note est enregistrée dans ce navigateur ; « Exporter .stab » en garde une copie en fichier.</p><div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button><button type="submit" class="btn primary">Enregistrer</button></div></form></div><div class="toast" id="toast" role="status" hidden></div><script type="module" src="js/etabli.js"></script></body>
+</svg></button></div><label class="et-rg-l">Nom de la note<input id="et-rg-nom" class="field-in" autocomplete="off" spellcheck="false" maxlength="200"></label><label class="et-rg-l">Chantier<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans chantier"></label><label class="et-rg-l">Dossier<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans dossier"></label><datalist id="et-rg-chantiers"></datalist><datalist id="et-rg-dossiers"></datalist><p class="et-rg-aide">La note est enregistrée dans ce navigateur ; « Exporter .stab » en garde une copie en fichier.</p><div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button><button type="submit" class="btn primary">Enregistrer</button></div></form></div><div class="et-bib" id="et-bibliotheque" role="dialog" aria-modal="true" aria-labelledby="et-bib-titre" hidden><div class="et-bib-c"><div class="et-bib-h"><span class="tag pub"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 7v14" />
+  <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+</svg>Bibliothèque</span><b id="et-bib-titre">Béton armé</b><span class="sep">›</span><span id="bib-titre"></span><button type="button" class="btn icon ghost" data-fermer-bibliotheque="1" aria-label="Fermer la bibliothèque" title="Fermer (Échap)"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M18 6 6 18" />
+  <path d="m6 6 12 12" />
+</svg></button></div><div class="bib"><nav class="bib-menu" id="bib-menu" aria-label="Rubriques"><button type="button" class="bib-m on" data-rubrique="betons" aria-pressed="true"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z" />
+  <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+  <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+</svg><span class="bib-mt">Bétons</span><span class="bib-ms">Classes, résistances, déformations</span></button><button type="button" class="bib-m" data-rubrique="aciers" aria-pressed="false"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <line x1="21" x2="14" y1="4" y2="4" />
+  <line x1="10" x2="3" y1="4" y2="4" />
+  <line x1="21" x2="12" y1="12" y2="12" />
+  <line x1="8" x2="3" y1="12" y2="12" />
+  <line x1="21" x2="16" y1="20" y2="20" />
+  <line x1="12" x2="3" y1="20" y2="20" />
+  <line x1="14" x2="14" y1="2" y2="6" />
+  <line x1="8" x2="8" y1="10" y2="14" />
+  <line x1="16" x2="16" y1="18" y2="22" />
+</svg><span class="bib-mt">Aciers</span><span class="bib-ms">Nuances, ductilité, treillis</span></button><button type="button" class="bib-m" data-rubrique="sections" aria-pressed="false"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <rect width="18" height="18" x="3" y="3" rx="2" />
+  <path d="M3 12h18" />
+  <path d="M12 3v18" />
+</svg><span class="bib-mt">Sections</span><span class="bib-ms">Sections et masses des armatures</span></button><button type="button" class="bib-m" data-rubrique="enrobages" aria-pressed="false"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+  <path d="m9 12 2 2 4-4" />
+</svg><span class="bib-mt">Enrobages</span><span class="bib-ms">Durabilité et feu</span></button><button type="button" class="bib-m" data-rubrique="ancrages" aria-pressed="false"><svg
+  class="i"
+  xmlns="http://www.w3.org/2000/svg"
+ 
+ 
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+>
+  <path d="M12 22V8" />
+  <path d="M5 12H2a10 10 0 0 0 20 0h-3" />
+  <circle cx="12" cy="5" r="3" />
+</svg><span class="bib-mt">Ancrages</span><span class="bib-ms">Ancrages et recouvrements</span></button></nav><section class="bib-corps" id="bib-corps" aria-busy="false"><div class="bib-barre" id="bib-barre"></div><div class="bib-tableau" id="bib-tableau"><div class="attente">Chargement…</div></div><div class="bib-bande" id="bib-bande"></div><div class="bib-sources" id="bib-sources"></div></section></div><div class="bib-pq" id="bib-pourquoi" role="dialog" aria-modal="true" aria-label="Pourquoi cette valeur" hidden><div class="bib-pq-c" id="bib-pq-corps"></div></div></div></div><div class="toast" id="toast" role="status" hidden></div><script type="module" src="js/etabli.js"></script></body>
 </html>

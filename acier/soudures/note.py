@@ -35,6 +35,7 @@ from typing import Dict, List, Optional
 from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf import data as ndc_data
+from ndc_pdf import kit as KIT
 from ndc_pdf.kit import Doc, Frame, chip, formula, mix
 from ndc_pdf.styles import Encre
 from ndc_pdf.svg import peindre_svg
@@ -204,52 +205,11 @@ class Note:
 
     def table(self, d, fr, titre, cols, lignes, note=None):
         """``cols`` : (entête, largeur, alignement) ; ``lignes`` : cellules (style, texte[, ok[, gras]]) —
-        styles lab (retour à la ligne), ref (petit, gris), num (droite), eta (droite, coloré selon ok)."""
-        S, st, lead = self.S, self.s_tab, self.lead
+        styles lab (retour à la ligne), ref (petit, gris), num (droite), eta (droite, coloré selon ok). Le corps est
+        la brique partagée ``ndc_pdf.kit.table`` (texte brut), le titre reste celui de la note."""
         self.titre(d, fr, titre)
         fr.down(8)
-        xs, x = [], fr.x
-        for ent, w, al in cols:
-            xs.append(x)
-            d.t(x + (w - 3 if al == "right" else 0), fr.y, ent, S.f_b, S_TAB_H, S.mut, al)
-            x += w
-        fr.down(2.5)
-        d.line(fr.x, fr.y, fr.x1, fr.y, S.acc, 0.5)
-        for cells in lignes:
-            rendus, n_max = [], 1
-            for (ent, w, al), cell in zip(cols, cells):
-                style, txt = cell[0], cell[1]
-                if style in ("lab", "ref"):
-                    size = st * 0.87 if style == "ref" else st
-                    ls = d.wrap(txt, S.f_b, size, w - 4)
-                    n_max = max(n_max, len(ls))
-                    rendus.append((style, ls, cell))
-                else:
-                    rendus.append((style, [txt], cell))
-            h = lead * n_max + 1.2
-            fr.down(lead - 1.8)
-            y = fr.y
-            for (ent, w, al), (style, ls, cell), xx in zip(cols, rendus, xs):
-                if style == "lab":
-                    f = "Carlito-Bold" if (len(cell) > 2 and cell[2]) else S.f_b
-                    for i, l in enumerate(ls):
-                        d.t(xx, y - i * lead, l, f, st, S.ink)
-                elif style == "ref":
-                    for i, l in enumerate(ls):
-                        d.t(xx, y - i * lead, l, S.f_b, st * 0.87, S.mut)
-                elif style == "num":
-                    gras = len(cell) > 2 and cell[2]
-                    d.t(xx + w - 3, y, ls[0], "Carlito-Bold" if gras else S.f_b, st, S.ink, "right")
-                elif style == "eta":
-                    ok = cell[2]
-                    gras = len(cell) > 3 and cell[3]
-                    d.t(xx + w - 3, y, ls[0], "Carlito-Bold" if (gras or not ok) else S.f_b, st, S.ok if ok else S.ko, "right")
-            fr.down(h - (lead - 1.8))
-            d.line(fr.x, fr.y + 1.5, fr.x1, fr.y + 1.5, mix(S.rule, S.ink, 0.06), 0.4)
-        if note:
-            fr.down(st * 1.3)
-            d.t(fr.x, fr.y, d.fit(note, S.f_b, st * 0.9, fr.w), S.f_b, st * 0.9, S.mut)
-        fr.down(2)
+        KIT.table(d, fr, cols, lignes, self.S, self.s_tab, self.lead, S_TAB_H, note=note)
 
     # --- bandeau
     def bandeau(self, d):

@@ -90,9 +90,12 @@ def document(etat: Dict, infos: Optional[Dict], chemin: str):
     planches = resultats(etat)
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
     sections = ndc_data.construire_sections(planches)
-    d = EP._style_ndc(2).build(chemin, sections=sections, doc=doc_meta)
+    # les fiches de la bibliothèque incluses dans la note (api_web/fiches.py) : après les planches, les pages
+    # « Justifications de la bibliothèque » — rien quand la note n'en a aucune
+    fiches = etat.get("fiches") or None
+    d = EP._style_ndc(2).build(chemin, sections=sections, doc=doc_meta, fiches=fiches)
     if d.warnings:
-        d = EP._style_ndc(3).build(chemin, sections=sections, doc=doc_meta)
+        d = EP._style_ndc(3).build(chemin, sections=sections, doc=doc_meta, fiches=fiches)
     return d
 
 

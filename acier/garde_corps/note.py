@@ -35,6 +35,7 @@ from typing import Dict, List, Optional, Tuple
 from reportlab.lib.pagesizes import A4, landscape
 
 from ndc_pdf import data as ndc_data
+from ndc_pdf import kit as KIT
 from ndc_pdf import riche as RI
 from ndc_pdf.kit import Doc, Frame, chip, hx, mix
 from ndc_pdf.mathx import MathStyle
@@ -332,57 +333,12 @@ class Note:
 
     def table(self, d, fr, titre, cols, lignes, note=None):
         """Un tableau : cellules ``(style, texte riche, …)`` — lab (gras si retenu), ref (gris), num (à droite, gras),
-        eta (couleur du verdict, gras si gouverne, barre de taux si un taux est donné)."""
-        S, st, lead = self.S, self.s_tab, self.lead
+        eta (couleur du verdict, gras si gouverne, barre de taux si un taux est donné). Le corps est la brique
+        partagée ``ndc_pdf.kit.table`` (texte riche : ``ms``), le titre et la barre de taux restent ceux de la note."""
         if titre:
             self.titre(d, fr, titre)
         fr.down(8)
-        xs, x = [], fr.x
-        for ent, w, al in cols:
-            xs.append(x)
-            self.rt(d, x + (w - 3 if al == "right" else 0), fr.y, ent, S_TAB_H, S.mut, align=al)
-            x += w
-        fr.down(2.5)
-        d.line(fr.x, fr.y, fr.x1, fr.y, S.acc, 0.5)
-        for cells in lignes:
-            rendus, n_max = [], 1
-            for (ent, w, al), cell in zip(cols, cells):
-                style, txt = cell[0], cell[1]
-                if style in ("lab", "ref"):
-                    size = st * 0.87 if style == "ref" else st
-                    f = "Carlito-Bold" if (style == "lab" and len(cell) > 2 and cell[2]) else S.f_b
-                    col = S.ink if style == "lab" else S.mut
-                    ls = RI.envelopper(txt, f, size, self.ms(col), w - 4)
-                    n_max = max(n_max, len(ls))
-                    rendus.append((style, ls, cell, f, size, col))
-                else:
-                    rendus.append((style, [txt], cell, S.f_b, st, S.ink))
-            h = lead * n_max + 1.2
-            fr.down(lead - 1.8)
-            y = fr.y
-            for (ent, w, al), (style, ls, cell, f, size, col), xx in zip(cols, rendus, xs):
-                if style in ("lab", "ref"):
-                    for i, l in enumerate(ls):
-                        RI.dessiner(d, xx, y - i * lead, l, f, size, col, self.ms(col))
-                elif style == "num":
-                    gras = len(cell) > 2 and cell[2]
-                    d.t(xx + w - 3, y, ls[0], "Carlito-Bold" if gras else S.f_b, st, S.ink, "right")
-                elif style == "eta":
-                    ok = cell[2]
-                    gras = len(cell) > 3 and cell[3]
-                    colr = S.ok if ok else S.ko
-                    fnt = "Carlito-Bold" if (gras or not ok) else S.f_b
-                    d.t(xx + w - 3, y, ls[0], fnt, st, colr, "right")
-                    if len(cell) > 4 and cell[4] is not None:
-                        wb = w - 3 - d.w(ls[0], fnt, st) - 10
-                        if wb >= 12:
-                            self.barre(d, xx + 2, y + 0.8, wb, cell[4], colr)
-            fr.down(h - (lead - 1.8))
-            d.line(fr.x, fr.y + 1.5, fr.x1, fr.y + 1.5, mix(S.rule, S.ink, 0.06), 0.4)
-        if note:
-            fr.down(st * 0.3)
-            self.rp(d, fr, note, size=st * 0.9, col=S.mut, lead=1.24, max_lignes=3)
-        fr.down(2)
+        KIT.table(d, fr, cols, lignes, self.S, self.s_tab, self.lead, S_TAB_H, ms=self.ms, note=note, barre=self.barre)
 
     def formules(self, d, fr, groupes, indent=4):
         """Les formules par groupe : l'étiquette du groupe, puis chaque substitution « nom = littéral =

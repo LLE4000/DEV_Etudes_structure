@@ -12,6 +12,7 @@ import { recupererMeteo } from "./meteo.js";
 import { SONDE, marquer, marquerUneFois } from "./sonde.js";
 import { cablerCompact } from "./compact.js";
 import { cablerRangement } from "./rangement.js";
+import { cablerPanneauBibliotheque } from "./biblio_note.js";
 
 marquer("etabli_debut");   // la sonde du démarrage (js/sonde.js) : rien sans « ?sonde=1 »
 const MODULE = document.body.dataset.module;
@@ -42,8 +43,8 @@ if (!note || note.module !== MODULE) {
   if (!provisoire) history.replaceState(null, "", `?note=${note.id}`);
 }
 // les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
-// « selecteur » ne font que la lire
-const MODIFIENT = new Set(["modifier", "choisir", "ajouter", "dupliquer", "supprimer", "activer"]);
+// « selecteur », « bibliotheque » ne font que la lire
+const MODIFIENT = new Set(["modifier", "choisir", "ajouter", "dupliquer", "supprimer", "activer", "fiches"]);
 // le nom de la note : le champ de la barre du haut (PC, tablette) et celui de l'en-tête du téléphone
 const noms = [...document.querySelectorAll("[data-nom-note]")];
 function afficherEntete() {
@@ -499,6 +500,22 @@ $("#donnees").addEventListener("click", (ev) => {
     else renommer();
     return;
   }
+  // les fiches de la bibliothèque (bloc « Justifications », api_web/fiches.py) : voir au centre, monter, descendre, retirer
+  const vf = ev.target.closest("[data-vue-fiche]");
+  if (vf) {
+    ev.stopPropagation();
+    choisirVue(vf.dataset.vueFiche);
+    if (compact) compact.vueChoisie(vueCourante);
+    if (telephone.matches) onglet("dessin");
+    return;
+  }
+  const fa = ev.target.closest("[data-fiche-retirer],[data-fiche-monter],[data-fiche-descendre]");
+  if (fa) {
+    ev.stopPropagation();
+    const quoi = fa.hasAttribute("data-fiche-retirer") ? "retirer" : fa.hasAttribute("data-fiche-monter") ? "monter" : "descendre";
+    envoyer("fiches", { quoi, index: +fa.getAttribute(`data-fiche-${quoi}`) }).then((r) => { if (r && !r.message && quoi === "retirer") toast("Fiche retirée de la note"); });
+    return;
+  }
   agirElement(ev);
 });
 
@@ -747,12 +764,17 @@ bench.addEventListener("click", (ev) => {
   if (!b.disabled) importerMeteo(b);
 }, true);
 
-// ------------------------------------------------------------------ fichier, impression
+// ------------------------------------------------------------------ la bibliothèque de la note (js/biblio_note.js)
+// (le panneau n'existe que pour un module dont la famille a une bibliothèque : construire.compact)
+const bibliotheque = cablerPanneauBibliotheque({ module: MODULE, note: () => note, moteur, envoyer, avant: () => { fermer(); menuOuvert(false); } });
+
+// ------------------------------------------------------------------ fichier, impression, bibliothèque
 document.addEventListener("click", (ev) => {
   const a = ev.target.closest("[data-action]");
   if (!a) return;
   if (a.dataset.action === "exporter") N.exporter(note);
   else if (a.dataset.action === "imprimer") window.print();
+  else if (a.dataset.action === "bibliotheque") bibliotheque.ouvrir(a);
   else if (a.dataset.action === "pdf") {
     if (NOTE_PDF) telechargerFichier("note_pdf");
     else toast("La note PDF arrive bientôt sur le site ; elle reste dans Streamlit.");

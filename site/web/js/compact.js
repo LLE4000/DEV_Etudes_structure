@@ -476,7 +476,9 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     // la section courante est celle du dessin (une vue « Toutes » reste choisie)
     const nSec = donnees.querySelectorAll(".et-arm[data-section]").length;
     if (nSec && courante >= nSec) courante = 0;
-    if (vue.courante() !== "toutes" && indiceVue(vue.courante()) !== courante) vue.choisir(vueSection(courante));
+    // (une vue qui n'est pas celle d'une section — une fiche de la bibliothèque, « fiche-0 » — reste ouverte)
+    const iv = indiceVue(vue.courante());
+    if (vue.courante() !== "toutes" && iv !== null && iv !== courante) vue.choisir(vueSection(courante));
     poserCourante();
     // la pièce choisie a pu disparaître (un lit retiré) : la sélection tombe
     if (sel && !cibleDonnees(sel) && !stage.querySelector(`[data-sel="${CSS.escape(sel)}"]`)) sel = "";

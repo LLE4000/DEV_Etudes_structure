@@ -2,8 +2,14 @@
 """Le point d'entrée unique du travailleur du navigateur : une requête JSON → une réponse JSON.
 
     {"module": "<clé d'un module du registre>", "action": "nouveau" | "calculer" | "modifier" | "choisir" |
-     "selecteur" | "activer" | "ajouter" | "dupliquer" | "supprimer" | "telecharger", "etat": {...}, "chemin": [...],
-     "valeur": ..., "role": "...", "nom": "...", "familles": [...], "froid": true, "index": 0, "quoi": "..."}
+     "selecteur" | "activer" | "ajouter" | "dupliquer" | "supprimer" | "telecharger" | "bibliotheque" | "fiches",
+     "etat": {...}, "chemin": [...], "valeur": ..., "role": "...", "nom": "...", "familles": [...], "froid": true,
+     "index": 0, "quoi": "...", "rubrique": "...", "params": {...}, "fiche": {...}}
+
+LA BIBLIOTHÈQUE D'UNE NOTE (docs/site/BIBLIOTHEQUES.md § 2.4, § 2.5) : « bibliotheque » rend la bibliothèque de la
+famille du module pour cette note (préremplie, hôte « note », les cibles de « Utiliser cette valeur ») — sans toucher
+à l'état ; « fiches » (quoi = ajouter | retirer | monter | descendre) gère les fiches incluses dans la note, et répond
+comme « modifier » (l'état, les fragments, un message en cas de refus).
 
 La réponse porte l'état de la note (à enregistrer), les fragments HTML des cadres (données, résultat, fenêtres de
 calcul, vues du dessin) et le résumé (taux, niveau, statut). Une erreur du moteur est rendue, jamais avalée. La réponse
@@ -111,6 +117,25 @@ def telecharger(mod, q: dict) -> dict:
     return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "texte": f["texte"]}}
 
 
+def bibliotheque(mod, q: dict, etat: dict) -> dict:
+    """L'action « bibliotheque » (docs/site/BIBLIOTHEQUES.md § 2.4) : la bibliothèque de la famille du module, rendue
+    pour une NOTE (hôte « note ») avec les paramètres que la note connaît — ``mod.bibliotheque_prefill(etat)`` dit la
+    bibliothèque, la rubrique à ouvrir d'abord et le préremplissage de chaque rubrique ; les paramètres de l'écran
+    priment — et les CIBLES que « Utiliser cette valeur » peut écrire (``mod.bibliotheque_cibles(etat, rubrique,
+    fiche)`` : le chemin de ``modifier``, la valeur, dite possible ou non). Un module sans bibliothèque est refusé
+    doucement. L'état n'est pas rendu : consulter ne change rien à la note."""
+    pre = getattr(mod, "bibliotheque_prefill", None)
+    if not callable(pre):
+        return _refus("Ce module n'a pas de bibliothèque.")
+    p = pre(etat)
+    rubrique = q.get("rubrique") or p.get("rubrique")
+    params = {**(p.get("params", {}).get(rubrique) or {}), **(q.get("params") if isinstance(q.get("params"), dict) else {})}
+    out = consulter({"bibliotheque": p["bibliotheque"], "rubrique": rubrique, "params": params, "hote": "note"})
+    cib = getattr(mod, "bibliotheque_cibles", None)
+    out["cibles"] = cib(etat, out["rubrique"], out["fiche"]) if callable(cib) else []
+    return out
+
+
 def traiter(requete: str) -> str:
     try:
         q = json.loads(requete)
@@ -121,6 +146,8 @@ def traiter(requete: str) -> str:
         if action == "telecharger":
             return _json(telecharger(mod, q))
         etat = mod.normaliser(q["etat"]) if q.get("etat") and action != "nouveau" else mod.nouvel_etat()
+        if action == "bibliotheque":
+            return _json(bibliotheque(mod, q, etat))
         message = None
         if action == "modifier":
             message = mod.modifier(etat, q["chemin"], q.get("valeur"))
@@ -130,6 +157,11 @@ def traiter(requete: str) -> str:
             mod.gerer_elements(etat, action, q.get("index"))
         elif action == "selecteur":
             return _json({"ok": True, "html": mod.selecteur(etat, q["role"], q.get("familles"), q.get("froid", True))})
+        elif action == "fiches":
+            fonction = getattr(mod, "fiches", None)
+            if not callable(fonction):
+                return _json(_refus("Ce module ne garde pas de fiches de la bibliothèque."))
+            message = fonction(etat, q.get("quoi"), q.get("fiche"), q.get("index"))
         out = mod.resultat(etat)
         out.update({"ok": True, "etat": etat, "message": message})
         return _json(out)

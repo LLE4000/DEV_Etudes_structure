@@ -27,6 +27,7 @@ from beton.poutre import moteur as MO
 from . import commun as C
 from . import coupe_ba as CB
 from . import etabli_compact as E
+from . import fiches as FI
 
 MODULE = "poutre"
 PAGE = "poutre"
@@ -51,6 +52,10 @@ def normaliser(etat: Dict) -> Dict:
         return nouvel_etat()
     out = {"version": 1, "poutres": [_noms_uniques(EN.normaliser(p)) for p in poutres]}
     out["actif"] = min(max(0, int(etat.get("actif", 0) or 0)), len(out["poutres"]) - 1)
+    # les fiches de la bibliothèque incluses dans la note (api_web/fiches.py) : relues strictement ; la clé reste
+    # ABSENTE quand il n'y en a aucune (une note d'avant reste identique à l'octet)
+    if etat.get("fiches"):
+        out["fiches"] = FI.relire_toutes(etat["fiches"])
     return out
 
 
@@ -990,14 +995,70 @@ def resultat(etat: Dict) -> Dict:
             f'<div class="legend">{C.legende()}</div></div>')
     # l'état de la NOTE (toutes ses poutres) dans l'en-tête du panneau : utile dès deux poutres ; seule, chaque section dit le sien
     statut = C.statut(_niveau_note_note(resultats)) if len(etat["poutres"]) > 1 else ""
+    fiches_ = etat.get("fiches") or []
     return {"resultat": f'<div class="pbody">{tete}<div class="et-blocs">{blocs}</div>{messages}</div>{pied}', "volets": volets,
-            "vues": _vues(p, r), "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats),
-            "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
+            "vues": _vues(p, r) + FI.vues(fiches_), "phrase": "", "statut_html": statut, "resume": resume_note(etat, resultats),
+            "donnees": arbre(etat, r) + FI.bloc(fiches_), "elements": elements(etat, resultats)}
 
 
 def _niveau_note_note(resultats: List[Dict]) -> str:
     nivs = [_niveau_note(x) for x in resultats]
     return next((n for n in ("x", "r", "n", "v") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))
+
+
+# ------------------------------------------------------------------ la bibliothèque de la note (docs/site/BIBLIOTHEQUES.md § 2.4, § 2.5)
+def _phi_max(p: Dict, cle: str) -> int:
+    """Le plus gros Ø des lits (« inf », « sup ») ou des cadres (« etriers ») de toutes les sections de la poutre."""
+    if cle == "etriers":
+        return max((int(e["d"]) for s in p["sections"] for e in s["etriers"]), default=int(EN.ETRIER_DEFAUT["d"]))
+    return max((int(li["d"]) for s in p["sections"] for li in s[cle]), default=int(EN.LIT_DEFAUT["d"]))
+
+
+def bibliotheque_prefill(etat: Dict) -> Dict:
+    """Le panneau « Bibliothèque » d'une note de poutres ouvre la bibliothèque béton armé sur les ENROBAGES, préremplie
+    avec ce que la poutre ouverte sait : l'élément, le béton, le plus gros Ø des lits et des cadres, la largeur ; les
+    ancrages, les bétons, les aciers et les sections reçoivent aussi leurs paramètres. L'écran peut tout changer
+    ensuite (ses paramètres priment, api_web/routeur.bibliotheque) ; rien n'est écrit dans la poutre."""
+    p = _poutre(etat)
+    phi = max(_phi_max(p, "inf"), _phi_max(p, "sup"))
+    return {"bibliotheque": "beton", "rubrique": "enrobages",
+            "params": {"enrobages": {"element": "poutre", "classe": p["beton"], "phi": phi, "phi_etrier": _phi_max(p, "etriers"), "b": int(round(p["b"] * 10))},
+                       "ancrages": {"classe": p["beton"], "fyk": p["fyk"], "phi": phi},
+                       "betons": {"classe": p["beton"]}, "aciers": {"nuance": f"B{p['fyk']}B"}, "sections": {"d": phi}}}
+
+
+def bibliotheque_cibles(etat: Dict, rubrique: str, fiche: Dict) -> List[Dict]:
+    """Ce que « Utiliser cette valeur » écrirait dans la poutre ouverte, par le chemin ordinaire de ``modifier`` :
+    l'enrobage nominal (mm → cm), la classe de béton, la nuance. Une valeur que le module ne connaît pas (une classe
+    hors de ses tableaux) est une cible dite IMPOSSIBLE, avec la raison — rien ne s'écrit jamais sans ce bouton."""
+    p = _poutre(etat)
+    nom = p.get("nom") or "la poutre"
+    params = fiche.get("params") or {}
+    if rubrique == "enrobages" and isinstance(fiche.get("valeur"), (int, float)) and not isinstance(fiche.get("valeur"), bool):
+        cm = round(float(fiche["valeur"]) / 10.0, 2)
+        return [{"chemin": ["enrobage"], "valeur": cm, "libelle": f"« c enrobage » de {nom}", "texte": f"c = {C.nb(cm)} cm",
+                 "actuel": f"{C.nb(p['enrobage'])} cm", "possible": True, "raison": ""}]
+    if rubrique == "betons":
+        classe = str(params.get("classe") or "")
+        ok = classe in EN.classes_beton()
+        return [{"chemin": ["beton"], "valeur": classe, "libelle": f"« Béton » de {nom}", "texte": classe, "actuel": p["beton"], "possible": ok,
+                 "raison": "" if ok else f"{classe} n'est pas dans les tableaux du bureau ({', '.join(EN.classes_beton())}) : la méthode ne le calcule pas"}]
+    if rubrique == "aciers":
+        nuance = str(params.get("nuance") or "")
+        try:
+            fyk = int(nuance[1:4])
+        except ValueError:
+            return []
+        ok = fyk in EN.NUANCES
+        return [{"chemin": ["fyk"], "valeur": fyk, "libelle": f"« Acier » de {nom}", "texte": f"B{fyk}", "actuel": f"B{p['fyk']}", "possible": ok,
+                 "raison": "" if ok else f"B{fyk} n'est pas une nuance du module ({', '.join(f'B{n}' for n in EN.NUANCES)})"}]
+    return []
+
+
+def fiches(etat: Dict, quoi: str, fiche=None, index=None) -> Optional[str]:
+    """Les fiches de la bibliothèque incluses dans la note (api_web/fiches.py) : ajouter, retirer, monter, descendre ;
+    un message quand la demande est refusée, l'état intact."""
+    return FI.gerer(etat, quoi, fiche, index)
 
 
 # ------------------------------------------------------------------ la note PDF

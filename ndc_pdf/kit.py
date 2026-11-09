@@ -221,6 +221,80 @@ def kv_rows(d, fr, rows, ms, f_lab, f_val, size, col_ink, col_mut, col_rule,
     return fr.y
 
 
+def table(d, fr, cols, lignes, S, s_tab, lead, s_ent=5.6, ms=None, note=None, barre=None):
+    """Un tableau dans la colonne : ``cols`` = (en-tête, largeur, alignement « left » | « right ») ; ``lignes`` = des
+    cellules ``(style, texte[, …])`` — « lab » (replié dans sa colonne ; gras si cell[2]), « ref » (petit, gris,
+    replié), « num » (à droite ; gras si cell[2]), « eta » (à droite, couleur du verdict cell[2] ; gras si cell[3] ;
+    une barre de taux cell[4] quand ``barre(d, x, y, w, taux, couleur)`` est donné). ``S`` : le style (polices f_b,
+    couleurs ink, mut, acc, rule, ok, ko). ``ms`` : une fonction couleur → MathStyle — alors les en-têtes et les textes
+    « lab » et « ref » sont RICHES (ndc_pdf.riche : W_el,y composé) ; sans elle, du texte brut. ``note`` : une remarque
+    grise sous le tableau (repliée sur trois lignes au plus si riche, sinon une ligne tronquée). Le titre du tableau
+    est à l'appelant (chaque note a le sien). Rend fr.y.
+
+    Une seule source pour les notes garde-corps et soudures, qui portaient chacune leur copie (R2), et pour les fiches
+    de la bibliothèque (styles.Style.justifications)."""
+    from . import riche as RI
+    st = s_tab
+    xs, x = [], fr.x
+    for ent, w, al in cols:
+        xs.append(x)
+        xe = x + (w - 3 if al == "right" else 0)
+        if ms:
+            RI.texte(d, xe, fr.y, ent, S.f_b, s_ent, S.mut, ms(S.mut), al)
+        else:
+            d.t(xe, fr.y, ent, S.f_b, s_ent, S.mut, al)
+        x += w
+    fr.down(2.5)
+    d.line(fr.x, fr.y, fr.x1, fr.y, S.acc, 0.5)
+    for cells in lignes:
+        rendus, n_max = [], 1
+        for (ent, w, al), cell in zip(cols, cells):
+            style, txt = cell[0], cell[1]
+            if style in ("lab", "ref"):
+                size = st * 0.87 if style == "ref" else st
+                f = "Carlito-Bold" if (style == "lab" and len(cell) > 2 and cell[2]) else S.f_b
+                col = S.ink if style == "lab" else S.mut
+                ls = RI.envelopper(txt, f, size, ms(col), w - 4) if ms else d.wrap(txt, S.f_b, size, w - 4)
+                n_max = max(n_max, len(ls))
+                rendus.append((style, ls, cell, f, size, col))
+            else:
+                rendus.append((style, [txt], cell, S.f_b, st, S.ink))
+        h = lead * n_max + 1.2
+        fr.down(lead - 1.8)
+        y = fr.y
+        for (ent, w, al), (style, ls, cell, f, size, col), xx in zip(cols, rendus, xs):
+            if style in ("lab", "ref"):
+                for i, l in enumerate(ls):
+                    if ms:
+                        RI.dessiner(d, xx, y - i * lead, l, f, size, col, ms(col))
+                    else:
+                        d.t(xx, y - i * lead, l, f, size, col)
+            elif style == "num":
+                gras = len(cell) > 2 and cell[2]
+                d.t(xx + w - 3, y, ls[0], "Carlito-Bold" if gras else S.f_b, st, S.ink, "right")
+            elif style == "eta":
+                ok = cell[2]
+                gras = len(cell) > 3 and cell[3]
+                colr = S.ok if ok else S.ko
+                fnt = "Carlito-Bold" if (gras or not ok) else S.f_b
+                d.t(xx + w - 3, y, ls[0], fnt, st, colr, "right")
+                if barre is not None and len(cell) > 4 and cell[4] is not None:
+                    wb = w - 3 - d.w(ls[0], fnt, st) - 10
+                    if wb >= 12:
+                        barre(d, xx + 2, y + 0.8, wb, cell[4], colr)
+        fr.down(h - (lead - 1.8))
+        d.line(fr.x, fr.y + 1.5, fr.x1, fr.y + 1.5, mix(S.rule, S.ink, 0.06), 0.4)
+    if note:
+        if ms:
+            fr.down(st * 0.3)
+            RI.paragraphe(d, fr, note, S.f_b, st * 0.9, S.mut, ms(S.mut), 1.24, 0, 3)
+        else:
+            fr.down(st * 1.3)
+            d.t(fr.x, fr.y, d.fit(note, S.f_b, st * 0.9, fr.w), S.f_b, st * 0.9, S.mut)
+    fr.down(2)
+    return fr.y
+
+
 def gauge(d, x, y, w, ratio, col_ok, col_ko, col_bg, h=4.0, r=None):
     """Jauge de rapport ; le repère marque la valeur 1,0."""
     ok = ratio <= 1.0

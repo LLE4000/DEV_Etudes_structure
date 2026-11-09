@@ -13,6 +13,7 @@ Les valeurs viennent des moteurs (beton/donnees/ec2.py, beton/donnees/consultati
 beton/bibliotheque/{aciers, enrobage, ancrages}.py), jamais d'ici ; les paramètres illisibles reprennent leur défaut et
 ``message`` le dit ; tout texte venu des paramètres est échappé.
 """
+import html
 import json
 import math
 import re
@@ -30,6 +31,7 @@ from beton.donnees import ec2 as EC
 BIBLIOTHEQUE = "beton"
 TITRE = "Bibliothèque Béton armé"
 PAGE = "bibliotheque-beton"
+VERSION = "2026-11-09"       # la date des données de la bibliothèque : une fiche copiée dans une note dit quel moteur l'a rendue
 # (clé, titre du menu, sous-titre du menu, icône)
 RUBRIQUES = (
     ("betons", "Bétons", "Classes, résistances, déformations", "layers"),
@@ -192,19 +194,31 @@ def _bande(valeur: str, unite: str, symbole: str, nom: str, phrase: str, hote: s
 DECIMALES = {"mm": 1, "MPa": 2, "GPa": 0, "‰": 2, "%": 1, "": 3, "mm²": 0, "mm²/m": 0, "kg/m": 3, "kg/m²": 2, "kg/m³": 0, "cm": 1, "barres/m": 2}
 
 
+def _valeur_txt(v, unite: str, nd: int) -> str:
+    """La valeur d'un terme telle que la justification l'écrit — et telle que la fiche la garde pour la note : « oui »
+    ou « non », un nombre aux décimales de son unité (DECIMALES ; ``nd`` pour une unité inconnue ; un entier ou un
+    grand nombre rond sans décimale), ou le texte tel quel."""
+    if isinstance(v, bool):
+        return "oui" if v else "non"
+    if isinstance(v, (int, float)):
+        d = DECIMALES.get(unite, nd)
+        return C.fr(v, 0 if (isinstance(v, int) or (abs(v - round(v)) < 1e-9 and abs(v) >= 10)) else d)
+    return str(v)
+
+
+def _texte_brut(html_: str) -> str:
+    """Une phrase de la bande (du HTML : <sub>, <b>) en texte pour la fiche : « Δc<sub>dev</sub> » devient « Δc_dev »,
+    que la note PDF compose à son tour ; les autres balises tombent, les entités reviennent à leurs caractères."""
+    t = re.sub(r"<sub>(.*?)</sub>", r"_\1", html_ or "")
+    return html.unescape(re.sub(r"<[^>]+>", "", t)).strip()
+
+
 def _pourquoi(titre: str, sous: str, termes: Sequence[Dict], sources: Sequence[str], avert: Sequence[str] = (), nd: int = 2) -> str:
     """La justification : une ligne par terme (symbole, nom, valeur, règle), les avertissements, les sources. Les
     décimales suivent l'unité (un mm au dixième, un coefficient au millième) ; ``nd`` pour une unité inconnue."""
     lignes = ""
     for t in termes:
-        v = t["valeur"]
-        if isinstance(v, bool):
-            vt = "oui" if v else "non"
-        elif isinstance(v, (int, float)):
-            d = DECIMALES.get(t.get("unite", ""), nd)
-            vt = C.fr(v, 0 if (isinstance(v, int) or (abs(v - round(v)) < 1e-9 and abs(v) >= 10)) else d)
-        else:
-            vt = C.esc(str(v))
+        vt = C.esc(_valeur_txt(t["valeur"], t.get("unite", ""), nd))
         u = f' <span class="u">{C.esc(t.get("unite", ""))}</span>' if t.get("unite") else ""
         maj = ' class="maj"' if t["nom"].isupper() else ""
         lignes += (f'<tr{maj}><td class="s">{C.symb_math(t["symbole"])}</td><td class="nm">{C.esc(t["nom"].capitalize() if t["nom"].isupper() else t["nom"])}</td>'
@@ -221,12 +235,15 @@ def _sources(*textes: str) -> str:
 
 
 def _fiche(titre: str, symbole: str, valeur, unite: str, params: Dict, termes: Sequence[Dict], sources: Sequence[str],
-           extrait: Optional[Dict] = None, avertissements: Sequence[str] = ()) -> Dict:
-    """La fiche figée que « Inclure dans la note » copiera dans l'état d'une note (§ 2.5) : tout ce qu'il faut pour la
-    relire sans le moteur."""
-    return {"titre": titre, "symbole": symbole, "valeur": valeur, "unite": unite, "params": params,
-            "lignes": [{"symbole": t["symbole"], "nom": t["nom"], "valeur": t["valeur"], "unite": t.get("unite", ""), "regle": t["regle"]} for t in termes],
-            "sources": list(sources), "avertissements": list(avertissements), "extrait": extrait}
+           extrait: Optional[Dict] = None, avertissements: Sequence[str] = (), texte: str = "", phrase: str = "", nd: int = 2) -> Dict:
+    """La fiche figée que « Inclure dans la note » copie dans l'état d'une note (§ 2.5, api_web/fiches.py la relit) :
+    tout ce qu'il faut pour la relire sans le moteur — la valeur (le nombre) et ``texte`` (la valeur telle que la bande
+    l'affiche), la ``phrase`` des paramètres en texte, chaque ligne avec sa valeur écrite comme dans « Pourquoi ? »,
+    les sources, l'extrait du tableau, et le moteur qui l'a rendue (VERSION)."""
+    return {"titre": titre, "symbole": symbole, "valeur": valeur, "texte": texte, "unite": unite, "phrase": _texte_brut(phrase), "params": params,
+            "lignes": [{"symbole": t["symbole"], "nom": t["nom"], "valeur": t["valeur"], "texte": _valeur_txt(t["valeur"], t.get("unite", ""), nd),
+                        "unite": t.get("unite", ""), "regle": t["regle"]} for t in termes],
+            "sources": list(sources), "avertissements": list(avertissements), "extrait": extrait, "moteur": f"{TITRE} {VERSION}"}
 
 
 def _extrait(entetes: Sequence[str], lignes: Sequence[Sequence], case: Optional[Tuple[int, int]], titre: str, source: str) -> Dict:
@@ -327,7 +344,7 @@ def _r_betons(params: Dict, hote: str) -> Dict:
             "bande": _bande(C.fr(x["fcd"], 1), "MPa", "f_cd", "résistance de calcul en compression", phrase, hote, avert),
             "pourquoi": _pourquoi(f"Béton {classe}", "EN 1992-1-1, tableau 3.1 et §3.1.6", termes, sources, avert),
             "sources": _sources(*sources),
-            "fiche": _fiche(f"Béton {classe}", "f_cd", x["fcd"], "MPa", p, termes, sources, extrait, avert),
+            "fiche": _fiche(f"Béton {classe}", "f_cd", x["fcd"], "MPa", p, termes, sources, extrait, avert, texte=C.fr(x["fcd"], 1), phrase=phrase),
             "params": p, "message": L.message()}
 
 
@@ -411,7 +428,8 @@ def _r_aciers(params: Dict, hote: str) -> Dict:
             "bande": _bande(valeur, unite, sym, nom, phrase, hote),
             "pourquoi": _pourquoi(f"Acier {nuance}", "EN 1992-1-1 §3.2 et annexe C", termes, sources),
             "sources": _sources(*sources),
-            "fiche": _fiche(f"Acier {nuance}", sym, fyd if vue == "nuances" else TR.as_barres_mm2_m(t[0], t[2]), unite, p, termes, sources, extrait),
+            "fiche": _fiche(f"Acier {nuance}", sym, fyd if vue == "nuances" else TR.as_barres_mm2_m(t[0], t[2]), unite, p, termes, sources, extrait,
+                            texte=valeur, phrase=phrase),
             "params": p, "message": L.message()}
 
 
@@ -475,7 +493,7 @@ def _r_sections(params: Dict, hote: str) -> Dict:
             "bande": _bande(C.fr(ret["As"], 0), unite, "A_s", "section de la disposition retenue", phrase, hote, avert),
             "pourquoi": _pourquoi(C.esc(ret["nom"]), "Tableau des sections d'armatures du bureau", termes, sources, avert),
             "sources": _sources(*sources),
-            "fiche": _fiche(f"Armatures {ret['nom']}", "A_s", ret["As"], unite, p, termes, sources, None, avert),
+            "fiche": _fiche(f"Armatures {ret['nom']}", "A_s", ret["As"], unite, p, termes, sources, None, avert, texte=C.fr(ret["As"], 0), phrase=phrase),
             "params": p, "message": L.message()}
 
 
@@ -575,7 +593,8 @@ def _r_enrobages(params: Dict, hote: str) -> Dict:
             "bande": _bande(C.fr(res["c_nom"], 0), "mm", "c_nom", "enrobage nominal", phrase, hote, avert),
             "pourquoi": _pourquoi(f"Enrobage nominal · {dict(ELEMENTS)[element]} {expo} {classe}", "EN 1992-1-1 §4.4.1 ; EN 1992-1-2 §5 (feu)", res["termes"], sources, avert, nd=1),
             "sources": _sources(*sources),
-            "fiche": _fiche(f"Enrobage {dict(ELEMENTS)[element].lower()} {expo} {classe}", "c_nom", res["c_nom"], "mm", p, res["termes"], sources, extrait, avert),
+            "fiche": _fiche(f"Enrobage {dict(ELEMENTS)[element].lower()} {expo} {classe}", "c_nom", res["c_nom"], "mm", p, res["termes"], sources, extrait, avert,
+                            texte=C.fr(res["c_nom"], 0), phrase=phrase, nd=1),
             "params": p, "message": L.message()}
 
 
@@ -642,7 +661,8 @@ def _r_ancrages(params: Dict, hote: str) -> Dict:
             "bande": _bande(_mm(AN.arrondi_cm(val)), "mm", sym, nom + f" ({C.fr(val, 0)} mm calculés)", phrase, hote, avert),
             "pourquoi": _pourquoi(f"{C.symb_math(sym)} · Ø {phi} {classe} B{fyk}", "EN 1992-1-1 §8.4 et §8.7.3", res["termes"], sources, avert, nd=3),
             "sources": _sources(*sources),
-            "fiche": _fiche(f"{'Ancrage' if grandeur == 'lbd' else 'Recouvrement'} Ø {phi} {classe} B{fyk}", sym, val, "mm", p, res["termes"], sources, extrait, avert),
+            "fiche": _fiche(f"{'Ancrage' if grandeur == 'lbd' else 'Recouvrement'} Ø {phi} {classe} B{fyk}", sym, val, "mm", p, res["termes"], sources, extrait, avert,
+                            texte=_mm(AN.arrondi_cm(val)), phrase=phrase, nd=3),
             "params": p, "message": L.message()}
 
 

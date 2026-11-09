@@ -16,7 +16,7 @@ from reportlab.lib.pagesizes import A4, landscape
 A4P = A4
 
 from . import mathx as M
-from .kit import Doc, Frame, hx, mix, sym, formula, kv_rows, chip
+from .kit import Doc, Frame, hx, mix, sym, formula, kv_rows, chip, table
 from .section import SectionStyle, draw_section
 from . import data as D
 
@@ -70,8 +70,10 @@ class Style:
             dia_colors=True)
 
     # ------------------------------------------------------------- rendu
-    def build(self, path, sections=None, doc=None, garde=True):
-        """Rapport complet : page de garde portrait + une planche par section."""
+    def build(self, path, sections=None, doc=None, garde=True, fiches=None):
+        """Rapport complet : page de garde portrait + une planche par section ; ``fiches`` (les fiches de la
+        bibliothèque incluses dans la note, api_web/fiches.py) : après les planches, les pages « Justifications de la
+        bibliothèque », annoncées au sommaire. Sans fiche, le document est celui d'avant, à l'octet près."""
         sections = sections if sections is not None else D.SECTIONS
         doc = doc or D.DOC
         d = Doc(path, A4P if garde else self.page,
@@ -79,10 +81,12 @@ class Style:
         d.warnings = []
         if garde:
             d.new_page(A4P)
-            self.garde(d, doc, sections)
+            self.garde(d, doc, sections, fiches)
         for sec in sections:
             d.new_page(self.page)
             self.planche(d, doc, sec)
+        if fiches:
+            self.justifications(d, doc, fiches)
         return d
 
     # ------------------------------------------------- page de garde (portrait)
@@ -90,15 +94,21 @@ class Style:
     LEGENDE_GARDE = ("Vert : vérifié   ·   Ocre : admissible, à la limite   ·   "
                      "Rouge : non vérifié")
 
-    def garde(self, d, doc, sections):
+    def garde(self, d, doc, sections, fiches=None):
         """Page de garde des notes Poutre / Dalle : une ligne de sommaire par
-        planche (une page chacune). Dessin inchangé : c'est ``garde_lignes``
-        qui porte la mise en page, pour que le rapport d'assemblages ait la
-        même garde."""
+        planche (une page chacune), puis, s'il y en a, la ligne des
+        justifications de la bibliothèque (``fiches``). Dessin inchangé :
+        c'est ``garde_lignes`` qui porte la mise en page, pour que le rapport
+        d'assemblages ait la même garde."""
         lignes = [dict(titre=f"{sec['poutre']} — {sec['section']}",
                        sous=f"{sec.get('beton', '')} / {sec.get('acier', '')}".strip(" /"),
                        etat=sec.get("etat", ""), couleur=self.coul_etat(sec), pages=1)
                   for sec in sections]
+        if fiches:
+            n = len(fiches)
+            lignes.append(dict(titre="Justifications de la bibliothèque",
+                               sous=f"{n} fiche{'s' if n > 1 else ''} — valeurs consultées, copiées dans la note",
+                               etat="", couleur=self.acc, pages=self.pages_justifications(doc, fiches)))
         self.garde_lignes(d, doc, lignes)
         return d
 
@@ -405,6 +415,197 @@ class Style:
                 n = len(d.wrap(k["texte"], S.f_b, S.s_verd, fr.w - 15))
                 place(5 + n * S.s_verd * 1.28 + 6.5)
                 self._verdict(d, fr, k)
+        return fr
+
+    # --------------------------------- les justifications de la bibliothèque (api_web/fiches.py ; A4 paysage)
+    # Deux colonnes par page ; chaque fiche COMMENCE dans une colonne neuve et se POURSUIT dans la suivante (puis sur la
+    # page suivante) avec un rappel « J2 (suite) » quand elle est plus longue qu'une colonne — le flux continu des
+    # planches (_items), jamais une fiche tronquée.
+    N_COLS_FICHES = 2
+    LEAD_TAB_FICHE = 8.0
+
+    def _ms_col(self, col):
+        """Le style mathématique de la note dans une couleur donnée (symboles composés des fiches)."""
+        return M.MathStyle(var=self.m_var, rom=self.m_rom, num=self.m_rom, op=self.m_rom, ink=hx(col),
+                           accent=hx(self.acc), rule=hx(col), res=self.m_res, res_color=hx(self.acc),
+                           tight=self.tight)
+
+    def pages_justifications(self, doc, fiches):
+        """Le nombre de pages des justifications, par un tracé à blanc (le sommaire de la garde en a besoin avant
+        qu'elles soient dessinées) — le même code que le tracé, donc le même compte."""
+        import io
+        d2 = Doc(io.BytesIO(), self.page)
+        d2.warnings = []
+        self.justifications(d2, doc, fiches)
+        return d2.n
+
+    def justifications(self, d, doc, fiches):
+        """Les pages « Justifications de la bibliothèque » (A4 paysage, après les planches, le même en-tête) : les
+        fiches incluses dans la note, numérotées J1, J2…, en deux colonnes — titre, valeur retenue, paramètres,
+        lignes de justification avec leur règle, avertissements, extrait du tableau (la ligne et la case retenues en
+        gras), sources, date et moteur. Une fiche plus longue qu'une colonne continue dans la suivante (« J2 (suite) »).
+        L'en-tête de chaque page nomme ses fiches ; ce qui déborderait encore est dit dans ``d.warnings``."""
+        S = self
+        W, H, m = d.W, d.H, S.margin
+        n_cols = self.N_COLS_FICHES
+        etat = {"cols": None, "k": 0, "vus": []}
+
+        def nommer_page():
+            # les fiches de la page s'écrivent dans son en-tête quand on la quitte (on les connaît alors)
+            vus = etat["vus"]
+            if vus:
+                txt = f"fiche J{vus[0]}" if len(vus) == 1 else f"fiches J{vus[0]} à J{vus[-1]}"
+                d.t(W - m, H - m - 18, f"{txt} sur {len(fiches)}", S.f_v, 8, S.ink, "right")
+
+        def nouvelle_page():
+            if etat["cols"] is not None:
+                nommer_page()
+            d.new_page(self.page)
+            y = H - m - 2
+            d.t(m, y, doc.get("bureau", ""), S.f_v, 8.4, S.ink)
+            d.t(W - m, y, f"{doc.get('date', '')} · indice {doc.get('indice', '')}", S.f_b, 8, S.mut, "right")
+            d.t(m, y - 18, "Justifications de la bibliothèque", S.f_h, 14, S.ink)
+            d.line(m, y - 28, W - m, y - 28, S.ink, 1.0)
+            top = y - 38
+            gw = (W - 2 * m - S.col_gap * (n_cols - 1)) / n_cols
+            etat["cols"] = [Frame(m + i * (gw + S.col_gap), top, gw, m) for i in range(n_cols)]
+            for fr in etat["cols"][1:]:
+                d.line(fr.x - S.col_gap / 2, top + 4, fr.x - S.col_gap / 2, m + 2, S.rule, 0.45)
+            etat["k"] = 0
+            etat["vus"] = []
+
+        def colonne_suivante():
+            if etat["k"] + 1 < n_cols:
+                etat["k"] += 1
+            else:
+                nouvelle_page()
+            return etat["cols"][etat["k"]]
+
+        nouvelle_page()
+        for num, f in enumerate(fiches, 1):
+            if num > 1:
+                colonne_suivante()          # chaque fiche commence dans une colonne neuve
+            etat["vus"].append(num)
+            fr = self._fiche(d, etat["cols"][etat["k"]], f, num, colonne_suivante)
+            if fr.overflow() > 1.0:
+                d.warnings.append(f"justification J{num} : {fr.overflow():.0f} pt")
+        nommer_page()
+        return d
+
+    def _suite_fiche(self, d, fr, num):
+        """Rappel en tête de colonne quand une fiche se poursuit."""
+        S = self
+        fr.down(9)
+        d.box(fr.x, fr.y - 1.6, 6.6, 6.6, fill=mix(S.acc, "#FFFFFF", 0.45))
+        d.t(fr.x + 3.3, fr.y - 0.2, "J", S.f_v, 4.6, "#FFFFFF", "center")
+        d.t(fr.x + 12, fr.y, f"J{num} (suite)", S.f_b, S.s_lab + 0.6, S.mut)
+        fr.down(4)
+        d.line(fr.x, fr.y, fr.x1, fr.y, mix(S.rule, S.ink, 0.1), 0.5)
+        fr.down(5)
+        return fr.y
+
+    def _fiche(self, d, fr, f, num, colonne_suivante):
+        """Une fiche dans le flux : ``colonne_suivante()`` rend la colonne où continuer quand la place manque (le
+        rappel « (suite) » s'y écrit). Rend la colonne où la fiche s'achève."""
+        from . import riche as RI
+        S = self
+        ms = self._ms_col(S.ink)
+        ms_mut = self._ms_col(S.mut)
+        size = S.s_tit
+        lead = S.s_kv * 1.45
+        s_rg = S.s_lab - 0.6
+
+        def place(besoin):
+            nonlocal fr
+            if not fr.fits(besoin):
+                fr = colonne_suivante()
+                self._suite_fiche(d, fr, num)
+            return fr
+
+        # le titre : « J1 » dans un carré plein, puis l'intitulé (comme le numéro d'une vérification) ; la valeur
+        # retenue en grand, son symbole ; la phrase des paramètres
+        phrase = RI.auto(f.get("phrase") or "")
+        n_ph = len(RI.envelopper(phrase, S.f_b, S.s_lab, ms_mut, fr.w)) if phrase else 0
+        place(S.title_gap + size * 2.1 + 2 + min(n_ph, 3) * S.s_lab * 1.3 + lead + 6)
+        fr.down(S.title_gap)
+        wn = size * 1.9
+        d.box(fr.x, fr.y - 2.4, wn, size * 1.15, fill=S.acc)
+        d.t(fr.x + wn / 2, fr.y + 0.4, f"J{num}", S.f_v, size * 0.72, "#FFFFFF", "center")
+        d.t(fr.x + wn + 8, fr.y, d.fit(f.get("titre") or "", S.f_h, size, fr.w - wn - 8), S.f_h, size, S.ink)
+        fr.down(size * 2.1)
+        val = f"{f.get('texte') or ''} {f.get('unite') or ''}".strip() or "—"
+        d.t(fr.x, fr.y, val, S.f_h, 15, S.acc)
+        if f.get("symbole"):
+            RI.texte(d, fr.x + d.w(val, S.f_h, 15) + 8, fr.y, RI.auto(f["symbole"]), S.f_b, 8.5, S.mut, ms_mut)
+        if phrase:
+            fr.down(2)
+            RI.paragraphe(d, fr, phrase, S.f_b, S.s_lab, S.mut, ms_mut, lead=1.3, max_lignes=3)
+        fr.down(4)
+        # les lignes de justification : symbole · nom · valeur, la règle dessous en petit
+        for li in f.get("lignes") or ():
+            regles = d.wrap(li.get("regle") or "", S.f_b, s_rg, fr.w - 14)
+            place(lead + len(regles) * s_rg * 1.25 + 3.5)
+            fr.down(lead)
+            maj = (li.get("nom") or "").isupper()
+            if maj:
+                d.box(fr.x - 3, fr.y - S.s_kv * 0.42, fr.w + 6, lead * 0.98, fill=mix(S.acc, "#FFFFFF", 0.88))
+            sw = RI.texte(d, fr.x, fr.y, RI.auto(li.get("symbole") or ""), S.f_b, S.s_kv, S.ink, ms)
+            v = li.get("texte") or ("—" if li.get("valeur") is None else str(li["valeur"]))
+            v = f"{v} {li.get('unite') or ''}".strip()
+            f_val = S.f_v if maj else S.f_b
+            wv = d.w(v, f_val, S.s_kv)
+            d.t(fr.x1, fr.y, v, f_val, S.s_kv, S.ink, "right")
+            nom = li.get("nom") or ""
+            x_nom = fr.x + max(sw + 8, 46)
+            d.t(x_nom, fr.y, d.fit(nom.capitalize() if maj else nom, S.f_b, S.s_kv, fr.x1 - wv - 8 - x_nom),
+                S.f_b, S.s_kv, S.ink if maj else S.mut)
+            for ln in regles:
+                fr.down(s_rg * 1.25)
+                d.t(fr.x + 14, fr.y, ln, S.f_b, s_rg, S.mut)
+            fr.down(1.5)
+            d.line(fr.x, fr.y - 2, fr.x1, fr.y - 2, mix(S.rule, S.ink, 0.06), 0.4)
+        for a in f.get("avertissements") or ():
+            n = len(d.wrap(a, S.f_b, S.s_verd, fr.w - 15))
+            place(5 + n * S.s_verd * 1.28 + 6.5)
+            self._verdict(d, fr, {"texte": a, "etat": "att"})
+        # l'extrait du tableau (entier dans une colonne) : la ligne et la case retenues en gras
+        x = f.get("extrait")
+        if x and x.get("entetes"):
+            ent = x["entetes"]
+            n_col = len(ent)
+            lignes_x = list(x.get("lignes") or ())
+            st = 6.3 if n_col <= 6 else (5.9 if n_col <= 10 else 5.4)
+            n_src = len(RI.envelopper(RI.auto(x.get("source") or ""), S.f_b, st * 0.9, ms_mut, fr.w)) if x.get("source") else 0
+            place(S.s_kv * 1.9 + 5 + 12 + len(lignes_x) * (self.LEAD_TAB_FICHE + 1.2) + min(n_src, 3) * st * 0.9 * 1.24 + 8)
+            fr.down(S.s_kv * 1.9)
+            # (le titre tel quel, en symboles composés : « γ_s » ne devient pas « Γ_S »)
+            RI.texte(d, fr.x, fr.y, RI.auto(x.get("titre") or ""), S.f_v, S.s_lab, S.mut, self._ms_col(S.mut), width=fr.w)
+            fr.down(5)
+            w0 = fr.w / n_col if n_col <= 2 else min(70.0, fr.w * 0.24)
+            wc = (fr.w - w0) / (n_col - 1) if n_col > 1 else 0.0
+            cols = [(RI.auto(ent[0]), w0, "left")] + [(RI.auto(e), wc, "right") for e in ent[1:]]
+            case = x.get("case")
+            lignes = []
+            for i, li in enumerate(lignes_x):
+                sur = bool(case) and case[0] == i
+                lignes.append([("lab", li[0], sur)] + [("num", c, sur and case[1] == j) for j, c in enumerate(li[1:], 1)])
+            table(d, fr, cols, lignes, S, st, self.LEAD_TAB_FICHE, s_ent=5.2, ms=self._ms_col, note=x.get("source") or None)
+        # les sources, puis la date et le moteur
+        if f.get("sources"):
+            place(S.s_lab * 1.4 + (S.s_lab - 0.4) * 1.28)
+            fr.down(S.s_lab * 1.4)
+            for s in f["sources"]:
+                n = len(d.wrap(s, S.f_b, S.s_lab - 0.4, fr.w))
+                place(n * (S.s_lab - 0.4) * 1.28)
+                d.para(fr, s, S.f_b, S.s_lab - 0.4, S.mut, lead=1.28)
+        date = str(f.get("date") or "")
+        if len(date) == 10 and date[4] == "-" and date[7] == "-":
+            date = f"{date[8:]}/{date[5:7]}/{date[:4]}"      # l'état garde la date ISO ; la note l'écrit à la française
+        pied = " · ".join(t for t in (date, f.get("moteur")) if t)
+        if pied:
+            place(S.s_lab * 1.6 + 2)
+            fr.down(S.s_lab * 1.6)
+            d.t(fr.x, fr.y, d.fit(pied, S.f_b, S.s_lab - 0.6, fr.w), S.f_b, S.s_lab - 0.6, S.mut)
         return fr
 
 
