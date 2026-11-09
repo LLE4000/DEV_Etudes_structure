@@ -244,13 +244,16 @@ for js, page in [(js, ETABLIS[k]) for k in ETABLIS for js in ("etabli.js", "toil
     chk(f"{js} → {page} : les {len(ids)} identifiants cherchés existent", not absents, absents)
 
 # 5 bis (avant). l'établi COMPACT (pilote : construire.ETABLI_COMPACT, « Poutres béton armé ») : ses pages portent la
-# liste, les propriétés, le résultat et la fenêtre « Enregistrer comme note » (les identifiants que js/compact.js et
-# js/rangement.js cherchent) ; les AUTRES modules gardent l'établi d'avant, sans rien de ce pilote. À l'accueil, la tuile
-# d'un module compact ouvre le calcul lui-même (lien direct) ; les autres ouvrent la fenêtre « Nouvelle note ».
+# liste, les propriétés, le résultat (les identifiants que js/compact.js cherche) ; les AUTRES modules gardent l'établi
+# d'avant, sans rien de ce pilote. « Enregistrer comme note… » et sa fenêtre (les identifiants que js/rangement.js
+# cherche), l'étiquette de la note (#et-ind : l'indice réel, ou « Non enregistrée ») sont sur TOUTE page d'établi depuis
+# le 10/11/2026 (décision D1 étendue : ouvrir un calcul n'écrit rien, pour tous les modules) ; à l'accueil, la carte de
+# CHAQUE module ouvre le calcul lui-même (lien direct) — « Nouvelle note » reste le chemin qui nomme d'abord.
 _src_compact = open(os.path.join(WEB, "js", "compact.js"), encoding="utf-8").read()
 _src_rangement = open(os.path.join(WEB, "js", "rangement.js"), encoding="utf-8").read()
+_ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact)))
 # js/rangement.js cherche ses éléments par un raccourci $("et-…") = document.getElementById
-_ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact + _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
+_ids_rangement = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
 chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutres, dalles — les prédalles ont rejoint les dalles), leurs "
     "fonctions aux mêmes places ; les autres modules attendent l'avis du bureau", SW.ETABLI_COMPACT == ("poutre", "dalle"), SW.ETABLI_COMPACT)
 # la NOTE PDF (décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site, celle de la dalle
@@ -266,18 +269,26 @@ chk("la note PDF se fait dans le site pour la poutre, la dalle, le garde-corps, 
     (SW.NOTE_PDF, sorted(SW.NOTES_RELEVE)))
 for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
+    # (toute page) « Enregistrer comme note… » dans la barre du haut et le menu ⋯ du téléphone, sa fenêtre, l'étiquette de
+    # la note ; plus de « Brouillon » figé ; « Importer .stab » dans le message (une note demandée absente)
+    _manque = [i for i in _ids_rangement + ["et-ind", "et-alerte"] if html.count(f'id="{i}"') != 1]
+    chk(f"{SW.PAGES[k]} : « Enregistrer comme note… » (barre du haut, menu ⋯), sa fenêtre ({len(_ids_rangement)} identifiants, une fois "
+        "chacun), l'étiquette de la note (#et-ind, sans « Brouillon »), « Importer .stab » dans le message",
+        not _manque and html.count('data-ranger="1"') == 2 and "Brouillon" not in html
+        and len(re.findall(r'<label class="btn sm primary et-alerte-importer" for="ouvrir" hidden>', html)) == 1
+        and html.index('id="et-ind"') < html.index('class="et-enr"') < html.index('class="btn sm et-ranger"'), _manque)
     if k in SW.ETABLI_COMPACT:
         absents = [i for i in _ids_compact if f'id="{i}"' not in html]
-        chk(f"{SW.PAGES[k]} (établi compact) : la liste, les propriétés, le résultat, « Enregistrer comme note » ; "
+        chk(f"{SW.PAGES[k]} (établi compact) : la liste, les propriétés, le résultat ; "
             f"les {len(_ids_compact)} identifiants cherchés existent, une seule fois",
             not absents and 'data-etabli="compact"' in html and 'href="css/etabli.css"' in html
-            and all(html.count(f'id="{i}"') == 1 for i in _ids_compact) and html.count('data-ranger="1"') == 2
+            and all(html.count(f'id="{i}"') == 1 for i in _ids_compact)
             # les deux colonnes se replient (boutons communs .pcoll) et s'élargissent (poignées), l'état s'annule
             and all(html.count(f'data-{a}="{c}"') == 1 for a in ("coll", "poignee") for c in "gd")
             and all(html.count(f'data-historique="{h}"') == 1 for h in ("annuler", "retablir")), (absents, _ids_compact))
     else:
         chk(f"{SW.PAGES[k]} : l'établi d'avant, rien du pilote compact",
-            "data-etabli" not in html and "etabli.css" not in html and "data-ranger" not in html and 'id="liste"' not in html)
+            "data-etabli" not in html and "etabli.css" not in html and 'id="liste"' not in html)
     # la note PDF, sur TOUTE page d'établi (compacte ou non : construire.boutons_note_pdf, un composant, trois emplacements) :
     # la page dit si son module la fait (body data-note-pdf, que js/etabli.js lit) ; le bouton « Note PDF » est alors
     # allumé (data-action="pdf") dans la barre du haut, le menu ⋯ et la barre du bas du téléphone — sinon grisé, « bientôt »
@@ -317,10 +328,19 @@ for k in ETABLIS:
             'data-action="bibliotheque"' not in html and 'id="et-bibliotheque"' not in html and "bibliotheque.css" not in html and "data-bibliotheque" not in _corps)
 _tuiles = {k: a for a, k in re.findall(r'<a class="tile" href="[^"]+" data-(module|nouvelle-module)="(\w+)"',
                                        open(os.path.join(WEB, "index.html"), encoding="utf-8").read())}
-chk("accueil : la tuile d'un module compact ouvre le calcul (lien direct), les autres « Nouvelle note » ; les modules masqués n'ont pas de tuile",
-    _tuiles and all(a == ("module" if k in SW.ETABLI_COMPACT else "nouvelle-module") for k, a in _tuiles.items())
+chk("accueil : la carte de CHAQUE module ouvre le calcul lui-même (lien direct, aucune fenêtre interceptée) ; les modules masqués n'ont pas de tuile",
+    _tuiles and all(a == "module" for k, a in _tuiles.items())
     and set(_tuiles) == set(SW.PAGES) - SW.MASQUES
-    and ".tile[data-nouvelle-module]" in open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read(), _tuiles)
+    and "nouvelle-module" not in open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read()
+    and "nouvelle-module" not in open(os.path.join(WEB, "index.html"), encoding="utf-8").read(), _tuiles)
+# la note PROVISOIRE pour tout module (js/etabli.js) : plus de condition sur l'établi compact ; une note absente le dit ; la
+# date n'avance qu'à une vraie modification (notes.ecrire(…, {date}))
+_ETABLI_JS = open(os.path.join(WEB, "js", "etabli.js"), encoding="utf-8").read()
+chk("etabli.js : la note est provisoire pour TOUT module (sans nom ni chantier demandés), une note demandée absente le dit avec « Importer .stab », "
+    "la date n'avance qu'à une action qui modifie et change l'état",
+    re.search(r'provisoire = !\["nom", "chantier", "dossier"\]\.some', _ETABLI_JS) is not None and "COMPACT && !" not in _ETABLI_JS
+    and 'direAlerte("absente"' in _ETABLI_JS and "enregistrer({ date: provisoire || date })" in _ETABLI_JS
+    and 'const DATENT = new Set([...MODIFIENT].filter((a) => a !== "activer"))' in _ETABLI_JS, "")
 # 4 ter. les BIBLIOTHÈQUES (docs/site/BIBLIOTHEQUES.md § 2.1, révision du 09/11/2026) : la carte d'une bibliothèque est
 # ÉTROITE et HAUTE, à GAUCHE du bloc de sa famille, et les modules de la famille s'alignent à sa DROITE dans leur propre
 # grille — le bloc .tiles.fam-b : la carte, puis la grille .tiles des modules (css/site.css la pose en sous-grille à partir
@@ -797,6 +817,15 @@ jouer("lue", new Memoire(() => null, { [CLE]: entier }), (mem) => {
 // E. stockage plein : refus « plein » ; l'import d'un .stab refuse d'ouvrir une note qu'il n'a pas pu enregistrer
 jouer("plein", new Memoire(() => plein(), { [CLE]: entier }), (mem) => ({ ok: m.ecrire(m.nouvelle({ module: "poutre" })), b: m.bilan ? m.bilan() : null,
   intacte: mem.getItem(CLE) === entier }));
+// F. rouvrir sans modifier : ecrire(note, {date: false}) réécrit la note (ses caches) SANS avancer sa date ; une écriture
+// ordinaire (une modification) l'avance
+jouer("date", new Memoire(), (mem) => {
+  const n = m.nouvelle({ module: "poutre" });
+  n.modifie = t;
+  const ok = m.ecrire(n, { date: false }), garde = JSON.parse(mem.getItem(CLE))[n.id].modifie;
+  const ok2 = m.ecrire(n), apres = JSON.parse(mem.getItem(CLE))[n.id].modifie;
+  return { ok, ok2, garde: garde === t, avance: apres > t };
+});
 globalThis.localStorage = new Memoire(() => plein(), { [CLE]: entier });
 const fichier = { text: async () => JSON.stringify({ format: "stab", version: 1, note: { module: "poutre", nom: "Importée", etat: { poutres: [] } } }) };
 try { await m.importer(fichier); out.importer = "ouverte"; } catch (e) { out.importer = e.message; }
@@ -828,6 +857,8 @@ chk("notes.js : autre chose qu'un objet de notes (un tableau JSON) est illisible
 chk("notes.js : une mémoire absente s'écrit sans copie ; une mémoire lue garde ses 30 notes et n'est pas copiée",
     (JN.get("absente") or {}).get("etat") == "absente" and JN["absente"].get("ok") is True and JN["absente"].get("cles") == ["stab.notes.v1"]
     and JN.get("lue") == {"etat": "lue", "ok": True, "notes": 31, "copies": 0}, (JN.get("absente"), JN.get("lue")))
+chk("notes.js : écrire sans dater (rouvrir une note sans la modifier) garde sa date ; une modification l'avance",
+    JN.get("date") == {"ok": True, "ok2": True, "garde": True, "avance": True}, JN.get("date"))
 chk("notes.js : stockage plein → ecrire rend false, raison « plein », la mémoire intacte ; un .stab importé qui ne s'enregistre pas ne s'ouvre "
     "pas (l'établi l'aurait remplacé par une note neuve, sans un mot)",
     (JN.get("plein") or {}).get("ok") is False and (JN["plein"].get("b") or {}).get("raison") == "plein" and JN["plein"].get("intacte") is True

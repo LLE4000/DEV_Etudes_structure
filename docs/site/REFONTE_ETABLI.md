@@ -935,3 +935,34 @@ points suivants remplacent ce qui, plus haut, les contredit. Le reste de la spé
    (garde-corps, soudures, cornière, qui dépendent du kit) ; un module que l'ingénieur utilise davantage peut passer
    devant. S4 (démarrage) quand il tombe bien : la présentation ne le défait pas. C (chantiers et dossiers) attend
    l'accord de l'ingénieur : c'est une migration de format. V à la fin.
+
+## Révision du 10/11/2026 : ouvrir un calcul n'écrit rien, pour TOUS les modules (D1, D9)
+
+**Demande de l'ingénieur** (lot des petits chantiers, « fais-les tous en un seul lot ») ; une relecture extérieure
+l'avait relevé : « dès qu'il ouvrait un module, ça faisait une note ». Le comportement de la poutre (le pilote, plus
+haut) vaut désormais pour chaque page d'établi, compacte ou non :
+
+- **la carte de l'accueil ouvre le calcul lui-même** (un lien, que rien n'intercepte) ; « Nouvelle note » reste le
+  chemin qui nomme et range la note d'abord ;
+- **la note est provisoire** tant que rien n'est modifié ni rangé (`js/etabli.js`, plus de condition sur l'établi
+  compact) ; la première action qui modifie, un renommage ou « Enregistrer comme note… » l'écrivent ;
+- **« Enregistrer comme note… »** est sur toute page (`construire.bouton_ranger`, `entree_ranger`, `fenetre_rangement` :
+  barre du haut au PC et à la tablette, menu ⋯ au téléphone ; ses règles passent de `css/etabli.css` à `css/site.css`) ;
+- **rouvrir une note sans la modifier ne change pas sa date** (`notes.ecrire(note, {date: false})` : seuls ses caches
+  — résumé, vignette, état relu — sont réécrits) ; la date avance à la première action qui modifie ET change l'état
+  (pas en ouvrant un autre élément : `activer` est une lecture, comme au lot S3) ; annuler et rétablir la datent ;
+- **D9 : l'indice réel** (« Indice B ») remplace l'étiquette figée « Brouillon » (`construire.etiquette_note`) ; une
+  note provisoire dit « Non enregistrée » ; au téléphone, l'indice ouvre la 2ᵉ ligne de l'en-tête (« Indice B ·
+  chantier · module » ; provisoire, l'indicateur qui la précède dit déjà « Pas encore enregistré »). L'indice ne se
+  CHANGE pas encore à l'écran (il vient d'un `.stab` importé ; « A » sinon) : un champ « Indice » dans la fenêtre
+  « Classer la note… » est une fonction à décider ;
+- **un lien `?note=` vers une note absente** le dit (« Cette note n'est pas dans ce navigateur… ») avec « Importer
+  .stab » (le message `#et-alerte`, `construire.alerte_enregistrement`) ; rien n'est créé à sa place ; une note d'un
+  AUTRE module s'ouvre par la page de son module (`location.replace`).
+
+Contrôles : `tests/test_site_web.py` (chaque page porte le bouton, la fenêtre, l'étiquette, « Importer .stab » ; chaque
+carte est un lien ; notes.js joué par node : écrire sans dater garde la date) ; le filtre « ouverture » de
+`site/web/verifier_site.js` (chaque module ouvert au PC : rien d'écrit ; aux trois formats : ranger, saisir, rouvrir sans
+changer la date, l'indice réel, la note absente et « Importer .stab » de bout en bout, la note d'un autre module). Trois
+mutations vues rouges dans le navigateur (la provisoire réservée au compact ; la date avancée à chaque écriture ; le
+message de la note absente retiré).

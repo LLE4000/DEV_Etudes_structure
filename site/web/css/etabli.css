@@ -58,9 +58,6 @@
   .bench.et-redim .canvas, .bench.et-redim .panel { transition: none !important; }
 }
 @media (max-width: 1199px) { .et-poignee { display: none; } }
-/* le fil de la note (chantier › dossier) ne s'efface pas devant le champ du nom, là où la barre a la place (1 400 px et
-   plus) : c'est le nom qui se coupe. Plus étroit, il se coupe comme ailleurs (sinon il passait sous « Brouillon ») */
-@media (min-width: 1400px) { [data-etabli="compact"] #fil-chantier { flex: none; } }
 
 /* ------------------------------------------------------------------ la toile : fond clair, la feuille sans cadre */
 [data-etabli="compact"] .canvas { background: var(--paper); }
@@ -440,22 +437,6 @@
 .ck-crit { display: flex; flex-direction: column; gap: 3px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
 .ck-crit b { color: var(--ink); font-weight: 650; margin-right: 6px; }
 
-/* ------------------------------------------------------------------ « Enregistrer comme note… » */
-.et-ranger { flex: none; }
-/* la barre du haut gagne ce bouton : « Ouvrir » (un fichier .stab, rare) passe en icône, le fil de la note garde sa place */
-@media (max-width: 1599px) { [data-etabli="compact"] .top label.btn[for="ouvrir"] .lbl { display: none; } }
-.et-rangement { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(13, 21, 37, .32); }
-.et-rg-carte { width: min(420px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-2);
-  padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.et-rg-h { display: flex; align-items: center; }
-.et-rg-h b { margin-right: auto; font-size: 15px; }
-.et-rg-l { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
-.et-rg-l .field-in { height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 10px; font: inherit; font-weight: 500;
-  color: var(--ink); background: var(--panel); }
-.et-rg-l .field-in:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
-.et-rg-aide { font-size: 11.5px; color: var(--ink-3); margin: 0; }
-.et-rg-b { display: flex; justify-content: flex-end; gap: 8px; }
-
 /* ------------------------------------------------------------------ tablette (701 à 1 199 px) : la grille de l'établi */
 @media (min-width: 701px) and (max-width: 1199px) {
   [data-etabli="compact"] .bench > .panel { border: 1px solid var(--line); border-radius: 12px; }
@@ -478,7 +459,6 @@
 
 /* ------------------------------------------------------------------ téléphone : les onglets Données · Dessin · Résultat */
 @media (max-width: 700px) {
-  [data-etabli="compact"] .et-ranger .lbl { display: none; }
   [data-etabli="compact"] .et-pt-l, [data-etabli="compact"] .et-pt-t { min-height: 46px; height: auto; }
   /* le chevron et le NOM de l'élément ouvert, au doigt (le nom s'écrit en 16 px : .bench input, site.css) */
   [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 40px; }

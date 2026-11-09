@@ -111,8 +111,11 @@ function changer(f) {
   return true;
 }
 
-export function ecrire(note) {
-  note.modifie = Date.now();
+// ``date`` : la note a été MODIFIÉE, sa date de modification avance. Sans (date: false), elle est réécrite telle quelle —
+// ses caches (résumé, vignette, état relu par le moteur) — et garde sa date : rouvrir une note sans rien y changer ne la
+// fait pas remonter dans « Reprendre » (js/etabli.js décide, REFONTE_ETABLI.md, lot S3).
+export function ecrire(note, { date = true } = {}) {
+  if (date || !Number.isFinite(note.modifie)) note.modifie = Date.now();
   return changer((notes) => { notes[note.id] = note; });
 }
 

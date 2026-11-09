@@ -1,5 +1,6 @@
 // L'accueil : reprendre une note, en créer une (chantier, dossier, nom, module), voir les chantiers. Les notes viennent
-// de ce navigateur (notes.js) ; rien n'est inventé : sans note, l'accueil le dit.
+// de ce navigateur (notes.js) ; rien n'est inventé : sans note, l'accueil le dit. La carte d'un module ouvre le calcul
+// lui-même (un lien : décision D1, ouvrir un calcul n'écrit rien) ; « Nouvelle note » nomme et range la note d'abord.
 import * as N from "./notes.js";
 import { cablerRail, esc, toast, texteTaux, telecharger } from "./commun.js";
 
@@ -58,7 +59,8 @@ function afficher() {
       + `<div class="m"><span class="ou" title="${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}">${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}</span></div>`
       + `<div class="m">${esc(N.quand(n.modifie))}${chip}<span class="supp" data-supprimer="${esc(n.id)}" title="Supprimer la note">✕</span></div></div></a>`;
   }).join("") : m.etat === "illisible" ? `<div class="vide"><b>Aucune note lisible</b>La mémoire des notes de ce navigateur est illisible (voir plus haut).</div>`
-    : `<div class="vide"><b>Aucune note pour l'instant</b>« Nouvelle note » en crée une ; elle s'enregistre dans ce navigateur.</div>`;
+    : `<div class="vide"><b>Aucune note pour l'instant</b>La carte d'un module ouvre un calcul : il devient une note, enregistrée dans ce navigateur, `
+      + `à la première saisie (« Nouvelle note » la nomme d'abord).</div>`;
   // les chantiers : leurs dossiers et leurs notes
   const ch = {};
   notes.forEach((n) => {
@@ -108,8 +110,6 @@ $("#nn-creer").addEventListener("click", () => {
     : `?${new URLSearchParams({ nom: $("#nn-nom").value.trim(), chantier: n.chantier, dossier: n.dossier })}`;
   location.href = `${N.pageDe(module)}${ou}`;
 });
-// une tuile de module ouvre la fenêtre avec ce module déjà choisi
-document.querySelectorAll(".tile[data-nouvelle-module]").forEach((t) => t.addEventListener("click", (ev) => { ev.preventDefault(); ouvrirNouvelle(t.dataset.nouvelleModule); }));
 
 $("#importer").addEventListener("change", async (ev) => {
   const f = ev.target.files[0];

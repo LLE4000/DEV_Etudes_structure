@@ -1,4 +1,5 @@
-// « Enregistrer comme note… » (l'établi compact, pilote « Poutres béton armé » ; construire.compact écrit la fenêtre).
+// « Enregistrer comme note… » (toute page d'établi depuis le 10/11/2026 — c'était l'établi compact ; construire.bouton_ranger,
+// entree_ranger et fenetre_rangement écrivent le bouton, l'entrée du menu ⋯ et la fenêtre).
 //
 // Le calcul s'ouvre directement depuis sa carte, sans fenêtre « Nouvelle note » : la note est PROVISOIRE (js/etabli.js)
 // tant que rien n'est modifié. Ce bouton lui donne un nom, un chantier et un dossier, et l'écrit dans ce navigateur. Une

@@ -34,30 +34,54 @@ cablerRail();
 
 // ------------------------------------------------------------------ la note
 const q = new URLSearchParams(location.search);
-let note = q.get("note") && N.lire(q.get("note"));
+const demandee = q.get("note");   // l'adresse nomme une note (un lien, la carte « Reprendre », un import)
+let note = demandee && N.lire(demandee);
+// une note d'un AUTRE module (un lien recopié d'une autre page) : elle s'ouvre par la page de son module — sans quoi
+// celle-ci ouvrait, sans un mot, un calcul neuf à sa place
+const ailleurs = !!note && Object.hasOwn(N.MODULES, note.module) && N.moduleServi(note.module) !== MODULE;
+if (ailleurs) location.replace(`${N.pageDe(note.module)}?note=${encodeURIComponent(note.id)}`);
 // une note déjà enregistrée, rouverte — ou une note d'un module que celui-ci a ABSORBÉ (notes.moduleServi : « predalle »
 // est servi par la page des dalles) : son état part tel quel au moteur de ce module, qui sait le relire
 const relue = !!note && N.moduleServi(note.module) === MODULE;
-// PROVISOIRE : le calcul ouvert depuis sa carte (établi compact, sans nom ni chantier demandés). La note n'existe qu'en
-// mémoire : RIEN n'est écrit tant que l'utilisateur ne modifie rien (ouvrir pour regarder ne remplit pas la liste des
-// notes). La première saisie, un renommage ou « Enregistrer comme note… » l'écrivent, et l'adresse prend alors ?note=.
+// la note demandée n'est PAS dans ce navigateur (supprimée, enregistrée sur un autre poste, lien partagé) : le message le
+// dit, avec « Importer .stab » ; RIEN n'est créé à sa place — le calcul ouvert est provisoire, comme depuis une carte
+const absente = !!demandee && !note;
+// PROVISOIRE (décision D1, tous les modules depuis le 10/11/2026 ; c'était la poutre et la dalle) : le calcul ouvert
+// depuis sa carte, sans nom ni chantier demandés. La note n'existe qu'en mémoire : RIEN n'est écrit tant que
+// l'utilisateur ne modifie rien (ouvrir pour regarder ne remplit pas la liste des notes). La première saisie, un renommage
+// ou « Enregistrer comme note… » l'écrivent, et l'adresse prend alors ?note=. (« Nouvelle note » de l'accueil, ou une
+// adresse ?nom=…&chantier=…, nomme la note d'abord : elle n'est pas provisoire.)
 let provisoire = false;
 if (!relue) {
   note = N.nouvelle({ module: MODULE, nom: q.get("nom") || "", chantier: q.get("chantier") || "", dossier: q.get("dossier") || "" });
-  provisoire = COMPACT && !["nom", "chantier", "dossier"].some((k) => q.get(k));
+  provisoire = !["nom", "chantier", "dossier"].some((k) => q.get(k));
   if (!provisoire) history.replaceState(null, "", `?note=${note.id}`);
 }
 // les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
 // « selecteur », « bibliotheque » ne font que la lire
 const MODIFIENT = new Set(["modifier", "choisir", "ajouter", "dupliquer", "supprimer", "activer", "fiches"]);
+// … et parmi elles, celles qui changent sa DATE (« modifiée le … », l'ordre de « Reprendre ») — toutes, sauf ouvrir un
+// autre élément de la note : c'est une lecture (REFONTE_ETABLI.md, lot S3). Rouvrir une note sans rien y changer ne
+// change pas sa date : le premier calcul n'en réécrit que les caches (résumé, vignette).
+const DATENT = new Set([...MODIFIENT].filter((a) => a !== "activer"));
 // le nom de la note : le champ de la barre du haut (PC, tablette) et celui de l'en-tête du téléphone
 const noms = [...document.querySelectorAll("[data-nom-note]")];
+// ce que la note EST, en une phrase (décision D9 : l'indice réel, à la place de l'étiquette figée « Brouillon ») — une
+// source pour l'étiquette de la barre du haut (construire.etiquette_note) et la 2ᵉ ligne de l'en-tête du téléphone :
+// « Indice B » ; « Non enregistrée » tant que la note est provisoire (au téléphone, l'indicateur d'enregistrement qui
+// précède le dit déjà : « Pas encore enregistré » — la 2ᵉ ligne ne le répète pas)
+const identite = () => (provisoire ? "Non enregistrée" : `Indice ${note.indice || "A"}`);
 function afficherEntete() {
   noms.forEach((n) => { if (n !== document.activeElement) n.value = note.nom || ""; });
   document.title = `${note.nom || N.MODULES[MODULE].nom} · Stab Méthodes`;
   const fil = [note.chantier, note.dossier].filter(Boolean).join(" › ");
   $("#fil-chantier").textContent = fil || "Sans chantier";
-  $("#fil-m").textContent = `${fil || "Sans chantier"} · ${N.MODULES[MODULE].nom}`;
+  $("#fil-m").textContent = [provisoire ? "" : identite(), fil || "Sans chantier", N.MODULES[MODULE].nom].filter(Boolean).join(" · ");
+  const ind = $("#et-ind");
+  ind.textContent = identite();
+  ind.dataset.provisoire = provisoire ? "1" : "";
+  ind.title = provisoire ? "Ce calcul n'est pas encore une note : rien n'est écrit tant que vous ne modifiez rien (ou « Enregistrer comme note… »)"
+    : `Indice ${note.indice || "A"} de la note (celui de la note PDF et du cartouche)`;
 }
 afficherEntete();
 noms.forEach((n) => n.addEventListener("change", () => { note.nom = n.value.trim() || N.MODULES[MODULE].nom; enregistrer(); apresEntete(); }));
@@ -106,15 +130,20 @@ const SUITE = {
     + "Exportez cette note en fichier .stab pour la garder.",
   indisponible: "Cette note n'est gardée nulle part : exportez-la en fichier .stab pour ne pas la perdre.",
 };
+// sorte : « echec » (avec « Exporter .stab »), « info », « absente » (une note demandée qui n'est pas dans ce navigateur :
+// avec « Importer .stab »)
 function direAlerte(sorte, texte) {
-  alerte.classList.toggle("et-info", sorte === "info");
+  alerte.classList.toggle("et-info", sorte !== "echec");
   alerte.querySelector(".et-alerte-txt").textContent = texte;
-  alerte.querySelector(".et-alerte-stab").hidden = sorte === "info";
+  alerte.querySelector(".et-alerte-stab").hidden = sorte !== "echec";
+  alerte.querySelector(".et-alerte-importer").hidden = sorte !== "absente";
   alerte.hidden = false;
 }
-function enregistrer() {
-  if (provisoire) { provisoire = false; history.replaceState(null, "", `?note=${note.id}`); rangement.libeller(); }
-  const ok = N.ecrire(note), b = N.bilan();
+// écrire la note ; ``date`` : sa date de modification avance (une vraie modification) — sinon seuls ses caches (résumé,
+// vignette, l'état relu par le moteur) sont réécrits, à la date d'avant
+function enregistrer({ date = true } = {}) {
+  if (provisoire) { provisoire = false; history.replaceState(null, "", `?note=${note.id}`); rangement.libeller(); afficherEntete(); }
+  const ok = N.ecrire(note, { date }), b = N.bilan();
   if (ok) {
     direEnregistrement("ok", "Enregistré · ", heure(note.modifie), "", `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
     if (alerteDite) { alerteDite = ""; alerteEchec = ""; alerte.hidden = true; }
@@ -139,11 +168,15 @@ else if (provisoire) {
   direEnregistrement("neuf", "", "Pas encore enregistré", "",
     "Rien n'est écrit tant que vous ne modifiez rien : la note s'enregistre dans ce navigateur à la première saisie");
 } else direEnregistrement("neuf", "", "Pas encore enregistré", "", "La note s'enregistre dans ce navigateur dès le premier calcul");
+if (absente) {
+  direAlerte("absente", "Cette note n'est pas dans ce navigateur (supprimée, ou enregistrée sur un autre poste) : importez son fichier .stab "
+    + "pour l'ouvrir. Le calcul ouvert ici est neuf ; rien n'est enregistré tant que vous ne le modifiez pas.");
+}
 alerte.addEventListener("click", (ev) => { if (ev.target.closest("[data-fermer-alerte]")) alerte.hidden = true; });
 // le menu ⋯ (téléphone) : l'échec en entier ; le toucher rouvre son message (le menu se referme seul, comme pour ses
 // autres entrées)
 revoir.addEventListener("click", () => { if (alerteEchec) direAlerte("echec", alerteEchec); });
-// « Enregistrer comme note… » (l'établi compact) : nommer, ranger, écrire la note provisoire
+// « Enregistrer comme note… » (toute page d'établi) : nommer, ranger, écrire la note provisoire
 const rangement = cablerRangement({ note: () => note, provisoire: () => provisoire,
   apres: () => { const ok = enregistrer(); apresEntete(); return ok; } });
 
@@ -160,7 +193,8 @@ function occupe(plus) {
   });
 }
 
-async function envoyer(action, extra = {}, { sansHistorique = false } = {}) {
+// ``modification`` : la requête rend un état que l'utilisateur a voulu (annuler, rétablir), quelle que soit l'action
+async function envoyer(action, extra = {}, { sansHistorique = false, modification = false } = {}) {
   occupe(1);
   try {
     marquerUneFois("requete1_envoyee");
@@ -170,7 +204,10 @@ async function envoyer(action, extra = {}, { sansHistorique = false } = {}) {
     if (!r.ok) { toast(`Le moteur a refusé : ${r.erreur}`, true); console.error(r.trace || r.erreur); return null; }
     if (r.etat) {
       if (!sansHistorique) retenir(action, avant, r.etat);
-      appliquer(r, action);
+      // la date de la note n'avance que si son état CHANGE par une action qui modifie (une saisie refusée, un choix
+      // identique, le premier calcul d'une note rouverte ne la changent pas)
+      const date = (modification || DATENT.has(action)) && JSON.stringify(avant) !== JSON.stringify(r.etat);
+      appliquer(r, action, date);
     }
     return r;
   } finally { occupe(-1); }
@@ -202,9 +239,10 @@ async function historiser(sens) {
   enHistorique = true;
   try {
     vers.push(note.etat);
-    note.etat = de.pop();
+    const voulu = de.pop();
     majHistorique();
-    const r = await envoyer("calculer", {}, { sansHistorique: true });
+    // (l'état d'avant part au moteur : « calculer » le rend, la note change — sa date avance)
+    const r = await envoyer("calculer", { etat: voulu }, { sansHistorique: true, modification: true });
     if (r) toast(sens === "annuler" ? "Modification annulée" : "Modification rétablie");
   } finally { enHistorique = false; }
 }
@@ -238,7 +276,7 @@ const compact = COMPACT ? cablerCompact({
   vue: { courante: () => vueCourante, choisir: choisirVue, ajuster: () => requestAnimationFrame(() => toile.vue(vueCourante)) },
 }) : null;
 
-function appliquer(r, action) {
+function appliquer(r, action, date = false) {
   note.etat = r.etat;
   note.resume = r.resume;
   // une note d'un module absorbé (« predalle ») : le moteur de CE module l'a relue et rend son état dans sa propre
@@ -248,7 +286,9 @@ function appliquer(r, action) {
   // la vignette de l'accueil : le premier DESSIN (une vue peut être un tableau, illisible en vignette)
   const v = (r.vues || []).find((x) => /^\s*<svg/.test(x.svg || ""));
   note.vignette = v ? v.svg : "";
-  if (!provisoire || MODIFIENT.has(action)) enregistrer();
+  // une note provisoire ne s'écrit qu'à la première action qui la modifie ; une note écrite garde ses caches à jour, et
+  // sa date n'avance qu'à une vraie modification
+  if (provisoire ? MODIFIENT.has(action) : true) enregistrer({ date: provisoire || date });
   $("#statut").innerHTML = r.statut_html || "";
   afficherResume(r.resume || {});
   // le résultat refait garde sa position de lecture (une liste de contrôle dépliée, une justification qu'on vient de
@@ -846,6 +886,7 @@ $("#ouvrir").addEventListener("change", async (ev) => {
 
 // ------------------------------------------------------------------ démarrage
 (async () => {
+  if (ailleurs) return;   // la page de son module s'ouvre (location.replace, plus haut)
   try {
     await moteur.pret;
     const r = await envoyer(note.etat ? "calculer" : "nouveau");

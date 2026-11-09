@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|nappes|doigt|bibliotheque|note_pdf]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|plaques|nappes|doigt|bibliotheque|note_pdf]
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -1814,15 +1814,16 @@ const FILTRE = process.argv[4] || '';
           bouton: rb ? { texte: bt.textContent.trim(), h: Math.round(rb.height), l: Math.round(rb.width) } : null } : null,
         deborde: document.documentElement.scrollWidth > innerWidth };
     });
-    // l'établi compact (construire.ETABLI_COMPACT) ouvert sans note : rien n'est écrit tant qu'on ne modifie rien — la
-    // mémoire reste à l'octet, l'indicateur dit « Pas encore enregistré » ; la première saisie écrit (ou échoue)
+    // un établi ouvert sans note (TOUT module depuis le 10/11/2026 — c'était l'établi compact seul) : rien n'est écrit tant
+    // qu'on ne modifie rien — la mémoire reste à l'octet, l'indicateur dit « Pas encore enregistré » ; la première saisie
+    // écrit (ou échoue)
     const ecrireAlaSaisie = async (pg, nom) => {
-      if (!(await pg.evaluate(() => document.body.dataset.etabli === 'compact' && !new URLSearchParams(location.search).get('note')))) return;
+      if (!(await pg.evaluate(() => !new URLSearchParams(location.search).get('note')))) return;
       const avant = await lireMemoire(pg), e0 = await lireEnr(pg);
-      verif(`${nom} : établi compact — à l'ouverture, RIEN n'est écrit (ni note, ni copie) et l'indicateur dit « Pas encore enregistré »`,
+      verif(`${nom} : à l'ouverture, RIEN n'est écrit (ni note, ni copie) et l'indicateur dit « Pas encore enregistré »`,
         avant.principal === ABIME && !Object.keys(avant.copies).length && e0.etat === 'neuf' && e0.texte === 'Pas encore enregistré',
         JSON.stringify({ copies: Object.keys(avant.copies).length, etat: e0.etat, texte: e0.texte }));
-      verif(`${nom} : établi compact — une saisie part au moteur`, await saisir(pg));
+      verif(`${nom} : une saisie part au moteur`, await saisir(pg));
     };
     const lireMemoire = (pg) => pg.evaluate((k) => {
       const out = { principal: localStorage.getItem(k), copies: {} };
@@ -2037,6 +2038,220 @@ const FILTRE = process.argv[4] || '';
           await g.screenshot({ path: path.join(OUT, `site_accueil_memoire_copie_${fmt === 'téléphone' ? 'tel' : fmt.toLowerCase()}.png`) });
           await c2.close();
         }
+      } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
+      await pg.context().close();
+    }
+  }
+
+  // ---------------------------------------------------------------- ouvrir un calcul n'écrit rien (décision D1), TOUS les modules
+  // (10/11/2026 ; c'était la poutre et la dalle seules — une relecture extérieure : « dès qu'il ouvrait un module, ça faisait
+  // une note »). Ce que l'œil voit et ce que la mémoire garde :
+  //  1. aux trois formats, chaque carte de l'accueil est un LIEN vers le calcul, que rien n'intercepte ;
+  //  2. au PC, CHAQUE module (les masqués par leur page) : ouvert, rien n'est écrit (moteur prêt + 1,5 s), l'adresse reste
+  //     sans ?note=, l'étiquette dit « Non enregistrée », l'indicateur « Pas encore enregistré », et « Enregistrer comme
+  //     note… » est là, à sa taille ;
+  //  3. « Enregistrer comme note… » aux trois formats (barre du haut ; menu ⋯ au téléphone) : la fenêtre tient dans l'écran,
+  //     nomme, range, écrit UNE note ; l'adresse prend ?note= ; l'étiquette dit « Indice A » ;
+  //  4. une saisie écrit la note ; rechargée, la même note, la même valeur ;
+  //  5. rouvrir une note sans la modifier ne change pas sa date ; l'indice réel (C) dans l'en-tête, aux trois formats ; la
+  //     première modification la date ;
+  //  6. un lien ?note= vers une note ABSENTE : le message le dit, avec « Importer .stab » (qui ouvre bien le fichier choisi),
+  //     et rien n'est créé ; une note d'un AUTRE module s'ouvre par la page de son module.
+  //   filtre « ouverture »
+  if (!FILTRE || FILTRE === 'ouverture') {
+    const fs = require('fs');
+    await p.goto(`${BASE}/`);
+    const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const ctxO = async (w, h, tel, tactile = tel) => {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tactile, acceptDownloads: true });
+      const pg = await c.newPage();
+      pg.erreurs = [];
+      pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
+      return pg;
+    };
+    const pretO = async (pg) => {
+      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+      return pg.evaluate(() => (document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : ''));
+    };
+    const notesO = (pg) => pg.evaluate(() => { try { return JSON.parse(localStorage.getItem('stab.notes.v1') || '{}'); } catch (e) { return null; } });
+    // l'en-tête VU à ce format : l'étiquette de la barre du haut, la 2ᵉ ligne du téléphone, l'indicateur, le bouton (ou
+    // l'entrée du menu ⋯) « Enregistrer comme note… » — chacun visible, à sa taille lue
+    const enteteO = (pg) => pg.evaluate(() => {
+      const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const taille = (e) => { const r = e.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; };
+      const ind = document.getElementById('et-ind'), enr = [...document.querySelectorAll('.et-enr')].find(vu), bt = document.querySelector('.top [data-ranger]');
+      return { adresse: location.search, etiquette: vu(ind) ? ind.textContent : null, tailleEtiquette: vu(ind) ? taille(ind) : null,
+        filM: vu(document.getElementById('fil-m')) ? document.getElementById('fil-m').textContent : null,
+        enr: enr ? enr.dataset.enr : null, enrTexte: enr ? enr.querySelector('.et-enr-txt').innerText : null,
+        bouton: vu(bt) ? { taille: taille(bt), libelle: vu(bt.querySelector('.lbl')) ? bt.querySelector('.lbl').textContent : '' } : null,
+        deborde: document.documentElement.scrollWidth > innerWidth };
+    });
+    // la barre du haut (PC, tablette) : rien ne s'y chevauche, rien n'en sort
+    const barreO = (pg) => pg.evaluate(() => {
+      const els = [...document.querySelectorAll('.top > *, .top .crumbs > *')].filter((e) => !e.classList.contains('crumbs') && !e.classList.contains('spacer')
+        && e.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map((e) => ({ n: (e.id || e.className || e.tagName).toString().slice(0, 20), r: e.getBoundingClientRect() }));
+      const f = [], top = document.querySelector('.top').getBoundingClientRect();
+      for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
+        const a = els[i].r, c = els[j].r;
+        if (a.left < c.right - 0.5 && c.left < a.right - 0.5 && a.top < c.bottom && c.top < a.bottom) f.push(`${els[i].n} / ${els[j].n}`);
+      }
+      els.forEach((e) => { if (e.r.right > top.right + 0.5 || e.r.left < top.left - 0.5) f.push(`${e.n} sort de la barre`); });
+      return f;
+    });
+    const FMT_O = [['PC', 1440, 900, false], ['tablette', 820, 1180, false, true], ['téléphone', 390, 844, true]];
+
+    // ------------------------------------------------ 1. les cartes de l'accueil : des liens, que rien n'intercepte
+    for (const [fmt, w, h, tel, tactile] of FMT_O) {
+      const pg = await ctxO(w, h, tel, tactile ?? tel);
+      try {
+        await pg.goto(`${BASE}/`);
+        await pg.waitForTimeout(300);
+        const t = await pg.evaluate((mods) => {
+          const lus = [];
+          // le dernier écouteur (sur window, à la remontée) lit si un autre a empêché le clic, puis l'empêche lui-même : la
+          // page ne quitte pas l'accueil pendant la mesure
+          addEventListener('click', (ev) => { lus.push(ev.defaultPrevented); ev.preventDefault(); });
+          const tuiles = [...document.querySelectorAll('.tile[data-module]')];
+          tuiles.forEach((x) => x.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
+          return { n: tuiles.length, liens: tuiles.every((x) => x.tagName === 'A' && x.getAttribute('href') === mods[x.dataset.module].page),
+            interceptees: lus.filter(Boolean).length, fenetre: !document.getElementById('nouvelle').hidden,
+            attendues: Object.values(mods).filter((m) => !m.masque).length, nouvelleModule: document.querySelectorAll('[data-nouvelle-module]').length };
+        }, MODS);
+        verif(`ouverture · accueil ${fmt} : chacune des ${t.attendues} cartes de module est un lien vers son calcul, que rien n'intercepte (aucune fenêtre « Nouvelle note »)`,
+          t.n === t.attendues && t.liens && !t.interceptees && !t.fenetre && !t.nouvelleModule, JSON.stringify(t));
+      } catch (x) { verif(`ouverture · accueil ${fmt} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
+      await pg.context().close();
+    }
+
+    // ------------------------------------------------ 2. chaque module, au PC : ouvert depuis sa carte, rien n'est écrit
+    {
+      const pg = await ctxO(1440, 900, false);
+      for (const [cle, mod] of Object.entries(MODS)) {
+        const nom = `ouverture · ${cle} · PC`;
+        try {
+          await pg.goto(`${BASE}/`);
+          if (mod.masque) await pg.goto(`${BASE}/${mod.page}`);   // masqué : plus de carte, sa page reste servie
+          else await Promise.all([pg.waitForNavigation(), pg.click(`.tile[data-module="${cle}"]`)]);
+          const ko = await pretO(pg);
+          await pg.waitForTimeout(1500);   // le temps qu'une écriture de trop arrive, si elle devait arriver
+          const e = await enteteO(pg), n = await notesO(pg);
+          const vers = mod.vers ? MODS[mod.vers].page : mod.page;
+          verif(`${nom} : ouvert${mod.masque ? ' (page d\'un module masqué)' : ' depuis sa carte'}, RIEN n'est écrit — aucune note, l'adresse sans ?note=, « Non enregistrée », « Pas encore enregistré », « Enregistrer comme note… » à sa taille`,
+            !ko && n && !Object.keys(n).length && !/note=/.test(e.adresse) && new URL(pg.url()).pathname.endsWith(`/${vers}`) && e.etiquette === 'Non enregistrée'
+            && e.enr === 'neuf' && e.enrTexte === 'Pas encore enregistré' && e.bouton && e.bouton.taille[1] >= 24 && e.bouton.libelle === 'Enregistrer comme note…' && !e.deborde,
+            JSON.stringify({ ko, notes: n && Object.keys(n).length, ...e, url: pg.url() }));
+          const f = await barreO(pg);
+          verif(`${nom} : la barre du haut ne se chevauche pas (l'étiquette, l'indicateur, « Enregistrer comme note… »)`, !f.length, f.join(', '));
+        } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
+      }
+      verif('ouverture · PC : aucune erreur JavaScript', !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
+      await pg.screenshot({ path: path.join(OUT, 'site_ouverture_pc.png') });
+      await pg.context().close();
+    }
+
+    // ------------------------------------------------ 3 à 5. le garde-corps aux trois formats : ranger, saisir, rouvrir
+    const t0 = Date.now() - 3 * 86400000;   // une note de trois jours
+    for (const [fmt, w, h, tel, tactile] of FMT_O) {
+      const nom = `ouverture · garde-corps · ${fmt}`;
+      const pg = await ctxO(w, h, tel, tactile ?? tel);
+      try {
+        await pg.goto(`${BASE}/`);
+        await Promise.all([pg.waitForNavigation(), pg.click('.tile[data-module="garde_corps"]')]);
+        verif(`${nom} : le moteur démarre`, !(await pretO(pg)));
+        // « Enregistrer comme note… » : au téléphone, dans le menu ⋯
+        if (tel) { await pg.click('#menu-m'); await pg.waitForTimeout(150); }
+        const sel = tel ? '#mmenu [data-ranger]' : '.top [data-ranger]';
+        const bt = await pg.evaluate((s) => { const e = document.querySelector(s); const r = e.getBoundingClientRect();
+          return { vu: e.checkVisibility({ visibilityProperty: true, opacityProperty: true }), l: Math.round(r.width), h: Math.round(r.height), texte: e.innerText.trim() }; }, sel);
+        verif(`${nom} : « Enregistrer comme note… » ${tel ? 'dans le menu ⋯' : 'dans la barre du haut'}, visible, à sa taille`,
+          bt.vu && bt.h >= (tactile ?? tel ? 44 : 24) && bt.l >= bt.h && (tel || fmt === 'tablette' || bt.texte === 'Enregistrer comme note…') && (!tel || bt.texte === 'Enregistrer comme note…'), JSON.stringify(bt));
+        await pg.click(sel);
+        await pg.waitForTimeout(150);
+        const fen = await pg.evaluate(() => { const c = document.querySelector('#et-rangement .et-rg-carte'), r = c.getBoundingClientRect();
+          const champs = [...document.querySelectorAll('#et-rangement input, #et-rangement button')].filter((x) => x.checkVisibility()).map((x) => Math.round(x.getBoundingClientRect().height));
+          return { vu: c.checkVisibility({ visibilityProperty: true, opacityProperty: true }), dedans: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+            focus: document.activeElement && document.activeElement.id, titre: document.getElementById('et-rg-titre').textContent, hMin: Math.min(...champs) }; });
+        verif(`${nom} : la fenêtre « Enregistrer comme note » s'ouvre dans l'écran, le nom choisi, ses cibles à la taille du ${tactile ?? tel ? 'doigt (44 px)' : 'pointeur'}`,
+          fen.vu && fen.dedans && fen.focus === 'et-rg-nom' && fen.titre === 'Enregistrer comme note' && fen.hMin >= (tactile ?? tel ? 44 : 28), JSON.stringify(fen));
+        await pg.fill('#et-rg-nom', `Garde-corps rangé · ${fmt}`);
+        await pg.fill('#et-rg-chantier', 'Essai ouverture');
+        await pg.click('#et-rangement button[type="submit"]');
+        await pg.waitForTimeout(250);
+        let n = await notesO(pg), e = await enteteO(pg);
+        const id = new URLSearchParams(e.adresse).get('note');
+        verif(`${nom} : « Enregistrer » écrit UNE note, nommée et rangée ; l'adresse prend ?note= ; l'en-tête dit « Indice A »`,
+          Object.keys(n).length === 1 && n[id] && n[id].nom === `Garde-corps rangé · ${fmt}` && n[id].chantier === 'Essai ouverture'
+          && (tel ? e.filM && e.filM.startsWith('Indice A · Essai ouverture') : e.etiquette === 'Indice A') && e.enr === 'ok',
+          JSON.stringify({ notes: Object.keys(n), ...e }));
+        if (tel) { await pg.click('.mtabs [data-onglet="donnees"]'); await pg.waitForTimeout(150); }
+        await pg.screenshot({ path: path.join(OUT, `site_ouverture_rangee_${tel ? 'tel' : fmt === 'PC' ? 'pc' : 'tablette'}.png`) });
+        // une saisie (H = 1 300 mm) : la note change, sa date avance
+        const avant = n[id].modifie;
+        await pg.fill('input[data-chemin="geometrie/H"]', '1300');
+        await pg.press('input[data-chemin="geometrie/H"]', 'Enter');
+        await pretO(pg);
+        n = await notesO(pg);
+        verif(`${nom} : une saisie modifie la note (H = 1 300 mm) et avance sa date`, Object.keys(n).length === 1 && n[id].modifie > avant
+          && JSON.stringify(n[id].etat).includes('1300'), JSON.stringify({ avant, apres: n[id].modifie }));
+        // rouvrir sans modifier : la note « de trois jours », d'indice C ; sa date ne bouge pas
+        await pg.evaluate(([i, t]) => { const ns = JSON.parse(localStorage.getItem('stab.notes.v1')); ns[i].modifie = t; ns[i].indice = 'C'; localStorage.setItem('stab.notes.v1', JSON.stringify(ns)); }, [id, t0]);
+        await pg.reload();
+        verif(`${nom} : rouverte, le moteur démarre`, !(await pretO(pg)));
+        await pg.waitForTimeout(1500);
+        n = await notesO(pg); e = await enteteO(pg);
+        verif(`${nom} : ROUVRIR la note sans la modifier ne change pas sa date (il y a trois jours) ; la même note, la même hauteur ; l'en-tête dit son indice réel « Indice C »`,
+          Object.keys(n).length === 1 && n[id].modifie === t0 && (await pg.inputValue('input[data-chemin="geometrie/H"]')).replace(/\s/g, '') === '1300'
+          && (tel ? e.filM && e.filM.startsWith('Indice C · ') : e.etiquette === 'Indice C'), JSON.stringify({ modifie: n[id].modifie, t0, ...e }));
+        // ouvrir un autre élément n'est pas une modification ; une saisie, si
+        await pg.fill('input[data-chemin="geometrie/H"]', '1250');
+        await pg.press('input[data-chemin="geometrie/H"]', 'Enter');
+        await pretO(pg);
+        n = await notesO(pg);
+        verif(`${nom} : la première modification de la note rouverte la date (aujourd'hui)`, n[id].modifie > Date.now() - 600000, JSON.stringify({ modifie: n[id].modifie }));
+        await pg.screenshot({ path: path.join(OUT, `site_ouverture_indice_${tel ? 'tel' : fmt === 'PC' ? 'pc' : 'tablette'}.png`) });
+        verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
+      } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
+      await pg.context().close();
+    }
+
+    // ------------------------------------------------ 6. un lien vers une note absente ; une note d'un autre module
+    for (const [fmt, w, h, tel, tactile] of FMT_O) {
+      const nom = `ouverture · note absente · ${fmt}`;
+      const pg = await ctxO(w, h, tel, tactile ?? tel);
+      try {
+        await pg.goto(`${BASE}/${MODS.plancher.page}?note=nulle-part`);
+        verif(`${nom} : le moteur démarre`, !(await pretO(pg)));
+        await pg.waitForTimeout(1500);
+        const a = await pg.evaluate(() => {
+          const al = document.getElementById('et-alerte'), imp = al.querySelector('.et-alerte-importer'), vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const r = al.getBoundingClientRect(), ri = vu(imp) ? imp.getBoundingClientRect() : null;
+          const x = ri && document.elementFromPoint(ri.left + ri.width / 2, ri.top + ri.height / 2);
+          return { vu: vu(al), texte: al.querySelector('.et-alerte-txt').textContent, dedans: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+            importer: ri ? { l: Math.round(ri.width), h: Math.round(ri.height), atteint: !!x && imp.contains(x), texte: imp.textContent.trim() } : null,
+            exporter: vu(al.querySelector('.et-alerte-stab')), adresse: location.search };
+        });
+        const n = await notesO(pg), e = await enteteO(pg);
+        verif(`${nom} : le message dit que la note n'est pas dans ce navigateur, dans l'écran, avec « Importer .stab » atteint (${tactile ?? tel ? '44' : '24'} px) ; RIEN n'est créé`,
+          a.vu && /n'est pas dans ce navigateur/.test(a.texte) && a.dedans && a.importer && a.importer.atteint && a.importer.texte === 'Importer .stab'
+          && a.importer.h >= (tactile ?? tel ? 44 : 24) && !a.exporter && n && !Object.keys(n).length && e.enr === 'neuf', JSON.stringify({ ...a, notes: n && Object.keys(n).length, enr: e.enr }));
+        await pg.screenshot({ path: path.join(OUT, `site_ouverture_absente_${tel ? 'tel' : fmt === 'PC' ? 'pc' : 'tablette'}.png`) });
+        // « Importer .stab » ouvre le choix du fichier ; le fichier choisi s'ouvre par la page de SON module
+        const fichier = path.join(OUT, 'ouverture_importee.stab');
+        fs.writeFileSync(fichier, JSON.stringify({ format: 'stab', version: 1, note: { module: 'garde_corps', nom: 'Note importée', chantier: 'Essai ouverture', indice: 'B', etat: null } }));
+        const [choix] = await Promise.all([pg.waitForEvent('filechooser', { timeout: 10000 }), pg.click('#et-alerte .et-alerte-importer')]);
+        await Promise.all([pg.waitForNavigation(), choix.setFiles(fichier)]);
+        verif(`${nom} : « Importer .stab » ouvre le fichier choisi, par la page de son module`, !(await pretO(pg)) && new URL(pg.url()).pathname.endsWith(`/${MODS.garde_corps.page}`)
+          && (await pg.inputValue('#nom-note')) === 'Note importée', pg.url());
+        // une note d'un AUTRE module, demandée à la page du plancher : elle s'ouvre par la page de son module
+        const idG = new URLSearchParams(new URL(pg.url()).search).get('note');
+        await pg.goto(`${BASE}/${MODS.plancher.page}?note=${idG}`);
+        await pretO(pg);
+        verif(`${nom} : une note d'un autre module (garde-corps), demandée à la page du plancher, s'ouvre par la page de son module`,
+          new URL(pg.url()).pathname.endsWith(`/${MODS.garde_corps.page}`) && new URL(pg.url()).searchParams.get('note') === idG
+          && Object.keys(await notesO(pg)).length === 1, pg.url());
+        verif(`${nom} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
       } catch (x) { verif(`${nom} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
       await pg.context().close();
     }
@@ -3727,7 +3942,7 @@ const FILTRE = process.argv[4] || '';
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'note_pdf'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'note_pdf'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

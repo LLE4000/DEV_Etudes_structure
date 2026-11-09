@@ -51,8 +51,10 @@ PAGES = {k: v + ".html" for k, v in ADRESSES.items()}
 ACCUEIL = "./"
 # L'établi COMPACT (l'arborescence de la note à gauche, le dessin et son en-tête au centre, un bloc de résultats par
 # section à droite), sur ces modules seulement (docs/site/REFONTE_ETABLI.md) : les modules béton armé, leurs fonctions
-# aux mêmes places (api_web/etabli_compact.py) ; les autres gardent l'établi d'avant. Leur carte de l'accueil ouvre le
-# calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
+# aux mêmes places (api_web/etabli_compact.py) ; les autres gardent l'établi d'avant. (Ouvrir un calcul n'écrit rien —
+# décision D1 — vaut pour TOUS les modules depuis le 10/11/2026 : chaque carte de l'accueil ouvre le calcul directement,
+# la note est provisoire jusqu'à la première modification, « Enregistrer comme note… » est sur toute page d'établi :
+# ``page_module``.)
 ETABLI_COMPACT = ("poutre", "dalle")
 # … et parmi eux, ceux dont la colonne de gauche est COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur
 # le 09/11/2026) : ni titre « Données », ni en-tête « POUTRES (n) », ni arborescence — l'en-tête du panneau porte la
@@ -476,8 +478,9 @@ def page_accueil() -> str:
             if k in MASQUES:
                 continue
             if k in PAGES:
-                ouvre = f'data-module="{k}"' if k in ETABLI_COMPACT else f'data-nouvelle-module="{k}"'
-                t += (f'<a class="tile" href="{ADRESSES[k]}" {ouvre}><span class="modic {fam}">{MQ.MOD[k]}</span>'
+                # la carte ouvre le calcul LUI-MÊME, sans fenêtre (décision D1, tous les modules : la note est provisoire
+                # tant que rien n'est modifié) ; « Nouvelle note » reste le chemin qui nomme et range d'abord
+                t += (f'<a class="tile" href="{ADRESSES[k]}" data-module="{k}"><span class="modic {fam}">{MQ.MOD[k]}</span>'
                       f'<span class="nm">{MQ.esc(n)}</span></a>')
             else:
                 t += (f'<div class="tile bientot" title="Ce module n\'est pas encore sur le site (il reste dans Streamlit)">'
@@ -568,12 +571,50 @@ def menu_enregistrement() -> str:
 def alerte_enregistrement() -> str:
     """Le message d'un échec d'enregistrement (#et-alerte) : dit une fois, il reste jusqu'à ce qu'on le ferme ou qu'une
     écriture réussisse, et offre « Exporter .stab » (la note n'est alors gardée nulle part ailleurs). Le même aux trois
-    formats ; js/etabli.js l'écrit."""
+    formats ; js/etabli.js l'écrit. Il dit aussi qu'une note demandée par l'adresse (``?note=…``) n'est pas dans ce
+    navigateur, avec « Importer .stab » (une étiquette du champ #ouvrir) : rien n'est créé à sa place."""
     return (f'<div class="et-alerte" id="et-alerte" role="alert" hidden><span class="et-alerte-ic">{MQ.icon("triangle-alert")}</span>'
             '<span class="et-alerte-txt"></span>'
             f'<button type="button" class="btn sm primary et-alerte-stab" data-action="exporter">{MQ.icon("download")}Exporter .stab</button>'
+            f'<label class="btn sm primary et-alerte-importer" for="ouvrir" hidden>{MQ.icon("upload")}Importer .stab</label>'
             f'<button type="button" class="btn icon ghost et-alerte-x" data-fermer-alerte="1" title="Fermer le message" '
             f'aria-label="Fermer le message">{MQ.icon("x")}</button></div>')
+
+
+def etiquette_note() -> str:
+    """L'étiquette de la note dans la barre du haut (PC, tablette), à la place de l'ancienne étiquette figée « Brouillon »
+    (décision D9) : js/etabli.js y écrit l'INDICE réel de la note (« Indice B »), ou « Non enregistrée » tant que la note est
+    provisoire (rien n'est écrit tant que rien n'est modifié, décision D1). Au téléphone, la même phrase s'écrit en tête
+    de la 2ᵉ ligne de l'en-tête (#fil-m) : js/etabli.js la compose une fois (``identite``) pour les deux."""
+    return '<span class="tag draft et-ind" id="et-ind"></span>'
+
+
+def bouton_ranger() -> str:
+    """« Enregistrer comme note… » dans la barre du haut (PC, tablette ; son nom se replie en icône sous 1 100 px) : sur
+    TOUTE page d'établi (décision D1, étendue à tous les modules le 10/11/2026) — js/rangement.js l'écrit « Classer la
+    note… » une fois la note écrite. Au téléphone, l'entrée du menu ⋯ (``entree_ranger``)."""
+    return (f'<button type="button" class="btn sm et-ranger" data-ranger="1" title="Nommer la note et la ranger dans un chantier">'
+            f'{MQ.icon("folder")}<span class="lbl">Enregistrer comme note…</span></button>')
+
+
+def entree_ranger() -> str:
+    """« Enregistrer comme note… » dans le menu ⋯ du téléphone : le même bouton que la barre du haut (``bouton_ranger``)."""
+    return f'<button type="button" class="mi" data-ranger="1">{MQ.icon("folder")}<span class="et-mi-ranger">Enregistrer comme note…</span></button>'
+
+
+def fenetre_rangement() -> str:
+    """La fenêtre « Enregistrer comme note » (js/rangement.js) : le nom, le chantier, le dossier (texte, avec les
+    chantiers et dossiers déjà connus). Une seule, aux trois formats."""
+    return ('<div class="et-rangement" id="et-rangement" role="dialog" aria-modal="true" aria-labelledby="et-rg-titre" hidden>'
+            '<form class="et-rg-carte" id="et-rg-form"><div class="et-rg-h"><b id="et-rg-titre">Enregistrer comme note</b>'
+            f'<button type="button" class="btn icon ghost" data-fermer-rangement="1" aria-label="Fermer">{MQ.icon("x")}</button></div>'
+            '<label class="et-rg-l">Nom de la note<input id="et-rg-nom" class="field-in" autocomplete="off" spellcheck="false" maxlength="200"></label>'
+            '<label class="et-rg-l">Chantier<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans chantier"></label>'
+            '<label class="et-rg-l">Dossier<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans dossier"></label>'
+            '<datalist id="et-rg-chantiers"></datalist><datalist id="et-rg-dossiers"></datalist>'
+            '<p class="et-rg-aide">La note est enregistrée dans ce navigateur ; « Exporter .stab » en garde une copie en fichier.</p>'
+            '<div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button>'
+            '<button type="submit" class="btn primary">Enregistrer</button></div></form></div>')
 
 
 def page_module(cle: str, titre: str) -> str:
@@ -591,8 +632,7 @@ def page_module(cle: str, titre: str) -> str:
     top = (f'<header class="top"><div class="crumbs"><a href="{ACCUEIL}" title="Accueil">{MQ.icon("house")}</a>{MQ.icon("chevron-right")}'
            f'<span id="fil-chantier" class="muted"></span><span id="fil-sep">{MQ.icon("chevron-right")}</span>'
            f'<input id="nom-note" class="nomnote" data-nom-note="1" value="" aria-label="Nom de la note" spellcheck="false"></div>'
-           f'<span class="tag draft"><span class="dot"></span>Brouillon</span>'
-           f'<span class="spacer"></span>{enregistrement()}'
+           f'{etiquette_note()}<span class="spacer"></span>{enregistrement()}{bouton_ranger()}'
            f'<label class="btn ghost" for="ouvrir" title="Ouvrir un fichier .stab">{MQ.icon("upload")}<span class="lbl">Ouvrir</span></label>'
            + _bouton("download", ".stab", ' data-action="exporter" title="Exporter la note en fichier .stab"')
            + _bouton("printer", "Imprimer", ' data-action="imprimer" title="Imprimer l\'écran"')
@@ -604,7 +644,8 @@ def page_module(cle: str, titre: str) -> str:
             f'<button type="button" class="mchip" id="chip-m" data-vers-onglet="resultat" title="Voir le résultat"></button>'
             f'<button type="button" class="btn icon ghost" id="menu-m" aria-haspopup="true" aria-expanded="false" aria-controls="mmenu" '
             f'title="Plus d\'actions">{MQ.icon("ellipsis")}</button></header>')
-    mmenu = (f'<div class="mmenu" id="mmenu" hidden>{menu_enregistrement()}<label class="mi" for="ouvrir">{MQ.icon("upload")}Ouvrir un fichier .stab</label>'
+    # (l'échec d'enregistrement reste la PREMIÈRE entrée du menu : « Enregistrer comme note… » le suit)
+    mmenu = (f'<div class="mmenu" id="mmenu" hidden>{menu_enregistrement()}{entree_ranger()}<label class="mi" for="ouvrir">{MQ.icon("upload")}Ouvrir un fichier .stab</label>'
              f'<button type="button" class="mi" data-action="exporter">{MQ.icon("download")}Exporter la note en .stab</button>'
              f'<button type="button" class="mi" data-action="imprimer">{MQ.icon("printer")}Imprimer</button>'
              + pdf["menu"] +
@@ -637,7 +678,7 @@ def page_module(cle: str, titre: str) -> str:
              f'{mtop}{mmenu}{mtabs}'
              f'<div class="bench" data-tab="donnees">{toile}<section class="panel left">{gauche}</section>'
              f'<section class="panel right">{droite}</section><div id="volets"></div>{demarrage}</div>{mbar}</main></div>'
-             f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}'
+             f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}{fenetre_rangement()}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
              f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
     # la bibliothèque de la famille, dans un panneau de la note (docs/site/BIBLIOTHEQUES.md § 2.4) : pour un module de
@@ -713,7 +754,8 @@ def compact(corps: str, bibliotheque=None, arbre_compact: bool = False) -> str:
       dessin) ;
     - à droite, les RÉSULTATS seuls, compacts ; un clic ouvre le détail ;
     - les deux colonnes se replient et se REDIMENSIONNENT (une poignée sur leur bord intérieur) ;
-    - la barre du haut gagne « Enregistrer comme note… » ;
+    - (« Enregistrer comme note… » n'est plus son affaire depuis le 10/11/2026 : ``page_module`` le pose sur toute page
+      d'établi, ``bouton_ranger``) ;
     - (la note PDF n'est plus son affaire : ``page_module`` allume le bouton de tout module de NOTE_PDF, compact ou non,
       par ``boutons_note_pdf``) ;
     - ``bibliotheque`` (la clé d'une bibliothèque, docs/site/BIBLIOTHEQUES.md § 2.4) : un bouton discret « Bibliothèque »
@@ -740,35 +782,12 @@ def compact(corps: str, bibliotheque=None, arbre_compact: bool = False) -> str:
         corps = corps.replace(marque, f'<div class="et-poignee" data-poignee="{nom}" role="separator" aria-orientation="vertical" '
                               f'title="Glisser pour élargir ; double-clic : largeur d\'origine"></div>' + marque, 1)
     corps = corps.replace('<body data-page="module"', '<body data-page="module" data-etabli="compact"', 1)
-    # « Enregistrer comme note… » : à côté de l'indicateur d'enregistrement (barre du haut), et dans le menu ⋯ du téléphone
-    bouton = (f'<button type="button" class="btn sm et-ranger" data-ranger="1" title="Nommer la note et la ranger dans un chantier">'
-              f'{MQ.icon("folder")}<span class="lbl">Enregistrer comme note…</span></button>')
-    marque = '<label class="btn ghost" for="ouvrir"'
-    assert marque in corps
-    corps = corps.replace(marque, bouton + marque, 1)
     # « ajuster » le dessin : une icône — « 100 % » laissait croire à une échelle d'impression, le dessin s'ajuste à la
     # feuille ; le pourcentage reste dans le bouton, caché par la feuille de l'établi (js/toile.js l'écrit)
     avant = '<button type="button" class="zpct" data-zoom="ajuster" title="Ajuster le dessin à la feuille">100 %</button>'
     assert corps.count(avant) == 1, avant
     corps = corps.replace(avant, '<button type="button" class="zpct" data-zoom="ajuster" title="Ajuster le dessin à la feuille" '
                           f'aria-label="Ajuster le dessin à la feuille">{MQ.icon("scan")}<span class="v">100 %</span></button>', 1)
-    # (au téléphone, l'échec d'enregistrement reste la PREMIÈRE entrée du menu : « Enregistrer comme note… » le suit)
-    revoir = menu_enregistrement()
-    assert corps.count('<div class="mmenu" id="mmenu" hidden>' + revoir) == 1
-    corps = corps.replace('<div class="mmenu" id="mmenu" hidden>' + revoir, '<div class="mmenu" id="mmenu" hidden>' + revoir
-                          + f'<button type="button" class="mi" data-ranger="1">{MQ.icon("folder")}<span class="et-mi-ranger">Enregistrer comme note…</span></button>', 1)
-    # la fenêtre « Enregistrer comme note » : le nom, le chantier, le dossier (texte, avec les chantiers déjà connus)
-    fenetre = ('<div class="et-rangement" id="et-rangement" role="dialog" aria-modal="true" aria-labelledby="et-rg-titre" hidden>'
-               '<form class="et-rg-carte" id="et-rg-form"><div class="et-rg-h"><b id="et-rg-titre">Enregistrer comme note</b>'
-               f'<button type="button" class="btn icon ghost" data-fermer-rangement="1" aria-label="Fermer">{MQ.icon("x")}</button></div>'
-               '<label class="et-rg-l">Nom de la note<input id="et-rg-nom" class="field-in" autocomplete="off" spellcheck="false" maxlength="200"></label>'
-               '<label class="et-rg-l">Chantier<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans chantier"></label>'
-               '<label class="et-rg-l">Dossier<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans dossier"></label>'
-               '<datalist id="et-rg-chantiers"></datalist><datalist id="et-rg-dossiers"></datalist>'
-               '<p class="et-rg-aide">La note est enregistrée dans ce navigateur ; « Exporter .stab » en garde une copie en fichier.</p>'
-               '<div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button>'
-               '<button type="submit" class="btn primary">Enregistrer</button></div></form></div>')
-    corps = corps.replace('<div class="toast" id="toast"', fenetre + '<div class="toast" id="toast"', 1)
     if bibliotheque:
         chemin_b, titre_b, _fam_b = BIBLIOTHEQUES[bibliotheque]
         B = importlib.import_module(chemin_b)

@@ -16,6 +16,11 @@ a { color: inherit; text-decoration: none; }
 .top .crumbs { overflow: hidden; flex: 0 1 auto; }
 #fil-chantier { min-width: 0; max-width: 24vw; overflow: hidden; text-overflow: ellipsis; }
 .crumbs .nomnote { flex: 0 1 260px; width: auto; min-width: 110px; text-overflow: ellipsis; }   /* coupé : « … », pas au milieu d'une lettre */
+/* le fil de la note (chantier › dossier) ne s'efface pas devant le champ du nom, là où la barre a la place (1 400 px et
+   plus) : c'est le nom qui se coupe. Plus étroit, il se coupe comme ailleurs (sinon il passait sous l'étiquette de la
+   note). (Toute page d'établi depuis le 10/11/2026 : c'était l'établi compact ; les autres coupaient « Sans chantier » en
+   « Sans chan… » à 1 440 px, la barre ayant la place.) */
+@media (min-width: 1400px) { #fil-chantier { flex: none; } }
 .crumbs a { display: grid; place-items: center; color: var(--ink-3); }
 .crumbs a:hover { color: var(--ink); }
 .nomnote { border: 1px solid transparent; border-radius: 6px; background: transparent; font-weight: 650; color: var(--ink); padding: 2px 6px;
@@ -69,6 +74,33 @@ a { color: inherit; text-decoration: none; }
   .et-alerte .btn, .et-mem-l .btn { height: 44px; }
   .et-alerte .btn.icon { width: 44px; }
 }
+/* ---------------------------------------------------------------- la note : son étiquette, « Enregistrer comme note… » */
+/* Ouvrir un calcul n'écrit rien (décision D1), sur TOUTE page d'établi depuis le 10/11/2026 (ces règles étaient dans
+   css/etabli.css, que seules les pages compactes chargent) : l'étiquette de la barre du haut dit l'indice réel de la note,
+   ou « Non enregistrée » (construire.etiquette_note) ; « Enregistrer comme note… » (construire.bouton_ranger) et sa fenêtre
+   (construire.fenetre_rangement, js/rangement.js). */
+.top .et-ind { flex: none; white-space: nowrap; }
+.et-ranger { flex: none; }
+/* la barre du haut gagne ce bouton : « Ouvrir » (un fichier .stab, rare) passe en icône, le fil de la note garde sa place */
+@media (min-width: 701px) and (max-width: 1599px) { .top label.btn[for="ouvrir"] .lbl { display: none; } }
+.et-rangement { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(13, 21, 37, .32); }
+.et-rangement[hidden] { display: none !important; }
+.et-rg-carte { width: min(420px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-2);
+  padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.et-rg-h { display: flex; align-items: center; }
+.et-rg-h b { margin-right: auto; font-size: 15px; }
+.et-rg-l { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+.et-rg-l .field-in { height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 10px; font: inherit; font-weight: 500;
+  color: var(--ink); background: var(--panel); }
+.et-rg-l .field-in:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.et-rg-aide { font-size: 11.5px; color: var(--ink-3); margin: 0; }
+.et-rg-b { display: flex; justify-content: flex-end; gap: 8px; }
+/* au doigt : des champs et des boutons de 44 px ; au téléphone, les champs en 16 px (sous cette taille, iOS agrandit la page) */
+@media (pointer: coarse) {
+  .et-rg-l .field-in, .et-rg-b .btn { height: 44px; }
+  .et-rg-h .btn.icon { width: 44px; height: 44px; }
+}
+@media (max-width: 700px) { .et-rg-l .field-in { height: 44px; font-size: 16px; } .et-rg-b .btn { height: 44px; } }
 .calcule { font-size: 11.5px; color: var(--ink-3); margin-right: auto; display: inline-flex; align-items: center; gap: 6px; }
 .calcule.on::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--accent-line); border-top-color: var(--accent);
   animation: tourne .7s linear infinite; }
@@ -499,7 +531,7 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .et-alerte { top: 118px; flex-wrap: wrap; padding: 10px; }
   .et-alerte-txt { flex: 1 1 calc(100% - 80px); }
   .et-alerte .btn { height: 44px; }
-  .et-alerte .et-alerte-stab { flex: 1 1 auto; justify-content: center; }
+  .et-alerte .et-alerte-stab, .et-alerte .et-alerte-importer { flex: 1 1 auto; justify-content: center; }
   .et-alerte .btn.icon { width: 44px; }
   .et-mem-l { flex-direction: column; align-items: stretch; gap: 8px; }
   .et-mem-l .btn { height: 44px; justify-content: center; }
