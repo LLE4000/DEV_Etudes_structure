@@ -603,6 +603,9 @@ BOUTONS_SITE = {"methode/k_eurocode": P + "btn_kq", "methode/k_bureau": P + "btn
 # les écarts VOULUS de disposition (le champ existe sur le site, montré quand il sert) : C7 en pleine pénétration, la
 # pénétration p et « deux faces » ne servent ni au calcul ni au dessin (configurations.c7, schemas.c7_coupe)
 CACHES_VOULUS = {("C7", "pleine"): {"params/p", "params/deux_faces"}}
+# les champs de Streamlit que le site ne montre PAS, voulu (09/11/2026, R2) : l'identification de la note PDF est celle
+# de la note du site (nom, chantier, indice, date — api_web/note_cas.py) ; l'état la garde pour l'aller-retour Streamlit
+RETIRES_DU_SITE = {"identification/projet", "identification/partie", "identification/indice"}
 
 
 def variantes(cfg: str):
@@ -645,7 +648,7 @@ for cfg in CF.CONFIGS:
                 st_ch[ch] = (cle, w)
         site = champs_site(S.resultat(S.normaliser(copy.deepcopy(e)))["donnees"])
         site_ch = {depuis_site(c) for c in site if c not in BOUTONS_SITE and not c.endswith("/+") and not c.endswith("/-")}
-        manque = set(st_ch) - site_ch - CACHES_VOULUS.get((cfg, nom_v), set())
+        manque = set(st_ch) - site_ch - CACHES_VOULUS.get((cfg, nom_v), set()) - RETIRES_DU_SITE
         invente = site_ch - set(st_ch) - {"nom"} - ({"params/elements"} if cfg == "C8" else set())
         if "nom" not in st_ch:
             invente.discard("nom")

@@ -2,10 +2,13 @@
 """La NOTE PDF du module « Garde-corps » sur le site (api_web/garde_corps.telecharger → api_web/note_cas.py), vérifiée
 en Python ordinaire.
 
-- TOUTE la note en un PDF : deux pages par garde-corps, dans l'ordre de la liste ; le texte de chaque page (pdftotext)
-  est celui de la note de ce garde-corps faite SEULE par le générateur validé (acier/garde_corps/note.py), et la taille
-  retenue (normale, serrée) est la sienne — ce qui lie les deux copies nommées de note_cas (la boucle des variantes, le
-  corps de ``_essai``) ;
+- TOUTE la note en un PDF : deux pages par garde-corps (trois avec sa page de suite), dans l'ordre de la liste ; le
+  texte de chaque page (pdftotext) est celui de la note de ce garde-corps faite SEULE par le générateur validé
+  (acier/garde_corps/note.py), et la taille retenue (normale, serrée) est la sienne — le site lui demande sa mise en
+  page (``mise_en_page``) et lui fait poser ses pages (``poser``), sans copie ;
+- un garde-corps qui DÉBORDAIT de ses deux pages (en U avec « Cumuler qh et qv » : refusé avant le 09/11/2026) sort
+  complet, en trois pages ; une note de plusieurs garde-corps qui en compte n'est pas refusée (la grille complète :
+  tests/test_note_garde_corps_grille.py) ;
 - PARITÉ avec l'écran du site, cas par cas : le calcul que la note refait (``Calcul``) rend les taux, statuts,
   gouvernants et profils du moteur de l'écran ; le verdict, chaque taux de la colonne Résultat, chaque profil et
   chaque résultat des fenêtres de calcul (les formules de la note, efforts compris) s'écrivent dans les pages du cas.
@@ -17,8 +20,8 @@ en Python ordinaire.
   celle d'un fichier Streamlit ne s'imprime pas) ;
 - le routeur la rend en base 64, nommée d'après la note (nom sûr) ; un autre fichier est refusé ; une note qui déborde
   est refusée, jamais tronquée ;
-- MUTATIONS (chacune doit faire rougir un contrôle) : un garde-corps oublié, des infos mal transmises, la page 2 sans
-  l'échelle de la page 1, la taille toujours « normale » ;
+- MUTATIONS (chacune doit faire rougir un contrôle) : un garde-corps oublié, des infos mal transmises, la page de suite
+  oubliée dans la note entière, la taille toujours « normale » ou toujours « serrée » ;
 - comme dans le navigateur (sonde calquée sur celle du paquet de la note) : sans fontTools ni accélérateurs C, avec le
   Pillow factice et les seules polices du paquet, la note se fait et son texte est celui de CPython ; ses polices sont
   celles du paquet ; numpy est déjà chargé par l'écran du module ; les fichiers du dépôt qu'elle charge en plus sont
@@ -195,23 +198,38 @@ finally:
 chk("… et le débordement relevé en posant les pages d'un cas dans la note entière (second garde-fou) l'est aussi",
     not r3b["ok"] and "ne tient pas" in r3b["erreur"] and "2 pt" in r3b["erreur"], r3b.get("erreur"))
 
-# le débordement du GÉNÉRATEUR lui-même, sans rien injecter (relecture du 09/11/2026) : un garde-corps en U avec
-# « Cumuler qh et qv » (l'option côté sûr) ne tient pas dans ses deux pages, même serrées — la note du site est refusée.
-# Ce n'est pas un cas d'école (86 des 240 états d'une grille) : l'étendue mesurée est ÉCRITE (DEFAUTS_STREAMLIT.md,
-# MODULES_SITE.md § 4 quinquies) ; ce contrôle lie l'écrit à la mesure — il rougit si l'écrit disparaît, et aussi le
-# jour où la mise en page du générateur est reprise (l'écrit est alors à mettre à jour)
+# le débordement du GÉNÉRATEUR lui-même (relecture du 09/11/2026) : un garde-corps en U avec « Cumuler qh et qv »
+# (l'option côté sûr) ne tenait pas dans ses deux pages, même serrées (28 pt en page 1, 73 pt en page 2) — la note du
+# site était REFUSÉE (86 des 240 états d'une grille). Depuis la page de suite du générateur (acier/garde_corps/note.py,
+# preuve complète : tests/test_note_garde_corps_grille.py), elle sort COMPLÈTE : trois pages, rien qui déborde, le
+# récapitulatif et la bibliothèque en page 3. L'écrit suit (DEFAUTS_STREAMLIT.md, MODULES_SITE.md) : ce contrôle le lie.
 u_cumul = faire((["geometrie", "forme"], "U"), (["charges", "cumul"], True))
 ru = json.loads(R.traiter(json.dumps({"module": "garde_corps", "action": "telecharger", "etat": u_cumul, "quoi": "note_pdf",
                                       "infos": INFOS})))
 with open(os.path.join(RACINE, "docs", "site", "DEFAUTS_STREAMLIT.md"), encoding="utf-8") as fh:
-    defauts = fh.read()
+    defauts = " ".join(fh.read().split())
 with open(os.path.join(RACINE, "docs", "site", "MODULES_SITE.md"), encoding="utf-8") as fh:
-    modules_site = fh.read()
-chk("un garde-corps en U avec « Cumuler qh et qv » : le générateur déborde même serré (28 pt, 73 pt), la note est refusée "
-    "— et l'étendue mesurée est écrite (DEFAUTS_STREAMLIT.md, MODULES_SITE.md)",
-    not ru["ok"] and "ne tient pas" in ru["erreur"] and "28 pt" in ru["erreur"] and "73 pt" in ru["erreur"]
-    and "garde-corps en U avec « Cumuler qh et qv », le reste par défaut : 28 pt en page 1, 73 pt en page 2" in defauts
-    and "86 des 240 états d'une grille du garde-corps débordent" in modules_site, ru.get("erreur"))
+    modules_site = " ".join(fh.read().split())
+tu =O.pages(base64.b64decode(ru["fichier"]["base64"])) if ru.get("ok") else []
+chk("un garde-corps en U avec « Cumuler qh et qv » (refusé avant la page de suite) : la note sort, COMPLÈTE, en trois pages "
+    "— la page 3 porte le récapitulatif et la bibliothèque, la page 1 et la page 2 le disent ; l'écrit suit "
+    "(DEFAUTS_STREAMLIT.md, MODULES_SITE.md)",
+    ru.get("ok") and len(tu) == 3 and "SUITE DES PAGES 1 ET 2" in tu[2]
+    and all(x in re.sub(r"\s+", "", tu[2]) for x in ("RÉCAPITULATIF", "SECTIONDEL'ÉLÉMENTPRINCIPALETBIBLIOTHÈQUE"))
+    and "Suite p. 3 : récapitulatif." in O.norm(tu[0]) and "Suite p. 3 : section et bibliothèque." in O.norm(tu[1])
+    and "page de suite" in defauts and "86 des 240 états d'une grille du garde-corps débordaient" in modules_site, ru.get("erreur") or [t[:200] for t in tu])
+
+# plusieurs garde-corps, dont deux qui débordaient : la note entière n'est pas refusée, chaque garde-corps y a ses pages
+# (trois avec la page de suite), chacune celle du garde-corps fait seul par le générateur
+deborde = faire((["nom"], "U cumul"), (["geometrie", "forme"], "U"), (["charges", "cumul"], True), ("+", None), (["nom"], "Droit"),
+                ("+", None), (["nom"], "L soudé"), (["geometrie", "forme"], "L"), (["fixation", "type"], "soudee"))
+f_d, o_d, ks_d = O.note_et_tailles(G, deborde, INFOS)
+ecarts = O.controle_identite(G, deborde, INFOS, o_d, ks_d)
+chk(f"trois garde-corps dont deux qui débordaient (U avec cumul, L à montant soudé) : une note de {len(O.pages(o_d))} pages (3 + 2 + 3), "
+    "chaque page celle du garde-corps fait seul, page de suite comprise", not ecarts and len(O.pages(o_d)) == 8, ecarts[:3])
+ecarts = O.controle_infos(o_d, deborde, lambda i, c: ["Note de calcul · 01/02/2026 · indice B", f"Résidence Les Tilleuls · Terrasse · cas {c['nom']}"],
+                          nb_pages=[3, 2, 3])
+chk("… et l'identification de la note du site dans les pages de chacun", not ecarts, ecarts)
 
 # 5. les mutations : chacune doit faire rougir un contrôle
 e = ETATS["trois garde-corps (dont un NON CONFORME, H = 1600, en taille serrée)"]
@@ -219,9 +237,9 @@ vrai_pages = NC.pages
 compte = []
 
 
-def sans_dernier(NT_, gen, d, calc, doc_meta, k):
+def sans_dernier(NT_, gen, d, calc, doc_meta, k, reports=()):
     compte.append(1)
-    return [] if len(compte) == 3 else vrai_pages(NT_, gen, d, calc, doc_meta, k)
+    return [] if len(compte) == 3 else vrai_pages(NT_, gen, d, calc, doc_meta, k, reports)
 
 
 NC.pages = sans_dernier
@@ -237,23 +255,26 @@ try:
 finally:
     NC.infos_du_cas = vrai_infos
 chk("mutation « infos mal transmises » : le contrôle de l'identification rougit", O.controle_infos(mut, e, attendu) != [])
-vrai_note = G.NOTE
-G.NOTE = G.NOTE._replace(suite=lambda n1: (None,))
+# (la mutation « page 2 sans l'échelle de la page 1 » n'a plus d'objet ici : le garde-corps pose lui-même ses pages
+# — NT.poser —, le site n'en garde plus de copie ; « la page de suite oubliée » la remplace)
+NC.pages = lambda NT_, gen, d, calc, doc_meta, k, reports=(): vrai_pages(NT_, gen, d, calc, doc_meta, k, ())
 try:
-    mut = NC.pdf(G.NOTE, copy.deepcopy(e), INFOS)
+    r_sans = json.loads(R.traiter(json.dumps({"module": "garde_corps", "action": "telecharger", "etat": deborde, "quoi": "note_pdf",
+                                              "infos": INFOS})))
 finally:
-    G.NOTE = vrai_note
-chk("mutation « page 2 sans l'échelle de la page 1 » : le contrôle d'identité rougit", O.controle_identite(G, e, INFOS, mut) != [])
-vrai_var = NC.variante
+    NC.pages = vrai_pages
+chk("mutation « la page de suite oubliée dans la note entière » : la note est refusée (le débordement est relevé), jamais tronquée",
+    not r_sans["ok"] and "ne tient pas" in r_sans["erreur"], r_sans.get("erreur"))
+vrai_disp = NC.disposition
 for k, nom_k in NT.VARIANTES:
-    NC.variante = lambda NT_, calc, doc_meta, brouillon, k=k: (k, [])
+    NC.disposition = lambda NT_, calc, doc_meta, brouillon, k=k: (k, (), [])
     try:
         _, mut, ks = O.note_et_tailles(G, e, INFOS)
         rouge = O.controle_identite(G, e, INFOS, mut, ks) != []
     except AssertionError as err:      # la taille normale fait déborder G3 : la note est refusée — rouge aussi
         rouge, ks = "ne tient pas" in str(err), str(err)[:80]
     finally:
-        NC.variante = vrai_var
+        NC.disposition = vrai_disp
     chk(f"mutation « toujours la taille {nom_k} » : un contrôle rougit (tailles, ou refus du débordement)", rouge, ks)
 
 # 6. comme dans le navigateur

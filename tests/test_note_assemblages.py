@@ -370,10 +370,13 @@ r, pdf = note(asm("plat_ame", "A1"), infos={"nom": "Halle B"})
 g = texte(pdf, 1, 1, layout=True)
 chk("garde : sans chantier, le nom de la note est le PROJET ; l'assemblage porte son repère (« A1 » en tête de sa note)",
     re.search(r"PROJET\s+Halle B", g) and "Halle B · A1" not in g and "A1" in texte(pdf, 3, 3), g[:300])
-chk("infos_projet : la correspondance site → projet Streamlit",
+# (09/11/2026) TOUJOURS la note du site : sans nom ni chantier, le projet est « Assemblages » (le nom du fichier), jamais
+# le « Projet » saisi dans un assemblage ; sans indice, celui d'une note neuve du site (« A »), comme les cinq autres modules
+chk("infos_projet : la correspondance site → projet Streamlit (la note du site seule)",
     NA.infos_projet({"nom": "N", "chantier": "C", "indice": "B", "date": "02/02/2026"})
     == {"nom_projet": "C", "partie": "N", "date": "02/02/2026", "indice": "B"}
-    and NA.infos_projet({"nom": "N"})["nom_projet"] == "N" and NA.infos_projet({})["indice"] == "0")
+    and NA.infos_projet({"nom": "N"})["nom_projet"] == "N" and NA.infos_projet({})["indice"] == "A"
+    and NA.infos_projet({})["nom_projet"] == "Assemblages")
 
 # ===================================================================== 7. les conditions du navigateur
 print("— 7. les conditions du navigateur")

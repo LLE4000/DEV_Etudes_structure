@@ -14,8 +14,9 @@ Python ordinaire.
   ``etat.SEUIL_ATTENTION`` = 0,85, celui de l'écran Streamlit). Ce que l'écran montre EN PLUS, par construction de la note validée (« sans la comparaison des méthodes ») : les
   quatre lectures indicatives (EC3 simplifiée, ELS bureau, k Eurocode) et les formules au point le plus chargé des
   cordons qui ne gouvernent pas ;
-- l'identification : celle que l'écran laisse SAISIR (Méthode · « Identification de la note ») d'abord, puis la note
-  du site (nom, chantier, indice, date), avec la correspondance de la note de la poutre ;
+- l'identification : TOUJOURS celle de la note du site (nom, chantier, indice, date), avec la correspondance de la note
+  de la poutre ; celle que porte l'état (un fichier Streamlit) ne s'imprime pas, et l'écran ne la montre plus
+  (09/11/2026 : avant, le champ « Indice » de l'écran, « 0 » par défaut, passait devant — « indice 0 » sous une note B) ;
 - le routeur la rend en base 64, nommée d'après la note ; un autre fichier est refusé ; une note qui déborde est
   refusée, jamais tronquée ;
 - MUTATIONS (chacune doit faire rougir un contrôle) : un cas oublié, des infos mal transmises, la page 2 sans l'échelle
@@ -191,30 +192,29 @@ chk(f"ce que l'écran montre en plus, par construction de la note : les lectures
 
 # 3. l'identification
 e = ETATS["trois cas : IPE 300 sur platine (ELS), cordons libres C8, plats C1 NON CONFORMES"]
-# l'indice : celui du champ de l'écran (« 0 » par défaut, comme l'écran Streamlit) ; vidé, celui de la note du site
-attendu = lambda i, c: ["Note de calcul · 01/02/2026 · indice 0", f"Usine Nord · Assemblages soudés · cas {c['nom']}"]  # noqa: E731
+# (09/11/2026) l'indice — et le projet, la partie, la date — ont UNE source : la note du site. Avant, le champ « Indice »
+# de l'écran (« 0 » par défaut) passait devant : le PDF disait « indice 0 » sous une note « B » (relecture du 09/11).
+attendu = lambda i, c: ["Note de calcul · 01/02/2026 · indice B", f"Usine Nord · Assemblages soudés · cas {c['nom']}"]  # noqa: E731
 ecarts = O.controle_infos(NOTES["trois cas : IPE 300 sur platine (ELS), cordons libres C8, plats C1 NON CONFORMES"], e, attendu)
-chk("le chantier, le nom et la date de la note du site, l'indice du champ de l'écran sont dans l'en-tête de chaque cas", not ecarts, ecarts)
-sans_indice = faire((["identification", "indice"], ""), base=e)
-_, octets, _ = O.note_et_tailles(S, sans_indice, INFOS)
-ecarts = O.controle_infos(octets, sans_indice, lambda i, c: ["Note de calcul · 01/02/2026 · indice B"])
-chk("le champ « Indice » vidé : l'indice de la note du site", not ecarts, ecarts)
+chk("le chantier, le nom, l'indice et la date de la note du site sont dans l'en-tête de chaque cas (l'identification de "
+    "l'état, « 0 » par défaut, n'y est pas)", not ecarts and "indice 0" not in O.norm(" ".join(O.pages(NOTES[
+        "trois cas : IPE 300 sur platine (ELS), cordons libres C8, plats C1 NON CONFORMES"]))), ecarts)
 e6 = ETATS["tube C6 en pénétration partielle, identification saisie"]
-ecarts = O.controle_infos(NOTES["tube C6 en pénétration partielle, identification saisie"], e6,
-                          lambda i, c: ["indice C", f"Hall B · Portiques · cas {c['nom']}"])
-chk("l'identification SAISIE à l'écran (projet, partie, indice) passe devant la note du site", not ecarts, ecarts)
-chk("infos_du_cas : saisie d'abord, champ par champ ; puis la correspondance de la poutre",
-    NC.infos_du_cas(S.NOTE, e6, e6["cas"][0], INFOS) == {"nom_projet": "Hall B", "partie": "Portiques", "indice": "C", "date": "01/02/2026"}
-    and NC.infos_du_cas(S.NOTE, e, e["cas"][0], {"nom": "N"}) == {"nom_projet": "N", "partie": "Soudures", "indice": "0"},
+t6 = O.norm(" ".join(O.pages(NOTES["tube C6 en pénétration partielle, identification saisie"])))
+ecarts = O.controle_infos(NOTES["tube C6 en pénétration partielle, identification saisie"], e6, attendu)
+chk("l'identification que porte l'état (un fichier Streamlit : « Hall B », « Portiques », indice C) ne s'imprime pas : "
+    "celle de la note du site", not ecarts and "Hall B" not in t6 and "Portiques" not in t6 and "indice C" not in t6, ecarts)
+chk("infos_du_cas : la note du site seule, avec la correspondance de la poutre",
+    NC.infos_du_cas(S.NOTE, e6, e6["cas"][0], INFOS) == {"nom_projet": "Usine Nord", "partie": "Assemblages soudés", "indice": "B", "date": "01/02/2026"}
+    and NC.infos_du_cas(S.NOTE, e, e["cas"][0], {"nom": "N"}) == {"nom_projet": "N", "partie": "Soudures", "indice": "A"},
     (NC.infos_du_cas(S.NOTE, e6, e6["cas"][0], INFOS), NC.infos_du_cas(S.NOTE, e, e["cas"][0], {"nom": "N"})))
-# (relecture du 09/11/2026) l'indice a DEUX sources : le champ de l'écran (« 0 » par défaut) l'emporte sur l'indice de
-# la note du site que le cartouche de la page affiche — mesuré ci-dessus (« indice 0 » quand la note du site dit « B ») ;
-# l'écart est écrit, à trancher (MODULES_SITE.md § 4 quinquies) : ce contrôle lie l'écrit à la mesure
+donnees = S.resultat(copy.deepcopy(e6))["donnees"]
 with open(os.path.join(RACINE, "docs", "site", "MODULES_SITE.md"), encoding="utf-8") as fh:
-    modules_site = fh.read()
-chk("l'indice à deux sources (écran « 0 » par défaut, note du site « B ») est écrit à trancher dans MODULES_SITE.md",
-    NC.infos_du_cas(S.NOTE, e, e["cas"][0], INFOS)["indice"] == "0" and INFOS["indice"] == "B"
-    and "À trancher — l'INDICE a deux sources (R2)" in modules_site)
+    modules_site = " ".join(fh.read().split())
+chk("l'écran ne montre plus de champ d'identification (un seul composant, les trois formats) : il dit d'où vient celle "
+    "de la note PDF ; l'écrit suit (MODULES_SITE.md)",
+    'data-chemin="identification/' not in donnees and NC.AIDE_IDENTIFICATION in donnees
+    and "L'INDICE a une seule source" in modules_site, donnees.count("identification"))
 
 # 4. le routeur, les refus
 r = json.loads(R.traiter(json.dumps({"module": "soudures", "action": "telecharger", "etat": e, "quoi": "note_pdf",
@@ -249,9 +249,9 @@ vrai_pages = NC.pages
 compte = []
 
 
-def sans_dernier(NT_, gen, d, calc, doc_meta, k):
+def sans_dernier(NT_, gen, d, calc, doc_meta, k, reports=()):
     compte.append(1)
-    return [] if len(compte) == 3 else vrai_pages(NT_, gen, d, calc, doc_meta, k)
+    return [] if len(compte) == 3 else vrai_pages(NT_, gen, d, calc, doc_meta, k, reports)
 
 
 NC.pages = sans_dernier

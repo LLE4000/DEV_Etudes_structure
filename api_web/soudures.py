@@ -1143,10 +1143,7 @@ def formulaire(etat: Dict, res: Dict) -> str:
             f'<button type="button" class="addrow" data-chemin="methode/k_eurocode" data-valeur="1">{C.icon("check")}Prendre la valeur Eurocode ({C.fr(kq["k_kg_mm_cm"], 0)})</button>'
             f'<button type="button" class="addrow" data-chemin="methode/k_bureau" data-valeur="1">{C.icon("history")}Revenir à {C.nb(K.K_BUREAU)}</button></div>'
             + '<div class="grp">Identification de la note</div>')
-    ident = etat.get("identification") or {}
-    s_me += (L("Projet", C.texte(["identification", "projet"], ident.get("projet", ""), "nom du projet"), full=True)
-             + L("Partie", C.texte(["identification", "partie"], ident.get("partie", ""), "partie d'ouvrage"), full=True)
-             + L("Indice", C.texte(["identification", "indice"], ident.get("indice", "0"), "0"), full=True)
+    s_me += (C.aide(NC.AIDE_IDENTIFICATION)
              + '<div class="grp">Fichier de l\'écran Streamlit</div>'
              + C.fichier(["import"], "Ouvrir un fichier JSON de Streamlit", ".json")
              + C.aide("Le fichier « soudures_….json » de l'écran Streamlit (tous ses cas) remplace cette note."))
@@ -1539,10 +1536,9 @@ def resultat(etat: Dict) -> Dict:
 
 # ------------------------------------------------------------------ la note PDF
 # le générateur VALIDÉ de l'écran Streamlit (acier/soudures/note.py), deux pages par cas (api_web/note_cas.py) ; sa
-# page 2 reçoit l'échelle et le nombre de points montrés en page 1 ; l'identification est celle que l'écran laisse
-# saisir (Méthode · « Identification de la note », pour toute la note)
+# page 2 reçoit l'échelle et le nombre de points montrés en page 1 ; l'identification imprimée est celle de la note du
+# site (celle de l'état, « identification », venue de Streamlit, ne s'imprime pas et ne se montre plus)
 NOTE = NC.Generateur("acier.soudures.note", "Soudures", lambda n1: (n1.echelle, n1.points_montres),
-                     lambda etat, cas: etat.get("identification") or {},
                      ("acier/soudures/note.py", "acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py"))
 
 

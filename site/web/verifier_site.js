@@ -3545,6 +3545,11 @@ const FILTRE = process.argv[4] || '';
         verif(`note PDF · ${k} · ${fmt} : parité écran ↔ PDF — ${chiffres.map(([n, v]) => `${n} « ${v} »`).join(', ')}${ecran.pcts.length ? ` ; taux de la liste ${ecran.pcts.join(', ')}` : ''}`,
           ecran.vu && chiffres.length >= 1 && !chAbsents.length && !pctAbsents.length,
           JSON.stringify({ chAbsents, pctAbsents, vu: ecran.vu, ecran: tEcran.slice(0, 200) }));
+        // l'identification imprimée est celle de la note du site (lot PDF-fix, 09/11/2026 : les soudures et le plancher
+        // écrivaient « indice 0 » sous une note B) — la note semée ici dit indice B, chantier « Essai nuit »
+        const indices = [...texte.matchAll(/\bindice\s*:?\s*([A-Z0-9])\b/gi)].map((m) => m[1]);
+        verif(`note PDF · ${k} · ${fmt} : le PDF porte l'identification de la note du site — indice B (${indices.length} fois, aucun autre), chantier « Essai nuit »`,
+          dl && indices.length >= 1 && indices.every((x) => x === 'B') && texte.includes('Essai nuit'), JSON.stringify({ indices: [...new Set(indices)] }));
         await g.screenshot({ path: path.join(OUT, `site_note_pdf_${k}_${fmt}.png`) });
       }
       verif(`note PDF · ${fmt} : aucune erreur JavaScript`, g.erreurs.length === 0, g.erreurs.join(' | ').slice(0, 400));

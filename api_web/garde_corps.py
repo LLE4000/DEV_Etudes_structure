@@ -441,16 +441,18 @@ def resultat(etat: Dict, avec_optimaux: bool = True) -> Dict:
 
 
 # ------------------------------------------------------------------ la note PDF
-# le générateur VALIDÉ de l'écran Streamlit (acier/garde_corps/note.py), deux pages par garde-corps de la note
-# (api_web/note_cas.py) ; sa page 2 reçoit l'échelle de l'élévation de la page 1 ; pas de champ d'identification à l'écran
-NOTE = NC.Generateur("acier.garde_corps.note", "Garde-corps", lambda n1: (n1.echelle,), lambda etat, cas: {},
+# le générateur VALIDÉ de l'écran Streamlit (acier/garde_corps/note.py), deux pages par garde-corps de la note — trois
+# quand une colonne ne tient pas (sa page de suite) — qu'il pose lui-même dans la note (``poser``, api_web/note_cas.py) ;
+# l'identification imprimée est celle de la note du site
+NOTE = NC.Generateur("acier.garde_corps.note", "Garde-corps", None,
                      ("acier/garde_corps/note.py", "acier/garde_corps/methode.py",
                       "acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py"))
 
 
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
-    """« note_pdf » : la note de calcul PDF de TOUTE la note (chaque garde-corps, deux pages), faite par le générateur
-    validé de l'écran Streamlit ; ``infos`` : le nom, le chantier, l'indice et la date de la note du site."""
+    """« note_pdf » : la note de calcul PDF de TOUTE la note (chaque garde-corps, deux pages, trois avec une page de
+    suite), faite par le générateur validé de l'écran Streamlit ; ``infos`` : le nom, le chantier, l'indice et la date
+    de la note du site."""
     if quoi != "note_pdf":
         return None
     return NC.fichier(NOTE, etat, infos)

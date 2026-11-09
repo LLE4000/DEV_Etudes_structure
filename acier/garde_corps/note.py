@@ -24,7 +24,19 @@ les références, le cartouche.
 
 ``derniers_avertissements`` : débordements de colonne (vide si tout tient) ; la note est
 d'abord composée en taille normale, puis en taille réduite si une colonne déborde.
+
+Page 3 · SUITE (09/11/2026) — seulement quand une colonne déborde ENCORE en taille réduite (forme
+L ou U avec « Cumuler qh et qv », montant soudé en L ou en U… : 86 des 240 états de la grille de
+tests/test_note_garde_corps_grille.py) : les blocs du BAS de la colonne qui déborde passent, un à
+un, sur une page de suite (``mise_en_page``), jusqu'à ce que tout tienne ; la colonne d'origine le
+dit (« Suite p. 3 : … »). Un bloc reporté est d'abord dessiné, sur un brouillon, au moment où il
+l'aurait été, puis redessiné en page 3 avec l'état de sa page d'alors (``Suite``) : sa numérotation
+et son contenu ne changent pas. Une note
+qui tient dans ses deux pages n'a pas de page 3 et ne change pas d'un caractère (preuve : la grille
+figée). Avant, ces notes sortaient tronquées sans un mot (le récapitulatif sous la conclusion, la
+bibliothèque sous le cartouche et hors de la page).
 """
+import io
 import math
 import os
 import re
@@ -69,6 +81,54 @@ LEGENDE = ("Dessins à l'échelle, cotes en mm · ◉ l'élément gouvernant et 
            "cordons en ocre à leur taille a·√2, chevilles en gris · chaque montant reçoit la charge de sa longueur tributaire.")
 VARIANTES = ((1.0, "normale"), (0.92, "serrée"))
 FIXATIONS = {"platine": "platine boulonnée", "laterale": "platine latérale en nez de dalle", "soudee": "montant soudé sur un plat existant", "scellee": "montant scellé"}
+# Les BLOCS de chaque colonne, (page, rang de la colonne) → méthodes de la page, dans l'ordre de lecture : la
+# composition des pages ET l'ordre dans lequel les blocs du bas d'une colonne qui déborde passent en page 3
+BLOCS = {(1, 0): ("hypotheses", "table_charges", "dessins"),
+         (1, 1): ("element_principal", "main_courante", "recapitulatif"),
+         (1, 2): ("remplissage", "ancrage"),
+         (2, 0): ("details_fixation", "table_montants", "section_et_bibliotheque"),
+         (2, 1): ("soudure",),
+         (2, 2): ("methode",)}
+# le nom d'un bloc dans la mention « Suite p. 3 : … » de sa colonne d'origine
+NOMS_BLOCS = {"hypotheses": "hypothèses", "table_charges": "charges", "dessins": "dessins", "element_principal": "élément principal",
+              "main_courante": "main courante", "recapitulatif": "récapitulatif", "remplissage": "remplissage", "ancrage": "ancrage",
+              "details_fixation": "détail de l'ancrage", "table_montants": "tableau des montants",
+              "section_et_bibliotheque": "section et bibliothèque", "soudure": "soudure", "methode": "méthode et références"}
+TITRES_PAGES = {1: "calcul", 2: "détails et méthode"}
+
+
+class Debord(str):
+    """Un débordement de colonne : le texte de toujours (« page 1, colonne 320 : 28 pt ») et la colonne qui déborde,
+    ``colonne`` = (page, rang) — ce que ``mise_en_page`` lit pour savoir quel bloc passer en page 3."""
+
+    def __new__(cls, page: int, rang: int, x: float, pt: float):
+        s = str.__new__(cls, f"page {page}, colonne {x:.0f} : {pt:.0f} pt")
+        s.colonne = (page, rang)
+        return s
+
+
+def _etat_page(page):
+    """L'état d'une page (et de la page 1 qu'une page 2 emprunte pour ses briques) : ses attributs, copiés."""
+    return [(o, dict(vars(o))) for o in (page, getattr(page, "note1", None)) if o is not None]
+
+
+def _remettre(etat):
+    for o, attrs in etat:
+        o.__dict__.clear()
+        o.__dict__.update(attrs)
+
+
+def _colonne(page, d, fr, cle):
+    """Les blocs de la colonne ``cle`` posés dans ``fr`` ; ceux que la page de suite prend (les derniers) y partent."""
+    suite = page.suite
+    reportes = []
+    for nom in BLOCS[cle]:
+        if suite is not None and suite.prend(cle, nom):
+            reportes.append(nom)
+        else:
+            getattr(page, nom)(d, fr)
+    if reportes:
+        suite.reporter(d, page, cle, reportes, fr)
 
 
 def _fmt(x, nd=1) -> str:
@@ -237,8 +297,9 @@ class Calcul:
 class Note:
     """Page 1 · CALCUL."""
 
-    def __init__(self, calc: Calcul, doc_meta: Dict, k: float = 1.0):
+    def __init__(self, calc: Calcul, doc_meta: Dict, k: float = 1.0, suite: Optional["Suite"] = None):
         self.C, self.doc, self.k = calc, doc_meta, k
+        self.suite = suite
         self.S = Encre()
         self.warnings: List[str] = []
         self.s_txt = 6.1 * k
@@ -641,20 +702,15 @@ class Note:
         for x in (x2, x3):
             d.line(x - GAP / 2, top, x - GAP / 2, BAS, S.rule, 0.45)
         f1, f2, f3 = Frame(x1, top, w1, BAS), Frame(x2, top, w2, BAS), Frame(x3, top, w3, BAS)
-        self.hypotheses(d, f1)
-        self.table_charges(d, f1)
-        self.dessins(d, f1)
-        self.element_principal(d, f2)
-        self.main_courante(d, f2)
-        self.recapitulatif(d, f2)
+        _colonne(self, d, f1, (1, 0))
+        _colonne(self, d, f2, (1, 1))
         hc = self.conclusion(d, x3, w3)
         f3.bottom = BAS + hc + 6
-        self.remplissage(d, f3)
-        self.ancrage(d, f3)
+        _colonne(self, d, f3, (1, 2))
         d.t(M, 20, d.fit(LEGENDE, S.f_b, 5.4, W - 2 * M), S.f_b, 5.4, S.mut)
-        for f in (f1, f2, f3):
+        for rang, f in enumerate((f1, f2, f3)):
             if f.overflow() > 1.0:
-                self.warnings.append(f"page 1, colonne {f.x:.0f} : {f.overflow():.0f} pt")
+                self.warnings.append(Debord(1, rang, f.x, f.overflow()))
         return self.warnings
 
 
@@ -664,8 +720,9 @@ CART_H = 40
 class Methode:
     """Page 2 · DÉTAILS ET MÉTHODE."""
 
-    def __init__(self, calc: Calcul, doc_meta: Dict, k: float = 1.0, echelle: Optional[float] = None):
+    def __init__(self, calc: Calcul, doc_meta: Dict, k: float = 1.0, echelle: Optional[float] = None, suite: Optional["Suite"] = None):
         self.C, self.doc, self.k = calc, doc_meta, k
+        self.suite = suite
         self.S = Encre()
         self.warnings: List[str] = []
         self.s = 6.3 * k
@@ -819,35 +876,182 @@ class Methode:
         frames = [Frame(M + i * (wc + GAP), top, wc, bas) for i in range(3)]
         for i in (1, 2):
             d.line(frames[i].x - GAP / 2, top, frames[i].x - GAP / 2, bas, S.rule, 0.45)
-        self.details_fixation(d, frames[0])
-        self.table_montants(d, frames[0])
-        self.section_et_bibliotheque(d, frames[0])
-        self.soudure(d, frames[1])
+        for rang, f in enumerate(frames):
+            _colonne(self, d, f, (2, rang))
+        self.cartouche(d)
+        for rang, f in enumerate(frames):
+            if f.overflow() > 1.0:
+                self.warnings.append(Debord(2, rang, f.x, f.overflow()))
+        return self.warnings
+
+    def methode(self, d, fr):
+        """Les textes de MÉTHODE de la méthode choisie (``methode.py``), puis les références."""
         secs = MT.sections(self.C.meth["mode"], self.C.cas["fixation"].get("type", "platine"), bool(self.C.res["geometrie"].get("sans_montant")))
         for sec in secs + [{"titre": "Références", "paragraphes": [" · ".join(MT.REFERENCES)]}]:
-            self.section(d, frames[2], sec)
-        self.cartouche(d)
-        for f in frames:
-            if f.overflow() > 1.0:
-                self.warnings.append(f"page 2, colonne {f.x:.0f} : {f.overflow():.0f} pt")
+            self.section(d, fr, sec)
+
+
+class Suite:
+    """Page 3 · SUITE : les blocs du bas d'une colonne des pages 1 et 2 qui ne tiennent pas, même en taille réduite.
+
+    ``reports`` : les blocs qui partent, ``((page, rang), nom)`` (``mise_en_page`` les choisit). La page de suite a
+    trois colonnes, comme la page 2 ; chaque colonne d'origine qui reporte en reçoit une (une quatrième s'empilerait
+    dans la troisième), sous son titre « SUITE DE LA PAGE 1 · CALCUL ». Un bloc reporté est d'abord dessiné AU MOMENT
+    où sa page l'aurait dessiné, sur un brouillon et dans sa colonne de suite : la numérotation des blocs suivants
+    (« 3 · BARREAUX ») et sa hauteur sont celles qu'ils auraient eues. Puis il est redessiné en page 3, au même endroit,
+    avec l'état de sa page tel qu'il était à ce moment-là (numéro, tailles) : le même dessin.
+
+    (Pas d'objet de formulaire PDF pour le poser : reportlab n'y reporte pas les états graphiques — transparence —
+    de la page, la visionneuse les ignore.)"""
+
+    def __init__(self, calc: Calcul, doc_meta: Dict, k: float, reports, W: float, H: float):
+        self.C, self.doc, self.k = calc, doc_meta, k
+        self.reports = set(reports)
+        self.S = Encre()
+        self.W, self.H = W, H
+        self.top = H - M - 4 - 16 - 7 - 6           # l'en-tête de la page 2 (Methode.construire)
+        self.bas = M + CART_H + 10
+        self.wc = (W - 2 * M - 2 * GAP) / 3.0
+        self.cadres: Dict = {}                      # (page, rang) d'origine → la colonne de la page 3
+        self.ordre: List = []                       # les colonnes de la page 3, dans l'ordre (cadre, [colonnes d'origine])
+        self.titres: List = []                      # (x, y, texte) des titres de colonne, posés en page 3
+        self.blocs: List = []                       # (page, nom, état de la page, colonne, y de départ) à redessiner
+        self.pages: set = set()                     # les pages d'origine des blocs posés (1, 2)
+        self.brouillon = Doc(io.BytesIO(), (W, H))  # le dessin « au moment voulu », jeté
+        self.warnings: List[str] = []
+
+    def prend(self, cle, nom) -> bool:
+        return (cle, nom) in self.reports
+
+    def cadre(self, cle) -> Frame:
+        if cle not in self.cadres:
+            if len(self.ordre) < 3:
+                i = len(self.ordre)
+                fr = Frame(M + i * (self.wc + GAP), self.top, self.wc, self.bas)
+                self.ordre.append(fr)
+            else:
+                fr = self.ordre[-1]
+            self.cadres[cle] = fr
+        return self.cadres[cle]
+
+    def reporter(self, d, page, cle, noms, fr_origine):
+        """Les blocs ``noms`` de la colonne ``cle`` dessinés sur le brouillon, dans la colonne de suite (pour les
+        redessiner en page 3), et la mention « Suite p. 3 : … » au bas de la colonne d'origine. Un bloc vide (rien à
+        dessiner) n'est ni posé ni nommé."""
+        S = self.S
+        fr = self.cadre(cle)
+        poses = []
+        for nom in noms:
+            y0, min0 = fr.y, fr.min_y
+            titre = not poses
+            if titre:
+                fr.down(12)                          # la place du titre de la colonne de suite
+            yb = fr.y
+            etat = _etat_page(page)
+            getattr(page, nom)(self.brouillon, fr)
+            if fr.y == yb:                           # rien dessiné : le bloc est vide
+                fr.y, fr.min_y = y0, min0
+                continue
+            if titre:
+                self.titres.append((fr.x, y0 - 8, f"SUITE DE LA PAGE {cle[0]} · {TITRES_PAGES[cle[0]].upper()}"))
+                self.pages.add(cle[0])
+            self.blocs.append((page, nom, etat, fr, yb))
+            poses.append(nom)
+        if poses:
+            fr_origine.down(6.1 * self.k * 1.9)
+            txt = "Suite p. 3 : " + ", ".join(NOMS_BLOCS[n] for n in poses) + "."
+            d.t(fr_origine.x, fr_origine.y, d.fit(txt, S.f_b, 6.2 * self.k, fr_origine.w), S.f_b, 6.2 * self.k, S.acc)
+
+    def utile(self) -> bool:
+        """Vrai quand la page de suite a quelque chose à poser."""
+        return bool(self.blocs)
+
+    def construire(self, d, echelle: Optional[float]):
+        S, C = self.S, self.C
+        W, H = d.W, d.H
+        y = H - M - 4
+        d.t(M, y, self.doc.get("bureau", ""), S.f_v, 8.0, S.acc, track=1.4)
+        d.t(W - M, y, TITRE + " · cas " + C.cas["nom"], S.f_b, 7.6, S.mut, "right")
+        y -= 16
+        titre = f"SUITE DE LA PAGE {min(self.pages)}" if len(self.pages) == 1 else "SUITE DES PAGES 1 ET 2"
+        d.t(M, y, titre, S.f_h, 13.5, S.ink)
+        y -= 7
+        d.line(M, y, W - M, y, S.ink, 1.0)
+        for fr in self.ordre[1:]:
+            d.line(fr.x - GAP / 2, self.top, fr.x - GAP / 2, self.bas, S.rule, 0.45)
+        for x, yt, txt in self.titres:
+            d.t(x, yt, txt, S.f_v, 5.6, S.mut, track=1.1)
+        for page, nom, etat, fr, yb in self.blocs:
+            # le même dessin que sur le brouillon : la page remise dans son état d'alors, la colonne au même endroit
+            maintenant = _etat_page(page)
+            _remettre(etat)
+            f = Frame(fr.x, fr.top, fr.w, fr.bottom)
+            f.y = f.min_y = yb
+            getattr(page, nom)(d, f)
+            _remettre(maintenant)
+        Methode(C, self.doc, self.k, echelle).cartouche(d)
+        for rang, fr in enumerate(self.ordre):
+            if fr.overflow() > 1.0:
+                self.warnings.append(Debord(3, rang, fr.x, fr.overflow()))
         return self.warnings
 
 
-def _essai(calc, doc_meta, k, chemin):
-    d = Doc(chemin, A4L, title=doc_meta.get("titre", "Note de calcul"))
+def poser(d, calc, doc_meta, k, reports=()) -> List[str]:
+    """Les pages d'UN cas posées dans le document ``d`` (sans l'ouvrir ni l'enregistrer) : page 1, page 2, et la page
+    de suite quand des blocs y partent (``reports``). Rend les débordements. Le site pose ainsi chaque garde-corps de
+    sa note dans un seul document (api_web/note_cas.py)."""
+    suite = Suite(calc, doc_meta, k, reports, *A4L) if reports else None
     d.new_page(A4L)
-    n1 = Note(calc, doc_meta, k)
+    n1 = Note(calc, doc_meta, k, suite)
     w = list(n1.construire(d))
     d.new_page(A4L)
-    n2 = Methode(calc, doc_meta, k, n1.echelle)
+    n2 = Methode(calc, doc_meta, k, n1.echelle, suite)
     w += n2.construire(d)
+    if suite is not None and suite.utile():
+        d.new_page(A4L)
+        w += suite.construire(d, n1.echelle)
+    return w
+
+
+def _essai(calc, doc_meta, k, chemin, reports=()):
+    d = Doc(chemin, A4L, title=doc_meta.get("titre", "Note de calcul"))
+    w = poser(d, calc, doc_meta, k, reports)
     d.save()
     return w
 
 
+def mise_en_page(calc, doc_meta, chemin) -> Tuple[float, str, Tuple, List[str]]:
+    """(k, nom de la taille, reports, débordements) : la taille normale, puis la réduite ; si une colonne déborde encore
+    en taille réduite, le DERNIER bloc de chaque colonne qui déborde passe en page de suite, et ainsi de suite jusqu'à
+    ce que tout tienne (ou qu'il n'y ait plus rien à reporter : les débordements restent, et le disent). Le fichier
+    ``chemin`` garde la note retenue (le dernier essai)."""
+    k, nom = VARIANTES[-1]
+    warn: List[str] = []
+    for k, nom in VARIANTES:
+        warn = _essai(calc, doc_meta, k, chemin)
+        if not warn:
+            return k, nom, (), warn
+    reports: List = []
+    while warn:
+        nouveaux = []
+        for w in warn:
+            cle = getattr(w, "colonne", None)
+            if cle not in BLOCS:                    # la page de suite elle-même, ou un débordement sans colonne
+                continue
+            restent = [b for b in BLOCS[cle] if (cle, b) not in reports]
+            if restent and (cle, restent[-1]) not in nouveaux:
+                nouveaux.append((cle, restent[-1]))
+        if not nouveaux:
+            break
+        reports += nouveaux
+        warn = _essai(calc, doc_meta, k, chemin, tuple(reports))
+    return k, nom, tuple(reports), warn
+
+
 def generer_note(etat: Dict, cas: Optional[Dict] = None, infos: Optional[Dict] = None, chemin: Optional[str] = None) -> bytes:
-    """La note (bytes PDF) : page 1 de calcul, page 2 de détails et méthode. ``infos`` : nom_projet, partie, date, indice."""
-    global derniers_avertissements, derniere_variante
+    """La note (bytes PDF) : page 1 de calcul, page 2 de détails et méthode, page 3 de suite si une colonne ne tient pas
+    (``mise_en_page``). ``infos`` : nom_projet, partie, date, indice."""
+    global derniers_avertissements, derniere_variante, derniers_reports
     cas = cas or ET.cas_actif(etat)
     infos = infos or {}
     doc_meta = ndc_data.construire_doc(infos, date_defaut=datetime.today().strftime("%d/%m/%Y"))
@@ -856,17 +1060,14 @@ def generer_note(etat: Dict, cas: Optional[Dict] = None, infos: Optional[Dict] =
     if chemin is None:
         fd, chemin = tempfile.mkstemp(suffix=".pdf", prefix="note_garde_corps_")
         os.close(fd)
-    warn, retenue = [], VARIANTES[-1][1]
-    for k, nom in VARIANTES:
-        warn = _essai(calc, doc_meta, k, chemin)
-        retenue = nom
-        if not warn:
-            break
-    derniers_avertissements = warn
+    _k, retenue, reports, warn = mise_en_page(calc, doc_meta, chemin)
+    derniers_avertissements = list(warn)
     derniere_variante = retenue
+    derniers_reports = reports
     with open(chemin, "rb") as fh:
         return fh.read()
 
 
 derniers_avertissements: List[str] = []
 derniere_variante: Optional[str] = None
+derniers_reports: Tuple = ()           # les blocs passés en page de suite par la dernière note : ((page, rang), nom)

@@ -352,14 +352,15 @@ def _entete(etat: Dict, cas: Dict):
         if st.button("📂 Ouvrir", key=P + "btn_open", width="content"):
             st.session_state[P + "ouvrir"] = not st.session_state.get(P + "ouvrir", False)
         if st.button("📄 Note", key=P + "btn_note", width="content", help="Note de calcul PDF en deux pages : hypothèses, dessins, montant, main courante, "
-                                                                        "remplissage, ancrage avec les formules développées ; détails, soudure, méthode"):
+                                                                        "remplissage, ancrage avec les formules développées ; détails, soudure, méthode "
+                                                                        "(une page de suite quand une colonne ne tient pas)"):
             ident = etat.get("identification") or {}
             st.session_state[P + "note"] = (cas["nom"], NT.generer_note(etat, cas, {"nom_projet": ident.get("projet", ""), "partie": ident.get("partie", ""),
                                                                                    "indice": ident.get("indice", "0")}))
         _texte_w("Nom du cas", ("nom",), cas, width=260)
     note = st.session_state.get(P + "note")
     if note and note[0] == cas["nom"]:
-        st.download_button("⬇️ Télécharger la note (PDF, 2 pages)", data=note[1], file_name=f"note_garde_corps_{cas['nom']}.pdf",
+        st.download_button("⬇️ Télécharger la note (PDF)", data=note[1], file_name=f"note_garde_corps_{cas['nom']}.pdf",
                            mime="application/pdf", key=P + "dl_note", width="content")
     if st.session_state.get(P + "ouvrir"):
         up = st.file_uploader("Fichier JSON du module", type=["json"], key=P + "uploader", label_visibility="collapsed")

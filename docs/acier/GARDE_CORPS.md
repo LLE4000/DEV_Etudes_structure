@@ -62,7 +62,7 @@ d'attention passe de 0,85 à 0,95 (P-14 de l'étude).
 | `acier/garde_corps/formules.py` | les formules écrites comme à la main, par BLOC (cas gouvernant, autres cas et leur taux, substitutions testées contre le moteur) : montant, console, main courante (deux appuis ou continue), barreaux, platine ; la soudure reprend celles du module Soudures |
 | `acier/garde_corps/methode.py` | les textes de méthode, courts (volet « Méthode et sources » de l'écran et page 2 de la note), les références |
 | `acier/garde_corps/schemas.py` | les six vues en dessin technique : élévation (inclinée pour un rampant), coupe A-A, vue en plan, platine en plan ou platine latérale vue de face, coupe sur la fixation ou coupe horizontale, section |
-| `acier/garde_corps/note.py` | la note PDF en deux pages, les hypothèses en tête, les symboles composés (`ndc_pdf/riche.py`), le résultat à la suite du calcul |
+| `acier/garde_corps/note.py` | la note PDF en deux pages, les hypothèses en tête, les symboles composés (`ndc_pdf/riche.py`), le résultat à la suite du calcul ; une page 3 de SUITE quand une colonne ne tient pas même en taille réduite (09/11/2026 : forme L ou U avec cumul, montant soudé en L ou U… — `tests/test_note_garde_corps_grille.py`) |
 | `modules/garde_corps.py` | l'écran sans onglets (version 3.2) : élévation + un dessin de détail au choix, carte RÉSULTAT avec la section de chaque élément et son bouton « ★ » (tableau des profilés en popover), cartes DÉFINITION / CHARGES / FIXATION, détail replié ; `modules/liaison.py` : la liaison état → widgets partagée |
 | `tests/test_garde_corps_moteur.py`, `_formules.py`, `_schemas.py`, `_ecran.py`, `_note.py` | les tests (110 + 62 + 75 + 66 + 71) ; `tools/captures_garde_corps.js` : neuf états × quatre largeurs, mesures de ce que l'œil voit, clic sur une ligne de tableau (dans son popover) dans un vrai navigateur |
 
@@ -351,6 +351,10 @@ l'échelle de l'élévation.
   latérale (champs, vues au sélecteur, méthode « Ancrage latéral »), le montant scellé et le
   sans montant qui retirent des vues au sélecteur, la pente, la catégorie industrielle, cas
   multiples, note, étanchéité ;
+- `tests/test_note_garde_corps_grille.py` : la grille de 240 états (5 types × 3 formes × cumul × 4 fixations
+  × 2 méthodes) — les 154 qui tenaient en deux pages redonnent exactement la note figée avant la page de suite
+  (`tests/ref_note_garde_corps_grille.json`) ; les 86 qui débordaient ont leur page 3, sans débordement, avec
+  exactement le contenu de l'ancienne mise en page (un espion du contenu posé) ;
 - `tests/test_garde_corps_note.py` (71) : deux pages sans débordement sur douze cas, les
   hypothèses d'abord (« Vérification » et non « Méthode »), les symboles composés (aucun
   « q_h » brut hors les cotes des dessins), le calcul 1 à 4 dans l'ordre de lecture avec le

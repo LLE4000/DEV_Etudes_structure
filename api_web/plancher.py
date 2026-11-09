@@ -1249,11 +1249,8 @@ def _sec_affichage(etat: Dict, cas: Dict, calc: Dict) -> str:
     engins = [c["ref"] for c in cas["charges"] if c["type"] == "engin"]
     if engins:
         s += L("Engin balayé", C.choix(["site", "balaye"], _balaye(cas), [(r, r) for r in engins]), full=True)
-    ide = cas["identification"]
     s += ('<div class="grp">Identification de la note</div>'
-          + L("Projet", C.texte(["identification", "projet"], ide["projet"], ""), full=True)
-          + L("Partie", C.texte(["identification", "partie"], ide["partie"], "partie d'ouvrage"), full=True)
-          + L("Indice", C.texte(["identification", "indice"], ide["indice"], "0"), full=True)
+          + C.aide(NC.AIDE_IDENTIFICATION)
           + '<div class="grp">Fichier de l\'écran Streamlit</div>'
           + C.fichier(["note", "ouvrir"], "Ouvrir un fichier JSON du module", ".json")
           + C.aide("Le fichier « Enregistrer » de l'écran Streamlit (tous les cas et les fiches ajoutées) remplace cette note."))
@@ -2046,10 +2043,10 @@ def resultat(etat: Dict) -> Dict:
 
 # ------------------------------------------------------------------ la note PDF
 # le générateur VALIDÉ de l'écran Streamlit (plancher/charges/note.py), deux pages par cas (api_web/note_cas.py) ; sa
-# page 2 reçoit l'échelle du plan de la page 1 ; l'identification est celle que l'écran laisse saisir POUR CHAQUE CAS
-# (Affichage et note · « Identification de la note »), comme l'écran Streamlit
+# page 2 reçoit l'échelle du plan de la page 1 ; l'identification imprimée est celle de la note du site (celle de chaque
+# cas dans l'état, « identification », venue de Streamlit, ne s'imprime pas et ne se montre plus)
 NOTE = NC.Generateur("plancher.charges.note", "Charges sur plancher", lambda n1: (n1.echelle_plan,),
-                     lambda etat, cas: cas.get("identification") or {}, ("plancher/charges/note.py", "plancher/charges/peintre.py"))
+                     ("plancher/charges/note.py", "plancher/charges/peintre.py"))
 
 
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:

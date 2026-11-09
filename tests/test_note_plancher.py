@@ -14,8 +14,8 @@ vérifiée en Python ordinaire.
   (le seuil du moteur, ``parametres.seuil_attention`` = 0,85, celui de l'écran Streamlit) ;
 - un cas que le moteur ne sait pas construire arrête la note avec le message de l'écran (« Donnée manquante : … ») ;
   un cas « données manquantes » (refus du moteur, P-7) se fait comme dans Streamlit ;
-- l'identification : celle que l'écran laisse SAISIR pour chaque cas (Affichage et note · « Identification de la
-  note ») d'abord, puis la note du site, avec la correspondance de la note de la poutre ;
+- l'identification : TOUJOURS celle de la note du site, avec la correspondance de la note de la poutre ; celle que
+  porte chaque cas (un fichier Streamlit) ne s'imprime pas et l'écran ne la montre plus (09/11/2026) ;
 - le routeur la rend en base 64, nommée d'après la note ; un autre fichier est refusé ; une note qui déborde est
   refusée, jamais tronquée ;
 - MUTATIONS (chacune doit faire rougir un contrôle) : un cas oublié, des infos mal transmises, la page 2 sans
@@ -218,18 +218,22 @@ chk("un cas que le moteur ne construit pas arrête la note, avec le message que 
     not r["ok"] and "Cas « C2 dalle »" in r["erreur"] and "Donnée manquante" in r["erreur"] and "Tôle 9" in r["erreur"]
     and "Tôle 9" in ecran, (r.get("erreur"), ecran[:200]))
 
-# 4. l'identification
+# 4. l'identification : TOUJOURS celle de la note du site (09/11/2026 ; avant, celle de chaque cas, « 0 » par défaut,
+# passait devant — le PDF disait « indice 0 » sous une note B)
+attendu = lambda i, c: ["Note de calcul · 01/02/2026 · indice B", f"Quai 4 · Levage · cas {c['nom']}"]  # noqa: E731
 e = ETATS["trois cas, une identification saisie par cas"]
-attendus = [["Note de calcul · 01/02/2026 · indice D", "Bâtiment A · Plancher R+1 · cas C1 levage en rive"],
-            ["Note de calcul · 01/02/2026 · indice 0", "Quai 4 · Levage · cas C2 dalle"],
-            ["Note de calcul · 01/02/2026 · indice E", "Bâtiment C · Levage · cas C4 sans répartiteur"]]
-ecarts = O.controle_infos(NOTES["trois cas, une identification saisie par cas"], e, lambda i, c: attendus[i])
-chk("chaque cas porte SON identification saisie à l'écran ; un champ vide prend la note du site (chantier, nom) ; "
-    "un indice vidé n'existe pas à l'écran (relu « 0 », comme Streamlit)", not ecarts, ecarts)
+t_id = O.norm(" ".join(O.pages(NOTES["trois cas, une identification saisie par cas"])))
+ecarts = O.controle_infos(NOTES["trois cas, une identification saisie par cas"], e, attendu)
+chk("l'identification que porte chaque cas (un fichier Streamlit : « Bâtiment A », « Plancher R+1 », indices D et E) ne "
+    "s'imprime pas : celle de la note du site, dans chaque cas", not ecarts and not any(x in t_id for x in (
+        "Bâtiment A", "Bâtiment C", "Plancher R+1", "indice D", "indice E", "indice 0")), ecarts)
 e = ETATS["trois cas : hourdis, dalle coulée, hourdis NON CONFORME"]
-attendu = lambda i, c: ["Note de calcul · 01/02/2026 · indice 0", f"Quai 4 · Levage · cas {c['nom']}"]  # noqa: E731
 ecarts = O.controle_infos(NOTES["trois cas : hourdis, dalle coulée, hourdis NON CONFORME"], e, attendu)
-chk("sans saisie : le chantier, le nom et la date de la note du site, l'indice du champ de l'écran (« 0 »)", not ecarts, ecarts)
+chk("le chantier, le nom, l'indice et la date de la note du site (l'identification de l'état, « 0 » par défaut, n'y est pas)",
+    not ecarts, ecarts)
+donnees = PL.resultat(copy.deepcopy(e))["donnees"]
+chk("l'écran ne montre plus de champ d'identification (un seul composant, les trois formats) : il dit d'où vient celle "
+    "de la note PDF", 'data-chemin="identification/' not in donnees and NC.AIDE_IDENTIFICATION in donnees, donnees.count("identification/"))
 
 # 5. le routeur, les refus
 r = json.loads(R.traiter(json.dumps({"module": "plancher", "action": "telecharger", "etat": e, "quoi": "note_pdf",
@@ -265,9 +269,9 @@ vrai_pages = NC.pages
 compte = []
 
 
-def sans_dernier(NT_, gen, d, calc, doc_meta, k):
+def sans_dernier(NT_, gen, d, calc, doc_meta, k, reports=()):
     compte.append(1)
-    return [] if len(compte) == 3 else vrai_pages(NT_, gen, d, calc, doc_meta, k)
+    return [] if len(compte) == 3 else vrai_pages(NT_, gen, d, calc, doc_meta, k, reports)
 
 
 NC.pages = sans_dernier

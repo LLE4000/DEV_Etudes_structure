@@ -179,9 +179,9 @@ def note_et_tailles(mod, etat: dict, infos: dict):
     from api_web import routeur as R
     vrai, ks = NC.pages, []
 
-    def espion(NT, gen, d, calc, doc_meta, k):
+    def espion(NT, gen, d, calc, doc_meta, k, reports=()):
         ks.append(k)
-        return vrai(NT, gen, d, calc, doc_meta, k)
+        return vrai(NT, gen, d, calc, doc_meta, k, reports)
     NC.pages = espion
     try:
         r = json.loads(R.traiter(json.dumps({"module": mod.MODULE, "action": "telecharger", "etat": copy.deepcopy(etat),
@@ -194,33 +194,40 @@ def note_et_tailles(mod, etat: dict, infos: dict):
 
 
 def controle_identite(mod, etat: dict, infos: dict, octets: bytes, ks=None) -> list:
-    """Les écarts entre la note de TOUTE la note et la note de chaque cas faite SEULE par le générateur : deux pages
-    par cas, le texte de chaque page, la taille retenue (``ks`` : relevée par ``note_et_tailles``)."""
+    """Les écarts entre la note de TOUTE la note et la note de chaque cas faite SEULE par le générateur : les pages de
+    chaque cas (deux, trois avec une page de suite du garde-corps), le texte de chaque page, la taille retenue (``ks`` :
+    relevée par ``note_et_tailles``)."""
     import importlib
     from api_web import note_cas as NC
     NT = importlib.import_module(mod.NOTE.module)
     tx = pages(octets)
     ecarts = []
     n = len(etat["cas"])
-    if len(tx) != 2 * n:
-        ecarts.append(f"{len(tx)} pages pour {n} cas")
+    p = 0
     for i, c in enumerate(etat["cas"]):
         seul = pages(NT.generer_note(etat, c, NC.infos_du_cas(mod.NOTE, etat, c, infos)))
         k_seul = dict((nom, k) for k, nom in NT.VARIANTES)[NT.derniere_variante]
-        for j in range(2):
-            if 2 * i + j >= len(tx) or tx[2 * i + j] != seul[j]:
+        for j in range(len(seul)):
+            if p + j >= len(tx) or tx[p + j] != seul[j]:
                 ecarts.append(f"cas {i + 1} « {c.get('nom')} », page {j + 1} : le texte n'est pas celui du cas seul")
+        p += len(seul)
         if ks is not None and n > 1 and (i >= len(ks) or ks[i] != k_seul):
             ecarts.append(f"cas {i + 1} : taille {ks[i] if i < len(ks) else None} au lieu de {k_seul} (le générateur, cas seul)")
+    if len(tx) != p:
+        ecarts.append(f"{len(tx)} pages pour {n} cas ({p} attendues : celles de chaque cas fait seul)")
     return ecarts
 
 
-def controle_infos(octets: bytes, etat: dict, attendu) -> list:
-    """Les écarts d'identification : ``attendu(i, cas)`` → les textes que les deux pages du cas i doivent porter."""
+def controle_infos(octets: bytes, etat: dict, attendu, nb_pages=None) -> list:
+    """Les écarts d'identification : ``attendu(i, cas)`` → les textes que les pages du cas i doivent porter (deux pages
+    par cas, ou ``nb_pages[i]``)."""
     tx = pages(octets)
     ecarts = []
+    p = 0
     for i, c in enumerate(etat["cas"]):
-        t = norm(" ".join(tx[2 * i:2 * i + 2]))
+        n = nb_pages[i] if nb_pages else 2
+        t = norm(" ".join(tx[p:p + n]))
+        p += n
         for x in attendu(i, c):
             if norm(x) not in t:
                 ecarts.append(f"cas {i + 1} : « {x} » absent")

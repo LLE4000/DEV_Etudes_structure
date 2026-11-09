@@ -283,36 +283,63 @@ plancher, assemblages. Il tient en trois points, chacun prouvé :
 faite de CAS et dont l'état du site EST l'état du moteur, `telecharger(etat, "note_pdf", infos)` rend
 `note_cas.fichier(NOTE, etat, infos)` (`api_web/note_cas.py`) : le générateur validé n'est pas réécrit ; un cas seul,
 c'est `generer_note` telle quelle ; plusieurs cas, ses pages (`Note`, `Methode`) posées l'une après l'autre dans UN
-document du kit `ndc_pdf`, chaque cas dans la taille que le générateur choisit (deux copies nommées, liées par les tests :
-texte de chaque page = celui du cas seul). Une note qui déborde encore est refusée, jamais tronquée — ce n'est pas un cas
-d'école : mesuré le 09/11/2026, 86 des 240 états d'une grille du garde-corps débordent dans le générateur validé (toute
-forme L ou U avec « Cumuler qh et qv » sauf fixation scellée, L ou U à montant soudé…), et n'ont donc pas de note sur le
-site (docs/site/DEFAUTS_STREAMLIT.md, à trancher par le bureau). L'identification :
-la saisie de l'écran d'abord, puis la note du site (projet = chantier, à défaut le nom ; partie = le nom s'il y a un
-chantier, sinon le titre du module ; indice ; date). `NOTE.fichiers` : ce que la note charge en plus de l'écran (le paquet
-de la note les embarque). Le bouton « Note PDF » de la page s'allume par `construire.NOTE_PDF`.
+document du kit `ndc_pdf`, chaque cas dans la mise en page que le générateur choisit (soudures, plancher : deux copies
+nommées, liées par les tests ; garde-corps : sa propre `mise_en_page` et son `poser`, sans copie — texte de chaque page =
+celui du cas seul). Une note qui déborde encore est refusée, jamais tronquée, avec la vraie cause (la mise en page du
+générateur pour la configuration du cas, pas un texte saisi). Garde-corps : mesuré le 09/11/2026, 86 des 240 états d'une
+grille du garde-corps débordaient dans le générateur validé (toute forme L ou U avec « Cumuler qh et qv » sauf fixation
+scellée, L ou U à montant soudé…) et étaient refusés — depuis le lot PDF-fix (09/11/2026), le générateur leur donne une
+**page de suite** (ci-dessous) : plus aucun refus sur la grille (`tests/test_note_garde_corps_grille.py`). Soudures : 2
+états sur 56 d'une grille (C6 en quatre tronçons, Eurocode, 7 pt) restent refusés (non traité : pas de page de suite dans
+ce générateur). L'identification : TOUJOURS la note du site (projet = chantier, à défaut le nom ; partie = le nom s'il y a
+un chantier, sinon le titre du module ; indice ; date). `NOTE.fichiers` : ce que la note charge en plus de l'écran (le
+paquet de la note les embarque). Le bouton « Note PDF » de la page s'allume par `construire.NOTE_PDF`.
 
 - **Garde-corps** (`acier/garde_corps/note.py`) : TOUTE la note, deux pages par garde-corps (calcul : hypothèses, quatre
   charges, montant, main courante, remplissage, ancrage avec formules développées, récapitulatif ; détails : platine,
-  tableau des montants, section, soudure, méthode) — identification : la note du site seule (pas de champ à l'écran).
-  Prouvé par `tests/test_note_garde_corps.py`.
+  tableau des montants, section, soudure, méthode) — et une **page de suite** (page 3, « SUITE DE LA PAGE 1 / 2 ») quand
+  une colonne ne tient pas même en taille réduite : les blocs du bas de la colonne qui déborde y passent un à un
+  (sur la grille : le récapitulatif de la page 1, la section et la bibliothèque de la page 2), la colonne d'origine le
+  dit (« Suite p. 3 : récapitulatif. »), la numérotation des blocs ne change pas. Une note qui tient en deux pages ne
+  change pas d'un caractère (preuve : la grille figée avant le changement, `tests/ref_note_garde_corps_grille.json`) ;
+  aucun contenu perdu ni doublé (un espion du contenu posé). L'écran Streamlit en profite (même générateur) : ses notes
+  sortaient tronquées sans un mot (le récapitulatif sur la conclusion, la bibliothèque sous le cartouche et hors de la
+  page) — son bouton ne dit plus « 2 pages ». Identification : la note du site seule. Prouvé par
+  `tests/test_note_garde_corps.py` et `tests/test_note_garde_corps_grille.py`.
 - **Soudures** (`acier/soudures/note.py`) : TOUTE la note, deux pages par cas (dessins, gorge, cordons, efforts,
   vérification au point gouvernant avec les formules de la méthode choisie ; méthode et détail) — sans les trois
-  lectures indicatives des autres méthodes que l'écran montre ; identification : les champs « Identification de la
-  note » de l'écran. Prouvé par `tests/test_note_soudures.py`.
+  lectures indicatives des autres méthodes que l'écran montre ; identification : la note du site (les champs
+  « Identification de la note » ont quitté l'écran). Prouvé par `tests/test_note_soudures.py`.
 - **Charges sur plancher** (`plancher/charges/note.py`) : TOUTE la note, deux pages par cas (plan, coupe, éléments,
   charges, vérifications, conclusion ; méthode et détail) ; un cas que le moteur ne construit pas arrête la note avec le
-  message de l'écran ; identification : les champs de CHAQUE cas. Prouvé par `tests/test_note_plancher.py`.
+  message de l'écran ; identification : la note du site (les champs de chaque cas ont quitté l'écran). Prouvé par
+  `tests/test_note_plancher.py`.
 
-Écarts MESURÉS entre l'écran et la note (rapportés, non corrigés : la note est le générateur validé) — l'arrondi d'un
-taux en bord de bande (écran 94 % / 101 %, note 95 % / 100 % pour 94,57 % / 100,009 %) ; entre 85 et 95 %, l'écran dit
-« Conforme » (code du bureau) et les notes des soudures et du plancher « CONFORME · ATTENTION » (seuil 0,85 de leurs
-moteurs, celui de Streamlit).
+Écarts MESURÉS entre l'écran et la note (rapportés, non corrigés : la note est le générateur validé, et un seuil ne
+change pas sans décision de l'ingénieur) — l'arrondi d'un taux en bord de bande (écran 94 % / 101 %, note 95 % / 100 %
+pour 94,57 % / 100,009 %) ; le SEUIL D'ATTENTION : l'écran du site suit le code couleur du bureau (décision GC10 : rouge
+au-dessus de 100 %, vert foncé de 95 à 100 %, vert pâle en dessous — `membres.statut`, 0,95 / 1,0), les notes des
+soudures et du plancher le seuil de leur moteur, 0,85 (`acier/soudures/etat.SEUIL_ATTENTION`,
+`plancher/charges/parametres.seuil_attention`, celui de Streamlit). Mesuré le 09/11/2026 (lot PDF-fix, mêmes états à
+l'écran et dans la note) : soudures C3 Eurocode, taux affiché 89 %, 93 %, 94 % → écran vert pâle « Conforme », note
+« CONFORME · ATTENTION » (pastille ocre) ; 97 %, 99 % → écran vert foncé, note « ATTENTION » (accord) ; 83 %, 85 % →
+accord (« CONFORME ») ; plancher (hourdis, V_Rd de 100, 95 kN) 86 %, 91 % → écran vert pâle, note « ATTENTION » ; 96 %
+→ accord. Dans la note des soudures, le tableau des cordons colore encore autrement : vert jusqu'à 70 %, ocre jusqu'à
+100 % (`acier/soudures/note.py`, ligne des cordons). À trancher par l'ingénieur (aligner les notes sur GC10, ou le dire
+dans la note).
 
-À trancher — l'INDICE a deux sources (R2) : pour les soudures et le plancher, le champ « Indice » de l'écran
-(« Identification de la note ») vaut « 0 » par défaut et passe avant l'indice de la note du site ; le cartouche de la
-page dit « Indice A » (ou l'indice de révision saisi, « C »…) et le PDF écrit « indice 0 » — sauf si l'on vide le
-champ. La poutre et le garde-corps impriment l'indice de la note du site.
+**L'INDICE a une seule source** (lot PDF-fix, 09/11/2026 ; relecture du 09/11 : le PDF des soudures et du plancher
+disait « indice 0 » sous une note B) : l'identification imprimée — nom, chantier, indice, date — est TOUJOURS celle de
+la note du site, pour les six modules (`api_web/note_cas.infos_du_cas`, `note_poutre.fichier`, `note_dalle.fichier`,
+`note_assemblages.infos_projet`). Les champs « Identification de la note » des soudures et du plancher ont quitté l'écran
+du site (une phrase dit d'où vient l'identification : `note_cas.AIDE_IDENTIFICATION`) ; l'état les garde pour
+l'aller-retour avec Streamlit, ils ne s'impriment plus. Assemblages : sans nom ni chantier, le projet est « Assemblages »
+(jamais le « Projet » saisi dans un assemblage) et l'indice par défaut « A » (était « 0 »). Prouvé par
+`tests/test_note_identification.py` : pour chaque module, une note d'indice C au nom et au chantier piégés (accents,
+guillemets, « & ») — pdftotext les retrouve exactement en garde, en en-tête de chaque élément et au cartouche ; jamais
+« indice 0 ». Reste dans l'écran des assemblages (non traité, à trancher) : les champs « Projet » et « Date » du
+cartouche d'un assemblage, que la note PDF n'imprime pas (la note du site passe devant, comme avant ; Streamlit les cache
+dans un projet) — ils servent encore à la « note texte » de l'écran.
 
 **Assemblages métalliques** (`api_web/note_assemblages.py`) : la note du site est le **rapport de projet** de l'écran
 Streamlit (`acier/rapport_projet.py`), pour TOUTE la note — une garde avec sommaire (une ligne par assemblage, sa

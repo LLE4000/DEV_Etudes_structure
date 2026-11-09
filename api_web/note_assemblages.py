@@ -55,6 +55,8 @@ from . import pdf_reunion as PR
 SOUS_TITRE_RECAP = "Taux de travail et vérification dimensionnante de chaque assemblage"
 # l'auteur du document (rapport_projet.generer_rapport : set_metadata)
 AUTEUR = "Bureau d'Études Valens"
+# le nom d'une note sans nom : celui du fichier et le projet de la garde
+TITRE = "Assemblages"
 
 
 def module_note(cle: str):
@@ -68,13 +70,16 @@ def module_note(cle: str):
 
 
 def infos_projet(infos: Optional[Dict]) -> Dict:
-    """Les informations du projet Streamlit (``projet_ui.infos``) depuis celles de la note du site."""
+    """Les informations du projet Streamlit (``projet_ui.infos``) depuis celles de la note du site — TOUJOURS
+    celles-là (R2) : le projet n'est jamais vide (le nom de la note, « Assemblages » à défaut, comme le nom du fichier),
+    sinon ``rapport_projet.infos_note`` prendrait le « Projet » saisi dans l'assemblage ; l'indice de la note, « A » à
+    défaut (l'indice d'une note neuve du site, celui des cinq autres modules)."""
     infos = infos or {}
-    nom = str(infos.get("nom") or "").strip()
+    nom = str(infos.get("nom") or "").strip() or TITRE
     chantier = str(infos.get("chantier") or "").strip()
     return {"nom_projet": chantier or nom, "partie": nom if chantier else "",
             "date": str(infos.get("date") or "").strip() or datetime.today().strftime("%d/%m/%Y"),
-            "indice": str(infos.get("indice") or "").strip() or "0"}
+            "indice": str(infos.get("indice") or "").strip() or "A"}
 
 
 def _motif(cfg, b: Dict) -> Optional[str]:
@@ -188,7 +193,7 @@ def fichier(etat: Dict, infos: Optional[Dict] = None) -> Dict:
     """Le fichier à télécharger : {"nom", "type": "application/pdf", "base64"} (le routeur le contrôle). Le nom dit
     la note entière : « Note de calcul - <nom de la note>.pdf »."""
     infos = dict(infos or {})
-    nom = str(infos.get("nom") or "").strip() or "Assemblages"
+    nom = str(infos.get("nom") or "").strip() or TITRE
     octets = document(etat, infos_projet(infos))
     return {"nom": C.nom_fichier(f"Note de calcul - {nom}", "pdf"), "type": "application/pdf",
             "base64": base64.b64encode(octets).decode("ascii")}

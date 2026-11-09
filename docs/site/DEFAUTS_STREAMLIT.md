@@ -274,7 +274,8 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 ### Notes PDF du garde-corps, des soudures et des charges sur plancher (générateurs validés, portés sur le site)
 
 *Relevé du 09/11/2026 en portant ces notes sur le site (api_web/note_cas.py) ; mesuré par tests/test_note_garde_corps.py,
-test_note_soudures.py, test_note_plancher.py. Les générateurs ne sont pas modifiés : à trancher par le bureau.*
+test_note_soudures.py, test_note_plancher.py. Les générateurs ne sont pas modifiés : à trancher par le bureau — sauf
+celui du garde-corps, qui a reçu sa page de suite le 09/11/2026 (lot PDF-fix, ci-dessous, « MISE EN PAGE »).*
 
 - AFFICHAGE — arrondi d'un taux en bord de bande : les trois notes écrivent `f"{t·100:.0f} %"` (arrondi ordinaire, sans
   tenir la bande de couleur), l'écran du site arrondit DANS la bande (`commun.pct`). Garde-corps, H = 1378 mm : taux
@@ -283,7 +284,10 @@ test_note_soudures.py, test_note_plancher.py. Les générateurs ne sont pas modi
 - AFFICHAGE — seuil d'attention : les moteurs des soudures et du plancher (et leurs notes) disent « attention » dès
   85 % (`etat.SEUIL_ATTENTION`, `parametres.seuil_attention`), l'écran du site dès 95 % (code du bureau). Entre 85 et
   95 %, la note écrit « CONFORME · ATTENTION », l'écran « Conforme » (soudures : IPE 300 en ELS à 94,48 % ; plancher :
-  hourdis, V_Rd = 95 kN, 90,55 %).
+  hourdis, V_Rd = 95 kN, 90,55 %). Remesuré le 09/11/2026 (lot PDF-fix, balayage : soudures C3 de 83 à 99 %, plancher de
+  78 à 108 %) : désaccord de 86 à 94 %, accord ailleurs ; le tableau des cordons de la note des soudures colore à 70 %
+  (vert jusqu'à 70 %, ocre jusqu'à 100 %) — un troisième seuil. Non corrigé : un seuil ne change pas sans décision de
+  l'ingénieur (GC10 pour l'écran : rouge > 100 %, vert foncé 95–100 %, vert pâle < 95 %).
 - MISE EN PAGE — la note du garde-corps DÉBORDE de ses colonnes même dans sa taille « serrée » (relecture du
   09/11/2026, grille de 240 états : 5 types × 3 formes × « Cumuler qh et qv » oui/non × 4 fixations × 2 méthodes, le
   reste par défaut) : 86 débordent, jusqu'à 89 pt. Forme L ou U avec « Cumuler qh et qv » (l'option côté sûr) : 64 sur
@@ -296,6 +300,15 @@ test_note_soudures.py, test_note_plancher.py. Les générateurs ne sont pas modi
   le site les REFUSE (règle de la poutre : jamais une note tronquée) — pour ces états, pas de note PDF sur le site tant
   que la mise en page du générateur n'est pas reprise ou que le bureau n'a pas tranché. Le message de refus conseille
   de raccourcir les textes saisis : ici, rien de saisi n'y change, seule la configuration (forme, cumul, fixation).
+  **Corrigé pour le garde-corps le 09/11/2026 (lot PDF-fix)** — mesuré d'abord dans l'écran Streamlit (AppTest, bouton
+  « 📄 Note ») : aucune erreur, un PDF de deux pages annoncé « (PDF, 2 pages) », AUCUN mot de l'écran ; le
+  récapitulatif posé sur la conclusion (page 1), la bibliothèque sous le cartouche et en partie HORS de la page (U avec
+  cumul, platine, Eurocode : 8 mots sous le bas de la page 2, la dernière ligne « CHS 42.4x3.6 3,44 104 % » perdue).
+  Le générateur (`acier/garde_corps/note.py`, le même pour Streamlit et le site) pose désormais une **page de suite**
+  quand une colonne déborde encore en taille réduite : les blocs du bas de la colonne y passent, la colonne le dit. Sur
+  la grille, plus aucun débordement ni refus ; les 154 états qui tenaient ont exactement la même note qu'avant
+  (`tests/test_note_garde_corps_grille.py`). Le message de refus qui reste (soudures C6 en quatre tronçons) dit la vraie
+  cause : la mise en page du générateur pour la configuration, pas un texte saisi.
 
 ## 3. Ce que le site ne reprend pas de l'écran Streamlit
 
