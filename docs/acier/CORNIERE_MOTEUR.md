@@ -23,7 +23,7 @@ lot « note », § 12).*
 | `api_web/corniere.py` (lot « écran », 11/11) | le module du site sur l'établi compact : l'état, les saisies refusées avec le message du moteur, quatre rubriques, les vues, le verdict, trois blocs thématiques, cinq fenêtres de calcul, le sélecteur, la note v1, `telecharger` (§ 11) |
 | `tests/test_api_web_corniere.py` | 134 contrôles : seize états face au moteur, 23 refus, le sélecteur, le contrat de sélection, 1 768 lignes de formules réévaluées, la note v1, onze mutations |
 | `acier/corniere/note.py`, `formules.py`, `methode.py`, `api_web/note_corniere.py` (lot « note », 11/11) | la note PDF : la garde du site puis deux pages par cornière (calcul ; détails et méthode), une page de suite au besoin ; les gabarits des formules ; les textes de méthode ; la plomberie du site (§ 12) — branchée le 11/11 (`construire.NOTE_PDF`) |
-| `tests/test_note_corniere.py` | 60 contrôles : onze états, la parité pdftotext avec `verifier`, 1 017 formules ré-évaluées, l'identification piégée, la page de suite, les refus, la sonde navigateur, note.zip, cinq mutations |
+| `tests/test_note_corniere.py` | 61 contrôles : onze états, la parité pdftotext avec `verifier` (la ligne du bandeau et celle du sommaire lues entières), 1 017 formules ré-évaluées, l'identification piégée, la page de suite, les refus, la sonde navigateur, note.zip, six mutations |
 
 ## 2 · L'API et le contrat
 
@@ -414,14 +414,59 @@ pymupdf refusés ; Pillow factice ; les seules polices du paquet), la note se fa
 numpy est déjà chargé par le catalogue des cornières. Génération : 0,25 à 0,85 s par note en CPython (une à deux
 cornières), ≈ 150 ko par cornière.
 
-**La preuve** (`tests/test_note_corniere.py`, 59 contrôles, ~20 s) : onze états (A historique, A équilibre, B avec
+**La preuve** (`tests/test_note_corniere.py`, 61 contrôles, ~20 s) : onze états (A historique, A équilibre, B avec
 Y = 85 et Y = 45, ailes inégales 150 et 100 horizontal, L 40×40×4, L 250×250×35 en équilibre à quatre ancrages, deux
 cornières dans une note, la garde avec R_ELU saisie, une note v1 relue) ; la parité avec `verifier` par pdftotext (nom,
 statut, η max, gouvernante et combinaison, chaque taux, M1 à M4, H, N et V ELS et ELU, le résultat de chaque formule
 écrite, les sections de méthode, les avertissements, les textes des dessins, le sommaire de la garde) ; l'identification
 piégée (accents, guillemets, « & », indice « C ») dans la garde et l'en-tête de chaque page, jamais « indice 0 » ni
 « indice A » ; la page de suite forcée (1 + 3 + 3 pages, sommaire juste) ; les refus (hors domaine avec le nom et le
-message du moteur, note vide) ; la sonde du navigateur ; cinq mutations qui rougissent (une cornière oubliée, la
-tolérance dy non transmise, le mode mal nommé, un gabarit faux, l'indice perdu). `tests/test_note_identification.py`
+message du moteur, note vide) ; la sonde du navigateur ; six mutations qui rougissent (une cornière oubliée, la
+tolérance dy non transmise, le mode mal nommé, un gabarit faux, l'indice perdu, l'η max du bandeau pris sur S1 — le
+récapitulatif répète un « η max » juste, la parité lit donc la LIGNE du bandeau et la ligne du sommaire de la garde,
+relecture du 11/11, § 13). `tests/test_note_identification.py`
 range déjà « corniere » avec la poutre, la dalle et les assemblages (garde + « date · indice » sur chaque page) :
 l'intégration n'a plus qu'à compter sept modules.
+
+## 13 · Relecture adverse de la mécanique (11/11/2026, lot « revue_meca », depuis l'intégration 0216684)
+
+**Ce qui a été RECALCULÉ à la main** (scripts à part, `/usr/bin/python3.12 -I`, formules réécrites depuis les décisions
+§ 3 et l'annexe A de l'analyse, sans lire `statique.py`) et comparé à `verifier` à 1e-9 : le cas de contrôle en
+historique (M1…M4, 88,8621 %, N_ELS = V_ELS = 14,2533, N_ELU = 22,9667 kN, pression 59,389, arrachement 13,575), P0 / P1 /
+Q1 / P15 (76,91 / 83,96 / 80,84 / 92,53 % en S3 ; 33,956 / 37,243 / 41,381 / 41,233 kN), B à Y = 85 et 45 (82,47 et
+38,48 kN ; 2,886 kN·m ; 112,42 % ; nette 137,1 % ; 274,9 N/mm ; c = 10 → 115,45 kN ; u_V = 0 → 91,63 kN ; dx = 20 →
+144,54 %), les jeux (112,43 / 95,38 / 120,69 % ; jeu_ancrage = 20 → 16,446 kN), a = 100 (L_eff = 194, 117,2 %), les
+inégales L150×100×12 dans les deux orientations (128,3 / 131,1 % et 58,31 kN ; 128,3 / 157,4 % et 30,54 kN), une
+L 40×40×4 et une L 250×250×35 dans les trois statiques, n = 1, 2, 5, d = 12 et 20, f_y = 235 et 460, coef = 1 et 2, les
+saisies libres (r = 0 → 109,02 %, r = 6,5 → 98,94 %), L = 250 (106,63 %), R = 0 : 3 971 égalités, aucun écart. Les
+signes et les faces (A : M > 0 et N = +R sur l'aile verticale, face du congé tendue ; B : M < 0, N = −R, V = 0 entre
+l'angle et l'ancrage, V = H dessous), la section nette au niveau Y′ de sa combinaison, la pression sur le support, la
+monotonie de l'enveloppe (aucune grandeur ne baisse quand dx ou dy croît : 8 statiques × 2 jeux × 7 pas), les
+gouvernants nommés (S3 ← ancrage haut, H ← ancrage bas, B ← ancrage bas), les trois courbes de moment et l'enveloppe =
+leur maximum point par point (et σ_éq, τ, t(s) de l'enveloppe = le maximum des neuf combinaisons), L_eff (jamais une
+baisse de σ, l'aile verticale intacte, τ sur L_eff aussi), le maximum du congé balayé à 0,002 mm sur douze cas
+(valeur jamais au-dessus du moteur, position à 0,003 mm), le catalogue (233 × A/B × 2 modes aux charges du contrôle :
+544 calculs, 388 refus de domaine ; charges posées dans les ailes : 1 864 calculs ; aucun plantage, aucun NaN ou inf),
+la garde (bascule à Y = 43,547 mm, ma bissection donne la même ; 33,2 mm serait P0), 60 refus de domaine chaque borne
+des deux côtés, la note PDF sur quatre états neufs et une note à trois cornières (916 contrôles : chaque nombre imprimé
+retrouvé à l'écran `api_web` ou dans le moteur à la précision imprimée, les deux pages, la page de suite, la sonde du
+navigateur), les mutations annoncées rejouées PHYSIQUEMENT dans les sources (ρ₃ sans Δy, nette sans trous, M_angle = R·X′,
+σ_éq sans le 3, enveloppe inversée : 4 à 22 échecs chacune ; note : dy non transmise, gabarit Xe faux, M du tableau à
+zéro : rouges).
+
+**Trouvé et corrigé** : la parité de la note cherchait « η max 95,8 % » n'importe où dans la page 1 — le récapitulatif
+le répète, et la mutation « le bandeau imprime l'η de S1 » SURVIVAIT (60 OK). La parité lit désormais la ligne entière
+du bandeau et la ligne du sommaire de la garde ; la mutation est dans la suite (61 contrôles).
+
+**Ouvert, à faire par le lot qui regèle `corniere.json`** (la photo porte ces textes) : le moteur écrit neuf nombres de
+ses textes avec le point décimal — `_hypotheses` (σ_adm, τ_adm `:.1f`, L_eff `:.1f`, facteur `:.3f`), `_avertissements`
+(garde `:.1f` × 2, pression du support `:.2f` et `:.1f`, R_ELU auto `:.2f`), `_informations` (C `:.2f`, facteur `:.3f`) ;
+l'écran les affiche tels quels (« 236.7 N/mm² », « × 1.026 », « 52.50 kN »), la note les reformate (`note.francais`).
+Remarque sur l'arrachement en B : `C90` est calculé vers le bout libre (haut − Y′) alors que l'effort du boulon sur
+l'aile est dirigé vers l'angle (il retient la cornière qui descend) ; information sans limite, à dire ou à ne pas rendre
+en B. Réfutés : σ = |M|/W + |N|/A toujours sur la même fibre (conservatif quand M et N sollicitent des fibres opposées :
+A équilibre avec u_V < e/2 près de l'ancrage) ; la garde ne « voit » pas un ancrage bas dans la bande ± dy quand
+Y + dy > 43,5 mm (les deux enveloppes sont gouvernées par l'ancrage haut : la méthode historique reste du côté sûr sur
+le taux retenu) ; B, moment R·(X′ − e/2) et non R·(X′ − u_V) des décisions (le moteur est juste, § 8). Une note B
+chargée (L 150×150×15, R = 60 kN, a = 120, Ø20) prend une page de suite (le tableau des sections y passe) : prévu, parité
+tenue.

@@ -23,7 +23,9 @@ note du site est construit par le moteur (nouvelle cornière + modifications), {
   celui de CPython, ses polices sont celles du paquet, et les fichiers du dépôt qu'elle charge en plus de l'écran sont
   ceux que ``note_corniere.FICHIERS`` déclare (le paquet de la note les recevra) ;
 - MUTATIONS (chacune doit faire rougir un contrôle) : une cornière oubliée, une donnée non transmise au moteur (la
-  tolérance dy), le mode mal nommé, un gabarit de formule faux, l'indice de la note perdu.
+  tolérance dy), le mode mal nommé, un gabarit de formule faux, l'indice de la note perdu, l'η max du bandeau pris sur
+  une autre vérification (la parité lit la LIGNE du bandeau et la ligne du sommaire de la garde, pas « η max » n'importe
+  où dans la page — relecture adverse du 11/11/2026).
 
     python3 tests/test_note_corniere.py
 """
@@ -148,11 +150,20 @@ def ecarts_parite(e, octets):
         attendu_pages += k
         p1, p2 = norm(tx[i]), norm(tx[i + 1])
         p12 = p1 + " " + p2 + (" " + norm(tx[i + 2]) if k == 3 else "")
-        # le bandeau : statut, η max, gouvernante, combinaison, configuration et mode
-        for x in (NT.STATUTS[res["statut"]][0], f"η max {NT._pct(res['taux_max'])}", res["gouvernant"]["nom"],
-                  res["gouvernant"]["combinaison"]["libelle"], f"Configuration {res['configuration']} · {E.LIBELLES_MODE[res['mode']]}"):
-            if x not in p1:
-                out.append(f"« {nom} » p. 1 : « {x} » absent")
+        # le bandeau : statut, η max, gouvernante, combinaison, configuration et mode — lus SUR LA LIGNE du bandeau
+        # (« NON CONFORME η max 222,0 % — gouverne : … · … Configuration B · équilibre »), pas chacun quelque part dans la
+        # page : le récapitulatif répète « η max … », et un bandeau qui imprimerait un autre taux s'y cachait (relecture
+        # adverse du 11/11/2026 : la mutation « η max du bandeau pris sur S1 » survivait)
+        g = res["gouvernant"]
+        bandeau = (f"{NT.STATUTS[res['statut']][0]} η max {NT._pct(res['taux_max'])} — gouverne : {g['nom']} · {g['combinaison']['libelle']} "
+                   f"Configuration {res['configuration']} · {E.LIBELLES_MODE[res['mode']]}")
+        if bandeau not in p1:
+            out.append(f"« {nom} » p. 1 : bandeau « {bandeau} » absent")
+        # la garde : la ligne du sommaire de CETTE cornière porte sa désignation, sa configuration, son mode, son η max et son statut
+        sommaire = (f"{res['section']['designation']} · configuration {res['configuration']} ({E.LIBELLES_CONFIGURATION[res['configuration']]}) · "
+                    f"{E.LIBELLES_MODE[res['mode']]} · η max {NT._pct(res['taux_max'])} {NT.STATUTS[res['statut']][0]}")
+        if sommaire not in re.sub(r"\s+", " ", norm(tx[0])):
+            out.append(f"« {nom} » garde : ligne du sommaire « {sommaire} » absente")
         # chaque vérification : son taux ; les moments M1 à M4
         for v in res["verifications"]:
             if not O.present(NT._pct(v["taux"]), p1):
@@ -394,6 +405,30 @@ try:
 finally:
     NC.infos_doc = vrai_infos
 chk("mutation « l'indice de la note perdu » : l'identification rougit (« indice 0 » imprimé)", ecarts_identification(mut) != [])
+
+vrai_bandeau = NT.Note.bandeau
+
+
+def bandeau_faux(self, d):
+    """Le bandeau imprime l'η de la PREMIÈRE vérification (S1) à la place de l'η max ; le récapitulatif et la garde, eux,
+    restent justes — la parité doit le voir sur la ligne du bandeau, pas « quelque part dans la page »."""
+    res = self.C.res
+    vrai = res["taux_max"]
+    res["taux_max"] = res["verifications"][0]["taux"]
+    try:
+        return vrai_bandeau(self, d)
+    finally:
+        res["taux_max"] = vrai
+
+
+NT.Note.bandeau = bandeau_faux
+try:
+    mut = NC.pdf(copy.deepcopy(ETATS["A historique (cornière neuve)"]), INFOS)
+finally:
+    NT.Note.bandeau = vrai_bandeau
+ec_bandeau = ecarts_parite(ETATS["A historique (cornière neuve)"], mut)
+chk("mutation « l'η max du bandeau pris sur S1 » (le récapitulatif répète un « η max » juste) : la parité rougit, et sur la ligne du bandeau",
+    ec_bandeau != [] and all("bandeau" in x for x in ec_bandeau), ec_bandeau[:3])
 
 # ---------------------------------------------------------------- 6. comme dans le navigateur
 sys.path.insert(0, os.path.join(RACINE, "site", "web"))
