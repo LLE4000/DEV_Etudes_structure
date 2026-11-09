@@ -50,12 +50,16 @@ Enrobage.
   Données béton, Tableau des armatures, Enrobage et Catalogue quittent la liste.
 - La **bibliothèque** de la famille (Béton armé, Acier) est une entrée **distincte** dans le bloc de sa famille : une
   carte large à part, avec l'icône d'un livre et un style propre (contour, teinte), placée en tête de ligne du bloc,
-  avec le libellé de ses rubriques (« Bétons · Aciers · Sections · Enrobages et feu · Ancrages »). Elle se distingue
-  d'une tuile de calcul au premier regard, et reste à côté des calculs de sa famille.
+  avec le libellé de ses rubriques (« Bétons · Aciers · Sections · Enrobages · Ancrages » — les titres du menu ; le
+  feu et les recouvrements sont dans les sous-titres de la page). Elle se distingue d'une tuile de calcul au premier
+  regard, et reste à côté des calculs de sa famille.
 - Le volet « Modules » du rail et le menu du téléphone listent **Bibliothèques** comme un groupe à part.
-- Les pages des quatre anciens modules restent **servies** (une note existante s'ouvre encore), mais ne sont plus
-  listées ; la liste nommée `MASQUES` de `FAMILLES` le dit et les tests la lisent. Leur retrait définitif se décidera
-  quand la bibliothèque aura remplacé chaque fonction (§ 3).
+- Les pages des anciens modules restent **servies** (une note existante s'ouvre encore ; une note neuve se crée
+  encore depuis l'adresse de la page), mais ne sont plus listées ; la liste nommée `MASQUES`, à côté de `FAMILLES`
+  dans `site/maquettes/construire.py`, le dit et les tests la lisent (`donnees_beton`, `armatures`, `enrobage` ; le
+  catalogue reste listé jusqu'à BIB5). `js/modules.js` les garde avec le drapeau `masque`, pour que l'accueil
+  (« Reprendre ») et le harnais les connaissent. Leur retrait définitif se décidera quand la bibliothèque aura remplacé
+  chaque fonction (§ 3).
 
 ### 2.2 La Bibliothèque Béton armé — une page, cinq rubriques
 
@@ -202,7 +206,7 @@ aucune valeur, jusqu'à ce que l'ingénieur transcrive les deux tableaux depuis 
 |---|---|---|
 | **BIB1** moteur — **fait le 08/11/2026** | `beton/bibliotheque/` : `ancrages.py` (§8.4, §8.7), `enrobage.py` (4.4N, 4.3N, feu aux valeurs de la norme pour poutres et dalles, libellés belges), `aciers.py` (k, ε_uk, ductilité), les ε et f_cd des bétons dans `beton/donnees/ec2.py` | `tests/test_bibliotheque_moteur.py` (114 contrôles) : l'exemple p. 49 de la NIT, les tableaux 24 et 25 à 2 cm (Ø ≤ 32) et 5 cm (Ø 50), le tableau 20, le tableau 21 sur ses extrêmes, les déformations du tableau 3.1 ; 15 mutations ; aucun module existant touché |
 | **BIB2** page — **fait le 08/11/2026** | `api_web/biblio_beton.py` (hors du registre des modules : action « consulter » du routeur, `consulter(rubrique, params, hote)`), `construire.page_bibliotheque` (page `bibliotheque-beton`), `css/bibliotheque.css`, `js/bibliotheque.js` : les cinq rubriques, tableau à sélection (chaque case porte les paramètres qu'un clic règle), barre de paramètres, bande de valeur, « Pourquoi ? » en volet, l'adresse qui garde l'état ; trois icônes Lucide ajoutées (book-open, anchor, flame) | `tests/test_api_web_bibliotheque.py` (101 contrôles : valeurs = moteurs, chaque case allume sa case, refus doux, échappement, routeur, page, mutations) ; `verifier_site.js` filtre « bibliotheque » (100 contrôles : 1 440 × 900, 1 180 × 820, 820 × 1 180, 390 × 844 — le tableau se voit d'un coup sur PC et tablette, la case allumée visible, les gestes, l'adresse rouverte) ; captures regardées ; **relecture de l'ingénieur attendue** |
-| **BIB3** accueil | Calculs et bibliothèques, `MASQUES`, rail et menu du téléphone | tests `test_site_web`, harnais accueil ; captures |
+| **BIB3** accueil — **fait le 09/11/2026** | `site/maquettes/construire.py` : `MASQUES` (donnees_beton, armatures, enrobage) ; `construire.py` : la carte « Bibliothèque Béton armé » (`.tile.biblio`, icône livre, rubriques en sous-titre) en tête du bloc Béton, le volet « Modules » (rail du PC, onglet du téléphone) commence par le groupe **Bibliothèques**, les masqués quittent les tuiles, le volet et « Nouvelle note » ; `js/modules.js` les garde avec `masque: true` (pages servies, notes existantes ouvrables, note neuve par l'adresse) ; `css/site.css` `.tile.biblio` | `tests/test_site_web.py` § 4 ter (carte en tête du bloc, rubriques, drapeau `masque`, volet, options, pages masquées toujours écrites) ; `verifier_site.js` accueil (registre visible, masqués absents, carte en tête, volet) et le repli par l'adresse pour un module masqué (`nouvelle()`, `neuve()` — le harnais SUIT : la fenêtre « Nouvelle note » ne les propose plus) ; captures accueil PC et téléphone regardées |
 | **BIB4** la poutre | bouton et panneau « Bibliothèque », préremplissage, « Utiliser cette valeur », « Inclure dans la note », `etat.fiches`, bloc « Justifications », vue, PDF (brique `table` du kit) ; puis dalle et prédalle (même établi) | gel de la poutre : regel accepté par la garde (champ `fiches` ajouté, note ancienne identique) ; tests note PDF ; harnais « pilote » ; captures |
 | **BIB5** acier | Bibliothèque Acier (catalogue sous le gabarit), bouton « Bibliothèque » des calculs acier | tests catalogue inchangés (moteur intact) ; harnais ; captures |
 

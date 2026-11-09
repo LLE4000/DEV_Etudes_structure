@@ -59,6 +59,19 @@ ETABLI_COMPACT = ("poutre", "dalle", "predalle")
 # clé → (module de rendu, titre, famille)
 BIBLIOTHEQUES = {"beton": ("api_web.biblio_beton", "Béton armé", "beton")}
 PAGES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}.html" for k in BIBLIOTHEQUES}
+ADRESSES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}" for k in BIBLIOTHEQUES}
+# les modules masqués de l'accueil (site/maquettes/construire.py, MASQUES) : servis, plus listés
+MASQUES = frozenset(MQ.MASQUES)
+
+
+def _bibliotheques_de(fam: str) -> list:
+    """Les bibliothèques d'une famille de l'accueil : [(clé, titre, sous-titre = ses rubriques)]."""
+    out = []
+    for k, (chemin, titre, famille) in BIBLIOTHEQUES.items():
+        if famille == fam:
+            B = importlib.import_module(chemin)
+            out.append((k, titre, " · ".join(t for _, t, _, _ in B.RUBRIQUES)))
+    return out
 # … et parmi eux, ceux dont le site fait la NOTE PDF (le module rend « telecharger note_pdf ») : les autres gardent le
 # bouton « Note PDF » grisé, « bientôt » (la note reste dans Streamlit)
 NOTE_PDF = ("poutre",)
@@ -264,10 +277,17 @@ def mnav(actif: str) -> str:
 
 
 def modpanel() -> str:
-    corps = ""
+    """Le volet « Modules » du rail : les BIBLIOTHÈQUES d'abord (un groupe à part), puis les calculs de chaque famille ;
+    les modules masqués (MASQUES) n'y sont pas."""
+    corps = '<div class="navlabel">Bibliothèques</div>'
+    for fam, _nom_fam, _mods in MQ.FAMILLES:
+        for k, titre, _sous in _bibliotheques_de(fam):
+            corps += f'<a class="navitem" href="{ADRESSES_BIBLIOTHEQUES[k]}"><span class="modic {fam}">{MQ.icon("book-open")}</span><span>{MQ.esc(titre)}</span></a>'
     for fam, nom_fam, mods in MQ.FAMILLES:
         corps += f'<div class="navlabel">{nom_fam}</div>'
         for k, n in mods:
+            if k in MASQUES:
+                continue
             if k in PAGES:
                 corps += f'<a class="navitem" href="{ADRESSES[k]}"><span class="modic {fam}">{MQ.MOD[k]}</span><span>{MQ.esc(n)}</span></a>'
             else:
@@ -287,16 +307,24 @@ def tete(titre: str, css: str = "", css2: str = "") -> str:
 
 
 def _sous_titre_modules() -> str:
-    tous = [k for _, _, mods in MQ.FAMILLES for k, _ in mods]
+    tous = [k for _, _, mods in MQ.FAMILLES for k, _ in mods if k not in MASQUES]
     n = sum(k in PAGES for k in tous)
     return "Tous les modules du bureau" if n == len(tous) else f"{n} modules sur {len(tous)} · les autres arrivent"
 
 
 def page_accueil() -> str:
+    """L'accueil : les notes à reprendre, puis les CALCULS par famille ; en tête du bloc d'une famille, sa BIBLIOTHÈQUE
+    (une carte large à part, l'icône d'un livre, ses rubriques en sous-titre) ; les modules masqués ne sont pas listés
+    (docs/site/BIBLIOTHEQUES.md § 2.1)."""
     tuiles = ""
     for fam, nom_fam, mods in MQ.FAMILLES:
         t = ""
+        for k, titre, sous in _bibliotheques_de(fam):
+            t += (f'<a class="tile biblio" href="{ADRESSES_BIBLIOTHEQUES[k]}" data-bibliotheque="{k}"><span class="modic {fam}">{MQ.icon("book-open")}</span>'
+                  f'<div><b class="nm">Bibliothèque {MQ.esc(titre)}</b><span>{MQ.esc(sous)}</span></div></a>')
         for k, n in mods:
+            if k in MASQUES:
+                continue
             if k in PAGES:
                 ouvre = f'data-module="{k}"' if k in ETABLI_COMPACT else f'data-nouvelle-module="{k}"'
                 t += (f'<a class="tile" href="{ADRESSES[k]}" {ouvre}><span class="modic {fam}">{MQ.MOD[k]}</span>'
@@ -306,7 +334,7 @@ def page_accueil() -> str:
                       f'<span class="modic {fam}">{MQ.MOD[k]}</span><span class="nm">{MQ.esc(n)}</span><span class="tag draft">bientôt</span></div>')
         tuiles += f'<div class="famille"><div class="kicker">{nom_fam}</div><div class="tiles">{t}</div></div>'
     options = "".join(f'<button type="button" class="mopt" data-module="{k}"><span class="modic {_module(k)[0]}">{MQ.MOD[k]}</span>{MQ.esc(_module(k)[1])}</button>'
-                      for k in PAGES)
+                      for k in PAGES if k not in MASQUES)
     modal = (f'<div class="modal" id="nouvelle" hidden><div class="mcard"><div class="mh"><span class="h2">Nouvelle note</span>'
              f'<button class="btn icon ghost" data-fermer-modal="1" title="Fermer">{MQ.icon("x")}</button></div>'
              f'<div class="mb"><div class="mrow3"><label><span>Chantier</span><input id="nn-chantier" list="nn-chantiers" placeholder="ex. Réalex"></label>'
@@ -571,12 +599,13 @@ FIXES = ("js", "css", "_headers", "favicon.svg", ".assetsignore", "wrangler.json
 
 
 def modules_js() -> str:
-    """La liste des modules pour les scripts de l'écran (adresse, nom, famille) : la même que celle des pages."""
+    """La liste des modules pour les scripts de l'écran (adresse, nom, famille) : la même que celle des pages — les
+    modules masqués y restent (une note existante s'ouvre encore), marqués « masque »."""
     d = {}
     for fam, _, mods in MQ.FAMILLES:
         for k, nom in mods:
             if k in ADRESSES:
-                d[k] = {"page": ADRESSES[k], "nom": nom, "famille": fam}
+                d[k] = {"page": ADRESSES[k], "nom": nom, "famille": fam, **({"masque": True} if k in MASQUES else {})}
     return ("// Écrit par site/web/construire.py depuis le registre des modules (api_web/registre.py) : ne pas modifier.\n"
             f"export const MODULES = {json.dumps(d, ensure_ascii=False)};\n")
 

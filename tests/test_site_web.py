@@ -191,10 +191,29 @@ for k in SW.PAGES:
             "data-etabli" not in html and "etabli.css" not in html and "data-ranger" not in html and 'id="liste"' not in html)
 _tuiles = {k: a for a, k in re.findall(r'<a class="tile" href="[^"]+" data-(module|nouvelle-module)="(\w+)"',
                                        open(os.path.join(WEB, "index.html"), encoding="utf-8").read())}
-chk("accueil : la tuile d'un module compact ouvre le calcul (lien direct), les autres « Nouvelle note »",
+chk("accueil : la tuile d'un module compact ouvre le calcul (lien direct), les autres « Nouvelle note » ; les modules masqués n'ont pas de tuile",
     _tuiles and all(a == ("module" if k in SW.ETABLI_COMPACT else "nouvelle-module") for k, a in _tuiles.items())
-    and set(_tuiles) == set(SW.PAGES)
+    and set(_tuiles) == set(SW.PAGES) - SW.MASQUES
     and ".tile[data-nouvelle-module]" in open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read(), _tuiles)
+# 4 ter. les BIBLIOTHÈQUES (docs/site/BIBLIOTHEQUES.md § 2.1) : une carte à part en tête du bloc de sa famille, le volet
+# « Modules » les liste en premier ; les modules masqués restent servis (leur page est écrite, js/modules.js les garde,
+# marqués « masque ») mais ne sont ni des tuiles, ni des choix de « Nouvelle note », ni des entrées du volet
+_accueil = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
+_cartes = re.findall(r'<a class="tile biblio" href="([^"]+)" data-bibliotheque="(\w+)">', _accueil)
+chk("accueil : chaque bibliothèque a sa carte (href = bibliotheque-<clé>), en tête du bloc de sa famille",
+    _cartes and {k for _, k in _cartes} == set(SW.BIBLIOTHEQUES) and all(h == f"bibliotheque-{k}" for h, k in _cartes)
+    and all(re.search(r'<div class="tiles"><a class="tile biblio" href="bibliotheque-' + k, _accueil) for k in SW.BIBLIOTHEQUES), _cartes)
+chk("accueil : la carte porte le titre de la bibliothèque et ses rubriques (RUBRIQUES, une source)",
+    "Bibliothèque Béton armé" in _accueil and "Bétons · Aciers · Sections · Enrobages · Ancrages" in _accueil)
+_js_mod = json.loads(re.search(r"MODULES = (\{.*\});", open(os.path.join(WEB, "js", "modules.js"), encoding="utf-8").read()).group(1))
+chk("js/modules.js garde les modules masqués (notes existantes) et les marque « masque »",
+    all(_js_mod[k].get("masque") is True for k in SW.MASQUES) and not any(_js_mod[k].get("masque") for k in SW.PAGES if k not in SW.MASQUES)
+    and set(SW.MASQUES) <= set(SW.PAGES), {k: _js_mod[k] for k in SW.MASQUES})
+chk("accueil : « Nouvelle note » ne propose pas les modules masqués, le volet « Modules » commence par les bibliothèques sans les masqués",
+    not any(f'data-module="{k}"' in _accueil for k in SW.MASQUES)
+    and re.search(r'<aside class="modpanel">.*?<div class="navlabel">Bibliothèques</div><a class="navitem" href="bibliotheque-beton">', _accueil, re.S)
+    and not any(f'href="{SW.ADRESSES[k]}"' in _accueil.split('<aside class="modpanel">')[1] for k in SW.MASQUES))
+chk("les pages des modules masqués sont toujours écrites et servies", all(os.path.exists(os.path.join(WEB, SW.PAGES[k])) for k in SW.MASQUES))
 
 # 5 bis. les trois formats : ce que le téléphone et la tablette trouvent dans chaque page (la disposition est dans
 # css/site.css et se vérifie dans le vrai navigateur : verifier_site.js, filtre « formats »)

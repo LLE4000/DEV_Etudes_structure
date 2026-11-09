@@ -71,6 +71,10 @@ FAMILLES = [
                         ("flambement", "Flambement"), ("assemblages", "Assemblages métalliques"), ("soudures", "Soudures")]),
     ("autres", "Autres", [("garde_corps", "Garde-corps"), ("bois", "Poutres bois"), ("sol", "Rigidité du sol")]),
 ]
+# les modules MASQUÉS (docs/site/BIBLIOTHEQUES.md § 2.1) : des consultations que la Bibliothèque Béton armé remplace.
+# Leurs pages restent servies (une note existante s'ouvre encore, js/modules.js les connaît), mais l'accueil, le volet
+# « Modules » et la fenêtre « Nouvelle note » ne les listent plus ; leur retrait définitif se décidera avec le bureau.
+MASQUES = ("donnees_beton", "armatures", "enrobage")
 # les modules validés par un administrateur — POUR L'EXEMPLE : la maquette montre la pastille, le bureau décidera
 VALIDES = {"poutre": ("Chef de service", "12/10/2026"), "dalle": ("Chef de service", "12/10/2026"),
            "enrobage": ("Vous", "20/10/2026"), "armatures": ("Vous", "20/10/2026"), "catalogue": ("Vous", "03/11/2026")}

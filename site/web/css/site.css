@@ -174,6 +174,13 @@ label.fichier { width: max-content; }
 .accueil .hello p { margin-top: 4px; }
 .accueil .famille { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .accueil .tile .nm { display: block; flex: 1; font-size: 13px; font-weight: 650; color: var(--ink); line-height: 1.3; }
+/* la BIBLIOTHÈQUE d'une famille (docs/site/BIBLIOTHEQUES.md § 2.1) : une carte large à part, en tête du bloc, l'icône d'un
+   livre, ses rubriques en sous-titre — distincte d'une tuile de calcul au premier regard */
+.accueil .tile.biblio { grid-column: span 2; border-color: var(--accent-line); background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 70%, var(--panel)), var(--panel)); }
+.accueil .tile.biblio .modic { background: var(--accent); color: var(--on-accent); }
+.accueil .tile.biblio .nm { color: var(--accent-hover); }
+.accueil .tile.biblio span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.accueil .tile.biblio:hover { border-color: var(--accent); }
 .accueil .tile.bientot { opacity: .62; box-shadow: none; }
 .accueil .tile.bientot:hover { border-color: var(--line); box-shadow: none; }
 .accueil .tile .tag { flex: none; display: inline-flex; font-size: 10px; height: 18px; }
@@ -518,6 +525,8 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .accueil .hello .btn.big svg.i { width: 18px; height: 18px; }
   .accueil .famille { margin-bottom: 4px; }
   .accueil .tile { min-height: 52px; }
+  .accueil .tile.biblio { grid-column: auto; }
+  .accueil .tile.biblio span { white-space: normal; }
   .mhead .btn.icon { width: 44px; height: 44px; }
   .mnav a[aria-disabled="true"] { opacity: .45; }
   /* « Nouvelle note » : une colonne, des champs et des boutons à la taille du doigt */

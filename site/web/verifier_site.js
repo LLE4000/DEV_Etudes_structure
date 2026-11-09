@@ -68,12 +68,21 @@ const FILTRE = process.argv[4] || '';
   // les tuiles ouvertes sont exactement les modules du registre (js/modules.js) ; les autres disent « bientôt ». Une tuile
   // ouvre la fenêtre « Nouvelle note » (data-nouvelle-module) ou, pour l'établi compact (construire.ETABLI_COMPACT), le
   // calcul lui-même (data-module : un lien direct)
-  const registre = await p.evaluate(async () => Object.keys((await import('./js/modules.js')).MODULES).sort().join());
+  // (les modules MASQUÉS — docs/site/BIBLIOTHEQUES.md § 2.1 — restent au registre, servis pour les notes existantes, mais
+  //  n'ont plus de tuile ; la bibliothèque de la famille a la sienne, à part, et ouvre sa page)
+  const registre = await p.evaluate(async () => Object.entries((await import('./js/modules.js')).MODULES).filter(([, m]) => !m.masque).map(([k]) => k).sort().join());
+  const masques = await p.evaluate(async () => Object.entries((await import('./js/modules.js')).MODULES).filter(([, m]) => m.masque).map(([k]) => k).sort().join());
   const ouvertes = (await p.$$eval('.tile[data-nouvelle-module], .tile[data-module]',
     (t) => t.map((x) => x.dataset.nouvelleModule || x.dataset.module))).sort().join();
-  const total = await p.$$eval('.tile', (t) => t.length);
-  verif('accueil : les modules du registre sont ouverts, les autres « bientôt »',
-    ouvertes === registre && (await p.$$eval('.tile.bientot', (t) => t.length)) === total - registre.split(',').length, `${ouvertes} / ${registre}`);
+  const total = await p.$$eval('.tile:not(.biblio)', (t) => t.length);
+  verif('accueil : les modules visibles du registre sont ouverts, les autres « bientôt », les masqués absents',
+    ouvertes === registre && (await p.$$eval('.tile.bientot', (t) => t.length)) === total - registre.split(',').length, `${ouvertes} / ${registre} · masqués : ${masques}`);
+  const biblios = await p.$$eval('.tile.biblio', (t) => t.map((x) => ({ k: x.dataset.bibliotheque, href: x.getAttribute('href'), nom: x.querySelector('.nm').textContent, premiere: x === x.parentElement.firstElementChild })));
+  verif('accueil : la Bibliothèque Béton armé est une carte à part, en tête du bloc Béton, et vise sa page',
+    biblios.length >= 1 && biblios.every((b) => b.premiere && b.href === `bibliotheque-${b.k}`) && biblios.some((b) => b.k === 'beton' && /Béton armé/.test(b.nom)), JSON.stringify(biblios));
+  verif('accueil : le volet « Modules » du rail commence par les bibliothèques et ne liste pas les masqués',
+    await p.evaluate((masques) => { const labels = [...document.querySelectorAll('.modpanel .navlabel')].map((x) => x.textContent); const liens = [...document.querySelectorAll('.modpanel .navitem')].map((x) => x.getAttribute('href') || '');
+      return labels[0] === 'Bibliothèques' && liens.some((h) => h === 'bibliotheque-beton') && masques.split(',').filter(Boolean).every((k) => !liens.includes(k.replace('_', '-')) && !document.querySelector(`.mopt[data-module="${k}"]`)); }, masques));
   let m = await mesure();
   verif('accueil : rien ne déborde, aucun nom coupé', !m.deborde && !m.coupes.length, m.coupes.join(', '));
   await capture('accueil_vide');
@@ -83,8 +92,15 @@ const FILTRE = process.argv[4] || '';
     await p.click('#ouvrir-nouvelle');
     verif(`« Nouvelle note » (${module}) : la fenêtre s'ouvre`, await p.isVisible('#nouvelle .mcard'));
     await p.fill('#nn-chantier', chantier); await p.fill('#nn-dossier', dossier); await p.fill('#nn-nom', nom);
-    await p.click(`.mopt[data-module="${module}"]`);
-    await Promise.all([p.waitForNavigation(), p.click('#nn-creer')]);
+    if (await p.$(`.mopt[data-module="${module}"]`)) {
+      await p.click(`.mopt[data-module="${module}"]`);
+      await Promise.all([p.waitForNavigation(), p.click('#nn-creer')]);
+    } else {
+      // un module MASQUÉ (js/modules.js « masque ») : plus d'entrée dans « Nouvelle note », mais sa page reste servie et
+      // crée la note depuis l'adresse (js/etabli.js)
+      const page = await p.evaluate(async (k) => (await import('./js/modules.js')).MODULES[k].page, module);
+      await p.goto(`${BASE}/${page}?${new URLSearchParams({ nom, chantier, dossier })}`);
+    }
     const t0 = Date.now();
     await pret();
     const echec = await p.evaluate(() => document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : '');
@@ -507,9 +523,16 @@ const FILTRE = process.argv[4] || '';
       verif(`${cle} · ${fmt} : « Nouvelle note » s'ouvre dans l'écran`, dansEcran(mc), JSON.stringify(mc));
       // un chantier au nom long : le fil d'Ariane, l'en-tête du téléphone et le cartouche doivent le tenir (c'est lui qui,
       // en écrasant la case « Note », faisait chevaucher « Note » et « Chantier »)
-      await pg.fill('#nn-chantier', 'Résidence Les Tilleuls, bâtiment B — phase 2 (logements)'); await pg.fill('#nn-nom', `${MODS[cle].nom} · ${fmt}`);
-      await pg.click(`.mopt[data-module="${cle}"]`);
-      await Promise.all([pg.waitForNavigation(), pg.click('#nn-creer')]);
+      const chantier = 'Résidence Les Tilleuls, bâtiment B — phase 2 (logements)', nom = `${MODS[cle].nom} · ${fmt}`;
+      await pg.fill('#nn-chantier', chantier); await pg.fill('#nn-nom', nom);
+      if (MODS[cle].masque) {
+        // un module MASQUÉ (js/modules.js « masque ») n'a plus d'entrée dans « Nouvelle note » : sa page, toujours servie,
+        // crée la note depuis l'adresse (js/etabli.js) — le même repli que nouvelle() plus haut
+        await pg.goto(`${BASE}/${MODS[cle].page}?${new URLSearchParams({ nom, chantier })}`);
+      } else {
+        await pg.click(`.mopt[data-module="${cle}"]`);
+        await Promise.all([pg.waitForNavigation(), pg.click('#nn-creer')]);
+      }
       await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
       const ko = await pg.evaluate(() => document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : '');
       verif(`${cle} · ${fmt} : le moteur démarre`, !ko, ko);
