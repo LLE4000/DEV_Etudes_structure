@@ -469,13 +469,16 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
     p = L.out
     a = BQ.find(aciers, nuance)
     fy = float(a["fy"]) if ep == "40" else _fy_epais(nuance)
+    # (les libellés d'épaisseur portent « < » : échappés là où ils entrent dans le HTML — relecture BIB5)
     barre = BB._barre(BB._champ("nuance", "Nuance", BB._select("nuance", nuance, [(n, n) for n in noms]))
-                      + _bloc("Épaisseur", BB._segments("epaisseur", ep, EPAISSEURS),
+                      + _bloc("Épaisseur", BB._segments("epaisseur", ep, [(k, C.esc(t)) for k, t in EPAISSEURS]),
                               "f_y selon l'épaisseur nominale de la paroi (EN 1993-1-1, tableau 3.1)"))
+    # f_u et ε ne sont connus que pour t ≤ 40 mm : leur en-tête le dit, comme celui de f_y (relecture BIB5 : à côté de la
+    # colonne « 40 < t ≤ 80 », un f_u sans domaine se lisait comme valable pour les deux épaisseurs)
     th = ('<tr><th class="nm">Nuance</th>' + BB._th("f_y", "MPa · t ≤ 40", "t ≤ 40 mm — bibliotheques.json")
           + BB._th("f_y", "MPa · 40 < t ≤ 80", "40 < t ≤ 80 mm — tableau 3.1, acier/flambement/normes.py")
-          + BB._th("f_u", "MPa", "t ≤ 40 mm — bibliotheques.json") + BB._th("β_w", "", "facteur de corrélation des soudures d'angle — bibliotheques.json")
-          + BB._th("ε", "", "√(235 / f_y), t ≤ 40 mm — acier/flambement/normes.py") + "</tr>")
+          + BB._th("f_u", "MPa · t ≤ 40", "t ≤ 40 mm — bibliotheques.json") + BB._th("β_w", "", "facteur de corrélation des soudures d'angle — bibliotheques.json")
+          + BB._th("ε", "t ≤ 40", "√(235 / f_y), t ≤ 40 mm — acier/flambement/normes.py") + "</tr>")
     corps = ""
     for x in aciers:
         n = x["n"]
@@ -489,9 +492,11 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
                   f'{BB._td(C.fr(NO.epsilon(float(x["fy"])), 2), {"nuance": n})}</tr>')
     tableau = BB._tableau(th, corps, "bib-nuances")
     avert = []
-    if ep == "80":
+    epais = ep == "80"
+    if epais:
         avert.append("f<sub>u</sub> n'est connu du dépôt que pour t ≤ 40 mm (bibliotheques.json) : au-delà de 40 mm, le tableau 3.1 "
-                     "de l'EN 1993-1-1 donne pour certaines nuances une valeur plus faible — à lire dans la norme.")
+                     "de l'EN 1993-1-1 donne pour certaines nuances une valeur plus faible — à lire dans la norme. f<sub>vw,d</sub>, "
+                     "calculé avec ce f<sub>u</sub>, vaut pour une paroi de t ≤ 40 mm : au-delà, il est plus faible d'autant.")
     if fy is None:
         avert.append(f"{C.esc(nuance)} : f<sub>y</sub> au-delà de 40 mm n'est pas dans le tableau 3.1 du moteur.")
     termes = [
@@ -505,11 +510,15 @@ def _r_nuances(params: Dict, hote: str) -> Dict:
         termes.append({"symbole": "ε", "nom": "coefficient des classes de section", "valeur": NO.epsilon(fy), "unite": "", "regle": f"√(235 / f_y) = √(235 / {C.fr(fy, 0)}) — tableau 5.2"})
     termes.append({"symbole": "γ_M2", "nom": "coefficient partiel des assemblages", "valeur": CR.GAMMA_M2, "unite": "", "regle": "ANB — acier/soudures/criteres.py"})
     fvw = RS.fvw_d(float(a["fu"]), float(a["bw"]), CR.GAMMA_M2)
-    termes.append({"symbole": "f_vw,d", "nom": "résistance de calcul au cisaillement d'un cordon", "valeur": fvw, "unite": "MPa",
-                   "regle": f"f_u / (√3 · β_w · γ_M2) = {C.fr(a['fu'], 0)} / (√3 · {C.nb(a['bw'], 2)} · {C.nb(CR.GAMMA_M2, 2)}) — EN 1993-1-8 §4.5.3.3"})
+    # (à 40 < t ≤ 80 mm, f_vw,d reste celui de f_u pour t ≤ 40 mm — le seul que le dépôt connaisse : sa ligne le dit, elle
+    #  ne se lit pas comme la résistance d'un cordon sur une paroi épaisse, qui est plus faible — relecture BIB5)
+    termes.append({"symbole": "f_vw,d", "nom": "résistance de calcul au cisaillement d'un cordon" + (" (f_u pour t ≤ 40 mm)" if epais else ""),
+                   "valeur": fvw, "unite": "MPa",
+                   "regle": f"f_u / (√3 · β_w · γ_M2) = {C.fr(a['fu'], 0)} / (√3 · {C.nb(a['bw'], 2)} · {C.nb(CR.GAMMA_M2, 2)}) — EN 1993-1-8 §4.5.3.3"
+                            + (" ; paroi de plus de 40 mm : plus faible, f_u à lire dans le tableau 3.1" if epais else "")})
     sources = [SOURCE_BQ, SOURCE_NO, SOURCE_SOUDURE]
-    phrase = (f"{C.esc(nuance)} · {dict(EPAISSEURS)[ep]} · f<sub>u</sub> = {C.fr(a['fu'], 0)}{NBSP}MPa · β<sub>w</sub> = {C.fr(a['bw'], 2)}"
-              + (f" · ε = {C.fr(NO.epsilon(fy), 2)}" if fy is not None else ""))
+    phrase = (f"{C.esc(nuance)} · {C.esc(dict(EPAISSEURS)[ep])} · f<sub>u</sub>{' (t ≤ 40 mm)' if epais else ''} = {C.fr(a['fu'], 0)}{NBSP}MPa"
+              f" · β<sub>w</sub> = {C.fr(a['bw'], 2)}" + (f" · ε = {C.fr(NO.epsilon(fy), 2)}" if fy is not None else ""))
     val = C.fr(fy, 0) if fy is not None else "—"
     return {"titre": "Nuances d'acier", "barre": barre, "tableau": tableau,
             "bande": _bande(val, "MPa", "f<sub>y</sub>", "limite d'élasticité", phrase, avert),

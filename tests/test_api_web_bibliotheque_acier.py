@@ -288,6 +288,30 @@ chk("nuances : chaque ligne du tableau est un acier du fichier, avec f_y, f_u, �
 n1 = B.consulter("nuances", {"nuance": "S275", "epaisseur": "80"})
 chk("nuances : S275, 40 < t ≤ 80 mm → 255 MPa (le moteur du flambement, tableau 3.1) et l'avertissement sur f_u",
     valeur(n1) == ("255", "MPa") and valeur(n1)[0] == str(int(NO.limite_elastique("S275", 60.0))) and "f<sub>u</sub> n'est connu" in n1["bande"])
+# (relecture BIB5) à 40 < t ≤ 80 mm, f_u n'est connu du dépôt que pour t ≤ 40 mm, et f_vw,d qu'on en tire vaut pour
+# une paroi de t ≤ 40 mm (le tableau 3.1 donne un f_u plus faible au-delà : S355 510 → 470 MPa, f_vw,d +8,5 %) : rien ne
+# doit se lire comme valable pour la paroi épaisse — l'en-tête de f_u, la phrase de la bande, la ligne f_vw,d de la
+# justification et de la fiche, l'avertissement disent leur domaine
+TOUT_40 = re.compile(r"t\s*≤\s*40")
+n80 = B.consulter("nuances", {"nuance": "S355", "epaisseur": "80"})
+th_fu = [texte(x) for x in re.findall(r"<th[^>]*>.*?</th>", n80["tableau"].split("</thead>")[0], re.S) if texte(x).startswith("fu")]
+ph80 = texte(n80["bande"].split('class="bib-phr">')[1].split("</span></div>")[0])
+l_fvw = next(li for li in n80["fiche"]["lignes"] if li["symbole"] == "f_vw,d")
+pq_fvw = next(texte(r) for r in re.findall(r"<tr[^>]*>(.*?)</tr>", n80["pourquoi"], re.S) if "vw,d" in r)
+chk("nuances 40 < t ≤ 80 mm : f_u et f_vw,d disent leur domaine (t ≤ 40 mm) — en-tête de f_u, phrase de la bande, ligne f_vw,d de la "
+    "justification et de la fiche, avertissement",
+    th_fu and all(TOUT_40.search(x) for x in th_fu) and re.search(r"fu\s*\(t ≤ 40 mm\)\s*=\s*510", ph80) is not None
+    and TOUT_40.search(l_fvw["nom"]) and TOUT_40.search(pq_fvw) and any("vw,d" in a for a in n80["fiche"]["avertissements"]),
+    (th_fu, ph80, l_fvw["nom"], pq_fvw[:120], n80["fiche"]["avertissements"]))
+chk("nuances t ≤ 40 mm : la ligne f_vw,d n'est pas alourdie (le domaine est celui de la page)",
+    not TOUT_40.search(next(li for li in n0["fiche"]["lignes"] if li["symbole"] == "f_vw,d")["nom"]))
+# un « < » de texte (« 40 < t ≤ 80 mm ») entre ÉCHAPPÉ dans le HTML : un « < » nu n'ouvre pas de balise dans le
+# navigateur, mais casse toute relecture du fragment (un texte « 40 < t … > » s'y perdrait)
+NU = re.compile(r"<(?![A-Za-z/!])")
+nus = [(r, k, f[max(0, m.start() - 20):m.start() + 20]) for r, p_ in (("nuances", {"epaisseur": "80"}), ("nuances", {}), ("boulons", {}), ("boulons", {"vue": "classes"}),
+                                                                     ("profils", {}), ("profils", {"f1": "Iy", "min1": "5", "max1": "1"}))
+       for k, f in ((k, B.consulter(r, p_)[k]) for k in ("barre", "tableau", "bande", "pourquoi", "sources")) for m in NU.finditer(f)]
+chk("aucun « < » nu dans les fragments des trois rubriques (« 40 < t ≤ 80 mm » est échappé : barre, bande, tableau)", not nus, nus[:4])
 fvw = s355["fu"] / (math.sqrt(3) * s355["bw"] * 1.25)
 chk(f"nuances : la justification de S355 donne f_vw,d = {fvw:.1f} MPa (f_u / (√3 · β_w · 1,25), recalculé ici) et ε = 0,81",
     f"{fvw:.1f}".replace(".", ",") in n0["pourquoi"] and "0,814" in n0["pourquoi"])
