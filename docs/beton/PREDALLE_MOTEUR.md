@@ -151,7 +151,9 @@ saisi ignoré. Un témoin (le moteur rechargé sans altération) reste vert.
 ## 7 · Ce qui n'est pas couvert
 
 - **La note PDF** (`modules/export_pdf_dalle`, bouton « Générer PDF ») : hors périmètre du site (bouton grisé). Sa
-  partie calcul est comparée par le test de parité.
+  partie calcul est comparée par le test de parité. *Révision du 09/11/2026 (PDF-D)* : le module fusionné des dalles
+  la fait désormais sur le site, prédalle comprise (axes de la règle de pose et nappes empilées imposés au générateur,
+  périmètre dit dans ses observations) : `api_web/note_dalle.py`, `docs/site/DALLES_FUSION.md` § 6.
 - **Les unités d'affichage** (⚙️ « Unité de longueur » cm/mm, « Unité d'armature » mm²/cm²) : le site écrit les
   longueurs en cm et les sections en mm² (les défauts de l'écran) ; aucun chiffre n'en dépend.
 - **Ce que l'écran Streamlit ne fait pas, le site non plus** — à savoir avant d'employer le module pour une vraie

@@ -1042,6 +1042,13 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
     return out
 
 
+def texte_perimetre(d: Dict) -> str:
+    """Ce que le calcul de la dalle vérifie et ne vérifie PAS, tel que l'écran le dit sous le résultat (et la note PDF
+    dans ses observations, api_web/note_dalle.py) : celui de la prédalle (api_web/predalle.PERIMETRE) ; rien pour une
+    dalle coulée en place — une source pour les deux."""
+    return AP.PERIMETRE if est_predalle(d) else ""
+
+
 def _hypotheses(d: Dict, m: Dict) -> List[str]:
     return [f"Béton <b>{C.esc(m['beton'])}</b> · f<sub>ck</sub> = {C.nb(m['fck'])} · f<sub>ck,cube</sub> = {C.nb(m['fck_cube'])} N/mm²",
             f"f<sub>ctm</sub> = 0,30·f<sub>ck</sub><sup>2/3</sup> = {C.fr(m['fctm'], 2)} N/mm²",
@@ -1073,7 +1080,7 @@ def resultat(etat: Dict) -> Dict:
     hyps = AP.hypotheses(d, r["materiaux"]) if predalle else _hypotheses(d, r["materiaux"])
     opt = {} if d["verrou"] else _optimaux(d, r)
     gouv = gouvernante(r)
-    perimetre = C.aide(AP.PERIMETRE) if predalle else ""
+    perimetre = C.aide(texte_perimetre(d)) if texte_perimetre(d) else ""
     blocs, volets = "", ""
     for i, s in enumerate(r["sections"]):
         h, v = PC.bloc(M, i, s, nom, hyps, gouv, opt, d["verrou"], pied_calcul=perimetre, pied=_avertissements_de(d, r, i))
@@ -1091,6 +1098,18 @@ def resultat(etat: Dict) -> Dict:
             "volets": volets, "vues": PC.vues(r["sections"], element, DP if predalle else DD, "pd" if predalle else "dl", dims, _legendes(d)),
             "phrase": "", "statut_html": statut,
             "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
+
+
+# ------------------------------------------------------------------ la note PDF
+def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
+    """« note_pdf » : la note de calcul PDF de TOUTE la note (chaque dalle, chaque section, les deux types), faite par le
+    générateur validé de l'écran Streamlit sur les axes du site (api_web/note_dalle.py) ; ``infos`` : le nom, le
+    chantier, l'indice et la date de la note (la page de garde). L'avis d'ouverture (CLE_AVIS) n'y entre pas."""
+    if quoi != "note_pdf":
+        return None
+    from . import note_dalle as ND
+    etat = {k: v for k, v in etat.items() if k != CLE_AVIS}
+    return ND.fichier(etat, infos)
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base

@@ -597,8 +597,11 @@ chk("la tête des résultats : le nom de la dalle (un titre qui se lit : le cham
     "(comme la poutre)",
     ar["resultat"].startswith('<div class="pbody"><div class="et-rp"><b>Dalle 1</b><span>100 × 20 cm · C30/37 · B500</span></div>')
     and "<input" not in ar["resultat"].split('<div class="et-blocs">')[0], ar["resultat"][:300])
-chk("une dalle n'a pas de note PDF sur le site : rien à télécharger (le bouton reste « bientôt », construire.NOTE_PDF)",
-    not hasattr(P, "telecharger"))
+_f = P.telecharger(copy.deepcopy(etat), "note_pdf", {"nom": "Essai"}) if hasattr(P, "telecharger") else None
+chk("la dalle fait sa note PDF sur le site (S4, 09/11/2026 : api_web/note_dalle.py, contrôlée par tests/test_note_dalle.py) : "
+    "« note_pdf » rend le PDF, tout autre fichier rien (le bouton s'allume quand construire.NOTE_PDF la nomme)",
+    bool(_f) and _f["type"] == "application/pdf" and _f["nom"] == "Note de calcul - Essai.pdf"
+    and P.telecharger(copy.deepcopy(etat), "autre") is None, (_f or {}).get("nom"))
 # un axe ou un centre de gravité SAISI se rend à l'automatique d'un clic (« ↺ », comme l'écran d'avant du site), et la
 # couche dit ce que serait l'automatique ; automatique, ni bouton ni phrase (le champ vide montre « auto · … »)
 RAZ = r'<button type="button" class="et-raz" data-chemin="{}" data-valeur="" title="([^"]+)"'

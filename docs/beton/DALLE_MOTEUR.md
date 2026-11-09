@@ -201,7 +201,10 @@ principale : **chacune fait rougir au moins une note**.
 
 ## 6 · Ce que le moteur ne couvre pas (et le site non plus)
 
-- la **note de calcul PDF** (`modules/export_pdf_dalle.py`) : le bouton est grisé sur le site ;
+- la **note de calcul PDF** (`modules/export_pdf_dalle.py`) : le bouton est grisé sur le site ; *révision du 09/11/2026
+  (PDF-D)* : le site la fait désormais lui-même, par ce générateur inchangé, sur les axes du site et contrôlée contre ce
+  moteur (`api_web/note_dalle.py`, `docs/site/DALLES_FUSION.md` § 6) — le bouton s'allume quand
+  `site/web/construire.NOTE_PDF` la nomme ;
 - l'écran Streamlit : **unités d'affichage** (cm / mm, mm² / cm² : le site écrit toujours cm et mm², comme la note),
   **informations du projet** (le site a les siennes : note, chantier, indice), **Réinitialiser** (le site : nouvelle
   note) ;

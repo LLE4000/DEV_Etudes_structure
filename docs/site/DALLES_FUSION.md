@@ -13,6 +13,7 @@ qui est construit.*
   renforts : c'est ce que les moteurs lisent. La « nappe » (§ 3) est une VUE d'écran sur deux faces.
 - Sections multiples, barres X/Y indépendantes, renforts, positions imposées ou automatiques, plans et coupes,
   résultats à droite, note PDF (celle qui existe), .stab, import Streamlit, exports : tout reste atteignable.
+  *(Révision PDF-D du 09/11/2026 : la note PDF se fait désormais sur le site, avec les chiffres du site — § 6.)*
 
 ## 1. Colonne de gauche (FUS5)
 
@@ -445,3 +446,89 @@ secondaire est dessiné dans le lit de sa base (« · sur la base Y » dans la l
   moins sur l'accueil, redirection).
 - Harnais : `module:dalle`, `formats:dalle` (PC, tablette, téléphone), captures regardées ; `module:predalle` devient
   la redirection.
+- *(PDF-D, 09/11/2026)* `tests/test_note_dalle.py` : la note PDF (§ 6) — parité, texte des planches, écran, arrondis,
+  coupe, verdicts, observations et leur place (balayage des épaisseurs, aucun texte de la coupe chevauché), PDF lu par
+  pdftotext, routeur, aller-retour par la lecture Streamlit, conditions du navigateur, MUTATIONS ;
+  `tests/test_api_web_dalle.py` suit (la dalle a désormais `telecharger`).
+
+## 6. La note PDF sur le site (S4, lot PDF-D, 09/11/2026)
+
+*Décision de l'ingénieur du 09/11/2026 : « la note PDF de la dalle se fait SUR LE SITE et dit les chiffres du site ».
+Avant, elle ne se faisait que dans Streamlit, qui pose X et Y au même niveau sans le dire (A_s,req ≈ 6,5 % trop faible
+sur la direction secondaire) : le PDF était moins sûr que l'écran.*
+
+### 6.1 Comment elle se fait
+
+- `api_web/note_dalle.py`, sur le modèle de la poutre (`api_web/note_poutre.py`) : le générateur VALIDÉ de Streamlit,
+  `modules/export_pdf_dalle.py` (mise en page `ndc_pdf`), n'est PAS réécrit ni modifié. `valeurs(d, did)` traduit une
+  dalle du site (les deux types) en valeurs de l'écran Streamlit (clés `dal<i>_…`, `dal<i>_sec<j>_…`), et
+  `export_pdf_dalle._collecter_resultats` refait le calcul (`_compute_section`, les formules de l'écran).
+- LES AXES : chaque couche reçoit son axe EFFECTIF du site (`dalle_positions.axes` : nappes posées l'une sur l'autre,
+  renfort secondaire S3 compris, règle de pose de la prédalle, axe saisi) comme une distance saisie (`dist_auto` faux,
+  `dist_axe` écrit SANS arrondi — l'écran prédalle de Streamlit les figeait au centième) ; le centre de gravité imposé
+  passe par `ycdg`, la peau d'une prédalle par `h_pre`. Le calcul de la planche est alors celui de l'écran.
+- La traduction est l'INVERSE de la lecture d'un fichier Streamlit (`beton/dalle/fichier.lire`) : relues par elle, les
+  valeurs redonnent chaque grandeur du site (aller-retour testé) ; les libellés de type viennent de `EN.LIBELLES_TYPES`
+  (une source, l'inverse de `FI.TYPES_ECRAN`, lié par un test). Aucune fonction de l'écran Streamlit n'est recopiée.
+- CONTRÔLE À CHAQUE NOTE (`note_dalle.ecarts`) : la planche est comparée au moteur du site (axes, y_G, d, A_s,req,
+  A_s,min, A_s, états, h_u,min, h_min, τ, τ_adm, état de la section) ; un écart au-delà de 1e-9 (relatif) LÈVE : la note
+  n'est pas produite, le message dit la dalle, la section et la grandeur. Jamais une note qui dit autre chose que
+  l'écran.
+- `api_web/dalle.telecharger(etat, "note_pdf", infos)` (même forme que la poutre ; le routeur passe {nom, chantier,
+  indice, date} → page de garde : projet = chantier ou nom, partie = nom ou « Dalles en béton armé ») ; l'avis
+  d'ouverture (`CLE_AVIS`) n'y entre pas. Une note, une planche par section de chaque dalle, dans l'ordre ; chaque dalle
+  traduite à part (γs et jeu propres à la dalle si une note relue en porte de différents).
+
+### 6.2 Ce que le site ajoute à la planche (le générateur ne le sait pas)
+
+- l'ÉTAT de l'écran (`plaque_compact.etat_bloc`) : « Non vérifié » d'abord, « Données incomplètes » sans aucun effort
+  (jamais « Vérifié »), « Vérifié » sinon ;
+- les NIVEAUX DESSINÉS de la coupe = les axes du calcul : le générateur écartait deux axes trop proches pour le dessin
+  (`_coupe_dalle_depuis_R._niveaux`) et dessinait un renfort, posé dans le plan de sa base, plus haut qu'il n'est
+  compté ; comme la coupe de l'écran, chaque couche est à l'axe qui entre dans d ;
+- le VERDICT d'une nappe non conforme alors que A_s ≥ A_s,néc : acier excessif (« A_s > A_s,max ») ou d utile ≤ 0 — le
+  générateur y écrivait « A_s < A_s,requise », faux ;
+- les OBSERVATIONS de l'écran, en texte (sans balisage) : les avertissements de la section (enrobage nul lu 3 cm,
+  nappes au même niveau par un axe saisi, d utile ≤ 0, base hors de la prédalle, couches croisées sur la prédalle…) et,
+  sur la première planche de chaque dalle, ceux de la dalle entière et le PÉRIMÈTRE de la prédalle (ce qui n'est pas
+  vérifié : phase provisoire, cisaillement d'interface, flèche, fissuration — `api_web/dalle.texte_perimetre`, une
+  source pour l'écran et la note). Où : sous les données du panneau de gauche (le style du générateur hérité, `_data`
+  suivi des observations) ; si la place manque, la coupe cède le juste nécessaire sans descendre sous `coupe_min`
+  (mesuré : sous elle, les étiquettes de la coupe se chevauchent — 225 pt à h = 20 cm, 280 pt à 60 cm) ; sinon les
+  observations passent en fin de planche, et la planche qui déborde alors passe SEULE en trois colonnes, ses titres
+  raccourcis (« Armatures sup. — principale » : ceux du générateur ne tiennent pas dans une colonne sur trois). Les
+  24 cas du test tiennent en deux colonnes ; le dernier recours est testé à part.
+
+### 6.3 La parité (`tests/test_note_dalle.py`)
+
+- 24 cas, 30 sections (CSP et prédalle, une et plusieurs dalles et sections, γs différents, principale X, treillis par
+  nappe, treillis + renforts, trois renforts, gros Ø, moments sur les deux faces, axe saisi et y_G imposé, enrobage nul,
+  B400/γs 1,15/C20/25/bande de 50 cm, acier excessif, d ≤ 0, hauteur insuffisante et τ > τ_adm, nappes au même niveau,
+  verrouillée, peau de 4 cm, couches croisées, renfort 4 Ø20 secondaire empilé), dont 53 couches empilées par le site sur
+  130 : la planche rend les grandeurs du moteur du site au 1e-9 près ; son TEXTE écrit 1 415 chiffres de l'écran (h_u,min,
+  h_min, d, A_s,req, A_s,min, A_s/m, A_s, A_s,néc, τ, τ_adm, efforts) dans l'ordre des nappes de l'écran ; l'écran montre les
+  mêmes A_s,néc et A_s (240 chiffres) et le même état de chaque section.
+- ARRONDIS : la note (générateur, `fn` : arrondi au pair sur la valeur binaire) écrit les mm² entiers, les cm (d, h_min,
+  y_G) et les kN·m au dixième, les N/mm² au centième ; l'écran (`C.fr` : demi vers l'extérieur) les mm² entiers, d et
+  y_G au centième dans la fenêtre de calcul, les efforts tels que saisis. Les deux n'écrivent un nombre différemment que
+  s'il tombe EXACTEMENT à mi-chemin en binaire (aucun dans les cas) ; un effort saisi au centième (28,25 kN·m) s'écrit
+  au dixième dans la note.
+
+### 6.4 Ce que la note ne dit pas, ce qui n'est pas vérifié
+
+- Le TAUX η de chaque vérification (l'écran l'affiche ; la note dit A_s ≥ A_s,néc, comme celle de Streamlit) ; le plan
+  des nappes ; la formule d'axe de chaque couche (la note donne d = h − y_G) ; la mention « sur la base Y » ; l'étoile
+  du sélecteur. Aucun de ces manques ne contredit l'écran.
+- DALLE CSP : la FLÈCHE et la FISSURATION ne sont pas vérifiées (ni à l'écran ni dans la note, comme dans Streamlit) ;
+  l'écran ne le dit pas encore — le jour où `api_web/dalle.texte_perimetre` le dira pour la dalle CSP, la note le dira
+  aussi (même source). La prédalle le dit (son périmètre).
+- Le bouton « Note PDF » de la dalle reste grisé tant que `site/web/construire.NOTE_PDF` ne nomme pas « dalle » et que le
+  paquet de la note (`paquet_note`) n'a pas `modules/export_pdf_dalle.py` et `modules/treillis.py` (intégration). La note
+  est prouvée dans les conditions du navigateur par un sous-processus calqué sur `_SONDE_NOTE` (fontTools, accélérateurs
+  C, streamlit, numpy, matplotlib refusés ; Pillow factice ; les six polices du paquet) : aucun fichier de reportlab en
+  plus de la poutre. Essayée aussi dans le VRAI Pyodide (Chromium, 09/11/2026), sur un site construit à part avec
+  NOTE_PDF += « dalle » et le paquet étendu (sans toucher à `construire.py`) : « Note PDF » au PC (ruban) et au
+  téléphone (barre du bas, menu) télécharge la note, CSP puis prédalle, en 1,1 s puis 0,2 s ; son texte (pdftotext) est
+  IDENTIQUE à celui de la note faite en CPython pour le même état. Le harnais (`verifier_site.js`) ne la contrôle pas
+  encore : c'est à l'intégration de l'y ajouter.
+- Les fiches de la bibliothèque (BIB4) ne sont pas dans la note de la dalle (la dalle n'en a pas encore).
