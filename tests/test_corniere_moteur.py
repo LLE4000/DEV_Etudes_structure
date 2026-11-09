@@ -535,8 +535,8 @@ chk("garde du mode historique : équilibre P1 (83,96 %) sous l'historique (88,86
 RG = M.verifier(dict(CAS, Y=40.0))
 ag = next((a for a in RG["avertissements"] if a["code"] == "equilibre_plus_severe"), None)
 chk("ancrage bas (Y = 40 < 43,5 mm) : l'équilibre P1 dépasse l'historique → avertissement ROUGE avec les deux chiffres",
-    RG["garde"]["depasse"] and ag is not None and ag["niveau"] == "rouge" and f"{100 * RG['garde']['taux_equilibre_P1']:.1f}" in ag["message"]
-    and f"{100 * RG['garde']['taux_historique']:.1f}" in ag["message"] and RG["avertissements"][0] is ag, (RG["garde"], ag))
+    RG["garde"]["depasse"] and ag is not None and ag["niveau"] == "rouge" and f"{100 * RG['garde']['taux_equilibre_P1']:.1f} %".replace(".", ",") in ag["message"]
+    and f"{100 * RG['garde']['taux_historique']:.1f} %".replace(".", ",") in ag["message"] and RG["avertissements"][0] is ag, (RG["garde"], ag))
 chk("Y = 45 : l'historique reste du côté sûr (seuil P1 à 43,5 mm)", M.verifier(dict(CAS, Y=45.0))["garde"]["depasse"] is False)
 chk("le mode équilibre n'a ni garde ni cellule ; ses hypothèses nomment y_c et u_V", P0["garde"] is None and any("y_c = 0" in h and "u_V = 7,5" in h for h in P0["hypotheses"]))
 
@@ -569,8 +569,11 @@ chk("B : mode équilibre imposé (historique demandé → avertissement mode_imp
     B["mode"] == "equilibre" and B["mode_demande"] == "historique" and any(a["code"] == "mode_impose_B" for a in B["avertissements"])
     and dec(B["ancrages"]["pression_support"], 274.9, 1) and any(a["code"] == "pression_support" and a["niveau"] == "attention" for a in B["avertissements"])
     and next(i for i in B["informations"] if i["cle"] == "pression_support")["valeur"] == B["ancrages"]["pression_support"] and B["comparaison"] is None)
-chk("B : l'arrachement se compte vers le bout libre (haut − Y′, ancrage le plus bas) ; M_angle rendu dans les efforts",
-    pres(B["ancrages"]["arrachement"], 14.253333333333334 * 1e3 / (2 * 35 * 15)) and pres(BJ["ancrages"]["arrachement"], 14.253333333333334 * 1e3 / (2 * 25 * 15))
+chk("B : PAS d'arrachement vers le bord (l'effort du boulon sur l'aile va vers l'angle, où la matière continue — relecture de la mécanique) ; "
+    "en A il est rendu (vers le bout libre) ; M_angle rendu dans les efforts",
+    B["ancrages"]["arrachement"] is None and BJ["ancrages"]["arrachement"] is None and not any(i["cle"] == "arrachement" for i in B["informations"])
+    and R0["ancrages"]["arrachement"] is not None and any(i["cle"] == "arrachement" for i in R0["informations"])
+    and "pas d'arrachement vers le bord" in " ".join(B["hypotheses"])
     and dec(B["efforts"]["M_angle"], 2.886, 3) and R0["efforts"]["M_angle"] is None)
 
 
@@ -796,6 +799,23 @@ chk("une désignation tapée se relit au catalogue, la désignation du bureau (�
     and M.nom_catalogue("L 45×45×4,5") == "L 45x45x4.5" and M.nom_catalogue("IPE 200") is None and M.designation("L 45x45x4.5") == "L 45×45×4,5")
 
 
+# les TEXTES du moteur (hypothèses, avertissements, informations) s'affichent tels quels à l'écran : les nombres y sont
+# écrits à la virgule, jamais au point (« 236.7 N/mm² », « × 1.026 », « 52.50 kN » — relecture de la mécanique)
+def nombres_a_point(r):
+    """Les nombres écrits avec le point décimal dans les textes du résultat ``r``."""
+    textes = list(r["hypotheses"]) + [a["message"] for a in r["avertissements"]] + [i["texte"] + " " + i["nom"] for i in r["informations"]]
+    return [m.group(0) for t in textes for m in re.finditer(r"\d\.\d", t)]
+
+
+TEXTES = [R0, M.verifier(dict(CAS, a=100.0)), M.verifier(dict(CAS, Y=40.0, R_ELU=None)), M.verifier(dict(CAS, configuration="B")),
+          M.verifier(dict(CAS, mode="equilibre", a=100.0, dx=20.0, dy=10.0))]
+chk("les textes du moteur écrivent les nombres à la virgule (« σ_adm = f_y/1,5 = 236,7 N/mm² », « R_ELU = 1,5·R = 64,14 kN », « σ × 1,546 »), "
+    "jamais au point — sur cinq états (garde rouge, R_ELU auto, a, B, équilibre avec jeux)",
+    not any(nombres_a_point(r) for r in TEXTES) and "236,7 N/mm²" in TEXTES[0]["hypotheses"][0]
+    and any("R_ELU = 1,5·R = 64,14 kN" in a["message"] for a in TEXTES[2]["avertissements"])
+    and any("× 1,546" in h for h in TEXTES[1]["hypotheses"]) and any("H = 82,47 kN" in i["texte"] for i in TEXTES[3]["informations"]),
+    [nombres_a_point(r) for r in TEXTES])
+
 # ------------------------------------------------------------------ 11. relecture d'une note v1
 print("\n=== 11. Relecture d'une note du module d'avant (v1, modèle lame) ===")
 # les cornières des photos de tests/reference_refonte/corniere.json AVANT la refonte (état au 10/11/2026), copiées telles quelles
@@ -1002,6 +1022,10 @@ def rejets(mod):
                 and not r0["garde"]["depasse"]):
             out.append("garde")
         out += [f"refus : {x}" for x in refus_manques(mod)[:2]]
+        out += [f"texte à point décimal : {x}" for x in (nombres_a_point(r0) + nombres_a_point(b) + nombres_a_point(la)
+                                                          + nombres_a_point(mod.verifier(dict(CAS, Y=40.0, R_ELU=None))))[:1]]
+        if b["ancrages"]["arrachement"] is not None or any(i["cle"] == "arrachement" for i in b["informations"]):
+            out.append("arrachement rendu en B")
         if mod.nouvelle_corniere() != D:
             out.append("défauts")
         ff_, _ = fautes_formules([r0, b, p0, j, la])
@@ -1053,6 +1077,9 @@ MUTATIONS = (
     ("positions des ancrages depuis le bord", [("moteur", "\"positions_z\": [c[\"L\"] / (2 * n) + i * c[\"L\"] / n for i in range(n)]", "\"positions_z\": [i * c[\"L\"] / n for i in range(n)]")]),
     ("nuance quelconque admise", [("entree", "_exiger(out[\"fy\"] in FY_ADMIS,", "_exiger(True or out[\"fy\"] in FY_ADMIS,")]),
     ("B : le contact ignore c", [("statique", "bras = ya - c\n", "bras = ya\n")]),
+    ("un nombre au point décimal dans un texte du moteur (σ_adm des hypothèses)", [("moteur", "{E._f(ctx['sigma_adm'])} N/mm²", "{ctx['sigma_adm']:.1f} N/mm²")]),
+    ("l'arrachement vers le bord rendu en B (vers le bout libre, à contresens de l'effort du boulon)",
+     [("moteur", 'if (ctx["cfg"] == "A" and haut > Y_bord) else None', 'if haut > Y_bord else None')]),
 )
 TEMOIN = ("témoin : un commentaire changé", [("moteur", "# les sections repères :", "# les sections repères (témoin) :")])
 survivants, n_rejets = [], []
@@ -1066,7 +1093,7 @@ for nom, muts in MUTATIONS:
     if not rej:
         survivants.append(nom)
 chk(f"{len(MUTATIONS)} mutations volontaires (une par formule clé : ρ₃, pivot, N en B, nette, L_eff, dx, M_angle, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, "
-    f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact) : TOUTES rejetées "
+    f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact, texte au point, arrachement en B) : TOUTES rejetées "
     f"(de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
 chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(charger_mutant(TEMOIN[1])))
 chk("après les mutations, le moteur chargé est intact (mêmes résultats)", M.verifier(CAS) == R0 and M.candidats(CAS) == CANDS)

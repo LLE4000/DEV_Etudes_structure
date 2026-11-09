@@ -110,7 +110,8 @@ l'aile verticale où c'est en réalité un effort normal), σ_éq,ᵢ (`G37`…)
 est le maximum des quatre (`D3`). Diagrammes : M(s) = R·(X′ − s) sur l'aile horizontale, M(s) = H_s·(Y′ − s) sur la
 verticale avec H_s = Mmax/(YH + Yj). Ancrages : N_ELS = Mmax/((Y − jeu_ancrage)·n) (`C82`), V_ELS = R/n (`C83`), ELU ×
 R_ELU/R (`C85`, `C86`) ; pression diamétrale V_ELS/(d·e) (`C88`) et arrachement V_ELS/(2·(haut − Y)·e) (`C90`) en
-information, Y nominal comme le classeur. Les **maxima du congé** sont calculés et rendus (vue Contraintes) mais restent
+information, Y nominal comme le classeur (l'arrachement en A seulement : en B l'effort du boulon sur l'aile va vers
+l'angle, où la matière continue — sans objet, `None`). Les **maxima du congé** sont calculés et rendus (vue Contraintes) mais restent
 en **information** dans ce mode (`verdict: false`) : le classeur ne les a pas, et son cas de contrôle doit rendre
 88,8621 %.
 
@@ -209,8 +210,8 @@ dy < 0 refusé, balayage (aucune grandeur ne baisse quand dx ou dy croît : A hi
 y_c = 5 / u_V = 0, B), combinaisons gouvernantes justes, diagrammes face à une statique recalculée dans le test (trois
 courbes, enveloppe = max point par point, σ_éq des neuf combinaisons, t(s)). 4 équilibre P0, P1, Q1, comparaison,
 garde (Y = 40 rouge, Y = 45 et 85 rien). 5 B : 82,47 kN, 2,886 kN·m, 112,42 %, nette 137,1 % qui gouverne, moment
-indépendant de l'ancrage, Y = 45, c = 10, u_V = 0, jeux, mode imposé, pression sur le support, arrachement vers le bout
-libre. 6 ailes inégales. 7 maxima (S1 +2,11 % à 1,98 mm ; S3 +1,45 % à 1,66 mm ; information en historique, verdict en
+indépendant de l'ancrage, Y = 45, c = 10, u_V = 0, jeux, mode imposé, pression sur le support, pas d'arrachement vers le
+bord (rendu en A seulement). 6 ailes inégales. 7 maxima (S1 +2,11 % à 1,98 mm ; S3 +1,45 % à 1,66 mm ; information en historique, verdict en
 équilibre ; jamais sous une grille fine indépendante). 8 L_eff. 9 les 11 428 formules de 131 cornières recalculées à
 partir de leurs seuls termes (1e-9), blocs et combinaisons, taux/ok/état/gouvernant. 10 domaine : 40 refus avec leur message, 18 bornes
 admises, -0, idempotence, JSON strict, entrée intacte, défauts du § 2, nuances (source unique), masse en saisie libre.
@@ -251,7 +252,7 @@ classeur l'a mesuré : 120,65 % sur le cas de contrôle avec σ_lim = f_y/1,5 sa
 le site** (il reste tel quel dans l'application du bureau). Les notes enregistrées avec lui (version 1 : clés V, e, s,
 gamma_ELU, bord, sig_lim_*) se rouvrent : le nom et la cornière sont gardés, le reste est à ressaisir (§ 8).
 
-## 10 · Les vues (lot « schémas », 11/11/2026) — `acier/corniere/schemas.py`
+## 10 · Les vues (lot « schémas », 10/11/2026) — `acier/corniere/schemas.py`
 
 Quatre vues (décisions § 4 ; modèle visuel : figures a, b, c de l'analyse), chacune une fonction
 `(res, fs=None, interactif=True) -> Dessin` du kit de dessin des assemblages, qui ne lit que la SORTIE de `verifier`
@@ -287,7 +288,7 @@ légendes (`schemas.legende(res, cle)`) sont la source unique du texte sous chaq
 (une tranche de plusieurs mètres face à une petite aile) ; `dessin_corniere.vues` rend alors le cadre
 `schemas.secours` « Dessin impossible à cette échelle » pour cette vue seule.
 
-## 11 · Le module du site (lot « écran », 11/11/2026) — `api_web/corniere.py`
+## 11 · Le module du site (lot « écran », 10/11/2026) — `api_web/corniere.py`
 
 Le module est RÉÉCRIT sur l'établi compact, le modèle de la poutre (`api_web/poutre.py`, `api_web/etabli_compact.py` ;
 `construire.ETABLI_COMPACT` et `ARBRE_COMPACT` le portent, décisions § 4). Il ne calcule rien : toute saisie passe par
@@ -366,14 +367,14 @@ l'équilibre (le pivot dessiné), une inégale tapée dans l'autre ordre, X = 10
 rouverte avec son avis, puis A et B au PC 1440, à la tablette 1024 et à l'iPhone 13 (rien ne déborde, 44 px au doigt,
 16 px dans les champs). Les captures `site_corniere_*.png`.
 
-**Ce que l'intégration a fait (11/11/2026)** : `construire.NOTE_PDF` porte « corniere » (`api_web/note_corniere.py`
+**Ce que l'intégration a fait (10/11/2026)** : `construire.NOTE_PDF` porte « corniere » (`api_web/note_corniere.py`
 est là, § 12), avec sa note riche (`NOTES_RELEVE["corniere"]` : deux cornières, A historique avec R_ELU saisie et
 a = 100, puis B avec l'ancrage à Y = 45 et dy = 0) ; le paquet de la note reçoit `acier/corniere/{note,formules,
 methode}.py` (107 fichiers, 2,22 Mo ; `docs/site/MODULES_SITE.md` § 4 quinquies) ; `tests/test_site_web.py` et
 `tests/test_note_identification.py` comptent sept modules. Le gel `corniere.json` est regelé par le lot écran (commit
 distinct).
 
-**Ce que la relecture de l'écran a trouvé (11/11/2026, lot « revue_ecran », arbre `cor_revue_ecran`)** — mesuré dans
+**Ce que la relecture de l'écran a trouvé (10/11/2026, lot « revue_ecran », arbre `cor_revue_ecran`)** — mesuré dans
 Chromium sur huit cas (A historique et équilibre, B à Y = 85 et 45, les deux inégales, L 40×40×4, L 200×200×20) au PC
 1440, aux tablettes 820 × 1180, 1180 × 820, 1024 × 768 et 768 × 1024, à l'iPhone 13, en clair et en sombre. Deux
 défauts CORRIGÉS, tous deux des textes trop longs pour la 1ʳᵉ ligne d'un résultat (316 px au PC, jamais de retour à la
@@ -399,7 +400,7 @@ hors verdict » perdent 1 à 2 px ; dans la vue Contraintes, la 2ᵉ ligne du bl
 base de l'étiquette « S1 : 88,3 » (sans la couvrir) ; le moteur écrit certains nombres avec le point (« 236.7 N/mm² »,
 « pas 2.5 »), déjà noté au § 12.
 
-## 12 · La note PDF (lot « note », 11/11/2026) — `acier/corniere/note.py`
+## 12 · La note PDF (lot « note », 10/11/2026) — `acier/corniere/note.py`
 
 **Ce qu'elle est.** Une note = la page de garde du site (A4 portrait — projet, partie, date, indice, sommaire avec le
 statut et la page de chaque cornière : `ndc_pdf.styles.Style.garde_lignes`, la garde des notes Poutre, Dalle et
@@ -456,7 +457,7 @@ relecture du 11/11, § 13). `tests/test_note_identification.py`
 range déjà « corniere » avec la poutre, la dalle et les assemblages (garde + « date · indice » sur chaque page) :
 l'intégration n'a plus qu'à compter sept modules.
 
-## 13 · Relecture adverse de la mécanique (11/11/2026, lot « revue_meca », depuis l'intégration 0216684)
+## 13 · Relecture adverse de la mécanique (10/11/2026, lot « revue_meca », depuis l'intégration 0216684)
 
 **Ce qui a été RECALCULÉ à la main** (scripts à part, `/usr/bin/python3.12 -I`, formules réécrites depuis les décisions
 § 3 et l'annexe A de l'analyse, sans lire `statique.py`) et comparé à `verifier` à 1e-9 : le cas de contrôle en
@@ -486,13 +487,15 @@ zéro : rouges).
 le répète, et la mutation « le bandeau imprime l'η de S1 » SURVIVAIT (60 OK). La parité lit désormais la ligne entière
 du bandeau et la ligne du sommaire de la garde ; la mutation est dans la suite (61 contrôles).
 
-**Ouvert, à faire par le lot qui regèle `corniere.json`** (la photo porte ces textes) : le moteur écrit neuf nombres de
-ses textes avec le point décimal — `_hypotheses` (σ_adm, τ_adm `:.1f`, L_eff `:.1f`, facteur `:.3f`), `_avertissements`
-(garde `:.1f` × 2, pression du support `:.2f` et `:.1f`, R_ELU auto `:.2f`), `_informations` (C `:.2f`, facteur `:.3f`) ;
-l'écran les affiche tels quels (« 236.7 N/mm² », « × 1.026 », « 52.50 kN »), la note les reformate (`note.francais`).
-Remarque sur l'arrachement en B : `C90` est calculé vers le bout libre (haut − Y′) alors que l'effort du boulon sur
-l'aile est dirigé vers l'angle (il retient la cornière qui descend) ; information sans limite, à dire ou à ne pas rendre
-en B. Réfutés : σ = |M|/W + |N|/A toujours sur la même fibre (conservatif quand M et N sollicitent des fibres opposées :
+**Deux points ouverts par la relecture, corrigés ensuite par le coordinateur (intégration finale, photo regelée dans un
+commit distinct)** : le moteur écrivait neuf nombres de ses textes avec le point décimal — `_hypotheses` (σ_adm, τ_adm,
+L_eff, facteur), `_avertissements` (garde × 2, pression du support × 2, R_ELU auto), `_informations` (C, facteur) — et
+l'écran les affichait tels quels (« 236.7 N/mm² », « × 1.026 », « 52.50 kN ») ; ils passent par `entree._f` (décimales
+fixes, virgule), et `test_corniere_moteur.py` refuse tout `\d.\d` dans les hypothèses, avertissements et informations de
+cinq états (mutation « σ_adm au point » rejetée). L'arrachement vers le bord (`C90`) était calculé en B vers le bout
+libre (haut − Y′) alors que l'effort du boulon sur l'aile y est dirigé vers l'angle (il retient la cornière qui descend),
+où la matière continue dans l'autre aile : en B il n'est plus rendu (`ancrages.arrachement = None`, pas de ligne
+d'information, l'hypothèse de B le dit) ; en A il reste (mutation « arrachement rendu en B » rejetée). Réfutés : σ = |M|/W + |N|/A toujours sur la même fibre (conservatif quand M et N sollicitent des fibres opposées :
 A équilibre avec u_V < e/2 près de l'ancrage) ; la garde ne « voit » pas un ancrage bas dans la bande ± dy quand
 Y + dy > 43,5 mm (les deux enveloppes sont gouvernées par l'ancrage haut : la méthode historique reste du côté sûr sur
 le taux retenu) ; B, moment R·(X′ − e/2) et non R·(X′ − u_V) des décisions (le moteur est juste, § 8). Une note B

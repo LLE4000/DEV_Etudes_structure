@@ -112,7 +112,9 @@ soit R·(X′ − r − e) ; M2 = R·(X′ − e) ; Mmax = R·X′ ; YH = Y − 
 σᵢ = Mᵢ/Wᵢ ; τᵢ = R/(L·tᵢ) (le classeur, même dans l'aile verticale où c'est en réalité un effort normal) ;
 σ_éq,ᵢ = √(σᵢ² + 3τᵢ²) ; tauxᵢ = σ_éq,ᵢ/σ_adm ; taux τᵢ/τ_adm aussi (`I34`…) ; taux max = max des quatre.
 Ancrages : N_ELS = Mmax/((Y − jeu_ancrage)·n) ; V_ELS = R/n ; N_ELU, V_ELU = × R_ELU/R ; pression diamétrale
-V_ELS/(d·e) et arrachement V_ELS/(2·(haut − Y)·e) : en INFORMATION, sans limite (le classeur n'en a pas).
+V_ELS/(d·e) et arrachement V_ELS/(2·(haut − Y)·e) : en INFORMATION, sans limite (le classeur n'en a pas). *L'arrachement
+en configuration A seulement : en B l'effort du boulon sur l'aile est dirigé vers l'angle, où la matière continue dans
+l'autre aile — sans objet (relecture de la mécanique, 10/11/2026).*
 Le cas de contrôle (dx = 0, dy = 0, jeu_ancrage = 10, R_ELU = 68,9) rend M1…M4 et 88,8621 % à 1e-9 près, et
 N_ELS = V_ELS = 14,2533 kN, N_ELU = 22,9667 kN. Diagrammes du mode : M(u) = R·(X′ − u) ; M(y) = H_hist·(Y′ − y).
 
@@ -211,12 +213,15 @@ converti en silence.
 ## 7. Le gel et les tests
 - `tests/reference_refonte/corniere.json` est REGELÉ (`--geler --accepter="Refonte du module Cornières sur la méthode du
   classeur de l'ingénieur (décision du 07/11, demande du 10/11) : l'ancien modèle lame disparaît"`), dans un commit
-  distinct ; 239 contrôles toujours. *Regelé une seconde fois le 11/11/2026 par la relecture de l'écran (`--geler
+  distinct ; 239 contrôles toujours. *Regelé une seconde fois le 10/11/2026 par la relecture de l'écran (`--geler
   corniere`, sans `--accepter` : la garde n'a vu aucun écart de calcul), dans un commit distinct : trois LIBELLÉS de
   l'écran changent — l'état de l'en-tête du bloc Ancrages (« chevilles non vérifiées », l'ancien effaçait le titre du
   bloc), le nom de la ligne du bloc Comparaison (« Mode historique (P8) », l'ancien était coupé à l'ellipse) et le titre
   du bloc, « Comparaison » (le mot de ce document, § 4) ; aucun nombre, aucun message, aucun état ne bouge
-  (`CORNIERE_MOTEUR.md` § 11).*
+  (`CORNIERE_MOTEUR.md` § 11). Regelé une troisième fois le même jour, après la relecture de la mécanique (`--geler
+  --accepter="Textes du moteur à la virgule, pas d'arrachement vers le bord en B" corniere`, commit distinct) : les
+  TEXTES du moteur changent (« 236,7 N/mm² » au lieu de « 236.7 »), la ligne d'information « Arrachement » disparaît
+  des états B et l'hypothèse de B le dit ; aucun taux, aucun effort ne bouge (`CORNIERE_MOTEUR.md` § 13).*
 - `tests/test_corniere_moteur.py` est RÉÉCRIT : le cas de contrôle (M1…M4, 88,8621 %, ancrages) à 1e-9 ; les 93 formules
   de `P8` (annexe A de l'analyse) recalculées telles qu'elles sont écrites sur ≥ 200 saisies tirées au sort (dx, dy,
   jeu_ancrage, L, X, Y, R, R_ELU, e, r, f_y, coef) face au mode historique — avec dx = dy = 0 d'abord (une seule

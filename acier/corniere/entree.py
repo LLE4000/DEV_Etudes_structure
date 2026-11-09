@@ -155,6 +155,12 @@ def _g(x: float) -> str:
     return f"{x:g}".replace(".", ",")
 
 
+def _f(x: float, nd: int = 1) -> str:
+    """Un nombre à ``nd`` décimales FIXES, à la virgule (« 236,7 ») : les textes du moteur (hypothèses, avertissements,
+    informations) s'affichent tels quels à l'écran — jamais le point décimal (relecture de la mécanique)."""
+    return f"{x:.{nd}f}".replace(".", ",")
+
+
 def section(c: Dict) -> Dict:
     """La cornière calculée : celle du catalogue (``standard``) ou la saisie libre A × B × t, r. ``larg`` est l'aile
     qui porte la charge (``aile_horizontale``), ``haut`` l'autre ; ``e`` = t ; ``r`` = congé (r1 au catalogue, saisi
