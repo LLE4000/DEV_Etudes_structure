@@ -129,6 +129,67 @@ vu rouge sans sa correction ; moteurs et générateurs de note non touchés.
   1 280 px, la poutre coupe son nom (103 px vus pour 124 ; 110 avant le lot) ; à la tablette, le lien « maison » du
   fil fait 14 px de haut (le rail porte la même cible à 44).
 
+## Fait ensuite, le module Cornières refondu (même branche `integration-nuit-0911`, sur 030757a, 10/11/2026)
+
+Demande de l'ingénieur (10/11) : reprendre son classeur Excel « Dimensionnement cornières » comme référence, les
+colonnes organisées comme la poutre (données, dessins, résultats), la note PDF, la cornière vers le bas (son classeur)
+ET vers le haut (modèle mécanique reconstruit, pas un simple retournement), et ses jeux par trois positions de la
+charge. Décisions écrites AVANT le code : `docs/acier/CORNIERE_DECISIONS.md` (221c9ed, révisée f286a79 : l'enveloppe des
+jeux, l'idée de l'ingénieur généralisée — charge à X ± dx, ancrage à Y ± dy, neuf combinaisons, chaque grandeur garde
+la plus défavorable et dit laquelle gouverne ; quatre vues utiles, la vue « section seule » supprimée). Quatre lots en
+chaîne (moteur → schémas → écran ‖ note → intégration), puis deux relectures adverses ; l'ancien modèle « lame »
+(`acier/corniere` d'avant, l'écran Streamlit) n'est plus reproduit par le site (`DEFAUTS_STREAMLIT.md`, lignes Cornières).
+
+- ~~Moteur~~ : 7524b77 — `acier/corniere/{entree,statique,moteur}.py` sur la feuille P8 (deux configurations A/B, deux
+  modes historique/équilibre, enveloppe des 1/3/9 combinaisons, S1–S4, maxima du congé, section nette en B, ancrages ELS
+  et ELU séparés, L_eff = min(L ; a + 2·Xe), diagrammes continus, formules avec les cellules du classeur, comparaison des
+  modes, garde P1). Le cas de contrôle (L 120×120×15, S355, 42,76 kN, X = 75, Y = 85) rend M1…M4 et 88,8621 % en section 3
+  à 1e-9 ; les 93 formules de P8 codées telles quelles dans le test face au moteur sur 240 saisies.
+- ~~Schémas~~ : dcffa9e (kit de dessin : `data-sel`, styles) et 5f76a9e — `acier/corniere/schemas.py` : coupe cotée à
+  l'échelle (trois positions de la charge, ancrage ± dy, pivot ou contact, bras du mode, sections 1–4), moments (trois
+  courbes et l'enveloppe par aile), contraintes (t(s), σ_éq, taux, le maximum réel dans le congé repéré), élévation
+  (ancrages, efforts, largeur d'appui, L_eff) ; `api_web/dessin_corniere.py` en couche mince.
+- ~~Écran~~ : e6c3894 — `api_web/corniere.py` réécrit sur l'établi compact (état version 2 `{"cornieres", "actif"}`,
+  quatre rubriques, chaque champ une pièce du dessin, verdict et trois blocs thématiques Sections / Ancrages /
+  Comparaison, cinq fenêtres de calcul depuis les seuls termes du moteur, sélecteur des 233 cornières avec l'optimale,
+  note v1 relue avec un avis) ; regel distinct fb5141e (raison dans les décisions § 7) ; filtre « corniere » du harnais.
+- ~~Note PDF~~ : 68e4795 — `acier/corniere/{note,formules,methode}.py`, `api_web/note_corniere.py` : garde du site puis
+  deux pages par cornière (calcul avec la coupe cotée, les quatre sections, les ancrages ELS/ELU, le récapitulatif ;
+  détails et méthode avec les trois vues), page de suite au besoin ; parité pdftotext ↔ moteur, 1 017 formules
+  ré-évaluées.
+- ~~Intégration~~ : 9a34095 (`NOTE_PDF`, note riche, sept modules comptés, le harnais lit η à la précision du chip),
+  0216684 (générés).
+- ~~Relecture adverse de la mécanique~~ (recalcul indépendant : 3 971 égalités à 1e-9, enveloppe monotone sur 8
+  statiques × 7 pas, catalogue 233 × A/B × 2 modes sans plantage, garde à Y = 43,547 mm, note sur quatre états neufs,
+  mutations rejouées physiquement) : 1f5eddc (la parité de la note lit la ligne du bandeau — la mutation « η du bandeau
+  pris sur S1 » survivait). Ses deux points ouverts corrigés ensuite : d78b6d6 (les textes du moteur à la virgule ;
+  plus d'arrachement vers le bord en B, où l'effort du boulon va vers l'angle) et regel c5d2bee.
+- ~~Relecture adverse de l'écran~~ (harnais six filtres, mesures dans les SVG, captures huit cas × quatre formats, clair et
+  sombre) : 4c3b78c (le titre d'un bloc n'est plus mangé par un état d'en-tête trop long ; le nom du mode coupé) et
+  regel fb049f5. Interrompue par un redémarrage du conteneur à la dernière étape ; son travail (modifications non
+  commitées dans son arbre) a été relu et commité par le coordinateur.
+- Dates : 8145944 (les lots sont du 10/11, pas du 11/11).
+- Reste à confirmer par l'ingénieur à l'écran : dx = 20 et dy = 10 mm par défaut, R_ELU = 1,5·R comme valeur initiale,
+  contact de compression au talon (y_c = 0). À trancher (CORNIERE_MOTEUR.md § 8) : en B le moment constant vaut
+  R·(X′ − e/2) (les décisions écrivent R·(X′ − u_V), égal au défaut u_V = e/2) ; les maxima du congé restent hors verdict
+  en historique (sinon le cas de contrôle rend 90,15 % et non 88,86 %) ; S420 absent des nuances du site ; une note v1
+  relue pose ses défauts au prorata des ailes.
+- Ouverts, affichage : les textes secondaires des diagrammes sous 13 px (graduations 10 px au PC, 7 à 9 px à la
+  tablette portrait, le zoom de la toile les rattrape) ; le chip du verdict arrondit η à l'unité quand le bloc et la note
+  donnent la décimale (brique partagée, tous les modules) ; dans la vue Contraintes, la 2ᵉ ligne du bloc du maximum peut
+  toucher la ligne de base de « S1 : … ».
+- Non fait, prévu par la demande : l'étape 4 (cornière longue, plusieurs ancrages, charges localisées, répartition
+  justifiée, diagramme longitudinal), le maillage coloré (contraintes, déformée) et les cornières PRS (architecture
+  prévue : `section()` isole la géométrie).
+- Vérification finale (coordinateur) : site reconstruit ; `lancer_tests.py --tout` 119/119 suites, 9 254 OK, 0 échec ;
+  harnais complet (port 8771) 2 588 OK et 1 KO, CLASSÉ « le harnais a trouvé » : le contrôle « l'état verrouillé des
+  briques » charge `api_web.commun` avec le python3 du SYSTÈME (3.11) et le lot écran y avait écrit une f-string à
+  antislash dans l'expression (Python ≥ 3.12 seulement ; Pyodide 3.13 et les suites 3.12 ne la voyaient pas) —
+  corrigé 42ad8cc (sortie HTML identique à l'octet près, verrou dans `test_site_web.py` : 277 OK), puis formats:poutre
+  128 OK et formats:corniere 117 OK rejoués ; suites touchées rejouées (commun 121, api_web_corniere 137, référence 244,
+  modules 364). Captures regardées : coupe A et B au PC, vues Moments et Contraintes, coupe B au téléphone, note PDF
+  (5 pages). Générés : 15fe358, e0dea86.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage
