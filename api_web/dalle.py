@@ -189,8 +189,10 @@ def chiffres_changes(d: Dict, deja_empilee: bool = False) -> bool:
     """Les chiffres d'une dalle relue (du site, normalisée) changent-ils avec ses nappes posées l'une sur l'autre ? Oui
     dès qu'une couche est posée par le site sur la nappe principale (``POS.empilee`` : base ou renfort secondaire
     automatique) — sauf, pour une dalle dont l'option d'avant était cochée (``deja_empilee``), une BASE secondaire,
-    que l'option posait déjà ainsi : seul un renfort secondaire y change (S3, 09/11/2026). Un axe saisi ne change pas."""
-    return any(POS.empilee(d, s, f, j) and (j > 0 or not deja_empilee)
+    que l'option posait déjà ainsi, sur la base principale : seul un renfort secondaire y change (S3, 09/11/2026), ou
+    une base secondaire qu'un renfort principal plus haut porte désormais (S5 : ``POS.appui`` n'est plus la base). Un
+    axe saisi ne change pas."""
+    return any(POS.empilee(d, s, f, j) and (j > 0 or not deja_empilee or POS.appui(d, s, f.split("_")[0])["couche"] != 0)
                for s in d["sections"] for f in EN.FACES for j in range(len(s["faces"][f]["couches"])))
 
 
@@ -602,8 +604,9 @@ def choisir_section(etat: Dict, role: str, nom: str) -> None:
 # la légende des dessins (dernière ligne de l'en-tête de chaque vue : ce qu'on y lit) — celle de la prédalle : AP.LEGENDES
 LEGENDES = {"c": "barres coupées en points, barres parallèles en traits", "p": "vue de dessus · barres X horizontales, Y verticales"}
 AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — direction principale : enrobage + ½ Ø arrondi au "
-            "0,5 cm supérieur + jeu premier lit ; direction secondaire (sa base et ses renforts), posée sur la principale : axe "
-            "de la base principale + ½ Ø_p + ½ Ø ; une valeur saisie l'impose.")
+            "0,5 cm supérieur + jeu premier lit ; direction secondaire (sa base et ses renforts), posée sur la principale, sur "
+            "la plus haute des couches principales qu'elle croise (la base, ou un renfort plus épais) : son axe + ½ Ø_p + ½ Ø ; "
+            "une valeur saisie l'impose.")
 AIDE_TYPE = ("CSP : coulé sur place. Dalle CSP : toute l'épaisseur est coulée au chantier (moteur beton/dalle). Prédalle + dalle "
              "CSP : la partie basse "
              "h_p est préfabriquée, la base inférieure de la direction principale y est posée en fond de moule, les autres "

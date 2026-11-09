@@ -22,7 +22,17 @@ empilées ») et un RENFORT de la direction secondaire se pose sur sa nappe, com
     saisi » d'un axe que le site a posé ;
 (f) mutations (en mémoire, le dépôt intact) : la règle sans ⌈Ø/2⌉, pour_moteur qui n'écrit rien, le dessin qui lit
     l'automatique du moteur, S3 retiré (renfort secondaire au niveau de la principale), l'option revenue (clé absente :
-    nappes au même niveau) — chacune fait rougir le contrôle qui la garde.
+    nappes au même niveau) — chacune fait rougir le contrôle qui la garde ;
+(g) S5 (relecture du 09/11/2026) : la nappe secondaire, base ET renforts, repose sur la couche principale la plus HAUTE
+    de son lit de contact (un renfort principal plus épais que la base, posé dans son lit) — le mode par défaut
+    « Treillis + renforts » (3 Ø12 sur un treillis Ø10 : 4,5 → 5,5, A_s,req + 6,9 %), un renfort Ø25 (6,5, + 14,8 %),
+    les faces supérieures, la principale X, la prédalle en haut (et en bas : la règle du type, inchangée, et
+    l'avertissement de croisement) ; les cas limites du lit (2e lit saisi, contact exact, 0,01 cm au-dessus, chaîne de
+    renforts, base saisie plus haut, plusieurs renforts, demis égaux, treillis par son fil, jeu) ; le balayage de tous
+    les Ø (jamais plus bas que sur la base seule, jamais à travers une couche du lit) ; pour_moteur, A_s,req, annoter
+    (appui, « sur », formule « e » de la prédalle), candidats_base, la coupe (la nappe X ne traverse plus le renfort Y,
+    la légende dit « sur renfort Y », forme courte qui tient dans sa colonne) ; mutations : retour à la base seule, une marge de 0,5 cm, le lit sans chaîne,
+    l'égalité donnée au renfort, la légende d'avant.
 
     /usr/bin/python3.12 tests/test_api_web_dalle_positions.py
 """
@@ -39,6 +49,7 @@ sys.path.insert(0, RACINE)
 from api_web import dalle_positions as POS  # noqa: E402
 from api_web import dessin_dalle as DD  # noqa: E402
 from api_web import dessin_predalle as DP  # noqa: E402
+from beton import treillis as TR  # noqa: E402
 from beton.dalle import entree as EN_D  # noqa: E402
 from beton.dalle import moteur as MO_D  # noqa: E402
 from beton.predalle import entree as EN_P  # noqa: E402
@@ -427,8 +438,8 @@ def muter(fichier, ancien, nouveau, nom):
     return m
 
 
-REGLE = "    return _axe_principal(d, s, cote) + _demi(_base_principale(d, s, cote)) + _demi(c)\n"
-M1 = muter("dalle_positions.py", REGLE, "    return _axe_principal(d, s, cote) + _demi(_base_principale(d, s, cote))\n", "positions_m1")
+REGLE = '    return appui(d, s, cote)["dessus"] + _demi(c)\n'
+M1 = muter("dalle_positions.py", REGLE, '    return appui(d, s, cote)["dessus"]\n', "positions_m1")
 chk("mutation 1 — la règle sans ⌈Ø/2⌉ de la couche posée : inf. X vaudrait 5,0 et non 5,5 → le contrôle (b) rougit",
     autos_site(M1, dalle())["inf_x"][0] == 5.0 != 5.5)
 M2 = muter("dalle_positions.py", "                        c_m[\"dist\"] = a\n", "                        c_m[\"dist\"] = None\n", "positions_m2")
@@ -452,6 +463,241 @@ M5 = muter("dalle_positions.py", GARDE, '    if not d.get("empilement") or dk ==
 chk("mutation 5 — l'option revenue (clé « empilement » absente lue fausse) : toutes les couches reviennent à l'automatique du moteur, la base "
     "inf. X à 3,5 → les contrôles (a) et (b) rougissent",
     autos_site(M5, dalle()) == autos_moteur(dalle()) and autos_site(M5, dalle())["inf_x"][0] == 3.5)
+
+# ------------------------------------------------------------------ (g) S5 : la couche principale la plus haute porte
+print("\n=== (g) S5 : la nappe secondaire repose sur la couche principale la plus haute de son lit (renfort compris) ===")
+
+
+def renfort(diam, n=3, dist=None, type_="n_barres", treillis="10/10/100/100"):
+    return {"type": type_, "treillis": treillis, "d": diam, "esp": 150, "n": n, "dist": dist}
+
+
+def dalle_s5(type_="coulee", principale="Y", cote="inf", renforts=((12,),), base=None, sec_renfort=None, **modifs):
+    """La note NEUVE du site (treillis 10/10/100/100 partout, c = 3 cm, jeu 0 ; prédalle h = 22, h_p = 6) en mode
+    « Treillis + renforts » : des RENFORTS sur la face principale ``cote`` (``renforts`` : (Ø, n, dist) ; par défaut le
+    3 Ø12 de « + Renfort »), ``base`` : une autre base principale, ``sec_renfort`` : le Ø d'un renfort S3 sur la
+    secondaire de la même face ; moments sur les quatre faces (M_x,inf = 20)."""
+    d = EN_D.nouvelle_dalle() if type_ == "coulee" else EN_P.nouvelle_predalle()
+    d["dir_principale"] = principale
+    p = principale.lower()
+    q = "x" if p == "y" else "y"
+    s = d["sections"][0]
+    if base:
+        s["faces"][f"{cote}_{p}"]["couches"][0] = dict(base)
+    for r_ in renforts:
+        s["faces"][f"{cote}_{p}"]["couches"].append(renfort(*r_))
+    if sec_renfort:
+        s["faces"][f"{cote}_{q}"]["couches"].append(renfort(sec_renfort))
+    s.update(Mx_inf=20.0, My_inf=30.0, Mx_sup=12.0, My_sup=15.0, V=40.0)
+    if type_ == "predalle":
+        d.update(h=22, h_pre=6)
+    d.update(modifs)
+    d = (EN_D if type_ == "coulee" else EN_P).normaliser(d)
+    d.update(verrou=False, type=type_)
+    return d
+
+
+def ax(d, f, j=0):
+    return POS.axe_auto(d, d["sections"][0], f, j)
+
+
+def ap(d, cote="inf"):
+    return POS.appui(d, d["sections"][0], cote)
+
+
+def nom(d, cote="inf"):
+    return POS.nom_appui(d, d["sections"][0], cote)
+
+
+# la règle
+d12 = dalle_s5()
+chk("le mode par défaut « Treillis + renforts » (base inf. Y treillis Ø10 à 3,5, renfort 3 Ø12 à 4,0 : le même dessous 3,0) : le lit "
+    "contient les deux, le renfort porte (dessus 5,0 contre 4,0) — la base inf. X à 5,0 + 0,5 = 5,5 (sur la base seule : 4,5), « le "
+    "renfort Y » ; la face sup. (sans renfort) reste sur sa base, 4,5",
+    POS.lit_contact(d12, d12["sections"][0], "inf") == [0, 1] and ap(d12)["couche"] == 1 and ap(d12)["dessus"] == 5.0
+    and ax(d12, "inf_x") == 5.5 and nom(d12) == "le renfort Y" and ax(d12, "sup_x") == 4.5 and ap(d12, "sup")["couche"] == 0
+    and nom(d12, "sup") == "la base Y", (ap(d12), ax(d12, "inf_x"), ax(d12, "sup_x")))
+d25 = dalle_s5(renforts=((25,),), sec_renfort=16)
+chk("un renfort principal 3 Ø25 (3 + 1,5 = 4,5, dessus 6,0) : la base inf. X à 6,5 et son renfort S3 3 Ø16 à 6,0 + 1,0 = 7,0 — la même "
+    "nappe secondaire, sur le même renfort (le moteur seul : 3,5 et 4,0)",
+    ax(d25, "inf_x") == 6.5 and ax(d25, "inf_x", 1) == 7.0 and ap(d25) == {"couche": 1, "e": 4.5, "d": 25.0, "demi": 1.5, "dessus": 6.0, "lit": [0, 1]}
+    and autos_moteur(d25)["inf_x"] == [3.5, 4.0], (ap(d25), POS.axes(d25, d25["sections"][0])["inf_x"]))
+dsup = dalle_s5(cote="sup", renforts=((20,),))
+dpx = dalle_s5(principale="X", renforts=((25,),))
+chk("la même règle en haut (renfort sup. Y Ø20 à 4,0, dessus 5,0 : sup. X 5,5 depuis le dessus) et principale X (renfort inf. X Ø25 : "
+    "la base inf. Y, secondaire, à 6,0 + 0,5 = 6,5, « le renfort X »)",
+    ax(dsup, "sup_x") == 5.5 and nom(dsup, "sup") == "le renfort Y" and ax(dsup, "inf_x") == 4.5
+    and ax(dpx, "inf_y") == 6.5 and nom(dpx) == "le renfort X", (ax(dsup, "sup_x"), ax(dpx, "inf_y")))
+dps = dalle_s5("predalle", cote="sup", renforts=((20,),))
+dpi = dalle_s5("predalle", renforts=((20,),))
+rpi = MO_P.verifier(POS.pour_moteur(dpi))
+chk("prédalle : en haut, la règle des dalles (renfort sup. Y Ø20 : sup. X 5,5) ; en BAS, la règle du type, inchangée (base inf. Y dans la "
+    "peau à 3,5, renfort inf. Y Ø20 et base inf. X tous deux SUR la prédalle, 7,0 et 6,5 : l'axe inf. X n'est pas empilé) — et le moteur le "
+    "dit : « croisement_sur_predalle »",
+    ax(dps, "sup_x") == 5.5 and ax(dpi, "inf_x") == 6.5 == autos_moteur(dpi)["inf_x"][0] and autos_moteur(dpi)["inf_y"] == [3.5, 7.0]
+    and not POS.empilee(dpi, dpi["sections"][0], "inf_x", 0)
+    and "croisement_sur_predalle" in [a["code"] for a in rpi["avertissements"]], (ax(dps, "sup_x"), ax(dpi, "inf_x")))
+# les cas limites du lit de contact
+T6 = {"type": "treillis", "treillis": "6/6/150/150", "d": 12, "esp": 150, "n": 3, "dist": None}
+B10 = {"type": "barres", "treillis": "10/10/100/100", "d": 10, "esp": 150, "n": 3, "dist": None}
+B16 = {"type": "barres", "treillis": "10/10/100/100", "d": 16, "esp": 150, "n": 3, "dist": None}
+limites = {
+    "2e lit : renfort Ø25 SAISI à 9 cm (dessous 7,5 > dessus du lit 4,0) — il ne porte rien": (dalle_s5(renforts=((25, 3, 9.0),)), 4.5, [0], 0, "la base Y"),
+    "contact exact : renfort Ø12 saisi à 5,0 (dessous 4,0 = dessus de la base) — du lit, il porte": (dalle_s5(renforts=((12, 3, 5.0),)), 6.5, [0, 1], 1, "le renfort Y"),
+    "0,01 cm au-dessus : renfort Ø12 saisi à 5,01 (dessous 4,01) — un autre lit (aucune marge)": (dalle_s5(renforts=((12, 3, 5.01),)), 4.5, [0], 0, "la base Y"),
+    "chaîne : R1 Ø25 automatique (dessus 6,0), R2 Ø12 saisi à 6,5 (dessous 5,5 ≤ 6,0) — R2 entre par R1 et porte (7,5 + 0,5)":
+        (dalle_s5(renforts=((25,), (12, 3, 6.5))), 8.0, [0, 1, 2], 2, "le renfort R2 Y"),
+    "le même R2 sans R1 (dessous 5,5 > 4,0) — hors du lit": (dalle_s5(renforts=((12, 3, 6.5),)), 4.5, [0], 0, "la base Y"),
+    "base saisie à 6,0 (dessus 6,5), renfort Ø12 automatique (dessus 5,0) — la base porte": (
+        dalle_s5(base=dict(B10, dist=6.0), renforts=((12,),)), 7.0, [0, 1], 0, "la base Y"),
+    "plusieurs renforts : 3 Ø12 et 2 Ø25 — le plus haut (R2) porte": (dalle_s5(renforts=((12,), (25, 2))), 6.5, [0, 1, 2], 2, "le renfort R2 Y"),
+    "plusieurs renforts à égalité : 3 Ø12 et 2 Ø20 (dessus 5,0 l'un et l'autre) — le premier": (dalle_s5(renforts=((12,), (20, 2))), 5.5, [0, 1, 2], 1, "le renfort R1 Y"),
+    "demis arrondis égaux : base Ø16/150, renfort Ø20 (dessus 5,0 et 5,0) — la base porte, rien ne change": (
+        dalle_s5(base=B16, renforts=((20,),)), 5.5, [0, 1], 0, "la base Y"),
+    "un renfort TREILLIS compte par son fil : treillis 12/12/150/150 (Ø12) sur une base treillis 6/6/150/150 (Ø6)": (
+        dalle_s5(base=T6, renforts=((12, 3, None, "treillis", "12/12/150/150"),)), 5.5, [0, 1], 1, "le renfort Y"),
+    "jeu premier lit 1 cm : renfort Ø25 à 5,5 (dessus 7,0) — le jeu entre une fois, par la principale": (
+        dalle_s5(renforts=((25,),), jeu_premier_lit=1.0), 7.5, [0, 1], 1, "le renfort Y"),
+}
+fautes = []
+for lib, (dd, attendu, lit, k, mot) in limites.items():
+    s_ = dd["sections"][0]
+    vu = (ax(dd, "inf_x"), POS.lit_contact(dd, s_, "inf"), ap(dd)["couche"], nom(dd))
+    if vu != (attendu, lit, k, mot):
+        fautes.append((lib, vu))
+chk(f"cas limites du lit de contact ({len(limites)}) : {' ; '.join(limites)}", not fautes, fautes)
+dsl = dalle_s5(renforts=((25, 3, 9.0),))
+chk("un renfort principal saisi n'est jamais déplacé (axes() le garde à 9,0) ; un axe secondaire saisi non plus",
+    POS.axes(dsl, dsl["sections"][0])["inf_y"] == [3.5, 9.0] and POS.pour_moteur(dsl)["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] == 9.0)
+# le balayage : tous les Ø, toutes les faces où le site empile — jamais plus bas que sur la base seule, jamais à travers une couche du lit
+bal, n_bal = [], 0
+for type_ in ("coulee", "predalle"):
+    for cote in ("inf", "sup"):
+        if type_ == "predalle" and cote == "inf":
+            continue
+        bases = [dict(T6, treillis=t) for t in TR.liste_choix()] + [dict(B10, d=x) for x in EN_D.DIAMETRES]
+        for b_ in bases:
+            for x in EN_D.DIAMETRES:
+                dd = dalle_s5(type_, cote=cote, base=b_, renforts=((x,),))
+                s_ = dd["sections"][0]
+                cs = s_["faces"][f"{cote}_y"]["couches"]
+                e_b, e_r = (POS._auto_moteur(dd, c, j, f"{cote}_y") for j, c in enumerate(cs))
+                h_b, h_r, h_s = POS._demi(cs[0]), POS._demi(cs[1]), POS._demi(s_["faces"][f"{cote}_x"]["couches"][0])
+                a = ax(dd, f"{cote}_x")
+                n_bal += 1
+                if not (a == max(e_b + h_b, e_r + h_r) + h_s and a >= e_b + h_b + h_s and a - h_s >= max(e_b + h_b, e_r + h_r) - 1e-12):
+                    bal.append((type_, cote, b_["type"], b_.get("treillis"), b_["d"], x, a))
+chk(f"balayage ({n_bal} cas : dalle en bas et en haut, prédalle en haut ; chaque treillis et chaque Ø de base, chaque Ø de renfort) : "
+    "l'axe secondaire = max(dessus de la base, dessus du renfort) + ⌈Ø_s/2⌉, jamais sous la base seule, jamais à travers le renfort",
+    not bal and n_bal == 3 * (len(TR.liste_choix()) + len(EN_D.DIAMETRES)) * len(EN_D.DIAMETRES), bal[:4])
+# le sens de la sécurité, mesuré par le moteur : A_s,req de la secondaire ne baisse jamais (même dalle, renfort principal hors du lit)
+baisse, n_mon = [], 0
+for x in EN_D.DIAMETRES:
+    for type_, cote in (("coulee", "inf"), ("coulee", "sup"), ("predalle", "sup")):
+        dd, dh = dalle_s5(type_, cote=cote, renforts=((x,),)), dalle_s5(type_, cote=cote, renforts=((x, 3, 15.0),))
+        M = POS.moteur(dd)
+        g_, gh = M.verifier(POS.pour_moteur(dd))["sections"][0]["grandeurs"], M.verifier(POS.pour_moteur(dh))["sections"][0]["grandeurs"]
+        n_mon += 1
+        if g_[f"As_req_{cote}_x"] < gh[f"As_req_{cote}_x"] or (POS._demi(renfort(x)) > 0.5) != (g_[f"As_req_{cote}_x"] > gh[f"As_req_{cote}_x"]):
+            baisse.append((type_, cote, x, g_[f"As_req_{cote}_x"], gh[f"As_req_{cote}_x"]))
+chk(f"A_s,req de la nappe secondaire ne baisse jamais ({n_mon} cas : chaque Ø de renfort principal, dalle inf./sup., prédalle sup.) ; "
+    "il monte dès que le renfort dépasse la base (⌈Ø/2⌉ > 0,5 : Ø ≥ 12), il est égal sinon (Ø6 à Ø10)", not baisse, baisse)
+# ce que le moteur reçoit, ce qu'il calcule (les mesures de la relecture du 09/11/2026)
+g12 = MO_D.verifier(POS.pour_moteur(d12))["sections"][0]["grandeurs"]
+g25 = MO_D.verifier(POS.pour_moteur(dalle_s5(renforts=((25,),))))["sections"][0]["grandeurs"]
+g00 = MO_D.verifier(POS.pour_moteur(dalle_s5(renforts=())))["sections"][0]["grandeurs"]
+chk("pour_moteur et le moteur (h = 20, M_x,inf = 20) : d inf. X 15,5 → 14,5 (3 Ø12) et 13,5 (3 Ø25) ; A_s,req inf. X 430,1 → 459,8 mm² "
+    "(+ 6,9 %) et 493,8 mm² (+ 14,8 %) — les chiffres de la relecture",
+    POS.pour_moteur(d12)["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] == 5.5
+    and (g00["d_inf_x"], g12["d_inf_x"], g25["d_inf_x"]) == (15.5, 14.5, 13.5)
+    and (round(g00["As_req_inf_x"], 1), round(g12["As_req_inf_x"], 1), round(g25["As_req_inf_x"], 1)) == (430.1, 459.8, 493.8)
+    and round(100 * (g12["As_req_inf_x"] / g00["As_req_inf_x"] - 1), 1) == 6.9 and round(100 * (g25["As_req_inf_x"] / g00["As_req_inf_x"] - 1), 1) == 14.8,
+    (g00["As_req_inf_x"], g12["As_req_inf_x"], g25["As_req_inf_x"]))
+# annoter : appui et « sur » ; la formule « e » de la prédalle et sa pose disent la couche qui porte
+r25 = POS.annoter(MO_D.verifier(POS.pour_moteur(d25)), d25)
+cs25 = r25["sections"][0]["faces"]["inf_x"]["couches"]
+chk("annoter : la base et le renfort inf. X empilés portent appui = 1, « le renfort Y » (formule, pose) et « renfort Y » (légendes) ; la "
+    "base principale, non empilée, rien",
+    [(c["appui"], c["sur"], c["sur_court"]) for c in cs25] == [(1, "le renfort Y", "renfort Y")] * 2 and "sur" not in r25["sections"][0]["faces"]["inf_y"]["couches"][0]
+    and "sur" not in POS.annoter(MO_D.verifier(POS.pour_moteur(dalle())), dalle())["sections"][0]["faces"]["inf_y"]["couches"][0])
+from api_web import predalle as AP  # noqa: E402
+rps = POS.annoter(MO_P.verifier(POS.pour_moteur(dps)), dps)
+fe5 = [fo for v in rps["sections"][0]["verifications"] if v["cle"] == "sup_x" for fo in v["formules"] if fo["cle"] == "e"]
+gx5 = rps["sections"][0]["faces"]["sup_x"]["couches"][0]
+chk("prédalle (renfort sup. Y Ø20) : la formule « e » de la base sup. X prend les termes du RENFORT (e_p 4,0, Ø_p 20, ⌈Ø_p/2⌉ 1,0) et "
+    "s'écrit « 4 + 1 + 0,5 = 5,5 cm · posée sur le renfort Y » ; la pose dit « posée sur le renfort Y » ; une base porteuse garde « la base "
+    "principale »",
+    len(fe5) == 1 and {t["symbole"]: t["valeur"] for t in fe5[0]["termes"]} == {"saisi": 5.5, "e_p": 4.0, "d_p": 20.0, "demi_p": 1.0, "d_s": 10.0, "demi_s": 0.5}
+    and fe5[0]["sur"] == "le renfort Y" and AP._formule(fe5[0])["res"] == "5,5 cm · posée sur le renfort Y"
+    and AP._formule(fe5[0])["parts"] == ["e_1", "e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉", "4 + 1 + 0,5"] and "posée sur le renfort Y (e" in AP.pose_couche(dps["sections"][0]["faces"]["sup_x"]["couches"][0], gx5)
+    and "posée sur la base principale" in AP._formule(fe[0])["res"], (fe5, AP._formule(fe5[0]) if fe5 else None))
+# le sélecteur : un candidat de la base secondaire repose sur le renfort principal ; un candidat de la base principale ne fait pas
+# descendre la secondaire sous le renfort, un plus gros la fait monter
+c5 = {c["nom"]: c for c in POS.candidats_base(d12, 0, "inf_x")}
+chk("candidats_base, base secondaire inf. X sur le renfort 3 Ø12 (dessus 5,0) : Ø8 à 5,5, Ø12 à 6,0, Ø25 à 6,5 (sur la base seule : 4,5, 5,0, 5,5)",
+    (c5["Ø8/150"]["e"], c5["Ø12/150"]["e"], c5["Ø25/150"]["e"]) == (5.5, 6.0, 6.5), {k: c5[k]["e"] for k in ("Ø8/150", "Ø12/150", "Ø25/150")})
+essais = {}
+for cand in ("Ø8/150", "Ø25/150"):
+    e_ = copy.deepcopy(dalle_s5(renforts=((16,),)))
+    e_["sections"][0]["faces"]["inf_y"]["couches"][0].update(MO_D.lire_candidat(cand))
+    essais[cand] = MO_D.verifier(POS.pour_moteur(e_))["sections"][0]
+cp5 = {c["nom"]: c for c in POS.candidats_base(dalle_s5(renforts=((16,),)), 0, "inf_y")}
+chk("candidats_base, base principale sous un renfort Ø16 (dessus 5,0) : Ø8 (dessus 4,0) laisse la secondaire sur le renfort (5,5), Ø25 "
+    "(dessus 6,0) la porte (6,5) — le statut de chaque candidat est celui de la dalle recomposée",
+    essais["Ø8/150"]["faces"]["inf_x"]["couches"][0]["e"] == 5.5 and essais["Ø25/150"]["faces"]["inf_x"]["couches"][0]["e"] == 6.5
+    and all(cp5[k]["statut_section"] == essais[k]["statut"] for k in essais))
+# la coupe : la nappe X ne traverse plus le renfort Y ; la légende dit sur quoi elle repose
+
+
+def bords(svg, cle_points, cle_trait):
+    """Dans la coupe ⊥ Y : (haut des cercles de ``cle_points`` : min(cy − r), bas du trait de ``cle_trait`` : y1 + épaisseur/2), mm."""
+    coupe = svg.split("Coupe ⊥")[1]
+    pts = re.search(GROUPE.format(re.escape(cle_points)), coupe).group(1)
+    trs = re.search(GROUPE.format(re.escape(cle_trait)), coupe).group(1)
+    haut = min(float(cy) - float(r_) for cy, r_ in re.findall(r'<circle cx="[\d.]+" cy="([\d.]+)" r="([\d.]+)"', pts))
+    y1, ep = re.search(r'<line x1="[\d.]+" y1="([\d.]+)" x2="[\d.]+" y2="[\d.]+" stroke="[^"]+" stroke-width="([\d.]+)"', trs).groups()
+    return haut, float(y1) + float(ep) / 2
+
+
+d20 = dalle_s5(renforts=((20,),), sec_renfort=12)
+r20, sv20 = dessin(POS, DD, d20, MO_D)
+haut20, bas20 = bords(sv20, "inf_y-1", "inf_x-0")
+chk("coupe ⊥ Y (renfort principal 3 Ø20 sous la nappe X) : le bas du trait de la base X (axe 55, Ø10) touche le haut des points du renfort Y "
+    "(axe 40, Ø20) — au contact, sans le traverser (avant S5 : axe 45, 10 mm dans le renfort)",
+    abs(bas20 - haut20) < 0.06 and r20["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 5.5, (haut20, bas20))
+chk("… la légende dit sur quoi la nappe X repose, en forme courte (la ligne tient dans sa colonne) : « X · Treillis 10/10/100/100 · axe à 55 "
+    "· sur renfort Y », « X · 3 Ø12 · axe à 60 · sur renfort Y » ; la légende de la prédalle aussi (« e = 55 · sur renfort Y ») ; plusieurs "
+    "renforts : « sur renfort Y » encore (le repère R2 est dans la forme longue, formule et pose : « le renfort R2 Y »)",
+    "X · Treillis 10/10/100/100 · axe à 55 · sur renfort Y" in sv20 and "X · 3 Ø12 · axe à 60 · sur renfort Y" in sv20
+    and "e = 55 · sur renfort Y" in dessin(POS, DP, dps, MO_P)[1]
+    and "X · Treillis 10/10/100/100 · axe à 65 · sur renfort Y" in dessin(POS, DD, dalle_s5(renforts=((12,), (25, 2))), MO_D)[1]
+    and POS.nom_appui(dalle_s5(renforts=((12,), (25, 2))), dalle_s5(renforts=((12,), (25, 2)))["sections"][0], "inf", court=True) == "renfort Y",
+    re.findall(r"axe à \d+[^<]*", sv20)[:6])
+# les mutations S5 (en mémoire)
+LIT = "            if p[1] - p[2] <= dessus + TOL_LIT:\n"
+M6 = muter("dalle_positions.py", LIT, "            if False:\n", "positions_m6")
+chk("mutation 6 — retour à la BASE SEULE (le lit réduit à la base) : la base inf. X retombe à 4,5 (3 Ø12) et 4,5 (Ø25), dans le renfort → "
+    "les contrôles (g) rougissent", M6.axe_auto(d12, d12["sections"][0], "inf_x", 0) == 4.5 != 5.5
+    and M6.axe_auto(d25, d25["sections"][0], "inf_x", 0) == 4.5 and M6.nom_appui(d12, d12["sections"][0], "inf") == "la base Y")
+M7 = muter("dalle_positions.py", "TOL_LIT = 1e-6 ", "TOL_LIT = 0.5 ", "positions_m7")
+d501, d9 = limites["0,01 cm au-dessus : renfort Ø12 saisi à 5,01 (dessous 4,01) — un autre lit (aucune marge)"][0], dalle_s5(renforts=((12, 3, 5.5),))
+chk("mutation 7 — une marge de 0,5 cm au lit : le renfort saisi à 5,01 (et à 5,5) entre dans le lit, la nappe X monte à 6,51 (7,0) → le "
+    "contrôle des cas limites rougit", M7.axe_auto(d501, d501["sections"][0], "inf_x", 0) > 6.5 and M7.axe_auto(d9, d9["sections"][0], "inf_x", 0) == 7.0
+    and POS.axe_auto(d9, d9["sections"][0], "inf_x", 0) == 4.5)
+M8 = muter("dalle_positions.py", "                dessus = max(dessus, p[1] + p[2])\n", "                pass\n", "positions_m8")
+dch = limites["chaîne : R1 Ø25 automatique (dessus 6,0), R2 Ø12 saisi à 6,5 (dessous 5,5 ≤ 6,0) — R2 entre par R1 et porte (7,5 + 0,5)"][0]
+chk("mutation 8 — le lit sans chaîne (le dessus du lit reste celui de la base) : R2 sort du lit, la nappe X redescend à 6,5, au travers de "
+    "R2 → le contrôle de la chaîne rougit", M8.axe_auto(dch, dch["sections"][0], "inf_x", 0) == 6.5 and M8.lit_contact(dch, dch["sections"][0], "inf") == [0, 1])
+M9 = muter("dalle_positions.py", "    k = next(j for j in lit if pts[j][1] + pts[j][2] >= haut - TOL_LIT)\n",
+           "    k = next(j for j in reversed(lit) if pts[j][1] + pts[j][2] >= haut - TOL_LIT)\n", "positions_m9")
+chk("mutation 9 — l'égalité donnée au dernier renfort au lieu de la base : dalle() (base et renfort Ø12) dirait « sur le renfort Y » → les "
+    "légendes d'avant S5 et les égalités des cas limites rougissent", M9.nom_appui(dalle(), dalle()["sections"][0], "inf") == "le renfort Y"
+    and M9.nom_appui(dalle(), dalle()["sections"][0], "inf") != POS.nom_appui(dalle(), dalle()["sections"][0], "inf"))
+M10 = muter("dessin_dalle.py", """                          + (f" · sur {c.get('sur_court') or 'la base ' + principale.upper()}" if c.get("empilee") else ""),\n""",
+            """                          + (f" · sur la base {principale.upper()}" if c.get("empilee") else ""),\n""", "dessin_m10")
+chk("mutation 10 — la légende d'avant (« sur la base Y » pour toute couche empilée) : la coupe dirait « sur la base Y » d'une nappe que le "
+    "renfort Y porte → le contrôle de la légende rougit", "axe à 55 · sur la base Y" in dessin(POS, M10, d20, MO_D)[1]
+    and "sur renfort Y" not in dessin(POS, M10, d20, MO_D)[1])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

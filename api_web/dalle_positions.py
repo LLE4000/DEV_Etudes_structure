@@ -19,20 +19,48 @@ LA RÈGLE (``axe_auto``), avec la convention d'arrondi du moteur — demi-diamè
   · direction PRINCIPALE, base et renforts : l'automatique du moteur (dalle : enrobage + ⌈Ø/2⌉ + jeu ; prédalle : sa
     règle de pose, ``beton/predalle/moteur.pose``) — la nappe la plus proche du parement ;
   · direction SECONDAIRE, faces inférieures ET supérieures d'une dalle coulée, faces SUPÉRIEURES d'une prédalle : posée
-    SUR la base principale, les barres en contact — sa BASE comme ses RENFORTS (S3, décision de l'ingénieur du
-    09/11/2026 : un renfort se pose sur SA nappe, entre ou à côté des barres de base de sa direction, dans leur lit) :
-    ``axe de la base principale + ⌈Ø_p/2⌉ + ⌈Ø/2⌉`` (Ø_p : fils porteurs ou barres de la base principale de la même
-    face, Øl pour un treillis ; Ø : la couche posée ; l'axe de la base principale est son axe EFFECTIF, saisi s'il l'est,
-    sinon l'automatique du moteur — la nappe secondaire repose sur la principale là où elle est) ; la mesure est depuis
+    SUR la nappe principale, les barres en contact — sa BASE comme ses RENFORTS (S3, décision de l'ingénieur du
+    09/11/2026 : un renfort se pose sur SA nappe, entre ou à côté des barres de base de sa direction, dans leur lit) —,
+    et elle repose sur la couche principale LA PLUS HAUTE qu'elle croise (S5, relecture du 09/11/2026 : un renfort
+    principal plus épais que sa base, posé dans le lit de la base, porte la nappe secondaire ; la poser sur la base
+    seule faisait traverser les barres) :
+        ``max(e_k + ⌈Ø_k/2⌉) + ⌈Ø/2⌉``, le max sur les couches k du LIT DE CONTACT (ci-dessous)
+    (e_k : l'axe EFFECTIF de la couche principale k, saisi s'il l'est, sinon l'automatique du moteur — la nappe
+    secondaire repose sur la principale là où elle est ; Ø_k : ses fils porteurs ou ses barres, Øl pour un treillis ;
+    Ø : la couche posée) ; à égalité, la base l'emporte (la formule d'avant S5, au flottant près). La mesure est depuis
     le parement de la face (dessus pour les supérieures) ;
   · prédalle, faces INFÉRIEURES : la règle du moteur, conservée telle quelle (base principale DANS la peau, base
-    secondaire et TOUS les renforts inférieurs SUR la prédalle, h_p + ⌈Ø/2⌉ : le croisement est déjà dans la règle, et
-    les couches secondaires y sont déjà dans le lit de leur base).
+    secondaire et TOUS les renforts inférieurs SUR la prédalle, h_p + ⌈Ø/2⌉ : les couches secondaires y sont déjà dans
+    le lit de leur base ; un renfort principal posé sur la prédalle y croise la base secondaire au même niveau, ce que le
+    moteur DIT — « croisement_sur_predalle » — et que la question 11 de l'ingénieur, « empiler les couches basses de la
+    prédalle », tranchera : S5 n'y touche pas).
   Un axe SAISI (``dist``) n'est jamais déplacé.
   Le renfort secondaire prend la formule de sa base parce que les deux moteurs posent un renfort dans le MÊME LIT que la
   base de sa face (``distance_auto`` ne dépend pas du rang, hors faces inférieures d'une prédalle) : son décalage
   relatif à la base est nul, il le reste une fois empilé (tests/test_api_web_dalle_positions.py le vérifie). Sens de la
-  sécurité : le renfort monte, son d utile baisse, A_s,req augmente.
+  sécurité : le renfort monte, son d utile baisse, A_s,req augmente ; de même pour S5, la nappe secondaire ne descend
+  jamais (le max contient la base).
+
+LE LIT DE CONTACT (S5, ``lit_contact``) — les couches principales que la nappe secondaire croise, et sur lesquelles elle
+repose : en convention du moteur, le DESSOUS d'une couche est e − ⌈Ø/2⌉ (vers le parement), son DESSUS e + ⌈Ø/2⌉. Le lit
+part de la BASE principale ; une autre couche principale en fait partie si son dessous ne dépasse pas le dessus du lit
+(elle le touche ou le chevauche : la nappe secondaire, qui repose au moins sur ce dessus, ne peut pas passer sous elle),
+et le dessus du lit monte alors au sien — jusqu'à ce que plus rien n'entre (un renfort qui chevauche un autre renfort
+du lit en est aussi). TOLÉRANCE : ``TOL_LIT`` = 1e-6 cm, les arrondis des flottants, rien de plus — une couche dont le
+dessous est plus haut que le dessus du lit, même de 1 mm, est un AUTRE lit (un 2e lit principal posé sur la nappe
+secondaire ou sur des cales) : la nappe secondaire ne s'y appuie pas. Pourquoi aucune marge : un 2e lit posé sur la
+nappe secondaire a son dessous, en convention du moteur, au moins 0,05 cm au-dessus du dessus du lit, même placé aux
+Ø réels (Ø en mm entiers, ⌈Ø/2⌉ dépasse Ø/20 de 0,45 cm au plus, fil de 5 mm au moins : e − ⌈Ø/2⌉ ≥ dessus +
+Ø_s/10 − 0,45 ≥ dessus + 0,05) ; une marge positive l'avalerait.
+Avec les axes automatiques, le lit contient TOUTES les couches principales (le moteur les pose toutes au même dessous :
+enrobage + jeu) ; seul un axe saisi en sort une.
+  Cas limites (tests/test_api_web_dalle_positions.py (g)) : un renfort principal SAISI dans un 2e lit (dessous au-dessus
+  du lit) ne porte rien ; plusieurs renforts : le plus haut du lit porte, la base à égalité ; une base principale saisie
+  plus haut que son renfort : la base porte ; un renfort saisi qui chevauche le lit sans être à l'automatique en est ;
+  un renfort principal de même ⌈Ø/2⌉ que la base (Ø16 sur Ø20) : rien ne change. Ce que la règle ne dit pas : une
+  couche principale SAISIE dont le dessous tombe DANS l'épaisseur de la nappe secondaire (au-dessus du lit, sous le
+  dessus de la secondaire) n'est pas du lit et rien ne le signale — l'axe saisi est celui qu'on a voulu (écrit dans
+  docs/site/DALLES_FUSION.md § 4.3, révision S5).
 
 EXEMPLE (dalle coulée, c = 3 cm, jeu 0, principale Y, bases Ø12 en Y et treillis 10/10/100/100 en X) :
   inf. Y (principale) : 3 + ⌈1,2/2⌉₀,₅ = 3 + 1,0 = 4,0 cm ;
@@ -41,6 +69,9 @@ EXEMPLE (dalle coulée, c = 3 cm, jeu 0, principale Y, bases Ø12 en Y et treill
   (règle du moteur) ;
   S3 — un renfort 3 Ø12 en inf. X (secondaire) : 4,0 + 1,0 + 1,0 = 6,0 cm, sur la nappe Y comme la base X (avant le
   09/11/2026 : 3 + 1,0 = 4,0, au niveau de la base Y, sous sa propre nappe) ; un renfort Ø25 : 4,0 + 1,0 + 1,5 = 6,5 cm.
+  S5 — la base inf. Y en treillis 10/10/100/100 (Ø10 : 3 + 0,5 = 3,5) et un renfort 3 Ø25 en inf. Y (3 + 1,5 = 4,5, le
+  même dessous 3,0, dans le lit) : la base inf. X repose sur le renfort, max(3,5 + 0,5 ; 4,5 + 1,5) + 0,5 = 6,5 cm
+  (sur la base seule : 3,5 + 0,5 + 0,5 = 4,5) ; le même renfort saisi à 9 cm (dessous 7,5 > 4,0) : un 2e lit, 4,5.
   Même dalle en PRÉDALLE (h_pre = 6 cm) : inf. Y 4,0 (dans la peau), inf. X 6 + 0,5 = 6,5 (sur la prédalle, règle du
   moteur), renfort inf. Y 6 + 1,0 = 7,0 et renfort inf. X 6 + 1,0 = 7,0 (règle du moteur) ; sup. Y 4,0, sup. X 5,5
   (empilées), un renfort 3 Ø16 en sup. X : 4,0 + 1,0 + 1,0 = 6,0 (S3).
@@ -48,13 +79,18 @@ EXEMPLE (dalle coulée, c = 3 cm, jeu 0, principale Y, bases Ø12 en Y et treill
 API
 ---
     axe_auto(d, s, f, j) -> float          l'axe automatique DU SITE (cm, depuis le parement) de la couche j de la face f
+    lit_contact(d, s, cote) -> [rangs]     les couches principales de la face (inf | sup) que la nappe secondaire croise
+    appui(d, s, cote) -> dict              celle sur laquelle elle repose : {couche, e, d, demi, dessus, lit}
+    nom_appui(d, s, cote, court) -> str    la même, en mots : « la base Y », « le renfort Y », « le renfort R2 Y » ;
+                                           court (légendes) : « la base Y », « renfort Y »
     empilee(d, s, f, j) -> bool            la couche est-elle posée par le site sur la nappe principale (axe du site ≠ moteur)
     axes(d, s) -> {face: [axe effectif…]}  imposé, sinon l'automatique du site — pour le dessin et l'écran
     pour_moteur(d) -> dict                 la dalle telle que le moteur la lit : sans les clés du site, ``dist`` renseigné
                                            là où l'automatique du site diffère de celui du moteur ; ``d`` n'est pas modifié
     yG_calcule(d, s, f) / h_utile(d, s, f) le centre de gravité calculé et la hauteur utile avec les axes effectifs
     annoter(r, d) -> r                     le résultat du moteur relu avec la notion d'automatique DU SITE (auto, e_auto,
-                                           e_auto_moteur, empilee) — ce que l'écran et les dessins lisent
+                                           e_auto_moteur, empilee, et pour une couche empilée appui, sur et
+                                           sur_court) — ce que l'écran et les dessins lisent
     candidats_base(d, i, f, familles)      le sélecteur de la nappe de base, chaque candidat posé à SON axe empilé (les
                                            couches secondaires posées sur lui le suivent)
     moteur(d), type_dalle(d), principale(d)
@@ -76,6 +112,7 @@ FACES = EN_D.FACES
 TYPES = ("coulee", "predalle")
 TYPE_DEFAUT = "coulee"
 CLES_SITE = frozenset({"verrou", "type"})     # ce que le site ajoute à la dalle du moteur (= dalle.CLES_SITE, lié par un test)
+TOL_LIT = 1e-6                                # cm : le contact d'une couche avec le lit, aux arrondis des flottants près (S5)
 
 
 # ------------------------------------------------------------------ lire la dalle du site
@@ -114,25 +151,72 @@ def axe_auto(d: Dict, s: Dict, f: str, j: int) -> float:
     """L'axe automatique DU SITE (cm, depuis le parement de la face) de la couche ``j`` de la face ``f`` de la section
     ``s`` — la règle et l'exemple chiffré sont en tête du fichier. Direction principale (base et renforts), face
     inférieure d'une prédalle : exactement ``distance_auto`` du moteur du type. Direction secondaire, sa base ET ses
-    renforts (S3) : posée sur la base principale de la même face — son axe effectif + ⌈Ø_p/2⌉ + ⌈Ø/2⌉."""
+    renforts (S3) : posée sur la nappe principale de la même face, sur la couche la plus haute de son lit de contact
+    (S5) — le dessus de cette couche (son axe effectif + ⌈Ø_p/2⌉) + ⌈Ø/2⌉."""
     c = s["faces"][f]["couches"][j]
     cote, dk = f.split("_")
     if dk == principale(d) or (cote == "inf" and type_dalle(d) == "predalle"):
         return _auto_moteur(d, c, j, f)
-    return _axe_principal(d, s, cote) + _demi(_base_principale(d, s, cote)) + _demi(c)
+    return appui(d, s, cote)["dessus"] + _demi(c)
 
 
-def _base_principale(d: Dict, s: Dict, cote: str) -> Dict:
-    """La couche de base de la direction principale de la face ``cote`` (inf | sup) : celle sur laquelle la nappe
-    secondaire repose."""
-    return s["faces"][f"{cote}_{principale(d)}"]["couches"][0]
+def _couches_principales(d: Dict, s: Dict, cote: str) -> List[tuple]:
+    """(rang, axe EFFECTIF, ⌈Ø/2⌉) de chaque couche de la direction principale de la face ``cote`` (inf | sup), base
+    d'abord : l'axe saisi s'il l'est, sinon l'automatique du moteur (une couche principale n'est jamais empilée) — là
+    où la nappe secondaire la croise."""
+    f = f"{cote}_{principale(d)}"
+    return [(j, c["dist"] if c.get("dist") is not None else _auto_moteur(d, c, j, f), _demi(c))
+            for j, c in enumerate(s["faces"][f]["couches"])]
 
 
-def _axe_principal(d: Dict, s: Dict, cote: str) -> float:
-    """L'axe EFFECTIF de la base principale de la face ``cote`` : saisi s'il l'est, sinon l'automatique du moteur — là où
-    la nappe secondaire repose."""
-    cp = _base_principale(d, s, cote)
-    return cp["dist"] if cp.get("dist") is not None else _auto_moteur(d, cp, 0, f"{cote}_{principale(d)}")
+def lit_contact(d: Dict, s: Dict, cote: str) -> List[int]:
+    """Les rangs des couches principales de la face ``cote`` dans le LIT DE CONTACT (en tête du fichier) : la base, puis
+    toute couche dont le dessous (e − ⌈Ø/2⌉) ne dépasse pas le dessus du lit (à ``TOL_LIT`` près), le dessus du lit
+    montant à chaque couche admise. Triés."""
+    pts = _couches_principales(d, s, cote)
+    dans, reste = [pts[0]], pts[1:]
+    dessus = pts[0][1] + pts[0][2]
+    entre = True
+    while entre:
+        entre = False
+        for p in list(reste):
+            if p[1] - p[2] <= dessus + TOL_LIT:
+                dans.append(p)
+                reste.remove(p)
+                dessus = max(dessus, p[1] + p[2])
+                entre = True
+    return sorted(p[0] for p in dans)
+
+
+def appui(d: Dict, s: Dict, cote: str) -> Dict:
+    """La couche principale sur laquelle repose la nappe secondaire de la face ``cote`` (S5) : la plus HAUTE du lit de
+    contact (le plus grand dessus e + ⌈Ø/2⌉), la base à égalité (à ``TOL_LIT`` près) — ``{"couche": rang, "e": axe
+    effectif, "d": Ø (mm, Øl d'un treillis), "demi": ⌈Ø/2⌉, "dessus": e + ⌈Ø/2⌉, "lit": rangs du lit}``. Le dessus est
+    calculé de la couche retenue elle-même (axe + demi) : la base retenue rend, au flottant près, la formule d'avant S5."""
+    pts = {p[0]: p for p in _couches_principales(d, s, cote)}
+    lit = lit_contact(d, s, cote)
+    haut = max(pts[j][1] + pts[j][2] for j in lit)
+    k = next(j for j in lit if pts[j][1] + pts[j][2] >= haut - TOL_LIT)
+    c = s["faces"][f"{cote}_{principale(d)}"]["couches"][k]
+    return {"couche": k, "e": pts[k][1], "d": MO_D.couche_diametre(c), "demi": pts[k][2], "dessus": pts[k][1] + pts[k][2],
+            "lit": lit}
+
+
+def nom_appui(d: Dict, s: Dict, cote: str, court: bool = False) -> str:
+    """Ce sur quoi repose la nappe secondaire de la face ``cote``, en mots (formules, pose de la couche) : « la base Y »,
+    « le renfort Y » (la face principale n'en porte qu'un) ou « le renfort R2 Y » (le repère de la couche à l'écran,
+    api_web/plaque_compact.couche). ``court`` : la forme des LÉGENDES des coupes — « renfort Y » pour tout renfort (sans
+    article ni repère ; « la base Y » inchangé) : une ligne de légende doit tenir dans sa colonne, « sur le renfort Y »
+    débordait sur la colonne des supérieures (capture S5 du 09/11/2026) et « sur renfort R2 Y » l'aurait fait aussi ;
+    « sur renfort Y » a la longueur de « sur la base Y ». Le repère reste dans la forme longue (formule, pose)."""
+    k = appui(d, s, cote)["couche"]
+    dk = principale(d).upper()
+    if k == 0:
+        return f"la base {dk}"
+    if court:
+        return f"renfort {dk}"
+    n = len(s["faces"][f"{cote}_{principale(d)}"]["couches"]) - 1
+    return f"le renfort {dk}" if n == 1 else f"le renfort R{k} {dk}"
 
 
 def empilee(d: Dict, s: Dict, f: str, j: int) -> bool:
@@ -189,10 +273,13 @@ def annoter(r: Dict, d: Dict) -> Dict:
     """Le résultat du moteur (``moteur(d).verifier(pour_moteur(d))``) relu avec la notion d'automatique DU SITE, en place :
     pour chaque couche, ``auto`` = l'axe est automatique dans l'ÉTAT (le moteur, lui, a reçu un axe imposé pour une base
     empilée), ``e_auto`` = l'automatique du site (ce que le champ vide affiche : « auto · 5,5 »), ``e_auto_moteur`` =
-    l'automatique du moteur (gardé), ``empilee`` = posée par le site sur la nappe principale. Les formules « e » d'une
-    prédalle reçoivent ``auto``, ``empilee`` et, empilée, les termes ``e_p``, ``d_p``, ``demi_p``, ``d_s``, ``demi_s``
-    (``d_s``, ``demi_s`` : la couche posée, base ou renfort de la direction secondaire ; le terme « saisi » du moteur
-    reste : la formule se lit encore sans rien d'autre). Rend ``r``."""
+    l'automatique du moteur (gardé), ``empilee`` = posée par le site sur la nappe principale ; une couche empilée reçoit
+    aussi ``appui`` (le rang de la couche principale qui la porte, S5), ``sur`` (la même en mots : ``nom_appui``, ce que
+    disent la formule et la pose) et ``sur_court`` (sa forme courte, ce que disent les légendes des coupes). Les formules
+    « e » d'une prédalle reçoivent ``auto``, ``empilee`` et, empilée, ``appui``,
+    ``sur`` et les termes ``e_p``, ``d_p``, ``demi_p`` (la couche principale qui porte : la base, ou le renfort plus
+    haut qu'elle, S5), ``d_s``, ``demi_s`` (la couche posée, base ou renfort de la direction secondaire ; le terme
+    « saisi » du moteur reste : la formule se lit encore sans rien d'autre). Rend ``r``."""
     for s_d, s_r in zip(d.get("sections") or [], r["sections"]):
         for f in FACES:
             for j, (c_d, c_r) in enumerate(zip(s_d["faces"][f]["couches"], s_r["faces"][f]["couches"])):
@@ -200,6 +287,10 @@ def annoter(r: Dict, d: Dict) -> Dict:
                 c_r["e_auto"] = axe_auto(d, s_d, f, j)
                 c_r["auto"] = c_d.get("dist") is None
                 c_r["empilee"] = c_r["auto"] and c_r["e_auto"] != c_r["e_auto_moteur"]
+                if c_r["empilee"]:
+                    c_r["appui"] = appui(d, s_d, f.split("_")[0])["couche"]
+                    c_r["sur"] = nom_appui(d, s_d, f.split("_")[0])
+                    c_r["sur_court"] = nom_appui(d, s_d, f.split("_")[0], court=True)
         for v in s_r["verifications"]:
             if v["cle"] not in FACES:
                 continue
@@ -209,12 +300,12 @@ def annoter(r: Dict, d: Dict) -> Dict:
                 c_r = s_r["faces"][v["cle"]]["couches"][fo["couche"]]
                 fo["auto"], fo["empilee"] = c_r["auto"], c_r["empilee"]
                 if c_r["empilee"]:
-                    cote = v["cle"].split("_")[0]
-                    c_p = _base_principale(d, s_d, cote)
+                    a = appui(d, s_d, v["cle"].split("_")[0])
+                    fo["appui"], fo["sur"] = c_r["appui"], c_r["sur"]
                     fo["termes"] = fo["termes"] + [
-                        {"symbole": "e_p", "valeur": _axe_principal(d, s_d, cote), "unite": "cm"},
-                        {"symbole": "d_p", "valeur": MO_D.couche_diametre(c_p), "unite": "mm"},
-                        {"symbole": "demi_p", "valeur": _demi(c_p), "unite": "cm"},
+                        {"symbole": "e_p", "valeur": a["e"], "unite": "cm"},
+                        {"symbole": "d_p", "valeur": a["d"], "unite": "mm"},
+                        {"symbole": "demi_p", "valeur": a["demi"], "unite": "cm"},
                         {"symbole": "d_s", "valeur": c_r["d"], "unite": "mm"},
                         {"symbole": "demi_s", "valeur": _demi(s_d["faces"][v["cle"]]["couches"][fo["couche"]]), "unite": "cm"}]
     return r
@@ -224,9 +315,11 @@ def annoter(r: Dict, d: Dict) -> Dict:
 def candidats_base(d: Dict, i: int, f: str, familles: Optional[Sequence[str]] = None) -> List[Dict]:
     """Le sélecteur de la nappe de BASE d'une face (``candidats_base`` du moteur du type), les niveaux du site respectés :
     le Ø d'un candidat déplace l'axe empilé — le sien (base secondaire) ou celui des couches secondaires posées sur lui
-    (base principale : la base ET les renforts de la direction secondaire, S3) —, que le moteur ne sait pas recalculer
-    sur un axe imposé ; la dalle est donc recomposée candidat par candidat, et chacune calculée par le moteur
-    (``verifier(pour_moteur(essai))``). Mêmes clés que le moteur (plus « e », l'axe de la couche), même tri."""
+    (base principale : la base ET les renforts de la direction secondaire, S3 — tant qu'elle est la plus haute de son
+    lit : sous un renfort principal plus haut, ce renfort les porte et un candidat plus mince ne les fait pas
+    descendre, S5) —, que le moteur ne sait pas recalculer sur un axe imposé ; la dalle est donc recomposée candidat
+    par candidat, et chacune calculée par le moteur (``verifier(pour_moteur(essai))``). Mêmes clés que le moteur (plus
+    « e », l'axe de la couche), même tri."""
     MO = moteur(d)
     if f not in FACES:
         raise ValueError(f"face : {' '.join(FACES)} attendu (reçu {f!r})")

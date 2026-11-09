@@ -16,7 +16,8 @@ vérifié en Python ordinaire à travers le routeur (les mêmes requêtes JSON q
 - les nappes TOUJOURS posées l'une sur l'autre (décision de l'ingénieur du 09/11/2026) : plus d'option (ni case, ni
   chemin « empilement »), une note neuve, une note d'avant (clé absente, fausse, vraie, illisible : relue sans effet), une
   note de l'ancien module Prédalles, un fichier Streamlit — tous empilés ; une note d'avant dont les chiffres changent le
-  dit UNE fois, à l'ouverture (un avis, pas une erreur), et seulement elle ;
+  dit UNE fois, à l'ouverture (un avis, pas une erreur), et seulement elle (S5 compris : une note cochée dont la base
+  secondaire repose désormais sur un renfort principal plus haut que sa base) ;
 - l'ampoule (sélecteur de nappe de base) garde une nappe de treillis unique cohérente (la transposée sur l'autre face) ;
 - les points d'ancrage des autres lots sont branchés (dalle_positions : axe_auto, pour_moteur, annoter, candidats_base ;
   dalle_nappes : ecrire, html ; etabli_compact : compact=True, le nom dans la ligne de la dalle) ;
@@ -469,6 +470,20 @@ chk("seulement quand les chiffres changent : une note du 09/11 dont l'option ét
     avis(req(action="calculer", etat=v2)) is None and avis(req(action="calculer", etat=v2_r)) == P.AVIS["note"]
     and avis(req(action="calculer", etat=v1_saisie)) is None and avis(r0) is None
     and P.chiffres_changes(actif(P.normaliser(v2_r)), True) and not P.chiffres_changes(actif(P.normaliser(v2)), True))
+# S5 : la même note cochée, avec un RENFORT PRINCIPAL plus haut que sa base (3 Ø25 en inf. Y) — sa base secondaire, que l'option posait
+# sur la base principale, repose désormais sur le renfort : ses chiffres changent, l'avis le dit ; un renfort principal Ø10, au même
+# dessus que la base treillis Ø10, ne change rien et ne dit rien
+v2_s5, v2_s5_bas = copy.deepcopy(v2), copy.deepcopy(v2)
+v2_s5["dalles"][0]["sections"][0]["faces"]["inf_y"]["couches"].append(dict(EN.nouvelle_couche(base=False), d=25))
+v2_s5_bas["dalles"][0]["sections"][0]["faces"]["inf_y"]["couches"].append(dict(EN.nouvelle_couche(base=False), d=10))
+r_v2s5 = req(action="calculer", etat=v2_s5)
+chk("S5 — une note d'avant cochée dont la base secondaire repose désormais sur un renfort principal plus haut (3 Ø25 en inf. Y : la base "
+    "inf. X 4,5 → 6,5) le dit à l'ouverture (S3 seul ne l'aurait pas vu : aucun renfort secondaire) ; un renfort principal Ø10 (même dessus "
+    "que la base) ne change rien et ne dit rien",
+    avis(r_v2s5) == P.AVIS["note"] and P.chiffres_changes(actif(P.normaliser(v2_s5)), True)
+    and not P.chiffres_changes(actif(P.normaliser(v2_s5_bas)), True) and avis(req(action="calculer", etat=v2_s5_bas)) is None
+    and axe_inf_x(actif(r_v2s5["etat"])) == 6.5 and axe_inf_x(actif(P.normaliser(v2_s5_bas))) == 4.5,
+    (avis(r_v2s5), axe_inf_x(actif(r_v2s5["etat"]))))
 pr_on = saisir(saisir(e0, "type", "predalle")["etat"], "sections/0/faces/sup_x/couches/0/treillis", "12/12/150/150")
 chk("prédalle, nappes empilées : la base SUPÉRIEURE secondaire est posée sur la principale — la pose le dit (« posée sur la base principale »), la "
     "formule e aussi, et jamais « axe saisi » ; les inférieures gardent la règle du moteur (dans / sur la prédalle)",
@@ -630,6 +645,10 @@ muter("la clé d'avant n'est plus relue sans effet (une note qui porte « empile
       lambda: all(req(action="calculer", etat={"version": 2, "dalles": [{"nom": "T", "empilement": v}]})["ok"] for v in (True, False)))
 muter("l'avis d'ouverture ne se dit plus", P, "chiffres_changes", lambda *a, **k: False,
       lambda: avis(req(action="calculer", etat={"version": 1, "dalles": [{"nom": "A"}]})) == P.AVIS["note"])
+muter("S5 oublié par l'avis (une note cochée : seul un renfort secondaire change, comme avant S5)", P, "chiffres_changes",
+      lambda d, deja=False: any(POS.empilee(d, s, f, j) and (j > 0 or not deja) for s in d["sections"] for f in EN.FACES
+                                for j in range(len(s["faces"][f]["couches"]))),
+      lambda: avis(req(action="calculer", etat=v2_s5)) == P.AVIS["note"])
 _resultat = P.resultat
 
 

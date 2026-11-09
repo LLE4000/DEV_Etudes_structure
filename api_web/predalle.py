@@ -522,15 +522,23 @@ def _picto_pose(pose: str) -> str:
     return f'<svg class="pd-m pd-{pose}" viewBox="0 0 18 12" aria-hidden="true">{PICTOS_POSE[pose]}</svg>'
 
 
+def sur_principale(x: Dict) -> str:
+    """Sur quoi repose une couche (ou sa formule « e ») que le site a empilée, dans les mots de la prédalle : « la base
+    principale » (comme avant S5), sinon ce que ``dalle_positions.annoter`` en dit (``sur`` : « le renfort Y », « le
+    renfort R2 Y ») — S5 : un renfort principal plus haut que la base porte la nappe secondaire."""
+    return "la base principale" if not x.get("appui") else (x.get("sur") or "la nappe principale")
+
+
 def pose_couche(c: Dict, geo_c: Dict) -> str:
     """OÙ la règle de la prédalle pose une couche (dans la prédalle, sur la prédalle, depuis le dessus), et l'axe
     automatique qu'elle en tire — ou, l'axe saisi, ce que l'automatique serait : la ligne du détail de la couche. Une
     couche secondaire EMPILÉE par le site (module fusionné, § 4.1 : faces supérieures ; sa base et, depuis le 09/11/2026,
-    ses renforts — Ø_s est alors celui du renfort) le dit."""
+    ses renforts — Ø_s est alors celui du renfort) le dit, et sur quoi elle repose : la base principale, ou le renfort
+    principal plus haut qu'elle (S5 : e_p, Ø_p sont alors ceux du renfort)."""
     pose = geo_c["pose"]
     if geo_c.get("empilee"):
         # (une couche supérieure secondaire que le site a posée sur la principale : « depuis le dessus (c + ½ Ø + j) » mentirait)
-        txt = "axe auto · posée sur la base principale (e<sub>p</sub> + ½ Ø<sub>p</sub> + ½ Ø<sub>s</sub>)"
+        txt = (f"axe auto · posée sur {sur_principale(geo_c)} (e<sub>p</sub> + ½ Ø<sub>p</sub> + ½ Ø<sub>s</sub>)")
     elif c["dist"] is None:
         txt = f"axe auto · {POSES_TXT[pose]} ({REGLES_TXT[pose]})"
     else:
@@ -773,10 +781,11 @@ def _formule(f: Dict) -> Dict:
     if k == "e":
         s_ = f"e_{f['couche'] + 1}"
         if f.get("empilee") and "e_p" in t:
-            # une base secondaire posée par le SITE sur la base principale (module fusionné, § 4.1 ; les termes e_p, demi_p,
-            # demi_s sont posés par dalle_positions.annoter) : le moteur a reçu l'axe imposé, la formule dit d'où il vient
+            # une couche secondaire posée par le SITE sur la nappe principale (module fusionné, § 4.1 ; les termes e_p,
+            # demi_p, demi_s sont posés par dalle_positions.annoter, e_p et demi_p ceux de la couche qui porte : la base,
+            # ou un renfort principal plus haut, S5) : le moteur a reçu l'axe imposé, la formule dit d'où il vient
             parts = [s_, "e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉", f"{_v(t['e_p'])} + {_v(t['demi_p'])} + {_v(t['demi_s'])}"]
-            r += " · posée sur la base principale"
+            r += f" · posée sur {sur_principale(f)}"
         elif "saisi" in t:
             parts = [s_, "axe saisi"]
             r += " · saisi"

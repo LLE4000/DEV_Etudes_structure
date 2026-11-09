@@ -24,7 +24,7 @@ directions au même niveau sur la coupe, c'est le calcul qui les y a posées (un
 la direction secondaire, base et renforts, posée sur la principale, toujours depuis le 09/11/2026 —, c'est qu'il les y a
 comptées. La cote de d est h − y_G du calcul, pour la face tendue de la direction coupée. Une couche que le site a posée
 sur la nappe principale (``empilee``, posé par ``dalle_positions.annoter`` : base ou renfort secondaire) le dit dans la
-légende.
+légende, avec ce qui la porte (``sur`` : la base principale, ou un renfort principal plus haut qu'elle — S5).
 
 Le style est celui des dessins du site (api_web/dessin_poutre.py) : traits noirs, béton gris clair, cotes fines,
 sollicitations en rouge. Les textes venus de l'état (noms) sont échappés ici.
@@ -243,12 +243,13 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float
                 g.append(f'<circle cx="{_f(xl + 0.35 * u)}" cy="{_f(yy - 0.3 * u)}" r="{_f(0.26 * u)}" fill="{_couleur(j)}"/>')
             else:
                 g.append(_ligne(xl, yy - 0.3 * u, xl + 0.7 * u, yy - 0.3 * u, _teinte(j), 0.24 * u))
-            # l'axe réel de la couche (celui du calcul) ; posée par le site sur la base principale : dit
-            # (« sur la base Y », court : la ligne doit tenir dans sa colonne, « posée sur la base Y » débordait sur
-            # la colonne des supérieures — vu sur la capture du 09/11/2026)
+            # l'axe réel de la couche (celui du calcul) ; posée par le site sur la nappe principale : dit sur QUOI elle
+            # repose (``sur_court`` de dalle_positions.annoter : « la base Y », ou le renfort plus haut qu'elle, S5 —
+            # court : la ligne doit tenir dans sa colonne ; « posée sur la base Y » débordait sur la colonne des
+            # supérieures, vu sur la capture du 09/11/2026, et « sur le renfort Y » aussi, capture S5)
             g.append(_txt(xl + 1.0 * u, yy, f"{d_.upper()} · {escape(c['libelle'])} · axe à {_mm(c['e'] * 10.0)}"
-                          + (f" · sur la base {principale.upper()}" if c.get("empilee") else ""), 0.78 * u,
-                          ancre="start", gras=False))
+                          + (f" · sur {c.get('sur_court') or 'la base ' + principale.upper()}" if c.get("empilee") else ""),
+                          0.78 * u, ancre="start", gras=False))
         n_max = max(n_max, len(lignes))
     hauteur = (y_leg + (n_max + 0.6) * 1.3 * u) - y0
     return "".join(g), hauteur

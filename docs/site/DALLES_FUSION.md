@@ -291,7 +291,9 @@ plus près du parement tendu ; la secondaire empilée dessus, les barres en cont
 moteur (demi-diamètre arrondi au 0,5 cm supérieur, `arrondi_demi_cm`) :
 - base de la direction principale : l'axe automatique du moteur (inchangé) ;
 - base de la direction secondaire : `axe principal + ⌈Ø_p/2⌉₀,₅ + ⌈Ø_s/2⌉₀,₅` (Ø_p, Ø_s : diamètres des fils ou
-  barres des deux bases ; pour un treillis, Øl de chaque face) — aucune distance inventée ;
+  barres des deux bases ; pour un treillis, Øl de chaque face) — aucune distance inventée *(révisé le 09/11/2026, S5 :
+  « axe principal + ⌈Ø_p/2⌉ » est le dessus de la couche principale la plus haute du lit de contact, base ou renfort —
+  § 4.3)* ;
 - supérieures : la même règle depuis le parement supérieur (principale la plus proche du haut, secondaire en dessous) ;
 - renforts : leur axe reste celui du moteur (imposé ou automatique), affiché et dessiné à sa valeur *(révisé le
   09/11/2026, S3 : un renfort de la direction SECONDAIRE se pose sur sa nappe, comme sa base — § 4.3)* ;
@@ -397,6 +399,74 @@ REMPLACÉ dans ce paragraphe (texte d'avant gardé plus bas pour l'histoire) et 
   redirigée vers les dalles) calcule toujours au même niveau : il n'est pas atteignable depuis l'écran (toute note
   « predalle » est relue par le module des dalles) ; ses 9 photos du gel restent identiques.
 
+**Révision du 09/11/2026, nuit (S5 — relecture du 09/11 : la nappe secondaire repose sur la couche principale la plus
+haute qu'elle croise)** — suite de la décision de l'ingénieur « les nappes toujours l'une sur l'autre ». Le défaut, non
+conservatif et préexistant (FUS4) : quand la direction principale porte, dans le lit de sa base, un RENFORT plus épais
+que la base (le cas du mode par défaut « Treillis + renforts » : 3 Ø12 sur un treillis Ø10), la nappe secondaire —
+base et renforts S3 — était posée sur la base seule : ses barres traversaient le renfort, dans le calcul et sur la
+coupe, et rien ne le disait. Ce qui est REMPLACÉ dans la règle ci-dessus (et aux § 4.1, 4.2, 4.4) :
+- **La règle (`dalle_positions.axe_auto`)** : direction SECONDAIRE (dalle coulée inf. et sup. ; prédalle sup.), base et
+  renforts → `max(e_k + ⌈Ø_k/2⌉₀,₅) + ⌈Ø/2⌉₀,₅`, le max sur les couches principales k de la même face qui sont dans le
+  **lit de contact** (`lit_contact`), chacune à son axe EFFECTIF (saisi, sinon l'automatique du moteur), Ø_k le Ø de ses
+  barres ou de ses fils porteurs (Øl d'un treillis). La couche qui porte (`appui`) est la plus haute ; à égalité, la
+  base — la formule d'avant S5, au flottant près (aucune photo du gel ne bouge). La prédalle, faces INFÉRIEURES : la
+  règle du type, inchangée (voir plus bas). Un axe saisi n'est jamais déplacé.
+- **Le lit de contact**, défini sur les axes effectifs, en convention du moteur (dessous e − ⌈Ø/2⌉, dessus e + ⌈Ø/2⌉) :
+  il part de la base principale ; une autre couche principale en est si son dessous ne dépasse pas le dessus du lit
+  (contact ou chevauchement : la nappe secondaire, posée au moins sur ce dessus, ne peut pas passer dessous), et le
+  dessus du lit monte au sien, jusqu'à ce que plus rien n'entre (un renfort qui chevauche un renfort du lit en est).
+  **Tolérance** : `TOL_LIT` = 1e-6 cm, les arrondis des flottants, AUCUNE marge — un 2e lit principal posé sur la nappe
+  secondaire a son dessous au moins 0,05 cm au-dessus du dessus du lit, même placé aux Ø réels (⌈Ø/2⌉ dépasse Ø/20 de
+  0,45 cm au plus, fil de 5 mm au moins) : une marge l'avalerait. Avec les axes automatiques, le moteur pose toutes
+  les couches principales au même dessous (enrobage + jeu) : toutes sont du lit ; seul un axe saisi en sort une.
+- **Cas limites, écrits et testés** (`tests/test_api_web_dalle_positions.py` (g)) : renfort principal SAISI dans un 2e
+  lit (Ø25 à 9 cm, dessous 7,5 > 4,0) : il ne porte rien ; saisi au contact exact (Ø12 à 5,0, dessous 4,0 = dessus de
+  la base) : il porte ; 0,01 cm plus haut : un autre lit ; chaîne (R1 Ø25 automatique, R2 Ø12 saisi à 6,5 qui chevauche
+  R1) : R2 entre par R1 et porte (8,0), sans R1 il est hors du lit (4,5) ; base saisie plus haut que son renfort : la
+  base porte ; plusieurs renforts : le plus haut, le premier à égalité ; demis arrondis égaux (Ø16 et Ø20) : rien ne
+  change ; renfort treillis : par son fil ; jeu premier lit : il entre une fois, par la principale. **Ce que la règle ne
+  dit pas** : une couche principale SAISIE dont le dessous tombe dans l'épaisseur de la nappe secondaire (au-dessus du
+  lit, sous le dessus de la secondaire) n'est pas du lit et rien ne le signale — l'axe saisi est celui qu'on a voulu ;
+  un avertissement serait possible (à trancher).
+- **Prédalle, faces INFÉRIEURES** (vérifié et mesuré) : la base principale est dans la peau, la base secondaire ET les
+  renforts principaux sur la prédalle à h_p + ⌈Ø/2⌉ — un renfort principal y croise la base secondaire au même niveau.
+  Le moteur le DIT déjà (« croisement_sur_predalle » : « Saisir son axe pour en tenir compte ») et la question 11 de
+  l'ingénieur (« empiler les couches basses de la prédalle ») est ouverte : S5 n'y touche pas. Mesure (h = 22, h_p = 6,
+  renfort 3 Ø20 inf. Y, base inf. X treillis Ø10, M_x,inf = 20) : aujourd'hui axe 6,5, d 15,5, A_s,req 430,1 mm² et
+  l'avertissement ; empilée sur le renfort (axe saisi 8,5 : 7,0 + 1,0 + 0,5), d 13,5, A_s,req 493,8 (+ 14,8 %).
+- **Ce qui suit l'axe** : la copie envoyée au moteur (`pour_moteur`) ; `annoter` pose sur chaque couche empilée `appui`
+  (le rang de la couche qui porte), `sur` (« la base Y », « le renfort Y », « le renfort R2 Y » : formule et pose) et
+  `sur_court` (« la base Y », « renfort Y » : légendes — `nom_appui`, une source) ; la légende des coupes dit « axe à 55 ·
+  sur renfort Y » (forme courte : « sur le renfort Y » débordait sur la colonne des supérieures, vu sur la capture S5 ;
+  « sur la base Y » inchangé) ; la formule « e » d'une prédalle prend e_p, Ø_p, ⌈Ø_p/2⌉ de la couche qui porte et dit
+  « posée sur le renfort Y » (« posée sur la base principale » inchangé) ; la pose de la couche aussi ; l'aide de l'axe ;
+  le sélecteur (`candidats_base` : une base secondaire candidate repose sur le renfort ; une base principale candidate
+  plus mince que le renfort ne fait plus descendre la secondaire, une plus épaisse la porte) ; le résumé, le verdict ;
+  la note PDF (`note_dalle` reçoit `POS.axes` : planche, coupe, d, A_s,req — contrôlée à chaque note contre le moteur
+  du site) ; l'avis d'ouverture d'une note d'avant dont l'option était cochée (`dalle.chiffres_changes` : sa base
+  secondaire, que l'option posait sur la base principale, change dès qu'un renfort plus haut la porte).
+- **Mesures** (le site, avant → après, la face secondaire ; c = 3, jeu 0, B500, γs 1,5, C30/37 ; sens de la sécurité :
+  aucun axe ne descend, A_s,req ne baisse jamais) :
+
+  | Cas | Axe(s) secondaire(s) | d (cm) | A_s,req (mm²) | Écart | État |
+  |---|---|---|---|---|---|
+  | CSP h 20, « Treillis + renforts » : treillis 10/10/100/100, renfort 3 Ø12 inf. Y, M_x,inf 20 | 4,5 → 5,5 | 15,50 → 14,50 | 430,1 → 459,8 | + 6,9 % | ok → ok |
+  | idem, renfort 3 Ø25 | 4,5 → 6,5 | 15,50 → 13,50 | 430,1 → 493,8 | + 14,8 % | ok → ok |
+  | CSP h 25, principale X : sup. X Ø10/150 + 4 Ø20 ; sup. Y Ø8/200 + 3 Ø12 (S3), M_y,sup 35 | 4,5 ; 5,0 → 5,5 ; 6,0 | 20,21 → 19,21 | 577,2 → 607,2 | + 5,2 % | **ok → NON CONFORME** (A_s 590,6) |
+  | CSP h 20 : inf. Y Ø10/150 + 3 Ø12 + 2 Ø20 ; inf. X Ø8/200 + 3 Ø16 (S3), M_x,inf 25 | 4,5 ; 5,0 → 5,5 ; 6,0 | 15,15 → 14,15 | 550,2 → 589,1 | + 7,1 % | ok → ok |
+  | Prédalle h 22 / h_p 6 : sup. Y treillis 8/8/150/150 + 3 Ø16, M_x,sup 25 | 4,5 → 5,5 | 17,50 → 16,50 | 476,2 → 505,1 | + 6,1 % | nok → nok |
+  | Prédalle, renfort 3 Ø20 inf. Y (sur la prédalle) | 6,5 → 6,5 | 15,50 | 430,1 | 0 (règle du type) | ok, avertissement gardé |
+  | CSP, renfort 3 Ø25 SAISI à 9 cm (2e lit) | 4,5 → 4,5 | 15,50 | 430,1 | 0 | ok |
+  | CSP, inf. Y Ø16/150 + 3 Ø20 (demis égaux) | 5,5 → 5,5 | 14,50 | 459,8 | 0 | ok |
+
+  Balayage (test (g)) : 513 couples base × renfort (chaque treillis et chaque Ø de base, chaque Ø de renfort ; dalle
+  inf. et sup., prédalle sup.) — l'axe secondaire n'est jamais sous celui de la base seule ni à travers le renfort ;
+  A_s,req secondaire monte dès que ⌈Ø_r/2⌉ > ⌈Ø_b/2⌉, égal sinon. Le gel (`tests/test_reference_refonte.py`, 239) ne
+  bouge pas : aucun cas gelé n'a de renfort principal plus haut que sa base (aucun regel).
+- **Ce qui n'est pas fait** : les notes ENREGISTRÉES sur le site entre l'intégration du 09/11 et S5 (version 3) dont un
+  renfort principal dépasse la base se rouvrent avec leurs nouveaux chiffres (plus sûrs) SANS avis : un avis supposerait
+  une version 4 de l'état (une marque de format) — non fait sans l'accord de l'ingénieur.
+
 *Texte d'avant (FUS4, REMPLACÉ ci-dessus)* — Clé d'état `empilement` (vrai/faux), par note (comme γ_s et le jeu,
 rubrique 4 — Options, case « Nappes empilées : direction secondaire posée sur la principale ») :
 - note NEUVE : vrai ;
@@ -428,6 +498,13 @@ du moteur ramène les deux directions au même plan : le contrôle rougit). Les 
 
 *Révision du 09/11/2026 (NAP)* : « quand l'empilement est actif » se lit « toujours » ; le renfort de la direction
 secondaire est dessiné dans le lit de sa base (« · sur la base Y » dans la légende), à l'axe que le moteur a reçu.
+
+*Révision du 09/11/2026, nuit (S5)* : la légende dit sur quoi la couche repose réellement — « · sur la base Y », ou
+« · sur renfort Y » quand un renfort principal plus haut que la base la porte (forme courte : « sur le renfort Y »
+débordait sur la colonne des supérieures, vu sur la capture). Prouvé à l'écran (harnais, filtre « nappes », PC et
+téléphone) : un renfort principal 3 Ø20 sous la nappe X — le bas du trait de la base X au contact du haut des points
+du renfort (écart mesuré 0,0 mm ; avant S5 : 10 mm dedans), la ligne de légende qui s'arrête avant la colonne des
+supérieures (6,8 px au PC, 3,2 px au téléphone).
 
 ## 5. Tests ciblés (pas de suite complète ; ni catalogue ni assemblages)
 
@@ -517,8 +594,10 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
 ### 6.4 Ce que la note ne dit pas, ce qui n'est pas vérifié
 
 - Le TAUX η de chaque vérification (l'écran l'affiche ; la note dit A_s ≥ A_s,néc, comme celle de Streamlit) ; le plan
-  des nappes ; la formule d'axe de chaque couche (la note donne d = h − y_G) ; la mention « sur la base Y » ; l'étoile
-  du sélecteur. Aucun de ces manques ne contredit l'écran.
+  des nappes ; la formule d'axe de chaque couche (la note donne d = h − y_G) ; la mention « sur la base Y » (ou « sur
+  renfort Y », S5) ; l'étoile du sélecteur. Aucun de ces manques ne contredit l'écran : la note reçoit les axes du site,
+  S5 compris (`tests/test_note_dalle.py` : « S5 de bout en bout », calcul, planche, coupe et PDF lu par pdftotext, et
+  sa mutation).
 - DALLE CSP : la FLÈCHE et la FISSURATION ne sont pas vérifiées (ni à l'écran ni dans la note, comme dans Streamlit) ;
   l'écran ne le dit pas encore — le jour où `api_web/dalle.texte_perimetre` le dira pour la dalle CSP, la note le dira
   aussi (même source). La prédalle le dit (son périmètre).

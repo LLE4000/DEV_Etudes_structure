@@ -8,7 +8,9 @@
   grandeurs du moteur du site — axes, y_G, d, A_s,req, A_s,min, A_s, états, h_u,min, h_min, τ, τ_adm — au 1e-9 près ;
 - le TEXTE de chaque planche écrit ces chiffres (aux arrondis de la note : mm² entiers, cm et kN·m au dixième, N/mm² au
   centième), et l'écran les mêmes (A_s,néc, A_s, état du bloc) ;
-- les nappes posées l'une sur l'autre passent (l'axe effectif du site, renfort secondaire S3 compris) ; la coupe dessine
+- les nappes posées l'une sur l'autre passent (l'axe effectif du site, renfort secondaire S3 compris, et la nappe
+  secondaire posée sur un renfort principal plus haut que sa base, S5 : le calcul, la planche, la coupe de l'écran et le
+  PDF lu par pdftotext disent le même axe, le même d, le même A_s,req — une mutation le garde) ; la coupe dessine
   chaque couche à l'axe du calcul ; le verdict d'une nappe non conforme sous 100 % (acier excessif, d ≤ 0) dit pourquoi ;
   l'état « Données incomplètes » ; les observations de l'écran (avertissements, périmètre de la prédalle) ;
 - la traduction est l'inverse de la lecture d'un fichier Streamlit (beton/dalle/fichier.lire) : l'aller-retour garde
@@ -302,8 +304,45 @@ nom_s3 = "CSP · treillis + renforts, renfort secondaire empilé (S3)"
 d_s3 = CAS[nom_s3]["dalles"][0]
 sec, pl = planche(nom_s3)
 axes = [c["e"] for c in pl["R"]["dirs"]["x"]["geo_inf"]["couches"]]
-chk("S3 : le renfort de la direction secondaire (inf. X) est compté à l'axe empilé du site (3,5 + 0,5 + 1,0 = 5,0 cm), sa base à 4,5",
-    axes == POS.axes(d_s3, d_s3["sections"][0])["inf_x"] == [4.5, 5.0], axes)
+chk("S3 et S5 : la direction secondaire (inf. X) est comptée aux axes empilés du site — posée sur le renfort 3 Ø12 que « Treillis + "
+    "renforts » met sur la principale (axe 4,0, dessus 5,0, plus haut que le treillis Ø10 : S5) : sa base à 5,0 + 0,5 = 5,5, son renfort "
+    "(S3) à 5,0 + 1,0 = 6,0 cm (avant S5 : 4,5 et 5,0, au travers du renfort Y)",
+    axes == POS.axes(d_s3, d_s3["sections"][0])["inf_x"] == [5.5, 6.0], axes)
+# S5 de bout en bout : un renfort principal 3 Ø25 sous la nappe secondaire — le calcul, la planche, la coupe et le PDF disent la même
+# chose (la nappe X sur le renfort Y : axe 6,5, d = 13,5 cm), et pas la base seule (4,5 : d = 15,5)
+nom_s5 = "CSP · treillis + renfort principal 3 Ø25 (S5)"
+e_s5 = cas((S0 + ["nappes", "inf", "mode"], "treillis_renforts"), (F("inf_y") + [1, "d"], 25), (S0 + ["My_inf"], 30), (S0 + ["Mx_inf"], 20))
+
+
+def s5_bout_en_bout():
+    """Le calcul, la planche, la coupe de l'écran et le PDF (pdftotext) de la note S5 : (passe, ce qu'on a lu)."""
+    r_ = P._calculer(e_s5["dalles"][0])
+    g_ = r_["sections"][0]["grandeurs"]
+    secs_, pls_ = lire_planches(e_s5)
+    v_ = next(v for v in secs_[0]["verifs"][1:5] if v["items"][0][1].endswith(" X") and "inférieur" in v["items"][0][1])
+    txt_ = "\n".join(str(it[2]) for it in v_["items"] if len(it) > 2) + "\n".join(str(it[1]) for it in v_["items"])
+    tmp_ = tempfile.mkdtemp()
+    with open(os.path.join(tmp_, "s5.pdf"), "wb") as fh:
+        fh.write(N.pdf(e_s5, {"nom_projet": nom_s5}))
+    pdf_ = subprocess.run(["pdftotext", "-layout", os.path.join(tmp_, "s5.pdf"), "-"], capture_output=True, text=True).stdout
+    shutil.rmtree(tmp_, ignore_errors=True)
+    leg_ = re.findall(r"X · Treillis 10/10/100/100 · axe à \d+ · sur [^<]+", P.resultat(copy.deepcopy(e_s5))["vues"][0]["svg"])
+    e_ = r_["sections"][0]["faces"]["inf_x"]["couches"][0]["e"]
+    passe = (e_ == 6.5 and g_["d_inf_x"] == 13.5 and round(g_["As_req_inf_x"]) == 494
+             and [c["e"] for c in pls_[0]["R"]["dirs"]["x"]["geo_inf"]["couches"]] == [6.5] and not ecarts_parite(e_s5)
+             and rf"\res{{{ND.fn(13.5, 1)} \u{{cm}}}}" in txt_ and rf"\res{{494 \u{{mm}}^{{2}}}}" in txt_
+             and rf"\res{{{ND.fn(15.5, 1)} \u{{cm}}}}" not in txt_ and rf"\res{{430 \u{{mm}}^{{2}}}}" not in txt_
+             and leg_.count("X · Treillis 10/10/100/100 · axe à 65 · sur renfort Y") == 2              # inf. X, dans les deux coupes
+             and set(leg_) == {"X · Treillis 10/10/100/100 · axe à 65 · sur renfort Y",
+                               "X · Treillis 10/10/100/100 · axe à 45 · sur la base Y"}              # sup. X : pas de renfort sup. Y
+             and "13,5 cm" in pdf_ and "494 mm" in pdf_)
+    return passe, (e_, g_["d_inf_x"], round(g_["As_req_inf_x"], 1), leg_, txt_[:200])
+
+
+passe5, lu5 = s5_bout_en_bout()
+chk("S5 de bout en bout (renfort principal 3 Ø25 en inf. Y, M_x,inf = 20) : le calcul pose la base inf. X sur le renfort (axe 6,5, d = 13,5 cm, "
+    "A_s,req = 494 mm²) ; la planche compte la couche à 6,5 et écrit d = 13,5 cm et 494 mm² (et non 15,5 cm, 430 mm² de la base seule) ; "
+    "la coupe de l'écran dit « axe à 65 · sur renfort Y » ; pdftotext lit 13,5 cm et 494 mm dans le PDF", passe5, lu5)
 
 
 def niveaux_coupe(sec, R_):
@@ -635,6 +674,9 @@ def axes_non_empiles(d, s):
 mutation("l'axe empilé non transmis (l'automatique du moteur, nappes au même niveau) → parité et note refusée",
          lambda: remplace(N.POS, "axes", axes_non_empiles),
          lambda: not ecarts_parite(CAS[nom_s3]) and bool(N.resultats(CAS[nom_s3])))
+mutation("S5 retiré (le lit de contact réduit à la base principale : la nappe secondaire au travers du renfort Ø25) → le calcul, la "
+         "planche, la coupe et le PDF de la note S5 disent 4,5 / 15,5 cm / 430 mm²",
+         lambda: remplace(POS, "lit_contact", lambda d, s, cote: [0]), lambda: s5_bout_en_bout()[0])
 mutation("l'état de l'écran retiré (« Vérifié » sans effort)",
          lambda: remplace(N, "etat_label", lambda rs: "Vérifié"),
          lambda: planche("CSP neuve (sans effort)")[0]["etat"] == N.ETAT_INCOMPLET)

@@ -30,9 +30,10 @@ l'automatique du site (nappes supérieures empilées — la direction secondaire
 principale —, écrit dans la copie envoyée au moteur : api_web/dalle_positions.py).
 Rien n'est recalculé ici. La cote de d est h − y_G du calcul, pour la face TENDUE de la direction coupée (la supérieure
 quand son moment l'emporte, comme la coupe des dalles). La légende dit la pose du moteur (dans / sur la prédalle), « axe
-saisi » pour un axe imposé dans l'état, « posée sur la base … » pour une couche que le site a empilée — ces deux
-derniers d'après ``auto`` et ``empilee`` tels que ``dalle_positions.annoter`` les pose ; sans annotation, le résultat du
-moteur dit « saisi » d'un axe que le site lui a imposé.
+saisi » pour un axe imposé dans l'état, « sur la base … » (ou « sur renfort … », S5 : ce qui la porte) pour une
+couche que le site a empilée — ces deux derniers d'après ``auto``, ``empilee`` et ``sur`` tels que
+``dalle_positions.annoter`` les pose ; sans annotation, le résultat du moteur dit « saisi » d'un axe que le site lui a
+imposé.
 """
 import math
 from html import escape
@@ -167,9 +168,12 @@ def _texte_vue(b_mm: float, W: float) -> str:
 
 
 def _pose_txt(c: Dict, principale: str = "") -> str:
-    """Où la couche est posée, pour la légende : posée par le site sur la base principale (``empilee``), « axe saisi »
-    (imposé dans l'état), ou la règle de la prédalle."""
+    """Où la couche est posée, pour la légende : posée par le site sur la nappe principale (``empilee``) — sur ce qui la
+    porte, ``sur_court`` de dalle_positions.annoter (la base, ou un renfort principal plus haut qu'elle, S5) —, « axe
+    saisi » (imposé dans l'état), ou la règle de la prédalle."""
     if c.get("empilee"):
+        if c.get("sur_court"):
+            return f"sur {c['sur_court']}"                 # la forme courte : la ligne tient dans sa colonne
         return f"sur la base {principale.upper()}" if principale else "sur la base principale"
     if not c.get("auto", True):
         return "axe saisi"
