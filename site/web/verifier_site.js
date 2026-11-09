@@ -3132,7 +3132,15 @@ const FILTRE = process.argv[4] || '';
         const tuiles = [...f.querySelectorAll('.tile:not(.biblio)')].filter(vu);
         const rt = tuiles.map(R);
         const o = { fam: f.dataset.fam, n: tuiles.length, gauches: [...new Set(rt.map((t) => Math.round(t.left)))].sort((a, b) => a - b),
-          large: Math.round(Math.max(...rt.map((t) => t.width))), haut: Math.round(Math.min(...rt.map((t) => t.top))) };
+          large: Math.round(Math.max(...rt.map((t) => t.width))), haut: Math.round(Math.min(...rt.map((t) => t.top))), hautT: Math.round(Math.max(...rt.map((t) => t.height))) };
+        // les PISTES de la grille du bloc (la grille de la charte : ses colonnes, vides comprises) — leurs bords gauches, lus sur
+        // la grille elle-même (une famille peut ne pas remplir toutes ses colonnes : « Autres » n'a que trois modules)
+        const grille = f.querySelector(':scope > .tiles');
+        if (grille) {
+          const gs = getComputedStyle(grille), gr = R(grille), ecart = parseFloat(gs.columnGap) || 0;
+          let x = gr.left + (parseFloat(gs.borderLeftWidth) || 0) + (parseFloat(gs.paddingLeft) || 0);
+          o.pistes = gs.gridTemplateColumns.split(' ').map(parseFloat).filter((l) => l > 0).map((l) => { const g0 = Math.round(x); x += l + ecart; return g0; });
+        } else o.pistes = [];
         const carte = f.querySelector('.tile.biblio');
         if (carte) {
           // (sans le bloc .fam-b — l'ancienne forme, la carte DANS la grille des modules — on mesure la grille qui la porte :
@@ -3156,6 +3164,20 @@ const FILTRE = process.argv[4] || '';
       });
       return { familles, deborde: document.documentElement.scrollWidth > innerWidth, theme: document.documentElement.dataset.theme || 'clair' };
     });
+    // PC et tablette : chaque carte au plus large comme une tuile, sur toute la hauteur du bloc de ses modules, à gauche de chacun
+    const etroiteHaute = (avec) => avec.every((f) => f.n >= 1 && f.carte.l <= f.large + 1 && f.carte.l >= 0.8 * f.large && Math.abs(f.carte.h - f.bloc.h) <= 1
+      && Math.abs(f.carte.b - f.bloc.b) <= 1 && f.carte.t >= 2 * 52 && f.aDroite && f.sous === 0);
+    // un seul rythme : les MÊMES pistes pour le bloc de chaque famille (la grille de la charte) ; les tuiles des familles sans
+    // bibliothèque sur ces pistes ; la carte sur la première, ses modules sur les SUIVANTES, et ils les REMPLISSENT (autant de
+    // colonnes occupées que le permettent leur nombre et la grille — une pile d'une seule colonne à côté de la carte, des
+    // colonnes vides au bout, serait un défaut)
+    const rythme = (familles) => {
+      const lignes = familles.length ? familles[0].pistes : [], sur = (x, ls) => ls.some((l) => Math.abs(l - x) <= 1);
+      return lignes.length >= 2 && familles.every((f) => f.pistes.length === lignes.length && f.pistes.every((x, i) => Math.abs(x - lignes[i]) <= 1))
+        && familles.filter((f) => !f.carte).every((f) => f.gauches.every((x) => sur(x, lignes)))
+        && familles.filter((f) => f.carte).every((f) => Math.abs(f.carte.g - lignes[0]) <= 1 && f.gauches.every((x) => sur(x, lignes.slice(1)))
+          && f.gauches.length === Math.min(f.n, lignes.length - 1));
+    };
     for (const [nomF, opts, sombre] of [['PC 1440', { viewport: { width: 1440, height: 900 } }], ['PC 1280', { viewport: { width: 1280, height: 800 } }],
       ['tablette 1180', { viewport: { width: 1180, height: 820 }, hasTouch: true }], ['tablette 1024', { viewport: { width: 1024, height: 768 }, hasTouch: true }],
       ['portrait 820', { viewport: { width: 820, height: 1180 }, hasTouch: true }], ['téléphone', { ...devices['iPhone 13'] }],
@@ -3169,22 +3191,42 @@ const FILTRE = process.argv[4] || '';
       await g.waitForTimeout(300);
       const m = await mesureAccueilBib(g);
       const tel = nomF.startsWith('téléphone');
-      const avec = m.familles.filter((f) => f.carte), sans = m.familles.filter((f) => !f.carte && f.n);
+      const avec = m.familles.filter((f) => f.carte);
       verif(`accueil · ${nomF} : chaque bibliothèque a sa carte, « Bibliothèque Béton armé », ses cinq rubriques visibles dans la carte, aucune coupée, rien ne déborde${sombre ? ' (thème sombre)' : ''}`,
         avec.length >= 1 && avec.some((f) => f.fam === 'beton' && f.titre === 'Bibliothèque Béton armé' && f.rubriques === 'Bétons,Aciers,Sections,Enrobages,Ancrages')
         && avec.every((f) => f.carte.vu && !f.hors.length && !f.coupes.length) && !m.deborde && (!sombre || m.theme === 'dark'), JSON.stringify({ avec, deborde: m.deborde, theme: m.theme }));
       if (!tel) {
-        // la colonne de la carte : le pas des colonnes des familles sans bibliothèque (leurs bords gauches)
-        const lignes = sans.length ? sans.reduce((a, f) => (f.gauches.length > a.length ? f.gauches : a), []) : [];
         verif(`accueil · ${nomF} : la carte est ÉTROITE et HAUTE — une colonne (≤ une tuile), toute la hauteur du bloc de ses modules, à GAUCHE de chacun, aucun sous elle`,
-          avec.every((f) => f.n >= 1 && f.carte.l <= f.large + 1 && f.carte.l >= 0.8 * f.large && Math.abs(f.carte.h - f.bloc.h) <= 1 && Math.abs(f.carte.b - f.bloc.b) <= 1
-            && f.carte.t >= 2 * 52 && f.aDroite && f.sous === 0), JSON.stringify(avec.map((f) => ({ fam: f.fam, carte: f.carte, bloc: f.bloc, large: f.large, n: f.n, sous: f.sous }))));
-        // (et les modules REMPLISSENT les colonnes de droite : autant de colonnes occupées que le permettent leur nombre et la
-        //  grille — une pile d'une seule colonne à côté de la carte, des colonnes vides au bout, serait un défaut)
+          etroiteHaute(avec), JSON.stringify(avec.map((f) => ({ fam: f.fam, carte: f.carte, bloc: f.bloc, large: f.large, n: f.n, sous: f.sous }))));
         verif(`accueil · ${nomF} : un seul rythme de colonnes — la carte sur la première, ses modules sur TOUTES les suivantes, celles des familles sans bibliothèque`,
-          lignes.length >= 2 && avec.every((f) => Math.abs(f.carte.g - lignes[0]) <= 1 && f.gauches.every((x) => lignes.slice(1).some((l) => Math.abs(l - x) <= 1))
-            && f.gauches.length === Math.min(f.n, lignes.length - 1)),
-          JSON.stringify({ lignes, avec: avec.map((f) => [f.carte.g, f.gauches]) }));
+          rythme(m.familles), JSON.stringify({ pistes: m.familles.map((f) => [f.fam, f.pistes]), avec: avec.map((f) => [f.carte.g, f.gauches]) }));
+        if (nomF === 'PC 1440') {
+          // BIB5 (« l'Acier aura sa bibliothèque sans rien recoder ») : la carte d'une bibliothèque Acier posée dans la page sous
+          // la forme que construire rend (tests/test_site_web.py, bibliothèque d'essai : .tiles.fam-b = la carte, puis la grille
+          // des modules) — la forme tient et les deux contrôles ci-dessus restent verts. (Relecture du 09/11/2026 : déduites des
+          // tuiles d'une famille SANS bibliothèque, les lignes de colonnes n'étaient plus que trois à 1 440 dès que « Autres »
+          // restait seule — trois modules sur quatre colonnes — et ces contrôles rougissaient sur une forme juste.) Et une
+          // famille de PEU de modules (« Autres », trois : une seule rangée, plus basse que la carte) garde des tuiles à la
+          // hauteur d'une tuile (elles s'étiraient à 120 px).
+          const tuileH = Math.max(...m.familles.map((f) => f.hautT));
+          await g.evaluate(() => {
+            for (const [k, nom] of [['acier', 'Acier'], ['autres', 'Autres']]) {
+              const fam = document.querySelector(`.famille[data-fam="${k}"]`), grille = fam && fam.querySelector(':scope > .tiles');
+              if (!grille) continue;
+              const carte = document.querySelector('.tile.biblio').cloneNode(true);
+              carte.dataset.bibliotheque = `essai-${k}`; carte.setAttribute('href', `bibliotheque-essai-${k}`); carte.querySelector('.bib-t').textContent = nom;
+              const bloc = document.createElement('div'); bloc.className = 'tiles fam-b'; bloc.append(carte); grille.replaceWith(bloc); bloc.append(grille);
+            }
+          });
+          await g.waitForTimeout(150);
+          const ms = await mesureAccueilBib(g), avecS = ms.familles.filter((f) => f.carte);
+          verif(`accueil · ${nomF} : une bibliothèque Acier (BIB5) et une sur « Autres » (trois modules), posées dans la page, prennent la même forme — étroites et hautes, leurs modules à droite à la hauteur d'une tuile, un seul rythme de colonnes`,
+            avecS.length === 3 && ['acier', 'autres'].every((k) => avecS.some((f) => f.fam === k)) && etroiteHaute(avecS) && rythme(ms.familles)
+            && ms.familles.every((f) => f.hautT <= tuileH + 1),
+            JSON.stringify({ tuileH, pistes: ms.familles.map((f) => [f.fam, f.pistes]), avec: avecS.map((f) => [f.fam, f.carte.g, f.carte.l, f.carte.t, f.gauches, f.hautT]) }));
+          await g.reload();
+          await g.waitForTimeout(300);
+        }
       } else {
         verif(`accueil · ${nomF} : la carte pleine largeur, en tête de la liste de sa famille, les modules dessous`,
           avec.every((f) => f.carte.l >= f.bloc.l - 2 && f.audessus === 0 && f.carte.b <= f.haut + 1), JSON.stringify(avec.map((f) => ({ carte: f.carte, bloc: f.bloc, haut: f.haut }))));

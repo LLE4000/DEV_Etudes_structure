@@ -185,6 +185,9 @@ label.fichier { width: max-content; }
    de tuiles, 2 × 56 + 8 px) ; et sa mise en page suit la hauteur reçue (requête de conteneur) : deux rangées (PC large, quatre
    colonnes) → les rubriques sur deux colonnes ; trois rangées (tablette, petit PC) → une seule colonne. */
 .accueil .fam-b > .tiles { grid-column: 2 / -1; grid-template-columns: subgrid; }
+/* (relecture du 09/11/2026) une famille de PEU de modules (une seule rangée, plus basse que le plancher de la carte) : ses
+   tuiles gardent la hauteur d'une tuile, en haut du bloc — sans cela, la rangée unique s'étirait à 120 px */
+.accueil .fam-b > .tiles { align-content: start; }
 .accueil .tile.biblio { container: bib / size; min-height: 120px; padding: 0; align-items: stretch; border-color: var(--accent-line);
   background: linear-gradient(160deg, color-mix(in srgb, var(--accent-soft) 75%, var(--panel)), var(--panel) 85%); }
 .accueil .tile.biblio:hover { border-color: var(--accent); }

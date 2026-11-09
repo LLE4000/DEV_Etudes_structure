@@ -62,8 +62,10 @@ Enrobage.
     de la famille sont dans leur propre grille (`.fam-b > .tiles`), posée en **sous-grille à partir de la deuxième
     colonne** : ils restent à DROITE quel que soit leur nombre, aucun ne passe sous la carte. La carte ne se mesure
     pas (`container-type: size`) : c'est le bloc des modules qui fait la hauteur de la rangée, la carte la prend
-    (plancher : deux rangées de tuiles). Mesuré le 09/11/2026 : 234 × 120 px à 1 440 × 900 (Béton : deux rangées de
-    trois modules) ; 268 × 184 à 1 280, 351 × 184 à 1 180, 299 × 184 à 1 024, 231 × 184 à 820 (trois rangées de deux).
+    (plancher : deux rangées de tuiles). Mesuré le 09/11/2026 : 234 × 120 px à 1 440 × 900 (les cinq modules du Béton
+    sur trois colonnes : deux rangées, 3 + 2) ; 268 × 184 à 1 280, 351 × 184 à 1 180, 299 × 184 à 1 024, 231 × 184 à 820
+    (sur deux colonnes : trois rangées, 2 + 2 + 1). Relu le même jour à 1 920 × 1 080, 1 366 × 768, 1 361 et 1 360
+    (la bascule de quatre à trois colonnes), 1 100, 960, 768, 701 et 700 : la même forme, rien ne déborde.
   - **La carte met la hauteur à profit** : l'icône du livre et « Bibliothèque » / « Béton armé » en tête (le titre sur
     deux lignes, jamais tronqué), puis ses rubriques **en liste**, chacune avec l'icône de son menu (les titres et les
     icônes de `RUBRIQUES`, une source). Sa mise en page suit la hauteur qu'elle reçoit (requête de conteneur) : à deux
@@ -79,7 +81,11 @@ Enrobage.
   - **L'Acier aura sa bibliothèque (BIB5) sans rien recoder** : le gabarit lit `_bibliotheques_de(fam)` ; une
     bibliothèque déclarée dans `construire.BIBLIOTHEQUES` sur la famille Acier prend la même forme (contrôlé par
     `tests/test_site_web.py` avec une bibliothèque d'essai). Une seule bibliothèque par famille : la construction
-    refuse la seconde (le gabarit n'a qu'une première colonne).
+    refuse la seconde (le gabarit n'a qu'une première colonne). À l'écran, `verifier_site.js` pose dans la page (à
+    1 440 × 900) une carte Acier — et une sur « Autres », trois modules — sous cette forme et exige les mêmes contrôles
+    que pour le Béton. Une famille de PEU de modules (une seule rangée, plus basse que le plancher de la carte) garde
+    des tuiles à la hauteur d'une tuile, en haut du bloc (`align-content: start` ; relecture du 09/11/2026 : sans
+    cela, la rangée unique s'étirait à 120 px).
   - **Téléphone** : inchangé à l'œil — la carte en tête de la liste de sa famille, pleine largeur, l'icône à gauche,
     « Bibliothèque Béton armé » sur une ligne, les rubriques à la suite (« Bétons · Aciers · … », les « · » posés par
     la feuille). La même carte, rendue une fois ; seule la feuille diffère (R1).
@@ -89,7 +95,10 @@ Enrobage.
     seconde refusée, la règle de sous-grille dans la feuille) ; `verifier_site.js`, filtre « bibliotheque » (à
     1 440 × 900, 1 280 × 800, 1 180 × 820, 1 024 × 768, 820 × 1 180, iPhone 13, et en thème sombre au PC et au
     téléphone : la carte au plus large comme une tuile, sur toute la hauteur du bloc de ses modules, à gauche de chacun,
-    aucun sous elle, les modules sur toutes les colonnes suivantes, sur les lignes des familles sans bibliothèque ; le
+    aucun sous elle, les modules sur toutes les colonnes suivantes ; les mêmes pistes de colonnes pour le bloc de chaque
+    famille, LUES SUR LA GRILLE (relecture du 09/11/2026 : déduites des tuiles d'une famille sans bibliothèque, elles
+    n'étaient plus que trois à 1 440 dès que « Autres », trois modules, restait seule — le contrôle aurait rougi sur la
+    forme juste le jour de BIB5) ; le
     titre et les rubriques visibles dans la carte, aucun coupé ; au téléphone la carte pleine largeur en tête ; la carte
     distincte d'une tuile). Quatre mutations les font rougir (sous-grille retirée, ancienne forme rendue, carte qui ne
     prend plus la hauteur, règle du téléphone retirée).
