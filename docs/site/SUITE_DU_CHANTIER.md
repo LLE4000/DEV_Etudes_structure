@@ -69,6 +69,55 @@ ni les docs des modules ni les tests.*
   autrefois refusés (U + cumul + montant soudé, ELS ; panneau L + cumul + platine, Eurocode) et leur page 3, et la
   note de trois garde-corps téléchargée dans le navigateur ; une note de soudures d'indice C (avant : « indice 0 »).
 
+## Fait ensuite, le lot des petits chantiers (même branche `integration-nuit-0911`, sur 06299b2, 10/11/2026)
+
+Demande de l'ingénieur : « fais-les tous en un seul lot ». Un commit par chantier (ou groupe), chacun avec son test
+vu rouge sans sa correction ; moteurs et générateurs de note non touchés.
+
+- ~~1 à 4 — ouvrir un calcul n'écrit rien (TOUS les modules) ; rouvrir une note sans la modifier ne change pas sa date ;
+  l'indice réel au lieu de « Brouillon » (« Non enregistrée » pour la provisoire) ; `?note=` vers une note absente~~ :
+  eb0a647 (carte de l'accueil = lien ; « Enregistrer comme note… » sur toute page, aux trois formats ; « Nouvelle note »
+  reste le chemin nommé ; une note absente le dit avec « Importer .stab », rien n'est créé ; filtre « ouverture » du
+  harnais). Décision écrite : `REFONTE_ETABLI.md`, révision du 10/11/2026.
+- ~~5 à 7 — dalle : nom de plus de 60 caractères coupé à la relecture avec un avis ; la dalle CSP dit ce qui n'est pas
+  vérifié (flèche, fissuration), à l'écran et dans les observations de la note PDF ; l'avis d'ouverture d'une ancienne
+  dalle vu au téléphone dès l'ouverture~~ : 410a00e, regel de la photo « dalle » b5581c1 (texte du périmètre, aucun
+  chiffre).
+- ~~8 — accueil de 701 à 1 360 px : la carte de la bibliothèque sur deux rangées, l'icône au-dessus du titre~~ : eeb29f5
+  (captures 820, 1 024, 1 180, 1 280, 1 440 regardées).
+- ~~9 — 44 px au doigt, tablette et téléphone~~ : bc112de (le harnais « formats » a trouvé trente rouges au premier
+  passage — segments pleins coupés, nom de la dalle à la tablette paysage, sélecteur hors écran, « Ouvrir » à 42 px —
+  corrigés avant le commit ; voir son message).
+- ~~10 — `X-Robots-Tag: noindex, nofollow` sur tout le site~~ : 91378c3 (`_headers` ; `serveur_local.py` l'applique —
+  il lit `_headers` au démarrage : un serveur local déjà lancé doit être relancé pour le servir).
+- 11 — rangement : ~~les styles de l'ancienne arborescence~~ (e043d15 : `.et-pt…`, `.et-arbre-h` retirés de
+  `css/etabli.css` et `css/modules/dalle.css` ; vérifié d'abord : les établis compacts ne la rendent plus ; le retrait
+  avait emporté une règle vivante — « + Lit », « + Section » à 26 px au téléphone —, le harnais « formats » l'a trouvé,
+  rétablie et gardée par un test : 950aefc) ;
+  ~~la précision sur les tubes formés à froid~~ (daa5bcf : `docs/acier/PROFILES.md` § 7, la largeur plate
+  (b − 2·r_o)/t, plus petite que (b − 3t)/t de 1 à 3 sur les 233 tubes EN 10219 ; 7, 9, 29 et 27 tubes changent de classe
+  en S235, S275, S355, S460 ; la doc et le test se tiennent). NON FAIT, faute de preuve ou de cible : `renommer()`,
+  `[data-renommer]`, `etabli_compact.arbre(compact=False)` et le repli de la poutre de `js/compact.js` RESTENT — le module
+  Prédalles (enregistré, servi par le routeur, gelé, testé) rend encore l'ancienne arborescence ; « la copie en double
+  dans le code de la dalle » et « le test manquant des bulles d'aide » sont INTROUVABLES dans `docs/site/*.md` (ni ces
+  mots, ni l'historique git, ni les autres copies du dépôt) : rien n'a été inventé (question 14).
+- ~~12 — pied de poteau, « Ancrages … information 108 % » sous « Conforme »~~ : 2ca6264 et 5a958dc, regels de la
+  photo « assemblages » 3283eff et c497ba2. Ce n'est PAS un défaut de calcul ni de verdict (§ 1, examiné) : c'est
+  le périmètre « EC3 seul ». Une ligne d'information ne porte plus de taux (« hors verdict », gris, sans jauge) ; le béton
+  d'ancrage dit « hors périmètre » (le mot plus long, « hors périmètre « EC3 seul » », se coupait au PC : vu sur la
+  capture) ; le chiffre reste au dixième dans la fenêtre de la pièce et dans la phrase d'information (« à 107,7 % — non
+  satisfait »). Captures du cas à 454 % regardées au PC, à la tablette et au téléphone.
+- Site reconstruit (pages, paquet du moteur) : 42f4df2. Référence (gel) : 239 OK ; regels du lot : b5581c1
+  (dalle), 3283eff et c497ba2 (assemblages), affichage seul, aucun chiffre. Suites ciblées (sur le dernier état des sources) : test_site_web 274,
+  test_api_web_modules 363, test_api_web_dalle 136, test_api_web_dalles_fusion 78, test_note_dalle 43,
+  test_etabli_compact 26, test_api_web_poutre 111, test_api_web_predalle 103, test_api_web_assemblages 160,
+  test_api_web_assemblages_pied 93, test_profiles_catalogue 29, test_reference_refonte 239 — 0 échec. Harnais (port
+  8771, filtres) : pilote 62, ouverture 92, enregistrement 130, bibliotheque 215, module:dalle 57, module:assemblages
+  25, telecharger 24, note_pdf 104, formats 1 614 OK et 6 KO (les « + Lit » à 26 px, ci-dessus : corrigés, puis
+  formats:poutre, formats:dalle, formats:predalle, module:assemblages et pilote rejoués sur la construction finale,
+  0 KO). `lancer_tests.py --tout` et le harnais complet ne sont PAS rejoués (le coordinateur). Le serveur local du
+  port 8771 n'envoie `X-Robots-Tag` qu'une fois relancé (il lit `_headers` au démarrage).
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage
@@ -95,6 +144,13 @@ ni les docs des modules ni les tests.*
 | ~~S5~~ | ~~Dalle (relecture du 09/11, PRÉEXISTANT depuis FUS4, ni introduit ni aggravé par la nuit) : la nappe SECONDAIRE (base, et renfort S3) se pose sur la BASE principale alors qu'elle croise un RENFORT principal plus épais, posé dans le lit de la base — les barres se traversent dans le calcul et la coupe, rien ne le dit : A_s,req secondaire sous-estimé de 6,9 % dès le mode par défaut « Treillis + renforts » (3 Ø12), 14,8 % avec un renfort Ø25~~ | `api_web/dalle_positions.axe_auto` | — | **fait** : c33dfd1 + relecture e81dda3 (la nappe secondaire repose sur la couche principale la plus haute de son lit de contact ; +5,2 à +14,8 % sur A_s,req secondaire, jamais en baisse ; aucun chiffre gelé ne bouge) |
 | S6 | Dalle, mode par défaut « Treillis + renforts » (relecture de S5, 09/11, PRÉEXISTANT depuis FUS3/FUS4, ni introduit ni aggravé par S5) : un treillis soudé est UNE pièce, mais le calcul et la coupe montent ses fils X sur le renfort principal plus épais et laissent ses fils Y au parement — 2,0 à 3,0 cm d'écart d'axes, contre 1,0 pour des fils soudés. Si le treillis monte entier, A_s,req PRINCIPAL est sous-estimé de 2,9 à 4,6 % (renfort Ø12 : 611,7 au lieu de 638,9 mm² ; Ø25 : 631,0 au lieu de 660,0) ; si c'est le renfort qui se pose sur le treillis (2e lit), c'est son axe qui est trop bas. Aucune géométrie physique ne donne les axes du modèle dès que Ø renfort > Ø fil | `api_web/dalle_positions` (direction principale : `pour_moteur`, `annoter`, sélecteur, gel) | moyen, puis regel | **oui** : la pose des renforts par rapport à un treillis soudé (sous, dans ou sur le treillis) |
 
+**Examiné le 10/11/2026, pas un défaut de calcul** : pied de poteau, périmètre « EC3 seul » (la valeur par défaut du module,
+Lot B bis), « Ancrages … information 108 % » sous « Conforme ». Le béton d'ancrage EN 1992-4 y est calculé EN INFORMATION
+et n'entre pas dans le verdict, comme dans l'écran Streamlit (`synthese.info`, `moteur.info_keys`) ; le moteur le dit
+(« non satisfait — hors périmètre, en information »). Mesuré : l'exemple publié VAL-A, 107,7 % (interaction N/V) ;
+hef 100 mm, N = −50 kN, Mx = 10 kNm, 454 % sous « vérifié » — et NON CONFORME au périmètre « EC3 + EC2-4 ». L'affichage
+est corrigé (2ca6264) ; le choix du périmètre par défaut est une question (14).
+
 Puis, déjà SIGNALÉS à l'écran mais en attente d'arbitrage : ~~anciennes notes de dalle et fichiers importés non empilés
 (avertissement affiché)~~ (réglé : 7d7da99, toujours empilées, un avis le dit à l'ouverture) ; défauts Streamlit marqués en rouge — bois (G seul, k_cr, flèche finale, appui, EN 338), feu
 des poteaux et voiles (ancien module Enrobage, a trop faible de 15 à 25 mm), taux d'armature, maturité (décoffrage trop
@@ -109,10 +165,12 @@ D3, D5, D7), prédalle (couches basses croisées). Règle : Streamlit d'abord, p
   (589 s) ; harnais complet 2 317 OK, 0 KO (992 s). À refaire avant chaque publication qui en doute.
 - Site privé : Cloudflare Access sur stab-methodes.be ET sur l'adresse .pages.dev (à faire par l'ingénieur dans
   Cloudflare ; le 07/11, .pages.dev répondait sans mot de passe).
-- Dalle : un nom de plus de 60 caractères fait refuser toute une ancienne note → le couper avec un message (petit).
-- Un lien `?note=` vers une note absente ouvre une note vide sans rien dire → message clair et « Importer .stab »
-  (petit).
-- Dalle coulée : dire ce qui n'est pas vérifié (flèche, fissuration), comme la prédalle (petit).
+- ~~Dalle : un nom de plus de 60 caractères fait refuser toute une ancienne note → le couper avec un message
+  (petit)~~ : 410a00e (coupé à la relecture, l'avis le dit ; la saisie garde son refus).
+- ~~Un lien `?note=` vers une note absente ouvre une note vide sans rien dire → message clair et « Importer .stab »
+  (petit)~~ : eb0a647 (rien n'est créé ; une note d'un autre module s'ouvre par sa page).
+- ~~Dalle coulée : dire ce qui n'est pas vérifié (flèche, fissuration), comme la prédalle (petit)~~ : 410a00e (même
+  composant, mêmes places, et dans les observations de la note PDF) ; regel de la photo « dalle » b5581c1.
 - Bibliothèque Béton armé dans la note de dalle (BIB4 bis : préremplissage, « Utiliser cette valeur », fiches) (moyen).
 - Relecture de la Bibliothèque Béton armé par l'ingénieur, puis retrait de l'ancien module Enrobage (petit).
 - Les 11 autres calculs sur l'établi compact, un module à la fois, relu par l'ingénieur à chaque fois : flambement,
@@ -148,10 +206,11 @@ D3, D5, D7), prédalle (couches basses croisées). Règle : Streamlit d'abord, p
 
 ## 3. Plus tard : le confort
 
-Démarrage plus rapide (moteur chargé une fois) ; l'indice réel (A, B…) au lieu de « Brouillon » ; rouvrir une note sans
-changer sa date ; boutons au doigt de 44 px ; modifier les données sur le dessin (à trancher) ; ce qui dépend des
+Démarrage plus rapide (moteur chargé une fois) ; ~~l'indice réel (A, B…) au lieu de « Brouillon »~~ (eb0a647 ;
+l'indice ne se CHANGE pas encore à l'écran, question 14) ; ~~rouvrir une note sans changer sa date~~ (eb0a647) ;
+~~boutons au doigt de 44 px~~ (bc112de) ; modifier les données sur le dessin (à trancher) ; ce qui dépend des
 comptes en ligne (équipe, droits, statut validé/diffusé, rapport multi-modules, historique — choix de Supabase) ;
-vérification finale d'ensemble ; petit rangement du code.
+vérification finale d'ensemble ; petit rangement du code (en partie : e043d15, daa5bcf — le reste, question 14).
 
 ## 4. Les questions à trancher par l'ingénieur
 
@@ -170,9 +229,11 @@ vérification finale d'ensemble ; petit rangement du code.
 12. Nouvelles (relectures du 09/11) : ~~S5 (nappe secondaire sur un renfort principal plus épais, § 1)~~ (fait,
     c33dfd1) ; ~~garde-corps dont la note déborde~~ (fait : une page de suite dans le générateur, df6a8ea — la mise en
     page est à confirmer, question 13) ; ~~l'indice unique d'une note~~ (fait : celui de la note du site, df6a8ea — à
-    confirmer, question 13) ; l'avis d'ouverture d'une ancienne dalle, au téléphone, n'est que dans l'onglet Résultat ;
-    accueil : la carte de la bibliothèque fait trois rangées de haut de 701 à 1 360 px (les cinq modules du Béton sur deux
-    colonnes), et son icône est à gauche du titre ; le périmètre de la prédalle sur chaque planche de la note ?
+    confirmer, question 13) ; ~~l'avis d'ouverture d'une ancienne dalle, au téléphone, n'est que dans l'onglet
+    Résultat~~ (410a00e : dit à l'ouverture, même message, même composant) ; ~~accueil : la carte de la bibliothèque fait
+    trois rangées de haut de 701 à 1 360 px (les cinq modules du Béton sur deux colonnes), et son icône est à gauche du
+    titre~~ (eeb29f5 : deux rangées, l'icône au-dessus du titre, les deux bibliothèques) ; le périmètre de la prédalle
+    sur chaque planche de la note ?
 13. Nouvelles (deuxième vague de la nuit du 09/11) :
     - **S6** (§ 1, sécurité, préexistant) : la pose des renforts principaux par rapport à un treillis soudé — sous, dans
       ou sur le treillis ? Puis la direction principale suit (calcul, coupe, regel).
@@ -195,10 +256,26 @@ vérification finale d'ensemble ; petit rangement du code.
       d'un assemblage à l'écran, jamais imprimés ; soudures C6 en quatre tronçons à l'Eurocode, encore refusées.
     - Catalogue : les profilés personnalisés (PRS), la comparaison et l'export — dans la Bibliothèque Acier, ou laissés
       dans l'ancienne page masquée ? Au téléphone, un bouton « Fermer » dans la feuille « Colonnes » ?
+14. Nouvelles (lot des petits chantiers, 10/11/2026) :
+    - Pied de poteau : le périmètre par défaut « EC3 seul » laisse « Conforme » un pied dont le béton d'ancrage ne
+      tient pas (VAL-A : 107,7 % ; un cas d'essai à 454 %) — l'écran le dit désormais sans ambiguïté (« hors périmètre »,
+      « hors verdict », phrase d'information « non satisfait »). Garder ce défaut, ou passer à « EC3 + EC2-4 » par défaut
+      (Streamlit d'abord, puis le site suit) ?
+    - L'INDICE d'une note se lit à l'écran mais ne s'y change pas (il vient d'un `.stab` importé, « A » sinon) : un champ
+      « Indice » dans « Classer la note… » ?
+    - Le module Prédalles (page redirigée vers les dalles depuis la fusion) est encore enregistré, gelé et testé, et rend
+      l'ancienne arborescence : le retirer permettrait de retirer `arbre(compact=False)`, `renommer()`,
+      `[data-renommer]` et le repli de `js/compact.js` (avec ses 9 photos du gel et ses tests) — on le retire ?
+    - « La copie en double dans le code de la dalle » et « le test manquant des bulles d'aide » : où étaient-ils écrits ?
+      Introuvables dans `docs/site/*.md` (candidat possible, non touché : `_lecture` et `_formulaire_verrouille`, en
+      deux exemplaires dans `api_web/dalle.py` et `api_web/predalle.py` — REFONTE_ETABLI.md, M1) ; le contrôle des
+      bulles ⓘ au doigt existe dans le harnais (filtre « doigt »).
+    - En ligne : vérifier que Cloudflare Pages sert bien `X-Robots-Tag: noindex, nofollow` (`curl -I`) après la mise en
+      ligne.
 
 ## 5. Ce qui se fait sans attendre de décision (session de nuit)
 
 ~~S3 (renfort empilé, avec test et regel motivé)~~ (fait, 7d7da99) ; ~~les messages rouges de S1 et S2~~ (S1 : pas de
-message, décision du 09/11 ; S2 : plus tard) ; le nom
-long coupé ; le lien vers une note absente ; « non vérifié » de la dalle coulée ; BIB4 bis ; puis le premier module de
+message, décision du 09/11 ; S2 : plus tard) ; ~~le nom
+long coupé ; le lien vers une note absente ; « non vérifié » de la dalle coulée~~ (le lot des petits chantiers) ; BIB4 bis ; puis le premier module de
 la liste des 11 (sans le publier comme « fini » avant la relecture de l'ingénieur) ; enfin `lancer_tests.py --tout`.
