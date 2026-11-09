@@ -4176,7 +4176,9 @@ const FILTRE = process.argv[4] || '';
     const norm = (t) => String(t || '').replace(/[   ]/g, ' ').replace(/\s+/g, ' ').replace(/(\d) (?=\d)/g, '$1');
     // les chiffres clés que le cadre Résultat MONTRE : la hauteur minimale et les sections d'acier (béton armé, établi
     // compact), sinon le taux de tête (η)
-    // (le chiffre lu, et la forme sous laquelle la note l'écrit : « 58,5 cm », « = 1194 mm 2 », « 804 mm² », « 14 % »)
+    // (le chiffre lu, et la forme sous laquelle la note l'écrit : « 58,5 cm », « = 1194 mm 2 », « 804 mm² », « 14 % »).
+    // Le chip du verdict arrondit η à l'unité (commun.pct) ; une note qui imprime η à la décimale (les cornières :
+    // « η max 95,8 % ») le porte à la précision du chip — son η max est à moins d'une unité du chip (11/11/2026)
     const CHIFFRES = [
       ['h min', /hmin\s*=\s*(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
       ['A s,posé', /As,posé\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['A s,néc', /As,néc\s*=\s*(\d+)/, (v) => `= ${v} mm`],
@@ -4278,7 +4280,8 @@ const FILTRE = process.argv[4] || '';
         verif(`note PDF · ${k} · ${fmt} : le PDF nomme chacun des ${ecran.noms.length} éléments de la note (${ecran.noms.join(' ; ')})`,
           ecran.noms.length >= 2 && ecran.noms.every((n) => n.length > 0) && !absents.length, JSON.stringify({ absents, noms: ecran.noms }));
         const pctAbsents = ecran.pcts.filter((x) => !texte.includes(norm(x)));
-        const chAbsents = chiffres.filter(([, v]) => !texte.includes(v));
+        const etaProche = (v) => [...texte.matchAll(/η\s*(?:max\s*)?(\d+(?:,\d+)?)\s*%/g)].some((m) => Math.abs(parseFloat(m[1].replace(',', '.')) - parseInt(v, 10)) < 1);
+        const chAbsents = chiffres.filter(([nom, v]) => !texte.includes(v) && !(nom === 'η' && etaProche(v)));
         verif(`note PDF · ${k} · ${fmt} : parité écran ↔ PDF — ${chiffres.map(([n, v]) => `${n} « ${v} »`).join(', ')}${ecran.pcts.length ? ` ; taux de la liste ${ecran.pcts.join(', ')}` : ''}`,
           ecran.vu && chiffres.length >= 1 && !chAbsents.length && !pctAbsents.length,
           JSON.stringify({ chAbsents, pctAbsents, vu: ecran.vu, ecran: tEcran.slice(0, 200) }));

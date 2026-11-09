@@ -93,7 +93,7 @@ def _bibliotheques_de(fam: str) -> list:
 # § 4 quinquies — décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site) : leur bouton
 # « Note PDF » s'allume sur leur page, compacte ou non, aux trois emplacements (``allumer_note_pdf``) ; les autres le
 # gardent grisé, « bientôt ». Chaque clé a sa note « riche » dans ``NOTES_RELEVE`` (le relevé du paquet de la note).
-NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages")
+NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere")
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
@@ -262,6 +262,18 @@ for k in ("engins", "repartiteurs", "hourdis"):
     "assemblages": """
 from api_web import note_assemblages as NA
 etat = NA.etat_releve()
+""",
+    # deux cornières d'appui (intégration du 11/11/2026, docs/acier/CORNIERE_MOTEUR.md § 12) : la première en configuration
+    # A, méthode historique, avec R_ELU saisie et la largeur d'appui a (la ligne L_eff) ; la seconde retournée (B, mode
+    # équilibre verrouillé) avec l'ancrage à Y = 45 et sans jeu dy — la section nette, les formules de B, la garde du site
+    "corniere": """
+from api_web import corniere as K
+etat = K.nouvel_etat()
+for ch, v in ((["R"], "42,76"), (["R_ELU"], "68,9"), (["a"], "100")):
+    assert K.modifier(etat, ch, v) is None, ch
+K.gerer_elements(etat, "ajouter")
+for ch, v in ((["configuration"], "B"), (["dy"], "0"), (["Y"], "45")):
+    assert K.modifier(etat, ch, v) is None, ch
 """,
 }
 _SONDE_NOTE = """

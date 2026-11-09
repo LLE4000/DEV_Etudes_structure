@@ -270,7 +270,9 @@ du module est dans `site/web/construire.NOTE_PDF`, et le paquet de la note (`mot
 note) porte ce que le générateur charge. Modèles : `api_web/note_poutre.py` (poutre), `api_web/note_assemblages.py`.
 
 **Le branchement (intégration du 09/11/2026)** — `NOTE_PDF` = poutre, dalle, garde-corps, soudures, charges sur
-plancher, assemblages. Il tient en trois points, chacun prouvé :
+plancher, assemblages — et, depuis l'intégration du 11/11/2026, les cornières d'appui (`api_web/note_corniere.py`,
+`docs/acier/CORNIERE_MOTEUR.md` § 12 ; sa note riche : deux cornières, A historique avec R_ELU saisie et largeur d'appui,
+puis B avec l'ancrage à Y = 45). Il tient en trois points, chacun prouvé :
 
 - **Le bouton** : `construire.boutons_note_pdf` est UN composant posé aux trois emplacements (barre du haut du PC et de
   la tablette, menu ⋯ et barre du bas du téléphone) par `page_module`, pour TOUTE page d'établi, compacte ou non (avant,
@@ -286,8 +288,11 @@ plancher, assemblages. Il tient en trois points, chacun prouvé :
   2,19 Mo (2,07 Mo avant, poutre seule) ; en plus de la poutre : `modules/export_pdf_dalle.py`, `modules/treillis.py`,
   les huit `note.py` des assemblages, `note_kit.py`, `rapport.py` des doubles cornières, `acier/rapport_projet.py`,
   `acier/garde_corps/{note,methode}.py`, `acier/soudures/note.py`, `plancher/charges/{note,peintre}.py` — exactement
-  les fichiers que les lots avaient déclarés ; aucun fichier de reportlab ni police de plus. **numpy** : les notes du
-  garde-corps, des soudures et du plancher le chargent (leur écran aussi : `avec_numpy`) ; le manifeste les nomme
+  les fichiers que les lots avaient déclarés ; aucun fichier de reportlab ni police de plus. Mesuré au 11/11/2026, les
+  cornières ajoutées : 107 fichiers, 2,22 Mo — en plus, `acier/corniere/{note,formules,methode}.py`, exactement ce que
+  `note_corniere.FICHIERS` déclare (son quatrième fichier, `rapport.py` des doubles cornières, y était déjà) ; aucun
+  fichier de reportlab ni police de plus. **numpy** : les notes du garde-corps, des soudures, du plancher et des
+  cornières (le catalogue des profilés) le chargent (leur écran aussi : `avec_numpy`) ; le manifeste les nomme
   (`note.avec_numpy`) et le travailleur charge numpy AVANT leur note. Preuve : `tests/test_site_web.py` § 2 bis — le
   paquet est celui que le générateur écrit, il ne répète rien du paquet du moteur, et, déballé SEUL avec le paquet du
   moteur (sans le dépôt, reportlab et Pillow pris dans les paquets), il fait la note de chaque module, au même texte
@@ -296,8 +301,12 @@ plancher, assemblages. Il tient en trois points, chacun prouvé :
   `data-note-pdf`, au PC (1440), à la tablette (1024) et au téléphone (iPhone 13), la note riche semée dans le
   navigateur, le bouton mesuré visible et actif, le clic, le téléchargement (%PDF-, pages par pdfinfo), le NOM de chaque
   élément et les chiffres que l'écran montre (taux de la liste, η de tête, h_min et A_s du béton armé) retrouvés dans le
-  texte du PDF, aucune erreur JavaScript. Préparation mesurée le 09/11/2026 (du clic au téléchargement) : 1,2 à 1,7 s
-  (poutre, dalle, soudures, plancher), 2,3 à 2,7 s (garde-corps), 4,7 à 5,5 s (assemblages, 8 assemblages, 18 pages).
+  texte du PDF, aucune erreur JavaScript. Le chip du verdict arrondit η à l'unité (`commun.pct`) ; une note qui imprime
+  η à la décimale (les cornières, « η max 144,3 % » sous un chip « 144 % ») le porte à la précision du chip : son η max
+  est à moins d'une unité du chip (intégration du 11/11/2026 — le harnais exigeait la chaîne du chip, écrite pour des
+  notes qui impriment des taux entiers). Préparation mesurée le 09/11/2026 (du clic au téléchargement) : 1,2 à 1,7 s
+  (poutre, dalle, soudures, plancher), 2,3 à 2,7 s (garde-corps), 4,7 à 5,5 s (assemblages, 8 assemblages, 18 pages) ;
+  le 11/11/2026, cornières (2 cornières, 5 pages) : 2,0 à 2,2 s.
 
 **Modules « à cas »** (`api_web/note_cas.py`) : pour un module dont la note est
 faite de CAS et dont l'état du site EST l'état du moteur, `telecharger(etat, "note_pdf", infos)` rend

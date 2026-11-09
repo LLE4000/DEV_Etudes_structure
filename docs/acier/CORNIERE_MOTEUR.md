@@ -20,6 +20,10 @@ lot « note », § 12).*
 | `acier/corniere/schemas.py` (lot « schémas », 11/11) | les quatre VUES partagées par l'écran et la note — coupe, moments, contraintes, élévation — construites sur le kit de dessin des assemblages à partir de la seule sortie de `verifier` ; le contrat de sélection `data-sel` ; `ajuster`, `legende`, `secours` (§ 10) |
 | `api_web/dessin_corniere.py` | la couche mince de l'écran : `vues(res, ident)` → `[{cle, titre, court, svg, legende, echelle}]`, ajustées à la toile de l'établi (13 px dans 626 × 682) |
 | `tests/test_corniere_schemas.py` | 96 contrôles : échelle, orientation A/B, sections exactes, bras du mode, data-sel, diagrammes au prorata de s, peintres de la note, pureté, 9 mutations et un témoin |
+| `api_web/corniere.py` (lot « écran », 11/11) | le module du site sur l'établi compact : l'état, les saisies refusées avec le message du moteur, quatre rubriques, les vues, le verdict, trois blocs thématiques, cinq fenêtres de calcul, le sélecteur, la note v1, `telecharger` (§ 11) |
+| `tests/test_api_web_corniere.py` | 134 contrôles : seize états face au moteur, 23 refus, le sélecteur, le contrat de sélection, 1 768 lignes de formules réévaluées, la note v1, onze mutations |
+| `acier/corniere/note.py`, `formules.py`, `methode.py`, `api_web/note_corniere.py` (lot « note », 11/11) | la note PDF : la garde du site puis deux pages par cornière (calcul ; détails et méthode), une page de suite au besoin ; les gabarits des formules ; les textes de méthode ; la plomberie du site (§ 12) — branchée le 11/11 (`construire.NOTE_PDF`) |
+| `tests/test_note_corniere.py` | 60 contrôles : onze états, la parité pdftotext avec `verifier`, 1 017 formules ré-évaluées, l'identification piégée, la page de suite, les refus, la sonde navigateur, note.zip, cinq mutations |
 
 ## 2 · L'API et le contrat
 
@@ -361,9 +365,12 @@ l'équilibre (le pivot dessiné), une inégale tapée dans l'autre ordre, X = 10
 rouverte avec son avis, puis A et B au PC 1440, à la tablette 1024 et à l'iPhone 13 (rien ne déborde, 44 px au doigt,
 16 px dans les champs). Les captures `site_corniere_*.png`.
 
-**Ce que l'intégration fait ensuite** : `construire.NOTE_PDF` reçoit « corniere » quand `api_web/note_corniere.py` est
-là, avec sa note riche (`NOTES_RELEVE["corniere"]` : deux cornières, A historique et B) ; le gel `corniere.json` est
-regelé par ce lot (commit distinct).
+**Ce que l'intégration a fait (11/11/2026)** : `construire.NOTE_PDF` porte « corniere » (`api_web/note_corniere.py`
+est là, § 12), avec sa note riche (`NOTES_RELEVE["corniere"]` : deux cornières, A historique avec R_ELU saisie et
+a = 100, puis B avec l'ancrage à Y = 45 et dy = 0) ; le paquet de la note reçoit `acier/corniere/{note,formules,
+methode}.py` (107 fichiers, 2,22 Mo ; `docs/site/MODULES_SITE.md` § 4 quinquies) ; `tests/test_site_web.py` et
+`tests/test_note_identification.py` comptent sept modules. Le gel `corniere.json` est regelé par le lot écran (commit
+distinct).
 ## 12 · La note PDF (lot « note », 11/11/2026) — `acier/corniere/note.py`
 
 **Ce qu'elle est.** Une note = la page de garde du site (A4 portrait — projet, partie, date, indice, sommaire avec le

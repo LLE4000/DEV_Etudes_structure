@@ -262,9 +262,10 @@ chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutr
 # « riche » pour le relevé du paquet de la note (construire.NOTES_RELEVE)
 import inspect  # noqa: E402
 import importlib  # noqa: E402
-chk("la note PDF se fait dans le site pour la poutre, la dalle, le garde-corps, les soudures, les charges sur plancher et "
-    "les assemblages ; chacun rend « telecharger(etat, quoi, infos) » et a sa note riche au relevé du paquet de la note",
-    SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages")
+chk("la note PDF se fait dans le site pour la poutre, la dalle, le garde-corps, les soudures, les charges sur plancher, "
+    "les assemblages et les cornières d'appui (11/11/2026) ; chacun rend « telecharger(etat, quoi, infos) » et a sa note "
+    "riche au relevé du paquet de la note",
+    SW.NOTE_PDF == ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere")
     and sorted(SW.NOTES_RELEVE) == sorted(SW.NOTE_PDF) and set(SW.NOTE_PDF) <= set(ETABLIS)
     and all("infos" in inspect.signature(getattr(importlib.import_module(f"api_web.{k}"), "telecharger")).parameters for k in SW.NOTE_PDF),
     (SW.NOTE_PDF, sorted(SW.NOTES_RELEVE)))

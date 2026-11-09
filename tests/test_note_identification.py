@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""L'IDENTIFICATION imprimée par la note PDF des SIX modules du site qui la font (poutre, dalle, garde-corps, soudures,
-charges sur plancher, assemblages) : TOUJOURS celle de la note du site (R2 : une source unique) — son nom, son
-chantier, son indice, sa date (``infos`` que la page envoie, js/etabli.js).
+"""L'IDENTIFICATION imprimée par la note PDF des SEPT modules du site qui la font (poutre, dalle, garde-corps, soudures,
+charges sur plancher, assemblages, cornières d'appui depuis le 11/11/2026) : TOUJOURS celle de la note du site (R2 : une
+source unique) — son nom, son chantier, son indice, sa date (``infos`` que la page envoie, js/etabli.js).
 
 Défaut corrigé (09/11/2026) : les notes des soudures et du plancher imprimaient « indice 0 » sous une note du site
 d'indice B — le champ « Indice » de leur écran (« 0 » par défaut) passait devant celui de la note. Les champs
@@ -145,7 +145,7 @@ for mod, e in ETATS.items():
     ec = ecarts(mod, NOTES[mod], e)
     chk(f"{mod} : le nom, le chantier (accents, guillemets, « & »), l'indice C et la date de la note du site, exactement aux "
         f"endroits prévus ({len(pages(NOTES[mod]))} pages) ; rien d'autre", not ec, ec[:4])
-chk("les six modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 6, sorted(NOTES))
+chk("les sept modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 7, sorted(NOTES))
 
 # ---------------------------------------------------------------- MUTATIONS : chacune doit faire rougir son module
 vrai_infos = NC.infos_du_cas
