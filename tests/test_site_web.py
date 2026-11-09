@@ -21,6 +21,7 @@
     python3 tests/test_site_web.py
 """
 import hashlib
+import importlib
 import json
 import os
 import re
@@ -121,6 +122,12 @@ out = {{}}
 for m in REG.cles():
     r = json.loads(R.traiter(json.dumps({{"module": m, "action": "nouveau"}})))
     out[m] = (r["ok"], r.get("erreur"), (r.get("resume") or {{}}).get("taux"))
+# les BIBLIOTHÈQUES (action « consulter ») : chaque rubrique de chacune, avec ses défauts — ce que leur page chargera
+import importlib
+for b, chemin in R.BIBLIOTHEQUES.items():
+    for rub in importlib.import_module(chemin).CLES:
+        r = json.loads(R.traiter(json.dumps({{"action": "consulter", "bibliotheque": b, "rubrique": rub}})))
+        out["@" + b + ":" + rub] = (r["ok"] and r.get("rubrique") == rub, r.get("erreur"), None)
 print(json.dumps(out))
 """
     p = subprocess.run([sys.executable, "-c", essai], capture_output=True, text=True, cwd=tmp)
@@ -128,8 +135,13 @@ print(json.dumps(out))
         res = json.loads(p.stdout.strip().splitlines()[-1])
     except Exception:  # noqa: BLE001
         res = {"_": (False, p.stderr[-400:], None)}
-chk("déballé seul, le paquet calcule chaque module", res and all(v[0] for v in res.values()), res)
-chk(f"chaque module du registre est dans le paquet ({len(SW.ADRESSES)})", sorted(res) == sorted(SW.ADRESSES), (list(res), list(SW.ADRESSES)))
+chk("déballé seul, le paquet calcule chaque module et rend chaque rubrique de chaque bibliothèque (le paquet porte ce que la "
+    "Bibliothèque Acier lit : le catalogue, bibliotheques.json, le moteur du flambement…)", res and all(v[0] for v in res.values()), res)
+chk(f"chaque module du registre est dans le paquet ({len(SW.ADRESSES)})", sorted(k for k in res if not k.startswith("@")) == sorted(SW.ADRESSES),
+    (list(res), list(SW.ADRESSES)))
+chk("chaque rubrique de chaque bibliothèque du site a été rendue par le paquet seul",
+    sorted(k for k in res if k.startswith("@")) == sorted(f"@{b}:{r}" for b, (c, _t, _f) in SW.BIBLIOTHEQUES.items()
+                                                          for r in importlib.import_module(c).CLES), [k for k in res if k.startswith("@")])
 
 # 2 bis. le paquet de la NOTE PDF (moteur/note.zip : chargé à la première note, déballé À CÔTÉ du moteur, js/travailleur.js)
 # — son empreinte au manifeste ; il est celui que le générateur écrit (reproductible ; relevé en faisant la note « riche »
@@ -286,9 +298,10 @@ _src_biblio = open(os.path.join(WEB, "js", "biblio.js"), encoding="utf-8").read(
 _ids_biblio = sorted(set(re.findall(r'\$\("#([\w-]+)', _src_biblio)) | set(re.findall(r'getElementById\("([\w-]+)"', _src_biblio)))
 _avec = [k for k in ETABLIS if k in SW.ETABLI_COMPACT and SW._bibliotheque_du_module(k)]
 chk("la poutre ouvre la bibliothèque béton armé dans sa note (bibliotheque_prefill) ; les dalles pas encore", _avec == ["poutre"], _avec)
-_page_bib = open(os.path.join(WEB, "bibliotheque-beton.html"), encoding="utf-8").read()
-chk(f"bibliotheque-beton.html : les {len(_ids_biblio)} identifiants que js/biblio.js cherche existent, une seule fois (hors ceux du panneau d'une note)",
-    all(_page_bib.count(f'id="{i}"') == 1 for i in _ids_biblio if i != "et-bibliotheque"), [i for i in _ids_biblio if _page_bib.count(f'id="{i}"') != 1])
+for _k_bib in SW.BIBLIOTHEQUES:
+    _page_bib = open(os.path.join(WEB, SW.PAGES_BIBLIOTHEQUES[_k_bib]), encoding="utf-8").read()
+    chk(f"{SW.PAGES_BIBLIOTHEQUES[_k_bib]} : les {len(_ids_biblio)} identifiants que js/biblio.js cherche existent, une seule fois (hors ceux du panneau d'une note)",
+        all(_page_bib.count(f'id="{i}"') == 1 for i in _ids_biblio if i != "et-bibliotheque"), [i for i in _ids_biblio if _page_bib.count(f'id="{i}"') != 1])
 for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     _corps = re.search(r"<body[^>]*>", html).group(0)
@@ -420,15 +433,26 @@ chk("accueil : la carte dit « Bibliothèque Béton armé » et LISTE ses rubriq
     "du menu de la bibliothèque (RUBRIQUES, une source)",
     _fb["carte"][2] == "Bibliothèque Béton armé" and _fb["rubriques"] == _rub_beton == ["Bétons", "Aciers", "Sections", "Enrobages", "Ancrages"]
     and _fb["icones"] == len(_rub_beton), (_fb["carte"], _fb["rubriques"], _fb["icones"]))
-# le gabarit LIT _bibliotheques_de(fam) : une bibliothèque Acier (BIB5) prendra la même forme sans rien recoder — joué
-# ici avec une bibliothèque d'essai déclarée sur la famille Acier ; deux bibliothèques dans une famille sont refusées
-# à la construction (le gabarit n'en place qu'une : la première colonne)
+# BIB5 : la Bibliothèque ACIER, déclarée sur la famille Acier, a pris la forme prévue sans rien recoder (le gabarit LIT
+# _bibliotheques_de(fam)) : sa carte dit « Bibliothèque Acier » et liste les rubriques de son menu (RUBRIQUES de
+# api_web/biblio_acier.py, une source) ; le « Catalogue des profilés » qu'elle porte est masqué (MASQUES), ses
+# modules de calcul sont à sa droite
+_rub_acier = [t for _, t, _, _ in importlib.import_module("api_web.biblio_acier").RUBRIQUES]
+_fa = next((f for f in _FAMS if f["fam"] == "acier"), {"carte": (None, None, ""), "rubriques": [], "icones": 0, "modules": [], "forme": None})
+chk("accueil : la carte « Bibliothèque Acier » (BIB5) est à gauche du bloc Acier, vise sa page, liste ses rubriques (Profilés, Nuances, Boulons) avec "
+    "leurs icônes ; le Catalogue des profilés n'est plus une tuile, les cinq calculs Acier sont à sa droite",
+    _fa["forme"] == "biblio" and _fa["carte"] == ("acier", "bibliotheque-acier", "Bibliothèque Acier") and _fa["rubriques"] == _rub_acier == ["Profilés", "Nuances", "Boulons"]
+    and _fa["icones"] == 3 and "catalogue" in SW.MASQUES and "Catalogue des profilés" not in _fa["modules"]
+    and _fa["modules"] == ["Choix de profilé", "Cornières", "Flambement", "Assemblages métalliques", "Soudures"], (_fa["carte"], _fa["rubriques"], _fa["modules"]))
+# le gabarit reste générique : une bibliothèque d'essai déclarée sur « Autres » (la seule famille sans bibliothèque
+# depuis BIB5) prend la même forme ; deux bibliothèques dans une famille sont refusées à la construction (le gabarit
+# n'en place qu'une : la première colonne). (Avant BIB5, l'essai était sur l'Acier : le contrôle SUIT la vraie carte.)
 _sauve = dict(SW.BIBLIOTHEQUES), dict(SW.ADRESSES_BIBLIOTHEQUES)
 try:
-    SW.BIBLIOTHEQUES["essai"] = ("api_web.biblio_beton", "Acier", "acier")
+    SW.BIBLIOTHEQUES["essai"] = ("api_web.biblio_beton", "Autres", "autres")
     SW.ADRESSES_BIBLIOTHEQUES["essai"] = "bibliotheque-essai"
     _fams_essai = {f["fam"]: f for f in _familles_accueil(SW.page_accueil())}
-    SW.BIBLIOTHEQUES["essai2"] = ("api_web.biblio_beton", "Acier bis", "acier")
+    SW.BIBLIOTHEQUES["essai2"] = ("api_web.biblio_beton", "Autres bis", "autres")
     SW.ADRESSES_BIBLIOTHEQUES["essai2"] = "bibliotheque-essai2"
     try:
         SW.page_accueil()
@@ -438,11 +462,11 @@ try:
 finally:
     SW.BIBLIOTHEQUES.clear(); SW.BIBLIOTHEQUES.update(_sauve[0])
     SW.ADRESSES_BIBLIOTHEQUES.clear(); SW.ADRESSES_BIBLIOTHEQUES.update(_sauve[1])
-chk("accueil : une bibliothèque déclarée sur la famille Acier prend la même forme (carte à gauche, ses modules à droite, "
+chk("accueil : une bibliothèque déclarée sur la famille « Autres » prend la même forme (carte à gauche, ses modules à droite, "
     "les mêmes) ; deux bibliothèques dans une famille sont refusées à la construction",
-    _fams_essai["acier"]["forme"] == "biblio" and _fams_essai["acier"]["carte"][:2] == ("essai", "bibliotheque-essai")
-    and _fams_essai["acier"]["modules"] == [n for f, ns in _attendu if f == "acier" for n in ns]
-    and _fams_essai["beton"]["forme"] == "biblio" and _fams_essai["autres"]["forme"] == "grille" and "n'en place qu'une" in _deux,
+    _fams_essai["autres"]["forme"] == "biblio" and _fams_essai["autres"]["carte"][:2] == ("essai", "bibliotheque-essai")
+    and _fams_essai["autres"]["modules"] == [n for f, ns in _attendu if f == "autres" for n in ns]
+    and _fams_essai["beton"]["forme"] == "biblio" and _fams_essai["acier"]["forme"] == "biblio" and "n'en place qu'une" in _deux,
     ({k: (f["forme"], f["carte"]) for k, f in _fams_essai.items()}, _deux))
 # la feuille du site porte la règle de la forme (la mesure à l'écran est celle de verifier_site.js) : la grille des
 # modules d'un bloc à bibliothèque commence à la DEUXIÈME colonne, en sous-grille (les colonnes de la charte, une
@@ -459,6 +483,7 @@ chk("js/modules.js garde les modules masqués (notes existantes) et les marque �
 chk("accueil : « Nouvelle note » ne propose pas les modules masqués, le volet « Modules » commence par les bibliothèques sans les masqués",
     not any(f'data-module="{k}"' in _accueil for k in SW.MASQUES)
     and re.search(r'<aside class="modpanel">.*?<div class="navlabel">Bibliothèques</div><a class="navitem" href="bibliotheque-beton">', _accueil, re.S)
+    and re.search(r'<div class="navlabel">Bibliothèques</div>(?:(?!navlabel).)*<a class="navitem" href="bibliotheque-acier">', _accueil, re.S)
     and not any(f'href="{SW.ADRESSES[k]}"' in _accueil.split('<aside class="modpanel">')[1] for k in SW.MASQUES))
 chk("les pages des modules masqués sont toujours écrites et servies", all(os.path.exists(os.path.join(WEB, SW.PAGES[k])) for k in SW.MASQUES))
 

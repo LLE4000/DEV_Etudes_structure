@@ -3,8 +3,11 @@
    la valeur retenue, les sources ; « Pourquoi ? » dans un volet à droite. Chargée par bibliotheque-*.html seul
    (site/web/construire.py, page_bibliotheque). Les couleurs sont celles du thème (clair et sombre). */
 
-.bib { position: relative; flex: 1; display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 0;
-  height: calc(100vh - var(--top-h)); }
+/* (BIB5, relecture : « flex: 1 1 0 » et la rangée « minmax(0, 1fr) » — sans elles, la hauteur de la grille était celle de
+   son contenu et non celle de l'écran : invisible tant que les tableaux du béton tenaient dans l'écran, le tableau des
+   profilés poussait la bande et les sources à 6 700 px — mesuré, et figé par verifier_site.js, filtre « bibliotheque ») */
+.bib { position: relative; flex: 1 1 0; display: grid; grid-template-columns: 216px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr);
+  min-height: 0; height: calc(100vh - var(--top-h)); }
 .bib-menu { border-right: 1px solid var(--line); background: var(--panel); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .bib-m { display: grid; grid-template-columns: 22px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center;
   min-height: 56px; padding: 6px 10px; border-radius: 10px; text-align: left; color: var(--ink-2); cursor: pointer; }
@@ -135,6 +138,71 @@
 .bib-pq-b .bib-av { margin-top: 10px; }
 .bib-pq-s { margin-top: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--ink-3); }
 
+/* ---------------------------------------------------------------- la Bibliothèque ACIER (BIB5) : le catalogue des profilés
+   (api_web/biblio_acier.py). Son tableau est GRAND (jusqu'à 1 419 profilés, 39 colonnes) : il prend toute la hauteur
+   qui reste et défile DANS son cadre, l'en-tête et la colonne des noms restent posés. Les familles en pastilles, les
+   colonnes dans un menu déroulant, les filtres sur une ligne. */
+.bib-tableau:has(> .bib-profils), .bib-tableau:has(> .bib-vide-p) { flex: 1 1 auto; }
+.bib-profils { font-size: 12.5px; }
+.bib-profils th, .bib-profils td { height: 32px; padding: 0 9px; }
+.bib-profils thead th { height: 42px; }
+.bib-profils thead th[data-sel] { cursor: pointer; }
+.bib-profils thead th[data-sel]:hover .s { color: var(--accent-hover); }
+.bib-profils thead th .s i { font-style: normal; margin-left: 3px; color: var(--accent); }
+.bib-profils tbody tr[data-sel] { cursor: pointer; }
+.bib-profils th.nm { min-width: 128px; }
+.bib-profils td.fa { text-align: left; color: var(--ink-3); font-size: 11.5px; }
+.bib-profils thead th.fa { text-align: left; }
+.bib-profils td.tri { font-weight: 650; }
+.bib-profils tbody tr.on th.nm.cur { box-shadow: inset 3px 0 0 var(--accent), inset 0 0 0 2px var(--accent); background: var(--accent-soft); }
+.bib-profils th.nm .mk { color: #E0A100; font-style: normal; margin-left: 5px; }
+.bib-profils tr.saut td { text-align: center; color: var(--ink-3); font-style: italic; background: var(--panel-2) !important; }
+/* les pastilles (familles ; colonnes dans leur menu) : un groupe = son nom puis ses pastilles */
+.bib-puces { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+.bib-grp { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.bib-grp-t { font-size: 10.5px; font-weight: 650; color: var(--ink-3); margin-right: 2px; white-space: nowrap; }
+.bib-puces .fchip, .bib-plus-c .fchip { height: 26px; font-family: inherit; flex: none; white-space: nowrap; }
+.bib-puces .fchip small, .bib-plus-c .fchip small { font-size: 9.5px; font-weight: 600; opacity: .7; }
+.bib-pt sub { font-size: 8.5px; }
+.bib-phr .bib-nw { white-space: nowrap; }
+.bib-p .bib-txt { width: 230px; gap: 6px; }
+.bib-p .bib-txt svg.i { width: 14px; height: 14px; color: var(--ink-3); flex: none; }
+.bib-p .bib-txt input { width: 100%; text-align: left; }
+.bib-p .bib-borne input { width: 84px; }
+.bib-filtre { display: inline-flex; flex-wrap: wrap; gap: 6px 8px; align-items: end; padding-right: 6px; }
+.bib-filtre + .bib-filtre { border-left: 1px solid var(--line); padding-left: 12px; }
+.bib-p .seg button svg.i { width: 13px; height: 13px; margin-right: 4px; vertical-align: -2px; }
+/* « Colonnes » : un bouton qui déroule les pastilles par-dessus le tableau — posées sous la barre, à sa gauche (la barre
+   les place : où que le bouton tombe sur sa ligne, le menu ne sort pas de l'écran) */
+.bib-barre { position: relative; }
+.bib-plus { position: static; }
+.bib-plus > summary.btn { list-style: none; display: inline-flex; align-items: center; gap: 6px; height: 30px; cursor: pointer; user-select: none; }
+.bib-plus > summary::-webkit-details-marker { display: none; }
+.bib-plus > summary svg.i { width: 14px; height: 14px; }
+.bib-plus[open] > summary { border-color: var(--accent); color: var(--accent-hover); }
+.bib-plus-c { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(600px, 100%); max-height: min(70vh, 560px); overflow: auto;
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-pop); }
+.bib-plus-g { display: flex; flex-direction: column; gap: 5px; }
+.bib-plus-p { display: flex; flex-wrap: wrap; gap: 4px; }
+.bib-plus-a { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 8px; border-top: 1px solid var(--line); }
+.bib-plus-n { flex: 1 1 220px; font-size: 11px; color: var(--ink-3); }
+/* la bande d'un profilé : sa vignette (le dessin du catalogue, sur le papier), le plus léger qui satisfait les filtres */
+.bib-vig { flex: none; width: 58px; height: 58px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); display: grid; place-items: center; padding: 3px; }
+.bib-vig svg { width: 100%; height: 100%; }
+.bib-leger { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; flex: 1 1 100%; font-size: 12.5px; color: var(--ink-2); }
+.bib-leger .mk { color: #E0A100; font-style: normal; font-size: 14px; }
+.bib-bande-b .btn:disabled { opacity: .5; cursor: not-allowed; }
+/* la fiche d'un profilé (le volet) : la section à l'échelle sur le papier, puis toutes les propriétés et leurs formules */
+.bib-pq-des { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin: 8px 0 4px; display: grid; place-items: center; }
+.bib-pq-des svg { width: 100%; height: auto; max-height: 340px; }
+.bib-pq-leg { font-size: 12px; color: var(--ink-3); text-align: center; margin-bottom: 8px; }
+.bib-fiche tr.g td { padding-top: 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--line-strong); }
+.bib-fiche td.s { width: 70px; }
+.bib-fiche td.n { width: 120px; }
+.bib-fiche tr.f td { background: var(--accent-soft); }
+.bib-fiche .bib-fil { display: block; color: var(--accent-hover); font-weight: 600; }
+.bib-nuances td, .bib-boulons td, .bib-classes td { min-width: 64px; }
+
 /* ---------------------------------------------------------------- tablette : le menu se resserre sous 1 100 px ; la colonne
    « usage » des aciers (du texte) se retire, la classe de ductilité reste dans le nom de la nuance et dans « Pourquoi ? » */
 @media (max-width: 1100px) {
@@ -166,6 +234,19 @@
   .bib-bande-b { margin-left: 0; width: 100%; }
   .bib-bande-b .btn { flex: 1; height: 42px; justify-content: center; }
   .bib-pq-c { width: 100vw; }
+  /* l'acier au doigt : les familles sur UNE ligne qui défile, les pastilles et le menu « Colonnes » à 40 px, la
+     recherche sur toute la ligne, le tableau des profilés dans un cadre qui défile (comme les autres) */
+  .bib-p:has(> .bib-puces) { width: 100%; }
+  .bib-puces { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; overscroll-behavior-x: contain; }
+  .bib-grp { flex-wrap: nowrap; }
+  .bib-puces .fchip, .bib-plus-c .fchip { height: 36px; padding: 0 12px; }
+  .bib-p:has(> .bib-txt) { flex: 1 1 100%; }
+  .bib-p .bib-txt { width: 100%; height: 40px; }
+  .bib-plus > summary.btn { height: 40px; }
+  .bib-plus-c { position: fixed; left: 8px; right: 8px; top: auto; bottom: 72px; width: auto; max-height: 60svh; }
+  .bib-filtre + .bib-filtre { border-left: 0; padding-left: 0; }
+  .bib-tableau:has(> .bib-profils) { flex: none; }
+  .bib-profils th, .bib-profils td { height: 40px; }
 }
 
 /* ---------------------------------------------------------------- le panneau « Bibliothèque » d'une note (docs/site/BIBLIOTHEQUES.md

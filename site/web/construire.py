@@ -68,8 +68,10 @@ ARBRE_COMPACT = ("dalle", "poutre")
 REDIRECTIONS = {"predalle": "dalle"}
 # les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : une page par famille, hors du registre des modules (une
 # consultation n'est pas une note) ; la clé est celle que le routeur reçoit (action « consulter », « bibliotheque ») :
-# clé → (module de rendu, titre, famille)
-BIBLIOTHEQUES = {"beton": ("api_web.biblio_beton", "Béton armé", "beton")}
+# clé → (module de rendu, titre, famille). La Bibliothèque Acier (BIB5) porte le catalogue des profilés : le module
+# « Catalogue des profilés » est masqué de l'accueil (MASQUES), sa page et ses notes restent servies.
+BIBLIOTHEQUES = {"beton": ("api_web.biblio_beton", "Béton armé", "beton"),
+                 "acier": ("api_web.biblio_acier", "Acier", "acier")}
 PAGES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}.html" for k in BIBLIOTHEQUES}
 ADRESSES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}" for k in BIBLIOTHEQUES}
 # les modules masqués de l'accueil (site/maquettes/construire.py, MASQUES) : servis, plus listés

@@ -71,7 +71,7 @@ Enrobage.
     icônes de `RUBRIQUES`, une source). Sa mise en page suit la hauteur qu'elle reçoit (requête de conteneur) : à deux
     rangées (PC large), la liste se range sur deux colonnes (Bétons, Aciers, Sections | Enrobages, Ancrages) ; à trois
     rangées et plus, une seule colonne. Toute la carte reste le lien vers la page de la bibliothèque.
-  - **Les familles sans bibliothèque** (Acier pour l'instant, Autres) gardent leur grille, **alignée sur la marge
+  - **Les familles sans bibliothèque** (Autres ; l'Acier jusqu'à BIB5) gardent leur grille, **alignée sur la marge
     gauche** : leurs tuiles tombent sur les MÊMES lignes de colonnes que la carte et les modules du bloc à
     bibliothèque (la carte occupe une colonne de la grille commune). Choisi plutôt que de décaler ces familles d'une
     colonne vers la droite : un seul rythme vertical pour toute la section (l'œil suit des colonnes continues d'une
@@ -85,7 +85,9 @@ Enrobage.
     1 440 × 900) une carte Acier — et une sur « Autres », trois modules — sous cette forme et exige les mêmes contrôles
     que pour le Béton. Une famille de PEU de modules (une seule rangée, plus basse que le plancher de la carte) garde
     des tuiles à la hauteur d'une tuile, en haut du bloc (`align-content: start` ; relecture du 09/11/2026 : sans
-    cela, la rangée unique s'étirait à 120 px).
+    cela, la rangée unique s'étirait à 120 px). *Fait la nuit du 09 au 10/11/2026 (BIB5) : la vraie carte
+    « Bibliothèque Acier » (Profilés, Nuances, Boulons) a pris cette forme sans une ligne de gabarit ; les essais
+    (`test_site_web`, `verifier_site.js`) portent désormais sur « Autres », la seule famille sans bibliothèque.*
   - **Téléphone** : inchangé à l'œil — la carte en tête de la liste de sa famille, pleine largeur, l'icône à gauche,
     « Bibliothèque Béton armé » sur une ligne, les rubriques à la suite (« Bétons · Aciers · … », les « · » posés par
     la feuille). La même carte, rendue une fois ; seule la feuille diffère (R1).
@@ -106,7 +108,7 @@ Enrobage.
 - Les pages des anciens modules restent **servies** (une note existante s'ouvre encore ; une note neuve se crée
   encore depuis l'adresse de la page), mais ne sont plus listées ; la liste nommée `MASQUES`, à côté de `FAMILLES`
   dans `site/maquettes/construire.py`, le dit et les tests la lisent (`donnees_beton`, `armatures`, `enrobage` ; le
-  catalogue reste listé jusqu'à BIB5). `js/modules.js` les garde avec le drapeau `masque`, pour que l'accueil
+  catalogue `catalogue` depuis BIB5). `js/modules.js` les garde avec le drapeau `masque`, pour que l'accueil
   (« Reprendre ») et le harnais les connaissent. Leur retrait définitif se décidera quand la bibliothèque aura remplacé
   chaque fonction (§ 3).
 
@@ -150,6 +152,57 @@ La page du catalogue devient l'entrée « Bibliothèque Acier » (même adresse,
 gabarit de § 2.2 : à gauche le menu (**Profilés laminés** aujourd'hui ; places prévues pour nuances d'acier,
 boulons, soudures), à droite le tableau sur toute la largeur. Les outils qui dimensionnent (cornière, flambement,
 profil, assemblages, soudures) restent des calculs.
+
+**Révision de la nuit du 09 au 10/11/2026 — BIB5 fait, autrement que prévu sur un point.** La Bibliothèque Acier est
+une page NOUVELLE (`bibliotheque-acier`, `api_web/biblio_acier.py`), au gabarit de la béton armé (`construire.
+page_bibliotheque`, `js/biblio.js`, `css/bibliotheque.css`) — et non la page du catalogue renommée : l'ancienne page
+`catalogue-profiles` garde son adresse, son moteur et ses notes (masquée de l'accueil comme Données béton, une ancienne
+note s'y rouvre : contrôlé dans le vrai navigateur). Raison : une consultation n'est pas une note (§ 2.2), et le
+module du catalogue en est une (recherches multiples, profilés personnalisés) ; garder les deux évite toute migration
+de format. Trois rubriques :
+
+- **Profilés** — le catalogue entier, sur la largeur : familles en pastilles (groupe par groupe, avec leur nombre),
+  recherche (« ipe200 », « hea 3 »), séries courantes, tri (sélecteur, ou clic sur un en-tête ; un second clic
+  renverse), lignes (100, 200, 500, toutes ; le profilé ouvert toujours montré), menu « Colonnes » (39 propriétés en
+  pastilles, gardé ouvert d'un clic à l'autre), filtres numériques (une ligne libre de plus à chaque filtre posé, trois
+  au plus ; « Effacer les filtres »). Un clic sur une ligne ouvre le profilé : sa ligne s'allume, la bande donne sa
+  vignette, son nom, sa masse, sa famille et sa norme, ses dimensions, A, I_y, W_pl,y, I_z ; avec un filtre posé, « le
+  plus léger qui satisfait les filtres » (★ dans le tableau et la bande, « Ouvrir … »). « Fiche du profilé » (le volet
+  « Pourquoi ? ») : la section à l'échelle (le dessin du catalogue), puis TOUTES ses propriétés groupe par groupe,
+  chacune avec la formule du catalogue, valeurs substituées, ou sa définition ; la méthode de I_t ; les sources. Le
+  tableau est grand : il DÉFILE dans son cadre (l'en-tête et la colonne des noms restent posés), la bande reste dans
+  l'écran. Rien n'est refait : liste, colonnes, cellules, plus léger, raisons d'un tableau vide, formules sont ceux du
+  module du site « Catalogue des profilés » (`api_web/catalogue.py`, tiré mot pour mot de l'écran Streamlit), les
+  nombres ceux de `acier/donnees/profiles.json`.
+- **Nuances** — les aciers de construction tels que les moteurs d'assemblage, de soudure et de garde-corps les lisent
+  (`acier/donnees/bibliotheques.json` : f_y, f_u, β_w), f_y de 40 à 80 mm et ε par le moteur du flambement
+  (`acier/flambement/normes.py`, tableau 3.1), f_vw,d par `acier/resistances.fvw_d` avec le γ_M2 de
+  `acier/soudures/criteres.py`. Bande : f_y selon l'épaisseur (t ≤ 40 mm ; 40 < t ≤ 80 mm, avec l'avertissement que
+  f_u n'est connu du dépôt que pour t ≤ 40 mm).
+- **Boulons** — les boulons et leurs classes tels que les assemblages les lisent (bibliotheques.json : d, d_0, A,
+  A_s, d_m, d_w ; f_yb, f_ub, α_v) ; F_t,Rd et F_v,Rd (plan de cisaillement dans le filetage, A_s) par
+  `acier/resistances.Ft_Rd` / `Fv_Rd`, les fonctions des moteurs d'assemblage. Bande : F_v,Rd (vue « Boulons »), f_ub
+  (vue « Classes »).
+
+Aucune valeur n'est retapée dans la page (R2, R3) : `tests/test_api_web_bibliotheque_acier.py` relit les fichiers À
+PART et compare, et quatre mutations montrent que la page suit ses sources. Les DEUX copies de f_y (t ≤ 40 mm) qui se
+rencontrent dans la rubrique « Nuances » — `bibliotheques.json` et `normes.NUANCES` — sont NOMMÉES et liées par ce même
+test. Deux autres copies existent et ne sont pas liées (relevé, rien de modifié : moteurs hors du lot) :
+`acier/choix_profil/moteur.FY_EPAIS` (f_y de 40 à 80 mm, 3 nuances) et `plancher/charges/operations.FY_MATERIAU`
+(« la table de l'écran d'origine, telle quelle »).
+
+*Ce qui reste (BIB5), et ce qui manque pour d'autres rubriques* : le bouton « Bibliothèque » des calculs acier
+(« Choix de profilé » d'abord, § 2.4) n'est PAS fait — l'établi de ce module n'est pas compact, il faudrait poser le
+bouton et le panneau dans `construire.page_module` hors de `compact()`, et `bibliotheque_prefill` dans
+`api_web/profil.py` : un lot à part, avec sa relecture ; les profilés personnalisés, la comparaison et l'export en
+texte du catalogue ne sont que dans l'ancienne page (masquée, ouvrable par l'adresse et ses notes) — les porter dans la
+bibliothèque, ou décider de les laisser au calcul, est à trancher. Rubriques futures, sans valeur dans le dépôt
+aujourd'hui (rien n'a été inventé) : **soudures** (épaisseurs de gorge minimales et maximales, longueurs utiles : le
+moteur des soudures ne les tabule pas) ; **f_u au-delà de 40 mm** (tableau 3.1, à transcrire depuis le texte) ;
+**trous et pinces** (e_1, e_2, p_1, p_2 minimaux : lus par chaque moteur d'assemblage dans ses propres règles, aucune
+table commune) ; **ancrages et chevilles** (valeurs ETA du pied de poteau, propres à chaque produit) ; **tôles et plats
+du commerce** (`bibliotheques.json` n'a que cinq épaisseurs et huit ailes de cornière : une table du bureau serait à
+fournir).
 
 ### 2.4 Le bouton « Bibliothèque » de chaque calcul
 
@@ -210,7 +263,7 @@ profil, assemblages, soudures) restent des calculs.
 | Données béton · Tableau des armatures, **Tableau des armatures** (module) | · 3 Sections et masses (tableau + fiche rapide « A_s requis → dispositions ») | `beton/armatures` inchangé ; les notes « repères » existantes s'ouvrent sur l'ancienne page |
 | Données béton · Enrobages, **Enrobage** (module) | · 4 Enrobages et feu (tableaux + fiche rapide = le calcul complet de c_nom) | nouveau moteur aux valeurs de la norme (§ 4) ; l'ancien module reste servi avec son moteur de parité Streamlit |
 | Données béton · Ancrages (vide) | · 5 Ancrages et recouvrements (calculés) | nouveau moteur ; le format « tableaux du bureau » (`ancrages_recouvrements.json`) reste disponible pour un tableau maison |
-| **Catalogue des profilés** | Bibliothèque Acier · Profilés laminés | module inchangé, gabarit de bibliothèque |
+| **Catalogue des profilés** | Bibliothèque Acier · Profilés (BIB5 : page `bibliotheque-acier` ; + Nuances, Boulons) | module inchangé, masqué, sa page et ses notes servies ; la bibliothèque lit sa liste et ses formules (une source) ; personnalisés, comparaison, export : seulement dans l'ancienne page |
 | Maturité du béton, Taux d'armature, Charges sur plancher, Poutres, Dalles, Prédalles | Calculs · Béton | inchangés |
 | Choix de profilé, Cornières, Flambement, Assemblages, Soudures | Calculs · Acier | inchangés |
 | Garde-corps, Poutres bois, Rigidité du sol | Calculs · Autres | inchangés |
@@ -276,7 +329,7 @@ aucune valeur, jusqu'à ce que l'ingénieur transcrive les deux tableaux depuis 
 | **BIB2** page — **fait le 08/11/2026** | `api_web/biblio_beton.py` (hors du registre des modules : action « consulter » du routeur, `consulter(rubrique, params, hote)`), `construire.page_bibliotheque` (page `bibliotheque-beton`), `css/bibliotheque.css`, `js/bibliotheque.js` : les cinq rubriques, tableau à sélection (chaque case porte les paramètres qu'un clic règle), barre de paramètres, bande de valeur, « Pourquoi ? » en volet, l'adresse qui garde l'état ; trois icônes Lucide ajoutées (book-open, anchor, flame) | `tests/test_api_web_bibliotheque.py` (101 contrôles : valeurs = moteurs, chaque case allume sa case, refus doux, échappement, routeur, page, mutations) ; `verifier_site.js` filtre « bibliotheque » (100 contrôles : 1 440 × 900, 1 180 × 820, 820 × 1 180, 390 × 844 — le tableau se voit d'un coup sur PC et tablette, la case allumée visible, les gestes, l'adresse rouverte) ; captures regardées ; **relecture de l'ingénieur attendue** |
 | **BIB3** accueil — **fait le 09/11/2026** | `site/maquettes/construire.py` : `MASQUES` (donnees_beton, armatures, enrobage) ; `construire.py` : la carte « Bibliothèque Béton armé » (`.tile.biblio`, icône livre, rubriques en sous-titre) en tête du bloc Béton, le volet « Modules » (rail du PC, onglet du téléphone) commence par le groupe **Bibliothèques**, les masqués quittent les tuiles, le volet et « Nouvelle note » ; `js/modules.js` les garde avec `masque: true` (pages servies, notes existantes ouvrables, note neuve par l'adresse) ; `css/site.css` `.tile.biblio` | `tests/test_site_web.py` § 4 ter (carte en tête du bloc, rubriques, drapeau `masque`, volet, options, pages masquées toujours écrites) ; `verifier_site.js` accueil (registre visible, masqués absents, carte en tête, volet) et le repli par l'adresse pour un module masqué (`nouvelle()`, `neuve()` — le harnais SUIT : la fenêtre « Nouvelle note » ne les propose plus) ; captures accueil PC et téléphone regardées |
 | **BIB4** la poutre — **fait le 09/11/2026** | `api_web/fiches.py` (relecture stricte, gestion, bloc, vues), `routeur` (actions « bibliotheque », « fiches »), `poutre.py` (`bibliotheque_prefill`, `bibliotheque_cibles`, `fiches`, `normaliser`), `biblio_beton._fiche` (texte, phrase, moteur), `ndc_pdf/kit.table` + `styles.justifications` (deux colonnes, suite), `note_poutre`, `construire` (bouton, menu ⋯, panneau = gabarit partagé), `js/biblio.js` (câblage partagé page + panneau), `js/biblio_note.js`, `css` ; dalle et prédalle : au prochain lot (le panneau et le script les attendent) | `tests/test_api_web_fiches.py` (44 contrôles : préremplissage, cibles possibles ou non, utiliser = modifier, fiches ajouter/monter/descendre/retirer, clé absente, 12 fiches abîmées refusées, échappement, PDF lu par pdftotext, brique table, 3 mutations) ; `test_site_web` (203 : bouton, panneau, identifiants, rien ailleurs) ; gel inchangé (239) ; notes garde-corps et soudures inchangées ; harnais « pilote » (panneau prérempli, utiliser, inclure, J1, PDF avec la fiche, .stab, retirer), « formats:poutre » (feuille plein écran au téléphone), « bibliotheque » ; captures regardées |
-| **BIB5** acier | Bibliothèque Acier (catalogue sous le gabarit), bouton « Bibliothèque » des calculs acier | tests catalogue inchangés (moteur intact) ; harnais ; captures |
+| **BIB5** acier — **fait la nuit du 09 au 10/11/2026** (révision § 2.3), sauf le bouton des calculs acier | `api_web/biblio_acier.py` (Profilés, Nuances, Boulons ; briques et relecture des paramètres de `biblio_beton`), `routeur.BIBLIOTHEQUES["acier"]`, `construire.BIBLIOTHEQUES["acier"]` (la carte de l'accueil, à gauche du bloc Acier, et le volet « Modules » sans rien recoder), `MASQUES` + `catalogue` (maquettes et site), `js/biblio.js` (une ligne, un en-tête, un bouton de la bande règlent ; une pastille règle le paramètre de son bloc ; un menu `data-garde` reste ouvert ; le tableau garde son défilement dans une rubrique), `css/bibliotheque.css` (le grand tableau qui défile dans son cadre ; et la hauteur de la grille, `flex: 1 1 0` + rangée `minmax(0, 1fr)` : sans elles la page des profilés faisait 6 868 px de haut, la bande hors de l'écran — muet pour le béton dont les tableaux tiennent) | `tests/test_api_web_bibliotheque_acier.py` (118 contrôles : le tableau = celui du module du catalogue cellule par cellule, les nombres = `profiles.json` relu à part, le plus léger, la fiche, chaque ligne / en-tête / pastille, refus doux, recherche échappée, nuances et boulons relus à part et recalculés, f_y de `bibliotheques.json` = `normes.NUANCES` (R2), routeur, page ; 6 mutations) ; `test_site_web` (254 : la carte Acier et ses rubriques, le catalogue masqué, la bibliothèque d'essai passée sur « Autres », le paquet seul rend chaque rubrique de chaque bibliothèque) ; `test_api_web_bibliotheque` (101, la bibliothèque « inconnue » est devenue « bois ») ; harnais « bibliotheque » (203 : l'accueil aux huit formats avec les deux cartes, l'Acier aux quatre formats, ses gestes au PC, au doigt au téléphone, une ancienne note du catalogue rouverte ; mutation de la hauteur : 3 rouges) ; captures regardées |
 
 Ordre : BIB1 → BIB2 → BIB3 (court, pour que la bibliothèque se trouve) → BIB4 → BIB5, puis les autres modules de
 calcul reçoivent le bouton à mesure qu'ils passent sur l'établi de référence (lots M).

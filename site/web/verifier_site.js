@@ -138,11 +138,15 @@ const FILTRE = process.argv[4] || '';
   const biblios = await p.$$eval('.tile.biblio', (t) => t.map((x) => ({ k: x.dataset.bibliotheque, href: x.getAttribute('href'), nom: x.querySelector('.nm').textContent.replace(/\s+/g, ' ').trim(),
     premiere: x === x.parentElement.firstElementChild && x.parentElement.matches('.famille > .tiles.fam-b'),
     droite: !!x.nextElementSibling && x.nextElementSibling.matches('.tiles') && x.nextElementSibling.querySelectorAll('.tile:not(.biblio)').length > 0 && !x.nextElementSibling.nextElementSibling })));
-  verif('accueil : la Bibliothèque Béton armé est une carte à part, à gauche du bloc Béton, ses modules dans leur grille à sa droite, et vise sa page',
-    biblios.length >= 1 && biblios.every((b) => b.premiere && b.droite && b.href === `bibliotheque-${b.k}`) && biblios.some((b) => b.k === 'beton' && b.nom === 'Bibliothèque Béton armé'), JSON.stringify(biblios));
-  verif('accueil : le volet « Modules » du rail commence par les bibliothèques et ne liste pas les masqués',
-    await p.evaluate((masques) => { const labels = [...document.querySelectorAll('.modpanel .navlabel')].map((x) => x.textContent); const liens = [...document.querySelectorAll('.modpanel .navitem')].map((x) => x.getAttribute('href') || '');
-      return labels[0] === 'Bibliothèques' && liens.some((h) => h === 'bibliotheque-beton') && masques.split(',').filter(Boolean).every((k) => !liens.includes(k.replace('_', '-')) && !document.querySelector(`.mopt[data-module="${k}"]`)); }, masques));
+  // (BIB5 : la Bibliothèque Acier a sa carte aussi, à gauche du bloc Acier ; le Catalogue des profilés qu'elle porte est masqué)
+  verif('accueil : les Bibliothèques Béton armé et Acier sont des cartes à part, à gauche du bloc de leur famille, leurs modules dans leur grille à leur droite, et visent leur page',
+    biblios.length >= 2 && biblios.every((b) => b.premiere && b.droite && b.href === `bibliotheque-${b.k}`) && biblios.some((b) => b.k === 'beton' && b.nom === 'Bibliothèque Béton armé')
+    && biblios.some((b) => b.k === 'acier' && b.nom === 'Bibliothèque Acier') && masques.split(',').includes('catalogue'), JSON.stringify(biblios));
+  verif('accueil : le volet « Modules » du rail commence par les bibliothèques (Béton armé, Acier) et ne liste pas les masqués',
+    await p.evaluate(async (masques) => { const labels = [...document.querySelectorAll('.modpanel .navlabel')].map((x) => x.textContent); const liens = [...document.querySelectorAll('.modpanel .navitem')].map((x) => x.getAttribute('href') || '');
+      const MODS = (await import('./js/modules.js')).MODULES;
+      return labels[0] === 'Bibliothèques' && liens.some((h) => h === 'bibliotheque-beton') && liens.some((h) => h === 'bibliotheque-acier')
+        && masques.split(',').filter(Boolean).every((k) => !liens.includes(MODS[k].page) && !document.querySelector(`.mopt[data-module="${k}"]`)); }, masques));
   let m = await mesure();
   verif('accueil : rien ne déborde, aucun nom coupé', !m.deborde && !m.coupes.length, m.coupes.join(', '));
   await capture('accueil_vide');
@@ -3252,8 +3256,9 @@ const FILTRE = process.argv[4] || '';
       const m = await mesureAccueilBib(g);
       const tel = nomF.startsWith('téléphone');
       const avec = m.familles.filter((f) => f.carte);
-      verif(`accueil · ${nomF} : chaque bibliothèque a sa carte, « Bibliothèque Béton armé », ses cinq rubriques visibles dans la carte, aucune coupée, rien ne déborde${sombre ? ' (thème sombre)' : ''}`,
-        avec.length >= 1 && avec.some((f) => f.fam === 'beton' && f.titre === 'Bibliothèque Béton armé' && f.rubriques === 'Bétons,Aciers,Sections,Enrobages,Ancrages')
+      verif(`accueil · ${nomF} : chaque bibliothèque a sa carte, « Bibliothèque Béton armé » (cinq rubriques) et « Bibliothèque Acier » (trois), toutes visibles dans leur carte, aucune coupée, rien ne déborde${sombre ? ' (thème sombre)' : ''}`,
+        avec.length >= 2 && avec.some((f) => f.fam === 'beton' && f.titre === 'Bibliothèque Béton armé' && f.rubriques === 'Bétons,Aciers,Sections,Enrobages,Ancrages')
+        && avec.some((f) => f.fam === 'acier' && f.titre === 'Bibliothèque Acier' && f.rubriques === 'Profilés,Nuances,Boulons')
         && avec.every((f) => f.carte.vu && !f.hors.length && !f.coupes.length) && !m.deborde && (!sombre || m.theme === 'dark'), JSON.stringify({ avec, deborde: m.deborde, theme: m.theme }));
       if (!tel) {
         verif(`accueil · ${nomF} : la carte est ÉTROITE et HAUTE — une colonne (≤ une tuile), toute la hauteur du bloc de ses modules, à GAUCHE de chacun, aucun sous elle`,
@@ -3268,11 +3273,13 @@ const FILTRE = process.argv[4] || '';
           // restait seule — trois modules sur quatre colonnes — et ces contrôles rougissaient sur une forme juste.) Et une
           // famille de PEU de modules (« Autres », trois : une seule rangée, plus basse que la carte) garde des tuiles à la
           // hauteur d'une tuile (elles s'étiraient à 120 px).
+          // (BIB5 fait : la carte Acier est la VRAIE ; seule « Autres » reçoit une carte d'essai — une famille qui a déjà sa
+          //  carte est laissée telle quelle : le harnais SUIT)
           const tuileH = Math.max(...m.familles.map((f) => f.hautT));
           await g.evaluate(() => {
             for (const [k, nom] of [['acier', 'Acier'], ['autres', 'Autres']]) {
               const fam = document.querySelector(`.famille[data-fam="${k}"]`), grille = fam && fam.querySelector(':scope > .tiles');
-              if (!grille) continue;
+              if (!grille || fam.querySelector('.tile.biblio')) continue;
               const carte = document.querySelector('.tile.biblio').cloneNode(true);
               carte.dataset.bibliotheque = `essai-${k}`; carte.setAttribute('href', `bibliotheque-essai-${k}`); carte.querySelector('.bib-t').textContent = nom;
               const bloc = document.createElement('div'); bloc.className = 'tiles fam-b'; bloc.append(carte); grille.replaceWith(bloc); bloc.append(grille);
@@ -3280,7 +3287,7 @@ const FILTRE = process.argv[4] || '';
           });
           await g.waitForTimeout(150);
           const ms = await mesureAccueilBib(g), avecS = ms.familles.filter((f) => f.carte);
-          verif(`accueil · ${nomF} : une bibliothèque Acier (BIB5) et une sur « Autres » (trois modules), posées dans la page, prennent la même forme — étroites et hautes, leurs modules à droite à la hauteur d'une tuile, un seul rythme de colonnes`,
+          verif(`accueil · ${nomF} : la Bibliothèque Acier (BIB5, la vraie) et une carte d'essai sur « Autres » (trois modules) prennent la même forme — étroites et hautes, leurs modules à droite à la hauteur d'une tuile, un seul rythme de colonnes`,
             avecS.length === 3 && ['acier', 'autres'].every((k) => avecS.some((f) => f.fam === k)) && etroiteHaute(avecS) && rythme(ms.familles)
             && ms.familles.every((f) => f.hautT <= tuileH + 1),
             JSON.stringify({ tuileH, pistes: ms.familles.map((f) => [f.fam, f.pistes]), avec: avecS.map((f) => [f.fam, f.carte.g, f.carte.l, f.carte.t, f.gauches, f.hautT]) }));
@@ -3392,6 +3399,163 @@ const FILTRE = process.argv[4] || '';
         await g.screenshot({ path: path.join(OUT, 'site_bib_enrobages_feu_pc.png') });
       }
       verif(`bibliothèque ${nomF} : aucune erreur JavaScript`, g.erreurs.length === 0, g.erreurs.join(' | ').slice(0, 300));
+      await c.close();
+    }
+
+    // ---- la Bibliothèque ACIER (BIB5, api_web/biblio_acier.py), aux mêmes quatre formats. « Nuances » et « Boulons » sont
+    // de petits tableaux : ils se voient d'un coup (PC, tablette). « Profilés » est le catalogue entier (des centaines de
+    // lignes) : son tableau DÉFILE dans son cadre — mesuré : le cadre et la bande restent dans l'écran, l'en-tête et la
+    // colonne des noms restent posés quand on fait défiler. Puis les gestes (PC) : une ligne ouvre le profilé, un en-tête
+    // trie, une pastille retire une famille, un filtre I_y ≥ … nomme le plus léger, la fiche montre la section, le menu
+    // « Colonnes » reste ouvert d'un clic à l'autre et se referme dehors, l'adresse rouvre le même état ; au téléphone, un
+    // doigt ouvre un profilé et sa fiche plein écran. Enfin, une ANCIENNE note du Catalogue des profilés (masqué) s'ouvre
+    // encore dans sa page.
+    const RUBRIQUES_ACIER = ['profils', 'nuances', 'boulons'];
+    const tableauProfils = (pg) => pg.evaluate(() => {
+      const c = document.getElementById('bib-tableau'), r = c.getBoundingClientRect();
+      const avant = c.scrollTop;
+      c.scrollTop = c.scrollHeight;
+      const th = c.querySelector('thead th.nm').getBoundingClientRect(), nom = c.querySelector('tbody tr:last-child th.nm');
+      const rn = nom ? nom.getBoundingClientRect() : null;
+      const o = { defile: c.scrollHeight > c.clientHeight + 1, lignes: c.querySelectorAll('tbody tr').length, descendu: c.scrollTop > 0,
+        entete: th.top >= r.top - 1 && th.bottom <= r.bottom + 1, nomPose: !!rn && rn.left >= r.left - 1 && rn.right <= r.right + 1 };
+      c.scrollTop = avant;
+      return o;
+    });
+    for (const [nomF, w, h, tel] of FORMATS_BIB) {
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+      await g.goto(`${BASE}/bibliotheque-acier`);
+      await attendreBib(g);
+      for (const r of RUBRIQUES_ACIER) {
+        await g.click(`.bib-m[data-rubrique="${r}"]`);
+        await calmeBib(g);
+        const m = await mesureBib(g);
+        const url = new URL(g.url());
+        verif(`bibliothèque acier ${nomF} · ${r} : la rubrique s'ouvre, son titre et son adresse (?rubrique=${r})`, m.titre.length > 3 && url.searchParams.get('rubrique') === r, `${m.titre} · ${url.search}`);
+        verif(`bibliothèque acier ${nomF} · ${r} : rien ne déborde, aucun nom coupé`, !m.deborde && !m.coupes.length, m.coupes.join(', '));
+        if (r === 'profils') {
+          const t = await tableauProfils(g);
+          verif(`bibliothèque acier ${nomF} · profils : le tableau des profilés (${t.lignes} lignes) défile DANS son cadre, l'en-tête et les noms restent posés ; ${tel ? 'le cadre est dans la page' : 'le cadre et la bande restent dans l\'écran'}`,
+            t.defile && t.descendu && t.lignes >= 100 && t.entete && t.nomPose && (tel ? m.cadre[1] > 120 : (m.cadreDansEcran && m.bandeVisible)), JSON.stringify({ t, m }));
+        } else if (!tel) {
+          verif(`bibliothèque acier ${nomF} · ${r} : le tableau se voit d'un coup (son cadre ne défile pas) et tient dans l'écran avec la bande`,
+            !m.defileY && !m.defileX && m.cadreDansEcran && m.bandeVisible, JSON.stringify(m));
+        } else {
+          verif(`bibliothèque acier ${nomF} · ${r} : le cadre du tableau et la bande sont dans la page`, m.cadre[0] > 200 && m.cadre[1] > 120, JSON.stringify(m.cadre));
+        }
+        verif(`bibliothèque acier ${nomF} · ${r} : la case allumée est visible, la valeur retenue est écrite`, m.curVisible && /\d/.test(m.valeur || ''), JSON.stringify({ cur: m.curVisible, v: m.valeur }));
+        await g.screenshot({ path: path.join(OUT, `site_bib_acier_${r}_${nomF}.png`) });
+      }
+      await g.click('.bib-m[data-rubrique="profils"]');
+      await calmeBib(g);
+      if (nomF === 'pc') {
+        // une ligne ouvre son profilé
+        await g.click('#bib-tableau tr[data-sel=\'{"profil": "IPE 300"}\'] th.nm');
+        await calmeBib(g);
+        const l = await g.evaluate(() => ({ v: document.querySelector('.bib-val').textContent, on: document.querySelector('#bib-tableau tr.on th.nm')?.textContent, url: location.search }));
+        verif('bibliothèque acier pc · profils : un clic sur la ligne IPE 300 l\'ouvre — la ligne s\'allume, la bande et l\'adresse le nomment', /IPE 300/.test(l.v) && l.on === 'IPE 300' && /profil=IPE(\+|%20)300/.test(l.url), JSON.stringify(l));
+        // un en-tête trie ; un second clic renverse
+        await g.click('#bib-tableau thead th[data-sel*=\'"tri": "Iy"\']');
+        await calmeBib(g);
+        const t1 = await g.evaluate(() => ({ on: document.querySelector('#bib-tableau thead th.on')?.dataset.sel, premier: document.querySelector('#bib-tableau tbody th.nm')?.textContent, url: location.search }));
+        await g.click('#bib-tableau thead th.on');
+        await calmeBib(g);
+        const t2 = await g.evaluate(() => ({ premier: document.querySelector('#bib-tableau tbody th.nm')?.textContent, url: location.search }));
+        verif('bibliothèque acier pc · profils : un clic sur l\'en-tête I_y trie (colonne marquée, adresse tri=Iy) ; un second renverse l\'ordre',
+          /"tri": "Iy"/.test(t1.on || '') && /tri=Iy/.test(t1.url) && /ordre=decroissant/.test(t2.url) && t1.premier !== t2.premier, JSON.stringify({ t1, t2 }));
+        // une pastille retire sa famille
+        await g.click('.bib-puces button[title="Poutrelles HE A"]');
+        await calmeBib(g);
+        const f = await g.evaluate(() => ({ pastille: document.querySelector('.bib-puces button[title="Poutrelles HE A"]')?.getAttribute('aria-pressed'), url: decodeURIComponent(location.search),
+          hea: [...document.querySelectorAll('#bib-tableau tbody td.fa')].some((x) => x.textContent === 'HEA') }));
+        verif('bibliothèque acier pc · profils : la pastille HEA retire la famille (pastille éteinte, plus aucune ligne HEA, l\'adresse suit)', f.pastille === 'false' && !f.hea && !/familles=[^&]*\bHEA\b/.test(f.url), JSON.stringify(f));
+        // un filtre : I_y ≥ 8 000 cm⁴ → le plus léger qui le satisfait
+        await g.selectOption('.bib-barre select[data-param="f1"]', 'Iy');
+        await calmeBib(g);
+        await g.fill('.bib-barre input[data-param="min1"]', '8000');
+        await g.press('.bib-barre input[data-param="min1"]', 'Enter');
+        await calmeBib(g);
+        const fl = await g.evaluate(() => ({ leger: document.querySelector('#bib-bande .bib-leger')?.textContent.replace(/\s+/g, ' ').trim(), etoiles: document.querySelectorAll('#bib-tableau .mk').length, url: location.search }));
+        verif('bibliothèque acier pc · profils : le filtre I_y ≥ 8 000 cm⁴ nomme le plus léger qui le satisfait (★ dans la bande et sur sa ligne), l\'adresse garde le filtre',
+          /plus léger/.test(fl.leger || '') && fl.etoiles === 1 && /f1=Iy/.test(fl.url) && /min1=8000/.test(fl.url), JSON.stringify(fl));
+        // la fiche du profilé : la section à l'échelle, ses propriétés
+        await g.click('[data-pourquoi]');
+        await g.waitForTimeout(150);
+        const fi = await g.evaluate(() => { const p = document.getElementById('bib-pourquoi'), s = p.querySelector('svg#bib_sec'), r = s ? s.getBoundingClientRect() : null;
+          return { ouvert: !p.hidden && p.checkVisibility(), dessin: r ? [Math.round(r.width), Math.round(r.height)] : null, proprietes: p.querySelectorAll('.bib-fiche td.s').length }; });
+        verif('bibliothèque acier pc · profils : « Fiche du profilé » montre la section à l\'échelle (le dessin du catalogue) et toutes ses propriétés',
+          fi.ouvert && fi.dessin && fi.dessin[0] > 250 && fi.dessin[1] > 200 && fi.proprietes >= 20, JSON.stringify(fi));
+        await g.screenshot({ path: path.join(OUT, 'site_bib_acier_fiche_pc.png') });
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(80);
+        verif('bibliothèque acier pc · profils : Échap ferme la fiche', await g.$eval('#bib-pourquoi', (p) => p.hidden));
+        // « Colonnes » : il reste ouvert d'un clic à l'autre, la colonne s'ajoute, un clic dehors le referme
+        await g.click('.bib-plus > summary');
+        await g.click('.bib-plus-c button[title^="Wpl,z"]');
+        await calmeBib(g);
+        const co = await g.evaluate(() => { const d = document.querySelector('.bib-plus'), c = d.querySelector('.bib-plus-c').getBoundingClientRect();
+          return { ouvert: d.open, dedans: c.left >= 0 && c.right <= innerWidth + 1 && c.bottom <= innerHeight + 1, colonne: !!document.querySelector('#bib-tableau thead th[data-sel*=\'"tri": "Wpl_z"\']') }; });
+        await g.screenshot({ path: path.join(OUT, 'site_bib_acier_colonnes_pc.png') });
+        await g.click('#bib-bande .bib-bande-t');
+        const ferme = await g.$eval('.bib-plus', (d) => !d.open);
+        verif('bibliothèque acier pc · profils : le menu « Colonnes » reste ouvert après un clic (data-garde), dans l\'écran ; W_pl,z s\'ajoute au tableau ; un clic dehors le referme',
+          co.ouvert && co.dedans && co.colonne && ferme, JSON.stringify({ co, ferme }));
+        // l'adresse rouvre le même état
+        const v0 = await g.$eval('.bib-val', (x) => x.textContent);
+        await g.goto(g.url());
+        await attendreBib(g);
+        const relu = await g.evaluate(() => ({ v: document.querySelector('.bib-val').textContent, f1: document.querySelector('.bib-barre select[data-param="f1"]')?.value,
+          min1: document.querySelector('.bib-barre input[data-param="min1"]')?.value, tri: document.querySelector('.bib-barre select[data-param="tri"]')?.value }));
+        verif('bibliothèque acier pc · profils : l\'adresse rouverte redonne le même état (profilé, filtre, tri)', relu.v === v0 && relu.f1 === 'Iy' && relu.min1 === '8000' && relu.tri === 'Iy', JSON.stringify({ v0, relu }));
+      }
+      if (tel) {
+        await g.click('#bib-tableau tbody tr:nth-child(3) th.nm');
+        await calmeBib(g);
+        const tv = await g.evaluate(() => ({ v: document.querySelector('.bib-val').textContent, on: document.querySelector('#bib-tableau tr.on th.nm')?.textContent }));
+        await g.click('[data-pourquoi]');
+        await g.waitForTimeout(150);
+        const ft = await g.evaluate(() => { const p = document.querySelector('#bib-pourquoi .bib-pq-c').getBoundingClientRect(), s = document.querySelector('#bib-pourquoi svg#bib_sec')?.getBoundingClientRect();
+          return { large: Math.round(p.width), dessin: s ? Math.round(s.width) : 0 }; });
+        verif('bibliothèque acier téléphone · profils : un doigt ouvre le profilé de sa ligne (la bande le nomme), sa fiche s\'ouvre plein écran avec la section',
+          tv.on && tv.v.replace(/\s/g, '').startsWith(tv.on.replace(/\s/g, '')) && ft.large >= w - 2 && ft.dessin > 200, JSON.stringify({ tv, ft }));
+        await g.screenshot({ path: path.join(OUT, 'site_bib_acier_fiche_tel.png') });
+        await g.click('#bib-pourquoi [data-fermer-pourquoi]');
+      }
+      verif(`bibliothèque acier ${nomF} : aucune erreur JavaScript`, g.erreurs.length === 0, g.erreurs.join(' | ').slice(0, 300));
+      await c.close();
+    }
+
+    // une ANCIENNE note du Catalogue des profilés (module masqué depuis BIB5) s'ouvre encore : « Reprendre » la propose à
+    // l'accueil, sa page la rouvre, son moteur la relit (le profilé ouvert, sa recherche)
+    {
+      const c = await b.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      await g.goto(`${BASE}/index.html`);
+      await g.evaluate(() => {
+        const notes = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}');
+        notes['ancien-catalogue'] = { id: 'ancien-catalogue', module: 'catalogue', nom: 'Ancienne note du catalogue', chantier: 'Essai BIB5', dossier: '', indice: '',
+          cree: Date.now(), modifie: Date.now(), resume: null, vignette: '',
+          etat: { version: 1, recherches: [{ nom: 'Poteaux HEB', recherche: 'HEB 3', fiche: 'HEB 300' }], actif: 0 } };
+        localStorage.setItem('stab.notes.v1', JSON.stringify(notes));
+      });
+      await g.reload();
+      await g.waitForTimeout(300);
+      const lien = await g.$eval('#recentes', (r) => [...r.querySelectorAll('a')].map((a) => a.getAttribute('href')).find((h) => /note=ancien-catalogue/.test(h)) || '');
+      await g.goto(`${BASE}/${lien}`);
+      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && /HEB 300/.test(r.textContent); }, null, { timeout: 60000 }).catch(() => {});
+      const o = await g.evaluate(() => ({ erreur: document.getElementById('demarrage').classList.contains('erreur'), resultat: /HEB 300/.test(document.getElementById('resultat').textContent),
+        lignes: document.querySelectorAll('.cat-t tbody tr').length, nom: document.getElementById('nom-note')?.value }));
+      verif('catalogue masqué : une ancienne note du Catalogue des profilés est proposée par « Reprendre » et s\'ouvre encore dans sa page (HEB 300 ouvert, le tableau, son nom)',
+        /^catalogue-profiles\?note=ancien-catalogue$/.test(lien) && !o.erreur && o.resultat && o.lignes > 0 && o.nom === 'Ancienne note du catalogue' && !g.erreurs.length,
+        JSON.stringify({ lien, o, erreurs: g.erreurs }));
+      await g.screenshot({ path: path.join(OUT, 'site_catalogue_ancienne_note.png') });
       await c.close();
     }
   }

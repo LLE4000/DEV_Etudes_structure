@@ -38,8 +38,9 @@ from . import registre
 
 # les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : hors du registre des modules — une consultation n'est pas
 # une note. L'action « consulter » les sert : {"action": "consulter", "bibliotheque": "beton", "rubrique": "ancrages",
-# "params": {...}, "hote": "page" | "note"} → les fragments de la rubrique (api_web/biblio_<clé>.consulter)
-BIBLIOTHEQUES = {"beton": "api_web.biblio_beton"}
+# "params": {...}, "hote": "page" | "note"} → les fragments de la rubrique (api_web/biblio_<clé>.consulter) ; la
+# Bibliothèque Acier (BIB5) : {"bibliotheque": "acier", "rubrique": "profils" | "nuances" | "boulons", …}
+BIBLIOTHEQUES = {"beton": "api_web.biblio_beton", "acier": "api_web.biblio_acier"}
 
 
 def consulter(q: dict) -> dict:

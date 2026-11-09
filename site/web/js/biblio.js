@@ -14,6 +14,7 @@ export function cablerBibliotheque({ racine, demander, apres = () => {}, rubriqu
   let courante = rubrique || $(".bib-m.on")?.dataset.rubrique || $(".bib-m")?.dataset.rubrique;
   const params = {};        // les paramètres de chaque rubrique visitée (gardés quand on en change)
   let derniere = null;      // la dernière réponse du moteur (sa fiche, ses cibles)
+  let affichee = null;      // la rubrique dont le tableau est à l'écran
   let enCours = 0;
 
   function occupe(plus) {
@@ -39,7 +40,11 @@ export function cablerBibliotheque({ racine, demander, apres = () => {}, rubriqu
   }
 
   function appliquer(r) {
-    courante = r.rubrique;
+    // dans la même rubrique, le tableau garde son défilement (un grand tableau — les profilés — ne remonte pas en haut
+    // à chaque clic) ; la case allumée est ensuite ramenée à l'écran si elle en est sortie
+    const cadre = $("#bib-tableau");
+    const defile = r.rubrique === affichee ? [cadre.scrollTop, cadre.scrollLeft] : null;
+    courante = affichee = r.rubrique;
     params[courante] = r.params;                           // les paramètres relus par le moteur (défauts compris)
     derniere = r;
     racine.querySelectorAll(".bib-m").forEach((b) => {
@@ -49,8 +54,13 @@ export function cablerBibliotheque({ racine, demander, apres = () => {}, rubriqu
     });
     const titre = $("#bib-titre");
     if (titre) titre.textContent = r.titre;
+    // un menu déroulant de la barre (« Colonnes » de l'acier : <details data-garde>) ouvert le reste quand la barre est
+    // réécrite — on y coche plusieurs choses de suite
+    const ouverts = [...racine.querySelectorAll("#bib-barre details[data-garde][open]")].map((d) => d.dataset.garde);
     $("#bib-barre").innerHTML = r.barre;
-    $("#bib-tableau").innerHTML = r.tableau;
+    for (const g of ouverts) { const d = racine.querySelector(`#bib-barre details[data-garde="${CSS.escape(g)}"]`); if (d) d.open = true; }
+    cadre.innerHTML = r.tableau;
+    if (defile) [cadre.scrollTop, cadre.scrollLeft] = defile;
     $("#bib-bande").innerHTML = r.bande;
     $("#bib-sources").innerHTML = r.sources;
     $("#bib-pq-corps").innerHTML = r.pourquoi;
@@ -73,11 +83,16 @@ export function cablerBibliotheque({ racine, demander, apres = () => {}, rubriqu
 
   // ------------------------------------------------------------------ les gestes
   racine.addEventListener("click", (ev) => {
+    // un clic hors d'un menu déroulant de la barre le referme
+    racine.querySelectorAll("#bib-barre details[data-garde][open]").forEach((d) => { if (!d.contains(ev.target)) d.open = false; });
     const m = ev.target.closest(".bib-m[data-rubrique]");
     if (m) { courante = m.dataset.rubrique; consulter(); return; }
-    const seg = ev.target.closest(".bib-barre .seg[data-param] button[data-valeur]");
-    if (seg) { regler(seg.parentElement.dataset.param, seg.dataset.valeur); return; }
-    const td = ev.target.closest("#bib-tableau td[data-sel]");
+    // un bouton qui porte une valeur (segments, pastilles) : le paramètre est celui du bloc qui le contient
+    const seg = ev.target.closest(".bib-barre [data-param] button[data-valeur]");
+    if (seg) { regler(seg.closest("[data-param]").dataset.param, seg.dataset.valeur); return; }
+    // ce qui porte des paramètres à régler (data-sel) : une case du tableau, son en-tête (le tri de l'acier), sa ligne
+    // (un profilé), un bouton de la bande (« Ouvrir » le plus léger)
+    const td = ev.target.closest("#bib-tableau td[data-sel], #bib-tableau th[data-sel], #bib-tableau tr[data-sel], #bib-bande [data-sel]");
     if (td) {
       let sel = null;
       try { sel = JSON.parse(td.dataset.sel); } catch (e) { sel = null; }

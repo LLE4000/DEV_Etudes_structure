@@ -71,12 +71,13 @@ FAMILLES = [
                         ("flambement", "Flambement"), ("assemblages", "Assemblages métalliques"), ("soudures", "Soudures")]),
     ("autres", "Autres", [("garde_corps", "Garde-corps"), ("bois", "Poutres bois"), ("sol", "Rigidité du sol")]),
 ]
-# les modules MASQUÉS (docs/site/BIBLIOTHEQUES.md § 2.1) : des consultations que la Bibliothèque Béton armé remplace —
-# et « predalle », que « Dalles béton armé » a absorbé (docs/site/DALLES_FUSION.md § 2.4 : une seule carte « Dalles béton
-# armé » ; la page des prédalles redirige vers celle des dalles). Leurs pages restent servies (une note existante s'ouvre
-# encore, js/modules.js les connaît), mais l'accueil, le volet « Modules » et la fenêtre « Nouvelle note » ne les listent
-# plus — ici (les maquettes) comme sur le site ; leur retrait définitif se décidera avec le bureau.
-MASQUES = ("donnees_beton", "armatures", "enrobage", "predalle")
+# les modules MASQUÉS (docs/site/BIBLIOTHEQUES.md § 2.1) : des consultations que la Bibliothèque Béton armé remplace,
+# le « Catalogue des profilés » que la Bibliothèque Acier porte désormais (BIB5, rubrique « Profilés ») — et « predalle »,
+# que « Dalles béton armé » a absorbé (docs/site/DALLES_FUSION.md § 2.4 : une seule carte « Dalles béton armé » ; la page
+# des prédalles redirige vers celle des dalles). Leurs pages restent servies (une note existante s'ouvre encore,
+# js/modules.js les connaît), mais l'accueil, le volet « Modules » et la fenêtre « Nouvelle note » ne les listent plus —
+# ici (les maquettes) comme sur le site ; leur retrait définitif se décidera avec le bureau.
+MASQUES = ("donnees_beton", "armatures", "enrobage", "predalle", "catalogue")
 
 
 def listes(mods) -> list:

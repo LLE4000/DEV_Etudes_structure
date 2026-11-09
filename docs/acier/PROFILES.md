@@ -105,6 +105,21 @@ monde (fichier versionné = défaut du bureau). Sur Streamlit Community Cloud, l
 milliers, virgule) et aux décimales de la colonne ; la fiche et les comparaisons en
 français fixe.
 
+## 4 bis · Sur le site : la Bibliothèque Acier (BIB5, 10/11/2026)
+
+Sur le site Stab Méthodes, le catalogue se consulte dans la **Bibliothèque Acier** (page `bibliotheque-acier`,
+`api_web/biblio_acier.py`, rubrique « Profilés » ; `docs/site/BIBLIOTHEQUES.md` § 2.3 et lot BIB5) : familles en
+pastilles, recherche, séries courantes, trois filtres numériques, tri (sélecteur ou clic sur un en-tête), colonnes au
+choix, lignes ; un clic sur une ligne ouvre le profilé (vignette et propriétés principales dans la bande), « Fiche du
+profilé » montre la section à l'échelle, TOUTES ses propriétés et leurs formules ; « le plus léger qui satisfait les
+filtres » est nommé. Rien n'y est refait : la liste, les colonnes, les valeurs écrites, le plus léger et les formules
+sont ceux du module du site « Catalogue des profilés » (`api_web/catalogue.py` → `acier/profiles/consultation.py`), et
+`tests/test_api_web_bibliotheque_acier.py` vérifie que les lignes de la bibliothèque sont, cellule par cellule, celles
+du module, et leurs nombres ceux de `profiles.json` relu à part. Le module « Catalogue des profilés » est **masqué** de
+l'accueil (sa page et ses notes restent ouvrables) ; ce qu'il garde en propre — profilés personnalisés (PRS, caisson,
+tube, plat, rond), comparaison de deux à cinq profilés, export en texte — n'est pas (encore) dans la bibliothèque :
+`docs/site/BIBLIOTHEQUES.md`, lot BIB5, « Ce qui reste ».
+
 ## 5 · Consommateurs branchés sur la source unique (R2)
 
 `modules/choix_profile.py` (choix de profilé EC3), `plancher/charges/bibliotheque.py`
