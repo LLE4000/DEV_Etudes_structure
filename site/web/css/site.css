@@ -174,13 +174,35 @@ label.fichier { width: max-content; }
 .accueil .hello p { margin-top: 4px; }
 .accueil .famille { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .accueil .tile .nm { display: block; flex: 1; font-size: 13px; font-weight: 650; color: var(--ink); line-height: 1.3; }
-/* la BIBLIOTHÈQUE d'une famille (docs/site/BIBLIOTHEQUES.md § 2.1) : une carte large à part, en tête du bloc, l'icône d'un
-   livre, ses rubriques en sous-titre — distincte d'une tuile de calcul au premier regard */
-.accueil .tile.biblio { grid-column: span 2; border-color: var(--accent-line); background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 70%, var(--panel)), var(--panel)); }
-.accueil .tile.biblio .modic { background: var(--accent); color: var(--on-accent); }
-.accueil .tile.biblio .nm { color: var(--accent-hover); }
-.accueil .tile.biblio span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* la BIBLIOTHÈQUE d'une famille (docs/site/BIBLIOTHEQUES.md § 2.1, révision du 09/11/2026, demande de l'ingénieur) : une
+   carte ÉTROITE et HAUTE, à GAUCHE du bloc de sa famille, distincte d'une tuile de calcul au premier regard (contour et teinte
+   de l'accent, l'icône d'un livre). Le bloc .tiles.fam-b est la grille des tuiles de la charte (mêmes colonnes que les
+   familles sans bibliothèque : une source) ; la carte en prend la PREMIÈRE colonne, les modules les SUIVANTES, dans leur
+   propre grille (.fam-b > .tiles, en sous-grille : les bords de leurs tuiles tombent sur les lignes des autres familles, dont
+   la première colonne est sous la carte — un seul rythme vertical pour toute la section). Aucun module ne passe sous la
+   carte : leur grille ne commence qu'à la deuxième colonne, quel que soit leur nombre. La carte ne se mesure pas
+   (container-type: size) : la hauteur de la rangée est celle du bloc des modules, la carte la prend (plancher : deux rangées
+   de tuiles, 2 × 56 + 8 px) ; et sa mise en page suit la hauteur reçue (requête de conteneur) : deux rangées (PC large, quatre
+   colonnes) → les rubriques sur deux colonnes ; trois rangées (tablette, petit PC) → une seule colonne. */
+.accueil .fam-b > .tiles { grid-column: 2 / -1; grid-template-columns: subgrid; }
+.accueil .tile.biblio { container: bib / size; min-height: 120px; padding: 0; align-items: stretch; border-color: var(--accent-line);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--accent-soft) 75%, var(--panel)), var(--panel) 85%); }
 .accueil .tile.biblio:hover { border-color: var(--accent); }
+.accueil .tile.biblio .bib-c { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; min-width: 0; }
+.accueil .tile.biblio .bib-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.accueil .tile.biblio .modic { background: var(--accent); color: var(--on-accent); }
+.accueil .tile.biblio .nm { flex: 1; min-width: 0; color: var(--accent-hover); font-size: 14px; font-weight: 700; line-height: 1.25; }
+.accueil .tile.biblio .nm span { display: block; color: inherit; font-size: inherit; line-height: inherit; }
+.accueil .tile.biblio .nm .bib-k { font-size: 11.5px; font-weight: 600; color: var(--ink-3); }
+.accueil .tile.biblio .bib-r { list-style: none; margin: 0; padding: 0; display: grid; grid-template-rows: repeat(3, auto);
+  grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px 10px; }
+.accueil .tile.biblio .bib-r li { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; line-height: 16px; color: var(--ink-2); white-space: nowrap; }
+.accueil .tile.biblio .bib-r li span { display: inline; font-size: inherit; line-height: inherit; color: inherit; }
+.accueil .tile.biblio .bib-r svg.i { flex: none; width: 13px; height: 13px; color: var(--accent-hover); opacity: .75; }
+@container bib (min-height: 150px) {
+  .accueil .tile.biblio .bib-c { gap: 12px; padding: 14px; }
+  .accueil .tile.biblio .bib-r { grid-template-rows: none; grid-auto-flow: row; gap: 5px; }
+}
 .accueil .tile.bientot { opacity: .62; box-shadow: none; }
 .accueil .tile.bientot:hover { border-color: var(--line); box-shadow: none; }
 .accueil .tile .tag { flex: none; display: inline-flex; font-size: 10px; height: 18px; }
@@ -525,8 +547,21 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .accueil .hello .btn.big svg.i { width: 18px; height: 18px; }
   .accueil .famille { margin-bottom: 4px; }
   .accueil .tile { min-height: 52px; }
-  .accueil .tile.biblio { grid-column: auto; }
-  .accueil .tile.biblio span { white-space: normal; }
+  /* la bibliothèque en tête de la liste de sa famille, pleine largeur : la carte et les modules forment UNE liste (le cadre
+     de la charte sur .fam-b, aucun sur la grille des modules) ; la carte se mesure de nouveau (son contenu fait sa hauteur),
+     l'icône à gauche, le titre sur une ligne, les rubriques à la suite, séparées par « · » */
+  .accueil .fam-b > .tiles { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr); border: 0; border-radius: 0; box-shadow: none; background: none; }
+  .accueil .fam-b > .tiles > .tile:first-child { border-top: 1px solid var(--line); }
+  .accueil .tile.biblio { container-type: normal; min-height: 52px; }
+  .accueil .tile.biblio .bib-c { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 1px 10px; padding: 11px 14px; }
+  .accueil .tile.biblio .bib-h { display: contents; }
+  .accueil .tile.biblio .modic { grid-row: 1 / span 2; }
+  .accueil .tile.biblio .nm span { display: inline; }
+  .accueil .tile.biblio .nm .bib-k { font-size: inherit; font-weight: inherit; color: inherit; }
+  .accueil .tile.biblio .bib-r { display: block; font-size: 12px; line-height: 1.35; color: var(--ink-3); }
+  .accueil .tile.biblio .bib-r li { display: inline; font-size: inherit; line-height: inherit; color: inherit; white-space: normal; }
+  .accueil .tile.biblio .bib-r li + li::before { content: " · "; }
+  .accueil .tile.biblio .bib-r svg.i { display: none; }
   .mhead .btn.icon { width: 44px; height: 44px; }
   .mnav a[aria-disabled="true"] { opacity: .45; }
   /* « Nouvelle note » : une colonne, des champs et des boutons à la taille du doigt */

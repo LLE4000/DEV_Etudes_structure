@@ -52,7 +52,47 @@ Enrobage.
   carte large à part, avec l'icône d'un livre et un style propre (contour, teinte), placée en tête de ligne du bloc,
   avec le libellé de ses rubriques (« Bétons · Aciers · Sections · Enrobages · Ancrages » — les titres du menu ; le
   feu et les recouvrements sont dans les sous-titres de la page). Elle se distingue d'une tuile de calcul au premier
-  regard, et reste à côté des calculs de sa famille.
+  regard, et reste à côté des calculs de sa famille. *(Forme remplacée le 09/11/2026 : voir la révision ci-dessous.)*
+- **Révision du 09/11/2026 — la carte ÉTROITE et HAUTE, les modules à sa droite** (demande de l'ingénieur : « je la
+  ferais tenir sur 2 en hauteur. Elle serait beaucoup moins large et elle serait plus haute. Et les modules seraient à
+  droite. Donc à chaque fois, il y a la bibliothèque, puis les modules qui sont à droite »). Ce qui est fait :
+  - **PC et tablette.** Le bloc d'une famille qui a une bibliothèque est `.tiles.fam-b` : la grille des tuiles de la
+    charte (mêmes colonnes que partout : quatre au-dessus de 1 360 px, trois en dessous), dont la carte prend la
+    **première colonne** — la largeur d'une tuile, à GAUCHE — et la **hauteur du bloc de ses modules** ; les modules
+    de la famille sont dans leur propre grille (`.fam-b > .tiles`), posée en **sous-grille à partir de la deuxième
+    colonne** : ils restent à DROITE quel que soit leur nombre, aucun ne passe sous la carte. La carte ne se mesure
+    pas (`container-type: size`) : c'est le bloc des modules qui fait la hauteur de la rangée, la carte la prend
+    (plancher : deux rangées de tuiles). Mesuré le 09/11/2026 : 234 × 120 px à 1 440 × 900 (Béton : deux rangées de
+    trois modules) ; 268 × 184 à 1 280, 351 × 184 à 1 180, 299 × 184 à 1 024, 231 × 184 à 820 (trois rangées de deux).
+  - **La carte met la hauteur à profit** : l'icône du livre et « Bibliothèque » / « Béton armé » en tête (le titre sur
+    deux lignes, jamais tronqué), puis ses rubriques **en liste**, chacune avec l'icône de son menu (les titres et les
+    icônes de `RUBRIQUES`, une source). Sa mise en page suit la hauteur qu'elle reçoit (requête de conteneur) : à deux
+    rangées (PC large), la liste se range sur deux colonnes (Bétons, Aciers, Sections | Enrobages, Ancrages) ; à trois
+    rangées et plus, une seule colonne. Toute la carte reste le lien vers la page de la bibliothèque.
+  - **Les familles sans bibliothèque** (Acier pour l'instant, Autres) gardent leur grille, **alignée sur la marge
+    gauche** : leurs tuiles tombent sur les MÊMES lignes de colonnes que la carte et les modules du bloc à
+    bibliothèque (la carte occupe une colonne de la grille commune). Choisi plutôt que de décaler ces familles d'une
+    colonne vers la droite : un seul rythme vertical pour toute la section (l'œil suit des colonnes continues d'une
+    famille à l'autre), pas de colonne vide à gauche qui se lirait comme une carte manquante, et pas de rangée de
+    plus pour l'Acier (à trois colonnes — tablette, petit PC — ses six modules tiennent sur deux rangées ; décalés
+    d'une colonne, ils en prendraient trois).
+  - **L'Acier aura sa bibliothèque (BIB5) sans rien recoder** : le gabarit lit `_bibliotheques_de(fam)` ; une
+    bibliothèque déclarée dans `construire.BIBLIOTHEQUES` sur la famille Acier prend la même forme (contrôlé par
+    `tests/test_site_web.py` avec une bibliothèque d'essai). Une seule bibliothèque par famille : la construction
+    refuse la seconde (le gabarit n'a qu'une première colonne).
+  - **Téléphone** : inchangé à l'œil — la carte en tête de la liste de sa famille, pleine largeur, l'icône à gauche,
+    « Bibliothèque Béton armé » sur une ligne, les rubriques à la suite (« Bétons · Aciers · … », les « · » posés par
+    la feuille). La même carte, rendue une fois ; seule la feuille diffère (R1).
+  - **Les contrôles** : `tests/test_site_web.py` § 4 ter (la forme rendue : un bloc par famille avec exactement ses
+    modules listés, la carte à gauche puis la grille des modules pour une famille à bibliothèque, la grille seule pour
+    les autres, les cinq rubriques et leurs icônes dans l'ordre du menu, la bibliothèque d'essai sur l'Acier, la
+    seconde refusée, la règle de sous-grille dans la feuille) ; `verifier_site.js`, filtre « bibliotheque » (à
+    1 440 × 900, 1 280 × 800, 1 180 × 820, 1 024 × 768, 820 × 1 180, iPhone 13, et en thème sombre au PC et au
+    téléphone : la carte au plus large comme une tuile, sur toute la hauteur du bloc de ses modules, à gauche de chacun,
+    aucun sous elle, les modules sur toutes les colonnes suivantes, sur les lignes des familles sans bibliothèque ; le
+    titre et les rubriques visibles dans la carte, aucun coupé ; au téléphone la carte pleine largeur en tête ; la carte
+    distincte d'une tuile). Quatre mutations les font rougir (sous-grille retirée, ancienne forme rendue, carte qui ne
+    prend plus la hauteur, règle du téléphone retirée).
 - Le volet « Modules » du rail et le menu du téléphone listent **Bibliothèques** comme un groupe à part.
 - Les pages des anciens modules restent **servies** (une note existante s'ouvre encore ; une note neuve se crée
   encore depuis l'adresse de la page), mais ne sont plus listées ; la liste nommée `MASQUES`, à côté de `FAMILLES`

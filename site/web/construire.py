@@ -77,12 +77,13 @@ MASQUES = frozenset(MQ.MASQUES)
 
 
 def _bibliotheques_de(fam: str) -> list:
-    """Les bibliothèques d'une famille de l'accueil : [(clé, titre, sous-titre = ses rubriques)]."""
+    """Les bibliothèques d'une famille de l'accueil : [(clé, titre, rubriques = [(titre du menu, icône)])] — les rubriques
+    sont celles du menu de la bibliothèque (``RUBRIQUES`` de son module de rendu : une source)."""
     out = []
     for k, (chemin, titre, famille) in BIBLIOTHEQUES.items():
         if famille == fam:
             B = importlib.import_module(chemin)
-            out.append((k, titre, " · ".join(t for _, t, _, _ in B.RUBRIQUES)))
+            out.append((k, titre, [(t, ic) for _, t, _, ic in B.RUBRIQUES]))
     return out
 # … et parmi eux, ceux dont le site fait la NOTE PDF (le module rend « telecharger note_pdf ») : les autres gardent le
 # bouton « Note PDF » grisé, « bientôt » (la note reste dans Streamlit)
@@ -293,7 +294,7 @@ def modpanel() -> str:
     les modules masqués (MASQUES) n'y sont pas."""
     corps = '<div class="navlabel">Bibliothèques</div>'
     for fam, _nom_fam, _mods in MQ.FAMILLES:
-        for k, titre, _sous in _bibliotheques_de(fam):
+        for k, titre, _rubriques in _bibliotheques_de(fam):
             corps += f'<a class="navitem" href="{ADRESSES_BIBLIOTHEQUES[k]}"><span class="modic {fam}">{MQ.icon("book-open")}</span><span>{MQ.esc(titre)}</span></a>'
     for fam, nom_fam, mods in MQ.FAMILLES:
         corps += f'<div class="navlabel">{nom_fam}</div>'
@@ -325,16 +326,32 @@ def _sous_titre_modules() -> str:
     return "Tous les modules du bureau" if n == len(tous) else f"{n} modules sur {len(tous)} · les autres arrivent"
 
 
+def _carte_bibliotheque(fam: str, k: str, titre: str, rubriques: list) -> str:
+    """La carte de la BIBLIOTHÈQUE d'une famille, à l'accueil (docs/site/BIBLIOTHEQUES.md § 2.1, révision du 09/11/2026) :
+    l'icône d'un livre et « Bibliothèque » / son titre en tête, ses rubriques en liste dessous (les titres de son menu,
+    avec leurs icônes). Toute la carte est le lien. Une seule carte, trois formats : css/site.css la pose ÉTROITE et HAUTE
+    à gauche des modules de sa famille (PC, tablette), en tête de la liste de sa famille, ses rubriques sur une ligne
+    (téléphone)."""
+    lis = "".join(f'<li>{MQ.icon(ic)}<span>{MQ.esc(t)}</span></li>' for t, ic in rubriques)
+    return (f'<a class="tile biblio" href="{ADRESSES_BIBLIOTHEQUES[k]}" data-bibliotheque="{k}"><div class="bib-c">'
+            f'<div class="bib-h"><span class="modic {fam}">{MQ.icon("book-open")}</span>'
+            f'<b class="nm"><span class="bib-k">Bibliothèque</span> <span class="bib-t">{MQ.esc(titre)}</span></b></div>'
+            f'<ul class="bib-r">{lis}</ul></div></a>')
+
+
 def page_accueil() -> str:
-    """L'accueil : les notes à reprendre, puis les CALCULS par famille ; en tête du bloc d'une famille, sa BIBLIOTHÈQUE
-    (une carte large à part, l'icône d'un livre, ses rubriques en sous-titre) ; les modules masqués ne sont pas listés
+    """L'accueil : les notes à reprendre, puis les CALCULS par famille ; la BIBLIOTHÈQUE d'une famille est une carte à
+    part, ÉTROITE et HAUTE, à GAUCHE du bloc de ses modules, qui s'alignent à sa DROITE dans leur propre grille (demande
+    de l'ingénieur du 09/11/2026) — le bloc ``.tiles.fam-b`` : la carte, puis la grille ``.tiles`` des modules ; une
+    famille sans bibliothèque garde sa grille ``.tiles`` seule. Les modules masqués ne sont pas listés
     (docs/site/BIBLIOTHEQUES.md § 2.1)."""
     tuiles = ""
     for fam, nom_fam, mods in MQ.FAMILLES:
+        cartes = [_carte_bibliotheque(fam, *b) for b in _bibliotheques_de(fam)]
+        # le gabarit ne place qu'UNE bibliothèque par famille (la première colonne ; les modules prennent les suivantes)
+        if len(cartes) > 1:
+            raise ValueError(f"famille « {fam} » : {len(cartes)} bibliothèques, l'accueil n'en place qu'une par famille")
         t = ""
-        for k, titre, sous in _bibliotheques_de(fam):
-            t += (f'<a class="tile biblio" href="{ADRESSES_BIBLIOTHEQUES[k]}" data-bibliotheque="{k}"><span class="modic {fam}">{MQ.icon("book-open")}</span>'
-                  f'<div><b class="nm">Bibliothèque {MQ.esc(titre)}</b><span>{MQ.esc(sous)}</span></div></a>')
         for k, n in mods:
             if k in MASQUES:
                 continue
@@ -345,7 +362,8 @@ def page_accueil() -> str:
             else:
                 t += (f'<div class="tile bientot" title="Ce module n\'est pas encore sur le site (il reste dans Streamlit)">'
                       f'<span class="modic {fam}">{MQ.MOD[k]}</span><span class="nm">{MQ.esc(n)}</span><span class="tag draft">bientôt</span></div>')
-        tuiles += f'<div class="famille"><div class="kicker">{nom_fam}</div><div class="tiles">{t}</div></div>'
+        grille = f'<div class="tiles fam-b">{cartes[0]}<div class="tiles">{t}</div></div>' if cartes else f'<div class="tiles">{t}</div>'
+        tuiles += f'<div class="famille" data-fam="{fam}"><div class="kicker">{nom_fam}</div>{grille}</div>'
     options = "".join(f'<button type="button" class="mopt" data-module="{k}"><span class="modic {_module(k)[0]}">{MQ.MOD[k]}</span>{MQ.esc(_module(k)[1])}</button>'
                       for k in PAGES if k not in MASQUES)
     modal = (f'<div class="modal" id="nouvelle" hidden><div class="mcard"><div class="mh"><span class="h2">Nouvelle note</span>'

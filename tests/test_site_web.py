@@ -222,16 +222,150 @@ chk("accueil : la tuile d'un module compact ouvre le calcul (lien direct), les a
     _tuiles and all(a == ("module" if k in SW.ETABLI_COMPACT else "nouvelle-module") for k, a in _tuiles.items())
     and set(_tuiles) == set(SW.PAGES) - SW.MASQUES
     and ".tile[data-nouvelle-module]" in open(os.path.join(WEB, "js", "accueil.js"), encoding="utf-8").read(), _tuiles)
-# 4 ter. les BIBLIOTHÈQUES (docs/site/BIBLIOTHEQUES.md § 2.1) : une carte à part en tête du bloc de sa famille, le volet
-# « Modules » les liste en premier ; les modules masqués restent servis (leur page est écrite, js/modules.js les garde,
-# marqués « masque ») mais ne sont ni des tuiles, ni des choix de « Nouvelle note », ni des entrées du volet
+# 4 ter. les BIBLIOTHÈQUES (docs/site/BIBLIOTHEQUES.md § 2.1, révision du 09/11/2026) : la carte d'une bibliothèque est
+# ÉTROITE et HAUTE, à GAUCHE du bloc de sa famille, et les modules de la famille s'alignent à sa DROITE dans leur propre
+# grille — le bloc .tiles.fam-b : la carte, puis la grille .tiles des modules (css/site.css la pose en sous-grille à partir
+# de la deuxième colonne : aucun module sous la carte ; la mesure à l'écran est dans verifier_site.js, filtre
+# « bibliotheque ») ; une famille sans bibliothèque garde sa grille .tiles seule. Le volet « Modules » les liste en
+# premier ; les modules masqués restent servis (leur page est écrite, js/modules.js les garde, marqués « masque ») mais ne
+# sont ni des tuiles, ni des choix de « Nouvelle note », ni des entrées du volet.
+import importlib  # noqa: E402
+from html.parser import HTMLParser  # noqa: E402
+
+
+class _Arbre(HTMLParser):
+    """L'arbre d'une page (balise, attributs, enfants, texte) : assez pour lire la STRUCTURE de l'accueil."""
+    VIDES = {"br", "img", "input", "meta", "link", "hr", "source", "col", "area", "base", "wbr"}
+
+    def __init__(self, html):
+        super().__init__(convert_charrefs=True)
+        self.racine = {"tag": "#", "a": {}, "e": [], "t": ""}
+        self.pile = [self.racine]
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        n = {"tag": tag, "a": dict(attrs), "e": [], "t": ""}
+        self.pile[-1]["e"].append(n)
+        if tag not in self.VIDES:
+            self.pile.append(n)
+
+    def handle_startendtag(self, tag, attrs):
+        self.pile[-1]["e"].append({"tag": tag, "a": dict(attrs), "e": [], "t": ""})
+
+    def handle_endtag(self, tag):
+        for i in range(len(self.pile) - 1, 0, -1):
+            if self.pile[i]["tag"] == tag:
+                del self.pile[i:]
+                break
+
+    def handle_data(self, d):
+        self.pile[-1]["e"].append({"tag": "#texte", "a": {}, "e": [], "t": d})
+
+
+def _cls(n):
+    return (n["a"].get("class") or "").split()
+
+
+def _tous(n, pred):
+    for x in n["e"]:
+        if pred(x):
+            yield x
+        yield from _tous(x, pred)
+
+
+def _texte(n):
+    return n["t"] if n["tag"] == "#texte" else "".join(_texte(x) for x in n["e"])
+
+
+def _el(n):
+    """Les enfants ÉLÉMENTS d'un nœud (sans les textes)."""
+    return [x for x in n["e"] if x["tag"] != "#texte"]
+
+
+def _familles_accueil(html):
+    """Chaque bloc de famille de l'accueil : {fam, forme, carte, rubriques, modules} — ``forme`` dit comment le bloc est
+    bâti : « biblio » (la carte puis la grille des modules), « grille » (la grille seule), sinon la liste des classes."""
+    out = []
+    for f in _tous(_Arbre(html).racine, lambda x: x["tag"] == "div" and "famille" in _cls(x)):
+        enf = _el(f)
+        corps = enf[1] if len(enf) == 2 else None
+        o = {"fam": f["a"].get("data-fam"), "forme": None, "carte": None, "rubriques": [], "modules": [], "icones": 0}
+        tuiles = []
+        if corps is not None and _cls(corps) == ["tiles", "fam-b"] and len(_el(corps)) == 2:
+            carte, grille = _el(corps)
+            if carte["tag"] == "a" and _cls(carte) == ["tile", "biblio"] and _cls(grille) == ["tiles"]:
+                o["forme"] = "biblio"
+                o["carte"] = (carte["a"].get("data-bibliotheque"), carte["a"].get("href"),
+                              " ".join(_texte(next(_tous(carte, lambda x: "nm" in _cls(x)))).split()))
+                lis = list(_tous(carte, lambda x: x["tag"] == "li"))
+                o["rubriques"] = [_texte(li).strip() for li in lis]
+                o["icones"] = sum(any(x["tag"] == "svg" for x in _el(li)) for li in lis)
+                tuiles = _el(grille)
+        elif corps is not None and _cls(corps) == ["tiles"]:
+            o["forme"] = "grille"
+            tuiles = _el(corps)
+        else:
+            o["forme"] = [_cls(x) for x in enf]
+        o["modules"] = [" ".join(_texte(next(_tous(t, lambda x: "nm" in _cls(x)))).split()) for t in tuiles if "tile" in _cls(t)]
+        o["autres"] = [t["tag"] for t in tuiles if "tile" not in _cls(t) or "biblio" in _cls(t)]
+        out.append(o)
+    return out
+
+
 _accueil = open(os.path.join(WEB, "index.html"), encoding="utf-8").read()
-_cartes = re.findall(r'<a class="tile biblio" href="([^"]+)" data-bibliotheque="(\w+)">', _accueil)
-chk("accueil : chaque bibliothèque a sa carte (href = bibliotheque-<clé>), en tête du bloc de sa famille",
-    _cartes and {k for _, k in _cartes} == set(SW.BIBLIOTHEQUES) and all(h == f"bibliotheque-{k}" for h, k in _cartes)
-    and all(re.search(r'<div class="tiles"><a class="tile biblio" href="bibliotheque-' + k, _accueil) for k in SW.BIBLIOTHEQUES), _cartes)
-chk("accueil : la carte porte le titre de la bibliothèque et ses rubriques (RUBRIQUES, une source)",
-    "Bibliothèque Béton armé" in _accueil and "Bétons · Aciers · Sections · Enrobages · Ancrages" in _accueil)
+_FAMS = _familles_accueil(_accueil)
+_fam_biblio = {fam for _c, (_m, _t, fam) in SW.BIBLIOTHEQUES.items()}
+_attendu = [(fam, [n for k, n in SW.MQ.listes(mods)]) for fam, _nom, mods in SW.MQ.FAMILLES]
+chk("accueil : un bloc par famille, dans l'ordre, chacun avec EXACTEMENT ses modules listés (MASQUES absents), aucune "
+    "autre pièce dans la grille des modules",
+    [(f["fam"], f["modules"]) for f in _FAMS] == _attendu and not any(f["autres"] for f in _FAMS),
+    ([(f["fam"], f["modules"], f["autres"]) for f in _FAMS], _attendu))
+chk("accueil : une famille qui a une bibliothèque → la carte à GAUCHE, puis la grille de ses modules à DROITE "
+    "(.tiles.fam-b = la carte, puis .tiles) ; une famille sans bibliothèque → sa grille .tiles seule",
+    all(f["forme"] == ("biblio" if f["fam"] in _fam_biblio else "grille") for f in _FAMS), [(f["fam"], f["forme"]) for f in _FAMS])
+_cartes = [f["carte"] for f in _FAMS if f["carte"]]
+chk("accueil : chaque bibliothèque a sa carte, dans le bloc de SA famille, qui vise sa page (href = bibliotheque-<clé>)",
+    sorted(k for k, _, _ in _cartes) == sorted(SW.BIBLIOTHEQUES)
+    and all(f["carte"][0] in SW.BIBLIOTHEQUES and SW.BIBLIOTHEQUES[f["carte"][0]][2] == f["fam"] for f in _FAMS if f["carte"])
+    and all(h == f"bibliotheque-{k}" == SW.ADRESSES_BIBLIOTHEQUES[k] for k, h, _ in _cartes), _cartes)
+_rub_beton = [t for _, t, _, _ in importlib.import_module("api_web.biblio_beton").RUBRIQUES]
+_fb = next((f for f in _FAMS if f["carte"] and f["carte"][0] == "beton"), {"carte": (None, None, ""), "rubriques": [], "icones": 0})
+chk("accueil : la carte dit « Bibliothèque Béton armé » et LISTE ses rubriques, une par ligne avec leur icône, dans l'ordre "
+    "du menu de la bibliothèque (RUBRIQUES, une source)",
+    _fb["carte"][2] == "Bibliothèque Béton armé" and _fb["rubriques"] == _rub_beton == ["Bétons", "Aciers", "Sections", "Enrobages", "Ancrages"]
+    and _fb["icones"] == len(_rub_beton), (_fb["carte"], _fb["rubriques"], _fb["icones"]))
+# le gabarit LIT _bibliotheques_de(fam) : une bibliothèque Acier (BIB5) prendra la même forme sans rien recoder — joué
+# ici avec une bibliothèque d'essai déclarée sur la famille Acier ; deux bibliothèques dans une famille sont refusées
+# à la construction (le gabarit n'en place qu'une : la première colonne)
+_sauve = dict(SW.BIBLIOTHEQUES), dict(SW.ADRESSES_BIBLIOTHEQUES)
+try:
+    SW.BIBLIOTHEQUES["essai"] = ("api_web.biblio_beton", "Acier", "acier")
+    SW.ADRESSES_BIBLIOTHEQUES["essai"] = "bibliotheque-essai"
+    _fams_essai = {f["fam"]: f for f in _familles_accueil(SW.page_accueil())}
+    SW.BIBLIOTHEQUES["essai2"] = ("api_web.biblio_beton", "Acier bis", "acier")
+    SW.ADRESSES_BIBLIOTHEQUES["essai2"] = "bibliotheque-essai2"
+    try:
+        SW.page_accueil()
+        _deux = "acceptées"
+    except ValueError as e:
+        _deux = str(e)
+finally:
+    SW.BIBLIOTHEQUES.clear(); SW.BIBLIOTHEQUES.update(_sauve[0])
+    SW.ADRESSES_BIBLIOTHEQUES.clear(); SW.ADRESSES_BIBLIOTHEQUES.update(_sauve[1])
+chk("accueil : une bibliothèque déclarée sur la famille Acier prend la même forme (carte à gauche, ses modules à droite, "
+    "les mêmes) ; deux bibliothèques dans une famille sont refusées à la construction",
+    _fams_essai["acier"]["forme"] == "biblio" and _fams_essai["acier"]["carte"][:2] == ("essai", "bibliotheque-essai")
+    and _fams_essai["acier"]["modules"] == [n for f, ns in _attendu if f == "acier" for n in ns]
+    and _fams_essai["beton"]["forme"] == "biblio" and _fams_essai["autres"]["forme"] == "grille" and "n'en place qu'une" in _deux,
+    ({k: (f["forme"], f["carte"]) for k, f in _fams_essai.items()}, _deux))
+# la feuille du site porte la règle de la forme (la mesure à l'écran est celle de verifier_site.js) : la grille des
+# modules d'un bloc à bibliothèque commence à la DEUXIÈME colonne, en sous-grille (les colonnes de la charte, une
+# source) ; la carte ne se mesure pas (la hauteur est celle du bloc des modules) ; plus de carte « large » (span 2)
+_site_css = open(os.path.join(WEB, "css", "site.css"), encoding="utf-8").read()
+chk("css/site.css : la grille des modules d'un bloc à bibliothèque commence à la 2ᵉ colonne en sous-grille, la carte prend "
+    "la hauteur du bloc (container-type size), plus de carte large (span 2)",
+    re.search(r"\.accueil \.fam-b > \.tiles \{ grid-column: 2 / -1; grid-template-columns: subgrid; \}", _site_css)
+    and re.search(r"\.accueil \.tile\.biblio \{ container: bib / size;", _site_css) and not re.search(r"\.tile\.biblio \{[^}]*span 2", _site_css))
 _js_mod = json.loads(re.search(r"MODULES = (\{.*\});", open(os.path.join(WEB, "js", "modules.js"), encoding="utf-8").read()).group(1))
 chk("js/modules.js garde les modules masqués (notes existantes) et les marque « masque »",
     all(_js_mod[k].get("masque") is True for k in SW.MASQUES) and not any(_js_mod[k].get("masque") for k in SW.PAGES if k not in SW.MASQUES)

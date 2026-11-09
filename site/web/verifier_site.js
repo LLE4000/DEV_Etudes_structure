@@ -5,7 +5,7 @@
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
 //   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|nappes|doigt|bibliotheque]
-const { chromium } = require('playwright');
+const { chromium, devices } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
 const OUT = process.argv[3] || '.';
@@ -133,9 +133,13 @@ const FILTRE = process.argv[4] || '';
   const total = await p.$$eval('.tile:not(.biblio)', (t) => t.length);
   verif('accueil : les modules visibles du registre sont ouverts, les autres « bientôt », les masqués absents',
     ouvertes === registre && (await p.$$eval('.tile.bientot', (t) => t.length)) === total - registre.split(',').length, `${ouvertes} / ${registre} · masqués : ${masques}`);
-  const biblios = await p.$$eval('.tile.biblio', (t) => t.map((x) => ({ k: x.dataset.bibliotheque, href: x.getAttribute('href'), nom: x.querySelector('.nm').textContent, premiere: x === x.parentElement.firstElementChild })));
-  verif('accueil : la Bibliothèque Béton armé est une carte à part, en tête du bloc Béton, et vise sa page',
-    biblios.length >= 1 && biblios.every((b) => b.premiere && b.href === `bibliotheque-${b.k}`) && biblios.some((b) => b.k === 'beton' && /Béton armé/.test(b.nom)), JSON.stringify(biblios));
+  // (révision du 09/11/2026 : la carte est ÉTROITE et HAUTE, à gauche du bloc de sa famille, les modules dans leur grille à
+  //  sa droite — la forme ici, la mesure à chaque format dans le filtre « bibliotheque »)
+  const biblios = await p.$$eval('.tile.biblio', (t) => t.map((x) => ({ k: x.dataset.bibliotheque, href: x.getAttribute('href'), nom: x.querySelector('.nm').textContent.replace(/\s+/g, ' ').trim(),
+    premiere: x === x.parentElement.firstElementChild && x.parentElement.matches('.famille > .tiles.fam-b'),
+    droite: !!x.nextElementSibling && x.nextElementSibling.matches('.tiles') && x.nextElementSibling.querySelectorAll('.tile:not(.biblio)').length > 0 && !x.nextElementSibling.nextElementSibling })));
+  verif('accueil : la Bibliothèque Béton armé est une carte à part, à gauche du bloc Béton, ses modules dans leur grille à sa droite, et vise sa page',
+    biblios.length >= 1 && biblios.every((b) => b.premiere && b.droite && b.href === `bibliotheque-${b.k}`) && biblios.some((b) => b.k === 'beton' && b.nom === 'Bibliothèque Béton armé'), JSON.stringify(biblios));
   verif('accueil : le volet « Modules » du rail commence par les bibliothèques et ne liste pas les masqués',
     await p.evaluate((masques) => { const labels = [...document.querySelectorAll('.modpanel .navlabel')].map((x) => x.textContent); const liens = [...document.querySelectorAll('.modpanel .navitem')].map((x) => x.getAttribute('href') || '');
       return labels[0] === 'Bibliothèques' && liens.some((h) => h === 'bibliotheque-beton') && masques.split(',').filter(Boolean).every((k) => !liens.includes(k.replace('_', '-')) && !document.querySelector(`.mopt[data-module="${k}"]`)); }, masques));
@@ -3113,7 +3117,84 @@ const FILTRE = process.argv[4] || '';
   //   Chaque rubrique : le tableau se voit D'UN COUP (PC et tablette : son cadre ne défile ni en hauteur ni en largeur),
   //   la case allumée est à l'écran, rien ne déborde ; puis les gestes (PC) : une case cliquée règle les paramètres, un
   //   paramètre réglé allume la case, « Pourquoi ? » s'ouvre et se ferme, l'adresse garde l'état et le restitue.
+  //   D'abord la CARTE de la bibliothèque à l'accueil (docs/site/BIBLIOTHEQUES.md § 2.1, révision du 09/11/2026 :
+  //   « elle serait beaucoup moins large et plus haute, et les modules seraient à droite ») : au PC et à la tablette, la
+  //   carte occupe UNE colonne (pas plus large qu'une tuile), sur TOUTE la hauteur du bloc de ses modules, à GAUCHE de
+  //   chacun d'eux, aucun sous elle ; les modules sur les lignes de colonnes des familles sans bibliothèque (un seul
+  //   rythme) ; « Bibliothèque », le titre et les cinq rubriques visibles, dans la carte, aucun coupé. Au téléphone : la
+  //   carte pleine largeur, en tête de la liste de sa famille. Thème sombre : la carte reste distincte d'une tuile.
   if (!FILTRE || FILTRE === 'bibliotheque') {
+    const mesureAccueilBib = (pg) => pg.evaluate(() => {
+      const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const R = (e) => e.getBoundingClientRect();
+      const plage = (e) => { const g = document.createRange(); g.selectNodeContents(e); return g.getBoundingClientRect(); };
+      const familles = [...document.querySelectorAll('.accueil .famille')].map((f) => {
+        const tuiles = [...f.querySelectorAll('.tile:not(.biblio)')].filter(vu);
+        const rt = tuiles.map(R);
+        const o = { fam: f.dataset.fam, n: tuiles.length, gauches: [...new Set(rt.map((t) => Math.round(t.left)))].sort((a, b) => a - b),
+          large: Math.round(Math.max(...rt.map((t) => t.width))), haut: Math.round(Math.min(...rt.map((t) => t.top))) };
+        const carte = f.querySelector('.tile.biblio');
+        if (carte) {
+          // (sans le bloc .fam-b — l'ancienne forme, la carte DANS la grille des modules — on mesure la grille qui la porte :
+          //  les contrôles rougissent sur ce que l'œil voit, sans que la mesure ne tombe)
+          const c = R(carte), bloc = R(f.querySelector('.fam-b > .tiles') || carte.parentElement), cadre = R(f.querySelector('.fam-b') || carte.parentElement);
+          const textes = [...carte.querySelectorAll('.nm, .bib-r li')];
+          o.carte = { vu: vu(carte), g: Math.round(c.left), d: Math.round(c.right), h: Math.round(c.top), b: Math.round(c.bottom), l: Math.round(c.width), t: Math.round(c.height) };
+          o.bloc = { h: Math.round(bloc.top), b: Math.round(bloc.bottom), l: Math.round(cadre.width) };
+          o.aDroite = rt.every((t) => t.left >= c.right - 0.5);
+          o.sous = rt.filter((t) => t.left < c.right - 0.5).length;
+          o.audessus = rt.filter((t) => t.top < c.bottom - 0.5).length;
+          o.hors = textes.filter((e) => { const r = R(e), k = plage(e); return !vu(e) || r.width < 1 || [r, k].some((q) => q.left < c.left - 0.5 || q.right > c.right + 0.5 || q.top < c.top - 0.5 || q.bottom > c.bottom + 0.5); })
+            .map((e) => e.textContent.trim().slice(0, 30));
+          o.coupes = textes.filter((e) => e.scrollWidth > e.clientWidth + 1 || plage(e).width > R(e).width + 0.5).map((e) => e.textContent.trim().slice(0, 30));
+          o.rubriques = [...carte.querySelectorAll('.bib-r li')].filter(vu).map((e) => e.textContent.trim()).join(',');
+          o.titre = carte.querySelector('.nm').textContent.replace(/\s+/g, ' ').trim();
+          const t0 = tuiles[0] ? getComputedStyle(tuiles[0]) : null, cs = getComputedStyle(carte);
+          o.distincte = !!t0 && cs.borderTopColor !== t0.borderTopColor && getComputedStyle(carte.querySelector('.modic')).backgroundColor !== getComputedStyle(tuiles[0].querySelector('.modic')).backgroundColor;
+        }
+        return o;
+      });
+      return { familles, deborde: document.documentElement.scrollWidth > innerWidth, theme: document.documentElement.dataset.theme || 'clair' };
+    });
+    for (const [nomF, opts, sombre] of [['PC 1440', { viewport: { width: 1440, height: 900 } }], ['PC 1280', { viewport: { width: 1280, height: 800 } }],
+      ['tablette 1180', { viewport: { width: 1180, height: 820 }, hasTouch: true }], ['tablette 1024', { viewport: { width: 1024, height: 768 }, hasTouch: true }],
+      ['portrait 820', { viewport: { width: 820, height: 1180 }, hasTouch: true }], ['téléphone', { ...devices['iPhone 13'] }],
+      ['PC 1440 sombre', { viewport: { width: 1440, height: 900 } }, true], ['téléphone sombre', { ...devices['iPhone 13'] }, true]]) {
+      const c = await b.newContext({ deviceScaleFactor: 2, ...opts });
+      if (sombre) await c.addInitScript(() => { try { localStorage.setItem('stab.theme', 'dark'); } catch (e) { /* le thème du système */ } });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      await g.goto(`${BASE}/index.html`);
+      await g.waitForTimeout(300);
+      const m = await mesureAccueilBib(g);
+      const tel = nomF.startsWith('téléphone');
+      const avec = m.familles.filter((f) => f.carte), sans = m.familles.filter((f) => !f.carte && f.n);
+      verif(`accueil · ${nomF} : chaque bibliothèque a sa carte, « Bibliothèque Béton armé », ses cinq rubriques visibles dans la carte, aucune coupée, rien ne déborde${sombre ? ' (thème sombre)' : ''}`,
+        avec.length >= 1 && avec.some((f) => f.fam === 'beton' && f.titre === 'Bibliothèque Béton armé' && f.rubriques === 'Bétons,Aciers,Sections,Enrobages,Ancrages')
+        && avec.every((f) => f.carte.vu && !f.hors.length && !f.coupes.length) && !m.deborde && (!sombre || m.theme === 'dark'), JSON.stringify({ avec, deborde: m.deborde, theme: m.theme }));
+      if (!tel) {
+        // la colonne de la carte : le pas des colonnes des familles sans bibliothèque (leurs bords gauches)
+        const lignes = sans.length ? sans.reduce((a, f) => (f.gauches.length > a.length ? f.gauches : a), []) : [];
+        verif(`accueil · ${nomF} : la carte est ÉTROITE et HAUTE — une colonne (≤ une tuile), toute la hauteur du bloc de ses modules, à GAUCHE de chacun, aucun sous elle`,
+          avec.every((f) => f.n >= 1 && f.carte.l <= f.large + 1 && f.carte.l >= 0.8 * f.large && Math.abs(f.carte.h - f.bloc.h) <= 1 && Math.abs(f.carte.b - f.bloc.b) <= 1
+            && f.carte.t >= 2 * 52 && f.aDroite && f.sous === 0), JSON.stringify(avec.map((f) => ({ fam: f.fam, carte: f.carte, bloc: f.bloc, large: f.large, n: f.n, sous: f.sous }))));
+        // (et les modules REMPLISSENT les colonnes de droite : autant de colonnes occupées que le permettent leur nombre et la
+        //  grille — une pile d'une seule colonne à côté de la carte, des colonnes vides au bout, serait un défaut)
+        verif(`accueil · ${nomF} : un seul rythme de colonnes — la carte sur la première, ses modules sur TOUTES les suivantes, celles des familles sans bibliothèque`,
+          lignes.length >= 2 && avec.every((f) => Math.abs(f.carte.g - lignes[0]) <= 1 && f.gauches.every((x) => lignes.slice(1).some((l) => Math.abs(l - x) <= 1))
+            && f.gauches.length === Math.min(f.n, lignes.length - 1)),
+          JSON.stringify({ lignes, avec: avec.map((f) => [f.carte.g, f.gauches]) }));
+      } else {
+        verif(`accueil · ${nomF} : la carte pleine largeur, en tête de la liste de sa famille, les modules dessous`,
+          avec.every((f) => f.carte.l >= f.bloc.l - 2 && f.audessus === 0 && f.carte.b <= f.haut + 1), JSON.stringify(avec.map((f) => ({ carte: f.carte, bloc: f.bloc, haut: f.haut }))));
+      }
+      verif(`accueil · ${nomF} : la carte se distingue d'une tuile de calcul (contour et icône de l'accent)`, avec.every((f) => f.distincte), JSON.stringify(avec.map((f) => f.distincte)));
+      verif(`accueil · ${nomF} : aucune erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+      await g.screenshot({ path: path.join(OUT, `site_accueil_biblio_${nomF.replace(/ /g, '_').replace('é', 'e').replace('é', 'e')}.png`), fullPage: tel });
+      await c.close();
+    }
+
     const FORMATS_BIB = [['pc', 1440, 900, false], ['tablette', 1180, 820, false], ['portrait', 820, 1180, false], ['tel', 390, 844, true]];
     const RUBRIQUES_BIB = ['betons', 'aciers', 'sections', 'enrobages', 'ancrages'];
     const attendreBib = (pg) => pg.waitForFunction(() => {
