@@ -1039,6 +1039,18 @@ from api_web import registre as REG2  # noqa: E402
 hors = [k for k in REG2.cles() if k not in SW.ADRESSES]
 chk("chaque module du registre est une clé des familles de l'accueil", not hors, hors)
 
+# 10. le harnais (verifier_site.js, contrôle « l'état verrouillé des briques ») charge api_web.commun avec le python3 du
+# SYSTÈME (3.11 ici), pas avec celui du site : un antislash dans l'expression d'une f-string y est une erreur de syntaxe
+# (Python < 3.12). Le harnais complet du 10/11/2026 l'a trouvé dans le sélecteur (ligne inactive) ; ce contrôle le dit en
+# une seconde au lieu d'une heure. Un python3 absent ou déjà en 3.12 rend le contrôle sans objet (dit tel quel).
+try:
+    _py3 = subprocess.run(["python3", "-c", "import sys; sys.path.insert(0, sys.argv[1]); from api_web import commun; "
+                           "print('.'.join(map(str, sys.version_info[:2])))", RACINE], capture_output=True, text=True, timeout=120)
+    chk("api_web/commun.py se charge avec le python3 du système (celui du harnais, contrôle des briques)",
+        _py3.returncode == 0, (_py3.stderr or _py3.stdout).strip()[-300:] or f"python3 {_py3.stdout.strip()}")
+except FileNotFoundError:
+    chk("api_web/commun.py se charge avec le python3 du système (celui du harnais, contrôle des briques)", True, "pas de python3 : sans objet")
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])

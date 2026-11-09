@@ -362,8 +362,13 @@ def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[
         if r.get("taux") is not None:
             return chip(r["taux"], r["niveau"])
         return f'<span class="chip {r["niveau"]}">{esc(r["etat"])}</span>' if r.get("etat") else ""
+    # l'attribut d'une ligne inactive est préparé HORS de la f-string : un antislash dans son expression est une
+    # erreur de syntaxe avant Python 3.12, et le harnais (contrôle des briques) charge ce module avec le python3 du
+    # système (3.11) — trouvé par le harnais complet du 10/11/2026
+    def inactif_(r):
+        return ' aria-disabled="true"' if r.get("inactif") else ""
     lignes = "".join(
-        f'<button class="pk-row{" cur" if r["cur"] else ""}{" opt" if r["opt"] else ""}"{" aria-disabled=\"true\"" if r.get("inactif") else ""} '
+        f'<button class="pk-row{" cur" if r["cur"] else ""}{" opt" if r["opt"] else ""}"{inactif_(r)} '
         f'data-choix="{esc(r["nom"])}" data-prop="{esc(r.get("prop", ""))}">'
         f'<span class="mk">{icon("check") if r["cur"] else (icon("star") if r["opt"] else "")}</span>'
         f'<span class="nm">{esc(r["nom"])}</span><span class="kg">{r["col"]}</span>'
