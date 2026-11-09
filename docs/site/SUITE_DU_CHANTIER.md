@@ -117,6 +117,17 @@ vu rouge sans sa correction ; moteurs et générateurs de note non touchés.
   formats:poutre, formats:dalle, formats:predalle, module:assemblages et pilote rejoués sur la construction finale,
   0 KO). `lancer_tests.py --tout` et le harnais complet ne sont PAS rejoués (le coordinateur). Le serveur local du
   port 8771 n'envoie `X-Robots-Tag` qu'une fois relancé (il lit `_headers` au démarrage).
+- Relecture adverse du lot (10/11/2026) : suites ciblées et mutations annoncées rejouées (toutes rouges sans leur
+  correction, vertes avec ; les comptes du lot retrouvés) ; parcours propres (un établi ordinaire ouvert depuis sa
+  carte, modifié, quitté par l'accueil, rouvert, rangé : la note est là, la valeur aussi ; `?note=` absent ; une dalle
+  au nom de 72 caractères ; l'accueil à 820, 1 024, 1 280, 1 440 et au téléphone). Deux défauts d'AFFICHAGE trouvés et
+  corrigés, aucun chiffre touché : ~~l'en-tête « JUSTIFICATIONS (n) » des fiches de la poutre sans style (parti avec
+  l'ancienne arborescence, e043d15)~~ : 1b83725 ; ~~à la tablette, le nom de la note serré à 110 px (1 px pour la
+  poutre à 1 180 px)~~ : 3a8277a (REFONTE_ETABLI.md, révision « relecture »). Restent OUVERTS, préexistants :
+  une saisie suivie AUSSITÔT d'un départ de la page (sans Entrée, sans attendre le calcul) est perdue (mesuré sur les
+  soudures) — l'écriture suit la réponse du moteur, avant comme après le lot, et rien ne garde la sortie ; au PC à
+  1 280 px, la poutre coupe son nom (103 px vus pour 124 ; 110 avant le lot) ; à la tablette, le lien « maison » du
+  fil fait 14 px de haut (le rail porte la même cible à 44).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
