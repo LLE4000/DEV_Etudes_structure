@@ -4,3 +4,6 @@ __pycache__/
 
 # Wrangler (Cloudflare) : son dossier de travail local
 .wrangler/
+
+# Le témoin du lanceur de tests (empreintes des suites vertes) : propre à chaque arbre de travail
+.temoin_tests/
