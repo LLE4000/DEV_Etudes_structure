@@ -272,6 +272,38 @@ chk("tete_resultats : plus de paramètre « chemin_nom » ni « verrou » (la t�
     list(inspect.signature(E.tete_resultats).parameters) == ["nom", "dims"], inspect.signature(E.tete_resultats))
 
 # ------------------------------------------------------------------ 7. les mutations : une altération du module fait rougir un contrôle
+print("\n=== 6 bis. Le rangement du 10/11/2026 : les styles de l'ANCIENNE arborescence, retirés ===")
+# css/etabli.css n'est chargé que par les pages des établis compacts (construire.ETABLI_COMPACT) ; chacun de ces modules
+# rend sa colonne COMPACTE, en dur (``E.arbre(…, compact=True)``) ; la seule à rendre encore l'ancienne arborescence est
+# api_web/predalle.py, dont la page REDIRIGE vers les dalles (construire.REDIRECTIONS) et ne charge pas ce fichier. Les
+# règles .et-pt…, .et-arbre-h n'avaient donc plus rien à habiller : retirées de css/etabli.css et css/modules/dalle.css
+# (la pastille .et-pt-e et la couleur --et-pt-bg, employées, restent). Ce contrôle garde les trois prémisses.
+sys.path.insert(0, os.path.join(RACINE, "site", "web"))
+import importlib  # noqa: E402
+with contextlib.redirect_stdout(open(os.devnull, "w")):
+    CO = importlib.import_module("construire")
+_ANC = re.compile(r"\.et-pt(?!-e\b)[-\w]*|\.et-arbre-h")
+
+
+def _css(chemin):
+    with open(os.path.join(RACINE, "site", "web", chemin), encoding="utf-8") as f:
+        return re.sub(r"/\*.*?\*/", "", f.read(), flags=re.S)
+
+
+def ctl_css_ancienne():
+    return [(c, m) for c in ("css/etabli.css", "css/modules/dalle.css", "css/modules/poutre.css")
+            if os.path.exists(os.path.join(RACINE, "site", "web", c)) for m in _ANC.findall(_css(c))]
+
+
+chk("css/etabli.css et les feuilles des établis compacts ne portent plus aucune règle de l'ancienne arborescence "
+    "(.et-pt…, .et-arbre-h) ; la pastille .et-pt-e reste", not ctl_css_ancienne() and ".et-pt-e" in _css("css/etabli.css"),
+    ctl_css_ancienne())
+_src = {cle: inspect.getsource(importlib.import_module(f"api_web.{cle}").arbre) for cle in CO.ETABLI_COMPACT}
+chk("chaque établi compact (construire.ETABLI_COMPACT) rend sa colonne compacte, en dur — et charge seul css/etabli.css ; "
+    "la page de l'ancien module Prédalles redirige",
+    set(CO.ETABLI_COMPACT) <= set(CO.ARBRE_COMPACT) and all("compact=True" in s_ for s_ in _src.values())
+    and "predalle" in CO.REDIRECTIONS and "predalle" not in CO.ETABLI_COMPACT, _src)
+
 print("\n=== 7. Les mutations (en mémoire : le dépôt n'est pas touché) ===")
 
 

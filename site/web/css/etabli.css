@@ -136,38 +136,9 @@
 /* ------------------------------------------------------------------ les données : l'arborescence */
 [data-etabli="compact"] #donnees { padding-bottom: 24px; }
 .et-arbre { display: flex; flex-direction: column; }
-.et-arbre-h { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--ink-3); border-bottom: 1px solid var(--line); }
-.et-arbre-h .n { min-width: 18px; height: 16px; padding: 0 4px; border-radius: 8px; display: grid; place-items: center; background: var(--bg-sunken); color: var(--ink-2); letter-spacing: 0; }
-.et-pt { border-bottom: 1px solid var(--line); }
-.et-pt.on { position: relative; background: var(--et-pt-bg); }
-/* le filet de la poutre ouverte, sur toute sa hauteur (ses rubriques comprises) : la hiérarchie de l'arborescence */
-.et-pt.on::before { content: ""; position: absolute; z-index: 2; left: 0; top: 0; bottom: 0; width: 2px; background: var(--accent); pointer-events: none; }
-.et-pt-l { position: relative; display: flex; align-items: center; min-height: 40px; padding: 0 6px 0 4px; }
-.et-pt-t { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 4px; text-align: left; border-radius: 7px; color: var(--ink); }
-.et-pt-t svg.i { flex: none; width: 15px; height: 15px; color: var(--ink-3); transition: transform .15s ease; }
-.et-pt-t.on svg.i { transform: rotate(90deg); color: var(--accent); }
-.et-pt.on.replie .et-pt-t svg.i { transform: none; }
-.et-pt-t .t { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
-.et-pt-t .nom { font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.et-pt-t .dim { flex: none; font-size: 12px; color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.et-pt:not(.on) .et-pt-t:hover { background: var(--bg); }
-.et-pt.on .et-pt-t .nom { color: var(--ink); }
-/* l'élément OUVERT : le chevron seul (replier, déplier), puis le NOM en champ, à l'allure du titre — un cadre au
-   survol, au focus (le champ « Nom » des rubriques n'existe plus) */
-.et-pt-t.et-pt-chev { flex: none; width: 28px; justify-content: center; padding: 0; }
-.et-pt-n { flex: 1 1 auto; display: flex; align-items: baseline; gap: 5px; min-width: 0; }
-.et-pt-nom { flex: 0 1 auto; min-width: 4ch; max-width: 100%; height: 28px; padding: 0 6px; margin-left: -2px; border: 1px solid transparent;
-  border-radius: 6px; background: transparent; font: inherit; font-size: 13px; font-weight: 650; color: var(--ink); text-overflow: ellipsis; }
-.et-pt-nom:hover { border-color: var(--line-strong); background: var(--panel); }
-.et-pt-nom:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; background: var(--panel); }
-.et-pt-n .dim { flex: none; font-size: 12px; color: var(--ink-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.et-pt-corps { padding: 0 0 4px; }
-.et-pt.on.replie .et-pt-corps { display: none; }
-.et-pt-add { display: flex; align-items: center; gap: 6px; height: 36px; margin: 6px 10px 2px; padding: 0 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
-  color: var(--ink-2); border: 1px dashed var(--line-strong); }
-.et-pt-add:hover { color: var(--accent-hover); border-color: var(--accent-line); background: var(--accent-soft); }
-.et-pt-add svg.i { width: 14px; height: 14px; }
+/* (les règles de l'ANCIENNE arborescence — .et-pt…, .et-arbre-h : etabli_compact.arbre sans « compact » — sont retirées
+   le 10/11/2026 : ce fichier n'est chargé que par les établis compacts, qui ne la rendent plus ; le module Prédalles,
+   seul à la rendre encore, a une page qui redirige vers les dalles. tests/test_etabli_compact.py le garde.) */
 
 /* la colonne de gauche COMPACTE (la dalle, la poutre ; docs/site/DALLES_FUSION.md § 1 ; etabli_compact.arbre_compact) :
    ni titre « Données », ni arborescence. La LIGNE de l'élément ouvert (.et-elsel) est posée par js/etabli.js dans
@@ -205,7 +176,6 @@
 .et-mn-b { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-3); }
 .et-mn-b:hover, .et-mn-b[aria-expanded="true"] { background: var(--bg); color: var(--ink); }
 .et-mn-b svg.i { width: 16px; height: 16px; }
-@media (hover: hover) { .et-pt:not(.on) .et-pt-l:not(:hover) .et-mn-b:not([aria-expanded="true"]) { opacity: 0; } }
 .et-mn-l { position: absolute; z-index: 30; top: calc(100% + 2px); right: 0; min-width: 196px; padding: 4px; display: flex; flex-direction: column;
   background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow-2); }
 .et-mn-l.haut { top: auto; bottom: calc(100% + 2px); }
@@ -450,8 +420,6 @@
   [data-etabli="compact"] .et-barres .b { width: 44px; height: 44px; }
   [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just { height: 44px; }
   [data-etabli="compact"] .et-sec-pick { width: 44px; height: 44px; }
-  [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 44px; }
-  [data-etabli="compact"] .et-pt-nom { height: 44px; }
   [data-etabli="compact"] .et-elt-nom { height: 44px; }
   [data-etabli="compact"] .et-elt-b, [data-etabli="compact"] .et-elt-liste .et-mn-b { min-width: 44px; height: 44px; }
   [data-etabli="compact"] .et-bloc-t, [data-etabli="compact"] .et-bloc-h { min-height: 44px; height: auto; }
@@ -472,10 +440,7 @@
 
 /* ------------------------------------------------------------------ téléphone : les onglets Données · Dessin · Résultat */
 @media (max-width: 700px) {
-  [data-etabli="compact"] .et-pt-l, [data-etabli="compact"] .et-pt-t { min-height: 46px; height: auto; }
   /* le chevron et le NOM de l'élément ouvert, au doigt (le nom s'écrit en 16 px : .bench input, site.css) */
-  [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 44px; }
-  [data-etabli="compact"] .et-pt-nom { height: 44px; min-width: 48px; }
   /* la ligne de l'élément, au doigt : le nom (16 px, .bench input de site.css), la liste, copier, supprimer à 44 px
      (petits chantiers, 10/11/2026 ; c'étaient 40 px) */
   [data-etabli="compact"] .et-elt-nom { height: 44px; min-width: 48px; }
@@ -492,7 +457,6 @@
   [data-etabli="compact"] .et-mn-b { opacity: 1 !important; }
   [data-etabli="compact"] .et-mn-l button { height: 44px; font-size: 14px; }
   [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just,
-  [data-etabli="compact"] .et-pt-add { height: 44px; font-size: 13px; }
   [data-etabli="compact"] .et-barres { gap: 5px; }
   [data-etabli="compact"] .et-barres .b { width: 44px; height: 44px; font-size: 13px; }
   [data-etabli="compact"] .et-sec-pick { width: 44px; height: 44px; }
