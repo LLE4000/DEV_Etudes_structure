@@ -899,15 +899,22 @@ if AppTest is None:
     print("     (streamlit absent : l'écran n'est pas rejoué)")
 else:
     APP = ("import sys\nsys.path.insert(0, %r)\nimport streamlit as st\nfrom modules import poutre\n"
-           "if 'b1_h' not in st.session_state:\n    st.session_state['b1_h'] = 400\npoutre.show()\n" % RACINE)
+           "if 'b1_h' not in st.session_state:\n    st.session_state['b1_h'] = 400\n    st.session_state['b1_b'] = 250\n"
+           "poutre.show()\n" % RACINE)
     at = AppTest.from_string(APP, default_timeout=120)
     at.run()
     hauts = [n for n in at.number_input if n.label == "Haut. (cm)"]
+    larges = [n for n in at.number_input if n.label == "Larg. (cm)"]
     chk("l'écran Streamlit garde une hauteur de 400 cm (plus de plafond à 300), sans erreur",
         not at.exception and hauts and hauts[0].value == 400 and hauts[0].max is None,
         ([str(e.value)[:200] for e in at.exception], [(n.value, n.max) for n in hauts]))
+    chk("l'écran Streamlit garde une largeur de 250 cm (plus de plafond à 200), sans erreur",
+        not at.exception and larges and larges[0].value == 250 and larges[0].max is None,
+        ([str(e.value)[:200] for e in at.exception], [(n.value, n.max) for n in larges]))
 p4 = M.verifier(E.normaliser(poutre("VOILE", [sec("A", 900, 0, 600, ((2, 16),))], b=25, h=400)))
 chk("le moteur du site calcule une poutre de 4 m (h = 400 cm)", p4["sections"][0]["geometrie"] is not None)
+p5 = M.verifier(E.normaliser(poutre("LARGE", [sec("A", 900, 0, 600, ((2, 16),))], b=250, h=60)))
+chk("le moteur du site calcule une poutre de 2,50 m de large (b = 250 cm)", p5["sections"][0]["geometrie"] is not None)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -1459,7 +1459,8 @@ def render_caracteristiques_beam(beam_id: int):
 
         cB, cH, cE = st.columns(3)
         with cB:
-            st.number_input("Larg. (cm)", min_value=5, max_value=200, step=5, key=KB("b", beam_id), disabled=data_locked)
+            # pas de largeur maximale (demande de l'ingénieur du 09/11/2026, comme la hauteur ; l'ancien plafond : 200 cm)
+            st.number_input("Larg. (cm)", min_value=5, step=5, key=KB("b", beam_id), disabled=data_locked)
         with cH:
             # pas de hauteur maximale (demande de l'ingénieur du 09/11/2026 : un voile se calcule comme une poutre, et
             # l'ancien plafond de 300 cm refusait un voile de 3 m) ; le moteur du site n'en a jamais eu
