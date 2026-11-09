@@ -94,7 +94,9 @@ class Config:
     ``titre_non_verifies`` (la vue Méthode), ``validation(cfg)`` (la vue Validation, à la place de la générique),
     ``nom_menu`` (le nom de l'attache dans le menu Configuration quand son nom court redit sa famille), ``refus(u)``
     → [(chemin, message)] (les lignes de ses tables qu'une note relue porte et que la saisie refuserait),
-    ``legende_manuel`` (la légende et la colonne de contrôle des calculs manuels de son onglet Benchmark)."""
+    ``legende_manuel`` (la légende et la colonne de contrôle des calculs manuels de son onglet Benchmark),
+    ``mot_information(R, groupe)`` (ce que la ligne d'une pièce d'information dit d'elle : « information » par défaut ;
+    le béton d'ancrage hors du périmètre « EC3 seul » le dit)."""
 
     def __init__(self, **k):
         self.__dict__.update(k)
@@ -110,7 +112,7 @@ class Config:
                             ("actions", {}), ("sur_saisie", {}), ("aides", None), ("hypotheses", None), ("normes", {}),
                             ("blocs_tete", None), ("lignes_resultat", None), ("complement_verdict", None),
                             ("legende_33", None), ("natures", None), ("titre_non_verifies", None), ("validation", None),
-                            ("nom_menu", None), ("refus", None)):
+                            ("nom_menu", None), ("refus", None), ("mot_information", None)):
             if not hasattr(self, nom):
                 setattr(self, nom, defaut)
 
@@ -1012,6 +1014,9 @@ def d0_items(u: Dict) -> List:
 
 
 # ===================================================================== le résultat
+SANS_TAUX_INFORMATION = "hors verdict"   # ce qu'une ligne d'information porte à la place d'un taux (_resultat)
+
+
 def information(cfg: Config, R, c) -> bool:
     """Une vérification affichée EN INFORMATION, hors verdict (pied de poteau : béton d'ancrage EN 1992-4 quand le
     périmètre est l'EN 1993-1-8 seule, niveau 2, pression maximale — ``synthese.info``) : elle ne colore ni sa pièce
@@ -1372,10 +1377,16 @@ def resultat(etat: Dict) -> Dict:
         for grp, nom, eta, ok, pire, on, info in _groupes(cfg, R):
             texte, pk = cfg.piece(R, u, grp)
             if info:
-                texte = (texte + " · " if texte else "") + "information"
+                mot = cfg.mot_information(R, grp) if cfg.mot_information else "information"
+                texte = (texte + " · " if texte else "") + C.esc(mot)
+            # une ligne d'INFORMATION ne porte pas de taux à la place des taux qui décident (petits chantiers,
+            # 10/11/2026) : « hors verdict », en gris, sans jauge — un « 454 % » gris sous « Conforme » se lisait comme
+            # un dépassement ignoré. Son taux se lit dans sa fenêtre de calcul, et la phrase d'information
+            # (``note_information``) dit le plus sollicité, « satisfait » ou non.
             vu = eta if info else eta_vu(eta, ok)
-            rows += C.ligne_res(nom, texte, taux(vu), "c" if info else ("r" if not ok else C.niveau(vu)), calcul=_slug(grp),
-                                pk=pk or "", gov=bool(gouv is not None and gouv in on and not info))
+            rows += C.ligne_res(nom, texte, None if info else taux(vu), "c" if info else ("r" if not ok else C.niveau(vu)),
+                                calcul=_slug(grp), pk=pk or "", gov=bool(gouv is not None and gouv in on and not info),
+                                **({"sans_taux": SANS_TAUX_INFORMATION} if info else {}))
             if isinstance(extra, dict):
                 rows += extra.pop(grp, "")
         rows += "".join(extra.values()) if isinstance(extra, dict) else extra

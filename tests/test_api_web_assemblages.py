@@ -607,9 +607,12 @@ cfg = A.pour(A.CONFIGS["platine_beton"], Rp)
 res = A.resultat(e)["resultat"]
 anc = [x for x in RX_EL.findall(res) if x[2] == "Ancrages"]
 pire = cfg.S.pire_information(Rp)
-chk("pied de poteau (périmètre EN 1993-1-8) : le béton d'ancrage EN 1992-4 est une ligne d'INFORMATION grise, hors "
-    "verdict, et la phrase d'information de l'écran Streamlit est dite",
-    Rp.verified and pire is not None and pire.eta > 1 and anc and anc[0][3] == "c" and "information" in res.split("Ancrages")[1][:200]
+# (petits chantiers, 10/11/2026 : la ligne ne porte plus de taux — un « 108 % » gris sous « Conforme » se lisait comme un
+# dépassement ignoré ; elle dit « hors périmètre » et « hors verdict », la phrase d'information garde le chiffre)
+chk("pied de poteau (périmètre EN 1993-1-8) : le béton d'ancrage EN 1992-4 est une ligne d'INFORMATION grise, « hors "
+    "périmètre « EC3 seul » », « hors verdict » à la place du taux, et la phrase d'information de l'écran Streamlit est dite",
+    Rp.verified and pire is not None and pire.eta > 1 and anc and anc[0][3] == "c" and anc[0][4] == A.SANS_TAUX_INFORMATION
+    and "hors périmètre « EC3 seul »" in res.split("Ancrages")[1][:200]
     and "en information, hors verdict" in res and "Conforme" not in res.split('class="verdict"')[0], anc)
 chk("doubles cornières : la répartition élastique par boulon (groupe S) est dans la fenêtre Boulons",
     "Répartition élastique par boulon · groupe S" in vol and all(C.fr(b.f, 2) in vol for b in R.tabS))

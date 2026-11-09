@@ -438,6 +438,17 @@ def note_information(R):
             + ". Périmètre « EC3 + EC2-4 » (section Assemblage) pour le compter dans le verdict.")
 
 
+def mot_information(R, grp: str) -> str:
+    """Ce que dit la ligne d'une pièce d'INFORMATION du résultat (assemblages._resultat, à la place d'un taux : « hors
+    verdict ») : le béton d'ancrage, au périmètre « EC3 seul », est HORS PÉRIMÈTRE — sa vérification n'entre pas dans le
+    verdict par choix du périmètre, ce n'est pas un taux ignoré (petits chantiers, 10/11/2026 : « 108 % » gris sous
+    « Conforme ») ; les autres sont des renseignements (niveau 2, pression maximale ; tiges et appui du calcul à la
+    main)."""
+    if grp == "Ancrages" and not CA.est_manuel_R(R) and getattr(R, "perim_ec3", False):
+        return f"hors périmètre « {AFFICHAGE_SITE['perim'][E.PERIM_EC3]} »"
+    return "information"
+
+
 # ================================================================== la mise en forme (HTML du site)
 def _cellule(x) -> str:
     """Une cellule : un texte (échappé) ou un taux (η, vérifié) en pastille de couleur."""
@@ -1140,6 +1151,7 @@ def _variante(R):
 COMMUN = dict(E=E, calculer=CA.compute, N=NO, formules=lambda R, c: A.lignes_texte(R, c, FO.textes),
               piece=_piece, sections=_sections, libelles=LIBELLES, affichage=AFFICHAGE_SITE, segments=SEGMENTS,
               entiers=ENTIERS, listes=LISTES, dimensions=_dimensions(), note_information=note_information,
+              mot_information=mot_information,
               visserie_defaut=E.VISSERIE_DEFAUT, exemples=exemples, etat={"grille": _grille},
               actions={"grille": _action_grille}, sur_saisie={"mode": _changer_mode}, aides=aides, refus=refus_tables,
               hypotheses=hypotheses, blocs_tete=blocs_tete, blocs=blocs, lignes_resultat=lignes_resultat,

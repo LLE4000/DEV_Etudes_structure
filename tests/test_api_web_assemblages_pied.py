@@ -665,6 +665,12 @@ for nom, R, u, e in RESULTATS[:40]:
         ligne = [x for x in lignes if x[2] == grp]
         if info and (not ligne or ligne[0][3] != "c"):
             defauts.append((nom, "information grise", grp))
+        # une ligne d'information ne porte JAMAIS de taux (petits chantiers, 10/11/2026 : « 108 % » gris sous
+        # « Conforme ») : « hors verdict » et sans jauge ; une ligne qui décide garde son taux
+        if info and ligne and (ligne[0][4] != A.SANS_TAUX_INFORMATION or "%" in ligne[0][4]):
+            defauts.append((nom, "information sans taux", grp, ligne[0][4]))
+        if not info and ligne and "%" not in ligne[0][4] and eta is not None and math.isfinite(eta):
+            defauts.append((nom, "taux d'une ligne qui décide", grp, ligne[0][4]))
     # la pastille du verdict : le η max du moteur (celui de l'écran Streamlit), porté au rapport de la pire pince
     # NON conforme quand il est plus grand (07/11/2026 : le moteur qui trouve la géométrie non valide ne calcule plus
     # les résistances qui en dépendent, et son η max écrivait « 0 % » sous « Non conforme »)
@@ -715,6 +721,31 @@ for nom, R, u, e in RESULTATS[:40]:
         defauts.append((nom, "vue Efforts / Répartition"))
 chk(f"verdict, lignes par pièce (information en gris), quatre critères, E_d / R_d et détail dans chaque fenêtre, alertes, "
     f"dessins au caractère près, note, méthode, vues ({min(40, len(RESULTATS))} résultats)", not defauts, defauts[:3])
+# le cas mesuré (petits chantiers, 10/11/2026) : périmètre « EC3 seul », béton d'ancrage à 454 % (interaction N / V,
+# hef 100 mm, N = −50 kN, Mx = 10 kNm) sous un verdict « vérifié » — c'est le PÉRIMÈTRE (le béton d'ancrage n'entre pas
+# dans le verdict, comme dans l'écran Streamlit), pas un défaut du calcul : la ligne le dit et ne montre aucun taux ; la
+# phrase d'information garde le chiffre et dit « non satisfait » ; au périmètre « EC3 + EC2-4 », le même calcul est
+# NON CONFORME et la ligne porte son taux, en rouge.
+e = neuf(True)
+for k, v in (("hef", 100.0), ("N_Ed", -50.0), ("Mx_Ed", 10.0)):
+    assert A.modifier(e, ["v", k], v) is None
+R108 = r_de(e)
+r108 = A.resultat(e)["resultat"]
+anc = [x for x in RX_EL.findall(r108) if x[2] == "Ancrages"]
+pire = PI.YCO.pire_information(R108)
+e2 = copy.deepcopy(e)
+assert A.modifier(e2, ["v", "perim"], E.PERIM_TOUT) is None
+R2 = r_de(e2)
+anc2 = [x for x in RX_EL.findall(A.resultat(e2)["resultat"]) if x[2] == "Ancrages"]
+chk("pied de poteau, périmètre « EC3 seul », béton d'ancrage à 454 % sous « vérifié » : la ligne dit « hors périmètre "
+    "« EC3 seul » » et « hors verdict », sans taux ; la phrase d'information dit 454,0 % « non satisfait » ; au périmètre "
+    "« EC3 + EC2-4 », non conforme et la ligne en rouge à 454 %",
+    R108.verified and pire is not None and round(pire.eta, 2) == 4.54 and anc and anc[0][3] == "c"
+    and anc[0][4] == A.SANS_TAUX_INFORMATION and "454" not in r108.split('data-calcul="ancrages"')[1].split('class="el')[0]
+    and "hors périmètre « EC3 seul »" in r108.split('data-calcul="ancrages"')[1][:300]
+    and "à 454,0 % — non satisfait" in texte(r108)
+    and not R2.verified and anc2 and anc2[0][3] == "r" and anc2[0][4] == f"454{C.NBSP}%",
+    (R108.statut, anc, anc2, round(pire.eta, 3) if pire else None))
 rm, rc = A.resultat(neuf()), A.resultat(neuf(True))
 chk("calcul manuel : vues Plan, Coupe A-A, Coupe B-B, Efforts, Note, Méthode, Validation (VAL-M1 à VAL-M4)",
     [v["cle"] for v in rm["vues"]] == ["plan", "coupe_aa", "coupe_bb", "efforts", "note", "methode", "validation"]
