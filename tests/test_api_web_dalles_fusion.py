@@ -2,23 +2,26 @@
 """Le module FUSIONNÉ « Dalles béton armé » (api_web/dalle.py — docs/site/DALLES_FUSION.md § 0 et § 2, lot FUS2),
 vérifié en Python ordinaire à travers le routeur (les mêmes requêtes JSON que le navigateur).
 
-- l'ÉTAT fusionné : chaque dalle porte « type » (coulee | predalle), « verrou », « empilement » ; une note neuve est une
-  dalle coulée en place, nappes empilées ; les trois formes d'état sont relues ({"dalles"} sans type → coulee,
-  {"predalles"} de l'ancien module → predalle, actif conservé, chiffres identiques) et une note abîmée (les deux clés,
-  un type inconnu, un drapeau qui n'en est pas un) est REFUSÉE, jamais remplacée par une note neuve ;
+- l'ÉTAT fusionné (version 3) : chaque dalle porte « type » (coulee | predalle) et « verrou » ; une note neuve est une
+  dalle coulée en place ; les trois formes d'état sont relues ({"dalles"} sans type → coulee, {"predalles"} de l'ancien
+  module → predalle, actif conservé, rien de perdu) et une note abîmée (les deux clés, un type inconnu, un verrou qui
+  n'en est pas un) est REFUSÉE, jamais remplacée par une note neuve ;
 - la rubrique « 1 — Caractéristiques » : les segments du type, « h_p prédalle » et le complément h − h_p (lu, jamais
   stocké) ; la bascule coulee ↔ predalle ajoute ou retire h_pre et conserve tout le reste ; les refus géométriques de
   l'ancien module Prédalles s'appliquent, la dalle reste intacte ;
 - le MOTEUR est choisi selon le type (beton/dalle ou beton/predalle, inchangés) : les lignes du résultat sont celles de
-  l'appel direct du moteur du type sur la même entrée ; l'en-tête, le pied, les hypothèses, le périmètre, les
-  avertissements et les dessins sont ceux du type ;
+  l'appel direct du moteur du type sur la copie que le site lui envoie (dalle_positions.pour_moteur) ; l'en-tête, le
+  pied, les hypothèses, le périmètre, les avertissements et les dessins sont ceux du type ;
 - l'import des DEUX fichiers Streamlit (dalle_ba.json, predalle_ba.json : le type déduit du fichier) ;
-- « empilement » : vrai pour une note neuve, faux pour une note relue sans la clé, une note de prédalles, un fichier
-  importé ; commun à la note ; option fausse → les chiffres du moteur à l'octet ;
+- les nappes TOUJOURS posées l'une sur l'autre (décision de l'ingénieur du 09/11/2026) : plus d'option (ni case, ni
+  chemin « empilement »), une note neuve, une note d'avant (clé absente, fausse, vraie, illisible : relue sans effet), une
+  note de l'ancien module Prédalles, un fichier Streamlit — tous empilés ; une note d'avant dont les chiffres changent le
+  dit UNE fois, à l'ouverture (un avis, pas une erreur), et seulement elle ;
 - l'ampoule (sélecteur de nappe de base) garde une nappe de treillis unique cohérente (la transposée sur l'autre face) ;
 - les points d'ancrage des autres lots sont branchés (dalle_positions : axe_auto, pour_moteur, annoter, candidats_base ;
   dalle_nappes : ecrire, html ; etabli_compact : compact=True, le nom dans la ligne de la dalle) ;
-- cinq MUTATIONS : une altération du code fait rougir le contrôle qui la garde.
+- des MUTATIONS : une altération du code fait rougir le contrôle qui la garde (dont : l'option qui revient, la clé
+  d'avant qui fait refuser la note, l'avis qui ne se dit plus ou qui se redit).
 
     /usr/bin/python3.12 tests/test_api_web_dalles_fusion.py
 """
@@ -35,6 +38,7 @@ from api_web import commun as C  # noqa: E402
 from api_web import dalle as P  # noqa: E402
 from api_web import dalle_nappes as NAP  # noqa: E402
 from api_web import dalle_positions as POS  # noqa: E402
+from api_web import dessin_dalle as DD  # noqa: E402
 from api_web import predalle as AP  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 from beton import treillis as TR  # noqa: E402
@@ -67,8 +71,21 @@ def actif(etat, i=None):
 
 
 def sans_site(d):
-    """La dalle sans les clés du site : ce qu'un moteur lit quand les nappes ne sont pas empilées."""
+    """La dalle sans les clés du site, telle que la note la garde (le moteur, lui, reçoit ``POS.pour_moteur(d)`` : les
+    couches secondaires posées sur la principale)."""
     return {k: v for k, v in d.items() if k not in P.CLES_SITE}
+
+
+def avis(rep):
+    """Le texte de l'avis d'ouverture rendu en tête du résultat (juste après la tête), ou None."""
+    m = re.match(r'<div class="pbody"><div class="et-rp">.*?</div><div class="msg">(.*?)</div><div class="et-blocs">', rep["resultat"], re.S)
+    return m.group(1) if m else None
+
+
+def axe_inf_x(d):
+    """L'axe que le MOTEUR reçoit pour la base inf. X (direction secondaire quand la principale est Y)."""
+    return MO.verifier(POS.pour_moteur(d))["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] if d["type"] == "coulee" \
+        else MO_P.verifier(POS.pour_moteur(d))["sections"][0]["faces"]["sup_x"]["couches"][0]["e"]
 
 
 def niveau_de(v):
@@ -107,52 +124,76 @@ print("=== 1. La note neuve, l'état fusionné, les clés du site ===")
 r0 = req(action="nouveau")
 e0 = r0["etat"]
 d0 = actif(e0)
-chk("une note neuve : version 2, UNE dalle « coulee », déverrouillée, nappes EMPILÉES (§ 4.3), la dalle de l'écran Streamlit",
-    r0["ok"] and e0["version"] == 2 and len(e0["dalles"]) == 1 and d0["type"] == "coulee" and d0["verrou"] is False
-    and d0["empilement"] is True and sans_site(d0) == EN.nouvelle_dalle(), (e0.get("version"), {k: d0.get(k) for k in P.CLES_SITE}))
+chk("une note neuve : version 3, UNE dalle « coulee », déverrouillée, la dalle de l'écran Streamlit, et plus de clé « empilement » "
+    "(décision du 09/11/2026 : plus d'option) ni d'avis",
+    r0["ok"] and e0["version"] == 3 == P.VERSION and len(e0["dalles"]) == 1 and d0["type"] == "coulee" and d0["verrou"] is False
+    and "empilement" not in d0 and P.CLE_AVIS not in e0 and sans_site(d0) == EN.nouvelle_dalle() and avis(r0) is None,
+    (e0.get("version"), {k: d0.get(k) for k in P.CLES_SITE}))
 chk("les clés du site sont nommées une fois par module et liées ici : dalle.CLES_SITE = dalle_positions.CLES_SITE, et la copie "
     "envoyée au moteur (POS.pour_moteur) n'en porte aucune — le moteur des dalles la lit",
-    set(P.CLES_SITE) == set(POS.CLES_SITE) == {"verrou", "type", "empilement"}
+    set(P.CLES_SITE) == set(POS.CLES_SITE) == {"verrou", "type"} and P.CLES_ANCIENNES == ("empilement",)
     and not (set(POS.pour_moteur(d0)) & set(P.CLES_SITE)) and MO.verifier(POS.pour_moteur(d0))["statut"] == MO.OK)
 chk("l'état survit à un aller-retour JSON et sa relecture est stable (normaliser ∘ normaliser)",
     P.normaliser(json.loads(json.dumps(e0))) == e0 and P.normaliser(copy.deepcopy(e0)) == e0)
-chk("le type et l'empilement se lisent dans la rubrique 1 et les options : segments « Dalle CSP » (retenu) · « Prédalle + dalle "
-    "CSP » (les libellés courts de l'ingénieur, 09/11/2026 ; l'aide du champ dit « CSP : coulé sur place. » d'abord), le résumé "
-    "« Dalle CSP · C30/37 · B500 · c = 3 cm », la case « Nappes empilées » cochée, aucune peau",
+chk("le type se lit dans la rubrique 1 : segments « Dalle CSP » (retenu) · « Prédalle + dalle CSP » (les libellés courts de "
+    "l'ingénieur, 09/11/2026 ; l'aide du champ dit « CSP : coulé sur place. » d'abord), le résumé « Dalle CSP · C30/37 · B500 · "
+    "c = 3 cm », aucune peau ; et la case « Nappes empilées » n'existe plus (ni dans les options, ni ailleurs)",
     P.TYPES_DALLE == (("coulee", "Dalle CSP"), ("predalle", "Prédalle + dalle CSP"))
     and re.search(r'<button type="button" class="on" data-chemin="type" data-sorte="choix" data-valeur="coulee">Dalle CSP</button>'
                   r'<button type="button" class="" data-chemin="type" data-sorte="choix" data-valeur="predalle">Prédalle \+ dalle CSP</button>',
                   r0["donnees"]) is not None
     and P.AIDE_TYPE.startswith("CSP : coulé sur place. ") and f'<span class="aide" title="{C.esc(P.AIDE_TYPE)}">' in r0["donnees"]
-    and '<input type="checkbox" data-chemin="empilement" data-sorte="case" checked>' in r0["donnees"] and 'data-chemin="h_pre"' not in r0["donnees"]
+    and 'data-chemin="empilement"' not in r0["donnees"] and "Nappes empilées" not in r0["donnees"]
+    and 'data-chemin="h_pre"' not in r0["donnees"]
     and "Dalle CSP · C30/37 · B500 · c = 3 cm" in r0["donnees"], P.TYPES_DALLE)
 
 # ------------------------------------------------------------------ 2. les trois formes d'état
 print("\n=== 2. Les trois formes d'état relues ; la note abîmée refusée ===")
 ra = req(action="calculer", etat={"version": 1, "dalles": [{"nom": "Ancienne", "h": 18}], "actif": 0})
 da = actif(ra["etat"])
-chk("{« dalles »} d'avant, sans type : relue coulée en place, nappes NON empilées (ses chiffres ne bougent pas), version 2",
-    ra["ok"] and da["type"] == "coulee" and da["empilement"] is False and da["h"] == 18 and ra["etat"]["version"] == 2, ra.get("erreur"))
+chk("{« dalles »} d'avant, sans type : relue coulée en place, version 3, ses nappes posées l'une sur l'autre comme toutes (la base "
+    "inf. X sur la base Y : 3,5 + 0,5 + 0,5 = 4,5 cm), et l'avis d'ouverture le dit",
+    ra["ok"] and da["type"] == "coulee" and "empilement" not in da and da["h"] == 18 and ra["etat"]["version"] == 3
+    and axe_inf_x(da) == 4.5 and avis(ra) == P.AVIS["note"], ra.get("erreur"))
 NP = note_predalle()
 NP["predalles"].append(dict(EN_P.nouvelle_predalle(), nom="Appui", h=24, h_pre=7.0))
 NP["actif"] = 1
 rp = req(action="calculer", etat=NP)
-chk("{« predalles »} de l'ancien module : chaque prédalle devient une dalle de type « predalle », h_pre gardée, actif conservé, "
-    "empilement faux — rien n'est perdu",
+chk("{« predalles »} de l'ancien module : chaque prédalle devient une dalle de type « predalle », h_pre gardée, actif conservé — rien "
+    "n'est perdu ; ses nappes SUPÉRIEURES posées l'une sur l'autre (sup. X sur sup. Y : 4,5 cm), et l'avis le dit",
     rp["ok"] and [d["type"] for d in rp["etat"]["dalles"]] == ["predalle", "predalle"] and rp["etat"]["actif"] == 1
     and actif(rp["etat"])["h_pre"] == 7.0 and actif(rp["etat"])["nom"] == "Appui"
-    and all(d["empilement"] is False for d in rp["etat"]["dalles"])
+    and all("empilement" not in d for d in rp["etat"]["dalles"]) and axe_inf_x(rp["etat"]["dalles"][0]) == 4.5
+    and avis(rp) == P.AVIS["note"]
     and sans_site(rp["etat"]["dalles"][0]) == EN_P.normaliser(sans_site(NP["predalles"][0])) if rp["ok"] else False, rp.get("erreur"))
-vieux = json.loads(R.traiter(json.dumps(dict(module="predalle", action="calculer", etat=copy.deepcopy(NP)))))
-chk("… et ses CHIFFRES sont ceux de l'ancien module Prédalles : mêmes lignes (nom, couleur, taux), même résumé, pour les deux prédalles",
-    all(lignes(req(action="calculer", etat=dict(copy.deepcopy(NP), actif=k)))
-        == lignes(json.loads(R.traiter(json.dumps(dict(module="predalle", action="calculer", etat=dict(copy.deepcopy(NP), actif=k))))))
-        for k in (0, 1)) and rp["resume"] == vieux["resume"], (rp["resume"], vieux["resume"]))
+
+
+def par_nom(rep):
+    return {(c, n): (niv, t) for c, n, niv, t in lignes(rep)}
+
+
+ecarts = []
+for k in (0, 1):
+    neuf_ = par_nom(req(action="calculer", etat=dict(copy.deepcopy(NP), actif=k)))
+    vieux_ = par_nom(json.loads(R.traiter(json.dumps(dict(module="predalle", action="calculer", etat=dict(copy.deepcopy(NP), actif=k))))))
+    ecarts.append({cle for cle in neuf_ if neuf_[cle] != vieux_.get(cle)})
+chk("… ses CHIFFRES sont ceux de l'ancien module Prédalles aux faces INFÉRIEURES (la règle du moteur : dans / sur la prédalle) et à "
+    "l'effort tranchant ; seule la nappe supérieure secondaire (X) et la hauteur qui en dépend diffèrent — le prix de la décision du "
+    "09/11/2026, dit par l'avis",
+    all(e_ <= {(c, n) for c in ("s0", "s1") for n in ("Supérieure X", "Hauteur")} for e_ in ecarts)
+    and any(("s0", "Supérieure X") in e_ or ("s1", "Supérieure X") in e_ for e_ in ecarts), ecarts)
+# (l'ancienne clé « empilement » est relue SANS EFFET, quelle que soit sa valeur : une note qui la porte n'est jamais refusée pour elle)
+tolerees = [req(action="calculer", etat={"version": 2, "dalles": [{"nom": "T", "empilement": v}], "actif": 0}) for v in (True, False, "oui", 3)]
+chk("une note d'avant qui porte « empilement » (vrai, faux, « oui », 3) se relit — jamais refusée pour cette clé, qui disparaît de "
+    "l'état et ne change rien : les mêmes axes pour les quatre",
+    all(t_["ok"] and "empilement" not in actif(t_["etat"]) for t_ in tolerees)
+    and len({json.dumps(POS.pour_moteur(actif(t_["etat"])), sort_keys=True) for t_ in tolerees}) == 1
+    and axe_inf_x(actif(tolerees[0]["etat"])) == 4.5, [t_.get("erreur") for t_ in tolerees])
 ABIMEES = [({"dalles": [{}], "predalles": [{}]}, "abîmée"), ({"predalles": "abc"}, "liste"), ({"predalles": [{"type": "coulee"}]}, "note abîmée"),
-           ({"dalles": [{"type": "autre"}]}, "coulee » ou « predalle"), ({"dalles": [{"empilement": "oui"}]}, "empilement vrai ou faux"),
+           ({"dalles": [{"type": "autre"}]}, "coulee » ou « predalle"), ({"dalles": [{"verrou": "oui"}]}, "verrou vrai ou faux"),
            ({"dalles": [{"h_pre": 5}]}, "h_pre"), ({"dalles": [{"type": "predalle", "h_pre": 30}]}, "h_pre")]
 lues = [(req(action="calculer", etat=x), mot) for x, mot in ABIMEES]
-chk("une note abîmée — les DEUX clés, « predalles » qui n'est pas une liste, un type contradictoire ou inconnu, un drapeau qui n'en "
+chk("une note abîmée — les DEUX clés, « predalles » qui n'est pas une liste, un type contradictoire ou inconnu, un verrou qui n'en "
     "est pas un, une peau sur une dalle coulée, une peau impossible — est REFUSÉE avec une erreur claire, jamais remplacée en silence",
     all(not r_["ok"] and r_["erreur"].startswith("ValueError") and mot in r_["erreur"] for r_, mot in lues),
     [(mot, r_.get("erreur", "ok ?!")[:120]) for r_, mot in lues if r_["ok"] or mot not in r_.get("erreur", "")])
@@ -162,7 +203,7 @@ chk("une note sans dalle ({« predalles »: []}, {}) est une note neuve ; une da
 
 # ------------------------------------------------------------------ 3. la bascule coulee ↔ predalle
 print("\n=== 3. La bascule coulée ↔ prédalle ===")
-E = saisir(e0, "empilement", False)["etat"]
+E = copy.deepcopy(e0)
 for ch, x in (("nom", "Ma dalle"), ("sections/0/Mx_inf", "28"), ("sections/0/My_inf", "35"), ("sections/0/V", "60"),
               ("sections/0/faces/inf_y/couches/+", "1"), ("sections/0/faces/inf_y/couches/1/dist", "8"), ("sections/0/faces/sup_x/yG", "4,2"),
               ("sections/+", "1"), ("sections/1/My_sup", "24")):
@@ -193,21 +234,21 @@ chk("le type réécrit à l'identique ne change rien ; un type inconnu est refus
     meme["etat"] == bp["etat"] and o["message"] and "coulee » ou « predalle" in o["message"] and o["etat"] == bp["etat"], o.get("message"))
 aj = req(action="ajouter", etat=bp["etat"])
 dj = actif(aj["etat"])
-chk("« Ajouter une dalle » sur une note ouverte sur une prédalle : une « Prédalle 2 » de type predalle (h = 22, h_pre = 6), avec le γs, "
-    "le jeu et l'empilement de la note ; « Copier » garde le type",
-    dj["type"] == "predalle" and dj["nom"] == "Prédalle 2" and dj["h"] == 22 and dj["h_pre"] == 6.0 and dj["empilement"] is False
+chk("« Ajouter une dalle » sur une note ouverte sur une prédalle : une « Prédalle 2 » de type predalle (h = 22, h_pre = 6), avec le γs "
+    "et le jeu de la note ; « Copier » garde le type",
+    dj["type"] == "predalle" and dj["nom"] == "Prédalle 2" and dj["h"] == 22 and dj["h_pre"] == 6.0 and "empilement" not in dj
     and actif(req(action="dupliquer", etat=bp["etat"])["etat"])["type"] == "predalle", dj.get("nom"))
 
 # ------------------------------------------------------------------ 4. h_pre, le complément, les refus géométriques
 print("\n=== 4. La peau, le complément lu, les refus géométriques ===")
-PR = saisir(saisir(e0, "empilement", False)["etat"], "type", "predalle")["etat"]
+PR = saisir(e0, "type", "predalle")["etat"]
 PR = saisir(PR, "h", "22")["etat"]
 r75 = saisir(PR, "h_pre", "7,5")
 chk("h_pre 7,5 cm sur h = 22 : stockée ; le complément 14,5 cm est AFFICHÉ, jamais stocké (aucune clé de plus dans l'état) ; le moteur "
     "prédalle pose la base secondaire à 8,0 et le renfort… à 8,5 comme l'ancien module",
     actif(r75["etat"])["h_pre"] == 7.5 and '<span class="dl-ro">14,5 cm</span>' in r75["donnees"]
     and set(actif(r75["etat"])) == set(actif(PR)) and "coule" not in json.dumps(r75["etat"])
-    and MO_P.verifier(sans_site(actif(r75["etat"])))["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 8.0)
+    and MO_P.verifier(POS.pour_moteur(actif(r75["etat"])))["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 8.0)
 r30 = saisir(r75["etat"], "h", "30")
 chk("h 30 cm : le complément suit (22,5 cm) et la borne haute de h_p aussi (15 cm) ; h 10 cm avec h_pre 7,5 : borne 9 cm",
     '<span class="dl-ro">22,5 cm</span>' in r30["donnees"] and 'data-chemin="h_pre" data-sorte="nombre" inputmode="decimal" value="7,5" data-min="3.0" data-max="15.0"' in r30["donnees"]
@@ -235,10 +276,11 @@ print("\n=== 5. Le moteur appelé selon le type : identique à l'appel direct ==
 NP1 = note_predalle()
 rep_p = req(action="calculer", etat=NP1)
 dp1 = actif(rep_p["etat"])
-m_p = MO_P.verifier(sans_site(dp1))
+m_p = MO_P.verifier(POS.pour_moteur(dp1))
 m_d = MO.verifier({k: v for k, v in sans_site(dp1).items() if k != "h_pre"})
-chk("type predalle (option d'empilement fausse) : chaque ligne du résultat — nom, couleur, taux — est celle de beton.predalle.moteur.verifier "
-    "sur la même entrée ; le résumé aussi ; et ce N'EST PAS ce que dirait le moteur des dalles (base secondaire à 6,5 et non 3,5)",
+chk("type predalle : chaque ligne du résultat — nom, couleur, taux — est celle de beton.predalle.moteur.verifier sur la copie que le site "
+    "lui envoie (pour_moteur) ; le résumé aussi ; et ce N'EST PAS ce que dirait le moteur des dalles (base inf. secondaire à 6,5, sur la "
+    "prédalle, et non 3,5)",
     lignes(rep_p) == lignes_moteur(m_p, AP) and rep_p["resume"]["taux"] == C.pct(m_p["taux_max"])
     and lignes_moteur(m_p, AP) != lignes_moteur(m_d, P)
     and m_p["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 6.5 and m_d["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 3.5,
@@ -248,8 +290,8 @@ chk("… les chiffres de l'écran Streamlit prédalle (tests/test_api_web_predal
     and "573" in rep_p["volets"] and "645" in rep_p["volets"])
 EC = E
 rep_c = req(action="calculer", etat=EC)
-m_c = MO.verifier(sans_site(actif(EC)))
-chk("type coulee (option fausse) : chaque ligne est celle de beton.dalle.moteur.verifier sur la même entrée",
+m_c = MO.verifier(POS.pour_moteur(actif(EC)))
+chk("type coulee : chaque ligne est celle de beton.dalle.moteur.verifier sur la copie que le site lui envoie",
     lignes(rep_c) == lignes_moteur(m_c, P) and rep_c["resume"]["taux"] == C.pct(m_c["taux_max"]), lignes(rep_c)[:3])
 chk("le pied dit le moteur et sa version : « moteur prédalle » v1.1 pour une prédalle, « moteur dalle » v2.2 pour une dalle coulée",
     "moteur prédalle</span><b>v1.1</b>" in rep_p["resultat"] and "moteur dalle</span><b>v2.2</b>" in rep_c["resultat"])
@@ -261,10 +303,10 @@ chk("le PÉRIMÈTRE de la prédalle (section finale seule ; phase provisoire, in
     "chaque fenêtre de calcul ; absent d'une dalle coulée",
     "phase provisoire" in rep_p["resultat"] and all("phase provisoire" in x for x in rep_p["volets"].split('<div class="flyout calcul"')[1:])
     and "phase provisoire" not in rep_c["resultat"] + rep_c["volets"])
-chk("les AVERTISSEMENTS propres à la prédalle sont présents (renfort Y à 7,0 et base X à 6,5 « posées toutes deux sur la prédalle », les bases "
-    "supérieures « au même niveau »), dans le bloc de leur section",
+chk("les AVERTISSEMENTS propres à la prédalle sont présents (renfort Y à 7,0 et base X à 6,5 « posées toutes deux sur la prédalle »), dans "
+    "le bloc de leur section ; les bases supérieures ne sont plus « au même niveau » (la secondaire posée sur la principale)",
     "posées toutes deux sur la prédalle" in rep_p["resultat"] and "axe 7,0 cm" in rep_p["resultat"]
-    and "les bases X et Y supérieures sont calculées au même niveau" in rep_p["resultat"]
+    and "les bases X et Y supérieures sont calculées" not in rep_p["resultat"]
     and "posées toutes deux" in re.search(r'<section class="et-bloc \w+" data-section="0">.*?</section>', rep_p["resultat"], re.S).group(0))
 chk("les données d'une prédalle disent la POSE de chaque couche (pictogramme et règle : dans la prédalle, sur la prédalle, depuis le dessus) ; "
     "une dalle coulée n'en a pas",
@@ -302,19 +344,23 @@ FP = {"version": "predalle-1.0", "predalles": [{"id": 1, "nom": "Plancher P", "s
 fd = saisir(copy.deepcopy(NP1), "fichier_streamlit", {"nom": "dalle_ba.json", "texte": json.dumps(V1)})
 dd_ = actif(fd["etat"])
 chk("dalle_ba.json (écran Dalle) ouvert dans une note de prédalles : la note devient UNE dalle COULÉE (le type vient du fichier), "
-    "« Plancher », Mx,inf 28, empilement faux ; ce que l'écran remplaçait en silence est dit (M_sup « -12,0 » lu 0)",
+    "« Plancher », Mx,inf 28, ses nappes posées l'une sur l'autre (inf. X à 4,5 cm, l'écran Streamlit disait 3,5) et l'avis « Fichier "
+    "Streamlit » en tête du résultat ; ce que l'écran remplaçait en silence est dit (M_sup « -12,0 » lu 0)",
     len(fd["etat"]["dalles"]) == 1 and dd_["type"] == "coulee" and "h_pre" not in dd_ and dd_["nom"] == "Plancher"
-    and dd_["sections"][0]["Mx_inf"] == 28.0 and dd_["empilement"] is False and "lu 0" in (fd["message"] or "") and "1 dalle(s)" in fd["message"],
-    fd["message"])
+    and dd_["sections"][0]["Mx_inf"] == 28.0 and "empilement" not in dd_ and axe_inf_x(dd_) == 4.5 and avis(fd) == P.AVIS["streamlit"]
+    and P.CLE_AVIS not in fd["etat"] and "lu 0" in (fd["message"] or "") and "1 dalle(s)" in fd["message"],
+    (fd["message"], avis(fd)))
 fp = saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "predalle_ba.json", "texte": json.dumps(FP)})
 pp = actif(fp["etat"])
 chk("predalle_ba.json (écran Prédalle) ouvert dans une note neuve : UNE PRÉDALLE, peau 5 cm, ses deux sections et son renfort, "
-    "empilement faux ; le moment négatif lu 0 est dit",
+    "ses nappes supérieures posées l'une sur l'autre (l'avis le dit) ; le moment négatif lu 0 est dit",
     pp["type"] == "predalle" and pp["h_pre"] == 5.0 and pp["nom"] == "Plancher P" and [s["nom"] for s in pp["sections"]] == ["A", "Appui"]
-    and len(pp["sections"][0]["faces"]["inf_y"]["couches"]) == 2 and pp["sections"][0]["My_inf"] == 35.0 and pp["empilement"] is False
+    and len(pp["sections"][0]["faces"]["inf_y"]["couches"]) == 2 and pp["sections"][0]["My_inf"] == 35.0 and "empilement" not in pp
+    and axe_inf_x(pp) == 4.5 and avis(fp) == P.AVIS["streamlit"]
     and "lu 0" in (fp["message"] or "") and "1 prédalle(s)" in fp["message"], fp["message"])
-chk("… et le calcul qui suit est celui du moteur prédalle sur ce fichier (comme beton.predalle.fichier.lire le lit)",
-    lignes(fp) == lignes_moteur(MO_P.verifier(sans_site(pp)), AP))
+chk("… et le calcul qui suit est celui du moteur prédalle sur la copie que le site lui envoie (le fichier comme beton.predalle.fichier.lire "
+    "le lit, les nappes supérieures empilées)",
+    lignes(fp) == lignes_moteur(MO_P.verifier(POS.pour_moteur(pp)), AP))
 f_peau = copy.deepcopy(FP)
 f_peau["values"].update({"pre1_h": 8, "pre1_h_pre": 12.0})
 o = saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "p.json", "texte": json.dumps(f_peau)})
@@ -328,28 +374,30 @@ chk("un fichier aux valeurs absurdes, un fichier qui n'est pas du JSON, un fichi
     all(o_["message"] and o_["etat"] == e0 for o_ in (o1, o2, o3)) and "refusé" in o1["message"] and "JSON" in o2["message"] and "refusé" in o3["message"],
     [o_.get("message") for o_ in (o1, o2, o3)])
 
-# ------------------------------------------------------------------ 7. l'option « nappes empilées »
-print("\n=== 7. « empilement » : vrai pour une note neuve, faux quand la clé manque, commun à la note ===")
-chk("vrai pour une note neuve (nouvel_etat) ; faux pour une note relue sans la clé, pour une note de prédalles, pour un fichier Streamlit importé",
-    P.nouvel_etat()["dalles"][0]["empilement"] is True and da["empilement"] is False and dp1["empilement"] is False
-    and dd_["empilement"] is False and pp["empilement"] is False)
+# ------------------------------------------------------------------ 7. les nappes toujours posées l'une sur l'autre
+print("\n=== 7. Les nappes TOUJOURS posées l'une sur l'autre (décision de l'ingénieur du 09/11/2026) ; l'avis d'ouverture ===")
 deux = req(action="ajouter", etat=e0)["etat"]
-off = saisir(deux, "empilement", False)
-on = saisir(off["etat"], "empilement", "true")
-chk("la case « Nappes empilées » (rubrique Options) écrit la clé sur TOUTES les dalles de la note, comme γs ; décochée puis recochée",
-    all(d["empilement"] is False for d in off["etat"]["dalles"]) and all(d["empilement"] is True for d in on["etat"]["dalles"])
-    and '<input type="checkbox" data-chemin="empilement" data-sorte="case">' in off["donnees"]
-    and '<input type="checkbox" data-chemin="empilement" data-sorte="case" checked>' in on["donnees"])
-o = req(action="modifier", etat=e0, chemin=["empilement"], valeur="peut-être")
-chk("« peut-être » n'est ni coché ni décoché : refusé, la note intacte", o["message"] and "coché ou décoché" in o["message"] and o["etat"] == e0)
+o = req(action="modifier", etat=deux, chemin=["empilement"], valeur=False)
+chk("plus d'option : le chemin « empilement » est un champ inconnu (refusé, la note intacte, aucune dalle ne prend la clé) ; aucune case "
+    "dans les options d'une dalle coulée ni d'une prédalle",
+    o["ok"] and o["message"] and "champ inconnu" in o["message"] and o["etat"] == deux
+    and all("empilement" not in d for d in o["etat"]["dalles"])
+    and 'data-chemin="empilement"' not in o["donnees"] + saisir(e0, "type", "predalle")["donnees"], o.get("message"))
+FORMES = {"note neuve": actif(e0), "note d'avant sans la clé": da, "note d'avant, clé fausse": actif(tolerees[1]["etat"]),
+          "note d'avant, clé « oui »": actif(tolerees[2]["etat"]), "dalle_ba.json": dd_,
+          "prédalles d'avant (sup. X)": actif(rp["etat"], 0), "fichier Prédalle (sup. X)": pp}
+chk("toutes les formes de note sont empilées — note neuve, note d'avant (clé absente, fausse, illisible), fichier Streamlit : la base inf. X "
+    "reçue par le moteur à 4,5 cm (posée sur la base Y), jamais à l'automatique du moteur (3,5) ; prédalles d'avant et fichier Prédalle : la "
+    "base sup. X à 4,5 (depuis le dessus)",
+    all(axe_inf_x(d_) == 4.5 for d_ in FORMES.values()), {k: axe_inf_x(d_) for k, d_ in FORMES.items()})
 r_on = MO.verifier(POS.pour_moteur(d0))
-r_off = MO.verifier(POS.pour_moteur(actif(off["etat"], 0)))
-chk("option VRAIE : la base secondaire (inf. X) est posée sur la principale — le moteur reçoit son axe (3,5 + 0,5 + 0,5 = 4,5 cm) et le champ "
-    "vide l'affiche « auto · 4,5 » ; option FAUSSE : la copie envoyée au moteur est la dalle d'avant, à l'octet, et le résultat celui du moteur",
+r_brut = MO.verifier(sans_site(d0))
+chk("la base secondaire posée sur la principale : le moteur reçoit son axe (3,5 + 0,5 + 0,5 = 4,5 cm, la principale à 3,5) et le champ vide "
+    "l'affiche « auto · 4,5 » ; l'avertissement « nappes_confondues » du moteur seul (l'écran Streamlit) ne sort plus",
     r_on["sections"][0]["faces"]["inf_x"]["couches"][0]["e"] == 4.5 and r_on["sections"][0]["faces"]["inf_y"]["couches"][0]["e"] == 3.5
     and 'data-chemin="sections/0/faces/inf_x/couches/0/dist" data-sorte="texte" inputmode="decimal" value="" data-vide="auto" placeholder="auto · 4,5"' in r0["donnees"]
-    and POS.pour_moteur(actif(off["etat"], 0)) == sans_site(actif(off["etat"], 0)) and r_off == MO.verifier(sans_site(actif(off["etat"], 0)))
-    and lignes(off) == lignes_moteur(r_off, P))
+    and lignes(r0) == lignes_moteur(r_on, P) and not r_on["avertissements"]
+    and [a_["code"] for a_ in r_brut["avertissements"]] == ["nappes_confondues", "nappes_confondues"])
 GROUPE = r'<g class="pc couche" data-sel="s0\.{}">(.*?)</g>'
 
 
@@ -363,18 +411,64 @@ def niveaux(svg, cle_points, cle_traits):
             {float(x) for x in re.findall(r'<line x1="[\d.]+" y1="([\d.]+)"', trs)})
 
 
-g_on, g_off = r_on["sections"][0]["grandeurs"], r_off["sections"][0]["grandeurs"]
-n_on, n_off = niveaux(r0["vues"][0]["svg"], "inf_y-0", "inf_x-0"), niveaux(off["vues"][0]["svg"], "inf_y-0", "inf_x-0")
-chk("la case cochée / décochée fait bouger la hauteur utile de la direction secondaire : d_inf,X = 20 − 4,5 = 15,5 cm cochée, 20 − 3,5 = 16,5 cm "
-    "décochée (la principale, d_inf,Y = 16,5, ne bouge pas) — dans le calcul, dans la fenêtre de calcul et dans l'en-tête des résultats",
-    (g_on["d_inf_x"], g_off["d_inf_x"], g_on["d_inf_y"], g_off["d_inf_y"]) == (15.5, 16.5, 16.5, 16.5)
-    and "20 − 4,5" in r0["volets"] and "20 − 4,5" not in off["volets"], (g_on["d_inf_x"], g_off["d_inf_x"]))
-chk("la coupe dessine les deux directions à des niveaux distincts seulement cochée (les traits de la base X descendent de 10 mm quand elle est "
-    "posée sur la base Y), et sa légende dit « sur la base Y » seulement cochée — le dessin ne ment jamais",
-    n_on[0] == n_off[0] and n_on[1] != n_off[1] and len(n_on[1]) == len(n_off[1]) == 1
-    and abs(min(n_on[1]) - min(n_off[1]) + 10.0) < 0.06
-    and "· sur la base Y" in r0["vues"][0]["svg"] and "sur la base" not in off["vues"][0]["svg"] and "axe saisi" not in r0["vues"][0]["svg"],
-    (n_on, n_off))
+g_on, g_brut = r_on["sections"][0]["grandeurs"], r_brut["sections"][0]["grandeurs"]
+sv_brut = DD.svg_coupe("t", r_brut["sections"][0], r_brut["dalle"], 0)
+n_on, n_brut = niveaux(r0["vues"][0]["svg"], "inf_y-0", "inf_x-0"), niveaux(sv_brut, "inf_y-0", "inf_x-0")
+chk("la hauteur utile de la direction secondaire est celle de sa nappe posée sur la principale : d_inf,X = 20 − 4,5 = 15,5 cm (le moteur seul, "
+    "comme l'écran Streamlit : 20 − 3,5 = 16,5) ; la principale (d_inf,Y = 16,5) ne bouge pas — dans le calcul et dans la fenêtre de calcul",
+    (g_on["d_inf_x"], g_brut["d_inf_x"], g_on["d_inf_y"], g_brut["d_inf_y"]) == (15.5, 16.5, 16.5, 16.5)
+    and "20 − 4,5" in r0["volets"], (g_on["d_inf_x"], g_brut["d_inf_x"]))
+chk("la coupe du site dessine les deux directions à des niveaux distincts (les traits de la base X 10 mm au-dessus de ceux que le moteur seul "
+    "poserait), et sa légende dit « sur la base Y » — le dessin dit ce que le calcul utilise",
+    n_on[0] == n_brut[0] and len(n_on[1]) == len(n_brut[1]) == 1 and abs(min(n_on[1]) - min(n_brut[1]) + 10.0) < 0.06
+    and "· sur la base Y" in r0["vues"][0]["svg"] and "sur la base" not in sv_brut and "axe saisi" not in r0["vues"][0]["svg"],
+    (n_on, n_brut))
+# S3 (décision du 09/11/2026) : un RENFORT de la direction secondaire posé sur sa nappe, de bout en bout par le routeur
+s3 = saisir(e0, "sections/0/faces/inf_x/couches/+", "1")
+d_s3 = actif(s3["etat"])
+c_s3 = MO.verifier(POS.pour_moteur(d_s3))["sections"][0]["faces"]["inf_x"]["couches"]
+chk("S3 — un renfort 3 Ø12 ajouté en inf. X (secondaire) : son champ dit « auto · 5 » (3,5 + 0,5 + 1,0 : posé sur la base Y, dans le lit de la "
+    "base X) et le moteur le reçoit là — non à 4,0, au niveau de la base Y (l'automatique du moteur seul) ; la légende de la coupe le dit",
+    [c_["e"] for c_ in c_s3] == [4.5, 5.0] and d_s3["sections"][0]["faces"]["inf_x"]["couches"][1]["dist"] is None
+    and 'data-chemin="sections/0/faces/inf_x/couches/1/dist" data-sorte="texte" inputmode="decimal" value="" data-vide="auto" placeholder="auto · 5"' in s3["donnees"]
+    and "X · 3 Ø12 · axe à 50 · sur la base Y" in s3["vues"][0]["svg"], ([c_["e"] for c_ in c_s3], re.findall(r"axe à \d+[^<]*", s3["vues"][0]["svg"])))
+# le contrôle croisé DESSIN ↔ CALCUL : chaque couche de la coupe ⊥ Y (points Y, traits X) est à h − e (inf.) ou e (sup.) de l'axe que le
+# MOTEUR a reçu, renfort secondaire compris — rien ne montre un niveau autre que celui du calcul
+r_s3 = MO.verifier(POS.pour_moteur(d_s3))
+coupe_s3 = s3["vues"][0]["svg"].split("Coupe ⊥")[1]
+y0_ = None
+faux = []
+for cote in ("inf", "sup"):
+    for dk in ("y", "x"):
+        for j, c_ in enumerate(r_s3["sections"][0]["faces"][f"{cote}_{dk}"]["couches"]):
+            m_ = re.search(GROUPE.format(re.escape(f"{cote}_{dk}-{j}")), coupe_s3)
+            ys = [float(x) for x in re.findall(r'cy="([\d.]+)"' if dk == "y" else r'y1="([\d.]+)"', m_.group(1))]
+            att = (200.0 - c_["e"] * 10.0) if cote == "inf" else c_["e"] * 10.0
+            y0_ = ys[0] - att if y0_ is None else y0_
+            if any(abs(y - (y0_ + att)) > 0.06 for y in ys):
+                faux.append((cote, dk, j, c_["e"], ys[:2]))
+chk("dessin ↔ calcul : sur la coupe du site, chaque couche (bases, renfort secondaire) est à l'axe que le moteur a reçu, au dixième de mm",
+    not faux and y0_ is not None, faux)
+# l'AVIS d'ouverture : une note d'avant dont les chiffres changent le dit une fois, en tête du résultat ; jamais une note d'aujourd'hui
+rr = req(action="calculer", etat=ra["etat"])
+chk("l'avis d'une note d'avant est un AVIS (« msg », pas « grave »), en tête du résultat, dit UNE fois : l'état rendu ne le porte pas, et la "
+    "note rouverte telle qu'enregistrée (version 3) ne le redit pas",
+    avis(ra) == P.AVIS["note"] and '<div class="msg grave">' + P.AVIS["note"] not in ra["resultat"] and P.CLE_AVIS not in ra["etat"]
+    and avis(rr) is None and P.CLE_AVIS not in rr["etat"] and lignes(rr) == lignes(ra), (avis(ra), avis(rr)))
+chk("… dit aussi quand la première requête sur la note d'avant est une saisie (la note relue, puis modifiée)",
+    avis(saisir({"version": 1, "dalles": [{"nom": "Ancienne", "h": 18}], "actif": 0}, "sections/0/My_inf", "10")) == P.AVIS["note"])
+v2 = {"version": 2, "dalles": [dict(sans_site(d0), type="coulee", verrou=False, empilement=True)], "actif": 0}
+v2_r = copy.deepcopy(v2)
+v2_r["dalles"][0]["sections"][0]["faces"]["inf_x"]["couches"].append(EN.nouvelle_couche(base=False))
+v1_saisie = {"version": 1, "dalles": [copy.deepcopy(sans_site(d0))], "actif": 0}
+for f_ in ("inf_x", "sup_x"):
+    v1_saisie["dalles"][0]["sections"][0]["faces"][f_]["couches"][0]["dist"] = 4.0
+chk("seulement quand les chiffres changent : une note du 09/11 dont l'option était cochée et sans renfort secondaire ne le dit pas (ses bases "
+    "secondaires étaient déjà posées ainsi) ; avec un renfort secondaire automatique, oui (S3 le monte) ; une note d'avant dont les axes "
+    "secondaires sont SAISIS non plus (rien ne bouge) ; une note neuve jamais",
+    avis(req(action="calculer", etat=v2)) is None and avis(req(action="calculer", etat=v2_r)) == P.AVIS["note"]
+    and avis(req(action="calculer", etat=v1_saisie)) is None and avis(r0) is None
+    and P.chiffres_changes(actif(P.normaliser(v2_r)), True) and not P.chiffres_changes(actif(P.normaliser(v2)), True))
 pr_on = saisir(saisir(e0, "type", "predalle")["etat"], "sections/0/faces/sup_x/couches/0/treillis", "12/12/150/150")
 chk("prédalle, nappes empilées : la base SUPÉRIEURE secondaire est posée sur la principale — la pose le dit (« posée sur la base principale »), la "
     "formule e aussi, et jamais « axe saisi » ; les inférieures gardent la règle du moteur (dans / sur la prédalle)",
@@ -454,7 +548,7 @@ def muter(nom, module, attr, remplacant, controle):
 
 def ctl_moteur():
     r_ = req(action="calculer", etat=note_predalle())
-    return r_["ok"] and lignes(r_) == lignes_moteur(MO_P.verifier(sans_site(actif(r_["etat"]))), AP)
+    return r_["ok"] and lignes(r_) == lignes_moteur(MO_P.verifier(POS.pour_moteur(actif(r_["etat"]))), AP)
 
 
 muter("le moteur des dalles appelé quel que soit le type", P, "_MO", lambda d: MO, ctl_moteur)
@@ -470,13 +564,44 @@ def _type_sans_peau(d, valeur):
 
 
 muter("la bascule vers la prédalle n'ajoute pas h_pre bornée à h_pre_max(h)", P, "_changer_type", _type_sans_peau, ctl_bascule)
-muter("une note neuve sans nappes empilées", P, "nouvel_etat",
-      lambda: {"version": 2, "dalles": [P._site(EN.nouvelle_dalle())], "actif": 0},
-      lambda: req(action="nouveau")["etat"]["dalles"][0]["empilement"] is True)
 muter("le type du fichier Streamlit n'est plus déduit (le lecteur des dalles lit tout)", P, "FI_P", P.FI,
       lambda: actif(saisir(copy.deepcopy(e0), "fichier_streamlit", {"nom": "p.json", "texte": json.dumps(FP)})["etat"]).get("h_pre") == 5.0)
 muter("une case lit n'importe quel texte comme cochée", P, "_lire_bool", lambda v: bool(v),
-      lambda: "coché ou décoché" in (req(action="modifier", etat=e0, chemin=["empilement"], valeur="peut-être")["message"] or ""))
+      lambda: "coché ou décoché" in (req(action="modifier", etat=e0, chemin=["verrou"], valeur="peut-être")["message"] or ""))
+# l'OPTION qui revient (décision du 09/11/2026 : les nappes toujours empilées)
+_axe_auto = POS.axe_auto
+
+
+def _axe_option(d, s, f, j):
+    """L'axe d'avant la décision : la clé « empilement » absente ou fausse → l'automatique du moteur seul."""
+    return POS._auto_moteur(d, s["faces"][f]["couches"][j], j, f) if not d.get("empilement") else _axe_auto(d, s, f, j)
+
+
+muter("l'option revient dans le calcul (une clé « empilement » absente se lit fausse : les nappes au même niveau)", POS, "axe_auto", _axe_option,
+      lambda: all(axe_inf_x(actif(req(action="calculer", etat=e_)["etat"])) == 4.5
+                  for e_ in ({"version": 1, "dalles": [{"nom": "A"}]}, {"version": 2, "dalles": [{"nom": "A", "empilement": False}]})))
+_options = P._options
+muter("l'option revient à l'écran (la case « Nappes empilées » dans les options)", P, "_options",
+      lambda d: _options(d) + C.case(["empilement"], True, "Nappes empilées : direction secondaire posée sur la principale"),
+      lambda: 'data-chemin="empilement"' not in req(action="nouveau")["donnees"])
+muter("la clé d'avant n'est plus relue sans effet (une note qui porte « empilement » est refusée)", P, "CLES_ANCIENNES", (),
+      lambda: all(req(action="calculer", etat={"version": 2, "dalles": [{"nom": "T", "empilement": v}]})["ok"] for v in (True, False)))
+muter("l'avis d'ouverture ne se dit plus", P, "chiffres_changes", lambda *a, **k: False,
+      lambda: avis(req(action="calculer", etat={"version": 1, "dalles": [{"nom": "A"}]})) == P.AVIS["note"])
+_resultat = P.resultat
+
+
+def _resultat_qui_garde(etat):
+    """resultat qui laisse l'avis dans l'état : la note enregistrée le redirait à chaque ouverture."""
+    garde = etat.get(P.CLE_AVIS)
+    out = _resultat(etat)
+    if garde:
+        etat[P.CLE_AVIS] = garde
+    return out
+
+
+muter("l'avis reste dans l'état rendu (il se redirait à chaque ouverture)", P, "resultat", _resultat_qui_garde,
+      lambda: P.CLE_AVIS not in req(action="calculer", etat={"version": 1, "dalles": [{"nom": "A"}]})["etat"])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

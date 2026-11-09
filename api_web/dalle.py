@@ -18,20 +18,23 @@ mots) vient de ``api_web/predalle.py``, réemployé comme AIDE (``AP``), jamais 
 des couches vient de ``api_web/dalle_positions.py`` (``POS`` : l'axe automatique du site, la copie envoyée au moteur) et
 ce qui est propre aux NAPPES de ``api_web/dalle_nappes.py`` (``NAP``). Ce fichier MET EN FORME : il ne calcule rien.
 
-L'ÉTAT : ``{"version": 2, "dalles": [dalle…], "actif": i}``. Chaque dalle est celle de son moteur plus trois clés du
+L'ÉTAT : ``{"version": 3, "dalles": [dalle…], "actif": i}``. Chaque dalle est celle de son moteur plus deux clés du
 site (CLES_SITE), retirées avant tout appel au moteur : « verrou » (lecture seule), « type » (« coulee » |
-« predalle »), « empilement » (§ 4.3 : nappes empilées ; vrai pour une note neuve, faux quand la clé manque — une note
-d'avant, une note de l'ancien module Prédalles, un fichier Streamlit : leurs chiffres ne bougent pas). ``normaliser``
-relit aussi ``{"dalles": […]}`` sans type (→ coulee) et ``{"predalles": […]}`` (l'ancien module : → predalle) ; une note
-qui porte les deux clés est abîmée : refusée, jamais remplacée par une note neuve.
+« predalle »). Les NAPPES sont TOUJOURS posées l'une sur l'autre (décision de l'ingénieur du 09/11/2026 :
+api_web/dalle_positions.py) ; la clé « empilement » des notes d'avant (l'option retirée) est relue sans effet
+(CLES_ANCIENNES), et une note d'avant dont les chiffres en changent le dit une fois, à l'ouverture (CLE_AVIS, AVIS).
+``normaliser`` relit aussi ``{"dalles": […]}`` sans type (→ coulee) et ``{"predalles": […]}`` (l'ancien module : →
+predalle) ; une note qui porte les deux clés est abîmée : refusée, jamais remplacée par une note neuve.
 
 Ce que le site fait de plus que les écrans Streamlit, sans changer un chiffre :
 - une saisie que l'écran ramènerait en silence à une autre valeur (moment négatif lu 0, espacement hors bornes, peau
   hors de ses bornes…) est REFUSÉE avec un message, et la dalle reste intacte ;
 - le sélecteur de la nappe de base (treillis de la base, barres courantes) trié par section au mètre, la retenue (✓) et
   la plus petite qui tient (★) marquées ;
-- les avertissements des moteurs (nappes X et Y calculées au même niveau, enrobage nul lu 3 cm, d utile ≤ 0, base qui
-  sort de la peau, couches croisées sur la prédalle) ;
+- les nappes posées l'une sur l'autre (la direction secondaire, base et renforts, sur la principale), que les moteurs
+  posent au même niveau ;
+- les avertissements des moteurs (nappes X et Y d'un axe saisi au même niveau, enrobage nul lu 3 cm, d utile ≤ 0, base
+  qui sort de la peau, couches croisées sur la prédalle) ;
 - la reprise d'un fichier de l'écran Streamlit — « dalle_ba.json » OU celui de l'écran prédalle, le type déduit du
   fichier — avec ce que l'écran y remplaçait en silence ;
 - un verdict qui, dans une dalle non conforme, nomme une vérification NON conforme (gouvernante()) ;
@@ -61,7 +64,9 @@ from . import predalle as AP          # l'AIDE du type prédalle : ses textes, s
 
 MODULE = "dalle"
 PAGE = "dalle"
-VERSION = 2                            # l'état fusionné (docs/site/DALLES_FUSION.md § 2.1)
+# l'état fusionné (docs/site/DALLES_FUSION.md § 2.1) ; 3 depuis le 09/11/2026 : les nappes toujours posées l'une sur
+# l'autre, plus de clé « empilement » — une note d'une version plus petite est une note D'AVANT (voir CLE_AVIS)
+VERSION = 3
 
 # les TYPES de dalle : la clé de l'état et son libellé (les segments de la rubrique « 1 — Caractéristiques »)
 # (libellés courts, demande de l'ingénieur du 09/11/2026 : CSP = coulé sur place ; l'aide du champ le dit en entier)
@@ -69,7 +74,24 @@ TYPES_DALLE = (("coulee", "Dalle CSP"), ("predalle", "Prédalle + dalle CSP"))
 TYPES_TXT = dict(TYPES_DALLE)
 # les clés que le SITE ajoute à une dalle et que les moteurs ne lisent pas (api_web/dalle_positions.CLES_SITE les
 # retire de la copie envoyée au moteur : tests/test_api_web_dalles_fusion.py lie les deux copies)
-CLES_SITE = ("verrou", "type", "empilement")
+CLES_SITE = ("verrou", "type")
+# les clés qu'une version d'avant du site écrivait sur chaque dalle et qui ne pilotent plus rien : relues sans effet,
+# jamais une raison de refuser la note — « empilement », l'option « nappes empilées » retirée le 09/11/2026 (décision de
+# l'ingénieur : les nappes se posent toujours l'une sur l'autre ; vraie, elle disait seulement que la base secondaire
+# l'était déjà)
+CLES_ANCIENNES = ("empilement",)
+# L'AVIS d'une note dont les chiffres changent parce que ses nappes sont désormais posées l'une sur l'autre : dit UNE
+# fois, à l'ouverture. ``normaliser`` (une note d'avant) ou la reprise d'un fichier Streamlit le posent sous CLE_AVIS ;
+# ``resultat`` le montre en tête du résultat (C.message, un avis comme ceux du moteur, pas une erreur) et le RETIRE de
+# l'état : la note rendue, enregistrée par l'écran, est dans la forme d'aujourd'hui et ne le redit pas.
+CLE_AVIS = "avis_ouverture"
+AVIS = {
+    "note": ("Note d'avant le 09/11/2026 : les nappes sont désormais posées l'une sur l'autre (la direction secondaire, "
+             "base et renforts, sur la principale) ; A<sub>s,req</sub> peut différer de l'ancienne note."),
+    "streamlit": ("Fichier Streamlit : les nappes sont posées l'une sur l'autre (la direction secondaire, base et renforts, "
+                  "sur la principale), l'écran Streamlit les posait au même niveau ; A<sub>s,req</sub> peut différer du "
+                  "sien."),
+}
 
 # des requêtes de plus pour le parcours (api_web/parcours.py) : les champs que le parcours automatique n'essaie pas —
 # pour les deux types (une note de prédalle, prête, pour les chemins propres à la peau)
@@ -136,30 +158,40 @@ def _M(d: Dict):
 
 
 def _sans_site(d: Dict) -> Dict:
-    """La dalle SANS les clés du site — pour la re-normaliser (jamais pour le moteur : POS.pour_moteur)."""
-    return {k: v for k, v in d.items() if k not in CLES_SITE}
+    """La dalle SANS les clés du site (ni celles d'une version d'avant, CLES_ANCIENNES) — pour la re-normaliser (jamais
+    pour le moteur : POS.pour_moteur)."""
+    return {k: v for k, v in d.items() if k not in CLES_SITE and k not in CLES_ANCIENNES}
 
 
-def _site(d: Dict, verrou: bool = False, type_: str = "coulee", empilement: bool = False) -> Dict:
+def _site(d: Dict, verrou: bool = False, type_: str = "coulee") -> Dict:
     """Une dalle du site : la dalle du moteur de son type, normalisée, et ses clés propres au site — le verrou (lecture
-    seule, comme le 🔒 de l'écran), le type, l'option « nappes empilées »."""
+    seule, comme le 🔒 de l'écran) et le type."""
     if type_ not in TYPES_TXT:
         raise ValueError(f"type : « coulee » ou « predalle » attendu (reçu {type_!r})")
     out = (EN_P if type_ == "predalle" else EN).normaliser(d)
     out["verrou"] = bool(verrou)
     out["type"] = type_
-    out["empilement"] = bool(empilement)
     return out
 
 
 def _resite(d: Dict, **modifs) -> Dict:
     """La dalle du site ``d`` re-normalisée avec ``modifs`` (γs, jeu…), ses clés du site gardées."""
-    return _site(dict(_sans_site(d), **modifs), d["verrou"], d["type"], d["empilement"])
+    return _site(dict(_sans_site(d), **modifs), d["verrou"], d["type"])
 
 
 def nouvel_etat() -> Dict:
-    """Une note neuve : une dalle coulée en place aux défauts de l'écran, les nappes empilées (§ 4.3)."""
-    return {"version": VERSION, "dalles": [_site(EN.nouvelle_dalle(), empilement=True)], "actif": 0}
+    """Une note neuve : une dalle coulée en place aux défauts de l'écran (ses nappes posées l'une sur l'autre, comme
+    toutes : api_web/dalle_positions.py)."""
+    return {"version": VERSION, "dalles": [_site(EN.nouvelle_dalle())], "actif": 0}
+
+
+def chiffres_changes(d: Dict, deja_empilee: bool = False) -> bool:
+    """Les chiffres d'une dalle relue (du site, normalisée) changent-ils avec ses nappes posées l'une sur l'autre ? Oui
+    dès qu'une couche est posée par le site sur la nappe principale (``POS.empilee`` : base ou renfort secondaire
+    automatique) — sauf, pour une dalle dont l'option d'avant était cochée (``deja_empilee``), une BASE secondaire,
+    que l'option posait déjà ainsi : seul un renfort secondaire y change (S3, 09/11/2026). Un axe saisi ne change pas."""
+    return any(POS.empilee(d, s, f, j) and (j > 0 or not deja_empilee)
+               for s in d["sections"] for f in EN.FACES for j in range(len(s["faces"][f]["couches"])))
 
 
 def _bool_relu(x, quoi: str, rang: int) -> bool:
@@ -174,7 +206,9 @@ def normaliser(etat: Dict) -> Dict:
     place), ``{"predalles": […]}`` de l'ancien module Prédalles (chaque prédalle devient une dalle de type « predalle »,
     ``actif`` conservé, rien n'est perdu), et une note qui porte les DEUX clés est abîmée : refusée. Une note sans dalle
     est une note neuve ; une liste qui n'en est pas une est une note abîmée (refusée, jamais remplacée en silence par
-    une note neuve). « empilement » absent se lit FAUX : les chiffres d'une note d'avant ne bougent pas."""
+    une note neuve). Les nappes sont posées l'une sur l'autre quelle que soit la note : la clé « empilement » d'avant
+    (CLES_ANCIENNES) est relue sans effet, quelle que soit sa valeur. Une note D'AVANT (version < VERSION) dont les
+    chiffres en changent (``chiffres_changes``) reçoit l'avis d'ouverture (CLE_AVIS, que ``resultat`` dit et retire)."""
     if not isinstance(etat, dict):
         return nouvel_etat()
     if "dalles" in etat and "predalles" in etat:
@@ -185,19 +219,21 @@ def normaliser(etat: Dict) -> Dict:
         return nouvel_etat()
     if not isinstance(liste, list):
         raise ValueError(f"note illisible : « {cle} » doit être une liste (reçu {type(liste).__name__})")
+    version = etat.get("version")
+    d_avant = not (isinstance(version, int) and not isinstance(version, bool) and version >= VERSION)
     out = {"version": VERSION, "dalles": []}
+    avis = False
     for i, d in enumerate(liste):
         if not isinstance(d, dict):
             raise ValueError(f"dalle n° {i + 1} illisible")
         v = _bool_relu(d.get("verrou", False), "verrou", i)
-        emp = _bool_relu(d.get("empilement", False), "empilement", i)
         t = d.get("type", "predalle" if cle == "predalles" else "coulee")
         if cle == "predalles" and t != "predalle":
             raise ValueError(f"prédalle n° {i + 1} : type « {t} » dans une note de prédalles (note abîmée)")
         if t not in TYPES_TXT:
             raise ValueError(f"dalle n° {i + 1} : type « coulee » ou « predalle » attendu (reçu {t!r})")
         try:
-            dd = _site(_sans_site(d), v, t, emp)
+            dd = _site(_sans_site(d), v, t)
             _bornes_site(dd)
             for s in dd["sections"]:          # un nom vide (possible dans un .stab, pas à l'écran) : la première lettre libre
                 if not s["nom"].strip():
@@ -205,9 +241,12 @@ def normaliser(etat: Dict) -> Dict:
             out["dalles"].append(dd)
         except ValueError as e:
             raise ValueError(f"dalle « {d.get('nom', i + 1)} » : {e}") from None
+        avis = avis or (d_avant and chiffres_changes(dd, d.get("empilement") is True))
     a = etat.get("actif", 0)
     a = a if isinstance(a, int) and not isinstance(a, bool) else 0
     out["actif"] = min(max(0, a), len(out["dalles"]) - 1)
+    if avis:
+        out[CLE_AVIS] = "note"
     return out
 
 
@@ -225,8 +264,8 @@ def _nom_libre(etat: Dict, base: str = "Dalle") -> str:
 
 def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None:
     """Les dalles de la note : en ouvrir une, en ajouter, en copier une (``index`` ; sans : l'ouverte), en supprimer une
-    (jamais la dernière). Une dalle ajoutée prend le TYPE de la dalle ouverte, et le γs, le jeu et l'option « nappes
-    empilées » de la note (paramètres communs, comme dans l'écran Streamlit)."""
+    (jamais la dernière). Une dalle ajoutée prend le TYPE de la dalle ouverte, et le γs et le jeu de la note (paramètres
+    communs, comme dans l'écran Streamlit)."""
     ds = etat["dalles"]
     if action == "activer":
         etat["actif"] = min(max(0, int(index or 0)), len(ds) - 1)
@@ -235,7 +274,7 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
         d = EN_P.nouvelle_predalle() if est_predalle(ouverte) else EN.nouvelle_dalle()
         d["nom"] = _nom_libre(etat, "Prédalle" if est_predalle(ouverte) else "Dalle")
         d["gamma_s"], d["jeu_premier_lit"] = ds[0]["gamma_s"], ds[0]["jeu_premier_lit"]
-        ds.append(_site(d, False, ouverte["type"], ds[0]["empilement"]))
+        ds.append(_site(d, False, ouverte["type"]))
         etat["actif"] = len(ds) - 1
     elif action == "dupliquer":
         # la dalle désignée (le menu « ⋯ » de l'arborescence ; sans rang : l'ouverte), copiée juste après elle
@@ -469,7 +508,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     """Écrit une saisie dans la dalle ouverte. ``chemin`` : les clés (« sections », 0, « faces », « inf_y », « couches »,
     0, « type ») ; les boutons d'ajout, de copie et de retrait passent par le même chemin, terminé par « + », « copie »
     ou « - ». Une valeur hors du domaine de l'écran est refusée avec un message, et la dalle reste intacte. « verrou »,
-    « type », « h_pre » sont ceux de la dalle ouverte ; γs, le jeu et « empilement » ceux de la NOTE (toutes ses dalles)."""
+    « type », « h_pre » sont ceux de la dalle ouverte ; γs et le jeu ceux de la NOTE (toutes ses dalles)."""
     chemin = [int(c) if isinstance(c, str) and c.isdigit() else c for c in chemin]
     if chemin == ["fichier_streamlit"]:
         return _ouvrir_streamlit(etat, valeur)
@@ -483,14 +522,6 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         return None
     if d["verrou"]:
         return "Dalle verrouillée : décocher « Verrouiller la dalle » pour la modifier"
-    if chemin == ["empilement"]:
-        # l'option « nappes empilées » (§ 4.3) : une clé de la NOTE, comme γs et le jeu
-        lu = _lire_bool(valeur)
-        if lu is None:
-            return f"Nappes empilées : coché ou décoché, pas « {valeur} »"
-        for dd in etat["dalles"]:
-            dd["empilement"] = lu
-        return None
     if chemin and chemin[0] in NOTE_ENTIERE and len(chemin) == 1:
         # γs et le jeu premier lit sont des paramètres de la NOTE (l'écran Streamlit les partage entre ses dalles)
         try:
@@ -503,7 +534,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     travail = copy.deepcopy(d)
     try:
         _ecrire(etat, travail, chemin, valeur)
-        etat["dalles"][a] = _site(_sans_site(travail), d["verrou"], travail["type"], d["empilement"])
+        etat["dalles"][a] = _site(_sans_site(travail), d["verrou"], travail["type"])
     except (_Refus, AP.Refus) as e:
         return str(e)
     except ValueError as e:
@@ -517,7 +548,9 @@ def _ouvrir_streamlit(etat: Dict, valeur) -> Optional[str]:
     """Un fichier de l'écran Streamlit (« 💾 Enregistrer ») remplace les dalles de la note : « dalle_ba.json » de l'écran
     Dalle (clé « dalles »), ou le fichier de l'écran Prédalle (clé « predalles ») — le TYPE est celui du fichier
     (beton/dalle/fichier.py, beton/predalle/fichier.py, inchangés) ; ce que l'écran remplaçait en silence (moment négatif
-    lu 0, peau ramenée, type inconnu…) est dit. Les dalles reprises gardent les positions du moteur (« empilement » faux)."""
+    lu 0, peau ramenée, type inconnu…) est dit. Les dalles reprises ont leurs nappes posées l'une sur l'autre, comme
+    toutes (l'écran Streamlit les posait au même niveau) : si leurs chiffres en changent, l'avis « streamlit » (CLE_AVIS)
+    le dit en tête du résultat."""
     if not isinstance(valeur, dict) or not isinstance(valeur.get("texte"), str):
         return "Fichier illisible"
     nom = str(valeur.get("nom") or "fichier")
@@ -529,13 +562,15 @@ def _ouvrir_streamlit(etat: Dict, valeur) -> Optional[str]:
     cle, type_ = ("predalles", "predalle") if predalle else ("dalles", "coulee")
     try:
         lu = (FI_P if predalle else FI).lire(charge)
-        ds = [_site(x, False, type_, False) for x in lu[cle]]
+        ds = [_site(x, False, type_) for x in lu[cle]]
         for x in ds:
             _bornes_site(x)
     except (ValueError, TypeError, AttributeError, KeyError) as e:
         return f"« {nom} » refusé : {e}"
     etat["dalles"] = ds
     etat["actif"] = 0
+    if any(chiffres_changes(x) for x in ds):
+        etat[CLE_AVIS] = "streamlit"
     if lu["remarques"]:
         r = lu["remarques"]
         return (f"« {nom} » repris ({len(ds)} {'prédalle' if predalle else 'dalle'}(s)). L'écran Streamlit y remplaçait en "
@@ -560,25 +595,20 @@ def choisir_section(etat: Dict, role: str, nom: str) -> None:
     if cand["type"] == "treillis" and NAP.mode(d["sections"][int(i)], cote, d["dir_principale"])["mode"] in ("treillis", "treillis_renforts"):
         autre = s["faces"][f"{cote}_{'y' if dk == 'x' else 'x'}"]["couches"][0]
         autre.update({"type": "treillis", "treillis": NAP.transposee(cand["treillis"])})
-    etat["dalles"][etat["actif"]] = _site(_sans_site(travail), False, d["type"], d["empilement"])
+    etat["dalles"][etat["actif"]] = _site(_sans_site(travail), False, d["type"])
 
 
 # ------------------------------------------------------------------ les données : la colonne de gauche
 # la légende des dessins (dernière ligne de l'en-tête de chaque vue : ce qu'on y lit) — celle de la prédalle : AP.LEGENDES
 LEGENDES = {"c": "barres coupées en points, barres parallèles en traits", "p": "vue de dessus · barres X horizontales, Y verticales"}
-AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — enrobage + ½ Ø arrondi au 0,5 cm supérieur + jeu "
-            "premier lit ; nappes empilées, la base de la direction secondaire est posée sur la principale : axe principal + ½ Ø_p "
-            "+ ½ Ø_s ; une valeur saisie l'impose.")
+AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — direction principale : enrobage + ½ Ø arrondi au "
+            "0,5 cm supérieur + jeu premier lit ; direction secondaire (sa base et ses renforts), posée sur la principale : axe "
+            "de la base principale + ½ Ø_p + ½ Ø ; une valeur saisie l'impose.")
 AIDE_TYPE = ("CSP : coulé sur place. Dalle CSP : toute l'épaisseur est coulée au chantier (moteur beton/dalle). Prédalle + dalle "
              "CSP : la partie basse "
              "h_p est préfabriquée, la base inférieure de la direction principale y est posée en fond de moule, les autres "
              "couches inférieures sur la prédalle (moteur beton/predalle). Changer de type garde les sections, les armatures et "
              "les positions saisies ; vers la prédalle, h_p prend 6 cm (borné à l'épaisseur).")
-AIDE_EMPILEMENT = ("Les deux directions d'une nappe se croisent : la direction secondaire est posée SUR la principale, les barres en "
-                   "contact, et son axe automatique en tient compte (axe principal + ½ Ø + ½ Ø, arrondis au 0,5 cm). Décochée — une "
-                   "note d'avant, une note de l'ancien module Prédalles, un fichier Streamlit —, les positions automatiques sont "
-                   "celles du moteur : les deux directions au même niveau, comme dans l'écran Streamlit, et les chiffres d'avant ne "
-                   "bougent pas. Commun à toutes les dalles de la note.")
 AIDE_RENFORT = "Un renfort : treillis, barres Ø/e ou n barres ; 3 Ø12 par défaut, posées dans le plan de la base"
 
 
@@ -620,10 +650,13 @@ def _formulaire_verrouille(d: Dict, r: Dict) -> str:
 
 
 def _options(d: Dict) -> str:
-    """La rubrique « 4 — Options » : la méthode (celle du moteur du type), γs et le jeu (communs à la note), l'option
-    « nappes empilées » (§ 4.3, commune à la note), la reprise d'une note Streamlit (les deux écrans)."""
-    jeu = ("Ajouté à l'axe automatique des couches SUPÉRIEURES seulement (la base principale est en fond de moule, les autres "
-           "couches inférieures posées sur la prédalle)." if est_predalle(d) else "Ajouté à l'axe automatique de chaque couche.")
+    """La rubrique « 4 — Options » : la méthode (celle du moteur du type), γs et le jeu (communs à la note), la reprise
+    d'une note Streamlit (les deux écrans). (L'option « nappes empilées » n'existe plus depuis le 09/11/2026 : les nappes
+    sont toujours posées l'une sur l'autre.)"""
+    jeu = ("Ajouté à l'axe automatique des couches SUPÉRIEURES seulement — de la direction principale, la secondaire posée "
+           "dessus le suit (la base principale inférieure est en fond de moule, les autres couches inférieures posées sur la "
+           "prédalle)." if est_predalle(d) else
+           "Ajouté à l'axe automatique de la direction principale ; la direction secondaire, posée sur elle, le suit.")
     return (f'<div class="row full et-meth"><label><span>Méthode</span></label><b>Méthode du bureau</b><span class="hint">'
             f'{C.esc(_MO(d).REFERENCE)} · ELS, z = 0,9·d</span></div>'
             + C.ligne2(("γ<sub>s</sub> acier", C.num(["gamma_s"], d["gamma_s"], "", mini=EN.GAMMA_S_MIN, maxi=EN.GAMMA_S_MAX),
@@ -631,8 +664,6 @@ def _options(d: Dict) -> str:
                         "les dalles de la note, comme dans l'écran Streamlit."),
                        ("Jeu 1er lit", C.num(["jeu_premier_lit"], d["jeu_premier_lit"], "cm", mini=0),
                         f"{jeu} Commun à toutes les dalles de la note, comme dans l'écran Streamlit."))
-            + C.ligne("Nappes", C.case(["empilement"], d["empilement"], "Nappes empilées : direction secondaire posée sur la principale"),
-                      "", AIDE_EMPILEMENT, full=True)
             + '<div class="et-gh"><span class="t">Reprendre une note Streamlit</span></div>'
             + C.aide("Le fichier « dalle_ba.json » de l'écran Dalle, ou celui de l'écran Prédalle (bouton Enregistrer) : ses dalles "
                      "ou prédalles remplacent celles de cette note, avec le type du fichier ; ce que l'écran y remplaçait en silence "
@@ -975,7 +1006,8 @@ def _avertissements_de(d: Dict, r: Dict, i: Optional[int] = None) -> str:
 
 def _avertissements(r: Dict, i: Optional[int] = None) -> str:
     """Les avertissements du moteur des dalles : ceux de la section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de
-    la dalle entière ; les nappes X et Y d'une même face calculées au même niveau sont dites en une phrase."""
+    la dalle entière ; les nappes X et Y d'une même face calculées trop près l'une de l'autre sont dites en une phrase —
+    le site posant la secondaire sur la principale, seul un axe SAISI les y met : la phrase dit comment le rendre."""
     out = ""
     confondues: List[Dict] = []
     for a in r["avertissements"]:
@@ -992,9 +1024,11 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
         faces = " et ".join("inférieures" if a["face"] == "inf" else "supérieures" for a in confondues)
         axes = " ; ".join(f"{'inf.' if a['face'] == 'inf' else 'sup.'} {C.fr(a['e_x'], 1)} et {C.fr(a['e_y'], 1)} cm" for a in confondues)
         mini = max(a["ecart_mini"] for a in confondues)
-        out += C.message(f"{C.esc(s['titre'])} : les nappes X et Y {faces} sont calculées au même niveau ({axes}), comme dans "
-                         f"l'écran Streamlit. Croisées, l'une passe sur l'autre (au moins {C.fr(mini, 1)} cm plus loin du "
-                         f"parement) : son d est plus petit. Saisir son axe pour en tenir compte.")
+        niveau = ("au même niveau" if all(abs(a["e_x"] - a["e_y"]) < 1e-9 for a in confondues)
+                  else "à des niveaux trop proches pour se croiser")
+        out += C.message(f"{C.esc(s['titre'])} : les nappes X et Y {faces} sont calculées {niveau} ({axes}) — un axe saisi "
+                         f"les y pose. Croisées, l'une passe sur l'autre (au moins {C.fr(mini, 1)} cm d'axe à axe) : son d est "
+                         "plus petit. Rendre l'axe saisi à l'automatique (↺) pose la direction secondaire sur la principale.")
     return out
 
 
@@ -1016,7 +1050,10 @@ def resultat(etat: Dict) -> Dict:
     """Le résultat de la dalle ouverte, par le moteur de son type : la tête (le nom, modifiable là — § 1 —, et les
     dimensions, la peau dite pour une prédalle), un bloc par section (les formules mises en mots par le module du type :
     ce module-ci, ou l'aide prédalle), les avertissements, le périmètre d'une prédalle, les vues (dessin_dalle ou
-    dessin_predalle), et le résumé de la note."""
+    dessin_predalle), et le résumé de la note. L'avis d'ouverture (CLE_AVIS : une note d'avant, un fichier Streamlit dont
+    les chiffres changent avec les nappes posées l'une sur l'autre) est dit en tête du résultat, une fois : il est RETIRÉ
+    de ``etat`` (la note rendue ne le porte pas)."""
+    avis = AVIS.get(etat.pop(CLE_AVIS, None), "")
     d = _actif(etat)
     r = _calculer(d)
     resultats = [r if i == etat["actif"] else _calculer(q) for i, q in enumerate(etat["dalles"])]
@@ -1039,7 +1076,7 @@ def resultat(etat: Dict) -> Dict:
     nivs = [PC.niveau_element(_MO(q), _M(q), x) for q, x in zip(etat["dalles"], resultats)]
     statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     element = r["predalle"] if predalle else r["dalle"]
-    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}'
+    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}{C.message(avis) if avis else ""}'
                         f'<div class="et-blocs">{blocs}</div>{_avertissements_de(d, r)}{perimetre}</div>{pied}',
             "volets": volets, "vues": PC.vues(r["sections"], element, DP if predalle else DD, "pd" if predalle else "dl", dims, _legendes(d)),
             "phrase": "", "statut_html": statut,

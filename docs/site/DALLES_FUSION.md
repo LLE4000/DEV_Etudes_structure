@@ -178,6 +178,9 @@ de `api_web/predalle.py`, réemployé comme AIDE du type prédalle (ses fonction
   la base principale » (termes `e_p`, `demi_p`, `demi_s` posés par `dalle_positions.annoter`).
 - `PARCOURS` : les requêtes d'avant plus celles du type prédalle sur une note `_NOTE_P` (`{"predalles": [nouvelle
   prédalle]}`) : `h_pre` 21 / 3, `h` 6, `type` coulee, sélecteur, choisir, ajouter ; l'import des DEUX fichiers.
+- *Révision du 09/11/2026 (NAP, § 4.3) : la clé « empilement », son chemin, sa case et le paramètre `empilement` de
+  `_site` n'existent plus ; `CLES_SITE = ("verrou", "type")`, `VERSION = 3`, `CLES_ANCIENNES = ("empilement",)` (relue sans
+  effet) ; l'avis d'ouverture `CLE_AVIS` / `AVIS`.*
 - Preuves : `tests/test_api_web_dalles_fusion.py` (57 contrôles dont 5 mutations), `tests/test_api_web_dalle.py` (135 :
   le type coulée, l'option empilement décochée par son aide `nouveau()` — la parité avec `beton/dalle`),
   `tests/test_api_web_predalle.py` (103, inchangé), les deux moteurs (169, 152, inchangés). Le gel
@@ -289,7 +292,8 @@ moteur (demi-diamètre arrondi au 0,5 cm supérieur, `arrondi_demi_cm`) :
 - base de la direction secondaire : `axe principal + ⌈Ø_p/2⌉₀,₅ + ⌈Ø_s/2⌉₀,₅` (Ø_p, Ø_s : diamètres des fils ou
   barres des deux bases ; pour un treillis, Øl de chaque face) — aucune distance inventée ;
 - supérieures : la même règle depuis le parement supérieur (principale la plus proche du haut, secondaire en dessous) ;
-- renforts : leur axe reste celui du moteur (imposé ou automatique), affiché et dessiné à sa valeur ;
+- renforts : leur axe reste celui du moteur (imposé ou automatique), affiché et dessiné à sa valeur *(révisé le
+  09/11/2026, S3 : un renfort de la direction SECONDAIRE se pose sur sa nappe, comme sa base — § 4.3)* ;
 - prédalle, faces inférieures : le moteur sait déjà poser (base principale DANS la peau, autre base inférieure SUR la
   prédalle : `beton/predalle/moteur.pose`) — règle du moteur conservée telle quelle ; ses faces supérieures suivent la
   règle d'empilement comme la dalle.
@@ -342,10 +346,58 @@ automatique ou de moteur :
   dalle est recomposée candidat par candidat et calculée par le moteur ; mêmes clés que le moteur (plus `e`), même tri ;
 - `moteur(d)`, `type_dalle(d)`, `empilement(d)`, `principale(d)`.
 
-### 4.3 L'option « nappes empilées » — les anciennes notes gardent leurs chiffres
+### 4.3 L'option « nappes empilées » — RETIRÉE le 09/11/2026 (révision NAP ci-dessous)
 
-Clé d'état `empilement` (vrai/faux), par note (comme γ_s et le jeu, rubrique 4 — Options, case « Nappes empilées :
-direction secondaire posée sur la principale ») :
+**Révision du 09/11/2026 (NAP, décision de l'ingénieur, soir)** — « Les nappes, on les met toujours l'une sur l'autre ;
+on n'est pas obligé d'avoir les deux options » ; « S3 : corriger, il se pose sur sa nappe, comme la base ». Ce qui est
+REMPLACÉ dans ce paragraphe (texte d'avant gardé plus bas pour l'histoire) et dans les § 2.3, 4.1, 4.2 :
+- **Plus d'option.** Ni case dans « 4 — Options », ni chemin `["empilement"]` (refusé : champ inconnu), ni clé d'état :
+  `api_web/dalle.CLES_SITE = ("verrou", "type")` (= `dalle_positions.CLES_SITE`, liés par
+  `tests/test_api_web_dalles_fusion.py`), `VERSION = 3`. TOUTES les notes sont empilées : note neuve, note d'avant (clé
+  absente, fausse, vraie ou illisible — `CLES_ANCIENNES = ("empilement",)` : relue SANS EFFET, jamais une raison de refuser
+  la note), note de l'ancien module Prédalles, fichier Streamlit importé (les deux écrans). La comparaison avec les
+  anciennes valeurs Streamlit n'a plus cours.
+- **L'avis d'ouverture.** Une note d'avant (version < 3) dont les chiffres changent (`dalle.chiffres_changes` : une couche
+  posée par le site sur la nappe principale — pour une note dont l'option était cochée, seulement un renfort secondaire,
+  S3) reçoit sous `CLE_AVIS` l'avis « Note d'avant le 09/11/2026 : les nappes sont désormais posées l'une sur l'autre (la
+  direction secondaire, base et renforts, sur la principale) ; A_s,req peut différer de l'ancienne note. » ; un fichier
+  Streamlit repris, l'avis « Fichier Streamlit : … l'écran Streamlit les posait au même niveau ; A_s,req peut différer du
+  sien. » (`dalle.AVIS`). `dalle.resultat` le dit en TÊTE du résultat (sous le nom de la dalle : `C.message`, un avis comme
+  ceux du moteur, pas une erreur rouge — le même composant aux trois formats ; au téléphone, l'onglet Résultat) et le
+  RETIRE de l'état : la note rendue, que l'écran enregistre en version 3, ne le redit pas. Une note d'avant dont les axes
+  secondaires sont tous saisis, une note du 09/11 cochée sans renfort secondaire : rien ne change, rien n'est dit.
+- **La règle (`dalle_positions.axe_auto`)**, sans option : direction PRINCIPALE (base ET renforts) et faces inférieures
+  d'une prédalle → `distance_auto` du moteur ; direction SECONDAIRE — sa base ET ses RENFORTS (S3) —, faces inférieures et
+  supérieures d'une dalle coulée, faces supérieures d'une prédalle → `e_p + ⌈Ø_p/2⌉₀,₅ + ⌈Ø/2⌉₀,₅` (e_p : axe effectif de la
+  base principale de la même face ; Ø_p son Ø, Øl d'un treillis ; Ø celui de la couche posée). Un axe saisi n'est jamais
+  déplacé. Pourquoi la formule de la base vaut pour le renfort : les deux moteurs posent un renfort dans le LIT de la base
+  de sa face (`distance_auto` ne dépend pas du rang, hors faces inférieures d'une prédalle) — son décalage relatif est nul
+  et le reste une fois empilé (vérifié pour chaque Ø : `tests/test_api_web_dalle_positions.py` (b)).
+- **Exemple chiffré** (c = 3 cm, jeu 0, principale Y, base Y Ø12/150, base X treillis 10/10/100/100) : base inf. X
+  4,0 + 1,0 + 0,5 = 5,5 cm ; renfort 3 Ø12 en inf. X : 4,0 + 1,0 + 1,0 = **6,0** cm (avant : 3 + 1,0 = 4,0, au niveau de la
+  base Y, sous sa propre nappe) ; renfort Ø25 : 6,5 ; renfort de la principale (inf. Y) : 4,0, inchangé. Prédalle h_p = 6 :
+  renfort 3 Ø16 en sup. X : 4,0 + 1,0 + 1,0 = 6,0 (avant : 4,0) ; renfort inf. X : 6 + 1,0 = 7,0, INCHANGÉ (déjà sur la
+  prédalle, dans le lit de sa base à 6,5 : la règle du moteur le pose ainsi, S3 n'y change rien).
+- **Mesures S3** (le site, avant → après, la face du renfort ; sens de la sécurité : le renfort monte, d baisse,
+  A_s,req augmente) : dalle 20 cm, principale Y, treillis 10/10/100/100, renfort 3 Ø12 inf. X, M_x,inf 25 : axe 4,0 → 5,0,
+  d 15,65 → 15,35 cm, A_s,req 532,5 → 542,9 mm² (+2,0 %) ; renfort Ø25/150 inf. X, M_x,inf 60 : axe 4,5 → 5,5, d 15,50 →
+  14,69, A_s,req 1 290,3 → 1 361,1 (+5,5 %) ; dalle 25 cm, principale X, base sup. X Ø16/150, renfort 4 Ø20 sup. Y,
+  M_y,sup 40 : axe 4,0 → 6,0, d 20,42 → 19,19, A_s,req 652,9 → 694,7 (+6,4 %) ; prédalle 22 cm, renfort 3 Ø16 sup. X,
+  M_x,sup 30 : axe 4,0 → 5,0, A_s,req 564,4 → 578,6 (+2,5 %) ; prédalle, renfort 3 Ø12 inf. X : 434,3 → 434,3 (inchangé).
+- **Ce qui suit l'axe, sans code de plus** : la copie envoyée au moteur (`pour_moteur`), le champ « auto · 6 », la légende
+  de la coupe (« X · 3 Ø12 · axe à 60 · sur la base Y »), les points et traits des coupes (lus dans `couches[j]["e"]`),
+  la formule « e » d'une prédalle (`e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉`, Ø_s celui du renfort), le sélecteur de la nappe de base
+  (`candidats_base` : une base principale candidate déplace aussi les renforts secondaires posés sur elle), le résumé et
+  le verdict. Contrôle croisé dessin ↔ calcul : `tests/test_api_web_dalles_fusion.py` (§ 7) et
+  `tests/test_api_web_dalle_positions.py` (e). L'avertissement « nappes X et Y au même niveau » de la dalle coulée ne sort
+  plus que d'un axe saisi, et le dit (« Rendre l'axe saisi à l'automatique (↺) pose la direction secondaire sur la
+  principale »).
+- L'ancien module « predalle » du registre (`api_web/predalle.py`, servi pour les anciens liens et le harnais, sa page
+  redirigée vers les dalles) calcule toujours au même niveau : il n'est pas atteignable depuis l'écran (toute note
+  « predalle » est relue par le module des dalles) ; ses 9 photos du gel restent identiques.
+
+*Texte d'avant (FUS4, REMPLACÉ ci-dessus)* — Clé d'état `empilement` (vrai/faux), par note (comme γ_s et le jeu,
+rubrique 4 — Options, case « Nappes empilées : direction secondaire posée sur la principale ») :
 - note NEUVE : vrai ;
 - note d'avant (sans la clé), note de l'ancien module Prédalles, fichier Streamlit importé : FAUX → positions
   automatiques du moteur, résultats identiques à l'octet (les gels `tests/test_reference_refonte.py` dalle/predalle et
@@ -372,6 +424,9 @@ pièces cliquables (`data-sel="s<i>.<face>-<j>"`, `s<i>.beton`) sont inchangées
 moteur) sans ; chaque couche à `h − e` ou `e` au dixième de mm ; et par une mutation (le dessin qui lirait l'automatique
 du moteur ramène les deux directions au même plan : le contrôle rougit). Les 9 cas gelés dalle et 9 prédalle de
 `tests/test_reference_refonte.py` restent identiques (option absente → fausse).
+
+*Révision du 09/11/2026 (NAP)* : « quand l'empilement est actif » se lit « toujours » ; le renfort de la direction
+secondaire est dessiné dans le lit de sa base (« · sur la base Y » dans la légende), à l'axe que le moteur a reçu.
 
 ## 5. Tests ciblés (pas de suite complète ; ni catalogue ni assemblages)
 

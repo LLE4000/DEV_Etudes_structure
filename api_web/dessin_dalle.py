@@ -20,10 +20,11 @@ centrées sur la bande, celles d'un renfort intercalées d'une demi-maille (la c
 Les NIVEAUX (docs/site/DALLES_FUSION.md, § 4) : chaque couche — base ou renfort, direction coupée ou parallèle — est
 dessinée à l'axe que le moteur a UTILISÉ, ``couches[j]["e"]`` du résultat (imposé, automatique du moteur, ou automatique
 du site écrit dans la copie envoyée au moteur : api_web/dalle_positions.py). Le dessin ne recalcule aucun niveau : deux
-directions au même niveau sur la coupe, c'est le calcul qui les y a posées (option « nappes empilées » fausse) ; à des
-niveaux distincts, c'est qu'il les y a comptées. La cote de d est h − y_G du calcul, pour la face tendue de la direction
-coupée. Une couche que le site a posée sur la base principale (``empilee``, posé par ``dalle_positions.annoter``) le dit
-dans la légende.
+directions au même niveau sur la coupe, c'est le calcul qui les y a posées (un axe saisi) ; à des niveaux distincts —
+la direction secondaire, base et renforts, posée sur la principale, toujours depuis le 09/11/2026 —, c'est qu'il les y a
+comptées. La cote de d est h − y_G du calcul, pour la face tendue de la direction coupée. Une couche que le site a posée
+sur la nappe principale (``empilee``, posé par ``dalle_positions.annoter`` : base ou renfort secondaire) le dit dans la
+légende.
 
 Le style est celui des dessins du site (api_web/dessin_poutre.py) : traits noirs, béton gris clair, cotes fines,
 sollicitations en rouge. Les textes venus de l'état (noms) sont échappés ici.

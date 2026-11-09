@@ -22,9 +22,11 @@
 - les dessins à l'échelle (barres, cotes, vue partielle) ; un nom saisi est échappé partout.
 
 Depuis la fusion des modules Dalle et Prédalle (docs/site/DALLES_FUSION.md, 11/2026), cette suite exerce le TYPE « Dalle
-CSP » (coulée sur place) du module fusionné, l'option « nappes empilées » décochée (``nouveau``) : ce qu'elle prouve, c'est que
-le site affiche le moteur beton/dalle chiffre pour chiffre. Le type prédalle, la bascule, l'empilement et les trois formes
-d'état : tests/test_api_web_dalles_fusion.py.
+CSP » (coulée sur place) du module fusionné : ce qu'elle prouve, c'est que le site affiche le moteur beton/dalle chiffre
+pour chiffre — le moteur tel qu'il reçoit la dalle (``moteur_de`` : la copie de api_web/dalle_positions.pour_moteur, ses
+nappes posées l'une sur l'autre, toujours depuis la décision de l'ingénieur du 09/11/2026 ; l'option « nappes empilées »,
+que cette suite décochait pour lire le moteur sur la dalle brute, n'existe plus). Le type prédalle, la bascule, les
+niveaux et les trois formes d'état : tests/test_api_web_dalles_fusion.py, tests/test_api_web_dalle_positions.py.
 
     python3 tests/test_api_web_dalle.py
 """
@@ -41,6 +43,7 @@ sys.path.insert(0, RACINE)
 
 from api_web import commun as C  # noqa: E402
 from api_web import dalle as P  # noqa: E402
+from api_web import dalle_positions as POS  # noqa: E402
 from api_web import dessin_dalle as DD  # noqa: E402
 from api_web import plaque_compact as PC  # noqa: E402
 from api_web import routeur as R  # noqa: E402
@@ -82,19 +85,23 @@ def noms_arbre(html):
 
 
 def dalle_de(etat, i=None):
-    """La dalle telle que le MOTEUR la lit : sans les clés du site (verrou, type, empilement — api_web/dalle.CLES_SITE).
-    Cette suite laisse l'option « nappes empilées » décochée (``nouveau``) : elle contrôle que le site affiche le moteur
-    des dalles, chiffre pour chiffre ; l'empilement a sa suite (tests/test_api_web_dalles_fusion.py, lot FUS4)."""
+    """La dalle de l'ÉTAT, sans les clés du site (verrou, type — api_web/dalle.CLES_SITE) : ce que la note garde."""
     d = etat["dalles"][etat["actif"] if i is None else i]
     return {k: v for k, v in d.items() if k not in P.CLES_SITE}
 
 
+def moteur_de(etat, i=None):
+    """La dalle telle que le MOTEUR la REÇOIT : la copie de api_web/dalle_positions.pour_moteur (sans les clés du site,
+    l'axe des couches posées sur la nappe principale écrit) — ce que le site calcule ; le moteur sur cette copie, c'est
+    le chiffre que l'écran doit montrer."""
+    return POS.pour_moteur(etat["dalles"][etat["actif"] if i is None else i])
+
+
 def nouveau():
-    """Une note neuve, l'option « nappes empilées » DÉCOCHÉE (une note neuve l'a cochée : § 4.3) — la réponse complète,
-    comme celle de « nouveau »."""
+    """Une note neuve — la réponse complète, comme celle de « nouveau »."""
     r = req(module="dalle", action="nouveau")
     assert r["ok"], r
-    return saisir(r["etat"], "empilement", False)
+    return r
 
 
 # une ligne de vérification (C.ligne_verif) : (gouvernante, nom, pièce, niveau, taux) ; sa comparaison : CMP
@@ -134,7 +141,7 @@ d = dalle_de(etat)
 chk("« Ajouter une section » crée la section B ; « Ajouter un renfort » pose 3 Ø12 (le défaut de l'écran)",
     [s["nom"] for s in d["sections"]] == ["A", "B"] and d["sections"][0]["faces"]["inf_y"]["couches"][1] == dict(EN.COUCHE_RENFORT, dist=8.0),
     d["sections"][0]["faces"]["inf_y"])
-ref = MO.verifier(d)
+ref = MO.verifier(moteur_de(etat))
 g = ref["sections"][0]["grandeurs"]
 chk("les chiffres de test_dalle_bidir : y_G = 4,86 cm et As,req inf. Y = 770 mm² (renfort posé à 8 cm)",
     round(g["yG_inf_y"], 2) == 4.86 and round(g["As_req_inf_y"]) == 770, (g["yG_inf_y"], g["As_req_inf_y"]))
@@ -201,7 +208,7 @@ for f, dd, esp in (("inf_x", "25", "100"), ("inf_y", "25", "100"), ("sup_x", "6"
     e2 = saisir(e2, f"sections/0/faces/{f}/couches/0/d", dd)["etat"]
     e2 = saisir(e2, f"sections/0/faces/{f}/couches/0/esp", esp)["etat"]
 r2 = req(module="dalle", action="calculer", etat=e2)
-ref2 = MO.verifier(dalle_de(e2))
+ref2 = MO.verifier(moteur_de(e2))
 excessif = [v for s in ref2["sections"] for v in s["verifications"] if "acier_excessif" in v["motifs"] and v["taux"] <= 1]
 lignes2 = LIGNE.findall(r2["resultat"])
 att2 = [v for s in ref2["sections"] for v in s["verifications"]]
@@ -212,7 +219,7 @@ e0 = e2
 for m_ in EN.MOMENTS + ("V",):
     e0 = saisir(e0, f"sections/0/{m_}", "0")["etat"]
 r0_ = req(module="dalle", action="calculer", etat=e0)
-m0_ = MO.verifier(dalle_de(e0))
+m0_ = MO.verifier(moteur_de(e0))
 chk("acier excessif sans aucun effort : le bloc dit « Non conforme » (rouge), jamais « Données incomplètes » ; la note aussi",
     not m0_["sollicitee"] and m0_["statut"] == MO.NOK and BLOC.findall(r0_["resultat"]) == [("nok", "0", "Section A", "Non conforme")]
     and r0_["resume"]["niveau"] == "r", (BLOC.findall(r0_["resultat"]), r0_["resume"]))
@@ -252,17 +259,20 @@ r5 = saisir(etat, "sections/0/faces/inf_y/couches/1/-", "1")
 chk("« Retirer ce renfort » le retire", len(dalle_de(r5["etat"])["sections"][0]["faces"]["inf_y"]["couches"]) == 1)
 r5 = saisir(etat, "sections/0/faces/inf_y/couches/1/dist", "")
 chk("un axe vidé revient à l'automatique (null)", dalle_de(r5["etat"])["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] is None)
-auto = MO.distance_auto(EN.COUCHE_BASE, 3.0, 0.0)
+# (inf. X, direction secondaire : son automatique est celui du SITE, posée sur la base Y — treillis Ø10 sur Ø10 à 3,5 cm :
+# 3,5 + 0,5 + 0,5 = 4,5 cm ; le moteur seul dirait 3,5)
+auto = POS.axe_auto(etat["dalles"][0], etat["dalles"][0]["sections"][0], "inf_x", 0)
 r5 = saisir(etat, "sections/0/faces/inf_x/couches/0/dist", C.nb(auto))
-chk(f"l'axe automatique affiché ({C.nb(auto)} cm), réécrit, reste automatique (comme le champ de l'écran)",
-    dalle_de(r5["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] is None)
-r5 = saisir(etat, "sections/0/faces/inf_x/couches/0/dist", "4,5")
-chk("un autre axe est imposé : son champ le montre, et se VIDE pour revenir à l'automatique (dit en clair : « auto · 3,5 »)",
-    dalle_de(r5["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] == 4.5
-    and 'data-chemin="sections/0/faces/inf_x/couches/0/dist" data-sorte="texte" inputmode="decimal" value="4,5" data-vide="auto" '
-        'placeholder="auto · 3,5"' in r5["donnees"])
+chk(f"l'axe automatique affiché ({C.nb(auto)} cm, la direction secondaire posée sur la principale), réécrit, reste automatique "
+    "(comme le champ de l'écran)",
+    auto == 4.5 and dalle_de(r5["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] is None)
+r5 = saisir(etat, "sections/0/faces/inf_x/couches/0/dist", "5")
+chk("un autre axe est imposé : son champ le montre, et se VIDE pour revenir à l'automatique (dit en clair : « auto · 4,5 »)",
+    dalle_de(r5["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] == 5.0
+    and 'data-chemin="sections/0/faces/inf_x/couches/0/dist" data-sorte="texte" inputmode="decimal" value="5" data-vide="auto" '
+        'placeholder="auto · 4,5"' in r5["donnees"])
 r5 = saisir(etat, "sections/0/faces/inf_y/yG", "4,2")
-chk("un centre de gravité saisi est imposé (y_G = 4,2 cm dans le calcul)", MO.verifier(dalle_de(r5["etat"]))["sections"][0]["grandeurs"]["yG_inf_y"] == 4.2)
+chk("un centre de gravité saisi est imposé (y_G = 4,2 cm dans le calcul)", MO.verifier(moteur_de(r5["etat"]))["sections"][0]["grandeurs"]["yG_inf_y"] == 4.2)
 r5 = saisir(r5["etat"], "sections/0/faces/inf_y/yG", "")
 chk("… et vidé, il redevient calculé", dalle_de(r5["etat"])["sections"][0]["faces"]["inf_y"]["yG"] is None)
 r5 = saisir(etat, "sections/0/faces/inf_y/yG", C.nb(g["yG_inf_y"]))
@@ -306,10 +316,13 @@ chk("… et déverrouillée, elle se modifie de nouveau", saisir(r8["etat"], "ve
 
 # ------------------------------------------------------------------ 6. le sélecteur de la nappe de base
 s = req(module="dalle", action="selecteur", etat=etat, role="inf_y-0")
-cands = MO.candidats_base(d, 0, "inf_y")
+# (les candidats du moteur, chacun posé aux niveaux du site : POS.candidats_base, contrôlé contre le moteur par
+# tests/test_api_web_dalle_positions.py ; la liste et le tri sont ceux du moteur)
+cands = POS.candidats_base(etat["dalles"][0], 0, "inf_y")
 rows = re.findall(r'<button class="pk-row( cur)?( opt)?" data-choix="([^"]+)"', s["html"])
 chk(f"sélecteur : les {len(cands)} nappes du moteur, triées par section au mètre", [x[2] for x in rows] == [c["nom"] for c in cands]
-    and [c["As_pm"] for c in cands] == sorted(c["As_pm"] for c in cands))
+    and [c["As_pm"] for c in cands] == sorted(c["As_pm"] for c in cands)
+    and [c["nom"] for c in cands] == [c["nom"] for c in MO.candidats_base(moteur_de(etat), 0, "inf_y")])
 chk("sélecteur : la retenue (✓) et la plus petite qui tient (★) sont celles du moteur",
     [x[2] for x in rows if x[0]] == [c["nom"] for c in cands if c["retenue"]] and [x[2] for x in rows if x[1]] == [c["nom"] for c in cands if c["optimal"]],
     ([x for x in rows if x[0] or x[1]], [c["nom"] for c in cands if c["retenue"] or c["optimal"]]))
@@ -322,7 +335,7 @@ f9 = dalle_de(r9["etat"])["sections"][0]["faces"]["inf_y"]
 chk(f"choisir « {opt['nom']} » remplace la couche de base ; le renfort posé à 8 cm reste",
     MO.candidat_nom(f9["couches"][0]) == opt["nom"] and f9["couches"][1] == d["sections"][0]["faces"]["inf_y"]["couches"][1], f9)
 chk("… et le taux de la face devient celui que le sélecteur annonçait",
-    MO.verifier(dalle_de(r9["etat"]))["sections"][0]["grandeurs"]["besoin_inf_y"] / MO.verifier(dalle_de(r9["etat"]))["sections"][0]["grandeurs"]["As_inf_y"]
+    MO.verifier(moteur_de(r9["etat"]))["sections"][0]["grandeurs"]["besoin_inf_y"] / MO.verifier(moteur_de(r9["etat"]))["sections"][0]["grandeurs"]["As_inf_y"]
     == opt["taux"])
 leger = re.findall(r'<span class="leger" title="([^"]+)">', r["resultat"])
 chk("l'étoile d'une ligne dit la plus petite nappe de base qui tient, quand ce n'est pas la retenue",
@@ -348,7 +361,7 @@ chk("supprimer la première dalle garde la copie ouverte", len(sp["etat"]["dalle
 chk("la dernière dalle ne se supprime pas", len(req(module="dalle", action="supprimer", etat=sp["etat"], index=0)["etat"]["dalles"]) == 1)
 lourd = saisir(a["etat"], "sections/0/My_inf", "80")
 chk("une seconde dalle plus chargée devient le résumé de la note, nommée dans le gouvernant",
-    lourd["resume"]["taux"] == C.pct(MO.verifier(dalle_de(lourd["etat"]))["taux_max"]) and lourd["resume"]["gouvernant"].startswith("Dalle 2"),
+    lourd["resume"]["taux"] == C.pct(MO.verifier(moteur_de(lourd["etat"]))["taux_max"]) and lourd["resume"]["gouvernant"].startswith("Dalle 2"),
     lourd["resume"])
 
 # ------------------------------------------------------------------ 8. le fichier de l'écran Streamlit
@@ -415,7 +428,7 @@ for k in range(25):
     f = rng.choice(EN.FACES)
     e = saisir(e, f"sections/0/faces/{f}/couches/0/type", rng.choice(("treillis", "barres", "n_barres")))["etat"]
     rr = req(module="dalle", action="calculer", etat=e)
-    rf = MO.verifier(dalle_de(e))
+    rf = MO.verifier(moteur_de(e))
     li = LIGNE.findall(rr["resultat"])
     att = [v for s_ in rf["sections"] for v in s_["verifications"]]
     if len(li) != len(att) or any(t != f"{C.pc(C.pct(v['taux']))}{C.NBSP}%" or n != niveau_de(v) for (_, _, _, n, t), v in zip(li, att)) \
@@ -430,7 +443,7 @@ for ch, x in (("sections/0/Mx_inf", "10"), ("sections/0/faces/inf_x/couches/0/ty
               ("sections/0/faces/inf_x/couches/0/d", "40"), ("sections/0/faces/inf_x/couches/0/esp", "25")):
     ex = saisir(ex, ch, x)["etat"]
 rx = req(module="dalle", action="calculer", etat=ex)
-mx = MO.verifier(dalle_de(ex))
+mx = MO.verifier(moteur_de(ex))
 vx = {v["cle"]: v for v in mx["sections"][0]["verifications"]}
 chk("acier excessif sous 100 % (Ø40/25 : A_s > A_s,max) : la dalle est non conforme, et le moteur nomme la hauteur (la plus chargée)",
     mx["statut"] == MO.NOK and mx["gouvernant"]["cle"] == "hauteur" and vx["inf_x"]["etat"] == MO.NOK and vx["inf_x"]["taux"] < vx["hauteur"]["taux"] <= 1)
@@ -479,12 +492,13 @@ ap = nouveau()["etat"]
 for ch, x in (("sections/0/My_sup", "30"), ("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "12"),
               ("sections/0/faces/sup_y/couches/0/type", "barres"), ("sections/0/faces/sup_y/couches/0/d", "12")):
     ap = saisir(ap, ch, x)["etat"]
-ra = MO.verifier(dalle_de(ap))
+ra = MO.verifier(moteur_de(ap))
 ca = DD.svg_coupe("t", ra["sections"][0], ra["dalle"])
 coupes = ca.split("Coupe ⊥")
 chk("coupe ⊥ Y (M_y,sup > M_y,inf) : d = 160 de la nappe supérieure Y (axe Ø12 à 40 mm), et non 165 de l'inférieure",
     "d = 160" in coupes[1] and "d = 165" not in coupes[1], re.findall(r"d = \d+", ca))
-chk("coupe ⊥ X (M_x,inf seul) : d = 165 de la nappe inférieure X", "d = 165" in coupes[2], re.findall(r"d = \d+", coupes[2]))
+chk("coupe ⊥ X (M_x,inf seul) : d = 155 de la nappe inférieure X — posée sur la base Y (Ø10 sur Ø10 à 35 mm : axe 45 mm)",
+    "d = 155" in coupes[2], re.findall(r"d = \d+", coupes[2]))
 chk("la légende des couches dit « axe à 35 » (l'espacement s'écrit Ø/e : « Ø12/150 »)", "axe à 35" in ca and "e = 35" not in ca)
 fo = saisir(ap, "nom", "Dalle 1")["donnees"]
 chk("une couche de treillis dit ses fils porteurs (Ø10 tous les 100 mm), son axe est nommé « e axe » et vide = automatique",
@@ -567,9 +581,12 @@ chk("le NOM de l'élément ouvert se modifie dans la LIGNE de la dalle (09/11/20
     re.findall(r'<div class="row[^"]*"', rub1))
 aides_ = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', don)]
 chk("condensées, les données ne perdent aucune explication : les paragraphes d'aide d'avant (direction principale, γs et "
-    "jeu communs à la note, et l'option « nappes empilées », commune elle aussi) sont dans les ⓘ de leur champ",
+    "jeu communs à la note) sont dans les ⓘ de leur champ ; plus d'option « nappes empilées » (décision du 09/11/2026), et "
+    "l'aide de l'axe dit la règle (la direction secondaire, base et renforts, posée sur la principale)",
     any(t.startswith("La direction principale ordonne les vérifications") for t in aides_)
-    and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 3, aides_)
+    and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 2
+    and not any("empil" in t.lower() for t in aides_) and 'data-chemin="empilement"' not in don
+    and any("direction secondaire (sa base et ses renforts), posée sur la principale" in t for t in aides_), aides_)
 chk("chaque vue dit ce qu'on lit sur son dessin, en dernière ligne de son en-tête (la légende : barres coupées en points, X horizontales…)",
     len(ar["vues"]) == 5 and all(re.findall(r'<div class="lg">([^<]*)</div>(?=</div>)', v_["entete"])
                                  == [P.LEGENDES["p" if v_["cle"][0] == "p" else "c"]] == [v_["legende"]] for v_ in ar["vues"]),
@@ -604,7 +621,8 @@ def saisis(el):
 
 ax_ = saisir(saisir(etat, "sections/0/faces/inf_x/couches/0/dist", "5")["etat"], "sections/0/faces/sup_y/yG", "4")
 d_ax = ax_["donnees"]
-e_auto = MO.verifier(dalle_de(ax_["etat"]))["sections"][0]["faces"]["inf_x"]["couches"][0]["e_auto"]
+# (l'automatique du SITE : la base inf. X posée sur la base Y — ce que la couche dit, ce que « ↺ » rend)
+e_auto = P._calculer(ax_["etat"]["dalles"][0])["sections"][0]["faces"]["inf_x"]["couches"][0]["e_auto"]
 t_ax = re.search(RAZ.format("sections/0/faces/inf_x/couches/0/dist"), d_ax)
 t_yg = re.search(RAZ.format("sections/0/faces/sup_y/yG"), d_ax)
 chk("un axe saisi : « ↺ Revenir à l'axe automatique (… cm) » à côté du champ, et la couche dit l'automatique ; un centre de "

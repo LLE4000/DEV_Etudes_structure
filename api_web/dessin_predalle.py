@@ -26,7 +26,8 @@ le même qu'avant, à l'octet près.
 
 Les NIVEAUX (docs/site/DALLES_FUSION.md, § 4) : chaque couche est dessinée à l'axe que le moteur a UTILISÉ,
 ``couches[j]["e"]`` du résultat — la règle de pose de la prédalle pour les couches inférieures, l'axe imposé, ou
-l'automatique du site (nappes supérieures empilées, écrit dans la copie envoyée au moteur : api_web/dalle_positions.py).
+l'automatique du site (nappes supérieures empilées — la direction secondaire, base et renforts, posée sur la
+principale —, écrit dans la copie envoyée au moteur : api_web/dalle_positions.py).
 Rien n'est recalculé ici. La cote de d est h − y_G du calcul, pour la face TENDUE de la direction coupée (la supérieure
 quand son moment l'emporte, comme la coupe des dalles). La légende dit la pose du moteur (dans / sur la prédalle), « axe
 saisi » pour un axe imposé dans l'état, « posée sur la base … » pour une couche que le site a empilée — ces deux

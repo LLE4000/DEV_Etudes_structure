@@ -182,7 +182,10 @@ saisi ignoré. Un témoin (le moteur rechargé sans altération) reste vert.
    saisir l'axe corrige. *Révision du 09/11/2026 (tranché, `docs/site/DALLES_FUSION.md` § 4) : avec l'option de note
    « nappes empilées » (vraie pour une note neuve, fausse pour une note d'avant ou un fichier importé), le site pose les
    bases SUPÉRIEURES secondaires sur les principales par `dist` ; les faces inférieures gardent la règle de pose du
-   moteur (base principale dans la peau, autre base sur la peau) ; le moteur ne change pas.*
+   moteur (base principale dans la peau, autre base sur la peau) ; le moteur ne change pas. Le soir même (décision de
+   l'ingénieur) : plus d'option, toujours empilé (anciennes notes et fichiers importés compris), et les RENFORTS
+   supérieurs de la direction secondaire posés sur leur nappe comme leur base (S3) ; aux faces inférieures, rien ne
+   change (les couches secondaires y sont déjà dans le lit de leur base, sur la peau).*
 5. **La base principale peut sortir de la peau** sans contrôle : peau de 3 cm et treillis Ø12 → axe 4,0 cm, dessus des
    fils à 4,6 cm. *Site* : avertissement `base_hors_predalle` (grave).
 6. **Un fichier du module Dalle ouvert dans l'écran Prédalle** (`payload.get("predalles", payload.get("dalles"))`)

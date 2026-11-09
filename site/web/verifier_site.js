@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|doigt|bibliotheque]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|nappes|doigt|bibliotheque]
 const { chromium } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -2714,7 +2714,9 @@ const FILTRE = process.argv[4] || '';
         const u = new URL(g.url());
         const ouverte = await g.evaluate(() => {
           const on = document.querySelector('#donnees button.on[data-chemin="type"]'), h = document.querySelector('#donnees input[data-chemin="h_pre"]');
-          return { module: document.body.dataset.module, nomNote: document.getElementById('nom-note').value,
+          const avis = document.querySelector('#resultat .pbody > .et-rp + .msg');
+          return { avis: avis && avis.checkVisibility({ visibilityProperty: true, opacityProperty: true }) ? avis.textContent : '',
+            module: document.body.dataset.module, nomNote: document.getElementById('nom-note').value,
             nom: (document.querySelector('.panel.left .phead .et-elt input.et-elt-nom') || {}).value, titre: (document.querySelector('#resultat .et-rp b') || {}).textContent,
             type: on && on.dataset.valeur, hPre: h && h.value, erreur: document.getElementById('demarrage').classList.contains('erreur'), envois: (window.__envois || []).slice(0, 2) };
         });
@@ -2726,6 +2728,9 @@ const FILTRE = process.argv[4] || '';
         verif('plaques predalle : l\'ancienne note s\'ouvre en PRÉDALLE (type prédalle, h_p = 6 cm, « Ancienne P1 » dans la ligne de l\'élément et en tête des résultats, son nom de note) et devient une note « dalle » en mémoire — rien de perdu',
           ouverte.nomNote === 'Ancienne note prédalles' && ouverte.nom === 'Ancienne P1' && ouverte.titre === 'Ancienne P1' && ouverte.type === 'predalle' && ouverte.hPre === '6'
           && mem && mem.module === 'dalle' && mem.dalles === 'Ancienne P1:predalle:6', JSON.stringify({ ouverte, mem }));
+        // ses nappes supérieures sont désormais posées l'une sur l'autre (décision du 09/11/2026) : l'avis le dit, une fois
+        verif('plaques predalle : l\'ancienne note dit, en tête du résultat, « Note d\'avant le 09/11/2026 : les nappes sont désormais posées l\'une sur l\'autre … » (visible)',
+          /^Note d'avant le 09\/11\/2026 : les nappes sont désormais posées l'une sur l'autre/.test(ouverte.avis), ouverte.avis);
         await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_relue.png') });
         // une note NEUVE demandée à l'ancienne adresse (un vieux lien) : le nom et le chantier arrivent sur les dalles,
         // qui créent la note (l'adresse devient « ?note=… », comme pour toute note demandée par « ?nom= »)
@@ -2959,6 +2964,112 @@ const FILTRE = process.argv[4] || '';
     await c.close();
   }
 
+  // ---------------------------------------------------------------- les NAPPES toujours posées l'une sur l'autre
+  // Décision de l'ingénieur du 09/11/2026 (docs/site/DALLES_FUSION.md § 4.3, révision NAP) : plus d'option « Nappes
+  // empilées » ; une note d'avant dont les chiffres changent le dit UNE fois, à l'ouverture (un avis sous le nom, en tête
+  // du résultat : pas une erreur rouge) ; un RENFORT de la direction secondaire se pose sur sa nappe (S3) : la coupe le
+  // montre dans le lit de sa base, au-dessus des barres principales. PC 1440, puis téléphone 390 (la même note : l'avis
+  // dans l'onglet Résultat d'une autre note d'avant, la coupe dans l'onglet Dessin). Ce que l'œil voit : visibilité et
+  // positions lues à l'écran.
+  //   filtre « nappes » ; aussi joué par « plaques » et « module:dalle ».
+  if (!FILTRE || ['nappes', 'plaques', 'module:dalle'].includes(FILTRE)) {
+    const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    const g = await c.newPage();
+    g.erreurs = [];
+    g.on('pageerror', (e) => g.erreurs.push(e.message));
+    g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+    const pretN = (pg) => pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    const calmeN = async (pg) => { await pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 }); await pg.waitForTimeout(200); };
+    // l'avis en tête du résultat (juste après le nom) : vu, son texte, un avis (pas « grave »), sa hauteur à l'écran
+    const lireAvis = (pg) => pg.evaluate(() => { const m = document.querySelector('#resultat .pbody > .et-rp + .msg');
+      return { vu: !!m && m.checkVisibility({ visibilityProperty: true, opacityProperty: true }), texte: m ? m.textContent : '', grave: !!m && m.classList.contains('grave'),
+        h: m ? Math.round(m.getBoundingClientRect().height) : 0 }; });
+    const semer = (pg, id, nom) => pg.evaluate(([i, n]) => { const k = 'stab.notes.v1', notes = JSON.parse(localStorage.getItem(k) || '{}'), t = Date.now() + 60000;
+      notes[i] = { id: i, module: 'dalle', nom: n, chantier: 'Réalex', dossier: '', indice: 'A', cree: t, modifie: t,
+        etat: { version: 2, dalles: [{ nom: 'Ancienne D1', empilement: false }], actif: 0 }, resume: null, vignette: '' };
+      localStorage.setItem(k, JSON.stringify(notes)); }, [id, nom]);
+    const memoireN = (pg, id) => pg.evaluate((i) => { const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[i];
+      return n ? { version: n.etat.version, cle: n.etat.dalles.some((d) => 'empilement' in d), avis: 'avis_ouverture' in n.etat } : null; }, id);
+    const AVIS = /^Note d'avant le 09\/11\/2026 : les nappes sont désormais posées l'une sur l'autre \(la direction secondaire, base et renforts, sur la principale\) ; As,req peut différer de l'ancienne note\.$/;
+    try {
+      await g.goto(`${BASE}/index.html`);
+      await semer(g, 'ancienne-dalle', 'Ancienne note dalle');
+      await g.goto(`${BASE}/dalle?note=ancienne-dalle`);
+      await pretN(g);
+      await calmeN(g);
+      const a1 = await lireAvis(g);
+      const m1 = await memoireN(g, 'ancienne-dalle');
+      const sansCase = await g.evaluate(() => !document.querySelector('[data-chemin="empilement"]') && !/Nappes empilées/.test(document.getElementById('donnees').textContent));
+      verif('nappes · PC : une note d\'avant (nappes au même niveau) s\'ouvre avec l\'avis « Note d\'avant le 09/11/2026 … » sous le nom, en tête du résultat — visible, un avis (pas une erreur rouge) ; enregistrée en version 3, sans la clé « empilement » ni l\'avis ; aucune case « Nappes empilées »',
+        a1.vu && AVIS.test(a1.texte) && !a1.grave && a1.h >= 16 && m1 && m1.version === 3 && !m1.cle && !m1.avis && sansCase, JSON.stringify({ a1, m1, sansCase }));
+      await g.screenshot({ path: path.join(OUT, 'site_nappes_avis_pc.png') });
+      await g.reload();
+      await pretN(g);
+      await calmeN(g);
+      const a2 = await lireAvis(g);
+      verif('nappes · PC : rouverte telle qu\'enregistrée, la note ne redit pas l\'avis (une fois, à l\'ouverture)', !a2.vu && !a2.texte, JSON.stringify(a2));
+      // S3 : « + Renfort » en inf. X (la direction secondaire) — la coupe ⊥ Y le dessine dans le lit de la base X, posé sur la base Y
+      if (!(await g.$eval('#donnees .sec[data-sec="arm"]', (x) => x.classList.contains('open')))) await g.click('#donnees .sec[data-sec="arm"] > .sechd');
+      await g.waitForTimeout(150);
+      await g.$eval('#donnees .et-add[data-chemin="sections/0/faces/inf_x/couches/+"]', (x) => x.click());
+      await calmeN(g);
+      await g.click('#vues [data-vue="c0"]');
+      await g.waitForTimeout(250);
+      const geo = await g.evaluate(() => {
+        const v = document.querySelector('#stage .view.on');
+        const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const cy = (sel, tag) => { const e = v.querySelector(`[data-sel="${sel}"] ${tag}`); if (!vis(e)) return null; const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
+        const leg = [...v.querySelectorAll('text')].find((t) => /X · 3 Ø12 · axe à 50 · sur la base Y/.test(t.textContent));
+        const ph = document.querySelector('#donnees input[data-chemin="sections/0/faces/inf_x/couches/1/dist"]');
+        return { y: cy('s0.inf_y-0', 'circle'), baseX: cy('s0.inf_x-0', 'line'), renfort: cy('s0.inf_x-1', 'line'), legende: vis(leg), place: ph && ph.placeholder };
+      });
+      const rapport = geo.y && geo.baseX && geo.renfort ? (geo.y - geo.renfort) / (geo.y - geo.baseX) : 0;
+      verif('nappes · PC : S3 — le renfort 3 Ø12 ajouté en inf. X est dessiné AU-DESSUS des barres Y, dans le lit de la base X (axe 50 mm contre 45 et 35 : écarts à la base Y dans le rapport 15 / 10 = 1,5 ; au niveau de la base Y, comme avant, il serait de 0,5) ; sa légende « axe à 50 · sur la base Y » se lit ; son champ dit « auto · 5 »',
+        Math.abs(rapport - 1.5) < 0.12 && geo.renfort < geo.baseX && geo.legende && geo.place === 'auto · 5', JSON.stringify({ ...geo, rapport }));
+      await g.screenshot({ path: path.join(OUT, 'site_nappes_s3_pc.png') });
+      // au téléphone (R1 : le même composant) — la coupe dans l'onglet Dessin ; l'avis d'une AUTRE note d'avant dans l'onglet Résultat
+      const ct = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, storageState: await c.storageState() });
+      const t = await ct.newPage();
+      t.erreurs = [];
+      t.on('pageerror', (e) => t.erreurs.push(e.message));
+      await t.goto(g.url());
+      await pretN(t);
+      await calmeN(t);
+      await t.tap('.mtabs [data-onglet="dessin"]');
+      await t.waitForTimeout(250);
+      await t.tap('#vues [data-vue="c0"]').catch(() => {});
+      await t.waitForTimeout(300);
+      const geoT = await t.evaluate(() => {
+        const v = document.querySelector('#stage .view.on');
+        const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const cy = (sel, tag) => { const e = v && v.querySelector(`[data-sel="${sel}"] ${tag}`); if (!vis(e)) return null; const r = e.getBoundingClientRect(); return r.top + r.height / 2; };
+        return { y: cy('s0.inf_y-0', 'circle'), baseX: cy('s0.inf_x-0', 'line'), renfort: cy('s0.inf_x-1', 'line') };
+      });
+      const rapportT = geoT.y && geoT.baseX && geoT.renfort ? (geoT.y - geoT.renfort) / (geoT.y - geoT.baseX) : 0;
+      await t.screenshot({ path: path.join(OUT, 'site_nappes_s3_tel.png') });
+      verif('nappes · téléphone : la même coupe, le renfort secondaire dans le lit de la base X, au-dessus des barres Y (rapport 1,5)',
+        Math.abs(rapportT - 1.5) < 0.15 && geoT.renfort < geoT.baseX, JSON.stringify({ ...geoT, rapportT }));
+      await t.goto(`${BASE}/index.html`);
+      await semer(t, 'ancienne-dalle-tel', 'Ancienne note téléphone');
+      await t.goto(`${BASE}/dalle?note=ancienne-dalle-tel`);
+      await pretN(t);
+      await calmeN(t);
+      await t.tap('.mtabs [data-onglet="resultat"]');
+      await t.waitForTimeout(250);
+      const aT = await lireAvis(t);
+      await t.screenshot({ path: path.join(OUT, 'site_nappes_avis_tel.png') });
+      verif('nappes · téléphone : l\'avis d\'une note d\'avant se lit en tête de l\'onglet Résultat (le même composant qu\'au PC)',
+        aT.vu && AVIS.test(aT.texte) && !aT.grave, JSON.stringify(aT));
+      verif('nappes · téléphone : aucune erreur JavaScript', !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
+      await ct.close();
+      verif('nappes : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+    } catch (x) {
+      verif('nappes : le parcours va au bout', false, String(x.message).split('\n').slice(0, 3).join(' | '));
+      await g.screenshot({ path: path.join(OUT, 'site_nappes_echec.png') }).catch(() => {});
+    }
+    await c.close();
+  }
+
   // ---------------------------------------------------------------- un fichier .stab piégé
   // Un .stab vient d'ailleurs (un collègue, un courriel) : rien de ce qu'il porte ne doit s'exécuter dans la page. Deux
   // fichiers : l'un que le moteur refuse (son dessin piégé n'est alors jamais remplacé par celui du moteur), l'autre
@@ -3107,7 +3218,7 @@ const FILTRE = process.argv[4] || '';
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt', 'bibliotheque'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

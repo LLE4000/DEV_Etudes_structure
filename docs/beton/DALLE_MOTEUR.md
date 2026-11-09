@@ -15,6 +15,13 @@
 > note neuve, fausse pour une note d'avant ou un fichier Streamlit importé (leurs chiffres ne bougent pas) ; l'ingénieur
 > peut la cocher sur une ancienne note. Empilée, la nappe n'est plus « confondue » et l'avertissement s'éteint de
 > lui-même ; mesuré sur le cas « dalle 22 cm réaliste » : d_inf,x 18,5 → 17,5 cm, A_s,req 270,3 → 285,7 mm²/m (+5,7 %).
+>
+> **Révision du 09/11/2026 (soir) — décision de l'ingénieur.** Plus d'option : les nappes sont TOUJOURS posées l'une sur
+> l'autre, anciennes notes et fichiers Streamlit importés compris (la comparaison avec les anciennes valeurs Streamlit
+> n'a plus cours) ; une note d'avant dont les chiffres changent le dit une fois, à l'ouverture. Et un RENFORT de la
+> direction secondaire se pose sur sa nappe, comme sa base (S3) : axe principal + ⌈Ø_p/2⌉₀,₅ + ⌈Ø_r/2⌉₀,₅ — mesuré :
+> A_s,req +2,0 % (3 Ø12), +5,5 % (Ø25/150), +6,4 % (4 Ø20 en sup.). Le moteur ne change toujours pas
+> (`docs/site/DALLES_FUSION.md` § 4.3, révision NAP).
 
 *Livré le 07/11/2026. Moteur `beton/dalle/` et base des treillis `beton/treillis.py` : bibliothèque standard seule,
 Python 3.12 et 3.13 (donc Pyodide 0.29.5). Extrait de l'écran Streamlit `modules/dalle.py` v2.2 (dalle
@@ -213,7 +220,8 @@ principale : **chacune fait rougir au moins une note**.
    h_min est sous-estimé de 1 cm. Le moteur reproduit et
    rend l'avertissement `nappes_confondues` ; le site l'affiche et propose de saisir l'axe. *Révision du 09/11/2026 :
    tranché — le site empile la direction secondaire sur la principale par `dist` (option de note « nappes empilées »,
-   vraie pour une note neuve ; voir l'encadré en tête et `docs/site/DALLES_FUSION.md` § 4) ; le moteur reste tel quel.*
+   vraie pour une note neuve ; voir l'encadré en tête et `docs/site/DALLES_FUSION.md` § 4) ; le moteur reste tel quel.
+   Le soir même, l'option est retirée : toujours empilé, renforts secondaires compris (encadré en tête).*
 2. **Saisies ramenées en silence.** Un moment ou un effort tranchant saisi négatif devient 0 (`max(0, …)` au début de
    chaque run : la nappe passe « ok ») ; un axe (« Dist. axe ») ou un centre de gravité (« CDG ») illisible ou nul est lu
    « automatique » ; une désignation de treillis illisible (ancien fichier) est lue 0 mm²/m avec un Ø de 10 mm ; à

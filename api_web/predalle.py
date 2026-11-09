@@ -525,10 +525,11 @@ def _picto_pose(pose: str) -> str:
 def pose_couche(c: Dict, geo_c: Dict) -> str:
     """OÙ la règle de la prédalle pose une couche (dans la prédalle, sur la prédalle, depuis le dessus), et l'axe
     automatique qu'elle en tire — ou, l'axe saisi, ce que l'automatique serait : la ligne du détail de la couche. Une
-    base secondaire EMPILÉE par le site (module fusionné, § 4.1 : faces supérieures) le dit."""
+    couche secondaire EMPILÉE par le site (module fusionné, § 4.1 : faces supérieures ; sa base et, depuis le 09/11/2026,
+    ses renforts — Ø_s est alors celui du renfort) le dit."""
     pose = geo_c["pose"]
     if geo_c.get("empilee"):
-        # (une base supérieure secondaire que le site a posée sur la principale : « depuis le dessus (c + ½ Ø + j) » mentirait)
+        # (une couche supérieure secondaire que le site a posée sur la principale : « depuis le dessus (c + ½ Ø + j) » mentirait)
         txt = "axe auto · posée sur la base principale (e<sub>p</sub> + ½ Ø<sub>p</sub> + ½ Ø<sub>s</sub>)"
     elif c["dist"] is None:
         txt = f"axe auto · {POSES_TXT[pose]} ({REGLES_TXT[pose]})"
