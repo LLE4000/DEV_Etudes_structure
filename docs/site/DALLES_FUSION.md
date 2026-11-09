@@ -418,7 +418,13 @@ coupe, et rien ne le disait. Ce qui est REMPLACÉ dans la règle ci-dessus (et a
   **Tolérance** : `TOL_LIT` = 1e-6 cm, les arrondis des flottants, AUCUNE marge — un 2e lit principal posé sur la nappe
   secondaire a son dessous au moins 0,05 cm au-dessus du dessus du lit, même placé aux Ø réels (⌈Ø/2⌉ dépasse Ø/20 de
   0,45 cm au plus, fil de 5 mm au moins) : une marge l'avalerait. Avec les axes automatiques, le moteur pose toutes
-  les couches principales au même dessous (enrobage + jeu) : toutes sont du lit ; seul un axe saisi en sort une.
+  les couches principales au même dessous (enrobage + jeu) : toutes sont du lit ; seule une couche SAISIE peut en sortir.
+  *Relecture du 09/11/2026 (nuit)* : une couche principale AUTOMATIQUE est du lit quoi qu'il arrive — elle est posée sur
+  les cales du premier lit, elle ne peut pas être un 2e lit. Le lit d'avant la jugeait sur son seul dessous : sous une
+  base SAISIE plus bas que l'automatique (Ø8 saisie à 3,4 avec un jeu premier lit de 1 cm : dessus 3,9), un renfort 3 Ø20
+  automatique (5,0 : dessous 4,0) sortait du lit, et la nappe secondaire, posée sur la base à 4,4, le traversait sans
+  rien dire : A_s,req 427,4 au lieu de 493,8 mm² (− 13,4 %). Corrigé (`lit_contact`), test (g) « relecture S5 » et
+  mutation 11.
 - **Cas limites, écrits et testés** (`tests/test_api_web_dalle_positions.py` (g)) : renfort principal SAISI dans un 2e
   lit (Ø25 à 9 cm, dessous 7,5 > 4,0) : il ne porte rien ; saisi au contact exact (Ø12 à 5,0, dessous 4,0 = dessus de
   la base) : il porte ; 0,01 cm plus haut : un autre lit ; chaîne (R1 Ø25 automatique, R2 Ø12 saisi à 6,5 qui chevauche

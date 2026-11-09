@@ -53,7 +53,10 @@ nappe secondaire a son dessous, en convention du moteur, au moins 0,05 cm au-des
 Ø réels (Ø en mm entiers, ⌈Ø/2⌉ dépasse Ø/20 de 0,45 cm au plus, fil de 5 mm au moins : e − ⌈Ø/2⌉ ≥ dessus +
 Ø_s/10 − 0,45 ≥ dessus + 0,05) ; une marge positive l'avalerait.
 Avec les axes automatiques, le lit contient TOUTES les couches principales (le moteur les pose toutes au même dessous :
-enrobage + jeu) ; seul un axe saisi en sort une.
+enrobage + jeu) ; seule une couche SAISIE peut en sortir. Une couche principale AUTOMATIQUE est du lit quoi qu'il arrive
+(relecture S5 du 09/11/2026 : sous une base SAISIE plus bas que l'automatique — Ø8 saisie à 3,4 avec un jeu de 1 cm,
+dessus 3,9 —, un renfort 3 Ø20 automatique, posé sur les cales à 4,0, sortait du lit ; la nappe secondaire, posée sur la
+base à 4,4, le traversait sans rien dire, A_s,req 427,4 au lieu de 493,8 mm²).
   Cas limites (tests/test_api_web_dalle_positions.py (g)) : un renfort principal SAISI dans un 2e lit (dessous au-dessus
   du lit) ne porte rien ; plusieurs renforts : le plus haut du lit porte, la base à égalité ; une base principale saisie
   plus haut que son renfort : la base porte ; un renfort saisi qui chevauche le lit sans être à l'automatique en est ;
@@ -170,17 +173,19 @@ def _couches_principales(d: Dict, s: Dict, cote: str) -> List[tuple]:
 
 
 def lit_contact(d: Dict, s: Dict, cote: str) -> List[int]:
-    """Les rangs des couches principales de la face ``cote`` dans le LIT DE CONTACT (en tête du fichier) : la base, puis
-    toute couche dont le dessous (e − ⌈Ø/2⌉) ne dépasse pas le dessus du lit (à ``TOL_LIT`` près), le dessus du lit
-    montant à chaque couche admise. Triés."""
+    """Les rangs des couches principales de la face ``cote`` dans le LIT DE CONTACT (en tête du fichier) : la base, toute
+    couche AUTOMATIQUE (posée sur les cales du premier lit, enrobage + jeu : elle ne peut pas être un 2e lit), puis toute
+    couche dont le dessous (e − ⌈Ø/2⌉) ne dépasse pas le dessus du lit (à ``TOL_LIT`` près), le dessus du lit montant à
+    chaque couche admise. Triés."""
     pts = _couches_principales(d, s, cote)
+    auto = [c.get("dist") is None for c in s["faces"][f"{cote}_{principale(d)}"]["couches"]]
     dans, reste = [pts[0]], pts[1:]
     dessus = pts[0][1] + pts[0][2]
     entre = True
     while entre:
         entre = False
         for p in list(reste):
-            if p[1] - p[2] <= dessus + TOL_LIT:
+            if auto[p[0]] or p[1] - p[2] <= dessus + TOL_LIT:
                 dans.append(p)
                 reste.remove(p)
                 dessus = max(dessus, p[1] + p[2])

@@ -31,8 +31,9 @@ empilées ») et un RENFORT de la direction secondaire se pose sur sa nappe, com
     renforts, base saisie plus haut, plusieurs renforts, demis égaux, treillis par son fil, jeu) ; le balayage de tous
     les Ø (jamais plus bas que sur la base seule, jamais à travers une couche du lit) ; pour_moteur, A_s,req, annoter
     (appui, « sur », formule « e » de la prédalle), candidats_base, la coupe (la nappe X ne traverse plus le renfort Y,
-    la légende dit « sur renfort Y », forme courte qui tient dans sa colonne) ; mutations : retour à la base seule, une marge de 0,5 cm, le lit sans chaîne,
-    l'égalité donnée au renfort, la légende d'avant.
+    la légende dit « sur renfort Y », forme courte qui tient dans sa colonne) ; une couche principale AUTOMATIQUE est du lit quoi qu'il
+    arrive, même sous une base saisie plus bas que l'automatique (relecture S5) ; mutations : retour à la base seule, une marge de 0,5 cm,
+    le lit sans chaîne, l'égalité donnée au renfort, la légende d'avant, la couche automatique jugée sur son seul dessous.
 
     /usr/bin/python3.12 tests/test_api_web_dalle_positions.py
 """
@@ -569,6 +570,18 @@ chk(f"cas limites du lit de contact ({len(limites)}) : {' ; '.join(limites)}", n
 dsl = dalle_s5(renforts=((25, 3, 9.0),))
 chk("un renfort principal saisi n'est jamais déplacé (axes() le garde à 9,0) ; un axe secondaire saisi non plus",
     POS.axes(dsl, dsl["sections"][0])["inf_y"] == [3.5, 9.0] and POS.pour_moteur(dsl)["sections"][0]["faces"]["inf_y"]["couches"][1]["dist"] == 9.0)
+# relecture S5 : une couche principale AUTOMATIQUE est du lit quoi qu'il arrive (posée sur les cales du premier lit) — même sous une base
+# SAISIE plus bas que l'automatique ; sans cela, le renfort automatique sortait du lit et la nappe secondaire le traversait
+dbb = dalle_s5(base=dict(B10, d=8, dist=3.4), renforts=((20,),), jeu_premier_lit=1.0)
+dbb0 = dalle_s5(base=dict(B10, dist=2.4), renforts=((20,),))
+gbb = MO_D.verifier(POS.pour_moteur(dbb))["sections"][0]["grandeurs"]
+chk("relecture S5 — base inf. Y Ø8 SAISIE à 3,4 (dessus 3,9) avec un jeu de 1 cm, renfort 3 Ø20 AUTOMATIQUE à 5,0 (sur les cales : dessous "
+    "4,0, dessus 6,0) : le renfort est du lit et porte, la base inf. X à 6,0 + 0,5 = 6,5 (et non 4,4, au travers du renfort), d 13,5, "
+    "A_s,req 493,8 mm² (et non 427,4) ; sans jeu, base Ø10 saisie à 2,4 : 5,5 (et non 3,4) ; un renfort SAISI au-dessus du lit reste un 2e lit",
+    (POS.lit_contact(dbb, dbb["sections"][0], "inf"), ax(dbb, "inf_x"), nom(dbb), gbb["d_inf_x"], round(gbb["As_req_inf_x"], 1))
+    == ([0, 1], 6.5, "le renfort Y", 13.5, 493.8) and ax(dbb0, "inf_x") == 5.5
+    and ax(dalle_s5(base=dict(B10, dist=2.4), renforts=((20, 3, 6.0),)), "inf_x") == 3.4,
+    (POS.lit_contact(dbb, dbb["sections"][0], "inf"), ax(dbb, "inf_x"), gbb["As_req_inf_x"], ax(dbb0, "inf_x")))
 # le balayage : tous les Ø, toutes les faces où le site empile — jamais plus bas que sur la base seule, jamais à travers une couche du lit
 bal, n_bal = [], 0
 for type_ in ("coulee", "predalle"):
@@ -674,7 +687,7 @@ chk("… la légende dit sur quoi la nappe X repose, en forme courte (la ligne t
     and POS.nom_appui(dalle_s5(renforts=((12,), (25, 2))), dalle_s5(renforts=((12,), (25, 2)))["sections"][0], "inf", court=True) == "renfort Y",
     re.findall(r"axe à \d+[^<]*", sv20)[:6])
 # les mutations S5 (en mémoire)
-LIT = "            if p[1] - p[2] <= dessus + TOL_LIT:\n"
+LIT = "            if auto[p[0]] or p[1] - p[2] <= dessus + TOL_LIT:\n"
 M6 = muter("dalle_positions.py", LIT, "            if False:\n", "positions_m6")
 chk("mutation 6 — retour à la BASE SEULE (le lit réduit à la base) : la base inf. X retombe à 4,5 (3 Ø12) et 4,5 (Ø25), dans le renfort → "
     "les contrôles (g) rougissent", M6.axe_auto(d12, d12["sections"][0], "inf_x", 0) == 4.5 != 5.5
@@ -698,6 +711,11 @@ M10 = muter("dessin_dalle.py", """                          + (f" · sur {c.get(
 chk("mutation 10 — la légende d'avant (« sur la base Y » pour toute couche empilée) : la coupe dirait « sur la base Y » d'une nappe que le "
     "renfort Y porte → le contrôle de la légende rougit", "axe à 55 · sur la base Y" in dessin(POS, M10, d20, MO_D)[1]
     and "sur renfort Y" not in dessin(POS, M10, d20, MO_D)[1])
+M11 = muter("dalle_positions.py", LIT, "            if p[1] - p[2] <= dessus + TOL_LIT:\n", "positions_m11")
+chk("mutation 11 — une couche automatique jugée sur son seul dessous (le lit d'avant la relecture) : sous la base Ø8 saisie à 3,4, le renfort "
+    "Ø20 automatique sort du lit, la base inf. X retombe à 4,4, au travers du renfort → le contrôle « relecture S5 » rougit",
+    M11.lit_contact(dbb, dbb["sections"][0], "inf") == [0] and M11.axe_auto(dbb, dbb["sections"][0], "inf_x", 0) == 4.4
+    and M11.axe_auto(dbb0, dbb0["sections"][0], "inf_x", 0) == 3.4)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
