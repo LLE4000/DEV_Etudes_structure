@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|nappes|doigt|bibliotheque]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|pilote|plaques|nappes|doigt|bibliotheque|note_pdf]
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -1264,10 +1264,11 @@ const FILTRE = process.argv[4] || '';
     verif('télécharger · PC : sous la politique de sécurité du site, aucune violation, rien du fichier exécuté, aucune erreur JavaScript',
       /script-src 'self'/.test(csp) && !apres.csp.length && apres.piege === undefined && !g.erreurs.length,
       JSON.stringify({ csp: csp.slice(0, 40), violations: apres.csp, erreurs: g.erreurs.slice(0, 3) }));
-    // un module publié sans fichier à proposer : le VRAI routeur refuse, en français
-    await ouvrir(g, 'dalle');
+    // un module publié sans fichier à proposer : le VRAI routeur refuse, en français (le taux d'armature : la dalle fait
+    // désormais sa note PDF, elle a un « telecharger »)
+    await ouvrir(g, 'taux');
     await g.evaluate(() => document.querySelector('#donnees').insertAdjacentHTML('afterbegin', '<button type="button" class="btn sm" data-telecharger="json">JSON</button>'));
-    await refuse(g, '#donnees [data-telecharger="json"]', /^Téléchargement refusé : Ce module ne propose aucun fichier à télécharger\.$/, 'un module sans fichier (dalle)');
+    await refuse(g, '#donnees [data-telecharger="json"]', /^Téléchargement refusé : Ce module ne propose aucun fichier à télécharger\.$/, 'un module sans fichier (taux d\'armature)');
     await g.context().close();
 
     // ------------------------------------------------ au téléphone (le même bouton, dans l'onglet Données)
@@ -3336,12 +3337,169 @@ const FILTRE = process.argv[4] || '';
     }
   }
 
+  // ---------------------------------------------------------------- la NOTE PDF de chaque module qui la fait (filtre « note_pdf »)
+  // Décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site (docs/site/MODULES_SITE.md
+  // § 4 quinquies). Les modules sont ceux dont la page le DIT (body data-note-pdf="1", écrit par construire.NOTE_PDF :
+  // une source) ; chacun s'ouvre sur sa note « riche » (construire.NOTES_RELEVE, la même que le relevé du paquet de la
+  // note : plusieurs éléments), semée dans ce navigateur. Au PC (1440), à la tablette (1024) et au téléphone (iPhone 13) :
+  // le bouton « Note PDF » est VISIBLE et actif (mesuré), le clic → le moteur du navigateur → un téléchargement
+  // (événement download) ; le fichier est un PDF (%PDF-), ses pages (pdfinfo), et son texte (pdftotext) porte le NOM de
+  // chaque élément, le taux de chaque élément que la liste de l'écran affiche, et les chiffres clés que le cadre Résultat
+  // MONTRE (parité écran ↔ PDF dans le vrai navigateur) ; le message « … téléchargé » se voit ; aucune erreur JavaScript.
+  // Le temps de préparation (du clic au téléchargement) est dit.
+  if (!FILTRE || FILTRE === 'note_pdf') {
+    const fs = require('fs');
+    const cp = require('child_process');
+    await p.goto(`${BASE}/`);
+    const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    // les modules qui font leur note : ce que leur page dit (construire.NOTE_PDF)
+    const avec = [];
+    for (const k of Object.keys(MODS)) {
+      const html = await (await p.request.get(`${BASE}/${MODS[k].page}`)).text();
+      if (/<body[^>]*data-note-pdf="1"/.test(html)) avec.push(k);
+    }
+    // les notes riches : le code de construire.NOTES_RELEVE, joué par le moteur du dépôt (les mêmes saisies que l'écran)
+    const PY = process.env.PYTHON || (fs.existsSync('/usr/bin/python3.12') ? '/usr/bin/python3.12' : 'python3');
+    const ETATS = [
+      'import json, sys',
+      'sys.path.insert(0, sys.argv[1] + "/site/web")',
+      'import construire as K',
+      'out = {}',
+      'for k in K.NOTE_PDF:',
+      '    ns = {}',
+      '    exec(K.NOTES_RELEVE[k], ns)',
+      '    out[k] = ns["etat"]',
+      'print(json.dumps({"note_pdf": list(K.NOTE_PDF), "etats": out}))',
+    ].join('\n');
+    const fe = cp.spawnSync(PY, ['-c', ETATS, path.join(__dirname, '..', '..')], { encoding: 'utf8', cwd: path.join(__dirname, '..', '..'), maxBuffer: 1 << 26 });
+    let riches = null;
+    try { riches = JSON.parse(fe.stdout.trim().split('\n').pop()); } catch (e) { /* le contrôle rougit */ }
+    verif(`note PDF : les pages qui le disent sont celles de construire.NOTE_PDF (${avec.join(', ')}), chacune a sa note riche`,
+      riches && avec.length >= 1 && JSON.stringify([...avec].sort()) === JSON.stringify([...riches.note_pdf].sort())
+      && avec.every((k) => riches.etats[k]), String(fe.stderr || '').slice(-300) || JSON.stringify(riches && riches.note_pdf));
+    const norm = (t) => String(t || '').replace(/[   ]/g, ' ').replace(/\s+/g, ' ').replace(/(\d) (?=\d)/g, '$1');
+    // les chiffres clés que le cadre Résultat MONTRE : la hauteur minimale et les sections d'acier (béton armé, établi
+    // compact), sinon le taux de tête (η)
+    // (le chiffre lu, et la forme sous laquelle la note l'écrit : « 58,5 cm », « = 1194 mm 2 », « 804 mm² », « 14 % »)
+    const CHIFFRES = [
+      ['h min', /hmin\s*=\s*(\d+(?:,\d+)?)\s*cm/, (v) => `${v} cm`], ['A s,requis', /As,requis\s*=\s*(\d+)/, (v) => `= ${v} mm`],
+      ['A s,posé', /As,posé\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['A s,néc', /As,néc\s*=\s*(\d+)/, (v) => `= ${v} mm`],
+      ['A s', /As\s*=\s*(\d+)\s*mm²/, (v) => `${v} mm²`], ['η', /η\s*(\d+)\s*%/, (v) => `${v} %`],
+    ];
+    const FORMATS_NOTE = [
+      ['pc', { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 }],
+      ['tablette', { viewport: { width: 1024, height: 768 }, deviceScaleFactor: 1, hasTouch: true }],
+      ['telephone', { ...devices['iPhone 13'] }],
+    ];
+    const temps = [];
+    for (const [fmt, opts] of FORMATS_NOTE) {
+      const c = await b.newContext({ ...opts, acceptDownloads: true, locale: 'fr-BE' });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+      await g.goto(`${BASE}/`);
+      const tel = fmt === 'telephone';
+      for (const k of avec) {
+        if (!riches || !riches.etats[k]) continue;
+        const id = `note-pdf-${k}`;
+        await g.evaluate(([id, k, etat]) => {
+          let notes = {};
+          try { notes = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}') || {}; } catch (e) { notes = {}; }
+          notes[id] = { id, module: k, nom: 'Contrôle note PDF', chantier: 'Essai nuit', dossier: '', indice: 'B', cree: Date.now(), modifie: Date.now(),
+                        etat, resume: null, vignette: '' };
+          localStorage.setItem('stab.notes.v1', JSON.stringify(notes));
+        }, [id, k, riches.etats[k]]);
+        await g.goto(`${BASE}/${MODS[k].page}?note=${id}`);
+        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && r.textContent.trim().length > 20; }, null, { timeout: 60000 }).catch(() => {});
+        if (tel) { await g.click('.mtabs [data-onglet="resultat"]'); await g.waitForTimeout(300); }
+        // ce que l'écran montre : les noms des éléments (la liste de l'établi compact, ou celle « Dans cette note »), le taux
+        // de chaque élément de la liste, et le texte VISIBLE du cadre Résultat
+        const ecran = await g.evaluate(() => {
+          const premier = (e) => [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim();
+          const noms = [...document.querySelectorAll('.et-elt-liste .et-elt-i .nom')].map((e) => e.textContent.trim())
+            .concat([...document.querySelectorAll('#donnees .elements .ni .t')].map((e) => (e.querySelector('.nom') ? e.querySelector('.nom').textContent.trim() : premier(e))));
+          const pcts = [...document.querySelectorAll('#donnees .elements .ni .pct')].map((e) => e.textContent.trim());
+          const r = document.getElementById('resultat');
+          const vu = r.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          return { noms, pcts, texte: vu ? r.innerText : '', vu };
+        });
+        const tEcran = norm(ecran.texte);
+        const chiffres = [];
+        for (const [nom, re, forme] of CHIFFRES) { const m = tEcran.match(re); if (m) chiffres.push([nom, forme(m[1])]); }
+        // le bouton : là où l'œil le trouve — la barre du haut (PC, tablette), la barre du bas (téléphone) ; et au
+        // téléphone, l'entrée du menu ⋯ est active elle aussi
+        const sel = tel ? '.mbar [data-action="pdf"]' : '.top [data-action="pdf"]';
+        const bouton = await g.evaluate((s) => {
+          const e = [...document.querySelectorAll(s)].find((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
+          return { l: Math.round(r.width), h: Math.round(r.height), grise: e.disabled || e.getAttribute('aria-disabled') === 'true',
+                   dedans: r.left >= 0 && r.right <= innerWidth + 0.5 && r.top >= 0 && r.bottom <= innerHeight + 0.5 };
+        }, sel);
+        let menu = null;
+        if (tel) {
+          await g.click('#menu-m');
+          await g.waitForTimeout(200);
+          menu = await g.evaluate(() => {
+            const e = document.querySelector('#mmenu [data-action="pdf"]');
+            const r = e && e.getBoundingClientRect();
+            return e ? { vu: e.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && r.width > 40 && r.height > 30,
+                         grise: e.getAttribute('aria-disabled') === 'true' || /bientôt/.test(e.textContent) } : null;
+          });
+          await g.keyboard.press('Escape');
+          await g.waitForTimeout(150);
+        }
+        verif(`note PDF · ${k} · ${fmt} : le bouton « Note PDF » est visible, dans l'écran, à sa taille, actif${tel ? ' (barre du bas, et dans le menu ⋯)' : ''}`,
+          bouton && bouton.l >= 30 && bouton.h >= 28 && !bouton.grise && bouton.dedans && (!tel || (menu && menu.vu && !menu.grise)),
+          JSON.stringify({ bouton, menu }));
+        // le téléchargement, ou le refus du moteur (un message rouge) : le premier des deux — un refus n'attend pas trois minutes
+        const t0 = Date.now();
+        const attendu = g.waitForEvent('download', { timeout: 180000 }).catch(() => null);
+        await g.click(sel);
+        const refus = g.waitForFunction(() => { const e = document.getElementById('toast'); return e && e.classList.contains('erreur') && e.checkVisibility(); },
+          null, { timeout: 180000 }).then(() => 'refus', () => null);
+        const premier = await Promise.race([attendu, refus]);
+        const dl = premier && premier !== 'refus' ? premier : null;
+        const duree = (Date.now() - t0) / 1000;
+        temps.push(`${k}·${fmt} ${duree.toFixed(1)} s`);
+        const fpdf = path.join(OUT, `site_note_pdf_${k}_${fmt}.pdf`);
+        let tete = '', pages = 0, texte = '';
+        if (dl) {
+          await dl.saveAs(fpdf);
+          tete = fs.readFileSync(fpdf).subarray(0, 5).toString();
+          const info = cp.spawnSync('pdfinfo', [fpdf], { encoding: 'utf8' }).stdout || '';
+          pages = +((info.match(/Pages:\s+(\d+)/) || [])[1] || 0);
+          texte = norm(cp.spawnSync('pdftotext', ['-layout', fpdf, '-'], { encoding: 'utf8', maxBuffer: 1 << 26 }).stdout);
+        }
+        await g.waitForTimeout(300);
+        const t = await g.evaluate(() => { const e = document.getElementById('toast'); return { vu: e.checkVisibility(), texte: e.textContent, erreur: e.classList.contains('erreur') }; });
+        verif(`note PDF · ${k} · ${fmt} : le clic télécharge la note (« ${dl ? dl.suggestedFilename() : '—'} », ${pages} pages, ${duree.toFixed(1)} s), un PDF, et le message le dit`,
+          dl && /^Note de calcul - .+\.pdf$/.test(dl.suggestedFilename()) && tete === '%PDF-' && pages >= Math.max(2, ecran.noms.length)
+          && t.vu && !t.erreur && /téléchargé$/.test(t.texte), JSON.stringify({ nom: dl && dl.suggestedFilename(), tete, pages, toast: t }));
+        const absents = ecran.noms.filter((n) => !texte.includes(norm(n)));
+        verif(`note PDF · ${k} · ${fmt} : le PDF nomme chacun des ${ecran.noms.length} éléments de la note (${ecran.noms.join(' ; ')})`,
+          ecran.noms.length >= 2 && ecran.noms.every((n) => n.length > 0) && !absents.length, JSON.stringify({ absents, noms: ecran.noms }));
+        const pctAbsents = ecran.pcts.filter((x) => !texte.includes(norm(x)));
+        const chAbsents = chiffres.filter(([, v]) => !texte.includes(v));
+        verif(`note PDF · ${k} · ${fmt} : parité écran ↔ PDF — ${chiffres.map(([n, v]) => `${n} « ${v} »`).join(', ')}${ecran.pcts.length ? ` ; taux de la liste ${ecran.pcts.join(', ')}` : ''}`,
+          ecran.vu && chiffres.length >= 1 && !chAbsents.length && !pctAbsents.length,
+          JSON.stringify({ chAbsents, pctAbsents, vu: ecran.vu, ecran: tEcran.slice(0, 200) }));
+        await g.screenshot({ path: path.join(OUT, `site_note_pdf_${k}_${fmt}.png`) });
+      }
+      verif(`note PDF · ${fmt} : aucune erreur JavaScript`, g.erreurs.length === 0, g.erreurs.join(' | ').slice(0, 400));
+      await c.close();
+    }
+    console.log(`     temps de préparation de la note (du clic au téléchargement, la première de chaque format compte le chargement du paquet de la note) : ${temps.join(' · ')}`);
+  }
+
   // ---------------------------------------------------------------- retour à l'accueil
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'note_pdf'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));
