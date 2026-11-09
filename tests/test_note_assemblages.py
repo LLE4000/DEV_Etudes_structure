@@ -190,9 +190,11 @@ def chiffres_ecran(r):
     m = re.search(r'class="chip xl (\w)"[^>]*><small>η</small>([^<]+)</span>', tete)
     pieces = re.findall(r'<div class="el[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)"[^>]*>([^<]+)</span>',
                         r["resultat"])
+    # une ligne d'INFORMATION (pied de poteau, béton d'ancrage au périmètre « EC3 seul ») ne porte plus de taux mais
+    # « hors verdict » (A.SANS_TAUX_INFORMATION, petits chantiers du 10/11/2026) : ce n'est pas un taux de pièce
     return {"niveau": m.group(1), "taux": m.group(2).replace(C.NBSP, " ").replace("&gt;", ">"),
             "pieces": [(n, t.replace(C.NBSP, " ").replace("&gt;", ">")) for n, _niv, t in pieces
-                       if n not in ("Géométrie", "Proposition")]}
+                       if n not in ("Géométrie", "Proposition") and t.strip() != A.SANS_TAUX_INFORMATION]}
 
 
 def pourcent(t):
