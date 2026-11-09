@@ -211,7 +211,12 @@ converti en silence.
 ## 7. Le gel et les tests
 - `tests/reference_refonte/corniere.json` est REGELÉ (`--geler --accepter="Refonte du module Cornières sur la méthode du
   classeur de l'ingénieur (décision du 07/11, demande du 10/11) : l'ancien modèle lame disparaît"`), dans un commit
-  distinct ; 239 contrôles toujours.
+  distinct ; 239 contrôles toujours. *Regelé une seconde fois le 11/11/2026 par la relecture de l'écran (`--geler
+  corniere`, sans `--accepter` : la garde n'a vu aucun écart de calcul), dans un commit distinct : trois LIBELLÉS de
+  l'écran changent — l'état de l'en-tête du bloc Ancrages (« chevilles non vérifiées », l'ancien effaçait le titre du
+  bloc), le nom de la ligne du bloc Comparaison (« Mode historique (P8) », l'ancien était coupé à l'ellipse) et le titre
+  du bloc, « Comparaison » (le mot de ce document, § 4) ; aucun nombre, aucun message, aucun état ne bouge
+  (`CORNIERE_MOTEUR.md` § 11).*
 - `tests/test_corniere_moteur.py` est RÉÉCRIT : le cas de contrôle (M1…M4, 88,8621 %, ancrages) à 1e-9 ; les 93 formules
   de `P8` (annexe A de l'analyse) recalculées telles qu'elles sont écrites sur ≥ 200 saisies tirées au sort (dx, dy,
   jeu_ancrage, L, X, Y, R, R_ELU, e, r, f_y, coef) face au mode historique — avec dx = dy = 0 d'abord (une seule

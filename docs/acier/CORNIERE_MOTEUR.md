@@ -327,8 +327,9 @@ colorées par `commun.niveau`, rouges dès que ça ne tient pas, chaque ligne av
 historique, les maxima du congé sont « hors verdict », leur taux dans la phrase), **Ancrages** (N et V par ancrage, ELS
 et ELU, la combinaison de la traction, les positions z, le bras ; pression diamétrale, arrachement, compression du mur
 en A ou pression sur le support en B : lignes d'information grises, « hors verdict », comme le pied de poteau),
-**Comparaison des modes** (A seulement : le taux maximal de l'autre mode en information ; en historique la garde P1,
-rouge quand elle dépasse) ; les avertissements du moteur, titrés, le grave en tête ; les hypothèses du moteur ; la masse.
+**Comparaison** (A seulement : le taux maximal de l'autre mode en information — la ligne le nomme en court, « Mode
+historique (P8) », `MODES_COURTS` ; en historique la garde P1, rouge quand elle dépasse) ; les avertissements du
+moteur, titrés, le grave en tête ; les hypothèses du moteur ; la masse.
 Cinq FENÊTRES DE CALCUL (`s0` sections, `s1` ancrages, `s2` comparaison, `geometrie`, `efforts`) : chaque ligne
 « symbole = expression = valeurs = résultat » s'écrit à partir des seuls termes de la formule du moteur (`_fx`, la table
 des clés de la docstring du moteur), le résultat est le sien ; en historique la cellule du classeur suit le symbole
@@ -371,6 +372,33 @@ a = 100, puis B avec l'ancrage à Y = 45 et dy = 0) ; le paquet de la note reço
 methode}.py` (107 fichiers, 2,22 Mo ; `docs/site/MODULES_SITE.md` § 4 quinquies) ; `tests/test_site_web.py` et
 `tests/test_note_identification.py` comptent sept modules. Le gel `corniere.json` est regelé par le lot écran (commit
 distinct).
+
+**Ce que la relecture de l'écran a trouvé (11/11/2026, lot « revue_ecran », arbre `cor_revue_ecran`)** — mesuré dans
+Chromium sur huit cas (A historique et équilibre, B à Y = 85 et 45, les deux inégales, L 40×40×4, L 200×200×20) au PC
+1440, aux tablettes 820 × 1180, 1180 × 820, 1024 × 768 et 768 × 1024, à l'iPhone 13, en clair et en sombre. Deux
+défauts CORRIGÉS, tous deux des textes trop longs pour la 1ʳᵉ ligne d'un résultat (316 px au PC, jamais de retour à la
+ligne) : l'état de l'en-tête du bloc Ancrages (« efforts par ancrage · chevilles non vérifiées », 254 px) réduisait le
+TITRE du bloc à 6 px au PC, 0 à la tablette, 21 au téléphone — le bloc n'avait plus de nom ; il dit maintenant
+« chevilles non vérifiées » ; et le nom de la ligne du bloc Comparaison en A équilibre, « Mode méthode historique
+(classeur P8) » (241 px pour 185), coupé à l'ellipse avec sa pièce « information » : « Mode historique (P8) »
+(`MODES_COURTS`, le libellé entier reste dans les fenêtres et les en-têtes). Le bloc s'appelle « Comparaison » (le
+mot des décisions § 4) : avec « garde dépassée » à côté, « Comparaison des modes » perdait sa fin au PC et à la
+tablette (173 px pour 166 et 154). Figé par `test_api_web_corniere.py` (titre + état d'un en-tête ≤ 32 caractères, nom
+d'une ligne ≤ 24, sur les seize états ; deux mutations qui rougissent) et par le harnais, qui lit désormais les titres
+des blocs parmi les « noms coupés » et joue l'état A équilibre aux trois formats. Vérifié sans défaut : les trois
+courbes de moment et l'enveloppe (A et B, le moment constant de B entre l'angle et l'ancrage, le contact), les sections
+1 à 4 mesurées dans le SVG (S1 à e + r, S2 à e, S3 à e + r, S4 à e, en A comme en B), aucun chevauchement de textes
+dans les quatre vues (mesuré par les boîtes de chaque `<text>`), chaque `data-sel` a sa ligne de données, douze
+saisies reprises après avoir quitté et rouvert la note (a, R_ELU, dx, L, dy, n, d, jeu, y_c, u_V, coef, f_y), six
+refus avec leur message et la valeur rendue, le mode verrouillé en B avec sa raison, le sélecteur (233, ✓, ★, 117
+exclues, 61 rouges, 46 px au doigt), la note PDF téléchargée aux trois formats (5 pages, lisible), la poutre et la dalle
+inchangées (captures identiques à l'horodatage près). Restent OUVERTS, à trancher : les textes secondaires des dessins
+sont sous 13 px (diagrammes : 12,6 px le texte principal, 10,1 px les graduations au PC ; 7–9 px à la tablette portrait,
+où la toile commune est basse) ; à la tablette 768 × 1024 (hors gabarit du projet) les lignes « Pression diamétrale ·
+hors verdict » perdent 1 à 2 px ; dans la vue Contraintes, la 2ᵉ ligne du bloc du maximum peut se poser sur la ligne de
+base de l'étiquette « S1 : 88,3 » (sans la couvrir) ; le moteur écrit certains nombres avec le point (« 236.7 N/mm² »,
+« pas 2.5 »), déjà noté au § 12.
+
 ## 12 · La note PDF (lot « note », 11/11/2026) — `acier/corniere/note.py`
 
 **Ce qu'elle est.** Une note = la page de garde du site (A4 portrait — projet, partie, date, indice, sommaire avec le

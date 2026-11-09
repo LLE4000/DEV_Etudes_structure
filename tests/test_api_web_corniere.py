@@ -152,7 +152,7 @@ def controle_resultat(mod, etat, nom_cas):
     # les blocs thématiques : Sections (coloré par le verdict), Ancrages (information), Comparaison (A seulement)
     bl = blocs(res)
     titres = [b["titre"] for b in bl]
-    attendus = ["Sections", "Ancrages"] + (["Comparaison des modes"] if m["configuration"] == "A" else [])
+    attendus = ["Sections", "Ancrages"] + (["Comparaison"] if m["configuration"] == "A" else [])
     if titres != attendus or [b["theme"] for b in bl] != list(range(len(attendus))):
         f.append(f"blocs {titres} ≠ {attendus}")
     if bl:
@@ -226,7 +226,7 @@ def controle_resultat(mod, etat, nom_cas):
     # la comparaison (A) : l'autre mode en information, la garde (historique)
     if m["configuration"] == "A":
         cp = m["comparaison"]
-        if i >= len(ls) or ls[i]["mot"] != K._pct(cp["taux_max"]) or f"Mode {EN.LIBELLES_MODE[cp['mode']]}" != ls[i]["nom"] or ls[i]["calcul"] != "s2":
+        if i >= len(ls) or ls[i]["mot"] != K._pct(cp["taux_max"]) or f"Mode {K.MODES_COURTS[cp['mode']]}" != ls[i]["nom"] or ls[i]["calcul"] != "s2":
             f.append(f"comparaison : {ls[i:i + 1]}")
         i += 1
         gd = m["garde"]
@@ -298,6 +298,30 @@ ETATS = {
 for nom_cas, etat in ETATS.items():
     fautes = controle_resultat(K, etat, nom_cas)
     chk(f"résultat = moteur : {nom_cas}", not fautes, fautes[:4])
+
+
+# la 1ʳᵉ ligne d'un résultat et l'en-tête d'un bloc ne passent jamais à la ligne : dans les 316 px de la colonne du PC, un
+# nom trop long est coupé à l'ellipse et l'état d'un en-tête trop long mange le TITRE du bloc. Mesuré le 11/11/2026 dans
+# Chromium (relecture de l'écran) : « Ancrages · efforts par ancrage · chevilles non vérifiées » laissait 6 px au titre,
+# « Mode méthode historique (classeur P8) » demandait 241 px pour 185, « Comparaison des modes · garde dépassée » 173 pour
+# 166. Le budget, en caractères (la vérité en pixels est le contrôle « aucun nom coupé » de verifier_site.js, qui lit
+# aussi les titres des blocs) : titre + état d'un en-tête ≤ 32, nom d'une ligne ≤ 24.
+BUDGET_ENTETE, BUDGET_NOM = 32, 24
+
+
+def noms_longs(mod):
+    """Les en-têtes de blocs et les noms de lignes qui dépassent le budget, sur tous les états d'essai."""
+    longs = []
+    for nom_cas, etat in ETATS.items():
+        res = resultat_module(mod, etat)["resultat"]
+        longs += [f"{nom_cas} · en-tête « {b['titre']} · {b['etat']} » ({len(b['titre']) + len(b['etat'])})"
+                  for b in blocs(res) if len(b["titre"]) + len(b["etat"]) > BUDGET_ENTETE]
+        longs += [f"{nom_cas} · ligne « {li['nom']} » ({len(li['nom'])})" for li in lignes(res) if len(li["nom"]) > BUDGET_NOM]
+    return longs
+
+
+chk(f"les en-têtes des blocs (titre + état ≤ {BUDGET_ENTETE} caractères) et les noms des lignes (≤ {BUDGET_NOM}) tiennent dans la colonne du résultat, "
+    "sur les seize états", not noms_longs(K), noms_longs(K)[:4])
 
 cc = MO.verifier(ETATS["cas de contrôle du classeur (R = 42,76, sans jeu, R_ELU = 68,9)"]["cornieres"][0])
 chk("le cas de contrôle du classeur : 88,86 % en section 3, une seule combinaison, affiché « 88,9 % »",
@@ -600,9 +624,16 @@ MUTATIONS = [
      '("dx", "± dx jeu"', '(None, "± dx jeu"',
      lambda m: (lambda rep: not (set(re.findall(r'data-sel="([^"]+)"', "".join(v["svg"] for v in rep["vues"]))) <= set(re.findall(r'data-cible="([^"]+)"', rep["donnees"]))))(m.resultat(m.normaliser(copy.deepcopy(E_DEF))))),
     ("les blocs ne sont plus thématiques (le JS n'en montrerait qu'un)",
-     'return E.bloc(1, "Ancrages", "inc", "efforts par ancrage · chevilles non vérifiées", efforts, rows, theme=True)',
-     'return E.bloc(1, "Ancrages", "inc", "efforts par ancrage · chevilles non vérifiées", efforts, rows)',
+     'return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows, theme=True)',
+     'return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows)',
      lambda m: controle_resultat(m, E_DEF, "")),
+    ("l'état de l'en-tête du bloc Ancrages redevient long (le titre du bloc disparaissait à l'écran, 11/11/2026)",
+     'return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows, theme=True)',
+     'return E.bloc(1, "Ancrages", "inc", "efforts par ancrage · chevilles non vérifiées", efforts, rows, theme=True)',
+     lambda m: noms_longs(m)),
+    ("le nom de la ligne du bloc Comparaison redevient le libellé entier du mode (coupé à l\'ellipse en A équilibre, 11/11/2026)",
+     'rows += C.ligne_verif(f"Mode {MODES_COURTS[cp[\'mode\']]}"', 'rows += C.ligne_verif(f"Mode {EN.LIBELLES_MODE[cp[\'mode\']]}"',
+     lambda m: noms_longs(m)),
     ("la fenêtre « efforts » n'est plus annoncée par la ligne Efforts",
      'None, "c", calcul="efforts", piece=f"R = {C.nb(res[\'corniere\'][\'R\'])}{C.NBSP}kN"', 'None, "c", calcul="s0", piece=f"R = {C.nb(res[\'corniere\'][\'R\'])}{C.NBSP}kN"',
      lambda m: controle_resultat(m, E_DEF, "")),

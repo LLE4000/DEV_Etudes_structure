@@ -2931,15 +2931,17 @@ const FILTRE = process.argv[4] || '';
   // ---------------------------------------------------------------- les CORNIÈRES d'appui (refonte du 10/11/2026, établi compact)
   // Le module refondu sur la méthode du classeur de l'ingénieur (docs/acier/CORNIERE_DECISIONS.md § 4 ; api_web/corniere.py) :
   // à gauche les quatre rubriques, au centre les quatre vues (coupe, moments, contraintes, élévation), à droite le verdict
-  // et trois blocs THÉMATIQUES (Sections, Ancrages, Comparaison des modes). Ce qu'on contrôle, à l'écran : la configuration
+  // et trois blocs THÉMATIQUES (Sections, Ancrages, Comparaison). Ce qu'on contrôle, à l'écran : la configuration
   // A puis B (la coupe change : l'aile horizontale passe en haut, le contact C au bas de la cornière — MESURÉ dans le SVG,
   // par la position des pièces R, Y, yc et profil) ; la saisie dx qui change le taux ; le clic sur une pièce du dessin qui
   // ouvre sa rubrique et éclaire sa ligne ; le sélecteur (233 cornières, ✓, ★, les grises hors domaine) et le choix de
   // l'optimale ; le mode équilibre (le pivot y_c dessiné) ; une inégale tapée dans l'autre ordre ; une saisie refusée
   // (toast, valeur rendue) ; une note v1 (modèle lame) rouverte avec son avis ; puis les trois formats — PC 1440,
-  // tablette 1024 × 768, iPhone 13 (390 × 844, tactile) — pour A et B : rien ne déborde, les cibles à 44 px au doigt, les
-  // champs en 16 px au téléphone. Les captures : site_corniere_*.png (A et B aux trois formats, les quatre vues, le
-  // sélecteur, la saisie refusée, la note v1).
+  // tablette 1024 × 768, iPhone 13 (390 × 844, tactile) — pour A, B et A en équilibre : rien ne déborde, aucun nom coupé
+  // (les TITRES des blocs compris : « Ancrages » se réduisait à 6 px sous un état d'en-tête trop long, et « Mode méthode
+  // historique (classeur P8) » était coupé en A équilibre — relecture du 11/11/2026), les cibles à 44 px au doigt, les
+  // champs en 16 px au téléphone. Les captures : site_corniere_*.png (A, B et A-equilibre aux trois formats, les quatre
+  // vues, le sélecteur, la saisie refusée, la note v1).
   //   filtre « corniere » ; « module:corniere » le rejoue aussi (après le contrôle commun).
   if (!FILTRE || FILTRE === 'corniere' || FILTRE === 'module:corniere') {
     const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
@@ -2979,8 +2981,8 @@ const FILTRE = process.argv[4] || '';
       // A, méthode historique : la cornière neuve (L 120×120×15, 35 kN, 75 ± 20, 85 ± 10) — η entre 90 et 100 %, en section 3
       const t0 = await taux();
       const blocsA = await blocsVus();
-      verif('cornière A historique : le verdict de la cornière neuve (η entre 90 et 100 %, section 3 · aile verticale), trois blocs thématiques visibles (Sections, Ancrages, Comparaison des modes)',
-        t0 > 90 && t0 < 100 && /Section 3/.test(await gouv()) && blocsA.join() === 'Sections,Ancrages,Comparaison des modes', JSON.stringify({ t0, gouv: await gouv(), blocsA }));
+      verif('cornière A historique : le verdict de la cornière neuve (η entre 90 et 100 %, section 3 · aile verticale), trois blocs thématiques visibles (Sections, Ancrages, Comparaison)',
+        t0 > 90 && t0 < 100 && /Section 3/.test(await gouv()) && blocsA.join() === 'Sections,Ancrages,Comparaison', JSON.stringify({ t0, gouv: await gouv(), blocsA }));
       const combs = await g.$$eval('#resultat .et-bloc[data-theme="0"] .el .cmp', (e) => e.map((x) => x.textContent).filter((t) => /charge à X/.test(t)).length);
       verif('cornière : chaque vérification du bloc Sections dit la combinaison de jeux qui la gouverne (« charge à X + 20, ancrage à Y + 10 »)', combs >= 6, `${combs} ligne(s)`);
       const horsVerdict = await g.$$eval('#resultat .et-bloc[data-theme="0"] .et-mot', (e) => e.map((x) => x.textContent).filter((t) => t === 'hors verdict').length);
@@ -3102,8 +3104,9 @@ const FILTRE = process.argv[4] || '';
       verif('cornière : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
     } catch (e) { verif('cornière : le parcours va au bout', false, String(e.message).split('\n')[0]); }
     await c.close();
-    // les trois formats, A et B : rien ne déborde, aucun nom coupé, les cibles à 44 px au doigt (tablette, téléphone), les champs
-    // en 16 px au téléphone ; une capture de chaque (au téléphone : les trois onglets)
+    // les trois formats, A, B et A en équilibre : rien ne déborde, aucun nom coupé (les titres des blocs du résultat aussi : un
+    // état d'en-tête trop long les réduit à rien), les cibles à 44 px au doigt (tablette, téléphone), les champs en 16 px au
+    // téléphone ; une capture de chaque (au téléphone : les trois onglets)
     for (const [fmt, w, h, tel] of [['pc', 1440, 900, false], ['tab1024', 1024, 768, false], ['iphone13', 390, 844, true]]) {
       const cx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
       const pg = await cx.newPage();
@@ -3115,7 +3118,7 @@ const FILTRE = process.argv[4] || '';
       const etat = () => pg.evaluate((tel) => {
         const vis = (e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
         const large = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
-        const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, .row > label > span:not(.sym), .row2 > label > span, .row2.et-cibles > .et-piece > label > span, .rows .seg.full button, .mtabs button')]
+        const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, #resultat .et-bloc-t .n, .row > label > span:not(.sym), .row2 > label > span, .row2.et-cibles > .et-piece > label > span, .rows .seg.full button, .mtabs button')]
           .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim().slice(0, 40));
         const petites = [];
         if (tel || innerWidth < 1200) {
@@ -3130,7 +3133,7 @@ const FILTRE = process.argv[4] || '';
           .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`) : [];
         return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, petites, petits };
       }, tel);
-      for (const cfg of ['A', 'B']) {
+      for (const cfg of ['A', 'B', 'A-equilibre']) {
         try {
           await pg.goto(`${BASE}/corniere?${new URLSearchParams({ nom: `Cornière ${cfg}`, chantier: 'Formats' })}`);
           await pretP();
@@ -3139,6 +3142,13 @@ const FILTRE = process.argv[4] || '';
             if (tel) await pg.click('.mtabs [data-onglet="donnees"]');
             if (!(await pg.$eval('#donnees .sec[data-sec="co"]', (x) => x.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="co"] > .sechd');
             await pg.click('#donnees [data-chemin="configuration"][data-valeur="B"]');
+            await calmeP();
+            await pg.waitForTimeout(200);
+          } else if (cfg === 'A-equilibre') {
+            // le mode équilibre : le bloc Comparaison nomme alors l'AUTRE mode, le plus long des deux
+            if (tel) await pg.click('.mtabs [data-onglet="donnees"]');
+            if (!(await pg.$eval('#donnees .sec[data-sec="hy"]', (x) => x.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="hy"] > .sechd');
+            await pg.click('#donnees [data-chemin="mode"][data-valeur="equilibre"]');
             await calmeP();
             await pg.waitForTimeout(200);
           }

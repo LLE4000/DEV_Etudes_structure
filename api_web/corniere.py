@@ -435,6 +435,10 @@ def _bloc_calcul(res: Dict, cle: str) -> Optional[Dict]:
 # l'autre aile, s et t — se lit en 2ᵉ ligne et dans les fenêtres)
 COURTS = {"S1": "Section 1", "S2": "Section 2", "S3": "Section 3", "S4": "Section 4", "max_h": "Max. du congé", "max_v": "Max. du congé",
           "nette": "Section nette"}
+# le nom COURT d'un mode dans la 1ʳᵉ ligne d'un résultat (bloc Comparaison : « Mode historique (P8) ») — « Mode méthode
+# historique (classeur P8) » y était coupé à l'ellipse dans les 316 px de la colonne (mesuré le 11/11/2026, relecture de
+# l'écran : 241 px demandés pour 185 au PC) ; le libellé entier (entree.LIBELLES_MODE) reste partout ailleurs
+MODES_COURTS = {EN.HISTORIQUE: "historique (P8)", EN.EQUILIBRE: "équilibre"}
 LIEUX = {"S1": "pied du congé", "S2": "nu de l'aile verticale", "S3": "pied du congé", "S4": "nu de l'aile horizontale",
          "max_h": "le long du congé", "max_v": "le long du congé", "nette": "au droit du trou"}
 AILES = {MO.HORIZONTALE: "aile horizontale", MO.VERTICALE: "aile verticale"}
@@ -771,7 +775,9 @@ def _bloc_ancrages(res: Dict) -> str:
         texte = C.esc(inf["texte"]) + (f" · {_comb(inf['combinaison'])}" if inf["combinaison"] else "")
         rows += C.ligne_verif(INFOS.get(inf["cle"], inf["nom"]), texte, None, "c", calcul="s1", piece="hors verdict", etat_txt=val)
     efforts = f"H = {_n(anc['H'], 'kN')} kN ({comb}) · R = {C.nb(c['R'])} kN · {C.esc(EN.LIBELLES_MODE[anc['methode']])}"
-    return E.bloc(1, "Ancrages", "inc", "efforts par ancrage · chevilles non vérifiées", efforts, rows, theme=True)
+    # l'état de l'en-tête est COURT : « efforts par ancrage · chevilles non vérifiées » (254 px) réduisait le titre
+    # « Ancrages » à 6 px au PC, 0 à la tablette, 21 au téléphone — le bloc n'avait plus de nom (mesuré le 11/11/2026)
+    return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows, theme=True)
 
 
 def _bloc_comparaison(res: Dict) -> str:
@@ -782,7 +788,7 @@ def _bloc_comparaison(res: Dict) -> str:
         return ""
     rows = ""
     if cp is not None:
-        rows += C.ligne_verif(f"Mode {EN.LIBELLES_MODE[cp['mode']]}", f"gouvernant : {C.esc(COURTS.get(cp['gouvernant']['cle'], cp['gouvernant']['nom']))} · "
+        rows += C.ligne_verif(f"Mode {MODES_COURTS[cp['mode']]}", f"gouvernant : {C.esc(COURTS.get(cp['gouvernant']['cle'], cp['gouvernant']['nom']))} · "
                               f"le même calcul dans l'autre mode, pour voir l'écart", None, "c", calcul="s2", piece="information", etat_txt=_pct(cp["taux_max"]))
     if gd is not None:
         niv = "r" if gd["depasse"] else "c"
@@ -791,7 +797,9 @@ def _bloc_comparaison(res: Dict) -> str:
                               + (" — la méthode historique n'est plus du côté sûr" if gd["depasse"] else ""), None, niv, calcul="s2",
                               etat_txt="plus sévère" if gd["depasse"] else "du côté sûr")
     cls = "nok" if gd is not None and gd["depasse"] else "inc"
-    return E.bloc(2, "Comparaison des modes", cls, "information" if cls == "inc" else "garde dépassée",
+    # le titre est COURT (« Comparaison », le mot des décisions § 4) : avec « garde dépassée » à côté, « Comparaison des
+    # modes » perdait sa fin à l'ellipse au PC et à la tablette (173 px de texte pour 166 et 154, mesuré le 11/11/2026)
+    return E.bloc(2, "Comparaison", cls, "information" if cls == "inc" else "garde dépassée",
                   f"{C.esc(_mode_txt(res))} face à l'autre mode · configuration A", rows, theme=True)
 
 

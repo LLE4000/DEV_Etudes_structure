@@ -192,7 +192,7 @@ C.segments(["fyk"], d["fyk"], [(n, f"B{n}") for n in EN.NUANCES], desactive=verr
 ```
 
 **Les blocs THÉMATIQUES de l'établi compact** (cornières, 11/11/2026) — `etabli_compact.bloc(i, …, theme=True)` : un
-bloc qui n'est pas celui d'une SECTION de l'élément (« Sections », « Ancrages », « Comparaison des modes ») porte
+bloc qui n'est pas celui d'une SECTION de l'élément (« Sections », « Ancrages », « Comparaison ») porte
 `data-theme` au lieu de `data-section` ; js/compact.js le laisse toujours visible (un bloc de section ne se montre que
 pour la section courante) et le replie comme les autres. Le bouton « tout le calcul » ouvre la fenêtre `s<i>`.
 
