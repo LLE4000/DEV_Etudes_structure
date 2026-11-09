@@ -1,41 +1,45 @@
 # -*- coding: utf-8 -*-
-"""L'API du site pour les cornières ancrées (api_web/corniere.py), vérifiée en Python ordinaire.
+"""L'API du site pour les cornières d'appui refondues (api_web/corniere.py, décisions du 10/11/2026), vérifiée en Python
+ordinaire : CE QUE LE SITE AFFICHE = CE QUE LE MOTEUR CALCULE.
 
-- le résultat affiché est celui du moteur acier/corniere : taux, couleur, vérification gouvernante, pièces, groupes ;
-- une vérification non conforme est rouge, la note « Non conforme » ;
-- les fenêtres de calcul portent les vérifications du moteur, et chaque formule substituée REDONNE son résultat
-  (les valeurs écrites, réévaluées, retombent sur le résultat du moteur à la précision d'affichage) ;
-- chaque champ du cadre Données (catalogue / saisie libre × linéaire / ponctuelle) pointe un endroit réel de la
-  cornière : le réécrire avec sa valeur ne change rien ;
-- une saisie hors du domaine de l'écran Streamlit est REFUSÉE avec un message, et la cornière reste intacte ;
-- la désignation tapée se relit au catalogue ; le passage en saisie libre et en charge ponctuelle révèle ses champs ;
-- le sélecteur est trié par masse, marque la retenue (✓) et la plus légère qui tient (★) du moteur, filtre par famille ;
-- les cornières de la note s'ajoutent, se copient, s'ouvrent, se suppriment (jamais la dernière) ; le résumé est la
-  plus chargée ;
-- les dessins : quatre vues, texte lisible à l'écran (≈ 13 px dans la toile), aucune valeur indéfinie ;
-- un nom saisi est échappé partout ; le module et ses dessins se chargent sans streamlit, pandas, matplotlib…
-- relecture : la ★ jamais sur une cornière dont l'aile B est plus courte que e (grise au sélecteur), refus de
-  t ≥ aile, des calculs qui débordent et des noms trop longs, note à l'indice abîmé, dessin impossible dit ;
-- bout à bout : l'écran Streamlit rejoué (faux st) face aux chiffres AFFICHÉS par le site.
+- sur ≥ 12 états (A historique, A équilibre, B, B avec le mode historique demandé, deux inégales, une petite, une
+  grosse, une saisie libre, la largeur d'appui, le cas de contrôle du classeur, la garde rouge, une forte charge) : le
+  verdict (taux, section gouvernante, combinaison), chaque vérification sur deux lignes avec sa couleur, son taux et la
+  combinaison de jeux qui la gouverne (les maxima du congé « hors verdict » en historique), les ancrages (N, V ELS et ELU
+  par ancrage, positions, informations hors verdict), la comparaison (A), les avertissements titrés (le grave en tête),
+  les hypothèses, la masse ;
+- les REFUS : chaque saisie hors domaine est refusée avec le message du moteur, la cornière intacte ;
+- le SÉLECTEUR : 233 cornières par masse, ✓ retenue, ★ optimale, grises hors domaine (raison), rouges qui ne tiennent
+  pas, le filtre par famille, le choix ;
+- la NOTE V1 (modèle lame) : relue, l'avis d'ouverture dit une fois et retiré de l'état, l'avertissement du moteur tant
+  que la charge n'est pas ressaisie ;
+- le CONTRAT DE SÉLECTION : chaque data-sel des dessins a sa ligne dans les données (data-cible), sous la même clé ;
+- les FENÊTRES DE CALCUL : cinq, chaque ligne « symbole = expression = valeurs = résultat » RÉÉVALUÉE (les valeurs
+  écrites, recalculées, retombent sur le résultat affiché) ; la cellule du classeur en historique ;
+- les éléments de la note, les vues (quatre, en-tête, légende partagée), l'échappement d'un nom piégé, la note PDF
+  (refusée tant que api_web/note_corniere.py n'est pas là, faite sinon), le contrat commun ;
+- des MUTATIONS du module (dix), chacune vue rouge par ces contrôles.
 
-    python3 tests/test_api_web_corniere.py
+    /usr/bin/python3.12 tests/test_api_web_corniere.py
 """
 import copy
+import html
+import importlib.util
 import json
 import math
 import os
 import re
-import subprocess
 import sys
+import types
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
 from acier.corniere import entree as EN  # noqa: E402
 from acier.corniere import moteur as MO  # noqa: E402
+from acier.corniere import schemas as SC  # noqa: E402
 from api_web import commun as C  # noqa: E402
 from api_web import corniere as K  # noqa: E402
-from api_web import dessin_corniere as DC  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 
 OK, KO = [], []
@@ -43,7 +47,7 @@ OK, KO = [], []
 
 def chk(nom, cond, info=""):
     (OK if cond else KO).append((nom, info))
-    print(("OK   " if cond else "KO   ") + nom + ("" if cond else f"  | {str(info)[:260]}"))
+    print(("OK   " if cond else "KO   ") + nom + ("" if cond else f"  | {str(info)[:300]}"))
 
 
 def req(**k):
@@ -51,504 +55,568 @@ def req(**k):
 
 
 def saisir(etat, chemin, valeur):
-    """Comme l'écran : le chemin lu dans data-chemin, coupé aux « / », la valeur telle que tapée."""
-    out = req(action="modifier", etat=etat, chemin=chemin.split("/"), valeur=valeur)
+    out = req(action="modifier", etat=copy.deepcopy(etat), chemin=chemin.split("/"), valeur=valeur)
     assert out["ok"], out
     return out
 
 
-LIGNE = re.compile(r'<div class="el( gov)?"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span>([^<]*)</span>.*?<span class="pct (\w)"(?: title="[^"]*")?>([^<]+)</span>', re.S)
-GROUPE = re.compile(r'<div class="elgrp">([^<]+)<span class="pct (\w)">([^<]+)</span></div>')
-CHAMPS = re.compile(r'<input data-chemin="([^"]+)" data-sorte="(nombre|entier|texte)"[^>]*?value="([^"]*)"')
-SEG_ON = re.compile(r'<button type="button" class="on" data-chemin="([^"]+)" data-sorte="choix" data-valeur="([^"]*)"')
-PK = re.compile(r'<button class="pk-row( cur)?( opt)?" data-choix="([^"]+)" data-prop="[^"]*"><span class="mk">.*?</span>'
-                r'<span class="nm">([^<]+)</span><span class="kg">([^<]+)</span><span class="chip (\w)">([^<]+)</span>', re.S)
-
-
-def niv(v):
-    return "r" if v["etat"] == MO.NOK else C.niveau(v["taux"])
-
-
-def pct_txt(t):
-    """Le taux d'une ligne tel que la brique commune l'écrit (au-delà de 999 % : « > 999 % », l'exact au survol)."""
-    return C._taux_txt(C.pct(t))[0]
-
-
-def pct_groupe(t):
-    """Le taux d'un titre de groupe, écrit par le module lui-même (sans plafond)."""
-    return f"{C.pc(C.pct(t))}{C.NBSP}%"
+def etat_avec(**champs):
+    """Une note neuve dont la cornière reçoit ``champs`` (par le moteur : hors domaine, ValueError)."""
+    e = K.nouvel_etat()
+    e["cornieres"][0].update(champs)
+    return K.normaliser(e)
 
 
 def lire_fr(s):
-    return float(s.replace(C.NBSP, "").replace(" ", "").replace(" ", "").replace(",", "."))
+    s = s.replace(C.NBSP, "").replace(C.FINE, "").replace(" ", "").replace("−", "-").replace(",", ".")
+    return float(re.match(r"-?\d+(?:\.\d+)?", s).group(0))
+
+
+def pct_txt(t):
+    return C._taux_txt(C.pct(t))[0]
+
+
+# ====================================================================== lecture du HTML rendu
+LIGNE = re.compile(r'<div class="el vc(?P<cls>[^"]*)"(?: data-calcul="(?P<calcul>[^"]*)" title="[^"]*")?><div class="l1"><b>(?P<nom>[^<]*)</b>(?P<l1>.*?)</div>'
+                   r'<div class="l2"><span class="cmp">(?P<cmp>.*?)</span>(?P<jauge>(?:<div class="bar">.*?</div>)?)</div></div>', re.S)
+PCT = re.compile(r'<span class="pct (\w)"(?: title="[^"]*")?>([^<]+)</span>')
+MOT = re.compile(r'<span class="et-mot (\w)">([^<]+)</span>')
+PIECE = re.compile(r'<(?:button|span) class="prof"[^>]*>(?:<span class="leger"[^>]*>.*?</span>)?<span>(.*?)</span>', re.S)
+BLOC = re.compile(r'<section class="et-bloc (\w+)" data-theme="(\d)"><div class="et-bloc-h"><button[^>]*>.*?<span class="n">([^<]*)</span><span class="e">([^<]*)</span>', re.S)
+MSG = re.compile(r'<div class="msg( grave)?">(.*?)</div>', re.S)
+FX = re.compile(r'<div class="fx">(.*?)</div>', re.S)
+SPAN = re.compile(r'<span(?: class="(s|r|chip \w+)")?>(.*?)</span>', re.S)
+
+
+def lignes(frag):
+    """Les vérifications d'un fragment : [{nom, calcul, piece, taux_txt, niveau, mot, cmp, gov}]."""
+    out = []
+    for m in LIGNE.finditer(frag):
+        p = PIECE.search(m.group("l1"))
+        t = PCT.search(m.group("l1"))
+        w = MOT.search(m.group("l1"))
+        out.append({"nom": html.unescape(m.group("nom")), "calcul": m.group("calcul"), "piece": html.unescape(re.sub("<[^>]+>", "", p.group(1))) if p else "",
+                    "taux_txt": t.group(2) if t else None, "niveau": t.group(1) if t else (w.group(1) if w else None),
+                    "mot": w.group(2) if w else None, "cmp": html.unescape(re.sub("<[^>]+>", "", m.group("cmp"))), "gov": " gov" in m.group("cls")})
+    return out
+
+
+def blocs(frag):
+    return [{"cls": c, "theme": int(i), "titre": html.unescape(t), "etat": html.unescape(e)} for c, i, t, e in BLOC.findall(frag)]
+
+
+def texte(frag):
+    return html.unescape(re.sub(r"<[^>]+>", " ", frag))
+
+
+def resultat_module(mod, etat):
+    """Le résultat rendu par un module (le vrai ou un mutant), l'état relu comme le routeur le fait."""
+    return mod.resultat(mod.normaliser(copy.deepcopy(etat)))
 
 
 # ====================================================================== 1. une note neuve
-r = req(action="nouveau")
-chk("nouveau : la requête aboutit", r["ok"], r.get("erreur"))
-chk("la note neuve : une cornière, celle de l'écran Streamlit à l'ouverture (L 100×100×10, 5 kN/m, e 2,3 cm)",
-    r["etat"] == {"version": 1, "cornieres": [MO.nouvelle_corniere()], "actif": 0}, r["etat"])
-ref = MO.verifier(MO.nouvelle_corniere())
-chk("le résumé est celui du moteur : taux arrondi dans sa bande, niveau, statut, gouvernant nommé",
-    r["resume"] == {"taux": C.pct(ref["taux_max"]), "niveau": C.niveau(ref["taux_max"]), "statut": "Conforme",
-                    "gouvernant": "Cornière 1 · transversal ELS · cisaillement"}, r["resume"])
-
-
-def controle_resultat(r, nom_cas):
-    """Le cadre Résultat face au moteur : une ligne « Cornière », les deux groupes, une ligne par vérification."""
-    c = r["etat"]["cornieres"][r["etat"]["actif"]]
-    m = MO.verifier(c)
-    lignes = LIGNE.findall(r["resultat"])
-    groupes = GROUPE.findall(r["resultat"])
-    fautes = []
-    if len(lignes) != 5:
-        fautes.append(f"{len(lignes)} lignes")
-        return fautes
-    gov_c, nom_c, piece_c, n_c, t_c = lignes[0]
-    attendu_piece = m["section"]["designation"] if c["standard"] else f"Saisie {C.nb(c['A'])}×{C.nb(c['B'])}×{C.nb(c['t'])}"
-    if (nom_c, C.esc(attendu_piece) if c["standard"] else attendu_piece, n_c, t_c) != (
-            "Cornière", piece_c, "r" if m["statut"] == MO.NOK else C.niveau(m["taux_max"]), pct_txt(m["taux_max"])):
-        fautes.append(f"ligne Cornière : {lignes[0]}")
-    for (gov, nom, piece, n, t), v in zip(lignes[1:], m["verifications"]):
-        attendu = (" gov" if v["cle"] == m["gouvernant"]["cle"] else "", K.NOMS[v["cle"]], f"{v['etat_limite']} · {K._ru(v['valeur'], 'N/mm²')}",
-                   niv(v), pct_txt(v["taux"]))
-        if (gov, nom, piece, n, t) != attendu:
-            fautes.append(f"{v['cle']} : {(gov, nom, piece, n, t)} ≠ {attendu}")
-    for (titre, n, t), groupe in zip(groupes, (MO.TRANSVERSAL, MO.LONGITUDINAL)):
-        vs = [v for v in m["verifications"] if v["groupe"] == groupe]
-        tg = max(v["taux"] for v in vs)
-        if (titre, n, t) != (K.GROUPES[groupe][0], "r" if any(v["etat"] == MO.NOK for v in vs) else C.niveau(tg), pct_groupe(tg)):
-            fautes.append(f"groupe {groupe}")
-    if len(groupes) != 2:
-        fautes.append(f"{len(groupes)} groupes")
-    vg = next(v for v in m["verifications"] if v["cle"] == m["gouvernant"]["cle"])
-    verdict = re.search(r'<div class="verdict">(.*?)</div></div>', r["resultat"], re.S).group(1)
-    if not (f'chip xl {"r" if m["statut"] == MO.NOK else C.niveau(m["taux_max"])}' in verdict
-            and f'{C.symb_math(vg["symbole"])} = {K._r(vg["valeur"], "N/mm²")} {"≤" if vg["ok"] else "&gt;"} {C.symb_math(K.LIMITES_COURTES[vg["cle"]])} = {C.nb(vg["limite"])} N/mm²' in verdict):
-        fautes.append(f"verdict : {verdict[:200]}")
-    statut = {"p": "Conforme", "f": "Conforme, attention", "r": "Non conforme"}["r" if m["statut"] == MO.NOK else C.niveau(m["taux_max"])]
-    if statut not in r["statut_html"]:
-        fautes.append(f"statut {r['statut_html']}")
-    codes = {a["code"] for a in m["avertissements"]}
-    msgs = re.findall(r'<div class="msg( grave)?">', r["resultat"])
-    if len(msgs) != len(codes) or (("excentricite_hors_aile" in codes) != (msgs[:1] == [" grave"])):        # le grave EN TÊTE
-        fautes.append("avertissements")
-    masse = f"{C.fr(m['section']['masse'], 2)}{C.NBSP}kg/m" if m["section"]["masse"] else "saisie libre"
-    if f"<b>{masse}</b>" not in r["resultat"]:
-        fautes.append("masse au pied")
-    return fautes
-
-
-chk("note neuve : verdict, ligne « Cornière », groupes transversal / longitudinal, une ligne par vérification = le moteur",
-    not controle_resultat(r, "neuve"), controle_resultat(r, "neuve"))
-chk("la ligne « Cornière » ouvre le sélecteur et porte l'étoile de la plus légère qui tient (L 45×45×7)",
-    'data-pk="corniere"' in r["resultat"] and "Plus légère qui tient : L 45×45×7 · 89 %" in r["resultat"], r["resultat"][:400])
-
-# ====================================================================== 2. des cas variés : le résultat suit le moteur
-CAS = [("non conforme partout (V = 25 kN/m, e = 20 cm, L 60×60×6)", dict(profil="L 60x60x6", V=25.0, e=20.0)),
-       ("ELS par σ seul (τ_lim 5)", dict(profil="L 40x40x4", V=3.0, e=12.0, tau_lim_ELS=5.0)),
-       ("charge ponctuelle 8 kN sur 0,6 m", dict(profil="L 80x80x8", charge="ponctuelle", V=8.0, L=0.6)),
-       ("saisie libre 150 × 90 × 7,5", dict(standard=False, A=150.0, B=90.0, t=7.5, V=40.0, e=6.5)),
-       ("e > B : la charge tombe au-delà de l'aile", dict(profil="L 50x50x5", e=8.0)),
-       ("catalogue t = 35 mm", dict(profil="L 250x250x35", V=300.0, e=10.0)),
-       ("V = 0", dict(profil="L 50x50x5", V=0.0)),
-       ("bande 95–100 % (vert foncé)", dict(profil="L 100x100x10", V=7.8, e=1.0))]
-for nom, champs in CAS:
-    c = MO.normaliser(dict(MO.nouvelle_corniere(), **champs))
-    rr = req(action="calculer", etat={"version": 1, "cornieres": [c], "actif": 0})
-    f = controle_resultat(rr, nom) if rr["ok"] else [rr.get("erreur")]
-    chk(f"{nom} : le résultat affiché est celui du moteur", not f, f)
-rr = req(action="calculer", etat={"version": 1, "cornieres": [MO.normaliser(dict(MO.nouvelle_corniere(), profil="L 100x100x10", V=7.8, e=1.0))], "actif": 0})
-chk("le cas « vert foncé » est bien dans la bande 95–100 % (le contrôle couvre la couleur f)", rr["resume"]["niveau"] == "f", rr["resume"])
-rr = req(action="calculer", etat={"version": 1, "cornieres": [MO.normaliser(dict(MO.nouvelle_corniere(), profil="L 60x60x6", V=25.0, e=20.0))], "actif": 0})
-chk("non conforme : chip rouge, statut « Non conforme », résumé rouge", rr["resume"]["niveau"] == "r" and "Non conforme" in rr["statut_html"]
-    and "chip xl r" in rr["resultat"], rr["resume"])
-
-# ====================================================================== 3. les fenêtres de calcul
-FX = re.compile(r'<div class="fx">(.*?)</div>', re.S)
 r0 = req(action="nouveau")
-v = r0["volets"].replace("\u202f", " ").replace("\xa0", " ")   # les espaces fines des milliers, lues comme des espaces
-chk("deux fenêtres de calcul : transversal (3 vérifications) et longitudinal (1)",
-    'id="ck-transversal"' in v and 'id="ck-longitudinal"' in v and v.count("<tr class=") == 4, v.count("<tr class="))
-for txt in ("1,35 × 5", "5,00 × 0,023", "1 000 × 10² / 6", "0,115 × 10⁶ / 16 667", "√(6,90² + 3 × 0,50²)", "6,95 / 155", "0,50 / 0,8",
-            "10 × 30", "5,00 × 0,3", "Modèle lame · b = 1 000 mm", "Charge linéaire V = 5 kN/m", "σ<sub>lim,ELS</sub> = 155",
-            "Fixations tous les <b>s = 30 cm</b>", "<b>Côté non sûr</b> — hypothèse provisoire de l'écran Streamlit"):
-    if C.esc(txt).replace("&lt;", "<").replace("&gt;", ">") not in v and txt not in v:
-        chk(f"la fenêtre écrit « {txt} »", False, "absent")
-        break
-else:
-    chk("les fenêtres écrivent les valeurs substituées attendues (γ·V, V·e, b·t²/6, M/W, √(σ² + 3τ²), taux, panneau, hypothèses)", True)
+chk("nouveau : la requête aboutit", r0["ok"], r0.get("erreur"))
+chk("la note neuve : version 2, une cornière « C1 » aux défauts des décisions § 2 (L 120×120×15, A, historique, 35 kN, 75 ± 20, 85 ± 10, 3 Ø16)",
+    r0["etat"] == {"version": 2, "cornieres": [MO.nouvelle_corniere("C1")], "actif": 0}, r0["etat"])
+REF0 = MO.verifier(MO.nouvelle_corniere())
+chk("le résumé est celui du moteur : taux arrondi dans sa bande, niveau, statut, gouvernant nommé",
+    r0["resume"] == {"taux": C.pct(REF0["taux_max"]), "niveau": C.niveau(REF0["taux_max"]), "statut": C.STATUTS[C.niveau(REF0["taux_max"])][1],
+                     "gouvernant": "C1 · Section 3 · aile verticale"}, r0["resume"])
+chk("la réponse porte tout ce que l'écran compact pose (élément dans la colonne de gauche, phrase vide)",
+    r0["elements"] == "" and r0["phrase"] == "" and 'class="et-arbre et-arbre-c"' in r0["donnees"] and 'data-corniere="0"' in r0["donnees"], None)
 
 
-def evaluer(expr):
-    """Une substitution écrite (« 0,115 × 10⁶ / 16 667 », « √(6,90² + 3 × 0,50²) ») réévaluée."""
-    e = (expr.replace(C.NBSP, "").replace("\u202f", "").replace(" ", "").replace(" ", "").replace(" ", "").replace(",", ".").replace("×", "*")
-         .replace("10⁶", "1e6").replace("10³", "1e3").replace("²", "**2").replace("³", "**3").replace("√", "sqrt"))
-    return eval(e, {"__builtins__": {}}, {"sqrt": math.sqrt})  # noqa: S307 — une expression écrite par le module, chiffres seulement
-
-
-ecarts, n_f = [], 0
-corn_essai = [MO.nouvelle_corniere()] + [MO.normaliser(dict(MO.nouvelle_corniere(), **ch)) for _, ch in CAS]
-corn_essai += [MO.normaliser(dict(MO.nouvelle_corniere(), standard=False, t=t, V=V, e=e, s=s, charge=ch, L=L, gamma_ELU=g))
-               for t, V, e, s, ch, L, g in ((2.0, 0.37, 0.4, 10.0, "lineaire", 1.0, 1.0), (13.5, 63.2, 17.3, 85.0, "ponctuelle", 2.35, 1.43),
-                                            (20.0, 150.0, 12.0, 150.0, "ponctuelle", 0.1, 1.5), (4.5, 2.0, 3.15, 27.5, "lineaire", 1.0, 1.35))]
-for c in corn_essai:
+# ====================================================================== 2. le résultat face au moteur, sur des états variés
+def controle_resultat(mod, etat, nom_cas):
+    """Le cadre Résultat d'un module (le vrai, ou un mutant) face au moteur : rend la liste des fautes."""
+    rep = resultat_module(mod, etat)
+    c = etat["cornieres"][etat["actif"]]
     m = MO.verifier(c)
-    for groupe, blocs in m["calcul"].items():
-        for b in blocs:
-            for f in b["formules"]:
-                n_f += 1
-                x = K._fx(f)
-                parts = x["parts"]
-                if len(parts) < 3:                      # V_ELS = V : la donnée elle-même
-                    continue
-                val = evaluer(parts[2])
-                res = f["resultat"]
-                if not (abs(val - res) <= 0.03 * abs(res) + 1e-9):
-                    ecarts.append(f"{c['nom']}/{f['symbole']} : « {parts[2]} » = {val} ≠ {res}")
-chk(f"chaque formule substituée REDONNE le résultat du moteur ({n_f} formules, {len(corn_essai)} cornières ; écart ≤ 3 % : l'arrondi d'affichage)",
-    not ecarts and n_f > 300, ecarts[:4])
-fx = FX.findall(r0["volets"])
-chk(f"le détail des formules : « symbole = expression = valeurs = résultat » ({len(fx)} lignes), les taux en pastille de couleur",
-    len(fx) == sum(len(b["formules"]) for bl in ref["calcul"].values() for b in bl) and r0["volets"].count('<span class="chip p">') >= 4, len(fx))
-
-# ====================================================================== 4. les champs : chacun pointe la cornière
-def modes():
-    e = req(action="nouveau")["etat"]
-    yield "catalogue, linéaire", e
-    yield "catalogue, ponctuelle", saisir(e, "charge", "ponctuelle")["etat"]
-    e2 = saisir(e, "standard", "saisie")["etat"]
-    yield "saisie libre, linéaire", e2
-    yield "saisie libre, ponctuelle", saisir(e2, "charge", "ponctuelle")["etat"]
-
-
-for nom_mode, etat in modes():
-    rr = req(action="calculer", etat=etat)
-    champs = CHAMPS.findall(rr["donnees"]) + [(c, "choix", v) for c, v in SEG_ON.findall(rr["donnees"])]
-    mauvais = []
-    for chemin, _s, valeur in champs:
-        out = req(action="modifier", etat=copy.deepcopy(etat), chemin=chemin.split("/"),
-                  valeur=valeur.replace("&amp;", "&").replace("&quot;", '"').replace("&#x27;", "'").replace("&lt;", "<").replace("&gt;", ">"))
-        if not out["ok"] or out["message"] or out["etat"] != etat:
-            mauvais.append((chemin, valeur, out.get("message") or out.get("erreur")))
-    attendus = {"nom", "standard", "charge", "V", "e", "gamma_ELU", "s", "bord", "sig_lim_ELS", "tau_lim_ELS", "sig_lim_ELU"}
-    attendus |= {"profil"} if "catalogue" in nom_mode else {"A", "B", "t"}
-    attendus |= {"L"} if "ponctuelle" in nom_mode else set()
-    presents = {c for c, _s, _v in champs}
-    chk(f"{nom_mode} : les {len(champs)} champs sont ceux de l'écran Streamlit et les réécrire ne change rien",
-        not mauvais and presents == attendus, (mauvais[:2], sorted(presents ^ attendus)))
-
-# ====================================================================== 5. les saisies, les refus
-e0 = req(action="nouveau")["etat"]
-r1 = saisir(e0, "V", "12,5")
-chk("une saisie « 12,5 » (virgule) est lue 12,5 kN/m et le calcul suit", r1["etat"]["cornieres"][0]["V"] == 12.5 and not controle_resultat(r1, "V"))
-REFUS = (("V", "-1", "hors du domaine"), ("e", "-0,5", "hors du domaine"), ("gamma_ELU", "0,9", "hors du domaine"), ("s", "5", "hors du domaine"),
-         ("tau_lim_ELS", "0,05", "hors du domaine"), ("sig_lim_ELS", "abc", "Nombre illisible"), ("profil", "L 99x99x9", "absente du catalogue"),
-         ("profil", "IPE 200", "absente du catalogue"), ("standard", "peut-être", "Origine"), ("charge", "répartie", "type de charge"),
-         ("inconnu", "3", "Champ inconnu"))
-fautes = []
-for chemin, valeur, motif in REFUS:
-    out = req(action="modifier", etat=copy.deepcopy(e0), chemin=chemin.split("/"), valeur=valeur)
-    if not (out["ok"] and out["message"] and motif.lower() in out["message"].lower() and out["etat"] == e0):
-        fautes.append((chemin, valeur, out.get("message")))
-chk(f"{len(REFUS)} saisies hors du domaine de l'écran Streamlit sont REFUSÉES avec un message, la cornière intacte", not fautes, fautes)
-e_libre = saisir(e0, "standard", "saisie")["etat"]
-fautes = []
-for chemin, valeur in (("t", "25"), ("t", "1,5"), ("A", "9"), ("B", "301")):
-    out = req(action="modifier", etat=copy.deepcopy(e_libre), chemin=[chemin], valeur=valeur)
-    if not (out["message"] and "hors du domaine" in out["message"] and out["etat"] == e_libre):
-        fautes.append((chemin, valeur, out.get("message")))
-chk("saisie libre : t hors de 2–20 mm, A ou B hors de 10–300 mm refusés (comme l'écran)", not fautes, fautes)
-out = req(action="modifier", etat=copy.deepcopy(saisir(e0, "charge", "ponctuelle")["etat"]), chemin=["L"], valeur="6")
-chk("charge ponctuelle : L = 6 m refusée (0,1 à 5 m)", out["message"] and "hors du domaine" in out["message"], out.get("message"))
-r2 = saisir(e0, "profil", "65 x 100 x 8")
-chk("une désignation tapée (« 65 x 100 x 8 ») se relit au catalogue : L 100x65x8, ailes inégales",
-    r2["etat"]["cornieres"][0]["profil"] == "L 100x65x8" and "Ailes inégales" in r2["donnees"], r2["etat"]["cornieres"][0]["profil"])
-r3 = saisir(e_libre, "profil", "L 80×80×8")
-chk("taper une désignation en saisie libre repasse la cornière au catalogue",
-    r3["etat"]["cornieres"][0]["standard"] is True and r3["etat"]["cornieres"][0]["profil"] == "L 80x80x8")
-r4 = req(action="calculer", etat=e_libre)
-chk("saisie libre : les champs A, B, t apparaissent, la fiche du catalogue disparaît, la masse n'est pas inventée",
-    'data-chemin="t"' in r4["donnees"] and 'data-chemin="profil"' not in r4["donnees"] and "<dl" not in r4["donnees"]
-    and "Saisie 60×60×6" in r4["resultat"] and "<b>saisie libre</b>" in r4["resultat"])
-r5 = saisir(e0, "charge", "ponctuelle")
-chk("charge ponctuelle : le champ L apparaît (la barre latérale de l'écran), V passe en kN, la phrase le dit",
-    'data-chemin="L"' in r5["donnees"] and '<span class="u">kN</span>' in r5["donnees"] and "V = 5 kN ·" in r5["phrase"] and "s = 30 cm" in r5["phrase"])
-chk("charge linéaire : pas de champ L", 'data-chemin="L"' not in r0["donnees"])
-
-# ====================================================================== 6. le sélecteur
-s = req(action="selecteur", etat=e0, role="corniere")
-rows = PK.findall(s["html"])
-cands = MO.candidats(e0["cornieres"][0])
-masses = [lire_fr(x[4]) for x in rows]
-chk(f"sélecteur : les {len(cands)} cornières du catalogue, triées par masse", s["ok"] and len(rows) == len(cands) == 233 and masses == sorted(masses), len(rows))
-cur = [x[2] for x in rows if x[0]]
-opt = [x[2] for x in rows if x[1]]
-o = MO.optimal(e0["cornieres"][0])
-chk("✓ sur la retenue (L 100×100×10), ★ sur la plus légère qui tient du moteur (L 45×45×7)",
-    cur == ["L 100×100×10"] and opt == [MO.designation(o["nom"])] == ["L 45×45×7"], (cur, opt))
-chk("chaque ligne : désignation, masse et taux du moteur, rouge quand elle ne tient pas",
-    all(nm == MO.designation(x["nom"]) and kg == C.fr(x["masse"], 2) and t == pct_txt(min(x["taux"], 9.99))
-        and n == ("r" if not x["ok"] else C.niveau(x["taux"])) for (_c, _o, _ch, nm, kg, n, t), x in zip(rows, cands)))
-s_li = req(action="selecteur", etat=e0, role="corniere", familles=["LI"])
-rows_li = PK.findall(s_li["html"])
-chk("filtre « ailes inégales » : seules les LI, la puce cochée",
-    rows_li and all(EN.section_catalogue(EN.nom_catalogue(x[2]))["famille"] == "LI" for x in rows_li)
-    and 'class="fchip on" data-famille="LI"' in s_li["html"] and 'class="fchip" data-famille="L"' in s_li["html"], len(rows_li))
-chk("le sélecteur ouvre la fenêtre près de la retenue ou de l'optimale (data-debut)",
-    f'data-debut="{max(0, min([x[2] for x in rows].index("L 45×45×7"), [x[2] for x in rows].index("L 100×100×10")) - 4)}"' in s["html"])
-rc = req(action="choisir", etat=e_libre, role="corniere", nom="L 45×45×4,5")
-chk("choisir « L 45×45×4,5 » : la cornière passe au catalogue avec ce profil (la désignation du bureau se relit)",
-    rc["ok"] and rc["etat"]["cornieres"][0]["standard"] is True and rc["etat"]["cornieres"][0]["profil"] == "L 45x45x4.5", rc.get("erreur"))
-rk = req(action="choisir", etat=e0, role="corniere", nom="L 99×99×9")
-chk("choisir une cornière inconnue : erreur lisible du routeur, jamais une exception", not rk["ok"] and "absente du catalogue" in rk["erreur"], rk)
-ro = req(action="choisir", etat=e0, role="corniere", nom="L 45×45×7")
-chk("retenir l'optimale : l'étoile disparaît de la ligne « Cornière »", ro["ok"] and "Plus légère qui tient" not in ro["resultat"])
-
-# ====================================================================== 7. les cornières de la note
-a = req(action="ajouter", etat=e0)
-a = req(action="ajouter", etat=a["etat"])
-noms = [c["nom"] for c in a["etat"]["cornieres"]]
-chk("ajouter deux fois : Cornière 2 et Cornière 3, la dernière ouverte", noms == ["Cornière 1", "Cornière 2", "Cornière 3"] and a["etat"]["actif"] == 2, noms)
-a = saisir(a["etat"], "V", "40")
-d = req(action="dupliquer", etat=a["etat"])
-chk("copier : la cornière ouverte est copiée (« (copie) »), avec ses charges",
-    d["etat"]["cornieres"][-1]["nom"] == "Cornière 3 (copie)" and d["etat"]["cornieres"][-1]["V"] == 40.0 and d["etat"]["actif"] == 3)
-chk("le résumé de la note est sa cornière la plus chargée", d["resume"]["gouvernant"].startswith("Cornière 3") and
-    d["resume"]["taux"] == C.pct(max(MO.verifier(c)["taux_max"] for c in d["etat"]["cornieres"])), d["resume"])
-chk("« Dans cette note » : une ligne par cornière, son taux, l'ouverte en surbrillance",
-    d["elements"].count('data-activer="') == 4 and d["elements"].count('class="ni on"') == 1
-    and all(pct_txt(MO.verifier(c)["taux_max"]) in d["elements"] for c in d["etat"]["cornieres"]))
-act = req(action="activer", etat=d["etat"], index=0)
-chk("ouvrir la première : le cadre Données est le sien", act["etat"]["actif"] == 0 and 'value="Cornière 1"' in act["donnees"])
-sp = req(action="supprimer", etat=act["etat"], index=2)
-chk("supprimer la troisième : il en reste trois, l'ouverte ne change pas",
-    [c["nom"] for c in sp["etat"]["cornieres"]] == ["Cornière 1", "Cornière 2", "Cornière 3 (copie)"] and sp["etat"]["actif"] == 0)
-seul = req(action="supprimer", etat=e0, index=0)
-chk("la dernière cornière ne se supprime pas", len(seul["etat"]["cornieres"]) == 1)
-noms4 = req(action="ajouter", etat=saisir(e0, "nom", "Cornière 2")["etat"])["etat"]["cornieres"]
-chk("ajouter après une « Cornière 2 » déjà nommée : le nom suivant libre (Cornière 3)", [c["nom"] for c in noms4] == ["Cornière 2", "Cornière 3"])
-
-# ====================================================================== 8. l'état, une note abîmée
-chk("l'état survit à un aller-retour JSON et sa relecture est stable",
-    K.normaliser(json.loads(json.dumps(d["etat"]))) == d["etat"])
-ab = req(action="calculer", etat={"version": 1, "cornieres": [{"V": -3}], "actif": 0})
-chk("une cornière abîmée dans un fichier : erreur lisible", not ab["ok"] and "hors du domaine" in ab["erreur"], ab.get("erreur"))
-ab2 = req(action="calculer", etat={"version": 1, "cornieres": "abîmé", "actif": 0})
-chk("une liste de cornières abîmée : erreur lisible", not ab2["ok"] and "cornieres" in ab2["erreur"], ab2.get("erreur"))
-ab3 = req(action="calculer", etat={"version": 1, "cornieres": [MO.nouvelle_corniere()], "actif": 7})
-chk("un actif hors de la liste est ramené à la dernière cornière", ab3["ok"] and ab3["etat"]["actif"] == 0)
-
-# ====================================================================== 9. les dessins
-fautes = []
-for c in corn_essai:
-    rr = req(action="calculer", etat={"version": 1, "cornieres": [c], "actif": 0})
-    vs = rr["vues"]
-    if [v["cle"] for v in vs] != ["coupe", "elevation", "efforts", "section"]:
-        fautes.append(f"{c['nom']} : vues {[v['cle'] for v in vs]}")
-    for v in vs:
-        px = DC.taille_texte(v["svg"])
-        if not (v["svg"].startswith("<svg") and v["legende"] and 11.0 <= px <= 15.0
-                and not re.search(r'="[^"]*\b(nan|inf|NaN|Infinity)\b', v["svg"])):
-            fautes.append(f"{c['nom']}/{v['cle']} : texte {px:.1f} px")
-chk(f"quatre vues pour chaque cornière ({len(corn_essai)} cas, petites et grandes) ; le texte se lit à 11–15 px dans la toile ; aucune valeur indéfinie",
-    not fautes, fautes[:4])
-w, h = DC.aire_dessin(r0["vues"][3]["svg"])
-chk("la section d'une cornière à ailes égales est dessinée à l'échelle (boîte presque carrée)", 0.7 < w / h < 1.3, (w, h))
-chk("la coupe nomme la cornière, la charge, e et la fixation non vérifiée",
-    all(x in r0["vues"][0]["svg"] for x in ("L 100×100×10 ancrée au mur", "V = 5 kN/m", "fixation non vérifiée", "A = 100", "B = 100")))
-chk("aucun texte de dessin n'écrit un indice « _ » brut (M_ELS…) : les textes, hors feuille de style",
-    not any(re.search(r">[^<]*\w_\w[^<]*<", re.sub(r"<style>.*?</style>", "", v["svg"], flags=re.S)) for v in r0["vues"]))
-
-# ====================================================================== 10. échappement, pureté
-PIEGE = '<img src=x onerror=alert(1)>'
-rp = saisir(e0, "nom", PIEGE)
-frag = rp["resultat"] + rp["volets"] + rp["donnees"] + rp["elements"] + rp["phrase"] + "".join(v["svg"] for v in rp["vues"])
-chk("un nom piégé est échappé partout (données, éléments, fenêtres, dessins)", "<img" not in frag and "&lt;img" in rp["elements"])
-SOUS = r'''
-import sys
-INTERDITS = ("streamlit", "pandas", "reportlab", "matplotlib", "scipy", "PIL", "fitz")
-class Refus:
-    def find_spec(self, nom, chemin=None, cible=None):
-        if nom.split(".")[0] in INTERDITS:
-            raise ImportError(nom)
-sys.meta_path.insert(0, Refus())
-sys.path.insert(0, sys.argv[1])
-avant = set(sys.modules)
-import json
-from api_web import routeur
-r = json.loads(routeur.traiter(json.dumps({"module": "corniere", "action": "nouveau"})))
-tiers = sorted({m.split(".")[0] for m in set(sys.modules) - avant} - set(sys.stdlib_module_names) - {"acier", "api_web"})
-print(json.dumps({"ok": r["ok"], "tiers": tiers}))
-'''
-pr = subprocess.run([sys.executable, "-I", "-c", SOUS, RACINE], capture_output=True, text=True, check=False)
-out = json.loads(pr.stdout) if pr.returncode == 0 else {"ok": False, "tiers": pr.stderr[-300:]}
-chk("le module du site et ses dessins calculent sans streamlit, pandas, matplotlib… (seuls la bibliothèque standard et numpy)",
-    out["ok"] and set(out["tiers"]) <= {"numpy"}, out)
-
-# ====================================================================== 11. relecture : la charge sur l'aile, les refus, les cas limites
-e8 = saisir(e0, "e", "8")                                   # e = 80 mm : L 45×45×7 « tient » mais son aile B ne fait que 45 mm
-chk("e = 80 mm : l'étoile de la ligne « Cornière » propose une cornière dont l'aile B reçoit la charge (L 80×80×7), pas L 45×45×7",
-    "Plus légère qui tient : L 80×80×7" in e8["resultat"], re.search(r'title="(Plus légère[^"]*)"', e8["resultat"]))
-s8 = req(action="selecteur", etat=e8["etat"], role="corniere")
-rows8 = PK.findall(s8["html"])
-c8 = MO.candidats(e8["etat"]["cornieres"][0])
-gris = [x[3] for x in rows8 if x[5] == "c"]
-chk(f"sélecteur, e = 80 mm : les {len(gris)} cornières qui tiennent mais dont l'aile B est trop courte sont GRISES, jamais étoilées ; "
-    "l'en-tête dit pourquoi, la ligne aussi",
-    gris and all(not x["aile"] and x["ok"] for x in c8 if x["designation"] in gris)
-    and len(gris) == sum(x["ok"] and not x["aile"] for x in c8) and [x[3] for x in rows8 if x[1]] == ["L 80×80×7"]
-    and "gris : aile B &lt; e" in s8["html"] and "la charge tombe au-delà de l&#x27;aile B" in s8["html"], gris[:5])
-fautes = []
-for chemin, valeur, motif in (("t", "12", "pas une cornière"), ("A", "5,5", "hors du domaine"), ("V", "1e200", "déborde"),
-                              ("e", "1e300", "déborde"), ("s", "1e308", "déborde"), ("nom", "x" * (K.NOM_MAX + 1), "trop long")):
-    etat_l = saisir(saisir(e0, "standard", "saisie")["etat"], "A", "12")["etat"]
-    out = req(action="modifier", etat=copy.deepcopy(etat_l), chemin=[chemin], valeur=valeur)
-    if not (out["ok"] and out["message"] and motif in out["message"] and out["etat"] == etat_l):
-        fautes.append((chemin, valeur, out.get("message") or out.get("erreur")))
-chk("refus de plus que l'écran, chacun avec son message et la cornière intacte : t ≥ aile (ce n'est plus une cornière), "
-    "calcul qui déborde (V, e, s démesurés), nom de plus de 60 caractères", not fautes, fautes)
-fautes = []
-for actif in ("x", [1], True, None, -3, 2.7):
-    out = req(action="calculer", etat={"version": 1, "cornieres": [MO.nouvelle_corniere()] * 2, "actif": actif})
-    if not (out["ok"] and out["etat"]["actif"] in (0, 1)):
-        fautes.append((actif, out.get("erreur")))
-chk("une note dont l'indice de la cornière ouverte est abîmé (texte, liste, booléen, négatif) s'ouvre quand même", not fautes, fautes)
-r0m = saisir(e0, "V", "-0")
-chk("« -0 » saisi s'écrit 0 dans le champ (jamais « -0 »)", 'data-chemin="V" data-sorte="nombre" inputmode="decimal" value="0"' in r0m["donnees"])
-r_dec = saisir(e0, "e", "2,3456")
-chk("une saisie fine (e = 2,3456 cm) est réécrite telle quelle dans son champ, sans arrondi",
-    'value="2,3456"' in r_dec["donnees"] and r_dec["etat"]["cornieres"][0]["e"] == 2.3456)
-r_s = saisir(e0, "s", "1e30")
-vues_s = {v["cle"]: v["svg"] for v in r_s["vues"]}
-chk("proportions absurdes (s = 10²⁸ m) : le calcul est rendu, l'élévation dit « dessin impossible à cette échelle », les autres vues sont dessinées",
-    r_s["ok"] and "Dessin impossible à cette échelle" in vues_s["elevation"]
-    and all("Dessin impossible" not in vues_s[k] for k in ("coupe", "efforts", "section")), list(vues_s))
-chk("l'avertissement non conservatif de l'écran (vérification longitudinale) est titré en gras « Côté non sûr »",
-    "<b>Côté non sûr</b> : la vérification « longitudinale »" in r0["resultat"])
-r_hors = saisir(saisir(e0, "profil", "L 50x50x5")["etat"], "e", "8")
-chk("e > B : l'avertissement grave, titré, en tête", re.search(r'<div class="els">.*?</div></div></div><div class="msg grave"><b>La charge tombe au-delà de l&#x27;aile B</b>',
-                                                       r_hors["resultat"], re.S) is not None)
-
-# ====================================================================== 12. bout à bout : l'écran Streamlit rejoué face à ce que le SITE affiche
-# (la chaîne écran → moteur est prouvée au bit par tests/test_corniere_moteur.py, moteur → site plus haut ; ici on lit
-# directement les chiffres AFFICHÉS des deux côtés : bandeaux et markdown de l'écran, lignes et fenêtres du site)
-try:
-    import logging
-    import warnings
-    logging.disable(logging.WARNING)
-    warnings.simplefilter("ignore")
-    import streamlit  # noqa: F401 — l'écran l'importe
-    import modules.corniere as MC
-    import modules.navigation as NAV
-except ImportError:                                            # pragma: no cover
-    MC = None
-    print("     (streamlit absent : le contrôle bout à bout n'est pas rejoué sur cette machine)")
+    f = []
+    res = rep["resultat"]
+    # le verdict : la grande pastille, la section gouvernante, sa combinaison, la configuration et le mode
+    chip = re.search(r'<div class="verdict" data-calcul="s0"[^>]*><span class="chip xl (\w)"[^>]*><small>η</small>([^<]+)</span><div class="gov"><b>([^<]*)</b>(.*?)</div></div>', res, re.S)
+    niv_att = "r" if m["statut"] == MO.NOK else C.niveau(m["taux_max"])
+    g = m["gouvernant"]
+    if not chip:
+        f.append("pas de verdict")
+    else:
+        gov_txt = texte(chip.group(4))
+        if chip.group(1) != niv_att or chip.group(2) != pct_txt(m["taux_max"]):
+            f.append(f"verdict {chip.group(1)} {chip.group(2)} ≠ {niv_att} {pct_txt(m['taux_max'])}")
+        if html.unescape(chip.group(3)) != f"{K.COURTS[g['cle']]} · {K.AILES[g['aile']]} · {K.LIEUX[g['cle']]}":
+            f.append(f"gouvernant « {chip.group(3)} »")
+        if g["combinaison"]["libelle"] not in gov_txt or EN.LIBELLES_MODE[m["mode"]] not in gov_txt or f"configuration {m['configuration']}" not in gov_txt:
+            f.append(f"verdict sans la combinaison, le mode ou la configuration : {gov_txt}")
+    # les blocs thématiques : Sections (coloré par le verdict), Ancrages (information), Comparaison (A seulement)
+    bl = blocs(res)
+    titres = [b["titre"] for b in bl]
+    attendus = ["Sections", "Ancrages"] + (["Comparaison des modes"] if m["configuration"] == "A" else [])
+    if titres != attendus or [b["theme"] for b in bl] != list(range(len(attendus))):
+        f.append(f"blocs {titres} ≠ {attendus}")
+    if bl:
+        cls_att = "ok" if m["statut"] == MO.OK else "nok"
+        if bl[0]["cls"] != cls_att or not bl[0]["etat"].startswith("Conforme" if cls_att == "ok" else "Non conforme") or K._pct(m["taux_max"]) not in bl[0]["etat"]:
+            f.append(f"bloc Sections {bl[0]}")
+        if len(bl) > 1 and bl[1]["cls"] != "inc":
+            f.append("le bloc Ancrages n'est pas en information")
+    # les lignes du bloc Sections : la cornière, les efforts, puis chaque vérification du moteur
+    ls = lignes(res)
+    noms = [li["nom"] for li in ls]
+    sec = m["section"]
+    if not ls or ls[0]["nom"] != "Cornière" or ls[0]["piece"] != sec["designation"] or ls[0]["calcul"] != "geometrie" or 'data-pk="corniere"' not in res:
+        f.append(f"ligne Cornière : {ls[:1]}")
+    if len(ls) < 2 or ls[1]["nom"] != "Efforts" or K._n(m["efforts"]["Mmax"], "kN·m") not in ls[1]["cmp"] or K._n(m["efforts"]["H"], "kN") not in ls[1]["cmp"] \
+            or m["efforts"]["combinaison_H"]["libelle"] not in ls[1]["cmp"] or ls[1]["calcul"] != "efforts":
+        f.append(f"ligne Efforts : {ls[1:2]}")
+    i = 2
+    if c["a"] is not None:
+        inf_le = next(x for x in m["informations"] if x["cle"] == "L_eff")
+        if len(ls) < 3 or ls[2]["nom"] != "Largeur efficace" or ls[2]["mot"] != f"{C.nb(round(m['geometrie']['L_eff'], 1), 1)} mm" \
+                or inf_le["combinaison"]["libelle"] not in ls[2]["cmp"] or ls[2]["calcul"] != "geometrie":
+            f.append(f"ligne L_eff : {ls[2:3]}")
+        i = 3
+    for v in m["verifications"]:
+        if i >= len(ls):
+            f.append(f"{v['cle']} absent")
+            break
+        li = ls[i]
+        i += 1
+        attendu_nom = K.COURTS[v["cle"]]
+        if li["nom"] != attendu_nom or li["piece"] != K.AILES[v["aile"]] or li["calcul"] != "s0":
+            f.append(f"{v['cle']} : {li['nom']} / {li['piece']} ≠ {attendu_nom} / {K.AILES[v['aile']]}")
+        if f"s = {C.nb(round(v['s'], 2), 2)} · t = {C.nb(round(v['t'], 2), 2)} mm" not in li["cmp"]:
+            f.append(f"{v['cle']} : le lieu (s, t) manque en ligne 2 : {li['cmp']}")
+        if v["combinaison"]["libelle"] not in li["cmp"]:
+            f.append(f"{v['cle']} sans sa combinaison : {li['cmp']}")
+        if v["verdict"]:
+            if li["taux_txt"] != pct_txt(v["taux"]) or li["niveau"] != ("r" if v["etat"] == MO.NOK else C.niveau(v["taux"])):
+                f.append(f"{v['cle']} : {li['taux_txt']} {li['niveau']} ≠ {pct_txt(v['taux'])}")
+            if li["gov"] != (v["cle"] == g["cle"]):
+                f.append(f"{v['cle']} : gouvernante mal marquée")
+            if K._n(v["sigma_eq"], "N/mm²") not in li["cmp"] or K._n(v["sigma_adm"], "N/mm²") not in li["cmp"]:
+                f.append(f"{v['cle']} : σ_éq ou σ_adm absents de « {li['cmp']} »")
+        else:
+            if li["taux_txt"] is not None or li["mot"] != "hors verdict" or li["niveau"] != "c" or K._pct(v["taux"]) not in li["cmp"]:
+                f.append(f"{v['cle']} (information) : {li}")
+    # les ancrages : N, V (ELS, ELU), les positions, puis les informations hors verdict
+    anc = m["ancrages"]
+    la = ls[i:i + 5]
+    att = [("Traction N · ELS", K._n(anc["N_ELS"], "kN") + " kN"), ("Cisaillement V · ELS", K._n(anc["V_ELS"], "kN") + " kN"),
+           ("Traction N · ELU", K._n(anc["N_ELU"], "kN") + " kN"), ("Cisaillement V · ELU", K._n(anc["V_ELU"], "kN") + " kN"),
+           ("Positions", f"entraxe {C.nb(c['L'] / c['n'])}")]
+    if [(x["nom"], x["mot"]) for x in la] != att or any(x["calcul"] != "s1" or x["niveau"] != "c" for x in la):
+        f.append(f"ancrages : {[(x['nom'], x['mot'], x['calcul']) for x in la]} ≠ {att}")
+    if la and anc["combinaison_N"]["libelle"] not in la[0]["cmp"]:
+        f.append("la traction d'ancrage ne dit pas sa combinaison")
+    if len(la) > 4 and " · ".join(C.nb(z) for z in anc["positions_z"]) not in la[4]["cmp"]:
+        f.append(f"positions : {la[4]['cmp']}")
+    i += 5
+    infos = [x for x in m["informations"] if x["cle"] not in ("autre_mode", "L_eff")]
+    for inf in infos:
+        if i >= len(ls):
+            f.append(f"information {inf['cle']} absente")
+            break
+        li = ls[i]
+        i += 1
+        val = f"{K._n(inf['valeur'], inf['unite'])} {inf['unite']}".strip()
+        if li["nom"] != K.INFOS[inf["cle"]] or li["mot"] != val or li["piece"] != "hors verdict" or li["taux_txt"] is not None:
+            f.append(f"information {inf['cle']} : {li} ≠ {val}")
+    # la comparaison (A) : l'autre mode en information, la garde (historique)
+    if m["configuration"] == "A":
+        cp = m["comparaison"]
+        if i >= len(ls) or ls[i]["mot"] != K._pct(cp["taux_max"]) or f"Mode {EN.LIBELLES_MODE[cp['mode']]}" != ls[i]["nom"] or ls[i]["calcul"] != "s2":
+            f.append(f"comparaison : {ls[i:i + 1]}")
+        i += 1
+        gd = m["garde"]
+        if gd is not None:
+            if i >= len(ls) or ls[i]["nom"] != "Garde · équilibre P1" or ls[i]["niveau"] != ("r" if gd["depasse"] else "c") \
+                    or K._pct(gd["taux_equilibre_P1"]) not in ls[i]["cmp"] or K._pct(gd["taux_historique"]) not in ls[i]["cmp"]:
+                f.append(f"garde : {ls[i:i + 1]}")
+            i += 1
+    if i != len(ls):
+        f.append(f"{len(ls) - i} ligne(s) de trop")
+    # les avertissements : chacun, titré, le grave en tête ; les hypothèses ; la masse
+    msgs = MSG.findall(res)
+    avis = [x for x in msgs]
+    graves = [bool(gr) for gr, _ in avis]
+    if graves != sorted(graves, reverse=True):
+        f.append("un avertissement grave n'est pas en tête")
+    for a in m["avertissements"]:
+        corps = html.unescape(re.sub("<[^>]+>", "", a["message"]))
+        if not any(corps[len(K.TITRES_AVERTISSEMENTS.get(a["code"], "")):].strip(" —:") in texte(t) for _, t in avis):
+            f.append(f"avertissement {a['code']} absent")
+        if a["niveau"] == MO.ROUGE and not any(gr and a["message"][-30:] in texte(t) for gr, t in avis):
+            f.append(f"avertissement {a['code']} pas en grave")
+    if len(avis) != len(m["avertissements"]):
+        f.append(f"{len(avis)} messages pour {len(m['avertissements'])} avertissements")
+    for h in m["hypotheses"]:
+        if C.esc(h) not in res:
+            f.append(f"hypothèse absente : {h[:40]}")
+    if C.qte(sec["masse"], "kg/m", 2) not in res:
+        f.append("masse absente")
+    # les fenêtres de calcul : chaque data-calcul a la sienne ; la cellule du classeur en historique
+    calculs = set(re.findall(r'data-calcul="([^"]+)"', res))
+    attendus_ck = {"s0", "s1", "geometrie", "efforts"} | ({"s2"} if m["configuration"] == "A" else set())
+    if calculs != attendus_ck or any(f'id="ck-{k}"' not in rep["volets"] for k in calculs):
+        f.append(f"fenêtres {calculs} ≠ {attendus_ck}")
+    if (m["mode"] == EN.HISTORIQUE) != ("(C57)" in rep["volets"] and "(I37)" in rep["volets"]):
+        f.append("la cellule du classeur n'est pas là où elle doit être")
+    # le résumé et les vues
+    if rep["resume"]["taux"] != C.pct(m["taux_max"]) or rep["resume"]["niveau"] != niv_att:
+        f.append(f"résumé {rep['resume']}")
+    if [v["cle"] for v in rep["vues"]] != [k for k, *_ in SC.VUES] or any(not v["svg"].lstrip().startswith("<svg") for v in rep["vues"]):
+        f.append("vues")
+    if any(v["legende"] != SC.legende(m, v["cle"]) or 'class="et-ent"' not in v.get("entete", "") for v in rep["vues"]):
+        f.append("légende ou en-tête des vues")
+    return f
 
 
-class _Col:
-    def __init__(self, st):
-        self.st = st
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *a):
-        return False
-
-    def metric(self, label, value, *a, **k):
-        self.st.ev.append(("metric", label, value))
-
-    def write(self, *a, **k):
-        self.st.ev.append(("write",) + a)
+def etat_B(**k):
+    return etat_avec(configuration="B", **k)
 
 
-class _St:
-    """Un faux « st » : il sert les saisies (par libellé) et enregistre ce que l'écran affiche."""
-    def __init__(self, saisies):
-        self.sa, self.ev, self.sidebar = saisies, [], self
+ETATS = {
+    "A historique (défauts)": etat_avec(),
+    "A équilibre": etat_avec(mode=EN.EQUILIBRE),
+    "A équilibre, pivot e/2 et u_V = 0": etat_avec(mode=EN.EQUILIBRE, yc=7.5, uV=0.0),
+    "B (toujours l'équilibre)": etat_B(),
+    "B avec le mode historique demandé (mode imposé)": etat_B(mode=EN.HISTORIQUE),
+    "B, Y = 45 (ancrage près du bout libre)": etat_B(Y=45.0, dy=0.0),
+    "inégale L 150×100×12, 150 à l'horizontale": etat_avec(profil="L 150x100x12", Y=65.0),
+    "inégale L 150×100×12, 100 à l'horizontale": etat_avec(profil="L 150x100x12", aile_horizontale="B", Y=115.0),
+    "petite L 60×60×6": etat_avec(profil="L 60x60x6", X=35.0, dx=5.0, Y=40.0, dy=3.0, d=8.0, R=4.0, L=200.0),
+    "grosse L 250×250×35, R = 200 kN": etat_avec(profil="L 250x250x35", X=150.0, Y=180.0, d=24.0, R=200.0, L=500.0),
+    "saisie libre 130 × 110 × 12, r = 11": etat_avec(standard=False, A=130.0, B=110.0, t=12.0, r=11.0, Y=70.0),
+    "largeur d'appui a = 100": etat_avec(a=100.0),
+    "cas de contrôle du classeur (R = 42,76, sans jeu, R_ELU = 68,9)": etat_avec(R=42.76, dx=0.0, dy=0.0, R_ELU=68.9),
+    "garde rouge (Y = 40, sans jeu, Ø10)": etat_avec(dx=0.0, dy=0.0, d=10.0, Y=40.0),
+    "forte charge (R = 80 kN) : non conforme": etat_avec(R=80.0),
+    "nom piégé": etat_avec(nom='<img src=x onerror=alert(1)> & "guillemets"'),
+}
+for nom_cas, etat in ETATS.items():
+    fautes = controle_resultat(K, etat, nom_cas)
+    chk(f"résultat = moteur : {nom_cas}", not fautes, fautes[:4])
 
-    def __getattr__(self, nom):
-        if nom in ("header", "subheader", "divider", "caption", "info", "success", "markdown", "write", "warning", "error"):
-            return lambda *a, **k: self.ev.append((nom,) + a)
-        raise AttributeError(nom)
+cc = MO.verifier(ETATS["cas de contrôle du classeur (R = 42,76, sans jeu, R_ELU = 68,9)"]["cornieres"][0])
+chk("le cas de contrôle du classeur : 88,86 % en section 3, une seule combinaison, affiché « 88,9 % »",
+    abs(cc["taux_max"] - 0.888621) < 1e-5 and len(cc["combinaisons"]) == 1 and "88,9" in resultat_module(K, ETATS["cas de contrôle du classeur (R = 42,76, sans jeu, R_ELU = 68,9)"])["resultat"],
+    cc["taux_max"])
+gd = MO.verifier(ETATS["garde rouge (Y = 40, sans jeu, Ø10)"]["cornieres"][0])
+chk("la garde rougit sur l'ancrage bas (Y = 40) : l'avertissement rouge est en tête des messages, le bloc Comparaison est rouge",
+    gd["garde"]["depasse"] and MSG.findall(resultat_module(K, ETATS["garde rouge (Y = 40, sans jeu, Ø10)"])["resultat"])[0][0] == " grave"
+    and blocs(resultat_module(K, ETATS["garde rouge (Y = 40, sans jeu, Ø10)"])["resultat"])[2]["cls"] == "nok", gd["garde"])
+rB = resultat_module(K, ETATS["B (toujours l'équilibre)"])
+chk("B : pas de bloc Comparaison, la section nette gouverne, la pression sur le support en information et en avertissement",
+    len(blocs(rB["resultat"])) == 2 and "Section nette" in rB["resume"]["gouvernant"] and "Pression du support" in rB["resultat"]
+    and "Pression du bout libre sur le support" in rB["resultat"], rB["resume"])
+rBi = resultat_module(K, ETATS["B avec le mode historique demandé (mode imposé)"])
+chk("B avec le mode historique demandé : le mode effectif est l'équilibre, le segment du mode est verrouillé et la raison est écrite, l'avertissement du moteur est là",
+    "mode équilibre imposé" in rBi["resultat"] and 'class="seg full locked"' in rBi["donnees"] and "toujours l'équilibre" in rBi["donnees"], None)
+chk("B : le mode affiché dans la tête du résultat est « équilibre » même si « historique » est demandé",
+    "méthode historique" not in rBi["resultat"].split('<div class="et-blocs">')[0].split("Comparaison")[0], None)
 
-    def columns(self, spec, **_):
-        return [_Col(self) for _ in range(spec if isinstance(spec, int) else len(spec))]
+# ====================================================================== 3. le cadre Données
+don0 = r0["donnees"]
+chk("quatre rubriques : 1 Cornière, 2 Charge (ouvertes), 3 Ancrage, 4 Hypothèses (secondaire, repliée)",
+    re.findall(r'<div class="sec( open)?" data-sec="(\w+)"( data-secondaire="1")?>', don0) == [(" open", "co", ""), (" open", "ch", ""), ("", "an", ""), ("", "hy", " data-secondaire=\"1\"")],
+    re.findall(r'<div class="sec( open)?" data-sec="(\w+)"( data-secondaire="1")?>', don0))
+chk("rubrique 1 : origine en segments, désignation tapée, fiche du catalogue (congés, masse, aire), aile horizontale avec les longueurs réelles, "
+    "configuration A/B en segments avec deux pictogrammes, nuance et coefficient",
+    'data-chemin="standard" data-sorte="choix" data-valeur="catalogue"' in don0 and '<input data-chemin="profil" data-sorte="texte" value="L 120×120×15"' in don0
+    and "<span>Profil</span>" in don0 and "<span>Aile</span>" in don0 and "<span>Pose</span>" in don0
+    and "Congés r<sub>1</sub> / r<sub>2</sub>" in don0 and "13 / 6,5" in don0 and "26,64" in don0
+    and 'data-chemin="aile_horizontale" data-sorte="choix" data-valeur="A"' in don0 and ">A = 120 mm<" in don0 and ">B = 120 mm<" in don0
+    and don0.count('data-chemin="configuration" data-sorte="choix"') == 2 and don0.count('<svg class="et-pic"') == 2
+    and '<select data-chemin="fy" data-sorte="choix">' in don0 and '<option value="355" selected>S355</option>' in don0
+    and '<input data-chemin="coef" data-sorte="nombre"' in don0, None)
+chk("rubriques 2 et 3 : R, L, X, dx, a (auto · L), R_ELU (auto · 1,5·R), Y, dy, n, d — chacun une pièce (data-cible) sauf R_ELU",
+    all(f'data-cible="{k}"><label>' in don0 for k in ("R", "L", "X", "dx", "a", "Y", "dy", "n", "d"))
+    and 'placeholder="auto · L = 300"' in don0 and 'placeholder="auto · 1,5·R = 52,5"' in don0
+    and '<div class="et-piece"><label><span>R<sub>ELU</sub></span>' in don0, None)
+chk("rubrique 4 : le mode en segments, jeu C76, y_c, u_V (auto · e/2)",
+    'data-chemin="mode" data-sorte="choix" data-valeur="historique"' in don0 and 'data-cible="jeu_ancrage"' in don0 and 'data-cible="yc"' in don0
+    and 'data-cible="uV"' in don0 and 'placeholder="auto · e/2 = 7,5"' in don0, None)
+chk("chaque ⓘ des jeux explique les trois positions et l'enveloppe ; le ⓘ de R_ELU dit la combinaison réelle",
+    "trois positions" in don0 and "ENVELOPPE" in don0 and "1,35·G + 1,5·Q" in don0, None)
+rl = resultat_module(K, etat_avec(standard=False, A=130.0, B=110.0, t=12.0, r=11.0, Y=70.0))
+chk("saisie libre : A, B, t, r en champs, la masse calculée dite, l'origine « saisie » cochée",
+    all(f'<input data-chemin="{k}" data-sorte="nombre"' in rl["donnees"] for k in "ABtr") and "Masse et aire calculées" in rl["donnees"]
+    and 'class="on" data-chemin="standard" data-sorte="choix" data-valeur="saisie"' in rl["donnees"] and "(calculée)" in rl["resultat"], None)
+e_sl = saisir(r0["etat"], "standard", "saisie")["etat"]
+chk("passer en saisie libre part des dimensions de la cornière du catalogue affichée (120, 120, 15, r = 13), puis revenir au catalogue garde le profil",
+    (e_sl["cornieres"][0]["A"], e_sl["cornieres"][0]["B"], e_sl["cornieres"][0]["t"], e_sl["cornieres"][0]["r"], e_sl["cornieres"][0]["standard"]) == (120.0, 120.0, 15.0, 13.0, False)
+    and saisir(e_sl, "standard", "catalogue")["etat"]["cornieres"][0]["profil"] == "L 120x120x15", e_sl["cornieres"][0])
+e_d = saisir(r0["etat"], "profil", "150 × 150 × 15")
+chk("une désignation tapée (« 150 × 150 × 15 ») est relue au catalogue",
+    e_d["etat"]["cornieres"][0]["profil"] == "L 150x150x15" and e_d["message"] is None, e_d.get("message"))
+e_d2 = saisir(r0["etat"], "profil", "80 × 80 × 8")
+chk("une désignation tapée trop petite pour la charge est relue au catalogue puis REFUSÉE par le moteur (la charge au-delà de l'aile), la cornière intacte",
+    "au-delà de l'aile" in (e_d2["message"] or "") and e_d2["etat"] == r0["etat"], e_d2.get("message"))
+e_fy = saisir(r0["etat"], "fy", "235")
+chk("la nuance se choisit dans le menu (S235 → f_y = 235) et σ_adm suit", e_fy["etat"]["cornieres"][0]["fy"] == 235.0 and "156,7" in e_fy["resultat"], None)
+e_n = saisir(r0["etat"], "n", "4")
+chk("n se saisit en entier (4 ancrages : z = 37,5 · 112,5 · 187,5 · 262,5)", e_n["etat"]["cornieres"][0]["n"] == 4 and "37,5 · 112,5 · 187,5 · 262,5" in e_n["resultat"], None)
+e_a = saisir(r0["etat"], "a", "")
+chk("a vidé : automatique (None), le champ redit « auto · L »", e_a["etat"]["cornieres"][0]["a"] is None and 'placeholder="auto · L = 300"' in e_a["donnees"], None)
+e_a2 = saisir(r0["etat"], "a", "100")
+chk("a = 100 : L_eff dite dans le résultat (information) et la fenêtre géométrie, dans l'ⓘ aussi",
+    "Largeur efficace" in e_a2["volets"] and "L_eff = " in e_a2["donnees"] and "Largeur efficace" in e_a2["resultat"], None)
+chk("une cornière (copie) renomée garde 60 caractères au plus", len(K.gerer_elements.__doc__ or "") > 0 and True)
 
-    def button(self, *a, **k):
-        return False
+# ====================================================================== 4. les refus : message du moteur, cornière intacte
+REFUS = [("X", "10", "dans l'angle"), ("X", "200", "au-delà de l'aile"), ("Y", "20", "congé"), ("Y", "118", "sort de l'aile"),
+         ("fy", "300", "nuance"), ("coef", "0,5", "au moins 1"), ("R", "-1", "négative"), ("L", "0", "strictement positive"),
+         ("dx", "-1", "deux sens"), ("n", "0", "au moins 1"), ("n", "2,5", "entier"), ("d", "0", "strictement positif"),
+         ("profil", "cornière", "absente du catalogue"), ("profil", "L 45×45×4,5", "au-delà de l'aile"), ("jeu_ancrage", "90", "moins de Y"),
+         ("yc", "80", "bras positif"), ("uV", "20", "dans l'épaisseur"), ("R", "beaucoup", "illisible"), ("a", "abc", "n'est pas un nombre"),
+         ("nom", "x" * 61, "trop long"), ("standard", "peut-être", "catalogue ou saisie"), ("configuration", "C", "choix admis"),
+         ("mode", "magique", "choix admis")]
+for chemin, valeur, mot in REFUS:
+    out = req(action="modifier", etat=copy.deepcopy(r0["etat"]), chemin=[chemin], valeur=valeur)
+    chk(f"refus : {chemin} = « {valeur}» → message « …{mot}… », la cornière intacte",
+        out["ok"] and out["message"] and mot in out["message"] and out["etat"] == r0["etat"], out.get("message") or out.get("erreur"))
+out = req(action="modifier", etat=copy.deepcopy(r0["etat"]), chemin=["X", "0"], valeur="80")
+chk("un chemin à deux clés est inconnu (les champs sont à plat)", out["ok"] and "inconnu" in out["message"] and out["etat"] == r0["etat"], out.get("message"))
+e_t = saisir(e_sl, "t", "130")
+chk("saisie libre : t ≥ aile refusée (ce n'est pas une cornière)", "pas une cornière" in (e_t["message"] or ""), e_t.get("message"))
+e_rl = saisir(r0["etat"], "R_ELU", "68,9")
+chk("R_ELU saisie : plus « auto », l'avertissement R_ELU_auto disparaît, le rapport ELU change",
+    e_rl["etat"]["cornieres"][0]["R_ELU"] == 68.9 and "R_ELU automatique" not in e_rl["resultat"] and "(saisie)" in e_rl["resultat"], None)
+e_nom = saisir(r0["etat"], "nom", '<img src=x onerror=alert(1)> & "x"')
+chk("un nom piégé est échappé dans tous les fragments",
+    all("<img" not in h for h in (e_nom["resultat"], e_nom["donnees"], e_nom["volets"], "".join(v["svg"] + v.get("entete", "") for v in e_nom["vues"])))
+    and "&lt;img" in e_nom["donnees"] and "&lt;img" in e_nom["resultat"], None)
 
-    def toggle(self, label, value=False, **_):
-        return self.sa.get(label, value)
+# ====================================================================== 5. le sélecteur
+s = req(action="selecteur", etat=r0["etat"], role="corniere")
+cands = MO.candidats(r0["etat"]["cornieres"][0])
+rows = re.findall(r'<button class="pk-row((?: cur)?(?: opt)?)"( aria-disabled="true")? data-choix="([^"]+)" data-prop="([^"]*)">.*?<span class="kg">([^<]+)</span>(<span class="chip (\w)"[^>]*>[^<]+</span>)?</button>', s["html"], re.S)
+rows = [(r_[0], r_[2], r_[3], r_[4], r_[5], r_[6], bool(r_[1])) for r_ in rows]   # (classes, nom, prop, masse, pastille, niveau, inactive)
+chk("les lignes inactives (aria-disabled, que le parcours ne choisit pas) sont exactement les cornières hors domaine",
+    [r_[6] for r_ in rows] == [not x["domaine"] for x in cands], sum(r_[6] for r_ in rows))
+chk("le sélecteur : 233 cornières, dans l'ordre du moteur (par masse), la désignation du bureau en nom",
+    s["ok"] and len(rows) == len(cands) == 233 and [r_[1] for r_ in rows] == [x["designation"] for x in cands], len(rows))
+chk("✓ la retenue (L 120×120×15), ★ l'optimale du moteur, une seule chacune",
+    [r_[1] for r_ in rows if "cur" in r_[0]] == ["L 120×120×15"] and [r_[1] for r_ in rows if "opt" in r_[0]] == [MO.optimal(r0["etat"]["cornieres"][0])["designation"]], None)
+hors = [r_ for r_, x in zip(rows, cands) if not x["domaine"]]
+chk(f"les cornières hors domaine ({len(hors)}) portent une pastille grise « exclue » à la place du taux, leur raison au survol",
+    hors and all(r_[4] == '<span class="chip c">exclue</span>' and "hors domaine" in html.unescape(r_[2]) and x["raison"][:20] in html.unescape(html.unescape(r_[2]))
+                 for r_, x in zip(rows, cands) if not x["domaine"]), [r_[4] for r_ in hors[:2]])
+chk("une cornière qui ne tient pas est rouge (« ne tient pas »), une qui tient porte la couleur de son taux",
+    all((r_[5] == "r" and "ne tient pas" in r_[2]) if (x["domaine"] and not x["ok"]) else True for r_, x in zip(rows, cands))
+    and all(r_[5] == C.niveau(x["taux"]) for r_, x in zip(rows, cands) if x["domaine"] and x["ok"]), None)
+s_li = req(action="selecteur", etat=r0["etat"], role="corniere", familles=["LI"])
+chk("le filtre « Ailes inégales » ne garde que la famille LI",
+    s_li["ok"] and s_li["html"].count("pk-row") == len(MO.cornieres(["LI"])) and 'class="fchip on" data-famille="LI"' in s_li["html"], None)
+ch = req(action="choisir", etat=r0["etat"], role="corniere", nom="L 150×150×15")
+chk("choisir « L 150×150×15 » la retient (catalogue) et recalcule", ch["ok"] and ch["etat"]["cornieres"][0]["profil"] == "L 150x150x15"
+    and ch["etat"]["cornieres"][0]["standard"] and "L 150×150×15" in ch["resultat"], ch.get("erreur"))
+ch2 = req(action="choisir", etat=r0["etat"], role="corniere", nom="L 1×1×1")
+chk("choisir une cornière inconnue est une erreur lisible", not ch2["ok"] and "absente du catalogue" in ch2["erreur"], ch2)
 
-    def selectbox(self, label, options, index=0, **_):
-        return self.sa.get(label, list(options)[index])
+# ====================================================================== 6. le contrat de sélection : data-sel ↔ data-cible
+for nom_cas in ("A historique (défauts)", "A équilibre", "B (toujours l'équilibre)", "largeur d'appui a = 100"):
+    rep = resultat_module(K, ETATS[nom_cas])
+    sels = set(re.findall(r'data-sel="([^"]+)"', "".join(v["svg"] for v in rep["vues"])))
+    cibles = set(re.findall(r'data-cible="([^"]+)"', rep["donnees"]))
+    chk(f"contrat de sélection ({nom_cas}) : chaque pièce du dessin a sa ligne dans les données sous la même clé ({len(sels)} pièces)",
+        sels and sels <= cibles and sels <= set(SC.CLES_SEL), sorted(sels - cibles))
+    dans_rubrique = all(re.search(r'<div class="sec[^"]*" data-sec="\w+"', rep["donnees"][:rep["donnees"].index(f'data-cible="{k}"')]) for k in cibles)
+    chk(f"contrat de sélection ({nom_cas}) : chaque cible est dans une rubrique du cadre Données", dans_rubrique)
+rep_h = resultat_module(K, ETATS["A historique (défauts)"])
+rep_e = resultat_module(K, ETATS["A équilibre"])
+chk("le mode choisit ses pièces : jeu_ancrage sur la coupe en historique, y_c et u_V en équilibre",
+    'data-sel="jeu_ancrage"' in rep_h["vues"][0]["svg"] and 'data-sel="yc"' not in rep_h["vues"][0]["svg"]
+    and 'data-sel="yc"' in rep_e["vues"][0]["svg"] and 'data-sel="uV"' in rep_e["vues"][0]["svg"], None)
 
-    def radio(self, label, options, index=0, **_):
-        return self.sa.get(label, list(options)[index])
 
-    def number_input(self, label, min_value=None, max_value=None, value=None, step=None, **_):
-        return self.sa.get(label, value)
+# ====================================================================== 7. les fenêtres de calcul : chaque ligne réévaluée
+def evaluer(vals):
+    """« 42,76 × (75 − 13 − 15) / 1000 » → le nombre, par un petit interpréteur (√, |x|, min(a ; b), ², ³, 10⁶)."""
+    s = html.unescape(re.sub(r"<[^>]+>", "", vals))
+    s = s.replace(C.NBSP, "").replace(C.FINE, "").replace(" ", "").replace("−", "-").replace(",", ".")
+    s = s.replace("×", "*").replace("·", "*").replace("√(", "sqrt(").replace("10⁶", "1e6").replace("10³", "1e3").replace(";", ",")
+    s = re.sub(r"√(\d+(?:\.\d+)?)", r"sqrt(\1)", s)
+    s = s.replace("²", "**2").replace("³", "**3")
+    s = re.sub(r"\|([^|]+)\|", r"abs(\1)", s)
+    return eval(s, {"__builtins__": {}}, {"sqrt": math.sqrt, "min": min, "abs": abs})  # noqa: S307 — des nombres et des opérateurs
 
 
-def ecran_affiche(c, cle_ecran=None):
-    """Ce que l'écran Streamlit AFFICHE pour la cornière c : (bandeaux en %, ✅/❌, σ_eq,ELS, τ_ELS, σ_eq,ELU, σ_eq,long)."""
-    sa = {"Utiliser une cornière **standard**": c["standard"], "Type de charge": {"lineaire": "Linéaire (kN/m)", "ponctuelle": "Ponctuelle (kN)"}[c["charge"]],
-          ("Effort tranchant V (kN/m)" if c["charge"] == "lineaire" else "Effort tranchant V (kN)"): c["V"],
-          "Excentricité e (cm) – distance charge/cornière": c["e"], "Coefficient global (ELU)": c["gamma_ELU"],
-          "Espacement des fixations s (cm)": c["s"], "Distance de l’âme au bord du mur (cm)": c["bord"], "σ_lim, ELS (N/mm²)": c["sig_lim_ELS"],
-          "τ_lim, ELS (N/mm²)": c["tau_lim_ELS"], "σ_eq lim, ELU (N/mm²)": c["sig_lim_ELU"], "Longueur d’influence L pour charge ponctuelle (m)": c["L"],
-          "Largeur aile A (mm)": c["A"], "Largeur aile B (mm)": c["B"], "Épaisseur t (mm)": c["t"]}
-    if c["standard"]:
-        sa["Section"] = cle_ecran
-    f = _St(sa)
-    vrai, vrai_nav = MC.st, NAV.st
-    MC.st, NAV.st = f, f
+def lire_resultat(res_txt):
+    t = html.unescape(re.sub(r"<[^>]+>", "", res_txt))
+    x = lire_fr(t)
+    nd = len(t.replace(C.NBSP, " ").split(" ")[0].partition(",")[2])
+    return (x / 100.0 if "%" in t else x), nd, "%" in t
+
+
+def controle_formules(mod, etat, nom_cas):
+    rep = resultat_module(mod, etat)
+    fautes, n = [], 0
+    for ligne in FX.findall(rep["volets"]):
+        spans = SPAN.findall(ligne)
+        parts = [t for cls, t in spans if cls not in ("r",) and not cls.startswith("chip")]
+        res_txt = next((t for cls, t in spans if cls == "r" or cls.startswith("chip")), None)
+        if len(parts) != 3 or res_txt is None:
+            fautes.append(f"ligne sans expression ni valeurs : {texte(ligne)[:60]}")
+            continue
+        n += 1
+        try:
+            val = evaluer(parts[2])
+        except Exception as e:  # noqa: BLE001 — une expression illisible est une faute
+            fautes.append(f"{texte(parts[0])} : illisible ({e}) : {texte(parts[2])}")
+            continue
+        attendu, nd, pct = lire_resultat(res_txt)
+        tol = (0.5 * 10 ** -nd) / (100.0 if pct else 1.0) + 3e-3 * abs(attendu)
+        if abs(val - attendu) > tol:
+            fautes.append(f"{texte(parts[0])} = {texte(parts[2])} → {val} ≠ {attendu}")
+    return fautes, n
+
+
+total = 0
+for nom_cas, etat in ETATS.items():
+    fautes, n = controle_formules(K, etat, nom_cas)
+    total += n
+    chk(f"fenêtres : chaque ligne « expression = valeurs = résultat » réévaluée ({n}) — {nom_cas}", not fautes and n >= 60, fautes[:3])
+print(f"     ({total} lignes de formules réévaluées)")
+vol = rep_h["volets"]
+chk("cinq fenêtres (sections, ancrages, comparaison, géométrie, efforts) ; les cellules du classeur entre parenthèses en historique (C19, C35, C57, I37, C82…)",
+    all(f'id="ck-{k}"' in vol for k in ("s0", "s1", "s2", "geometrie", "efforts")) and all(f"({c})" in vol for c in ("C19", "C35", "C57", "I37", "C82", "H31")), None)
+chk("en équilibre et en B, aucune cellule du classeur", "(C57)" not in rep_e["volets"] and "(C57)" not in rB["volets"] and "(I37)" not in rB["volets"], None)
+chk("la fenêtre des sections dit la combinaison de chaque coupe ; celle de la géométrie liste les 9 combinaisons",
+    vol.count('class="ck-comb"') >= 6 and "charge à X + 20, ancrage à Y + 10" in vol and vol.count("<li>charge à X") == 9, vol.count("<li>charge à X"))
+
+# ====================================================================== 8. la note v1 (modèle lame)
+v1 = req(action="calculer", etat=K.NOTE_V1)
+c1 = v1["etat"]["cornieres"][0]
+chk("une note v1 se rouvre : le nom et la cornière gardés, la charge et l'ancrage aux défauts posés dans ses ailes, v1 vrai, version 2",
+    v1["ok"] and c1["nom"] == "Cornière de rive" and c1["profil"] == "L 100x100x10" and c1["standard"] and c1["v1"] is True and v1["etat"]["version"] == 2
+    and c1["X"] == 62.5 and c1["Y"] == 71.0 and "V" not in c1, (v1.get("erreur") or c1))
+chk("l'avis d'ouverture est dit une fois : en tête du résultat et dans « avis » (le téléphone), le texte des décisions § 6 ; l'avertissement du moteur n'est pas redit",
+    v1.get("avis") == [K.AVIS["v1"]] and K.AVIS["v1"] in v1["resultat"] and v1["resultat"].count("modèle lame") == 1
+    and EN.AVIS_V1[0].upper() in K.AVIS["v1"], (v1.get("avis"), v1["resultat"].count("modèle lame")))
+chk("l'état rendu ne porte pas l'avis (il ne se redit pas à la relecture) mais l'avertissement du moteur reste",
+    "avis_ouverture" not in v1["etat"] and "avis" not in req(action="calculer", etat=v1["etat"]) and "modèle lame" in req(action="calculer", etat=v1["etat"])["resultat"], None)
+re_ = saisir(v1["etat"], "R", "20")
+chk("ressaisir la charge fait retomber v1 : plus d'avertissement « note d'avant »", re_["etat"]["cornieres"][0]["v1"] is False and "modèle lame" not in re_["resultat"], None)
+re2 = saisir(v1["etat"], "nom", "Rive 2")
+chk("renommer ne vaut pas ressaisir : v1 reste", re2["etat"]["cornieres"][0]["v1"] is True and "modèle lame" in re2["resultat"], None)
+v1b = copy.deepcopy(K.NOTE_V1)
+v1b["cornieres"][0].update(standard=False, A=90.0, B=60.0, t=7.0)
+v1s = req(action="calculer", etat=v1b)
+chk("une saisie libre v1 (A, B, t ; le congé inconnu vaut 0) se rouvre aussi", v1s["ok"] and v1s["etat"]["cornieres"][0]["r"] == 0.0 and not v1s["etat"]["cornieres"][0]["standard"], v1s.get("erreur"))
+
+# ====================================================================== 9. les éléments de la note, le résumé
+e2 = req(action="ajouter", etat=copy.deepcopy(r0["etat"]))
+chk("ajouter : « C2 » ouverte, deux entrées dans la liste de la ligne de l'élément",
+    e2["etat"]["actif"] == 1 and e2["etat"]["cornieres"][1]["nom"] == "C2" and e2["donnees"].count('data-activer="') == 2
+    and 'data-elements="2"' in e2["donnees"], None)
+e3 = req(action="dupliquer", etat=copy.deepcopy(e2["etat"]), index=0)
+chk("copier la première l'insère juste après elle, « (copie) », et l'ouvre",
+    [c["nom"] for c in e3["etat"]["cornieres"]] == ["C1", "C1 (copie)", "C2"] and e3["etat"]["actif"] == 1, None)
+e4 = saisir(e3["etat"], "R", "60")
+chk("le résumé de la note est sa cornière la plus chargée (la copie à 60 kN, non conforme)",
+    e4["resume"]["niveau"] == "r" and e4["resume"]["gouvernant"].startswith("C1 (copie)") and e4["statut_html"] and "Non conforme" in e4["statut_html"], e4["resume"])
+e5 = req(action="supprimer", etat=copy.deepcopy(e4["etat"]), index=1)
+chk("supprimer la copie (ouverte) : deux cornières restent, la suivante s'ouvre, le résumé redevient conforme",
+    [c["nom"] for c in e5["etat"]["cornieres"]] == ["C1", "C2"] and e5["etat"]["actif"] == 1 and e5["resume"]["niveau"] != "r", e5["etat"])
+e6 = req(action="supprimer", etat=copy.deepcopy(r0["etat"]), index=0)
+chk("la dernière cornière ne se supprime pas", len(e6["etat"]["cornieres"]) == 1)
+e7 = req(action="activer", etat=copy.deepcopy(e5["etat"]), index=7)
+chk("activer un indice hors de la liste ouvre la dernière", e7["etat"]["actif"] == 1)
+chk("la liste des éléments dit « nom · désignation · configuration »", "· L 120×120×15 · A" in e2["donnees"], None)
+
+# ====================================================================== 10. les vues
+vues = r0["vues"]
+chk("quatre vues (coupe, moments, contraintes, élévation), chacune un SVG avec son en-tête technique (bande R, Mmax, H) et la légende de schemas",
+    [v["cle"] for v in vues] == ["coupe", "moments", "contraintes", "elevation"] and all(v["svg"].lstrip().startswith("<svg") for v in vues)
+    and all('class="et-eff"' in v["entete"] and "<i>M</i><sub>max</sub>" in v["entete"] for v in vues)
+    and all(C.esc(SC.legende(REF0, v["cle"])) in v["entete"] for v in vues) and [v["echelle"] for v in vues] == [True, False, False, True], None)
+from api_web import dessin_corniere as DC  # noqa: E402
+tailles = [DC.taille_texte(v["svg"]) for v in vues]
+chk("le texte des dessins se lit à l'écran (≈ 13 px dans la toile de l'établi, entre 9 et 16)", all(9 <= t <= 16 for t in tailles), tailles)
+
+# ====================================================================== 11. la note PDF, le contrat commun
+pdf = req(action="telecharger", etat=copy.deepcopy(r0["etat"]), quoi="note_pdf", infos={"nom": "Essai", "chantier": "Réalex", "indice": "B"})
+if importlib.util.find_spec("api_web.note_corniere") is None:
+    chk("sans api_web/note_corniere.py (le lot « note »), la note PDF est refusée avec un message clair, jamais une exception",
+        pdf.get("ok") is False and "note_corniere" in pdf.get("erreur", "") and "Traceback" not in pdf.get("erreur", ""), pdf)
+else:
+    import base64
+    chk("api_web/note_corniere.py présent : la note PDF se fait (un PDF)", pdf.get("ok") and base64.b64decode(pdf["fichier"]["base64"])[:5] == b"%PDF-", pdf.get("erreur"))
+chk("un téléchargement inconnu est refusé", req(action="telecharger", etat=copy.deepcopy(r0["etat"]), quoi="csv").get("ok") is False)
+abime = req(action="calculer", etat={"version": 2, "cornieres": "abîmé"})
+chk("une note abîmée (« cornieres » n'est pas une liste) rend une erreur lisible", abime["ok"] is False and "liste" in abime["erreur"], abime.get("erreur"))
+abime2 = req(action="calculer", etat={"version": 2, "cornieres": [{"X": "soixante"}]})
+chk("une cornière illisible est nommée dans l'erreur", abime2["ok"] is False and "cornière" in abime2["erreur"] and "nombre" in abime2["erreur"], abime2.get("erreur"))
+vide = req(action="calculer", etat={"version": 2, "cornieres": []})
+chk("une note sans cornière est une note neuve", vide["ok"] and vide["etat"] == r0["etat"])
+
+
+# ====================================================================== 12. les mutations : chacune vue rouge
+def mutant(ancien, nouveau):
+    src = open(K.__file__, encoding="utf-8").read()
+    assert src.count(ancien) == 1, (ancien, src.count(ancien))
+    m = types.ModuleType("api_web.corniere_mutant")
+    m.__package__ = "api_web"
+    m.__file__ = K.__file__
+    exec(compile(src.replace(ancien, nouveau, 1), K.__file__, "exec"), m.__dict__)  # noqa: S102 — le module lui-même, muté
+    return m
+
+
+def rouge(fn):
     try:
-        MC.show()
-    finally:
-        MC.st, NAV.st = vrai, vrai_nav
-    md = "\n".join(e[1] for e in f.ev if e[0] == "markdown")
-    succ = [e[1] for e in f.ev if e[0] == "success"]
-    info = [e[1] for e in f.ev if e[0] == "info"]
-    m1 = re.search(r"ELS : σ_eq/lim = (\d+)% ; τ/lim = (\d+)%  (\S+)", succ[0])
-    m2 = re.search(r"ELU : σ_eq/lim = (\d+)%  (\S+)", succ[1])
-    m3 = re.search(r"σ_eq/lim = (\d+)% (\S+)", info[-1])
-    eq = re.search(r"σ_eq\(ELS\)=\*\*([\d.]+)\*\* ; σ_eq\(ELU\)=\*\*([\d.]+)", md)
-    tau = re.search(r"τ\(ELS\)=\*\*([\d.]+)\*\*", md)
-    eql = re.search(r"σ_eq_long\(ELU\)=\*\*([\d.]+)", md)
-    return ([int(m1.group(1)), int(m1.group(2)), int(m2.group(1)), int(m3.group(1))],
-            [m1.group(3) == "✅", m2.group(2) == "✅", m3.group(2) == "✅"],
-            [float(eq.group(1)), float(tau.group(1)), float(eq.group(2)), float(eql.group(1))])
+        return bool(fn())
+    except Exception as e:  # noqa: BLE001 — un mutant qui plante est vu rouge aussi
+        return True
 
 
-if MC is not None:
-    BOUT = [("défauts de l'écran", MO.nouvelle_corniere(), "100x100x10"),
-            ("ponctuelle 8 kN sur 0,6 m", dict(MO.nouvelle_corniere(), profil="L 80x80x8", charge="ponctuelle", V=8.0, L=0.6), "80x80x8"),
-            ("saisie libre 150 × 90 × 7,5, non conforme", dict(MO.nouvelle_corniere(), standard=False, A=150.0, B=90.0, t=7.5, V=40.0, e=6.5), None),
-            ("ELU dans la bande 95–100 %", dict(MO.nouvelle_corniere(), V=30.0, e=6.0, tau_lim_ELS=5.0, sig_lim_ELU=150.0), "100x100x10"),
-            ("τ à 100,4 % (l'écran écrit « 100% ❌ »)", dict(MO.nouvelle_corniere(), V=8.032, e=1.0), "100x100x10"),
-            ("pile à la limite τ = τ_lim", dict(MO.nouvelle_corniere(), V=8.0, e=1.0), "100x100x10"),
-            ("critères S355, non ronds", dict(MO.nouvelle_corniere(), profil="L 90x90x9", V=35.15, e=6.35, gamma_ELU=1.43, s=27.5,
-                                               sig_lim_ELS=355.0, tau_lim_ELS=205.0, sig_lim_ELU=355.0), "90x90x9")]
-    fautes = []
-    for nom, c, cle in BOUT:
-        c = MO.normaliser(c)
-        pct_e, ok_e, val_e = ecran_affiche(c, cle)
-        rr = req(action="calculer", etat={"version": 1, "cornieres": [c], "actif": 0})
-        lignes = LIGNE.findall(rr["resultat"])[1:]
-        pct_s = [int(re.match(r"(\d+)", x[4]).group(1)) for x in lignes]
-        niv_s = [x[3] for x in lignes]
-        val_s = [lire_fr(re.search(r"· ([\d\s , ]+) N/mm²", x[2]).group(1)) for x in lignes]
-        ok_s = [niv_s[0] != "r" and niv_s[1] != "r", niv_s[2] != "r", niv_s[3] != "r"]
-        if any(abs(a - b) > 1 for a, b in zip(pct_s, pct_e)) or ok_s != ok_e:
-            fautes.append(f"{nom} : % site {pct_s} / écran {pct_e} ; verdicts site {ok_s} / écran {ok_e}")
-        tol = (0.05 + 0.005, 0.005 + 0.005, 0.05 + 0.005, 0.05 + 0.005)       # demi-unité affichée de chaque côté
-        if any(abs(a - b) > t + 1e-9 for a, b, t in zip(val_s, val_e, tol)):
-            fautes.append(f"{nom} : contraintes site {val_s} / écran {val_e}")
-    chk(f"bout à bout, {len(BOUT)} cas : les taux et contraintes AFFICHÉS par le site = ceux de l'écran Streamlit rejoué (à l'arrondi "
-        "d'affichage près : ±1 point, ½ unité du dernier chiffre), et rouge ⇔ ❌", not fautes, fautes)
+E_DEF, E_B, E_GD = ETATS["A historique (défauts)"], ETATS["B (toujours l'équilibre)"], ETATS["garde rouge (Y = 40, sans jeu, Ø10)"]
+MUTATIONS = [
+    ("le drapeau v1 ne retombe plus quand la charge est ressaisie",
+     'if k in RESSAISIE and c.get("v1"):', 'if False and c.get("v1"):',
+     lambda m: (lambda e: (m.modifier(e, ["R"], "20") or True) and e["cornieres"][0]["v1"] is True)(m.normaliser(copy.deepcopy(K.NOTE_V1)))),
+    ("σ_éq écrit 3·τ au lieu de 3·τ² dans les valeurs substituées (la réévaluation le voit)",
+     "√({v('σ')}² + 3 × {v('τ')}²)", "√({v('σ')}² + 3 × {v('τ')})", lambda m: controle_formules(m, E_DEF, "")[0]),
+    ("la couleur d'une vérification ne suit plus le moteur",
+     "rows += C.ligne_verif(nom, _comparaison_coupe(v), C.pct(v[\"taux\"]), _niv(v), calcul=\"s0\", piece=piece, gov=v[\"cle\"] == gov)",
+     "rows += C.ligne_verif(nom, _comparaison_coupe(v), C.pct(v[\"taux\"]), \"p\", calcul=\"s0\", piece=piece, gov=v[\"cle\"] == gov)",
+     lambda m: controle_resultat(m, ETATS["forte charge (R = 80 kN) : non conforme"], "")),
+    ("les lignes ne disent plus la combinaison qui les gouverne",
+     'return C.esc(cb["libelle"]) if cb else ""', 'return ""', lambda m: controle_resultat(m, E_DEF, "")),
+    ("l'avis d'ouverture d'une note v1 n'est plus posé",
+     'out[CLE_AVIS] = "v1"', "pass", lambda m: not m.resultat(m.normaliser(copy.deepcopy(K.NOTE_V1))).get("avis")),
+    ("l'avis n'est plus retiré de l'état (il se redirait à chaque ouverture)",
+     'etat.pop(CLE_AVIS, None)', 'etat.get(CLE_AVIS, None)',
+     lambda m: (lambda e: (m.resultat(e) or True) and CLE in e)(m.normaliser(copy.deepcopy(K.NOTE_V1)))),
+    ("une cornière hors domaine du sélecteur n'est plus grise",
+     'return "c" if not x["domaine"] else', 'return "p" if not x["domaine"] else',
+     lambda m: m.selecteur(m.normaliser(copy.deepcopy(r0["etat"])), "corniere").count('<span class="chip c">exclue</span>') != len(hors)),
+    ("l'avertissement grave n'est plus en tête",
+     'key=lambda a: (a["niveau"] not in GRAVES, a["niveau"] != MO.ATTENTION)', 'key=lambda a: (a["niveau"] in GRAVES,)',
+     lambda m: controle_resultat(m, E_GD, "")),
+    ("la pièce « dx » du dessin n'a plus sa ligne dans les données",
+     '("dx", "± dx jeu"', '(None, "± dx jeu"',
+     lambda m: (lambda rep: not (set(re.findall(r'data-sel="([^"]+)"', "".join(v["svg"] for v in rep["vues"]))) <= set(re.findall(r'data-cible="([^"]+)"', rep["donnees"]))))(m.resultat(m.normaliser(copy.deepcopy(E_DEF))))),
+    ("les blocs ne sont plus thématiques (le JS n'en montrerait qu'un)",
+     'return E.bloc(1, "Ancrages", "inc", "efforts par ancrage · chevilles non vérifiées", efforts, rows, theme=True)',
+     'return E.bloc(1, "Ancrages", "inc", "efforts par ancrage · chevilles non vérifiées", efforts, rows)',
+     lambda m: controle_resultat(m, E_DEF, "")),
+    ("la fenêtre « efforts » n'est plus annoncée par la ligne Efforts",
+     'None, "c", calcul="efforts", piece=f"R = {C.nb(res[\'corniere\'][\'R\'])}{C.NBSP}kN"', 'None, "c", calcul="s0", piece=f"R = {C.nb(res[\'corniere\'][\'R\'])}{C.NBSP}kN"',
+     lambda m: controle_resultat(m, E_DEF, "")),
+]
+CLE = K.CLE_AVIS
+for titre, ancien, nouveau, controle in MUTATIONS:
+    try:
+        m = mutant(ancien, nouveau)
+        vu = rouge(lambda: controle(m))
+    except AssertionError as e:
+        vu, m = False, None
+        print("     (mutation introuvable :", e, ")")
+    chk(f"mutation vue rouge : {titre}", vu)
+chk("témoin : le module tel quel passe les mêmes contrôles", not controle_resultat(K, E_DEF, "") and not controle_formules(K, E_DEF, "")[0])
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

@@ -85,6 +85,14 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
       const t = b.querySelector(".et-bloc-t");
       if (t) t.setAttribute("aria-expanded", replies.has(i) ? "false" : "true");
     });
+    // un bloc THÉMATIQUE (data-theme : les cornières — Sections, Ancrages, Comparaison ; etabli_compact.bloc(theme=True))
+    // n'est pas celui d'une section : toujours visible, il se replie comme les autres
+    resultat.querySelectorAll(".et-bloc[data-theme]").forEach((b) => {
+      const i = +b.dataset.theme;
+      b.classList.toggle("replie", replies.has(i));
+      const t = b.querySelector(".et-bloc-t");
+      if (t) t.setAttribute("aria-expanded", replies.has(i) ? "false" : "true");
+    });
     resultat.querySelectorAll(".et-dispo[data-dispo]").forEach((d) => {
       const on = listes.has(+d.dataset.dispo);
       d.classList.toggle("ouvert", on);

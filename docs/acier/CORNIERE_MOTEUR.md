@@ -4,10 +4,9 @@
 `acier/profiles` (numpy, présent dans le navigateur) et les nuances d'`acier/flambement/normes.py` ; Python 3.12 et
 3.13 (Pyodide). Référence : le **classeur de l'ingénieur**, feuille `P8`, analysé dans
 `docs/acier/corniere_excel/ANALYSE_CORNIERE_EXCEL.md` (07/11) ; les choix sont ceux de `CORNIERE_DECISIONS.md` (10/11),
-qui font foi. Preuve : `tests/test_corniere_moteur.py` (106 contrôles, 15 s). Ce document dit ce qui est LIVRÉ par le
-lot « moteur » ; l'écran du site (`api_web/corniere.py`), les vues (`acier/corniere/schemas.py`) et la note PDF
-(`acier/corniere/note.py`) sont les lots suivants : au moment de ce lot, `api_web/corniere.py` est encore l'ancien et
-ne se charge plus (il lit `MO.LINEAIRE`) — c'est attendu.*
+qui font foi. Preuve : `tests/test_corniere_moteur.py` (106 contrôles, 15 s). Ce document dit ce qui est LIVRÉ : le
+moteur (lot « moteur »), les vues (`acier/corniere/schemas.py`, lot « schémas », § 10), le module du site
+(`api_web/corniere.py`, lot « écran », § 11) ; la note PDF (`api_web/note_corniere.py`) est le lot « note ».*
 
 ## 1 · Ce qui est livré
 
@@ -282,3 +281,85 @@ légendes (`schemas.legende(res, cle)`) sont la source unique du texte sous chaq
 **Dessin impossible.** `elevation` lève `ValueError` quand la hauteur de la cornière vaut moins de 1,6 ligne de texte
 (une tranche de plusieurs mètres face à une petite aile) ; `dessin_corniere.vues` rend alors le cadre
 `schemas.secours` « Dessin impossible à cette échelle » pour cette vue seule.
+
+## 11 · Le module du site (lot « écran », 11/11/2026) — `api_web/corniere.py`
+
+Le module est RÉÉCRIT sur l'établi compact, le modèle de la poutre (`api_web/poutre.py`, `api_web/etabli_compact.py` ;
+`construire.ETABLI_COMPACT` et `ARBRE_COMPACT` le portent, décisions § 4). Il ne calcule rien : toute saisie passe par
+`moteur.normaliser` (hors domaine, elle est refusée avec le message du moteur et la cornière reste intacte), tout ce qui
+s'affiche vient de `moteur.verifier`.
+
+**L'état** : `{"version": 2, "cornieres": [...], "actif": 0}` ; `nouvel_etat()` donne une cornière « C1 » aux défauts du § 2
+(les noms neufs sont courts, « C1 », « C2 »…, comme « V1 » de la poutre : « Cornière 1 » ne tenait pas entier dans la ligne de
+l'élément à la tablette portrait) ;
+`normaliser` relit une note (une liste abîmée est refusée, une note vide est une note neuve) ; `gerer_elements` (ouvrir,
+ajouter, copier — la copie s'insère après —, supprimer, jamais la dernière) ; `choisir_section` (le sélecteur) ;
+`telecharger(etat, "note_pdf", infos)` appelle `api_web/note_corniere.fichier` par un import paresseux — tant que ce
+fichier (lot « note ») n'est pas là, la demande est refusée avec un message clair, jamais une exception.
+
+**La colonne de gauche** : la ligne de la cornière ouverte (nom, liste « nom · désignation · configuration », copier,
+supprimer) puis quatre rubriques — **1 Cornière** (catalogue ou saisie libre : passer en saisie libre part des
+dimensions de la cornière affichée ; la désignation tapée est relue au catalogue, « 100 x 150 x 12 » comme
+« L 150×100×12 » ; la fiche du catalogue : congés r₁/r₂, masse, aire ; l'aile horizontale en segments avec les
+longueurs réelles « A = 150 mm · B = 100 mm » ; la configuration A/B en segments avec deux pictogrammes ; la nuance en
+menu, le coefficient), **2 Charge** (R, L, X ± dx, a « auto · L », R_ELU « auto · 1,5·R »), **3 Ancrage** (Y ± dy, n,
+Ø d), **4 Hypothèses** (secondaire : le mode — verrouillé en B avec la raison écrite —, le jeu C76, y_c, u_V « auto ·
+e/2 »). Données condensées à deux champs par ligne ; chaque champ est une PIÈCE (`data-cible`, la clé de sa pièce sur
+le dessin) ; les ⓘ disent le sens des jeux (trois positions, l'enveloppe), de Y (depuis la face extérieure de l'aile
+horizontale), de R_ELU (à remplacer par 1,35·G + 1,5·Q).
+
+**Le centre** : les quatre vues du § 10 (`dessin_corniere.vues`), chacune sous son en-tête technique (configuration et
+mode ; R, L, X ± dx, Y ± dy, n Ø d ; la bande R, M_max, H ; la légende de `schemas.legende`). Le CONTRAT DE
+SÉLECTION : chaque `data-sel` des dessins (X, dx, Y, dy, R, L, a, n, d, profil ; jeu_ancrage en historique, yc et uV en
+équilibre) a sa ligne dans les données sous la même clé — un appui sur une pièce ouvre sa rubrique et éclaire sa ligne
+(js/compact.js), un clic dans un champ éclaire la pièce.
+
+**La colonne de droite** : le VERDICT (η, section gouvernante et son aile, σ_éq face à σ_adm, la combinaison de jeux
+qui gouverne, configuration et mode) ; trois blocs THÉMATIQUES (`etabli_compact.bloc(theme=True)`, toujours visibles,
+repliables) — **Sections** (la ligne « Cornière », qui ouvre le sélecteur ; les efforts M_max et H avec leur
+combinaison ; L_eff si a est donnée ; puis S1 à S4, les maxima du congé, la section nette en B : deux lignes chacune,
+colorées par `commun.niveau`, rouges dès que ça ne tient pas, chaque ligne avec la combinaison qui la gouverne ; en
+historique, les maxima du congé sont « hors verdict », leur taux dans la phrase), **Ancrages** (N et V par ancrage, ELS
+et ELU, la combinaison de la traction, les positions z, le bras ; pression diamétrale, arrachement, compression du mur
+en A ou pression sur le support en B : lignes d'information grises, « hors verdict », comme le pied de poteau),
+**Comparaison des modes** (A seulement : le taux maximal de l'autre mode en information ; en historique la garde P1,
+rouge quand elle dépasse) ; les avertissements du moteur, titrés, le grave en tête ; les hypothèses du moteur ; la masse.
+Cinq FENÊTRES DE CALCUL (`s0` sections, `s1` ancrages, `s2` comparaison, `geometrie`, `efforts`) : chaque ligne
+« symbole = expression = valeurs = résultat » s'écrit à partir des seuls termes de la formule du moteur (`_fx`, la table
+des clés de la docstring du moteur), le résultat est le sien ; en historique la cellule du classeur suit le symbole
+(« M3 (C57) », « taux (I37) »). Le test réévalue CHAQUE ligne affichée (1 768 lignes sur seize états) : les valeurs
+écrites, recalculées, retombent sur le résultat affiché à sa précision.
+
+**Le sélecteur** (ligne « Cornière ») : `moteur.candidats` — les 233 cornières par masse, chacune calculée avec les
+charges de la cornière ouverte ; ✓ la retenue, ★ la plus légère qui tient ET dont la charge et l'ancrage sont dans les
+ailes ; une cornière hors domaine porte une pastille grise « exclue » à la place du taux, sa raison au survol, et
+sa ligne est inactive (`aria-disabled` : le parcours ne la choisit pas ; cliquée, le refus du moteur se lit) ; une qui
+ne tient pas est rouge. Mesuré : 0,6 à 0,8 s en CPython (233 calculs sans diagrammes).
+
+**La note v1** (§ 9) : `entree.est_v1` la reconnaît, le moteur la relit (nom et cornière gardés, défauts dans ses
+ailes), l'écran pose l'AVIS d'ouverture (`CLE_AVIS`, le mécanisme des anciennes dalles : dit une fois, en tête du
+résultat et dans « avis » pour le téléphone, puis retiré de l'état) ; l'avertissement `note_v1` du moteur n'est pas redit
+à cet instant, il reste ensuite tant que la charge ou l'ancrage ne sont pas ressaisis (R, L, X, dx, a, R_ELU, Y, dy, n,
+d : la clé `v1` retombe) — renommer ne vaut pas ressaisir.
+
+**Chiffres à l'écran** (la cornière neuve) : η = 95,8 % en section 3 (« 96 % », vert foncé), « charge à X + 20,
+ancrage à Y + 10 » ; équilibre 89,2 % (maximum du congé de l'aile horizontale) ; B 144,3 % en section nette, non
+conforme, H = 82,5 → le bloc Ancrages dit la pression sur le support ; le cas de contrôle du classeur (R = 42,76, sans
+jeu, R_ELU = 68,9) rend 88,86 % (« 88,9 % »), une seule combinaison, N_ELS = 14,25 kN.
+
+**Preuves** : `tests/test_api_web_corniere.py` (133 contrôles : seize états face au moteur, 23 refus, le sélecteur, la
+note v1, le contrat de sélection, les 1 768 lignes de formules réévaluées, les éléments, les vues, la note PDF refusée
+tant que le lot « note » n'est pas là, onze MUTATIONS vues rouges — le drapeau v1 qui ne retombe plus, 3·τ au lieu de
+3·τ², une couleur figée, la combinaison tue, l'avis non posé ou non retiré, le gris du sélecteur, le grave plus en tête,
+une pièce sans cible, un bloc non thématique, une fenêtre non annoncée — et un témoin) ; `tests/test_api_web_modules.py
+corniere` (le contrat commun, 22 OK) ; `tests/test_reference_refonte.py` (treize cas regelés, § 7 des décisions) ;
+`site/web/verifier_site.js`, filtre « corniere » (joué aussi par « module:corniere ») : A puis B à l'écran (la coupe se
+retourne : la charge passe au-dessus de l'ancrage, le contact au bas de la cornière, mesuré dans le SVG), dx = 0 qui fait
+baisser le taux, l'appui sur l'ancrage du dessin qui ouvre la rubrique, le sélecteur et le choix de l'optimale,
+l'équilibre (le pivot dessiné), une inégale tapée dans l'autre ordre, X = 10 refusé (toast, valeur rendue), la note v1
+rouverte avec son avis, puis A et B au PC 1440, à la tablette 1024 et à l'iPhone 13 (rien ne déborde, 44 px au doigt,
+16 px dans les champs). Les captures `site_corniere_*.png`.
+
+**Ce que l'intégration fait ensuite** : `construire.NOTE_PDF` reçoit « corniere » quand `api_web/note_corniere.py` est
+là, avec sa note riche (`NOTES_RELEVE["corniere"]` : deux cornières, A historique et B) ; le gel `corniere.json` est
+regelé par ce lot (commit distinct).

@@ -254,8 +254,9 @@ _src_rangement = open(os.path.join(WEB, "js", "rangement.js"), encoding="utf-8")
 _ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact)))
 # js/rangement.js cherche ses éléments par un raccourci $("et-…") = document.getElementById
 _ids_rangement = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
-chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutres, dalles — les prédalles ont rejoint les dalles), leurs "
-    "fonctions aux mêmes places ; les autres modules attendent l'avis du bureau", SW.ETABLI_COMPACT == ("poutre", "dalle"), SW.ETABLI_COMPACT)
+chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutres, dalles — les prédalles ont rejoint les dalles) et les "
+    "cornières d'appui (refonte du 10/11/2026), leurs fonctions aux mêmes places ; les autres modules attendent l'avis du bureau",
+    SW.ETABLI_COMPACT == ("poutre", "dalle", "corniere"), SW.ETABLI_COMPACT)
 # la NOTE PDF (décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site, celle de la dalle
 # dit les chiffres du site) : les modules qui en ont une, chacun avec son ``telecharger(etat, quoi, infos)`` et sa note
 # « riche » pour le relevé du paquet de la note (construire.NOTES_RELEVE)
@@ -542,8 +543,8 @@ _redir_code = re.sub(r"//[^\n]*", "", _redir_js)   # le code seul : les commenta
 chk("js/redirection.js : location.replace(vers + la requête + l'ancre), lu dans body data-vers ; aucune adresse écrite en dur dans le code",
     "location.replace(vers + location.search + location.hash)" in _redir_code and "dataset.vers" in _redir_code
     and not any(k in _redir_code or v in _redir_code for k, v in SW.REDIRECTIONS.items()), _redir_code)
-chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026), un sous-ensemble de l'établi compact",
-    set(SW.ARBRE_COMPACT) == {"dalle", "poutre"} and len(SW.ARBRE_COMPACT) == 2 and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
+chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026) et des cornières (11/11/2026), un sous-ensemble de l'établi compact",
+    set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere"} and len(SW.ARBRE_COMPACT) == 3 and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
 EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
 for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()

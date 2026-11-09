@@ -174,14 +174,18 @@ def tete_resultats(nom: str, dims: str) -> str:
     return f'<div class="et-rp"><b>{nom}</b><span>{dims}</span></div>'
 
 
-def bloc(i: int, titre: str, cls: str, etat_txt: str, efforts: str, rows: str, pied: str = "") -> str:
+def bloc(i: int, titre: str, cls: str, etat_txt: str, efforts: str, rows: str, pied: str = "", *, theme: bool = False) -> str:
     """Le bloc d'UNE section : l'en-tête (son ``titre`` et son état ``etat_txt``, en texte ; la couleur ``cls`` : ok,
     warn, nok, inc), les efforts (HTML), les vérifications ``rows`` (deux lignes chacune, C.ligne_verif), puis ``pied``
-    (ce que le module ajoute : ses avertissements). Le bouton de l'en-tête ouvre « tout le calcul » (fenêtre ``s<i>``)."""
+    (ce que le module ajoute : ses avertissements). Le bouton de l'en-tête ouvre « tout le calcul » (fenêtre ``s<i>``).
+
+    ``theme`` (les cornières, 11/2026) : un bloc THÉMATIQUE — « Sections », « Ancrages », « Comparaison » — et non celui
+    d'une section de l'élément : il porte ``data-theme`` au lieu de ``data-section``, et js/compact.js le laisse toujours
+    visible (un bloc de section ne se montre que pour la section courante) tout en le repliant comme les autres."""
     tete = (f'<div class="et-bloc-h"><button type="button" class="et-bloc-t" data-bloc="{i}" aria-expanded="true" title="Replier ou déplier">'
             f'{C.icon("chevron-down")}<span class="n">{C.esc(titre)}</span><span class="e">{C.esc(etat_txt)}</span></button>'
-            f'<button type="button" class="et-tout" data-calcul="s{i}" title="Tout le calcul de la section">{C.icon("file-text")}</button></div>')
-    return (f'<section class="et-bloc {cls}" data-section="{i}">{tete}<div class="et-bloc-c">'
+            f'<button type="button" class="et-tout" data-calcul="s{i}" title="Tout le calcul{"" if theme else " de la section"}">{C.icon("file-text")}</button></div>')
+    return (f'<section class="et-bloc {cls}" data-{"theme" if theme else "section"}="{i}">{tete}<div class="et-bloc-c">'
             f'<div class="et-bloc-ef">{efforts}</div><div class="els">{rows}</div>{pied}</div></section>')
 
 

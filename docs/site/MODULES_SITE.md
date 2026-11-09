@@ -191,6 +191,26 @@ C.texte(["nom"], d["nom"], desactive=verrouille)
 C.segments(["fyk"], d["fyk"], [(n, f"B{n}") for n in EN.NUANCES], desactive=verrouille)
 ```
 
+**Les blocs THÉMATIQUES de l'établi compact** (cornières, 11/11/2026) — `etabli_compact.bloc(i, …, theme=True)` : un
+bloc qui n'est pas celui d'une SECTION de l'élément (« Sections », « Ancrages », « Comparaison des modes ») porte
+`data-theme` au lieu de `data-section` ; js/compact.js le laisse toujours visible (un bloc de section ne se montre que
+pour la section courante) et le replie comme les autres. Le bouton « tout le calcul » ouvre la fenêtre `s<i>`.
+
+```python
+E.bloc(0, "Sections", "ok", "Conforme · 95,8 %", efforts_html, rows, theme=True)
+```
+
+**`C.selecteur` : les lignes sans taux et les lignes inactives** (cornières) — une ligne peut porter `etat` (texte : ce
+qu'une pastille de sa couleur dit à la place du taux — court, elle fait 52 px : « exclue ») et `inactif` (vrai : la ligne porte
+`aria-disabled`, la feuille de l'établi la grise, le parcours ne la choisit pas ; cliquée, le refus du moteur se lit) :
+
+```python
+{"nom": "L 20×20×3", "col": "0,88", "taux": None, "niveau": "c", "cur": False, "opt": False, "prop": "…", "etat": "exclue", "inactif": True}
+```
+
+Le modèle d'un module compact à blocs thématiques et à lignes d'information « hors verdict » : `api_web/corniere.py`
+(`docs/acier/CORNIERE_MOTEUR.md` § 11).
+
 ### 4 ter. Télécharger un fichier propre au module (le JSON de l'écran Streamlit, un tableau CSV…)
 
 Le bouton : **`C.bouton_telecharger(quoi, libellé, icone="download")`** →

@@ -122,16 +122,26 @@ cas("garde_corps", "charge horizontale nulle (catégorie libre)", LIM, [neuf(), 
 cas("garde_corps", "surchargé (q_h = 3 kN/m)", LIM, [neuf(), mod("charges/categorie", "perso"), mod("charges/qh", "3")], {"niveau": "r"})
 cas("garde_corps", "garde-corps ajouté", LIM, [neuf(), act("ajouter"), mod("geometrie/H", "1000")], {"elements": 2})
 
-# ====================================================================== cornière
+# ====================================================================== cornière (refonte du 10/11/2026 : la méthode du classeur)
+# (les cas du modèle lame — V, e, charge… — n'existent plus : les photos sont regelées, CORNIERE_DECISIONS § 7)
+from api_web import corniere as COR  # noqa: E402
+
 cas("corniere", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
-cas("corniere", "L 45×45×4,5 tapée (PARCOURS)", REF, [neuf(), mod("profil", "L 45×45×4,5")])
-cas("corniere", "chargée près de 100 % (V = 8 kN/m)", REF, [neuf(), mod("V", "8")], {"taux": [95, 100]})
-cas("corniere", "saisie libre 65 × 100 × 8, charge ponctuelle", REF, [neuf(), mod("standard", "saisie"), mod("profil", "65 x 100 x 8"),
-                                                                          mod("charge", "ponctuelle")])
-cas("corniere", "charge nulle (PARCOURS)", LIM, [neuf(), mod("V", "0")])
-cas("corniere", "excentricité de 25 cm (PARCOURS)", LIM, [neuf(), mod("e", "25")])
-cas("corniere", "profil illisible refusé", LIM, [neuf(), mod("profil", "cornière")], {"message": True})
-cas("corniere", "cornière ajoutée, la première supprimée", LIM, [neuf(), act("ajouter"), mod("V", "3"), act("ajouter"), act("supprimer", index=0)],
+cas("corniere", "cas de contrôle du classeur (R = 42,76 kN, R_ELU = 68,9, sans jeu : 88,86 % en section 3)", REF,
+    [neuf(), mod("R", "42,76"), mod("R_ELU", "68,9"), mod("dx", "0"), mod("dy", "0")], {"taux": [88, 89]})
+cas("corniere", "mode équilibre", REF, [neuf(), mod("mode", "equilibre")])
+cas("corniere", "configuration B (aile horizontale en haut : section nette, pression sur le support)", REF, [neuf(), mod("configuration", "B")],
+    {"niveau": "r"})
+cas("corniere", "ailes inégales L 150×100×12, 150 à l'horizontale (Y = 65)", REF, [neuf(), mod("Y", "65"), mod("profil", "L 150×100×12")])
+cas("corniere", "chargée près de 100 % (R = 36 kN)", REF, [neuf(), mod("R", "36")], {"taux": [95, 100]})
+cas("corniere", "charge dans l'angle refusée (X = 10)", LIM, [neuf(), mod("X", "10")], {"message": True})
+cas("corniere", "cornière trop petite pour la charge refusée (L 45×45×4,5)", LIM, [neuf(), mod("profil", "L 45×45×4,5")], {"message": True})
+cas("corniere", "largeur d'appui a = 100 mm (L_eff)", LIM, [neuf(), mod("a", "100")])
+cas("corniere", "saisie libre (les dimensions de la cornière affichée)", LIM, [neuf(), mod("standard", "saisie"), mod("r", "0")])
+cas("corniere", "ancrage bas (Y = 40, sans jeu) : la garde rougit", LIM, [neuf(), mod("dx", "0"), mod("dy", "0"), mod("d", "10"), mod("Y", "40")],
+    {"texte": "Équilibre P1"})
+cas("corniere", "note v1 (modèle lame) rouverte : l'avis d'ouverture", LIM, [calc(COR.NOTE_V1)], {"avis": "modèle lame"})
+cas("corniere", "cornière ajoutée, la première supprimée", LIM, [neuf(), act("ajouter"), mod("R", "20"), act("ajouter"), act("supprimer", index=0)],
     {"elements": 2})
 
 # ====================================================================== bois

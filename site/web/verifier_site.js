@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|plaques|nappes|doigt|bibliotheque|note_pdf]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|plaques|nappes|corniere|doigt|bibliotheque|note_pdf]
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
@@ -2928,6 +2928,244 @@ const FILTRE = process.argv[4] || '';
     await c.close();
   }
 
+  // ---------------------------------------------------------------- les CORNIÈRES d'appui (refonte du 10/11/2026, établi compact)
+  // Le module refondu sur la méthode du classeur de l'ingénieur (docs/acier/CORNIERE_DECISIONS.md § 4 ; api_web/corniere.py) :
+  // à gauche les quatre rubriques, au centre les quatre vues (coupe, moments, contraintes, élévation), à droite le verdict
+  // et trois blocs THÉMATIQUES (Sections, Ancrages, Comparaison des modes). Ce qu'on contrôle, à l'écran : la configuration
+  // A puis B (la coupe change : l'aile horizontale passe en haut, le contact C au bas de la cornière — MESURÉ dans le SVG,
+  // par la position des pièces R, Y, yc et profil) ; la saisie dx qui change le taux ; le clic sur une pièce du dessin qui
+  // ouvre sa rubrique et éclaire sa ligne ; le sélecteur (233 cornières, ✓, ★, les grises hors domaine) et le choix de
+  // l'optimale ; le mode équilibre (le pivot y_c dessiné) ; une inégale tapée dans l'autre ordre ; une saisie refusée
+  // (toast, valeur rendue) ; une note v1 (modèle lame) rouverte avec son avis ; puis les trois formats — PC 1440,
+  // tablette 1024 × 768, iPhone 13 (390 × 844, tactile) — pour A et B : rien ne déborde, les cibles à 44 px au doigt, les
+  // champs en 16 px au téléphone. Les captures : site_corniere_*.png (A et B aux trois formats, les quatre vues, le
+  // sélecteur, la saisie refusée, la note v1).
+  //   filtre « corniere » ; « module:corniere » le rejoue aussi (après le contrôle commun).
+  if (!FILTRE || FILTRE === 'corniere' || FILTRE === 'module:corniere') {
+    const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    const g = await c.newPage();
+    g.erreurs = [];
+    g.on('pageerror', (e) => g.erreurs.push(e.message));
+    g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+    const pretG = () => g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+    const ouvrirRub = async (k) => {
+      if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
+      await g.waitForTimeout(80);
+    };
+    const saisir = async (s, v) => { await g.fill(s, v); await g.press(s, 'Enter'); await tranquille(); await g.waitForTimeout(150); };
+    const lireToast = () => g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t && !t.hidden && t.checkVisibility(), texte: t ? t.textContent : '', erreur: !!t && t.classList.contains('erreur') }; });
+    const taux = () => g.evaluate(() => { const x = document.querySelector('#resultat .verdict .chip.xl'); return x ? parseFloat(x.textContent.replace(/[^\d,]/g, '').replace(',', '.')) : null; });
+    const gouv = () => g.evaluate(() => (document.querySelector('#resultat .verdict .gov b') || {}).textContent || '');
+    const blocsVus = () => g.$$eval('#resultat .et-bloc[data-theme]', (bs) => bs.filter((x) => !x.hidden && x.checkVisibility()).map((x) => x.querySelector('.et-bloc-h .n').textContent));
+    // la position à l'écran d'une pièce de la coupe (le centre et la taille de sa boîte), null si elle n'y est pas
+    const piece = (sel) => g.evaluate((sel) => {
+      const e = document.querySelector(`.view.on .draw svg .pc[data-sel="${sel}"]`);
+      if (!e) return null;
+      const r = e.getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), w: Math.round(r.width), h: Math.round(r.height) };
+    }, sel);
+    // un appui sur une pièce du dessin, comme js/compact.js l'écoute (pointerdown sur la toile, pointerup sans bouger)
+    const appuyer = async (sel) => {
+      const s = `.view.on .draw svg .pc[data-sel="${sel}"]`;
+      await g.dispatchEvent(s, 'pointerdown', { pointerId: 7, pointerType: 'mouse', button: 0, clientX: 20, clientY: 20, bubbles: true, composed: true });
+      await g.dispatchEvent(s, 'pointerup', { pointerId: 7, pointerType: 'mouse', button: 0, clientX: 20, clientY: 20, bubbles: true, composed: true });
+      await g.waitForTimeout(250);
+    };
+    try {
+      await g.goto(`${BASE}/corniere?${new URLSearchParams({ nom: 'Cornière d\'appui', chantier: 'Essai cornières' })}`);
+      await pretG();
+      await tranquille();
+      // A, méthode historique : la cornière neuve (L 120×120×15, 35 kN, 75 ± 20, 85 ± 10) — η entre 90 et 100 %, en section 3
+      const t0 = await taux();
+      const blocsA = await blocsVus();
+      verif('cornière A historique : le verdict de la cornière neuve (η entre 90 et 100 %, section 3 · aile verticale), trois blocs thématiques visibles (Sections, Ancrages, Comparaison des modes)',
+        t0 > 90 && t0 < 100 && /Section 3/.test(await gouv()) && blocsA.join() === 'Sections,Ancrages,Comparaison des modes', JSON.stringify({ t0, gouv: await gouv(), blocsA }));
+      const combs = await g.$$eval('#resultat .et-bloc[data-theme="0"] .el .cmp', (e) => e.map((x) => x.textContent).filter((t) => /charge à X/.test(t)).length);
+      verif('cornière : chaque vérification du bloc Sections dit la combinaison de jeux qui la gouverne (« charge à X + 20, ancrage à Y + 10 »)', combs >= 6, `${combs} ligne(s)`);
+      const horsVerdict = await g.$$eval('#resultat .et-bloc[data-theme="0"] .et-mot', (e) => e.map((x) => x.textContent).filter((t) => t === 'hors verdict').length);
+      verif('cornière A historique : les deux maxima du congé sont en information, « hors verdict » (le classeur ne les a pas)', horsVerdict === 2, `${horsVerdict}`);
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_A_pc.png') });
+      // les quatre vues, chacune visible à sa taille
+      for (const k of ['moments', 'contraintes', 'elevation']) {
+        await g.click(`#vues [data-vue="${k}"]`);
+        await g.waitForTimeout(250);
+        const tl = await g.evaluate(() => { const d = [...document.querySelectorAll('.view.on .draw')].find((e) => e.checkVisibility()); const svg = d && d.querySelector(':scope > svg'); if (!svg) return null; const r = svg.getBoundingClientRect(); return { l: Math.round(r.width), t: Math.round(r.height), textes: [...svg.querySelectorAll('text')].filter((x) => x.getBoundingClientRect().height > 0).length }; });
+        verif(`cornière : la vue « ${k} » est un dessin visible à sa taille, avec ses textes`, tl && tl.l > 400 && tl.t > 300 && tl.textes > 10, JSON.stringify(tl));
+        await g.screenshot({ path: path.join(OUT, `site_corniere_vue_${k}.png`) });
+      }
+      await g.click('#vues [data-vue="coupe"]');
+      await g.waitForTimeout(200);
+      // un appui sur l'ancrage du dessin (pièce Y) : la rubrique Ancrage (fermée) s'ouvre, la ligne Y s'éclaire, la pièce aussi
+      const avantY = await g.$eval('#donnees .sec[data-sec="an"]', (x) => x.classList.contains('open'));
+      await appuyer('Y');
+      const selY = await g.evaluate(() => ({ ouverte: document.querySelector('#donnees .sec[data-sec="an"]').classList.contains('open'),
+        cible: !!document.querySelector('#donnees [data-cible="Y"].et-cible'), piece: !!document.querySelector('.view.on .pc[data-sel="Y"].et-sel'),
+        vue: !!document.querySelector('#donnees [data-cible="Y"]') && document.querySelector('#donnees [data-cible="Y"]').checkVisibility() }));
+      verif('cornière : un appui sur l\'ancrage du dessin ouvre la rubrique Ancrage (fermée avant) et éclaire la ligne Y des données et la pièce du dessin',
+        !avantY && selY.ouverte && selY.cible && selY.piece && selY.vue, JSON.stringify({ avantY, selY }));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_selection.png') });
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(100);
+      // la saisie dx = 0 : la charge à X seule, le taux baisse ; puis dx = 20 le remonte
+      await ouvrirRub('ch');
+      await saisir('input[data-chemin="dx"]', '0');
+      const t1 = await taux();
+      await saisir('input[data-chemin="dx"]', '20');
+      const t2 = await taux();
+      verif('cornière : dx = 0 fait baisser le taux (plus d\'enveloppe sur la position de la charge), dx = 20 le rend', t1 !== null && t1 < t0 - 5 && t2 === t0, `${t0} → ${t1} → ${t2}`);
+      // une saisie refusée : X = 10 (la charge dans l'angle) — le toast d'erreur, le champ rend 75
+      await g.fill('input[data-chemin="X"]', '10');
+      await g.press('input[data-chemin="X"]', 'Enter');
+      await tranquille();
+      await g.waitForTimeout(250);
+      const refus = await lireToast();
+      const xApres = await g.inputValue('input[data-chemin="X"]');
+      verif('cornière : X = 10 est refusé par le moteur (« dans l\'angle »), le toast le dit, le champ rend 75', refus.vu && refus.erreur && /angle/.test(refus.texte) && xApres === '75', JSON.stringify({ refus, xApres }));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_refus.png') });
+      // le sélecteur de la ligne « Cornière » : 233 lignes par masse, ✓ la retenue, ★ l'optimale, les grises hors domaine, les rouges
+      await g.click('#resultat .prof[data-pk="corniere"]');
+      await g.waitForSelector('.flyout.on.picker .pk-row', { timeout: 60000 });
+      await g.waitForTimeout(300);
+      const pk = await g.evaluate(() => ({ n: document.querySelectorAll('.flyout.on.picker .pk-row').length, cur: (document.querySelector('.flyout.on.picker .pk-row.cur .nm') || {}).textContent,
+        opt: (document.querySelector('.flyout.on.picker .pk-row.opt .nm') || {}).textContent, hors: document.querySelectorAll('.flyout.on.picker .pk-row .chip.c').length,
+        rouges: document.querySelectorAll('.flyout.on.picker .pk-row .chip.r').length, vu: document.querySelector('.flyout.on.picker .pk-row.cur').checkVisibility() }));
+      verif('cornière : le sélecteur ouvre les 233 cornières par masse — ✓ L 120×120×15, ★ une optimale, des grises « hors domaine », des rouges qui ne tiennent pas, la retenue à l\'écran',
+        pk.n === 233 && pk.cur === 'L 120×120×15' && !!pk.opt && pk.hors > 50 && pk.rouges > 10 && pk.vu, JSON.stringify(pk));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_selecteur.png') });
+      await g.click('.flyout.on.picker .pk-row.opt');
+      await tranquille();
+      await g.waitForTimeout(200);
+      verif(`cornière : choisir l'optimale (${pk.opt}) la retient — la désignation des données et la ligne Cornière la disent`,
+        (await g.inputValue('input[data-chemin="profil"]')) === pk.opt && (await g.textContent('#resultat .prof[data-pk="corniere"] span')).trim() === pk.opt, await g.inputValue('input[data-chemin="profil"]'));
+      await ouvrirRub('co');
+      await saisir('input[data-chemin="profil"]', 'L 120×120×15');
+      // le mode équilibre : le taux change, la coupe dessine le pivot y_c et u_V (plus le jeu du classeur)
+      await ouvrirRub('hy');
+      await g.click('#donnees [data-chemin="mode"][data-valeur="equilibre"]');
+      await tranquille();
+      await g.waitForTimeout(200);
+      const tEq = await taux();
+      const pEq = { yc: await piece('yc'), uV: await piece('uV'), jeu: await piece('jeu_ancrage') };
+      verif('cornière A équilibre : le taux change, la coupe montre le pivot y_c et la ligne u_V, plus le jeu du classeur', tEq !== null && tEq !== t0 && pEq.yc && pEq.uV && !pEq.jeu, JSON.stringify({ t0, tEq, pEq }));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_A_equilibre_pc.png') });
+      await g.click('#donnees [data-chemin="mode"][data-valeur="historique"]');
+      await tranquille();
+      // la configuration B : la coupe se retourne — MESURÉ : la charge R passe au-dessus de l'ancrage (en A elle est en dessous),
+      // le contact C (pièce yc) est au bas de la cornière ; le mode est verrouillé ; deux blocs, la section nette gouverne
+      await ouvrirRub('co');
+      const geoA = { R: await piece('R'), Y: await piece('Y'), prof: await piece('profil') };
+      await g.click('#donnees [data-chemin="configuration"][data-valeur="B"]');
+      await tranquille();
+      await g.waitForTimeout(250);
+      const geoB = { R: await piece('R'), Y: await piece('Y'), yc: await piece('yc'), prof: await piece('profil') };
+      const modeLocked = await g.$eval('#donnees [data-chemin="mode"]', (x) => x.disabled);
+      verif('cornière B : à l\'écran, la charge R passe au-dessus de l\'ancrage (A : au-dessous) et le contact C est au bas de la cornière (mesuré dans le SVG) ; le mode est verrouillé',
+        geoA.R && geoA.Y && geoA.R.y > geoA.Y.y && geoB.R && geoB.Y && geoB.R.y < geoB.Y.y && geoB.yc && geoB.prof && geoB.yc.y > geoB.Y.y
+        && geoB.yc.y > geoB.prof.y + geoB.prof.h * 0.3 && modeLocked, JSON.stringify({ geoA, geoB, modeLocked }));
+      const tB = await taux(), gB = await gouv(), blocsB = await blocsVus();
+      verif('cornière B : deux blocs (pas de comparaison), la section nette gouverne, non conforme (η > 100 %) sur la cornière neuve', blocsB.join() === 'Sections,Ancrages' && /Section nette/.test(gB) && tB > 100, JSON.stringify({ tB, gB, blocsB }));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_B_pc.png') });
+      await g.click('#donnees [data-chemin="configuration"][data-valeur="A"]');
+      await tranquille();
+      // une inégale tapée dans l'autre ordre, après avoir descendu l'ancrage : relue au catalogue, les segments de l'aile disent les longueurs
+      await ouvrirRub('an');
+      await saisir('input[data-chemin="Y"]', '65');
+      await ouvrirRub('co');
+      await saisir('input[data-chemin="profil"]', '100 x 150 x 12');
+      const des = await g.inputValue('input[data-chemin="profil"]');
+      const ailes = await g.$$eval('#donnees [data-chemin="aile_horizontale"]', (x) => x.map((e) => e.textContent.trim()));
+      verif('cornière inégale : « 100 x 150 x 12 » relue « L 150×100×12 », l\'aile horizontale en segments avec les longueurs réelles (A = 150 mm, B = 100 mm)',
+        des === 'L 150×100×12' && ailes.join() === 'A = 150 mm,B = 100 mm', JSON.stringify({ des, ailes }));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_inegale_pc.png') });
+      // une note du module d'avant (version 1, modèle lame) semée dans ce navigateur : elle se rouvre, l'avis est dit une fois
+      await g.evaluate(() => { const k = 'stab.notes.v1', notes = JSON.parse(localStorage.getItem(k) || '{}'), t = Date.now();
+        notes['ancienne-corniere'] = { id: 'ancienne-corniere', module: 'corniere', nom: 'Ancienne note cornières', chantier: 'Réalex', dossier: '', indice: 'A', cree: t, modifie: t,
+          etat: { version: 1, actif: 0, cornieres: [{ nom: 'Cornière de rive', standard: true, profil: 'L 100x100x10', charge: 'lineaire', V: 5, L: 1, e: 2.3, gamma_ELU: 1.35, s: 60, bord: 5, sig_lim_ELS: 156.7, tau_lim_ELS: 0.8, sig_lim_ELU: 235 }] },
+          resume: null, vignette: '' };
+        localStorage.setItem(k, JSON.stringify(notes)); });
+      await g.goto(`${BASE}/corniere?note=ancienne-corniere`);
+      await pretG();
+      await tranquille();
+      await g.waitForTimeout(200);
+      const v1 = await g.evaluate(() => ({ avis: [...document.querySelectorAll('#resultat .msg')].map((m) => m.textContent).filter((t) => /modèle lame/.test(t)).length,
+        nom: (document.querySelector('.panel.left .phead .et-elt input.et-elt-nom') || {}).value, profil: (document.querySelector('input[data-chemin="profil"]') || {}).value,
+        erreur: !!document.querySelector('#demarrage.erreur') }));
+      verif('cornière : une note du module d\'avant (modèle lame) se rouvre — le nom et la cornière gardés, l\'avis « modèle lame » dit une fois dans le résultat',
+        !v1.erreur && v1.avis === 1 && v1.nom === 'Cornière de rive' && v1.profil === 'L 100×100×10', JSON.stringify(v1));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_v1.png') });
+      // ressaisir la charge fait tomber l'avertissement
+      await ouvrirRub('ch');
+      await saisir('input[data-chemin="R"]', '20');
+      const encore = await g.evaluate(() => [...document.querySelectorAll('#resultat .msg')].map((m) => m.textContent).filter((t) => /modèle lame/.test(t)).length);
+      verif('cornière : la charge ressaisie, l\'avertissement « modèle lame » disparaît', encore === 0, `${encore}`);
+      verif('cornière : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+    } catch (e) { verif('cornière : le parcours va au bout', false, String(e.message).split('\n')[0]); }
+    await c.close();
+    // les trois formats, A et B : rien ne déborde, aucun nom coupé, les cibles à 44 px au doigt (tablette, téléphone), les champs
+    // en 16 px au téléphone ; une capture de chaque (au téléphone : les trois onglets)
+    for (const [fmt, w, h, tel] of [['pc', 1440, 900, false], ['tab1024', 1024, 768, false], ['iphone13', 390, 844, true]]) {
+      const cx = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel });
+      const pg = await cx.newPage();
+      pg.erreurs = [];
+      pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+      pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
+      const pretP = () => pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      const calmeP = () => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+      const etat = () => pg.evaluate((tel) => {
+        const vis = (e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const large = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r.getBoundingClientRect().width; };
+        const coupes = [...document.querySelectorAll('.prof > span:not(.leger), .el .l1 b, .row > label > span:not(.sym), .row2 > label > span, .row2.et-cibles > .et-piece > label > span, .rows .seg.full button, .mtabs button')]
+          .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim().slice(0, 40));
+        const petites = [];
+        if (tel || innerWidth < 1200) {
+          document.querySelectorAll('#donnees .sec:not(.open) > .sechd').forEach((x) => x.click());
+          for (const e of document.querySelectorAll('.top button, .top .btn, .mtop button, .mtabs button, .ctool button, .phead button, #donnees button, #resultat button, #resultat .el, .mbar .btn')) {
+            if (!vis(e)) continue;
+            const r = e.getBoundingClientRect();
+            if (r.width >= 1 && Math.min(r.width, r.height) < 43.5) petites.push(`${(e.className || e.tagName).toString().split(' ')[0]} « ${(e.textContent || e.title || '').trim().slice(0, 16)} » ${Math.round(r.width)}×${Math.round(r.height)}`);
+          }
+        }
+        const petits = tel ? [...document.querySelectorAll('#donnees input:not([type=checkbox]), #donnees select, .panel.left .phead input')].filter(vis)
+          .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`) : [];
+        return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, petites, petits };
+      }, tel);
+      for (const cfg of ['A', 'B']) {
+        try {
+          await pg.goto(`${BASE}/corniere?${new URLSearchParams({ nom: `Cornière ${cfg}`, chantier: 'Formats' })}`);
+          await pretP();
+          await calmeP();
+          if (cfg === 'B') {
+            if (tel) await pg.click('.mtabs [data-onglet="donnees"]');
+            if (!(await pg.$eval('#donnees .sec[data-sec="co"]', (x) => x.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="co"] > .sechd');
+            await pg.click('#donnees [data-chemin="configuration"][data-valeur="B"]');
+            await calmeP();
+            await pg.waitForTimeout(200);
+          }
+          const onglets = tel ? ['donnees', 'dessin', 'resultat'] : [''];
+          for (const o of onglets) {
+            if (o) { await pg.click(`.mtabs [data-onglet="${o}"]`); await pg.waitForTimeout(250); }
+            const m = await etat();
+            verif(`cornière ${cfg} · ${fmt}${o ? ' · ' + o : ''} : rien ne déborde, aucun nom coupé${tel || w < 1200 ? ', chaque bouton vu à 44 px au doigt' : ''}${tel ? ', chaque champ en 16 px' : ''}`,
+              !m.deborde && !m.coupes.length && !m.petites.length && !m.petits.length, JSON.stringify(m).slice(0, 400));
+            await pg.screenshot({ path: path.join(OUT, `site_corniere_${cfg}_${fmt}${o ? '_' + o : ''}.png`) });
+          }
+          if (tel) {
+            // la coupe se voit au téléphone : la toile offre 300 px de large au dessin, son texte se lit
+            await pg.click('.mtabs [data-onglet="dessin"]');
+            await pg.waitForTimeout(250);
+            const tl = await pg.evaluate(() => { const d = [...document.querySelectorAll('.view.on .draw')].find((e) => e.checkVisibility()); const svg = d && d.querySelector(':scope > svg'); if (!svg) return null;
+              const t = [...svg.querySelectorAll('text')].map((x) => x.getBoundingClientRect().height).filter((x) => x > 0).sort((a, b) => a - b);
+              return { l: Math.round(d.getBoundingClientRect().width), texte: t.length ? Math.round(t[Math.floor(t.length / 2)] * 10) / 10 : null }; });
+            verif(`cornière ${cfg} · iphone13 : la coupe a 300 px de large au moins et un texte lisible (≥ 6 px)`, tl && tl.l >= 300 && tl.texte >= 6, JSON.stringify(tl));
+          }
+        } catch (e) { verif(`cornière ${cfg} · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
+      }
+      verif(`cornière · ${fmt} : aucune erreur JavaScript`, !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 300));
+      await cx.close();
+    }
+  }
+
   // ---------------------------------------------------------------- l'établi compact des DALLES, et l'ancien module Prédalles
   // La COLONNE DE GAUCHE COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur le 09/11/2026) : ni titre
   // « Données », ni « DALLES (1) », ni arborescence — la LIGNE de la dalle ouverte dans l'EN-TÊTE du panneau, à côté
@@ -4062,7 +4300,7 @@ const FILTRE = process.argv[4] || '';
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'note_pdf'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'corniere', 'note_pdf'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

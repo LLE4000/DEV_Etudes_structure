@@ -352,13 +352,22 @@ def selecteur(ident: str, titre: str, sous_titre: str, filtres: str, rows: List[
     """Le sélecteur, LE MÊME pour les profilés et les armatures : trié par ordre de grandeur, le retenu (✓) et l'optimal
     (★, le plus léger qui tient) marqués ; un clic choisit (le calcul est relancé) ; sous la liste, les propriétés de la
     ligne survolée. ``rows`` : nom, col (la colonne d'ordre de grandeur), taux (arrondi ; None : pas de pastille),
-    niveau, cur, opt, prop. Le pied dit « ✓ retenu · ★ <etoile> · <unite> · <pastille> » : ``etoile=""`` retire la
-    légende ★ et ``pastille=""`` le « · taux » (un module de consultation, sans optimal ni vérification)."""
+    niveau, cur, opt, prop — et, facultatifs (sans eux, la sortie est la même à l'octet près) : ``etat`` (texte), ce
+    qu'une ligne SANS taux dit à sa place, dans une pastille de sa couleur — courte, la pastille fait 52 px (« exclue »
+    pour une cornière que la charge ne peut pas atteindre) ; ``inactif`` (vrai), une ligne que le moteur ne peut pas retenir — elle porte
+    ``aria-disabled`` (grisée par la feuille de l'établi, le parcours ne la choisit pas ; un clic la demande quand même,
+    et le refus du moteur se lit). Le pied dit « ✓ retenu · ★ <etoile> · <unite> · <pastille> » : ``etoile=""`` retire
+    la légende ★ et ``pastille=""`` le « · taux » (un module de consultation, sans optimal ni vérification)."""
+    def pastille_(r):
+        if r.get("taux") is not None:
+            return chip(r["taux"], r["niveau"])
+        return f'<span class="chip {r["niveau"]}">{esc(r["etat"])}</span>' if r.get("etat") else ""
     lignes = "".join(
-        f'<button class="pk-row{" cur" if r["cur"] else ""}{" opt" if r["opt"] else ""}" data-choix="{esc(r["nom"])}" data-prop="{esc(r.get("prop", ""))}">'
+        f'<button class="pk-row{" cur" if r["cur"] else ""}{" opt" if r["opt"] else ""}"{" aria-disabled=\"true\"" if r.get("inactif") else ""} '
+        f'data-choix="{esc(r["nom"])}" data-prop="{esc(r.get("prop", ""))}">'
         f'<span class="mk">{icon("check") if r["cur"] else (icon("star") if r["opt"] else "")}</span>'
         f'<span class="nm">{esc(r["nom"])}</span><span class="kg">{r["col"]}</span>'
-        f'{chip(r["taux"], r["niveau"]) if r.get("taux") is not None else ""}</button>' for r in rows)
+        f'{pastille_(r)}</button>' for r in rows)
     prop0 = next((r.get("prop", "") for r in rows if r["cur"]), "")
     vide = "" if rows else '<div class="pk-vide">Aucune section dans cette sélection.</div>'
     leg_etoile = f'<span>{icon("star")}{etoile}</span>' if etoile else ""

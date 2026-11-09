@@ -577,3 +577,22 @@
   [data-etabli="compact"] .et-nap-btn { height: 44px; font-size: 13px; }
   [data-etabli="compact"] .et-lu { height: 36px; font-size: 13px; }
 }
+
+/* ------------------------------------------------------------------ cornières d'appui (api_web/corniere.py, 11/2026) */
+/* Les données condensées à deux champs par ligne où CHAQUE champ est une pièce du dessin (data-cible = data-sel : X et dx,
+   Y et dy, n et d…) : la ligne .row2 porte deux pièces, chacune son libellé et son champ, éclairée quand elle est choisie
+   (.et-piece.et-cible, plus haut) — les règles de .row2 > label (site.css) sont reprises pour le libellé dans la pièce. */
+.row2.et-cibles { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 10px; }
+.row2.et-cibles.n1 { grid-template-columns: minmax(0, 1fr); }
+.row2.et-cibles > .et-piece { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0 8px; padding: 3px 4px; margin: 0 -4px; }
+.row2.et-cibles > .et-piece > label { color: var(--ink-2); font-size: 12.5px; display: flex; align-items: center; gap: 4px; min-width: 0; white-space: nowrap; }
+.row2.et-cibles > .et-piece > label .aide { display: inline-grid; flex: none; cursor: help; }
+.row2.et-cibles > .et-piece > label svg.i { width: 13px; height: 13px; color: var(--ink-4); }
+.row2.et-cibles > .et-piece > .field { min-width: 0; }
+/* les hypothèses du moteur sous les blocs : des lignes discrètes, chacune une phrase */
+.et-hyps { display: flex; flex-direction: column; gap: 4px; padding: 6px 16px 4px; }
+.et-hyps .hint { margin: 0; }
+/* la combinaison de jeux d'un groupe du détail d'une fenêtre de calcul (« charge à X + 20, ancrage à Y + 10 ») */
+.ck-t .ck-comb { margin-left: 8px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--ink-3); }
+/* une ligne du sélecteur que le moteur ne peut pas retenir (hors domaine : la charge ou l'ancrage hors des ailes) : grisée */
+.pk-row[aria-disabled="true"] .nm, .pk-row[aria-disabled="true"] .kg { color: var(--ink-4); }
