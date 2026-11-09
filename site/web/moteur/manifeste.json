@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "217ac1b6c18e4e191ecc689bbe1deca2b547811175223896f56a65eaa0c68ef4",
+ "sha256": "c3cb11fe785c09dbdbbd2ad0c8774de922674e25db9963506eca5a53321858f1",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -149,6 +149,7 @@
   "api_web/assemblages_pied.py",
   "api_web/assemblages_poteau.py",
   "api_web/assemblages_poutre.py",
+  "api_web/biblio_acier.py",
   "api_web/biblio_beton.py",
   "api_web/bois.py",
   "api_web/catalogue.py",
@@ -280,8 +281,8 @@
   "soudures"
  ],
  "note": {
-  "sha256": "fadcfff3ad8989ba1c79f4d72e95b73a4d2cb1e8dc72a23fdb57a5dbff2f44e6",
-  "octets": 2193898,
+  "sha256": "9233e2774f2e06a8f2c1d52e64ab6571c7ce2537a2f865101a40650d6b4ff3bc",
+  "octets": 2197404,
   "reportlab": "5.1.0",
   "fichiers": 104,
   "modules": [
