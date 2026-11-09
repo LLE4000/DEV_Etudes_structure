@@ -61,11 +61,11 @@ l'ingénieur, le choix est marqué **[à confirmer]** et repris dans `docs/site/
 | 2 Charge | `R` (kN, ELS) | **35** | la réaction posée sur l'aile horizontale, sur la longueur reprise L (le cas de contrôle en met 42,76 : le défaut est plus bas pour qu'une cornière neuve, avec son jeu de 20 mm, soit conforme) |
 | | `L` (mm) | 300 | longueur reprise : largeur de toutes les sections |
 | | `X` (mm) | 75 | distance du nu du mur (dos de l'aile verticale) à la ligne d'action de R |
-| | `dx` (mm) | **20** **[à confirmer]** | jeu de pose de la charge, appliqué vers l'extérieur (défavorable partout) : X′ = X + dx. Le classeur l'appelle Xj (`C14`), à 0 dans la note validée ; l'ingénieur demande 20 mm par défaut (sa demande du 07/11, § 3). Le cas de contrôle du test est joué avec dx = 0 ; l'écran dit, dans l'ⓘ et dans la fenêtre, le taux sans jeu |
+| | `dx` (mm) | **20** **[à confirmer]** | jeu de position de la charge, dans les DEUX sens : la charge est calculée à X − dx, X et X + dx, et chaque grandeur vérifiée garde la plus défavorable des trois (§ 3.0, l'ENVELOPPE — idée de l'ingénieur du 10/11). Le classeur l'appelle Xj (`C14`), à 0 dans la note validée ; l'ingénieur demande 20 mm par défaut (sa demande du 07/11, § 3). Le cas de contrôle du test est joué avec dx = 0 ; l'écran dit, dans l'ⓘ et dans la fenêtre, le taux sans jeu |
 | | `a` (mm) | vide = L | largeur d'appui réelle de la charge ; si a + 2·Xe < L, la largeur efficace à la section 1 vaut L_eff = min(L ; a + 2·Xe) (diffusion à 45° jusqu'au pied du congé, analyse § 5.3) et σ de l'aile horizontale est majorée de L/L_eff ; information, du côté sûr, sans effet quand a est vide |
 | | `R_ELU` (kN) | vide = 1,5·R **[à confirmer]** | la réaction ELU pour les efforts d'ancrage à donner à Hilti ; vide : 1,5·R affiché « auto · 1,5·R » avec l'ⓘ « à remplacer par la combinaison réelle 1,35·G + 1,5·Q » ; jamais un coefficient caché (le classeur tapait 68,9) |
 | 3 Ancrage | `Y` (mm) | 85 | distance de la FACE EXTÉRIEURE de l'aile horizontale (le dessous en A, le dessus en B) à l'axe de l'ancrage : la même cote pour le même trou quand on retourne la cornière |
-| | `dy` (mm) | 0 | tolérance de position de l'ancrage, appliquée du côté défavorable de chaque vérification : en A, vers le haut pour les sections (Yj du classeur, `C17`), vers le bas pour la traction d'ancrage ; en B, vers le bout libre pour la traction d'ancrage (les sections n'en dépendent pas) |
+| | `dy` (mm) | **10** **[à confirmer]** | tolérance de position de l'ancrage (perçage), dans les DEUX sens : l'ancrage est calculé à Y − dy, Y et Y + dy et chaque grandeur garde la plus défavorable (§ 3.0). En A, c'est l'ancrage HAUT qui charge les sections 3 et 4 (le Yj du classeur, `C17`) et l'ancrage BAS qui charge la traction ; en B, l'ancrage bas (vers le bout libre) charge la traction, les sections n'en dépendent pas — l'enveloppe le trouve seule, sans qu'on ait à raisonner le sens. 0 dans la note validée : le cas de contrôle est joué avec dy = 0 |
 | | `n` | 3 | nombre d'ancrages sur L, répartis à l'entraxe L/n, le premier à L/(2n) du bord (convention de dessin et de calcul) |
 | | `d` (mm) | 16 | diamètre de l'ancrage ; trou d0 = d + 2 (section nette en B, pression diamétrale) |
 | 4 Hypothèses (rubrique secondaire, repliée) | `mode` | `"historique"` | « historique » ou « equilibre » (sans effet en B : toujours équilibre, l'écran le dit) |
@@ -82,6 +82,20 @@ silence). Refus de domaine (analyse § 2.2, § 7 : « aucun contrôle de domaine
 - t < A et t < B (une cornière), r ≥ 0, L > 0, n ≥ 1, R ≥ 0, coef ≥ 1, dx ≥ 0, dy ≥ 0, 0 ≤ yc < bras.
 
 ## 3. Le calcul
+
+### 3.0 Les jeux : trois positions, et l'enveloppe (décision du 10/11, sur l'idée de l'ingénieur)
+Les jeux ne s'appliquent pas « dans le sens défavorable » décidé à l'avance : le moteur calcule la cornière pour les
+TROIS positions de la charge (X − dx, X, X + dx) et les TROIS positions de l'ancrage (Y − dy, Y, Y + dy), soit neuf
+combinaisons, et chaque grandeur vérifiée — chaque moment (aux sections et en tout point des diagrammes), la traction
+d'ancrage, le cisaillement, la compression du mur, la section nette, la largeur efficace — garde la valeur la plus
+défavorable des neuf, avec la combinaison qui la donne (« charge à X + 20, ancrage à Y − 10 »). Les diagrammes montrent
+les trois courbes de moment (une par position de la charge, les extrêmes en trait fin) et l'ENVELOPPE en gras ; la
+tolérance d'ancrage se lit en bande. Trois réactions, trois diagrammes, on garde le pire : c'est ce que l'ingénieur a
+décrit. Propriétés attendues (et testées) : avec dx = dy = 0, une seule combinaison, le classeur exactement ; aucune
+grandeur ne baisse quand dx ou dy augmente ; avec dx = 20 et dy = 0 l'enveloppe redonne le classeur à Xj = 20
+(112,43 %) ; avec dy = 20, le classeur à Yj = +20 pour les sections (95,38 %). En mode historique, les formules de
+`P8` sont évaluées pour chaque combinaison (Xj = −dx, 0, +dx ; Yj = −dy, 0, +dy) ; les ancrages du classeur ne lisent
+pas Yj (ils ont leur propre `C76`, § 3.2) : l'enveloppe ne les change pas.
 
 ### 3.1 Géométrie commune
 e = t ; r = congé ; larg = aile horizontale ; haut = aile verticale ; X′ = X + dx ; Xe = X′ − r − e ; Xe+r = X′ − e ;
@@ -103,23 +117,25 @@ Le cas de contrôle (dx = 0, dy = 0, jeu_ancrage = 10, R_ELU = 68,9) rend M1…M
 N_ELS = V_ELS = 14,2533 kN, N_ELU = 22,9667 kN. Diagrammes du mode : M(u) = R·(X′ − u) ; M(y) = H_hist·(Y′ − y).
 
 ### 3.3 Mode équilibre, configuration A (analyse § 1.2, `synthese/s_commun.corps_libre_A`)
-Pour les sections : Y′ = Y + dy ; H = R·(X′ − u_V)/(Y′ − y_c). Aile horizontale (e ≤ u ≤ X′) : M(u) = R·(X′ − u),
-V = R, N = 0. Aile verticale (e ≤ y < Y′) : M(y) = H·(Y′ − y) − R·(e/2 − u_V), N = +R (traction), V = H ; au-dessus de
-l'ancrage : 0. Contraintes : σ = M/W + N/A (fibre côté congé, N ajouté quand il tend cette fibre), τ = V/A,
-σ_éq = √(σ² + 3τ²). Vérifications : S1, S2, S3, S4 (repères) + **maximum le long de t(s) dans chaque aile** (le pas
-d'exploration ≤ 0,1 mm dans le congé ; la position et la valeur du maximum sont rendues). Pour les ancrages :
-H_anc = R·(X′ − u_V)/((Y − dy) − y_c) ; N_ELS = H_anc/n ; V_ELS = R/n ; ELU × R_ELU/R ; compression du mur C = H_anc
-(information, « résultante à y_c »).
+Pour une combinaison (X′ = position de la charge, Y′ = position de l'ancrage) : H = R·(X′ − u_V)/(Y′ − y_c). Aile
+horizontale (e ≤ u ≤ X′) : M(u) = R·(X′ − u), V = R, N = 0. Aile verticale (e ≤ y < Y′) : M(y) = H·(Y′ − y) −
+R·(e/2 − u_V), N = +R (traction), V = H ; au-dessus de l'ancrage : 0. Contraintes : σ = M/W + N/A (fibre côté congé, N
+ajouté quand il tend cette fibre), τ = V/A, σ_éq = √(σ² + 3τ²). Vérifications : S1, S2, S3, S4 (repères) + **maximum
+le long de t(s) dans chaque aile** (le pas d'exploration ≤ 0,1 mm dans le congé ; la position et la valeur du maximum
+sont rendues). Ancrages : N_ELS = H/n ; V_ELS = R/n ; ELU × R_ELU/R ; compression du mur C = H (information,
+« résultante à y_c »). Puis l'enveloppe des neuf combinaisons (§ 3.0) — elle retrouve d'elle-même que l'ancrage haut
+charge les sections et l'ancrage bas la traction.
 
 ### 3.4 Mode équilibre, configuration B (analyse § 6.1, `synthese/s04_retournee.py`)
-y compté depuis le bout libre de l'aile verticale ; y_a = haut − Y (axe de l'ancrage) ; contact à c = yc (0 = bout
-libre). H = R·(X′ − u_V)/(y_a − c) pour les sections ; H_anc avec y_a − dy. Aile horizontale : comme en A (face du congé
-comprimée). Aile verticale : entre l'ancrage et l'angle (y_a ≤ y ≤ haut − e), M = R·(X′ − u_V) constant, N = −R,
+y compté depuis le bout libre de l'aile verticale ; y_a = haut − Y′ (axe de l'ancrage, Y′ la position de la
+combinaison) ; contact à c = yc (0 = bout libre). H = R·(X′ − u_V)/(y_a − c). Aile horizontale : comme en A (face du
+congé comprimée). Aile verticale : entre l'ancrage et l'angle (y_a ≤ y ≤ haut − e), M = R·(X′ − u_V) constant, N = −R,
 V = 0 ; entre le contact et l'ancrage (c ≤ y < y_a), M = H·(y − c), V = H, N = 0. S3 et S4 sont dans la zone de moment
 constant (sinon refus : l'ancrage est dans le congé). Contraintes : σ = |M|/W + |N|/A, τ = V/A, σ_éq. **Section nette**
 au droit de l'ancrage : W_net = (L − n·d0)·e²/6, A_net = (L − n·d0)·e, M = R·(X′ − u_V), N = R → vérification « nette ».
-**Pression sur le support** au bout libre : C = H_anc, soit C/L en N/mm, en information avec un avertissement (le
-support n'est pas connu du module). Ancrages : N_ELS = H_anc/n, V_ELS = R/n, ELU × R_ELU/R. Cas de contrôle retourné
+**Pression sur le support** au bout libre : C = H, soit C/L en N/mm, en information avec un avertissement (le
+support n'est pas connu du module). Ancrages : N_ELS = H/n, V_ELS = R/n, ELU × R_ELU/R. Puis l'enveloppe (§ 3.0 : ici
+l'ancrage bas charge la traction ; le moment constant R·(X′ − u_V) ne dépend que de la charge). Cas de contrôle retourné
 (L120×120×15, R = 42,76, X = 75, Y = 85, dx = 0) : H = 82,47 kN, M3 = M4 = 2,886 kN·m, taux S3 = 112,42 % (σ = M/W + R/A
 = 256,56 + 9,50 = 266,06 N/mm²), section nette (3 trous Ø18) 137,1 % ; Y = 45 : H = 38,48 kN.
 
@@ -140,23 +156,32 @@ support n'est pas connu du module). Ancrages : N_ELS = H_anc/n, V_ELS = R/n, ELU
 - Gauche : la ligne de l'élément (nom, liste, copier, supprimer — `etabli_compact.arbre(…, compact=True)`), puis les
   rubriques 1 Cornière, 2 Charge, 3 Ancrage, 4 Hypothèses (secondaire). Données condensées (`commun.ligne2`), ⓘ.
   La configuration A/B en segments avec deux pictogrammes (l'aile en bas / en haut).
-- Centre, les VUES à l'échelle (`acier/corniere/schemas.py`, partagées avec la note ; `api_web/dessin_corniere.py` ne
-  fait que les poser) :
-  1. **Coupe** — le schéma statique coté (figure a de l'analyse) : mur hachuré, cornière à l'échelle (congé, bouts),
-     charge R (et R déplacée de dx en tirets), ancrage (axe, Ø, écrou), résultante de compression (pivot y_c ou bout
-     libre), bras de levier du mode (Xe, Xe+r, Ye, Ye+r, YH en historique ; X′ − u_V, Y′ − y_c en équilibre), sections
-     1 à 4 (orange, numérotées), cotes larg, haut, e, r, X, Y. A et B. Chaque pièce cliquable (`data-sel`) sous la clé
-     de sa donnée (X, dx, Y, dy, R, profil…).
-  2. **Diagrammes** — le long des deux ailes développées (figure b) : M (avec N et V en étiquettes ou bandes), l'épaisseur
-     t(s), σ_éq et le taux ; sections 1 à 4 repérées avec leurs valeurs ; congés et bloc d'angle grisés ; maximum marqué
-     (mode équilibre) ; en mode historique, les droites du classeur. Hors échelle (`echelle: False`).
-  3. **Élévation** — la tranche L vue de face : cornière, n ancrages à l'entraxe L/n, charge de largeur a (ou L),
-     N et V ELS par ancrage en étiquettes.
-  4. **Section** — la cornière seule cotée (A, B, t, r1, r2, axes, masse), avec l'orientation (aile horizontale marquée).
+- Centre, les VUES (`acier/corniere/schemas.py`, partagées avec la note ; `api_web/dessin_corniere.py` ne fait que les
+  poser). **Règle de l'ingénieur (10/11) : pas de schéma pour le schéma — chaque vue porte une information que les
+  autres n'ont pas, et elle est faite comme un dessin de bureau.** La vue « section seule » prévue au départ est
+  SUPPRIMÉE : la coupe montre déjà la cornière à l'échelle avec e, r, larg et haut, et la fiche du catalogue (données)
+  donne r2, l'aire et la masse. Quatre vues :
+  1. **Coupe** — LE dessin, le schéma statique coté (figure a de l'analyse) : mur hachuré, cornière à l'échelle (congé,
+     bouts), la charge R à X en trait plein et ses deux positions extrêmes X ± dx en tirets, l'ancrage (axe, Ø, écrou)
+     et ses deux positions Y ± dy en tirets fins, la résultante de compression (pivot y_c en A, bout libre en B), les
+     bras de levier du mode (Xe, Xe+r, Ye, Ye+r, YH en historique ; X′ − u_V, Y′ − y_c en équilibre), les sections 1 à
+     4 (orange, numérotées, pastille au bout du trait), les cotes larg, haut, e, r, X, Y, les valeurs R, H, C. A et B.
+     Chaque pièce cliquable (`data-sel`) sous la clé de sa donnée (X, dx, Y, dy, R, profil…).
+  2. **Moments** — les deux ailes développées (l'horizontale, l'angle, la verticale ; figure b) : les TROIS courbes de
+     moment (une par position de la charge, les extrêmes en trait fin, la nominale en trait moyen) et l'ENVELOPPE en
+     gras ; la tolérance d'ancrage en bande grisée sur l'aile verticale ; N et V en étiquettes par tronçon ; sections
+     1 à 4 repérées avec la valeur de l'enveloppe ; congés et bloc d'angle grisés. Hors échelle (`echelle: False`).
+  3. **Contraintes** — le long des mêmes ailes : la bande d'épaisseur t(s) (le congé), σ_éq de l'enveloppe et le TAUX
+     avec la ligne des 100 %, le maximum marqué avec sa position (il n'est pas à la section : c'est ce que cette vue
+     montre et que la précédente ne peut pas montrer), les sections repérées. Hors échelle.
+  4. **Élévation** — la tranche L vue de face : la cornière, les n ancrages à l'entraxe L/n avec N et V ELS de
+     l'enveloppe, la charge de largeur a (ou L) et sa diffusion à 45° jusqu'à la section 1 (le trapèze qui donne
+     L_eff) : c'est la seule vue qui montre d'où viennent R/n et L_eff.
 - Droite : verdict (taux max, section gouvernante, mode et configuration), bloc « Sections » (S1 à S4 + maxima +
-  nette, deux lignes par vérification, colorées), bloc « Ancrages » (N, V ELS et ELU par ancrage, positions ; pression
-  diamétrale, arrachement, pression sur le support en information), bloc « Comparaison » (l'autre mode, information),
-  hypothèses, avertissements, masse. Fenêtres de calcul : « symbole = expression = valeurs = résultat », chaque ligne
+  nette, deux lignes par vérification, colorées, chacune avec la combinaison de jeux qui la gouverne), bloc
+  « Ancrages » (N, V ELS et ELU par ancrage et la combinaison qui gouverne, positions ; pression diamétrale,
+  arrachement, pression sur le support en information), bloc « Comparaison » (l'autre mode, information), hypothèses,
+  avertissements, masse. Fenêtres de calcul : « symbole = expression = valeurs = résultat », chaque ligne
   réévaluée par le test ; en mode historique, la cellule du classeur entre parenthèses (« M3 = ρ₃ · Mmax (C57) »).
 - Sélecteur de cornières (ligne « Cornière » du résultat) : les 233 cornières du catalogue triées par masse, chacune
   calculée avec les charges de la cornière ouverte, ✓ la retenue, ★ la plus légère qui tient ET où la charge et
@@ -168,11 +193,12 @@ Une note = la page de garde du site (nom, chantier, indice, date — `infos` du 
 par cornière, DEUX pages : page 1 CALCUL — bandeau (statut, η max, section gouvernante, configuration, mode) ;
 colonne 1 : identification et hypothèses (méthode aux contraintes admissibles, coef affiché, σ_adm, τ_adm, pivot,
 frottement nul, configuration), charges ELS et ELU, la COUPE cotée peinte depuis `schemas` ; colonnes 2 et 3 :
-1 géométrie et bras de levier (formules développées), 2 efforts (H, Mmax, M1…M4 ou M(s)), 3 vérification des sections
-(σ, τ, σ_éq, taux à droite, le maximum du congé, la section nette en B), 4 ancrages (N et V par ancrage, ELS et ELU, la
-position de chaque ancrage, les informations), récapitulatif des taux (barres), conclusion. Page 2 DÉTAILS — les
-DIAGRAMMES, l'ÉLÉVATION, la SECTION, les textes de méthode (historique ou équilibre, A ou B — ce qui change quand on
-retourne la cornière), les limites (chevilles non vérifiées, effet de levier, pic au congé, support), références,
+1 géométrie et bras de levier (formules développées), 2 efforts (H, Mmax, M1…M4 ou M(s), avec la combinaison de jeux
+qui gouverne), 3 vérification des sections (σ, τ, σ_éq, taux à droite, le maximum du congé, la section nette en B),
+4 ancrages (N et V par ancrage, ELS et ELU, la position de chaque ancrage, les informations), récapitulatif des taux
+(barres), conclusion. Page 2 DÉTAILS — les vues MOMENTS et CONTRAINTES (les trois positions et l'enveloppe),
+l'ÉLÉVATION, les textes de méthode (historique ou équilibre, A ou B — ce qui change quand on retourne la cornière ;
+les jeux et l'enveloppe), les limites (chevilles non vérifiées, effet de levier, pic au congé, support), références,
 cartouche. Le nom du fichier : « Note de calcul - <nom de la note>.pdf ». Chaque chiffre de la note est celui de l'écran
 (test de parité par pdftotext), chaque formule réévaluée.
 
@@ -188,7 +214,11 @@ converti en silence.
   distinct ; 239 contrôles toujours.
 - `tests/test_corniere_moteur.py` est RÉÉCRIT : le cas de contrôle (M1…M4, 88,8621 %, ancrages) à 1e-9 ; les 93 formules
   de `P8` (annexe A de l'analyse) recalculées telles qu'elles sont écrites sur ≥ 200 saisies tirées au sort (dx, dy,
-  jeu_ancrage, L, X, Y, R, R_ELU, e, r, f_y, coef) face au mode historique ; la configuration B sur le cas de contrôle
+  jeu_ancrage, L, X, Y, R, R_ELU, e, r, f_y, coef) face au mode historique — avec dx = dy = 0 d'abord (une seule
+  combinaison : P8 exactement), puis avec des jeux (l'enveloppe = P8 évalué à Xj = +dx, Yj = +dy pour les sections) ;
+  l'ENVELOPPE : aucune grandeur ne baisse quand dx ou dy croît (balayage), la combinaison gouvernante est rendue et
+  juste (l'ancrage haut pour S3 en A, l'ancrage bas pour la traction, en B l'ancrage bas), les trois courbes de moment
+  des diagrammes sont celles des trois positions et l'enveloppe est leur maximum point par point ; la configuration B sur le cas de contrôle
   retourné (82,47 kN ; 2,886 kN·m ; 112,42 % ; nette 137,1 %) et sur Y = 45 (38,48 kN) ; l'équilibre P0 et P1 sur le cas
   de contrôle (76,91 %, 83,96 %) ; les effets des jeux (tableau § 2.2 de l'analyse : dx = 20 → 112,43 %, dy = 20 →
   95,38 %, jeu_ancrage = 20 → 16,446 kN) ; la garde (ancrage bas → avertissement) ; les ailes inégales (tableau § 6.2 :
@@ -202,6 +232,11 @@ converti en silence.
   `module:corniere`, `formats:corniere`, `note_pdf` (NOTES_RELEVE["corniere"] : une note riche à deux cornières, A et B).
 
 ## 8. Ce qui reste ouvert pour l'ingénieur (repris dans SUITE_DU_CHANTIER)
-Les dix questions 8.6 de l'analyse ; les trois **[à confirmer]** ci-dessus (dx = 20 mm par défaut ; R_ELU = 1,5·R par
-défaut ; y_c = 0 en mode équilibre) ; la cornière longue (étape 4) ; le maillage de contrôle (option, pas dans ce lot) ;
-les cornières PRS (architecture seulement).
+Les dix questions 8.6 de l'analyse ; les quatre **[à confirmer]** ci-dessus (dx = 20 mm et dy = 10 mm par défaut, dans
+les deux sens avec l'enveloppe ; R_ELU = 1,5·R par défaut ; y_c = 0 en mode équilibre) ; la cornière longue (étape 4) ;
+le maillage de contrôle (option, pas dans ce lot) ; les cornières PRS (architecture seulement).
+
+*Révision du 10/11/2026 (après le lancement, à la demande de l'ingénieur) : les jeux passent de « appliqués dans le sens
+défavorable » à « trois positions et enveloppe » (§ 3.0) — sur son idée ; dy prend 10 mm par défaut ; la vue « section
+seule » est supprimée et les diagrammes deviennent deux vues, Moments et Contraintes, qui montrent les trois positions
+(§ 4). Le premier lancement a été arrêté avant tout code.*
