@@ -23,6 +23,9 @@ const telephone = matchMedia("(max-width: 700px)");
 // l'établi COMPACT (les trois modules béton armé, construire.ETABLI_COMPACT) : l'arborescence de la note à gauche, le
 // dessin au centre, un bloc de résultats par section à droite (js/compact.js) ; les autres modules gardent l'établi d'avant
 const COMPACT = document.body.dataset.etabli === "compact";
+// (colonne de gauche compacte, construire.ARBRE_COMPACT) l'emplacement de la ligne de l'élément ouvert, dans l'en-tête
+// du panneau des données
+const ELT = $(".panel.left .phead .et-elt");
 // le module fait sa note PDF dans le navigateur (construire.NOTE_PDF) ; sinon « Note PDF » dit qu'elle arrive bientôt
 const NOTE_PDF = document.body.dataset.notePdf === "1";
 const memoire = { lire(k, d) { try { return JSON.parse(sessionStorage.getItem(k) || "null") ?? d; } catch (e) { return d; } },
@@ -301,8 +304,17 @@ function reprendreSaisie(zone, s) {
 function afficherDonnees(elements, html) {
   const zone = $("#donnees");
   const saisie = saisieEnCours(zone);
+  const saisieElt = ELT ? saisieEnCours(ELT) : null;
   const defile = zone.scrollTop;
   zone.innerHTML = elements + html;
+  // (colonne compacte) la LIGNE de l'élément ouvert — son nom, la liste, copier, supprimer — monte dans l'en-tête du
+  // panneau, à côté d'« Annuler » et « Rétablir » (construire.compact : l'emplacement .et-elt) ; un nom en cours de
+  // frappe survit au calcul qui revient
+  if (ELT) {
+    const ligne = zone.querySelector(".et-elsel");
+    ELT.replaceChildren(...(ligne ? [ligne] : []));
+    reprendreSaisie(ELT, saisieElt);
+  }
   separerNoms(zone);
   // les sections gardent leur état (ouvert, fermé) d'un calcul à l'autre
   if (COMPACT) {
@@ -470,16 +482,24 @@ async function lireFichier(f) {
 $("#donnees").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
 });
-// le cadre des RÉSULTATS porte un champ aussi : le NOM de l'élément ouvert, dans sa tête (etabli_compact.tete_resultats,
-// colonne de gauche compacte) — le même mécanisme que les champs des données (« modifier » en quittant le champ, Entrée)
-$("#resultat").addEventListener("focusout", (ev) => {
-  const el = ev.target.closest("input[data-chemin]:not([type=checkbox]):not([type=file])");
-  if (el && el.value !== el.defaultValue) valider(el);
-});
-$("#resultat").addEventListener("keydown", (ev) => {
-  if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
-});
-
+// la LIGNE de l'élément ouvert, dans l'en-tête du panneau (colonne compacte) : son NOM est un champ — un clic, et on le
+// renomme ; Entrée valide, Échap rend l'ancien nom — ; la liste des éléments, copier, supprimer passent par agirElement
+if (ELT) {
+  ELT.addEventListener("focusout", (ev) => {
+    const el = ev.target.closest("input[data-chemin]");
+    if (el && el.value !== el.defaultValue) {
+      if (!el.value.trim()) { el.value = el.defaultValue; toast("Un nom ne peut pas être vide", true); return; }
+      valider(el);
+    }
+  });
+  ELT.addEventListener("keydown", (ev) => {
+    const el = ev.target.closest("input[data-chemin]");
+    if (!el) return;
+    if (ev.key === "Enter") el.blur();
+    else if (ev.key === "Escape") { el.value = el.defaultValue; el.blur(); }
+  });
+  ELT.addEventListener("click", (ev) => { agirElement(ev); });
+}
 // « Dans cette note » : supprimer, ouvrir, ajouter, copier un élément. Le bloc vient du cadre Données ; l'établi compact
 // le déplace dans la liste de gauche (js/compact.js) : les deux cadres répondent par cette même fonction.
 function agirElement(ev) {
@@ -562,12 +582,17 @@ function ouvrirRubrique(cle) {
 // colonne repliée se rouvre), dans sa rubrique ailleurs (qui s'ouvre alors)
 function renommer() {
   if (compact) compact.deplierPoutre();
-  const champ = $('#donnees input[data-chemin="nom"]') || $('#resultat input[data-chemin="nom"]');
-  if (!champ) return;
-  if (champ.closest("#resultat")) {
-    if (telephone.matches) onglet("resultat");
-    bench.classList.remove("sans-d");
+  // (colonne compacte : le nom est dans la ligne de l'élément, en tête du panneau — au téléphone, l'onglet Données)
+  if (ELT && $('input[data-chemin="nom"]', ELT)) {
+    if (telephone.matches) onglet("donnees");
+    bench.classList.remove("sans-g");
+    const n = $('input[data-chemin="nom"]', ELT);
+    n.focus();
+    n.select();
+    return;
   }
+  const champ = $('#donnees input[data-chemin="nom"]');
+  if (!champ) return;
   const rub = champ.closest(".sec[data-sec]");
   if (rub && COMPACT) ouvrirRubrique(rub.dataset.sec); else if (rub) rub.classList.add("open");
   champ.focus();

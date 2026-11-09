@@ -14,7 +14,8 @@
   constructives disent leur état en mots, sans taux ; chaque pièce du dessin a sa ligne dans les données (et
   réciproquement) ; les clés du ferraillage détaillé (position, répartition, entraxe, barres entourées, latérales,
   copie de section) se saisissent, se vident (automatique) et se refusent comme les autres ;
-- la deuxième passe (11/2026) : à gauche l'ARBORESCENCE (chaque poutre « nom · b × h cm », sans taux, son menu ⋯) ; les
+- la deuxième passe (11/2026) : à gauche, depuis le 09/11/2026, la colonne COMPACTE (la ligne de la poutre ouverte : son
+  nom en champ, la liste des poutres « nom · b × h cm » sans taux, copier, supprimer ; puis ses rubriques) ; les
   barres qu'un cadre entoure se choisissent (« de-à ») et ne désignent jamais une barre absente ; à droite un BLOC par
   section, coloré par son état, et la LISTE DE CONTRÔLE des dispositions (une observation « à examiner » se justifie,
   une non-conformité non) ; au centre l'en-tête technique de chaque vue et les poignées du cadre choisi.
@@ -242,24 +243,29 @@ rn = req(module="poutre", action="calculer", etat=e)
 t_max = max(MO.verifier(x)["taux_max"] for x in e["poutres"])
 chk("le résumé de la note est sa poutre la plus chargée (ici V1, fermée)",
     rn["resume"]["taux"] == C.pct(t_max) and rn["resume"]["gouvernant"].startswith("V1 ·"), (rn["resume"], t_max))
-# le nom d'une poutre fermée s'écrit ; celui de la poutre OUVERTE est un champ, sur sa ligne même (11/2026)
-pts_ = [(o, i, n1 or n2, d_) for o, i, n1, n2, d_ in re.findall(
-    r'<div class="et-pt( on)?" data-poutre="(\d)">.*?(?:<span class="nom">([^<]+)</span>|<input data-chemin="nom" data-sorte="texte" '
-    r'value="([^"]*)"[^>]*>)<span class="dim">([^<]+)</span>', rn["donnees"], re.S)]
-arbre_ = rn["donnees"].split('class="et-pt-corps"')[0] + "".join(x.split("</div></div>", 1)[-1] for x in rn["donnees"].split('class="et-pt-corps"')[1:])
-chk("l'arborescence montre chaque poutre « nom · b × h cm », l'ouverte développée — sans taux ni pastille d'état",
-    [(o, i, n) for o, i, n, _ in pts_] == [("", "0", "V1"), (" on", "1", "V2"), ("", "2", "V2 (copie)")]
+# la colonne de gauche COMPACTE (demande de l'ingénieur du 09/11/2026, etabli_compact.arbre_compact) : la LIGNE de la
+# poutre ouverte (que l'écran pose dans l'en-tête du panneau) — son nom en champ, la LISTE des poutres en menu (chacune
+# « nom · b × h cm », l'ouverte cochée), copier, supprimer — puis ses rubriques ; plus d'arborescence
+ligne_ = re.search(r'<div class="et-elsel" data-elements="\d+">.*?(?=<div class="sec)', rn["donnees"], re.S)
+ligne_ = ligne_.group(0) if ligne_ else ""
+pts_ = re.findall(r'aria-checked="(true|false)" class="et-elt-i( on)?" data-activer="(\d)" title="[^"]*">.*?<span class="nom">([^<]+)</span>'
+                  r'<span class="dim">([^<]+)</span>', ligne_, re.S)
+chk("la LISTE des poutres (la ligne de la poutre ouverte) montre chaque poutre « nom · b × h cm », l'ouverte cochée, leur compte ; "
+    "les rubriques de la seule ouverte — plus d'arborescence, sans taux ni pastille d'état",
+    [(c, o, i, n) for c, o, i, n, _ in pts_] == [("false", "", "0", "V1"), ("true", " on", "1", "V2"), ("false", "", "2", "V2 (copie)")]
     and all(d == f"· {C.nb(x['b'])} × {C.nb(x['h'])} cm" for (*_, d), x in zip(pts_, e["poutres"]))
-    and rn["donnees"].count('class="et-pt-corps"') == 1 and rn["elements"] == ""
-    and not re.search(r'class="(chip|status|pct)\b', rn["donnees"].split('class="et-pt-corps"')[0]), pts_)
-tete_on = re.search(r'<div class="et-pt on" data-poutre="1"><div class="et-pt-l">(.*?)<div class="et-mn">', rn["donnees"], re.S).group(1)
+    and re.search(r'<div class="et-arbre et-arbre-c" data-poutre="1"><div class="et-elsel" data-elements="3">', rn["donnees"]) is not None
+    and '<span class="n">3</span></button>' in ligne_ and "et-arbre-h" not in rn["donnees"]
+    and not re.search(r'class="et-pt(?: on)?"|class="et-pt-(?:l|corps|nom|add)\b', rn["donnees"])
+    and rn["donnees"].count('data-sec="pt"') == 1 and rn["elements"] == ""
+    and not re.search(r'class="(chip|status|pct)\b', ligne_), (pts_, ligne_[:300]))
 rub1 = re.search(r'<div class="sec[^"]*" data-sec="pt".*?(?=<div class="sec[^"]*" data-sec="so")', rn["donnees"], re.S).group(0)
-chk("le NOM de la poutre ouverte se modifie sur sa ligne de l'arborescence (champ « nom », le chevron à côté replie) ; la "
-    "rubrique « Poutre » n'a plus de ligne Nom, et ses données tiennent en trois lignes (béton | acier, b | h, enrobage)",
-    re.search(r'<button type="button" class="et-pt-t on et-pt-chev" data-activer="1"[^>]*>', tete_on) is not None
-    and '<input data-chemin="nom" data-sorte="texte" value="V2" class="et-pt-nom"' in tete_on and 'data-chemin="nom"' not in rub1
+chk("le NOM de la poutre ouverte se modifie dans SA ligne (champ « nom » : un clic, et on le renomme) ; la rubrique « Poutre » n'a "
+    "plus de ligne Nom, et ses données tiennent en trois lignes (béton | acier, b | h, enrobage)",
+    ligne_.startswith('<div class="et-elsel" data-elements="3"><input data-chemin="nom" data-sorte="texte" value="V2" class="et-elt-nom"')
+    and rn["donnees"].count('data-chemin="nom"') == 1 and 'data-chemin="nom"' not in rub1 and 'data-chemin="nom"' not in rn["resultat"]
     and rub1.count('class="row2 n2"') == 2 and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None
-    and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 3, (tete_on[:300], re.findall(r'<div class="row[^"]*"', rub1)))
+    and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 3, (ligne_[:300], re.findall(r'<div class="row[^"]*"', rub1)))
 P.gerer_elements(e, "supprimer", 0)
 chk("supprimer la première garde la poutre ouverte", len(e["poutres"]) == 2 and e["actif"] == 0 and e["poutres"][0]["nom"] == "V2")
 P.gerer_elements(e, "supprimer", 0)
@@ -557,12 +563,15 @@ tau_ = re.search(r'<b>Effort tranchant</b><span class="prof"><span>([^<]+)</span
 chk("l'effort tranchant nomme ce que demande sa bande à côté de son titre (jamais « pas besoin d'étriers » seul)",
     tau_ is not None and tau_.group(1) in P.BESOINS_COURTS.values(), tau_.group(0) if tau_ else "")
 
-# 19. le menu ⋯ d'une poutre : renommer, copier CETTE poutre (la copie s'insère après elle), supprimer (jamais la dernière)
+# 19. la ligne d'une poutre : son nom (un clic le renomme), copier CETTE poutre (la copie s'insère après elle), supprimer
+# (jamais la dernière)
 e = P.nouvel_etat()
 out = req(module="poutre", action="calculer", etat=e)
-chk("une poutre seule : son menu offre « Renommer », « Copier la poutre » et « Supprimer » grisé",
-    'data-renommer="0"' in out["donnees"] and 'data-dupliquer-index="0"' in out["donnees"]
-    and re.search(r'class="danger" data-supprimer="0" data-confirmer="Supprimer la poutre « V1 » de la note \?" disabled>', out["donnees"]) is not None)
+chk("une poutre seule : sa ligne offre le nom en champ (plus de « Renommer »), « Copier la poutre » et « Supprimer » éteint",
+    '<input data-chemin="nom" data-sorte="texte" value="V1" class="et-elt-nom"' in out["donnees"] and "data-renommer" not in out["donnees"]
+    and re.search(r'<button type="button" class="et-elt-b" data-dupliquer-index="0" [^>]*aria-label="Copier la poutre">', out["donnees"]) is not None
+    and re.search(r'class="et-elt-b danger" data-supprimer="0" data-confirmer="Supprimer la poutre « V1 » de la note \?" '
+                  r'title="Une note garde au moins une poutre" aria-label="Supprimer la poutre" disabled>', out["donnees"]) is not None)
 P.gerer_elements(e, "ajouter")
 out = req(module="poutre", action="dupliquer", etat=e, index=0)
 chk("« Copier la poutre » (V1, V2 ouverte) : la copie de V1 s'insère après elle, et s'ouvre",

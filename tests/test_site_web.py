@@ -247,10 +247,12 @@ chk("les pages des modules masqués sont toujours écrites et servies", all(os.p
 #   (« masque », « vers » : la table d'alias que js/notes.js lit), sa page est une REDIRECTION vers dalle qui garde
 #   l'adresse (js/redirection.js, un script du site — jamais en ligne ; le <meta refresh> et un lien en repli), sans
 #   rien d'un tiers ;
-# - la colonne de gauche COMPACTE (ARBRE_COMPACT) : l'en-tête du panneau de dalle.html n'écrit plus « Données », celui de
-#   poutre.html toujours ; et le moteur rend bien l'arbre compact (et-arbre-c) et le nom en champ dans la tête des
-#   résultats (et-rp-c) pour ces modules-là, jamais pour les autres : le tuple du générateur et le rendu du moteur sont
-#   deux copies, liées ici.
+# - la colonne de gauche COMPACTE (ARBRE_COMPACT : la dalle ET la poutre, demande de l'ingénieur du 09/11/2026) : l'en-tête
+#   du panneau de leur page n'écrit plus « Données » — son premier enfant est l'EMPLACEMENT .et-elt où js/etabli.js pose la
+#   LIGNE de l'élément ouvert (.et-elsel : le nom en champ, la liste, copier, supprimer) ; les autres modules gardent
+#   « Données » ; et le moteur rend bien cette ligne (et-arbre-c, .et-elsel, le nom en champ) pour ces modules-là, la tête
+#   des résultats sans champ : le tuple du générateur, le rendu du moteur et le déplacement du JS sont trois copies,
+#   liées ici.
 chk("la fusion : « predalle » est absorbé par « dalle » (REDIRECTIONS), masqué de l'accueil, toujours au registre et servi",
     SW.REDIRECTIONS == {"predalle": "dalle"} and "predalle" in SW.MASQUES and "predalle" in SW.PAGES and "dalle" not in SW.MASQUES
     and all(v in SW.ADRESSES and v not in SW.REDIRECTIONS for v in SW.REDIRECTIONS.values()), (SW.REDIRECTIONS, sorted(SW.MASQUES)))
@@ -275,26 +277,50 @@ _redir_code = re.sub(r"//[^\n]*", "", _redir_js)   # le code seul : les commenta
 chk("js/redirection.js : location.replace(vers + la requête + l'ancre), lu dans body data-vers ; aucune adresse écrite en dur dans le code",
     "location.replace(vers + location.search + location.hash)" in _redir_code and "dataset.vers" in _redir_code
     and not any(k in _redir_code or v in _redir_code for k, v in SW.REDIRECTIONS.items()), _redir_code)
-chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles, un sous-ensemble de l'établi compact", SW.ARBRE_COMPACT == ("dalle",)
-    and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
-for k in SW.ETABLI_COMPACT:
+chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026), un sous-ensemble de l'établi compact",
+    set(SW.ARBRE_COMPACT) == {"dalle", "poutre"} and len(SW.ARBRE_COMPACT) == 2 and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
+EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
+for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     gauche = html[html.index('<section class="panel left">'):html.index('<section class="panel right">')]
-    chk(f"{SW.PAGES[k]} : l'en-tête du panneau des données {'ne porte plus le titre « Données » (colonne compacte)' if k in SW.ARBRE_COMPACT else 'porte le titre « Données »'}, "
-        "Annuler et Rétablir en place",
-        ('<span class="h3">Données</span>' in gauche) == (k not in SW.ARBRE_COMPACT) and "Données" not in gauche.split('id="donnees"')[0].replace('title="Replier les données"', "")
-        .replace('<span class="h3">Données</span>', "") and 'data-historique="annuler"' in gauche, gauche[:200])
+    tete_g = gauche[:gauche.index('id="donnees"')]
+    if k in SW.ARBRE_COMPACT:
+        chk(f"{SW.PAGES[k]} (colonne compacte) : le premier enfant de l'en-tête du panneau des données est l'emplacement .et-elt de la "
+            "ligne de l'élément (vide : l'écran l'y pose), une seule fois dans la page ; plus de titre « Données » ; Annuler et Rétablir en place",
+            gauche.startswith('<section class="panel left"><div class="phead">' + EMPLACEMENT_ELT) and html.count('class="et-elt"') == 1
+            and "Données" not in tete_g.replace('title="Replier les données"', "") and 'data-historique="annuler"' in tete_g
+            and 'data-historique="retablir"' in tete_g, gauche[:200])
+    else:
+        chk(f"{SW.PAGES[k]} : l'en-tête du panneau des données porte le titre « Données » ({'établi compact' if k in SW.ETABLI_COMPACT else 'établi d avant'}), "
+            "sans emplacement de ligne d'élément",
+            gauche.startswith('<section class="panel left"><div class="phead"><span class="h3">Données</span>') and "et-elt" not in html, gauche[:200])
 sys.path.insert(0, RACINE)
 from api_web import routeur as _RT  # noqa: E402
 
 for k in SW.ETABLI_COMPACT:
     _out = json.loads(_RT.traiter(json.dumps({"module": k, "action": "nouveau"})))
     _compact = k in SW.ARBRE_COMPACT
-    chk(f"{k} : le moteur rend {'l arbre compact (et-arbre-c) et le nom en champ dans la tête des résultats (et-rp-c)' if _compact else 'l arbre d avant (en-tête de liste, ligne d élément) et la tête des résultats sans champ'}"
+    chk(f"{k} : le moteur rend {'la colonne compacte (et-arbre-c ; la ligne .et-elsel, le nom en champ) et la tête des résultats sans champ' if _compact else 'l arbre d avant (en-tête de liste, ligne d élément) et la tête des résultats sans champ'}"
         " — comme ARBRE_COMPACT le dit",
-        _out.get("ok") and ('class="et-arbre et-arbre-c' in _out["donnees"]) == _compact and ('class="et-arbre-h"' in _out["donnees"]) == (not _compact)
-        and ('class="et-rp et-rp-c"' in _out["resultat"]) == _compact and ('<input data-chemin="nom"' in _out["resultat"]) == _compact
-        and ('<input data-chemin="nom"' in _out["donnees"]) == (not _compact), _out.get("erreur"))
+        _out.get("ok") and ('class="et-arbre et-arbre-c"' in _out["donnees"]) == _compact and ('class="et-arbre-h"' in _out["donnees"]) == (not _compact)
+        and (re.search(r'<div class="et-elsel" data-elements="1"><input data-chemin="nom" data-sorte="texte" value="[^"]*" class="et-elt-nom"',
+                       _out["donnees"]) is not None) == _compact
+        and '<input data-chemin="nom"' in _out["donnees"] and "data-chemin" not in _out["resultat"].split('<div class="et-blocs">')[0]
+        and 'class="et-rp-nom"' not in _out["resultat"], _out.get("erreur"))
+# … et l'écran la déplace : js/etabli.js cherche l'emplacement dans l'en-tête du panneau de gauche, y pose la ligne .et-elsel
+# que le moteur a rendue dans #donnees (à chaque réponse, un nom en cours de frappe survit), et lui passe ses clics
+# (agirElement) ; le nom s'y valide en quittant le champ ou sur Entrée — js/compact.js y ouvre la liste (le menu)
+_js_etabli = open(os.path.join(WEB, "js", "etabli.js"), encoding="utf-8").read()
+_poser = re.search(r"if \(ELT\) \{\s*const ligne = zone\.querySelector\(\"\.et-elsel\"\);\s*ELT\.replaceChildren\(\.\.\.\(ligne \? \[ligne\] : \[\]\)\);"
+                   r"\s*reprendreSaisie\(ELT, saisieElt\);", _js_etabli)
+chk("js/etabli.js déplace la ligne .et-elsel de #donnees dans l'emplacement .et-elt de l'en-tête (replaceChildren, à chaque réponse ; "
+    "la saisie du nom en cours reprise), lui passe ses clics (agirElement) et valide le nom en quittant le champ",
+    'const ELT = $(".panel.left .phead .et-elt");' in _js_etabli and _poser is not None
+    and _js_etabli.index("zone.innerHTML = elements + html;") < _poser.start()
+    and "const saisieElt = ELT ? saisieEnCours(ELT) : null;" in _js_etabli
+    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}\)', _js_etabli) is not None
+    and re.search(r'ELT\.addEventListener\("focusout", .*?valider\(el\);', _js_etabli, re.S) is not None
+    and 'document.querySelector(".panel.left .phead .et-elt")' in _src_compact and "zonesMenus = [donnees, elt]" in _src_compact)
 
 # 5 bis. les trois formats : ce que le téléphone et la tablette trouvent dans chaque page (la disposition est dans
 # css/site.css et se vérifie dans le vrai navigateur : verifier_site.js, filtre « formats »)

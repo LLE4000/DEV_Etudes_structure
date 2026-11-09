@@ -64,7 +64,8 @@ PAGE = "dalle"
 VERSION = 2                            # l'état fusionné (docs/site/DALLES_FUSION.md § 2.1)
 
 # les TYPES de dalle : la clé de l'état et son libellé (les segments de la rubrique « 1 — Caractéristiques »)
-TYPES_DALLE = (("coulee", "Dalle coulée en place"), ("predalle", "Prédalle + béton coulé en place"))
+# (libellés courts, demande de l'ingénieur du 09/11/2026 : CSP = coulé sur place ; l'aide du champ le dit en entier)
+TYPES_DALLE = (("coulee", "Dalle CSP"), ("predalle", "Prédalle + dalle CSP"))
 TYPES_TXT = dict(TYPES_DALLE)
 # les clés que le SITE ajoute à une dalle et que les moteurs ne lisent pas (api_web/dalle_positions.CLES_SITE les
 # retire de la copie envoyée au moteur : tests/test_api_web_dalles_fusion.py lie les deux copies)
@@ -372,7 +373,7 @@ def _ecrire(etat: Dict, d: Dict, chemin: List, valeur) -> None:
         elif k == "h_pre":
             if not predalle:
                 raise _Refus("Épaisseur de la prédalle : une dalle coulée en place n'a pas de prédalle — choisir "
-                             "« Prédalle + béton coulé en place » d'abord")
+                             f"« {TYPES_TXT['predalle']} » d'abord")
             d["h_pre"] = AP.peau(d, valeur)
         elif k in ("b", "enrobage"):
             d[k] = _nombre(k, valeur)
@@ -568,7 +569,8 @@ LEGENDES = {"c": "barres coupées en points, barres parallèles en traits", "p":
 AIDE_AXE = ("Du parement à l'axe des barres. Vide : l'axe automatique — enrobage + ½ Ø arrondi au 0,5 cm supérieur + jeu "
             "premier lit ; nappes empilées, la base de la direction secondaire est posée sur la principale : axe principal + ½ Ø_p "
             "+ ½ Ø_s ; une valeur saisie l'impose.")
-AIDE_TYPE = ("Dalle coulée en place : toute l'épaisseur est coulée au chantier (moteur beton/dalle). Prédalle : la partie basse "
+AIDE_TYPE = ("CSP : coulé sur place. Dalle CSP : toute l'épaisseur est coulée au chantier (moteur beton/dalle). Prédalle + dalle "
+             "CSP : la partie basse "
              "h_p est préfabriquée, la base inférieure de la direction principale y est posée en fond de moule, les autres "
              "couches inférieures sur la prédalle (moteur beton/predalle). Changer de type garde les sections, les armatures et "
              "les positions saisies ; vers la prédalle, h_p prend 6 cm (borné à l'épaisseur).")
@@ -705,16 +707,16 @@ def formulaire(etat: Dict, r: Optional[Dict] = None) -> str:
     s3, r3 = PC.rubrique_armatures([s["nom"] for s in d["sections"]], contenus, resumes)
     # le résumé de la rubrique 1 dit le TYPE
     resume1 = (f"Prédalle h<sub>p</sub> = {C.nb(d['h_pre'])} cm · {C.esc(d['beton'])} · B{d['fyk']}" if est_predalle(d)
-               else f"Coulée en place · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
+               else f"Dalle CSP · {C.esc(d['beton'])} · B{d['fyk']} · c = {C.nb(d['enrobage'])} cm")
     return PC.formulaire("dl", "Caractéristiques", resume1, _caracteristiques(d), PC.cartes(d["sections"]), len(d["sections"]),
                          s3, r3, f"γ<sub>s</sub> {C.nb(d['gamma_s'])} · jeu {C.nb(d['jeu_premier_lit'])} cm", _options(d))
 
 
 def arbre(etat: Dict, r: Optional[Dict] = None) -> str:
-    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre, compact=True — docs/site/DALLES_FUSION.md § 1) : une
-    seule dalle, ses rubriques tout en haut ; plusieurs, le sélecteur des dalles « nom · b × h cm » (la peau d'une
-    prédalle dite, un cadenas si elle est verrouillée) puis les rubriques de la dalle ouverte. Le nom se modifie dans
-    l'en-tête des résultats ; copier, supprimer, ajouter : dans le menu « ⋯ »."""
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact — docs/site/DALLES_FUSION.md § 1) : la ligne
+    de la dalle ouverte (son nom, qu'un clic modifie ; la liste des dalles « nom · b × h cm », la peau d'une prédalle
+    dite, un cadenas si elle est verrouillée, et « Ajouter une dalle » ; copier, supprimer), posée par l'écran dans
+    l'en-tête du panneau, puis les rubriques de la dalle ouverte."""
     elements = [(d.get("nom") or f"Dalle {i + 1}",
                  f"· {C.nb(d['b'])} × {C.nb(d['h'])} cm" + (f", prédalle {C.nb(d['h_pre'])} cm" if est_predalle(d) else ""), d["verrou"])
                 for i, d in enumerate(etat["dalles"])]
@@ -1037,7 +1039,7 @@ def resultat(etat: Dict) -> Dict:
     nivs = [PC.niveau_element(_MO(q), _M(q), x) for q, x in zip(etat["dalles"], resultats)]
     statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     element = r["predalle"] if predalle else r["dalle"]
-    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims, chemin_nom=["nom"], verrou=d["verrou"])}'
+    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}'
                         f'<div class="et-blocs">{blocs}</div>{_avertissements_de(d, r)}{perimetre}</div>{pied}',
             "volets": volets, "vues": PC.vues(r["sections"], element, DP if predalle else DD, "pd" if predalle else "dl", dims, _legendes(d)),
             "phrase": "", "statut_html": statut,

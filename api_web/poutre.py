@@ -534,13 +534,13 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
 
 
 def arbre(etat: Dict, res: Optional[Dict] = None) -> str:
-    """La colonne de gauche : l'ARBORESCENCE de la note (api_web/etabli_compact.py, la même que les dalles et les
-    prédalles). Chaque poutre, « nom · b × h cm », sans taux ni pastille (le résultat est à droite) ; la poutre ouverte se
-    développe et montre ses quatre rubriques ; un clic sur une autre l'ouvre (la première se replie). Copier, supprimer,
-    renommer : dans le menu « ⋯ » de la poutre."""
+    """La colonne de gauche COMPACTE (api_web/etabli_compact.arbre_compact, la même que les dalles — demande de
+    l'ingénieur du 09/11/2026) : la ligne de la poutre ouverte (son nom, qu'un clic modifie ; la liste des poutres
+    « nom · b × h cm », sans taux ni pastille, et « Ajouter une poutre » ; copier, supprimer), posée par l'écran dans
+    l'en-tête du panneau, puis ses quatre rubriques."""
     elements = [(p.get("nom") or f"Poutre {i + 1}", f"· {C.nb(p['b'])} × {C.nb(p['h'])} cm", False)
                 for i, p in enumerate(etat["poutres"])]
-    return E.arbre(E.POUTRE, elements, etat["actif"], formulaire(etat, res), "poutre")
+    return E.arbre(E.POUTRE, elements, etat["actif"], formulaire(etat, res), "poutre", compact=True)
 
 
 def _options(p: Dict) -> str:

@@ -44,11 +44,67 @@ const FILTRE = process.argv[4] || '';
     // champ, a sa largeur ordinaire (en tabulaire, « Garde-corps 1 » se lisait « Garde - corps 1 »)
     const trait = (cs, fvn) => { const t = document.createElement('span'); t.style.cssText = `position:absolute;white-space:pre;font:${cs.font};font-variant-numeric:${fvn}`;
       t.textContent = '-'; document.body.appendChild(t); const l = t.getBoundingClientRect().width; t.remove(); return l; };
-    const tabulaires = [...document.querySelectorAll('#donnees .field.text input, #donnees .field.area textarea')].filter(vis)
+    // (et le nom de l'élément ouvert, un champ de la ligne de l'élément en tête du panneau de gauche : la poutre, la dalle)
+    const tabulaires = [...document.querySelectorAll('#donnees .field.text input, #donnees .field.area textarea, .panel.left .phead input.et-elt-nom')].filter(vis)
       .filter((e) => { const cs = getComputedStyle(e); return trait(cs, cs.fontVariantNumeric) > trait(cs, 'normal') + 0.2; }).map((e) => e.dataset.chemin);
     return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, gris, tabulaires, svg: r ? [Math.round(r.width), Math.round(r.height)] : null,
       vue: rb ? [Math.round(rb.width), Math.round(rb.height)] : null };
   });
+  // (colonne de gauche compacte : la poutre, la dalle — construire.ARBRE_COMPACT) la LIGNE de l'élément ouvert, que
+  // js/etabli.js pose dans l'en-tête du panneau des données, à côté d'« Annuler » et « Rétablir ». Ce que l'œil voit :
+  // chaque pièce (le nom, la liste, copier, supprimer, puis Annuler, Rétablir, replier) visible et à une taille LUE, dans
+  // l'en-tête, sur une seule rangée, sans chevauchement, dans cet ordre ; ``doigt`` : chaque cible à tant de px au moins.
+  // ``nomEntier`` : le nom se lit en entier dans son champ (à l'appelant d'en juger : un nom long cède, c'est voulu).
+  // null : la page n'a pas cette ligne (un établi ordinaire).
+  const ligneElement = (pg, doigt = 0) => pg.evaluate((doigt) => {
+    const ph = document.querySelector('.panel.left .phead'), l = ph && ph.querySelector(':scope > .et-elt > .et-elsel');
+    if (!l) return null;
+    const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+    if (!vu(l)) return { fautes: ['la ligne ne se voit pas'] };
+    const nommer = (e) => (e.classList.contains('et-elt-nom') ? 'nom' : e.classList.contains('et-elt-liste') ? 'liste' : e.hasAttribute('data-dupliquer-index') ? 'copier'
+      : e.hasAttribute('data-supprimer') ? 'supprimer' : e.dataset.historique || (e.dataset.coll ? 'replier' : e.id || e.className));
+    const ATTENDUES = ['nom', 'liste', 'copier', 'supprimer', 'annuler', 'retablir'];
+    // (la liste : son BOUTON — le menu, caché, n'a pas de place ; « Calcul… » n'en a que pendant un calcul : ignoré)
+    const pieces = [...l.children, ...ph.children].filter((e) => !e.classList.contains('et-elt') && vu(e)).map((e) => {
+      const r = (e.classList.contains('et-elt-liste') ? e.querySelector('[data-menu]') : e).getBoundingClientRect();
+      return { n: nommer(e), r, t: `${Math.round(r.width)}×${Math.round(r.height)}` };
+    }).filter((x) => ATTENDUES.includes(x.n) || x.n === 'replier').sort((a, b) => a.r.left - b.r.left);
+    const rp = ph.getBoundingClientRect(), cy = (rp.top + rp.bottom) / 2;
+    const fautes = ATTENDUES.filter((n) => !pieces.some((x) => x.n === n)).map((n) => `${n} absent ou invisible`);
+    const ordre = pieces.map((x) => x.n);
+    if (ordre.join() !== [...ATTENDUES, 'replier'].filter((n) => ordre.includes(n)).join()) fautes.push(`dans le désordre : ${ordre.join()}`);
+    pieces.forEach((x, i) => {
+      const r = x.r;
+      if (r.width < 1 || r.height < 1) fautes.push(`${x.n} sans taille (${x.t})`);
+      if (r.left < rp.left - 0.5 || r.right > rp.right + 0.5 || r.top < rp.top - 0.5 || r.bottom > rp.bottom + 0.5) fautes.push(`${x.n} sort de l'en-tête`);
+      if (Math.abs((r.top + r.bottom) / 2 - cy) > 2) fautes.push(`${x.n} hors de la rangée`);
+      if (i && r.left < pieces[i - 1].r.right - 0.5) fautes.push(`${pieces[i - 1].n} / ${x.n} se chevauchent`);
+      if (doigt && Math.min(r.width, r.height) < doigt - 0.5) fautes.push(`${x.n} ${x.t} (moins de ${doigt} px au doigt)`);
+    });
+    if (ph.scrollWidth > ph.clientWidth + 1 || l.scrollWidth > l.clientWidth + 1) fautes.push('la ligne déborde de l\'en-tête');
+    if (document.documentElement.scrollWidth > innerWidth) fautes.push('la page déborde');
+    const n = l.querySelector('input.et-elt-nom') || l.querySelector('.et-elt-nom.lu > span');
+    return { fautes, nomEntier: !!n && n.scrollWidth <= n.clientWidth + 1, pieces: pieces.map((x) => `${x.n} ${x.t}`).join(', '),
+      entete: `${Math.round(rp.width)}×${Math.round(rp.height)}` };
+  }, doigt);
+  // la LISTE des éléments, le menu de cette ligne : l'ouvrir (un clic, ou un appui au doigt), puis ce que l'œil voit —
+  // dans l'écran, chaque entrée atteinte (le point touché en son centre est bien elle : rien ne la couvre), les noms
+  // (l'ouvert coché, marqué d'une étoile), « Ajouter … », le compte sur le bouton. Le menu reste ouvert : l'appelant le
+  // referme (Échap, ou le bouton de nouveau).
+  const LISTE_ELT = '.panel.left .phead .et-elt .et-elt-liste';
+  const listeElement = async (pg, auDoigt = false) => {
+    if (auDoigt) await pg.tap(`${LISTE_ELT} [data-menu]`); else await pg.click(`${LISTE_ELT} [data-menu]`);
+    await pg.waitForTimeout(150);
+    return pg.evaluate((s) => {
+      const m = document.querySelector(s), l = m.querySelector('.et-mn-l'), q = l.getBoundingClientRect(), entrees = [...l.querySelectorAll('button')];
+      const atteinte = (e) => { const r = e.getBoundingClientRect(), x = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2); return !!x && e.contains(x); };
+      return { vu: l.checkVisibility({ visibilityProperty: true, opacityProperty: true }), ouvert: m.querySelector('[data-menu]').getAttribute('aria-expanded') === 'true',
+        dedans: q.left >= -0.5 && q.top >= -0.5 && q.right <= innerWidth + 0.5 && q.bottom <= innerHeight + 0.5, touche: entrees.length > 1 && entrees.every(atteinte),
+        items: [...l.querySelectorAll('[data-activer]')].map((x) => x.querySelector('.nom').textContent + (x.classList.contains('on') && x.getAttribute('aria-checked') === 'true' ? '*' : '')).join(),
+        ajouter: ((l.querySelector('[data-ajouter]') || {}).textContent || '').trim(), compte: (m.querySelector('[data-menu] .n') || {}).textContent || '',
+        hMin: Math.round(Math.min(...entrees.map((x) => x.getBoundingClientRect().height))), boite: [q.left, q.top, q.right, q.bottom].map(Math.round).join(',') };
+    }, LISTE_ELT);
+  };
   const verdict = () => p.evaluate(() => document.querySelector('.verdict')?.textContent.replace(/\s+/g, ' ').trim() || '');
   const pret = () => p.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
   const calme = () => p.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
@@ -185,9 +241,9 @@ const FILTRE = process.argv[4] || '';
       v.startsWith('Données incomplètes') && (await p.$$eval('#resultat .el', (e) => e.length)) === 6
       && resNeuf.includes('non effectuée'), v);
     // les efforts de la section A : la flexion et l'effort tranchant entrent en jeu (rubrique « Sections et
-    // sollicitations », dans l'arborescence de la poutre ouverte)
+    // sollicitations », les rubriques de la poutre ouverte — colonne de gauche compacte : plus d'arborescence)
     const ouvrir = async (k) => {
-      if (!(await p.$eval(`#donnees .et-pt.on .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await p.click(`#donnees .et-pt.on .sec[data-sec="${k}"] > .sechd`);
+      if (!(await p.$eval(`#donnees .et-arbre .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await p.click(`#donnees .et-arbre .sec[data-sec="${k}"] > .sechd`);
       await p.waitForTimeout(100);
     };
     await ouvrir('so');
@@ -622,11 +678,15 @@ const FILTRE = process.argv[4] || '';
       if (PARTIES.includes('tel') && await neuve(t, cle, 'téléphone')) {
         const fixe = async () => ({ mtop: await boite(t, '.mtop'), mtabs: await boite(t, '.mtabs'), mbar: await boite(t, '.mbar') });
         // l'établi compact (construire.ETABLI_COMPACT, finalisé) : trois cadres comme les autres modules — « Données »
-        // montre la liste des éléments ET les rubriques (le panneau de gauche ; colonne compacte des dalles : les
-        // rubriques directement, docs/site/DALLES_FUSION.md § 1), « Résultat » le résultat seul
+        // montre l'élément ouvert ET ses rubriques (le panneau de gauche ; colonne compacte, la poutre et la dalle —
+        // docs/site/DALLES_FUSION.md § 1 : la LIGNE de l'élément dans l'en-tête du panneau, les rubriques dessous),
+        // « Résultat » le résultat seul. La ligne est exigée dès que la page en a l'emplacement (.et-elt, construire.compact) :
+        // un script qui ne l'y poserait pas rougit ici.
         const compactTel = await t.evaluate(() => document.body.dataset.etabli === 'compact');
+        const ligneTel = await t.evaluate(() => !!document.querySelector('.panel.left .phead .et-elt'));
         const ONGLETS = compactTel
-          ? [['donnees', '.panel.left', ['.canvas', '.panel.right'], ['#donnees .et-arbre', '#donnees .et-arbre .sec.open']], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
+          ? [['donnees', '.panel.left', ['.canvas', '.panel.right'], ['#donnees .et-arbre', '#donnees .et-arbre .sec.open', ...(ligneTel ? ['.panel.left .phead .et-elt .et-elsel'] : [])]],
+            ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
             ['resultat', '.panel.right', ['.canvas', '.panel.left'], ['#resultat .el']]]
           : [['donnees', '.panel.left', ['.canvas', '.panel.right'], []], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
             ['resultat', '.panel.right', ['.canvas', '.panel.left'], []]];
@@ -651,10 +711,39 @@ const FILTRE = process.argv[4] || '';
             f.mtop && f.mtop.h === 0 && f.mtabs && f.mtabs.h >= f.mtop.b - 1 && f.mtabs.h <= f.mtop.b + 1 && f.mbar && f.mbar.b === f.mbar.H, JSON.stringify(f));
           await t.evaluate(() => scrollTo(0, 0));
           if (onglet === 'donnees') {
-            // des champs en 16 px au moins (sinon iOS agrandit la page au toucher), des cibles de 36 px au moins
-            const petits = await t.$$eval('#donnees input:not([type=checkbox]):not([type=file]), #donnees select, #donnees textarea',
+            // des champs en 16 px au moins (sinon iOS agrandit la page au toucher), des cibles de 36 px au moins (et le nom de
+            // l'élément, un champ de l'en-tête des données : colonne compacte)
+            const petits = await t.$$eval('#donnees input:not([type=checkbox]):not([type=file]), #donnees select, #donnees textarea, .panel.left .phead input',
               (x) => x.filter((e) => e.checkVisibility()).filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`));
             verif(`${cle} · téléphone : chaque champ s'écrit en 16 px au moins`, !petits.length, petits.slice(0, 4).join(', '));
+            const lg = await ligneElement(t, 40);
+            if (lg) {
+              // (colonne compacte : la poutre, la dalle) la LIGNE de l'élément dans l'en-tête des données — une rangée, chaque
+              // bouton à 40 px au doigt ; sa liste s'ouvre dans l'écran, chaque entrée atteinte ; un appui sur le nom y pose
+              // le curseur sans quitter l'onglet, Échap rend l'ancien nom (R1 : renommer, ouvrir, ajouter au téléphone aussi)
+              verif(`${cle} · téléphone : la ligne de l'élément tient dans l'en-tête des données (une rangée, rien ne déborde ni ne se chevauche, le nom entier), chaque bouton à 40 px au doigt`,
+                !lg.fautes.length && lg.nomEntier, JSON.stringify(lg));
+              const mn = await listeElement(t, true);
+              await t.screenshot({ path: path.join(OUT, `site_${cle}_tel_ligne_element.png`) });
+              await t.tap(`${LISTE_ELT} [data-menu]`);
+              await t.waitForTimeout(150);
+              const ferme = await t.$eval(`${LISTE_ELT} .et-mn-l`, (x) => x.hidden);
+              verif(`${cle} · téléphone : la liste des éléments s'ouvre dans l'écran (l'ouvert coché, « Ajouter … »), chaque entrée atteinte, à 40 px au doigt ; le chevron la referme`,
+                mn.vu && mn.ouvert && mn.dedans && mn.touche && /\*$/.test(mn.items) && /^Ajouter /.test(mn.ajouter) && mn.hMin >= 40 && ferme, JSON.stringify({ ...mn, ferme }));
+              const NOM = '.panel.left .phead .et-elt input.et-elt-nom';
+              const avant = await t.$eval(NOM, (x) => x.value);
+              await t.tap(NOM);
+              await t.waitForTimeout(200);
+              const foc = await t.evaluate((s) => { const a = document.activeElement, r = a.getBoundingClientRect();
+                return { champ: a.matches(s), onglet: document.querySelector('.bench').dataset.tab, dansEcran: r.top >= 0 && r.bottom <= innerHeight && r.left >= 0 && r.right <= innerWidth,
+                  police: getComputedStyle(a).fontSize }; }, NOM);
+              await t.keyboard.type('x');
+              await t.keyboard.press('Escape');
+              await t.waitForTimeout(200);
+              const rendu = await t.$eval(NOM, (x) => ({ valeur: x.value, focus: document.activeElement === x }));
+              verif(`${cle} · téléphone : un appui sur le nom y pose le curseur sans quitter l'onglet Données (16 px : pas d'agrandissement) ; Échap rend « ${avant} »`,
+                foc.champ && foc.onglet === 'donnees' && foc.dansEcran && parseFloat(foc.police) >= 16 && rendu.valeur === avant && !rendu.focus, JSON.stringify({ foc, rendu }));
+            }
             if (await t.$('#et-bibliotheque')) {
               // la bibliothèque de la note au téléphone : l'entrée du menu ⋯ ouvre une feuille plein écran, qui se referme
               await t.click('#menu-m');
@@ -671,11 +760,10 @@ const FILTRE = process.argv[4] || '';
             }
           }
           const cibles = await t.evaluate(() => {
-            // (et celles de l'établi compact : l'arborescence, ses menus, les pièces, les barres d'un cadre, les blocs et la
-            // liste de contrôle des résultats)
+            // (et celles de l'établi compact : la ligne de l'élément en tête des données — le nom, la liste, copier, supprimer —,
+            // les menus, les pièces, les barres d'un cadre, les blocs et la liste de contrôle des résultats)
             const s = '.mtop button, .mtop a.btn, .mtabs button, .mbar .btn, #vues button, .zoom button, .sechd, .ni, .nl-add, #donnees .seg button, #donnees .field, .case, .addrow, .moins, .elements .ni.on .x, #resultat .el, #resultat .prof[data-pk]'
-              + ', .et-pt-t, .et-pt-nom, .et-mn-b, .et-mn-l button, .et-pt-add, .et-tag, .et-dep, .et-add, .et-ret, .et-prop, .et-barres .b, .et-large, .et-sec-pick, .et-hist, .et-bloc-t, .et-tout, .et-just, .et-obs'
-              + ', .et-elsel .seg button, .et-rp-nom';
+              + ', .et-elt-nom, .et-elt-b, .et-mn-b, .et-mn-l button, .et-tag, .et-dep, .et-add, .et-ret, .et-prop, .et-barres .b, .et-large, .et-sec-pick, .et-hist, .et-bloc-t, .et-tout, .et-just, .et-obs';
             const tous = [...document.querySelectorAll(s)].filter((e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
             return tous.filter((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < 35.5; })
               .map((e) => `${e.className || e.tagName} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`);
@@ -754,6 +842,17 @@ const FILTRE = process.argv[4] || '';
           }
           const m = await mesurer(g);
           verif(`${cle} · ${fmt} : rien ne déborde, aucun nom coupé, la pastille du verdict entière`, !m.deborde && !m.coupes.length && !m.xl.length, JSON.stringify(m));
+          const lgT = await ligneElement(g);
+          if (lgT) {
+            // (colonne compacte : la poutre, la dalle) la LIGNE de l'élément tient dans l'en-tête des données à ce format ; sa
+            // liste s'ouvre dans l'écran, chaque entrée atteinte, et Échap la referme
+            const mn = await listeElement(g);
+            await g.keyboard.press('Escape');
+            await g.waitForTimeout(100);
+            const ferme = await g.$eval(`${LISTE_ELT} .et-mn-l`, (x) => x.hidden);
+            verif(`${cle} · ${fmt} : la ligne de l'élément tient dans l'en-tête des données (une rangée, rien ne déborde ni ne se chevauche, le nom entier) ; sa liste s'ouvre dans l'écran, chaque entrée atteinte ; Échap la referme`,
+              !lgT.fautes.length && lgT.nomEntier && mn.vu && mn.dedans && mn.touche && ferme, JSON.stringify({ lgT, mn, ferme }));
+          }
           // une comparaison longue à côté de la grande pastille (soudures, pleine pénétration) : elle ne la comprime pas
           const xl = await g.evaluate(() => {
             const gv = document.querySelector('.verdict .gov'), c = document.querySelector('.verdict .chip.xl');
@@ -776,14 +875,38 @@ const FILTRE = process.argv[4] || '';
           await volets(g, cle, fmt);
          } catch (e) { verif(`${cle} · ${fmt} : le parcours va au bout`, false, String(e.message).split('\n')[0]); await g.keyboard.press('Escape'); }
         }
-        // un nom d'élément long : ce sont ses dernières lettres qui cèdent, jamais les dimensions qui le suivent
+        // un nom d'élément long : ce sont ses dernières lettres qui cèdent, jamais ce qui le suit — les dimensions de
+        // l'intitulé de la liste ; ou (colonne de gauche compacte : la poutre, la dalle) dans la LIGNE de l'élément, en tête
+        // des données, la liste, copier, supprimer, Annuler, Rétablir, entiers dans l'en-tête, et dans la tête des
+        // résultats, les dimensions sous le nom
         await g.setViewportSize({ width: 820, height: 1180 });
         await g.waitForTimeout(300);
-        // le champ du nom de l'élément : celui dont la valeur ouvre l'intitulé de l'élément ouvert de la liste — ou
-        // (établi compact) le champ posé sur la ligne même de l'élément ouvert, dans l'arborescence — ou (colonne de
-        // gauche compacte, les dalles) le champ de la tête des résultats, ses dimensions dessous
+        const LONG = 'Poutre de rive très longue du bâtiment B, file 12 à 18, niveau +3';
+        // (colonne compacte : 58 caractères — la dalle borne un nom à 60, AP.NOM_MAX, et refuse au-delà ; un nom refusé ne
+        // prouverait rien ici : le contrôle exige qu'il soit pris, et qu'il ne tienne pas dans l'en-tête)
+        const LONG_LIGNE = 'Élément de rive très long du bâtiment B, file 12 à 18, N+3';
+        const nomLigne = '.panel.left .phead .et-elt input.et-elt-nom';
+        if (await g.$(nomLigne)) {
+          await g.fill(nomLigne, LONG_LIGNE);
+          await g.press(nomLigne, 'Enter');
+          await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+          await g.waitForTimeout(150);
+          const lgL = await ligneElement(g);
+          const ln = await g.evaluate((s) => {
+            // (un texte qui ne tient pas finit par « … » — text-overflow, hors du focus pour un champ —, jamais coupé net)
+            const cede = (e) => e.scrollWidth <= e.clientWidth + 1 || getComputedStyle(e).textOverflow === 'ellipsis';
+            const n = document.querySelector(s), rp = document.querySelector('#resultat .et-rp'), b = rp.querySelector('b'), d = rp.querySelector('span');
+            const rr = rp.getBoundingClientRect(), rb = b.getBoundingClientRect(), rd = d.getBoundingClientRect();
+            return { valeur: n.value, champ: cede(n), champTient: n.scrollWidth <= n.clientWidth + 1, titre: b.textContent, titreCede: cede(b) && rb.right <= rr.right + 0.5,
+              dims: d.textContent, entieres: d.scrollWidth <= d.clientWidth + 1 && rd.right <= rr.right + 0.5 && rd.left >= rr.left - 0.5 && rd.width > 20 };
+          }, nomLigne);
+          verif(`${cle} · tablette portrait : un nom long cède (« … ») dans la ligne de l'élément et la tête des résultats ; la liste, copier, supprimer, Annuler, Rétablir restent entiers dans l'en-tête, les dimensions entières`,
+            lgL && !lgL.fautes.length && ln.valeur === LONG_LIGNE && !ln.champTient && ln.champ && ln.titre === LONG_LIGNE && ln.titreCede && ln.entieres, JSON.stringify({ lgL, ln }));
+        }
+        // le champ du nom de l'élément (établi ordinaire) : celui dont la valeur ouvre l'intitulé de l'élément ouvert de la
+        // liste, ses dimensions à sa suite
         const champNom = await g.evaluate(() => {
-          const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n, #resultat .et-rp.et-rp-c');
+          const t = document.querySelector('.ni.on .t');
           if (!t || ![...t.children].some((e) => e.tagName === 'SPAN' && !e.classList.contains('nom'))) return null;
           const surLaLigne = t.querySelector('input[data-chemin]');
           if (surLaLigne) return surLaLigne.dataset.chemin;
@@ -793,20 +916,20 @@ const FILTRE = process.argv[4] || '';
           return c ? c.dataset.chemin : null;
         });
         if (champNom) {
-          // un établi en accordéon (la poutre) : la rubrique du champ s'ouvre d'abord, par son en-tête
+          // un établi en accordéon : la rubrique du champ s'ouvre d'abord, par son en-tête
           const rub = await g.evaluate((c) => {
             const s = document.querySelector(`#donnees input[data-chemin="${c}"]`)?.closest('#donnees .sec[data-sec]');
             return s && !s.classList.contains('open') ? s.dataset.sec : null;
           }, champNom);
           if (rub) { await g.click(`#donnees .sec[data-sec="${rub}"] > .sechd`); await g.waitForTimeout(150); }
-          const sNom = `#donnees input[data-chemin="${champNom}"], #resultat .et-rp input[data-chemin="${champNom}"]`;
-          await g.fill(sNom, 'Poutre de rive très longue du bâtiment B, file 12 à 18, niveau +3');
+          const sNom = `#donnees input[data-chemin="${champNom}"]`;
+          await g.fill(sNom, LONG);
           await g.press(sNom, 'Enter');
           await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
           await g.waitForTimeout(150);
           // les dimensions (le dernier <span> de l'intitulé) entières et dans leur ligne ; le nom, lui, peut céder
           const ni = await g.evaluate(() => {
-            const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n, #resultat .et-rp.et-rp-c');
+            const t = document.querySelector('.ni.on .t');
             const d = [...t.children].filter((e) => e.tagName === 'SPAN' && !e.classList.contains('nom')).pop();
             const rt = t.getBoundingClientRect(), rd = d.getBoundingClientRect();
             return { dims: d.textContent, entieres: d.scrollWidth <= d.clientWidth + 1 && rd.right <= rt.right + 0.5 && rd.left >= rt.left - 0.5, largeur: Math.round(rd.width) };
@@ -818,6 +941,17 @@ const FILTRE = process.argv[4] || '';
       await g.context().close();
     }
 
+    // « Ajouter » un élément : le bouton des données ou de la liste — ou (colonne de gauche compacte : la poutre, la dalle)
+    // l'entrée « Ajouter … » de la liste des éléments, un menu de la ligne de l'élément en tête des données (l'ouvrir
+    // d'abord) ; le nombre d'éléments de la note : la liste, ou cette ligne (data-elements)
+    const ajouterElement = async (pg) => {
+      if (await pg.$(`${LISTE_ELT} [data-ajouter]`)) {
+        await pg.click(`${LISTE_ELT} [data-menu]`);
+        await pg.click(`${LISTE_ELT} .et-mn-l [data-ajouter]`);
+      } else await pg.click('#donnees [data-ajouter], #liste [data-ajouter]');
+    };
+    const nElements = (pg) => pg.evaluate(() => { const l = document.querySelector('.panel.left .phead .et-elt .et-elsel[data-elements]');
+      return l ? +l.dataset.elements : document.querySelectorAll('.elements .ni').length; });
     // ------------------------------------------------ les gestes communs, une fois (tablette portrait)
     if (PARTIES.includes('communs') && (choisis.includes('soudures') || choisis.includes('poutre'))) {
       const g = await contexte(820, 1180, false);
@@ -907,7 +1041,7 @@ const FILTRE = process.argv[4] || '';
           window.__retoucher = (json) => { const r = JSON.parse(json); if (r.ok && r.vues) r.vues = []; return JSON.stringify(r); };
         });
         // « ajouter » recalcule toujours (contrat commun) : sa réponse arrive sans vue
-        await g.click('#donnees [data-ajouter], #liste [data-ajouter]');
+        await ajouterElement(g);
         await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
         await g.waitForTimeout(300);
         const sv = await g.evaluate(() => ({ texte: document.getElementById('stage').textContent.trim(), zoom: document.getElementById('zoom').checkVisibility() }));
@@ -915,14 +1049,14 @@ const FILTRE = process.argv[4] || '';
         await g.evaluate(() => { window.__retoucher = null; });
         // une réponse illisible du moteur (un « Infinity », que JSON ne connaît pas) : un message, et l'établi reste
         // vivant — la requête restait sans réponse, la file du moteur bloquée, « Calcul… » sans fin
-        const nAvant = await g.$$eval('.elements .ni, .et-arbre .et-pt', (e) => e.length);
+        const nAvant = await nElements(g);
         await g.evaluate(() => { window.__retoucher = (json) => { window.__retoucher = null; return json.replace(/"ok": true/, '"ok": true, "x": Infinity'); }; });
-        await g.click('#donnees [data-ajouter], #liste [data-ajouter]');
+        await ajouterElement(g);
         const libre = await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 10000 }).then(() => true, () => false);
         const ill = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
-        await g.click('#donnees [data-ajouter], #liste [data-ajouter]');
+        await ajouterElement(g);
         const repart = await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 30000 }).then(() => true, () => false);
-        const nApres = await g.$$eval('.elements .ni, .et-arbre .et-pt', (e) => e.length);
+        const nApres = await nElements(g);
         verif('une réponse illisible du moteur : un message, et le calcul suivant passe (la file du moteur ne se bloque pas)',
           libre && ill.vu && ill.erreur && /réponse illisible du moteur/.test(ill.texte) && repart && nApres === nAvant + 1, JSON.stringify({ libre, ...ill, repart, nAvant, nApres }));
         // les erreurs de la réponse illisible sont attendues : la console les dit, la page n'a pas levé
@@ -935,7 +1069,7 @@ const FILTRE = process.argv[4] || '';
       const tt = await contexte(390, 844, true);
       if (await neuve(tt, cle, 'taux énorme')) {
         await tt.evaluate(() => { window.__retoucher = (json) => { const r = JSON.parse(json); if (r.ok && r.resume) r.resume.taux = 12345678; return JSON.stringify(r); }; });
-        await tt.click('#donnees [data-ajouter], #liste [data-ajouter]');
+        await ajouterElement(tt);
         await tt.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
         await tt.evaluate(() => { window.__retoucher = null; });
         const ch = await tt.evaluate(() => {
@@ -1900,9 +2034,10 @@ const FILTRE = process.argv[4] || '';
   }
 
   // ---------------------------------------------------------------- l'établi compact (pilote « Poutres béton armé »)
-  // Trois colonnes : les DONNÉES (éléments de la note, rubriques en accordéon), le DESSIN, les RÉSULTATS. La carte de
-  // l'accueil ouvre le calcul lui-même ; RIEN n'est écrit tant qu'on ne modifie rien ; une seule rubrique ouverte à la
-  // fois et chaque champ s'atteint (R1 : rien d'inatteignable) ; un clic sur une pièce du dessin ouvre SA ligne dans les
+  // Trois colonnes : les DONNÉES (colonne compacte, 09/11/2026 : la LIGNE de la poutre ouverte dans l'en-tête du panneau —
+  // son nom qu'un clic modifie, la liste des poutres, copier, supprimer — puis ses rubriques en accordéon), le DESSIN, les
+  // RÉSULTATS. La carte de l'accueil ouvre le calcul lui-même ; RIEN n'est écrit tant qu'on ne modifie rien ; une seule
+  // rubrique ouverte à la fois et chaque champ s'atteint (R1 : rien d'inatteignable) ; un clic sur une pièce du dessin ouvre SA ligne dans les
   // données (un glisser, non), et une ligne choisie éclaire sa pièce ; la sélection survit au calcul ; « Annuler » et
   // « Rétablir » ; chaque vérification (deux lignes) ouvre SA fenêtre de détail ; une note sans effort dit « Données
   // incomplètes », jamais « Conforme » ; la note PDF se fait dans le navigateur ; le .stab garde son nom (pas de .json) ;
@@ -1921,7 +2056,7 @@ const FILTRE = process.argv[4] || '';
     const lireEtat = () => g.evaluate(() => {
       const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
       return { url: location.search,
-        ouvertes: [...document.querySelectorAll('#donnees .et-pt.on .sec[data-sec].open')].map((x) => x.dataset.sec),
+        ouvertes: [...document.querySelectorAll('#donnees .et-arbre .sec[data-sec].open')].map((x) => x.dataset.sec),
         cibles: [...document.querySelectorAll('#donnees .et-cible[data-cible]')].filter(vu).map((x) => x.dataset.cible),
         surlignees: [...new Set([...document.querySelectorAll('#stage .view.on [data-sel].et-sel')].map((x) => x.dataset.sel))],
         enr: (document.querySelector('.top .et-enr') || {}).dataset?.enr, statut: document.getElementById('statut').textContent.trim() };
@@ -1931,13 +2066,21 @@ const FILTRE = process.argv[4] || '';
       if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
       await g.waitForTimeout(80);
     };
+    // la LIGNE de la poutre ouverte (en-tête du panneau de gauche) : son nom, le nombre de poutres, le compte sur le bouton
+    // de la liste, supprimer allumé ou éteint, le titre des résultats ; la liste (les noms, l'ouverte cochée d'une étoile)
+    const LIGNE = '.panel.left .phead .et-elt .et-elsel', NOM = `${LIGNE} input.et-elt-nom`;
+    const etatLigne = () => g.evaluate((s) => { const l = document.querySelector(s);
+      return { nom: l.querySelector('input.et-elt-nom').value, n: l.dataset.elements, compte: (l.querySelector('.et-elt-liste .et-mn-b .n') || {}).textContent || '',
+        supprimer: !l.querySelector('[data-supprimer]').disabled, rp: document.querySelector('#resultat .et-rp b').textContent }; }, LIGNE);
+    const liste = () => g.$$eval(`${LIGNE} .et-elt-liste .et-mn-l [data-activer]`,
+      (x) => x.map((b) => b.querySelector('.nom').textContent + (b.classList.contains('on') && b.getAttribute('aria-checked') === 'true' ? '*' : '')).join());
     try {
       await g.goto(`${BASE}/index.html`);
       await Promise.all([g.waitForNavigation(), g.click('.tile[data-module="poutre"]')]);
       await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
       let e = await lireEtat();
-      verif('pilote : la carte de l\'accueil ouvre le calcul lui-même (sans fenêtre « Nouvelle note »)',
-        /poutre(\.html)?$/.test(new URL(g.url()).pathname) && !e.url && (await g.$$eval('#donnees .et-arbre .et-pt', (x) => x.length)) === 1, `${g.url()} · ${e.url}`);
+      verif('pilote : la carte de l\'accueil ouvre le calcul lui-même (sans fenêtre « Nouvelle note »), une poutre',
+        /poutre(\.html)?$/.test(new URL(g.url()).pathname) && !e.url && (await g.$eval(LIGNE, (x) => x.dataset.elements)) === '1', `${g.url()} · ${e.url}`);
       verif('pilote : l\'ouvrir pour regarder n\'écrit rien (aucune note), l\'indicateur dit « Pas encore enregistré »',
         (await nNotes()) === 0 && e.enr === 'neuf', JSON.stringify({ notes: await nNotes(), enr: e.enr }));
       // (deuxième passe) l'état d'une section est l'en-tête de son bloc ; la pastille de la NOTE ne s'affiche que dès deux
@@ -1946,20 +2089,45 @@ const FILTRE = process.argv[4] || '';
       verif('pilote : une note sans effort dit « Données incomplètes », jamais « Conforme »',
         etatBloc === 'Données incomplètes' && !e.statut.includes('Conforme') && (await g.$eval('#resultat .et-bloc', (x) => x.classList.contains('inc'))), `${etatBloc} · ${e.statut}`);
       verif('pilote : une seule rubrique ouverte par défaut, la « Poutre »', e.ouvertes.join() === 'pt', JSON.stringify(e.ouvertes));
-      // l'arborescence : la poutre ouverte « nom · b × h cm », sans taux ni pastille ; son NOM est un champ, sur sa ligne
-      // (la rubrique « Poutre » n'a plus de champ « Nom ») ; ses quatre rubriques dessous
-      const arbre = await g.evaluate(() => { const l = document.querySelector('#donnees .et-pt.on .et-pt-l'), n = l.querySelector('input.et-pt-nom');
-        return { t: `${n ? n.value : ''}${l.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim(), champ: !!n && n.dataset.chemin === 'nom',
-          ailleurs: document.querySelectorAll('#donnees [data-chemin="nom"]').length, pastille: !!l.querySelector('.chip, .pct, .status, .et-pt-e') }; });
-      verif('pilote : l\'arborescence nomme la poutre « V1 · 20 × 40 cm », le nom en champ sur sa ligne (seul champ « nom »), sans taux ni pastille',
-        /^V1\s*· 20 × 40 cm$/.test(arbre.t) && arbre.champ && arbre.ailleurs === 1 && !arbre.pastille, JSON.stringify(arbre));
+      // (colonne de gauche compacte, 09/11/2026) plus d'arborescence : la LIGNE de la poutre ouverte est dans l'EN-TÊTE du
+      // panneau, à côté d'« Annuler » et « Rétablir » — son NOM en champ (le seul champ « nom » de la page : ni dans les
+      // données, ni dans les résultats, qui le LISENT), la liste des poutres (« V1 · 20 × 40 cm », cochée ; « Ajouter une
+      // poutre »), copier, supprimer (éteint : elle est seule), sans taux ni pastille
+      const ligne = await g.evaluate(() => {
+        const ph = document.querySelector('.panel.left .phead'), l = ph.querySelector(':scope > .et-elt > .et-elsel'), n = l && l.querySelector('input.et-elt-nom');
+        const on = l && l.querySelector('.et-elt-liste .et-mn-l .et-elt-i.on');
+        return { ordre: [...ph.children].map((x) => (x.classList.contains('et-elt') ? 'elt' : x.dataset.historique || (x.dataset.coll ? 'replier' : x.id || x.className))).join(),
+          nom: n ? n.value : null, champ: !!n && n.dataset.chemin === 'nom' && n.dataset.sorte === 'texte', nomsPage: document.querySelectorAll('[data-chemin="nom"]').length,
+          liste: on ? `${on.querySelector('.nom').textContent} ${on.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim() : null, coche: !!on && on.getAttribute('aria-checked') === 'true',
+          ajouter: ((l && l.querySelector('.et-elt-liste .et-mn-l [data-ajouter]')) || {}).textContent?.trim(), compte: !!l && !!l.querySelector('.et-elt-liste .et-mn-b .n'),
+          copier: !!l && !!l.querySelector('button.et-elt-b[data-dupliquer-index="0"]'),
+          supprimerEteint: !!l && !!l.querySelector('button.et-elt-b.danger[data-supprimer="0"][data-confirmer]:disabled'),
+          pastille: !!l && !!l.querySelector('.chip, .pct, .status') };
+      });
+      verif('pilote : la LIGNE de la poutre ouverte est dans l\'en-tête du panneau (avant Annuler, Rétablir) — le nom « V1 » en champ (le seul de la page), la liste « V1 · 20 × 40 cm » cochée et « Ajouter une poutre », copier, supprimer éteint (seule), sans taux ni pastille',
+        ligne.ordre === 'elt,calcule,annuler,retablir,replier' && ligne.nom === 'V1' && ligne.champ && ligne.nomsPage === 1 && ligne.liste === 'V1 · 20 × 40 cm' && ligne.coche
+        && ligne.ajouter === 'Ajouter une poutre' && !ligne.compte && ligne.copier && ligne.supprimerEteint && !ligne.pastille, JSON.stringify(ligne));
+      // le contrat du DOM : les données commencent par les rubriques de la poutre ; plus rien de l'arborescence, du sélecteur
+      // en segments, du nom en champ dans les résultats (leur tête le lit : « V1 », puis les dimensions)
+      const contrat = await g.evaluate(() => {
+        const don = document.getElementById('donnees'), a = don.firstElementChild, rp = document.querySelector('#resultat .et-rp');
+        return { premier: !!a && a.matches('.et-arbre.et-arbre-c[data-poutre="0"]') && !!a.firstElementChild && a.firstElementChild.matches('.sec[data-sec]'),
+          anciens: ['.et-pt', '.et-pt-l', '.et-pt-nom', '.et-pt-add', '.et-arbre-h', '.et-elsel .seg', '.et-elsel.seul', '.et-arbre-c.et-seul', '.et-rp-nom', '.et-rp-c',
+            '#donnees .et-elsel', '[data-renommer]'].filter((s) => document.querySelector(s)),
+          rp: rp ? [...rp.children].map((x) => `${x.tagName}:${x.textContent.trim()}`).join(' | ') : null };
+      });
+      verif('pilote : les données commencent par les rubriques (ni arborescence, ni sélecteur en segments, ni « Renommer ») ; la tête des résultats lit le nom (plus de champ)',
+        contrat.premier && !contrat.anciens.length && /^B:V1 \| SPAN:20 × 40 cm · /.test(contrat.rp || ''), JSON.stringify(contrat));
+      const lg0 = await ligneElement(g);
+      verif('pilote · PC 1440 : la ligne de la poutre tient dans l\'en-tête (une rangée, rien ne déborde ni ne se chevauche, le nom entier)', lg0 && !lg0.fautes.length && lg0.nomEntier, JSON.stringify(lg0));
       // l'accordéon : un en-tête ouvre SA rubrique sans fermer les autres (plusieurs, si on le veut), et la referme ;
-      // chaque champ s'atteint (une pièce choisie montre son détail)
-      const cles = await g.$$eval('#donnees .et-pt.on .sec[data-sec]', (x) => x.map((y) => y.dataset.sec));
-      const champs = await g.$$eval('#donnees [data-chemin]', (x) => [...new Set(x.map((y) => y.dataset.chemin))]);
+      // chaque champ s'atteint (une pièce choisie montre son détail) — le nom aussi, dans la ligne de la poutre
+      const cles = await g.$$eval('#donnees .et-arbre .sec[data-sec]', (x) => x.map((y) => y.dataset.sec));
+      const CHAMPS = '#donnees [data-chemin], .panel.left .phead [data-chemin]';
+      const champs = await g.$$eval(CHAMPS, (x) => [...new Set(x.map((y) => y.dataset.chemin))]);
       const vus = new Set();
       const accordeon = [];
-      const noterVus = async () => (await g.$$eval('#donnees [data-chemin]', (x) => x.filter((y) => y.checkVisibility()).map((y) => y.dataset.chemin))).forEach((x) => vus.add(x));
+      const noterVus = async () => (await g.$$eval(CHAMPS, (x) => x.filter((y) => y.checkVisibility()).map((y) => y.dataset.chemin))).forEach((x) => vus.add(x));
       const deja = [];
       for (const k of cles) {
         if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
@@ -1985,7 +2153,7 @@ const FILTRE = process.argv[4] || '';
       }
       verif(`pilote : accordéon — chaque en-tête (${cles.join(', ')}) ouvre SA rubrique et garde les autres ouvertes`, cles.length === 4 && !accordeon.length, accordeon.join(' | '));
       const caches = champs.filter((x) => !vus.has(x));
-      verif(`pilote : chacun des ${champs.length} champs des données s'atteint (rubrique ouverte, pièce dépliée)`, !caches.length, caches.join(', '));
+      verif(`pilote : chacun des ${champs.length} champs des données s'atteint (rubrique ouverte, pièce dépliée ; le nom dans la ligne de la poutre)`, !caches.length && champs.includes('nom'), caches.join(', '));
       await g.screenshot({ path: path.join(OUT, 'site_pilote_rubriques.png') });
       for (const k of cles) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
       await g.waitForTimeout(100);
@@ -2168,47 +2336,85 @@ const FILTRE = process.argv[4] || '';
         avantJ.warn >= 1 && avantJ.nok >= 1 && avantJ.nokBouton === 0 && apresJ.justifs && Object.values(apresJ.justifs)[0].texte === 'Barres de montage Ø8 prévues au plan.'
         && apresJ.j.length === 1 && apresJ.j[0].includes('Examinée — justifiée'), JSON.stringify({ avantJ, apresJ }));
       await g.screenshot({ path: path.join(OUT, 'site_pilote_liste.png') });
-      // ---- le NOM se modifie sur la ligne de la poutre : « Renommer » (menu ⋯) y pose le curseur, le nom choisi ; Entrée
-      // l'écrit dans la note ; puis une saisie directe dans le champ (sans le menu) le rend
-      const nomNote = () => g.evaluate(() => { const id = new URLSearchParams(location.search).get('note');
-        const l = document.querySelector('#donnees .et-pt.on .et-pt-l');
-        return { note: JSON.parse(localStorage.getItem('stab.notes.v1'))[id].etat.poutres[0].nom,
-          ligne: `${l.querySelector('.et-pt-nom').value}${l.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim() }; });
-      await g.click('#donnees .et-pt[data-poutre="0"] [data-menu]');
-      await g.click('#donnees .et-pt[data-poutre="0"] .et-mn-l [data-renommer="0"]');
-      await g.waitForTimeout(150);
-      const rn0 = await g.evaluate(() => { const a = document.activeElement;
-        return { champ: !!a && a.matches('#donnees .et-pt.on .et-pt-l input.et-pt-nom'), choisi: !!a && a.value.length > 0 && a.selectionStart === 0 && a.selectionEnd === a.value.length }; });
+      // ---- le NOM se modifie dans la ligne de la poutre, en tête du panneau : UN clic y pose le curseur ; Entrée l'écrit
+      // dans la note (la liste des poutres et la tête des résultats suivent) ; Échap rend l'ancien nom ; un nom vide est
+      // refusé (un message, l'ancien nom revient, rien n'est écrit) ; une saisie directe aussi
+      const nomNote = () => g.evaluate((s) => { const id = new URLSearchParams(location.search).get('note');
+        const l = document.querySelector(s), on = l.querySelector('.et-elt-liste .et-mn-l .et-elt-i.on');
+        return { note: JSON.parse(localStorage.getItem('stab.notes.v1'))[id].etat.poutres[0].nom, champ: l.querySelector('input.et-elt-nom').value,
+          liste: `${on.querySelector('.nom').textContent} ${on.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim(),
+          rp: document.querySelector('#resultat .et-rp b').textContent }; }, LIGNE);
+      const aFocus = () => g.evaluate((s) => !!document.activeElement && document.activeElement.matches(s), NOM);
+      const lireToast = () => g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
+      await g.click(NOM);
+      const rn0 = { focus: await aFocus() };
+      await g.keyboard.press('Control+a');
       await g.keyboard.type('V1 bis');
       await g.keyboard.press('Enter');
       await tranquille();
       await g.waitForTimeout(200);
-      const rn1 = await nomNote();
-      await g.fill('#donnees .et-pt.on .et-pt-nom', 'V1');
-      await g.press('#donnees .et-pt.on .et-pt-nom', 'Enter');
+      const rn1 = { ...(await nomNote()), focus: await aFocus() };
+      verif('pilote : un clic sur le nom (ligne de la poutre, en-tête du panneau) y pose le curseur ; « V1 bis » + Entrée l\'écrit dans la note — la liste des poutres et la tête des résultats suivent',
+        rn0.focus && rn1.note === 'V1 bis' && rn1.champ === 'V1 bis' && rn1.liste === 'V1 bis · 20 × 40 cm' && rn1.rp === 'V1 bis' && !rn1.focus, JSON.stringify({ rn0, rn1 }));
+      await g.click(NOM);
+      await g.keyboard.press('Control+a');
+      await g.keyboard.type('Brouillon');
+      await g.keyboard.press('Escape');
+      await g.waitForTimeout(250);
+      const rnE = { ...(await nomNote()), focus: await aFocus() };
+      await g.click(NOM);
+      await g.keyboard.press('Control+a');
+      await g.keyboard.press('Backspace');
+      await g.keyboard.press('Enter');
+      await g.waitForTimeout(300);
+      const rnV = { ...(await nomNote()), toast: await lireToast() };
+      verif('pilote : Échap rend l\'ancien nom (« V1 bis », rien n\'est écrit) ; un nom vide est refusé — « Un nom ne peut pas être vide », l\'ancien nom revient, la note le garde',
+        rnE.champ === 'V1 bis' && rnE.note === 'V1 bis' && !rnE.focus && rnV.champ === 'V1 bis' && rnV.note === 'V1 bis' && rnV.rp === 'V1 bis'
+        && rnV.toast.vu && rnV.toast.erreur && /Un nom ne peut pas être vide/.test(rnV.toast.texte), JSON.stringify({ rnE, rnV }));
+      await g.fill(NOM, 'V1');
+      await g.press(NOM, 'Enter');
       await tranquille();
       await g.waitForTimeout(200);
       const rn2 = await nomNote();
-      verif('pilote : « Renommer » (menu ⋯) pose le curseur dans le nom, sur la ligne de la poutre ; Entrée l\'écrit dans la note ; une saisie directe aussi',
-        rn0.champ && rn0.choisi && rn1.note === 'V1 bis' && /^V1 bis\s*· 20 × 40 cm$/.test(rn1.ligne) && rn2.note === 'V1' && /^V1\s*· 20 × 40 cm$/.test(rn2.ligne),
-        JSON.stringify({ rn0, rn1, rn2 }));
-      // ---- le menu ⋯ d'une poutre : « Copier la poutre » (insérée après elle), « Supprimer » (confirmé)
-      await g.click('#donnees .et-pt[data-poutre="0"] [data-menu]');
-      const mn = await g.$eval('#donnees .et-pt[data-poutre="0"] .et-mn-l', (x) => { const q = x.getBoundingClientRect(); return { vu: x.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight }; });
-      await g.click('#donnees .et-pt[data-poutre="0"] .et-mn-l [data-dupliquer-index="0"]');
+      verif('pilote : une saisie directe dans le nom (« V1 ») l\'écrit aussi', rn2.note === 'V1' && rn2.champ === 'V1' && rn2.liste === 'V1 · 20 × 40 cm' && rn2.rp === 'V1', JSON.stringify(rn2));
+      // ---- copier, la liste, supprimer : les gestes de la ligne. « Copier » (une icône) insère la copie après la poutre et
+      // l'ouvre ; la liste (le chevron, « 2 » dessus) montre les deux, l'ouverte cochée, s'ouvre dans l'écran et ouvre
+      // l'autre ; « Supprimer » demande confirmation — refusée, rien ne change ; acceptée, la poutre part — et s'éteint
+      // quand une seule reste
+      await g.click(`${LIGNE} [data-dupliquer-index="0"]`);
       await tranquille();
       await g.waitForTimeout(200);
-      // le nom de chaque élément : en texte sur sa ligne, ou dans le champ de la ligne de l'élément ouvert
-      const noms = () => g.$$eval('#donnees .et-arbre .et-pt > .et-pt-l', (x) => x.map((y) => { const n = y.querySelector('.et-pt-nom'); return n ? n.value : y.querySelector('.nom').textContent; }));
-      const n1 = await noms();
-      g.once('dialog', (d) => d.accept());
-      await g.click('#donnees .et-pt[data-poutre="1"] [data-menu]');
-      await g.click('#donnees .et-pt[data-poutre="1"] .et-mn-l [data-supprimer="1"]');
+      const cp = { ...(await etatLigne()), liste: await liste() };
+      const lgCp = await ligneElement(g);
+      const mn = await listeElement(g);
+      await g.screenshot({ path: path.join(OUT, 'site_poutre_ligne_element.png') });
+      await g.click(`${LIGNE} .et-elt-liste .et-mn-l [data-activer="0"]`);
       await tranquille();
       await g.waitForTimeout(200);
-      const n2 = await noms();
-      verif('pilote : le menu ⋯ d\'une poutre s\'ouvre dans l\'écran ; « Copier la poutre » l\'insère après elle ; « Supprimer » (confirmé) la retire',
-        mn.vu && mn.dedans && n1.join() === 'V1,V1 (copie)' && n2.join() === 'V1', JSON.stringify({ mn, n1, n2 }));
+      const ouv = { ...(await etatLigne()), liste: await liste(), ferme: await g.$eval(`${LIGNE} .et-elt-liste .et-mn-l`, (x) => x.hidden) };
+      verif('pilote : « Copier » insère la copie et l\'ouvre — « V1 (copie) » dans la ligne et en tête des résultats, « 2 » sur le bouton de la liste, supprimer allumé ; la ligne tient toujours dans l\'en-tête',
+        cp.n === '2' && cp.compte === '2' && cp.nom === 'V1 (copie)' && cp.rp === 'V1 (copie)' && cp.liste === 'V1,V1 (copie)*' && cp.supprimer && lgCp && !lgCp.fautes.length && lgCp.nomEntier,
+        JSON.stringify({ cp, lgCp }));
+      verif('pilote : la liste des poutres s\'ouvre dans l\'écran (les deux, l\'ouverte cochée, « Ajouter une poutre », chaque entrée atteinte) ; elle ouvre « V1 » et se referme',
+        mn.vu && mn.ouvert && mn.dedans && mn.touche && mn.items === 'V1,V1 (copie)*' && mn.ajouter === 'Ajouter une poutre' && mn.compte === '2'
+        && ouv.nom === 'V1' && ouv.rp === 'V1' && ouv.liste === 'V1*,V1 (copie)' && ouv.ferme, JSON.stringify({ mn, ouv }));
+      await g.click(`${LISTE_ELT} [data-menu]`);
+      await g.click(`${LIGNE} .et-elt-liste .et-mn-l [data-activer="1"]`);
+      await tranquille();
+      await g.waitForTimeout(200);
+      const msgs = [];
+      g.once('dialog', (d) => { msgs.push(d.message()); d.dismiss(); });
+      await g.click(`${LIGNE} [data-supprimer="1"]`);
+      await g.waitForTimeout(400);
+      const refuse = { ...(await etatLigne()), liste: await liste() };
+      g.once('dialog', (d) => { msgs.push(d.message()); d.accept(); });
+      await g.click(`${LIGNE} [data-supprimer="1"]`);
+      await tranquille();
+      await g.waitForTimeout(200);
+      const sup = { ...(await etatLigne()), liste: await liste() };
+      verif('pilote : « Supprimer » demande confirmation (« Supprimer la poutre « V1 (copie) » de la note ? ») — refusée, rien ne change ; acceptée, la poutre part : « V1 » reste, seule, supprimer s\'éteint, le compte disparaît',
+        msgs.length === 2 && msgs.every((x) => x === 'Supprimer la poutre « V1 (copie) » de la note ?') && refuse.n === '2' && refuse.nom === 'V1 (copie)' && refuse.liste === 'V1,V1 (copie)*'
+        && sup.n === '1' && sup.nom === 'V1' && sup.rp === 'V1' && sup.liste === 'V1*' && !sup.supprimer && sup.compte === '', JSON.stringify({ msgs, refuse, sup }));
       // ---- la BIBLIOTHÈQUE de la note (docs/site/BIBLIOTHEQUES.md § 2.4, § 2.5) : le bouton du ruban ouvre un grand panneau,
       // prérempli depuis la poutre ; « Utiliser cette valeur » écrit c (une saisie ordinaire) ; « Inclure dans la note »
       // ajoute une fiche (bloc « Justifications », vue J1) ; Échap referme et rend le focus ; la note PDF et le .stab
@@ -2294,12 +2500,14 @@ const FILTRE = process.argv[4] || '';
       verif('pilote : « Enregistrer comme note » écrit le nom, le chantier et le dossier ; l\'en-tête et le cartouche les disent',
         r.nom === 'Poutres R+2' && r.chantier === 'Réalex' && r.dossier === 'Étude de la dalle' && r.entete === 'Poutres R+2' && r.fil.includes('Réalex')
         && r.cartouche === 'Poutres R+2 | Réalex' && !r.ouverte, JSON.stringify(r));
-      // « Ajouter une poutre » : un deuxième élément, ouvert
-      await g.click('#donnees [data-ajouter]');
+      // « Ajouter une poutre » (la dernière entrée de la liste) : un deuxième élément, ouvert
+      await g.click(`${LISTE_ELT} [data-menu]`);
+      await g.click(`${LIGNE} .et-elt-liste .et-mn-l [data-ajouter]`);
       await tranquille();
       await g.waitForTimeout(200);
-      verif('pilote : « Ajouter une poutre » ajoute une poutre à l\'arborescence et l\'ouvre',
-        (await g.$$eval('#donnees .et-arbre .et-pt', (x) => x.length)) === 2 && (await g.$eval('#donnees .et-pt.on .et-pt-nom', (x) => x.value)) === 'V2');
+      const aj = { ...(await etatLigne()), liste: await liste() };
+      verif('pilote : « Ajouter une poutre » (dans la liste) ajoute une poutre et l\'ouvre — « V2 » dans la ligne et en tête des résultats, la liste en montre deux, « 2 » sur son bouton',
+        aj.n === '2' && aj.nom === 'V2' && aj.rp === 'V2' && aj.liste === 'V1,V2*' && aj.compte === '2' && aj.supprimer, JSON.stringify(aj));
       // les colonnes : repli (la toile gagne la place), poignée (la largeur suit et se garde)
       const l0 = await g.$eval('.canvas .stage', (x) => x.getBoundingClientRect().width);
       await g.click('.panel.left [data-coll="g"]');
@@ -2340,7 +2548,7 @@ const FILTRE = process.argv[4] || '';
       await Promise.all([g.waitForNavigation(), g.click('#recentes .rcard >> nth=1')]);
       await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
       verif('pilote : rouverte depuis « Reprendre », la note est la même (aucune autre ne s\'écrit)',
-        (await nNotes()) === avant && (await g.inputValue('#nom-note')) === 'Poutres R+2' && (await g.$$eval('#donnees .et-arbre .et-pt', (x) => x.length)) === 2);
+        (await nNotes()) === avant && (await g.inputValue('#nom-note')) === 'Poutres R+2' && (await g.$eval(LIGNE, (x) => x.dataset.elements)) === '2');
       await g.screenshot({ path: path.join(OUT, 'site_pilote_reprise.png') });
       verif('pilote : aucune erreur JavaScript', !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
     } catch (x) {
@@ -2427,14 +2635,17 @@ const FILTRE = process.argv[4] || '';
   }
 
   // ---------------------------------------------------------------- l'établi compact des DALLES, et l'ancien module Prédalles
-  // La COLONNE DE GAUCHE COMPACTE (docs/site/DALLES_FUSION.md § 1) : ni titre « Données », ni « DALLES (1) », ni ligne
-  // « Dalle 1 » — les rubriques tout en haut, le menu ⋯ discret dans l'angle ; le NOM se modifie dans la tête des
-  // résultats (le sélecteur, la confirmation du menu et la note enregistrée suivent) ; une seconde dalle fait apparaître
-  // le SÉLECTEUR (segments, l'ouverte marquée) ; le type « Prédalle » fait apparaître h_p et le complément coulé (§ 2.2).
+  // La COLONNE DE GAUCHE COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur le 09/11/2026) : ni titre
+  // « Données », ni « DALLES (1) », ni arborescence — la LIGNE de la dalle ouverte dans l'EN-TÊTE du panneau, à côté
+  // d'« Annuler » et « Rétablir » : son NOM en champ (un clic, et on le renomme ; Entrée valide, Échap rend l'ancien nom,
+  // vide refusé — la liste, la tête des résultats, la confirmation de « Supprimer » et la note enregistrée suivent), la
+  // LISTE des dalles (un menu : l'ouverte cochée, « Ajouter une dalle » ; le compte dès deux), COPIER, SUPPRIMER
+  // (confirmé, éteint quand elle est seule) ; les rubriques tout en haut des données ; le type « Prédalle + dalle CSP »
+  // fait apparaître h_p et le complément coulé (§ 2.2).
   // Les fonctions aux places de la poutre (REFONTE_ETABLI.md) : un bloc par section (« Données incomplètes » sans
   // effort), un clic sur une couche du DESSIN qui la déplie dans les données, la section courante que le dessin et les
   // résultats suivent (la vue garde son genre : du plan au plan), « ↺ » qui rend un axe saisi à l'automatique. Au
-  // téléphone, « Renommer » du menu ⋯ ouvre l'onglet Résultat sur le champ du nom.
+  // téléphone, la ligne est en tête de l'onglet Données, ses boutons au doigt ; un appui sur le nom y pose le curseur.
   // L'ancien module PRÉDALLES (§ 2.4) : sa page REDIRIGE vers celle des dalles en gardant l'adresse ; une ancienne note en
   // mémoire s'y ouvre en mode prédalle (le moteur des dalles reçoit « dalle » et l'état {predalles} tel quel), devient
   // une note « dalle », rien de perdu ; la carte de l'accueil vise déjà la page des dalles.
@@ -2471,12 +2682,19 @@ const FILTRE = process.argv[4] || '';
     const sync = () => g.evaluate(() => ({ vue: document.querySelector('#vues .on')?.dataset.vue,
       blocs: [...document.querySelectorAll('#resultat .et-bloc')].filter((x) => !x.hidden).map((x) => x.dataset.section),
       arm: document.querySelector('#donnees .et-arm.on')?.dataset.section }));
-    // le sélecteur d'éléments : les noms, l'ouvert marqué d'une étoile ; le nom dans la tête des résultats ; la note en mémoire
-    const segs = () => g.$$eval('#donnees .et-elsel .seg button[data-activer]', (x) => x.map((b) => b.querySelector('.nom').textContent + (b.classList.contains('on') ? '*' : '')).join());
-    const nomRp = () => g.$eval('#resultat .et-rp input[data-chemin="nom"]', (x) => x.value);
+    // la LIGNE de l'élément (en-tête du panneau de gauche) : la liste des dalles (les noms, l'ouverte cochée d'une étoile),
+    // le nom en champ, son état (nombre, compte du bouton, supprimer allumé ?) ; le titre des résultats ; la note en mémoire
+    const LIGNE = '.panel.left .phead .et-elt .et-elsel', NOM = `${LIGNE} input.et-elt-nom`;
+    const liste = () => g.$$eval(`${LIGNE} .et-elt-liste .et-mn-l [data-activer]`,
+      (x) => x.map((b) => b.querySelector('.nom').textContent + (b.classList.contains('on') && b.getAttribute('aria-checked') === 'true' ? '*' : '')).join());
+    const nomElt = () => g.$eval(NOM, (x) => x.value);
+    const titreRp = () => g.$eval('#resultat .et-rp b', (x) => x.textContent);
+    const etatLigne = () => g.evaluate((s) => { const l = document.querySelector(s);
+      return { n: l.dataset.elements, compte: (l.querySelector('.et-elt-liste .et-mn-b .n') || {}).textContent || '', supprimer: !l.querySelector('[data-supprimer]').disabled,
+        confirmer: l.querySelector('[data-supprimer]').dataset.confirmer }; }, LIGNE);
+    const lireToast = () => g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
     const noteMemoire = () => g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
       return n ? { module: n.module, dalles: n.etat && n.etat.dalles ? n.etat.dalles.map((d) => `${d.nom}:${d.type}${d.h_pre !== undefined ? ':' + d.h_pre : ''}`).join() : JSON.stringify(n.etat).slice(0, 80) } : null; });
-    const NOM_RP = '#resultat .et-rp input[data-chemin="nom"]';
     try {
       if (cle === 'predalle') {
         // une ancienne note du module Prédalles, semée dans ce navigateur (son état : celui de l'ancien module, {predalles})
@@ -2496,7 +2714,8 @@ const FILTRE = process.argv[4] || '';
         const u = new URL(g.url());
         const ouverte = await g.evaluate(() => {
           const on = document.querySelector('#donnees button.on[data-chemin="type"]'), h = document.querySelector('#donnees input[data-chemin="h_pre"]');
-          return { module: document.body.dataset.module, nomNote: document.getElementById('nom-note').value, nom: (document.querySelector('#resultat .et-rp input') || {}).value,
+          return { module: document.body.dataset.module, nomNote: document.getElementById('nom-note').value,
+            nom: (document.querySelector('.panel.left .phead .et-elt input.et-elt-nom') || {}).value, titre: (document.querySelector('#resultat .et-rp b') || {}).textContent,
             type: on && on.dataset.valeur, hPre: h && h.value, erreur: document.getElementById('demarrage').classList.contains('erreur'), envois: (window.__envois || []).slice(0, 2) };
         });
         const mem = await noteMemoire();
@@ -2504,8 +2723,8 @@ const FILTRE = process.argv[4] || '';
           u.pathname.endsWith('/dalle') && u.searchParams.get('note') === 'ancienne-predalle' && ouverte.module === 'dalle' && !ouverte.erreur
           && ouverte.envois.length >= 1 && ouverte.envois[0].module === 'dalle' && ouverte.envois[0].action === 'calculer' && ouverte.envois[0].predalles && !ouverte.envois[0].dalles,
           JSON.stringify({ url: `${u.pathname}${u.search}`, ...ouverte }));
-        verif('plaques predalle : l\'ancienne note s\'ouvre en PRÉDALLE (type prédalle, h_p = 6 cm, « Ancienne P1 » en tête des résultats, son nom de note) et devient une note « dalle » en mémoire — rien de perdu',
-          ouverte.nomNote === 'Ancienne note prédalles' && ouverte.nom === 'Ancienne P1' && ouverte.type === 'predalle' && ouverte.hPre === '6'
+        verif('plaques predalle : l\'ancienne note s\'ouvre en PRÉDALLE (type prédalle, h_p = 6 cm, « Ancienne P1 » dans la ligne de l\'élément et en tête des résultats, son nom de note) et devient une note « dalle » en mémoire — rien de perdu',
+          ouverte.nomNote === 'Ancienne note prédalles' && ouverte.nom === 'Ancienne P1' && ouverte.titre === 'Ancienne P1' && ouverte.type === 'predalle' && ouverte.hPre === '6'
           && mem && mem.module === 'dalle' && mem.dalles === 'Ancienne P1:predalle:6', JSON.stringify({ ouverte, mem }));
         await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_relue.png') });
         // une note NEUVE demandée à l'ancienne adresse (un vieux lien) : le nom et le chantier arrivent sur les dalles,
@@ -2527,64 +2746,96 @@ const FILTRE = process.argv[4] || '';
         await g.goto(`${BASE}/index.html`);
         await Promise.all([g.waitForNavigation(), g.click(`.tile[data-module="${cle}"]`)]);
         await pretG();
-        // 1. la colonne de gauche compacte, le nom en champ dans la tête des résultats
+        // 1. la colonne de gauche compacte : ni titre, ni arborescence ; la LIGNE de la dalle dans l'en-tête du panneau
         const colonne = await g.evaluate(() => {
           const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
-          const phead = document.querySelector('.panel.left .phead'), arbre = document.querySelector('#donnees .et-arbre'), premier = document.querySelector('#donnees .sec[data-sec]');
-          const rp = document.querySelector('#resultat .et-rp'), n = rp && rp.querySelector('input[data-chemin="nom"]');
-          return { titre: phead ? phead.textContent.trim() : null, hist: !!phead && vis(phead.querySelector('[data-historique="annuler"]')),
+          const phead = document.querySelector('.panel.left .phead'), don = document.getElementById('donnees'), arbre = don.querySelector('.et-arbre');
+          const premier = don.querySelector('.sec[data-sec]'), l = phead.querySelector(':scope > .et-elt > .et-elsel'), n = l && l.querySelector('input.et-elt-nom');
+          const rp = document.querySelector('#resultat .et-rp');
+          return { titre: !!phead.querySelector('.h3'), hist: vis(phead.querySelector('[data-historique="annuler"]')),
             enTete: !!document.querySelector('#donnees .et-arbre-h'), lignes: document.querySelectorAll('#donnees .et-pt').length,
-            compacte: !!arbre && arbre.classList.contains('et-arbre-c') && arbre.classList.contains('et-seul'), selecteur: !!document.querySelector('#donnees .et-elsel .seg'),
-            menu: vis(document.querySelector('#donnees .et-elsel.seul [data-menu]')), nomGauche: document.querySelectorAll('#donnees [data-chemin="nom"]').length,
-            enHaut: !!premier && Math.abs(premier.getBoundingClientRect().top - document.getElementById('donnees').getBoundingClientRect().top) < 2,
+            compacte: !!arbre && arbre === don.firstElementChild && arbre.matches('.et-arbre-c[data-dalle="0"]'), selecteur: !!document.querySelector('.et-elsel .seg'),
+            elselDonnees: !!don.querySelector('.et-elsel'), ligne: !!l && l.dataset.elements === '1' && vis(l.querySelector('.et-elt-liste [data-menu]'))
+              && vis(l.querySelector('button.et-elt-b[data-dupliquer-index="0"]')) && !!l.querySelector('button.et-elt-b.danger[data-supprimer="0"]:disabled'),
+            nomGauche: don.querySelectorAll('[data-chemin="nom"]').length, nomResultat: !!(rp && rp.querySelector('input, .et-rp-nom')),
+            enHaut: !!premier && Math.abs(premier.getBoundingClientRect().top - don.getBoundingClientRect().top) < 2,
             rubs: [...document.querySelectorAll('#donnees .et-arbre .sec[data-sec]')].map((y) => y.dataset.sec + (y.classList.contains('open') ? '*' : '')).join(),
-            nom: n ? n.value : null, champ: !!n && n.dataset.sorte === 'texte' && vis(n), dims: rp ? rp.querySelector('span').textContent : null,
-            pastille: !!document.querySelector('#donnees .et-arbre .chip, #donnees .et-arbre .pct, #donnees .et-arbre .status') };
+            nom: n ? n.value : null, champ: !!n && n.dataset.chemin === 'nom' && n.dataset.sorte === 'texte' && vis(n),
+            titreRp: rp ? (rp.querySelector('b') || {}).textContent : null, dims: rp ? rp.querySelector('span').textContent : null,
+            pastille: !!document.querySelector('#donnees .et-arbre .chip, #donnees .et-arbre .pct, #donnees .et-arbre .status, .phead .et-elsel .chip, .phead .et-elsel .pct') };
         });
-        verif(`plaques ${cle} : la colonne de gauche compacte — ni « Données », ni « DALLES (1) », ni ligne « ${nom} », ni champ « nom » à gauche ; les rubriques tout en haut, le menu ⋯ dans l'angle, Annuler en place`,
-          colonne.titre === '' && colonne.hist && !colonne.enTete && colonne.lignes === 0 && colonne.compacte && !colonne.selecteur && colonne.menu && colonne.nomGauche === 0
-          && colonne.enHaut && !colonne.pastille, JSON.stringify(colonne));
-        verif(`plaques ${cle} : le NOM « ${nom} » est un champ dans la tête des résultats, « ${dims} · … » dessous ; quatre rubriques (dl, so, arm, op), la première seule ouverte`,
-          colonne.nom === nom && colonne.champ && (colonne.dims || '').startsWith(`${dims} · `) && colonne.rubs === 'dl*,so,arm,op', JSON.stringify(colonne));
+        verif(`plaques ${cle} : la colonne de gauche compacte — ni « Données », ni « DALLES (1) », ni arborescence, ni champ « nom » dans les données ; la LIGNE de « ${nom} » dans l'en-tête du panneau (la liste, copier ; supprimer éteint), à côté d'Annuler ; les rubriques tout en haut`,
+          !colonne.titre && colonne.hist && !colonne.enTete && colonne.lignes === 0 && colonne.compacte && !colonne.selecteur && !colonne.elselDonnees && colonne.ligne
+          && colonne.nomGauche === 0 && colonne.enHaut && !colonne.pastille, JSON.stringify(colonne));
+        verif(`plaques ${cle} : le NOM « ${nom} » est un champ dans la ligne de l'élément ; la tête des résultats le LIT (un titre, plus un champ), « ${dims} · … » dessous ; quatre rubriques (dl, so, arm, op), la première seule ouverte`,
+          colonne.nom === nom && colonne.champ && colonne.titreRp === nom && !colonne.nomResultat && (colonne.dims || '').startsWith(`${dims} · `) && colonne.rubs === 'dl*,so,arm,op',
+          JSON.stringify(colonne));
+        const lg0 = await ligneElement(g);
+        verif(`plaques ${cle} · PC 1440 : la ligne de la dalle tient dans l'en-tête (une rangée, rien ne déborde ni ne se chevauche, le nom entier)`, lg0 && !lg0.fautes.length && lg0.nomEntier, JSON.stringify(lg0));
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_colonne.png`) });
-        // 2. le menu ⋯ (une seule dalle) ; « Copier » : une seconde dalle → le SÉLECTEUR apparaît, la copie ouverte
-        await g.click('#donnees .et-elsel.seul [data-menu]');
-        const mn = await g.evaluate(() => { const l = document.querySelector('#donnees .et-elsel .et-mn-l'), q = l.getBoundingClientRect();
-          return { vu: l.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight && q.left >= 0 && q.right <= innerWidth, ajouter: !!l.querySelector('[data-ajouter]'),
-            renommer: !!l.querySelector('[data-renommer]:not(:disabled)'), copier: !!l.querySelector('[data-dupliquer-index="0"]'), supprimerEteint: !!l.querySelector('[data-supprimer]:disabled') }; });
-        await g.click('#donnees .et-elsel .et-mn-l [data-dupliquer-index="0"]');
+        // 2. la LISTE (une seule dalle : elle, cochée, et « Ajouter une dalle ») ; « Copier » : une seconde dalle, ouverte —
+        // la liste en montre deux, « 2 » sur son bouton, supprimer s'allume
+        const mn = await listeElement(g);
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(100);
+        const mnFerme = await g.$eval(`${LIGNE} .et-elt-liste .et-mn-l`, (x) => x.hidden);
+        await g.click(`${LIGNE} [data-dupliquer-index="0"]`);
         await tranquille();
         await g.waitForTimeout(200);
-        const s1 = await segs();
-        verif(`plaques ${cle} : le menu ⋯ s'ouvre dans l'écran (Ajouter, Renommer, Copier ; Supprimer éteint : jamais la dernière) ; « Copier » fait apparaître le SÉLECTEUR — deux segments, la copie ouverte, son nom en tête des résultats`,
-          mn.vu && mn.dedans && mn.ajouter && mn.renommer && mn.copier && mn.supprimerEteint && s1 === `${nom},${nom} (copie)*` && (await nomRp()) === `${nom} (copie)` && !(await g.$('#donnees .et-elsel.seul')),
-          JSON.stringify({ mn, s1 }));
-        // 3. RENOMMER dans la tête des résultats : le sélecteur, la confirmation du menu et la note enregistrée suivent
-        await saisir(NOM_RP, 'D2');
-        const apresNom = { segs: await segs(), rp: await nomRp(), confirmer: await g.$eval('#donnees .et-elsel [data-supprimer]', (x) => x.dataset.confirmer), mem: await noteMemoire() };
-        verif(`plaques ${cle} : renommer dans la tête des résultats (« D2 ») — le sélecteur à gauche, la confirmation du menu ⋯ et la note enregistrée (.stab) suivent`,
-          apresNom.segs === 'Dalle 1,D2*' && apresNom.rp === 'D2' && apresNom.confirmer.includes('« D2 »') && apresNom.mem && apresNom.mem.module === 'dalle'
-          && apresNom.mem.dalles === 'Dalle 1:coulee,D2:coulee', JSON.stringify(apresNom));
-        // « Renommer » du menu ⋯ place le curseur dans ce champ (tout le nom choisi)
-        await g.click('#donnees .et-elsel [data-menu]');
-        await g.click('#donnees .et-elsel .et-mn-l [data-renommer="1"]');
-        await g.waitForTimeout(150);
-        const foc = await g.evaluate(() => { const a = document.activeElement; return { champ: !!a && a.matches('#resultat .et-rp input[data-chemin="nom"]'), choisi: !!a && a.value.length > 0 && a.selectionStart === 0 && a.selectionEnd === a.value.length }; });
-        verif(`plaques ${cle} : « Renommer » du menu ⋯ place le curseur dans le champ du nom des résultats, tout le nom choisi`, foc.champ && foc.choisi, JSON.stringify(foc));
+        const s1 = { liste: await liste(), nom: await nomElt(), rp: await titreRp(), ...(await etatLigne()) };
+        const mn2 = await listeElement(g);
+        await g.screenshot({ path: path.join(OUT, `site_${cle}_ligne_element.png`) });
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(100);
+        verif(`plaques ${cle} : la liste s'ouvre dans l'écran (« ${nom} » cochée, « Ajouter une dalle », pas de compte), Échap la referme ; « Copier » ajoute une seconde dalle et l'ouvre — la liste en montre deux (la copie cochée), « 2 » sur son bouton, supprimer s'allume, la tête des résultats suit`,
+          mn.vu && mn.ouvert && mn.dedans && mn.touche && mn.items === `${nom}*` && mn.ajouter === 'Ajouter une dalle' && mn.compte === '' && mnFerme
+          && s1.liste === `${nom},${nom} (copie)*` && s1.nom === `${nom} (copie)` && s1.rp === `${nom} (copie)` && s1.n === '2' && s1.compte === '2' && s1.supprimer
+          && mn2.vu && mn2.dedans && mn2.touche && mn2.items === `${nom},${nom} (copie)*` && mn2.compte === '2', JSON.stringify({ mn, mnFerme, s1, mn2 }));
+        // 3. RENOMMER d'un clic dans la ligne de l'élément : la liste, la tête des résultats, la confirmation de « Supprimer »
+        // et la note enregistrée (.stab) suivent ; Échap rend l'ancien nom ; un nom vide est refusé
+        await g.click(NOM);
+        const foc = await g.evaluate((s) => !!document.activeElement && document.activeElement.matches(s), NOM);
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_selecteur.png`) });
-        // 4. le sélecteur ouvre l'autre dalle ; « Supprimer » (confirmé) retire l'ouverte, le sélecteur disparaît
-        await g.click('#donnees .et-elsel .seg button[data-activer="0"]');
+        await g.keyboard.press('Control+a');
+        await g.keyboard.type('D2');
+        await g.keyboard.press('Enter');
+        await tranquille();
+        await g.waitForTimeout(150);
+        const apresNom = { foc, liste: await liste(), nom: await nomElt(), rp: await titreRp(), confirmer: (await etatLigne()).confirmer, mem: await noteMemoire() };
+        verif(`plaques ${cle} : un clic sur le nom (ligne de l'élément) y pose le curseur ; « D2 » + Entrée — la liste, la tête des résultats, la confirmation de « Supprimer » et la note enregistrée (.stab) suivent`,
+          apresNom.foc && apresNom.liste === 'Dalle 1,D2*' && apresNom.nom === 'D2' && apresNom.rp === 'D2' && apresNom.confirmer.includes('« D2 »') && apresNom.mem
+          && apresNom.mem.module === 'dalle' && apresNom.mem.dalles === 'Dalle 1:coulee,D2:coulee', JSON.stringify(apresNom));
+        await g.click(NOM);
+        await g.keyboard.press('Control+a');
+        await g.keyboard.type('Brouillon');
+        await g.keyboard.press('Escape');
+        await g.waitForTimeout(250);
+        const echap = { nom: await nomElt(), rp: await titreRp(), mem: await noteMemoire() };
+        await g.click(NOM);
+        await g.keyboard.press('Control+a');
+        await g.keyboard.press('Backspace');
+        await g.keyboard.press('Enter');
+        await g.waitForTimeout(300);
+        const vide = { nom: await nomElt(), rp: await titreRp(), mem: await noteMemoire(), toast: await lireToast() };
+        verif(`plaques ${cle} : Échap rend l'ancien nom (« D2 », rien n'est écrit) ; un nom vide est refusé — « Un nom ne peut pas être vide », l'ancien nom revient, la note le garde`,
+          echap.nom === 'D2' && echap.rp === 'D2' && echap.mem.dalles === 'Dalle 1:coulee,D2:coulee' && vide.nom === 'D2' && vide.rp === 'D2' && vide.mem.dalles === 'Dalle 1:coulee,D2:coulee'
+          && vide.toast.vu && vide.toast.erreur && /Un nom ne peut pas être vide/.test(vide.toast.texte), JSON.stringify({ echap, vide }));
+        // 4. la liste ouvre l'autre dalle ; « Supprimer » (confirmé) retire l'ouverte — une dalle reste, supprimer s'éteint
+        await g.click(`${LISTE_ELT} [data-menu]`);
+        await g.click(`${LIGNE} .et-elt-liste .et-mn-l [data-activer="0"]`);
         await tranquille();
         await g.waitForTimeout(200);
-        const ouverte0 = { segs: await segs(), rp: await nomRp() };
-        g.once('dialog', (d) => d.accept());
-        await g.click('#donnees .et-elsel [data-menu]');
-        await g.click('#donnees .et-elsel .et-mn-l [data-supprimer="0"]');
+        const ouverte0 = { liste: await liste(), nom: await nomElt(), rp: await titreRp() };
+        let question = '';
+        g.once('dialog', (d) => { question = d.message(); d.accept(); });
+        await g.click(`${LIGNE} [data-supprimer="0"]`);
         await tranquille();
         await g.waitForTimeout(200);
-        const reste = { seul: !!(await g.$('#donnees .et-arbre-c.et-seul .et-elsel.seul [data-menu]')), selecteur: !!(await g.$('#donnees .et-elsel .seg')), rp: await nomRp(), mem: await noteMemoire() };
-        verif(`plaques ${cle} : un segment ouvre l'autre dalle (son nom en tête des résultats) ; « Supprimer » (confirmé) retire l'ouverte — une dalle reste, le sélecteur disparaît, le menu ⋯ revient dans l'angle`,
-          ouverte0.segs === 'Dalle 1*,D2' && ouverte0.rp === 'Dalle 1' && reste.seul && !reste.selecteur && reste.rp === 'D2' && reste.mem && reste.mem.dalles === 'D2:coulee', JSON.stringify({ ouverte0, reste }));
+        const reste = { ...(await etatLigne()), liste: await liste(), nom: await nomElt(), rp: await titreRp(), mem: await noteMemoire(), question };
+        verif(`plaques ${cle} : la liste ouvre l'autre dalle (son nom dans la ligne et en tête des résultats) ; « Supprimer » (confirmé : « Supprimer la dalle « Dalle 1 » de la note ? ») retire l'ouverte — « D2 » reste, seule : supprimer s'éteint, le compte disparaît`,
+          ouverte0.liste === 'Dalle 1*,D2' && ouverte0.nom === 'Dalle 1' && ouverte0.rp === 'Dalle 1' && reste.question === 'Supprimer la dalle « Dalle 1 » de la note ?'
+          && reste.n === '1' && !reste.supprimer && reste.compte === '' && reste.liste === 'D2*' && reste.nom === 'D2' && reste.rp === 'D2' && reste.mem && reste.mem.dalles === 'D2:coulee',
+          JSON.stringify({ ouverte0, reste }));
         // 5. les fonctions aux places de la poutre
         const e0 = await g.$eval('#resultat .et-bloc', (x) => ({ e: x.querySelector('.et-bloc-h .e').textContent, inc: x.classList.contains('inc') }));
         verif(`plaques ${cle} : sans effort, le bloc de la section dit « Données incomplètes » (gris), jamais « Conforme »`, e0.e === 'Données incomplètes' && e0.inc, JSON.stringify(e0));
@@ -2645,7 +2896,8 @@ const FILTRE = process.argv[4] || '';
         const st = await sync();
         verif(`plaques ${cle} : la vue « Toutes » montre les blocs des deux sections`, st.vue === 'toutes' && st.blocs.join() === '0,1', JSON.stringify(st));
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_toutes.png`) });
-        // 6. le TYPE « Prédalle + béton coulé en place » (rubrique 1) : h_p apparaît, le complément coulé se lit, l'état le porte
+        // 6. le TYPE « Prédalle + dalle CSP » (rubrique 1 ; CSP : coulé sur place, libellés courts du 09/11/2026) : h_p
+        // apparaît, le complément coulé se lit, l'état le porte
         await ouvrirRub('dl');
         await g.click('#donnees button[data-chemin="type"][data-valeur="predalle"]');
         await tranquille();
@@ -2653,34 +2905,49 @@ const FILTRE = process.argv[4] || '';
         const pre = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
           const h = document.querySelector('#donnees input[data-chemin="h_pre"]'), on = document.querySelector('#donnees button.on[data-chemin="type"]');
           const rub = document.querySelector('#donnees .sec[data-sec="dl"]');
-          return { on: on && on.dataset.valeur, h: vis(h), hv: h && h.value, complement: (rub.querySelector('.dl-ro') || {}).textContent || '', coule: /coul/i.test(rub.textContent) }; });
+          return { on: on && on.dataset.valeur, h: vis(h), hv: h && h.value, complement: (rub.querySelector('.dl-ro') || {}).textContent || '', coule: /coul/i.test(rub.textContent),
+            libelles: [...document.querySelectorAll('#donnees button[data-chemin="type"]')].map((x) => x.textContent.trim()).join(' | ') }; });
         const memPre = await noteMemoire();
-        verif(`plaques ${cle} : « Prédalle + béton coulé en place » fait apparaître h_p (h_pre, 6 cm par défaut) et le complément coulé (h − h_p = 14 cm) ; la note le porte (type prédalle)`,
-          pre.on === 'predalle' && pre.h && pre.hv === '6' && /14\s*cm/.test(pre.complement) && memPre && memPre.dalles === 'D2:predalle:6', JSON.stringify({ pre, memPre }));
+        verif(`plaques ${cle} : les deux types s'appellent « Dalle CSP » et « Prédalle + dalle CSP » ; le second fait apparaître h_p (h_pre, 6 cm par défaut) et le complément coulé (h − h_p = 14 cm) ; la note le porte (type prédalle)`,
+          pre.libelles === 'Dalle CSP | Prédalle + dalle CSP' && pre.on === 'predalle' && pre.h && pre.hv === '6' && /14\s*cm/.test(pre.complement) && memPre && memPre.dalles === 'D2:predalle:6',
+          JSON.stringify({ pre, memPre }));
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_predalle.png`) });
         await g.click('#donnees button[data-chemin="type"][data-valeur="coulee"]');
         await tranquille();
         await g.waitForTimeout(200);
-        verif(`plaques ${cle} : retour à « Dalle coulée en place » : h_p disparaît, la note aussi l'oublie`,
+        verif(`plaques ${cle} : retour à « Dalle CSP » : h_p disparaît, la note aussi l'oublie`,
           !(await g.$('#donnees input[data-chemin="h_pre"]')) && ((await noteMemoire()) || {}).dalles === 'D2:coulee', JSON.stringify(await noteMemoire()));
-        // 7. au téléphone : « Renommer » du menu ⋯ ouvre l'onglet Résultat sur le champ du nom (R1 : la fonction aux trois formats)
-        const ct = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+        // 7. au téléphone (R1 : la fonction aux trois formats) : la ligne de l'élément en tête de l'onglet Données, chaque
+        // bouton à 40 px au doigt ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter
+        // l'onglet (16 px : pas d'agrandissement) ; « D3 » + Entrée renomme — la note et la tête des résultats suivent
+        // (la même note : le stockage du navigateur du PC est repris)
+        const ct = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, storageState: await c.storageState() });
         const t = await ct.newPage();
         t.erreurs = [];
         t.on('pageerror', (e) => t.erreurs.push(e.message));
         await t.goto(g.url());
         await t.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
         await t.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
-        await t.tap('#donnees .et-elsel.seul [data-menu]');
+        const lgTel = await ligneElement(t, 40);
+        const mnTel = await listeElement(t, true);
+        await t.tap(`${LISTE_ELT} [data-menu]`);
         await t.waitForTimeout(150);
-        const mnTel = await t.evaluate(() => { const l = document.querySelector('#donnees .et-elsel .et-mn-l'), q = l.getBoundingClientRect(); return { vu: l.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight && q.right <= innerWidth }; });
-        await t.tap('#donnees .et-elsel .et-mn-l [data-renommer="0"]');
+        await t.tap(NOM);
         await t.waitForTimeout(250);
-        const tel = await t.evaluate(() => { const a = document.activeElement, r = a && a.getBoundingClientRect();
-          return { onglet: document.querySelector('.bench').dataset.tab, champ: !!a && a.matches('#resultat .et-rp input[data-chemin="nom"]'), vu: !!a && a.checkVisibility() && r.top >= 0 && r.bottom <= innerHeight, taille: a ? Math.round(r.height) : 0 }; });
-        verif(`plaques ${cle} · téléphone : le menu ⋯ de l'angle s'ouvre dans l'écran ; « Renommer » ouvre l'onglet Résultat sur le champ du nom (40 px au doigt)`,
-          mnTel.vu && mnTel.dedans && tel.onglet === 'resultat' && tel.champ && tel.vu && tel.taille >= 36, JSON.stringify({ mnTel, tel }));
+        const tel = await t.evaluate((s) => { const a = document.activeElement, r = a && a.getBoundingClientRect();
+          return { onglet: document.querySelector('.bench').dataset.tab, champ: !!a && a.matches(s), vu: !!a && a.checkVisibility() && r.top >= 0 && r.bottom <= innerHeight,
+            taille: a ? Math.round(r.height) : 0, police: a ? parseFloat(getComputedStyle(a).fontSize) : 0 }; }, NOM);
         await t.screenshot({ path: path.join(OUT, `site_plaques_${cle}_tel_renommer.png`) });
+        await t.keyboard.press('Control+a');
+        await t.keyboard.type('D3');
+        await t.keyboard.press('Enter');
+        await t.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+        await t.waitForTimeout(200);
+        const telNom = await t.evaluate((s) => { const id = new URLSearchParams(location.search).get('note'), n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
+          return { champ: document.querySelector(s).value, rp: document.querySelector('#resultat .et-rp b').textContent, note: n && n.etat.dalles.map((d) => d.nom).join() }; }, NOM);
+        verif(`plaques ${cle} · téléphone : la ligne de l'élément tient dans l'en-tête des données, chaque bouton à 40 px au doigt ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter l'onglet (16 px) ; « D3 » + Entrée renomme (la note, la tête des résultats)`,
+          lgTel && !lgTel.fautes.length && mnTel.vu && mnTel.dedans && mnTel.touche && mnTel.items === 'D2*' && tel.onglet === 'donnees' && tel.champ && tel.vu && tel.taille >= 40 && tel.police >= 16
+          && telNom.champ === 'D3' && telNom.rp === 'D3' && telNom.note === 'D3', JSON.stringify({ lgTel, mnTel, tel, telNom }));
         verif(`plaques ${cle} · téléphone : aucune erreur JavaScript`, !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
         await ct.close();
       }

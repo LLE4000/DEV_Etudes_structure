@@ -63,6 +63,29 @@ Cible :
   → onglet Résultat) ; `formats:dalle` lit la colonne par `#donnees .et-arbre .sec.open` et le nom long par
   `#resultat .et-rp.et-rp-c`.
 
+**Révision du 09/11/2026 (COL1, retour de l'ingénieur sur la capture)** — ce qui est REMPLACÉ ci-dessus :
+« le nom de la dalle a complètement disparu ; il y a les trois petits points ; ce qui aurait été bien, c'est de garder
+le nom : un clic dessus, on renomme ; à côté, dupliquer ou effacer ; et la ligne au-dessus (Annuler, Rétablir) est
+vide ». Puis : « applique la même chose à la poutre ».
+- La LIGNE de l'élément ouvert (`etabli_compact.arbre_compact` : `<div class="et-elsel" data-elements="n">`) porte le
+  NOM en champ (`input.et-elt-nom[data-chemin="nom"]` : un clic et on le renomme ; Entrée valide, Échap rend l'ancien
+  nom, un nom vide est refusé ; verrouillé, `span.et-elt-nom.lu` et un cadenas), la LISTE des éléments (un menu
+  `.et-mn.et-elt-liste` : `button.et-elt-i[data-activer="i"]` par élément avec ses dimensions, l'ouvert coché, puis
+  `data-ajouter` « Ajouter une … » ; le compte sur le bouton dès deux), COPIER (`.et-elt-b[data-dupliquer-index]`) et
+  SUPPRIMER (`.et-elt-b.danger[data-supprimer][data-confirmer]`, éteint quand l'élément est seul). Plus de segments, de
+  menu « ⋯ » d'élément ni de `data-renommer` dans cette ligne.
+- `js/etabli.js` POSE cette ligne dans l'EN-TÊTE du panneau de gauche, à côté d'« Annuler » et « Rétablir »
+  (`construire.compact(…, arbre_compact=True)` y met l'emplacement `<div class="et-elt">` à la place du titre
+  « Données ») ; ses écouteurs (nom, actions) et ceux de `js/compact.js` (le menu) y sont branchés. La ligne vide d'avant
+  n'existe plus : rien ne prend de hauteur en plus des rubriques.
+- Le nom ne se modifie plus dans la tête des RÉSULTATS : `tete_resultats(nom, dims)` redevient un titre (un seul endroit
+  pour renommer).
+- La POUTRE prend la même colonne : `site/web/construire.ARBRE_COMPACT = ("dalle", "poutre")`, `api_web/poutre.arbre`
+  passe `compact=True` (son arborescence `et-pt` n'est plus rendue ; `arbre(…, compact=False)` reste, à l'octet, pour
+  l'ancien module Prédalles servi aux anciens liens).
+- Les types de dalle s'écrivent « Dalle CSP » et « Prédalle + dalle CSP » (CSP : coulé sur place ; l'aide du champ le
+  dit en entier).
+
 ## 2. Un seul module « Dalles béton armé » (FUS2, FUS5)
 
 ### 2.1 L'état
@@ -81,8 +104,9 @@ moteurs, inchangés) : le type est déduit du fichier.
 
 ### 2.2 Le sélecteur et les champs
 
-Rubrique « 1 — Caractéristiques », première ligne : segments « Dalle coulée en place » (défaut) · « Prédalle + béton
-coulé en place » (chemin `["type"]`, valeurs `coulee` / `predalle`).
+Rubrique « 1 — Caractéristiques », première ligne : segments « Dalle CSP » (défaut) · « Prédalle + dalle CSP » (CSP :
+coulé sur place — libellés courts demandés le 09/11/2026 ; d'abord « Dalle coulée en place » · « Prédalle + béton coulé
+en place ») (chemin `["type"]`, valeurs `coulee` / `predalle`).
 - Dalle coulée : les champs d'aujourd'hui (Béton, Acier, b, h, c, Principale).
 - Prédalle : en plus, « h<sub>p</sub> prédalle » (épaisseur préfabriquée, `["h_pre"]`, bornes `EN_P.H_PRE_MIN` à
   `h_pre_max(h)`) et le COMPLÉMENT coulé en place en lecture seule : `h − h_pre` (recalculé à chaque saisie, jamais
@@ -103,7 +127,7 @@ de `api_web/predalle.py`, réemployé comme AIDE du type prédalle (ses fonction
 - L'ÉTAT : `VERSION = 2` ; `CLES_SITE = ("verrou", "type", "empilement")` — les trois clés du site portées par CHAQUE
   dalle (« empilement » est « par note » comme γs et le jeu : écrite sur toutes les dalles à la fois) ; la même liste
   vit dans `dalle_positions.CLES_SITE`, et `tests/test_api_web_dalles_fusion.py` lie les deux copies (R2).
-  `TYPES_DALLE = (("coulee", "Dalle coulée en place"), ("predalle", "Prédalle + béton coulé en place"))`, `TYPES_TXT`.
+  `TYPES_DALLE = (("coulee", "Dalle CSP"), ("predalle", "Prédalle + dalle CSP"))`, `TYPES_TXT`.
   `est_predalle(d)` ; `_EN(d)` / `_MO(d)` / `_M(d)` : l'entrée, le moteur et le module « formules mises en mots » du type
   (`_M` rend `api_web.predalle` pour une prédalle : `plaque_compact.bloc` y lit `_formule`, `_ligne_tableau`…).
   `_site(d, verrou=False, type_="coulee", empilement=False)` normalise par l'entrée du type puis pose les trois clés ;

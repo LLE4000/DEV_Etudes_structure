@@ -17,7 +17,7 @@ vérifié en Python ordinaire à travers le routeur (les mêmes requêtes JSON q
   importé ; commun à la note ; option fausse → les chiffres du moteur à l'octet ;
 - l'ampoule (sélecteur de nappe de base) garde une nappe de treillis unique cohérente (la transposée sur l'autre face) ;
 - les points d'ancrage des autres lots sont branchés (dalle_positions : axe_auto, pour_moteur, annoter, candidats_base ;
-  dalle_nappes : ecrire, html ; etabli_compact : compact=True, chemin_nom) ;
+  dalle_nappes : ecrire, html ; etabli_compact : compact=True, le nom dans la ligne de la dalle) ;
 - cinq MUTATIONS : une altération du code fait rougir le contrôle qui la garde.
 
     /usr/bin/python3.12 tests/test_api_web_dalles_fusion.py
@@ -116,13 +116,16 @@ chk("les clés du site sont nommées une fois par module et liées ici : dalle.C
     and not (set(POS.pour_moteur(d0)) & set(P.CLES_SITE)) and MO.verifier(POS.pour_moteur(d0))["statut"] == MO.OK)
 chk("l'état survit à un aller-retour JSON et sa relecture est stable (normaliser ∘ normaliser)",
     P.normaliser(json.loads(json.dumps(e0))) == e0 and P.normaliser(copy.deepcopy(e0)) == e0)
-chk("le type et l'empilement se lisent dans la rubrique 1 et les options : segments « Dalle coulée en place » (retenu) · "
-    "« Prédalle + béton coulé en place », la case « Nappes empilées » cochée, aucune peau",
-    re.search(r'<button type="button" class="on" data-chemin="type" data-sorte="choix" data-valeur="coulee">Dalle coulée en place</button>'
-              r'<button type="button" class="" data-chemin="type" data-sorte="choix" data-valeur="predalle">Prédalle \+ béton coulé en place</button>',
-              r0["donnees"]) is not None
+chk("le type et l'empilement se lisent dans la rubrique 1 et les options : segments « Dalle CSP » (retenu) · « Prédalle + dalle "
+    "CSP » (les libellés courts de l'ingénieur, 09/11/2026 ; l'aide du champ dit « CSP : coulé sur place. » d'abord), le résumé "
+    "« Dalle CSP · C30/37 · B500 · c = 3 cm », la case « Nappes empilées » cochée, aucune peau",
+    P.TYPES_DALLE == (("coulee", "Dalle CSP"), ("predalle", "Prédalle + dalle CSP"))
+    and re.search(r'<button type="button" class="on" data-chemin="type" data-sorte="choix" data-valeur="coulee">Dalle CSP</button>'
+                  r'<button type="button" class="" data-chemin="type" data-sorte="choix" data-valeur="predalle">Prédalle \+ dalle CSP</button>',
+                  r0["donnees"]) is not None
+    and P.AIDE_TYPE.startswith("CSP : coulé sur place. ") and f'<span class="aide" title="{C.esc(P.AIDE_TYPE)}">' in r0["donnees"]
     and '<input type="checkbox" data-chemin="empilement" data-sorte="case" checked>' in r0["donnees"] and 'data-chemin="h_pre"' not in r0["donnees"]
-    and "Coulée en place · C30/37 · B500 · c = 3 cm" in r0["donnees"])
+    and "Dalle CSP · C30/37 · B500 · c = 3 cm" in r0["donnees"], P.TYPES_DALLE)
 
 # ------------------------------------------------------------------ 2. les trois formes d'état
 print("\n=== 2. Les trois formes d'état relues ; la note abîmée refusée ===")
@@ -219,8 +222,10 @@ for ch, x, mot in REFUS:
 chk(f"{len(REFUS)} refus géométriques de l'ancien module Prédalles (peau hors bornes, h totale qui ne contient plus la peau, peau "
     "illisible) : un message clair, la dalle INTACTE", not mauvais, mauvais)
 o = req(action="modifier", etat=copy.deepcopy(e0), chemin=["h_pre"], valeur="5")
-chk("h_pre sur une dalle coulée en place : refusée, avec le chemin à suivre (choisir le type prédalle d'abord), la dalle intacte",
-    o["message"] and "n'a pas de prédalle" in o["message"] and o["etat"] == e0, o.get("message"))
+chk("h_pre sur une dalle coulée en place : refusée, avec le chemin à suivre (choisir le type prédalle d'abord : le message nomme le "
+    "segment par SON libellé, TYPES_TXT — deux copies du même mot, liées ici), la dalle intacte",
+    o["message"] and "n'a pas de prédalle" in o["message"] and f"choisir « {P.TYPES_TXT['predalle']} » d'abord" in o["message"]
+    and o["etat"] == e0, o.get("message"))
 peau = saisir(saisir(PR, "h_pre", "3")["etat"], "sections/0/faces/inf_y/couches/0/treillis", "12/12/150/150")
 chk("base Ø12 à 4,0 cm dans une peau de 3 cm : l'avertissement GRAVE du moteur prédalle (« sort de la peau ») est rendu",
     '<div class="msg grave">' in peau["resultat"] and "sort de la peau" in peau["resultat"])
@@ -280,10 +285,11 @@ chk("l'en-tête d'une vue de prédalle dit la peau : « 100 × 22 cm, prédalle 
     "<b>Section A</b><span>· 100 × 22 cm, prédalle 6 cm · C30/37 · B500 · principale Y</span>" in vp[0]["entete"])
 # le verrou d'une prédalle
 rv = saisir(NP1, "verrou", True)
-chk("une prédalle verrouillée : la rubrique « Caractéristiques » en lecture dit le type, « prédalle · coulé en place 6 + 16 cm » ; un cadenas "
-    "devant le nom dans l'en-tête des résultats ; aucune saisie",
-    "Prédalle + béton coulé en place" in rv["donnees"] and "6 + 16 cm" in rv["donnees"] and 'data-chemin="h_pre"' not in rv["donnees"]
-    and re.search(r'<div class="et-rp et-rp-c"><b>' + re.escape(C.icon("lock")) + r'Prédalle 1</b>', rv["resultat"]) is not None
+chk("une prédalle verrouillée : la rubrique « Caractéristiques » en lecture dit le type (« Prédalle + dalle CSP »), « 6 + 16 cm » ; un "
+    "cadenas devant le nom dans la LIGNE de la dalle (colonne compacte, 09/11/2026), la tête des résultats un simple titre ; aucune saisie",
+    "Prédalle + dalle CSP" in rv["donnees"] and "6 + 16 cm" in rv["donnees"] and 'data-chemin="h_pre"' not in rv["donnees"]
+    and re.search(r'<span class="et-elt-nom lu"[^>]*>' + re.escape(C.icon("lock")) + r'<span>Prédalle 1</span></span>', rv["donnees"]) is not None
+    and 'data-chemin="nom"' not in rv["donnees"] + rv["resultat"] and '<div class="et-rp"><b>Prédalle 1</b>' in rv["resultat"]
     and "verrouillée" in req(action="modifier", etat=rv["etat"], chemin=["h_pre"], valeur="8")["message"])
 
 # ------------------------------------------------------------------ 6. l'import des deux fichiers Streamlit
@@ -415,10 +421,11 @@ chk("… sur une nappe qui était en BARRES, un treillis choisi ne touche que sa
     "un treillis unique",
     actif(am3["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0] == actif(bar)["sections"][0]["faces"]["inf_x"]["couches"][0]
     and actif(am3["etat"])["sections"][0]["faces"]["inf_y"]["couches"][0]["type"] == "treillis")
-chk("la colonne de gauche est COMPACTE (etabli_compact.arbre, compact=True) et le nom se modifie dans l'en-tête des résultats "
-    "(tete_resultats, chemin « nom ») : même chemin qu'avant, donc le résumé et le .stab suivent",
-    re.search(r'<div class="et-arbre et-arbre-c et-seul" data-dalle="0">', r0["donnees"]) is not None and "et-arbre-h" not in r0["donnees"]
-    and '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-rp-nom"' in r0["resultat"]
+chk("la colonne de gauche est COMPACTE (etabli_compact.arbre, compact=True) et le nom se modifie dans la LIGNE de la dalle "
+    "(arbre_compact, chemin « nom » ; plus dans la tête des résultats) : même chemin qu'avant, donc le résumé et le .stab suivent",
+    re.search(r'<div class="et-arbre et-arbre-c" data-dalle="0"><div class="et-elsel" data-elements="1"><input data-chemin="nom" '
+              r'data-sorte="texte" value="Dalle 1" class="et-elt-nom"', r0["donnees"]) is not None and "et-arbre-h" not in r0["donnees"]
+    and 'data-chemin="nom"' not in r0["resultat"]
     and saisir(e0, "nom", "Hourdis")["resume"]["gouvernant"].startswith("Hourdis ·"))
 chk("le y_G calculé affiché et l'axe automatique viennent de dalle_positions (yG_calcule, axe_auto) : réécrits tels quels, ils restent automatiques",
     actif(saisir(e0, "sections/0/faces/inf_x/couches/0/dist", "4,5")["etat"])["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] is None

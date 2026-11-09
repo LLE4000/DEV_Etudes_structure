@@ -12,9 +12,8 @@ ENDROIT dans les trois écrans (docs/site/REFONTE_ETABLI.md, « Un seul établi 
 
 Ce fichier ne calcule rien et ne choisit rien : chaque module lui donne ses noms, ses dimensions, ses lignes et ses états
 déjà mis en mots ; il en fait le balisage que js/compact.js et css/etabli.css lisent."""
-import html
 import re
-from typing import NamedTuple, Optional, Sequence, Tuple, Union
+from typing import NamedTuple, Optional, Sequence, Tuple
 
 from . import commun as C
 
@@ -36,10 +35,12 @@ PREDALLE = Genre("Prédalles", "la prédalle", "cette prédalle", "une prédalle
 
 
 # ------------------------------------------------------------------ menus et petits boutons
-def menu(items: str, titre: str) -> str:
-    """Un menu discret « ⋯ » : le bouton, et la liste (cachée) de ses actions."""
-    return (f'<div class="et-mn"><button type="button" class="et-mn-b" data-menu="1" aria-haspopup="menu" aria-expanded="false" '
-            f'title="{C.esc(titre)}">{C.icon("ellipsis")}</button><div class="et-mn-l" role="menu" hidden>{items}</div></div>')
+def menu(items: str, titre: str, bouton: Optional[str] = None, classe: str = "") -> str:
+    """Un menu discret : le bouton (« ⋯ » ; ``bouton`` : un autre contenu, du HTML) et la liste (cachée) de ses actions.
+    ``classe`` : une classe de plus sur le menu (``et-elt-liste`` : la liste des éléments de la note)."""
+    return (f'<div class="et-mn{" " + classe if classe else ""}"><button type="button" class="et-mn-b" data-menu="1" aria-haspopup="menu" '
+            f'aria-expanded="false" title="{C.esc(titre)}">{bouton if bouton is not None else C.icon("ellipsis")}</button>'
+            f'<div class="et-mn-l" role="menu" hidden>{items}</div></div>')
 
 
 def action(attrs: str, icone: str, texte: str, danger: bool = False, actif: bool = True) -> str:
@@ -70,8 +71,8 @@ def arbre(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, c
     curseur. Copier, supprimer : dans le même menu. ``marque`` : l'attribut qui porte le rang (``data-poutre``,
     ``data-dalle``…).
 
-    ``compact`` (docs/site/DALLES_FUSION.md § 1 ; la dalle l'emploie, la poutre garde l'arbre tant que l'ingénieur n'a
-    pas validé) : la colonne sans en-tête « LISTE (n) » ni ligne d'élément — ``arbre_compact``."""
+    ``compact`` (docs/site/DALLES_FUSION.md § 1 ; la dalle et la poutre l'emploient, site/web/construire.ARBRE_COMPACT) :
+    la colonne sans en-tête « LISTE (n) » ni arborescence — ``arbre_compact``."""
     if compact:
         return arbre_compact(genre, elements, actif, corps, marque)
     out = ""
@@ -104,35 +105,45 @@ def arbre(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, c
 
 
 def arbre_compact(genre: Genre, elements: Sequence[Tuple[str, str, bool]], actif: int, corps: str, marque: str) -> str:
-    """La colonne de gauche COMPACTE (docs/site/DALLES_FUSION.md § 1) : ni en-tête « LISTE (n) », ni ligne d'élément.
-    - UN élément : ses rubriques (``corps``) commencent tout en haut ; le menu « ⋯ » (Ajouter, Copier ; Supprimer
-      éteint) reste accessible, discret, dans l'angle (``.et-elsel.seul``, posé par css/etabli.css sur le bord droit de
-      la première rubrique) ;
-    - PLUSIEURS : un SÉLECTEUR sur une ligne (``.et-elsel`` : les noms en segments ``.seg``, l'ouvert marqué ``on``,
-      ``data-activer="i"`` — les mêmes attributs que la ligne d'élément d'avant, js/etabli.js les lit), puis le menu
-      « ⋯ » de l'élément ouvert (Ajouter, Copier, Supprimer — jamais le dernier), puis ses rubriques.
-    Le NOM ne se modifie plus à gauche : dans l'en-tête des résultats (``tete_resultats``, chemin « nom ») — « Renommer »
-    du menu « ⋯ » y place le curseur. « Ajouter » passe par l'action existante (``data-ajouter``, action « ajouter »)."""
+    """La colonne de gauche COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur le 09/11/2026) : ni
+    en-tête « LISTE (n) », ni arborescence ; les rubriques de l'élément ouvert (``corps``) sous UNE LIGNE ``.et-elsel``,
+    que js/etabli.js pose dans l'en-tête du panneau, à côté d'« Annuler » et « Rétablir » (l'emplacement ``.et-elt``,
+    site/web/construire.compact) :
+    - le NOM de l'élément ouvert, un champ à l'allure d'un titre : un clic, et on le renomme (``data-chemin="nom"``,
+      « modifier » en quittant le champ ou sur Entrée ; Échap rend l'ancien nom) — verrouillé, il se lit, un cadenas
+      devant ;
+    - la LISTE des éléments de la note (un menu : chacun avec ses dimensions, l'ouvert coché, ``data-activer="i"`` ; et
+      « Ajouter … », ``data-ajouter``) — le compte sur le bouton dès deux éléments ;
+    - COPIER l'élément ouvert (``data-dupliquer-index``, la copie s'insère après lui) et le SUPPRIMER (``data-supprimer``,
+      avec confirmation ; éteint quand il est seul : une note garde au moins un élément).
+    Les attributs sont ceux que js/etabli.js lisait déjà sur l'arborescence (agirElement)."""
     seul = len(elements) == 1
     actif = min(max(0, actif), len(elements) - 1)
     nom_txt, _dims, verrou = elements[actif]
     nom = C.esc(nom_txt)
-    actions = (action('data-ajouter="1"', "plus", f"Ajouter {genre.un}")
-               + action(f'data-renommer="{actif}"', "pencil", "Renommer", False, not verrou)
-               + action(f'data-dupliquer-index="{actif}"', "copy", f"Copier {genre.le}")
-               + action(f'data-supprimer="{actif}" data-confirmer="Supprimer {genre.le} « {nom} » de la note ?"', "trash-2",
-                        f"Supprimer {genre.le}", True, not seul))
-    mn = menu(actions, f"Actions de {genre.le}")
-    if seul:
-        tete = f'<div class="et-elsel seul">{mn}</div>'
+    if verrou:
+        champ = (f'<span class="et-elt-nom lu" title="{C.esc(genre.le.capitalize())} est verrouillée : son nom se lit (la case '
+                 f'« Verrouiller » de la première rubrique la déverrouille)">{C.icon("lock")}<span>{nom}</span></span>')
     else:
-        segs = "".join(f'<button type="button" class="{"on" if i == actif else ""}" data-activer="{i}" aria-pressed="{"true" if i == actif else "false"}" '
-                       f'title="{"Ouvert" if i == actif else f"Ouvrir {genre.ce}"} : {C.esc(n)} {C.esc(_SANS_BALISES.sub("", d).strip())}">'
-                       f'{C.icon("lock") if v else ""}<span class="nom">{C.esc(n)}</span></button>'
-                       for i, (n, d, v) in enumerate(elements))
-        tete = (f'<div class="et-elsel"><div class="seg" role="group" aria-label="{C.esc(genre.liste)} de la note">{segs}</div>'
-                f'<span class="n">{len(elements)}</span>{mn}</div>')
-    return f'<div class="et-arbre et-arbre-c{" et-seul" if seul else ""}" data-{marque}="{actif}">{tete}{corps}</div>'
+        champ = (f'<input data-chemin="nom" data-sorte="texte" value="{nom}" class="et-elt-nom" size="{max(4, len(nom_txt) + 1)}" '
+                 f'spellcheck="false" autocomplete="off" aria-label="Nom de {genre.ce}" title="Nom de {genre.ce} : cliquer pour le modifier">')
+    items = ""
+    for i, (n, d, v) in enumerate(elements):
+        on = i == actif
+        items += (f'<button type="button" role="menuitemradio" aria-checked="{"true" if on else "false"}" class="et-elt-i{" on" if on else ""}" '
+                  f'data-activer="{i}" title="{"Ouvert" if on else f"Ouvrir {genre.ce}"} : {C.esc(n)} {C.esc(_SANS_BALISES.sub("", d).strip())}">'
+                  f'{C.icon("check") if on else "<span class=\"ic\"></span>"}{C.icon("lock") if v else ""}'
+                  f'<span class="nom">{C.esc(n)}</span><span class="dim">{d}</span></button>')
+    items += action('data-ajouter="1"', "plus", f"Ajouter {genre.un}")
+    compte = f'<span class="n">{len(elements)}</span>' if not seul else ""
+    liste = menu(items, f"{genre.liste} de la note : en ouvrir une autre, en ajouter une", C.icon("chevron-down") + compte, "et-elt-liste")
+    copier = (f'<button type="button" class="et-elt-b" data-dupliquer-index="{actif}" title="Copier {genre.le} (la copie s\'ajoute juste après)" '
+              f'aria-label="Copier {genre.le}">{C.icon("copy")}</button>')
+    supprimer = (f'<button type="button" class="et-elt-b danger" data-supprimer="{actif}" data-confirmer="Supprimer {genre.le} « {nom} » de la note ?" '
+                 f'title="{f"Supprimer {genre.le}" if not seul else f"Une note garde au moins {genre.un}"}" aria-label="Supprimer {genre.le}"'
+                 f'{" disabled" if seul else ""}>{C.icon("trash-2")}</button>')
+    return (f'<div class="et-arbre et-arbre-c" data-{marque}="{actif}"><div class="et-elsel" data-elements="{len(elements)}">'
+            f'{champ}{liste}{copier}{supprimer}</div>{corps}</div>')
 
 
 # ------------------------------------------------------------------ au centre : l'en-tête technique d'une vue
@@ -156,22 +167,11 @@ def entete(titre: str, sous_titre: str, lignes: Sequence[str], bande: Optional[S
 
 
 # ------------------------------------------------------------------ à droite : les résultats
-def tete_resultats(nom: str, dims: str, chemin_nom: Union[str, Sequence, None] = None, verrou: bool = False) -> str:
-    """La tête du cadre des résultats : le nom de l'élément ouvert (HTML échappé par le module) et ses dimensions.
-
-    ``chemin_nom`` (docs/site/DALLES_FUSION.md § 1 : la colonne de gauche compacte n'a plus de champ « nom ») : le nom
-    devient un CHAMP — ``<input data-chemin="nom" data-sorte="texte">``, le même mécanisme que la ligne d'arborescence
-    (js/etabli.js envoie « modifier » en quittant le champ ; « Renommer » du menu « ⋯ » y place le curseur) — à l'allure
-    d'un titre (css/etabli.css, ``.et-rp input``). ``verrou`` : le nom se lit, un cadenas devant. Sans ``chemin_nom`` :
-    le HTML d'avant, à l'octet."""
-    if chemin_nom is None:
-        return f'<div class="et-rp"><b>{nom}</b><span>{dims}</span></div>'
-    if verrou:
-        return f'<div class="et-rp et-rp-c"><b>{C.icon("lock")}{nom}</b><span>{dims}</span></div>'
-    chemin = chemin_nom if isinstance(chemin_nom, str) else C._attr_chemin(chemin_nom)
-    taille = max(4, len(html.unescape(nom)) + 1)
-    return (f'<div class="et-rp et-rp-c"><input data-chemin="{C.esc(chemin)}" data-sorte="texte" value="{nom}" class="et-rp-nom" size="{taille}" '
-            f'spellcheck="false" aria-label="Nom de l\'élément" title="Nom de l\'élément : cliquer pour le modifier"><span>{dims}</span></div>')
+def tete_resultats(nom: str, dims: str) -> str:
+    """La tête du cadre des résultats : le nom de l'élément ouvert (HTML échappé par le module) et ses dimensions — un
+    titre qui se lit ; le nom se modifie à UN seul endroit, la ligne de l'élément en tête de la colonne de gauche
+    (``arbre_compact``)."""
+    return f'<div class="et-rp"><b>{nom}</b><span>{dims}</span></div>'
 
 
 def bloc(i: int, titre: str, cls: str, etat_txt: str, efforts: str, rows: str, pied: str = "") -> str:

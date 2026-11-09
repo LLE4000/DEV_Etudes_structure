@@ -54,11 +54,12 @@ ACCUEIL = "./"
 # aux mêmes places (api_web/etabli_compact.py) ; les autres gardent l'établi d'avant. Leur carte de l'accueil ouvre le
 # calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
 ETABLI_COMPACT = ("poutre", "dalle")
-# … et parmi eux, ceux dont la colonne de gauche est COMPACTE (docs/site/DALLES_FUSION.md § 1 : ni titre « Données »
-# dans l'en-tête du panneau, ni en-tête « DALLES (n) », ni ligne d'élément — le moteur y rend ``etabli_compact.arbre(…,
-# compact=True)`` et le nom de l'élément se modifie dans la tête des résultats). La poutre garde son arbre tant que
-# l'ingénieur n'a pas validé : un seul nom à ajouter ici (tests/test_site_web.py lie ce tuple à ce que le moteur rend).
-ARBRE_COMPACT = ("dalle",)
+# … et parmi eux, ceux dont la colonne de gauche est COMPACTE (docs/site/DALLES_FUSION.md § 1, revue avec l'ingénieur
+# le 09/11/2026) : ni titre « Données », ni en-tête « POUTRES (n) », ni arborescence — l'en-tête du panneau porte la
+# LIGNE de l'élément ouvert (son nom qu'un clic modifie, la liste des éléments, copier, supprimer : le moteur la rend
+# avec ``etabli_compact.arbre(…, compact=True)``, js/etabli.js la pose dans l'emplacement ``.et-elt``) à côté
+# d'« Annuler » et « Rétablir » (tests/test_site_web.py lie ce tuple à ce que le moteur rend).
+ARBRE_COMPACT = ("dalle", "poutre")
 # Les modules ABSORBÉS par un autre (docs/site/DALLES_FUSION.md § 2.4) : ancien module → module qui le sert. Leur page
 # est une REDIRECTION vers celle du module qui les sert, qui garde l'adresse (?note=…, ?nom=…) : une ancienne note
 # s'ouvre dans le module fusionné. Ils restent au registre (le routeur les sert encore : anciens liens, harnais), sont
@@ -551,8 +552,8 @@ def compact(corps: str, note_pdf: bool = True, bibliotheque=None, arbre_compact:
     #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
     - à gauche, les DONNÉES : les éléments de la note, puis les rubriques du module en accordéon (une ouverte à la fois),
       avec « Annuler » et « Rétablir » dans l'en-tête ; ``arbre_compact`` (ARBRE_COMPACT, docs/site/DALLES_FUSION.md
-      § 1) : l'en-tête du panneau n'écrit plus le titre « Données » — la colonne commence par les rubriques (le moteur y
-      rend l'arbre compact), et Annuler, Rétablir restent à droite ;
+      § 1) : l'en-tête du panneau n'écrit plus le titre « Données » — il porte l'EMPLACEMENT ``.et-elt`` où js/etabli.js
+      pose la ligne de l'élément ouvert que le moteur rend (nom, liste, copier, supprimer), Annuler et Rétablir à droite ;
     - au centre, le DESSIN : un clic sur une pièce l'ouvre dans les données (et une ligne des données la montre sur le
       dessin) ;
     - à droite, les RÉSULTATS seuls, compacts ; un clic ouvre le détail ;
@@ -567,7 +568,8 @@ def compact(corps: str, note_pdf: bool = True, bibliotheque=None, arbre_compact:
                  f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')
     droite_av = ('<div class="phead"><span class="h3">Résultat</span><span id="statut"></span>'
                  f'<button class="pcoll" data-coll="d" title="Replier le résultat">{MQ.icon("panel-right")}</button></div>')
-    gauche = ('<div class="phead">' + ("" if arbre_compact else '<span class="h3">Données</span>') + '<span class="calcule" id="calcule"></span>'
+    gauche = ('<div class="phead">' + ('<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>' if arbre_compact else '<span class="h3">Données</span>')
+              + '<span class="calcule" id="calcule"></span>'
               f'<button type="button" class="et-hist" data-historique="annuler" title="Annuler (Ctrl+Z)" aria-label="Annuler" disabled>{MQ.icon("undo-2")}</button>'
               f'<button type="button" class="et-hist" data-historique="retablir" title="Rétablir (Ctrl+Maj+Z)" aria-label="Rétablir" disabled>{MQ.icon("redo-2")}</button>'
               f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')

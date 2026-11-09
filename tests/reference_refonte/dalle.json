@@ -33,7 +33,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "20 cm", "·"],
+     ["Dalle", "1", "100", "×", "20 cm", "·"],
      ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "23 %"],
      ["h min =", "4,5 cm", "≤"],
      ["h =", "20 cm"],
@@ -498,7 +498,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "22 cm", "·"],
+     ["Dalle", "1", "100", "×", "22 cm", "·"],
      ["C30/37 · B500 Section A Conforme M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -821,7 +821,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "20 cm", "·"],
+     ["Dalle", "1", "100", "×", "20 cm", "·"],
      ["C30/37 · B500 Section A Conforme M y,inf =", "38,5 kN·m", "·"],
      ["principale Y Hauteur", "83 %"],
      ["h min =", "16,7 cm", "≤"],
@@ -1100,7 +1100,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "22 cm", "·"],
+     ["Dalle", "1", "100", "×", "22 cm", "·"],
      ["C30/37 · B500 Section A Conforme M x,inf =", "15", "·"],
      ["M y,inf =", "30 kN·m", "·"],
      ["V =", "60 kN", "·"],
@@ -1428,7 +1428,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "20 cm", "·"],
+     ["Dalle", "1", "100", "×", "20 cm", "·"],
      ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "23 %"],
      ["h min =", "4,5 cm", "≤"],
      ["h =", "20 cm"],
@@ -1703,7 +1703,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "20 cm", "·"],
+     ["Dalle", "1", "100", "×", "20 cm", "·"],
      ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "25 %"],
      ["h min =", "5,0 cm", "≤"],
      ["h =", "20 cm"],
@@ -1982,7 +1982,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "20 cm", "·"],
+     ["Dalle", "1", "100", "×", "20 cm", "·"],
      ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "23 %"],
      ["h min =", "4,5 cm", "≤"],
      ["h =", "20 cm"],
@@ -2257,7 +2257,7 @@
     "statut": "Données incomplètes",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "20 cm", "·"],
+     ["Dalle", "2", "100", "×", "20 cm", "·"],
      ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "23 %"],
      ["h min =", "4,5 cm", "≤"],
      ["h =", "20 cm"],
@@ -2515,7 +2515,7 @@
      {
       "phrase": "",
       "resultat": [
-       ["", "100", "×", "20 cm", "·"],
+       ["Dalle", "1", "100", "×", "20 cm", "·"],
        ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "23 %"],
        ["h min =", "4,5 cm", "≤"],
        ["h =", "20 cm"],
@@ -2553,7 +2553,7 @@
      {
       "phrase": "",
       "resultat": [
-       ["", "100", "×", "20 cm", "·"],
+       ["Dalle", "2", "100", "×", "20 cm", "·"],
        ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "23 %"],
        ["h min =", "4,5 cm", "≤"],
        ["h =", "20 cm"],
@@ -2594,7 +2594,7 @@
     "statut": "",
     "phrase": "",
     "resultat": [
-     ["", "100", "×", "20 cm", "·"],
+     ["Dalle", "1", "100", "×", "20 cm", "·"],
      ["C30/37 · B500 Section A Données incomplètes aucun moment · principale Y Hauteur", "23 %"],
      ["h min =", "4,5 cm", "≤"],
      ["h =", "20 cm"],

@@ -38,6 +38,10 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   const resultat = document.getElementById("resultat");
   const stage = document.getElementById("stage");
   const bench = document.querySelector(".bench");
+  // (colonne compacte) la ligne de l'élément ouvert, posée par js/etabli.js dans l'en-tête du panneau des données : son
+  // menu (la liste des éléments) s'ouvre et se referme comme ceux des données
+  const elt = document.querySelector(".panel.left .phead .et-elt");
+  const zonesMenus = [donnees, elt].filter(Boolean);
   const memo = () => `stab.compact.${cle}.${note().id}`;
   const lu = memoire.lire(memo(), {});
   let sel = lu.sel || "";
@@ -160,13 +164,14 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
 
   // ------------------------------------------------------------ les menus ⋯ (une poutre, une section)
   function fermerMenus(sauf) {
-    donnees.querySelectorAll(".et-mn-l:not([hidden])").forEach((l) => {
+    zonesMenus.forEach((z) => z.querySelectorAll(".et-mn-l:not([hidden])").forEach((l) => {
       if (l === sauf) return;
       l.hidden = true;
       const b = l.parentElement.querySelector("[data-menu]");
       if (b) b.setAttribute("aria-expanded", "false");
-    });
+    }));
   }
+  const menuOuvert = () => zonesMenus.some((z) => z.querySelector(".et-mn-l:not([hidden])"));
   function basculerMenu(b) {
     const l = b.parentElement.querySelector(".et-mn-l");
     if (!l) return;
@@ -183,6 +188,14 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     if (premier) premier.focus({ preventScroll: true });
   }
   document.addEventListener("click", (ev) => { if (!ev.target.closest(".et-mn")) fermerMenus(); });
+  // la ligne de l'élément (en-tête du panneau) : son menu, la liste des éléments ; ouvrir un autre élément lâche la
+  // pièce choisie (écouté AVANT js/etabli.js, qui fait l'action : ouvrir, ajouter, copier, supprimer)
+  if (elt) elt.addEventListener("click", (ev) => {
+    const mb = ev.target.closest("[data-menu]");
+    if (mb) { ev.stopImmediatePropagation(); basculerMenu(mb); return; }
+    if (ev.target.closest(".et-mn-l")) fermerMenus();
+    if (ev.target.closest("[data-activer]:not(.on)")) { sel = ""; garder(); }
+  });
 
   // ------------------------------------------------------------ les barres qu'un cadre entoure (données)
   // Un clic HORS de la plage l'élargit jusqu'à la barre ; un clic sur un BOUT le retire (deux barres au moins) ; un clic
@@ -340,7 +353,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   }, true);
   document.addEventListener("keydown", (ev) => {
     if (ev.key !== "Escape") return;
-    if (donnees.querySelector(".et-mn-l:not([hidden])")) { fermerMenus(); return; }
+    if (menuOuvert()) { fermerMenus(); return; }
     if (ev.target.closest && ev.target.closest(".et-jf")) { brouillon = null; poserBrouillon(); return; }
     if (sel && !document.querySelector(".flyout.on") && !ev.target.closest("input, select, textarea")) relacher();
   });
@@ -459,9 +472,9 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   });
 
   // ------------------------------------------------------------ après chaque réponse du moteur
-  // le NOM de l'élément ouvert (un champ : sur sa ligne de l'arborescence, ou dans la tête des résultats quand la
-  // colonne de gauche est compacte) a la largeur de son texte : les dimensions le suivent, sans vide (l'attribut size,
-  // en caractères moyens, laissait un blanc)
+  // le NOM de l'élément ouvert (un champ : sur sa ligne de l'arborescence, ou dans la ligne de l'élément en tête du
+  // panneau quand la colonne de gauche est compacte) a la largeur de son texte : ce qui le suit reste à côté, sans vide
+  // (l'attribut size, en caractères moyens, laissait un blanc)
   const regle = document.createElement("canvas").getContext("2d");
   function ajusterNom(n) {
     if (!n) return;
@@ -470,21 +483,13 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     const bords = parseFloat(st.paddingLeft) + parseFloat(st.paddingRight) + parseFloat(st.borderLeftWidth) + parseFloat(st.borderRightWidth);
     n.style.width = `${Math.ceil(regle.measureText(n.value || n.placeholder || "").width + bords + 4)}px`;
   }
-  const ajusterNoms = () => { ajusterNom(donnees.querySelector(".et-pt-nom")); ajusterNom(resultat.querySelector(".et-rp-nom")); };
-  const surNom = (ev) => { if (ev.target.classList && (ev.target.classList.contains("et-pt-nom") || ev.target.classList.contains("et-rp-nom"))) ajusterNom(ev.target); };
+  const ajusterNoms = () => { ajusterNom(donnees.querySelector(".et-pt-nom")); if (elt) ajusterNom(elt.querySelector("input.et-elt-nom")); };
+  const surNom = (ev) => { if (ev.target.classList && (ev.target.classList.contains("et-pt-nom") || ev.target.classList.contains("et-elt-nom"))) ajusterNom(ev.target); };
   donnees.addEventListener("input", surNom);
-  resultat.addEventListener("input", surNom);
-  // le sélecteur d'éléments (colonne compacte, plusieurs éléments) : l'ouvert reste sous les yeux quand les segments débordent
-  function montrerOuvert() {
-    const on = donnees.querySelector(".et-elsel .seg button.on");
-    if (!on) return;
-    const seg = on.parentElement;
-    if (seg.scrollWidth > seg.clientWidth + 1) seg.scrollLeft = Math.max(0, on.offsetLeft - (seg.clientWidth - on.offsetWidth) / 2);
-  }
+  if (elt) elt.addEventListener("input", surNom);
   function rafraichir() {
     poserPoutre();
     ajusterNoms();
-    montrerOuvert();
     // la section courante est celle du dessin (une vue « Toutes » reste choisie)
     const nSec = donnees.querySelectorAll(".et-arm[data-section]").length;
     if (nSec && courante >= nSec) courante = 0;

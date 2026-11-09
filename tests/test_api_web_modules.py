@@ -161,15 +161,21 @@ def un_module(cle):
     inconnu = req(module=cle, action="telecharger", etat=copy.deepcopy(etat), quoi="pas-un-fichier-connu")
     chk(f"{cle} : un téléchargement inconnu rend un refus lisible, jamais une exception",
         inconnu.get("ok") is False and isinstance(inconnu.get("erreur"), str) and "Traceback" not in inconnu["erreur"], inconnu)
-    # les éléments : leur liste (« elements »), ou, dans l'établi compact où ils sont l'ARBORESCENCE des données (la
-    # poutre, deuxième passe 11/2026), le cadre Données ; dans la colonne de gauche COMPACTE (les dalles, docs/site/
-    # DALLES_FUSION.md § 1), un élément seul n'a pas de sélecteur (aucun data-activer) : l'arbre le dit (et-seul)
+    # les éléments : leur liste (« elements »), ou, dans l'établi compact, le cadre Données — l'arborescence d'avant
+    # (prédalle servie pour les anciens liens) ou la colonne de gauche COMPACTE (la dalle, la poutre, 09/11/2026), dont la
+    # liste des éléments porte un data-activer par élément, même seul, et leur nombre (data-elements) : les deux s'accordent
     def n_elements(rep):
-        return (rep["elements"].count('data-activer="') or rep["donnees"].count('data-activer="')
-                or (1 if 'class="et-arbre et-arbre-c et-seul"' in rep["donnees"] else 0))
+        return rep["elements"].count('data-activer="') or rep["donnees"].count('data-activer="')
+
+    def n_dit(rep):
+        dit = re.search(r'<div class="et-elsel" data-elements="(\d+)">', rep["donnees"])
+        return int(dit.group(1)) if dit else None
     a = req(module=cle, action="ajouter", etat=copy.deepcopy(etat))
     chk(f"{cle} : « ajouter » donne un élément de plus dans la liste",
         a.get("ok") and n_elements(a) == n_elements(r) + 1 >= 2, a.get("erreur") or (n_elements(a), n_elements(r)))
+    if n_dit(r) is not None:
+        chk(f"{cle} : la ligne de l'élément (colonne compacte) dit leur nombre (data-elements), autant que d'entrées dans sa liste — seul puis à deux",
+            n_dit(r) == n_elements(r) == 1 and n_dit(a) == n_elements(a) == 2, (n_dit(r), n_elements(r), n_dit(a), n_elements(a)))
     s = req(module=cle, action="supprimer", etat=copy.deepcopy(etat), index=0)
     chk(f"{cle} : le dernier élément ne se supprime pas", s.get("ok") and n_elements(s) == n_elements(r))
 
