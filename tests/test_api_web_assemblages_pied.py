@@ -737,12 +737,12 @@ e2 = copy.deepcopy(e)
 assert A.modifier(e2, ["v", "perim"], E.PERIM_TOUT) is None
 R2 = r_de(e2)
 anc2 = [x for x in RX_EL.findall(A.resultat(e2)["resultat"]) if x[2] == "Ancrages"]
-chk("pied de poteau, périmètre « EC3 seul », béton d'ancrage à 454 % sous « vérifié » : la ligne dit « hors périmètre "
-    "« EC3 seul » » et « hors verdict », sans taux ; la phrase d'information dit 454,0 % « non satisfait » ; au périmètre "
+chk("pied de poteau, périmètre « EC3 seul », béton d'ancrage à 454 % sous « vérifié » : la ligne dit « hors périmètre » "
+    "et « hors verdict », sans taux ; la phrase d'information dit 454,0 % « non satisfait » ; au périmètre "
     "« EC3 + EC2-4 », non conforme et la ligne en rouge à 454 %",
     R108.verified and pire is not None and round(pire.eta, 2) == 4.54 and anc and anc[0][3] == "c"
     and anc[0][4] == A.SANS_TAUX_INFORMATION and "454" not in r108.split('data-calcul="ancrages"')[1].split('class="el')[0]
-    and "hors périmètre « EC3 seul »" in r108.split('data-calcul="ancrages"')[1][:300]
+    and "hors périmètre" in r108.split('data-calcul="ancrages"')[1][:300]
     and "à 454,0 % — non satisfait" in texte(r108)
     and not R2.verified and anc2 and anc2[0][3] == "r" and anc2[0][4] == f"454{C.NBSP}%",
     (R108.statut, anc, anc2, round(pire.eta, 3) if pire else None))

@@ -445,7 +445,9 @@ def mot_information(R, grp: str) -> str:
     « Conforme ») ; les autres sont des renseignements (niveau 2, pression maximale ; tiges et appui du calcul à la
     main)."""
     if grp == "Ancrages" and not CA.est_manuel_R(R) and getattr(R, "perim_ec3", False):
-        return f"hors périmètre « {AFFICHAGE_SITE['perim'][E.PERIM_EC3]} »"
+        # (court : « hors périmètre « EC3 seul » » se coupait à 360 px, au PC ; le périmètre se lit dans la section
+        # Assemblage, et la phrase d'information dit comment le compter dans le verdict)
+        return "hors périmètre"
     return "information"
 
 
