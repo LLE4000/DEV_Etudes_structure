@@ -54,6 +54,7 @@ from acier.soudures import methode as MT
 from acier.soudures import schemas as SC
 
 from . import commun as C
+from . import note_cas as NC
 
 MODULE = "soudures"
 PAGE = "soudures"
@@ -1534,6 +1535,23 @@ def resultat(etat: Dict) -> Dict:
     return {"resultat": f'<div class="pbody">{verdict}<div class="els">{rows}</div>{messages}</div>{pied}', "volets": volets, "vues": vues(res),
             "phrase": phrase, "statut_html": C.statut(niv), "resume": resume_note(etat, resultats), "donnees": formulaire(etat, res),
             "elements": elements(etat, resultats)}
+
+
+# ------------------------------------------------------------------ la note PDF
+# le générateur VALIDÉ de l'écran Streamlit (acier/soudures/note.py), deux pages par cas (api_web/note_cas.py) ; sa
+# page 2 reçoit l'échelle et le nombre de points montrés en page 1 ; l'identification est celle que l'écran laisse
+# saisir (Méthode · « Identification de la note », pour toute la note)
+NOTE = NC.Generateur("acier.soudures.note", "Soudures", lambda n1: (n1.echelle, n1.points_montres),
+                     lambda etat, cas: etat.get("identification") or {},
+                     ("acier/soudures/note.py", "acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py"))
+
+
+def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
+    """« note_pdf » : la note de calcul PDF de TOUTE la note (chaque cas, deux pages), faite par le générateur validé de
+    l'écran Streamlit ; ``infos`` : le nom, le chantier, l'indice et la date de la note du site."""
+    if quoi != "note_pdf":
+        return None
+    return NC.fichier(NOTE, etat, infos)
 
 
 # ------------------------------------------------------------------ les sélecteurs : la gorge, le profilé

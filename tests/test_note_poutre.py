@@ -185,7 +185,7 @@ chk("un autre fichier que la note est refusé avec un message", not r["ok"] and 
 chk("refus_fichier : un PDF au base 64 illisible est refusé", C.refus_fichier({"nom": "a.pdf", "type": "application/pdf", "base64": "@@@"}) is not None)
 chk("refus_fichier : un PDF sans contenu est refusé", C.refus_fichier({"nom": "a.pdf", "type": "application/pdf"}) is not None)
 chk("refus_fichier : un PDF valide passe", C.refus_fichier({"nom": "a.pdf", "type": "application/pdf", "base64": base64.b64encode(b"%PDF-1.4").decode()}) is None)
-r = json.loads(R.traiter(json.dumps({"module": "garde_corps", "action": "telecharger", "etat": None, "quoi": "x", "infos": {"nom": "y"}})))
+r = json.loads(R.traiter(json.dumps({"module": "taux", "action": "telecharger", "etat": None, "quoi": "x", "infos": {"nom": "y"}})))
 chk("un module qui n'attend pas « infos » ne les reçoit pas (pas d'erreur de signature)", "infos" not in str(r.get("erreur", "")), r)
 
 # 6. comme dans le navigateur : sans fontTools ni Pillow, avec les seules polices du paquet

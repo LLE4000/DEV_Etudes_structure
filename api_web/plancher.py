@@ -14,7 +14,8 @@ appui, profilé d'une filière) relancent le moteur pour chaque ligne, comme la 
 Ce que le plan cliquable de l'écran d'origine réglait à la souris (glisser un engin, un plateau, une filière, la cote
 L, le sens porteur, le nombre de hourdis, les fenêtres de chaque objet) se SAISIT ici dans le cadre Données : position
 x, y et rotation de chaque charge, répartiteur de chaque appui, élément, longueur, orientation et position de chaque
-filière ; le plan à l'échelle se redessine. La note PDF reste dans Streamlit.
+filière ; le plan à l'échelle se redessine. La note PDF se fait sur le site (``telecharger``, api_web/note_cas.py) par le
+générateur validé de l'écran d'origine.
 """
 import copy
 import json
@@ -33,6 +34,7 @@ from plancher.charges.parametres import DEFAUT as PAS
 
 from . import commun as C
 from . import dessin_plancher as DP
+from . import note_cas as NC
 
 MODULE = "plancher"
 PAGE = "charges-plancher"
@@ -2040,6 +2042,28 @@ def resultat(etat: Dict) -> Dict:
             "volets": _fenetres(cas, calc), "vues": _vues(etat, cas, calc), "phrase": C.esc(OP.resume_plancher(cas)),
             "statut_html": statut, "resume": resume_note(etat, resultats), "donnees": formulaire(etat, calc),
             "elements": elements(etat, resultats)}
+
+
+# ------------------------------------------------------------------ la note PDF
+# le générateur VALIDÉ de l'écran Streamlit (plancher/charges/note.py), deux pages par cas (api_web/note_cas.py) ; sa
+# page 2 reçoit l'échelle du plan de la page 1 ; l'identification est celle que l'écran laisse saisir POUR CHAQUE CAS
+# (Affichage et note · « Identification de la note »), comme l'écran Streamlit
+NOTE = NC.Generateur("plancher.charges.note", "Charges sur plancher", lambda n1: (n1.echelle_plan,),
+                     lambda etat, cas: cas.get("identification") or {}, ("plancher/charges/note.py", "plancher/charges/peintre.py"))
+
+
+def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
+    """« note_pdf » : la note de calcul PDF de TOUTE la note (chaque cas, deux pages), faite par le générateur validé de
+    l'écran Streamlit ; ``infos`` : le nom, le chantier, l'indice et la date de la note du site. Un cas que le moteur ne
+    sait pas construire ou pas vérifier (l'écran le dit : « Donnée manquante : … », « Calcul impossible : … ») arrête la
+    note, avec le même message."""
+    if quoi != "note_pdf":
+        return None
+    for i, cas in enumerate(etat["cas"]):
+        err = _calculer(etat, cas).get("erreur")
+        if err:
+            raise ValueError(f"Cas « {cas.get('nom') or f'Cas {i + 1}'} » : {err} — la note PDF n'est pas préparée.")
+    return NC.fichier(NOTE, etat, infos)
 
 
 # ------------------------------------------------------------------ les sélecteurs : répartiteur d'un appui, profilé d'une filière

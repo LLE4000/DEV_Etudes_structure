@@ -239,11 +239,41 @@ p = MT.plan(c["temperature"]["lieu"], debut, fin, aujourdhui())        # ValueEr
 s += C.bouton_meteo(["temperature", "meteo"], "Récupérer la météo", p)
 ```
 
+### 4 quinquies. La note PDF d'un module « à cas » (le générateur validé de l'écran Streamlit)
+
+Décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site. Pour un module dont la note est
+faite de CAS et dont l'état du site EST l'état du moteur, `telecharger(etat, "note_pdf", infos)` rend
+`note_cas.fichier(NOTE, etat, infos)` (`api_web/note_cas.py`) : le générateur validé n'est pas réécrit ; un cas seul,
+c'est `generer_note` telle quelle ; plusieurs cas, ses pages (`Note`, `Methode`) posées l'une après l'autre dans UN
+document du kit `ndc_pdf`, chaque cas dans la taille que le générateur choisit (deux copies nommées, liées par les tests :
+texte de chaque page = celui du cas seul). Une note qui déborde encore est refusée, jamais tronquée. L'identification :
+la saisie de l'écran d'abord, puis la note du site (projet = chantier, à défaut le nom ; partie = le nom s'il y a un
+chantier, sinon le titre du module ; indice ; date). `NOTE.fichiers` : ce que la note charge en plus de l'écran (le paquet
+de la note les embarque). Le bouton « Note PDF » de la page s'allume par `construire.NOTE_PDF`.
+
+- **Garde-corps** (`acier/garde_corps/note.py`) : TOUTE la note, deux pages par garde-corps (calcul : hypothèses, quatre
+  charges, montant, main courante, remplissage, ancrage avec formules développées, récapitulatif ; détails : platine,
+  tableau des montants, section, soudure, méthode) — identification : la note du site seule (pas de champ à l'écran).
+  Prouvé par `tests/test_note_garde_corps.py`.
+- **Soudures** (`acier/soudures/note.py`) : TOUTE la note, deux pages par cas (dessins, gorge, cordons, efforts,
+  vérification au point gouvernant avec les formules de la méthode choisie ; méthode et détail) — sans les trois
+  lectures indicatives des autres méthodes que l'écran montre ; identification : les champs « Identification de la
+  note » de l'écran. Prouvé par `tests/test_note_soudures.py`.
+- **Charges sur plancher** (`plancher/charges/note.py`) : TOUTE la note, deux pages par cas (plan, coupe, éléments,
+  charges, vérifications, conclusion ; méthode et détail) ; un cas que le moteur ne construit pas arrête la note avec le
+  message de l'écran ; identification : les champs de CHAQUE cas. Prouvé par `tests/test_note_plancher.py`.
+
+Écarts MESURÉS entre l'écran et la note (rapportés, non corrigés : la note est le générateur validé) — l'arrondi d'un
+taux en bord de bande (écran 94 % / 101 %, note 95 % / 100 % pour 94,57 % / 100,009 %) ; entre 85 et 95 %, l'écran dit
+« Conforme » (code du bureau) et les notes des soudures et du plancher « CONFORME · ATTENTION » (seuil 0,85 de leurs
+moteurs, celui de Streamlit).
+
 ## 5. Les règles
 
 1. **Parité fonctionnelle avec Streamlit** : chaque champ, option, résultat, avertissement et dessin de l'écran
-   Streamlit existe sur le site (l'organisation peut et doit être meilleure). La note PDF est hors périmètre (le bouton
-   est grisé). Ce qui manque est écrit dans le rapport et dans la doc du moteur.
+   Streamlit existe sur le site (l'organisation peut et doit être meilleure). La note PDF : le générateur validé de
+   Streamlit, porté tel quel (§ 4 quinquies, la poutre : `api_web/note_poutre.py`) ; tant qu'un module ne l'a pas, son
+   bouton reste grisé. Ce qui manque est écrit dans le rapport et dans la doc du moteur.
 2. **Le calcul est celui de Streamlit** : on extrait, on ne réécrit pas. Les défauts trouvés dans le module Streamlit
    sont **reproduits** (parité) et **écrits** (doc, rapport), surtout s'ils sont non conservatifs — on ne les corrige
    pas en silence. Exception : une saisie que Streamlit ramène en silence à une valeur fausse (négatif → 0…) est

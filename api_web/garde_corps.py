@@ -20,6 +20,7 @@ from acier.garde_corps import schemas as SC
 from acier.garde_corps import types as TY
 
 from . import commun as C
+from . import note_cas as NC
 
 MODULE = "garde_corps"
 PAGE = "garde-corps"
@@ -437,6 +438,22 @@ def resultat(etat: Dict, avec_optimaux: bool = True) -> Dict:
             "phrase": f'{C.esc(res.get("type_libelle", ""))} · {C.esc((res.get("geometrie") or {}).get("phrase", ""))}',
             "statut_html": C.statut(niv), "resume": resume_note(etat, resultats), "donnees": formulaire(etat, res),
             "elements": elements(etat, resultats)}
+
+
+# ------------------------------------------------------------------ la note PDF
+# le générateur VALIDÉ de l'écran Streamlit (acier/garde_corps/note.py), deux pages par garde-corps de la note
+# (api_web/note_cas.py) ; sa page 2 reçoit l'échelle de l'élévation de la page 1 ; pas de champ d'identification à l'écran
+NOTE = NC.Generateur("acier.garde_corps.note", "Garde-corps", lambda n1: (n1.echelle,), lambda etat, cas: {},
+                     ("acier/garde_corps/note.py", "acier/garde_corps/methode.py",
+                      "acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py"))
+
+
+def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
+    """« note_pdf » : la note de calcul PDF de TOUTE la note (chaque garde-corps, deux pages), faite par le générateur
+    validé de l'écran Streamlit ; ``infos`` : le nom, le chantier, l'indice et la date de la note du site."""
+    if quoi != "note_pdf":
+        return None
+    return NC.fichier(NOTE, etat, infos)
 
 
 # ------------------------------------------------------------------ le sélecteur

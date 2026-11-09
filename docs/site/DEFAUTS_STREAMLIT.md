@@ -271,9 +271,24 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 - Même correction pour « Vérifié sous réserve » : le site l'écrivait aussi sous « Non conforme » ; il ne s'écrit plus que sous un verdict vérifié, comme le titre « – sous réserve des alertes » de l'écran Streamlit (`ecran_resultats.py:48`, `manuel/ecran.py:349`).
 - À trancher par le bureau pour l'écran Streamlit : la même tête (η max du moteur) s'y affiche encore.
 
+### Notes PDF du garde-corps, des soudures et des charges sur plancher (générateurs validés, portés sur le site)
+
+*Relevé du 09/11/2026 en portant ces notes sur le site (api_web/note_cas.py) ; mesuré par tests/test_note_garde_corps.py,
+test_note_soudures.py, test_note_plancher.py. Les générateurs ne sont pas modifiés : à trancher par le bureau.*
+
+- AFFICHAGE — arrondi d'un taux en bord de bande : les trois notes écrivent `f"{t·100:.0f} %"` (arrondi ordinaire, sans
+  tenir la bande de couleur), l'écran du site arrondit DANS la bande (`commun.pct`). Garde-corps, H = 1378 mm : taux
+  100,009 % → note « NON CONFORME · η max 100 % » (le verdict est juste, le chiffre se lit admis), écran « 101 % » ;
+  H = 1340 mm : 94,57 % → note « 95 % » sur une pastille vert pâle, écran « 94 % ».
+- AFFICHAGE — seuil d'attention : les moteurs des soudures et du plancher (et leurs notes) disent « attention » dès
+  85 % (`etat.SEUIL_ATTENTION`, `parametres.seuil_attention`), l'écran du site dès 95 % (code du bureau). Entre 85 et
+  95 %, la note écrit « CONFORME · ATTENTION », l'écran « Conforme » (soudures : IPE 300 en ELS à 94,48 % ; plancher :
+  hourdis, V_Rd = 95 kN, 90,55 %).
+
 ## 3. Ce que le site ne reprend pas de l'écran Streamlit
 
-Partout : la note PDF (hors périmètre du site, bouton grisé). Le reste, module par module :
+Partout : la note PDF de la plupart des modules (bouton grisé ; elle est sur le site pour la poutre, et — à
+l'intégration du 09/11/2026 — pour le garde-corps, les soudures et les charges sur plancher). Le reste, module par module :
 
 ### Poutres bois
 
