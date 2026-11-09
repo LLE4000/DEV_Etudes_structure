@@ -179,7 +179,10 @@ saisi ignoré. Un témoin (le moteur rechargé sans altération) reste vert.
    la direction principale sont tous posés à h_pre + ⌈Ø/2⌉ alors qu'ils se croisent ; celle du dessus a en réalité un d
    plus petit (cas 2 de `tests/test_predalle.py` : renfort Y à 7,0 cm, base X à 6,5 cm). Même défaut, hérité de la
    dalle, pour les bases supérieures X et Y. *Site* : avertissements `croisement_sur_predalle` et `nappes_confondues` ;
-   saisir l'axe corrige.
+   saisir l'axe corrige. *Révision du 09/11/2026 (tranché, `docs/site/DALLES_FUSION.md` § 4) : avec l'option de note
+   « nappes empilées » (vraie pour une note neuve, fausse pour une note d'avant ou un fichier importé), le site pose les
+   bases SUPÉRIEURES secondaires sur les principales par `dist` ; les faces inférieures gardent la règle de pose du
+   moteur (base principale dans la peau, autre base sur la peau) ; le moteur ne change pas.*
 5. **La base principale peut sortir de la peau** sans contrôle : peau de 3 cm et treillis Ø12 → axe 4,0 cm, dessus des
    fils à 4,6 cm. *Site* : avertissement `base_hors_predalle` (grave).
 6. **Un fichier du module Dalle ouvert dans l'écran Prédalle** (`payload.get("predalles", payload.get("dalles"))`)

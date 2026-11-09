@@ -32,12 +32,14 @@ cablerRail();
 // ------------------------------------------------------------------ la note
 const q = new URLSearchParams(location.search);
 let note = q.get("note") && N.lire(q.get("note"));
-const relue = !!note && note.module === MODULE;   // une note déjà enregistrée, rouverte
+// une note déjà enregistrée, rouverte — ou une note d'un module que celui-ci a ABSORBÉ (notes.moduleServi : « predalle »
+// est servi par la page des dalles) : son état part tel quel au moteur de ce module, qui sait le relire
+const relue = !!note && N.moduleServi(note.module) === MODULE;
 // PROVISOIRE : le calcul ouvert depuis sa carte (établi compact, sans nom ni chantier demandés). La note n'existe qu'en
 // mémoire : RIEN n'est écrit tant que l'utilisateur ne modifie rien (ouvrir pour regarder ne remplit pas la liste des
 // notes). La première saisie, un renommage ou « Enregistrer comme note… » l'écrivent, et l'adresse prend alors ?note=.
 let provisoire = false;
-if (!note || note.module !== MODULE) {
+if (!relue) {
   note = N.nouvelle({ module: MODULE, nom: q.get("nom") || "", chantier: q.get("chantier") || "", dossier: q.get("dossier") || "" });
   provisoire = COMPACT && !["nom", "chantier", "dossier"].some((k) => q.get(k));
   if (!provisoire) history.replaceState(null, "", `?note=${note.id}`);
@@ -236,6 +238,10 @@ const compact = COMPACT ? cablerCompact({
 function appliquer(r, action) {
   note.etat = r.etat;
   note.resume = r.resume;
+  // une note d'un module absorbé (« predalle ») : le moteur de CE module l'a relue et rend son état dans sa propre
+  // forme — la note devient une note de ce module, une fois pour toutes (l'accueil, le .stab et les prochaines
+  // ouvertures la connaissent ainsi ; rien de l'ancienne note n'est perdu, docs/site/DALLES_FUSION.md § 2.1)
+  if (note.module !== MODULE) note.module = MODULE;
   // la vignette de l'accueil : le premier DESSIN (une vue peut être un tableau, illisible en vignette)
   const v = (r.vues || []).find((x) => /^\s*<svg/.test(x.svg || ""));
   note.vignette = v ? v.svg : "";
@@ -245,8 +251,11 @@ function appliquer(r, action) {
   // le résultat refait garde sa position de lecture (une liste de contrôle dépliée, une justification qu'on vient de
   // valider : on reste à l'endroit où l'on travaillait)
   const defR = $("#resultat .pbody") ? $("#resultat .pbody").scrollTop : 0;
+  // (le nom de l'élément peut être un champ de la tête des résultats, colonne de gauche compacte : la frappe en cours y survit aussi)
+  const saisieR = saisieEnCours($("#resultat"));
   $("#resultat").innerHTML = r.resultat;
   if (defR && $("#resultat .pbody")) $("#resultat .pbody").scrollTop = defR;
+  reprendreSaisie($("#resultat"), saisieR);
   const ouvert = $(".flyout.on.calcul");
   $("#volets").innerHTML = r.volets || "";
   if (ouvert) ouvrir(ouvert.id, $(`#resultat [data-calcul="${ouvert.id.slice(3)}"]`), true);
@@ -270,14 +279,28 @@ function afficherResume(res) {
   c.hidden = !c.textContent;
 }
 
+// le champ en cours de frappe survit au rafraîchissement d'un cadre (#donnees ; #resultat, où le nom de l'élément peut
+// être un champ) : un calcul qui revient pendant qu'on tape dans un autre champ ne doit ni effacer ce qu'on tape, ni le
+// valider à notre place
+function saisieEnCours(zone) {
+  const el = document.activeElement && zone.contains(document.activeElement) ? document.activeElement : null;
+  if (!el || !el.dataset.chemin) return null;
+  const brouillon = (el.tagName === "INPUT" || el.tagName === "TEXTAREA") && el.type !== "checkbox" && el.type !== "file" && el.value !== el.defaultValue
+    ? { valeur: el.value, debut: el.selectionStart, fin: el.selectionEnd } : null;
+  return { chemin: el.dataset.chemin, brouillon };
+}
+function reprendreSaisie(zone, s) {
+  if (!s) return;
+  const el = zone.querySelector(`[data-chemin="${CSS.escape(s.chemin)}"]:not(button)`);
+  if (!el) return;
+  if (s.brouillon) el.value = s.brouillon.valeur;
+  el.focus({ preventScroll: true });
+  if (s.brouillon) { try { el.setSelectionRange(s.brouillon.debut, s.brouillon.fin); } catch (e) { /* champ sans curseur */ } }
+}
+
 function afficherDonnees(elements, html) {
   const zone = $("#donnees");
-  // le champ en cours de frappe survit au rafraîchissement : un calcul qui revient pendant qu'on tape dans un autre
-  // champ ne doit ni effacer ce qu'on tape, ni le valider à notre place
-  const el0 = document.activeElement && zone.contains(document.activeElement) ? document.activeElement : null;
-  const actif = el0 ? el0.dataset.chemin : null;
-  const brouillon = el0 && (el0.tagName === "INPUT" || el0.tagName === "TEXTAREA") && el0.type !== "checkbox" && el0.type !== "file" && el0.value !== el0.defaultValue
-    ? { valeur: el0.value, debut: el0.selectionStart, fin: el0.selectionEnd } : null;
+  const saisie = saisieEnCours(zone);
   const defile = zone.scrollTop;
   zone.innerHTML = elements + html;
   separerNoms(zone);
@@ -300,14 +323,7 @@ function afficherDonnees(elements, html) {
   premier = false;
   zone.scrollTop = defile;
   marquerMeteo();
-  if (actif) {
-    const el = zone.querySelector(`[data-chemin="${CSS.escape(actif)}"]:not(button)`);
-    if (el) {
-      if (brouillon) el.value = brouillon.valeur;
-      el.focus({ preventScroll: true });
-      if (brouillon) { try { el.setSelectionRange(brouillon.debut, brouillon.fin); } catch (e) { /* champ sans curseur */ } }
-    }
-  }
+  reprendreSaisie(zone, saisie);
   if (compact) compact.rafraichir();
 }
 
@@ -454,6 +470,15 @@ async function lireFichier(f) {
 $("#donnees").addEventListener("keydown", (ev) => {
   if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
 });
+// le cadre des RÉSULTATS porte un champ aussi : le NOM de l'élément ouvert, dans sa tête (etabli_compact.tete_resultats,
+// colonne de gauche compacte) — le même mécanisme que les champs des données (« modifier » en quittant le champ, Entrée)
+$("#resultat").addEventListener("focusout", (ev) => {
+  const el = ev.target.closest("input[data-chemin]:not([type=checkbox]):not([type=file])");
+  if (el && el.value !== el.defaultValue) valider(el);
+});
+$("#resultat").addEventListener("keydown", (ev) => {
+  if (ev.key === "Enter" && ev.target.matches("input[data-chemin]")) ev.target.blur();
+});
 
 // « Dans cette note » : supprimer, ouvrir, ajouter, copier un élément. Le bloc vient du cadre Données ; l'établi compact
 // le déplace dans la liste de gauche (js/compact.js) : les deux cadres répondent par cette même fonction.
@@ -533,11 +558,16 @@ function ouvrirRubrique(cle) {
   if (s) requestAnimationFrame(() => s.scrollIntoView({ block: "nearest" }));
 }
 // « Renommer » l'élément ouvert : son champ « Nom », choisi — sur la ligne de l'élément dans l'arborescence (établi
-// compact), dans sa rubrique ailleurs (qui s'ouvre alors)
+// compact), dans la tête des RÉSULTATS (colonne de gauche compacte : au téléphone l'onglet Résultat s'ouvre, au PC la
+// colonne repliée se rouvre), dans sa rubrique ailleurs (qui s'ouvre alors)
 function renommer() {
   if (compact) compact.deplierPoutre();
-  const champ = $('#donnees input[data-chemin="nom"]');
+  const champ = $('#donnees input[data-chemin="nom"]') || $('#resultat input[data-chemin="nom"]');
   if (!champ) return;
+  if (champ.closest("#resultat")) {
+    if (telephone.matches) onglet("resultat");
+    bench.classList.remove("sans-d");
+  }
   const rub = champ.closest(".sec[data-sec]");
   if (rub && COMPACT) ouvrirRubrique(rub.dataset.sec); else if (rub) rub.classList.add("open");
   champ.focus();
@@ -785,7 +815,7 @@ $("#ouvrir").addEventListener("change", async (ev) => {
   if (!f) return;
   try {
     const n = await N.importer(f);
-    location.href = `${N.MODULES[n.module].page}?note=${n.id}`;
+    location.href = `${N.pageDe(n.module)}?note=${n.id}`;
   } catch (e) { toast(`Import impossible : ${e.message}`, true); }
 });
 

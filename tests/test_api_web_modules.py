@@ -162,9 +162,11 @@ def un_module(cle):
     chk(f"{cle} : un téléchargement inconnu rend un refus lisible, jamais une exception",
         inconnu.get("ok") is False and isinstance(inconnu.get("erreur"), str) and "Traceback" not in inconnu["erreur"], inconnu)
     # les éléments : leur liste (« elements »), ou, dans l'établi compact où ils sont l'ARBORESCENCE des données (la
-    # poutre, deuxième passe 11/2026), le cadre Données
+    # poutre, deuxième passe 11/2026), le cadre Données ; dans la colonne de gauche COMPACTE (les dalles, docs/site/
+    # DALLES_FUSION.md § 1), un élément seul n'a pas de sélecteur (aucun data-activer) : l'arbre le dit (et-seul)
     def n_elements(rep):
-        return rep["elements"].count('data-activer="') or rep["donnees"].count('data-activer="')
+        return (rep["elements"].count('data-activer="') or rep["donnees"].count('data-activer="')
+                or (1 if 'class="et-arbre et-arbre-c et-seul"' in rep["donnees"] else 0))
     a = req(module=cle, action="ajouter", etat=copy.deepcopy(etat))
     chk(f"{cle} : « ajouter » donne un élément de plus dans la liste",
         a.get("ok") and n_elements(a) == n_elements(r) + 1 >= 2, a.get("erreur") or (n_elements(a), n_elements(r)))

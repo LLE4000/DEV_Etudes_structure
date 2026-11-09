@@ -172,6 +172,25 @@
 .et-pt-add:hover { color: var(--accent-hover); border-color: var(--accent-line); background: var(--accent-soft); }
 .et-pt-add svg.i { width: 14px; height: 14px; }
 
+/* la colonne de gauche COMPACTE (les dalles, docs/site/DALLES_FUSION.md § 1 ; etabli_compact.arbre_compact) : ni en-tête
+   « DALLES (n) », ni ligne d'élément, ni titre « Données » dans l'en-tête du panneau (construire.ARBRE_COMPACT : les
+   boutons Annuler, Rétablir s'alignent à droite). Plusieurs éléments : le SÉLECTEUR sur une ligne (.et-elsel : les noms
+   en segments, l'ouvert marqué, le compte, le menu ⋯ de l'ouvert) ; un seul : le menu ⋯ seul, posé dans l'angle, sur le
+   bord droit de l'en-tête de la première rubrique (qui lui laisse la place) — les rubriques commencent tout en haut */
+[data-etabli="compact"] .phead > .calcule:first-child { margin-right: auto; }
+.et-arbre-c { position: relative; }
+.et-elsel { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 4px 6px 4px 10px; border-bottom: 1px solid var(--line); }
+.et-elsel .seg { flex: 1 1 auto; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.et-elsel .seg::-webkit-scrollbar { display: none; }
+.et-elsel .seg button { flex: none; display: inline-flex; align-items: center; gap: 4px; max-width: 160px; }
+.et-elsel .seg button .nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.et-elsel .seg button svg.i { flex: none; width: 12px; height: 12px; color: var(--ink-3); }
+.et-elsel > .n { flex: none; min-width: 18px; height: 16px; padding: 0 4px; border-radius: 8px; display: grid; place-items: center; font-size: 10.5px; font-weight: 700;
+  background: var(--bg-sunken); color: var(--ink-2); }
+.et-elsel.seul { position: absolute; z-index: 3; top: 5px; right: 6px; min-height: 0; padding: 0; border: 0; }
+[data-etabli="compact"] #donnees .et-arbre-c > .et-elsel + .sec { border-top: 0; }
+[data-etabli="compact"] #donnees .et-arbre-c > .et-elsel.seul + .sec > .sechd { padding-right: 44px; }
+
 /* le menu ⋯ d'une poutre, d'une section : discret, ses actions dans une liste */
 .et-mn { position: relative; flex: none; }
 .et-mn-b { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 7px; color: var(--ink-3); }
@@ -199,6 +218,11 @@
 [data-etabli="compact"] #donnees .sechd:hover { background: color-mix(in srgb, var(--bg) 60%, transparent); }
 [data-etabli="compact"] #donnees .sec > .rows { padding: 6px 12px 12px; gap: 6px; background: var(--panel); }
 [data-etabli="compact"] #donnees .sec[data-secondaire] .sechd .tt { color: var(--ink-2); }
+/* un segment dont les libellés ne tiennent pas sur la largeur de la colonne (« Prédalle + béton coulé en place », type
+   de dalle) passe à la ligne DANS son bouton plutôt que de déborder : mesuré le 09/11/2026 (capture site_dalle.png),
+   le second segment sortait du panneau à 340 px, et le choisir faisait défiler la colonne de côté */
+[data-etabli="compact"] #donnees .rows .seg.full { max-width: 100%; }
+[data-etabli="compact"] #donnees .rows .seg.full button { min-width: 0; white-space: normal; height: auto; min-height: 28px; line-height: 1.2; padding: 3px 8px; }
 .et-r3 { display: none; } .et-r3.on { display: inline; }
 
 /* une PIÈCE réglable (un lit, un cadre, les latérales, une section) : la ligne courte, et son détail quand elle est choisie */
@@ -320,6 +344,15 @@
 .et-rp { display: flex; flex-direction: column; gap: 1px; padding: 11px 14px 9px; }
 .et-rp b { font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .et-rp span { font-size: 12px; color: var(--ink-3); }
+/* le NOM de l'élément en CHAMP dans la tête des résultats (la colonne de gauche compacte n'en a plus :
+   etabli_compact.tete_resultats, chemin « nom ») : l'allure du titre, un cadre au survol et au focus ; verrouillé, il
+   se lit, un cadenas devant */
+.et-rp.et-rp-c { padding-top: 7px; }
+.et-rp-nom { display: block; max-width: 100%; height: 30px; padding: 0 6px; margin-left: -7px; border: 1px solid transparent; border-radius: 6px; background: transparent;
+  font: inherit; font-size: 15px; font-weight: 700; letter-spacing: -.01em; color: var(--ink); text-overflow: ellipsis; }
+.et-rp-nom:hover { border-color: var(--line-strong); background: var(--panel-2); }
+.et-rp-nom:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; background: var(--panel-2); }
+.et-rp.et-rp-c b svg.i { width: 13px; height: 13px; margin-right: 5px; vertical-align: -1px; color: var(--ink-3); }
 .et-blocs { display: flex; flex-direction: column; gap: 10px; padding: 0 10px; }
 .et-bloc { border: 1px solid var(--et-inc-line); border-radius: 10px; overflow: hidden; background: var(--panel); }
 .et-bloc-h { display: flex; align-items: center; gap: 2px; min-height: 38px; padding: 0 4px 0 2px; background: var(--et-inc-bg); color: var(--et-inc-ink); }
@@ -430,6 +463,9 @@
   [data-etabli="compact"] .et-sec-pick { width: 32px; height: 32px; }
   [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 32px; }
   [data-etabli="compact"] .et-pt-nom { height: 32px; }
+  [data-etabli="compact"] .et-elsel.seul { top: 3px; }
+  [data-etabli="compact"] #donnees .et-arbre-c > .et-elsel.seul + .sec > .sechd { padding-right: 48px; }
+  [data-etabli="compact"] .et-rp-nom { height: 32px; }
 }
 @media (min-width: 701px) and (max-width: 1199px) and (orientation: landscape) {
   [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); }
@@ -443,6 +479,12 @@
   /* le chevron et le NOM de l'élément ouvert, au doigt (le nom s'écrit en 16 px : .bench input, site.css) */
   [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 40px; }
   [data-etabli="compact"] .et-pt-nom { height: 40px; min-width: 48px; }
+  /* le sélecteur d'éléments et le nom en champ des résultats, au doigt */
+  [data-etabli="compact"] .et-elsel { min-height: 48px; }
+  [data-etabli="compact"] .et-elsel .seg button { height: 36px; min-width: 44px; font-size: 13px; }
+  [data-etabli="compact"] .et-elsel.seul { top: 3px; right: 4px; }
+  [data-etabli="compact"] #donnees .et-arbre-c > .et-elsel.seul + .sec > .sechd { padding-right: 52px; }
+  [data-etabli="compact"] .et-rp-nom { height: 40px; min-width: 48px; }
   [data-etabli="compact"] .et-piece .et-l1 { min-height: 46px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field { height: 36px; flex-basis: 58px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field.select { flex-basis: 84px; }
@@ -460,6 +502,7 @@
   [data-etabli="compact"] .et-sec-pick { width: 40px; height: 40px; }
   [data-etabli="compact"] .et-sec-h .field.text { height: 36px; }
   [data-etabli="compact"] #donnees .sechd { height: 46px; }
+  [data-etabli="compact"] #donnees .rows .seg.full button { min-height: 38px; }
   [data-etabli="compact"] .et-piece .et-det { padding-left: 8px; }
   [data-etabli="compact"] .panel .phead .pcoll { display: none; }
   /* « Annuler » et « Rétablir » restent à portée au téléphone : l'en-tête des données s'affiche (la charte le cache) */
@@ -530,4 +573,39 @@
   [data-etabli="compact"] .et-fi, [data-etabli="compact"] .et-fi-t { min-height: 46px; height: auto; }
   .et-fiche-h { flex-direction: column; gap: 6px; }
   .et-fiche-v { text-align: left; }
+}
+
+/* ------------------------------------------------------------------ nappes de dalle (api_web/dalle_nappes.py, DALLES_FUSION § 3) */
+/* Rubrique « Armatures » d'une dalle : la nappe inférieure, puis la supérieure. Chaque nappe : son titre, les segments du
+   mode (Treillis soudé · Barres · Treillis + renforts), le réglage du treillis (un sélecteur, l'orientation des porteurs,
+   la ligne « X : Ø10 e 100 · Y : … »), l'avertissement d'une nappe incohérente ; puis le détail de chaque direction
+   (.et-grp, inchangé). Une valeur qui se LIT (.et-lu) prend la place du champ qu'elle remplace. */
+.et-nap { display: flex; flex-direction: column; gap: 4px; }
+.et-nap + .et-nap { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line-strong); }
+.et-nap-h { display: flex; align-items: center; gap: 8px; min-height: 26px; padding: 0 2px 0 4px; }
+.et-nap-h .t { font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--ink); }
+.et-nap > .seg.full button { font-size: 11.5px; padding: 0 6px; }
+.et-nap > .row2 { margin-top: 2px; }
+.et-nap > .row2 > .field.select { min-width: 0; }
+.et-nap > .row2 > .seg button { padding: 0 8px; }
+.et-nap-xy { padding: 0 4px 2px; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.et-nap-avert { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.et-nap-avert > span { flex: 1 1 160px; min-width: 0; }
+.et-nap-btn { flex: none; height: 26px; padding: 0 9px; border-radius: 7px; font-size: 11.5px; font-weight: 650; color: var(--et-nok-ink);
+  background: var(--panel); box-shadow: inset 0 0 0 1px var(--et-nok-line); }
+.et-nap-btn:hover { background: var(--et-nok-line); }
+.et-nap > .et-grp + .et-grp { margin-top: 4px; padding-top: 4px; }
+/* une valeur lue dans la ligne d'une couche (le type et la désignation de la base d'un treillis : réglés par la nappe) */
+.et-lu { display: inline-flex; align-items: center; height: 28px; max-width: 100%; padding: 0 4px; font-size: 12px; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.et-piece .et-l1 > .et-ty > .et-lu { color: var(--ink-3); }
+.et-piece .et-det .row .et-lu { height: 30px; justify-self: end; font-weight: 600; }
+@media (min-width: 701px) and (max-width: 1199px) {
+  [data-etabli="compact"] .et-nap-btn { height: 32px; }
+}
+@media (max-width: 700px) {
+  [data-etabli="compact"] .et-nap-h { min-height: 36px; }
+  [data-etabli="compact"] .et-nap > .seg.full button, [data-etabli="compact"] .et-nap > .row2 > .seg button { height: 36px; font-size: 12.5px; }
+  [data-etabli="compact"] .et-nap-btn { height: 40px; font-size: 13px; }
+  [data-etabli="compact"] .et-lu { height: 36px; font-size: 13px; }
 }

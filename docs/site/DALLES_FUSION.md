@@ -1,0 +1,368 @@
+# Dalles béton armé — fusion des interfaces Dalle et Prédalle, nappes et niveaux
+
+*Conception du 09/11/2026, demande de l'ingénieur (prompt « Modifications du module Dalles béton armé — ergonomie,
+fusion Prédalles et armatures »). Ce document est la référence des cinq lots FUS1 à FUS5 ; il est mis à jour avec ce
+qui est construit.*
+
+## 0. Ce qui ne bouge pas
+
+- Les deux moteurs restent séparés et INCHANGÉS : `beton/dalle/moteur.py` et `beton/predalle/moteur.py` (ni une
+  formule, ni une constante, ni un arrondi). Le site choisit lequel appeler. Les anciens écrans Streamlit
+  (`modules/dalle.py`, `modules/predalle.py`) restent tels quels.
+- L'état d'une dalle garde ses QUATRE faces (`inf_x`, `inf_y`, `sup_x`, `sup_y`), chacune une couche de base et ses
+  renforts : c'est ce que les moteurs lisent. La « nappe » (§ 3) est une VUE d'écran sur deux faces.
+- Sections multiples, barres X/Y indépendantes, renforts, positions imposées ou automatiques, plans et coupes,
+  résultats à droite, note PDF (celle qui existe), .stab, import Streamlit, exports : tout reste atteignable.
+
+## 1. Colonne de gauche (FUS5)
+
+Aujourd'hui (`api_web/etabli_compact.arbre`, `construire.compact`) : « DONNÉES » (titre du panneau), « DALLES (1) »
+(en-tête de l'arborescence), « Dalle 1 » (la ligne de l'élément, nom modifiable), « 1 — Dalle » (rubrique 1).
+
+Cible :
+- plus de titre « DONNÉES » ni d'en-tête « DALLES (n) » dans les modules à établi compact qui le demandent (paramètre du
+  composant partagé : la dalle l'utilise ; la poutre garde son arbre tant que l'ingénieur n'a pas validé — un seul
+  paramètre à basculer) ;
+- une seule dalle : les rubriques commencent tout en haut, sans ligne « Dalle 1 » ;
+- plusieurs dalles : un SÉLECTEUR compact en tête (une ligne : les noms en segments ou un menu, la dalle ouverte
+  marquée) avec le menu « ⋯ » (Ajouter, Copier, Supprimer — jamais la dernière) ; les actions passent par les chemins
+  existants (`gerer_elements` : activer / ajouter / dupliquer / supprimer) ;
+- le NOM se modifie dans l'EN-TÊTE DES RÉSULTATS à droite (`E.tete_resultats` : le nom devient un champ
+  `data-chemin="nom" data-sorte="texte"`, même mécanisme que la ligne d'arborescence d'aujourd'hui, verrou = lecture
+  seule) ; le même chemin « nom » qu'avant, donc résultats, résumé, .stab, onglets téléphone et navigation restent
+  synchronisés sans rien d'autre ;
+- rubrique 1 : « 1 — Caractéristiques » (clé `dl`, inchangée) ; 2 — Sections et sollicitations ; 3 — Armatures ;
+  4 — Options.
+
+**Construit (FUS5, 09/11/2026)** — les noms exacts :
+- `api_web/etabli_compact.arbre(genre, elements, actif, corps, marque, compact=False)` : `compact=False` rend le HTML
+  d'avant à l'octet (gel : `tests/test_etabli_compact.py`) ; `compact=True` → `arbre_compact(…)` :
+  `<div class="et-arbre et-arbre-c[ et-seul]" data-<marque>="<actif>">` puis, UN élément : `<div class="et-elsel seul">`
+  qui ne porte que le menu « ⋯ » (`.et-mn`, `data-menu`), posé par `css/etabli.css` dans l'angle, sur le bord droit de
+  l'en-tête de la première rubrique (`.et-elsel.seul + .sec > .sechd { padding-right }`) ; PLUSIEURS : `<div
+  class="et-elsel">` = `.seg[role=group]` d'un `button[data-activer="i"][aria-pressed]` par élément (`.on` l'ouvert, un
+  cadenas si verrouillé, `<span class="nom">`), `<span class="n">` le compte, puis le menu « ⋯ » ; dans les deux cas les
+  rubriques (`corps`) suivent directement. Le menu : `data-ajouter="1"` (l'action « ajouter » existante), `data-renommer`
+  (éteint si verrouillé), `data-dupliquer-index="<actif>"`, `data-supprimer="<actif>" data-confirmer="…"` (éteint quand
+  l'élément est seul) — les attributs que `js/etabli.js` lisait déjà, pas un de plus. Plus de `.et-arbre-h`, de `.et-pt`,
+  de `.et-pt-add` ni de champ `data-chemin="nom"` à gauche.
+- `api_web/etabli_compact.tete_resultats(nom, dims, chemin_nom=None, verrou=False)` : sans `chemin_nom`, le HTML d'avant
+  ; avec (`"nom"`) : `<div class="et-rp et-rp-c"><input data-chemin="nom" data-sorte="texte" class="et-rp-nom" …>
+  <span>dims</span></div>` ; `verrou` : `<b>` avec un cadenas, pas de champ. `js/etabli.js` écoute `focusout` et Entrée
+  sur `#resultat` comme sur `#donnees` (« modifier »), garde la frappe en cours quand le cadre est refait
+  (`saisieEnCours` / `reprendreSaisie`), et « Renommer » (`renommer()`) choisit ce champ — au téléphone l'onglet
+  Résultat s'ouvre, au PC la colonne repliée se rouvre ; `js/compact.js` règle sa largeur au texte (`ajusterNoms`) et
+  garde le segment ouvert sous les yeux (`montrerOuvert`).
+- `site/web/construire.py` : `ARBRE_COMPACT = ("dalle",)` — l'en-tête du panneau (`compact(…, arbre_compact=True)`)
+  n'écrit plus `<span class="h3">Données</span>` (Annuler, Rétablir restent à droite : `.phead > .calcule:first-child {
+  margin-right: auto }`) ; la poutre garde le titre et son arbre. `tests/test_site_web.py` lie ce tuple à ce que le
+  moteur rend (`et-arbre-c`, `et-rp-c`) : un module ajouté d'un seul côté rougit.
+- Harnais : `module:dalle` rejoue aussi les contrôles « plaques dalle » (colonne compacte, Copier → sélecteur, renommer
+  dans la tête des résultats → sélecteur, confirmation du menu et note enregistrée, « Renommer » du menu → curseur dans
+  le champ, segment → autre dalle, Supprimer → une seule, type Prédalle → `h_pre` et complément, téléphone : « Renommer »
+  → onglet Résultat) ; `formats:dalle` lit la colonne par `#donnees .et-arbre .sec.open` et le nom long par
+  `#resultat .et-rp.et-rp-c`.
+
+## 2. Un seul module « Dalles béton armé » (FUS2, FUS5)
+
+### 2.1 L'état
+
+`{"version": 2, "dalles": [dalle…], "actif": i}` ; chaque dalle porte `"type": "coulee" | "predalle"`.
+- `coulee` : la dalle de `beton/dalle/entree.normaliser` (+ `verrou` du site), sans `h_pre`.
+- `predalle` : la prédalle de `beton/predalle/entree.normaliser` (+ `verrou`), avec `h_pre`.
+Relecture (`api_web/dalle.normaliser`) :
+- `{"dalles": […]}` sans `type` (note d'avant) → `coulee` ;
+- `{"predalles": […]}` (note de l'ancien module Prédalles, mémoire du navigateur ou .stab) → chaque prédalle devient
+  une dalle `type = predalle`, `actif` conservé ; RIEN n'est perdu, les chiffres sont ceux de l'ancien module (même
+  moteur, mêmes positions : § 4.3) ;
+- une note qui a les deux clés : refusée avec un message clair (abîmée), jamais remplacée par une note neuve.
+Le fichier Streamlit `dalle_ba.json` et celui des prédalles s'importent l'un et l'autre (les `fichier.py` des deux
+moteurs, inchangés) : le type est déduit du fichier.
+
+### 2.2 Le sélecteur et les champs
+
+Rubrique « 1 — Caractéristiques », première ligne : segments « Dalle coulée en place » (défaut) · « Prédalle + béton
+coulé en place » (chemin `["type"]`, valeurs `coulee` / `predalle`).
+- Dalle coulée : les champs d'aujourd'hui (Béton, Acier, b, h, c, Principale).
+- Prédalle : en plus, « h<sub>p</sub> prédalle » (épaisseur préfabriquée, `["h_pre"]`, bornes `EN_P.H_PRE_MIN` à
+  `h_pre_max(h)`) et le COMPLÉMENT coulé en place en lecture seule : `h − h_pre` (recalculé à chaque saisie, jamais
+  stocké : R2). Les refus géométriques existants de `api_web/predalle._ecrire` (« au moins 1 cm coulé en place »…)
+  s'appliquent tels quels.
+Changer de type : `coulee → predalle` ajoute `h_pre` (défaut `EN_P.DEFAUTS_PREDALLE["h_pre"]`, borné à `h_pre_max(h)`),
+`predalle → coulee` retire `h_pre` ; sections, faces, couches, positions imposées, noms : conservés.
+
+### 2.3 Les moteurs et ce qui en dépend
+
+`api_web/dalle._calculer(d)` appelle `beton.dalle.moteur` si `coulee`, `beton.predalle.moteur` si `predalle`. Les
+avertissements propres à la prédalle (section finale / phase provisoire, limitations, périmètre `PERIMETRE`) viennent
+de `api_web/predalle.py`, réemployé comme AIDE du type prédalle (ses fonctions `_avertissements`, `_hypotheses`,
+`PERIMETRE`, `_pose`, `REGLES_TXT`, `dessin_predalle`), pas recopié. Les dessins : `dessin_dalle` pour `coulee`,
+`dessin_predalle` pour `predalle` (même interface `svg_coupe/svg_plan/svg_toutes`).
+
+**Construit (FUS2, 09/11/2026)** — `api_web/dalle.py`, les noms exacts :
+- L'ÉTAT : `VERSION = 2` ; `CLES_SITE = ("verrou", "type", "empilement")` — les trois clés du site portées par CHAQUE
+  dalle (« empilement » est « par note » comme γs et le jeu : écrite sur toutes les dalles à la fois) ; la même liste
+  vit dans `dalle_positions.CLES_SITE`, et `tests/test_api_web_dalles_fusion.py` lie les deux copies (R2).
+  `TYPES_DALLE = (("coulee", "Dalle coulée en place"), ("predalle", "Prédalle + béton coulé en place"))`, `TYPES_TXT`.
+  `est_predalle(d)` ; `_EN(d)` / `_MO(d)` / `_M(d)` : l'entrée, le moteur et le module « formules mises en mots » du type
+  (`_M` rend `api_web.predalle` pour une prédalle : `plaque_compact.bloc` y lit `_formule`, `_ligne_tableau`…).
+  `_site(d, verrou=False, type_="coulee", empilement=False)` normalise par l'entrée du type puis pose les trois clés ;
+  `_sans_site(d)` (pour RE-normaliser, jamais pour le moteur) ; `_resite(d, **modifs)` ; `nouvel_etat()` : une dalle
+  coulée, `empilement=True`. `normaliser(etat)` relit `{"dalles"}` (type absent → coulee, empilement absent → faux),
+  `{"predalles"}` (→ predalle, `actif` conservé), et REFUSE (ValueError, message en français) : les deux clés ensemble,
+  une liste qui n'en est pas une, un `type` inconnu, un `type ≠ predalle` dans `predalles`, `verrou`/`empilement` non
+  booléens, `h_pre` sur une dalle coulée (clé inconnue du moteur des dalles), une peau impossible. `_bornes_site`
+  applique aussi `AP.NOM_MAX` (60) aux deux types. `gerer_elements("ajouter")` : le type de la dalle ouverte, le nom
+  « Prédalle k » ou « Dalle k », γs, jeu et empilement de la note.
+- La SAISIE (`modifier` → `_ecrire(etat, d, chemin, valeur)`) : `["type"]` → `_changer_type` (coulee → predalle :
+  `h_pre = min(max(6, H_PRE_MIN), h_pre_max(h))` ; predalle → coulee : `h_pre` retirée ; tout le reste gardé) ;
+  `["h_pre"]` → `AP.peau(d, valeur)` (refusée sur une dalle coulée, avec le chemin à suivre) ; `["h"]` →
+  `AP.epaisseur_totale(d, valeur)` pour une prédalle (« au moins h_pre + 1 cm »), `_nombre("h")` sinon ;
+  `["empilement"]` → toutes les dalles de la note (refusé si la dalle ouverte est verrouillée, comme γs) ; `["nom"]` et
+  `sections/i/nom` → `AP.nom_saisi` ; `sections/i/nappes/…` → `NAP.ecrire(d, chemin, valeur)` (ValueError → message,
+  dalle intacte) ; `…/dist` → `_auto_ou_impose(…, POS.axe_auto(d, s, f, j))` (`s` : la SECTION, dict) ; `…/yG` →
+  `POS.yG_calcule(d, s, f)`. Les refus de l'aide prédalle sont `AP.Refus` (attrapés comme `_Refus`, message tel quel).
+  `choisir_section` : un treillis choisi sur une nappe qui était un treillis unique (`NAP.mode(s, cote, principale)`)
+  pose `NAP.transposee(des)` sur l'autre face (demande FUS3).
+- L'ÉCRAN : `_caracteristiques(d)` = `C.ligne("Type", C.segments(["type"], …), …, AIDE_TYPE, full=True)` + Béton | Acier
+  + b | h (« h totale » pour une prédalle) + [prédalle : « h<sub>p</sub> prédalle » `C.num(["h_pre"], …,
+  mini=EN_P.H_PRE_MIN, maxi=EN_P.h_pre_max(h))` | « coulé h − h<sub>p</sub> » en `<span class="dl-ro">`, lu, jamais
+  stocké] + c | Principale ; titre `PC.formulaire("dl", "Caractéristiques", résumé, …)`, résumé « Coulée en place · C30/37
+  · B500 · c = 3 cm » ou « Prédalle h<sub>p</sub> = 6 cm · C30/37 · B500 ». `_formulaire_verrouille` dit le type et
+  « prédalle · coulé en place h_p + (h − h_p) cm ». `_options(d)` : la méthode du moteur du type, γs, jeu (le texte de
+  la prédalle pour une prédalle), la case `["empilement"]` « Nappes empilées : direction secondaire posée sur la
+  principale » (`AIDE_EMPILEMENT`), l'import « dalle_ba.json ou le fichier de l'écran Prédalle ». Rubrique 3 :
+  `NAP.html(EN_, i, s, rs, verifs, rs["principale"], _aide_axe(d), _aide_renfort(d), False)` — `_aide_axe` rend
+  `AIDE_AXE` (chaîne) pour une dalle coulée, et pour une prédalle la fonction `(f, j, c, g) → {"details":
+  AP.pose_couche(c, g), "aide_axe": AP.POSES_AIDE[g["pose"]], "dit_auto": False}` ; `_aide_renfort` de même (« posées
+  sur la prédalle » aux faces inférieures). `arbre` → `E.arbre(E.DALLE, elements, actif, formulaire, "dalle",
+  compact=True)`, dims « · b × h cm[, prédalle h_p cm] ».
+- Le RÉSULTAT : `_calculer(d) = POS.annoter(_MO(d).verifier(POS.pour_moteur(d)), d)` ; `_optimaux` et `selecteur` →
+  `POS.candidats_base(d, i, f, fams)`, la ligne d'un candidat par `AP.description_candidat(c, axe)` (l'axe et la pose
+  dits pour une prédalle) ; `_dims(d)` « 100 × 22 cm, prédalle 6 cm · C30/37 · B500 » ; `_avertissements_de(d, r, i)`
+  → `AP.avertissements` / `_avertissements` ; hypothèses `AP.hypotheses(d, m)` ; `pied_calcul=C.aide(AP.PERIMETRE)` et le
+  périmètre sous le résultat ; pied « moteur prédalle v1.1 » / « moteur dalle v2.2 » ; `E.tete_resultats(C.esc(nom),
+  dims, chemin_nom=["nom"], verrou=d["verrou"])` ; `PC.vues(r["sections"], r["predalle"] | r["dalle"], DP | DD, "pd" |
+  "dl", dims, AP.LEGENDES | LEGENDES)` ; `resume_note` et le statut de la note avec le moteur et le module de CHAQUE
+  dalle. `_ouvrir_streamlit` : la clé « predalles » du JSON choisit `FI_P.lire`, sinon `FI.lire` ; le type est celui
+  du fichier, `empilement=False`, `_bornes_site` ; « repris (n prédalle(s)) ».
+- `api_web/predalle.py` (le module « predalle » reste servi, et rend le même HTML) : renommés sans tiret bas, alias
+  gardés — `Refus`, `saisi`, `nom_saisi`, `bornes_site`, `peau`, `axe_auto`, `yG_calcule`, `pose_couche`, `hypotheses`,
+  `avertissements` ; extraits : `epaisseur_totale(p, valeur)`, `description_candidat(c, axe="")` ; pour l'empilement
+  (FUS4) : `pose_couche` dit « axe auto · posée sur la base principale (e_p + ½ Ø_p + ½ Ø_s) » quand
+  `geo_c["empilee"]`, et `_formule` écrit la formule « e » d'une couche `empilee` « e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉ · posée sur
+  la base principale » (termes `e_p`, `demi_p`, `demi_s` posés par `dalle_positions.annoter`).
+- `PARCOURS` : les requêtes d'avant plus celles du type prédalle sur une note `_NOTE_P` (`{"predalles": [nouvelle
+  prédalle]}`) : `h_pre` 21 / 3, `h` 6, `type` coulee, sélecteur, choisir, ajouter ; l'import des DEUX fichiers.
+- Preuves : `tests/test_api_web_dalles_fusion.py` (57 contrôles dont 5 mutations), `tests/test_api_web_dalle.py` (135 :
+  le type coulée, l'option empilement décochée par son aide `nouveau()` — la parité avec `beton/dalle`),
+  `tests/test_api_web_predalle.py` (103, inchangé), les deux moteurs (169, 152, inchangés). Le gel
+  `tests/test_reference_refonte.py` : prédalle vert ; les 9 cas dalle rougissent — état v2 + `type` + `empilement`,
+  champs et menus des nappes et du type, et les CHIFFRES de la direction secondaire (3,5 → 4,5 cm) parce qu'une note
+  neuve a ses nappes empilées (§ 4.3, voulu) : regel `--accepter` à faire dans un commit distinct, pas ici.
+
+### 2.4 L'accueil et les pages
+
+- `site/web/construire.py` et `site/maquettes/construire.py` : une seule carte « Dalles béton armé » ; `predalle`
+  rejoint `MASQUES` (page servie, plus listée — comme les modules de consultation du lot BIB3) ; `predalle.html`
+  devient une page de REDIRECTION vers `dalle.html` en gardant l'adresse (`?note=…`, `?nom=…`) : une ancienne note
+  s'ouvre dans le module fusionné en mode prédalle.
+- `js/notes.js` : le module « predalle » d'une note en mémoire ou d'un .stab est servi par la page `dalle` (table des
+  alias) ; l'état est relu par `api_web/dalle.normaliser` (§ 2.1). Le module `predalle` du registre reste servi
+  (anciens liens, harnais) tant que la redirection n'est pas prouvée.
+
+**Construit (FUS5, 09/11/2026)** :
+- `site/web/construire.py` : `REDIRECTIONS = {"predalle": "dalle"}` (la SEULE table d'alias ; `js/modules.js` la porte
+  — `MODULES.predalle = {page, nom, famille, masque: true, vers: "dalle"}` — et `js/notes.js` la lit :
+  `moduleServi(module)`, `pageDe(module)`, employés par `js/accueil.js` (cartes « Reprendre », « Nouvelle note »,
+  import .stab) et `js/etabli.js` (import .stab, note rouverte)). `page(cle)` écrit `page_redirection(cle)` pour un
+  module absorbé : `predalle.html` = `<meta http-equiv="refresh" content="1; url=dalle">`, `<body data-page="redirection"
+  data-module="predalle" data-vers="dalle">`, une carte « Le module « Prédalles » a rejoint « Dalles béton armé » » avec
+  le lien de repli, et `<script src="js/redirection.js">` qui fait `location.replace(vers + location.search +
+  location.hash)` — jamais de script en ligne (la politique de sécurité), rien d'un tiers (R5). `ETABLI_COMPACT =
+  ("poutre", "dalle")`.
+- `site/maquettes/construire.py` : `MASQUES = ("donnees_beton", "armatures", "enrobage", "predalle")`, et `listes(mods)`
+  filtre les masqués dans l'accueil, le volet « Modules » et « Nouvelle note » des maquettes comme du site.
+- `js/etabli.js` : une note dont `moduleServi(note.module) === MODULE` est RELUE (pas recréée) ; la requête part avec
+  `module: "dalle"` et l'état tel quel (`{"predalles": …}`) ; à la première réponse, `note.module` devient `"dalle"` et
+  la note s'enregistre dans la forme rendue par le moteur (`{"version": 2, "dalles": [… type: "predalle"]}`).
+- Harnais `module:predalle` : le contrôle commun constate la redirection (adresse finissant sur `dalle`, `?nom=` et
+  `?chantier=` repris) ; « plaques predalle » : une ancienne note `{predalles: [{nom, h_pre: 6}]}` semée en mémoire —
+  sa carte de l'accueil vise `dalle?note=…`, `predalle?note=…` arrive sur `dalle?note=…`, le moteur reçoit `dalle` +
+  `{predalles}`, la note s'ouvre en prédalle (`h_pre` 6, nom « Ancienne P1 ») et devient `module: "dalle"` en mémoire.
+
+## 3. Les armatures par NAPPE (FUS3)
+
+Un treillis soudé est une nappe bidirectionnelle. Nomenclature `Øl/Øt/el/et` (`beton/treillis.py`) : porteurs Øl/el
+dans la direction CALCULÉE de la face ; répartition Øt/et non comptés. Donc une nappe « un treillis T = a/b/ea/eb,
+porteurs selon X » s'écrit, dans l'état INCHANGÉ : face `inf_x` base treillis `a/b/ea/eb`, face `inf_y` base
+treillis `b/a/eb/ea` (la TRANSPOSÉE). Le moteur compte a/ea en X et b/eb en Y : exactement les deux armatures du
+treillis, selon l'orientation. (Les dix treillis standards sont symétriques ; la désignation accepte un treillis
+dissymétrique, ex. `10/12/100/150`.)
+
+**Construit (FUS3, 09/11/2026) : `api_web/dalle_nappes.py`, `tests/test_api_web_dalle_nappes.py` (64 contrôles, 3
+mutations), bloc CSS « nappes de dalle » en fin de `site/web/css/etabli.css`.** Appelé par `api_web/dalle._ecrire`
+(`chemin[2] == "nappes"` → `NAP.ecrire(d, chemin, valeur)`, `ValueError` → refus avec le message) et par
+`dalle.formulaire` (`NAP.html(EN, i, s, rs, verifs, principale, aide_axe, aide_renfort, verrou)` pour chaque section ;
+`aide_axe` et `aide_renfort` : un texte, ou une fonction — la prédalle y pose la pose de chaque couche).
+
+Lecture de l'état — pas de champ nouveau, le mode se DÉDUIT (`NAP.mode(s, cote, principale=None)` →
+`{"mode", "porteurs", "treillis", "renforts": {"x": n, "y": n}, "coherent"}`) :
+- deux bases treillis dont l'une est la TRANSPOSÉE de l'autre → `treillis`, ou `treillis_renforts` dès qu'une des deux
+  faces porte un renfort ;
+- deux bases qui ne sont pas des treillis (barres Ø/e, n barres) → `barres` ;
+- sinon (deux treillis différents, ou treillis d'un côté et barres de l'autre : une ancienne note) → `incoherent`.
+L'ORIENTATION des porteurs se déduit aussi, car l'état ne la stocke pas (« a/b/ea/eb porteurs X » et « b/a/eb/ea
+porteurs Y » sont le MÊME état) : les porteurs sont la direction dont la base porte la plus forte section au mètre
+(Øl/el) ; à égalité — les dix treillis standards sont symétriques — la direction principale. La désignation affichée
+est la base de cette face. Une note écrite « 8/10/100/150 porteurs X » se relit donc « 10/8/150/100 porteurs Y » : même
+armature, même pose, et la ligne X/Y le dit sans ambiguïté.
+
+Écran, rubrique « 3 — Armatures », pour chaque nappe (`.et-nap`, « Nappe inférieure » puis « Nappe supérieure ») :
+- segments « Treillis soudé · Barres · Treillis + renforts » (chemin `["sections", i, "nappes", "inf"|"sup", "mode"]`) ;
+  en mode incohérent aucun n'est marqué ;
+- mode TREILLIS : UN sélecteur de treillis (`…, "treillis"` ; les dix de la base, plus la désignation courante si elle
+  n'y est pas) et l'orientation des porteurs (`…, "porteurs"`, segments X / Y, la principale marquée « · princ. » ;
+  GRISÉS pour un treillis symétrique, où l'orientation est sans effet) ; la ligne « X : Ø10 e 100 · Y : Ø12 e 150 »
+  dit ce que chaque direction reçoit ; puis le détail de chaque direction (la principale d'abord, `plaque_compact.nappe`)
+  où la base se LIT (type et désignation en `.et-lu`, « réglés par la nappe ») mais garde son axe (vide = automatique,
+  « ↺ »), ses renforts et son y_G ; la clé `data-cible` de chaque couche est inchangée (le dessin la sélectionne) ;
+- mode BARRES : exactement l'écran d'aujourd'hui par direction (`plaque_compact.nappe` + `couche`), chacune ses renforts ;
+- mode TREILLIS + RENFORTS : le treillis comme ci-dessus, les renforts de chaque direction réglables comme aujourd'hui,
+  « + Renfort » dans chaque direction ;
+- mode INCOHÉRENT : l'écran par direction comme aujourd'hui, PLUS l'avertissement (`.et-avert`) « Deux armatures de base
+  différentes en X et en Y — ce n'est pas un treillis unique » et le bouton « En faire un treillis » (chemin `mode`,
+  valeur `treillis`) ; on ne peut donc plus croire à un treillis unique quand il y en a deux ;
+- verrouillée : tout se lit, aucun bouton ne modifie (les pièces gardent leur `data-cible`).
+
+Écriture (`NAP.ecrire`) — elle ne touche QUE le type et la désignation des deux bases ; renforts, axes imposés, y_G et
+les réglages rangés (Ø, espacement, nombre) restent, et la dalle écrite est dans le domaine de `EN.normaliser` :
+- `mode = treillis` : si l'une des bases est déjà un treillis on la garde (à deux treillis différents, celle de la
+  direction principale) et sa transposée va sur l'autre ; sinon `TR.TREILLIS_DEFAUT` sur les deux. Les renforts ne sont
+  JAMAIS retirés en silence : depuis des barres qui ont un renfort, le mode déduit devient « Treillis + renforts » ; et
+  depuis « Treillis + renforts », « Treillis soudé » seul est REFUSÉ avec le message qui renvoie à « Retirer ce renfort » ;
+- `mode = barres` : chaque base treillis devient `barres` avec SON Ø et SON espacement ; une base déjà barres ou n barres
+  reste ce qu'elle est ;
+- `mode = treillis_renforts` : comme `treillis`, puis, si aucune des deux faces n'a de renfort, le premier renfort
+  (3 Ø12, le défaut de « + Renfort ») s'ajoute sur la face des porteurs — le même geste que `faces/<face>/couches/+` ;
+- `treillis = Øl/Øt/el/et` (lue par `TR.parse_designation`, canonisée) : sur la face des porteurs (ceux de la nappe si
+  c'est déjà un treillis unique, sinon la direction principale), la transposée sur l'autre ;
+- `porteurs = x | y` : les deux désignations s'échangent (refusé si la nappe n'est pas un treillis unique) ;
+- refusés avec un message : désignation illisible, côté autre que `inf`/`sup`, champ inconnu, mode inconnu, section
+  introuvable.
+Le sélecteur « ampoule » (`dalle.choisir_section`) règle encore UNE face : en mode treillis, choisir un autre candidat
+rend la nappe incohérente, ce que l'écran dit aussitôt (« En faire un treillis » répare) — le rendre conscient de la
+nappe est une demande du rapport FUS3.
+
+## 4. Les NIVEAUX des deux directions (FUS4)
+
+### 4.1 La règle
+
+Les deux directions d'une nappe se croisent : leurs axes sont à des hauteurs différentes. Direction principale au
+plus près du parement tendu ; la secondaire empilée dessus, les barres en contact. Avec la convention d'arrondi du
+moteur (demi-diamètre arrondi au 0,5 cm supérieur, `arrondi_demi_cm`) :
+- base de la direction principale : l'axe automatique du moteur (inchangé) ;
+- base de la direction secondaire : `axe principal + ⌈Ø_p/2⌉₀,₅ + ⌈Ø_s/2⌉₀,₅` (Ø_p, Ø_s : diamètres des fils ou
+  barres des deux bases ; pour un treillis, Øl de chaque face) — aucune distance inventée ;
+- supérieures : la même règle depuis le parement supérieur (principale la plus proche du haut, secondaire en dessous) ;
+- renforts : leur axe reste celui du moteur (imposé ou automatique), affiché et dessiné à sa valeur ;
+- prédalle, faces inférieures : le moteur sait déjà poser (base principale DANS la peau, autre base inférieure SUR la
+  prédalle : `beton/predalle/moteur.pose`) — règle du moteur conservée telle quelle ; ses faces supérieures suivent la
+  règle d'empilement comme la dalle.
+
+**Construit (FUS4, `api_web/dalle_positions.py`)** — la règle exacte de `axe_auto(d, s, f, j)` :
+- option `empilement` fausse ou absente, base principale (j = 0, direction = `dir_principale`), renfort (j > 0), face
+  INFÉRIEURE d'une prédalle : **exactement** `distance_auto` du moteur du type (dalle : `MO_D.distance_auto(c, enrobage,
+  jeu)` ; prédalle : `MO_P.distance_auto(c, j, f, dir_principale, enrobage, jeu, h_pre)`) ;
+- option vraie, base de la direction SECONDAIRE (dalle coulée : inf. et sup. ; prédalle : sup. seulement) :
+  `e_p + arrondi_demi_cm(Ø_p / 20) + arrondi_demi_cm(Ø_s / 20)`, où `e_p` est l'axe **effectif** de la base principale de
+  la même face (son `dist` s'il est saisi, sinon l'automatique du moteur : la secondaire repose sur la principale là où
+  elle est — posée sur l'automatique alors que la principale est saisie à 5 cm, elle reviendrait à son niveau), Ø en mm
+  par `couche_diametre` (Øl d'un treillis), les deux arrondis étant ceux du moteur.
+
+Exemple chiffré (c = 3 cm, jeu 0, principale Y, bases Ø12/150 en Y et treillis 10/10/100/100 en X, renfort 3 Ø12 en
+inf. Y) : inf. Y = 3 + 1,0 = **4,0** ; inf. X = 4,0 + 1,0 + 0,5 = **5,5** ; sup. Y 4,0, sup. X 5,5 (depuis le dessus) ;
+renfort 4,0 (moteur). La même en prédalle (h_pre = 6) : inf. Y 4,0 (dans la peau), inf. X 6 + 0,5 = 6,5 (sur la prédalle),
+renfort 7,0 — règle du moteur ; sup. Y 4,0, sup. X 5,5 (empilées). Principale X : base X 3,5, base Y 3,5 + 0,5 + 1,0 =
+5,0. Le d utile de la secondaire passe de 16,5 à 14,5 cm (h = 20) et l'avertissement « nappes_confondues » du moteur
+disparaît : les bases ne sont plus au même niveau. Test : `tests/test_api_web_dalle_positions.py` (55 contrôles, dont
+trois mutations en mémoire).
+
+### 4.2 Sans toucher au moteur
+
+Le moteur honore une position imposée (`dist`). Le site calcule l'axe « automatique du site » d'une couche
+(`api_web/dalle_positions.axe_auto(d, s, f, j)`), et, quand il diffère de l'automatique du moteur (la base secondaire
+empilée), il l'ÉCRIT dans la copie envoyée au moteur (`dalle_positions.pour_moteur(d)` : `dist` renseigné). L'état
+garde `dist = None` (automatique), l'écran continue d'afficher « auto · 2,2 cm » avec la valeur du site, et le dessin
+lit les positions que le moteur a effectivement utilisées (`r["sections"][i]["faces"][f]["couches"][j]["e"]`). Les
+cotes des hauteurs utiles (d = h − y_G) sont celles du calcul.
+
+**Construit** — l'interface de `api_web/dalle_positions.py`, que `api_web/dalle.py` appelle partout où il parlait d'axe
+automatique ou de moteur :
+- `axe_auto(d, s, f, j) -> float`, `empilee(d, s, f, j) -> bool`, `axes(d, s) -> {face: [axe effectif…]}` ;
+- `pour_moteur(d) -> dict` : copie sans `verrou`, `type`, `empilement` ; `dist` écrit là où l'axe du site diffère de
+  celui du moteur, et là seulement ; `d` jamais modifié. Option fausse : `verifier(pour_moteur(d)) == verifier(d)` à
+  l'octet (prouvé en JSON pour la dalle et la prédalle) ;
+- `yG_calcule(d, s, f)`, `h_utile(d, s, f)` : lus dans `beton/dalle/moteur._face` sur les couches aux axes effectifs
+  (remplacent `_yG_calcule` de `dalle.py` et `predalle.py`, qui lisaient l'automatique du moteur) ;
+- `annoter(r, d) -> r` : le résultat du moteur relu avec la notion d'automatique DU SITE — par couche `auto` (vide dans
+  l'ÉTAT ; le moteur, lui, a reçu un axe imposé), `e_auto` (du site : le champ vide affiche « auto · 5,5 »),
+  `e_auto_moteur` (gardé), `empilee` ; les formules « e » d'une prédalle reçoivent `auto`, `empilee` et les termes
+  `e_p`, `d_p`, `demi_p`, `d_s`, `demi_s` (le terme « saisi » du moteur reste, pour que `predalle._formule` lise encore).
+  Le calcul d'une dalle du site s'écrit `POS.annoter(MO.verifier(POS.pour_moteur(d)), d)` ; sans `annoter`, le
+  résultat du moteur dit « saisi » d'un axe que le site lui a imposé (la légende du dessin de prédalle, le « ↺ », le
+  « l'automatique serait ») ;
+- `candidats_base(d, i, f, familles)` : le sélecteur. Option fausse : le moteur tel quel. Option vraie : le Ø d'un
+  candidat déplace l'axe empilé (le sien pour une base secondaire : Ø8 à 5,5, Ø12 à 6,0, Ø25 à 6,5 ; celui de la
+  secondaire posée dessus pour une base principale), ce que le moteur ne sait pas recalculer sur un axe imposé — la
+  dalle est recomposée candidat par candidat et calculée par le moteur ; mêmes clés que le moteur (plus `e`), même tri ;
+- `moteur(d)`, `type_dalle(d)`, `empilement(d)`, `principale(d)`.
+
+### 4.3 L'option « nappes empilées » — les anciennes notes gardent leurs chiffres
+
+Clé d'état `empilement` (vrai/faux), par note (comme γ_s et le jeu, rubrique 4 — Options, case « Nappes empilées :
+direction secondaire posée sur la principale ») :
+- note NEUVE : vrai ;
+- note d'avant (sans la clé), note de l'ancien module Prédalles, fichier Streamlit importé : FAUX → positions
+  automatiques du moteur, résultats identiques à l'octet (les gels `tests/test_reference_refonte.py` dalle/predalle et
+  la parité Streamlit restent vrais sans regel) ;
+- l'ingénieur peut la cocher sur une ancienne note : il voit alors les chiffres changer, en connaissance de cause.
+Faux → `axe_auto` du site = celui du moteur, et le dessin montre les deux directions au même niveau (ce que le calcul
+fait vraiment : le dessin ne ment jamais).
+
+### 4.4 Le dessin
+
+Coupes (`dessin_dalle._coupe`, `dessin_predalle`) : barres coupées en points/cercles, barres parallèles en traits ;
+CHAQUE couche à son `e` réel (lu dans le résultat du moteur) — les deux directions à des niveaux distincts quand
+l'empilement est actif, les renforts à leur axe ; cotes de d par direction = `h − y_G` du calcul ; prédalle : peau
+hachurée, pose respectée. Plans : inchangés (X horizontales, Y verticales).
+
+**Construit (FUS4)** — vérifié : les deux dessins lisaient DÉJÀ `couches[j]["e"]` du résultat pour chaque couche (points,
+traits, cotes d'axes, ordre de recouvrement du plan) ; le « même plan » des deux directions venait du moteur, pas du
+dessin. Ce qui change : la légende dit « posée sur la base Y » pour une couche que le site a empilée (`empilee`, posé par
+`annoter` ; sans chiffre : les empreintes des vues gelées ne bougent pas), la légende de la prédalle ne dit plus « axe
+saisi » que d'un axe saisi dans l'état, et la cote de d de la prédalle suit la face TENDUE de la direction coupée (sup.
+quand son moment l'emporte), comme celle de la dalle — le même dessin pour les deux types du module fusionné. Les
+pièces cliquables (`data-sel="s<i>.<face>-<j>"`, `s<i>.beton`) sont inchangées. Prouvé dans
+`tests/test_api_web_dalle_positions.py` (e) : barres Y 15 mm sous les barres X avec l'option, écart de 5 mm (les Ø du
+moteur) sans ; chaque couche à `h − e` ou `e` au dixième de mm ; et par une mutation (le dessin qui lirait l'automatique
+du moteur ramène les deux directions au même plan : le contrôle rougit). Les 9 cas gelés dalle et 9 prédalle de
+`tests/test_reference_refonte.py` restent identiques (option absente → fausse).
+
+## 5. Tests ciblés (pas de suite complète ; ni catalogue ni assemblages)
+
+- `tests/test_api_web_dalle.py`, `tests/test_api_web_predalle.py` (suivent), nouveau `tests/test_api_web_dalles_fusion.py`
+  (type, h_pre et complément, refus géométriques, relecture des trois formes d'état, import Streamlit des deux
+  fichiers, moteur choisi, avertissements prédalle présents, nappes : mode déduit, écriture transposée, incohérence
+  signalée, positions empilées vs option fausse = chiffres identiques, dessin : niveaux distincts lus dans le SVG,
+  mutations).
+- `tests/test_dalle_moteur.py`, `tests/test_predalle_moteur.py` : inchangés et VERTS (preuve que les moteurs n'ont pas
+  bougé) ; `tests/test_reference_refonte.py` : les 9 photos « predalle » restent vertes sans regel (relecture d'une note de
+  prédalles, option fausse) ; les 9 photos « dalle » partent d'une note NEUVE (`nouveau`), donc empilée (§ 4.3) : elles
+  sont REGELÉES avec `--geler --accepter="…"` — raison écrite dans `regels` (état version 2, clés `type`, `empilement`,
+  chemins `nappes`, base secondaire posée sur la principale : d plus petit, h_min 3,5 → 4,5 cm, avis
+  `nappes_confondues` disparu) — dans un commit DISTINCT de celui de la fusion.
+- `tests/test_site_web.py`, `tests/test_site_maquettes.py`, `tests/test_api_web_modules.py` : suivent (un module de
+  moins sur l'accueil, redirection).
+- Harnais : `module:dalle`, `formats:dalle` (PC, tablette, téléphone), captures regardées ; `module:predalle` devient
+  la redirection.

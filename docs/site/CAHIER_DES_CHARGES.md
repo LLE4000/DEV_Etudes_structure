@@ -147,6 +147,8 @@ Le titre seul, sans explication : il dit ce que fait le module.
 
 - **Béton** : Poutres béton armé · Dalles béton armé · Prédalles · Charges sur plancher · Taux d'armature ·
   Enrobage · Maturité du béton · Tableau des armatures
+  *(09/11/2026 : « Prédalles » a rejoint « Dalles béton armé » — une seule carte, le type « Prédalle + béton coulé en
+  place » se choisit dans la dalle ; l'ancienne page redirige vers celle des dalles : `docs/site/DALLES_FUSION.md`.)*
 - **Acier** : Choix de profilé · Catalogue des profilés · Cornières · Flambement · Assemblages métalliques · Soudures
 - **Autres** : Garde-corps · Poutres bois · Rigidité du sol
 

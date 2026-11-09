@@ -50,10 +50,21 @@ ADRESSES = {k: v for k, v in REG.pages().items() if k in _FAMILLES}
 PAGES = {k: v + ".html" for k, v in ADRESSES.items()}
 ACCUEIL = "./"
 # L'établi COMPACT (l'arborescence de la note à gauche, le dessin et son en-tête au centre, un bloc de résultats par
-# section à droite), sur ces modules seulement (docs/site/REFONTE_ETABLI.md) : les trois modules béton armé, leurs
-# fonctions aux mêmes places (api_web/etabli_compact.py) ; les autres gardent l'établi d'avant. Leur carte de l'accueil
-# ouvre le calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
-ETABLI_COMPACT = ("poutre", "dalle", "predalle")
+# section à droite), sur ces modules seulement (docs/site/REFONTE_ETABLI.md) : les modules béton armé, leurs fonctions
+# aux mêmes places (api_web/etabli_compact.py) ; les autres gardent l'établi d'avant. Leur carte de l'accueil ouvre le
+# calcul DIRECTEMENT (sans la fenêtre « Nouvelle note ») ; la note s'enregistre à la première saisie.
+ETABLI_COMPACT = ("poutre", "dalle")
+# … et parmi eux, ceux dont la colonne de gauche est COMPACTE (docs/site/DALLES_FUSION.md § 1 : ni titre « Données »
+# dans l'en-tête du panneau, ni en-tête « DALLES (n) », ni ligne d'élément — le moteur y rend ``etabli_compact.arbre(…,
+# compact=True)`` et le nom de l'élément se modifie dans la tête des résultats). La poutre garde son arbre tant que
+# l'ingénieur n'a pas validé : un seul nom à ajouter ici (tests/test_site_web.py lie ce tuple à ce que le moteur rend).
+ARBRE_COMPACT = ("dalle",)
+# Les modules ABSORBÉS par un autre (docs/site/DALLES_FUSION.md § 2.4) : ancien module → module qui le sert. Leur page
+# est une REDIRECTION vers celle du module qui les sert, qui garde l'adresse (?note=…, ?nom=…) : une ancienne note
+# s'ouvre dans le module fusionné. Ils restent au registre (le routeur les sert encore : anciens liens, harnais), sont
+# masqués de l'accueil (MASQUES, site/maquettes/construire.py), et js/modules.js les porte avec « vers » — la table
+# d'alias que js/notes.js lit pour ouvrir leurs notes par la bonne page.
+REDIRECTIONS = {"predalle": "dalle"}
 # les BIBLIOTHÈQUES du site (docs/site/BIBLIOTHEQUES.md) : une page par famille, hors du registre des modules (une
 # consultation n'est pas une note) ; la clé est celle que le routeur reçoit (action « consulter », « bibliotheque ») :
 # clé → (module de rendu, titre, famille)
@@ -477,7 +488,7 @@ def page_module(cle: str, titre: str) -> str:
     # l'établi compact qui sait la préremplir ; sa feuille de style vient avec
     biblio = _bibliotheque_du_module(cle) if cle in ETABLI_COMPACT else None
     if cle in ETABLI_COMPACT:
-        corps = compact(corps, cle in NOTE_PDF, biblio)
+        corps = compact(corps, cle in NOTE_PDF, biblio, cle in ARBRE_COMPACT)
     css = f"css/modules/{cle}.css"
     return tete(f"{titre} · Stab Méthodes", "css/etabli.css" if cle in ETABLI_COMPACT else "", "css/bibliotheque.css" if biblio else "",
                 css if os.path.exists(os.path.join(ICI, css)) else "") + corps
@@ -535,11 +546,13 @@ def page_bibliotheque(cle: str) -> str:
     return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css") + corps
 
 
-def compact(corps: str, note_pdf: bool = True, bibliotheque=None) -> str:
+def compact(corps: str, note_pdf: bool = True, bibliotheque=None, arbre_compact: bool = False) -> str:
     """L'établi COMPACT, tiré de l'établi ordinaire (les mêmes fragments du moteur, les mêmes identifiants : #donnees,
     #resultat, #volets ; js/etabli.js, js/compact.js, js/rangement.js) :
     - à gauche, les DONNÉES : les éléments de la note, puis les rubriques du module en accordéon (une ouverte à la fois),
-      avec « Annuler » et « Rétablir » dans l'en-tête ;
+      avec « Annuler » et « Rétablir » dans l'en-tête ; ``arbre_compact`` (ARBRE_COMPACT, docs/site/DALLES_FUSION.md
+      § 1) : l'en-tête du panneau n'écrit plus le titre « Données » — la colonne commence par les rubriques (le moteur y
+      rend l'arbre compact), et Annuler, Rétablir restent à droite ;
     - au centre, le DESSIN : un clic sur une pièce l'ouvre dans les données (et une ligne des données la montre sur le
       dessin) ;
     - à droite, les RÉSULTATS seuls, compacts ; un clic ouvre le détail ;
@@ -554,7 +567,7 @@ def compact(corps: str, note_pdf: bool = True, bibliotheque=None) -> str:
                  f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')
     droite_av = ('<div class="phead"><span class="h3">Résultat</span><span id="statut"></span>'
                  f'<button class="pcoll" data-coll="d" title="Replier le résultat">{MQ.icon("panel-right")}</button></div>')
-    gauche = ('<div class="phead"><span class="h3">Données</span><span class="calcule" id="calcule"></span>'
+    gauche = ('<div class="phead">' + ("" if arbre_compact else '<span class="h3">Données</span>') + '<span class="calcule" id="calcule"></span>'
               f'<button type="button" class="et-hist" data-historique="annuler" title="Annuler (Ctrl+Z)" aria-label="Annuler" disabled>{MQ.icon("undo-2")}</button>'
               f'<button type="button" class="et-hist" data-historique="retablir" title="Rétablir (Ctrl+Maj+Z)" aria-label="Rétablir" disabled>{MQ.icon("redo-2")}</button>'
               f'<button class="pcoll" data-coll="g" title="Replier les données">{MQ.icon("panel-left")}</button></div>')
@@ -631,6 +644,30 @@ def compact(corps: str, note_pdf: bool = True, bibliotheque=None) -> str:
     return corps
 
 
+def page_redirection(cle: str) -> str:
+    """La page d'un module ABSORBÉ (REDIRECTIONS : « predalle » → « dalle ») : une REDIRECTION vers la page du module qui
+    le sert, qui GARDE l'adresse (``?note=…``, ``?nom=…&chantier=…``) — js/redirection.js fait ``location.replace`` avec
+    la chaîne de requête (un script du site : la politique de sécurité refuse tout script écrit dans la page) ; sans
+    script, le ``<meta http-equiv="refresh">`` mène à la page du module (sans la requête), et le lien aussi. Rien d'un
+    tiers (R5)."""
+    vers = REDIRECTIONS[cle]
+    _fam, nom = _module(cle)
+    _fam_v, nom_vers = _module(vers)
+    corps = (f'<body data-page="redirection" data-module="{cle}" data-vers="{ADRESSES[vers]}" data-titre="{MQ.esc(nom)}">'
+             f'<main class="main"><div class="demarrage" id="demarrage"><div class="carte"><div class="logo">{MQ.LOGO}</div>'
+             f'<b>Le module « {MQ.esc(nom)} » a rejoint « {MQ.esc(nom_vers)} »</b>'
+             f'<span id="demarrage-etape">La note s\'ouvre dans le module fusionné…</span><div class="barre"><i></i></div>'
+             f'<small><a href="{ADRESSES[vers]}">Ouvrir « {MQ.esc(nom_vers)} »</a> si la page ne change pas d\'elle-même.</small></div></div></main>'
+             f'<script src="js/redirection.js"></script></body>\n</html>\n')
+    tete_ = tete(f"{nom} · Stab Méthodes").replace("<title>", f'<meta http-equiv="refresh" content="1; url={ADRESSES[vers]}">\n<title>', 1)
+    return tete_ + corps
+
+
+def page(cle: str) -> str:
+    """La page d'un module du registre : son établi (``page_module``) — ou sa redirection s'il est absorbé par un autre."""
+    return page_redirection(cle) if cle in REDIRECTIONS else page_module(cle, _module(cle)[1])
+
+
 def favicon() -> str:
     return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#2B4BCF"/>'
             '<g transform="translate(4 4)">' + MQ.LOGO.replace("<svg", "<svg width=\"24\" height=\"24\"") + '</g></svg>')
@@ -647,12 +684,14 @@ FIXES = ("js", "css", "_headers", "favicon.svg", ".assetsignore", "wrangler.json
 
 def modules_js() -> str:
     """La liste des modules pour les scripts de l'écran (adresse, nom, famille) : la même que celle des pages — les
-    modules masqués y restent (une note existante s'ouvre encore), marqués « masque »."""
+    modules masqués y restent (une note existante s'ouvre encore), marqués « masque » ; un module absorbé par un autre
+    (REDIRECTIONS) porte « vers » : la clé du module qui sert ses notes (js/notes.js, moduleServi)."""
     d = {}
     for fam, _, mods in MQ.FAMILLES:
         for k, nom in mods:
             if k in ADRESSES:
-                d[k] = {"page": ADRESSES[k], "nom": nom, "famille": fam, **({"masque": True} if k in MASQUES else {})}
+                d[k] = {"page": ADRESSES[k], "nom": nom, "famille": fam, **({"masque": True} if k in MASQUES else {}),
+                        **({"vers": REDIRECTIONS[k]} if k in REDIRECTIONS else {})}
     return ("// Écrit par site/web/construire.py depuis le registre des modules (api_web/registre.py) : ne pas modifier.\n"
             f"export const MODULES = {json.dumps(d, ensure_ascii=False)};\n")
 
@@ -674,10 +713,10 @@ def construire(dossier: str = ICI, modules=None) -> dict:
             os.symlink(os.path.join(ICI, "vendor"), lien)
     shutil.copyfile(os.path.join(MAQUETTES, "charte.css"), os.path.join(dossier, "css", "charte.css"))
     ecrire(os.path.join(dossier, "index.html"), page_accueil())
-    for cle, page in PAGES.items():
-        ecrire(os.path.join(dossier, page), page_module(cle, _module(cle)[1]))
-    for cle, page in PAGES_BIBLIOTHEQUES.items():
-        ecrire(os.path.join(dossier, page), page_bibliotheque(cle))
+    for cle, fichier in PAGES.items():
+        ecrire(os.path.join(dossier, fichier), page(cle))
+    for cle, fichier in PAGES_BIBLIOTHEQUES.items():
+        ecrire(os.path.join(dossier, fichier), page_bibliotheque(cle))
     ecrire(os.path.join(dossier, "js", "modules.js"), modules_js())
     ecrire(os.path.join(dossier, "favicon.svg"), favicon())
     rel = releve(modules)

@@ -253,6 +253,16 @@ const FILTRE = process.argv[4] || '';
       const nom = MODULES[cle].nom;
       await nouvelle(cle, 'Contrôle', 'Tous les modules', `Essai ${nom}`);
       if (await p.evaluate(() => document.getElementById('demarrage').classList.contains('erreur'))) continue;
+      if (MODULES[cle].vers) {
+        // un module ABSORBÉ par un autre (js/modules.js « vers », construire.REDIRECTIONS ; docs/site/DALLES_FUSION.md
+        // § 2.4) : sa page a REDIRIGÉ vers celle du module qui le sert, en gardant l'adresse — le nom et le chantier
+        // demandés y sont repris (nouvelle() vient de le vérifier) ; la suite du contrôle commun se joue sur cette page.
+        // (L'adresse lue ici est déjà « ?note=… » : l'établi remplace « ?nom=… » par la note qu'il vient de créer.)
+        const u = new URL(p.url()), vers = MODULES[cle].vers;
+        verif(`${cle} : la page redirige vers celle de « ${vers} » (${MODULES[vers].page}) en gardant l'adresse (la note créée du nom demandé)`,
+          u.pathname.endsWith(`/${MODULES[vers].page}`) && !!u.searchParams.get('note') && (await p.inputValue('#nom-note')) === `Essai ${nom}`
+          && (await p.evaluate(() => document.body.dataset.module)) === vers, `${u.pathname}${u.search}`);
+      }
       // les vues : un dessin porte l'échelle, un tableau jamais ; le module a-t-il un dessin (pour sa vignette) ?
       const vuesLues = await p.$$eval('#stage .view', (vs) => vs.map((v) => ({ svg: !!v.querySelector('.draw > svg'), echelle: !!v.querySelector('.scale') })));
       if (vuesLues.some((v) => v.svg)) avecDessin.add(MODULES[cle].page);
@@ -612,10 +622,11 @@ const FILTRE = process.argv[4] || '';
       if (PARTIES.includes('tel') && await neuve(t, cle, 'téléphone')) {
         const fixe = async () => ({ mtop: await boite(t, '.mtop'), mtabs: await boite(t, '.mtabs'), mbar: await boite(t, '.mbar') });
         // l'établi compact (construire.ETABLI_COMPACT, finalisé) : trois cadres comme les autres modules — « Données »
-        // montre la liste des éléments ET les rubriques (le panneau de gauche), « Résultat » le résultat seul
+        // montre la liste des éléments ET les rubriques (le panneau de gauche ; colonne compacte des dalles : les
+        // rubriques directement, docs/site/DALLES_FUSION.md § 1), « Résultat » le résultat seul
         const compactTel = await t.evaluate(() => document.body.dataset.etabli === 'compact');
         const ONGLETS = compactTel
-          ? [['donnees', '.panel.left', ['.canvas', '.panel.right'], ['#donnees .et-arbre', '#donnees .et-pt.on .sec.open']], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
+          ? [['donnees', '.panel.left', ['.canvas', '.panel.right'], ['#donnees .et-arbre', '#donnees .et-arbre .sec.open']], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
             ['resultat', '.panel.right', ['.canvas', '.panel.left'], ['#resultat .el']]]
           : [['donnees', '.panel.left', ['.canvas', '.panel.right'], []], ['dessin', '.canvas', ['.panel.left', '.panel.right'], []],
             ['resultat', '.panel.right', ['.canvas', '.panel.left'], []]];
@@ -663,7 +674,8 @@ const FILTRE = process.argv[4] || '';
             // (et celles de l'établi compact : l'arborescence, ses menus, les pièces, les barres d'un cadre, les blocs et la
             // liste de contrôle des résultats)
             const s = '.mtop button, .mtop a.btn, .mtabs button, .mbar .btn, #vues button, .zoom button, .sechd, .ni, .nl-add, #donnees .seg button, #donnees .field, .case, .addrow, .moins, .elements .ni.on .x, #resultat .el, #resultat .prof[data-pk]'
-              + ', .et-pt-t, .et-pt-nom, .et-mn-b, .et-mn-l button, .et-pt-add, .et-tag, .et-dep, .et-add, .et-ret, .et-prop, .et-barres .b, .et-large, .et-sec-pick, .et-hist, .et-bloc-t, .et-tout, .et-just, .et-obs';
+              + ', .et-pt-t, .et-pt-nom, .et-mn-b, .et-mn-l button, .et-pt-add, .et-tag, .et-dep, .et-add, .et-ret, .et-prop, .et-barres .b, .et-large, .et-sec-pick, .et-hist, .et-bloc-t, .et-tout, .et-just, .et-obs'
+              + ', .et-elsel .seg button, .et-rp-nom';
             const tous = [...document.querySelectorAll(s)].filter((e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
             return tous.filter((e) => { const r = e.getBoundingClientRect(); return Math.min(r.width, r.height) < 35.5; })
               .map((e) => `${e.className || e.tagName} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`);
@@ -768,9 +780,10 @@ const FILTRE = process.argv[4] || '';
         await g.setViewportSize({ width: 820, height: 1180 });
         await g.waitForTimeout(300);
         // le champ du nom de l'élément : celui dont la valeur ouvre l'intitulé de l'élément ouvert de la liste — ou
-        // (établi compact) le champ posé sur la ligne même de l'élément ouvert, dans l'arborescence
+        // (établi compact) le champ posé sur la ligne même de l'élément ouvert, dans l'arborescence — ou (colonne de
+        // gauche compacte, les dalles) le champ de la tête des résultats, ses dimensions dessous
         const champNom = await g.evaluate(() => {
-          const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n');
+          const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n, #resultat .et-rp.et-rp-c');
           if (!t || ![...t.children].some((e) => e.tagName === 'SPAN' && !e.classList.contains('nom'))) return null;
           const surLaLigne = t.querySelector('input[data-chemin]');
           if (surLaLigne) return surLaLigne.dataset.chemin;
@@ -786,13 +799,14 @@ const FILTRE = process.argv[4] || '';
             return s && !s.classList.contains('open') ? s.dataset.sec : null;
           }, champNom);
           if (rub) { await g.click(`#donnees .sec[data-sec="${rub}"] > .sechd`); await g.waitForTimeout(150); }
-          await g.fill(`#donnees input[data-chemin="${champNom}"]`, 'Poutre de rive très longue du bâtiment B, file 12 à 18, niveau +3');
-          await g.press(`#donnees input[data-chemin="${champNom}"]`, 'Enter');
+          const sNom = `#donnees input[data-chemin="${champNom}"], #resultat .et-rp input[data-chemin="${champNom}"]`;
+          await g.fill(sNom, 'Poutre de rive très longue du bâtiment B, file 12 à 18, niveau +3');
+          await g.press(sNom, 'Enter');
           await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
           await g.waitForTimeout(150);
           // les dimensions (le dernier <span> de l'intitulé) entières et dans leur ligne ; le nom, lui, peut céder
           const ni = await g.evaluate(() => {
-            const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n');
+            const t = document.querySelector('.ni.on .t, .et-pt.on .et-pt-t .t, .et-pt.on .et-pt-n, #resultat .et-rp.et-rp-c');
             const d = [...t.children].filter((e) => e.tagName === 'SPAN' && !e.classList.contains('nom')).pop();
             const rt = t.getBoundingClientRect(), rd = d.getBoundingClientRect();
             return { dims: d.textContent, entieres: d.scrollWidth <= d.clientWidth + 1 && rd.right <= rt.right + 0.5 && rd.left >= rt.left - 0.5, largeur: Math.round(rd.width) };
@@ -2412,57 +2426,171 @@ const FILTRE = process.argv[4] || '';
     await c.close();
   }
 
-  // ---------------------------------------------------------------- l'établi compact des DALLES et des PRÉDALLES
-  // Les fonctions aux places de la poutre (docs/site/REFONTE_ETABLI.md, « Un seul établi pour les trois modules béton
-  // armé ») : l'arborescence « nom · b × h cm » et son menu ⋯, les quatre rubriques, un bloc par section (« Données
-  // incomplètes » sans effort), un clic sur une couche du DESSIN qui la déplie dans les données, la section courante que
-  // le dessin et les résultats suivent (la vue garde son genre : du plan au plan), « ↺ » qui rend un axe saisi à
-  // l'automatique.
-  if (!FILTRE || FILTRE === 'plaques') {
-    for (const [cle, nom, dims, rub1] of [['dalle', 'Dalle 1', '100 × 20 cm', 'dl'], ['predalle', 'Prédalle 1', '100 × 22 cm', 'pd']]) {
-      const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
-      const g = await c.newPage();
-      g.erreurs = [];
-      g.on('pageerror', (e) => g.erreurs.push(e.message));
-      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
-      const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
-      const ouvrirRub = async (k) => {
-        if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
-        await g.waitForTimeout(80);
+  // ---------------------------------------------------------------- l'établi compact des DALLES, et l'ancien module Prédalles
+  // La COLONNE DE GAUCHE COMPACTE (docs/site/DALLES_FUSION.md § 1) : ni titre « Données », ni « DALLES (1) », ni ligne
+  // « Dalle 1 » — les rubriques tout en haut, le menu ⋯ discret dans l'angle ; le NOM se modifie dans la tête des
+  // résultats (le sélecteur, la confirmation du menu et la note enregistrée suivent) ; une seconde dalle fait apparaître
+  // le SÉLECTEUR (segments, l'ouverte marquée) ; le type « Prédalle » fait apparaître h_p et le complément coulé (§ 2.2).
+  // Les fonctions aux places de la poutre (REFONTE_ETABLI.md) : un bloc par section (« Données incomplètes » sans
+  // effort), un clic sur une couche du DESSIN qui la déplie dans les données, la section courante que le dessin et les
+  // résultats suivent (la vue garde son genre : du plan au plan), « ↺ » qui rend un axe saisi à l'automatique. Au
+  // téléphone, « Renommer » du menu ⋯ ouvre l'onglet Résultat sur le champ du nom.
+  // L'ancien module PRÉDALLES (§ 2.4) : sa page REDIRIGE vers celle des dalles en gardant l'adresse ; une ancienne note en
+  // mémoire s'y ouvre en mode prédalle (le moteur des dalles reçoit « dalle » et l'état {predalles} tel quel), devient
+  // une note « dalle », rien de perdu ; la carte de l'accueil vise déjà la page des dalles.
+  //   filtre « plaques » : les deux ; « module:dalle » et « module:predalle » rejouent le leur (après le contrôle commun).
+  const PLAQUES = ['dalle', 'predalle'].filter((k) => !FILTRE || FILTRE === 'plaques' || FILTRE === `module:${k}`);
+  for (const cle of PLAQUES) {
+    const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+    // ce que la page envoie au moteur (module, action, forme de l'état) : lu au passage, sans rien changer
+    await c.addInitScript(() => {
+      const W = window.Worker;
+      window.Worker = class extends W {
+        postMessage(m) {
+          try { const q = JSON.parse(m.requete); (window.__envois = window.__envois || []).push({ module: q.module, action: q.action, predalles: !!(q.etat && q.etat.predalles), dalles: !!(q.etat && q.etat.dalles) }); } catch (e) { /* pas une requête */ }
+          super.postMessage(m);
+        }
       };
-      const saisir = async (chemin, v) => {
-        const s = `#donnees input[data-chemin="${chemin}"]`;
-        await g.fill(s, v);
-        await g.press(s, 'Enter');
+    });
+    const g = await c.newPage();
+    g.erreurs = [];
+    g.on('pageerror', (e) => g.erreurs.push(e.message));
+    g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+    const pretG = () => g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+    const ouvrirRub = async (k) => {
+      if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
+      await g.waitForTimeout(80);
+    };
+    const saisir = async (s, v) => {
+      await g.fill(s, v);
+      await g.press(s, 'Enter');
+      await tranquille();
+      await g.waitForTimeout(150);
+    };
+    const sync = () => g.evaluate(() => ({ vue: document.querySelector('#vues .on')?.dataset.vue,
+      blocs: [...document.querySelectorAll('#resultat .et-bloc')].filter((x) => !x.hidden).map((x) => x.dataset.section),
+      arm: document.querySelector('#donnees .et-arm.on')?.dataset.section }));
+    // le sélecteur d'éléments : les noms, l'ouvert marqué d'une étoile ; le nom dans la tête des résultats ; la note en mémoire
+    const segs = () => g.$$eval('#donnees .et-elsel .seg button[data-activer]', (x) => x.map((b) => b.querySelector('.nom').textContent + (b.classList.contains('on') ? '*' : '')).join());
+    const nomRp = () => g.$eval('#resultat .et-rp input[data-chemin="nom"]', (x) => x.value);
+    const noteMemoire = () => g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
+      return n ? { module: n.module, dalles: n.etat && n.etat.dalles ? n.etat.dalles.map((d) => `${d.nom}:${d.type}${d.h_pre !== undefined ? ':' + d.h_pre : ''}`).join() : JSON.stringify(n.etat).slice(0, 80) } : null; });
+    const NOM_RP = '#resultat .et-rp input[data-chemin="nom"]';
+    try {
+      if (cle === 'predalle') {
+        // une ancienne note du module Prédalles, semée dans ce navigateur (son état : celui de l'ancien module, {predalles})
+        await g.goto(`${BASE}/index.html`);
+        await g.evaluate(() => { const k = 'stab.notes.v1', notes = JSON.parse(localStorage.getItem(k) || '{}'), t = Date.now() + 60000;
+          notes['ancienne-predalle'] = { id: 'ancienne-predalle', module: 'predalle', nom: 'Ancienne note prédalles', chantier: 'Réalex', dossier: '', indice: 'A', cree: t, modifie: t,
+            etat: { version: 1, predalles: [{ nom: 'Ancienne P1', h_pre: 6 }], actif: 0 }, resume: null, vignette: '' };
+          localStorage.setItem(k, JSON.stringify(notes)); });
+        await g.reload();
+        await g.waitForTimeout(300);
+        const carte = await g.$eval('#recentes .rcard', (a) => a.getAttribute('href'));
+        verif('plaques predalle : à l\'accueil, la carte d\'une ancienne note « Prédalles » vise la page des dalles (js/notes.js, table des alias « vers » de js/modules.js)',
+          carte === 'dalle?note=ancienne-predalle', carte);
+        await g.goto(`${BASE}/predalle?note=ancienne-predalle`);
+        await pretG();
         await tranquille();
-        await g.waitForTimeout(150);
-      };
-      const sync = () => g.evaluate(() => ({ vue: document.querySelector('#vues .on')?.dataset.vue,
-        blocs: [...document.querySelectorAll('#resultat .et-bloc')].filter((x) => !x.hidden).map((x) => x.dataset.section),
-        arm: document.querySelector('#donnees .et-arm.on')?.dataset.section }));
-      // le nom de chaque élément : en texte sur sa ligne, ou dans le champ de la ligne de l'élément ouvert
-      const noms = () => g.$$eval('#donnees .et-arbre .et-pt > .et-pt-l', (x) => x.map((y) => { const n = y.querySelector('.et-pt-nom'); return n ? n.value : y.querySelector('.nom').textContent; }));
-      try {
+        const u = new URL(g.url());
+        const ouverte = await g.evaluate(() => {
+          const on = document.querySelector('#donnees button.on[data-chemin="type"]'), h = document.querySelector('#donnees input[data-chemin="h_pre"]');
+          return { module: document.body.dataset.module, nomNote: document.getElementById('nom-note').value, nom: (document.querySelector('#resultat .et-rp input') || {}).value,
+            type: on && on.dataset.valeur, hPre: h && h.value, erreur: document.getElementById('demarrage').classList.contains('erreur'), envois: (window.__envois || []).slice(0, 2) };
+        });
+        const mem = await noteMemoire();
+        verif('plaques predalle : « predalle?note=… » redirige vers « dalle?note=… » (l\'adresse gardée) ; le moteur reçoit « dalle » et l\'état {predalles} tel quel',
+          u.pathname.endsWith('/dalle') && u.searchParams.get('note') === 'ancienne-predalle' && ouverte.module === 'dalle' && !ouverte.erreur
+          && ouverte.envois.length >= 1 && ouverte.envois[0].module === 'dalle' && ouverte.envois[0].action === 'calculer' && ouverte.envois[0].predalles && !ouverte.envois[0].dalles,
+          JSON.stringify({ url: `${u.pathname}${u.search}`, ...ouverte }));
+        verif('plaques predalle : l\'ancienne note s\'ouvre en PRÉDALLE (type prédalle, h_p = 6 cm, « Ancienne P1 » en tête des résultats, son nom de note) et devient une note « dalle » en mémoire — rien de perdu',
+          ouverte.nomNote === 'Ancienne note prédalles' && ouverte.nom === 'Ancienne P1' && ouverte.type === 'predalle' && ouverte.hPre === '6'
+          && mem && mem.module === 'dalle' && mem.dalles === 'Ancienne P1:predalle:6', JSON.stringify({ ouverte, mem }));
+        await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_relue.png') });
+        // une note NEUVE demandée à l'ancienne adresse (un vieux lien) : le nom et le chantier arrivent sur les dalles,
+        // qui créent la note (l'adresse devient « ?note=… », comme pour toute note demandée par « ?nom= »)
+        await g.goto(`${BASE}/predalle?nom=Essai%20pr%C3%A9dalle&chantier=R%C3%A9alex`);
+        await pretG();
+        const u2 = new URL(g.url());
+        const neuve = await g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
+          return { nom: document.getElementById('nom-note').value, fil: document.getElementById('fil-chantier').textContent, module: n && n.module, enregistree: n && n.nom }; });
+        verif('plaques predalle : « predalle?nom=…&chantier=… » arrive sur la page des dalles, le nom et le chantier repris, la note créée en « dalle »',
+          u2.pathname.endsWith('/dalle') && !!u2.searchParams.get('note') && neuve.nom === 'Essai prédalle' && neuve.fil.includes('Réalex')
+          && neuve.module === 'dalle' && neuve.enregistree === 'Essai prédalle', JSON.stringify({ url: `${u2.pathname}${u2.search}`, ...neuve }));
+        // (une adresse sans note ni nom : la page des dalles, telle quelle)
+        await g.goto(`${BASE}/predalle`);
+        await pretG();
+        verif('plaques predalle : « predalle » seul mène à « dalle »', /\/dalle$/.test(new URL(g.url()).pathname), g.url());
+      } else {
+        const nom = 'Dalle 1', dims = '100 × 20 cm';
         await g.goto(`${BASE}/index.html`);
         await Promise.all([g.waitForNavigation(), g.click(`.tile[data-module="${cle}"]`)]);
-        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
-        // le nom de l'élément ouvert : un champ sur sa ligne (le seul champ « nom » : la rubrique n'en a plus)
-        const arbre = await g.evaluate(() => {
-          const l = document.querySelector('#donnees .et-pt.on .et-pt-l'), n = l.querySelector('input.et-pt-nom');
-          return { n: document.querySelectorAll('#donnees .et-arbre .et-pt').length, t: `${n ? n.value : ''}${l.querySelector('.dim').textContent}`.replace(/\s+/g, ' ').trim(),
-            champ: !!n && n.dataset.chemin === 'nom', ailleurs: document.querySelectorAll('#donnees [data-chemin="nom"]').length,
-            pastille: !!l.querySelector('.chip, .pct, .status') };
+        await pretG();
+        // 1. la colonne de gauche compacte, le nom en champ dans la tête des résultats
+        const colonne = await g.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const phead = document.querySelector('.panel.left .phead'), arbre = document.querySelector('#donnees .et-arbre'), premier = document.querySelector('#donnees .sec[data-sec]');
+          const rp = document.querySelector('#resultat .et-rp'), n = rp && rp.querySelector('input[data-chemin="nom"]');
+          return { titre: phead ? phead.textContent.trim() : null, hist: !!phead && vis(phead.querySelector('[data-historique="annuler"]')),
+            enTete: !!document.querySelector('#donnees .et-arbre-h'), lignes: document.querySelectorAll('#donnees .et-pt').length,
+            compacte: !!arbre && arbre.classList.contains('et-arbre-c') && arbre.classList.contains('et-seul'), selecteur: !!document.querySelector('#donnees .et-elsel .seg'),
+            menu: vis(document.querySelector('#donnees .et-elsel.seul [data-menu]')), nomGauche: document.querySelectorAll('#donnees [data-chemin="nom"]').length,
+            enHaut: !!premier && Math.abs(premier.getBoundingClientRect().top - document.getElementById('donnees').getBoundingClientRect().top) < 2,
+            rubs: [...document.querySelectorAll('#donnees .et-arbre .sec[data-sec]')].map((y) => y.dataset.sec + (y.classList.contains('open') ? '*' : '')).join(),
+            nom: n ? n.value : null, champ: !!n && n.dataset.sorte === 'texte' && vis(n), dims: rp ? rp.querySelector('span').textContent : null,
+            pastille: !!document.querySelector('#donnees .et-arbre .chip, #donnees .et-arbre .pct, #donnees .et-arbre .status') };
         });
-        verif(`plaques ${cle} : l'arborescence nomme l'élément « ${nom} · ${dims} », le nom en champ sur sa ligne (seul champ « nom »), sans taux ni pastille`,
-          arbre.n === 1 && arbre.t.replace(/\s*·\s*/, ' · ') === `${nom} · ${dims}` && arbre.champ && arbre.ailleurs === 1 && !arbre.pastille, JSON.stringify(arbre));
-        const rubs = await g.$$eval('#donnees .et-pt.on .sec[data-sec]', (x) => x.map((y) => y.dataset.sec + (y.classList.contains('open') ? '*' : '')));
-        verif(`plaques ${cle} : quatre rubriques aux places de la poutre (élément, sections et sollicitations, armatures, options), la première seule ouverte`,
-          rubs.join() === `${rub1}*,so,arm,op`, rubs.join());
+        verif(`plaques ${cle} : la colonne de gauche compacte — ni « Données », ni « DALLES (1) », ni ligne « ${nom} », ni champ « nom » à gauche ; les rubriques tout en haut, le menu ⋯ dans l'angle, Annuler en place`,
+          colonne.titre === '' && colonne.hist && !colonne.enTete && colonne.lignes === 0 && colonne.compacte && !colonne.selecteur && colonne.menu && colonne.nomGauche === 0
+          && colonne.enHaut && !colonne.pastille, JSON.stringify(colonne));
+        verif(`plaques ${cle} : le NOM « ${nom} » est un champ dans la tête des résultats, « ${dims} · … » dessous ; quatre rubriques (dl, so, arm, op), la première seule ouverte`,
+          colonne.nom === nom && colonne.champ && (colonne.dims || '').startsWith(`${dims} · `) && colonne.rubs === 'dl*,so,arm,op', JSON.stringify(colonne));
+        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_colonne.png`) });
+        // 2. le menu ⋯ (une seule dalle) ; « Copier » : une seconde dalle → le SÉLECTEUR apparaît, la copie ouverte
+        await g.click('#donnees .et-elsel.seul [data-menu]');
+        const mn = await g.evaluate(() => { const l = document.querySelector('#donnees .et-elsel .et-mn-l'), q = l.getBoundingClientRect();
+          return { vu: l.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight && q.left >= 0 && q.right <= innerWidth, ajouter: !!l.querySelector('[data-ajouter]'),
+            renommer: !!l.querySelector('[data-renommer]:not(:disabled)'), copier: !!l.querySelector('[data-dupliquer-index="0"]'), supprimerEteint: !!l.querySelector('[data-supprimer]:disabled') }; });
+        await g.click('#donnees .et-elsel .et-mn-l [data-dupliquer-index="0"]');
+        await tranquille();
+        await g.waitForTimeout(200);
+        const s1 = await segs();
+        verif(`plaques ${cle} : le menu ⋯ s'ouvre dans l'écran (Ajouter, Renommer, Copier ; Supprimer éteint : jamais la dernière) ; « Copier » fait apparaître le SÉLECTEUR — deux segments, la copie ouverte, son nom en tête des résultats`,
+          mn.vu && mn.dedans && mn.ajouter && mn.renommer && mn.copier && mn.supprimerEteint && s1 === `${nom},${nom} (copie)*` && (await nomRp()) === `${nom} (copie)` && !(await g.$('#donnees .et-elsel.seul')),
+          JSON.stringify({ mn, s1 }));
+        // 3. RENOMMER dans la tête des résultats : le sélecteur, la confirmation du menu et la note enregistrée suivent
+        await saisir(NOM_RP, 'D2');
+        const apresNom = { segs: await segs(), rp: await nomRp(), confirmer: await g.$eval('#donnees .et-elsel [data-supprimer]', (x) => x.dataset.confirmer), mem: await noteMemoire() };
+        verif(`plaques ${cle} : renommer dans la tête des résultats (« D2 ») — le sélecteur à gauche, la confirmation du menu ⋯ et la note enregistrée (.stab) suivent`,
+          apresNom.segs === 'Dalle 1,D2*' && apresNom.rp === 'D2' && apresNom.confirmer.includes('« D2 »') && apresNom.mem && apresNom.mem.module === 'dalle'
+          && apresNom.mem.dalles === 'Dalle 1:coulee,D2:coulee', JSON.stringify(apresNom));
+        // « Renommer » du menu ⋯ place le curseur dans ce champ (tout le nom choisi)
+        await g.click('#donnees .et-elsel [data-menu]');
+        await g.click('#donnees .et-elsel .et-mn-l [data-renommer="1"]');
+        await g.waitForTimeout(150);
+        const foc = await g.evaluate(() => { const a = document.activeElement; return { champ: !!a && a.matches('#resultat .et-rp input[data-chemin="nom"]'), choisi: !!a && a.value.length > 0 && a.selectionStart === 0 && a.selectionEnd === a.value.length }; });
+        verif(`plaques ${cle} : « Renommer » du menu ⋯ place le curseur dans le champ du nom des résultats, tout le nom choisi`, foc.champ && foc.choisi, JSON.stringify(foc));
+        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_selecteur.png`) });
+        // 4. le sélecteur ouvre l'autre dalle ; « Supprimer » (confirmé) retire l'ouverte, le sélecteur disparaît
+        await g.click('#donnees .et-elsel .seg button[data-activer="0"]');
+        await tranquille();
+        await g.waitForTimeout(200);
+        const ouverte0 = { segs: await segs(), rp: await nomRp() };
+        g.once('dialog', (d) => d.accept());
+        await g.click('#donnees .et-elsel [data-menu]');
+        await g.click('#donnees .et-elsel .et-mn-l [data-supprimer="0"]');
+        await tranquille();
+        await g.waitForTimeout(200);
+        const reste = { seul: !!(await g.$('#donnees .et-arbre-c.et-seul .et-elsel.seul [data-menu]')), selecteur: !!(await g.$('#donnees .et-elsel .seg')), rp: await nomRp(), mem: await noteMemoire() };
+        verif(`plaques ${cle} : un segment ouvre l'autre dalle (son nom en tête des résultats) ; « Supprimer » (confirmé) retire l'ouverte — une dalle reste, le sélecteur disparaît, le menu ⋯ revient dans l'angle`,
+          ouverte0.segs === 'Dalle 1*,D2' && ouverte0.rp === 'Dalle 1' && reste.seul && !reste.selecteur && reste.rp === 'D2' && reste.mem && reste.mem.dalles === 'D2:coulee', JSON.stringify({ ouverte0, reste }));
+        // 5. les fonctions aux places de la poutre
         const e0 = await g.$eval('#resultat .et-bloc', (x) => ({ e: x.querySelector('.et-bloc-h .e').textContent, inc: x.classList.contains('inc') }));
         verif(`plaques ${cle} : sans effort, le bloc de la section dit « Données incomplètes » (gris), jamais « Conforme »`, e0.e === 'Données incomplètes' && e0.inc, JSON.stringify(e0));
         // un moment saisi dans la carte de la section : le bloc se colore, la bande de l'en-tête le porte (une fois)
         await ouvrirRub('so');
-        await saisir('sections/0/My_inf', '20');
+        await saisir('#donnees input[data-chemin="sections/0/My_inf"]', '20');
         const e1 = await g.evaluate(() => ({ e: document.querySelector('#resultat .et-bloc .et-bloc-h .e').textContent,
           ok: document.querySelector('#resultat .et-bloc').classList.contains('ok'),
           bande: [...document.querySelectorAll('#stage .view.on .et-eff span')].map((x) => x.textContent.replace(/\s+/g, '')) }));
@@ -2488,7 +2616,7 @@ const FILTRE = process.argv[4] || '';
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_couche.png`) });
         // « ↺ » : l'axe saisi revient à l'automatique d'un clic
         const axe = 'sections/0/faces/inf_y/couches/0/dist';
-        await saisir(axe, '5');
+        await saisir(`#donnees input[data-chemin="${axe}"]`, '5');
         const raz = await g.$(`#donnees .et-raz[data-chemin="${axe}"]`);
         const razVu = !!raz && await raz.evaluate((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
         if (raz) { await raz.click(); await tranquille(); await g.waitForTimeout(150); }
@@ -2506,40 +2634,62 @@ const FILTRE = process.argv[4] || '';
         await ouvrirRub('arm');
         await g.click('#donnees .et-secsel [data-section-courante="1"]');
         await g.waitForTimeout(250);
-        const s1 = await sync();
+        const sB = await sync();
         await g.click('#donnees .et-secsel [data-section-courante="0"]');
         await g.waitForTimeout(250);
-        const s0 = await sync();
+        const sA = await sync();
         verif(`plaques ${cle} : la section B choisie depuis le plan de A : le plan de B, son bloc seul, ses armatures ; puis retour au plan de A`,
-          s1.vue === 'p1' && s1.blocs.join() === '1' && s1.arm === '1' && s0.vue === 'p0' && s0.blocs.join() === '0' && s0.arm === '0', JSON.stringify({ s1, s0 }));
+          sB.vue === 'p1' && sB.blocs.join() === '1' && sB.arm === '1' && sA.vue === 'p0' && sA.blocs.join() === '0' && sA.arm === '0', JSON.stringify({ sB, sA }));
         await g.click('#vues [data-vue="toutes"]');
         await g.waitForTimeout(200);
         const st = await sync();
         verif(`plaques ${cle} : la vue « Toutes » montre les blocs des deux sections`, st.vue === 'toutes' && st.blocs.join() === '0,1', JSON.stringify(st));
         await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_toutes.png`) });
-        // le menu ⋯ de l'élément : « Copier » (inséré après lui, ouvert), « Supprimer » (confirmé)
-        await g.click(`#donnees .et-pt[data-${cle}="0"] [data-menu]`);
-        const mn = await g.$eval(`#donnees .et-pt[data-${cle}="0"] .et-mn-l`, (x) => { const q = x.getBoundingClientRect(); return { vu: x.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight }; });
-        await g.click(`#donnees .et-pt[data-${cle}="0"] .et-mn-l [data-dupliquer-index="0"]`);
+        // 6. le TYPE « Prédalle + béton coulé en place » (rubrique 1) : h_p apparaît, le complément coulé se lit, l'état le porte
+        await ouvrirRub('dl');
+        await g.click('#donnees button[data-chemin="type"][data-valeur="predalle"]');
         await tranquille();
         await g.waitForTimeout(200);
-        const n1 = await noms();
-        const ouverte = await g.$eval('#donnees .et-pt.on', (x, k) => x.dataset[k], cle);
-        g.once('dialog', (d) => d.accept());
-        await g.click(`#donnees .et-pt[data-${cle}="1"] [data-menu]`);
-        await g.click(`#donnees .et-pt[data-${cle}="1"] .et-mn-l [data-supprimer="1"]`);
+        const pre = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const h = document.querySelector('#donnees input[data-chemin="h_pre"]'), on = document.querySelector('#donnees button.on[data-chemin="type"]');
+          const rub = document.querySelector('#donnees .sec[data-sec="dl"]');
+          return { on: on && on.dataset.valeur, h: vis(h), hv: h && h.value, complement: (rub.querySelector('.dl-ro') || {}).textContent || '', coule: /coul/i.test(rub.textContent) }; });
+        const memPre = await noteMemoire();
+        verif(`plaques ${cle} : « Prédalle + béton coulé en place » fait apparaître h_p (h_pre, 6 cm par défaut) et le complément coulé (h − h_p = 14 cm) ; la note le porte (type prédalle)`,
+          pre.on === 'predalle' && pre.h && pre.hv === '6' && /14\s*cm/.test(pre.complement) && memPre && memPre.dalles === 'D2:predalle:6', JSON.stringify({ pre, memPre }));
+        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_predalle.png`) });
+        await g.click('#donnees button[data-chemin="type"][data-valeur="coulee"]');
         await tranquille();
         await g.waitForTimeout(200);
-        const n2 = await noms();
-        verif(`plaques ${cle} : le menu ⋯ s'ouvre dans l'écran ; « Copier » insère la copie après l'élément et l'ouvre ; « Supprimer » (confirmé) la retire`,
-          mn.vu && mn.dedans && n1.join() === `${nom},${nom} (copie)` && ouverte === '1' && n2.join() === nom, JSON.stringify({ mn, n1, ouverte, n2 }));
-        verif(`plaques ${cle} : aucune erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
-      } catch (x) {
-        verif(`plaques ${cle} : le parcours va au bout`, false, String(x.message).split('\n').slice(0, 3).join(' | '));
-        await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_echec.png`) }).catch(() => {});
+        verif(`plaques ${cle} : retour à « Dalle coulée en place » : h_p disparaît, la note aussi l'oublie`,
+          !(await g.$('#donnees input[data-chemin="h_pre"]')) && ((await noteMemoire()) || {}).dalles === 'D2:coulee', JSON.stringify(await noteMemoire()));
+        // 7. au téléphone : « Renommer » du menu ⋯ ouvre l'onglet Résultat sur le champ du nom (R1 : la fonction aux trois formats)
+        const ct = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+        const t = await ct.newPage();
+        t.erreurs = [];
+        t.on('pageerror', (e) => t.erreurs.push(e.message));
+        await t.goto(g.url());
+        await t.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        await t.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+        await t.tap('#donnees .et-elsel.seul [data-menu]');
+        await t.waitForTimeout(150);
+        const mnTel = await t.evaluate(() => { const l = document.querySelector('#donnees .et-elsel .et-mn-l'), q = l.getBoundingClientRect(); return { vu: l.checkVisibility(), dedans: q.top >= 0 && q.bottom <= innerHeight && q.right <= innerWidth }; });
+        await t.tap('#donnees .et-elsel .et-mn-l [data-renommer="0"]');
+        await t.waitForTimeout(250);
+        const tel = await t.evaluate(() => { const a = document.activeElement, r = a && a.getBoundingClientRect();
+          return { onglet: document.querySelector('.bench').dataset.tab, champ: !!a && a.matches('#resultat .et-rp input[data-chemin="nom"]'), vu: !!a && a.checkVisibility() && r.top >= 0 && r.bottom <= innerHeight, taille: a ? Math.round(r.height) : 0 }; });
+        verif(`plaques ${cle} · téléphone : le menu ⋯ de l'angle s'ouvre dans l'écran ; « Renommer » ouvre l'onglet Résultat sur le champ du nom (40 px au doigt)`,
+          mnTel.vu && mnTel.dedans && tel.onglet === 'resultat' && tel.champ && tel.vu && tel.taille >= 36, JSON.stringify({ mnTel, tel }));
+        await t.screenshot({ path: path.join(OUT, `site_plaques_${cle}_tel_renommer.png`) });
+        verif(`plaques ${cle} · téléphone : aucune erreur JavaScript`, !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
+        await ct.close();
       }
-      await c.close();
+      verif(`plaques ${cle} : aucune erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+    } catch (x) {
+      verif(`plaques ${cle} : le parcours va au bout`, false, String(x.message).split('\n').slice(0, 3).join(' | '));
+      await g.screenshot({ path: path.join(OUT, `site_plaques_${cle}_echec.png`) }).catch(() => {});
     }
+    await c.close();
   }
 
   // ---------------------------------------------------------------- un fichier .stab piégé

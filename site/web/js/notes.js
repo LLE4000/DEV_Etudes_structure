@@ -11,6 +11,13 @@ import { MODULES } from "./modules.js";
 import { telecharger } from "./commun.js";
 export { MODULES };
 
+// Un module qu'un autre a ABSORBÉ (construire.REDIRECTIONS, écrit dans js/modules.js : « vers » ; docs/site/
+// DALLES_FUSION.md § 2.4) : une note en mémoire ou un .stab du module « predalle » s'ouvre par la page des dalles, qui
+// envoie son état tel quel au module « dalle » (api_web/dalle.normaliser le relit). Une seule table : celle du générateur.
+export const moduleServi = (module) => (MODULES[module] && MODULES[module].vers) || module;
+// la page qui ouvre une note de ce module (sans « .html »)
+export const pageDe = (module) => MODULES[moduleServi(module)].page;
+
 // Pourquoi une écriture a été refusée : le mot court de l'indicateur d'enregistrement (« Non enregistré : … »), la
 // phrase longue du message. Une seule source pour l'établi et l'accueil.
 export const RAISONS = {

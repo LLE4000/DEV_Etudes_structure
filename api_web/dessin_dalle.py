@@ -17,6 +17,14 @@ rupture ; au-delà de 1,20 m, seule sa partie centrale est dessinée (la cote le
 centrées sur la bande, celles d'un renfort intercalées d'une demi-maille (la convention de la note PDF du bureau) ; les
 « n barres » sont réparties également dans la bande. Couleurs : la base en acier foncé, chaque renfort dans sa couleur.
 
+Les NIVEAUX (docs/site/DALLES_FUSION.md, § 4) : chaque couche — base ou renfort, direction coupée ou parallèle — est
+dessinée à l'axe que le moteur a UTILISÉ, ``couches[j]["e"]`` du résultat (imposé, automatique du moteur, ou automatique
+du site écrit dans la copie envoyée au moteur : api_web/dalle_positions.py). Le dessin ne recalcule aucun niveau : deux
+directions au même niveau sur la coupe, c'est le calcul qui les y a posées (option « nappes empilées » fausse) ; à des
+niveaux distincts, c'est qu'il les y a comptées. La cote de d est h − y_G du calcul, pour la face tendue de la direction
+coupée. Une couche que le site a posée sur la base principale (``empilee``, posé par ``dalle_positions.annoter``) le dit
+dans la légende.
+
 Le style est celui des dessins du site (api_web/dessin_poutre.py) : traits noirs, béton gris clair, cotes fines,
 sollicitations en rouge. Les textes venus de l'état (noms) sont échappés ici.
 
@@ -228,13 +236,17 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, u: float
             y_leg += (n_max + 1.4) * 1.3 * u
             n_max = 0
         g.append(_txt(xl, y_leg, "Inférieures" if cote == "inf" else "Supérieures", 0.78 * u, ancre="start", couleur=COTE))
-        for i, (d_, j, c) in enumerate(lignes):
-            yy = y_leg + (i + 1) * 1.3 * u
+        for n, (d_, j, c) in enumerate(lignes):
+            yy = y_leg + (n + 1) * 1.3 * u
             if d_ == dk:
                 g.append(f'<circle cx="{_f(xl + 0.35 * u)}" cy="{_f(yy - 0.3 * u)}" r="{_f(0.26 * u)}" fill="{_couleur(j)}"/>')
             else:
                 g.append(_ligne(xl, yy - 0.3 * u, xl + 0.7 * u, yy - 0.3 * u, _teinte(j), 0.24 * u))
-            g.append(_txt(xl + 1.0 * u, yy, f"{d_.upper()} · {escape(c['libelle'])} · axe à {_mm(c['e'] * 10.0)}", 0.78 * u,
+            # l'axe réel de la couche (celui du calcul) ; posée par le site sur la base principale : dit
+            # (« sur la base Y », court : la ligne doit tenir dans sa colonne, « posée sur la base Y » débordait sur
+            # la colonne des supérieures — vu sur la capture du 09/11/2026)
+            g.append(_txt(xl + 1.0 * u, yy, f"{d_.upper()} · {escape(c['libelle'])} · axe à {_mm(c['e'] * 10.0)}"
+                          + (f" · sur la base {principale.upper()}" if c.get("empilee") else ""), 0.78 * u,
                           ancre="start", gras=False))
         n_max = max(n_max, len(lignes))
     hauteur = (y_leg + (n_max + 0.6) * 1.3 * u) - y0

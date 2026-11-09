@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "e7836ec387f4c2766c32e74bb31ec89b999bbc4683430c48585996873d472d52",
+ "sha256": "c2f220e506de7387e044be2ba34d46a9ce4f66675ca2dac489e9ee2b9c3108a9",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -156,6 +156,8 @@
   "api_web/corniere.py",
   "api_web/coupe_ba.py",
   "api_web/dalle.py",
+  "api_web/dalle_nappes.py",
+  "api_web/dalle_positions.py",
   "api_web/dessin_age.py",
   "api_web/dessin_bois.py",
   "api_web/dessin_catalogue.py",

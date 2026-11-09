@@ -23,6 +23,15 @@ clair, cotes fines, sollicitations en rouge. Les textes venus de l'état (noms) 
 Les PIÈCES (l'établi compact) : les mêmes que celles des dalles (api_web/dessin_dalle.py, ``piece``) — chaque couche
 ``s<i>.<face>-<j>``, le béton ``s<i>.beton``, les sollicitations ``s<i>.efforts`` ; sans rang de section, le dessin est
 le même qu'avant, à l'octet près.
+
+Les NIVEAUX (docs/site/DALLES_FUSION.md, § 4) : chaque couche est dessinée à l'axe que le moteur a UTILISÉ,
+``couches[j]["e"]`` du résultat — la règle de pose de la prédalle pour les couches inférieures, l'axe imposé, ou
+l'automatique du site (nappes supérieures empilées, écrit dans la copie envoyée au moteur : api_web/dalle_positions.py).
+Rien n'est recalculé ici. La cote de d est h − y_G du calcul, pour la face TENDUE de la direction coupée (la supérieure
+quand son moment l'emporte, comme la coupe des dalles). La légende dit la pose du moteur (dans / sur la prédalle), « axe
+saisi » pour un axe imposé dans l'état, « posée sur la base … » pour une couche que le site a empilée — ces deux
+derniers d'après ``auto`` et ``empilee`` tels que ``dalle_positions.annoter`` les pose ; sans annotation, le résultat du
+moteur dit « saisi » d'un axe que le site lui a imposé.
 """
 import math
 from html import escape
@@ -156,8 +165,11 @@ def _texte_vue(b_mm: float, W: float) -> str:
     return f"b = {_mm(b_mm)}" if W >= b_mm else f"{_mm(W)} vus sur b = {_mm(b_mm)}"
 
 
-def _pose_txt(c: Dict) -> str:
-    """Où la couche est posée, pour la légende : la règle de la prédalle, ou « axe saisi »."""
+def _pose_txt(c: Dict, principale: str = "") -> str:
+    """Où la couche est posée, pour la légende : posée par le site sur la base principale (``empilee``), « axe saisi »
+    (imposé dans l'état), ou la règle de la prédalle."""
+    if c.get("empilee"):
+        return f"sur la base {principale.upper()}" if principale else "sur la base principale"
     if not c.get("auto", True):
         return "axe saisi"
     return POSES.get(c.get("pose"), "")
@@ -239,10 +251,17 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: f
         y_face = h_mm if cote == "inf" else 0.0
         g.append(_attache(W + 0.2 * u, yc + y, xd + 0.4 * u, yc + y, u)
                  + _cote_v(xd, yc + min(y, y_face), yc + max(y, y_face), _mm(c["e"] * 10.0), u, droite=True))
-    yG = s["faces"][f"inf_{dk}"]["yG"] * 10.0
+    # la hauteur utile de la face TENDUE de la direction coupée (sup. si son moment l'emporte, comme la coupe des dalles) :
+    # du parement comprimé au centre de gravité des couches tendues — y_G du calcul
+    tendue = "sup" if s[f"M{dk}_sup"] > s[f"M{dk}_inf"] else "inf"
+    yG = s["faces"][f"{tendue}_{dk}"]["yG"] * 10.0
     xd2 = W + 3.3 * u
-    g.append(_attache(W + 0.2 * u, yc, xd2 + 0.4 * u, yc, u) + _attache(W + 0.2 * u, yc + h_mm - yG, xd2 + 0.4 * u, yc + h_mm - yG, u)
-             + _cote_v(xd2, yc, yc + h_mm - yG, f"d = {_mm(h_mm - yG)}", u, droite=True))
+    if tendue == "inf":
+        y1, y2 = yc, yc + h_mm - yG          # du dessus du béton au centre de gravité des couches inférieures
+    else:
+        y1, y2 = yc + yG, yc + h_mm          # du centre de gravité des couches supérieures au dessous du béton
+    g.append(_attache(W + 0.2 * u, y1, xd2 + 0.4 * u, y1, u) + _attache(W + 0.2 * u, y2, xd2 + 0.4 * u, y2, u)
+             + _cote_v(xd2, y1, y2, f"d = {_mm(h_mm - yG)}", u, droite=True))
     # la clé des deux bétons, puis la légende des couches (inférieures à gauche, supérieures à droite)
     yk = y_cote + 1.5 * u
     g.append(f'<rect x="0" y="{_f(yk - 0.62 * u)}" width="{_f(1.3 * u)}" height="{_f(0.75 * u)}" fill="{PEAU}" stroke="{ENCRE}" '
@@ -262,13 +281,13 @@ def _coupe(s: Dict, dk: str, principale: str, b_mm: float, h_mm: float, hp_mm: f
             y_leg += (n_max + 1.4) * 1.3 * u
             n_max = 0
         g.append(_txt(xl, y_leg, "Inférieures" if cote == "inf" else "Supérieures", 0.78 * u, ancre="start", couleur=COTE))
-        for i, (d_, j, c) in enumerate(lignes):
-            yy = y_leg + (i + 1) * 1.3 * u
+        for n, (d_, j, c) in enumerate(lignes):
+            yy = y_leg + (n + 1) * 1.3 * u
             if d_ == dk:
                 g.append(f'<circle cx="{_f(xl + 0.35 * u)}" cy="{_f(yy - 0.3 * u)}" r="{_f(0.26 * u)}" fill="{_couleur(j)}"/>')
             else:
                 g.append(_ligne(xl, yy - 0.3 * u, xl + 0.7 * u, yy - 0.3 * u, _teinte(j), 0.24 * u))
-            pose = _pose_txt(c)
+            pose = _pose_txt(c, principale)              # l'axe réel (celui du calcul) et sa pose
             g.append(_txt(xl + 1.0 * u, yy, f"{d_.upper()} · {escape(c['libelle'])} · e = {_mm(c['e'] * 10.0)}"
                           + (f" · {pose}" if pose else ""), 0.74 * u, ancre="start", gras=False))
         n_max = max(n_max, len(lignes))
@@ -361,7 +380,7 @@ def _plan(s: Dict, cote: str, principale: str, b_mm: float, u: float, dx: float,
         for j, c in enumerate(s["faces"][f"{cote}_{dk}"]["couches"]):
             yy = y_leg + n * 1.35 * u
             g.append(_ligne(0, yy - 0.3 * u, 0.8 * u, yy - 0.3 * u, _couleur(j), 0.22 * u))
-            pose = _pose_txt(c)
+            pose = _pose_txt(c, principale)
             g.append(_txt(1.1 * u, yy, f"{dk.upper()} {_nom_couche(j)} · {escape(c['libelle'])}" + (f" · {pose}" if pose else ""),
                           0.7 * u, ancre="start", gras=dk == principale and j == 0))
             n += 1

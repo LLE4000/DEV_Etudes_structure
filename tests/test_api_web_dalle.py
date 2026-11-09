@@ -20,6 +20,11 @@
 - la reprise d'un fichier de l'écran Streamlit (dalle_ba.json) ;
 - les dessins à l'échelle (barres, cotes, vue partielle) ; un nom saisi est échappé partout.
 
+Depuis la fusion des modules Dalle et Prédalle (docs/site/DALLES_FUSION.md, 11/2026), cette suite exerce le TYPE « dalle
+coulée en place » du module fusionné, l'option « nappes empilées » décochée (``nouveau``) : ce qu'elle prouve, c'est que
+le site affiche le moteur beton/dalle chiffre pour chiffre. Le type prédalle, la bascule, l'empilement et les trois formes
+d'état : tests/test_api_web_dalles_fusion.py.
+
     python3 tests/test_api_web_dalle.py
 """
 import copy
@@ -76,8 +81,19 @@ def noms_arbre(html):
 
 
 def dalle_de(etat, i=None):
+    """La dalle telle que le MOTEUR la lit : sans les clés du site (verrou, type, empilement — api_web/dalle.CLES_SITE).
+    Cette suite laisse l'option « nappes empilées » décochée (``nouveau``) : elle contrôle que le site affiche le moteur
+    des dalles, chiffre pour chiffre ; l'empilement a sa suite (tests/test_api_web_dalles_fusion.py, lot FUS4)."""
     d = etat["dalles"][etat["actif"] if i is None else i]
-    return {k: v for k, v in d.items() if k != "verrou"}
+    return {k: v for k, v in d.items() if k not in P.CLES_SITE}
+
+
+def nouveau():
+    """Une note neuve, l'option « nappes empilées » DÉCOCHÉE (une note neuve l'a cochée : § 4.3) — la réponse complète,
+    comme celle de « nouveau »."""
+    r = req(module="dalle", action="nouveau")
+    assert r["ok"], r
+    return saisir(r["etat"], "empilement", False)
 
 
 # une ligne de vérification (C.ligne_verif) : (gouvernante, nom, pièce, niveau, taux) ; sa comparaison : CMP
@@ -91,7 +107,7 @@ def fenetre(volets, ident):
     return re.search(r'id="ck-' + re.escape(ident) + r'".*?(?=<div class="flyout calcul"|$)', volets, re.S).group(0)
 
 # ------------------------------------------------------------------ 1. une note neuve
-r = req(module="dalle", action="nouveau")
+r = nouveau()
 chk("nouveau : la requête aboutit", r["ok"], r.get("erreur"))
 attendu = EN.nouvelle_dalle()
 chk("la dalle neuve est celle de l'écran Streamlit (bande 100 × 20, C30/37, B500, principale Y, treillis 10/10/100/100)",
@@ -176,7 +192,7 @@ chk("chaque résultat de formule affiché est celui du moteur, à la précision 
     list(zip(res_site, res_moteur))[:4])
 
 # ------------------------------------------------------------------ 3. rouge sous 100 % quand le moteur dit non conforme
-e2 = req(module="dalle", action="nouveau")["etat"]      # le cas ASMAX de la parité : bande de 20 cm, h = 8 cm, Ø25/100
+e2 = nouveau()["etat"]      # le cas ASMAX de la parité : bande de 20 cm, h = 8 cm, Ø25/100
 for ch, x in (("b", "20"), ("h", "8"), ("sections/0/Mx_inf", "1"), ("sections/0/My_inf", "1"), ("sections/0/V", "2")):
     e2 = saisir(e2, ch, x)["etat"]
 for f, dd, esp in (("inf_x", "25", "100"), ("inf_y", "25", "100"), ("sup_x", "6", "250"), ("sup_y", "6", "250")):
@@ -272,15 +288,17 @@ chk("une dalle ajoutée prend γs et le jeu de la note, et le premier nom libre"
 r8 = saisir(etat, "verrou", True)
 out = req(module="dalle", action="modifier", etat=r8["etat"], chemin=["sections", "0", "Mx_inf"], valeur="99")
 chk("dalle verrouillée : une saisie est refusée, la dalle reste intacte", "verrouillée" in (out["message"] or "") and out["etat"] == r8["etat"])
-chk("dalle verrouillée : le cadre Données est en lecture seule (aucun champ, la case pour déverrouiller), un cadenas dans "
-    "l'arborescence, et aucun sélecteur",
+chk("dalle verrouillée : le cadre Données est en lecture seule (aucun champ, la case pour déverrouiller), le type dit, un "
+    "cadenas devant le nom dans l'en-tête des résultats (colonne de gauche compacte : plus de ligne d'élément), et aucun sélecteur",
     'data-sorte="nombre"' not in r8["donnees"] and 'data-chemin="verrou"' in r8["donnees"] and "data-pk=" not in r8["resultat"]
-    and re.search(r'<span class="t">' + re.escape(C.icon("lock")) + r'<span class="nom">Dalle 1</span>', r8["donnees"]) is not None)
-chk("dalle verrouillée : son nom se LIT sur sa ligne (aucun champ « nom »), et « Renommer » du menu ⋯ est grisé — il n'aurait "
-    "aucun champ où poser le curseur ; déverrouillée, le nom redevient un champ et « Renommer » s'active",
-    'data-chemin="nom"' not in r8["donnees"] and re.search(r'data-renommer="0" disabled>', r8["donnees"]) is not None
-    and 'data-chemin="nom"' in (r9 := saisir(r8["etat"], "verrou", False))["donnees"]
-    and re.search(r'data-renommer="0">', r9["donnees"]) is not None)
+    and "Dalle coulée en place" in r8["donnees"]
+    and re.search(r'<div class="et-rp et-rp-c"><b>' + re.escape(C.icon("lock")) + r'Dalle 1</b>', r8["resultat"]) is not None)
+chk("dalle verrouillée : son nom se LIT dans l'en-tête des résultats (aucun champ « nom » nulle part), et « Renommer » du menu ⋯ "
+    "est grisé — il n'aurait aucun champ où poser le curseur ; déverrouillée, le nom redevient un champ (dans l'en-tête des "
+    "résultats : § 1 de la fusion) et « Renommer » s'active",
+    'data-chemin="nom"' not in r8["donnees"] + r8["resultat"] and re.search(r'data-renommer="0" disabled>', r8["donnees"]) is not None
+    and 'data-chemin="nom" data-sorte="texte" value="Dalle 1"' in (r9 := saisir(r8["etat"], "verrou", False))["resultat"]
+    and 'data-chemin="nom"' not in r9["donnees"] and re.search(r'data-renommer="0">', r9["donnees"]) is not None)
 chk("… et déverrouillée, elle se modifie de nouveau", saisir(r8["etat"], "verrou", False)["etat"] == etat)
 
 # ------------------------------------------------------------------ 6. le sélecteur de la nappe de base
@@ -384,7 +402,7 @@ chk("plan : les deux nappes, leurs espacements cotés et le repère (principale 
 rng = random.Random(20261107)
 fautes = []
 for k in range(25):
-    e = req(module="dalle", action="nouveau")["etat"]
+    e = nouveau()["etat"]
     for ch, x in (("b", rng.choice(("50", "100", "120", "150"))), ("h", rng.choice(("16", "20", "25"))),
                   ("beton", rng.choice(sorted(MO.classes_beton()))), ("fyk", rng.choice(("400", "500"))),
                   ("dir_principale", rng.choice("XY")), ("enrobage", rng.choice(("0", "2,5", "3")))):
@@ -404,7 +422,7 @@ chk("25 dalles tirées au sort : chaque ligne affichée porte le taux et la coul
 
 # ------------------------------------------------------------------ 12. ce que la relecture indépendante a trouvé
 # a) une dalle NON CONFORME sous 100 % (acier excessif) : le verdict ne nomme pas une vérification conforme
-ex = req(module="dalle", action="nouveau")["etat"]
+ex = nouveau()["etat"]
 for ch, x in (("sections/0/Mx_inf", "10"), ("sections/0/faces/inf_x/couches/0/type", "barres"),
               ("sections/0/faces/inf_x/couches/0/d", "40"), ("sections/0/faces/inf_x/couches/0/esp", "25")):
     ex = saisir(ex, ch, x)["etat"]
@@ -425,7 +443,7 @@ chk("… son bloc dit « Non conforme » (rouge) ; le résumé de la note la nom
 ck = fenetre(rx["volets"], "s0")
 chk("… et une seule ligne gouvernante dans le tableau de la fenêtre de la section (la non conforme)",
     ck.count('<tr class="gov">') == 1 and re.search(r'<tr class="gov"><td class="nm">Inférieure X', ck) is not None)
-neuf = req(module="dalle", action="nouveau")
+neuf = nouveau()
 ck = fenetre(neuf["volets"], "s0")
 chk("une note neuve (quatre nappes à 38 %) : une seule ligne gouvernante dans le tableau de la section, la première à égalité",
     ck.count('<tr class="gov">') == 1 and re.search(r'<tr class="gov"><td class="nm">Inférieure Y', ck) is not None)
@@ -454,7 +472,7 @@ chk(".stab dont les sections n'ont pas de nom (impossible à l'écran) : elles p
     vide["ok"] and [x["nom"] for x in vide["etat"]["dalles"][0]["sections"]] == ["A", "B"], vide.get("erreur"))
 
 # c) les dessins : la hauteur utile cotée est celle de la face TENDUE ; la légende dit l'axe (et non « e », l'espacement)
-ap = req(module="dalle", action="nouveau")["etat"]
+ap = nouveau()["etat"]
 for ch, x in (("sections/0/My_sup", "30"), ("sections/0/My_inf", "5"), ("sections/0/Mx_inf", "12"),
               ("sections/0/faces/sup_y/couches/0/type", "barres"), ("sections/0/faces/sup_y/couches/0/d", "12")):
     ap = saisir(ap, ch, x)["etat"]
@@ -474,24 +492,28 @@ chk("une couche de treillis dit ses fils porteurs (Ø10 tous les 100 mm), son ax
 # ------------------------------------------------------------------ 13. l'établi compact : les fonctions aux places de la poutre
 ar = req(module="dalle", action="calculer", etat=etat)
 don = ar["donnees"]
-chk("l'arborescence : « Dalles » et leur nombre, chaque dalle « nom · b × h cm » (sans taux), « Ajouter une dalle » ; la liste "
-    "« Dans cette note » de l'ancien écran n'existe plus",
-    re.search(r'<div class="et-arbre-h"><span>Dalles</span><span class="n">1</span></div>', don) is not None
-    and noms_arbre(don) == [("Dalle 1", "· 100 × 20 cm")]
+chk("la colonne de gauche COMPACTE (fusion, § 1) : une seule dalle, ni en-tête « Dalles (1) » ni ligne « Dalle 1 » — ses "
+    "rubriques commencent tout en haut ; « Ajouter une dalle » dans le menu « ⋯ » ; la liste « Dans cette note » de "
+    "l'ancien écran n'existe plus",
+    "et-arbre-h" not in don and noms_arbre(don) == [] and re.search(r'<div class="et-arbre et-arbre-c et-seul" data-dalle="0">', don) is not None
     and 'data-ajouter="1"' in don and "Ajouter une dalle" in don and ar["elements"] == "" and "%" not in re.search(
-        r'<div class="et-pt-l">.*?</button>', don, re.S).group(0))
-chk("sous la dalle ouverte, ses quatre rubriques dans l'ordre de la poutre : Dalle, Sections et sollicitations, Armatures, Options",
+        r'<div class="et-elsel seul">.*?</div>', don, re.S).group(0))
+chk("sous la dalle ouverte, ses quatre rubriques dans l'ordre de la poutre : Caractéristiques (le type et les dimensions), "
+    "Sections et sollicitations, Armatures, Options",
     re.findall(r'<div class="sec[^"]*" data-sec="([^"]+)"', don) == ["dl", "so", "arm", "op"]
-    and re.findall(r'<span class="tt">([^<]+)</span>', don) == ["Dalle", "Sections et sollicitations", "Armatures", "Options"]
+    and re.findall(r'<span class="tt">([^<]+)</span>', don) == ["Caractéristiques", "Sections et sollicitations", "Armatures", "Options"]
     and re.search(r'<div class="sec" data-sec="op" data-secondaire="1">', don) is not None)
 menu_ = re.search(r'<div class="et-mn-l" role="menu" hidden>(.*?)</div></div>', don, re.S).group(1)
-chk("le menu « ⋯ » de la dalle : Renommer, Copier la dalle, Supprimer la dalle (grisé : c'est la seule)",
-    'data-renommer="0"' in menu_ and 'data-dupliquer-index="0"' in menu_ and "Copier la dalle" in menu_
+chk("le menu « ⋯ » de la dalle : Ajouter une dalle, Renommer, Copier la dalle, Supprimer la dalle (grisé : c'est la seule)",
+    'data-ajouter="1"' in menu_ and 'data-renommer="0"' in menu_ and 'data-dupliquer-index="0"' in menu_ and "Copier la dalle" in menu_
     and re.search(r'data-supprimer="0" data-confirmer="Supprimer la dalle « Dalle 1 » de la note \?" disabled>', menu_) is not None)
 deux_ = req(module="dalle", action="ajouter", etat=etat)
-chk("deux dalles : la seconde s'ouvre, la première se replie (une seule montre ses rubriques), chacune a son menu",
-    re.findall(r'<div class="et-pt( on)?" data-dalle="(\d)">', deux_["donnees"]) == [("", "0"), (" on", "1")]
-    and deux_["donnees"].count('class="et-pt-corps"') == 1 and deux_["donnees"].count('data-menu="1"') >= 2)
+chk("deux dalles : le SÉLECTEUR compact en tête (les noms en segments, la seconde ouverte et marquée), les rubriques d'une "
+    "seule dalle, un menu « ⋯ »",
+    re.findall(r'<button type="button" class="( ?on)?" data-activer="(\d)"', deux_["donnees"]) == [("", "0"), ("on", "1")]
+    and re.search(r'<div class="et-arbre et-arbre-c" data-dalle="1">', deux_["donnees"]) is not None
+    and deux_["donnees"].count('data-sec="dl"') == 1 and deux_["donnees"].count('title="Actions de la dalle"') == 1
+    and re.search(r'<span class="nom">Dalle 1</span>.*<span class="nom">Dalle 2</span>', deux_["donnees"], re.S) is not None)
 cibles = set(re.findall(r'data-cible="([^"]+)"', don))
 sels = set(re.findall(r'data-sel="([^"]+)"', "".join(v["svg"] for v in ar["vues"])))
 couches_ = {f"s{i}.{f}-{j}" for i, s_ in enumerate(d["sections"]) for f in EN.FACES for j in range(len(s_["faces"][f]["couches"]))}
@@ -517,27 +539,30 @@ chk("l'en-tête de la vue : la section, la bande, les matériaux et la direction
     "<b>Section A</b><span>· 100 × 20 cm · C30/37 · B500 · principale Y</span>" in ent
     and ">Inf. Y Treillis 10/10/100/100 + 3 Ø12 · X Treillis 10/10/100/100<" in ent and ">Sup. Y Treillis 10/10/100/100 · X Treillis 10/10/100/100<" in ent
     and ent.count("<span><i>") == 5 and "<sub>x,inf</sub><b>28,0</b>" in ent and "<i>V</i><b>60,0</b>" in ent, ent[:400])
-tete_on = re.search(r'<div class="et-pt on" data-dalle="0"><div class="et-pt-l">(.*?)<div class="et-mn">', don, re.S).group(1)
 rub1 = re.search(r'<div class="sec[^"]*" data-sec="dl".*?(?=<div class="sec[^"]*" data-sec="so")', don, re.S).group(0)
-chk("le NOM de l'élément ouvert se modifie sur sa ligne de l'arborescence ; la rubrique 1 n'a plus de ligne Nom et tient en "
-    "3 lignes de deux champs (béton | acier, b | h…), l'acier en menu déroulant ; les explications dans les ⓘ",
-    '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-pt-nom"' in tete_on and 'data-chemin="nom"' not in rub1
+chk("le NOM de l'élément ouvert se modifie dans l'EN-TÊTE DES RÉSULTATS (fusion, § 1 : même chemin « nom » qu'avant) ; la "
+    "rubrique 1 n'a pas de ligne Nom, ouvre sur les segments du type (« Dalle coulée en place » retenu) et tient en 3 lignes "
+    "de deux champs (béton | acier, b | h, c | principale), l'acier en menu déroulant ; les explications dans les ⓘ",
+    '<input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-rp-nom"' in ar["resultat"] and 'data-chemin="nom"' not in rub1
+    and re.search(r'<button type="button" class="on" data-chemin="type" data-sorte="choix" data-valeur="coulee">Dalle coulée en place</button>', rub1) is not None
+    and 'data-chemin="h_pre"' not in rub1
     and len(re.findall(r'<div class="row(?:2 n2)?"', rub1)) == 3 == rub1.count('class="row2 n2"')
     and re.search(r'<select data-chemin="fyk" data-sorte="choix">', rub1) is not None and 'class="hint"' not in rub1,
-    (tete_on[-300:], re.findall(r'<div class="row[^"]*"', rub1)))
+    re.findall(r'<div class="row[^"]*"', rub1))
 aides_ = [html.unescape(t) for t in re.findall(r'<span class="aide" title="([^"]*)">', don)]
 chk("condensées, les données ne perdent aucune explication : les paragraphes d'aide d'avant (direction principale, γs et "
-    "jeu communs à la note) sont dans les ⓘ de leur champ",
+    "jeu communs à la note, et l'option « nappes empilées », commune elle aussi) sont dans les ⓘ de leur champ",
     any(t.startswith("La direction principale ordonne les vérifications") for t in aides_)
-    and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 2, aides_)
+    and sum("Commun à toutes les dalles de la note" in t for t in aides_) == 3, aides_)
 chk("chaque vue dit ce qu'on lit sur son dessin, en dernière ligne de son en-tête (la légende : barres coupées en points, X horizontales…)",
     len(ar["vues"]) == 5 and all(re.findall(r'<div class="lg">([^<]*)</div>(?=</div>)', v_["entete"])
                                  == [P.LEGENDES["p" if v_["cle"][0] == "p" else "c"]] == [v_["legende"]] for v_ in ar["vues"]),
     [(v_["cle"], v_["legende"]) for v_ in ar["vues"]])
 chk("le dessin d'une section, dans l'établi, n'écrit plus les efforts (ils sont dans la bande de l'en-tête, une fois, sans rouge)",
     "#9C3341" not in ar["vues"][0]["svg"] and "kN·m" not in ar["vues"][0]["svg"] and "kN·m" in DD.svg_coupe("t", ref["sections"][0], ref["dalle"]))
-chk("la tête des résultats : le nom de la dalle et ses dimensions (comme la poutre)",
-    '<div class="et-rp"><b>Dalle 1</b><span>100 × 20 cm · C30/37 · B500</span></div>' in ar["resultat"])
+chk("la tête des résultats : le nom de la dalle (un champ, § 1) et ses dimensions (comme la poutre)",
+    re.search(r'<div class="et-rp et-rp-c"><input data-chemin="nom" data-sorte="texte" value="Dalle 1" class="et-rp-nom"[^>]*>'
+              r'<span>100 × 20 cm · C30/37 · B500</span></div>', ar["resultat"]) is not None, ar["resultat"][:300])
 chk("une dalle n'a pas de note PDF sur le site : rien à télécharger (le bouton reste « bientôt », construire.NOTE_PDF)",
     not hasattr(P, "telecharger"))
 # un axe ou un centre de gravité SAISI se rend à l'automatique d'un clic (« ↺ », comme l'écran d'avant du site), et la

@@ -459,20 +459,32 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   });
 
   // ------------------------------------------------------------ après chaque réponse du moteur
-  // le NOM de l'élément ouvert (un champ, sur sa ligne de l'arborescence) a la largeur de son texte : les dimensions
-  // le suivent, sans vide (l'attribut size, en caractères moyens, laissait un blanc)
+  // le NOM de l'élément ouvert (un champ : sur sa ligne de l'arborescence, ou dans la tête des résultats quand la
+  // colonne de gauche est compacte) a la largeur de son texte : les dimensions le suivent, sans vide (l'attribut size,
+  // en caractères moyens, laissait un blanc)
   const regle = document.createElement("canvas").getContext("2d");
-  function ajusterNom(n = donnees.querySelector(".et-pt-nom")) {
+  function ajusterNom(n) {
     if (!n) return;
     const st = getComputedStyle(n);
     regle.font = `${st.fontWeight} ${st.fontSize} ${st.fontFamily}`;
     const bords = parseFloat(st.paddingLeft) + parseFloat(st.paddingRight) + parseFloat(st.borderLeftWidth) + parseFloat(st.borderRightWidth);
     n.style.width = `${Math.ceil(regle.measureText(n.value || n.placeholder || "").width + bords + 4)}px`;
   }
-  donnees.addEventListener("input", (ev) => { if (ev.target.classList && ev.target.classList.contains("et-pt-nom")) ajusterNom(ev.target); });
+  const ajusterNoms = () => { ajusterNom(donnees.querySelector(".et-pt-nom")); ajusterNom(resultat.querySelector(".et-rp-nom")); };
+  const surNom = (ev) => { if (ev.target.classList && (ev.target.classList.contains("et-pt-nom") || ev.target.classList.contains("et-rp-nom"))) ajusterNom(ev.target); };
+  donnees.addEventListener("input", surNom);
+  resultat.addEventListener("input", surNom);
+  // le sélecteur d'éléments (colonne compacte, plusieurs éléments) : l'ouvert reste sous les yeux quand les segments débordent
+  function montrerOuvert() {
+    const on = donnees.querySelector(".et-elsel .seg button.on");
+    if (!on) return;
+    const seg = on.parentElement;
+    if (seg.scrollWidth > seg.clientWidth + 1) seg.scrollLeft = Math.max(0, on.offsetLeft - (seg.clientWidth - on.offsetWidth) / 2);
+  }
   function rafraichir() {
     poserPoutre();
-    ajusterNom();
+    ajusterNoms();
+    montrerOuvert();
     // la section courante est celle du dessin (une vue « Toutes » reste choisie)
     const nSec = donnees.querySelectorAll(".et-arm[data-section]").length;
     if (nSec && courante >= nSec) courante = 0;

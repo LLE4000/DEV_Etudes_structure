@@ -53,7 +53,7 @@ function afficher() {
     const tx = texteTaux(r.taux);
     const chip = tx.texte ? `<span class="chip ${esc(r.niveau)}"${tx.titre ? ` title="${esc(tx.titre)}"` : ""}>${esc(tx.texte)}</span>` : "";
     const lieu = [n.chantier, n.dossier].filter(Boolean).join(" › ") || "Sans chantier";
-    return `<a class="card rcard" href="${N.MODULES[n.module].page}?note=${encodeURIComponent(n.id)}"><div class="thumb">${/^\s*<svg/.test(n.vignette || "") ? n.vignette : ""}</div>`
+    return `<a class="card rcard" href="${N.pageDe(n.module)}?note=${encodeURIComponent(n.id)}"><div class="thumb">${/^\s*<svg/.test(n.vignette || "") ? n.vignette : ""}</div>`
       + `<div class="body"><div class="t" title="${esc(n.nom)}">${esc(n.nom)}</div>`
       + `<div class="m"><span class="ou" title="${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}">${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}</span></div>`
       + `<div class="m">${esc(N.quand(n.modifie))}${chip}<span class="supp" data-supprimer="${esc(n.id)}" title="Supprimer la note">✕</span></div></div></a>`;
@@ -106,7 +106,7 @@ $("#nn-creer").addEventListener("click", () => {
   // la note non enregistrée (stockage plein, mémoire illisible) : l'établi la recrée de l'adresse, et y dit l'échec
   const ou = N.ecrire(n) ? `?note=${encodeURIComponent(n.id)}`
     : `?${new URLSearchParams({ nom: $("#nn-nom").value.trim(), chantier: n.chantier, dossier: n.dossier })}`;
-  location.href = `${N.MODULES[module].page}${ou}`;
+  location.href = `${N.pageDe(module)}${ou}`;
 });
 // une tuile de module ouvre la fenêtre avec ce module déjà choisi
 document.querySelectorAll(".tile[data-nouvelle-module]").forEach((t) => t.addEventListener("click", (ev) => { ev.preventDefault(); ouvrirNouvelle(t.dataset.nouvelleModule); }));
@@ -116,7 +116,7 @@ $("#importer").addEventListener("change", async (ev) => {
   if (!f) return;
   try {
     const n = await N.importer(f);
-    location.href = `${N.MODULES[n.module].page}?note=${encodeURIComponent(n.id)}`;
+    location.href = `${N.pageDe(n.module)}?note=${encodeURIComponent(n.id)}`;
   } catch (e) { alert(`Import impossible : ${e.message}`); }
 });
 

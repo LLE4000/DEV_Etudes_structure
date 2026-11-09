@@ -71,10 +71,18 @@ FAMILLES = [
                         ("flambement", "Flambement"), ("assemblages", "Assemblages métalliques"), ("soudures", "Soudures")]),
     ("autres", "Autres", [("garde_corps", "Garde-corps"), ("bois", "Poutres bois"), ("sol", "Rigidité du sol")]),
 ]
-# les modules MASQUÉS (docs/site/BIBLIOTHEQUES.md § 2.1) : des consultations que la Bibliothèque Béton armé remplace.
-# Leurs pages restent servies (une note existante s'ouvre encore, js/modules.js les connaît), mais l'accueil, le volet
-# « Modules » et la fenêtre « Nouvelle note » ne les listent plus ; leur retrait définitif se décidera avec le bureau.
-MASQUES = ("donnees_beton", "armatures", "enrobage")
+# les modules MASQUÉS (docs/site/BIBLIOTHEQUES.md § 2.1) : des consultations que la Bibliothèque Béton armé remplace —
+# et « predalle », que « Dalles béton armé » a absorbé (docs/site/DALLES_FUSION.md § 2.4 : une seule carte « Dalles béton
+# armé » ; la page des prédalles redirige vers celle des dalles). Leurs pages restent servies (une note existante s'ouvre
+# encore, js/modules.js les connaît), mais l'accueil, le volet « Modules » et la fenêtre « Nouvelle note » ne les listent
+# plus — ici (les maquettes) comme sur le site ; leur retrait définitif se décidera avec le bureau.
+MASQUES = ("donnees_beton", "armatures", "enrobage", "predalle")
+
+
+def listes(mods) -> list:
+    """Les modules d'une famille tels que l'accueil les LISTE : sans les masqués (une seule source pour les maquettes et
+    le site, qui lit MASQUES)."""
+    return [(k, n) for k, n in mods if k not in MASQUES]
 # les modules validés par un administrateur — POUR L'EXEMPLE : la maquette montre la pastille, le bureau décidera
 VALIDES = {"poutre": ("Chef de service", "12/10/2026"), "dalle": ("Chef de service", "12/10/2026"),
            "enrobage": ("Vous", "20/10/2026"), "armatures": ("Vous", "20/10/2026"), "catalogue": ("Vous", "03/11/2026")}
@@ -164,7 +172,7 @@ def modpanel() -> str:
     for cle, nom, mods in FAMILLES:
         corps += f'<div class="navlabel">{nom}</div>' + "".join(
             f'<a class="navitem"{go(PAGES_MODULES.get(k, ""))}><span class="modic {cle}">{MOD[k]}</span><span>{esc(n)}</span>{pastille_validee(k)}</a>'
-            for k, n in mods)
+            for k, n in listes(mods))
     return (f'<aside class="modpanel"><div class="mp-h"><div class="h2">Modules</div><span class="okleg">{icon("badge-check")}validé</span>'
             f'<a class="btn icon ghost" data-modules="1" title="Fermer">{icon("x")}</a></div>{corps}</aside>')
 
@@ -225,12 +233,12 @@ def accueil() -> tuple:
     for cle, nom, mods in FAMILLES:
         tuiles = "".join(f'<a class="tile"{go(PAGES_MODULES.get(k, ""))}><span class="modic {cle}">{MOD[k]}</span>'
                          f'<div><b>{esc(n)}</b></div>{pastille_validee(k)}<span class="chev">{icon("chevron-right")}</span></a>'
-                         for k, n in mods)
-        familles += (f'<div class="fam {cle}"><div class="famhead"><span class="pill {cle}">{nom}</span><span class="muted">{len(mods)} modules</span></div>'
+                         for k, n in listes(mods))
+        familles += (f'<div class="fam {cle}"><div class="famhead"><span class="pill {cle}">{nom}</span><span class="muted">{len(listes(mods))} modules</span></div>'
                      f'<div class="tiles">{tuiles}</div></div>')
     # au téléphone, une famille à la fois : le même choix que les trois blocs du PC
     choix = '<div class="seg full mfam">' + "".join(
-        f'<button data-fam="{cle}" class="{"on" if cle == "beton" else ""}">{nom} · {len(mods)}</button>' for cle, nom, mods in FAMILLES) + "</div>"
+        f'<button data-fam="{cle}" class="{"on" if cle == "beton" else ""}">{nom} · {len(listes(mods))}</button>' for cle, nom, mods in FAMILLES) + "</div>"
     familles = f'{choix}<div class="fams" data-fam="beton">{familles}</div>'
     sites = [("Réalex", "4 dossiers", 15), ("Résidence Les Tilleuls", "2 dossiers", 8), ("École Saint-Joseph", "3 dossiers", 11), ("Hall logistique", "2 dossiers", 6)]
     lst = "".join(f'<div class="site"{go("projets" if n == "Réalex" else "")}><span class="ic">{icon("building-2")}</span><div><b>{n}</b><span>{s}</span></div>'
@@ -267,7 +275,7 @@ def nouvelle_note() -> str:
     for cle, nom, mods in FAMILLES:
         opts += f'<div class="mlabel">{nom}</div>' + "".join(
             f'<div class="mopt{" on" if k == "poutre" else ""}"><span class="modic {cle}">{MOD[k]}</span><span>{esc(n)}</span>{pastille_validee(k)}</div>'
-            for k, n in mods)
+            for k, n in listes(mods))
     return (f'<div class="modal"><div class="mcard"><div class="mh"><span class="h2">Nouvelle note</span>'
             f'<a class="btn icon ghost" data-fermer-modal="1" title="Fermer">{icon("x")}</a></div><div class="mb">'
             f'<div class="mrow3"><label>Chantier{sel("Réalex")}</label><label>Dossier{sel("Étude de la dalle")}</label>'

@@ -97,6 +97,18 @@ chk("Barre du PC : cinq entrées nommées au survol", barre[:5] == cinq and len(
 onglets = re.findall(r"<span>([^<]+)</span></a>", C.mnav("accueil"))
 chk("Téléphone : les cinq mêmes entrées, dans le même ordre", onglets == cinq, onglets)
 
+# 5 bis. les modules MASQUÉS (BIBLIOTHEQUES.md § 2.1 ; DALLES_FUSION.md § 2.4 : « predalle », absorbé par « dalle ») ne sont
+# listés ni à l'accueil, ni dans le volet « Modules », ni dans « Nouvelle note » — une seule carte « Dalles béton armé »
+_, html_a, _ = C.accueil()
+_listes = html_a   # (l'accueil porte le rail et son volet « Modules », les tuiles, et la fenêtre « Nouvelle note » : trois listes)
+chk("Maquettes : « predalle » est masqué (MASQUES) et reste une clé des familles (le site le sert encore)",
+    "predalle" in C.MASQUES and any(k == "predalle" for _, _, ms in C.FAMILLES for k, _ in ms))
+chk("Accueil, volet « Modules », « Nouvelle note » : aucun module masqué listé, une seule carte « Dalles béton armé », plus de « Prédalles »",
+    "Prédalles" not in _listes and _listes.count("Dalles béton armé") == 3 and not any(C.MOD[k] in _listes for k in C.MASQUES)
+    and _listes.count('<a class="tile"') == sum(len(C.listes(ms)) for _, _, ms in C.FAMILLES), _listes.count("Dalles béton armé"))
+chk("Accueil : le compte des modules de chaque famille est celui des modules listés",
+    all(f"{len(C.listes(ms))} modules" in html_a and f"{n} · {len(C.listes(ms))}<" in html_a for _, n, ms in C.FAMILLES))
+
 # 6. l'origine d'une valeur : « modifié » garde la valeur du bureau sous le champ ; le bureau ne s'étiquette pas
 h_mod = C.ligne("Jeu entre lits", C.num("1,5", "cm"), src="modifié:1 cm")
 h_bur = C.ligne("Béton", C.sel("C30/37"), full=True, src="bureau")

@@ -7,6 +7,14 @@
 > 15,5 cm et non 16,5 cm — **A_s,req sous-estimé de 6,5 %** (16,5 / 15,5) et **h_min sous-estimé de 1 cm**. Le moteur
 > rend l'avertissement `nappes_confondues` ; le site l'affiche sous le résultat de chaque section concernée et invite à
 > saisir l'axe de la nappe du dessus. Le bureau doit trancher (§ 7, défaut 1).
+>
+> **Révision du 09/11/2026 — tranché par le bureau (chantier `docs/site/DALLES_FUSION.md`, § 4).** Le SITE pose la
+> direction secondaire d'une nappe SUR la principale (axe = axe principal + ⌈Ø_p/2⌉₀,₅ + ⌈Ø_s/2⌉₀,₅, les barres en
+> contact, la convention d'arrondi du moteur), par le canal `dist` que le moteur honore déjà (`api_web/dalle_positions.py`)
+> — le moteur lui-même ne change pas (parité Streamlit intacte). Option de NOTE « nappes empilées » : vraie pour une
+> note neuve, fausse pour une note d'avant ou un fichier Streamlit importé (leurs chiffres ne bougent pas) ; l'ingénieur
+> peut la cocher sur une ancienne note. Empilée, la nappe n'est plus « confondue » et l'avertissement s'éteint de
+> lui-même ; mesuré sur le cas « dalle 22 cm réaliste » : d_inf,x 18,5 → 17,5 cm, A_s,req 270,3 → 285,7 mm²/m (+5,7 %).
 
 *Livré le 07/11/2026. Moteur `beton/dalle/` et base des treillis `beton/treillis.py` : bibliothèque standard seule,
 Python 3.12 et 3.13 (donc Pyodide 0.29.5). Extrait de l'écran Streamlit `modules/dalle.py` v2.2 (dalle
@@ -203,7 +211,9 @@ principale : **chacune fait rougir au moins une note**.
    toutes deux à 3,5 cm, alors que croisées l'une passe sur l'autre (au moins (Øx + Øy)/2 = 1,0 cm plus haut). La nappe
    du dessus a en réalité d = 15,5 cm et non 16,5 : l'As,req réel est 6,5 % plus grand que celui calculé (16,5 / 15,5), et
    h_min est sous-estimé de 1 cm. Le moteur reproduit et
-   rend l'avertissement `nappes_confondues` ; le site l'affiche et propose de saisir l'axe.
+   rend l'avertissement `nappes_confondues` ; le site l'affiche et propose de saisir l'axe. *Révision du 09/11/2026 :
+   tranché — le site empile la direction secondaire sur la principale par `dist` (option de note « nappes empilées »,
+   vraie pour une note neuve ; voir l'encadré en tête et `docs/site/DALLES_FUSION.md` § 4) ; le moteur reste tel quel.*
 2. **Saisies ramenées en silence.** Un moment ou un effort tranchant saisi négatif devient 0 (`max(0, …)` au début de
    chaque run : la nappe passe « ok ») ; un axe (« Dist. axe ») ou un centre de gravité (« CDG ») illisible ou nul est lu
    « automatique » ; une désignation de treillis illisible (ancien fichier) est lue 0 mm²/m avec un Ø de 10 mm ; à

@@ -133,8 +133,11 @@ chk(f"chaque module du registre est dans le paquet ({len(SW.ADRESSES)})", sorted
 
 # 3. les pages et la charte
 chk("css/charte.css est la charte des maquettes", sha(os.path.join(WEB, "css", "charte.css")) == sha(os.path.join(RACINE, "site", "maquettes", "charte.css")))
-for nom, html in [("index.html", SW.page_accueil()), ("js/modules.js", SW.modules_js())] + [(SW.PAGES[k], SW.page_module(k, SW._module(k)[1])) for k in SW.PAGES]:
+for nom, html in [("index.html", SW.page_accueil()), ("js/modules.js", SW.modules_js())] + [(SW.PAGES[k], SW.page(k)) for k in SW.PAGES]:
     chk(f"{nom} est celle que le générateur écrit", os.path.exists(os.path.join(WEB, nom)) and open(os.path.join(WEB, nom), encoding="utf-8").read() == html)
+# les ÉTABLIS : les pages des modules, moins celles qui ne sont qu'une redirection (REDIRECTIONS : un module absorbé par
+# un autre, docs/site/DALLES_FUSION.md § 2.4) — ce qui suit décrit un établi, et ne s'applique pas à une redirection
+ETABLIS = {k: v for k, v in SW.PAGES.items() if k not in SW.REDIRECTIONS}
 
 # 4. le cœur Python déposé
 v = os.path.join(WEB, SW.PYODIDE)
@@ -147,7 +150,7 @@ chk("la roue numpy a l'empreinte du pyodide-lock officiel", sha(os.path.join(v, 
 chk("le travailleur charge la version déposée", f'"../{SW.PYODIDE}/pyodide.mjs"' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
 
 # 5. les identifiants que les scripts cherchent existent dans leur page
-for js, page in [(js, SW.PAGES[k]) for k in SW.PAGES for js in ("etabli.js", "toile.js")] + [("accueil.js", "index.html")]:
+for js, page in [(js, ETABLIS[k]) for k in ETABLIS for js in ("etabli.js", "toile.js")] + [("accueil.js", "index.html")]:
     src = open(os.path.join(WEB, "js", js), encoding="utf-8").read()
     html = open(os.path.join(WEB, page), encoding="utf-8").read()
     ids = sorted(set(re.findall(r'\$\("#([\w-]+)', src)) | set(re.findall(r'getElementById\("([\w-]+)"', src)))
@@ -162,10 +165,10 @@ _src_compact = open(os.path.join(WEB, "js", "compact.js"), encoding="utf-8").rea
 _src_rangement = open(os.path.join(WEB, "js", "rangement.js"), encoding="utf-8").read()
 # js/rangement.js cherche ses éléments par un raccourci $("et-…") = document.getElementById
 _ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact + _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
-chk("l'établi compact : les trois modules béton armé qui se ressemblent (poutres, dalles, prédalles), leurs fonctions aux "
-    "mêmes places ; les autres modules attendent l'avis du bureau", SW.ETABLI_COMPACT == ("poutre", "dalle", "predalle"), SW.ETABLI_COMPACT)
-chk("… seule la poutre fait sa note PDF dans le site (les notes des dalles et prédalles restent à venir)", SW.NOTE_PDF == ("poutre",), SW.NOTE_PDF)
-for k in SW.PAGES:
+chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutres, dalles — les prédalles ont rejoint les dalles), leurs "
+    "fonctions aux mêmes places ; les autres modules attendent l'avis du bureau", SW.ETABLI_COMPACT == ("poutre", "dalle"), SW.ETABLI_COMPACT)
+chk("… seule la poutre fait sa note PDF dans le site (la note des dalles reste à venir)", SW.NOTE_PDF == ("poutre",), SW.NOTE_PDF)
+for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     if k in SW.ETABLI_COMPACT:
         absents = [i for i in _ids_compact if f'id="{i}"' not in html]
@@ -195,12 +198,12 @@ for k in SW.PAGES:
 # (api_web/<cle>.bibliotheque_prefill) ; rien de tout cela dans les autres pages
 _src_biblio = open(os.path.join(WEB, "js", "biblio.js"), encoding="utf-8").read() + open(os.path.join(WEB, "js", "biblio_note.js"), encoding="utf-8").read()
 _ids_biblio = sorted(set(re.findall(r'\$\("#([\w-]+)', _src_biblio)) | set(re.findall(r'getElementById\("([\w-]+)"', _src_biblio)))
-_avec = [k for k in SW.PAGES if k in SW.ETABLI_COMPACT and SW._bibliotheque_du_module(k)]
-chk("la poutre ouvre la bibliothèque béton armé dans sa note (bibliotheque_prefill) ; les dalles et prédalles pas encore", _avec == ["poutre"], _avec)
+_avec = [k for k in ETABLIS if k in SW.ETABLI_COMPACT and SW._bibliotheque_du_module(k)]
+chk("la poutre ouvre la bibliothèque béton armé dans sa note (bibliotheque_prefill) ; les dalles pas encore", _avec == ["poutre"], _avec)
 _page_bib = open(os.path.join(WEB, "bibliotheque-beton.html"), encoding="utf-8").read()
 chk(f"bibliotheque-beton.html : les {len(_ids_biblio)} identifiants que js/biblio.js cherche existent, une seule fois (hors ceux du panneau d'une note)",
     all(_page_bib.count(f'id="{i}"') == 1 for i in _ids_biblio if i != "et-bibliotheque"), [i for i in _ids_biblio if _page_bib.count(f'id="{i}"') != 1])
-for k in SW.PAGES:
+for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     _corps = re.search(r"<body[^>]*>", html).group(0)
     if k in _avec:
@@ -239,9 +242,63 @@ chk("accueil : « Nouvelle note » ne propose pas les modules masqués, le volet
     and not any(f'href="{SW.ADRESSES[k]}"' in _accueil.split('<aside class="modpanel">')[1] for k in SW.MASQUES))
 chk("les pages des modules masqués sont toujours écrites et servies", all(os.path.exists(os.path.join(WEB, SW.PAGES[k])) for k in SW.MASQUES))
 
+# 4 quater. la FUSION des dalles et des prédalles (docs/site/DALLES_FUSION.md § 1, § 2.4) :
+# - « predalle » est absorbé par « dalle » (REDIRECTIONS) : masqué de l'accueil, encore au registre et dans js/modules.js
+#   (« masque », « vers » : la table d'alias que js/notes.js lit), sa page est une REDIRECTION vers dalle qui garde
+#   l'adresse (js/redirection.js, un script du site — jamais en ligne ; le <meta refresh> et un lien en repli), sans
+#   rien d'un tiers ;
+# - la colonne de gauche COMPACTE (ARBRE_COMPACT) : l'en-tête du panneau de dalle.html n'écrit plus « Données », celui de
+#   poutre.html toujours ; et le moteur rend bien l'arbre compact (et-arbre-c) et le nom en champ dans la tête des
+#   résultats (et-rp-c) pour ces modules-là, jamais pour les autres : le tuple du générateur et le rendu du moteur sont
+#   deux copies, liées ici.
+chk("la fusion : « predalle » est absorbé par « dalle » (REDIRECTIONS), masqué de l'accueil, toujours au registre et servi",
+    SW.REDIRECTIONS == {"predalle": "dalle"} and "predalle" in SW.MASQUES and "predalle" in SW.PAGES and "dalle" not in SW.MASQUES
+    and all(v in SW.ADRESSES and v not in SW.REDIRECTIONS for v in SW.REDIRECTIONS.values()), (SW.REDIRECTIONS, sorted(SW.MASQUES)))
+chk("js/modules.js : un module absorbé porte « vers » (le module qui sert ses notes) ; les autres non",
+    all(_js_mod[k].get("vers") == v for k, v in SW.REDIRECTIONS.items()) and not any("vers" in _js_mod[k] for k in SW.PAGES if k not in SW.REDIRECTIONS)
+    and "moduleServi" in open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read()
+    and ".vers" in open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read(), {k: _js_mod[k] for k in SW.REDIRECTIONS})
+chk("js/notes.js, js/accueil.js, js/etabli.js : la page d'une note vient de pageDe (l'alias), plus jamais de MODULES[module].page",
+    all("pageDe(" in open(os.path.join(WEB, "js", f), encoding="utf-8").read() for f in ("accueil.js", "etabli.js"))
+    and not any(re.search(r"MODULES\[[^\]]+\]\.page", open(os.path.join(WEB, "js", f), encoding="utf-8").read()) for f in ("accueil.js", "etabli.js", "rangement.js")))
+for k, vers in SW.REDIRECTIONS.items():
+    _red = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
+    _corps_red = re.search(r"<body[^>]*>", _red).group(0)
+    chk(f"{SW.PAGES[k]} : une redirection vers « {SW.ADRESSES[vers]} » — body data-vers, js/redirection.js (location.replace + la requête), "
+        "<meta refresh> et un lien en repli, rien d'un tiers, aucun script en ligne, pas d'établi",
+        f'data-vers="{SW.ADRESSES[vers]}"' in _corps_red and 'data-page="redirection"' in _corps_red and '<script src="js/redirection.js"></script>' in _red
+        and f'<meta http-equiv="refresh" content="1; url={SW.ADRESSES[vers]}">' in _red and f'<a href="{SW.ADRESSES[vers]}">' in _red
+        and "http" not in _red.replace("http-equiv", "") and 'id="donnees"' not in _red and 'id="demarrage"' in _red
+        and not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", _red), _red[:300])
+_redir_js = open(os.path.join(WEB, "js", "redirection.js"), encoding="utf-8").read()
+_redir_code = re.sub(r"//[^\n]*", "", _redir_js)   # le code seul : les commentaires nomment les modules, pas le code
+chk("js/redirection.js : location.replace(vers + la requête + l'ancre), lu dans body data-vers ; aucune adresse écrite en dur dans le code",
+    "location.replace(vers + location.search + location.hash)" in _redir_code and "dataset.vers" in _redir_code
+    and not any(k in _redir_code or v in _redir_code for k, v in SW.REDIRECTIONS.items()), _redir_code)
+chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles, un sous-ensemble de l'établi compact", SW.ARBRE_COMPACT == ("dalle",)
+    and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
+for k in SW.ETABLI_COMPACT:
+    html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
+    gauche = html[html.index('<section class="panel left">'):html.index('<section class="panel right">')]
+    chk(f"{SW.PAGES[k]} : l'en-tête du panneau des données {'ne porte plus le titre « Données » (colonne compacte)' if k in SW.ARBRE_COMPACT else 'porte le titre « Données »'}, "
+        "Annuler et Rétablir en place",
+        ('<span class="h3">Données</span>' in gauche) == (k not in SW.ARBRE_COMPACT) and "Données" not in gauche.split('id="donnees"')[0].replace('title="Replier les données"', "")
+        .replace('<span class="h3">Données</span>', "") and 'data-historique="annuler"' in gauche, gauche[:200])
+sys.path.insert(0, RACINE)
+from api_web import routeur as _RT  # noqa: E402
+
+for k in SW.ETABLI_COMPACT:
+    _out = json.loads(_RT.traiter(json.dumps({"module": k, "action": "nouveau"})))
+    _compact = k in SW.ARBRE_COMPACT
+    chk(f"{k} : le moteur rend {'l arbre compact (et-arbre-c) et le nom en champ dans la tête des résultats (et-rp-c)' if _compact else 'l arbre d avant (en-tête de liste, ligne d élément) et la tête des résultats sans champ'}"
+        " — comme ARBRE_COMPACT le dit",
+        _out.get("ok") and ('class="et-arbre et-arbre-c' in _out["donnees"]) == _compact and ('class="et-arbre-h"' in _out["donnees"]) == (not _compact)
+        and ('class="et-rp et-rp-c"' in _out["resultat"]) == _compact and ('<input data-chemin="nom"' in _out["resultat"]) == _compact
+        and ('<input data-chemin="nom"' in _out["donnees"]) == (not _compact), _out.get("erreur"))
+
 # 5 bis. les trois formats : ce que le téléphone et la tablette trouvent dans chaque page (la disposition est dans
 # css/site.css et se vérifie dans le vrai navigateur : verifier_site.js, filtre « formats »)
-for k in SW.PAGES:
+for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     onglets = re.findall(r'data-onglet="(\w+)"', html)
     manque = [x for x in ('class="mtop"', 'class="mtabs"', 'class="mbar"', 'id="mmenu"', 'id="menu-m"', 'id="nom-note-m"', 'id="chip-m"',
@@ -258,7 +315,7 @@ for k in SW.PAGES:
 # sur la 2ᵉ ligne de l'en-tête du téléphone, et le message d'échec qui offre « Exporter .stab », dans chaque établi
 IND, ALERTE, REVOIR = SW.enregistrement(), SW.alerte_enregistrement(), SW.menu_enregistrement()
 fautes = []
-for k in SW.PAGES:
+for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     haut = html[html.index('<header class="top"'):html.index("</header>")]
     tel = html[html.index('<header class="mtop"'):html.index('<div class="mmenu"')]

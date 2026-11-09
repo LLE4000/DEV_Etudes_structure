@@ -79,8 +79,12 @@ MOTIFS = {"hauteur_insuffisante": "hauteur insuffisante", "d_utile_negatif": "d 
 LIB_FAMILLES = {"treillis": "Treillis", "barres": "Barres"}
 
 
-class _Refus(ValueError):
-    """Une saisie refusée : son message est montré tel quel."""
+class Refus(ValueError):
+    """Une saisie refusée : son message est montré tel quel. (Le module fusionné api_web/dalle.py, qui réemploie ce
+    fichier comme AIDE du type prédalle, l'attrape sous ce nom.)"""
+
+
+_Refus = Refus
 
 
 # ------------------------------------------------------------------ l'état de la note : des prédalles
@@ -196,7 +200,7 @@ SOLLICITATIONS = {"Mx_inf": "M<sub>x,inf</sub>", "Mx_sup": "M<sub>x,sup</sub>", 
 NOTE_ENTIERE = ("gamma_s", "jeu_premier_lit")
 
 
-def _saisi(x: float) -> str:
+def saisi(x: float) -> str:
     """Un nombre SAISI, rappelé dans un message de refus : exact s'il est raisonnable, en puissance de dix sinon (un
     1e300 tapé ne s'écrit pas sur trois cents chiffres)."""
     if abs(x) < 1e7:
@@ -206,6 +210,9 @@ def _saisi(x: float) -> str:
     m, e = f"{x:.2e}".split("e")
     exposant = str(int(e)).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
     return f"{m.replace('.', ',')} × 10{exposant}"
+
+
+_saisi = saisi
 
 
 def _nombre(cle: str, valeur):
@@ -230,8 +237,8 @@ def _nombre(cle: str, valeur):
     return x
 
 
-def _nom(valeur, quoi: str, vide_admis: bool) -> str:
-    """Un nom saisi (prédalle, section) : NOM_MAX caractères au plus ; vide refusé pour une section."""
+def nom_saisi(valeur, quoi: str, vide_admis: bool) -> str:
+    """Un nom saisi (prédalle, dalle, section) : NOM_MAX caractères au plus ; vide refusé pour une section."""
     t = str(valeur)
     if not vide_admis and not t.strip():
         raise _Refus(f"Nom {quoi} vide")
@@ -241,7 +248,10 @@ def _nom(valeur, quoi: str, vide_admis: bool) -> str:
     return t
 
 
-def _bornes_site(p: Dict) -> None:
+_nom = nom_saisi
+
+
+def bornes_site(p: Dict) -> None:
     """Les bornes propres au site (voir SOLLICITATION_MAX) sur une prédalle relue (fichier .stab, fichier Streamlit) :
     ValueError claire."""
     if p["jeu_premier_lit"] > EN.H_MAX:
@@ -260,7 +270,10 @@ def _bornes_site(p: Dict) -> None:
                 raise ValueError(f"section « {s['nom']} », nappe {f} : axe ou centre de gravité au-delà de {EN.H_MAX} cm")
 
 
-def _peau(p: Dict, valeur) -> float:
+_bornes_site = bornes_site
+
+
+def peau(p: Dict, valeur) -> float:
     """L'épaisseur de la prédalle : de 3 cm à min(15 ; h − 1) cm. L'écran Streamlit ramenait une valeur hors de ces
     bornes sans le dire ; le site la refuse."""
     x = C.lire_nombre(valeur)
@@ -274,13 +287,30 @@ def _peau(p: Dict, valeur) -> float:
     return x
 
 
-def _axe_auto(p: Dict, c: Dict, j: int, f: str) -> float:
+_peau = peau
+
+
+def epaisseur_totale(p: Dict, valeur) -> int:
+    """L'épaisseur totale d'une prédalle : dans les bornes de l'écran, et telle qu'elle contienne encore la peau (au
+    moins COULE_MIN coulé en place) — sinon refusée : l'écran ramenait la peau sans le dire."""
+    h = _nombre("h", valeur)
+    if p["h_pre"] > EN.h_pre_max(h):
+        raise _Refus(f"Épaisseur totale : la prédalle de {C.nb(p['h_pre'])} cm demande au moins "
+                     f"{C.nb(p['h_pre'] + EN.COULE_MIN)} cm (un centimètre coulé en place) ; réduire d'abord la prédalle. "
+                     "L'écran Streamlit ramenait la prédalle sans le dire.")
+    return h
+
+
+def axe_auto(p: Dict, c: Dict, j: int, f: str) -> float:
     return MO.distance_auto(c, j, f, p["dir_principale"], p["enrobage"], p["jeu_premier_lit"], p["h_pre"])
 
 
-def _yG_calcule(p: Dict, f: str, face: Dict) -> float:
-    axes = [c["dist"] if c["dist"] is not None else _axe_auto(p, c, j, f) for j, c in enumerate(face["couches"])]
+def yG_calcule(p: Dict, f: str, face: Dict) -> float:
+    axes = [c["dist"] if c["dist"] is not None else axe_auto(p, c, j, f) for j, c in enumerate(face["couches"])]
     return FI.yG_calcule(face["couches"], axes, p["b"])
+
+
+_axe_auto, _yG_calcule = axe_auto, yG_calcule
 
 
 def _auto_ou_impose(cle: str, valeur, actuel, auto: float):
@@ -314,12 +344,7 @@ def _ecrire(p: Dict, chemin: List, valeur) -> None:
                 raise _Refus(f"Direction principale : X ou Y, pas « {valeur} »")
             p["dir_principale"] = str(valeur).upper()
         elif k == "h":
-            h = _nombre("h", valeur)
-            if p["h_pre"] > EN.h_pre_max(h):
-                raise _Refus(f"Épaisseur totale : la prédalle de {C.nb(p['h_pre'])} cm demande au moins "
-                             f"{C.nb(p['h_pre'] + EN.COULE_MIN)} cm (un centimètre coulé en place) ; réduire d'abord la prédalle. "
-                             "L'écran Streamlit ramenait la prédalle sans le dire.")
-            p["h"] = h
+            p["h"] = epaisseur_totale(p, valeur)
         elif k == "h_pre":
             p["h_pre"] = _peau(p, valeur)
         elif k in ("b", "enrobage"):
@@ -497,15 +522,22 @@ def _picto_pose(pose: str) -> str:
     return f'<svg class="pd-m pd-{pose}" viewBox="0 0 18 12" aria-hidden="true">{PICTOS_POSE[pose]}</svg>'
 
 
-def _pose(c: Dict, geo_c: Dict) -> str:
+def pose_couche(c: Dict, geo_c: Dict) -> str:
     """OÙ la règle de la prédalle pose une couche (dans la prédalle, sur la prédalle, depuis le dessus), et l'axe
-    automatique qu'elle en tire — ou, l'axe saisi, ce que l'automatique serait : la ligne du détail de la couche."""
+    automatique qu'elle en tire — ou, l'axe saisi, ce que l'automatique serait : la ligne du détail de la couche. Une
+    base secondaire EMPILÉE par le site (module fusionné, § 4.1 : faces supérieures) le dit."""
     pose = geo_c["pose"]
-    if c["dist"] is None:
+    if geo_c.get("empilee"):
+        # (une base supérieure secondaire que le site a posée sur la principale : « depuis le dessus (c + ½ Ø + j) » mentirait)
+        txt = "axe auto · posée sur la base principale (e<sub>p</sub> + ½ Ø<sub>p</sub> + ½ Ø<sub>s</sub>)"
+    elif c["dist"] is None:
         txt = f"axe auto · {POSES_TXT[pose]} ({REGLES_TXT[pose]})"
     else:
         txt = f"axe saisi · l'automatique serait {C.nb(geo_c['e_auto'])} cm, {POSES_TXT[pose]}"
     return f'<div class="pd-pose" title="{C.esc(POSES_AIDE[pose])}">{_picto_pose(pose)}<span>{txt}</span></div>'
+
+
+_pose = pose_couche
 
 
 def _lecture(label: str, valeur: str, sym: str = "") -> str:
@@ -739,7 +771,12 @@ def _formule(f: Dict) -> Dict:
     k = f["cle"]
     if k == "e":
         s_ = f"e_{f['couche'] + 1}"
-        if "saisi" in t:
+        if f.get("empilee") and "e_p" in t:
+            # une base secondaire posée par le SITE sur la base principale (module fusionné, § 4.1 ; les termes e_p, demi_p,
+            # demi_s sont posés par dalle_positions.annoter) : le moteur a reçu l'axe imposé, la formule dit d'où il vient
+            parts = [s_, "e_p + ⌈Ø_p/2⌉ + ⌈Ø_s/2⌉", f"{_v(t['e_p'])} + {_v(t['demi_p'])} + {_v(t['demi_s'])}"]
+            r += " · posée sur la base principale"
+        elif "saisi" in t:
             parts = [s_, "axe saisi"]
             r += " · saisi"
         elif f["pose"] == "sur_predalle":
@@ -861,7 +898,7 @@ def _optimaux(p: Dict, r: Dict) -> Dict:
     return out
 
 
-def _avertissements(r: Dict, i: Optional[int] = None) -> str:
+def avertissements(r: Dict, i: Optional[int] = None) -> str:
     """Les avertissements du moteur : ceux de la section ``i`` (posés dans son bloc), ou, sans ``i``, ceux de la
     prédalle entière ; les bases X et Y d'une même face calculées trop près l'une de l'autre sont dites en une phrase."""
     out = ""
@@ -888,6 +925,8 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
     return out
 
 
+_avertissements = avertissements
+
 # Ce que le module VÉRIFIE, et ce qu'il ne vérifie pas (l'écran Streamlit non plus) : dit sous chaque résultat et dans
 # chaque fenêtre de calcul, pour qu'un « conforme » ne se lise pas plus large qu'il n'est.
 PERIMETRE = ("Vérifié : la section finale (prédalle et béton coulé en place ensemble), en flexion (hauteur, quatre nappes) "
@@ -895,7 +934,7 @@ PERIMETRE = ("Vérifié : la section finale (prédalle et béton coulé en place
              "étaiement, levage), le cisaillement à l'interface prédalle / béton coulé en place, la flèche et la fissuration.")
 
 
-def _hypotheses(p: Dict, m: Dict) -> List[str]:
+def hypotheses(p: Dict, m: Dict) -> List[str]:
     return [f"Béton <b>{C.esc(m['beton'])}</b> · f<sub>ck</sub> = {C.nb(m['fck'])} · f<sub>ck,cube</sub> = {C.nb(m['fck_cube'])} N/mm²",
             f"f<sub>ctm</sub> = 0,30·f<sub>ck</sub><sup>2/3</sup> = {C.fr(m['fctm'], 2)} N/mm²",
             f"Acier <b>B{int(m['fyk'])}</b> · f<sub>yd</sub> = {int(m['fyk'])} / {C.nb(m['gamma_s'])} = {C.fr(m['fyd'], 1)} N/mm²",
@@ -903,6 +942,9 @@ def _hypotheses(p: Dict, m: Dict) -> List[str]:
             f"Bande b × h = {C.nb(p['b'])} × {C.nb(p['h'])} cm, dont prédalle <b>{C.nb(p['h_pre'])} cm</b> et "
             f"{C.nb(p['h'] - p['h_pre'])} cm coulés en place",
             f"Enrobage {C.nb(p['enrobage'])} cm · jeu premier lit {C.nb(p['jeu_premier_lit'])} cm (nappes supérieures)"]
+
+
+_hypotheses = hypotheses
 
 
 def _efforts_txt(s: Dict) -> str:
@@ -937,6 +979,19 @@ def resultat(etat: Dict) -> Dict:
 
 
 # ------------------------------------------------------------------ le sélecteur de la nappe de base
+def description_candidat(c: Dict, axe: str = "") -> str:
+    """La ligne de détail d'un candidat du sélecteur : ses fils ou ses barres, sa section au mètre, son axe (``axe``,
+    un texte — vide quand le module ne le dit pas), la section et le centre de gravité de la face qu'il donne."""
+    if c["type"] == "treillis":
+        t = TR.fils(c["treillis"])
+        q = f"treillis soudé · porteurs Ø{t[0]} tous les {t[2]} mm · répartition Ø{t[1]} tous les {t[3]} mm"
+    else:
+        q = f"barres Ø{c['d']} tous les {c['esp']} mm"
+    milieu = f" · {axe}" if axe else ""
+    return (f"{q} · {C.fr(c['As_pm'], 0)} mm²/m{milieu} · face : A<sub>s</sub> = {C.fr(c['As'], 0)} mm², "
+            f"y<sub>G</sub> = {C.fr(c['yG'], 2)} cm")
+
+
 def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     """Les nappes de base possibles d'une face (treillis de la base, barres Ø8 à Ø25 de 100 à 250 mm), triées par section
     au mètre, calculées par le moteur avec l'axe que la règle de la prédalle leur donne : la retenue (✓), la plus petite
@@ -952,14 +1007,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
     pose = POSES_TXT[MO.pose(face, 0, p["dir_principale"])]
 
     def prop(c):
-        if c["type"] == "treillis":
-            t = TR.fils(c["treillis"])
-            q = f"treillis soudé · porteurs Ø{t[0]} tous les {t[2]} mm · répartition Ø{t[1]} tous les {t[3]} mm"
-        else:
-            q = f"barres Ø{c['d']} tous les {c['esp']} mm"
-        axe = f"axe {C.fr(c['e'], 1)} cm" + ("" if base["dist"] is not None else f" ({pose})")
-        return (f"{q} · {C.fr(c['As_pm'], 0)} mm²/m · {axe} · face : A<sub>s</sub> = {C.fr(c['As'], 0)} mm², "
-                f"y<sub>G</sub> = {C.fr(c['yG'], 2)} cm")
+        return description_candidat(c, f"axe {C.fr(c['e'], 1)} cm" + ("" if base["dist"] is not None else f" ({pose})"))
     rows = [{"nom": c["nom"], "col": C.fr(c["As_pm"], 0), "taux": C.pct(min(c["taux"], 9.99)),
              "niveau": "r" if c["etat"] == MO.NOK else C.niveau(c["taux"]), "cur": c["retenue"], "opt": c["optimal"],
              "prop": prop(c)} for c in cands]
