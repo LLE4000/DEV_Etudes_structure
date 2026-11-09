@@ -12,7 +12,7 @@
   secondaire posée sur un renfort principal plus haut que sa base, S5 : le calcul, la planche, la coupe de l'écran et le
   PDF lu par pdftotext disent le même axe, le même d, le même A_s,req — une mutation le garde) ; la coupe dessine
   chaque couche à l'axe du calcul ; le verdict d'une nappe non conforme sous 100 % (acier excessif, d ≤ 0) dit pourquoi ;
-  l'état « Données incomplètes » ; les observations de l'écran (avertissements, périmètre de la prédalle) ;
+  l'état « Données incomplètes » ; les observations de l'écran (avertissements, périmètre de la prédalle et de la dalle CSP) ;
 - la traduction est l'inverse de la lecture d'un fichier Streamlit (beton/dalle/fichier.lire) : l'aller-retour garde
   chaque grandeur ;
 - le PDF sort (garde + une planche par section, tous types), pdftotext y lit les noms et les chiffres ; le routeur le
@@ -407,15 +407,23 @@ for nom, attendus in OBS.items():
     faux += [(nom, a, obs[:120]) for a in attendus if a not in obs]
     if "<" in obs or "&" in obs:
         faux.append((nom, "balisage", obs[:120]))
-sans = [n for n in CAS if n not in OBS and not n.startswith(("Prédalle", "deux dalles")) and N.observations_de(planche(n)[0])]
+# (petits chantiers, 10/11/2026) une dalle CSP dit AUSSI ce qui n'est pas vérifié (flèche, fissuration) — son périmètre,
+# sur sa première planche — : une dalle CSP sans avertissement n'a QUE lui
+_csp = N._texte(P.PERIMETRE_CSP)
+sans = [n for n in CAS if n not in OBS and not n.startswith(("Prédalle", "deux dalles")) and N.observations_de(planche(n)[0]) != [_csp]]
 chk("les observations de la planche sont celles que l'écran affiche sous la section (avertissements, périmètre de la "
-    "prédalle), en texte ; une dalle CSP sans avertissement n'en a pas", not faux and not sans, (faux[:2], sans[:3]))
+    "prédalle ou de la dalle CSP), en texte ; une dalle CSP sans avertissement n'a que son périmètre (flèche, fissuration non vérifiées)",
+    not faux and not sans, (faux[:2], sans[:3]))
 # le périmètre : une source pour l'écran et la note (api_web/dalle.texte_perimetre)
 r_p = P.resultat(copy.deepcopy(CAS["Prédalle · neuve sollicitée"]))
-chk("le périmètre de la prédalle est le texte de l'écran (api_web/dalle.texte_perimetre, une source pour les deux)",
+_d_csp = CAS["CSP · M_y,inf = 28 (treillis par défaut)"]
+r_c = P.resultat(copy.deepcopy(_d_csp))
+chk("le périmètre de la prédalle, et celui de la dalle CSP (flèche, fissuration non vérifiées), sont le texte de l'écran "
+    "(api_web/dalle.texte_perimetre, une source pour les deux) — dans le résultat et sur la première planche de la note",
     P.texte_perimetre(CAS["Prédalle · neuve sollicitée"]["dalles"][0]) in r_p["resultat"]
     and N._texte(P.texte_perimetre(CAS["Prédalle · neuve sollicitée"]["dalles"][0])) in N.observations_de(planche("Prédalle · neuve sollicitée")[0])
-    and P.texte_perimetre(CAS["CSP · M_y,inf = 28 (treillis par défaut)"]["dalles"][0]) == "", "")
+    and P.texte_perimetre(_d_csp["dalles"][0]) == P.PERIMETRE_CSP and "la flèche et la fissuration" in P.PERIMETRE_CSP
+    and P.PERIMETRE_CSP in r_c["resultat"] and _csp in N.observations_de(planche("CSP · M_y,inf = 28 (treillis par défaut)")[0]), "")
 
 
 # ---------------------------------------------------------------- 5. le DOCUMENT : chaque planche tient, en deux colonnes

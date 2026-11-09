@@ -145,8 +145,9 @@ def _messages(fragment: str) -> List[str]:
 def observations(d: Dict, r: Dict, i: int) -> List[str]:
     """Ce que l'écran affiche sous la section ``i`` en plus des vérifications : ses avertissements (ceux du type :
     api_web/dalle._avertissements_de) ; sur la première planche de la dalle, ceux de la dalle entière (sans section)
-    puis le périmètre de la prédalle (ce qui n'est pas vérifié) — l'écran le dit une fois, sous le résultat de la
-    dalle. Les textes de l'écran, sans balisage."""
+    puis le périmètre du type (ce qui n'est pas vérifié : la prédalle, et depuis le 10/11/2026 la dalle coulée en place,
+    api_web/dalle.texte_perimetre) — l'écran le dit une fois, sous le résultat de la dalle. Les textes de l'écran, sans
+    balisage."""
     from . import dalle as DL
     out = _messages(DL._avertissements_de(d, r, i))
     if i == 0:                           # ce qui vaut pour toute la dalle : une fois, sur sa première planche

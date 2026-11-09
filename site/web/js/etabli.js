@@ -131,10 +131,11 @@ const SUITE = {
   indisponible: "Cette note n'est gardée nulle part : exportez-la en fichier .stab pour ne pas la perdre.",
 };
 // sorte : « echec » (avec « Exporter .stab »), « info », « absente » (une note demandée qui n'est pas dans ce navigateur :
-// avec « Importer .stab »)
-function direAlerte(sorte, texte) {
+// avec « Importer .stab ») ; ``html`` : le texte est un fragment du MOTEUR (un avis d'ouverture, ses indices <sub>), posé
+// comme ses autres fragments
+function direAlerte(sorte, texte, html = false) {
   alerte.classList.toggle("et-info", sorte !== "echec");
-  alerte.querySelector(".et-alerte-txt").textContent = texte;
+  alerte.querySelector(".et-alerte-txt")[html ? "innerHTML" : "textContent"] = texte;
   alerte.querySelector(".et-alerte-stab").hidden = sorte !== "echec";
   alerte.querySelector(".et-alerte-importer").hidden = sorte !== "absente";
   alerte.hidden = false;
@@ -299,6 +300,13 @@ function appliquer(r, action, date = false) {
   $("#resultat").innerHTML = r.resultat;
   if (defR && $("#resultat .pbody")) $("#resultat .pbody").scrollTop = defR;
   reprendreSaisie($("#resultat"), saisieR);
+  // l'AVIS d'ouverture d'un module (une note d'avant dont les chiffres changent, un nom coupé : « avis », dit une fois, en
+  // tête de son résultat) : là où le résultat ne se VOIT pas — le téléphone s'ouvre sur l'onglet Données —, le même texte
+  // dans le message de la page (#et-alerte, un composant des trois formats), qui reste jusqu'à ce qu'on le ferme (un
+  // échec d'enregistrement déjà dit garde la place)
+  if (Array.isArray(r.avis) && r.avis.length && !$("#resultat").checkVisibility() && (alerte.hidden || alerte.classList.contains("et-info"))) {
+    direAlerte("info", r.avis.join(" "), true);
+  }
   const ouvert = $(".flyout.on.calcul");
   $("#volets").innerHTML = r.volets || "";
   if (ouvert) ouvrir(ouvert.id, $(`#resultat [data-calcul="${ouvert.id.slice(3)}"]`), true);

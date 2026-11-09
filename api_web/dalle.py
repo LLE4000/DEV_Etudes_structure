@@ -92,6 +92,12 @@ AVIS = {
                   "sur la principale), l'écran Streamlit les posait au même niveau ; A<sub>s,req</sub> peut différer du "
                   "sien."),
 }
+# Les NOMS trop longs d'une note relue (un .stab, une note d'une version d'avant, un fichier Streamlit) : un nom de dalle
+# ou de section de plus de AP.NOM_MAX caractères faisait REFUSER toute la note (la borne du site, ``_bornes_site``) — la
+# note ne s'ouvrait plus. Il est désormais COUPÉ à la limite, et l'avis le dit une fois, à l'ouverture (comme CLE_AVIS :
+# ``normaliser`` ou la reprise d'un fichier Streamlit posent la liste sous CLE_NOMS, ``resultat`` la dit et la retire).
+# La SAISIE garde son refus clair (AP.nom_saisi) : un nom ne s'allonge jamais au-delà à l'écran.
+CLE_NOMS = "noms_coupes"
 
 # des requêtes de plus pour le parcours (api_web/parcours.py) : les champs que le parcours automatique n'essaie pas —
 # pour les deux types (une note de prédalle, prête, pour les chemins propres à la peau)
@@ -202,6 +208,30 @@ def _bool_relu(x, quoi: str, rang: int) -> bool:
     return x
 
 
+def _couper_noms(d: Dict) -> List[str]:
+    """Coupe à AP.NOM_MAX caractères le nom d'une dalle relue et ceux de ses sections ; rend ce qui a été coupé, en mots
+    (HTML échappé) — une liste vide si rien ne l'est."""
+    coupes = []
+    if isinstance(d.get("nom"), str) and len(d["nom"]) > AP.NOM_MAX:
+        n = len(d["nom"])
+        d["nom"] = d["nom"][:AP.NOM_MAX].rstrip()
+        coupes.append(f"la dalle « {C.esc(d['nom'])}… » ({n} caractères)")
+    for s in d.get("sections", []):
+        if isinstance(s.get("nom"), str) and len(s["nom"]) > AP.NOM_MAX:
+            n = len(s["nom"])
+            s["nom"] = s["nom"][:AP.NOM_MAX].rstrip()
+            coupes.append(f"la section « {C.esc(s['nom'])}… » de « {C.esc(d.get('nom') or 'Dalle')} » ({n} caractères)")
+    return coupes
+
+
+def avis_noms(coupes: Sequence[str]) -> str:
+    """L'avis des noms coupés à la relecture (CLE_NOMS), ou « » s'il n'y en a pas."""
+    if not coupes:
+        return ""
+    return (f"Nom de plus de {AP.NOM_MAX} caractères, coupé à {AP.NOM_MAX} à l'ouverture (la limite du site ; une saisie plus "
+            f"longue est refusée) : " + " ; ".join(coupes) + ".")
+
+
 def normaliser(etat: Dict) -> Dict:
     """L'état reçu de l'écran relu par le moteur de chaque dalle ; une dalle illisible (fichier abîmé) lève une erreur
     claire. Trois formes sont relues (§ 2.1) : ``{"dalles": […]}`` d'aujourd'hui (une dalle sans « type » est coulée en
@@ -210,7 +240,8 @@ def normaliser(etat: Dict) -> Dict:
     est une note neuve ; une liste qui n'en est pas une est une note abîmée (refusée, jamais remplacée en silence par
     une note neuve). Les nappes sont posées l'une sur l'autre quelle que soit la note : la clé « empilement » d'avant
     (CLES_ANCIENNES) est relue sans effet, quelle que soit sa valeur. Une note D'AVANT (version < VERSION) dont les
-    chiffres en changent (``chiffres_changes``) reçoit l'avis d'ouverture (CLE_AVIS, que ``resultat`` dit et retire)."""
+    chiffres en changent (``chiffres_changes``) reçoit l'avis d'ouverture (CLE_AVIS, que ``resultat`` dit et retire). Un nom
+    de plus de AP.NOM_MAX caractères est coupé à la limite (``_couper_noms``) et l'avis le dit (CLE_NOMS) : la note s'ouvre."""
     if not isinstance(etat, dict):
         return nouvel_etat()
     if "dalles" in etat and "predalles" in etat:
@@ -225,6 +256,7 @@ def normaliser(etat: Dict) -> Dict:
     d_avant = not (isinstance(version, int) and not isinstance(version, bool) and version >= VERSION)
     out = {"version": VERSION, "dalles": []}
     avis = False
+    coupes = []
     for i, d in enumerate(liste):
         if not isinstance(d, dict):
             raise ValueError(f"dalle n° {i + 1} illisible")
@@ -236,6 +268,7 @@ def normaliser(etat: Dict) -> Dict:
             raise ValueError(f"dalle n° {i + 1} : type « coulee » ou « predalle » attendu (reçu {t!r})")
         try:
             dd = _site(_sans_site(d), v, t)
+            coupes += _couper_noms(dd)
             _bornes_site(dd)
             for s in dd["sections"]:          # un nom vide (possible dans un .stab, pas à l'écran) : la première lettre libre
                 if not s["nom"].strip():
@@ -249,6 +282,8 @@ def normaliser(etat: Dict) -> Dict:
     out["actif"] = min(max(0, a), len(out["dalles"]) - 1)
     if avis:
         out[CLE_AVIS] = "note"
+    if coupes:
+        out[CLE_NOMS] = coupes
     return out
 
 
@@ -565,6 +600,7 @@ def _ouvrir_streamlit(etat: Dict, valeur) -> Optional[str]:
     try:
         lu = (FI_P if predalle else FI).lire(charge)
         ds = [_site(x, False, type_) for x in lu[cle]]
+        coupes = [c for x in ds for c in _couper_noms(x)]
         for x in ds:
             _bornes_site(x)
     except (ValueError, TypeError, AttributeError, KeyError) as e:
@@ -573,6 +609,8 @@ def _ouvrir_streamlit(etat: Dict, valeur) -> Optional[str]:
     etat["actif"] = 0
     if any(chiffres_changes(x) for x in ds):
         etat[CLE_AVIS] = "streamlit"
+    if coupes:
+        etat[CLE_NOMS] = coupes
     if lu["remarques"]:
         r = lu["remarques"]
         return (f"« {nom} » repris ({len(ds)} {'prédalle' if predalle else 'dalle'}(s)). L'écran Streamlit y remplaçait en "
@@ -1045,11 +1083,19 @@ def _avertissements(r: Dict, i: Optional[int] = None) -> str:
     return out
 
 
+# Ce que le calcul d'une dalle COULÉE EN PLACE vérifie et ne vérifie pas (petits chantiers, 10/11/2026 : la dalle CSP
+# le dit comme la prédalle — même composant, même place ; le moteur beton/dalle : hauteur, les quatre nappes avec leurs
+# minimum et maximum, τ ≤ τ_adm,I sans étriers ; ni flèche ni fissuration, pas plus que l'écran Streamlit)
+PERIMETRE_CSP = ("Vérifié : la section en flexion (hauteur, quatre nappes : A<sub>s,req</sub>, minimum et maximum) et "
+                 "τ ≤ τ<sub>adm,I</sub> (une dalle sans étriers). Non vérifiées, comme dans l'écran Streamlit : la flèche et "
+                 "la fissuration.")
+
+
 def texte_perimetre(d: Dict) -> str:
     """Ce que le calcul de la dalle vérifie et ne vérifie PAS, tel que l'écran le dit sous le résultat (et la note PDF
-    dans ses observations, api_web/note_dalle.py) : celui de la prédalle (api_web/predalle.PERIMETRE) ; rien pour une
-    dalle coulée en place — une source pour les deux."""
-    return AP.PERIMETRE if est_predalle(d) else ""
+    dans ses observations, api_web/note_dalle.py) : celui de la prédalle (api_web/predalle.PERIMETRE), celui de la dalle
+    coulée en place (PERIMETRE_CSP) — une source pour les deux."""
+    return AP.PERIMETRE if est_predalle(d) else PERIMETRE_CSP
 
 
 def _hypotheses(d: Dict, m: Dict) -> List[str]:
@@ -1072,8 +1118,10 @@ def resultat(etat: Dict) -> Dict:
     ce module-ci, ou l'aide prédalle), les avertissements, le périmètre d'une prédalle, les vues (dessin_dalle ou
     dessin_predalle), et le résumé de la note. L'avis d'ouverture (CLE_AVIS : une note d'avant, un fichier Streamlit dont
     les chiffres changent avec les nappes posées l'une sur l'autre) est dit en tête du résultat, une fois : il est RETIRÉ
-    de ``etat`` (la note rendue ne le porte pas)."""
-    avis = AVIS.get(etat.pop(CLE_AVIS, None), "")
+    de ``etat`` (la note rendue ne le porte pas) ; de même l'avis des noms coupés à la relecture (CLE_NOMS). Les avis
+    partent aussi dans « avis » (la liste) : js/etabli.js les dit dans le message de la page là où le résultat ne se voit
+    pas à l'ouverture (le téléphone s'ouvre sur l'onglet Données)."""
+    avis = [a for a in (AVIS.get(etat.pop(CLE_AVIS, None), ""), avis_noms(etat.pop(CLE_NOMS, None) or [])) if a]
     d = _actif(etat)
     r = _calculer(d)
     resultats = [r if i == etat["actif"] else _calculer(q) for i, q in enumerate(etat["dalles"])]
@@ -1096,9 +1144,9 @@ def resultat(etat: Dict) -> Dict:
     nivs = [PC.niveau_element(_MO(q), _M(q), x) for q, x in zip(etat["dalles"], resultats)]
     statut = C.statut(next((n for n in ("r", "n") if n in nivs), max(nivs, key=lambda n: {"p": 0, "f": 1}.get(n, 0)))) if len(resultats) > 1 else ""
     element = r["predalle"] if predalle else r["dalle"]
-    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}{C.message(avis) if avis else ""}'
+    return {"resultat": f'<div class="pbody">{E.tete_resultats(C.esc(nom), dims)}{"".join(C.message(a) for a in avis)}'
                         f'<div class="et-blocs">{blocs}</div>{_avertissements_de(d, r)}{perimetre}</div>{pied}',
-            "volets": volets, "vues": PC.vues(r["sections"], element, DP if predalle else DD, "pd" if predalle else "dl", dims, _legendes(d)),
+            **({"avis": avis} if avis else {}), "volets": volets, "vues": PC.vues(r["sections"], element, DP if predalle else DD, "pd" if predalle else "dl", dims, _legendes(d)),
             "phrase": "", "statut_html": statut,
             "resume": resume_note(etat, resultats), "donnees": arbre(etat, r), "elements": elements(etat, resultats)}
 
@@ -1107,11 +1155,11 @@ def resultat(etat: Dict) -> Dict:
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
     """« note_pdf » : la note de calcul PDF de TOUTE la note (chaque dalle, chaque section, les deux types), faite par le
     générateur validé de l'écran Streamlit sur les axes du site (api_web/note_dalle.py) ; ``infos`` : le nom, le
-    chantier, l'indice et la date de la note (la page de garde). L'avis d'ouverture (CLE_AVIS) n'y entre pas."""
+    chantier, l'indice et la date de la note (la page de garde). Les avis d'ouverture (CLE_AVIS, CLE_NOMS) n'y entrent pas."""
     if quoi != "note_pdf":
         return None
     from . import note_dalle as ND
-    etat = {k: v for k, v in etat.items() if k != CLE_AVIS}
+    etat = {k: v for k, v in etat.items() if k not in (CLE_AVIS, CLE_NOMS)}
     return ND.fichier(etat, infos)
 
 

@@ -606,7 +606,7 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
   sa mutation).
 - DALLE CSP : la FLÈCHE et la FISSURATION ne sont pas vérifiées (ni à l'écran ni dans la note, comme dans Streamlit) ;
   l'écran ne le dit pas encore — le jour où `api_web/dalle.texte_perimetre` le dira pour la dalle CSP, la note le dira
-  aussi (même source). La prédalle le dit (son périmètre).
+  aussi (même source). La prédalle le dit (son périmètre). *Révision du 10/11/2026 : c'est fait — § 7.*
 - Le bouton « Note PDF » de la dalle reste grisé tant que `site/web/construire.NOTE_PDF` ne nomme pas « dalle » et que le
   paquet de la note (`paquet_note`) n'a pas `modules/export_pdf_dalle.py` et `modules/treillis.py` (intégration). La note
   est prouvée dans les conditions du navigateur par un sous-processus calqué sur `_SONDE_NOTE` (fontTools, accélérateurs
@@ -621,3 +621,19 @@ sur la direction secondaire) : le PDF était moins sûr que l'écran.*
   harnais (filtre « note_pdf ») télécharge la note au PC, à la tablette et au téléphone et y retrouve les noms des
   dalles, h_min, A_s,néc et A_s que l'écran montre (docs/site/MODULES_SITE.md § 4 quinquies, « Le branchement »).
 - Les fiches de la bibliothèque (BIB4) ne sont pas dans la note de la dalle (la dalle n'en a pas encore).
+
+## 7. Petits chantiers du 10/11/2026 (dalle)
+
+- **Nom de plus de 60 caractères** (`AP.NOM_MAX`) : à la RELECTURE (note enregistrée, `.stab`, fichier Streamlit), un nom
+  de dalle ou de section trop long faisait refuser TOUTE la note (`_bornes_site`) — elle ne s'ouvrait plus. Il est
+  désormais coupé à la limite (`dalle._couper_noms`) et l'avis le dit une fois, à l'ouverture (`CLE_NOMS`, comme
+  `CLE_AVIS` : posé par `normaliser` ou la reprise Streamlit, dit et retiré par `resultat`, jamais dans la note PDF). La
+  SAISIE garde son refus clair (`AP.nom_saisi` : « 60 caractères au plus (61 saisis) »).
+- **Dalle CSP : ce qui n'est pas vérifié** — la flèche et la fissuration (`dalle.PERIMETRE_CSP`, une source pour l'écran
+  et la note : `texte_perimetre`), dit comme la prédalle, par le même composant (`C.aide`) aux mêmes places (sous le
+  résultat, au pied de chaque fenêtre de calcul) et sur la première planche de la note PDF (`note_dalle.observations`,
+  sans toucher au générateur : la planche tient toujours en deux colonnes, 43 contrôles de `tests/test_note_dalle.py`).
+- **L'avis d'ouverture au téléphone** : les avis (note d'avant, nom coupé) partent aussi dans la réponse (`avis`, une
+  liste) ; là où le résultat ne se VOIT pas à l'ouverture — le téléphone s'ouvre sur l'onglet Données —, `js/etabli.js`
+  dit le même texte dans le message de la page (`#et-alerte`, le composant des trois formats), qui reste jusqu'à ce qu'on
+  le ferme. Au PC et à la tablette, le résultat se voit : l'avis n'y est pas répété.

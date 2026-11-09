@@ -640,6 +640,17 @@ chk("… et « ↺ » (la valeur vidée) rend l'axe automatique : la clé du mot
     raz_["etat"]["dalles"][0]["sections"][0]["faces"]["inf_x"]["couches"][0]["dist"] is None
     and re.search(RAZ.format("sections/0/faces/inf_x/couches/0/dist"), raz_["donnees"]) is None)
 
+# ce que le calcul NE vérifie PAS (petits chantiers, 10/11/2026) : la dalle CSP le dit comme la prédalle — le même composant
+# (C.aide) aux mêmes places : sous le résultat, et au pied de la fenêtre de calcul de chaque vérification
+_vp = saisir(saisir(P.nouvel_etat(), "sections/0/My_inf", "28")["etat"], "type", "predalle")
+_vc = saisir(P.nouvel_etat(), "sections/0/My_inf", "28")
+_aide_c, _aide_p = C.aide(P.PERIMETRE_CSP), C.aide(P.texte_perimetre(_vp["etat"]["dalles"][0]))
+chk("la dalle CSP dit ce qui n'est PAS vérifié (la flèche, la fissuration), comme la prédalle : le même composant à la même place — sous le "
+    "résultat (après les avertissements, avant le pied) et au pied de chaque fenêtre de calcul",
+    "la flèche et la fissuration" in P.PERIMETRE_CSP and _aide_c in _vc["resultat"] and _aide_p in _vp["resultat"]
+    and _vc["resultat"].index(_aide_c) > _vc["resultat"].index('<div class="et-blocs">') and _vc["resultat"].index(_aide_c) < _vc["resultat"].index('<div class="pfoot">')
+    and _vc["volets"].count(_aide_c) >= 1 and _vp["volets"].count(_aide_p) >= 1, (_vc["volets"].count(_aide_c), _vp["volets"].count(_aide_p)))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:240])

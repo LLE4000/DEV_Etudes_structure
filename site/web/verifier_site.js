@@ -3228,6 +3228,7 @@ const FILTRE = process.argv[4] || '';
       verif('nappes · PC : une note d\'avant (nappes au même niveau) s\'ouvre avec l\'avis « Note d\'avant le 09/11/2026 … » sous le nom, en tête du résultat — visible, un avis (pas une erreur rouge) ; enregistrée en version 3, sans la clé « empilement » ni l\'avis ; aucune case « Nappes empilées »',
         a1.vu && AVIS.test(a1.texte) && !a1.grave && a1.h >= 16 && m1 && m1.version === 3 && !m1.cle && !m1.avis && sansCase, JSON.stringify({ a1, m1, sansCase }));
       await g.screenshot({ path: path.join(OUT, 'site_nappes_avis_pc.png') });
+      verif('nappes · PC : le résultat se voit à l\'ouverture — l\'avis n\'y est pas répété dans le message de la page', !(await g.isVisible('#et-alerte')));
       await g.reload();
       await pretN(g);
       await calmeN(g);
@@ -3279,6 +3280,44 @@ const FILTRE = process.argv[4] || '';
       await t.goto(`${BASE}/dalle?note=ancienne-dalle-tel`);
       await pretN(t);
       await calmeN(t);
+      // (petits chantiers, 10/11/2026) le téléphone s'ouvre sur l'onglet Données : l'avis s'y lit DÈS L'OUVERTURE, dans le
+      // message de la page (#et-alerte, le composant des trois formats), le même texte qu'en tête du résultat — avant,
+      // seulement dans l'onglet Résultat, qu'on n'ouvre pas forcément
+      const aO = await t.evaluate(() => {
+        const al = document.getElementById('et-alerte'), r = al.getBoundingClientRect();
+        const x = document.elementFromPoint(r.left + r.width / 2, r.top + 12);
+        return { onglet: document.querySelector('.bench').dataset.tab, vu: al.checkVisibility({ visibilityProperty: true, opacityProperty: true }),
+          texte: al.querySelector('.et-alerte-txt').textContent, info: al.classList.contains('et-info'), dessus: !!x && al.contains(x),
+          dedans: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, resultat: document.getElementById('resultat').checkVisibility() };
+      });
+      await t.screenshot({ path: path.join(OUT, 'site_nappes_avis_tel_ouverture.png') });
+      verif('nappes · téléphone : à l\'ouverture (onglet Données, le résultat caché), l\'avis d\'une note d\'avant se lit dans le message de la page — visible, dans l\'écran, au-dessus de tout, un avis (pas un échec)',
+        aO.onglet === 'donnees' && !aO.resultat && aO.vu && aO.dedans && aO.dessus && aO.info && AVIS.test(aO.texte), JSON.stringify(aO));
+      await t.click('#et-alerte [data-fermer-alerte]');
+      // (petits chantiers, 10/11/2026) une note dont le nom dépasse 60 caractères : elle s'ouvre (avant : refusée tout
+      // entière), le nom coupé, et le même message le dit dès l'ouverture
+      {
+        const ctl = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+        const tl = await ctl.newPage();
+        tl.erreurs = [];
+        tl.on('pageerror', (e) => tl.erreurs.push(e.message));
+        await tl.goto(`${BASE}/index.html`);
+        const LONG = 'Dalle du plancher haut du rez-de-chaussée, travée centrale entre les files B et C';
+        await tl.evaluate((n) => { const t0 = Date.now(); localStorage.setItem('stab.notes.v1', JSON.stringify({ 'dalle-nom-long': { id: 'dalle-nom-long', module: 'dalle',
+          nom: 'Nom long', chantier: 'Réalex', dossier: '', indice: 'A', cree: t0, modifie: t0, etat: { version: 3, dalles: [{ nom: n }], actif: 0 }, resume: null, vignette: '' } })); }, LONG);
+        await tl.goto(`${BASE}/dalle?note=dalle-nom-long`);
+        await pretN(tl);
+        await calmeN(tl);
+        const nl = await tl.evaluate(() => { const al = document.getElementById('et-alerte');
+          return { echec: document.getElementById('demarrage').classList.contains('erreur'), vu: al.checkVisibility({ visibilityProperty: true, opacityProperty: true }),
+            texte: al.querySelector('.et-alerte-txt').textContent, nom: (document.querySelector('.panel.left .phead input.et-elt-nom') || {}).value || '',
+            garde: JSON.parse(localStorage.getItem('stab.notes.v1'))['dalle-nom-long'].etat.dalles[0].nom.length }; });
+        verif('nappes · téléphone : une note dont la dalle a un nom de 81 caractères S\'OUVRE (avant : refusée tout entière) — le nom coupé à 60, et le message le dit dès l\'ouverture',
+          !nl.echec && nl.vu && /coupé à 60/.test(nl.texte) && /\(81 caractères\)/.test(nl.texte) && nl.nom === LONG.slice(0, 60).trimEnd() && nl.garde <= 60, JSON.stringify(nl));
+        await tl.screenshot({ path: path.join(OUT, 'site_dalle_nom_long_tel.png') });
+        verif('nappes · téléphone : la note au nom long, aucune erreur JavaScript', !tl.erreurs.length, tl.erreurs.join(' | ').slice(0, 300));
+        await ctl.close();
+      }
       await t.tap('.mtabs [data-onglet="resultat"]');
       await t.waitForTimeout(250);
       const aT = await lireAvis(t);

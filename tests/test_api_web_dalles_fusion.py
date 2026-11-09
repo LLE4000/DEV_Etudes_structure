@@ -667,6 +667,51 @@ muter("une prédalle dit ses bases supérieures confondues avec la phrase d'avan
       "Saisir son axe ») — la relecture du 09/11/2026 retirée", P, "_avertissements_de",
       lambda d, r, i=None: AP.avertissements(r, i) if P.est_predalle(d) else P._avertissements(r, i), ctl_confondues)
 
+# ------------------------------------------------------------------ les NOMS trop longs d'une note relue (petits chantiers, 10/11/2026)
+# Avant : un nom de dalle ou de section de plus de AP.NOM_MAX (60) caractères faisait REFUSER toute l'ancienne note
+# (``_bornes_site``) — elle ne s'ouvrait plus. Désormais, à la relecture (note enregistrée, .stab, fichier Streamlit), le
+# nom est COUPÉ à la limite et un avis le dit une fois, à l'ouverture ; la SAISIE garde son refus clair.
+print("\n=== 10. Les noms de plus de 60 caractères d'une note relue : coupés, et l'avis le dit ===")
+LONG_D, LONG_S = "Dalle du plancher haut du rez-de-chaussée, travée centrale entre les files B et C", "S" * 64
+n_long = {"version": 3, "dalles": [dict(sans_site(d0), type="coulee", verrou=False, nom=LONG_D,
+                                        sections=[dict(copy.deepcopy(sans_site(d0)["sections"][0]), nom=LONG_S)])], "actif": 0}
+r_long = req(action="calculer", etat=n_long)
+d_long = actif(r_long["etat"]) if r_long.get("ok") else {}
+chk(f"une note dont la dalle ({len(LONG_D)} caractères) et une section ({len(LONG_S)}) ont un nom trop long S'OUVRE : les noms coupés à "
+    f"{AP.NOM_MAX} caractères (rien d'autre ne change), l'état rendu ne porte pas la liste",
+    r_long.get("ok") and d_long["nom"] == LONG_D[:AP.NOM_MAX].rstrip() and d_long["sections"][0]["nom"] == LONG_S[:AP.NOM_MAX]
+    and len(d_long["nom"]) <= AP.NOM_MAX and P.CLE_NOMS not in r_long["etat"]
+    and d_long["sections"][0]["My_inf"] == sans_site(d0)["sections"][0]["My_inf"] and lignes(r_long) == lignes(req(action="calculer", etat=r_long["etat"])),
+    r_long.get("erreur") or d_long.get("nom"))
+_av = r_long.get("avis") or []
+chk("… et l'avis le dit, en tête du résultat ET dans « avis » (le message de la page au téléphone) : la limite, chaque nom coupé et sa "
+    "longueur d'origine — un avis (« msg »), pas une erreur",
+    len(_av) == 1 and f"coupé à {AP.NOM_MAX}" in _av[0] and f"({len(LONG_D)} caractères)" in _av[0] and f"({len(LONG_S)} caractères)" in _av[0]
+    and C.esc(LONG_D[:AP.NOM_MAX].rstrip()) in _av[0] and f'<div class="msg">{_av[0]}</div>' in r_long["resultat"], _av)
+r_long2 = req(action="calculer", etat=r_long["etat"])
+chk("… UNE fois : la note rouverte telle qu'enregistrée ne le redit pas", "avis" not in r_long2 and "coupé à" not in r_long2["resultat"], r_long2.get("avis"))
+chk("la SAISIE garde son refus clair : un nom de 61 caractères est refusé, la dalle inchangée",
+    "60 caractères au plus (61 saisis)" in (req(action="modifier", etat=r_long["etat"], chemin=["nom"], valeur="N" * 61)["message"] or ""))
+_fd_long = {"dalles": [{"id": 1, "nom": "D" * 70, "sections": [{"id": 1, "nom": "A"}]}], "values": {"dal1_sec1_M_inf": 28.0}}
+r_fl = req(action="modifier", etat=copy.deepcopy(e0), chemin=["fichier_streamlit"], valeur={"nom": "long.json", "texte": json.dumps(_fd_long)})
+chk("un fichier Streamlit dont la dalle a un nom de 70 caractères est repris (nom coupé, l'avis le dit) au lieu d'être refusé",
+    r_fl.get("ok") and actif(r_fl["etat"])["nom"] == "D" * AP.NOM_MAX and any("(70 caractères)" in a for a in r_fl.get("avis") or [])
+    and "refusé" not in (r_fl.get("message") or ""), (r_fl.get("message"), r_fl.get("avis")))
+from api_web import note_dalle as ND  # noqa: E402
+_vu = {}
+_fichier = ND.fichier
+ND.fichier = lambda etat, infos=None: _vu.setdefault("etat", etat)
+try:
+    P.telecharger(P.normaliser(copy.deepcopy(n_long)), "note_pdf", {})
+finally:
+    ND.fichier = _fichier
+chk("la note PDF ne reçoit pas la liste des noms coupés (un avis de l'écran), mais les noms coupés",
+    P.CLE_NOMS not in _vu.get("etat", {P.CLE_NOMS: 1}) and actif(_vu["etat"])["nom"] == LONG_D[:AP.NOM_MAX].rstrip(), list(_vu.get("etat", {})))
+muter("un nom trop long refuse de nouveau toute la note (rien n'est coupé)", P, "_couper_noms", lambda d: [],
+      lambda: req(action="calculer", etat=n_long).get("ok") is True)
+muter("le nom est coupé sans le dire", P, "avis_noms", lambda c: "",
+      lambda: bool(req(action="calculer", etat=n_long).get("avis")))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])
