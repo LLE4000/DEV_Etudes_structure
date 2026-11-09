@@ -284,6 +284,18 @@ test_note_soudures.py, test_note_plancher.py. Les générateurs ne sont pas modi
   85 % (`etat.SEUIL_ATTENTION`, `parametres.seuil_attention`), l'écran du site dès 95 % (code du bureau). Entre 85 et
   95 %, la note écrit « CONFORME · ATTENTION », l'écran « Conforme » (soudures : IPE 300 en ELS à 94,48 % ; plancher :
   hourdis, V_Rd = 95 kN, 90,55 %).
+- MISE EN PAGE — la note du garde-corps DÉBORDE de ses colonnes même dans sa taille « serrée » (relecture du
+  09/11/2026, grille de 240 états : 5 types × 3 formes × « Cumuler qh et qv » oui/non × 4 fixations × 2 méthodes, le
+  reste par défaut) : 86 débordent, jusqu'à 89 pt. Forme L ou U avec « Cumuler qh et qv » (l'option côté sûr) : 64 sur
+  80, seule la fixation scellée tient ; forme L ou U à montant soudé, sans cumul : 18 sur 80 ; forme droite avec cumul
+  (barreaudage ou lisses, platine ou platine latérale, Eurocode) : 4 sur 40 ; forme droite sans cumul : aucun. Exemple :
+  garde-corps en U avec « Cumuler qh et qv », le reste par défaut : 28 pt en page 1, 73 pt en page 2. Soudures : C6
+  (tube sur platine) en quatre tronçons, Eurocode : 7 pt (2 états sur 56 d'une grille configurations × méthodes ×
+  jonctions × tronçons). Plancher : aucun sur 15 états (3 exemples × 5 engins). L'écran Streamlit rend ces notes
+  telles quelles (garde-corps en U avec cumul : le tableau de la bibliothèque passe sous le cartouche de la page 2) ;
+  le site les REFUSE (règle de la poutre : jamais une note tronquée) — pour ces états, pas de note PDF sur le site tant
+  que la mise en page du générateur n'est pas reprise ou que le bureau n'a pas tranché. Le message de refus conseille
+  de raccourcir les textes saisis : ici, rien de saisi n'y change, seule la configuration (forme, cumul, fixation).
 
 ## 3. Ce que le site ne reprend pas de l'écran Streamlit
 

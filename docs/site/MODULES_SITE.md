@@ -246,7 +246,10 @@ faite de CAS et dont l'état du site EST l'état du moteur, `telecharger(etat, "
 `note_cas.fichier(NOTE, etat, infos)` (`api_web/note_cas.py`) : le générateur validé n'est pas réécrit ; un cas seul,
 c'est `generer_note` telle quelle ; plusieurs cas, ses pages (`Note`, `Methode`) posées l'une après l'autre dans UN
 document du kit `ndc_pdf`, chaque cas dans la taille que le générateur choisit (deux copies nommées, liées par les tests :
-texte de chaque page = celui du cas seul). Une note qui déborde encore est refusée, jamais tronquée. L'identification :
+texte de chaque page = celui du cas seul). Une note qui déborde encore est refusée, jamais tronquée — ce n'est pas un cas
+d'école : mesuré le 09/11/2026, 86 des 240 états d'une grille du garde-corps débordent dans le générateur validé (toute
+forme L ou U avec « Cumuler qh et qv » sauf fixation scellée, L ou U à montant soudé…), et n'ont donc pas de note sur le
+site (docs/site/DEFAUTS_STREAMLIT.md, à trancher par le bureau). L'identification :
 la saisie de l'écran d'abord, puis la note du site (projet = chantier, à défaut le nom ; partie = le nom s'il y a un
 chantier, sinon le titre du module ; indice ; date). `NOTE.fichiers` : ce que la note charge en plus de l'écran (le paquet
 de la note les embarque). Le bouton « Note PDF » de la page s'allume par `construire.NOTE_PDF`.
@@ -267,6 +270,11 @@ de la note les embarque). Le bouton « Note PDF » de la page s'allume par `cons
 taux en bord de bande (écran 94 % / 101 %, note 95 % / 100 % pour 94,57 % / 100,009 %) ; entre 85 et 95 %, l'écran dit
 « Conforme » (code du bureau) et les notes des soudures et du plancher « CONFORME · ATTENTION » (seuil 0,85 de leurs
 moteurs, celui de Streamlit).
+
+À trancher — l'INDICE a deux sources (R2) : pour les soudures et le plancher, le champ « Indice » de l'écran
+(« Identification de la note ») vaut « 0 » par défaut et passe avant l'indice de la note du site ; le cartouche de la
+page dit « Indice A » (ou l'indice de révision saisi, « C »…) et le PDF écrit « indice 0 » — sauf si l'on vide le
+champ. La poutre et le garde-corps impriment l'indice de la note du site.
 
 ## 5. Les règles
 

@@ -207,6 +207,14 @@ chk("infos_du_cas : saisie d'abord, champ par champ ; puis la correspondance de 
     NC.infos_du_cas(S.NOTE, e6, e6["cas"][0], INFOS) == {"nom_projet": "Hall B", "partie": "Portiques", "indice": "C", "date": "01/02/2026"}
     and NC.infos_du_cas(S.NOTE, e, e["cas"][0], {"nom": "N"}) == {"nom_projet": "N", "partie": "Soudures", "indice": "0"},
     (NC.infos_du_cas(S.NOTE, e6, e6["cas"][0], INFOS), NC.infos_du_cas(S.NOTE, e, e["cas"][0], {"nom": "N"})))
+# (relecture du 09/11/2026) l'indice a DEUX sources : le champ de l'écran (« 0 » par défaut) l'emporte sur l'indice de
+# la note du site que le cartouche de la page affiche — mesuré ci-dessus (« indice 0 » quand la note du site dit « B ») ;
+# l'écart est écrit, à trancher (MODULES_SITE.md § 4 quinquies) : ce contrôle lie l'écrit à la mesure
+with open(os.path.join(RACINE, "docs", "site", "MODULES_SITE.md"), encoding="utf-8") as fh:
+    modules_site = fh.read()
+chk("l'indice à deux sources (écran « 0 » par défaut, note du site « B ») est écrit à trancher dans MODULES_SITE.md",
+    NC.infos_du_cas(S.NOTE, e, e["cas"][0], INFOS)["indice"] == "0" and INFOS["indice"] == "B"
+    and "À trancher — l'INDICE a deux sources (R2)" in modules_site)
 
 # 4. le routeur, les refus
 r = json.loads(R.traiter(json.dumps({"module": "soudures", "action": "telecharger", "etat": e, "quoi": "note_pdf",

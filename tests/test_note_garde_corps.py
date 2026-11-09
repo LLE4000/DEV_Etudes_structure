@@ -195,6 +195,24 @@ finally:
 chk("… et le débordement relevé en posant les pages d'un cas dans la note entière (second garde-fou) l'est aussi",
     not r3b["ok"] and "ne tient pas" in r3b["erreur"] and "2 pt" in r3b["erreur"], r3b.get("erreur"))
 
+# le débordement du GÉNÉRATEUR lui-même, sans rien injecter (relecture du 09/11/2026) : un garde-corps en U avec
+# « Cumuler qh et qv » (l'option côté sûr) ne tient pas dans ses deux pages, même serrées — la note du site est refusée.
+# Ce n'est pas un cas d'école (86 des 240 états d'une grille) : l'étendue mesurée est ÉCRITE (DEFAUTS_STREAMLIT.md,
+# MODULES_SITE.md § 4 quinquies) ; ce contrôle lie l'écrit à la mesure — il rougit si l'écrit disparaît, et aussi le
+# jour où la mise en page du générateur est reprise (l'écrit est alors à mettre à jour)
+u_cumul = faire((["geometrie", "forme"], "U"), (["charges", "cumul"], True))
+ru = json.loads(R.traiter(json.dumps({"module": "garde_corps", "action": "telecharger", "etat": u_cumul, "quoi": "note_pdf",
+                                      "infos": INFOS})))
+with open(os.path.join(RACINE, "docs", "site", "DEFAUTS_STREAMLIT.md"), encoding="utf-8") as fh:
+    defauts = fh.read()
+with open(os.path.join(RACINE, "docs", "site", "MODULES_SITE.md"), encoding="utf-8") as fh:
+    modules_site = fh.read()
+chk("un garde-corps en U avec « Cumuler qh et qv » : le générateur déborde même serré (28 pt, 73 pt), la note est refusée "
+    "— et l'étendue mesurée est écrite (DEFAUTS_STREAMLIT.md, MODULES_SITE.md)",
+    not ru["ok"] and "ne tient pas" in ru["erreur"] and "28 pt" in ru["erreur"] and "73 pt" in ru["erreur"]
+    and "garde-corps en U avec « Cumuler qh et qv », le reste par défaut : 28 pt en page 1, 73 pt en page 2" in defauts
+    and "86 des 240 états d'une grille du garde-corps débordent" in modules_site, ru.get("erreur"))
+
 # 5. les mutations : chacune doit faire rougir un contrôle
 e = ETATS["trois garde-corps (dont un NON CONFORME, H = 1600, en taille serrée)"]
 vrai_pages = NC.pages
