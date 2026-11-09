@@ -17,6 +17,9 @@ ne se charge plus (il lit `MO.LINEAIRE`) — c'est attendu.*
 | `acier/corniere/statique.py` | la statique d'UNE combinaison (une position de la charge, une de l'ancrage) : M, N, V le long des deux ailes pour chaque mode et configuration ; l'épaisseur du congé t(s) ; la recherche du maximum (grille ≤ 0,1 mm puis section dorée) |
 | `acier/corniere/moteur.py` | l'enveloppe des neuf combinaisons, les vérifications (S1–S4, maxima, section nette), les ancrages, les diagrammes, les formules du détail (avec la cellule du classeur en historique), les avertissements, la comparaison des modes, la garde, le sélecteur — et le **contrat complet** dans sa docstring |
 | `tests/test_corniere_moteur.py` | cas de contrôle à 1e-9 face aux 93 formules de `P8` codées dans le test, 240 saisies au sort, enveloppe, équilibre, B, ailes inégales, maxima, L_eff, formules, domaine, relecture v1, sélecteur, pureté 3.12 et 3.13, 28 mutations |
+| `acier/corniere/schemas.py` (lot « schémas », 11/11) | les quatre VUES partagées par l'écran et la note — coupe, moments, contraintes, élévation — construites sur le kit de dessin des assemblages à partir de la seule sortie de `verifier` ; le contrat de sélection `data-sel` ; `ajuster`, `legende`, `secours` (§ 10) |
+| `api_web/dessin_corniere.py` | la couche mince de l'écran : `vues(res, ident)` → `[{cle, titre, court, svg, legende, echelle}]`, ajustées à la toile de l'établi (13 px dans 626 × 682) |
+| `tests/test_corniere_schemas.py` | 96 contrôles : échelle, orientation A/B, sections exactes, bras du mode, data-sel, diagrammes au prorata de s, peintres de la note, pureté, 9 mutations et un témoin |
 
 ## 2 · L'API et le contrat
 
@@ -243,3 +246,39 @@ classeur l'a mesuré : 120,65 % sur le cas de contrôle avec σ_lim = f_y/1,5 sa
 **retiré** avec sa preuve de parité, remplacé par la méthode du classeur ; **l'écran Streamlit n'est plus reproduit par
 le site** (il reste tel quel dans l'application du bureau). Les notes enregistrées avec lui (version 1 : clés V, e, s,
 gamma_ELU, bord, sig_lim_*) se rouvrent : le nom et la cornière sont gardés, le reste est à ressaisir (§ 8).
+
+## 10 · Les vues (lot « schémas », 11/11/2026) — `acier/corniere/schemas.py`
+
+Quatre vues (décisions § 4 ; modèle visuel : figures a, b, c de l'analyse), chacune une fonction
+`(res, fs=None, interactif=True) -> Dessin` du kit de dessin des assemblages, qui ne lit que la SORTIE de `verifier`
+(rien n'est recalculé : un bras de levier est une cote mesurée sur le dessin, dont la valeur est sa longueur) :
+
+| Vue | Ce qu'elle montre | Échelle |
+|---|---|---|
+| `coupe` | le schéma statique coté : mur hachuré (rompu), cornière (congé r₁, bouts r₂ du catalogue), charge R à X en plein et X ± dx en tirets, ancrage (trou, tige, rondelle, écrou, axe) à Y et Y ± dy en tirets fins, résultante C au pivot (A : Y′ − bras, soit y_c en équilibre, jeu_ancrage en historique) ou au contact du bout libre (B : haut − c), ligne u_V (équilibre), sections 1 à 4 en orange avec pastilles, cotes larg, haut, e, r, X, Y et les bras DU MODE (historique : Xe, Xe+r, Ye, Ye+r, YH ; équilibre A : X − uV, Y − yc ; B : X − uV, ya − c), valeurs R, H, C ; A (aile horizontale en bas, y ≤ 0) et B (en haut, y ≥ 0 : l'aile verticale descend) | mm |
+| `moments` | les deux ailes développées l'une au-dessus de l'autre (abscisse s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes fines `cvf`, nominale `cvm`), l'enveloppe en gras (`env`), la bande ± dy (`tol`), N et V par tronçon, M1 à M4 écrits (valeur de l'enveloppe, négative en B), congé et bloc d'angle grisés, la charge et l'ancrage (et le contact en B) repérés | hors échelle (`echelle: False`) |
+| `contraintes` | la bande t(s) (`pp`), σéq de l'enveloppe (`sig`), la ligne σadm (`lim`) et l'échelle des taux (50 %, 100 %), le maximum ◉ et sa position (« 1,98 mm avant le pied du congé »), les taux S1 à S4 | hors échelle |
+| `elevation` | la tranche L vue de face (les n ancrages à L/(2n) + i·L/n, N et V ELS par ancrage, la chaîne des entraxes, Y) et l'aile horizontale RABATTUE (vue de dessus, le bout libre contre l'élévation) : la charge de largeur a à X, la position X′ qui gouverne L_eff en tirets, le trapèze de diffusion à 45° jusqu'à la section 1 dont la base mesure L_eff (coté), L, larg, X | mm |
+
+**Mise en page en tailles de texte.** `fs` est la taille du texte en unités de la scène ; `schemas.ajuster(construire,
+toile, texte_px, fs0)` reconstruit une vue jusqu'à ce que son texte se lise à `texte_px` dans une toile donnée (l'écran :
+`dessin_corniere.TOILE` = 626 × 682 px, `TEXTE_PX` = 13 ; la note choisira la sienne). Les diagrammes sont dessinés
+tout en tailles de texte (≈ 48 fs de large) : leur texte vaut ≈ 13 px dans la toile quel que soit `fs`.
+
+**Contrat de sélection.** Chaque pièce qu'une donnée pilote est un groupe `<g class="pc" data-sel="<clé>">` sous la
+clé de sa ligne dans les données (`schemas.CLES_SEL`) : coupe → X, dx, Y, dy, R, d, profil, jeu_ancrage (historique)
+ou yc et uV (équilibre) ; élévation → L, a, n, d, X, Y, profil. `interactif=False` n'en pose aucun (la note).
+
+**Styles ajoutés au kit** (`doubles_cornieres/schemas.py`, additifs) : `sc`/`scb`/`scg` (sections et pastilles orange),
+`env`/`cvm`/`cvf` (courbes), `sig`, `lim`, `fzd` (charge déplacée en tirets), `tol`, `cong`, `fc`/`fch`/`fcp`/`fcl`
+(résultante de compression, vert `PALETTE["comp"]`) ; et l'attribut `sel` d'un groupe → `data-sel`.
+
+**Pour la note.** `schemas.svg(dessin, identifiant)` donne le SVG ; `ndc_pdf.svg.peindre_svg` le peint, mais il
+IGNORE `fill-opacity` : la zone du congé (`cong`) et la bande de tolérance (`tol`) y sortent en aplats opaques
+(orange, gris) — le peintre de scène du kit (`doubles_cornieres.rapport.peindre(d, dessin, x, y, w, h)`) honore
+l'opacité et rend les mêmes vues : à préférer pour les diagrammes, ou ajouter `fill-opacity` au peintre SVG. Les
+légendes (`schemas.legende(res, cle)`) sont la source unique du texte sous chaque vue (écran et note).
+
+**Dessin impossible.** `elevation` lève `ValueError` quand la hauteur de la cornière vaut moins de 1,6 ligne de texte
+(une tranche de plusieurs mètres face à une petite aile) ; `dessin_corniere.vues` rend alors le cadre
+`schemas.secours` « Dessin impossible à cette échelle » pour cette vue seule.

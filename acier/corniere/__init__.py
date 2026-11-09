@@ -12,7 +12,9 @@ l'enveloppe de neuf combinaisons. Décisions : ``docs/acier/CORNIERE_DECISIONS.m
 - ``statique`` : la statique d'une combinaison (M, N, V le long des deux ailes, pour chaque mode et configuration),
                  l'épaisseur du congé t(s), la recherche du maximum ;
 - ``moteur``   : l'enveloppe des combinaisons, les vérifications, les ancrages, les diagrammes, les formules du détail,
-                 les avertissements, le sélecteur — et le CONTRAT complet dans sa docstring.
+                 les avertissements, le sélecteur — et le CONTRAT complet dans sa docstring ;
+- ``schemas``  : les quatre vues (coupe, moments, contraintes, élévation) construites sur la seule sortie de
+                 ``verifier``, partagées par l'écran et la note — pas importé ici (il charge le kit de dessin).
 """
 from .moteur import (  # noqa: F401 — l'API
     calculer,

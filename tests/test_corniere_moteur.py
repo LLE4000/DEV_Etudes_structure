@@ -877,8 +877,11 @@ chk("en B, le taux du sélecteur est celui du calcul complet (section nette comp
 # ------------------------------------------------------------------ 13. pureté
 print("\n=== 13. Pureté : bibliothèque standard, le catalogue, les nuances ; sous-processus sans streamlit ===")
 non_std = []
+# le MOTEUR : entree, statique, moteur (et l'init du paquet) ; les vues (schemas.py, sur le kit de dessin) et la note
+# (reportlab) vivent dans le même paquet mais ne sont pas le calcul — leur pureté a ses propres contrôles
+MODULES_MOTEUR = ("__init__.py", "entree.py", "statique.py", "moteur.py")
 for f in sorted(os.listdir(os.path.join(RACINE, "acier", "corniere"))):
-    if f.endswith(".py"):
+    if f in MODULES_MOTEUR:
         arbre = ast.parse(lire("acier", "corniere", f))
         for n in ast.walk(arbre):
             noms = [a.name for a in n.names] if isinstance(n, ast.Import) else [n.module] if isinstance(n, ast.ImportFrom) and n.level == 0 and n.module else []
