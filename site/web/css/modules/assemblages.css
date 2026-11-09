@@ -89,7 +89,8 @@ button.addrow { text-align: left; }
    entre les morceaux d'une pastille (inline-flex : « A ₛ mm² ») ; ce morceau-là n'a pas d'icône */
 .flyout.picker .fl-foot > span:last-child { display: inline; }
 
-/* au téléphone : les segments à la hauteur des cibles tactiles du site (36 px), comme les autres briques */
-@media (max-width: 700px) {
-  .rows .seg.full button { min-height: 36px; }
+/* au doigt (tablette, téléphone) : les segments à la hauteur des cibles tactiles du site (44 px, petits chantiers du
+   10/11/2026 ; c'étaient 36 px au téléphone, 28 à la tablette), comme les autres briques */
+@media (max-width: 1199px) {
+  .rows .seg.full button { min-height: 44px; }
 }

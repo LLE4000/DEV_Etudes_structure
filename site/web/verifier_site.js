@@ -427,6 +427,21 @@ const FILTRE = process.argv[4] || '';
       return pg;
     };
     const vis = (pg, s) => pg.evaluate((s) => { const e = document.querySelector(s); return !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true }); }, s);
+    // (petits chantiers, 10/11/2026) AU DOIGT, 44 px : chaque bouton VU de l'établi (la barre du haut, l'en-tête du téléphone,
+    // les onglets, la barre de la toile, les en-têtes des panneaux, les données, le résultat), mesuré à l'écran — sa plus
+    // petite dimension. Les rubriques des données sont ouvertes avant (chaque bouton se voit). Rend les fautes.
+    const cibles44 = (pg) => pg.evaluate(() => {
+      const vu = (e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      document.querySelectorAll('#donnees .sec:not(.open) > .sechd').forEach((h) => h.click());
+      const out = [];
+      for (const e of document.querySelectorAll('.top button, .top .btn, .mtop button, .mtop .btn, .mtabs button, .ctool button, .phead button, #donnees button, #donnees .btn, #resultat button, #resultat .btn, .mbar .btn')) {
+        if (!vu(e)) continue;
+        const r = e.getBoundingClientRect();
+        if (r.width < 1 || Math.min(r.width, r.height) >= 43.5) continue;
+        out.push(`${(e.className || e.tagName).toString().split(' ')[0] || e.tagName} « ${(e.textContent || e.title || '').trim().slice(0, 16)} » ${Math.round(r.width)}×${Math.round(r.height)}`);
+      }
+      return out;
+    });
     const boite = (pg, s) => pg.evaluate((s) => {
       const e = [...document.querySelectorAll(s)].find((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
       if (!e) return null;
@@ -565,7 +580,10 @@ const FILTRE = process.argv[4] || '';
     const volets = async (pg, cle, fmt) => {
       const c = await pg.$('#resultat [data-calcul]');
       if (c) {
-        await c.click();
+        // on touche le NOM de la ligne : la pièce qui s'y choisit (son sélecteur) est une cible de 44 px au doigt, et le
+        // milieu de la ligne tombe désormais sur elle (petits chantiers, 10/11/2026)
+        const nom = await c.$('.l1 > b');
+        await (nom || c).click();
         await pg.waitForTimeout(250);
         const r = await boite(pg, '.flyout.on.calcul');
         verif(`${cle} · ${fmt} : la fenêtre de calcul s'ouvre et tient dans l'écran`, dansEcran(r) && r.l > 280 && r.t > 200, JSON.stringify(r));
@@ -708,6 +726,9 @@ const FILTRE = process.argv[4] || '';
           for (const a of aussi) if (!(await vis(t, a))) manquent.push(a);
           verif(`${cle} · téléphone : l'onglet ${onglet} montre son cadre, sur toute la largeur, et lui seul${aussi.length ? ` (avec ${aussi.join(', ')})` : ''}`,
             r && r.l >= 370 && r.t >= 200 && !caches.length && !manquent.length, JSON.stringify({ r, caches, manquent }));
+          const c44 = await cibles44(t);
+          await t.waitForTimeout(150);
+          verif(`${cle} · téléphone · ${onglet} : chaque bouton vu à 44 px au moins au doigt`, !c44.length, c44.slice(0, 6).join(' · '));
           const m = await mesurer(t);
           verif(`${cle} · téléphone · ${onglet} : rien ne déborde, aucun nom coupé`, !m.deborde && !m.coupes.length && !m.xl.length, JSON.stringify(m));
           await t.screenshot({ path: path.join(OUT, `site_${cle}_tel_${onglet}.png`) });
@@ -724,20 +745,21 @@ const FILTRE = process.argv[4] || '';
             const petits = await t.$$eval('#donnees input:not([type=checkbox]):not([type=file]), #donnees select, #donnees textarea, .panel.left .phead input',
               (x) => x.filter((e) => e.checkVisibility()).filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`));
             verif(`${cle} · téléphone : chaque champ s'écrit en 16 px au moins`, !petits.length, petits.slice(0, 4).join(', '));
-            const lg = await ligneElement(t, 40);
+            const lg = await ligneElement(t, 44);
             if (lg) {
               // (colonne compacte : la poutre, la dalle) la LIGNE de l'élément dans l'en-tête des données — une rangée, chaque
-              // bouton à 40 px au doigt ; sa liste s'ouvre dans l'écran, chaque entrée atteinte ; un appui sur le nom y pose
-              // le curseur sans quitter l'onglet, Échap rend l'ancien nom (R1 : renommer, ouvrir, ajouter au téléphone aussi)
-              verif(`${cle} · téléphone : la ligne de l'élément tient dans l'en-tête des données (une rangée, rien ne déborde ni ne se chevauche, le nom entier), chaque bouton à 40 px au doigt`,
+              // bouton à 44 px au doigt (40 avant les petits chantiers du 10/11/2026 : le harnais SUIT) ; sa liste s'ouvre dans
+              // l'écran, chaque entrée atteinte ; un appui sur le nom y pose le curseur sans quitter l'onglet, Échap rend
+              // l'ancien nom (R1 : renommer, ouvrir, ajouter au téléphone aussi)
+              verif(`${cle} · téléphone : la ligne de l'élément tient dans l'en-tête des données (une rangée, rien ne déborde ni ne se chevauche, le nom entier), chaque bouton à 44 px au doigt`,
                 !lg.fautes.length && lg.nomEntier, JSON.stringify(lg));
               const mn = await listeElement(t, true);
               await t.screenshot({ path: path.join(OUT, `site_${cle}_tel_ligne_element.png`) });
               await t.tap(`${LISTE_ELT} [data-menu]`);
               await t.waitForTimeout(150);
               const ferme = await t.$eval(`${LISTE_ELT} .et-mn-l`, (x) => x.hidden);
-              verif(`${cle} · téléphone : la liste des éléments s'ouvre dans l'écran (l'ouvert coché, « Ajouter … »), chaque entrée atteinte, à 40 px au doigt ; le chevron la referme`,
-                mn.vu && mn.ouvert && mn.dedans && mn.touche && /\*$/.test(mn.items) && /^Ajouter /.test(mn.ajouter) && mn.hMin >= 40 && ferme, JSON.stringify({ ...mn, ferme }));
+              verif(`${cle} · téléphone : la liste des éléments s'ouvre dans l'écran (l'ouvert coché, « Ajouter … »), chaque entrée atteinte, à 44 px au doigt ; le chevron la referme`,
+                mn.vu && mn.ouvert && mn.dedans && mn.touche && /\*$/.test(mn.items) && /^Ajouter /.test(mn.ajouter) && mn.hMin >= 44 && ferme, JSON.stringify({ ...mn, ferme }));
               const NOM = '.panel.left .phead .et-elt input.et-elt-nom';
               const avant = await t.$eval(NOM, (x) => x.value);
               await t.tap(NOM);
@@ -841,6 +863,11 @@ const FILTRE = process.argv[4] || '';
             return f;
           });
           verif(`${cle} · ${fmt} : la barre du haut ne se chevauche pas`, !haut.length, haut.join(', '));
+          if (w < 1200) {
+            const c44 = await cibles44(g);
+            await g.waitForTimeout(150);
+            verif(`${cle} · ${fmt} : chaque bouton vu de l'établi à 44 px au moins au doigt`, !c44.length, c44.slice(0, 6).join(' · '));
+          }
           const ca = await cartouche(g);
           verif(`${cle} · ${fmt} : le cartouche ne se chevauche pas, l'indice et la date se lisent`, !ca.length, ca.join(', '));
           if (nom === 'portable_1280') {
@@ -3147,7 +3174,7 @@ const FILTRE = process.argv[4] || '';
         verif(`plaques ${cle} : retour à « Dalle CSP » : h_p disparaît, la note aussi l'oublie`,
           !(await g.$('#donnees input[data-chemin="h_pre"]')) && ((await noteMemoire()) || {}).dalles === 'D2:coulee', JSON.stringify(await noteMemoire()));
         // 7. au téléphone (R1 : la fonction aux trois formats) : la ligne de l'élément en tête de l'onglet Données, chaque
-        // bouton à 40 px au doigt ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter
+        // bouton à 44 px au doigt (40 avant le 10/11/2026) ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter
         // l'onglet (16 px : pas d'agrandissement) ; « D3 » + Entrée renomme — la note et la tête des résultats suivent
         // (la même note : le stockage du navigateur du PC est repris)
         const ct = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, storageState: await c.storageState() });
@@ -3157,7 +3184,7 @@ const FILTRE = process.argv[4] || '';
         await t.goto(g.url());
         await t.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
         await t.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
-        const lgTel = await ligneElement(t, 40);
+        const lgTel = await ligneElement(t, 44);
         const mnTel = await listeElement(t, true);
         await t.tap(`${LISTE_ELT} [data-menu]`);
         await t.waitForTimeout(150);
@@ -3174,8 +3201,8 @@ const FILTRE = process.argv[4] || '';
         await t.waitForTimeout(200);
         const telNom = await t.evaluate((s) => { const id = new URLSearchParams(location.search).get('note'), n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
           return { champ: document.querySelector(s).value, rp: document.querySelector('#resultat .et-rp b').textContent, note: n && n.etat.dalles.map((d) => d.nom).join() }; }, NOM);
-        verif(`plaques ${cle} · téléphone : la ligne de l'élément tient dans l'en-tête des données, chaque bouton à 40 px au doigt ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter l'onglet (16 px) ; « D3 » + Entrée renomme (la note, la tête des résultats)`,
-          lgTel && !lgTel.fautes.length && mnTel.vu && mnTel.dedans && mnTel.touche && mnTel.items === 'D2*' && tel.onglet === 'donnees' && tel.champ && tel.vu && tel.taille >= 40 && tel.police >= 16
+        verif(`plaques ${cle} · téléphone : la ligne de l'élément tient dans l'en-tête des données, chaque bouton à 44 px au doigt ; la liste s'ouvre dans l'écran ; un appui sur le nom y pose le curseur sans quitter l'onglet (16 px) ; « D3 » + Entrée renomme (la note, la tête des résultats)`,
+          lgTel && !lgTel.fautes.length && mnTel.vu && mnTel.dedans && mnTel.touche && mnTel.items === 'D2*' && tel.onglet === 'donnees' && tel.champ && tel.vu && tel.taille >= 44 && tel.police >= 16
           && telNom.champ === 'D3' && telNom.rp === 'D3' && telNom.note === 'D3', JSON.stringify({ lgTel, mnTel, tel, telNom }));
         verif(`plaques ${cle} · téléphone : aucune erreur JavaScript`, !t.erreurs.length, t.erreurs.join(' | ').slice(0, 300));
         await ct.close();

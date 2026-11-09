@@ -966,3 +966,22 @@ carte est un lien ; notes.js joué par node : écrire sans dater garde la date) 
 changer la date, l'indice réel, la note absente et « Importer .stab » de bout en bout, la note d'un autre module). Trois
 mutations vues rouges dans le navigateur (la provisoire réservée au compact ; la date avancée à chaque écriture ; le
 message de la note absente retiré).
+
+## Révision du 10/11/2026 (suite) : 44 px au doigt, tablette et téléphone (B.3)
+
+**Demande de l'ingénieur** (même lot) : les cibles au doigt de l'établi passent à 44 px (c'étaient 26 à 40 px selon la
+brique et le format). Mise en page seule (R1 : les mêmes briques aux trois formats, aucun texte ni champ ne change) :
+
+- `css/site.css` (701 à 1 199 px, puis ≤ 700 px) : la barre du haut (boutons à icône seule), la barre de la toile (les
+  vues, le zoom), les en-têtes des panneaux (52 px, pour porter des boutons de 44), les segments, les boutons des
+  données et du résultat, la pièce d'un résultat qui ouvre son sélecteur, la croix d'un élément, les filtres et la
+  fermeture d'un volet ; `css/etabli.css` (établi compact) : la ligne de l'élément, Annuler, Rétablir, replier, les
+  barres des lits, « + Lit »… ; `css/modules/assemblages.css` : ses segments (44 px dès la tablette).
+- **Ce que la mesure a trouvé et corrigé** (harnais « formats », au texte près) : un `min-width` sur les segments PLEINS
+  les égalisait et coupait « Surdimensionné », « Stabilisateurs », « Météo du lieu » — il ne vaut plus que pour les
+  segments à la largeur de leur texte ; à la tablette paysage, la colonne compacte passe de 340 à 372 px pour garder le
+  nom de l'élément entier à côté de six boutons de 44 ; le sélecteur tient dans l'établi quelle que soit la hauteur de
+  ses filtres (sa liste défile) ; « Ouvrir » (icône seule de 1 101 à 1 199 px) faisait 42 px.
+- **Le harnais suit** : `cibles44` (chaque bouton vu de l'établi, mesuré à l'écran : tablettes et chaque onglet du
+  téléphone), la ligne de l'élément et ses menus à 44 px ; la fenêtre de calcul s'ouvre en touchant le NOM d'une ligne de
+  résultat — le milieu de la ligne tombe désormais sur la pièce, cible de 44 px qui ouvre le sélecteur.

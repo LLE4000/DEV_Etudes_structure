@@ -464,7 +464,7 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   /* la barre du haut garde ses icônes ; les noms des boutons passent au survol (title) */
   .top { gap: 8px; padding: 0 12px 0 16px; }
   .top .btn .lbl { display: none; }
-  .top .btn, .top label.btn { width: 36px; height: 34px; padding: 0; justify-content: center; }
+  .top .btn, .top label.btn { width: 44px; height: 44px; padding: 0; justify-content: center; }
   #fil-chantier { max-width: 20vw; }
   .top .tag { flex: none; }
   /* l'enregistrement en court : « ✓ 17:08 » (le mot « Enregistré » au survol) ; un échec s'écrit toujours en entier */
@@ -490,8 +490,31 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   /* les volets : le sélecteur à côté de sa ligne, par-dessus les données ; la fenêtre de calcul sur tout l'établi */
   .flyout { left: var(--g); right: auto; }
   .flyout.calcul { right: var(--g); width: auto; top: var(--g); max-height: calc(100% - 2 * var(--g)); }
+  /* le sélecteur tient dans l'établi, quelle que soit la hauteur de ses filtres (44 px au doigt) : sa liste défile */
+  .flyout.picker { max-height: calc(100% - 2 * var(--g)); }
+  .flyout.picker .pk-list { flex: 1 1 auto; min-height: 0; }
   .ck-body { max-height: calc(100vh - var(--top-h) - 150px); }
-  .zoom button { width: 36px; height: 32px; }
+  .zoom button { width: 44px; height: 44px; }
+  /* AU DOIGT, 44 px pour toute cible de l'établi (petits chantiers, 10/11/2026 — B.3 de REFONTE_ETABLI.md ; c'étaient 26 à
+     40 px) : la barre du haut, la barre de la toile (les vues, le zoom), les en-têtes des panneaux, les segments et les
+     boutons des données, la pièce d'un résultat qui ouvre son sélecteur, la croix d'un élément, la fermeture d'un volet.
+     Rien ne déborde (verifier_site.js, filtre « formats » : chaque cible mesurée, aux tablettes et au téléphone). */
+  .top .btn, .top label.btn { min-height: 44px; min-width: 44px; flex: none; }   /* (sans « flex: none », la barre pleine les écrasait à 27 px) */
+  .ctool .seg button { height: 44px; min-width: 44px; }
+  .phead { min-height: 52px; height: auto; }
+  .pcoll { width: 44px; height: 44px; }
+  .seg button { min-height: 44px; }
+  /* (un segment PLEIN partage sa largeur : ses boutons gardent la largeur de leur texte — « min-width » les égalisait
+     et coupait « Surdimensionné », « Stabilisateurs », « Météo du lieu » ; le harnais « formats » l'a vu) */
+  .seg:not(.full) button { min-width: 44px; }
+  .rows .seg.full button { height: 44px; }
+  #donnees .btn, #resultat .btn { min-height: 44px; }
+  .nl-add { min-height: 44px; }
+  .elements .ni .x { width: 44px; height: 44px; }
+  .prof { min-height: 44px; }
+  .flyout .fl-h .pcoll { width: 44px; height: 44px; }
+  .btn.meteo, .btn.meteo.sm, .addrow, .moins, .fchip { min-height: 44px; }
+  .moins { min-width: 44px; }
   /* le pied du résultat tient sur une ligne quand le cadre est large (paysage) : une ligne de résultat de plus */
   .pfoot { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 10px 16px; }
   .pfoot .mass { flex: 0 1 auto; gap: 12px; }
@@ -538,7 +561,7 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mtop .et-l2 .et-enr[data-enr="echec"] { padding: 0 4px 0 3px; border-radius: 4px; }
   .mtop #fil-m { flex: 1 1 0; min-width: 0; font-size: 12px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .mtop .calcule { margin: 0; flex: none; }
-  .mtop .mchip { flex: none; height: 36px; min-width: 50px; padding: 0 9px; border: 0; font-size: 13px; font-family: inherit; cursor: pointer; }
+  .mtop .mchip { flex: none; height: 44px; min-width: 50px; padding: 0 9px; border: 0; font-size: 13px; font-family: inherit; cursor: pointer; }
   .mmenu { position: fixed; top: 52px; right: 8px; z-index: 30; display: flex; flex-direction: column; width: min(300px, calc(100vw - 16px));
     padding: 6px; background: var(--panel); border: 1px solid var(--frame); border-radius: 14px; box-shadow: var(--shadow-pop); }
   .mmenu .mi { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 46px; padding: 0 12px; border-radius: 10px;
@@ -553,7 +576,7 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mmenu .et-mi-enr[hidden] { display: none; }
   /* les onglets, puis la barre du bas */
   .mtabs { padding: 8px 12px; }
-  .mtabs .seg button { height: 40px; font-size: 14.5px; }
+  .mtabs .seg button { height: 44px; font-size: 14.5px; }
   .mbar { padding-left: 12px; padding-right: 12px; }
   .mbar .btn { height: 46px; gap: 8px; }
   .mbar .btn[aria-disabled="true"] { opacity: .55; }
@@ -573,9 +596,9 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   /* la toile : les vues défilent de côté, le zoom reste à droite */
   .ctool { overflow: visible; -webkit-mask-image: none; mask-image: none; gap: 8px; }
   .ctool > .seg { flex: 1 1 auto; }
-  .ctool > .seg button { flex: none; height: 36px; padding: 0 12px; font-size: 13px; }
+  .ctool > .seg button { flex: none; height: 44px; min-width: 44px; padding: 0 12px; font-size: 13px; }
   .ctool .zoom { flex: none; }
-  .zoom button { width: 38px; height: 36px; }
+  .zoom button { width: 44px; height: 44px; }
   .zoom .zpct { min-width: 50px; }
   .sheet .sphrase { padding: 3px 14px 0; }
 
@@ -583,23 +606,26 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
      devant les feuilles des modules, qui écrivent leurs champs en 12,5 px) */
   .bench input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), .bench select, .bench textarea,
   .mtop input, .modal input { font-size: 16px !important; }
-  /* des cibles que le doigt touche sans viser : 40 px et plus */
+  /* des cibles que le doigt touche sans viser : 44 px et plus pour un bouton (petits chantiers, 10/11/2026 ; c'étaient
+     36 à 40 px) */
   #donnees .field:not(.area) { height: 42px; }
-  .rows .seg.full button, .seg.full button { height: 38px; }
-  .btn.meteo { height: 42px; font-size: 14px; }
-  .btn.meteo.sm { height: 38px; font-size: 13px; }
+  .rows .seg.full button, .seg.full button, .seg button { height: 44px; }
+  .seg:not(.full) button { min-width: 44px; }
+  #donnees .btn, #resultat .btn { min-height: 44px; }
+  .btn.meteo { height: 44px; font-size: 14px; }
+  .btn.meteo.sm { height: 44px; font-size: 13px; }
   .ni { height: 46px; }
-  .elements .ni .x { width: 36px; height: 36px; }
-  .nl-add { min-height: 42px; }
+  .elements .ni .x { width: 44px; height: 44px; }
+  .nl-add { min-height: 44px; }
   .sechd { min-height: 50px; }
   .case { min-height: 40px; }
   .case input { width: 20px; height: 20px; }
-  .addrow { min-height: 40px; }
-  .moins { width: 36px; height: 36px; }
-  .prof { height: 36px; }
+  .addrow { min-height: 44px; }
+  .moins { width: 44px; height: 44px; }
+  .prof { height: 44px; }
   .pk-row { height: 46px; }
-  .fchip { height: 36px; padding: 0 13px; font-size: 13px; }
-  .flyout .fl-h .pcoll { width: 40px; height: 40px; }
+  .fchip { height: 44px; padding: 0 13px; font-size: 13px; }
+  .flyout .fl-h .pcoll { width: 44px; height: 44px; }
 
   /* l'accueil : une colonne ; le bouton « Nouvelle note » garde son nom, sur toute la largeur */
   .page.accueil { grid-template-columns: minmax(0, 1fr); }

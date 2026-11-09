@@ -441,63 +441,78 @@
 @media (min-width: 701px) and (max-width: 1199px) {
   [data-etabli="compact"] .bench > .panel { border: 1px solid var(--line); border-radius: 12px; }
   [data-etabli="compact"] .bench > .canvas { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  /* au doigt : 44 px pour toute cible (petits chantiers, 10/11/2026 ; c'étaient 32 px) — l'en-tête des panneaux grandit
+     pour les porter (la ligne de l'élément, Annuler, Rétablir, replier) */
+  [data-etabli="compact"] .phead { height: 52px; }
   [data-etabli="compact"] .et-tag, [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b,
-  [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout, [data-etabli="compact"] .et-raz { min-height: 32px; min-width: 32px; }
-  [data-etabli="compact"] .et-piece .et-l1 { min-height: 40px; }
-  [data-etabli="compact"] .et-barres .b { width: 34px; height: 32px; }
-  [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just { height: 32px; }
-  [data-etabli="compact"] .et-sec-pick { width: 32px; height: 32px; }
-  [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 32px; }
-  [data-etabli="compact"] .et-pt-nom { height: 32px; }
-  [data-etabli="compact"] .et-elt-nom { height: 32px; }
-  [data-etabli="compact"] .et-elt-b, [data-etabli="compact"] .et-elt-liste .et-mn-b { min-width: 32px; height: 32px; }
+  [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout, [data-etabli="compact"] .et-raz { min-height: 44px; min-width: 44px; }
+  [data-etabli="compact"] .et-piece .et-l1 { min-height: 48px; }
+  [data-etabli="compact"] .et-barres .b { width: 44px; height: 44px; }
+  [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just { height: 44px; }
+  [data-etabli="compact"] .et-sec-pick { width: 44px; height: 44px; }
+  [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 44px; }
+  [data-etabli="compact"] .et-pt-nom { height: 44px; }
+  [data-etabli="compact"] .et-elt-nom { height: 44px; }
+  [data-etabli="compact"] .et-elt-b, [data-etabli="compact"] .et-elt-liste .et-mn-b { min-width: 44px; height: 44px; }
+  [data-etabli="compact"] .et-bloc-t, [data-etabli="compact"] .et-bloc-h { min-height: 44px; height: auto; }
+  [data-etabli="compact"] #donnees .sechd { height: 44px; }
+  [data-etabli="compact"] #donnees .rows .seg.full button { min-height: 44px; }
+  [data-etabli="compact"] .et-mn-l button { height: 44px; }
+  [data-etabli="compact"] .et-fi, [data-etabli="compact"] .et-fi-t { min-height: 44px; height: auto; }
+  [data-etabli="compact"] .zoom .zpct { width: 44px; }
+  /* (le segment d'une lettre — la direction principale « Y · X » — gardait sa largeur de texte : 34 px) */
+  [data-etabli="compact"] #donnees .rows .seg.full button, [data-etabli="compact"] #donnees .seg button { min-width: 44px; }
 }
 @media (min-width: 701px) and (max-width: 1199px) and (orientation: landscape) {
-  [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: 340px minmax(0, 1fr); grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); }
-  [data-etabli="compact"] .flyout { left: calc(340px + 2 * var(--g)); }
+  /* 372 px (c'étaient 340) : la ligne de l'élément porte six boutons de 44 px au doigt et garde la place du nom
+     (« Dalle 1 » entier ; le harnais « formats » mesure le nom) */
+  [data-etabli="compact"] .bench:not(.sans-g):not(.sans-d) { grid-template-columns: 372px minmax(0, 1fr); grid-template-rows: minmax(0, 3fr) minmax(0, 2fr); }
+  [data-etabli="compact"] .flyout { left: calc(372px + 2 * var(--g)); }
 }
 
 /* ------------------------------------------------------------------ téléphone : les onglets Données · Dessin · Résultat */
 @media (max-width: 700px) {
   [data-etabli="compact"] .et-pt-l, [data-etabli="compact"] .et-pt-t { min-height: 46px; height: auto; }
   /* le chevron et le NOM de l'élément ouvert, au doigt (le nom s'écrit en 16 px : .bench input, site.css) */
-  [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 40px; }
-  [data-etabli="compact"] .et-pt-nom { height: 40px; min-width: 48px; }
-  /* la ligne de l'élément, au doigt : le nom (16 px, .bench input de site.css), la liste, copier, supprimer à 40 px */
-  [data-etabli="compact"] .et-elt-nom { height: 40px; min-width: 48px; }
-  [data-etabli="compact"] .et-elt-b, [data-etabli="compact"] .et-elt-liste .et-mn-b { min-width: 40px; height: 40px; }
+  [data-etabli="compact"] .et-pt-t.et-pt-chev { width: 44px; }
+  [data-etabli="compact"] .et-pt-nom { height: 44px; min-width: 48px; }
+  /* la ligne de l'élément, au doigt : le nom (16 px, .bench input de site.css), la liste, copier, supprimer à 44 px
+     (petits chantiers, 10/11/2026 ; c'étaient 40 px) */
+  [data-etabli="compact"] .et-elt-nom { height: 44px; min-width: 48px; }
+  [data-etabli="compact"] .et-elt-b, [data-etabli="compact"] .et-elt-liste .et-mn-b { min-width: 44px; height: 44px; }
   [data-etabli="compact"] .et-elt-i .dim { font-size: 13px; }
   [data-etabli="compact"] .et-piece .et-l1 { min-height: 46px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field { height: 36px; flex-basis: 58px; }
   [data-etabli="compact"] .et-piece .et-l1 > .field.select { flex-basis: 84px; }
   [data-etabli="compact"] .et-piece .et-l1 > div > .field, [data-etabli="compact"] .et-mom > .field { height: 36px; }
   [data-etabli="compact"] .et-piece .et-l1 > .et-ty { flex-basis: 92px; }
-  [data-etabli="compact"] .et-tag { min-width: 40px; height: 36px; }
+  [data-etabli="compact"] .et-tag { min-width: 44px; height: 44px; }
   [data-etabli="compact"] .et-dep, [data-etabli="compact"] .et-hist, [data-etabli="compact"] .et-mn-b, [data-etabli="compact"] .et-prop, [data-etabli="compact"] .et-tout,
-  [data-etabli="compact"] .et-raz { width: 40px; height: 40px; }
+  [data-etabli="compact"] .et-raz { width: 44px; height: 44px; }
   [data-etabli="compact"] .et-mn-b { opacity: 1 !important; }
   [data-etabli="compact"] .et-mn-l button { height: 44px; font-size: 14px; }
   [data-etabli="compact"] .et-add, [data-etabli="compact"] .et-ret, [data-etabli="compact"] .et-large, [data-etabli="compact"] .et-just,
-  [data-etabli="compact"] .et-pt-add { height: 40px; font-size: 13px; }
+  [data-etabli="compact"] .et-pt-add { height: 44px; font-size: 13px; }
   [data-etabli="compact"] .et-barres { gap: 5px; }
-  [data-etabli="compact"] .et-barres .b { width: 40px; height: 40px; font-size: 13px; }
-  [data-etabli="compact"] .et-sec-pick { width: 40px; height: 40px; }
+  [data-etabli="compact"] .et-barres .b { width: 44px; height: 44px; font-size: 13px; }
+  [data-etabli="compact"] .et-sec-pick { width: 44px; height: 44px; }
   [data-etabli="compact"] .et-sec-h .field.text { height: 36px; }
   [data-etabli="compact"] #donnees .sechd { height: 46px; }
-  [data-etabli="compact"] #donnees .rows .seg.full button { min-height: 38px; }
+  [data-etabli="compact"] #donnees .rows .seg.full button { min-height: 44px; }
+  [data-etabli="compact"] #donnees .rows .seg.full button, [data-etabli="compact"] #donnees .seg button { min-width: 44px; }
   [data-etabli="compact"] .et-piece .et-det { padding-left: 8px; }
   [data-etabli="compact"] .panel .phead .pcoll { display: none; }
   /* « Annuler » et « Rétablir » restent à portée au téléphone : l'en-tête des données s'affiche (la charte le cache) */
-  [data-etabli="compact"] .panel.left .phead { display: flex; height: 44px; }
+  [data-etabli="compact"] .panel.left .phead { display: flex; height: 52px; }
   [data-etabli="compact"] .et-bloc-t, [data-etabli="compact"] .et-bloc-h { min-height: 46px; height: auto; }
   [data-etabli="compact"] .et-bloc .el.vc { padding: 10px 14px; }
   [data-etabli="compact"] .el.vc .l2 .cmp { white-space: normal; }
   [data-etabli="compact"] .et-obs { padding: 10px 6px; }
   [data-etabli="compact"] .et-jf textarea { font-size: 16px; }
   [data-etabli="compact"] .et-eff span { padding: 4px 8px; }
-  /* au doigt, 36 px au moins : l'onglet d'une section au nom d'une lettre (« A »), le bouton « ajuster » */
-  [data-etabli="compact"] .ctool .seg button { min-width: 36px; }
-  [data-etabli="compact"] .zoom .zpct { width: 36px; }
+  /* au doigt, 44 px : l'onglet d'une section au nom d'une lettre (« A »), le bouton « ajuster » */
+  [data-etabli="compact"] .ctool .seg button { min-width: 44px; }
+  [data-etabli="compact"] .zoom .zpct { width: 44px; }
 }
 
 /* ------------------------------------------------------------------ les JUSTIFICATIONS de la bibliothèque (api_web/fiches.py) */
@@ -583,11 +598,12 @@
 .et-piece .et-l1 > .et-ty > .et-lu { color: var(--ink-3); }
 .et-piece .et-det .row .et-lu { height: 30px; justify-self: end; font-weight: 600; }
 @media (min-width: 701px) and (max-width: 1199px) {
-  [data-etabli="compact"] .et-nap-btn { height: 32px; }
+  [data-etabli="compact"] .et-nap-btn { height: 44px; }
+  [data-etabli="compact"] .et-nap > .seg.full button, [data-etabli="compact"] .et-nap > .row2 > .seg button { height: 44px; }
 }
 @media (max-width: 700px) {
   [data-etabli="compact"] .et-nap-h { min-height: 36px; }
-  [data-etabli="compact"] .et-nap > .seg.full button, [data-etabli="compact"] .et-nap > .row2 > .seg button { height: 36px; font-size: 12.5px; }
-  [data-etabli="compact"] .et-nap-btn { height: 40px; font-size: 13px; }
+  [data-etabli="compact"] .et-nap > .seg.full button, [data-etabli="compact"] .et-nap > .row2 > .seg button { height: 44px; font-size: 12.5px; }
+  [data-etabli="compact"] .et-nap-btn { height: 44px; font-size: 13px; }
   [data-etabli="compact"] .et-lu { height: 36px; font-size: 13px; }
 }
