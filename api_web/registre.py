@@ -49,9 +49,26 @@ def pages() -> dict:
     return out
 
 
+_CLE = re.compile(r"[a-z_]+")
+_MODULES: dict = {}   # les modules déjà reconnus et importés (le moteur du navigateur sert TOUS les écrans d'une session)
+
+
 def module(cle: str):
     """Le module d'une clé, importé à la demande ; une clé inconnue (ou un fichier qui n'est pas un module : commun,
-    routeur…) est refusée."""
-    if not isinstance(cle, str) or cle not in cles():
+    routeur…) est refusée.
+
+    PARESSEUX (REFONTE_ETABLI.md, S4-D9) : on ne lit QUE le fichier ``<clé>.py``, une fois — la règle est celle de
+    ``cles()`` (fichier présent, nom qui ne commence pas par « _ », ``MODULE = "<clé>"`` et ``PAGE`` déclarés), sans
+    relire tout le dossier à chaque requête (≈ 5 ms par requête mesurés, 54 fichiers lus)."""
+    if isinstance(cle, str) and cle in _MODULES:
+        return _MODULES[cle]
+    if not isinstance(cle, str) or not _CLE.fullmatch(cle) or cle.startswith("_") \
+            or not os.path.isfile(os.path.join(ICI, cle + ".py")):
         raise KeyError(f"module inconnu : {cle!r}")
-    return importlib.import_module(f"api_web.{cle}")
+    src = _lire(cle + ".py")
+    m = _MODULE.search(src)
+    if not (m and m.group(1) == cle and _PAGE.search(src)):
+        raise KeyError(f"module inconnu : {cle!r}")
+    mod = importlib.import_module(f"api_web.{cle}")
+    _MODULES[cle] = mod
+    return mod

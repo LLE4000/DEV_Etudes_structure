@@ -1003,3 +1003,89 @@ brique et le format). Mise en page seule (R1 : les mêmes briques aux trois form
   de l'ancienne arborescence : ses règles étaient parties avec elle (e043d15) et l'œil lisait « Justifications1 ». Elles
   sont rendues à lui seul (`.et-fiches > .et-arbre-h`, `css/etabli.css`) ; `tests/test_etabli_compact.py` § 6 bis et le
   filtre « pilote » le gardent.
+
+## Révision du 10/11/2026 (soir) : le lot S4 tel qu'il se réalise — une application, un moteur
+
+**La demande** (l'ingénieur, après la mesure `mesures/2026-11-10_demarrage_passage.md`, qui montre un redémarrage
+complet de Python à CHAQUE écran) : « une application unique avec une navigation sans rechargement, chaque module dans
+ses propres fichiers, un moteur Python partagé qui reste actif ; modules chargés à la demande ; ouverture préparée à
+l'approche de la tuile ; l'interface tout de suite, sans écran de chargement plein écran ; les calculs inchangés et les
+résultats prouvés identiques ». Cette section remplace S4.c et S4.d là où elle s'en écarte, et le dit à chaque fois.
+
+**S4-D1. Navigation par échange de page (et non une coquille unique).** Chaque adresse garde SON fichier `<page>.html`,
+tel que `construire.py` l'écrit aujourd'hui (un lien direct, un F5, un partage marchent comme avant : Cloudflare n'a pas
+de repli monopage, `wrangler.jsonc` `not_found_handling: none`). Toutes les pages chargent un seul script, `js/app.js`.
+Un clic sur un lien du site (même origine, bouton gauche, sans touche, sans `target` ni `download`, vers une adresse
+connue) ne recharge plus le document : `app.js` lit la page cible (`fetch`, gardée en mémoire si elle a été préchargée),
+la démonte l'écran courant, synchronise les feuilles de `<head>` (ajoute celles de la cible et attend leur chargement,
+RETIRE celles qu'elle n'a pas : les feuilles de module non préfixées ne fuient pas d'un module à l'autre), remplace le
+`<body>` (attributs et enfants, scripts écartés), le titre, pousse l'adresse (`history.pushState`), puis monte l'écran
+de la cible. Écart avec S4.c (« la même coquille, octet pour octet ») : la coquille unique déplaçait le balisage de
+chaque établi dans des fragments recomposés à la main (`compact()` modifie déjà l'établi par remplacements de texte), et
+vidait de leur sens une quinzaine de familles de contrôles qui lisent l'établi dans sa page (`test_site_web.py`, filtre
+`note_pdf`). L'échange de page garde chaque module dans ses propres fichiers (sa page, sa feuille, son `api_web/<clé>.py`),
+et le DOM d'un écran est exactement celui de sa page.
+
+**S4-D2. Une seule porte de navigation** : `naviguer(url, {remplacer})` (`js/app.js`), utilisée par le clic délégué et
+par les navigations écrites en JavaScript (accueil : « Nouvelle note », import ; établi : note d'un autre module, import),
+qui ne font plus `location.href`/`location.replace`. Retour et avance : `popstate` → même chemin, sans pousser. Tout ce
+qui n'est pas une route connue, ou dont la lecture échoue (réseau, session Access expirée), part en navigation
+ordinaire (`location.assign`) : rien n'est perdu, la note est dans le navigateur et l'adresse la nomme.
+
+**S4-D3. Version du site** : chaque page porte `<meta name="stab-version">`, la même pour tout un site construit
+(empreinte des fichiers publiés). Si la page cible porte une autre version que le document courant (une mise en ligne
+pendant la session), `app.js` fait une navigation ordinaire : jamais d'ancien moteur ni d'anciens scripts avec un
+nouveau balisage.
+
+**S4-D4. Les écrans se montent et se démontent.** `etabli.js`, `accueil.js`, `bibliotheque.js` n'ont plus d'effet au
+chargement : ils exportent `ouvrirEtabli(hote, {module, params, moteur})`, `ouvrirAccueil(hote, {params})`,
+`ouvrirBibliotheque(hote, {bibliotheque, params, moteur})`, qui rendent `{fermer}`. Un `AbortController` par montage :
+TOUS les écouteurs posés sur `document`, `window`, une `MediaQueryList` le sont avec `{signal}` (y compris dans
+`cablerCompact`, `cablerToile`, `cablerRangement`, `cablerBibliotheque`, `cablerPanneauBibliotheque`), les observateurs
+se déconnectent et les minuteries s'arrêtent au signal, et les classes posées sur `<html>` (`volet-ouvert`,
+`plein-ecran`) sont retirées. `cablerRail` est câblé UNE fois, par `app.js`. **`fermer()` attend que les requêtes de
+l'écran en cours au moteur soient faites et appliquées** (avec un plafond de 5 s) après avoir fait perdre le focus au
+champ actif : une saisie validée juste avant de partir est calculée et enregistrée, jamais perdue ni écrite dans l'écran
+suivant ; passé le plafond, les réponses tardives sont ignorées (l'écran est fermé). La météo en cours est annulée.
+
+**S4-D5. Un moteur partagé** (`js/moteur.js`, `moteurPartage()`) : un seul travailleur pour toute la session, créé à la
+première demande (ouverture d'un établi ou d'une bibliothèque), ou en arrière-plan sur l'accueil
+(`requestIdleCallback`, délai 2 s ; `setTimeout` là où il manque, Safari). Le module n'est plus figé à la création : il
+part avec chaque message (`{id, requete, module, note}`), et numpy se charge AVANT la requête d'un module que le
+manifeste déclare (`avec_numpy`, étendu aux bibliothèques : la Bibliothèque Acier charge numpy) — le guet reste comme
+filet. Chaque écran parle au moteur par un **client** (`moteur.client()`), qui sait dire quand il n'a plus rien en cours
+et dont `fermer()` retire de la file ses requêtes pas encore parties. Un travailleur qui tombe après son démarrage rejette
+toutes les requêtes en attente (réponse `{ok:false}`), et le prochain écran en recrée un.
+
+**S4-D6. Préchauffage** : à l'approche d'une tuile, d'une carte « Reprendre », d'un module du volet (`pointerover` au
+pointeur fin, `focusin`, `pointerdown`), `app.js` (1) lit la page cible et la garde, (2) envoie au moteur
+`{type:"prechauffer", module}` : numpy si le module le demande, puis `import api_web.<clé>` — CE module seul (contrôle
+qui rougit si tout est importé).
+
+**S4-D7. Plus de voile.** Le voile `#demarrage` disparaît des trois gabarits, de la feuille et des scripts. L'écran est
+visible tout de suite. Tant que le moteur n'a pas répondu : un bandeau posé sur la toile, « Le moteur de calcul démarre
+· aperçu en lecture seule », avec un chronomètre ; les données, les volets et les actions sont `inert`. Calcul neuf :
+l'APERÇU `moteur/apercus/<clé>.json` (la réponse de `nouveau` calculée par CPython à la construction) est peint tout de
+suite, sans toucher à la note. Note rouverte : sa vignette et son résumé, la liste en squelette — jamais les valeurs par
+défaut. Erreur : le bandeau passe au rouge avec « Recharger ». Si le moteur est déjà prêt (passage dans l'application),
+pas d'aperçu : la première réponse arrive aussitôt. L'état se lit sur `body[data-ecran]` : `demarrage`, `apercu`,
+`pret`, `erreur` (le signal que le harnais attend, au lieu de `#demarrage` caché).
+
+**S4-D8. Aperçus** : un fichier par établi (17 ; `predalle` est servi par la dalle), écrit par `construire.py` dans un
+processus NEUF par module, égal octet pour octet à `routeur.traiter({"module": clé, "action": "nouveau"})`. `age` en a un
+(mesuré : sa réponse « nouveau » ne dépend pas du jour ; S4.b l'excluait à tort) — le test, rejoué chaque jour, rougirait
+si elle en dépendait. Exception nommée : `soudures` numérote les identifiants de ses hachures par un compteur de
+processus (`acier/soudures/dessin.py`) ; les comparaisons normalisent `s<n>_`, sans toucher au moteur.
+
+**S4-D9. Registre paresseux** (S4.a inchangé) : `registre.module(clé)` ne lit que `<clé>.py`, une fois, avec les mêmes
+refus que `cles()`.
+
+**S4-D10. Les preuves que les résultats ne changent pas.** (1) `test_reference_refonte` (CPython) inchangé, 0 regel ;
+(2) aperçu = routeur, octet pour octet, processus neuf par module ; (3) **moteur partagé = moteurs neufs** : les cas gelés
+de la référence rejoués dans UN interpréteur Pyodide (dans node, sans navigateur), dans plusieurs ordres, après
+préchauffage et après numpy, comparés à CPython ; (4) dans Chromium (filtre `demarrage`) : la première réponse de chaque
+établi, ouvert DANS l'application après les autres, égale son aperçu ; (5) les filtres du harnais rejoués, aux trois
+formats.
+
+**Mesure** : `mesures/AAAA-MM-JJ_demarrage_apres.md`, même protocole que le lot 0, plus le passage DANS l'application
+(clic) et l'ouverture depuis l'accueil après 3 s.
