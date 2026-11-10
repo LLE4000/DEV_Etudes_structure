@@ -379,6 +379,33 @@ chk("etabli.js : la note est provisoire pour TOUT module (sans nom ni chantier d
     re.search(r'provisoire = !\["nom", "chantier", "dossier"\]\.some', _ETABLI_JS) is not None and "COMPACT && !" not in _ETABLI_JS
     and 'direAlerte("absente"' in _ETABLI_JS and "enregistrer({ date: provisoire || date })" in _ETABLI_JS
     and 'const DATENT = new Set([...MODIFIENT].filter((a) => a !== "activer"))' in _ETABLI_JS, "")
+# la GARDE de l'établi (revue S4, resultats-apercu-dessin-modifiable) : envoyer() refuse une action qui MODIFIE la note
+# tant que l'écran n'est pas « pret » (l'aperçu, le démarrage, l'erreur ne montrent pas l'état de la note), AVANT toute
+# requête au moteur. Sans effet aujourd'hui (aucun contrôle actif de l'aperçu ne modifie) : elle protège un aperçu futur
+# éditable. Le contrôle se juge aussi sur une copie sans la garde (il doit la voir manquer).
+_GARDE = 'if (modifie && hote.dataset.ecran !== "pret") return null;'
+
+
+def _garde_modification(js):
+    m = re.search(r"async function envoyer\(action[^)]*\)[^{]*\{(.*?)\n    \}\n", js, re.S)
+    if not m:
+        return False
+    corps = m.group(1)
+    g, d = corps.find(_GARDE), corps.find("client.demander(")
+    return 0 <= g < d and corps.find("const modifie = MODIFIENT.has(action) || modification;") < g
+
+
+chk("etabli.js : envoyer() refuse une action qui modifie la note tant que l'écran n'est pas « pret » (avant toute requête au moteur) "
+    "— et le contrôle voit la garde manquer sur une copie sans elle",
+    _garde_modification(_ETABLI_JS) and not _garde_modification(_ETABLI_JS.replace(_GARDE, "")), "")
+# la page d'un module ABSORBÉ (predalle.html : son repli sans script) a un style minimal PARTAGÉ (revue S4,
+# ecrans-redirection-sans-style) : la règle .redirection de css/site.css (largeur bornée, centrée), que la page charge
+_SITE_CSS_R = open(os.path.join(WEB, "css", "site.css"), encoding="utf-8").read()
+_redir = re.search(r"^\.redirection \{([^}]*)\}", _SITE_CSS_R, re.M)
+_predalle = open(os.path.join(WEB, "predalle.html"), encoding="utf-8").read()
+chk("predalle.html (redirection) : son texte porte la classe .redirection, que css/site.css (chargée par la page) met en forme — largeur bornée, centrée",
+    _redir is not None and "max-width" in _redir.group(1) and "margin: 24px auto" in _redir.group(1)
+    and '<p class="redirection">' in _predalle and 'href="css/site.css"' in _predalle, _redir.group(0) if _redir else "aucune règle .redirection")
 # 4 ter. les BIBLIOTHÈQUES (docs/site/BIBLIOTHEQUES.md § 2.1, révision du 09/11/2026) : la carte d'une bibliothèque est
 # ÉTROITE et HAUTE, à GAUCHE du bloc de sa famille, et les modules de la famille s'alignent à sa DROITE dans leur propre
 # grille — le bloc .tiles.fam-b : la carte, puis la grille .tiles des modules (css/site.css la pose en sous-grille à partir

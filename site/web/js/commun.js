@@ -143,31 +143,52 @@ export function lireManifeste(frais = false) {
 // ------------------------------------------------------------------ le démarrage du moteur, visible (lot S4, § 3.4)
 // Plus de voile plein écran : l'écran est là tout de suite, en LECTURE SEULE tant que le moteur n'a pas répondu. Le
 // bandeau .et-demarre (un composant, le même pour les établis et les bibliothèques, R1) dit « Le moteur de calcul
-// démarre », avec un chronomètre (aria-hidden : seul l'état se lit) ; il se pose dans la barre du haut (PC, tablette)
-// ET sous l'en-tête du téléphone (dans .mtabs, collée sous .mtop — visible quel que soit l'onglet — ou sous .mhead
-// d'une bibliothèque) : chaque format voit le sien, une seule fois. En erreur, il passe au rouge avec « Recharger ».
+// démarre », avec un chronomètre (aria-hidden : seul l'état se lit) ; il se pose sur sa RANGÉE pleine largeur, juste sous
+// la barre du haut (PC, tablette), ET sous l'en-tête du téléphone (dans .mtabs, collée sous .mtop — visible quel que soit
+// l'onglet — ou sous .mhead d'une bibliothèque) : chaque format voit le sien, une seule fois (data-zone). Il était DANS la
+// barre du haut, déjà pleine à toutes les largeurs : il y effaçait le nom de la note (à 1 440 px : « Poutre » pour
+// « Poutres béton armé »), et en erreur sa raison débordait de l'écran et poussait « Recharger » hors de vue (revue S4,
+// ecrans-bandeau-barre-tablette) ; sur sa rangée, la phrase entière se lit et la raison passe à la ligne.
 export const TEXTE_DEMARRAGE = "Le moteur de calcul démarre";
-const ZONES_BANDEAU = [[".top", "afterbegin-spacer"], [".mtabs", "afterbegin"], [".mhead", "afterend"]];
+// la suite du texte : l'écran est en lecture seule ; « aperçu » seulement quand c'en est un (une note rouverte n'est
+// jamais un aperçu, C11 : son dernier enregistrement, montré neutre)
+export const SUITE_LECTURE = "lecture seule";
+export const SUITE_APERCU = "aperçu en lecture seule";
+const ZONES_BANDEAU = [[".top", "afterend", "rangee"], [".mtabs", "afterbegin", "onglets"], [".mhead", "afterend", "entete"]];
+// ce qui marche SANS le moteur, et redevient actif quand son démarrage a échoué (revue S4, ecrans-erreur-export) :
+// exporter la note telle qu'elle est enregistrée, imprimer l'écran — jamais les champs, ni la note PDF, ni « ranger »
+export const ACTIONS_SANS_MOTEUR = '[data-action="exporter"], [data-action="imprimer"]';
+// le texte d'un démarrage raté, le même pour les établis et les bibliothèques : une erreur NOMMÉE de version (le site a
+// été mis à jour : js/moteur.js, « perime ») se dit seule — elle se lisait « Le moteur n'a pas pu démarrer : Le site a été
+// mis à jour : rechargez la page. Recharger la page ; … » — ; « Recharger » est le bouton du bandeau, le texte ne le
+// répète pas
+export function texteEchecDemarrage(e, moteur) {
+  const m = String((e && e.message) || e || "").trim().replace(/[.\s]+$/, "");
+  if (moteur && moteur.perime) return `${m}.`;
+  return `Le moteur n'a pas pu démarrer : ${m || "raison inconnue"}. Si cela persiste, utilisez Streamlit.`;
+}
 export function bandeauDemarrage({ texte = TEXTE_DEMARRAGE, signal } = {}) {
   const noeuds = [];
-  for (const [sel, ou] of ZONES_BANDEAU) {
+  // « Le moteur de calcul démarre » se lit toujours entier ; ce qui suit (« · aperçu en lecture seule ») cède la place
+  const ecrire = (b, t) => {
+    const i = t.indexOf(" · ");
+    b.querySelector(".et-demarre-t1").textContent = i < 0 ? t : t.slice(0, i);
+    b.querySelector(".et-demarre-t2").textContent = i < 0 ? "" : `\u00a0${t.slice(i + 1)}`;
+    b.title = t;
+  };
+  for (const [sel, ou, zone] of ZONES_BANDEAU) {
     const z = document.querySelector(sel);
     if (!z) continue;
     const b = document.createElement("div");
     b.className = "et-demarre";
+    b.dataset.zone = zone;
     b.setAttribute("role", "status");
     b.innerHTML = '<span class="et-demarre-ic" aria-hidden="true"></span>'
       + '<span class="et-demarre-txt"><span class="et-demarre-t1"></span><span class="et-demarre-t2"></span></span>'
       + '<span class="et-demarre-chrono" aria-hidden="true"></span>'
       + '<button type="button" class="btn sm et-demarre-recharger" data-recharger="1" hidden>Recharger</button>';
-    // « Le moteur de calcul démarre » se lit toujours entier ; ce qui suit (« · aperçu en lecture seule ») cède la place
-    const i = texte.indexOf(" · ");
-    b.querySelector(".et-demarre-t1").textContent = i < 0 ? texte : texte.slice(0, i);
-    b.querySelector(".et-demarre-t2").textContent = i < 0 ? "" : `\u00a0${texte.slice(i + 1)}`;
-    b.title = texte;
-    const spacer = ou === "afterbegin-spacer" ? z.querySelector(":scope > .spacer") : null;
-    if (spacer) spacer.after(b);
-    else if (ou === "afterend") z.after(b);
+    ecrire(b, texte);
+    if (ou === "afterend") z.after(b);
     else z.prepend(b);
     noeuds.push(b);
   }
@@ -181,6 +202,8 @@ export function bandeauDemarrage({ texte = TEXTE_DEMARRAGE, signal } = {}) {
   return {
     // le moteur a répondu : le bandeau s'en va
     retirer() { arreter(); noeuds.forEach((b) => b.remove()); },
+    // le texte du démarrage change (l'aperçu peint : « · aperçu en lecture seule ») ; rien une fois en erreur
+    texte(t) { noeuds.forEach((b) => { if (b.dataset.etat !== "erreur") ecrire(b, t); }); },
     // le démarrage a échoué : le bandeau reste, en rouge, avec la raison et « Recharger »
     erreur(raison) {
       arreter();
@@ -197,17 +220,30 @@ export function bandeauDemarrage({ texte = TEXTE_DEMARRAGE, signal } = {}) {
 }
 
 // Les CONTRÔLES d'un écran en lecture seule (inert) : les champs et boutons des zones nommées — pas les panneaux, qui
-// restent lisibles, sélectionnables et défilables (aria-busy) ; ni la navigation (liens, rail, thème). Rend de quoi les
-// rendre : les contrôles ajoutés depuis (une réponse du moteur refait les cadres) sont relus aussi.
-const CONTROLES = ":is(input, select, textarea, button, [data-action]):not([data-theme-toggle]):not([data-modules]):not([data-recharger])";
+// restent lisibles, sélectionnables et défilables (aria-busy) ; ni la navigation (liens, rail, thème, le bouton ⋯ du
+// téléphone qui ouvre le menu où sont le thème, les modules et « Ouvrir .stab », la croix ✕ qui ferme une fenêtre de
+// calcul : fermer, c'est naviguer — revue S4, ecrans-menu-telephone-inerte, ecrans-volet-croix-inerte). Rend de quoi
+// les rendre : les contrôles ajoutés depuis (une réponse du moteur refait les cadres) sont relus aussi ; rendre(sel)
+// rend actifs pour de bon ceux qui marchent sans le moteur (un démarrage raté : ACTIONS_SANS_MOTEUR).
+const CONTROLES = ":is(input, select, textarea, button, [data-action])"
+  + ":not([data-theme-toggle]):not([data-modules]):not([data-recharger]):not([aria-controls=\"mmenu\"]):not([data-fermer])";
 export function lectureSeule(zones, panneaux) {
+  const rendus = [];
   const poser = () => {
-    for (const z of zones) document.querySelectorAll(`${z} ${CONTROLES}`).forEach((e) => { if (!e.closest("a[href]")) e.setAttribute("inert", ""); });
+    for (const z of zones) {
+      document.querySelectorAll(`${z} ${CONTROLES}`).forEach((e) => {
+        if (!e.closest("a[href]") && !rendus.some((s) => e.matches(s))) e.setAttribute("inert", "");
+      });
+    }
   };
   poser();
   panneaux.forEach((s) => document.querySelectorAll(s).forEach((p) => p.setAttribute("aria-busy", "true")));
   return {
     reposer: poser,
+    rendre(sel) {
+      rendus.push(sel);
+      for (const z of zones) document.querySelectorAll(`${z} [inert]`).forEach((e) => { if (e.matches(sel)) e.removeAttribute("inert"); });
+    },
     lever() {
       for (const z of zones) document.querySelectorAll(`${z} [inert]`).forEach((e) => e.removeAttribute("inert"));
       panneaux.forEach((s) => document.querySelectorAll(s).forEach((p) => p.removeAttribute("aria-busy")));

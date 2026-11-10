@@ -9,7 +9,10 @@
 //   DEMARRAGE_FORMATS=pc,tel (les deux par défaut)
 //
 // Sous-filtres : statique, moteur, prechauffage, doigt, longues, apercu, etablis, fermeture, historique, supprimer,
-// js, feuilles, ecouteurs, horsligne, lent, version, temps, etalons.
+// accueil_frais, refus, erreur, lecture, retour_onglet, js, feuilles, ecouteurs, horsligne, lent, version, temps, etalons.
+// (accueil_frais, refus, erreur, lecture, retour_onglet : le lot « écrans » de la revue S4 ; ceux qui touchent la
+// tablette la jouent aussi — 820 × 1 180, au doigt — quand le passage est au PC et que DEMARRAGE_FORMATS ne la nomme pas :
+// DEMARRAGE_FORMATS=pc,tab,tel la joue comme un format à part entière.)
 //
 // Ce que le harnais pose dans CHAQUE document (addInitScript, avant tout script de la page) :
 //   - une sentinelle window.__s (un nombre tiré au sort) : un document rechargé en tire un autre ;
@@ -49,6 +52,7 @@ const verif = (nom, cond, info = '') => { console.log(`${cond ? 'OK' : 'KO'}  ${
 const FMT = {
   pc: { nom: 'PC', ctx: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false } },
   tel: { nom: 'téléphone', ctx: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } },
+  tab: { nom: 'tablette', ctx: { viewport: { width: 820, height: 1180 }, deviceScaleFactor: 2, isMobile: false, hasTouch: true } },
 };
 
 // ------------------------------------------------------------------------------------------ dans chaque document
@@ -249,8 +253,9 @@ const INIT = (cfg) => {
       dedans: !!r && r.top >= -0.5 && r.left >= -0.5 && r.bottom <= innerHeight + 0.5 && r.right <= innerWidth + 0.5,
       texte: b[0] ? b[0].textContent.replace(/\s+/g, ' ').trim() : '', etat: b[0] ? b[0].dataset.etat || '' : '' };
   };
+  // (les croix ✕ des fenêtres de calcul n'en sont pas : fermer, c'est naviguer — revue S4, ecrans-volet-croix-inerte)
   window.__controles = () => {
-    const S = ':is(input, select, textarea, button, [data-action])';
+    const S = ':is(input, select, textarea, button, [data-action]):not([data-fermer])';
     const tous = [...document.querySelectorAll(`#donnees ${S}, #volets ${S}, :is(.top, .mtop, .mbar) [data-action]`)];
     const actifs = tous.filter((e) => !e.closest('[inert]'));
     const don = document.getElementById('donnees');
@@ -830,6 +835,517 @@ function noteAvecValeur(notes, module, chemin, valeur) {
         await pg.click('#recentes .rcard[href*="essai-temoin"] .t');
         await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
         verif(N('témoin : un clic sur la carte elle-même ouvre bien sa note (la mesure voit une navigation)'), (await etatEcran(pg)).recherche.includes('note=essai-temoin'));
+      });
+    }
+
+    // ================================================================ le lot « écrans » de la revue S4 (10/11/2026)
+    // accueil_frais, refus, erreur, lecture, retour_onglet. Les essais qui touchent la tablette la jouent aussi (820 × 1 180,
+    // au doigt) quand le passage est au PC et que DEMARRAGE_FORMATS ne la nomme pas.
+    const variantes = (f) => (f === 'pc' && !FORMATS.includes('tab') ? ['pc', 'tab'] : [f]);
+    // une note de la poutre avec un état qui a un TAUX (une section chargée : M et V) ; son résumé est celui qu'un moteur a
+    // écrit autrefois (« 41 % », vert) — le premier calcul de l'établi le récrit
+    const ETAT_ESSAI = { poutres: [{ nom: 'P1', b: 25, h: 50, sections: [{ nom: 'S1', M_inf: 80, V: 40 }] }], actif: 0 };
+    const noteEssai = (id, nom) => ({ id, module: 'poutre', nom, chantier: 'Essai', dossier: '', indice: 'A', cree: Date.now(), modifie: Date.now(),
+      etat: ETAT_ESSAI, resume: { taux: 41, niveau: 'p', statut: 'Conforme' }, vignette: '' });
+    const semer = (p, n) => lire(p, (n) => { const ns = window.__notes() || {}; ns[n.id] = n; localStorage.setItem('stab.notes.v1', JSON.stringify(ns)); }, n);
+    // le taux écrit à la française, par la fonction de l'écran lui-même (une seule source : commun.texteTaux)
+    const texteTauxDe = (p, t) => lire(p, async (t) => (await import(new URL('js/commun.js', document.baseURI).href)).texteTaux(t).texte, t);
+    // la carte « Reprendre » d'une note, telle que l'œil la voit
+    const carteDe = (p, id) => lire(p, (id) => {
+      const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const a = [...document.querySelectorAll('#recentes a.rcard')].find((x) => new URL(x.href).searchParams.get('note') === id);
+      const n = (window.__notes() || {})[id];
+      const note = n ? { taux: n.resume ? n.resume.taux : null, niveau: n.resume ? n.resume.niveau : null } : null;
+      if (!a || !vu(a)) return { carte: false, note };
+      const ch = a.querySelector('.chip');
+      return { carte: true, chip: ch && vu(ch) ? ch.textContent : null, classes: ch ? [...ch.classList] : [], occupe: a.getAttribute('aria-busy'), note };
+    }, id);
+    // le moteur rend un REFUS à la prochaine requête nommée (window.__refus = {module, action, erreur}) : l'enveloppe du
+    // gestionnaire de messages du travailleur (le setter de l'espion la fait passer par sa livraison, retards compris)
+    const installerRefus = (p) => lire(p, () => {
+      const w = (window.__instances || [])[window.__instances.length - 1];
+      const f = w && w.onmessage;
+      if (!f || f.__refus) return !!(f && f.__refus);
+      window.__refusFaits = 0;
+      const g = function (ev) {
+        const d = ev && ev.data, r = window.__refus;
+        if (r && d && d.type === 'reponse') {
+          const env = window.__journal.find((e) => e.sens === 'envoye' && e.type === 'requete' && e.id === d.id);
+          if (env && env.module === r.module && env.action === r.action) {
+            window.__refus = null;
+            window.__refusFaits++;
+            return f.call(this, { data: { ...d, json: JSON.stringify({ ok: false, erreur: r.erreur }) } });
+          }
+        }
+        return f.call(this, ev);
+      };
+      g.__refus = true;
+      w.onmessage = g;
+      return true;
+    });
+    // la barre du haut et le bandeau, tels que l'œil les voit : le bandeau VU (taille, dans l'écran), « Recharger » VU, dans
+    // l'écran et pas couvert (elementFromPoint), le débordement de côté, et la part VUE du nom de la note contre la largeur
+    // de son texte (la mesure de verifier_site.js, ouverture § 2 bis : le champ a 2 × 7 px de marges et de cadre)
+    const MESURE_BARRE = () => {
+      const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const W = innerWidth, H = innerHeight;
+      const bs = [...document.querySelectorAll('.et-demarre')].filter(vu), b0 = bs[0];
+      const rb = b0 ? b0.getBoundingClientRect() : null;
+      const rech = b0 ? b0.querySelector('[data-recharger]') : null;
+      const rr = rech && vu(rech) ? rech.getBoundingClientRect() : null;
+      const hit = rr ? document.elementFromPoint(rr.left + rr.width / 2, rr.top + rr.height / 2) : null;
+      let nom = null;
+      const cr = document.querySelector('.top .crumbs'), n = document.getElementById('nom-note');
+      if (cr && n && vu(n)) {
+        const r = n.getBoundingClientRect(), c = cr.getBoundingClientRect(), cs = getComputedStyle(n), t = document.createElement('span');
+        t.style.cssText = `position:absolute;white-space:pre;font:${cs.font}`; t.textContent = n.value; document.body.appendChild(t);
+        const texte = t.getBoundingClientRect().width; t.remove();
+        nom = { valeur: n.value, vu: Math.round(Math.min(r.right, c.right) - Math.max(r.left, c.left)), texte: Math.round(texte) };
+      }
+      return { n: bs.length, etat: b0 ? b0.dataset.etat || '' : null, texte: b0 ? b0.textContent.replace(/\s+/g, ' ').trim() : '',
+        taille: rb ? [Math.round(rb.width), Math.round(rb.height)] : null,
+        dedans: !!rb && rb.left >= -0.5 && rb.top >= -0.5 && rb.right <= W + 0.5 && rb.bottom <= H + 0.5,
+        recharger: rr ? { droite: Math.round(rr.right), bas: Math.round(rr.bottom), taille: [Math.round(rr.width), Math.round(rr.height)],
+          dedans: rr.left >= 0 && rr.top >= 0 && rr.right <= W + 0.5 && rr.bottom <= H + 0.5, touche: !!hit && rech.contains(hit) } : null,
+        deborde: document.documentElement.scrollWidth > W, largeur: [document.documentElement.scrollWidth, W], nom, ecran: document.body.dataset.ecran };
+    };
+    // un contrôle, tel que le doigt le trouve : VU, hors de tout [inert], et le point de son centre est à lui
+    const ACTIF = (s) => {
+      const e = [...document.querySelectorAll(s)].find((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true }));
+      if (!e) return { vu: false };
+      const r = e.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return { vu: r.width > 0 && r.height > 0, inerte: !!e.closest('[inert]'), touche: !!h && e.contains(h), taille: [Math.round(r.width), Math.round(r.height)] };
+    };
+    const toucher = (p, v, s) => (FMT[v].ctx.hasTouch ? p.tap(s) : p.click(s));
+    // la réponse retardée est TENUE par l'espion (arrivée à la page, pas encore livrée) : au Retour, la requête ne part
+    // qu'à la fermeture de l'écran, et sa réponse arrive après le montage de l'accueil — sans cette attente, l'essai
+    // jugeait avant qu'elle n'existe (correctif du premier passage)
+    const attendreTenue = (p, n0) => p.waitForFunction((n) => window.__retardees.length > n, n0, { timeout: 15000 }).then(() => true, () => false);
+
+    // ---- l'accueil après une fermeture dont la modification gardée court encore (revue S4, etat-01, etat-03 ; C1, C11)
+    if (joue('accueil_frais')) {
+      await essai('accueil frais', async () => {
+        const id = 'essai-frais';
+        // la carte pendant l'enregistrement gardé, puis après : par le lien Accueil (le champ perd le focus à l'appui) et par
+        // le Retour (popstate : le focus est perdu DANS la fermeture de l'écran, app.js)
+        for (const geste of ['lien', 'retour']) {
+          await semer(pg, noteEssai(id, 'Essai frais'));
+          await allerA(pg, './');
+          await naviguerApp(pg, `${P('poutre')}?note=${id}`, `/${P('poutre')}`);
+          await attendre(300);
+          // la HAUTEUR de la poutre (le taux gouvernant en dépend ; la largeur, le premier champ, ne le change pas ici)
+          const champ = await lire(pg, () => {
+            const e = [...document.querySelectorAll('#donnees input[data-sorte="nombre"]:not([disabled])')].find((x) => x.checkVisibility() && /(^|\/)h$/.test(x.dataset.chemin));
+            return e ? { chemin: e.dataset.chemin, valeur: e.value } : null;
+          });
+          if (!champ) { verif(N(`accueil frais (${geste}) : le champ de la hauteur, visible`), false); return; }
+          const sel = `#donnees input[data-chemin="${champ.chemin}"]`, v = autreValeur(champ, geste === 'lien' ? 0.6 : 0.7);
+          // le taux de la note tel que le premier calcul l'a récrit (l'état d'AVANT la saisie)
+          const r0 = await lire(pg, (id) => ((window.__notes() || {})[id] || {}).resume || {}, id);
+          const ancien = await texteTauxDe(pg, r0.taux);
+          if (!ancien) { verif(N(`accueil frais (${geste}) : la note a un taux avant la saisie`), false, court(r0)); return; }
+          await pg.fill(sel, String(v).replace('.', ','));
+          const n0 = await lire(pg, () => { window.__retarder = { ms: 3000, module: 'poutre' }; return window.__retardees.length; });
+          const avant = await etatEcran(pg);
+          if (geste === 'lien') await cliquerAccueil(pg); else await pg.goBack({ timeout: 20000 }).catch(() => null);
+          await pretEcran(pg, avant, { chemin: '/' });
+          const auMontage = await carteDe(pg, id);
+          await attendreTenue(pg, n0);
+          const pendant = await carteDe(pg, id);
+          const vol = await lire(pg, () => ({ retardees: window.__retardees.length, livrees: window.__livrees.length }));
+          try { await pg.waitForFunction((n) => window.__livrees.length >= n, vol.retardees, { timeout: 15000 }); } catch (e) { /* jugé plus bas */ }
+          await attendre(700);
+          await lire(pg, () => { window.__retarder = null; });
+          const apres = await carteDe(pg, id);
+          const nouveau = apres.note ? await texteTauxDe(pg, apres.note.taux) : '';
+          const neutre = (x) => x.carte && x.chip === 'enregistrement en cours' && x.chip !== ancien && !x.classes.some((k) => ['p', 'f', 'v', 'r'].includes(k));
+          verif(N(`accueil (${geste === 'lien' ? 'lien Accueil' : 'Retour'}) : pendant l'enregistrement gardé (au montage, et la réponse tenue), la carte de la note est NEUTRE — « enregistrement en cours », ni l'ancien taux (${ancien}) ni sa pastille`),
+            vol.retardees > n0 && vol.livrees < vol.retardees && neutre(auMontage) && neutre(pendant),
+            court({ auMontage, pendant, vol, n0 }));
+          verif(N(`accueil (${geste === 'lien' ? 'lien Accueil' : 'Retour'}) : la réponse livrée, la carte se redessine — le NOUVEAU taux, sa pastille (le geste change le taux : ${ancien} → ${nouveau})`),
+            apres.carte && !!nouveau && nouveau !== ancien && apres.chip === nouveau && apres.classes.includes(apres.note.niveau) && apres.occupe === null,
+            court({ apres, nouveau, ancien }));
+        }
+        // supprimer la note sur l'accueil PENDANT son enregistrement gardé : la suppression attend l'enregistrement (aucun
+        // refus « supprimée » : l'écriture a eu lieu avant), et la note ne revient pas
+        await semer(pg, noteEssai(id, 'Essai frais'));
+        await allerA(pg, './');
+        await naviguerApp(pg, `${P('poutre')}?note=${id}`, `/${P('poutre')}`);
+        let champ = await champVisible(pg);
+        await pg.fill(`#donnees input[data-chemin="${champ.chemin}"]`, String(autreValeur(champ, 0.8)).replace('.', ','));
+        let vol = await lire(pg, () => { window.__retarder = { ms: 3000, module: 'poutre' }; return window.__retardees.length; });
+        let avant = await etatEcran(pg);
+        await cliquerAccueil(pg);
+        await pretEcran(pg, avant, { chemin: '/' });
+        await attendreTenue(pg, vol);
+        await effacerMessage(pg);
+        pg.once('dialog', (d) => d.accept().catch(() => {}));
+        await pg.click(`#recentes .rcard [data-supprimer="${id}"]`);
+        const enVol = await lire(pg, (n) => window.__retardees.length > n && window.__livrees.length < window.__retardees.length, vol);
+        try { await pg.waitForFunction(() => window.__livrees.length >= window.__retardees.length, null, { timeout: 15000 }); } catch (e) { /* jugé plus bas */ }
+        await attendre(800);
+        await lire(pg, () => { window.__retarder = null; });
+        let l = await lire(pg, (id) => ({ note: !!(window.__notes() || {})[id], carte: !!document.querySelector(`[data-supprimer="${id}"]`), chemin: location.pathname }), id);
+        let t = await messageVu(pg);
+        verif(N("accueil : supprimer une note dont la saisie s'enregistre encore — la suppression ATTEND l'enregistrement (aucun refus « supprimée »), la note ne revient pas"),
+          enVol && !l.note && !l.carte && l.chemin === '/' && !/supprimée/.test(t), court({ ...l, enVol, message: t }));
+        // une note supprimée AILLEURS (un autre onglet) pendant l'enregistrement gardé : la réponse ne la réécrit pas, et le dit
+        // en nommant la note et son module
+        await semer(pg, noteEssai(id, 'Essai frais'));
+        await allerA(pg, './');
+        await naviguerApp(pg, `${P('poutre')}?note=${id}`, `/${P('poutre')}`);
+        champ = await champVisible(pg);
+        await pg.fill(`#donnees input[data-chemin="${champ.chemin}"]`, String(autreValeur(champ, 0.9)).replace('.', ','));
+        vol = await lire(pg, () => { window.__retarder = { ms: 3000, module: 'poutre' }; return window.__retardees.length; });
+        avant = await etatEcran(pg);
+        await cliquerAccueil(pg);
+        await pretEcran(pg, avant, { chemin: '/' });
+        const tenue = await attendreTenue(pg, vol);
+        await effacerMessage(pg);
+        await lire(pg, (id) => { const ns = window.__notes() || {}; delete ns[id]; localStorage.setItem('stab.notes.v1', JSON.stringify(ns)); }, id);
+        try { await pg.waitForFunction(() => window.__livrees.length >= window.__retardees.length, null, { timeout: 15000 }); } catch (e) { /* jugé plus bas */ }
+        await attendre(800);
+        await lire(pg, () => { window.__retarder = null; });
+        l = await lire(pg, (id) => ({ note: !!(window.__notes() || {})[id], carte: !!document.querySelector(`[data-supprimer="${id}"]`) }), id);
+        t = await messageVu(pg);
+        verif(N(`une note supprimée ailleurs pendant son enregistrement gardé n'est pas réécrite, et le message le dit en la nommant (« Essai frais » (${MODULES.poutre.nom}))`),
+          tenue && !l.note && !l.carte && t.includes(`« Essai frais » (${MODULES.poutre.nom}) : la note a été supprimée`), court({ ...l, tenue, message: t }));
+      });
+    }
+
+    // ---- une MODIFICATION refusée par le moteur : dans l'écran, et après la fermeture (revue S4, etat-02, refus anonyme)
+    if (joue('refus')) {
+      await essai('refus', async () => {
+        const id = 'essai-refus';
+        await semer(pg, noteEssai(id, 'Essai refus'));
+        await allerA(pg, './');
+        await naviguerApp(pg, `${P('poutre')}?note=${id}`, `/${P('poutre')}`);
+        if (!(await installerRefus(pg))) { verif(N("refus : l'enveloppe du travailleur est posée"), false); return; }
+        // (1) dans l'écran : le champ revient à la valeur du moteur, la note et le résultat ne changent pas, le message le dit
+        const champ = await champVisible(pg);
+        const sel = `#donnees input[data-chemin="${champ.chemin}"]`, v = autreValeur(champ, 1.3);
+        const lireEcran = () => lire(pg, ([s, id]) => {
+          const e = document.querySelector(s), t = document.getElementById('toast');
+          return { valeur: e ? e.value : null, defaut: e ? e.defaultValue : null, resultat: (document.getElementById('resultat') || {}).innerHTML || '',
+            etat: JSON.stringify(((window.__notes() || {})[id] || {}).etat), message: t && t.checkVisibility({ visibilityProperty: true, opacityProperty: true }) ? t.textContent : '' };
+        }, [sel, id]);
+        const a0 = await lireEcran();
+        await effacerMessage(pg);
+        await lire(pg, () => { window.__refus = { module: 'poutre', action: 'modifier', erreur: 'essai de refus' }; });
+        await pg.fill(sel, String(v).replace('.', ','));
+        await lire(pg, (s) => document.querySelector(s).blur(), sel);
+        try { await pg.waitForFunction(() => window.__refusFaits >= 1, null, { timeout: 15000 }); } catch (e) { /* jugé plus bas */ }
+        await attendre(500);
+        const a1 = await lireEcran();
+        verif(N(`refus d'une modification : le champ revient à la valeur du moteur (${champ.valeur}, pas ${v}), la note et le résultat sont inchangés, le message dit que la saisie n'est pas prise`),
+          valeurNombre(a1.valeur) === valeurNombre(champ.valeur) && valeurNombre(a1.valeur) !== v && a1.valeur === a1.defaut && a1.etat === a0.etat
+            && a1.resultat === a0.resultat && /Le moteur a refusé : essai de refus/.test(a1.message) && /n'est pas prise/.test(a1.message),
+          court({ champ: champ.chemin, avant: champ.valeur, tape: v, apres: a1.valeur, defaut: a1.defaut, noteInchangee: a1.etat === a0.etat, resultatInchange: a1.resultat === a0.resultat, message: a1.message }));
+        // (2) la réponse arrive APRÈS la fermeture (retardée), refusée : le message est dit dans l'écran suivant, en nommant
+        // la note et son module, une seule fois préfixé
+        await effacerMessage(pg);
+        const c2 = await champVisible(pg);
+        const v2 = autreValeur(c2, 1.25);
+        await lire(pg, () => { window.__refus = { module: 'poutre', action: 'modifier', erreur: 'Valeur refusée : essai' }; window.__retarder = { ms: 1500, module: 'poutre' }; });
+        await pg.fill(`#donnees input[data-chemin="${c2.chemin}"]`, String(v2).replace('.', ','));
+        const avant = await etatEcran(pg);
+        await cliquerLien(pg, P('assemblages'));
+        await pretEcran(pg, avant, { chemin: `/${P('assemblages')}` });
+        try { await pg.waitForFunction(() => window.__refusFaits >= 2, null, { timeout: 15000 }); } catch (e) { /* jugé plus bas */ }
+        await attendre(500);
+        await lire(pg, () => { window.__retarder = null; window.__refus = null; });
+        const t = await messageVu(pg);
+        const attendu = `« Essai refus » (${MODULES.poutre.nom}) : Le moteur a refusé : Valeur refusée : essai`;
+        const etat = await lire(pg, (id) => JSON.stringify(((window.__notes() || {})[id] || {}).etat), id);
+        verif(N("refus gardé (la réponse arrive après la fermeture) : dit dans l'écran SUIVANT, VU, en nommant la note et son module (préfixé une seule fois) ; la note n'a pas changé"),
+          t.startsWith(attendu) && (t.match(/« /g) || []).length === 1 && etat === a0.etat, court({ message: t, attendu, noteInchangee: etat === a0.etat }));
+        // (le refus INJECTÉ est écrit à la console par l'établi, comme tout refus du moteur : ce n'est pas une erreur de la page)
+        pg.erreurs = pg.erreurs.filter((x) => !/essai de refus|Valeur refusée : essai/.test(x));
+      });
+    }
+
+    // ---- le démarrage RATÉ (moteur.zip servi en 500) : le bandeau rouge VU avec « Recharger », ce qui marche sans le moteur
+    // reste actif — aux trois formats, à l'établi comme à la bibliothèque ; puis aux largeurs de la tablette et du PC (revue
+    // S4, ecrans-erreur-export, preuves-bandeau-erreur, ecrans-menu-telephone-inerte, ecrans-bandeau-barre-tablette)
+    if (joue('erreur')) {
+      await essai('erreur', async () => {
+        const echouer = (cx) => cx.route((u) => /\/moteur\/moteur\.zip$/.test(u.pathname), (r) => r.fulfill({ status: 500, contentType: 'text/plain', body: 'essai' }));
+        for (const v of variantes(fmt)) {
+          const NV = (x) => `demarrage · ${FMT[v].nom} · ${x}`;
+          const c2 = await ouvrirContexte(b, v);
+          await echouer(c2);
+          const p2 = await nouvellePage(c2);
+          try {
+            await p2.goto(`${BASE}/`);
+            await semer(p2, noteEssai('essai-erreur', 'Essai erreur'));
+            await p2.goto(`${BASE}/${P('poutre')}?note=essai-erreur`);
+            const sig = await pretEcran(p2, null, { chemin: `/${P('poutre')}`, delai: 60000 });
+            const m = await lire(p2, MESURE_BARRE);
+            verif(NV("démarrage raté (établi) : le bandeau ROUGE est VU, entier dans l'écran, « n'a pas pu démarrer », avec « Recharger » VU, dans l'écran, sous le doigt ; rien ne déborde de côté"),
+              sig === 'ecran:erreur' && m.n === 1 && m.etat === 'erreur' && m.taille && m.taille[0] >= 40 && m.taille[1] >= 10 && m.dedans && /n'a pas pu démarrer/.test(m.texte)
+                && !/Recharger la page/.test(m.texte) && !!m.recharger && m.recharger.dedans && m.recharger.touche && !m.deborde,
+              court({ sig, ...m }, 700));
+            // ce qui marche sans le moteur : « Exporter .stab » (télécharge la note), « Imprimer » ; au téléphone par le menu ⋯
+            if (v === 'tel') {
+              const mb = await lire(p2, ACTIF, '#menu-m');
+              await toucher(p2, v, '#menu-m').catch(() => {});
+              await attendre(300);
+              const mm = await lire(p2, () => { const e = document.getElementById('mmenu'); return !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true }); });
+              verif(NV('démarrage raté (téléphone) : le bouton ⋯ est actif et ouvre le menu'), mb.vu && !mb.inerte && mm, court({ bouton: mb, menu: mm }));
+            }
+            const ou = v === 'tel' ? '#mmenu' : '.top';
+            const exp = await lire(p2, ACTIF, `${ou} [data-action="exporter"]`), imp = await lire(p2, ACTIF, `${ou} [data-action="imprimer"]`);
+            const [dl] = await Promise.all([p2.waitForEvent('download', { timeout: 8000 }).catch(() => null), toucher(p2, v, `${ou} [data-action="exporter"]`).catch(() => {})]);
+            let fichier = null;
+            if (dl) { try { fichier = { nom: dl.suggestedFilename(), id: JSON.parse(fs.readFileSync(await dl.path(), 'utf8')).note.id }; } catch (e) { fichier = { erreur: e.message }; } }
+            const restent = await lire(p2, () => ({
+              pdf: [...document.querySelectorAll('[data-action="pdf"]')].every((e) => !!e.closest('[inert]')),
+              ranger: [...document.querySelectorAll('.top [data-ranger], #mmenu [data-ranger]')].every((e) => !!e.closest('[inert]')),
+              champs: [...document.querySelectorAll('#donnees input, #donnees select')].every((e) => !!e.closest('[inert]')),
+            }));
+            verif(NV('démarrage raté : « Exporter .stab » est VU, actif, sous le doigt, et télécharge LA note (un .stab) ; « Imprimer » est VU et actif ; la note PDF, « ranger » et les champs restent inertes'),
+              exp.vu && !exp.inerte && exp.touche && imp.vu && !imp.inerte && imp.touche && !!fichier && /\.stab$/.test(fichier.nom || '') && fichier.id === 'essai-erreur'
+                && restent.pdf && restent.ranger && restent.champs,
+              court({ exporter: exp, imprimer: imp, fichier, restent }));
+            await p2.screenshot({ path: path.join(OUT, `demarrage_erreur_${v}.png`) }).catch(() => {});
+            // la bibliothèque : le même bandeau, la même règle
+            await p2.goto(`${BASE}/bibliotheque-beton`);
+            const sb = await pretEcran(p2, null, { chemin: '/bibliotheque-beton', delai: 60000 });
+            const mbib = await lire(p2, MESURE_BARRE);
+            verif(NV("démarrage raté (bibliothèque) : le bandeau ROUGE est VU, « n'a pas pu démarrer », « Recharger » VU dans l'écran et sous le doigt ; rien ne déborde"),
+              sb === 'ecran:erreur' && mbib.n === 1 && mbib.etat === 'erreur' && mbib.dedans && /n'a pas pu démarrer/.test(mbib.texte) && !!mbib.recharger && mbib.recharger.dedans
+                && mbib.recharger.touche && !mbib.deborde, court({ sb, ...mbib }, 600));
+            await p2.screenshot({ path: path.join(OUT, `demarrage_erreur_bibliotheque_${v}.png`) }).catch(() => {});
+          } finally { await c2.close(); }
+        }
+        // aux largeurs de la tablette et du PC (portrait, paysage) : la raison passe à la ligne, « Recharger » reste dans
+        // l'écran, le nom de la note se lit, rien ne déborde — une note rouverte (son étiquette « Indice A » prend sa place)
+        if (fmt === 'pc') {
+          const fautes = [];
+          for (const [w, h] of [[768, 1024], [820, 1180], [1024, 768], [1180, 820], [1440, 900]]) {
+            const c3 = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: w <= 1180 });
+            await c3.addInitScript(INIT, {});
+            await echouer(c3);
+            const p3 = await c3.newPage();
+            try {
+              await p3.goto(`${BASE}/`);
+              await semer(p3, noteEssai('essai-erreur', 'Essai erreur'));
+              await p3.goto(`${BASE}/${P('poutre')}?note=essai-erreur`);
+              const sig = await pretEcran(p3, null, { chemin: `/${P('poutre')}`, delai: 60000 });
+              const m = await lire(p3, MESURE_BARRE);
+              if (sig !== 'ecran:erreur' || !m.recharger || !m.recharger.dedans || !m.recharger.touche || m.deborde || !m.dedans || !m.nom || m.nom.vu < m.nom.texte + 14) {
+                fautes.push(`${w}×${h} : ${court({ sig, ...m }, 400)}`);
+              }
+              if (w === 820) await p3.screenshot({ path: path.join(OUT, 'demarrage_erreur_820.png') }).catch(() => {});
+            } catch (e) { fautes.push(`${w}×${h} : ${String(e.message).split('\n')[0]}`); } finally { await c3.close(); }
+          }
+          verif(N("démarrage raté, à 768, 820, 1 024, 1 180 et 1 440 px : « Recharger » VU dans l'écran et sous le doigt, le bandeau entier, le nom de la note lisible, aucun débordement de côté"),
+            !fautes.length, fautes.join(' | ').slice(0, 900));
+        }
+      });
+    }
+
+    // ---- pendant le démarrage (le moteur retenu) : ce qui reste atteignable, ce qui se dit (revue S4, ecrans-apercu-mention,
+    // ecrans-volet-croix-inerte, ecrans-menu-telephone-inerte, ecrans-alerte-couvre-onglets, ecrans-bandeau-barre-tablette ; C11)
+    if (joue('lecture')) {
+      await essai('lecture seule', async () => {
+        // la mention de l'aperçu, VUE : en tête du résultat, ou (au téléphone) la suite du bandeau
+        const MENTION = () => {
+          const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const dedans = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.left >= -0.5 && r.right <= innerWidth + 0.5 && r.top >= -0.5 && r.bottom <= innerHeight + 0.5; };
+          const t = (s, re) => [...document.querySelectorAll(s)].filter((e) => vu(e) && dedans(e) && re.test(e.textContent)).map((e) => e.textContent.trim());
+          return { mention: t('.et-apercu-mention', /aperçu/i), suite: t('.et-demarre .et-demarre-t2', /aperçu/i),
+            lecture: t('.et-apercu-mention, .et-demarre .et-demarre-t2', /lecture seule/), titre: (document.querySelector('.et-demarre') || {}).title || '',
+            nMention: document.querySelectorAll('.et-apercu-mention').length, nBandeau: document.querySelectorAll('.et-demarre').length, ecran: document.body.dataset.ecran };
+        };
+        for (const v of variantes(fmt)) {
+          const NV = (x) => `demarrage · ${FMT[v].nom} · ${x}`;
+          const c2 = await ouvrirContexte(b, v, { retenir: 25000 });
+          const p2 = await nouvellePage(c2);
+          try {
+            // (a) un calcul NEUF : l'aperçu le dit, aux trois formats (au téléphone : à chaque onglet)
+            await p2.goto(`${BASE}/${P('poutre')}`, { waitUntil: 'domcontentloaded' });
+            await p2.waitForFunction(() => !!window.__apercu, null, { timeout: 15000 }).catch(() => {});
+            const vus = [];
+            for (const o of v === 'tel' ? ['donnees', 'dessin', 'resultat'] : [null]) {
+              if (o) { await p2.tap(`.mtabs [data-onglet="${o}"]`).catch(() => {}); await attendre(250); }
+              vus.push({ onglet: o || '—', ...(await lire(p2, MENTION)) });
+            }
+            verif(NV(`aperçu : il se DIT aperçu, en lecture seule, de façon VUE${v === 'tel' ? ', à chaque onglet' : ' (en tête du résultat)'}`),
+              vus.every((x) => x.ecran === 'apercu' && (x.mention.length || x.suite.length) && x.lecture.length && (v === 'tel' || x.mention.length)), court(vus, 700));
+            if (v === 'tab') {
+              const m = await lire(p2, MESURE_BARRE);
+              verif(NV("aperçu : le bandeau cède sa place au NOM de la note (il se lit en entier), rien ne déborde"),
+                !!m.nom && m.nom.vu >= m.nom.texte + 14 && m.n === 1 && m.dedans && !m.deborde, court(m, 500));
+            }
+            // la croix ✕ d'une fenêtre de calcul ouverte pendant l'aperçu la ferme (fermer, c'est naviguer)
+            if (v === 'tel') { await p2.tap('.mtabs [data-onglet="resultat"]').catch(() => {}); await attendre(250); }
+            const ck = await lire(p2, () => {
+              const e = [...document.querySelectorAll('#resultat [data-calcul]')].find((x) => x.checkVisibility());
+              if (!e) return null;
+              e.setAttribute('data-essai-calcul', '1');
+              return e.dataset.calcul;
+            });
+            let croix = { calcul: ck };
+            if (ck) {
+              await toucher(p2, v, '[data-essai-calcul]').catch(() => {});
+              await attendre(350);
+              croix.ouverte = await lire(p2, ACTIF, '.flyout.on [data-fermer]');
+              await toucher(p2, v, '.flyout.on [data-fermer]').catch((e) => { croix.erreur = String(e.message).split('\n')[0]; });
+              await attendre(350);
+              croix.apres = await lire(p2, () => ({ on: [...document.querySelectorAll('.flyout.on')].filter((x) => x.checkVisibility()).length, volet: document.documentElement.classList.contains('volet-ouvert') }));
+            }
+            verif(NV("aperçu : une fenêtre de calcul s'ouvre depuis le résultat, et sa croix ✕ — VUE, active, sous le doigt — la ferme"),
+              !!ck && croix.ouverte && croix.ouverte.vu && !croix.ouverte.inerte && croix.ouverte.touche && croix.apres.on === 0 && !croix.apres.volet, court(croix));
+            if (v === 'tel') {
+              // le bouton ⋯ : actif ; son menu donne le thème, les modules, « Ouvrir .stab » ; ce qui agit sur la note reste inerte
+              await p2.tap('.mtabs [data-onglet="donnees"]').catch(() => {});
+              const mb = await lire(p2, ACTIF, '#menu-m');
+              const th0 = await lire(p2, () => document.documentElement.dataset.theme || '');
+              await p2.tap('#menu-m').catch(() => {});
+              await attendre(300);
+              const menu = { theme: await lire(p2, ACTIF, '#mmenu [data-theme-toggle]'), modules: await lire(p2, ACTIF, '#mmenu [data-modules]'),
+                ouvrir: await lire(p2, ACTIF, '#mmenu label[for="ouvrir"]'), exporterInerte: await lire(p2, () => !!document.querySelector('#mmenu [data-action="exporter"]').closest('[inert]')) };
+              await p2.tap('#mmenu [data-theme-toggle]').catch(() => {});
+              await attendre(300);
+              const th1 = await lire(p2, () => document.documentElement.dataset.theme || '');
+              verif(NV("aperçu (téléphone) : le bouton ⋯ est actif ; son menu donne le thème (il bascule), « Tous les modules » et « Ouvrir .stab », VUS et actifs ; « Exporter » reste inerte"),
+                mb.vu && !mb.inerte && mb.touche && menu.theme.vu && !menu.theme.inerte && menu.modules.vu && !menu.modules.inerte && menu.ouvrir.vu && !menu.ouvrir.inerte
+                  && menu.exporterInerte && th1 !== th0, court({ bouton: mb, menu, theme: [th0, th1] }));
+            }
+            await p2.screenshot({ path: path.join(OUT, `demarrage_lecture_${v}.png`) }).catch(() => {});
+            // la première vraie réponse : la mention s'en va avec le bandeau
+            await lire(p2, () => window.__relacher());
+            await pretEcran(p2, null, { chemin: `/${P('poutre')}` }).catch(() => {});
+            const fin = await lire(p2, MENTION);
+            verif(NV("aperçu : la première vraie réponse efface la mention et le bandeau"), fin.ecran === 'pret' && fin.nMention === 0 && fin.nBandeau === 0, court(fin));
+          } finally { await c2.close(); }
+          // (b) une note ROUVERTE pendant le démarrage : jamais « aperçu » (C11) ; le bandeau dit « lecture seule »
+          const c3 = await ouvrirContexte(b, v, { retenir: 25000 });
+          const p3 = await nouvellePage(c3);
+          try {
+            await p3.goto(`${BASE}/`);
+            await semer(p3, noteEssai('essai-rouverte', 'Essai rouverte'));
+            await p3.goto(`${BASE}/${P('poutre')}?note=essai-rouverte`, { waitUntil: 'domcontentloaded' });
+            await p3.waitForFunction(() => !!document.querySelector('#resultat .et-rouverte'), null, { timeout: 15000 }).catch(() => {});
+            await attendre(800);
+            const vus = [];
+            for (const o of v === 'tel' ? ['donnees', 'dessin', 'resultat'] : [null]) {
+              if (o) { await p3.tap(`.mtabs [data-onglet="${o}"]`).catch(() => {}); await attendre(250); }
+              vus.push({ onglet: o || '—', ...(await lire(p3, MENTION)) });
+            }
+            const m = await lire(p3, MESURE_BARRE);
+            verif(NV("note rouverte pendant le démarrage : rien ne dit « aperçu » (ni la mention, ni le bandeau), le bandeau dit « lecture seule »"),
+              vus.every((x) => x.ecran === 'demarrage' && !x.mention.length && !x.suite.length && x.nMention === 0 && /lecture seule$/.test(x.titre) && !/aperçu/.test(x.titre))
+                && (v !== 'tel' || vus.every((x) => x.lecture.length)), court(vus, 700));
+            if (v === 'tab') verif(NV("note rouverte pendant le démarrage : le nom de la note se lit en entier à côté du bandeau, rien ne déborde"),
+              !!m.nom && m.nom.vu >= m.nom.texte + 14 && m.n === 1 && m.dedans && !m.deborde, court(m, 500));
+          } finally { await c3.close(); }
+          // (c) au téléphone : une note ABSENTE (le message #et-alerte dès le montage) pendant le démarrage — le message ne
+          // couvre pas les onglets, que le bandeau agrandit
+          if (v === 'tel') {
+            const c4 = await ouvrirContexte(b, v, { retenir: 25000 });
+            const p4 = await nouvellePage(c4);
+            try {
+              await p4.goto(`${BASE}/${P('poutre')}?note=essai-inconnue`, { waitUntil: 'domcontentloaded' });
+              await p4.waitForFunction(() => { const a = document.getElementById('et-alerte'); return a && a.checkVisibility() && document.querySelector('.mtabs .et-demarre'); }, null, { timeout: 15000 }).catch(() => {});
+              await attendre(300);
+              const o = await lire(p4, () => {
+                const a = document.getElementById('et-alerte');
+                return { alerte: !!a && a.checkVisibility({ visibilityProperty: true, opacityProperty: true }), haut: a ? Math.round(a.getBoundingClientRect().top) : null,
+                  basOnglets: Math.round(document.querySelector('.mtabs').getBoundingClientRect().bottom),
+                  onglets: [...document.querySelectorAll('.mtabs [data-onglet]')].map((t) => {
+                    const r = t.getBoundingClientRect(), h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                    return { onglet: t.dataset.onglet, touche: !!h && !!h.closest('[data-onglet]') && h.closest('[data-onglet]') === t };
+                  }) };
+              });
+              verif(N("note absente pendant le démarrage (téléphone) : le message #et-alerte est VU et ne couvre aucun onglet (chaque onglet est sous le doigt, le message sous leur bas réel)"),
+                o.alerte && o.onglets.length === 3 && o.onglets.every((x) => x.touche) && o.haut >= o.basOnglets, court(o));
+              await p4.screenshot({ path: path.join(OUT, 'demarrage_alerte_tel.png') }).catch(() => {});
+            } finally { await c4.close(); }
+          }
+        }
+        // (d) aux largeurs de la tablette et du PC : pendant le démarrage, le bandeau ne prend RIEN à la barre du haut (la part
+        // vue du nom est la même avec et sans lui) et le nom se lit en entier (calcul neuf et note rouverte ; à 768 px, chaque
+        // établi) ; le bandeau entier dans l'écran, rien ne déborde — le moteur ne démarre jamais ici (son travailleur ne se
+        // charge pas : l'écran reste au démarrage, sans coût)
+        if (fmt === 'pc') {
+          const fautes = [];
+          const SANS_BANDEAU = () => { document.querySelectorAll('.et-demarre').forEach((x) => { x.dataset.essaiCache = '1'; x.style.display = 'none'; }); };
+          const AVEC_BANDEAU = () => { document.querySelectorAll('[data-essai-cache]').forEach((x) => { x.style.display = ''; delete x.dataset.essaiCache; }); };
+          let n768 = 0;
+          for (const [w, h] of [[768, 1024], [820, 1180], [1024, 768], [1180, 820], [1440, 900]]) {
+            const c5 = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 1, hasTouch: w <= 1180 });
+            await c5.addInitScript(INIT, {});
+            await c5.route((u) => /\/js\/travailleur\.js$/.test(u.pathname), () => { /* jamais servi : le moteur reste au démarrage */ });
+            const p5 = await c5.newPage();
+            try {
+              await p5.goto(`${BASE}/`);
+              await semer(p5, noteEssai('essai-rouverte', 'Essai rouverte'));
+              const cas = [['poutre neuf', P('poutre')], ['poutre rouverte', `${P('poutre')}?note=essai-rouverte`]];
+              if (w === 768) for (const k of ETABLIS) if (k !== 'poutre') cas.push([`${k} neuf`, P(k)]);
+              for (const [quoi, adr] of cas) {
+                await p5.goto(`${BASE}/${adr}`, { waitUntil: 'domcontentloaded' });
+                await p5.waitForFunction(() => document.querySelector('.et-demarre'), null, { timeout: 10000 }).catch(() => {});
+                await attendre(quoi === 'poutre neuf' ? 900 : 400);
+                const m = await lire(p5, MESURE_BARRE);
+                await lire(p5, SANS_BANDEAU);
+                const sans = await lire(p5, MESURE_BARRE);
+                await lire(p5, AVEC_BANDEAU);
+                if (w === 768) n768++;
+                if (!m.nom || !sans.nom || m.nom.vu !== sans.nom.vu || m.nom.vu < m.nom.texte + 14 || m.n !== 1 || !m.dedans || m.deborde) {
+                  fautes.push(`${w}×${h} ${quoi} : ${court({ nom: m.nom, sansBandeau: sans.nom && sans.nom.vu, n: m.n, dedans: m.dedans, deborde: m.deborde, taille: m.taille }, 300)}`);
+                }
+                if (w === 820 && quoi === 'poutre neuf') await p5.screenshot({ path: path.join(OUT, 'demarrage_barre_820.png') }).catch(() => {});
+                if (w === 768 && quoi === 'assemblages neuf') await p5.screenshot({ path: path.join(OUT, 'demarrage_barre_768_assemblages.png') }).catch(() => {});
+              }
+            } catch (e) { fautes.push(`${w}×${h} : ${String(e.message).split('\n')[0]}`); } finally { await c5.close(); }
+          }
+          verif(N(`pendant le démarrage, à 768, 820, 1 024, 1 180 et 1 440 px : le bandeau ne prend rien à la barre du haut, le nom de la note s'y lit EN ENTIER (la poutre, neuve et rouverte ; à 768 px, les ${n768} établis), le bandeau dans l'écran, rien ne déborde`),
+            !fautes.length && n768 === ETABLIS.length + 1, fautes.join(' | ').slice(0, 900));
+        }
+      });
+    }
+
+    // ---- le retour vers un établi au téléphone : l'onglet et le défilement rendus (revue S4, ecrans-retour-etabli-telephone)
+    if (joue('retour_onglet') && fmt === 'tel') {
+      await essai('retour onglet', async () => {
+        const id = 'essai-onglet';
+        await semer(pg, noteEssai(id, 'Essai onglet'));
+        await allerA(pg, './');
+        await naviguerApp(pg, `${P('poutre')}?note=${id}`, `/${P('poutre')}`);
+        await pg.tap('.mtabs [data-onglet="resultat"]');
+        await attendre(300);
+        const vp = pg.viewportSize();
+        let reduit = false;
+        if ((await lire(pg, () => document.documentElement.scrollHeight - innerHeight)) < 200) { reduit = true; await pg.setViewportSize({ width: vp.width, height: 520 }); await attendre(250); }
+        try {
+          const y = await lire(pg, () => { const max = document.documentElement.scrollHeight - innerHeight; scrollTo(0, Math.min(600, Math.floor(max / 2))); return scrollY; });
+          await attendre(300);
+          await naviguerApp(pg, './', '/');
+          const avant = await etatEcran(pg);
+          await pg.goBack({ timeout: 20000 }).catch(() => null);
+          await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+          await attendre(250);
+          const l = await lire(pg, () => ({ tab: document.querySelector('.bench').dataset.tab, on: (document.querySelector('.mtabs [data-onglet].on') || {}).dataset?.onglet, y: scrollY,
+            depuisMontage: Math.round(performance.now() - ((window.__ecrans.filter((e) => e.montage === document.body.dataset.montage)[0] || {}).t - performance.timeOrigin)) }));
+          verif(N(`retour vers un établi (téléphone) : l'onglet Résultat et le défilement (${y} px) sont rendus dès la première réponse (avant le repli de l'application à 1,5 s)`),
+            y > 0 && l.tab === 'resultat' && l.on === 'resultat' && Math.abs(l.y - y) < 5 && l.depuisMontage < 1500,
+            court({ ...l, attendu: y, fenetre: reduit ? `${vp.width}×520` : `${vp.width}×${vp.height}` }));
+          // la bibliothèque : son défilement rendu quand son tableau est là
+          await naviguerApp(pg, 'bibliotheque-beton?rubrique=sections', '/bibliotheque-beton');
+          await attendre(300);
+          const yb = await lire(pg, () => { const max = document.documentElement.scrollHeight - innerHeight; scrollTo(0, Math.min(500, Math.floor(max / 2))); return scrollY; });
+          await attendre(300);
+          await naviguerApp(pg, './', '/');
+          const av2 = await etatEcran(pg);
+          await pg.goBack({ timeout: 20000 }).catch(() => null);
+          await pretEcran(pg, av2, { chemin: '/bibliotheque-beton' });
+          await attendre(250);
+          const lb = await lire(pg, () => ({ y: scrollY, depuisMontage: Math.round(performance.now() - ((window.__ecrans.filter((e) => e.montage === document.body.dataset.montage)[0] || {}).t - performance.timeOrigin)) }));
+          verif(N(`retour vers une bibliothèque (téléphone) : le défilement (${yb} px) est rendu dès son tableau (avant le repli à 1,5 s)`),
+            yb > 0 && Math.abs(lb.y - yb) < 5 && lb.depuisMontage < 1500, court({ ...lb, attendu: yb }));
+        } finally { if (reduit) await pg.setViewportSize(vp); }
       });
     }
 
