@@ -11,7 +11,7 @@ montrer ; le test le contrôle, au gel comme à chaque comparaison.
 D'où viennent les cas (inventaire du 07/11/2026) : les exemples publiés des benchmarks (assemblages : BM1… de chaque
 configuration, VAL-A/B et VAL-M1… du pied de poteau, chargés par « exemple » comme l'onglet Benchmark de Streamlit),
 les notes d'exemple des modules (``api_web/age._etat_releve``/``_etat_meteo``, ``api_web/plancher.exemple``,
-``api_web/taux._ETAT_EXEMPLE``), les requêtes propres du parcours (``PARCOURS`` des modules : refus, relevés, fichiers)
+``api_web/taux._RICHE`` et ``_RECUE``), les requêtes propres du parcours (``PARCOURS`` des modules : refus, relevés, fichiers)
 et les cas limites des suites ``tests/test_api_web_<clé>.py``. Les charges « près de 100 % » ont été réglées par
 dichotomie sur le moteur du jour (07/11/2026) puis arrondies.
 """
@@ -354,23 +354,21 @@ cas("sol", "couche retirée, sondage ajouté", LIM, [neuf(), mod("sondages/0/cou
 cas("sol", "fondation ajoutée", LIM, [neuf(), act("ajouter"), mod("B", "3")], {"elements": 2})
 
 # ====================================================================== taux d'armature
-# P2 : la poutre de tests/test_api_web_taux.py (deux types d'étriers, Ø7,5, zones qui se recouvrent, B500C, 7,5 %)
-_P2 = {"nom": "P2", "forme": "rectangulaire", "L": 7.35, "b": 35.0, "h": 70.0, "enrobage": 2.5, "majoration": 7.5, "acier": "B500C",
-       "familles": [{"role": "principal", "position": "ame_inf", "n": 4, "d": 25}, {"role": "principal", "position": "ame_inf", "n": 3, "d": 20},
-                    {"role": "renfort", "position": "ame_sup", "n": 3, "d": 16, "de": 0, "a": 25},
-                    {"role": "lateral", "position": "lat_d", "n": 1, "d": 12, "retours": 1, "h_retour": 12.5}],
-       "types_etriers": [{"nom": "E1", "d": 8.0}, {"nom": "E2", "d": 7.5}],
-       "zones": [{"nom": "Z1", "de": 0, "a": 20, "s": 10, "type": "E2"}, {"nom": "Z2", "de": 20, "a": 80, "s": 20, "type": "E1"},
-                 {"nom": "Z3", "de": 60, "a": 100, "s": 12.5, "type": "E1"}]}
-cas("taux", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
-cas("taux", "exemple (talon gauche, latérales à retours, deux zones)", REF, [calc(TX._ETAT_EXEMPLE)], selecteurs=True)
-cas("taux", "exemple en mètres, 3Ø25 choisis", REF, [calc(TX._ETAT_EXEMPLE), mod("longueurs", "metre"), act("choisir", role="d-0", nom="3Ø25")])
-cas("taux", "P2 (deux types, Ø7,5, zones qui se recouvrent, B500C, 7,5 %)", REF, [calc({"version": 1, "poutres": [_P2], "actif": 0})])
-cas("taux", "forme à deux talons refusée (renfort posé sur un talon)", LIM, [calc(TX._ETAT_EXEMPLE), mod("forme", "deux_talons")], {"message": True})
-cas("taux", "portée nulle refusée", LIM, [calc(TX._ETAT_EXEMPLE), mod("L", "0")], {"message": True})
-cas("taux", "majoration nulle", LIM, [calc(TX._ETAT_EXEMPLE), mod("majoration", "0")])
-cas("taux", "dernier type d'étrier retiré (PARCOURS)", LIM, [calc(TX._ETAT_EXEMPLE), mod("types_etriers/0/-", "1")])
-cas("taux", "poutre ajoutée (PARCOURS)", LIM, [calc(TX._ETAT_EXEMPLE), act("ajouter")], {"elements": 2})
+# refait le 10/11/2026 (Lot Q, docs/site/LOT_Q_QUATRE_MODULES.md § 3) : un QUANTITATIF, sans taux d'utilisation — pas de
+# cas « près de 100 % » ; la note neuve porte la poutre type (85,8 kg/m³, recalculée à la main dans tests/test_api_web_taux.py)
+cas("taux", "note neuve : la poutre type (85,8 kg/m³)", REF, [neuf()], {"texte": "85,8"}, fichiers=True)
+cas("taux", "riche : cadre, cadre intérieur et épingle, retours, peau, portion sans étriers", REF, [calc(TX._note(**TX._RICHE))],
+    {"texte": "Sans étriers de 2,00 à 3,00"}, fichiers=True)
+cas("taux", "poutre reçue de « Poutres béton armé » (provenance)", REF, [calc(TX._note(**TX._RECUE))], {"texte": "reçue de la poutre V1, le 10/11/2026"})
+cas("taux", "deux talons et leur cadre", REF, [neuf(), mod("forme", "deux_talons")], {"sans_message": True})
+cas("taux", "14 m : recouvrements de 50 Ø, les zones d'about suivent", REF, [neuf(), mod("L", "14")], {"texte": "Ont suivi"})
+cas("taux", "largeur de 5 cm refusée", LIM, [neuf(), mod("b", "5")], {"message": True})
+cas("taux", "deux zones qui se recouvrent refusées", LIM, [calc(TX._note(**TX._RICHE)), mod("zones/1/de", "1,5")], {"message": True})
+cas("taux", "type employé par une zone : retrait refusé (PARCOURS)", LIM, [neuf(), mod("types/0/-", "1")], {"message": True})
+cas("taux", "toutes les zones retirées : sans étriers", LIM, [neuf(), mod("zones/0/-", "1"), mod("zones/0/-", "1"), mod("zones/0/-", "1")],
+    {"texte": "Sans étriers sur toute la longueur"})
+cas("taux", "ancienne note (v1) : noms gardés, avis", LIM, [calc(TX.NOTE_V1)], {"texte": "ancien module"})
+cas("taux", "poutre ajoutée (PARCOURS)", LIM, [neuf(), act("ajouter")], {"elements": 2})
 
 # ====================================================================== assemblages : sept configurations, deux modes du pied
 _TYPES = ("doubles_cornieres", "plat_ame", "platine_about", "plat_ame_poteau", "doubles_cornieres_poteau", "platine_about_poteau",
