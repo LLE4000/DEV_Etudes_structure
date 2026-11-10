@@ -312,7 +312,7 @@ def rejets_ecran(mod, ecran=None):
         if f"{C.fr(masse, 1)} kg · {C.fr(volume, 3)} m³ · 6,00 m".replace(C.FINE, " ") not in res:
             out.append("tête : masse, volume et longueur de la poutre absents")
         for nom, sec in (("A", MAIN["A"]), ("B", MAIN["B"])):
-            attendu = f"Taux d'armature {C.fr(sec['taux'], 0)} kg/m³ {C.fr(sec['masse'], 2)} kg/m d'acier · + 5 % · 180 l/m de béton · sur {'4,00' if nom == 'A' else '2,00'} m"
+            attendu = f"Taux d'armature {C.fr(sec['taux'], 0)} kg/m³ {C.fr(sec['masse'], 2)} kg/m d'acier · + 5 % · sur {'4,00' if nom == 'A' else '2,00'} m"
             if attendu not in res:
                 out.append(f"section {nom} : ligne « {attendu} » absente")
         va = texte(volet(vol, "s0-ta"))

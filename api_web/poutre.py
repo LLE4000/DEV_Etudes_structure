@@ -1069,7 +1069,9 @@ def _ta_pied() -> str:
 def _ta_section(i: int, sec: Dict, nom_p: str) -> tuple:
     """La ligne « Taux d'armature » du bloc d'une section, et sa fenêtre de calcul. Rend (html, volet)."""
     lg = f" · sur {C.fr(sec['longueur'], 2)}{C.NBSP}m" if sec.get("longueur") else ""
-    cmp_ = (f"{C.fr(sec['masse'], 2)}{C.NBSP}kg/m d'acier · + {C.nb(sec['majoration'])}{C.NBSP}% · {C.fr(sec['volume'] * 1000.0, 0)}{C.NBSP}l/m de béton{lg}")
+    # court : la colonne des résultats fait 316 px (« … · 180 l/m de béton · sur 4,00 m » y était coupé) ; le volume de
+    # béton au mètre est dans la fenêtre de calcul
+    cmp_ = (f"{C.fr(sec['masse'], 2)}{C.NBSP}kg/m d'acier · + {C.nb(sec['majoration'])}{C.NBSP}%{lg}")
     ligne = C.ligne_verif("Taux d'armature", cmp_, None, "c", calcul=f"s{i}-ta", etat_txt=f"{C.fr(sec['taux'], 0)}{C.NBSP}kg/m³")
     return ligne, ""
 

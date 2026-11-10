@@ -15,6 +15,11 @@
    "raison": "Deuxième passe de l'écran (les 28 remarques de l'ingénieur) : les dispositions constructives passent de la fenêtre de calcul à la liste de contrôle du résultat, où une disposition conforme se lit sur une ligne, sans sa valeur (l'espacement libre des armatures latérales, 235 mm, ne s'affiche plus) ; le calcul est inchangé.",
    "note": "regel fait avant la garde : écarts recalculés par elle le 08/11/2026",
    "ecarts": ["poutre 30 × 60 réaliste (3Ø20, M = 120 kN·m, V = 40 kN, étriers à 20 cm) : valeurs qui ne se voient plus [\"235\"]", "chargée près de 100 % (M = 142 kN·m, V = 60 kN) : valeurs qui ne se voient plus [\"235\", \"8\"]", "deux sections (sur appui M_sup = 90 kN·m) : valeurs qui ne se voient plus [\"235\", \"237\", \"8\"]", "moments nuls (valeur minimale admise) : valeurs qui ne se voient plus [\"8\"]", "largeur négative refusée : valeurs qui ne se voient plus [\"8\"]", "nombre illisible refusé : valeurs qui ne se voient plus [\"8\"]", "dernier lit non retiré : valeurs qui ne se voient plus [\"8\"]", "surchargée (M = 400 kN·m) : valeurs qui ne se voient plus [\"235\", \"8\"]", "poutres ajoutée, copiée, la première supprimée : valeurs qui ne se voient plus [\"20\", \"8\"]", "note abîmée : valeurs qui ne se voient plus [\"8\"]"]
+  },
+  {
+   "date": "2026-11-10",
+   "raison": "Lot Q, 10/11/2026 : la ligne « Taux d'armature » d'une section est raccourcie (elle était coupée dans la colonne des résultats) ; le volume de béton au mètre se lit dans sa fenêtre de calcul, en m³/m",
+   "ecarts": ["taux d'armature : deux sections de 4 m et 2 m (option allumée, 30 × 60) : valeurs qui ne se voient plus [\"180\"]", "taux d'armature : majoration de 80 % refusée, puis une section sans longueur : valeurs qui ne se voient plus [\"80\"]"]
   }
  ],
  "cas": [
@@ -2716,8 +2721,8 @@
      ["Faces inférieure et supérieure : espacement libre", "482", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "20 mm"],
      ["Taux d'armature", "105 kg/m³", "17,21 kg/m"],
-     ["d'acier · +", "5 %", "·", "180 l/m"],
-     ["de béton · sur", "4,00 m"],
+     ["d'acier · +", "5 %", "·"],
+     ["sur", "4,00 m"],
      ["Section B Conforme M sup =", "90 kN·m", "·"],
      ["V =", "0 kN"],
      ["Hauteur", "81 %"],
@@ -2738,8 +2743,8 @@
      ["Faces inférieure et supérieure : espacement libre", "484", "≥", "25 mm"],
      ["Armatures latérales : espacement libre Enrobage des barres longitudinales", "40", "≥", "16 mm"],
      ["Taux d'armature", "75 kg/m³", "12,74 kg/m"],
-     ["d'acier · +", "5 %", "·", "180 l/m"],
-     ["de béton · sur", "2,00 m"],
+     ["d'acier · +", "5 %", "·"],
+     ["sur", "2,00 m"],
      ["Méthode du bureau · moteur poutre v2.40"]
     ],
     "calculs": [
@@ -3160,8 +3165,8 @@
      ["Faces inférieure et supérieure : espacement libre", "284", "≥", "25 mm"],
      ["Enrobage des barres longitudinales", "40", "≥", "16 mm"],
      ["Taux d'armature", "120 kg/m³", "8,78 kg/m"],
-     ["d'acier · +", "5 %", "·", "80 l/m"],
-     ["de béton Méthode du bureau · moteur poutre v2.40"]
+     ["d'acier · +", "5 %"],
+     ["Méthode du bureau · moteur poutre v2.40"]
     ],
     "calculs": [
      ["V1 · section A · hauteur V =", "0 kN", "·"],
