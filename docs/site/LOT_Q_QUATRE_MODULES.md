@@ -6,6 +6,16 @@
   juste. Pas grave si on n'a pas exactement la même chose que sur Streamlit : tu as le principe de ce que je veux, tu
   peux tout réorganiser, supprimer ce qui n'est pas utile. Comprends pourquoi les modules existent et fais l'interface
   correcte sur le site. Sors-moi des modules professionnels et justes, ergonomiques. »
+- **Précisions de l'ingénieur (10/11/2026, plus tard dans la soirée)** — elles sont intégrées ci-dessous :
+  1. « Feu » n'est pas un module : c'est la résistance au feu de l'ancien module Enrobage. « Le module Enrobage, on
+     pourrait le mettre dans la bibliothèque : on a le tableau, on pourrait avoir un deuxième onglet avec le calcul…
+     comme ça on range l'interface. » → § 4 : la rubrique « Enrobages » de la bibliothèque a DEUX onglets, « Tableaux »
+     et « Calcul » ; l'ancien module n'est plus le lieu du calcul.
+  2. « Dans Streamlit, dans les poutres, si on mettait des longueurs par section, on pouvait activer dans les options
+     le taux d'armature. Ce serait bien de le réactiver… Dans Poutres béton armé on dimensionne, on pourrait envoyer
+     directement dans Taux d'armature, tout serait déjà préprogrammé ; après on change l'espacement des étriers, à
+     quel endroit, les retours verticaux. » → § 3 (le modèle du taux d'armature est fait pour recevoir une poutre
+     dimensionnée) et § 6 (l'option dans les poutres et le bouton d'envoi : seconde vague du lot).
 - **Ce que cela change à la règle du site.** Jusqu'ici (`MODULES_SITE.md` § 5, règles 1 et 2) : « on extrait, on ne
   réécrit pas », les défauts de l'écran Streamlit sont REPRODUITS et signalés. Pour ces quatre modules, la règle est
   levée — comme pour les cornières le 10/11 : **le site calcule juste, il ne reproduit plus l'écran Streamlit**. Les
@@ -278,6 +288,11 @@ Chiffrer l'acier d'une poutre en béton armé à partir de son ferraillage : la 
 un prix ou une comparaison, le bordereau par diamètre. C'est un QUANTITATIF (aucune vérification) : un chiffre faux par
 défaut, c'est de l'acier qui manque sur chantier.
 
+Deux niveaux, voulus par l'ingénieur : (1) dans « Poutres béton armé », un taux SIMPLIFIÉ au mètre courant, par section
+et pour la poutre quand les sections ont une longueur (§ 6) ; (2) ce module-ci, DÉTAILLÉ, qui reçoit la poutre
+dimensionnée (ses sections deviennent des tronçons : lits, cadres, pas) et où l'on règle ensuite où s'arrêtent les
+barres, les zones d'étriers, les retours.
+
 ### 3.2 Ce qui était faux
 
 | Défaut | Effet mesuré |
@@ -305,10 +320,23 @@ ratio en kg par mètre de poutre ; une poutre type à l'ouverture.
   (une barre filante mesure L − 2c) ; longueur unitaire = (x₂ − x₁) + retours·l_retour + recouvrements ;
   recouvrements (si l'option est active) : ⌈l/l_com⌉ − 1 par barre, de k_rec·Ø chacun (l_com = 12 m, k_rec = 50 par
   défaut). Barres de peau : n par face × 2 faces.
-- **Un cadre** : 2·[(b − 2c) + (h − 2c)] + 2·max(10·Ø ; 70 mm) — le contour hors tout à l'enrobage et deux retours
-  (EN 1992-1-1 §8.5), sans déduction des cintrages : côté sûr de quelques centimètres. **Une épingle** :
-  (h − 2c) + 2·max(10·Ø ; 70 mm). **Un cadre de talon** (forme à talons) : 2·[(b_tot − 2c) + (h_t − 2c)] + retours,
-  b_tot la largeur hors tout au niveau des talons.
+- **Les étriers se décrivent par TYPES et par ZONES** (comme les sections d'une poutre : un type = ce qu'on pose à
+  chaque cours ; une zone = où, et à quel pas). Un type est une liste de lignes : « cadre » (le contour de l'âme),
+  « cadre intérieur » (de largeur donnée), « épingle » (verticale), chacune avec son Ø ; plus, pour une forme à
+  talons, la case « cadre de talon ».
+- **Un cadre** : 2·[(b − 2c) + (h − 2c)] + 2·l_r — le contour hors tout à l'enrobage et deux retours l_r =
+  max(10·Ø ; 70 mm) (EN 1992-1-1 §8.5), sans déduction des cintrages : côté sûr de quelques centimètres ; **un cadre
+  intérieur** de largeur w : 2·[w + (h − 2c)] + 2·l_r ; **une épingle** : (h − 2c) + 2·l_r ; **un cadre de talon** :
+  2·[(b_tot − 2c) + (h_t − 2c)] + 2·l_r, b_tot la largeur hors tout au niveau des talons. (Le taux simplifié des
+  poutres, § 6, garde le retour de 10 cm de l'écran Streamlit : c'est un réglage de ses options.)
+- **Recevoir une poutre dimensionnée** (`beton/taux/depuis_poutre.py`, fonction pure, testée) : b, h, enrobage ; chaque
+  section de longueur l_i devient un tronçon [x_i ; x_i + l_i] ; pour chaque lit (face, rang) : les barres COMMUNES à
+  toutes les sections (même Ø, le plus petit nombre) deviennent des barres filantes, le surplus de chaque section un
+  renfort sur son tronçon (les tronçons voisins de même surplus sont réunis) ; un Ø différent d'une section à l'autre
+  donne des barres par tronçon ; les barres latérales de même ; chaque composition d'étriers distincte devient un
+  type (cadre de toute la largeur → « cadre » ; cadre entre deux barres → « cadre intérieur » de la largeur que la
+  poutre calcule ; épingle → « épingle »), chaque section une zone à son pas. Sans longueur de section : refus, avec
+  le message qui dit où les saisir.
 - **Nombre de cours d'étriers** d'une zone de longueur l_z au pas s : ⌈l_z/s − 10⁻⁹⌉, plus UN cours de fermeture par
   suite de zones jointives (les zones qui se touchent ne comptent pas deux fois l'étrier commun). Zones qui se
   recouvrent : refusées. Longueur de poutre sans zone : avertissement « sans étriers ».
@@ -320,8 +348,8 @@ ratio en kg par mètre de poutre ; une poutre type à l'ouverture.
 
 - **Rubriques** : 1 Poutre (forme : rectangulaire, talon gauche, talon droit, deux talons ; b, h, L, enrobage ; talons)
   · 2 Armatures longitudinales (cartes : lit inférieur, lit supérieur, renfort, barres de peau — n, Ø, de, à, retours)
-  · 3 Étriers (type : Ø, épingles, cadre de talon ; zones : de, à, pas) · 4 Hypothèses (majoration ; recouvrements :
-  longueur commerciale, k_rec ; masses volumiques).
+  · 3 Étriers (types : nom, lignes cadre / cadre intérieur / épingle avec leur Ø, cadre de talon ; zones : de, à, pas,
+  type) · 4 Hypothèses (majoration ; recouvrements : longueur commerciale, k_rec ; masses volumiques).
 - **Résultats** : verdict de valeur « kg/m³ » (masse d'acier, volume de béton) ; bloc « Acier par famille » (masse,
   part) ; bloc « Par diamètre » (longueur, masse) ; bloc « Béton » ; kg/m ; avertissements ; « Bordereau CSV ».
 - **Vues** : « Élévation » (barres à leur niveau et à leur longueur, zones d'étriers cotées avec leur nombre et leur
@@ -337,7 +365,7 @@ refus ; mutations. `tests/test_api_web_taux.py` : l'écran = le moteur ; le CSV 
 
 ---
 
-## 4. Feu — la méthode tabulée dans la Bibliothèque Béton armé (`beton/bibliotheque/feu.py`, rubrique « Enrobages »)
+## 4. Enrobage et feu — dans la Bibliothèque Béton armé, deux onglets : « Tableaux » et « Calcul » (`beton/bibliotheque`, rubrique « Enrobages »)
 
 ### 4.1 Pourquoi il existe
 
@@ -359,13 +387,24 @@ elle, ne donnait rien pour les poteaux et les voiles (« non transcrits »).
   plusieurs côtés ou un seul), voiles porteurs (5.4 : μ_fi = 0,35 / 0,7, une ou deux faces) et non porteurs (5.3),
   poutres sur appuis simples (5.5) et continues (5.6), dalles (5.8 : une direction, deux directions, continues) et
   planchers-dalles (5.9).
-- **La rubrique** « Enrobages » de la bibliothèque : l'élément, la durée R et ses paramètres (appuis, μ_fi,
-  exposition, dimension réelle) ; le tableau entier de l'élément avec la case retenue ; la chaîne
-  c_nom = max(durabilité ; a − Ø/2 − Ø_étrier) ; les conditions d'emploi du tableau dans « Pourquoi ? ». Pour une dalle
-  ou un voile, aucun étrier n'est retiré de a (le champ devient « Ø de la nappe extérieure », 0 par défaut).
-- **Les anciens modules masqués** « Enrobage » et « Données béton » ne portent plus les valeurs fausses : leurs tableaux
-  de feu sont lus dans le moteur vérifié (une seule source). Leur retrait définitif (l'accueil doit d'abord tolérer les
-  notes d'un module retiré) est un petit lot à part, à décider.
+- **La rubrique « Enrobages » a deux onglets** (demande de l'ingénieur, 10/11/2026) :
+  - **« Calcul »** — le calcul complet de l'enrobage d'un élément, ce que faisait l'ancien module, en plus poussé :
+    l'élément (poutre, poteau, dalle, voile) et ses dimensions ; l'environnement (exposition avec son libellé belge,
+    béton, durée, qualité, classe S calculée ou imposée, coulé contre le sol) ; les armatures (Ø de la barre, Ø de
+    l'étrier ou de la nappe extérieure, granulat, Δc_dev) ; le feu (durée R et les paramètres de l'élément : appuis,
+    portée, μ_fi, faces exposées). Le résultat : c_nom en grand, ce qui le gouverne, la chaîne terme par terme avec sa
+    règle (c_min,b, classe S, c_min,dur, c_min, Δc_dev, c_nom,dur ; a exigé, a_sd, c_nom,feu ; dimension minimale et
+    verdict « atteinte / non atteinte »), la distance à l'axe OBTENUE avec l'enrobage retenu, et le DESSIN du détail à
+    l'échelle (barre, étrier, c_nom, a, a_sd). « Inclure dans la note » quand la bibliothèque est ouverte depuis un calcul.
+  - **« Tableaux »** — les tableaux de référence, la case de la situation allumée : durabilité (4.4N) et feu (le
+    tableau entier de l'élément et de sa variante) ; un clic sur une case règle les paramètres.
+  Les deux onglets partagent les mêmes paramètres (l'adresse les garde). Pour une dalle ou un voile, aucun étrier n'est
+  retiré de a (le champ devient « Ø de la nappe extérieure », 0 par défaut).
+- **L'ancien module « Enrobage »** (masqué de l'accueil depuis le 09/11) n'est plus le lieu du calcul : sa page reste
+  servie pour les notes existantes, ne porte plus de valeur fausse (ses tableaux de feu sont lus dans le moteur vérifié,
+  une seule source), et un bandeau y dit « Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages ›
+  Calcul » avec le lien. De même la rubrique « Enrobages » de l'ancien « Données béton ». Leur retrait définitif
+  (l'accueil doit d'abord tolérer les notes d'un module retiré) est un petit lot à part.
 - Rien n'est interpolé (la norme le permet, §5.2 ; ne pas interpoler est du côté sûr) ; la dimension réelle choisit la
   combinaison (b_min, a) la plus favorable qu'elle autorise ; plus petite que le minimum du tableau : « durée non
   atteinte par la méthode tabulée ».
@@ -458,3 +497,34 @@ D2 d'hier (R 90 poteau μ 0,7 : 350/53 ; voile REI 180 : 50), la dalle et le voi
   captures REGARDÉES, suite complète avant la mise en ligne.
 - **Hors du lot** : les notes PDF de ces modules (boutons grisés « bientôt » : à concevoir sur le modèle des cornières
   une fois les écrans validés par l'ingénieur) ; le retrait des modules masqués ; les écrans Streamlit.
+
+---
+
+## 6. Poutres béton armé : le taux d'armature simplifié, et l'envoi vers le module détaillé (seconde vague)
+
+Demande de l'ingénieur (10/11/2026). Elle se fait APRÈS l'intégration des quatre lots (le module « Taux d'armature »
+doit exister dans sa nouvelle forme).
+
+### 6.1 L'option « Taux d'armature » des poutres (ce que fait l'écran Streamlit `modules/poutre.py`, v2.39+)
+
+- **Rubrique « Options »** : case « Taux d'armature » (éteinte par défaut), majoration (5 %), retour d'étrier (10 cm,
+  compté deux fois par étrier ou épingle), arrondi supérieur (5 kg/m³). Allumée, chaque SECTION montre un champ
+  « Longueur (m) » (rubrique « Sections et sollicitations »), gardé quand l'option s'éteint.
+- **Le calcul, au mètre courant de poutre, par section** (extrait de `_taux_armature_section`, parité prouvée contre
+  l'écran rejoué) : chaque barre des lits compte 1 m ; étriers et épingles : 100/pas par mètre, longueur d'un étrier
+  2·(w + h − 2c) + 2·retour (w = b − 2c pour un cadre de toute la largeur, sinon l'entraxe des barres entourées + Ø
+  barre + 2 Ø étrier), d'une épingle (h − 2c ou l'entraxe) + 2·retour ; armatures de peau : 2·(⌈d_vert/s_max⌉ − 1)
+  barres quand d_vert > s_max ; masse × (1 + majoration) / (b·h·1 m) ; arrondi au multiple supérieur.
+- **Le taux de la poutre** : Σ(masse_i·l_i)/Σ(volume_i·l_i) sur les sections qui ont une longueur.
+- **À l'écran** : le taux de la section dans l'en-tête de son bloc de résultats, sa fenêtre de calcul (le tableau
+  Position · Nb · Ø · Section · kg/m · L/barre · L totale · Poids · %, puis la synthèse mètre courant / poutre) ; le taux
+  de la poutre dans la tête des résultats. Les clés nouvelles de l'état sont ABSENTES tant que l'option est éteinte :
+  une note existante reste identique à l'octet (le gel ne bouge pas).
+
+### 6.2 « Détailler dans Taux d'armature »
+
+Un bouton de la poutre (à côté de l'option, et dans le menu « ⋯ » au téléphone) : il demande au moteur la conversion
+de la poutre ouverte (`beton/taux/depuis_poutre.py`, § 3.4), crée une note du module « Taux d'armature » — même chantier,
+même dossier, nommée d'après la poutre — et l'ouvre. Rien n'est écrit dans la note de la poutre. Sans longueur de
+section, le bouton est éteint et dit pourquoi. Dans le module détaillé, l'en-tête de la vue rappelle la provenance
+(« reçue de la poutre V1, le 10/11/2026 »).
