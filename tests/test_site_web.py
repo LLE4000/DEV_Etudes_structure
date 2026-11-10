@@ -1136,6 +1136,46 @@ try:
 except FileNotFoundError:
     chk("api_web/commun.py se charge avec le python3 du système (celui du harnais, contrôle des briques)", True, "pas de python3 : sans objet")
 
+# 11. le passage COMPLET du harnais (verifier_site.js sans filtre) joue AUSSI verifier_demarrage.js, à la fin, et son
+# verdict compte (revue S4, preuves-demarrage-hors-complet : le filtre de la promesse centrale du lot — un moteur, pas de
+# rechargement — n'était joué que si on le demandait) ; un contrôle qui a REFUSÉ de conclure (« temps : non mesurable »,
+# la charge de la machine) n'est jamais un succès silencieux : code 3, nommé au bilan. Les fonctions de la décision sont
+# PURES et exportées : jouées ici par node, playwright remplacé par un bouchon (le parcours ne part pas : require.main
+# n'est pas le harnais) ; l'appel, lui, se lit dans le texte de principal() — là où il doit être : à la fin.
+_VS = open(os.path.join(WEB, "verifier_site.js"), encoding="utf-8").read()
+ESSAI_PASSAGE = r"""
+const Module = require('module');
+const charger = Module._load;
+Module._load = function (q, ...r) { return q === 'playwright' ? { chromium: null, devices: {} } : charger.call(this, q, ...r); };
+const V = require(process.argv[1]);
+const T = 'KO  demarrage · PC · temps : non mesurable  charge sur 1 min 3.40 ≥ 3.00 (0,75 × 4 cœurs) pendant 60 s';
+const A = 'KO  demarrage · PC · aperçu : visible au plus 300 ms après DOMContentLoaded  {"ms":420}';
+console.log(JSON.stringify({
+  sous: ['', 'demarrage', 'demarrage:temps,apercu', 'poutre', 'formats:poutre', 'demarrages', 'module:demarrage'].map(V.sousFiltresDemarrage),
+  bilans: [[0, 'OK  x\ndemarrage : 0 KO'], [1, T + '\ndemarrage : 1 KO'], [1, T + '\n' + A], [2, ''], [1, ''], [0, A]].map(([s, t]) => V.bilanDemarrage(s, t).code),
+  nonMesures: V.bilanDemarrage(1, T).nonMesures,
+  codes: [[0, { code: 0 }], [0, { code: 1 }], [0, { code: 3 }], [2, { code: 0 }], [2, { code: 3 }]].map(([k, d]) => V.codeSortie(k, d)),
+}));
+"""
+_sortie_passage = None
+try:
+    _sortie_passage = subprocess.run(["node", "-e", ESSAI_PASSAGE, os.path.join(WEB, "verifier_site.js")], capture_output=True, text=True, timeout=60)
+    _passage = json.loads(_sortie_passage.stdout.strip().split("\n")[-1])
+except Exception as e:  # noqa: BLE001
+    _passage = {"erreur": str(e), "stderr": _sortie_passage.stderr[-300:] if _sortie_passage else ""}
+chk("verifier_site.js : sans filtre, le passage joue TOUS les sous-filtres de demarrage ; « demarrage[:…] » les siens ; aucun autre filtre ne le joue",
+    _passage.get("sous") == ["", "", "temps,apercu", None, None, None, None], _passage)
+chk("verifier_site.js : un « non mesurable » seul rend le passage NON CONCLUANT (code 3, nommé) — jamais un succès ; un vrai KO, ou un passage "
+    "qui a planté, l'emporte (code 1)", _passage.get("bilans") == [0, 3, 1, 1, 1, 1] and _passage.get("codes") == [0, 1, 3, 1, 1]
+    and len(_passage.get("nonMesures") or []) == 1 and "temps : non mesurable" in _passage["nonMesures"][0], _passage)
+_principal = _VS[_VS.index("const principal = async () => {"):_VS.index("if (require.main === module && !DELEGUE) principal();")]
+_fin = _principal[_principal.rindex("await b.close();"):]
+chk("verifier_site.js : le passage complet joue verifier_demarrage.js À LA FIN de principal() (un navigateur à la fois), et son verdict "
+    "entre dans le code de sortie",
+    "const DEMARRAGE = path.join(__dirname, 'verifier_demarrage.js');" in _VS and "spawn(process.execPath, [DEMARRAGE, BASE, OUT, sous]" in _VS
+    and re.search(r"if \(!FILTRE\) \{[^}]*?demarrage = await jouerDemarrage\(sousFiltresDemarrage\(FILTRE\)\);", _fin, re.S) is not None
+    and _fin.count("process.exit(") == 1 and "process.exit(codeSortie(ko, demarrage));" in _fin, _fin[:400])
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:200])
