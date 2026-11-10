@@ -1,23 +1,25 @@
 # -*- coding: utf-8 -*-
-"""Taux d'armature d'une poutre en béton armé (quantitatif), sans Streamlit : le calcul extrait de l'écran
-``modules/taux_armature.py``, qui reste la référence de parité (``tests/test_taux_moteur.py``).
+"""Taux d'armature d'une poutre en béton armé : un QUANTITATIF — la masse d'acier à commander, son bordereau par repère
+et par diamètre, le taux en kg/m³. Bibliothèque standard seule ; refait sur la conception du 10/11/2026
+(docs/site/LOT_Q_QUATRE_MODULES.md § 3 ; docs/beton/TAUX_ARMATURE_MOTEUR.md).
 
     from beton.taux import moteur
     res = moteur.calculer(moteur.nouvelle_poutre())
 
-- ``entree``    : les listes, les libellés, les bornes et les valeurs par défaut de l'écran ; la normalisation ;
-- ``geometrie`` : la section (âme et talons), son aire, la position des barres de chaque lit ;
-- ``moteur``    : longueurs, étriers, quantités, taux d'armature, couleurs et codes des familles — et le FORMAT
-  complet (entrée, sortie) dans sa docstring.
+- ``entree``        : la poutre type d'une note neuve, les listes, les bornes des champs ; la normalisation stricte ;
+- ``geometrie``     : la section (âme et talons), son aire, son polygone ; la position des barres, des cadres et des
+  épingles pour la coupe ;
+- ``moteur``        : les longueurs, le compte des étriers, le bordereau, les synthèses, le taux, les avertissements, le
+  CSV — et la MÉTHODE et le FORMAT complets dans sa docstring ;
+- ``saisie``        : les gestes de l'écran (ajouter une ligne, une zone ; ce qui suit une limite ou la longueur) ;
+- ``depuis_poutre`` : recevoir une poutre dimensionnée dans « Poutres béton armé ».
 """
-from .moteur import (  # noqa: F401 — l'API
+from .depuis_poutre import convertir  # noqa: F401 — l'API
+from .moteur import (  # noqa: F401
+    bordereau_csv,
     calculer,
-    candidats_diametre,
+    compter_etriers,
     normaliser,
-    nouveau_type_etrier,
-    nouvelle_famille,
     nouvelle_poutre,
-    nouvelle_zone,
-    options_positions,
     synthese_note,
 )

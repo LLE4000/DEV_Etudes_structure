@@ -1,196 +1,179 @@
 # -*- coding: utf-8 -*-
-"""Taux d'armature — l'ENTRÉE : les listes, les libellés, les bornes et les valeurs par défaut de l'écran Streamlit
-``modules/taux_armature.py`` (la référence de parité), et le contrôle d'une poutre.
+"""Taux d'armature — l'ENTRÉE : la poutre TYPE d'une note neuve, les listes, les bornes des champs et la normalisation
+STRICTE d'une poutre (docs/site/LOT_Q_QUATRE_MODULES.md § 3 ; docs/beton/TAUX_ARMATURE_MOTEUR.md).
 
-Le format complet (entrée et sortie) est décrit dans la docstring de ``beton/taux/moteur.py``.
+Une poutre (cm, m, mm — l'unité de chaque champ est écrite à côté de sa borne, ``BORNES``) :
 
-Règle de ``normaliser`` : une clé ABSENTE (ou ``null``) prend la valeur par défaut de l'écran ; une valeur HORS DU
-DOMAINE de l'écran (nombre hors des bornes de son champ, Ø non proposé, position que la forme n'offre pas, clé
-inconnue…) lève ``ValueError`` avec le chemin du champ. Jamais de substitution silencieuse. Les substitutions que
-l'écran fait, lui, sont listées dans ``docs/beton/TAUX_ARMATURE_MOTEUR.md`` ; trois sont REFUSÉES ici parce qu'elles
-changent la valeur saisie sans le dire (talon de 0 cm lu 10 ou 15 cm ; deux types d'étriers du même nom ; 2·c ≥ b ou
-2·c ≥ h, où la longueur d'un étrier devient négative).
+    {"nom": "P1",
+     "forme": "rectangulaire" | "talon_gauche" | "talon_droit" | "deux_talons",
+     "b": 30.0, "h": 60.0,              l'âme (cm)            "L": 6.0   la longueur (m)      "enrobage": 3.0 (cm)
+     "talon_gauche": {"b": 15.0, "h": 20.0}, "talon_droit": {...},    les talons BAS, à l'extérieur de l'âme (cm) ; gardés
+                                                                      quelle que soit la forme, lus selon la forme
+     "barres": [{"famille": "inf" | "sup" | "peau",
+                 "lit": 1,              le rang du lit sur sa face (1 : contre le cadre) ; None pour la peau
+                 "n": 3,                le nombre de barres (PAR FACE pour la peau)
+                 "d": 20,               Ø (mm)
+                 "de": None, "a": None, les abscisses des bouts (m, depuis l'about gauche) ; None : jusqu'à l'about — les
+                                        deux à None : une barre FILANTE ; sinon un RENFORT
+                 "retours": 0 | 1 | 2,  le nombre de bouts relevés (retours verticaux)
+                 "l_retour": None}],    la longueur d'un retour (cm) ; None : automatique, h − 2c (b − 2c pour la peau)
+     "types_etriers": [{"nom": "E1",
+                        "lignes": [{"forme": "cadre" | "cadre_interieur" | "epingle", "d": 8,
+                                    "largeur": None}],      la largeur hors tout d'un cadre intérieur (cm) ; None sinon
+                        "cadre_talon": True}],              un cadre de talon à chaque cours (formes à talon seulement)
+     "zones": [{"de": 0.0, "a": 1.5, "s": 15.0, "type": "E1"}],       (m, m, cm) — rangées de gauche à droite
+     "majoration": 5.0,                 chutes et ligatures (%)
+     "recouvrements": {"actifs": True, "l_com": 12.0, "k": 50.0},      longueur commerciale (m), recouvrement de k × Ø
+     "rho_beton": 2500.0, "rho_acier": 7850.0,                         (kg/m³)
+     "origine": None | {"module": "poutre", "nom": "V1", "date": "10/11/2026"}}     d'où la poutre a été reçue
+
+Règle de ``normaliser`` : une clé ABSENTE (ou ``null``, là où ``null`` n'a pas de sens propre) prend sa valeur de
+``DEFAUTS`` ; une clé INCONNUE, un type faux ou une valeur HORS DES BORNES lèvent ``ValueError`` avec un message en
+français qui nomme le champ. Jamais une valeur ramenée à une borne. Les zones d'étriers sont rendues rangées de gauche
+à droite (elles ne se recouvrent pas : l'ordre est sans ambiguïté) ; les barres gardent leur ordre, qui est celui de
+leurs repères.
 """
 import copy
 import math
 
-REFERENCE = "modules/taux_armature.py"
+# ---- les formes de section : la clé → son libellé ; les talons que chaque forme porte
+FORMES = ("rectangulaire", "talon_gauche", "talon_droit", "deux_talons")
+LIBELLES_FORME = {"rectangulaire": "rectangulaire", "talon_gauche": "talon à gauche", "talon_droit": "talon à droite",
+                  "deux_talons": "deux talons"}
+TALONS = {"rectangulaire": (), "talon_gauche": ("talon_gauche",), "talon_droit": ("talon_droit",),
+          "deux_talons": ("talon_gauche", "talon_droit")}
+LIBELLES_TALON = {"talon_gauche": "talon gauche", "talon_droit": "talon droit"}
 
-# ---- les formes de section : la clé du site → le libellé EXACT de l'écran (le calcul lit des sous-chaînes de ce
-#      libellé, comme le module : « gauche », « droit », « deux talons » — voir geometrie.talons)
-FORMES = {
-    "rectangulaire": "Rectangulaire",
-    "talon_gauche": "Rectangulaire + talon gauche",
-    "talon_droit": "Rectangulaire + talon droit",
-    "deux_talons": "Rectangulaire + deux talons",
-}
+# ---- les barres longitudinales
+FAMILLES = ("inf", "sup", "peau")
+LIBELLES_FAMILLE = {"inf": "inférieur", "sup": "supérieur", "peau": "de peau"}
+RETOURS = (0, 1, 2)
+# Ø des barres (mm) : la série des aciers à béton (EN 10080 ; NBN A 24-302)
+DIAMETRES = (6, 8, 10, 12, 14, 16, 20, 25, 28, 32, 40)
 
-# ---- les positions d'une famille : la clé du site → (code du module, libellé de l'écran : POSITION_LABELS)
-POSITIONS = {
-    "ame_inf": ("web_bottom", "Armatures inférieures (âme)"),
-    "ame_sup": ("web_top", "Armatures supérieures (âme)"),
-    "talon_g_inf": ("flange_left_bottom", "Talon gauche – inférieure"),
-    "talon_g_sup": ("flange_left_top", "Talon gauche – supérieure"),
-    "talon_d_inf": ("flange_right_bottom", "Talon droit – inférieure"),
-    "talon_d_sup": ("flange_right_top", "Talon droit – supérieure"),
-    "lat_g": ("side_left", "Latérales gauche"),
-    "lat_d": ("side_right", "Latérales droite"),
-    "lat_2": ("side_both", "Latérales 2 côtés"),
-}
-MODULE_POSITION = {k: v[0] for k, v in POSITIONS.items()}
-POSITION_MODULE = {v[0]: k for k, v in POSITIONS.items()}
+# ---- les étriers
+FORMES_LIGNE = ("cadre", "cadre_interieur", "epingle")
+LIBELLES_LIGNE = {"cadre": "cadre", "cadre_interieur": "cadre intérieur", "epingle": "épingle"}
+# Ø des cadres et des épingles (mm) : au-delà de 20, un acier ne se façonne plus en cadre de poutre
+DIAMETRES_ETRIERS = (6, 8, 10, 12, 14, 16, 20)
 
-# ---- les rôles : la clé du site → (code du module, libellé de l'écran : ROLE_LABELS)
-ROLES = {
-    "principal": ("main", "Lit principal"),
-    "renfort": ("reinforcement", "Renfort local"),
-    "lateral": ("lateral", "Barres latérales"),
-}
-MODULE_ROLE = {k: v[0] for k, v in ROLES.items()}
-ROLE_MODULE = {v[0]: k for k, v in ROLES.items()}
-
-DIAMETRES = (6, 8, 10, 12, 14, 16, 20, 25, 32, 40)   # « Ø (mm) » d'une famille
-RETOURS = (0, 1, 2)                                   # « Retours »
-ACIERS = ("B500A", "B500B", "B500C")                  # « Qualité d'acier » : n'entre dans AUCUN calcul du module
-DIAMETRES_ETRIERS = (6, 8, 10, 12, 14, 16)            # le menu du site ; l'écran : un nombre de 6 à 16 (pas de 2)
-LONGUEURS = ("pourcent", "metre")                     # « Saisie des longueurs de lit » : en % de la portée, en mètres
-
-# ---- les bornes des champs de l'écran (min_value, max_value des st.number_input)
+# ---- les bornes des champs : larges, mais réelles (min, max, unité)
 BORNES = {
-    "enrobage": (1.0, 10.0),     # « Enrobage c (cm) »
-    "L": (0.5, 60.0),            # « Portée L (m) »
-    "b": (5.0, 200.0),           # « Largeur b (cm) »
-    "h": (10.0, 300.0),          # « Hauteur h (cm) »
-    "talon": (0.0, 300.0),       # « Talon … – largeur / hauteur (cm) » (0 refusé ici : le module le lit 10 ou 15 cm)
-    "n": (1, 20),                # « n barres »
-    "h_retour": (0.0, 1000.0),   # « Hauteur retour (cm) »
-    "pct": (0.0, 100.0),         # « De (%L) », « À (%L) » (familles et zones)
-    "d_etrier": (6.0, 16.0),     # « Ø (mm) » d'un type d'étrier
-    "s": (2.0, 100.0),           # « Espacement s (cm) »
-    "majoration": (0.0, 50.0),   # « Majoration globale (%) »
+    "b": (10.0, 300.0, "cm"),
+    "h": (10.0, 300.0, "cm"),
+    "L": (0.5, 60.0, "m"),
+    "enrobage": (1.0, 15.0, "cm"),
+    "talon_b": (5.0, 150.0, "cm"),
+    "talon_h": (5.0, 150.0, "cm"),
+    "n": (1, 40, ""),
+    "lit": (1, 6, ""),
+    "l_retour": (0.0, 300.0, "cm"),
+    "largeur": (5.0, 300.0, "cm"),
+    "s": (5.0, 50.0, "cm"),
+    "majoration": (0.0, 50.0, "%"),
+    "l_com": (6.0, 18.0, "m"),
+    "k": (20.0, 100.0, "Ø"),
+    "rho_beton": (1500.0, 3000.0, "kg/m³"),
+    "rho_acier": (7700.0, 8100.0, "kg/m³"),
 }
+MAX_BARRES, MAX_TYPES, MAX_LIGNES, MAX_ZONES = 40, 12, 8, 40
+NOM_MAX = 60          # caractères du nom d'une poutre
+NOM_TYPE_MAX = 16     # … du nom d'un type d'étriers
+# deux abscisses à moins d'un micromètre sont la MÊME (deux zones jointives, une barre de longueur nulle) : les saisies
+# sont des décimaux, leurs sommes en flottants diffèrent de 1e-16
+EPS_X = 1e-6          # m
+ORIGINES = ("poutre",)   # les modules qui savent envoyer une poutre (docs/site/LOT_Q_QUATRE_MODULES.md § 6.2)
 
-# ---- les masses volumiques du module
-MASSE_VOLUMIQUE_ACIER = 7850.0   # STEEL_DENSITY_KG_M3 (kg/m³)
-MASSE_VOLUMIQUE_BETON = 2500.0   # CONCRETE_DENSITY_KG_M3 (kg/m³)
+# ---- les valeurs par défaut d'une clé absente (les scalaires de la poutre type ; des listes VIDES : une poutre lue
+#      sans barres n'en reçoit pas)
+DEFAUTS = {"nom": "P1", "forme": "rectangulaire", "b": 30.0, "h": 60.0, "L": 6.0, "enrobage": 3.0, "majoration": 5.0,
+           "rho_beton": 2500.0, "rho_acier": 7850.0}
+TALON_DEFAUT = {"b": 15.0, "h": 20.0}
+RECOUVREMENTS_DEFAUT = {"actifs": True, "l_com": 12.0, "k": 50.0}
+BARRE_DEFAUT = {"famille": "inf", "lit": 1, "n": 2, "d": 16, "de": None, "a": None, "retours": 0, "l_retour": None}
+LIGNE_DEFAUT = {"forme": "cadre", "d": 8, "largeur": None}
+ZONE_DEFAUT = {"s": 15.0}
 
-# ---- les valeurs par défaut (_init_state, add_family, add_stirrup_type, add_stirrup_zone)
-TALON_DEFAUT = {"b": 10.0, "h": 15.0}   # build_geometry : « flange_left_b_cm or 10.0 », « … _h_cm or 15.0 »
-DEFAUTS_POUTRE = {
-    "nom": "P1",                 # le site seulement (l'écran ne nomme pas sa poutre)
-    "forme": "rectangulaire",    # shape_section « Rectangulaire »
-    "enrobage": 3.0,             # cover_cm
-    "L": 6.0,                    # L_beam_m (m)
-    "b": 30.0,                   # b_web_cm
-    "h": 60.0,                   # h_total_cm
-    "longueurs": "pourcent",     # range_mode « percent »
-    "acier": "B500A",            # steel_grade
-    "majoration": 5.0,           # « Majoration globale (%) » : value=5.0, sans clé
-}
-FAMILLE_DEFAUT = {"n": 2, "d": 16, "retours": 0, "h_retour": 0.0, "de": 0.0, "a": 100.0}
-TYPE_DEFAUT = {"d": 8.0}                                   # add_stirrup_type : phi_mm 8.0, type « full »
-ZONE_DEFAUT = {"de": 0.0, "a": 33.0, "s": 15.0}            # add_stirrup_zone
-
-CLES_POUTRE = frozenset(DEFAUTS_POUTRE) | {"talon_gauche", "talon_droit", "familles", "types_etriers", "zones"}
-CLES_TALON = frozenset({"b", "h"})
-CLES_FAMILLE = frozenset({"role", "position"}) | frozenset(FAMILLE_DEFAUT)
-CLES_TYPE = frozenset({"nom", "d"})
-CLES_ZONE = frozenset({"nom", "de", "a", "s", "type"})
-
-
-# ============================================================ les options de l'écran
-def a_talon_gauche(forme: str) -> bool:
-    """Les positions « talon gauche » sont OFFERTES (_position_options_for_family : « gauche » ou « deux talons »)."""
-    lib = FORMES[forme]
-    return "gauche" in lib or "deux talons" in lib
+CLES_POUTRE = frozenset(DEFAUTS) | {"talon_gauche", "talon_droit", "barres", "types_etriers", "zones", "recouvrements", "origine"}
+CLES_TALON = frozenset(TALON_DEFAUT)
+CLES_BARRE = frozenset(BARRE_DEFAUT)
+CLES_TYPE = frozenset({"nom", "lignes", "cadre_talon"})
+CLES_LIGNE = frozenset(LIGNE_DEFAUT)
+CLES_ZONE = frozenset({"de", "a", "s", "type"})
+CLES_RECOUVREMENTS = frozenset(RECOUVREMENTS_DEFAUT)
+CLES_ORIGINE = frozenset({"module", "nom", "date"})
 
 
-def a_talon_droit(forme: str) -> bool:
-    lib = FORMES[forme]
-    return "droit" in lib or "deux talons" in lib
+# ============================================================ la poutre type
+def nouvelle_poutre(nom: str = "P1") -> dict:
+    """La poutre TYPE d'une note neuve (conception § 3.5) : 30 × 60 cm, L = 6,00 m, c = 3 cm ; 3 Ø 20 inférieures
+    filantes, un renfort 2 Ø 16 de 1,20 à 4,80 m en second lit, 2 Ø 12 supérieures filantes ; des cadres Ø 8 au pas de
+    15 cm sur 1,50 m à chaque about et de 25 cm en travée ; majoration de 5 %, recouvrements de 50 Ø au-delà de 12 m."""
+    return {
+        "nom": nom, "forme": "rectangulaire", "b": 30.0, "h": 60.0, "L": 6.0, "enrobage": 3.0,
+        "talon_gauche": dict(TALON_DEFAUT), "talon_droit": dict(TALON_DEFAUT),
+        "barres": [
+            {"famille": "inf", "lit": 1, "n": 3, "d": 20, "de": None, "a": None, "retours": 0, "l_retour": None},
+            {"famille": "inf", "lit": 2, "n": 2, "d": 16, "de": 1.2, "a": 4.8, "retours": 0, "l_retour": None},
+            {"famille": "sup", "lit": 1, "n": 2, "d": 12, "de": None, "a": None, "retours": 0, "l_retour": None},
+        ],
+        "types_etriers": [{"nom": "E1", "lignes": [{"forme": "cadre", "d": 8, "largeur": None}], "cadre_talon": True}],
+        "zones": [{"de": 0.0, "a": 1.5, "s": 15.0, "type": "E1"}, {"de": 1.5, "a": 4.5, "s": 25.0, "type": "E1"},
+                  {"de": 4.5, "a": 6.0, "s": 15.0, "type": "E1"}],
+        "majoration": 5.0, "recouvrements": dict(RECOUVREMENTS_DEFAUT), "rho_beton": 2500.0, "rho_acier": 7850.0,
+        "origine": None,
+    }
 
 
-def options_positions(forme: str, role: str) -> list:
-    """Les positions qu'offre le menu « Position » d'une famille (_position_options_for_family), dans l'ordre."""
-    if role == "lateral":
-        return ["lat_g", "lat_d", "lat_2"]
-    opts = ["ame_inf", "ame_sup"]
-    if a_talon_gauche(forme):
-        opts += ["talon_g_inf", "talon_g_sup"]
-    if a_talon_droit(forme):
-        opts += ["talon_d_inf", "talon_d_sup"]
-    return opts
+# ============================================================ ce que la forme porte, l'étendue d'une barre
+def talons(forme: str) -> tuple:
+    """Les talons d'une forme : (« talon_gauche », « talon_droit ») pour deux talons, () pour un rectangle."""
+    return TALONS[forme]
 
 
-def renfort_talon_possible(forme: str) -> bool:
-    """Le bouton « + Renfort talon » est actif (has_flange)."""
-    lib = FORMES[forme]
-    return "gauche" in lib or "droit" in lib or "deux talons" in lib
+def a_talon(forme: str) -> bool:
+    return bool(TALONS[forme])
 
 
-# ============================================================ éléments neufs
-def nouvelle_poutre() -> dict:
-    """La poutre de l'écran au premier affichage : rectangulaire 30 × 60 cm, portée 6 m, enrobage 3 cm, aucune
-    armature, aucun étrier, B500A, majoration 5 %. Les talons valent 10 × 15 cm : ce que l'écran CALCULE pour une
-    forme à talon (il affiche 0 dans le champ, mais lit « 0 or 10.0 »)."""
-    p = copy.deepcopy(DEFAUTS_POUTRE)
-    p["talon_gauche"] = dict(TALON_DEFAUT)
-    p["talon_droit"] = dict(TALON_DEFAUT)
-    p["familles"], p["types_etriers"], p["zones"] = [], [], []
-    return p
+def etendue(barre: dict, L: float, enrobage_cm: float) -> tuple:
+    """(x₁, x₂) en m : les bouts d'une barre, BORNÉS aux abouts à l'enrobage — x₁ = max(de ; c), x₂ = min(à ; L − c),
+    « de » et « à » absents valant l'about (0 et L). Une barre filante mesure donc L − 2c."""
+    c = enrobage_cm / 100.0
+    de = 0.0 if barre.get("de") is None else barre["de"]
+    a = L if barre.get("a") is None else barre["a"]
+    return max(de, c), min(a, L - c)
 
 
-def nouvelle_famille(poutre: dict, role: str, position: str = None) -> dict:
-    """Une famille comme add_family la crée : 2Ø16 de 0 à 100 % sans retour. La position par défaut : âme en bas pour
-    un lit principal, âme en haut pour un renfort, latérales à gauche. La hauteur de retour que add_family propose
-    (h − 2c, ou b − 2c pour une latérale) est remise à 0 par edit_family dès l'affichage (« Retours » vaut 0) : c'est 0
-    que le module garde, et c'est 0 qu'on garde (docs, défaut D5)."""
-    if role not in ROLES:
-        raise ValueError(f"rôle inconnu : {role!r}")
-    if role == "lateral":
-        pos = position or "lat_g"
-    else:
-        pos = position or ("ame_inf" if role == "principal" else "ame_sup")
-    f = {"role": role, "position": pos}
-    f.update(FAMILLE_DEFAUT)
-    return f
+def filante(barre: dict) -> bool:
+    """Une barre FILANTE court d'un about à l'autre (« de » et « à » vides) ; sinon c'est un renfort."""
+    return barre.get("de") is None and barre.get("a") is None
 
 
-def position_renfort_talon(forme: str) -> str:
-    """La position d'un « + Renfort talon » : talon gauche inférieur si la forme a « gauche » ou « deux talons »,
-    sinon talon droit inférieur."""
-    lib = FORMES[forme]
-    return "talon_g_inf" if ("gauche" in lib or "deux talons" in lib) else "talon_d_inf"
+# ============================================================ les mots des messages
+def nombre_fr(x) -> str:
+    """Un nombre dans un message : la virgule, sans zéro inutile (6 ; 1,5 ; 0,025)."""
+    if isinstance(x, float) and x.is_integer():
+        x = int(x)
+    return (f"{x:.6f}".rstrip("0").rstrip(".") if isinstance(x, float) else str(x)).replace(".", ",")
 
 
-def _nom_libre(prefixe: str, pris) -> str:
-    k = len(pris) + 1
-    while f"{prefixe}{k}" in pris:
-        k += 1
-    return f"{prefixe}{k}"
+def libelle_barres(n: int, d: int) -> str:
+    """« 3 Ø 20 »."""
+    return f"{int(n)} Ø {int(d)}"
 
 
-def nouveau_type_etrier(poutre: dict) -> dict:
-    """Un type d'étrier comme add_stirrup_type : « E<k> », Ø8."""
-    return {"nom": _nom_libre("E", [t["nom"] for t in poutre.get("types_etriers") or []]), "d": TYPE_DEFAUT["d"]}
-
-
-def nouvelle_zone(poutre: dict) -> dict:
-    """Une zone comme add_stirrup_zone : « Z<k> », de 0 à 33 %, s = 15 cm, le premier type d'étrier."""
-    types = poutre.get("types_etriers") or []
-    z = {"nom": _nom_libre("Z", [x["nom"] for x in poutre.get("zones") or []])}
-    z.update(ZONE_DEFAUT)
-    z["type"] = types[0]["nom"] if types else ""
-    return z
+def nom_zone(i: int) -> str:
+    """Le nom d'une zone d'étriers : son rang de gauche à droite, « Z1 », « Z2 »…"""
+    return f"Z{i + 1}"
 
 
 # ============================================================ contrôle et normalisation
 def _cles(d, permises: frozenset, chemin: str) -> None:
     if not isinstance(d, dict):
-        raise ValueError(f"{chemin} : un objet est attendu, pas {type(d).__name__}")
+        raise ValueError(f"{chemin} : un objet est attendu, reçu {type(d).__name__}")
     inconnues = sorted(str(k) for k in d if k not in permises)
     if inconnues:
-        raise ValueError(f"{chemin} : clé(s) inconnue(s) {', '.join(inconnues)} — clés admises : {', '.join(sorted(permises))}")
+        raise ValueError(f"{chemin} : clé(s) inconnue(s) {', '.join(inconnues)} (clés admises : {', '.join(sorted(permises))})")
 
 
 def _val(d: dict, cle: str, defaut):
@@ -198,123 +181,204 @@ def _val(d: dict, cle: str, defaut):
     return defaut if v is None else v
 
 
-def _nombre(x, chemin: str, bornes, strict_min: bool = False) -> float:
-    """Un nombre fini dans les bornes du champ de l'écran ; ``strict_min`` : la borne basse est exclue."""
+def _nombre(x, chemin: str, borne: str) -> float:
+    """Un nombre fini dans les bornes du champ (``BORNES[borne]``) ; un booléen n'est pas un nombre."""
+    lo, hi, u = BORNES[borne]
     if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):
-        raise ValueError(f"{chemin} : nombre attendu, reçu {x!r}")
-    lo, hi = bornes
-    if x < lo or (strict_min and x <= lo) or x > hi:
-        bas = f"> {_t(lo)}" if strict_min else f"≥ {_t(lo)}"
-        raise ValueError(f"{chemin} : {_t(x)} hors du domaine de l'écran ({bas} et ≤ {_t(hi)})")
+        raise ValueError(f"{chemin} : un nombre est attendu, reçu {x!r}")
+    if x < lo or x > hi:
+        u_ = f" {u}" if u else ""
+        raise ValueError(f"{chemin} : {nombre_fr(float(x))}{u_} hors du domaine (de {nombre_fr(float(lo))} à {nombre_fr(float(hi))}{u_})")
     return float(x)
 
 
-def _entier(x, chemin: str, bornes) -> int:
+def _entier(x, chemin: str, borne: str) -> int:
+    lo, hi, _ = BORNES[borne]
     if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x) or x != int(x):
-        raise ValueError(f"{chemin} : nombre entier attendu, reçu {x!r}")
-    lo, hi = bornes
+        raise ValueError(f"{chemin} : un nombre entier est attendu, reçu {x!r}")
     if not lo <= x <= hi:
-        raise ValueError(f"{chemin} : {int(x)} hors du domaine de l'écran ({lo} à {hi})")
+        raise ValueError(f"{chemin} : {int(x)} hors du domaine (de {lo} à {hi})")
     return int(x)
 
 
-def _t(x) -> str:
-    return f"{x:g}".replace(".", ",")
+def _diametre(x, chemin: str, permis: tuple) -> int:
+    if isinstance(x, bool) or not isinstance(x, (int, float)) or x not in permis:
+        raise ValueError(f"{chemin} : Ø {x!r} non permis (Ø {', '.join(map(str, permis))} mm)")
+    return int(x)
 
 
-def _texte(x, chemin: str) -> str:
+def _texte(x, chemin: str, maxi: int) -> str:
     if not isinstance(x, str):
-        raise ValueError(f"{chemin} : texte attendu, reçu {x!r}")
+        raise ValueError(f"{chemin} : un texte est attendu, reçu {x!r}")
+    t = x.strip()
+    if any(ord(ch) < 32 or ord(ch) == 127 for ch in t):
+        raise ValueError(f"{chemin} : un texte d'une seule ligne est attendu (caractère de contrôle refusé)")
+    if len(t) > maxi:
+        raise ValueError(f"{chemin} : {len(t)} caractères, {maxi} au plus")
+    return t
+
+
+def _booleen(x, chemin: str) -> bool:
+    if not isinstance(x, bool):
+        raise ValueError(f"{chemin} : vrai ou faux est attendu, reçu {x!r}")
     return x
 
 
-def normaliser(poutre: dict) -> dict:
-    """La poutre complétée (clés absentes → défauts de l'écran) et contrôlée (ValueError hors du domaine de l'écran,
-    avec le chemin du champ). Rend une COPIE ; idempotente."""
-    _cles(poutre, CLES_POUTRE, "poutre")
-    d = DEFAUTS_POUTRE
-    p = {"nom": _texte(_val(poutre, "nom", d["nom"]), "nom")}
-    p["forme"] = _val(poutre, "forme", d["forme"])
-    if p["forme"] not in FORMES:
-        raise ValueError(f"forme : {p['forme']!r} inconnue — formes : {', '.join(FORMES)}")
-    for k in ("enrobage", "L", "b", "h", "majoration"):
-        p[k] = _nombre(_val(poutre, k, d[k]), k, BORNES[k])
-    if not 2 * p["enrobage"] < p["b"] or not 2 * p["enrobage"] < p["h"]:
-        raise ValueError(f"enrobage : 2·c = {_t(2 * p['enrobage'])} cm ne laisse pas de place dans {_t(p['b'])} × {_t(p['h'])} cm "
-                         "(le module calculerait des étriers de longueur négative)")
-    for cote in ("talon_gauche", "talon_droit"):
-        t = _val(poutre, cote, TALON_DEFAUT)
-        _cles(t, CLES_TALON, cote)
-        p[cote] = {k: _nombre(_val(t, k, TALON_DEFAUT[k]), f"{cote}.{k}", BORNES["talon"], strict_min=True) for k in ("b", "h")}
-    p["longueurs"] = _val(poutre, "longueurs", d["longueurs"])
-    if p["longueurs"] not in LONGUEURS:
-        raise ValueError(f"longueurs : {p['longueurs']!r} — « pourcent » ou « metre »")
-    p["acier"] = _val(poutre, "acier", d["acier"])
-    if p["acier"] not in ACIERS:
-        raise ValueError(f"acier : {p['acier']!r} — {', '.join(ACIERS)}")
-    p["familles"] = [_famille(f, p["forme"], f"familles[{i}]") for i, f in enumerate(_liste(poutre, "familles"))]
-    p["types_etriers"] = [_type(t, f"types_etriers[{i}]") for i, t in enumerate(_liste(poutre, "types_etriers"))]
-    noms = [t["nom"] for t in p["types_etriers"]]
-    for i, n in enumerate(noms):
-        if not n.strip():
-            raise ValueError(f"types_etriers[{i}].nom : un type d'étrier a un nom (les zones le désignent par son nom)")
-        if n in noms[:i]:
-            raise ValueError(f"types_etriers[{i}].nom : « {n} » est déjà pris (le module retiendrait le DERNIER type de ce nom "
-                             "pour le calcul, et le premier dans le menu des zones)")
-    p["zones"] = [_zone(z, noms, f"zones[{i}]") for i, z in enumerate(_liste(poutre, "zones"))]
-    return p
+def _choix(x, chemin: str, permis: tuple, libelles=None) -> str:
+    if not isinstance(x, str) or x not in permis:
+        dits = ", ".join(permis if libelles is None else (f"{k} ({libelles[k]})" for k in permis))
+        raise ValueError(f"{chemin} : {x!r} inconnu — {dits}")
+    return x
 
 
-def _liste(poutre: dict, cle: str) -> list:
-    v = _val(poutre, cle, [])
+def _liste(d: dict, cle: str, chemin: str, maxi: int) -> list:
+    v = _val(d, cle, [])
     if not isinstance(v, list):
-        raise ValueError(f"{cle} : une liste est attendue")
+        raise ValueError(f"{chemin} : une liste est attendue, reçu {type(v).__name__}")
+    if len(v) > maxi:
+        raise ValueError(f"{chemin} : {len(v)} éléments, {maxi} au plus")
     return v
 
 
-def _famille(f: dict, forme: str, chemin: str) -> dict:
-    _cles(f, CLES_FAMILLE, chemin)
-    role = _val(f, "role", "principal")
-    if role not in ROLES:
-        raise ValueError(f"{chemin}.role : {role!r} — {', '.join(ROLES)}")
-    pos = _val(f, "position", "lat_g" if role == "lateral" else ("ame_inf" if role == "principal" else "ame_sup"))
-    offertes = options_positions(forme, role)
-    if pos not in offertes:
-        raise ValueError(f"{chemin}.position : {pos!r} n'est pas offerte pour un « {ROLES[role][1]} » d'une section "
-                         f"« {FORMES[forme]} » ({', '.join(offertes)})")
-    out = {"role": role, "position": pos,
-           "n": _entier(_val(f, "n", FAMILLE_DEFAUT["n"]), f"{chemin}.n", BORNES["n"])}
-    dd = _val(f, "d", FAMILLE_DEFAUT["d"])
-    if isinstance(dd, bool) or dd not in DIAMETRES:
-        raise ValueError(f"{chemin}.d : Ø{dd!r} non proposé par l'écran ({', '.join(map(str, DIAMETRES))})")
-    out["d"] = int(dd)
-    r = _val(f, "retours", 0)
+def _abscisse(x, chemin: str, L: float) -> float:
+    """Une abscisse (m) sur la poutre : de 0 à L."""
+    if isinstance(x, bool) or not isinstance(x, (int, float)) or not math.isfinite(x):
+        raise ValueError(f"{chemin} : un nombre est attendu, reçu {x!r}")
+    if x < -EPS_X or x > L + EPS_X:
+        raise ValueError(f"{chemin} : {nombre_fr(float(x))} m hors de la poutre (de 0 à {nombre_fr(L)} m)")
+    return min(max(float(x), 0.0), L)
+
+
+def _barre(b, i: int, p: dict) -> dict:
+    ch = f"barres n° {i + 1}"
+    _cles(b, CLES_BARRE, ch)
+    fam = _choix(_val(b, "famille", BARRE_DEFAUT["famille"]), f"{ch} · famille", FAMILLES, LIBELLES_FAMILLE)
+    out = {"famille": fam,
+           "lit": None if fam == "peau" else _entier(_val(b, "lit", BARRE_DEFAUT["lit"]), f"{ch} · lit", "lit"),
+           "n": _entier(_val(b, "n", BARRE_DEFAUT["n"]), f"{ch} · nombre de barres", "n"),
+           "d": _diametre(_val(b, "d", BARRE_DEFAUT["d"]), f"{ch} · Ø", DIAMETRES)}
+    for k, quoi in (("de", "« de »"), ("a", "« à »")):
+        out[k] = None if b.get(k) is None else _abscisse(b[k], f"{ch} · {quoi}", p["L"])
+    if out["de"] is not None and out["a"] is not None and out["a"] <= out["de"] + EPS_X:
+        raise ValueError(f"{ch} : « à » ({nombre_fr(out['a'])} m) doit dépasser « de » ({nombre_fr(out['de'])} m)")
+    x1, x2 = etendue(out, p["L"], p["enrobage"])
+    if x2 - x1 <= EPS_X:
+        raise ValueError(f"{ch} : de {nombre_fr(0.0 if out['de'] is None else out['de'])} à "
+                         f"{nombre_fr(p['L'] if out['a'] is None else out['a'])} m, la barre est tout entière dans l'enrobage d'about "
+                         f"({nombre_fr(p['enrobage'])} cm) — elle n'a aucune longueur")
+    r = _val(b, "retours", 0)
     if isinstance(r, bool) or r not in RETOURS:
-        raise ValueError(f"{chemin}.retours : {r!r} — 0, 1 ou 2")
+        raise ValueError(f"{ch} · retours : {r!r} — 0, 1 ou 2 bouts relevés")
     out["retours"] = int(r)
-    hr = _nombre(_val(f, "h_retour", 0.0), f"{chemin}.h_retour", BORNES["h_retour"])
-    # edit_family : « Retours » = 0 remet la hauteur de retour à 0 (st.text « — »)
-    out["h_retour"] = hr if out["retours"] else 0.0
-    out["de"] = _nombre(_val(f, "de", 0.0), f"{chemin}.de", BORNES["pct"])
-    out["a"] = _nombre(_val(f, "a", 100.0), f"{chemin}.a", BORNES["pct"])
+    out["l_retour"] = None if b.get("l_retour") is None else _nombre(b["l_retour"], f"{ch} · longueur d'un retour", "l_retour")
     return out
 
 
-def _type(t: dict, chemin: str) -> dict:
-    _cles(t, CLES_TYPE, chemin)
-    return {"nom": _texte(_val(t, "nom", ""), f"{chemin}.nom"),
-            "d": _nombre(_val(t, "d", TYPE_DEFAUT["d"]), f"{chemin}.d", BORNES["d_etrier"])}
-
-
-def _zone(z: dict, noms_types: list, chemin: str) -> dict:
-    _cles(z, CLES_ZONE, chemin)
-    out = {"nom": _texte(_val(z, "nom", ""), f"{chemin}.nom"),
-           "de": _nombre(_val(z, "de", ZONE_DEFAUT["de"]), f"{chemin}.de", BORNES["pct"]),
-           "a": _nombre(_val(z, "a", ZONE_DEFAUT["a"]), f"{chemin}.a", BORNES["pct"]),
-           "s": _nombre(_val(z, "s", ZONE_DEFAUT["s"]), f"{chemin}.s", BORNES["s"])}
-    typ = _texte(_val(z, "type", noms_types[0] if noms_types else ""), f"{chemin}.type")
-    if noms_types and typ not in noms_types:
-        raise ValueError(f"{chemin}.type : « {typ} » n'est pas un type d'étrier de la poutre ({', '.join(noms_types)})")
-    out["type"] = typ
+def _ligne(li, ch: str, p: dict) -> dict:
+    _cles(li, CLES_LIGNE, ch)
+    forme = _choix(_val(li, "forme", LIGNE_DEFAUT["forme"]), f"{ch} · forme", FORMES_LIGNE, LIBELLES_LIGNE)
+    out = {"forme": forme, "d": _diametre(_val(li, "d", LIGNE_DEFAUT["d"]), f"{ch} · Ø", DIAMETRES_ETRIERS), "largeur": None}
+    if forme == "cadre_interieur":
+        if li.get("largeur") is None:
+            raise ValueError(f"{ch} · largeur : un cadre intérieur a une largeur (cm)")
+        w = _nombre(li["largeur"], f"{ch} · largeur", "largeur")
+        libre = p["b"] - 2.0 * p["enrobage"]
+        if w > libre + 1e-9:
+            raise ValueError(f"{ch} · largeur : {nombre_fr(w)} cm dépasse le cadre de l'âme (b − 2c = {nombre_fr(round(libre, 6))} cm)")
+        out["largeur"] = w
     return out
 
+
+def _type(t, i: int, p: dict) -> dict:
+    ch = f"type d'étriers n° {i + 1}"
+    _cles(t, CLES_TYPE, ch)
+    nom = _texte(_val(t, "nom", ""), f"{ch} · nom", NOM_TYPE_MAX)
+    if not nom:
+        raise ValueError(f"{ch} · nom : un type d'étriers a un nom (les zones le désignent par lui)")
+    lignes = _liste(t, "lignes", f"type « {nom} » · lignes", MAX_LIGNES)
+    if not lignes:
+        raise ValueError(f"type « {nom} » : il lui faut au moins une ligne (un cadre, un cadre intérieur ou une épingle)")
+    return {"nom": nom, "lignes": [_ligne(li, f"type « {nom} » · ligne {j + 1}", p) for j, li in enumerate(lignes)],
+            "cadre_talon": _booleen(_val(t, "cadre_talon", False), f"type « {nom} » · cadre de talon")}
+
+
+def _zone(z, i: int, p: dict, noms: list) -> dict:
+    ch = f"zone {nom_zone(i)}"
+    _cles(z, CLES_ZONE, ch)
+    for k in ("de", "a", "type"):
+        if z.get(k) is None:
+            raise ValueError(f"{ch} : « {'à' if k == 'a' else k} » manque")
+    out = {"de": _abscisse(z["de"], f"{ch} · « de »", p["L"]), "a": _abscisse(z["a"], f"{ch} · « à »", p["L"]),
+           "s": _nombre(_val(z, "s", ZONE_DEFAUT["s"]), f"{ch} · pas", "s")}
+    if out["a"] <= out["de"] + EPS_X:
+        raise ValueError(f"{ch} : « à » ({nombre_fr(out['a'])} m) doit dépasser « de » ({nombre_fr(out['de'])} m)")
+    if not isinstance(z["type"], str) or z["type"] not in noms:
+        raise ValueError(f"{ch} · type : « {z['type']} » n'est pas un type d'étriers de la poutre"
+                         + (f" ({', '.join(noms)})" if noms else " (elle n'en a aucun)"))
+    out["type"] = z["type"]
+    return out
+
+
+def _origine(o) -> dict:
+    _cles(o, CLES_ORIGINE, "origine")
+    module = _val(o, "module", "")
+    if module not in ORIGINES:
+        raise ValueError(f"origine · module : {module!r} inconnu ({', '.join(ORIGINES)})")
+    return {"module": module, "nom": _texte(_val(o, "nom", ""), "origine · nom", NOM_MAX),
+            "date": _texte(_val(o, "date", ""), "origine · date", 10)}
+
+
+def normaliser(poutre: dict) -> dict:
+    """La poutre complétée (clé absente → ``DEFAUTS``) et CONTRÔLÉE : ``ValueError`` en français, qui nomme le champ,
+    pour une clé inconnue, un type faux ou une valeur hors du domaine. Rend une COPIE ; idempotente."""
+    _cles(poutre, CLES_POUTRE, "poutre")
+    p = {"nom": _texte(_val(poutre, "nom", DEFAUTS["nom"]), "nom", NOM_MAX),
+         "forme": _choix(_val(poutre, "forme", DEFAUTS["forme"]), "forme", FORMES, LIBELLES_FORME)}
+    for k, quoi in (("b", "largeur b"), ("h", "hauteur h"), ("L", "longueur L"), ("enrobage", "enrobage c")):
+        p[k] = _nombre(_val(poutre, k, DEFAUTS[k]), quoi, k)
+    for k, quoi in (("b", "largeur b"), ("h", "hauteur h")):
+        if 2.0 * p["enrobage"] >= p[k]:
+            raise ValueError(f"enrobage c : 2 × {nombre_fr(p['enrobage'])} cm ne laisse aucun cadre dans la {quoi} = {nombre_fr(p[k])} cm")
+    for cote in ("talon_gauche", "talon_droit"):
+        t = _val(poutre, cote, TALON_DEFAUT)
+        _cles(t, CLES_TALON, LIBELLES_TALON[cote])
+        p[cote] = {"b": _nombre(_val(t, "b", TALON_DEFAUT["b"]), f"{LIBELLES_TALON[cote]} · largeur", "talon_b"),
+                   "h": _nombre(_val(t, "h", TALON_DEFAUT["h"]), f"{LIBELLES_TALON[cote]} · hauteur", "talon_h")}
+    for cote in talons(p["forme"]):
+        if p[cote]["h"] >= p["h"]:
+            raise ValueError(f"{LIBELLES_TALON[cote]} · hauteur : {nombre_fr(p[cote]['h'])} cm — un talon est moins haut que la "
+                             f"poutre (h = {nombre_fr(p['h'])} cm)")
+    p["barres"] = [_barre(b, i, p) for i, b in enumerate(_liste(poutre, "barres", "barres", MAX_BARRES))]
+    p["types_etriers"] = [_type(t, i, p) for i, t in enumerate(_liste(poutre, "types_etriers", "types d'étriers", MAX_TYPES))]
+    noms = [t["nom"] for t in p["types_etriers"]]
+    for i, n in enumerate(noms):
+        if n in noms[:i]:
+            raise ValueError(f"types d'étriers : deux types s'appellent « {n} » (les zones les désignent par leur nom)")
+    if talons(p["forme"]) and any(t["cadre_talon"] for t in p["types_etriers"]):
+        ht = max(p[cote]["h"] for cote in talons(p["forme"]))
+        if 2.0 * p["enrobage"] >= ht:
+            raise ValueError(f"cadre de talon : 2 × {nombre_fr(p['enrobage'])} cm d'enrobage ne laissent aucun cadre dans un talon de "
+                             f"{nombre_fr(ht)} cm de haut (augmenter le talon, ou décocher « cadre de talon »)")
+    zones = [_zone(z, i, p, noms) for i, z in enumerate(_liste(poutre, "zones", "zones d'étriers", MAX_ZONES))]
+    zones.sort(key=lambda z: (z["de"], z["a"]))
+    for i in range(len(zones) - 1):
+        u, v = zones[i], zones[i + 1]
+        if v["de"] < u["a"] - EPS_X:
+            raise ValueError(f"zones d'étriers : {nom_zone(i)} (de {nombre_fr(u['de'])} à {nombre_fr(u['a'])} m) et {nom_zone(i + 1)} "
+                             f"(de {nombre_fr(v['de'])} à {nombre_fr(v['a'])} m) se recouvrent de {nombre_fr(v['de'])} à "
+                             f"{nombre_fr(min(u['a'], v['a']))} m — les étriers y seraient comptés deux fois")
+    p["zones"] = zones
+    p["majoration"] = _nombre(_val(poutre, "majoration", DEFAUTS["majoration"]), "majoration", "majoration")
+    r = _val(poutre, "recouvrements", RECOUVREMENTS_DEFAUT)
+    _cles(r, CLES_RECOUVREMENTS, "recouvrements")
+    p["recouvrements"] = {"actifs": _booleen(_val(r, "actifs", RECOUVREMENTS_DEFAUT["actifs"]), "recouvrements · comptés"),
+                          "l_com": _nombre(_val(r, "l_com", RECOUVREMENTS_DEFAUT["l_com"]), "recouvrements · longueur commerciale", "l_com"),
+                          "k": _nombre(_val(r, "k", RECOUVREMENTS_DEFAUT["k"]), "recouvrements · longueur en Ø", "k")}
+    for k, quoi in (("rho_beton", "masse volumique du béton"), ("rho_acier", "masse volumique de l'acier")):
+        p[k] = _nombre(_val(poutre, k, DEFAUTS[k]), quoi, k)
+    p["origine"] = None if poutre.get("origine") is None else _origine(poutre["origine"])
+    return p
+
+
+def copie(poutre: dict) -> dict:
+    return copy.deepcopy(poutre)

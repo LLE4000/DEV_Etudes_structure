@@ -1,182 +1,206 @@
 # -*- coding: utf-8 -*-
-"""Taux d'armature — la GÉOMÉTRIE de la section : l'âme, les talons, l'aire, le polygone du béton et la position des
-barres de chaque lit. Chaque fonction reprend l'expression de ``modules/taux_armature.py`` (BeamGeometry,
-build_geometry) DANS LE MÊME ORDRE D'OPÉRATIONS : les flottants sont identiques au bit près.
+"""Taux d'armature — la GÉOMÉTRIE : la section (l'âme et ses talons BAS, à l'extérieur de l'âme), son aire, son
+polygone ; les contours des cadres ; et, pour la coupe, la position de chaque barre, de chaque cadre et de chaque
+épingle.
 
-Unités du module : cm ; origine au milieu de l'âme, fibre inférieure y = 0 ; les talons sont en bas, vers l'extérieur.
-Une géométrie est un dict : ``b``, ``h``, ``c`` (enrobage), ``bg``, ``hg`` (talon gauche), ``bd``, ``hd`` (talon droit).
+Repère d'une coupe (cm) : l'origine au coin bas gauche du rectangle qui ENGLOBE la section (le bord extérieur du talon
+gauche, la fibre inférieure) ; x vers la droite, y vers le haut. L'âme occupe donc x de ``bg`` à ``bg + b``.
+
+La convention des positions est celle de la coupe des poutres (beton/poutre/geometrie.py, dont les fonctions sont
+REPRISES, pas recopiées) : le nu extérieur du cadre à l'enrobage, les barres d'un lit réparties entre les nus
+intérieurs du cadre, la barre d'angle au contact du cadre — axe à c + Ø étrier + Ø/2 du parement. Deux lits d'une face
+sont séparés de l'espacement libre minimal de l'EN 1992-1-1 §8.2(2), ``beton.poutre.dispositions.s_min`` (une seule
+source pour la règle). Ces positions servent au DESSIN : aucune quantité du bordereau n'en dépend.
 """
-from typing import List, Optional, Tuple
+from beton.poutre import dispositions as DP
+from beton.poutre import entree as EP
+from beton.poutre import geometrie as GP
 
 from . import entree as EN
 
-GROUPES_BAS = ("ame_inf", "talon_g_inf", "talon_d_inf")
-GROUPES_HAUT = ("ame_sup", "talon_g_sup", "talon_d_sup")
+# le plus gros granulat pris pour l'espacement entre deux lits : le défaut des poutres (20 mm) — une seule source
+D_GRANULAT = EP.DEFAUTS_DETAIL["dg"]
 
 
-def talons(poutre: dict) -> Tuple[float, float, float, float]:
-    """Les talons que le module CALCULE (build_geometry) : il lit le libellé de la forme — « gauche » dans le libellé
-    → talon gauche, « droit » → talon droit — avec « largeur or 10.0 », « hauteur or 15.0 ».
-
-    DÉFAUT REPRODUIT (D2) : « Rectangulaire + deux talons » ne contient ni « gauche » ni « droit » : la section à deux
-    talons est calculée SANS talon (volume, dessin), alors que l'écran montre leurs quatre champs."""
-    lib = EN.FORMES[poutre["forme"]]
-    tg, td = poutre["talon_gauche"], poutre["talon_droit"]
-    if "gauche" in lib:
-        bg = tg["b"] or 10.0
-        hg = tg["h"] or 15.0
-    else:
-        bg = 0.0
-        hg = 0.0
-    if "droit" in lib:
-        bd = td["b"] or 10.0
-        hd = td["h"] or 15.0
-    else:
-        bd = 0.0
-        hd = 0.0
-    return bg, hg, bd, hd
+# ============================================================ la section
+def section(p: dict) -> dict:
+    """La section d'une poutre NORMALISÉE : ``b``, ``h``, ``c`` (cm), les talons que la forme porte (``bg``, ``hg``,
+    ``bd``, ``hd`` : 0 sans talon), la largeur hors tout au niveau des talons ``b_tot``, la hauteur du plus haut talon
+    ``h_talon``, l'aire ``aire_cm2`` et le contour ``polygone`` ([[x, y], …], cm)."""
+    b, h = p["b"], p["h"]
+    portes = EN.talons(p["forme"])
+    bg, hg = (p["talon_gauche"]["b"], p["talon_gauche"]["h"]) if "talon_gauche" in portes else (0.0, 0.0)
+    bd, hd = (p["talon_droit"]["b"], p["talon_droit"]["h"]) if "talon_droit" in portes else (0.0, 0.0)
+    b_tot = bg + b + bd
+    pts = [[0.0, 0.0], [b_tot, 0.0]]
+    if bd:
+        pts += [[b_tot, hd], [bg + b, hd]]
+    pts += [[bg + b, h], [bg, h]]
+    if bg:
+        pts += [[bg, hg], [0.0, hg]]
+    return {"forme": p["forme"], "b": b, "h": h, "c": p["enrobage"], "bg": bg, "hg": hg, "bd": bd, "hd": hd, "b_tot": b_tot,
+            "h_talon": max(hg, hd), "aire_cm2": b * h + bg * hg + bd * hd, "polygone": pts}
 
 
-def geometrie(poutre: dict) -> dict:
-    bg, hg, bd, hd = talons(poutre)
-    return {"b": poutre["b"], "h": poutre["h"], "c": poutre["enrobage"], "bg": bg, "hg": hg, "bd": bd, "hd": hd}
+def aire_polygone(pts: list) -> float:
+    """L'aire d'un polygone (formule du lacet) : le contrôle de ``section`` par un autre chemin."""
+    s = 0.0
+    for (x1, y1), (x2, y2) in zip(pts, pts[1:] + pts[:1]):
+        s += x1 * y2 - x2 * y1
+    return abs(s) / 2.0
 
 
-def polygone(g: dict) -> List[Tuple[float, float]]:
-    """Le contour du béton (concrete_polygon) : âme et talons inférieurs, en cm."""
-    b = g["b"]
-    h = g["h"]
-    xL = -b / 2.0
-    xR = b / 2.0
-    has_left = g["bg"] > 0 and g["hg"] > 0
-    has_right = g["bd"] > 0 and g["hd"] > 0
-    XL_ext = xL - g["bg"] if has_left else xL
-    XR_ext = xR + g["bd"] if has_right else xR
-    pts = [(XL_ext, 0.0)]
-    if has_left:
-        pts.append((XL_ext, g["hg"]))
-        pts.append((xL, g["hg"]))
-    pts.append((xL, h))
-    pts.append((xR, h))
-    if has_right:
-        pts.append((xR, g["hd"]))
-        pts.append((XR_ext, g["hd"]))
-    pts.append((XR_ext, 0.0))
-    if XR_ext != XL_ext:
-        pts.append((XL_ext, 0.0))
-    return pts
+# ============================================================ les contours comptés (hors tout, à l'enrobage)
+def contour_cadre(sec: dict) -> tuple:
+    """(largeur, hauteur) hors tout du cadre de l'âme, à l'enrobage (cm) : b − 2c, h − 2c."""
+    return sec["b"] - 2.0 * sec["c"], sec["h"] - 2.0 * sec["c"]
 
 
-def aire_cm2(g: dict) -> float:
-    """L'aire de la section (area_cm2) : âme, plus chaque talon défini, en cm²."""
-    area = g["b"] * g["h"]
-    if g["bg"] > 0 and g["hg"] > 0:
-        area += g["bg"] * g["hg"]
-    if g["bd"] > 0 and g["hd"] > 0:
-        area += g["bd"] * g["hd"]
-    return area
+def contour_talon(sec: dict) -> tuple:
+    """(largeur, hauteur) hors tout du cadre de talon (cm) : b_tot − 2c, h_t − 2c — b_tot la largeur hors tout au niveau
+    des talons, h_t la hauteur du plus HAUT talon (deux talons inégaux : le côté qui commande le plus d'acier)."""
+    return sec["b_tot"] - 2.0 * sec["c"], sec["h_talon"] - 2.0 * sec["c"]
 
 
-def bande(g: dict, pos: str) -> Tuple[Optional[float], float, float]:
-    """(y de la face béton, x min, x max) d'une position (_horizontal_band) ; y None : barres latérales verticales.
-    Une position de talon sur une section sans ce talon lève ValueError, comme le module (« Talon gauche non défini. »)."""
-    c = g["c"]
-    b = g["b"]
-    xL = -b / 2.0
-    xR = b / 2.0
-    if pos == "ame_inf":
-        y_face = 0.0
-        x_min = xL + c
-        x_max = xR - c
-    elif pos == "ame_sup":
-        y_face = g["h"]
-        x_min = xL + c
-        x_max = xR - c
-    elif pos == "talon_g_inf":
-        if g["bg"] <= 0 or g["hg"] <= 0:
-            raise ValueError("Talon gauche non défini.")
-        y_face = 0.0
-        x_min = xL - g["bg"] + c
-        x_max = xL - c
-    elif pos == "talon_g_sup":
-        if g["bg"] <= 0 or g["hg"] <= 0:
-            raise ValueError("Talon gauche non défini.")
-        y_face = g["hg"]
-        x_min = xL - g["bg"] + c
-        x_max = xL - c
-    elif pos == "talon_d_inf":
-        if g["bd"] <= 0 or g["hd"] <= 0:
-            raise ValueError("Talon droit non défini.")
-        y_face = 0.0
-        x_min = xR + c
-        x_max = xR + g["bd"] - c
-    elif pos == "talon_d_sup":
-        if g["bd"] <= 0 or g["hd"] <= 0:
-            raise ValueError("Talon droit non défini.")
-        y_face = g["hd"]
-        x_min = xR + c
-        x_max = xR + g["bd"] - c
-    elif pos in ("lat_g", "lat_d", "lat_2"):
-        y_face = None
-        if pos == "lat_g":
-            x_min = xL + c
-            x_max = x_min
-        elif pos == "lat_d":
-            x_max = xR - c
-            x_min = x_max
-        else:
-            x_min = xL + c
-            x_max = xR - c
-    else:
-        raise ValueError(f"Position inconnue : {pos}")
-    return y_face, x_min, x_max
+# ============================================================ les positions, pour la coupe et l'élévation
+def diametre_cadre(type_: dict = None) -> float:
+    """Le Ø (mm) du cadre qui place les barres d'une coupe : le plus gros des lignes du type (0 sans type)."""
+    return float(max((li["d"] for li in type_["lignes"]), default=0)) if type_ else 0.0
 
 
-def centres(g: dict, pos: str, n_bars: int, phi_mm: float, lit: int = 0) -> List[Tuple[float, float]]:
-    """Les centres des barres d'un lit (bar_centers), en cm. ``lit`` : 0 pour le lit le plus proche de la face.
-
-    Lits horizontaux : axe à c + Ø/2 de la face, lits espacés de Ø + 2 cm, barres réparties de x min à x max (une
-    seule : au milieu). Latérales : n + 2 barres réparties de c à h − c, les deux extrêmes retirées (une seule : à
-    mi-hauteur), à x = ±(b/2 − c)."""
-    if n_bars <= 0:
-        return []
-    y_face, x_min, x_max = bande(g, pos)
-    c = g["c"]
-    if y_face is not None:
-        r_cm = phi_mm / 20.0
-        base_cover = c + r_cm
-        pitch = 2.0 * r_cm + 2.0
-        if pos in GROUPES_BAS:
-            y = y_face + base_cover + lit * pitch
-        else:
-            y = y_face - (base_cover + lit * pitch)
-        if n_bars == 1:
-            xs = [(x_min + x_max) / 2.0]
-        else:
-            xs = [x_min + i * (x_max - x_min) / (n_bars - 1) for i in range(n_bars)]
-        return [(x, y) for x in xs]
-    y_min = c
-    y_max = g["h"] - c
-    if n_bars == 1:
-        ys = [(y_min + y_max) / 2.0]
-    else:
-        n_eff = n_bars + 2
-        idxs = range(1, n_eff - 1)
-        ys = [y_min + i * (y_max - y_min) / (n_eff - 1) for i in idxs]
-    xL = -g["b"] / 2.0 + c
-    xR = g["b"] / 2.0 - c
-    pts: List[Tuple[float, float]] = []
-    if pos in ("lat_g", "lat_2"):
-        pts.extend((xL, y) for y in ys)
-    if pos in ("lat_d", "lat_2"):
-        pts.extend((xR, y) for y in ys)
-    return pts
+def diametre_cadres(p: dict) -> float:
+    """Le Ø (mm) qui place les barres de l'ÉLÉVATION : le plus gros de tous les types de la poutre."""
+    return max((diametre_cadre(t) for t in p["types_etriers"]), default=0.0)
 
 
-def groupe(pos: str) -> str:
-    """La classe des lits pour les couleurs et les codes (_position_group) : « bas », « haut », « cote »."""
-    if pos in GROUPES_BAS:
-        return "bas"
-    if pos in GROUPES_HAUT:
-        return "haut"
-    return "cote"
+def diametre_talon(type_: dict = None) -> int:
+    """Le Ø (mm) du cadre de talon d'un type : celui de son premier cadre, à défaut de sa première ligne (0 sans type)."""
+    if not type_:
+        return 0
+    return int(next((li["d"] for li in type_["lignes"] if li["forme"] == "cadre"), type_["lignes"][0]["d"]))
+
+
+def niveaux(p: dict, d_cadre: float) -> list:
+    """L'ordonnée de l'axe de chaque ligne de barres (cm, depuis la fibre inférieure), dans l'ordre de ``p["barres"]`` ;
+    None pour la peau. Sur une face, les lits sont pris dans l'ordre de leur rang : le premier repose sur le cadre (son
+    nu inférieur à c + Ø cadre), chaque lit suivant est posé au-dessus du plus gros Ø du précédent, à l'espacement libre
+    minimal de l'EN 1992-1-1 §8.2(2) ; l'axe d'une barre est à Ø/2 du nu de son lit."""
+    c, h = p["enrobage"], p["h"]
+    out = [None] * len(p["barres"])
+    for face in ("inf", "sup"):
+        lignes = [(i, b) for i, b in enumerate(p["barres"]) if b["famille"] == face]
+        rangs = sorted({b["lit"] for _, b in lignes})
+        nu = c + d_cadre / 10.0                       # le nu du lit, côté parement (cm depuis la face)
+        for k, rang in enumerate(rangs):
+            du_lit = [(i, b) for i, b in lignes if b["lit"] == rang]
+            d_max = max(b["d"] for _, b in du_lit)
+            for i, b in du_lit:
+                e = nu + b["d"] / 20.0
+                out[i] = e if face == "inf" else h - e
+            if k + 1 < len(rangs):
+                d_suiv = max(b["d"] for _, b in lignes if b["lit"] == rangs[k + 1])
+                nu += (d_max + DP.s_min(d_max, d_suiv, D_GRANULAT)) / 10.0
+    return out
+
+
+def _creneaux(n: int, k: int) -> list:
+    """Les rangs que prennent ``k`` barres parmi ``n`` places alignées : les angles d'abord, puis réparties (une seule :
+    au milieu)."""
+    if k >= n:
+        return list(range(n))
+    if k == 1:
+        return [n // 2]
+    return [round(j * (n - 1) / (k - 1)) for j in range(k)]
+
+
+def _repartir(lignes: list, xs: list) -> dict:
+    """Les abscisses de chaque ligne d'un lit : ``lignes`` = [(index, n)], ``xs`` = les places du lit (cm). La première
+    ligne prend les angles et se répartit ; les suivantes remplissent les places libres, de gauche à droite."""
+    libres = list(range(len(xs)))
+    out = {}
+    for rang, (i, n) in enumerate(lignes):
+        pris = [libres[j] for j in _creneaux(len(libres), n)] if rang == 0 else libres[:n]
+        out[i] = [xs[j] for j in pris]
+        libres = [j for j in libres if j not in pris]
+    return out
+
+
+def coupe(p: dict, presentes: list, type_: dict = None) -> dict:
+    """Ce qu'on voit dans une coupe : les barres des lignes ``presentes`` (indices de ``p["barres"]``) et les aciers du
+    type d'étriers ``type_`` (None : une coupe sans étriers).
+
+    Rend {"section", "d_cadre" (mm),
+          "barres": [{"index", "famille", "lit", "d", "points": [[x, y], …]}],
+          "cadres": [{"sorte": "cadre" | "cadre_interieur" | "talon", "d", "x0", "x1", "y0", "y1"}]  (nus extérieurs),
+          "epingles": [{"d", "x", "y0", "y1"}]}."""
+    sec = section(p)
+    c, b, h, bg = sec["c"], sec["b"], sec["h"], sec["bg"]
+    d_cadre = diametre_cadre(type_)
+    a_talon = bool(type_ and type_["cadre_talon"] and EN.a_talon(p["forme"]))
+    d_talon = float(diametre_talon(type_)) if a_talon else 0.0
+    ys = niveaux(p, max(d_cadre, d_talon))
+    barres = []
+    for face in ("inf", "sup"):
+        rangs = sorted({p["barres"][i]["lit"] for i in presentes if p["barres"][i]["famille"] == face})
+        tous = sorted({x["lit"] for x in p["barres"] if x["famille"] == face})
+        for rang in rangs:
+            du_lit = [i for i in presentes if p["barres"][i]["famille"] == face and p["barres"][i]["lit"] == rang]
+            # les filantes d'abord : elles tiennent les angles
+            du_lit.sort(key=lambda i: (not EN.filante(p["barres"][i]), i))
+            n_tot = sum(p["barres"][i]["n"] for i in du_lit)
+            d_max = max(p["barres"][i]["d"] for i in du_lit)
+            if face == "inf" and a_talon and rang == tous[0]:
+                # le premier lit inférieur s'étale dans le cadre de talon, sur toute la largeur
+                xs = GP.abscisses_lit({"n": n_tot, "d": d_max}, sec["b_tot"], c, d_talon)
+            else:
+                xs = [bg + x for x in GP.abscisses_lit({"n": n_tot, "d": d_max}, b, c, d_cadre)]
+            places = _repartir([(i, p["barres"][i]["n"]) for i in du_lit], xs)
+            for i in du_lit:
+                x_ = p["barres"][i]
+                barres.append({"index": i, "famille": face, "lit": rang, "d": x_["d"], "points": [[x, ys[i]] for x in places[i]]})
+    # la peau : n barres par face, réparties entre les premiers lits des deux faces, au contact des montants du cadre
+    peau = [i for i in presentes if p["barres"][i]["famille"] == "peau"]
+    if peau:
+        bas = min((y for i, y in enumerate(ys) if y is not None and p["barres"][i]["famille"] == "inf"), default=c + d_cadre / 10.0)
+        haut = max((y for i, y in enumerate(ys) if y is not None and p["barres"][i]["famille"] == "sup"), default=h - c - d_cadre / 10.0)
+        n_tot = sum(p["barres"][i]["n"] for i in peau)
+        niv = [bas + k * (haut - bas) / (n_tot + 1) for k in range(1, n_tot + 1)]
+        k0 = 0
+        for i in peau:
+            x_ = p["barres"][i]
+            xg = bg + c + d_cadre / 10.0 + x_["d"] / 20.0
+            mes = niv[k0:k0 + x_["n"]]
+            k0 += x_["n"]
+            barres.append({"index": i, "famille": "peau", "lit": None, "d": x_["d"],
+                           "points": [[x, y] for y in mes for x in (xg, bg + b - (xg - bg))]})
+    barres.sort(key=lambda x: x["index"])
+    cadres, epingles = [], []
+    if type_:
+        x0, x1 = bg + c, bg + b - c
+        interieurs = [li for li in type_["lignes"] if li["forme"] == "cadre_interieur"]
+        pinces = [li for li in type_["lignes"] if li["forme"] == "epingle"]
+        for li in type_["lignes"]:
+            if li["forme"] == "cadre":
+                cadres.append({"sorte": "cadre", "d": li["d"], "x0": x0, "x1": x1, "y0": c, "y1": h - c})
+        for k, li in enumerate(interieurs):
+            w = li["largeur"]
+            xc = x0 + (x1 - x0) * (k + 1) / (len(interieurs) + 1)
+            xc = min(max(xc, x0 + w / 2.0), x1 - w / 2.0)
+            cadres.append({"sorte": "cadre_interieur", "d": li["d"], "x0": xc - w / 2.0, "x1": xc + w / 2.0, "y0": c, "y1": h - c})
+        # une épingle tient une barre : elle se pose sur une barre intérieure du premier lit inférieur de l'âme quand
+        # il y en a une près de sa place, sinon elle partage l'intervalle entre les montants
+        rang1 = min((bb["lit"] for bb in barres if bb["famille"] == "inf"), default=None)
+        inf1 = sorted(x for bb in barres if bb["famille"] == "inf" and bb["lit"] == rang1 for x, _ in bb["points"] if x0 < x < x1)
+        interieures = inf1[1:-1] if len(inf1) >= 3 else []
+        prises = set()
+        for k, li in enumerate(pinces):
+            x = x0 + (x1 - x0) * (k + 1) / (len(pinces) + 1)
+            libres = [v for v in interieures if v not in prises]
+            if libres:
+                x = min(libres, key=lambda v: abs(v - x))
+                prises.add(x)
+            epingles.append({"d": li["d"], "x": x, "y0": c, "y1": h - c})
+        if a_talon:
+            w_t, h_t = contour_talon(sec)
+            cadres.append({"sorte": "talon", "d": d_talon, "x0": c, "x1": c + w_t, "y0": c, "y1": c + h_t})
+    return {"section": sec, "d_cadre": d_cadre, "barres": barres, "cadres": cadres, "epingles": epingles}
