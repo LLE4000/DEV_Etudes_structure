@@ -181,11 +181,11 @@ def _hex(rgb):
 
 
 def couleurs_attendues(res):
-    """Les couleurs que la scène des contraintes donne aux mailles (le plus grand des taux des quatre nœuds — le
-    dégradé recopié des décisions dans ``schemas.couleur_taux``) et à sa barre de couleur."""
+    """Les couleurs que la scène des contraintes donne aux mailles (le plus grand des taux des quatre nœuds — l'échelle
+    recopiée des décisions dans ``schemas.couleur_taux``), les deux ailes et le coin."""
     out = set()
-    for aile in ("horizontale", "verticale"):
-        TX = res["maillage"][aile]["taux"]
+    for cle in ("horizontale", "verticale", "coin"):
+        TX = res["maillage"][cle]["taux"]
         for i in range(len(TX) - 1):
             for j in range(len(TX[0]) - 1):
                 out.add(SC.couleur_taux(max(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1])).upper())
@@ -194,8 +194,9 @@ def couleurs_attendues(res):
 
 def nb_mailles(res):
     """Le nombre de mailles du champ de von Mises que le moteur donne (2 ailes × pas en s × niveaux ζ : 768 avec un congé,
-    576 sans — une saisie libre à r = 0)."""
-    return sum((len(ch["s"]) - 1) * (len(ch["zeta"]) - 1) for ch in res["maillage"].values())
+    576 sans — une saisie libre à r = 0 — plus les 64 du coin)."""
+    mz = res["maillage"]
+    return sum((len(mz[a]["s"]) - 1) * (len(mz[a]["zeta"]) - 1) for a in ("horizontale", "verticale")) + (len(mz["coin"]["zeta"]) - 1) ** 2
 
 
 def _colore(h):
@@ -357,20 +358,20 @@ def ecarts_parite(e, octets):
         n_p2 = len(page2_hors_cartouche(p2))
         if n_p2 > SEUIL_PAGE2:
             out.append(f"« {nom} » p. 2 : trop de texte ({n_p2} caractères hors cartouche, budget {SEUIL_PAGE2})")
-        # les mailles colorées du champ de von Mises, dans le PDF : les couleurs du dégradé, maille par maille (pymupdf : un
-        # chemin rempli par maille — au moins 90 % du compte du moteur, et au plus 3 % des couleurs attendues absentes ;
-        # rendu : au moins quarante couleurs de la famille verte et le rouge)
+        # les mailles colorées du champ de von Mises, dans le PDF : les couleurs de l'échelle, maille par maille, le coin compris
+        # (pymupdf : un chemin rempli par maille — au moins 90 % du compte du moteur, et au plus 3 % des couleurs attendues
+        # absentes ; rendu : au moins quarante couleurs froides — bleu, cyan, vert — et le rouge de la barre)
         n_col, vues = fills_page(octets, i + 1)
         attendues = couleurs_attendues(res)
         if n_col is not None:
             manquent = attendues - vues
             if n_col < 0.9 * nb_mailles(res) or len(manquent) > 0.03 * len(attendues) or SC.ROUGE_TAUX.upper() not in vues:
                 out.append(f"« {nom} » p. 2 : mailles colorées — {n_col} remplissages colorés pour {nb_mailles(res)} mailles, {len(manquent)}/{len(attendues)} "
-                           f"couleurs du dégradé absentes, rouge {SC.ROUGE_TAUX} {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
+                           f"couleurs de l'échelle absentes, rouge {SC.ROUGE_TAUX} {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
         else:
-            verts = [h for h in vues if _colore(h) and int(h[3:5], 16) > max(int(h[1:3], 16), int(h[5:7], 16))]
-            if len(verts) < 40 or SC.ROUGE_TAUX.upper() not in vues:
-                out.append(f"« {nom} » p. 2 : mailles colorées (rendu) — {len(verts)} verts distincts, rouge {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
+            froides = [h for h in vues if _colore(h) and int(h[5:7], 16) > int(h[1:3], 16)]
+            if len(froides) < 40 or SC.ROUGE_TAUX.upper() not in vues:
+                out.append(f"« {nom} » p. 2 : mailles colorées (rendu) — {len(froides)} couleurs froides distinctes, rouge {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
     if len(tx) != attendu_pages:
         out.append(f"{len(tx)} pages pour {attendu_pages} attendues (garde + pages de chaque cornière)")
     # le sommaire de la garde : les pages annoncées sont celles où chaque cornière commence

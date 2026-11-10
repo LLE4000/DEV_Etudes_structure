@@ -272,7 +272,12 @@ etat = K.nouvel_etat()
 for ch, v in ((["R"], "42,76"), (["R_ELU"], "68,9"), (["a"], "100")):
     assert K.modifier(etat, ch, v) is None, ch
 K.gerer_elements(etat, "ajouter")
-for ch, v in ((["configuration"], "B"), (["dy"], "0"), (["Y"], "45")):
+for ch, v in ((["configuration"], "B"), (["dy"], "0"), (["Y"], "45"), (["support"], "poutre"), (["support_haut"], "160"),
+              (["support_bas"], "150"), (["type_ancrage"], "chimique")):
+    assert K.modifier(etat, ch, v) is None, ch
+K.gerer_elements(etat, "ajouter")
+for ch, v in ((["etat_limite"], "ELU"), (["R"], "60"), (["mode"], "equilibre"), (["type_ancrage"], "traversant"), (["entraxe"], "80"),
+              (["rondelles"], "2"), (["profondeur"], "200")):
     assert K.modifier(etat, ch, v) is None, ch
 """,
 }

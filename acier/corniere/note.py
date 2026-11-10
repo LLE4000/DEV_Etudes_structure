@@ -32,8 +32,9 @@ plus (``methode.resume`` : le modèle et l'état limite, le mode et la configura
 trois colonnes égales, chacune un titre court, la vue aussi grande que la colonne le permet (à l'échelle, le texte des
 dessins à ``TEXTE_DESSIN`` pt par ``schemas.ajuster``) et une légende courte qui dit l'état limite — à gauche LARGEUR
 EFFICACE ET ÉLÉVATION (scène ``elevation``), au centre MOMENTS SUR LA CORNIÈRE (``moments``), à droite CONTRAINTES DE
-VON MISES (``contraintes``, le maillage coloré par le taux avec sa barre de couleur, le dégradé vert → orange → rouge
-rendu tel quel par le peintre du kit) ; sous la rangée, les LIMITES (les avertissements du moteur, trois lignes au plus,
+VON MISES (``contraintes``, le maillage coloré par le taux — le coin compris — avec sa barre de couleur graduée en N/mm²
+et en %, l'échelle bleu → orange → rouge rendue telle quelle par le peintre du kit) ; sous la rangée, les LIMITES (les
+avertissements du moteur, trois lignes au plus,
 abrégés si besoin : ``abreger``), la ligne des RÉFÉRENCES, le cartouche. Cette page ne passe JAMAIS en page de suite :
 ce qui se réduit quand la place manque, c'est la taille des légendes et des textes, pas le dessin.
 
@@ -404,11 +405,13 @@ class Calcul:
         if cle == "moments":
             signe = "$M$ > 0 : face du congé tendue" if cfg == "A" else "$M$ < 0 (face du congé comprimée), constant de l'ancrage à l'angle"
             return (f"configuration {cfg} · {E.LIBELLES_MODE[mode]} · {etat} : $R$ = {_kn(res['efforts']['R'])} · le diagramme de chaque aile porté hors "
-                    f"de l'angle depuis son axe ($M$ = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et "
-                    f"remplie, $M_1$ à $M_4$ et $M_{{max}}$ · {signe}")
+                    f"de l'angle depuis son axe ($M$ = 0) : une courbe par position de la charge $X$ ± {_mm(g['dx'])} (aile horizontale) et de "
+                    f"l'ancrage $Y$ ± {_mm(g['dy'])} (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à $M_{{max}}$, "
+                    f"$M_1$ à $M_4$ · {signe}")
         sym = "$σ_{adm}$" if etat == E.ELS else "$f_y$/$γ_{M0}$"
-        return (f"{etat} · taux $σ_{{eq}}$ / {sym} = {_fmt(mat['sigma_adm'])} N/mm² par maille, enveloppe des positions · ◉ le maximum de chaque aile · "
-                f"vert sous 100 %, orange de 100 à 105 %, rouge au-delà · contraintes de poutre σ = M·ζ/W + N/A, τ = V/A — pas un calcul par éléments finis")
+        return (f"{etat} · $σ_{{eq}}$ par maille, enveloppe des positions, limite {sym} = {_fmt(mat['sigma_adm'])} N/mm² (100 %) · ◉ le maximum de "
+                f"chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 % · le coin par les sections 2 et 4 prolongées · "
+                f"contraintes de poutre σ = M·ζ/W + N/A, τ = V/A — pas un calcul par éléments finis")
 
 
 # ------------------------------------------------------------------ page 1 · calcul
