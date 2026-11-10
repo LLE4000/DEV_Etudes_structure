@@ -11,7 +11,188 @@ const BASE = process.argv[2] || 'http://127.0.0.1:8770';
 const OUT = process.argv[3] || '.';
 const FILTRE = process.argv[4] || '';
 
-(async () => {
+// ================================================================ les aides partagées par tous les filtres (lot S4)
+// Elles sont définies HORS du parcours et exportées (module.exports, en bas) : un essai les charge sans lancer le
+// parcours (require.main n'est pas ce fichier), pour les prouver sur des pages factices — mutations comprises.
+
+// ---------------------------------------------------------------- le signal « écran prêt », DOUBLE pendant la refonte
+// Deux contrats coexistent tant que le lot S4 se réalise (docs/site/REFONTE_ETABLI.md, S4-D7 et C1-C14 ; ordre de
+// travail de l'objection « Dans quel ordre retoucher le harnais ») :
+//  - le NOUVEAU : app.js pose body[data-montage] (le jeton du montage, avant d'ouvrir l'écran) ; l'écran pose
+//    body[data-ecran] ∈ demarrage | apercu | pret | erreur ; en erreur, le bandeau .et-demarre[data-etat="erreur"] ;
+//  - l'ANCIEN : le voile #demarrage, caché (hidden) quand le moteur a répondu, ou porteur de .erreur.
+// Les 36 lectures du voile passent par ces deux aides, et par elles seules. Si NI l'un NI l'autre signal n'existe, c'est
+// une erreur TOUT DE SUITE (« signal de démarrage absent ») : l'attente de 180 s, puis l'exception hors de tout bilan,
+// c'était le défaut à éviter. (Étape 4 de l'ordre de travail : le repli #demarrage se retire dans le commit qui retire le
+// voile, et « #demarrage absent » devient un contrôle.)
+const SIGNAL_ABSENT = 'signal de démarrage absent';
+// le jeton du montage courant (body[data-montage]) : null sur l'ancien site, ou hors d'un écran monté par app.js
+const montage = (pg) => pg.evaluate(() => {
+  const v = document.body ? document.body.dataset.montage : undefined;
+  return v === undefined || v === '' ? null : Number(v);
+});
+// attend l'écran PRÊT (ou en erreur) ; rend « pret » ou « erreur ».
+//   apres : le jeton de montage lu AVANT une navigation dans le même document — l'écran attendu est un montage
+//           POSTÉRIEUR (data-montage > apres), jamais l'écran d'avant ni la valeur statique copiée de la page cible ;
+//   exigerPret : un écran en erreur lève (l'appelant attendait le voile caché, rien d'autre) ;
+//   delai : le plafond de l'attente (180 s par défaut, comme avant).
+async function pretEcran(pg, { apres = null, exigerPret = false, delai = 180000 } = {}) {
+  const lire = async () => (await pg.waitForFunction((apres) => {
+    const b = document.body;
+    if (b && b.hasAttribute('data-ecran')) {
+      if (apres !== null && apres !== undefined) {
+        if (!b.hasAttribute('data-montage')) return 'sans-montage';
+        if (!(Number(b.dataset.montage) > apres)) return false;
+      }
+      const e = b.dataset.ecran;
+      return e === 'pret' || e === 'erreur' ? e : false;
+    }
+    const d = document.getElementById('demarrage');
+    if (d) return d.hidden ? 'pret' : d.classList.contains('erreur') ? 'erreur' : false;
+    // (le document se lit encore : le signal peut ne pas être né)
+    return document.readyState === 'loading' ? false : 'absent';
+  }, apres, { timeout: delai })).jsonValue();
+  let r = await lire();
+  // (un seul second regard, 300 ms plus tard : l'instant d'un échange de body, entre la copie des attributs de la page
+  //  cible et le montage de son écran, ne doit pas passer pour un signal absent)
+  if (r === 'absent') { await pg.waitForTimeout(300); r = await lire(); }
+  if (r === 'absent') throw new Error(SIGNAL_ABSENT);
+  if (r === 'sans-montage') throw new Error('jeton de montage absent : body[data-ecran] sans body[data-montage]');
+  if (exigerPret && r === 'erreur') throw new Error(`l'écran est en erreur : ${await echecEcran(pg)}`);
+  return r;
+}
+// l'échec du démarrage, LU : '' si l'écran n'a pas échoué, sinon le texte de l'échec (jamais vide). Il EXIGE qu'un signal
+// existe : sans body[data-ecran] ni #demarrage, il lève (« absent » ne vaut pas « pas d'échec » — sans cette règle, un
+// contrôle « pas d'erreur » passe toujours, quoi qu'il arrive).
+async function echecEcran(pg) {
+  const r = await pg.evaluate(() => {
+    const b = document.body;
+    const net = (t) => String(t || '').replace(/\s+/g, ' ').trim();
+    if (b && b.hasAttribute('data-ecran')) {
+      const bandeau = document.querySelector('.et-demarre[data-etat="erreur"]');
+      if (b.dataset.ecran !== 'erreur' && !bandeau) return { echec: '' };
+      return { echec: (bandeau && net(bandeau.textContent))
+        || `écran en erreur (data-ecran=${b.dataset.ecran}${bandeau ? '' : ', sans bandeau .et-demarre[data-etat=erreur]'})` };
+    }
+    const d = document.getElementById('demarrage');
+    if (d) return { echec: d.classList.contains('erreur') ? (net((document.getElementById('demarrage-etape') || {}).textContent) || 'erreur') : '' };
+    return { absent: true };
+  });
+  if (r.absent) throw new Error(SIGNAL_ABSENT);
+  return r.echec;
+}
+
+// ---------------------------------------------------------------- le travailleur, vu de la page (le proxy des réponses)
+// Une réponse peut être SIMULÉE (window.__simuler), RETOUCHÉE (window.__retoucher) ou RETARDÉE (window.__retarder), pour
+// les gestes dont le moteur n'a pas la réponse (télécharger), qu'aucun module ne produit (zéro vue), ou pour une réponse
+// TARDIVE (un écran fermé avant qu'elle arrive). ROBUSTE : il enveloppe le setter onmessage ET
+// addEventListener('message') (un moteur partagé peut écouter par l'un ou par l'autre — l'ancien proxy, sur le seul
+// setter, se taisait en silence, et les contrôles jugeaient alors le vrai moteur). window.__interceptees compte les
+// réponses du VRAI travailleur passées par lui (une par message, quel que soit le nombre d'écouteurs) : un contrôle qui
+// s'appuie sur le proxy exige d'abord __interceptees > 0, sinon KO « proxy inactif ». Posé par addInitScript, il survit
+// aux échanges de page.
+//   __retarder(predicat, ms) : chaque message du travailleur (sa donnée, avant retouche) pour lequel predicat est vrai est
+//   livré ms plus tard ; rend une fonction qui retire la règle ; __retarder() sans argument les retire toutes.
+const proxyTravailleur = () => {
+  const W = window.Worker;
+  window.__interceptees = 0;
+  const regles = [];
+  window.__retarder = (predicat, ms) => {
+    if (!predicat) { regles.length = 0; return () => {}; }
+    const r = { predicat, ms: Number(ms) || 0 };
+    regles.push(r);
+    return () => { const i = regles.indexOf(r); if (i >= 0) regles.splice(i, 1); };
+  };
+  // un message → sa livraison (la donnée retouchée, le retard) : calculée UNE fois, partagée par tous les écouteurs
+  const vus = new WeakMap();
+  const preparer = (ev) => {
+    let t = ev && typeof ev === 'object' ? vus.get(ev) : null;
+    if (t) return t;
+    const d = ev && ev.data;
+    let sortie = ev, delai = 0;
+    if (d && d.type === 'reponse') {
+      window.__interceptees++;
+      if (window.__retoucher) sortie = { data: { ...d, json: window.__retoucher(d.json) } };
+    }
+    for (const r of regles) { try { if (r.predicat(d)) delai = Math.max(delai, r.ms); } catch (e) { /* un prédicat qui lève ne retarde pas */ } }
+    t = { sortie, delai };
+    if (ev && typeof ev === 'object') vus.set(ev, t);
+    return t;
+  };
+  const appeler = (f, cible, ev) => (typeof f === 'function' ? f.call(cible, ev) : f && typeof f.handleEvent === 'function' ? f.handleEvent(ev) : undefined);
+  const livrer = (f, cible, ev) => {
+    const { sortie, delai } = preparer(ev);
+    if (delai > 0) setTimeout(() => appeler(f, cible, sortie), delai);
+    else appeler(f, cible, sortie);
+  };
+  window.Worker = class extends W {
+    constructor(...a) {
+      super(...a);
+      this.__f = null;
+      this.__enveloppes = new Map();
+    }
+    set onmessage(f) {
+      this.__f = f || null;
+      super.onmessage = f ? (ev) => livrer(f, this, ev) : null;
+    }
+    get onmessage() { return this.__f; }
+    addEventListener(type, f, o) {
+      if (type !== 'message' || !f) return super.addEventListener(type, f, o);
+      let e = this.__enveloppes.get(f);
+      if (!e) { e = (ev) => livrer(f, this, ev); this.__enveloppes.set(f, e); }
+      return super.addEventListener(type, e, o);
+    }
+    removeEventListener(type, f, o) {
+      if (type === 'message' && f && this.__enveloppes.has(f)) return super.removeEventListener(type, this.__enveloppes.get(f), o);
+      return super.removeEventListener(type, f, o);
+    }
+    postMessage(m, ...reste) {
+      const rep = window.__simuler && m && typeof m.requete === 'string' ? window.__simuler(JSON.parse(m.requete)) : null;
+      if (rep) {
+        // une réponse simulée va à TOUS les écouteurs (le setter et addEventListener), sans passer par le compte
+        const ev = { data: { type: 'reponse', id: m.id, json: JSON.stringify(rep) } };
+        setTimeout(() => { if (this.__f) appeler(this.__f, this, ev); for (const f of this.__enveloppes.keys()) appeler(f, this, ev); }, 30);
+        return undefined;
+      }
+      return super.postMessage(m, ...reste);
+    }
+  };
+};
+// le compte du proxy, lu dans la page (0 si le proxy n'y est pas)
+const interceptees = (pg) => pg.evaluate(() => window.__interceptees || 0);
+
+// ---------------------------------------------------------------- PASSAGE=1 : ouvrir un écran DANS l'application
+// Sans PASSAGE, ouvrir(pg, url) est page.goto(url) : un document neuf. Avec PASSAGE=1 (variable d'environnement, lue à
+// chaque appel), il injecte <a href=url> dans le body courant et le CLIQUE : la vraie porte de navigation (après S4,
+// app.js l'intercepte et échange la page dans le même document ; sur l'ancien site, le clic recharge le document, et
+// c'est normal). Une page qui n'est pas encore sur le site (about:blank) passe d'abord par l'accueil (une navigation
+// ordinaire), puis clique — sauf si la cible EST l'accueil. Rend le jeton de montage lu AVANT le clic (null pour un
+// document neuf, et sur l'ancien site) : à passer à pretEcran({ apres }).
+async function ouvrir(pg, url, { accueil = `${BASE}/` } = {}) {
+  if (process.env.PASSAGE !== '1') { await pg.goto(url); return null; }
+  const cible = new URL(url, accueil);
+  let ici = null;
+  try { ici = new URL(pg.url()); } catch (e) { /* pas d'adresse lisible */ }
+  if (!ici || ici.origin !== cible.origin) {
+    if (new URL(accueil).pathname === cible.pathname || /^\/(index\.html)?$/.test(cible.pathname)) { await pg.goto(cible.href); return null; }
+    await pg.goto(accueil);
+    ici = new URL(pg.url());
+  }
+  // (une ancre seule ne navigue pas : un goto, comme sans PASSAGE)
+  if (ici.origin === cible.origin && ici.pathname === cible.pathname && ici.search === cible.search && cible.hash) { await pg.goto(cible.href); return null; }
+  const m0 = await montage(pg);
+  await pg.evaluate((href) => {
+    const a = document.createElement('a');
+    a.href = href; a.id = 'passage-harnais'; a.textContent = 'passage';
+    a.style.cssText = 'position:fixed;left:0;top:0;z-index:2147483647;display:block;width:32px;height:32px;background:#f0f;color:#000;font:10px sans-serif';
+    document.body.appendChild(a);
+  }, cible.href);
+  await Promise.all([pg.waitForNavigation({ timeout: 60000 }),
+    pg.click('#passage-harnais', { timeout: 10000 }).catch(() => pg.$eval('#passage-harnais', (a) => a.click()))]);
+  return m0;
+}
+
+const principal = async () => {
   // une locale UTF-8 pour Chromium : sous la locale « C » d'un serveur, il ne sait pas écrire un nom de fichier accentué
   // sur le disque et enregistre « download » (mesuré : « Contrôle - « essai ».json » → « download ») — les postes du bureau
   // sont en UTF-8
@@ -106,7 +287,7 @@ const FILTRE = process.argv[4] || '';
     }, LISTE_ELT);
   };
   const verdict = () => p.evaluate(() => document.querySelector('.verdict')?.textContent.replace(/\s+/g, ' ').trim() || '');
-  const pret = () => p.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+  const pret = (o) => pretEcran(p, o);
   const calme = () => p.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
 
   // ---------------------------------------------------------------- l'accueil, vide
@@ -154,10 +335,12 @@ const FILTRE = process.argv[4] || '';
   async function nouvelle(module, chantier, dossier, nom) {
     await p.goto(`${BASE}/index.html`);
     await p.click('#ouvrir-nouvelle');
+    let m0 = null;
     verif(`« Nouvelle note » (${module}) : la fenêtre s'ouvre`, await p.isVisible('#nouvelle .mcard'));
     await p.fill('#nn-chantier', chantier); await p.fill('#nn-dossier', dossier); await p.fill('#nn-nom', nom);
     if (await p.$(`.mopt[data-module="${module}"]`)) {
       await p.click(`.mopt[data-module="${module}"]`);
+      m0 = await montage(p);
       await Promise.all([p.waitForNavigation(), p.click('#nn-creer')]);
     } else {
       // un module MASQUÉ (js/modules.js « masque ») : plus d'entrée dans « Nouvelle note », mais sa page reste servie et
@@ -166,8 +349,8 @@ const FILTRE = process.argv[4] || '';
       await p.goto(`${BASE}/${page}?${new URLSearchParams({ nom, chantier, dossier })}`);
     }
     const t0 = Date.now();
-    await pret();
-    const echec = await p.evaluate(() => document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : '');
+    await pret({ apres: m0 });
+    const echec = await echecEcran(p);
     verif(`${module} : le moteur démarre dans le navigateur`, !echec, echec || `${Date.now() - t0} ms`);
     verif(`${module} : le nom de la note et le chantier sont repris`, (await p.inputValue('#nom-note')) === nom && (await p.textContent('#fil-chantier')).includes(chantier));
   }
@@ -316,7 +499,7 @@ const FILTRE = process.argv[4] || '';
     for (const cle of choisis.filter((k) => MODULES[k])) {
       const nom = MODULES[cle].nom;
       await nouvelle(cle, 'Contrôle', 'Tous les modules', `Essai ${nom}`);
-      if (await p.evaluate(() => document.getElementById('demarrage').classList.contains('erreur'))) continue;
+      if (await echecEcran(p)) continue;
       if (MODULES[cle].vers) {
         // un module ABSORBÉ par un autre (js/modules.js « vers », construire.REDIRECTIONS ; docs/site/DALLES_FUSION.md
         // § 2.4) : sa page a REDIRIGÉ vers celle du module qui le sert, en gardant l'adresse — le nom et le chantier
@@ -397,23 +580,13 @@ const FILTRE = process.argv[4] || '';
     await p.goto(`${BASE}/`);
     const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
     const choisis = FILTRE.startsWith('formats:') ? [FILTRE.slice(8)] : Object.keys(MODS);
-    // le travailleur, vu de la page : une réponse peut être SIMULÉE (window.__simuler) ou RETOUCHÉE (window.__retoucher),
-    // pour les gestes dont le moteur n'a pas encore la réponse (télécharger) ou qu'aucun module ne produit (zéro vue)
-    const proxyTravailleur = () => {
-      const W = window.Worker;
-      window.Worker = class extends W {
-        set onmessage(f) {
-          this.__f = f;
-          super.onmessage = (ev) => (window.__retoucher && ev.data && ev.data.type === 'reponse'
-            ? f({ data: { ...ev.data, json: window.__retoucher(ev.data.json) } }) : f(ev));
-        }
-        get onmessage() { return this.__f; }
-        postMessage(m) {
-          const rep = window.__simuler && m && typeof m.requete === 'string' ? window.__simuler(JSON.parse(m.requete)) : null;
-          if (rep) { setTimeout(() => this.__f({ data: { type: 'reponse', id: m.id, json: JSON.stringify(rep) } }), 30); return; }
-          super.postMessage(m);
-        }
-      };
+    // le travailleur, vu de la page : le proxy des réponses (proxyTravailleur, en tête du fichier : simuler, retoucher,
+    // retarder, et le compte __interceptees)
+    // un contrôle qui s'appuie sur le proxy (simuler, retoucher) : KO « proxy inactif » si le proxy n'a vu passer AUCUNE
+    // réponse du vrai travailleur (n : le compte lu là où la retouche a joué, ou dans la page courante)
+    const verifProxy = async (pg, nom, cond, info, n = null) => {
+      const vues = n === null ? await interceptees(pg) : n;
+      verif(nom, vues > 0 && cond, vues > 0 ? info : `proxy inactif (aucune réponse du travailleur interceptée) · ${info}`);
     };
     const contexte = async (w, h, tel) => {
       const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: tel, acceptDownloads: true });
@@ -617,16 +790,18 @@ const FILTRE = process.argv[4] || '';
       // en écrasant la case « Note », faisait chevaucher « Note » et « Chantier »)
       const chantier = 'Résidence Les Tilleuls, bâtiment B — phase 2 (logements)', nom = `${MODS[cle].nom} · ${fmt}`;
       await pg.fill('#nn-chantier', chantier); await pg.fill('#nn-nom', nom);
+      let m0 = null;
       if (MODS[cle].masque) {
         // un module MASQUÉ (js/modules.js « masque ») n'a plus d'entrée dans « Nouvelle note » : sa page, toujours servie,
         // crée la note depuis l'adresse (js/etabli.js) — le même repli que nouvelle() plus haut
         await pg.goto(`${BASE}/${MODS[cle].page}?${new URLSearchParams({ nom, chantier })}`);
       } else {
         await pg.click(`.mopt[data-module="${cle}"]`);
+        m0 = await montage(pg);
         await Promise.all([pg.waitForNavigation(), pg.click('#nn-creer')]);
       }
-      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
-      const ko = await pg.evaluate(() => document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : '');
+      await pretEcran(pg, { apres: m0 });
+      const ko = await echecEcran(pg);
       verif(`${cle} · ${fmt} : le moteur démarre`, !ko, ko);
       return !ko;
     };
@@ -1062,14 +1237,14 @@ const FILTRE = process.argv[4] || '';
         const [dl] = await Promise.all([g.waitForEvent('download', { timeout: 20000 }), g.click('#donnees [data-telecharger="essai"]')]);
         const contenu = require('fs').readFileSync(await dl.path(), 'utf8');
         const vu = await g.evaluate(() => window.__vu);
-        verif('télécharger : la requête part au moteur (action, quoi, état) et le fichier arrive sous un nom nettoyé',
+        await verifProxy(g, 'télécharger : la requête part au moteur (action, quoi, état) et le fichier arrive sous un nom nettoyé',
           vu && vu.action === 'telecharger' && vu.quoi === 'essai' && vu.etat && dl.suggestedFilename() === 'essai.json' && contenu === '{"écran": "Streamlit", "a": 1}',
           JSON.stringify({ nom: dl.suggestedFilename(), contenu, action: vu && vu.action, quoi: vu && vu.quoi }));
         await g.evaluate(() => { document.querySelector('[data-telecharger="essai"]').dataset.telecharger = 'refuse'; });
         await g.click('#donnees [data-telecharger="refuse"]');
         await g.waitForTimeout(400);
         const tst = await g.evaluate(() => { const t = document.getElementById('toast'); return { vu: t.checkVisibility(), texte: t.textContent, erreur: t.classList.contains('erreur') }; });
-        verif('télécharger : un refus du moteur s\'affiche en message', tst.vu && tst.erreur && /refusé.*pas de fichier pour cette note/.test(tst.texte), JSON.stringify(tst));
+        await verifProxy(g, 'télécharger : un refus du moteur s\'affiche en message', tst.vu && tst.erreur && /refusé.*pas de fichier pour cette note/.test(tst.texte), JSON.stringify(tst));
         // un module qui ne rend aucune vue : un texte neutre (ni « impossible », ni erreur)
         await g.evaluate(() => {
           window.__simuler = null;
@@ -1080,7 +1255,7 @@ const FILTRE = process.argv[4] || '';
         await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
         await g.waitForTimeout(300);
         const sv = await g.evaluate(() => ({ texte: document.getElementById('stage').textContent.trim(), zoom: document.getElementById('zoom').checkVisibility() }));
-        verif('aucune vue : un texte neutre, sans barre de zoom', sv.texte === 'Pas de dessin pour cette note.' && !sv.zoom, JSON.stringify(sv));
+        await verifProxy(g, 'aucune vue : un texte neutre, sans barre de zoom', sv.texte === 'Pas de dessin pour cette note.' && !sv.zoom, JSON.stringify(sv));
         await g.evaluate(() => { window.__retoucher = null; });
         // une réponse illisible du moteur (un « Infinity », que JSON ne connaît pas) : un message, et l'établi reste
         // vivant — la requête restait sans réponse, la file du moteur bloquée, « Calcul… » sans fin
@@ -1092,7 +1267,7 @@ const FILTRE = process.argv[4] || '';
         await ajouterElement(g);
         const repart = await g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 30000 }).then(() => true, () => false);
         const nApres = await nElements(g);
-        verif('une réponse illisible du moteur : un message, et le calcul suivant passe (la file du moteur ne se bloque pas)',
+        await verifProxy(g, 'une réponse illisible du moteur : un message, et le calcul suivant passe (la file du moteur ne se bloque pas)',
           libre && ill.vu && ill.erreur && /réponse illisible du moteur/.test(ill.texte) && repart && nApres === nAvant + 1, JSON.stringify({ libre, ...ill, repart, nAvant, nApres }));
         // les erreurs de la réponse illisible sont attendues : la console les dit, la page n'a pas levé
         g.erreurs = g.erreurs.filter((x) => !/réponse illisible du moteur/.test(x));
@@ -1107,12 +1282,13 @@ const FILTRE = process.argv[4] || '';
         await ajouterElement(tt);
         await tt.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
         await tt.evaluate(() => { window.__retoucher = null; });
+        const vuesTaux = await interceptees(tt);   // (lu dans l'établi, où la retouche a joué : l'accueil, plus bas, est un autre document)
         const ch = await tt.evaluate(() => {
           const c = document.getElementById('chip-m'), r = c.getBoundingClientRect(), m = document.getElementById('menu-m').getBoundingClientRect();
           return { texte: c.textContent, titre: c.title, vu: c.checkVisibility(), l: Math.round(r.width), entier: c.scrollWidth <= c.clientWidth + 1 && r.right <= m.left + 0.5,
             nom: Math.round(document.getElementById('nom-note-m').getBoundingClientRect().width) };
         });
-        verif('taux de plus de 999 % · téléphone : l\'en-tête écrit « > 999 % » (la valeur exacte au survol), la pastille entière, le nom lisible',
+        await verifProxy(tt, 'taux de plus de 999 % · téléphone : l\'en-tête écrit « > 999 % » (la valeur exacte au survol), la pastille entière, le nom lisible',
           ch.vu && ch.texte === '>\u00a0999\u00a0%' && ch.titre === '12\u202f345\u202f678\u00a0%' && ch.entier && ch.l <= 90 && ch.nom >= 150, JSON.stringify(ch));
         await tt.goto(`${BASE}/index.html`);
         await tt.waitForTimeout(300);
@@ -1122,8 +1298,8 @@ const FILTRE = process.argv[4] || '';
           const r = c.getBoundingClientRect(), m = c.closest('.m').getBoundingClientRect();
           return { texte: c.textContent, titre: c.title, vu: c.checkVisibility(), dedans: r.right <= m.right + 0.5 && c.scrollWidth <= c.clientWidth + 1 };
         });
-        verif('taux de plus de 999 % · accueil : la carte de la note écrit « > 999 % », la valeur exacte au survol, la pastille dans sa carte',
-          ca && ca.vu && ca.texte === '>\u00a0999\u00a0%' && ca.titre === '12\u202f345\u202f678\u00a0%' && ca.dedans, JSON.stringify(ca));
+        await verifProxy(tt, 'taux de plus de 999 % · accueil : la carte de la note écrit « > 999 % », la valeur exacte au survol, la pastille dans sa carte',
+          ca && ca.vu && ca.texte === '>\u00a0999\u00a0%' && ca.titre === '12\u202f345\u202f678\u00a0%' && ca.dedans, JSON.stringify(ca), vuesTaux);
         verif('taux de plus de 999 % : aucune erreur JavaScript', !tt.erreurs.length, tt.erreurs.join(' | ').slice(0, 300));
       }
       await tt.context().close();
@@ -1137,8 +1313,8 @@ const FILTRE = process.argv[4] || '';
       if (sans) {
         const g = await contexte(1280, 800, false);
         await g.goto(`${BASE}/${MODS[sans].page}`);
-        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
-        const ok = await g.evaluate(() => document.getElementById('demarrage').hidden);
+        await pretEcran(g);
+        const ok = !(await echecEcran(g));
         verif(`numpy : ${sans} démarre sans le charger`, ok && !g.requetes.some((u) => /numpy-.*\.whl/.test(u)), g.requetes.filter((u) => /numpy/.test(u)).join(', '));
         await g.context().close();
       }
@@ -1153,8 +1329,8 @@ const FILTRE = process.argv[4] || '';
           await route.fulfill({ response: r, json: j });
         });
         await g.goto(`${BASE}/${MODS[avec].page}`);
-        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
-        const etat = await g.evaluate(() => ({ ok: document.getElementById('demarrage').hidden, resultat: !!document.querySelector('#resultat .verdict, #resultat .el') }));
+        await pretEcran(g);
+        const etat = { ok: !(await echecEcran(g)), resultat: await g.evaluate(() => !!document.querySelector('#resultat .verdict, #resultat .el')) };
         verif(`numpy : ${avec} oublié du manifeste se calcule quand même (numpy chargé à la demande)`,
           etat.ok && etat.resultat && g.requetes.some((u) => /numpy-.*\.whl/.test(u)), JSON.stringify({ ...etat, numpy: g.requetes.filter((u) => /numpy/.test(u)) }));
         await g.context().close();
@@ -1238,7 +1414,7 @@ const FILTRE = process.argv[4] || '';
     };
     const ouvrir = async (pg, cle) => {
       const rep = await pg.goto(`${BASE}/${MODS[cle].page}?chantier=${encodeURIComponent('Contrôle')}&nom=${encodeURIComponent('Essai télécharger')}`);
-      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await pretEcran(pg);
       return rep;
     };
     const visible = (pg, s) => pg.evaluate((s) => [...document.querySelectorAll(s)].some((e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true })
@@ -1389,7 +1565,7 @@ const FILTRE = process.argv[4] || '';
     const MODS = await p.evaluate(async () => (await import('./js/modules.js')).MODULES);
     const ouvrir = async (pg) => {
       const rep = await pg.goto(`${BASE}/${MODS.age.page}?chantier=${encodeURIComponent('Contrôle météo')}&nom=${encodeURIComponent('Dalle R+2')}`);
-      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await pretEcran(pg);
       return rep;
     };
     const tranquille = (pg) => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 90000 });
@@ -1486,7 +1662,7 @@ const FILTRE = process.argv[4] || '';
     // la note rechargée : tout est gardé, et rien n'est redemandé à Open-Meteo (le calcul se refait hors ligne)
     const nAppels = g.journal.length;
     await g.reload();
-    await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    await pretEcran(g);
     await tranquille(g);
     const R = await lire(g);
     verif('météo · PC : rechargée, la note garde les températures, le badge et la maturité — sans AUCUN nouvel appel (calcul hors ligne)',
@@ -1667,18 +1843,19 @@ const FILTRE = process.argv[4] || '';
       pg.on('pageerror', (e) => err.push(e.message));
       pg.on('console', (m) => { if (m.type() === 'error') err.push(m.text().slice(0, 300)); });
       await pg.goto(`${BASE}/${MODS[cle].page}${sonde ? '?sonde=1' : ''}`);
-      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await pretEcran(pg);
       if (sonde) await pg.waitForFunction(() => globalThis.__sonde && performance.getEntriesByName('stab:premier_rendu').length, null, { timeout: 60000 });
       else await pg.waitForTimeout(1500);   // le temps qu'un message de trop arrive, s'il devait arriver
-      const lu = await pg.evaluate(() => ({
-        echec: document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : '',
+      const echec = await echecEcran(pg);
+      const lu = await pg.evaluate((echec) => ({
+        echec,
         page: performance.getEntriesByType('mark').filter((m) => m.name.startsWith('stab:')).map((m) => [m.name.slice(5), m.startTime]),
         travailleur: globalThis.__sonde ? globalThis.__sonde.marques.map(([k, t]) => [k, t - performance.timeOrigin]) : null,
         details: globalThis.__sonde ? globalThis.__sonde.details : null,
         sonde: globalThis.__sonde !== undefined,
         types: [...new Set(window.__messages)].sort(), adresses: window.__travailleurs,
         donnees: document.getElementById('donnees').innerHTML, resultat: document.getElementById('resultat').innerHTML,
-      }));
+      }), echec);
       await c.close();
       return { ...lu, err };
     };
@@ -1756,9 +1933,9 @@ const FILTRE = process.argv[4] || '';
       pg.on('console', (m) => { if (m.type() === 'error' && !/enregistrement impossible|copie de la mémoire/.test(m.text())) pg.erreurs.push(m.text().slice(0, 300)); });
       return pg;
     };
-    const demarre = async (pg) => {
-      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
-      return pg.evaluate(() => (document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : ''));
+    const demarre = async (pg, o) => {
+      await pretEcran(pg, o);
+      return echecEcran(pg);
     };
     const calmePg = (pg) => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
     // une saisie dans le premier champ numérique VISIBLE des données (une valeur qui change à chaque appel)
@@ -1873,8 +2050,7 @@ const FILTRE = process.argv[4] || '';
       const lu = tel ? 'Non enregistré' : 'Non enregistré : stockage plein';
       const pg = await ouvrirContexte(w, h, tel, tactile);
       try {
-        await pg.goto(`${BASE}/${MODS[mod].page}?nom=${encodeURIComponent(`Essai d'enregistrement · ${fmt}`)}&chantier=R%C3%A9alex`);
-        const ko0 = await demarre(pg);
+        const ko0 = await demarre(pg, { apres: await ouvrir(pg, `${BASE}/${MODS[mod].page}?nom=${encodeURIComponent(`Essai d'enregistrement · ${fmt}`)}&chantier=R%C3%A9alex`) });
         verif(`${nom} : le moteur démarre`, !ko0, ko0);
         let e = await lireEnr(pg);
         verif(`${nom} : l'indicateur d'enregistrement est visible, un seul, « enregistré » après le premier calcul`,
@@ -1972,10 +2148,9 @@ const FILTRE = process.argv[4] || '';
       const lu = tel ? 'Non enregistré' : 'Non enregistré : mémoire illisible';
       const pg = await ouvrirContexte(w, h, tel, tel, refuserCopies);
       try {
-        await pg.goto(`${BASE}/`);
+        await ouvrir(pg, `${BASE}/`);
         await pg.evaluate(([k, v]) => localStorage.setItem(k, v), [CLE, ABIME]);
-        await pg.goto(`${BASE}/${MODS[mod].page}`);
-        const ko0 = await demarre(pg);
+        const ko0 = await demarre(pg, { apres: await ouvrir(pg, `${BASE}/${MODS[mod].page}`) });
         verif(`${nom} : le moteur démarre`, !ko0, ko0);
         await ecrireAlaSaisie(pg, nom);
         const e = await lireEnr(pg);
@@ -2001,7 +2176,7 @@ const FILTRE = process.argv[4] || '';
         }
         await pg.screenshot({ path: path.join(OUT, `site_enregistrement_illisible_${mod}_${tel ? 'tel' + w : 'pc'}.png`) });
         // l'accueil : il le signale et rend le texte brut, tel quel
-        await pg.goto(`${BASE}/`);
+        await ouvrir(pg, `${BASE}/`);
         await pg.waitForTimeout(300);
         const a = await pg.evaluate(() => {
           const z = document.getElementById('et-memoire');
@@ -2024,10 +2199,9 @@ const FILTRE = process.argv[4] || '';
       const nom = 'mémoire abîmée, copiée';
       const pg = await ouvrirContexte(1440, 900, false, false);
       try {
-        await pg.goto(`${BASE}/`);
+        await ouvrir(pg, `${BASE}/`);
         await pg.evaluate(([k, v]) => localStorage.setItem(k, v), [CLE, ABIME]);
-        await pg.goto(`${BASE}/${MODS.poutre.page}`);
-        const ko0 = await demarre(pg);
+        const ko0 = await demarre(pg, { apres: await ouvrir(pg, `${BASE}/${MODS.poutre.page}`) });
         verif(`${nom} : le moteur démarre`, !ko0, ko0);
         await ecrireAlaSaisie(pg, nom);
         const e = await lireEnr(pg);
@@ -2049,7 +2223,7 @@ const FILTRE = process.argv[4] || '';
           const c2 = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: fmt !== 'PC', acceptDownloads: true,
             storageState: await pg.context().storageState() });
           const g = await c2.newPage();
-          await g.goto(`${BASE}/`);
+          await ouvrir(g, `${BASE}/`);
           await g.waitForTimeout(300);
           const a = await g.evaluate(() => {
             const z = document.getElementById('et-memoire'), bt = z.querySelector('[data-copie]');
@@ -2097,10 +2271,10 @@ const FILTRE = process.argv[4] || '';
       pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
       return pg;
     };
-    const pretO = async (pg) => {
-      await pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    const pretO = async (pg, o) => {
+      await pretEcran(pg, o);
       await pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
-      return pg.evaluate(() => (document.getElementById('demarrage').classList.contains('erreur') ? document.getElementById('demarrage-etape').textContent : ''));
+      return echecEcran(pg);
     };
     const notesO = (pg) => pg.evaluate(() => { try { return JSON.parse(localStorage.getItem('stab.notes.v1') || '{}'); } catch (e) { return null; } });
     // l'en-tête VU à ce format : l'étiquette de la barre du haut, la 2ᵉ ligne du téléphone, l'indicateur, le bouton (ou
@@ -2159,9 +2333,10 @@ const FILTRE = process.argv[4] || '';
         const nom = `ouverture · ${cle} · PC`;
         try {
           await pg.goto(`${BASE}/`);
+          let m0 = null;
           if (mod.masque) await pg.goto(`${BASE}/${mod.page}`);   // masqué : plus de carte, sa page reste servie
-          else await Promise.all([pg.waitForNavigation(), pg.click(`.tile[data-module="${cle}"]`)]);
-          const ko = await pretO(pg);
+          else { m0 = await montage(pg); await Promise.all([pg.waitForNavigation(), pg.click(`.tile[data-module="${cle}"]`)]); }
+          const ko = await pretO(pg, { apres: m0 });
           await pg.waitForTimeout(1500);   // le temps qu'une écriture de trop arrive, si elle devait arriver
           const e = await enteteO(pg), n = await notesO(pg);
           const vers = mod.vers ? MODS[mod.vers].page : mod.page;
@@ -2219,8 +2394,9 @@ const FILTRE = process.argv[4] || '';
       const pg = await ctxO(w, h, tel, tactile ?? tel);
       try {
         await pg.goto(`${BASE}/`);
+        const m0 = await montage(pg);
         await Promise.all([pg.waitForNavigation(), pg.click('.tile[data-module="garde_corps"]')]);
-        verif(`${nom} : le moteur démarre`, !(await pretO(pg)));
+        verif(`${nom} : le moteur démarre`, !(await pretO(pg, { apres: m0 })));
         // « Enregistrer comme note… » : au téléphone, dans le menu ⋯
         if (tel) { await pg.click('#menu-m'); await pg.waitForTimeout(150); }
         const sel = tel ? '#mmenu [data-ranger]' : '.top [data-ranger]';
@@ -2302,8 +2478,9 @@ const FILTRE = process.argv[4] || '';
         const fichier = path.join(OUT, 'ouverture_importee.stab');
         fs.writeFileSync(fichier, JSON.stringify({ format: 'stab', version: 1, note: { module: 'garde_corps', nom: 'Note importée', chantier: 'Essai ouverture', indice: 'B', etat: null } }));
         const [choix] = await Promise.all([pg.waitForEvent('filechooser', { timeout: 10000 }), pg.click('#et-alerte .et-alerte-importer')]);
+        const m0 = await montage(pg);
         await Promise.all([pg.waitForNavigation(), choix.setFiles(fichier)]);
-        verif(`${nom} : « Importer .stab » ouvre le fichier choisi, par la page de son module`, !(await pretO(pg)) && new URL(pg.url()).pathname.endsWith(`/${MODS.garde_corps.page}`)
+        verif(`${nom} : « Importer .stab » ouvre le fichier choisi, par la page de son module`, !(await pretO(pg, { apres: m0 })) && new URL(pg.url()).pathname.endsWith(`/${MODS.garde_corps.page}`)
           && (await pg.inputValue('#nom-note')) === 'Note importée', pg.url());
         // une note d'un AUTRE module, demandée à la page du plancher : elle s'ouvre par la page de son module
         const idG = new URLSearchParams(new URL(pg.url()).search).get('note');
@@ -2360,9 +2537,10 @@ const FILTRE = process.argv[4] || '';
     const liste = () => g.$$eval(`${LIGNE} .et-elt-liste .et-mn-l [data-activer]`,
       (x) => x.map((b) => b.querySelector('.nom').textContent + (b.classList.contains('on') && b.getAttribute('aria-checked') === 'true' ? '*' : '')).join());
     try {
-      await g.goto(`${BASE}/index.html`);
+      await ouvrir(g, `${BASE}/index.html`);
+      let m0 = await montage(g);
       await Promise.all([g.waitForNavigation(), g.click('.tile[data-module="poutre"]')]);
-      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await pretEcran(g, { apres: m0 });
       let e = await lireEtat();
       verif('pilote : la carte de l\'accueil ouvre le calcul lui-même (sans fenêtre « Nouvelle note »), une poutre',
         /poutre(\.html)?$/.test(new URL(g.url()).pathname) && !e.url && (await g.$eval(LIGNE, (x) => x.dataset.elements)) === '1', `${g.url()} · ${e.url}`);
@@ -2821,7 +2999,7 @@ const FILTRE = process.argv[4] || '';
       await g.waitForTimeout(200);
       const w1 = await g.$eval('.panel.left', (x) => x.getBoundingClientRect().width);
       await g.reload();
-      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
+      await pretEcran(g, { exigerPret: true });
       const w2 = await g.$eval('.panel.left', (x) => x.getBoundingClientRect().width);
       verif('pilote : la poignée élargit les données de 80 px, et la largeur se garde au rechargement', Math.abs(w1 - w0 - 80) <= 2 && Math.abs(w2 - w1) <= 1, JSON.stringify({ w0, w1, w2 }));
       await g.dblclick('.bench > .et-poignee[data-poignee="g"]');
@@ -2829,18 +3007,20 @@ const FILTRE = process.argv[4] || '';
       const fst = path.join(OUT, 'poutre_ba.json');
       fs.writeFileSync(fst, JSON.stringify({ version: '2.39', beams: [{ id: 1, nom: 'Poutre 1', sections: [{ id: 1, nom: 'A' }] }],
         values: { b1_b: 25, b1_h: 55, b1_beton: 'C25/30', b1_sec1_M_inf: 95, b1_sec1_V: 50, b1_sec1_nlits_inf: 2, b1_sec1_n_as_inf: 3, 'b1_sec1_ø_as_inf': 16 } }));
+      m0 = await montage(g);
       await Promise.all([g.waitForNavigation(), g.setInputFiles('#ouvrir', fst)]);
-      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
+      await pretEcran(g, { apres: m0, exigerPret: true });
       await tranquille();
       const st = await g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1'))[id];
         return { nom: n.nom, p: n.etat && n.etat.poutres && n.etat.poutres[0] }; });
       verif('pilote : un enregistrement Streamlit (poutre_ba.json) s\'ouvre en note du site, la poutre traduite',
         st.nom === 'poutre_ba' && st.p && st.p.b === 25 && st.p.beton === 'C25/30' && st.p.sections[0].inf.length === 2, JSON.stringify(st).slice(0, 200));
       // rouverte depuis l'accueil, la note est reprise (aucune nouvelle note ne s'écrit)
-      await g.goto(`${BASE}/index.html`);
+      await ouvrir(g, `${BASE}/index.html`);
       const avant = await nNotes();
+      m0 = await montage(g);
       await Promise.all([g.waitForNavigation(), g.click('#recentes .rcard >> nth=1')]);
-      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && d.hidden; }, null, { timeout: 180000 });
+      await pretEcran(g, { apres: m0, exigerPret: true });
       verif('pilote : rouverte depuis « Reprendre », la note est la même (aucune autre ne s\'écrit)',
         (await nNotes()) === avant && (await g.inputValue('#nom-note')) === 'Poutres R+2' && (await g.$eval(LIGNE, (x) => x.dataset.elements)) === '2');
       await g.screenshot({ path: path.join(OUT, 'site_pilote_reprise.png') });
@@ -2862,8 +3042,7 @@ const FILTRE = process.argv[4] || '';
     g.erreurs = [];
     g.on('pageerror', (e) => g.erreurs.push(e.message));
     try {
-      await g.goto(`${BASE}/poutre.html`);
-      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await pretEcran(g, { apres: await ouvrir(g, `${BASE}/poutre.html`) });
       const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
       const cdp = await c.newCDPSession(g);
       const touche = (type, x, y) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
@@ -2955,7 +3134,7 @@ const FILTRE = process.argv[4] || '';
     g.erreurs = [];
     g.on('pageerror', (e) => g.erreurs.push(e.message));
     g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
-    const pretG = () => g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    const pretG = (o) => pretEcran(g, o);
     const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
     const ouvrirRub = async (k) => {
       if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
@@ -2981,8 +3160,7 @@ const FILTRE = process.argv[4] || '';
       await g.waitForTimeout(250);
     };
     try {
-      await g.goto(`${BASE}/corniere?${new URLSearchParams({ nom: 'Cornière d\'appui', chantier: 'Essai cornières' })}`);
-      await pretG();
+      await pretG({ apres: await ouvrir(g, `${BASE}/corniere?${new URLSearchParams({ nom: 'Cornière d\'appui', chantier: 'Essai cornières' })}`) });
       await tranquille();
       // A, méthode historique : la cornière neuve (L 120×120×15, 35 kN, 75 ± 10, 85 ± 5 — les jeux du § 9.4) — η entre 75 et 95 %
       // (84,2 % mesuré ; 95,8 % avec les anciens jeux 20/10), en section 3
@@ -3189,14 +3367,13 @@ const FILTRE = process.argv[4] || '';
           etat: { version: 1, actif: 0, cornieres: [{ nom: 'Cornière de rive', standard: true, profil: 'L 100x100x10', charge: 'lineaire', V: 5, L: 1, e: 2.3, gamma_ELU: 1.35, s: 60, bord: 5, sig_lim_ELS: 156.7, tau_lim_ELS: 0.8, sig_lim_ELU: 235 }] },
           resume: null, vignette: '' };
         localStorage.setItem(k, JSON.stringify(notes)); });
-      await g.goto(`${BASE}/corniere?note=ancienne-corniere`);
-      await pretG();
+      await pretG({ apres: await ouvrir(g, `${BASE}/corniere?note=ancienne-corniere`) });
       await tranquille();
       await g.waitForTimeout(200);
       const v1 = await g.evaluate(() => ({ avis: [...document.querySelectorAll('#resultat .msg')].map((m) => m.textContent).filter((t) => /modèle lame/.test(t)).length,
         nom: (document.querySelector('.panel.left .phead .et-elt input.et-elt-nom') || {}).value,
-        profil: ((s) => s && s.options[s.selectedIndex] ? s.options[s.selectedIndex].textContent.trim() : null)(document.querySelector('select[data-chemin="profil"]')),
-        erreur: !!document.querySelector('#demarrage.erreur') }));
+        profil: ((s) => s && s.options[s.selectedIndex] ? s.options[s.selectedIndex].textContent.trim() : null)(document.querySelector('select[data-chemin="profil"]')) }));
+      v1.erreur = !!(await echecEcran(g));
       verif('cornière : une note du module d\'avant (modèle lame) se rouvre — le nom et la cornière gardés, l\'avis « modèle lame » dit une fois dans le résultat',
         !v1.erreur && v1.avis === 1 && v1.nom === 'Cornière de rive' && v1.profil === 'L 100×100×10', JSON.stringify(v1));
       await g.screenshot({ path: path.join(OUT, 'site_corniere_v1.png') });
@@ -3217,7 +3394,7 @@ const FILTRE = process.argv[4] || '';
       pg.erreurs = [];
       pg.on('pageerror', (e) => pg.erreurs.push(e.message));
       pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
-      const pretP = () => pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      const pretP = (o) => pretEcran(pg, o);
       const calmeP = () => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
       const etat = () => pg.evaluate((tel) => {
         const vis = (e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
@@ -3240,8 +3417,7 @@ const FILTRE = process.argv[4] || '';
       // (révision § 9 : l'ELU — coef et R_ELU masqués, fy/γM0 partout — et la poutre — deux champs de plus, deux informations de plus)
       for (const cfg of ['A', 'B', 'A-equilibre', 'ELU', 'poutre']) {
         try {
-          await pg.goto(`${BASE}/corniere?${new URLSearchParams({ nom: `Cornière ${cfg}`, chantier: 'Formats' })}`);
-          await pretP();
+          await pretP({ apres: await ouvrir(pg, `${BASE}/corniere?${new URLSearchParams({ nom: `Cornière ${cfg}`, chantier: 'Formats' })}`) });
           await calmeP();
           if (cfg === 'B') {
             if (tel) await pg.click('.mtabs [data-onglet="donnees"]');
@@ -3326,7 +3502,7 @@ const FILTRE = process.argv[4] || '';
     g.erreurs = [];
     g.on('pageerror', (e) => g.erreurs.push(e.message));
     g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
-    const pretG = () => g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    const pretG = (o) => pretEcran(g, o);
     const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
     const ouvrirRub = async (k) => {
       if (!(await g.$eval(`#donnees .sec[data-sec="${k}"]`, (x) => x.classList.contains('open')))) await g.click(`#donnees .sec[data-sec="${k}"] > .sechd`);
@@ -3357,7 +3533,7 @@ const FILTRE = process.argv[4] || '';
     try {
       if (cle === 'predalle') {
         // une ancienne note du module Prédalles, semée dans ce navigateur (son état : celui de l'ancien module, {predalles})
-        await g.goto(`${BASE}/index.html`);
+        await ouvrir(g, `${BASE}/index.html`);
         await g.evaluate(() => { const k = 'stab.notes.v1', notes = JSON.parse(localStorage.getItem(k) || '{}'), t = Date.now() + 60000;
           notes['ancienne-predalle'] = { id: 'ancienne-predalle', module: 'predalle', nom: 'Ancienne note prédalles', chantier: 'Réalex', dossier: '', indice: 'A', cree: t, modifie: t,
             etat: { version: 1, predalles: [{ nom: 'Ancienne P1', h_pre: 6 }], actif: 0 }, resume: null, vignette: '' };
@@ -3367,18 +3543,17 @@ const FILTRE = process.argv[4] || '';
         const carte = await g.$eval('#recentes .rcard', (a) => a.getAttribute('href'));
         verif('plaques predalle : à l\'accueil, la carte d\'une ancienne note « Prédalles » vise la page des dalles (js/notes.js, table des alias « vers » de js/modules.js)',
           carte === 'dalle?note=ancienne-predalle', carte);
-        await g.goto(`${BASE}/predalle?note=ancienne-predalle`);
-        await pretG();
+        await pretG({ apres: await ouvrir(g, `${BASE}/predalle?note=ancienne-predalle`) });
         await tranquille();
         const u = new URL(g.url());
-        const ouverte = await g.evaluate(() => {
+        const ouverte = await g.evaluate((echec) => {
           const on = document.querySelector('#donnees button.on[data-chemin="type"]'), h = document.querySelector('#donnees input[data-chemin="h_pre"]');
           const avis = document.querySelector('#resultat .pbody > .et-rp + .msg');
           return { avis: avis && avis.checkVisibility({ visibilityProperty: true, opacityProperty: true }) ? avis.textContent : '',
             module: document.body.dataset.module, nomNote: document.getElementById('nom-note').value,
             nom: (document.querySelector('.panel.left .phead .et-elt input.et-elt-nom') || {}).value, titre: (document.querySelector('#resultat .et-rp b') || {}).textContent,
-            type: on && on.dataset.valeur, hPre: h && h.value, erreur: document.getElementById('demarrage').classList.contains('erreur'), envois: (window.__envois || []).slice(0, 2) };
-        });
+            type: on && on.dataset.valeur, hPre: h && h.value, erreur: echec, envois: (window.__envois || []).slice(0, 2) };
+        }, !!(await echecEcran(g)));
         const mem = await noteMemoire();
         verif('plaques predalle : « predalle?note=… » redirige vers « dalle?note=… » (l\'adresse gardée) ; le moteur reçoit « dalle » et l\'état {predalles} tel quel',
           u.pathname.endsWith('/dalle') && u.searchParams.get('note') === 'ancienne-predalle' && ouverte.module === 'dalle' && !ouverte.erreur
@@ -3393,8 +3568,7 @@ const FILTRE = process.argv[4] || '';
         await g.screenshot({ path: path.join(OUT, 'site_plaques_predalle_relue.png') });
         // une note NEUVE demandée à l'ancienne adresse (un vieux lien) : le nom et le chantier arrivent sur les dalles,
         // qui créent la note (l'adresse devient « ?note=… », comme pour toute note demandée par « ?nom= »)
-        await g.goto(`${BASE}/predalle?nom=Essai%20pr%C3%A9dalle&chantier=R%C3%A9alex`);
-        await pretG();
+        await pretG({ apres: await ouvrir(g, `${BASE}/predalle?nom=Essai%20pr%C3%A9dalle&chantier=R%C3%A9alex`) });
         const u2 = new URL(g.url());
         const neuve = await g.evaluate(() => { const id = new URLSearchParams(location.search).get('note'); const n = JSON.parse(localStorage.getItem('stab.notes.v1') || '{}')[id];
           return { nom: document.getElementById('nom-note').value, fil: document.getElementById('fil-chantier').textContent, module: n && n.module, enregistree: n && n.nom }; });
@@ -3402,14 +3576,14 @@ const FILTRE = process.argv[4] || '';
           u2.pathname.endsWith('/dalle') && !!u2.searchParams.get('note') && neuve.nom === 'Essai prédalle' && neuve.fil.includes('Réalex')
           && neuve.module === 'dalle' && neuve.enregistree === 'Essai prédalle', JSON.stringify({ url: `${u2.pathname}${u2.search}`, ...neuve }));
         // (une adresse sans note ni nom : la page des dalles, telle quelle)
-        await g.goto(`${BASE}/predalle`);
-        await pretG();
+        await pretG({ apres: await ouvrir(g, `${BASE}/predalle`) });
         verif('plaques predalle : « predalle » seul mène à « dalle »', /\/dalle$/.test(new URL(g.url()).pathname), g.url());
       } else {
         const nom = 'Dalle 1', dims = '100 × 20 cm';
-        await g.goto(`${BASE}/index.html`);
+        await ouvrir(g, `${BASE}/index.html`);
+        const m0 = await montage(g);
         await Promise.all([g.waitForNavigation(), g.click(`.tile[data-module="${cle}"]`)]);
-        await pretG();
+        await pretG({ apres: m0 });
         // 1. la colonne de gauche compacte : ni titre, ni arborescence ; la LIGNE de la dalle dans l'en-tête du panneau
         const colonne = await g.evaluate(() => {
           const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
@@ -3589,8 +3763,7 @@ const FILTRE = process.argv[4] || '';
         const t = await ct.newPage();
         t.erreurs = [];
         t.on('pageerror', (e) => t.erreurs.push(e.message));
-        await t.goto(g.url());
-        await t.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        await pretEcran(t, { apres: await ouvrir(t, g.url()) });
         await t.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
         const lgTel = await ligneElement(t, 44);
         const mnTel = await listeElement(t, true);
@@ -3638,7 +3811,7 @@ const FILTRE = process.argv[4] || '';
     g.erreurs = [];
     g.on('pageerror', (e) => g.erreurs.push(e.message));
     g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
-    const pretN = (pg) => pg.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+    const pretN = (pg, o) => pretEcran(pg, o);
     const calmeN = async (pg) => { await pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 }); await pg.waitForTimeout(200); };
     // l'avis en tête du résultat (juste après le nom) : vu, son texte, un avis (pas « grave »), sa hauteur à l'écran
     const lireAvis = (pg) => pg.evaluate(() => { const m = document.querySelector('#resultat .pbody > .et-rp + .msg');
@@ -3652,10 +3825,9 @@ const FILTRE = process.argv[4] || '';
       return n ? { version: n.etat.version, cle: n.etat.dalles.some((d) => 'empilement' in d), avis: 'avis_ouverture' in n.etat } : null; }, id);
     const AVIS = /^Note d'avant le 09\/11\/2026 : les nappes sont désormais posées l'une sur l'autre \(la direction secondaire, base et renforts, sur la principale\) ; As,req peut différer de l'ancienne note\.$/;
     try {
-      await g.goto(`${BASE}/index.html`);
+      await ouvrir(g, `${BASE}/index.html`);
       await semer(g, 'ancienne-dalle', 'Ancienne note dalle');
-      await g.goto(`${BASE}/dalle?note=ancienne-dalle`);
-      await pretN(g);
+      await pretN(g, { apres: await ouvrir(g, `${BASE}/dalle?note=ancienne-dalle`) });
       await calmeN(g);
       const a1 = await lireAvis(g);
       const m1 = await memoireN(g, 'ancienne-dalle');
@@ -3693,8 +3865,7 @@ const FILTRE = process.argv[4] || '';
       const t = await ct.newPage();
       t.erreurs = [];
       t.on('pageerror', (e) => t.erreurs.push(e.message));
-      await t.goto(g.url());
-      await pretN(t);
+      await pretN(t, { apres: await ouvrir(t, g.url()) });
       await calmeN(t);
       await t.tap('.mtabs [data-onglet="dessin"]');
       await t.waitForTimeout(250);
@@ -3710,10 +3881,9 @@ const FILTRE = process.argv[4] || '';
       await t.screenshot({ path: path.join(OUT, 'site_nappes_s3_tel.png') });
       verif('nappes · téléphone : la même coupe, le renfort secondaire dans le lit de la base X, au-dessus des barres Y (rapport 1,5)',
         Math.abs(rapportT - 1.5) < 0.15 && geoT.renfort < geoT.baseX, JSON.stringify({ ...geoT, rapportT }));
-      await t.goto(`${BASE}/index.html`);
+      await ouvrir(t, `${BASE}/index.html`);
       await semer(t, 'ancienne-dalle-tel', 'Ancienne note téléphone');
-      await t.goto(`${BASE}/dalle?note=ancienne-dalle-tel`);
-      await pretN(t);
+      await pretN(t, { apres: await ouvrir(t, `${BASE}/dalle?note=ancienne-dalle-tel`) });
       await calmeN(t);
       // (petits chantiers, 10/11/2026) le téléphone s'ouvre sur l'onglet Données : l'avis s'y lit DÈS L'OUVERTURE, dans le
       // message de la page (#et-alerte, le composant des trois formats), le même texte qu'en tête du résultat — avant,
@@ -3736,17 +3906,16 @@ const FILTRE = process.argv[4] || '';
         const tl = await ctl.newPage();
         tl.erreurs = [];
         tl.on('pageerror', (e) => tl.erreurs.push(e.message));
-        await tl.goto(`${BASE}/index.html`);
+        await ouvrir(tl, `${BASE}/index.html`);
         const LONG = 'Dalle du plancher haut du rez-de-chaussée, travée centrale entre les files B et C';
         await tl.evaluate((n) => { const t0 = Date.now(); localStorage.setItem('stab.notes.v1', JSON.stringify({ 'dalle-nom-long': { id: 'dalle-nom-long', module: 'dalle',
           nom: 'Nom long', chantier: 'Réalex', dossier: '', indice: 'A', cree: t0, modifie: t0, etat: { version: 3, dalles: [{ nom: n }], actif: 0 }, resume: null, vignette: '' } })); }, LONG);
-        await tl.goto(`${BASE}/dalle?note=dalle-nom-long`);
-        await pretN(tl);
+        await pretN(tl, { apres: await ouvrir(tl, `${BASE}/dalle?note=dalle-nom-long`) });
         await calmeN(tl);
-        const nl = await tl.evaluate(() => { const al = document.getElementById('et-alerte');
-          return { echec: document.getElementById('demarrage').classList.contains('erreur'), vu: al.checkVisibility({ visibilityProperty: true, opacityProperty: true }),
+        const nl = await tl.evaluate((echec) => { const al = document.getElementById('et-alerte');
+          return { echec, vu: al.checkVisibility({ visibilityProperty: true, opacityProperty: true }),
             texte: al.querySelector('.et-alerte-txt').textContent, nom: (document.querySelector('.panel.left .phead input.et-elt-nom') || {}).value || '',
-            garde: JSON.parse(localStorage.getItem('stab.notes.v1'))['dalle-nom-long'].etat.dalles[0].nom.length }; });
+            garde: JSON.parse(localStorage.getItem('stab.notes.v1'))['dalle-nom-long'].etat.dalles[0].nom.length }; }, !!(await echecEcran(tl)));
         verif('nappes · téléphone : une note dont la dalle a un nom de 81 caractères S\'OUVRE (avant : refusée tout entière) — le nom coupé à 60, et le message le dit dès l\'ouverture',
           !nl.echec && nl.vu && /coupé à 60/.test(nl.texte) && /\(81 caractères\)/.test(nl.texte) && nl.nom === LONG.slice(0, 60).trimEnd() && nl.garde <= 60, JSON.stringify(nl));
         await tl.screenshot({ path: path.join(OUT, 'site_dalle_nom_long_tel.png') });
@@ -3805,8 +3974,7 @@ const FILTRE = process.argv[4] || '';
       const t5 = await ct5.newPage();
       t5.erreurs = [];
       t5.on('pageerror', (e) => t5.erreurs.push(e.message));
-      await t5.goto(g.url());
-      await pretN(t5);
+      await pretN(t5, { apres: await ouvrir(t5, g.url()) });
       await calmeN(t5);
       await t5.tap('.mtabs [data-onglet="dessin"]');
       await t5.waitForTimeout(250);
@@ -3839,7 +4007,7 @@ const FILTRE = process.argv[4] || '';
     await Promise.all([p.waitForNavigation(), p.setInputFiles('#importer', stab({ module: 'poutre', nom: 'Note refusée', chantier: piege(1),
       dossier: piege(2), indice: piege(3), etat: { poutres: 'abîmé' }, vignette: piege(4), resume: { taux: piege(5), niveau: `"><b>${piege(6)}` } }))]);
     await pret();
-    verif('.stab abîmé : le moteur le refuse et la page le dit', await p.evaluate(() => document.getElementById('demarrage').classList.contains('erreur')));
+    verif('.stab abîmé : le moteur le refuse et la page le dit', !!(await echecEcran(p)));
     // deux sections : la vue « Toutes les sections » écrit leurs noms dans le dessin
     const e2 = { poutres: [{ nom: piege(7), b: 25, h: 50, sections: [{ nom: piege(8), M_inf: 80, V: 40 }, { nom: piege(11), M_sup: 50, V: 30 }] }], actif: 0 };
     await p.goto(`${BASE}/index.html`);
@@ -4006,10 +4174,13 @@ const FILTRE = process.argv[4] || '';
 
     const FORMATS_BIB = [['pc', 1440, 900, false], ['tablette', 1180, 820, false], ['portrait', 820, 1180, false], ['tel', 390, 844, true]];
     const RUBRIQUES_BIB = ['betons', 'aciers', 'sections', 'enrobages', 'ancrages'];
-    const attendreBib = (pg) => pg.waitForFunction(() => {
-      const d = document.getElementById('demarrage'), c = document.getElementById('bib-corps');
-      return d && (d.hidden || d.classList.contains('erreur')) && c && c.getAttribute('aria-busy') !== 'true' && document.querySelector('#bib-tableau .bib-tab, #bib-tableau .bib-vide');
-    }, null, { timeout: 180000 });
+    const attendreBib = async (pg) => {
+      await pretEcran(pg);
+      await pg.waitForFunction(() => {
+        const c = document.getElementById('bib-corps');
+        return c && c.getAttribute('aria-busy') !== 'true' && document.querySelector('#bib-tableau .bib-tab, #bib-tableau .bib-vide');
+      }, null, { timeout: 180000 });
+    };
     const calmeBib = async (pg) => { await pg.waitForTimeout(60); await attendreBib(pg); };
     // ce que l'œil voit : le tableau entier dans son cadre, le cadre dans l'écran, la case allumée visible, la bande visible
     const mesureBib = (pg) => pg.evaluate(() => {
@@ -4248,10 +4419,10 @@ const FILTRE = process.argv[4] || '';
       await g.waitForTimeout(300);
       const lien = await g.$eval('#recentes', (r) => [...r.querySelectorAll('a')].map((a) => a.getAttribute('href')).find((h) => /note=ancien-catalogue/.test(h)) || '');
       await g.goto(`${BASE}/${lien}`);
-      await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+      await pretEcran(g);
       await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && /HEB 300/.test(r.textContent); }, null, { timeout: 60000 }).catch(() => {});
-      const o = await g.evaluate(() => ({ erreur: document.getElementById('demarrage').classList.contains('erreur'), resultat: /HEB 300/.test(document.getElementById('resultat').textContent),
-        lignes: document.querySelectorAll('.cat-t tbody tr').length, nom: document.getElementById('nom-note')?.value }));
+      const o = await g.evaluate((erreur) => ({ erreur, resultat: /HEB 300/.test(document.getElementById('resultat').textContent),
+        lignes: document.querySelectorAll('.cat-t tbody tr').length, nom: document.getElementById('nom-note')?.value }), !!(await echecEcran(g)));
       verif('catalogue masqué : une ancienne note du Catalogue des profilés est proposée par « Reprendre » et s\'ouvre encore dans sa page (HEB 300 ouvert, le tableau, son nom)',
         /^catalogue-profiles\?note=ancien-catalogue$/.test(lien) && !o.erreur && o.resultat && o.lignes > 0 && o.nom === 'Ancienne note du catalogue' && !g.erreurs.length,
         JSON.stringify({ lien, o, erreurs: g.erreurs }));
@@ -4323,7 +4494,7 @@ const FILTRE = process.argv[4] || '';
       g.erreurs = [];
       g.on('pageerror', (e) => g.erreurs.push(e.message));
       g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
-      await g.goto(`${BASE}/`);
+      await ouvrir(g, `${BASE}/`);
       const tel = fmt === 'telephone';
       for (const k of avec) {
         if (!riches || !riches.etats[k]) continue;
@@ -4335,8 +4506,7 @@ const FILTRE = process.argv[4] || '';
                         etat, resume: null, vignette: '' };
           localStorage.setItem('stab.notes.v1', JSON.stringify(notes));
         }, [id, k, riches.etats[k]]);
-        await g.goto(`${BASE}/${MODS[k].page}?note=${id}`);
-        await g.waitForFunction(() => { const d = document.getElementById('demarrage'); return d && (d.hidden || d.classList.contains('erreur')); }, null, { timeout: 180000 });
+        await pretEcran(g, { apres: await ouvrir(g, `${BASE}/${MODS[k].page}?note=${id}`) });
         await g.waitForFunction(() => { const r = document.getElementById('resultat'); return r && !r.querySelector('.attente') && r.textContent.trim().length > 20; }, null, { timeout: 60000 }).catch(() => {});
         if (tel) { await g.click('.mtabs [data-onglet="resultat"]'); await g.waitForTimeout(300); }
         // ce que l'écran montre : les noms des éléments (la liste de l'établi compact, ou celle « Dans cette note »), le taux
@@ -4430,7 +4600,9 @@ const FILTRE = process.argv[4] || '';
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'corniere', 'note_pdf'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
+  //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));
@@ -4443,4 +4615,9 @@ const FILTRE = process.argv[4] || '';
   verif('aucune erreur JavaScript', erreurs.length === 0, erreurs.join(' | ').slice(0, 400));
   await b.close();
   process.exit(ko ? 1 : 0);
-})();
+};
+
+// le parcours ne part que si ce fichier est lancé (node site/web/verifier_site.js …) ; chargé par require(), il ne rend
+// que ses aides
+if (require.main === module) principal();
+module.exports = { pretEcran, echecEcran, montage, ouvrir, proxyTravailleur, interceptees, SIGNAL_ABSENT };
