@@ -23,6 +23,10 @@ P1 · la RÉFÉRENCE (tests/test_reference_refonte.py, inchangé, ses photos gel
 P2 · le VRAI travailleur, démarré SANS module : préchauffage puis « nouveau » des 17 établis dans un ordre ENTRELACÉ
      figé (P(k₀), prêt, P(k₁), N(k₀), P(k₂), N(k₁)… N(k₁₆)), puis une seconde passe en ordre inverse ; chaque réponse est
      comparée À L'OCTET à celle de CPython dans un processus NEUF par module (ce que construire.py écrit en aperçu).
+     Puis les BIBLIOTHÈQUES (BIBLIO_REQUETES : béton et acier, rubriques variées, un cas Ø25 C40/50, la page et le
+     panneau d'une note), dans le MÊME interpréteur, après tous les établis : ordre direct puis inverse, chacune = CPython
+     dans un processus neuf, à l'octet (aucune exception). La mutation m_biblio_fuite (un établi qui retouche à son
+     import une table partagée de beton/, le coefficient d'adhérence des ancrages) la fait rougir.
      Deux exceptions NOMMÉES, et elles seules (la liste rougit si elle grandit OU rétrécit) :
        - soudures numérote ses hachures par un compteur de processus (acier/soudures/dessin.py) : égale à l'octet au
          premier dessin, égale après normalisation de ``(id="|url(#|href="#)s<n>_`` aux suivants ;
@@ -43,6 +47,16 @@ P4 · le préchauffage ISOLÉ (un travailleur neuf par clé, ?sonde=1) : {api_we
      préchauffage par le guet importe bien son module. Un préchauffage n'est jamais traité DEVANT une vraie requête
      arrivée derrière lui (il est sauté) ; tous les messages passent par UNE chaîne (une note qui attend son paquet ne
      se fait pas doubler) ; la sonde date la première requête de CHAQUE clé.
+     Les parties du lot « moteur » (revue S4), jouées dans un second processus du même pilote : l'ANNONCE (plancher annoncé
+     avant « pret » : numpy part pendant le démarrage, en parallèle du paquet, rien n'est importé ; le témoin sans annonce
+     le voit après « pret ») ; le FOND (C4 : numpy retardé de RETARD_NUMPY ms — un préchauffage de soudures ne retient
+     ni une vraie requête de poutre arrivée derrière lui, ni « pret » s'il est posté pendant le démarrage ; pendant le
+     chargement en fond, le guet refuse l'import de numpy ; « sauté » est revu avant l'import) ; le GUET HORS LIGNE
+     (numpy refusé : la requête — ou le préchauffage — qui l'a déclenché garde son refus, les suivantes répondent).
+P6 · la VERSION du site : l'adresse du travailleur porte celle du document (« v ») ; un manifeste d'une autre version →
+     pas de « pret », l'erreur nommée MIS_A_JOUR (périmé) ; de même pour un travailleur RECRÉÉ après une mort, le site
+     mis à jour entre-temps ; une note PDF dont l'empreinte ne correspond plus → le manifeste relu, l'erreur nommée s'il
+     a changé de version (le message d'empreinte sinon, le témoin).
 P5 · un travailleur qui TOMBE (erreur fatale de Pyodide, ou fil arrêté) : les requêtes en attente et en vol rendent
      {ok:false, mort:true}, le travailleur est arrêté, la demande suivante en recrée un (le même Moteur) et répond
      juste ; l'ancienne façon (new Moteur(surEtape, module), moteur.demander(fabrique)) marche avec le vrai travailleur.
@@ -50,12 +64,17 @@ CLIENT · js/moteur.js contre un faux travailleur (sans Pyodide) : la file (une 
      tour, après que la réponse précédente a été appliquée), fermer() (lectures abandonnées EcranFerme, modifications
      gardées, promesse résolue quand tout est fait), le préchauffage (jamais posté tant qu'une requête attend, la plus
      récente remplace l'autre, une clé une fois), la mort et la recréation, le setter onmessage (le harnais
-     l'enveloppe), l'adresse du travailleur (sans module ; « sonde=1 » sous la sonde seulement), les messages de la sonde
-     (globalThis.__sondes) et la sonde par ouverture (js/sonde.js, nouvelleOuverture).
+     l'enveloppe), l'adresse du travailleur (sans module ; « sonde=1 » sous la sonde seulement ; « v », la version du
+     document, quand il en porte une — un travailleur recréé aussi), l'annonce (postée aussitôt, une fois par clé), le
+     démarrage RATÉ du moteur partagé (relancé par moteurPartage(), jamais par une requête ; pas s'il est périmé), les
+     messages de la sonde (globalThis.__sondes) et la sonde par ouverture (js/sonde.js, nouvelleOuverture).
 
 --mutations : pour chaque contrôle, le moteur (js/moteur.js, js/travailleur.js, js/sonde.js) modifié D'UN TRAIT dans une
 COPIE du site (vendor et moteur liés, jamais recopiés), le pilote concerné rejoué, et le contrôle doit ROUGIR ; P0 sur
-un paquet dont un fichier diffère, P1 sur une formule du moteur poutre changée de 0,1 % dans l'interpréteur.
+un paquet dont un fichier diffère, P1 sur une formule du moteur poutre changée de 0,1 % dans l'interpréteur — qui ne
+compte que si le texte a été muté (« @@MUTEE ») : un interpréteur arrêté ou un texte absent rougit sous un nom à part,
+jamais comme « rougit » (m_formule_garde le vérifie sur un texte absent) ; la passe des bibliothèques sur un paquet
+recopié dont un établi retouche une table partagée (m_biblio_fuite, le manifeste à sa nouvelle empreinte).
 """
 import base64
 import concurrent.futures
@@ -96,6 +115,33 @@ EXCEPTIONS_P2 = {("soudures", 2): "compteur s<n>_", ("garde_corps", 1): "ulp", (
 NORMALISATIONS_PDF = [(rb"/(CreationDate|ModDate) \(D:[^)]*\)", rb"/\1 (D:)"),
                       (rb"/ID\s*\[\s*<[0-9a-fA-F]+>\s*<[0-9a-fA-F]+>\s*\]", rb"/ID [<><>]")]
 INFOS_NOTE = {"nom": "Note de l'essai", "chantier": "Chantier de l'essai", "indice": "A", "date": "10/11/2026"}
+# les BIBLIOTHÈQUES de P2 (après les établis, dans le même interpréteur) : des rubriques variées des deux, dont le cas
+# Ø25 C40/50 des ancrages (page et panneau d'une note) ; chacune comparée à CPython dans un processus NEUF, à l'octet
+# (aucun nombre « 50.0 » : JSON.stringify l'écrirait « 50 », la requête doit être la même des deux côtés)
+BIBLIO_REQUETES = [
+    {"bibliotheque": "beton", "rubrique": "betons", "params": {}},
+    {"bibliotheque": "beton", "rubrique": "betons", "params": {"classe": "C40/50", "alpha_cc": 0.85}},
+    {"bibliotheque": "beton", "rubrique": "aciers", "params": {"vue": "treillis"}},
+    {"bibliotheque": "beton", "rubrique": "sections", "params": {"d": 25, "n": 3}},
+    {"bibliotheque": "beton", "rubrique": "sections", "params": {"mode": "nappe", "d": 12, "espacement": "e15"}},
+    {"bibliotheque": "beton", "rubrique": "enrobages", "params": {"exposition": "XC4", "classe": "C40/50", "phi": 25, "vue": "feu"}},
+    {"bibliotheque": "beton", "rubrique": "ancrages", "params": {}},
+    {"bibliotheque": "beton", "rubrique": "ancrages", "params": {"phi": 25, "classe": "C40/50"}},
+    {"bibliotheque": "beton", "rubrique": "ancrages", "params": {"phi": 25, "classe": "C40/50"}, "hote": "note"},
+    {"bibliotheque": "beton", "rubrique": "ancrages", "params": {"grandeur": "l0", "phi": 25, "classe": "C40/50", "rho1": 50}},
+    {"bibliotheque": "beton", "rubrique": "ancrages", "params": {"phi": 32, "classe": "C25/30", "conditions": "mediocres", "sollicitation": "compression"}},
+    {"bibliotheque": "acier", "rubrique": "profils", "params": {}},
+    {"bibliotheque": "acier", "rubrique": "profils", "params": {"familles": "HEA", "profil": "HEA 200", "tri": "Iy", "ordre": "decroissant"}},
+    {"bibliotheque": "acier", "rubrique": "nuances", "params": {"nuance": "S235", "epaisseur": "80"}},
+    {"bibliotheque": "acier", "rubrique": "boulons", "params": {"boulon": "M20", "classe": "10.9"}},
+    {"bibliotheque": "acier", "rubrique": "boulons", "params": {"vue": "classes"}},
+]
+BIBLIO_REQUETES = [{"action": "consulter", **q} for q in BIBLIO_REQUETES]
+# la version du site construit (la balise stab-version des pages = celle du manifeste) ; numpy RETARDÉ de cette durée
+# dans les essais du fond (C4 : ce qui l'attend se voit)
+VERSION_SITE = json.load(open(os.path.join(WEB, "moteur", "manifeste.json"), encoding="utf-8"))["version"]
+RETARD_NUMPY = 4000
+MIS_A_JOUR = "Le site a été mis à jour : rechargez la page"   # COPIE NOMMÉE de js/travailleur.js (vérifiée ci-dessous)
 
 
 class Bilan:
@@ -119,13 +165,24 @@ export async function resolve(spec, ctx, next) {
 }
 """
 PYO = r"""
-// l'enveloppe de loadPyodide : indexURL file:// → chemin (node), et l'objet Pyodide gardé (erreur fatale provoquée, P5)
+// l'enveloppe de loadPyodide : indexURL file:// → chemin (node), et l'objet Pyodide gardé (erreur fatale provoquée, P5) ;
+// numpy RETARDÉ (workerData.numpy.retard, ms : un réseau lent, pour voir ce qui l'attend) ou REFUSÉ (.refus : hors ligne)
 import { loadPyodide as vrai } from %(pyodide)s;
 import { fileURLToPath } from "node:url";
+import { workerData } from "node:worker_threads";
 export async function loadPyodide(o = {}) {
   const indexURL = o.indexURL && o.indexURL.startsWith("file:") ? fileURLToPath(o.indexURL) : o.indexURL;
   const py = await vrai({ ...o, indexURL });
   globalThis.__py = py;
+  const N = (workerData && workerData.numpy) || null;
+  if (N) {
+    const orig = py.loadPackage.bind(py);
+    py.loadPackage = async (nom, opts) => {
+      if (N.refus) throw new TypeError("Failed to fetch numpy (hors ligne : refus de l'essai)");
+      if (N.retard) await new Promise((ok) => setTimeout(ok, N.retard));
+      return orig(nom, opts);
+    };
+  }
   return py;
 }
 """
@@ -140,15 +197,17 @@ globalThis.self = globalThis;
 globalThis.onmessage = null;
 globalThis.location = { href: workerData.href };
 globalThis.postMessage = (m) => parentPort.postMessage(m);
-// fetch : les fichiers du site, rien d'autre (le manifeste peut être servi retouché : workerData.manifeste)
+// fetch : les fichiers du site, rien d'autre (le manifeste peut être servi retouché : workerData.manifeste, puis le
+// message de cale « manifeste » — une mise en ligne pendant la session ; « note.<k> » retouche le manifeste de la note)
+let retouches = workerData.manifeste || null;
 globalThis.fetch = async (u) => {
   const url = new URL(String(u));
   if (url.protocol !== "file:") throw new TypeError("réseau interdit dans l'essai : " + url.href);
   const chemin = fileURLToPath(url.href.replace(/[?#].*$/, ""));
   let b = await readFile(chemin);
-  if (workerData.manifeste && chemin.endsWith("/moteur/manifeste.json")) {
+  if (retouches && chemin.endsWith("/moteur/manifeste.json")) {
     const j = JSON.parse(b.toString("utf8"));
-    for (const [k, v] of Object.entries(workerData.manifeste)) { if (k === "note.avec_numpy") j.note.avec_numpy = v; else j[k] = v; }
+    for (const [k, v] of Object.entries(retouches)) { if (k.startsWith("note.")) j.note[k.slice(5)] = v; else j[k] = v; }
     b = Buffer.from(JSON.stringify(j));
   }
   return new Response(b);
@@ -161,6 +220,7 @@ parentPort.on("message", (data) => {
   if (data && data.__cale) {
     if (data.__cale === "fatal") { try { globalThis.__py._api.fatal_error(new Error("erreur fatale provoquée par l'essai")); } catch (e) { /* levée par Pyodide */ } }
     else if (data.__cale === "sortir") process.exit(7);
+    else if (data.__cale === "manifeste") retouches = data.retouches;
     return;
   }
   if (charge && !enAttente.length) livrer(data); else enAttente.push(data);
@@ -183,7 +243,8 @@ export class TravailleurNode {
     this._f = null; this.onerror = null; this.termine = false;
     this.types = []; this.postes = []; this.reponses = new Map(); this.ordre = []; this.dernier = null; this.recus = [];
     travailleurs.push(this);
-    this.nw = new FilNode(CALE, { workerData: { href: this.url, script: this.url, crochets: CROCHETS, manifeste: globalThis.__manifeste || null }, stderr: true, stdout: true });
+    this.nw = new FilNode(CALE, { workerData: { href: this.url, script: this.url, crochets: CROCHETS, manifeste: globalThis.__manifeste || null,
+      numpy: globalThis.__numpy || null }, stderr: true, stdout: true });
     this.nw.stderr.on("data", () => {}); this.nw.stdout.on("data", () => {});
     this.nw.on("message", (d) => {
       this.types.push(d && d.type); this.recus.push(d);
@@ -197,7 +258,7 @@ export class TravailleurNode {
   get onmessage() { return this._f; }
   postMessage(m) { this.postes.push(m && m.type ? m.type : "requete"); if (!this.termine) this.nw.postMessage(m); }
   terminate() { this.termine = true; this.nw.terminate(); }
-  cale(quoi) { this.nw.postMessage({ __cale: quoi }); }
+  cale(quoi, x = {}) { this.nw.postMessage({ __cale: quoi, ...x }); }
 }
 export function preparer(sonde) {
   globalThis.self = globalThis;
@@ -221,7 +282,12 @@ const A = JSON.parse(process.argv[2]);
 const py = await loadPyodide({ indexURL: A.vendor, stdout: (s) => console.log(s), stderr: () => {} });
 await py.loadPackage("numpy", { messageCallback: () => {} });
 py.unpackArchive(new Uint8Array(readFileSync(A.zip)), "zip", { extractDir: "/moteur" });
-if (A.mutation) py.runPython(A.mutation);
+// une mutation ne vaut que si elle a MUTÉ (elle pose MUTEE) : sinon rien n'est joué, et le pilote le dit
+if (A.mutation) {
+  py.runPython(A.mutation);
+  if (!py.globals.get("MUTEE")) { console.log("@@NON_MUTEE"); process.exit(0); }
+  console.log("@@MUTEE");
+}
 py.FS.mkdirTree("/moteur/tests");
 py.FS.mount(py.FS.filesystems.NODEFS, { root: A.tests }, "/moteur/tests");
 for (const [i, args] of A.ordres.entries()) {
@@ -263,6 +329,12 @@ for (let i = 0; i < K.length; i++) {
 }
 for (const k of [...K].reverse()) out.passe2[k] = (await nouveau(k)).json;
 out.ms.nouveaux = Math.round(performance.now() - t0);
+// les BIBLIOTHÈQUES, dans le MÊME interpréteur, après tous les établis : ordre direct, puis inverse
+const consulter = async (q) => { await c.demander(() => q); return w.dernier; };
+out.biblio1 = []; out.biblio2 = new Array(A.biblio.length).fill(null);
+for (const q of A.biblio) out.biblio1.push(await consulter(q));
+for (let i = A.biblio.length - 1; i >= 0; i--) out.biblio2[i] = await consulter(A.biblio[i]);
+out.ms.biblio = Math.round(performance.now() - t0);
 for (const k of A.notes) {
   const n = await c.demander(() => ({ module: k, action: "nouveau" }));
   await c.demander(() => ({ module: k, action: "telecharger", etat: n.etat, quoi: "note_pdf", infos: A.infos }), { note: true });
@@ -282,10 +354,20 @@ preparer(true);
 const M = await import(A.moteur);
 const S = await import(A.sonde);
 const out = { isolement: {}, url: null };
-const neuf = (manifeste = null) => { globalThis.__manifeste = manifeste; const m = new M.Moteur(); globalThis.__manifeste = null; return m; };
+// un moteur neuf : son manifeste servi retouché, son numpy retardé ou refusé (pour CE travailleur seul)
+const neuf = (manifeste = null, numpy = null) => {
+  globalThis.__manifeste = manifeste; globalThis.__numpy = numpy;
+  const m = new M.Moteur();
+  globalThis.__manifeste = null; globalThis.__numpy = null;
+  return m;
+};
 const travailleurDe = (m) => m.w;
 const sondesDe = (w, cle) => w.recus.filter((d) => d.type === "sonde" && d.cle === cle);
 const attendreQue = async (f, ms = 60000) => { const t = performance.now(); while (!f()) { if (performance.now() - t > ms) return false; await tic(20); } return true; };
+const borne = (p, ms = 120000) => Promise.race([p, new Promise((ok) => setTimeout(() => ok({ __delai: true }), ms))]);
+const pretOuErreur = (m) => borne(m.pret.then(() => "pret", (e) => "erreur : " + e.message));
+const marques = (s) => (s ? Object.fromEntries(s.marques) : {});
+const N = (k) => () => ({ module: k, action: "nouveau" });
 const parties = new Set(A.parties);
 
 if (parties.has("isolement")) {
@@ -295,8 +377,10 @@ if (parties.has("isolement")) {
     const w = travailleurDe(m);
     out.url = out.url || w.url;
     m.prechauffer(k); await tic(5);
+    // (le préchauffage d'une clé avec numpy finit APRÈS numpy, chargé en fond — C4, C5 : on attend sa fin, puis on lit
+    //  sys.modules ; « le harnais suit » : il lisait aussitôt, quand numpy se chargeait dans la chaîne)
+    await attendreQue(() => w.recus.some((d) => d.type === "prechauffe"), 60000);
     const sm = await m.sondeModules();
-    await attendreQue(() => w.recus.some((d) => d.type === "prechauffe"), 5000);
     out.isolement[k] = { ...sm, prechauffe: w.recus.filter((d) => d.type === "prechauffe"), postes: w.postes };
     w.terminate();
   };
@@ -316,6 +400,7 @@ if (parties.has("guet_requete")) {
 if (parties.has("guet_prechauffer")) {
   const m = neuf({ avec_numpy: [] }); const w = travailleurDe(m);
   m.prechauffer("garde_corps"); await tic(5);
+  await attendreQue(() => w.recus.some((d) => d.type === "prechauffe"), 60000);   // (numpy en fond : on attend la fin)
   out.guet_prechauffer = { sm: await m.sondeModules(), prechauffe: w.recus.filter((d) => d.type === "prechauffe") };
   w.terminate();
 }
@@ -358,6 +443,115 @@ if (parties.has("par_cle")) {
   out.par_cle = { sondes: (globalThis.__sondes || []).slice(avant).map((s) => ({ cle: s.cle, premiere: s.premiere, marques: s.marques.map((x) => x[0]), calculer: s.details.calculer_ms !== undefined, import_erreur: s.details.import_erreur || null })),
     derniere: globalThis.__sonde && globalThis.__sonde.cle, types: [...new Set(w.types)].sort() };
   w.terminate();
+}
+if (parties.has("annonce")) {
+  // l'écran qui se monte ANNONCE sa clé (plancher : numpy) avant « pret » : numpy part pendant le démarrage, en
+  // parallèle du paquet ; rien n'est importé
+  const m = neuf(); const c = m.client(); const w = travailleurDe(m);
+  if (typeof m.annoncer === "function") m.annoncer("plancher");   // (absente : le contrôle rougit, le pilote va au bout)
+  await m.pret;
+  const sm = await m.sondeModules();
+  await c.demander(N("plancher"));
+  const json = w.dernier;
+  await attendreQue(() => sondesDe(w, "plancher").length);
+  out.annonce = { sm, json, t: marques(sondesDe(w, "plancher")[0]), postes: w.postes };
+  w.terminate();
+  // le témoin : sans annonce, numpy ne part qu'à la première requête, après « pret »
+  const m2 = neuf(); const c2 = m2.client(); const w2 = travailleurDe(m2);
+  await m2.pret;
+  await c2.demander(N("plancher"));
+  await attendreQue(() => sondesDe(w2, "plancher").length);
+  out.annonce.temoin = marques(sondesDe(w2, "plancher")[0]);
+  w2.terminate();
+}
+if (parties.has("fond")) {
+  // C4 : moteur prêt, numpy LENT ; le préchauffage d'une clé avec numpy (soudures), puis une vraie requête (poutre)
+  // 20 ms après — elle n'attend pas numpy
+  const m = neuf(null, { retard: A.retard }); const c = m.client(); const w = travailleurDe(m);
+  await m.pret;
+  m.prechauffer("soudures"); await tic(20);
+  const t = performance.now();
+  const r = await c.demander(N("poutre"));
+  const attente = performance.now() - t;
+  const json = w.dernier;
+  const avantPre = !w.recus.some((d) => d.type === "prechauffe");
+  const pendant = await m.sondeModules();
+  await attendreQue(() => w.recus.some((d) => d.type === "prechauffe"));
+  out.fond = { ok: r.ok, json, attente, avantPre, pendant, pre: w.recus.filter((d) => d.type === "prechauffe"), apres: await m.sondeModules() };
+  w.terminate();
+}
+if (parties.has("fond_demarrage")) {
+  // C4 : un préchauffage posté PENDANT le démarrage (numpy lent) ne fait pas attendre « pret » ; il se fait ensuite
+  const mesurer = async (prech) => {
+    const t = performance.now();
+    const m = neuf(null, { retard: A.retard }); const w = travailleurDe(m);
+    if (prech) m.prechauffer("soudures");
+    await m.pret;
+    const d = performance.now() - t;
+    let pre = null, sm = null;
+    if (prech) { await attendreQue(() => w.recus.some((x) => x.type === "prechauffe")); pre = w.recus.filter((x) => x.type === "prechauffe"); sm = await m.sondeModules(); }
+    w.terminate();
+    return { d, pre, sm };
+  };
+  const sans = await mesurer(false), avec = await mesurer(true);
+  out.fond_demarrage = { sans: sans.d, avec: avec.d, pre: avec.pre, sm: avec.sm };
+}
+if (parties.has("guet_horsligne")) {
+  // hors ligne : numpy REFUSÉ, avec_numpy vide ; garde_corps importe numpy (le guet) — refusé ; puis poutre, dalle
+  const m = neuf({ avec_numpy: [] }, { refus: true }); const c = m.client(); const w = travailleurDe(m);
+  const r1 = await c.demander(N("garde_corps"));
+  const sm = await m.sondeModules();
+  const r2 = await c.demander(N("poutre")); const j2 = w.dernier;
+  const r3 = await c.demander(N("dalle")); const j3 = w.dernier;
+  out.guet_horsligne = { r1: { ok: r1.ok, erreur: r1.erreur }, sm, r2: r2.ok, j2, r3: r3.ok, j3 };
+  w.terminate();
+  // la voie du préchauffage : garde_corps préchauffé (le guet ; numpy refusé, en fond), puis poutre
+  const mp = neuf({ avec_numpy: [] }, { refus: true }); const cp = mp.client(); const wp = travailleurDe(mp);
+  await mp.pret;
+  mp.prechauffer("garde_corps");
+  await attendreQue(() => wp.recus.some((x) => x.type === "prechauffe"), 30000);
+  const smp = await mp.sondeModules();
+  const rp = await cp.demander(N("poutre"));
+  out.guet_horsligne.prechauffage = { pre: wp.recus.filter((x) => x.type === "prechauffe"), sm: smp, ok: rp.ok, json: wp.dernier };
+  wp.terminate();
+}
+if (parties.has("version")) {
+  // la version du document (balise stab-version) contre celle du manifeste que le travailleur lit
+  const doc = (v) => { globalThis.document = { querySelector: (s) => (s === 'meta[name="stab-version"]' ? { content: v } : null) }; };
+  // (a) une autre version : pas de « pret », l'erreur nommée ; la requête la rend sans partir
+  doc("autre-version-de-l-essai");
+  const ma = neuf(); const ca = ma.client(); const wa = travailleurDe(ma);
+  const pa = await pretOuErreur(ma);
+  const ra = await borne(ca.demander(N("poutre")), 30000);
+  out.version = { a: { pret: pa, url: wa.url, types: [...new Set(wa.types)], etat: ma.etat, perime: ma.perime, r: ra, termine: wa.termine,
+    requetes: wa.postes.filter((p) => p === "requete").length } };
+  // (b) le témoin : la version du manifeste — « pret », et la réponse
+  doc(A.version);
+  const mb = neuf(); const cb = mb.client(); const wb = travailleurDe(mb);
+  const pb = await pretOuErreur(mb);
+  const rb = await borne(cb.demander(N("poutre")));
+  out.version.b = { pret: pb, url: wb.url, ok: rb.ok };
+  // (c) ce travailleur TOMBE ; le site a été mis à jour entre-temps : le travailleur RECRÉÉ ne sert pas l'autre version
+  wb.cale("fatal"); await tic(100);
+  const rm = await borne(cb.demander(N("bois")));
+  globalThis.__manifeste = { version: "mise-en-ligne-de-l-essai" };
+  const rc = await borne(cb.demander(N("poutre")));
+  globalThis.__manifeste = null;
+  const wc = travailleurs.at(-1);
+  out.version.c = { mort: rm.mort === true, r: rc, etat: mb.etat, perime: mb.perime, recree: wc !== wb, url: wc.url, types: [...new Set(wc.types)] };
+  // (d) la note PDF : un paquet dont l'empreinte ne correspond plus ; le manifeste relu, de la même version (le témoin :
+  // le message d'empreinte), puis d'une autre version (une mise en ligne depuis le démarrage : l'erreur nommée)
+  doc(A.version);
+  const faux = { "note.sha256": "0".repeat(64) };
+  const md = neuf(faux); const cd = md.client(); const wd = travailleurDe(md);
+  await pretOuErreur(md);
+  const note = () => cd.demander(() => ({ module: "poutre", action: "telecharger", etat: A.etat_poutre, quoi: "note_pdf", infos: A.infos }), { note: true });
+  const n1 = await borne(note());
+  wd.cale("manifeste", { retouches: { ...faux, version: "mise-en-ligne-de-l-essai" } }); await tic(50);
+  const n2 = await borne(note());
+  out.version.d = { n1: { ok: n1.ok, erreur: n1.erreur }, n2: { ok: n2.ok, erreur: n2.erreur } };
+  wd.terminate();
+  delete globalThis.document;
 }
 if (parties.has("ouverture")) {
   S.marquer("essai_ouverture");
@@ -603,6 +797,72 @@ const pret = (m) => { FAUX.at(-1).emettre({ type: "pret" }); return m; };
   w4.emettre({ type: "erreur", texte: "paquet abîmé" }); await calme();
   chk("message « erreur » : état « erreur », pret rejetée avec le texte", m4.etat === "erreur" && pr4.v === "rejetee" && pr4.e.message === "paquet abîmé", { etat: m4.etat, pr: pr4.v });
 }
+// C9 · la version du document dans l'adresse du travailleur (aussi celle d'un travailleur recréé) ; l'annonce
+{
+  globalThis.document = { querySelector: (s) => (s === 'meta[name="stab-version"]' ? { content: "v1abc" } : null) };
+  const m = new M.Moteur(); const w = FAUX.at(-1); const c = m.client();
+  w.emettre({ type: "pret" }); w.emettre({ type: "mort", texte: "fatal" });
+  c.demander(() => ({ module: "poutre", action: "a" }));
+  await calme();
+  delete globalThis.document;
+  const u = new URL(w.url), u2 = new URL(FAUX.at(-1).url);
+  chk(`version · l'adresse du travailleur porte la version du document (« v »), celle d'un travailleur recréé après une mort aussi ; sans module${A.sonde ? " ; « sonde=1 » en plus" : ""}`,
+    u.searchParams.get("v") === "v1abc" && u2.searchParams.get("v") === "v1abc" && FAUX.at(-1) !== w && !u.searchParams.has("module")
+    && u.searchParams.get("sonde") === (A.sonde ? "1" : null) && [...u.searchParams.keys()].length === (A.sonde ? 2 : 1), { u: w.url, u2: FAUX.at(-1).url });
+}
+{
+  const m = new M.Moteur(); const w = FAUX.at(-1); const c = m.client();
+  const annoncer = (k) => { if (typeof m.annoncer === "function") m.annoncer(k); };   // (absente : le contrôle rougit)
+  annoncer("plancher");
+  const a1 = w.postes.map((x) => x.type || "requete");
+  w.emettre({ type: "pret" });
+  c.demander(() => ({ module: "poutre", action: "a" })); await calme();
+  annoncer("soudures"); annoncer("plancher"); annoncer("Pas une clé"); annoncer("../x");
+  const annonces = w.postes.filter((x) => x.type === "annoncer").map((x) => x.cle);
+  m.prechauffer("plancher"); w.repondre({ ok: true }); await calme();
+  chk("annonce · postée aussitôt (avant « pret », et derrière une requête en vol), une fois par clé, une clé mal formée ignorée ; elle ne vaut pas préchauffage",
+    JSON.stringify(a1) === '["annoncer"]' && JSON.stringify(annonces) === '["plancher","soudures"]' && JSON.stringify(w.prechauffages()) === '["plancher"]',
+    { a1, annonces, pre: w.prechauffages() });
+}
+// C10 · un démarrage RATÉ du moteur partagé : relancé par moteurPartage() (l'écran suivant), jamais par une requête ;
+// un démarrage PÉRIMÉ (le site a été mis à jour) ne l'est pas
+{
+  M = await charger();
+  const m = M.moteurPartage(); const w = FAUX.at(-1); const c = m.client(); const n0 = FAUX.length;
+  w.emettre({ type: "erreur", texte: "réseau coupé" }); await calme();
+  const pe = etatDe(c.demander(() => ({ module: "poutre", action: "e" }))); await calme();
+  const nReq = FAUX.length, existe = M.moteurExiste();
+  const m2 = M.moteurPartage(); const w2 = FAUX.at(-1);
+  const pr = etatDe(m.pret);
+  await calme();
+  w2.emettre({ type: "pret" }); await calme();
+  chk("partagé · démarrage raté (message « erreur ») : une requête ne relance rien ; moteurPartage() (l'écran suivant) arrête l'ancien travailleur, en démarre un neuf (le même objet), et son « pret » se résout",
+    nReq === n0 && !existe && m2 === m && w2 !== w && w.termine && FAUX.length === n0 + 1 && pe.v === "resolue" && pe.x.ok === false && pr.v === "resolue" && m.etat === "pret" && M.moteurExiste(),
+    { nReq: nReq - n0, n: FAUX.length - n0, termine: w.termine, pe, pr: pr.v, etat: m.etat });
+}
+{
+  M = await charger();
+  const m = M.moteurPartage(); const w = FAUX.at(-1); const c = m.client(); const n0 = FAUX.length;
+  w.onerror({ message: "script introuvable" }); await calme();
+  const r1 = await borne(c.demander(() => ({ module: "poutre", action: "f" })));
+  const nReq = FAUX.length, existe = M.moteurExiste();
+  const m2 = M.moteurPartage(); const w2 = FAUX.at(-1);
+  w2.emettre({ type: "pret" }); await calme();
+  chk("partagé · démarrage raté (fil arrêté avant « pret ») : la requête rend {ok:false} sans relance ; moteurPartage() en démarre un neuf (le même objet), prêt ensuite",
+    r1.ok === false && nReq === n0 && !existe && m2 === m && w2 !== w && FAUX.length === n0 + 1 && m.etat === "pret" && M.moteurExiste(),
+    { r1, n: FAUX.length - n0, etat: m.etat });
+}
+{
+  M = await charger();
+  const m = M.moteurPartage(); const w = FAUX.at(-1); const c = m.client(); const n0 = FAUX.length;
+  const pr = etatDe(m.pret);
+  w.emettre({ type: "erreur", texte: "Le site a été mis à jour : rechargez la page", perime: true }); await calme();
+  const r = await borne(c.demander(() => ({ module: "poutre", action: "g" })));
+  const m2 = M.moteurPartage();
+  chk("partagé · démarrage PÉRIMÉ (le site a été mis à jour) : travailleur arrêté, pret rejetée avec le texte, la requête rend l'erreur nommée sans partir, moteurPartage() ne relance pas",
+    m.etat === "erreur" && m.perime && w.termine && pr.v === "rejetee" && /mis à jour/.test(pr.e.message) && r.ok === false && /mis à jour/.test(r.erreur)
+    && !w.requetes().length && m2 === m && FAUX.length === n0 && !M.moteurExiste(), { etat: m.etat, perime: m.perime, r, n: FAUX.length - n0 });
+}
 // C6 · moteurPartage / moteurExiste
 {
   M = await charger();
@@ -705,6 +965,9 @@ else:
 print(json.dumps({"modules": sorted(m for m in sys.modules if m.startswith("api_web.")), "numpy": "numpy" in sys.modules}))""" % RACINE
 
 
+_CONSULTER = "import sys; sys.path.insert(0, %r); from api_web import routeur; sys.stdout.write(routeur.traiter(sys.argv[1]))" % RACINE
+
+
 def cpython(code, *args):
     p = subprocess.run([PY, "-c", code, *args], capture_output=True, text=True, cwd=RACINE, env=ENV, timeout=600)
     if p.returncode != 0:
@@ -713,12 +976,14 @@ def cpython(code, *args):
 
 
 def references(pool):
-    """Les réponses de CPython, un processus neuf par clé : « nouveau » (17 établis), note PDF (NOTE_PDF), import."""
+    """Les réponses de CPython, un processus neuf par clé : « nouveau » (17 établis), note PDF (NOTE_PDF), import ; et
+    un processus neuf par consultation de BIBLIO_REQUETES."""
     f_nouveau = {k: pool.submit(cpython, _NOUVEAU, k) for k in ETABLIS}
     f_note = {k: pool.submit(cpython, _NOTE, k, json.dumps(INFOS_NOTE)) for k in SW.NOTE_PDF}
     f_import = {k: pool.submit(cpython, _IMPORT, k) for k in CLES_PRECHAUFFAGE}
+    f_biblio = [pool.submit(cpython, _CONSULTER, json.dumps(q)) for q in BIBLIO_REQUETES]
     return {"nouveau": {k: f.result() for k, f in f_nouveau.items()}, "note": {k: f.result() for k, f in f_note.items()},
-            "import": {k: json.loads(f.result()) for k, f in f_import.items()}}
+            "import": {k: json.loads(f.result()) for k, f in f_import.items()}, "biblio": [f.result() for f in f_biblio]}
 
 
 # ====================================================================== les comparaisons (et leurs exceptions nommées)
@@ -774,6 +1039,21 @@ def comparer(cle, cp, py, passe):
     return False, None, "clés qui diffèrent : " + ", ".join(sorted(k for k in set(a) | set(b) if a.get(k) != b.get(k)))[:300]
 
 
+def biblio_nom(q):
+    """« beton/ancrages {phi 25, classe C40/50} (note) » : le nom court d'une consultation."""
+    p = ", ".join(f"{k} {v}" for k, v in q.get("params", {}).items())
+    return f"{q['bibliotheque']}/{q['rubrique']}" + (f" {{{p}}}" if p else "") + (f" ({q['hote']})" if q.get("hote") else "")
+
+
+def diff_json(a, b):
+    """Les clés de premier niveau qui diffèrent entre deux réponses JSON (texte court)."""
+    try:
+        x, y = json.loads(a), json.loads(b)
+    except (TypeError, ValueError):
+        return "réponse illisible"
+    return "clés qui diffèrent : " + ", ".join(sorted(k for k in set(x) | set(y) if x.get(k) != y.get(k)))[:300]
+
+
 def pdf_normalise(rep_json):
     r = json.loads(rep_json)
     if not r.get("ok"):
@@ -810,9 +1090,13 @@ _RESULTAT = re.compile(r"RÉSULTAT : (\d+) OK, (\d+) échec")
 
 
 def p1_lancer(dossier, site, ordres, mutation=""):
+    """Joue P1 ; rend (résultats par ordre, durée, fin de stderr). Avec ``mutation`` : rien n'est jugé (résultats vides)
+    si le pilote n'a pas dit « @@MUTEE » — le texte à muter manquait, ou l'interpréteur n'a pas tourné."""
     t0 = time.time()
     args = {"vendor": VENDOR, "zip": os.path.join(site, "moteur", "moteur.zip"), "tests": os.path.join(RACINE, "tests"), "ordres": ordres, "mutation": mutation}
     p = subprocess.run(["node", os.path.join(dossier, "p1.mjs"), json.dumps(args)], capture_output=True, text=True, timeout=1800, env=ENV, cwd=dossier)
+    if mutation and "@@MUTEE" not in p.stdout.split("@@ORDRE ")[0]:
+        return [], time.time() - t0, "rien n'a été muté (texte absent, ou interpréteur arrêté) : " + (p.stdout[-300:] + p.stderr[-300:])
     blocs = p.stdout.split("@@ORDRE ")[1:]
     res = []
     for b in blocs:
@@ -858,6 +1142,14 @@ def p2_juger(B, out, refs):
     B.chk("P2 · les exceptions employées sont EXACTEMENT celles nommées (la liste rougit si elle grandit ou rétrécit)",
           employees == EXCEPTIONS_P2, {"employees": sorted(map(str, employees)), "nommees": sorted(map(str, EXCEPTIONS_P2))})
     B.chk("P2 · sans « ?sonde=1 », le travailleur n'émet que etape, pret, reponse", out["types"] == ["etape", "pret", "reponse"], out["types"])
+    # les bibliothèques, dans le MÊME interpréteur, après les 34 « nouveau » : ordre direct puis inverse, à l'octet
+    for i, q in enumerate(BIBLIO_REQUETES):
+        cp = refs["biblio"][i]
+        for passe, nom in ((1, "biblio1"), (2, "biblio2")):
+            py = (out.get(nom) or [None] * len(BIBLIO_REQUETES))[i]
+            ok = py is not None and py == cp and json.loads(cp).get("ok") is True
+            B.chk(f"P2 · biblio · {biblio_nom(q)} · {'après les établis, ordre direct' if passe == 1 else 'ordre inverse, ensuite'} : "
+                  "« consulter » = CPython processus neuf, à l'octet", ok, "aucune réponse" if py is None else diff_json(cp, py))
     for k in SW.NOTE_PDF:
         a, ea = pdf_normalise(refs["note"][k])
         b, eb = pdf_normalise(out["notes"][k]) if out["notes"].get(k) else (None, "aucune réponse")
@@ -931,6 +1223,76 @@ def p4_juger(B, out, refs, cles):
               and all(demandees <= set(x["marques"]) for x in s) and not any(x["import_erreur"] for x in s) and out["par_cle"]["derniere"] == "bois", s)
         B.chk("P4 · sous la sonde, les messages en plus : sonde (et prechauffe, sonde_modules à la demande)",
               set(out["par_cle"]["types"]) >= {"etape", "pret", "reponse", "sonde"}, out["par_cle"]["types"])
+    cles_registre = {"api_web." + k for k in REG.cles()} | set(ROUTEUR.BIBLIOTHEQUES.values())
+    if "annonce" in out:
+        a = out["annonce"]
+        t, tm = a["t"], a["temoin"]
+        importes = sorted(set(a["sm"].get("modules") or []) & cles_registre)
+        B.chk("P4 · annonce · plancher annoncé avant « pret » : numpy part PENDANT le démarrage, en parallèle du paquet (numpy_debut < deballage_fin), "
+              "« pret » l'attend, et rien n'est importé (aucun api_web.<clé>) — comme l'ancien « ?module= »",
+              t.get("numpy_debut") is not None and t.get("deballage_fin") is not None and t["numpy_debut"] < t["deballage_fin"]
+              and t.get("numpy_fin") is not None and t.get("pret") is not None and t["numpy_fin"] <= t["pret"] + 1
+              and a["sm"].get("charge") is True and not importes and a["postes"][:1] == ["annoncer"],
+              {"numpy_debut": t.get("numpy_debut"), "deballage_fin": t.get("deballage_fin"), "numpy_fin": t.get("numpy_fin"), "pret": t.get("pret"),
+               "charge": a["sm"].get("charge"), "importes": importes, "postes": a["postes"][:3]})
+        egal, _, det = comparer("plancher", refs["nouveau"]["plancher"], a["json"], 1)
+        B.chk("P4 · annonce · la première réponse de plancher = CPython (processus neuf), à l'octet", egal, det)
+        B.chk("P4 · annonce · le témoin : sans annonce, numpy ne part qu'à la première requête, APRÈS « pret » (le contrôle voit la différence)",
+              tm.get("numpy_debut") is not None and tm.get("pret") is not None and tm["numpy_debut"] > tm["pret"],
+              {"numpy_debut": tm.get("numpy_debut"), "pret": tm.get("pret")})
+    if "fond" in out:
+        f = out["fond"]
+        egal, _, det = comparer("poutre", refs["nouveau"]["poutre"], f["json"], 1)
+        B.chk(f"P4 · fond · un préchauffage de soudures (numpy, retardé de {RETARD_NUMPY} ms) ne retient pas une vraie requête de poutre arrivée 20 ms "
+              f"après : réponse en {f['attente']:.0f} ms (< {RETARD_NUMPY // 2}), avant la fin du préchauffage, = CPython",
+              f["ok"] and f["attente"] < RETARD_NUMPY / 2 and f["avantPre"] and egal, {"attente": f["attente"], "avantPre": f["avantPre"], "det": det})
+        pre = f["pre"] or [{}]
+        B.chk("P4 · fond · pendant que numpy se charge en fond (hors de la chaîne), le guet refuse tout import de numpy (en_cours) ; après : chargé, "
+              "et soudures SAUTÉ à la reprise (une vraie requête est arrivée derrière lui) — rien d'importé",
+              f["pendant"].get("en_cours") is True and f["pendant"].get("charge") is False and len(f["pre"]) == 1 and pre[0].get("saute") is True
+              and f["apres"].get("charge") is True and f["apres"].get("en_cours") is False and "api_web.soudures" not in (f["apres"].get("modules") or []),
+              {"pendant": {k: f["pendant"].get(k) for k in ("en_cours", "charge")}, "pre": f["pre"], "apres": {k: f["apres"].get(k) for k in ("en_cours", "charge")}})
+    if "fond_demarrage" in out:
+        f = out["fond_demarrage"]
+        pre = f["pre"] or [{}]
+        B.chk(f"P4 · fond · un préchauffage de soudures posté PENDANT le démarrage (numpy retardé de {RETARD_NUMPY} ms) ne fait pas attendre « pret » : "
+              f"{f['avec']:.0f} ms contre {f['sans']:.0f} ms sans lui (écart < {RETARD_NUMPY // 2})",
+              f["avec"] - f["sans"] < RETARD_NUMPY / 2, {"avec": f["avec"], "sans": f["sans"]})
+        B.chk("P4 · fond · ce préchauffage se fait ensuite (numpy en fond, puis l'import repasse par la chaîne) : soudures importé, numpy chargé",
+              len(f["pre"] or []) == 1 and pre[0].get("saute") is False and "api_web.soudures" in ((f["sm"] or {}).get("modules") or [])
+              and (f["sm"] or {}).get("charge") is True, {"pre": f["pre"], "charge": (f["sm"] or {}).get("charge")})
+    if "guet_horsligne" in out:
+        g = out["guet_horsligne"]
+        eg2, _, d2 = comparer("poutre", refs["nouveau"]["poutre"], g["j2"], 1)
+        eg3, _, d3 = comparer("dalle", refs["nouveau"]["dalle"], g["j3"], 1)
+        B.chk("P4 · guet hors ligne · requête : garde_corps (le guet, numpy refusé) garde son refus ; guet.demande est remis à faux ; "
+              "poutre et dalle, ensuite, répondent = CPython",
+              g["r1"]["ok"] is False and "numpy" in str(g["r1"].get("erreur")) and g["sm"].get("guet") is False and g["r2"] and eg2 and g["r3"] and eg3,
+              {"r1": g["r1"], "guet": g["sm"].get("guet"), "r2": g["r2"], "r3": g["r3"], "d2": d2, "d3": d3})
+        p = g["prechauffage"]
+        egp, _, dp = comparer("poutre", refs["nouveau"]["poutre"], p["json"], 1)
+        B.chk("P4 · guet hors ligne · préchauffage : garde_corps préchauffé (le guet, numpy refusé en fond) n'importe rien et le dit ; guet.demande à "
+              "faux ; poutre, ensuite, répond = CPython",
+              len(p["pre"]) == 1 and p["pre"][0].get("erreur") and p["sm"].get("guet") is False and p["ok"] and egp,
+              {"pre": p["pre"], "guet": p["sm"].get("guet"), "ok": p["ok"], "dp": dp})
+    if "version" in out:
+        v = out["version"]
+        a, b_, c, d = v["a"], v["b"], v["c"], v["d"]
+        B.chk("P6 · version · le document d'une AUTRE version que le manifeste : pas de « pret » mais l'erreur nommée « Le site a été mis à jour : "
+              "rechargez la page » (périmé), travailleur arrêté ; la requête rend cette erreur sans partir",
+              a["pret"] == "erreur : " + MIS_A_JOUR and "pret" not in a["types"] and "erreur" in a["types"] and a["etat"] == "erreur" and a["perime"] is True
+              and a["termine"] and a["r"].get("ok") is False and a["r"].get("erreur") == MIS_A_JOUR and a["requetes"] == 0
+              and f"v=autre-version-de-l-essai" in a["url"], a)
+        B.chk("P6 · version · le témoin : la version du manifeste dans l'adresse (« v ») — « pret », et la réponse",
+              b_["pret"] == "pret" and b_["ok"] and f"v={VERSION_SITE}" in b_["url"], b_)
+        B.chk("P6 · version · un travailleur RECRÉÉ après une mort, le site mis à jour entre-temps : il ne sert pas l'autre version (erreur nommée, "
+              "périmé, aucun « pret »)",
+              c["mort"] and c["recree"] and f"v={VERSION_SITE}" in c["url"] and c["r"].get("ok") is False and c["r"].get("erreur") == MIS_A_JOUR
+              and c["etat"] == "erreur" and c["perime"] is True and "pret" not in c["types"], c)
+        B.chk("P6 · version · note PDF dont l'empreinte ne correspond plus : manifeste relu de la même version, le message d'empreinte (le témoin) ; "
+              "d'une autre version (mise en ligne depuis le démarrage), l'erreur nommée",
+              d["n1"]["ok"] is False and "ne correspond pas à son manifeste" in str(d["n1"].get("erreur")) and d["n2"]["ok"] is False
+              and d["n2"].get("erreur") == MIS_A_JOUR, d)
     if "ouverture" in out:
         o = out["ouverture"]
         B.chk("sonde par ouverture (dans node, la page sondée) : nouvelleOuverture efface les marques « stab: », garde __sondes, et les marques reprennent",
@@ -976,12 +1338,16 @@ def jouer(B, dossier, site, refs, pilotes, cles=None, parallele=2):
     cles = cles or CLES_PRECHAUFFAGE
     durees = {}
     taches = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as ex:
         if "partage" in pilotes:
-            taches["partage"] = ex.submit(node, dossier, "partage.mjs", {"moteur": moteur, "ordre": ORDRE_P2, "notes": list(SW.NOTE_PDF), "infos": INFOS_NOTE})
-        if "sonde" in pilotes:
-            taches["sonde"] = ex.submit(node, dossier, "sonde.mjs", {"moteur": moteur, "sonde": sonde, "cles": cles, "parallele": parallele, "infos": INFOS_NOTE,
-                                                                   "etat_gc": etat_gc, "etat_poutre": etat_poutre, "parties": pilotes["sonde"]})
+            taches["partage"] = ex.submit(node, dossier, "partage.mjs", {"moteur": moteur, "ordre": ORDRE_P2, "notes": list(SW.NOTE_PDF), "infos": INFOS_NOTE,
+                                                                       "biblio": BIBLIO_REQUETES})
+        # (le même pilote sous la sonde, en deux processus : les parties d'avant S4-C, et celles du lot « moteur »)
+        for cle_pilote in ("sonde", "neufs"):
+            if cle_pilote in pilotes:
+                taches[cle_pilote] = ex.submit(node, dossier, "sonde.mjs", {"moteur": moteur, "sonde": sonde, "cles": cles, "parallele": parallele, "infos": INFOS_NOTE,
+                                                                          "etat_gc": etat_gc, "etat_poutre": etat_poutre, "parties": pilotes[cle_pilote],
+                                                                          "version": VERSION_SITE, "retard": RETARD_NUMPY})
         if "mort" in pilotes:
             taches["mort"] = ex.submit(node, dossier, "mort.mjs", {"moteur": moteur})
         if "client" in pilotes:
@@ -996,6 +1362,8 @@ def jouer(B, dossier, site, refs, pilotes, cles=None, parallele=2):
         p2_juger(B, res["partage"][0], refs)
     if "sonde" in res:
         p4_juger(B, res["sonde"][0], refs, cles)
+    if "neufs" in res:
+        p4_juger(B, res["neufs"][0], refs, cles)
     if "mort" in res:
         p5_juger(B, res["mort"][0], refs)
     if "client" in res:
@@ -1008,19 +1376,44 @@ def jouer(B, dossier, site, refs, pilotes, cles=None, parallele=2):
 
 # ====================================================================== les MUTATIONS (le moteur modifié d'un trait, dans une copie)
 TOUTES_PARTIES = ["isolement", "guet_requete", "guet_prechauffer", "note_numpy", "saut", "chaine", "par_cle", "ouverture"]
+# les parties du lot « moteur » (revue S4) : un second processus du même pilote, en parallèle
+NOUVELLES_PARTIES = ["annonce", "fond", "fond_demarrage", "guet_horsligne", "version"]
 CLES_MUTATION = ["dalle", "garde_corps", "poutre", "biblio_acier"]
 # (nom, fichier du site, ancien, nouveau, pilotes, contrôles qui doivent rougir — début de leur nom)
 MUTATIONS = [
     ("m_prech_tout", "js/travailleur.js", "        registre.module(cle)\n", "        [registre.module(c) for c in registre.cles()]\n",
      {"sonde": ["isolement"]}, ["P4 · dalle · préchauffé seul", "P4 · poutre · préchauffé seul"]),
-    ("m_prech_rien", "js/travailleur.js", "      if (!saute) await importerAvecGuet(cle);", "      if (!saute) void importerAvecGuet;",
-     {"sonde": ["isolement"]}, ["P4 · poutre · préchauffé seul"]),
+    ("m_prech_rien", "js/travailleur.js", "          try { importerCle(cle); } catch (e) { if (estFatale(e)) throw e; /* avalée : la vraie requête dira l'erreur */ }",
+     "          void importerCle;", {"sonde": ["isolement"]}, ["P4 · poutre · préchauffé seul"]),
     ("m_numpy_toujours", "js/travailleur.js", "  return !!man && (!Array.isArray(man.avec_numpy)", "  return true || (!Array.isArray(man.avec_numpy)",
      {"sonde": ["isolement"]}, ["P4 · poutre · numpy chargé", "P4 · dalle · numpy chargé"]),
-    ("m_guet_non_remis", "js/travailleur.js", "      guet.demande = false;\n      json = traiter(data.requete);", "      json = traiter(data.requete);",
-     {"sonde": ["guet_requete"]}, ["P4 · guet · après le rejeu"]),
-    ("m_guet_sans_rejeu", "js/travailleur.js", "      guet.demande = false;\n      json = traiter(data.requete);", "      guet.demande = false;",
+    ("m_guet_non_remis", "js/travailleur.js", "      guet.demande = false;\n      await chargerNumpy();\n      json = traiter(data.requete);",
+     "      await chargerNumpy();\n      json = traiter(data.requete);", {"sonde": ["guet_requete"]}, ["P4 · guet · après le rejeu"]),
+    ("m_guet_sans_rejeu", "js/travailleur.js", "      await chargerNumpy();\n      json = traiter(data.requete);", "      await chargerNumpy();",
      {"sonde": ["guet_requete"]}, ["P4 · guet · avec_numpy vide : « nouveau »"]),
+    # etat-10 : la demande remise à faux APRÈS le chargement (l'ancien ordre) — hors ligne, tout reste refusé
+    ("m_guet_remis_apres", "js/travailleur.js", "      guet.demande = false;\n      await chargerNumpy();\n      json = traiter(data.requete);",
+     "      await chargerNumpy();\n      guet.demande = false;\n      json = traiter(data.requete);", {"neufs": ["guet_horsligne"]}, ["P4 · guet hors ligne · requête"]),
+    ("m_guet_prech_non_remis", "js/travailleur.js", "{ guet.demande = false; attend = true; }", "{ attend = true; }",
+     {"neufs": ["guet_horsligne"]}, ["P4 · guet hors ligne · préchauffage"]),
+    # etat-09 / C4 : le préchauffage attend numpy DANS la chaîne ; ou il compte comme une intention réelle au démarrage
+    ("m_prech_numpy_chaine", "js/travailleur.js", "        if (numpyPour(cle) && !numpyCharge) attend = true;\n        else {",
+     "        if (numpyPour(cle) && !numpyCharge) await chargerNumpy();\n        {", {"neufs": ["fond"]}, ["P4 · fond · un préchauffage de soudures (numpy"]),
+    ("m_prech_intention", "js/travailleur.js", "    dernierPrechauffage = n;\n    tache = () => prechauffer(cle, n);",
+     "    dernierPrechauffage = n;\n    noterIntention(cle);\n    tache = () => prechauffer(cle, n);", {"neufs": ["fond_demarrage"]},
+     ["P4 · fond · un préchauffage de soudures posté PENDANT"]),
+    ("m_guet_sans_blocage", "js/travailleur.js", "    if (guet) guet.en_cours = true;\n", "", {"neufs": ["fond"]}, ["P4 · fond · pendant que numpy"]),
+    # l'annonce : ignorée ; ou elle importe (comme un préchauffage)
+    ("m_annonce_ignoree", "js/travailleur.js", "    if (CLE.test(cle)) noterIntention(cle, true);", "    void noterIntention;",
+     {"neufs": ["annonce"]}, ["P4 · annonce · plancher annoncé"]),
+    ("m_annonce_importe", "js/travailleur.js", "    if (CLE.test(cle)) noterIntention(cle, true);",
+     "    if (CLE.test(cle)) { noterIntention(cle, true); dernierPrechauffage = n; tache = () => prechauffer(cle, n); }",
+     {"neufs": ["annonce"]}, ["P4 · annonce · plancher annoncé"]),
+    # la version du site : non comparée au démarrage ; ni à l'empreinte de la note
+    ("m_version_ignoree", "js/travailleur.js", "  if (VERSION && man.version !== VERSION) throw perime();", "  void perime;",
+     {"neufs": ["version"]}, ["P6 · version · le document d'une AUTRE", "P6 · version · un travailleur RECRÉÉ"]),
+    ("m_note_version", "js/travailleur.js", "  return m && manifeste && m.version !== manifeste.version ? perime() : new Error(message);",
+     "  return new Error(message);", {"neufs": ["version"]}, ["P6 · version · note PDF"]),
     ("m_cle_adresse", "js/travailleur.js", "    if (q && typeof q.module === \"string\" && q.module) return q.module;",
      "    if (q && typeof q.module === \"string\" && q.module) return new URL(self.location.href).searchParams.get(\"module\") || \"\";",
      {"sonde": ["note_numpy"]}, ["P3b"]),
@@ -1028,11 +1421,11 @@ MUTATIONS = [
      {"sonde": ["note_numpy"]}, ["P3b"]),
     ("m_fatale_ignoree", "js/travailleur.js", "    if (pyodideTombe()) throw new Error(\"Pyodide fatally failed\");\n  } catch (e) {\n    if (estFatale(e)) { mourir(e); return; }\n    json =",
      "  } catch (e) {\n    if (estFatale(e)) { mourir(e); return; }\n    json =", {"mort": True}, ["P5 · erreur fatale"]),
-    ("m_chaine", "js/travailleur.js", "  if (tache) fileT = fileT.then(tache).catch(() => {});", "  if (tache) tache();",
+    ("m_chaine", "js/travailleur.js", "  if (tache) enchainer(tache);", "  if (tache) tache();",
      {"sonde": ["chaine"]}, ["P4 · une seule chaîne"]),
-    ("m_saut", "js/travailleur.js", "      saute = n !== dernierPrechauffage || derniereRequete > n;", "      saute = n !== dernierPrechauffage;",
+    ("m_saut", "js/travailleur.js", "const estSaute = (n) => n !== dernierPrechauffage || derniereRequete > n;", "const estSaute = (n) => n !== dernierPrechauffage;",
      {"sonde": ["saut"]}, ["P4 · un préchauffage n'est jamais traité devant"]),
-    ("m_message_sans_sonde", "js/travailleur.js", "  if (SONDE) postMessage({ type: \"prechauffe\"", "  postMessage({ type: \"prechauffe\"",
+    ("m_message_sans_sonde", "js/travailleur.js", "{ if (SONDE) postMessage({ type: \"prechauffe\"", "{ postMessage({ type: \"prechauffe\"",
      {"partage": True}, ["P2 · sans « ?sonde=1 »"]),
     ("m_sonde_une_fois", "js/travailleur.js", "const premiere = SONDE && !vues.has(cle);", "const premiere = SONDE && session;",
      {"sonde": ["par_cle"]}, ["P4 · la sonde date la première requête de CHAQUE clé"]),
@@ -1062,32 +1455,81 @@ MUTATIONS = [
      {"client": True}, ["sonde · chaque message"]),
     ("m_ouverture", "js/sonde.js", "  for (const m of performance.getEntriesByType(\"mark\")) if (m.name.startsWith(PREFIXE)) performance.clearMarks(m.name);",
      "  void 0;", {"client": True, "sonde": ["ouverture"]}, ["sonde par ouverture"]),
+    # etat-07 / deploiement-01 : un démarrage raté reste définitif ; ou il est relancé à CHAQUE requête ; ou même périmé
+    ("m_erreur_definitive", "js/moteur.js", "  else if (partage.etat === \"erreur\" && !partage.perime) partage._redemarrer();\n", "",
+     {"client": True}, ["partagé · démarrage raté (message", "partagé · démarrage raté (fil"]),
+    ("m_redemarre_requete", "js/moteur.js", "    if (this.etat === \"erreur\" && !this.w) return Promise.resolve(",
+     "    if (this.etat === \"erreur\") this._redemarrer();\n    if (false) return Promise.resolve(", {"client": True},
+     ["démarrage raté (erreur du fil AVANT", "partagé · démarrage raté (message", "partagé · démarrage raté (fil"]),
+    ("m_redemarre_perime", "js/moteur.js", "  else if (partage.etat === \"erreur\" && !partage.perime) partage._redemarrer();",
+     "  else if (partage.etat === \"erreur\") partage._redemarrer();", {"client": True}, ["partagé · démarrage PÉRIMÉ"]),
+    # la version du document n'est plus passée au travailleur
+    ("m_version_absente", "js/moteur.js", "    if (v) url.searchParams.set(\"v\", v);", "    void v;",
+     {"client": True, "neufs": ["version"]}, ["version · l'adresse du travailleur", "P6 · version · le document d'une AUTRE"]),
+    # l'annonce n'est pas postée
+    ("m_annonce_moteur", "js/moteur.js", "    this.w.postMessage({ type: \"annoncer\", cle });", "    void 0;",
+     {"client": True, "neufs": ["annonce"]}, ["annonce · postée aussitôt", "P4 · annonce · plancher annoncé"]),
 ]
+# une table PARTAGÉE de beton/ (le coefficient d'adhérence des ancrages) retouchée à l'import d'un établi, dans le
+# paquet : le préchauffage et P2 des établis n'en voient rien ; la passe des bibliothèques, jouée APRÈS les établis
+# dans le même interpréteur, doit rougir
+FUITE_BIBLIO = ("api_web/poutre.py", b"\n# mutation de l'essai : une table partagee de beton/ retouchee a l'import d'un etabli\n"
+                b"from beton.bibliotheque import ancrages as _ANCRAGES_ESSAI\n_ANCRAGES_ESSAI.ETA1[\"bonnes\"] = 0.95\n")
 
 
-def copie_du_site(base, js_de=WEB, paquet_mute=False):
-    """Une copie du site pour une mutation : js/ recopié, vendor lié ; moteur lié (ou recopié, paquet muté pour P0)."""
+def copie_du_site(base, js_de=WEB, paquet_mute=False, retouche=None):
+    """Une copie du site pour une mutation : js/ recopié, vendor lié ; moteur lié (ou recopié, paquet muté pour P0).
+    ``retouche`` = (fichier du paquet, octets ajoutés) : le paquet recopié, ce fichier allongé, et le manifeste recopié
+    porte la NOUVELLE empreinte (le travailleur l'accepte : seul le contenu du moteur change)."""
     site = os.path.join(base, "site")
     os.makedirs(site)
     shutil.copytree(os.path.join(js_de, "js"), os.path.join(site, "js"))
     os.makedirs(os.path.join(site, "vendor"))
     os.symlink(VENDOR, os.path.join(site, "vendor", os.path.basename(VENDOR)))
-    if paquet_mute:
+    if paquet_mute or retouche:
         shutil.copytree(os.path.join(WEB, "moteur"), os.path.join(site, "moteur"))
         chemin = os.path.join(site, "moteur", "moteur.zip")
+        nom, ajout = retouche or ("api_web/registre.py", b"\n# mutation\n")
         with zipfile.ZipFile(chemin) as z:
             contenu = [(i, z.read(i.filename)) for i in z.infolist()]
+        assert sum(i.filename == nom for i, _ in contenu) == 1, f"{nom} n'est pas dans le paquet"
         with zipfile.ZipFile(chemin, "w", zipfile.ZIP_DEFLATED) as z:
             for i, b in contenu:
-                z.writestr(i, b + b"\n# mutation\n" if i.filename == "api_web/registre.py" else b)
+                z.writestr(i, b + ajout if i.filename == nom else b)
+        if retouche:
+            chemin_man = os.path.join(site, "moteur", "manifeste.json")
+            man = json.load(open(chemin_man, encoding="utf-8"))
+            man["sha256"] = hashlib.sha256(open(chemin, "rb").read()).hexdigest()
+            json.dump(man, open(chemin_man, "w", encoding="utf-8"))
     else:
         os.symlink(os.path.join(WEB, "moteur"), os.path.join(site, "moteur"))
     return site
 
 
+# la mutation de P1 : la formule f_yd du moteur poutre (+0,1 %), dans l'interpréteur. Le code n'échoue pas si le texte
+# manque : il ne pose MUTEE qu'après l'avoir remplacé (le pilote le dit : « @@MUTEE »)
+CIBLE_FORMULE = ('"fyd": fyk / gamma_s}', '"fyd": fyk / gamma_s * 1.001}')
+GARDE_FORMULE = "m_formule : l'interpréteur a tourné et le texte à muter est présent une fois"
+
+
+def m_formule(dossier, cible=CIBLE_FORMULE):
+    """Joue la mutation de P1 et rend son Bilan. Un interpréteur qui n'a pas tourné, ou un texte à muter absent, est un
+    KO sous un nom À PART (GARDE_FORMULE, jamais « P1 · … ») : il ne compte JAMAIS comme « rougit »."""
+    ancien, nouveau = cible
+    code = (f"p = '/moteur/beton/poutre/moteur.py'\ns = open(p, encoding='utf-8').read()\nif s.count({ancien!r}) == 1:\n"
+            f"    open(p, 'w', encoding='utf-8').write(s.replace({ancien!r}, {nouveau!r}))\n    MUTEE = True\n")
+    res, _, err = p1_lancer(dossier, WEB, [["poutre"]], mutation=code)
+    b = Bilan(bavard=False)
+    if not res:
+        b.chk(GARDE_FORMULE, False, err)
+    else:
+        b.chk("P1 · la formule f_yd du moteur poutre (+0,1 %) dans l'interpréteur", res[0][1] == 0 and res[0][0] > 0, res)
+    return b
+
+
 def mutations(B, dossier, refs, choisies):
-    choisies = [m for m in MUTATIONS if not choisies or m[0] in choisies] + ([("m_paquet",)] if not choisies or "m_paquet" in choisies else []) \
-        + ([("m_formule",)] if not choisies or "m_formule" in choisies else [])
+    speciales = ["m_paquet", "m_formule", "m_formule_garde", "m_biblio_fuite"]
+    choisies = [m for m in MUTATIONS if not choisies or m[0] in choisies] + [(s,) for s in speciales if not choisies or s in choisies]
 
     def une(mut):
         base = tempfile.mkdtemp(prefix="mutation_", dir=dossier)
@@ -1098,11 +1540,19 @@ def mutations(B, dossier, refs, choisies):
             p0(b, site)
             return mut[0], ["P0"], b, time.time() - t0
         if mut[0] == "m_formule":
-            code = ("p = '/moteur/beton/poutre/moteur.py'\ns = open(p, encoding='utf-8').read()\nassert s.count('\"fyd\": fyk / gamma_s}') == 1\n"
-                    "open(p, 'w', encoding='utf-8').write(s.replace('\"fyd\": fyk / gamma_s}', '\"fyd\": fyk / gamma_s * 1.001}'))")
-            res, _, _ = p1_lancer(dossier, WEB, [["poutre"]], mutation=code)
-            b.chk("P1 · la formule f_yd du moteur poutre (+0,1 %) dans l'interpréteur", bool(res) and res[0][1] == 0, res)
-            return mut[0], ["P1"], b, time.time() - t0
+            return mut[0], ["P1"], m_formule(dossier), time.time() - t0
+        if mut[0] == "m_formule_garde":
+            # la GARDE de m_formule : un texte à muter absent ne doit rien rougir sous « P1 » (il rougit sous son nom à part)
+            g = m_formule(dossier, cible=("TEXTE_DISPARU de l'essai", "x"))
+            ok = not [n for n, _ in g.ko if n.startswith("P1")] and any(n == GARDE_FORMULE for n, _ in g.ko)
+            b.chk("m_formule_garde : sur un texte absent, aucun KO « P1 » (la mutation n'est jamais comptée « rougit ») et la garde le dit", ok,
+                  [n for n, _ in g.ko])
+            # (attendu ICI : que ce contrôle PASSE — jugé à part ci-dessous, pas comme un « rougit »)
+            return mut[0], None, b, time.time() - t0
+        if mut[0] == "m_biblio_fuite":
+            site = copie_du_site(base, retouche=FUITE_BIBLIO)
+            jouer(b, dossier, site, refs, {"partage": True})
+            return mut[0], ["P2 · biblio"], b, time.time() - t0
         nom, fichier, ancien, nouveau, pilotes, attendus = mut
         site = copie_du_site(base)
         chemin = os.path.join(site, fichier)
@@ -1116,6 +1566,9 @@ def mutations(B, dossier, refs, choisies):
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as ex:
         for nom, attendus, b, d in ex.map(une, choisies):
+            if attendus is None:   # un contrôle de la garde elle-même : il doit passer
+                B.chk(f"mutation · {nom} : la garde tient [{d:.0f} s]", not b.ko and bool(b.ok), {"ko": [n[:120] for n, _ in b.ko]})
+                continue
             rouges = [n for n, _ in b.ko if any(n.startswith(a) for a in attendus)]
             B.chk(f"mutation · {nom} : rougit ({'; '.join(r[:70] for r in rouges[:3]) or 'rien'}) [{d:.0f} s]", bool(rouges),
                   {"ko": [n[:90] for n, _ in b.ko][:6], "attendus": attendus})
@@ -1145,7 +1598,9 @@ def main(argv):
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool_cp:
                 refs = references(pool_cp)
             print(f"     (références CPython, processus neufs : {time.time() - t_ref:.1f} s)")
-            durees = jouer(B, dossier, WEB, refs, {"partage": True, "sonde": TOUTES_PARTIES, "mort": True, "client": True})
+            B.chk("P6 · version · le texte nommé « Le site a été mis à jour : rechargez la page » : la copie de l'essai est celle de js/travailleur.js",
+                  f'const MIS_A_JOUR = "{MIS_A_JOUR}";' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
+            durees = jouer(B, dossier, WEB, refs, {"partage": True, "sonde": TOUTES_PARTIES, "neufs": NOUVELLES_PARTIES, "mort": True, "client": True})
             print("     (pilotes : " + ", ".join(f"{k} {v:.1f} s" for k, v in durees.items()) + ")")
             if choisies is not None:
                 mutations(B, dossier, refs, choisies)

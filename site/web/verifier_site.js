@@ -1882,10 +1882,14 @@ const principal = async () => {
         const manque = ordre.filter((_, i) => temps[i] == null).map(([o, k]) => `${o}.${k}`);
         const desordre = ordre.filter((_, i) => i && temps[i] != null && temps[i - 1] != null && temps[i] < temps[i - 1] - 2).map(([o, k]) => `${o}.${k}`);
         const wasm = (avec.travailleur || []).some(([k]) => k.startsWith('wasm_'));
-        const numpy = cle === 'plancher' ? T.numpy_debut != null && T.numpy_fin != null && T.numpy_import_fin != null : T.numpy_debut == null;
-        verif(`${nom} : avec « ?sonde=1 », les marques de la page et du travailleur dans l'ordre du démarrage (wasm, numpy ${cle === 'plancher' ? 'chargé' : 'absent'})`,
+        // plancher (numpy) : chargé D'EMBLÉE, c'est-à-dire parti pendant le démarrage, en parallèle du paquet — avant la
+        // fin de son déballage (l'écran annonce sa clé au montage, js/moteur.js annoncer) ; pas à la première requête,
+        // après « pret » (revue S4, preuves-numpy-demblee)
+        const numpy = cle === 'plancher' ? T.numpy_debut != null && T.numpy_fin != null && T.numpy_import_fin != null && T.deballage_fin != null
+          && T.numpy_debut < T.deballage_fin : T.numpy_debut == null;
+        verif(`${nom} : avec « ?sonde=1 », les marques de la page et du travailleur dans l'ordre du démarrage (wasm, numpy ${cle === 'plancher' ? "chargé d'emblée, parti avant la fin du déballage du paquet" : 'absent'})`,
           !avec.echec && !manque.length && !desordre.length && wasm && numpy && !avec.err.length,
-          JSON.stringify({ echec: avec.echec, manque, desordre, wasm, numpy, err: avec.err }).slice(0, 400));
+          JSON.stringify({ echec: avec.echec, manque, desordre, wasm, numpy, numpy_debut: T.numpy_debut, deballage_fin: T.deballage_fin, pret: T.pret, err: avec.err }).slice(0, 500));
         const D = avec.details || {};
         verif(`${nom} : la sonde sépare l'import du module de son premier calcul, sans erreur, et mesure une requête ordinaire`,
           !D.import_erreur && !D.sonde_erreur && D.modules_apres_module > D.modules_apres_routeur && D.calculer_ms > 0 && D.cles_ms > 0

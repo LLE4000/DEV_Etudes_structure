@@ -17,10 +17,22 @@
 // celle qui n'est pas encore partie), jamais postée tant qu'une requête attend ou court — une vraie requête passe
 // toujours devant.
 //
+// L'ANNONCE (annoncer(cle)) est une intention RÉELLE : l'écran qui se monte va calculer cette clé (js/app.js l'appelle
+// au montage d'un établi ou d'une bibliothèque, tant que le moteur n'est pas prêt). Elle part tout de suite : le
+// travailleur charge numpy de cette clé s'il s'en sert, en parallèle du démarrage — comme l'ancien « ?module= » —, et
+// n'importe rien (ni ce module, ni un autre).
+//
 // Un travailleur qui TOMBE après son démarrage (erreur fatale de Pyodide, message « mort » ; ou erreur du travailleur
 // lui-même) : toutes les requêtes en attente et en vol se résolvent {ok:false, erreur, mort:true}, le travailleur est
 // arrêté, et la demande suivante (ou le prochain moteurPartage()) en démarre un neuf — le même objet Moteur, ses
-// clients restent valables.
+// clients restent valables. Un DÉMARRAGE RATÉ (message « erreur », ou fil arrêté avant « pret ») n'est pas relancé par
+// une requête (elle rend {ok:false} aussitôt) mais par le prochain moteurPartage(), c'est-à-dire au montage de l'écran
+// suivant (js/app.js) ou par le démarrage en fond de l'accueil : un réseau revenu répare l'échec, comme quand chaque
+// page avait son moteur. Sauf un démarrage PÉRIMÉ (le site a été mis à jour : « perime » du travailleur) — seul un
+// rechargement le répare, on ne le relance pas.
+//
+// La VERSION du site : l'adresse du travailleur porte celle du document (« v », la balise stab-version) ; le
+// travailleur la compare au manifeste qu'il lit (js/travailleur.js) — y compris un travailleur recréé après une mort.
 //
 // Compatibilité (les écrans d'avant l'application) : new Moteur(surEtape, module) démarre un moteur à part et annonce
 // ce module (numpy part alors en parallèle du démarrage s'il s'en sert) ; moteur.demander(fabrique, {note}) passe par
@@ -35,7 +47,16 @@ export class EcranFerme extends Error {
 }
 
 const MORT = "le moteur s'est arrêté (erreur fatale de Python) : la requête n'a pas abouti ; un moteur neuf démarre à la demande suivante";
+const REDEMARRE = "le moteur n'a pas pu démarrer : la requête n'a pas abouti ; un moteur neuf démarre pour l'écran suivant";
 const CLE = /^[a-z][a-z0-9_]*$/;
+
+// la version du site que porte le document (la balise stab-version) ; rien hors d'un document (les essais dans node)
+function versionDuDocument() {
+  try {
+    const m = globalThis.document && globalThis.document.querySelector('meta[name="stab-version"]');
+    return (m && m.content) || "";
+  } catch (e) { return ""; }
+}
 
 export class Moteur {
   constructor(surEtape, module = "") {
@@ -54,12 +75,18 @@ export class Moteur {
 
   _demarrer() {
     const url = new URL("./travailleur.js", import.meta.url);
+    // la version du document (le travailleur refuse un manifeste d'une autre version), lue à CHAQUE démarrage : un
+    // travailleur recréé après une mort compare lui aussi
+    const v = versionDuDocument();
+    if (v) url.searchParams.set("v", v);
     // la sonde du démarrage (js/sonde.js) passe au travailleur ; sans elle, son adresse ne change pas
     if (SONDE) url.searchParams.set("sonde", "1");
     marquer("moteur_cree");
     this.etat = "demarrage";
     this.etape = "";
-    this.prechauffes = new Set();   // les clés déjà annoncées à CE travailleur (un import ne se refait pas)
+    this.perime = false;
+    this.prechauffes = new Set();   // les clés déjà préchauffées par CE travailleur (un import ne se refait pas)
+    this.annoncees = new Set();     // les clés déjà annoncées à CE travailleur
     this.pret = new Promise((ok, ko) => { this._ok = ok; this._ko = ko; });
     this.pret.catch(() => {});      // un démarrage raté que personne n'attend n'est pas une erreur de la page
     const w = this.w = new Worker(url, { type: "module" });
@@ -77,6 +104,11 @@ export class Moteur {
       marquer("pret_recu");
       this.etat = "pret";
       this._ok();
+    } else if (data.type === "erreur" && data.perime) {
+      // le site a été mis à jour : un rechargement seul répare — ce travailleur ne sert plus, moteurPartage() ne le
+      // relance pas, toute requête rend aussitôt l'erreur nommée
+      this.perime = true;
+      this._tomber(data.texte, data.texte);
     } else if (data.type === "erreur") {
       this.etat = "erreur";
       this._ko(new Error(data.texte));
@@ -104,15 +136,17 @@ export class Moteur {
     }
   }
 
-  // le travailleur s'arrête : avant « pret », c'est un démarrage raté ; après, il est mort (un neuf à la demande)
-  _tomber(texte) {
+  // le travailleur s'arrête : avant « pret », c'est un démarrage raté ; après, il est mort (un neuf à la demande).
+  // ``raison`` : ce que rendent les requêtes (par défaut « le moteur n'a pas pu démarrer : … »)
+  _tomber(texte, raison = `le moteur n'a pas pu démarrer : ${texte}`) {
     if (this.etat === "pret") return this._mourir(texte);
     if (this.etat !== "demarrage") return;
     this.etat = "erreur";
+    this.raison = raison;
     this._ko(new Error(texte));
     try { this.w.terminate(); } catch (e) { /* déjà arrêté */ }
     this.w = null;
-    this._toutRendre({ ok: false, erreur: `le moteur n'a pas pu démarrer : ${texte}` });
+    this._toutRendre({ ok: false, erreur: raison });
   }
 
   _mourir(texte) {
@@ -137,6 +171,15 @@ export class Moteur {
   // un travailleur neuf, si le précédent est mort (la demande suivante, ou moteurPartage())
   _relancer() {
     if (this.etat === "mort") this._demarrer();
+  }
+
+  // un travailleur neuf après un démarrage RATÉ (moteurPartage() seul : au montage d'un écran, jamais à chaque
+  // requête) : l'ancien est arrêté (après un message « erreur », il vit encore), ce qui attendait encore rend {ok:false}
+  _redemarrer() {
+    if (this.w) { try { this.w.terminate(); } catch (e) { /* déjà arrêté */ } }
+    this.w = null;
+    this._toutRendre({ ok: false, erreur: REDEMARRE });
+    this._demarrer();
   }
 
   _finir(r, rep) {
@@ -192,7 +235,7 @@ export class Moteur {
   }
 
   _enfiler(client, fabrique, { note = false, modifie = false } = {}) {
-    if (this.etat === "erreur" && !this.w) return Promise.resolve({ ok: false, erreur: `le moteur n'a pas pu démarrer` });
+    if (this.etat === "erreur" && !this.w) return Promise.resolve({ ok: false, erreur: this.perime ? this.raison : `le moteur n'a pas pu démarrer` });
     this._relancer();
     return new Promise((resoudre, rejeter) => {
       client._n++;
@@ -229,6 +272,17 @@ export class Moteur {
     if (this.prechauffes.has(cle) || this.etat === "erreur") return;
     this.attente = cle;
     this._prevoir();
+  }
+
+  // une intention RÉELLE : l'écran qui se monte va calculer cette clé — numpy de cette clé chargé en parallèle du
+  // démarrage s'il s'en sert ; aucun import. Postée tout de suite (elle ne passe devant aucune requête : elle ne fait
+  // rien dans la chaîne du travailleur), une fois par travailleur et par clé.
+  annoncer(cle) {
+    if (typeof cle !== "string" || !CLE.test(cle)) return;
+    this._relancer();
+    if (!this.w || this.annoncees.has(cle)) return;
+    this.annoncees.add(cle);
+    this.w.postMessage({ type: "annoncer", cle });
   }
 
   // compatibilité : une requête hors client (les écrans d'avant l'application, le harnais, la sonde)
@@ -279,9 +333,11 @@ class Client {
 
 let partage = null;
 
-// LE moteur du document : créé à la première demande ; un travailleur neuf si le précédent est mort
+// LE moteur du document : créé à la première demande ; un travailleur neuf si le précédent est mort, ou si son
+// démarrage a raté (pas s'il est périmé : le site a été mis à jour, seul un rechargement répare) — le même objet
 export function moteurPartage() {
   if (!partage) partage = new Moteur();
+  else if (partage.etat === "erreur" && !partage.perime) partage._redemarrer();
   else partage._relancer();
   return partage;
 }

@@ -1106,7 +1106,11 @@ formats.
   doigt, toucher une tuile ne lit que la page — l'import part au clic (faire défiler l'accueil ne charge rien).
 - **C5. Le travailleur traite tous ses messages par une seule chaîne** ; la clé d'une requête se lit dans la requête
   (une seule source) ; une erreur fatale de Pyodide est reconnue, les requêtes en attente reçoivent `{ok:false}` et un
-  travailleur neuf est recréé à la demande suivante.
+  travailleur neuf est recréé à la demande suivante. *Exception écrite (revue S4, etat-09)* : le CHARGEMENT de numpy
+  d'une intention de fond (un préchauffage, une annonce après le démarrage) court hors de la chaîne, pour ne retenir
+  aucune requête qui n'en a pas besoin (C4) ; pendant ce temps le guet refuse net tout import de numpy (la requête qui
+  l'a tenté est rejouée quand il est là), une requête d'une clé qui s'en sert attend la même promesse, et l'import du
+  module préchauffé repasse par la chaîne (« sauté » revu avant). Rien d'autre ne sort de la chaîne.
 - **C6. Démarrage en fond sur l'accueil, à conditions** : page visible, pas d'économie de données ni de 2g/3g déclarées ;
   là où le navigateur ne dit rien de la connexion (Safari), seulement si ce navigateur a déjà démarré le moteur une fois
   (le cœur de 8,6 Mo est alors en cache) ; sinon au premier signe d'intention.
