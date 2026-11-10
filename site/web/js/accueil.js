@@ -15,9 +15,19 @@ const $ = (s) => document.querySelector(s);
 // offre son texte brut, tel quel ; de même pour chaque copie d'une mémoire illisible gardée à part avant une écriture.
 const fr = (n) => n.toLocaleString("fr-BE");
 
-// ``hote`` : le corps de la page ; ``ctx`` : ce que l'application donne (js/app.js) — signal, naviguer… Rend { fermer }.
+// Une note dont la dernière saisie s'ENREGISTRE ENCORE (la modification gardée de l'écran qu'on vient de quitter, C1 ;
+// ctx.enCours) : sa carte est NEUTRE — « enregistrement en cours », sans le taux ni la pastille de l'état d'AVANT (comme
+// une note rouverte pendant le démarrage, C11) — et l'accueil se redessine quand ctx.apresEnregistrements() se résout. La
+// carte montrait l'ancien taux et son verdict comme l'état courant, jusqu'à la visite suivante (revue S4, etat-01 :
+// défaut non conservatif). Supprimer une telle note attend son enregistrement (sinon l'écriture tardive la faisait
+// revenir, etat-03).
+export const TEXTE_ENREGISTREMENT = "enregistrement en cours";
+
+// ``hote`` : le corps de la page ; ``ctx`` : ce que l'application donne (js/app.js) — signal, naviguer, enCours,
+// apresEnregistrements, attendreEnregistrement… Rend { fermer }.
 export function ouvrirAccueil(hote, ctx) {
   const { signal } = ctx;
+  const enCours = (id) => typeof ctx.enCours === "function" && !!ctx.enCours(id);
   const jour = new Date().toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" });
   function afficherMemoire(m) {
     const z = $("#et-memoire");
@@ -60,9 +70,12 @@ export function ouvrirAccueil(hote, ctx) {
       const r = n.resume || {};
       // le taux est déjà arrondi par le moteur : on l'écrit à la française (63,7 et non 63.7) ; « > 999 % » au-delà
       const tx = texteTaux(r.taux);
-      const chip = tx.texte ? `<span class="chip ${esc(r.niveau)}"${tx.titre ? ` title="${esc(tx.titre)}"` : ""}>${esc(tx.texte)}</span>` : "";
+      // (une saisie s'enregistre encore : ni l'ancien taux, ni sa pastille — la pastille neutre le dit)
+      const vol = enCours(n.id);
+      const chip = vol ? `<span class="chip c et-enr-chip" title="La dernière saisie de cette note s'enregistre">${TEXTE_ENREGISTREMENT}</span>`
+        : tx.texte ? `<span class="chip ${esc(r.niveau)}"${tx.titre ? ` title="${esc(tx.titre)}"` : ""}>${esc(tx.texte)}</span>` : "";
       const lieu = [n.chantier, n.dossier].filter(Boolean).join(" › ") || "Sans chantier";
-      return `<a class="card rcard" href="${N.pageDe(n.module)}?note=${encodeURIComponent(n.id)}"><div class="thumb">${/^\s*<svg/.test(n.vignette || "") ? n.vignette : ""}</div>`
+      return `<a class="card rcard${vol ? " et-enr-cours" : ""}"${vol ? ' aria-busy="true"' : ""} href="${N.pageDe(n.module)}?note=${encodeURIComponent(n.id)}"><div class="thumb">${/^\s*<svg/.test(n.vignette || "") ? n.vignette : ""}</div>`
         + `<div class="body"><div class="t" title="${esc(n.nom)}">${esc(n.nom)}</div>`
         + `<div class="m"><span class="ou" title="${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}">${esc(N.MODULES[n.module].nom)} · ${esc(lieu)}</span></div>`
         + `<div class="m">${esc(N.quand(n.modifie))}${chip}<span class="supp" data-supprimer="${esc(n.id)}" title="Supprimer la note">✕</span></div></div></a>`;
@@ -83,14 +96,29 @@ export function ouvrirAccueil(hote, ctx) {
     $("#nn-chantiers").innerHTML = noms.filter((c) => c !== "Sans chantier").map((c) => `<option value="${esc(c)}">`).join("");
   }
   afficher();
+  // les enregistrements gardés encore en vol (les cartes neutres) : l'accueil se redessine quand ils sont faits — et
+  // encore, s'il en reste (un enregistrement qui en suit un autre)
+  const suivre = () => {
+    if (typeof ctx.apresEnregistrements !== "function" || !N.recentes(6).some((n) => enCours(n.id))) return;
+    ctx.apresEnregistrements().then(() => { if (!signal.aborted) { afficher(); suivre(); } });
+  };
+  suivre();
 
   $("#recentes").addEventListener("click", (ev) => {
     const s = ev.target.closest("[data-supprimer]");
     if (!s) return;
     ev.preventDefault();
     if (confirm("Supprimer cette note de ce navigateur ? (pensez à l'exporter en .stab si vous voulez la garder)")) {
-      if (!N.supprimer(s.dataset.supprimer)) toast(`Suppression impossible : ${(N.RAISONS[N.bilan().raison] || N.RAISONS.indisponible).long}.`, true);
-      afficher();
+      const id = s.dataset.supprimer;
+      // la dernière saisie de cette note s'enregistre peut-être encore (l'écran qu'on vient de quitter) : on l'attend,
+      // puis on supprime — la suppression est le dernier mot (le choix confirmé tient, même si l'accueil est quitté)
+      const p = typeof ctx.attendreEnregistrement === "function" ? Promise.resolve(ctx.attendreEnregistrement(id)).catch(() => {}) : Promise.resolve();
+      p.then(() => {
+        const ok = N.supprimer(id);
+        if (signal.aborted) return;
+        if (!ok) toast(`Suppression impossible : ${(N.RAISONS[N.bilan().raison] || N.RAISONS.indisponible).long}.`, true);
+        afficher();
+      });
     }
   }, { signal });
 

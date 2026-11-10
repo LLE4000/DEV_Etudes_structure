@@ -78,6 +78,27 @@ async function echecEcran(pg) {
   return r.echec;
 }
 
+// le bandeau d'ERREUR du démarrage, tel que l'œil le voit (revue S4, preuves-bandeau-erreur : « la page le dit » ne se
+// lit pas dans body[data-ecran], qui passait sans aucun bandeau) : le bandeau .et-demarre[data-etat=erreur] VU
+// (checkVisibility, au moins 40 × 10 px, dans l'écran), son texte, et son bouton « Recharger » VU, dans l'écran, sous le
+// doigt (elementFromPoint)
+async function bandeauErreur(pg) {
+  return pg.evaluate(() => {
+    const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+    const W = innerWidth, H = innerHeight;
+    const dans = (r) => r.left >= -0.5 && r.top >= -0.5 && r.right <= W + 0.5 && r.bottom <= H + 0.5;
+    const b = [...document.querySelectorAll('.et-demarre[data-etat="erreur"]')].find(vu);
+    if (!b) return { vu: false, texte: '', recharger: false, ecran: document.body ? document.body.dataset.ecran : null };
+    const r = b.getBoundingClientRect(), x = b.querySelector('[data-recharger]');
+    const rx = x && vu(x) ? x.getBoundingClientRect() : null;
+    const h = rx ? document.elementFromPoint(rx.left + rx.width / 2, rx.top + rx.height / 2) : null;
+    return { vu: r.width >= 40 && r.height >= 10 && dans(r), taille: [Math.round(r.width), Math.round(r.height)], texte: b.textContent.replace(/\s+/g, ' ').trim(),
+      recharger: !!rx && dans(rx) && !!h && x.contains(h), ecran: document.body.dataset.ecran };
+  });
+}
+// le bandeau d'erreur dit-il « la page le dit » : VU, « n'a pas pu démarrer », « Recharger » VU
+const bandeauDit = (be) => be.vu && be.recharger && /n'a pas pu démarrer/.test(be.texte);
+
 // ---------------------------------------------------------------- le travailleur, vu de la page (le proxy des réponses)
 // Une réponse peut être SIMULÉE (window.__simuler), RETOUCHÉE (window.__retoucher) ou RETARDÉE (window.__retarder), pour
 // les gestes dont le moteur n'a pas la réponse (télécharger), qu'aucun module ne produit (zéro vue), ou pour une réponse
@@ -4022,7 +4043,23 @@ const principal = async () => {
     await Promise.all([p.waitForNavigation(), p.setInputFiles('#importer', stab({ module: 'poutre', nom: 'Note refusée', chantier: piege(1),
       dossier: piege(2), indice: piege(3), etat: { poutres: 'abîmé' }, vignette: piege(4), resume: { taux: piege(5), niveau: `"><b>${piege(6)}` } }))]);
     await pret();
-    verif('.stab abîmé : le moteur le refuse et la page le dit', !!(await echecEcran(p)));
+    {
+      const be = await bandeauErreur(p);
+      verif('.stab abîmé : le moteur le refuse et la page le dit — le bandeau rouge VU, « n\'a pas pu démarrer », « Recharger » VU sous le doigt (PC)',
+        be.ecran === 'erreur' && bandeauDit(be), JSON.stringify(be).slice(0, 400));
+      // le même fichier au téléphone : son bandeau est dans les onglets (le sien, VU)
+      const ctT = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+      const pT = await ctT.newPage();
+      try {
+        await pT.goto(`${BASE}/index.html`);
+        await Promise.all([pT.waitForNavigation(), pT.setInputFiles('#importer', stab({ module: 'poutre', nom: 'Note refusée', chantier: 'Essai', etat: { poutres: 'abîmé' } }))]);
+        await pretEcran(pT);
+        const bt = await bandeauErreur(pT);
+        verif('.stab abîmé : le moteur le refuse et la page le dit — au téléphone aussi (le bandeau rouge VU, « Recharger » VU sous le doigt)',
+          bt.ecran === 'erreur' && bandeauDit(bt), JSON.stringify(bt).slice(0, 400));
+        await pT.screenshot({ path: path.join(OUT, 'site_stab_abime_tel.png') }).catch(() => {});
+      } catch (x) { verif('.stab abîmé (téléphone) : le parcours va au bout', false, String(x.message).split('\n')[0]); } finally { await ctT.close(); }
+    }
     // deux sections : la vue « Toutes les sections » écrit leurs noms dans le dessin
     const e2 = { poutres: [{ nom: piege(7), b: 25, h: 50, sections: [{ nom: piege(8), M_inf: 80, V: 40 }, { nom: piege(11), M_sup: 50, V: 30 }] }], actif: 0 };
     await p.goto(`${BASE}/index.html`);
@@ -4635,4 +4672,4 @@ const principal = async () => {
 // le parcours ne part que si ce fichier est lancé (node site/web/verifier_site.js …) ; chargé par require(), il ne rend
 // que ses aides
 if (require.main === module) principal();
-module.exports = { pretEcran, echecEcran, montage, ouvrir, proxyTravailleur, interceptees, SIGNAL_ABSENT };
+module.exports = { pretEcran, echecEcran, bandeauErreur, bandeauDit, montage, ouvrir, proxyTravailleur, interceptees, SIGNAL_ABSENT };

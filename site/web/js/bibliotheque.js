@@ -10,7 +10,7 @@
 // réponse tardive n'est plus posée (js/biblio.js). Pendant le démarrage : le même bandeau que les établis, sans aperçu,
 // le menu et la barre en lecture seule, « Chargement… » du tableau avec aria-busy.
 import { cablerBibliotheque } from "./biblio.js";
-import { bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE } from "./commun.js";
+import { bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE, ACTIONS_SANS_MOTEUR, texteEchecDemarrage } from "./commun.js";
 
 const ZONES_LECTURE = ["#bib-menu", "#bib-barre", ".top", ".mhead"];
 const PANNEAUX_OCCUPES = ["#bib-tableau"];
@@ -47,6 +47,8 @@ export function ouvrirBibliotheque(hote, ctx) {
         lecture.lever();
         hote.dataset.ecran = "pret";
         ctx.annoncer("prêt");
+        // le défilement d'un retour, quand le tableau est là (comme l'établi : l'application le rendait à 1,5 s)
+        requestAnimationFrame(() => { if (!signal.aborted && typeof ctx.rendreDefilement === "function") ctx.rendreDefilement(); });
       }
     },
   });
@@ -62,8 +64,13 @@ export function ouvrirBibliotheque(hote, ctx) {
     } catch (e) {
       if (signal.aborted) return;
       hote.dataset.ecran = "erreur";
-      bandeau.erreur(`Le moteur n'a pas démarré : ${e.message}`);
-      ctx.annoncer("Le moteur n'a pas démarré");
+      // le même texte et le même geste que les établis (commun.js) : une erreur nommée de version se dit seule ; ce qui
+      // marche sans le moteur redevient actif (aucune action de ce genre dans une bibliothèque aujourd'hui : la règle est
+      // la même pour tous les écrans)
+      const raison = texteEchecDemarrage(e, ctx.moteur);
+      bandeau.erreur(raison);
+      lecture.rendre(ACTIONS_SANS_MOTEUR);
+      ctx.annoncer(raison);
     }
   })();
 

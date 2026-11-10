@@ -19,7 +19,8 @@
 //     d'un calcul neuf (moteur/apercus/<clé>.json) ou le dernier enregistrement d'une note rouverte, montré neutre ;
 //     body[data-ecran] dit l'état : demarrage, apercu, pret, erreur.
 import * as N from "./notes.js";
-import { toast, esc, telecharger, garderGrec, texteTaux, lireManifeste, bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE } from "./commun.js";
+import { toast, esc, telecharger, garderGrec, texteTaux, lireManifeste, bandeauDemarrage, lectureSeule, TEXTE_DEMARRAGE, SUITE_LECTURE, SUITE_APERCU,
+  ACTIONS_SANS_MOTEUR, texteEchecDemarrage } from "./commun.js";
 import { cablerToile } from "./toile.js";
 import { recupererMeteo } from "./meteo.js";
 import { SONDE, marquer, marquerUneFois } from "./sonde.js";
@@ -53,6 +54,11 @@ const estDessin = (v) => /^\s*<svg/.test(v.svg || "");
 // et défilables (aria-busy) ; ni les onglets du téléphone, ni les vues du dessin, ni la navigation
 const ZONES_LECTURE = ["#donnees", "#volets", ".top", ".mtop", ".mbar", "#mmenu", ".panel.left .phead .et-elt"];
 const PANNEAUX_OCCUPES = ["#donnees", "#resultat", "#stage"];
+// la mention de l'APERÇU, en tête du résultat (aux trois formats : revue S4, ecrans-apercu-mention — au PC et à la
+// tablette, la barre du haut n'a pas la place de la suite du bandeau)
+export const MENTION_APERCU = "Aperçu du calcul par défaut, en lecture seule tant que le moteur démarre";
+// les onglets du téléphone (l'onglet ouvert est gardé dans l'entrée d'historique de l'écran : un retour le rend)
+const ONGLETS = ["donnees", "dessin", "resultat"];
 
 // ``hote`` : le corps de la page ; ``ctx`` : ce que l'application donne (js/app.js) — { jeton, params, module, moteur,
 // signal, adresse(url, {remplacer}), titre(t), naviguer(url, opts), attendreEnregistrement(id), annoncer(t) }.
@@ -68,10 +74,12 @@ export function ouvrirEtabli(hote, ctx) {
 
   // ---------------------------------------------------------------- le démarrage, visible tout de suite
   hote.dataset.ecran = "demarrage";
-  const bandeau = bandeauDemarrage({ texte: `${TEXTE_DEMARRAGE} · aperçu en lecture seule`, signal });
+  // (« aperçu » seulement quand l'aperçu est peint : une note rouverte n'en est jamais un, C11)
+  const bandeau = bandeauDemarrage({ texte: `${TEXTE_DEMARRAGE} · ${SUITE_LECTURE}`, signal });
   const lecture = lectureSeule(ZONES_LECTURE, PANNEAUX_OCCUPES);
   const client = ctx.moteur.client();
   const refus = [];          // les refus du moteur arrivés après la fermeture : l'application les dit dans l'écran suivant
+  let modifsEnVol = 0;       // les modifications envoyées (en file ou parties) dont la réponse n'est pas arrivée
   let note = null;
   const demandee = ctx.params.get("note");   // l'adresse nomme une note (un lien, la carte « Reprendre », un import)
 
@@ -79,10 +87,14 @@ export function ouvrirEtabli(hote, ctx) {
   function fermer() {
     if (fermeture) return fermeture;
     ferme = true;
-    // les lectures pas encore parties sont abandonnées ; les modifications gardées partent et s'appliquent à la note
+    // les lectures pas encore parties sont abandonnées ; les modifications gardées partent et s'appliquent à la note.
+    // Sans modification gardée, rien ne s'enregistre après la fermeture : la note n'est pas nommée (l'accueil, monté dans
+    // la même tâche, la montrerait « enregistrement en cours » pour rien)
+    const garde = modifsEnVol > 0 && !!note;
     const vide = client.fermer();
-    const enregistree = vide.then(() => new Promise((ok) => setTimeout(ok, 0))).then(() => ({ refus: refus.slice() }));
-    fermeture = { note: note ? note.id : null, enregistree };
+    const enregistree = garde ? vide.then(() => new Promise((ok) => setTimeout(ok, 0))).then(() => ({ refus: refus.slice() }))
+      : Promise.resolve({ refus: [] });
+    fermeture = { note: garde ? note.id : null, enregistree };
     return fermeture;
   }
 
@@ -126,6 +138,9 @@ export function ouvrirEtabli(hote, ctx) {
     // adresse ?nom=…&chantier=…, nomme la note d'abord : elle n'est pas provisoire.)
     const q = ctx.params;
     let provisoire = false;
+    // la note EST dans le stockage (rouverte, ou écrite depuis par cet écran) : si elle n'y est plus quand une modification
+    // gardée revient, c'est qu'elle a été supprimée — on ne la réécrit pas (revue S4, etat-03)
+    let ecrite = relue;
     if (!relue) {
       note = N.nouvelle({ module: MODULE, nom: q.get("nom") || "", chantier: q.get("chantier") || "", dossier: q.get("dossier") || "" });
       provisoire = !["nom", "chantier", "dossier"].some((k) => q.get(k));
@@ -202,6 +217,7 @@ export function ouvrirEtabli(hote, ctx) {
       if (provisoire) { provisoire = false; ctx.adresse(`?note=${note.id}`); rangement.libeller(); afficherEntete(); }
       const ok = N.ecrire(note, { date }), b = N.bilan();
       if (ok) {
+        ecrite = true;
         direEnregistrement("ok", "Enregistré · ", heure(note.modifie), "", `Enregistré dans ce navigateur · ${N.quand(note.modifie)}`);
         if (alerteDite) { alerteDite = ""; alerteEchec = ""; alerte.hidden = true; }
         // la mémoire des notes était illisible : son texte vient d'être gardé à part (notes.js), on le dit une fois
@@ -256,7 +272,12 @@ export function ouvrirEtabli(hote, ctx) {
     async function envoyer(action, extra = {}, { sansHistorique = false, modification = false } = {}) {
       if (fini()) return null;
       const modifie = MODIFIENT.has(action) || modification;
+      // GARDE : rien ne modifie la note tant que l'écran n'est pas prêt — l'aperçu, le démarrage, l'erreur ne montrent pas
+      // l'état de la note (revue S4, resultats-apercu-dessin-modifiable : sans effet aujourd'hui, aucun contrôle actif de
+      // l'aperçu ne modifie ; elle protège un aperçu futur éditable — tests/test_site_web.py la fige)
+      if (modifie && hote.dataset.ecran !== "pret") return null;
       occupe(1);
+      if (modifie) modifsEnVol++;
       let avant = null, r;
       try {
         marquerUneFois("requete1_envoyee");
@@ -264,10 +285,20 @@ export function ouvrirEtabli(hote, ctx) {
       } catch (e) {
         if (e && e.name === "EcranFerme") return null;
         throw e;
-      } finally { occupe(-1); }
+      } finally { occupe(-1); if (modifie) modifsEnVol--; }
       if (fini()) { if (modifie) garderApresFermeture(r, action, avant, modification); return null; }
       marquerUneFois("reponse1_recue");
-      if (!r.ok) { toast(`Le moteur a refusé : ${r.erreur}`, true); console.error(r.trace || r.erreur); return null; }
+      if (!r.ok) {
+        console.error(r.trace || r.erreur);
+        dernierRefus = { erreur: String(r.erreur || ""), mort: !!r.mort };
+        if (!modifie) { toast(`Le moteur a refusé : ${r.erreur}`, true); return null; }
+        // une MODIFICATION refusée (ou un moteur tombé) : la note n'a pas changé — les cadres reviennent à la dernière
+        // réponse du moteur (les champs à ses valeurs, le dessin, le résultat qui va avec), et le message le dit : la valeur
+        // tapée restait dans son champ, face au résultat de l'ancienne (revue S4, etat-02)
+        if (derniere) peindre(derniere);
+        toast(`Le moteur a refusé : ${String(r.erreur || "").replace(/[.\s]+$/, "")}. La saisie n'est pas prise : les données sont revenues au dernier calcul.`, true);
+        return null;
+      }
       if (r.etat) {
         if (!sansHistorique) retenir(action, avant, r.etat);
         // la date de la note n'avance que si son état CHANGE par une action qui modifie (une saisie refusée, un choix
@@ -281,10 +312,21 @@ export function ouvrirEtabli(hote, ctx) {
     // une modification partie avant la fermeture, dont la réponse arrive après (C1) : la NOTE seule — son état, ses caches,
     // son écriture, et l'adresse de SA propre entrée d'historique si elle était provisoire (C3) ; jamais le DOM ni le titre.
     // Un refus est gardé pour l'écran suivant.
+    // Chaque refus NOMME la note et son module : dit dans l'écran suivant, « Saisie refusée : h : … » se lisait comme un
+    // refus du module ouvert (revue S4, resultats-refus-ecran-suivant-anonyme ; app.js ne le préfixe pas une seconde fois).
+    // Une note SUPPRIMÉE entre-temps (l'accueil, un autre onglet) n'est pas réécrite : on le dit (etat-03).
     function garderApresFermeture(r, action, avant, modification) {
-      if (!r || !r.ok) { refus.push(`Le moteur a refusé : ${r ? r.erreur : "pas de réponse"}`); return; }
-      if (r.message) refus.push(r.message);
+      const de = `« ${note.nom || N.MODULES[MODULE].nom} » (${N.MODULES[MODULE].nom}) : `;
+      if (!r || !r.ok) {
+        refus.push(`${de}Le moteur a refusé : ${String(r ? r.erreur : "pas de réponse").replace(/[.\s]+$/, "")}. La dernière saisie n'est pas enregistrée.`);
+        return;
+      }
+      if (r.message) refus.push(de + r.message);
       if (!r.etat) return;
+      if (ecrite && ["lue", "absente"].includes(N.memoire().etat) && !N.lire(note.id)) {
+        refus.push(`${de}la note a été supprimée de ce navigateur : sa dernière saisie n'y est pas réécrite.`);
+        return;
+      }
       const date = (modification || DATENT.has(action)) && JSON.stringify(avant) !== JSON.stringify(r.etat);
       note.etat = r.etat;
       note.resume = r.resume;
@@ -295,9 +337,10 @@ export function ouvrirEtabli(hote, ctx) {
       provisoire = false;
       if (!N.ecrire(note, { date: etait || date })) {
         const raison = N.RAISONS[N.bilan().raison] || N.RAISONS.indisponible;
-        refus.push(`La dernière saisie de « ${note.nom} » n'a pas été enregistrée : ${raison.long}.`);
+        refus.push(`${de}la dernière saisie n'a pas été enregistrée : ${raison.long}.`);
         return;
       }
+      ecrite = true;
       if (etait) ctx.adresse(`?note=${note.id}`);
     }
 
@@ -363,6 +406,8 @@ export function ouvrirEtabli(hote, ctx) {
     }
     let premier = true;
     let vueCourante = null;
+    let derniere = null;       // la dernière réponse du moteur peinte (pas l'aperçu) : une modification refusée y revient
+    let dernierRefus = null;   // le dernier refus du moteur : { erreur, mort }
     const toile = cablerToile({ bench, stage: $("#stage"), barre: $("#zoom"), signal });
     // l'établi compact : la sélection données ↔ dessin, la section courante, les colonnes réglables (js/compact.js)
     const compact = COMPACT ? cablerCompact({
@@ -397,6 +442,7 @@ export function ouvrirEtabli(hote, ctx) {
     // peignent par ici ; l'APERÇU aussi (``apercu`` : ni la note, ni « premier », ni l'historique, ni l'enregistrement — un
     // aperçu ne décide pas de ce que l'écran garde)
     function peindre(r, apercu = false) {
+      if (!apercu) derniere = r;
       $("#statut").innerHTML = r.statut_html || "";
       afficherResume(r.resume || {});
       // le résultat refait garde sa position de lecture (une liste de contrôle dépliée, une justification qu'on vient de
@@ -416,7 +462,17 @@ export function ouvrirEtabli(hote, ctx) {
     }
     // l'APERÇU d'un calcul neuf (S4-D7, C12) : la réponse « nouveau » calculée à la construction (construire.py, un
     // processus neuf par module) — égale à la première réponse du moteur —, peinte pendant qu'il démarre, sans toucher la note
-    function peindreApercu(r) { peindre(r, true); }
+    // Il le DIT, en tête du résultat (un composant des trois formats) : la première vraie réponse refait le résultat et
+    // efface la mention ; le bandeau prend « · aperçu en lecture seule » (au téléphone, il se lit en entier)
+    function peindreApercu(r) {
+      peindre(r, true);
+      const m = document.createElement("p");
+      m.className = "et-apercu-mention";
+      m.setAttribute("role", "note");
+      m.textContent = MENTION_APERCU;
+      $("#resultat").prepend(m);
+      bandeau.texte(`${TEXTE_DEMARRAGE} · ${SUITE_APERCU}`);
+    }
 
     // le taux de la note dans l'en-tête du téléphone (le moteur l'a déjà arrondi : on l'écrit à la française)
     function afficherResume(res) {
@@ -578,6 +634,19 @@ export function ouvrirEtabli(hote, ctx) {
     const bandeVues = new ResizeObserver(() => { if (!fini()) marquerDebord(); });
     bandeVues.observe($("#vues"));
     signal.addEventListener("abort", () => bandeVues.disconnect(), { once: true });
+    // (téléphone) le message de la page (#et-alerte) se pose sous le bas RÉEL des onglets : le bandeau du démarrage les
+    // agrandit — à 118 px fixes, le message les recouvrait (revue S4, ecrans-alerte-couvre-onglets) ; .mtabs est collée
+    // sous l'en-tête (sticky) : son bas ne bouge qu'avec sa taille
+    const barreOnglets = $(".mtabs");
+    if (barreOnglets) {
+      const racine = document.documentElement;
+      const basOnglets = new ResizeObserver(() => {
+        if (!fini()) racine.style.setProperty("--mtabs-bas", `${Math.round(barreOnglets.getBoundingClientRect().bottom)}px`);
+      });
+      basOnglets.observe(barreOnglets);
+      signal.addEventListener("abort", () => basOnglets.disconnect(), { once: true });
+      signal.addEventListener("abort", () => racine.style.removeProperty("--mtabs-bas"), { once: true });
+    }
 
     function choisirVue(k) {
       if (!bench.querySelector(`#vues [data-vue="${CSS.escape(k)}"]`)) return;
@@ -593,16 +662,25 @@ export function ouvrirEtabli(hote, ctx) {
     }, { signal });
 
     // -------------------------------------------------------------- le téléphone : onglets, menu
-    function onglet(t) {
+    // (montrerOnglet : l'onglet seul ; onglet : le geste de l'utilisateur — la page remonte en haut, et l'onglet est gardé
+    // dans l'entrée d'historique de CET écran : un retour le rend, avec le défilement — revue S4,
+    // ecrans-retour-etabli-telephone)
+    function montrerOnglet(t) {
       bench.dataset.tab = t;
       document.querySelectorAll(".mtabs [data-onglet]").forEach((b) => {
         b.classList.toggle("on", b.dataset.onglet === t);
         b.setAttribute("aria-pressed", b.dataset.onglet === t ? "true" : "false");
       });
       fermerVolets();
-      if (telephone.matches) scrollTo({ top: 0 });
       if (t === "dessin") image(() => toile.vue(vueCourante));
     }
+    function onglet(t) {
+      montrerOnglet(t);
+      if (telephone.matches) scrollTo({ top: 0 });
+      if (ONGLETS.includes(t) && typeof ctx.garderEtatEntree === "function") ctx.garderEtatEntree({ onglet: t });
+    }
+    const ongletEntree = ctx.etatEntree && ONGLETS.includes(ctx.etatEntree.onglet) ? ctx.etatEntree.onglet : null;
+    if (ongletEntree && ongletEntree !== bench.dataset.tab) montrerOnglet(ongletEntree);
     document.addEventListener("click", (ev) => {
       const o = ev.target.closest("[data-onglet], [data-vers-onglet]");
       if (o) onglet(o.dataset.onglet || o.dataset.versOnglet);
@@ -1050,18 +1128,30 @@ export function ouvrirEtabli(hote, ctx) {
         const r = await envoyer(premiere);
         if (fini()) return;
         marquer("reponse1_appliquee");
-        if (!r) throw new Error("le premier calcul a échoué");
+        if (!r) throw Object.assign(new Error((dernierRefus && dernierRefus.erreur) || "le premier calcul a échoué"), { refus: !!dernierRefus && !dernierRefus.mort });
         bandeau.retirer();
         lecture.lever();
         hote.dataset.ecran = "pret";
         ctx.annoncer("prêt");
+        // le défilement d'un retour (ou d'une avance) : rendu quand le contenu qui donne sa hauteur à la page est là — au
+        // téléphone, la page entière défile, et à l'image suivante du montage elle n'avait encore que son squelette
+        // (revue S4, ecrans-retour-etabli-telephone) ; l'application le rend elle-même à 1,5 s si on ne l'a pas fait
+        image(() => { if (typeof ctx.rendreDefilement === "function") ctx.rendreDefilement(); });
         // la sonde : deux images plus tard, le navigateur a peint le premier résultat
         if (SONDE) requestAnimationFrame(() => requestAnimationFrame(() => marquer("premier_rendu")));
       } catch (e) {
         if (fini()) return;
         hote.dataset.ecran = "erreur";
-        bandeau.erreur(`Le moteur n'a pas pu démarrer : ${e.message}. Recharger la page ; si cela persiste, utiliser Streamlit.`);
-        ctx.annoncer("Le moteur n'a pas pu démarrer");
+        // le moteur a démarré mais refuse CE calcul (une note abîmée, d'un moteur plus ancien) ; sinon le démarrage a raté
+        // — une erreur nommée de version se dit seule (commun.texteEchecDemarrage)
+        const raison = e && e.refus
+          ? `Le calcul n'a pas pu démarrer : le moteur a refusé ${note.etat ? "cette note" : "ce calcul"} (${String(e.message).replace(/[.\s]+$/, "")}).`
+          : texteEchecDemarrage(e, ctx.moteur);
+        bandeau.erreur(raison);
+        // ce qui marche sans le moteur redevient actif (exporter la note telle qu'enregistrée, imprimer), aux trois formats ;
+        // pas les champs, ni la note PDF, ni « ranger » (revue S4, ecrans-erreur-export)
+        lecture.rendre(ACTIONS_SANS_MOTEUR);
+        ctx.annoncer(raison);
       }
     })();
 

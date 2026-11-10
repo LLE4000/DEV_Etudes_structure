@@ -192,15 +192,24 @@ label.fichier { width: max-content; }
 
 /* ---------------------------------------------------------------- le démarrage du moteur (lot S4 : plus de voile) */
 /* le bandeau .et-demarre (js/commun.js, bandeauDemarrage) : l'écran est là tout de suite, en lecture seule tant que le
-   moteur n'a pas répondu. Dans la barre du haut au PC et à la tablette ; au téléphone, en tête de .mtabs (collée sous
+   moteur n'a pas répondu. Sous la barre du haut au PC et à la tablette ; au téléphone, en tête de .mtabs (collée sous
    l'en-tête .mtop, visible quel que soit l'onglet) ou sous l'en-tête d'une bibliothèque — chaque format n'en voit qu'un */
 .et-demarre { display: inline-flex; align-items: center; gap: 7px; flex: 0 1 auto; height: 30px; padding: 0 11px;
   border-radius: 999px; background: var(--accent-soft); color: var(--ink-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .et-demarre [hidden] { display: none !important; }
-/* « Le moteur de calcul démarre » ne se coupe jamais ; dans la barre du haut (PC, tablette), déjà pleine, la suite
-   (« · aperçu en lecture seule ») n'est que dans le titre du bandeau (au survol) — au téléphone, la phrase entière */
-.et-demarre { flex: none; }
-.top .et-demarre-t2 { display: none; }
+/* OÙ il se voit (js/commun.js, data-zone) : au PC et à la tablette, sur sa RANGÉE pleine largeur sous la barre du haut
+   (« rangee ») — dans la barre, déjà pleine à toutes les largeurs, il effaçait le nom de la note (revue S4,
+   ecrans-bandeau-barre-tablette) ; au téléphone, dans les onglets ou sous l'en-tête (« onglets », « entete »). Chaque format
+   en voit UN. Tant qu'il est là, l'établi (ou la bibliothèque) garde la hauteur de l'écran : sa toile et ses cadres
+   prennent ce qui reste. */
+.et-demarre[data-zone="rangee"] { display: none; }
+@media (min-width: 701px) {
+  .et-demarre[data-zone="rangee"] { display: flex; flex: none; align-self: stretch; margin: 8px 16px 0; border-radius: 10px; }
+  .et-demarre[data-zone="rangee"] .et-demarre-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; }
+  .main:has(> .et-demarre[data-zone="rangee"]) { height: 100vh; }
+  .main:has(> .et-demarre[data-zone="rangee"]) > .bench, .main:has(> .et-demarre[data-zone="rangee"]) > .bib { flex: 1 1 0; height: auto; min-height: 0; }
+}
+@media (min-width: 701px) and (max-width: 1100px) { .et-demarre[data-zone="rangee"] { margin: 8px 12px 0; } }
 .et-demarre-t2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 /* au téléphone, la phrase entière : la suite passe à la ligne plutôt que d'être coupée */
 .mtabs .et-demarre-txt, .mhead + .et-demarre .et-demarre-txt { display: flex; flex-wrap: wrap; min-width: 0; flex: 1 1 auto; }
@@ -213,11 +222,16 @@ label.fichier { width: max-content; }
 .et-demarre[data-etat="erreur"] .et-demarre-ic { display: none; }
 .et-demarre-recharger { flex: none; }
 .mhead + .et-demarre { display: none; }
+@media (min-width: 701px) and (max-width: 1199px) { .et-demarre[data-etat="erreur"] .et-demarre-recharger { min-height: 44px; padding: 0 14px; } }
 @media (max-width: 700px) {
   .mtabs .et-demarre { display: flex; height: auto; min-height: 32px; margin: 0 0 8px; border-radius: 8px; font-size: 13px; }
   .mhead + .et-demarre { display: flex; position: sticky; top: 56px; z-index: 5; height: auto; min-height: 34px; margin: 0; border-radius: 0; font-size: 13px; }
   .et-demarre-recharger { min-height: 44px; }
 }
+/* l'APERÇU d'un calcul neuf le dit, en tête du résultat — un composant des trois formats (js/etabli.js, peindreApercu) ;
+   la première vraie réponse refait le résultat et l'efface. Une note rouverte n'est jamais un aperçu (C11) */
+.et-apercu-mention { margin: 0; padding: 8px 14px; font-size: 12.5px; font-weight: 600; line-height: 1.4; color: var(--ink-2);
+  background: var(--accent-soft); border-bottom: 1px solid var(--line); }
 /* une note ROUVERTE pendant le démarrage (C11) : son dernier enregistrement, NEUTRE (aucune pastille de niveau : c'est
    un cache, peut-être d'un moteur plus ancien), la liste en squelette — jamais les valeurs par défaut */
 .et-rouverte { padding: 16px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); font-size: 13px; }
@@ -244,6 +258,11 @@ label.fichier { width: max-content; }
 @keyframes app-attente { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @media (prefers-reduced-motion: reduce) { .app-attente::before { animation: none; width: 100%; opacity: .55; } }
 @media print { .app-attente { display: none !important; } }
+
+/* la page d'un module ABSORBÉ (predalle.html, construire.page_redirection) : son repli sans script, un court texte et son
+   lien, lisibles au milieu de l'écran (aux trois formats) */
+.redirection { max-width: 560px; margin: 24px auto; padding: 16px; font-size: 15px; line-height: 1.6; color: var(--ink-2); }
+.redirection a { color: var(--accent); font-weight: 600; }
 
 /* ---------------------------------------------------------------- l'accueil */
 .page.accueil { grid-template-columns: minmax(0, 1fr) 320px; }
@@ -331,6 +350,9 @@ label.fichier { width: max-content; }
 .accueil .rcard .ou { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .accueil .rcard .m .chip { margin-left: auto; height: 18px; font-size: 10.5px; min-width: 0; padding: 0 6px; }
 .accueil .rcard .supp { margin-left: 4px; color: var(--ink-4); display: grid; }
+/* la carte d'une note dont la dernière saisie s'enregistre encore (C1, revue S4 etat-01) : NEUTRE — ni l'ancien taux ni
+   sa pastille de niveau, la vignette de l'état d'avant estompée ; l'accueil la redessine quand l'enregistrement est fait */
+.accueil .et-enr-cours .thumb { opacity: .45; }
 .accueil .rcard .supp:hover { color: var(--nok); }
 .vide { padding: 22px; border: 1px dashed var(--line-strong); border-radius: var(--r-lg); color: var(--ink-3); text-align: center; grid-column: 1 / -1; }
 .vide b { color: var(--ink-2); display: block; margin-bottom: 4px; }
@@ -516,6 +538,12 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   /* l'enregistrement en court : « ✓ 17:08 » (le mot « Enregistré » au survol) ; un échec s'écrit toujours en entier */
   .et-enr-mot:not(:empty) { display: none; }
 }
+/* la tablette en portrait étroit (768 px, l'iPad mini) : la barre resserrée — le nom de la note s'y lit en entier pour chaque
+   module (« Assemblages métalliques » y était coupé à 144 px, même écran prêt ; filtre demarrage:lecture) */
+@media (min-width: 701px) and (max-width: 800px) {
+  .top { gap: 4px; padding: 0 8px 0 10px; }
+  .top .crumbs { gap: 3px; }
+}
 @media (min-width: 701px) and (max-width: 1199px) {
   /* portrait : la toile en haut, sur toute la largeur ; les données et le résultat côte à côte dessous */
   .bench { --g: 10px; display: grid; gap: var(--g); padding: var(--g); grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -627,7 +655,9 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mbar .btn { height: 46px; gap: 8px; }
   .mbar .btn[aria-disabled="true"] { opacity: .55; }
   .toast { bottom: calc(80px + env(safe-area-inset-bottom)); max-width: calc(100vw - 24px); }
-  .et-alerte { top: 118px; flex-wrap: wrap; padding: 10px; }
+  /* sous le bas RÉEL des onglets (js/etabli.js le lit : --mtabs-bas) — le bandeau du démarrage les agrandit, et l'ancien
+     « top: 118px » recouvrait alors Données · Dessin · Résultat (revue S4, ecrans-alerte-couvre-onglets) */
+  .et-alerte { top: calc(var(--mtabs-bas, 115px) + 3px); flex-wrap: wrap; padding: 10px; }
   .et-alerte-txt { flex: 1 1 calc(100% - 80px); }
   .et-alerte .btn { height: 44px; }
   .et-alerte .et-alerte-stab, .et-alerte .et-alerte-importer { flex: 1 1 auto; justify-content: center; }
