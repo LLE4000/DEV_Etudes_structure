@@ -221,7 +221,17 @@ converti en silence.
   (`CORNIERE_MOTEUR.md` § 11). Regelé une troisième fois le même jour, après la relecture de la mécanique (`--geler
   --accepter="Textes du moteur à la virgule, pas d'arrachement vers le bord en B" corniere`, commit distinct) : les
   TEXTES du moteur changent (« 236,7 N/mm² » au lieu de « 236.7 »), la ligne d'information « Arrachement » disparaît
-  des états B et l'hypothèse de B le dit ; aucun taux, aucun effort ne bouge (`CORNIERE_MOTEUR.md` § 13).*
+  des états B et l'hypothèse de B le dit ; aucun taux, aucun effort ne bouge (`CORNIERE_MOTEUR.md` § 13).
+  Regelé une quatrième fois par la révision § 9 (`--geler --accepter="Révision § 9 : jeux par défaut 10/5, état limite
+  ELS/ELU, ancrages, support" corniere`, commit distinct du module de l'écran) : les CALCULS changent cette fois — les
+  jeux par défaut passent à dx = 10, dy = 5 (§ 9.4 : la cornière neuve rend 84,2 % au lieu de 95,8 %, « charge à X + 10,
+  ancrage à Y + 5 »), l'état porte les nouvelles clés (`etat_limite`, `entraxe`, `type_ancrage`, `profondeur`,
+  `rondelles`, `support`, `support_haut`, `support_bas`), l'écran gagne les segments de l'état limite, du type, des
+  rondelles et du support, le volet « Détails », les positions e₁ · s · z, et cinq cas de plus (ELU R = 60 kN ; A sur
+  poutre 160/120 ; B sur poutre ; entraxe 80 avec boulons traversants et deux rondelles ; entraxe 30 refusé) — dix-huit
+  cas ; le cas « chargée près de 100 % » passe de R = 36 kN (98,5 % avec les jeux 20/10) à R = 40 kN (96,2 % avec 10/5),
+  la photo le note (« cas retiré », un cas neuf à sa place). Le cas de contrôle du classeur (dx = dy = 0) ne bouge pas :
+  88,86 % (`CORNIERE_MOTEUR.md` § 11, révision § 9).*
 - `tests/test_corniere_moteur.py` est RÉÉCRIT : le cas de contrôle (M1…M4, 88,8621 %, ancrages) à 1e-9 ; les 93 formules
   de `P8` (annexe A de l'analyse) recalculées telles qu'elles sont écrites sur ≥ 200 saisies tirées au sort (dx, dy,
   jeu_ancrage, L, X, Y, R, R_ELU, e, r, f_y, coef) face au mode historique — avec dx = dy = 0 d'abord (une seule

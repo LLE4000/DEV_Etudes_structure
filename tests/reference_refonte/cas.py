@@ -133,7 +133,8 @@ cas("corniere", "mode équilibre", REF, [neuf(), mod("mode", "equilibre")])
 cas("corniere", "configuration B (aile horizontale en haut : section nette, pression sur le support)", REF, [neuf(), mod("configuration", "B")],
     {"niveau": "r"})
 cas("corniere", "ailes inégales L 150×100×12, 150 à l'horizontale (Y = 65)", REF, [neuf(), mod("Y", "65"), mod("profil", "L 150×100×12")])
-cas("corniere", "chargée près de 100 % (R = 36 kN)", REF, [neuf(), mod("R", "36")], {"taux": [95, 100]})
+# (R = 36 kN avant la révision § 9 : les jeux par défaut 20/10 donnaient 98,5 % ; avec 10/5 il faut 40 kN pour 96,2 %)
+cas("corniere", "chargée près de 100 % (R = 40 kN)", REF, [neuf(), mod("R", "40")], {"taux": [95, 100]})
 cas("corniere", "charge dans l'angle refusée (X = 10)", LIM, [neuf(), mod("X", "10")], {"message": True})
 cas("corniere", "cornière trop petite pour la charge refusée (L 45×45×4,5)", LIM, [neuf(), mod("profil", "L 45×45×4,5")], {"message": True})
 cas("corniere", "largeur d'appui a = 100 mm (L_eff)", LIM, [neuf(), mod("a", "100")])
@@ -143,6 +144,16 @@ cas("corniere", "ancrage bas (Y = 40, sans jeu) : la garde rougit", LIM, [neuf()
 cas("corniere", "note v1 (modèle lame) rouverte : l'avis d'ouverture", LIM, [calc(COR.NOTE_V1)], {"avis": "modèle lame"})
 cas("corniere", "cornière ajoutée, la première supprimée", LIM, [neuf(), act("ajouter"), mod("R", "20"), act("ajouter"), act("supprimer", index=0)],
     {"elements": 2})
+# la révision § 9 (10/11 soir) : l'état limite ELU (R saisie à l'ELU, f_y/γ_M0, coef et R_ELU sans effet), le support poutre
+# (ses deux étendues, les distances aux bords en information), l'entraxe et le type d'ancrage, un entraxe refusé
+cas("corniere", "ELU : R = 60 kN saisie à l'ELU (f_y/γ_M0 = 355, coef et R_ELU sans effet)", REF, [neuf(), mod("etat_limite", "ELU"), mod("R", "60")],
+    {"taux": [95, 100]})
+cas("corniere", "A sur poutre, 160 mm au-dessus et 120 au-dessous (bords de la poutre en information)", REF,
+    [neuf(), mod("support", "poutre"), mod("support_haut", "160"), mod("support_bas", "120")])
+cas("corniere", "B sur poutre (150/150 : le contact du bout libre sur la poutre)", LIM, [neuf(), mod("configuration", "B"), mod("support", "poutre")], {"niveau": "r"})
+cas("corniere", "entraxe 80 mm, boulons traversants, deux rondelles, profondeur 200", LIM,
+    [neuf(), mod("entraxe", "80"), mod("type_ancrage", "traversant"), mod("rondelles", "2"), mod("profondeur", "200")])
+cas("corniere", "entraxe 30 mm refusé (s < 2,2·d0, EN 1993-1-8 Tableau 3.3)", LIM, [neuf(), mod("entraxe", "30")], {"message": True})
 
 # ====================================================================== bois
 cas("bois", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
