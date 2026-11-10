@@ -501,7 +501,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -517,6 +517,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -535,15 +536,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
@@ -1206,7 +1207,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -1222,6 +1223,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -1240,15 +1242,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 2 2,010 2,359 2,566 2,897 3 3,207 4 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 0 (aile horizontale) et de l'ancrage Y ± 0 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,010 2,359 2,566 2,897 3 3,207 3,207 4 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,0 26,3 3 4 50 77,4 90,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,0 26,3 3 4 4 50 77,4 90,2"
      },
      {
       "cle": "elevation",
@@ -1754,7 +1756,7 @@
      "mode": "equilibre",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -1770,6 +1772,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -1788,15 +1791,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
       "nombres": "0 0 1 1,869 1,995 2 2,260 2,450 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 74,5 76,2"
+      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 74,5 76,2"
      },
      {
       "cle": "elevation",
@@ -2321,7 +2324,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -2337,6 +2340,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -2355,15 +2359,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M < 0 (face du congé comprimée), constant de l'ancrage à l'angle (M angle)",
-      "nombres": "0 0 1 1,995 2 2,450 2,712 2,712 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M < 0 (face du congé comprimée), constant de l'ancrage à l'angle (M angle)",
+      "nombres": "0 0 1 1,995 2 2,450 2,712 2,712 2,712 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 105,2 2 26,3 28,0 3 4 50 76,2"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 105,2 118,3 2 2 236,7 248,5 26,3 28,0 3 4 4 50 76,2"
      },
      {
       "cle": "elevation",
@@ -2858,7 +2862,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 150×100×12",
+     "profil": "L 150x100x12",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -2874,6 +2878,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -2892,15 +2897,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 2 2,135 2,138 2,555 2,696 2,975 3 4 5 65 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,135 2,138 2,555 2,696 2,975 2,975 3 4 5 65 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 126,7 127,8 2 22,5 22,8 3 4 50"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 126,7 127,8 2 2 22,5 22,8 236,7 248,5 3 4 4 50"
      },
      {
       "cle": "elevation",
@@ -3397,7 +3402,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -3413,6 +3418,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -3431,15 +3437,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 2 2,280 2,555 2,800 3 3,091 3,400 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,280 2,555 2,800 3 3,091 3,400 3,400 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 87,1 97,4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 87,1 97,4"
      },
      {
       "cle": "elevation",
@@ -3936,7 +3942,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -3952,6 +3958,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -3970,15 +3977,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
@@ -4475,7 +4482,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -4491,6 +4498,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -4509,15 +4517,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
@@ -5027,7 +5035,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -5043,6 +5051,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -5061,15 +5070,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 106,9 2 26,3 26,5 3 4 50 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 106,9 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 85,2"
      },
      {
       "cle": "elevation",
@@ -5607,15 +5616,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 2 2,450 2,450 2,705 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,450 2,450 2,705 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 101,7 105 15,0 15,0 2 3 4 50 92,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 101,7 105 118,3 15,0 15,0 2 2 236,7 248,5 3 4 4 50 92,2"
      },
      {
       "cle": "elevation",
@@ -6037,7 +6046,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -6053,6 +6062,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -6071,15 +6081,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 0,969 1 1,645 2 2,019 2,100 2,625 3 4 40 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 0 (aile horizontale) et de l'ancrage Y ± 0 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 0,969 1 1,645 2 2,019 2,100 2,625 2,625 3 4 40 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 22,6 26,0 3 4 45,7 50 63,4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 22,6 236,7 248,5 26,0 3 4 4 45,7 50 63,4"
      },
      {
       "cle": "elevation",
@@ -6576,7 +6586,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "Cornière de rive",
-     "profil": "L 100×100×10",
+     "profil": "L 100x100x10",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -6592,6 +6602,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -6610,15 +6621,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,715 1,881 2 2,135 2,308 2,485 3 4 4 71 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 8,5 (aile horizontale) et de l'ancrage Y ± 4 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,715 1,881 2 2,135 2,308 2,485 2,485 3 4 4 71 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 147,0 160,9 2 20,8 20,9 3 4 50"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 147,0 160,9 2 2 20,8 20,9 236,7 248,5 3 4 4 50"
      },
      {
       "cle": "elevation",
@@ -7115,7 +7126,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C3",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -7131,6 +7142,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -7149,15 +7161,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
@@ -7888,7 +7900,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -7904,6 +7916,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -7922,15 +7935,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 2 3 3,420 3,833 4 4,200 4,636 5 5,100 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 3 3,420 3,833 4 4,200 4,636 5 5,100 5,100 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · taux σéq / fy/γM0 = 355,0 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 87,1 97,4 fy/γM0"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · σéq par maille, enveloppe des positions, limite fy/γM0 = 355,0 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 177,5 2 2 26,3 26,5 3 355,0 372,8 4 4 50 87,1 97,4 fy/γM0"
      },
      {
       "cle": "elevation",
@@ -8431,7 +8444,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -8449,6 +8462,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -8467,15 +8481,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
@@ -9006,7 +9020,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -9024,6 +9038,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -9042,15 +9057,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M < 0 (face du congé comprimée), constant de l'ancrage à l'angle (M angle)",
-      "nombres": "0 0 1 1,995 2 2,450 2,712 2,712 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M < 0 (face du congé comprimée), constant de l'ancrage à l'angle (M angle)",
+      "nombres": "0 0 1 1,995 2 2,450 2,712 2,712 2,712 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 105,2 2 26,3 28,0 3 4 50 76,2"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 105,2 118,3 2 2 236,7 248,5 26,3 28,0 3 4 4 50 76,2"
      },
      {
       "cle": "elevation",
@@ -9545,7 +9560,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "200",
      "rondelles": "2",
      "standard": "catalogue",
@@ -9561,6 +9576,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -9579,15 +9595,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
@@ -10084,7 +10100,7 @@
      "mode": "historique",
      "n": "3",
      "nom": "C1",
-     "profil": "L 120×120×15",
+     "profil": "L 120x120x15",
      "profondeur": "100",
      "rondelles": "1",
      "standard": "catalogue",
@@ -10100,6 +10116,7 @@
      "etat_limite": "2 · f132a49ef24b",
      "fy": "4 · 608284ecb74d",
      "mode": "2 · 17be74b2ebbc",
+     "profil": "233 · 7d98bccbcc46",
      "rondelles": "3 · de02690f7bea",
      "standard": "2 · 23ae27622030",
      "support": "2 · da183db1a259",
@@ -10118,15 +10135,15 @@
       "cle": "moments",
       "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
-      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge X ± 10 (aile horizontale) et de l'ancrage Y ± 5 (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
-      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
+      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
