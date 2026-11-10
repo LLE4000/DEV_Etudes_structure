@@ -8,9 +8,10 @@
 import { cablerBibliotheque } from "./biblio.js";
 import { toast } from "./commun.js";
 
-// module : la clé du module ; note() : la note ouverte ; moteur : le travailleur ; envoyer(action, extra) : la requête
-// qui met la note à jour (js/etabli.js) ; avant() : ce que l'hôte referme d'abord (volets, menu du téléphone)
-export function cablerPanneauBibliotheque({ module, note, moteur, envoyer, avant = () => {} }) {
+// module : la clé du module ; note() : la note ouverte ; moteur : le CLIENT du moteur de l'écran (js/moteur.js : ses
+// lectures sont abandonnées à la fermeture) ; envoyer(action, extra) : la requête qui met la note à jour (js/etabli.js) ;
+// avant() : ce que l'hôte referme d'abord (volets, menu du téléphone) ; signal : l'AbortSignal du montage de l'écran
+export function cablerPanneauBibliotheque({ module, note, moteur, envoyer, avant = () => {}, signal = null }) {
   const panneau = document.getElementById("et-bibliotheque");
   if (!panneau) return { ouvrir() {}, fermer() {}, ouvert: () => false };
   let bib = null, retour = null;
@@ -35,7 +36,7 @@ export function cablerPanneauBibliotheque({ module, note, moteur, envoyer, avant
     document.documentElement.classList.add("volet-ouvert");
     if (!bib) {
       bib = cablerBibliotheque({
-        racine: panneau, apres,
+        racine: panneau, apres, signal,
         demander: (rubrique, params) => moteur.demander(() => ({ module, action: "bibliotheque", etat: note().etat, rubrique, params })),
       });
     }
@@ -61,6 +62,7 @@ export function cablerPanneauBibliotheque({ module, note, moteur, envoyer, avant
       const c = (r.cibles || [])[0];
       if (!c || c.possible === false) return;
       const rep = await envoyer("modifier", { chemin: c.chemin, valeur: c.valeur });
+      if (signal && signal.aborted) return;   // l'écran s'est fermé pendant le calcul : rien ne s'écrit dans le suivant
       if (rep && !rep.message) toast(`${c.texte} écrit dans ${c.libelle}`);
       // la note a changé : la bibliothèque se relit depuis la note (la case allumée suit)
       bib.oublier();
@@ -71,14 +73,15 @@ export function cablerPanneauBibliotheque({ module, note, moteur, envoyer, avant
     if (inc && r.fiche) {
       const fiche = { ...r.fiche, sorte: inc.dataset.inclure, rubrique: r.rubrique, bibliotheque: r.bibliotheque };
       const rep = await envoyer("fiches", { quoi: "ajouter", fiche });
+      if (signal && signal.aborted) return;
       if (rep && !rep.message) toast(`« ${fiche.titre} » inclus dans la note (Justifications)`);
     }
-  });
+  }, { signal });
   // Échap referme le panneau — après « Pourquoi ? », que js/biblio.js referme d'abord
   panneau.addEventListener("keydown", (ev) => {
     if (ev.key !== "Escape" || (bib && bib.pourquoiOuvert())) return;
     ev.stopPropagation();
     fermer();
-  });
+  }, { signal });
   return { ouvrir, fermer, ouvert: () => !panneau.hidden };
 }

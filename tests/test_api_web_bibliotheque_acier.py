@@ -356,11 +356,16 @@ js = "".join(open(os.path.join(RACINE, "site", "web", "js", f), encoding="utf-8"
 ids = sorted(set(re.findall(r'\$\("#([\w-]+)', js)) | set(re.findall(r'getElementById\("([\w-]+)"', js)))
 chk(f"bibliotheque-acier.html : les {len(ids)} identifiants que js/bibliotheque.js et js/biblio.js cherchent existent, une fois chacun",
     all(page.count(f'id="{i}"') == 1 for i in ids), [i for i in ids if page.count(f'id="{i}"') != 1])
-chk("la page porte le menu des trois rubriques (RUBRIQUES, une source), data-bibliotheque, la feuille et le script",
-    B.menu() in page and 'data-bibliotheque="acier"' in page and 'href="css/bibliotheque.css"' in page and 'src="js/bibliotheque.js"' in page and "etabli.js" not in page)
+# (S4 : le seul script de module de la page est js/app.js, qui monte js/bibliotheque.js — body data-page="bibliotheque" ;
+# le fichier construit porte la VERSION du site, recalculée ici comme le fait test_site_web)
+chk("la page porte le menu des trois rubriques (RUBRIQUES, une source), data-bibliotheque, la feuille et le script (js/app.js)",
+    B.menu() in page and 'data-bibliotheque="acier"' in page and 'data-page="bibliotheque"' in page and 'href="css/bibliotheque.css"' in page
+    and 'src="js/app.js"' in page and "bibliotheque.js" not in page and "etabli.js" not in page
+    and 'import { ouvrirBibliotheque } from "./bibliotheque.js";' in open(os.path.join(RACINE, "site", "web", "js", "app.js"), encoding="utf-8").read())
 chk("le générateur écrit la page et le fichier construit est le sien",
     SW.PAGES_BIBLIOTHEQUES.get("acier") == "bibliotheque-acier.html"
-    and open(os.path.join(RACINE, "site", "web", "bibliotheque-acier.html"), encoding="utf-8").read() == page)
+    and open(os.path.join(RACINE, "site", "web", "bibliotheque-acier.html"), encoding="utf-8").read()
+    == SW.poser_version(page, SW.version_site(os.path.join(RACINE, "site", "web"))))
 bjs = open(os.path.join(RACINE, "site", "web", "js", "biblio.js"), encoding="utf-8").read()
 chk("js/biblio.js : une ligne (tr[data-sel]), un en-tête (th[data-sel]), un bouton de la bande règlent ; une pastille règle le paramètre "
     "du bloc qui la contient ; un menu « data-garde » ouvert le reste ; le tableau garde son défilement dans la même rubrique",

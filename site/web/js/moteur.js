@@ -3,7 +3,10 @@
 // partagent : moteurPartage() rend LE moteur du document, créé à la première demande.
 //
 // Les requêtes partent UNE à la fois, dans l'ordre : chaque requête est construite (fabrique()) AU MOMENT où son tour
-// arrive, avec l'état laissé par la précédente — deux saisies rapides ne s'écrasent pas.
+// arrive, avec l'état laissé par la précédente — deux saisies rapides ne s'écrasent pas. Une seule exception : la
+// requête en vol d'un client FERMÉ (la modification gardée d'un écran quitté, C1) ne retient pas celles des autres
+// clients — elle ne s'applique plus qu'à sa note, rien ne dépend de sa réponse ; elles partent derrière elle (le
+// travailleur les traite dans l'ordre, par sa chaîne) et l'écran suivant n'attend pas sa réponse.
 //
 // Chaque écran parle au moteur par un CLIENT (moteur.client()) : il sait dire ce qu'il a en cours (enCours), et sa
 // fermeture (fermer(), synchrone) refuse toute nouvelle demande (EcranFerme), retire de la file ses LECTURES pas encore
@@ -40,7 +43,7 @@ export class Moteur {
     if (typeof surEtape === "function") this._abonnes.add(surEtape);
     this.n = 0;
     this.file = [];          // les requêtes pas encore parties : {client, fabrique, note, modifie, resoudre, rejeter}
-    this.enVol = null;       // la requête partie, sans réponse encore
+    this.envols = new Map(); // les requêtes parties, sans réponse encore (id → requête) : une seule, sauf celles d'un client fermé
     this.attente = null;     // le préchauffage pas encore parti (une place)
     this._pompe = false;     // un tour de file est déjà prévu
     this._sondeModules = []; // SONDE : les lectures de sys.modules demandées, dans l'ordre
@@ -78,13 +81,13 @@ export class Moteur {
       this.etat = "erreur";
       this._ko(new Error(data.texte));
     } else if (data.type === "reponse") {
-      const r = this.enVol;
-      if (!r || r.id !== data.id) return;
+      const r = this.envols.get(data.id);
+      if (!r) return;
       // une réponse illisible devient un refus lisible : levée ici, elle laissait la requête sans réponse, et la
       // file — donc tout calcul suivant — bloquée pour de bon (« Calcul… » sans fin)
       let rep;
       try { rep = JSON.parse(data.json); } catch (e) { rep = { ok: false, erreur: `réponse illisible du moteur (${e.message})` }; }
-      this.enVol = null;
+      this.envols.delete(data.id);
       this._finir(r, rep);
       this._prevoir(true);
     } else if (data.type === "mort") {
@@ -124,8 +127,8 @@ export class Moteur {
   }
 
   _toutRendre(rep) {
-    const tout = (this.enVol ? [this.enVol] : []).concat(this.file);
-    this.enVol = null;
+    const tout = [...this.envols.values()].concat(this.file);
+    this.envols.clear();
     this.file = [];
     for (const r of tout) this._finir(r, { ...rep });
     for (const f of this._sondeModules.splice(0)) f({ type: "sonde_modules", erreur: rep.erreur });
@@ -151,10 +154,19 @@ export class Moteur {
     if (apresReponse) setTimeout(f, 0); else queueMicrotask(f);
   }
 
+  // une requête en vol retient celle-ci : toute requête d'un client ouvert, et celles de son propre client
+  _retenue(r) {
+    for (const v of this.envols.values()) if (!v.client.ferme || v.client === r.client) return true;
+    return false;
+  }
+
+  // (la file garde son ordre : une requête retenue d'un client OUVERT retient tout ce qui la suit ; celle d'un client
+  //  fermé — sa seconde modification gardée, qui attend la première — est passée, les suivantes peuvent partir)
   _pomper() {
-    if (this.enVol || this.etat === "mort" || (this.etat === "erreur" && !this.w)) return;
-    while (this.file.length) {
-      const r = this.file.shift();
+    if (this.etat === "mort" || (this.etat === "erreur" && !this.w)) return;
+    for (let i = 0; i < this.file.length;) {
+      if (this._retenue(this.file[i])) { if (this.file[i].client.ferme) { i++; continue; } return; }
+      const r = this.file.splice(i, 1)[0];
       let requete;
       try {
         const q = typeof r.fabrique === "function" ? r.fabrique() : r.fabrique;
@@ -167,12 +179,11 @@ export class Moteur {
         continue;
       }
       r.id = ++this.n;
-      this.enVol = r;
+      this.envols.set(r.id, r);
       this.w.postMessage({ id: r.id, requete, note: !!r.note });
-      return;
     }
     // rien n'attend ni ne court : le préchauffage peut partir
-    if (this.attente && this.w) {
+    if (this.attente && this.w && !this.envols.size && !this.file.length) {
       const cle = this.attente;
       this.attente = null;
       this.prechauffes.add(cle);
@@ -251,6 +262,8 @@ class Client {
     if (!this.ferme) {
       this.ferme = true;
       this.moteur._retirer(this);
+      // sa requête en vol ne retient plus celles des autres clients
+      this.moteur._prevoir();
     }
     if (!this._n) return Promise.resolve();
     return new Promise((ok) => this._vides.push(ok));

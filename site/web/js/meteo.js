@@ -77,23 +77,34 @@ async function lireCorps(rep) {
 }
 
 // Un appel : la réponse JSON, ou un refus en français. Un « trop de demandes » (429) est réessayé une fois, comme l'écran.
+// ANNULÉE (l'écran qui l'a demandée se ferme, js/etabli.js) : le signal extérieur coupe l'appel en cours et l'attente
+// d'après un 429 ; elle rend { ok: false, annule: true } — jamais le message du délai, que l'annulation n'est pas.
+const ANNULE = Object.freeze({ ok: false, annule: true, erreur: "récupération de la météo annulée" });
 async function appeler(source, parametres, o) {
   let url;
   try { url = adresse(source, parametres); } catch (e) { return { ok: false, erreur: `${MESSAGES.plan} (${e.message})` }; }
   for (let essai = 0; essai < 2; essai++) {
+    if (o.signal && o.signal.aborted) return ANNULE;
     const ctl = new AbortController();
     const minuterie = setTimeout(() => ctl.abort(), o.delai);
+    const couper = () => ctl.abort();
+    if (o.signal) o.signal.addEventListener("abort", couper, { once: true });
     let rep, json = null, lu = false, texte = "";
     try {
       rep = await o.fetch(url, { signal: ctl.signal, credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer" });
       texte = await lireCorps(rep);
       if (texte !== null) { try { json = JSON.parse(texte); lu = true; } catch (e) { /* illisible : dit plus bas */ } }
     } catch (e) {
+      if (o.signal && o.signal.aborted) return ANNULE;
       return { ok: false, erreur: e && e.name === "AbortError" ? MESSAGES.delai : MESSAGES.reseau };
-    } finally { clearTimeout(minuterie); }
+    } finally {
+      clearTimeout(minuterie);
+      if (o.signal) o.signal.removeEventListener("abort", couper);
+    }
+    if (o.signal && o.signal.aborted) return ANNULE;
     if (texte === null) return { ok: false, erreur: MESSAGES.volumineuse };
     if (rep.status === 429) {
-      if (essai === 0) { await o.attendre(ATTENTE_429_MS); continue; }
+      if (essai === 0) { await o.attendre(ATTENTE_429_MS, o.signal); if (o.signal && o.signal.aborted) return ANNULE; continue; }
       return { ok: false, erreur: MESSAGES.sature };
     }
     if (!rep.ok) return { ok: false, erreur: MESSAGES.panne(rep.status, json && typeof json.reason === "string" ? json.reason.slice(0, 200) : "") };
@@ -106,12 +117,20 @@ async function appeler(source, parametres, o) {
 // La récupération d'un plan : le géocodage du lieu (sauf si le plan donne la position), puis chaque appel, dans l'ordre.
 // Rend { ok: true, valeur: { lieu, plan, geocodage, reponses } } — à envoyer TEL QUEL au module — ou { ok: false, erreur }.
 // Un lieu que le géocodage ne trouve pas part quand même au module (sans réponses) : c'est lui qui le dit.
+// ``signal`` (un AbortSignal : la fermeture de l'écran) annule tout : { ok: false, annule: true }, sans autre appel.
+const attendreAnnulable = (ms, signal) => new Promise((ok) => {
+  const m = setTimeout(fin, ms);
+  function fin() { clearTimeout(m); if (signal) signal.removeEventListener("abort", fin); ok(); }
+  if (signal) signal.addEventListener("abort", fin, { once: true });
+});
 export async function recupererMeteo(plan, options = {}) {
   const o = {
     fetch: options.fetch || ((u, init) => globalThis.fetch(u, init)),
-    attendre: options.attendre || ((ms) => new Promise((ok) => setTimeout(ok, ms))),
+    attendre: options.attendre || attendreAnnulable,
     delai: options.delai || DELAI_MS,
+    signal: options.signal || null,
   };
+  if (o.signal && o.signal.aborted) return ANNULE;
   try {
     if (!plan || typeof plan !== "object" || Array.isArray(plan)) return { ok: false, erreur: MESSAGES.plan };
     if (typeof plan.erreur === "string") return { ok: false, erreur: plan.erreur };

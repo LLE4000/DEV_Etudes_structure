@@ -190,21 +190,47 @@ label.fichier { width: max-content; }
    entière (« RHS 50×25×2,… » cachait l'épaisseur des lisses d'un garde-corps, au PC) */
 .el .l1 { flex-wrap: wrap; row-gap: 3px; }
 
-/* ---------------------------------------------------------------- le démarrage du moteur */
-.demarrage { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 82%, transparent);
-  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
-.demarrage[hidden] { display: none; }
-.demarrage .carte { width: 360px; background: var(--panel); border: 1px solid var(--frame); border-radius: 16px; box-shadow: var(--shadow-pop);
-  padding: 22px 22px 18px; display: flex; flex-direction: column; gap: 8px; }
-.demarrage .logo { width: 34px; height: 34px; margin-bottom: 4px; }
-.demarrage b { font-size: 14px; }
-.demarrage span { color: var(--ink-2); font-size: 12.5px; }
-.demarrage small { color: var(--ink-3); font-size: 11.5px; }
-.demarrage .barre { height: 4px; border-radius: 4px; background: var(--bg-sunken); overflow: hidden; margin: 4px 0; }
-.demarrage .barre i { display: block; height: 100%; width: 35%; border-radius: 4px; background: var(--accent); animation: glisse 1.3s ease-in-out infinite; }
-.demarrage.erreur .barre { display: none; }
-.demarrage.erreur span { color: var(--nok); white-space: pre-wrap; }
-@keyframes glisse { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+/* ---------------------------------------------------------------- le démarrage du moteur (lot S4 : plus de voile) */
+/* le bandeau .et-demarre (js/commun.js, bandeauDemarrage) : l'écran est là tout de suite, en lecture seule tant que le
+   moteur n'a pas répondu. Dans la barre du haut au PC et à la tablette ; au téléphone, en tête de .mtabs (collée sous
+   l'en-tête .mtop, visible quel que soit l'onglet) ou sous l'en-tête d'une bibliothèque — chaque format n'en voit qu'un */
+.et-demarre { display: inline-flex; align-items: center; gap: 7px; flex: 0 1 auto; height: 30px; padding: 0 11px;
+  border-radius: 999px; background: var(--accent-soft); color: var(--ink-2); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.et-demarre [hidden] { display: none !important; }
+/* « Le moteur de calcul démarre » ne se coupe jamais ; dans la barre du haut (PC, tablette), déjà pleine, la suite
+   (« · aperçu en lecture seule ») n'est que dans le titre du bandeau (au survol) — au téléphone, la phrase entière */
+.et-demarre { flex: none; }
+.top .et-demarre-t2 { display: none; }
+.et-demarre-t2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* au téléphone, la phrase entière : la suite passe à la ligne plutôt que d'être coupée */
+.mtabs .et-demarre-txt, .mhead + .et-demarre .et-demarre-txt { display: flex; flex-wrap: wrap; min-width: 0; flex: 1 1 auto; }
+.et-demarre-ic { flex: none; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--accent-line); border-top-color: var(--accent);
+  animation: tourne .8s linear infinite; }
+.et-demarre-chrono { flex: none; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.et-demarre[data-etat="erreur"] { background: color-mix(in srgb, var(--nok) 12%, var(--panel)); color: var(--nok); height: auto; min-height: 30px;
+  white-space: normal; border-radius: 10px; padding: 4px 6px 4px 11px; }
+.et-demarre[data-etat="erreur"] .et-demarre-t1 { flex: 0 1 auto; min-width: 0; }
+.et-demarre[data-etat="erreur"] .et-demarre-ic { display: none; }
+.et-demarre-recharger { flex: none; }
+.mhead + .et-demarre { display: none; }
+@media (max-width: 700px) {
+  .mtabs .et-demarre { display: flex; height: auto; min-height: 32px; margin: 0 0 8px; border-radius: 8px; font-size: 13px; }
+  .mhead + .et-demarre { display: flex; position: sticky; top: 56px; z-index: 5; height: auto; min-height: 34px; margin: 0; border-radius: 0; font-size: 13px; }
+  .et-demarre-recharger { min-height: 44px; }
+}
+/* une note ROUVERTE pendant le démarrage (C11) : son dernier enregistrement, NEUTRE (aucune pastille de niveau : c'est
+   un cache, peut-être d'un moteur plus ancien), la liste en squelette — jamais les valeurs par défaut */
+.et-rouverte { padding: 16px; display: flex; flex-direction: column; gap: 6px; color: var(--ink-2); font-size: 13px; }
+.et-rouverte b { color: var(--ink); font-size: 14px; }
+.et-rouverte .et-rv-taux { font-variant-numeric: tabular-nums; font-weight: 600; }
+.et-rouverte small { color: var(--ink-3); font-size: 12px; }
+.et-squelette { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.et-squelette i { display: block; height: 12px; border-radius: 6px; background: var(--bg-sunken); }
+.et-squelette i:nth-child(3n+2) { width: 72%; }
+.et-squelette i:nth-child(3n) { width: 54%; }
+/* la région des annonces de l'application (js/app.js) : lue par les lecteurs d'écran, invisible */
+.sr-only { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0);
+  clip-path: inset(50%); white-space: nowrap; border: 0; }
 .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 50; background: var(--ink); color: var(--panel); padding: 9px 14px;
   border-radius: 10px; font-size: 12.5px; font-weight: 600; box-shadow: var(--shadow-pop); max-width: 560px; }
 .toast.erreur { background: var(--nok); color: #fff; }
@@ -313,7 +339,7 @@ label.fichier { width: max-content; }
 /* ---------------------------------------------------------------- impression : le dessin et le résultat */
 @page { size: A4 landscape; margin: 9mm; }
 @media print {
-  .nav, .modpanel, .top .btn, .top label.btn, .pcoll, .ctool, .panel.left, .demarrage, #volets, .toast, .top .et-enr, .et-alerte { display: none !important; }
+  .nav, .modpanel, .top .btn, .top label.btn, .pcoll, .ctool, .panel.left, .et-demarre, #volets, .toast, .top .et-enr, .et-alerte { display: none !important; }
   body, .main { background: #fff; }
   .app.rail { grid-template-columns: 1fr; }
   .top { height: auto; padding: 0 0 6px; border: 0; }
@@ -598,8 +624,6 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .et-alerte .btn.icon { width: 44px; }
   .et-mem-l { flex-direction: column; align-items: stretch; gap: 8px; }
   .et-mem-l .btn { height: 44px; justify-content: center; }
-  .demarrage { position: fixed; z-index: 35; }
-  .demarrage .carte { width: min(360px, calc(100vw - 32px)); }
   .modpanel { left: 0; width: min(320px, 88vw); z-index: 32; }
   html.volet-ouvert, html.volet-ouvert body { overflow: hidden; }
 
@@ -674,3 +698,6 @@ html.plein-ecran, html.plein-ecran body { overflow: hidden; }
   .mopt { min-height: 46px; }
   .mcard .mf .btn { height: 44px; }
 }
+
+/* le titre de l'écran reçoit le focus après un passage (js/app.js, C10) : un repère pour les lecteurs d'écran, pas un contrôle — sans anneau */
+[data-titre-ecran]:focus { outline: none; }

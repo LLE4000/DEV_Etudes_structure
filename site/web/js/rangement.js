@@ -8,7 +8,8 @@
 import * as N from "./notes.js";
 import { toast } from "./commun.js";
 
-export function cablerRangement({ note, provisoire, apres }) {
+// ``signal`` : l'AbortSignal du montage de l'écran (js/app.js) — ses écouteurs tombent à la fermeture
+export function cablerRangement({ note, provisoire, apres, signal }) {
   const fen = document.getElementById("et-rangement");
   const boutons = [...document.querySelectorAll("[data-ranger]")];
   if (!fen) return { libeller() {} };
@@ -63,12 +64,12 @@ export function cablerRangement({ note, provisoire, apres }) {
   document.addEventListener("click", (ev) => {
     const b = ev.target.closest("[data-ranger]");
     if (b) ouvrir(b);
-  });
+  }, { signal });
   fen.addEventListener("click", (ev) => {
     if (ev.target === fen || ev.target.closest("[data-fermer-rangement]")) fermer();
-  });
-  fen.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); fermer(); } });
-  champs.chantier.addEventListener("input", proposerDossiers);
+  }, { signal });
+  fen.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); fermer(); } }, { signal });
+  champs.chantier.addEventListener("input", proposerDossiers, { signal });
   $("et-rg-form").addEventListener("submit", (ev) => {
     ev.preventDefault();
     const n = note();
@@ -82,7 +83,7 @@ export function cablerRangement({ note, provisoire, apres }) {
     if (!ok) return;
     const ou = [n.chantier, n.dossier].filter(Boolean).join(" › ");
     toast(`${etait ? "Note enregistrée" : "Note classée"}${ou ? ` dans ${ou}` : " (sans chantier)"}`);
-  });
+  }, { signal });
   libeller();
   return { libeller };
 }

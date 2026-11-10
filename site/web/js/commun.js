@@ -1,4 +1,8 @@
-// Ce que toutes les pages partagent : le thème (clair, sombre), le volet des modules, les messages éphémères.
+// Ce que toutes les pages partagent : le thème (clair, sombre), le volet des modules, les messages éphémères, le
+// bandeau du démarrage du moteur et l'état « lecture seule » des contrôles (lot S4), le manifeste du moteur.
+//
+// cablerRail n'est appelé qu'UNE fois, par js/app.js (l'application) : le rail survit aux écrans qui se succèdent ; câblé
+// deux fois, le thème basculait deux fois (donc pas du tout).
 export function cablerRail() {
   const racine = document.documentElement;
   document.addEventListener("click", (ev) => {
@@ -16,7 +20,13 @@ export function cablerRail() {
 }
 
 let minuterie = null;
+// les messages RETENUS pendant la fermeture d'un écran (js/app.js, C1) : le champ qui perd le focus à la fermeture peut
+// dire « Valeur refusée » dans un corps qui va être remplacé ; app.js les retient, puis les rend à l'écran suivant
+let retenus = null;
+export function retenirToasts() { retenus = []; }
+export function lacherToasts() { const r = retenus || []; retenus = null; return r; }
 export function toast(texte, erreur = false) {
+  if (retenus) { retenus.push([texte, !!erreur]); return; }
   const t = document.getElementById("toast");
   if (!t) { if (erreur) alert(texte); return; }
   t.textContent = texte;
@@ -115,4 +125,92 @@ export function garderGrec(racine) {
     n.replaceWith(f);
   }
   return noeuds.length;
+}
+
+// ------------------------------------------------------------------ le manifeste du moteur (moteur/manifeste.json)
+// Lu une fois par document (revalidé : « no-cache ») — la version du site, l'empreinte de chaque aperçu, la version de
+// Pyodide ; ``frais`` le relit (le retour sur l'onglet, js/app.js : une mise en ligne pendant la session se voit).
+let manifeste = null;
+export function lireManifeste(frais = false) {
+  if (frais || !manifeste) {
+    const p = manifeste = fetch(new URL("../moteur/manifeste.json", import.meta.url), { cache: "no-cache" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`manifeste du moteur : ${r.status}`))));
+    p.catch(() => { if (manifeste === p) manifeste = null; });
+  }
+  return manifeste;
+}
+
+// ------------------------------------------------------------------ le démarrage du moteur, visible (lot S4, § 3.4)
+// Plus de voile plein écran : l'écran est là tout de suite, en LECTURE SEULE tant que le moteur n'a pas répondu. Le
+// bandeau .et-demarre (un composant, le même pour les établis et les bibliothèques, R1) dit « Le moteur de calcul
+// démarre », avec un chronomètre (aria-hidden : seul l'état se lit) ; il se pose dans la barre du haut (PC, tablette)
+// ET sous l'en-tête du téléphone (dans .mtabs, collée sous .mtop — visible quel que soit l'onglet — ou sous .mhead
+// d'une bibliothèque) : chaque format voit le sien, une seule fois. En erreur, il passe au rouge avec « Recharger ».
+export const TEXTE_DEMARRAGE = "Le moteur de calcul démarre";
+const ZONES_BANDEAU = [[".top", "afterbegin-spacer"], [".mtabs", "afterbegin"], [".mhead", "afterend"]];
+export function bandeauDemarrage({ texte = TEXTE_DEMARRAGE, signal } = {}) {
+  const noeuds = [];
+  for (const [sel, ou] of ZONES_BANDEAU) {
+    const z = document.querySelector(sel);
+    if (!z) continue;
+    const b = document.createElement("div");
+    b.className = "et-demarre";
+    b.setAttribute("role", "status");
+    b.innerHTML = '<span class="et-demarre-ic" aria-hidden="true"></span>'
+      + '<span class="et-demarre-txt"><span class="et-demarre-t1"></span><span class="et-demarre-t2"></span></span>'
+      + '<span class="et-demarre-chrono" aria-hidden="true"></span>'
+      + '<button type="button" class="btn sm et-demarre-recharger" data-recharger="1" hidden>Recharger</button>';
+    // « Le moteur de calcul démarre » se lit toujours entier ; ce qui suit (« · aperçu en lecture seule ») cède la place
+    const i = texte.indexOf(" · ");
+    b.querySelector(".et-demarre-t1").textContent = i < 0 ? texte : texte.slice(0, i);
+    b.querySelector(".et-demarre-t2").textContent = i < 0 ? "" : `\u00a0${texte.slice(i + 1)}`;
+    b.title = texte;
+    const spacer = ou === "afterbegin-spacer" ? z.querySelector(":scope > .spacer") : null;
+    if (spacer) spacer.after(b);
+    else if (ou === "afterend") z.after(b);
+    else z.prepend(b);
+    noeuds.push(b);
+  }
+  const t0 = performance.now();
+  const chrono = () => { const s = Math.floor((performance.now() - t0) / 1000); noeuds.forEach((b) => { b.querySelector(".et-demarre-chrono").textContent = `${s} s`; }); };
+  chrono();
+  let minuterie = setInterval(chrono, 1000);
+  const arreter = () => { if (minuterie) { clearInterval(minuterie); minuterie = null; } };
+  if (signal) signal.addEventListener("abort", arreter, { once: true });
+  noeuds.forEach((b) => b.querySelector("[data-recharger]").addEventListener("click", () => location.reload(), { signal }));
+  return {
+    // le moteur a répondu : le bandeau s'en va
+    retirer() { arreter(); noeuds.forEach((b) => b.remove()); },
+    // le démarrage a échoué : le bandeau reste, en rouge, avec la raison et « Recharger »
+    erreur(raison) {
+      arreter();
+      noeuds.forEach((b) => {
+        b.dataset.etat = "erreur";
+        b.querySelector(".et-demarre-t1").textContent = raison;
+        b.querySelector(".et-demarre-t2").textContent = "";
+        b.title = raison;
+        b.querySelector(".et-demarre-chrono").textContent = "";
+        b.querySelector("[data-recharger]").hidden = false;
+      });
+    },
+  };
+}
+
+// Les CONTRÔLES d'un écran en lecture seule (inert) : les champs et boutons des zones nommées — pas les panneaux, qui
+// restent lisibles, sélectionnables et défilables (aria-busy) ; ni la navigation (liens, rail, thème). Rend de quoi les
+// rendre : les contrôles ajoutés depuis (une réponse du moteur refait les cadres) sont relus aussi.
+const CONTROLES = ":is(input, select, textarea, button, [data-action]):not([data-theme-toggle]):not([data-modules]):not([data-recharger])";
+export function lectureSeule(zones, panneaux) {
+  const poser = () => {
+    for (const z of zones) document.querySelectorAll(`${z} ${CONTROLES}`).forEach((e) => { if (!e.closest("a[href]")) e.setAttribute("inert", ""); });
+  };
+  poser();
+  panneaux.forEach((s) => document.querySelectorAll(s).forEach((p) => p.setAttribute("aria-busy", "true")));
+  return {
+    reposer: poser,
+    lever() {
+      for (const z of zones) document.querySelectorAll(`${z} [inert]`).forEach((e) => e.removeAttribute("inert"));
+      panneaux.forEach((s) => document.querySelectorAll(s).forEach((p) => p.removeAttribute("aria-busy")));
+    },
+  };
 }

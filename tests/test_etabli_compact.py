@@ -228,12 +228,14 @@ _lus = {a for a in re.findall(r'\s(data-[a-z-]+)=', E.arbre(E.DALLE, TROIS, 0, "
 chk("compact : les attributs data-* rendus sont exactement ceux de la ligne (elements, chemin, sorte, menu, activer, ajouter, "
     "dupliquer-index, supprimer, confirmer) — plus de data-renommer", _lus == ATTRS, _lus ^ ATTRS)
 _js = open(os.path.join(RACINE, "site", "web", "js", "etabli.js"), encoding="utf-8").read()
-_agir = re.search(r"function agirElement\(ev\) \{.*?\n\}", _js, re.S)
+# (lot S4 : l'établi est un écran montable, ses fonctions sont dans ouvrirEtabli — la fin de agirElement est l'accolade
+#  à SA propre indentation ; ses écouteurs portent le signal du montage)
+_agir = re.search(r"\n( *)function agirElement\(ev\) \{.*?\n\1\}", _js, re.S)
 chk("js/etabli.js lit ces attributs-là : agirElement (supprimer + sa confirmation, activer, ajouter, copier) — et la ligne de l'élément "
     "posée dans l'en-tête lui passe ses clics",
     _agir is not None and all(x in _agir.group(0) for x in ('closest("[data-supprimer]")', "dataset.confirmer", 'closest("[data-activer]")',
                                                              'closest("[data-ajouter]")', 'closest("[data-dupliquer-index]")'))
-    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}\)', _js) is not None)
+    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}(, \{ signal \})?\)', _js) is not None)
 
 # ------------------------------------------------------------------ 5. les noms piégés
 PIEGES = ['<img src=x onerror=alert(1)>', 'x" onfocus="alert(1)', "Dalle & 'q'"]

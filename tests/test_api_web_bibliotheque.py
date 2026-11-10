@@ -197,13 +197,24 @@ ids = sorted(set(re.findall(r'\$\("#([\w-]+)', js)) | set(re.findall(r'getElemen
 absents = [i for i in ids if f'id="{i}"' not in page]
 chk(f"js/bibliotheque.js → bibliotheque-beton.html : les {len(ids)} identifiants cherchés existent", not absents, absents)
 chk("la page porte le menu des cinq rubriques (RUBRIQUES, une source) et son corps", B.menu() in page and 'data-bibliotheque="beton"' in page and 'id="bib-corps"' in page)
-chk("la page charge css/bibliotheque.css et js/bibliotheque.js, pas l'établi", 'href="css/bibliotheque.css"' in page and 'src="js/bibliotheque.js"' in page and "etabli.js" not in page)
-chk("la page n'a aucun script ni gestionnaire en ligne", not EN_LIGNE.search(page.replace('<script type="module" src="js/bibliotheque.js"></script>', "").replace('<script src="js/theme.js"></script>', "")))
+# (S4 : la page n'a plus qu'un script de module, js/app.js, qui monte l'écran de js/bibliotheque.js — body
+# data-page="bibliotheque" ; le fichier construit porte la VERSION du site, recalculée ici comme le fait test_site_web ;
+# le démarrage n'est plus une carte #demarrage de la page mais le bandeau partagé de js/commun.js, le même que l'établi)
+_app = open(os.path.join(RACINE, "site", "web", "js", "app.js"), encoding="utf-8").read()
+chk("la page charge css/bibliotheque.css et js/app.js, qui monte js/bibliotheque.js ; ni l'établi ni un second script",
+    'href="css/bibliotheque.css"' in page and 'src="js/app.js"' in page and 'data-page="bibliotheque"' in page
+    and "bibliotheque.js" not in page and "etabli.js" not in page
+    and 'import { ouvrirBibliotheque } from "./bibliotheque.js";' in _app and "bibliotheque: ouvrirBibliotheque" in _app)
+chk("la page n'a aucun script ni gestionnaire en ligne", not EN_LIGNE.search(page.replace('<script type="module" src="js/app.js"></script>', "").replace('<script src="js/theme.js"></script>', "")))
 chk("le générateur écrit la page (PAGES_BIBLIOTHEQUES) et le fichier construit est le sien",
     SW.PAGES_BIBLIOTHEQUES.get("beton") == "bibliotheque-beton.html"
-    and open(os.path.join(RACINE, "site", "web", "bibliotheque-beton.html"), encoding="utf-8").read() == page)
+    and open(os.path.join(RACINE, "site", "web", "bibliotheque-beton.html"), encoding="utf-8").read()
+    == SW.poser_version(page, SW.version_site(os.path.join(RACINE, "site", "web"))))
 chk("aucun lien de la page ne vise une adresse en « .html »", not [h for h in re.findall(r'<a [^>]*href="([^"]+)"', page) if h.endswith(".html")])
-chk("le démarrage du moteur est annoncé (la même carte que l'établi)", 'id="demarrage"' in page and 'id="demarrage-etape"' in page)
+chk("le démarrage du moteur est annoncé (le même bandeau que l'établi, js/commun.js ; « Chargement… » du tableau dans la page, sans carte #demarrage)",
+    'id="demarrage"' not in page and '<div class="bib-tableau" id="bib-tableau"><div class="attente">Chargement…</div></div>' in page
+    and "bandeauDemarrage(" in js and "lectureSeule(" in js and '"#bib-tableau"' in js
+    and "bandeauDemarrage(" in open(os.path.join(RACINE, "site", "web", "js", "etabli.js"), encoding="utf-8").read())
 
 # ============================================================================================ 6. mutations
 print("\n=== 6 · Mutations : la page ne garde aucune copie des moteurs ; l'échappement tient")

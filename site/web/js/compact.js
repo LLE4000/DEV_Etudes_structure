@@ -28,12 +28,18 @@ const reglages = {
 };
 
 // le seuil au-delà duquel un appui sur le dessin est un glisser (on déplace la vue) et non un choix ; plus large au doigt
-const SEUIL = { mouse: 5, pen: 8, touch: 10 };
+// (une source : js/app.js le lit aussi — au doigt, un appui qui bouge de plus que SEUIL.touch fait défiler l'accueil, il
+// ne préchauffe rien)
+export const SEUIL = Object.freeze({ mouse: 5, pen: 8, touch: 10 });
 // les largeurs permises des colonnes (px), et celles d'origine (la feuille de style)
 const LARGEURS = { g: [264, 560], d: [280, 560] };
 const JUSTIF_MAX = 600;   // la longueur d'une justification (beton/poutre/entree.py, JUSTIF_MAX)
 
-export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
+// ``signal`` : l'AbortSignal du montage de l'écran (js/app.js) — à la fermeture, les écouteurs posés sur le document, la
+// fenêtre et la requête média tombent, la minuterie de la barre du zoom s'arrête
+export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer, signal = null }) {
+  const fini = () => !!signal && signal.aborted;
+  const image = (f) => requestAnimationFrame(() => { if (!fini()) f(); });
   const donnees = document.getElementById("donnees");
   const resultat = document.getElementById("resultat");
   const stage = document.getElementById("stage");
@@ -151,7 +157,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
       if (rub && !rub.classList.contains("open")) ouvrirRubrique(rub.dataset.sec);
       c.classList.remove("et-replie");
       surligner();
-      requestAnimationFrame(() => c.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+      image(() => c.scrollIntoView({ block: "nearest", behavior: "smooth" }));
     } else surligner();
   }
   // depuis les DONNÉES : la pièce s'éclaire sur le dessin (rien ne défile) ; une ligne d'une autre section rend celle-ci
@@ -195,7 +201,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     const premier = l.querySelector("button:not(:disabled)");
     if (premier) premier.focus({ preventScroll: true });
   }
-  document.addEventListener("click", (ev) => { if (!ev.target.closest(".et-mn")) fermerMenus(); });
+  document.addEventListener("click", (ev) => { if (!ev.target.closest(".et-mn")) fermerMenus(); }, { signal });
   // la ligne de l'élément (en-tête du panneau) : son menu, la liste des éléments ; ouvrir un autre élément lâche la
   // pièce choisie (écouté AVANT js/etabli.js, qui fait l'action : ouvrir, ajouter, copier, supprimer)
   if (elt) elt.addEventListener("click", (ev) => {
@@ -203,7 +209,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     if (mb) { ev.stopImmediatePropagation(); basculerMenu(mb); return; }
     if (ev.target.closest(".et-mn-l")) fermerMenus();
     if (ev.target.closest("[data-activer]:not(.on)")) { sel = ""; garder(); }
-  });
+  }, { signal });
 
   // ------------------------------------------------------------ les barres qu'un cadre entoure (données)
   // Un clic HORS de la plage l'élargit jusqu'à la barre ; un clic sur un BOUT le retire (deux barres au moins) ; un clic
@@ -227,7 +233,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   // la sélection AVANT l'appui : un clic sur un bouton le focalise, et le « focusin » ci-dessous choisit sa ligne avant
   // que le « click » n'arrive — sans ce relevé, le chevron d'une ligne non choisie la choisissait PUIS la repliait
   let avantAppui = "";
-  donnees.addEventListener("pointerdown", () => { avantAppui = sel; }, true);
+  donnees.addEventListener("pointerdown", () => { avantAppui = sel; }, { capture: true, signal });
   // (écouté AVANT celui de js/etabli.js, qui agit sur les mêmes clics : ce qui est traité ici s'arrête ici)
   donnees.addEventListener("click", (ev) => {
     const mb = ev.target.closest("[data-menu]");
@@ -264,11 +270,11 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     // un clic sur la carte d'une section (hors de ses champs et boutons) la rend courante
     const carte = ev.target.closest(".et-sec[data-section]");
     if (carte && !ev.target.closest("button, input, select, textarea")) choisirSection(+carte.dataset.section);
-  });
+  }, { signal });
   donnees.addEventListener("focusin", (ev) => {
     const p = ev.target.closest("[data-cible]");
     if (p) choisirLigne(p.dataset.cible);
-  });
+  }, { signal });
 
   // ------------------------------------------------------------ le dessin : glisser une poignée de cadre
   // L'appui sur une poignée du cadre choisi est à nous seul (ni déplacement de la vue, ni choix d'une pièce) : la
@@ -289,7 +295,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     glisse = { h, g, coupe, xs, bord, x0, y0, id: ev.pointerId, k: null };
     try { h.setPointerCapture(ev.pointerId); } catch (e) { /* pointeur déjà relâché */ }
     g.classList.add("et-glisse");
-  }, true);
+  }, { capture: true, signal });
   // AU DOIGT, le navigateur prend un appui qui bouge pour faire défiler la page (la feuille du dessin l'autorise :
   // touch-action « pan-x pan-y » ; celui d'une poignée, élément SVG, n'est pas appliqué) et ANNULE le glisser
   // (pointercancel : la poignée revenait à sa place). Un appui qui commence sur une poignée du cadre choisi lui est
@@ -297,7 +303,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   // sur le document, que le navigateur rend passif.)
   stage.addEventListener("touchstart", (ev) => {
     if (ev.target.closest && ev.target.closest(".view.on .pc.cadre.et-sel .poignee")) ev.preventDefault();
-  }, { passive: false });
+  }, { passive: false, signal });
   window.addEventListener("pointermove", (ev) => {
     if (!glisse || ev.pointerId !== glisse.id) return;
     ev.preventDefault();
@@ -314,7 +320,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     h.setAttribute("transform", `translate(${xs[k]} ${glisse.y0})`);
     coupe.querySelectorAll(".et-visee").forEach((c) => c.classList.remove("et-visee"));
     coupe.querySelectorAll('.pc.lit[data-sel$=".lit-inf-0"] > circle').forEach((c) => { if (Math.abs(+c.getAttribute("cx") - xs[k]) < 0.6) c.classList.add("et-visee"); });
-  }, { passive: false });
+  }, { passive: false, signal });
   const finirGlisse = (ev, annule) => {
     if (!glisse || ev.pointerId !== glisse.id) return;
     const { h, g, coupe, x0, y0, k } = glisse;
@@ -330,8 +336,8 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     if (!v) { h.setAttribute("transform", `translate(${x0} ${y0})`); return; }
     envoyer("modifier", { chemin: ["sections", coupe.dataset.section, "etriers", g.dataset.cadre, "plage"], valeur: v });
   };
-  window.addEventListener("pointerup", (ev) => finirGlisse(ev, false), true);
-  window.addEventListener("pointercancel", (ev) => finirGlisse(ev, true), true);
+  window.addEventListener("pointerup", (ev) => finirGlisse(ev, false), { capture: true, signal });
+  window.addEventListener("pointercancel", (ev) => finirGlisse(ev, true), { capture: true, signal });
 
   // ------------------------------------------------------------ le dessin : choisir une pièce
   // On lit l'APPUI (pointerdown) : la toile capture ensuite le pointeur pour déplacer la vue, et le « click » tomberait
@@ -342,15 +348,15 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     if (!ev.target.closest || !ev.target.closest(".draw")) { appui = null; return; }
     const g = ev.target.closest(".draw [data-sel]");
     appui = { g, x: ev.clientX, y: ev.clientY, id: ev.pointerId, seuil: SEUIL[ev.pointerType] || 5 };
-  }, true);
+  }, { capture: true, signal });
   window.addEventListener("pointerup", (ev) => {
     const a = appui;
     appui = null;
     if (!a || ev.pointerId !== a.id) return;
     if (Math.hypot(ev.clientX - a.x, ev.clientY - a.y) > a.seuil) return;
     if (a.g) choisirPiece(a.g.dataset.sel); else relacher();
-  }, true);
-  window.addEventListener("pointercancel", () => { appui = null; }, true);
+  }, { capture: true, signal });
+  window.addEventListener("pointercancel", () => { appui = null; }, { capture: true, signal });
   // au doigt, la barre du zoom (discrète) se montre quelques secondes après un appui sur la toile
   let vuMinuterie = 0;
   stage.addEventListener("pointerdown", (ev) => {
@@ -358,13 +364,14 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     bench.classList.add("et-zoom-vu");
     clearTimeout(vuMinuterie);
     vuMinuterie = setTimeout(() => bench.classList.remove("et-zoom-vu"), 4000);
-  }, true);
+  }, { capture: true, signal });
+  if (signal) signal.addEventListener("abort", () => clearTimeout(vuMinuterie), { once: true });
   document.addEventListener("keydown", (ev) => {
     if (ev.key !== "Escape") return;
     if (menuOuvert()) { fermerMenus(); return; }
     if (ev.target.closest && ev.target.closest(".et-jf")) { brouillon = null; poserBrouillon(); return; }
     if (sel && !document.querySelector(".flyout.on") && !ev.target.closest("input, select, textarea")) relacher();
-  });
+  }, { signal });
 
   // ------------------------------------------------------------ les résultats : blocs, liste de contrôle, justification
   // Le brouillon d'une justification en cours : il survit aux calculs (le cadre des résultats est refait à chaque
@@ -386,7 +393,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
       + '<button type="button" class="btn sm ghost" data-just-annuler="1">Annuler</button></div>';
     const t = f.querySelector("textarea");
     t.value = brouillon.texte;
-    t.addEventListener("input", () => { if (brouillon) brouillon.texte = t.value; });
+    t.addEventListener("input", () => { if (brouillon) brouillon.texte = t.value; }, { signal });
     obs.querySelector(".ob").appendChild(f);
     obs.classList.add("et-jouv");
     if (focus) t.focus();
@@ -430,7 +437,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     // une observation montre sa pièce (dessin et données), hors de ses boutons et de son formulaire
     const obs = ev.target.closest(".et-obs[data-piece]");
     if (obs && !ev.target.closest("button, textarea, .et-jf")) choisirPiece(obs.dataset.piece);
-  });
+  }, { signal });
 
   // ------------------------------------------------------------ les colonnes : largeur réglable (PC)
   const pc = matchMedia("(min-width: 1200px)");
@@ -443,7 +450,7 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
     }
   }
   poserLargeurs();
-  pc.addEventListener("change", () => { poserLargeurs(); vue.ajuster(); });
+  pc.addEventListener("change", () => { poserLargeurs(); vue.ajuster(); }, { signal });
   document.querySelectorAll(".et-poignee[data-poignee]").forEach((p) => {
     const k = p.dataset.poignee;
     p.addEventListener("pointerdown", (ev) => {
@@ -466,17 +473,17 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
         reglages.ecrire(r);
         vue.ajuster();
       };
-      p.addEventListener("pointermove", bouger);
-      p.addEventListener("pointerup", finir, { once: true });
-      p.addEventListener("pointercancel", finir, { once: true });
-    });
+      p.addEventListener("pointermove", bouger, { signal });
+      p.addEventListener("pointerup", finir, { once: true, signal });
+      p.addEventListener("pointercancel", finir, { once: true, signal });
+    }, { signal });
     p.addEventListener("dblclick", () => {
       const r = reglages.lire();
       if (r.largeurs) delete r.largeurs[k];
       reglages.ecrire(r);
       poserLargeurs();
       vue.ajuster();
-    });
+    }, { signal });
   });
 
   // ------------------------------------------------------------ après chaque réponse du moteur
@@ -493,8 +500,8 @@ export function cablerCompact({ cle, note, ouvrirRubrique, vue, envoyer }) {
   }
   const ajusterNoms = () => { ajusterNom(donnees.querySelector(".et-pt-nom")); if (elt) ajusterNom(elt.querySelector("input.et-elt-nom")); };
   const surNom = (ev) => { if (ev.target.classList && (ev.target.classList.contains("et-pt-nom") || ev.target.classList.contains("et-elt-nom"))) ajusterNom(ev.target); };
-  donnees.addEventListener("input", surNom);
-  if (elt) elt.addEventListener("input", surNom);
+  donnees.addEventListener("input", surNom, { signal });
+  if (elt) elt.addEventListener("input", surNom, { signal });
   function rafraichir() {
     poserPoutre();
     ajusterNoms();

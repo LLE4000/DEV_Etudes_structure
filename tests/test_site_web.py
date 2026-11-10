@@ -269,10 +269,9 @@ npy = lock["packages"]["numpy"]
 chk("la roue numpy a l'empreinte du pyodide-lock officiel", sha(os.path.join(v, npy["file_name"])) == npy["sha256"])
 chk("le travailleur charge la version déposée", f'"../{SW.PYODIDE}/pyodide.mjs"' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
 
-# 5. les identifiants que les scripts cherchent existent dans leur page — sauf ceux du VOILE retiré (S4-D7 : « aucun
-# id=demarrage dans les pages » les interdit) : js/etabli.js les nomme encore tant que l'écran n'est pas réécrit en
-# écran montable (lot S4, partie « écrans ») ; la liste est NOMMÉE, et ne couvre rien d'autre
-VOILE_RETIRE = ("demarrage", "demarrage-etape")
+# 5. les identifiants que les scripts cherchent existent dans leur page (S4, partie « écrans » : l'établi est un écran
+# montable, il ne nomme plus le VOILE retiré — #demarrage, #demarrage-etape — : plus aucune exception à cette règle)
+VOILE_RETIRE = ()
 for js, page in [(js, ETABLIS[k]) for k in ETABLIS for js in ("etabli.js", "toile.js")] + [("accueil.js", "index.html")]:
     src = open(os.path.join(WEB, "js", js), encoding="utf-8").read()
     html = open(os.path.join(WEB, page), encoding="utf-8").read()
@@ -580,11 +579,16 @@ for k, vers in SW.REDIRECTIONS.items():
         and f'<a href="{SW.ADRESSES[vers]}">{SW.LIENS_REDIRECTION[vers]}</a>' in _red and SW.LIENS_REDIRECTION == {"dalle": "Ouvrir les dalles"}
         and "http" not in _red and 'id="donnees"' not in _red and "demarrage" not in _red
         and not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", _red), _red[:300])
-_redir_js = open(os.path.join(WEB, "js", "redirection.js"), encoding="utf-8").read()
-_redir_code = re.sub(r"//[^\n]*", "", _redir_js)   # le code seul : les commentaires nomment les modules, pas le code
-chk("js/redirection.js : location.replace(vers + la requête + l'ancre), lu dans body data-vers ; aucune adresse écrite en dur dans le code",
-    "location.replace(vers + location.search + location.hash)" in _redir_code and "dataset.vers" in _redir_code
-    and not any(k in _redir_code or v in _redir_code for k, v in SW.REDIRECTIONS.items()), _redir_code)
+# (S4, partie « écrans » : js/redirection.js a disparu — la page de redirection n'a plus que js/app.js, qui la mène, ouverte
+# directement, à la page qui la sert, et qui, DANS l'application, résout « vers » (js/modules.js) avant de lire la page)
+_redir_code = re.sub(r"(^|\s)//[^\n]*", r"\1", open(os.path.join(WEB, "js", "app.js"), encoding="utf-8").read())   # le code seul
+chk("js/app.js mène une redirection : ouverte directement, location.replace(body data-vers + la requête + l'ancre) ; dans "
+    "l'application, la route « vers » (js/modules.js) est résolue avant de lire la page, l'adresse gardée ; aucune adresse "
+    "écrite en dur dans le code ; js/redirection.js n'existe plus",
+    "location.replace(corps.dataset.vers + location.search + location.hash)" in _redir_code and 'corps.dataset.page === "redirection"' in _redir_code
+    and 'if (r.sorte === "redirection") { u = new URL(r.vers + u.search + u.hash, u); r = route(u.href); }' in _redir_code
+    and not any(f'"{k}"' in _redir_code or f'"{v}"' in _redir_code for k, v in SW.REDIRECTIONS.items())
+    and not os.path.exists(os.path.join(WEB, "js", "redirection.js")), "")
 chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026) et des cornières (10/11/2026), un sous-ensemble de l'établi compact",
     set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere"} and len(SW.ARBRE_COMPACT) == 3 and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
 EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
@@ -626,7 +630,7 @@ chk("js/etabli.js déplace la ligne .et-elsel de #donnees dans l'emplacement .et
     'const ELT = $(".panel.left .phead .et-elt");' in _js_etabli and _poser is not None
     and _js_etabli.index("zone.innerHTML = elements + html;") < _poser.start()
     and "const saisieElt = ELT ? saisieEnCours(ELT) : null;" in _js_etabli
-    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}\)', _js_etabli) is not None
+    and re.search(r'ELT\.addEventListener\("click", \(ev\) => \{ agirElement\(ev\); \}(, \{ signal \})?\)', _js_etabli) is not None
     and re.search(r'ELT\.addEventListener\("focusout", .*?valider\(el\);', _js_etabli, re.S) is not None
     and 'document.querySelector(".panel.left .phead .et-elt")' in _src_compact and "zonesMenus = [donnees, elt]" in _src_compact)
 

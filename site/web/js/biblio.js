@@ -6,8 +6,11 @@ import { toast } from "./commun.js";
 
 // racine : l'élément qui contient le gabarit (document pour la page, le panneau pour une note) ; demander(rubrique,
 // params) rend la réponse du moteur ; apres(r) : ce que l'hôte fait de la réponse (l'adresse et le titre de la page,
-// les boutons de la note) ; rubrique : celle à ouvrir d'abord (sinon celle que le menu allume)
-export function cablerBibliotheque({ racine, demander, apres = () => {}, rubrique = null }) {
+// les boutons de la note) ; rubrique : celle à ouvrir d'abord (sinon celle que le menu allume) ; signal : l'AbortSignal
+// du montage de l'écran (js/app.js) — à la fermeture, ses écouteurs tombent, et une réponse arrivée après n'est plus
+// posée (le corps est déjà celui de l'écran suivant) ; une requête refusée parce que l'écran est fermé (EcranFerme,
+// js/moteur.js) se tait
+export function cablerBibliotheque({ racine, demander, apres = () => {}, rubrique = null, signal = null }) {
   const $ = (s) => racine.querySelector(s);
   const corps = $("#bib-corps"), pourquoi = $("#bib-pourquoi");
   const page = racine === document;           // la page bloque le défilement derrière le volet ; le panneau est déjà modal
@@ -27,7 +30,9 @@ export function cablerBibliotheque({ racine, demander, apres = () => {}, rubriqu
     const p = courante ? (params[courante] || (params[courante] = {})) : {};
     occupe(1);
     try {
-      const r = await demander(courante, p);
+      let r;
+      try { r = await demander(courante, p); } catch (e) { if (e && e.name === "EcranFerme") return null; throw e; }
+      if (signal && signal.aborted) return null;
       if (!r || !r.ok) {
         toast(`Le moteur a refusé : ${r ? r.erreur : "pas de réponse"}`, true);
         if (r && r.trace) console.error(r.trace);
@@ -101,21 +106,21 @@ export function cablerBibliotheque({ racine, demander, apres = () => {}, rubriqu
     }
     if (ev.target.closest("[data-pourquoi]")) { ouvrirPourquoi(true); return; }
     if (ev.target.closest("[data-fermer-pourquoi]") || ev.target === pourquoi) ouvrirPourquoi(false);
-  });
+  }, { signal });
   racine.addEventListener("change", (ev) => {
     const el = ev.target.closest(".bib-barre [data-param]");
     if (!el) return;
     if (el.type === "checkbox") regler(el.dataset.param, el.checked ? "1" : "0");
     else regler(el.dataset.param, el.value);
-  });
+  }, { signal });
   racine.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && ev.target.matches(".bib-barre input[data-param]")) { ev.target.blur(); return; }
     // Échap referme « Pourquoi ? » d'abord ; l'hôte ne voit pas cet Échap-là (il refermerait son panneau en même temps)
     if (ev.key === "Escape" && !pourquoi.hidden) { ev.stopPropagation(); ouvrirPourquoi(false); }
-  });
+  }, { signal });
   // un champ reçoit le focus : son cadre le montre (comme les champs de l'établi)
-  racine.addEventListener("focusin", (ev) => { const f = ev.target.closest(".bib-barre .field"); if (f) f.classList.add("focus"); });
-  racine.addEventListener("focusout", (ev) => { const f = ev.target.closest(".bib-barre .field"); if (f) f.classList.remove("focus"); });
+  racine.addEventListener("focusin", (ev) => { const f = ev.target.closest(".bib-barre .field"); if (f) f.classList.add("focus"); }, { signal });
+  racine.addEventListener("focusout", (ev) => { const f = ev.target.closest(".bib-barre .field"); if (f) f.classList.remove("focus"); }, { signal });
 
   return {
     consulter,
