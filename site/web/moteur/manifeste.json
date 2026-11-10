@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "68ac7eaef08c0e715f9642dcb718eb0bcf322be182b4d4267a1eb93707322723",
+ "sha256": "458b17d1ec759d6f75ed871e43411ec6a5b9e85d4a357235f216c71f0c0612ad",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -232,11 +232,13 @@
   "beton/poutre/entree.py",
   "beton/poutre/geometrie.py",
   "beton/poutre/moteur.py",
+  "beton/poutre/taux.py",
   "beton/predalle/__init__.py",
   "beton/predalle/entree.py",
   "beton/predalle/fichier.py",
   "beton/predalle/moteur.py",
   "beton/taux/__init__.py",
+  "beton/taux/depuis_poutre.py",
   "beton/taux/entree.py",
   "beton/taux/geometrie.py",
   "beton/taux/moteur.py",
@@ -309,7 +311,7 @@
   "age": "a677e3ccbb0bf40b",
   "armatures": "0d888c7223e651e4",
   "assemblages": "d6af1c9bda8c2a78",
-  "bois": "b743f1c406fd4fe9",
+  "bois": "8f2ad99577d68381",
   "catalogue": "3ffa4b30b8ac00ba",
   "corniere": "8a7ec359d7b0851c",
   "dalle": "dc12fd9dcc46ff06",
@@ -318,11 +320,11 @@
   "flambement": "e28700385e8c0a7b",
   "garde_corps": "599f7caee4d6c336",
   "plancher": "0b84ae95d83f3be8",
-  "poutre": "6f62f98a716b34a5",
+  "poutre": "42e726efa9ec3d94",
   "profil": "643f0f383da5e28c",
   "sol": "faf7dedd53612ba1",
   "soudures": "b2d858ea8353cf67",
-  "taux": "3c7bbed6bba0b253"
+  "taux": "0325815790c3ee2c"
  },
- "version": "f9ea3cf3292bc373"
+ "version": "cb14a6246437b800"
 }
