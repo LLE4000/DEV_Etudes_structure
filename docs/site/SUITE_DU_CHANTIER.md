@@ -271,6 +271,40 @@ reste actif, modules chargés à la demande, ouverture préparée à l'approche 
   « Recharger la page » ; sans script ni fichier à charger. Gardé par `tests/test_site_web.py` et `demarrage:secours`
   (trois formats ; deux mutations rougissent : la règle qui le cache retirée, l'animation retirée).
 
+## Fait ensuite, le lot Q : quatre modules refaits sur la norme — première livraison (même branche, sur 7bc200d, 10/11/2026 au soir)
+
+Demande de l'ingénieur du 10/11/2026 : « fais bois, feu, taux, maturité ; vérifie les formules, tout n'était pas juste ;
+pas grave si on n'a pas exactement la même chose que sur Streamlit ». La conception est écrite AVANT le code, sources
+croisées : `docs/site/LOT_Q_QUATRE_MODULES.md` (c6ddb33, e5c30bd, 5b15dfc, d53f89c). Un module à la fois ; cette
+première livraison en porte deux, et ce qui les relie aux poutres.
+
+- ~~Poutres bois refait sur l'Eurocode 5~~ (flexion, cisaillement, appui, déversement, flèche instantanée et finale ;
+  deux combinaisons ELU avec leur k_mod) : moteur cafb4b8, écran 5f5d319, 63e87e2, gel ae9b130, 0010900, docs 6007417.
+  99 + 112 contrôles, 77 mutations. Trois cas recalculés à la main par l'intégrateur (note neuve, G seule qui gouverne,
+  déversement) : mêmes nombres.
+- ~~Taux d'armature refait~~ (un quantitatif qui ne sous-estime pas : barres bornées aux abouts, étrier de fermeture,
+  talons, recouvrements, bordereau par repère et par diamètre, CSV) : moteur de80274, dessins 68b5eda, écran 1e51a8e,
+  4b2c8e6, gel 9f87a02, docs f4253d2. 30 + 68 contrôles, 63 mutations. La poutre type : 85,8 kg/m³ (33 cadres de
+  1,72 m, 88,25 kg, + 5 %), recalculée à la main.
+- ~~Poutres béton armé : l'option « Taux d'armature »~~ (éteinte par défaut ; allumée, une longueur par section ; le
+  taux ne va dans la note PDF que sur demande) : 2f4ee30, 1268b12, ec06859. Parité avec l'écran Streamlit rejoué sur
+  99 sections.
+- ~~« Détailler dans Taux d'armature »~~ (une poutre dimensionnée part dans le module détaillé, préremplie) : 4897194,
+  494d9ad, contrôles 4002d34, 32a5c31, 938a664. Mécanique générale : `docs/site/MODULES_SITE.md` § 4 sexies.
+
+Reste du lot Q : « Enrobages » dans la Bibliothèque (deux onglets, les tableaux de feu de l'EN 1992-1-2 — le moteur
+est fait, l'écran est en cours), puis « Maturité du béton » (moteur fait, écran à faire).
+
+**À confirmer par l'ingénieur** (rien de bloquant, chaque choix est écrit et modifiable dans l'écran) :
+
+1. Bois — la neige est classée « court terme » (k_mod 0,9) ; le texte de l'annexe belge n'a pas pu être lu ; le choix
+   plus sévère serait « moyen terme » (k_mod 0,8).
+2. Bois — limites de flèche par défaut L/300 (instantanée) et L/250 (finale nette) : ce sont les fourchettes de
+   l'EN 1995-1-1, tableau 7.2 ; l'annexe belge n'a pas été trouvée.
+3. Bois — k_cr = 0,67 pour le lamellé-collé aussi (le plus sévère des deux lectures).
+4. Feu — dix cases (R 180 des tableaux 5.5 et 5.6, REI 30 et REI 180 du 5.9) ne sont recoupées que par du code
+   publié : à relire sur la norme papier.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage
