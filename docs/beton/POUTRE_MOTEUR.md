@@ -273,9 +273,12 @@ d'avant-métré au mètre courant de poutre, pas un bordereau : le module « Tau
 **Entrée** (deux clés facultatives ; absentes, la poutre normalisée et la sortie de `verifier` sont celles d'avant, à
 l'octet) :
 
-- `poutre["taux"] = {"actif": bool, "majoration": % (0 à 50, défaut 5), "retour": cm (0 à 50, défaut 10),
-  "arrondi": kg/m³ entier (1 à 50, défaut 5)}` — éteinte aux réglages par défaut, la clé disparaît à la normalisation ;
-  éteinte avec un réglage changé, elle est gardée (le réglage n'est pas perdu) ;
+- `poutre["taux"] = {"actif": bool, "note": bool, "majoration": % (0 à 50, défaut 5), "retour": cm (0 à 50,
+  défaut 10), "arrondi": kg/m³ entier (1 à 50, défaut 5)}` — éteinte aux réglages par défaut, la clé disparaît à la
+  normalisation ; éteinte avec un réglage changé, elle est gardée (le réglage n'est pas perdu). `note` (faux par
+  défaut, écrite seulement vraie) : le taux de la poutre s'écrit AUSSI dans la note de calcul PDF — sans elle, le taux
+  reste à l'écran (« des fois, on n'a pas envie de donner le taux d'armature aux gens », l'ingénieur, 10/11/2026) ;
+  éteindre l'option à l'écran retire `note` : rallumée, elle repart sans la note ;
 - `section["longueur"]` (m, > 0, ≤ 200) — la longueur de poutre que la section représente ; absente : la section n'entre
   pas dans le taux de la poutre.
 
@@ -304,8 +307,9 @@ ferraillage détaillé permet (une répartition imposée des barres du lit 1 dé
 latérales imposées remplacent les automatiques) ; une épingle du site est verticale (elle n'a qu'une position), là où
 l'écran Streamlit comptait aussi une épingle « horizontale » entre deux barres.
 
-**Preuves** : `tests/test_poutre_taux.py` (41 contrôles : l'exemple 30 × 60 à deux sections recalculé à la main —
+**Preuves** : `tests/test_poutre_taux.py` (48 contrôles : l'exemple 30 × 60 à deux sections recalculé à la main —
 A : 15,34 kg/m → 90 kg/m³ ; B : 19,42 kg/m → 115 kg/m³ ; poutre 4 m + 2 m : 100 kg/m³ —, les invariants, l'option, l'écran
-comparé au calcul à la main, la note PDF, 17 mutations du moteur et 7 de l'écran, toutes rejetées) ;
+comparé au calcul à la main, la note PDF qui ne donne le taux que sur demande, 17 mutations du moteur, 7 de l'écran et
+une de la note, toutes rejetées) ;
 `tests/test_poutre_moteur.py` § 9 (la PARITÉ : 99 sections et 60 poutres, trois jeux de réglages, égales à l'option du
 module rejouée, à 1e-9 près) ; `tests/reference_refonte` (deux cas gelés).

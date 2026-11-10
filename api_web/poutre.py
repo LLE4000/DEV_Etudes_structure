@@ -209,14 +209,17 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
 
 
 def _regler_taux(p: Dict, cle: str, valeur) -> Optional[str]:
-    """L'option « Taux d'armature » (rubrique Options) : la case qui l'allume (« actif ») et ses trois réglages. La clé
+    """L'option « Taux d'armature » (rubrique Options) : la case qui l'allume (« actif »), celle qui l'écrit aussi dans
+    la note de calcul (« note », éteinte par défaut) et ses trois réglages. La clé
     « taux » de la poutre n'existe que si l'option est allumée ou qu'un réglage a quitté son défaut (le moteur la
     retire sinon : beton/poutre/entree._taux) ; une note où l'option n'a jamais servi reste donc la même, à l'octet."""
     tx = dict(p.get("taux") or {})
-    if cle == "actif":
+    if cle in ("actif", "note"):
         if not isinstance(valeur, bool):       # la case envoie vrai ou faux ; « false » (un texte) serait VRAI pour bool()
             return "Case illisible"
-        tx["actif"] = valeur
+        tx[cle] = valeur
+        if cle == "actif" and not valeur:
+            tx.pop("note", None)               # rallumée, l'option repart sans la note : le taux n'y va que sur demande
     elif cle in TA.DEFAUTS:
         x = C.lire_nombre(valeur)
         if x is None:
@@ -585,13 +588,18 @@ def _longueur(i: int, s: Dict) -> str:
 
 
 def _options_taux(p: Dict) -> str:
-    """L'option « Taux d'armature » : la case, et — allumée — ses trois réglages (ceux de l'écran Streamlit)."""
+    """L'option « Taux d'armature » : la case, et — allumée — la case « dans la note de calcul » (éteinte par défaut :
+    le taux reste à l'écran, la note ne le donne pas) puis ses trois réglages. Les deux cases de l'écran Streamlit
+    (« Afficher », « Envoyer dans la note de calcul »)."""
     r = TA.reglages(p.get("taux"))
+    dans_note = bool((p.get("taux") or {}).get("note"))
     case = C.case(["taux", "actif"], _ta_actif(p), "Taux d'armature (kg/m³)")
     if not _ta_actif(p):
         return f'<div class="row full pt-ta">{case}</div>'
     return (f'<div class="row full pt-ta">{case}<span class="hint">Au mètre courant, par section ; donner une longueur à chaque '
-            f'section (rubrique 2) pour le taux de la poutre.</span></div>'
+            f'section (rubrique 2) pour le taux de la poutre.</span>'
+            f'{C.case(["taux", "note"], dans_note, "Écrire le taux dans la note de calcul")}'
+            f'<span class="hint">{"La note PDF donne le taux de la poutre." if dans_note else "La note PDF ne donne pas le taux : il reste à l’écran."}</span></div>'
             + C.ligne2(("Majoration", C.num(["taux", "majoration"], r["majoration"], "%"),
                         "Chutes, ligatures, recouvrements et ancrages : ajoutés forfaitairement à la masse d'acier."),
                        ("Retour étrier", C.num(["taux", "retour"], r["retour"], "cm"),
@@ -1125,15 +1133,16 @@ def _ta_detailler(ta: Dict) -> str:
             f'<span>Détailler dans Taux d\'armature</span>{aide}</button>')
 
 
-def _ta_tete(ta: Dict) -> str:
+def _ta_tete(ta: Dict, dans_note: bool = False) -> str:
     """Sous le nom de la poutre : son taux d'armature (un clic ouvre le calcul) — ou ce qui manque pour l'avoir —, puis
-    le bouton qui l'envoie dans le module détaillé."""
+    le bouton qui l'envoie dans le module détaillé. ``dans_note`` : la note de calcul le donnera aussi (c'est dit)."""
     tp = ta["poutre"]
     if not tp:
         return ('<button type="button" class="pt-tete-ta vide" data-calcul="ta" title="Voir le calcul"><span>Taux d\'armature</span>'
                 '<i>donner une longueur aux sections</i></button>' + _ta_detailler(ta))
     sans = len(tp["sans_longueur"])
     reste = f" · {sans} section{'s' if sans > 1 else ''} sans longueur" if sans else ""
+    reste += " · écrit dans la note" if dans_note else ""
     return (f'<button type="button" class="pt-tete-ta" data-calcul="ta" title="Voir le calcul"><span>Taux d\'armature</span>'
             f'<b>{C.fr(tp["taux"], 0)}{C.NBSP}kg/m³</b><i>{C.fr(tp["masse"], 1)}{C.NBSP}kg · {C.fr(tp["volume"], 3)}{C.NBSP}m³ · '
             f'{C.fr(tp["longueur"], 2)}{C.NBSP}m{reste}</i></button>' + _ta_detailler(ta))
@@ -1182,7 +1191,7 @@ def resultat(etat: Dict) -> Dict:
     messages = "".join(C.message(C.esc(a["message"])) for a in r.get("avertissements", []))
     tete = E.tete_resultats(nom_p, f'{C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}')
     if ta:
-        tete += _ta_tete(ta)
+        tete += _ta_tete(ta, bool((p.get("taux") or {}).get("note")))
         volets += _ta_volets(ta, p, nom_p)
     pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur poutre</span><b>{C.esc(MO.REFERENCE.split(" (")[0].split()[-1])}</b></div>'
             f'<div class="legend">{C.legende()}</div></div>')

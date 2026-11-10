@@ -65,8 +65,10 @@ PAS_DEFAUT = 30.0            # cm
 #           « peau_smax » (cm) : les armatures de peau automatiques (paramètres avancés du module).
 #   section « justifs » : {identifiant d'une observation : {"texte", "empreinte"}} — les dispositions « à examiner » que
 #                      l'ingénieur a examinées et justifiées (beton/poutre/dispositions.py) ; absente : aucune.
-#   poutre  « taux » : l'option « Taux d'armature » (beton/poutre/taux.py) — {"actif", "majoration" (%), "retour" (cm),
-#                      "arrondi" (kg/m³)} ; absente : option éteinte, réglages par défaut ;
+#   poutre  « taux » : l'option « Taux d'armature » (beton/poutre/taux.py) — {"actif", "note", "majoration" (%),
+#                      "retour" (cm), "arrondi" (kg/m³)} ; absente : option éteinte, réglages par défaut. « note » :
+#                      le taux de la poutre s'écrit AUSSI dans la note de calcul (faux par défaut : on ne donne pas
+#                      toujours le taux d'armature à qui reçoit la note) ;
 #   section « longueur » (m) : la longueur de poutre que la section représente, pour le taux d'armature de la poutre ;
 #                      absente : la section n'entre pas dans ce taux.
 REPARTITIONS = ("uniforme", "aligne", "entraxe")
@@ -76,7 +78,7 @@ DEFAUTS_DETAIL = {"dg": 20.0, "peau_d": 10, "peau_smax": 30.0}
 CLES_POUTRE = frozenset(DEFAUTS_POUTRE) | {"sections", "taux"} | frozenset(DEFAUTS_DETAIL)
 CLES_SECTION = frozenset({"nom", "M_inf", "M_sup", "V", "inf", "sup", "etriers", "pas", "yG_inf", "yG_sup", "laterales",
                           "justifs", "longueur"})
-CLES_TAUX = frozenset({"actif", "majoration", "retour", "arrondi"})
+CLES_TAUX = frozenset({"actif", "note", "majoration", "retour", "arrondi"})
 JUSTIF_MAX = 600                                # caractères d'une justification
 CLES_LIT = frozenset({"n", "d", "pos", "rep", "sh"})
 CLES_ETRIER = frozenset({"type", "d", "de", "a"})
@@ -243,19 +245,25 @@ def _laterales(x, chemin: str):
 
 
 def _taux(x, chemin: str):
-    """L'option « Taux d'armature » de la poutre : {"actif" (bool), "majoration" (%), "retour" (cm), "arrondi" (kg/m³)},
-    chaque réglage dans ses bornes (beton/poutre/taux.py). None quand l'option est éteinte ET que tous les réglages sont
-    à leur défaut : la clé disparaît, et la poutre d'avant reste la même à l'octet. Éteinte avec un réglage changé :
-    gardée (le réglage n'est pas perdu quand on rallume)."""
+    """L'option « Taux d'armature » de la poutre : {"actif" (bool), "note" (bool : le taux s'écrit aussi dans la note
+    de calcul), "majoration" (%), "retour" (cm), "arrondi" (kg/m³)}, chaque réglage dans ses bornes
+    (beton/poutre/taux.py). None quand l'option est éteinte ET que tous les réglages sont à leur défaut : la clé
+    disparaît, et la poutre d'avant reste la même à l'octet. Éteinte avec un réglage changé : gardée (le réglage n'est
+    pas perdu quand on rallume). « note » n'est écrite que vraie (fausse : absente)."""
     if x is None:
         return None
     if not isinstance(x, dict):
-        raise ValueError(f"{chemin} : {{\"actif\", \"majoration\", \"retour\", \"arrondi\"}} attendu (reçu {x!r})")
+        raise ValueError(f"{chemin} : {{\"actif\", \"note\", \"majoration\", \"retour\", \"arrondi\"}} attendu (reçu {x!r})")
     _cles(x, CLES_TAUX, chemin)
     actif = x.get("actif")
     if actif is not None and not isinstance(actif, bool):
         raise ValueError(f"{chemin}.actif : vrai ou faux attendu (reçu {actif!r})")
     out = {"actif": bool(actif)}
+    note = x.get("note")
+    if note is not None and not isinstance(note, bool):
+        raise ValueError(f"{chemin}.note : vrai ou faux attendu (reçu {note!r})")
+    if note:
+        out["note"] = True
     noms = {"majoration": "la majoration (%)", "retour": "le retour d'étrier (cm)", "arrondi": "l'arrondi (kg/m³)"}
     for k, defaut in T.DEFAUTS.items():
         v = x.get(k)

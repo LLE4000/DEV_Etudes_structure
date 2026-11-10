@@ -12,9 +12,11 @@
      d'une section dans leurs bornes, refusés au-delà avec le nom du champ.
   4. L'ÉCRAN = LE MOTEUR : les champs (case, réglages, longueur) reliés à l'état ; chaque nombre montré (ligne de la
      section, tête, fenêtres de calcul) est celui du calcul à la main ; les refus laissent l'état intact ; un nom piégé
-     est échappé ; la note PDF reçoit le taux de la poutre.
+     est échappé ; la note PDF ne reçoit le taux de la poutre que si la case « dans la note de calcul » est cochée
+     (éteinte par défaut : on ne donne pas toujours le taux à qui reçoit la note).
   5. MUTATIONS : le moteur rechargé depuis sa source, modifié d'UNE formule, est rejeté par les contrôles 1 et 2 ;
-     l'écran modifié d'UN affichage est rejeté par les contrôles 4. Une mutation témoin (un commentaire) ne l'est pas.
+     l'écran modifié d'UN affichage est rejeté par les contrôles 4 ; la note qui donnerait le taux sans qu'on le demande
+     est rejetée. Une mutation témoin (un commentaire) ne l'est pas.
 
 La PARITÉ avec l'écran Streamlit (``modules/poutre.py`` rejoué) est dans ``tests/test_poutre_moteur.py`` (section 9).
 """
@@ -226,6 +228,9 @@ chk("« taux » éteint aux réglages par défaut disparaît ; éteint avec un r
     and E.normaliser({"taux": {"actif": False, "majoration": 5.0, "retour": 10, "arrondi": 5}}).get("taux") is None
     and E.normaliser({"taux": {"actif": False, "majoration": 7}})["taux"] == {"actif": False, "majoration": 7.0}
     and E.normaliser({"taux": {"actif": True}})["taux"] == {"actif": True})
+chk("« note » (le taux aussi dans la note de calcul) n'est écrite que vraie : fausse ou absente, la clé n'y est pas",
+    E.normaliser({"taux": {"actif": True, "note": False}})["taux"] == {"actif": True}
+    and E.normaliser({"taux": {"actif": True, "note": True}})["taux"] == {"actif": True, "note": True})
 chk("normaliser est idempotent avec l'option et les longueurs", E.normaliser(E.normaliser(POUTRE)) == E.normaliser(POUTRE))
 chk("la longueur d'une section éteinte reste dans la poutre (rallumer la retrouve)",
     E.normaliser(dict(sans))["sections"][0]["longueur"] == 4.0 and "taux_armature" not in M.verifier(sans))
@@ -237,6 +242,7 @@ REFUS = (("majoration négative", {"taux": {"actif": True, "majoration": -1}}, "
          ("arrondi de 2,5", {"taux": {"actif": True, "arrondi": 2.5}}, "arrondi"),
          ("arrondi de 60", {"taux": {"actif": True, "arrondi": 60}}, "arrondi"),
          ("actif en texte", {"taux": {"actif": "oui"}}, "actif"),
+         ("note en texte", {"taux": {"actif": True, "note": "oui"}}, "note"),
          ("clé inconnue", {"taux": {"actif": True, "chutes": 3}}, "chutes"),
          ("taux qui n'est pas un dict", {"taux": True}, "taux"),
          ("longueur nulle", {"sections": [{"longueur": 0}]}, "longueur"),
@@ -335,11 +341,13 @@ def rejets_ecran(mod, ecran=None):
             if morceau not in vp:
                 out.append(f"fenêtre de la poutre : « {morceau} » absent")
         ch = champs(don)
-        attendus = {"taux/actif": ("case", True), "taux/majoration": ("nombre", "5"), "taux/retour": ("nombre", "10"),
+        attendus = {"taux/actif": ("case", True), "taux/note": ("case", False), "taux/majoration": ("nombre", "5"), "taux/retour": ("nombre", "10"),
                     "taux/arrondi": ("entier", "5"), "sections/0/longueur": ("texte", "4"), "sections/1/longueur": ("texte", "2")}
         for k, v in attendus.items():
             if ch.get(k) != v:
                 out.append(f"champ {k} : {ch.get(k)!r} ≠ {v!r}")
+        if "écrit dans la note" in res or "La note PDF ne donne pas le taux" not in texte(don):
+            out.append("case « note » non cochée : l'écran ne dit pas que la note ne donne pas le taux")
         if 'data-calcul="ta"' not in e["resultat"] or e["resultat"].count('data-calcul="s0-ta"') != 1 or e["resultat"].count('data-calcul="s1-ta"') != 1:
             out.append("les fenêtres « ta », « s0-ta », « s1-ta » ne s'ouvrent pas depuis le résultat")
     except Exception as ex:  # noqa: BLE001 — un écran mutant qui casse est rejeté
@@ -349,7 +357,7 @@ def rejets_ecran(mod, ecran=None):
 
 fautes = rejets_ecran(P, ECRAN)
 chk("option allumée : la tête (100 kg/m³, masse, volume, longueur), la ligne de chaque section, les deux fenêtres de calcul "
-    "et les six champs montrent les nombres du calcul À LA MAIN", not fautes, fautes)
+    "et les sept champs montrent les nombres du calcul À LA MAIN", not fautes, fautes)
 chk("la masse de la poutre affichée est celle du calcul à la main (105,2 kg pour 1,080 m³)",
     C.fr(MAIN["poutre"]["masse"], 1) == "105,2" and proche(MAIN["poutre"]["volume"], 1.08), MAIN["poutre"])
 
@@ -411,19 +419,67 @@ deux["poutres"].append(dict(E.nouvelle_poutre(), nom="V2"))
 ed = req(module="poutre", action="activer", etat=deux, index=1)
 chk("l'option est celle de CHAQUE poutre : V2 (éteinte) ne montre aucun taux, V1 garde le sien",
     "Taux d'armature" not in texte(ed["resultat"]) and ed["etat"]["poutres"][0]["taux"] == {"actif": True} and "taux" not in ed["etat"]["poutres"][1])
-# la note PDF : le taux de la poutre part dans les planches (le bloc « TAUX D'ARMATURE » du générateur)
+# la case « Écrire le taux dans la note de calcul » : éteinte par défaut (demande de l'ingénieur, 10/11/2026 : « des fois,
+# on n'a pas envie de donner le taux d'armature aux gens »)
+en = saisir(e2["etat"], ["taux", "note"], True)
+chk("la case « dans la note de calcul » cochée : l'état porte « note », la tête dit « écrit dans la note », l'aide le confirme",
+    not en.get("message") and en["etat"]["poutres"][0]["taux"] == {"actif": True, "note": True}
+    and "écrit dans la note" in texte(en["resultat"]) and "La note PDF donne le taux de la poutre." in texte(en["donnees"])
+    and champs(en["donnees"]).get("taux/note") == ("case", True), (en.get("message"), en["etat"]["poutres"][0].get("taux")))
+en2 = saisir(en["etat"], ["taux", "note"], False)
+chk("décochée : la clé « note » disparaît, la tête ne le dit plus", en2["etat"]["poutres"][0]["taux"] == {"actif": True}
+    and "écrit dans la note" not in texte(en2["resultat"]))
+en3 = saisir(saisir(en["etat"], ["taux", "actif"], False)["etat"], ["taux", "actif"], True)
+chk("l'option éteinte puis rallumée repart SANS la note (le taux n'y retourne que sur demande)",
+    en3["etat"]["poutres"][0]["taux"] == {"actif": True} and champs(en3["donnees"]).get("taux/note") == ("case", False))
+r_ = saisir(e2["etat"], ["taux", "note"], "true")
+chk("refus : case « note » en texte → un message, l'état intact", bool(r_.get("message")) and r_["etat"] == e2["etat"], r_.get("message"))
+
+
+def rejets_note(NPm):
+    """Ce que les contrôles reprochent à la note PDF ``NPm`` (api_web.note_poutre, ou un mutant) : le taux de la poutre
+    n'y est QUE si l'option est allumée, des longueurs données ET la case « dans la note » cochée."""
+    out = []
+    try:
+        def tg(taux):
+            p = copy.deepcopy(POUTRE)
+            if taux is None:
+                p.pop("taux", None)
+            else:
+                p["taux"] = taux
+            return [pl.get("ta_global") for pl in NPm.resultats(P.normaliser({"version": 1, "poutres": [p], "actif": 0}))]
+        for nom, taux, attendu in (("option allumée, case « note » non cochée", {"actif": True}, [None, None]),
+                                   ("option allumée, case « note » cochée", {"actif": True, "note": True}, [100.0, 100.0]),
+                                   ("option éteinte, « note » restée cochée dans l'état", {"actif": False, "note": True}, [None, None]),
+                                   ("option jamais allumée", None, [None, None])):
+            if tg(taux) != attendu:
+                out.append(f"{nom} : la note porte {tg(taux)!r}, attendu {attendu!r}")
+        p = copy.deepcopy(POUTRE)
+        p["taux"] = {"actif": True, "note": True}
+        for s in p["sections"]:
+            s.pop("longueur", None)
+        if [pl.get("ta_global") for pl in NPm.resultats(P.normaliser({"version": 1, "poutres": [p], "actif": 0}))] != [None, None]:
+            out.append("sans longueur de section : la note porte un taux de poutre")
+    except Exception as ex:  # noqa: BLE001
+        out.append(f"{type(ex).__name__} : {ex}")
+    return out
+
+
 try:
     from api_web import note_poutre as NP
-    planches = NP.resultats(P.normaliser(copy.deepcopy(ETAT)))
-    planches0 = NP.resultats(P.normaliser({"version": 1, "poutres": [sans], "actif": 0}))
-    chk("note PDF : chaque planche de la poutre porte ta_global = 100 kg/m³ ; option éteinte : aucune",
-        [pl.get("ta_global") for pl in planches] == [100.0, 100.0] and all(pl.get("ta_global") is None for pl in planches0),
-        [pl.get("ta_global") for pl in planches])
+    fautes = rejets_note(NP)
+    chk("note PDF : le taux de la poutre (100 kg/m³) n'y est QUE si la case « dans la note de calcul » est cochée — pas par "
+        "défaut, pas l'option éteinte, pas sans longueur", not fautes, fautes)
     from ndc_pdf import data as ND
-    blocs = ND.construire_sections(planches)[0]["blocs"]
-    chk("note PDF : le bloc « TAUX D'ARMATURE » dit « T.A. de la poutre 100 kg/m³ »",
-        blocs[-1] == ("TAUX D'ARMATURE", [("T.A. de la poutre", None, "100", "kg/m³")]), blocs[-1])
+    avec_note = copy.deepcopy(ETAT)
+    avec_note["poutres"][0]["taux"] = {"actif": True, "note": True}
+    blocs = ND.construire_sections(NP.resultats(P.normaliser(avec_note)))[0]["blocs"]
+    blocs0 = ND.construire_sections(NP.resultats(P.normaliser(copy.deepcopy(ETAT))))[0]["blocs"]
+    chk("note PDF : case cochée, le bloc « TAUX D'ARMATURE » dit « T.A. de la poutre 100 kg/m³ » ; non cochée, aucun bloc de ce nom",
+        blocs[-1] == ("TAUX D'ARMATURE", [("T.A. de la poutre", None, "100", "kg/m³")]) and all(b[0] != "TAUX D'ARMATURE" for b in blocs0),
+        (blocs[-1], [b[0] for b in blocs0]))
 except ImportError as ex:  # pragma: no cover — le générateur PDF demande reportlab
+    NP = None
     chk("le générateur de la note se charge", False, ex)
 
 # ------------------------------------------------------------------ 5. mutations
@@ -432,11 +488,11 @@ SRC_T = lire("beton", "poutre", "taux.py")
 SRC_P = lire("api_web", "poutre.py")
 
 
-def mutant(src, nom, paquet, avant, apres):
+def mutant(src, nom, paquet, avant, apres, fichier=None):
     if src.count(avant) != 1:
         raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans {nom})")
     m = types.ModuleType(nom)
-    m.__package__, m.__file__ = paquet, nom
+    m.__package__, m.__file__ = paquet, fichier or nom
     exec(compile(src.replace(avant, apres), nom, "exec"), m.__dict__)
     return m
 
@@ -488,6 +544,15 @@ chk(f"{len(MUT_ECRAN)} mutations de l'écran (tête, ligne, fenêtres, champs) :
 chk("l'écran témoin (un commentaire changé) n'est pas rejeté",
     not rejets_ecran(mutant(SRC_P, "api_web.poutre_mutant", "api_web", "# ------------------------------------------------------------------ le taux d'armature simplifié (option)",
                             "# ------------------------------------------------------------------ le taux d'armature (option)")))
+if NP is not None:
+    SRC_N = lire("api_web", "note_poutre.py")
+    F_N = os.path.join(RACINE, "api_web", "note_poutre.py")
+    chk("mutation de la note : « le taux part dans la note sans qu'on le demande » est rejetée",
+        bool(rejets_note(mutant(SRC_N, "api_web.note_poutre_mutant", "api_web",
+                                'if (p.get("taux") or {}).get("note") else None', "if True else None", F_N))))
+    chk("la note témoin (un commentaire changé) n'est pas rejetée",
+        not rejets_note(mutant(SRC_N, "api_web.note_poutre_mutant", "api_web", "# C'est le nombre de l'écran, calculé par le moteur du site.",
+                               "# Le nombre de l'écran.", F_N)))
 chk("après les mutations, le moteur et l'écran chargés sont intacts", not rejets_moteur(T) and not rejets_ecran(P))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")

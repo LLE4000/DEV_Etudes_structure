@@ -53,9 +53,11 @@ def resultats(etat: Dict) -> List[Dict]:
         calc = MO.verifier(p)
         beams, vals = valeurs(p, bi + 1)
         planches = EP._collecter_resultats(beams, vals, beton)
-        # l'option « Taux d'armature » allumée et des longueurs données : le taux de la POUTRE va dans la note (le bloc
-        # « TAUX D'ARMATURE » du générateur), calculé par le moteur du site — le même nombre qu'à l'écran
-        ta = (calc.get("taux_armature") or {}).get("poutre")
+        # le taux d'armature de la POUTRE ne va dans la note (le bloc « TAUX D'ARMATURE » du générateur) que si on le
+        # DEMANDE : l'option allumée, des longueurs données, ET la case « dans la note de calcul » cochée (p["taux"]
+        # ["note"]) — on ne donne pas toujours le taux à qui reçoit la note (demande de l'ingénieur, 10/11/2026).
+        # C'est le nombre de l'écran, calculé par le moteur du site.
+        ta = (calc.get("taux_armature") or {}).get("poutre") if (p.get("taux") or {}).get("note") else None
         for pl, rs in zip(planches, calc["sections"]):
             R = pl["R"]
             if ta:

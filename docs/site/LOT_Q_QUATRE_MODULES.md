@@ -646,8 +646,10 @@ s'écarte du texte ci-dessus, et pourquoi :
   imposées), et une épingle est verticale : le calcul suit le ferraillage que le site dessine ;
 - le taux de la section est une LIGNE de son bloc de résultats (« Taux d'armature · 90 kg/m³ », avec la masse au mètre),
   qui ouvre sa fenêtre de calcul ; le taux de la poutre est sous son nom, en tête des résultats, et ouvre la sienne ;
-- le taux de la poutre va aussi dans la NOTE PDF (le bloc « TAUX D'ARMATURE » du générateur), dès que l'option est
-  allumée et qu'une section a une longueur — une seule option, là où l'écran Streamlit en avait deux ;
+- le taux de la poutre ne va dans la NOTE PDF (le bloc « TAUX D'ARMATURE » du générateur) que si une SECONDE case le
+  demande, « Écrire le taux dans la note de calcul », éteinte par défaut — précision de l'ingénieur du 10/11/2026 au
+  soir : « des fois, on n'a pas envie de donner le taux d'armature aux gens ». Ce sont les deux cases de l'écran
+  Streamlit (« Afficher », « Envoyer dans la note de calcul ») ; éteindre l'option retire aussi la seconde ;
 - le gel des poutres a été refait (un champ de plus : la case) et porte deux cas de l'option.
 
 Preuves : `tests/test_poutre_taux.py`, `tests/test_poutre_moteur.py` § 9 (parité : 99 sections, 60 poutres).
