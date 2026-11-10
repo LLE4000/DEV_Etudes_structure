@@ -35,6 +35,8 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 
 ### Taux d'armature
 
+Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md). Le moteur `beton/taux` est refait sur la norme (`docs/beton/TAUX_ARMATURE_MOTEUR.md`) : les défauts ci-dessous restent ceux de l'écran Streamlit, inchangé.
+
 Écran : `modules/taux_armature.py` · doc : `docs/beton/TAUX_ARMATURE_MOTEUR.md`
 
 - NON CONSERVATIF — D9 : nombre d'étriers tronqué sur flottants, int(L_zone/s)+1 : L = 1 m, zone 0–30 %, s = 10 cm → 0,3/0,1 = 2,9999999999999996 → 3 étriers au lieu de 4 ; mesuré : 2 012 zones sur 39 690 zones ordinaires (5,1 %) perdent un étrier. Reproduit, avertissement grave, quotient écrit dans la fenêtre de la zone.
@@ -146,6 +148,8 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 - Constaté en relecture, contourné sur le site : l'écran déborde sur des saisies extrêmes qu'il accepte (OverflowError pour M_y ≥ 1e303 ou L_cr ≥ 1e150, division par zéro pour L_cr = 1e-200). Ses formules écrivent en kN un résultat en N (« 65.25×10²·235/1.00 = 1533.5 kN »).
 
 ### Taux d'armature
+
+Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md). Le moteur `beton/taux` est refait sur la norme (`docs/beton/TAUX_ARMATURE_MOTEUR.md`) : les défauts ci-dessous restent ceux de l'écran Streamlit, inchangé.
 
 - D1 : libellé de synthèse non formaté « Poids béton (≈{CONCRETE_DENSITY_KG_M3:.0f} kg/m³) ».
 - D3 : deux talons + « Renfort talon » bloque l'écran sur « Talon gauche non défini. » (refusé avec la raison sur le site).
@@ -336,6 +340,8 @@ l'intégration du 09/11/2026 — pour le garde-corps, les soudures et les charge
 - Rien d'autre : chaque champ, option, résultat, avertissement et tableau de modules/choix_profile.py a été relu ligne à ligne et retrouvé sur le site. La consigne parlait de schéma statique, de charges et de flèche, mais l'écran Streamlit n'en a pas (il prend les efforts ELU) : rien d'inventé.
 
 ### Taux d'armature
+
+Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md). Le moteur `beton/taux` est refait sur la norme (`docs/beton/TAUX_ARMATURE_MOTEUR.md`) : les défauts ci-dessous restent ceux de l'écran Streamlit, inchangé.
 
 - Ø d'un type d'étrier : l'écran Streamlit accepte tout nombre tapé de 6 à 16 (7, 9…), le site propose un menu 6/8/10/12/14/16 (une valeur hors pas venue d'un .stab reste proposée) — restriction volontaire, écrite dans la doc.
 - Élévation au téléphone : lisible au PC et à la tablette, trop petite au téléphone (poutre de plusieurs mètres à l'échelle sur 340 px).

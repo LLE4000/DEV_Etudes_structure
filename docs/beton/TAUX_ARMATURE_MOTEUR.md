@@ -1,218 +1,122 @@
-# Taux d'armature — le moteur sans Streamlit et le module du site
+# Taux d'armature — le moteur et le module du site
 
-*Livré le 07/11/2026. Moteur `beton/taux/` : bibliothèque standard seule, Python 3.12 et 3.13 (donc Pyodide 0.29.5).
-Extrait de l'écran Streamlit `modules/taux_armature.py` (« Poutre BA – Modélisation et taux d'armature »), qui reste la
-**référence** et le secours, inchangé ; la preuve de parité est `tests/test_taux_moteur.py`. Le module du site est
-`api_web/taux.py` (adresse `taux-armature`), ses dessins `api_web/dessin_taux.py`, ses tests `tests/test_api_web_taux.py`.*
+*Refait le 10/11/2026 (Lot Q) sur la conception `docs/site/LOT_Q_QUATRE_MODULES.md` § 3. Moteur `beton/taux/` :
+bibliothèque standard seule, Python 3.12 et 3.13 (donc Pyodide). Il ne reproduit PLUS l'écran Streamlit
+`modules/taux_armature.py` (dont les défauts restent relevés dans `docs/site/DEFAUTS_STREAMLIT.md`) : il compte l'acier
+d'une poutre selon la méthode ci-dessous, prouvée à la main. Module du site : `api_web/taux.py` (adresse
+`taux-armature`), dessins `api_web/dessin_taux.py`, feuille `site/web/css/modules/taux.css`.*
 
-## ⚠ Défauts NON CONSERVATIFS de l'écran Streamlit — à lire d'abord
+Le module est un **QUANTITATIF** : il ne vérifie rien. Il donne la masse d'acier à commander d'une poutre, son
+**bordereau** (un repère par ligne de barres et par ligne d'étriers, la synthèse par diamètre), le **taux en kg/m³**
+(masse majorée / volume de béton) et le **ratio en kg par mètre** de poutre. La note du site est une « Consultation ».
+Un chiffre faux par défaut, c'est de l'acier qui manque sur chantier : **dans le doute sur une longueur, le moteur prend
+le côté qui commande le plus d'acier**, et la règle est écrite (ici, dans le pied du résultat et dans les fenêtres).
 
-Un quantitatif est « non conservatif » quand il **sous-estime** une quantité à commander. L'écran Streamlit le fait dans
-les cas suivants ; le moteur les **reproduit** (parité) et le site les **dit** (avertissement dans le résultat) :
+## 1 · Les fichiers
 
-| | Ce qui est sous-estimé | Quand | Ce que le site affiche |
-|---|---|---|---|
-| **D9** | l'acier des étriers : **un étrier de moins** dans une zone | L / s tombe juste mais le flottant est un peu au-dessous de l'entier : `int(2,9999999999999996) + 1` = 3 au lieu de 4 (L = 1 m, zone 0–30 %, s = 10 cm ; aussi L = 1 m, 0–70 % à 10 cm ; L = 2 m, 0–30 % à 20 cm…). **Fréquent** : mesuré le 07/11/2026 sur 39 690 zones ordinaires (L de 2 à 12 m par 0,5 m, De et À par pas de 5 %, s de 5 à 30 cm), **2 012 zones (5,1 %)** perdent un étrier | avertissement **grave** dans le résultat, quotient écrit en entier dans la fenêtre de la zone |
-| **D2** | le **volume de béton** et son poids (le taux en kg/m³ est, lui, surestimé) | forme « Rectangulaire + deux talons » : les deux talons sont ignorés par le calcul | message **grave** dans les données et le résultat, talons en fantôme sur la coupe |
-| **D11** | l'acier des **cadres de talon** | forme à talon avec des étriers : seul le contour de l'âme est compté | avertissement « les cadres ou épingles du talon ne sont pas comptés » |
-| **D5** | l'acier des **retours** | un retour ajouté vaut 0 cm tant que sa hauteur n'est pas saisie (la hauteur proposée à l'ajout est perdue) | avertissement « retour de 0 cm » |
-| **D13** | une famille ou une zone entière | « À » ≤ « De », ou zone sans type : elle pèse 0 **sans un mot** | avertissement **grave**, bilan rouge sous la zone |
-
-Aucun de ces défauts n'est corrigé en silence (règle 2 de `docs/site/MODULES_SITE.md`) : les chiffres du site sont ceux
-de l'écran, et ces messages disent où ils sont faux.
-
-Le module est un **quantitatif** : il ne vérifie rien. Il donne le volume de béton d'une poutre, la masse de ses armatures
-(familles de barres longitudinales, zones d'étriers), majorée d'un pourcentage global, et leur rapport : le **taux
-d'armature en kg/m³**. Sur le site, la note est donc une « Consultation » (pas de taux de travail, pas de couleur de
-conformité).
-
-## 1 · Ce qui est livré
-
-| Pièce | Rôle |
+| Fichier | Rôle |
 |---|---|
-| `beton/taux/entree.py` | les listes, libellés, bornes et défauts de l'écran ; la normalisation stricte d'une poutre (ValueError hors du domaine) |
-| `beton/taux/geometrie.py` | la section (âme, talons), son aire, son polygone, la position de chaque barre (`bar_centers`) |
-| `beton/taux/moteur.py` | longueurs, étriers, quantités, taux, couleurs et codes des familles, avertissements, candidats de Ø, note entière — et le **format complet** dans sa docstring |
-| `beton/taux/saisie.py` | les effets de bord de l'écran à la saisie (ajouts, forme, portée en mètres, retours, types d'étriers) |
-| `tests/test_taux_moteur.py` | parité avec l'écran rejoué, contrôles à la main, couverture, effets de bord, constats AppTest, mutations, format, pureté (127 contrôles, 5 s) |
-| `api_web/taux.py` | le module du site : état de la note (plusieurs poutres), saisie, résultat, fenêtres de calcul, sélecteur de Ø |
-| `api_web/dessin_taux.py` | coupe en SVG à l'échelle (mm) ; élévation à l'échelle des longueurs, hauteurs amplifiées au-delà d'un élancement dessiné de 6 (écrit sur le dessin) ; tableau récapitulatif en HTML |
-| `site/web/css/modules/taux.css` | la feuille propre au module (chiffre du taux, synthèse, cartes, pastilles, vue « Tableau ») |
-| `tests/test_api_web_taux.py` | l'écran du site = le moteur = ce que l'écran Streamlit écrirait ; saisies, refus, effets de bord, sélecteur, dessins (dont : aucune écriture sur une autre), échappement (150 contrôles) |
+| `beton/taux/entree.py` | la poutre TYPE d'une note neuve ; les listes (formes, familles, Ø) ; les bornes ; `normaliser` (strict : `ValueError` en français qui nomme le champ, jamais une valeur ramenée à une borne) |
+| `beton/taux/geometrie.py` | la section (âme et talons BAS, à l'extérieur de l'âme), son aire, son polygone ; le niveau des lits ; la position des barres, des cadres, des épingles et du cadre de talon pour la coupe |
+| `beton/taux/moteur.py` | `calculer(poutre)` : les longueurs, `compter_etriers` (LA règle des étriers), le bordereau, les synthèses, le taux, les avertissements ; `synthese_note`, `bordereau_csv` — la MÉTHODE et le FORMAT de sortie dans sa docstring |
+| `beton/taux/saisie.py` | les gestes de l'écran : ajouter une ligne de barres, un type, une ligne, une zone (la suite) ; la limite de deux zones jointives qui suit ; la longueur qui fait suivre la moitié droite ; le type employé qui ne se retire pas |
+| `beton/taux/depuis_poutre.py` | `convertir(poutre_ba, longueurs, date)` : recevoir une poutre dimensionnée dans « Poutres béton armé » (§ 6.2 de la conception) |
+| `api_web/taux.py` | l'écran (établi compact) : rubriques, résultats, fenêtres de calcul, `telecharger(etat, "bordereau")` |
+| `api_web/dessin_taux.py` | les vues : élévation, coupe(s), bordereau ; deux variantes par dessin (`.tx-large`, `.tx-etroit`) |
 
-Chaque fonction de `geometrie.py` et de `moteur.py` reprend l'expression du module **dans le même ordre d'opérations** :
-les flottants sont identiques **au bit près** (6 469 comparaisons sur 60 poutres, 100 %).
+## 2 · La poutre
 
-## 2 · L'API
+`{nom, forme: rectangulaire | talon_gauche | talon_droit | deux_talons, b, h (cm), L (m), enrobage (cm),
+talon_gauche {b, h}, talon_droit {b, h} (cm), barres [...], types_etriers [...], zones [...], majoration (%),
+recouvrements {actifs, l_com (m), k (× Ø)}, rho_beton, rho_acier (kg/m³), origine: null | {module, nom, date}}`.
 
-```python
-from beton.taux import moteur as M, saisie as SA
+- une **ligne de barres** : `{famille: inf | sup | peau, lit (le rang sur sa face ; sans objet pour la peau), n (par
+  face pour la peau), d (mm), de, a (m depuis l'about gauche ; null = jusqu'à l'about ; les deux null = barre FILANTE,
+  sinon un RENFORT), retours: 0 | 1 | 2, l_retour (cm ; null = automatique)}` ;
+- un **type d'étriers** : `{nom, lignes: [{forme: cadre | cadre_interieur | epingle, d (mm), largeur (cm, cadre
+  intérieur)}], cadre_talon}` — ce qu'on pose à chaque cours ; une **zone** : `{de, a (m), s (cm), type}` — où, et à
+  quel pas ;
+- Ø des barres : 6, 8, 10, 12, 14, 16, 20, 25, 28, 32, 40 ; des étriers : 6 à 20. Bornes larges mais réelles
+  (b, h de 10 à 300 cm ; L de 0,5 à 60 m ; n de 1 à 40 ; s de 5 à 50 cm ; l'enrobage laisse un cadre).
+- **Défaut à l'ouverture** (la poutre type, § 3.5) : 30 × 60 cm, L = 6,00 m, c = 3 cm ; 3 Ø 20 inférieures filantes,
+  renfort 2 Ø 16 de 1,20 à 4,80 m (second lit), 2 Ø 12 supérieures filantes ; cadres Ø 8 au pas de 15 cm sur 1,50 m à
+  chaque about, 25 cm en travée ; majoration 5 %.
 
-M.nouvelle_poutre() -> dict          # l'écran au premier affichage : 30 × 60 cm, L 6 m, c 3 cm, B500A, majoration 5 %, aucune armature
-M.normaliser(poutre) -> dict         # complétée (clé absente → défaut de l'écran) et contrôlée ; ValueError avec le chemin du champ
-M.calculer(poutre) -> dict           # le quantitatif (sortie ci-dessous)
-M.candidats_diametre(poutre, i)      # les dix Ø de l'écran pour la famille i, la poutre recalculée pour chacun
-M.synthese_note([res, …]) -> dict    # la note entière : Σ volumes, Σ masses majorées, leur rapport (ajout du site)
-SA.ajouter_famille(p, "principal" | "renfort" | "lateral" | "talon"), SA.ajouter_etrier(p), SA.ajouter_type(p),
-SA.changer_forme(p, forme), SA.changer_portee(p, L), SA.longueur_en_metres(p, f, "de" | "a", m), SA.changer_retours(f, r),
-SA.supprimer_type(p, i), SA.renommer_type(p, i, nom)
-```
+## 3 · La méthode (et ses sources)
 
-**Entrée** (une poutre) : `nom`, `forme` (`rectangulaire`, `talon_gauche`, `talon_droit`, `deux_talons`), `enrobage` (cm),
-`L` (m), `b`, `h` (cm), `talon_gauche` et `talon_droit` (`b`, `h` en cm), `longueurs` (`pourcent` | `metre`), `acier`
-(`B500A`, `B500B`, `B500C`), `majoration` (%), `familles` (`role`, `position`, `n`, `d`, `retours`, `h_retour`, `de`, `a`),
-`types_etriers` (`nom`, `d`), `zones` (`nom`, `de`, `a`, `s`, `type`).
+- **Béton** : A_c = b·h + Σ b_t·h_t (les talons de la forme) ; V_c = A_c·L ; M_c = ρ_c·V_c (ρ_c = 2 500 kg/m³).
+- **Masse linéique** : m = π·Ø²/4·ρ_s, ρ_s = 7 850 kg/m³ — les masses nominales de l'**EN 10080** à moins de 0,5 %
+  (Ø 8 : 0,395 ; Ø 12 : 0,888 ; Ø 16 : 1,578 ; Ø 20 : 2,466 ; Ø 25 : 3,853 ; Ø 32 : 6,313 kg/m).
+- **Une ligne de barres** : x₁ = max(de ; c), x₂ = min(à ; L − c) — bornée aux abouts à l'enrobage, une filante
+  mesure **L − 2c** ; l = (x₂ − x₁) + r·l_r + n_rec·l_rec. Un retour automatique vaut toute la hauteur entre enrobages
+  (h − 2c ; b − 2c pour la peau) : le côté sûr. Barres de peau : n par face, deux faces.
+- **Recouvrements** (option, active par défaut) : au-delà de la longueur commerciale l_com (12 m), n_rec =
+  ⌈(l₀ − l_com)/(l_com − l_rec)⌉ recouvrements de l_rec = k·Ø (k = 50). **Écart voulu avec la conception**, qui écrivait
+  ⌈l₀/l_com⌉ − 1 : cette formule en oublie un quand l₀ approche d'un multiple de l_com (l₀ = 23,9 m, Ø 20 : deux barres
+  de 12 m qui se recouvrent de 1 m ne couvrent que 23 m) ; la formule retenue est celle de la POSE (chaque recouvrement
+  mange l_rec sur la barre suivante), prouvée par simulation dans `tests/test_taux_moteur.py` § 2.
+- **Étriers** (longueur développée, sans déduction des cintrages — côté sûr de quelques centimètres) :
+  cadre 2·[(b − 2c) + (h − 2c)] + 2·l_r ; cadre intérieur 2·[w + (h − 2c)] + 2·l_r ; épingle (h − 2c) + 2·l_r ;
+  cadre de talon 2·[(b_tot − 2c) + (h_t − 2c)] + 2·l_r ; **l_r = max(10·Ø ; 70 mm)** — **EN 1992-1-1:2004 §8.5(2),
+  figure 8.5** (ancrage d'une armature transversale par un coude à 90° ; le crochet ne demanderait que 5 Ø ≥ 50 mm :
+  10 Ø est le côté sûr).
+- **Nombre de cours** d'une zone l_z au pas s : ⌈l_z/s − 10⁻⁹⌉ (le 10⁻⁹ absorbe les flottants : 0,3/0,1 =
+  2,9999999999999996 compte 3 intervalles), **plus UN cours de fermeture par suite de zones jointives** — la pose réelle
+  « un étrier à chaque bout de la suite, un tous les s au plus », un seul étrier à la jonction de deux zones. Écrit une
+  fois, dans `moteur.compter_etriers`. Zones qui se recouvrent : refusées (les deux zones nommées).
+- **Quantités** : masse par repère, par famille (inférieures, supérieures, renforts, peau, étriers), par diamètre ;
+  M_s ; M_s,maj = M_s·(1 + majoration) ; **taux = M_s,maj / V_c** (et sans majoration) ; ratio = M_s,maj / L.
+- **Le niveau des lits** (coupe et élévation seulement, aucune longueur n'en dépend) : le premier lit sur le cadre
+  (axe à c + Ø_cadre + Ø/2), le suivant au-dessus à l'espacement libre minimal de l'EN 1992-1-1 §8.2(2).
 
-**Sortie** de `calculer` (JSON strict, nombres non arrondis) :
+## 4 · Recevoir une poutre de « Poutres béton armé » (`depuis_poutre.convertir`)
 
-- `geometrie` : `b`, `h`, `c`, `L`, `bg`, `hg`, `bd`, `hd` (talons CALCULÉS), `aire_cm2`, `polygone`, `talons_ignores` ;
-- `familles`, une par famille, dans l'ordre : `index`, `code` (INF1, SUP1, LAT1…), `role`, `position`, `libelle_role`,
-  `libelle_position`, `groupe` (bas, haut, cote), `rang`, `couleur` (le dégradé de l'écran), `libelle` (« 3Ø16 »,
-  « 2 × 2Ø12 »), `n`, `n_eff`, `d`, `retours`, `h_retour`, `de`, `a` (%), `de_m`, `a_m` (m), `lit` (rang du lit à sa
-  position), `L_active`, `L_tot` (m), `m_lin` (kg/m), `volume` (m³), `masse_majoree` (kg, la colonne « kg tot »), `part`
-  (du volume d'acier), `apport` (masse majorée / Vc, kg/m³ — ajout du site), `As` (mm²), `barres` (les centres dessinés,
-  cm), `formules` ;
-- `etriers`, une ligne par zone calculée : zone, type, `n`, `L_un` (un étrier), `L_tot`, `m_lin`, `volume`,
-  `masse_majoree`, `part`, `apport`, `quotient` (L_zone / s avant troncature), `formules` ; `zones_ignorees` ;
-- `quantites` : `aire_cm2`, `Vc` (m³), `masse_beton` (kg), `V_longitudinales`, `V_etriers`, `V_acier` (m³), `masse_acier`,
-  `kg_m3` (sans majoration : calculés par l'écran, non affichés), `majoration`, `masse_acier_majoree`, `kg_m3_majore`
-  (les trois chiffres de l'écran), `par_categorie` (m³ : principal, renfort, latéral, étriers), `masses_categories`
-  (kg majorés), `formules` ;
-- `avertissements` : `code`, `message`, `grave` — ce que l'écran tait ; ils ne changent aucun chiffre.
+Chaque section de longueur l_i devient un tronçon [x_i ; x_i + l_i] (L = Σ l_i) ; pour chaque lit (face, rang) de même
+Ø partout : les barres COMMUNES à toutes les sections deviennent filantes, le surplus de chaque section un renfort sur
+son tronçon (tronçons voisins de même surplus réunis) ; un Ø qui change donne des barres par tronçon ; les barres
+latérales de même ; chaque composition d'étriers distincte devient un type (cadre de toute la largeur → cadre ; cadre
+entre deux barres → cadre intérieur de la largeur que la poutre calcule ; épingle), chaque section une zone à son pas.
+La largeur d'un cadre intérieur et la position des barres sont APPELÉES dans `beton/poutre/geometrie.py`. Sans
+longueur de section : refus, qui dit où la saisir. L'`origine` (module, nom, date) est gardée ; l'écran l'écrit dans
+l'en-tête de chaque vue (« Reçue de la poutre V1, le 10/11/2026 ») et en tête du résultat.
 
-## 3 · La méthode du module (reproduite telle quelle)
+## 5 · L'écran (`api_web/taux.py`)
 
-| Grandeur | Expression du module (fonction) |
-|---|---|
-| aire de la section | A_c = b·h + b_t,g·h_t,g + b_t,d·h_t,d (cm², `area_cm2`) — talons lus par `build_geometry` |
-| volume de béton | V_c = A_c / 10 000 · L (m³) ; poids du béton = V_c · 2 500 kg/m³ |
-| longueur active | L_active = L · (À − De) / 100, À et De bornés à 0–100 % ; 0 si À ≤ De (`active_length_m`) |
-| barres effectives | n_eff = n, ou 2·n pour « Latérales 2 côtés » (`effective_n_bars`) |
-| acier d'une famille | L_tot = L_active · n_eff + retours · h_retour / 100 · n_eff ; 0 si L_active = 0 (`total_bar_length_m`) |
-| masse linéique | m_lin = π · (Ø / 2 000)² · 7 850 kg/m (`steel_linear_mass_kg_m`) |
-| un étrier | L_étrier = (2 · ((b − 2c) + (h − 2c)) · 10 + 2 · 8 · Ø) / 1 000 m : le contour de l'ÂME à l'enrobage + deux crochets de 8 Ø (`stirrup_length_m`) |
-| étriers d'une zone | n = int(L_zone / s) + 1, **tronqué** (`compute_stirrups_for_zones`) ; L_tot = n · L_étrier |
-| volume d'acier | V = L_tot · π · (Ø / 2 000)², sommé familles + zones (`compute_quantities`) |
-| masse et taux | M_s = V_s · 7 850 ; M_s,maj = M_s · (1 + maj / 100) ; taux = M_s,maj / V_c (`show`) |
-| colonne « kg tot » | L_tot · m_lin · (1 + maj / 100), ligne par ligne (`show`) |
-| position des barres | lits : axe à c + Ø/2 de la face, lits espacés de Ø + 2 cm, barres de x = −b/2 + c à b/2 − c (une seule : au milieu) ; latérales : n + 2 barres de c à h − c, extrêmes retirées (`bar_centers`) |
-| couleurs, codes | dégradé #ffcccc → #b30000 (bas), #cce0ff → #0033cc (haut), #666666 (latérales) ; INF1, SUP1, LAT1 numérotés par groupe dans l'ordre de la liste |
+- **Rubriques** : 1 Poutre (la forme en pictogrammes ; b × h ; L et c ; les talons de la forme) · 2 Armatures
+  longitudinales (une carte compacte par ligne, rangée sous sa face : repère, n, Ø, « filant · L1 » ou « 1,20 →
+  4,80 m » ; dépliée : famille, lit, de, à — vides = filant —, retours et leur longueur ; « + Lit inférieur »,
+  « + Lit supérieur », « + Renfort », « + Barres de peau ») · 3 Étriers (les types : « E1 · cadre Ø 8 + … · 33 cours »,
+  leurs lignes, « + Ligne », « cadre de talon » ; les zones : « Z1 · 0,00 → 1,50 m · e 15 · E1 · 10 étriers », leur
+  quotient ; « + Zone » propose la suite) · 4 Hypothèses (majoration, recouvrements, masses volumiques).
+- **Résultats** : le verdict de valeur (taux majoré, la masse majorée pour le volume, le taux sans majoration) ;
+  « Acier par famille » et « Par diamètre » (masse, part en jauge GRISE — une part, pas un taux de travail) ; « Béton » ;
+  « Note entière » dès deux poutres (`synthese_note`) ; les avertissements du moteur ; la méthode ; au pied, le ratio
+  au mètre et « Bordereau CSV ».
+- **Fenêtres** : repères et taux, par diamètre, béton, étriers par zone — chaque ligne « symbole = expression =
+  valeurs = résultat » écrite à partir des seuls termes du moteur.
+- Ce qui SUIT une saisie (la zone jointive d'une limite déplacée, la moitié droite quand L change) est DIT au-dessus du
+  résultat. Une note de l'ancien module (version 1) se rouvre : noms gardés, poutres types, avis dit une fois.
 
-La « qualité d'acier » (B500A/B/C) n'entre dans **aucun** calcul (comme l'écran) ; le site l'écrit sur la note.
+## 6 · Ce qui n'est pas couvert (dit, jamais tu)
 
-## 4 · La preuve de parité (`tests/test_taux_moteur.py`, 127 contrôles au vert)
+- aucune vérification (ni section d'acier requise, ni espacements, ni ancrages) : c'est le rôle de « Poutres béton
+  armé » ; les épingles inutiles, les types inemployés, une portion sans étriers sont des AVERTISSEMENTS ;
+- les ligatures et les chutes ne sont pas détaillées : une majoration globale (5 % par défaut) ;
+- les crochets des barres longitudinales, les coupleurs, les aciers d'attente, les barres en attente des appuis ;
+- un cadre plus long que la longueur commerciale est dit (avertissement), ses recouvrements ne sont pas comptés ;
+- une poutre droite, de section constante sur toute sa longueur (pas d'inertie variable, pas de biais) ; une poutre
+  reçue dont les sections changent de b ou de h n'existe pas (la poutre BA a une seule section de béton).
 
-1. **Données lues dans le module** : libellés des positions et rôles, menus (formes, Ø, retours, aciers), bornes des 17
-   champs à bornes fixes (lues dans l'arbre syntaxique de `modules/taux_armature.py`), majoration par défaut, masses
-   volumiques.
-2. **À la main** : trois poutres recalculées (1,080 m³, 14 étriers de 1,688 m, 29,7 kg et 27,5 kg/m³ — les chiffres
-   affichés par l'écran ; une section à talon de 2 300 cm² ; les latérales à mi-hauteur et aux quarts).
-3. **L'écran ENTIER rejoué** (`show`) sur **60 poutres** (30 choisies, 30 tirées au sort, graine fixe) avec un faux
-   `st` qui enregistre (colonnes et conteneurs compris) et des espions sur `build_geometry`, `build_rebar_families`,
-   `compute_stirrups_for_zones`, `compute_quantities`, `draw_section` : géométrie, polygone, aire, **chaque barre
-   dessinée** (x, y, Ø, famille, couleur), codes, longueurs, étriers, volumes par catégorie, masses, taux — **6 469
-   comparaisons numériques, toutes identiques au bit près** — puis les **chaînes affichées** : les trois métriques, la
-   synthèse, chaque cellule du tableau récapitulatif. Le dessin matplotlib de l'écran tourne sur 4 cas.
-4. **Couverture** : chaque forme, position, rôle, Ø, nombre de retours, mode de saisie, rang de lit, zone ignorée,
-   avertissement, majoration 0 et 50 % est atteint.
-5. **Effets de bord** de `saisie.py` contre l'écran : forme changée (6 transitions), « Retours » = 0, type supprimé
-   (3 cas), type renommé, boutons d'ajout, portée changée en mètres.
-6. **Constats sur l'écran réel** (AppTest de Streamlit) : chaque défaut D1–D8 ci-dessous est MONTRÉ ; si l'écran est
-   corrigé, le constat rougit.
-7. **Mutations** : 14 altérations plausibles du moteur (masse volumique, latérales comptées une fois, retours oubliés,
-   crochets de 10 Ø, arrondi au lieu de troncature, deux talons comptés, pas des lits, couleurs, codes, rangs de lit,
-   borne À ≤ De…) font chacune rougir la parité (de 1 à 60 cas).
-8. **Format** : JSON strict, normalisation idempotente, 39 saisies hors domaine refusées par ValueError, **1 652
-   formules** « symbole = valeurs = résultat » recalculées à partir de leurs seuls termes, chaque grandeur de sortie
-   nommée ici et dans la docstring.
-9. **Pureté** : le moteur se charge et calcule dans un sous-processus où `sys.meta_path` refuse streamlit, pandas, numpy,
-   matplotlib… (Python 3.12 ; 3.13 rejoué quand il est présent).
+## 7 · Les preuves
 
-## 5 · Les défauts de l'écran Streamlit (reproduits par le moteur, ÉCRITS ici et montrés sur le site)
-
-| | Défaut | Effet | Sur le site |
-|---|---|---|---|
-| **D1** | la synthèse affiche « Poids béton (≈{CONCRETE_DENSITY_KG_M3:.0f} kg/m³) » (chaîne sans `f`) | libellé illisible, chiffre juste | libellé « Poids du béton », 2 500 kg/m³ dans les hypothèses |
-| **D2** | « Rectangulaire + deux talons » ne contient ni « gauche » ni « droit » : `build_geometry` calcule la section **sans talon** alors que l'écran montre quatre champs de talon | volume et poids du béton **sous-estimés**, taux en kg/m³ **surestimé** (côté sûr pour un prix d'acier, faux pour un volume de béton) | reproduit ; message grave dans les données et dans le résultat ; talons en fantôme sur la coupe |
-| **D3** | « deux talons » + « + Renfort talon » (ou une position de talon) : l'écran s'arrête sur « Talon gauche non défini. » | écran bloqué | refusé avec ce message ; bouton et positions de talon non proposés pour cette forme ; passer à « deux talons » avec une famille sur un talon est refusé |
-| **D4** | talon de 0 cm (valeur affichée par défaut) lu `0 or 10.0` = 10 cm (`or 15.0` en hauteur) | le calcul prend 10 × 15 cm alors que le champ affiche 0 | la note neuve porte 10 × 15 (ce que l'écran calcule) ; un talon de 0 est **refusé** avec un message |
-| **D5** | `add_family` propose une hauteur de retour h − 2c (b − 2c pour une latérale), aussitôt remise à 0 par `edit_family` (« Retours » = 0) ; passer à 1 retour garde 0 | un retour ajouté pèse 0 tant qu'on n'a pas saisi sa hauteur | reproduit ; avertissement « retour de 0 cm » |
-| **D6** | supprimer une famille décale les clés de widgets (par rang) : la suivante hérite des valeurs de la supprimée | la note change sans le dire | sans objet (le site désigne les champs par leur chemin) |
-| **D7** | le menu « Section » perd le premier choix qui suit un changement (il faut choisir deux fois) | saisie hésitante | sans objet |
-| **D8** | en mètres, une portée changée garde les mètres saisis s'ils tiennent dans la nouvelle portée, sinon reprend le pourcentage | les longueurs changent selon le cas | reproduit (`changer_portee`) et **dit** : les familles qui gardent leur pourcentage sont nommées |
-| **D9** | la troncature `int(L_zone / s) + 1` sur des flottants : L = 1 m, 0–30 %, s = 10 cm → 0,3 / 0,1 = 2,9999999999999996 → **3** étriers au lieu de 4 | un étrier de moins (non conservatif sur le quantitatif) | reproduit ; avertissement grave, quotient écrit en entier dans la fenêtre de calcul |
-| **D10** | deux zones qui se recouvrent sont comptées deux fois ; une partie de portée sans zone n'a pas d'étrier | double compte ou oubli, sans un mot | reproduit ; avertissements « se recouvrent » et « sans étriers » ; chaîne des zones sur l'élévation |
-| **D11** | la longueur d'un étrier ignore les talons (contour de l'âme seule) et prend le contour à l'enrobage, sans le Ø | étriers de talon non comptés | reproduit ; écrit sur la coupe (« contour compté : l'âme à l'enrobage ») et avertissement « les cadres ou épingles du talon ne sont pas comptés » (forme à talon avec étriers) |
-| **D12** | « Ø (mm) » d'un étrier écrit `int(phi)` dans le tableau : 7,5 s'affiche 7 | affichage seulement (le calcul prend 7,5) | le site écrit 7,5 |
-| **D13** | une zone sans type, ou dont À ≤ De, est ignorée en silence ; une famille À ≤ De pèse 0 en silence | quantités manquantes sans un mot | reproduit ; avertissements graves et bilan rouge sous la zone |
-| **D14** | deux types d'étriers du même nom : le calcul prend le DERNIER, le menu des zones le premier | ambiguïté | refusé (impossible à l'écran, qui ne crée qu'un type) |
-| **D15** | 2·c ≥ b ou 2·c ≥ h : la longueur d'un étrier devient négative | masse négative | refusé |
-
-Les barres sont placées axes à c (et non c + Ø étrier + Ø/2) des faces latérales : les barres d'angle sont centrées sur
-le contour d'étrier compté. C'est la convention de dessin du module (aucun effet sur les quantités) ; la coupe du site
-la reproduit.
-
-## 6 · Le module du site : tout ce que l'écran Streamlit offre, coché
-
-| Écran Streamlit | Site |
-|---|---|
-| « Saisie des longueurs de lit » (% / m) | ✓ segments « % de L / mètres » (section 2) ; les champs « de », « à » passent en m |
-| Section (4 formes), enrobage, portée, largeur, hauteur | ✓ section 1, mêmes bornes (refus hors bornes) |
-| talons gauche / droit (largeur, hauteur) selon la forme | ✓ affichés selon la forme ; deux talons : message D2 |
-| boutons + Lit principal, + Renfort local, + Latéral, + Renfort talon (grisé sans talon), + Étrier | ✓ « Lit principal », « Renfort local », « Barres latérales », « Renfort de talon » (si talon), « Zone d'étriers » (crée E1 s'il n'y a aucun type), et « Type d'étrier » (ajout du site) |
-| carte d'une famille : pastille de couleur, rôle – code, poubelle | ✓ pastille, code, rôle, masse de la famille, ✕ |
-| position (menu selon rôle et forme), n barres (1–20), Ø (10 valeurs), retours (0–2), hauteur de retour (« — » sans retour), De, À | ✓ mêmes listes et bornes ; hauteur verrouillée à 0 sans retour |
-| familles groupées : lits principaux, renforts (y compris talons), latérales | ✓ mêmes groupes |
-| types d'étriers : nom, Ø (6–16), poubelle | ✓ nom, Ø en menu (6 à 16 ; une valeur hors pas, 7,5, reste proposée), ✕ |
-| zones : nom, De, À, espacement (2–100 cm), type ; « Crée au moins un type… » | ✓ + bilan de la zone (n × Ø, kg) ; message si aucun type |
-| Qualité d'acier, Majoration globale (%) | ✓ section 4 « Quantitatif » |
-| métriques : Volume béton, Masse acier, Taux d'armature | ✓ verdict (taux en kg/m³) + synthèse |
-| Synthèse : masse majorée, volume, poids béton, taux | ✓ (+ taux sans majoration, calculé par l'écran mais non affiché) |
-| Tableau récapitulatif (couleur, code, position, n, Ø, L active, L tot, kg/m, kg tot), « Ajoute des armatures… » | ✓ vue « Tableau », mêmes colonnes et précisions, ligne Total (ajout) ; message si vide |
-| « Section générale (tous lits) » (matplotlib) | ✓ vue « Coupe » : béton gris, barres aux positions et couleurs de l'écran, contour d'étrier compté, cotes, légende |
-
-**Ajouts du site** (rien de neuf dans le calcul : des projections de ce que le moteur calcule) : plusieurs poutres par
-note, résumé et vue « Note » (taux de la note) ; vue « Élévation » (longueurs à l'échelle, hauteurs amplifiées et dites au-delà d'un élancement de 6 ; barres de De à À, étriers à leur espacement, chaîne
-des zones, barres développées) ; part de chaque famille et zone dans l'acier et apport au taux ; fenêtres de calcul avec
-formules substituées ; sélecteur de Ø par famille (taux de la poutre et part de la famille pour chaque Ø, la retenue ✓ ;
-**pas d'optimal ★** : un quantitatif n'a pas de critère « qui tient ») ; avertissements de ce que l'écran tait.
-
-**Non couvert** : la note PDF (hors périmètre du site) ; les clés de widgets de l'écran (D6, D7 : sans objet) ; le
-« type » d'étrier (`full`, `inner`, …) que l'écran garde sans l'utiliser. Aucune borne normative (A_s,min, A_s,max,
-ratios usuels) : l'écran n'en a pas, le site n'en invente pas.
-
-## 7 · Les règles de saisie du site
-
-- une saisie hors du domaine de l'écran est **refusée** avec un message et la note reste intacte (jamais ramenée en
-  silence : talon de 0, Ø non proposé, 21 barres, 2,5 barres, espacement de 1 cm, enrobage qui ne laisse pas de place…) ;
-- réécrire la valeur affichée par un champ ne change rien (un pourcentage saisi en mètres garde ses décimales) ;
-- les effets de bord de l'écran sont reproduits (`beton/taux/saisie.py`) et **dits** quand l'écran les tait (familles
-  ramenées sur l'âme, zones réaffectées, pourcentages gardés en mètres).
-
-## 8 · Relecture indépendante du 07/11/2026
-
-Ce qui a été contrôlé, et comment :
-
-- **Chiffres** : 25 notes construites **par le routeur**, saisie par saisie comme la page les envoie (forme, talons,
-  mètres, portée changée, types supprimés, troncature, deux talons, 0,5 m et 60 m, 200 × 300, 12 × 10, Ø6 à Ø40,
-  majorations 0 et 50 %…), puis l'écran Streamlit rejoué sur le même état : taux, Vc, masse, poids du béton et chaque
-  cellule du tableau récapitulatif **identiques** (25 sur 25). D8 (portée changée en mètres) est prouvé contre le vrai
-  Streamlit par AppTest (§4.6).
-- **Robustesse** : 17 champs × 16 saisies absurdes (négatif, zéro, texte, 1e9, nan, inf, vide, null, booléen, liste,
-  objet, « 0x10 », texte piégé…), 27 notes `.stab` abîmées, noms piégés dans la poutre, les zones et les types : refus
-  lisibles, note intacte, aucun élément actif dans les fragments (lu par un analyseur HTML).
-- **Écran** : PC, tablette, téléphone, sur une note remplie de deux et trois poutres (talon gauche, talon droit, deux
-  talons, troncature), chaque vue et chaque fenêtre regardée.
-
-Ce qui a été corrigé :
-
-| Défaut trouvé | Correction | Test qui rougit si on la retire |
+| Suite | Contrôles | Ce qu'elle prouve |
 |---|---|---|
-| coupe « deux talons » : la note « talons non comptés (défaut D2) » était écrite **sur** la cote de l'âme | la note passe sous la chaîne de cotes | « aucune écriture sur une autre » (coupe et élévation, chaque cas) |
-| verdict au téléphone : « 1,380 » et « m³ » sur deux lignes ; au PC « 5 % » seul sur une ligne | deux lignes fixes, chaque nombre lié à son unité par une espace insécable | « le verdict ne sépare jamais un nombre de son unité » |
-| sélecteur : le « Ø » du sous-titre seul sur sa ligne | espace insécable | « le Ø du sous-titre reste avec son mot » |
-| D11 (cadres de talon non comptés) dit seulement dans la légende de la coupe | avertissement du moteur `etriers_talon` (aucun chiffre ne change) | « D11 dit » ; couverture de la parité |
-| `.stab` dont `actif` n'est pas un nombre : erreur Python en anglais (« invalid literal for int() ») | refus en français | « actif = … : refusé en français » |
-| tableau au téléphone : la position coupée (« Armatures inférieures… ») | la position se lit sur deux lignes | (feuille de style ; vu sur capture) |
-| élévation d'une poutre courante (6 m × 60 cm) : une bande de 65 px, étriers à 11 px | hauteurs amplifiées dès un élancement de 6 (×2 ici), écrit sur le dessin | « élancement : hauteurs ×1 jusqu'à L/h = 6… » |
-| défauts non conservatifs écrits dans le tableau du §5 seulement | écrits **en tête** de ce document, avec la fréquence de D9 mesurée (5,1 % des zones ordinaires) | — |
+| `tests/test_taux_moteur.py` | 30 contrôles, 48 mutations rejetées | la poutre type à la main ; chaque formule ; le compte des étriers sur une grille contre la pose simulée (jamais un de moins ; L = 1 m, zone 0–0,3 m, s = 10 cm : 4) ; talons ; recouvrements ; bordereau = Σ repères = Σ Ø = total ; CSV relu ; refus ; gestes ; `depuis_poutre` (trois poutres, invariant au mètre) ; géométrie ; JSON strict ; bibliothèque standard seule |
+| `tests/test_api_web_taux.py` | 67 contrôles, 15 mutations vues rouges | l'écran = le moteur sur dix états (chaque nombre affiché) ; chaque formule des fenêtres réévaluée à partir des valeurs écrites ; refus ; gestes et ce qui suit ; contrat de sélection ; échappement ; CSV ; bout en bout depuis le routeur (« transmettre ») |
+| `tests/test_api_web_modules.py taux` | 23 | le contrat commun des modules (parcours, champs, fichiers, éléments) |
+| `tests/test_reference_refonte.py taux` | 11 cas | la photo gelée (regel accepté le 10/11/2026) |
+
+**La poutre type, à la main** : 3 Ø 20 × 5,94 m = 17,82 m × 2,466 = 43,95 kg ; 2 Ø 16 × 3,60 m = 7,20 m × 1,578 =
+11,36 kg ; 2 Ø 12 × 5,94 m = 11,88 m × 0,888 = 10,55 kg ; cadres : 2·(0,24 + 0,54) + 2 × 0,08 = 1,72 m, 10 + 12 + 10
++ 1 = 33 cours, 56,76 m × 0,395 = 22,40 kg ; M_s = 88,25 kg ; × 1,05 = 92,67 kg ; V_c = 0,30 × 0,60 × 6 = 1,080 m³ ;
+**taux = 85,8 kg/m³** (81,7 sans majoration) ; 15,4 kg/m.
