@@ -270,3 +270,128 @@
   .et-bib .bib { min-height: 0; }
   .et-bib .bib-pq-c { width: 100vw; }
 }
+
+/* ---------------------------------------------------------------- la rubrique « ENROBAGES » (Lot Q, 10/11/2026 :
+   api_web/biblio_enrobages.py) : deux onglets en segments en tête de la barre, les paramètres groupés et nommés
+   (Élément, Feu, Environnement, Armatures) ; « Calcul » : le dessin du détail à gauche (avec les conditions d'emploi
+   dessous), la feuille de calcul à droite ; « Tableaux » : le tableau du feu ENTIER, ses notes dessous. */
+.bib-onglets-l { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: end; padding-right: 4px; }
+.bib-onglets { justify-content: flex-end; }
+.bib-onglets .seg { height: 34px; }
+.bib-onglets .seg button { height: 28px; padding: 0 16px; font-size: 13px; font-weight: 650; }
+/* un groupe ne fait pas bloc : ses champs coulent avec les autres (la barre tient en moins de lignes) ; son nom, en
+   tête, à la hauteur des contrôles et marqué d'un filet, le sépare du groupe d'avant */
+.bib-gr { display: contents; }
+.bib-gr-t { display: flex; align-items: center; height: 30px; padding-left: 10px; border-left: 2px solid var(--accent-line, var(--line));
+  font-size: 10px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--accent-hover); white-space: nowrap; }
+.bib-p .field.select select[data-param="contre_sol"], .bib-p .field.select select[data-param="portee"] { max-width: 170px; }
+.bib-barre .seg button:disabled { opacity: .45; cursor: not-allowed; }
+.bib-p .field input[data-param="mu_fi"], .bib-p .field input[data-param="l0_fi"] { width: 52px; }
+
+/* « Calcul » : la grille dessin | feuille, dans le cadre du tableau (il prend la hauteur qui reste) */
+.bib-tableau:has(> .bib-calc) { flex: 1 1 auto; }
+.bib-calc { display: grid; grid-template-columns: minmax(260px, 33%) minmax(0, 1fr); min-height: 100%; }
+.bib-calc-d { margin: 0; padding: 12px 14px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; min-width: 0;
+  background: var(--paper); border-radius: var(--r-lg) 0 0 var(--r-lg); }
+.bib-calc-s { display: grid; place-items: center; min-height: 0; }
+.bib-calc-s svg { display: block; width: 100%; height: auto; max-height: 240px; }
+.bib-notes .bib-av { margin: 0 0 6px; padding: 5px 8px; font-size: 11px; }
+.bib-calc-d figcaption { font-size: 11px; color: var(--ink-3); text-align: center; }
+.bib-notes { font-size: 11px; line-height: 1.35; color: var(--ink-2); }
+.bib-notes b { font-size: 11px; color: var(--ink); }
+.bib-notes ul { margin: 2px 0 0; padding-left: 16px; }
+.bib-notes li + li { margin-top: 1px; }
+.bib-notes p { margin: 4px 0 0; }
+.bib-notes sub { font-size: 8.5px; }
+.bib-verif { display: flex; gap: 5px; align-items: flex-start; font-size: 11px; color: var(--ok-ink); }
+.bib-verif svg.i { width: 13px; height: 13px; flex: none; margin-top: 1px; }
+.bib-notes details { margin-top: 4px; }
+.bib-notes summary { cursor: pointer; font-size: 11px; color: var(--ink-3); }
+.bib-notes details.bib-cond > summary { color: var(--vrf-encre, #8A5A00); font-weight: 650; }
+.bib-calc-f { min-width: 0; }
+.bib-fc { font-size: 12.5px; table-layout: fixed; }
+.bib-fc col.c-s { width: 78px; } .bib-fc col.c-n { width: 28%; } .bib-fc col.c-v { width: 104px; } .bib-fc col.c-r { width: 150px; }
+.bib-fc th, .bib-fc td { height: auto; padding: 3px 10px; white-space: normal; vertical-align: top; text-align: left; border-bottom: 1px solid var(--line); }
+.bib-fc td + td { border-left: 0; }
+.bib-fc tbody tr:nth-child(even) td, .bib-fc tbody tr:nth-child(even) th.nm { background: transparent; }
+.bib-fc tbody tr:hover td { background: transparent; }
+.bib-fc th.nm { position: static; border-right: 0; background: transparent; font-weight: 400; }
+.bib-fc th.nm .s { display: block; font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.bib-fc th.nm .s sub { font-size: 9.5px; }
+.bib-fc td.nom { font-size: 11.5px; color: var(--ink-2); line-height: 1.3; }
+.bib-fc td.fc { font-size: 12px; color: var(--ink-2); line-height: 1.3; }
+.bib-fc td.fc .fo { color: var(--ink-3); font-size: 11px; margin-right: 5px; }
+.bib-fc td.fc .va { display: inline-block; }        /* « = valeurs » passe à la ligne d'un bloc, sans se couper */
+
+.bib-fc td.fc sub, .bib-fc td.rg sub { font-size: 8.5px; }
+.bib-fc td.v, .bib-fc td.cur { text-align: right; line-height: 1.25; }
+.bib-fc td.v b, .bib-fc td.cur b { white-space: nowrap; }
+.bib-fc td.v b, .bib-fc td.cur b { font-size: 13.5px; font-weight: 700; }
+.bib-fc td.cur { font-weight: 700; }
+.bib-cmp { display: block; font-size: 10.5px; font-weight: 600; color: var(--ink-3); }
+.bib-cmp.ok { color: var(--ok-ink); }
+.bib-cmp.ko { color: var(--nok); }
+.bib-fc td.rg { font-size: 10.5px; color: var(--ink-3); line-height: 1.3; white-space: nowrap; }
+.bib-fc tr[title] { cursor: help; }
+.bib-fc tr.g th { padding: 5px 10px 2px; background: var(--panel-2); font-size: 10.5px; color: var(--ink-2); border-bottom: 1px solid var(--line-strong); }
+.bib-fc tr.g th b { font-size: 10.5px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.bib-fc tr.g th span { margin-left: 8px; font-weight: 500; color: var(--ink-3); }
+.bib-fc tr.on th.nm { box-shadow: inset 3px 0 0 var(--accent); }
+.bib-fc tr.on th.nm .s { color: var(--accent-hover); }
+.bib-fc tr.on td { background: color-mix(in srgb, var(--accent-soft) 55%, var(--panel)) !important; }
+
+/* « Tableaux » · le feu : la case de comparaison (formule), une case non atteinte, les notes sous le tableau */
+.bib-feu td.cmp { box-shadow: inset 0 0 0 2px var(--accent); outline: 1px dashed var(--panel); outline-offset: -4px; }
+.bib-tab td.cur.ko { box-shadow: inset 0 0 0 2px var(--nok); }
+.bib-feu thead th.k b sub { font-size: 9px; }
+.bib-notes-t { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 22px; padding: 8px 14px 10px; border-top: 1px solid var(--line); }
+.bib-notes-t .bib-verif { flex: 1 1 100%; margin: 0; }
+.bib-notes-t details { margin: 0; }
+.bib-notes-t details[open] { flex: 1 1 100%; }
+.bib-tableau > .bib-av { margin: 10px 14px 0; }
+
+/* tablette : la feuille garde sa largeur pour le calcul — le nom de chaque terme passe au survol de sa ligne (et
+   reste dans « Pourquoi ? ») ; le dessin se resserre ; les cases du feu un peu moins hautes */
+@media (max-width: 1200px) and (min-width: 701px) {
+  .bib-calc { grid-template-columns: minmax(220px, 30%) minmax(0, 1fr); }
+  .bib-calc-d { padding: 8px 10px; }
+  .bib-calc-s svg { max-height: 220px; }
+  .bib-fc { table-layout: auto; }                 /* la case du nom s'efface sur TOUTES les lignes : les colonnes restent alignées */
+  .bib-fc colgroup { display: none; }
+  .bib-fc td.nom { display: none; }
+  .bib-fc th.nm, .bib-fc td.v b { white-space: nowrap; }
+  .bib-fc td.rg { width: 1%; }
+  .bib-fc th, .bib-fc td { padding: 3px 7px; }
+  .bib-feu td { height: 34px; }
+  /* la barre des enrobages, resserrée : elle garde ses champs, en moins de lignes */
+  .bib-barre-l:has(.bib-gr) { gap: 6px 10px; }
+  .bib-barre-l:has(.bib-gr) .bib-p .field input { width: 50px; }
+  .bib-barre-l:has(.bib-gr) .seg button { padding: 0 8px; }
+  .bib-barre-l:has(.bib-gr) .bib-p .field.select select { max-width: 150px; }
+  .bib-gr-t { padding-left: 8px; letter-spacing: .04em; }
+}
+/* téléphone : les onglets en tête, le dessin puis la feuille l'un sous l'autre ; chaque terme sur deux lignes
+   (symbole et valeur, puis le calcul et la règle) ; le cadre suit son contenu (la page défile, pas le cadre) */
+@media (max-width: 700px) {
+  .bib-onglets-l { flex: 1 1 100%; }
+  .bib-onglets { flex: 1 1 100%; }
+  .bib-onglets .seg { display: flex; height: 42px; }
+  .bib-onglets .seg button { flex: 1; height: 36px; }
+  .bib-gr-t { flex: 1 1 100%; height: 18px; margin-top: 4px; padding-left: 8px; }   /* au doigt : le nom du groupe sur sa ligne */
+  .bib-tableau:has(> .bib-calc) { flex: none; max-height: none; overflow: visible; }
+  .bib-calc { grid-template-columns: minmax(0, 1fr); }
+  .bib-calc-d { border-right: 0; border-bottom: 1px solid var(--line); border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .bib-calc-s svg { max-height: none; }
+  .bib-fc, .bib-fc tbody { display: block; }
+  .bib-fc colgroup { display: none; }
+  .bib-fc tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; border-bottom: 1px solid var(--line); padding: 4px 0; }
+  .bib-fc th, .bib-fc td { border-bottom: 0; padding: 2px 10px; height: auto; }
+  .bib-fc th.nm { width: auto; grid-column: 1; grid-row: 1; padding-right: 4px; }
+  .bib-fc td.nom { grid-column: 2; grid-row: 1; padding-left: 4px; }
+  .bib-fc td.v, .bib-fc td.cur { width: auto; grid-column: 3; grid-row: 1; }
+  .bib-fc td.fc { width: auto; grid-column: 1 / -1; }
+  .bib-fc td.rg { width: auto; grid-column: 1 / -1; white-space: normal; }
+  .bib-fc tr.g { display: block; padding: 0; }
+  .bib-fc tr.g th { display: block; }
+  .bib-notes-t { grid-template-columns: minmax(0, 1fr); }
+}

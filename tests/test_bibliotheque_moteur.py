@@ -850,6 +850,10 @@ CAS_TERMES = [pf, pf200, pf2, pf3, pf4, pfd, pp, pp8, pp240, pv, pvn, pfo, ex_ni
 faux = [(i, x) for i, r_ in enumerate(CAS_TERMES) for x in termes_faux(r_)]
 chk(f"la feuille de calcul : chaque terme « symbole = expression = valeurs = résultat » se RECALCULE à partir de ses seules valeurs écrites ({len(CAS_TERMES)} cas, "
     f"{sum(1 for r_ in CAS_TERMES for t in r_['termes'] if t['valeurs'])} expressions)", not faux, faux[:4])
+sans_ref = [(t["cle"], t.get("reference")) for r_ in CAS_TERMES for t in r_["termes"]
+            if not t.get("reference") or not any(m in t["reference"] for m in ("§", "tableau", "éq.", "géométrie", "le plus défavorable"))]
+chk("les termes : chacun porte sa RÉFÉRENCE courte (la clause, le tableau ou l'équation), que la feuille de calcul de l'écran écrit en regard de la valeur",
+    not sans_ref and next(t for t in pf["termes"] if t["cle"] == "a")["reference"].endswith("tableau 5.5 (§5.6.2)"), sans_ref[:4])
 chk("les termes : durabilité, puis feu, puis l'enrobage retenu et la distance à l'axe OBTENUE (a_réel = c_nom + Ø_étrier + Ø/2, comparée à la distance exigée)",
     [t["groupe"] for t in pf["termes"]] == sorted([t["groupe"] for t in pf["termes"]], key=("durabilite", "feu", "retenu").index)
     and [t["cle"] for t in pf200["termes"]][-2:] == ["cnom", "a_reel"] and pf200["termes"][-1]["valeur"] == 40 + 8 + 10

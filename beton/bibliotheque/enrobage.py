@@ -343,7 +343,32 @@ def termes(res: dict) -> list:
           "120·[(R_ηfi + R_a + R_l + R_b + R_n)/120]^1,8",
           f"120·[({_n(do['R_eta'])} + {_n(do['R_a'])} + {_n(do['R_l'])} + {_n(do['R_b'])} + {_n(do['R_n'])})/120]^1,8",
           comparaison={"symbole": "R", "valeur": f["minutes"], "sens": "≥", "ok": do["R"] >= f["minutes"] - 1e-9})
+    for x in out:
+        x["reference"] = reference(x["cle"], res)
     return out
+
+
+# la RÉFÉRENCE normative courte de chaque terme (la feuille de calcul de l'écran l'écrit en regard de la valeur, sous
+# le titre de son groupe qui nomme la norme : EN 1992-1-1 pour la durabilité, EN 1992-1-2 pour le feu ; la règle
+# complète, ``regle``, reste celle de la justification) — par clé de terme ; celles du feu suivent le tableau lu
+REFERENCES = {"cmin_b": "§4.4.1.2(3), tableau 4.2", "S": "§4.4.1.2(5), tableau 4.3N", "cmin_dur": "§4.4.1.2(5), tableau 4.4N",
+              "cmin": "§4.4.1.2(2), éq. (4.2)", "cnom_dur": "§4.4.1.1(2), éq. (4.1)", "sol": "§4.4.1.3(4)",
+              "asd": "§5.6.1(8)", "cfeu": "§5.2", "cnom": "le plus défavorable",
+              "a_reel": "géométrie du détail", "comparaison": "tableau 5.2a (§5.3.2)"}
+REFERENCES_DELTA_DEV = {10: "§4.4.1.3(1)P", 5: "§4.4.1.3(3)", 0: "§4.4.1.3(3)"}
+TERMES_FORMULE = ("R_eta", "R_l", "b_prime", "R_b", "R_n", "R_exige", "R_obtenue")
+
+
+def reference(cle: str, res: dict) -> str:
+    """La référence courte d'un terme de ``termes`` : la clause, le tableau ou l'équation de la norme."""
+    f = res["feu"]
+    if cle == "ddev":
+        return REFERENCES_DELTA_DEV[res["durabilite"]["delta_dev"]]
+    if cle in TERMES_FORMULE or (cle == "a" and f and f["methode"] == "formule"):
+        return "§5.3.2(4), éq. (5.7)"
+    if cle in ("combinaison", "dimension", "a"):
+        return f"tableau {f['tableau']} ({f['clause']})"
+    return REFERENCES[cle]
 
 
 def _termes_feu(res: dict, t) -> None:

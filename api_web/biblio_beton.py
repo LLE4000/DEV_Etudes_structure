@@ -10,7 +10,7 @@ déclare ni MODULE ni PAGE : une consultation n'est pas une note) ; le routeur l
                                                   params, message}
 
 Les valeurs viennent des moteurs (beton/donnees/ec2.py, beton/donnees/consultation.py, beton/armatures,
-beton/bibliotheque/{aciers, enrobage, ancrages}.py), jamais d'ici ; les paramètres illisibles reprennent leur défaut et
+beton/bibliotheque/{aciers, enrobage, feu, ancrages}.py), jamais d'ici ; les paramètres illisibles reprennent leur défaut et
 ``message`` le dit ; tout texte venu des paramètres est échappé.
 """
 import html
@@ -31,7 +31,7 @@ from beton.donnees import ec2 as EC
 BIBLIOTHEQUE = "beton"
 TITRE = "Bibliothèque Béton armé"
 PAGE = "bibliotheque-beton"
-VERSION = "2026-11-09"       # la date des données de la bibliothèque : une fiche copiée dans une note dit quel moteur l'a rendue
+VERSION = "2026-11-10"       # la date des données de la bibliothèque : une fiche copiée dans une note dit quel moteur l'a rendue
 # (clé, titre du menu, sous-titre du menu, icône)
 RUBRIQUES = (
     ("betons", "Bétons", "Classes, résistances, déformations", "layers"),
@@ -498,104 +498,11 @@ def _r_sections(params: Dict, hote: str) -> Dict:
 
 
 # ================================================================================================ 4 · enrobages
-VUES_ENROBAGE = (("durabilite", "Durabilité · c_min,dur"), ("feu", "Feu · distance à l'axe"))
-FEUX = (("", "sans exigence"),) + tuple((r, r) for r in EN.R_DUREES)
-ELEMENTS = tuple(EN.ELEMENTS)
-
-
 def _r_enrobages(params: Dict, hote: str) -> Dict:
-    L = Lecture(params)
-    element = L.choix("element", tuple(k for k, _ in ELEMENTS), "poutre")
-    expo = L.choix("exposition", EN.EXPO_CLES, "XC1")
-    classe = L.choix("classe", CLASSES_BETON, "C30/37")
-    duree = L.choix("duree", EN.DUREES, 50)
-    qualite = L.case("qualite", False)
-    phi = L.nombre("phi", 20, 6, 60, entier=True)
-    phi_e = L.nombre("phi_etrier", 8, 0, 40, entier=True)
-    dg = L.nombre("dg", 20, 4, 63, entier=True)
-    ddev = L.choix("delta_dev", tuple(d for d, _ in EN.DELTA_DEV), 10)
-    sol = L.choix("contre_sol", tuple(k for k, _, _ in EN.CONTRE_SOL), "non")
-    feu = L.choix("feu", tuple(k for k, _ in FEUX), "")
-    b = L.nombre("b", 300, 50, 3000, entier=True)
-    cs = L.choix("classe_structurale", ("",) + EN.CLASSES_STRUCTURALES, "")
-    vue = L.choix("vue", tuple(k for k, _ in VUES_ENROBAGE), "durabilite")
-    p = L.out
-    res = EN.calculer({"element": element, "exposition": expo, "classe": classe, "duree": duree, "qualite": qualite, "phi": phi,
-                       "phi_etrier": phi_e, "dg": dg, "delta_dev": ddev, "contre_sol": sol, "classe_structurale": cs or None,
-                       "feu": {"r": feu, "b_min": b if element == "poutre" else None} if feu else None})
-    d, f, s = res["durabilite"], res["feu"], res["durabilite"]["classe_structurale"]
-    expos = [(e[0], f"{e[0]} · {e[2]}" if e[2] != "—" else e[0]) for e in EN.EXPOSITIONS]
-    barre = _barre(
-        _champ("element", "Élément", _segments("element", element, ELEMENTS))
-        + _champ("exposition", "Exposition", _select("exposition", expo, expos), dict((e[0], e[4]) for e in EN.EXPOSITIONS)[expo])
-        + _champ("classe", "Béton", _select("classe", classe, [(c, c) for c in CLASSES_BETON]))
-        + _champ("duree", "Durée", _segments("duree", duree, ((50, "50 ans"), (100, "100 ans"))))
-        + _champ("qualite", "", _case("qualite", qualite, "Maîtrise de la qualité", "préfabrication sous les conditions de la NBN EN 13369 : − 1 classe structurale"))
-        + _champ("classe_structurale", "Classe S", _select("classe_structurale", cs, [("", f"calculée · {s['calculee']}")] + [(k, k) for k in EN.CLASSES_STRUCTURALES]),
-                 "S4 pour 50 ans, puis les modifications du tableau 4.3N (NIT 260, tableau 21) ; une classe imposée remplace le calcul")
-        + _champ("vue", "Tableau", _segments("vue", vue, VUES_ENROBAGE)),
-        _champ("phi", "Ø barre", _num("phi", phi, "mm"))
-        + _champ("phi_etrier", "Ø étrier", _num("phi_etrier", phi_e, "mm"))
-        + _champ("dg", "Granulat", _num("dg", dg, "mm"), "au-delà de 32 mm, c_min,b + 5 mm (tableau 4.2)")
-        + _champ("delta_dev", "Δc<sub>dev</sub>", _select("delta_dev", ddev, [(k, f"{k} mm") for k, _ in EN.DELTA_DEV]), " ; ".join(t for _, t in EN.DELTA_DEV))
-        + _champ("contre_sol", "Contre le sol", _select("contre_sol", sol, [(k, t) for k, t, _ in EN.CONTRE_SOL]))
-        + _champ("feu", "Feu", _select("feu", feu, FEUX))
-        + (_champ("b", "Largeur b", _num("b", b, "mm")) if element == "poutre" and feu else ""))
-    # le tableau 4.4N, la case [S ; exposition] allumée
-    if vue == "durabilite":
-        t = EN.tableau_c_min_dur()
-        col = EN.colonne(expo)
-        j = t["colonnes"].index(col)
-        th = ('<tr><th class="nm">Classe structurale</th>' + "".join(
-            f'<th class="{"on" if c == col else ""}"><span class="s">{C.esc(c)}</span><span class="u">{C.esc(t["belges"][i])}</span></th>' for i, c in enumerate(t["colonnes"])) + "</tr>")
-        corps = ""
-        for srow in t["lignes"]:
-            on = ' class="on"' if srow == s["retenue"] else ""
-            cases = "".join(_td(str(v), {"classe_structurale": srow, "exposition": [e[0] for e in EN.EXPOSITIONS if e[1] == c][0] if c != col else expo},
-                                "cur" if (srow == s["retenue"] and c == col) else ("col" if c == col else ""))
-                            for c, v in zip(t["colonnes"], t["cellules"][srow]))
-            corps += f'<tr{on}><th class="nm">{srow}{" <small>calculée</small>" if (srow == s["calculee"] and not s["imposee"]) else ""}</th>{cases}</tr>'
-        tableau = _tableau(th, corps, "bib-enr")
-        extrait = _extrait(["S"] + t["colonnes"], [[srow] + [str(v) for v in t["cellules"][srow]] for srow in t["lignes"]],
-                           (t["lignes"].index(s["retenue"]), j + 1), "EN 1992-1-1, tableau 4.4N — c_min,dur (mm)", EN.SOURCE_DUR)
-    else:
-        tf = EN.tableau_feu(element)
-        if tf["transcrit"] and element == "poutre":
-            th = ('<tr><th class="nm">R</th>' + "".join(f'<th><span class="s">{"Largeur minimale" if i == 0 else ""}</span><span class="u">b_min / a (mm)</span></th>'.replace("b_min / a", "b<sub>min</sub> / a") for i in range(4)) + "</tr>")
-            corps = ""
-            for r_ in tf["durees"]:
-                on = ' class="on"' if r_ == feu else ""
-                cases = ""
-                for bm, a in tf["lignes"][r_]:
-                    cur = f and f.get("transcrit") and r_ == feu and f["ligne"]["b_min"] == bm
-                    cases += _td(f"<b>{a}</b><small>b ≥ {bm}</small>", {"feu": r_, "b": bm}, "cur" if cur else "")
-                corps += f'<tr{on}><th class="nm">{r_}</th>{cases}</tr>'
-            tableau = _tableau(th, corps, "bib-feu")
-        elif tf["transcrit"]:
-            th = '<tr><th class="nm">R</th>' + _th("h_s", "mm", "épaisseur minimale de la dalle") + _th("a", "mm", "distance à l'axe des armatures") + "</tr>"
-            corps = ""
-            for r_ in tf["durees"]:
-                hs, a = tf["lignes"][r_]
-                on = ' class="on"' if r_ == feu else ""
-                corps += f'<tr{on}><th class="nm">{r_}</th>{_td(str(hs), {"feu": r_})}{_td(str(a), {"feu": r_}, "cur" if r_ == feu else "")}</tr>'
-            tableau = _tableau(th, corps, "bib-feu bib-petit")
-        else:
-            tableau = (f'<div class="bib-vide">{C.icon("triangle-alert")}<b>Le {C.esc(tf["tableau"])} n\'est pas transcrit</b>'
-                       f'<span>La bibliothèque ne donne aucune valeur qu\'elle n\'a pas lue dans le texte : les distances à l\'axe des {C.esc(dict(ELEMENTS)[element].lower())}x '
-                       f'sont à lire dans l\'EN 1992-1-2 (méthode tabulée, μ<sub>fi</sub> = 0,7).</span></div>').replace("poteaux", "poteaux").replace("voilex", "voiles")
-        extrait = None
-    avert = [a["message"] for a in res["avertissements"]]
-    sources = [EN.SOURCE_DUR] + ([EN.SOURCE_FEU] if feu else []) + [EN.NOTE_XA]
-    gouv = {"feu": "le feu gouverne", "sol": "le coulage contre le sol gouverne", "durabilite": "la durabilité gouverne"}[res["gouvernant"]]
-    phrase = (f"{dict(ELEMENTS)[element]} · {expo} ({EN.LIBELLES_BELGES[EN.colonne(expo)]}) · {classe} · {duree} ans · S {s['retenue'][1:]} · "
-              f"Ø {phi}{(' / étrier ' + str(phi_e)) if phi_e else ''} · Δc<sub>dev</sub> {ddev}" + (f" · {feu}" if feu else "") + f" — {gouv}")
-    return {"titre": "Enrobages et feu", "barre": barre, "tableau": tableau,
-            "bande": _bande(C.fr(res["c_nom"], 0), "mm", "c_nom", "enrobage nominal", phrase, hote, avert),
-            "pourquoi": _pourquoi(f"Enrobage nominal · {dict(ELEMENTS)[element]} {expo} {classe}", "EN 1992-1-1 §4.4.1 ; EN 1992-1-2 §5 (feu)", res["termes"], sources, avert, nd=1),
-            "sources": _sources(*sources),
-            "fiche": _fiche(f"Enrobage {dict(ELEMENTS)[element].lower()} {expo} {classe}", "c_nom", res["c_nom"], "mm", p, res["termes"], sources, extrait, avert,
-                            texte=C.fr(res["c_nom"], 0), phrase=phrase, nd=1),
-            "params": p, "message": L.message()}
+    """La rubrique « Enrobages » et ses deux onglets (« Calcul », « Tableaux ») : api_web/biblio_enrobages.py (importé
+    ici, à l'appel : il prend ses briques dans ce fichier)."""
+    from api_web import biblio_enrobages
+    return biblio_enrobages.rendre(params, hote)
 
 
 # ================================================================================================ 5 · ancrages
