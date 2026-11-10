@@ -218,17 +218,26 @@ const INIT = (cfg) => {
 
   // ---- ce que l'œil voit : un voile, le bandeau, l'état des contrôles
   const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+  // Un VOILE cache le contenu : au centre de la part visible de chaque cadre de contenu VU (données, résultat, tuiles,
+  // tableau d'une bibliothèque), l'élément du dessus doit appartenir à ce cadre. Un calque posé par-dessus (l'ancien
+  // #demarrage : absolute, inset 0, z-index 30) y prend la main. La toile (.canvas), calque pleine taille SOUS les
+  // panneaux flottants, n'est pas un voile : elle ne cache aucun cadre (correctif après le premier passage sur le
+  // nouveau site, où l'ancien critère « tout élément positionné de 90 % de l'écran » la prenait pour un voile).
   window.__voile = () => {
-    const L = innerWidth, H = innerHeight, contenu = document.querySelector('.bench, #resultat, .tiles, main');
-    const points = [[L / 2, H / 2], [L * 0.2, H * 0.2], [L * 0.8, H * 0.2], [L * 0.2, H * 0.8], [L * 0.8, H * 0.8]];
-    const couvrants = new Set();
-    for (const [x, y] of points) {
-      for (let e = document.elementFromPoint(x, y); e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+    const L = innerWidth, H = innerHeight, couvrants = new Set();
+    const cadres = ['#donnees', '#resultat', '.tiles', '#bib-tableau'].map((s) => document.querySelector(s)).filter(vu);
+    for (const c of cadres) {
+      const r = c.getBoundingClientRect();
+      const x0 = Math.max(0, r.left), x1 = Math.min(L, r.right), y0 = Math.max(0, r.top), y1 = Math.min(H, r.bottom);
+      if (x1 - x0 < 20 || y1 - y0 < 20) continue;
+      const h = document.elementFromPoint((x0 + x1) / 2, (y0 + y1) / 2);
+      if (!h || c.contains(h) || h.contains(c)) continue;
+      let e = h;
+      for (; e && e !== document.body; e = e.parentElement) {
         const cs = getComputedStyle(e);
-        if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
-        const r = e.getBoundingClientRect();
-        if (r.width >= 0.9 * L && r.height >= 0.9 * H && !(contenu && e.contains(contenu))) { couvrants.add(e.id ? `#${e.id}` : String(e.className || e.tagName)); break; }
+        if (cs.position === 'fixed' || cs.position === 'absolute') break;
       }
+      couvrants.add(e && e !== document.body ? (e.id ? `#${e.id}` : String(e.className || e.tagName)) : String(h.className || h.tagName));
     }
     const d = document.getElementById('demarrage');
     return { couvrants: [...couvrants], demarrage: !!d, demarrageVu: vu(d) };
@@ -255,9 +264,10 @@ const INIT = (cfg) => {
   const guetter = () => {
     const b = document.body;
     if (!window.__apercu && b && b.dataset.ecran === 'apercu') {
-      const r = document.getElementById('resultat'), v = [...document.querySelectorAll('#vues svg, .view svg')].find(vu);
-      const peint = (vu(r) && r.getBoundingClientRect().height > 50 && !r.querySelector('.attente') && r.textContent.trim().length > 0)
-        || (!!v && v.getBoundingClientRect().height > 50);
+      // au téléphone, un seul cadre est vu (l'onglet Données par défaut) : les données peintes valent aussi
+      const r = document.getElementById('resultat'), d = document.getElementById('donnees'), v = [...document.querySelectorAll('#vues svg, .view svg')].find(vu);
+      const cadrePeint = (c) => vu(c) && c.getBoundingClientRect().height > 50 && !c.querySelector('.attente') && c.textContent.trim().length > 0;
+      const peint = cadrePeint(r) || cadrePeint(d) || (!!v && v.getBoundingClientRect().height > 50);
       if (peint) window.__apercu = { t: performance.now(), abs: abs(), controles: window.__controles(), bandeau: window.__bandeau(), voile: window.__voile(), notes: window.__notes() };
     }
     if (!window.__apercu && performance.now() < 90000) requestAnimationFrame(guetter);
@@ -432,10 +442,13 @@ function difference(a, b, tol, ch = '') {
     return null;
   }
   if (a === b) return null;
-  const proche = (x, y) => Math.abs(x - y) <= tol * Math.max(Math.abs(x), Math.abs(y));
+  // deux nombres finis à tol relatif ; un nombre non fini (une suite de chiffres mal découpée) doit être égal à l'octet
+  const proche = (x, y) => (Number.isFinite(x) && Number.isFinite(y) ? Math.abs(x - y) <= tol * Math.max(Math.abs(x), Math.abs(y)) : x === y);
   if (tol && typeof a === 'number') return proche(a, b) ? null : ch;
   if (tol && typeof a === 'string') {
-    const re = /-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi;
+    // un NOMBRE du texte : pas collé à un mot, un « # » ou un point (une couleur « #6E7480 » n'est pas 6e7480 ;
+    // correctif après le premier passage sur le nouveau site) — le découpage est le même des deux côtés
+    const re = /(?<![#\w.])-?\d+(?:\.\d+)?(?:e[-+]?\d+)?(?![\w.])/gi;
     const na = a.match(re) || [], nb = b.match(re) || [];
     if (a.split(re).join('#') !== b.split(re).join('#') || na.length !== nb.length) return ch;
     return na.every((x, i) => proche(Number(x), Number(nb[i]))) ? null : ch;

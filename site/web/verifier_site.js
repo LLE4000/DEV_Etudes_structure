@@ -2304,25 +2304,36 @@ const principal = async () => {
     });
     const FMT_O = [['PC', 1440, 900, false], ['tablette', 820, 1180, false, true], ['téléphone', 390, 844, true]];
 
-    // ------------------------------------------------ 1. les cartes de l'accueil : des liens, que rien n'intercepte
-    for (const [fmt, w, h, tel, tactile] of FMT_O) {
+    // ------------------------------------------------ 1. les cartes de l'accueil : des liens, et un clic OUVRE le calcul
+    // (lot S4, 10/11/2026 : l'application attrape désormais le clic pour échanger la page sans la recharger — l'ancien
+    // « rien n'intercepte » est devenu faux par construction. Ce qui doit tenir, et que D1 exigeait : la carte reste un
+    // lien vers la page du calcul, et un VRAI clic y mène — sans recharger le document, sans fenêtre « Nouvelle note ».
+    // Une carte par format, une autre à chaque format ; les autres se vérifient par leur lien.)
+    const OUVERTES = Object.entries(MODS).filter(([, m]) => !m.masque).map(([k]) => k);
+    for (const [i, [fmt, w, h, tel, tactile]] of FMT_O.entries()) {
       const pg = await ctxO(w, h, tel, tactile ?? tel);
+      const cle = OUVERTES[(i * 5) % OUVERTES.length];
       try {
+        const navs = [];
+        pg.on('request', (r) => { if (r.isNavigationRequest() && r.frame() === pg.mainFrame()) navs.push(r.url()); });
         await pg.goto(`${BASE}/`);
         await pg.waitForTimeout(300);
         const t = await pg.evaluate((mods) => {
-          const lus = [];
-          // le dernier écouteur (sur window, à la remontée) lit si un autre a empêché le clic, puis l'empêche lui-même : la
-          // page ne quitte pas l'accueil pendant la mesure
-          addEventListener('click', (ev) => { lus.push(ev.defaultPrevented); ev.preventDefault(); });
+          window.__s = Math.random();   // la sentinelle : un document rechargé la perd
           const tuiles = [...document.querySelectorAll('.tile[data-module]')];
-          tuiles.forEach((x) => x.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })));
           return { n: tuiles.length, liens: tuiles.every((x) => x.tagName === 'A' && x.getAttribute('href') === mods[x.dataset.module].page),
-            interceptees: lus.filter(Boolean).length, fenetre: !document.getElementById('nouvelle').hidden,
-            attendues: Object.values(mods).filter((m) => !m.masque).length, nouvelleModule: document.querySelectorAll('[data-nouvelle-module]').length };
+            attendues: Object.values(mods).filter((m) => !m.masque).length, nouvelleModule: document.querySelectorAll('[data-nouvelle-module]').length, s: window.__s };
         }, MODS);
-        verif(`ouverture · accueil ${fmt} : chacune des ${t.attendues} cartes de module est un lien vers son calcul, que rien n'intercepte (aucune fenêtre « Nouvelle note »)`,
-          t.n === t.attendues && t.liens && !t.interceptees && !t.fenetre && !t.nouvelleModule, JSON.stringify(t));
+        verif(`ouverture · accueil ${fmt} : chacune des ${t.attendues} cartes de module est un lien vers son calcul (aucun bouton « Nouvelle note » par module)`,
+          t.n === t.attendues && t.liens && !t.nouvelleModule, JSON.stringify(t));
+        const n0 = navs.length;
+        await pg.click(`.tile[data-module="${cle}"]`);
+        await pg.waitForFunction((page) => location.pathname.endsWith(`/${page}`), MODS[cle].page, { timeout: 20000 }).catch(() => {});
+        const a = await pg.evaluate(() => ({ chemin: location.pathname, recherche: location.search, s: window.__s,
+          fenetre: !!document.getElementById('nouvelle') && !document.getElementById('nouvelle').hidden }));
+        verif(`ouverture · accueil ${fmt} : un vrai clic sur la carte « ${cle} » ouvre son calcul SANS recharger la page (aucune requête de document, la sentinelle survit), sans ?note=, sans fenêtre « Nouvelle note »`,
+          a.chemin.endsWith(`/${MODS[cle].page}`) && !a.recherche && a.s === t.s && navs.length === n0 && !a.fenetre,
+          JSON.stringify({ ...a, attendu: MODS[cle].page, documents: navs.slice(n0) }));
       } catch (x) { verif(`ouverture · accueil ${fmt} : le parcours va au bout`, false, String(x.message).split('\n')[0]); }
       await pg.context().close();
     }
