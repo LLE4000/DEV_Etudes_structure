@@ -115,7 +115,7 @@ def _peindre_prim(c, p, ctx, s, X, Y, palette):
             for e in p["enfants"]:
                 _peindre_prim(c, e, sous, s, X, Y, palette)
         return
-    st = schemas.style_de(p["cls"], ctx, palette)
+    st = schemas.style_prim(p, ctx, palette)       # les classes, puis la couleur que la primitive porte elle-même
     if t == "text":
         x = X(p["x"]) if p.get("x") is not None else X(0)
         y = Y(p["y"]) if p.get("y") is not None else Y(0)

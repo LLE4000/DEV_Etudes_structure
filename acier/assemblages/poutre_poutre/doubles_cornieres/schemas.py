@@ -1166,6 +1166,26 @@ def style_de(cls, ctx, p=None):
     elif "fcp" in c:
         # le pivot (point d'application) : disque vert cerclé de blanc
         st.update(fill=p["comp"], stroke="#FFFFFF", sw=1.0)
+    # --- cornières d'appui, révision § 9 : maillage de von Mises, moments sur la cornière, scellement
+    elif "mz" in c:
+        # une maille du champ de contraintes (ou un degré de la barre de couleur) : sa couleur est portée par la
+        # primitive elle-même (``fill``), le trait est celui de la maille voisine — pas de joint blanc entre deux mailles
+        st.update(fill=p["hit"], stroke="none")
+    elif "ctr" in c:
+        # le contour de la pièce par-dessus un champ coloré : encre fine, sans remplissage
+        st.update(stroke=ink, sw=1.1)
+    elif "envf" in c:
+        # la zone entre l'axe M = 0 et l'enveloppe des moments : rouge très léger, sans contour
+        st.update(fill=ko, fo=0.12)
+    elif "envp" in c:
+        # le prolongement d'un diagramme dans le bloc d'angle (hors modèle) : pointillé rouge fin
+        st.update(stroke=ko, sw=1.0, dash=(1.5, 2.5))
+    elif "m0" in c:
+        # l'axe d'une aile, ligne du moment nul : mixte fin gris
+        st.update(stroke=p["muted"], sw=0.6, dash=(7, 2.5, 1.5, 2.5))
+    elif "scel" in c:
+        # le scellement d'une cheville chimique : la résine dans le forage, teinte mortier
+        st.update(fill=p["mortier"], stroke=ink, sw=0.5)
     # texte
     if "tx" in c:
         st.update(tfill=ink, bold=True)
@@ -1193,6 +1213,17 @@ def style_de(cls, ctx, p=None):
             st.update(tfill=p["calc"], italic=True)
         if hot_ctx:
             st.update(tfill=ko, bold=True)
+    return st
+
+
+def style_prim(p, ctx=(), palette=None):
+    """Le style d'une primitive : celui de ses classes (``style_de``), puis ce que la primitive porte ELLE-MÊME —
+    ``fill``, ``fo``, ``stroke``, ``sw`` — pour les dessins dont la couleur est une donnée (le taux d'une maille du
+    champ de contraintes), que la feuille de style ne peut pas nommer. Les deux peintres (SVG, PDF) passent par ici."""
+    st = style_de(p["cls"], ctx, palette)
+    for k in ("fill", "fo", "stroke", "sw"):
+        if p.get(k) is not None:
+            st[k] = p[k]
     return st
 
 
@@ -1328,6 +1359,13 @@ def _css(p, pre):
         f"#{pre} .fcp{{fill:{p['comp']};stroke:#fff;stroke-width:1}}"
         f"#{pre} .fcl .hit{{fill:#fff;fill-opacity:.85;stroke:none}}"
         f"#{pre} .fcl text{{fill:{p['comp']};font-weight:600;font-family:system-ui,Arial,sans-serif}}"
+        # cornières d'appui, révision § 9 : maillage (la couleur est sur la maille), contour, moments sur la cornière
+        f"#{pre} .mz{{stroke:none}}"
+        f"#{pre} .ctr{{fill:none;stroke:{ink};stroke-width:1.1}}"
+        f"#{pre} .envf{{fill:{ko};fill-opacity:.12;stroke:none}}"
+        f"#{pre} .envp{{stroke:{ko};stroke-width:1;stroke-dasharray:1.5 2.5;fill:none}}"
+        f"#{pre} .m0{{stroke:{p['muted']};stroke-width:.6;stroke-dasharray:7 2.5 1.5 2.5;fill:none}}"
+        f"#{pre} .scel{{fill:{p['mortier']};stroke:{ink};stroke-width:.5}}"
     )
 
 
@@ -1401,7 +1439,7 @@ def _prim_svg(p, ctx=(), palette=None):
             attrs += f' data-dim="{p["id"]}"'
         sous = tuple(ctx) + tuple(p["cls"])
         return f'<g{ca}{attrs}>' + "".join(_prim_svg(e, sous, palette) for e in p["enfants"]) + "</g>"
-    st = style_de(p["cls"], ctx, palette)
+    st = style_prim(p, ctx, palette)
     if t == "rect":
         rx = f' rx="{_n(p["rx"])}"' if p.get("rx") else ""
         return (f'<rect{ca} x="{_n(p["x"])}" y="{_n(p["y"])}" width="{_n(p["w"])}" height="{_n(p["h"])}"{rx}'
