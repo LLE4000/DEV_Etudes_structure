@@ -1035,7 +1035,7 @@ export function ouvrirEtabli(hote, ctx) {
       try {
         let r;
         try {
-          r = await client.demander(() => ({ module: MODULE, action: "transmettre", etat: note.etat, vers }));
+          r = await client.demander(() => ({ module: MODULE, action: "transmettre", etat: note.etat, vers, date: new Date().toLocaleDateString("fr-BE") }));
         } catch (e) { if (e && e.name === "EcranFerme") return; throw e; }
         if (fini()) return;
         const x = r && r.ok ? r.note : null;

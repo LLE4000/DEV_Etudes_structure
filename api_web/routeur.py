@@ -32,8 +32,10 @@ TÉLÉCHARGER un fichier propre au module (le bouton ``commun.bouton_telecharger
 TRANSMETTRE l'élément ouvert à un AUTRE module, qui en fait une note neuve (le bouton ``data-transmettre="<clé>"`` :
 « Détailler dans Taux d'armature » d'une poutre, docs/site/LOT_Q_QUATRE_MODULES.md § 6.2) :
 
-    {"module", "action": "transmettre", "etat", "vers"} → transmettre(etat normalisé, vers) du module
+    {"module", "action": "transmettre", "etat", "vers"[, "date"]} → transmettre(etat normalisé, vers[, date]) du module
                                                         → {"module": str, "nom": str, "etat": {...}}
+    « date » : le jour de l'envoi, « JJ/MM/AAAA », donné par l'écran (le moteur n'a pas d'horloge) ; il ne part qu'au
+              module qui l'attend (un paramètre « date »), et une date qui n'en est pas une part VIDE.
     réponse : {"ok": true, "note": {"module", "nom", "etat"}} — l'état RELU par le module de destination (son
               ``normaliser``) : jamais une note que sa page ne saurait pas ouvrir ; l'écran crée la note (même chantier,
               même dossier) et l'ouvre. Rien n'est écrit dans la note d'origine (son état n'est pas rendu).
@@ -41,8 +43,10 @@ TRANSMETTRE l'élément ouvert à un AUTRE module, qui en fait une note neuve (l
               inconnue, refus du module (ValueError : ce qui manque, dit en clair). Jamais une exception.
 """
 import importlib
+import inspect
 import json
 import math
+import re
 import traceback
 
 from . import commun as C
@@ -110,7 +114,6 @@ def telecharger(mod, q: dict) -> dict:
         return _refus(f"La note ne se relit pas, le fichier n'est pas préparé : {e}")
     # « infos » (le nom, le chantier, l'indice de la note : la page de garde d'une note PDF) : passées au module qui
     # les attend (un paramètre « infos »), jamais aux autres
-    import inspect
     kw = {"infos": q.get("infos") if isinstance(q.get("infos"), dict) else {}} \
         if "infos" in inspect.signature(fonction).parameters else {}
     try:
@@ -131,10 +134,17 @@ def telecharger(mod, q: dict) -> dict:
 
 
 NOM_NOTE_MAX = 120   # caractères du nom de la note créée par « transmettre »
+DATE_ENVOI = re.compile(r"\d{1,2}/\d{1,2}/\d{4}")   # « JJ/MM/AAAA » : la date de l'envoi, telle que l'écran la donne
+
+
+def date_envoi(q: dict) -> str:
+    """La date de l'envoi lue dans la demande : « JJ/MM/AAAA », ou vide si l'écran a donné autre chose."""
+    d = q.get("date")
+    return d if isinstance(d, str) and DATE_ENVOI.fullmatch(d) else ""
 
 
 def transmettre(mod, q: dict) -> dict:
-    """L'action « transmettre » : ce que le module envoie à un autre (``mod.transmettre(etat, vers)``), contrôlé avant
+    """L'action « transmettre » : ce que le module envoie à un autre (``mod.transmettre(etat, vers[, date])``), contrôlé avant
     de partir — la destination est un module du registre, et elle RELIT l'état qu'on lui envoie."""
     fonction = getattr(mod, "transmettre", None)
     if not callable(fonction):
@@ -146,8 +156,9 @@ def transmettre(mod, q: dict) -> dict:
         etat = mod.normaliser(q["etat"]) if q.get("etat") else mod.nouvel_etat()
     except Exception as e:  # noqa: BLE001 — une note abîmée : un message, pas une exception
         return _refus(f"La note ne se relit pas, rien n'est envoyé : {e}")
+    kw = {"date": date_envoi(q)} if "date" in inspect.signature(fonction).parameters else {}
     try:
-        out = fonction(etat, vers)
+        out = fonction(etat, vers, **kw)
     except ValueError as e:  # le refus du module, déjà dit en français
         return _refus(str(e) or f"Envoi vers « {_court(vers)} » impossible.")
     except Exception as e:  # noqa: BLE001 — l'écran montre l'erreur ; la trace part dans la console

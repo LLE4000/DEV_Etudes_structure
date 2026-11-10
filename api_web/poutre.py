@@ -1264,7 +1264,7 @@ def fiches(etat: Dict, quoi: str, fiche=None, index=None) -> Optional[str]:
 
 
 # ------------------------------------------------------------------ vers le module « Taux d'armature »
-def transmettre(etat: Dict, vers: str) -> Dict:
+def transmettre(etat: Dict, vers: str, date: str = "") -> Dict:
     """« Détailler dans Taux d'armature » (api_web/routeur.transmettre) : la poutre OUVERTE convertie en une poutre du
     module détaillé par le moteur (``beton/taux/depuis_poutre.convertir`` : les sections deviennent des tronçons, les
     barres communes des barres filantes, le surplus des renforts, chaque composition d'étriers un type et chaque section
@@ -1278,7 +1278,7 @@ def transmettre(etat: Dict, vers: str) -> Dict:
         raise ValueError(MANQUE_LONGUEUR)
     from beton.taux import depuis_poutre as DP
     from . import taux as TX
-    poutre_taux = DP.convertir(p, longueurs)
+    poutre_taux = DP.convertir(p, longueurs, date)
     etat_taux = TX.nouvel_etat()
     etat_taux["poutres"], etat_taux["actif"] = [poutre_taux], 0
     return {"module": TX.MODULE, "nom": f"{p.get('nom') or 'Poutre'} · taux d'armature", "etat": etat_taux}
