@@ -400,6 +400,61 @@ hors verdict » perdent 1 à 2 px ; dans la vue Contraintes, la 2ᵉ ligne du bl
 base de l'étiquette « S1 : 88,3 » (sans la couvrir) ; le moteur écrit certains nombres avec le point (« 236.7 N/mm² »,
 « pas 2.5 »), déjà noté au § 12.
 
+**Révision § 9 de l'écran (10/11/2026 soir, lot « cor2_ecran », décisions § 9.2, 9.3, 9.5, 9.7)** — ce que l'écran montre
+depuis le moteur révisé (défauts dx = 10, dy = 5 ; état limite ; ancrages ; support) :
+- **colonne de gauche** — rubrique 1 : en « Catalogue », le profil choisi reste et la fiche du catalogue (ailes, épaisseur,
+  congés, masse, aire) passe dans un VOLET dépliable « Détails » (`<details class="et-volet" data-volet="fiche">`), replié
+  par défaut, son résumé fermé « Ailes égales · EN 10056-1 · 26,64 kg/m » ; `js/etabli.js` garde l'état d'ouverture d'un
+  calcul à l'autre et pour la session (`stab.volets.corniere`, brique décrite dans `docs/site/MODULES_SITE.md` § 4 bis) ;
+  en « Saisie libre », A, B, t, r s'affichent directement ; la nuance reste, le **coef en ELS seulement**. Rubrique 2 : R
+  se nomme « R (ELS) » ou « R (ELU) » (son ⓘ le dit), L, X ± dx, a « auto · L » ; **R_ELU en ELS seulement** (à l'ELU, R
+  est déjà la réaction ELU : masqué, sans effet). Rubrique 3 : Y ± dy, n, Ø d, l'**entraxe s** « auto · L/n = 100 » (vide =
+  L/n, la valeur automatique affichée comme pour a), la **profondeur** h_ef, le **type** d'ancrage en segments
+  (Mécanique · Chimique · Traversant : le mot court sur le bouton, le libellé entier d'`entree.LIBELLES_TYPE_ANCRAGE` au
+  survol et dans les hypothèses), les **rondelles** 0 · 1 · 2 (l'aide donne les Ø ISO 7089 / 7093-1 du diamètre, par la
+  table du moteur), le **support** Voile · Poutre et, pour la poutre, « ↑ au-dessus » et « ↓ au-dessous » (mm, l'aide dit
+  le repère : la face extérieure de l'aile horizontale). Rubrique 4 : l'**état limite** ELS · ELU en tête (aide : ELS =
+  f_y/coef sur les efforts ELS ; ELU = f_y/γ_M0, γ_M0 = 1,0, R saisie à l'ELU, le 1,5 ne s'applique pas), puis le mode, le
+  jeu C76, y_c, u_V comme avant ; le résumé de la rubrique dit l'état limite (« ELS · historique · jeu 10 »). Chaque
+  champ reste une pièce `data-cible` ; les cibles NOUVELLES, que les dessins peuvent viser (`schemas.CLES_SEL` à étendre
+  par le lot des dessins) : `entraxe`, `profondeur`, `type_ancrage`, `rondelles`, `support`, `support_haut`, `support_bas`.
+  Tout passe par `moteur.normaliser` ; un refus (entraxe 30 → « s = 30 mm < 2,2·d0 = 39,6 mm (EN 1993-1-8 Tableau 3.3) »,
+  rondelles 3, poutre trop basse…) est un toast avec le message du moteur, la valeur rendue. `RESSAISIE` compte les
+  champs d'ancrage et de support (une saisie fait retomber l'avis v1) ; l'état limite et le mode sont des hypothèses.
+- **résultat** — le verdict, la tête et l'en-tête des vues disent l'état limite (« ELS · σ_adm = f_y/1,5 », « ELU ·
+  f_y/γ_M0, γ_M0 = 1 ») ; les SYMBOLES des limites sont ceux que le moteur nomme (`materiau.symbole_sigma`,
+  `symbole_tau` : « σ_adm », « τ_adm » en ELS ; « f_y/γ_M0 », « f_y/(√3·γ_M0) » en ELU), sur la ligne Cornière, dans
+  chaque ligne de vérification, dans les fenêtres (`_renommer` : les noms de la sortie du moteur, σ_adm et τ_adm, restent
+  les clés de son contrat ; à l'écran ils se lisent avec le symbole de l'état limite, un quotient reçoit des
+  parenthèses : « taux = σ_éq / (f_y/γ_M0) »). Bloc Ancrages : en ELS les lignes N_ELS, V_ELS, N_ELU, V_ELU comme avant ; à
+  l'ELU seulement N_ELU = H/n et V_ELU = R/n (R saisie à l'ELU, le moteur ne rend pas d'ELS, l'écran n'en invente pas) ;
+  la ligne Positions dit « e₁ = 50 · s = 100 (L/n) · z = 50 · 150 · 250 mm sur L = 300 » (« (saisi) » quand l'entraxe
+  l'est), l'état « entraxe 100 » ; les informations `bord_poutre_haut` / `bord_poutre_bas` du moteur (« Poutre · bord
+  supérieur », « Poutre · bord inférieur », mm) en lignes grises hors verdict ; l'en-tête du bloc nomme le type d'ancrage
+  et le support. La table `_fx` reçoit `sigma_lim_ELU`, `tau_lim_ELU`, `N_ELU_direct`, `V_ELU_direct` ; `H_hist` lit son
+  bras par le nom du terme (« YH » pour les sections, « Y − jeu » pour la traction en ELU historique) ; `p_diam` et
+  `arrachement` lisent « V_ELS » ou « V_ELU » (le premier terme). Le titre du groupe « Matériau » des fenêtres est celui
+  du bloc du moteur (« contraintes admissibles (ELS) », « limites ELU (EN 1993-1-1 § 6.2.1(5), γ_M0 = 1,0) »).
+- **chiffres à l'écran** (défauts 10/5) : la cornière neuve η = 84,2 % en section 3 (« 84 % », vert pâle), « charge à
+  X + 10, ancrage à Y + 5 » ; ELU sous R = 60 kN : 96,2 % ; l'invariant du moteur à l'écran : ELU sous 52,5 kN = ELS sous
+  35 kN (même résumé) ; poutre 160/120 : bords 70 et 200 mm ; poutre 150/150 : 60 et 230 mm ; entraxe 80 : e₁ = 70, z = 70 ·
+  150 · 230.
+- **preuves** : `tests/test_api_web_corniere.py` (199 contrôles : 25 états face au moteur, dont ELU historique / équilibre
+  / B, A et B sur poutre, entraxe 80, traversant à deux rondelles, chimique ; 2 657 lignes de formules réévaluées ; 37
+  refus avec message ; le volet replié, la saisie libre, les segments, les bascules par la saisie, l'invariant ELS/ELU ;
+  vingt mutations rouges — dont le volet toujours ouvert, le coef visible en ELU, R_ELU visible en ELU, l'entraxe non
+  affiché, les positions sans s, les bords de poutre non affichés, RESSAISIE sans les nouveaux champs, le symbole figé, les
+  lignes ELS gardées en ELU, la cible entraxe perdue) ; `test_api_web_modules.py corniere` (22) ; le harnais, filtre
+  « corniere » : la bascule ELS → ELU (236,7 → 355, coef et R_ELU masqués puis rendus), la poutre (deux étendues, bords 60
+  et 230, la coupe reste un dessin, 90 mm refusé), le volet Détails (replié, ouvert, gardé après une saisie, refermé),
+  l'entraxe 80 dans les positions, la saisie libre ; `formats:corniere` joue aussi ELU et poutre aux trois formats.
+  Le gel `corniere.json` est regelé par ce lot (commit distinct, décisions § 7). Un rouge classé « le harnais suit » :
+  « la fenêtre de la géométrie liste les 9 combinaisons » cherchait « charge à X + 20, ancrage à Y + 10 » (les anciens
+  jeux) ; le harnais du navigateur aussi (η entre 90 et 100 % de la cornière neuve, dx = 20 qui rend le taux : ils
+  décrivaient les défauts 20/10). **Non fait ici** : les dessins (lot parallèle : `schemas.py`, `dessin_corniere.py`), la
+  note PDF (sa suite `test_note_corniere.py` attend un état ELU pour ses gabarits `N_ELU_direct`, `V_ELU_direct`,
+  `sigma_lim_ELU`, `tau_lim_ELU` : 1 rouge au lot « note », pas à l'écran).
+
 ## 12 · La note PDF (lot « note », 10/11/2026) — `acier/corniere/note.py`
 
 **Ce qu'elle est.** Une note = la page de garde du site (A4 portrait — projet, partie, date, indice, sommaire avec le

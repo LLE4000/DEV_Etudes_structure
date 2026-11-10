@@ -4,24 +4,32 @@
 sur l'ÉTABLI COMPACT — le modèle de la poutre (api_web/poutre.py, api_web/etabli_compact.py) :
 
 - à gauche, la ligne de la cornière ouverte (son nom, la liste des cornières de la note, copier, supprimer) puis ses
-  quatre rubriques : 1 Cornière (catalogue ou saisie libre, la désignation tapée, la fiche du catalogue, l'aile
-  horizontale avec les longueurs réelles, la configuration A/B en pictogrammes, la nuance, le coefficient), 2 Charge
-  (R, L, X ± dx, a, R_ELU), 3 Ancrage (Y ± dy, n, d), 4 Hypothèses (secondaire : le mode — inactif en B, avec la
-  raison —, le jeu d'ancrage du classeur, le pivot y_c, la ligne d'action u_V) ; données condensées à deux champs par
-  ligne, les explications dans les ⓘ ;
+  quatre rubriques (révision § 9.7 des décisions, 10/11 soir) : 1 Cornière (catalogue — le profil choisi et un VOLET
+  dépliable « Détails » replié par défaut : ailes, épaisseur, congés, masse, aire — ou saisie libre, A, B, t, r affichés
+  directement ; l'aile horizontale avec les longueurs réelles, la configuration A/B en pictogrammes, la nuance, le
+  coefficient en ELS seulement), 2 Charge (R, dont le libellé dit l'état limite ; L, X ± dx, a ; R_ELU en ELS
+  seulement), 3 Ancrage (Y ± dy, n, d, l'entraxe s « vide = L/n », le type d'ancrage, la profondeur, les rondelles, le
+  support voile ou poutre et, pour la poutre, ses étendues au-dessus et au-dessous de la face extérieure de l'aile
+  horizontale — § 9.2 et 9.3), 4 Hypothèses (secondaire : l'ÉTAT LIMITE ELS/ELU en tête — § 9.5 —, le mode — inactif
+  en B, avec la raison —, le jeu d'ancrage du classeur, le pivot y_c, la ligne d'action u_V) ; données condensées à
+  deux champs par ligne, les explications dans les ⓘ ;
 - au centre, les quatre VUES de ``acier/corniere/schemas.py`` posées par ``api_web/dessin_corniere.py`` (coupe,
   moments, contraintes, élévation), sous leur en-tête technique ; le CONTRAT DE SÉLECTION : chaque pièce du dessin
   (``data-sel``) a sa ligne dans les données sous la même clé (``data-cible`` : X, dx, Y, dy, R, L, a, n, d, profil,
-  yc, uV, jeu_ancrage), un clic sur l'une montre l'autre (js/compact.js) ;
-- à droite, le VERDICT (taux max, section gouvernante et sa combinaison de jeux, configuration et mode), trois blocs
-  THÉMATIQUES — « Sections » (S1 à S4, les maxima du congé, la section nette en B : deux lignes par vérification,
-  colorées, chacune avec la combinaison de jeux qui la gouverne ; en mode historique les maxima sont en information,
-  hors verdict), « Ancrages » (N et V par ancrage, ELS et ELU, les positions ; pression diamétrale, arrachement,
-  compression du mur en A ou pression sur le support en B : des lignes d'information, grises, hors verdict, comme le
-  pied de poteau), « Comparaison » (le taux de l'autre mode et la garde, en A seulement) —, les hypothèses du moteur,
-  les avertissements titrés (le grave en tête), la masse ; cinq FENÊTRES DE CALCUL (sections, ancrages, comparaison,
-  géométrie et matériau, efforts) dont chaque ligne « symbole = expression = valeurs = résultat » s'écrit à partir des
-  seuls termes du moteur (le test la réévalue), la cellule du classeur entre parenthèses en mode historique ;
+  yc, uV, jeu_ancrage ; et, pour les dessins à venir, entraxe, profondeur, type_ancrage, rondelles, support,
+  support_haut, support_bas), un clic sur l'une montre l'autre (js/compact.js) ;
+- à droite, le VERDICT (taux max, section gouvernante et sa combinaison de jeux, configuration, mode et état limite),
+  trois blocs THÉMATIQUES — « Sections » (S1 à S4, les maxima du congé, la section nette en B : deux lignes par
+  vérification, colorées, chacune avec la combinaison de jeux qui la gouverne ; en mode historique les maxima sont en
+  information, hors verdict), « Ancrages » (N et V par ancrage — ELS et ELU en ELS, ELU seul quand R est saisie à
+  l'ELU —, les positions e₁ · s · z ; pression diamétrale, arrachement, compression du mur en A ou pression sur le
+  support en B, les distances aux bords d'une poutre : des lignes d'information, grises, hors verdict, comme le pied de
+  poteau), « Comparaison » (le taux de l'autre mode et la garde, en A seulement) —, les hypothèses du moteur, les
+  avertissements titrés (le grave en tête), la masse ; les SYMBOLES des limites (« σ_adm » en ELS, « f_y/γ_M0 » en
+  ELU) sont ceux que le moteur nomme (``materiau.symbole_sigma``, ``symbole_tau``), partout ; cinq FENÊTRES DE CALCUL
+  (sections, ancrages, comparaison, géométrie et matériau, efforts) dont chaque ligne « symbole = expression = valeurs
+  = résultat » s'écrit à partir des seuls termes du moteur (le test la réévalue), la cellule du classeur entre
+  parenthèses en mode historique ;
 - le SÉLECTEUR de la ligne « Cornière » : les 233 cornières du catalogue triées par masse, chacune calculée avec les
   charges de la cornière ouverte — ✓ la retenue, ★ la plus légère qui tient ET dont la charge et l'ancrage sont dans
   les ailes, grise hors domaine (sa raison au survol), rouge quand elle ne tient pas.
@@ -35,6 +43,7 @@ la charge ou l'ancrage n'ont pas été ressaisis (la clé ``v1`` de la cornière
 """
 import copy
 import math
+import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from acier.corniere import entree as EN
@@ -59,15 +68,28 @@ CORNIERE = E.Genre("Cornières", "la cornière", "cette cornière", "une corniè
 CLE_AVIS = "avis_ouverture"
 AVIS = {"v1": EN.AVIS_V1[0].upper() + EN.AVIS_V1[1:] + "."}
 
-# les champs de la saisie : nombres, « vide = auto », choix ; une saisie de la charge ou de l'ancrage (RESSAISIE) fait
-# retomber le drapeau « v1 » d'une cornière relue du modèle lame (ses charges et son ancrage sont alors ressaisis)
-NUMERIQUES = ("A", "B", "t", "r", "fy", "coef", "R", "L", "X", "dx", "Y", "dy", "n", "d", "jeu_ancrage", "yc")
-AUTO = EN.OPTIONNELS                                      # a (vide = L), R_ELU (vide = 1,5·R), uV (vide = e/2)
-CHOIX = tuple(EN.CHOIX)                                   # aile_horizontale, configuration, mode
-RESSAISIE = ("R", "L", "X", "dx", "a", "R_ELU", "Y", "dy", "n", "d")
+# les champs de la saisie : nombres, « vide = auto », choix ; une saisie de la charge, de l'ancrage ou du support
+# (RESSAISIE) fait retomber le drapeau « v1 » d'une cornière relue du modèle lame (ses charges et son ancrage sont
+# alors ressaisis) — l'état limite et le mode sont des hypothèses, pas une ressaisie
+NUMERIQUES = ("A", "B", "t", "r", "fy", "coef", "R", "L", "X", "dx", "Y", "dy", "n", "d", "jeu_ancrage", "yc",
+              "profondeur", "rondelles", "support_haut", "support_bas")
+AUTO = EN.OPTIONNELS                                      # a (vide = L), R_ELU (vide = 1,5·R), uV (vide = e/2), entraxe (vide = L/n)
+CHOIX = tuple(EN.CHOIX)                                   # aile_horizontale, configuration, mode, etat_limite, support, type_ancrage
+RESSAISIE = ("R", "L", "X", "dx", "a", "R_ELU", "Y", "dy", "n", "d", "entraxe", "type_ancrage", "profondeur", "rondelles",
+             "support", "support_haut", "support_bas")
 ORIGINES = (("catalogue", "Catalogue"), ("saisie", "Saisie libre"))
 # les nuances du site, par limite élastique croissante : (f_y, « S355 ») — la source unique est entree.NUANCES
 NUANCES = tuple((int(fy) if float(fy).is_integer() else fy, nom) for nom, fy in sorted(EN.NUANCES.items(), key=lambda kv: kv[1]))
+# les segments de la révision § 9 : (clé, mot court sur le bouton) — le mot court tient dans un segment (le libellé entier
+# d'entree, « cheville chimique (tige scellée) », n'y tiendrait pas : il est au survol du bouton et dans les hypothèses)
+ETATS_LIMITES = ((EN.ELS, "ELS"), (EN.ELU, "ELU"))
+TYPES_COURTS = {"mecanique": "Mécanique", "chimique": "Chimique", "traversant": "Traversant"}
+SUPPORTS_COURTS = {EN.VOILE: "Voile", EN.POUTRE: "Poutre"}
+AIDES_ETAT_LIMITE = {EN.ELS: "ELS, la méthode du classeur : R est la réaction ELS (non majorée) ; σ_adm = f_y/coef, τ_adm = σ_adm/√3, "
+                             "σ_éq = √(σ² + 3τ²) ≤ σ_adm ; R_ELU (vide = 1,5·R) sert aux efforts d'ancrage ELU pour Hilti.",
+                     EN.ELU: "ELU : R est saisie à l'ELU (la combinaison 1,35·G + 1,5·Q déjà faite) ; σ_éq ≤ f_y/γ_M0 et τ ≤ f_y/(√3·γ_M0) "
+                             "avec γ_M0 = 1,0 (NBN EN 1993-1-1 ANB, critère élastique § 6.2.1(5)) ; le coefficient 1,5 de l'ELS ne "
+                             "s'applique pas, coef et R_ELU sont sans effet (masqués) ; les ancrages rendent N_ELU = H/n et V_ELU = R/n."}
 
 # une note du module d'avant (version 1, modèle lame), telle qu'un fichier .stab d'avant le 10/11/2026 la porte : le
 # parcours la rejoue (la relecture, l'avis), tests/test_api_web_corniere.py la contrôle
@@ -88,7 +110,8 @@ def _note(**champs) -> Dict:
 # les requêtes de plus pour le parcours (api_web/parcours.py) et le relevé du paquet : les deux configurations, les deux
 # modes, une inégale dans les deux ordres (150 puis 100 à l'horizontale), le sélecteur, des saisies refusées (la charge
 # dans l'angle, une cornière trop petite pour la charge, l'ancrage hors de l'aile), la largeur d'appui, R_ELU saisie,
-# sans jeu, la saisie libre, la note v1
+# sans jeu, la saisie libre, la note v1 ; révision § 9 : un état ELU (R saisie à l'ELU), un état sur poutre (A puis B),
+# un entraxe saisi, des boulons traversants à deux rondelles
 PARCOURS = [
     {"action": "modifier", "etat": _note(Y=65.0), "chemin": ["profil"], "valeur": "L 150×100×12"},
     {"action": "modifier", "etat": _note(aile_horizontale="B"), "chemin": ["profil"], "valeur": "100 x 150 x 12"},
@@ -103,6 +126,9 @@ PARCOURS = [
     {"action": "modifier", "chemin": ["dx"], "valeur": "0"},
     {"action": "modifier", "chemin": ["dy"], "valeur": "0"},
     {"action": "modifier", "chemin": ["standard"], "valeur": "saisie"},
+    {"action": "modifier", "etat": _note(etat_limite=EN.ELU), "chemin": ["R"], "valeur": "60"},
+    {"action": "modifier", "etat": _note(support=EN.POUTRE, support_haut=160.0, support_bas=120.0), "chemin": ["configuration"], "valeur": "B"},
+    {"action": "modifier", "etat": _note(type_ancrage="traversant", rondelles=2), "chemin": ["entraxe"], "valeur": "80"},
     {"action": "choisir", "role": "corniere", "nom": "L 150×150×15"},
     {"action": "selecteur", "role": "corniere", "familles": ["LI"]},
     {"action": "calculer", "etat": NOTE_V1},
@@ -111,8 +137,9 @@ PARCOURS = [
 
 # ------------------------------------------------------------------ l'état de la note : des cornières
 def nouvel_etat() -> Dict:
-    """Une note neuve : une cornière aux défauts des décisions § 2 (L 120×120×15, configuration A, méthode historique,
-    S355, coef 1,5, R = 35 kN sur 300 mm, X = 75 ± 20, Y = 85 ± 10, 3 Ø16)."""
+    """Une note neuve : une cornière aux défauts des décisions § 2 et § 9 (L 120×120×15, configuration A, méthode
+    historique, ELS, S355, coef 1,5, R = 35 kN sur 300 mm, X = 75 ± 10, Y = 85 ± 5, 3 chevilles mécaniques Ø16 à L/n,
+    profondeur 100, une rondelle, voile)."""
     return {"version": VERSION, "cornieres": [MO.nouvelle_corniere(NOM_DEFAUT)], "actif": 0}
 
 
@@ -190,9 +217,9 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
     """Écrit une saisie dans la cornière ouverte ; ``chemin`` : une seule clé (les champs sont à plat). Le moteur relit
     la cornière : une valeur hors de son domaine est REFUSÉE avec son message (jamais ramenée en silence), et la
     cornière reste intacte. ``standard`` : « catalogue » ou « saisie » (la saisie libre part des dimensions de la
-    cornière du catalogue affichée) ; ``profil`` : une désignation tapée, relue au catalogue ; a, R_ELU, uV : « vide =
-    automatique » (commun.lire_auto). Une saisie de la charge ou de l'ancrage fait retomber le drapeau « v1 » d'une
-    cornière relue du modèle lame."""
+    cornière du catalogue affichée) ; ``profil`` : une désignation tapée, relue au catalogue ; a, R_ELU, uV, entraxe :
+    « vide = automatique » (commun.lire_auto) ; n et rondelles : des entiers. Une saisie de la charge, de l'ancrage ou du
+    support fait retomber le drapeau « v1 » d'une cornière relue du modèle lame."""
     c = _corniere(etat)
     avant = copy.deepcopy(c)
     if len(chemin) != 1:
@@ -229,7 +256,7 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             x = C.lire_nombre(valeur)
             if x is None:
                 return f"Nombre illisible : « {valeur} »"
-            c[k] = int(x) if k == "n" and float(x).is_integer() else x
+            c[k] = int(x) if k in EN.ENTIERS and float(x).is_integer() else x
         else:
             return f"Champ inconnu : « {k} »"
         if k in RESSAISIE and c.get("v1"):
@@ -307,8 +334,32 @@ def _niv_res(res: Dict) -> str:
 # l'EXPRESSION de chaque formule du moteur (la table des clés de la docstring de acier/corniere/moteur.py) : écrite une
 # fois ici, avec les noms que le moteur donne à ses termes ; les valeurs substituées sont ses termes, le résultat est le
 # sien — rien n'est recalculé (tests/test_api_web_corniere.py réévalue chaque ligne affichée)
-def _fx(f: Dict) -> Dict:
-    """Une formule du moteur → « symbole (cellule) = expression = valeurs substituées = résultat »."""
+_LIMITES = re.compile(r"(/\s*)?(σ_adm|τ_adm)")
+
+
+def _renommer(texte: str, syms: Optional[Dict[str, str]]) -> str:
+    """Les LIMITES dans un symbole ou une expression, écrites avec le symbole de l'état limite que le moteur nomme
+    (``materiau.symbole_sigma``, ``symbole_tau``) : les clés de sa sortie restent « σ_adm », « τ_adm » (le contrat), et à
+    l'ELU elles se lisent « f_y/γ_M0 », « f_y/(√3·γ_M0) » — un quotient reçoit des parenthèses (« σ/(f_y/γ_M0) »). En ELS
+    le symbole est le nom : rien ne change."""
+    if not syms:
+        return texte
+
+    def rep(m):
+        s = syms.get(m.group(2), m.group(2))
+        return (m.group(1) or "") + (f"({s})" if m.group(1) and "/" in s else s)
+    return _LIMITES.sub(rep, texte)
+
+
+def _syms(res: Dict) -> Dict[str, str]:
+    """Le nom des limites du moteur → leur symbole dans l'état limite (identité en ELS)."""
+    m = res["materiau"]
+    return {"σ_adm": m["symbole_sigma"], "τ_adm": m["symbole_tau"]}
+
+
+def _fx(f: Dict, syms: Optional[Dict[str, str]] = None) -> Dict:
+    """Une formule du moteur → « symbole (cellule) = expression = valeurs substituées = résultat » ; ``syms`` : le
+    symbole des limites dans l'état limite (``_syms``), appliqué au symbole et à l'expression, jamais aux valeurs."""
     t = {x["symbole"]: x["valeur"] for x in f["termes"]}
     noms = list(t)
     k, s = f["cle"], f["symbole"]
@@ -320,6 +371,10 @@ def _fx(f: Dict) -> Dict:
         parts = [s, "f_y / coef", f"{v('f_y')} / {v('coef')}"]
     elif k == "tau_adm":
         parts = [s, "σ_adm / √3", f"{v('σ_adm')} / √3"]
+    elif k == "sigma_lim_ELU":
+        parts = [s, "f_y / γ_M0", f"{v('f_y')} / {v('γ_M0')}"]
+    elif k == "tau_lim_ELU":
+        parts = [s, "f_y / (√3·γ_M0)", f"{v('f_y')} / (√3 × {v('γ_M0')})"]
     elif k in ("Xp", "Yp"):
         parts = [s, f"{noms[0]} + {noms[1]}", f"{v(noms[0])} + {v(noms[1])}"]
     elif k == "Xe":
@@ -341,7 +396,8 @@ def _fx(f: Dict) -> Dict:
     elif k == "M_rho":
         parts = [s, f"{noms[0]}·Mmax", f"{v(noms[0])} × {v('Mmax')}"]
     elif k == "H_hist":
-        parts = [s, "Mmax·1000 / (YH + Yj)", f"{v('Mmax')} × 1000 / ({v('YH')} + {v('Yj')})"]
+        # le bras est « YH » pour les sections (C25 + Yj) et « Y − jeu » pour la traction d'ancrage en ELU (C82·n)
+        parts = [s, f"Mmax·1000 / ({noms[1]} + Yj)", f"{v('Mmax')} × 1000 / ({v(noms[1])} + {v('Yj')})"]
     elif k == "M_hist_v":
         parts = [s, "H_s·(Y′ − s) / 1000", f"{v('H_s')} × ({v('Y′')} − {v('s')}) / 1000"]
     elif k == "M_bras":
@@ -381,6 +437,7 @@ def _fx(f: Dict) -> Dict:
         parts = [s, "√(σ² + 3·τ²)", f"√({v('σ')}² + 3 × {v('τ')}²)"]
     elif k == "taux":
         parts = [s + (f" ({f['cellule']})" if f.get("cellule") else ""), f"{noms[0]} / {noms[1]}", f"{v(noms[0])} / {v(noms[1])}"]
+        parts[:2] = [_renommer(p, syms) for p in parts[:2]]
         return {"parts": parts, "res": _pct(f["resultat"]), "niveau": C.niveau(f["resultat"])}
     elif k == "N_ELS_hist":
         parts = [s, "Mmax·1000 / ((Y − jeu)·n)", f"{v('Mmax')} × 1000 / (({v('Y')} − {v('jeu')}) × {v('n')})"]
@@ -394,10 +451,15 @@ def _fx(f: Dict) -> Dict:
         parts = [s, f"{noms[0]}·ρ_ELU", f"{v(noms[0])} × {v('ρ_ELU')}"]
     elif k == "R_ELU_auto":
         parts = [s, "1,5·R", f"1,5 × {v('R')}"]
+    elif k == "N_ELU_direct":
+        parts = [s, "H / n", f"{v('H')} / {v('n')}"]
+    elif k == "V_ELU_direct":
+        parts = [s, "R / n", f"{v('R')} / {v('n')}"]
     elif k == "p_diam":
-        parts = [s, "V_ELS·10³ / (d·e)", f"{v('V_ELS')} × 10³ / ({v('d')} × {v('e')})"]
+        # l'effort par ancrage dans l'état limite saisi : « V_ELS » en ELS, « V_ELU » en ELU (le premier terme)
+        parts = [s, f"{noms[0]}·10³ / (d·e)", f"{v(noms[0])} × 10³ / ({v('d')} × {v('e')})"]
     elif k == "arrachement":
-        parts = [s, "V_ELS·10³ / (2·(haut − Y)·e)", f"{v('V_ELS')} × 10³ / (2 × ({v('haut')} − {v('Y')}) × {v('e')})"]
+        parts = [s, f"{noms[0]}·10³ / (2·(haut − Y)·e)", f"{v(noms[0])} × 10³ / (2 × ({v('haut')} − {v('Y')}) × {v('e')})"]
     elif k == "L_eff":
         parts = [s, "min(L ; a + 2·Xe′)", f"min({v('L')} ; {v('a')} + 2 × {v('Xe′')})"]
     elif k == "d0":
@@ -410,6 +472,7 @@ def _fx(f: Dict) -> Dict:
         parts = [s, " · ".join(f"{n} = {v(n)}" for n in noms)]
     if f.get("cellule"):
         parts[0] = f"{parts[0]} ({f['cellule']})"
+    parts[:2] = [_renommer(p, syms) for p in parts[:2]]
     return {"parts": parts, "res": _nu(f["resultat"], f["unite"]), "niveau": ""}
 
 
@@ -418,12 +481,12 @@ MOMENT = frozenset(("Xp", "Yp", "Xe", "Xer", "Ye", "Yer", "YH", "M_bras_j", "Mma
                     "M_lin", "bras_A", "H_eq", "M_eq_A", "y_a", "bras_B", "M_angle_B", "M_bas_B"))
 
 
-def _groupe(titre: str, formules: List[Dict], sous: str = "") -> str:
-    """Un groupe du détail d'une fenêtre : son titre (texte), sa combinaison (texte), ses lignes."""
+def _groupe(titre: str, formules: List[Dict], sous: str = "", syms: Optional[Dict[str, str]] = None) -> str:
+    """Un groupe du détail d'une fenêtre : son titre (texte), sa combinaison (texte), ses lignes (``syms`` : _fx)."""
     if not formules:
         return ""
     st = f'<span class="ck-comb">{C.esc(sous)}</span>' if sous else ""
-    return f'<div class="ck-g"><div class="ck-t">{C.esc(titre)}{st}</div>{C.lignes_fx([_fx(f) for f in formules])}</div>'
+    return f'<div class="ck-g"><div class="ck-t">{C.esc(titre)}{st}</div>{C.lignes_fx([_fx(f, syms) for f in formules])}</div>'
 
 
 def _bloc_calcul(res: Dict, cle: str) -> Optional[Dict]:
@@ -448,8 +511,10 @@ TITRES_AVERTISSEMENTS = {"chevilles_non_verifiees": "Chevilles non vérifiées",
                          "equilibre_plus_severe": "Équilibre P1", "mode_impose_B": "Configuration B : mode équilibre imposé",
                          "R_ELU_auto": "R_ELU automatique", "note_v1": "Note d'avant le 10/11/2026, modèle lame", "fy_epaisseur": "Épaisseur"}
 GRAVES = (MO.ROUGE,)
+# le nom COURT (≤ 24 caractères, 1ʳᵉ ligne d'un résultat) de chaque information du moteur
 INFOS = {"pression_diametrale": "Pression diamétrale", "arrachement": "Arrachement", "compression_mur": "Compression du mur",
-         "pression_support": "Pression du support", "autre_mode": "Autre mode", "L_eff": "Largeur efficace"}
+         "pression_support": "Pression du support", "autre_mode": "Autre mode", "L_eff": "Largeur efficace",
+         "bord_poutre_haut": "Poutre · bord supérieur", "bord_poutre_bas": "Poutre · bord inférieur"}
 
 
 def _mode_txt(res: Dict) -> str:
@@ -458,6 +523,29 @@ def _mode_txt(res: Dict) -> str:
 
 def _cfg_txt(res: Dict) -> str:
     return f"configuration {res['configuration']} · {EN.LIBELLES_CONFIGURATION[res['configuration']]}"
+
+
+def _etat_limite(res: Dict) -> str:
+    """« ELS » ou « ELU » : l'état limite du calcul, nommé par le moteur."""
+    return res["materiau"]["etat_limite"]
+
+
+def _etat_txt(res: Dict) -> str:
+    """L'état limite et sa limite, en texte : « ELS · σ_adm = f_y/1,5 » ou « ELU · f_y/γ_M0, γ_M0 = 1 »."""
+    m = res["materiau"]
+    if m["etat_limite"] == EN.ELS:
+        return f"ELS · {m['symbole_sigma']} = f_y/{C.nb(m['coef'])}"
+    return f"ELU · {m['symbole_sigma']}, γ_M0 = {C.nb(m['gamma_M0'])}"
+
+
+def _sym_sigma(res: Dict) -> str:
+    """Le symbole de la limite en σ, en HTML (« σ<sub>adm</sub> », « f<sub>y</sub>/γ<sub>M0</sub> ») : celui que le
+    moteur nomme, jamais recopié ici."""
+    return C.symb_math(res["materiau"]["symbole_sigma"])
+
+
+def _sym_tau(res: Dict) -> str:
+    return C.symb_math(res["materiau"]["symbole_tau"])
 
 
 def _comb(cb: Optional[Dict]) -> str:
@@ -475,11 +563,12 @@ def _coupe_txt(v: Dict) -> str:
     return f"{LIEUX.get(v['cle'], '')} · s = {C.nb(round(v['s'], 2), 2)} · t = {C.nb(round(v['t'], 2), 2)} mm"
 
 
-def _comparaison_coupe(v: Dict, lieu: bool = True) -> str:
-    """La ligne 2 d'une vérification : le lieu de la coupe, σ_éq face à σ_adm, la combinaison qui gouverne."""
+def _comparaison_coupe(v: Dict, sym: str, lieu: bool = True) -> str:
+    """La ligne 2 d'une vérification : le lieu de la coupe, σ_éq face à la limite (``sym`` : son symbole en HTML, celui
+    que le moteur nomme — σ_adm en ELS, f_y/γ_M0 en ELU), la combinaison qui gouverne."""
     le = "≤" if v["ok"] else "&gt;"
     return ((f"{C.esc(_coupe_txt(v))} · " if lieu else "")
-            + f"σ<sub>éq</sub> = {_n(v['sigma_eq'], 'N/mm²')} {le} σ<sub>adm</sub> = {_n(v['sigma_adm'], 'N/mm²')}{C.NBSP}N/mm²"
+            + f"σ<sub>éq</sub> = {_n(v['sigma_eq'], 'N/mm²')} {le} {sym} = {_n(v['sigma_adm'], 'N/mm²')}{C.NBSP}N/mm²"
             f" · {_comb(v['combinaison'])}")
 
 
@@ -519,23 +608,29 @@ def _configuration(c: Dict) -> str:
 
 
 def _fiche(sec: Dict) -> str:
-    """La fiche de la cornière du catalogue : ailes, épaisseur, congés, masse, aire — ce que la coupe ne cote pas."""
+    """La fiche de la cornière du catalogue — ailes, épaisseur, congés, masse, aire : ce que la coupe ne cote pas — dans
+    un VOLET DÉPLIABLE « Détails », replié par défaut (décisions § 9.7) : un ``<details>`` natif, dont js/etabli.js
+    garde l'état d'ouverture d'un calcul à l'autre et pour la session (``data-volet``, comme les rubriques). Le résumé
+    du volet fermé : la famille, la norme, la masse."""
     lignes = [("Ailes A × B", f"{C.nb(sec['A'])} × {C.nb(sec['B'])}{C.NBSP}mm"), ("Épaisseur t", f"{C.nb(sec['t'])}{C.NBSP}mm"),
               ("Congés r<sub>1</sub> / r<sub>2</sub>", f"{C.nb(sec['r1'])} / {C.nb(sec['r2'])}{C.NBSP}mm"),
               ("Masse", C.qte(sec["masse"], "kg/m", 2)), ("Aire", C.qte(sec["aire"], "cm²", 2))]
     dl = "".join(f"<dt>{k}</dt><dd>{v}</dd>" for k, v in lignes)
     fam = EN.LIBELLES_FAMILLE.get(sec.get("famille"), "")
-    return (f'<div class="secard"><div class="sh2">{C.esc(sec["designation"])}<span class="muted">{C.esc(fam)} · {C.esc(sec["norme"] or "")}</span></div>'
-            f'<dl class="facts">{dl}</dl></div>')
+    resume = f"{C.esc(fam)} · {C.esc(sec['norme'] or '')} · {C.qte(sec['masse'], 'kg/m', 2)}"
+    return (f'<details class="et-volet" data-volet="fiche"><summary title="La fiche du catalogue : ailes, épaisseur, congés, masse, aire">'
+            f'{C.icon("chevron-right")}<span class="t">Détails</span><span class="r">{resume}</span></summary>'
+            f'<div class="et-volet-c"><dl class="facts">{dl}</dl></div></details>')
 
 
-def _rubrique_corniere(c: Dict, sec: Dict) -> str:
+def _rubrique_corniere(c: Dict, sec: Dict, res: Dict) -> str:
     L = C.ligne
     s = L("Origine", C.segments(["standard"], "catalogue" if c["standard"] else "saisie", ORIGINES), full=True)
     if c["standard"]:
         s += (L("Profil", C.texte(["profil"], sec["designation"], "ex. L 80×80×8"), "", "La désignation tapée (« 80x80x8 », "
                 "« 100 × 65 × 8 », les ailes dans un ordre ou dans l'autre) est relue au catalogue EN 10056-1 ; la liste des 233 "
-                "cornières, triée par masse et calculée avec vos charges, s'ouvre depuis la ligne « Cornière » du résultat.", full=True)
+                "cornières, triée par masse et calculée avec vos charges, s'ouvre depuis la ligne « Cornière » du résultat. "
+                "La fiche du catalogue (congés, masse, aire) est dans le volet « Détails ».", full=True)
               + _fiche(sec))
     else:
         s += (C.ligne2(("A", C.num(["A"], c["A"], "mm"), "La première aile (A au catalogue)."),
@@ -554,45 +649,108 @@ def _rubrique_corniere(c: Dict, sec: Dict) -> str:
            f'l\'ancrage est au-dessous, le bout libre s\'appuie sur le mur) — les formules du classeur ne s\'y appliquent pas : B se calcule '
            f'toujours en équilibre. Y se compte depuis la face extérieure de l\'aile horizontale dans les deux cas : la même cote pour le même '
            f'trou quand on retourne la cornière.">{C.icon("info")}</span></label>{_configuration(c)}</div>')
-    mat = C.ligne2(("Nuance", C.choix(["fy"], int(c["fy"]) if float(c["fy"]).is_integer() else c["fy"], NUANCES),
-                    "La nuance de l'acier (f_y pour t ≤ 40 mm, EN 1993-1-1 Tableau 3.1) : σ_adm = f_y / coef."),
-                   ("coef", C.num(["coef"], c["coef"], ""),
-                    "Le coefficient global sur f_y de la méthode aux contraintes admissibles (1,5 dans le classeur) : σ_adm = f_y/coef, "
-                    "τ_adm = σ_adm/√3, sur les efforts ELS non majorés — ce n'est pas une justification EC3 aux états limites."))
+    nuance = ("Nuance", C.choix(["fy"], int(c["fy"]) if float(c["fy"]).is_integer() else c["fy"], NUANCES),
+              "La nuance de l'acier (f_y pour t ≤ 40 mm, EN 1993-1-1 Tableau 3.1) : la limite vaut f_y/coef à l'ELS, f_y/γ_M0 à l'ELU.")
+    if _etat_limite(res) == EN.ELS:
+        # le coefficient de l'ELS ; en ELU il est sans effet (f_y/γ_M0, γ_M0 = 1,0) et l'écran le masque (§ 9.5)
+        mat = C.ligne2(nuance, ("coef", C.num(["coef"], c["coef"], ""),
+                                "Le coefficient global sur f_y de la méthode aux contraintes admissibles (1,5 dans le classeur) : σ_adm = f_y/coef, "
+                                "τ_adm = σ_adm/√3, sur les efforts ELS non majorés — ce n'est pas une justification EC3 aux états limites. "
+                                "Sans effet à l'ELU (rubrique Hypothèses), où la limite est f_y/γ_M0."))
+    else:
+        mat = C.ligne(nuance[0], nuance[1], "", nuance[2] + f" Ici l'ELU : f_y/γ_M0 = {_n(res['materiau']['sigma_adm'], 'N/mm²')} N/mm², γ_M0 = "
+                      f"{C.nb(res['materiau']['gamma_M0'])} ; le coefficient de l'ELS est sans effet et n'est pas montré.")
     return piece + cfg + mat
 
 
 def _rubrique_charge(c: Dict, res: Dict) -> str:
-    anc, g = res["ancrages"], res["geometrie"]
-    return (_duo(("R", "R", C.num(["R"], c["R"], "kN"), "La réaction d'appui (ELS, non majorée) posée sur l'aile horizontale, sur la longueur "
-                  "reprise L. Les n ancrages se partagent R en cisaillement (V = R/n)."),
-                 ("L", "L reprise", C.num(["L"], c["L"], "mm"), "La longueur de cornière qui reprend R : la largeur de toutes les sections "
-                  "vérifiées, et la longueur sur laquelle les n ancrages se répartissent (entraxe L/n, le premier à L/(2n))."))
-            + _duo(("X", "X charge", C.num(["X"], c["X"], "mm"), "La distance du nu du mur (le dos de l'aile verticale) à la ligne d'action "
-                    "de R. Elle doit porter sur la partie droite de l'aile horizontale : e + r < X − dx, et X + dx ≤ aile."),
-                   ("dx", "± dx jeu", C.num(["dx"], c["dx"], "mm"), "Le jeu de position de la charge, dans les DEUX sens : le moteur calcule "
-                    "la cornière pour la charge à X − dx, X et X + dx (trois positions) et chaque grandeur vérifiée garde la plus défavorable — "
-                    "l'ENVELOPPE, avec la combinaison qui la donne. 0 : le classeur exactement (Xj = 0 dans la note validée)."))
-            + _duo(("a", "a appui", C.num(["a"], c["a"], "mm", auto=f"auto · L = {C.nb(c['L'])}"), "La largeur d'appui réelle de la charge ; "
-                    "vide = L. Si a + 2·Xe < L, l'aile horizontale ne travaille que sur L_eff = min(L ; a + 2·Xe) (diffusion à 45° jusqu'au "
-                    f"pied du congé, section 1) et σ y est majorée de L/L_eff. Aujourd'hui L_eff = {C.nb(round(g['L_eff'], 1), 1)} mm."),
-                   (None, "R<sub>ELU</sub>", C.num(["R_ELU"], c["R_ELU"], "kN", auto=f"auto · 1,5·R = {C.nb(round(anc['R_ELU'], 3), 3)}"),
-                    "La réaction ELU, pour les efforts d'ancrage à donner à Hilti PROFIS (N_ELU, V_ELU = N_ELS, V_ELS × R_ELU/R) ; vide : "
-                    "1,5·R, affiché « auto » — à remplacer par la combinaison réelle 1,35·G + 1,5·Q.")))
+    anc, g, els = res["ancrages"], res["geometrie"], _etat_limite(res) == EN.ELS
+    aide_R = ("La réaction d'appui ELS (non majorée) posée sur l'aile horizontale, sur la longueur reprise L ; les n ancrages se partagent R "
+              "en cisaillement (V = R/n). L'état limite se choisit dans la rubrique Hypothèses." if els else
+              "La réaction d'appui à l'ELU (la combinaison 1,35·G + 1,5·Q déjà faite) posée sur l'aile horizontale, sur la longueur reprise L ; "
+              "les n ancrages se partagent R en cisaillement (V_ELU = R/n). Le coefficient 1,5 de l'ELS ne s'applique pas : la limite est "
+              "f_y/γ_M0. L'état limite se choisit dans la rubrique Hypothèses.")
+    s = (_duo(("R", f"R ({_etat_limite(res)})", C.num(["R"], c["R"], "kN"), aide_R),
+              ("L", "L reprise", C.num(["L"], c["L"], "mm"), "La longueur de cornière qui reprend R : la largeur de toutes les sections "
+               "vérifiées, et la longueur sur laquelle les n ancrages se répartissent (entraxe s, vide = L/n, centrés sur L)."))
+         + _duo(("X", "X charge", C.num(["X"], c["X"], "mm"), "La distance du nu du mur (le dos de l'aile verticale) à la ligne d'action "
+                 "de R. Elle doit porter sur la partie droite de l'aile horizontale : e + r < X − dx, et X + dx ≤ aile."),
+                ("dx", "± dx jeu", C.num(["dx"], c["dx"], "mm"), "Le jeu de position de la charge, dans les DEUX sens : le moteur calcule "
+                 "la cornière pour la charge à X − dx, X et X + dx (trois positions) et chaque grandeur vérifiée garde la plus défavorable — "
+                 "l'ENVELOPPE, avec la combinaison qui la donne. 0 : le classeur exactement (Xj = 0 dans la note validée).")))
+    a = ("a", "a appui", C.num(["a"], c["a"], "mm", auto=f"auto · L = {C.nb(c['L'])}"), "La largeur d'appui réelle de la charge ; "
+         "vide = L. Si a + 2·Xe < L, l'aile horizontale ne travaille que sur L_eff = min(L ; a + 2·Xe) (diffusion à 45° jusqu'au "
+         f"pied du congé, section 1) et σ y est majorée de L/L_eff. Aujourd'hui L_eff = {C.nb(round(g['L_eff'], 1), 1)} mm.")
+    if els:
+        # R_ELU n'a de sens qu'en ELS (les efforts d'ancrage ELU pour Hilti) ; à l'ELU, R est déjà la réaction ELU : masqué, sans effet
+        return s + _duo(a, (None, "R<sub>ELU</sub>", C.num(["R_ELU"], c["R_ELU"], "kN", auto=f"auto · 1,5·R = {C.nb(round(anc['R_ELU'], 3), 3)}"),
+                            "La réaction ELU, pour les efforts d'ancrage à donner à Hilti PROFIS (N_ELU, V_ELU = N_ELS, V_ELS × R_ELU/R) ; vide : "
+                            "1,5·R, affiché « auto » — à remplacer par la combinaison réelle 1,35·G + 1,5·Q."))
+    return s + _duo(a)
+
+
+def _segments_aide(chemin: Sequence, valeur, options: Sequence[Tuple], desactive: bool = False) -> str:
+    """Des segments dont chaque bouton porte une aide au survol : ``options`` = (clé, mot court, aide texte) — le mot
+    court tient dans le segment, l'aide dit le libellé entier et le sens (commun.segments n'a pas d'aide par bouton)."""
+    off = " disabled" if desactive else ""
+    bt = "".join(f'<button type="button" class="{"on" if k == valeur else ""}" data-chemin="{C._attr_chemin(chemin)}" data-sorte="choix" '
+                 f'data-valeur="{C.esc(k)}" title="{C.esc(aide)}"{off}>{C.esc(court)}</button>' for k, court, aide in options)
+    return f'<div class="seg full{" locked" if desactive else ""}">{bt}</div>'
+
+
+def _plat(cible: str, html: str) -> str:
+    """Une ligne de segments qui est une PIÈCE (data-cible = la clé de sa pièce sur le dessin), à plat comme le profil."""
+    return f'<div class="et-piece et-plat" data-cible="{C.esc(cible)}">{html}</div>'
 
 
 def _rubrique_ancrage(c: Dict, res: Dict) -> str:
-    anc = res["ancrages"]
-    return (_duo(("Y", "Y ancrage", C.num(["Y"], c["Y"], "mm"), "La distance de la FACE EXTÉRIEURE de l'aile horizontale (le dessous en A, "
-                  "le dessus en B) à l'axe de l'ancrage : la même cote pour le même trou quand on retourne la cornière. Le trou doit rester "
-                  "dans la partie droite de l'aile verticale : Y − dy − d0/2 ≥ e + r et Y + dy + d0/2 ≤ aile."),
-                 ("dy", "± dy tolér.", C.num(["dy"], c["dy"], "mm"), "La tolérance de position de l'ancrage (perçage), dans les DEUX sens : "
-                  "l'ancrage est calculé à Y − dy, Y et Y + dy et chaque grandeur garde la plus défavorable des trois — en A l'ancrage haut "
-                  "charge les sections 3 et 4 et l'ancrage bas la traction ; l'enveloppe le trouve seule. 0 : le classeur exactement."))
-            + _duo(("n", "n ancrages", C.num(["n"], c["n"], "", entier=True, mini=1), "Le nombre d'ancrages sur L, à l'entraxe L/n, le premier "
-                    f"à L/(2n) du bord : z = {' · '.join(C.nb(z) for z in anc['positions_z'])} mm. Ils se partagent R et la traction H."),
-                   ("d", "Ø d", C.num(["d"], c["d"], "mm"), f"Le diamètre de l'ancrage ; trou de passage d0 = d + 2 = {C.nb(anc['d0'])} mm "
-                    "(section nette en B, pression diamétrale, position du trou dans l'aile).")))
+    anc, g = res["ancrages"], res["geometrie"]
+    rond = g["rondelle"]
+    s = (_duo(("Y", "Y ancrage", C.num(["Y"], c["Y"], "mm"), "La distance de la FACE EXTÉRIEURE de l'aile horizontale (le dessous en A, "
+              "le dessus en B) à l'axe de l'ancrage : la même cote pour le même trou quand on retourne la cornière. Le trou doit rester "
+              "dans la partie droite de l'aile verticale : Y − dy − d0/2 ≥ e + r et Y + dy + d0/2 ≤ aile."),
+              ("dy", "± dy tolér.", C.num(["dy"], c["dy"], "mm"), "La tolérance de position de l'ancrage (perçage), dans les DEUX sens : "
+               "l'ancrage est calculé à Y − dy, Y et Y + dy et chaque grandeur garde la plus défavorable des trois — en A l'ancrage haut "
+               "charge les sections 3 et 4 et l'ancrage bas la traction ; l'enveloppe le trouve seule. 0 : le classeur exactement."))
+         + _duo(("n", "n ancrages", C.num(["n"], c["n"], "", entier=True, mini=1), "Le nombre d'ancrages sur L, centrés, à l'entraxe s : "
+                 f"z = {' · '.join(C.nb(z) for z in anc['positions_z'])} mm (le premier à e₁ = {C.nb(anc['distance_bout'])} mm du bout). "
+                 "Ils se partagent R et la traction H."),
+                ("d", "Ø d", C.num(["d"], c["d"], "mm"), f"Le diamètre de l'ancrage ; trou de passage d0 = d + 2 = {C.nb(anc['d0'])} mm "
+                 "(section nette en B, pression diamétrale, position du trou dans l'aile et dans la poutre)."))
+         + _duo(("entraxe", "s entraxe", C.num(["entraxe"], c["entraxe"], "mm", auto=f"auto · L/n = {C.nb(round(c['L'] / c['n'], 2), 2)}"),
+                 "L'entraxe des ancrages, centrés sur L : z_i = L/2 + (i − (n − 1)/2)·s, le premier à e₁ = (L − (n − 1)·s)/2 du bout ; vide = L/n. "
+                 "Minima de l'EN 1993-1-8 Tableau 3.3 (trous dans une pièce d'acier) : s ≥ 2,2·d0 et e₁ ≥ 1,2·d0 — refusés sinon, l'entraxe "
+                 f"automatique aussi. Aujourd'hui s = {C.nb(round(anc['entraxe'], 2), 2)} mm, e₁ = {C.nb(round(anc['distance_bout'], 2), 2)} mm."),
+                ("profondeur", "h<sub>ef</sub> prof.", C.num(["profondeur"], c["profondeur"], "mm"), "La profondeur d'ancrage dans le support : "
+                 "h_ef d'une cheville mécanique ou chimique, l'épaisseur traversée d'un boulon traversant. Dessinée sur la coupe et dans la "
+                 "note ; les chevilles restent non vérifiées (Hilti PROFIS).")))
+    s += _plat("type_ancrage", C.ligne("Type", _segments_aide(["type_ancrage"], c["type_ancrage"],
+                                                             [(k, TYPES_COURTS[k], EN.LIBELLES_TYPE_ANCRAGE[k][0].upper() + EN.LIBELLES_TYPE_ANCRAGE[k][1:])
+                                                              for k in EN.TYPES_ANCRAGE]), "",
+                                       "Le type d'ancrage, pour le dessin et la note (les chevilles ne sont pas vérifiées ici) : cheville mécanique, "
+                                       "cheville chimique (tige filetée scellée) ou boulon traversant (écrou et rondelle sur l'autre face du support).",
+                                       full=True))
+    s += _plat("rondelles", C.ligne("Rondelles", _segments_aide(["rondelles"], c["rondelles"],
+                                                              [(k, str(k), EN.LIBELLES_RONDELLES[k][0].upper() + EN.LIBELLES_RONDELLES[k][1:]) for k in EN.RONDELLES_ADMISES]), "",
+                                    f"0 : sans rondelle. 1 : une rondelle ISO 7089 sous l'écrou (Ø{C.nb(rond['normale'][0])} × {C.nb(rond['normale'][1])} mm pour "
+                                    f"un M{C.nb(rond['nominal'])}). 2 : une rondelle LARGE ISO 7093-1 contre l'aile (Ø{C.nb(rond['large'][0])} × "
+                                    f"{C.nb(rond['large'][1])} mm — le trou peut être oblong pour le jeu dy) et une rondelle ISO 7089 sous l'écrou. "
+                                    "Dimensions de la table entree.RONDELLES ; dessinées sur la coupe.", full=True))
+    s += _plat("support", C.ligne("Support", _segments_aide(["support"], c["support"],
+                                                          [(k, SUPPORTS_COURTS[k], EN.LIBELLES_SUPPORT[k][0].upper() + EN.LIBELLES_SUPPORT[k][1:]) for k in EN.SUPPORTS]), "",
+                                  "Le support de la cornière : un voile (le mur sans limite, dessiné rompu) ou une poutre, dont les deux limites "
+                                  "doivent porter les trous d'ancrage (Y ± dy ± d0/2) et, en B, le contact du bout libre ; la distance de l'ancrage "
+                                  "à chaque bord est donnée en information pour Hilti.", full=True))
+    if c["support"] == EN.POUTRE:
+        # les deux étendues, chacune sur SA ligne (pleine largeur) : à deux par ligne, « ↑ au-dessus » et « ↓ au-dessous » ne
+        # laissaient au champ que « 15( » de « 150 » à la tablette 1024 et au PC (captures du 10/11/2026)
+        s += _duo(("support_haut", "↑ au-dessus", C.num(["support_haut"], c["support_haut"], "mm"), "Poutre : son étendue AU-DESSUS de la face "
+                   "extérieure de l'aile horizontale (le repère y = 0 : le dessous de la cornière en A, le dessus en B), comptée vers le haut "
+                   "dans le monde réel. En A, les trous d'ancrage doivent y tenir : Y + dy + d0/2 ≤ haut."))
+        s += _duo(("support_bas", "↓ au-dessous", C.num(["support_bas"], c["support_bas"], "mm"), "Poutre : son étendue AU-DESSOUS de la face "
+                   "extérieure de l'aile horizontale, comptée vers le bas. En B, les trous (Y + dy + d0/2) et le contact du bout libre (haut − c) "
+                   "doivent y tenir."))
+    return s
 
 
 def _rubrique_hypotheses(c: Dict, res: Dict) -> str:
@@ -602,7 +760,10 @@ def _rubrique_hypotheses(c: Dict, res: Dict) -> str:
                  "d'ancrage sur le bras Y − jeu), chaque grandeur avec sa cellule. Équilibre : un seul corps libre, pivot y_c et ligne "
                  "d'action u_V nommés, N et V exacts dans chaque aile, le maximum cherché le long du congé. Le résultat montre en information "
                  "le taux de l'autre mode.")
-    s = C.ligne("Mode", C.segments(["mode"], c["mode"], modes, desactive=cfg_B), "", aide_mode, full=True)
+    # l'ÉTAT LIMITE en tête (§ 9.5) : ELS, la méthode du classeur (f_y/coef, efforts ELS) ; ELU, f_y/γ_M0 avec γ_M0 = 1,0 et R saisie à l'ELU
+    s = C.ligne("État limite", _segments_aide(["etat_limite"], c["etat_limite"], [(k, t, AIDES_ETAT_LIMITE[k]) for k, t in ETATS_LIMITES]), "",
+                " ".join(AIDES_ETAT_LIMITE[k] for k, _ in ETATS_LIMITES), full=True)
+    s += C.ligne("Mode", C.segments(["mode"], c["mode"], modes, desactive=cfg_B), "", aide_mode, full=True)
     if cfg_B:
         s += C.aide("<b>Configuration B : toujours l'équilibre.</b> Les formules du classeur ne s'appliquent pas à la cornière retournée "
                     "(elles donneraient −18 % sur M3) ; le mode demandé est gardé pour le jour où la cornière repasse en A.")
@@ -617,10 +778,13 @@ def _rubrique_hypotheses(c: Dict, res: Dict) -> str:
 
 
 def _resume_hyp(c: Dict, res: Dict) -> str:
+    """Le résumé de la rubrique repliée : l'état limite d'abord (§ 9.5), puis le mode et son réglage."""
     mode = "équilibre" if res["mode"] == EN.EQUILIBRE else "historique"
+    el = _etat_limite(res)
     if res["configuration"] == "B":
-        return f"équilibre (imposé en B) · y<sub>c</sub> {C.nb(c['yc'])}"
-    return f"{mode} · jeu {C.nb(c['jeu_ancrage'])}" if res["mode"] == EN.HISTORIQUE else f"{mode} · y<sub>c</sub> {C.nb(c['yc'])} · u<sub>V</sub> {C.nb(res['geometrie']['uV'])}"
+        return f"{el} · équilibre (imposé en B) · y<sub>c</sub> {C.nb(c['yc'])}"
+    return (f"{el} · {mode} · jeu {C.nb(c['jeu_ancrage'])}" if res["mode"] == EN.HISTORIQUE
+            else f"{el} · {mode} · y<sub>c</sub> {C.nb(c['yc'])} · u<sub>V</sub> {C.nb(res['geometrie']['uV'])}")
 
 
 def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
@@ -630,9 +794,9 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
     res = res or MO.verifier(c)
     sec = res["section"]
     r1 = f"{C.esc(sec['designation'])} · {C.esc(res['materiau']['nuance'] or C.nb(c['fy']))} · {res['configuration']}"
-    r2 = f"R {C.nb(c['R'])} kN · L {C.nb(c['L'])} · X {C.nb(c['X'])} ± {C.nb(c['dx'])}"
-    r3 = f"Y {C.nb(c['Y'])} ± {C.nb(c['dy'])} · {c['n']} Ø{C.nb(c['d'])}"
-    return (C.section(1, "Cornière", r1, _rubrique_corniere(c, sec), True, "co")
+    r2 = f"R {C.nb(c['R'])} kN ({_etat_limite(res)}) · L {C.nb(c['L'])} · X {C.nb(c['X'])} ± {C.nb(c['dx'])}"
+    r3 = f"Y {C.nb(c['Y'])} ± {C.nb(c['dy'])} · {c['n']} Ø{C.nb(c['d'])} · {SUPPORTS_COURTS[c['support']].lower()}"
+    return (C.section(1, "Cornière", r1, _rubrique_corniere(c, sec, res), True, "co")
             + C.section(2, "Charge", r2, _rubrique_charge(c, res), True, "ch")
             + C.section(3, "Ancrage", r3, _rubrique_ancrage(c, res), False, "an")
             + C.section(4, "Hypothèses", _resume_hyp(c, res), _rubrique_hypotheses(c, res), False, "hy", secondaire=True))
@@ -694,8 +858,8 @@ def _verdict(res: Dict) -> str:
     vg = next(v for v in res["verifications"] if v["cle"] == g["cle"])
     niv = _niv_res(res)
     return (f'<div class="verdict" data-calcul="s0" title="Voir le calcul">{C.chip(C.pct(res["taux_max"]), niv, xl=True)}<div class="gov">'
-            f'<b>{C.esc(COURTS.get(g["cle"], g["nom"]))} · {C.esc(AILES[g["aile"]])} · {C.esc(LIEUX.get(g["cle"], ""))}</b>{_comparaison_coupe(vg, lieu=False)}'
-            f'<br>{C.esc(_cfg_txt(res))} · {C.esc(_mode_txt(res))}</div></div>')
+            f'<b>{C.esc(COURTS.get(g["cle"], g["nom"]))} · {C.esc(AILES[g["aile"]])} · {C.esc(LIEUX.get(g["cle"], ""))}</b>{_comparaison_coupe(vg, _sym_sigma(res), lieu=False)}'
+            f'<br>{C.esc(_cfg_txt(res))} · {C.esc(_mode_txt(res))} · {C.symb_math(_etat_txt(res))}</div></div>')
 
 
 def _bloc_sections(res: Dict) -> Tuple[str, str]:
@@ -703,9 +867,11 @@ def _bloc_sections(res: Dict) -> Tuple[str, str]:
     maxima du congé et la section nette — deux lignes par vérification, la combinaison de jeux qui la gouverne."""
     g, ef, mat = res["geometrie"], res["efforts"], res["materiau"]
     hist = res["mode"] == EN.HISTORIQUE
-    # la ligne « Cornière » : sa pièce ouvre le SÉLECTEUR (data-pk), la ligne la fenêtre « géométrie et matériau »
+    sym = _sym_sigma(res)
+    # la ligne « Cornière » : sa pièce ouvre le SÉLECTEUR (data-pk), la ligne la fenêtre « géométrie et matériau » ; les
+    # limites portent le symbole que le moteur nomme (σ_adm et τ_adm en ELS, f_y/γ_M0 et f_y/(√3·γ_M0) en ELU)
     rows = C.ligne_verif("Cornière", f"e = {C.nb(g['e'])} · r = {C.nb(g['r'])} · {C.nb(g['larg'])} × {C.nb(g['haut'])} mm · "
-                         f"σ<sub>adm</sub> = {_n(mat['sigma_adm'], 'N/mm²')} · τ<sub>adm</sub> = {_n(mat['tau_adm'], 'N/mm²')} N/mm²",
+                         f"{sym} = {_n(mat['sigma_adm'], 'N/mm²')} · {_sym_tau(res)} = {_n(mat['tau_adm'], 'N/mm²')} N/mm² ({_etat_limite(res)})",
                          None, "c", calcul="geometrie", pk="corniere", piece=C.esc(res["section"]["designation"]),
                          etat_txt=f"{len(res['combinaisons'])} comb.")
     ef_txt = f"M<sub>max</sub> = {_n(ef['Mmax'], 'kN·m')} kN·m · H = {_n(ef['H'], 'kN')} kN ({_comb(ef['combinaison_H'])})"
@@ -722,11 +888,11 @@ def _bloc_sections(res: Dict) -> Tuple[str, str]:
     for v in res["verifications"]:
         nom, piece = COURTS.get(v["cle"], v["nom"]), AILES[v["aile"]]
         if v["verdict"]:
-            rows += C.ligne_verif(nom, _comparaison_coupe(v), C.pct(v["taux"]), _niv(v), calcul="s0", piece=piece, gov=v["cle"] == gov)
+            rows += C.ligne_verif(nom, _comparaison_coupe(v, sym), C.pct(v["taux"]), _niv(v), calcul="s0", piece=piece, gov=v["cle"] == gov)
         else:
             # information, hors verdict (le classeur n'a pas les maxima du congé) : le taux dans la phrase, pas dans une pastille
             cmp_ = (f"s = {C.nb(round(v['s'], 2), 2)} · t = {C.nb(round(v['t'], 2), 2)} mm · σ<sub>éq</sub> = {_n(v['sigma_eq'], 'N/mm²')} N/mm², soit "
-                    f"{_pct(v['taux'])} de σ<sub>adm</sub> ({'+' if v['ecart'] >= 0 else ''}{C.pc(C.pct(v['ecart'], 1))} % sur {v['reference']}, "
+                    f"{_pct(v['taux'])} de {sym} ({'+' if v['ecart'] >= 0 else ''}{C.pc(C.pct(v['ecart'], 1))} % sur {v['reference']}, "
                     f"{C.nb(round(v['recul'], 2), 2)} mm avant le pied du congé) · {_comb(v['combinaison'])}")
             rows += C.ligne_verif(nom, cmp_, None, "c", calcul="s0", piece=piece, etat_txt="hors verdict")
     cls, etat_txt = ("ok", "Conforme") if res["statut"] == MO.OK else ("nok", "Non conforme")
@@ -749,32 +915,47 @@ def _expression(f: Optional[Dict]) -> str:
     return " = ".join(C.symb_math(x) for x in p[1:])
 
 
+def _positions_txt(res: Dict) -> str:
+    """« e₁ = 50 · s = 100 (L/n) · z = 50 · 150 · 250 mm sur L = 300 » : où sont les ancrages (le moteur les a placés)."""
+    anc, g, c = res["ancrages"], res["geometrie"], res["corniere"]
+    return (f"e₁ = {C.nb(round(anc['distance_bout'], 2), 2)} · s = {C.nb(round(anc['entraxe'], 2), 2)}{' (L/n)' if g['entraxe_auto'] else ' (saisi)'} · "
+            f"z = {' · '.join(C.nb(round(z, 2), 2) for z in anc['positions_z'])} mm sur L = {C.nb(c['L'])}")
+
+
 def _bloc_ancrages(res: Dict) -> str:
-    """Le bloc « Ancrages » : N et V par ancrage (ELS, ELU), les positions ; puis les lignes d'INFORMATION, grises, hors
-    verdict (pression diamétrale, arrachement, compression du mur ou pression sur le support)."""
+    """Le bloc « Ancrages » : N et V par ancrage — en ELS, les lignes ELS puis ELU (R_ELU, pour Hilti) ; à l'ELU, N_ELU = H/n
+    et V_ELU = R/n seulement (R est saisie à l'ELU, rien n'est inventé pour l'ELS) —, les positions (e₁, s, z) ; puis les
+    lignes d'INFORMATION, grises, hors verdict (pression diamétrale, arrachement, compression du mur ou pression sur le
+    support, les distances aux bords d'une poutre)."""
     anc, c = res["ancrages"], res["corniere"]
-    hist = res["mode"] == EN.HISTORIQUE
+    hist, els = res["mode"] == EN.HISTORIQUE, _etat_limite(res) == EN.ELS
     comb = _comb(anc["combinaison_N"])
-    rows = C.ligne_verif("Traction N · ELS", f"{_expression(_formule_ancrage(res, 'N_ELS_hist' if hist else 'N_ELS_eq'))} · {comb}", None, "c",
-                         calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['N_ELS'], 'kN')} kN")
-    rows += C.ligne_verif("Cisaillement V · ELS", f"{_expression(_formule_ancrage(res, 'V_ELS'))} · R = {C.nb(c['R'])} kN sur {c['n']} ancrage(s)",
-                          None, "c", calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['V_ELS'], 'kN')} kN")
-    elu = (f"R<sub>ELU</sub> = {C.nb(round(anc['R_ELU'], 3), 3)} kN{' (auto · 1,5·R)' if anc['R_ELU_auto'] else ' (saisie)'}"
-           + (f" · ρ<sub>ELU</sub> = {_n(anc['rapport_ELU'], '')}" if anc["rapport_ELU"] is not None else ""))
-    rows += C.ligne_verif("Traction N · ELU", f"{_expression(_formule_ancrage(res, 'ELU', 'N_ELU'))} · {elu} · pour Hilti PROFIS", None, "c",
-                          calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['N_ELU'], 'kN')} kN")
-    rows += C.ligne_verif("Cisaillement V · ELU", f"{_expression(_formule_ancrage(res, 'ELU', 'V_ELU'))} · pour Hilti PROFIS", None, "c",
-                          calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['V_ELU'], 'kN')} kN")
-    rows += C.ligne_verif("Positions", f"z = {' · '.join(C.nb(z) for z in anc['positions_z'])} mm sur L = {C.nb(c['L'])} (le premier à L/(2n)) · "
-                          f"trou Ø{C.nb(anc['d0'])} · bras de la traction {C.nb(round(anc['bras'], 2), 2)} mm", None, "c", calcul="s1",
-                          piece=f"{c['n']} × Ø{C.nb(c['d'])}", etat_txt=f"entraxe {C.nb(c['L'] / c['n'])}")
+    if els:
+        rows = C.ligne_verif("Traction N · ELS", f"{_expression(_formule_ancrage(res, 'N_ELS_hist' if hist else 'N_ELS_eq'))} · {comb}", None, "c",
+                             calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['N_ELS'], 'kN')} kN")
+        rows += C.ligne_verif("Cisaillement V · ELS", f"{_expression(_formule_ancrage(res, 'V_ELS'))} · R = {C.nb(c['R'])} kN sur {c['n']} ancrage(s)",
+                              None, "c", calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['V_ELS'], 'kN')} kN")
+        elu = (f"R<sub>ELU</sub> = {C.nb(round(anc['R_ELU'], 3), 3)} kN{' (auto · 1,5·R)' if anc['R_ELU_auto'] else ' (saisie)'}"
+               + (f" · ρ<sub>ELU</sub> = {_n(anc['rapport_ELU'], '')}" if anc["rapport_ELU"] is not None else ""))
+        rows += C.ligne_verif("Traction N · ELU", f"{_expression(_formule_ancrage(res, 'ELU', 'N_ELU'))} · {elu} · pour Hilti PROFIS", None, "c",
+                              calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['N_ELU'], 'kN')} kN")
+        rows += C.ligne_verif("Cisaillement V · ELU", f"{_expression(_formule_ancrage(res, 'ELU', 'V_ELU'))} · pour Hilti PROFIS", None, "c",
+                              calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['V_ELU'], 'kN')} kN")
+    else:
+        rows = C.ligne_verif("Traction N · ELU", f"{_expression(_formule_ancrage(res, 'N_ELU_direct'))} · {comb} · R saisie à l'ELU · pour Hilti PROFIS",
+                             None, "c", calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['N_ELU'], 'kN')} kN")
+        rows += C.ligne_verif("Cisaillement V · ELU", f"{_expression(_formule_ancrage(res, 'V_ELU_direct'))} · R = {C.nb(c['R'])} kN (ELU) sur {c['n']} "
+                              "ancrage(s) · pour Hilti PROFIS", None, "c", calcul="s1", piece="par ancrage", etat_txt=f"{_n(anc['V_ELU'], 'kN')} kN")
+    rows += C.ligne_verif("Positions", f"{_positions_txt(res)} · trou Ø{C.nb(anc['d0'])} · bras de la traction {C.nb(round(anc['bras'], 2), 2)} mm",
+                          None, "c", calcul="s1", piece=f"{c['n']} × Ø{C.nb(c['d'])}", etat_txt=f"entraxe {C.nb(round(anc['entraxe'], 2), 2)}")
     for inf in res["informations"]:
         if inf["cle"] in ("autre_mode", "L_eff"):
             continue
         val = f"{_n(inf['valeur'], inf['unite'])} {inf['unite']}".strip()
         texte = C.esc(inf["texte"]) + (f" · {_comb(inf['combinaison'])}" if inf["combinaison"] else "")
         rows += C.ligne_verif(INFOS.get(inf["cle"], inf["nom"]), texte, None, "c", calcul="s1", piece="hors verdict", etat_txt=val)
-    efforts = f"H = {_n(anc['H'], 'kN')} kN ({comb}) · R = {C.nb(c['R'])} kN · {C.esc(EN.LIBELLES_MODE[anc['methode']])}"
+    efforts = (f"H = {_n(anc['H'], 'kN')} kN ({comb}) · R = {C.nb(c['R'])} kN ({_etat_limite(res)}) · {C.esc(EN.LIBELLES_MODE[anc['methode']])} · "
+               f"{C.esc(EN.LIBELLES_TYPE_ANCRAGE[c['type_ancrage']])} · {C.esc(EN.LIBELLES_SUPPORT[c['support']])}")
     # l'état de l'en-tête est COURT : « efforts par ancrage · chevilles non vérifiées » (254 px) réduisait le titre
     # « Ancrages » à 6 px au PC, 0 à la tablette, 21 au téléphone — le bloc n'avait plus de nom (mesuré le 10/11/2026)
     return E.bloc(1, "Ancrages", "inc", "chevilles non vérifiées", efforts, rows, theme=True)
@@ -815,10 +996,10 @@ def _messages(res: Dict, sans: Sequence[str] = ()) -> str:
 
 
 # ------------------------------------------------------------------ les fenêtres de calcul
-def _ligne_tableau(v: Dict, gov: bool) -> Dict:
-    f = "σ<sub>éq</sub> = √(σ² + 3τ²) ≤ σ<sub>adm</sub>"
+def _ligne_tableau(v: Dict, gov: bool, sym: str) -> Dict:
+    f = f"σ<sub>éq</sub> = √(σ² + 3τ²) ≤ {sym}"
     li = {"nom": C.esc(COURTS.get(v["cle"], v["nom"])), "sous": C.esc(f"{_lieu(v)} · {v['combinaison']['libelle']}"), "formule": f,
-          "valeur": f"σ<sub>éq</sub> = {_n(v['sigma_eq'], 'N/mm²')} N/mm²", "limite": f"σ<sub>adm</sub> = {_n(v['sigma_adm'], 'N/mm²')} N/mm²",
+          "valeur": f"σ<sub>éq</sub> = {_n(v['sigma_eq'], 'N/mm²')} N/mm²", "limite": f"{sym} = {_n(v['sigma_adm'], 'N/mm²')} N/mm²",
           "taux": C.pct(v["taux"]), "niveau": _niv(v), "gov": gov}
     if not v["verdict"]:
         li["sous"] += " · information, hors verdict"
@@ -827,52 +1008,72 @@ def _ligne_tableau(v: Dict, gov: bool) -> Dict:
 
 
 def _hyps(res: Dict) -> List[str]:
-    c, m = res["corniere"], res["materiau"]
+    c, m, anc = res["corniere"], res["materiau"], res["ancrages"]
+    if m["etat_limite"] == EN.ELS:
+        lim = (f"ELS · {C.esc(m['nuance'] or '')} · σ<sub>adm</sub> = f<sub>y</sub>/{C.nb(c['coef'])} = {_n(m['sigma_adm'], 'N/mm²')} · "
+               f"τ<sub>adm</sub> = σ<sub>adm</sub>/√3 = {_n(m['tau_adm'], 'N/mm²')} N/mm²")
+    else:
+        lim = (f"ELU · {C.esc(m['nuance'] or '')} · {_sym_sigma(res)} = {_n(m['sigma_adm'], 'N/mm²')} · {_sym_tau(res)} = {_n(m['tau_adm'], 'N/mm²')} N/mm² · "
+               f"γ<sub>M0</sub> = {C.nb(m['gamma_M0'])} · R saisie à l'ELU")
     return [f"Cornière <b>{C.esc(res['section']['designation'])}</b> · e = {C.nb(res['geometrie']['e'])} · r = {C.nb(res['geometrie']['r'])} mm · "
             f"aile horizontale {C.nb(res['geometrie']['larg'])}, verticale {C.nb(res['geometrie']['haut'])} mm",
             f"{C.esc(_cfg_txt(res))} · <b>{C.esc(_mode_txt(res))}</b>",
-            f"{C.esc(m['nuance'] or '')} · σ<sub>adm</sub> = f<sub>y</sub>/{C.nb(c['coef'])} = {_n(m['sigma_adm'], 'N/mm²')} · τ<sub>adm</sub> = σ<sub>adm</sub>/√3 = "
-            f"{_n(m['tau_adm'], 'N/mm²')} N/mm²",
-            f"R = {C.nb(c['R'])} kN (ELS) sur L = {C.nb(c['L'])} mm · X = {C.nb(c['X'])} ± {C.nb(c['dx'])} · Y = {C.nb(c['Y'])} ± {C.nb(c['dy'])} mm · "
-            f"{c['n']} Ø{C.nb(c['d'])} · {len(res['combinaisons'])} combinaison(s)"]
+            lim,
+            f"R = {C.nb(c['R'])} kN ({m['etat_limite']}) sur L = {C.nb(c['L'])} mm · X = {C.nb(c['X'])} ± {C.nb(c['dx'])} · Y = {C.nb(c['Y'])} ± {C.nb(c['dy'])} mm · "
+            f"{c['n']} Ø{C.nb(c['d'])} à s = {C.nb(round(anc['entraxe'], 2), 2)} · {C.esc(EN.LIBELLES_SUPPORT[c['support']])} · "
+            f"{len(res['combinaisons'])} combinaison(s)"]
 
 
 def _volets(res: Dict, nom: str) -> str:
-    hist = res["mode"] == EN.HISTORIQUE
+    hist, els = res["mode"] == EN.HISTORIQUE, _etat_limite(res) == EN.ELS
     hyps = _hyps(res)
     gov = res["gouvernant"]["cle"]
-    sous = f"{C.esc(_cfg_txt(res))} · {C.esc(_mode_txt(res))}" + (" · la cellule du classeur entre parenthèses" if hist else "")
-    # 1 · les sections : toutes les vérifications, puis le détail de chaque coupe (matériau d'abord)
-    lignes = [_ligne_tableau(v, v["cle"] == gov) for v in res["verifications"]]
-    detail = _groupe("Matériau · contraintes admissibles", _bloc_calcul(res, "materiau")["formules"])
+    sym = _sym_sigma(res)
+    sous = f"{C.esc(_cfg_txt(res))} · {C.esc(_mode_txt(res))} · {C.symb_math(_etat_txt(res))}" + (" · la cellule du classeur entre parenthèses" if hist else "")
+    # 1 · les sections : toutes les vérifications, puis le détail de chaque coupe (matériau d'abord : le titre du bloc est
+    # celui du moteur — « contraintes admissibles (ELS) » ou « limites ELU »)
+    lignes = [_ligne_tableau(v, v["cle"] == gov, sym) for v in res["verifications"]]
+    bm, syms = _bloc_calcul(res, "materiau"), _syms(res)
+    detail = _groupe(bm["titre"], bm["formules"], syms=syms)
     for v in res["verifications"]:
         b = _bloc_calcul(res, v["cle"])
-        detail += _groupe(f"{COURTS.get(v['cle'], v['nom'])} · {_lieu(v)}", b["formules"], b["combinaison"]["libelle"] if b["combinaison"] else "")
+        detail += _groupe(f"{COURTS.get(v['cle'], v['nom'])} · {_lieu(v)}", b["formules"], b["combinaison"]["libelle"] if b["combinaison"] else "", syms)
     pied = ('<div class="ck-autres">Les maxima du congé sont calculés et montrés (vue Contraintes) mais restent en INFORMATION en mode '
             'historique : le classeur ne les a pas, et son cas de contrôle rend 88,86 % exactement.</div>' if hist else
             '<div class="ck-autres">En mode équilibre, le maximum le long de chaque aile (dans le congé, où l\'épaisseur t(s) décroît) entre '
             'dans le verdict avec les sections repères.</div>')
     out = C.fenetre_calcul("s0", f"{nom} · sections", sous, hyps, lignes, detail, pied)
-    # 2 · les ancrages : les efforts par ancrage et les informations
+    # 2 · les ancrages : les efforts par ancrage (ELS puis ELU en ELS ; ELU seul quand R est saisie à l'ELU), les positions,
+    # les informations
     anc = res["ancrages"]
     comb = anc["combinaison_N"]["libelle"]
-    la = [{"nom": "N<sub>ELS</sub>", "sous": C.esc(f"traction par ancrage · {comb}"), "formule": "H / n", "valeur": f"{_n(anc['N_ELS'], 'kN')} kN",
-           "limite": "—", "taux": None, "niveau": "c"},
-          {"nom": "V<sub>ELS</sub>", "sous": "cisaillement par ancrage", "formule": "R / n", "valeur": f"{_n(anc['V_ELS'], 'kN')} kN", "limite": "—",
-           "taux": None, "niveau": "c"},
-          {"nom": "N<sub>ELU</sub>", "sous": C.esc(f"R_ELU = {C.nb(round(anc['R_ELU'], 3), 3)} kN{' (auto)' if anc['R_ELU_auto'] else ''}"), "formule": "N<sub>ELS</sub> · R<sub>ELU</sub>/R",
-           "valeur": f"{_n(anc['N_ELU'], 'kN')} kN", "limite": "—", "taux": None, "niveau": "c"},
-          {"nom": "V<sub>ELU</sub>", "sous": "", "formule": "V<sub>ELS</sub> · R<sub>ELU</sub>/R", "valeur": f"{_n(anc['V_ELU'], 'kN')} kN", "limite": "—",
-           "taux": None, "niveau": "c"}]
+    if els:
+        la = [{"nom": "N<sub>ELS</sub>", "sous": C.esc(f"traction par ancrage · {comb}"), "formule": "H / n", "valeur": f"{_n(anc['N_ELS'], 'kN')} kN",
+               "limite": "—", "taux": None, "niveau": "c"},
+              {"nom": "V<sub>ELS</sub>", "sous": "cisaillement par ancrage", "formule": "R / n", "valeur": f"{_n(anc['V_ELS'], 'kN')} kN", "limite": "—",
+               "taux": None, "niveau": "c"},
+              {"nom": "N<sub>ELU</sub>", "sous": C.esc(f"R_ELU = {C.nb(round(anc['R_ELU'], 3), 3)} kN{' (auto)' if anc['R_ELU_auto'] else ''}"), "formule": "N<sub>ELS</sub> · R<sub>ELU</sub>/R",
+               "valeur": f"{_n(anc['N_ELU'], 'kN')} kN", "limite": "—", "taux": None, "niveau": "c"},
+              {"nom": "V<sub>ELU</sub>", "sous": "", "formule": "V<sub>ELS</sub> · R<sub>ELU</sub>/R", "valeur": f"{_n(anc['V_ELU'], 'kN')} kN", "limite": "—",
+               "taux": None, "niveau": "c"}]
+        pied_a = ('<div class="ck-autres">Chevilles non vérifiées : N et V par ancrage, ELS et ELU séparés, à donner à Hilti PROFIS ; '
+                  'pression diamétrale et arrachement sans limite, comme le classeur.</div>')
+    else:
+        la = [{"nom": "N<sub>ELU</sub>", "sous": C.esc(f"traction par ancrage · {comb} · R saisie à l'ELU"), "formule": "H / n",
+               "valeur": f"{_n(anc['N_ELU'], 'kN')} kN", "limite": "—", "taux": None, "niveau": "c"},
+              {"nom": "V<sub>ELU</sub>", "sous": "cisaillement par ancrage", "formule": "R / n", "valeur": f"{_n(anc['V_ELU'], 'kN')} kN", "limite": "—",
+               "taux": None, "niveau": "c"}]
+        pied_a = ('<div class="ck-autres">Chevilles non vérifiées : N et V par ancrage à l\'ELU (R saisie à l\'ELU, rien n\'est inventé pour '
+                  'l\'ELS), à donner à Hilti PROFIS ; pression diamétrale et arrachement sans limite, comme le classeur.</div>')
+    la.append({"nom": "Positions", "sous": C.esc(f"{_ancrages_txt(res)} · {EN.LIBELLES_SUPPORT[res['corniere']['support']]}"), "formule": "e₁ = (L − (n − 1)·s)/2",
+               "valeur": C.esc(_positions_txt(res)), "limite": "—", "taux": None, "niveau": "c"})
     for inf in res["informations"]:
         if inf["cle"] in ("autre_mode",):
             continue
         la.append({"nom": C.esc(INFOS.get(inf["cle"], inf["nom"])), "sous": C.esc(inf["texte"]), "formule": "information, hors verdict",
                    "valeur": f"{_n(inf['valeur'], inf['unite'])} {inf['unite']}".strip(), "limite": "—", "taux": None, "niveau": "c"})
     ba = _bloc_calcul(res, "ancrages")
-    out += C.fenetre_calcul("s1", f"{nom} · ancrages", sous, hyps, la, _groupe("Efforts par ancrage", ba["formules"], comb),
-                            '<div class="ck-autres">Chevilles non vérifiées : N et V par ancrage, ELS et ELU séparés, à donner à Hilti PROFIS ; '
-                            'pression diamétrale et arrachement sans limite, comme le classeur.</div>',
+    out += C.fenetre_calcul("s1", f"{nom} · ancrages", sous, hyps, la, _groupe("Efforts par ancrage", ba["formules"], comb), pied_a,
                             colonnes=("Effort", "Formule", "Valeur par ancrage", "Limite", "Taux"))
     # 3 · la comparaison des modes (A)
     cp, gd = res["comparaison"], res["garde"]
@@ -905,7 +1106,7 @@ def _volets(res: Dict, nom: str) -> str:
     if res["corniere"]["a"] is not None:
         lg.append({"nom": "Largeur efficace", "sous": C.esc(f"a = {C.nb(res['corniere']['a'])} mm · {g['combinaison_L_eff']['libelle']}"), "formule": "min(L ; a + 2·Xe′)",
                    "valeur": f"L<sub>eff</sub> = {C.nb(round(g['L_eff'], 1), 1)} mm", "limite": f"σ × {C.nb(round(g['facteur_L_eff'], 3), 3)}", "taux": None, "niveau": "c"})
-    dg = _groupe("Matériau · contraintes admissibles", _bloc_calcul(res, "materiau")["formules"])
+    dg = _groupe(bm["titre"], bm["formules"], syms=syms)
     ble = _bloc_calcul(res, "largeur_efficace")
     if ble:
         dg += _groupe("Largeur efficace de l'aile horizontale", ble["formules"], ble["combinaison"]["libelle"] if ble["combinaison"] else "")
@@ -917,10 +1118,11 @@ def _volets(res: Dict, nom: str) -> str:
                             colonnes=("Grandeur", "Définition", "Valeur", "Source", "Taux"))
     # 5 · les efforts : les moments de chaque coupe et la traction d'ancrage, enveloppe
     ef = res["efforts"]
-    le = [{"nom": "R", "sous": "réaction ELS", "formule": "saisie", "valeur": f"{C.nb(ef['R'])} kN", "limite": "—", "taux": None, "niveau": "c"},
-          {"nom": "R<sub>ELU</sub>", "sous": "auto · 1,5·R" if ef["R_ELU_auto"] else "saisie", "formule": "1,5·R" if ef["R_ELU_auto"] else "saisie",
-           "valeur": f"{C.nb(round(ef['R_ELU'], 3), 3)} kN", "limite": "—", "taux": None, "niveau": "c"},
-          {"nom": "M<sub>max</sub>", "sous": "au nu du mur, enveloppe", "formule": "R·(X + dx)", "valeur": f"{_n(ef['Mmax'], 'kN·m')} kN·m", "limite": "—", "taux": None, "niveau": "c"},
+    le = [{"nom": "R", "sous": f"réaction {_etat_limite(res)}", "formule": "saisie", "valeur": f"{C.nb(ef['R'])} kN", "limite": "—", "taux": None, "niveau": "c"}]
+    if els:
+        le.append({"nom": "R<sub>ELU</sub>", "sous": "auto · 1,5·R" if ef["R_ELU_auto"] else "saisie", "formule": "1,5·R" if ef["R_ELU_auto"] else "saisie",
+                   "valeur": f"{C.nb(round(ef['R_ELU'], 3), 3)} kN", "limite": "—", "taux": None, "niveau": "c"})
+    le += [{"nom": "M<sub>max</sub>", "sous": "au nu du mur, enveloppe", "formule": "R·(X + dx)", "valeur": f"{_n(ef['Mmax'], 'kN·m')} kN·m", "limite": "—", "taux": None, "niveau": "c"},
           {"nom": "H", "sous": C.esc(f"traction totale des ancrages = compression du mur · {ef['combinaison_H']['libelle']}"), "formule": "enveloppe",
            "valeur": f"{_n(ef['H'], 'kN')} kN", "limite": f"bras {C.nb(round(ef['bras_H'], 2), 2)} mm", "taux": None, "niveau": "c"}]
     if ef["H_sections"] is not None:
@@ -934,7 +1136,7 @@ def _volets(res: Dict, nom: str) -> str:
         b = _bloc_calcul(res, v["cle"])
         de += _groupe(f"{COURTS.get(v['cle'], v['nom'])} · {_lieu(v)}", [f for f in b["formules"] if f["cle"] in MOMENT],
                       b["combinaison"]["libelle"] if b["combinaison"] else "")
-    de += _groupe("Traction d'ancrage", [f for f in ba["formules"] if f["cle"] in MOMENT or f["cle"] in ("N_ELS_hist", "N_ELS_eq")], comb)
+    de += _groupe("Traction d'ancrage", [f for f in ba["formules"] if f["cle"] in MOMENT or f["cle"] in ("N_ELS_hist", "N_ELS_eq", "N_ELU_direct")], comb)
     out += C.fenetre_calcul("efforts", f"{nom} · efforts", sous, hyps, le, de,
                             '<div class="ck-autres">Chaque moment est l\'ENVELOPPE des combinaisons de jeux (la plus défavorable, nommée) ; '
                             'M > 0 : la face côté congé est tendue (tout positif en A, tout négatif en B).</div>',
@@ -943,13 +1145,25 @@ def _volets(res: Dict, nom: str) -> str:
 
 
 # ------------------------------------------------------------------ les vues
+def _ancrages_txt(res: Dict) -> str:
+    """« 3 × cheville mécanique Ø16, profondeur 100 mm, une rondelle ISO 7089 sous l'écrou » : les ancrages en mots
+    (texte ; les libellés sont ceux d'entree)."""
+    c = res["corniere"]
+    return (f"{c['n']} × {EN.LIBELLES_TYPE_ANCRAGE[c['type_ancrage']]} Ø{C.nb(c['d'])}, profondeur {C.nb(c['profondeur'])} mm, "
+            f"{EN.LIBELLES_RONDELLES[c['rondelles']]}")
+
+
 def _entete(res: Dict, titre: str, legende: str) -> str:
-    c, ef = res["corniere"], res["efforts"]
+    c, ef, m, anc = res["corniere"], res["efforts"], res["materiau"], res["ancrages"]
     bande = [("R", "", ef["R"], "kN"), ("M", "max", ef["Mmax"], "kN·m"), ("H", "", ef["H"], "kN")]
+    support = EN.LIBELLES_SUPPORT[c["support"]] + (f" ({C.nb(c['support_haut'])} au-dessus, {C.nb(c['support_bas'])} mm au-dessous)"
+                                                   if c["support"] == EN.POUTRE else "")
     lignes = [f"{_cfg_txt(res)} · {_mode_txt(res)}",
-              f"R = {C.nb(c['R'])} kN sur L = {C.nb(c['L'])} mm · X = {C.nb(c['X'])} ± {C.nb(c['dx'])} · Y = {C.nb(c['Y'])} ± {C.nb(c['dy'])} mm · "
-              f"{c['n']} Ø{C.nb(c['d'])}"]
-    sous = f"{C.esc(res['section']['designation'])} · {C.esc(res['materiau']['nuance'] or '')} · coef {C.nb(c['coef'])}"
+              f"R = {C.nb(c['R'])} kN ({m['etat_limite']}) sur L = {C.nb(c['L'])} mm · X = {C.nb(c['X'])} ± {C.nb(c['dx'])} · Y = {C.nb(c['Y'])} ± {C.nb(c['dy'])} mm · "
+              f"{c['n']} × {EN.LIBELLES_TYPE_ANCRAGE[c['type_ancrage']]} Ø{C.nb(c['d'])} à s = {C.nb(round(anc['entraxe'], 2), 2)} · {support}"]
+    # le sous-titre (HTML) porte l'état limite et sa limite avec le symbole que le moteur nomme (σ_adm en ELS, f_y/γ_M0 en ELU)
+    sous = (f"{C.esc(res['section']['designation'])} · {C.esc(m['nuance'] or '')} · {m['etat_limite']} · {_sym_sigma(res)} = {_n(m['sigma_adm'], 'N/mm²')} N/mm²"
+            + (f" (coef {C.nb(c['coef'])})" if m["etat_limite"] == EN.ELS else f" (γ<sub>M0</sub> = {C.nb(m['gamma_M0'])})"))
     return E.entete(titre, sous, lignes, bande, legende)
 
 
@@ -971,7 +1185,7 @@ def resultat(etat: Dict) -> Dict:
     resultats = [r if i == etat["actif"] else _calculer(x) for i, x in enumerate(etat["cornieres"])]
     sec = r["section"]
     nom = C.esc(c.get("nom") or "Cornière")
-    dims = f"{C.esc(sec['designation'])} · {C.esc(r['materiau']['nuance'] or '')} · {C.esc(_cfg_txt(r))} · {C.esc(_mode_txt(r))}"
+    dims = f"{C.esc(sec['designation'])} · {C.esc(r['materiau']['nuance'] or '')} · {C.esc(_cfg_txt(r))} · {C.esc(_mode_txt(r))} · {_etat_limite(r)}"
     tete = E.tete_resultats(nom, dims)
     bs, _ = _bloc_sections(r)
     blocs = bs + _bloc_ancrages(r) + _bloc_comparaison(r)

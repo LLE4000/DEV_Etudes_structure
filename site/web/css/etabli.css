@@ -596,3 +596,29 @@
 .ck-t .ck-comb { margin-left: 8px; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--ink-3); }
 /* une ligne du sélecteur que le moteur ne peut pas retenir (hors domaine : la charge ou l'ancrage hors des ailes) : grisée */
 .pk-row[aria-disabled="true"] .nm, .pk-row[aria-disabled="true"] .kg { color: var(--ink-4); }
+
+/* ------------------------------------------------------------------ cornières, révision § 9 (10/11/2026 soir, api_web/corniere.py) */
+/* Le VOLET dépliable « Détails » de la fiche du catalogue (rubrique 1 Cornière, décisions § 9.7) : un <details> natif,
+   replié par défaut, dont js/etabli.js garde l'état (data-volet). Le résumé fermé dit la famille, la norme et la masse ;
+   ouvert, la fiche (.facts de la charte). Au doigt (tablette, téléphone), le sommaire fait 44 px comme les autres cibles. */
+.et-volet { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.et-volet > summary { list-style: none; display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 8px 0 6px; cursor: pointer;
+  user-select: none; font-size: 12.5px; color: var(--ink-2); border-radius: 8px; }
+.et-volet > summary::-webkit-details-marker { display: none; }
+.et-volet > summary:hover { background: var(--bg); }
+.et-volet > summary svg.i { width: 14px; height: 14px; flex: none; color: var(--ink-3); transition: transform .15s ease; }
+.et-volet[open] > summary svg.i { transform: rotate(90deg); }
+.et-volet > summary .t { font-weight: 650; color: var(--ink); flex: none; }
+.et-volet > summary .r { min-width: 0; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-3); font-size: 11.5px; text-align: right; }
+.et-volet[open] > summary .r { visibility: hidden; }
+.et-volet > .et-volet-c { padding: 2px 10px 10px; }
+.et-volet > .et-volet-c .facts { font-size: 12px; gap: 5px 12px; }
+.et-volet > .et-volet-c .facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+/* les segments à trois ou quatre mots (type d'ancrage, rondelles, support, état limite) partagent la ligne des segments */
+.et-piece.et-plat > .row.full { margin: 0; }
+@media (min-width: 701px) and (max-width: 1199px) {
+  [data-etabli="compact"] .et-volet > summary { min-height: 44px; }
+}
+@media (max-width: 700px) {
+  [data-etabli="compact"] .et-volet > summary { min-height: 44px; font-size: 13px; }
+}

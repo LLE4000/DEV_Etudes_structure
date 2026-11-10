@@ -264,6 +264,13 @@ const ouvertes = new Set(memoire.lire(`stab.sec.${MODULE}`, []));
 // (établi compact) les rubriques ouvertes À LA MAIN (un clic sur leur en-tête) : elles restent ouvertes quand le dessin
 // amène à une autre rubrique ; celles que le dessin a ouvertes se replient quand il en ouvre une autre
 const voulues = new Set(COMPACT ? memoire.lire(`stab.sec.${MODULE}.voulues`, []) : []);
+// un VOLET dépliable des données (<details data-volet="k"> : le volet « Détails » de la fiche du catalogue des cornières,
+// api_web/corniere.py) garde son état d'ouverture d'un calcul à l'autre — le cadre est refait à chaque saisie — et pour la
+// session, comme les rubriques ; replié par défaut (le moteur ne l'ouvre jamais)
+const volets = new Set(memoire.lire(`stab.volets.${MODULE}`, []));
+function poserVolets(zone) {
+  zone.querySelectorAll("details[data-volet]").forEach((d) => { d.open = volets.has(d.dataset.volet); });
+}
 function garderRubriques() {
   memoire.ecrire(`stab.sec.${MODULE}`, [...ouvertes]);
   if (COMPACT) memoire.ecrire(`stab.sec.${MODULE}.voulues`, [...voulues]);
@@ -381,11 +388,19 @@ function afficherDonnees(elements, html) {
     });
   }
   premier = false;
+  poserVolets(zone);
   zone.scrollTop = defile;
   marquerMeteo();
   reprendreSaisie(zone, saisie);
   if (compact) compact.rafraichir();
 }
+// (« toggle » ne remonte pas : écouté à la capture) un volet qu'on ouvre ou referme à la main est gardé
+$("#donnees").addEventListener("toggle", (ev) => {
+  const d = ev.target;
+  if (!(d instanceof HTMLDetailsElement) || !d.dataset.volet) return;
+  if (d.open) volets.add(d.dataset.volet); else volets.delete(d.dataset.volet);
+  memoire.ecrire(`stab.volets.${MODULE}`, [...volets]);
+}, true);
 
 // « Dans cette note » : chaque élément s'écrit « nom · dimensions ». Le nom passe dans son propre <span class="nom">
 // pour que ce soit LUI qui se coupe (points de suspension) quand la place manque, jamais les dimensions qui le suivent.

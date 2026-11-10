@@ -2942,6 +2942,12 @@ const FILTRE = process.argv[4] || '';
   // historique (classeur P8) » était coupé en A équilibre — relecture du 10/11/2026), les cibles à 44 px au doigt, les
   // champs en 16 px au téléphone. Les captures : site_corniere_*.png (A, B et A-equilibre aux trois formats, les quatre
   // vues, le sélecteur, la saisie refusée, la note v1).
+  // Révision § 9 (10/11/2026 soir, CORNIERE_DECISIONS.md § 9) : le volet « Détails » de la fiche du catalogue, replié par
+  // défaut, s'ouvre, survit à un calcul (js/etabli.js le garde) et se referme ; la bascule ELS → ELU change la limite
+  // affichée (236,7 → 355 N/mm²) et masque coef et R_ELU, l'ELS les rend ; le support « poutre » fait apparaître ses deux
+  // étendues et les distances aux bords dans le bloc Ancrages, la coupe reste un dessin (son contenu est au lot des
+  // dessins), une étendue trop courte est refusée (toast, valeur rendue) ; un entraxe saisi se lit dans les positions
+  // (e₁ · s · z) ; la saisie libre montre A, B, t, r directement. Les formats jouent aussi ELU et poutre.
   //   filtre « corniere » ; « module:corniere » le rejoue aussi (après le contrôle commun).
   if (!FILTRE || FILTRE === 'corniere' || FILTRE === 'module:corniere') {
     const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
@@ -2978,13 +2984,17 @@ const FILTRE = process.argv[4] || '';
       await g.goto(`${BASE}/corniere?${new URLSearchParams({ nom: 'Cornière d\'appui', chantier: 'Essai cornières' })}`);
       await pretG();
       await tranquille();
-      // A, méthode historique : la cornière neuve (L 120×120×15, 35 kN, 75 ± 20, 85 ± 10) — η entre 90 et 100 %, en section 3
+      // A, méthode historique : la cornière neuve (L 120×120×15, 35 kN, 75 ± 10, 85 ± 5 — les jeux du § 9.4) — η entre 75 et 95 %
+      // (84,2 % mesuré ; 95,8 % avec les anciens jeux 20/10), en section 3
       const t0 = await taux();
       const blocsA = await blocsVus();
-      verif('cornière A historique : le verdict de la cornière neuve (η entre 90 et 100 %, section 3 · aile verticale), trois blocs thématiques visibles (Sections, Ancrages, Comparaison)',
-        t0 > 90 && t0 < 100 && /Section 3/.test(await gouv()) && blocsA.join() === 'Sections,Ancrages,Comparaison', JSON.stringify({ t0, gouv: await gouv(), blocsA }));
+      verif('cornière A historique : le verdict de la cornière neuve (η entre 75 et 95 %, section 3 · aile verticale), trois blocs thématiques visibles (Sections, Ancrages, Comparaison)',
+        t0 > 75 && t0 < 95 && /Section 3/.test(await gouv()) && blocsA.join() === 'Sections,Ancrages,Comparaison', JSON.stringify({ t0, gouv: await gouv(), blocsA }));
       const combs = await g.$$eval('#resultat .et-bloc[data-theme="0"] .el .cmp', (e) => e.map((x) => x.textContent).filter((t) => /charge à X/.test(t)).length);
-      verif('cornière : chaque vérification du bloc Sections dit la combinaison de jeux qui la gouverne (« charge à X + 20, ancrage à Y + 10 »)', combs >= 6, `${combs} ligne(s)`);
+      verif('cornière : chaque vérification du bloc Sections dit la combinaison de jeux qui la gouverne (« charge à X + 10, ancrage à Y + 5 »)', combs >= 6, `${combs} ligne(s)`);
+      // la limite affichée sur la ligne « Cornière » du bloc Sections (ELS : σ_adm = 236,7 N/mm²) ; relue après la bascule ELU
+      const limite = () => g.$eval('#resultat .et-bloc[data-theme="0"] .el .cmp', (x) => x.textContent);
+      verif('cornière ELS : la ligne Cornière dit σadm = 236,7 et τadm = 136,6 N/mm² (f_y/1,5 et σadm/√3)', /σadm = 236,7/.test(await limite()) && /τadm = 136,6/.test(await limite()), await limite());
       const horsVerdict = await g.$$eval('#resultat .et-bloc[data-theme="0"] .et-mot', (e) => e.map((x) => x.textContent).filter((t) => t === 'hors verdict').length);
       verif('cornière A historique : les deux maxima du congé sont en information, « hors verdict » (le classeur ne les a pas)', horsVerdict === 2, `${horsVerdict}`);
       await g.screenshot({ path: path.join(OUT, 'site_corniere_A_pc.png') });
@@ -3009,13 +3019,13 @@ const FILTRE = process.argv[4] || '';
       await g.screenshot({ path: path.join(OUT, 'site_corniere_selection.png') });
       await g.keyboard.press('Escape');
       await g.waitForTimeout(100);
-      // la saisie dx = 0 : la charge à X seule, le taux baisse ; puis dx = 20 le remonte
+      // la saisie dx = 0 : la charge à X seule, le taux baisse ; puis dx = 10 (le défaut du § 9.4) le remonte
       await ouvrirRub('ch');
       await saisir('input[data-chemin="dx"]', '0');
       const t1 = await taux();
-      await saisir('input[data-chemin="dx"]', '20');
+      await saisir('input[data-chemin="dx"]', '10');
       const t2 = await taux();
-      verif('cornière : dx = 0 fait baisser le taux (plus d\'enveloppe sur la position de la charge), dx = 20 le rend', t1 !== null && t1 < t0 - 5 && t2 === t0, `${t0} → ${t1} → ${t2}`);
+      verif('cornière : dx = 0 fait baisser le taux (plus d\'enveloppe sur la position de la charge), dx = 10 le rend', t1 !== null && t1 < t0 - 5 && t2 === t0, `${t0} → ${t1} → ${t2}`);
       // une saisie refusée : X = 10 (la charge dans l'angle) — le toast d'erreur, le champ rend 75
       await g.fill('input[data-chemin="X"]', '10');
       await g.press('input[data-chemin="X"]', 'Enter');
@@ -3025,6 +3035,91 @@ const FILTRE = process.argv[4] || '';
       const xApres = await g.inputValue('input[data-chemin="X"]');
       verif('cornière : X = 10 est refusé par le moteur (« dans l\'angle »), le toast le dit, le champ rend 75', refus.vu && refus.erreur && /angle/.test(refus.texte) && xApres === '75', JSON.stringify({ refus, xApres }));
       await g.screenshot({ path: path.join(OUT, 'site_corniere_refus.png') });
+      // ---- révision § 9.7 : le volet « Détails » de la fiche du catalogue — replié par défaut, il s'ouvre, survit au calcul qui
+      // suit une saisie (le cadre est refait : js/etabli.js garde l'état), se referme
+      await ouvrirRub('co');
+      const volet = () => g.evaluate(() => { const d = document.querySelector('#donnees details.et-volet[data-volet="fiche"]'); const f = d && d.querySelector('.facts');
+        return d ? { present: true, ouvert: d.open, fiche: !!f && f.checkVisibility(), sommaire: (d.querySelector('summary') || {}).textContent || '' } : { present: false }; });
+      const v0 = await volet();
+      await g.click('#donnees details.et-volet[data-volet="fiche"] > summary');
+      await g.waitForTimeout(150);
+      const v1o = await volet();
+      await saisir('input[data-chemin="dy"]', '6');
+      const v2 = await volet();
+      await g.click('#donnees details.et-volet[data-volet="fiche"] > summary');
+      await g.waitForTimeout(150);
+      const v3 = await volet();
+      verif('cornière : le volet « Détails » (fiche du catalogue) est replié par défaut, s\'ouvre au clic (la fiche se voit), reste ouvert après une saisie, se referme',
+        v0.present && !v0.ouvert && !v0.fiche && /Détails/.test(v0.sommaire) && /26,64/.test(v0.sommaire) && v1o.ouvert && v1o.fiche && v2.ouvert && v2.fiche && !v3.ouvert && !v3.fiche,
+        JSON.stringify({ v0, v1o, v2, v3 }));
+      await saisir('input[data-chemin="dy"]', '5');
+      // ---- § 9.5 : la bascule ELS → ELU — la limite passe de 236,7 à 355 N/mm², coef et R_ELU disparaissent, le taux change ; l'ELS les rend
+      const champs = () => g.evaluate(() => ({ coef: document.querySelectorAll('#donnees input[data-chemin="coef"]').length, relu: document.querySelectorAll('#donnees input[data-chemin="R_ELU"]').length,
+        libelleR: (document.querySelector('#donnees [data-cible="R"] label span') || {}).textContent || '' }));
+      const chELS = await champs();
+      await ouvrirRub('hy');
+      await g.click('#donnees [data-chemin="etat_limite"][data-valeur="ELU"]');
+      await tranquille();
+      await g.waitForTimeout(200);
+      const limU = await limite(), chELU = await champs(), tU = await taux();
+      const resU = await g.evaluate(() => document.getElementById('resultat').textContent);
+      verif('cornière ELU : la limite affichée passe de 236,7 à 355 N/mm² (fy/γM0), σadm n\'apparaît plus, le taux baisse sous la même R, coef et R_ELU sont masqués, R se nomme « R (ELU) »',
+        /355/.test(limU) && !/236,7/.test(limU) && !/σadm/.test(resU) && /γM0/.test(resU) && tU !== null && tU < t0 - 10 && chELS.coef === 1 && chELS.relu === 1 && chELS.libelleR === 'R (ELS)'
+        && chELU.coef === 0 && chELU.relu === 0 && chELU.libelleR === 'R (ELU)', JSON.stringify({ limU, tU, t0, chELS, chELU }));
+      const ancU = await g.$$eval('#resultat .et-bloc[data-theme="1"] .el .l1 b', (e) => e.map((x) => x.textContent));
+      verif('cornière ELU : le bloc Ancrages n\'a que N et V à l\'ELU (R saisie à l\'ELU), puis les positions', ancU.slice(0, 3).join() === 'Traction N · ELU,Cisaillement V · ELU,Positions' && !ancU.some((t) => /ELS/.test(t)), ancU.join());
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_ELU_pc.png') });
+      await g.click('#donnees [data-chemin="etat_limite"][data-valeur="ELS"]');
+      await tranquille();
+      await g.waitForTimeout(200);
+      const chRetour = await champs();
+      verif('cornière : le retour à l\'ELS rend coef, R_ELU et la limite 236,7', chRetour.coef === 1 && chRetour.relu === 1 && /236,7/.test(await limite()) && (await taux()) === t0, JSON.stringify(chRetour));
+      // ---- § 9.3 : le support « poutre » — ses deux étendues apparaissent (150/150), les distances aux bords se lisent dans le bloc
+      // Ancrages (60 et 230 mm pour Y = 85 ± 5), la coupe reste un dessin ; une étendue trop courte est refusée (toast, valeur rendue)
+      await ouvrirRub('an');
+      const avantP = await g.evaluate(() => document.querySelectorAll('#donnees input[data-chemin="support_haut"], #donnees input[data-chemin="support_bas"]').length);
+      await g.click('#donnees [data-chemin="support"][data-valeur="poutre"]');
+      await tranquille();
+      await g.waitForTimeout(250);
+      const poutre = await g.evaluate(() => {
+        const vis = (e) => e && e.checkVisibility();
+        const h = document.querySelector('#donnees input[data-chemin="support_haut"]'), b = document.querySelector('#donnees input[data-chemin="support_bas"]');
+        const bords = [...document.querySelectorAll('#resultat .et-bloc[data-theme="1"] .el')].filter((x) => /Poutre · bord/.test(x.textContent)).map((x) => x.textContent.replace(/\s+/g, ' ').trim().slice(0, 90));
+        const d = [...document.querySelectorAll('.view.on .draw')].find(vis); const svg = d && d.querySelector(':scope > svg'); const r = svg && svg.getBoundingClientRect();
+        return { haut: vis(h) ? h.value : null, bas: vis(b) ? b.value : null, bords, svg: r ? [Math.round(r.width), Math.round(r.height), svg.querySelectorAll('text').length] : null };
+      });
+      verif('cornière poutre : les deux étendues (150 / 150 mm) apparaissent dans la rubrique Ancrage (absentes pour un voile), les distances aux bords (60 et 230 mm) se lisent dans le bloc Ancrages, la coupe reste un dessin à sa taille',
+        avantP === 0 && poutre.haut === '150' && poutre.bas === '150' && poutre.bords.length === 2 && /60,0 mm/.test(poutre.bords[0]) && /230,0 mm/.test(poutre.bords[1])
+        && poutre.svg && poutre.svg[0] > 400 && poutre.svg[2] > 10, JSON.stringify(poutre));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_poutre_pc.png') });
+      await g.fill('input[data-chemin="support_haut"]', '90');
+      await g.press('input[data-chemin="support_haut"]', 'Enter');
+      await tranquille();
+      await g.waitForTimeout(250);
+      const refusP = await lireToast();
+      const hautApres = await g.inputValue('input[data-chemin="support_haut"]');
+      verif('cornière poutre : 90 mm au-dessus est refusé (« l\'ancrage sort de la poutre par le haut »), le toast le dit, le champ rend 150', refusP.vu && refusP.erreur && /sort de la poutre/.test(refusP.texte) && hautApres === '150', JSON.stringify({ refusP, hautApres }));
+      await g.click('#donnees [data-chemin="support"][data-valeur="voile"]');
+      await tranquille();
+      // ---- § 9.2 : un entraxe saisi se lit dans les positions (e₁ · s · z) ; vidé, il redevient L/n
+      const positions = () => g.$$eval('#resultat .et-bloc[data-theme="1"] .el', (e) => (e.find((x) => /^Positions/.test(x.textContent.trim())) || {}).textContent || '');
+      await saisir('input[data-chemin="entraxe"]', '80');
+      const posS = await positions();
+      await saisir('input[data-chemin="entraxe"]', '');
+      const posA = await positions();
+      verif('cornière : l\'entraxe saisi (80) se lit dans les positions — e₁ = 70 · s = 80 (saisi) · z = 70 · 150 · 230 — et l\'état « entraxe 80 » ; vidé, « s = 100 (L/n) », z = 50 · 150 · 250',
+        /e₁ = 70 · s = 80 \(saisi\) · z = 70 · 150 · 230/.test(posS) && /entraxe 80/.test(posS) && /s = 100 \(L\/n\) · z = 50 · 150 · 250/.test(posA), JSON.stringify({ posS: posS.slice(0, 120), posA: posA.slice(0, 120) }));
+      // ---- § 9.7 : la saisie libre montre A, B, t, r directement (rien ne les cache, pas de volet)
+      await ouvrirRub('co');
+      await g.click('#donnees [data-chemin="standard"][data-valeur="saisie"]');
+      await tranquille();
+      await g.waitForTimeout(200);
+      const libre = await g.evaluate(() => ({ champs: ['A', 'B', 't', 'r'].map((k) => { const e = document.querySelector(`#donnees input[data-chemin="${k}"]`); return e && e.checkVisibility() ? e.value : null; }),
+        volet: document.querySelectorAll('#donnees details.et-volet').length }));
+      verif('cornière saisie libre : A, B, t, r (120, 120, 15, 13 : la cornière affichée) sont des champs visibles, sans volet', libre.champs.join() === '120,120,15,13' && libre.volet === 0, JSON.stringify(libre));
+      await g.screenshot({ path: path.join(OUT, 'site_corniere_saisie_libre_pc.png') });
+      await g.click('#donnees [data-chemin="standard"][data-valeur="catalogue"]');
+      await tranquille();
       // le sélecteur de la ligne « Cornière » : 233 lignes par masse, ✓ la retenue, ★ l'optimale, les grises hors domaine, les rouges
       await g.click('#resultat .prof[data-pk="corniere"]');
       await g.waitForSelector('.flyout.on.picker .pk-row', { timeout: 60000 });
@@ -3133,7 +3228,8 @@ const FILTRE = process.argv[4] || '';
           .filter((e) => parseFloat(getComputedStyle(e).fontSize) < 16).map((e) => `${e.dataset.chemin} ${getComputedStyle(e).fontSize}`) : [];
         return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, petites, petits };
       }, tel);
-      for (const cfg of ['A', 'B', 'A-equilibre']) {
+      // (révision § 9 : l'ELU — coef et R_ELU masqués, fy/γM0 partout — et la poutre — deux champs de plus, deux informations de plus)
+      for (const cfg of ['A', 'B', 'A-equilibre', 'ELU', 'poutre']) {
         try {
           await pg.goto(`${BASE}/corniere?${new URLSearchParams({ nom: `Cornière ${cfg}`, chantier: 'Formats' })}`);
           await pretP();
@@ -3142,6 +3238,18 @@ const FILTRE = process.argv[4] || '';
             if (tel) await pg.click('.mtabs [data-onglet="donnees"]');
             if (!(await pg.$eval('#donnees .sec[data-sec="co"]', (x) => x.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="co"] > .sechd');
             await pg.click('#donnees [data-chemin="configuration"][data-valeur="B"]');
+            await calmeP();
+            await pg.waitForTimeout(200);
+          } else if (cfg === 'ELU') {
+            if (tel) await pg.click('.mtabs [data-onglet="donnees"]');
+            if (!(await pg.$eval('#donnees .sec[data-sec="hy"]', (x) => x.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="hy"] > .sechd');
+            await pg.click('#donnees [data-chemin="etat_limite"][data-valeur="ELU"]');
+            await calmeP();
+            await pg.waitForTimeout(200);
+          } else if (cfg === 'poutre') {
+            if (tel) await pg.click('.mtabs [data-onglet="donnees"]');
+            if (!(await pg.$eval('#donnees .sec[data-sec="an"]', (x) => x.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="an"] > .sechd');
+            await pg.click('#donnees [data-chemin="support"][data-valeur="poutre"]');
             await calmeP();
             await pg.waitForTimeout(200);
           } else if (cfg === 'A-equilibre') {

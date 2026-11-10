@@ -211,6 +211,14 @@ qu'une pastille de sa couleur dit à la place du taux — court, elle fait 52 px
 Le modèle d'un module compact à blocs thématiques et à lignes d'information « hors verdict » : `api_web/corniere.py`
 (`docs/acier/CORNIERE_MOTEUR.md` § 11).
 
+**Un VOLET dépliable dans les données** (cornières, révision § 9.7 du 10/11/2026) — un `<details data-volet="k">` natif
+posé par le module dans une rubrique (le volet « Détails » de la fiche du catalogue : `corniere._fiche`), replié par
+défaut (le moteur ne l'ouvre jamais). `js/etabli.js` garde son état d'ouverture d'un calcul à l'autre — le cadre Données
+est refait à chaque saisie — et pour la session (`sessionStorage`, clé `stab.volets.<module>`, comme les rubriques
+`stab.sec.<module>`) : « toggle » écouté à la capture, l'état reposé après chaque `afficherDonnees`. La feuille :
+`.et-volet` (bloc délimité « cornières, révision § 9 » en fin de `css/etabli.css`, sommaire à 44 px au doigt). Un module qui
+en veut un pose `<details class="et-volet" data-volet="<clé>"><summary>…</summary>…</details>` ; une clé différente par volet.
+
 ### 4 ter. Télécharger un fichier propre au module (le JSON de l'écran Streamlit, un tableau CSV…)
 
 Le bouton : **`C.bouton_telecharger(quoi, libellé, icone="download")`** →
