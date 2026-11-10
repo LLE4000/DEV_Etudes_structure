@@ -242,8 +242,31 @@ chk("chaque page : un seul script de module, js/app.js (en fin de <body>), et js
     all(s == ['<script src="js/theme.js">', '<script type="module" src="js/app.js">'] for s in _scripts.values())
     and all(open(os.path.join(WEB, n), encoding="utf-8").read().endswith('<script type="module" src="js/app.js"></script></body>\n</html>\n') for n in _PAGES_RENDUES),
     {n: s for n, s in _scripts.items() if s != ['<script src="js/theme.js">', '<script type="module" src="js/app.js">']})
+# le FILET du démarrage (10/11/2026 : une tablette restait sur « Chargement… » sans un mot quand js/app.js ne démarrait
+# pas) : chaque page porte le message, juste avant le script de l'application, et l'en-tête la feuille EN LIGNE qui le
+# montre au bout de SECOURS_S secondes et le cache dès que l'application a monté un écran (body[data-montage]) ; il ne
+# dépend d'aucun fichier, et la politique de sécurité admet ce style en ligne. Le harnais le VOIT (demarrage:secours).
+_secours = {}
+for n in _PAGES_RENDUES:
+    _h = open(os.path.join(WEB, n), encoding="utf-8").read()
+    _tete = _h[:_h.index("</head>")]
+    _secours[n] = (_h.count('class="secours-demarrage"') == 1 and _h.endswith(SW.SECOURS + SW.SCRIPT_APP + "</body>\n</html>\n")
+                   and _tete.count(SW.STYLE_SECOURS) == 1 and _h.count("<style>") == 1)
+chk(f"chaque page ({len(_secours)}) : le message de secours une fois, juste avant js/app.js, et sa feuille en ligne une fois dans <head>",
+    len(_secours) == 21 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
+chk(f"le message de secours : caché tant que l'application démarre (body[data-montage] … display:none), visible au bout de {SW.SECOURS_S} s "
+    "par une animation sans script (opacity et visibility), fixé dans l'écran, un lien « Recharger la page » vers la page même",
+    "body[data-montage] .secours-demarrage{display:none}" in SW.STYLE_SECOURS
+    and f"animation:secours-demarrage 0s linear {SW.SECOURS_S}s forwards" in SW.STYLE_SECOURS
+    and "@keyframes secours-demarrage{to{opacity:1;visibility:visible}}" in SW.STYLE_SECOURS
+    and "opacity:0;visibility:hidden;" in SW.STYLE_SECOURS and "position:fixed;" in SW.STYLE_SECOURS
+    and 8 <= SW.SECOURS_S <= 20 and SW.SECOURS.endswith('<a href="">Recharger la page</a></p>')
+    and "Le site ne démarre pas sur cet appareil." in SW.SECOURS, (SW.SECOURS_S, SW.STYLE_SECOURS))
+_app_js = open(os.path.join(WEB, "js", "app.js"), encoding="utf-8").read()
+chk("js/app.js pose body[data-montage] à chaque montage (ce qui cache le message de secours)",
+    len(re.findall(r"corps\.dataset\.montage = String\(m\);", _app_js)) == 1)
 # le voile #demarrage a disparu des trois gabarits (S4-D7) : l'écran est visible tout de suite
-_voile = [n for n in _PAGES_RENDUES if re.search(r'id="demarrage|class="demarrage', open(os.path.join(WEB, n), encoding="utf-8").read())]
+_voile =[n for n in _PAGES_RENDUES if re.search(r'id="demarrage|class="demarrage', open(os.path.join(WEB, n), encoding="utf-8").read())]
 chk("aucun id=demarrage dans les pages (ni #demarrage-etape, ni le voile .demarrage) : plus de voile, aux trois gabarits", not _voile, _voile)
 # ce que js/app.js monte : le corps dit sa sorte (data-page) et ce qu'il faut pour la monter
 _corps_de = {n: dict(re.findall(r'\s([\w-]+)="([^"]*)"', re.search(r"<body[^>]*>", open(os.path.join(WEB, n), encoding="utf-8").read()).group(0)))
@@ -605,7 +628,7 @@ for k, vers in SW.REDIRECTIONS.items():
         f'data-vers="{SW.ADRESSES[vers]}"' in _corps_red and 'data-page="redirection"' in _corps_red and SW.SCRIPT_APP in _red
         and "redirection.js" not in _red and "http-equiv" not in _red
         and f'<a href="{SW.ADRESSES[vers]}">{SW.LIENS_REDIRECTION[vers]}</a>' in _red and SW.LIENS_REDIRECTION == {"dalle": "Ouvrir les dalles"}
-        and "http" not in _red and 'id="donnees"' not in _red and "demarrage" not in _red
+        and "http" not in _red and 'id="donnees"' not in _red and not re.search(r'id="demarrage|class="demarrage', _red)
         and not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", _red), _red[:300])
 # (S4, partie « écrans » : js/redirection.js a disparu — la page de redirection n'a plus que js/app.js, qui la mène, ouverte
 # directement, à la page qui la sert, et qui, DANS l'application, résout « vers » (js/modules.js) avant de lire la page)
@@ -962,6 +985,11 @@ for url in ("/index.html", "/poutre.html", "/maturite-beton.html", "/js/travaill
         d.get("default-src") == ["'self'"] and d.get("script-src") == ["'self'", "'wasm-unsafe-eval'"] and d.get("object-src") == ["'none'"]
         and d.get("frame-ancestors") == ["'none'"] and "'unsafe-eval'" not in csp and d.get("connect-src") == ["'self'"] + HOTES_METEO
         and not any("open-meteo" in " ".join(v) for k, v in d.items() if k != "connect-src"), csp)
+# le filet du démarrage est une feuille EN LIGNE (§ 3) : la politique de sécurité des pages doit l'admettre, sinon le
+# message ne s'afficherait jamais (et un script en ligne, lui, reste refusé)
+_csp_page = {x.split()[0]: x.split()[1:] for x in (y.strip() for y in SL.entetes("/poutre.html").get("Content-Security-Policy", "").split(";")) if x}
+chk("la politique de sécurité des pages admet les styles en ligne (le filet du démarrage), pas les scripts en ligne",
+    _csp_page.get("style-src") == ["'self'", "'unsafe-inline'"] and "'unsafe-inline'" not in _csp_page.get("script-src", []), _csp_page)
 # les moteurs de recherche : ni indexation ni liens suivis, sur TOUTE adresse (petits chantiers, 10/11/2026) — l'en-tête
 # X-Robots-Tag de _headers, que outils/serveur_local.py applique comme Cloudflare
 _robots = {u: SL.entetes(u).get("X-Robots-Tag") for u in ("/", "/index.html", "/poutre", "/garde-corps.html", "/bibliotheque-beton", "/js/etabli.js",

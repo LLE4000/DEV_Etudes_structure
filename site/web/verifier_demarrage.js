@@ -10,7 +10,7 @@
 //
 // Sous-filtres : statique, moteur, prechauffage, doigt, longues, apercu, etablis, rouverte, premiere, reouverture, focus,
 // fermeture, historique, supprimer, accueil_frais, refus, erreur, lecture, retour_onglet, js, feuilles, ecouteurs,
-// horsligne, lent, version, temps, etalons.
+// horsligne, lent, version, temps, etalons, secours.
 // (rouverte, premiere, reouverture, focus : le lot « preuves » de la revue S4 ; accueil_frais, refus, erreur, lecture,
 // retour_onglet : le lot « écrans » ; ceux-ci, quand ils touchent la tablette, la jouent aussi — 820 × 1 180, au doigt —
 // quand le passage est au PC et que DEMARRAGE_FORMATS ne la nomme pas : DEMARRAGE_FORMATS=pc,tab,tel la joue comme un
@@ -530,6 +530,58 @@ function noteAvecValeur(notes, module, chemin, valeur) {
     for (const p of pages) { const t = await (await c.request.get(`${BASE}/${p}`)).text(); if (/id="demarrage"/.test(t)) avec.push(p || 'index'); }
     verif(`demarrage · statique : aucune des ${pages.length} pages ne porte le voile #demarrage`, pages.length > 0 && !avec.length, avec.length ? `voile dans : ${avec.join(', ')}` : '');
     await c.close();
+  }
+
+  // ---------------------------------------------------------------- secours : le filet du démarrage (10/11/2026)
+  // (après la mise en ligne du lot S4, une tablette restait sur « Chargement… » sans un mot quand js/app.js ne démarrait
+  // pas) : chaque page porte un message que rien ne montre tant que l'application démarre (body[data-montage] le cache),
+  // et qu'une animation CSS rend VISIBLE au bout de 12 s si l'application n'a monté aucun écran — sans aucun script.
+  // Aux trois formats : (a) un démarrage normal, le message n'est VU ni à 2 s ni à 13,5 s ; (b) js/app.js refusé,
+  // il n'est pas VU à 2 s, il l'est à 13,5 s, dans l'écran, avec « Recharger la page » qui mène à la page même.
+  if (joue('secours')) {
+    // les six tirages en même temps (trois formats × deux cas) : une seule attente de 13,5 s
+    const voir = (pg) => pg.evaluate(() => {
+      const s = document.querySelector('.secours-demarrage');
+      if (!s) return { present: false };
+      const r = s.getBoundingClientRect(), a = s.querySelector('a');
+      return { present: true, vu: s.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && r.width > 0 && r.height > 0,
+        dedans: r.left >= 0 && r.right <= innerWidth + 0.5 && r.top >= 0 && r.bottom <= innerHeight + 0.5,
+        lien: a ? { texte: a.textContent.trim(), href: a.href, ici: location.href } : null, montage: document.body.dataset.montage || null };
+    });
+    const tirage = async (fmt, refuse) => {
+      const c = await b.newContext({ ...FMT[fmt].ctx, serviceWorkers: 'block' });
+      try {
+        if (refuse) await c.route('**/js/app.js', (route) => route.abort());
+        const pg = await c.newPage();
+        await pg.goto(`${BASE}/poutre`);
+        await pg.waitForTimeout(2000);
+        const a2 = await voir(pg);
+        await pg.waitForTimeout(11500);
+        const a13 = await voir(pg);
+        if (refuse && a13.vu) await pg.screenshot({ path: path.join(OUT, `demarrage_secours_${fmt}.png`) });
+        return { a2, a13 };
+      } finally { await c.close(); }
+    };
+    const formats = [...new Set([...FORMATS, 'tab'])].filter((f) => FMT[f]);
+    const jeux = formats.flatMap((fmt) => [false, true].map((refuse) => ({ fmt, refuse })));
+    const res = await Promise.allSettled(jeux.map((j) => tirage(j.fmt, j.refuse)));
+    jeux.forEach(({ fmt, refuse }, i) => {
+      const N = (x) => `demarrage · ${FMT[fmt].nom} · secours : ${x}`;
+      const r = res[i];
+      if (r.status !== 'fulfilled') {
+        verif(N(refuse ? 'le démarrage refusé va au bout' : 'le démarrage normal va au bout'), false, String(r.reason && r.reason.message).split('\n')[0].slice(0, 300));
+        return;
+      }
+      const { a2, a13 } = r.value;
+      if (!refuse) {
+        verif(N('un démarrage normal ne le montre jamais (ni à 2 s, ni à 13,5 s, l\'écran monté)'),
+          a13.present && !a2.vu && !a13.vu && !!a13.montage, JSON.stringify({ a2s: a2.vu, a13s: a13 }));
+      } else {
+        verif(N('js/app.js refusé : rien à 2 s, puis le message VU à 13,5 s, dans l\'écran, avec « Recharger la page » vers la page même'),
+          !a2.vu && a13.vu && a13.dedans && !a13.montage && !!a13.lien && a13.lien.texte === 'Recharger la page' && a13.lien.href === a13.lien.ici,
+          JSON.stringify({ a2s: a2.vu, a13s: a13 }));
+      }
+    });
   }
 
   for (const fmt of FORMATS) {

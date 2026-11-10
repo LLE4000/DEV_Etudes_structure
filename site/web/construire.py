@@ -485,6 +485,26 @@ META_VERSION_VIDE = META_VERSION.format("")
 # le SEUL script de module de toutes les pages (S4-D1) : l'application monte l'écran que le <body> nomme (data-page) ;
 # js/theme.js reste un script classique en tête (le thème avant le premier rendu)
 SCRIPT_APP = '<script type="module" src="js/app.js"></script>'
+# Le FILET du démarrage (10/11/2026, après la mise en ligne du lot S4 : sur une tablette, l'écran restait sur
+# « Chargement… » sans un mot quand js/app.js ne démarrait pas) : un message posé dans CHAQUE page, invisible, qu'une
+# animation CSS rend visible au bout de SECOURS_S secondes, et que la feuille EN LIGNE de l'en-tête cache dès que
+# l'application a monté un écran (body[data-montage], posé par js/app.js). Rien n'y dépend d'un fichier à charger : il
+# parle même quand tous les scripts et toutes les feuilles du site sont refusés (session de connexion expirée, fichiers
+# d'une autre version, navigateur qui ne les lit pas). La politique de sécurité admet les styles en ligne
+# (style-src 'unsafe-inline') ; aucun script en ligne. Le lien « Recharger la page » est un lien ordinaire vers la page
+# même (href vide) : il marche sans script.
+SECOURS_S = 12
+STYLE_SECOURS = ('<style>.secours-demarrage{position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483000;margin:0;'
+                 'padding:14px 16px;border-radius:10px;background:#b42318;color:#fff;font:600 15px/1.45 system-ui,sans-serif;'
+                 'box-shadow:0 6px 24px rgba(0,0,0,.3);opacity:0;visibility:hidden;'
+                 f'animation:secours-demarrage 0s linear {SECOURS_S}s forwards}}'
+                 '.secours-demarrage a{color:#fff;text-decoration:underline;display:block;width:max-content;min-height:44px;'
+                 'line-height:44px;margin-top:4px}'
+                 '@keyframes secours-demarrage{to{opacity:1;visibility:visible}}'
+                 'body[data-montage] .secours-demarrage{display:none}</style>')
+SECOURS = ('<p class="secours-demarrage" role="alert">Le site ne démarre pas sur cet appareil. Rechargez la page ; si cela '
+           'continue, reconnectez-vous (la session de connexion a peut-être expiré).'
+           '<a href="">Recharger la page</a></p>')
 
 
 def tete(titre: str, *feuilles: str) -> str:
@@ -495,7 +515,7 @@ def tete(titre: str, *feuilles: str) -> str:
             '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + META_VERSION_VIDE + '\n'
             f'<title>{titre}</title>\n<link rel="icon" href="favicon.svg" type="image/svg+xml">\n'
             '<link rel="stylesheet" href="css/charte.css">\n<link rel="stylesheet" href="css/site.css">\n' + lien
-            + '<script src="js/theme.js"></script>\n</head>\n')
+            + '<script src="js/theme.js"></script>\n' + STYLE_SECOURS + '\n</head>\n')
 
 
 def _sous_titre_modules() -> str:
@@ -569,7 +589,7 @@ def page_accueil() -> str:
              f'viendront ensuite.</p><label class="btn sm" for="importer">{MQ.icon("upload")}Importer un fichier .stab</label>'
              f'<input type="file" id="importer" accept=".stab,.json" hidden></div></aside></div>{mnav("accueil")}</main></div>{modal}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
-             f'{SCRIPT_APP}</body>\n</html>\n')
+             f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
     return tete("Stab Méthodes") + corps
 
 
@@ -734,7 +754,7 @@ def page_module(cle: str, titre: str) -> str:
              f'<section class="panel right">{droite}</section><div id="volets"></div></div>{mbar}</main></div>'
              f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}{fenetre_rangement()}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
-             f'{SCRIPT_APP}</body>\n</html>\n')
+             f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
     # la bibliothèque de la famille, dans un panneau de la note (docs/site/BIBLIOTHEQUES.md § 2.4) : pour un module de
     # l'établi compact qui sait la préremplir ; sa feuille de style vient avec
     biblio = _bibliotheque_du_module(cle) if cle in ETABLI_COMPACT else None
@@ -790,7 +810,7 @@ def page_bibliotheque(cle: str) -> str:
     corps = (f'<body data-page="bibliotheque" data-bibliotheque="{cle}" data-titre="{MQ.esc(titre)}"><div class="app rail">{rail("modules")}<main class="main">{top}{mhead}'
              f'{_gabarit_bibliotheque(B)}'
              f'{mnav("modules")}</main></div>{_pourquoi_bibliotheque()}<div class="toast" id="toast" role="status" hidden></div>'
-             f'{SCRIPT_APP}</body>\n</html>\n')
+             f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
     return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css") + corps
 
 
@@ -877,7 +897,7 @@ def page_redirection(cle: str) -> str:
     corps = (f'<body data-page="redirection" data-module="{cle}" data-vers="{ADRESSES[vers]}" data-titre="{MQ.esc(nom)}">'
              f'<main class="main"><p class="redirection">Le module « {MQ.esc(nom)} » a rejoint « {MQ.esc(nom_vers)} ». '
              f'<a href="{ADRESSES[vers]}">{MQ.esc(LIENS_REDIRECTION[vers])}</a></p></main>'
-             f'{SCRIPT_APP}</body>\n</html>\n')
+             f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
     return tete(f"{nom} · Stab Méthodes") + corps
 
 

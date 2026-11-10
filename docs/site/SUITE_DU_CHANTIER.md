@@ -264,6 +264,12 @@ reste actif, modules chargés à la demande, ouverture préparée à l'approche 
 - Non fait, et pourquoi : la recette Safari (iPad, iPhone) se fait à la main, elle ne se prouve pas dans Chromium ;
   annuler/rétablir ne restaure pas ses piles si le moteur refuse l'état rendu (hors de la revue) ; l'instantané mémoire
   de Pyodide reste hors périmètre (D8).
+- Après la mise en ligne (10/11 au soir) : une tablette Android restait sur « Chargement… » sans un mot (l'application
+  n'avait monté aucun écran ; le téléphone, lui, marchait). Cause NON établie à ce jour (session de connexion expirée ?
+  fichiers de deux versions pendant le déploiement ?). Ajouté : le FILET du démarrage — chaque page porte un message,
+  montré par une animation CSS au bout de 12 s si js/app.js n'a monté aucun écran (body[data-montage] le cache), avec
+  « Recharger la page » ; sans script ni fichier à charger. Gardé par `tests/test_site_web.py` et `demarrage:secours`
+  (trois formats ; deux mutations rougissent : la règle qui le cache retirée, l'animation retirée).
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
