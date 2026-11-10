@@ -439,10 +439,10 @@ depuis le moteur révisé (défauts dx = 10, dy = 5 ; état limite ; ancrages ; 
   X + 10, ancrage à Y + 5 » ; ELU sous R = 60 kN : 96,2 % ; l'invariant du moteur à l'écran : ELU sous 52,5 kN = ELS sous
   35 kN (même résumé) ; poutre 160/120 : bords 70 et 200 mm ; poutre 150/150 : 60 et 230 mm ; entraxe 80 : e₁ = 70, z = 70 ·
   150 · 230.
-- **preuves** : `tests/test_api_web_corniere.py` (199 contrôles : 25 états face au moteur, dont ELU historique / équilibre
+- **preuves** : `tests/test_api_web_corniere.py` (199 contrôles : 24 états face au moteur, dont ELU historique / équilibre
   / B, A et B sur poutre, entraxe 80, traversant à deux rondelles, chimique ; 2 657 lignes de formules réévaluées ; 37
   refus avec message ; le volet replié, la saisie libre, les segments, les bascules par la saisie, l'invariant ELS/ELU ;
-  vingt mutations rouges — dont le volet toujours ouvert, le coef visible en ELU, R_ELU visible en ELU, l'entraxe non
+  vingt-trois mutations rouges — dont le volet toujours ouvert, le coef visible en ELU, R_ELU visible en ELU, l'entraxe non
   affiché, les positions sans s, les bords de poutre non affichés, RESSAISIE sans les nouveaux champs, le symbole figé, les
   lignes ELS gardées en ELU, la cible entraxe perdue) ; `test_api_web_modules.py corniere` (22) ; le harnais, filtre
   « corniere » : la bascule ELS → ELU (236,7 → 355, coef et R_ELU masqués puis rendus), la poutre (deux étendues, bords 60

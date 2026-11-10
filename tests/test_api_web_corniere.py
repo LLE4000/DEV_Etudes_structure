@@ -22,7 +22,7 @@ ordinaire : CE QUE LE SITE AFFICHE = CE QUE LE MOTEUR CALCULE.
   R_ELU masqués, les ancrages ELU seuls), les ANCRAGES (entraxe « vide = L/n » et sa valeur auto, type, profondeur,
   rondelles, les positions e₁ · s · z), le SUPPORT (voile ou poutre, ses deux étendues, les distances aux bords en
   information), le volet « Détails » replié par défaut, la saisie libre à champs visibles, les refus des nouveaux champs ;
-- des MUTATIONS du module (vingt), chacune vue rouge par ces contrôles.
+- des MUTATIONS du module (vingt-trois), chacune vue rouge par ces contrôles.
 
     /usr/bin/python3.12 tests/test_api_web_corniere.py
 """
