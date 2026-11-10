@@ -68,7 +68,8 @@ SORTIE de ``verifier`` ::
      "appui": {"verifie" (bool), "a", "debord", "l1", "cote_travee", "cote_about", "l_ef" (mm), "kc90",
                "kc90_plein" (la valeur de la norme pour ce bois), "raison": None|"distance"|"longueur"},
      "fleches": {"w_g_m", "w_g_v", "w_g", "w_q_m", "w_q_v", "w_q", "w_inst", "n_inst", "lim_inst", "w_fin", "w_c",
-                 "w_net_fin", "n_fin", "lim_fin" (mm)},
+                 "w_net_fin", "n_fin", "lim_fin" (mm), "rapport_inst", "rapport_fin" (L/w : la flèche dite « L/610 » ;
+                 None sans flèche vers le bas)},
      "verifications": [<verification>, …]  — flexion, cisaillement, appui (si vérifié), fleche_inst, fleche_fin,
      "taux_max", "statut": "ok"|"nok", "gouvernant": {"cle", "nom", "groupe", "taux", "combinaison"},
      "taux_elu", "taux_els",
@@ -281,6 +282,9 @@ def _calculer(p: Dict) -> Dict:
     lim_fin = L_mm / p["lim_fin"]
     taux_inst = _taux(w_inst, lim_inst)
     taux_fin = _taux(max(w_net_fin, 0.0), lim_fin)
+    # la flèche dite « L/n » (None sans flèche vers le bas)
+    rapport_inst = L_mm / w_inst if w_inst > 0 else None
+    rapport_fin = L_mm / w_net_fin if w_net_fin > 0 else None
 
     masse_lineique = mat["rho_mean"] * A / 1e6                   # kg/m
     longueur = L_mm + a + 2.0 * debord                           # mm : la pièce, d'about à about
@@ -290,7 +294,7 @@ def _calculer(p: Dict) -> Dict:
                 cote_travee=cote_travee, cote_about=cote_about, l_ef_a=l_ef_a, kc90=kc90, kc90_plein=kc90_plein, raison=raison,
                 combs=combs, w_g_m=w_g_m, w_g_v=w_g_v, w_q_m=w_q_m, w_q_v=w_q_v, w_g=w_g, w_q=w_q, w_inst=w_inst,
                 lim_inst=lim_inst, w_fin=w_fin, w_c=w_c, w_net_fin=w_net_fin, lim_fin=lim_fin, taux_inst=taux_inst,
-                taux_fin=taux_fin, masse_lineique=masse_lineique, longueur=longueur, masse=masse_lineique * longueur / 1000.0)
+                taux_fin=taux_fin, rapport_inst=rapport_inst, rapport_fin=rapport_fin, masse_lineique=masse_lineique, longueur=longueur, masse=masse_lineique * longueur / 1000.0)
 
 
 def _lignes_verifiees(p: Dict, x: Dict) -> List[Dict]:
@@ -362,7 +366,7 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
 
     # ---- le déversement
     if x["l_ef"] is None:
-        f = [_lu("kcrit", "k_crit", "fibre comprimée maintenue sur toute la longueur, appuis maintenus en torsion (§6.3.3(5))", x["kcrit"])]
+        f = [_lu("kcrit", "k_crit", "maintien continu de la fibre comprimée (§6.3.3(5))", x["kcrit"])]
     else:
         if p["maintien"]["type"] == "appuis":
             f_lef = _fx("l_ef", "l_ef", f"{_c(D.LEF_CHARGE_REPARTIE)} × {{L}} + {_c(D.LEF_FIBRE_COMPRIMEE)} × {{h}}",
@@ -410,11 +414,11 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
     if p["appui"]["verifier"]:
         deux_h = D.L1_SUR_H_MIN * h
         if x["raison"] == "distance":
-            origine = f"appuis rapprochés, l_1 < {_c(D.L1_SUR_H_MIN)}·h = {_n(deux_h, 0)} mm : pas de majoration (§6.1.5(2))"
+            origine = f"l_1 < {_c(D.L1_SUR_H_MIN)}·h = {_n(deux_h, 0)} mm : pas de majoration (§6.1.5(2))"
         elif x["raison"] == "longueur":
             origine = f"lamellé-collé, a > {_c(D.A_MAX_K_C90[typ])} mm : pas de majoration (§6.1.5(4))"
         else:
-            origine = (f"{D.COURTS_TYPE[typ]} résineux sur appuis discrets, l_1 ≥ {_c(D.L1_SUR_H_MIN)}·h = {_n(deux_h, 0)} mm"
+            origine = (f"{D.COURTS_TYPE[typ]}, l_1 ≥ {_c(D.L1_SUR_H_MIN)}·h = {_n(deux_h, 0)} mm"
                        + (f", a ≤ {_c(D.A_MAX_K_C90[typ])} mm" if typ in D.A_MAX_K_C90 else "") + " (§6.1.5(4))")
         m = _c(D.MAJORATION_APPUI)
         bloc("appui", "Appui", [
@@ -465,7 +469,7 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
     if x["w_net_fin"] >= 0:
         f.append(_fx("taux", "η", "{w_net,fin} / {w_lim}", [_t("w_net,fin", x["w_net_fin"], "mm"), _t("w_lim", x["lim_fin"], "mm")], x["taux_fin"]))
     else:
-        f.append(_lu("taux", "η", "w_net,fin < 0 : la poutre reste cambrée, le taux est compté nul", x["taux_fin"],
+        f.append(_lu("taux", "η", "w_net,fin < 0 : poutre cambrée, taux compté nul", x["taux_fin"],
                      termes=[_t("w_net,fin", x["w_net_fin"], "mm")]))
     bloc("fleche_fin", "Flèche finale nette", f)
     return blocs
@@ -615,8 +619,8 @@ def verifier(poutre: Dict) -> Dict:
                         "sigma_crit": x["sigma_crit"], "lambda_rel": x["lambda_rel"], "kcrit": x["kcrit"], "branche": x["branche"]},
         "appui": {"verifie": p["appui"]["verifier"], "a": x["a"], "debord": x["debord"], "l1": x["l1"], "cote_travee": x["cote_travee"],
                   "cote_about": x["cote_about"], "l_ef": x["l_ef_a"], "kc90": x["kc90"], "kc90_plein": x["kc90_plein"], "raison": x["raison"]},
-        "fleches": {k: x[k] for k in ("w_g_m", "w_g_v", "w_g", "w_q_m", "w_q_v", "w_q", "w_inst", "lim_inst", "w_fin", "w_c",
-                                      "w_net_fin", "lim_fin")} | {"n_inst": p["lim_inst"], "n_fin": p["lim_fin"]},
+        "fleches": {k: x[k] for k in ("w_g_m", "w_g_v", "w_g", "w_q_m", "w_q_v", "w_q", "w_inst", "lim_inst", "rapport_inst", "w_fin",
+                                      "w_c", "w_net_fin", "lim_fin", "rapport_fin")} | {"n_inst": p["lim_inst"], "n_fin": p["lim_fin"]},
         "verifications": verifs,
         "taux_max": gov["taux"],
         "statut": NOK if any(v["etat"] == NOK for v in verifs) else OK,

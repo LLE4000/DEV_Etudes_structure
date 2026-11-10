@@ -1,31 +1,47 @@
 # -*- coding: utf-8 -*-
-"""L'API du site pour les poutres bois (api_web/bois.py), vérifiée en Python ordinaire.
+"""L'API du site pour les poutres bois refaites sur l'Eurocode 5 (api_web/bois.py, lot Q du 10/11/2026), vérifiée en
+Python ordinaire : CE QUE LE SITE AFFICHE = CE QUE LE MOTEUR CALCULE.
 
-- le résultat affiché est celui du moteur bois/poutre : taux, couleur, gouvernant, chiffres clés de l'écran Streamlit ;
-- les taux au-delà de 999 % sont plafonnés dans les pastilles et les jauges, exacts dans le détail du calcul ;
-- un taux exactement égal à 100 % est conforme (vert foncé), comme le « ≤ 1.0 » de l'écran ;
-- les fenêtres de calcul (ELU, ELS) détaillent chaque formule du moteur avec ses valeurs, et les écarts EC5 qui jouent ;
-- chaque saisie va au bon endroit ; une saisie hors du domaine de l'écran Streamlit est refusée avec un message, la
-  poutre reste intacte (jamais ramenée en silence) ; les champs suivent les bascules (sur mesure, appui) ;
-- le sélecteur de sections est trié par masse, marque la retenue ✓ et la plus légère qui tient ★ du moteur ;
-- les poutres de la note s'ajoutent, se copient, se suppriment (jamais la dernière) ; le résumé est la plus chargée ;
-- les dessins sont à l'échelle et portent les valeurs du moteur ; un nom saisi est échappé partout.
+  1. LA NOTE NEUVE : version 2, une poutre, quatre rubriques (la dernière secondaire), CONFORME, ★ sur une section plus
+     légère ; la réponse complète.
+  2. LE RÉSULTAT FACE AU MOTEUR, sur 17 états (la note neuve, G seule qui gouverne l'ELU puis toute la note, le
+     déversement, des entretoises, un lamellé-collé, l'appui qui gouverne, la classe de service 3, sur mesure,
+     surfacique, sans appui, sans Q, contre-flèche, effet système, k_c,90 ramené à 1, près de 100 %, très au-delà) :
+     chaque nombre RELU dans le HTML
+     (le verdict, chaque ligne et sa comparaison, les combinaisons, les en-têtes des blocs, le pied) est celui du
+     moteur à l'arrondi affiché ; la couleur, la ligne qui gouverne, la combinaison nommée, les avertissements, les
+     hypothèses, ce qui n'est pas couvert, le résumé de la note.
+  3. CHAQUE CHAMP RELIÉ : modifier → l'état (au bon endroit) → le calcul ; les effets de bord (standard ↔ sur mesure,
+     le bois qui change de type, la nature de Q et ses verrous, les champs qui apparaissent).
+  4. LES REFUS : le message du moteur (français, le champ nommé), la poutre intacte.
+  5. LE SÉLECTEUR : les sections du type du bois par masse, ✓, ★, rouges quand elles ne tiennent pas ; le choix.
+  6. UNE ANCIENNE NOTE (version 1) : les noms gardés, des poutres neuves, l'avis dit une fois et retiré de l'état.
+  7. L'ÉCHAPPEMENT d'un nom piégé dans tous les fragments.
+  8. LES FENÊTRES DE CALCUL : sept, chaque ligne « symbole = expression = valeurs = résultat » RÉÉVALUÉE à partir des
+     valeurs écrites (un interpréteur du test) ; le tableau par combinaison ; les pastilles d'hypothèses ; le pied.
+  9. LES VUES : trois, leur en-tête technique (la bande M_d, V_d, R_d du moteur), les cotes et les valeurs des dessins.
+ 10. LES ÉLÉMENTS de la note, son résumé.
+ 11. Des MUTATIONS du module, chacune vue rouge par ces contrôles.
 
-    python3 tests/test_api_web_bois.py
+    /usr/bin/python3.12 tests/test_api_web_bois.py
 """
 import copy
+import html
+from html.parser import HTMLParser
 import json
+import math
 import os
 import re
 import sys
+import types
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
 from api_web import bois as B  # noqa: E402
 from api_web import commun as C  # noqa: E402
-from api_web import dessin_bois as DB  # noqa: E402
 from api_web import routeur as R  # noqa: E402
+from bois.poutre import donnees as D  # noqa: E402
 from bois.poutre import moteur as MO  # noqa: E402
 
 OK, KO = [], []
@@ -33,319 +49,904 @@ OK, KO = [], []
 
 def chk(nom, cond, info=""):
     (OK if cond else KO).append((nom, info))
-    print(("OK   " if cond else "KO   ") + nom + ("" if cond else f"  | {str(info)[:300]}"))
-
-
-def plat(x):
-    """Les fragments relus « à plat » pour les comparer à des textes écrits ici : l'espace fine des milliers (C.fr)
-    devient une espace, l'apostrophe échappée une apostrophe (les autres échappements restent : § 8 les contrôle)."""
-    if isinstance(x, str):
-        return x.replace("\u202f", " ").replace("&#x27;", "'")
-    if isinstance(x, list):
-        return [plat(y) for y in x]
-    if isinstance(x, dict):
-        return {k: (v if k == "etat" else plat(v)) for k, v in x.items()}
-    return x
+    print(("OK   " if cond else "KO   ") + nom + ("" if cond else f"  | {str(info)[:400]}"))
 
 
 def req(**k):
-    return plat(json.loads(R.traiter(json.dumps(k))))
+    return json.loads(R.traiter(json.dumps(dict(module="bois", **k))))
 
 
 def saisir(etat, chemin, valeur):
-    """Comme l'écran : le chemin lu dans data-chemin, coupé aux « / », la valeur telle que tapée."""
-    out = req(module="bois", action="modifier", etat=copy.deepcopy(etat), chemin=chemin.split("/"), valeur=valeur)
+    out = req(action="modifier", etat=copy.deepcopy(etat), chemin=chemin.split("/"), valeur=valeur)
     assert out["ok"], out
     return out
 
 
-def etat_de(**k):
-    e = B.nouvel_etat()
-    e["poutres"][0].update(k)
+def etat_avec(**champs):
+    """Une note neuve dont la poutre reçoit ``champs`` (relue par le moteur : hors domaine, ValueError)."""
+    e = B._note(**champs)
+    p = e["poutres"][0]
+    if p["standard"] and ("section" in champs or "classe" in champs):
+        p["b"] = p["h"] = None
+    if "charges__nature" in champs and champs["charges__nature"] != "autre":
+        p["charges"]["duree"] = p["charges"]["psi2"] = None
     return B.normaliser(e)
 
 
-LIGNE = re.compile(r'<div class="el( gov)?"( data-calcul="(\w+)")?[^>]*><div class="l1"><b>([^<]+)</b>(.*?)</div>'
-                   r'<div class="l2"><div class="bar"><b class="(\w)" style="width:([\d.]+)%"></b></div><span class="pct (\w)">([^<]+)</span>', re.S)
+def V(res, cle):
+    return next(v for v in res["verifications"] if v["cle"] == cle)
 
 
-def lignes(html):
-    return [{"gov": bool(g), "calcul": cal, "nom": nom, "piece": piece, "barre": n1, "largeur": float(w), "niveau": n2, "txt": t}
-            for g, _, cal, nom, piece, n1, w, n2, t in LIGNE.findall(html)]
+# ====================================================================== lecture du HTML rendu
+ESPACES = (C.NBSP, C.FINE)
+NOMBRE = r"-?\d[\d ]*(?:,\d+)?"
+LIGNE = re.compile(r'<div class="el vc(?P<cls>[^"]*)"(?: data-calcul="(?P<calcul>[^"]*)" title="[^"]*")?><div class="l1"><b>(?P<nom>[^<]*)</b>(?P<l1>.*?)</div>'
+                   r'<div class="l2"><span class="cmp">(?P<cmp>.*?)</span>(?P<jauge>(?:<div class="bar">.*?</div>)?)</div></div>', re.S)
+PCT = re.compile(r'<span class="pct (\w)"(?: title="[^"]*")?>([^<]+)</span>')
+MOT = re.compile(r'<span class="et-mot (\w)">([^<]+)</span>')
+PIECE = re.compile(r'<(?:button|span) class="prof"[^>]*>(?:<span class="leger" title="(?P<leger>[^"]*)">.*?</span>)?<span>(?P<piece>.*?)</span>', re.S)
+BLOC = re.compile(r'<section class="et-bloc (\w+)" data-theme="(\d)"><div class="et-bloc-h"><button[^>]*>.*?<span class="n">([^<]*)</span><span class="e">([^<]*)</span>'
+                  r'.*?<div class="et-bloc-ef">(.*?)</div><div class="els">', re.S)
+MSG = re.compile(r'<div class="msg( grave)?">(.*?)</div>', re.S)
+FX = re.compile(r'<div class="fx">(.*?)</div>', re.S)
+SPAN = re.compile(r'<span(?: class="(s|r|chip \w+)")?>(.*?)</span>', re.S)
+VERDICT = re.compile(r'<div class="verdict" data-calcul="([^"]+)"[^>]*><span class="chip xl (\w)"(?: title="[^"]*")?><small>η</small>([^<]+)</span><div class="gov"><b>([^<]*)</b>(.*?)</div></div>', re.S)
 
 
-def niveau_de(v):
-    return "r" if v["etat"] == MO.NOK else C.niveau(v["taux"])
+def texte(frag):
+    return html.unescape(re.sub(r"<[^>]+>", " ", frag))
 
 
-# ------------------------------------------------------------------ 1. une note neuve
-print("=== 1. Une note neuve : le résultat est celui du moteur ===")
-r = req(module="bois", action="nouveau")
-chk("nouveau : la requête aboutit", r["ok"], r.get("erreur"))
-p0 = dict(MO.nouvelle_poutre(), nom="P1")
-chk("la poutre neuve est celle de l'écran Streamlit (C24, SC 1, long terme, 38 × 150, L 4 m, G 2, Q 3…), nommée P1",
-    r["etat"] == {"version": 1, "poutres": [p0], "actif": 0}, r["etat"])
-ref = MO.verifier(p0)
-chk("le résumé : taux plafonné à 999 %, rouge, « Non conforme », gouvernant = flèche instantanée (celui du moteur)",
-    r["resume"] == {"taux": 999, "niveau": "r", "statut": "Non conforme", "gouvernant": "P1 · flèche instantanée"}
-    and ref["gouvernant"]["cle"] == "fleche_inst", r["resume"])
-L0 = lignes(r["resultat"])
-attendu = ref["verifications"]
-chk("une ligne par vérification du moteur, dans l'ordre de l'écran (flexion, cisaillement, deux flèches)",
-    [x["nom"] for x in L0] == [B.COURTS[v["cle"]] for v in attendu] == ["Flexion", "Cisaillement", "Flèche instantanée", "Flèche finale"],
-    [x["nom"] for x in L0])
-chk("chaque ligne : taux du moteur (arrondi dans sa bande, plafonné à 999 %), couleur du moteur, jauge bornée à 100 %",
-    all(x["txt"] == f"{C.pc(C.pct(min(v['taux'], B.PLAFOND)))}{C.NBSP}%" and x["niveau"] == x["barre"] == niveau_de(v) and x["largeur"] <= 100
-        for x, v in zip(L0, attendu)), [(x["txt"], v["taux"]) for x, v in zip(L0, attendu)])
-chk("la flexion à 782 % (σ = 101,05 MPa sur f_m,d = 12,92 MPa) s'affiche 782 %, pas plafonnée",
-    L0[0]["txt"] == f"782{C.NBSP}%" and abs(ref["grandeurs"]["u_flex"] - 7.8195) < 1e-4)
-chk("une seule ligne gouvernante, celle du moteur", [x["nom"] for x in L0 if x["gov"]] == ["Flèche instantanée"])
-chk("les lignes ELU ouvrent la fenêtre « elu », les flèches la fenêtre « els » ; les deux fenêtres existent",
-    [x["calcul"] for x in L0] == ["elu", "elu", "els", "els"] and 'id="ck-elu"' in r["volets"] and 'id="ck-els"' in r["volets"])
-chk("le sélecteur de section s'ouvre depuis la ligne « Flexion », et seulement elle", re.findall(r'data-pk="([^"]+)"', r["resultat"]) == ["section"]
-    and 'data-pk="section"' in L0[0]["piece"])
-grp = re.findall(r'<div class="elgrp">([^<]+)<span class="pct (\w)">([^<]+)</span>', r["resultat"])
-chk("deux groupes, « ELU · résistance » et « ELS · flèches », chacun avec son taux le plus fort",
-    grp == [("ELU · résistance", "r", f"782{C.NBSP}%"), ("ELS · flèches", "r", f"999{C.NBSP}%")], grp)
-g = ref["grandeurs"]
-facts = re.findall(r"<dt>(.*?)</dt><dd>(.*?)</dd>", r["resultat"])
-chk("les chiffres clés de l'écran Streamlit (ses quatre métriques, M_Ed et V_Ed) avec leurs unités",
-    [d for _, d in facts] == ["38 × 150 mm", "4,00 m", "11 000 MPa", "420 kg/m³", "14,40 kN·m", "14,40 kN"], facts)
-chk("le verdict : la pastille plafonnée et la comparaison exacte « w_inst = 141 768,6 mm > L/300 = 13,3 mm »",
-    '<span class="chip xl r"><small>η</small>999' in r["resultat"] and "141 768,6 mm &gt; L/300 = 13,3 mm" in r["resultat"])
-chk("l'écart d'unité des flèches est dit en rouge, avec les valeurs corrigées de l'unité (141,8 et 131,6 mm, non retenues)",
-    re.search(r'<div class="msg grave"><b>Flèches de l\'écran Streamlit 1 000 fois trop grandes</b>.*?141,8 mm.*?131,6 mm '
-              r'\(à titre indicatif, non retenues\)', r["resultat"]) is not None)
-chk("le poids propre non compté est dit (≈ 0,023 kN/m pour 38 × 150 en C24)", "Poids propre non compté (≈ 0,023 kN/m)" in r["resultat"])
-chk("le pied : la masse indicative du bois (ρ_mean·A·L = 9,6 kg) et la légende des couleurs",
-    f"9,6{C.NBSP}kg" in r["resultat"] and C.legende() in r["resultat"])
+def sans_indices(frag):
+    """Un fragment sans ses indices (« σ<sub>c,90,d</sub> » porte un 90 qui n'est pas une valeur) ni ses balises."""
+    return html.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<sub>.*?</sub>", "", frag)))
 
-# ------------------------------------------------------------------ 2. les fenêtres de calcul
-print("\n=== 2. Les fenêtres de calcul : chaque formule du moteur, valeurs substituées ===")
-elu, els = r["volets"].split('id="ck-els"')
-n_elu = sum(len(v["formules"]) for v in attendu if v["cle"] in B.ELU) - 1     # V_Ed partagée : une ligne de moins (q_ELU, I…)
-chk("la fenêtre ELU détaille les formules de la flexion et du cisaillement", elu.count('class="fx"') >= 11, elu.count('class="fx"'))
-chk("… q_ELU = 1,35 × 2 + 1,5 × 3 = 7,20 kN/m ; M_Ed = 7,2 × 4² / 8 = 14,40 kN·m ; σ = 14,4 × 10⁶ / 142 500 = 101,05 MPa",
-    "1,35 × 2 + 1,5 × 3" in elu and "7,20 kN/m" in elu and "7,2 × 4² / 8" in elu and "14,4 × 10⁶ / 142 500" in elu and "101,05 MPa" in elu)
-chk("… f_m,d = 0,7 × 24 × 1 / 1,3 = 12,92 MPa, et η = 101,05 / 12,92 = 782,0 % en pastille rouge (exact, non plafonné)",
-    "0,7 × 24 × 1 / 1,3" in elu and "12,92 MPa" in elu and "101,05 / 12,92" in elu and f'<span class="chip r">782,0{C.NBSP}%</span>' in elu)
-chk("la fenêtre ELS écrit la flèche de l'écran telle qu'il la calcule : 5 × (5 × 10³) × (4 × 10³)⁴ / (384 × 11 000 × 10 687 500)",
-    "5 × (5 × 10³) × (4 × 10³)⁴ / (384 × 11 000 × 10 687 500)" in els and "141 768,6 mm" in els)
-chk("… et le taux exact de la flèche instantanée : 1 063 264 %", f"1 063 264{C.NBSP}%" in els)
-chk("le tableau de chaque fenêtre : une ligne par vérification, valeur et limite écrites, le taux plafonné en pastille",
-    elu.count("<tr class=") == 2 and els.count("<tr class=") == 2 and "σ<sub>m,Ed</sub> = 101,05 MPa" in elu and "f<sub>m,d</sub> = 12,92 MPa" in elu
-    and "L/300 = 13,3 mm" in els)
-chk("les écarts EC5 qui jouent sont au pied des fenêtres : k_cr à l'ELU, l'unité et la flèche finale à l'ELS ; pas l'appui (décoché)",
-    "k<sub>cr</sub> = 0,67" in elu and "1 000 fois trop grandes" in els and "(1 − ψ₂)" in els and "NON pondérée" not in elu)
-r_ap = req(module="bois", action="modifier", etat=r["etat"], chemin=["appui"], valeur=True)
-elu_ap = r_ap["volets"].split('id="ck-els"')[0]
-chk("appui coché : une ligne « Compression à l'appui » (a = 60 mm), son détail R = (G + Q)·L / 2, et l'écart « non pondérée »",
-    [x["nom"] for x in lignes(r_ap["resultat"])][2] == "Compression à l'appui" and "a = 60 mm" in r_ap["resultat"]
-    and "5 × 4 / 2" in elu_ap and "NON pondérée" in elu_ap, [x["nom"] for x in lignes(r_ap["resultat"])])
 
-# ------------------------------------------------------------------ 3. la saisie
-print("\n=== 3. La saisie : chaque champ au bon endroit, les refus ===")
-e0 = r["etat"]
-for chemin, valeur, cle, attendu_v in (("L", "4,5", "L", 4.5), ("G", "1 2", "G", 12.0), ("Q", "0", "Q", 0.0), ("gamma_G", "1,5", "gamma_G", 1.5),
-                                       ("psi2", "0,6", "psi2", 0.6), ("classe", "C30", "classe", "C30"), ("service", "3", "service", 3),
-                                       ("duree", "court", "duree", "court"), ("section", "63x200", "section", "63x200"),
-                                       ("lim_inst", "L/400", "lim_inst", "L/400"), ("lim_fin", "L/300", "lim_fin", "L/300"),
-                                       ("nom", "Solive S3", "nom", "Solive S3")):
-    out = saisir(e0, chemin, valeur)
-    p = out["etat"]["poutres"][0]
-    chk(f"« {chemin} » = « {valeur} » → {attendu_v!r}, sans message, le reste intact",
-        out["message"] is None and p[cle] == attendu_v and {k: v for k, v in p.items() if k != cle} == {k: v for k, v in e0["poutres"][0].items() if k != cle})
-mes = saisir(e0, "standard", "non")
-chk("« Sur mesure » : les champs b et h (80 × 240, les défauts de l'écran) remplacent le menu des sections",
-    'data-chemin="b"' in mes["donnees"] and 'data-chemin="h"' in mes["donnees"] and 'data-chemin="section"' not in mes["donnees"]
-    and "80 × 240" in mes["resultat"])
-chk("… et la section sur mesure se dit dans la ligne « Flexion »", "80 × 240 sur mesure · C24" in mes["resultat"])
-chk("la largeur d'appui est grisée tant que l'appui n'est pas coché, active ensuite (comme l'écran)",
-    re.search(r'data-chemin="a"[^>]*disabled', r["donnees"]) is not None and re.search(r'data-chemin="a"[^>]*disabled', r_ap["donnees"]) is None)
-REFUS = (("L", "0,2", "entre 0,5 et 12 m"), ("L", "12,5", "entre 0,5 et 12 m"), ("G", "-1", "entre 0 et 50 kN/m"), ("Q", "51", "entre 0 et 50 kN/m"),
-         ("psi2", "0", "entre 0,1 et 1"), ("gamma_G", "0,9", "entre 1 et 2"), ("gamma_Q", "2,5", "entre 1 et 2"), ("a", "20", "entre 30 et 200 mm"),
-         ("L", "abc", "Nombre illisible"), ("service", "4", "n'est pas proposé"), ("service", "1,5", "illisible"),
-         ("classe", "C45", "n'est pas proposé"), ("duree", "longue", "n'est pas proposé"), ("section", "50x200", "n'est pas proposé"),
-         ("lim_inst", "L/500", "n'est pas proposé"), ("standard", "peut-être", "vrai ou faux"), ("inconnu", "1", "Champ inconnu"))
+def lire_fr(s):
+    """« 14,77 » → (14.77, 2 décimales)."""
+    t = s.replace(C.NBSP, "").replace(C.FINE, "").replace(" ", "").replace("−", "-")
+    return float(t.replace(",", ".")), len(t.partition(",")[2])
+
+
+def affiche(texte_nombre, exact):
+    """Le nombre écrit est la valeur exacte à l'arrondi de ses décimales (demi vers l'extérieur ou non)."""
+    val, nd = lire_fr(texte_nombre)
+    return abs(val - exact) <= 0.5 * 10 ** -nd + 1e-9
+
+
+def pct_txt(t):
+    return C._taux_txt(C.pct(t))[0]
+
+
+def lignes(frag):
+    out = []
+    for m in LIGNE.finditer(frag):
+        p = PIECE.search(m.group("l1"))
+        t = PCT.search(m.group("l1"))
+        w = MOT.search(m.group("l1"))
+        out.append({"nom": html.unescape(m.group("nom")), "calcul": m.group("calcul"), "piece": texte(p.group("piece")).strip() if p else "",
+                    "leger": html.unescape(p.group("leger") or "") if p else "", "pk": 'data-pk="section"' in m.group("l1"),
+                    "taux_txt": t.group(2) if t else None, "niveau": t.group(1) if t else (w.group(1) if w else None),
+                    "mot": w.group(2) if w else None, "cmp": m.group("cmp"), "gov": " gov" in m.group("cls"),
+                    "largeur": re.search(r'style="width:([0-9.]+)%"', m.group("jauge")).group(1) if m.group("jauge") else None})
+    return out
+
+
+def blocs(frag):
+    return [{"cls": c, "theme": int(i), "titre": html.unescape(t), "etat": html.unescape(e), "efforts": ef} for c, i, t, e, ef in BLOC.findall(frag)]
+
+
+def resultat_module(mod, etat):
+    """Le résultat rendu par un module (le vrai ou un mutant), l'état relu comme le routeur le fait."""
+    return mod.resultat(mod.normaliser(copy.deepcopy(etat)))
+
+
+COMPARAISON_ELU = re.compile(rf"= ({NOMBRE}) (≤|>) (?:[^=]*= )?({NOMBRE}) N/mm²")
+COMPARAISON_ELS = re.compile(rf"= ({NOMBRE})(?: \(L/({NOMBRE})\))? (≤|>) L/(\d+) = ({NOMBRE}) mm")
+NOMS_COURTS = {"flexion": "Flexion", "cisaillement": "Cisaillement", "appui": "Appui", "fleche_inst": "Flèche instantanée", "fleche_fin": "Flèche finale nette"}
+
+
+def fautes_comparaison(v, r, cmp_html, cas):
+    """La comparaison écrite d'une vérification face au moteur : la valeur, le signe, la limite (et « L/n »)."""
+    f, t = [], sans_indices(cmp_html)
+    signe = "≤" if v["taux"] <= 1 else ">"
+    if v["groupe"] == "ELU":
+        m = COMPARAISON_ELU.search(t)
+        if not m:
+            return [f"{cas} {v['cle']} : comparaison illisible « {t} »"]
+        if not affiche(m.group(1), v["valeur"]) or not affiche(m.group(3), v["limite"]) or m.group(2) != signe:
+            f.append(f"{cas} {v['cle']} : « {t} » ≠ {v['valeur']} {signe} {v['limite']}")
+    else:
+        m = COMPARAISON_ELS.search(t)
+        if not m:
+            return [f"{cas} {v['cle']} : comparaison illisible « {t} »"]
+        fl = r["fleches"]
+        n, rapport = (fl["n_inst"], fl["rapport_inst"]) if v["cle"] == "fleche_inst" else (fl["n_fin"], fl["rapport_fin"])
+        if not affiche(m.group(1), v["valeur"]) or not affiche(m.group(5), v["limite"]) or m.group(3) != signe or int(m.group(4)) != n:
+            f.append(f"{cas} {v['cle']} : « {t} » ≠ {v['valeur']} {signe} L/{n} = {v['limite']}")
+        if (m.group(2) is None) != (rapport is None) or (rapport is not None and not affiche(m.group(2), rapport)):
+            f.append(f"{cas} {v['cle']} : L/n « {m.group(2)} » ≠ {rapport}")
+    return f
+
+
+def controle_resultat(mod, etat, cas):
+    """Tout ce que le résultat rendu par ``mod`` a de différent du moteur, pour l'état ``etat``."""
+    f = []
+    en = mod.normaliser(copy.deepcopy(etat))
+    p = en["poutres"][en["actif"]]
+    r = MO.verifier(p)
+    rep = mod.resultat(en)
+    res = rep["resultat"]
+    # ---- la tête, le verdict
+    tete = re.search(r'<div class="et-rp"><b>(.*?)</b><span>(.*?)</span></div>', res)
+    attendu_tete = f"{r['geometrie']['designation']} · {p['classe']} · L {C.fr(p['L'], 2)}{C.NBSP}m"
+    if not tete or html.unescape(tete.group(1)) != (p["nom"] or "Poutre") or html.unescape(tete.group(2)) != attendu_tete:
+        f.append(f"{cas} : tête « {tete and tete.groups()} » ≠ « {attendu_tete} »")
+    vd = VERDICT.search(res)
+    g = V(r, r["gouvernant"]["cle"])
+    niv_note = "r" if r["statut"] == "nok" else C.niveau(r["taux_max"])
+    if not vd:
+        return f + [f"{cas} : pas de verdict"]
+    if vd.group(1) != g["cle"] or vd.group(2) != niv_note or html.unescape(vd.group(3)) != html.unescape(pct_txt(r["taux_max"])) or html.unescape(vd.group(4)) != NOMS_COURTS[g["cle"]]:
+        f.append(f"{cas} : verdict {vd.groups()[:4]} ≠ ({g['cle']}, {niv_note}, {pct_txt(r['taux_max'])}, {NOMS_COURTS[g['cle']]})")
+    f += fautes_comparaison(g, r, vd.group(5), cas + " verdict")
+    comb = next((c for c in r["combinaisons"] if c["cle"] == g["combinaison"]), None)
+    dit = texte(vd.group(5))
+    if (comb and f"{comb['nom']} · {comb['libelle_duree']}" not in dit) or (comb is None and "ELS caractéristique" not in dit):
+        f.append(f"{cas} : le verdict ne nomme pas sa combinaison ({dit})")
+    # ---- les blocs et leurs lignes
+    bl, ls = blocs(res), lignes(res)
+    if [(b["theme"], b["titre"]) for b in bl] != [(0, "ELU · résistance"), (1, "ELS · flèches")]:
+        f.append(f"{cas} : blocs {[(b['theme'], b['titre']) for b in bl]}")
+        return f
+    for b, groupe in zip(bl, ("ELU", "ELS")):
+        vs = [v for v in r["verifications"] if v["groupe"] == groupe]
+        t = max(v["taux"] for v in vs)
+        nok = any(v["taux"] > 1 for v in vs)
+        m = re.match(rf"(Conforme|Non conforme) · ({NOMBRE}) %$", b["etat"])
+        if not m or (m.group(1) == "Non conforme") != nok or b["cls"] != ("nok" if nok else "ok") or not affiche(m.group(2), C.pct(t, 1)):
+            f.append(f"{cas} : en-tête du bloc {groupe} « {b['cls']} · {b['etat']} » ≠ {100 * t}")
+    # les combinaisons en tête du bloc ELU : k_mod, M_d, V_d
+    cb = re.findall(rf'<span class="n" title="([^"]*)">([^<]*)</span><span>k<sub>mod</sub> ({NOMBRE})</span><span>M<sub>d</sub> ({NOMBRE}) kN·m</span>'
+                    rf'<span>V<sub>d</sub> ({NOMBRE}) kN</span>', bl[0]["efforts"])
+    if len(cb) != len(r["combinaisons"]) or any(html.unescape(x[1]) != c["nom"] or html.unescape(x[0]) != c["libelle_duree"] or not affiche(x[2], c["kmod"])
+                                                 or not affiche(x[3], c["M_d"]) or not affiche(x[4], c["V_d"]) for x, c in zip(cb, r["combinaisons"])):
+        f.append(f"{cas} : combinaisons affichées {cb} ≠ {[(c['nom'], c['kmod'], c['M_d'], c['V_d']) for c in r['combinaisons']]}")
+    co, fl = r["coefficients"], r["fleches"]
+    els = sans_indices(bl[1]["efforts"])
+    m = re.search(rf"k = ({NOMBRE}) · ψ = ({NOMBRE})", els)
+    if not m or not affiche(m.group(1), co["kdef"]) or not affiche(m.group(2), co["psi2"]) or (("contre-flèche" in els) != (fl["w_c"] > 0)):
+        f.append(f"{cas} : en-tête ELS « {els} » ≠ k_def {co['kdef']}, ψ₂ {co['psi2']}")
+    attendues = [v for v in r["verifications"]]
+    verifs = [li for li in ls if li["taux_txt"] is not None]
+    if [li["nom"] for li in verifs] != [NOMS_COURTS[v["cle"]] for v in attendues]:
+        f.append(f"{cas} : lignes {[li['nom'] for li in verifs]}")
+        return f
+    for li, v in zip(verifs, attendues):
+        niv = "r" if v["taux"] > 1 else C.niveau(v["taux"])
+        if html.unescape(li["taux_txt"]) != html.unescape(pct_txt(v["taux"])) or li["niveau"] != niv or li["calcul"] != v["cle"]:
+            f.append(f"{cas} {v['cle']} : {li['taux_txt']} {li['niveau']} ≠ {pct_txt(v['taux'])} {niv}")
+        if li["gov"] != (v["cle"] == r["gouvernant"]["cle"]):
+            f.append(f"{cas} {v['cle']} : ligne gouvernante mal marquée")
+        if float(li["largeur"]) != max(0, min(C.pct(v["taux"]), 100)):
+            f.append(f"{cas} {v['cle']} : jauge {li['largeur']}")
+        f += fautes_comparaison(v, r, li["cmp"], cas)
+        c = next((c for c in r["combinaisons"] if c["cle"] == v["combinaison"]), None)
+        if c is not None and not texte(li["cmp"]).rstrip().endswith("· " + c["nom"]):
+            f.append(f"{cas} {v['cle']} : la ligne ne nomme pas sa combinaison « {texte(li['cmp'])} » ({c['nom']})")
+        if li["pk"] != (v["cle"] == "flexion"):
+            f.append(f"{cas} {v['cle']} : sélecteur mal posé")
+    fx = verifs[0]
+    if fx["piece"] != r["geometrie"]["designation"]:
+        f.append(f"{cas} : la pièce de la flexion « {fx['piece']} » n'est pas la section")
+    if ("k crit" in texte(fx["cmp"])) != (r["deversement"]["kcrit"] < 1):
+        f.append(f"{cas} : k_crit dit à tort (ou tu) sur la ligne de flexion")
+    opt = MO.optimal(p)
+    doit = bool(opt) and not (p["standard"] and opt["nom"] == p["section"]) and (opt["A"] < r["geometrie"]["A"] or r["statut"] == "nok")
+    if bool(fx["leger"]) != doit or (doit and (opt["designation"] not in fx["leger"] or f"({C.pc(C.pct(opt['taux']))} %)" not in fx["leger"])):
+        f.append(f"{cas} : étoile « {fx['leger']} » ≠ {opt and opt['designation']}")
+    non_ver = [li for li in ls if li["mot"] == "non vérifié"]
+    if bool(non_ver) != (not r["appui"]["verifie"]):
+        f.append(f"{cas} : appui non vérifié mal dit")
+    # ---- les avertissements, les hypothèses, ce qui n'est pas couvert, le pied
+    msgs = [texte(m_[1]).replace("  ", " ") for m_ in MSG.findall(res)]
+    for a in r["avertissements"]:
+        cle_txt = re.sub(r"\s+", "", html.unescape(re.sub(r"<[^>]+>", "", C.symb_math(a["message"]))))
+        if not any(re.sub(r"\s+", "", m_) == cle_txt for m_ in msgs):
+            f.append(f"{cas} : avertissement « {a['code']} » absent du résultat")
+    if len(msgs) != len(r["avertissements"]):
+        f.append(f"{cas} : {len(msgs)} message(s) pour {len(r['avertissements'])} avertissement(s)")
+    plat = re.sub(r"\s+", "", texte(res))
+    for h in r["hypotheses"]:
+        if re.sub(r"\s+", "", texte(C.symb_math(h))) not in plat:
+            f.append(f"{cas} : hypothèse absente « {h[:40]} »")
+    if "Non couvert par ce module" not in res or any(C.symb_math(x) not in res for x in r["non_couvert"]):
+        f.append(f"{cas} : ce qui n'est pas couvert n'est pas écrit sous le résultat")
+    pied = re.search(rf'<div class="pfoot"><div class="mass"><span>Masse · ({NOMBRE}) m de pièce</span><b>({NOMBRE}) kg · ({NOMBRE}) kg/m</b></div>'
+                     rf'<div class="mass"><span>Poids propre</span><b>({NOMBRE}) kN/m( \(non compté\))?</b></div>', res)
+    if not pied or not affiche(pied.group(1), r["geometrie"]["longueur"] / 1000) or not affiche(pied.group(2), r["masse"]) \
+            or not affiche(pied.group(3), r["masse_lineique"]) or not affiche(pied.group(4), r["charges"]["poids_propre"]) \
+            or bool(pied.group(5)) != (not r["charges"]["poids_propre_compte"]):
+        f.append(f"{cas} : pied « {pied and pied.groups()} » ≠ {r['masse']}, {r['masse_lineique']}, {r['charges']['poids_propre']}")
+    # ---- le résumé de la note (une seule poutre)
+    rs = rep["resume"]
+    if len(en["poutres"]) == 1 and (rs["taux"] != C.pct(r["taux_max"]) or rs["niveau"] != niv_note or rs["statut"] != C.STATUTS[niv_note][1]
+                                    or rs["gouvernant"] != f"{p['nom'] or 'Poutre'} · {NOMS_COURTS[g['cle']].lower()}"):
+        f.append(f"{cas} : résumé {rs}")
+    return f
+
+
+# ====================================================================== 1. une note neuve
+print("=== 1. La note neuve")
+r0 = req(action="nouveau")
+e0 = r0["etat"]
+chk("une note neuve se calcule : version 2, une poutre « P1 » aux défauts de la conception, la réponse complète",
+    r0["ok"] and e0 == {"version": 2, "poutres": [MO.nouvelle_poutre("P1")], "actif": 0}
+    and all(k in r0 for k in ("resultat", "volets", "vues", "phrase", "statut_html", "resume", "donnees", "elements", "etat")), r0.get("erreur"))
+REF0 = MO.verifier(e0["poutres"][0])
+chk("elle s'ouvre CONFORME (56 %, la flèche finale nette gouverne), en vert pâle, et le résumé de la note le dit",
+    r0["resume"] == {"taux": 56, "niveau": "p", "statut": "Conforme", "gouvernant": "P1 · flèche finale nette"} and REF0["statut"] == "ok", r0["resume"])
+secs = re.findall(r'<div class="sec( open)?" data-sec="(\w+)"( data-secondaire="1")?><div class="sechd" data-replier="1"><span class="n">(\d)</span><span class="tt">([^<]*)</span>', r0["donnees"])
+chk("quatre rubriques numérotées : 1 Poutre et 2 Charges marquées ouvertes (l'établi compact n'ouvre que la première à la première ouverture, comme pour "
+    "les cornières), 3 Appuis et maintien, 4 Hypothèses (secondaire) repliées",
+    [(bool(o), k, bool(s), n, html.unescape(t)) for o, k, s, n, t in secs]
+    == [(True, "po", False, "1", "Poutre"), (True, "ch", False, "2", "Charges"), (False, "ap", False, "3", "Appuis et maintien"), (False, "hy", True, "4", "Hypothèses")], secs)
+chk("la colonne de gauche est la colonne COMPACTE : la ligne de l'élément (nom, liste, copier, supprimer), puis les rubriques",
+    '<div class="et-arbre et-arbre-c" data-poutre="0"><div class="et-elsel" data-elements="1">' in r0["donnees"] and 'class="et-elt-nom"' in r0["donnees"]
+    and r0["elements"] == "" and r0["phrase"] == "" and r0["statut_html"] == "")
+l0 = lignes(r0["resultat"])
+chk("la ligne « Flexion » porte la section (elle ouvre le sélecteur) et l'étoile d'une section plus légère qui tient (38 × 235, 95 %)",
+    l0[0]["nom"] == "Flexion" and l0[0]["piece"] == "75 × 225" and l0[0]["pk"] and l0[0]["leger"] == "La plus légère qui tient : 38 × 235 (95 %)", l0[0])
+chk("cinq lignes, chacune ouvre SA fenêtre ; le verdict ouvre celle de la vérification qui gouverne ; le bouton de chaque bloc « tout le calcul »",
+    [li["calcul"] for li in l0] == ["flexion", "cisaillement", "appui", "fleche_inst", "fleche_fin"] and 'class="verdict" data-calcul="fleche_fin"' in r0["resultat"]
+    and all(f'class="et-tout" data-calcul="s{i}"' in r0["resultat"] for i in (0, 1)) and all(f'id="ck-{k}"' in r0["volets"] for k in ("flexion", "cisaillement", "appui", "fleche_inst", "fleche_fin", "s0", "s1")))
+
+# ====================================================================== 2. le résultat face au moteur
+print("\n=== 2. Le résultat face au moteur, sur des états variés")
+ETATS = {
+    "la note neuve": e0,
+    "G seule gouverne (G = 3, Q = 0,5)": etat_avec(charges__G=3.0, charges__Q=0.5),
+    "G seule gouverne toute la note (2,5 m, G = 7, Q = 1)": etat_avec(L=2.5, charges__G=7.0, charges__Q=1.0),
+    "déversement (45 × 245 sur 5 m, aux appuis)": etat_avec(section="45x245", L=5.0, maintien__type="appuis"),
+    "entretoises à 1,25 m": etat_avec(section="45x245", L=5.0, maintien__type="entretoises", maintien__entraxe=1.25),
+    "lamellé-collé GL24h 120 × 400 sur 8 m": etat_avec(classe="GL24h", section="120x400", L=8.0, charges__G=3.0, charges__Q=4.0),
+    "l'appui gouverne (a = 40 mm)": etat_avec(section="100x300", L=3.0, charges__G=8.0, charges__Q=12.0, appui__a=40.0),
+    "classe de service 3": etat_avec(service=3),
+    "sur mesure 62,5 × 187,5": etat_avec(standard=False, b=62.5, h=187.5),
+    "surfacique 2 et 3 kN/m² à 0,60 m": etat_avec(charges__mode="surfacique", charges__g=2.0, charges__q=3.0, charges__entraxe=0.6),
+    "sans vérification d'appui, sans poids propre": etat_avec(appui__verifier=False, charges__poids_propre=False),
+    "sans charge variable": etat_avec(charges__Q=0.0),
+    "contre-flèche de 20 mm (poutre cambrée)": etat_avec(contre_fleche=20.0),
+    "effet système, entraxe 0,90 m": etat_avec(systeme=True, charges__mode="surfacique", charges__entraxe=0.9),
+    "appuis rapprochés (k_c,90 = 1)": etat_avec(section="100x300", L=0.65),
+    "près de 100 % (Q = 2,06 kN/m)": etat_avec(charges__Q=2.06),
+    "très au-delà (12 m, 20 + 30 kN/m)": etat_avec(L=12.0, charges__G=20.0, charges__Q=30.0),
+}
+for nom_cas, etat in ETATS.items():
+    fautes = controle_resultat(B, etat, nom_cas)
+    chk(f"le résultat = le moteur — {nom_cas}", not fautes, fautes[:3])
+rg = resultat_module(B, ETATS["G seule gouverne (G = 3, Q = 0,5)"])
+lg = lignes(rg["resultat"])
+chk("G seule qui gouverne l'ELU se LIT : la ligne de flexion finit par « · G seule », le bloc ELU est rouge (118,2 %) ; le verdict, lui, est la flèche "
+    "finale (153 %, « ELS caractéristique »)",
+    texte(lg[0]["cmp"]).rstrip().endswith("· G seule") and blocs(rg["resultat"])[0]["cls"] == "nok" and "118,2" in blocs(rg["resultat"])[0]["etat"]
+    and "ELS caractéristique" in texte(VERDICT.search(rg["resultat"]).group(5)) and VERDICT.search(rg["resultat"]).group(1) == "fleche_fin", lg[0]["cmp"])
+rg2 = resultat_module(B, ETATS["G seule gouverne toute la note (2,5 m, G = 7, Q = 1)"])
+chk("G seule qui gouverne TOUTE la note (flexion, 106,4 %) : le verdict dit « G seule · permanent » et ouvre la fenêtre de la flexion",
+    "G seule · permanent" in texte(VERDICT.search(rg2["resultat"]).group(5)) and VERDICT.search(rg2["resultat"]).group(1) == "flexion"
+    and rg2["resume"] == {"taux": 106, "niveau": "r", "statut": "Non conforme", "gouvernant": "P1 · flexion"}, (texte(VERDICT.search(rg2["resultat"]).group(5)), rg2["resume"]))
+rd = resultat_module(B, ETATS["déversement (45 × 245 sur 5 m, aux appuis)"])
+chk("le déversement se lit sur la ligne de flexion (« k_crit 0,398 ») et dans la rubrique 3 (l_ef = 4 990 mm, λ_rel,m = 1,584)",
+    "k crit  0,398" in texte(lignes(rd["resultat"])[0]["cmp"]) and f"4{C.FINE}990{C.NBSP}mm" in rd["donnees"] and "1,584" in rd["donnees"], texte(lignes(rd["resultat"])[0]["cmp"]))
+rp = resultat_module(B, ETATS["près de 100 % (Q = 2,06 kN/m)"])
+chk("près de 100 % : la bande verte foncée (95 à 100 %) — verdict « f », statut « Conforme, attention »",
+    rp["resume"]["niveau"] == "f" and rp["resume"]["statut"] == "Conforme, attention" and 95 <= rp["resume"]["taux"] <= 100, rp["resume"])
+rt = resultat_module(B, ETATS["très au-delà (12 m, 20 + 30 kN/m)"])
+chk("un taux de plus de 999 % s'écrit « > 999 % » par les briques (la valeur exacte au survol), rien n'est plafonné par le module",
+    "&gt; 999 %" in rt["resultat"] and rt["resume"]["taux"] > 999 and 'title="' in VERDICT.search(rt["resultat"]).group(0), rt["resume"])
+r100 = resultat_module(B, etat_avec(charges__Q=2.14))
+t100 = MO.verifier(B.normaliser(etat_avec(charges__Q=2.14))["poutres"][0])["taux_max"]
+chk(f"un taux juste au-dessus de 100 % ({100 * t100:.2f} %) est ROUGE et s'écrit 101 % (C.pct garde la bande), jamais « 100 % »",
+    1.0 < t100 < 1.005 and r100["resume"]["niveau"] == "r" and r100["resume"]["taux"] == 101 and "Non conforme" in blocs(r100["resultat"])[1]["etat"], (t100, r100["resume"]))
+
+# ====================================================================== 3. chaque champ relié
+print("\n=== 3. Chaque champ relié : modifier → l'état → le calcul")
+P = lambda e: e["poutres"][e["actif"]]  # noqa: E731
+CHAMPS = [  # (chemin, saisie, lecture dans l'état, valeur attendue, ce que le calcul doit montrer)
+    ("L", "4,5", lambda p: p["L"], 4.5, lambda r: r["geometrie"]["L_mm"] == 4500.0),
+    ("classe", "C30", lambda p: p["classe"], "C30", lambda r: r["materiau"]["fm_k"] == 30.0),
+    ("charges/G", "1,2", lambda p: p["charges"]["G"], 1.2, lambda r: r["charges"]["G"] == 1.2),
+    ("charges/Q", "1,5", lambda p: p["charges"]["Q"], 1.5, lambda r: r["charges"]["q"] == 1.5),
+    ("charges/mode", "surfacique", lambda p: p["charges"]["mode"], "surfacique", lambda r: r["charges"]["entraxe"] == 0.4),
+    ("charges/nature", "E", lambda p: (p["charges"]["nature"], p["charges"]["duree"], p["charges"]["psi2"]), ("E", "long", 0.8), lambda r: r["combinaisons"][1]["kmod"] == 0.7),
+    ("charges/poids_propre", False, lambda p: p["charges"]["poids_propre"], False, lambda r: r["charges"]["g"] == 0.6),
+    ("appui/a", "60", lambda p: p["appui"]["a"], 60.0, lambda r: r["appui"]["l_ef"] == 90.0),
+    ("appui/debord", "50", lambda p: p["appui"]["debord"], 50.0, lambda r: r["appui"]["l_ef"] == 160.0),
+    ("appui/verifier", False, lambda p: p["appui"]["verifier"], False, lambda r: len(r["verifications"]) == 4),
+    ("maintien/type", "appuis", lambda p: p["maintien"]["type"], "appuis", lambda r: r["deversement"]["l_ef"] == 0.9 * 4000 + 450),
+    ("service", "2", lambda p: p["service"], 2, lambda r: r["coefficients"]["kdef"] == 0.8),
+    ("gamma_G", "1,2", lambda p: p["gamma_G"], 1.2, lambda r: abs(r["combinaisons"][0]["p_d"] - 1.2 * r["charges"]["g"]) < 1e-12),
+    ("gamma_Q", "1,3", lambda p: p["gamma_Q"], 1.3, lambda r: abs(r["combinaisons"][1]["p_d"] - 1.35 * r["charges"]["g"] - 1.3 * 0.8) < 1e-12),
+    ("systeme", True, lambda p: p["systeme"], True, lambda r: r["coefficients"]["ksys"] == 1.1),
+    ("lim_inst", "500", lambda p: p["lim_inst"], 500, lambda r: r["fleches"]["lim_inst"] == 8.0),
+    ("lim_fin", "350", lambda p: p["lim_fin"], 350, lambda r: abs(r["fleches"]["lim_fin"] - 4000 / 350) < 1e-9),
+    ("contre_fleche", "5", lambda p: p["contre_fleche"], 5.0, lambda r: abs(r["fleches"]["w_net_fin"] - r["fleches"]["w_fin"] + 5) < 1e-9),
+    ("nom", "Gîte du séjour", lambda p: p["nom"], "Gîte du séjour", lambda r: True),
+]
 mal = []
-for chemin, valeur, texte in REFUS:
-    out = saisir(e0, chemin, valeur)
-    if not (out["message"] and texte in out["message"] and out["etat"] == e0):
-        mal.append((chemin, valeur, out["message"]))
-mes_b = saisir(mes["etat"], "b", "20")
-mes_h = saisir(mes["etat"], "h", "600")
-if not (mes_b["message"] and "entre 30 et 300 mm" in mes_b["message"] and mes_b["etat"] == mes["etat"]):
-    mal.append(("b", "20", mes_b["message"]))
-if not (mes_h["message"] and "entre 80 et 500 mm" in mes_h["message"]):
-    mal.append(("h", "600", mes_h["message"]))
-chk(f"{len(REFUS) + 2} saisies hors du domaine de l'écran Streamlit refusées avec un message clair ; la poutre reste intacte (jamais ramenée)",
-    not mal, mal)
-print("     ex. :", saisir(e0, "L", "0,2")["message"])
-chk("deux niveaux de chemin (« L/x ») sont refusés, pas une exception", saisir(e0, "L/x", "1")["message"].startswith("Champ inconnu"))
+for chemin, saisie, lire, attendu, calcul in CHAMPS:
+    out = saisir(e0, chemin, saisie)
+    p = P(out["etat"])
+    if out["message"] or lire(p) != attendu or not calcul(MO.verifier(p)) or controle_resultat(B, out["etat"], chemin):
+        mal.append((chemin, out["message"], lire(p), controle_resultat(B, out["etat"], chemin)[:1]))
+chk(f"{len(CHAMPS)} champs : la saisie arrive au bon endroit de l'état, le moteur recalcule, et l'écran rendu est encore celui du moteur", not mal, mal[:3])
+# les champs qui n'existent que dans un certain état : sur mesure, surfacique, entretoises, nature « autre »
+E_MES, E_SURF, E_ENT, E_AUTRE = etat_avec(standard=False), etat_avec(charges__mode="surfacique"), etat_avec(maintien__type="entretoises"), etat_avec(charges__nature="autre")
+CHAMPS_D_UN_ETAT = [  # (l'état de départ, chemin, saisie, lecture dans l'état, valeur attendue, ce que le calcul doit montrer)
+    (E_MES, "b", "62,5", lambda p: p["b"], 62.5, lambda r: r["geometrie"]["A"] == 62.5 * 225),
+    (E_MES, "h", "187,5", lambda p: p["h"], 187.5, lambda r: r["geometrie"]["W"] == 75 * 187.5 ** 2 / 6),
+    (E_SURF, "charges/g", "2,5", lambda p: p["charges"]["g"], 2.5, lambda r: abs(r["charges"]["G"] - 2.5 * 0.4) < 1e-12),
+    (E_SURF, "charges/q", "3", lambda p: p["charges"]["q"], 3.0, lambda r: abs(r["charges"]["q"] - 3.0 * 0.4) < 1e-12),
+    (E_SURF, "charges/entraxe", "0,6", lambda p: p["charges"]["entraxe"], 0.6, lambda r: abs(r["charges"]["G"] - 1.5 * 0.6) < 1e-12 and abs(r["charges"]["Q"] - 2.0 * 0.6) < 1e-12),
+    (E_ENT, "maintien/entraxe", "2", lambda p: p["maintien"]["entraxe"], 2.0, lambda r: r["deversement"]["l_ef"] == 2000.0 + 2 * 225),
+    (E_AUTRE, "charges/duree", "court", lambda p: p["charges"]["duree"], "court", lambda r: r["combinaisons"][1]["kmod"] == 0.9),
+    (E_AUTRE, "charges/psi2", "0,6", lambda p: p["charges"]["psi2"], 0.6, lambda r: r["coefficients"]["psi2"] == 0.6),
+]
+mal = []
+for depart, chemin, saisie, lire, attendu, calcul in CHAMPS_D_UN_ETAT:
+    out = saisir(depart, chemin, saisie)
+    p = P(out["etat"])
+    if out["message"] or lire(p) != attendu or not calcul(MO.verifier(p)) or controle_resultat(B, out["etat"], chemin):
+        mal.append((chemin, out["message"], lire(p), controle_resultat(B, out["etat"], chemin)[:1]))
+chk(f"{len(CHAMPS_D_UN_ETAT)} champs de plus, ceux qui n'existent que dans un état (b et h sur mesure ; g_s, q_s et l'entraxe en kN/m² ; l'entraxe des entretoises ; "
+    "la durée et ψ₂ de la nature « autre ») : reliés de même", not mal, mal[:3])
+relies = {c[0] for c in CHAMPS} | {c[1] for c in CHAMPS_D_UN_ETAT} | {"standard"}
+champs_donnees = set(re.findall(r'data-chemin="([^"]+)"', "".join(resultat_module(B, e)["donnees"] for e in (
+    e0, etat_avec(standard=False), etat_avec(charges__mode="surfacique"), etat_avec(maintien__type="entretoises")))))
+attendus = {"nom", "classe", "standard", "b", "h", "L", "charges/mode", "charges/G", "charges/Q", "charges/g", "charges/q", "charges/entraxe", "charges/nature",
+            "charges/poids_propre", "charges/duree", "charges/psi2", "appui/a", "appui/debord", "appui/verifier", "maintien/type", "maintien/entraxe", "service",
+            "gamma_G", "gamma_Q", "systeme", "lim_inst", "lim_fin", "contre_fleche"}
+chk("le cadre Données offre TOUS les champs de la poutre (28 chemins, section standard par le sélecteur) et aucun autre ; chacun est dans une des deux "
+    "tables ci-dessus (« standard » : plus bas)", champs_donnees == attendus and relies == attendus,
+    (sorted(attendus - champs_donnees), sorted(champs_donnees - attendus), sorted(attendus ^ relies)))
+# la saisie surfacique, les entretoises, la section sur mesure : leurs champs n'apparaissent que quand ils jouent
+d0 = r0["donnees"]
+d_surf = saisir(e0, "charges/mode", "surfacique")
+chk("kN/m : G et Q ; kN/m² : g_s, q_s et l'entraxe, avec les charges linéaires qu'ils donnent (0,600 et 0,800 kN/m)",
+    'data-chemin="charges/G"' in d0 and 'data-chemin="charges/g"' not in d0 and 'data-chemin="charges/entraxe"' in d_surf["donnees"]
+    and 'data-chemin="charges/G"' not in d_surf["donnees"] and f"G = 0,600{C.NBSP}kN/m · Q = 0,800{C.NBSP}kN/m" in d_surf["donnees"])
+d_ent = saisir(e0, "maintien/type", "entretoises")
+chk("l'entraxe des entretoises n'apparaît que pour ce maintien ; la rubrique dit alors l_ef, λ_rel,m et k_crit",
+    'data-chemin="maintien/entraxe"' in d_ent["donnees"] and 'data-chemin="maintien/entraxe"' not in d0 and "λ<sub>rel,m</sub>" in d_ent["donnees"]
+    and "pas de déversement" in d0)
+d_mes = saisir(e0, "standard", "mesure")
+chk("« Sur mesure » part des dimensions de la section affichée (75 × 225) : b et h sur une ligne, plus de bouton de section",
+    P(d_mes["etat"])["standard"] is False and (P(d_mes["etat"])["b"], P(d_mes["etat"])["h"]) == (75.0, 225.0) and 'class="row2 n2"' in d_mes["donnees"]
+    and 'data-chemin="b"' in d_mes["donnees"] and 'class="bo-pk"' not in d_mes["donnees"] and 'class="bo-pk" data-pk="section"' in d0)
+d_b = saisir(d_mes["etat"], "b", "80")
+d_std = saisir(saisir(d_b["etat"], "h", "240")["etat"], "standard", "standard")
+chk("retour à « Standard » depuis 80 × 240 : la section standard la plus proche (100 × 200), b et h la suivent",
+    P(d_std["etat"])["standard"] is True and P(d_std["etat"])["section"] == "100x200" and (P(d_std["etat"])["b"], P(d_std["etat"])["h"]) == (100.0, 200.0), P(d_std["etat"]))
+# le bois qui change de type
+d_gl = saisir(e0, "classe", "GL24h")
+pg = P(d_gl["etat"])
+chk("du massif au lamellé-collé : la section 75 × 225 GARDE ses dimensions, en « sur mesure » (elle n'existe pas en lamellé) ; l'AVIS le dit une fois, "
+    "en tête du résultat et dans « avis », et n'est pas gardé dans l'état",
+    not d_gl["message"] and pg["classe"] == "GL24h" and pg["standard"] is False and (pg["b"], pg["h"]) == (75.0, 225.0) and pg["section"] == "80x200"
+    and len(d_gl.get("avis", [])) == 1 and "75 × 225" in d_gl["avis"][0] and "lamellé-collé" in d_gl["avis"][0] and C.esc(d_gl["avis"][0]) in d_gl["resultat"]
+    and B.CLE_AVIS not in d_gl["etat"] and "avis" not in req(action="calculer", etat=d_gl["etat"]), (pg, d_gl.get("avis")))
+d_c30 = saisir(e0, "classe", "C30")
+chk("dans le même type (C24 → C30), rien d'autre ne bouge et aucun avis n'est dit",
+    P(d_c30["etat"])["standard"] is True and P(d_c30["etat"])["section"] == "75x225" and "avis" not in d_c30)
+d_200 = saisir(etat_avec(section="100x200"), "classe", "GL28c")
+chk("une section que les deux types proposent (100 × 200) reste standard quand le bois change de type, sans avis",
+    P(d_200["etat"])["standard"] is True and P(d_200["etat"])["section"] == "100x200" and "avis" not in d_200, P(d_200["etat"]))
+d_retour = saisir(d_gl["etat"], "classe", "C24")
+chk("retour au massif depuis le lamellé sur mesure 75 × 225 : la section reste sur mesure (rien n'est deviné), la réserve redevient 75 × 225",
+    P(d_retour["etat"])["standard"] is False and P(d_retour["etat"])["section"] == "75x225" and "avis" not in d_retour, P(d_retour["etat"]))
+menu = re.search(r'<select data-chemin="classe" data-sorte="choix">(.*?)</select>', d0, re.S).group(1)
+groupes = re.findall(r'<optgroup label="([^"]*)">(.*?)</optgroup>', menu, re.S)
+chk("le menu « Bois » est groupé : d'abord les 12 classes du bois massif (EN 338), puis les 6 du lamellé-collé (EN 14080)",
+    [html.unescape(g_[0]) for g_ in groupes] == ["Bois massif résineux · EN 338", "Lamellé-collé résineux · EN 14080"]
+    and [re.findall(r'value="([^"]+)"', g_[1]) for g_ in groupes] == [[c for c in D.CLASSES if c.startswith("C")], [c for c in D.CLASSES if c.startswith("GL")]], groupes)
+# la nature de Q et ses verrous
+chk("nature « A · habitation » : la ligne discrète dit « moyen terme (1 semaine à 6 mois) · k_mod = 0,8 · ψ₂ = 0,3 » ; la durée et ψ₂ sont LUS et verrouillés",
+    "moyen terme (1 semaine à 6 mois) · k<sub>mod</sub> = 0,8 · ψ<sub>2</sub> = 0,3" in d0
+    and re.search(r'<select data-chemin="charges/duree" data-sorte="choix" disabled>', d0) and re.search(r'<input data-chemin="charges/psi2"[^>]*value="0,3"[^>]* disabled>', d0))
+d_autre = saisir(e0, "charges/nature", "autre")
+chk("nature « autre » : la durée et ψ₂ partent des derniers (moyen terme, 0,3) et se DÉVERROUILLENT",
+    (P(d_autre["etat"])["charges"]["duree"], P(d_autre["etat"])["charges"]["psi2"]) == ("moyen", 0.3)
+    and 'data-chemin="charges/duree" data-sorte="choix">' in d_autre["donnees"] and not re.search(r'<input data-chemin="charges/psi2"[^>]* disabled>', d_autre["donnees"])
+    and "à saisir dans les Hypothèses" in d_autre["donnees"])
+d_inst = saisir(saisir(d_autre["etat"], "charges/duree", "instantane")["etat"], "charges/psi2", "0,5")
+chk("… et jouent : instantané → k_mod 1,1 ; ψ₂ = 0,5 ; revenir à « neige » les refixe (court terme, 0)",
+    MO.verifier(P(d_inst["etat"]))["combinaisons"][1]["kmod"] == 1.1 and P(d_inst["etat"])["charges"]["psi2"] == 0.5
+    and (P(saisir(d_inst["etat"], "charges/nature", "neige")["etat"])["charges"]["duree"], P(saisir(d_inst["etat"], "charges/nature", "neige")["etat"])["charges"]["psi2"]) == ("court", 0.0))
+d_sans = saisir(e0, "appui/verifier", False)
+ls_sans = lignes(d_sans["resultat"])
+chk("l'appui retiré de la note : la ligne « Appui » reste, grise, « non vérifié », sans fenêtre ; l'avertissement le dit",
+    [(li["nom"], li["mot"], li["calcul"]) for li in ls_sans if li["mot"]] == [("Appui", "non vérifié", None)] and "n'est pas vérifiée" in d_sans["resultat"]
+    and 'id="ck-appui"' not in d_sans["volets"], [(li["nom"], li["mot"]) for li in ls_sans])
+chk("la case du poids propre porte sa valeur (0,070 kN/m) ; la rubrique 1 dit A, W, I et la masse au mètre",
+    f"Poids propre compté · 0,070{C.NBSP}kN/m" in d0 and f"A = 168,8{C.NBSP}cm² · W = 632,8{C.NBSP}cm³ · I = 7{C.FINE}119{C.NBSP}cm⁴ · 7,09{C.NBSP}kg/m" in d0)
+aides = re.findall(r'<span class="aide" title="([^"]+)">', d0)
+chk("les explications sont dans les ⓘ (au moins 14), dont l'hypothèse du maintien : « appuis … maintenus en torsion »",
+    len(aides) >= 14 and any("maintenus en torsion" in html.unescape(a) for a in aides), len(aides))
 
-# ------------------------------------------------------------------ 4. le taux de 100 % exactement
-print("\n=== 4. Les bornes de couleur ===")
-e100 = etat_de(classe="C14", service=3, duree="moyen", section="100x250", G=1.0, Q=2.0, L=2.0, appui=True, a=30.0)
-r100 = req(module="bois", action="calculer", etat=e100)
-l100 = [x for x in lignes(r100["resultat"]) if x["nom"] == "Compression à l'appui"][0]
-v100 = next(v for v in MO.verifier(e100["poutres"][0])["verifications"] if v["cle"] == "appui")
-chk("compression à l'appui EXACTEMENT 100 % : conforme pour l'écran (≤ 1,0), vert foncé « f » sur le site, affiché 100 %",
-    v100["taux"] == 1.0 and v100["etat"] == MO.OK and l100["niveau"] == "f" and l100["txt"] == f"100{C.NBSP}%", (v100["taux"], l100))
-e_ok = etat_de(section="75x225", L=0.8, G=0.02, Q=0.0, classe="C30")
-r_ok = req(module="bois", action="calculer", etat=e_ok)
-chk("une poutre qui tient partout : « Conforme », vert pâle, aucune ligne rouge",
-    r_ok["resume"]["niveau"] == "p" and r_ok["resume"]["statut"] == "Conforme" and all(x["niveau"] == "p" for x in lignes(r_ok["resultat"])),
-    (r_ok["resume"], [x["txt"] for x in lignes(r_ok["resultat"])]))
+# ====================================================================== 4. les refus
+print("\n=== 4. Les refus : le message du moteur, la poutre intacte")
+REFUS = [
+    ("L", "0,2", ("portée L", "0,5 et 30 m", "0,2")), ("L", "quatre", ("Nombre illisible",)), ("L", "", ("Nombre illisible",)), ("L", "1e400", ("Nombre illisible",)),
+    ("charges/Q", "-3", ("charge variable Q", "0 et 200")), ("charges/G", "300", ("charge permanente G",)), ("appui/a", "10", ("longueur d'appui a", "20 et 600")),
+    ("appui/a", "4000", ("longueur d'appui",)), ("gamma_G", "0,9", ("γ_G", "1 et 1,5")), ("gamma_Q", "2,5", ("γ_Q",)), ("contre_fleche", "-1", ("contre-flèche",)),
+    ("charges/psi2", "0,7", ("ψ₂", "habitation", "autre")), ("charges/duree", "court", ("durée", "court terme", "autre")), ("service", "4", ("classe de service",)),
+    ("service", "1,5", ("Choix illisible",)), ("lim_inst", "275", ("flèche instantanée",)), ("classe", "D30", ("classe de résistance",)),
+    ("charges/nature", "vent", ("nature",)), ("maintien/type", "libre", ("maintien",)), ("charges/mode", "ponctuelle", ("mode",)),
+    ("systeme", "oui", ("vrai ou faux",)), ("b", "80", ("largeur b", "section standard")), ("section", "80x160", ("80 × 160", "bois massif")),
+    ("standard", "peut-être", ("standard ou sur mesure",)), ("inconnu", "1", ("Champ inconnu",)), ("charges/inconnu", "1", ("Champ inconnu",)),
+    ("nom", "x" * 61, ("Nom trop long", "61")),
+]
+mal = []
+for chemin, valeur, mots in REFUS:
+    out = req(action="modifier", etat=copy.deepcopy(e0), chemin=chemin.split("/"), valeur=valeur)
+    if not out.get("ok") or not out.get("message") or out["etat"] != e0 or not all(m in out["message"] for m in mots) or re.search(r"\d\.\d", out["message"]):
+        mal.append((chemin, valeur, out.get("message") or out.get("erreur")))
+chk(f"{len(REFUS)} saisies hors domaine : chacune refusée avec un message qui nomme le champ (sans nombre « à point »), la note intacte", not mal, mal[:4])
+m_L = req(action="modifier", etat=copy.deepcopy(e0), chemin=["L"], valeur="0,2")["message"]
+chk("le message : « Saisie refusée : la portée L doit rester entre 0,5 et 30 m (reçu : 0,2) »", m_L == "Saisie refusée : la portée L doit rester entre 0,5 et 30 m (reçu : 0,2)", m_L)
+e_ent = saisir(e0, "maintien/type", "entretoises")["etat"]
+m_e = req(action="modifier", etat=copy.deepcopy(e_ent), chemin=["maintien", "entraxe"], valeur="9")
+chk("un entraxe d'entretoises plus grand que la portée est refusé (9 m sur 4 m), le champ nommé",
+    m_e["etat"] == e_ent and "entraxe des entretoises" in m_e["message"] and "portée" in m_e["message"], m_e["message"])
+m_gl = req(action="modifier", etat=copy.deepcopy(e0), chemin=["classe"], valeur="GL99")
+chk("un refus pendant un changement de bois ne laisse ni la poutre modifiée ni un avis en attente", m_gl["etat"] == e0 and "avis" not in m_gl and m_gl["message"], m_gl.get("message"))
+chk("les champs ne portent pas de bornes locales (data-min, data-max) : c'est le moteur qui refuse et dit le domaine", "data-min" not in d0 and "data-max" not in d0)
+m_psi = req(action="modifier", etat=copy.deepcopy(e0), chemin=["charges", "psi2"], valeur="0,3")
+chk("réécrire un champ verrouillé avec sa valeur lue (ψ₂ = 0,3 en habitation) ne refuse ni ne change rien", m_psi["ok"] and not m_psi["message"] and m_psi["etat"] == e0)
 
-# ------------------------------------------------------------------ 5. le sélecteur
-print("\n=== 5. Le sélecteur de sections ===")
-s = req(module="bois", action="selecteur", etat=e_ok, role="section")
-rows = re.findall(r'<button class="pk-row( cur)?( opt)?" data-choix="([^"]+)" data-prop="([^"]*)"><span class="mk">.*?</span>'
-                  r'<span class="nm">([^<]+)</span><span class="kg">([^<]+)</span><span class="chip (\w)">([^<]+)</span>', s["html"])
-cands = MO.candidats_sections(e_ok["poutres"][0])
-chk("onze sections, dans l'ordre du moteur (par aire, donc par masse) ; la colonne est la masse en kg/m, croissante",
-    [x[2] for x in rows] == [B._tag(c["nom"]) for c in cands] and len(rows) == 11
-    and [float(x[5].replace(",", ".")) for x in rows] == sorted(float(x[5].replace(",", ".")) for x in rows), [x[2] for x in rows])
-chk("la retenue ✓ (75 × 225) et la plus légère qui tient ★ du moteur sont marquées",
-    [x[2] for x in rows if x[0]] == ["75 × 225"] and [x[2] for x in rows if x[1]] == [B._tag(MO.optimal(e_ok["poutres"][0])["nom"])], rows[:2])
-chk("chaque ligne : le taux du moteur (plafonné) et sa couleur ; les propriétés A, I, W et la vérification qui gouverne",
-    all(x[7] == f"{C.pc(C.pct(min(c['taux'], B.PLAFOND)))}{C.NBSP}%" and x[6] == ("r" if not c["ok"] else C.niveau(c["taux"]))
-        and "A = " in x[3] and "cm⁴" in x[3] and "gouverne" in x[3] for x, c in zip(rows, cands)))
-opt = MO.optimal(e_ok["poutres"][0])
-chk("la ligne « Flexion » porte l'étoile de la plus légère qui tient quand elle n'est pas la retenue",
-    f"Plus légère qui tient : {B._tag(opt['nom'])}" in r_ok["resultat"])
-ch = req(module="bois", action="choisir", etat=e_ok, role="section", nom=B._tag(opt["nom"]))
-chk(f"choisir « {B._tag(opt['nom'])} » la retient (l'étiquette du sélecteur est relue) ; l'étoile disparaît",
-    ch["etat"]["poutres"][0]["section"] == opt["nom"] and ch["etat"]["poutres"][0]["standard"] is True and 'class="leger"' not in ch["resultat"])
-ch2 = req(module="bois", action="choisir", etat=mes["etat"], role="section", nom="63 × 175")
-chk("choisir une section depuis une poutre sur mesure la repasse en « standard »",
-    ch2["etat"]["poutres"][0]["standard"] is True and ch2["etat"]["poutres"][0]["section"] == "63x175" and ch2["etat"]["poutres"][0]["b"] == 80.0)
-s0 = req(module="bois", action="selecteur", etat=e0, role="section")
-chk("aucune section ne tient (la note neuve) : pas d'étoile, et le sous-titre le dit", "aucune ne tient" in s0["html"] and 'pk-row opt' not in s0["html"]
-    and 'pk-row cur' in s0["html"])
+# ====================================================================== 5. le sélecteur
+print("\n=== 5. Le sélecteur de sections")
+ROW = re.compile(r'<button class="pk-row(?P<cls>[^"]*)" data-choix="(?P<nom>[^"]+)" data-prop="(?P<prop>[^"]*)"><span class="mk">(?P<mk>.*?)</span>'
+                 r'<span class="nm">(?P<nm>[^<]*)</span><span class="kg">(?P<kg>[^<]*)</span>(?:<span class="chip (?P<niv>\w)"(?: title="[^"]*")?>(?P<taux>[^<]*)</span>)?</button>', re.S)
 
-# ------------------------------------------------------------------ 6. les poutres de la note
-print("\n=== 6. Les poutres de la note ===")
-a = req(module="bois", action="ajouter", etat=e_ok)
-chk("« Ajouter une poutre » : P2 aux défauts de l'écran, ouverte", [p["nom"] for p in a["etat"]["poutres"]] == ["P1", "P2"] and a["etat"]["actif"] == 1)
-d = req(module="bois", action="dupliquer", etat=a["etat"])
-chk("« Copier » : la poutre ouverte est copiée, « (copie) »", [p["nom"] for p in d["etat"]["poutres"]] == ["P1", "P2", "P2 (copie)"])
-chk("le résumé de la note est sa poutre la plus chargée (P2 à 999 %, pas P1 conforme)",
-    d["resume"]["gouvernant"].startswith("P2") and d["resume"]["niveau"] == "r")
-act = req(module="bois", action="activer", etat=d["etat"], index=0)
-chk("« activer » ouvre P1 : ses données et son résultat", act["etat"]["actif"] == 0 and "75 × 225" in act["resultat"] and 'value="P1"' in act["donnees"])
-sup = req(module="bois", action="supprimer", etat=act["etat"], index=0)
-chk("supprimer P1 : il reste P2 et sa copie", [p["nom"] for p in sup["etat"]["poutres"]] == ["P2", "P2 (copie)"])
-dern = req(module="bois", action="supprimer", etat=e0, index=0)
-chk("la dernière poutre ne se supprime pas", len(dern["etat"]["poutres"]) == 1)
-items = re.findall(r'<div class="ni( on)?" data-activer="(\d)"><span class="t">([^<]+)<span>([^<]+)</span></span><span class="pct (\w)">([^<]+)</span>',
-                   d["elements"])
-chk("la liste « Dans cette note » : nom, dimensions, classe, taux et couleur de chaque poutre",
-    [(x[2].strip(), x[3]) for x in items] == [("P1", "· 75 × 225 · C30"), ("P2", "· 38 × 150 · C24"), ("P2 (copie)", "· 38 × 150 · C24")]
-    and [x[4] for x in items] == ["p", "r", "r"], items)
 
-# ------------------------------------------------------------------ 7. les dessins
-print("\n=== 7. Les dessins : à l'échelle, les valeurs du moteur ===")
-vues = {v["cle"]: v for v in r_ap["vues"]}
-chk("trois vues : schéma et efforts, déformée, section", list(vues) == ["poutre", "deformee", "section"])
-rp = MO.verifier(r_ap["etat"]["poutres"][0])
-k = DB.LARGEUR / rp["geometrie"]["L_mm"]
-rect = re.search(r'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="([\d.]+)" fill="' + DB.BOIS, vues["poutre"]["svg"])
-chk("schéma : la poutre à l'échelle de la portée — hauteur h·k, longueur L·k + un débord a/2 de chaque côté (4 unités au moins)",
-    rect and abs(float(rect.group(3)) - 150 * k) < 0.06 and abs(float(rect.group(2)) - (4000 * k + 2 * max(30 * k, 4.0))) < 0.06,
-    rect.groups() if rect else None)
-pads = re.findall(r'<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="6" fill="' + DB.ARDOISE, vues["poutre"]["svg"])
-chk("schéma : les deux appuis de largeur a à la même échelle (appui coché) ; aucun sinon",
-    len(pads) == 2 and all(abs(float(w) - 60 * k) < 0.06 for w in pads) and DB.ARDOISE + '"/>' not in r["vues"][0]["svg"].split("height=\"6\"")[0][-60:])
-for txt in ("Q = 3 kN/m", "G = 2 kN/m", "= 14,40 kN", "= 14,40 kN·m", "L = 4 000", "1,35 × 2 + 1,5 × 3 = 7,20 kN/m", "+14,40", "−14,40"):
-    if txt not in vues["poutre"]["svg"]:
-        chk(f"schéma : « {txt} » écrit", False)
-chk("schéma : charges, réactions, V et M aux valeurs du moteur, portée cotée", all(t in vues["poutre"]["svg"] for t in (
-    "Q = 3 kN/m", "G = 2 kN/m", "= 14,40 kN", "= 14,40 kN·m", "L = 4 000", "1,35 × 2 + 1,5 × 3 = 7,20 kN/m", "+14,40", "−14,40")))
-chk("déformée : les flèches et taux de l'écran dans la légende (141 768,6 mm · 1 063 264 %)",
-    "141 768,6 mm" in vues["deformee"]["svg"] and "1 063 264 %" in vues["deformee"]["svg"] and "L/300" in vues["deformee"]["svg"])
-sec = re.search(r'<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="([\d.]+)" fill="' + DB.BOIS_CLAIR, vues["section"]["svg"])
-chk("section : le rectangle a la proportion b / h exacte (38 / 150)", sec and abs(float(sec.group(1)) / float(sec.group(2)) - 38 / 150) < 0.002,
-    sec.groups() if sec else None)
-chk("section : σ_m,Ed, f_m,d, τ_Ed, f_v,d du moteur sous leurs diagrammes", all(t in vues["section"]["svg"] for t in ("= 101,05", "= 12,92", "= 3,79", "= 2,15")))
-chk("chaque dessin est un SVG à viewBox, sans script ni ressource externe",
-    all(v["svg"].startswith("<svg id=") and "viewBox" in v["svg"] and "<script" not in v["svg"] and "href" not in v["svg"].replace("url(#", "")
-        for v in r_ap["vues"]))
-ids = re.findall(r'clipPath id="([^"]+)"', vues["section"]["svg"])
-chk("le détourage des cernes porte un identifiant propre à la section (deux dessins d'une page ne se mêlent pas)",
-    ids and "38x150" in ids[0])
-chk("la phrase de la première vue : section, classe, portée, q_ELU", r["phrase"] == "38 × 150 mm · C24 · L = 4,00 m · q<sub>ELU</sub> = 7,20 kN/m", r["phrase"])
+def fautes_selecteur(mod, etat, cas):
+    f = []
+    en = mod.normaliser(copy.deepcopy(etat))
+    p = en["poutres"][en["actif"]]
+    cands = MO.candidats_sections(p)
+    h = mod.selecteur(en, "section")
+    rows = [m.groupdict() for m in ROW.finditer(h)]
+    if len(rows) != len(cands):
+        return [f"{cas} : {len(rows)} lignes pour {len(cands)} sections"]
+    for row, c in zip(rows, cands):
+        niv = "r" if not c["ok"] else C.niveau(c["taux"])
+        if html.unescape(row["nom"]) != c["designation"] or not affiche(row["kg"], c["masse"]) or row["niv"] != niv \
+                or html.unescape(row["taux"]) != html.unescape(pct_txt(c["taux"])):
+            f.append(f"{cas} {c['nom']} : {row['nom']} {row['kg']} {row['niv']} {row['taux']} ≠ {c['masse']} {niv} {pct_txt(c['taux'])}")
+        if (" cur" in row["cls"]) != c["retenue"] or (" opt" in row["cls"]) != c["optimal"]:
+            f.append(f"{cas} {c['nom']} : ✓ ou ★ mal posé ({row['cls']})")
+        prop = html.unescape(row["prop"])
+        if NOMS_COURTS[c["gouvernant"]].lower() not in prop or ("ne tient pas" in prop) != (not c["ok"]):
+            f.append(f"{cas} {c['nom']} : propriétés « {texte(prop)[:60]} »")
+    masses = [lire_fr(row["kg"])[0] for row in rows]
+    if masses != sorted(masses):
+        f.append(f"{cas} : pas triées par masse")
+    if f"{len(cands)} sections" not in h or ("aucune ne tient" in h) != (not any(c["ok"] for c in cands)):
+        f.append(f"{cas} : sous-titre")
+    return f
 
-# ------------------------------------------------------------------ 8. échappement
-print("\n=== 8. Échappement ===")
-piege = '<img src=x onerror=alert(1)>'
-pe = saisir(e0, "nom", piege)
-fr = [pe["resultat"], pe["volets"], pe["donnees"], pe["elements"], "".join(v["svg"] for v in pe["vues"]), pe["phrase"]]
-chk("un nom piégé est échappé dans tous les fragments (données, éléments, fenêtres)", not any("<img" in f for f in fr)
-    and "&lt;img" in pe["elements"] and "&lt;img" in pe["volets"])
-abime = req(module="bois", action="calculer", etat={"version": 1, "poutres": [{"classe": "C99"}], "actif": 0})
-chk("une poutre abîmée dans un fichier .stab : une erreur lisible, jamais une exception",
-    abime["ok"] is False and "classe" in abime["erreur"], abime.get("erreur"))
 
-# ------------------------------------------------------------------ 9. ce que la relecture a corrigé
-print("\n=== 9. Relecture : défaut non conservatif de plus, messages, petits nombres, dessins réduits, robustesse ===")
-eG = etat_de(section="63x200", duree="moyen", L=3.0, G=3.0, Q=0.5)
-rG = req(module="bois", action="calculer", etat=eG)
-cgG = MO.verifier(eG["poutres"][0])["indicatif"]["combinaison_G"]
-eluG = rG["volets"].split('id="ck-els"')[0]
-chk("combinaison 1,35·G seule (G domine, moyen terme) : un message ROUGE dit qu'elle gouverne, avec le taux du moteur (104 %), non retenu",
-    re.search(r'<div class="msg grave"><b>Combinaison γ<sub>G</sub>·G seule non vérifiée par l\'écran Streamlit</b>.*?k<sub>mod</sub> permanent = 0,6'
-              r'.*?flexion ' + re.escape(B._pc(cgG["u_flex"])) + r'.*?non retenu', rG["resultat"]) is not None
-    and B._pc(cgG["u_flex"]).startswith("103,7"), B._pc(cgG["u_flex"]))
-chk("… et le pied du calcul ELU le chiffre (q = 4,05 kN/m, flexion et cisaillement) ; le verdict reste celui de l'écran Streamlit",
-    "à titre indicatif : q = γ<sub>G</sub>·G = 4,05 kN/m" in eluG and B._pc(cgG["u_shear"]) in eluG
-    and [x["txt"] for x in lignes(rG["resultat"])][0] == f"92{C.NBSP}%")
-chk("… ce message vient EN TÊTE des messages (avant l'écart d'unité des flèches) : le défaut non conservatif d'abord",
-    0 <= rG["resultat"].find("Combinaison γ<sub>G</sub>·G seule") < rG["resultat"].find("Flèches de l'écran Streamlit 1 000 fois"))
-rGt = req(module="bois", action="calculer", etat=etat_de(section="63x200", duree="moyen", L=0.5, G=3.0, Q=0.5))
-cgT = MO.verifier(rGt["etat"]["poutres"][0])["indicatif"]["combinaison_G"]
-chk("une combinaison G seule qui gouverne mais reste petite (L = 0,5 m : quelques %) : pas de message, ses chiffres au pied du calcul ELU",
-    "Combinaison γ" not in rGt["resultat"] and cgT["u_flex"] < 0.95 and B._pc(cgT["u_flex"]) in rGt["volets"], B._pc(cgT["u_flex"]))
-rGp = req(module="bois", action="calculer", etat=etat_de(section="63x200", duree="permanent", L=3.0, G=3.0, Q=0.5))
-chk("durée « permanente » : ni message ni écart « combinaison G » (l'écran la couvre déjà)",
-    "Combinaison γ" not in rGp["resultat"] and "γ_G·G seule" not in rGp["volets"] and "γ<sub>G</sub>·G seule" not in rGp["volets"])
-chk("la note neuve (Q domine) : l'écart est cité au pied du calcul ELU, mais aucun message (la combinaison ne gouverne pas)",
-    "Combinaison γ" not in r["resultat"] and "γ<sub>G</sub>·G seule" in elu)
-chk("le rappel de l'écran Streamlit « ajuster la base et les facteurs selon l'Annexe nationale » est sous le résultat",
-    "selon l'Annexe nationale" in r["resultat"])
-chk("aucun champ ne porte de borne locale (data-min / data-max) : le refus vient du moteur, avec son domaine, et le champ revient à la "
-    "valeur retenue", "data-min" not in r["donnees"] + mes["donnees"] + r_ap["donnees"] and "data-max" not in r["donnees"] + mes["donnees"])
-mL = saisir(e0, "L", "0,2")["message"]
-chk("le message de refus dit le domaine en clair : « La portée L doit rester entre 0,5 et 12 m, comme dans l'écran Streamlit (reçu 0,2) »",
-    mL == "Saisie refusée : la portée L doit rester entre 0,5 et 12 m, comme dans l'écran Streamlit (reçu 0,2)", mL)
-chk("un petit effort garde deux chiffres significatifs : M_Ed = 0,0022 kN·m (pas « 0,00 ») dans les chiffres clés et sur le schéma",
-    "<dt>M<sub>Ed</sub></dt><dd>0,0022 kN·m</dd>" in r_ok["resultat"] and "= 0,0022 kN·m" in r_ok["vues"][0]["svg"]
-    and "0,00 kN" not in r_ok["vues"][0]["svg"])
-r0 = req(module="bois", action="calculer", etat=etat_de(G=0.0, Q=0.0))
-chk("sans charge : V s'écrit 0, jamais « −0,00 »", "−0,00" not in r0["vues"][0]["svg"] and "+0,00" not in r0["vues"][0]["svg"])
-rH = req(module="bois", action="calculer", etat=etat_de(standard=False, b=60.0, h=500.0, L=0.5, G=50.0, Q=50.0, appui=True, a=200.0))
-svgH = rH["vues"][0]["svg"]
-hH = re.search(r'<rect x="[\d.]+" y="[\d.]+" width="[\d.]+" height="([\d.]+)" fill="' + DB.BOIS, svgH)
-padsH = re.findall(r'<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="6" fill="' + DB.ARDOISE, svgH)
-chk("poutre haute sur portée courte (500 mm sur 0,5 m, a = 200 mm) : hauteur et appuis RÉDUITS pour la lisibilité, et c'est écrit",
-    hH and float(hH.group(1)) == DB.HB_MAX and all(abs(float(w) - DB.APPUI_MAX * DB.LARGEUR) < 0.06 for w in padsH) and len(padsH) == 2
-    and "dessin réduit pour la lisibilité : h = 500 mm, a = 200 mm" in svgH, (hH.group(1) if hH else None, padsH))
-chk("… et une poutre courante n'est pas réduite (pas de mention)", "dessin réduit" not in r["vues"][0]["svg"])
-chk("les étiquettes posées sur un trait (L/300, L/200, L/2, compression, traction) sont détourées de blanc",
-    all(re.search(r'paint-order="stroke"[^>]*>' + re.escape(t) + "<", svg) for t, svg in
-        (("L/300", r["vues"][1]["svg"]), ("L/200", r["vues"][1]["svg"]), ("L/2", r["vues"][0]["svg"]),
-         ("compression", r["vues"][2]["svg"]), ("traction", r["vues"][2]["svg"]))))
-chk("les écarts du pied des fenêtres écrivent leurs indices (k<sub>cr</sub>, w<sub>inst,Q</sub>, G<sub>mean</sub>)",
-    "k<sub>cr</sub>" in elu and "w<sub>inst,Q</sub>" in els and "G<sub>mean</sub>" in els)
-inf = req(module="bois", action="calculer", etat=dict(e0, actif=float("inf")))
-txt = req(module="bois", action="activer", etat=e0, index="abc")
-chk("une note dont le rang actif est infini, un rang « abc » : relus (poutre 1), jamais une erreur",
-    inf["ok"] and inf["etat"]["actif"] == 0 and txt["ok"] and txt["etat"]["actif"] == 0, (inf.get("erreur"), txt.get("erreur")))
-pg = saisir(e0, "classe", piege)
-chk("un texte piégé dans un menu (classe) : refusé, la poutre intacte, aucun fragment ne le porte brut",
-    pg["message"] and pg["etat"] == e0 and not any("<img" in x for x in (pg["resultat"], pg["volets"], pg["donnees"], pg["elements"])))
+sel0 = req(action="selecteur", etat=e0, role="section")
+fs = fautes_selecteur(B, e0, "massif")
+chk("note neuve : 26 sections du bois massif par masse, chacune au taux du moteur (rouge quand elle ne tient pas), ✓ sur 75 × 225, ★ sur 38 × 235",
+    sel0["ok"] and not fs and "Section · bois massif C24" in sel0["html"] and re.search(r'pk-row opt" data-choix="38 × 235"', sel0["html"])
+    and re.search(r'pk-row cur" data-choix="75 × 225"', sel0["html"]) and "kg/m · taux" in sel0["html"] and "la plus légère qui tient" in sel0["html"], fs[:3])
+fs = fautes_selecteur(B, ETATS["lamellé-collé GL24h 120 × 400 sur 8 m"], "lamellé") + fautes_selecteur(B, ETATS["sur mesure 62,5 × 187,5"], "sur mesure") \
+    + fautes_selecteur(B, ETATS["très au-delà (12 m, 20 + 30 kN/m)"], "aucune")
+chk("lamellé-collé : les 67 sections du lamellé ; sur mesure : aucune retenue ; rien ne tient : pas d'étoile, et le sous-titre le dit", not fs, fs[:3])
+ch = req(action="choisir", etat=copy.deepcopy(e0), role="section", nom="38 × 235")
+chk("choisir « 38 × 235 » : la section est retenue (standard), le calcul suit (95 %), l'étoile disparaît de la ligne de flexion",
+    ch["ok"] and P(ch["etat"])["section"] == "38x235" and (P(ch["etat"])["b"], P(ch["etat"])["h"]) == (38.0, 235.0) and ch["resume"]["taux"] == 95
+    and lignes(ch["resultat"])[0]["leger"] == "" and not controle_resultat(B, ch["etat"], "choisie"), ch.get("erreur"))
+ch2 = req(action="choisir", etat=copy.deepcopy(d_mes["etat"]), role="section", nom="45 × 220")
+chk("choisir depuis une section sur mesure la remet en standard", ch2["ok"] and P(ch2["etat"])["standard"] is True and P(ch2["etat"])["section"] == "45x220")
+ch3 = req(action="choisir", etat=copy.deepcopy(e0), role="section", nom="120 × 400")
+chk("une section d'un autre type est refusée par le moteur (erreur lisible)", ch3["ok"] is False and "n'existe pas en bois massif" in ch3["erreur"], ch3.get("erreur"))
+
+# ====================================================================== 6. une ancienne note
+print("\n=== 6. Une note du module d'avant (version 1)")
+v1 = req(action="calculer", etat=B.NOTE_V1)
+chk("une note de version 1 se rouvre : les NOMS gardés (« Solive du séjour », « Chevêtre »), des poutres NEUVES, la poutre ouverte gardée, version 2",
+    v1["ok"] and v1["etat"]["version"] == 2 and [p["nom"] for p in v1["etat"]["poutres"]] == ["Solive du séjour", "Chevêtre"] and v1["etat"]["actif"] == 1
+    and all(dict(p, nom="P1") == MO.nouvelle_poutre("P1") for p in v1["etat"]["poutres"]), v1.get("erreur"))
+chk("l'avis d'ouverture est dit UNE fois : en tête du résultat et dans « avis » (le téléphone) — « Note d'avant le 10/11/2026 … les données sont à ressaisir »",
+    v1.get("avis") == [B.AVIS_V1] and C.esc(B.AVIS_V1) in v1["resultat"] and v1["resultat"].index("Note d&#x27;avant") < v1["resultat"].index('class="verdict"')
+    and "refait sur l'Eurocode 5" in B.AVIS_V1 and "à ressaisir" in B.AVIS_V1, v1.get("avis"))
+v1b = req(action="calculer", etat=v1["etat"])
+chk("l'état rendu ne porte pas l'avis : il ne se redit pas à la relecture", B.CLE_AVIS not in v1["etat"] and "avis" not in v1b and "Note d&#x27;avant" not in v1b["resultat"])
+v1_mod = req(action="modifier", etat=copy.deepcopy(B.NOTE_V1), chemin=["L"], valeur="5")
+chk("une saisie envoyée avec l'ancienne note : relue d'abord (noms gardés), la saisie s'applique, l'avis est dit", v1_mod["ok"] and P(v1_mod["etat"])["L"] == 5.0
+    and P(v1_mod["etat"])["nom"] == "Chevêtre" and v1_mod.get("avis") == [B.AVIS_V1])
+long_ = copy.deepcopy(B.NOTE_V1)
+long_["poutres"][0]["nom"] = "N" * 75
+long_["poutres"][1] = "illisible"
+v1l = req(action="calculer", etat=long_)
+chk("un nom de plus de 60 caractères est coupé et l'avis le dit ; une poutre illisible devient « P2 » (jamais une erreur)",
+    v1l["ok"] and [p["nom"] for p in v1l["etat"]["poutres"]] == ["N" * 60, "P2"] and v1l["avis"] == [B.AVIS_V1 + B.AVIS_NOM], v1l.get("erreur"))
+sans_version = req(action="calculer", etat={"poutres": [{"nom": "Sans version"}]})
+chk("une note sans numéro de version est prise pour une ancienne note (nom gardé, avis)", sans_version["ok"] and sans_version["etat"]["poutres"][0]["nom"] == "Sans version"
+    and "avis" in sans_version)
+futur = req(action="calculer", etat={"version": 3, "poutres": [{"nom": "Demain"}]})
+chk("une note d'une version PLUS RÉCENTE est refusée (rien n'est deviné)", futur["ok"] is False and "plus récente" in futur["erreur"], futur.get("erreur"))
+abime = req(action="calculer", etat={"version": 2, "poutres": "abîmé"})
+chk("une note abîmée (« poutres » n'est pas une liste) rend une erreur lisible", abime["ok"] is False and "liste" in abime["erreur"], abime.get("erreur"))
+abime2 = req(action="calculer", etat={"version": 2, "poutres": [{"nom": "Faîtière", "L": "quatre"}]})
+chk("une poutre illisible d'une note d'aujourd'hui est nommée dans l'erreur", abime2["ok"] is False and "Faîtière" in abime2["erreur"] and "portée L" in abime2["erreur"], abime2.get("erreur"))
+vide = req(action="calculer", etat={"version": 2, "poutres": []})
+chk("une note sans poutre est une note neuve", vide["ok"] and vide["etat"] == e0)
+
+# ====================================================================== 7. l'échappement
+print("\n=== 7. L'échappement d'un nom piégé")
+PIEGE = '<img src=x onerror=alert(1)>"\'&'
+pg_ = saisir(e0, "nom", PIEGE)
+fragments = {"résultat": pg_["resultat"], "fenêtres": pg_["volets"], "données": pg_["donnees"], "dessins": "".join(v["svg"] + v["entete"] for v in pg_["vues"]),
+             "sélecteur": req(action="selecteur", etat=pg_["etat"], role="section")["html"]}
+chk("un nom piégé est gardé tel quel dans l'état et ÉCHAPPÉ dans tous les fragments (résultat, fenêtres, données, dessins, sélecteur)",
+    P(pg_["etat"])["nom"] == PIEGE and not any("<img" in h for h in fragments.values()) and "&lt;img src=x" in pg_["resultat"] and "&lt;img src=x" in pg_["volets"]
+    and "&lt;img src=x" in pg_["donnees"], [k for k, h in fragments.items() if "<img" in h])
+
+
+class Balises(HTMLParser):
+    """Les balises d'un fragment, lues comme un navigateur les lit : leurs noms et leurs attributs (le TEXTE échappé
+    d'un nom piégé — « onerror=… » — n'en est pas un)."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.fautes = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "iframe", "object", "embed", "link", "img", "style"):
+            self.fautes.append(f"<{tag}>")
+        for nom, val in attrs:
+            if nom.startswith("on"):
+                self.fautes.append(f"{tag} {nom}=")
+            if nom in ("href", "src", "xlink:href", "action", "formaction") or re.search(r"(?:https?:)?//|javascript:", val or "", re.I) and nom != "xmlns":
+                self.fautes.append(f"{tag} {nom}={val}")
+
+
+def fautes_balises(h):
+    b = Balises()
+    b.feed(h)
+    b.close()
+    return b.fautes
+
+
+dangers = {k: fautes_balises(h) for k, h in dict(fragments, neuve="".join((r0["resultat"], r0["volets"], r0["donnees"]))).items()}
+chk("aucun fragment ne porte de script, de gestionnaire « on…= », de lien ni de ressource externe (les balises lues une à une, le nom piégé compris)",
+    not any(dangers.values()) and fautes_balises('<p onclick="x">') and fautes_balises('<a href="https://exemple.be">x</a>') and fautes_balises("<script>1</script>"),
+    {k: v[:3] for k, v in dangers.items() if v})
+
+
+# ====================================================================== 8. les fenêtres de calcul : chaque ligne réévaluée
+print("\n=== 8. Les fenêtres de calcul")
+def evaluer(vals):
+    """« 5 × 0,6695 × 4 000⁴ / (384 × 11 000 × 71 191 406) » → le nombre, par un petit interpréteur (√, min(a ; b), ², ³, ⁴, ^, 10⁶)."""
+    s = html.unescape(re.sub(r"<[^>]+>", "", vals))
+    s = s.replace(C.NBSP, "").replace(C.FINE, "").replace(" ", "").replace("−", "-")
+    s = s.replace("10⁹", "1e9").replace("10⁶", "1e6").replace("10³", "1e3")
+    s = re.sub(r"(\d),(\d)", r"\1.\2", s).replace(";", ",")
+    s = s.replace("×", "*").replace("√(", "sqrt(").replace("^", "**").replace("²", "**2").replace("³", "**3").replace("⁴", "**4")
+    return eval(s, {"__builtins__": {}}, {"sqrt": math.sqrt, "min": min})  # noqa: S307 — des nombres et des opérateurs
+
+
+def lire_resultat(res_txt):
+    t = html.unescape(re.sub(r"<[^>]+>", "", res_txt))
+    x, nd = lire_fr(re.match(r"[-−]?[\d   ]*\d(?:,\d+)?", t.replace("> ", "")).group(0))
+    return (x / 100.0 if "%" in t else x), nd, "%" in t
+
+
+def controle_formules(mod, etat, cas):
+    """Les fautes des fenêtres : chaque ligne à trois parties réévaluée, chaque ligne à deux parties (valeur lue) dite."""
+    rep = resultat_module(mod, etat)
+    fautes, n, lues = [], 0, 0
+    for ligne in FX.findall(rep["volets"]):
+        spans = SPAN.findall(ligne)
+        parts = [t for cls, t in spans if cls not in ("r",) and not cls.startswith("chip")]
+        res_txt = next((t for cls, t in spans if cls == "r" or cls.startswith("chip")), None)
+        if res_txt is None or len(parts) not in (2, 3):
+            fautes.append(f"{cas} : ligne mal formée « {texte(ligne)[:60]} »")
+            continue
+        if len(parts) == 2:
+            lues += 1
+            continue
+        n += 1
+        try:
+            val = evaluer(parts[2])
+        except Exception as e:  # noqa: BLE001 — une expression illisible est une faute
+            fautes.append(f"{cas} {texte(parts[0])} : illisible ({e}) : {texte(parts[2])}")
+            continue
+        attendu, nd, pct = lire_resultat(res_txt)
+        tol = (0.5 * 10 ** -nd) / (100.0 if pct else 1.0) + 2e-3 * abs(attendu)
+        if abs(val - attendu) > tol:
+            fautes.append(f"{cas} {texte(parts[0])} = {texte(parts[2])} → {val} ≠ {attendu}")
+    return fautes, n, lues
+
+
+total = 0
+for nom_cas, etat in ETATS.items():
+    fautes, n, lues = controle_formules(B, etat, nom_cas)
+    total += n
+    chk(f"fenêtres : chaque ligne « expression = valeurs = résultat » réévaluée ({n}, et {lues} valeurs lues) — {nom_cas}", not fautes and n >= 60, fautes[:3])
+print(f"     ({total} lignes de formules réévaluées)")
+vol = r0["volets"]
+
+
+def fenetre(volets, ident):
+    m = re.search(rf'<div class="flyout calcul" id="ck-{ident}">(.*?)(?=<div class="flyout calcul"|$)', volets, re.S)
+    return m.group(1) if m else ""
+
+
+def lignes_tableau(volets, ident):
+    return re.findall(r'<tr class="(gov)?"><td class="nm">(.*?)</td><td class="fo">(.*?)</td><td class="n v">(.*?)</td><td class="n">(.*?)</td><td class="n">(.*?)</td></tr>',
+                      fenetre(volets, ident), re.S)
+
+
+def fautes_tableaux(mod, etat, cas):
+    """Le tableau de chaque fenêtre face au moteur : une ligne par combinaison (celle qui gouverne mise en avant), ses
+    nombres, ses taux ; « tout le calcul » : toutes les vérifications du bloc."""
+    f = []
+    en = mod.normaliser(copy.deepcopy(etat))
+    r = MO.verifier(en["poutres"][en["actif"]])
+    vol_ = mod.resultat(en)["volets"]
+    for v in r["verifications"]:
+        rows = lignes_tableau(vol_, v["cle"])
+        det = v["detail"] or [dict(v, combinaison=None)]
+        if len(rows) != len(det):
+            f.append(f"{cas} {v['cle']} : {len(rows)} ligne(s) de tableau pour {len(det)}")
+            continue
+        for row, d in zip(rows, det):
+            val, lim = re.search(rf"= ({NOMBRE})", sans_indices(row[3])), re.search(rf"= ({NOMBRE})", sans_indices(row[4]))
+            if not val or not lim or not affiche(val.group(1), d["valeur"]) or not affiche(lim.group(1), d["limite"]) or pct_txt(d["taux"]) not in row[5]:
+                f.append(f"{cas} {v['cle']} : tableau « {texte(row[3])} / {texte(row[4])} / {texte(row[5])} » ≠ {d['valeur']} / {d['limite']} / {d['taux']}")
+            if bool(row[0]) != (d["combinaison"] == v["combinaison"]):
+                f.append(f"{cas} {v['cle']} : la combinaison qui gouverne n'est pas celle mise en avant")
+            if d["combinaison"] and (d["nom"] not in texte(row[1]) or D.LIBELLES_DUREE[d["duree"]] not in texte(row[1])):
+                f.append(f"{cas} {v['cle']} : la ligne ne nomme pas sa combinaison")
+            if html.unescape(re.sub(r"<[^>]+>", "", row[2])) != v["enonce"].replace("_", ""):
+                f.append(f"{cas} {v['cle']} : énoncé « {texte(row[2])} » ≠ « {v['enonce']} »")
+    n_elu = sum(len(v["detail"]) for v in r["verifications"] if v["groupe"] == "ELU")
+    if len(lignes_tableau(vol_, "s0")) != n_elu or len(lignes_tableau(vol_, "s1")) != 2:
+        f.append(f"{cas} : « tout le calcul » : {len(lignes_tableau(vol_, 's0'))} + {len(lignes_tableau(vol_, 's1'))} lignes")
+    return f
+
+
+ft = [x for nom_cas, etat in ETATS.items() for x in fautes_tableaux(B, etat, nom_cas)]
+chk("le tableau de chaque fenêtre : une ligne par combinaison (valeur, limite, taux du moteur), celle qui gouverne mise en avant, l'énoncé du moteur ; "
+    "« tout le calcul » : toutes les vérifications du bloc", not ft, ft[:3])
+hyp = re.search(r'<div class="ck-hyp">(.*?)</div><div class="ck-body">', fenetre(vol, "flexion"), re.S).group(1)
+chk("les hypothèses en pastilles : le bois et sa norme, la classe de service, k_mod des DEUX combinaisons, k_def, γ_M, la nature de Q et ψ₂",
+    all(m in texte(hyp) for m in ("C24", "EN 338:2016, tableau 1", "Classe de service", "intérieur chauffé", "0,6 (G seule, permanent)", "0,8 (G + Q, moyen terme)",
+                                 "A · habitation")) and "k<sub>def</sub> = 0,6" in hyp and "γ<sub>M</sub> = 1,3" in hyp and "ψ<sub>2</sub> = 0,3" in hyp, texte(hyp))
+titres = [html.unescape(re.sub(r"<[^>]+>", " ", t)).strip() for t in re.findall(r'<div class="ck-t">(.*?)</div>', fenetre(vol, "flexion"))]
+chk("le détail de la fenêtre « flexion », groupé : Charges ; Combinaison (la gouvernante d'abord, dite) ; Section ; Déversement ; Flexion de chaque combinaison",
+    [re.sub(r"\s+", " ", t) for t in titres] == ["Charges", "Combinaison G + Q moyen terme · gouverne", "Combinaison G seule permanent", "Section", "Déversement",
+                                                "Flexion G + Q · moyen terme · gouverne", "Flexion G seule · permanent"], titres)
+titres_s0 = [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", t)).strip()).split(" ")[0] for t in re.findall(r'<div class="ck-t">(.*?)</div>', fenetre(vol, "s0"))]
+titres_s1 = [re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", t)).strip()) for t in re.findall(r'<div class="ck-t">(.*?)</div>', fenetre(vol, "s1"))]
+chk("« tout le calcul » ELU : charges, combinaisons, section, déversement, flexion, cisaillement, appui (dans l'ordre du moteur) ; ELS : charges, section, flèches",
+    titres_s0 == ["Charges", "Combinaison", "Combinaison", "Section", "Déversement", "Flexion", "Flexion", "Cisaillement", "Cisaillement", "Appui", "Compression", "Compression"]
+    and titres_s1 == ["Charges", "Section", "Flèche instantanée", "Flèche finale nette"], (titres_s0, titres_s1))
+chk("le pied de chaque fenêtre : les hypothèses du moteur et ce qui n'est pas couvert (charges concentrées, vibrations, feu…)",
+    vol.count('class="ck-autres bo-pied"') == 7 and all(C.symb_math(x) in fenetre(vol, "s0") for x in REF0["non_couvert"])
+    and "k<sub>v</sub>" in fenetre(vol, "s0") and "k_v" not in vol + r0["resultat"]
+    and "maintenus en torsion" in fenetre(vol, "flexion"))
+chk("les symboles s'écrivent avec leurs indices (σ_m,d, k_c,90, w_net,fin, E_0,mean, λ_rel,m) et chaque taux en pastille de couleur",
+    all(s in vol for s in ("σ<sub>m,d</sub>", "k<sub>c,90</sub>", "w<sub>net,fin</sub>", "E<sub>0,mean</sub>", "f<sub>c,90,d</sub>"))
+    and "λ<sub>rel,m</sub>" in rd["volets"] and '<span class="chip p">45 %</span>' in vol)
+
+# ====================================================================== 9. les vues
+print("\n=== 9. Les vues")
+vues = r0["vues"]
+chk("trois vues (schéma et efforts, déformée, section), chacune un SVG sous son en-tête technique, aucune clé qui passerait pour une section (js/compact.js)",
+    [(v["cle"], v["titre"], v["court"]) for v in vues] == [("schema", "Schéma et efforts", "Schéma et efforts"), ("deformee", "Déformée", "Déformée"), ("section", "Section", "Section")]
+    and all(v["svg"].lstrip().startswith("<svg") and 'class="et-ent"' in v["entete"] for v in vues) and not any(re.fullmatch(r"[a-z]+\d+", v["cle"]) for v in vues))
+
+
+def fautes_entete(mod, etat, cas):
+    f = []
+    en = mod.normaliser(copy.deepcopy(etat))
+    r = MO.verifier(en["poutres"][en["actif"]])
+    for v in mod.resultat(en)["vues"]:
+        bande = re.findall(rf"<span><i>(\w)</i><sub>(\w+)</sub><b>({NOMBRE})</b><small>([^<]*)</small></span>", v["entete"])
+        ef = r["efforts"]
+        if [(s, i, u) for s, i, _, u in bande] != [("M", "d", "kN·m"), ("V", "d", "kN"), ("R", "d", "kN")] \
+                or not all(affiche(x[2], val) for x, val in zip(bande, (ef["M_d"], ef["V_d"], ef["R"]))):
+            f.append(f"{cas} {v['cle']} : bande {bande} ≠ {ef['M_d']}, {ef['V_d']}, {ef['R']}")
+        t = texte(v["entete"])
+        for mot in (r["geometrie"]["designation"], r["materiau"]["classe"], f"combinaison {ef['nom']}", r["coefficients"]["libelle_nature"], r["deversement"]["libelle"]):
+            if mot not in t:
+                f.append(f"{cas} {v['cle']} : l'en-tête ne dit pas « {mot} »")
+        if C.esc(v["legende"]) not in v["entete"]:
+            f.append(f"{cas} {v['cle']} : légende absente de l'en-tête")
+    return f
+
+
+fe = [x for nom_cas, etat in ETATS.items() for x in fautes_entete(B, etat, nom_cas)]
+chk("l'en-tête de chaque vue : la section, le bois, les charges, la combinaison ELU qui gouverne, le maintien ; la bande M_d, V_d, R_d du moteur ; la légende", not fe, fe[:3])
+
+
+def textes_svg(svg):
+    return [html.unescape(re.sub(r"<[^>]+>", "", t)) for t in re.findall(r"<text[^>]*>(.*?)</text>", svg, re.S)]
+
+
+def fautes_dessins(mod, etat, cas):
+    """Ce que les dessins écrivent face au moteur : la portée, l'appui, les charges, R_d, V_d, M_d, la combinaison ; les
+    flèches, leurs limites et leur L/n ; b, h, les contraintes et leurs limites ; le platelage, les lamelles."""
+    f = []
+    en = mod.normaliser(copy.deepcopy(etat))
+    r = MO.verifier(en["poutres"][en["actif"]])
+    vs = {v["cle"]: v for v in mod.resultat(en)["vues"]}
+    geo, ch, ef, fl, ap = r["geometrie"], r["charges"], r["efforts"], r["fleches"], r["appui"]
+    t = textes_svg(vs["schema"]["svg"])
+    attendus = [f"L = {C.fr(geo['L_mm'], 0)}", f"a = {C.nb(ap['a'])} mm", f"Rd = {C.fr(ef['R'], 2)} kN", f"Md = {C.fr(ef['M_d'], 2)} kN·m", f"combinaison {ef['nom']}"]
+    attendus += [f"g = {C.fr(ch['g'], 2)} kN/m"] if ch["g"] > 0 else []
+    attendus += [f"q = {C.fr(ch['q'], 2)} kN/m"] if ch["q"] > 0 else []
+    for a in attendus:
+        if not any(a in x for x in t) and ef["M_d"] >= 0.1:
+            f.append(f"{cas} schéma : « {a} » absent")
+    if ef["V_d"] >= 0.1 and (f"+{C.fr(ef['V_d'], 2)}" not in t or f"−{C.fr(ef['V_d'], 2)}" not in t):
+        f.append(f"{cas} schéma : ±V_d absent")
+    t = " | ".join(textes_svg(vs["deformee"]["svg"]))
+    for a in (f"winst = {C.fr(fl['w_inst'], 2)} mm", f"L/{fl['n_inst']} = {C.fr(fl['lim_inst'], 1)} mm", f"L/{fl['n_fin']} = {C.fr(fl['lim_fin'], 1)} mm",
+              f"wnet,fin = {C.fr(fl['w_net_fin'], 2)} mm") + ((f"= L/{C.fr(fl['rapport_inst'], 0)}",) if fl["rapport_inst"] else ()):
+        if a not in t and fl["w_inst"] >= 0.1:
+            f.append(f"{cas} déformée : « {a} » absent")
+    svg = vs["section"]["svg"]
+    t = " | ".join(textes_svg(svg))
+    vm, vt = V(r, "flexion"), V(r, "cisaillement")
+    for a in (f"b = {C.nb(geo['b'])}", f"h = {C.nb(geo['h'])}", f"σm,d = {C.fr(vm['valeur'], 2)}", f"kcrit·fm,d = {C.fr(vm['limite'], 2)}", f"τd = {C.fr(vt['valeur'], 2)}",
+              f"fv,d = {C.fr(vt['limite'], 2)}", r["materiau"]["classe"]):
+        if a not in t and vt["valeur"] >= 0.1:
+            f.append(f"{cas} section : « {a} » absent")
+    continu = r["deversement"]["type"] == "continu"
+    if ("maintien continu" in t) != continu or (f'fill="{mod.DB.PLATELAGE}"' in svg) != continu:
+        f.append(f"{cas} section : le platelage du maintien continu mal posé")
+    lamelle = r["materiau"]["type"] == "lamelle"
+    if ("lamelles horizontales" in t) != lamelle:
+        f.append(f"{cas} section : lamelles mal dites")
+    return f
+
+
+fdz = [x for nom_cas, etat in ETATS.items() for x in fautes_dessins(B, etat, nom_cas)]
+chk("les dessins écrivent les nombres du moteur : L, a, g, q, R_d, ±V_d, M_d et la combinaison ; w_inst, w_net,fin, leurs limites, leur L/n ; b, h, σ_m,d, "
+    "k_crit·f_m,d, τ_d, f_v,d ; le platelage du seul maintien continu, les lamelles du seul lamellé-collé", not fdz, fdz[:3])
+svg_gl = resultat_module(B, ETATS["lamellé-collé GL24h 120 × 400 sur 8 m"])["vues"][2]["svg"]
+chk("la section d'un lamellé-collé 120 × 400 montre ses 10 lamelles horizontales (9 plans de collage), pas les cernes d'un bois massif",
+    len(re.findall(rf'<line [^>]*stroke="{B.DB.VEINE}" stroke-width="0.9"', svg_gl)) == 9 and "<circle" not in svg_gl and "<circle" in vues[2]["svg"])
+grand = resultat_module(B, etat_avec(standard=False, b=400.0, h=2500.0, L=3.0, appui__a=600.0, appui__debord=500.0))["vues"][0]["svg"]
+chk("une poutre très haute sur une portée courte (400 × 2 500 sur 3 m, a = 600, débord 500) : le schéma est réduit et le DIT ; la note neuve ne dit rien",
+    "dessin réduit pour la lisibilité" in grand and "la hauteur de la poutre" in grand and "la longueur d'appui" in grand and "le débord" in grand
+    and "dessin réduit" not in vues[0]["svg"])
+ids = [re.search(r'<svg id="([^"]+)"', v["svg"]).group(1) for v in vues]
+chk("chaque dessin a son identifiant, propre à la poutre ouverte (deux dessins d'une page ne se mêlent pas)", ids == ["bo0_schema", "bo0_deformee", "bo0_section"], ids)
+
+# ====================================================================== 10. les éléments de la note
+print("\n=== 10. Les éléments de la note, son résumé")
+e2 = req(action="ajouter", etat=copy.deepcopy(e0))
+chk("ajouter : « P2 » ouverte, deux entrées dans la liste de la ligne de l'élément, « nom · section · classe »",
+    e2["etat"]["actif"] == 1 and e2["etat"]["poutres"][1]["nom"] == "P2" and e2["donnees"].count('data-activer="') == 2 and 'data-elements="2"' in e2["donnees"]
+    and "· 75 × 225 · C24" in e2["donnees"])
+e3 = req(action="dupliquer", etat=copy.deepcopy(e2["etat"]), index=0)
+chk("copier la première l'insère juste après elle, « (copie) », et l'ouvre", [p["nom"] for p in e3["etat"]["poutres"]] == ["P1", "P1 (copie)", "P2"] and e3["etat"]["actif"] == 1)
+e4 = saisir(e3["etat"], "charges/Q", "5")
+chk("le résumé de la note est sa poutre la plus chargée (la copie à Q = 5 kN/m, non conforme) ; l'état de la note s'affiche dès deux poutres",
+    e4["resume"]["niveau"] == "r" and e4["resume"]["gouvernant"].startswith("P1 (copie)") and "Non conforme" in e4["statut_html"], e4["resume"])
+e5 = req(action="supprimer", etat=copy.deepcopy(e4["etat"]), index=1)
+chk("supprimer la copie (ouverte) : deux poutres restent, le résumé redevient conforme", [p["nom"] for p in e5["etat"]["poutres"]] == ["P1", "P2"] and e5["resume"]["niveau"] == "p")
+chk("la dernière poutre ne se supprime pas ; activer un indice hors de la liste ouvre la dernière",
+    len(req(action="supprimer", etat=copy.deepcopy(e0), index=0)["etat"]["poutres"]) == 1 and req(action="activer", etat=copy.deepcopy(e5["etat"]), index=7)["etat"]["actif"] == 1)
+chk("un téléchargement est refusé proprement (pas encore de note PDF pour ce module)", req(action="telecharger", etat=copy.deepcopy(e0), quoi="note_pdf").get("ok") is False)
+
+
+# ====================================================================== 11. les mutations : chacune vue rouge
+print("\n=== 11. Les mutations du module : chacune vue rouge")
+def mutant(ancien, nouveau):
+    src = open(B.__file__, encoding="utf-8").read()
+    assert src.count(ancien) == 1, (ancien, src.count(ancien))
+    m = types.ModuleType("api_web.bois_mutant")
+    m.__package__ = "api_web"
+    m.__file__ = B.__file__
+    exec(compile(src.replace(ancien, nouveau, 1), B.__file__, "exec"), m.__dict__)  # noqa: S102 — le module lui-même, muté
+    return m
+
+
+def rouge(fn):
+    try:
+        return bool(fn())
+    except Exception:  # noqa: BLE001 — un mutant qui plante est vu rouge aussi
+        return True
+
+
+E_G, E_D = ETATS["G seule gouverne (G = 3, Q = 0,5)"], ETATS["déversement (45 × 245 sur 5 m, aux appuis)"]
+
+
+def modifier_mutant(m, etat, chemin, valeur):
+    e = m.normaliser(copy.deepcopy(etat))
+    msg = m.modifier(e, chemin.split("/"), valeur)
+    return e, msg, m.resultat(e)
+
+
+MUTATIONS = [
+    ("le verdict montre la première vérification, pas celle qui gouverne",
+     'v = next(x for x in r["verifications"] if x["cle"] == r["gouvernant"]["cle"])', 'v = r["verifications"][0]', lambda m: controle_resultat(m, e0, "neuve")),
+    ("la comparaison écrit la limite à la place de la valeur",
+     'return f"{_symb(v[\'symbole\'])} = {_n(v[\'valeur\'], u)} {signe} {lim}{_nu(v[\'limite\'], u)}"',
+     'return f"{_symb(v[\'symbole\'])} = {_n(v[\'limite\'], u)} {signe} {lim}{_nu(v[\'limite\'], u)}"', lambda m: controle_resultat(m, e0, "neuve")),
+    ("la ligne ne nomme plus la combinaison qui la gouverne (toujours « G + Q »)",
+     'return C.esc(c["nom"]) if court else', 'return "G + Q" if court else', lambda m: controle_resultat(m, E_G, "G seule")),
+    ("une ligne non conforme reste verte (la couleur du taux seul)",
+     'return "r" if v["etat"] == MO.NOK else C.niveau(v["taux"])', 'return "p"', lambda m: controle_resultat(m, E_G, "G seule")),
+    ("le taux d'une ligne est plafonné à 999 % par le module",
+     'rows += C.ligne_verif(COURTS[v["cle"]], _comparaison(r, v) + suite, C.pct(v["taux"]), _niv(v), calcul=v["cle"],',
+     'rows += C.ligne_verif(COURTS[v["cle"]], _comparaison(r, v) + suite, C.pct(min(v["taux"], 9.99)), _niv(v), calcul=v["cle"],',
+     lambda m: controle_resultat(m, ETATS["très au-delà (12 m, 20 + 30 kN/m)"], "au-delà")),
+    ("les valeurs substituées arrondies à deux chiffres (la réévaluation ne retombe plus sur le résultat)",
+     "        nd = _nd(x, 4, 4)\n        s = C.nb(round(x, nd), nd)", "        nd = _nd(x, 1, 1)\n        s = C.nb(round(x, nd), nd)", lambda m: controle_formules(m, e0, "neuve")[0]),
+    ("le résultat d'une formule pris dans une autre unité (kN·m écrits en N·mm)",
+     'return {"parts": parts, "res": _nu(f["resultat"], f["unite"]), "niveau": ""}',
+     'return {"parts": parts, "res": _nu(f["resultat"] * (1e6 if f["unite"] == "kN·m" else 1), f["unite"]), "niveau": ""}', lambda m: controle_formules(m, e0, "neuve")[0]),
+    ("le tableau d'une fenêtre met en avant la combinaison qui ne gouverne pas",
+     "lignes = _lignes_tableau(r, v, lambda vv, c: c == vv[\"combinaison\"])", "lignes = _lignes_tableau(r, v, lambda vv, c: c != vv[\"combinaison\"])",
+     lambda m: fautes_tableaux(m, E_G, "G seule")),
+    ("le nom de la poutre n'est plus échappé dans la tête du résultat",
+     'nom = C.esc(p.get("nom") or "Poutre")', 'nom = p.get("nom") or "Poutre"',
+     lambda m: "<img" in m.resultat(m.normaliser(copy.deepcopy(pg_["etat"])))["resultat"] + m.resultat(m.normaliser(copy.deepcopy(pg_["etat"])))["volets"]),
+    ("l'avis d'ouverture reste dans l'état (il se redirait à chaque calcul)",
+     "cle_avis = etat.pop(CLE_AVIS, None)", "cle_avis = etat.get(CLE_AVIS)",
+     lambda m: m.CLE_AVIS in (lambda e: (m.resultat(e), e)[1])(m.normaliser(copy.deepcopy(B.NOTE_V1)))),
+    ("une ancienne note perd ses noms", 'nom = p.get("nom") if isinstance(p, dict) else None', "nom = None",
+     lambda m: [p["nom"] for p in m.normaliser(copy.deepcopy(B.NOTE_V1))["poutres"]] != ["Solive du séjour", "Chevêtre"]),
+    ("une saisie refusée laisse la poutre modifiée",
+     '        etat["poutres"][etat["actif"]] = avant\n        if avis_avant is None:', '        if avis_avant is None:',
+     lambda m: modifier_mutant(m, e0, "L", "0,2")[0] != e0),
+    ("la nature de Q ne refixe plus la durée ni ψ₂ (la saisie « stockage » est refusée, ou garde 0,3)",
+     '                cible["duree"] = cible["psi2"] = None           # déduits de la nature (le moteur les remplit)', "                pass",
+     lambda m: (lambda e, msg, _: msg or e["poutres"][0]["charges"]["psi2"] != 0.8)(*modifier_mutant(m, e0, "charges/nature", "E"))),
+    ("le bois qui change de type prend la section standard la plus proche SANS le dire (dimensions changées en silence)",
+     '        if p["standard"]:\n            p["standard"] = False\n            etat[CLE_AVIS] = "section"\n', "",
+     lambda m: (lambda e, msg, rep: (e["poutres"][0]["b"], e["poutres"][0]["h"]) != (75.0, 225.0) and "avis" not in rep)(*modifier_mutant(m, e0, "classe", "GL24h"))),
+    ("le sélecteur présente les sections dans l'ordre inverse (la plus lourde d'abord)", '"prop": prop(c)} for c in cands]', '"prop": prop(c)} for c in reversed(cands)]',
+     lambda m: fautes_selecteur(m, e0, "massif")),
+    ("le sélecteur marque ★ la section retenue", '"cur": c["retenue"], "opt": c["optimal"], "prop": prop(c)} for c in cands]',
+     '"cur": c["retenue"], "opt": c["retenue"], "prop": prop(c)} for c in cands]', lambda m: fautes_selecteur(m, e0, "massif")),
+    ("le sélecteur écrit la masse d'une autre colonne (l'aire)", '"col": C.fr(c["masse"], 2)', '"col": C.fr(c["A"] / 100, 2)', lambda m: fautes_selecteur(m, e0, "massif")),
+    ("l'étoile de la ligne de flexion annonce la section retenue",
+     "    opt = MO.optimal(p)\n    leger = (", "    opt = next((c for c in MO.candidats_sections(p) if c[\"retenue\"]), None)\n    leger = (", lambda m: controle_resultat(m, e0, "neuve")),
+    ("la bande de l'en-tête écrit V_d à la place de M_d", 'bande = [("M", "d", ef["M_d"], "kN·m")', 'bande = [("M", "d", ef["V_d"] * 2, "kN·m")', lambda m: fautes_entete(m, e0, "neuve")),
+    ("le pied écrit la masse au mètre à la place de la masse de la pièce", "f'<b>{C.qte(r[\"masse\"], \"kg\", 1)} ·", "f'<b>{C.qte(r[\"masse_lineique\"], \"kg\", 1)} ·",
+     lambda m: controle_resultat(m, e0, "neuve")),
+    ("les avertissements du moteur ne sont plus rendus", 'messages = "".join(C.message(_message(a)) for a in r["avertissements"])', 'messages = ""',
+     lambda m: controle_resultat(m, ETATS["appuis rapprochés (k_c,90 = 1)"], "k_c,90")),
+    ("ce qui n'est pas couvert n'est plus écrit sous le résultat",
+     '    return f\'<div class="et-hyps">{lignes}{non}</div>\'', '    return f\'<div class="et-hyps">{lignes}</div>\'', lambda m: controle_resultat(m, e0, "neuve")),
+    ("k_crit n'est plus dit sur la ligne de flexion quand la poutre déverse", 'if v["cle"] == "flexion" and r["deversement"]["kcrit"] < 1:', "if False:",
+     lambda m: controle_resultat(m, E_D, "déversement")),
+]
+TEMOIN = ("témoin : un commentaire changé", "# la plus légère qui tient (l'étoile de la ligne « Flexion », qui ouvre le sélecteur)", "# la plus légère qui tient (témoin)")
+survivants = []
+for titre, ancien, nouveau, controle in MUTATIONS:
+    m = mutant(ancien, nouveau)
+    if not rouge(lambda controle=controle, m=m: controle(m)):
+        survivants.append(titre)
+chk(f"{len(MUTATIONS)} mutations d'affichage (verdict, comparaison, combinaison nommée, couleur, plafond, valeurs substituées, unité d'un résultat, tableau, échappement, "
+    "avis, noms d'une ancienne note, refus, nature de Q, changement de type, sélecteur × 3, étoile, bande, pied, avertissements, non couvert, k_crit) : TOUTES vues rouges",
+    not survivants, survivants)
+mt = mutant(TEMOIN[1], TEMOIN[2])
+temoin_rouge = [t for t, _, _, c in MUTATIONS if rouge(lambda c=c: c(mt))]
+chk("le témoin (un commentaire changé) n'est vu rouge par AUCUN de ces contrôles : les rouges viennent bien des mutations", not temoin_rouge, temoin_rouge)
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
-    print("   -", nom, "|", str(info)[:240])
+    print("   -", nom, "|", str(info)[:400])
 sys.exit(1 if KO else 0)

@@ -611,6 +611,10 @@ chk("contre-flèche de 20 mm (plus que la flèche finale) : w_net,fin < 0, le ta
     and any(a["code"] == "contre_fleche" for a in cf2["avertissements"]))
 lims = [(n, V(M.verifier(poutre(lim_inst=n)), "fleche_inst")["limite"]) for n in D.LIMITES_INST] + [(n, V(M.verifier(poutre(lim_fin=n)), "fleche_fin")["limite"]) for n in D.LIMITES_FIN]
 chk("les limites : L/n pour chaque diviseur des deux menus (4000/200 … 4000/500 ; 4000/150 … 4000/350)", all(pres(lim, 4000.0 / n) for n, lim in lims), lims)
+vide_r = M.verifier(poutre(charges__G=0.0, charges__Q=0.0, charges__poids_propre=False))["fleches"]["rapport_inst"]
+chk("la flèche dite « L/n » : w_inst = L/610, w_net,fin = L/445 à l'ouverture ; None quand la poutre reste cambrée",
+    pres(fl["rapport_inst"], 4000.0 / fl["w_inst"]) and dec(fl["rapport_inst"], 610, 0) and dec(fl["rapport_fin"], 445, 0)
+    and cf2["fleches"]["rapport_fin"] is None and vide_r is None, (fl["rapport_inst"], fl["rapport_fin"]))
 sc2 = M.verifier(poutre(service=2))
 chk("classe de service 2 : mêmes k_mod que la classe 1, k_def = 0,8", [c["kmod"] for c in sc2["combinaisons"]] == [0.6, 0.8] and sc2["coefficients"]["kdef"] == 0.8)
 
@@ -831,9 +835,8 @@ def refuse(mod, p, *mots):
 
 def refus_manques(mod):
     """Les refus attendus que ``mod`` ne fait pas (ou fait sans nommer le champ)."""
-    d = mod.D if hasattr(mod, "D") else D
     f = []
-    for chemin, (mini, maxi, unite, lib) in D.BORNES.items():
+    for chemin, (mini, maxi, _unite, lib) in D.BORNES.items():
         for x in (mini - 0.01, maxi + 0.01):
             p = poutre(standard=False) if chemin in ("b", "h") else poutre(charges__nature="autre", charges__duree="moyen", charges__psi2=0.3)
             if "/" in chemin:

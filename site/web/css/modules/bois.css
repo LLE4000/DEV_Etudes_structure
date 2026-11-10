@@ -1,14 +1,41 @@
-/* Module « Poutres bois » : ce que son établi ajoute à la charte (css/charte.css) et au site (css/site.css).
-   Les chiffres clés de l'écran Streamlit sous les vérifications, et la liste des écarts connus avec l'EC5 au pied des
-   fenêtres de calcul. */
+/* Module « Poutres bois » (api_web/bois.py, refait le 10/11/2026 sur l'établi compact) : ce que son établi ajoute à la
+   charte (css/charte.css), au site (css/site.css) et à l'établi compact (css/etabli.css). */
 
-/* ---------------------------------------------------------------- les chiffres clés du résultat */
-.bo-cles { padding: 12px 16px 12px; border-top: 1px solid var(--line); }
-.bo-cles .facts { gap: 5px 14px; font-variant-numeric: tabular-nums; }
-.bo-cles .facts dd { margin: 0; color: var(--ink); }
+/* ---------------------------------------------------------------- la section standard, dans les données : un bouton à
+   l'allure d'un menu, qui ouvre le SÉLECTEUR (les sections du type du bois, recalculées avec les charges) */
+.bo-pk { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; min-width: 0; height: 30px; padding: 0 8px 0 9px;
+  border: 1px solid var(--line-strong); border-radius: var(--r-sm); background: var(--panel); color: var(--ink); font: inherit; font-size: 13px;
+  font-weight: 500; font-variant-numeric: tabular-nums; text-align: left; cursor: pointer; }
+.bo-pk > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bo-pk svg.i { flex: none; width: 15px; height: 15px; color: var(--ink-3); }
+.bo-pk:hover { border-color: var(--accent); }
+.bo-pk:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 
-/* ---------------------------------------------------------------- les écarts connus, au pied d'une fenêtre de calcul */
-.ck-autres.bo-ecarts { line-height: 1.45; }
-.ck-autres.bo-ecarts > b { display: block; margin-bottom: 4px; color: var(--ink-2); }
-.ck-autres.bo-ecarts ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
-.ck-autres.bo-ecarts li b { color: var(--ink-2); font-weight: 600; }
+/* ---------------------------------------------------------------- le maintien latéral : ses trois segments sur leur
+   propre ligne, sous le libellé, à tous les formats (dans la colonne de la tablette, « Aux appuis » se coupait en deux) */
+body[data-module="bois"] #donnees .row.full:has(> .seg.full > button[data-chemin="maintien/type"]) > .seg.full { flex-basis: 100%; }
+
+/* ---------------------------------------------------------------- le pied d'une fenêtre de calcul : les hypothèses du
+   moteur en liste, puis ce que le module ne couvre pas */
+.ck-autres.bo-pied { line-height: 1.45; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.ck-autres.bo-pied > b { color: var(--ink-2); font-weight: 650; }
+.ck-autres.bo-pied ul { margin: 3px 0 8px; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+
+/* ---------------------------------------------------------------- au doigt (tablette, téléphone) : 44 px ; au
+   téléphone, la taille des champs (16 px : css/site.css) */
+@media (max-width: 1199px) {
+  .bo-pk { height: 44px; }
+}
+@media (max-width: 700px) {
+  .bo-pk { font-size: 16px; padding: 0 9px 0 10px; }
+}
+
+/* ---------------------------------------------------------------- le résultat */
+/* les combinaisons ELU en tête du bloc « ELU · résistance » : une ligne chacune, les nombres alignés en colonnes */
+.bo-combs { display: grid; grid-template-columns: auto auto 1fr 1fr; gap: 2px 12px; align-items: baseline; }
+.bo-combs > span { white-space: nowrap; }
+.bo-combs > span.n { color: var(--ink-2); font-weight: 600; }
+.bo-combs > span:nth-child(4n + 3), .bo-combs > span:nth-child(4n) { text-align: right; }
+.bo-combs sub { font-size: 8.5px; }
+/* la 2ᵉ ligne d'une vérification (ce qu'on compare, sa combinaison) passe à la ligne plutôt que d'être coupée */
+body[data-module="bois"] .el.vc .l2 .cmp { white-space: normal; line-height: 1.35; }

@@ -59,6 +59,13 @@ def _txt(x: float) -> str:
     return f"{x:.6g}".replace(".", ",")
 
 
+def _dire(x) -> str:
+    """Une valeur reçue, redite dans un message : un nombre à la virgule, le reste tel quel."""
+    if isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x):
+        return _txt(x)
+    return repr(x)
+
+
 def _maj(s: str) -> str:
     """La capitale d'un début de phrase — sauf sur un symbole (« ψ₂ », « γ_G » ne deviennent pas « Ψ₂ », « Γ_G »)."""
     return s[:1].upper() + s[1:] if s[:1].isascii() else s
@@ -195,7 +202,7 @@ def normaliser(poutre: Dict) -> Dict:
         for cle, std in (("b", b_std), ("h", h_std)):
             x = poutre.get(cle)
             if x is not None and (isinstance(x, bool) or not isinstance(x, (int, float)) or float(x) != std):
-                raise ValueError(f"{_maj(LIBELLES[cle])} ({x!r}) contredit la section standard {designation(section)} : "
+                raise ValueError(f"{_maj(LIBELLES[cle])} ({_dire(x)}) contredit la section standard {designation(section)} : "
                                  f"choisir « sur mesure » pour la saisir")
             out[cle] = std
     else:
@@ -217,11 +224,12 @@ def normaliser(poutre: Dict) -> Dict:
         duree, psi2 = D.DUREE_NATURE[c["nature"]], D.PSI2_NATURE[c["nature"]]
         lib = D.LIBELLES_NATURE[c["nature"]]
         if ch.get("duree") is not None and ch["duree"] != duree:
-            raise ValueError(f"La durée de la charge variable ({ch['duree']!r}) contredit sa nature « {lib} » "
+            dite = D.LIBELLES_DUREE.get(ch["duree"], _dire(ch["duree"])) if isinstance(ch["duree"], str) else _dire(ch["duree"])
+            raise ValueError(f"La durée de la charge variable (« {dite} ») contredit sa nature « {lib} » "
                              f"({D.LIBELLES_DUREE[duree]}) : choisir la nature « autre » pour la saisir")
         x = ch.get("psi2")
         if x is not None and (isinstance(x, bool) or not isinstance(x, (int, float)) or float(x) != psi2):
-            raise ValueError(f"ψ₂ ({x!r}) contredit la nature « {lib} » de la charge variable (ψ₂ = {_txt(psi2)}) : "
+            raise ValueError(f"ψ₂ ({_dire(x)}) contredit la nature « {lib} » de la charge variable (ψ₂ = {_txt(psi2)}) : "
                              f"choisir la nature « autre » pour le saisir")
         c["duree"], c["psi2"] = duree, psi2
     out["charges"] = c
