@@ -119,7 +119,9 @@ def _peindre_prim(c, p, ctx, s, X, Y, palette):
     if t == "text":
         x = X(p["x"]) if p.get("x") is not None else X(0)
         y = Y(p["y"]) if p.get("y") is not None else Y(0)
-        align = "center" if p.get("anchor") == "middle" or p.get("x") is None else "left"
+        # l'ancre SVG du texte : « middle » centré, « end » calé à droite (le nom du support, « uV » des cornières), sinon à gauche
+        anchor = p.get("anchor")
+        align = "center" if anchor == "middle" or p.get("x") is None else ("right" if anchor == "end" else "left")
         draw_text(c, x, y, p["txt"], _police(st), max(3.0, p["size"] * s), _couleur(st["tfill"]), align)
         return
     fill, stroke = _appliquer_style(c, st, s)
