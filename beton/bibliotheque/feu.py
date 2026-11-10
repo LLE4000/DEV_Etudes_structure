@@ -162,17 +162,20 @@ NON_COUVERT = (
     "murs coupe-feu (critère M) ; méthodes de calcul simplifiées et avancées",
 )
 
-# L'ÉTAT DE VÉRIFICATION de chaque table, tel que les deux rapports de sources du lot l'établissent (10/11/2026) ;
+# L'ÉTAT DE VÉRIFICATION de chaque table, tel que les deux rapports de sources du lot l'établissent (10/11/2026 ; le
+# second, terminé, ne contredit AUCUNE case : les 96 cases des tableaux 5.4, 5.5, 5.6, 5.8 et 5.9 sont retrouvées dans
+# au moins une source publiée ; dix d'entre elles — R 180 des 5.5 et 5.6, REI 30 et REI 180 du 5.9 — seulement dans du
+# code publié : elles se relisent sur la norme papier) ;
 # l'écran le montre sous le tableau. Il commence toujours par l'une des quatre formules : « recoupé sur plusieurs
 # sources », « recoupé sur une source », « partiellement recoupé : … », « transcrit, non recoupé ».
 VERIFICATIONS = {
     "5.2a": "recoupé sur plusieurs sources",
-    "5.3": "recoupé sur une source",
-    "5.4": "partiellement recoupé : μ_fi = 0,35 en entier, μ_fi = 0,7 de REI 120 à REI 240",
-    "5.5": "partiellement recoupé : R 60, R 90, R 120 et R 240",
-    "5.6": "partiellement recoupé : R 60, R 90, R 120 et R 240",
-    "5.8": "partiellement recoupé : REI 60, REI 90, REI 120 et REI 240",
-    "5.9": "transcrit, non recoupé",
+    "5.3": "recoupé sur une source (une seconde, de code publié, concorde)",
+    "5.4": "recoupé sur plusieurs sources",
+    "5.5": "partiellement recoupé : R 30 à R 120 et R 240 sur plusieurs sources ; R 180 sur du code publié seulement (trois sources concordantes)",
+    "5.6": "partiellement recoupé : R 30 à R 120 et R 240 sur plusieurs sources ; R 180 sur du code publié seulement (deux sources concordantes)",
+    "5.8": "recoupé sur plusieurs sources",
+    "5.9": "partiellement recoupé : REI 60, REI 90, REI 120 et REI 240 sur plusieurs sources ; REI 30 et REI 180 sur une seule source de code publié",
     "5.7": "partiellement recoupé : les coefficients redonnent 99 cases sur 102 d'un extrait du tableau 5.2.a.2-ANB",
 }
 

@@ -460,7 +460,7 @@ else:
 
 # les repères « * » (« l'enrobage de l'EN 1992-1-1 gouverne normalement ») : une note d'information, sans effet sur
 # le calcul. Tableau 5.4 : ceux du premier rapport de sources (texte NF EN) ; tableau 5.8 : ceux du second (texte de
-# l'EN, édition bilingue) ; tableaux 5.5, 5.6 et 5.9 : non recoupés — ils portent sur toutes les distances a ≤ 15 mm.
+# l'EN, édition bilingue) ; tableaux 5.5, 5.6 et 5.9 : repères non recoupés — ils portent sur toutes les distances a ≤ 15 mm.
 ETOILES_SOURCES = {"5.4": {("R30", "mu035_1"), ("R30", "mu035_2"), ("R30", "mu07_1"), ("R30", "mu07_2"), ("R60", "mu035_1"), ("R60", "mu035_2"),
                            ("R60", "mu07_1"), ("R60", "mu07_2"), ("R90", "mu035_1"), ("R90", "mu035_2")},
                    "5.8": {("R30", "une"), ("R30", "deux_15"), ("R30", "deux_20"), ("R60", "deux_15"), ("R60", "deux_20"), ("R90", "deux_15")}}
