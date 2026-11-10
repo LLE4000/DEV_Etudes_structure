@@ -361,7 +361,7 @@ def _elevation(res: Dict, diviseur: float, elancement: float) -> Tuple[str, List
         else:
             textes.append((z, [z["nom"]] if _large(z["nom"], tz) <= place else []))
     n_lignes = max([len(t) for _, t in textes] + [1 if res["trous"] else 0], default=0)
-    y_chaine = y + n_lignes * 1.2 * tz + 0.55 * fs
+    y_chaine = y + n_lignes * 1.3 * tz + 0.55 * fs
     if res["zones"] or res["trous"]:
         chaine = _ligne(0, y_chaine, Lmm, y_chaine, COTE, 0.06 * fs)
         bornes = sorted({0.0, L} | {x for z in res["zones"] for x in (z["de"], z["a"])})
@@ -377,7 +377,7 @@ def _elevation(res: Dict, diviseur: float, elancement: float) -> Tuple[str, List
         morceaux.append(f'<g class="chaine">{chaine}</g>')
         for z, lignes in textes:
             xm = (z["de"] + z["a"]) / 2 * 1000
-            tx = "".join(_txt(ext, xm, y_chaine - 0.5 * fs - (len(lignes) - 1 - j) * 1.2 * tz, li, tz, "middle", ENCRE if j == 0 else DOUX, 600 if j == 0 else 500, "an")
+            tx = "".join(_txt(ext, xm, y_chaine - 0.5 * fs - (len(lignes) - 1 - j) * 1.3 * tz, li, tz, "middle", ENCRE if j == 0 else DOUX, 600 if j == 0 else 500, "an")
                          for j, li in enumerate(lignes))
             morceaux.append(f'<g class="pc zone" data-sel="z{z["index"]}">'
                             f'<rect class="zn" x="{_f(z["de"] * 1000)}" y="{_f(y)}" width="{_f(z["longueur"] * 1000)}" height="{_f(y_chaine - y)}" fill="#2B4BCF" fill-opacity="0"/>{tx}</g>')
@@ -446,7 +446,10 @@ def _une_coupe(res: Dict, q: Dict, motif: str, grossi: float = 1.0) -> Dict:
     sec = geo["section"]
     b_tot, h, c = sec["b_tot"] * 10.0, sec["h"] * 10.0, sec["c"] * 10.0
     u0 = max(b_tot, h, 250.0) / 400.0            # l'unité des traits d'acier (celle de la coupe des poutres)
-    u = u0 * grossi                              # … et celle des textes et des cotes
+    # … et celle des textes et des cotes : la LARGEUR commande (la toile, et surtout le téléphone, en manque) — une
+    # section à deux talons, deux fois plus large que son âme, écrivait ses cotes à 5 px au téléphone (mesuré le
+    # 10/11/2026) ; au-delà de 200 mm de large, les textes grandissent avec elle
+    u = max(b_tot / 200.0, u0) * grossi
     F, f = 14.0 * u, 11.5 * u
     ext = _Etendue()
     ext.boite(0, 0, b_tot, h)
@@ -560,14 +563,16 @@ def _une_coupe(res: Dict, q: Dict, motif: str, grossi: float = 1.0) -> Dict:
             "u": u, "u0": u0}
 
 
-# la toile où se rangent les coupes côte à côte : sa largeur vaut tant de fois sa hauteur (le PC, la tablette en paysage)
-TOILE = 1.5
+# la toile où se rangent les coupes : sa largeur vaut tant de fois sa hauteur — la vue du PC (1 440 px) mesure 660 × 600 px
+# environ, celle de la tablette en paysage 1,3 fois plus large que haute (mesuré le 10/11/2026 : à 1,5, deux coupes à
+# deux talons restaient côte à côte, leurs cotes à 4,7 px, la moitié basse de la vue vide)
+TOILE = 1.15
 GROSSI = 1.5        # trois ou quatre coupes : leurs textes grossis d'autant (les sections y perdent, les repères se lisent)
 
 
 def _coupes(res: Dict, motif: str, en_colonne: bool) -> Tuple[str, List[float]]:
     """Les coupes de la poutre, à la même échelle : l'une sous l'autre (feuille étroite), ou côte à côte — sur une
-    rangée ou sur deux, selon ce qui les montre le plus grandes sur une toile de proportion ``TOILE``."""
+    rangée, sur deux ou en colonne, selon ce qui les montre le plus grandes sur une toile de proportion ``TOILE``."""
     n = len(res["coupes"])
     cps = [_une_coupe(res, q, motif, 1.0 if (en_colonne or n <= 2) else GROSSI) for q in res["coupes"]]
     u = max(cp["u"] for cp in cps)
@@ -582,7 +587,7 @@ def _coupes(res: Dict, motif: str, en_colonne: bool) -> Tuple[str, List[float]]:
         colonnes = 1
     else:
         # la disposition qui donne la plus grande échelle sur la toile : min(TOILE / largeur, 1 / hauteur)
-        colonnes = max((k for k in (n, 2) if k <= n), key=lambda k: (min(TOILE / emprise(k)[0], 1.0 / emprise(k)[1]), k))
+        colonnes = max((k for k in {n, 2, 1} if k <= n), key=lambda k: (min(TOILE / emprise(k)[0], 1.0 / emprise(k)[1]), k))
     largeur, hauteur = emprise(colonnes)
     morceaux = []
     for j, cp in enumerate(cps):

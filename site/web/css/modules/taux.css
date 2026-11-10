@@ -1,71 +1,87 @@
-/* Taux d'armature : le chiffre du quantitatif (kg/m³), la synthèse, les cartes des familles et des zones, les pastilles
-   de couleur des familles (celles du dessin et du tableau), et la vue « Tableau » (un bloc HTML posé dans la feuille,
-   toujours sur papier blanc, comme les dessins). Chargée par l'établi taux-armature seul. */
+/* Taux d'armature (Lot Q, 10/11/2026) — ce que la charte de l'établi compact n'a pas : la forme en pictogrammes, le
+   bilan des types et des zones d'étriers, les lignes d'un type, le verdict en kg/m³ et ses jauges GRISES (des parts de
+   la masse d'acier, pas des taux de travail), le pied (ratio, bordereau, méthode), les deux variantes de chaque dessin
+   et le bordereau (un tableau, toujours sur papier blanc comme les dessins). Chargée par la page taux-armature seule. */
+
+/* ---------------------------------------------------------------- les données */
+.tx-formes button { min-width: 0; padding: 0 4px; }
+.tx-pic { width: 26px; height: 18px; display: block; margin: auto; }
+.tx-forme-n { margin: -2px 0 2px; }
+.tx-carte .et-txt { color: var(--ink-2); }
+.tx-bilan { flex: none; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; padding: 0 2px; }
+.tx-bilan.ko { color: var(--nok); font-weight: 600; }
+.tx-ligne { display: flex; flex-direction: column; gap: 4px; padding: 6px 0 4px; border-top: 1px dashed var(--line); }
+.tx-ligne-t { font-size: 11px; font-weight: 650; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tx-ligne .et-ret { margin-top: 0; }
+.tx-ajouts { gap: 2px 4px; }
 
 /* ---------------------------------------------------------------- le résultat */
-.tx-verdict { cursor: pointer; }
-.tx-verdict .gov .tx-l { display: block; }
-.tx-verdict:hover { background: color-mix(in srgb, var(--bg) 70%, transparent); }
-.chip.xl.tx-taux { background: var(--acier-soft); color: var(--ink); font-variant-numeric: tabular-nums; }
-.chip.xl.tx-taux small { order: 2; margin: 0 0 0 4px; font-size: 12.5px; color: var(--ink-2); opacity: 1; }
-.tx-synth { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border-bottom: 1px solid var(--line); }
-.tx-synth > div { background: var(--panel); padding: 8px 16px 9px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.tx-synth span { font-size: 11px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tx-synth b { font-size: 13px; font-weight: 650; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tx-verdict .gov { font-variant-numeric: tabular-nums; }
+.tx-net { font-size: 11.5px; color: var(--ink-3); }
 #resultat .bar b.c { background: #A9B4C6; }
 [data-theme="dark"] #resultat .bar b.c { background: #56627A; }
-.tx-note-barre { padding: 8px 16px 2px; font-size: 11px; color: var(--ink-3); }
-.tx-leg { gap: 4px 12px; }
-.tx-lg { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.tx-lg i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; }
+.pfoot.tx-pied { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 14px; }
+.pfoot.tx-pied .mass { display: flex; flex-direction: column; gap: 1px; }
+.pfoot.tx-pied .mass b { font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* ---------------------------------------------------------------- les données : familles, types, zones */
-.tx-pastille { width: 11px; height: 11px; border-radius: 50%; display: inline-block; flex: none; }
-.tx-carte .sh2 .tx-sp { flex: 1; }
-.tx-carte .sh2 .muted { font-size: 11.5px; white-space: nowrap; }
-.tx-carte .row.full { grid-template-columns: 58px minmax(0, 1fr); }
-.tx-carte .trio .field.select { height: 30px; padding: 0 6px; }
-.tx-carte .trio .field.select select { font-size: 12.5px; }
-.lit.tx-type, .lit.tx-zone { grid-template-columns: 38px minmax(0, 1fr) minmax(0, 1fr) 24px; }
-.lit.tx-type .field.text, .lit.tx-zone .field.text { height: 32px; }
-.tx-sans { color: var(--ink-3); font-size: 12px; padding: 0 8px; height: 32px; display: flex; align-items: center; }
-.tx-bilan { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
-.tx-bilan.ko { color: var(--nok); font-weight: 600; }
-.tx-ajouts { display: flex; flex-wrap: wrap; gap: 4px 18px; padding-top: 2px; }
+/* ---------------------------------------------------------------- les dessins : deux variantes dans un même <svg> */
+.sheet .draw > svg.tx-dessin { display: block; width: 100%; height: 100%; }
+.tx-dessin > svg { width: 100%; height: 100%; }
+/* une feuille étroite (le téléphone, une tablette en portrait très serrée) : la variante étroite, plus haute, aux
+   textes plus gros — la page défile, le dessin prend la hauteur que demande sa largeur */
+@container feuille (max-width: 520px) {
+  .tx-dessin > .tx-large { display: none !important; }
+  .tx-dessin > .tx-etroit { display: inline !important; }
+  .sheet .draw > svg.tx-dessin { aspect-ratio: var(--tx-e); height: auto !important; max-height: none; }
+}
 
-/* ---------------------------------------------------------------- la vue « Tableau » */
-.sheet .draw:has(> .tx-vue) { display: block; position: relative; padding: 0; place-items: normal; }
-.sheet:has(.tx-vue) .stitle .scale { display: none; }
-.tx-vue { position: absolute; inset: 6px 16px 12px; display: flex; flex-direction: column; gap: 8px; color: #0D1525; min-width: 0; justify-self: stretch; }
+/* ---------------------------------------------------------------- le bordereau (la vue « Bordereau ») */
+.sheet .draw > .tx-bord { display: flex; flex-direction: column; padding: 4px 6px 8px; color: #0D1525; background: #fff; }
 .tx-defile { flex: 0 1 auto; min-height: 0; overflow: auto; border: 1px solid #E5E8ED; border-radius: 9px; overscroll-behavior: contain; }
 .tx-tab { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-.tx-tab th, .tx-tab td { padding: 0 10px; height: 36px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; text-align: right; }
-.tx-tab thead th { position: sticky; top: 0; z-index: 1; background: #F4F5F8; color: #4A5568; font-weight: 650; font-size: 11.5px; border-bottom: 1px solid #D3D8E0; height: 40px; }
+.tx-tab th, .tx-tab td { padding: 0 8px; height: 34px; white-space: nowrap; border-bottom: 1px solid #EEF0F3; text-align: right; }
+.tx-tab thead th { position: sticky; top: 0; z-index: 1; background: #F4F5F8; color: #4A5568; font-weight: 650; font-size: 11.5px;
+  border-bottom: 1px solid #D3D8E0; height: 40px; line-height: 1.2; }
 .tx-tab thead th small { display: block; font-size: 10px; font-weight: 500; color: #8B95A7; }
-.tx-tab tbody th, .tx-tab tfoot th { text-align: left; font-weight: 700; color: #0D1525; }
-.tx-tab .po { text-align: left; color: #4A5568; }
-.tx-tab td.co { width: 18px; padding-right: 0; text-align: center; }
-.tx-tab td.co i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; vertical-align: middle; }
+.tx-tab .rep { width: 34px; text-align: center; padding: 0 4px 0 8px; }
+.tx-tab .de { text-align: left; }
+/* la désignation sur deux lignes (le nom, puis la position) : les colonnes de chiffres, la masse d'abord, tiennent */
+.tx-tab td.de { white-space: normal; min-width: 110px; line-height: 1.25; padding-top: 4px; padding-bottom: 4px; }
+.tx-tab td.de b { display: block; font-weight: 650; color: #0D1525; }
+.tx-tab td.de span { display: block; font-size: 11px; color: #5B6575; }
+.tx-tab thead th { white-space: normal; }
 .tx-tab td.kg { font-weight: 700; color: #0D1525; }
-.tx-tab tbody tr:nth-child(even) td, .tx-tab tbody tr:nth-child(even) th { background: #FAFBFC; }
-.tx-tab tbody tr:hover td, .tx-tab tbody tr:hover th { background: #F1F3F7; }
-.tx-tab tbody tr.on th { color: #2B4BCF; box-shadow: inset 3px 0 0 #2B4BCF; }
-.tx-tab tfoot th, .tx-tab tfoot td { background: #F4F5F8; border-bottom: 0; border-top: 1px solid #D3D8E0; font-weight: 700; }
-.tx-pied { font-size: 11px; color: #8B95A7; line-height: 1.45; }
+/* la MASSE reste sous les yeux quand le tableau défile en largeur (le téléphone) : la dernière colonne est collée à droite */
+.tx-tab th:last-child, .tx-tab td:last-child { position: sticky; right: 0; background: #fff; box-shadow: inset 1px 0 0 #EEF0F3; }
+.tx-tab thead th:last-child { z-index: 2; background: #F4F5F8; }
+.tx-bul { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 10px; border: 1.2px solid #1F2A3D;
+  font-size: 11px; font-weight: 700; color: #1F2A3D; background: #fff; }
+.tx-tab tbody tr.pc { cursor: pointer; }
+.tx-tab tbody tr.pc:hover td { background: #F1F3F7; }
+.tx-tab tbody tr.pc.et-sel td { background: #E3E9FB; }
+.tx-tab tbody tr.pc.et-sel .tx-bul { border-color: #2B4BCF; color: #fff; background: #2B4BCF; }
+.tx-tab tbody.syn td { background: #FAFBFC; color: #4A5568; }
+.tx-tab tbody.syn tr.st td { height: 28px; font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #5B6575;
+  background: #F4F5F8; }
+.tx-tab tfoot td { background: #F4F5F8; border-bottom: 1px solid #E5E8ED; }
+.tx-tab tfoot tr:first-child td { border-top: 1px solid #D3D8E0; }
+.tx-tab tfoot tr.tot td { background: #EAEDF3; border-bottom: 0; }
+.tx-tab tfoot tr.tot td.kg { font-size: 13.5px; }
 .tx-vide { margin: auto; max-width: 340px; text-align: center; font-size: 12.5px; color: #8B95A7; line-height: 1.5; padding-top: 60px; }
 .tx-vide b { display: block; font-size: 14px; color: #0D1525; margin-bottom: 4px; }
-
-@media (max-width: 700px) {
-  .tx-synth > div { padding: 8px 14px; }
-  .tx-vue { position: static; inset: auto; padding: 4px 10px 10px; }
-  .sheet:has(.tx-vue), .sheet .draw:has(> .tx-vue) { min-width: 0; min-height: 0; }
+@container feuille (max-width: 520px) {
+  .sheet .draw > .tx-bord { padding: 2px 0 6px; }
   .tx-tab { font-size: 12px; }
-  .tx-tab th, .tx-tab td { padding: 0 7px; height: 34px; }
-  /* la position se lit en entier, sur deux lignes au besoin (elle était coupée « Armatures inférieures… ») ; les
-     colonnes de chiffres défilent dans le cadre */
-  .tx-tab .po { white-space: normal; min-width: 118px; max-width: 150px; line-height: 1.25; padding-top: 5px; padding-bottom: 5px; }
+  .tx-tab th, .tx-tab td { padding: 0 7px; height: 32px; }
+  /* la désignation se lit en entier, sur deux lignes ; les colonnes de chiffres défilent dans le cadre */
+  .tx-tab td.de { padding-top: 4px; padding-bottom: 4px; }
 }
 @media print {
-  .tx-vue { position: static; }
   .tx-defile { overflow: visible; border: 0; }
 }
+/* la colonne collée garde la couleur de sa ligne */
+.tx-tab tfoot td:last-child { background: #F4F5F8; }
+.tx-tab tfoot tr.tot td:last-child { background: #EAEDF3; }
+.tx-tab tbody.syn tr.st td:last-child { background: #F4F5F8; }
+.tx-tab tbody tr.pc:hover td:last-child { background: #F1F3F7; }
+.tx-tab tbody tr.pc.et-sel td:last-child { background: #E3E9FB; }

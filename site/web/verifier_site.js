@@ -1552,11 +1552,11 @@ const principal = async () => {
     verif('télécharger · PC : sous la politique de sécurité du site, aucune violation, rien du fichier exécuté, aucune erreur JavaScript',
       /script-src 'self'/.test(csp) && !apres.csp.length && apres.piege === undefined && !g.erreurs.length,
       JSON.stringify({ csp: csp.slice(0, 40), violations: apres.csp, erreurs: g.erreurs.slice(0, 3) }));
-    // un module publié sans fichier à proposer : le VRAI routeur refuse, en français (le taux d'armature : la dalle fait
-    // désormais sa note PDF, elle a un « telecharger »)
-    await ouvrir(g, 'taux');
+    // un module publié sans fichier à proposer : le VRAI routeur refuse, en français (le flambement : la dalle fait
+    // désormais sa note PDF, et le taux d'armature son bordereau CSV — Lot Q, 10/11/2026 —, ils ont un « telecharger »)
+    await ouvrir(g, 'flambement');
     await g.evaluate(() => document.querySelector('#donnees').insertAdjacentHTML('afterbegin', '<button type="button" class="btn sm" data-telecharger="json">JSON</button>'));
-    await refuse(g, '#donnees [data-telecharger="json"]', /^Téléchargement refusé : Ce module ne propose aucun fichier à télécharger\.$/, 'un module sans fichier (taux d\'armature)');
+    await refuse(g, '#donnees [data-telecharger="json"]', /^Téléchargement refusé : Ce module ne propose aucun fichier à télécharger\.$/, 'un module sans fichier (flambement)');
     await g.context().close();
 
     // ------------------------------------------------ au téléphone (le même bouton, dans l'onglet Données)

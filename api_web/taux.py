@@ -370,6 +370,11 @@ def _m(x: float) -> str:
     return C.qte(x, "m", nd)
 
 
+def _x(x: float) -> str:
+    """Une abscisse sans son unité, au format de ``_m`` : « 1,50 »."""
+    return C.fr(x, 2 if abs(x * 100 - round(x * 100)) < 1e-6 else 3)
+
+
 def _part(part: float) -> int:
     """La part d'une famille dans la masse d'acier, en % entier (une JAUGE grise, pas un taux de travail : elle n'est
     pas ramenée dans une bande de couleur comme ``commun.pct``)."""
@@ -382,7 +387,6 @@ def _cm(x: float) -> str:
 
 # ------------------------------------------------------------------ les mots
 FACES = {"inf": "inférieur", "sup": "supérieur", "peau": "de peau"}
-FACES_COURTES = {"inf": "inf.", "sup": "sup."}
 SORTES_AJOUT = (("inf", "Lit inférieur"), ("sup", "Lit supérieur"), ("renfort", "Renfort"), ("peau", "Barres de peau"))
 RETOURS_TXT = ((0, "aucun"), (1, "un bout"), (2, "deux bouts"))
 # la forme de la section : sa clé, le mot court du segment, le pictogramme (l'âme et ses talons bas, dans 26 × 18)
@@ -443,9 +447,12 @@ def _carte_barre(i: int, b: Dict, rp: Dict) -> str:
     de, à, retours) — dépliée quand elle est choisie, ici ou sur le dessin."""
     ch = ["barres", i]
     peau = b["famille"] == "peau"
-    pos = rp["position"]
-    quoi = "par face · 2 faces" if peau else f"{FACES_COURTES[b['famille']]} L{b['lit']}"
-    txt = f"{pos} · {quoi}"
+    # court (la carte est rangée sous sa face) : « filant · L1 », « 1,20 → 4,80 m · L2 », « filant · par face »
+    if b["de"] is None and b["a"] is None:
+        pos = "filant"
+    else:
+        pos = f"{'about' if b['de'] is None else _x(b['de'])} → {'about' if b['a'] is None else _m(b['a'])}"
+    txt = f"{pos} · {'par face' if peau else 'L' + str(b['lit'])}" if pos == "filant" else pos
     tete = (f'<div class="et-l1"><button type="button" class="et-tag" data-deplier="1" title="Repère {rp["repere"]} : détail">{rp["repere"]}</button>'
             f'{C.num(ch + ["n"], b["n"], "", entier=True, mini=1)}'
             f'{C.choix(ch + ["d"], b["d"], [(x, f"Ø{C.NBSP}{x}") for x in EN.DIAMETRES])}'
@@ -522,7 +529,7 @@ def _carte_type(i: int, t: Dict, rt: Dict, forme: str) -> str:
 def _carte_zone(i: int, z: Dict, rz: Dict, noms: List[str]) -> str:
     ch = ["zones", i]
     ferm = " + 1 de fermeture" if rz["fermeture"] else ""
-    txt = f"{C.nb(z['de'], 3)} → {_m(z['a'])} · e{C.NBSP}{_cm(z['s'])} · {z['type']}"
+    txt = f"{_x(z['de'])} → {_m(z['a'])} · e{C.NBSP}{_cm(z['s'])} · {z['type']}"
     tete = (f'<div class="et-l1"><button type="button" class="et-tag c" data-deplier="1" title="Zone {rz["nom"]} : détail">{rz["nom"]}</button>'
             f'<span class="et-txt">{C.esc(txt)}</span><span class="tx-bilan">{rz["n"]}{C.NBSP}étrier{"s" if rz["n"] > 1 else ""}</span>'
             f'<button type="button" class="et-dep" data-deplier="1" title="De, à, pas, type">{C.icon("chevron-down")}</button></div>')
@@ -905,8 +912,9 @@ def resultat(etat: Dict) -> Dict:
     blocs = _bloc_familles(r) + _bloc_diametres(r) + _bloc_beton(r) + (_bloc_note(etat, resultats) if len(etat["poutres"]) > 1 else "")
     t = r["totaux"]
     pied = (f'<div class="pfoot tx-pied"><div class="mass"><span>Par mètre de poutre</span><b>{C.qte(t["kg_m_majore"], "kg/m", 1)}</b></div>'
-            f'{C.bouton_telecharger("bordereau", "Bordereau CSV")}<div class="tx-methode">{C.esc(_methode())}</div></div>')
-    corps = (f'<div class="pbody">{tete}{msgs}{_verdict(r)}<div class="et-blocs">{blocs}</div>{_avertissements(r)}</div>{pied}')
+            f'{C.bouton_telecharger("bordereau", "Bordereau CSV")}</div>')
+    methode = f'<div class="et-hyps">{C.aide(C.esc(_methode()))}</div>'
+    corps = (f'<div class="pbody">{tete}{msgs}{_verdict(r)}<div class="et-blocs">{blocs}</div>{_avertissements(r)}{methode}</div>{pied}')
     return {"resultat": corps, **({"avis": avis} if avis else {}), "volets": _volets(r, nom), "vues": _vues(r, f"tx{etat['actif']}"),
             "phrase": "", "statut_html": C.statut("i"), "resume": resume_note(etat, resultats), "donnees": arbre(etat, r),
             "elements": elements(etat, resultats)}
