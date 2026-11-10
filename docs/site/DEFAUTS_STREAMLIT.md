@@ -10,6 +10,8 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 
 ### Poutres bois
 
+**Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md)** : le module est refait sur l'Eurocode 5 (`docs/bois/POUTRE_BOIS_MOTEUR.md`). Le relevé ci-dessous reste celui de l'écran Streamlit `modules/poutre_bois.py`.
+
 Écran : `modules/poutre_bois.py` · doc : `docs/bois/POUTRE_BOIS_MOTEUR.md`
 
 - NON CONSERVATIF — combinaison_G (relevé à la relecture) : γ_G·G seule avec k_mod permanent n'est jamais vérifiée. 63×200, G 3, Q 0,5, moyen terme : 92 % affichés pour 104 % réels en G seule. Avec G 4, Q 1, court terme : 118 % affichés pour 138 %.
@@ -128,6 +130,8 @@ Exception, déjà appliquée : une saisie que Streamlit ramène en silence à un
 ## 2. Autres défauts (côté sûr, affichage, ergonomie)
 
 ### Poutres bois
+
+**Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md)** : le module est refait sur l'Eurocode 5 (`docs/bois/POUTRE_BOIS_MOTEUR.md`). Le relevé ci-dessous reste celui de l'écran Streamlit `modules/poutre_bois.py`.
 
 - fleche_unite : q est multiplié par 1 000 alors que 1 kN/m vaut déjà 1 N/mm, donc les flèches sont 1 000 fois trop grandes. C'est du côté sûr, mais aucune poutre réaliste ne passe l'ELS. Le bureau doit trancher en corrigeant modules/poutre_bois.py.
 - kh_reduit : k_h < 1 est appliqué au-delà de h = 150 mm (côté sûr).
@@ -317,6 +321,8 @@ Partout : la note PDF de la plupart des modules (bouton grisé ; elle est sur le
 l'intégration du 09/11/2026 — pour le garde-corps, les soudures et les charges sur plancher). Le reste, module par module :
 
 ### Poutres bois
+
+**Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md)** : le module est refait sur l'Eurocode 5 (`docs/bois/POUTRE_BOIS_MOTEUR.md`). Le relevé ci-dessous reste celui de l'écran Streamlit `modules/poutre_bois.py`.
 
 - Le bouton Accueil de l'écran Streamlit : le site a sa propre navigation.
 - Modifier la base des classes et les coefficients : ce sont des constantes du code, dans Streamlit aussi.
