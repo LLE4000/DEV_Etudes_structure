@@ -22,8 +22,8 @@ lot « note », § 12).*
 | `tests/test_corniere_schemas.py` | 193 contrôles : vingt états, échelle, orientation A/B, sections exactes, bras du mode, support et ancrage, data-sel, moments perpendiculaires à échelle commune, maillage maille par maille face au dégradé recopié des décisions, élévation et coupures, peintres de la note, pureté, 19 mutations et un témoin |
 | `api_web/corniere.py` (lot « écran », 11/11) | le module du site sur l'établi compact : l'état, les saisies refusées avec le message du moteur, quatre rubriques, les vues, le verdict, trois blocs thématiques, cinq fenêtres de calcul, le sélecteur, la note v1, `telecharger` (§ 11) |
 | `tests/test_api_web_corniere.py` | 134 contrôles : seize états face au moteur, 23 refus, le sélecteur, le contrat de sélection, 1 768 lignes de formules réévaluées, la note v1, onze mutations |
-| `acier/corniere/note.py`, `formules.py`, `methode.py`, `api_web/note_corniere.py` (lot « note », 11/11) | la note PDF : la garde du site puis deux pages par cornière (calcul ; détails et méthode), une page de suite au besoin ; les gabarits des formules ; les textes de méthode ; la plomberie du site (§ 12) — branchée le 11/11 (`construire.NOTE_PDF`) |
-| `tests/test_note_corniere.py` | 61 contrôles : onze états, la parité pdftotext avec `verifier` (la ligne du bandeau et celle du sommaire lues entières), 1 017 formules ré-évaluées, l'identification piégée, la page de suite, les refus, la sonde navigateur, note.zip, six mutations |
+| `acier/corniere/note.py`, `formules.py`, `methode.py`, `api_web/note_corniere.py` (lot « note », 11/11 ; révisé le 10/11 au soir, § 9 des décisions) | la note PDF : la garde du site puis deux pages par cornière — page 1 CALCUL (hypothèses compactes, charge et ancrage en lignes séparées, ELS ou ELU), page 2 DÉTAILS ET MÉTHODE dominée par les dessins (résumé en trois lignes, trois colonnes graphiques, limites, références) —, une page de suite au besoin pour la page 1 seule ; les gabarits des formules (et `renommer` pour la limite de l'ELU) ; le résumé et les références de méthode ; la plomberie du site (§ 12) — branchée le 11/11 (`construire.NOTE_PDF`) |
+| `tests/test_note_corniere.py` | 90 contrôles : dix-sept états (dont ELU, poutre A et B, traversant à deux rondelles, entraxe saisi, ELS + ELU), la parité pdftotext avec `verifier` (bandeau et sommaire avec l'état limite, hypothèses compactes, charge et ancrage, page 2, mailles colorées par pymupdf), 1 551 formules ré-évaluées, l'identification piégée, la page de suite, les refus, la sonde navigateur, note.zip, dix mutations |
 
 ## 2 · L'API et le contrat
 
@@ -514,62 +514,75 @@ depuis le moteur révisé (défauts dx = 10, dy = 5 ; état limite ; ancrages ; 
   note PDF (sa suite `test_note_corniere.py` attend un état ELU pour ses gabarits `N_ELU_direct`, `V_ELU_direct`,
   `sigma_lim_ELU`, `tau_lim_ELU` : 1 rouge au lot « note », pas à l'écran).
 
-## 12 · La note PDF (lot « note », 10/11/2026) — `acier/corniere/note.py`
+## 12 · La note PDF (lot « note », 10/11/2026 ; révisée le 10/11 au soir, § 9 des décisions) — `acier/corniere/note.py`
 
 **Ce qu'elle est.** Une note = la page de garde du site (A4 portrait — projet, partie, date, indice, sommaire avec le
-statut et la page de chaque cornière : `ndc_pdf.styles.Style.garde_lignes`, la garde des notes Poutre, Dalle et
-Assemblages), puis, PAR CORNIÈRE, deux pages A4 paysage sur le kit `ndc_pdf` (palette Encre, polices et marges des
-notes du garde-corps et des soudures) :
+statut, l'ÉTAT LIMITE et la page de chaque cornière : `ndc_pdf.styles.Style.garde_lignes`, la garde des notes Poutre,
+Dalle et Assemblages ; sa légende reste GÉNÉRALE, une note pouvant mêler des cornières à l'ELS et à l'ELU), puis, PAR
+CORNIÈRE, deux pages A4 paysage sur le kit `ndc_pdf` (palette Encre, polices et marges des notes du garde-corps et des
+soudures) :
 
 | Page | Contenu |
 |---|---|
-| 1 · CALCUL | bandeau (statut, η max, section gouvernante et sa combinaison de jeux, configuration et mode) ; colonne 1 : HYPOTHÈSES en lignes « libellé · valeur » (cornière, configuration, acier, méthode aux contraintes admissibles avec le coefficient et σ_adm, τ_adm, le mode — pivot, frottement nul, jeu C76 —, les jeux, la tranche, L_eff), CHARGE ET ANCRAGE (R ELS, R_ELU auto ou saisie, X ± dx, a, n × Ø à Y ± dy, entraxes), la COUPE cotée ; colonnes 2 et 3 : **1 · géométrie des sections** (W et A par (b, t), largeur efficace, d0 et b_net en B), **2 · efforts et bras de levier** (la chaîne de chaque section S1 à S4 — et nette en B — avec la combinaison qui la gouverne et, en historique, les cellules du classeur), **3 · vérification des sections** (tableau s/t, M, σ, τ, σ_éq, η de S1 à S4, des maxima du congé — « (info) » en historique — et de la section nette ; puis les formules de la section gouvernante), **4 · ancrages** (N et V par ancrage ELS puis ELU, pression diamétrale, arrachement, pression sur le support ; les informations : compression du mur, taux de l'autre mode, L_eff), RÉCAPITULATIF (barres, combinaisons), CONCLUSION (taux, conformité, efforts à donner au calcul des chevilles) |
-| 2 · DÉTAILS ET MÉTHODE | les trois vues des schémas peintes par le peintre de scène du kit (MOMENTS : une courbe par position de la charge, l'enveloppe en gras, la bande ± dy ; CONTRAINTES : t(s), σ_éq, le maximum ◉ ; ÉLÉVATION : la tranche, les ancrages, la diffusion de la charge) ; les textes de MÉTHODE (`methode.py` : modèle et contraintes admissibles ; mode historique, équilibre ou configuration B ; ce qui change quand on retourne la cornière ; jeux et enveloppe ; largeur efficace) ; LIMITES ET AVERTISSEMENTS = les avertissements du moteur tels quels (rouge, attention, information) ; RÉFÉRENCES ; cartouche (cornière, section, configuration · mode, acier, date · indice, échelle de la coupe) |
-| 3 · SUITE (si besoin) | la note est composée en taille normale, puis serrée (0,92) ; si une colonne déborde encore, ses derniers blocs passent un à un sur une page de suite (le mécanisme de la note du garde-corps : `Suite`, `mise_en_page`, `BLOCS`), la colonne d'origine dit « Suite p. 3 : … », le sommaire compte la page. Sur les onze états d'essai aucune cornière n'en a besoin (trois notes serrées) ; une note qui ne tiendrait toujours pas est refusée avec un message, jamais tronquée |
+| 1 · CALCUL | bandeau (statut, η max, section gouvernante et sa combinaison de jeux, configuration · mode · état limite) ; colonne 1 : HYPOTHÈSES en lignes « libellé · valeur » COURTES, dix au plus (cornière ; configuration et mode ; acier ; **état limite** avec ses limites et son symbole — « ELS · σ_adm = f_y/1,5 = 236,7 N/mm² · τ_adm = σ_adm/√3 = 136,6 N/mm² » ou « ELU · f_y/γ_M0 = 355,0 N/mm² · f_y/(√3·γ_M0) = 205,0 N/mm² · γ_M0 = 1,0 » ; le mode — pivot e/2, YH et le bras Y − jeu en historique, y_c et u_V en équilibre, c et u_V en B ; les jeux dx et dy avec le nombre de combinaisons ; la tranche L, n et L_eff), sans les phrases du moteur ; CHARGE ET ANCRAGE en lignes séparées « grandeur : valeur unité » (R et son état limite, L, X ± dx, a ou « = L », R_ELU à l'ELS seulement — auto ou saisie ; n × type Ø d avec d0, profondeur h_ef ou épaisseur traversée, rondelles avec leurs dimensions, Y ± dy, entraxe s auto ou saisi et e₁, support — voile, ou poutre avec ses étendues et la distance de l'axe d'ancrage à chaque bord) ; la COUPE cotée (scène `coupe` ajustée à la colonne) et sa légende ; colonnes 2 et 3 : **1 · géométrie des sections**, **2 · efforts et bras de levier**, **3 · vérification des sections** (la limite porte le SYMBOLE de l'état limite : « η = σ_eq/σ_adm » à l'ELS, « η = σ_eq/(f_y/γ_M0) » à l'ELU — `formules.renommer`, le moteur gardant `sigma_adm` pour le nom de la limite), **4 · ancrages** (ELS : la chaîne et N_ELS, V_ELS puis les ELU déduits de R_ELU ; ELU : la chaîne et les seules N_ELU = H/n, V_ELU = R/n — rien n'est inventé pour l'ELS), RÉCAPITULATIF, CONCLUSION (« méthode aux contraintes admissibles (efforts ELS, coefficient 1,5 sur f_y) » ou « à l'ELU, critère de von Mises (EN 1993-1-1 § 6.2.1(5)), γ_M0 = 1,0 », les efforts à donner au calcul des chevilles dans l'état limite saisi) ; la légende du bas de page dit l'état limite (`legende_coupe`) |
+| 2 · DÉTAILS ET MÉTHODE | une page DOMINÉE PAR LES DESSINS : sous le titre, le RÉSUMÉ de méthode en trois lignes au plus (`methode.resume` : le modèle et l'état limite avec ses limites ; le mode et la configuration avec ses bras ; les jeux et l'enveloppe, la largeur efficace) ; puis TROIS COLONNES ÉGALES, chacune un titre court, la vue aussi grande que la colonne le permet et une légende courte qui dit l'état limite (`Calcul.legende_vue`, deux lignes au plus — sa taille descend avant le dessin) : à gauche **LARGEUR EFFICACE ET ÉLÉVATION** (scène `elevation`), au centre **MOMENTS SUR LA CORNIÈRE** (`moments`), à droite **CONTRAINTES DE VON MISES** (`contraintes`, le maillage coloré par le taux avec sa barre de couleur et ses deux mentions) ; les quatre vues passent par `schemas.ajuster` pour un texte de 5,6 pt dans leur boîte (la coupe de la page 1 aussi) ; la rangée prend la hauteur de sa plus haute colonne (les dessins sont limités par la largeur des colonnes) et les textes la suivent directement : les LIMITES — les avertissements du moteur, trois lignes au plus, entiers s'ils tiennent, sinon ceux d'information puis d'attention ABRÉGÉS à leur proposition principale (`abreger` : ce qui précède la première parenthèse ou le premier « : »), un avertissement rouge jamais abrégé, puis la taille réduite, puis — jamais vu — tronqués « … » —, la ligne des RÉFÉRENCES (`methode.REFERENCES`, deux lignes au plus), le blanc restant au-dessus du cartouche comme sur une planche ; le cartouche (cornière, section, configuration · mode, acier · état limite, date · indice, échelle de la coupe). Le dégradé des mailles (vert → orange → rouge) sort tel quel : le peintre du kit honore la couleur portée par chaque primitive et l'opacité du remplissage (mesuré : 623 à 818 chemins remplis colorés par page 2, les couleurs du dégradé maille par maille). **Cette page ne passe JAMAIS en page de suite** (`BLOCS` ne porte que la page 1 ; des avertissements en masse donnent trois lignes et pas de refus) |
+| 3 · SUITE (si besoin) | la note est composée en taille normale, puis serrée (0,92) ; si une colonne de la PAGE 1 déborde encore, ses derniers blocs passent un à un sur une page de suite (le mécanisme de la note du garde-corps : `Suite`, `mise_en_page`, `BLOCS`), la colonne d'origine dit « Suite p. 3 : … », le sommaire compte la page. Sur les dix-sept états d'essai aucune cornière n'en a besoin (quatre notes serrées : B, poutre B, deux cornières) ; une note qui ne tiendrait toujours pas est refusée avec un message, jamais tronquée |
 
 Les dessins sont ceux de l'écran (`schemas.coupe`, `moments`, `contraintes`, `elevation`, `interactif=False`), peints
-par `doubles_cornieres.rapport.peindre` (qui honore l'opacité du congé et de la bande de tolérance) ; les vues à
-l'échelle sont reconstruites par `schemas.ajuster` pour un texte de 5,6 pt dans leur boîte ; une vue impossible
-(proportions extrêmes) laisse le cadre « Dessin impossible à cette échelle », le calcul est rendu. Les légendes sont
-`schemas.legende` (source unique écran / note).
+par `doubles_cornieres.rapport.peindre` (qui honore l'opacité du congé, de la bande de tolérance et de la zone sous
+l'enveloppe, la couleur de chaque maille, et — depuis ce lot, de façon additive — l'ancre « end » des textes, calée à
+droite : le nom du support, « uV ») ; une vue impossible (proportions extrêmes) laisse le cadre « Dessin impossible à
+cette échelle », le calcul est rendu. Les légendes de la page 2 sont la forme brève de `schemas.legende` (celles de
+l'écran, trop longues pour une colonne de 258 pt) ; la coupe de la page 1 garde `schemas.legende(res, "coupe")`.
+
+**Budgets mesurés** (sans blancs, pdftotext ; les seuils du test sont le plus grand observé + ≈ 15 à 20 %) : le bloc
+Hypothèses de la page 1 : 495 à 557 caractères, seuil 760 (les anciennes phrases en donnaient ≈ 1 200) ; la page 2 hors
+cartouche : 2 358 à 2 736 caractères, seuil 3 300 (avant la révision : ≈ 6 500).
 
 **Les formules** (`acier/corniere/formules.py`). Le moteur nomme chaque formule (`calcul` : clé, symbole, termes,
 résultat, cellule) ; `formules.GABARITS` ajoute le seul savoir qui manque pour l'écrire — l'expression Python des termes,
 dans l'ordre du moteur — et en fait des substitutions `Sub` du kit des assemblages : « M3 = ρ₃·Mmax = 0,7657 × 3,325
 = 2,546 kN·m ». Chaque ligne est ré-évaluée deux fois par le test : avec les nombres imprimés (`verifier`, l'arrondi
-d'affichage) et avec les termes exacts (`exact`, 1e-9) — 1 017 formules sur 12 cornières, aucun écart ; chaque clé du
-moteur a son gabarit et chaque gabarit sert. La note renomme « taux » en η et le moment d'une section repère par son
-numéro (M3) ; η_σ et η_τ (I31, I34…) restent des lignes du détail, non imprimées. Les cellules du classeur sont
-imprimées avec les étiquettes (« S3 — charge à X + 20, ancrage à Y + 10 · C55 C25 C23 C56 C57 »). Les nombres des
-messages du moteur passent par `note.francais` (virgule française) : le moteur écrit certains nombres de ses
-avertissements et hypothèses avec le point (« 52.50 kN », « 236.7 N/mm² ») — à corriger dans le moteur, la note ne
-fait que formater.
+d'affichage) et avec les termes exacts (`exact`, 1e-9) — 1 551 formules sur 19 cornières, aucun écart ; chaque clé du
+moteur a son gabarit et chaque gabarit sert, dont les quatre de l'ELU (`sigma_lim_ELU`, `tau_lim_ELU`, `N_ELU_direct`,
+`V_ELU_direct`). La note renomme « taux » en η et le moment d'une section repère par son numéro (M3) ; `renommer` écrit
+la limite avec le symbole de l'état limite ; η_σ et η_τ (I31, I34…) restent des lignes du détail, non imprimées. Les
+cellules du classeur sont imprimées avec les étiquettes. Les nombres des messages du moteur passent par `note.francais`.
 
-**La plomberie du site** (`api_web/note_corniere.py`). `fichier(etat, infos) -> {"nom", "type", "base64"}`, le contrat
-de `note_poutre.fichier` : `api_web/corniere.telecharger(etat, "note_pdf", infos)` l'appelle par import paresseux ;
-`infos_doc` traduit la note du site (nom, chantier, indice, date) comme la poutre (projet = chantier ou nom ; partie =
-nom ou « Cornières d'appui » ; indice ou « A » ; date ou le jour) ; le fichier s'appelle « Note de calcul - <nom>.pdf ».
-`FICHIERS` déclare ce que la note charge en plus de l'écran et du paquet de la note de la poutre : `acier/corniere/
-note.py`, `formules.py`, `methode.py` et `acier/assemblages/poutre_poutre/doubles_cornieres/rapport.py` (le paquet de
-la note, `construire.paquet_note`, les reçoit dès que « corniere » entre dans `NOTE_PDF` avec sa note riche dans
-`NOTES_RELEVE`). Dans le navigateur (sonde du test : fontTools, accélérateurs C, streamlit, matplotlib, pandas, scipy,
-pymupdf refusés ; Pillow factice ; les seules polices du paquet), la note se fait et son texte est celui de CPython ;
-numpy est déjà chargé par le catalogue des cornières. Génération : 0,25 à 0,85 s par note en CPython (une à deux
-cornières), ≈ 150 ko par cornière.
+**La plomberie du site** (`api_web/note_corniere.py`, inchangée). `fichier(etat, infos) -> {"nom", "type", "base64"}`,
+le contrat de `note_poutre.fichier` : `api_web/corniere.telecharger(etat, "note_pdf", infos)` l'appelle par import
+paresseux ; `infos_doc` traduit la note du site (nom, chantier, indice, date) comme la poutre ; le fichier s'appelle
+« Note de calcul - <nom>.pdf ». `FICHIERS` déclare ce que la note charge en plus de l'écran et du paquet de la note de la
+poutre : `acier/corniere/note.py`, `formules.py`, `methode.py` et `acier/assemblages/poutre_poutre/doubles_cornieres/
+rapport.py` (aucun module nouveau dans ce lot). Dans le navigateur (sonde du test), la note se fait et son texte est
+celui de CPython ; numpy est déjà chargé par le catalogue des cornières. Génération : 0,35 à 1,2 s par note en CPython
+(une à deux cornières), ≈ 150 ko par cornière.
 
-**La preuve** (`tests/test_note_corniere.py`, 61 contrôles, ~20 s) : onze états (A historique, A équilibre, B avec
-Y = 85 et Y = 45, ailes inégales 150 et 100 horizontal, L 40×40×4, L 250×250×35 en équilibre à quatre ancrages, deux
-cornières dans une note, la garde avec R_ELU saisie, une note v1 relue) ; la parité avec `verifier` par pdftotext (nom,
-statut, η max, gouvernante et combinaison, chaque taux, M1 à M4, H, N et V ELS et ELU, le résultat de chaque formule
-écrite, les sections de méthode, les avertissements, les textes des dessins, le sommaire de la garde) ; l'identification
-piégée (accents, guillemets, « & », indice « C ») dans la garde et l'en-tête de chaque page, jamais « indice 0 » ni
-« indice A » ; la page de suite forcée (1 + 3 + 3 pages, sommaire juste) ; les refus (hors domaine avec le nom et le
-message du moteur, note vide) ; la sonde du navigateur ; six mutations qui rougissent (une cornière oubliée, la
-tolérance dy non transmise, le mode mal nommé, un gabarit faux, l'indice perdu, l'η max du bandeau pris sur S1 — le
-récapitulatif répète un « η max » juste, la parité lit donc la LIGNE du bandeau et la ligne du sommaire de la garde,
-relecture du 11/11, § 13). `tests/test_note_identification.py`
-range déjà « corniere » avec la poutre, la dalle et les assemblages (garde + « date · indice » sur chaque page) :
-l'intégration n'a plus qu'à compter sept modules.
+**La preuve** (`tests/test_note_corniere.py`, 90 contrôles, ~3 min) : dix-sept états (les onze d'avant — A historique,
+A équilibre, B avec Y = 85 et Y = 45, ailes inégales 150 et 100 horizontal, L 40×40×4, L 250×250×35 en équilibre à
+quatre ancrages, deux cornières dans une note, la garde avec R_ELU saisie, une note v1 relue — et six de la révision :
+l'ELU avec R = 60 saisie à l'ELU, une poutre en A (160/120) et une en B, un boulon traversant à deux rondelles et
+200 mm d'épaisseur, un entraxe saisi de 80, une note ELS + ELU) ; la parité avec `verifier` par pdftotext (la ligne du
+bandeau et celle du sommaire avec l'état limite, chaque taux, M1 à M4, H, N et V — à l'ELU les seules N_ELU et V_ELU et
+rien qui dise « ELS » —, le résultat de chaque formule écrite, les hypothèses compactes — dix lignes au plus, le budget,
+la limite σ et τ avec son symbole —, chaque ligne de charge et d'ancrage, le résumé de la page 2, les trois colonnes et
+leurs légendes, les avertissements entiers ou abrégés, les références entières, le budget de la page 2, les mailles
+colorées par pymupdf — ≥ 90 % des mailles du moteur en chemins remplis, ≤ 3 % des couleurs du dégradé absentes, le rouge
+#C62828 — ou, sans pymupdf, la page rendue par pdftoppm) ; le résumé en trois lignes et les limites en trois lignes sur
+chaque état ; l'identification piégée ; la page de suite forcée depuis la page 1 (1 + 3 + 3 pages, sommaire juste) et la
+page 2 qui ne se reporte jamais ; les refus ; la sonde du navigateur (dont ELS + ELU et la poutre) ; dix mutations qui
+rougissent (une cornière oubliée, la tolérance dy non transmise, le mode mal nommé, un gabarit faux, l'indice perdu,
+l'η max du bandeau pris sur S1, l'état limite non imprimé, la page 2 sans sa troisième vue, les hypothèses en prose
+longue, les rondelles non imprimées). `tests/test_note_identification.py` range « corniere » avec la poutre, la dalle et
+les assemblages (garde + « date · indice » sur chaque page).
+
+**Regardé** (pdftoppm, 80 et 150 dpi) : les états ELS A, ELU, B, poutre A et B, traversant, entraxe 80, inégale 150,
+équilibre, deux cornières ELS + ELU, petite, grosse, L = 900 (coupures). Corrections venues du regard : le cartouche
+« ACIER · ÉTAT LIMITE » élargi (la limite y était tronquée), la rangée des vues prise à la hauteur de sa plus haute
+colonne avec les textes dessous (un blanc coupait la page en deux), γ_M0 écrit « 1,0 », le quotient « σ_eq/(f_y/γ_M0) »
+entre parenthèses, l'ancre « end » des textes du dessin. Reste visible : la vue des contraintes est plus petite que les
+deux autres dans la même largeur de colonne (sa boîte porte la barre de couleur et ses deux mentions) — une affaire de
+scène, notée pour le lot schémas.
 
 ## 13 · Relecture adverse de la mécanique (10/11/2026, lot « revue_meca », depuis l'intégration 0216684)
 
