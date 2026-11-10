@@ -409,10 +409,10 @@ chk("invariant du moteur à l'écran : le taux affiché en ELS sous R vaut celui
     resultat_module(K, etat_avec(etat_limite=EN.ELU, R=52.5))["resume"] == r0["resume"], None)
 
 # ---------------------------------------------------------------------- la révision § 9.2 et 9.3 : les ANCRAGES et le SUPPORT
-chk("rubrique 3 : entraxe « auto · L/n », profondeur, type (segments mécanique · chimique · traversant, l'aide = le libellé d'entree), "
+chk("rubrique 3 : entraxe « auto 100 » (L/n, court : la case est à deux par ligne), profondeur, type (segments mécanique · chimique · traversant, l'aide = le libellé d'entree), "
     "rondelles (0 · 1 · 2), support (voile · poutre) — chacun une pièce (data-cible)",
     all(f'data-cible="{k}"' in don0 for k in ("entraxe", "profondeur", "type_ancrage", "rondelles", "support"))
-    and 'placeholder="auto · L/n = 100"' in don0 and '<input data-chemin="profondeur" data-sorte="nombre"' in don0
+    and 'placeholder="auto 100"' in don0 and '<input data-chemin="profondeur" data-sorte="nombre"' in don0
     and [m_.group(1) for m_ in re.finditer(r'data-chemin="type_ancrage" data-sorte="choix" data-valeur="(\w+)"', don0)] == list(EN.TYPES_ANCRAGE)
     and all(C.esc(EN.LIBELLES_TYPE_ANCRAGE[k][0].upper() + EN.LIBELLES_TYPE_ANCRAGE[k][1:]) in don0 for k in EN.TYPES_ANCRAGE)
     and [m_.group(1) for m_ in re.finditer(r'data-chemin="rondelles" data-sorte="choix" data-valeur="(\d)"', don0)] == ["0", "1", "2"]
@@ -437,7 +437,7 @@ chk("entraxe saisi s = 80 : le champ le montre, les positions disent e₁ = 70 �
     and "e₁ = 70 · s = 80 (saisi) · z = 70 · 150 · 230 mm" in rE["resultat"] and ">entraxe 80<" in rE["resultat"]
     and "s = 100 (L/n) · z = 50 · 150 · 250 mm" in r0["resultat"] and ">entraxe 100<" in r0["resultat"], None)
 e_s = saisir(r0["etat"], "entraxe", "")
-chk("entraxe vidé : automatique (None), le champ redit « auto · L/n »", e_s["etat"]["cornieres"][0]["entraxe"] is None and 'placeholder="auto · L/n = 100"' in e_s["donnees"], None)
+chk("entraxe vidé : automatique (None), le champ redit « auto 100 »", e_s["etat"]["cornieres"][0]["entraxe"] is None and 'placeholder="auto 100"' in e_s["donnees"], None)
 e_rd = saisir(r0["etat"], "rondelles", "2")
 chk("rondelles = 2 par le segment : un entier dans l'état, le segment 2 allumé, l'hypothèse du moteur dit la rondelle large",
     e_rd["etat"]["cornieres"][0]["rondelles"] == 2 and isinstance(e_rd["etat"]["cornieres"][0]["rondelles"], int)
@@ -480,7 +480,7 @@ chk("rubrique 1 : origine en segments, désignation tapée, fiche du catalogue (
     and '<input data-chemin="coef" data-sorte="nombre"' in don0, None)
 chk("rubriques 2 et 3 : R, L, X, dx, a (auto · L), R_ELU (auto · 1,5·R), Y, dy, n, d — chacun une pièce (data-cible) sauf R_ELU",
     all(f'data-cible="{k}"><label>' in don0 for k in ("R", "L", "X", "dx", "a", "Y", "dy", "n", "d"))
-    and 'placeholder="auto · L = 300"' in don0 and 'placeholder="auto · 1,5·R = 52,5"' in don0
+    and 'placeholder="auto 300"' in don0 and 'placeholder="auto · 1,5·R = 52,5"' in don0
     and '<div class="et-piece"><label><span>R<sub>ELU</sub></span>' in don0, None)
 chk("rubrique 4 : le mode en segments, jeu C76, y_c, u_V (auto · e/2)",
     'data-chemin="mode" data-sorte="choix" data-valeur="historique"' in don0 and 'data-cible="jeu_ancrage"' in don0 and 'data-cible="yc"' in don0
@@ -506,7 +506,7 @@ chk("la nuance se choisit dans le menu (S235 → f_y = 235) et σ_adm suit", e_f
 e_n = saisir(r0["etat"], "n", "4")
 chk("n se saisit en entier (4 ancrages : z = 37,5 · 112,5 · 187,5 · 262,5)", e_n["etat"]["cornieres"][0]["n"] == 4 and "37,5 · 112,5 · 187,5 · 262,5" in e_n["resultat"], None)
 e_a = saisir(r0["etat"], "a", "")
-chk("a vidé : automatique (None), le champ redit « auto · L »", e_a["etat"]["cornieres"][0]["a"] is None and 'placeholder="auto · L = 300"' in e_a["donnees"], None)
+chk("a vidé : automatique (None), le champ redit « auto 300 »", e_a["etat"]["cornieres"][0]["a"] is None and 'placeholder="auto 300"' in e_a["donnees"], None)
 e_a2 = saisir(r0["etat"], "a", "100")
 chk("a = 100 : L_eff dite dans le résultat (information) et la fenêtre géométrie, dans l'ⓘ aussi",
     "Largeur efficace" in e_a2["volets"] and "L_eff = " in e_a2["donnees"] and "Largeur efficace" in e_a2["resultat"], None)

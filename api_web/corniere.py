@@ -530,12 +530,17 @@ def _etat_limite(res: Dict) -> str:
     return res["materiau"]["etat_limite"]
 
 
+def _g1(x: float) -> str:
+    """Un coefficient à une décimale, à la virgule (« γ_M0 = 1,0 », jamais « 1 »)."""
+    return f"{x:.1f}".replace(".", ",")
+
+
 def _etat_txt(res: Dict) -> str:
     """L'état limite et sa limite, en texte : « ELS · σ_adm = f_y/1,5 » ou « ELU · f_y/γ_M0, γ_M0 = 1 »."""
     m = res["materiau"]
     if m["etat_limite"] == EN.ELS:
         return f"ELS · {m['symbole_sigma']} = f_y/{C.nb(m['coef'])}"
-    return f"ELU · {m['symbole_sigma']}, γ_M0 = {C.nb(m['gamma_M0'])}"
+    return f"ELU · {m['symbole_sigma']}, γ_M0 = {_g1(m['gamma_M0'])}"
 
 
 def _sym_sigma(res: Dict) -> str:
@@ -659,7 +664,7 @@ def _rubrique_corniere(c: Dict, sec: Dict, res: Dict) -> str:
                                 "Sans effet à l'ELU (rubrique Hypothèses), où la limite est f_y/γ_M0."))
     else:
         mat = C.ligne(nuance[0], nuance[1], "", nuance[2] + f" Ici l'ELU : f_y/γ_M0 = {_n(res['materiau']['sigma_adm'], 'N/mm²')} N/mm², γ_M0 = "
-                      f"{C.nb(res['materiau']['gamma_M0'])} ; le coefficient de l'ELS est sans effet et n'est pas montré.")
+                      f"{_g1(res['materiau']['gamma_M0'])} ; le coefficient de l'ELS est sans effet et n'est pas montré.")
     return piece + cfg + mat
 
 
@@ -678,7 +683,7 @@ def _rubrique_charge(c: Dict, res: Dict) -> str:
                 ("dx", "± dx jeu", C.num(["dx"], c["dx"], "mm"), "Le jeu de position de la charge, dans les DEUX sens : le moteur calcule "
                  "la cornière pour la charge à X − dx, X et X + dx (trois positions) et chaque grandeur vérifiée garde la plus défavorable — "
                  "l'ENVELOPPE, avec la combinaison qui la donne. 0 : le classeur exactement (Xj = 0 dans la note validée).")))
-    a = ("a", "a appui", C.num(["a"], c["a"], "mm", auto=f"auto · L = {C.nb(c['L'])}"), "La largeur d'appui réelle de la charge ; "
+    a = ("a", "a appui", C.num(["a"], c["a"], "mm", auto=f"auto {C.nb(c['L'])}"), "La largeur d'appui réelle de la charge ; "
          "vide = L. Si a + 2·Xe < L, l'aile horizontale ne travaille que sur L_eff = min(L ; a + 2·Xe) (diffusion à 45° jusqu'au "
          f"pied du congé, section 1) et σ y est majorée de L/L_eff. Aujourd'hui L_eff = {C.nb(round(g['L_eff'], 1), 1)} mm.")
     if els:
@@ -717,7 +722,7 @@ def _rubrique_ancrage(c: Dict, res: Dict) -> str:
                  "Ils se partagent R et la traction H."),
                 ("d", "Ø d", C.num(["d"], c["d"], "mm"), f"Le diamètre de l'ancrage ; trou de passage d0 = d + 2 = {C.nb(anc['d0'])} mm "
                  "(section nette en B, pression diamétrale, position du trou dans l'aile et dans la poutre)."))
-         + _duo(("entraxe", "s entraxe", C.num(["entraxe"], c["entraxe"], "mm", auto=f"auto · L/n = {C.nb(round(c['L'] / c['n'], 2), 2)}"),
+         + _duo(("entraxe", "s entraxe", C.num(["entraxe"], c["entraxe"], "mm", auto=f"auto {C.nb(round(c['L'] / c['n'], 1), 1)}"),
                  "L'entraxe des ancrages, centrés sur L : z_i = L/2 + (i − (n − 1)/2)·s, le premier à e₁ = (L − (n − 1)·s)/2 du bout ; vide = L/n. "
                  "Minima de l'EN 1993-1-8 Tableau 3.3 (trous dans une pièce d'acier) : s ≥ 2,2·d0 et e₁ ≥ 1,2·d0 — refusés sinon, l'entraxe "
                  f"automatique aussi. Aujourd'hui s = {C.nb(round(anc['entraxe'], 2), 2)} mm, e₁ = {C.nb(round(anc['distance_bout'], 2), 2)} mm."),
@@ -1014,7 +1019,7 @@ def _hyps(res: Dict) -> List[str]:
                f"τ<sub>adm</sub> = σ<sub>adm</sub>/√3 = {_n(m['tau_adm'], 'N/mm²')} N/mm²")
     else:
         lim = (f"ELU · {C.esc(m['nuance'] or '')} · {_sym_sigma(res)} = {_n(m['sigma_adm'], 'N/mm²')} · {_sym_tau(res)} = {_n(m['tau_adm'], 'N/mm²')} N/mm² · "
-               f"γ<sub>M0</sub> = {C.nb(m['gamma_M0'])} · R saisie à l'ELU")
+               f"γ<sub>M0</sub> = {_g1(m['gamma_M0'])} · R saisie à l'ELU")
     return [f"Cornière <b>{C.esc(res['section']['designation'])}</b> · e = {C.nb(res['geometrie']['e'])} · r = {C.nb(res['geometrie']['r'])} mm · "
             f"aile horizontale {C.nb(res['geometrie']['larg'])}, verticale {C.nb(res['geometrie']['haut'])} mm",
             f"{C.esc(_cfg_txt(res))} · <b>{C.esc(_mode_txt(res))}</b>",
@@ -1163,7 +1168,7 @@ def _entete(res: Dict, titre: str, legende: str) -> str:
               f"{c['n']} × {EN.LIBELLES_TYPE_ANCRAGE[c['type_ancrage']]} Ø{C.nb(c['d'])} à s = {C.nb(round(anc['entraxe'], 2), 2)} · {support}"]
     # le sous-titre (HTML) porte l'état limite et sa limite avec le symbole que le moteur nomme (σ_adm en ELS, f_y/γ_M0 en ELU)
     sous = (f"{C.esc(res['section']['designation'])} · {C.esc(m['nuance'] or '')} · {m['etat_limite']} · {_sym_sigma(res)} = {_n(m['sigma_adm'], 'N/mm²')} N/mm²"
-            + (f" (coef {C.nb(c['coef'])})" if m["etat_limite"] == EN.ELS else f" (γ<sub>M0</sub> = {C.nb(m['gamma_M0'])})"))
+            + (f" (coef {C.nb(c['coef'])})" if m["etat_limite"] == EN.ELS else f" (γ<sub>M0</sub> = {_g1(m['gamma_M0'])})"))
     return E.entete(titre, sous, lignes, bande, legende)
 
 
