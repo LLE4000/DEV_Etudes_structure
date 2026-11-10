@@ -1,6 +1,13 @@
 {
  "module": "donnees_beton",
  "lire": "tests/test_reference_refonte.py : la photo de chaque cas (voir son en-tête) ; --geler la régénère",
+ "regels": [
+  {
+   "date": "2026-11-10",
+   "raison": "Lot Q, 10/11/2026 : feu lu dans beton/bibliotheque/feu.py (poteaux μ_fi = 0,7, voiles REI 180/240 : 50/60 mm, aucun étrier retiré d'une dalle ou d'un voile) et bandeau vers Bibliothèque › Enrobages › Calcul (docs/site/LOT_Q_QUATRE_MODULES.md § 4)",
+   "ecarts": ["enrobages : XD3/XS3, R120 : avis changés", "résistance au feu R240 (PARCOURS) : avis changés"]
+  }
+ ],
  "cas": [
   {
    "nom": "note neuve",
@@ -178,12 +185,12 @@
     "statut": "Consultation",
     "phrase": "XD3/XS3 · S4 · c min,dur = 45 mm · c nom = 55 mm (Ø20, Δc dev 10 mm)",
     "resultat": [
-     ["c nom", "55 mm"],
+     ["Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul — ouvrir le calcul complet (durabilité et feu, les tableaux de l' EN 1992-1-2 en entier). c nom", "55 mm"],
      ["XD3/XS3 · S4 · Ø20 c min =", "45 mm", "·"],
      ["Δc dev =", "10 mm"],
      ["c min,dur =", "45 mm"],
      ["(tab. 4.4N) Exposition XD3/XS3 D'où viennent les valeurs Enrobages", "10 mm"],
-     ["par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage. XD3/XS3 · Alternativement humide et sec / zones de marnage et embruns Chlorures avec cycles humide/sec (XD3) ou zones de marnage/embruns (XS3). Exemples Tabliers de ponts, dalles de parking exposées aux sels ; ouvrages en zone de marée. La choisir Cas le plus sévère : sels + alternance humide/sec, embruns marins directs. Durabilité · dalle, sans étrier c min,b", "20 mm"],
+     ["par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : Bibliothèque › Enrobages › Calcul. XD3/XS3 · Alternativement humide et sec / zones de marnage et embruns Chlorures avec cycles humide/sec (XD3) ou zones de marnage/embruns (XS3). Exemples Tabliers de ponts, dalles de parking exposées aux sels ; ouvrages en zone de marée. La choisir Cas le plus sévère : sels + alternance humide/sec, embruns marins directs. Durabilité · dalle, sans étrier c min,b", "20 mm"],
      ["c min,dur", "45 mm"],
      ["c min ≥", "10 mm", "10 mm"],
      ["Δc dur", "0 mm"],
@@ -209,7 +216,7 @@
      ["avec contrôle de la qualité, jusqu'à", "0"],
      ["avec mesure précise c nom,dur EN 1992-1-1 §4.4.1.1(2), éq. (4.1) : c nom = c min + Δc dev"]
     ],
-    "avis": ["10 mm par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage."],
+    "avis": ["10 mm par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : Bibliothèque › Enrobages › Calcul.", "Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul — ouvrir le calcul complet (durabilité et feu, les tableaux de l'EN 1992-1-2 en entier)."],
     "champs": {
      "enrobages/classe_expo": "XD3/XS3",
      "enrobages/classe_struct": "S4",
@@ -466,12 +473,12 @@
     "statut": "Consultation",
     "phrase": "XC1 · S4 · c min,dur = 20 mm · c nom = 30 mm (Ø20, Δc dev 10 mm)",
     "resultat": [
-     ["c nom", "30 mm"],
+     ["Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul — ouvrir le calcul complet (durabilité et feu, les tableaux de l' EN 1992-1-2 en entier). c nom", "30 mm"],
      ["XC1 · S4 · Ø20 c min =", "20 mm", "·"],
      ["Δc dev =", "10 mm"],
      ["c min,dur =", "20 mm"],
      ["(tab. 4.4N) Exposition XC1 D'où viennent les valeurs Enrobages", "10 mm"],
-     ["par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage. XC1 · Sec, ou humide en permanence Corrosion induite par carbonatation, ambiance sèche ou toujours humide. Exemples Intérieur de bâtiments (humidité faible) ; béton en permanence immergé dans l'eau. La choisir Élément intérieur au sec, OU totalement noyé sous l'eau sans alternance. Durabilité · dalle, sans étrier c min,b", "20 mm"],
+     ["par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : Bibliothèque › Enrobages › Calcul. XC1 · Sec, ou humide en permanence Corrosion induite par carbonatation, ambiance sèche ou toujours humide. Exemples Intérieur de bâtiments (humidité faible) ; béton en permanence immergé dans l'eau. La choisir Élément intérieur au sec, OU totalement noyé sous l'eau sans alternance. Durabilité · dalle, sans étrier c min,b", "20 mm"],
      ["c min,dur", "20 mm"],
      ["c min ≥", "10 mm", "10 mm"],
      ["Δc dur", "0 mm"],
@@ -497,7 +504,7 @@
      ["avec contrôle de la qualité, jusqu'à", "0"],
      ["avec mesure précise c nom,dur EN 1992-1-1 §4.4.1.1(2), éq. (4.1) : c nom = c min + Δc dev"]
     ],
-    "avis": ["10 mm par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : module Enrobage."],
+    "avis": ["10 mm par défaut ; peut être réduit avec contrôle qualité renforcé (ANB). Le calcul complet (feu compris) : Bibliothèque › Enrobages › Calcul.", "Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul — ouvrir le calcul complet (durabilité et feu, les tableaux de l'EN 1992-1-2 en entier)."],
     "champs": {
      "enrobages/classe_expo": "XC1",
      "enrobages/classe_struct": "S4",
