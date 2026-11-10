@@ -13,3 +13,11 @@
 .pt-tete-ta b { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; margin-left: auto; }
 .pt-tete-ta i { flex-basis: 100%; font-style: normal; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .pt-tete-ta.vide i { flex-basis: auto; margin-left: auto; }
+/* « Détailler dans Taux d'armature » : sous le taux de la poutre ; éteint tant qu'une section n'a pas de longueur */
+.pt-detailler { display: flex; align-items: center; gap: 6px; width: calc(100% - 20px); margin: -2px 10px 10px; padding: 0 10px; min-height: 32px;
+  border-radius: 9px; font-size: 12px; font-weight: 600; color: var(--accent-hover); box-shadow: inset 0 0 0 1px var(--accent-line); background: var(--panel); cursor: pointer; }
+.pt-detailler:hover:not(:disabled) { background: var(--accent-soft); }
+.pt-detailler svg { width: 14px; height: 14px; flex: none; }
+.pt-detailler i { margin-left: auto; font-style: normal; font-weight: 500; font-size: 11.5px; color: var(--ink-3); }
+.pt-detailler:disabled { color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--line); cursor: not-allowed; }
+@media (pointer: coarse) { .pt-detailler { min-height: 44px; } }

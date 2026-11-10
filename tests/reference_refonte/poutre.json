@@ -2691,7 +2691,7 @@
     "resultat": [
      ["V1", "30", "×", "60 cm", "·"],
      ["C25/30 · B500 Taux d'armature", "95 kg/m³", "99,1 kg", "·", "1,080 m³", "·", "6,00 m"],
-     ["Section A Conforme M inf =", "120 kN·m", "·"],
+     ["Détailler dans Taux d'armature Section A Conforme M inf =", "120 kN·m", "·"],
      ["V =", "40 kN"],
      ["Hauteur", "92 %"],
      ["h min =", "55,5 cm", "≤"],
@@ -3141,7 +3141,7 @@
     "phrase": "",
     "resultat": [
      ["V1", "20", "×", "40 cm", "·"],
-     ["C30/37 · B500 Taux d'armature donner une longueur aux sections Section A Données incomplètes V =", "0 kN"],
+     ["C30/37 · B500 Taux d'armature donner une longueur aux sections Détailler dans Taux d'armature une longueur par section Section A Données incomplètes V =", "0 kN"],
      ["Hauteur", "13 %"],
      ["h min =", "5,00 cm", "≤"],
      ["h =", "40,0 cm"],

@@ -1109,17 +1109,32 @@ def _ta_volets(ta: Dict, p: Dict, nom_p: str) -> str:
     return out
 
 
+MANQUE_LONGUEUR = "Donner une longueur à chaque section (rubrique « Sections et sollicitations ») : elles deviennent les tronçons de la poutre."
+
+
+def _ta_detailler(ta: Dict) -> str:
+    """« Détailler dans Taux d'armature » : la poutre ouverte part dans le module détaillé (une note neuve : ses
+    sections deviennent des tronçons, ses lits des barres, ses cadres des zones d'étriers — ``transmettre``). Éteint, et
+    il dit pourquoi, tant qu'une section n'a pas de longueur."""
+    pret = bool(ta["poutre"]) and not ta["poutre"]["sans_longueur"]
+    etat = "" if pret else f' disabled aria-disabled="true" title="{C.esc(MANQUE_LONGUEUR)}"'
+    aide = "" if pret else '<i>une longueur par section</i>'
+    return (f'<button type="button" class="pt-detailler" data-transmettre="taux"{etat}>{C.icon("arrow-up-right")}'
+            f'<span>Détailler dans Taux d\'armature</span>{aide}</button>')
+
+
 def _ta_tete(ta: Dict) -> str:
-    """Sous le nom de la poutre : son taux d'armature (un clic ouvre le calcul) — ou ce qui manque pour l'avoir."""
+    """Sous le nom de la poutre : son taux d'armature (un clic ouvre le calcul) — ou ce qui manque pour l'avoir —, puis
+    le bouton qui l'envoie dans le module détaillé."""
     tp = ta["poutre"]
     if not tp:
         return ('<button type="button" class="pt-tete-ta vide" data-calcul="ta" title="Voir le calcul"><span>Taux d\'armature</span>'
-                '<i>donner une longueur aux sections</i></button>')
+                '<i>donner une longueur aux sections</i></button>' + _ta_detailler(ta))
     sans = len(tp["sans_longueur"])
     reste = f" · {sans} section{'s' if sans > 1 else ''} sans longueur" if sans else ""
     return (f'<button type="button" class="pt-tete-ta" data-calcul="ta" title="Voir le calcul"><span>Taux d\'armature</span>'
             f'<b>{C.fr(tp["taux"], 0)}{C.NBSP}kg/m³</b><i>{C.fr(tp["masse"], 1)}{C.NBSP}kg · {C.fr(tp["volume"], 3)}{C.NBSP}m³ · '
-            f'{C.fr(tp["longueur"], 2)}{C.NBSP}m{reste}</i></button>')
+            f'{C.fr(tp["longueur"], 2)}{C.NBSP}m{reste}</i></button>' + _ta_detailler(ta))
 
 
 def _bloc(i: int, s: Dict, nom_p: str, hyps: List[str], gouv: Dict, niv_note: str, ta: Optional[Dict] = None) -> tuple:
@@ -1235,6 +1250,27 @@ def fiches(etat: Dict, quoi: str, fiche=None, index=None) -> Optional[str]:
     """Les fiches de la bibliothèque incluses dans la note (api_web/fiches.py) : ajouter, retirer, monter, descendre ;
     un message quand la demande est refusée, l'état intact."""
     return FI.gerer(etat, quoi, fiche, index)
+
+
+# ------------------------------------------------------------------ vers le module « Taux d'armature »
+def transmettre(etat: Dict, vers: str) -> Dict:
+    """« Détailler dans Taux d'armature » (api_web/routeur.transmettre) : la poutre OUVERTE convertie en une poutre du
+    module détaillé par le moteur (``beton/taux/depuis_poutre.convertir`` : les sections deviennent des tronçons, les
+    barres communes des barres filantes, le surplus des renforts, chaque composition d'étriers un type et chaque section
+    une zone à son pas). Rend {"module", "nom", "etat"} — la note que l'écran crée ; rien n'est écrit dans celle-ci.
+    ValueError (message à montrer tel quel) : une destination inconnue, une section sans longueur."""
+    if vers != "taux":
+        raise ValueError(f"Une poutre ne s'envoie pas vers « {str(vers)[:40]} ».")
+    p = EN.normaliser(_poutre(etat))
+    longueurs = [s.get("longueur") for s in p["sections"]]
+    if any(lg is None for lg in longueurs):
+        raise ValueError(MANQUE_LONGUEUR)
+    from beton.taux import depuis_poutre as DP
+    from . import taux as TX
+    poutre_taux = DP.convertir(p, longueurs)
+    etat_taux = TX.nouvel_etat()
+    etat_taux["poutres"], etat_taux["actif"] = [poutre_taux], 0
+    return {"module": TX.MODULE, "nom": f"{p.get('nom') or 'Poutre'} · taux d'armature", "etat": etat_taux}
 
 
 # ------------------------------------------------------------------ la note PDF

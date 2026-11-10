@@ -2,9 +2,10 @@
 """Le point d'entrée unique du travailleur du navigateur : une requête JSON → une réponse JSON.
 
     {"module": "<clé d'un module du registre>", "action": "nouveau" | "calculer" | "modifier" | "choisir" |
-     "selecteur" | "activer" | "ajouter" | "dupliquer" | "supprimer" | "telecharger" | "bibliotheque" | "fiches",
+     "selecteur" | "activer" | "ajouter" | "dupliquer" | "supprimer" | "telecharger" | "bibliotheque" | "fiches" |
+     "transmettre",
      "etat": {...}, "chemin": [...], "valeur": ..., "role": "...", "nom": "...", "familles": [...], "froid": true,
-     "index": 0, "quoi": "...", "rubrique": "...", "params": {...}, "fiche": {...}}
+     "index": 0, "quoi": "...", "rubrique": "...", "params": {...}, "fiche": {...}, "vers": "..."}
 
 LA BIBLIOTHÈQUE D'UNE NOTE (docs/site/BIBLIOTHEQUES.md § 2.4, § 2.5) : « bibliotheque » rend la bibliothèque de la
 famille du module pour cette note (préremplie, hôte « note », les cibles de « Utiliser cette valeur ») — sans toucher
@@ -27,6 +28,17 @@ TÉLÉCHARGER un fichier propre au module (le bouton ``commun.bouton_telecharger
               {"ok": false, "erreur": "<message en français>"} : module sans ``telecharger``, ``quoi`` inconnu (le
               module rend None, ou lève ValueError avec son message), nom absurde, type hors liste, texte de plus de
               5 Mo (les règles : ``commun.refus_fichier``). Jamais une exception.
+
+TRANSMETTRE l'élément ouvert à un AUTRE module, qui en fait une note neuve (le bouton ``data-transmettre="<clé>"`` :
+« Détailler dans Taux d'armature » d'une poutre, docs/site/LOT_Q_QUATRE_MODULES.md § 6.2) :
+
+    {"module", "action": "transmettre", "etat", "vers"} → transmettre(etat normalisé, vers) du module
+                                                        → {"module": str, "nom": str, "etat": {...}}
+    réponse : {"ok": true, "note": {"module", "nom", "etat"}} — l'état RELU par le module de destination (son
+              ``normaliser``) : jamais une note que sa page ne saurait pas ouvrir ; l'écran crée la note (même chantier,
+              même dossier) et l'ouvre. Rien n'est écrit dans la note d'origine (son état n'est pas rendu).
+              {"ok": false, "erreur": "<message en français>"} : module sans ``transmettre``, destination absente ou
+              inconnue, refus du module (ValueError : ce qui manque, dit en clair). Jamais une exception.
 """
 import importlib
 import json
@@ -118,6 +130,40 @@ def telecharger(mod, q: dict) -> dict:
     return {"ok": True, "fichier": {"nom": f["nom"], "type": f["type"], "texte": f["texte"]}}
 
 
+NOM_NOTE_MAX = 120   # caractères du nom de la note créée par « transmettre »
+
+
+def transmettre(mod, q: dict) -> dict:
+    """L'action « transmettre » : ce que le module envoie à un autre (``mod.transmettre(etat, vers)``), contrôlé avant
+    de partir — la destination est un module du registre, et elle RELIT l'état qu'on lui envoie."""
+    fonction = getattr(mod, "transmettre", None)
+    if not callable(fonction):
+        return _refus("Ce module n'envoie rien vers un autre module.")
+    vers = q.get("vers")
+    if not isinstance(vers, str) or not vers.strip():
+        return _refus("Le module de destination n'est pas précisé.")
+    try:
+        etat = mod.normaliser(q["etat"]) if q.get("etat") else mod.nouvel_etat()
+    except Exception as e:  # noqa: BLE001 — une note abîmée : un message, pas une exception
+        return _refus(f"La note ne se relit pas, rien n'est envoyé : {e}")
+    try:
+        out = fonction(etat, vers)
+    except ValueError as e:  # le refus du module, déjà dit en français
+        return _refus(str(e) or f"Envoi vers « {_court(vers)} » impossible.")
+    except Exception as e:  # noqa: BLE001 — l'écran montre l'erreur ; la trace part dans la console
+        return {"ok": False, "erreur": f"L'envoi vers « {_court(vers)} » a échoué : {type(e).__name__} : {e}",
+                "trace": traceback.format_exc()}
+    if not isinstance(out, dict) or not isinstance(out.get("module"), str) or not isinstance(out.get("etat"), dict):
+        return _refus(f"Envoi vers « {_court(vers)} » impossible.")
+    try:
+        cible = registre.module(out["module"])
+        etat_cible = cible.normaliser(out["etat"])
+    except Exception as e:  # noqa: BLE001 — la destination refuse ce qu'on lui envoie : rien ne part
+        return _refus(f"« {_court(out['module'])} » ne relit pas ce qui lui est envoyé : {e}")
+    nom = " ".join(str(out.get("nom") or "").split())[:NOM_NOTE_MAX]
+    return {"ok": True, "note": {"module": out["module"], "nom": nom, "etat": etat_cible}}
+
+
 def bibliotheque(mod, q: dict, etat: dict) -> dict:
     """L'action « bibliotheque » (docs/site/BIBLIOTHEQUES.md § 2.4) : la bibliothèque de la famille du module, rendue
     pour une NOTE (hôte « note ») avec les paramètres que la note connaît — ``mod.bibliotheque_prefill(etat)`` dit la
@@ -146,6 +192,8 @@ def traiter(requete: str) -> str:
         action = q.get("action", "calculer")
         if action == "telecharger":
             return _json(telecharger(mod, q))
+        if action == "transmettre":
+            return _json(transmettre(mod, q))
         etat = mod.normaliser(q["etat"]) if q.get("etat") and action != "nouveau" else mod.nouvel_etat()
         if action == "bibliotheque":
             return _json(bibliotheque(mod, q, etat))

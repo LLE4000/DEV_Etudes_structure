@@ -1026,6 +1026,39 @@ export function ouvrirEtabli(hote, ctx) {
       telechargerFichier(b.dataset.telecharger);
     }, { capture: true, signal });
 
+    // -------------------------------------------------------------- envoyer l'élément ouvert à un autre module
+    // Le module pose <button data-transmettre="<clé du module de destination>"> (« Détailler dans Taux d'armature »
+    // d'une poutre) ; le moteur rend la note à créer ({"note": {"module", "nom", "etat"}}, l'état relu par le module de
+    // destination). L'écran la crée — même chantier, même dossier — et l'ouvre. La note d'ici n'est pas touchée.
+    async function transmettre(vers) {
+      occupe(1);
+      try {
+        let r;
+        try {
+          r = await client.demander(() => ({ module: MODULE, action: "transmettre", etat: note.etat, vers }));
+        } catch (e) { if (e && e.name === "EcranFerme") return; throw e; }
+        if (fini()) return;
+        const x = r && r.ok ? r.note : null;
+        if (!x || typeof x.module !== "string" || !Object.hasOwn(N.MODULES, x.module) || !x.etat || typeof x.etat !== "object") {
+          toast(`Envoi refusé : ${(r && !r.ok && r.erreur) || "le moteur n'a pas rendu de note"}`, true);
+          if (r && r.trace) console.error(r.trace);
+          return;
+        }
+        const n = N.nouvelle({ module: x.module, nom: typeof x.nom === "string" ? x.nom : "", chantier: note.chantier || "", dossier: note.dossier || "" });
+        n.etat = x.etat;
+        if (!N.ecrire(n)) { toast("La note n'a pas pu être créée dans ce navigateur : rien n'est envoyé", true); return; }
+        ctx.naviguer(`${N.pageDe(n.module)}?note=${encodeURIComponent(n.id)}`);
+      } finally { occupe(-1); }
+    }
+    // à la capture, comme les téléchargements : les volets arrêtent la propagation de leurs clics
+    bench.addEventListener("click", (ev) => {
+      const b = ev.target.closest("[data-transmettre]");
+      if (!b || b.disabled || b.getAttribute("aria-disabled") === "true") return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      transmettre(b.dataset.transmettre);
+    }, { capture: true, signal });
+
     // -------------------------------------------------------------- la météo du lieu (Open-Meteo), à la demande
     // Le module pose <button data-meteo="<plan>" data-meteo-chemin="…"> (commun.bouton_meteo) : le PLAN vient du moteur ;
     // js/meteo.js fait les appels vers Open-Meteo et rend les réponses BRUTES, qui partent au module (« modifier » sur le
