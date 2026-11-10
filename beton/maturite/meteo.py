@@ -6,8 +6,9 @@ l'ingénieur, vers les trois adresses d'Open-Meteo et elles seules (``ADRESSES``
 site/web/_headers, n'en permet pas d'autre) : il rend les réponses JSON BRUTES, que ce module lit. La météo est donc une
 IMPORTATION de données ; le calcul, lui, se fait hors ligne, sur les températures que la note garde.
 
-La logique est celle de l'écran Streamlit ``modules/age_beton.py`` (v3.2), RECOPIÉE et prouvée au bit près par
-``tests/test_maturite_moteur.py`` (section 10, l'écran rejoué avec un faux ``requests`` qui rend les MÊMES réponses) :
+La logique est celle de l'écran Streamlit ``modules/age_beton.py`` (v3.2), dont la LECTURE de la météo est gardée telle
+quelle et prouvée par ``tests/test_maturite_moteur.py`` (l'écran rejoué avec un faux ``requests`` qui rend les MÊMES
+réponses) :
 
 - ``plages``          ← ``_plages_endpoints`` : l'archive (réanalyse, en retard de ~6 j) pour le passé, les prévisions
                         pour les jours récents ET futurs (jusqu'à 16 j), le reste PROLONGÉ ;
@@ -17,7 +18,8 @@ La logique est celle de l'écran Streamlit ``modules/age_beton.py`` (v3.2), RECO
 - ``lire_journalier`` ← ``meteo_journaliere`` (jours sans doublon, prévision = après le jour de la récupération,
                         prolongation à la moyenne des 5 derniers jours servis) ;
 - ``lire_horaire``    ← ``meteo_horaire`` ; ``extremes_horaires`` ← les colonnes « T min h », « T max h » du tableau
-                        « Données météo » ;
+                        « Données météo » ; ``minimales_apres`` : la plus basse valeur horaire de chaque jour, comptée à
+                        partir d'une heure donnée le premier jour (l'alerte de gel du moteur) ;
 - ``releve``          : les températures journalières écrites comme un relevé (``releve.py``) — la suite du calcul est
                         celle du relevé, que l'ingénieur peut ensuite corriger à la main ;
 - ``enregistrement``, ``normaliser``, ``synthese`` : ce que la note GARDE d'une récupération (le lieu, les dates, le
@@ -32,17 +34,14 @@ relevé est jour par jour, et son jour 1 est le coulage : une réponse qui comme
 coulage, décalait tous les âges sans un mot). Rien de ceci n'arrive avec une réponse conforme au format documenté
 d'Open-Meteo, qui rend exactement les jours demandés.
 
-Bibliothèques : la bibliothèque standard et numpy (``np.mean`` : la prolongation de l'écran, au bit près).
+Bibliothèque standard seule (la prolongation est une moyenne : somme / nombre — celle de l'écran, à 1e-12 près).
 """
 import copy
 import datetime as _dt
 import math
 import re
 
-import numpy as np
-
 from . import releve as RL
-from .ec2 import HORIZON_PREVISION_J
 
 # ------------------------------------------------------------------ les adresses et les constantes de l'écran
 # Les trois adresses d'Open-Meteo (modules/age_beton.py : URL_FORECAST, URL_ARCHIVE, geocode_open_meteo). Copies NOMMÉES,
@@ -52,6 +51,7 @@ ADRESSES = {"geocodage": "https://geocoding-api.open-meteo.com/v1/search",
             "prevision": "https://api.open-meteo.com/v1/forecast"}
 SOURCES = ("archive", "prevision")          # l'ordre des appels de l'écran : l'archive, puis les prévisions
 RETARD_ARCHIVE_J = 6                        # l'archive est fiable jusqu'à ~J-6 (RETARD_ARCHIVE_J de l'écran)
+HORIZON_PREVISION_J = 16                    # l'horizon de l'API de prévision d'Open-Meteo (cité dans les messages)
 JOURNALIER = {"daily": "temperature_2m_mean"}
 HORAIRE = {"hourly": "temperature_2m"}
 GEOCODAGE = {"count": 1, "language": "fr"}  # geocode_open_meteo : le premier résultat, les noms en français
@@ -260,7 +260,7 @@ def lire_journalier(p: dict, reponses) -> dict:
                   [t for t in temps if not math.isnan(t)]
         if not valides:
             raise ValueError("Aucune donnée météo exploitable sur la période.")
-        t_prolonge = float(np.mean(valides))
+        t_prolonge = sum(valides) / len(valides)
         for i in range(1, n_extra + 1):
             dates.append((fin_dispo + _dt.timedelta(days=i)).isoformat())
             temps.append(t_prolonge)
@@ -294,6 +294,19 @@ def extremes_horaires(h: dict) -> dict:
         v = [x for x in vals if not math.isnan(x)]
         if v:
             out[d] = [min(v), max(v)]
+    return out
+
+
+def minimales_apres(h: dict, instant: str = None) -> dict:
+    """{jour AAAA-MM-JJ: la plus basse valeur horaire VALIDE du jour} ; ``instant`` (AAAA-MM-JJTHH:MM) : les heures
+    d'AVANT cet instant ne comptent pas (le jour du bétonnage : un gel du petit matin, avant que le béton soit en place,
+    n'est pas un gel du béton). Un jour sans aucune valeur comptée n'y est pas."""
+    out = {}
+    for ht, hv in zip(h["h_times"], h["h_temps"]):
+        if math.isnan(hv) or (instant is not None and ht < instant):
+            continue
+        d = ht[:10]
+        out[d] = hv if d not in out else min(out[d], hv)
     return out
 
 

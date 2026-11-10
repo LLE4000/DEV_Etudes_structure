@@ -1,435 +1,694 @@
 # -*- coding: utf-8 -*-
-"""Maturité du béton — le MOTEUR, sans Streamlit ni matplotlib ni réseau : bibliothèque standard et numpy (présent
-dans Pyodide). Extrait de l'écran Streamlit ``modules/age_beton.py`` v3.2, qui reste la RÉFÉRENCE :
-``tests/test_maturite_moteur.py`` rejoue ``show()`` avec un faux « st » et prouve, cas par cas, que ce moteur rend les
-mêmes nombres (au bit près), les mêmes états et les mêmes courbes. Méthode, provenance et preuve :
-``docs/beton/MATURITE_MOTEUR.md``.
+"""Maturité du béton — le MOTEUR : à quel âge, et quel jour, un béton coulé par ce temps atteint-il une résistance ?
+
+Refait le 10/11/2026 sur la norme (``docs/site/LOT_Q_QUATRE_MODULES.md`` § 2 ; méthode, sources et preuves :
+``docs/beton/MATURITE_MOTEUR.md``) : il ne reproduit plus l'écran Streamlit ``modules/age_beton.py``. Les lois et les
+tables sont dans ``lois.py`` (une source par valeur de norme), l'entrée et ses bornes dans ``entree.py``, la lecture du
+relevé et de la météo dans ``releve.py`` et ``meteo.py``. Bibliothèque standard seule.
 
 API
 ---
-    nouvel_element(nom) -> dict            un coulage aux valeurs de l'écran au premier affichage
-    normaliser(element) -> dict            copie complétée et contrôlée (ValueError hors du domaine de l'écran)
-    calculer(element) -> dict              tout ce que l'écran affiche (et ce que le site ajoute, nommé comme tel)
-    candidats_classes(element) -> list     les classes de béton pour la cible ③ (le sélecteur du site)
+    nouvel_element(nom) -> dict            le coulage neuf
+    normaliser(coulage) -> dict            copie complétée et contrôlée (ValueError hors domaine, le champ nommé)
+    calculer(coulage) -> dict              tout ce que l'écran montre
+    candidats_classes(coulage) -> list     chaque classe de béton face au PREMIER objectif (le sélecteur)
+    MODELES_OBJECTIF                       les six modèles d'objectif, chacun avec sa source
 
-ENTRÉE — un coulage (JSON). Unités : °C, jours, MPa, kJ/mol.
+LE TEMPS : t = 0 à la fin du bétonnage (date et heure). Le jour 0 est le jour du bétonnage ; il ne compte que pour sa
+fraction restante. Le relevé commence ce jour-là (sa première ligne) ; s'il est daté et que la date du bétonnage l'est
+aussi, c'est le CALENDRIER qui les accorde : les jours du relevé d'avant le bétonnage ne comptent pas, un jour sans
+température (absent du relevé, ou « — ») ne compte AUCUN durcissement, les jours d'après le relevé sont PROLONGÉS à la
+moyenne de ses cinq derniers jours. Sans date de bétonnage, celle de la première ligne d'un relevé daté la donne.
+
+SORTIE de ``calculer`` — JSON strict (ni NaN ni infini), nombres non arrondis (l'écran formate)
 ------
-    {"nom": "Coulage 1",
-     "classe": "C30/37",                 « Classe béton » (C20/25 … C50/60)
-     "ciment": "N",                      « Classe ciment » : R (s = 0,20), N (0,25), S (0,38)
-     "date_coulage": null,               « Date de coulage » (AAAA-MM-JJ) : date les seuils
-     "temperature": {"mode": "constante" | "releve" | "meteo", « Manuel » | « Météo » : relevé saisi, ou météo du lieu
-                     "T": 20.0,          « T moyenne (°C) » (−5 à 60), mode constante
-                     "releve": "",       le relevé journalier (beton/maturite/releve.py : format) — collé, lu, ou écrit
-                                         par la météo récupérée (et corrigé à la main si l'on veut)
-                     "fichier": "", "lieu": "",               le nom du fichier lu, le lieu (« Lieu du chantier »)
-                     "debut": null, "fin": null,              « Coulage », « Fin (décoffrage) » de la météo (AAAA-MM-JJ ;
-                                                              null : les dates de l'écran au premier affichage)
-                     "meteo": null | {...}},                  la récupération GARDÉE (beton/maturite/meteo.py : lieu,
-                                                              dates, jour et heure, réponses d'Open-Meteo réduites)
-     "avance": false, "Ea_kJ": 33.256,   « ⚙️ » et « Ea [kJ/mol] » (20 à 60) ; sans ⚙️, E_a = 4000·R
-     "age": 28,                          « Âge (jours réels) » : entier, 1 à 28 (1 à n jours du relevé)
-     "seuil": {"mode": "pct" | "mpa", "pct": 75, "mpa": 20.0, "afficher": false},                       ②
-     "optim": {"mpa": 30.0, "delai": 14.0, "afficher": false},                                           ③
-     "comparateur": {"classes": [...], "ciment": "N", "afficher": false},                                 ④
-     "essai": {"mpa": 0.0, "age": 7.0, "T": 20.0, "afficher": false}}                                     ⑤
+    {"entree": <le coulage normalisé>,
+     "materiau": {"classe", "fck", "fck_cube", "fcm", "s" (retenu), "r" (qu'il suppose), "cale" (s vient de l'essai),
+                  "durcissement": {"mode", "cle", "s", "r", "libelle", "source", "detail"}   (le choix, avant calage),
+                  "loi": {"mode", "libelle", "source", "Ea_kJ" | None}, "formules": [...]},
+     "temps": {"date", "date_origine": "saisie" | "releve" | None, "heure", "f0", "origine" (AAAA-MM-JJTHH:MM | None)},
+     "temperature": {"mode", "source": "constante" | "releve", "T" (la constante lue), "lieu", "fichier", "marge",
+                     "releve": <releve.synthese> | None, "meteo": <meteo.synthese> | None,
+                     "T_fin" (au-delà des jours connus), "source_fin": "constante" | "prolonge", "k_fin"},
+     "profil": [<jour>, …]      un par jour civil, du jour 0 à l'horizon :
+                {"jour", "date", "T_brut" (du relevé), "T" (de calcul ; None : sans donnée), "T_prudent", "source":
+                 "mesure" | "prevision" | "prolonge" | "constante" | "sans_donnee", "k", "k_prudent", "debut", "fin"
+                 (âges réels), "t_T", "t_T_prudent" (cumulés en FIN de jour), "gel", "T_gel", "base_gel",
+                 "T_min_h", "T_max_h" (détail horaire, sinon None)},
+     "synthese": {"T_moy", "T_min", "T_max", "n_jours" (connus), "n": {source: nombre}, "n_avant", "n_manquants",
+                  "fin_connus" (âge réel) , "date_fin_connus", "t_T_28", "t_T_28_prudent", "t_3" (âge réel où t_T = 3 j),
+                  "prudent_distinct"},
+     "objectifs": [{"nom", "mode", "pct", "mpa", "cible", "base", "atteignable", "t_T" (requis), "t", "instant",
+                    "indicatif", "prudent": {"t", "instant"}, "age_prevu", "instant_prevu", "t_T_prevu", "f_prevu",
+                    "f_prevu_prudent", "indicatif_prevu", "taux" (cible / f à l'âge prévu), "etat": "ok" | "attention" |
+                    "nok" | "date" | "jamais" | "non_atteignable", "prudent_ok", "au_dela" (atteint après les jours
+                    connus), "formules": [...]}, …],
+     "gel": {"seuil", "base": "minimale" | "moyenne", "premier_jour", "date", "T", "t", "t_5MPa", "alerte",
+             "prudent": {"premier_jour", "date", "T", "t", "t_5MPa", "alerte"}, "formules": [...]},
+     "temps_froid": {"seuil", "heures", "rappel", "jour", "date", "T", "base"},
+     "essai": None | {"age", "mpa", "eprouvette", "rapport_cube", "f_cyl", "t_T", "f_prevu", "ecart" (%), "indicatif",
+                      "s_cale", "r_cale", "calage_refuse" (raison | None), "caler", "cale", "formules": [...]},
+     "courbes": {"horizon", "t", "fcm", "fck", "fcm_prudent", "fck_prudent" (None si la variante ne diffère pas),
+                 "t_3", "t_28", "date", "heure", "objectifs": [...], "essai": {"t", "f"} | None},
+     "tableau": {"horaire", "lignes": [<jour> + {"beta", "fcm", "fck"}, …]},
+     "avertissements": [{"code", "niveau": "grave" | "attention" | "info", "message"}, …],
+     "non_couvert": [texte, …],
+     "resume": {"date" (un objectif daté au moins), "taux", "etat", "objectif" (rang), "nom"}}
 
-SORTIE de calculer — JSON strict (sans NaN), nombres non arrondis (le site formate)
-------
-    {"reference", "entree",
-     "materiau": {"classe", "fck28", "fcm", "ciment", "ciment_libelle", "ciment_detail", "s"},
-     "temperature": {"mode", "source": "manuelle" | "releve", "lieu", "T" (T de calcul : la constante ou la moyenne
-                     du relevé), "Ea", "Ea_kJ", "Ea_R", "T_abs", "facteur" (jours équivalents par jour réel à T),
-                     "t28_reel" (28/facteur), "t3_reel" (3/facteur, site), "releve": <synthèse> | None,
-                     "defav": {...} | None, "meteo": <meteo.synthese> | None (mode meteo, météo récupérée)},
-     "age": <①>, "seuil": <②>, "optim": <③>, "comparateur": <④>, "essai": <⑤>,
-     "courbes": {"t", "ref", "defav", "comparateur", "opt", "seuil", "lab", "point", "t28", "titre"},   la figure
-     "tableau": {...},                    les valeurs jour par jour (le site : vue « Tableau ») ; « horaire » : chaque
-                                          ligne porte T_min_h et T_max_h (le détail horaire de la météo est chargé)
-     "avertissements": [{"code", "message"}, ...]}
-
-  <①> age = {"t", "age_max", "t_e", "fck", "pct", "hors_domaine" (t_e ≤ 3 j), "etat": "ok" | "warn",
-             "beta" (None si t_e ≥ 28), "defav": {"t_e", "fck", "pct"} | None, "formules": [...]}
-  <②> seuil = {"mode", "pct", "mpa", "cible", "t" (None : non atteignable), "date", "etat": "ok" | "nok", "t_e",
-               "hors_domaine", "afficher", "controle": {"t_e", "t"} (forme fermée, site), "taux_age" (f_cible / f_ck(t) de ①,
-               site ; None si f_ck(t) ≤ 0), "atteint_age", "formules",
-               "releve" (site, avec un relevé : {"jour" (1er jour du relevé où f_ck ≥ cible), "date", "jour_annonce" (⌈t⌉),
-               "fck_jour_annonce", "optimiste" (② annonce le seuil avant le relevé : NON CONSERVATIF)} | None)}
-  <③> optim = {"mpa", "delai", "t_e", "classe", "fck28", "fck", "actuelle", "etat", "taux_retenue",
-               "classes": [{"classe", "fck28", "fck", "taux" (None si f_ck ≤ 0), "ok"}], "afficher", "formules"}
-  <④> comparateur = {"classes", "ciment", "s", "afficher", "courbes": [...]}
-  <⑤> essai = {"mpa", "age", "T", "actif" (mpa > 0), "t_e", "fck28_est", "classe", "fck_classe", "ecart_classe",
-               "ecart", "verdict": "coherent" | "dessus" | "sous", "etat", "hors_domaine", "afficher", "formules",
-               "fck28_est_moyenne" (site : la mesure lue comme une moyenne, docs/beton/MATURITE_MOTEUR.md §7)}
-
-  formules = [{"cle", "termes": [{"symbole", "valeur", "unite"}, ...], "resultat", "unite"}, ...] : chaque résultat se
-  retrouve à partir de ses seuls termes (le test le prouve).
+  formules = [{"cle", "symbole", "termes": [{"symbole", "valeur", "unite"}, …], "resultat", "unite"}, …] : chaque
+  résultat se retrouve à partir de ses seuls termes (tests/test_maturite_moteur.py le prouve, clé par clé).
 """
+import datetime as _dt
 import math
 
-import numpy as np
-
 from . import entree as EN
+from . import lois as L
 from . import meteo as MT
 from . import releve as RL
-from .ec2 import (CIMENT_DETAIL, CIMENTS, CLASSES, EA_EC2, HORIZON_PREVISION_J, R_GAZ, T_REF_K, age_equivalent,
-                  age_equivalent_point, beta_cc, classe_estimee_depuis_mesure, classe_min_pour_delai, facteur_maturite,
-                  fck_age_equivalent, fck_cible_pourcentage, fck_classe, temps_reel_pour_cible)
-from .entree import nouvel_element, normaliser  # noqa: F401 — l'API
+from .entree import normaliser, nouvel_element  # noqa: F401 — l'API
 
-REFERENCE = "modules/age_beton.py v3.2"
-T_COURBE = (1, 40, 500)                     # np.linspace(1, 40, 500) : l'axe de la figure du module
-COULEURS = {"ref": "#2e6fb0", "defav": "#b91c1c", "seuil": "#b45309", "opt": "#7c3aed", "mes": "#1f8a70"}
-COULEURS_CMP = ["#c0392b", "#e67e22", "#27ae60", "#2980b9", "#8e44ad", "#16a085", "#d35400"]
-AGES_TABLEAU = (1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 28)
-SEUIL_DOMAINE = 3.0                         # t_e ≤ 3 j : « hors domaine EC2 » (§3.1.2(5))
-ECART_COHERENT = 8.0                        # ⑤ : |écart| ≤ 8 % → cohérent
+HORIZON_MIN_J = 28.0        # la courbe couvre au moins 28 jours réels…
+HORIZON_MAX_J = 90.0        # … et 90 au plus
+MARGE_HORIZON = 1.2         # … ou jusqu'au dernier objectif + 20 %
+POINTS_COURBE = 240         # le pas de la courbe : horizon / 240 (les cassures de jour et les repères s'y ajoutent)
+SEUIL_GEL_MPA = 5.0         # EN 13670:2009 §8.5(12) : pas de température sous 0 °C en surface avant 5 MPa
+T_GEL_C = 0.0
+SEUIL_FROID_C = 5.0         # Buildwise NIT 285 §9.4 : mesures de bétonnage par temps froid si T < 5 °C…
+HEURES_FROID = 72.0         # … au bétonnage ou dans les 72 heures
+GRAVE, ATTENTION, INFO = "grave", "attention", "info"
+SOURCES = ("mesure", "prevision", "prolonge", "constante", "sans_donnee")
+NON_MESURES = ("prevision", "prolonge", "constante")       # les jours que la variante prudente abaisse de la marge
+
+# Les MODÈLES d'objectif (un clic les ajoute) : (clé, nom, mode, valeur, base, source). Les seuils en MPa sont des seuils
+# de chantier, comparés à la résistance MOYENNE — ce que mesurent des cubes conservés sur chantier ; les pourcentages de
+# f_ck sont des exigences de calcul, comparées à la caractéristique, à fixer par le bureau d'études.
+MODELES_OBJECTIF = (
+    ("hors_gel", "Hors gel", "mpa", 5.0, "fcm",
+     "EN 13670:2009 §8.5(12) : la surface du béton ne descend pas sous 0 °C avant d'avoir 5 MPa"),
+    ("decoffrage_vertical", "Décoffrage vertical", "mpa", 5.0, "fcm",
+     "annexe informative de l'EN 13670 (décoffrage sans effort), citée par le CSTC et Infociments"),
+    ("reprise", "Reprise de bétonnage", "mpa", 10.0, "fcm", "Infociments, bétonnage par temps froid (phase de bétonnage suivante)"),
+    ("pct50", "50 % de f_ck", "pct", 50.0, "fck", "exigence de calcul, à fixer par le bureau d'études selon la charge au décoffrage"),
+    ("pct70", "70 % de f_ck", "pct", 70.0, "fck", "exigence de calcul, à fixer par le bureau d'études selon la charge au décoffrage"),
+    ("pct100", "100 % de f_ck", "pct", 100.0, "fck", "la résistance de calcul entière (mise en charge, désétaiement complet)"),
+)
+NON_COUVERT = (
+    "les délais minimaux de décoffrage par type de coffrage de la NBN B 15-400 et les durées de cure (tableau F.8-ANB) : "
+    "leurs valeurs n'ont pas pu être relues sur le texte",
+    "les critères en proportion des charges (charge au décoffrage rapportée à la charge de service)",
+    "les flèches au jeune âge (module E_cm(t)) et le ré-étaiement sur plusieurs niveaux",
+    "l'EN 1992-1-1:2023 (annexe B.4, classes CS, CN, CR) : pas encore d'annexe belge",
+    "la chaleur d'hydratation et la température propre d'un élément massif ou isolé : la température est celle qui est saisie",
+)
 
 
-def _f(cle, termes, resultat, unite=""):
-    return {"cle": cle, "termes": [{"symbole": s, "valeur": v, "unite": u} for s, v, u in termes], "resultat": resultat, "unite": unite}
+def modele_objectif(cle: str, fck: float) -> dict:
+    """L'objectif d'un modèle (``MODELES_OBJECTIF``) ; ValueError si la clé n'en est pas une."""
+    for k, nom, mode, valeur, base, _source in MODELES_OBJECTIF:
+        if k == cle:
+            o = EN.nouvel_objectif(nom, fck)
+            o.update(mode=mode, base=base, **{mode: valeur})
+            return o
+    raise ValueError(f"modèle d'objectif inconnu : {str(cle)[:40]!r}")
+
+
+# ------------------------------------------------------------------ petits outils
+def _f(cle, symbole, termes, resultat, unite=""):
+    return {"cle": cle, "symbole": symbole, "termes": [{"symbole": s, "valeur": v, "unite": u} for s, v, u in termes],
+            "resultat": resultat, "unite": unite}
 
 
 def _fr(x: float, nd: int = 1) -> str:
-    """Un nombre d'un message, à la française."""
-    return f"{x:.{nd}f}".replace(".", ",")
+    """Un nombre d'un message, à la française (le vrai signe moins)."""
+    s = f"{x:.{nd}f}"
+    if float(s) == 0:
+        s = s.lstrip("-")
+    return s.replace("-", "−").replace(".", ",")
 
 
-def _num(x):
-    """Un nombre JSON : float, et None pour NaN (un jour sans donnée)."""
-    return None if x is None or (isinstance(x, float) and math.isnan(x)) else float(x)
+def _jj(iso) -> str:
+    """« 2026-11-02 » → « 02/11/2026 »."""
+    return _dt.date.fromisoformat(iso).strftime("%d/%m/%Y")
 
 
-# ------------------------------------------------------------------ la température
-def _temperature(e: dict, avert: list) -> dict:
-    """Le mode Manuel, le relevé ou la météo du lieu : T de calcul, profil, variante défavorable — ``_saisie_temperature``
-    du module. La météo récupérée est un relevé comme un autre (la note garde ses températures, le calcul se fait hors
-    ligne) ; ``meteo`` dit d'où il vient (``meteo.synthese`` : lieu trouvé, dates, récupération, relevé modifié depuis)."""
-    t = e["temperature"]
-    out = {"mode": t["mode"], "source": "manuelle", "lieu": t["lieu"], "fichier": t["fichier"], "releve": None, "defav": None,
-           "profil": None, "jours": None, "meteo": None}
-    if t["mode"] == "constante":
-        out["T"] = t["T"]
-        return out
-    if t["mode"] == "meteo" and t["meteo"]:
-        out["meteo"] = MT.synthese(t["meteo"], t["releve"], t["lieu"], t["debut"], t["fin"])
-    rel = RL.lire(t["releve"])
-    syn = RL.synthese(rel) if rel["temps"] else None
-    if syn is None:
-        # le module, sans météo récupérée (ou sans aucune température exploitable) : T = 20 °C, « manuelle »
-        out["T"] = 20.0
-        if t["mode"] == "meteo" and not rel["temps"] and t["meteo"]:
-            # la météo a été récupérée, puis ses températures effacées à la main : le dire (« pas encore récupérée »
-            # contredisait la date de récupération écrite au-dessus)
-            avert.append({"code": "meteo_effacee", "message": "Températures de la météo effacées : T = 20 °C par défaut. « Récupérer à "
-                          "nouveau la météo » remet celles du service (ou saisissez-les, une ligne par jour)."})
-        elif t["mode"] == "meteo" and not rel["temps"]:
-            avert.append({"code": "meteo_absente", "message": "Météo pas encore récupérée : T = 20 °C par défaut. Renseignez le lieu et "
-                          "les dates, puis « Récupérer la météo » (ou saisissez une température constante, un relevé)."})
+def _pluriel(n: int, mot: str) -> str:
+    return f"{n} {mot}{'s' if n > 1 else ''}"
+
+
+def _date_du_jour(date0, j: int):
+    if date0 is None:
+        return None
+    try:
+        return (_dt.date.fromisoformat(date0) + _dt.timedelta(days=j)).isoformat()
+    except (OverflowError, ValueError):
+        return None
+
+
+def _instant(date0, heure: int, t, plafond: bool = True):
+    """L'instant « AAAA-MM-JJTHH:MM » de l'âge réel t, à l'heure près : arrondi à l'heure SUPÉRIEURE (``plafond`` —
+    une échéance n'est jamais annoncée plus tôt que le calcul), ou à l'heure la plus proche (une opération prévue).
+    None sans date."""
+    if date0 is None or t is None:
+        return None
+    heures = t * L.HEURES_PAR_JOUR
+    n = math.ceil(heures - 1e-6) if plafond else math.floor(heures + 0.5)
+    try:
+        x = _dt.datetime.combine(_dt.date.fromisoformat(date0), _dt.time(hour=heure)) + _dt.timedelta(hours=n)
+    except (OverflowError, ValueError):
+        return None
+    return x.strftime("%Y-%m-%dT%H:%M")
+
+
+# ------------------------------------------------------------------ le profil des températures
+def _k_formule(T, loi: dict, symbole: str = "k") -> dict:
+    """La formule du coefficient k à la température T, dans la loi choisie (None : un jour sans température)."""
+    if T is None:
+        return _f("k_sans_donnee", symbole, [], 0.0)
+    mode = loi["mode"]
+    if mode == "nbn":
+        seg = L.segment_nbn(T)
+        if seg is None:
+            return _f("k_nbn_nul" if T <= L.T_NUL_NBN else "k_nbn_plafond", symbole, [("T", T, "°C")], L.k_nbn(T))
+        (Ta, ka), (Tb, kb) = seg
+        return _f("k_nbn", symbole, [("T", T, "°C"), ("T_a", Ta, "°C"), ("k_a", ka, ""), ("T_b", Tb, "°C"), ("k_b", kb, "")], L.k_nbn(T))
+    if T < L.T_MIN_EC2:
+        return _f("k_sous_zero", symbole, [("T", T, "°C")], 0.0)
+    if mode == "ec2":
+        return _f("k_ec2", symbole, [("T", T, "°C")], L.k_ec2(T))
+    return _f("k_perso", symbole, [("T", T, "°C"), ("E_a", loi["Ea_kJ"], "kJ/mol")], L.k_arrhenius(T, loi["Ea_kJ"]))
+
+
+def _profil(e: dict, avert: list) -> dict:
+    """Les jours CONNUS du coulage (jour 0 = le bétonnage) et ce qui les suit : la température, sa source et les deux
+    coefficients k (nominal, prudent) de chaque jour ; la température d'après (constante, ou prolongée)."""
+    t, loi, marge = e["temperature"], e["loi"], e["marge"]
+    out = {"f0": L.fraction_premier_jour(e["heure"]), "date0": e["date"], "date_origine": "saisie" if e["date"] else None,
+           "source": "constante", "T_fin": t["T"], "source_fin": "constante", "connus": [], "releve": None, "meteo": None,
+           "n_avant": 0, "n_manquants": 0, "minimales": None, "extremes": None}
+    if t["mode"] in EN.MODES_RELEVE:
+        if t["mode"] == "meteo" and t["meteo"]:
+            out["meteo"] = MT.synthese(t["meteo"], t["releve"], t["lieu"], t["debut"], t["fin"])
+        rel = RL.lire(t["releve"])
+        syn = RL.synthese(rel) if rel["temps"] else None
+        if syn is None:
+            # pas de relevé exploitable : le calcul se fait à la température CONSTANTE saisie, et c'est dit
+            T = f"{_fr(t['T'])} °C"
+            if t["mode"] == "meteo" and not rel["temps"] and t["meteo"]:
+                avert.append({"code": "meteo_effacee", "niveau": ATTENTION, "message":
+                              f"Températures de la météo effacées : le calcul se fait à la température constante ({T}). « Récupérer à "
+                              "nouveau la météo » remet celles du service (ou saisissez-les, une ligne par jour)."})
+            elif t["mode"] == "meteo" and not rel["temps"]:
+                avert.append({"code": "meteo_absente", "niveau": ATTENTION, "message":
+                              f"Météo pas encore récupérée : le calcul se fait à la température constante ({T}). Renseignez le lieu "
+                              "et les dates, puis « Récupérer la météo »."})
+            elif not rel["temps"]:
+                avert.append({"code": "releve_vide", "niveau": ATTENTION, "message":
+                              f"Aucun relevé : le calcul se fait à la température constante ({T}). Collez les températures "
+                              "journalières (ou lisez un fichier)."})
+            else:
+                avert.append({"code": "releve_inexploitable", "niveau": GRAVE, "message":
+                              f"Le relevé ne porte aucune température : le calcul se fait à la température constante ({T})."})
         else:
-            avert.append({"code": "releve_vide" if not rel["temps"] else "releve_inexploitable",
-                          "message": "Aucun relevé : T = 20 °C par défaut. Collez les températures journalières (ou lisez un fichier)."
-                          if not rel["temps"] else "Aucune température exploitable sur la période : T = 20 °C par défaut."})
-        return out
-    out.update(T=syn["T_moy"], source="releve", profil=syn["profil"], defav=syn["defav"])
-    out["releve"] = {k: syn[k] for k in ("T_rempl", "n_nan", "n_extra", "n_prev", "n_mes", "T_min", "T_max", "t_prol", "n_jours",
-                                         "t_e_releve", "t_e_releve_defav")}
-    out["jours"] = [{"jour": i + 1, "date": (rel["dates"] or [None] * len(rel["temps"]))[i], "T_brut": _num(tb), "T": tp,
-                     "source": "prolonge" if rel["extra"][i] else ("prevision" if rel["prev"][i] else "mesure")}
-                    for i, (tb, tp) in enumerate(zip(rel["temps"], syn["profil"]))]
-    if syn["n_extra"]:
-        avert.append({"code": "prolongation", "message": f"{syn['n_extra']} jour(s) prolongé(s) au-delà des prévisions (T ≈ "
-                      f"{_fr(syn['t_prol'])} °C) : à recouper à l'approche du décoffrage."})
-    if syn["n_nan"]:
-        avert.append({"code": "jours_sans_donnee", "message": f"{syn['n_nan']} jour(s) sans donnée, remplacé(s) par la moyenne "
-                      f"({_fr(syn['T_rempl'])} °C)."})
+            out.update(source="releve", releve=syn, source_fin="prolonge", T_fin=L.temperature_prolongee(rel["temps"]))
+            n, d0 = len(rel["temps"]), 0
+            if rel["dates"]:
+                if out["date0"] is None:
+                    out.update(date0=rel["dates"][0], date_origine="releve")
+                else:
+                    d0 = (_dt.date.fromisoformat(out["date0"]) - _dt.date.fromisoformat(rel["dates"][0])).days
+            out["n_avant"] = min(max(d0, 0), n)
+            out["n_manquants"] = max(-d0, 0)
+            out["connus"] += [{"T": None, "source": "sans_donnee"} for _ in range(out["n_manquants"])]
+            for i in range(out["n_avant"], n):
+                T = rel["temps"][i]
+                if math.isnan(T):
+                    out["connus"].append({"T": None, "source": "sans_donnee"})
+                else:
+                    out["connus"].append({"T": T, "source": "prolonge" if rel["extra"][i] else ("prevision" if rel["prev"][i] else "mesure")})
+            m = out["meteo"]
+            if m and m["horaire"] is not None and out["date0"]:
+                # le détail horaire : les extrêmes de chaque jour (le tableau), et la minimale comptée à partir de
+                # l'heure de fin du bétonnage le jour 0 (le gel)
+                rec = t["meteo"]
+                h = MT.lire_horaire(MT.plan_horaire(rec, rec["horaire"]["aujourdhui"]), rec["horaire"]["reponses"])
+                out["extremes"] = m["horaire"]
+                out["minimales"] = MT.minimales_apres(h, f"{out['date0']}T{e['heure']:02d}:00")
+    for j, c in enumerate(out["connus"]):
+        T = c["T"]
+        c["T_prudent"] = None if T is None else (T - marge if c["source"] in NON_MESURES else T)
+        c["k"] = 0.0 if T is None else L.k_T(T, loi)
+        c["k_prudent"] = 0.0 if T is None else L.k_T(c["T_prudent"], loi)
+    out["T_fin_prudent"] = out["T_fin"] - marge
+    out["k_fin"] = L.k_T(out["T_fin"], loi)
+    out["k_fin_prudent"] = L.k_T(out["T_fin_prudent"], loi)
+    out["ks"] = [c["k"] for c in out["connus"]]
+    out["ks_prudent"] = [c["k_prudent"] for c in out["connus"]]
+    # les avertissements du relevé posé sur le calendrier du coulage
+    if out["n_avant"]:
+        avert.append({"code": "releve_avant", "niveau": INFO, "message":
+                      f"{_pluriel(out['n_avant'], 'jour')} du relevé avant la fin du bétonnage ({_jj(out['date0'])}) : non "
+                      f"compté{'s' if out['n_avant'] > 1 else ''}."})
+    if out["n_manquants"]:
+        avert.append({"code": "releve_tardif", "niveau": GRAVE, "message":
+                      f"Le relevé commence {_pluriel(out['n_manquants'], 'jour')} après la fin du bétonnage ({_jj(out['date0'])}) : "
+                      "ces jours, sans température, ne comptent AUCUN durcissement. Complétez le relevé (une ligne par jour, depuis "
+                      "le jour du bétonnage) ou corrigez la date."})
+    n_nan = sum(1 for c in out["connus"][out["n_manquants"]:] if c["T"] is None)
+    if n_nan:
+        avert.append({"code": "sans_donnee", "niveau": ATTENTION, "message":
+                      f"{_pluriel(n_nan, 'jour')} sans température dans le relevé : compté{'s' if n_nan > 1 else ''} pour AUCUN "
+                      "durcissement (du côté sûr). Complétez la ligne pour le compter."})
+    if loi["mode"] != "nbn":
+        froids = sum(1 for c in out["connus"] if c["T"] is not None and c["T"] < L.T_MIN_EC2) + (1 if not out["connus"] and out["T_fin"] < L.T_MIN_EC2 else 0)
+        if froids:
+            quoi = "la température est" if not out["connus"] else f"{_pluriel(froids, 'jour')}"
+            avert.append({"code": "loi_sous_zero", "niveau": ATTENTION, "message":
+                          f"{quoi[0].upper() + quoi[1:]} sous 0 °C : hors du domaine de la loi {L.LOIS[loi['mode']]['libelle']} "
+                          "(0 à 80 °C), aucun durcissement n'y est compté. La loi NBN B 15-400 couvre le temps froid."})
+    return out
+
+
+def _jour(p: dict, j: int) -> dict:
+    """Le jour j du profil : connu, ou d'après (constante, prolongé)."""
+    if j < len(p["connus"]):
+        c = p["connus"][j]
+        return {"T": c["T"], "T_prudent": c["T_prudent"], "source": c["source"], "k": c["k"], "k_prudent": c["k_prudent"], "connu": True}
+    return {"T": p["T_fin"], "T_prudent": p["T_fin_prudent"], "source": p["source_fin"], "k": p["k_fin"], "k_prudent": p["k_fin_prudent"],
+            "connu": False}
+
+
+def _debut_jour(p: dict, j: int) -> float:
+    """L'âge réel au début du jour j (0 pour le jour du bétonnage)."""
+    return 0.0 if j == 0 else p["f0"] + (j - 1)
+
+
+def _te(p: dict, t: float, prudent: bool = False) -> float:
+    return L.age_equivalent(t, p["ks_prudent" if prudent else "ks"], p["k_fin_prudent" if prudent else "k_fin"], p["f0"])
+
+
+def _t(p: dict, t_T, prudent: bool = False):
+    if t_T is None:
+        return None
+    return L.age_reel(t_T, p["ks_prudent" if prudent else "ks"], p["k_fin_prudent" if prudent else "k_fin"], p["f0"])
+
+
+def _fin_connus(p: dict):
+    """L'âge réel à la fin du dernier jour connu du relevé (0 quand tout le relevé précède le bétonnage) ; None à
+    température constante."""
+    if p["connus"]:
+        return p["f0"] + len(p["connus"]) - 1
+    return 0.0 if p["source"] == "releve" else None
+
+
+def _source_a(p: dict, t) -> str:
+    """La source du jour civil où tombe l'âge réel t (None : jamais atteint — la source des jours d'après)."""
+    if t is None:
+        return p["source_fin"]
+    return _jour(p, 0 if t <= p["f0"] else int(math.ceil(t - p["f0"] - 1e-12)))["source"]
+
+
+# ------------------------------------------------------------------ le gel, le temps froid
+def _T_gel(p: dict, j: int, prudent: bool = False):
+    """La température qui sert au contrôle du gel le jour j : (T, base) — la MINIMALE horaire du jour quand le détail
+    horaire la donne (comptée dès l'heure de fin du bétonnage le jour 0), sinon la MOYENNE du jour ; (None, base) pour un
+    jour sans température. La variante prudente abaisse de la marge les jours qui ne sont pas mesurés."""
+    jr = _jour(p, j)
+    if jr["T"] is None:
+        return None, "moyenne"
+    T, base = jr["T"], "moyenne"
+    date = _date_du_jour(p["date0"], j)
+    if jr["connu"] and p["minimales"] and date in p["minimales"]:
+        T, base = p["minimales"][date], "minimale"
+    if prudent and jr["source"] in NON_MESURES:
+        T -= p["marge"]
+    return T, base
+
+
+def _gele(T, base: str) -> bool:
+    """Le critère de gel : une minimale horaire SOUS 0 °C, ou une moyenne journalière à 0 °C ou moins."""
+    return T is not None and (T < T_GEL_C if base == "minimale" else T <= T_GEL_C)
+
+
+def _premier_gel(p: dict, prudent: bool = False):
+    """Le premier jour de gel : (jour, T, base) ; (None, None, base disponible) s'il n'y en a pas."""
+    for j in range(len(p["connus"]) + 1):                          # les jours connus, puis le premier jour d'après
+        T, base = _T_gel(p, j, prudent)
+        if _gele(T, base):
+            return j, T, base
+    return None, None, ("minimale" if p["minimales"] else "moyenne")
+
+
+def _gel(p: dict, fck: float, s: float) -> dict:
+    """Le gel avant 5 MPa (EN 13670 §8.5(12)) : le premier jour de gel face à l'âge où la résistance MOYENNE atteint
+    5 MPa — alerte si le gel vient avant (le jour de gel est pris à son début : le gel est un fait du petit matin)."""
+    tT5 = L.t_T_requis(SEUIL_GEL_MPA, "fcm", fck, s)
+
+    def variante(prudent):
+        j, T, base = _premier_gel(p, prudent)
+        t5 = _t(p, tT5, prudent)
+        tg = None if j is None else _debut_jour(p, j)
+        return {"premier_jour": j, "date": None if j is None else _date_du_jour(p["date0"], j), "T": T, "t": tg, "t_5MPa": t5,
+                "alerte": j is not None and (t5 is None or tg < t5)}, base
+    nominal, base = variante(False)
+    prudent, _ = variante(True)
+    fx = [_f("beta_req_fcm", "β_5", [("f_gel", SEUIL_GEL_MPA, "MPa"), ("f_cm", fck + L.DELTA_FCM, "MPa")], L.beta_requis(SEUIL_GEL_MPA, "fcm", fck)),
+          _f("t_T_req", "t_T,5", [("β_req", L.beta_requis(SEUIL_GEL_MPA, "fcm", fck), ""), ("s", s, "")], tT5, "j")]
+    seg = L.segment_inverse(tT5, p["ks"], p["k_fin"], p["f0"])
+    if seg is not None:
+        fx.append(_f("t_atteint", "t_5", [("t_d", seg["debut"], "j"), ("t_T,req", tT5, "j"), ("t_T,d", seg["t_T_debut"], "j"), ("k", seg["k"], "")],
+                     nominal["t_5MPa"], "j"))
+    return dict(nominal, seuil=SEUIL_GEL_MPA, base=base, prudent=prudent, formules=fx)
+
+
+def _temps_froid(p: dict) -> dict:
+    """Le rappel « bétonnage par temps froid » (Buildwise, NIT 285 §9.4) : une température sous 5 °C au bétonnage ou
+    dans les 72 premières heures (la minimale horaire quand elle est connue, sinon la moyenne du jour)."""
+    out = {"seuil": SEUIL_FROID_C, "heures": HEURES_FROID, "rappel": False, "jour": None, "date": None, "T": None, "base": None}
+    j = 0
+    while _debut_jour(p, j) < HEURES_FROID / L.HEURES_PAR_JOUR - 1e-12:
+        T, base = _T_gel(p, j)
+        if T is not None and T < SEUIL_FROID_C:
+            return dict(out, rappel=True, jour=j, date=_date_du_jour(p["date0"], j), T=T, base=base)
+        j += 1
+    return out
+
+
+# ------------------------------------------------------------------ l'essai sur éprouvettes
+def _essai(e: dict, p: dict, fck: float, s: float) -> dict:
+    """La moyenne des éprouvettes de chantier face à la prévision f_cm(t) (avec le s du durcissement CHOISI), et le s
+    qui ferait passer la courbe par la mesure. Un cube de 150 mm est ramené au cylindre par f_ck/f_ck,cube de la classe."""
+    x = e["essai"]
+    fcm = fck + L.DELTA_FCM
+    cube = x["eprouvette"] == "cube"
+    rapport = L.rapport_cube(e["classe"]) if cube else 1.0
+    f_cyl = x["mpa"] * rapport
+    seg = L.segment(x["age"], p["ks"], p["k_fin"], p["f0"])
+    tT = _te(p, x["age"])
+    beta = L.beta_retenu(tT, s)
+    f_prevu = beta * fcm
+    out = {"age": x["age"], "mpa": x["mpa"], "eprouvette": x["eprouvette"], "rapport_cube": rapport, "f_cyl": f_cyl, "t_T": tT,
+           "instant": _instant(p["date0"], e["heure"], x["age"], plafond=False),
+           "f_prevu": f_prevu, "ecart": (f_cyl - f_prevu) / f_prevu * 100.0 if f_prevu > 0 else None, "indicatif": L.indicatif(tT),
+           "s_cale": None, "r_cale": None, "calage_refuse": None, "caler": x["caler"], "cale": False}
+    fx = []
+    if cube:
+        fx += [_f("rapport_cube", "f_ck/f_ck,cube", [("f_ck", fck, "MPa"), ("f_ck,cube", L.CLASSES[e["classe"]][1], "MPa")], rapport),
+               _f("f_cyl", "f_mes", [("f_cube", x["mpa"], "MPa"), ("f_ck/f_ck,cube", rapport, "")], f_cyl, "MPa")]
+    fx += [_f("t_T_a", "t_T", [("t_T,d", seg["t_T_debut"], "j"), ("k", seg["k"], ""), ("t", x["age"], "j"), ("t_d", seg["debut"], "j")], tT, "j"),
+           _f("beta" if tT < L.AGE_REFERENCE_J else "beta_28", "β_cc", [("s", s, ""), ("t_T", tT, "j")], beta),
+           _f("fcm_t", "f_cm(t)", [("β_cc", beta, ""), ("f_cm", fcm, "MPa")], f_prevu, "MPa")]
+    if out["ecart"] is not None:
+        fx.append(_f("ecart", "écart", [("f_mes", f_cyl, "MPa"), ("f_cm(t)", f_prevu, "MPa")], out["ecart"], "%"))
+    try:
+        sc = L.s_cale(f_cyl, fck, tT)
+    except ValueError as err:
+        out["calage_refuse"] = str(err)
+    else:
+        out["s_cale"] = sc
+        fx.append(_f("s_cale", "s_cal", [("f_mes", f_cyl, "MPa"), ("f_cm", fcm, "MPa"), ("t_T", tT, "j")], sc))
+        if L.S_CALE_MIN <= sc <= L.S_CALE_MAX:
+            out["r_cale"] = L.r_de_s(sc)
+            fx.append(_f("r_de_s", "r_cal", [("s", sc, "")], out["r_cale"]))
+        else:
+            out["calage_refuse"] = (f"s calé = {_fr(sc, 3)}, hors de [{_fr(L.S_CALE_MIN, 2)} ; {_fr(L.S_CALE_MAX, 2)}] : la mesure "
+                                    "s'écarte trop de la loi de l'EC2 pour caler la courbe sur elle")
+    out["cale"] = bool(x["caler"] and out["calage_refuse"] is None)
+    out["formules"] = fx
+    return out
+
+
+# ------------------------------------------------------------------ un objectif
+def _objectif(i: int, o: dict, e: dict, p: dict, fck: float, s: float) -> dict:
+    """Un objectif : sa cible, l'âge équivalent qu'elle demande (forme fermée), l'âge réel et l'instant où elle est
+    atteinte (le profil inversé exactement), leur variante prudente ; et, s'il est daté, la résistance à l'âge prévu."""
+    fcm = fck + L.DELTA_FCM
+    pct = o["mode"] == "pct"
+    cible = fck * o["pct"] / 100.0 if pct else o["mpa"]
+    base = o["base"]
+    fx = []
+    if pct:
+        fx.append(_f("cible_pct", "f_cible", [("p", o["pct"], "%"), ("f_ck", fck, "MPa")], cible, "MPa"))
+    fx.append(_f("fcm", "f_cm", [("f_ck", fck, "MPa")], fcm, "MPa"))
+    b_req = L.beta_requis(cible, base, fck)
+    fx.append(_f(f"beta_req_{base}", "β_req", [("f_cible", cible, "MPa"), ("f_cm", fcm, "MPa")], b_req))
+    tT = L.t_T_requis(cible, base, fck, s)
+    out = {"nom": o["nom"] or f"Objectif {i + 1}", "mode": o["mode"], "pct": o["pct"], "mpa": o["mpa"], "cible": cible, "base": base,
+           "atteignable": tT is not None, "t_T": tT, "t": None, "instant": None, "indicatif": False,
+           "prudent": {"t": None, "instant": None}, "age_prevu": o["age"], "instant_prevu": None, "t_T_prevu": None, "f_prevu": None,
+           "f_prevu_prudent": None, "indicatif_prevu": False, "taux": None, "prudent_ok": None, "source": None, "au_dela": False}
+    if tT is not None:
+        fx.append(_f("t_T_req" if b_req < 1.0 else "t_T_req_28", "t_T,req", [("β_req", b_req, ""), ("s", s, "")], tT, "j"))
+        out["indicatif"] = L.indicatif(tT)
+        for prudent in (False, True):
+            ks, kf = (p["ks_prudent"], p["k_fin_prudent"]) if prudent else (p["ks"], p["k_fin"])
+            t = L.age_reel(tT, ks, kf, p["f0"])
+            seg = L.segment_inverse(tT, ks, kf, p["f0"])
+            inst = _instant(p["date0"], e["heure"], t)
+            if prudent:
+                out["prudent"] = {"t": t, "instant": inst}
+            else:
+                out["t"], out["instant"] = t, inst
+            if seg is not None:
+                jr = _jour(p, seg["jour"])
+                suf = ",p" if prudent else ""
+                if prudent and jr["source"] in NON_MESURES:
+                    fx.append(_f("T_prudent", "T_p", [("T", jr["T"], "°C"), ("marge", p["marge"], "°C")], jr["T_prudent"], "°C"))
+                fx.append(_k_formule(jr["T_prudent"] if prudent else jr["T"], e["loi"], "k" + suf))
+                fx.append(_f("t_atteint", "t" + suf, [("t_d", seg["debut"], "j"), ("t_T,req", tT, "j"), ("t_T,d", seg["t_T_debut"], "j"), ("k", seg["k"], "")], t, "j"))
+        out["source"] = _source_a(p, out["t"])
+    if o["age"] is not None:
+        a = o["age"]
+        out["instant_prevu"] = _instant(p["date0"], e["heure"], a, plafond=False)
+        for prudent in (False, True):
+            ks, kf = (p["ks_prudent"], p["k_fin_prudent"]) if prudent else (p["ks"], p["k_fin"])
+            te = L.age_equivalent(a, ks, kf, p["f0"])
+            f = L.resistance(te, base, fck, s)
+            if prudent:
+                out["f_prevu_prudent"] = f
+                continue
+            seg = L.segment(a, ks, kf, p["f0"])
+            beta = L.beta_retenu(te, s)
+            out.update(t_T_prevu=te, f_prevu=f, indicatif_prevu=L.indicatif(te))
+            fx += [_f("t_T_a", "t_T(t_p)", [("t_T,d", seg["t_T_debut"], "j"), ("k", seg["k"], ""), ("t", a, "j"), ("t_d", seg["debut"], "j")], te, "j"),
+                   _f("beta" if te < L.AGE_REFERENCE_J else "beta_28", "β_cc", [("s", s, ""), ("t_T", te, "j")], beta),
+                   _f("fcm_t", "f_cm(t_p)", [("β_cc", beta, ""), ("f_cm", fcm, "MPa")], beta * fcm, "MPa")]
+            if base == "fck":
+                fx.append(_f("fck_t", "f_ck(t_p)", [("f_cm(t)", beta * fcm, "MPa")], f, "MPa"))
+        out["taux"] = cible / out["f_prevu"] if out["f_prevu"] > 0 else None
+        if out["taux"] is not None:
+            fx.append(_f("taux", "η", [("f_cible", cible, "MPa"), ("f(t_p)", out["f_prevu"], "MPa")], out["taux"]))
+        ok = out["f_prevu"] >= cible
+        out["prudent_ok"] = out["f_prevu_prudent"] >= cible
+        out["etat"] = "nok" if not ok else ("ok" if out["prudent_ok"] else "attention")
+        out["source"] = _source_a(p, a)                            # une opération datée : la source du jour PRÉVU
+    elif tT is None:
+        out["etat"] = "non_atteignable"
+    else:
+        out["etat"] = "date" if out["t"] is not None else "jamais"
+    # le résultat repose sur des températures PROLONGÉES (au-delà du relevé, ou les jours « prolongé » d'une météo)
+    out["au_dela"] = out["source"] == "prolonge"
+    out["formules"] = fx
     return out
 
 
 # ------------------------------------------------------------------ le calcul
-def calculer(element: dict) -> dict:
-    """Tout ce que l'écran du module affiche pour un coulage (``show()``), dans l'ordre de l'écran."""
-    e = EN.normaliser(element)
+def _base(e: dict):
+    """Ce dont tout dépend : (avertissements, f_ck, le durcissement choisi, le profil, l'essai, le s RETENU — celui du
+    durcissement, ou celui que l'essai donne quand on cale la courbe sur lui)."""
     avert = []
-    beton_label = e["classe"]
-    fck28 = fck_classe(beton_label)
-    ciment = EN.CIMENT_LIBELLES[e["ciment"]]
-    s_ref = CIMENTS[ciment]
-    tp = _temperature(e, avert)
-    T, profil_temps, defav = tp["T"], tp["profil"], tp["defav"]
-    Ea = EA_EC2
-    if e["avance"]:
-        Ea = e["Ea_kJ"] * 1000.0
-    T_abs = float(T) + 273.15
-    facteur = float(age_equivalent(1.0, T, Ea))
-    t28_real = 28.0 / facteur if facteur > 0 else None
-    # t3_reel : l'âge réel où t_e = 3 j à la température de la courbe (le site grise le domaine t_e ≤ 3 j)
-    tp.update(Ea=Ea, Ea_kJ=Ea / 1000.0, Ea_R=Ea / R_GAZ, T_abs=T_abs, facteur=facteur, t28_reel=t28_real,
-              t3_reel=SEUIL_DOMAINE / facteur if facteur > 0 else None)
+    fck = L.fck_classe(e["classe"])
+    dur = L.durcissement(e["durcissement"])
+    p = _profil(e, avert)
+    p["marge"] = e["marge"]
+    essai = _essai(e, p, fck, dur["s"]) if e["essai"]["actif"] else None
+    return avert, fck, dur, p, essai, (essai["s_cale"] if essai and essai["cale"] else dur["s"])
 
-    # ---- ① résistance à un âge donné
-    age_max = len(profil_temps) if profil_temps else 28
-    t_sel = e["age"]
-    t_e_sel = age_equivalent_point(t_sel, T, profil_temps, Ea)
-    fck_val = float(fck_age_equivalent(fck28, s_ref, t_e_sel))
-    pct_val = fck_val / fck28 * 100.0 if fck28 else 0.0
-    hors = t_e_sel <= SEUIL_DOMAINE
-    beta = float(beta_cc(t_e_sel, s_ref)) if t_e_sel < 28.0 else None
-    fx = []
-    if profil_temps:
-        n = min(int(round(t_sel)), len(profil_temps))
-        fx.append(_f("t_e_releve", [("n", n, "j"), ("E_a/R", Ea / R_GAZ, "K")], t_e_sel, "j"))
+
+def calculer(coulage: dict) -> dict:
+    """Tout ce que l'écran montre pour un coulage (voir la docstring du module)."""
+    e = EN.normaliser(coulage)
+    avert, fck, dur, p, essai, s = _base(e)
+    fck_cube = L.CLASSES[e["classe"]][1]
+    fcm = fck + L.DELTA_FCM
+    fx_m = [_f("fcm", "f_cm", [("f_ck", fck, "MPa")], fcm, "MPa")]
+    if dur["mode"] == "ciment":
+        fx_m.append(_f("r_de_s", "r", [("s", dur["s"], "")], dur["r"]))
     else:
-        fx += [_f("T_abs", [("T", float(T), "°C")], T_abs, "K"),
-               _f("facteur", [("E_a/R", Ea / R_GAZ, "K"), ("T_abs", T_abs, "K"), ("T_ref", T_REF_K, "K")], facteur_maturite(T, Ea), ""),
-               _f("t_e", [("t", float(t_sel), "j"), ("facteur", facteur, "")], t_e_sel, "j")]
-    if beta is not None:
-        fx += [_f("beta", [("s", s_ref, ""), ("t_e", t_e_sel, "j")], beta, ""),
-               _f("fcm", [("fck", float(fck28), "MPa")], fck28 + 8.0, "MPa"),
-               _f("fck_t", [("beta", beta, ""), ("fcm", fck28 + 8.0, "MPa")], fck_val, "MPa")]
-    else:
-        fx.append(_f("fck_t_28", [("fck", float(fck28), "MPa")], fck_val, "MPa"))
-    fx.append(_f("pct", [("fck_t", fck_val, "MPa"), ("fck", float(fck28), "MPa")], pct_val, "%"))
-    age = {"t": t_sel, "age_max": int(max(age_max, 2)), "t_e": t_e_sel, "fck": fck_val, "pct": pct_val, "hors_domaine": hors,
-           "etat": "warn" if hors else "ok", "beta": beta, "defav": None, "formules": fx}
-    if hors:
-        avert.append({"code": "hors_domaine_age", "message": f"t_e ≤ 3 j à {t_sel} j : hors du domaine de l'EC2 (§3.1.2(5)) — "
-                      "la résistance au jeune âge se détermine par essais."})
-    if defav is not None:
-        t_e_def = age_equivalent_point(t_sel, defav["T_moy"], defav["profil"], Ea)
-        fck_def = float(fck_age_equivalent(fck28, s_ref, t_e_def))
-        age["defav"] = {"t_e": t_e_def, "fck": fck_def, "pct": fck_def / fck28 * 100.0, "T_moy": defav["T_moy"], "marge": defav["marge"],
-                        "n_prev": defav["n_prev"], "n_extra": defav["n_extra"]}
-        avert.append({"code": "defavorable", "message": f"Variante défavorable (jours prévus − {defav['marge']:.0f} °C) : la météo "
-                      "prévue n'est pas acquise ; recalculer au jour J."})
-
-    # ---- ② recherche d'un seuil de résistance (à T CONSTANTE : la moyenne en mode relevé, comme le module)
-    sl = e["seuil"]
-    if sl["mode"] == "pct":
-        target_s = fck_cible_pourcentage(fck28, sl["pct"])
-        fx_s = [_f("cible_pct", [("p", float(sl["pct"]), "%"), ("fck", float(fck28), "MPa")], target_s, "MPa")]
-    else:
-        target_s = sl["mpa"]
-        fx_s = []
-    t_seuil = temps_reel_pour_cible(fck28, s_ref, target_s, T, Ea)
-    seuil = {"mode": sl["mode"], "pct": sl["pct"], "mpa": sl["mpa"], "cible": target_s, "cible_pct": target_s / fck28 * 100,
-             "t": t_seuil, "date": EN.date_seuil(e["date_coulage"], t_seuil), "etat": "nok" if t_seuil is None else "ok",
-             "afficher": sl["afficher"], "t_e": None, "hors_domaine": False, "controle": None, "formules": fx_s,
-             # le site : la cible comparée à la résistance à l'âge choisi ① (f_cible / f_ck(t) ≤ 1 : le seuil est atteint
-             # à cet âge) — une lecture des deux résultats du module, sans calcul nouveau ; None si f_ck(t) ≤ 0
-             "taux_age": target_s / fck_val if fck_val > 0 else None, "atteint_age": fck_val >= target_s}
-    if t_seuil is not None:
-        t_e_s = float(age_equivalent(t_seuil, T, Ea))
-        seuil["t_e"] = t_e_s
-        seuil["hors_domaine"] = t_e_s <= SEUIL_DOMAINE
-        f_s = float(fck_age_equivalent(fck28, s_ref, t_e_s))
-        seuil["fck_t"] = f_s
-        # le contrôle du site : la forme fermée de f_ck(t_e) = cible (t_e < 28 j), t = t_e / facteur
-        if target_s < fck28:
-            r = (target_s + 8.0) / (fck28 + 8.0)
-            te_c = 28.0 / (1.0 - math.log(r) / s_ref) ** 2
-            seuil["controle"] = {"t_e": te_c, "t": te_c / facteur}
-            fx_s += [_f("t_e_cible", [("cible", target_s, "MPa"), ("fcm", fck28 + 8.0, "MPa"), ("s", s_ref, "")], te_c, "j"),
-                     _f("t_cible", [("t_e", te_c, "j"), ("facteur", facteur, "")], te_c / facteur, "j")]
-        fx_s.append(_f("t_seuil", [("cible", target_s, "MPa"), ("T", float(T), "°C")], t_seuil, "j"))
-        fx_s.append(_f("fck_seuil", [("t_e", t_e_s, "j")], f_s, "MPa"))
-        if seuil["hors_domaine"]:
-            avert.append({"code": "seuil_hors_domaine", "message": "Seuil atteint avec t_e ≤ 3 j : hors du domaine de l'EC2 "
-                          "(§3.1.2(5)) — à confirmer par essais. (Avertissement ajouté par le site ; l'écran Streamlit ne le donne pas.)"})
-    else:
-        avert.append({"code": "seuil_non_atteignable", "message": "Seuil non atteignable : la cible dépasse f_ck, ou n'est pas "
-                      "atteinte en 90 jours à cette température."})
-
-    # ---- ③ optimiser la classe (délai réduit), à T constante
-    op = e["optim"]
-    cible_opt, delai_opt = op["mpa"], op["delai"]
-    res_opt = classe_min_pour_delai(cible_opt, s_ref, T, delai_opt, Ea)
-    t_e_o = float(age_equivalent(delai_opt, T, Ea))
-    classes_o = []
-    for label in CLASSES:                               # la boucle de classe_min_pour_delai, chaque classe nommée
-        fc = fck_classe(label)
-        f_att = float(fck_age_equivalent(fc, s_ref, t_e_o))
-        # taux = cible / f_ck(délai) (le site) ; None quand la formule rend une résistance nulle ou négative (t_e très
-        # petit : β_cc·f_cm < 8) — la sortie reste du JSON strict, sans infini
-        classes_o.append({"classe": label, "fck28": fc, "fck": f_att, "taux": cible_opt / f_att if f_att > 0 else None,
-                          "ok": f_att + 1e-6 >= cible_opt})
-    retenue = next(c for c in classes_o if c["classe"] == beton_label)
-    optim = {"mpa": cible_opt, "delai": delai_opt, "t_e": t_e_o, "classe": None, "fck28": None, "fck": None, "actuelle": False,
-             "etat": "nok", "afficher": op["afficher"], "classes": classes_o, "fck_retenue": retenue["fck"], "ok_retenue": retenue["ok"],
-             "taux_retenue": retenue["taux"],
-             "formules": [_f("t_e_delai", [("delai", delai_opt, "j"), ("facteur", facteur, "")], t_e_o, "j")]}
-    if res_opt is not None:
-        lbl_o, fck28_o, fck_att = res_opt
-        sur = fck_classe(lbl_o) <= fck28
-        optim.update(classe=lbl_o, fck28=fck28_o, fck=fck_att, actuelle=sur, etat="info" if sur else "ok")
-    else:
-        avert.append({"code": "aucune_classe", "message": f"Aucune classe de l'écran (jusqu'à {CLASSES[-1]}) n'atteint "
-                      f"{_fr(cible_opt)} MPa en {_fr(delai_opt)} j."})
-    if t_e_o < 28.0:
-        b_o = float(beta_cc(t_e_o, s_ref))
-        optim["beta"] = b_o
-        optim["formules"].append(_f("beta", [("s", s_ref, ""), ("t_e", t_e_o, "j")], b_o, ""))
-
-    # ---- ④ comparateur d'équivalence
-    cp = e["comparateur"]
-    ciment_cmp = EN.CIMENT_LIBELLES[cp["ciment"]]
-    s_cmp = CIMENTS[ciment_cmp]
-    comparateur = {"classes": list(cp["classes"]), "ciment": cp["ciment"], "ciment_libelle": ciment_cmp, "s": s_cmp, "afficher": cp["afficher"]}
-
-    # ---- ⑤ analyse d'un essai mesuré
-    es = e["essai"]
-    essai = {"mpa": es["mpa"], "age": es["age"], "T": es["T"], "actif": es["mpa"] > 0, "afficher": es["afficher"], "formules": []}
-    if es["mpa"] > 0:
-        est = classe_estimee_depuis_mesure(es["mpa"], es["age"], s_ref, es["T"], Ea)
-        ec = (est["fck28_est"] - fck28) / fck28 * 100.0
-        verdict = "coherent" if abs(ec) <= ECART_COHERENT else ("dessus" if ec > ECART_COHERENT else "sous")
-        essai.update(t_e=est["t_e"], fck28_est=est["fck28_est"], classe=est["classe"], fck_classe=est["fck_classe"],
-                     ecart_classe=est["ecart_pct"], ecart=ec, verdict=verdict, etat="warn" if verdict == "sous" else "ok",
-                     hors_domaine=est["t_e"] <= SEUIL_DOMAINE)
-        f_e = facteur_maturite(es["T"], Ea)
-        essai["formules"] = [_f("facteur", [("E_a/R", Ea / R_GAZ, "K"), ("T_abs", float(es["T"]) + 273.15, "K"), ("T_ref", T_REF_K, "K")], f_e, ""),
-                             _f("t_e", [("t", es["age"], "j"), ("facteur", f_e, "")], est["t_e"], "j")]
-        if est["t_e"] < 28.0:
-            b_e = float(beta_cc(est["t_e"], s_ref))
-            essai["beta"] = b_e
-            essai["formules"] += [_f("beta", [("s", s_ref, ""), ("t_e", est["t_e"], "j")], b_e, ""),
-                                  _f("fck28_est", [("f_mes", es["mpa"], "MPa"), ("beta", b_e, "")], est["fck28_est"], "MPa")]
-        else:
-            essai["formules"].append(_f("fck28_est_28", [("f_mes", es["mpa"], "MPa")], est["fck28_est"], "MPa"))
-        essai["formules"] += [_f("ecart_classe", [("fck28_est", est["fck28_est"], "MPa"), ("fck", float(est["fck_classe"]), "MPa")], est["ecart_pct"], "%"),
-                              _f("ecart", [("fck28_est", est["fck28_est"], "MPa"), ("fck", float(fck28), "MPa")], ec, "%")]
-        # le site, pour information : la mesure lue comme une résistance MOYENNE (f_cm(t) = β_cc·f_cm, EC2 éq. 3.1), et non
-        # comme f_ck(t) ainsi que le fait le module : f_ck,28 = f_mes/β_cc − 8 (f_mes − 8 si t_e ≥ 28 j) — 8/β_cc MPa de moins
-        essai["fck28_est_moyenne"] = (es["mpa"] / essai["beta"] if est["t_e"] < 28.0 else es["mpa"]) - 8.0
-        if essai["hors_domaine"]:
-            avert.append({"code": "essai_hors_domaine", "message": "Essai : t_e ≤ 3 j, hors du domaine de l'EC2."})
-    if tp["source"] == "releve":
-        avert.append({"code": "releve_t_moyenne", "message": f"Comme l'écran Streamlit : la courbe, le seuil ② et la classe ③ sont "
-                      f"calculés à la température MOYENNE du relevé ({_fr(T)} °C) ; seule la résistance à l'âge choisi ① suit le "
-                      "relevé jour par jour."})
-
-    out = {"reference": REFERENCE, "entree": e,
-           "materiau": {"classe": beton_label, "fck28": fck28, "fcm": fck28 + 8.0, "ciment": e["ciment"], "ciment_libelle": ciment,
-                        "ciment_detail": CIMENT_DETAIL[ciment], "s": s_ref},
-           "temperature": {k: v for k, v in tp.items() if k not in ("profil", "jours")} | {"profil": profil_temps},
-           "age": age, "seuil": seuil, "optim": optim, "comparateur": comparateur, "essai": essai, "avertissements": avert}
-    if out["temperature"]["defav"]:
-        out["temperature"]["defav"] = dict(out["temperature"]["defav"])
-    out["courbes"] = _courbes(out, beton_label, ciment, fck28, s_ref, T, Ea, defav, t28_real, t_sel, fck_val)
-    out["tableau"] = _tableau(out, fck28, s_ref, T, Ea, profil_temps, defav, tp.get("jours"))
-    _extremes_horaires(out["tableau"], tp.get("meteo"))
-    seuil["releve"] = _seuil_releve(seuil, out["tableau"]) if profil_temps else None
-    if seuil["releve"] and seuil["releve"]["optimiste"]:
-        sr = seuil["releve"]
-        quand = (f"il n'est atteint qu'au jour {sr['jour']}" if sr["jour"] is not None
-                 else f"il n'est pas atteint dans les {len(out['tableau']['lignes'])} jours du relevé")
-        avert.append({"code": "seuil_optimiste", "message": f"Seuil ② NON CONSERVATIF avec ce relevé : à la température moyenne "
-                      f"({_fr(T)} °C), l'écran l'annonce après {_fr(t_seuil)} j ; jour par jour (comme ①), f_ck au jour {sr['jour_annonce']} "
-                      f"= {_fr(sr['fck_jour_annonce'], 2)} MPa < {_fr(seuil['cible'])} MPa : {quand}. Se fier au relevé jour par jour. "
-                      "(Avertissement ajouté par le site.)"})
+        fx_m.append(_f("s_de_r", "s", [("r", dur["r"], "")], dur["s"]))
+    materiau = {"classe": e["classe"], "fck": fck, "fck_cube": fck_cube, "fcm": fcm, "s": s, "r": L.r_de_s(s), "cale": bool(essai and essai["cale"]),
+                "durcissement": dur,
+                "loi": {"mode": e["loi"]["mode"], "libelle": L.LOIS[e["loi"]["mode"]]["libelle"], "source": L.LOIS[e["loi"]["mode"]]["source"],
+                        "Ea_kJ": e["loi"]["Ea_kJ"] if e["loi"]["mode"] == "perso" else None},
+                "formules": fx_m}
+    # ---- les objectifs
+    objectifs = [_objectif(i, o, e, p, fck, s) for i, o in enumerate(e["objectifs"])]
+    gel = _gel(p, fck, s)
+    froid = _temps_froid(p)
+    # ---- l'horizon : 28 jours au moins, le dernier objectif + 20 %, 90 jours au plus ; les jours connus du relevé y entrent
+    ages = [x for o in objectifs for x in (o["t"], o["prudent"]["t"], o["age_prevu"]) if x is not None] + ([essai["age"]] if essai else [])
+    horizon = min(max([HORIZON_MIN_J] + [MARGE_HORIZON * x for x in ages]), HORIZON_MAX_J)
+    fin = _fin_connus(p)
+    if fin is not None:
+        horizon = max(horizon, min(fin, HORIZON_MAX_J))
+    n_jours = int(math.ceil(horizon - p["f0"] - 1e-9)) + 1
+    # ---- le profil jour par jour (jusqu'à l'horizon)
+    profil, tT, tTp = [], 0.0, 0.0
+    for j in range(n_jours):
+        jr = _jour(p, j)
+        debut = _debut_jour(p, j)
+        fin_j = p["f0"] + j
+        tT += jr["k"] * (fin_j - debut)
+        tTp += jr["k_prudent"] * (fin_j - debut)
+        Tg, base_g = _T_gel(p, j)
+        date = _date_du_jour(p["date0"], j)
+        ext = (p["extremes"] or {}).get(date) if jr["connu"] else None
+        brut = jr["T"] if jr["connu"] else None
+        profil.append({"jour": j, "date": date, "T_brut": brut, "T": jr["T"], "T_prudent": jr["T_prudent"], "source": jr["source"],
+                       "k": jr["k"], "k_prudent": jr["k_prudent"], "debut": debut, "fin": fin_j, "t_T": tT, "t_T_prudent": tTp,
+                       "gel": _gele(Tg, base_g), "T_gel": Tg, "base_gel": base_g,
+                       "T_min_h": ext[0] if ext else None, "T_max_h": ext[1] if ext else None})
+    # ---- la synthèse des températures (les jours connus ; la constante sinon)
+    Ts = [c["T"] for c in p["connus"] if c["T"] is not None] or [p["T_fin"]]
+    comptes = {k: sum(1 for c in p["connus"] if c["source"] == k) for k in SOURCES}
+    prudent_distinct = e["marge"] > 0 and (p["k_fin_prudent"] != p["k_fin"] or p["ks_prudent"] != p["ks"])
+    synthese = {"T_moy": sum(Ts) / len(Ts), "T_min": min(Ts), "T_max": max(Ts), "n_jours": len(p["connus"]),
+                "n": {k: v for k, v in comptes.items() if v}, "n_avant": p["n_avant"], "n_manquants": p["n_manquants"],
+                "fin_connus": fin, "date_fin_connus": _date_du_jour(p["date0"], len(p["connus"]) - 1) if p["connus"] else None,
+                "t_T_28": _te(p, HORIZON_MIN_J), "t_T_28_prudent": _te(p, HORIZON_MIN_J, True),
+                "t_3": _t(p, L.SEUIL_INDICATIF_J), "t_28": _t(p, L.AGE_REFERENCE_J), "prudent_distinct": prudent_distinct}
+    # ---- les avertissements
+    for o in objectifs:
+        if o["etat"] == "non_atteignable" or (o["age_prevu"] is not None and not o["atteignable"]):
+            quoi = "la résistance caractéristique f_ck" if o["base"] == "fck" else "la résistance moyenne f_cm"
+            lim = fck if o["base"] == "fck" else fcm
+            avert.append({"code": "non_atteignable", "niveau": GRAVE, "message":
+                          f"« {o['nom']} » : la cible ({_fr(o['cible'])} MPa) dépasse {quoi} = {_fr(lim, 0)} MPa du {e['classe']} — non "
+                          "atteignable avec cette classe."})
+        elif o["etat"] == "jamais":
+            avert.append({"code": "jamais", "niveau": GRAVE, "message":
+                          f"« {o['nom']} » n'est jamais atteint : à cette température, la loi ne compte aucun durcissement (k = 0)."})
+    indicatifs = [o["nom"] for o in objectifs if (o["indicatif"] and o["t"] is not None) or o["indicatif_prevu"]]
+    if indicatifs:
+        avert.append({"code": "indicatif", "niveau": ATTENTION, "message":
+                      f"{'« ' + ' », « '.join(indicatifs) + ' »'} : avant 3 jours équivalents, hors du domaine où l'EC2 donne f_ck(t) "
+                      "(§3.1.2(5)) — valeur INDICATIVE, à confirmer par essais."})
+    if gel["alerte"]:
+        quand = f"le {_jj(gel['date'])}" if gel["date"] else f"au jour {gel['premier_jour']}"
+        t5 = f"atteints à J + {_fr(gel['t_5MPa'])}" if gel["t_5MPa"] is not None else "jamais atteints à cette température"
+        avert.append({"code": "gel", "niveau": GRAVE, "message":
+                      f"Gel {quand} ({'minimale horaire' if gel['base'] == 'minimale' else 'moyenne du jour'} {_fr(gel['T'])} °C), avant que le "
+                      f"béton ait {_fr(SEUIL_GEL_MPA, 0)} MPa ({t5}) : PROTÉGER DU GEL (EN 13670 §8.5)."})
+    elif gel["prudent"]["alerte"]:
+        avert.append({"code": "gel_prudent", "niveau": ATTENTION, "message":
+                      f"Gel possible avant {_fr(SEUIL_GEL_MPA, 0)} MPa si les températures prévues baissent de {_fr(e['marge'], 0)} °C "
+                      "(variante prudente) : prévoir la protection."})
+    if froid["rappel"]:
+        avert.append({"code": "temps_froid", "niveau": ATTENTION, "message":
+                      f"Température sous {_fr(SEUIL_FROID_C, 0)} °C dans les {_fr(HEURES_FROID, 0)} premières heures "
+                      f"({'minimale horaire' if froid['base'] == 'minimale' else 'moyenne du jour'} {_fr(froid['T'])} °C"
+                      + (f", le {_jj(froid['date'])}" if froid["date"] else "") + ") : mesures de bétonnage par temps froid (Buildwise, NIT 285 §9.4)."})
+    au_dela = [o["nom"] for o in objectifs if o["au_dela"]]
+    if au_dela:
+        suite = (" Reculez la fin de la météo pour recevoir les prévisions, et recalculez à l'approche de l'échéance."
+                 if e["temperature"]["mode"] == "meteo" else " Complétez le relevé à l'approche de l'échéance.")
+        avert.append({"code": "prolonge", "niveau": ATTENTION, "message":
+                      f"{'« ' + ' », « '.join(au_dela) + ' »'} : au-delà des températures connues, le relevé est PROLONGÉ à "
+                      f"{_fr(p['T_fin'])} °C (la moyenne de ses cinq derniers jours)." + suite})
+    if essai:
+        if essai["cale"]:
+            avert.append({"code": "cale", "niveau": INFO, "message":
+                          f"Courbe CALÉE sur l'essai : s = {_fr(s, 3)} (r = {_fr(materiau['r'], 2)}) au lieu de {_fr(dur['s'], 3)} "
+                          f"({dur['libelle']}) ; toutes les échéances suivent."})
+        elif essai["caler"]:
+            avert.append({"code": "calage_refuse", "niveau": GRAVE, "message":
+                          f"Calage sur l'essai refusé — {essai['calage_refuse']}. La courbe garde s = {_fr(dur['s'], 3)}."})
+        if essai["ecart"] is not None and essai["ecart"] < 0 and not essai["cale"]:
+            avert.append({"code": "essai_sous", "niveau": ATTENTION, "message":
+                          f"Essai : {_fr(essai['f_cyl'])} MPa mesurés pour {_fr(essai['f_prevu'])} MPa prévus ({_fr(essai['ecart'], 0)} %) — le "
+                          "béton durcit moins vite que la loi : caler la courbe sur l'essai, ou revoir le durcissement."})
+    # ---- la courbe, le tableau, le résumé
+    out = {"entree": e, "materiau": materiau,
+           "temps": {"date": p["date0"], "date_origine": p["date_origine"], "heure": e["heure"], "f0": p["f0"],
+                     "origine": _instant(p["date0"], e["heure"], 0.0)},
+           "temperature": {"mode": e["temperature"]["mode"], "source": p["source"], "T": e["temperature"]["T"], "lieu": e["temperature"]["lieu"],
+                           "fichier": e["temperature"]["fichier"], "marge": e["marge"], "releve": p["releve"], "meteo": p["meteo"],
+                           "T_fin": p["T_fin"], "source_fin": p["source_fin"], "k_fin": p["k_fin"],
+                           "formule_k": _k_formule(p["T_fin"], e["loi"])},
+           "profil": profil, "synthese": synthese, "objectifs": objectifs, "gel": gel, "temps_froid": froid, "essai": essai,
+           "avertissements": avert, "non_couvert": list(NON_COUVERT)}
+    out["courbes"] = _courbes(p, e, fck, s, horizon, objectifs, essai, synthese)
+    out["tableau"] = {"horaire": p["extremes"] is not None,
+                      "lignes": [dict(j, beta=L.beta_retenu(j["t_T"], s), fcm=L.fcm_t(j["t_T"], fck, s), fck=L.fck_t(j["t_T"], fck, s),
+                                      indicatif=L.indicatif(j["t_T"])) for j in profil]}
+    out["resume"] = _resume(objectifs)
     return out
 
 
-def _seuil_releve(seuil: dict, tableau: dict):
-    """Le seuil ② LU dans le relevé jour par jour (le site, sans calcul nouveau : les valeurs du tableau, celles de ①) :
-    le premier jour du relevé où f_ck ≥ cible, et f_ck au jour que ② annonce (⌈t_seuil⌉). ``optimiste`` : ② (à la
-    température MOYENNE, comme l'écran) annonce le seuil plus tôt que le relevé — c'est le cas quand les jours froids
-    viennent d'abord (docs/beton/MATURITE_MOTEUR.md, défaut non conservatif n° 2). None si le seuil n'est pas atteint."""
-    lignes = tableau["lignes"]
-    cible = seuil["cible"]
-    if seuil["t"] is None:
-        return None
-    premier = next((li for li in lignes if li["fck"] >= cible), None)
-    j_annonce = math.ceil(seuil["t"] - 1e-9)
-    if j_annonce > len(lignes):                                  # le relevé est trop court pour en juger
-        return {"jour": premier["age"] if premier else None, "date": premier.get("date") if premier else None,
-                "jour_annonce": None, "fck_jour_annonce": None, "optimiste": False}
-    li_a = lignes[j_annonce - 1]
-    return {"jour": premier["age"] if premier else None, "date": premier.get("date") if premier else None,
-            "jour_annonce": j_annonce, "fck_jour_annonce": li_a["fck"], "optimiste": li_a["fck"] < cible}
+def _resume(objectifs: list) -> dict:
+    """Le résumé d'un coulage : l'objectif DATÉ le plus chargé (son taux, son état) ; sans objectif daté, le premier
+    objectif (une consultation : son échéance)."""
+    dates = [(o["taux"] if o["taux"] is not None else float("inf"), -i) for i, o in enumerate(objectifs) if o["age_prevu"] is not None]
+    if not dates:
+        return {"date": False, "taux": None, "etat": objectifs[0]["etat"], "objectif": 0, "nom": objectifs[0]["nom"]}
+    _, moins_i = max(dates)
+    o = objectifs[-moins_i]
+    # l'état de la note : le pire des objectifs datés (non conforme, puis attention, puis conforme)
+    rang = {"nok": 2, "attention": 1, "ok": 0}
+    pire = max((x["etat"] for x in objectifs if x["age_prevu"] is not None), key=lambda k: rang[k])
+    return {"date": True, "taux": o["taux"], "etat": pire, "objectif": -moins_i, "nom": o["nom"]}
 
 
-# ------------------------------------------------------------------ la figure (les données de build_figure)
-def _courbes(out, beton_label, ciment, fck28, s_ref, T, Ea, defav, t28_real, t_sel, fck_val) -> dict:
-    """Les arguments que ``show()`` passe à ``build_figure`` : abscisses, courbes, repères — recalculés à l'identique."""
-    t_real = np.linspace(*T_COURBE)
-    y_ref = fck_age_equivalent(fck28, s_ref, age_equivalent(t_real, T, Ea))
-    c = {"t": [float(x) for x in t_real],
-         "ref": {"label": f"{beton_label} — {ciment.split(' — ')[0]}", "y": [float(x) for x in y_ref]},
-         "defav": None, "comparateur": None, "opt": None, "seuil": None, "lab": None,
-         "point": [t_sel, fck_val], "t28": t28_real, "titre": f"fck(t) — {beton_label} — {T:.0f} °C"}
-    cp = out["comparateur"]
-    if cp["afficher"] and cp["classes"]:
-        c["comparateur"] = []
-        for cl in cp["classes"]:
-            if cl == beton_label:
-                continue                                 # pas de doublons avec la référence
-            yc = fck_age_equivalent(fck_classe(cl), cp["s"], age_equivalent(t_real, T, Ea))
-            c["comparateur"].append({"label": cl, "y": [float(x) for x in yc]})
-    sl = out["seuil"]
-    if sl["afficher"] and sl["t"] is not None:
-        c["seuil"] = {"fck": sl["cible"], "t": sl["t"]}
-    op = out["optim"]
-    if op["afficher"] and op["classe"] is not None:
-        y_o = fck_age_equivalent(op["fck28"], s_ref, age_equivalent(t_real, T, Ea))
-        c["opt"] = {"label": f"{op['classe']} (optim.)", "y": [float(x) for x in y_o], "t": op["delai"], "fck": op["fck"]}
-    es = out["essai"]
-    if es["afficher"] and es["actif"]:
-        c["lab"] = {"fck": es["mpa"], "age": es["age"]}
-    if defav is not None:
-        y_def = fck_age_equivalent(fck28, s_ref, age_equivalent(t_real, defav["T_moy"], Ea))
-        c["defav"] = {"label": f"défavorable (prévisions − {defav['marge']:.0f} °C)", "y": [float(x) for x in y_def]}
+def _courbes(p: dict, e: dict, fck: float, s: float, horizon: float, objectifs: list, essai, synthese: dict) -> dict:
+    """Les points de la courbe : f_cm(t) et f_ck(t) de 0 à l'horizon — un pas régulier, plus les changements de jour
+    (la pente y casse) et les âges équivalents repères (3 et 28 j) —, leur variante prudente, les objectifs, l'essai."""
+    ts = {0.0, horizon}
+    ts.update(horizon * i / POINTS_COURBE for i in range(1, POINTS_COURBE))
+    j = 0
+    while p["f0"] + j < horizon:
+        ts.add(p["f0"] + j)
+        j += 1
+    for prudent in (False, True):
+        for x in (L.SEUIL_INDICATIF_J, L.AGE_REFERENCE_J):
+            t = _t(p, x, prudent)
+            if t is not None and t < horizon:
+                ts.add(t)
+    ts = sorted(ts)
+    te = [_te(p, t) for t in ts]
+    c = {"horizon": horizon, "t": ts, "fcm": [L.fcm_t(x, fck, s) for x in te], "fck": [L.fck_t(x, fck, s) for x in te],
+         "fcm_prudent": None, "fck_prudent": None, "t_3": synthese["t_3"], "t_28": synthese["t_28"], "date": p["date0"], "heure": e["heure"],
+         "objectifs": [{"nom": o["nom"], "cible": o["cible"], "base": o["base"], "t": o["t"], "t_prudent": o["prudent"]["t"],
+                        "age_prevu": o["age_prevu"], "f_prevu": o["f_prevu"], "etat": o["etat"]} for o in objectifs],
+         "essai": {"t": essai["age"], "f": essai["f_cyl"]} if essai else None}
+    if synthese["prudent_distinct"]:
+        tep = [_te(p, t, True) for t in ts]
+        c["fcm_prudent"] = [L.fcm_t(x, fck, s) for x in tep]
+        c["fck_prudent"] = [L.fck_t(x, fck, s) for x in tep]
     return c
 
 
-# ------------------------------------------------------------------ le tableau des valeurs (le site)
-def _tableau(out, fck28, s_ref, T, Ea, profil, defav, jours) -> dict:
-    """Les valeurs que la figure trace, lues en clair (une ajoute du site, sans calcul nouveau : les mêmes fonctions
-    que ①) — à T constante : les âges usuels et l'âge choisi ; avec un relevé : chaque jour du relevé, jour par jour
-    (comme ①) et à la température moyenne (comme la courbe)."""
-    cp = out["comparateur"]
-    autres = [cl for cl in cp["classes"] if cl != out["materiau"]["classe"]] if cp["afficher"] else []
-    lignes = []
-    if profil:
-        for j in jours:
-            d = j["jour"]
-            t_e = age_equivalent_point(d, T, profil, Ea)
-            li = {"age": d, "date": j["date"], "T_brut": j["T_brut"], "T": j["T"], "source": j["source"], "t_e": t_e,
-                  "fck": float(fck_age_equivalent(fck28, s_ref, t_e)),
-                  "fck_moyenne": float(fck_age_equivalent(fck28, s_ref, age_equivalent(d, T, Ea)))}
-            if defav is not None:
-                t_d = age_equivalent_point(d, defav["T_moy"], defav["profil"], Ea)
-                li.update(T_defav=defav["profil"][d - 1], t_e_defav=t_d, fck_defav=float(fck_age_equivalent(fck28, s_ref, t_d)))
-            li["classes"] = {cl: float(fck_age_equivalent(fck_classe(cl), cp["s"], age_equivalent(d, T, Ea))) for cl in autres}
-            lignes.append(li)
-    else:
-        ages = sorted(set(AGES_TABLEAU) | {out["age"]["t"]})
-        for d in ages:
-            t_e = age_equivalent_point(d, T, None, Ea)
-            lignes.append({"age": d, "t_e": t_e, "fck": float(fck_age_equivalent(fck28, s_ref, t_e)),
-                           "classes": {cl: float(fck_age_equivalent(fck_classe(cl), cp["s"], age_equivalent(d, T, Ea))) for cl in autres}})
-    for li in lignes:
-        li["pct"] = li["fck"] / fck28 * 100.0
-    return {"releve": bool(profil), "defav": defav is not None, "classes": autres, "lignes": lignes}
+# ------------------------------------------------------------------ le sélecteur de classe
+def candidats_classes(coulage: dict) -> list:
+    """Chaque classe de béton (C16/20 à C50/60), avec le MÊME durcissement (le s retenu du coulage, calé ou non) et les
+    mêmes températures, face au PREMIER objectif : l'âge où il est atteint (None : non atteignable, ou jamais), son taux
+    à l'âge prévu s'il est daté ; ``retenue`` : la classe du coulage ; ``optimal`` : la plus petite classe qui tient l'âge
+    prévu (aucune sans âge prévu : il n'y a alors rien à tenir)."""
+    e = EN.normaliser(coulage)
+    _avert, _fck, _dur, p, _essai_, s = _base(e)
+    date = e["objectifs"][0]["age"] is not None
+    out = []
+    for classe, (fck, _cube) in L.CLASSES.items():
+        o = _objectif(0, e["objectifs"][0], e, p, fck, s)
+        out.append({"classe": classe, "fck": fck, "cible": o["cible"], "base": o["base"], "t": o["t"], "t_T": o["t_T"],
+                    "atteignable": o["atteignable"], "instant": o["instant"], "indicatif": o["indicatif"], "prudent": o["prudent"],
+                    "age_prevu": o["age_prevu"], "f_prevu": o["f_prevu"], "taux": o["taux"], "etat": o["etat"],
+                    "ok": (o["etat"] in ("ok", "attention")) if date else o["t"] is not None,
+                    "retenue": classe == e["classe"], "optimal": False})
+    if date:
+        for c in out:
+            if c["ok"]:
+                c["optimal"] = True
+                break
+    return out
 
 
-def _extremes_horaires(tableau: dict, meteo) -> None:
-    """Le détail horaire de la météo, quand il est chargé : T min h et T max h de chaque jour du relevé (``None`` pour un
-    jour sans valeur horaire) — les colonnes du tableau « Données météo » de l'écran."""
-    tableau["horaire"] = bool(meteo and meteo["horaire"] is not None and tableau["releve"])
-    if tableau["horaire"]:
-        for li in tableau["lignes"]:
-            li["T_min_h"], li["T_max_h"] = meteo["horaire"].get(li.get("date"), (None, None))
-
-
-# ------------------------------------------------------------------ le sélecteur de classe (③)
-def candidats_classes(element: dict) -> list:
-    """Les sept classes pour la cible de l'optimisation ③ (cible en MPa au délai), dans l'ordre de résistance : f_ck au
-    délai, taux = cible / f_ck(délai), « ok » au critère du module (f + 1e-6 ≥ cible), la retenue (la classe du coulage)
-    et l'optimale (la première qui tient : ``classe_min_pour_delai``)."""
-    r = calculer(element)
-    op = r["optim"]
-    return [dict(c, retenue=c["classe"] == r["materiau"]["classe"], optimal=c["classe"] == op["classe"]) for c in op["classes"]]
-
-
-__all__ = ["nouvel_element", "normaliser", "calculer", "candidats_classes", "CLASSES", "HORIZON_PREVISION_J"]
+__all__ = ["nouvel_element", "normaliser", "calculer", "candidats_classes", "modele_objectif", "MODELES_OBJECTIF", "NON_COUVERT"]

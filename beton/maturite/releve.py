@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Le RELEVÉ de températures journalières d'un coulage : sa lecture (un tableau collé ou un fichier texte) et sa
-synthèse.
+"""Le RELEVÉ de températures journalières d'un coulage : sa lecture (un tableau collé ou un fichier texte), son
+écriture, et ce qu'il contient (``synthese``).
 
-L'écran Streamlit (``modules/age_beton.py``, mode « Météo ») va chercher ces températures chez Open-Meteo ; sur le site,
-elles arrivent de même, à la demande (``meteo.py`` lit les réponses et les écrit en relevé), ou le relevé SE SAISIT —
-collé, lu dans un fichier — et le calcul reste hors ligne. Une fois les températures en main, la
-synthèse (``synthese``) est celle du module, RECOPIÉE de ``_saisie_temperature`` (lignes 498 à 587) : jour sans donnée
-remplacé par la moyenne, comptes des jours mesurés, prévus et prolongés, T min / moy / max, variante défavorable
-(jours prévus − 3 °C), t_e du relevé — au bit près.
+Les températures arrivent de trois façons : une constante ; ce relevé, collé ou lu dans un fichier ; la météo du lieu
+(``meteo.py`` lit les réponses d'Open-Meteo et les écrit en relevé, que l'on peut ensuite corriger à la main). Le calcul
+reste hors ligne, sur le relevé que la note garde. C'est le moteur (``moteur.py``) qui pose le relevé sur le calendrier
+du coulage — sa première ligne est le JOUR du bétonnage — et qui le prolonge.
 
-Format accepté (une ligne par jour, du jour du coulage au dernier jour) :
+Format accepté (une ligne par jour, du jour du bétonnage au dernier jour) :
 
     18,5                                  la température moyenne du jour (°C), virgule ou point
     2026-11-02 18,5                       précédée de sa date (AAAA-MM-JJ ou JJ/MM/AAAA)
@@ -20,15 +18,13 @@ Séparateurs : point-virgule, tabulation ou espaces (une virgule seule sépare a
 nombres ont un point). Une température « — », « nan » ou vide = jour sans donnée. Les dates, si elles sont données,
 le sont à chaque ligne et se suivent jour après jour. Le tableau « Données météo » de l'écran Streamlit (Date, T moy,
 Source, T min h, T max h) se colle tel quel.
+
+Bibliothèque standard seule.
 """
 import datetime as _dt
 import math
 import re
 import unicodedata
-
-import numpy as np
-
-from .ec2 import EA_EC2, MARGE_PREVISION_C, age_equivalent_serie, profil_defavorable
 
 MAX_JOURS = 400
 MAX_TEXTE = 200_000
@@ -148,36 +144,18 @@ def ecrire(rel: dict) -> str:
     return "\n".join(out)
 
 
-def synthese(rel: dict) -> dict:
-    """La synthèse du relevé, comme l'écran Streamlit la fait (``_saisie_temperature``, mode Météo) ; None si aucune
-    température n'est exploitable (le module rend alors T = 20 °C, « manuelle »)."""
+def synthese(rel: dict):
+    """Ce que le relevé CONTIENT, tel qu'il est écrit : {"n_jours", "n_mes", "n_prev", "n_extra", "n_nan" (jours sans
+    donnée), "T_moy", "T_min", "T_max" (des jours qui portent une température)} ; None si aucun jour n'en porte.
+    (Le calcul, lui, se fait sur le PROFIL que le moteur en tire : aligné sur le jour du bétonnage, prolongé.)"""
     temps = rel["temps"]
     prev = rel.get("prev", [False] * len(temps))
     extra = rel.get("extra", [False] * len(temps))
     valides = [t for t in temps if not math.isnan(t)]
     if not valides:
         return None
-    # Profil journalier ALIGNÉ sur les dates (un jour sans donnée est remplacé par la moyenne, pour ne pas décaler
-    # les jours suivants) — module, lignes 511 à 520.
-    T_rempl = float(np.mean(valides))
-    profil = [t if not math.isnan(t) else T_rempl for t in temps]
-    n_nan = len(temps) - len(valides)
     n_extra = sum(1 for x in extra if x)
     n_prev = sum(1 for p, x in zip(prev, extra) if p and not x)
-    n_mes = len(temps) - n_prev - n_extra
-    T_moy = float(np.mean(profil))
-    T_min, T_max = float(min(valides)), float(max(valides))
-    t_prol = next(t for t, x in zip(profil, extra) if x) if n_extra else None
-    # Variante défavorable : la météo prévue n'est pas acquise — lignes 540 à 545.
-    defav = None
-    if n_prev + n_extra > 0:
-        profil_def = profil_defavorable(profil, prev)
-        defav = {"T_moy": float(np.mean(profil_def)), "profil": profil_def,
-                 "n_prev": n_prev, "n_extra": n_extra, "marge": MARGE_PREVISION_C}
-    # le t_e de l'expander « Données météo » : avec E_a de l'EC2, MÊME si l'énergie d'activation est ajustée (le module
-    # passe EA_EC2 à _saisie_temperature, avant les paramètres avancés) — défaut reproduit, écrit dans la doc
-    t_e = age_equivalent_serie(profil, EA_EC2)
-    t_e_def = age_equivalent_serie(defav["profil"], EA_EC2) if defav else None
-    return {"T_rempl": T_rempl, "profil": profil, "n_nan": n_nan, "n_extra": n_extra, "n_prev": n_prev, "n_mes": n_mes,
-            "T_moy": T_moy, "T_min": T_min, "T_max": T_max, "t_prol": t_prol, "defav": defav,
-            "n_jours": len(profil), "t_e_releve": t_e, "t_e_releve_defav": t_e_def}
+    return {"n_jours": len(temps), "n_mes": len(temps) - n_prev - n_extra, "n_prev": n_prev, "n_extra": n_extra,
+            "n_nan": len(temps) - len(valides), "T_moy": sum(valides) / len(valides), "T_min": float(min(valides)),
+            "T_max": float(max(valides))}

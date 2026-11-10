@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Maturité du béton (résistance au jeune âge, EN 1992-1-1 §3.1.2 et annexe B), sans Streamlit : le calcul extrait de
-l'écran ``modules/age_beton.py`` v3.2, qui reste la référence de parité (``tests/test_maturite_moteur.py``).
+"""Maturité du béton : à quel âge, et quel jour, un béton coulé par ce temps atteint une résistance — EN 1992-1-1:2004
+§3.1.2, NBN B 15-400 (complément belge à la NBN EN 13670), EN 13670:2009 §8.5. Le module a été REFAIT sur la norme le
+10/11/2026 (``docs/site/LOT_Q_QUATRE_MODULES.md`` § 2) : il ne reproduit plus l'écran Streamlit ``modules/age_beton.py``.
 
     from beton.maturite import moteur
     res = moteur.calculer(moteur.nouvel_element())
 
-- ``ec2``     : les formules du module, recopiées (β_cc, f_ck(t), âge équivalent, seuil, classe minimale, essai) ;
-- ``releve``  : le relevé de températures journalières (lecture du tableau saisi, synthèse comme le mode Météo) ;
-- ``entree``  : les valeurs par défaut de l'écran, ses bornes, la normalisation stricte ;
-- ``moteur``  : le calcul de tout ce que l'écran affiche — et le FORMAT complet (entrée, sortie) dans sa docstring.
+- ``lois``    : les tables des normes (classes, durcissement, lois de température) et les formules, en ``math`` pur ;
+- ``releve``  : le relevé de températures journalières (lecture du tableau collé ou du fichier) ;
+- ``meteo``   : la météo du lieu (Open-Meteo), sans réseau : le plan des appels et la lecture des réponses ;
+- ``entree``  : le coulage neuf, les bornes, la normalisation stricte ;
+- ``moteur``  : le calcul de tout ce que l'écran montre — et le FORMAT complet (entrée, sortie) dans sa docstring.
 
-Bibliothèques : la bibliothèque standard et numpy (présent dans le navigateur, Pyodide) ; ni streamlit, ni
-matplotlib, ni requests, ni pandas.
+Bibliothèque standard seule : ni numpy, ni streamlit, ni matplotlib, ni requests, ni pandas.
 """
 from .moteur import calculer, candidats_classes, normaliser, nouvel_element  # noqa: F401 — l'API
