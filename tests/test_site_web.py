@@ -62,8 +62,12 @@ chk("chaque fichier du paquet est identique à celui du dépôt (sinon : python3
 chk("le manifeste porte l'empreinte du paquet", man["sha256"] == sha(zip_chemin), (man["sha256"][:12], sha(zip_chemin)[:12]))
 chk("le manifeste liste les fichiers du paquet", man["fichiers"] == noms)
 # numpy pèse une à deux secondes au démarrage : le travailleur ne le charge d'emblée que pour ces modules-là
-chk(f"le manifeste nomme les modules qui chargent numpy, comme le relevé ({', '.join(RELEVE['avec_numpy'])})",
-    man.get("avec_numpy") == RELEVE["avec_numpy"] and set(RELEVE["avec_numpy"]) < set(SW.ADRESSES), (man.get("avec_numpy"), RELEVE["avec_numpy"]))
+# (S4 : « avec_numpy » couvre aussi les BIBLIOTHÈQUES, sous « biblio_<k> » — la clé que le travailleur lit dans une
+# requête « consulter » ; mesuré : la Bibliothèque Acier charge numpy, celle du béton non)
+_CLES_NUMPY = set(SW.ADRESSES) | {SW.PREFIXE_BIBLIOTHEQUE + b for b in SW.BIBLIOTHEQUES}
+chk(f"le manifeste nomme les modules et les bibliothèques (biblio_<k>) qui chargent numpy, comme le relevé ({', '.join(RELEVE['avec_numpy'])})",
+    man.get("avec_numpy") == RELEVE["avec_numpy"] and set(RELEVE["avec_numpy"]) < _CLES_NUMPY
+    and "biblio_acier" in RELEVE["avec_numpy"] and "biblio_beton" not in RELEVE["avec_numpy"], (man.get("avec_numpy"), RELEVE["avec_numpy"]))
 TRAV = open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read()
 chk("le travailleur lit « avec_numpy » et guette un import de numpy imprévu (la requête est alors rejouée)",
     "man.avec_numpy" in TRAV and "GuetNumpy" in TRAV and "sys.meta_path.insert(0, GuetNumpy())" in TRAV and "guet.demande" in TRAV)
@@ -219,8 +223,38 @@ with tempfile.TemporaryDirectory() as tmp:
 
 # 3. les pages et la charte
 chk("css/charte.css est la charte des maquettes", sha(os.path.join(WEB, "css", "charte.css")) == sha(os.path.join(RACINE, "site", "maquettes", "charte.css")))
-for nom, html in [("index.html", SW.page_accueil()), ("js/modules.js", SW.modules_js())] + [(SW.PAGES[k], SW.page(k)) for k in SW.PAGES]:
+# (S4 : chaque page porte la VERSION du site, recalculée ici sur les fichiers publiés et les pages rendues — elle n'est
+# pas lue dans une page ; les deux bibliothèques sont comparées aussi)
+VERSION = SW.version_site(WEB)
+_PAGES_RENDUES = SW.pages_rendues()
+for nom, html in [("js/modules.js", SW.modules_js())] + [(n, SW.poser_version(h, VERSION)) for n, h in _PAGES_RENDUES.items()]:
     chk(f"{nom} est celle que le générateur écrit", os.path.exists(os.path.join(WEB, nom)) and open(os.path.join(WEB, nom), encoding="utf-8").read() == html)
+# la version (S4-D3, C7) : la MÊME balise sur les 21 pages, la valeur recalculée, la même dans le manifeste
+_versions = {n: re.findall(r'<meta name="stab-version" content="([^"]*)">', open(os.path.join(WEB, n), encoding="utf-8").read()) for n in _PAGES_RENDUES}
+chk(f"même stab-version sur les {len(_PAGES_RENDUES)} pages (une balise chacune, dans <head>), égale à la version recalculée et à celle du manifeste",
+    len(_PAGES_RENDUES) == 21 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
+    and all(open(os.path.join(WEB, n), encoding="utf-8").read().index('name="stab-version"') < open(os.path.join(WEB, n), encoding="utf-8").read().index("</head>")
+            for n in _PAGES_RENDUES), ({n: v for n, v in _versions.items() if v != [VERSION]}, VERSION, man.get("version")))
+# un seul script de module, js/app.js, sur chaque page ; js/theme.js reste le seul script classique, en tête (S4-D1)
+_scripts = {n: re.findall(r"<script\b[^>]*>", open(os.path.join(WEB, n), encoding="utf-8").read()) for n in _PAGES_RENDUES}
+chk("chaque page : un seul script de module, js/app.js (en fin de <body>), et js/theme.js en tête — aucun autre script",
+    all(s == ['<script src="js/theme.js">', '<script type="module" src="js/app.js">'] for s in _scripts.values())
+    and all(open(os.path.join(WEB, n), encoding="utf-8").read().endswith('<script type="module" src="js/app.js"></script></body>\n</html>\n') for n in _PAGES_RENDUES),
+    {n: s for n, s in _scripts.items() if s != ['<script src="js/theme.js">', '<script type="module" src="js/app.js">']})
+# le voile #demarrage a disparu des trois gabarits (S4-D7) : l'écran est visible tout de suite
+_voile = [n for n in _PAGES_RENDUES if re.search(r'id="demarrage|class="demarrage', open(os.path.join(WEB, n), encoding="utf-8").read())]
+chk("aucun id=demarrage dans les pages (ni #demarrage-etape, ni le voile .demarrage) : plus de voile, aux trois gabarits", not _voile, _voile)
+# ce que js/app.js monte : le corps dit sa sorte (data-page) et ce qu'il faut pour la monter
+_corps_de = {n: dict(re.findall(r'\s([\w-]+)="([^"]*)"', re.search(r"<body[^>]*>", open(os.path.join(WEB, n), encoding="utf-8").read()).group(0)))
+             for n in _PAGES_RENDUES}
+_sorte = {"index.html": {"data-page": "accueil"}}
+_sorte.update({SW.PAGES[k]: ({"data-page": "redirection", "data-module": k, "data-vers": SW.ADRESSES[SW.REDIRECTIONS[k]]} if k in SW.REDIRECTIONS
+                             else {"data-page": "module", "data-module": k}) for k in SW.PAGES})
+_sorte.update({SW.PAGES_BIBLIOTHEQUES[b]: {"data-page": "bibliotheque", "data-bibliotheque": b, "data-titre": SW.BIBLIOTHEQUES[b][1]} for b in SW.BIBLIOTHEQUES})
+chk("chaque page dit sa sorte au corps : accueil (data-page=accueil, rien d'autre), établi (module + clé), bibliothèque (clé + titre), redirection (clé + data-vers)",
+    sorted(_sorte) == sorted(_PAGES_RENDUES) and all(_sorte[n].items() <= _corps_de[n].items() for n in _PAGES_RENDUES)
+    and _corps_de["index.html"] == _sorte["index.html"],
+    {n: _corps_de[n] for n in _PAGES_RENDUES if not _sorte.get(n, {"?": 1}).items() <= _corps_de[n].items()})
 # les ÉTABLIS : les pages des modules, moins celles qui ne sont qu'une redirection (REDIRECTIONS : un module absorbé par
 # un autre, docs/site/DALLES_FUSION.md § 2.4) — ce qui suit décrit un établi, et ne s'applique pas à une redirection
 ETABLIS = {k: v for k, v in SW.PAGES.items() if k not in SW.REDIRECTIONS}
@@ -235,11 +269,14 @@ npy = lock["packages"]["numpy"]
 chk("la roue numpy a l'empreinte du pyodide-lock officiel", sha(os.path.join(v, npy["file_name"])) == npy["sha256"])
 chk("le travailleur charge la version déposée", f'"../{SW.PYODIDE}/pyodide.mjs"' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
 
-# 5. les identifiants que les scripts cherchent existent dans leur page
+# 5. les identifiants que les scripts cherchent existent dans leur page — sauf ceux du VOILE retiré (S4-D7 : « aucun
+# id=demarrage dans les pages » les interdit) : js/etabli.js les nomme encore tant que l'écran n'est pas réécrit en
+# écran montable (lot S4, partie « écrans ») ; la liste est NOMMÉE, et ne couvre rien d'autre
+VOILE_RETIRE = ("demarrage", "demarrage-etape")
 for js, page in [(js, ETABLIS[k]) for k in ETABLIS for js in ("etabli.js", "toile.js")] + [("accueil.js", "index.html")]:
     src = open(os.path.join(WEB, "js", js), encoding="utf-8").read()
     html = open(os.path.join(WEB, page), encoding="utf-8").read()
-    ids = sorted(set(re.findall(r'\$\("#([\w-]+)', src)) | set(re.findall(r'getElementById\("([\w-]+)"', src)))
+    ids = sorted((set(re.findall(r'\$\("#([\w-]+)', src)) | set(re.findall(r'getElementById\("([\w-]+)"', src))) - set(VOILE_RETIRE))
     absents = [i for i in ids if f'id="{i}"' not in html]
     chk(f"{js} → {page} : les {len(ids)} identifiants cherchés existent", not absents, absents)
 
@@ -530,14 +567,18 @@ chk("js/modules.js : un module absorbé porte « vers » (le module qui sert ses
 chk("js/notes.js, js/accueil.js, js/etabli.js : la page d'une note vient de pageDe (l'alias), plus jamais de MODULES[module].page",
     all("pageDe(" in open(os.path.join(WEB, "js", f), encoding="utf-8").read() for f in ("accueil.js", "etabli.js"))
     and not any(re.search(r"MODULES\[[^\]]+\]\.page", open(os.path.join(WEB, "js", f), encoding="utf-8").read()) for f in ("accueil.js", "etabli.js", "rangement.js")))
+# (S4 : la page de redirection a pour seul script de module js/app.js, qui y mène en gardant l'adresse — dans
+# l'application, naviguer() résout « vers » avant même de la lire ; plus de voile ni de <meta refresh> — il partirait
+# après un échange de corps et perdrait la requête — : un court lien visible, le repli)
 for k, vers in SW.REDIRECTIONS.items():
     _red = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
     _corps_red = re.search(r"<body[^>]*>", _red).group(0)
-    chk(f"{SW.PAGES[k]} : une redirection vers « {SW.ADRESSES[vers]} » — body data-vers, js/redirection.js (location.replace + la requête), "
-        "<meta refresh> et un lien en repli, rien d'un tiers, aucun script en ligne, pas d'établi",
-        f'data-vers="{SW.ADRESSES[vers]}"' in _corps_red and 'data-page="redirection"' in _corps_red and '<script src="js/redirection.js"></script>' in _red
-        and f'<meta http-equiv="refresh" content="1; url={SW.ADRESSES[vers]}">' in _red and f'<a href="{SW.ADRESSES[vers]}">' in _red
-        and "http" not in _red.replace("http-equiv", "") and 'id="donnees"' not in _red and 'id="demarrage"' in _red
+    chk(f"{SW.PAGES[k]} : une redirection vers « {SW.ADRESSES[vers]} » — body data-page=redirection et data-vers, js/app.js, un court lien "
+        f"visible « {SW.LIENS_REDIRECTION[vers]} », sans voile ni <meta refresh>, rien d'un tiers, aucun script en ligne, pas d'établi",
+        f'data-vers="{SW.ADRESSES[vers]}"' in _corps_red and 'data-page="redirection"' in _corps_red and SW.SCRIPT_APP in _red
+        and "redirection.js" not in _red and "http-equiv" not in _red
+        and f'<a href="{SW.ADRESSES[vers]}">{SW.LIENS_REDIRECTION[vers]}</a>' in _red and SW.LIENS_REDIRECTION == {"dalle": "Ouvrir les dalles"}
+        and "http" not in _red and 'id="donnees"' not in _red and "demarrage" not in _red
         and not re.search(r"<script(?![^>]*\bsrc=)[^>]*>", _red), _red[:300])
 _redir_js = open(os.path.join(WEB, "js", "redirection.js"), encoding="utf-8").read()
 _redir_code = re.sub(r"//[^\n]*", "", _redir_js)   # le code seul : les commentaires nomment les modules, pas le code
@@ -998,6 +1039,12 @@ chk("js/meteo.js : une réponse énorme (50 Mo) n'est lue que jusqu'à 5 Mo, pui
 chk("le cœur Python reste en cache, le paquet du moteur est relu à chaque ouverture",
     "immutable" in SL.entetes(f"/{SW.PYODIDE}/pyodide.asm.wasm").get("Cache-Control", "")
     and SL.entetes("/moteur/manifeste.json").get("Cache-Control") == "no-cache")
+# les scripts et les feuilles sont REVALIDÉS (C7) : jamais un ancien script après une mise en ligne — une seule règle
+# chacun (un en-tête joint « no-cache, … » serait le signe d'une règle en double)
+_cache = {u: SL.entetes(u).get("Cache-Control") for u in ("/js/app.js", "/js/etabli.js", "/js/modules.js", "/css/site.css", "/css/modules/dalle.css",
+                                                            "/moteur/apercus/poutre.json")}
+chk("/js/* et /css/* (et les aperçus, sous /moteur/*) : Cache-Control: no-cache — une revalidation à chaque ouverture ; outils/serveur_local.py "
+    "applique _headers", all(v == "no-cache" for v in _cache.values()), _cache)
 EN_LIGNE = re.compile(r"<script(?![^>]*\bsrc=)[^>]*>|\son[a-z]+\s*=", re.I)
 fautes = [p for p in ["index.html"] + list(SW.PAGES.values()) if EN_LIGNE.search(open(os.path.join(WEB, p), encoding="utf-8").read())]
 chk("aucune page ne porte de script en ligne ni de gestionnaire « on…= »", not fautes, fautes)
@@ -1016,9 +1063,17 @@ chk("les fragments que Python rend n'ont ni script ni gestionnaire « on…= »"
 # 7. les adresses sans « .html » (Cloudflare Pages redirige « x.html » vers « x » ; la note ouverte n'a pas à survivre
 # à une redirection) : les pages générées et js/notes.js visent les mêmes adresses — deux copies, liées ici
 modules_js = open(os.path.join(WEB, "js", "modules.js"), encoding="utf-8").read()
-pages_js = {k: v["page"] for k, v in json.loads(modules_js[modules_js.index("{"):modules_js.rindex("}") + 1]).items()}
+# (S4 : js/modules.js exporte aussi BIBLIOTHEQUES : la table MODULES est lue sur SA ligne — le contrôle suit)
+pages_js = {k: v["page"] for k, v in json.loads(re.search(r"^export const MODULES = (\{.*\});$", modules_js, re.M).group(1)).items()}
 chk("js/modules.js vise les adresses du générateur (sans « .html »), et notes.js le lit",
     pages_js == SW.ADRESSES and 'from "./modules.js"' in open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read(), (pages_js, SW.ADRESSES))
+# … et les BIBLIOTHÈQUES (le routage de js/app.js) : l'adresse de construire.ADRESSES_BIBLIOTHEQUES est celle que
+# chaque module de rendu déclare (api_web/biblio_*.PAGE) — deux copies, liées ici (R2) — et leur titre, celui du site
+_bib_js = json.loads(re.search(r"^export const BIBLIOTHEQUES = (\{.*\});$", modules_js, re.M).group(1))
+chk("js/modules.js exporte BIBLIOTHEQUES (clé → page, titre) ; l'adresse est celle que api_web/biblio_*.py déclare (PAGE)",
+    _bib_js == {b: {"page": SW.ADRESSES_BIBLIOTHEQUES[b], "titre": t} for b, (_c, t, _f) in SW.BIBLIOTHEQUES.items()}
+    and all(importlib.import_module(c).PAGE == SW.ADRESSES_BIBLIOTHEQUES[b] for b, (c, _t, _f) in SW.BIBLIOTHEQUES.items())
+    and sorted(_bib_js) == sorted(SW.BIBLIOTHEQUES) == ["acier", "beton"], _bib_js)
 liens = [(p, h) for p in ["index.html"] + list(SW.PAGES.values())
          for h in re.findall(r'<a [^>]*href="([^"]+)"', open(os.path.join(WEB, p), encoding="utf-8").read()) if h.endswith(".html")]
 chk("aucun lien des pages ne vise une adresse en « .html »", not liens, liens[:4])
