@@ -53,8 +53,13 @@ def resultats(etat: Dict) -> List[Dict]:
         calc = MO.verifier(p)
         beams, vals = valeurs(p, bi + 1)
         planches = EP._collecter_resultats(beams, vals, beton)
+        # l'option « Taux d'armature » allumée et des longueurs données : le taux de la POUTRE va dans la note (le bloc
+        # « TAUX D'ARMATURE » du générateur), calculé par le moteur du site — le même nombre qu'à l'écran
+        ta = (calc.get("taux_armature") or {}).get("poutre")
         for pl, rs in zip(planches, calc["sections"]):
             R = pl["R"]
+            if ta:
+                pl["ta_global"] = ta["taux"]
             for face in ("inf", "sup"):
                 for j, (lit, geo) in enumerate(zip(R[f"geo_{face}"]["lits"], rs["geometrie"][face]["lits"])):
                     lit["x"] = list(geo["x"])

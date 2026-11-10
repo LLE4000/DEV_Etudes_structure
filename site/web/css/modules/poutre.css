@@ -1,0 +1,15 @@
+/* Poutres béton armé — ce que la charte de l'établi n'a pas : l'option « Taux d'armature » (11/2026).
+   La longueur d'une section (rubrique 2), le taux de la poutre sous son nom (résultats), la case de l'option. */
+.pt-lg { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 6px; margin-top: 6px; }
+.pt-lg label { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.pt-lg .field { height: 30px; padding: 0 7px; }
+.pt-lg .field input { font-size: 12.5px; }
+.pt-ta { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.pt-ta .hint { margin: 0; }
+.pt-tete-ta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; width: calc(100% - 20px); margin: 0 10px 8px; padding: 7px 10px;
+  border-radius: 9px; text-align: left; background: var(--bg-sunken); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+.pt-tete-ta:hover { box-shadow: inset 0 0 0 1px var(--accent-line); }
+.pt-tete-ta span { font-size: 11.5px; font-weight: 650; color: var(--ink-2); }
+.pt-tete-ta b { font-size: 15px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; margin-left: auto; }
+.pt-tete-ta i { flex-basis: 100%; font-style: normal; font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.pt-tete-ta.vide i { flex-basis: auto; margin-left: auto; }

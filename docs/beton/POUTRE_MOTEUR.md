@@ -261,3 +261,51 @@ cas (pas de 0,05 cm, face sans moment) isolent les contrôles de d.
    le défaut est 1,5 ; l'en-tête dit « VERSION 2.40 » pour un code qui porte des évolutions v2.41.
 7. `beton_classes.json` porte un `tau_lim` par classe que le module ne lit pas (τ_adm est recalculé
    depuis fck,cube) : une seconde valeur, non tenue.
+
+## Le taux d'armature simplifié (option, 10/11/2026)
+
+`beton/poutre/taux.py` — l'option « Taux d'armature » de l'écran Streamlit (`_taux_armature_section`,
+`_section_poids_vol`, `_beam_totals`, v2.39+), extraite et branchée sur la géométrie que le moteur calcule déjà pour le
+dessin (`<section>["geometrie"]` : les lits, l'emprise de chaque cadre, les armatures latérales). C'est un RATIO
+d'avant-métré au mètre courant de poutre, pas un bordereau : le module « Taux d'armature » du site détaille
+(`docs/beton/TAUX_ARMATURE_MOTEUR.md`).
+
+**Entrée** (deux clés facultatives ; absentes, la poutre normalisée et la sortie de `verifier` sont celles d'avant, à
+l'octet) :
+
+- `poutre["taux"] = {"actif": bool, "majoration": % (0 à 50, défaut 5), "retour": cm (0 à 50, défaut 10),
+  "arrondi": kg/m³ entier (1 à 50, défaut 5)}` — éteinte aux réglages par défaut, la clé disparaît à la normalisation ;
+  éteinte avec un réglage changé, elle est gardée (le réglage n'est pas perdu) ;
+- `section["longueur"]` (m, > 0, ≤ 200) — la longueur de poutre que la section représente ; absente : la section n'entre
+  pas dans le taux de la poutre.
+
+**Calcul**, au mètre courant :
+
+| Armature | Compté | Longueur d'une pièce |
+|---|---|---|
+| lits inférieurs et supérieurs | n barres | 1 m |
+| cadre | 100 / pas par mètre | 2·(w + h − 2c) + 2·retour — w : b − 2c s'il entoure toute la largeur, sinon l'emprise des barres entourées, étrier compris |
+| épingle | 100 / pas par mètre | (h − 2c) + 2·retour |
+| latérales (de peau) | 2·n (n par face, automatiques ou imposées) | 1 m |
+
+masse linéique = 7 850 kg/m³ · π·Ø²/4 ; taux brut = masse · (1 + majoration) / (b·h·1 m) ; taux = le taux brut arrondi au
+multiple SUPÉRIEUR de « arrondi ». Poutre : Σ(masse majorée_i · l_i) / Σ(b·h · l_i) sur les sections qui ont une longueur.
+
+**Sortie** : `verifier(p)["taux_armature"]` (seulement si l'option est allumée) = `{"reglages", "sections": [{"nom",
+"longueur", "lignes": [{"cle", "position", "famille", "n", "d", "aire", "masse_lineique", "l_barre", "l_totale", "masse",
+"part"[, "formule"]}], "masse", "majoration", "masse_majoree", "volume", "taux_brut", "arrondi", "taux", "retour", "pas",
+"cours"}], "poutre": {"longueur", "masse", "volume", "taux_brut", "taux", "comptees", "sans_longueur"} | None}`.
+
+**Ce qui n'est pas compté** : les ancrages, les recouvrements, les arrêts de barres, les abouts, les crochets des barres
+longitudinales — la majoration les couvre forfaitairement.
+
+**Écarts avec l'écran Streamlit** : aucun sur ce que les deux écrans savent décrire. Le site compte en plus ce que son
+ferraillage détaillé permet (une répartition imposée des barres du lit 1 déplace l'emprise d'un cadre intérieur ; des
+latérales imposées remplacent les automatiques) ; une épingle du site est verticale (elle n'a qu'une position), là où
+l'écran Streamlit comptait aussi une épingle « horizontale » entre deux barres.
+
+**Preuves** : `tests/test_poutre_taux.py` (41 contrôles : l'exemple 30 × 60 à deux sections recalculé à la main —
+A : 15,34 kg/m → 90 kg/m³ ; B : 19,42 kg/m → 115 kg/m³ ; poutre 4 m + 2 m : 100 kg/m³ —, les invariants, l'option, l'écran
+comparé au calcul à la main, la note PDF, 17 mutations du moteur et 7 de l'écran, toutes rejetées) ;
+`tests/test_poutre_moteur.py` § 9 (la PARITÉ : 99 sections et 60 poutres, trois jeux de réglages, égales à l'option du
+module rejouée, à 1e-9 près) ; `tests/reference_refonte` (deux cas gelés).

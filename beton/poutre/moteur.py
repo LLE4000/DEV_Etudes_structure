@@ -49,7 +49,9 @@ SORTIE de verifier — JSON-sérialisable, nombres non arrondis (le site formate
      "taux_max": float,                  le plus grand taux de toutes les vérifications
      "statut": "ok" | "warn" | "nok",    fusion des statuts des sections (_status_merge)
      "gouvernant": {"section", "cle", "nom", "taux"},   la vérification au plus grand taux
-     "avertissements": [{"code", "message"}, ...]}
+     "avertissements": [{"code", "message"}, ...],
+     "taux_armature": {...}}             SEULEMENT si l'option est allumée (poutre["taux"]["actif"]) : le taux
+                                         d'armature simplifié, par section et pour la poutre (beton/poutre/taux.py)
 
   <section> = {"nom", "M_inf", "M_sup", "V",
                "statut": "ok" | "warn" | "nok",       l'etat_global du module
@@ -116,6 +118,7 @@ import math
 from . import dispositions as DI
 from . import entree as E
 from . import geometrie as G
+from . import taux as TA
 from .entree import classes_beton, nom_section_suivant, normaliser, nouvelle_poutre, nouvelle_section  # noqa: F401
 
 REFERENCE = "modules/poutre.py v2.40 (APP_VERSION 1.2.41)"
@@ -421,12 +424,18 @@ def verifier(poutre: dict) -> dict:
         avert.append({"code": "enrobage_nul",
                       "message": "Enrobage nul : le module place les lits avec un enrobage de "
                                  f"{G.ENROBAGE_SI_NUL:g} cm (il lit « enrobage or 3,0 »)."})
-    return {"reference": REFERENCE, "poutre": p, "materiaux": mat, "sections": sections,
+    out = {"reference": REFERENCE, "poutre": p, "materiaux": mat, "sections": sections,
             "taux_max": gouv_v["taux"], "statut": fusion_statuts(*(sec["statut"] for sec in sections)),
             "statut_complet": fusion_statuts(*(sec["statut_complet"] for sec in sections)),
             "sollicitee": all(sec["sollicitee"] for sec in sections),
             "gouvernant": {"section": gouv_s["nom"], "cle": gouv_v["cle"], "nom": gouv_v["nom"], "taux": gouv_v["taux"]},
             "avertissements": avert}
+    # l'option « Taux d'armature » (beton/poutre/taux.py) : la clé n'existe que si l'option est allumée — éteinte, la
+    # sortie est celle d'avant, à l'octet
+    ta = TA.calculer(p, sections)
+    if ta is not None:
+        out["taux_armature"] = ta
+    return out
 
 
 def candidats_armatures(poutre: dict, nom_section: str, face: str) -> list:

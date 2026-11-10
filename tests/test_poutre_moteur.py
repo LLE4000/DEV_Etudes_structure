@@ -916,6 +916,76 @@ chk("le moteur du site calcule une poutre de 4 m (h = 400 cm)", p4["sections"][0
 p5 = M.verifier(E.normaliser(poutre("LARGE", [sec("A", 900, 0, 600, ((2, 16),))], b=250, h=60)))
 chk("le moteur du site calcule une poutre de 2,50 m de large (b = 250 cm)", p5["sections"][0]["geometrie"] is not None)
 
+# ------------------------------------------------------------------ 9. le taux d'armature simplifié (option)
+print("\n=== 9. Taux d'armature simplifié : beton/poutre/taux.py = l'option de l'écran Streamlit, rejouée ===")
+# L'option « Taux d'armature » du module (_taux_armature_section, _section_poids_vol, _beam_totals) rejouée sur chaque
+# cas, avec trois jeux de réglages et des longueurs de section (certaines absentes) ; les cadres sont posés aux MÊMES
+# barres dans les deux écrans : toute la largeur, ou — dès 4 barres au lit 1 inférieur — un second cadre intérieur
+# (barres 2 à n − 1) ; une épingle sur la barre du milieu. Les contrôles À LA MAIN sont dans tests/test_poutre_taux.py.
+from beton.poutre import taux as TA  # noqa: E402
+
+if P is not None:
+    REGLAGES_TA = ({}, {"majoration": 0.0, "retour": 8.0, "arrondi": 1}, {"majoration": 12.5, "retour": 15.0, "arrondi": 10})
+    ecarts_ta, n_sec_ta, n_poutres_ta, n_int_ta, n_peau_ta = [], 0, 0, 0, 0
+    for k, (desc, p0) in enumerate(CAS):
+        regl = REGLAGES_TA[k % len(REGLAGES_TA)]
+        p = copy.deepcopy(p0)
+        for s in p["sections"]:
+            n1, fermes = s["inf"][0]["n"], 0
+            for e in s["etriers"]:
+                e.pop("de", None)
+                e.pop("a", None)
+                if e["type"] == "etrier":
+                    fermes += 1
+                    if fermes == 2 and n1 >= 4:      # le second cadre : intérieur
+                        e["de"], e["a"] = 2, n1 - 1
+                        n_int_ta += 1
+        longueurs = [round(1.5 + 0.75 * ((k + i) % 5), 2) if (k + i) % 4 else None for i in range(len(p["sections"]))]
+        for s, lg in zip(p["sections"], longueurs):
+            if lg:
+                s["longueur"] = lg
+        p["taux"] = dict(regl, actif=True)
+        res = M.verifier(p)["taux_armature"]
+        charger(p0)
+        ss = st.session_state
+        ss["taux_arm_show_app"] = True
+        r = TA.reglages(regl)
+        ss["taux_arm_major_pct"], ss["taux_retour_etrier_cm"], ss["taux_arrondi_kgm3"] = r["majoration"], r["retour"], r["arrondi"]
+        for i, (s, lg) in enumerate(zip(p["sections"], longueurs)):
+            sid, n1 = i + 1, s["inf"][0]["n"]
+            ss[KS("longueur_m", 1, sid)] = lg or 0.0
+            for j, e in enumerate(s["etriers"]):
+                if e["type"] == "epingle":
+                    de = a = (n1 + 1) // 2
+                else:
+                    de, a = e.get("de", 1), e.get("a", n1)
+                ss[KS(f"shear_line{j}_from", 1, sid)], ss[KS(f"shear_line{j}_to", 1, sid)] = de, a
+        for i, sec in enumerate(res["sections"]):
+            n_sec_ta += 1
+            n_peau_ta += any(x["famille"] == "laterales" for x in sec["lignes"])
+            ta_mod, _md = P._taux_armature_section(1, i + 1)
+            poids_mod, vol_mod = P._section_poids_vol(1, i + 1)
+            if not (proche(sec["masse_majoree"], poids_mod) and proche(sec["volume"], vol_mod) and proche(sec["taux"], ta_mod)):
+                ecarts_ta.append(f"{desc} / {sec['nom']} : moteur ({sec['masse_majoree']!r}, {sec['volume']!r}, {sec['taux']!r}) "
+                                 f"≠ module ({poids_mod!r}, {vol_mod!r}, {ta_mod!r})")
+        tot = P._beam_totals(1)
+        tp = res["poutre"]
+        if (tot is None) != (tp is None):
+            ecarts_ta.append(f"{desc} : poutre moteur {tp!r} ≠ module {tot!r}")
+        elif tot is not None:
+            n_poutres_ta += 1
+            if not all(proche(x, y) for x, y in zip((tp["longueur"], tp["masse"], tp["volume"], tp["taux"]), tot)):
+                ecarts_ta.append(f"{desc} : poutre moteur {(tp['longueur'], tp['masse'], tp['volume'], tp['taux'])!r} ≠ module {tot!r}")
+            if not proche(tp["taux"], P._taux_armature_global(1)):
+                ecarts_ta.append(f"{desc} : taux global {tp['taux']!r} ≠ {P._taux_armature_global(1)!r}")
+    chk(f"taux d'armature : {n_sec_ta} sections ({n_int_ta} avec un cadre intérieur, {n_peau_ta} avec des armatures de peau) et "
+        f"{n_poutres_ta} poutres, trois jeux de réglages — masse majorée, volume, taux arrondi et totaux de la poutre égaux à "
+        "ceux du module, à 1e-9 près", not ecarts_ta and n_sec_ta >= 40 and n_poutres_ta >= 20 and n_int_ta >= 3 and n_peau_ta >= 5,
+        (ecarts_ta[:3], n_sec_ta, n_poutres_ta, n_int_ta, n_peau_ta))
+    charger(cas("V1 du site"))
+    chk("option éteinte dans le module : aucun taux (None) — comme la clé « taux_armature », absente du moteur",
+        P._taux_armature_section(1, 1) == (None, None) and P._beam_totals(1) is None and "taux_armature" not in M.verifier(cas("V1 du site")))
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])

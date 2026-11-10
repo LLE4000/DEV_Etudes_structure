@@ -82,6 +82,13 @@ cas("poutre", "poutres ajoutée, copiée, la première supprimée", LIM,
 cas("poutre", "8Ø32 dans 20 cm : barres qui ne tiennent pas (rouge sous 100 %)", LIM,
     [neuf(), mod("sections/0/inf/0/n", "8"), mod("sections/0/inf/0/d", "32")], {"niveau": "r"})
 cas("poutre", "note abîmée", LIM, [ABIMEE])
+# l'option « Taux d'armature » (10/11/2026, docs/site/LOT_Q_QUATRE_MODULES.md § 6.1) : éteinte, les cas d'avant ne
+# gagnent que sa case ; allumée, la ligne de chaque section, le taux de la poutre et leurs fenêtres de calcul
+cas("poutre", "taux d'armature : deux sections de 4 m et 2 m (option allumée, 30 × 60)", REF,
+    _P_REAL + [mod("sections/+", None), mod("sections/1/M_sup", "90"), mod("sections/1/sup/0/n", "3"), mod("taux/actif", True),
+               mod("sections/0/longueur", "4"), mod("sections/1/longueur", "2")], {"sans_message": True})
+cas("poutre", "taux d'armature : majoration de 80 % refusée, puis une section sans longueur", LIM,
+    [neuf(), mod("taux/actif", True), mod("taux/retour", "12"), mod("taux/majoration", "80")], {"message": True})
 
 # ====================================================================== dalle
 cas("dalle", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)

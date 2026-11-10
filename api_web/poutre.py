@@ -23,6 +23,7 @@ from beton.poutre import dispositions as DI
 from beton.poutre import entree as EN
 from beton.poutre import geometrie as G
 from beton.poutre import moteur as MO
+from beton.poutre import taux as TA
 
 from . import commun as C
 from . import coupe_ba as CB
@@ -101,7 +102,7 @@ def gerer_elements(etat: Dict, action: str, index: Optional[int] = None) -> None
 # ------------------------------------------------------------------ la saisie
 ENTIERS = {"n", "d", "fyk", "de", "a", "peau_d"}
 # les champs « vide = automatique » (commun.num(..., auto=…)) : un champ vidé rend la valeur au calcul du module
-AUTO = {"pos", "sh", "de", "a", "yG_inf", "yG_sup"}
+AUTO = {"pos", "sh", "de", "a", "yG_inf", "yG_sup", "longueur"}
 TEXTES = {"nom", "beton", "type", "rep"}
 
 
@@ -159,6 +160,10 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
                 s["justifs"] = js
             else:
                 s.pop("justifs", None)
+        elif chemin[0] == "taux" and len(chemin) == 2:
+            msg = _regler_taux(p, chemin[1], valeur)
+            if msg:
+                return msg
         elif len(chemin) >= 2 and chemin[-2] == "laterales":
             s = _aller(p, chemin[:-2])
             lat = dict(s.get("laterales") or {})
@@ -180,6 +185,8 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
             k = chemin[-1]
             if k in TEXTES:
                 d[k] = str(valeur)
+            elif k == "longueur" and isinstance(valeur, str) and valeur.strip() and C.lire_nombre(valeur) is None:
+                return f"Longueur illisible : « {valeur.strip()[:40]} » — un nombre de mètres, ou vide si la section n'entre pas dans le taux de la poutre"
             elif k in AUTO:
                 x = C.lire_auto(valeur)
                 if x is None and k in ("yG_inf", "yG_sup"):
@@ -199,6 +206,26 @@ def modifier(etat: Dict, chemin: Sequence, valeur) -> Optional[str]:
         etat["poutres"][etat["actif"]] = avant
         return f"Saisie refusée : {e}"
     return ramenes
+
+
+def _regler_taux(p: Dict, cle: str, valeur) -> Optional[str]:
+    """L'option « Taux d'armature » (rubrique Options) : la case qui l'allume (« actif ») et ses trois réglages. La clé
+    « taux » de la poutre n'existe que si l'option est allumée ou qu'un réglage a quitté son défaut (le moteur la
+    retire sinon : beton/poutre/entree._taux) ; une note où l'option n'a jamais servi reste donc la même, à l'octet."""
+    tx = dict(p.get("taux") or {})
+    if cle == "actif":
+        if not isinstance(valeur, bool):       # la case envoie vrai ou faux ; « false » (un texte) serait VRAI pour bool()
+            return "Case illisible"
+        tx["actif"] = valeur
+    elif cle in TA.DEFAUTS:
+        x = C.lire_nombre(valeur)
+        if x is None:
+            return f"Nombre illisible : « {valeur} »"
+        tx[cle] = int(round(x)) if cle == "arrondi" and float(x).is_integer() else x
+    else:
+        return "Réglage inconnu"
+    p["taux"] = tx
+    return None
 
 
 def _plage(p: Dict, chemin: Sequence, valeur) -> Optional[str]:
@@ -513,11 +540,13 @@ def formulaire(etat: Dict, res: Optional[Dict] = None) -> str:
           + L("c enrobage", C.num(["enrobage"], p.get("enrobage"), "cm"), "", "Distance du parement au nu de l'étrier.")
           + "</div>")
     seule = len(p["sections"]) == 1
+    ta_on = _ta_actif(p)
     cartes = "".join(E.carte_section(i, s["nom"], ["sections", i, "dup"], ["sections", i, "-"], seule,
                                      f'<div class="trio">'
                                      f'<label><span>M<sub>inf</sub></span>{C.num(["sections", i, "M_inf"], s["M_inf"], "kN·m")}</label>'
                                      f'<label><span>M<sub>sup</sub></span>{C.num(["sections", i, "M_sup"], s["M_sup"], "kN·m")}</label>'
-                                     f'<label><span>V</span>{C.num(["sections", i, "V"], s["V"], "kN")}</label></div>')
+                                     f'<label><span>V</span>{C.num(["sections", i, "V"], s["V"], "kN")}</label></div>'
+                                     + (_longueur(i, s) if ta_on else ""))
                      for i, s in enumerate(p["sections"]))
     s2 = (f'<div class="et-secs">{cartes}</div>'
           + E.pied_sections("M_inf tend le bas (travée), M_sup tend le haut (appui) ; valeurs de service (ELS).",
@@ -543,6 +572,34 @@ def arbre(etat: Dict, res: Optional[Dict] = None) -> str:
     return E.arbre(E.POUTRE, elements, etat["actif"], formulaire(etat, res), "poutre", compact=True)
 
 
+def _ta_actif(p: Dict) -> bool:
+    return bool((p.get("taux") or {}).get("actif"))
+
+
+def _longueur(i: int, s: Dict) -> str:
+    """La longueur de poutre qu'une section représente (m) — montrée quand l'option « Taux d'armature » est allumée ;
+    vide : la section n'entre pas dans le taux de la poutre."""
+    return ('<div class="pt-lg"><label><span>Longueur</span>'
+            f'<span class="aide" title="La longueur de poutre que cette section représente : elle pondère le taux d\'armature de la poutre. Vide : la section n\'y entre pas.">{C.icon("info")}</span></label>'
+            f'{C.num(["sections", i, "longueur"], s.get("longueur"), "m", auto="sans")}</div>')
+
+
+def _options_taux(p: Dict) -> str:
+    """L'option « Taux d'armature » : la case, et — allumée — ses trois réglages (ceux de l'écran Streamlit)."""
+    r = TA.reglages(p.get("taux"))
+    case = C.case(["taux", "actif"], _ta_actif(p), "Taux d'armature (kg/m³)")
+    if not _ta_actif(p):
+        return f'<div class="row full pt-ta">{case}</div>'
+    return (f'<div class="row full pt-ta">{case}<span class="hint">Au mètre courant, par section ; donner une longueur à chaque '
+            f'section (rubrique 2) pour le taux de la poutre.</span></div>'
+            + C.ligne2(("Majoration", C.num(["taux", "majoration"], r["majoration"], "%"),
+                        "Chutes, ligatures, recouvrements et ancrages : ajoutés forfaitairement à la masse d'acier."),
+                       ("Retour étrier", C.num(["taux", "retour"], r["retour"], "cm"),
+                        "Le retour d'un cadre ou d'une épingle, compté deux fois par pièce."))
+            + C.ligne("Arrondi supérieur", C.num(["taux", "arrondi"], r["arrondi"], "kg/m³", entier=True), "",
+                      "Le taux s'arrondit au multiple supérieur de cette valeur."))
+
+
 def _options(p: Dict) -> str:
     L = C.ligne
     dg = float(p.get("dg") or EN.DEFAUTS_DETAIL["dg"])
@@ -566,7 +623,8 @@ def _options(p: Dict) -> str:
                                                 [(x, f"Ø{x}") for x in EN.DIAMETRES_LATERAUX]),
                         "Le Ø des armatures latérales (de peau) automatiques."),
                        ("Peau s<sub>max</sub>", C.num(["peau_smax"], p.get("peau_smax") or EN.DEFAUTS_DETAIL["peau_smax"], "cm"),
-                        "Au-delà de cet écart entre les lits 1, des barres latérales (de peau) sont ajoutées (règle de la note PDF).")))
+                        "Au-delà de cet écart entre les lits 1, des barres latérales (de peau) sont ajoutées (règle de la note PDF)."))
+            + _options_taux(p))
 
 
 def _detail_lits(lits: List[Dict]) -> str:
@@ -953,9 +1011,121 @@ def _dispositions(i: int, s: Dict) -> str:
             f'{C.icon("chevron-down")}</div></div><div class="et-obs-l" data-dispo-l="{i}">{obs}</div>')
 
 
-def _bloc(i: int, s: Dict, nom_p: str, hyps: List[str], gouv: Dict, niv_note: str) -> tuple:
+# ------------------------------------------------------------------ le taux d'armature simplifié (option)
+COLONNES_TA = ("Armature", "Longueur d'une pièce", "Masse au mètre", "Longueur au mètre", "Part")
+COLONNES_TA_POUTRE = ("Section", "Acier · béton", "Masse", "Longueur", "Taux")
+NON_COMPTE_TA = ("Ratio d'avant-métré, au mètre courant : les ancrages, les recouvrements, les arrêts de barres et les abouts "
+                 "ne sont pas détaillés — la majoration les couvre forfaitairement. Le module « Taux d'armature » les détaille.")
+
+
+def _ta_hyps(ta: Dict) -> List[str]:
+    r = ta["reglages"]
+    return [f"Majoration <b>{C.nb(r['majoration'])} %</b>", f"Retour d'étrier <b>{C.nb(r['retour'])} cm</b>, compté deux fois",
+            f"Arrondi au <b>{C.nb(r['arrondi'])} kg/m³</b> supérieur", f"Acier {C.fr(TA.RHO_ACIER, 0)} kg/m³"]
+
+
+def _ta_part(x: float) -> str:
+    """Une part de la masse, en pour cent entier (« 36 % ») — pas un taux d'utilisation : aucune couleur."""
+    return f"{C.fr(100.0 * x, 0)}{C.NBSP}%"
+
+
+def _ta_lignes(sec: Dict) -> List[Dict]:
+    """Le tableau d'une section : une ligne par lit, par cadre, par épingle, puis les latérales."""
+    out = []
+    for x in sec["lignes"]:
+        f = x.get("formule")
+        if f and f["forme"] == "cadre":
+            fo = (f"2·(w + h − 2c) + 2·retour = 2·({C.nb(f['largeur'], 2)} + {C.nb(f['hauteur'], 2)}) + 2·{C.nb(f['retour'])} = "
+                  f"{C.nb(f['l_cm'], 2)} cm")
+        elif f:
+            fo = f"(h − 2c) + 2·retour = {C.nb(f['hauteur'], 2)} + 2·{C.nb(f['retour'])} = {C.nb(f['l_cm'], 2)} cm"
+        else:
+            fo = "1 m par barre"
+        par_m = x["famille"] == "etriers"
+        n = C.fr(x["n"], 2) if par_m else str(int(x["n"]))
+        sous = f"{n} Ø{int(x['d'])}{' par mètre' if par_m else ''} · {C.fr(x['masse_lineique'], 3)} kg/m"
+        out.append({"nom": C.esc(x["position"]), "sous": sous, "formule": fo, "valeur": f"{C.fr(x['masse'], 2)}{C.NBSP}kg/m",
+                    "limite": f"{C.fr(x['l_totale'], 2)}{C.NBSP}m", "niveau": "c", "etat_txt": _ta_part(x["part"])})
+    return out
+
+
+def _ta_detail_section(sec: Dict) -> str:
+    """Le détail d'une section : la masse au mètre, la majoration, le volume, le taux brut, le taux arrondi."""
+    fx = [{"parts": ["m", "Σ masses", " + ".join(C.fr(x["masse"], 2) for x in sec["lignes"])], "res": f"{C.fr(sec['masse'], 2)} kg/m"},
+          {"parts": ["m_maj", f"m · (1 + {C.nb(sec['majoration'])} %)", f"{C.fr(sec['masse'], 2)} · {C.nb(1 + sec['majoration'] / 100.0, 4)}"],
+           "res": f"{C.fr(sec['masse_majoree'], 2)} kg/m"},
+          {"parts": ["V_c", "b · h · 1 m"], "res": f"{C.fr(sec['volume'], 4)} m³/m"},
+          {"parts": ["taux brut", "m_maj / V_c", f"{C.fr(sec['masse_majoree'], 2)} / {C.fr(sec['volume'], 4)}"],
+           "res": f"{C.fr(sec['taux_brut'], 1)} kg/m³"},
+          {"parts": ["taux", f"arrondi au {C.nb(sec['arrondi'])} kg/m³ supérieur"], "res": f"{C.fr(sec['taux'], 0)} kg/m³"}]
+    return f'<div class="ck-g"><div class="ck-t">Au mètre courant</div>{C.lignes_fx(fx)}</div>'
+
+
+def _ta_pied() -> str:
+    return (f'<div class="ck-crit"><span><b>Ce qui n\'est pas compté</b> {C.esc(NON_COMPTE_TA)}</span>'
+            f'<span><b>Référence</b> option « Taux d\'armature » de l\'écran des poutres — {C.esc(MO.REFERENCE)}</span></div>')
+
+
+def _ta_section(i: int, sec: Dict, nom_p: str) -> tuple:
+    """La ligne « Taux d'armature » du bloc d'une section, et sa fenêtre de calcul. Rend (html, volet)."""
+    lg = f" · sur {C.fr(sec['longueur'], 2)}{C.NBSP}m" if sec.get("longueur") else ""
+    cmp_ = (f"{C.fr(sec['masse'], 2)}{C.NBSP}kg/m d'acier · + {C.nb(sec['majoration'])}{C.NBSP}% · {C.fr(sec['volume'] * 1000.0, 0)}{C.NBSP}l/m de béton{lg}")
+    ligne = C.ligne_verif("Taux d'armature", cmp_, None, "c", calcul=f"s{i}-ta", etat_txt=f"{C.fr(sec['taux'], 0)}{C.NBSP}kg/m³")
+    return ligne, ""
+
+
+def _ta_volets(ta: Dict, p: Dict, nom_p: str) -> str:
+    """Les fenêtres de calcul du taux d'armature : une par section (« s<i>-ta »), une pour la poutre (« ta »)."""
+    hyps = _ta_hyps(ta)
+    dims = f"{C.nb(p['b'])} × {C.nb(p['h'])} cm · enrobage {C.nb(p['enrobage'])} cm"
+    out = ""
+    for i, sec in enumerate(ta["sections"]):
+        out += C.fenetre_calcul(f"s{i}-ta", f"{nom_p} · section {C.esc(sec['nom'])} · taux d'armature",
+                                f"{dims} · pas {C.nb(sec['pas'])} cm · au mètre courant", hyps, _ta_lignes(sec),
+                                _ta_detail_section(sec), _ta_pied(), colonnes=COLONNES_TA)
+    lignes = []
+    for sec in ta["sections"]:
+        a_lg = bool(sec.get("longueur"))
+        lignes.append({"nom": f"Section {C.esc(sec['nom'])}", "sous": "" if a_lg else "sans longueur : non comptée",
+                       "formule": f"{C.fr(sec['masse_majoree'], 2)}{C.NBSP}kg/m · {C.fr(sec['volume'], 4)}{C.NBSP}m³/m",
+                       "valeur": f"{C.fr(sec['masse_majoree'] * sec['longueur'], 1)}{C.NBSP}kg" if a_lg else "—",
+                       "limite": f"{C.fr(sec['longueur'], 2)}{C.NBSP}m" if a_lg else "—", "niveau": "c",
+                       "etat_txt": f"{C.fr(sec['taux'], 0)}{C.NBSP}kg/m³"})
+    tp = ta["poutre"]
+    if tp:
+        fx = [{"parts": ["L", "Σ l_i"], "res": f"{C.fr(tp['longueur'], 2)} m"},
+              {"parts": ["M", "Σ (m_maj,i · l_i)"], "res": f"{C.fr(tp['masse'], 1)} kg"},
+              {"parts": ["V_c", "Σ (b · h · l_i)"], "res": f"{C.fr(tp['volume'], 3)} m³"},
+              {"parts": ["taux brut", "M / V_c", f"{C.fr(tp['masse'], 1)} / {C.fr(tp['volume'], 3)}"], "res": f"{C.fr(tp['taux_brut'], 1)} kg/m³"},
+              {"parts": ["taux", f"arrondi au {C.nb(ta['reglages']['arrondi'])} kg/m³ supérieur"], "res": f"{C.fr(tp['taux'], 0)} kg/m³"}]
+        detail = f'<div class="ck-g"><div class="ck-t">La poutre</div>{C.lignes_fx(fx)}</div>'
+        sous = f"{dims} · {C.fr(tp['longueur'], 2)} m"
+    else:
+        detail = ('<div class="ck-g"><div class="ck-t">La poutre</div><div class="fx"><span>Aucune section n\'a de longueur : '
+                  'la donner dans la rubrique « Sections et sollicitations ».</span></div></div>')
+        sous = dims
+    out += C.fenetre_calcul("ta", f"{nom_p} · taux d'armature de la poutre", sous, hyps, lignes, detail, _ta_pied(),
+                            colonnes=COLONNES_TA_POUTRE)
+    return out
+
+
+def _ta_tete(ta: Dict) -> str:
+    """Sous le nom de la poutre : son taux d'armature (un clic ouvre le calcul) — ou ce qui manque pour l'avoir."""
+    tp = ta["poutre"]
+    if not tp:
+        return ('<button type="button" class="pt-tete-ta vide" data-calcul="ta" title="Voir le calcul"><span>Taux d\'armature</span>'
+                '<i>donner une longueur aux sections</i></button>')
+    sans = len(tp["sans_longueur"])
+    reste = f" · {sans} section{'s' if sans > 1 else ''} sans longueur" if sans else ""
+    return (f'<button type="button" class="pt-tete-ta" data-calcul="ta" title="Voir le calcul"><span>Taux d\'armature</span>'
+            f'<b>{C.fr(tp["taux"], 0)}{C.NBSP}kg/m³</b><i>{C.fr(tp["masse"], 1)}{C.NBSP}kg · {C.fr(tp["volume"], 3)}{C.NBSP}m³ · '
+            f'{C.fr(tp["longueur"], 2)}{C.NBSP}m{reste}</i></button>')
+
+
+def _bloc(i: int, s: Dict, nom_p: str, hyps: List[str], gouv: Dict, niv_note: str, ta: Optional[Dict] = None) -> tuple:
     """Le bloc d'UNE section : l'en-tête (son nom, son état, coloré), les efforts, les vérifications (deux lignes, un
-    clic ouvre le détail), la liste de contrôle des dispositions. Rend (html, volets)."""
+    clic ouvre le détail), la liste de contrôle des dispositions, puis — option allumée — son taux d'armature. Rend
+    (html, volets)."""
     cls, etat_txt = _etat_bloc(s)
     rows, volets = "", ""
     t_s = max(v["taux"] for v in s["verifications"])
@@ -970,6 +1140,8 @@ def _bloc(i: int, s: Dict, nom_p: str, hyps: List[str], gouv: Dict, niv_note: st
     for nv in s["non_verifiees"]:
         rows += C.ligne_verif(COURTS.get(nv["cle"], nv["nom"]), C.esc(nv["raison"]), None, "c", etat_txt="non effectuée")
     rows += _dispositions(i, s)
+    if ta:
+        rows += _ta_section(i, ta["sections"][i], nom_p)[0]
     lignes = [_ligne_tableau(v, s, v["taux"] == t_s) for v in s["verifications"]]
     detail = "".join(f'<div class="ck-g"><div class="ck-t">{C.esc(v["nom"])}</div>{C.lignes_fx([_formule(f) for f in v["formules"]])}</div>'
                      for v in s["verifications"])
@@ -985,12 +1157,16 @@ def resultat(etat: Dict) -> Dict:
     nom_p = C.esc(p.get("nom") or "Poutre")
     hyps = _hyps(p, r)
     blocs, volets = "", ""
+    ta = r.get("taux_armature")
     for i, s in enumerate(r["sections"]):
-        h, v = _bloc(i, s, nom_p, hyps, r["gouvernant"], niv_note)
+        h, v = _bloc(i, s, nom_p, hyps, r["gouvernant"], niv_note, ta)
         blocs += h
         volets += v
     messages = "".join(C.message(C.esc(a["message"])) for a in r.get("avertissements", []))
     tete = E.tete_resultats(nom_p, f'{C.nb(p["b"])} × {C.nb(p["h"])} cm · {C.esc(p["beton"])} · B{p["fyk"]}')
+    if ta:
+        tete += _ta_tete(ta)
+        volets += _ta_volets(ta, p, nom_p)
     pied = (f'<div class="pfoot"><div class="mass"><span>Méthode du bureau · moteur poutre</span><b>{C.esc(MO.REFERENCE.split(" (")[0].split()[-1])}</b></div>'
             f'<div class="legend">{C.legende()}</div></div>')
     # l'état de la NOTE (toutes ses poutres) dans l'en-tête du panneau : utile dès deux poutres ; seule, chaque section dit le sien

@@ -20,6 +20,8 @@ import math
 import os
 from string import ascii_uppercase
 
+from . import taux as T
+
 CHEMIN_CLASSES = os.path.join(os.path.dirname(__file__), "..", "..", "beton_classes.json")
 
 # ---- les listes de l'écran (modules/poutre.py) ----
@@ -63,13 +65,18 @@ PAS_DEFAUT = 30.0            # cm
 #           « peau_smax » (cm) : les armatures de peau automatiques (paramètres avancés du module).
 #   section « justifs » : {identifiant d'une observation : {"texte", "empreinte"}} — les dispositions « à examiner » que
 #                      l'ingénieur a examinées et justifiées (beton/poutre/dispositions.py) ; absente : aucune.
+#   poutre  « taux » : l'option « Taux d'armature » (beton/poutre/taux.py) — {"actif", "majoration" (%), "retour" (cm),
+#                      "arrondi" (kg/m³)} ; absente : option éteinte, réglages par défaut ;
+#   section « longueur » (m) : la longueur de poutre que la section représente, pour le taux d'armature de la poutre ;
+#                      absente : la section n'entre pas dans ce taux.
 REPARTITIONS = ("uniforme", "aligne", "entraxe")
 DIAMETRES_LATERAUX = (8, 10, 12, 16)            # « Armatures technologiques » du module : Ø (mm)
 DEFAUTS_DETAIL = {"dg": 20.0, "peau_d": 10, "peau_smax": 30.0}
 
-CLES_POUTRE = frozenset(DEFAUTS_POUTRE) | {"sections"} | frozenset(DEFAUTS_DETAIL)
+CLES_POUTRE = frozenset(DEFAUTS_POUTRE) | {"sections", "taux"} | frozenset(DEFAUTS_DETAIL)
 CLES_SECTION = frozenset({"nom", "M_inf", "M_sup", "V", "inf", "sup", "etriers", "pas", "yG_inf", "yG_sup", "laterales",
-                          "justifs"})
+                          "justifs", "longueur"})
+CLES_TAUX = frozenset({"actif", "majoration", "retour", "arrondi"})
 JUSTIF_MAX = 600                                # caractères d'une justification
 CLES_LIT = frozenset({"n", "d", "pos", "rep", "sh"})
 CLES_ETRIER = frozenset({"type", "d", "de", "a"})
@@ -235,6 +242,34 @@ def _laterales(x, chemin: str):
     return out or None
 
 
+def _taux(x, chemin: str):
+    """L'option « Taux d'armature » de la poutre : {"actif" (bool), "majoration" (%), "retour" (cm), "arrondi" (kg/m³)},
+    chaque réglage dans ses bornes (beton/poutre/taux.py). None quand l'option est éteinte ET que tous les réglages sont
+    à leur défaut : la clé disparaît, et la poutre d'avant reste la même à l'octet. Éteinte avec un réglage changé :
+    gardée (le réglage n'est pas perdu quand on rallume)."""
+    if x is None:
+        return None
+    if not isinstance(x, dict):
+        raise ValueError(f"{chemin} : {{\"actif\", \"majoration\", \"retour\", \"arrondi\"}} attendu (reçu {x!r})")
+    _cles(x, CLES_TAUX, chemin)
+    actif = x.get("actif")
+    if actif is not None and not isinstance(actif, bool):
+        raise ValueError(f"{chemin}.actif : vrai ou faux attendu (reçu {actif!r})")
+    out = {"actif": bool(actif)}
+    noms = {"majoration": "la majoration (%)", "retour": "le retour d'étrier (cm)", "arrondi": "l'arrondi (kg/m³)"}
+    for k, defaut in T.DEFAUTS.items():
+        v = x.get(k)
+        if v is None:
+            continue
+        mini, maxi = T.BORNES[k]
+        v = _entier(v, f"{chemin}.{k}") if k == "arrondi" else _nombre(v, f"{chemin}.{k}")
+        if not mini <= v <= maxi:
+            raise ValueError(f"{chemin}.{k} : {noms[k]} se saisit de {mini:g} à {maxi:g} (reçu {v:g})")
+        if v != defaut:
+            out[k] = v
+    return out if (out["actif"] or len(out) > 1) else None
+
+
 def _justifs(x, chemin: str):
     """Les justifications de l'ingénieur : {identifiant : {"texte" (≤ JUSTIF_MAX caractères, peut être vide),
     "empreinte"}} ; None ou vide : aucune (la clé disparaît, la section d'avant reste la même à l'octet)."""
@@ -277,6 +312,12 @@ def _section(s, i: int, nom_defaut: str) -> dict:
     js = _justifs(s.get("justifs"), f"{c}.justifs")
     if js is not None:
         out["justifs"] = js
+    if s.get("longueur") is not None:
+        lg = _nombre(s["longueur"], f"{c}.longueur", strict=True)
+        if lg > T.LONGUEUR_MAX:
+            raise ValueError(f"{c}.longueur : la longueur d'une section se saisit en mètres, jusqu'à {T.LONGUEUR_MAX:g} m "
+                             f"(reçu {lg:g})")
+        out["longueur"] = lg
     return out
 
 
@@ -305,6 +346,9 @@ def normaliser(poutre: dict) -> dict:
         p["peau_d"] = _entier(poutre["peau_d"], "peau_d", permis=DIAMETRES_LATERAUX)
     if poutre.get("peau_smax") is not None and float(poutre["peau_smax"]) != DEFAUTS_DETAIL["peau_smax"]:
         p["peau_smax"] = _nombre(poutre["peau_smax"], "peau_smax", strict=True)
+    tx = _taux(poutre.get("taux"), "taux")
+    if tx is not None:
+        p["taux"] = tx
     sections = poutre.get("sections")
     if sections is None:
         p["sections"] = [nouvelle_section("A")]

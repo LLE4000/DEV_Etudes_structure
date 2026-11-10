@@ -635,6 +635,21 @@ doit exister dans sa nouvelle forme).
   de la poutre dans la tête des résultats. Les clés nouvelles de l'état sont ABSENTES tant que l'option est éteinte :
   une note existante reste identique à l'octet (le gel ne bouge pas).
 
+**Réalisé le 10/11/2026** (`beton/poutre/taux.py`, `api_web/poutre.py`, `site/web/css/modules/poutre.css`) — ce qui
+s'écarte du texte ci-dessus, et pourquoi :
+
+- l'option est celle de CHAQUE poutre (clé `taux` de la poutre), comme ses autres options — l'écran Streamlit la
+  réglait pour toute la séance ; une note où elle n'a jamais servi n'a pas la clé ;
+- les armatures latérales comptées sont celles de la section (automatiques par la règle des armatures de peau, ou
+  imposées), et une épingle est verticale : le calcul suit le ferraillage que le site dessine ;
+- le taux de la section est une LIGNE de son bloc de résultats (« Taux d'armature · 90 kg/m³ », avec la masse au mètre),
+  qui ouvre sa fenêtre de calcul ; le taux de la poutre est sous son nom, en tête des résultats, et ouvre la sienne ;
+- le taux de la poutre va aussi dans la NOTE PDF (le bloc « TAUX D'ARMATURE » du générateur), dès que l'option est
+  allumée et qu'une section a une longueur — une seule option, là où l'écran Streamlit en avait deux ;
+- le gel des poutres a été refait (un champ de plus : la case) et porte deux cas de l'option.
+
+Preuves : `tests/test_poutre_taux.py`, `tests/test_poutre_moteur.py` § 9 (parité : 99 sections, 60 poutres).
+
 ### 6.2 « Détailler dans Taux d'armature »
 
 Un bouton de la poutre (à côté de l'option, et dans le menu « ⋯ » au téléphone) : il demande au moteur la conversion
