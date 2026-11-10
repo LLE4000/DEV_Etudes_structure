@@ -142,6 +142,47 @@ MUTATIONS.append(("route : la redirection oubliée (predalle traité comme un é
 MUTATIONS.append(("route : une autre origine acceptée", lambda: not juger_route(copie_mutee([(
     "app.js", "  if (u.origin !== r.origin || !u.pathname.startsWith(r.pathname)) return rien;", "  if (!u.pathname.startsWith(r.pathname)) return rien;")]))[0]))
 
+# ------------------------------------------------------------------ 1 bis. adresseCanonique(url)
+# (intégration du lot S4, le harnais a TROUVÉ : en PASSAGE=1, un lien vers « poutre.html » rechargeait le document — la
+# lecture rendait la redirection 308 de Cloudflare (« .html » → sans), prise pour une session à refaire. L'application
+# va désormais tout droit à l'adresse canonique, celle que Cloudflare sert.)
+ESSAI_CANON = r"""
+globalThis.self = { location: { href: "http://x.test/" } };
+const app = await import(process.argv[1] + "app.js");
+const R = "http://x.test/";
+const cas = {};
+for (const u of ["poutre.html", "poutre.html?note=n1#s2", "index.html", "index.html?x=1", "poutre", "poutre?note=n1", "./", "",
+                 "js/app.js", "moteur/manifeste.json", "sous/page.html", "http://autre.test/poutre.html", "dalle.htm"]) cas[u] = app.adresseCanonique(u, R);
+console.log(JSON.stringify(cas));
+"""
+CANON = {"poutre.html": "http://x.test/poutre", "poutre.html?note=n1#s2": "http://x.test/poutre?note=n1#s2",
+         "index.html": "http://x.test/", "index.html?x=1": "http://x.test/?x=1", "poutre": "http://x.test/poutre",
+         "poutre?note=n1": "http://x.test/poutre?note=n1", "./": "http://x.test/", "": "http://x.test/",
+         "js/app.js": "http://x.test/js/app.js", "moteur/manifeste.json": "http://x.test/moteur/manifeste.json",
+         "sous/page.html": "http://x.test/sous/page.html", "http://autre.test/poutre.html": "http://autre.test/poutre.html",
+         "dalle.htm": "http://x.test/dalle.htm"}
+
+
+def juger_canon(d):
+    r = node(ESSAI_CANON, url_js(d))
+    if "erreur" in r:
+        return False, r
+    fautes = {k: (r.get(k), v) for k, v in CANON.items() if r.get(k) != v}
+    return not fautes, fautes
+
+
+ok, info = juger_canon(JS)
+chk("adresseCanonique : « poutre.html » → « poutre » (requête et ancre gardées), « index.html » → la racine ; une adresse "
+    "déjà canonique, un fichier d'un sous-dossier, une autre origine restent tels quels", ok, info)
+MUTATIONS.append(("adresseCanonique : « .html » gardé (le lien repart en navigation ordinaire)", lambda: not juger_canon(copie_mutee([(
+    "app.js", '  u.pathname = r.pathname + (seg === "index.html" ? "" : seg.slice(0, -5));\n', "")]))[0]))
+MUTATIONS.append(("adresseCanonique : un sous-dossier canonisé aussi", lambda: not juger_canon(copie_mutee([(
+    "app.js", '  if (seg.includes("/") || !seg.endsWith(".html")) return u.href;', '  if (!seg.endsWith(".html")) return u.href;')]))[0]))
+# (et naviguer, prechauffer passent par elle : sans quoi la fonction existerait sans servir)
+_app = open(os.path.join(JS, "app.js"), encoding="utf-8").read()
+chk("naviguer et prechauffer lisent l'adresse canonique (adresseCanonique) avant toute route ou lecture",
+    _app.count("try { u = new URL(adresseCanonique(new URL(url, location.href).href)); } catch (e) { return; }") == 2)
+
 # ------------------------------------------------------------------ 2. lienInterceptable(ev, a)
 ESSAI_LIEN = r"""
 globalThis.self = { location: { href: "http://x.test/" } };

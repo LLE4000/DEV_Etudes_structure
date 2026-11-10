@@ -57,6 +57,20 @@ export function route(url, racine = RACINE) {
   return p ? { sorte: p.sorte, cle: p.cle, page: seg, vers: p.vers } : rien;
 }
 
+// L'adresse CANONIQUE d'une page du site (fonction PURE) : sans « .html », l'accueil à la racine — celle que sert
+// Cloudflare Pages (une adresse en « .html » y est redirigée, 308, vers celle-ci). Lue telle quelle, une adresse en
+// « .html » rendait une redirection, prise pour une session à refaire : le lien partait en navigation ordinaire (le
+// document rechargé, le moteur redémarré). Une adresse hors du site, ou illisible, est rendue telle quelle.
+export function adresseCanonique(url, racine = RACINE) {
+  let u, r;
+  try { r = new URL(racine); u = new URL(url, r); } catch (e) { return url; }
+  if (u.origin !== r.origin || !u.pathname.startsWith(r.pathname)) return u.href;
+  const seg = u.pathname.slice(r.pathname.length);
+  if (seg.includes("/") || !seg.endsWith(".html")) return u.href;
+  u.pathname = r.pathname + (seg === "index.html" ? "" : seg.slice(0, -5));
+  return u.href;
+}
+
 // ------------------------------------------------------------------ le clic qu'on intercepte (fonction PURE)
 // L'adresse (absolue) vers laquelle naviguer DANS l'application, ou null : le navigateur fait ce qu'il fait d'habitude.
 // Seulement un clic du bouton principal, sans touche, que personne n'a déjà pris (le ✕ « Supprimer » d'une carte
@@ -362,7 +376,7 @@ export async function naviguer(url, { remplacer = false, retour = false } = {}) 
   const n = ++jeton;
   const yDepart = scrollY;
   let u;
-  try { u = new URL(url, location.href); } catch (e) { return; }
+  try { u = new URL(adresseCanonique(new URL(url, location.href).href)); } catch (e) { return; }
   let r = route(u.href);
   // une page de redirection (predalle → dalle) : résolue AVANT d'être lue, l'adresse (requête, ancre) gardée
   if (r.sorte === "redirection") { u = new URL(r.vers + u.search + u.hash, u); r = route(u.href); }
@@ -433,7 +447,7 @@ export async function naviguer(url, { remplacer = false, retour = false } = {}) 
 // passer après toute vraie requête). ``moteur`` faux : la page seule (au doigt, l'appui ne coûte rien au moteur).
 export function prechauffer(url, { moteur = true, cle = null } = {}) {
   let u;
-  try { u = new URL(url, location.href); } catch (e) { return; }
+  try { u = new URL(adresseCanonique(new URL(url, location.href).href)); } catch (e) { return; }
   let r = route(u.href);
   if (r.sorte === "redirection") { u = new URL(r.vers + u.search, u); r = route(u.href); }
   if (!r.sorte) return;

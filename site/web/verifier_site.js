@@ -177,6 +177,7 @@ async function ouvrir(pg, url, { accueil = `${BASE}/` } = {}) {
   // (une ancre seule ne navigue pas : un goto, comme sans PASSAGE)
   if (ici.origin === cible.origin && ici.pathname === cible.pathname && ici.search === cible.search && cible.hash) { await pg.goto(cible.href); return null; }
   const m0 = await montage(pg);
+  const s0 = await pg.evaluate(() => (window.__passage = Math.random()));
   await pg.evaluate((href) => {
     const a = document.createElement('a');
     a.href = href; a.id = 'passage-harnais'; a.textContent = 'passage';
@@ -185,6 +186,9 @@ async function ouvrir(pg, url, { accueil = `${BASE}/` } = {}) {
   }, cible.href);
   await Promise.all([pg.waitForNavigation({ timeout: 60000 }),
     pg.click('#passage-harnais', { timeout: 10000 }).catch(() => pg.$eval('#passage-harnais', (a) => a.click()))]);
+  // (intégration du lot S4 : un clic qui RECHARGE le document n'est pas un passage dans l'application ; sans ce garde,
+  //  le jeton de montage du document neuf ne dépassait jamais celui d'avant et pretEcran attendait 180 s pour rien)
+  if ((await pg.evaluate(() => window.__passage).catch(() => undefined)) !== s0) throw new Error(`PASSAGE : le clic vers ${cible.pathname} a rechargé le document (navigation ordinaire, pas un passage dans l'application)`);
   return m0;
 }
 
