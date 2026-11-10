@@ -1,426 +1,549 @@
 # -*- coding: utf-8 -*-
-"""Le module « Taux d'armature » du site (api_web/taux.py, api_web/dessin_taux.py) : ce que l'écran affiche est ce que
-le moteur beton/taux calcule — et ce que l'écran Streamlit écrirait (mêmes précisions) ; les saisies, les refus, les
-effets de bord de l'écran Streamlit, le sélecteur de diamètre, les dessins à l'échelle, l'échappement, les éléments de
-la note. Chaque contrôle rougit si l'on retire ce qu'il protège.
+"""L'écran du module « Taux d'armature » refait (api_web/taux.py, docs/site/LOT_Q_QUATRE_MODULES.md § 3.5), vérifié en
+Python ordinaire : CE QUE LE SITE AFFICHE = CE QUE LE MOTEUR CALCULE (le moteur lui-même est prouvé par
+tests/test_taux_moteur.py).
 
-    python3.12 tests/test_api_web_taux.py
+1. la poutre TYPE de la note neuve, recalculée À LA MAIN (math seul) : chaque repère, le nombre d'étriers, le taux
+   ≈ 85,8 kg/m³ — et l'écran l'affiche ;
+2. sur dix états (type, riche à cadre intérieur et épingle, deux talons, talon gauche, 14 m à recouvrements, peau et
+   retours, sans barres, sans étriers, reçue, deux poutres) : le verdict, chaque ligne des blocs « Acier par
+   famille », « Par diamètre », « Béton » (et « Note entière »), le ratio au mètre, les cartes des données (repère,
+   bilan des zones et des types), le bordereau de la vue, l'en-tête des vues — chaque nombre est celui du moteur ;
+3. les FENÊTRES DE CALCUL : chaque formule du moteur écrite « symbole = expression = valeurs = résultat » ; les valeurs
+   ÉCRITES, relues et recalculées ici, retombent sur le résultat écrit ; chaque fenêtre annoncée existe ;
+4. les REFUS : chaque saisie hors domaine est refusée avec un message en français, la poutre intacte ;
+5. les GESTES : + Zone propose la suite, une limite déplacée fait suivre la zone jointive, la longueur fait suivre la
+   moitié droite — et le résultat le DIT ; un type renommé est suivi par ses zones ; l'ancienne note (v1) : noms
+   gardés, avis dit une fois ;
+6. le CONTRAT DE SÉLECTION : chaque data-sel des dessins a sa carte dans les données (data-cible) ;
+7. la SÉCURITÉ : un nom piégé (poutre, type, provenance) est échappé partout ; aucun script ;
+8. le BORDEREAU CSV : type text/csv, nom sûr, il se relit et redonne les nombres du moteur et de l'écran ;
+9. de BOUT EN BOUT : une poutre du module « Poutres béton armé » avec ses longueurs, envoyée par le routeur (action
+   « transmettre », vers « taux »), donne une note que cet écran relit et rend, provenance comprise ; sans longueur,
+   le refus est en français ;
+10. des MUTATIONS de l'écran (quinze), chacune vue rouge.
+
+    /usr/bin/python3.12 tests/test_api_web_taux.py
 """
-import ast
 import copy
+import csv
+import io
 import json
 import math
 import os
 import re
-import subprocess
 import sys
+import types
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-os.chdir(RACINE)
 sys.path.insert(0, RACINE)
 
 from api_web import commun as C  # noqa: E402
-from api_web import dessin_taux as DT  # noqa: E402
+from api_web import poutre as PO  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 from api_web import taux as T  # noqa: E402
-from beton.taux import entree as EN  # noqa: E402
 from beton.taux import moteur as MO  # noqa: E402
-from beton.taux import saisie as SA  # noqa: E402
 
 OK, KO = [], []
 
 
 def chk(nom, cond, info=""):
     (OK if cond else KO).append((nom, info))
-    print(("  OK    " if cond else "  ECHEC ") + nom + (f"   [{str(info)[:400]}]" if info and not cond else ""))
+    print(("OK   " if cond else "KO   ") + nom + ("" if cond else f"  | {str(info)[:300]}"))
 
 
 def req(**k):
-    return json.loads(R.traiter(json.dumps(k)))
+    return json.loads(R.traiter(json.dumps(dict(module="taux", **k))))
 
 
-def etat_de(*poutres, actif=0):
-    return T.normaliser({"poutres": [copy.deepcopy(p) for p in poutres], "actif": actif})
+def lire_fr(s):
+    s = str(s).replace(C.NBSP, "").replace(C.FINE, "").replace(" ", "").replace("−", "-").replace(",", ".")
+    return float(re.match(r"-?\d+(?:\.\d+)?", s).group(0))
 
 
-def st(x, nd):
-    """Un nombre écrit comme l'écran Streamlit l'écrit (f"{x:.nd f}"), virgule décimale."""
-    return f"{x:.{nd}f}".replace(".", ",")
+def note(**champs):
+    e = T.nouvel_etat()
+    e["poutres"][0].update(copy.deepcopy(champs))
+    return T.normaliser(e)
 
 
-def sans_espaces(s):
-    return s.replace(" ", "").replace("\xa0", "").replace(" ", "")
+def barre(fam, lit, n, d, de=None, a=None, retours=0, l_retour=None):
+    return {"famille": fam, "lit": lit, "n": n, "d": d, "de": de, "a": a, "retours": retours, "l_retour": l_retour}
 
 
-EX = copy.deepcopy(T._EXEMPLE)
-P2 = {"nom": "P2", "forme": "rectangulaire", "L": 7.35, "b": 35.0, "h": 70.0, "enrobage": 2.5, "majoration": 7.5, "acier": "B500C",
-      "familles": [{"role": "principal", "position": "ame_inf", "n": 4, "d": 25}, {"role": "principal", "position": "ame_inf", "n": 3, "d": 20},
-                   {"role": "renfort", "position": "ame_sup", "n": 3, "d": 16, "de": 0, "a": 25},
-                   {"role": "lateral", "position": "lat_d", "n": 1, "d": 12, "retours": 1, "h_retour": 12.5}],
-      "types_etriers": [{"nom": "E1", "d": 8.0}, {"nom": "E2", "d": 7.5}],
-      "zones": [{"nom": "Z1", "de": 0, "a": 20, "s": 10, "type": "E2"}, {"nom": "Z2", "de": 20, "a": 80, "s": 20, "type": "E1"},
-                {"nom": "Z3", "de": 60, "a": 100, "s": 12.5, "type": "E1"}]}
-TRONC = {"nom": "TR", "L": 1.0, "familles": [{"role": "principal"}], "types_etriers": [{"nom": "E1", "d": 8.0}],
-         "zones": [{"nom": "Z1", "de": 0, "a": 30, "s": 10, "type": "E1"}]}
-DEUX = {"nom": "DT", "forme": "deux_talons", "talon_gauche": {"b": 20.0, "h": 25.0}, "talon_droit": {"b": 30.0, "h": 35.0},
-        "familles": [{"role": "principal", "n": 3}], "types_etriers": [{"nom": "E1", "d": 8.0}], "zones": [{"nom": "Z1", "de": 0, "a": 100, "s": 20, "type": "E1"}]}
-VIDE = EN.nouvelle_poutre()
-CAS = [("exemple (talon gauche, latérales à retours, deux zones)", EX), ("P2 (deux types, Ø7,5, zones qui se recouvrent, B500C, 7,5 %)", P2),
-       ("troncature des étriers", TRONC), ("deux talons (ignorés)", DEUX), ("poutre neuve, sans armature", VIDE)]
-
-# ------------------------------------------------------------------ 1. l'écran = le moteur = ce que Streamlit écrirait
-print("=== 1. Le résultat, les fenêtres et le tableau : les chiffres du moteur, écrits comme l'écran Streamlit ===")
-for nom, p in CAS:
-    etat = etat_de(p)
-    out = T.resultat(etat)
-    r = MO.calculer(etat["poutres"][0])
-    q = r["quantites"]
-    res = out["resultat"]
-    chk(f"{nom} : le verdict est le taux majoré du moteur ({st(q['kg_m3_majore'], 1)} kg/m³, comme la métrique de l'écran)",
-        f'{C.fr(q["kg_m3_majore"], 1)}<small>kg/m³</small>' in res and C.fr(q["kg_m3_majore"], 1) == st(q["kg_m3_majore"], 1).replace(",", ",")
-        and sans_espaces(C.fr(q["kg_m3_majore"], 1)) == st(q["kg_m3_majore"], 1))
-    synth = re.search(r'<div class="tx-synth">(.*?)</div></div>', res, re.S).group(1)
-    attendus = [st(q["Vc"], 3) + " m³", st(q["masse_acier_majoree"], 1) + " kg", st(q["masse_beton"], 0) + " kg", st(q["kg_m3"], 1) + " kg/m³"]
-    chk(f"{nom} : la synthèse porte Vc, la masse majorée, le poids du béton (précisions de l'écran) et le taux sans majoration",
-        all(a in sans_espaces(synth).replace("m³", " m³").replace("kg", " kg").replace(" kg/ m³", " kg/m³") or sans_espaces(a) in sans_espaces(synth) for a in attendus),
-        (attendus, synth[:300]))
-    lignes = re.findall(r'<div class="el"[^>]*data-calcul="([^"]+)"[^>]*><div class="l1"><b>([^<]*)</b>.*?<span>(.*?)</span>.*?<span class="pct c">([^<]*)</span>', res, re.S)
-    att = [(f"f{f['index']}", C.esc(f"{f['code']} · {T.ROLES_COURTS[f['role']]}"), f"{C.esc(f['libelle'])} · {C.fr(f['masse_majoree'], 1)} kg",
-            f"{T._part(f['part'])}{C.NBSP}%") for f in r["familles"]]
-    att += [(f"z{e['index']}", C.esc(f"{e['zone']} · étriers {e['type']}"), f"{e['n']} × Ø{C.nb(e['d'])} · {C.fr(e['masse_majoree'], 1)} kg",
-             f"{T._part(e['part'])}{C.NBSP}%") for e in r["etriers"]]
-    chk(f"{nom} : une ligne par famille et par zone calculée (nom, barres, masse majorée, part de l'acier), dans l'ordre",
-        [tuple(x) for x in lignes] == att, (lignes[:2], att[:2]))
-    lues = [int(x[3].replace(C.NBSP, "").rstrip("%")) for x in lignes]
-    vraies = [f["part"] * 100 for f in r["familles"]] + [e["part"] * 100 for e in r["etriers"]]
-    chk(f"{nom} : chaque part affichée est la part du moteur arrondie au % (à 0,5 près ; 99 % pour une part presque entière)",
-        all(abs(a - b) <= 0.5 + 1e-9 or (a == 99 and b < 100) for a, b in zip(lues, vraies)), list(zip(lues, vraies)))
-    parts = [f["part"] for f in r["familles"]] + [e["part"] for e in r["etriers"]]
-    chk(f"{nom} : les parts du moteur somment à 1 (ou à 0 sans acier)", abs(sum(parts) - (1.0 if parts else 0.0)) < 1e-12 or not parts)
-    # le tableau récapitulatif : les colonnes de l'écran Streamlit, au même format
-    tab = next(v["svg"] for v in out["vues"] if v["cle"] == "tableau")
-    rows = re.findall(r"<tr><td class=\"co\">.*?</td><th>([^<]*)</th><td class=\"po\">([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td>"
-                      r"<td>([^<]*)</td><td>([^<]*)</td><td>([^<]*)</td><td class=\"kg\">([^<]*)</td></tr>", tab)
-    ecran = [(f["code"], f["libelle_position"], str(f["n_eff"]), str(int(f["d"])), st(f["L_active"], 2), st(f["L_tot"], 2), st(f["m_lin"], 3),
-              st(f["masse_majoree"], 2)) for f in r["familles"]]
-    ecran += [(e["type"], f"Zone {e['zone']}", str(e["n"]), C.nb(e["d"]), st(e["L_un"], 2), st(e["L_tot"], 2), st(e["m_lin"], 3), st(e["masse_majoree"], 2))
-              for e in r["etriers"]]
-    chk(f"{nom} : le tableau récapitulatif = celui de l'écran Streamlit, ligne par ligne ({len(ecran)} lignes)",
-        [tuple(sans_espaces(c) for c in x) for x in rows] == [tuple(sans_espaces(c) for c in x) for x in ecran], (rows[:2], ecran[:2]))
-    if not ecran:
-        chk(f"{nom} : sans armature, le tableau le dit (comme « Ajoute des armatures… »)", "Aucune armature" in tab)
-    # les avertissements du moteur, tous montrés
-    chk(f"{nom} : chaque avertissement du moteur est affiché ({len(r['avertissements'])})", all(C.esc(a["message"]) in res for a in r["avertissements"]))
-    # les fenêtres de calcul : une pour la poutre, une par famille, une par zone ; les résultats des formules
-    vol = out["volets"]
-    ids = re.findall(r'id="ck-([^"]+)"', vol)
-    chk(f"{nom} : une fenêtre par ligne (q, f…, z…)", ids == ["q"] + [f"f{f['index']}" for f in r["familles"]] + [f"z{e['index']}" for e in r["etriers"]], ids)
-    fen = {i: vol[vol.index(f'id="ck-{i}"'):] for i in ids}
-    fautes = []
-    for f in r["familles"]:
-        w = fen[f"f{f['index']}"].split('class="flyout calcul"')[0] if False else fen[f"f{f['index']}"]
-        for t in (f"{C.fr(f['L_tot'], 3)} m", f"{C.fr(f['m_lin'], 3)} kg/m", f"{C.fr(f['masse_majoree'], 2)} kg", f"{C.fr(f['apport'], 1)} kg/m³"):
-            if t not in w:
-                fautes.append((f["code"], t))
-    for e in r["etriers"]:
-        w = fen[f"z{e['index']}"]
-        for t in (f"{e['n']} étriers", f"{C.fr(e['L_un'], 3)} m", f"{C.fr(e['L_tot'], 3)} m", f"{C.fr(e['masse_majoree'], 2)} kg"):
-            if t not in w:
-                fautes.append((e["zone"], t))
-    w = fen["q"]
-    for t in (f"{C.fr(q['Vc'], 3)} m³", f"{C.fr(q['masse_acier_majoree'], 2)} kg", f"{C.fr(q['kg_m3_majore'], 1)} kg/m³", f"{C.fr(q['kg_m3'], 1)} kg/m³"):
-        if t not in w:
-            fautes.append(("q", t))
-    chk(f"{nom} : les fenêtres de calcul portent les résultats du moteur (longueurs, kg/m, masses, apports, taux)", not fautes, fautes[:4])
-    chk(f"{nom} : les en-têtes de la fenêtre disent un quantitatif (armature, masse, apport au taux, part)",
-        all(x in w for x in ("<th>Armature</th>", ">Masse</th>", ">Apport au taux</th>", ">Part</th>")) and "<th>Vérification</th>" not in vol)
-    # « apport » : masse / Vc, et leur somme est le taux
-    if r["familles"] or r["etriers"]:
-        s_ap = sum(x["apport"] for x in r["familles"] + r["etriers"])
-        chk(f"{nom} : la somme des apports (masse / Vc) est le taux majoré", abs(s_ap - q["kg_m3_majore"]) < 1e-9 * max(1, q["kg_m3_majore"]))
-
-# ------------------------------------------------------------------ 2. les formules substituées : recalculées à partir de leurs valeurs
-print("\n=== 2. Les formules « symbole = expression = valeurs = résultat » se recalculent ===")
-etat = etat_de(P2)
-r = MO.calculer(etat["poutres"][0])
-f = r["familles"][3]
-fx = {x["parts"][0]: x for x in T._fx_famille(f, 7.5, r["quantites"]["Vc"], 7.35)}
-v = fx["L_tot"]["parts"][2]
-nums = [float(x.replace(",", ".").replace(" ", "").replace(" ", "")) for x in re.findall(r"[\d  ]*\d(?:,\d+)?", v)]
-chk("L_tot d'une latérale à un retour : n_eff × L_active + r × h_r / 100 × n_eff, recalculée sur les valeurs écrites",
-    len(nums) == 6 and abs(nums[0] * nums[1] + nums[2] * nums[3] / nums[4] * nums[5] - f["L_tot"]) < 1e-9, (v, f["L_tot"]))
-z = r["etriers"][0]
-nz = T._fx_zone(z, r["geometrie"], 7.5, r["quantites"]["Vc"], 7.35)
-chk("n d'une zone : ⌊L_zone / s⌋ + 1 écrit avec son quotient", f"⌊{T._v(z['L_zone'])} / {T._v(z['s_m'])}⌋ + 1" in nz[1]["parts"][2] and nz[1]["res"] == f"{z['n']} étriers")
-tr = MO.calculer(etat_de(TRONC)["poutres"][0])
-chk("troncature : le quotient 2,9999999999999996 est écrit en entier (il « tombe juste » à l'écran, pas en machine)",
-    "2,9999999999999996" in T._fx_zone(tr["etriers"][0], tr["geometrie"], 5.0, tr["quantites"]["Vc"], 1.0)[1]["parts"][2]
-    and tr["etriers"][0]["n"] == 3)
-chk("troncature : la fenêtre de la zone le dit", "un étrier de moins" in T.resultat(etat_de(TRONC))["volets"])
-fq = {x["parts"][0]: x for x in T._fx_poutre(r)}
-chk("V_c = A_c · L / 10 000 écrit avec ses milliers séparés (« 2 450 × 7,35 / 10 000 »)",
-    fq["V_c"]["parts"][2] == f"2{C.NBSP}450 × 7,35 / 10 000" and fq["V_c"]["res"] == f"{C.fr(r['quantites']['Vc'], 3)} m³", fq["V_c"])
-
-# ------------------------------------------------------------------ 3. les dessins, à l'échelle
-print("\n=== 3. Les dessins : coupe et élévation à l'échelle, positions du moteur ===")
-for nom, p in CAS[:4]:
-    e = etat_de(p)
-    r = MO.calculer(e["poutres"][0])
-    svg = DT.coupe("t", r)
-    H = r["geometrie"]["h"] * 10
-    cercles = re.findall(r'<circle cx="([-\d.]+)" cy="([-\d.]+)" r="([\d.]+)" fill="(#[0-9a-f]{6})" stroke="(#[0-9A-Fa-f]{6})" stroke-width="[\d.]+"/>', svg)
-    barres = [(DT._f(x * 10), DT._f(H - y * 10), DT._f(f["d"] / 2), f["couleur"]) for f in r["familles"] for x, y in f["barres"]]
-    chk(f"{nom} : chaque barre de la coupe est au centre que l'écran Streamlit dessine (×10 : mm), à son Ø et dans sa couleur ({len(barres)})",
-        [c[:4] for c in cercles[:len(barres)]] == barres, (cercles[:2], barres[:2]))
-    poly = re.search(r'<polygon points="([^"]+)"', svg).group(1)
-    chk(f"{nom} : le contour du béton est le polygone du moteur, à l'échelle", poly == " ".join(f"{DT._f(x * 10)},{DT._f(H - y * 10)}" for x, y in r["geometrie"]["polygone"]))
-    el = DT.elevation("t", r)
-    n_et = len(re.findall(rf'stroke="{DT.ETRIER}"', el))
-    chk(f"{nom} : l'élévation dessine autant d'étriers que le module en compte ({sum(x['n'] for x in r['etriers'])})", n_et == sum(x["n"] for x in r["etriers"]), n_et)
-    for f in r["familles"]:
-        if f["L_active"] > 0:
-            x1, x2 = DT._f(r["geometrie"]["L"] * 1000 * f["de"] / 100), DT._f(r["geometrie"]["L"] * 1000 * f["a"] / 100)
-            if f'x1="{x1}"' not in el or f'x2="{x2}"' not in el:
-                chk(f"{nom} : {f['code']} de « De » à « À » dans l'élévation", False, (x1, x2))
-r = MO.calculer(etat_de(DEUX)["poutres"][0])
-chk("deux talons : la coupe montre les talons non comptés, en fantôme, et le dit", "talons non comptés" in DT.coupe("t", r) and DT.FANTOME in DT.coupe("t", r))
-chk("élancement : hauteurs ×1 jusqu'à L/h = 6, puis amplifiées à un élancement dessiné ≤ 6 (et écrit sur le dessin)",
-    DT.amplification(3.6, 60.0) == 1.0 and DT.amplification(6.0, 60.0) == 2 and DT.amplification(30.0, 60.0) == 10
-    and "hauteurs × 10" in DT.elevation("t", MO.calculer(dict(EN.nouvelle_poutre(), L=30.0)))
-    and "hauteurs × 2" in T.resultat(etat_de(EN.nouvelle_poutre()))["vues"][1]["legende"])
+# ====================================================================== les états
+DEUX = T.nouvel_etat()
+T.gerer_elements(DEUX, "ajouter")
+DEUX["poutres"][1].update(b=40.0, h=80.0, L=8.0)
+DEUX = T.normaliser(DEUX)
+ETATS = {
+    "type (note neuve)": T.nouvel_etat(),
+    "riche (cadre intérieur, épingle, trou)": note(**copy.deepcopy(T._RICHE)),
+    "deux talons": note(forme="deux_talons", talon_gauche={"b": 20.0, "h": 25.0}, talon_droit={"b": 15.0, "h": 20.0}),
+    "talon gauche sans cadre de talon": note(forme="talon_gauche", types_etriers=[{"nom": "E1", "lignes": [{"forme": "cadre", "d": 8, "largeur": None}],
+                                                                                  "cadre_talon": False}]),
+    "14 m à recouvrements": note(L=14.0, zones=[{"de": 0.0, "a": 14.0, "s": 20.0, "type": "E1"}],
+                                 barres=[barre("inf", 1, 3, 20), barre("sup", 1, 2, 12)]),
+    "peau et retours": note(barres=[barre("inf", 1, 3, 16, retours=2), barre("peau", None, 2, 10, retours=2, l_retour=20.0),
+                                    barre("sup", 1, 2, 12, a=2.0, retours=1)]),
+    "sans barres": note(barres=[]),
+    "sans étriers": note(zones=[]),
+    "reçue de la poutre V1": note(origine={"module": "poutre", "nom": "V1", "date": "10/11/2026"}),
+    "deux poutres (la seconde ouverte)": DEUX,
+}
 
 
-def chevauchements(svg):
-    """Les textes horizontaux d'un dessin dont les boîtes (estimées : 0,55 × taille par caractère, de −0,8 à +0,2 taille
-    autour de la ligne de base) se recouvrent : deux écritures l'une sur l'autre."""
-    boites = []
-    for m in re.finditer(r'<text x="([-\d.]+)" y="([-\d.]+)" text-anchor="(\w+)" font-size="([\d.]+)"[^>]*>([^<]*)</text>', svg):
-        if "rotate(" in m.group(0):
+# ====================================================================== 1. la poutre type, à la main
+def m_lin(d):
+    return math.pi * (d / 1000.0) ** 2 / 4.0 * 7850.0
+
+
+L, c = 6.0, 0.03
+l_fil = L - 2 * c                                   # une barre filante : L − 2c
+m1 = 3 * l_fil * m_lin(20)                          # 3 Ø 20 inférieures
+m2 = 2 * (4.8 - 1.2) * m_lin(16)                    # renfort 2 Ø 16 de 1,20 à 4,80 m
+m3 = 2 * l_fil * m_lin(12)                          # 2 Ø 12 supérieures
+l_cadre = 2 * ((0.30 - 2 * c) + (0.60 - 2 * c)) + 2 * max(10 * 8, 70) / 1000.0
+n_cadres = math.ceil(1.5 / 0.15) + math.ceil(3.0 / 0.25) + math.ceil(1.5 / 0.15) + 1   # une suite jointive : + 1 de fermeture
+m4 = n_cadres * l_cadre * m_lin(8)
+M_s = m1 + m2 + m3 + m4
+M_maj = M_s * 1.05
+V_c = 0.30 * 0.60 * L
+taux_main = M_maj / V_c
+r_type = MO.calculer(T.nouvel_etat()["poutres"][0])
+chk(f"poutre type à la main : 33 cadres de {l_cadre:.2f} m (10 + 12 + 10 + 1 de fermeture)", n_cadres == 33 and abs(l_cadre - 1.72) < 1e-12)
+chk(f"poutre type à la main : M_s = {M_s:.3f} kg, majorée {M_maj:.3f} kg, V_c = {V_c:.3f} m³, taux = {taux_main:.2f} kg/m³ (≈ 85,8) = le moteur",
+    abs(r_type["totaux"]["taux_majore"] - taux_main) < 1e-9 and abs(r_type["totaux"]["masse"] - M_s) < 1e-9 and 85.7 < taux_main < 85.9)
+chk("poutre type à la main : chaque repère (masse) = le moteur",
+    all(abs(r["masse"] - m) < 1e-9 for r, m in zip(r_type["reperes"], (m1, m2, m3, m4))), [r["masse"] for r in r_type["reperes"]])
+out = req(action="nouveau")
+chk("la note neuve AFFICHE le taux de la main (85,8 kg/m³) et 92,7 kg d'acier pour 1,080 m³",
+    f"{C.fr(taux_main, 1)}<small>kg/m³</small>" in out["resultat"] and "92,7" in out["resultat"] and "1,080" in out["resultat"])
+chk("la note neuve : statut « Consultation » (un quantitatif n'a pas de conformité), niveau « i »",
+    out["resume"]["niveau"] == "i" and "Consultation" in out["statut_html"], out["resume"])
+
+
+# ====================================================================== 2. l'écran = le moteur
+LIGNE = re.compile(r'<div class="el vc[^"]*"(?: data-calcul="(\w+)" title="[^"]*")?><div class="l1"><b>([^<]*)</b>'
+                   r'(?:<span class="prof"><span>(.*?)</span></span>)?<span class="(?:pct|et-mot) c"[^>]*>(.*?)</span></div>'
+                   r'<div class="l2"><span class="cmp">(.*?)</span>')
+
+
+def blocs(html):
+    """{indice du bloc : [(calcul, nom, pièce, droite, comparaison)]}."""
+    out = {}
+    for m in re.finditer(r'<section class="et-bloc [^"]*" data-theme="(\d+)">(.*?)</section>', html, re.S):
+        out[int(m.group(1))] = LIGNE.findall(m.group(2))
+    return out
+
+
+def q(x, u, nd):
+    return C.qte(x, u, nd)
+
+
+def controle_resultat(mod, etat):
+    """Les fautes de l'écran ``mod`` sur ``etat`` : chaque nombre du résultat, des données, des vues = le moteur."""
+    f = []
+    e = mod.normaliser(copy.deepcopy(etat))
+    rep = mod.resultat(e)
+    p = e["poutres"][e["actif"]]
+    r = MO.calculer(p)
+    t, b = r["totaux"], r["beton"]
+    h = rep["resultat"]
+    # le verdict
+    if f'<span class="chip xl c" style="flex:none">{C.fr(t["taux_majore"], 1)}<small>kg/m³</small></span>' not in h:
+        f.append(("verdict : taux majoré", C.fr(t["taux_majore"], 1)))
+    if f"{q(t['masse_majoree'], 'kg', 1)} d'acier (+{C.NBSP}{C.nb(t['majoration'])}{C.NBSP}%) pour {q(b['volume'], 'm³', 3)} de béton" not in h:
+        f.append(("verdict : comparaison", t["masse_majoree"], b["volume"]))
+    if f"sans majoration : {q(t['taux'], 'kg/m³', 1)}" not in h:
+        f.append(("verdict : taux sans majoration", t["taux"]))
+    bl = blocs(h)
+    # acier par famille : une ligne par famille présente (masse, part entière, longueur)
+    fams = [x for x in r["familles"] if x["reperes"]]
+    lignes = bl.get(0, [])
+    if len(lignes) != len(fams):
+        f.append(("familles : nombre de lignes", len(lignes), len(fams)))
+    for x, (cal, nom, piece, droite, cmp_) in zip(fams, lignes):
+        if nom != x["libelle"] or piece != q(x["masse"], "kg", 1) or lire_fr(droite) != round(x["part"] * 100) \
+                or q(x["longueur"], "m", 2) not in cmp_ or cal != ("s3" if x["cle"] == "etriers" else "s0"):
+            f.append(("famille", x["cle"], nom, piece, droite, cal))
+    # par diamètre
+    lignes = bl.get(1, [])
+    if len(lignes) != len(r["diametres"]):
+        f.append(("diamètres : nombre de lignes", len(lignes)))
+    for d, (cal, nom, piece, droite, cmp_) in zip(r["diametres"], lignes):
+        if nom != f"Ø {d['d']}" or piece != q(d["masse"], "kg", 1) or lire_fr(droite) != round(d["part"] * 100) \
+                or q(d["longueur"], "m", 2) not in cmp_ or q(d["masse_lineique"], "kg/m", 3) not in cmp_:
+            f.append(("diamètre", d["d"], nom, piece, droite))
+    # béton
+    lignes = bl.get(2, [])
+    att = [("Section", b["aire_cm2"], "cm²"), ("Volume", b["volume"], "m³"), ("Masse", b["masse"], "kg")]
+    for (nom, v, u), (cal, nom_l, piece, droite, cmp_) in zip(att, lignes):
+        if nom_l != nom or abs(lire_fr(droite) - v) > 0.5 * 10 ** -(3 if u == "m³" else 0) + 1e-9 or cal != "s2":
+            f.append(("béton", nom, droite, v))
+    if len(lignes) != 3:
+        f.append(("béton : trois lignes", len(lignes)))
+    # la note entière (deux poutres)
+    if len(e["poutres"]) > 1:
+        sn = MO.synthese_note([MO.calculer(x) for x in e["poutres"]])
+        if 3 not in bl or q(sn["taux_majore"], "kg/m³", 1).replace(C.NBSP, " ") not in h:
+            f.append(("note entière", sn["taux_majore"]))
+    elif 3 in bl:
+        f.append(("note entière pour une seule poutre",))
+    # le ratio au mètre, le bouton
+    if f"<b>{q(t['kg_m_majore'], 'kg/m', 1)}</b>" not in h:
+        f.append(("kg/m", t["kg_m_majore"]))
+    if 'data-telecharger="bordereau"' not in h:
+        f.append(("bouton Bordereau CSV",))
+    # les avertissements : tous, le grave en tête
+    for a in r["avertissements"]:
+        if C.esc(a["message"]) not in h:
+            f.append(("avertissement", a["code"]))
+    # la provenance
+    o = p.get("origine")
+    if o and f"reçue de la poutre {o['nom']}" not in h:
+        f.append(("provenance dans le résultat",))
+    # les données : chaque carte de barres porte son repère et sa masse ; chaque zone son nombre ; chaque type ses cours
+    d = rep["donnees"]
+    for x in r["reperes"]:
+        if x["sorte"] == "barre":
+            m = re.search(rf'data-cible="{x["cle"]}">.*?<button type="button" class="et-tag"[^>]*>(\d+)</button>', d)
+            if not m or int(m.group(1)) != x["repere"] or q(x["masse"], "kg", 2) not in d:
+                f.append(("carte de barres", x["cle"]))
+    for z in r["zones"]:
+        m = re.search(rf'data-cible="z{z["index"]}">.*?<span class="tx-bilan">(\d+)', d)
+        if not m or int(m.group(1)) != z["n"] or f"→ {z['cours']}{C.NBSP}cours" not in d:
+            f.append(("carte de zone", z["nom"], m and m.group(1), z["n"]))
+    for ty in r["types"]:
+        m = re.search(rf'data-cible="t{ty["index"]}">.*?<span class="tx-bilan[^"]*">([^<]+)', d)
+        if not m or (ty["employe"] and lire_fr(m.group(1)) != ty["n"]):
+            f.append(("carte de type", ty["nom"]))
+    # les vues : le bordereau (chaque repère, chaque Ø, le total majoré), l'en-tête (la bande, la provenance)
+    vues = {v["cle"]: v for v in rep["vues"]}
+    bord = vues["bordereau"]["svg"]
+    for x in r["reperes"]:
+        ligne = re.search(rf'<tr class="pc" data-sel="[^"]+"><td class="rep"><span class="tx-bul">{x["repere"]}</span></td>(.*?)</tr>', bord)
+        if not ligne:
+            f.append(("bordereau : repère absent", x["repere"]))
             continue
-        x, y, ancre, t, s = float(m.group(1)), float(m.group(2)), m.group(3), float(m.group(4)), m.group(5)
-        w = 0.55 * t * len(re.sub(r"&\w+;", "x", s))
-        x0 = x - w / 2 if ancre == "middle" else (x - w if ancre == "end" else x)
-        boites.append((x0, y - 0.8 * t, x0 + w, y + 0.2 * t, s))
-    return [(a[4], b[4]) for i, a in enumerate(boites) for b in boites[i + 1:]
-            if min(a[2], b[2]) - max(a[0], b[0]) > 0 and min(a[3], b[3]) - max(a[1], b[1]) > 0]
+        cases = re.findall(r"<td(?: class=\"\w+\")?>(.*?)</td>", ligne.group(1))[1:]
+        if [lire_fr(z) for z in cases] != [x["d"], x["n"], round(x["l_unitaire"], 3), round(x["l_totale"], 2), round(x["masse_lineique"], 3), round(x["masse"], 2)]:
+            f.append(("bordereau : repère", x["repere"], cases))
+    if f'<td class="kg">{C.fr(t["masse_majoree"], 2)}</td></tr></tfoot>' not in bord:
+        f.append(("bordereau : total majoré", t["masse_majoree"]))
+    for v in rep["vues"]:
+        ent = v.get("entete", "")
+        if f"<b>{C.fr(t['taux_majore'], 1)}</b><small>kg/m³</small>" not in ent:
+            f.append(("en-tête : taux", v["cle"]))
+        if o and f"Reçue de la poutre {o['nom']}" + (f", le {o['date']}" if o["date"] else "") not in ent:
+            f.append(("en-tête : provenance", v["cle"]))
+    # le résumé de la note
+    if rep["resume"]["niveau"] != "i" or "kg/m³" not in rep["resume"]["gouvernant"]:
+        f.append(("résumé", rep["resume"]))
+    return f
 
 
-for nom, p in CAS + [("deux talons, cotes et note du fantôme", dict(DEUX, familles=[{"role": "principal", "n": 3}, {"role": "lateral", "position": "lat_2"}]))]:
-    r = MO.calculer(etat_de(p)["poutres"][0])
-    for vue, svg in (("coupe", DT.coupe("t", r)), ("élévation", DT.elevation("t", r))):
-        ch = chevauchements(svg)
-        chk(f"{nom} : {vue} — aucune écriture sur une autre (la note des talons fantômes recouvrait la cote de l'âme)", not ch, ch[:3])
-out = T.resultat(etat_de(EX))
-chk("trois vues pour une poutre (coupe, élévation, tableau) ; la première est un dessin SVG", [v["cle"] for v in out["vues"]] == ["coupe", "elevation", "tableau"]
-    and out["vues"][0]["svg"].startswith("<svg") and out["vues"][2]["svg"].startswith("<div"))
-
-# ------------------------------------------------------------------ 4. la saisie : refus, effets de bord de l'écran Streamlit
-print("\n=== 4. La saisie : refus avec un message, effets de bord de l'écran Streamlit ===")
+for nom, etat in ETATS.items():
+    fautes = controle_resultat(T, etat)
+    chk(f"écran = moteur : {nom}", not fautes, fautes[:4])
 
 
-def mod(e, chemin, valeur):
-    e2 = copy.deepcopy(e)
-    m = T.modifier(e2, chemin, valeur)
-    return e2, m
+# ====================================================================== 3. les fenêtres de calcul
+def evaluer(valeurs: str) -> float:
+    """Les valeurs ÉCRITES d'une formule (« 2 × [(0,3 − 2 × 0,03) + …] », « π × 0,02² / 4 × 7850 », « ⌈10⌉ ») relues et
+    calculées ici."""
+    s = valeurs.replace(C.NBSP, " ").replace(" m²", "").replace("×", "*").replace("−", "-").replace(",", ".").replace("π", "pi")
+    s = s.replace("²", "**2").replace("⌈", "ceil(").replace("⌉", ")").replace("[", "(").replace("]", ")").replace(" ; ", ", ")
+    if not re.fullmatch(r"[0-9.+\-*/() ,a-z]*", s):
+        raise ValueError(s)
+    return eval(s, {"__builtins__": {}}, {"pi": math.pi, "ceil": math.ceil, "max": max, "min": min})  # noqa: S307 — nos chiffres
 
 
-e0 = etat_de(EX)
-REFUS = [(["b"], "4"), (["h"], "301"), (["enrobage"], "0,5"), (["L"], "61"), (["L"], "abc"), (["majoration"], "51"), (["talon_gauche", "b"], "0"),
-         (["familles", "0", "n"], "21"), (["familles", "0", "n"], "2,5"), (["familles", "0", "d"], "18"), (["familles", "0", "retours"], "3"),
-         (["familles", "0", "de"], "-5"), (["familles", "0", "a"], "101"), (["familles", "0", "position"], "lat_g"), (["familles", "9", "n"], "2"),
-         (["types_etriers", "0", "d"], "18"), (["zones", "0", "s"], "1"), (["zones", "0", "type"], "E9"), (["enrobage"], "15"),
-         (["b"], "6"), (["familles", "+"], "chapeau"), (["inconnu"], "1"), (["forme"], "en T")]
-mauvais = []
-for chemin, valeur in REFUS:
-    e2, m = mod(e0, chemin, valeur)
-    if not (m and m.startswith("Saisie refusée") and e2 == e0):
-        mauvais.append((chemin, valeur, m))
-chk(f"{len(REFUS)} saisies hors du domaine de l'écran : refusées avec un message, la note intacte (jamais ramenées en silence)", not mauvais, mauvais)
-e2, m = mod(e0, ["talon_gauche", "b"], "0")
-chk("talon de 0 cm (l'écran Streamlit le lirait 10 cm) : refusé, le message dit pourquoi", "hors du domaine" in m, m)
-e2, m = mod(e0, ["L"], "8")
-chk("une saisie valable s'écrit (L = 8 m) sans message", m is None and e2["poutres"][0]["L"] == 8.0)
-e1 = etat_de(dict(EX, familles=[{"role": "principal", "de": 100 / 3}]))
-e2, m = mod(e1, ["familles", "0", "de"], "33,333")
-chk("réécrire ce que le champ affiche (33,333) garde la valeur exacte (100/3) : rien ne change", m is None and e2 == e1)
-e2, m = mod(e1, ["familles", "0", "de"], "33,3")
-chk("une autre valeur (33,3) s'écrit", m is None and e2["poutres"][0]["familles"][0]["de"] == 33.3)
-# effets de bord : ceux de beton/taux/saisie.py (prouvés contre l'écran dans tests/test_taux_moteur.py)
-p = copy.deepcopy(e0["poutres"][0])
-SA.ajouter_famille(p, "principal")
-e2, m = mod(e0, ["familles", "+"], "principal")
-chk("« + Lit principal » : la famille de l'écran (2Ø16, âme en bas, 0 à 100 %)", m is None and e2["poutres"][0] == EN.normaliser(p))
-e2, m = mod(e0, ["familles", "+"], "talon")
-chk("« + Renfort talon » : talon gauche inférieur (forme à talon gauche)", e2["poutres"][0]["familles"][-1]["position"] == "talon_g_inf")
-e2, m = mod(etat_de(DEUX), ["familles", "+"], "talon")
-chk("deux talons : « + Renfort talon » refusé avec la raison (l'écran Streamlit s'arrêterait sur « Talon gauche non défini. »)",
-    m and "Talon gauche non défini" in m and e2 == etat_de(DEUX), m)
-chk("deux talons : le bouton « Renfort de talon » n'est pas proposé, ni les positions de talon",
-    'data-valeur="talon"' not in T.formulaire(etat_de(DEUX)) and 'value="talon_g_inf"' not in T.formulaire(etat_de(DEUX)))
-e2, m = mod(e0, ["forme"], "deux_talons")
-chk("vers deux talons avec une famille sur un talon : refusé, la famille nommée", m and "INF2" in m and e2 == e0, m)
-e2, m = mod(e0, ["forme"], "rectangulaire")
-chk("forme sans talon : la famille du talon passe sur « Armatures inférieures (âme) », et c'est dit",
-    e2["poutres"][0]["familles"][2]["position"] == "ame_inf" and m and "INF2" in m and "son talon" in m, m)
-e2, m = mod(e0, ["familles", "3", "retours"], "0")
-chk("« Retours » = 0 remet la hauteur de retour à 0 (edit_family)", e2["poutres"][0]["familles"][3]["h_retour"] == 0.0 and m is None)
-e2, m = mod(e0, ["familles", "0", "-"], "1")
-chk("retirer une famille", len(e2["poutres"][0]["familles"]) == 3 and m is None)
-e2, m = mod(e0, ["zones", "+"], "1")
-chk("« + Zone d'étriers » : Z3 de 0 à 33 % à 15 cm sur le premier type (add_stirrup_zone)",
-    e2["poutres"][0]["zones"][-1] == {"nom": "Z3", "de": 0.0, "a": 33.0, "s": 15.0, "type": "E1"})
-e2, m = mod(etat_de(VIDE), ["zones", "+"], "1")
-chk("« + Zone d'étriers » sans type : un type E1 Ø8 est créé d'abord (le bouton « + Étrier »)",
-    e2["poutres"][0]["types_etriers"] == [{"nom": "E1", "d": 8.0}] and e2["poutres"][0]["zones"][0]["type"] == "E1")
-e2, m = mod(e0, ["types_etriers", "0", "nom"], "Cadre")
-chk("un type renommé : ses zones le suivent", [z["type"] for z in e2["poutres"][0]["zones"]] == ["Cadre", "Cadre"])
-e3 = etat_de(P2)
-e2, m = mod(e3, ["types_etriers", "1", "-"], "1")
-chk("un type supprimé : ses zones passent au premier type restant (edit_stirrup_zone), et c'est dit",
-    [z["type"] for z in e2["poutres"][0]["zones"]] == ["E1", "E1", "E1"] and m and "Z1" in m, m)
-e2, m = mod(e0, ["types_etriers", "0", "-"], "1")
-chk("le dernier type supprimé : les zones ne comptent plus, c'est dit (et l'écran le montre en rouge)",
-    m and "ne comptent plus" in m and "non comptée : sans type" in T.formulaire(e2), m)
-e2, m = mod(e3, ["types_etriers", "1", "d"], "7.5")
-chk("un Ø d'étrier hors du menu (7,5, admis par l'écran) reste proposé et retenu", e2 == e3 and m is None and 'value="7.5" selected' in T.formulaire(e3))
-# les mètres
-em = etat_de(dict(EX, longueurs="metre"))
-e2, m = mod(em, ["familles", "1", "a_m"], "2,5")
-chk("en mètres : « À » = 2,5 m s'écrit 100 × 2,5 / 6 % (edit_family)", e2["poutres"][0]["familles"][1]["a"] == 100.0 * 2.5 / 6.0 and m is None)
-e2, m = mod(em, ["familles", "1", "a_m"], "7")
-chk("en mètres : au-delà de la portée, refusé", m and "hors de la portée" in m and e2 == em, m)
-e2, m = mod(em, ["L"], "4")
-p = copy.deepcopy(em["poutres"][0])
-SA.changer_portee(p, 4.0)
-chk("en mètres, portée 6 → 4 m : les mètres qui tiennent sont gardés, les autres gardent leur % (D8), et c'est dit",
-    e2["poutres"][0] == EN.normaliser(p) and m and "INF1" in m and "SUP1" not in m, m)
-chk("en mètres, les champs « de », « à » des familles montrent des mètres", 'data-chemin="familles/1/a_m"' in T.formulaire(em) and "familles/1/a\"" not in T.formulaire(em))
+def formules_de(res):
+    out = list(res["beton"]["formules"]) + list(res["totaux"]["formules"])
+    for bloc in res["reperes"] + res["zones"] + res["diametres"]:
+        out += bloc["formules"]
+    for ty in res["types"]:
+        for li in ty["lignes"]:
+            out += li["formules"]
+        if ty["talon"]:
+            out += ty["talon"]["formules"]
+    return out
 
-# ------------------------------------------------------------------ 5. le sélecteur de diamètre
-print("\n=== 5. Le sélecteur de diamètre ===")
-h = T.selecteur(e0, "d-0")
-rows = re.findall(r'<button class="pk-row([^"]*)" data-choix="([^"]+)" data-prop="[^"]*"><span class="mk">.*?</span><span class="nm">[^<]*</span><span class="kg">([^<]*)</span>', h)
-cands = MO.candidats_diametre(e0["poutres"][0], 0)
-chk("les dix Ø de l'écran, triés, chacun avec le taux de la poutre recalculé par le moteur",
-    [x[1] for x in rows] == [c["nom"] for c in cands] and [x[2] for x in rows] == [C.fr(c["kg_m3_majore"], 1) for c in cands]
-    and [c["d"] for c in cands] == list(EN.DIAMETRES), rows[:3])
-chk("la disposition retenue est cochée (✓), une seule ; aucune « optimale » (un quantitatif ne vérifie rien), et c'est écrit",
-    [x[1] for x in rows if "cur" in x[0]] == ["3Ø20"] and not any("opt" in x[0] for x in rows) and "pas d'optimal" in h)
-chk("le pied du sélecteur dit ce que montrent les colonnes (taux de la poutre, part de la famille), pas « taux » seul",
-    "taux de la poutre (kg/m³) · part de la famille dans l'acier</span>" in h and "· taux</span>" not in h)
-e2 = copy.deepcopy(e0)
-T.choisir_section(e2, "d-0", "3Ø25")
-chk("choisir 3Ø25 : la famille passe en Ø25 et le résultat suit", e2["poutres"][0]["familles"][0]["d"] == 25
-    and C.fr(MO.calculer(e2["poutres"][0])["quantites"]["kg_m3_majore"], 1) in T.resultat(e2)["resultat"])
-r = req(module="taux", action="selecteur", etat=e0, role="d-9")
-chk("un sélecteur inconnu rend une erreur lisible", not r["ok"] and "sélecteur inconnu" in r["erreur"])
-chk("chaque famille annonce son sélecteur (data-pk) dans le résultat, les zones non",
-    re.findall(r'data-pk="([^"]+)"', T.resultat(e0)["resultat"]) == ["d-0", "d-1", "d-2", "d-3"])
 
-# ------------------------------------------------------------------ 6. l'échappement
-print("\n=== 6. Un texte saisi est échappé partout ===")
+def controle_formules(mod, etat):
+    f, n = [], 0
+    e = mod.normaliser(copy.deepcopy(etat))
+    rep = mod.resultat(e)
+    r = MO.calculer(e["poutres"][e["actif"]])
+    for fx in formules_de(r):
+        n += 1
+        li = mod._fx(fx)
+        parts = li["parts"]
+        if len(parts) != 3:
+            f.append(("formule sans valeurs", fx["cle"]))
+            continue
+        try:
+            calc = evaluer(parts[2])
+        except Exception as ex:  # noqa: BLE001
+            f.append(("valeurs illisibles", fx["cle"], parts[2], ex))
+            continue
+        ecrit = lire_fr(li["res"])
+        nd = len(re.sub(r"[^0-9,]", "", li["res"].replace(C.NBSP, " ").split(" ")[0]).partition(",")[2])
+        if abs(calc - ecrit) > 0.51 * 10 ** -nd + 3e-3 * abs(ecrit):
+            f.append((fx["cle"], parts, li["res"], calc))
+        if abs(ecrit - fx["resultat"]) > 0.51 * 10 ** -nd + 1e-9:
+            f.append(("résultat écrit ≠ moteur", fx["cle"], li["res"], fx["resultat"]))
+    # chaque formule est dans une fenêtre, chaque fenêtre annoncée existe
+    nfx = rep["volets"].count('<div class="fx">')
+    if nfx != n:
+        f.append(("formules dans les fenêtres", nfx, n))
+    for cal in set(re.findall(r'data-calcul="([^"]+)"', rep["resultat"])):
+        if f'id="ck-{cal}"' not in rep["volets"]:
+            f.append(("fenêtre absente", cal))
+    return f, n
+
+
+total = 0
+for nom, etat in ETATS.items():
+    fautes, n = controle_formules(T, etat)
+    total += n
+    chk(f"fenêtres : chaque formule réévaluée à partir des valeurs écrites ({n}) — {nom}", not fautes, fautes[:3])
+chk(f"fenêtres : {total} formules réévaluées en tout (au moins 300)", total >= 300, total)
+v0 = req(action="nouveau")["volets"]
+chk("fenêtres : quatre (repères et taux, diamètres, béton, étriers par zone), colonnes d'un quantitatif",
+    all(f'id="ck-s{i}"' in v0 for i in range(4)) and "<th>Repère</th>" in v0 and "<th>Zone</th>" in v0 and "Vérification" not in v0)
+
+
+# ====================================================================== 4. les refus
+E0 = T.nouvel_etat()
+REFUS = [
+    (["b"], "5", "largeur b"), (["L"], "0,2", "longueur"), (["enrobage"], "40", "enrobage"), (["h"], "abc", "illisible"),
+    (["barres", 0, "n"], "0", "nombre de barres"), (["barres", 0, "d"], "13", "Ø"), (["barres", 1, "de"], "5", "doit dépasser"),
+    (["barres", 0, "a"], "pas un nombre", "n'est pas un nombre"), (["barres", 7, "n"], "2", "il n'y en a que"),
+    (["zones", 0, "a"], "5", "doit dépasser"), (["zones", 1, "s"], "3", "pas"), (["zones", 0, "type"], "E9", "n'est pas un type"),
+    (["types", 0, "-"], "1", "l'emploient"), (["types", 0, "lignes", 0, "-"], "1", "au moins une ligne"),
+    (["zones", "+"], "1", "couvrent déjà toute la poutre"), (["majoration"], "60", "majoration"),
+    (["nom"], "x" * 80, "trop long"), (["recouvrements", "l_com"], "30", "longueur commerciale"),
+    (["inconnu"], "1", "Champ inconnu"), (["barres", 0, "zzz"], "1", "Champ inconnu"),
+]
+mal = []
+for chemin, valeur, mot in REFUS:
+    o = req(action="modifier", etat=copy.deepcopy(E0), chemin=chemin, valeur=valeur)
+    if not (o.get("ok") and o.get("message") and mot.lower() in o["message"].lower() and o["etat"] == E0):
+        mal.append((chemin, valeur, o.get("message") or o.get("erreur")))
+chk(f"refus : {len(REFUS)} saisies hors domaine refusées en français, en nommant le champ, la poutre intacte", not mal, mal[:3])
+riche = ETATS["riche (cadre intérieur, épingle, trou)"]
+o = req(action="modifier", etat=copy.deepcopy(riche), chemin=["types", 0, "lignes", 1, "largeur"], valeur="40")
+chk("refus : un cadre intérieur plus large que le cadre de l'âme (b − 2c)", o["message"] and "dépasse le cadre" in o["message"] and o["etat"] == riche,
+    o.get("message"))
+o = req(action="modifier", etat=copy.deepcopy(riche), chemin=["zones", 1, "de"], valeur="1,5")
+chk("refus : deux zones qui se recouvrent sont nommées", o["message"] and "Z1" in o["message"] and "se recouvrent" in o["message"]
+    and o["etat"] == riche, o.get("message"))
+
+
+# ====================================================================== 5. les gestes, ce qui suit, l'ancienne note
+o = req(action="modifier", etat=copy.deepcopy(riche), chemin=["zones", "+"], valeur="1")
+z = o["etat"]["poutres"][0]["zones"]
+chk("+ Zone propose la suite : la portion sans étriers (2 à 3 m), au pas et du type de la précédente",
+    len(z) == 3 and z[1] == {"de": 2.0, "a": 3.0, "s": 10.0, "type": "E1"}, z)
+o = req(action="modifier", etat=copy.deepcopy(E0), chemin=["zones", 0, "a"], valeur="2")
+zs = o["etat"]["poutres"][0]["zones"]
+chk("une limite de zones déplacée : la zone jointive suit (Z2 commence à 2 m) — et le résultat le DIT",
+    zs[0]["a"] == 2.0 and zs[1]["de"] == 2.0 and "Ont suivi : Z2 commence à 2 m" in o["resultat"] and "suivi" not in o["etat"], o.get("message"))
+o = req(action="modifier", etat=copy.deepcopy(E0), chemin=["L"], valeur="8")
+pz = o["etat"]["poutres"][0]
+chk("la longueur change : la zone d'about droit et la fin du renfort gardent leur distance à l'about droit, et c'est dit",
+    pz["zones"][2] == {"de": 6.5, "a": 8.0, "s": 15.0, "type": "E1"} and pz["barres"][1]["a"] == 6.8 and "Ont suivi" in o["resultat"], pz["zones"])
+o = req(action="modifier", etat=copy.deepcopy(E0), chemin=["types", 0, "nom"], valeur="C8")
+chk("un type renommé : ses zones le suivent", {z["type"] for z in o["etat"]["poutres"][0]["zones"]} == {"C8"} and not o["message"])
+o = req(action="modifier", etat=copy.deepcopy(E0), chemin=["types", 0, "lignes", "+"], valeur="1")
+o2 = req(action="modifier", etat=o["etat"], chemin=["types", 0, "lignes", 1, "forme"], valeur="cadre_interieur")
+li = o2["etat"]["poutres"][0]["types_etriers"][0]["lignes"][1]
+chk("+ Ligne (une épingle), puis « cadre intérieur » : la largeur proposée apparaît (la moitié du cadre de l'âme)",
+    li == {"forme": "cadre_interieur", "d": 8, "largeur": 12.0} and 'data-chemin="types/0/lignes/1/largeur"' in o2["donnees"], li)
+o = req(action="modifier", etat=copy.deepcopy(E0), chemin=["barres", "+"], valeur="renfort")
+chk("+ Renfort : 2 Ø 16 en second lit inférieur, du cinquième aux quatre cinquièmes de L",
+    o["etat"]["poutres"][0]["barres"][-1] == barre("inf", 2, 2, 16, 1.2, 4.8))
+o = req(action="calculer", etat=copy.deepcopy(T.NOTE_V1))
+chk("ancienne note (v1) : le nom est gardé, la poutre est la poutre type, l'avis est dit",
+    o["ok"] and o["etat"]["poutres"][0]["nom"] == "Poutre RDC" and o["etat"]["poutres"][0]["barres"] == MO.nouvelle_poutre()["barres"]
+    and o.get("avis") and "ancien module" in o["resultat"] and o["etat"]["version"] == 2, o.get("erreur"))
+o2 = req(action="calculer", etat=o["etat"])
+chk("ancienne note : l'avis n'est dit qu'une fois (l'état relu n'en porte plus)", not o2.get("avis") and "ancien module" not in o2["resultat"])
+o = req(action="dupliquer", etat=copy.deepcopy(DEUX), index=0)
+chk("copier une poutre : la copie s'insère juste après et s'ouvre", [p["nom"] for p in o["etat"]["poutres"]] == ["P1", "P1 (copie)", "P2"]
+    and o["etat"]["actif"] == 1)
+chk("note abîmée : « poutres » qui n'est pas une liste est refusée en clair",
+    not req(action="calculer", etat={"version": 2, "poutres": "x"})["ok"])
+
+
+# ====================================================================== 6. le contrat de sélection
+mal = []
+for nom, etat in ETATS.items():
+    o = T.resultat(T.normaliser(copy.deepcopy(etat)))
+    sels = set(re.findall(r'data-sel="([^"]+)"', "".join(v["svg"] for v in o["vues"])))
+    cibles = set(re.findall(r'data-cible="([^"]+)"', o["donnees"]))
+    if not sels or sels - cibles:
+        mal.append((nom, sorted(sels - cibles)))
+chk("contrat de sélection : chaque pièce des dessins (data-sel) a sa carte dans les données (data-cible), sur chaque état", not mal, mal[:3])
+
+
+# ====================================================================== 7. la sécurité
 PIEGE = '<img src=x onerror=alert(1)>'
-e = etat_de(dict(P2, nom=PIEGE, types_etriers=[{"nom": PIEGE, "d": 8.0}], zones=[{"nom": PIEGE + "z", "de": 0, "a": 50, "s": 15, "type": PIEGE}]),
-            dict(EX, nom=PIEGE + "2"))
-out = T.resultat(e)
-frag = {"résultat": out["resultat"], "fenêtres": out["volets"], "données": out["donnees"], "éléments": out["elements"], "phrase": out["phrase"],
-        "dessins": "".join(v["svg"] for v in out["vues"]), "sélecteur": T.selecteur(e, "d-0")}
-fuites = [k for k, v in frag.items() if "<img" in v]
-chk("noms de poutre, de type et de zone piégés : aucun « <img » brut dans les fragments", not fuites, fuites)
-chk("… et ils s'affichent comme du texte (échappés)", "&lt;img src=x onerror=alert(1)&gt;" in out["donnees"] and "&lt;img" in frag["dessins"])
-chk("titres et légendes des vues : du texte (la page les échappe)", all("<" not in v["titre"] + v["court"] + v["legende"] for v in out["vues"]))
+e = note(nom=PIEGE, types_etriers=[{"nom": "<b>E1</b>", "lignes": [{"forme": "cadre", "d": 8, "largeur": None}], "cadre_talon": True}],
+         zones=[{"de": 0.0, "a": 6.0, "s": 20.0, "type": "<b>E1</b>"}], origine={"module": "poutre", "nom": PIEGE, "date": "<i>x</i>"})
+o = req(action="calculer", etat=e)
+frag = "".join([o["resultat"], o["volets"], o["donnees"], o["elements"], o["statut_html"]] + [v["svg"] + v.get("entete", "") for v in o["vues"]])
+chk("sécurité : un nom de poutre, de type et de provenance piégés sont échappés partout", o["ok"] and "<img" not in frag and "<b>E1" not in frag
+    and "<i>x" not in frag, re.findall(r".{20}<(?:img|b>E1|i>x).{20}", frag)[:3])
+o = req(action="calculer", etat=copy.deepcopy(riche))
+frag = "".join([o["resultat"], o["volets"], o["donnees"]] + [v["svg"] + v.get("entete", "") for v in o["vues"]])
+chk("sécurité : aucun script, aucun « on…= » dans les fragments", not re.search(r"<script|\son[a-z]+\s*=", frag, re.I))
 
-# ------------------------------------------------------------------ 7. la note : plusieurs poutres
-print("\n=== 7. La note : plusieurs poutres, résumé, vue « Note » ===")
-e = etat_de(EX, P2, TRONC)
-out = T.resultat(e)
-res = [MO.calculer(p) for p in e["poutres"]]
-s = MO.synthese_note(res)
-chk("le résumé est une consultation (pas de taux de travail) qui nomme le taux de la note et la poutre la plus armée",
-    out["resume"]["taux"] is None and out["resume"]["niveau"] == "i" and C.fr(s["kg_m3_majore"], 1) in out["resume"]["gouvernant"]
-    and "la plus armée : P2" in out["resume"]["gouvernant"], out["resume"])
-chk("la note entière : Σ masses majorées / Σ volumes", abs(s["kg_m3_majore"] - sum(r["quantites"]["masse_acier_majoree"] for r in res)
-                                                       / sum(r["quantites"]["Vc"] for r in res)) < 1e-12)
-note = next((v for v in out["vues"] if v["cle"] == "note"), None)
-chk("la vue « Note » liste chaque poutre et le total", note is not None and all(C.fr(r["quantites"]["kg_m3_majore"], 1) in note["svg"] for r in res)
-    and C.fr(s["kg_m3_majore"], 1) in note["svg"])
-chk("le pied du résultat donne le taux de la note", f'{C.fr(s["kg_m3_majore"], 1)}{C.NBSP}kg/m³' in out["resultat"])
-chk("la liste des poutres : chacune avec son taux en kg/m³", all(f"{C.fr(r['quantites']['kg_m3_majore'], 1)}{C.NBSP}kg/m³" in out["elements"] for r in res))
-e2 = copy.deepcopy(e)
-T.gerer_elements(e2, "dupliquer")
-chk("copier la poutre ouverte : « (copie) », ouverte", e2["poutres"][-1]["nom"] == "P1 (copie)" and e2["actif"] == 3)
-T.gerer_elements(e2, "supprimer", 0)
-chk("supprimer la première : l'ouverte reste la même", e2["actif"] == 2 and e2["poutres"][2]["nom"] == "P1 (copie)")
-e3 = etat_de(EX)
-T.gerer_elements(e3, "supprimer", 0)
-chk("la dernière poutre ne se supprime pas", len(e3["poutres"]) == 1)
-T.gerer_elements(e3, "ajouter")
-chk("ajouter : P2, la poutre neuve de l'écran", e3["poutres"][1] == dict(EN.nouvelle_poutre(), nom="P2") and e3["actif"] == 1)
 
-# ------------------------------------------------------------------ 8. la relecture d'une note
-print("\n=== 8. La relecture d'un fichier .stab ===")
-for abime, attendu in (({"poutres": [{"b": "30"}]}, "nombre attendu"), ({"poutres": [{"forme": "deux_talons", "familles": [{"role": "renfort", "position": "talon_g_inf"}]}]},
-                                                                         "Talon gauche non défini"), ({"poutres": {"a": 1}}, "liste")):
+# ====================================================================== 8. le bordereau CSV
+mal = []
+for nom, etat in ETATS.items():
+    o = req(action="telecharger", etat=copy.deepcopy(etat), quoi="bordereau")
+    if not o.get("ok"):
+        mal.append((nom, o.get("erreur")))
+        continue
+    fi = o["fichier"]
+    ee = T.normaliser(copy.deepcopy(etat))
+    p = ee["poutres"][ee["actif"]]
+    r = MO.calculer(p)
+    rows = list(csv.reader(io.StringIO(fi["texte"]), delimiter=";"))
+    if fi["type"] != "text/csv" or not fi["nom"].endswith(".csv") or C.refus_fichier(fi) or rows[0] != list(MO.EN_TETE_CSV):
+        mal.append((nom, "type, nom ou en-tête", fi["nom"]))
+        continue
+    reps = rows[1:1 + len(r["reperes"])]
+    for x, row in zip(r["reperes"], reps):
+        if int(row[0]) != x["repere"] or abs(lire_fr(row[5]) - x["l_totale"]) > 5e-4 or abs(lire_fr(row[7]) - x["masse"]) > 5e-4:
+            mal.append((nom, "repère", row))
+    tot = rows[-1]
+    if tot[0] != "Total majoré" or abs(lire_fr(tot[7]) - r["totaux"]["masse_majoree"]) > 5e-4:
+        mal.append((nom, "total majoré", tot))
+    # les mêmes nombres que l'écran : le total majoré du bordereau affiché
+    bord = next(v["svg"] for v in T.resultat(ee)["vues"] if v["cle"] == "bordereau")
+    ecran = re.search(r'<td class="kg">([^<]+)</td></tr></tfoot>', bord)
+    if not ecran or abs(lire_fr(ecran.group(1)) - lire_fr(tot[7])) > 0.0051:
+        mal.append((nom, "CSV ≠ écran", tot[7], ecran and ecran.group(1)))
+    if sum(lire_fr(row[7]) for row in reps) - r["totaux"]["masse"] > 5e-4 * (len(reps) + 1):
+        mal.append((nom, "Σ repères ≠ total"))
+chk(f"bordereau CSV : text/csv, nom sûr, il se relit et redonne les nombres du moteur et de l'écran ({len(ETATS)} états)", not mal, mal[:3])
+o = req(action="telecharger", etat=note(nom="P1/2 : RDC"), quoi="bordereau")
+chk("bordereau CSV : le nom du fichier est sûr (« Bordereau P1-2 - RDC.csv »)", o["fichier"]["nom"] == "Bordereau P1-2 - RDC.csv", o["fichier"]["nom"])
+chk("bordereau CSV : un autre fichier demandé est refusé en clair", req(action="telecharger", etat=E0, quoi="note_pdf")["ok"] is False)
+
+
+# ====================================================================== 9. de bout en bout : la poutre reçue
+def etat_poutre(longueurs):
+    e = PO.nouvel_etat()
+    p = e["poutres"][0]
+    s = p["sections"][0]
+    a = copy.deepcopy(s)
+    b = copy.deepcopy(s)
+    b["nom"], b["inf"], b["pas"] = "B", [{"n": 4, "d": 16}], 20.0
+    cc = copy.deepcopy(s)
+    cc["nom"] = "C"
+    p["sections"] = [a, b, cc]
+    for sec, lg in zip(p["sections"], longueurs):
+        if lg is not None:
+            sec["longueur"] = lg
+    return e
+
+
+env = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "transmettre", "etat": etat_poutre([1.5, 3.0, 1.5]), "vers": "taux",
+                                       "date": "10/11/2026"})))
+chk("bout en bout : la poutre V1 et ses trois longueurs, envoyée par le routeur, donne une note du module « taux »",
+    env.get("ok") and env["note"]["module"] == "taux", env.get("erreur"))
+if env.get("ok"):
+    et = env["note"]["etat"]
+    pt = et["poutres"][0]
+    o = req(action="calculer", etat=et)
+    date = pt["origine"]["date"]
+    chk("bout en bout : l'écran relit la note reçue (L = 6 m, une zone par section, 2 Ø 16 filants et un renfort de 2 Ø 16 au milieu)",
+        o.get("ok") and pt["L"] == 6.0 and len(pt["zones"]) == 3 and any(b["de"] == 1.5 and b["a"] == 4.5 and b["n"] == 2 for b in pt["barres"]),
+        o.get("erreur") or pt["barres"])
+    attendu = "reçue de la poutre V1" + (f", le {date}" if date else "")
+    chk(f"bout en bout : la provenance est dite dans le résultat et l'en-tête de chaque vue (« {attendu} »)",
+        o.get("ok") and attendu in o["resultat"] and all(attendu[0].upper() + attendu[1:] in v["entete"] for v in o["vues"]))
+    if not date:
+        print("     (le routeur et la poutre ne transmettent pas encore la date de l'envoi : provenance sans date — besoin commun)")
+    chk("bout en bout : la note reçue se recalcule sans perte (écran = moteur)", not controle_resultat(T, et))
+ref = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "transmettre", "etat": etat_poutre([1.5, None, 1.5]), "vers": "taux"})))
+chk("bout en bout : une poutre sans longueur de section est refusée, en français, en disant où les saisir",
+    ref.get("ok") is False and "longueur" in ref.get("erreur", "").lower() and "Traceback" not in ref.get("erreur", ""), ref.get("erreur"))
+
+
+# ====================================================================== 10. les mutations : chacune vue rouge
+def mutant(ancien, nouveau):
+    src = open(T.__file__, encoding="utf-8").read()
+    assert src.count(ancien) == 1, (ancien, src.count(ancien))
+    m = types.ModuleType("api_web.taux_mutant")
+    m.__package__ = "api_web"
+    m.__file__ = T.__file__
+    exec(compile(src.replace(ancien, nouveau, 1), T.__file__, "exec"), m.__dict__)  # noqa: S102 — le module lui-même, muté
+    return m
+
+
+def rouge(fn):
     try:
-        T.normaliser(abime)
-        chk(f"note abîmée ({attendu}) : refusée", False)
-    except ValueError as ex:
-        chk(f"note abîmée : refusée avec une erreur lisible (« {attendu} »)", attendu in str(ex), str(ex))
-chk("une note sans poutre : la note neuve", T.normaliser({}) == T.nouvel_etat() and T.normaliser({"poutres": []}) == T.nouvel_etat())
-chk("la note neuve est celle de l'écran Streamlit au premier affichage (aucune armature, 1,080 m³)",
-    T.nouvel_etat()["poutres"][0] == dict(EN.nouvelle_poutre(), nom="P1") and f"1,080{C.NBSP}m³" in T.resultat(T.nouvel_etat())["resultat"])
-for actif in ("abc", [1], {"a": 1}, True):
+        return bool(fn())
+    except Exception:  # noqa: BLE001 — un mutant qui plante est vu rouge aussi
+        return True
+
+
+def refuse_tout(m):
+    e = m.normaliser(copy.deepcopy(E0))
+    return m.modifier(e, ["b"], "5") is not None and e == E0
+
+
+E_TYPE = ETATS["type (note neuve)"]
+E_RECUE = ETATS["reçue de la poutre V1"]
+MUTATIONS = [
+    ("le verdict montre le taux SANS majoration", 'C.verdict_valeur(t["taux_majore"]', 'C.verdict_valeur(t["taux"]',
+     lambda m: controle_resultat(m, E_TYPE)),
+    ("la jauge d'une famille rapporte sa masse au total MAJORÉ", '_part(f["part"]), "c", calcul="s3"',
+     '_part(f["masse"] / r["totaux"]["masse_majoree"]), "c", calcul="s3"', lambda m: controle_resultat(m, E_TYPE)),
+    ("la masse d'un diamètre est sa longueur", 'piece=C.qte(d["masse"], "kg", 1))', 'piece=C.qte(d["longueur"], "kg", 1))',
+     lambda m: controle_resultat(m, E_TYPE)),
+    ("le volume de béton affiché est la masse", 'etat_txt=C.qte(b["volume"], "m³", 3).replace(C.NBSP, " "))',
+     'etat_txt=C.qte(b["masse"], "m³", 3).replace(C.NBSP, " "))', lambda m: controle_resultat(m, E_TYPE)),
+    ("le contour du cadre écrit 3 × au lieu de 2 × dans les valeurs", "f\"2 × [({v('b', 100.0)}", "f\"3 × [({v('b', 100.0)}",
+     lambda m: controle_formules(m, E_TYPE)[0]),
+    ("la masse linéique écrit Ø²/2 au lieu de Ø²/4", "² / 4 × {v('ρ_s')}", "² / 2 × {v('ρ_s')}", lambda m: controle_formules(m, E_TYPE)[0]),
+    ("le quotient d'une zone oublie le passage en m du pas", "{v('l_z')} / {v('s', 100.0)}", "{v('l_z')} / {v('s')}",
+     lambda m: controle_formules(m, E_TYPE)[0]),
+    ("la provenance n'est plus dite dans l'en-tête des vues", "    if o:\n        lignes.append(", "    if False:\n        lignes.append(",
+     lambda m: controle_resultat(m, E_RECUE)),
+    ("ce qui a suivi une saisie n'est plus dit", "    if suivis:\n        msgs +=", "    if False:\n        msgs +=",
+     lambda m: (lambda e: (m.modifier(e, ["zones", 0, "a"], "2") or True) and "Ont suivi" not in m.resultat(e)["resultat"])(m.normaliser(copy.deepcopy(E0)))),
+    ("une saisie refusée n'est plus dite (rendue sans message)", 'return f"Saisie refusée : {e}"', "return None", lambda m: not refuse_tout(m)),
+    ("le bordereau part en texte brut", '"type": "text/csv",', '"type": "text/plain",',
+     lambda m: m.telecharger(m.normaliser(copy.deepcopy(E0)), "bordereau")["type"] != "text/csv"),
+    ("la carte d'une zone change de clé (le dessin ne la trouve plus)", 'data-cible="z{i}"', 'data-cible="zone{i}"',
+     lambda m: (lambda o: set(re.findall(r'data-sel="(z\d+)"', "".join(v["svg"] for v in o["vues"])))
+                - set(re.findall(r'data-cible="([^"]+)"', o["donnees"])))(m.resultat(m.normaliser(copy.deepcopy(E0))))),
+    ("le nom de la poutre n'est plus échappé dans le résultat", 'nom = C.esc(p.get("nom") or "Poutre")', 'nom = (p.get("nom") or "Poutre")',
+     lambda m: "<img" in m.resultat(m.normaliser(note(nom=PIEGE)))["resultat"]),
+    ("l'ancienne note perd le nom de ses poutres", "MO.nouvelle_poutre(_nom_v1(p, i))", "MO.nouvelle_poutre()",
+     lambda m: m.normaliser(copy.deepcopy(T.NOTE_V1))["poutres"][0]["nom"] != "Poutre RDC"),
+    ("le nombre d'étriers d'une zone n'est plus celui du moteur (sans la fermeture)",
+     'f\'<span class="et-txt">{C.esc(txt)}</span><span class="tx-bilan">{rz["n"]}',
+     'f\'<span class="et-txt">{C.esc(txt)}</span><span class="tx-bilan">{rz["cours"]}', lambda m: controle_resultat(m, E_TYPE)),
+]
+for titre, ancien, nouveau, controle in MUTATIONS:
     try:
-        T.normaliser({"poutres": [EX], "actif": actif})
-        chk(f"actif = {actif!r} : refusé", False)
-    except ValueError as ex:
-        chk(f"actif = {actif!r} : refusé en français (« rang de la poutre ouverte »), pas par une erreur Python", "rang de la poutre ouverte" in str(ex), str(ex))
-chk("actif écrit en texte (« 1 ») : relu", T.normaliser({"poutres": [EX, P2], "actif": "1"})["actif"] == 1)
-
-# ------------------------------------------------------------------ 8 bis. la relecture du 07/11/2026 : ce qu'elle a corrigé
-print("\n=== 8 bis. Relecture : les défauts trouvés et corrigés ===")
-for nom, p in CAS:
-    v = re.search(r'<div class="verdict.*?</div></div>', T.resultat(etat_de(p))["resultat"], re.S).group(0)
-    coupures = re.findall(r"\d[ ,.]?\d* (?:kg|m³|%)", re.sub(r"<[^>]+>", "", v))
-    chk(f"{nom} : le verdict ne sépare jamais un nombre de son unité (espace insécable ; au téléphone « 1,380 » et « m³ » "
-        "étaient sur deux lignes)", not coupures and v.count('class="tx-l"') == 2, coupures)
-h = T.selecteur(etat_de(EX), "d-0")
-chk("sélecteur : le « Ø » du sous-titre reste avec son mot (il était seul sur sa ligne)", f"retient le{C.NBSP}Ø" in h)
-talon_z = MO.calculer(dict(EX))
-codes_tz = [a["code"] for a in talon_z["avertissements"]]
-sans_z = [a["code"] for a in MO.calculer(dict(EX, zones=[]))["avertissements"]]
-rect_z = [a["code"] for a in MO.calculer(dict(EX, forme="rectangulaire", familles=[]))["avertissements"]]
-chk("D11 dit : une forme à talon avec des étriers avertit que les cadres du talon ne sont pas comptés ; sans étrier ou sans "
-    "talon, rien", "etriers_talon" in codes_tz and "etriers_talon" not in sans_z and "etriers_talon" not in rect_z, (codes_tz, sans_z, rect_z))
-chk("… et l'avertissement est affiché dans le résultat", "cadres ou épingles du talon" in T.resultat(etat_de(EX))["resultat"])
-chk("D11 : deux talons (talons ignorés, D2) n'ajoute pas cet avertissement",
-    "etriers_talon" not in [a["code"] for a in MO.calculer(dict(DEUX))["avertissements"]])
-
-# ------------------------------------------------------------------ 9. le chemin du calcul : ce qui se charge dans le navigateur
-print("\n=== 9. Le chemin du navigateur : ni streamlit, ni pandas, ni matplotlib ===")
-for fic in ("api_web/taux.py", "api_web/dessin_taux.py"):
-    arbre = ast.parse(open(fic, encoding="utf-8").read())
-    noms = [a.name for n in ast.walk(arbre) if isinstance(n, ast.Import) for a in n.names] + \
-           [n.module for n in ast.walk(arbre) if isinstance(n, ast.ImportFrom) and n.level == 0]
-    tiers = [x for x in noms if x.split(".")[0] not in sys.stdlib_module_names | {"beton"}]
-    chk(f"{fic} n'importe que la bibliothèque standard, le moteur et les briques du site", not tiers, tiers)
-SOUS = r'''
-import json, sys
-INTERDITS = ("streamlit", "pandas", "matplotlib", "scipy", "reportlab", "PIL", "fitz")
-class Refus:
-    def find_spec(self, nom, chemin=None, cible=None):
-        if nom.split(".")[0] in INTERDITS:
-            raise ImportError("refusé : " + nom)
-sys.meta_path.insert(0, Refus())
-sys.path.insert(0, sys.argv[1])
-from api_web import routeur as R
-etat = json.loads(sys.stdin.read())
-r = json.loads(R.traiter(json.dumps({"module": "taux", "action": "calculer", "etat": etat})))
-print(json.dumps({"ok": r["ok"], "erreur": r.get("erreur"), "interdits": sorted(m for m in sys.modules if m.split(".")[0] in INTERDITS)}))
-'''
-pr = subprocess.run([sys.executable, "-I", "-c", SOUS, RACINE], input=json.dumps(etat_de(EX, P2)), capture_output=True, text=True, check=False)
-o = json.loads(pr.stdout or "{}") if pr.returncode == 0 else {"ok": False, "erreur": pr.stderr[-300:]}
-chk("le module calcule par le routeur avec streamlit, pandas, matplotlib… REFUSÉS (le navigateur ne les a pas)", o.get("ok") and not o.get("interdits"), o)
+        mm = mutant(ancien, nouveau)
+        vu = rouge(lambda: controle(mm))
+    except AssertionError as ex:
+        vu = False
+        print("     (mutation introuvable :", ex, ")")
+    chk(f"mutation vue rouge : {titre}", vu)
+chk("témoin : le module tel quel passe les mêmes contrôles",
+    not controle_resultat(T, E_TYPE) and not controle_formules(T, E_TYPE)[0] and refuse_tout(T) and not controle_resultat(T, E_RECUE))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
