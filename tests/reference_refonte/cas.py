@@ -162,19 +162,70 @@ cas("corniere", "entraxe 80 mm, boulons traversants, deux rondelles, profondeur 
     [neuf(), mod("entraxe", "80"), mod("type_ancrage", "traversant"), mod("rondelles", "2"), mod("profondeur", "200")])
 cas("corniere", "entraxe 30 mm refusé (s < 2,2·d0, EN 1993-1-8 Tableau 3.3)", LIM, [neuf(), mod("entraxe", "30")], {"message": True})
 
-# ====================================================================== bois
-cas("bois", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
-cas("bois", "poutre 75×225 C24 (choix du sélecteur)", REF, [neuf(), act("choisir", role="section", nom="75x225")])
-# la flèche de l'écran Streamlit est 1 000 fois trop grande (défaut reproduit et affiché) : 100 % ne s'atteint qu'en petite portée
-cas("bois", "chargée près de 100 % (100×250, L = 0,5 m, G = 1,5, Q = 1,4 kN/m)", REF,
-    [neuf(), act("choisir", role="section", nom="100x250"), mod("L", "0,5"), mod("G", "1,5"), mod("Q", "1,40")], {"taux": [95, 100]})
-cas("bois", "section libre 80 × 240, classe 2, charge courte", REF,
-    [neuf(), mod("standard", "non"), mod("service", "2"), mod("duree", "court"), mod("lim_inst", "L/400")])
+# ====================================================================== bois (refait le 10/11/2026 sur l'Eurocode 5)
+# (les cas de la copie de l'écran Streamlit — flèches 1 000 fois trop grandes, une seule combinaison, « duree » choisie à
+# la main — n'existent plus : les photos sont regelées, docs/site/LOT_Q_QUATRE_MODULES.md § 1 ; les taux annoncés sont
+# ceux du moteur du 10/11/2026, recalculés à la main dans tests/test_poutre_bois_moteur.py)
+from api_web import bois as BO  # noqa: E402
+
+cas("bois", "note neuve", REF, [neuf()], {"taux": [56, 56], "niveau": "p"}, selecteurs=True, fichiers=True)
+cas("bois", "gîte de plancher 63 × 175 C24 à 40 cm d'entraxe, 3,60 m, 1,2 + 2,0 kN/m² (habitation)", REF,
+    [neuf(), act("choisir", role="section", nom="63 × 175"), mod("L", "3,6"), mod("charges/mode", "surfacique"), mod("charges/g", "1,2"), mod("charges/q", "2")],
+    {"taux": [90, 92], "niveau": "p", "sans_message": True})
+cas("bois", "chargée près de 100 % (Q = 2,06 kN/m : flèche finale nette)", REF, [neuf(), mod("charges/Q", "2,06")], {"taux": [95, 100], "niveau": "f"})
+cas("bois", "G seule gouverne toute la note (2,5 m, G = 7, Q = 1 kN/m : flexion, k_mod permanent)", REF,
+    [neuf(), mod("L", "2,5"), mod("charges/G", "7"), mod("charges/Q", "1")], {"taux": [106, 107], "niveau": "r"})
+cas("bois", "G seule gouverne l'ELU, la flèche finale la note (G = 3, Q = 0,5 kN/m)", REF, [neuf(), mod("charges/G", "3"), mod("charges/Q", "0,5")],
+    {"taux": [153, 154], "niveau": "r"})
+cas("bois", "déversement : 45 × 245 sur 5 m, maintenue aux appuis seulement (k_crit = 0,398)", REF,
+    [neuf(), act("choisir", role="section", nom="45 × 245"), mod("L", "5"), mod("maintien/type", "appuis")], {"taux": [244, 245], "niveau": "r"})
+cas("bois", "entretoises à 1,25 m (45 × 245 sur 5 m)", REF,
+    [neuf(), act("choisir", role="section", nom="45 × 245"), mod("L", "5"), mod("maintien/type", "entretoises"), mod("maintien/entraxe", "1,25")],
+    {"taux": [137, 138]})
+cas("bois", "lamellé-collé GL24h 140 × 560 sur 8 m (G = 3, Q = 4 kN/m, appui de 160 mm)", REF,
+    [neuf(), mod("classe", "GL24h"), act("choisir", role="section", nom="140 × 560"), mod("L", "8"), mod("charges/G", "3"), mod("charges/Q", "4"),
+     mod("appui/a", "160")], {"niveau": "p", "sans_message": True}, selecteurs=True)
+cas("bois", "l'appui gouverne (100 × 300 sur 3 m, 8 + 12 kN/m, a = 40 mm)", REF,
+    [neuf(), act("choisir", role="section", nom="100 × 300"), mod("L", "3"), mod("charges/G", "8"), mod("charges/Q", "12"), mod("appui/a", "40")],
+    {"taux": [269, 270], "niveau": "r"})
+cas("bois", "chevron de toiture 63 × 175 à 60 cm, 3,50 m, classe de service 2, neige (court terme)", REF,
+    [neuf(), act("choisir", role="section", nom="63 × 175"), mod("L", "3,5"), mod("service", "2"), mod("charges/mode", "surfacique"), mod("charges/g", "0,9"),
+     mod("charges/q", "0,5"), mod("charges/entraxe", "0,6"), mod("charges/nature", "neige")], {"niveau": "p"})
+cas("bois", "classe de service 3 (k_mod 0,5 et 0,65, k_def 2 : la flèche finale passe de 56 à 92 %)", REF, [neuf(), mod("service", "3")],
+    {"taux": [91, 92], "niveau": "p"})
+cas("bois", "effet système (45 × 220 à 60 cm d'entraxe)", REF,
+    [neuf(), act("choisir", role="section", nom="45 × 220"), mod("charges/mode", "surfacique"), mod("charges/entraxe", "0,6"), mod("systeme", True)])
+cas("bois", "nature « autre » : instantané, ψ₂ = 0,5", REF, [neuf(), mod("charges/nature", "autre"), mod("charges/duree", "instantane"), mod("charges/psi2", "0,5")],
+    {"sans_message": True})
+cas("bois", "lamellé cambré GL28c 160 × 640 sur 10 m (G = 4, Q = 5 kN/m, appui 200 mm, contre-flèche 20 mm)", REF,
+    [neuf(), mod("classe", "GL28c"), act("choisir", role="section", nom="160 × 640"), mod("L", "10"), mod("charges/G", "4"), mod("charges/Q", "5"),
+     mod("appui/a", "200"), mod("contre_fleche", "20")], {"sans_message": True})
+cas("bois", "section sur mesure 62,5 × 187,5", REF, [neuf(), mod("standard", "mesure"), mod("b", "62,5"), mod("h", "187,5")], {"sans_message": True})
 cas("bois", "portée de 0,2 m refusée (PARCOURS)", LIM, [neuf(), mod("L", "0,2")], {"message": True})
-cas("bois", "charge négative refusée", LIM, [neuf(), mod("Q", "-3")], {"message": True})
-cas("bois", "appui de 30 mm (valeur minimale admise)", LIM, [neuf(), mod("appui", True), mod("a", "30")], {"sans_message": True})
-cas("bois", "appui de 20 mm refusé", LIM, [neuf(), mod("appui", True), mod("a", "20")], {"message": True})
-cas("bois", "poutre ajoutée", LIM, [neuf(), act("ajouter"), act("choisir", role="section", nom="100x250")], {"elements": 2})
+cas("bois", "charge variable négative refusée", LIM, [neuf(), mod("charges/Q", "-3")], {"message": True})
+cas("bois", "appui de 20 mm (valeur minimale admise)", LIM, [neuf(), mod("appui/a", "20")], {"sans_message": True})
+cas("bois", "appui de 19 mm refusé", LIM, [neuf(), mod("appui/a", "19")], {"message": True})
+cas("bois", "ψ₂ = 0,7 refusé en habitation (fixé par la nature de Q)", LIM, [neuf(), mod("charges/psi2", "0,7")], {"message": True})
+cas("bois", "entretoises à 9 m sur une portée de 4 m refusées", LIM, [neuf(), mod("maintien/type", "entretoises"), mod("maintien/entraxe", "9")],
+    {"message": True})
+cas("bois", "section d'un autre type refusée par le sélecteur (120 × 400 en bois massif)", LIM, [neuf(), act("choisir", role="section", nom="120 × 400")],
+    {"erreur": True})
+cas("bois", "sans charge variable (Q = 0 : la combinaison G + Q disparaît)", LIM, [neuf(), mod("charges/Q", "0")], {"sans_message": True, "niveau": "p"})
+cas("bois", "aucune charge (G = Q = 0, poids propre non compté) : 0 %, et c'est dit", LIM,
+    [neuf(), mod("charges/G", "0"), mod("charges/Q", "0"), mod("charges/poids_propre", False)], {"taux": [0, 0], "avis": "Aucune charge"})
+cas("bois", "appuis rapprochés (100 × 300 sur 0,65 m) : k_c,90 ramené à 1, et c'est dit", LIM,
+    [neuf(), act("choisir", role="section", nom="100 × 300"), mod("L", "0,65")], {"avis": "Appuis rapprochés"})
+cas("bois", "compression d'appui retirée de la note : la ligne reste, « non vérifié »", LIM, [neuf(), mod("appui/verifier", False)], {"avis": "retirée de la"})
+cas("bois", "très au-delà (12 m, 20 + 30 kN/m : plus de 999 %)", LIM, [neuf(), mod("L", "12"), mod("charges/G", "20"), mod("charges/Q", "30")],
+    {"niveau": "r"})
+cas("bois", "du massif au lamellé-collé : la section 75 × 225 gardée sur mesure, l'avis", LIM, [neuf(), mod("classe", "GL24h")], {"avis": "sur mesure"})
+cas("bois", "note v1 (copie de l'écran Streamlit) rouverte : les noms gardés, l'avis d'ouverture", LIM, [calc(BO.NOTE_V1)],
+    {"avis": "les données sont à ressaisir", "elements": 2})
+cas("bois", "poutres ajoutée, copiée, la première supprimée", LIM,
+    [neuf(), mod("charges/Q", "1,5"), act("ajouter"), mod("L", "3"), act("dupliquer"), act("supprimer", index=0)], {"elements": 2})
+cas("bois", "note sans poutre : une note neuve", LIM, [ABIMEE], {"taux": [56, 56]})
+cas("bois", "note abîmée (« poutres » n'est pas une liste)", LIM, [{"action": "calculer", "etat": {"version": 2, "poutres": "abîmé"}}], {"erreur": True})
+cas("bois", "note d'une version plus récente refusée", LIM, [{"action": "calculer", "etat": {"version": 3, "poutres": [{"nom": "Demain"}]}}], {"erreur": True})
 
 # ====================================================================== flambement
 cas("flambement", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
