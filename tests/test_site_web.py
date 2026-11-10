@@ -20,6 +20,7 @@
 
     python3 tests/test_site_web.py
 """
+import fnmatch
 import hashlib
 import importlib
 import json
@@ -1092,6 +1093,31 @@ ignore = {l.strip() for l in open(os.path.join(WEB, ".assetsignore"), encoding="
 chk("les outils de développement et la configuration ne sont pas publiés (.assetsignore)",
     {"wrangler.jsonc", "README.md", "construire.py", "verifier_site.js", "outils", "__pycache__", ".wrangler"} <= ignore
     and not ignore & {"index.html", "js", "css", "vendor", "moteur", "_headers"}, sorted(ignore))
+# (revue S4, deploiement-07) la liste fixe laissait passer verifier_demarrage.js, harnais posé à la racine du site : une
+# RÈGLE, qui rougira aussi sur le prochain. Un script .js à la racine du dossier publié qu'AUCUNE page ne charge est un
+# outil (un harnais, une sonde) : exclu de la mise en ligne ; un script qu'une page charge ne l'est pas (la page casserait).
+# .assetsignore se lit comme Cloudflare le lit (motifs à la gitignore) : un nom ou un motif « * » sans « / » vaut pour le
+# nom du fichier, quel que soit le dossier.
+
+
+def _exclu(nom, motifs):
+    return any(fnmatch.fnmatchcase(nom, m.strip("/")) for m in motifs if "/" not in m.strip("/"))
+
+
+_pages_publiees = {f: open(os.path.join(WEB, f), encoding="utf-8").read() for f in os.listdir(WEB) if f.endswith(".html")}
+
+
+def _pages_qui_chargent(js):
+    motif = re.compile(r'(?:src|href)="(?:\./|/)?' + re.escape(js) + r'(?:[?#][^"]*)?"')
+    return sorted(p for p, t in _pages_publiees.items() if motif.search(t))
+
+
+_js_racine = sorted(f for f in os.listdir(WEB) if f.endswith(".js") and os.path.isfile(os.path.join(WEB, f)))
+_publies_sans_page = [f for f in _js_racine if not _pages_qui_chargent(f) and not _exclu(f, ignore)]
+_charges_exclus = [f for f in _js_racine if _pages_qui_chargent(f) and _exclu(f, ignore)]
+chk(f"chaque script .js de la racine du site qu'aucune page ne charge est exclu de la mise en ligne, et aucun script chargé "
+    f"ne l'est ({', '.join(_js_racine)})", "verifier_site.js" in _js_racine and len(_pages_publiees) >= 21
+    and not _publies_sans_page and not _charges_exclus, {"publiés sans être chargés": _publies_sans_page, "chargés mais exclus": _charges_exclus})
 
 # 9. chaque module du registre a sa place dans les familles de l'accueil (nom, icône) : sinon il serait écarté du site
 from api_web import registre as REG2  # noqa: E402
