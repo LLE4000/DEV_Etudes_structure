@@ -319,7 +319,9 @@ limites en trois lignes au plus, les références, le cartouche :
   finis » ; pas de déformée (aucune condition d'appui justifiée dans ce modèle).
   Dégradé : taux 0 → 100 % vert progressif (#E8F5E9 → #1B5E20) ; 100 → 105 % orange progressif (#FFB74D → #E65100) ;
   > 105 % rouge #C62828 — *révisé le soir même, § 9.8 : échelle bleu → orange, coin maillé, barre en N/mm² et en %, les
-  courbes de l'aile verticale par position de l'ancrage, le remplissage jusqu'à Mmax.*
+  courbes de l'aile verticale par position de l'ancrage, le remplissage jusqu'à Mmax ; puis § 9.9 : barre arrêtée au
+  maximum du maillage, repères hors du dessin, maillage 96 × 12, et la DÉFORMÉE élastique dessinée (le « pas de
+  déformée » ci-dessus est levé, le modèle et ses limites sont écrits là).*
 Les vues de l'ÉCRAN sont les mêmes scènes (cohérence écran ↔ note) : Coupe, Moments, Contraintes, Élévation.
 
 **9.6 · Le champ de contraintes, dans le moteur (R3)** : `res["maillage"] = {"horizontale": <champ>, "verticale":
@@ -340,7 +342,7 @@ pose et les rubriques Charge, Ancrage, Hypothèses gardés — Ancrage reçoit e
 support ; Hypothèses reçoit l'état limite en tête (coef en ELS seulement).
 
 **Hors demande, donc non fait** : dimensionnement automatique (le choix reste manuel ; le sélecteur existant n'est
-qu'une liste), autres modules, déformée.
+qu'une liste), autres modules. La déformée, non faite ici, l'a été ensuite sur demande expresse (§ 9.9).
 
 **9.8 · Révision du 10/11 au soir, devant les captures des scènes (remarques de l'ingénieur)** — quatre retouches qui
 MODIFIENT § 9.1 et § 9.6 ci-dessus :
@@ -362,3 +364,43 @@ MODIFIENT § 9.1 et § 9.6 ci-dessus :
 - *Écran* : la désignation du catalogue n'est plus tapée mais choisie dans un MENU DÉROULANT des 233 cornières (deux
   familles, par dimensions croissantes) ; la liste calculée avec les charges (taux, ★) reste celle de la ligne
   « Cornière » du résultat.
+
+**9.9 · Seconde révision du 10/11 au soir, devant les captures de § 9.8 (remarques de l'ingénieur)** — quatre
+retouches de la scène `contraintes`, dont une qui ajoute un MODÈLE au moteur ; elles MODIFIENT § 9.1, § 9.6 et § 9.8 :
+- *La barre de couleur s'arrête au maximum du maillage.* « Dans le maillage il n'y a pas de rouge, mais l'échelle met du
+  rouge… si on dépasse de 102 %, l'échelle va de 0 à 102 % » : la barre va de 0 au plus grand taux du maillage (les
+  deux ailes et le coin) et écrit cette valeur en haut (« 90,2 % », « 144,5 % ») ; 50, 100 et 105 % ne sont gradués que
+  s'ils sont SOUS ce maximum et à plus de `ECART_GRADUATION` (7 % du maximum) de toute graduation déjà gardée — jamais
+  deux chiffres superposés. L'ÉCHELLE DE COULEURS, elle, ne change pas (§ 9.8 : une couleur = un taux, partout) : la
+  barre n'en montre que la partie atteinte. Le cas de contrôle monte au jaune (90,2 % · 213,4 N/mm²) ; la limite
+  (236,7) ne s'écrit que si l'échelle l'atteint (B chargée : 0 → 144,5 %, « 236,7 » face à « 100 % », 105 % tu).
+- *Rien ne traverse le dessin.* Les repères 1 à 4 restent écrits, mais HORS de la pièce : chaque pastille est reliée à
+  la face extérieure (déformée) par un pointillé noir très léger — classe `sl` du kit : trait 0,45, tirets 1,2/1,8,
+  couleur atténuée — qui s'ARRÊTE au contour ; plus aucun trait de section à travers la cornière ; l'axe de l'ancrage et
+  ses positions ± dy en repères courts de part et d'autre de l'aile verticale (à l'ancrage la déformée est nulle).
+- *Un maillage plus fin.* « Trop de carrés, les carrés plus petits » : `PAS_MAILLAGE` = (24, 72) — 96 pas en s par aile
+  au lieu de 48 — et `ZETA` à TREIZE niveaux (−1, −5/6 … +1) au lieu de neuf ; le coin suit (13 × 13 nœuds, 144
+  mailles) : 2 448 mailles par dessin au lieu de 832. Les coordonnées du SVG sont arrondies à 4 décimales (`_r4`) pour
+  que le dessin reste à ≈ 300 ko ; rien ne se voit.
+- *Le maillage est dessiné DÉFORMÉ* (« tu avais envoyé hier une photo avec le maillage déformé, je préfère »). § 9.1 et
+  § 9.8 disaient « pas de déformée : aucune condition d'appui justifiée dans ce modèle » ; on en écrit une, et on dit ce
+  qu'elle vaut. **Le modèle** (`maillage["deformee"]`, calculé par le moteur — R3) : la déformée ÉLASTIQUE de la
+  combinaison gouvernante par la poutre qui porte déjà les contraintes — courbure κ(s) = −M(s)/(E·I(s)), E = 210 000
+  N/mm² (`E_ACIER`), I = b·t(s)³/12 avec b la largeur du modèle de contraintes (L ou L_eff) et t(s) l'épaisseur vraie,
+  congé compris ; M(s) le moment signé du moteur (> 0 = face du congé tendue) ; la flèche de chaque aile par double
+  intégration (trapèzes sur les abscisses du maillage) depuis le nu de l'angle s = e ; le bloc d'angle (s < e) RIGIDE,
+  qui tourne de θ et translate avec le pied de l'aile verticale, l'aile horizontale quittant l'angle avec la pente −θ.
+  **Les appuis** sont ceux du schéma statique : l'aile verticale ne bouge pas à l'ANCRAGE (s = Y′ de la combinaison
+  gouvernante) ni à l'APPUI du modèle — le pivot du classeur (e/2 en historique, y_c en équilibre) en A, le CONTACT du
+  bout libre (s = haut − y_c) en B ; ces deux zéros fixent θ et la translation du bloc. u > 0 vers la face du congé.
+  Cas de contrôle : u_max = 0,62 mm au bout de l'aile horizontale (vers le bas), θ = 2,9 mrad ; B chargée : 2,24 mm.
+  **La scène** amplifie pour que le plus grand déplacement fasse `PART_DEFORMEE` × haut (10 %), translate le coin d'un
+  bloc, garde le contour d'ORIGINE en tirets fins et écrit, en troisième mention, « déformée élastique · charge à X,
+  ancrage à Y · u max = 0,62 mm · × 20 ». **Ce que ça vaut** : une déformée de POUTRE — la même approximation que les
+  contraintes (Euler–Bernoulli : ni cisaillement, ni déformation locale sous l'écrou ou du support, ni plastification) —,
+  à lire comme l'image de la flexion qui produit les couleurs, pas comme une flèche à comparer à un critère. Le moteur
+  garde `u_max` et `theta` en vrais mm et rad ; aucun critère n'est posé dessus (hors demande). Preuve : la déformée est
+  recalculée indépendamment dans `tests/test_corniere_moteur.py` (κ, intégration, appuis, θ, bloc, signe du bout en A et
+  en B), les nœuds déformés dans `tests/test_corniere_schemas.py` ; mutations rejetées : courbure du signe de M, bloc qui
+  ne tourne pas, pivot pris au talon, déformée non dessinée, barre jusqu'à 105 % quel que soit le maillage, repère de
+  section à travers le dessin.

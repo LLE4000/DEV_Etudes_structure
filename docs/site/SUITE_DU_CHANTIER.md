@@ -190,6 +190,60 @@ chaîne (moteur → schémas → écran ‖ note → intégration), puis deux re
   modules 364). Captures regardées : coupe A et B au PC, vues Moments et Contraintes, coupe B au téléphone, note PDF
   (5 pages). Générés : 15fe358, e0dea86.
 
+## Fait ensuite, la révision § 9 du module Cornières (même branche `integration-nuit-0911`, sur 703092f, 10/11/2026 au soir)
+
+Demande de l'ingénieur (10/11 au soir, « en une seule intervention ») : la page 2 de la note en trois colonnes
+graphiques (élévation et largeur efficace ; les moments dessinés SUR la cornière avec les trois courbes et l'enveloppe ;
+un maillage de von Mises coloré, vert → orange à 100 % → rouge au-delà de 105 %), les paramètres des ancrages (nombre,
+entraxe, type, profondeur, rondelles), le support (voile ou poutre avec ses limites, dessiné à l'échelle avec coupures),
+les jeux par défaut dx = ±10 et dy = ±5, le choix ELS/ELU dans les hypothèses ; puis la page 1 resserrée (hypothèses
+compactes, charge et ancrage en lignes) et la colonne de gauche de l'écran (volet de détails pour le catalogue, champs
+visibles en saisie libre). Décisions écrites AVANT le code : `docs/acier/CORNIERE_DECISIONS.md` § 9 ; le détail dans
+`docs/acier/CORNIERE_MOTEUR.md` § 14 (et § 10, 11, 12 révisés par les lots).
+
+- ~~Moteur~~ : a41118d — `etat_limite` ELS/ELU (en ELU : f_y/γ_M0 avec γ_M0 = 1,0, τ = f_y/(√3·γ_M0), von Mises
+  EN 1993-1-1 § 6.2.1(5), les chevilles reçoivent H/n et R/n, plus de 1,5 nulle part ; invariant prouvé taux(ELS, R) =
+  taux(ELU, coef·R)), ancrages (entraxe vide = L/n, positions, refus aux minima de l'EN 1993-1-8 tableau 3.3, type,
+  profondeur, rondelles ISO 7089 / 7093-1), support voile/poutre (refus si l'ancrage ou le contact sort de la poutre,
+  distances aux bords), champ de von Mises (σ = M·ζ/W + N/A, τ = V/A, enveloppe maille par maille des combinaisons, le
+  modèle du classeur et non des éléments finis), jeux 10/5 ; 115 contrôles, 35 mutations.
+- ~~Schémas~~ : 923576f (kit : `style_prim`, six classes) et 82aae43 — coupe avec le support, l'ancrage (manchon,
+  scellement hachuré, traversant avec écrou), la profondeur, les rondelles ; moments SUR la cornière (axes M = 0, trois
+  courbes et enveloppe remplie, M1…M4) ; contraintes = maillage 48 × 8 par aile coloré par le taux, barre de couleur,
+  maximum ◉ ; élévation avec les positions des ancrages (e₁ · s · … · e₁) et les coupures ; 193 contrôles.
+- ~~Écran~~ : 5c70c4f, 2ea8561 (regel), c8a59aa, e37b5ac (γ_M0 « 1,0 », placeholders courts), e5031f3 (regel) — volet
+  « Détails » du catalogue, ELS/ELU, entraxe, type, profondeur, rondelles, support ; 199 contrôles, 24 états, 23
+  mutations ; harnais `module:corniere` 85 OK.
+- ~~Note PDF~~ : 1e9df24, dc22572, 18ca8cc — page 2 DOMINÉE par les dessins (résumé de méthode en trois lignes, puis trois
+  colonnes égales : élévation et largeur efficace, moments sur la cornière, contraintes de von Mises avec sa barre ;
+  limites ≤ 3 lignes, références, cartouche ; 2 400–2 700 caractères hors cartouche au lieu de ≈ 6 500 ; jamais de page de
+  suite), page 1 compacte (hypothèses en 7–8 lignes « libellé · valeur », charge et ancrage en 11 lignes, ELU : symboles,
+  N_ELU/V_ELU seuls, conclusion « critère de von Mises, γ_M0 = 1,0 »), garde avec l'état limite ; le peintre du kit cale les
+  textes à ancre `end` à droite (additif) ; 90 contrôles (17 états, 1 551 formules ré-évaluées, 10 mutations, sonde
+  navigateur) ; intégration 5cb2f4e (légende des contraintes à la nouvelle échelle, le coin compté, trois cornières dans
+  `construire.NOTES_RELEVE`).
+- ~~Révision § 9.8~~ : f70b393 (regel f8ac262) — les remarques de l'ingénieur devant les captures : trois zéros à Y ± dy sur
+  l'aile verticale (les courbes par position de l'ancrage), remplissage jusqu'à Mmax et Mmax écrit à gauche, échelle de
+  couleurs bleu → orange → rouge, coin maillé (`maillage["coin"]`), barre graduée en N/mm² et en %, menu déroulant des
+  233 cornières.
+- ~~Révision § 9.9~~ : bb436b1 — la seconde remarque, devant les captures de § 9.8 : la barre de couleur arrêtée au maximum
+  du maillage (sa valeur écrite ; 50/100/105 % seulement sous le maximum et sans superposition), les repères 1 à 4 hors
+  du dessin (pointillé léger `sl` jusqu'au contour), le maillage deux fois plus fin (96 × 12 par aile, 12 × 12 dans le
+  coin), le maillage dessiné DÉFORMÉ par la déformée élastique de la combinaison gouvernante calculée par le moteur
+  (`maillage["deformee"]` : poutre, appuis du schéma statique, bloc rigide ; amplifiée à 10 % de haut, facteur écrit,
+  contour d'origine en tirets) ; le modèle et ses limites écrits en § 9.9 des décisions.
+- ~~Intégration~~ : 5cb2f4e, db4c08e (lot note : légende à la nouvelle échelle, coin compté, trois cornières dans la note
+  riche, site reconstruit) ; après § 9.9 : 9fe3d3a (site reconstruit, photo de référence regelée — la légende de la vue des
+  contraintes et les nombres du dessin, affichage seul). Sur l'arbre réuni : moteur 118, schémas 203, note 90, kit 52,
+  module web 201, référence 21 OK ; harnais `module:corniere` 85, `formats:corniere` 117, `note_pdf` 119, `pilote` 63 OK,
+  0 KO ; suite complète 119/119 suites vertes, 9 471 OK, 0 échec (706 s sur 4 processus).
+- À confirmer par l'ingénieur à l'écran : γ_M0 = 1,0 (ANB) ; la profondeur 100 mm et une rondelle par défaut ; R_ELU =
+  1,5·R comme valeur initiale en ELS ; les points de la section précédente (contact au talon, S420, moment en B).
+- Non fait, et pourquoi : la déformée n'était d'abord pas faite (« seulement si disponible et justifiée ») — demandée
+  expressément ensuite, elle l'est, avec son modèle écrit (§ 9.9 ; pas de critère de flèche) ; le dimensionnement automatique et
+  les autres modules (hors demande) ; les ancrages restent sur une ligne horizontale (l'étape 4 — cornière longue,
+  plusieurs lignes, charges localisées — reste à faire).
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

@@ -263,8 +263,8 @@ même repère (talon à l'origine, aile horizontale vers la droite, aile vertica
 | Vue | Ce qu'elle montre | Échelle |
 |---|---|---|
 | `coupe` | LE plan de principe coté : le SUPPORT — « voile » : le mur sans limite, rompu en haut et en bas ; « poutre » : ses deux arêtes réelles à y = −support_haut et +support_bas, cotées depuis l'axe d'ancrage le plus proche de chaque bord (`bord haut`, `bord bas` = `bords_poutre`, la distance que Hilti demande), COUPÉE par des lignes de rupture quand elle dépasse 1,5 × haut (la cote traverse la coupure et garde sa vraie valeur) — ; la cornière (congé r₁, bouts r₂) ; la charge R à X en plein et X ± dx en tirets ; l'ANCRAGE : la tige jusqu'à −profondeur (cotée « hef », « ép. » pour le traversant ; coupée au-delà de 1,2 × haut), les rondelles selon `rondelles` aux dimensions de `geometrie["rondelle"]` (ISO 7093-1 large contre l'aile, ISO 7089 sous l'écrou), l'écrou, le rendu du `type_ancrage` (mécanique : douille d'expansion au fond ; chimique : tige dans son scellement hachuré fin ; traversant : le support a l'épaisseur `profondeur`, face arrière droite, écrou et rondelle derrière), l'axe et Y ± dy en tirets fins ; la résultante C au pivot (A) ou au contact du bout libre (B) ; la ligne u_V (équilibre) ; les sections 1 à 4 en orange avec pastilles ; les cotes larg, haut, e, r, X, Y et les bras DU MODE ; les valeurs R, H, C. L'état limite (ELS, ELU) est dit par la légende, les étiquettes restent « R = 35 kN » | mm |
-| `moments` | « les moments sur la cornière », le principe du classeur (figure c) : l'axe de chaque aile tracé et nommé « M = 0 » ; le diagramme de chaque aile porté PERPENDICULAIREMENT à l'aile depuis cet axe, HORS de l'angle (horizontale : vers la face extérieure, c'est-à-dire vers le bas en A et vers le haut en B — le signe de B se lit au côté ; verticale : côté support), à une ÉCHELLE COMMUNE aux deux ailes (`PART_MOMENT` = 0,7 : le plus grand moment, Mmax, occupe 0,7 × haut) ; les courbes du moteur (`courbes` : une par position de la charge, extrêmes `cvf` fines, nominale `cvm` moyenne), l'ENVELOPPE `env` en gras, la zone entre l'axe et l'enveloppe REMPLIE (`envf`, rouge à 12 %) ; le prolongement en pointillé (`envp`) dans le bloc d'angle jusqu'à Mmax au nu du support (et, en historique, jusqu'au pivot du classeur à e/2 ; en B le moment constant jusqu'à l'axe) ; les sections 1 à 4 (trait, tirets jusqu'à l'enveloppe, pastille au-delà) avec la valeur de l'enveloppe « M1 = 2,010 » (la grandeur, trois décimales), « Mmax = », en B « M4 = M angle = » ; l'ancrage (axe, trou, bande ± dy, « Y = 85 ± 5 ») ; R en petite flèche à X et ses positions ± dx. Rien d'autre : pas de paragraphe | mm ; moments : 0,7 × haut / Mmax |
-| `contraintes` | « le maillage de von Mises » : les mailles (s_i, s_{i+1}) × (ζ_j, ζ_{j+1}) de `res["maillage"]` posées sur la vraie géométrie (face extérieure, face du congé qui suit l'arc t(s)), chaque maille colorée (`fill` sur la primitive) par le PLUS GRAND des taux de ses quatre nœuds selon le dégradé imposé (`couleur_taux` : 0 → 100 % vert #E8F5E9 → #1B5E20, 100 → 105 % orange #FFB74D → #E65100, au-delà rouge #C62828) ; le bloc d'angle (s < e) hachuré gris « hors modèle » ; le contour par-dessus (bouts droits : la géométrie du modèle) ; le maximum ◉ de chaque aile à `maxima[aile]["s"]` sur la face ζ du maillage, étiqueté avec le taux de la VÉRIFICATION (« 90,2 % · s = 26,3 ») ; les sections 1 à 4 (pastilles hors de la pièce) ; l'axe de l'ancrage et ± dy ; la barre de couleur (0, 50, 100 %, 105 %, titrée « taux σéq / σadm » ou « / fy/γM0 ») ; deux lignes sous le dessin : « σ = M·ζ/W + N/A, τ = V/A uniforme (poutre, classeur) · enveloppe des positions » et « pas un calcul par éléments finis ». Pas de déformée | mm |
+| `moments` | « les moments sur la cornière », le principe du classeur (figure c) : l'axe de chaque aile tracé et nommé « M = 0 » ; le diagramme de chaque aile porté PERPENDICULAIREMENT à l'aile depuis cet axe, HORS de l'angle (horizontale : vers la face extérieure, c'est-à-dire vers le bas en A et vers le haut en B — le signe de B se lit au côté ; verticale : côté support), à une ÉCHELLE COMMUNE aux deux ailes (`PART_MOMENT` = 0,7 : le plus grand moment, Mmax, occupe 0,7 × haut) ; les courbes du moteur (`courbes` : une par position du paramètre qui déplace le ZÉRO de l'aile — la charge X ± dx sur l'horizontale, l'ancrage Y ± dy sur la verticale (§ 9.8 : « 85 ± 5, trois zéros ») —, extrêmes `cvf` fines, nominale `cvm` moyenne), l'ENVELOPPE `env` en gras, la zone entre l'axe et l'enveloppe REMPLIE (`envf`, rouge à 12 %) JUSQU'AU BOUT du prolongement ; le prolongement en pointillé (`envp`) dans le bloc d'angle jusqu'à Mmax au nu du support (et, en historique, jusqu'au pivot du classeur à e/2 ; en B le moment constant jusqu'à l'axe), chacun étiqueté — « Mmax = » en bas ET à gauche, « M angle = » en B ; les sections 1 à 4 (trait, tirets jusqu'à l'enveloppe, pastille au-delà) avec la valeur de l'enveloppe « M1 = 2,010 » (la grandeur, trois décimales), en B « M4 = M angle = » ; l'ancrage (axe, trou, bande ± dy, « Y = 85 ± 5 ») ; R en petite flèche à X et ses positions ± dx. Rien d'autre : pas de paragraphe | mm ; moments : 0,7 × haut / Mmax |
+| `contraintes` | « le maillage de von Mises » : les mailles (s_i, s_{i+1}) × (ζ_j, ζ_{j+1}) de `res["maillage"]` (96 × 12 par aile, § 9.9) posées sur la vraie géométrie (face extérieure, face du congé qui suit l'arc t(s)) ET les 12 × 12 mailles du coin (`maillage["coin"]`, le bloc d'angle, § 9.8), le tout dessiné DÉFORMÉ (§ 9.9) : chaque nœud déplacé du déplacement RÉEL de `maillage["deformee"]` (poutre élastique de la combinaison gouvernante — l'aile horizontale bouge en y, la verticale en x, le bloc d'angle translate d'un bloc) amplifié pour que le plus grand fasse `PART_DEFORMEE` × haut (10 %), le contour d'ORIGINE en tirets fins (`hd`) et le contour déformé par-dessus ; chaque maille colorée (`fill` sur la primitive) par le PLUS GRAND des taux de ses quatre nœuds selon l'échelle imposée (`couleur_taux`, `PALETTE_TAUX` : 0 bleu #2563EB → 25 % cyan #06B6D4 → 50 % vert #22C55E → 75 % jaune #FACC15 → 100 % orange #F97316, par morceaux ; 100 → 105 % orange → rouge-orangé #C2410C ; au-delà rouge #DC2626) ; le maximum ◉ de chaque aile à `maxima[aile]["s"]` sur la face ζ du maillage déformé, étiqueté avec le taux de la VÉRIFICATION (« 90,2 % · s = 26,3 ») ; les sections 1 à 4 en pastilles HORS de la pièce, reliées à la face extérieure par un pointillé léger (`sl`) qui s'arrête au contour — rien ne traverse le dessin ; l'axe de l'ancrage et ± dy en repères courts hors de la pièce ; la barre de couleur de 0 au MAXIMUM du maillage, sa valeur écrite en haut (« 90,2 % »), 50 / 100 % / 105 % seulement sous le maximum et à plus de `ECART_GRADUATION` (7 %) de toute graduation gardée, graduée des DEUX côtés — σéq en N/mm² à gauche (la limite « 236,7 » quand l'échelle l'atteint), le taux en % à droite —, titrée « σéq N/mm² » et « taux σéq / σadm » (ou « / fy/γM0 ») ; trois lignes sous le dessin : « σ = M·ζ/W + N/A, τ = V/A (poutre, classeur) · enveloppe des positions », « coin : sections 2 et 4 prolongées · pas un calcul par éléments finis », « déformée élastique · charge à X, ancrage à Y · u max = 0,62 mm · × 20 » ; coordonnées arrondies à 4 décimales (`_r4`, ≈ 300 ko) | mm ; déformée : 0,1 × haut / u_max |
 | `elevation` | la tranche L vue de face (les n ancrages à `ancrages["positions_z"]`, la chaîne de cotes e₁ · s · … · e₁, « N ELS = 14,25 kN » / « V ELS = … » par ancrage — « N ELU » quand l'état limite saisi est l'ELU — sous chaque ancrage si la place le permet, sinon une ligne pour tous) et l'aile horizontale RABATTUE (la charge de largeur a à X, la position X′ qui gouverne en tirets, le trapèze de diffusion à 45° dont la base mesure L_eff, coté) ; des COUPURES entre les ancrages quand L > 2,5 × haut (L = 900 : deux coupures, la tranche dessinée ≈ 630, la cote « L = 900 » et la chaîne 150 · 300 vraies) ; très peu de texte | mm (tranche coupée au-delà de 2,5 × haut) |
 
 **Les coupures** (`_Coupures`, `_rect_coupe`, `coupures_elevation`). Une tranche de l'axe est retirée du dessin et remplacée
@@ -628,3 +628,99 @@ Y + dy > 43,5 mm (les deux enveloppes sont gouvernées par l'ancrage haut : la m
 le taux retenu) ; B, moment R·(X′ − e/2) et non R·(X′ − u_V) des décisions (le moteur est juste, § 8). Une note B
 chargée (L 150×150×15, R = 60 kN, a = 120, Ø20) prend une page de suite (le tableau des sections y passe) : prévu, parité
 tenue.
+
+## 14 · La révision § 9 des décisions (10/11/2026 au soir) — état limite, ancrages, support, maillage, jeux
+
+**La demande.** Le 10/11 au soir, l'ingénieur a demandé une mise à jour en une seule intervention : la page 2 de la
+note en trois colonnes graphiques (largeur efficace et élévation ; les moments dessinés SUR la cornière, les trois
+courbes et l'enveloppe ; un maillage de von Mises coloré), les paramètres des ancrages (nombre, entraxe, type,
+profondeur, rondelles), le support (voile ou poutre avec ses limites), les jeux par défaut dx = ±10 et dy = ±5, le
+choix ELS/ELU dans les hypothèses ; puis la page 1 resserrée et la colonne de gauche de l'écran avec un volet de
+détails. Les décisions sont écrites AVANT le code dans `CORNIERE_DECISIONS.md` § 9 ; ce chapitre dit ce que le moteur
+fait, renvoie aux chapitres des lots (§ 10 vues, § 11 écran, § 12 note), et donne les comptes de l'intégration.
+
+**Le moteur (a41118d).**
+
+- *État limite* (`etat_limite` = `ELS` | `ELU`, défaut ELS). En ELS, rien ne change : σ_adm = f_y/coef, τ_adm =
+  σ_adm/√3, la réaction R est une valeur de service, R_ELU (saisie ou 1,5·R) sert aux chevilles. En ELU, R est saisie
+  à l'ELU, la limite est f_y/γ_M0 avec γ_M0 = 1,0 (`entree.GAMMA_M0`, l'ANB belge), τ_lim = f_y/(√3·γ_M0), le critère
+  reste von Mises (EN 1993-1-1 § 6.2.1(5)) — plus de 1,5 nulle part ; les chevilles reçoivent directement N = H/n et
+  V = R/n (`N_ELU_direct`, `V_ELU_direct`), et `N_ELS`/`V_ELS`, `R_ELU`, `rapport` valent `None`. Les clés `sigma_adm`
+  et `tau_adm` du résultat SONT la limite de l'état choisi (un seul nom pour l'écran et la note) ; `materiau` porte
+  `etat_limite`, `gamma_M0`, `symbole_sigma` (« σ_adm » ou « f_y/γ_M0 ») et `symbole_tau`. L'invariant prouvé :
+  taux(ELS, R) = taux(ELU, coef·R) à 1e-9 (le cas de contrôle en ELU à 64,14 kN rend 88,8621 %).
+- *Ancrages* : `entraxe` (vide = L/n), positions z_i = L/2 + (i − (n−1)/2)·s (`entree.positions_ancrages`), distance au
+  bout e₁ = (L − (n−1)·s)/2 ; refus de domaine aux minima de l'EN 1993-1-8 tableau 3.3 (s ≥ 2,2·d0 pour n ≥ 2, e₁ ≥
+  1,2·d0), `type_ancrage` (mécanique, chimique, traversant), `profondeur` (défaut 100 mm ; l'épaisseur traversée pour
+  un traversant), `rondelles` 0/1/2 avec la table ISO 7089 / 7093-1 (`entree.RONDELLES`, `rondelle(d)`). Les ancrages
+  sont toujours sur UNE ligne horizontale : ce lot ne change pas la statique, il la paramètre et la dessine.
+- *Support* : `support` = voile (défaut, infini) ou poutre avec `support_haut`/`support_bas` mesurés depuis la face
+  extérieure de l'aile horizontale ; refus si l'ancrage (Y ± dy, plus d0/2) sort de la poutre ou si le contact de la
+  configuration B tombe hors d'elle ; `geometrie["bords_poutre"]` donne les distances de l'ancrage le plus proche aux
+  deux bords (informations `bord_poutre_haut`/`bord_poutre_bas`).
+- *Champ de von Mises* (`calculer(...)["maillage"]`, `PAS_MAILLAGE = (12, 36)` × `ZETA` neuf niveaux à l'origine ;
+  (24, 72) × treize niveaux depuis § 9.9, soit 97 abscisses × 13 par aile) : pour chaque aile, σ_x = M·ζ/W + N/A et
+  τ = V/A uniforme (le modèle du classeur, pas un calcul par éléments finis), σ_éq et le taux, l'ENVELOPPE des
+  combinaisons de jeux maille par maille (jamais le moment d'une position avec le tranchant d'une autre), et le maximum
+  nommé ; sur les sections S1 à S4, max_ζ σ_éq retrouve la vérification à 1e-9, et le maximum du champ est à moins de
+  1 % du maximum réel du congé. Le COIN (`maillage["coin"]`, § 9.8 : 13 × 13 nœuds) et la DÉFORMÉE
+  (`maillage["deformee"]`, § 9.9, ci-dessous) complètent le dictionnaire. `diagrammes=False` → `None`.
+- *Jeux* : dx = 10, dy = 5 par défaut (étaient 20 et 10) ; R par défaut 35 kN.
+- Preuve : `tests/test_corniere_moteur.py` § 10 bis — 118 contrôles, 41 mutations rejetées (parmi elles : la limite
+  ELU qui garderait le coefficient 1,5, un maillage sans τ ou sur une seule combinaison, l'entraxe minimal oublié, le
+  contact hors de la poutre, les positions sans e₁, le coin à un seul champ, la courbure du signe de M, le bloc d'angle
+  qui ne tourne pas, le pivot pris au talon).
+
+**Les lots.** Vues : 923576f (kit : la couleur portée par la primitive, `style_prim`) et 7bcb820 → § 10 révisé.
+Écran : 5c70c4f, 2ea8561 (regel), c8a59aa, e37b5ac (γ_M0 « 1,0 », placeholders courts), e5031f3 (regel) → § 11.
+Note : 1e9df24, dc22572 (page 2 dominée par les dessins, page 1 compacte, ELS/ELU, `formules.renommer`, peintre du kit : l'ancre
+`end` calée à droite), 18ca8cc (doc) → § 12 ; intégration 5cb2f4e (légende des contraintes à la nouvelle échelle, le coin
+compté, trois cornières dans `construire.NOTES_RELEVE`).
+
+**Révision § 9.8 (f70b393, regel f8ac262)** — les remarques de l'ingénieur devant les captures : les courbes de l'aile
+verticale par position de l'ANCRAGE (trois zéros à Y ± dy ; `courbes[].parametre`, `jeu`), le remplissage jusqu'à Mmax
+sur les deux ailes et Mmax écrit à gauche, l'échelle de couleurs bleu → orange → rouge, le COIN maillé
+(`maillage["coin"]`, § 9.6 révisé : sections 2 et 4 prolongées à la fibre de même distance à la face extérieure,
+enveloppe des deux), la barre graduée en N/mm² et en %, le menu déroulant des 233 cornières à l'écran.
+
+**Révision § 9.9** — la seconde remarque de l'ingénieur devant les captures : la barre de couleur s'ARRÊTE au maximum
+du maillage (`t_haut`, sa valeur écrite ; 50/100/105 % gradués seulement sous ce maximum et à plus de
+`ECART_GRADUATION` = 7 % de toute graduation gardée), les repères 1 à 4 HORS du dessin (pastilles reliées à la face
+extérieure par le pointillé `sl` du kit, qui s'arrête au contour ; l'axe de l'ancrage en repères courts), le maillage
+deux fois plus fin (96 × 12 par aile, 12 × 12 dans le coin, coordonnées arrondies à 4 décimales), et le maillage dessiné
+DÉFORMÉ. La déformée est un MODÈLE du moteur (`_deformee`, `maillage["deformee"]`) : la poutre élastique de la
+combinaison gouvernante — κ = −M(s)/(E·I(s)), E = 210 000 N/mm², I = b·t(s)³/12 avec la largeur du modèle de
+contraintes et l'épaisseur vraie du congé —, double intégration par trapèzes sur les abscisses du maillage depuis le nu
+de l'angle, bloc d'angle rigide (rotation θ, translation `u_bloc`), l'aile verticale fixée à l'ANCRAGE (Y′ de la
+combinaison gouvernante) et à l'APPUI du schéma statique (pivot e/2 en historique, y_c en équilibre ; contact
+haut − y_c en B), l'aile horizontale partant de l'angle avec la pente −θ ; u > 0 vers la face du congé ; `u_max`, `theta`,
+`appuis` nommés. Cas de contrôle : u_max = 0,62 mm au bout de l'aile horizontale, θ = 2,9 mrad ; par défaut (R = 35, dx
+= 10, dy = 5) 0,65 mm ; B : 1,59 mm (positif). La scène amplifie à `PART_DEFORMEE` × haut (10 %) et l'écrit. Ce que ça
+vaut et ce que ça ne vaut pas : décisions § 9.9. Preuve : `fautes_deformee` (recalcul indépendant : κ, intégration,
+appuis, θ, bloc, signe du bout en A et en B) et trois mutations dans la suite du moteur ; les nœuds déformés, le
+contour, les pastilles, la barre et trois mutations (déformée non dessinée, barre jusqu'à 105 %, repère à travers le
+dessin) dans celle des schémas ; la légende de la note dit la déformée et son u_max ; le rouge franc n'est dans le PDF
+que si le maillage dépasse 105 % (suite de la note).
+
+**Intégration (le coordinateur, sur l'arbre réuni).** Les trois lots apportés dans l'ordre schémas → écran → note
+(cherry-pick ; un conflit de doc résolu à la main dans ce fichier : § 12 face au paragraphe de l'écran), puis
+l'intégration propre : 5cb2f4e (la légende des contraintes à la nouvelle échelle, le coin compté dans les mailles, trois
+cornières dans `construire.NOTES_RELEVE`) et db4c08e (site reconstruit) ; la révision § 9.8 (f70b393, regel f8ac262) ;
+la révision § 9.9 (bb436b1), son site reconstruit et la photo de référence regelée (9fe3d3a — seules la légende de la vue
+des contraintes et les nombres écrits dans le dessin changent, le calcul est identique : le regel a été accepté sans
+raison à donner). Preuves sur l'arbre réuni après § 9.9 : moteur 118 OK (41 mutations rejetées), schémas 203 OK (26),
+note 90 OK, kit 52 OK, module web 201 OK, photo de référence 21 OK ; harnais `module:corniere` 85 OK, `formats:corniere`
+117 OK, `note_pdf` 119 OK, `pilote` 63 OK — 0 KO partout ; suite complète 119/119 suites vertes, 9 471 OK, 0 échec
+(706 s sur 4 processus). Regardé, pas seulement compté :
+les quatre vues rendues en PNG à la taille de l'écran et de la colonne de la note (A par défaut, B, ELU, B sur poutre),
+les pages calcul et détails des notes PDF (els_A, B, elu, poutre_B), les captures du harnais (vue Contraintes sur PC,
+dessin au téléphone). Les trois arbres de travail des lots ont été retirés une fois chacun de leurs commits reconnu dans
+l'arbre réuni.
+
+**Non fait, et pourquoi.** Le dimensionnement automatique (hors demande). Les autres modules (hors demande, le peintre du
+kit n'a été touché que de façon additive : six classes puis `sl`). La déformée, d'abord non faite (« seulement si
+disponible et justifiée »), a été demandée expressément ensuite et faite avec son modèle écrit (§ 9.9) ; aucun critère
+de flèche n'est posé dessus.
+
+**À confirmer par l'ingénieur.** Les défauts dx = 10 et dy = 5 (sa demande) ; R_ELU = 1,5·R comme valeur initiale en
+ELS ; γ_M0 = 1,0 (ANB) et non 1,05 ; la profondeur par défaut 100 mm ; une rondelle par défaut.
