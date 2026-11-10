@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Les BRIQUES communes des modules du site (api_web/commun.py) et l'action « telecharger » du routeur
-(api_web/routeur.py) : chaque brique, chaque correction, chaque paramètre.
+"""Les BRIQUES communes des modules du site (api_web/commun.py) et les actions « telecharger » et « transmettre » du
+routeur (api_web/routeur.py) : chaque brique, chaque correction, chaque paramètre.
 
 - les nombres : ``nb`` (dec = 0 ne mange plus les zéros de la partie entière, jamais « -0 »), ``fr`` et ``pct``
   (arrondi DEMI VERS L'EXTÉRIEUR sur la valeur binaire exacte, comme ``acier.formats.F`` — le lien est éprouvé sur un
@@ -12,6 +12,8 @@
   ``case``, ``zone_texte`` ;
 - télécharger : ``bouton_telecharger``, ``nom_fichier``, ``refus_fichier`` et le routeur (fichier rendu, ou un refus en
   français — jamais une exception) ;
+- transmettre l'élément ouvert à un autre module : la note rendue (l'état RELU par la destination), chaque refus en
+  français, la date de l'envoi contrôlée, et des MUTATIONS du routeur qui rougissent ;
 - la météo du lieu : ``bouton_meteo`` (le PLAN du moteur sur le bouton, échappé ; grisé avec son message quand la
   récupération est impossible) ;
 - la RÉTRO-COMPATIBILITÉ : les sorties par défaut sont celles de la version précédente des briques, au caractère près
@@ -391,9 +393,10 @@ plante = tel(faux_module(lambda e, q: 1 / 0), quoi="json")
 chk("routeur : un module qui plante → {ok: false, erreur} lisible, jamais une exception", refus(plante, "n'a pas pu être préparé", "ZeroDivisionError"), plante)
 abime = tel(rendu(FAUX), etat=[1, 2], quoi="json")
 chk("routeur : une note abîmée → refus lisible", refus(abime, "ne se relit pas"), abime)
-# (le garde-corps fait sa note PDF depuis le 09/11/2026 : le module SANS telecharger est désormais le taux d'armature)
-reel = json.loads(R.traiter(json.dumps({"module": "taux", "action": "telecharger", "quoi": "json"})))
-chk("routeur : un vrai module sans telecharger (taux d'armature) → refus en français, sans trace", refus(reel, "aucun fichier") and "trace" not in reel, reel)
+# (le garde-corps fait sa note PDF depuis le 09/11/2026 et le taux d'armature son bordereau depuis le 10/11/2026 : le
+# module SANS telecharger est désormais le flambement)
+reel = json.loads(R.traiter(json.dumps({"module": "flambement", "action": "telecharger", "quoi": "json"})))
+chk("routeur : un vrai module sans telecharger (flambement) → refus en français, sans trace", refus(reel, "aucun fichier") and "trace" not in reel, reel)
 # la poutre a une note PDF (quoi = « note ») : un autre fichier demandé est refusé en français, sans trace
 reel = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "telecharger", "quoi": "json"})))
 chk("routeur : la poutre, un fichier qu'elle ne rend pas → refus en français, sans trace", refus(reel, "Fichier inconnu") and "trace" not in reel, reel)
@@ -401,6 +404,143 @@ inconnu = json.loads(R.traiter(json.dumps({"module": "pas_un_module", "action": 
 chk("routeur : un module inconnu → {ok: false} (comme toute autre action)", inconnu.get("ok") is False and inconnu.get("erreur"), inconnu)
 autre = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "nouveau"})))
 chk("routeur : les autres actions inchangées (une note neuve de poutre se calcule)", autre.get("ok") and "resultat" in autre, autre.get("erreur"))
+
+# ------------------------------------------------------------------ 9 ter. transmettre l'élément ouvert à un autre module
+# Le bouton data-transmettre (« Détailler dans Taux d'armature » d'une poutre, docs/site/LOT_Q_QUATRE_MODULES.md § 6.2) :
+# le module d'origine rend la note à créer, la DESTINATION relit l'état qu'on lui envoie, l'écran crée la note.
+def envoi(mod, cible=None, rt=R, **q):
+    """Une requête « transmettre » au routeur ``rt`` : le module d'origine remplacé par ``mod``, la destination « cible »
+    par ``cible`` ; jamais une exception."""
+    R.registre.module = lambda cle: mod if cle == "faux" else (cible if cle == "cible" and cible is not None else _module_reel(cle))
+    try:
+        return json.loads(rt.traiter(json.dumps(dict(module="faux", action="transmettre", **q))))
+    finally:
+        R.registre.module = _module_reel
+
+
+def emetteur(f):
+    m = faux_module()
+    m.transmettre = f
+    return m
+
+
+def _leve(e):
+    raise e
+
+
+CIBLE = types.SimpleNamespace(
+    nouvel_etat=lambda: {"version": 2, "poutres": []},
+    normaliser=lambda e: dict(e, relu=True) if isinstance(e.get("poutres"), list) else _leve(ValueError("poutres : une liste attendue")))
+NOTE = {"module": "cible", "nom": "V1 · taux d'armature", "etat": {"version": 2, "poutres": [{"nom": "V1"}]}}
+DATES = (("10/11/2026", "10/11/2026"), ("1/2/2026", "1/2/2026"), ("2026-11-10", ""), ("<script>", ""), (12, ""), (None, ""),
+         ("10/11/2026 ", ""), ("10/11/20260", ""))
+
+
+def controles_envoi(rt):
+    """Les contrôles de l'action « transmettre » joués sur le routeur ``rt`` : [(nom, vrai/faux, détail)] — les mutations
+    rejouent la même liste sur un routeur modifié."""
+    out = []
+    vu = {}
+    bon = envoi(emetteur(lambda etat, vers: vu.update(etat=etat, vers=vers) or NOTE), CIBLE, rt, etat={"x": 5}, vers="cible")
+    out.append(("routeur : {action: transmettre} rend {ok: true, note: {module, nom, etat}} (exactement), l'état RELU par la destination",
+                bon == {"ok": True, "note": {"module": "cible", "nom": "V1 · taux d'armature",
+                                             "etat": {"version": 2, "poutres": [{"nom": "V1"}], "relu": True}}}, bon))
+    out.append(("routeur : le module d'origine reçoit son état NORMALISÉ et la destination demandée", vu == {"etat": {"x": 5}, "vers": "cible"}, vu))
+    envoi(emetteur(lambda etat, vers: vu.update(neuf=etat) or NOTE), CIBLE, rt, vers="cible")
+    out.append(("routeur : transmettre sans état part d'une note neuve", vu.get("neuf") == {"version": 1, "x": 0}, vu))
+    # ---- les refus : toujours {ok: false, erreur} en français, jamais une exception
+    r = envoi(faux_module(), CIBLE, rt, vers="cible")
+    out.append(("routeur : un module sans transmettre → refus en français", refus(r, "n'envoie rien") and set(r) == {"ok", "erreur"}, r))
+    out.append(("routeur : destination absente, vide ou qui n'est pas un texte → refus",
+                all(refus(envoi(emetteur(lambda e, v: NOTE), CIBLE, rt, **q), "pas précisé") for q in ({}, {"vers": "  "}, {"vers": 3}, {"vers": None})), ""))
+    r = envoi(emetteur(lambda e, v: _leve(ValueError("Donner une longueur à chaque section."))), CIBLE, rt, vers="cible")
+    out.append(("routeur : le refus du module (ValueError) est rendu tel quel", refus(r) and r["erreur"] == "Donner une longueur à chaque section.", r))
+    r = envoi(emetteur(lambda e, v: 1 / 0), CIBLE, rt, vers="cible")
+    out.append(("routeur : un module qui plante → {ok: false, erreur} lisible et la trace à part, jamais une exception",
+                refus(r, "a échoué", "ZeroDivisionError") and "Traceback" in r.get("trace", ""), r))
+    for nom, rendu_ in (("un texte", "note"), ("sans module", {"nom": "x", "etat": {}}), ("un module qui n'est pas un texte", dict(NOTE, module=3)),
+                        ("un état qui n'est pas un dictionnaire", dict(NOTE, etat=[1])), ("rien", None)):
+        r = envoi(emetteur(lambda e, v, x=rendu_: x), CIBLE, rt, vers="cible")
+        out.append((f"routeur : un module qui rend {nom} → refus", refus(r, "impossible"), r))
+    r = envoi(emetteur(lambda e, v: dict(NOTE, module="pas_un_module")), CIBLE, rt, vers="pas_un_module")
+    out.append(("routeur : une destination qui n'est pas un module du site → refus, rien ne part", refus(r, "pas_un_module", "ne relit pas"), r))
+    r = envoi(emetteur(lambda e, v: dict(NOTE, etat={"poutres": "abc"})), CIBLE, rt, vers="cible")
+    out.append(("routeur : la destination REFUSE l'état qu'on lui envoie → refus qui la cite (jamais une note que sa page n'ouvrirait pas)",
+                refus(r, "ne relit pas", "une liste attendue"), r))
+    r = envoi(emetteur(lambda e, v: NOTE), CIBLE, rt, etat=[1, 2], vers="cible")
+    out.append(("routeur : une note d'origine abîmée → refus lisible, rien n'est envoyé", refus(r, "ne se relit pas"), r))
+    r = envoi(emetteur(lambda e, v: _leve(ValueError(""))), CIBLE, rt, vers="x" * 200)
+    out.append(("routeur : une destination interminable est abrégée dans le message", refus(r, "impossible") and len(r["erreur"]) < 120, r))
+    # ---- le nom de la note créée : une ligne, 120 caractères au plus
+    r = envoi(emetteur(lambda e, v: dict(NOTE, nom="  V1 \n\t taux   d'armature  " + "x" * 200)), CIBLE, rt, vers="cible")
+    nom = (r.get("note") or {}).get("nom", "")
+    out.append(("routeur : le nom de la note créée tient sur une ligne et en 120 caractères", nom.startswith("V1 taux d'armature x") and len(nom) == 120, nom))
+    r = envoi(emetteur(lambda e, v: dict(NOTE, nom=None)), CIBLE, rt, vers="cible")
+    out.append(("routeur : un nom absent part vide (l'écran nomme la note)", r.get("ok") is True and r["note"]["nom"] == "", r))
+    # ---- la date de l'envoi : donnée par l'écran, contrôlée, passée au seul module qui l'attend
+    recu = {}
+
+    def date_attendue(etat, vers, date="rien"):
+        recu["date"] = date
+        return NOTE
+
+    lues = []
+    for d, _ in DATES:
+        recu.clear()
+        envoi(emetteur(date_attendue), CIBLE, rt, vers="cible", date=d)
+        lues.append(recu.get("date"))
+    out.append(("routeur : la date de l'envoi « JJ/MM/AAAA » passe ; autre chose (un autre format, une balise, un nombre) part VIDE",
+                lues == [a for _, a in DATES], lues))
+    recu.clear()
+    envoi(emetteur(date_attendue), CIBLE, rt, vers="cible")
+    out.append(("routeur : sans date dans la demande, le module reçoit une date vide", recu.get("date") == "", recu))
+    r = envoi(emetteur(lambda etat, vers: NOTE), CIBLE, rt, vers="cible", date="10/11/2026")
+    out.append(("routeur : un module qui n'attend pas de date n'en reçoit pas (deux arguments)", r.get("ok") is True, r))
+    return out
+
+
+for nom_, cond_, info_ in controles_envoi(R):
+    chk(nom_, cond_, info_)
+
+# de vrais modules : celui qui n'envoie rien, et la poutre (ses refus ; l'envoi complet est contrôlé avec le module
+# « Taux d'armature » : tests/test_poutre_taux.py et tests/test_api_web_taux.py)
+reel = json.loads(R.traiter(json.dumps({"module": "flambement", "action": "transmettre", "vers": "taux"})))
+chk("routeur : un vrai module sans transmettre (flambement) → refus en français, sans trace", refus(reel, "n'envoie rien") and "trace" not in reel, reel)
+reel = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "transmettre", "vers": "taux"})))
+chk("routeur : une poutre dont les sections n'ont pas de longueur → refus qui dit quoi donner, sans trace",
+    refus(reel, "longueur", "section") and "trace" not in reel, reel)
+reel = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "transmettre", "vers": "dalle"})))
+chk("routeur : une poutre ne s'envoie que vers le taux d'armature", refus(reel, "ne s'envoie pas", "« dalle »") and "trace" not in reel, reel)
+
+
+def routeur_mute(avant, apres):
+    """Le routeur rechargé depuis sa source, ``avant`` remplacé par ``apres`` (une seule occurrence) : un module à part,
+    le vrai n'est pas touché."""
+    src = open(os.path.join(RACINE, "api_web", "routeur.py"), encoding="utf-8").read()
+    assert src.count(avant) == 1, (src.count(avant), avant)
+    m = types.ModuleType("api_web.routeur_mute")
+    m.__package__ = "api_web"
+    exec(compile(src.replace(avant, apres), "routeur_mute.py", "exec"), m.__dict__)
+    return m
+
+
+MUTATIONS_ENVOI = (
+    ("l'état envoyé n'est plus relu par la destination", 'etat_cible = cible.normaliser(out["etat"])', 'etat_cible = out["etat"]'),
+    ("la date n'est plus contrôlée", 'return d if isinstance(d, str) and DATE_ENVOI.fullmatch(d) else ""', 'return d if isinstance(d, str) else ""'),
+    ("la date part à tous les modules", 'kw = {"date": date_envoi(q)} if "date" in inspect.signature(fonction).parameters else {}',
+     'kw = {"date": date_envoi(q)}'),
+    ("le nom de la note n'est plus borné", '.split())[:NOM_NOTE_MAX]', '.split())'),
+    ("l'état d'origine est rendu avec la note", 'return {"ok": True, "note": {"module": out["module"], "nom": nom, "etat": etat_cible}}',
+     'return {"ok": True, "etat": etat, "note": {"module": out["module"], "nom": nom, "etat": etat_cible}}'),
+    ("le refus du module n'est plus rendu tel quel", 'return _refus(str(e) or f"Envoi vers « {_court(vers)} » impossible.")',
+     'return _refus(f"Envoi vers « {_court(vers)} » impossible.")'),
+)
+for nom_, avant_, apres_ in MUTATIONS_ENVOI:
+    rouges = [n for n, c, _ in controles_envoi(routeur_mute(avant_, apres_)) if not c]
+    chk(f"mutation du routeur — {nom_} : au moins un contrôle rougit", bool(rouges), rouges)
+temoin = [n for n, c, _ in controles_envoi(routeur_mute("NOM_NOTE_MAX = 120 ", "NOM_NOTE_MAX = 120  ")) if not c]
+chk("mutation témoin (une espace) : aucun contrôle ne rougit — les rejets viennent bien des mutations", temoin == [], temoin)
+chk("après les mutations, le vrai routeur est intact", all(c for _, c, _ in controles_envoi(R)))
 
 # ------------------------------------------------------------------ 9 bis. importer la météo du lieu
 print("\n=== bouton_meteo")
