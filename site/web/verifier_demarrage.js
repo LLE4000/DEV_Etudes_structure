@@ -1,0 +1,1094 @@
+// Le filtre « demarrage » du harnais (lot S4, docs/site/REFONTE_ETABLI.md, révision du 10/11/2026 au soir, S4-D5 à
+// S4-D7 et C1 à C14) : UN moteur pour toute la session, des écrans qui se montent et se démontent sans recharger le
+// document, l'aperçu tout de suite, le préchauffage à l'approche, la fermeture qui ne perd ni n'écrit rien de travers.
+// Chaque contrôle se lit dans le VRAI Chromium, aux formats PC (1 440 × 900) et téléphone (390 × 844), un contexte NEUF
+// par format.
+//
+//   node site/web/verifier_demarrage.js <url> <dossier> [sous-filtre[,sous-filtre…]]
+//   (ou : node site/web/verifier_site.js <url> <dossier> demarrage[:sous-filtre], qui délègue ici)
+//   DEMARRAGE_FORMATS=pc,tel (les deux par défaut)
+//
+// Sous-filtres : statique, moteur, prechauffage, doigt, longues, apercu, etablis, fermeture, historique, supprimer,
+// js, feuilles, ecouteurs, horsligne, version, temps, etalons.
+//
+// Ce que le harnais pose dans CHAQUE document (addInitScript, avant tout script de la page) :
+//   - une sentinelle window.__s (un nombre tiré au sort) : un document rechargé en tire un autre ;
+//   - un espion du Worker (sous-classe : le setter onmessage ET addEventListener("message") enveloppés) qui consigne
+//     les adresses des travailleurs, chaque message envoyé (requête, préchauffage) et reçu (réponse, sonde…), et sait
+//     RETARDER la livraison d'une réponse à la page (window.__retarder = {ms, module}) ou RETENIR « pret » et les
+//     réponses (cfg.retenir) — la page voit un moteur lent, le travailleur n'en sait rien ;
+//   - un PerformanceObserver « longtask » (buffered) ;
+//   - le compte des écouteurs VIVANTS sur window, document et les MediaQueryList (addEventListener /
+//     removeEventListener enveloppés, « once » et les signaux d'abandon suivis) et des minuteries setInterval ;
+//   - l'instant du clic (écouteur en capture sur window, gardé aussi en sessionStorage d'un document à l'autre) ;
+//   - la veille des états de l'écran (body[data-ecran], body[data-montage], et l'ancien voile #demarrage pour pouvoir
+//     JOUER ce filtre sur le site d'avant : il doit y rougir, pour la raison annoncée — C14, étape 2) ;
+//   - le premier instant où l'APERÇU est visible (data-ecran = apercu, résultat ou dessin peint et vu).
+// Les requêtes de navigation du cadre principal sont comptées côté node (page.on("request")) : c'est la preuve qu'aucun
+// document n'a été rechargé, indépendante de tout ce que la page dit d'elle-même.
+const { chromium } = require('playwright');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+const { spawnSync } = require('child_process');
+
+const BASE = (process.argv[2] || 'http://127.0.0.1:8770').replace(/\/$/, '');
+const OUT = process.argv[3] || '.';
+const SOUS = (process.argv[4] || '').split(',').map((x) => x.trim()).filter(Boolean);
+const FORMATS = (process.env.DEMARRAGE_FORMATS || 'pc,tel').split(',').map((x) => x.trim()).filter(Boolean);
+const RACINE = path.resolve(__dirname, '..', '..');
+const PYTHON = process.env.PYTHON || '/usr/bin/python3.12';
+const joue = (partie) => !SOUS.length || SOUS.includes(partie);
+const attendre = (ms) => new Promise((ok) => setTimeout(ok, ms));
+const mediane = (xs) => { const s = xs.filter((x) => Number.isFinite(x)).sort((a, b) => a - b); if (!s.length) return NaN; const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const court = (x, n = 500) => { const t = typeof x === 'string' ? x : JSON.stringify(x); return t && t.length > n ? t.slice(0, n) + '…' : t; };
+
+let ko = 0;
+const verif = (nom, cond, info = '') => { console.log(`${cond ? 'OK' : 'KO'}  ${nom}${info ? '  ' + info : ''}`); if (!cond) ko++; };
+
+const FMT = {
+  pc: { nom: 'PC', ctx: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false } },
+  tel: { nom: 'téléphone', ctx: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true } },
+};
+
+// ------------------------------------------------------------------------------------------ dans chaque document
+const INIT = (cfg) => {
+  if (window.__installe) return;
+  window.__installe = true;
+  cfg = cfg || {};
+  const abs = () => performance.timeOrigin + performance.now();
+  const origAdd = EventTarget.prototype.addEventListener, origRem = EventTarget.prototype.removeEventListener;
+  const oTimeout = window.setTimeout.bind(window);
+  window.__abs = abs;
+  window.__s = Math.random();
+
+  // ---- les tâches longues du fil principal, dès le début du document
+  window.__longues = [];
+  try {
+    new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__longues.push({ d: Math.round(e.duration), t: Math.round(e.startTime) }); })
+      .observe({ type: 'longtask', buffered: true });
+  } catch (e) { window.__longues = null; }
+
+  // ---- l'instant du clic : en capture sur window, avant tout écouteur de la page ; gardé d'un document à l'autre
+  origAdd.call(window, 'click', () => {
+    const t = abs();
+    window.__tclic = t; window.__yclic = scrollY;
+    try { sessionStorage.setItem('__tclic', String(t)); sessionStorage.setItem('__yclic', String(scrollY)); } catch (e) { /* stockage bloqué */ }
+  }, true);
+
+  // ---- les écouteurs VIVANTS sur window, document, MediaQueryList ; les minuteries setInterval
+  const compte = { window: 0, document: 0, mql: 0 };
+  const genre = (t) => (t === window ? 'window' : t === document ? 'document'
+    : (typeof MediaQueryList !== 'undefined' && t instanceof MediaQueryList) ? 'mql' : null);
+  const capture = (o) => (typeof o === 'boolean' ? o : !!(o && o.capture));
+  const reg = new WeakMap();   // cible → Map("type|capture" → Map(écouteur → {fn}))
+  EventTarget.prototype.addEventListener = function (type, f, o) {
+    const g = genre(this);
+    if (!g || !f) return origAdd.call(this, type, f, o);
+    const sig = o && typeof o === 'object' ? o.signal : null;
+    if (sig && sig.aborted) return origAdd.call(this, type, f, o);   // le navigateur l'ignore
+    let m = reg.get(this); if (!m) reg.set(this, (m = new Map()));
+    const k = `${type}|${capture(o)}`;
+    let s = m.get(k); if (!s) m.set(k, (s = new Map()));
+    if (s.has(f)) return origAdd.call(this, type, s.get(f).fn, o);   // un doublon : ignoré par le navigateur
+    const e = { fn: f };
+    const retirer = () => { if (s.get(f) === e) { s.delete(f); compte[g]--; } };
+    if (o && typeof o === 'object' && o.once) e.fn = function (ev) { retirer(); return typeof f === 'function' ? f.call(this, ev) : f.handleEvent(ev); };
+    s.set(f, e); compte[g]++;
+    if (sig) origAdd.call(sig, 'abort', retirer, { once: true });
+    return origAdd.call(this, type, e.fn, o);
+  };
+  EventTarget.prototype.removeEventListener = function (type, f, o) {
+    const m = reg.get(this), s = m && m.get(`${type}|${capture(o)}`), e = s && s.get(f);
+    if (e) { s.delete(f); compte[genre(this)]--; return origRem.call(this, type, e.fn, o); }
+    return origRem.call(this, type, f, o);
+  };
+  if (typeof MediaQueryList !== 'undefined') {
+    MediaQueryList.prototype.addListener = function (f) { return this.addEventListener('change', f); };
+    MediaQueryList.prototype.removeListener = function (f) { return this.removeEventListener('change', f); };
+  }
+  const minuteries = new Set(), oSI = window.setInterval, oCI = window.clearInterval, oCT = window.clearTimeout;
+  window.setInterval = function (...a) { const id = oSI.apply(window, a); minuteries.add(id); return id; };
+  window.clearInterval = function (id) { minuteries.delete(id); return oCI.call(window, id); };
+  window.clearTimeout = function (id) { minuteries.delete(id); return oCT.call(window, id); };
+  window.__vivants = () => ({ ...compte, minuteries: minuteries.size });
+
+  // ---- l'espion du Worker
+  const W = window.Worker;
+  window.__W = W;
+  window.__travailleurs = []; window.__instances = []; window.__journal = [];
+  window.__retardees = []; window.__livrees = [];
+  const envois = new WeakMap();   // travailleur → Map(id → {module, action})
+  const enAttente = [];
+  let relache = cfg.retenir ? performance.timeOrigin + cfg.retenir : 0;
+  const vider = () => {
+    while (enAttente.length && (!relache || abs() >= relache)) {
+      const [w, f, ev] = enAttente.shift();
+      try { f.call(w, ev); } catch (e) { oTimeout(() => { throw e; }); }
+    }
+    if (enAttente.length) oTimeout(vider, 50);
+  };
+  window.__relacher = () => { relache = 0; vider(); };
+  const livrer = (w, f, ev) => {
+    const d = (ev && ev.data) || {};
+    if (enAttente.length || (relache && abs() < relache && ['pret', 'reponse', 'erreur', 'mort'].includes(d.type))) {
+      enAttente.push([w, f, ev]);
+      if (enAttente.length === 1) oTimeout(vider, 50);
+      return undefined;
+    }
+    const r = window.__retarder;
+    if (r && d.type === 'reponse') {
+      const env = (envois.get(w) || new Map()).get(d.id);
+      if (!r.module || (env && env.module === r.module)) {
+        window.__retardees.push({ id: d.id, module: env && env.module, t: abs(), ms: r.ms });
+        oTimeout(() => { window.__livrees.push({ id: d.id, module: env && env.module, t: abs() }); f.call(w, ev); }, r.ms);
+        return undefined;
+      }
+    }
+    return f.call(w, ev);
+  };
+  window.Worker = class extends W {
+    constructor(url, o) {
+      super(url, o);
+      window.__travailleurs.push(String(url));
+      window.__instances.push(this);
+      envois.set(this, new Map());
+      origAdd.call(this, 'message', (ev) => {
+        const d = ev.data || {};
+        const e = { sens: 'recu', type: d.type, t: abs(), id: d.id };
+        if (d.type === 'reponse') {
+          e.json = d.json;
+          const env = envois.get(this).get(d.id);
+          if (env) { e.module = env.module; e.action = env.action; }
+        } else if (d.type === 'etape') e.texte = d.texte;
+        else e.data = d;
+        window.__journal.push(e);
+      });
+    }
+    set onmessage(f) { this.__f = f; super.onmessage = f ? (ev) => livrer(this, f, ev) : null; }
+    get onmessage() { return this.__f || null; }
+    addEventListener(type, f, o) {
+      if (type !== 'message' || !f) return super.addEventListener(type, f, o);
+      this.__enveloppes = this.__enveloppes || new Map();
+      if (!this.__enveloppes.has(f)) this.__enveloppes.set(f, (ev) => livrer(this, typeof f === 'function' ? f : (x) => f.handleEvent(x), ev));
+      return super.addEventListener(type, this.__enveloppes.get(f), o);
+    }
+    removeEventListener(type, f, o) {
+      if (type === 'message' && this.__enveloppes && this.__enveloppes.has(f)) return super.removeEventListener(type, this.__enveloppes.get(f), o);
+      return super.removeEventListener(type, f, o);
+    }
+    postMessage(m, ...r) {
+      const e = { sens: 'envoye', t: abs() };
+      if (m && typeof m.requete === 'string') {
+        e.type = 'requete'; e.id = m.id; e.requete = m.requete; e.note = !!m.note;
+        try {
+          const q = JSON.parse(m.requete);
+          e.module = q.module || (q.bibliotheque ? `biblio_${q.bibliotheque}` : '');
+          e.action = q.action;
+        } catch (x) { e.module = '?'; }
+        envois.get(this).set(m.id, { module: e.module, action: e.action });
+      } else if (m && typeof m === 'object') { e.type = m.type; e.cle = m.cle; }
+      window.__journal.push(e);
+      return super.postMessage(m, ...r);
+    }
+  };
+
+  // ---- la veille des états de l'écran
+  window.__prets = []; window.__ecrans = [];
+  let dernier = null, ancienVu = false;
+  const veiller = () => {
+    const b = document.body;
+    if (!b) return;
+    const e = b.dataset.ecran, mo = b.dataset.montage;
+    const cle = `${e}|${mo}`;
+    if (cle !== dernier) { dernier = cle; window.__ecrans.push({ t: abs(), ecran: e ?? null, montage: mo ?? null, chemin: location.pathname }); }
+    if (e && /^(pret|erreur)$/.test(e)) {
+      if (!window.__prets.some((p) => p.signal === 'ecran' && p.montage === (mo ?? null))) {
+        window.__prets.push({ t: abs(), montage: mo ?? null, ecran: e, signal: 'ecran', chemin: location.pathname + location.search });
+      }
+    } else if (!e && !ancienVu) {
+      const d = document.getElementById('demarrage');
+      if (d && (d.hidden || d.classList.contains('erreur'))) {
+        ancienVu = true;
+        window.__prets.push({ t: abs(), montage: null, ecran: d.hidden ? 'pret' : 'erreur', signal: 'voile', chemin: location.pathname + location.search });
+      }
+    }
+  };
+  new MutationObserver(veiller).observe(document, { attributes: true, childList: true, subtree: true, attributeFilter: ['data-ecran', 'data-montage', 'hidden', 'class'] });
+
+  // ---- ce que l'œil voit : un voile, le bandeau, l'état des contrôles
+  const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+  window.__voile = () => {
+    const L = innerWidth, H = innerHeight, contenu = document.querySelector('.bench, #resultat, .tiles, main');
+    const points = [[L / 2, H / 2], [L * 0.2, H * 0.2], [L * 0.8, H * 0.2], [L * 0.2, H * 0.8], [L * 0.8, H * 0.8]];
+    const couvrants = new Set();
+    for (const [x, y] of points) {
+      for (let e = document.elementFromPoint(x, y); e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (cs.position !== 'fixed' && cs.position !== 'absolute') continue;
+        const r = e.getBoundingClientRect();
+        if (r.width >= 0.9 * L && r.height >= 0.9 * H && !(contenu && e.contains(contenu))) { couvrants.add(e.id ? `#${e.id}` : String(e.className || e.tagName)); break; }
+      }
+    }
+    const d = document.getElementById('demarrage');
+    return { couvrants: [...couvrants], demarrage: !!d, demarrageVu: vu(d) };
+  };
+  window.__bandeau = () => {
+    const tous = [...document.querySelectorAll('.et-demarre')], b = tous.filter(vu);
+    const r = b[0] && b[0].getBoundingClientRect();
+    return { n: tous.length, vus: b.length, taille: r ? [Math.round(r.width), Math.round(r.height)] : null,
+      dedans: !!r && r.top >= -0.5 && r.left >= -0.5 && r.bottom <= innerHeight + 0.5 && r.right <= innerWidth + 0.5,
+      texte: b[0] ? b[0].textContent.replace(/\s+/g, ' ').trim() : '', etat: b[0] ? b[0].dataset.etat || '' : '' };
+  };
+  window.__controles = () => {
+    const S = ':is(input, select, textarea, button, [data-action])';
+    const tous = [...document.querySelectorAll(`#donnees ${S}, #volets ${S}, :is(.top, .mtop, .mbar) [data-action]`)];
+    const actifs = tous.filter((e) => !e.closest('[inert]'));
+    const don = document.getElementById('donnees');
+    return { n: tous.length, actifs: actifs.length, exemples: actifs.slice(0, 6).map((e) => e.dataset.chemin || e.dataset.action || e.id || e.tagName.toLowerCase()),
+      donneesInerte: !!(don && don.closest('[inert]')), occupe: !!(don && don.closest('[aria-busy="true"]')) };
+  };
+  window.__notes = () => { try { return JSON.parse(localStorage.getItem('stab.notes.v1') || '{}'); } catch (e) { return null; } };
+
+  // ---- le premier instant où l'aperçu est VU (data-ecran = apercu, et le résultat ou le dessin peints, à l'écran)
+  window.__apercu = null;
+  const guetter = () => {
+    const b = document.body;
+    if (!window.__apercu && b && b.dataset.ecran === 'apercu') {
+      const r = document.getElementById('resultat'), v = [...document.querySelectorAll('#vues svg, .view svg')].find(vu);
+      const peint = (vu(r) && r.getBoundingClientRect().height > 50 && !r.querySelector('.attente') && r.textContent.trim().length > 0)
+        || (!!v && v.getBoundingClientRect().height > 50);
+      if (peint) window.__apercu = { t: performance.now(), abs: abs(), controles: window.__controles(), bandeau: window.__bandeau(), voile: window.__voile(), notes: window.__notes() };
+    }
+    if (!window.__apercu && performance.now() < 90000) requestAnimationFrame(guetter);
+  };
+  origAdd.call(document, 'DOMContentLoaded', () => requestAnimationFrame(guetter));
+};
+
+// ------------------------------------------------------------------------------------------ côté node
+async function ouvrirContexte(b, fmt, cfg = {}) {
+  const c = await b.newContext({ ...FMT[fmt].ctx, acceptDownloads: true, serviceWorkers: 'block' });
+  await c.addInitScript(INIT, cfg);
+  c.requetes = [];   // toutes les requêtes du contexte (les travailleurs compris)
+  c.on('request', (r) => c.requetes.push({ t: Date.now(), url: r.url() }));
+  return c;
+}
+async function nouvellePage(c) {
+  const pg = await c.newPage();
+  pg.navs = []; pg.travailleurs = 0; pg.erreurs = []; pg.telechargements = 0;
+  pg.on('request', (r) => { if (r.isNavigationRequest() && r.frame() === pg.mainFrame()) pg.navs.push({ t: Date.now(), url: r.url() }); });
+  pg.on('worker', () => { pg.travailleurs++; });
+  pg.on('download', () => { pg.telechargements++; });
+  pg.on('pageerror', (e) => pg.erreurs.push(e.message));
+  pg.on('console', (m) => { if (m.type() === 'error') pg.erreurs.push(m.text().slice(0, 300)); });
+  return pg;
+}
+// une lecture qui survit à un document qui change sous elle
+async function lire(pg, fn, arg) {
+  for (let i = 0; ; i++) {
+    try { return await pg.evaluate(fn, arg); } catch (e) {
+      if (i >= 4 || !/context was destroyed|navigation|Target closed|has been closed/i.test(String(e.message))) throw e;
+      await attendre(400);
+    }
+  }
+}
+const etatEcran = (pg) => lire(pg, () => ({ montage: document.body ? document.body.dataset.montage ?? null : null, ecran: document.body ? document.body.dataset.ecran ?? null : null,
+  s: window.__s, chemin: location.pathname, recherche: location.search, journal: (window.__journal || []).length }));
+// l'écran est prêt : un NOUVEL écran (data-montage plus grand, ou un autre document) dont data-ecran vaut pret|erreur —
+// ou, sur le site d'avant, le voile #demarrage caché (rouge : erreur) ; l'accueil d'avant n'a aucun signal (il est prêt
+// une fois chargé). ``chemin`` : la fin attendue de l'adresse (une redirection passe par un écran intermédiaire).
+async function pretEcran(pg, avant, { chemin = null, delai = 120000 } = {}) {
+  const r = await pg.waitForFunction(([a, ch]) => {
+    const b = document.body;
+    if (!b) return false;
+    if (ch !== null && !(location.pathname === ch || location.pathname.endsWith(ch))) return false;
+    const docNeuf = !a || window.__s !== a.s;
+    const e = b.dataset.ecran, mo = b.dataset.montage;
+    if (!docNeuf && !(mo != null && (a.montage == null || Number(mo) > Number(a.montage)))) return false;
+    if (e) return /^(pret|erreur)$/.test(e) ? `ecran:${e}` : false;
+    const d = document.getElementById('demarrage');
+    if (d) return d.hidden ? 'voile:pret' : d.classList.contains('erreur') ? 'voile:erreur' : false;
+    if (b.dataset.page === 'accueil' && document.readyState !== 'loading') return 'accueil:sans-signal';
+    return false;
+  }, [avant, chemin], { timeout: delai, polling: 50 });
+  const signal = await r.jsonValue();
+  try { await pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 30000 }); } catch (e) { /* le calcul court encore : l'appelant juge */ }
+  return signal;
+}
+const repere = (pg) => ({ t: Date.now(), navs: pg.navs.length, travailleurs: pg.travailleurs, requetes: pg.context().requetes.length });
+const depuis = (pg, m) => ({ navs: pg.navs.length - m.navs, travailleurs: pg.travailleurs - m.travailleurs,
+  requetes: pg.context().requetes.slice(m.requetes).map((r) => r.url) });
+// un lien du site, posé dans la page et cliqué (le chemin d'un vrai clic : la délégation de app.js l'intercepte)
+async function cliquerLien(pg, href) {
+  await lire(pg, (h) => {
+    let a = document.getElementById('__lien');
+    if (!a) { a = document.createElement('a'); a.id = '__lien'; a.textContent = 'lien'; a.style.cssText = 'position:fixed;left:4px;top:4px;z-index:2147483647;padding:12px;background:#ff0;color:#000'; }
+    a.setAttribute('href', h);
+    document.body.appendChild(a);
+  }, href);
+  await pg.click('#__lien');
+}
+async function naviguerApp(pg, href, chemin = null) {
+  const avant = await etatEcran(pg);
+  await cliquerLien(pg, href);
+  return pretEcran(pg, avant, { chemin: chemin ?? `/${href.split('?')[0]}`.replace(/\/\.\/?$|\/$/, '/') });
+}
+// rejoindre un écran DANS l'application, sauf s'il est déjà l'écran courant
+async function allerA(pg, href, chemin = null) {
+  const ch = chemin ?? `/${href.split('?')[0]}`.replace(/\/\.\/?$|\/$/, '/');
+  const l = await etatEcran(pg);
+  if (l.chemin === ch && /^https?:/.test(pg.url())) return 'deja';
+  // (une page d'erreur du navigateur — après l'essai hors ligne sur un site qui recharge — n'a pas de lien du site :
+  //  on repart d'un chargement direct ; ce n'est jamais le geste mesuré)
+  if (!/^https?:/.test(pg.url())) { await pg.goto(`${BASE}/${href === './' ? '' : href}`); return pretEcran(pg, null, { chemin: ch }); }
+  return naviguerApp(pg, href, ch);
+}
+const visible = (pg, s) => pg.locator(s).filter({ visible: true }).first();
+async function cliquerAccueil(pg) { await visible(pg, 'a[href="./"]').click(); }
+// le volet « Modules » du rail (PC) : ouvert, puis le lien du module
+async function cliquerVolet(pg, page) {
+  await visible(pg, '.nav a.navitem[data-modules]').click();
+  await pg.waitForSelector('.modpanel', { state: 'visible', timeout: 5000 });
+  await pg.click(`.modpanel a.navitem[href="${page}"]`);
+}
+// passer d'un établi à un autre DANS l'application : au PC par le volet, au téléphone par l'accueil (lien Accueil, puis
+// la tuile). Rend le signal ; ``avant`` : l'état d'avant le DERNIER clic (celui qui ouvre l'établi)
+async function passer(pg, fmt, cle, page) {
+  if (fmt === 'pc') {
+    const avant = await etatEcran(pg);
+    await cliquerVolet(pg, page);
+    return { signal: await pretEcran(pg, avant, { chemin: `/${page}` }), avant };
+  }
+  let avant = await etatEcran(pg);
+  await cliquerAccueil(pg);
+  await pretEcran(pg, avant, { chemin: '/' });
+  avant = await etatEcran(pg);
+  await pg.click(`.tile[data-module="${cle}"]`);
+  return { signal: await pretEcran(pg, avant, { chemin: `/${page}` }), avant };
+}
+// le journal de l'espion depuis l'indice n
+const journal = (pg, n = 0) => lire(pg, (n) => (window.__journal || []).slice(n).map((e) => ({ ...e, json: undefined })), n);
+// sys.modules du travailleur (message « sonde_modules », sous la sonde seulement)
+async function sondeModules(pg, delai = 8000) {
+  const n = await lire(pg, () => {
+    const w = (window.__instances || [])[window.__instances.length - 1];
+    if (!w) return -1;
+    const n = window.__journal.length;
+    w.postMessage({ type: 'sonde_modules' });
+    return n;
+  });
+  if (n < 0) return { erreur: 'aucun travailleur dans ce document' };
+  try { await pg.waitForFunction((n) => window.__journal.slice(n).some((e) => e.sens === 'recu' && e.type === 'sonde_modules'), n, { timeout: delai }); } catch (e) {
+    return { erreur: `aucune réponse « sonde_modules » en ${delai} ms (le travailleur ne la connaît pas)` };
+  }
+  return lire(pg, (n) => window.__journal.slice(n).find((e) => e.sens === 'recu' && e.type === 'sonde_modules').data, n);
+}
+// la RÉFÉRENCE : ce que CPython importe pour les mêmes gestes (préchauffages, puis les requêtes que la page a envoyées)
+function referenceCPython(ops) {
+  const code = [
+    'import sys, json, importlib',
+    "sys.path.insert(0, '.')",
+    'ops = json.load(sys.stdin)',
+    'import api_web.routeur as R',
+    'for o in ops:',
+    "    if 'prechauffer' in o:",
+    "        k = o['prechauffer']",
+    '        try:',
+    "            if k.startswith('biblio_'): importlib.import_module(R.BIBLIOTHEQUES[k[7:]])",
+    "            else: importlib.import_module('api_web.' + k)",
+    '        except Exception: pass',
+    "    elif 'requete' in o:",
+    "        R.traiter(o['requete'])",
+    "print(json.dumps({'modules': sorted(m for m in sys.modules if m.startswith('api_web.')), 'numpy': 'numpy' in sys.modules}))",
+  ].join('\n');
+  const r = spawnSync(PYTHON, ['-c', code], { cwd: RACINE, input: JSON.stringify(ops), encoding: 'utf8', timeout: 300000, maxBuffer: 64 << 20,
+    env: { ...process.env, TZ: 'Europe/Paris' } });
+  if (r.status !== 0) return { erreur: (r.stderr || String(r.error || '')).slice(-400) };
+  try { return JSON.parse(r.stdout.trim().split('\n').pop()); } catch (e) { return { erreur: `sortie illisible : ${r.stdout.slice(-200)}` }; }
+}
+// sys.modules du navigateur contre la référence : aucune CLÉ du registre (api_web.<clé>, biblio_<k>) en plus
+function jugerModules(lu, ref, cles, attendu = null) {
+  if (lu.erreur) return { ok: false, info: lu.erreur };
+  if (!Array.isArray(lu.modules)) return { ok: false, info: `réponse « sonde_modules » sans liste : ${court(lu, 200)}` };
+  if (ref.erreur) return { ok: false, info: `référence CPython : ${ref.erreur}` };
+  const r = new Set(ref.modules), enPlus = lu.modules.filter((m) => !r.has(m));
+  const clesEnPlus = enPlus.filter((m) => cles.has(m.slice('api_web.'.length)));
+  const ok = !clesEnPlus.length && (!attendu || lu.modules.includes(`api_web.${attendu}`)) && (!lu.numpy || ref.numpy);
+  return { ok, info: court({ clesEnPlus, aidesEnPlus: enPlus.filter((m) => !clesEnPlus.includes(m)), numpy: lu.numpy, numpyRef: ref.numpy,
+    attendu: attendu && lu.modules.includes(`api_web.${attendu}`), n: lu.modules.length }, 600) };
+}
+// la première réponse du module ``cle`` reçue après l'indice n du journal
+async function premiereReponse(pg, n, cle) {
+  return lire(pg, ([n, cle]) => { const e = (window.__journal || []).slice(n).find((x) => x.sens === 'recu' && x.type === 'reponse' && x.module === cle); return e ? e.json : null; }, [n, cle]);
+}
+// deux réponses JSON égales ; exceptions NOMMÉES (REFONTE_ETABLI.md, C12) : soudures numérote ses hachures par un
+// compteur de processus (« s<n>_ » normalisé) ; garde_corps : les coordonnées SVG diffèrent au dernier chiffre entre
+// Pyodide et CPython (1e-9 relatif). Rend null si égales, sinon le chemin de la première différence.
+function difference(a, b, tol, ch = '') {
+  if (typeof a !== typeof b) return ch || '/';
+  if (a && b && typeof a === 'object') {
+    if (Array.isArray(a) !== Array.isArray(b)) return ch || '/';
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) { const d = difference(a[k], b[k], tol, `${ch}/${k}`); if (d !== null) return d; }
+    return null;
+  }
+  if (a === b) return null;
+  const proche = (x, y) => Math.abs(x - y) <= tol * Math.max(Math.abs(x), Math.abs(y));
+  if (tol && typeof a === 'number') return proche(a, b) ? null : ch;
+  if (tol && typeof a === 'string') {
+    const re = /-?\d+(?:\.\d+)?(?:e[-+]?\d+)?/gi;
+    const na = a.match(re) || [], nb = b.match(re) || [];
+    if (a.split(re).join('#') !== b.split(re).join('#') || na.length !== nb.length) return ch;
+    return na.every((x, i) => proche(Number(x), Number(nb[i]))) ? null : ch;
+  }
+  return ch || '/';
+}
+const EXCEPTIONS = { soudures: 'compteur des hachures (s<n>_) normalisé', garde_corps: 'coordonnées SVG à 1e-9 relatif' };
+function comparerApercu(cle, json, apercu) {
+  if (json === apercu) return { egal: true, exception: null };
+  let a, b;
+  try { a = JSON.parse(json); b = JSON.parse(apercu); } catch (e) { return { egal: false, diff: `illisible : ${e.message}` }; }
+  let d = difference(a, b, 0);
+  if (d === null) return { egal: true, exception: null };
+  if (cle === 'soudures') { const n = (x) => JSON.parse(JSON.stringify(x).replace(/\bs\d+_/g, 's#_')); a = n(a); b = n(b); d = difference(a, b, 0); }
+  if (cle === 'garde_corps') d = difference(a, b, 1e-9);
+  return d === null ? { egal: true, exception: EXCEPTIONS[cle] } : { egal: false, diff: d };
+}
+const valeurNombre = (s) => Number(String(s).replace(/[\s  ]/g, '').replace(',', '.'));
+function lireChemin(etat, chemin) {
+  let x = etat;
+  for (const p of String(chemin).split('/')) { if (x == null) return undefined; x = x[/^\d+$/.test(p) ? Number(p) : p]; }
+  return x;
+}
+// une note, en mémoire du navigateur, porte cette valeur à ce chemin (lecture directe, sinon dans son texte)
+function noteAvecValeur(notes, module, chemin, valeur) {
+  return Object.values(notes || {}).find((n) => {
+    if (!n || n.module !== module || !n.etat) return false;
+    const x = lireChemin(n.etat, chemin);
+    return x !== undefined ? valeurNombre(x) === valeur : JSON.stringify(n.etat).includes(String(valeur));
+  }) || null;
+}
+
+// ------------------------------------------------------------------------------------------ le passage
+(async () => {
+  const b = await chromium.launch({ env: { ...process.env, LANG: process.env.LANG || 'C.UTF-8' } });
+  let MODULES, CLES, ETABLIS, AVEC_NUMPY;
+  {
+    const c = await b.newContext();
+    const pg = await c.newPage();
+    await pg.goto(`${BASE}/`);
+    MODULES = await pg.evaluate(async () => (await import('./js/modules.js')).MODULES);
+    const man = await (await c.request.get(`${BASE}/moteur/manifeste.json`)).json();
+    AVEC_NUMPY = new Set(man.avec_numpy || []);
+    await c.close();
+  }
+  CLES = new Set([...Object.keys(MODULES), ...fs.readdirSync(path.join(RACINE, 'api_web')).filter((f) => /^biblio_[a-z]+\.py$/.test(f)).map((f) => f.slice(0, -3))]);
+  ETABLIS = Object.keys(MODULES).filter((k) => !MODULES[k].vers);
+  const P = (k) => MODULES[k].page;
+
+  // ---------------------------------------------------------------- statique : plus de voile dans aucune page
+  if (joue('statique')) {
+    const c = await b.newContext();
+    const pages = fs.readdirSync(__dirname).filter((f) => f.endsWith('.html')).map((f) => (f === 'index.html' ? '' : f.slice(0, -5)));
+    const avec = [];
+    for (const p of pages) { const t = await (await c.request.get(`${BASE}/${p}`)).text(); if (/id="demarrage"/.test(t)) avec.push(p || 'index'); }
+    verif(`demarrage · statique : aucune des ${pages.length} pages ne porte le voile #demarrage`, pages.length > 0 && !avec.length, avec.length ? `voile dans : ${avec.join(', ')}` : '');
+    await c.close();
+  }
+
+  for (const fmt of FORMATS) {
+    const F = FMT[fmt].nom;
+    const N = (x) => `demarrage · ${F} · ${x}`;
+    const essai = async (nom, f) => { try { await f(); } catch (x) { verif(N(`${nom} : le parcours va au bout`), false, String(x.message).split('\n')[0].slice(0, 300)); } };
+    const c = await ouvrirContexte(b, fmt);
+
+    // ---------------------------------------------------------------- la page de la session (tout DANS l'application)
+    const pg = await nouvellePage(c);
+    await pg.goto(`${BASE}/?sonde=1`);
+    const S0 = await etatEcran(pg), R0 = repere(pg);
+
+    // ---- aucune tâche longue pendant le démarrage en fond du moteur sur l'accueil (C6 ; le moteur part au repos)
+    let pretAccueil = false;
+    if (joue('longues')) await essai('longues', async () => {
+      try { await pg.waitForFunction(() => (window.__journal || []).some((e) => e.sens === 'recu' && e.type === 'pret'), null, { timeout: 45000 }); pretAccueil = true; } catch (e) { /* jugé plus bas */ }
+      const L = await lire(pg, () => window.__longues);
+      const max = L ? Math.max(0, ...L.map((x) => x.d)) : null;
+      verif(N('accueil : le moteur démarre en fond (« pret » reçu sans aucun geste), sans tâche longue de plus de 200 ms sur la page'),
+        pretAccueil && L !== null && max <= 200, `pret ${pretAccueil ? 'reçu' : 'jamais reçu en 45 s'} · tâche la plus longue ${max} ms · ${L ? L.length : '?'} tâche(s) longue(s)`);
+    });
+
+    // ---- accueil → tuile poutre → volet assemblages → volet poutre → retour arrière : UN moteur
+    let resultatAssemblages = null;
+    if (joue('moteur') || joue('modules')) {
+      await essai('un seul moteur', async () => {
+        let avant = await etatEcran(pg);
+        const n0 = avant.journal;
+        await pg.click('.tile[data-module="poutre"]');
+        await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+        if (joue('modules')) {
+          const lu = await sondeModules(pg);
+          const env = (await journal(pg, n0)).filter((e) => e.sens === 'envoye');
+          const ops = env.map((e) => (e.type === 'prechauffer' ? { prechauffer: e.cle } : e.type === 'requete' ? { requete: e.requete } : null)).filter(Boolean);
+          const j = jugerModules(lu, referenceCPython(ops), CLES, 'poutre');
+          verif(N('après la poutre : sys.modules du travailleur sans autre api_web.<clé> que ce que CPython importe pour les mêmes requêtes, et sans numpy'),
+            j.ok && !lu.numpy, j.info);
+        }
+        if (!joue('moteur')) return;
+        await passer(pg, fmt, 'assemblages', P('assemblages'));
+        resultatAssemblages = await lire(pg, () => (document.getElementById('resultat') || {}).innerHTML || null);
+        await passer(pg, fmt, 'poutre', P('poutre'));
+        // le retour arrière (au téléphone, l'accueil d'abord)
+        avant = await etatEcran(pg);
+        await pg.goBack({ timeout: 20000 }).catch(() => null);
+        if (fmt === 'tel') { await pretEcran(pg, avant, { chemin: '/' }); avant = await etatEcran(pg); await pg.goBack({ timeout: 20000 }).catch(() => null); }
+        await pretEcran(pg, avant, { chemin: `/${P('assemblages')}` });
+        const apres = await lire(pg, () => ({ s: window.__s, resultat: (document.getElementById('resultat') || {}).innerHTML || null, travailleurs: window.__travailleurs.length,
+          reponses: window.__journal.filter((e) => e.sens === 'recu' && e.type === 'reponse').length, sondes: window.__journal.filter((e) => e.sens === 'recu' && e.type === 'sonde').map((e) => e.data),
+          sondesPage: (globalThis.__sondes || []).length }));
+        const lp = new Set();
+        for (const s of apres.sondes) for (const [k, t] of (s && s.marques) || []) if (k === 'loadPyodide_debut') lp.add(Math.round(t));
+        const D = depuis(pg, R0);
+        const wasm = D.requetes.filter((u) => /pyodide\.asm\.wasm/.test(u)).length;
+        verif(N('un seul moteur : accueil → poutre → assemblages → poutre → retour, sans navigation de document, la sentinelle gardée, UN travailleur, UN démarrage de Python'),
+          D.navs === 0 && apres.s === S0.s && pg.travailleurs === 1 && apres.travailleurs === 1 && lp.size === 1,
+          court({ navigations: D.navs, sentinelle: apres.s === S0.s ? 'gardée' : 'perdue (document rechargé)', travailleurs_vus: pg.travailleurs, travailleurs_document: apres.travailleurs,
+            loadPyodide_debut: lp.size, sondes: apres.sondes.length, wasm_demandes: wasm }));
+        verif(N("canari : l'espion a vu des réponses du moteur (et des sondes) dans ce document"), apres.reponses > 0 && apres.sondes.length > 0,
+          `${apres.reponses} réponse(s), ${apres.sondes.length} sonde(s), __sondes de la page : ${apres.sondesPage}`);
+        verif(N("retour arrière : l'écran d'assemblages revient, prêt, son résultat égal à celui de la première visite"),
+          !!resultatAssemblages && apres.resultat === resultatAssemblages && D.navs === 0,
+          `${(resultatAssemblages || '').length} / ${(apres.resultat || '').length} caractères · navigations ${D.navs}`);
+      });
+    }
+
+    // ---- la fermeture : saisie puis clic sur un lien, réponse retardée (1 s, puis 7 s) ; retour vers la note (C1, C2, C3)
+    if (joue('fermeture')) {
+      await essai('fermeture', async () => {
+        await allerA(pg, P('poutre'));
+        for (const ms of [1000, 7000]) {
+          const champ = await lire(pg, () => {
+            const e = [...document.querySelectorAll('#donnees input[data-sorte="nombre"]:not([disabled])')].find((x) => x.checkVisibility());
+            return e ? { chemin: e.dataset.chemin, valeur: e.value } : null;
+          });
+          if (!champ) { verif(N(`fermeture (${ms} ms) : un champ numérique visible à saisir`), false); break; }
+          const v = Math.round(valeurNombre(champ.valeur) * (ms === 1000 ? 1.1 : 1.2) * 10) / 10 || 55;
+          const sel = `#donnees input[data-chemin="${champ.chemin}"]`;
+          const avantRecherche = (await etatEcran(pg)).recherche;
+          await pg.fill(sel, String(v).replace('.', ','));
+          await lire(pg, (ms) => { window.__retarder = { ms, module: 'poutre' }; }, ms);
+          const avant = await etatEcran(pg), R = repere(pg);
+          await cliquerLien(pg, P('assemblages'));
+          await pretEcran(pg, avant, { chemin: `/${P('assemblages')}`, delai: 120000 });
+          const l1 = await lire(pg, () => ({ s: window.__s, chemin: location.pathname, recherche: location.search, resultat: (document.getElementById('resultat') || {}).innerHTML || '',
+            titre: document.title, tPret: (window.__prets[window.__prets.length - 1] || {}).t, tClic: window.__tclic ?? Number(sessionStorage.getItem('__tclic')), retardees: window.__retardees.length }));
+          // la réponse retardée arrive (ou n'arrivera jamais : document rechargé, travailleur arrêté)
+          try { await pg.waitForFunction((n) => window.__livrees.length > 0 && window.__livrees.length >= n, l1.retardees, { timeout: ms + 4000 }); } catch (e) { /* jugé plus bas */ }
+          await attendre(600);
+          const l2 = await lire(pg, () => ({ s: window.__s, recherche: location.search, resultat: (document.getElementById('resultat') || {}).innerHTML || '', titre: document.title,
+            livrees: window.__livrees.length, notes: window.__notes() }));
+          await lire(pg, () => { window.__retarder = null; });
+          const note = noteAvecValeur(l2.notes, 'poutre', champ.chemin, v);
+          const D = depuis(pg, R);
+          verif(N(`fermeture (${ms} ms) : l'écran suivant a l'adresse d'assemblages, sans ?note= de la poutre, avant et après la réponse retardée`),
+            l1.chemin.endsWith(`/${P('assemblages')}`) && !/note=/.test(l1.recherche) && !/note=/.test(l2.recherche) && D.navs === 0,
+            court({ recherche: [l1.recherche, l2.recherche], navigations: D.navs, avant: avantRecherche }));
+          verif(N(`fermeture (${ms} ms) : #resultat et le titre d'assemblages inchangés quand la réponse de la poutre arrive`),
+            l1.s === l2.s && l1.resultat.length > 0 && l1.resultat === l2.resultat && l1.titre === l2.titre && l2.livrees > 0,
+            court({ livrees: l2.livrees, resultat: [l1.resultat.length, l2.resultat.length], memeDocument: l1.s === l2.s }));
+          verif(N(`fermeture (${ms} ms) : la note de la poutre est en mémoire avec la valeur saisie (${champ.chemin} = ${v})`), !!note && D.navs === 0,
+            court({ note: note ? note.id : null, notes: Object.keys(l2.notes || {}).length, navigations: D.navs }));
+          if (ms === 7000) verif(N("fermeture (7 s) : l'écran suivant n'attend pas la réponse retardée"), l1.tPret && l1.tClic && l1.tPret - l1.tClic < 6500 && D.navs === 0,
+            `prêt ${Math.round(l1.tPret - l1.tClic)} ms après le clic`);
+          if (ms === 1000) {
+            // C3 : l'adresse de la note provisoire, écrite APRÈS le départ, corrigée sur SA propre entrée d'historique
+            const av = await etatEcran(pg), R3 = repere(pg);
+            await pg.goBack({ timeout: 20000 }).catch(() => null);
+            await pretEcran(pg, av, { chemin: `/${P('poutre')}` });
+            const l3 = await lire(pg, (s) => ({ recherche: location.search, valeur: (document.querySelector(s) || {}).value }), sel);
+            verif(N('retour vers la poutre quittée : son adresse porte la note écrite après le départ (?note=), et la valeur saisie'),
+              !!note && l3.recherche.includes(`note=${encodeURIComponent(note.id)}`) && valeurNombre(l3.valeur) === v && depuis(pg, R3).navs === 0,
+              court({ ...l3, note: note && note.id, navigations: depuis(pg, R3).navs }));
+          }
+          await allerA(pg, P('poutre'));
+        }
+      });
+    }
+
+    // ---- retour et avance, avec le défilement (aller : 0 ; retour : la position d'avant) (C10)
+    if (joue('historique')) {
+      await essai('historique', async () => {
+        await lire(pg, () => {
+          const ns = window.__notes() || {}, t = Date.now();
+          for (let i = 0; i < 6; i++) ns[`essai-defile-${i}`] = { id: `essai-defile-${i}`, module: 'poutre', nom: `Défilement ${i + 1}`, chantier: 'Essai', dossier: '', indice: 'A', cree: t + i, modifie: t + i, etat: null, resume: {}, vignette: '' };
+          localStorage.setItem('stab.notes.v1', JSON.stringify(ns));
+        });
+        await allerA(pg, P('poutre'));
+        await naviguerApp(pg, './', '/');
+        const vp = pg.viewportSize();
+        let reduit = false;
+        if ((await lire(pg, () => document.documentElement.scrollHeight - innerHeight)) < 100) { reduit = true; await pg.setViewportSize({ width: vp.width, height: 520 }); await attendre(200); }
+        await lire(pg, () => { const max = document.documentElement.scrollHeight - innerHeight; scrollTo(0, Math.min(400, Math.floor(max / 2))); });
+        await attendre(200);
+        const R = repere(pg);
+        let avant = await etatEcran(pg);
+        await pg.click('.tile[data-module="poutre"]');
+        await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+        // la position au moment du clic (Playwright amène la tuile dans l'écran avant de cliquer)
+        const aller = await lire(pg, () => ({ y: scrollY, resultat: (document.getElementById('resultat') || {}).innerHTML || '', yclic: window.__yclic ?? Number(sessionStorage.getItem('__yclic')) }));
+        const y = aller.yclic;
+        avant = await etatEcran(pg);
+        await pg.goBack({ timeout: 20000 }).catch(() => null);
+        await pretEcran(pg, avant, { chemin: '/' });
+        await attendre(300);
+        const retour = await lire(pg, () => scrollY);
+        avant = await etatEcran(pg);
+        await pg.goForward({ timeout: 20000 }).catch(() => null);
+        await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+        await attendre(300);
+        const avance = await lire(pg, () => ({ y: scrollY, s: window.__s, resultat: (document.getElementById('resultat') || {}).innerHTML || '' }));
+        const D = depuis(pg, R);
+        verif(N(`retour et avance : aller défilé à 0, retour à la position d'avant (${y} px), avance à 0 ; aucun document rechargé ; le résultat de la poutre identique`),
+          y > 0 && aller.y === 0 && Math.abs(retour - y) <= 2 && avance.y === 0 && D.navs === 0 && avance.s === S0.s && avance.resultat === aller.resultat && aller.resultat.length > 0,
+          court({ defile: y, aller: aller.y, retour, avance: avance.y, navigations: D.navs, sentinelle: avance.s === S0.s, resultat: [aller.resultat.length, avance.resultat.length],
+            fenetre: reduit ? `${vp.width}×520 le temps du contrôle (l'accueil ne défile pas à ${vp.width}×${vp.height})` : `${vp.width}×${vp.height}` }));
+        if (reduit) await pg.setViewportSize(vp);
+      });
+    }
+
+    // ---- ✕ « Supprimer » d'une carte Reprendre ne navigue pas (et un clic sur la carte, oui : le témoin)
+    if (joue('supprimer')) {
+      await essai('supprimer', async () => {
+        await lire(pg, () => {
+          const ns = window.__notes() || {}, t = Date.now();
+          for (const id of ['essai-supp', 'essai-temoin']) ns[id] = { id, module: 'poutre', nom: id === 'essai-supp' ? 'À supprimer' : 'Témoin', chantier: 'Essai', dossier: '', indice: 'A', cree: t, modifie: t, etat: null, resume: {}, vignette: '' };
+          localStorage.setItem('stab.notes.v1', JSON.stringify(ns));
+        });
+        await naviguerApp(pg, P('poutre'));
+        await naviguerApp(pg, './', '/');
+        pg.once('dialog', (d) => d.accept().catch(() => {}));
+        const R = repere(pg), s = (await etatEcran(pg)).s;
+        await pg.click('#recentes .rcard [data-supprimer="essai-supp"]');
+        await attendre(800);
+        const l = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, note: !!(window.__notes() || {})['essai-supp'], carte: !!document.querySelector('[data-supprimer="essai-supp"]') }));
+        verif(N('accueil : ✕ « Supprimer » d\'une carte Reprendre supprime la note et ne navigue pas'), l.chemin === '/' && l.s === s && !l.note && !l.carte && depuis(pg, R).navs === 0, court(l));
+        const avant = await etatEcran(pg);
+        await pg.click('#recentes .rcard[href*="essai-temoin"] .t');
+        await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+        verif(N('témoin : un clic sur la carte elle-même ouvre bien sa note (la mesure voit une navigation)'), (await etatEcran(pg)).recherche.includes('note=essai-temoin'));
+      });
+    }
+
+    // ---- les navigations écrites en JavaScript, sans navigation de document (S4-D2)
+    if (joue('js')) {
+      await essai('navigations JS', async () => {
+        const juger = async (nom, R, s, chemin, recherche) => {
+          const l = await etatEcran(pg), D = depuis(pg, R);
+          verif(N(`${nom} : sans navigation de document, l'écran ${chemin} prêt`), D.navs === 0 && l.s === s && l.chemin.endsWith(chemin) && recherche.test(l.recherche),
+            court({ navigations: D.navs, sentinelle: l.s === s, chemin: l.chemin, recherche: l.recherche }));
+        };
+        // « Nouvelle note » de l'accueil
+        await allerA(pg, './');
+        await pg.click('#ouvrir-nouvelle');
+        await pg.fill('#nn-chantier', 'Essai S4'); await pg.fill('#nn-nom', 'Note S4');
+        await pg.click('.mopt[data-module="poutre"]');
+        let avant = await etatEcran(pg), R = repere(pg);
+        await pg.click('#nn-creer');
+        await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+        await juger('« Nouvelle note »', R, avant.s, `/${P('poutre')}`, /note=/);
+        // l'import d'un .stab depuis l'accueil
+        await naviguerApp(pg, './', '/');
+        const fichier = path.join(OUT, 'demarrage_import.stab');
+        fs.writeFileSync(fichier, JSON.stringify({ format: 'stab', version: 1, note: { module: 'garde_corps', nom: 'Import S4', chantier: 'Essai S4', indice: 'A', etat: null } }));
+        avant = await etatEcran(pg); R = repere(pg);
+        await pg.setInputFiles('#importer', fichier);
+        await pretEcran(pg, avant, { chemin: `/${P('garde_corps')}` });
+        await juger('import .stab depuis l\'accueil', R, avant.s, `/${P('garde_corps')}`, /note=/);
+        const idG = new URLSearchParams((await etatEcran(pg)).recherche).get('note');
+        // une note d'un AUTRE module, demandée à la page du plancher : la page de son module, dans l'application
+        avant = await etatEcran(pg); R = repere(pg);
+        await cliquerLien(pg, `${P('plancher')}?note=${idG}`);
+        await pretEcran(pg, avant, { chemin: `/${P('garde_corps')}` });
+        await juger('note d\'un autre module (garde-corps demandée au plancher)', R, avant.s, `/${P('garde_corps')}`, new RegExp(`note=${idG}`));
+        // un lien vers predalle?note= : la page des dalles, dans l'application
+        await lire(pg, () => { const ns = window.__notes() || {}, t = Date.now(); ns['essai-predalle'] = { id: 'essai-predalle', module: 'predalle', nom: 'Prédalle S4', chantier: 'Essai S4', dossier: '', indice: 'A', cree: t, modifie: t, etat: null, resume: {}, vignette: '' }; localStorage.setItem('stab.notes.v1', JSON.stringify(ns)); });
+        avant = await etatEcran(pg); R = repere(pg);
+        await cliquerLien(pg, `${P('predalle')}?note=essai-predalle`);
+        await pretEcran(pg, avant, { chemin: `/${P('dalle')}` });
+        await juger('lien vers predalle?note=', R, avant.s, `/${P('dalle')}`, /note=essai-predalle/);
+      });
+    }
+
+    // ---- feuilles ACTIVES (et leur ordre) et styles calculés égaux à ceux d'un chargement direct (C9)
+    if (joue('feuilles')) {
+      await essai('feuilles', async () => {
+        const relever = (pg) => lire(pg, () => {
+          const actives = [...document.styleSheets].filter((s) => !s.disabled && (!s.media.mediaText || s.media.mediaText === 'all' || matchMedia(s.media.mediaText).matches))
+            .map((s) => (s.href ? new URL(s.href).pathname : `<style>${(s.ownerNode && s.ownerNode.id) || ''}`));
+          const liens = [...document.querySelectorAll('link[rel~="stylesheet"]')].map((l) => new URL(l.href).pathname);
+          const PROPS = ['display', 'position', 'color', 'backgroundColor', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'paddingTop', 'paddingLeft', 'marginTop',
+            'borderTopWidth', 'borderTopColor', 'gridTemplateColumns', 'flexDirection', 'gap', 'zIndex', 'overflowY', 'boxShadow', 'borderRadius'];
+          const styles = {};
+          for (const s of ['html', 'body', '.app', '.nav', '.top', '.mtop', '.mtabs', '.panel.left', '#donnees', '#resultat', '.canvas', '.ctool', '.famille', '.tile', '.h1', 'h1', '.btn', '.et-elt', '#bib-tableau']) {
+            const e = document.querySelector(s);
+            if (e && !e.closest('.modpanel, #__lien')) { const cs = getComputedStyle(e); styles[s] = PROPS.map((p) => cs[p]).join('|'); }
+          }
+          return { actives, liens, styles };
+        });
+        // la souris au même point des deux pages (un :hover ne fausse pas la comparaison)
+        const releverA = async (x) => { await x.mouse.move(FMT[fmt].ctx.viewport.width / 2, FMT[fmt].ctx.viewport.height / 2); await attendre(80); return relever(x); };
+        const chaine = [['./', '/'], ['bibliotheque-beton', '/bibliotheque-beton'], [P('poutre'), `/${P('poutre')}`], [P('dalle'), `/${P('dalle')}`], [P('poutre'), `/${P('poutre')}`]];
+        const vus = [];
+        const R = repere(pg), s = (await etatEcran(pg)).s;
+        await allerA(pg, './');
+        vus.push(await releverA(pg));
+        let avant = await etatEcran(pg);
+        await pg.click('.tile[data-bibliotheque="beton"]');
+        await pretEcran(pg, avant, { chemin: '/bibliotheque-beton' });
+        vus.push(await releverA(pg));
+        for (const [href, ch] of chaine.slice(2)) { await naviguerApp(pg, href, ch); vus.push(await releverA(pg)); }
+        const D = depuis(pg, R), sFin = (await etatEcran(pg)).s;
+        const direct = await nouvellePage(c);
+        const fautes = [];
+        for (let i = 0; i < chaine.length; i++) {
+          await direct.goto(`${BASE}/${chaine[i][0] === './' ? '' : chaine[i][0]}`);
+          await pretEcran(direct, null, { chemin: chaine[i][1] });
+          const d = await releverA(direct), a = vus[i];
+          // (les <style> de la page — écrits par ses scripts — se comptent à part : la règle porte sur les <link>)
+          const liensActifs = (x) => x.actives.filter((h) => !h.startsWith('<style>')), styles = (x) => x.actives.length - liensActifs(x).length;
+          if (liensActifs(a).join() !== d.liens.join()) fautes.push(`${chaine[i][1]} : actives ${liensActifs(a).join(',')} ≠ liens de la page ${d.liens.join(',')}`);
+          if (liensActifs(d).join() !== d.liens.join()) fautes.push(`${chaine[i][1]} (direct) : actives ${liensActifs(d).join(',')}`);
+          if (styles(a) !== styles(d)) fautes.push(`${chaine[i][1]} : ${styles(a)} <style> actif(s) contre ${styles(d)} en direct`);
+          const diff = Object.keys(d.styles).filter((k) => a.styles[k] !== d.styles[k]);
+          if (diff.length) fautes.push(`${chaine[i][1]} : styles calculés différents (${diff.join(', ')})`);
+        }
+        await direct.close();
+        verif(N('feuilles : accueil → bibliothèque béton → poutre → dalle → poutre, les feuilles ACTIVES dans l\'ordre de la page cible et les styles calculés d\'un chargement direct, sans document rechargé'),
+          !fautes.length && D.navs === 0 && sFin === s, court({ navigations: D.navs, sentinelle: sFin === s, fautes }, 900));
+      });
+    }
+
+    // ---- écouteurs vivants revenus à leur compte après trois cycles ; le thème bascule UNE fois ; UN téléchargement
+    if (joue('ecouteurs')) {
+      await essai('écouteurs', async () => {
+        await allerA(pg, './');
+        const s = (await etatEcran(pg)).s, R = repere(pg);
+        const depart = await lire(pg, () => window.__vivants());
+        let surPoutre = null;
+        const ecarts = [];
+        for (let i = 0; i < 3; i++) {
+          let avant = await etatEcran(pg);
+          await pg.click('.tile[data-module="poutre"]');
+          await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+          const vp = await lire(pg, () => window.__vivants());
+          if (!surPoutre) surPoutre = vp; else if (JSON.stringify(vp) !== JSON.stringify(surPoutre)) ecarts.push(`poutre ${i + 1} : ${JSON.stringify(vp)} ≠ ${JSON.stringify(surPoutre)}`);
+          avant = await etatEcran(pg);
+          await cliquerAccueil(pg);
+          await pretEcran(pg, avant, { chemin: '/' });
+          const va = await lire(pg, () => window.__vivants());
+          if (JSON.stringify(va) !== JSON.stringify(depart)) ecarts.push(`accueil ${i + 1} : ${JSON.stringify(va)} ≠ ${JSON.stringify(depart)}`);
+        }
+        const D = depuis(pg, R), sFin = (await etatEcran(pg)).s;
+        const doc = D.navs === 0 && sFin === s;
+        verif(N('écouteurs : après trois cycles accueil → poutre → accueil, les écouteurs vivants (window, document, MediaQueryList) et les minuteries reviennent à leur compte de départ, sans document rechargé'),
+          doc && !ecarts.length, court({ depart, surPoutre, navigations: D.navs, sentinelle: sFin === s, ecarts }, 700));
+        // le thème : UN changement par clic (un rail câblé deux fois le basculerait deux fois)
+        const th = await lire(pg, () => new Promise((ok) => {
+          const vus = [], mo = new MutationObserver((l) => l.forEach(() => vus.push(document.documentElement.dataset.theme || '')));
+          mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+          const avant = document.documentElement.dataset.theme || '';
+          const t = [...document.querySelectorAll('[data-theme-toggle]')].find((e) => e.checkVisibility());
+          if (!t) { ok({ erreur: 'aucun bouton de thème visible' }); return; }
+          t.click();
+          setTimeout(() => { mo.disconnect(); ok({ avant, vus, apres: document.documentElement.dataset.theme || '' }); }, 400);
+        }));
+        verif(N('thème : un clic le bascule UNE fois'), doc && !th.erreur && th.vus.length === 1 && th.apres !== th.avant, court({ ...th, document: doc }));
+        // « Exporter .stab » : UN téléchargement
+        const avant = await etatEcran(pg);
+        await pg.click('.tile[data-module="poutre"]');
+        await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+        const n0 = pg.telechargements;
+        let bouton = visible(pg, '[data-action="exporter"]');
+        if (!(await bouton.count())) { await visible(pg, '#menu-m').click(); await attendre(200); bouton = visible(pg, '[data-action="exporter"]'); }
+        await bouton.click();
+        await attendre(2000);
+        const D2 = depuis(pg, R), s2 = (await etatEcran(pg)).s;
+        verif(N('« Exporter .stab » produit UN téléchargement'), pg.telechargements - n0 === 1 && D2.navs === 0 && s2 === s,
+          `${pg.telechargements - n0} téléchargement(s) · navigations ${D2.navs} · sentinelle ${s2 === s ? 'gardée' : 'perdue'}`);
+      });
+    }
+
+    // ---- hors ligne : un écran pas encore chargé ne s'ouvre pas, on RESTE, avec le message (C8)
+    if (joue('horsligne')) {
+      await essai('hors ligne', async () => {
+        await allerA(pg, P('poutre'));
+        const avant = await etatEcran(pg), R = repere(pg);
+        await c.setOffline(true);
+        try {
+          await cliquerLien(pg, P('soudures')).catch(() => {});
+          await attendre(2500);
+          const l = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, message: /Pas de réseau/.test(document.body.innerText) })).catch((e) => ({ erreur: String(e.message).slice(0, 120) }));
+          const D = depuis(pg, R);
+          verif(N('hors ligne : le lien vers un écran pas encore chargé laisse l\'écran en place, avec le message « Pas de réseau »'),
+            !l.erreur && l.chemin === avant.chemin && l.s === avant.s && l.message && D.navs === 0, court({ ...l, navigations: D.navs }));
+        } finally { await c.setOffline(false); }
+      });
+    }
+
+    // ---- version changée : la page cible porte une autre stab-version → exactement UNE navigation de document (S4-D3)
+    if (joue('version')) {
+      await essai('version', async () => {
+        await allerA(pg, P('poutre')).catch(() => null);
+        const meta = await lire(pg, () => (document.querySelector('meta[name="stab-version"]') || {}).content || null);
+        const lectures = [];
+        const cible = `/${P('flambement')}`;
+        const servir = async (route) => {
+          lectures.push(route.request().isNavigationRequest() ? 'navigation' : 'lecture');
+          const r = await route.fetch();
+          const corps = (await r.text()).replace(/(<meta name="stab-version" content=")[^"]*/, '$1ffffffffffffffff');
+          await route.fulfill({ response: r, body: corps });
+        };
+        await pg.route((u) => new URL(u).pathname === cible, servir);
+        const avant = await etatEcran(pg), R = repere(pg);
+        await cliquerLien(pg, P('flambement'));
+        await pretEcran(pg, avant, { chemin: cible });
+        await attendre(500);
+        await pg.unroute((u) => new URL(u).pathname === cible, servir);
+        const D = depuis(pg, R);
+        verif(N('version changée : la page cible lue (une autre stab-version), puis EXACTEMENT une navigation de document'),
+          !!meta && lectures.includes('lecture') && D.navs === 1, court({ meta, lectures, navigations: D.navs }));
+      });
+    }
+    verif(N('session : aucune erreur JavaScript'), !pg.erreurs.length, pg.erreurs.join(' | ').slice(0, 400));
+    await pg.screenshot({ path: path.join(OUT, `demarrage_session_${fmt}.png`) }).catch(() => {});
+    await pg.close();
+
+    // ---------------------------------------------------------------- le préchauffage au survol (pointeur fin)
+    if (joue('prechauffage') && fmt === 'pc') {
+      await essai('préchauffage', async () => {
+        const p2 = await nouvellePage(c);
+        await p2.goto(`${BASE}/?sonde=1`);
+        await p2.waitForFunction(() => (window.__journal || []).some((e) => e.sens === 'recu' && e.type === 'pret'), null, { timeout: 45000 }).catch(() => {});
+        const cle = 'assemblages';
+        const n = (await etatEcran(p2)).journal;
+        await p2.hover(`.tile[data-module="${cle}"]`);
+        await p2.waitForFunction((n) => window.__journal.slice(n).some((e) => e.sens === 'envoye' && e.type === 'prechauffer'), n, { timeout: 5000 }).catch(() => {});
+        await p2.waitForFunction((n) => window.__journal.slice(n).some((e) => e.sens === 'recu' && e.type === 'prechauffe'), n, { timeout: 30000 }).catch(() => {});
+        const env = (await journal(p2, 0)).filter((e) => e.sens === 'envoye');
+        const pre = env.filter((e) => e.type === 'prechauffer').map((e) => e.cle);
+        const lu = await sondeModules(p2);
+        const ops = env.map((e) => (e.type === 'prechauffer' ? { prechauffer: e.cle } : e.type === 'requete' ? { requete: e.requete } : null)).filter(Boolean);
+        const j = jugerModules(lu, referenceCPython(ops.length ? ops : [{ prechauffer: cle }]), CLES, cle);
+        verif(N(`préchauffage : le survol de la tuile « ${cle} » envoie « prechauffer » (cette clé seule) et n'importe QUE ce module`),
+          pre.length >= 1 && pre.every((k) => k === cle) && j.ok && (!lu.numpy || AVEC_NUMPY.has(cle)), `prechauffer : ${JSON.stringify(pre)} · modules : ${j.info}`);
+        await p2.close();
+      });
+    }
+
+    // ---------------------------------------------------------------- au doigt : faire défiler l'accueil n'importe rien
+    if (joue('doigt') && fmt === 'tel') {
+      await essai('doigt', async () => {
+        const p2 = await nouvellePage(c);
+        await p2.goto(`${BASE}/?sonde=1`);
+        await p2.waitForFunction(() => (window.__journal || []).some((e) => e.sens === 'recu' && e.type === 'pret'), null, { timeout: 45000 }).catch(() => {});
+        const cdp = await c.newCDPSession(p2);
+        const y0 = await lire(p2, () => scrollY);
+        const tuiles = ['assemblages', 'soudures', 'flambement'];
+        for (const k of tuiles) {
+          const bt = await p2.locator(`.tile[data-module="${k}"]`).boundingBox();
+          if (!bt) continue;
+          const x = bt.x + bt.width / 2, y = Math.min(Math.max(bt.y + bt.height / 2, 120), 700);
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+          for (let i = 1; i <= 8; i++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - i * 12 }] }); await attendre(16); }
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+          await attendre(400);
+        }
+        await attendre(1500);
+        const l = await lire(p2, () => ({ y: scrollY, chemin: location.pathname, pre: window.__journal.filter((e) => e.sens === 'envoye' && e.type === 'prechauffer').map((e) => e.cle) }));
+        const lu = await sondeModules(p2);
+        const j = jugerModules(lu, referenceCPython([]), CLES);
+        verif(N('au doigt : trois défilements commencés sur des tuiles n\'importent rien (aucun « prechauffer », sys.modules du travailleur sans clé du registre) et ne naviguent pas'),
+          l.y !== y0 && l.chemin === '/' && !l.pre.length && j.ok, court({ defile: [y0, l.y], prechauffer: l.pre, modules: j.info }, 600));
+        await p2.close();
+      });
+    }
+
+    // ---------------------------------------------------------------- l'aperçu, en lien direct (S4-D7, C10, C12)
+    if (joue('apercu')) {
+      await essai('aperçu', async () => {
+        const c2 = await ouvrirContexte(b, fmt, { retenir: 15000 });   // le moteur « lent » : 15 s avant « pret » et toute réponse
+        const p2 = await nouvellePage(c2);
+        await p2.goto(`${BASE}/${P('poutre')}`, { waitUntil: 'domcontentloaded' });
+        // le voile, et le bandeau, pendant le démarrage
+        await attendre(300);
+        const v0 = await lire(p2, () => ({ voile: window.__voile(), bandeau: window.__bandeau() }));
+        verif(N('démarrage en lien direct : aucun voile (ni #demarrage, ni calque plein écran sous les cinq points)'),
+          !v0.voile.demarrage && !v0.voile.couvrants.length, court(v0.voile));
+        try { await p2.waitForFunction(() => !!window.__apercu, null, { timeout: 10000 }); } catch (e) { /* jugé plus bas */ }
+        const a = await lire(p2, () => {
+          const nav = performance.getEntriesByType('navigation')[0];
+          return { apercu: window.__apercu, dcl: nav ? nav.domContentLoadedEventEnd : null, ecrans: window.__ecrans.map((e) => e.ecran),
+            pret: (window.__journal.find((e) => e.sens === 'recu' && e.type === 'pret') || {}).t || null };
+        });
+        const dt = a.apercu && a.dcl != null ? Math.round(a.apercu.t - a.dcl) : null;
+        verif(N('aperçu : visible au plus 300 ms après DOMContentLoaded (data-ecran = apercu), avant le « pret » du travailleur'),
+          !!a.apercu && dt <= 300 && (!a.pret || a.apercu.abs < a.pret), court({ ms: dt, ecrans: [...new Set(a.ecrans)], avantPret: a.apercu && a.pret ? a.apercu.abs < a.pret : null }));
+        const A = a.apercu || {};
+        verif(N('aperçu : les CONTRÔLES des données, des volets et des barres d\'actions sont inertes'),
+          !!A.controles && A.controles.n > 0 && A.controles.actifs === 0, court(A.controles || 'aucun aperçu'));
+        verif(N('aperçu : le panneau des données n\'est pas inerte (lisible, défilable) et porte aria-busy'),
+          !!A.controles && !A.controles.donneesInerte && A.controles.occupe, court(A.controles || 'aucun aperçu'));
+        verif(N('aperçu : rien n\'est écrit dans la mémoire des notes (aucune note, ou des notes à l\'état nul)'),
+          !!A.notes && Object.values(A.notes).every((n) => n.etat == null), court(A.notes === undefined ? 'aucun aperçu' : A.notes));
+        // le bandeau, VU (checkVisibility et taille lue) ; au téléphone, à chaque onglet
+        const bandeaux = [];
+        const onglets = fmt === 'tel' ? await p2.$$eval('.mtabs [data-onglet]', (l) => l.map((x) => x.dataset.onglet)) : [null];
+        for (const o of onglets) {
+          if (o) { await p2.click(`.mtabs [data-onglet="${o}"]`).catch(() => {}); await attendre(200); }
+          bandeaux.push({ onglet: o || 'PC', ...(await lire(p2, () => window.__bandeau())) });
+        }
+        verif(N(`aperçu : le bandeau .et-demarre « Le moteur de calcul démarre » se voit, entier, dans l'écran${fmt === 'tel' ? ', à chaque onglet' : ''}`),
+          bandeaux.every((x) => x.vus === 1 && x.taille && x.taille[0] > 40 && x.taille[1] > 10 && x.dedans && /Le moteur de calcul démarre/.test(x.texte)), court(bandeaux, 700));
+        if (fmt === 'tel') await p2.click('.mtabs [data-onglet="donnees"]').catch(() => {});
+        // le panneau défile pendant l'aperçu (à la molette, sur lui)
+        const sc = await lire(p2, () => {
+          const d = document.getElementById('donnees');
+          for (let e = d; e && e !== document.body; e = e.parentElement) {
+            const cs = getComputedStyle(e);
+            if (/(auto|scroll)/.test(cs.overflowY) && e.scrollHeight > e.clientHeight + 4) { const r = e.getBoundingClientRect(); e.setAttribute('data-essai-defile', '1'); return { x: r.left + r.width / 2, y: r.top + Math.min(r.height / 2, 200), avant: e.scrollTop }; }
+          }
+          return null;
+        });
+        if (sc) {
+          await p2.mouse.move(sc.x, sc.y); await p2.mouse.wheel(0, 300); await attendre(400);
+          const apres = await lire(p2, () => (document.querySelector('[data-essai-defile]') || {}).scrollTop);
+          verif(N('aperçu : le panneau des données défile'), apres > sc.avant, `${sc.avant} → ${apres}`);
+        } else verif(N('aperçu : le panneau des données défile'), !!a.apercu, a.apercu ? 'rien à faire défiler à ce format (contenu court)' : 'aucun aperçu');
+        await p2.screenshot({ path: path.join(OUT, `demarrage_apercu_${fmt}.png`) }).catch(() => {});
+        await lire(p2, () => window.__relacher());
+        await pretEcran(p2, null, { chemin: `/${P('poutre')}` }).catch(() => {});
+        await c2.close();
+      });
+    }
+
+    // ---------------------------------------------------------------- la 1re réponse de chaque établi = son aperçu (S4-D10 (4))
+    if (joue('etablis')) {
+      await essai('établis', async () => {
+        const p2 = await nouvellePage(c);
+        await p2.goto(`${BASE}/`);
+        const R = repere(p2), s = (await etatEcran(p2)).s;
+        const fautes = [], exceptions = {};
+        for (const k of ETABLIS) {
+          const ra = await c.request.get(`${BASE}/moteur/apercus/${k}.json`);
+          const apercu = ra.ok() ? await ra.text() : null;
+          const r404 = apercu === null;
+          const n = (await etatEcran(p2)).journal;
+          let rep = null;
+          try {
+            await naviguerApp(p2, P(k));
+            rep = await premiereReponse(p2, (await lire(p2, () => window.__s)) === s ? n : 0, k);
+          } catch (e) { fautes.push(`${k} : ${String(e.message).split('\n')[0].slice(0, 100)}`); continue; }
+          if (r404) { fautes.push(`${k} : aperçu absent (moteur/apercus/${k}.json)`); continue; }
+          if (!rep) { fautes.push(`${k} : aucune réponse vue`); continue; }
+          const cmp = comparerApercu(k, rep, apercu);
+          if (!cmp.egal) fautes.push(`${k} : différent en ${cmp.diff}`);
+          else if (cmp.exception) exceptions[k] = cmp.exception;
+          const autre = cmp.exception && !EXCEPTIONS[k];
+          if (autre) fautes.push(`${k} : exception non nommée`);
+        }
+        const D = depuis(p2, R), sFin = (await etatEcran(p2)).s;
+        verif(N(`les ${ETABLIS.length} établis ouverts l'un après l'autre DANS l'application (sans document rechargé) : la première réponse de chacun égale son aperçu`),
+          !fautes.length && D.navs === 0 && sFin === s, court({ navigations: D.navs, sentinelle: sFin === s, fautes, exceptions }, 1200));
+        await p2.close();
+      });
+    }
+
+    // ---------------------------------------------------------------- les temps : médiane de 3 tirages entrelacés (C14)
+    if (joue('temps') || joue('etalons')) {
+      await essai('temps', async () => {
+        const seuil = 0.75 * os.cpus().length;
+        let charge = os.loadavg()[0];
+        const t0 = Date.now();
+        while (charge >= seuil && Date.now() - t0 < 60000) { await attendre(2000); charge = os.loadavg()[0]; }
+        if (charge >= seuil) { verif(N('temps : non mesurable'), false, `charge sur 1 min ${charge.toFixed(2)} ≥ ${seuil.toFixed(2)} (0,75 × ${os.cpus().length} cœurs) pendant 60 s`); return; }
+        const p3 = await nouvellePage(c);
+        const froid = async (cle) => {
+          await p3.goto(`${BASE}/${P(cle)}`);
+          await pretEcran(p3, null, { chemin: `/${P(cle)}` });
+          return lire(p3, () => { const x = window.__prets[window.__prets.length - 1]; return x ? x.t - performance.timeOrigin : NaN; });
+        };
+        const passage = async (cle) => {
+          const R = repere(p3);
+          const { avant } = await passer(p3, fmt, cle, P(cle));
+          const t = await lire(p3, (a) => {
+            const tc = window.__tclic ?? Number(sessionStorage.getItem('__tclic'));
+            const x = [...window.__prets].reverse().find((p) => window.__s !== a.s || (p.montage != null && Number(p.montage) > Number(a.montage)));
+            return x ? x.t - tc : NaN;
+          }, avant);
+          const D = depuis(p3, R);
+          const portes = [];
+          if (D.navs) portes.push(`${D.navs} navigation(s) de document`);
+          if (D.travailleurs) portes.push(`${D.travailleurs} travailleur(s) créé(s)`);
+          const lourd = D.requetes.filter((u) => /moteur\.zip|pyodide\.asm\.wasm/.test(u)).map((u) => u.replace(/^.*\//, '').replace(/\?.*$/, ''));
+          if (lourd.length) portes.push(`téléchargé : ${lourd.join(', ')}`);
+          return { t, portes };
+        };
+        const T = [];
+        for (let i = 0; i < 3; i++) {
+          const fP = await froid('poutre');
+          const pA = await passage('assemblages');
+          const pP = await passage('poutre');
+          const fA = await froid('assemblages');
+          T.push({ fP, pA: pA.t, pP: pP.t, fA, portes: [...pA.portes, ...pP.portes] });
+        }
+        const m = { fP: mediane(T.map((x) => x.fP)), pA: mediane(T.map((x) => x.pA)), pP: mediane(T.map((x) => x.pP)), fA: mediane(T.map((x) => x.fA)) };
+        const rA = m.pA / m.fA, rP = m.pP / m.fP, portes = [...new Set(T.flatMap((x) => x.portes))];
+        const brut = T.map((x) => `[froid poutre ${Math.round(x.fP)} · → assemblages ${Math.round(x.pA)} · → poutre ${Math.round(x.pP)} · froid assemblages ${Math.round(x.fA)}]`).join(' ');
+        console.log(`     ${N('temps')} : charge ${charge.toFixed(2)} · ${brut}`);
+        if (joue('temps')) {
+          verif(N('temps : poutre → assemblages → poutre, le passage dans l\'application ≤ 0,5 × le lien direct (médianes de 3 tirages entrelacés), portes tenues'),
+            !portes.length && rA <= 0.5 && rP <= 0.5, `assemblages ${Math.round(m.pA)}/${Math.round(m.fA)} = ${rA.toFixed(2)} · poutre ${Math.round(m.pP)}/${Math.round(m.fP)} = ${rP.toFixed(2)}${portes.length ? ' · portes : ' + portes.join(' ; ') : ''}`);
+        }
+        if (joue('etalons')) {
+          // ÉTALON : un passage FORCÉ par location.assign (un rechargement) doit dépasser 0,5 × le lien direct
+          const avant = await etatEcran(p3);
+          await lire(p3, () => { const t = window.__abs(); window.__tclic = t; sessionStorage.setItem('__tclic', String(t)); });
+          await lire(p3, (pg) => { location.assign(pg); }, P('poutre')).catch(() => {});
+          await pretEcran(p3, avant, { chemin: `/${P('poutre')}` });
+          const tf = await lire(p3, () => { const x = window.__prets[window.__prets.length - 1]; return x ? x.t - Number(sessionStorage.getItem('__tclic')) : NaN; });
+          verif(N('étalon : un passage forcé par location.assign est VU (rapport au lien direct > 0,5)'), tf / m.fP > 0.5, `${Math.round(tf)}/${Math.round(m.fP)} = ${(tf / m.fP).toFixed(2)}`);
+        }
+        await p3.close();
+      });
+    }
+    if (joue('etalons')) {
+      // ÉTALON : une tâche longue de 300 ms injectée sur l'accueil est détectée
+      await essai('étalon tâche longue', async () => {
+        const p4 = await nouvellePage(c);
+        await p4.goto(`${BASE}/`);
+        await lire(p4, () => new Promise((ok) => setTimeout(() => { const t = performance.now(); while (performance.now() - t < 300) { /* occupé */ } ok(); }, 50)));
+        await attendre(800);
+        const L = await lire(p4, () => window.__longues);
+        const max = L ? Math.max(0, ...L.map((x) => x.d)) : null;
+        verif(N('étalon : une tâche longue de 300 ms injectée sur l\'accueil est détectée'), max >= 290, `la plus longue : ${max} ms`);
+        await p4.close();
+      });
+      // ÉTALON : l'aperçu servi avec 600 ms de retard → le contrôle des 300 ms rougit
+      await essai('étalon aperçu', async () => {
+        const c5 = await ouvrirContexte(b, fmt);
+        const p5 = await nouvellePage(c5);
+        let servis = 0;
+        await p5.route((u) => /\/moteur\/apercus\//.test(u.pathname), async (r) => { servis++; await attendre(600); await r.continue(); });
+        await p5.goto(`${BASE}/${P('poutre')}`);
+        await p5.waitForFunction(() => !!window.__apercu, null, { timeout: 10000 }).catch(() => {});
+        const a = await lire(p5, () => { const nav = performance.getEntriesByType('navigation')[0]; return { t: window.__apercu && window.__apercu.t, dcl: nav.domContentLoadedEventEnd }; });
+        const dt = a.t ? Math.round(a.t - a.dcl) : null;
+        verif(N('étalon : l\'aperçu servi avec 600 ms de retard fait rougir le contrôle des 300 ms (le retard est VU)'), servis > 0 && dt !== null && dt > 300,
+          `${servis} aperçu(s) servi(s) · vu ${dt === null ? 'jamais' : dt + ' ms'} après DOMContentLoaded`);
+        await c5.close();
+      });
+    }
+    await c.close();
+  }
+  await b.close();
+  console.log(`demarrage : ${ko} KO`);
+  process.exit(ko ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(2); });
