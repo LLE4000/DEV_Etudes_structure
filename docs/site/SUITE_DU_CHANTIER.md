@@ -292,8 +292,22 @@ première livraison en porte deux, et ce qui les relie aux poutres.
 - ~~« Détailler dans Taux d'armature »~~ (une poutre dimensionnée part dans le module détaillé, préremplie) : 4897194,
   494d9ad, contrôles 4002d34, 32a5c31, 938a664. Mécanique générale : `docs/site/MODULES_SITE.md` § 4 sexies.
 
-Reste du lot Q : « Enrobages » dans la Bibliothèque (deux onglets, les tableaux de feu de l'EN 1992-1-2 — le moteur
-est fait, l'écran est en cours), puis « Maturité du béton » (moteur fait, écran à faire).
+Deuxième livraison, le même soir :
+
+- ~~« Enrobages » dans la Bibliothèque, en deux onglets~~ (« Calcul » : le dessin du détail et la feuille terme par
+  terme, durabilité puis feu ; « Tableaux » : le tableau entier de l'EN 1992-1-2 § 5, la case de la situation allumée ;
+  poteaux au tableau 5.2a par défaut, formule (5.7) au choix avec la valeur du tableau en comparaison) : moteur e19bf47,
+  anciens écrans corrigés c218093, état de vérification 375be08, gels b841f15, écran 625de00, harnais 74b05df, docs
+  f42c55a. 231 + 135 contrôles ; les distances fausses d'hier (colonne μ_fi décalée des poteaux, étrier retiré d'une
+  dalle, R 240 inventé) sont refusées par des mutations. Trois cas recalculés à la main par l'intégrateur (poutre R 90,
+  poteau R 90 au tableau puis à la formule, dalle R 120) : mêmes nombres.
+
+Reste du lot Q : « Maturité du béton » (moteur fait, écran en cours).
+
+À voir avec l'ingénieur après essai : au téléphone, l'onglet « Calcul » ramène la page sur la ligne c_nom après chaque
+réglage (la règle de la bibliothèque : la case allumée se voit) ; avec quinze paramètres au-dessus, une bande de
+résultat fixe en bas d'écran et aucun saut serait peut-être plus commode. La feuille de la formule (5.7), dix-huit
+termes, défile dans son cadre au PC et à la tablette (c_nom reste visible dans la bande).
 
 **À confirmer par l'ingénieur** (rien de bloquant, chaque choix est écrit et modifiable dans l'écran) :
 
