@@ -526,31 +526,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 180,4 2 20 20 200 200 201,7 236,7 236,7 26,3 26,5 26,6 28 28 29,3 3 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 13,22 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 13,22 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0},
@@ -1231,31 +1231,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X, ancrage à Y · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 120 120 13 15 2 3 3 4 42,76 42,76 42,76 47 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 42,76 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X, ancrage à Y · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 100 120 120 13 15 2 3 3 4 42,76 42,76 42,76 47 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 0 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 100 100 120 120 2 2 2 2,010 2,359 2,566 2,897 20 20 3 3 4 40 40 42,76 42,76 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,010 2,359 2,566 2,897 3 3,207 4 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,66 1,98 100 100 100 100 100 100 120 120 15 15 183,2 2 20 20 200 200 213,4 236,7 236,7 26,0 26,3 27,9 28 28 3 31,4 4 40 40 50 50 60 60 75 75,8 77,4 80 80 85 88,9 90,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,0 26,3 3 4 50 77,4 90,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 120 120 14,25 14,25 18 3 300 42,76 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 120 120 14,25 14,25 3 300 42,76 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 42.76, "L": 300.0, "X": 75.0, "dx": 0.0, "a": null, "R_ELU": 68.9, "Y": 85.0, "dy": 0.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -1779,31 +1779,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · équilibre : bras X − uV et Y − yc · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 33,91 33,91 35 4 5 67,5 75 85 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS : R = 35 kN · bras X − uV et Y − yc · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 33,91 33,91 35 4 5 67,5 75 85 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · équilibre · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 1 1 1 1,869 1,995 10 100 100 120 120 2 2 2 2,260 2,450 20 20 3 33,91 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,869 1,995 2 2,260 2,450 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · équilibre · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,50 1,66 10 100 100 100 100 100 100 120 120 15 15 176,3 180,4 2 20 20 200 200 236,7 236,7 26,3 26,3 26,5 26,6 28 28 3 4 40 40 5 50 50 60 60 73,6 74,5 75 75,1 76,2 80 80 85 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 74,5 76,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,3 11,67 120 120 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,3 11,67 120 120 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "equilibre", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -2346,31 +2346,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration B (aile horizontale en haut) · équilibre : bras X − uV et ya − c · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 35 4 5 67,5 75 85 90,42 90,42 Ø16"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS : R = 35 kN · bras X − uV et ya − c · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 35 35 4 5 67,5 75 85 90,42 90,42 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 0 1 10 100 100 120 120 2 20 20 3 35 4 40 40 5 60 60 75 80 80 85 90,42 M1 M2 M3 M4 −1 −1 −1,995 −2 −2 −2,450 −2,712 −2,712 −35"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M < 0 (face du congé comprimée), constant de l'ancrage à l'angle (M angle)",
+      "nombres": "0 0 1 1,995 2 2,450 2,712 2,712 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,66 10 100 100 100 100 100 100 105,2 105,2 120 120 15 15 180,4 2 20 20 200 200 236,7 236,7 248,9 26,3 26,6 28 28 28,0 3 31,0 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 85 S1 S2 S3 S4"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 105,2 2 26,3 28,0 3 4 50 76,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration B (aile horizontale en haut) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 18 3 30,14 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration B (aile horizontale en haut) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 3 30,14 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "B", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -2883,31 +2883,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 100 12 12 150 2 3 3 35 4 41 5 51 53 54,09 54,09 59 63 65 75 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 100 12 12 150 2 3 3 35 4 41 5 51 53 54,09 54,09 59 63 65 75 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 10 100 100 125 150 2 2 2 2,135 2,138 2,555 2,696 20 25 3 35 35 4 40 5 50 60 65 75 75 80 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,135 2,138 2,555 2,696 2,975 3 4 5 65 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,16 1,51 10 100 100 100 100 100 100 12 12 125 125,5 125,7 126,7 127,8 150 2 20 200 200 22,5 22,8 236,7 236,7 24 24 25 299,8 3 300 300 302,4 37,7 39,7 4 40 5 50 50 50 60 65 75 75 80 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 126,7 127,8 2 22,5 22,8 3 4 50"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 100 11,67 150 18 18,03 3 300 35 50 50 65 75 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300 · tranche coupée au dessin, cotes vraies",
+      "nombres": "1 100 100 100 11,67 150 18,03 3 300 35 50 50 65 75 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 150x100x12", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 65.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -3422,31 +3422,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 4 40 45,33 45,33 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 40 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 4 40 45,33 45,33 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 10 100 100 120 120 2 2 2 2,280 2,555 2,800 20 20 3 3 3,091 4 40 40 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,280 2,555 2,800 3 3,091 3,400 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 2 20 20 200 200 206,2 230,5 236,7 236,7 26,3 26,5 28 28 3 30,4 33,5 4 40 40 5 50 50 60 60 75 80 80 85 85,9 87,1 96,2 97,4 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 87,1 97,4"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 120 120 13,33 15,11 18 3 300 40 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 120 120 13,33 15,11 3 300 40 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 40.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -3961,31 +3961,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 180,4 2 20 20 200 200 201,7 236,7 236,7 26,3 26,5 26,6 28 28 29,3 3 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 13,22 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 13,22 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -4500,31 +4500,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 180,4 2 20 20 200 200 201,7 236,7 236,7 26,3 26,5 26,6 28 28 29,3 3 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 13,22 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 13,22 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -5052,31 +5052,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 105,3 106,9 120 120 15 15 2 20 20 200 200 201,7 236,7 236,7 252,9 26,3 26,5 28 28 29,3 3 37,3 4 40 40 5 50 50 60 60 75 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 106,9 2 26,3 26,5 3 4 50 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = 100) et sa diffusion à 45° jusqu'à la section 1, L eff = 174",
-      "nombres": "1 100 100 100 11,67 120 120 13,22 174 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = 100) et sa diffusion à 45° jusqu'à la section 1, L eff = 174",
+      "nombres": "1 100 100 100 11,67 120 120 13,22 174 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": 100.0, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -5598,31 +5598,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 15 2 3 3 35 39,67 39,67 4 5 60 60 70 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 15 2 3 3 35 39,67 39,67 4 5 60 60 70 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 10 100 100 120 120 2 2 2 2,450 2,450 2,705 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 2,450 2,450 2,705 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 10 100 100 100 100 100 100 101,7 101,7 101,7 120 120 15 15 15,0 15,0 2 20 20 200 200 218,2 236,7 236,7 240,8 3 4 40 40 5 50 50 60 60 75 80 80 85 92,2 92,2 92,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 101,7 105 15,0 15,0 2 3 4 50 92,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 13,22 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 13,22 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": false, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 0.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -6062,31 +6062,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X, ancrage à Y · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 12 120 120 13 15 2 25 3 3 32,5 35 4 40 47 60 75 87,5 87,5 Ø10"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X, ancrage à Y · voile en béton, cheville mécanique Ø10, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 100 12 120 120 13 15 2 25 3 3 32,5 35 4 40 47 60 75 87,5 87,5 Ø10"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 0 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 0,969 1 1 1 1,645 100 100 120 120 2 2 2 2,019 2,100 20 20 3 35 35 4 40 40 40 60 60 75 80 80 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 0,969 1 1,645 2 2,019 2,100 2,625 3 4 40 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,98 100 100 100 100 100 100 108,2 120 120 149,9 15 15 2 20 20 200 200 22,0 22,6 22,8 236,7 236,7 26,0 28 28 3 36,8 4 40 40 40 45,7 5,44 50 50 60 60 62,0 63,4 75 80 80 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 22,6 26,0 3 4 45,7 50 63,4"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 11,67 11,67 12 120 120 29,17 29,17 29,17 3 300 35 40 50 50 75 d0 Ø10"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 11,67 11,67 120 120 29,17 29,17 29,17 3 300 35 40 50 50 75 Ø10"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 0.0, "a": null, "R_ELU": null, "Y": 40.0, "dy": 0.0, "n": 3, "d": 10.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -6601,31 +6601,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 8,5 (tirets), ancrage à Y ± 4 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 100 100 12 2 3 3 35 4 4 40,5 40,74 40,74 49 52,5 61 62,5 66 71 8,5 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 8,5 (tirets), ancrage à Y ± 4 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 100 100 12 2 3 3 35 4 4 40,5 40,74 40,74 49 52,5 61 62,5 66 71 8,5 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 4 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,715 1,881 100 100 2 2 2 2,135 2,308 20 20 3 35 35 4 4 40 40 60 60 62,5 71 8,5 80 80 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,715 1,881 2 2,135 2,308 2,485 3 4 4 71 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,11 1,19 10 10 100 100 100 100 100 145,2 147,0 159,2 160,9 2 20 20 20,8 20,9 200 200 22 22 236,7 236,7 3 300 347,8 37,5 380,8 4 4 40 40 40,5 400 50 50 60 60 62,5 71 8,5 80 80 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 147,0 160,9 2 20,8 20,9 3 4 50"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 100 100 11,67 13,58 18 3 300 35 50 50 62,5 71 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300 · tranche coupée au dessin, cotes vraies",
+      "nombres": "1 100 100 100 100 11,67 13,58 3 300 35 50 50 62,5 71 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "Cornière de rive", "standard": true, "profil": "L 100x100x10", "A": 120.0, "B": 120.0, "t": 15.0, "r": 0.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 62.5, "dx": 8.5, "a": null, "R_ELU": null, "Y": 71.0, "dy": 4.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": true}], "actif": 0}
@@ -7140,31 +7140,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 180,4 2 20 20 200 200 201,7 236,7 236,7 26,3 26,5 26,6 28 28 29,3 3 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 13,22 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 13,22 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C2", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 20.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}, {"nom": "C3", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 1},
@@ -7428,7 +7428,7 @@
      ["f y /γ M0 =", "355,0 N/mm²", "·"],
      ["charge à X +", "10,"],
      ["ancrage à Y +", "5"],
-     ["configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1"],
+     ["configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1,0"],
      ["Sections Conforme ·", "96,2 %", "6"],
      ["vérifications · méthode historique (classeur P8) · maxima du congé en information Cornière L 120×120×15", "9 comb."],
      ["e =", "15", "·"],
@@ -7531,14 +7531,14 @@
      ["(catalogue)"]
     ],
     "calculs": [
-     ["C1 · sections configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1", "·"],
+     ["C1 · sections configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1,0", "·"],
      ["la cellule du classeur entre parenthèses Cornière L 120×120×15 · e =", "15", "·"],
      ["r =", "13 mm", "·"],
      ["aile horizontale", "120,"],
      ["verticale", "120 mm"],
      ["configuration A · aile horizontale en bas · méthode historique (classeur P8) ELU · S355 · f y /γ M0 =", "355,0", "·"],
      ["f y /(√3·γ M0 ) =", "205,0 N/mm²", "·"],
-     ["γ M0 =", "1", "·"],
+     ["γ M0 =", "1,0", "·"],
      ["R saisie à l'ELU R =", "60 kN"],
      ["(ELU) sur L =", "300 mm", "·"],
      ["X =", "75", "±", "10", "·"],
@@ -7676,14 +7676,14 @@
      ["σ/(f y /γ M0 ) = σ / (f y /γ M0 ) =", "344,9", "/", "355", "=", "97,2 %"],
      ["τ/(f y /(√3·γ M0 )) = τ / (f y /(√3·γ M0 )) =", "13,25", "/", "205", "=", "6,5 %"],
      ["Les maxima du congé sont calculés et montrés (vue Contraintes) mais restent en INFORMATION en mode historique : le classeur ne les a pas, et son cas de contrôle rend", "88,86 %"],
-     ["exactement. C1 · ancrages configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1", "·"],
+     ["exactement. C1 · ancrages configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1,0", "·"],
      ["la cellule du classeur entre parenthèses Cornière L 120×120×15 · e =", "15", "·"],
      ["r =", "13 mm", "·"],
      ["aile horizontale", "120,"],
      ["verticale", "120 mm"],
      ["configuration A · aile horizontale en bas · méthode historique (classeur P8) ELU · S355 · f y /γ M0 =", "355,0", "·"],
      ["f y /(√3·γ M0 ) =", "205,0 N/mm²", "·"],
-     ["γ M0 =", "1", "·"],
+     ["γ M0 =", "1,0", "·"],
      ["R saisie à l'ELU R =", "60 kN"],
      ["(ELU) sur L =", "300 mm", "·"],
      ["X =", "75", "±", "10", "·"],
@@ -7712,14 +7712,14 @@
      ["V ELU = R / n =", "60", "/", "3", "=", "20,00 kN"],
      ["p diam (C88) = V ELU ·10³ / (d·e) =", "20", "×", "10³", "/", "(16", "×", "15)", "=", "83,3 N/mm²"],
      ["σ arr (C90) = V ELU ·10³ / (2·(haut − Y)·e) =", "20", "×", "10³", "/", "(2", "×", "(120", "−", "85)", "×", "15)", "=", "19,0 N/mm²"],
-     ["Chevilles non vérifiées : N et V par ancrage à l'ELU (R saisie à l'ELU, rien n'est inventé pour l'ELS), à donner à Hilti PROFIS ; pression diamétrale et arrachement sans limite, comme le classeur. C1 · comparaison des modes configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1", "·"],
+     ["Chevilles non vérifiées : N et V par ancrage à l'ELU (R saisie à l'ELU, rien n'est inventé pour l'ELS), à donner à Hilti PROFIS ; pression diamétrale et arrachement sans limite, comme le classeur. C1 · comparaison des modes configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1,0", "·"],
      ["la cellule du classeur entre parenthèses Cornière L 120×120×15 · e =", "15", "·"],
      ["r =", "13 mm", "·"],
      ["aile horizontale", "120,"],
      ["verticale", "120 mm"],
      ["configuration A · aile horizontale en bas · méthode historique (classeur P8) ELU · S355 · f y /γ M0 =", "355,0", "·"],
      ["f y /(√3·γ M0 ) =", "205,0 N/mm²", "·"],
-     ["γ M0 =", "1", "·"],
+     ["γ M0 =", "1,0", "·"],
      ["R saisie à l'ELU R =", "60 kN"],
      ["(ELU) sur L =", "300 mm", "·"],
      ["X =", "75", "±", "10", "·"],
@@ -7732,14 +7732,14 @@
      ["aile verticale taux P1 ≤ taux historique", "91,5 %", "96,2 %"],
      ["du côté sûr Le détail du calcul Dans chaque mode, le résultat montre en information le taux maximal de l'autre mode (sur le cas de contrôle du classeur : historique", "88,86 %,"],
      ["équilibre P0", "76,91 %)."],
-     ["En mode historique, le moteur calcule aussi l'équilibre P1 (pivot e/2, u_V = e/2) : s'il donne un taux plus grand sur l'aile verticale (ancrage bas), la méthode historique n'est plus du côté sûr et un avertissement rouge le dit. C1 · géométrie et matériau configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1", "·"],
+     ["En mode historique, le moteur calcule aussi l'équilibre P1 (pivot e/2, u_V = e/2) : s'il donne un taux plus grand sur l'aile verticale (ancrage bas), la méthode historique n'est plus du côté sûr et un avertissement rouge le dit. C1 · géométrie et matériau configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1,0", "·"],
      ["la cellule du classeur entre parenthèses Cornière L 120×120×15 · e =", "15", "·"],
      ["r =", "13 mm", "·"],
      ["aile horizontale", "120,"],
      ["verticale", "120 mm"],
      ["configuration A · aile horizontale en bas · méthode historique (classeur P8) ELU · S355 · f y /γ M0 =", "355,0", "·"],
      ["f y /(√3·γ M0 ) =", "205,0 N/mm²", "·"],
-     ["γ M0 =", "1", "·"],
+     ["γ M0 =", "1,0", "·"],
      ["R saisie à l'ELU R =", "60 kN"],
      ["(ELU) sur L =", "300 mm", "·"],
      ["X =", "75", "±", "10", "·"],
@@ -7796,14 +7796,14 @@
      ["ancrage à Y +", "5", "—"],
      ["X′ =", "85,"],
      ["Y′ =", "90 mm"],
-     ["(charge loin, ancrage haut) C1 · efforts configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1", "·"],
+     ["(charge loin, ancrage haut) C1 · efforts configuration A · aile horizontale en bas · méthode historique (classeur P8) · ELU · f y /γ M0 , γ M0 =", "1,0", "·"],
      ["la cellule du classeur entre parenthèses Cornière L 120×120×15 · e =", "15", "·"],
      ["r =", "13 mm", "·"],
      ["aile horizontale", "120,"],
      ["verticale", "120 mm"],
      ["configuration A · aile horizontale en bas · méthode historique (classeur P8) ELU · S355 · f y /γ M0 =", "355,0", "·"],
      ["f y /(√3·γ M0 ) =", "205,0 N/mm²", "·"],
-     ["γ M0 =", "1", "·"],
+     ["γ M0 =", "1,0", "·"],
      ["R saisie à l'ELU R =", "60 kN"],
      ["(ELU) sur L =", "300 mm", "·"],
      ["X =", "75", "±", "10", "·"],
@@ -7913,31 +7913,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 4 47 5 57 60 60 68 68 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU : R = 60 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 4 47 5 57 60 60 68 68 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 10 100 100 120 120 2 2 2 20 20 3 3,420 3,833 4 4 4 4,200 4,636 40 40 5 60 60 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 2 3 3,420 3,833 4 4,200 4,636 5 5,100 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 355,0 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 2 20 20 200 200 26,3 26,5 28 28 3 30,4 300 300 309,3 33,5 345,7 355,0 355,0 4 40 40 5 50 50 60 60 75 80 80 85 85,9 87,1 96,2 97,4 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · taux σéq / fy/γM0 = 355,0 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 87,1 97,4 fy/γM0"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 120 120 18 3 300 50 50 60 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELU : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 120 120 20 22,67 3 300 50 50 60 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELU", "fy": 355.0, "coef": 1.5, "R": 60.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -8458,31 +8458,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · poutre en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 200 3 3 35 39,67 39,67 4 47 5 57 60 70 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 180,4 2 20 20 200 200 201,7 236,7 236,7 26,3 26,5 26,6 28 28 29,3 3 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 13,22 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 13,22 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "poutre", "support_haut": 160.0, "support_bas": 120.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -9033,31 +9033,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration B (aile horizontale en haut) · équilibre : bras X − uV et ya − c · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 35 4 5 67,5 75 85 90,42 90,42 Ø16"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS : R = 35 kN · bras X − uV et ya − c · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · poutre en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 230 3 3 35 35 4 5 60 67,5 75 85 90,42 90,42 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 0 1 10 100 100 120 120 2 20 20 3 35 4 40 40 5 60 60 75 80 80 85 90,42 M1 M2 M3 M4 −1 −1 −1,995 −2 −2 −2,450 −2,712 −2,712 −35"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M < 0 (face du congé comprimée), constant de l'ancrage à l'angle (M angle)",
+      "nombres": "0 0 1 1,995 2 2,450 2,712 2,712 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,66 10 100 100 100 100 100 100 105,2 105,2 120 120 15 15 180,4 2 20 20 200 200 236,7 236,7 248,9 26,3 26,6 28 28 28,0 3 31,0 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 85 S1 S2 S3 S4"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 105,2 2 26,3 28,0 3 4 50 76,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration B (aile horizontale en haut) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 18 3 30,14 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration B (aile horizontale en haut) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 3 30,14 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "B", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "poutre", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -9570,31 +9570,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, boulon traversant Ø16, profondeur 200 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 120 120 13 15 2 200 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 180,4 2 20 20 200 200 201,7 236,7 236,7 26,3 26,5 26,6 28 28 29,3 3 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 11,67 120 120 13,22 18 3 300 35 70 70 75 80 80 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 80, e₁ = 70 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 11,67 120 120 13,22 3 300 35 70 70 75 80 80 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": 80.0, "type_ancrage": "traversant", "profondeur": 200.0, "rondelles": 2, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
@@ -10109,31 +10109,31 @@
     "vues": [
      {
       "cle": "coupe",
-      "titre": "Coupe · schéma statique",
+      "titre": "Coupe · plan de principe coté",
       "court": "Coupe",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) : bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · sections 1 à 4 en orange · C la résultante de compression",
-      "nombres": "1 10 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS : R = 35 kN · bras du classeur Xe, Xe+r, Ye, Ye+r, YH · charge à X ± 10 (tirets), ancrage à Y ± 5 (tirets fins) · voile en béton, cheville mécanique Ø16, profondeur 100 · sections 1 à 4 en orange · C la résultante de compression",
+      "nombres": "1 10 100 120 120 13 15 2 3 3 35 39,67 39,67 4 47 5 57 60 70 75 77,5 85 Ø16"
      },
      {
       "cle": "moments",
-      "titre": "Moments · les deux ailes développées",
+      "titre": "Moments · sur la cornière",
       "court": "Moments",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · M le long de chaque aile (s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras, la tolérance ± 5 de l'ancrage en bande, N et V par tronçon · M > 0 : face côté congé tendue · hors échelle",
-      "nombres": "0 0 0 0 0 0 1 1 1 1,995 10 100 100 120 120 2 2 2 2,236 2,450 2,705 20 20 3 35 35 4 40 40 5 60 60 75 80 80 85 M1 M2 M3 M4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · M > 0 : face du congé tendue",
+      "nombres": "0 0 1 1,995 2 2,236 2,450 2,705 2,975 3 4 5 85 M1 M2 M3 M4"
      },
      {
       "cle": "contraintes",
-      "titre": "Contraintes · σéq et taux le long des ailes",
+      "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · l'épaisseur t(s) du congé, σéq de l'enveloppe et le taux (ligne des 100 % : σadm = 236,7 N/mm²), le maximum ◉ et sa position, les sections 1 à 4 · hors échelle",
-      "nombres": "0 0 0 0 1 1,53 1,66 10 100 100 100 100 100 100 120 120 15 15 180,4 2 20 20 200 200 201,7 236,7 236,7 26,3 26,5 26,6 28 28 29,3 3 4 40 40 5 50 50 60 60 75 75,1 76,2 80 80 84,2 85 85,2 S1 S2 S3 S4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · taux σéq / σadm = 236,7 N/mm² par maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà",
+      "nombres": "0 1 100 105 2 26,3 26,5 3 4 50 76,2 85,2"
      },
      {
       "cle": "elevation",
       "titre": "Élévation · la tranche L et l'aile rabattue",
       "court": "Élévation",
-      "legende": "configuration A (aile horizontale en bas) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100 (le premier à 50), N et V ELS par ancrage (enveloppe) · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
-      "nombres": "1 100 100 11,67 120 120 13,22 18 3 300 35 50 50 75 85 d0 Ø16"
+      "legende": "configuration A (aile horizontale en bas) · ELS : N et V par ancrage (enveloppe) · la tranche L = 300 vue de face : 3 ancrage(s) à l'entraxe 100, e₁ = 50 au bout · l'aile horizontale rabattue : la charge (a = L) et sa diffusion à 45° jusqu'à la section 1, L eff = 300",
+      "nombres": "1 100 100 11,67 120 120 13,22 3 300 35 50 50 75 85 Ø16"
      }
     ],
     "etat": {"version": 2, "cornieres": [{"nom": "C1", "standard": true, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A", "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": null, "R_ELU": null, "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": null, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1, "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": null, "v1": false}], "actif": 0}
