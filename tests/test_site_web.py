@@ -314,9 +314,10 @@ _src_rangement = open(os.path.join(WEB, "js", "rangement.js"), encoding="utf-8")
 _ids_compact = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_compact)))
 # js/rangement.js cherche ses éléments par un raccourci $("et-…") = document.getElementById
 _ids_rangement = sorted(set(re.findall(r'getElementById\("([\w-]+)"', _src_rangement)) | set(re.findall(r'\$\("(et-[\w-]+)"\)', _src_rangement)))
-chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutres, dalles — les prédalles ont rejoint les dalles) et les "
-    "cornières d'appui (refonte du 10/11/2026), leurs fonctions aux mêmes places ; les autres modules attendent l'avis du bureau",
-    SW.ETABLI_COMPACT == ("poutre", "dalle", "corniere"), SW.ETABLI_COMPACT)
+chk("l'établi compact : les deux modules béton armé qui se ressemblent (poutres, dalles — les prédalles ont rejoint les dalles), les "
+    "cornières d'appui (refonte du 10/11/2026), puis les poutres bois, la maturité du béton et le taux d'armature (lot Q, 10/11/2026 : "
+    "docs/site/LOT_Q_QUATRE_MODULES.md), leurs fonctions aux mêmes places ; les autres modules attendent l'avis du bureau",
+    SW.ETABLI_COMPACT == ("poutre", "dalle", "corniere", "bois", "age", "taux"), SW.ETABLI_COMPACT)
 # la NOTE PDF (décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site, celle de la dalle
 # dit les chiffres du site) : les modules qui en ont une, chacun avec son ``telecharger(etat, quoi, infos)`` et sa note
 # « riche » pour le relevé du paquet de la note (construire.NOTES_RELEVE)
@@ -640,8 +641,10 @@ chk("js/app.js mène une redirection : ouverte directement, location.replace(bod
     and 'if (r.sorte === "redirection") { u = new URL(r.vers + u.search + u.hash, u); r = route(u.href); }' in _redir_code
     and not any(f'"{k}"' in _redir_code or f'"{v}"' in _redir_code for k, v in SW.REDIRECTIONS.items())
     and not os.path.exists(os.path.join(WEB, "js", "redirection.js")), "")
-chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026) et des cornières (10/11/2026), un sous-ensemble de l'établi compact",
-    set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere"} and len(SW.ARBRE_COMPACT) == 3 and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
+chk("ARBRE_COMPACT : la colonne de gauche compacte est celle des dalles et des poutres (09/11/2026), des cornières (10/11/2026) et des trois "
+    "modules du lot Q (poutres bois, maturité, taux d'armature), un sous-ensemble de l'établi compact",
+    set(SW.ARBRE_COMPACT) == {"dalle", "poutre", "corniere", "bois", "age", "taux"} and len(SW.ARBRE_COMPACT) == 6
+    and set(SW.ARBRE_COMPACT) <= set(SW.ETABLI_COMPACT), SW.ARBRE_COMPACT)
 EMPLACEMENT_ELT = '<div class="et-elt" role="group" aria-label="L\'élément ouvert"></div>'
 for k in ETABLIS:
     html = open(os.path.join(WEB, SW.PAGES[k]), encoding="utf-8").read()
