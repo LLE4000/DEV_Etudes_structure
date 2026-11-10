@@ -10,6 +10,7 @@ const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
 const OUT = process.argv[3] || '.';
 const FILTRE = process.argv[4] || '';
+if (/^demarrage(:|$)/.test(FILTRE)) process.exit(require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'verifier_demarrage.js'), BASE, OUT, FILTRE.slice(10)], { stdio: 'inherit' }).status ?? 2);   // « demarrage[:sous-filtre] » : verifier_demarrage.js
 
 (async () => {
   // une locale UTF-8 pour Chromium : sous la locale « C » d'un serveur, il ne sait pas écrire un nom de fichier accentué
