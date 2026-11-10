@@ -1089,3 +1089,55 @@ formats.
 
 **Mesure** : `mesures/AAAA-MM-JJ_demarrage_apres.md`, même protocole que le lot 0, plus le passage DANS l'application
 (clic) et l'ouverture depuis l'accueil après 3 s.
+
+### Corrections après critique (trois critiques adverses, 10/11/2026 au soir) — elles priment sur S4-D1 à S4-D10
+
+- **C1. Fermer ne bloque pas et ne jette rien** (remplace l'attente plafonnée de S4-D4). À la fermeture : le champ actif
+  perd le focus (la saisie en cours est validée), le client du moteur abandonne ses LECTURES pas encore parties et GARDE
+  ses MODIFICATIONS ; la navigation continue aussitôt. Les réponses des modifications gardées s'appliquent à la NOTE
+  enregistrée seulement (jamais au DOM, à l'adresse ni au titre) ; un refus du moteur est affiché dans l'écran suivant ; un
+  établi qui rouvre CETTE note attend que l'enregistrement soit fait.
+- **C2. Aucune suite tardive n'agit sur l'écran suivant** : un `AbortSignal` par montage ; toute suite après un `await`
+  s'arrête si l'écran est fermé ; un client fermé rejette `EcranFerme`, avalée sans message. Les écrans ne touchent jamais
+  `history`, `location`, `document.title` : ils passent par l'application (contrôle statique).
+- **C3. L'adresse d'une note provisoire écrite après le départ** est corrigée sur SA propre entrée d'historique (chaque
+  entrée porte une clé ; correction appliquée au retour sur cette entrée), jamais sur l'entrée d'arrivée.
+- **C4. Le préchauffage est une tâche de fond** : file à part, la plus récente seule, jamais devant une vraie requête ; au
+  doigt, toucher une tuile ne lit que la page — l'import part au clic (faire défiler l'accueil ne charge rien).
+- **C5. Le travailleur traite tous ses messages par une seule chaîne** ; la clé d'une requête se lit dans la requête
+  (une seule source) ; une erreur fatale de Pyodide est reconnue, les requêtes en attente reçoivent `{ok:false}` et un
+  travailleur neuf est recréé à la demande suivante.
+- **C6. Démarrage en fond sur l'accueil, à conditions** : page visible, pas d'économie de données ni de 2g/3g déclarées ;
+  là où le navigateur ne dit rien de la connexion (Safari), seulement si ce navigateur a déjà démarré le moteur une fois
+  (le cœur de 8,6 Mo est alors en cache) ; sinon au premier signe d'intention.
+- **C7. Version du site** : empreinte de tous les fichiers publiés non HTML et des pages rendues avec une version vide (pas
+  de circularité), la même sur les 21 pages et dans le manifeste ; relue au retour sur l'onglet ; `/js/*` et `/css/*`
+  revalidés (`no-cache`).
+- **C8. Réseau absent et session Access expirée ne se confondent pas** : session à refaire (redirection, 401, 403, page
+  sans version) → navigation ordinaire ; réseau absent → on reste, avec un message : les calculs déjà ouverts restent
+  utilisables.
+- **C9. Feuilles de style** : insérées à leur place dans l'ordre de la page cible, attendues, puis activées et désactivées
+  dans la même tâche que l'échange du body (ni éclair sans style, ni cascade dans le désordre, ni feuille d'un autre module
+  active).
+- **C10. Accessibilité et défilement** : focus sur le titre de l'écran, annonce dans une région `aria-live` ; défilement
+  remis à zéro à l'aller, rendu au retour. Pendant le démarrage, ce sont les CONTRÔLES qui sont inertes, pas les panneaux
+  (lisibles, défilables, `aria-busy`) ; le bandeau est visible aux trois formats, quel que soit l'onglet du téléphone.
+- **C11. Note rouverte** : son résumé enregistré est montré NEUTRE (« dernier enregistrement · date · recalcul en cours »,
+  sans pastille de niveau) : c'est un cache, peut-être calculé par un moteur plus ancien.
+- **C12. Aperçus** (corrige S4-D8) : peints par une fonction qui ne touche ni la note ni l'état de l'écran ; refusés à la
+  construction s'ils ne sont pas une réponse complète (`ok`, `etat`, `resultat`). Mesuré : Pyodide et CPython diffèrent
+  au DERNIER chiffre de certaines coordonnées SVG du garde-corps (13.81774801564556 contre 13.817748015645558 ; valeurs
+  affichées identiques). Les comparaisons aperçu ↔ Pyodide le nomment comme seconde exception (coordonnées des vues
+  nommées à 1e-9 relatif), à côté du compteur de soudures ; la liste rougit si elle grandit ou rétrécit. `age` garde son
+  aperçu ; le test fait varier la date explicitement (quatre dates) au lieu de compter sur le jour où il passe.
+- **C13. Le paquet expédié doit être à jour avant toute preuve dans Pyodide** (le commit du registre paresseux l'a laissé
+  périmé : reconstruit à l'intégration) ; la suite Pyodide le prend comme précondition.
+- **C14. Preuves ajoutées** : un seul moteur (aucune navigation de document, une sentinelle conservée, un seul
+  travailleur, un seul démarrage de Python, un canari « l'espion a vu des réponses ») ; le moteur partagé rejoué dans
+  Pyodide sous node (référence dans deux ordres, préchauffage isolé, aperçus, note PDF, travailleur qui tombe) ; dans
+  Chromium : réponses tardives et fermeture (retard injecté), retour et avance, feuilles actives et styles calculés égaux à
+  un chargement direct, écouteurs qui ne s'accumulent pas, navigations écrites en JavaScript, version changée, hors
+  ligne ; les filtres principaux rejoués aussi en passant DANS l'application ; les temps jugés en médiane de trois tirages
+  entrelacés avec des invariants comme portes ; et un inventaire des noms de contrôles avant et après (un contrôle
+  disparu sans remplaçant nommé est un contrôle perdu). Une recette iPad et iPhone (Safari) à faire à la main est écrite
+  avec la mesure « après » : elle ne se prouve pas dans Chromium.
