@@ -7,7 +7,12 @@
 - la charte : css/charte.css est la COPIE de site/maquettes/charte.css (celle que le bureau a validée) ;
 - le PAQUET DU MOTEUR, moteur/moteur.zip : les fichiers Python que le site exécute (api_web, le moteur de chaque
   module, leurs données), relevés en faisant tourner l'API sur des cas variés, bibliothèques lourdes refusées.
-  Le paquet est reproductible (dates fixes, ordre trié) : tests/test_site_web.py le reconstruit et le compare.
+  Le paquet est reproductible (dates fixes, ordre trié) : tests/test_site_web.py le reconstruit et le compare ;
+- les APERÇUS, moteur/apercus/<clé>.json : la réponse « nouveau » de chaque établi, calculée à la construction (l'écran
+  la peint pendant que le moteur démarre ; tests/test_apercus.py la recalcule) ;
+- la VERSION du site : une empreinte des fichiers publiés et des pages, la même dans chaque page (<meta
+  name="stab-version">) et dans le manifeste (js/app.js ne passe d'une page à l'autre sans rechargement qu'à version égale).
+  Toutes les pages n'ont qu'un script de module, js/app.js.
 
     python3 site/web/construire.py                                  # le site, dans site/web
     python3 site/web/construire.py --dossier /tmp/x --modules dalle # une copie à part, paquet relevé sur ces modules
@@ -122,22 +127,43 @@ def espion(f, *a, **k):
 builtins.open = espion
 from api_web import parcours as P, routeur as R
 echecs = []
-for desc, ok, err in P.parcourir({cle!r}, R.traiter, maximum={maximum}):
-    if not ok:
-        echecs.append({cle!r} + " · " + desc + " : " + str(err))
+{parcours}
 if echecs:
     sys.stderr.write("\\n".join(echecs[:20])); sys.exit(3)
 mods = {{os.path.relpath(m.__file__, RACINE) for m in list(sys.modules.values()) if getattr(m, "__file__", None) and os.path.abspath(m.__file__).startswith(RACINE + os.sep)}}
 print(json.dumps({{"fichiers": sorted(mods | lus), "numpy": "numpy" in sys.modules}}))
 """
+# le parcours d'un MODULE : celui de api_web/parcours.py
+_PARCOURS_MODULE = """
+for desc, ok, err in P.parcourir({cle!r}, R.traiter, maximum={maximum}):
+    if not ok:
+        echecs.append({cle!r} + " · " + desc + " : " + str(err))
+"""
+# le parcours d'une BIBLIOTHÈQUE (clé « biblio_<k> ») : chaque rubrique de son menu, avec ses défauts — ce que sa page et
+# le panneau d'une note demandent (action « consulter »)
+_PARCOURS_BIBLIOTHEQUE = """
+import importlib
+for rub in importlib.import_module(R.BIBLIOTHEQUES[{biblio!r}]).CLES:
+    r = json.loads(R.traiter(json.dumps({{"action": "consulter", "bibliotheque": {biblio!r}, "rubrique": rub}})))
+    if not r.get("ok"):
+        echecs.append({cle!r} + " · " + rub + " : " + str(r.get("erreur")))
+"""
+# la clé d'une bibliothèque dans le relevé et dans « avec_numpy » du manifeste : celle que le travailleur lit dans une
+# requête « consulter » (CONTRAT § 1 : "biblio_" + req.bibliotheque)
+PREFIXE_BIBLIOTHEQUE = "biblio_"
 # un fichier qui importe numpy, même au fond d'une fonction que le parcours n'a pas suivie
 _IMPORTE_NUMPY = re.compile(r"^\s*(?:import\s+numpy\b|from\s+numpy\b)", re.M)
 
 
 def _releve_un(cle: str) -> dict:
-    """Le relevé d'UN module, dans son propre sous-processus (bibliothèques lourdes refusées) : les fichiers du dépôt
-    que son parcours charge, et s'il charge numpy — un module seul, pour que numpy chargé par un autre ne compte pas."""
-    sonde = _SONDE.format(racine=RACINE, interdits=INTERDITS, cle=cle, maximum=MAX_RELEVE)
+    """Le relevé d'UN module (ou d'une bibliothèque, « biblio_<k> »), dans son propre sous-processus (bibliothèques
+    lourdes refusées) : les fichiers du dépôt que son parcours charge, et s'il charge numpy — un module seul, pour que
+    numpy chargé par un autre ne compte pas."""
+    if cle.startswith(PREFIXE_BIBLIOTHEQUE):
+        parcours_ = _PARCOURS_BIBLIOTHEQUE.format(cle=cle, biblio=cle[len(PREFIXE_BIBLIOTHEQUE):])
+    else:
+        parcours_ = _PARCOURS_MODULE.format(cle=cle, maximum=MAX_RELEVE)
+    sonde = _SONDE.format(racine=RACINE, interdits=INTERDITS, parcours=parcours_.strip())
     p = subprocess.run([sys.executable, "-c", sonde], capture_output=True, text=True, cwd=RACINE)
     if p.returncode != 0:
         raise SystemExit(f"Le relevé du moteur a échoué ({cle}) :\n" + p.stderr[-3000:])
@@ -149,8 +175,9 @@ def releve(modules=None) -> dict:
     relevés en rejouant le parcours de chaque module là où les bibliothèques lourdes sont refusées : ce qui y manque
     manquerait aussi dans le navigateur) et ``avec_numpy`` (les modules qui chargent numpy : le travailleur ne le charge
     que pour eux — il pèse une à deux secondes au démarrage ; un fichier qui l'importe, même dans une fonction que le
-    parcours n'a pas suivie, compte). Un sous-processus par module, quatre à la fois."""
-    cles = list(modules or ADRESSES)
+    parcours n'a pas suivie, compte). Un sous-processus par module, quatre à la fois. Les BIBLIOTHÈQUES sont relevées
+    aussi, toujours (clés « biblio_<k> » : la Bibliothèque Acier charge numpy — le travailleur le charge avant elle)."""
+    cles = list(modules or ADRESSES) + [PREFIXE_BIBLIOTHEQUE + k for k in BIBLIOTHEQUES]
     with ThreadPoolExecutor(max_workers=max(1, min(4, os.cpu_count() or 1))) as ex:
         par_module = dict(zip(cles, ex.map(_releve_un, cles)))
     fichiers = set().union(*(set(r["fichiers"]) for r in par_module.values()))
@@ -449,11 +476,23 @@ def modpanel() -> str:
             f'<a class="btn icon ghost" data-modules="1" title="Fermer">{MQ.icon("x")}</a></div>{corps}</aside>')
 
 
+# La VERSION du site (S4-D3, C7) : chaque page la porte dans cette balise, la même sur toutes les pages d'un site
+# construit ; js/app.js compare celle de la page cible à celle du document courant (une autre → navigation ordinaire).
+# Les gabarits l'écrivent VIDE ; ``construire`` calcule la version (``version_site``) sur les fichiers publiés et sur
+# les pages ainsi rendues — aucune circularité —, puis la pose (``poser_version``).
+META_VERSION = '<meta name="stab-version" content="{}">'
+META_VERSION_VIDE = META_VERSION.format("")
+# le SEUL script de module de toutes les pages (S4-D1) : l'application monte l'écran que le <body> nomme (data-page) ;
+# js/theme.js reste un script classique en tête (le thème avant le premier rendu)
+SCRIPT_APP = '<script type="module" src="js/app.js"></script>'
+
+
 def tete(titre: str, *feuilles: str) -> str:
-    """L'en-tête d'une page : la charte, site.css, puis les feuilles données, dans cet ordre (une vide est ignorée)."""
+    """L'en-tête d'une page : la version du site (vide ici, posée par ``construire``), la charte, site.css, puis les
+    feuilles données, dans cet ordre (une vide est ignorée)."""
     lien = "".join(f'<link rel="stylesheet" href="{c}">\n' for c in feuilles if c)
     return ('<!doctype html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n'
-            '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+            '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + META_VERSION_VIDE + '\n'
             f'<title>{titre}</title>\n<link rel="icon" href="favicon.svg" type="image/svg+xml">\n'
             '<link rel="stylesheet" href="css/charte.css">\n<link rel="stylesheet" href="css/site.css">\n' + lien
             + '<script src="js/theme.js"></script>\n</head>\n')
@@ -530,7 +569,7 @@ def page_accueil() -> str:
              f'viendront ensuite.</p><label class="btn sm" for="importer">{MQ.icon("upload")}Importer un fichier .stab</label>'
              f'<input type="file" id="importer" accept=".stab,.json" hidden></div></aside></div>{mnav("accueil")}</main></div>{modal}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
-             f'<script type="module" src="js/accueil.js"></script></body>\n</html>\n')
+             f'{SCRIPT_APP}</body>\n</html>\n')
     return tete("Stab Méthodes") + corps
 
 
@@ -688,16 +727,14 @@ def page_module(cle: str, titre: str) -> str:
             f'<button type="button" class="zplein" data-plein="1" title="Plein écran">{MQ.icon("maximize-2")}{MQ.icon("x")}</button></div>')
     toile = (f'<section class="canvas"><div class="ctool"><div class="seg" id="vues"></div>{zoom}</div>'
              f'<div class="stage" id="stage"></div></section>')
-    demarrage = (f'<div class="demarrage" id="demarrage"><div class="carte"><div class="logo">{MQ.LOGO}</div><b>Chargement du moteur de calcul</b>'
-                 f'<span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div>'
-                 f'<small>La première ouverture prend quelques secondes ; ensuite, chaque calcul est immédiat.</small></div></div>')
+    # (plus de voile #demarrage, S4-D7 : l'écran est visible tout de suite ; le bandeau du démarrage est posé par l'écran)
     corps = (f'<body data-page="module" data-module="{cle}" data-titre="{MQ.esc(nom)}"{' data-note-pdf="1"' if cle in NOTE_PDF else ''}><div class="app rail">{rail("modules")}<main class="main">{top}'
              f'{mtop}{mmenu}{mtabs}'
              f'<div class="bench" data-tab="donnees">{toile}<section class="panel left">{gauche}</section>'
-             f'<section class="panel right">{droite}</section><div id="volets"></div>{demarrage}</div>{mbar}</main></div>'
+             f'<section class="panel right">{droite}</section><div id="volets"></div></div>{mbar}</main></div>'
              f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}{fenetre_rangement()}'
              f'<div class="toast" id="toast" role="status" hidden></div>'
-             f'<script type="module" src="js/etabli.js"></script></body>\n</html>\n')
+             f'{SCRIPT_APP}</body>\n</html>\n')
     # la bibliothèque de la famille, dans un panneau de la note (docs/site/BIBLIOTHEQUES.md § 2.4) : pour un module de
     # l'établi compact qui sait la préremplir ; sa feuille de style vient avec
     biblio = _bibliotheque_du_module(cle) if cle in ETABLI_COMPACT else None
@@ -708,14 +745,14 @@ def page_module(cle: str, titre: str) -> str:
                 css if os.path.exists(os.path.join(ICI, css)) else "") + corps
 
 
-def _gabarit_bibliotheque(B, dedans: str = "") -> str:
+def _gabarit_bibliotheque(B) -> str:
     """Le gabarit d'une bibliothèque — le menu des rubriques à gauche ; la barre de paramètres, LE TABLEAU, la bande de
     la valeur retenue et les sources à droite ; les identifiants que js/biblio.js cherche — le même dans sa page et dans
-    le panneau d'une note (un composant, deux hôtes). ``dedans`` : ce que la page y ajoute (son écran de démarrage)."""
+    le panneau d'une note (un composant, deux hôtes). (Le voile de démarrage que la page y ajoutait a disparu, S4-D7.)"""
     return (f'<div class="bib"><nav class="bib-menu" id="bib-menu" aria-label="Rubriques">{B.menu()}</nav>'
             f'<section class="bib-corps" id="bib-corps" aria-busy="false"><div class="bib-barre" id="bib-barre"></div>'
             f'<div class="bib-tableau" id="bib-tableau"><div class="attente">Chargement…</div></div>'
-            f'<div class="bib-bande" id="bib-bande"></div><div class="bib-sources" id="bib-sources"></div></section>{dedans}</div>')
+            f'<div class="bib-bande" id="bib-bande"></div><div class="bib-sources" id="bib-sources"></div></section></div>')
 
 
 def _pourquoi_bibliotheque() -> str:
@@ -750,13 +787,10 @@ def page_bibliotheque(cle: str) -> str:
     mhead = (f'<header class="mhead"><a class="btn icon ghost" href="{ACCUEIL}" title="Accueil" aria-label="Accueil">{MQ.icon("arrow-left")}</a>'
              f'<span class="ttl">{MQ.esc(titre)}</span><span class="spacer"></span>'
              f'<button type="button" class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}</button></header>')
-    demarrage = (f'<div class="demarrage" id="demarrage"><div class="carte"><div class="logo">{MQ.LOGO}</div><b>Chargement du moteur de calcul</b>'
-                 f'<span id="demarrage-etape">Python démarre dans le navigateur…</span><div class="barre"><i></i></div>'
-                 f'<small>La première ouverture prend quelques secondes ; ensuite, chaque consultation est immédiate.</small></div></div>')
     corps = (f'<body data-page="bibliotheque" data-bibliotheque="{cle}" data-titre="{MQ.esc(titre)}"><div class="app rail">{rail("modules")}<main class="main">{top}{mhead}'
-             f'{_gabarit_bibliotheque(B, demarrage)}'
+             f'{_gabarit_bibliotheque(B)}'
              f'{mnav("modules")}</main></div>{_pourquoi_bibliotheque()}<div class="toast" id="toast" role="status" hidden></div>'
-             f'<script type="module" src="js/bibliotheque.js"></script></body>\n</html>\n')
+             f'{SCRIPT_APP}</body>\n</html>\n')
     return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css") + corps
 
 
@@ -826,23 +860,25 @@ def compact(corps: str, bibliotheque=None, arbre_compact: bool = False) -> str:
     return corps
 
 
+# le court lien visible d'une page de redirection (S4, CONTRAT § 2), par module servi
+LIENS_REDIRECTION = {"dalle": "Ouvrir les dalles"}
+
+
 def page_redirection(cle: str) -> str:
-    """La page d'un module ABSORBÉ (REDIRECTIONS : « predalle » → « dalle ») : une REDIRECTION vers la page du module qui
-    le sert, qui GARDE l'adresse (``?note=…``, ``?nom=…&chantier=…``) — js/redirection.js fait ``location.replace`` avec
-    la chaîne de requête (un script du site : la politique de sécurité refuse tout script écrit dans la page) ; sans
-    script, le ``<meta http-equiv="refresh">`` mène à la page du module (sans la requête), et le lien aussi. Rien d'un
-    tiers (R5)."""
+    """La page d'un module ABSORBÉ (REDIRECTIONS : « predalle » → « dalle ») : body ``data-page="redirection"
+    data-vers=<adresse du module qui le sert>`` — js/app.js (le seul script de la page) y mène en GARDANT l'adresse
+    (``?note=…``, ``?nom=…&chantier=…``), et dans l'application ``naviguer`` résout ``vers`` avant même de lire cette
+    page. Aucun voile (S4-D7) : un court lien visible, le repli. Plus de ``<meta http-equiv="refresh">`` : il partirait
+    APRÈS un échange de corps (le <head> reste) et mènerait à la page du module SANS la requête — la note perdue. Rien
+    d'un tiers (R5)."""
     vers = REDIRECTIONS[cle]
     _fam, nom = _module(cle)
     _fam_v, nom_vers = _module(vers)
     corps = (f'<body data-page="redirection" data-module="{cle}" data-vers="{ADRESSES[vers]}" data-titre="{MQ.esc(nom)}">'
-             f'<main class="main"><div class="demarrage" id="demarrage"><div class="carte"><div class="logo">{MQ.LOGO}</div>'
-             f'<b>Le module « {MQ.esc(nom)} » a rejoint « {MQ.esc(nom_vers)} »</b>'
-             f'<span id="demarrage-etape">La note s\'ouvre dans le module fusionné…</span><div class="barre"><i></i></div>'
-             f'<small><a href="{ADRESSES[vers]}">Ouvrir « {MQ.esc(nom_vers)} »</a> si la page ne change pas d\'elle-même.</small></div></div></main>'
-             f'<script src="js/redirection.js"></script></body>\n</html>\n')
-    tete_ = tete(f"{nom} · Stab Méthodes").replace("<title>", f'<meta http-equiv="refresh" content="1; url={ADRESSES[vers]}">\n<title>', 1)
-    return tete_ + corps
+             f'<main class="main"><p class="redirection">Le module « {MQ.esc(nom)} » a rejoint « {MQ.esc(nom_vers)} ». '
+             f'<a href="{ADRESSES[vers]}">{MQ.esc(LIENS_REDIRECTION[vers])}</a></p></main>'
+             f'{SCRIPT_APP}</body>\n</html>\n')
+    return tete(f"{nom} · Stab Méthodes") + corps
 
 
 def page(cle: str) -> str:
@@ -874,13 +910,139 @@ def modules_js() -> str:
             if k in ADRESSES:
                 d[k] = {"page": ADRESSES[k], "nom": nom, "famille": fam, **({"masque": True} if k in MASQUES else {}),
                         **({"vers": REDIRECTIONS[k]} if k in REDIRECTIONS else {})}
+    # les BIBLIOTHÈQUES (le routage de js/app.js, le préchauffage) : clé → adresse de sa page et titre, depuis
+    # ADRESSES_BIBLIOTHEQUES (tests/test_site_web.py lie cette adresse à api_web/biblio_*.PAGE, R2)
+    b = {k: {"page": ADRESSES_BIBLIOTHEQUES[k], "titre": t} for k, (_c, t, _f) in BIBLIOTHEQUES.items()}
     return ("// Écrit par site/web/construire.py depuis le registre des modules (api_web/registre.py) : ne pas modifier.\n"
-            f"export const MODULES = {json.dumps(d, ensure_ascii=False)};\n")
+            f"export const MODULES = {json.dumps(d, ensure_ascii=False)};\n"
+            f"export const BIBLIOTHEQUES = {json.dumps(b, ensure_ascii=False)};\n")
+
+
+# ------------------------------------------------------------------ les APERÇUS (S4-D8, C12)
+# Pour chaque ÉTABLI (une clé de ADRESSES sans redirection : 17), moteur/apercus/<clé>.json est la réponse de
+# « nouveau » calculée par CPython à la construction, dans un processus NEUF par module (rien d'un autre module chargé),
+# bibliothèques lourdes refusées comme dans le navigateur : la chaîne que rend routeur.traiter, à l'octet. L'écran la
+# peint tant que le moteur démarre (cadres seulement). tests/test_apercus.py la recalcule dans un processus neuf.
+APERCUS = "apercus"
+_SONDE_APERCU = """
+import json, os, sys
+RACINE = {racine!r}
+sys.path.insert(0, RACINE); os.chdir(RACINE)
+_sortie, sys.stdout = sys.stdout, sys.stderr      # rien d'autre que la réponse sur la sortie
+class Refus:
+    def find_spec(self, name, path=None, target=None):
+        if name.split(".")[0] in {interdits!r}:
+            raise ImportError("refusé dans le navigateur : " + name)
+sys.meta_path.insert(0, Refus())
+from api_web import routeur as R
+_sortie.buffer.write(R.traiter(json.dumps({{"module": {cle!r}, "action": "nouveau"}})).encode("utf-8"))
+_sortie.flush()
+"""
+
+
+def etablis() -> list:
+    """Les clés des ÉTABLIS : les modules du site moins ceux qui ne sont qu'une redirection (REDIRECTIONS)."""
+    return [k for k in ADRESSES if k not in REDIRECTIONS]
+
+
+def verifier_apercu(cle: str, texte: str) -> None:
+    """Refuse (SystemExit) un aperçu qui n'est pas une réponse COMPLÈTE du moteur : du JSON, ``ok`` vrai, ``etat`` et
+    ``resultat`` présents (C12) — un aperçu incomplet peindrait un écran faux."""
+    try:
+        r = json.loads(texte)
+    except ValueError as e:
+        raise SystemExit(f"L'aperçu de « {cle} » n'est pas du JSON : {e}")
+    manque = [k for k in ("etat", "resultat") if not isinstance(r, dict) or k not in r]
+    if not isinstance(r, dict) or r.get("ok") is not True or manque:
+        erreur = r.get("erreur") if isinstance(r, dict) else None
+        raise SystemExit(f"L'aperçu de « {cle} » n'est pas une réponse complète (ok vrai, etat, resultat) : "
+                         f"ok={r.get('ok') if isinstance(r, dict) else None!r}, manque {manque}, erreur {erreur!r}")
+
+
+def apercu(cle: str) -> bytes:
+    """L'aperçu d'UN établi : la réponse de « nouveau », calculée dans un processus neuf ; refusé s'il est incomplet."""
+    sonde = _SONDE_APERCU.format(racine=RACINE, interdits=INTERDITS, cle=cle)
+    p = subprocess.run([sys.executable, "-c", sonde], capture_output=True, cwd=RACINE)
+    if p.returncode != 0:
+        raise SystemExit(f"L'aperçu de « {cle} » a échoué :\n" + p.stderr.decode("utf-8", "replace")[-3000:])
+    verifier_apercu(cle, p.stdout.decode("utf-8"))
+    return p.stdout
+
+
+def apercus(dossier: str) -> dict:
+    """Écrit moteur/apercus/<clé>.json pour chaque établi (le dossier vidé d'abord : aucun aperçu périmé n'est publié) ;
+    rend {clé: sha256 (16 hex) du fichier} — ce que le manifeste porte."""
+    cible = os.path.join(dossier, "moteur", APERCUS)
+    shutil.rmtree(cible, ignore_errors=True)
+    cles = etablis()
+    with ThreadPoolExecutor(max_workers=max(1, min(4, os.cpu_count() or 1))) as ex:
+        octets = dict(zip(cles, ex.map(apercu, cles)))
+    for cle, o in octets.items():
+        ecrire(os.path.join(cible, f"{cle}.json"), o, binaire=True)
+    return {cle: hashlib.sha256(o).hexdigest()[:16] for cle, o in sorted(octets.items())}
+
+
+# ------------------------------------------------------------------ la VERSION du site (S4-D3, C7)
+# Empreinte de tout ce qu'une mise en ligne peut changer pour l'écran : les fichiers PUBLIÉS non HTML (sous js/, css/,
+# moteur/ — aperçus compris —, et favicon.svg, _headers) et les pages telles que les gabarits les rendent, la version
+# VIDE (aucune circularité). Le manifeste (moteur/manifeste.json) n'y entre pas : il porte la version, réécrit en dernier.
+# Le cœur Python (vendor/) n'y entre pas : son adresse change avec sa version (« immutable », _headers).
+VERSION_DOSSIERS = ("js", "css", "moteur")
+VERSION_FICHIERS = ("favicon.svg", "_headers")
+VERSION_EXCLUS = ("moteur/manifeste.json",)
+
+
+def fichiers_publies(dossier: str) -> list:
+    """Les fichiers publiés non HTML qui font la version (chemins publiés, « / », triés)."""
+    out = []
+    for racine_ in VERSION_DOSSIERS:
+        for d, ds, fs in os.walk(os.path.join(dossier, racine_)):
+            ds[:] = [x for x in ds if x != "__pycache__"]
+            for f in fs:
+                rel = os.path.relpath(os.path.join(d, f), dossier).replace(os.sep, "/")
+                if rel not in VERSION_EXCLUS and not f.endswith(".pyc"):
+                    out.append(rel)
+    out += [f for f in VERSION_FICHIERS if os.path.isfile(os.path.join(dossier, f))]
+    return sorted(out)
+
+
+def pages_rendues() -> dict:
+    """Les 21 pages du site, telles que les gabarits les rendent (version VIDE) : {fichier publié: HTML}."""
+    pages = {"index.html": page_accueil()}
+    pages.update({fichier: page(cle) for cle, fichier in PAGES.items()})
+    pages.update({fichier: page_bibliotheque(cle) for cle, fichier in PAGES_BIBLIOTHEQUES.items()})
+    return pages
+
+
+def version_site(dossier: str, pages=None, publies=None) -> str:
+    """La version d'un site construit : sha256 (16 hex) de la liste triée des (chemin publié, sha256 du contenu) des
+    fichiers publiés non HTML de ``dossier`` (``publies``, par défaut ``fichiers_publies``) et des pages rendues
+    (``pages``, par défaut ``pages_rendues()`` ; leur balise de version VIDE)."""
+    pages = pages_rendues() if pages is None else pages
+    entrees = []
+    for rel in (fichiers_publies(dossier) if publies is None else publies):
+        with open(os.path.join(dossier, rel), "rb") as f:
+            entrees.append([rel, hashlib.sha256(f.read()).hexdigest()])
+    for nom, html in pages.items():
+        if html.count(META_VERSION_VIDE) != 1:
+            raise ValueError(f"{nom} : la balise de version doit être VIDE et unique pour l'empreinte")
+        entrees.append([nom, hashlib.sha256(html.encode("utf-8")).hexdigest()])
+    return hashlib.sha256(json.dumps(sorted(entrees), separators=(",", ":")).encode("utf-8")).hexdigest()[:16]
+
+
+def poser_version(html: str, version: str) -> str:
+    """La page avec sa version (la balise vide des gabarits, remplie)."""
+    if html.count(META_VERSION_VIDE) != 1 or not re.fullmatch(r"[0-9a-f]{16}", version):
+        raise ValueError("poser_version : une balise vide, une version de 16 chiffres hexadécimaux")
+    return html.replace(META_VERSION_VIDE, META_VERSION.format(version), 1)
 
 
 def construire(dossier: str = ICI, modules=None) -> dict:
     """Écrit tout dans ``dossier`` (le site lui-même, ou une copie à part pour vérifier un module pendant que d'autres
-    se construisent) ; le paquet du moteur est relevé sur ``modules`` (tous par défaut). Rend le manifeste."""
+    se construisent) ; le paquet du moteur est relevé sur ``modules`` (tous par défaut). Rend le manifeste.
+
+    L'ordre compte (C7) : tout ce qui fait la version d'abord — la charte, js/modules.js, la favicon, les paquets, le
+    manifeste, les aperçus —, PUIS la version, PUIS les pages (qui la portent), puis le manifeste réécrit avec elle."""
     dossier = os.path.abspath(dossier)
     if dossier != ICI:
         os.makedirs(dossier, exist_ok=True)
@@ -894,11 +1056,6 @@ def construire(dossier: str = ICI, modules=None) -> dict:
         if not os.path.exists(lien):
             os.symlink(os.path.join(ICI, "vendor"), lien)
     shutil.copyfile(os.path.join(MAQUETTES, "charte.css"), os.path.join(dossier, "css", "charte.css"))
-    ecrire(os.path.join(dossier, "index.html"), page_accueil())
-    for cle, fichier in PAGES.items():
-        ecrire(os.path.join(dossier, fichier), page(cle))
-    for cle, fichier in PAGES_BIBLIOTHEQUES.items():
-        ecrire(os.path.join(dossier, fichier), page_bibliotheque(cle))
     ecrire(os.path.join(dossier, "js", "modules.js"), modules_js())
     ecrire(os.path.join(dossier, "favicon.svg"), favicon())
     rel = releve(modules)
@@ -913,7 +1070,17 @@ def construire(dossier: str = ICI, modules=None) -> dict:
     manifeste = {"pyodide": PYODIDE, "sha256": hashlib.sha256(z).hexdigest(), "fichiers": rel["fichiers"],
                  "avec_numpy": rel["avec_numpy"],
                  "note": {"sha256": hashlib.sha256(zn).hexdigest(), "octets": len(zn), **dn}}
-    ecrire(os.path.join(dossier, "moteur", "manifeste.json"), json.dumps(manifeste, ensure_ascii=False, indent=1) + "\n")
+    chemin_manifeste = os.path.join(dossier, "moteur", "manifeste.json")
+    ecrire(chemin_manifeste, json.dumps(manifeste, ensure_ascii=False, indent=1) + "\n")
+    # les aperçus des établis (moteur/apercus/<clé>.json) et leur empreinte (l'écran les lit avec ?v=<empreinte>)
+    manifeste["apercus"] = apercus(dossier)
+    # la version : tout ce qui la fait est écrit ; les pages la portent ; le manifeste aussi (réécrit en dernier)
+    pages = pages_rendues()
+    version = version_site(dossier, pages)
+    for fichier, html in pages.items():
+        ecrire(os.path.join(dossier, fichier), poser_version(html, version))
+    manifeste["version"] = version
+    ecrire(chemin_manifeste, json.dumps(manifeste, ensure_ascii=False, indent=1) + "\n")
     return manifeste
 
 
@@ -927,4 +1094,5 @@ if __name__ == "__main__":
     m = construire(a.dossier, mods)
     print(f"{os.path.relpath(os.path.abspath(a.dossier), RACINE)} : {len(PAGES) + 1 + len(PAGES_BIBLIOTHEQUES)} pages ({', '.join(PAGES)} ; "
           f"bibliothèques : {', '.join(PAGES_BIBLIOTHEQUES)}), paquet du moteur "
-          f"{len(m['fichiers'])} fichiers, {os.path.getsize(os.path.join(a.dossier, 'moteur', 'moteur.zip')) // 1024} ko (sha256 {m['sha256'][:12]})")
+          f"{len(m['fichiers'])} fichiers, {os.path.getsize(os.path.join(a.dossier, 'moteur', 'moteur.zip')) // 1024} ko (sha256 {m['sha256'][:12]}), "
+          f"{len(m['apercus'])} aperçus, version {m['version']}")

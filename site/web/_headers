@@ -1,5 +1,7 @@
 # En-têtes du site sur Cloudflare Pages : le cœur Python (vendor) ne change jamais à adresse égale ; le paquet du
-# moteur, lui, est relu à chaque ouverture (son empreinte est vérifiée par le travailleur).
+# moteur, lui, est relu à chaque ouverture (son empreinte est vérifiée par le travailleur) ; les scripts (/js/*) et les
+# feuilles (/css/*) aussi, revalidés (no-cache : une question au serveur, jamais un ancien script après une mise en
+# ligne — la page qui les charge porte la version du site, S4-D3/C7).
 #
 # La politique de sécurité (CSP) : tout vient du site lui-même ('self'), rien d'un tiers ; aucun script écrit dans la
 # page ni aucun gestionnaire « onclick=… » ne s'exécute (même si un nom piégé passait un jour l'échappement) ;
@@ -15,6 +17,10 @@
 /vendor/*
   Cache-Control: public, max-age=31536000, immutable
 /moteur/*
+  Cache-Control: no-cache
+/js/*
+  Cache-Control: no-cache
+/css/*
   Cache-Control: no-cache
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://geocoding-api.open-meteo.com https://archive-api.open-meteo.com https://api.open-meteo.com; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'

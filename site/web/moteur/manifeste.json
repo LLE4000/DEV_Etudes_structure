@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "c619f3ed232f0860b965993b8cd186642524fd8da8d6715c41c0493ce7032c22",
+ "sha256": "68ac7eaef08c0e715f9642dcb718eb0bcf322be182b4d4267a1eb93707322723",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -275,6 +275,7 @@
  ],
  "avec_numpy": [
   "age",
+  "biblio_acier",
   "catalogue",
   "corniere",
   "flambement",
@@ -303,5 +304,25 @@
    "plancher",
    "soudures"
   ]
- }
+ },
+ "apercus": {
+  "age": "a677e3ccbb0bf40b",
+  "armatures": "0d888c7223e651e4",
+  "assemblages": "d6af1c9bda8c2a78",
+  "bois": "b743f1c406fd4fe9",
+  "catalogue": "3ffa4b30b8ac00ba",
+  "corniere": "8a7ec359d7b0851c",
+  "dalle": "dc12fd9dcc46ff06",
+  "donnees_beton": "b1218cb2000439f9",
+  "enrobage": "19ea242f96ffda78",
+  "flambement": "e28700385e8c0a7b",
+  "garde_corps": "599f7caee4d6c336",
+  "plancher": "0b84ae95d83f3be8",
+  "poutre": "6f62f98a716b34a5",
+  "profil": "643f0f383da5e28c",
+  "sol": "faf7dedd53612ba1",
+  "soudures": "b2d858ea8353cf67",
+  "taux": "3c7bbed6bba0b253"
+ },
+ "version": "b78171b7f306be7f"
 }
