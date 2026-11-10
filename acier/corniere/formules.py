@@ -27,6 +27,10 @@ from acier.assemblages.poutre_poutre.doubles_cornieres.formules import Sub, eval
 GABARITS: Dict[str, Tuple[Tuple[str, ...], str, int]] = {
     "sigma_adm": (("fy", "coef"), "fy/coef", 1),
     "tau_adm": (("sa",), "sa/sqrt(3)", 1),
+    "sigma_lim_ELU": (("fy", "g"), "fy/g", 1),                # ELU : f_y/γ_M0 (§ 9.5)
+    "tau_lim_ELU": (("fy", "g"), "fy/(sqrt(3)*g)", 1),
+    "N_ELU_direct": (("H", "n"), "H/n", 2),                   # ELU saisi : par ancrage, directement
+    "V_ELU_direct": (("R", "n"), "R/n", 2),
     "Xp": (("X", "dX"), "X + dX", 1),
     "Yp": (("Y", "dY"), "Y + dY", 1),
     "Xe": (("X", "r", "e"), "X - r - e", 1),

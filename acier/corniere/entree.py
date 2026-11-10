@@ -14,6 +14,9 @@ pour ses trois positions (Y − dy − d0/2 ≥ e + r et Y + dy + d0/2 ≤ haut 
 puisque Y se compte depuis la face extérieure de l'aile horizontale dans les deux configurations) ; t < A, t < B et
 e + r < A, e + r < B (une cornière, avec une partie droite) ; r ≥ 0 ; L > 0 ; n ≥ 1 ; n·d0 < L ; R ≥ 0 ; coef ≥ 1 ;
 dx ≥ 0 ; dy ≥ 0 ; 0 ≤ jeu_ancrage < Y ; 0 ≤ yc < bras le plus court ; 0 ≤ uV ≤ e ; f_y parmi les nuances du site.
+Révision § 9 (10/11 soir) : l'état limite (ELS : f_y/coef ; ELU : f_y/γ_M0, γ_M0 = 1,0, R saisie à l'ELU), les ancrages
+(entraxe s avec les minima de l'EN 1993-1-8 Tableau 3.3 — s ≥ 2,2·d0, distance au bout e₁ ≥ 1,2·d0 —, type, profondeur,
+rondelles ISO 7089 / 7093-1) et le support (voile, ou poutre dont les deux limites portent les trous et le contact).
 """
 import math
 import re
@@ -30,10 +33,35 @@ AILES = ("A", "B")                               # laquelle des deux ailes porte
 CONFIGURATIONS = ("A", "B")                      # A : aile horizontale en bas (le classeur) ; B : en haut (retournée)
 HISTORIQUE, EQUILIBRE = "historique", "equilibre"
 MODES = (HISTORIQUE, EQUILIBRE)
+ELS, ELU = "ELS", "ELU"                          # l'état limite de la vérification (§ 9.5)
+ETATS_LIMITES = (ELS, ELU)
+GAMMA_M0 = 1.0                                   # NBN EN 1993-1-1 ANB : γ_M0 = 1,0 (ELU, critère élastique § 6.2.1(5))
+VOILE, POUTRE = "voile", "poutre"
+SUPPORTS = (VOILE, POUTRE)
+TYPES_ANCRAGE = ("mecanique", "chimique", "traversant")
+RONDELLES_ADMISES = (0, 1, 2)
 FAMILLES = ("L", "LI")                           # cornières à ailes égales, à ailes inégales (EN 10056-1)
 LIBELLES_FAMILLE = {"L": "Ailes égales", "LI": "Ailes inégales"}
 LIBELLES_CONFIGURATION = {"A": "aile horizontale en bas", "B": "aile horizontale en haut"}
 LIBELLES_MODE = {HISTORIQUE: "méthode historique (classeur P8)", EQUILIBRE: "équilibre"}
+LIBELLES_ETAT_LIMITE = {ELS: "ELS — contraintes admissibles (f_y/coef)", ELU: "ELU — critère de von Mises (f_y/γ_M0, γ_M0 = 1,0)"}
+LIBELLES_SUPPORT = {VOILE: "voile en béton", POUTRE: "poutre en béton"}
+LIBELLES_TYPE_ANCRAGE = {"mecanique": "cheville mécanique", "chimique": "cheville chimique (tige scellée)",
+                         "traversant": "boulon traversant"}
+LIBELLES_RONDELLES = {0: "sans rondelle", 1: "une rondelle ISO 7089 sous l'écrou",
+                      2: "rondelle large ISO 7093-1 contre l'aile et rondelle ISO 7089 sous l'écrou"}
+# les rondelles plates (ISO 7089, série normale ; ISO 7093-1, série large) : d → (Ø extérieur, épaisseur) en mm
+RONDELLES: Dict[int, Tuple[Tuple[float, float], Tuple[float, float]]] = {
+    8: ((16.0, 1.6), (24.0, 2.0)), 10: ((20.0, 2.0), (30.0, 2.5)), 12: ((24.0, 2.5), (37.0, 3.0)), 14: ((28.0, 2.5), (44.0, 3.0)),
+    16: ((30.0, 3.0), (50.0, 3.0)), 18: ((34.0, 3.0), (56.0, 4.0)), 20: ((37.0, 3.0), (60.0, 4.0)), 22: ((39.0, 3.0), (66.0, 5.0)),
+    24: ((44.0, 4.0), (72.0, 5.0)), 27: ((50.0, 4.0), (85.0, 6.0)), 30: ((56.0, 4.0), (92.0, 6.0)), 36: ((66.0, 5.0), (110.0, 8.0))}
+
+
+def rondelle(d: float) -> Dict[str, Tuple[float, float]]:
+    """Les dimensions (Ø extérieur, épaisseur) de la rondelle normale et de la rondelle large pour le diamètre ``d`` :
+    la ligne de la table dont le diamètre nominal est le plus proche (au-dessus en cas d'égalité)."""
+    k = min(RONDELLES, key=lambda x: (abs(x - d), -x))
+    return {"normale": list(RONDELLES[k][0]), "large": list(RONDELLES[k][1]), "nominal": k}   # listes : JSON strict
 
 # ------------------------------------------------------------------ les nuances : la source unique des f_y du site
 # acier/flambement/normes.NUANCES (EN 1993-1-1 Tableau 3.1) : (nuance) → (f_y pour t ≤ 40 mm, f_y pour 40 < t ≤ 80)
@@ -59,26 +87,36 @@ CHAMPS: Dict[str, Tuple[Optional[float], str, str]] = {
     "r": (13.0, "mm", "congé r"),
     "fy": (355.0, "N/mm²", "limite élastique f_y"),
     "coef": (1.5, "", "coefficient sur f_y"),
-    "R": (35.0, "kN", "réaction R (ELS)"),
+    "R": (35.0, "kN", "réaction R"),
     "L": (300.0, "mm", "longueur reprise L"),
     "X": (75.0, "mm", "position de la charge X"),
-    "dx": (20.0, "mm", "jeu de la charge dx"),
+    "dx": (10.0, "mm", "jeu de la charge dx"),
     "a": (None, "mm", "largeur d'appui a"),
     "R_ELU": (None, "kN", "réaction R_ELU"),
     "Y": (85.0, "mm", "position de l'ancrage Y"),
-    "dy": (10.0, "mm", "tolérance de l'ancrage dy"),
+    "dy": (5.0, "mm", "tolérance de l'ancrage dy"),
     "n": (3, "", "nombre d'ancrages n"),
     "d": (16.0, "mm", "diamètre d'ancrage d"),
     "jeu_ancrage": (10.0, "mm", "jeu d'ancrage (C76)"),
     "yc": (0.0, "mm", "pivot y_c"),
     "uV": (None, "mm", "ligne d'action u_V"),
+    "entraxe": (None, "mm", "entraxe des ancrages s"),
+    "profondeur": (100.0, "mm", "profondeur d'ancrage"),
+    "rondelles": (1, "", "rondelles"),
+    "support_haut": (150.0, "mm", "poutre : étendue au-dessus de la face extérieure de l'aile horizontale"),
+    "support_bas": (150.0, "mm", "poutre : étendue au-dessous de la face extérieure de l'aile horizontale"),
 }
 CHOIX: Dict[str, Tuple[str, Tuple[str, ...]]] = {"aile_horizontale": ("A", AILES), "configuration": ("A", CONFIGURATIONS),
-                                                 "mode": (HISTORIQUE, MODES)}
+                                                 "mode": (HISTORIQUE, MODES), "etat_limite": (ELS, ETATS_LIMITES),
+                                                 "support": (VOILE, SUPPORTS), "type_ancrage": ("mecanique", TYPES_ANCRAGE)}
 # les clés d'une cornière (version 2) ; ``v1`` : relue d'une note du module d'avant (le site en fait un avis)
-CLES = ("nom", "standard", "profil", "A", "B", "t", "r", "aile_horizontale", "configuration", "fy", "coef",
-        "R", "L", "X", "dx", "a", "R_ELU", "Y", "dy", "n", "d", "mode", "jeu_ancrage", "yc", "uV", "v1")
-OPTIONNELS = ("a", "R_ELU", "uV")                # « vide = auto » : None reste None (a = L, R_ELU = 1,5·R, uV = e/2)
+CLES = ("nom", "standard", "profil", "A", "B", "t", "r", "aile_horizontale", "configuration", "etat_limite", "fy", "coef",
+        "R", "L", "X", "dx", "a", "R_ELU", "Y", "dy", "n", "d", "entraxe", "type_ancrage", "profondeur", "rondelles",
+        "support", "support_haut", "support_bas", "mode", "jeu_ancrage", "yc", "uV", "v1")
+ENTIERS = ("n", "rondelles")
+OPTIONNELS = ("a", "R_ELU", "uV", "entraxe")     # « vide = auto » : None reste None (a = L, R_ELU = 1,5·R, uV = e/2, s = L/n)
+# EN 1993-1-8 Tableau 3.3 : entraxe minimal p₁ = 2,2·d0, distance au bout minimale e₁ = 1,2·d0 (trous dans une pièce d'acier)
+ENTRAXE_MIN, BOUT_MIN = 2.2, 1.2
 RAPPORT_ELU_DEFAUT = 1.5                         # R_ELU = 1,5·R quand R_ELU est vide [à confirmer]
 JEU_TROU = 2.0                                   # d0 = d + 2 mm
 NOM_MAX = 60
@@ -142,8 +180,9 @@ def nom_catalogue(texte: str) -> Optional[str]:
 
 # ------------------------------------------------------------------ la cornière neuve
 def nouvelle_corniere(nom: str = "Cornière 1") -> Dict:
-    """Une cornière aux valeurs par défaut des décisions (§ 2) : L 120×120×15 du catalogue, configuration A, mode
-    historique, S355, coef 1,5, R = 35 kN sur 300 mm, X = 75 ± 20, Y = 85 ± 10, 3 ancrages Ø16."""
+    """Une cornière aux valeurs par défaut des décisions (§ 2, § 9) : L 120×120×15 du catalogue, configuration A, mode
+    historique, ELS, S355, coef 1,5, R = 35 kN sur 300 mm, X = 75 ± 10, Y = 85 ± 5, 3 chevilles mécaniques Ø16 à L/n,
+    profondeur 100, une rondelle, voile."""
     c = {"nom": nom, "standard": True, "profil": PROFIL_DEFAUT, "v1": False}
     c.update({k: v[0] for k, v in CHOIX.items()})
     c.update({k: v[0] for k, v in CHAMPS.items()})
@@ -285,9 +324,9 @@ def normaliser(c: Dict) -> Dict:
                 section_catalogue(v)
         elif k in CHOIX:
             _exiger(v in CHOIX[k][1], f"{k} : « {v} » n'est pas un choix admis ({' ou '.join(CHOIX[k][1])})")
-        elif k == "n":
+        elif k in ENTIERS:
             _exiger(not isinstance(v, bool) and isinstance(v, (int, float)) and math.isfinite(v) and float(v).is_integer(),
-                    f"nombre d'ancrages n : un entier est attendu, pas {v!r}")
+                    f"{CHAMPS[k][2]} : un entier est attendu, pas {v!r}")
             v = int(v)
         else:
             v = _nombre(k, v)
@@ -323,6 +362,16 @@ def normaliser(c: Dict) -> Dict:
     _exiger(out["dy"] >= 0, f"tolérance de l'ancrage dy = {_g(out['dy'])} mm : dy ≥ 0 (elle s'applique dans les deux sens)")
     trou = d0(out)
     _exiger(out["n"] * trou < out["L"], f"{out['n']} trous Ø{_g(trou)} sur L = {_g(out['L'])} mm : il ne reste pas de section nette")
+    _exiger(out["entraxe"] is None or out["entraxe"] > 0, f"entraxe s = {_g(out['entraxe'] or 0)} mm : strictement positif (ou vide = L/n)")
+    s_ancr = entraxe_effectif(out)
+    if out["n"] >= 2:
+        _exiger(s_ancr >= ENTRAXE_MIN * trou, f"entraxe s = {_g(s_ancr)} mm < 2,2·d0 = {_g(ENTRAXE_MIN * trou)} mm "
+                                             "(EN 1993-1-8 Tableau 3.3, p₁ minimal)")
+    bout = distance_bout(out)
+    _exiger(bout >= BOUT_MIN * trou, f"distance de l'ancrage au bout de la cornière e₁ = {_g(bout)} mm < 1,2·d0 = {_g(BOUT_MIN * trou)} mm "
+                                     f"(EN 1993-1-8 Tableau 3.3 ; {out['n']} ancrages à s = {_g(s_ancr)} mm sur L = {_g(out['L'])} mm)")
+    _exiger(out["profondeur"] > 0, f"profondeur d'ancrage = {_g(out['profondeur'])} mm : strictement positive")
+    _exiger(out["rondelles"] in RONDELLES_ADMISES, f"rondelles = {out['rondelles']} : 0, 1 ou 2")
     Y, dy = out["Y"], out["dy"]
     _exiger(Y - dy - trou / 2 >= e + r, f"l'ancrage entre dans le congé de l'aile verticale : Y − dy − d0/2 = "
                                         f"{_g(Y - dy - trou / 2)} mm < e + r = {_g(e + r)} mm")
@@ -336,4 +385,35 @@ def normaliser(c: Dict) -> Dict:
                                        "(la résultante de compression doit rester du côté opposé à l'ancrage, bras positif)")
     _exiger(out["uV"] is None or 0 <= out["uV"] <= e, f"ligne d'action u_V = {_g(out['uV'] or 0)} mm : de 0 (nu du mur) à "
                                                       f"e = {_g(e)} mm (dans l'épaisseur de l'aile verticale)")
+    # --- le support : une poutre porte les trous d'ancrage et, en B, le contact du bout libre (§ 9.3)
+    if out["support"] == POUTRE:
+        hs, bs = out["support_haut"], out["support_bas"]
+        _exiger(hs + bs > 0, f"poutre : hauteur = {_g(hs)} + {_g(bs)} = {_g(hs + bs)} mm, elle doit être positive")
+        if out["configuration"] == "A":
+            _exiger(Y + dy + trou / 2 <= hs, f"l'ancrage sort de la poutre par le haut : Y + dy + d0/2 = {_g(Y + dy + trou / 2)} mm "
+                                             f"> {_g(hs)} mm au-dessus de la face extérieure de l'aile horizontale")
+            _exiger(Y - dy - trou / 2 >= -bs, "l'ancrage sort de la poutre par le bas")
+        else:
+            _exiger(Y + dy + trou / 2 <= bs, f"l'ancrage sort de la poutre par le bas : Y + dy + d0/2 = {_g(Y + dy + trou / 2)} mm "
+                                             f"> {_g(bs)} mm au-dessous de la face extérieure de l'aile horizontale")
+            _exiger(Y - dy - trou / 2 >= -hs, "l'ancrage sort de la poutre par le haut")
+            _exiger(haut - out["yc"] <= bs, f"le bout libre de l'aile verticale dépasse la poutre : haut − c = {_g(haut - out['yc'])} mm "
+                                            f"> {_g(bs)} mm, il n'y a pas de contact (configuration B)")
     return out
+
+
+# ------------------------------------------------------------------ les positions des ancrages (§ 9.2)
+def entraxe_effectif(c: Dict) -> float:
+    """L'entraxe des ancrages : celui saisi, sinon L/n."""
+    return c["entraxe"] if c["entraxe"] is not None else c["L"] / c["n"]
+
+
+def distance_bout(c: Dict) -> float:
+    """La distance e₁ de l'axe du premier ancrage au bout de la cornière : (L − (n − 1)·s)/2 (les ancrages centrés sur L)."""
+    return (c["L"] - (c["n"] - 1) * entraxe_effectif(c)) / 2.0
+
+
+def positions_ancrages(c: Dict) -> List[float]:
+    """Les abscisses z_i des n ancrages depuis le bout de la cornière, centrées sur L : e₁ + i·s."""
+    s, e1 = entraxe_effectif(c), distance_bout(c)
+    return [e1 + i * s for i in range(c["n"])]

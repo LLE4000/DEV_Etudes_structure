@@ -720,11 +720,14 @@ chk("le bloc d'une section nomme sa combinaison (S3 : « charge à X + 20, ancra
 # ------------------------------------------------------------------ 10. domaine
 print("\n=== 10. Domaine : refus, bornes, défauts, nuances, JSON ===")
 D = M.nouvelle_corniere()
-chk("les défauts du § 2 : L 120x120x15 du catalogue, aile A, configuration A, S355, coef 1,5, R = 35, L = 300, X = 75 ± 20, a vide, R_ELU vide, "
-    "Y = 85 ± 10, n = 3, d = 16, historique, jeu 10, y_c = 0, u_V vide, v1 faux",
+chk("les défauts du § 2 et du § 9 : L 120x120x15 du catalogue, aile A, configuration A, ELS, S355, coef 1,5, R = 35, L = 300, X = 75 ± 10, a vide, "
+    "R_ELU vide, Y = 85 ± 5, n = 3, d = 16, entraxe vide, cheville mécanique, profondeur 100, une rondelle, voile (150/150), historique, jeu 10, "
+    "y_c = 0, u_V vide, v1 faux",
     D == {"nom": "Cornière 1", "standard": True, "profil": "L 120x120x15", "A": 120.0, "B": 120.0, "t": 15.0, "r": 13.0, "aile_horizontale": "A",
-          "configuration": "A", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 20.0, "a": None, "R_ELU": None, "Y": 85.0, "dy": 10.0,
-          "n": 3, "d": 16.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": None, "v1": False}, D)
+          "configuration": "A", "etat_limite": "ELS", "fy": 355.0, "coef": 1.5, "R": 35.0, "L": 300.0, "X": 75.0, "dx": 10.0, "a": None, "R_ELU": None,
+          "Y": 85.0, "dy": 5.0, "n": 3, "d": 16.0, "entraxe": None, "type_ancrage": "mecanique", "profondeur": 100.0, "rondelles": 1,
+          "support": "voile", "support_haut": 150.0, "support_bas": 150.0, "mode": "historique", "jeu_ancrage": 10.0, "yc": 0.0, "uV": None,
+          "v1": False}, D)
 RD = M.verifier(D)
 chk("la cornière neuve tient (taux < 100 %), R_ELU auto = 52,5 kN dit en information, L_eff = L",
     RD["statut"] == "ok" and RD["taux_max"] < 1.0 and RD["ancrages"]["R_ELU"] == 52.5 and RD["ancrages"]["R_ELU_auto"]
@@ -732,15 +735,15 @@ chk("la cornière neuve tient (taux < 100 %), R_ELU auto = 52,5 kN dit en inform
 chk("les nuances du site viennent d'une source unique (acier/flambement/normes, Tableau 3.1) : 235, 275, 355, 460 ; S355 ↔ 355",
     E.FY_ADMIS == (235.0, 275.0, 355.0, 460.0) and E.nuance_de(355.0) == "S355" and E.nuance_de(300.0) is None
     and "from acier.flambement import normes" in lire("acier", "corniere", "entree.py") and not re.search(r"\b235\.0\b.*\b275\.0\b", lire("acier", "corniere", "entree.py")))
-REFUS = (("charge dans l'angle (X − dx = 28 ≤ e + r)", {"X": 48.0, "dx": 20.0}, "dans l'angle"), ("charge au-delà de l'aile (X + dx = 125)", {"X": 105.0}, "au-delà"),
-         ("ancrage dans le congé (Y − dy − 9 < 28)", {"Y": 45.0}, "congé"), ("ancrage hors de l'aile (Y + dy + 9 > 120)", {"Y": 105.0}, "sort"),
+REFUS = (("charge dans l'angle (X − dx = 28 ≤ e + r)", {"X": 48.0, "dx": 20.0}, "dans l'angle"), ("charge au-delà de l'aile (X + dx = 125)", {"X": 105.0, "dx": 20.0}, "au-delà"),
+         ("ancrage dans le congé (Y − dy − 9 < 28)", {"Y": 45.0, "dy": 10.0}, "congé"), ("ancrage hors de l'aile (Y + dy + 9 > 120)", {"Y": 105.0, "dy": 10.0}, "sort"),
          ("t ≥ aile (saisie libre)", {"standard": False, "A": 12.0, "t": 12.0}, "cornière"), ("e + r atteint l'aile", {"standard": False, "A": 30.0, "B": 30.0, "t": 15.0, "r": 15.0}, "partie droite"),
          ("congé négatif", {"standard": False, "r": -1.0}, "congé"), ("nuance inconnue (300)", {"fy": 300.0}, "nuance"), ("coef < 1", {"coef": 0.9}, "au moins 1"),
          ("R négative", {"R": -1.0}, "négative"), ("L nulle", {"L": 0.0}, "positive"), ("dx négatif", {"dx": -1.0}, "dx"), ("dy négatif", {"dy": -1.0}, "dy"),
          ("n = 0", {"n": 0}, "au moins 1"), ("n non entier", {"n": 2.5}, "entier"), ("d nul", {"d": 0.0}, "positif"), ("trous qui mangent L (n = 20, Ø16)", {"n": 20}, "section nette"),
          ("a nulle", {"a": 0.0}, "positive"), ("R_ELU négative", {"R_ELU": -5.0}, "négative"), ("jeu d'ancrage ≥ Y", {"jeu_ancrage": 85.0}, "jeu"),
-         ("jeu d'ancrage négatif", {"jeu_ancrage": -1.0}, "jeu"), ("y_c au-delà du bras (A : 75)", {"yc": 75.0}, "pivot"), ("y_c négatif", {"yc": -1.0}, "pivot"),
-         ("y_c au-delà du bras en B (haut − Y − dy = 25)", {"configuration": "B", "yc": 25.0}, "pivot"), ("u_V > e", {"uV": 16.0}, "u_V"), ("u_V < 0", {"uV": -1.0}, "u_V"),
+         ("jeu d'ancrage négatif", {"jeu_ancrage": -1.0}, "jeu"), ("y_c au-delà du bras (A : 75)", {"yc": 75.0, "dy": 10.0}, "pivot"), ("y_c négatif", {"yc": -1.0}, "pivot"),
+         ("y_c au-delà du bras en B (haut − Y − dy = 25)", {"configuration": "B", "yc": 25.0, "dy": 10.0}, "pivot"), ("u_V > e", {"uV": 16.0}, "u_V"), ("u_V < 0", {"uV": -1.0}, "u_V"),
          ("aile horizontale « C »", {"aile_horizontale": "C"}, "choix"), ("configuration « haut »", {"configuration": "haut"}, "choix"), ("mode « lame »", {"mode": "lame"}, "choix"),
          ("profil inconnu", {"profil": "L 99x99x9"}, "catalogue"), ("profil qui n'est pas une cornière", {"profil": "IPE 200"}, "catalogue"),
          ("clé inconnue", {"epaisseur": 6}, "inconnue"), ("R en texte", {"R": "35"}, "nombre"), ("t booléen", {"standard": False, "t": True}, "nombre"),
@@ -816,6 +819,107 @@ chk("les textes du moteur écrivent les nombres à la virgule (« σ_adm = f_y/1
     and any("× 1,546" in h for h in TEXTES[1]["hypotheses"]) and any("H = 82,47 kN" in i["texte"] for i in TEXTES[3]["informations"]),
     [nombres_a_point(r) for r in TEXTES])
 
+# ------------------------------------------------------------------ 10 bis. révision § 9 : ELS/ELU, ancrages, support, maillage
+print("\n=== 10 bis. Révision § 9 : état limite ELS/ELU, ancrages, support, champ de contraintes ===")
+ELU = M.verifier(dict(CAS, etat_limite="ELU", R=1.5 * 42.76))
+chk("ELU : R saisie à l'ELU, σ_éq ≤ f_y/γ_M0 = 355 et τ ≤ f_y/(√3·γ_M0) = 204,96 N/mm² (γ_M0 = 1,0) ; le taux du cas de contrôle ELU sous 1,5·R "
+    "vaut celui de l'ELS sous R (88,8621 %) — invariant ; coef et R_ELU sans effet ; ancrages N_ELU = H/n = 21,38 kN, V_ELU = 21,38 kN, pas d'ELS ; "
+    "pas d'avertissement R_ELU_auto ; l'hypothèse nomme γ_M0 et le § 6.2.1(5)",
+    dec(100 * ELU["taux_max"], 88.8621, 4) and ELU["materiau"]["sigma_adm"] == 355.0 and dec(ELU["materiau"]["tau_adm"], 204.96, 2)
+    and ELU["materiau"]["etat_limite"] == "ELU" and ELU["materiau"]["gamma_M0"] == 1.0 and ELU["materiau"]["symbole_sigma"] == "f_y/γ_M0"
+    and dec(100 * M.verifier(dict(CAS, etat_limite="ELU", R=1.5 * 42.76, coef=2.0, R_ELU=1.0))["taux_max"], 88.8621, 4)
+    and ELU["ancrages"]["N_ELS"] is None and ELU["ancrages"]["V_ELS"] is None and dec(ELU["ancrages"]["N_ELU"], 21.38, 2)
+    and dec(ELU["ancrages"]["V_ELU"], 21.38, 2) and ELU["ancrages"]["rapport_ELU"] is None and ELU["ancrages"]["R_ELU"] == 1.5 * 42.76
+    and not any(a["code"] == "R_ELU_auto" for a in ELU["avertissements"]) and "γ_M0" in ELU["hypotheses"][0] and "6.2.1(5)" in ELU["hypotheses"][0]
+    and {f["cle"] for f in ELU["calcul"][0]["formules"]} == {"sigma_lim_ELU", "tau_lim_ELU"}
+    and {f["cle"] for b_ in ELU["calcul"] if b_["cle"] == "ancrages" for f in b_["formules"]} >= {"N_ELU_direct", "V_ELU_direct"}
+    and R0["materiau"]["etat_limite"] == "ELS" and R0["materiau"]["symbole_sigma"] == "σ_adm" and R0["ancrages"]["N"] == R0["ancrages"]["N_ELS"],
+    (ELU["taux_max"], ELU["materiau"], ELU["ancrages"]))
+chk("ELU en équilibre et en B : même invariant (taux ELU sous 1,5·R = taux ELS sous R)",
+    dec(100 * M.verifier(dict(CAS, etat_limite="ELU", R=1.5 * 42.76, mode="equilibre"))["taux_max"], 100 * M.verifier(dict(CAS, mode="equilibre"))["taux_max"], 6)
+    and dec(100 * M.verifier(dict(CAS, etat_limite="ELU", R=1.5 * 42.76, configuration="B"))["taux_max"], 100 * M.verifier(dict(CAS, configuration="B"))["taux_max"], 6))
+
+
+def fautes_ancrages(mod):
+    """Les positions des ancrages et les refus de l'EN 1993-1-8 Tableau 3.3, sur le moteur ``mod``."""
+    f = []
+    r = mod.verifier(dict(CAS, entraxe=80.0))
+    if r["ancrages"]["positions_z"] != [70.0, 150.0, 230.0] or r["ancrages"]["entraxe"] != 80.0 or r["ancrages"]["distance_bout"] != 70.0:
+        f.append(f"entraxe 80 : {r['ancrages']['positions_z']}")
+    if mod.verifier(dict(CAS, n=1))["ancrages"]["positions_z"] != [150.0] or mod.verifier(dict(CAS, n=2))["ancrages"]["positions_z"] != [75.0, 225.0]:
+        f.append("n = 1 ou 2")
+    for c, mot in ((dict(CAS, entraxe=30.0), "2,2·d0"), (dict(CAS, entraxe=140.0), "e₁"), (dict(CAS, L=129.0), "e₁")):
+        try:
+            mod.verifier(c)
+            f.append(f"admis : {c.get('entraxe')}, n = {c['n']}")
+        except ValueError as err:
+            if mot not in str(err):
+                f.append(f"message : {err}")
+    return f
+
+
+chk("ancrages : entraxe 80 → z = 70, 150, 230 (centrés, e₁ = 70) ; n = 1 → L/2 ; n = 2 → 75, 225 ; refus s < 2,2·d0 et e₁ < 1,2·d0 "
+    "(EN 1993-1-8 Tableau 3.3), le message le dit", not fautes_ancrages(M), fautes_ancrages(M))
+chk("ancrages : type, profondeur, rondelles passent dans la géométrie (dessin, note) avec la table ISO 7089 / 7093-1 ; voile : pas de bords",
+    R0["geometrie"]["type_ancrage"] == "mecanique" and R0["geometrie"]["profondeur"] == 100.0 and R0["geometrie"]["rondelles"] == 1
+    and R0["geometrie"]["rondelle"] == {"normale": [30.0, 3.0], "large": [50.0, 3.0], "nominal": 16} and R0["geometrie"]["bords_poutre"] is None
+    and R0["geometrie"]["support_haut"] is None and E.rondelle(20)["large"] == [60.0, 4.0] and E.rondelle(13)["nominal"] == 14
+    and E.LIBELLES_RONDELLES[2].startswith("rondelle large")
+    and "cheville mécanique Ø16, profondeur 100 mm, entraxe 100,0 mm (L/n), e₁ = 50,0 mm" in R0["hypotheses"][-1], R0["geometrie"])
+PO = M.verifier(dict(CAS, support="poutre", support_haut=160.0, support_bas=120.0))
+chk("support poutre (A, 160 au-dessus, 120 au-dessous) : bords de l'ancrage haut 160 − 85 = 75 mm, bas 120 + 85 = 205 mm, en information "
+    "pour Hilti ; en B les mêmes depuis le bas (Y = 45 : 160 + 45 = 205, 120 − 45 = 75)",
+    PO["geometrie"]["bords_poutre"] == {"haut": 75.0, "bas": 205.0} and PO["geometrie"]["support"] == "poutre"
+    and {i["cle"]: i["valeur"] for i in PO["informations"] if i["cle"].startswith("bord")} == {"bord_poutre_haut": 75.0, "bord_poutre_bas": 205.0}
+    and M.verifier(dict(CAS, configuration="B", Y=45.0, support="poutre", support_haut=160.0, support_bas=120.0))["geometrie"]["bords_poutre"] == {"haut": 205.0, "bas": 75.0}
+    and PO["taux_max"] == R0["taux_max"], PO["geometrie"]["bords_poutre"])
+refus_poutre = []
+for c, mot in ((dict(CAS, support="poutre", support_haut=90.0), "par le haut"), (dict(CAS, configuration="B", support="poutre", support_bas=100.0), "contact"),
+               (dict(CAS, configuration="B", support="poutre", support_bas=90.0), "par le bas"), (dict(CAS, support="poutre", support_haut=-10.0, support_bas=5.0), "hauteur")):
+    try:
+        M.verifier(c)
+        refus_poutre.append(f"admis : {mot}")
+    except ValueError as err:
+        if mot not in str(err):
+            refus_poutre.append(f"{mot} : {err}")
+chk("support poutre : refus — trou au-delà du bord supérieur (A), bout libre sans contact (B), trou au-delà du bord inférieur (B), hauteur négative",
+    not refus_poutre, refus_poutre)
+
+
+def fautes_maillage(r):
+    """Le champ de von Mises ``r["maillage"]`` face aux vérifications : à chaque s, max_ζ σ_vm = |M|/W + |N|/A — donc aux
+    sections S1 à S4 le taux du maillage est celui de la vérification ; le maximum du maillage ne dépasse jamais le
+    maximum du congé (section dorée) et l'approche à 1 % ; 9 niveaux ζ, le congé en 12 pas ; la face extérieure est ζ = −1."""
+    f = []
+    for aile in ("horizontale", "verticale"):
+        ch = r["maillage"][aile]
+        if ch["zeta"] != [-1.0 + 0.25 * i for i in range(9)] or len(ch["s"]) != len(ch["taux"]) or any(len(l) != 9 for l in ch["taux"]):
+            f.append(f"{aile} : forme {len(ch['s'])} × {len(ch['zeta'])}")
+        for v in r["verifications"]:
+            if v["aile"] != aile or not v["cle"].startswith("S"):
+                continue
+            i = min(range(len(ch["s"])), key=lambda k: abs(ch["s"][k] - v["s"]))
+            if abs(ch["s"][i] - v["s"]) > 1e-9 or not pres(max(ch["taux"][i]), v["taux"], 1e-9):
+                f.append(f"{v['cle']} : maillage {max(ch['taux'][i])} ≠ {v['taux']} (s = {ch['s'][i]} / {v['s']})")
+        vmax = r["maxima"][aile]
+        if not (ch["max"]["taux"] <= vmax["taux"] * (1.0 + 1e-9) and ch["max"]["taux"] >= 0.99 * vmax["taux"]):
+            f.append(f"{aile} : max {ch['max']['taux']} face à {vmax['taux']}")
+        if ch["max"]["taux"] != max(max(l) for l in ch["taux"]) or not pres(ch["max"]["sigma_eq"], ch["max"]["taux"] * r["materiau"]["sigma_adm"]):
+            f.append(f"{aile} : le maximum annoncé n'est pas celui des mailles")
+    return f
+
+
+chk("maillage (A historique) : 49 × 9 mailles par aile, aux sections S1 à S4 le taux du maillage = la vérification à 1e-9, le maximum ≤ celui "
+    "du congé (section dorée) et à moins de 1 % ; idem A équilibre, B, avec jeux", not (fautes_maillage(R0) + fautes_maillage(M.verifier(dict(CAS, mode="equilibre")))
+    + fautes_maillage(B) + fautes_maillage(M.verifier(dict(CAS, dx=20.0, dy=10.0)))),
+    fautes_maillage(R0) + fautes_maillage(B))
+MJ0, MJ1 = R0["maillage"]["verticale"], M.verifier(dict(CAS, dx=20.0, dy=10.0))["maillage"]["verticale"]
+chk("maillage : l'enveloppe ne baisse nulle part quand les jeux croissent (cas de contrôle → dx = 20, dy = 10, mêmes abscisses) ; "
+    "sans jeu, la maille (s, ζ = ±1) vaut la contrainte de la combinaison unique : ζ = +1 sur la face du congé tendue en A (M > 0)",
+    MJ0["s"] == MJ1["s"] and all(b_ >= a_ * (1.0 - 1e-12) for la, lb in zip(MJ0["taux"], MJ1["taux"]) for a_, b_ in zip(la, lb))
+    and all(l[-1] >= l[0] for l in R0["maillage"]["horizontale"]["taux"])
+    and M.calculer(CAS, diagrammes=False)["maillage"] is None, "")
+
 # ------------------------------------------------------------------ 11. relecture d'une note v1
 print("\n=== 11. Relecture d'une note du module d'avant (v1, modèle lame) ===")
 # les cornières des photos de tests/reference_refonte/corniere.json AVANT la refonte (état au 10/11/2026), copiées telles quelles
@@ -850,11 +954,11 @@ chk("le nom et la section sont gardés (catalogue : profil ; saisie libre : A, B
     all(c1["nom"] == v1["nom"] and c1["standard"] == v1["standard"] and c1["profil"] == v1["profil"] and c1["v1"] is True and c1["mode"] == "historique"
         and c1["configuration"] == "A" and c1["fy"] == 355.0 and c1["coef"] == 1.5 and c1["R"] == 35.0 and c1["L"] == 300.0 and c1["n"] == 3 for v1, c1, _ in relues)
     and relues[6][1]["A"] == 65.0 and relues[6][1]["B"] == 100.0 and relues[6][1]["t"] == 8.0 and relues[6][1]["r"] == 0.0)
-chk("la charge et l'ancrage sont posés DANS les ailes, au rapport du cas de contrôle (L 100 : X = 62,5 ± 16,5, Y = 71 ± 8,5, Ø16 ; L 45x45x4,5 : X = 28 ± 7,5, "
-    "Y = 32 ± 4, Ø16 au ras du bord) ; la L 120 redonnerait les défauts exacts",
-    (relues[0][1]["X"], relues[0][1]["dx"], relues[0][1]["Y"], relues[0][1]["dy"], relues[0][1]["d"]) == (62.5, 16.5, 71.0, 8.5, 16.0)
-    and (relues[1][1]["X"], relues[1][1]["dx"], relues[1][1]["Y"], relues[1][1]["dy"], relues[1][1]["d"]) == (28.0, 7.5, 32.0, 4.0, 16.0)
-    and {k: M.normaliser(dict(V1[0], profil="L 120x120x15"))[k] for k in ("X", "dx", "Y", "dy", "d")} == {"X": 75.0, "dx": 20.0, "Y": 85.0, "dy": 10.0, "d": 16.0},
+chk("la charge et l'ancrage sont posés DANS les ailes, au rapport du cas de contrôle (L 100 : X = 62,5 ± 8,5, Y = 71 ± 4, Ø16 ; L 45x45x4,5 : X = 28 ± 4, "
+    "Y = 32 ± 2, Ø16 au ras du bord) ; la L 120 redonnerait les défauts exacts (dx = 10, dy = 5 depuis la révision § 9)",
+    (relues[0][1]["X"], relues[0][1]["dx"], relues[0][1]["Y"], relues[0][1]["dy"], relues[0][1]["d"]) == (62.5, 8.5, 71.0, 4.0, 16.0)
+    and (relues[1][1]["X"], relues[1][1]["dx"], relues[1][1]["Y"], relues[1][1]["dy"], relues[1][1]["d"]) == (28.0, 4.0, 32.0, 2.0, 16.0)
+    and {k: M.normaliser(dict(V1[0], profil="L 120x120x15"))[k] for k in ("X", "dx", "Y", "dy", "d")} == {"X": 75.0, "dx": 10.0, "Y": 85.0, "dy": 5.0, "d": 16.0},
     [(c1["X"], c1["dx"], c1["Y"], c1["dy"], c1["d"]) for _, c1, _ in relues])
 chk("l'avertissement « note_v1 » (attention) porte le texte des décisions ; il est en tête ; une note v2 ne l'a pas ; v1 traverse normaliser (idempotent)",
     all(r1["avertissements"][0]["code"] == "note_v1" and r1["avertissements"][0]["niveau"] == "attention" and r1["avertissements"][0]["message"] == E.AVIS_V1 for _, _, r1 in relues)
@@ -1026,6 +1130,17 @@ def rejets(mod):
                                                           + nombres_a_point(mod.verifier(dict(CAS, Y=40.0, R_ELU=None))))[:1]]
         if b["ancrages"]["arrachement"] is not None or any(i["cle"] == "arrachement" for i in b["informations"]):
             out.append("arrachement rendu en B")
+        u = mod.verifier(dict(CAS, etat_limite="ELU", R=1.5 * 42.76, coef=2.0))
+        if not (dec(100 * u["taux_max"], 88.8621, 4) and u["materiau"]["sigma_adm"] == 355.0 and u["ancrages"]["N_ELS"] is None
+                and dec(u["ancrages"]["N_ELU"], 21.38, 2)):
+            out.append("ELU")
+        out += [f"maillage : {x}" for x in fautes_maillage(r0)[:1] + fautes_maillage(b)[:1] + fautes_maillage(j)[:1]]
+        out += [f"ancrages : {x}" for x in fautes_ancrages(mod)[:1]]
+        try:
+            mod.verifier(dict(CAS, configuration="B", support="poutre", support_bas=100.0))
+            out.append("poutre : le bout libre sans contact est admis (B)")
+        except ValueError:
+            pass
         if mod.nouvelle_corniere() != D:
             out.append("défauts")
         ff_, _ = fautes_formules([r0, b, p0, j, la])
@@ -1069,15 +1184,23 @@ MUTATIONS = (
     ("gouvernant : le plus petit taux", [("moteur", "return max((v for v in verifs if v[\"verdict\"]), key=lambda v: v[\"taux\"])", "return min((v for v in verifs if v[\"verdict\"]), key=lambda v: v[\"taux\"])")]),
     ("les maxima du congé entrent dans le verdict historique", [("moteur", "v = _maximum(ctx, aile, verdict=not hist)", "v = _maximum(ctx, aile, verdict=True)")]),
     ("charge au-delà de l'aile admise", [("entree", "_exiger(X + dx <= larg,", "_exiger(True or X + dx <= larg,")]),
-    ("défaut de dx : 0", [("entree", "\"dx\": (20.0, \"mm\"", "\"dx\": (0.0, \"mm\"")]),
+    ("défaut de dx : 0", [("entree", "\"dx\": (10.0, \"mm\"", "\"dx\": (0.0, \"mm\"")]),
     ("sélecteur trié par nom", [("entree", "key=lambda p: (p[\"masse\"], p[\"nom\"])", "key=lambda p: (p[\"nom\"], p[\"masse\"])")]),
     ("optimal : la plus LOURDE qui tient", [("moteur", "premier = next((x for x in out if x[\"ok\"] and x[\"domaine\"]), None)", "premier = next((x for x in reversed(out) if x[\"ok\"] and x[\"domaine\"]), None)")]),
     ("relecture v1 sans l'indicateur", [("entree", "out[\"v1\"] = True", "out[\"v1\"] = False")]),
     ("diagrammes : l'enveloppe ne regarde que la combinaison nominale", [("moteur", "        for st in ctx[\"stats\"]:\n            m, nn, vv = S.efforts(st, aile, s)", "        for st in ctx[\"stats\"][:1]:\n            m, nn, vv = S.efforts(st, aile, s)")]),
-    ("positions des ancrages depuis le bord", [("moteur", "\"positions_z\": [c[\"L\"] / (2 * n) + i * c[\"L\"] / n for i in range(n)]", "\"positions_z\": [i * c[\"L\"] / n for i in range(n)]")]),
+    ("positions des ancrages depuis le bord", [("entree", "return [e1 + i * s for i in range(c[\"n\"])]", "return [i * s for i in range(c[\"n\"])]")]),
+    ("ELU : la limite garde le coefficient de l'ELS", [("moteur", 'sigma_adm = c["fy"] / c["coef"] if etat == ELS else c["fy"] / GAMMA_M0', 'sigma_adm = c["fy"] / c["coef"]')]),
+    ("maillage : τ oublié", [("moteur", "                tau = abs(V) * 1e3 / A\n                vm = max(vm, math.sqrt(sx * sx + 3.0 * tau * tau))",
+                              "                tau = 0.0\n                vm = max(vm, math.sqrt(sx * sx + 3.0 * tau * tau))")]),
+    ("maillage : une seule combinaison (la nominale)", [("moteur", "            for st in ctx[\"stats\"]:\n                M, N, V = S.efforts(st, aile, s)\n                W, A = S.module_aire",
+                                                         "            for st in ctx[\"stats\"][:1]:\n                M, N, V = S.efforts(st, aile, s)\n                W, A = S.module_aire")]),
+    ("entraxe : le minimum 2,2·d0 oublié", [("entree", "_exiger(s_ancr >= ENTRAXE_MIN * trou,", "_exiger(True or s_ancr >= ENTRAXE_MIN * trou,")]),
+    ("poutre : le contact du bout libre hors de la poutre admis (B)", [("entree", "_exiger(haut - out[\"yc\"] <= bs,", "_exiger(True or haut - out[\"yc\"] <= bs,")]),
     ("nuance quelconque admise", [("entree", "_exiger(out[\"fy\"] in FY_ADMIS,", "_exiger(True or out[\"fy\"] in FY_ADMIS,")]),
     ("B : le contact ignore c", [("statique", "bras = ya - c\n", "bras = ya\n")]),
-    ("un nombre au point décimal dans un texte du moteur (σ_adm des hypothèses)", [("moteur", "{E._f(ctx['sigma_adm'])} N/mm²", "{ctx['sigma_adm']:.1f} N/mm²")]),
+    ("un nombre au point décimal dans un texte du moteur (σ_adm des hypothèses)",
+     [("moteur", "σ_adm = f_y/{E._g(c['coef'])} = {E._f(ctx['sigma_adm'])} N/mm²", "σ_adm = f_y/{E._g(c['coef'])} = {ctx['sigma_adm']:.1f} N/mm²")]),
     ("l'arrachement vers le bord rendu en B (vers le bout libre, à contresens de l'effort du boulon)",
      [("moteur", 'if (ctx["cfg"] == "A" and haut > Y_bord) else None', 'if haut > Y_bord else None')]),
 )
@@ -1093,7 +1216,8 @@ for nom, muts in MUTATIONS:
     if not rej:
         survivants.append(nom)
 chk(f"{len(MUTATIONS)} mutations volontaires (une par formule clé : ρ₃, pivot, N en B, nette, L_eff, dx, M_angle, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, "
-    f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact, texte au point, arrachement en B) : TOUTES rejetées "
+    f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact, texte au point, arrachement en B, "
+    f"limite ELU, maillage τ, maillage enveloppe, entraxe minimal, contact hors poutre) : TOUTES rejetées "
     f"(de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
 chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(charger_mutant(TEMOIN[1])))
 chk("après les mutations, le moteur chargé est intact (mêmes résultats)", M.verifier(CAS) == R0 and M.candidats(CAS) == CANDS)

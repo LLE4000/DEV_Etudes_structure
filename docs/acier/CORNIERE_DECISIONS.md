@@ -250,3 +250,83 @@ le maillage de contrôle (option, pas dans ce lot) ; les cornières PRS (archite
 défavorable » à « trois positions et enveloppe » (§ 3.0) — sur son idée ; dy prend 10 mm par défaut ; la vue « section
 seule » est supprimée et les diagrammes deviennent deux vues, Moments et Contraintes, qui montrent les trois positions
 (§ 4). Le premier lancement a été arrêté avant tout code.*
+
+## 9. Révision du 10/11/2026 (soir) — « mise à jour complète en une seule intervention » (demande de l'ingénieur)
+
+Ce que l'ingénieur demande, pris tel quel sauf où une raison technique est dite ; aucune autre fonction. Les numéros
+sont les siens.
+
+**9.4 · Jeux par défaut** : dx = **10 mm** (au lieu de 20), dy = **5 mm** (au lieu de 10) ; la mécanique de l'enveloppe
+(§ 3.0) ne change pas. Le cas de contrôle (dx = dy = 0) non plus.
+
+**9.5 · État limite, champ `etat_limite` (« ELS » par défaut, « ELU »)**, rubrique Hypothèses, en tête :
+- ELS, la méthode actuelle : R est la réaction ELS ; σ_lim = f_y/coef, τ_lim = σ_lim/√3 ; σ_éq = √(σ² + 3τ²) ≤ σ_lim ;
+  R_ELU (vide = 1,5·R) sert aux efforts d'ancrage ELU pour Hilti.
+- ELU : l'ingénieur saisit **R à l'ELU directement** ; σ_éq ≤ f_y/γ_M0, τ ≤ f_y/(√3·γ_M0) avec **γ_M0 = 1,0** (NBN EN
+  1993-1-1 ANB) — le critère élastique de l'EN 1993-1-1 § 6.2.1(5) ; le coefficient 1,50 de l'ELS ne s'applique pas
+  (les champs `coef` et `R_ELU` sont sans effet, l'écran les masque) ; les ancrages rendent N_ELU = H/n et V_ELU = R/n,
+  pas d'ELS (rien n'est inventé). La nuance choisie donne f_y (source unique `normes.NUANCES`, Tableau 3.1).
+- Dans la sortie du moteur, les clés `sigma_adm`/`tau_adm` restent le nom des LIMITES (écran, note, dessins les lisent),
+  `materiau` dit `etat_limite`, `gamma_M0`, `symbole_sigma` (« σ_adm » ou « f_y/γ_M0 ») et `symbole_tau`.
+  Formules nommées en plus : `sigma_lim_ELU` f_y/γ_M0, `tau_lim_ELU` f_y/(√3·γ_M0), `N_ELU_direct` H/n, `V_ELU_direct` R/n.
+  Invariant (test) : le taux d'un calcul ELS sous R vaut celui du calcul ELU sous coef·R.
+
+**9.2 · Boulons et ancrages** (dessin, note et répartition ; les chevilles restent non vérifiées, Hilti) :
+- `entraxe` (mm, vide = L/n) : positions centrées sur L, z_i = L/2 + (i − (n − 1)/2)·s ; distance au bout
+  e₁ = (L − (n − 1)·s)/2. REFUS normatifs (EN 1993-1-8 Tableau 3.3, trous dans une pièce d'acier) : s ≥ 2,2·d0 et
+  e₁ ≥ 1,2·d0 — aussi pour l'entraxe automatique.
+- `type_ancrage` : « mecanique » (cheville mécanique, par défaut), « chimique » (tige filetée scellée), « traversant »
+  (boulon traversant : écrou et rondelle sur l'autre face du support) ; `profondeur` (mm, 100 par défaut) : h_ef de la
+  cheville, ou l'épaisseur traversée du boulon traversant ; `rondelles` : 0, **1** (une rondelle ISO 7089 sous l'écrou,
+  par défaut) ou 2 (une rondelle LARGE ISO 7093-1 contre l'aile — le trou peut être oblong pour le jeu dy — et une
+  rondelle ISO 7089 sous l'écrou). Dimensions par la table `entree.RONDELLES` (d → diamètre extérieur, épaisseur).
+  Les positions z_i, e₁ et s sont cotées sur l'élévation ; la profondeur, les rondelles et l'écrou sur la coupe.
+
+**9.3 · Support** : `support` = « voile » (par défaut, le mur sans limite, rompu) ou « poutre » ; pour la poutre,
+`support_haut` et `support_bas` (mm, 150 et 150 par défaut) : l'étendue de la poutre AU-DESSUS et AU-DESSOUS de la face
+extérieure de l'aile horizontale (le repère y = 0 du § 2), comptée vers le haut et vers le bas dans le monde réel
+(configuration A : la cornière monte de 0 à haut ; B : elle descend de 0 à −haut). Refus : hauteur haut + bas > 0 ;
+chaque trou d'ancrage (Y ± dy ± d0/2) dans la poutre ; en B le contact du bout libre (haut − c) sur la poutre.
+Informations (hors verdict, pour Hilti) : la distance de l'axe d'ancrage le plus proche au bord supérieur et au bord
+inférieur de la poutre. Dessin : le support avec ses deux limites cotées, des COUPURES quand il dépasse 1,5 fois la
+cornière dans une direction ; la profondeur d'ancrage dans le support ; le plan de principe est la coupe cotée.
+
+**9.1 · Page 2 de la note, trois colonnes graphiques** — le texte réduit à une légende d'une ligne par colonne, les
+limites en trois lignes au plus, les références, le cartouche :
+- gauche, **Largeur efficace et élévation** : la scène `elevation` (tranche L, les n ancrages à leurs positions z_i,
+  e₁ et s cotés, la charge de largeur a et sa diffusion à 45°, L_eff), coupures si L ≫ la cornière ;
+- centre, **Moments sur la cornière** : la scène `moments` REFAITE — la cornière dessinée (les deux ailes, le congé,
+  l'axe des ancrages), le diagramme de moment de chaque aile porté PERPENDICULAIREMENT à l'aile (horizontale : vers le
+  bas en A, vers le haut en B — du côté de la face tendue ; verticale : côté mur), les trois courbes (une par position
+  de la charge, les extrêmes en trait fin, la nominale en trait moyen) et l'ENVELOPPE en gras, la zone sous l'enveloppe
+  remplie légèrement, l'axe M = 0 tracé et nommé sur chaque aile, les sections 1 à 4 avec les valeurs de l'enveloppe,
+  Mmax — le principe du classeur de l'ingénieur ;
+- droite, **Contraintes de von Mises, maillage** : la scène `contraintes` REFAITE — la cornière maillée (chaque aile :
+  ~48 pas en s, 9 niveaux ζ dans l'épaisseur, le congé suit t(s)), chaque maille colorée par le TAUX de l'enveloppe
+  `res["maillage"]` (§ 9.6), le bloc d'angle (s < e) hachuré gris « hors modèle de poutre », le maximum ◉ avec sa
+  valeur et sa position, les sections 1 à 4, l'axe des ancrages, la barre de couleur ; légende : « contraintes de
+  poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), enveloppe des positions — pas un calcul par éléments
+  finis » ; pas de déformée (aucune condition d'appui justifiée dans ce modèle).
+  Dégradé : taux 0 → 100 % vert progressif (#E8F5E9 → #1B5E20) ; 100 → 105 % orange progressif (#FFB74D → #E65100) ;
+  > 105 % rouge #C62828.
+Les vues de l'ÉCRAN sont les mêmes scènes (cohérence écran ↔ note) : Coupe, Moments, Contraintes, Élévation.
+
+**9.6 · Le champ de contraintes, dans le moteur (R3)** : `res["maillage"] = {"horizontale": <champ>, "verticale":
+<champ>}` (None quand `diagrammes=False`) ; `<champ> = {"aile", "s": [s…] (du nu e à la fin ; le congé en 12 pas, la
+partie droite en 36), "t": [t(s)…], "zeta": [−1, −0,75 … +1] (−1 = face extérieure, +1 = face du congé), "taux":
+[[taux(s, ζ) par ζ] par s], "sigma_eq": idem (N/mm²), "max": {"s", "zeta", "taux", "sigma_eq"}}`. Pour chaque
+combinaison k : σ_x = (M_k/W)·ζ + N_k/A (M signé, > 0 = face du congé tendue), τ = |V_k|/A uniforme, σ_vm,k = √(σ_x² +
+3τ²) ; la maille garde max_k. Aucun mélange de positions. Propriété (test) : max_ζ σ_vm = |M|/W + |N|/A à tout s — le
+maximum du maillage retrouve les vérifications S1 à S4 et les maxima du congé.
+
+**9.6 · Page 1** : le bloc Hypothèses en lignes « libellé · valeur » courtes (≤ 10 lignes) ; le bloc « Charge et
+ancrage » en lignes séparées « grandeur : valeur unité » (R et son état limite, L, X ± dx, a ; n × Ø d, type,
+profondeur, rondelles, Y ± dy, entraxe, support) ; colonnes 2 et 3 inchangées.
+
+**9.7 · Écran, colonne de gauche** : catalogue → le profil choisi et un volet DÉPLIABLE « Détails » (ailes, épaisseur,
+congés, masse, aire), replié par défaut ; saisie libre → A, B, t, r affichés directement ; les choix des ailes, de la
+pose et les rubriques Charge, Ancrage, Hypothèses gardés — Ancrage reçoit entraxe, type, profondeur, rondelles et le
+support ; Hypothèses reçoit l'état limite en tête (coef en ELS seulement).
+
+**Hors demande, donc non fait** : dimensionnement automatique (le choix reste manuel ; le sélecteur existant n'est
+qu'une liste), autres modules, déformée.

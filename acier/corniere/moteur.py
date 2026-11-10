@@ -32,10 +32,18 @@ ENTRÉE — un dict JSON ; une clé absente ou ``null`` prend le défaut (a, R_E
      "A": 120, "B": 120, "t": 15, "r": 13,          … ou saisie libre (ailes, épaisseur, congé)
      "aile_horizontale": "A",                       laquelle des ailes porte la charge (A = la première du nom, h au catalogue)
      "configuration": "A",                          A = aile horizontale en bas (classeur), B = en haut (retournée)
-     "fy": 355, "coef": 1.5,                        nuance du site (235, 275, 355, 460) ; σ_adm = f_y/coef, τ_adm = σ_adm/√3
-     "R": 35, "L": 300, "X": 75, "dx": 20,          réaction ELS (kN) sur la longueur reprise L ; charge à X ± dx du nu du mur
-     "a": null, "R_ELU": null,                      largeur d'appui réelle (vide = L) ; réaction ELU (vide = 1,5·R, « auto »)
-     "Y": 85, "dy": 10, "n": 3, "d": 16,            ancrage à Y ± dy de la face extérieure de l'aile horizontale ; n ancrages Ø d
+     "etat_limite": "ELS",                          ELS : σ_lim = f_y/coef, τ_lim = σ_lim/√3, R est la réaction ELS ;
+                                                    "ELU" : R est la réaction ELU, σ_lim = f_y/γ_M0, τ_lim = f_y/(√3·γ_M0), γ_M0 = 1,0
+                                                    (coef et R_ELU sans effet) — décisions § 9.5
+     "fy": 355, "coef": 1.5,                        nuance du site (235, 275, 355, 460) ; coef : le coefficient de l'ELS
+     "R": 35, "L": 300, "X": 75, "dx": 10,          réaction (kN, dans l'état limite choisi) sur la longueur reprise L ; charge à X ± dx
+     "a": null, "R_ELU": null,                      largeur d'appui réelle (vide = L) ; ELS : réaction ELU pour les ancrages (vide = 1,5·R)
+     "Y": 85, "dy": 5, "n": 3, "d": 16,             ancrage à Y ± dy de la face extérieure de l'aile horizontale ; n ancrages Ø d
+     "entraxe": null,                               entraxe s des ancrages, centrés sur L (vide = L/n) ; EN 1993-1-8 Tab. 3.3 : s ≥ 2,2·d0, e₁ ≥ 1,2·d0
+     "type_ancrage": "mecanique",                   ou "chimique", "traversant" (dessin et note ; chevilles non vérifiées)
+     "profondeur": 100, "rondelles": 1,             h_ef (ou l'épaisseur traversée) ; 0, 1 (ISO 7089) ou 2 (large ISO 7093-1 + ISO 7089)
+     "support": "voile",                            ou "poutre" : support_haut / support_bas = l'étendue de la poutre au-dessus / au-dessous
+     "support_haut": 150, "support_bas": 150,       de la face extérieure de l'aile horizontale (mm, vers le haut / vers le bas) — § 9.3
      "mode": "historique",                          ou "equilibre" (sans effet en B : toujours équilibre)
      "jeu_ancrage": 10,                             mode historique : le C76 du classeur, bras de la traction Y − jeu_ancrage
      "yc": 0, "uV": null,                           mode équilibre : pivot (A : depuis le dessous ; B : depuis le bout libre),
@@ -48,11 +56,16 @@ SORTIE de calculer / verifier
      "section": {"source": "catalogue"|"saisie", "nom", "designation", "famille", "A", "B", "t", "r1", "r2", "masse" (kg/m),
                  "aire" (cm²), "masse_source": "catalogue"|"calculée", "norme", "aile_horizontale", "larg", "haut", "e", "r"},
      "configuration": "A"|"B", "mode": "historique"|"equilibre" (le mode EFFECTIF), "mode_demande",
-     "materiau": {"fy", "nuance", "coef", "sigma_adm", "tau_adm"},
+     "materiau": {"fy", "nuance", "coef", "etat_limite", "gamma_M0", "sigma_adm", "tau_adm" (les LIMITES de l'état limite :
+                  ELS f_y/coef et σ_adm/√3 ; ELU f_y/γ_M0 et f_y/(√3·γ_M0)), "symbole_sigma" ("σ_adm" | "f_y/γ_M0"), "symbole_tau"},
      "geometrie": {"e", "r", "larg", "haut", "L", "X", "dx", "Y", "dy", "n", "d", "d0", "a" (None = L), "L_eff" (la plus
                    petite des combinaisons), "facteur_L_eff" (L/L_eff), "combinaison_L_eff", "yc", "uV" (effectif),
                    "jeu_ancrage", "sections": [{"cle", "nom", "aile", "s", "t"}] (S1 à S4), "conge": [e, e + r],
-                   "bloc_angle": [0, e], "positions_charge": [X′…], "positions_ancrage": [Y′…], "s_contact" (B)},
+                   "bloc_angle": [0, e], "positions_charge": [X′…], "positions_ancrage": [Y′…], "s_contact" (B),
+                   "entraxe" (effectif), "entraxe_auto" (bool), "distance_bout" (e₁), "positions_z": [z_i depuis le bout],
+                   "type_ancrage", "profondeur", "rondelles", "rondelle": {"normale": (Ø, ép.), "large": (Ø, ép.), "nominal"},
+                   "support", "support_haut", "support_bas" (None pour un voile), "bords_poutre": {"haut", "bas"} (mm, distance
+                   de l'axe d'ancrage le plus proche à chaque bord ; None pour un voile)},
      "combinaisons": [<combinaison>, …]  — la nominale d'abord (1, 3 ou 9),
      "efforts": {"R", "R_ELU", "R_ELU_auto" (bool), "rapport_ELU" (R_ELU/R, None si R = 0), "Mmax" (kN·m, enveloppe = R·(X + dx)),
                  "H" (kN, traction totale des ancrages = compression du mur, enveloppe), "combinaison_H", "bras_H" (mm),
@@ -62,12 +75,20 @@ SORTIE de calculer / verifier
                  entre dans le verdict (en historique, les maxima du congé sont en information : le classeur ne les a pas),
      "informations": [<information>, …]  — pression diamétrale, arrachement (A), compression du mur (A) ou pression sur le
                  support (B), taux de l'autre mode (A), L_eff (si a),
-     "ancrages": {"n", "d", "d0", "positions_z": [L/(2n) + i·L/n], "N_ELS", "V_ELS", "N_ELU", "V_ELU" (kN, par ancrage),
-                  "combinaison_N", "bras" (mm : Y − jeu_ancrage en historique, Y′ − y_c ou y_a − c en équilibre), "H",
+     "ancrages": {"n", "d", "d0", "positions_z": [e₁ + i·s], "entraxe", "distance_bout", "etat_limite",
+                  "N", "V" (kN par ancrage, dans l'état limite choisi), "N_ELS", "V_ELS", "N_ELU", "V_ELU" (kN, par ancrage ;
+                  en ELU N_ELS = V_ELS = None et N_ELU = H/n, V_ELU = R/n), "combinaison_N", "bras" (mm : Y − jeu_ancrage en
+                  historique, Y′ − y_c ou y_a − c en équilibre), "H",
                   "pression_diametrale", "arrachement" (N/mm², information ; A seulement — None en B, où l'effort du boulon sur
                   l'aile va vers l'angle), "compression_mur" (kN, A : résultante à y_c),
                   "pression_support" (N/mm, B), "methode": "historique"|"equilibre"},
      "diagrammes": {"horizontale": <diagramme>, "verticale": <diagramme>} (None quand diagrammes=False),
+     "maillage": {"horizontale": <champ>, "verticale": <champ>} (None quand diagrammes=False) — § 9.6 :
+                  <champ> = {"aile", "s": [du nu e à la fin : le congé en 12 pas, la partie droite en 36], "t": [t(s)],
+                  "zeta": [−1 … +1 en 9 niveaux ; −1 = face extérieure, +1 = face du congé], "sigma_eq": [[σ_vm(s, ζ) par ζ] par s],
+                  "taux": [[σ_vm/σ_lim]], "max": {"s", "zeta", "sigma_eq", "taux"}} ; pour chaque combinaison k :
+                  σ_x = (M_k·ζ)/W + N_k/A (M signé), τ = |V_k|/A uniforme (le classeur), σ_vm,k = √(σ_x² + 3τ²) ; la maille
+                  garde max_k (aucun mélange de positions) ; max_ζ σ_vm(s, ζ) = |M|/W + |N|/A = la vérification de la coupe,
      "maxima": {"horizontale": <verification max_h>, "verticale": <verification max_v>},
      "comparaison": {"mode", "taux_max", "gouvernant": {"cle", "nom"}} — l'autre mode, en A ; None en B,
      "garde": {"taux_historique", "taux_equilibre_P1", "depasse", "yc", "uV"} — mode historique ; None sinon,
@@ -104,6 +125,7 @@ SORTIE de calculer / verifier
      t_conge e + r − √(r² − (e + r − s)²) · W b·t²/6 · A b·t · sigma_M M·10⁶/W · sigma_MN |M|·10⁶/W + |N|·10³/A ·
      tau_RLt R·10³/(b·t) · tau_VA |V|·10³/A · sigma_eq √(σ² + 3τ²) · taux valeur/limite · N_ELS_hist Mmax·1000/((Y − jeu)·n) ·
      N_ELS_eq H/n · V_ELS R/n · rapport_ELU R_ELU/R · ELU x·ρ_ELU · R_ELU_auto 1,5·R · p_diam V·10³/(d·e) ·
+     sigma_lim_ELU f_y/γ_M0 · tau_lim_ELU f_y/(√3·γ_M0) · N_ELU_direct H/n · V_ELU_direct R/n (ELU) ·
      arrachement V·10³/(2·(haut − Y)·e) (A) · L_eff min(L ; a + 2·Xe) · d0 d + 2 · b_net L − n·d0 · pression_support C·10³/L.
 
   avertissements (code · niveau) : chevilles_non_verifiees · info ; pic_conge · info ; effet_levier · info ;
@@ -119,8 +141,8 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from . import entree as E
 from . import statique as S
-from .entree import (AVIS_V1, EQUILIBRE, HISTORIQUE, REFERENCE, cornieres, depuis_v1, designation,  # noqa: F401 — l'API
-                     est_v1, nom_catalogue, nouvelle_corniere, normaliser, section, section_catalogue)
+from .entree import (AVIS_V1, ELS, ELU, EQUILIBRE, GAMMA_M0, HISTORIQUE, POUTRE, REFERENCE, cornieres, depuis_v1,  # noqa: F401
+                     designation, est_v1, nom_catalogue, nouvelle_corniere, normaliser, section, section_catalogue)
 from .statique import HORIZONTALE, VERTICALE
 
 OK, NOK = "ok", "nok"
@@ -174,7 +196,9 @@ def _contexte(c: Dict, mode: Optional[str] = None, yc: Optional[float] = None, u
     mode_eff = EQUILIBRE if cfg == "B" else (mode or c["mode"])
     uV_eff = (c["uV"] if c["uV"] is not None else e / 2.0) if uV is None else uV
     yc_eff = c["yc"] if yc is None else yc
-    sigma_adm = c["fy"] / c["coef"]
+    # les limites de l'état limite (§ 9.5) : ELS f_y/coef et σ_lim/√3 ; ELU f_y/γ_M0 et f_y/(√3·γ_M0), γ_M0 = 1,0
+    etat = c["etat_limite"]
+    sigma_adm = c["fy"] / c["coef"] if etat == ELS else c["fy"] / GAMMA_M0
     g = {"e": e, "r": r, "larg": larg, "haut": haut, "L": c["L"], "R": c["R"], "Y": c["Y"], "yc": yc_eff, "uV": uV_eff,
          "jeu_ancrage": c["jeu_ancrage"]}
     combos = _combinaisons(c)
@@ -187,7 +211,7 @@ def _contexte(c: Dict, mode: Optional[str] = None, yc: Optional[float] = None, u
         return c["L"]
 
     return {"c": c, "sec": sec, "e": e, "r": r, "larg": larg, "haut": haut, "cfg": cfg, "mode": mode_eff, "uV": uV_eff,
-            "yc": yc_eff, "sigma_adm": sigma_adm, "tau_adm": sigma_adm / math.sqrt(3.0), "g": g, "combos": combos,
+            "yc": yc_eff, "etat": etat, "sigma_adm": sigma_adm, "tau_adm": sigma_adm / math.sqrt(3.0), "g": g, "combos": combos,
             "stats": stats, "largeur": largeur}
 
 
@@ -293,20 +317,27 @@ def _ancrages(ctx: Dict) -> Dict:
     for cb, st in zip(ctx["combos"], ctx["stats"]):
         if best is None or st["H"] > best["H"] * (1.0 + EPS):
             best, best_cb = st, cb
-    R_ELU = c["R_ELU"] if c["R_ELU"] is not None else E.RAPPORT_ELU_DEFAUT * R
-    rapport = (R_ELU / R) if R > 0 else None
-    N_ELS, V_ELS = best["H"] / n, R / n
+    N_par, V_par = best["H"] / n, R / n                  # par ancrage, dans l'état limite de la saisie
+    if ctx["etat"] == ELS:
+        R_ELU = c["R_ELU"] if c["R_ELU"] is not None else E.RAPPORT_ELU_DEFAUT * R
+        rapport = (R_ELU / R) if R > 0 else None
+        N_ELS, V_ELS = N_par, V_par
+        N_ELU = N_ELS * rapport if rapport is not None else 0.0
+        V_ELU = V_ELS * rapport if rapport is not None else 0.0
+        auto = c["R_ELU"] is None
+    else:                                                # ELU saisi : rien n'est inventé pour l'ELS
+        R_ELU, rapport, N_ELS, V_ELS, N_ELU, V_ELU, auto = R, None, None, None, N_par, V_par, False
     e, haut, Y = ctx["e"], ctx["haut"], c["Y"]
     # l'arrachement vers le bord (C90) : le classeur lit Y nominal ; en équilibre, l'ancrage le plus près du bord (enveloppe).
     # En A l'effort du boulon sur l'aile va vers le bout libre (haut − Y) ; en B il va vers l'ANGLE (le boulon retient la
     # cornière qui descend), où la matière continue dans l'autre aile : sans objet, None (relecture de la mécanique)
     Y_bord = Y if ctx["mode"] == HISTORIQUE else max(cb["Y"] for cb in ctx["combos"])
-    out = {"n": n, "d": c["d"], "d0": E.d0(c), "positions_z": [c["L"] / (2 * n) + i * c["L"] / n for i in range(n)],
-           "N_ELS": N_ELS, "V_ELS": V_ELS, "N_ELU": N_ELS * rapport if rapport is not None else 0.0,
-           "V_ELU": V_ELS * rapport if rapport is not None else 0.0, "rapport_ELU": rapport, "R_ELU": R_ELU,
-           "R_ELU_auto": c["R_ELU"] is None, "combinaison_N": best_cb, "bras": best["bras"], "H": best["H"],
-           "pression_diametrale": V_ELS * 1e3 / (c["d"] * e), "Y_bord": Y_bord,
-           "arrachement": V_ELS * 1e3 / (2.0 * (haut - Y_bord) * e) if (ctx["cfg"] == "A" and haut > Y_bord) else None,
+    out = {"n": n, "d": c["d"], "d0": E.d0(c), "positions_z": E.positions_ancrages(c), "entraxe": E.entraxe_effectif(c),
+           "distance_bout": E.distance_bout(c), "etat_limite": ctx["etat"], "N": N_par, "V": V_par,
+           "N_ELS": N_ELS, "V_ELS": V_ELS, "N_ELU": N_ELU, "V_ELU": V_ELU, "rapport_ELU": rapport, "R_ELU": R_ELU,
+           "R_ELU_auto": auto, "combinaison_N": best_cb, "bras": best["bras"], "H": best["H"],
+           "pression_diametrale": V_par * 1e3 / (c["d"] * e), "Y_bord": Y_bord,
+           "arrachement": V_par * 1e3 / (2.0 * (haut - Y_bord) * e) if (ctx["cfg"] == "A" and haut > Y_bord) else None,
            "methode": ctx["mode"], "compression_mur": best["H"] if ctx["cfg"] == "A" else None,
            "pression_support": best["H"] * 1e3 / c["L"] if ctx["cfg"] == "B" else None}
     return out
@@ -381,6 +412,42 @@ def _diagramme(ctx: Dict, aile: str, verifs: List[Dict]) -> Dict:
             reperes["contact"] = ctx["stats"][0]["s_contact"]
     return {"aile": aile, "fin": fin, "largeur": min(ctx["largeur"](aile, st) for st in ctx["stats"]), "points": points,
             "courbes": courbes, "troncons": troncons, "reperes": reperes}
+
+
+# ------------------------------------------------------------------ le champ de contraintes (§ 9.6)
+PAS_MAILLAGE = (12, 36)                 # mailles dans le congé, puis dans la partie droite
+ZETA = tuple(-1.0 + 0.25 * i for i in range(9))   # la position dans l'épaisseur : −1 face extérieure, +1 face du congé
+
+
+def _maillage(ctx: Dict, aile: str) -> Dict:
+    """Le champ de von Mises de l'ENVELOPPE sur une aile : pour chaque maille (s, ζ) et chaque combinaison k,
+    σ_x = (M_k·ζ)/W + N_k/A (M signé : > 0 tend la face du congé, ζ = +1), τ = |V_k|/A uniforme (le classeur),
+    σ_vm,k = √(σ_x² + 3τ²) ; la maille garde le maximum des combinaisons — jamais un moment d'une position avec le
+    tranchant d'une autre. Contraintes de poutre, pas un calcul par éléments finis ; sous s = e (bloc d'angle) rien."""
+    e, r = ctx["e"], ctx["r"]
+    fin = ctx["larg"] if aile == HORIZONTALE else ctx["haut"]
+    absc = (S.grille(e, e + r, r / PAS_MAILLAGE[0]) if r > 0 else [e]) + S.grille(e + r, fin, max((fin - e - r) / PAS_MAILLAGE[1], 1e-6))
+    absc = sorted(set(round(x, 9) for x in absc))
+    ts, seqs, taux = [], [], []
+    best = {"s": absc[0], "zeta": 0.0, "sigma_eq": -1.0, "taux": -1.0}
+    for s in absc:
+        t = S.t_conge(s, e, r)
+        ts.append(t)
+        ligne = []
+        for z in ZETA:
+            vm = 0.0
+            for st in ctx["stats"]:
+                M, N, V = S.efforts(st, aile, s)
+                W, A = S.module_aire(ctx["largeur"](aile, st), t)
+                sx = M * 1e3 * z / W + N * 1e3 / A
+                tau = abs(V) * 1e3 / A
+                vm = max(vm, math.sqrt(sx * sx + 3.0 * tau * tau))
+            ligne.append(vm)
+            if vm > best["sigma_eq"]:
+                best = {"s": s, "zeta": z, "sigma_eq": vm, "taux": vm / ctx["sigma_adm"]}
+        seqs.append(ligne)
+        taux.append([v / ctx["sigma_adm"] for v in ligne])
+    return {"aile": aile, "s": absc, "t": ts, "zeta": list(ZETA), "sigma_eq": seqs, "taux": taux, "max": best}
 
 
 # ------------------------------------------------------------------ les formules du détail
@@ -481,9 +548,14 @@ def _statique_de(ctx: Dict, cb: Dict) -> Dict:
 
 def _calcul(ctx: Dict, verifs: List[Dict], anc: Dict, geo: Dict) -> List[Dict]:
     c, hist = ctx["c"], ctx["mode"] == HISTORIQUE
-    blocs = [_bloc("materiau", "Matériau · contraintes admissibles", None,
-                   [_f("sigma_adm", "σ_adm", [("f_y", c["fy"], "N/mm²"), ("coef", c["coef"], "")], ctx["sigma_adm"], "N/mm²", "H31" if hist else None),
-                    _f("tau_adm", "τ_adm", [("σ_adm", ctx["sigma_adm"], "N/mm²")], ctx["tau_adm"], "N/mm²", "H34" if hist else None)])]
+    if ctx["etat"] == ELS:
+        blocs = [_bloc("materiau", "Matériau · contraintes admissibles (ELS)", None,
+                       [_f("sigma_adm", "σ_adm", [("f_y", c["fy"], "N/mm²"), ("coef", c["coef"], "")], ctx["sigma_adm"], "N/mm²", "H31" if hist else None),
+                        _f("tau_adm", "τ_adm", [("σ_adm", ctx["sigma_adm"], "N/mm²")], ctx["tau_adm"], "N/mm²", "H34" if hist else None)])]
+    else:
+        blocs = [_bloc("materiau", "Matériau · limites ELU (EN 1993-1-1 § 6.2.1(5), γ_M0 = 1,0)", None,
+                       [_f("sigma_lim_ELU", "f_y/γ_M0", [("f_y", c["fy"], "N/mm²"), ("γ_M0", GAMMA_M0, "")], ctx["sigma_adm"], "N/mm²"),
+                        _f("tau_lim_ELU", "f_y/(√3·γ_M0)", [("f_y", c["fy"], "N/mm²"), ("γ_M0", GAMMA_M0, "")], ctx["tau_adm"], "N/mm²")])]
     if c["a"] is not None:
         st = _statique_de(ctx, geo["combinaison_L_eff"])
         blocs.append(_bloc("largeur_efficace", "Largeur efficace de l'aile horizontale (diffusion à 45° jusqu'à la section 1)", geo["combinaison_L_eff"],
@@ -508,10 +580,15 @@ def _calcul(ctx: Dict, verifs: List[Dict], anc: Dict, geo: Dict) -> List[Dict]:
     # ancrages
     st = _statique_de(ctx, anc["combinaison_N"])
     fa = []
+    els = ctx["etat"] == ELS
+    sN, sV = ("N_ELS", "V_ELS") if els else ("N_ELU", "V_ELU")   # le nom de l'effort par ancrage dans l'état limite saisi
     if hist:
         fa.append(_f("Mmax_j", "Mmax", [("R", c["R"], "kN"), ("X", c["X"], "mm"), ("Xj", anc["combinaison_N"]["jeu_charge"], "mm")], st["Mmax"] / 1e3, "kN·m", "C78"))
-        fa.append(_f("N_ELS_hist", "N_ELS", [("Mmax", st["Mmax"] / 1e3, "kN·m"), ("Y", c["Y"], "mm"), ("jeu", c["jeu_ancrage"], "mm"), ("n", c["n"], "")],
-                     anc["N_ELS"], "kN", "C82"))
+        if els:
+            fa.append(_f("N_ELS_hist", "N_ELS", [("Mmax", st["Mmax"] / 1e3, "kN·m"), ("Y", c["Y"], "mm"), ("jeu", c["jeu_ancrage"], "mm"), ("n", c["n"], "")],
+                         anc["N_ELS"], "kN", "C82"))
+        else:
+            fa.append(_f("H_hist", "H", [("Mmax", st["Mmax"] / 1e3, "kN·m"), ("Y − jeu", st["bras"], "mm"), ("Yj", 0.0, "mm")], st["H"], "kN", "C82·n"))
     else:
         if ctx["cfg"] == "A":
             fa.append(_f("bras_A", "Y′ − y_c", [("Y′", st["Yp"], "mm"), ("y_c", ctx["yc"], "mm")], st["bras"], "mm"))
@@ -519,17 +596,22 @@ def _calcul(ctx: Dict, verifs: List[Dict], anc: Dict, geo: Dict) -> List[Dict]:
             fa.append(_f("y_a", "y_a", [("haut", ctx["haut"], "mm"), ("Y′", st["Yp"], "mm")], st["ya"], "mm"))
             fa.append(_f("bras_B", "y_a − c", [("y_a", st["ya"], "mm"), ("c", ctx["yc"], "mm")], st["bras"], "mm"))
         fa.append(_f("H_eq", "H", [("R", c["R"], "kN"), ("X′", st["Xp"], "mm"), ("u_V", ctx["uV"], "mm"), ("bras", st["bras"], "mm")], st["H"], "kN"))
-        fa.append(_f("N_ELS_eq", "N_ELS", [("H", st["H"], "kN"), ("n", c["n"], "")], anc["N_ELS"], "kN"))
-    fa.append(_f("V_ELS", "V_ELS", [("R", c["R"], "kN"), ("n", c["n"], "")], anc["V_ELS"], "kN", "C83" if hist else None))
-    if anc["R_ELU_auto"]:
-        fa.append(_f("R_ELU_auto", "R_ELU", [("R", c["R"], "kN")], anc["R_ELU"], "kN"))
-    if anc["rapport_ELU"] is not None:
-        fa += [_f("rapport_ELU", "ρ_ELU", [("R_ELU", anc["R_ELU"], "kN"), ("R", c["R"], "kN")], anc["rapport_ELU"], "", "C71/C70" if hist else None),
-               _f("ELU", "N_ELU", [("N_ELS", anc["N_ELS"], "kN"), ("ρ_ELU", anc["rapport_ELU"], "")], anc["N_ELU"], "kN", "C85" if hist else None),
-               _f("ELU", "V_ELU", [("V_ELS", anc["V_ELS"], "kN"), ("ρ_ELU", anc["rapport_ELU"], "")], anc["V_ELU"], "kN", "C86" if hist else None)]
-    fa.append(_f("p_diam", "p_diam", [("V_ELS", anc["V_ELS"], "kN"), ("d", c["d"], "mm"), ("e", ctx["e"], "mm")], anc["pression_diametrale"], "N/mm²", "C88" if hist else None))
+        if els:
+            fa.append(_f("N_ELS_eq", "N_ELS", [("H", st["H"], "kN"), ("n", c["n"], "")], anc["N_ELS"], "kN"))
+    if els:
+        fa.append(_f("V_ELS", "V_ELS", [("R", c["R"], "kN"), ("n", c["n"], "")], anc["V_ELS"], "kN", "C83" if hist else None))
+        if anc["R_ELU_auto"]:
+            fa.append(_f("R_ELU_auto", "R_ELU", [("R", c["R"], "kN")], anc["R_ELU"], "kN"))
+        if anc["rapport_ELU"] is not None:
+            fa += [_f("rapport_ELU", "ρ_ELU", [("R_ELU", anc["R_ELU"], "kN"), ("R", c["R"], "kN")], anc["rapport_ELU"], "", "C71/C70" if hist else None),
+                   _f("ELU", "N_ELU", [("N_ELS", anc["N_ELS"], "kN"), ("ρ_ELU", anc["rapport_ELU"], "")], anc["N_ELU"], "kN", "C85" if hist else None),
+                   _f("ELU", "V_ELU", [("V_ELS", anc["V_ELS"], "kN"), ("ρ_ELU", anc["rapport_ELU"], "")], anc["V_ELU"], "kN", "C86" if hist else None)]
+    else:
+        fa += [_f("N_ELU_direct", "N_ELU", [("H", st["H"], "kN"), ("n", c["n"], "")], anc["N_ELU"], "kN"),
+               _f("V_ELU_direct", "V_ELU", [("R", c["R"], "kN"), ("n", c["n"], "")], anc["V_ELU"], "kN")]
+    fa.append(_f("p_diam", "p_diam", [(sV, anc["V"], "kN"), ("d", c["d"], "mm"), ("e", ctx["e"], "mm")], anc["pression_diametrale"], "N/mm²", "C88" if hist else None))
     if anc["arrachement"] is not None:
-        fa.append(_f("arrachement", "σ_arr", [("V_ELS", anc["V_ELS"], "kN"), ("haut", ctx["haut"], "mm"), ("Y", anc["Y_bord"], "mm"), ("e", ctx["e"], "mm")],
+        fa.append(_f("arrachement", "σ_arr", [(sV, anc["V"], "kN"), ("haut", ctx["haut"], "mm"), ("Y", anc["Y_bord"], "mm"), ("e", ctx["e"], "mm")],
                      anc["arrachement"], "N/mm²", "C90" if hist else None))
     if anc["pression_support"] is not None:
         fa.append(_f("pression_support", "p_support", [("C", st["H"], "kN"), ("L", c["L"], "mm")], anc["pression_support"], "N/mm"))
@@ -540,11 +622,16 @@ def _calcul(ctx: Dict, verifs: List[Dict], anc: Dict, geo: Dict) -> List[Dict]:
 # ------------------------------------------------------------------ hypothèses, avertissements
 def _hypotheses(ctx: Dict, anc: Dict, geo: Dict) -> List[str]:
     c = ctx["c"]
-    h = [f"Méthode aux contraintes admissibles : σ_adm = f_y/{E._g(c['coef'])} = {E._f(ctx['sigma_adm'])} N/mm², τ_adm = σ_adm/√3 = "
-         f"{E._f(ctx['tau_adm'])} N/mm², σ_éq = √(σ² + 3τ²) ≤ σ_adm sur les efforts ELS non majorés — ce n'est pas une justification "
-         "EC3 aux états limites.",
-         f"Configuration {ctx['cfg']} : {E.LIBELLES_CONFIGURATION[ctx['cfg']]} ; {E.LIBELLES_MODE[ctx['mode']]}.",
-         "Tranche courte : la longueur reprise L est la largeur de toutes les sections ; les n ancrages se partagent R et la traction."]
+    if ctx["etat"] == ELS:
+        h = [f"ELS, méthode aux contraintes admissibles : σ_adm = f_y/{E._g(c['coef'])} = {E._f(ctx['sigma_adm'])} N/mm², τ_adm = σ_adm/√3 = "
+             f"{E._f(ctx['tau_adm'])} N/mm², σ_éq = √(σ² + 3τ²) ≤ σ_adm sur les efforts ELS non majorés — ce n'est pas une justification "
+             "EC3 aux états limites."]
+    else:
+        h = [f"ELU, critère élastique de l'EN 1993-1-1 § 6.2.1(5) : σ_éq = √(σ² + 3τ²) ≤ f_y/γ_M0 = {E._f(ctx['sigma_adm'])} N/mm² et "
+             f"τ ≤ f_y/(√3·γ_M0) = {E._f(ctx['tau_adm'])} N/mm², γ_M0 = {E._g(GAMMA_M0)} (NBN EN 1993-1-1 ANB), sur la réaction R saisie à l'ELU "
+             "— le coefficient 1,5 de l'ELS ne s'applique pas."]
+    h += [f"Configuration {ctx['cfg']} : {E.LIBELLES_CONFIGURATION[ctx['cfg']]} ; {E.LIBELLES_MODE[ctx['mode']]}.",
+          "Tranche courte : la longueur reprise L est la largeur de toutes les sections ; les n ancrages se partagent R et la traction."]
     if ctx["mode"] == HISTORIQUE:
         h.append(f"Formules de la feuille P8 : sections avec le pivot e/2 (YH = Y − e/2) et τ = R/(L·t) dans les deux ailes ; traction "
                  f"d'ancrage sur le bras Y − jeu = {E._g(c['Y'] - c['jeu_ancrage'])} mm (C76 = {E._g(c['jeu_ancrage'])} mm).")
@@ -562,14 +649,22 @@ def _hypotheses(ctx: Dict, anc: Dict, geo: Dict) -> List[str]:
     if c["a"] is not None:
         h.append(f"Largeur d'appui a = {E._g(c['a'])} mm : largeur efficace de l'aile horizontale L_eff = min(L ; a + 2·Xe) = "
                  f"{E._f(geo['L_eff'])} mm (σ × {E._f(geo['facteur_L_eff'], 3)}).")
-    h.append("R_ELU = 1,5·R (auto)." if anc["R_ELU_auto"] else f"R_ELU = {E._g(anc['R_ELU'])} kN (saisie).")
+    if ctx["etat"] == ELS:
+        h.append("R_ELU = 1,5·R (auto)." if anc["R_ELU_auto"] else f"R_ELU = {E._g(anc['R_ELU'])} kN (saisie).")
+    h.append(f"Ancrages : {c['n']} × {E.LIBELLES_TYPE_ANCRAGE[c['type_ancrage']]} Ø{E._g(c['d'])}, profondeur {E._g(c['profondeur'])} mm, "
+             f"entraxe {E._f(anc['entraxe'])} mm{' (L/n)' if c['entraxe'] is None else ''}, e₁ = {E._f(anc['distance_bout'])} mm au bout, "
+             f"{E.LIBELLES_RONDELLES[c['rondelles']]} ; support : {E.LIBELLES_SUPPORT[c['support']]}"
+             + (f" ({E._g(c['support_haut'])} mm au-dessus et {E._g(c['support_bas'])} mm au-dessous de la face extérieure de l'aile horizontale)."
+                if c["support"] == POUTRE else "."))
     return h
 
 
 def _avertissements(ctx: Dict, anc: Dict, garde: Optional[Dict]) -> List[Dict]:
     c = ctx["c"]
     av = [{"code": "chevilles_non_verifiees", "niveau": INFO,
-           "message": "Chevilles non vérifiées : efforts N et V par ancrage fournis pour Hilti PROFIS, ELS et ELU séparés."},
+           "message": ("Chevilles non vérifiées : efforts N et V par ancrage fournis pour Hilti PROFIS, ELS et ELU séparés."
+                       if ctx["etat"] == ELS else
+                       "Chevilles non vérifiées : efforts N et V par ancrage à l'ELU fournis pour Hilti PROFIS (R saisie à l'ELU).")},
           {"code": "pic_conge", "niveau": INFO,
            "message": "Pic de contrainte au congé non vérifié (contrainte de pointe ≈ 1,3 × la contrainte de poutre : statique seulement, "
                       "à considérer en fatigue)."},
@@ -590,7 +685,7 @@ def _avertissements(ctx: Dict, anc: Dict, garde: Optional[Dict]) -> List[Dict]:
             av.append({"code": "mode_impose_B", "niveau": INFO,
                        "message": "En configuration B, les formules du classeur ne s'appliquent pas (elles donneraient −18 % sur M3) : "
                                   "calcul en mode équilibre."})
-    if anc["R_ELU_auto"]:
+    if anc["R_ELU_auto"] and ctx["etat"] == ELS:
         av.append({"code": "R_ELU_auto", "niveau": INFO,
                    "message": f"R_ELU = 1,5·R = {E._f(anc['R_ELU'], 2)} kN (auto) : à remplacer par la combinaison réelle 1,35·G + 1,5·Q."})
     if ctx["e"] > E.T_FY_REDUIT:
@@ -613,8 +708,27 @@ def _geometrie(ctx: Dict) -> Dict:
            "sections": [{"cle": cle, "nom": nom, "aile": aile, "s": fs(e, r), "t": ft(e, r)} for cle, nom, aile, fs, ft, _ in SECTIONS],
            "conge": [e, e + r], "bloc_angle": [0.0, e],
            "positions_charge": sorted(set(st["Xp"] for st in ctx["stats"])), "positions_ancrage": sorted(set(st["Yp"] for st in ctx["stats"])),
-           "s_contact": ctx["stats"][0]["s_contact"] if ctx["cfg"] == "B" else None}
+           "s_contact": ctx["stats"][0]["s_contact"] if ctx["cfg"] == "B" else None,
+           # § 9.2 et 9.3 : les ancrages (positions, type, profondeur, rondelles) et le support, pour le dessin et la note
+           "entraxe": E.entraxe_effectif(c), "entraxe_auto": c["entraxe"] is None, "distance_bout": E.distance_bout(c),
+           "positions_z": E.positions_ancrages(c), "type_ancrage": c["type_ancrage"], "profondeur": c["profondeur"],
+           "rondelles": c["rondelles"], "rondelle": E.rondelle(c["d"]), "support": c["support"],
+           "support_haut": c["support_haut"] if c["support"] == POUTRE else None,
+           "support_bas": c["support_bas"] if c["support"] == POUTRE else None, "bords_poutre": _bords_poutre(ctx)}
     return geo
+
+
+def _bords_poutre(ctx: Dict) -> Optional[Dict]:
+    """Poutre : la distance de l'axe d'ancrage le plus proche au bord supérieur et au bord inférieur (mm, pour Hilti) ;
+    None pour un voile. En A les ancrages sont à Y ± dy au-dessus de la face extérieure de l'aile horizontale, en B à
+    Y ± dy au-dessous."""
+    c = ctx["c"]
+    if c["support"] != POUTRE:
+        return None
+    Y, dy, hs, bs = c["Y"], c["dy"], c["support_haut"], c["support_bas"]
+    if ctx["cfg"] == "A":
+        return {"haut": hs - (Y + dy), "bas": bs + (Y - dy)}
+    return {"haut": hs + (Y - dy), "bas": bs - (Y + dy)}
 
 
 def _efforts(ctx: Dict, anc: Dict) -> Dict:
@@ -628,11 +742,17 @@ def _efforts(ctx: Dict, anc: Dict) -> Dict:
 
 def _informations(ctx: Dict, anc: Dict, geo: Dict, comparaison: Optional[Dict]) -> List[Dict]:
     c = ctx["c"]
-    inf = [{"cle": "pression_diametrale", "nom": "Pression diamétrale (ELS)", "valeur": anc["pression_diametrale"], "unite": "N/mm²",
-            "combinaison": None, "texte": "V_ELS/(d·e), sans limite (C88 du classeur)"}]
+    et = ctx["etat"]
+    inf = [{"cle": "pression_diametrale", "nom": f"Pression diamétrale ({et})", "valeur": anc["pression_diametrale"], "unite": "N/mm²",
+            "combinaison": None, "texte": f"V_{et}/(d·e), sans limite (C88 du classeur)"}]
     if anc["arrachement"] is not None:
-        inf.append({"cle": "arrachement", "nom": "Arrachement vers le bord (ELS)", "valeur": anc["arrachement"], "unite": "N/mm²",
-                    "combinaison": None, "texte": f"V_ELS/(2·(haut − Y)·e) avec Y = {E._g(anc['Y_bord'])} mm, sans limite (C90 du classeur)"})
+        inf.append({"cle": "arrachement", "nom": f"Arrachement vers le bord ({et})", "valeur": anc["arrachement"], "unite": "N/mm²",
+                    "combinaison": None, "texte": f"V_{et}/(2·(haut − Y)·e) avec Y = {E._g(anc['Y_bord'])} mm, sans limite (C90 du classeur)"})
+    if geo["bords_poutre"] is not None:
+        inf.append({"cle": "bord_poutre_haut", "nom": "Ancrage : distance au bord supérieur de la poutre", "valeur": geo["bords_poutre"]["haut"],
+                    "unite": "mm", "combinaison": None, "texte": "axe de l'ancrage le plus haut (Y ± dy), pour Hilti PROFIS"})
+        inf.append({"cle": "bord_poutre_bas", "nom": "Ancrage : distance au bord inférieur de la poutre", "valeur": geo["bords_poutre"]["bas"],
+                    "unite": "mm", "combinaison": None, "texte": "axe de l'ancrage le plus bas (Y ± dy), pour Hilti PROFIS"})
     if ctx["cfg"] == "A":
         inf.append({"cle": "compression_mur", "nom": "Compression du mur", "valeur": anc["compression_mur"], "unite": "kN",
                     "combinaison": anc["combinaison_N"],
@@ -672,10 +792,13 @@ def calculer(c: Dict, diagrammes: bool = True, annexes: bool = True) -> Dict:
         t_hist = max(v["taux"] for v in verifs if v["aile"] == VERTICALE and v["cle"].startswith("S"))
         garde = {"taux_historique": t_hist, "taux_equilibre_P1": t_eq, "depasse": t_eq > t_hist * (1.0 + 1e-9), "yc": ctx["e"] / 2.0, "uV": ctx["e"] / 2.0}
     res = {"reference": REFERENCE, "corniere": c, "section": ctx["sec"], "configuration": ctx["cfg"], "mode": ctx["mode"], "mode_demande": c["mode"],
-           "materiau": {"fy": c["fy"], "nuance": E.nuance_de(c["fy"]), "coef": c["coef"], "sigma_adm": ctx["sigma_adm"], "tau_adm": ctx["tau_adm"]},
+           "materiau": {"fy": c["fy"], "nuance": E.nuance_de(c["fy"]), "coef": c["coef"], "etat_limite": ctx["etat"], "gamma_M0": GAMMA_M0,
+                        "sigma_adm": ctx["sigma_adm"], "tau_adm": ctx["tau_adm"],
+                        "symbole_sigma": "σ_adm" if ctx["etat"] == ELS else "f_y/γ_M0", "symbole_tau": "τ_adm" if ctx["etat"] == ELS else "f_y/(√3·γ_M0)"},
            "geometrie": geo, "combinaisons": ctx["combos"], "efforts": _efforts(ctx, anc), "verifications": verifs,
            "informations": _informations(ctx, anc, geo, comparaison), "ancrages": anc,
            "diagrammes": {HORIZONTALE: _diagramme(ctx, HORIZONTALE, verifs), VERTICALE: _diagramme(ctx, VERTICALE, verifs)} if diagrammes else None,
+           "maillage": {HORIZONTALE: _maillage(ctx, HORIZONTALE), VERTICALE: _maillage(ctx, VERTICALE)} if diagrammes else None,
            "maxima": {HORIZONTALE: next(v for v in verifs if v["cle"] == "max_h"), VERTICALE: next(v for v in verifs if v["cle"] == "max_v")},
            "comparaison": comparaison, "garde": garde,
            "taux_max": gov["taux"], "statut": OK if all(v["ok"] for v in verifs if v["verdict"]) else NOK,
