@@ -1,31 +1,40 @@
 # -*- coding: utf-8 -*-
 """La NOTE PDF du module « Cornières d'appui » sur le site (acier/corniere/note.py, api_web/note_corniere.py — le lot
-écran y arrive par api_web/corniere.telecharger), vérifiée en Python ordinaire, SANS l'écran du module : l'état de la
-note du site est construit par le moteur (nouvelle cornière + modifications), {"version": 2, "cornieres": [...]}.
+écran y arrive par api_web/corniere.telecharger), révision § 9 du 10/11/2026 au soir, vérifiée en Python ordinaire,
+SANS l'écran du module : l'état de la note du site est construit par le moteur (nouvelle cornière + modifications),
+{"version": 2, "cornieres": [...]}.
 
-- TOUTE la note en un PDF valide : la page de garde du site (projet, partie, date, indice, sommaire) puis deux pages par
-  cornière (trois avec une page de suite), dans l'ordre de la liste, sur ≥ 8 états : A historique, A équilibre, B avec
-  Y = 85 et Y = 45, ailes inégales (150 puis 100 horizontal), petite (L 40×40×4), grosse (L 250×250×35, équilibre, quatre
-  ancrages), deux cornières dans une note (A avec largeur d'appui, B retournée), la garde (ancrage bas), une note v1 relue ;
-- PARITÉ avec le moteur de l'écran (``moteur.verifier``), cornière par cornière, par pdftotext : le nom, la configuration
-  et le mode, le statut et le taux max, chaque taux des vérifications, M1 à M4, H, N et V par ancrage (ELS et ELU), et
-  chaque RÉSULTAT des formules écrites (la chaîne des sections, la coupe gouvernante, les ancrages) — aux arrondis
-  d'affichage près ; les textes des dessins (R, H, L) y sont ;
-- chaque FORMULE de la note (acier/corniere/formules.py) ré-évaluée deux fois, sur tous les blocs de tous les états :
-  avec les nombres imprimés (l'arrondi d'affichage) et avec les termes exacts (1e-9) ;
+- TOUTE la note en un PDF valide : la page de garde du site (projet, partie, date, indice, sommaire avec l'état limite)
+  puis deux pages par cornière (trois avec une page de suite), dans l'ordre de la liste, sur 17 états : A historique,
+  A équilibre, B avec Y = 85 et Y = 45, ailes inégales (150 puis 100 horizontal), petite (L 40×40×4), grosse
+  (L 250×250×35, équilibre, quatre ancrages), deux cornières dans une note (A avec largeur d'appui, B retournée), la
+  garde (ancrage bas), une note v1 relue, l'ELU (R = 60 saisie à l'ELU), une poutre en A (160/120) et une en B, un
+  boulon traversant à deux rondelles, un entraxe saisi (80), une note ELS + ELU ;
+- PARITÉ avec le moteur de l'écran (``moteur.verifier``), cornière par cornière, par pdftotext : le nom, la
+  configuration, le mode et l'ÉTAT LIMITE (bandeau et sommaire), le statut et le taux max, chaque taux des
+  vérifications, M1 à M4, H, N et V par ancrage (ELS et ELU à l'ELS ; à l'ELU les seules N_ELU et V_ELU, pas d'ELS
+  inventé), chaque RÉSULTAT des formules écrites ; les HYPOTHÈSES COMPACTES (la limite σ et τ avec son symbole —
+  « σ_adm = f_y/1,5 = 236,7 N/mm² », « f_y/γ_M0 = 355,0 N/mm² » —, dix lignes au plus, un budget de caractères) ; les
+  lignes de CHARGE ET ANCRAGE (R et son état limite, L, X ± dx, a, R_ELU à l'ELS ; n × type Ø d, profondeur,
+  rondelles, Y ± dy, entraxe et e₁, support voile ou poutre avec ses distances aux bords) ; la PAGE 2 : le résumé de
+  méthode (trois lignes), les trois vues et leur légende, les limites (entières ou abrégées), les références, un
+  budget de caractères hors cartouche ; les MAILLES COLORÉES du champ de von Mises dans le PDF (pymupdf : les couleurs
+  de remplissage de la page 2 sont celles du dégradé du moteur, maille par maille ; sans pymupdf, le flux de contenu) ;
+- chaque FORMULE de la note (acier/corniere/formules.py) ré-évaluée deux fois, sur tous les blocs de tous les états —
+  dont les gabarits de l'ELU (sigma_lim_ELU, tau_lim_ELU, N_ELU_direct, V_ELU_direct) ;
 - l'IDENTIFICATION : la note du site (chantier et nom PIÉGÉS — accents, guillemets, « & », tiret long —, indice « C »,
-  date) dans la garde (PROJET, PARTIE, DATE, INDICE) et dans l'en-tête de chaque page (« 03/04/2026 · indice C »),
-  jamais « indice 0 » ni « indice A » ; le nom du fichier « Note de calcul - <nom>.pdf », le contrat du routeur ;
-- la PAGE DE SUITE : un bloc qui ne tient pas passe en page 3, la colonne d'origine le dit, le sommaire compte la page ;
-- les REFUS : une cornière hors domaine (le message du moteur, le nom de la cornière), une note sans cornière ;
+  date) dans la garde et dans l'en-tête de chaque page, jamais « indice 0 » ni « indice A » ; le nom du fichier ;
+- la PAGE DE SUITE : un bloc de la page 1 qui ne tient pas passe en page 3, la colonne d'origine le dit, le sommaire
+  compte la page ; la PAGE 2 ne part JAMAIS en page de suite (des avertissements en masse : trois lignes, pas de refus) ;
+- les REFUS : une cornière hors domaine, une note sans cornière ;
 - COMME DANS LE NAVIGATEUR (sonde calquée sur celle du paquet de la note, site/web/construire._SONDE_NOTE) : sans
   fontTools ni accélérateurs C, avec le Pillow factice et les seules polices du paquet, la note se fait, son texte est
-  celui de CPython, ses polices sont celles du paquet, et les fichiers du dépôt qu'elle charge en plus de l'écran sont
-  ceux que ``note_corniere.FICHIERS`` déclare (le paquet de la note les recevra) ;
+  celui de CPython, et les fichiers du dépôt qu'elle charge en plus de l'écran sont ceux que ``note_corniere.FICHIERS``
+  déclare ;
 - MUTATIONS (chacune doit faire rougir un contrôle) : une cornière oubliée, une donnée non transmise au moteur (la
   tolérance dy), le mode mal nommé, un gabarit de formule faux, l'indice de la note perdu, l'η max du bandeau pris sur
-  une autre vérification (la parité lit la LIGNE du bandeau et la ligne du sommaire de la garde, pas « η max » n'importe
-  où dans la page — relecture adverse du 10/11/2026).
+  une autre vérification, l'état limite non imprimé, la page 2 sans sa troisième vue, les hypothèses en prose longue,
+  les rondelles non imprimées.
 
     python3 tests/test_note_corniere.py
 """
@@ -42,6 +51,7 @@ import tempfile
 import time
 import types
 import zipfile
+import zlib
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
@@ -53,9 +63,15 @@ from acier.corniere import formules as FO  # noqa: E402
 from acier.corniere import methode as MT  # noqa: E402
 from acier.corniere import moteur as MO  # noqa: E402
 from acier.corniere import note as NT  # noqa: E402
-from acier.formats import F  # noqa: E402
+from acier.corniere import schemas as SC  # noqa: E402
+from acier.formats import F, f0  # noqa: E402
 from api_web import commun as C  # noqa: E402
 from api_web import note_corniere as NC  # noqa: E402
+
+try:
+    import pymupdf  # noqa: E402
+except ImportError:  # pragma: no cover — le flux de contenu prend le relais
+    pymupdf = None
 
 OK, KO = [], []
 
@@ -89,12 +105,25 @@ ETATS = {
                                                                      corniere(nom="Appui B", configuration="B", uV=0, yc=10, dx=0, dy=0)),
     "garde : ancrage bas, cas de contrôle, R_ELU saisie": etat(corniere(nom="Garde", Y=40, dy=0, dx=0, R=42.76, R_ELU=68.9)),
     "note v1 relue (modèle lame), saisie libre": etat({"nom": "Ancienne", "standard": False, "A": 100, "B": 100, "t": 10, "V": 20, "e": 50}),
+    # révision § 9 : l'état limite, le support, l'ancrage
+    "ELU, R = 60 saisie à l'ELU (A historique)": etat(corniere(nom="ELU 60", etat_limite="ELU", R=60)),
+    "poutre A (160 au-dessus, 120 au-dessous)": etat(corniere(nom="Poutre A", support="poutre", support_haut=160, support_bas=120)),
+    "poutre B (Y = 45, sans jeu dy)": etat(corniere(nom="Poutre B", configuration="B", support="poutre", support_haut=160, support_bas=150, Y=45, dy=0)),
+    "boulon traversant, deux rondelles, épaisseur 200": etat(corniere(nom="Traversant", type_ancrage="traversant", rondelles=2, profondeur=200)),
+    "entraxe saisi 80": etat(corniere(nom="Entraxe 80", entraxe=80)),
+    "ELS + ELU dans une note": etat(corniere(nom="Mixte ELS"), corniere(nom="Mixte ELU", etat_limite="ELU", R=60, mode="equilibre")),
 }
 NOM = "Façade « Est » & l'atelier \"Nord\""
 CHANTIER = "Résidence d'Été & Cie — « Lot 2 »"
 INFOS = {"nom": NOM, "chantier": CHANTIER, "indice": "C", "date": "03/04/2026"}
 INTERDITS = ("indice 0", "indice A", "INDICE 0", "INDICE A")
 TETE = "Note de calcul · 03/04/2026 · indice C"
+TITRES_P2 = ("LARGEUR EFFICACE ET ÉLÉVATION", "MOMENTS SUR LA CORNIÈRE", "CONTRAINTES DE VON MISES")
+# les budgets de caractères (sans blancs), fixés d'après la mesure sur les 17 états (le plus grand observé + ≈ 15 %) :
+# le bloc Hypothèses de la page 1 (entre son titre et « CHARGE ET ANCRAGE »), la page 2 hors cartouche. Les mutations
+# « hypothèses en prose longue » (≈ 1 500 caractères) les dépassent.
+SEUIL_HYPOTHESES = 760
+SEUIL_PAGE2 = 3300
 
 
 def norm(t):
@@ -106,9 +135,9 @@ def plat(t):
 
 
 def plat_sym(t):
-    """Sans blanc ni « _ » : un symbole indicé (R_ELU) sort de pdftotext en « RELU » ou « R ELU » ; la virgule française
-    de la note (``note.francais``) appliquée au texte attendu."""
-    return plat(NT.francais(t).replace("_", ""))
+    """Sans blanc ni « _ », « $ », « { », « } » : un symbole indicé (R_ELU, $σ_{eq}$) sort de pdftotext en « RELU »,
+    « σeq » ; la virgule française de la note (``note.francais``) appliquée au texte attendu."""
+    return plat(NT.francais(t).replace("_", "").replace("$", "").replace("{", "").replace("}", ""))
 
 
 def pages_brutes(octets):
@@ -133,6 +162,62 @@ def nombre(x, nd):
     return F(x, nd)
 
 
+def hypotheses_plat(p1):
+    """Le bloc Hypothèses de la page 1, sans blancs (entre son titre et « CHARGE ET ANCRAGE »)."""
+    t = plat(p1)
+    i, j = t.find("HYPOTHÈSES"), t.find("CHARGEETANCRAGE")
+    return t[i:j] if 0 <= i < j else t
+
+
+def page2_hors_cartouche(p2):
+    """La page 2 sans blancs, sans le cartouche (dessiné en dernier : son premier libellé est « CORNIÈRE »)."""
+    t = plat(p2)
+    i = t.rfind("CORNIÈRE")
+    return t[:i] if i > 0 else t
+
+
+def _hex(rgb):
+    return "#%02X%02X%02X" % tuple(int(round(x * 255)) for x in rgb)
+
+
+def couleurs_attendues(res):
+    """Les couleurs que la scène des contraintes donne aux mailles (le plus grand des taux des quatre nœuds — le
+    dégradé recopié des décisions dans ``schemas.couleur_taux``) et à sa barre de couleur."""
+    out = set()
+    for aile in ("horizontale", "verticale"):
+        TX = res["maillage"][aile]["taux"]
+        for i in range(len(TX) - 1):
+            for j in range(len(TX[0]) - 1):
+                out.add(SC.couleur_taux(max(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1])).upper())
+    return out
+
+
+def nb_mailles(res):
+    """Le nombre de mailles du champ de von Mises que le moteur donne (2 ailes × pas en s × niveaux ζ : 768 avec un congé,
+    576 sans — une saisie libre à r = 0)."""
+    return sum((len(ch["s"]) - 1) * (len(ch["zeta"]) - 1) for ch in res["maillage"].values())
+
+
+def _colore(h):
+    r, g, b = int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)
+    return max(r, g, b) - min(r, g, b) > 12
+
+
+def fills_page(octets, i_page):
+    """(nombre de remplissages colorés — hors blanc, noir et gris —, couleurs de remplissage) d'une page : pymupdf lit les
+    chemins de la page, un par maille. Sans lui, la page est RENDUE (pdftoppm, PPM lu sans bibliothèque) et ce sont les
+    couleurs des pixels qui sont comptées (None pour le nombre : l'anticrénelage ne compte pas des mailles)."""
+    if pymupdf is not None:
+        doc = pymupdf.open(stream=octets, filetype="pdf")
+        out = [_hex(dr["fill"]) for dr in doc[i_page].get_drawings() if dr.get("fill") is not None]
+        return sum(1 for h in out if _colore(h)), set(out)
+    p = subprocess.run(["pdftoppm", "-r", "60", "-f", str(i_page + 1), "-l", str(i_page + 1), "-singlefile", "-", "-"], input=octets,
+                       capture_output=True, check=True)
+    tete, _, px = p.stdout.partition(b"255\n")
+    couleurs = {"#%02X%02X%02X" % (px[i], px[i + 1], px[i + 2]) for i in range(0, len(px) - 2, 3)}
+    return None, couleurs
+
+
 def ecarts_parite(e, octets):
     """Les écarts entre la note et le moteur de l'écran, cornière par cornière (voir l'en-tête)."""
     tx = pages_brutes(octets)
@@ -141,7 +226,10 @@ def ecarts_parite(e, octets):
     debuts = []
     for c in e["cornieres"]:
         res = MO.verifier(c)
+        calc = NT.Calcul(c)
         nom = res["corniere"]["nom"]
+        mat, g, anc, ef = res["materiau"], res["geometrie"], res["ancrages"], res["efforts"]
+        etat_l = mat["etat_limite"]
         i, k = debut_pages(tx, nom)
         if i is None:
             out.append(f"« {nom} » : aucune page de calcul à son nom")
@@ -150,18 +238,19 @@ def ecarts_parite(e, octets):
         attendu_pages += k
         p1, p2 = norm(tx[i]), norm(tx[i + 1])
         p12 = p1 + " " + p2 + (" " + norm(tx[i + 2]) if k == 3 else "")
-        # le bandeau : statut, η max, gouvernante, combinaison, configuration et mode — lus SUR LA LIGNE du bandeau
-        # (« NON CONFORME η max 222,0 % — gouverne : … · … Configuration B · équilibre »), pas chacun quelque part dans la
-        # page : le récapitulatif répète « η max … », et un bandeau qui imprimerait un autre taux s'y cachait (relecture
-        # adverse du 10/11/2026 : la mutation « η max du bandeau pris sur S1 » survivait)
-        g = res["gouvernant"]
-        bandeau = (f"{NT.STATUTS[res['statut']][0]} η max {NT._pct(res['taux_max'])} — gouverne : {g['nom']} · {g['combinaison']['libelle']} "
-                   f"Configuration {res['configuration']} · {E.LIBELLES_MODE[res['mode']]}")
+        s1, s2, s12 = plat_sym(p1), plat_sym(p2), plat_sym(p12)
+        # le bandeau : statut, η max, gouvernante, combinaison, configuration, mode et état limite — lus SUR LA LIGNE du
+        # bandeau (le récapitulatif répète « η max … », et un bandeau qui imprimerait un autre taux s'y cachait —
+        # relecture adverse du 10/11/2026 : la mutation « η max du bandeau pris sur S1 » survivait)
+        gv = res["gouvernant"]
+        bandeau = (f"{NT.STATUTS[res['statut']][0]} η max {NT._pct(res['taux_max'])} — gouverne : {gv['nom']} · {gv['combinaison']['libelle']} "
+                   f"Configuration {res['configuration']} · {E.LIBELLES_MODE[res['mode']]} · {etat_l}")
         if bandeau not in p1:
             out.append(f"« {nom} » p. 1 : bandeau « {bandeau} » absent")
-        # la garde : la ligne du sommaire de CETTE cornière porte sa désignation, sa configuration, son mode, son η max et son statut
+        # la garde : la ligne du sommaire de CETTE cornière porte sa désignation, sa configuration, son mode, son état
+        # limite, son η max et son statut
         sommaire = (f"{res['section']['designation']} · configuration {res['configuration']} ({E.LIBELLES_CONFIGURATION[res['configuration']]}) · "
-                    f"{E.LIBELLES_MODE[res['mode']]} · η max {NT._pct(res['taux_max'])} {NT.STATUTS[res['statut']][0]}")
+                    f"{E.LIBELLES_MODE[res['mode']]} · {etat_l} · η max {NT._pct(res['taux_max'])} {NT.STATUTS[res['statut']][0]}")
         if sommaire not in re.sub(r"\s+", " ", norm(tx[0])):
             out.append(f"« {nom} » garde : ligne du sommaire « {sommaire} » absente")
         # chaque vérification : son taux ; les moments M1 à M4
@@ -170,11 +259,19 @@ def ecarts_parite(e, octets):
                 out.append(f"« {nom} » p. 1 : taux {v['cle']} {NT._pct(v['taux'])} absent")
             if v["cle"] in ("S1", "S2", "S3", "S4") and not O.present(nombre(abs(v["M"]), 3), p1):
                 out.append(f"« {nom} » p. 1 : M de {v['cle']} = {nombre(abs(v['M']), 3)} absent")
-        # H, N et V par ancrage
-        anc = res["ancrages"]
-        for lab, val in (("H", res["efforts"]["H"]), ("N_ELS", anc["N_ELS"]), ("V_ELS", anc["V_ELS"]), ("N_ELU", anc["N_ELU"]), ("V_ELU", anc["V_ELU"])):
-            if not O.present(nombre(val, 2), p1):
+        # H, N et V par ancrage : ELS et ELU à l'ELS ; à l'ELU les seules N_ELU et V_ELU, et rien qui dise « ELS »
+        for lab, val in (("H", ef["H"]), ("N_ELS", anc["N_ELS"]), ("V_ELS", anc["V_ELS"]), ("N_ELU", anc["N_ELU"]), ("V_ELU", anc["V_ELU"])):
+            if val is not None and not O.present(nombre(val, 2), p1):
                 out.append(f"« {nom} » p. 1 : {lab} = {nombre(val, 2)} absent")
+        if etat_l == E.ELU:
+            for mot in ("N_ELS", "V_ELS", "R_ELU =", "σ_adm =", "contraintes admissibles"):
+                if plat_sym(mot) in s12:
+                    out.append(f"« {nom} » (ELU) : « {mot} » imprimé — rien n'est inventé pour l'ELS")
+            if plat("ELU, PAR ANCRAGE — R SAISIE À L'ELU") not in plat(p1):
+                out.append(f"« {nom} » (ELU) p. 1 : le groupe « ELU, par ancrage — R saisie à l'ELU » manque")
+        else:
+            if plat("ELS, PAR ANCRAGE") not in plat(p1) or plat_sym("N_ELU") not in s1:
+                out.append(f"« {nom} » (ELS) p. 1 : les groupes ELS puis ELU des ancrages manquent")
         # les résultats des formules écrites : la chaîne de chaque section, la coupe gouvernante, les ancrages
         subs = []
         for cle in ("S1", "S2", "S3", "S4", "nette"):
@@ -186,21 +283,94 @@ def ecarts_parite(e, octets):
             r = FO.fmt(s.res, s.nd) if s.nd != -1 else NT._pct(s.res)
             if not O.present(r, p1):
                 out.append(f"« {nom} » p. 1 : résultat « {FO.rendre(s)} » absent")
-        # la page 2 : le titre, les sections de méthode, les avertissements, les références, les dessins
+        # les HYPOTHÈSES compactes : dix lignes au plus, le budget de caractères, l'état limite avec sa limite et son symbole
+        hyp = calc.hypotheses()
+        if len(hyp) > 10:
+            out.append(f"« {nom} » p. 1 : {len(hyp)} lignes d'hypothèses (dix au plus)")
+        n_hyp = len(hypotheses_plat(p1))
+        if n_hyp > SEUIL_HYPOTHESES:
+            out.append(f"« {nom} » p. 1 : hypothèses trop longues ({n_hyp} caractères, budget {SEUIL_HYPOTHESES})")
+        if etat_l == E.ELS:
+            attendus = [f"σ_adm = f_y/{f0(mat['coef'])} = {F(mat['sigma_adm'], 1)} N/mm²", f"τ_adm = σ_adm/√3 = {F(mat['tau_adm'], 1)} N/mm²"]
+        else:
+            attendus = [f"f_y/γ_M0 = {F(mat['sigma_adm'], 1)} N/mm²", f"f_y/(√3·γ_M0) = {F(mat['tau_adm'], 1)} N/mm²", "γ_M0 = 1,0"]
+        for x in attendus:
+            if plat_sym(x) not in s1:
+                out.append(f"« {nom} » p. 1 : hypothèse de l'état limite « {x} » absente")
+        if plat(f"ÉTAT LIMITE {etat_l} ·") not in plat(p1):
+            out.append(f"« {nom} » p. 1 : la ligne « État limite  {etat_l} » manque")
+        # CHARGE ET ANCRAGE : chaque grandeur sur sa ligne, dans l'état limite de la saisie
+        c_ = res["corniere"]
+        jx = f" ± {f0(c_['dx'])}" if c_["dx"] > 0 else ""
+        jy = f" ± {f0(c_['dy'])}" if c_["dy"] > 0 else ""
+        lignes = [f"R = {NT._kn(ef['R'])} à l'{etat_l}", f"L = {f0(g['L'])} mm (longueur reprise", f"X = {f0(c_['X'])}{jx} mm du nu du mur",
+                  f"Y = {f0(c_['Y'])}{jy} mm de la face extérieure",
+                  f"{anc['n']} × {E.LIBELLES_TYPE_ANCRAGE[g['type_ancrage']]} Ø{f0(anc['d'])} (trou d_0 = {f0(anc['d0'])} mm)",
+                  f"s = {f0(anc['entraxe'])} mm ({'auto : L/n' if g['entraxe_auto'] else 'saisi'}) · e_1 = {f0(anc['distance_bout'])} mm"]
+        lignes.append(f"a = {f0(g['a'])} mm (largeur d'appui" if g["a"] is not None else "a = L (la charge sur toute la tranche)")
+        if g["type_ancrage"] == "traversant":
+            lignes.append(f"épaisseur traversée {f0(g['profondeur'])} mm")
+        else:
+            lignes.append(f"h_ef = {f0(g['profondeur'])} mm")
+        rd = g["rondelle"]
+        if g["rondelles"] == 0:
+            lignes.append("RONDELLES sans rondelle")
+        elif g["rondelles"] == 1:
+            lignes.append(f"une rondelle ISO 7089 sous l'écrou (Ø{f0(rd['normale'][0])} × {f0(rd['normale'][1])})")
+        else:
+            lignes += [f"rondelle large ISO 7093-1 contre l'aile (Ø{f0(rd['large'][0])} × {f0(rd['large'][1])})",
+                       f"ISO 7089 sous l'écrou (Ø{f0(rd['normale'][0])} × {f0(rd['normale'][1])})"]
+        if g["support"] == E.POUTRE:
+            b_ = g["bords_poutre"]
+            lignes += [f"poutre en béton : {f0(g['support_haut'])} mm au-dessus et {f0(g['support_bas'])} mm au-dessous",
+                       f"{f0(b_['haut'])} mm du bord supérieur, {f0(b_['bas'])} mm du bord inférieur"]
+        else:
+            lignes.append("SUPPORT voile en béton")
+        if etat_l == E.ELS:
+            lignes.append(f"R_ELU = 1,5·R = {NT._kn(ef['R_ELU'])} (auto" if ef["R_ELU_auto"] else f"R_ELU = {NT._kn(ef['R_ELU'])} (saisie)")
+        for x in lignes:
+            if plat_sym(x) not in s1:
+                out.append(f"« {nom} » p. 1 : ligne de charge / ancrage « {x} » absente")
+        # la page 2 : le titre, le résumé de méthode (trois lignes), les trois vues et leurs légendes, les limites
+        # (entières ou abrégées), les références (entières), les dessins, le budget de caractères
         if f"DÉTAILS ET MÉTHODE — {nom}" not in p2:
             out.append(f"« {nom} » p. 2 : le titre manque")
-        g = res["geometrie"]
-        for sec in MT.sections(res["mode"], res["configuration"], g["dx"] > 0 or g["dy"] > 0, g["a"] is not None):
-            if plat(sec["titre"].upper()) not in plat(p12):
-                out.append(f"« {nom} » p. 2 : section « {sec['titre']} » absente")
+        for ligne in MT.resume(res):
+            if plat_sym(ligne[:50]) not in s2:
+                out.append(f"« {nom} » p. 2 : ligne du résumé « {ligne[:50]} » absente")
+        for t in TITRES_P2:
+            if plat(t) not in plat(p2):
+                out.append(f"« {nom} » p. 2 : la colonne « {t} » manque")
+        for cle in ("elevation", "moments", "contraintes"):
+            leg = calc.legende_vue(cle)
+            if plat_sym(leg[:45]) not in s2:
+                out.append(f"« {nom} » p. 2 : légende de la vue {cle} « {leg[:45]} » absente")
         for a in res["avertissements"]:
-            if plat_sym(a["message"][:60]) not in plat_sym(p12):
-                out.append(f"« {nom} » p. 2 : avertissement « {a['message'][:40]} » absent")
-        if norm(MT.REFERENCES[0][:40]) not in p12:
-            out.append(f"« {nom} » p. 2 : les références manquent")
-        for x in (f"R = {NT._kn(res['efforts']['R']).replace(',00', '')}", f"L = {NT._mm(g['L'])}"):
+            if plat_sym(a["message"][:60]) not in s12 and plat_sym(NT.abreger(a["message"])) not in s12:
+                out.append(f"« {nom} » p. 2 : avertissement « {a['message'][:40]} » absent (entier ou abrégé)")
+        for r in (MT.REFERENCES[0][:40], MT.REFERENCES[-1][-30:]):
+            if plat_sym(r) not in s2:
+                out.append(f"« {nom} » p. 2 : la référence « {r} » manque")
+        for x in (f"R = {NT._kn(ef['R']).replace(',00', '')}", f"L = {f0(g['L'])}"):
             if x not in p12:
                 out.append(f"« {nom} » : le texte du dessin « {x} » manque")
+        n_p2 = len(page2_hors_cartouche(p2))
+        if n_p2 > SEUIL_PAGE2:
+            out.append(f"« {nom} » p. 2 : trop de texte ({n_p2} caractères hors cartouche, budget {SEUIL_PAGE2})")
+        # les mailles colorées du champ de von Mises, dans le PDF : les couleurs du dégradé, maille par maille (pymupdf : un
+        # chemin rempli par maille — au moins 90 % du compte du moteur, et au plus 3 % des couleurs attendues absentes ;
+        # rendu : au moins quarante couleurs de la famille verte et le rouge)
+        n_col, vues = fills_page(octets, i + 1)
+        attendues = couleurs_attendues(res)
+        if n_col is not None:
+            manquent = attendues - vues
+            if n_col < 0.9 * nb_mailles(res) or len(manquent) > 0.03 * len(attendues) or SC.ROUGE_TAUX.upper() not in vues:
+                out.append(f"« {nom} » p. 2 : mailles colorées — {n_col} remplissages colorés pour {nb_mailles(res)} mailles, {len(manquent)}/{len(attendues)} "
+                           f"couleurs du dégradé absentes, rouge {SC.ROUGE_TAUX} {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
+        else:
+            verts = [h for h in vues if _colore(h) and int(h[3:5], 16) > max(int(h[1:3], 16), int(h[5:7], 16))]
+            if len(verts) < 40 or SC.ROUGE_TAUX.upper() not in vues:
+                out.append(f"« {nom} » p. 2 : mailles colorées (rendu) — {len(verts)} verts distincts, rouge {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
     if len(tx) != attendu_pages:
         out.append(f"{len(tx)} pages pour {attendu_pages} attendues (garde + pages de chaque cornière)")
     # le sommaire de la garde : les pages annoncées sont celles où chaque cornière commence
@@ -226,7 +396,7 @@ def ecarts_identification(octets, infos=INFOS):
 
 
 # ---------------------------------------------------------------- 1. la note de chaque état, la parité
-NOTES, DUREES = {}, {}
+NOTES, DUREES, MESURES = {}, {}, {}
 for nom_e, e in ETATS.items():
     t0 = time.time()
     f = NC.fichier(copy.deepcopy(e), INFOS)
@@ -239,25 +409,39 @@ for nom_e, e in ETATS.items():
         octets[:5] == b"%PDF-" and len(tx) >= 1 + 2 * n and f["nom"] == f"Note de calcul - {C.nom_fichier(NOM, '')}.pdf" and f["type"] == "application/pdf"
         and not NT.derniers_avertissements and C.refus_fichier(f) is None, (octets[:8], len(tx), f["nom"], NT.derniers_avertissements))
     ec = ecarts_parite(e, octets)
-    chk(f"{nom_e} : parité avec le moteur — nom, statut, η max, gouvernante, taux, M1 à M4, H, N et V, résultats des formules, méthode, dessins",
-        not ec, ec[:5])
+    chk(f"{nom_e} : parité avec le moteur — nom, statut, η max, état limite, taux, M1 à M4, H, N et V, formules, hypothèses compactes, charge et "
+        "ancrage, page 2 (résumé, trois vues, légendes, limites, références, budget), mailles colorées", not ec, ec[:5])
     ec = ecarts_identification(octets)
     chk(f"{nom_e} : l'identification de la note du site dans la garde et l'en-tête de chaque page", not ec, ec[:4])
-chk("au moins huit états, dont une note à deux cornières", len(ETATS) >= 8 and any(len(e["cornieres"]) == 2 for e in ETATS.values()))
+    for c in e["cornieres"]:
+        i, k = debut_pages(tx, MO.verifier(c)["corniere"]["nom"])
+        if i is not None:
+            MESURES[(nom_e, i)] = (len(hypotheses_plat(norm(tx[i]))), len(page2_hors_cartouche(norm(tx[i + 1]))), fills_page(octets, i + 1)[0] or 0)
+chk("au moins seize états, dont deux notes à deux cornières et une note qui mêle ELS et ELU",
+    len(ETATS) >= 16 and sum(1 for e in ETATS.values() if len(e["cornieres"]) == 2) >= 2
+    and any({c.get("etat_limite", "ELS") for c in e["cornieres"]} == {"ELS", "ELU"} for e in ETATS.values()))
 print(f"--   durée de génération : {min(DUREES.values()):.2f} à {max(DUREES.values()):.2f} s par note (CPython, {len(ETATS)} notes)")
+print(f"--   hypothèses (caractères sans blancs) : {min(m[0] for m in MESURES.values())} à {max(m[0] for m in MESURES.values())} (budget {SEUIL_HYPOTHESES}) ; "
+      f"page 2 hors cartouche : {min(m[1] for m in MESURES.values())} à {max(m[1] for m in MESURES.values())} (budget {SEUIL_PAGE2}) ; "
+      f"remplissages colorés de la page 2 : {min(m[2] for m in MESURES.values())} à {max(m[2] for m in MESURES.values())} (≥ 90 % des mailles du moteur) — "
+      f"{'pymupdf' if pymupdf else 'flux de contenu'}")
 tailles = {nom_e: (NC.pdf(copy.deepcopy(e), INFOS), list(NT.dernieres_variantes))[1] for nom_e, e in ETATS.items()}
 print(f"--   tailles retenues : {sorted(set(v for vs in tailles.values() for v in vs))} — {sum(1 for vs in tailles.values() if 'serrée' in vs)} note(s) serrée(s)")
+chk("aucune note ne passe en page de suite sur les états d'essai ; la page 2 n'a rien à reporter (BLOCS ne porte que la page 1)",
+    all(len(pages_brutes(o)) == 1 + 2 * len(e["cornieres"]) for (nom_e, e), o in zip(ETATS.items(), NOTES.values()))
+    and all(cle[0] == 1 for cle in NT.BLOCS))
 
 # le contenu de la note v1 relue : l'avis de relecture est imprimé (attention), le nom et la section gardés
 tv1 = norm(" ".join(pages_brutes(NOTES["note v1 relue (modèle lame), saisie libre"])))
 chk("une note v1 relue : l'avis « note d'avant le 10/11/2026, modèle lame » est imprimé dans les limites, le nom et la saisie libre 100 × 100 × 10 gardés",
     "modèle lame" in tv1 and "Ancienne" in tv1 and "100 × 100 × 10" in tv1 and "saisie libre" in tv1, tv1[:300])
-# la garde (ancrage bas) : l'avertissement rouge avec ses deux pourcentages
+# la garde (ancrage bas) : l'avertissement rouge avec ses deux pourcentages — jamais abrégé
 res_g = MO.verifier(ETATS["garde : ancrage bas, cas de contrôle, R_ELU saisie"]["cornieres"][0])
 tg = norm(" ".join(pages_brutes(NOTES["garde : ancrage bas, cas de contrôle, R_ELU saisie"])))
 chk("la garde : l'avertissement rouge « équilibre P1 plus sévère » avec ses deux pourcentages est imprimé ; R_ELU saisie (68,9 kN), pas « auto »",
     res_g["garde"]["depasse"] and f"{100 * res_g['garde']['taux_equilibre_P1']:.1f} %".replace(".", ",") in tg
-    and f"{100 * res_g['garde']['taux_historique']:.1f} %".replace(".", ",") in tg and "plus sévère" in tg and "68,9" in tg and "(auto" not in tg,
+    and f"{100 * res_g['garde']['taux_historique']:.1f} %".replace(".", ",") in tg and "plus sévère" in tg and "68,9" in tg
+    and plat_sym("R_ELU = 1,5·R") not in plat_sym(tg),
     [x for x in tg.split(". ") if "sévère" in x or "68,9" in x][:3])
 # la configuration B : la section nette, la pression sur le support, le mode imposé
 tb = norm(" ".join(pages_brutes(NOTES["B, Y = 85"])))
@@ -266,6 +450,34 @@ chk("la configuration B : la section nette (b_net, la face du trou), la pression
     "nette au trou (dessus)" in tb and "SECTIONNETTE" in plat(tb) and F(res_b["ancrages"]["pression_support"], 1) in tb
     and "Pression du bout libre sur le support" in tb and "formules du classeur ne s'appliquent pas" in tb and "(info)" not in tb,
     [x for x in tb.split(" · ") if "nette" in x][:3])
+# l'ELU : la conclusion dit le critère et γ_M0, la coupe et le cartouche disent l'état limite
+te = norm(" ".join(pages_brutes(NOTES["ELU, R = 60 saisie à l'ELU (A historique)"])))
+chk("l'ELU : la conclusion dit « à l'ELU, critère de von Mises (EN 1993-1-1 § 6.2.1(5)), γ_M0 = 1,0 » ; la légende de la coupe dit « R la réaction ELU » "
+    "et « critère de von Mises » ; le cartouche « ELU : f_y/γ_M0 = 355,0 » ; la formule du taux écrit la limite f_y/γ_M0",
+    plat_sym("à l'ELU, critère de von Mises (EN 1993-1-1 § 6.2.1(5)), γ_M0 = 1,0") in plat_sym(te) and "R la réaction ELU" in te
+    and plat_sym("ELU : f_y/γ_M0 = 355,0") in plat_sym(te) and plat_sym("η = σ_éq/ f_y/γ_M0 = 341,5/355") in plat_sym(te)
+    and plat_sym("R_ELU") not in plat_sym(te), [x for x in te.split(" · ") if "ELU" in x][:4])
+# la note ELS + ELU : chaque page dit son état limite, la garde reste générale
+tm = pages_brutes(NOTES["ELS + ELU dans une note"])
+chk("une note ELS + ELU : la page de la cornière ELS dit « R la réaction ELS », celle de l'ELU « R la réaction ELU », la légende de la garde reste "
+    "générale et tient sur sa ligne",
+    "R la réaction ELS" in norm(tm[1]) and "R la réaction ELU" in norm(tm[3]) and "ELS : σadm = fy/coef ; ELU : fy/γM0" in norm(tm[0])
+    and NT.string_width(NT.LEGENDE_GARDE, "Carlito", 7.4) <= 595 - 2 * 52, [norm(t)[-200:] for t in tm[:4:2]])
+# le résumé de méthode tient en trois lignes sur chaque état ; les limites en trois lignes au plus
+doc_meta = {"date": "x", "indice": "x"}
+trop = []
+for nom_e, e in ETATS.items():
+    for c in e["cornieres"]:
+        m = NT.Methode(NT.Calcul(c), doc_meta)
+        n_res = len(m.lignes_resume(842 - 2 * NT.M)[1])
+        n_lim = len(m.lignes_limites(842 - 2 * NT.M - NT.LAB_W)[1])
+        if n_res > MT.LIGNES_RESUME or n_lim > NT.LIGNES_LIMITES:
+            trop.append((nom_e, n_res, n_lim))
+chk("page 2 : le résumé de méthode tient en trois lignes, les limites en trois lignes au plus, sur chaque cornière des 17 états", not trop, trop)
+chk("abreger : « Chevilles non vérifiées : efforts… » → « Chevilles non vérifiées » ; un message court reste entier (sans son point)",
+    NT.abreger("Chevilles non vérifiées : efforts N et V par ancrage fournis pour Hilti PROFIS, ELS et ELU séparés.") == "Chevilles non vérifiées"
+    and NT.abreger("Effet de levier non couvert si les chevilles sont très raides (> ≈ 250 kN/mm).") == "Effet de levier non couvert si les chevilles sont très raides"
+    and NT.abreger("Un avis court.") == "Un avis court")
 
 # ---------------------------------------------------------------- 2. chaque formule ré-évaluée
 n_sub, ecarts = 0, []
@@ -280,16 +492,23 @@ for nom_e, e in ETATS.items():
                 if not (ok1 and ok2):
                     ecarts.append((nom_e, b["cle"], FO.rendre(s), v1, v2))
 chk(f"{n_sub} formules (tous les blocs de {sum(len(e['cornieres']) for e in ETATS.values())} cornières) ré-évaluées : les nombres imprimés redonnent le "
-    "résultat du moteur (arrondi d'affichage) et les termes exacts le redonnent à 1e-9", not ecarts and n_sub >= 800, ecarts[:4])
+    "résultat du moteur (arrondi d'affichage) et les termes exacts le redonnent à 1e-9", not ecarts and n_sub >= 1200, ecarts[:4])
 cles_moteur = {f["cle"] for e in ETATS.values() for c in e["cornieres"] for b in MO.verifier(c)["calcul"] for f in b["formules"]}
-chk("chaque clé de formule que le moteur nomme a son gabarit, et chaque gabarit sert au moins une fois",
-    cles_moteur <= set(FO.GABARITS) and set(FO.GABARITS) <= cles_moteur, (sorted(cles_moteur - set(FO.GABARITS)), sorted(set(FO.GABARITS) - cles_moteur)))
+chk("chaque clé de formule que le moteur nomme a son gabarit, et chaque gabarit sert au moins une fois (dont les quatre de l'ELU)",
+    cles_moteur <= set(FO.GABARITS) and set(FO.GABARITS) <= cles_moteur
+    and {"sigma_lim_ELU", "tau_lim_ELU", "N_ELU_direct", "V_ELU_direct"} <= cles_moteur,
+    (sorted(cles_moteur - set(FO.GABARITS)), sorted(set(FO.GABARITS) - cles_moteur)))
 res0 = MO.verifier(ETATS["A historique (cornière neuve)"]["cornieres"][0])
 chk("en mode historique, les cellules du classeur sont imprimées avec les étiquettes (C19 C35, C55 C25 C23 C56 C57, C82 C83…)",
     all(x in norm(pages_brutes(NOTES["A historique (cornière neuve)"])[1]) for x in ("C19 C35", "C55 C25 C23 C56 C57", "C78 C82 C83")),
     norm(pages_brutes(NOTES["A historique (cornière neuve)"])[1])[:300])
 chk("la section gouvernante est écrite « M3 », pas « M(s) » ; le taux « η »", any(s.nom == "M3" for s in FO.chaine(FO.bloc(res0, "S3")))
     and any(s.nom == "η" for s in FO.coupe(FO.bloc(res0, "S3"))) and not any(s.nom in FO.TAUX_DETAIL for s in FO.coupe(FO.bloc(res0, "S3"))))
+res_elu = MO.verifier(ETATS["ELU, R = 60 saisie à l'ELU (A historique)"]["cornieres"][0])
+s_eta = next(s for s in FO.renommer(FO.coupe(FO.bloc(res_elu, "S3")), NT.Calcul(ETATS["ELU, R = 60 saisie à l'ELU (A historique)"]["cornieres"][0]).symboles_limites())
+             if s.nom == "η")
+chk("formules.renommer : à l'ELU le terme « σ_adm » du taux s'écrit « (f_y/γ_M0) », le résultat et le gabarit ne bougent pas",
+    "(f_y/γ_M0)" in FO.rendre(s_eta) and FO.exact(s_eta)[0] and FO.verifier(s_eta)[0], FO.rendre(s_eta))
 
 # ---------------------------------------------------------------- 3. l'identification, le nom du fichier, la correspondance
 e2 = ETATS["deux cornières (A avec a = 100, B avec u_V = 0 et c = 10)"]
@@ -308,29 +527,53 @@ chk("un nom de note dangereux donne un nom de fichier sûr (celui de commun.nom_
     f_dang["nom"] == C.nom_fichier("Note de calcul - Note <b>/x", "pdf") and "<" not in f_dang["nom"] and "/" not in f_dang["nom"]
     and C.refus_fichier(f_dang) is None, f_dang["nom"])
 
-# ---------------------------------------------------------------- 4. la page de suite, les refus
-vrai_limites = NT.Methode.limites
+# ---------------------------------------------------------------- 4. la page de suite (page 1), la page 2 qui ne se reporte jamais, les refus
+vrai_recap = NT.Note.recapitulatif
 
 
-def limites_bavardes(self, d, fr):
-    vrai_limites(self, d, fr)
-    for i in range(14):
-        self.paragraphe(d, fr, f"Ligne de remplissage {i + 1} pour faire déborder la colonne des limites.")
+def recapitulatif_bavard(self, d, fr):
+    """Le récapitulatif suivi de vingt-quatre lignes : la colonne 3 de la page 1 déborde dans les deux tailles, le bloc
+    passe en page de suite (où il tient)."""
+    vrai_recap(self, d, fr)
+    for i in range(24):
+        self.rp(d, fr, f"Ligne de remplissage {i + 1} pour faire déborder la colonne du récapitulatif.", size=self.s_txt * 0.95, col=self.S.mut)
 
 
-NT.Methode.limites = limites_bavardes
+NT.Note.recapitulatif = recapitulatif_bavard
 try:
-    octets = NC.pdf(copy.deepcopy(ETATS["deux cornières (A avec a = 100, B avec u_V = 0 et c = 10)"]), INFOS)
+    octets = NC.pdf(copy.deepcopy(e2), INFOS)
     reports = NT.derniers_reports
 finally:
-    NT.Methode.limites = vrai_limites
+    NT.Note.recapitulatif = vrai_recap
 tx = pages_brutes(octets)
-chk("un bloc qui ne tient pas (limites allongées) passe en PAGE DE SUITE : 1 + 3 + 3 pages, « Suite p. 3 : … » en page 2, « SUITE DE LA PAGE 2 » en "
-    "page 3 avec les références, le sommaire compte les pages (2 et 5), rien ne déborde, la note n'est pas refusée",
-    len(tx) == 7 and "Suite p. 3" in norm(tx[2]) and "SUITE DE LA PAGE 2" in norm(tx[3]) and "RÉFÉRENCES" in plat(tx[3])
+chk("un bloc de la page 1 qui ne tient pas (récapitulatif allongé) passe en PAGE DE SUITE : 1 + 3 + 3 pages, « Suite p. 3 : récapitulatif » en page 1, "
+    "« SUITE DE LA PAGE 1 » en page 3 avec le récapitulatif, le sommaire compte les pages (2 et 5), rien ne déborde, la note n'est pas refusée",
+    len(tx) == 7 and "Suite p. 3" in norm(tx[1]) and "récapitulatif" in norm(tx[1]) and "SUITE DE LA PAGE 1" in norm(tx[3]) and "RÉCAPITULATIF" in plat(tx[3])
     and [int(x) for x in re.findall(r"page (\d+)", tx[0])] == [2, 5] and not NT.derniers_avertissements and reports
-    and ecarts_parite(ETATS["deux cornières (A avec a = 100, B avec u_V = 0 et c = 10)"], octets) == [],
-    (len(tx), reports, NT.derniers_avertissements, [t[:80] for t in tx[2:4]]))
+    and all(cle[0] == 1 for rep in reports for cle, _ in rep) and ecarts_parite(e2, octets) == [],
+    (len(tx), reports, NT.derniers_avertissements, [t[:80] for t in tx[1:4]]))
+
+vrai_init = NT.Calcul.__init__
+
+
+def init_bavard(self, c):
+    """Le moteur rend douze avertissements de plus : la page 2 les tient en trois lignes (abrégés, puis tronqués), sans
+    page de suite ni refus."""
+    vrai_init(self, c)
+    self.res["avertissements"] = list(self.res["avertissements"]) + [
+        {"code": f"essai_{i}", "niveau": MO.INFO, "message": f"Avertissement d'essai numéro {i} : une phrase assez longue pour occuper de la place (sans conséquence)."}
+        for i in range(12)]
+
+
+NT.Calcul.__init__ = init_bavard
+try:
+    octets = NC.pdf(copy.deepcopy(ETATS["A historique (cornière neuve)"]), INFOS)
+    reports = NT.derniers_reports
+finally:
+    NT.Calcul.__init__ = vrai_init
+tx = pages_brutes(octets)
+chk("la page 2 ne passe JAMAIS en page de suite : avec douze avertissements de plus, trois pages, rien ne déborde, aucun report, les limites tronquées « … »",
+    len(tx) == 3 and not NT.derniers_avertissements and reports == () and "…" in tx[2], (len(tx), reports, NT.derniers_avertissements))
 try:
     NC.fichier(etat(corniere(nom="Trop loin", X=130)), INFOS)
     r = "aucune erreur"
@@ -348,6 +591,7 @@ chk("generer_note accepte aussi une simple liste de cornières", NT.generer_note
 
 # ---------------------------------------------------------------- 5. les mutations
 e_mut = ETATS["deux cornières (A avec a = 100, B avec u_V = 0 et c = 10)"]
+e_a = ETATS["A historique (cornière neuve)"]
 vrai_poser = NT.poser
 compte = []
 
@@ -364,8 +608,6 @@ finally:
     NT.poser = vrai_poser
 chk("mutation « une cornière oubliée » : la parité rougit", ecarts_parite(e_mut, mut) != [])
 
-vrai_init = NT.Calcul.__init__
-
 
 def init_sans_dy(self, c):
     c = dict(c)
@@ -375,19 +617,19 @@ def init_sans_dy(self, c):
 
 NT.Calcul.__init__ = init_sans_dy
 try:
-    mut = NC.pdf(copy.deepcopy(ETATS["A historique (cornière neuve)"]), INFOS)
+    mut = NC.pdf(copy.deepcopy(e_a), INFOS)
 finally:
     NT.Calcul.__init__ = vrai_init
-chk("mutation « une donnée non transmise au moteur » (la tolérance dy oubliée) : la parité rougit", ecarts_parite(ETATS["A historique (cornière neuve)"], mut) != [])
+chk("mutation « une donnée non transmise au moteur » (la tolérance dy oubliée) : la parité rougit", ecarts_parite(e_a, mut) != [])
 
 vrai_E = NT.E
 NT.E = types.SimpleNamespace(**{k: v for k, v in vars(E).items() if not k.startswith("__")})
 NT.E.LIBELLES_MODE = {E.HISTORIQUE: "méthode du classeur", E.EQUILIBRE: "équilibre"}
 try:
-    mut = NC.pdf(copy.deepcopy(ETATS["A historique (cornière neuve)"]), INFOS)
+    mut = NC.pdf(copy.deepcopy(e_a), INFOS)
 finally:
     NT.E = vrai_E
-chk("mutation « le mode mal nommé » : la parité rougit", ecarts_parite(ETATS["A historique (cornière neuve)"], mut) != [])
+chk("mutation « le mode mal nommé » : la parité rougit", ecarts_parite(e_a, mut) != [])
 
 vrai_gab = FO.GABARITS["Xe"]
 FO.GABARITS["Xe"] = (("X", "r", "e"), "X - r", 1)
@@ -401,7 +643,7 @@ chk("mutation « un gabarit faux » (Xe = X − r) : la ré-évaluation rougit",
 vrai_infos = NC.infos_doc
 NC.infos_doc = lambda etat_, infos: {k: v for k, v in vrai_infos(etat_, infos).items() if k != "indice"}
 try:
-    mut = NC.pdf(copy.deepcopy(ETATS["A historique (cornière neuve)"]), INFOS)
+    mut = NC.pdf(copy.deepcopy(e_a), INFOS)
 finally:
     NC.infos_doc = vrai_infos
 chk("mutation « l'indice de la note perdu » : l'identification rougit (« indice 0 » imprimé)", ecarts_identification(mut) != [])
@@ -423,12 +665,61 @@ def bandeau_faux(self, d):
 
 NT.Note.bandeau = bandeau_faux
 try:
-    mut = NC.pdf(copy.deepcopy(ETATS["A historique (cornière neuve)"]), INFOS)
+    mut = NC.pdf(copy.deepcopy(e_a), INFOS)
 finally:
     NT.Note.bandeau = vrai_bandeau
-ec_bandeau = ecarts_parite(ETATS["A historique (cornière neuve)"], mut)
+ec_bandeau = ecarts_parite(e_a, mut)
 chk("mutation « l'η max du bandeau pris sur S1 » (le récapitulatif répète un « η max » juste) : la parité rougit, et sur la ligne du bandeau",
     ec_bandeau != [] and all("bandeau" in x for x in ec_bandeau), ec_bandeau[:3])
+
+# --- révision § 9 : l'état limite non imprimé, la page 2 sans sa troisième vue, les hypothèses en prose, les rondelles oubliées
+vrai_hyp = NT.Calcul.hypotheses
+e_elu = ETATS["ELU, R = 60 saisie à l'ELU (A historique)"]
+NT.Calcul.hypotheses = lambda self: [(lab, val) for lab, val in vrai_hyp(self) if lab != "État limite"]
+try:
+    mut_a, mut_u = NC.pdf(copy.deepcopy(e_a), INFOS), NC.pdf(copy.deepcopy(e_elu), INFOS)
+finally:
+    NT.Calcul.hypotheses = vrai_hyp
+ec_a, ec_u = ecarts_parite(e_a, mut_a), ecarts_parite(e_elu, mut_u)
+chk("mutation « l'état limite non imprimé » (la ligne des hypothèses retirée, à l'ELS et à l'ELU) : la parité rougit sur l'hypothèse de l'état limite",
+    ec_a and ec_u and all("état limite" in x.lower() for x in ec_a + ec_u), (ec_a[:2], ec_u[:2]))
+
+vrai_colonnes = NT.Methode.COLONNES
+NT.Methode.COLONNES = vrai_colonnes[:2]
+try:
+    mut = NC.pdf(copy.deepcopy(e_a), INFOS)
+finally:
+    NT.Methode.COLONNES = vrai_colonnes
+ec = ecarts_parite(e_a, mut)
+chk("mutation « la page 2 sans sa troisième vue » (les contraintes de von Mises) : la parité rougit — la colonne manque, les mailles colorées aussi",
+    ec and any("CONTRAINTES DE VON MISES" in x for x in ec) and any("mailles colorées" in x for x in ec), ec[:3])
+
+PROSE = [("Configuration", "A — aile horizontale EN BAS : la charge pose sur l'aile horizontale, l'aile verticale monte le long du mur, l'ancrage est "
+                           "au-dessus de l'angle ; le talon s'appuie sur le mur, l'aile verticale est tendue"),
+         ("Méthode", "aux contraintes admissibles, efforts ELS non majorés : σ_adm = f_y/1,5 = 236,7 N/mm² · τ_adm = σ_adm/√3 = 136,6 N/mm² · "
+                     "σ_eq = √(σ² + 3τ²) ≤ σ_adm — ce n'est pas une justification EC3 aux états limites"),
+         ("Mode", "méthode historique, feuille P8 du classeur : sections avec le pivot e/2 (YH = Y − e/2 = 77,5 mm), τ = R/(L·t) dans les deux ailes, "
+                  "traction d'ancrage sur le bras Y − jeu = 75 mm (C76 = 10 mm) · maxima du congé en information"),
+         ("Tranche", "courte : L = 300 mm est la largeur de toutes les sections ; 3 ancrage(s) se partagent R et la traction · largeur d'appui "
+                     "a = 100 mm : L_eff = min(L ; a + 2·Xe) = 194 mm sur l'aile horizontale (σ × 1,546)")]
+NT.Calcul.hypotheses = lambda self: vrai_hyp(self) + PROSE
+try:
+    mut = NC.pdf(copy.deepcopy(e_a), INFOS)
+finally:
+    NT.Calcul.hypotheses = vrai_hyp
+ec = ecarts_parite(e_a, mut)
+chk("mutation « les hypothèses en prose longue » (les phrases d'avant ajoutées) : la parité rougit sur le budget de caractères du bloc",
+    ec and all("hypothèses trop longues" in x for x in ec), ec[:3])
+
+vrai_charge = NT.Calcul.charge_et_ancrage
+NT.Calcul.charge_et_ancrage = lambda self: [(lab, val) for lab, val in vrai_charge(self) if lab != "Rondelles"]
+try:
+    mut = NC.pdf(copy.deepcopy(ETATS["boulon traversant, deux rondelles, épaisseur 200"]), INFOS)
+finally:
+    NT.Calcul.charge_et_ancrage = vrai_charge
+ec = ecarts_parite(ETATS["boulon traversant, deux rondelles, épaisseur 200"], mut)
+chk("mutation « les rondelles non imprimées » : la parité rougit sur les deux rondelles (ISO 7093-1 contre l'aile, ISO 7089 sous l'écrou)",
+    len(ec) == 2 and all("ISO 70" in x for x in ec), ec[:3])
 
 # ---------------------------------------------------------------- 6. comme dans le navigateur
 sys.path.insert(0, os.path.join(RACINE, "site", "web"))
@@ -495,10 +786,10 @@ def sonde(etats, infos):
 
 
 e_nav = [ETATS["A historique (cornière neuve)"], ETATS["deux cornières (A avec a = 100, B avec u_V = 0 et c = 10)"], ETATS["petite L 40×40×4"],
-         ETATS["grosse L 250×250×35, équilibre, quatre ancrages"]]
+         ETATS["grosse L 250×250×35, équilibre, quatre ancrages"], ETATS["ELS + ELU dans une note"], ETATS["poutre A (160 au-dessus, 120 au-dessous)"]]
 infos_nav = {"nom": "relevé", "chantier": "C", "indice": "B", "date": "01/01/2026"}
 s = sonde(e_nav, infos_nav)
-chk("navigateur : sans fontTools ni accélérateurs C, avec le Pillow factice et les seules polices du paquet, la note se fait",
+chk("navigateur : sans fontTools ni accélérateurs C, avec le Pillow factice et les seules polices du paquet, la note se fait (dont ELS + ELU, poutre)",
     "erreur" not in s and s["fonttools"] is False and s["rl_accel"] is False and s["pil"].startswith(O.STUB), s.get("erreur") or {k: v for k, v in s.items() if k != "sorties"})
 if "erreur" not in s:
     cpy = [O.pages(NC.pdf(copy.deepcopy(x), infos_nav)) for x in e_nav]

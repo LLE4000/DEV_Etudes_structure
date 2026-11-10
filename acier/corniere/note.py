@@ -380,6 +380,15 @@ class Calcul:
         L.append(("Support", support))
         return L
 
+    def symboles_limites(self) -> Dict[str, str]:
+        """Les symboles des limites dans les formules imprimées : le moteur nomme les termes « σ_adm » et « τ_adm » (le
+        NOM des limites, § 9.5) ; à l'ELU la note écrit le symbole de l'état limite (``materiau.symbole_sigma``,
+        ``symbole_tau``), entre parenthèses pour rester lisible dans un quotient."""
+        mat = self.res["materiau"]
+        if self.els():
+            return {}
+        return {"σ_adm": f"({mat['symbole_sigma']})", "τ_adm": f"({mat['symbole_tau']})"}
+
     def legende_vue(self, cle: str) -> str:
         """La légende COURTE d'une vue de la page 2 (texte riche) : l'état limite, ce que montre la vue, ses conventions —
         composée depuis le résultat du moteur, comme ``schemas.legende`` dont elle est la forme brève."""
@@ -696,9 +705,10 @@ class Note:
         hist = res["mode"] == E.HISTORIQUE
         gov = res["gouvernant"]["cle"]
         sym = self.symbole_sigma()
+        quot = sym if C.els() else f"({sym})"           # le quotient reste lisible : η = σ_eq/(f_y/γ_M0)
         self.titre(d, fr, f"{self.numero()}VÉRIFICATION DES SECTIONS", res["taux_max"])
         fr.down(0.5)
-        self.rp(d, fr, f"$σ$ = |M|/W + |N|/A · $τ$ = {'R/(L·t)' if hist else '|V|/A'} · $σ_{{eq}}$ = √(σ² + 3τ²) · η = $σ_{{eq}}$/{sym} "
+        self.rp(d, fr, f"$σ$ = |M|/W + |N|/A · $τ$ = {'R/(L·t)' if hist else '|V|/A'} · $σ_{{eq}}$ = √(σ² + 3τ²) · η = $σ_{{eq}}$/{quot} "
                        f"({sym} = {_fmt(res['materiau']['sigma_adm'])} N/mm², {res['materiau']['etat_limite']}) · contraintes en N/mm², $M$ en kN·m, $s$ et $t$ en mm",
                 size=self.s_txt * 0.95, col=S.mut)
         rows = []
@@ -728,7 +738,7 @@ class Note:
         self.table(d, fr, None, cols, rows, note=note)
         vg = next(v for v in res["verifications"] if v["cle"] == gov)
         bg = FO.bloc(res, gov)
-        self.formules(d, fr, [("Gouvernante : " + self._lib(gov, vg, bg, FO.COUPE), FO.coupe(bg))])
+        self.formules(d, fr, [("Gouvernante : " + self._lib(gov, vg, bg, FO.COUPE), FO.renommer(FO.coupe(bg), C.symboles_limites()))])
         fr.down(2)
 
     def ancrages(self, d, fr):

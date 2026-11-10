@@ -128,6 +128,17 @@ def coupe(b: Dict, detail: bool = False) -> List[Sub]:
     return out if detail else [s for s in out if s.nom not in TAUX_DETAIL]
 
 
+def renommer(subs: List[Sub], symboles: Dict[str, str]) -> List[Sub]:
+    """Les mêmes substitutions, les symboles de leurs TERMES renommés (« σ_adm » → « (f_y/γ_M0) » à l'ELU : le moteur
+    garde ``sigma_adm`` pour le NOM de la limite, l'état limite en donne le symbole — ``materiau.symbole_sigma``). Les
+    gabarits et les nombres ne changent pas : ``verifier`` et ``exact`` restent vrais sur le résultat."""
+    out = []
+    for s in subs:
+        vals = {k: (symboles.get(v[0], v[0]), v[1]) for k, v in s.vals.items()}
+        out.append(Sub(s.nom, s.template, vals, s.res, s.unit, s.nd))
+    return out
+
+
 def cellules(b: Dict, cles=None) -> List[str]:
     """Les cellules du classeur des formules d'un bloc (mode historique ; vide sinon), sans doublon, dans l'ordre."""
     out: List[str] = []
