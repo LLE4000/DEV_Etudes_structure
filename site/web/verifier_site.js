@@ -4387,7 +4387,12 @@ const principal = async () => {
       const large = (e) => { const g = document.createRange(); g.selectNodeContents(e); return g.getBoundingClientRect().width; };
       const coupes = [...document.querySelectorAll('.bib-m .bib-mt, .bib-pl, .bib-tab th.nm, .bib-bande-b .btn span')]
         .filter(vis).filter((e) => e.scrollWidth > e.clientWidth + 1 || large(e) > e.getBoundingClientRect().width + 0.01).map((e) => e.textContent.trim().slice(0, 40));
-      return { deborde: document.documentElement.scrollWidth > innerWidth, defileY: cadre.scrollHeight > cadre.clientHeight + 1, defileX: cadre.scrollWidth > cadre.clientWidth + 1,
+      // le bouton RETENU d'un segment de la barre tient dans son groupe (à la tablette, les 44 px des cibles de l'établi le
+      // faisaient dépasser de 14 px d'un groupe de 30 px : il recouvrait le libellé au-dessus — 10/11/2026)
+      const segs = [...document.querySelectorAll('#bib-barre .seg')].filter(vis).map((s) => { const q = s.querySelector('button.on');
+        if (!q) return null; const a = s.getBoundingClientRect(), z = q.getBoundingClientRect();
+        return [q.textContent.trim().slice(0, 24), Math.round(Math.max(0, a.top - z.top) + Math.max(0, z.bottom - a.bottom))]; }).filter((x) => x && x[1] > 0);
+      return { segs, deborde: document.documentElement.scrollWidth > innerWidth, defileY: cadre.scrollHeight > cadre.clientHeight + 1, defileX: cadre.scrollWidth > cadre.clientWidth + 1,
         cadre: [Math.round(r.width), Math.round(r.height)], cadreDansEcran: r.bottom <= innerHeight + 1 && r.right <= innerWidth + 1,
         curVisible: !!rc && rc.top >= r.top - 1 && rc.bottom <= r.bottom + 1 && rc.left >= r.left - 1 && rc.right <= r.right + 1 && vis(cur),
         bandeVisible: bande.height > 30 && bande.bottom <= innerHeight + 1, coupes, titre: document.getElementById('bib-titre').textContent,
@@ -4408,6 +4413,7 @@ const principal = async () => {
         const url = new URL(g.url());
         verif(`bibliothèque ${nomF} · ${r} : la rubrique s'ouvre, son titre et son adresse (?rubrique=${r})`, m.titre.length > 3 && url.searchParams.get('rubrique') === r, `${m.titre} · ${url.search}`);
         verif(`bibliothèque ${nomF} · ${r} : rien ne déborde, aucun nom coupé`, !m.deborde && !m.coupes.length, m.coupes.join(', '));
+        verif(`bibliothèque ${nomF} · ${r} : le bouton retenu de chaque segment de la barre tient dans son groupe`, !m.segs.length, JSON.stringify(m.segs));
         if (!tel) {
           verif(`bibliothèque ${nomF} · ${r} : le tableau se voit d'un coup (son cadre ne défile pas) et tient dans l'écran avec la bande`,
             !m.defileY && !m.defileX && m.cadreDansEcran && m.bandeVisible, JSON.stringify(m));

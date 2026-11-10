@@ -398,3 +398,17 @@
   .bib-fc tr.g th { display: block; }
   .bib-notes-t { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ---------------------------------------------------------------------------------------------- la barre à la tablette
+   De 701 à 1199 px, site.css donne 44 px de haut aux boutons des segments de l'ÉTABLI (cibles au doigt). Dans la barre de
+   la bibliothèque, le groupe restait à 30 px : le bouton retenu en dépassait de 14 px et recouvrait le libellé au-dessus
+   (mesuré le 10/11/2026 sur « Enrobages » et sur « Ancrages » : groupe 30 px, bouton 44 px). Ici le bouton garde sa
+   taille de DESSIN — il tient dans son groupe, la barre ne grandit pas, les tableaux gardent leur hauteur — et c'est sa
+   zone de TOUCHER qui fait 44 px de haut (un pseudo-élément transparent, qui déborde sans rien recouvrir à l'œil).
+   (Agrandir le groupe à 40 px faisait défiler le tableau des ancrages à la tablette : le harnais l'a trouvé.) */
+@media (min-width: 701px) and (max-width: 1199px) {
+  .bib-p .seg button, .bib-onglets .seg button { min-height: 0; position: relative; }
+  .bib-p .seg button::after, .bib-onglets .seg button::after { content: ""; position: absolute; left: 0; right: 0; }
+  .bib-p .seg button::after { top: -10px; bottom: -10px; }          /* 24 px dessinés, 44 px au doigt */
+  .bib-onglets .seg button::after { top: -8px; bottom: -8px; }      /* 28 px dessinés, 44 px au doigt */
+}
