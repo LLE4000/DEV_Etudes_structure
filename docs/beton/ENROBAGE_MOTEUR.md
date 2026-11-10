@@ -5,6 +5,18 @@
 n'a pas été modifié ; la preuve de parité est `tests/test_enrobage_moteur.py`, la parité bout à bout (écran Streamlit
 rejoué ↔ fragments HTML du site) est `tests/test_api_web_enrobage.py` § 8.*
 
+> **Depuis le 10/11/2026 (Lot Q, docs/site/LOT_Q_QUATRE_MODULES.md § 4) : D1, D2 et D6 sont CORRIGÉS sur le site.**
+> `beton/enrobage/donnees.py` lit ses distances au feu dans `beton/bibliotheque/feu.py` (la source unique des
+> tableaux de l'EN 1992-1-2 § 5, recoupés sur deux rapports de sources) : poteaux dans la colonne μ_fi = 0,7, exposés
+> sur plusieurs côtés (R90 : 350/53, 450/40** ; R240 : « non couvert par le tableau », aucune valeur inventée) ;
+> voiles μ_fi = 0,7, une face (REI 180 : 210/50, REI 240 : 270/60) ; pour une dalle ou un voile, aucun étrier n'est
+> plus retiré de a. Les avertissements rouges de D1, D2 et D6 sont remplacés par la source ; la parité avec
+> `modules/enrobage.py` (`tests/test_enrobage_moteur.py`) exclut ces trois points, nommés « écarts voulus avec l'écran
+> Streamlit depuis le 10/11/2026 », et garde le reste. Un bandeau renvoie au calcul complet : **Bibliothèque ›
+> Enrobages › Calcul** (`bibliotheque-beton?rubrique=enrobages&onglet=calcul`, `api_web/biblio_enrobages.py`, moteur
+> `beton/bibliotheque/enrobage.py`). La photo de gel `tests/reference_refonte/enrobage.json` est regelée avec cette
+> raison. Le relevé ci-dessous reste celui de l'écran Streamlit (D3, D7 et les autres ne changent pas).
+>
 > **⚠ Défauts NON CONSERVATIFS de l'écran Streamlit, reproduits par le site (parité) et signalés à l'écran — à trancher
 > par le bureau avant tout usage des valeurs en cause** (détail et sources au § 6 ; les valeurs « de la norme » sont
 > celles relevées à l'extraction et à la relecture, **à confirmer dans les textes et l'ANB**) :

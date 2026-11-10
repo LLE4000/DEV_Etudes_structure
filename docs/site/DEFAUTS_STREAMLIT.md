@@ -49,6 +49,8 @@ Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATR
 
 Écran : `modules/enrobage.py` · doc : `docs/beton/ENROBAGE_MOTEUR.md`
 
+- D1, D2, D6 : le site ne les reproduit plus depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md § 4) — les tableaux du feu sont lus dans `beton/bibliotheque/feu.py`, aucun étrier n'est retiré d'une dalle ou d'un voile ; le calcul complet est dans Bibliothèque › Enrobages › Calcul. Le relevé de l'écran Streamlit ci-dessous est gardé.
+
 - D1, NON CONSERVATIF probable : poteaux (tab. 5.2a). La caption annonce μ_fi ≈ 0,7, mais les distances a suivent la colonne μ_fi = 0,2 (R90 : 200/31 au lieu de 350/53 pour μ_fi = 0,7), et R240 porte des variantes absentes du tableau. a est sous-estimé de 15 à 25 mm. Reproduit, avertissement rouge sur le site. Valeurs de la norme citées de mémoire : à confirmer dans les textes et l'ANB.
 - D2, NON CONSERVATIF probable : voiles R180 / R240 à 45 / 55 mm, alors que la colonne μ_fi = 0,7 une face semble demander 50 / 60 mm (45 / 55 sont les valeurs μ_fi = 0,35 deux faces). Reproduit, avertissement rouge sur le site.
 - D3, NON CONSERVATIF : classe structurale proposée S1 pour X0 et S2 pour XC1, sans les conditions du tableau 4.3N (par exemple XC1 : 10 mm au lieu de 15 mm en S4 normatif). Reproduit, message sur le site.
