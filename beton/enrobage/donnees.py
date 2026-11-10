@@ -1,13 +1,24 @@
 # -*- coding: utf-8 -*-
 """Enrobage du béton — les DONNÉES de l'écran Streamlit ``modules/enrobage.py`` (VERSION 2.0), la référence de parité,
 recopiées telles quelles : classes d'exposition et leurs textes, classe structurale par défaut, tableau c_min,dur, tableaux
-feu (distance à l'axe « a »), listes des widgets, textes d'aide, captions et guide des classes.
+feu (distance à l'axe « a ») des DALLES et des POUTRES, listes des widgets, textes d'aide, captions et guide des classes.
 
 ``tests/test_enrobage_moteur.py`` relit ces valeurs DANS le fichier du module (arbre syntaxique, sans l'importer) et dans
 ce que son écran affiche (rejoué avec un faux ``st`` et avec l'AppTest de Streamlit) : une copie qui diverge rougit.
 Les écarts de ces tableaux avec l'EN 1992-1-1 / l'EN 1992-1-2 relevés à l'extraction sont REPRODUITS (parité) et écrits
 dans ``docs/beton/ENROBAGE_MOTEUR.md`` § 6 — on ne les corrige pas ici.
+
+TROIS ÉCARTS VOULUS avec l'écran Streamlit depuis le 10/11/2026 (lot Q, docs/site/LOT_Q_QUATRE_MODULES.md § 4) : le site
+ne montre plus une valeur fausse.
+- D1 — les POTEAUX : ``FEU_POTEAU`` n'est plus la table de l'écran (elle suivait la colonne μ_fi = 0,2 sous un libellé
+  « μ_fi = 0,7 ») ; elle est LUE dans ``beton/bibliotheque/feu.py`` (tableau 5.2a de l'EN 1992-1-2:2004, colonne
+  μ_fi = 0,7, poteau exposé sur plus d'un côté — ce que le libellé annonce). R240 n'y a pas de valeur : aucune
+  variante, « non couvert par le tableau ».
+- D2 — les VOILES : ``FEU_VOILE`` est LUE de même (tableau 5.4, μ_fi = 0,7, une face exposée) : R180 = 50 et R240 = 60
+  (l'écran : 45 et 55).
+- D6 — le Ø d'étrier n'est plus retiré de a pour une dalle ou un voile (``moteur.calculer``).
 """
+from beton.bibliotheque import feu as FEU
 
 # ============================================================ durabilité (EN 1992-1-1 §4.4.1)
 # Classes d'exposition : (titre court, description, exemples, quand la choisir) — EXPOSITION_INFO
@@ -82,19 +93,21 @@ R_LEVELS = ["R30", "R60", "R90", "R120", "R180", "R240"]
 FEU_DALLE = {
     "R30": 10, "R60": 20, "R90": 30, "R120": 40, "R180": 55, "R240": 65,
 }
-# voiles porteurs exposés sur une face, μ_fi ≈ 0,7 (tab. 5.4) — FEU_VOILE
-FEU_VOILE = {
-    "R30": 10, "R60": 10, "R90": 25, "R120": 35, "R180": 45, "R240": 55,
-}
-# poteaux exposés sur plus d'une face, μ_fi = 0,7 (tab. 5.2a) : R → [(b_min mm, a mm), …] — FEU_POTEAU
-FEU_POTEAU = {
-    "R30":  [(200, 25), (300, 25)],
-    "R60":  [(200, 25), (300, 25)],
-    "R90":  [(200, 31), (300, 25), (400, 25)],
-    "R120": [(250, 40), (350, 35), (450, 35)],
-    "R180": [(350, 45), (450, 40)],
-    "R240": [(400, 50), (450, 40)],
-}
+# voiles porteurs exposés sur une face, μ_fi = 0,7 (tab. 5.4) — ÉCART VOULU D2 : lus dans beton/bibliotheque/feu.py (la
+# source unique des tableaux du feu), plus dans l'écran Streamlit (qui écrivait 45 et 55 mm pour R180 et R240)
+FEU_VOILE = {r: FEU.VOILE_5_4[r]["mu07_1"][1] for r in R_LEVELS}
+# poteaux exposés sur plus d'une face, μ_fi = 0,7 (tab. 5.2a) : R → [(b_min mm, a mm), …] — ÉCART VOULU D1 : lus dans
+# beton/bibliotheque/feu.py, colonne μ_fi = 0,7 (l'écran Streamlit portait la colonne μ_fi = 0,2). R240 : le tableau n'a
+# pas de valeur à μ_fi = 0,7 — la liste est VIDE, le moteur dit « non couvert par le tableau » (aucune valeur inventée)
+FEU_POTEAU = {r: [(b, a) for b, a, _ in FEU.POTEAU_5_2A[r]["mu07"]] for r in R_LEVELS}
+# les combinaisons de ce tableau qui demandent AU MOINS 8 BARRES (repère « ** » de la norme) : R → [b_min mm, …]
+FEU_POTEAU_8_BARRES = {r: [b for b, _, repere in FEU.POTEAU_5_2A[r]["mu07"] if repere == "**"] for r in R_LEVELS}
+# les tableaux et les clauses de l'EN 1992-1-2:2004 dont viennent ces deux tables, et la colonne lue
+SOURCES_FEU = {"Poteau": FEU.source("5.2a") + " : colonne μ_fi = 0,7, exposé sur plus d'un côté",
+               "Voile": FEU.source("5.4") + " : colonne μ_fi = 0,7, une face exposée"}
+# les éléments dont les armatures principales sont entourées d'un étrier : il se retire de la distance à l'axe au feu.
+# ÉCART VOULU D6 : pour une dalle ou un voile, le Ø « étrier » de l'écran (8 mm par défaut) n'est plus retiré de a.
+TYPES_A_ETRIER = ("Poutre", "Poteau")
 # poutres sur appuis simples (tab. 5.5) : R → [(b_min mm, a mm), …] — FEU_POUTRE
 FEU_POUTRE = {
     "R30":  [(80, 25), (120, 20), (160, 15), (200, 15)],

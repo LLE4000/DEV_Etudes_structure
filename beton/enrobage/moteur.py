@@ -4,6 +4,13 @@ référence : ``a_feu``, ``c_durabilite`` et ``c_feu`` sont ses fonctions, mot p
 sa fonction ``show()`` fait de leurs résultats (le maximum, le gouvernant, les deux encadrés d'information) et NOMME
 chaque terme avec sa règle. Bibliothèque standard seule (le site le fait tourner dans le navigateur).
 
+TROIS ÉCARTS VOULUS avec l'écran Streamlit depuis le 10/11/2026 (lot Q : ce module masqué ne montre plus une valeur
+fausse ; le calcul d'enrobage est désormais dans la Bibliothèque › Enrobages › Calcul) :
+- D1 et D2 : les distances au feu des poteaux et des voiles sont lues dans ``beton/bibliotheque/feu.py`` (tableaux 5.2a
+  et 5.4 de l'EN 1992-1-2:2004, colonne μ_fi = 0,7 — ``donnees.FEU_POTEAU``, ``donnees.FEU_VOILE``) ; un poteau R240
+  n'a pas de valeur à μ_fi = 0,7 : ``feu["sans_valeur"]``, « non couvert par le tableau », aucun enrobage de feu ;
+- D6 : le Ø d'étrier n'est plus retiré de a pour une dalle ou un voile (``feu["diam_etrier"]`` vaut alors 0).
+
     from beton.enrobage import moteur as M
     res = M.calculer(M.nouvel_element())
     res["c_nom"]          # 30 : l'enrobage nominal retenu (mm)
@@ -20,8 +27,11 @@ le feu) :
   atteint le maximum, dans l'ordre de l'écran), ``delta_dev``, ``c_nom`` ;
 - ``feu`` : ``None`` si la résistance au feu n'est pas vérifiée, sinon ``r``, ``tableau`` (« 5.5 »…), ``a``, ``note``
   (la caption de l'écran), ``b_min`` (poutre, poteau), ``variantes`` ([[b_min, a], …]), ``demi_barre`` (Ø/2),
-  ``diam_etrier``, ``c_min`` (borné à 0), ``c_brut`` (a − Ø/2 − Ø_étrier avant la borne), ``delta_dev``, ``c_nom``,
-  ``couvert`` (c_min ≤ 0 : « feu non dimensionnant ») ;
+  ``diam_etrier`` (celui qui est retiré de a : 0 pour une dalle ou un voile), ``c_min`` (borné à 0), ``c_brut`` (a − Ø/2
+  − Ø_étrier avant la borne), ``delta_dev``, ``c_nom``, ``couvert`` (c_min ≤ 0 : « feu non dimensionnant »), ``source``
+  (le tableau de la norme, pour un poteau ou un voile), ``huit_barres`` (poteau : la combinaison demande au moins 8
+  barres), ``sans_valeur`` (poteau R240 : le tableau n'a pas de valeur — ``a``, ``c_min``, ``c_brut`` et ``c_nom``
+  valent alors ``None``) ;
 - ``c_nom_dur``, ``c_nom_feu`` (0.0 si le feu n'est pas vérifié, comme l'écran), ``c_nom`` = max(c_nom_dur ;
   c_nom_feu), ``gouvernant`` (``"durabilite"`` si c_nom_dur ≥ c_nom_feu, sinon ``"feu"``), ``proches`` (feu vérifié et
   |c_nom_dur − c_nom_feu| ≤ 2 mm : l'encadré « Durabilité et feu proches ») ;
@@ -32,6 +42,8 @@ le feu) :
 
 ``candidats_feu(element)`` : les variantes du tableau feu (poutre, poteau) recalculées une à une — le sélecteur.
 """
+from beton.bibliotheque import feu as FEU
+
 from . import donnees as D
 from . import entree as EN
 
@@ -114,16 +126,28 @@ def calculer(element: dict) -> dict:
     feu = None
     if el["feu"] and el["r"]:
         choix = _variante(el)
-        a_val, note = a_feu(el["type"], el["r"], choix)
-        cmin_f, cnom_f = c_feu(a_val, dmax, de, dd)
-        feu = {"r": el["r"], "tableau": TABLEAUX_FEU[el["type"]], "section": SECTIONS_FEU[el["type"]], "a": a_val, "note": note,
-               "b_min": choix[0] if choix else None, "variantes": [list(v) for v in EN.variantes(el["type"], el["r"])],
-               "demi_barre": dmax / 2.0, "diam_etrier": de, "c_brut": a_val - dmax / 2.0 - de, "c_min": cmin_f,
-               "delta_dev": dd, "c_nom": cnom_f, "couvert": cmin_f <= 0}
+        vs = EN.variantes(el["type"], el["r"])
+        base = {"r": el["r"], "tableau": TABLEAUX_FEU[el["type"]], "section": SECTIONS_FEU[el["type"]],
+                "b_min": choix[0] if choix else None, "variantes": [list(v) for v in vs], "demi_barre": dmax / 2.0,
+                "delta_dev": dd, "source": D.SOURCES_FEU.get(el["type"], ""), "huit_barres": False, "sans_valeur": False}
+        # écart voulu D6 : seul l'étrier d'une poutre ou d'un poteau se retire de a ; une dalle, un voile n'en ont pas
+        de_feu = de if el["type"] in D.TYPES_A_ETRIER else 0
+        if el["type"] in D.TYPES_VARIANTES and not vs:
+            # écart voulu D1 : le tableau 5.2a n'a pas de valeur pour un poteau R240 à μ_fi = 0,7 — rien n'est inventé,
+            # aucun enrobage de feu : l'enrobage retenu est celui de la durabilité, et l'avertissement est grave
+            feu = {**base, "a": None, "note": f"Poteau exposé sur >1 face, μ_fi=0,7 : {el['r']} non couvert par le tableau (tab. 5.2a).",
+                   "diam_etrier": de_feu, "c_brut": None, "c_min": None, "c_nom": None, "couvert": False, "sans_valeur": True}
+        else:
+            a_val, note = a_feu(el["type"], el["r"], choix)
+            cmin_f, cnom_f = c_feu(a_val, dmax, de_feu, dd)
+            feu = {**base, "a": a_val, "note": note, "diam_etrier": de_feu, "c_brut": a_val - dmax / 2.0 - de_feu, "c_min": cmin_f,
+                   "c_nom": cnom_f, "couvert": cmin_f <= 0}
+            if el["type"] == "Poteau":
+                feu["huit_barres"] = FEU.exigence("poteau", el["r"], mu_fi=0.7, b=choix[0])["huit_barres"]
     # --- C. Retenu
     c_final = max(cnom_d, cnom_f)
     gouv = "durabilite" if cnom_d >= cnom_f else "feu"
-    proches = bool(el["feu"] and abs(cnom_d - cnom_f) <= 2)
+    proches = bool(el["feu"] and not (feu and feu["sans_valeur"]) and abs(cnom_d - cnom_f) <= 2)
     res = {"reference": REFERENCE, "element": el,
            "exposition": dict(zip(("classe", "titre", "description", "exemples", "quand"), (expo,) + D.EXPOSITION_INFO[expo])),
            "durabilite": dur, "feu": feu, "c_nom_dur": cnom_d, "c_nom_feu": cnom_f, "c_nom": c_final, "gouvernant": gouv,
@@ -144,9 +168,16 @@ REGLES = {
     "delta_dev": "EN 1992-1-1 §4.4.1.3(1)P : 10 mm recommandé ; (3) 10 ≥ Δc_dev ≥ 5 mm avec contrôle de la qualité, jusqu'à 0 avec mesure précise",
     "a": "EN 1992-1-2 {section}, tab. {tableau} : distance à l'axe des armatures principales (méthode tabulée)",
     "c_feu_min": "Convention de l'écran : c_feu,min = a − Ø/2 − Ø étrier (au nu de l'étrier), borné à 0",
+    "c_feu_min_sans_etrier": "Convention de l'écran, sans l'étrier (une dalle, un voile n'en ont pas — écart voulu depuis le "
+                             "10/11/2026) : c_feu,min = a − Ø/2, borné à 0",
     "c_nom_feu": "Convention de l'écran : c_nom,feu = c_feu,min + Δc_dev",
     "c_nom": "Écran : c_nom = max(c_nom,dur ; c_nom,feu)",
 }
+
+
+def el_a_etrier(res: dict) -> bool:
+    """L'étrier se retire-t-il de la distance à l'axe ? (poutre, poteau : oui ; dalle, voile : non — écart voulu D6)"""
+    return res["element"]["type"] in D.TYPES_A_ETRIER
 
 
 def termes(res: dict) -> list:
@@ -162,10 +193,11 @@ def termes(res: dict) -> list:
            t("c_min", "c_min", "enrobage minimal", d["c_min"]),
            t("delta_dev", "Δc_dev", "tolérance d'exécution", d["delta_dev"]),
            t("c_nom_dur", "c_nom,dur", "enrobage nominal · durabilité", d["c_nom"])]
-    if f is not None:
+    if f is not None and not f["sans_valeur"]:
         out += [{**t("a", "a", f"distance à l'axe ({f['r']}, tab. {f['tableau']})", f["a"]),
                  "regle": REGLES["a"].format(section=f["section"], tableau=f["tableau"])},
-                t("c_feu_min", "c_feu,min", "a − Ø/2 − Ø_étrier", f["c_min"]),
+                t("c_feu_min", "c_feu,min", "a − Ø/2 − Ø_étrier" if el_a_etrier(res) else "a − Ø/2", f["c_min"],
+                  "c_feu_min" if el_a_etrier(res) else "c_feu_min_sans_etrier"),
                 t("c_nom_feu", "c_nom,feu", "enrobage nominal · feu", f["c_nom"])]
     out.append(t("c_nom", "c_nom", "enrobage nominal retenu", res["c_nom"]))
     return out
@@ -185,16 +217,18 @@ def avertissements(res: dict) -> list:
         a("feu_couvert", "Distance à l'axe couverte par la durabilité : feu non dimensionnant.")
     if res["proches"]:
         a("feu_proche", "Durabilité et feu proches (écart ≤ 2 mm) : vérifier le cas réel.")
-    # --- les garde-fous du site
-    if f is not None and el["type"] == "Poteau":
-        a("tableau_poteau", "Poteau : les distances a de l'écran ne sont pas celles de la colonne μ_fi = 0,7 du tableau 5.2a "
-                            "annoncée (elles se rapprochent de la colonne μ_fi = 0,2) — à vérifier dans la norme avant usage.", True)
-    if f is not None and el["type"] == "Voile" and el["r"] in ("R180", "R240"):
-        a("tableau_voile", f"Voile {el['r']} : a = {f['a']} mm repris de l'écran ; le tableau 5.4 (μ_fi = 0,7, une face) "
-                           "semble demander 5 mm de plus — à vérifier dans la norme avant usage.", True)
-    if f is not None and el["type"] in ("Dalle", "Voile") and el["diam_etrier"] > 0:
-        a("etrier_decompte", f"{el['type']} : le Ø étrier de {el['diam_etrier']} mm est décompté de la distance à l'axe ; "
-                             "mettre 0 s'il n'y a ni étrier ni barre extérieure aux armatures principales.")
+    # --- les garde-fous du site (les avertissements rouges D1, D2 et D6 d'avant le 10/11/2026 — « valeurs de l'écran
+    # Streamlit, non conservatives » — ont disparu avec les valeurs fausses : le moteur lit la norme et dit sa SOURCE)
+    if f is not None and f["sans_valeur"]:
+        a("feu_non_couvert", f"Poteau {el['r']} : non couvert par le tableau 5.2a à μ_fi = 0,7 (le tableau n'a pas de valeur) — "
+                             "l'enrobage affiché est celui de la durabilité seule ; méthode B, annexe C ou calcul au feu à mener.", True)
+    if f is not None and f["huit_barres"]:
+        a("huit_barres", f"Poteau {el['r']}, b ≥ {f['b_min']} mm : au moins 8 barres longitudinales (tableau 5.2a, repère **).")
+    if f is not None and f["source"]:
+        a("source_feu", f"{el['type']} : distances à l'axe lues dans la norme — {f['source']}.")
+    if f is not None and not el_a_etrier(res) and el["diam_etrier"] > 0:
+        a("etrier_non_retire", f"{el['type']} : le Ø étrier de {el['diam_etrier']} mm n'est pas retiré de la distance à l'axe "
+                               "(une dalle, un voile n'ont pas d'étrier) — c_feu,min = a − Ø/2.")
     if D.CLASSES_STRUCTURALES.index(d["classe_structurale"]) < D.CLASSES_STRUCTURALES.index("S4"):
         a("classe_reduite", f"Classe structurale {d['classe_structurale']}, sous S4 (référence 50 ans) : la réduction se "
                             "justifie par le tableau 4.3N (classe de résistance, élément plan, contrôle de la qualité).")
