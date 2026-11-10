@@ -41,11 +41,18 @@ haut (configuration A) ou vers le bas (B) ; y vers le bas, comme le SVG.
   maille colorée par le plus grand des taux de ses quatre nœuds (``res["maillage"]``) avec l'échelle IMPOSÉE
   (``couleur_taux`` : 0 → 100 % bleu, cyan, vert, jaune, orange ; 100 → 105 % orange vers rouge-orangé ; au-delà rouge
   franc) ; le bloc d'angle (s < e) maillé lui aussi par le champ « coin » du moteur (sections 2 et 4 prolongées,
-  enveloppe des deux) ; le contour par-dessus ; le maximum ◉ de chaque aile à ``maxima[aile]["s"]`` sur la face ζ du
-  maillage, étiqueté avec le taux de la VÉRIFICATION ; les sections 1 à 4 ; l'axe de l'ancrage ; une barre de couleur
-  graduée des deux côtés — σéq en N/mm² à gauche (0, la moitié, la LIMITE σadm ou fy/γM0, 105 %), le taux en % à
-  droite (0, 50, 100, 105) — ; deux lignes qui disent ce que c'est — des contraintes de poutre, l'enveloppe des
-  positions, PAS un calcul par éléments finis. Pas de déformée.
+  enveloppe des deux). Le maillage est dessiné DÉFORMÉ (§ 9.9) : chaque nœud reçoit le déplacement RÉEL du moteur
+  (``maillage["deformee"]`` : poutre élastique de la combinaison gouvernante, u > 0 vers la face du congé — l'aile
+  horizontale bouge en y, l'aile verticale en x, le bloc d'angle translate d'un bloc), amplifié pour que le plus grand
+  fasse ``PART_DEFORMEE`` × haut ; le contour d'ORIGINE reste en tirets fins, le contour déformé par-dessus, et la
+  troisième mention écrit la combinaison, u max réel et le facteur. Le maximum ◉ de chaque aile à ``maxima[aile]["s"]``
+  sur la face ζ du maillage déformé, étiqueté avec le taux de la VÉRIFICATION ; les sections 1 à 4 en pastilles HORS de
+  la pièce, reliées à la face extérieure par un pointillé léger (« sl ») qui s'arrête au contour — rien ne traverse le
+  dessin ; l'axe de l'ancrage en repères courts hors de la pièce ; une barre de couleur de 0 au MAXIMUM du maillage
+  (sa valeur écrite ; 50, 100 et 105 % quand ils sont sous le maximum et à plus de ``ECART_GRADUATION`` × max de toute
+  graduation gardée — l'échelle s'arrête là où le maillage s'arrête), graduée des deux côtés — σéq en N/mm² à gauche, le
+  taux en % à droite — ; trois lignes qui disent ce que c'est — des contraintes de poutre, l'enveloppe des positions,
+  le coin prolongé, la déformée et son facteur, PAS un calcul par éléments finis.
 - ``elevation`` — à l'échelle : la tranche L vue de face (les n ancrages à ``ancrages["positions_z"]``, la chaîne de
   cotes e₁ · s · … · e₁, N et V par ancrage dans l'état limite saisi) et l'aile horizontale RABATTUE : la charge de
   largeur a (ou L) et sa diffusion à 45° jusqu'à la section 1 — le trapèze qui donne L_eff, coté ; des COUPURES au
@@ -96,6 +103,11 @@ PALETTE_TAUX = ((0.0, "#2563EB"), (0.25, "#06B6D4"), (0.5, "#22C55E"), (0.75, "#
 DEGRADE_ORANGE = ("#F97316", "#C2410C")
 ROUGE_TAUX = "#DC2626"
 SEUIL_ORANGE = 1.05
+# la déformée (§ 9.9) : le plus grand déplacement dessiné occupe cette part de la hauteur de la cornière (amplification dite)
+PART_DEFORMEE = 0.10
+# la barre de couleur : une graduation fixe (50, 100, 105 %) n'est écrite que si elle est à plus de cette part de la
+# hauteur de la barre sous le maximum
+ECART_GRADUATION = 0.07
 
 
 # ====================================================================== nombres, briques
@@ -387,6 +399,23 @@ def _lerp(c0: str, c1: str, t: float) -> str:
     t = min(1.0, max(0.0, t))
     a, b = _hex(c0), _hex(c1)
     return "#%02X%02X%02X" % tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))
+
+
+def _r4(x: float) -> float:
+    """Une coordonnée de maille arrondie à 4 décimales (le SVG d'un maillage fin pèse trois fois moins, rien ne se voit)."""
+    return round(x, 4)
+
+
+def _interp(xs: Sequence[float], ys: Sequence[float], x: float) -> float:
+    """y(x) linéaire par morceaux sur (xs, ys) croissants ; constant au-delà des bornes (0 sous la première abscisse :
+    sous le nu de l'angle le bloc rigide n'a pas de courbure propre)."""
+    if x <= xs[0]:
+        return ys[0] if abs(x - xs[0]) < 1e-9 else 0.0
+    for i in range(1, len(xs)):
+        if x <= xs[i]:
+            a, b = xs[i - 1], xs[i]
+            return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - a) / (b - a) if b > a else ys[i]
+    return ys[-1]
 
 
 def couleur_taux(t: float) -> str:
@@ -955,30 +984,54 @@ def contraintes(res: Dict, fs: Optional[float] = None, interactif: bool = True) 
     _lisible(haut, fs, "la hauteur de la cornière")
     mz = res["maillage"]
     s: List[Dict] = []
+    # --- la DÉFORMÉE (§ 9.9) : les déplacements RÉELS du moteur (poutre élastique, combinaison gouvernante), amplifiés
+    #     pour que le plus grand fasse PART_DEFORMEE × haut ; u > 0 vers la face du congé — l'aile horizontale suit (0, k),
+    #     l'aile verticale (1, 0) ; le bloc d'angle est rigide : il translate avec le pied de l'aile verticale
+    df = mz["deformee"]
+    amp = PART_DEFORMEE * haut / df["u_max"] if df["u_max"] > 1e-12 else 0.0
+    dx_bloc = amp * df["u_bloc"]
+
+    def ih(s_: float) -> float:
+        return amp * _interp(df[HORIZONTALE]["s"], df[HORIZONTALE]["u"], s_)
+
+    def iv(s_: float) -> float:
+        return amp * _interp(df[VERTICALE]["s"], df[VERTICALE]["u"], s_)
+
+    def deplace(x: float, y: float) -> Tuple[float, float]:
+        """Un point de la pièce (repère de la scène, non déformé) déplacé : l'aile dont il relève, ou le bloc."""
+        ya = abs(y)
+        if x >= e and (x - e) >= (ya - e):
+            return (x + dx_bloc, y + k * ih(x))
+        if ya >= e:
+            return (x + iv(ya), y)
+        return (x + dx_bloc, y)
+
     # --- le bloc d'angle (s < e) : hors modèle de poutre, MAILLÉ lui aussi par le champ « coin » du moteur (le plus grand
     #     des deux champs prolongés, sections 2 et 4 — demande de l'ingénieur du 10/11 au soir : « le maillage partout ») ;
-    #     i suit ζ_v (x depuis le nu du support), j suit ζ_h (y depuis la face extérieure)
+    #     i suit ζ_v (x depuis le nu du support), j suit ζ_h (y depuis la face extérieure) ; il translate avec le bloc
     coin = mz["coin"]
     Zc, TXc = coin["zeta"], coin["taux"]
     for i in range(len(Zc) - 1):
         for j in range(len(Zc) - 1):
             t = max(TXc[i][j], TXc[i + 1][j], TXc[i][j + 1], TXc[i + 1][j + 1])
-            x0, x1 = (Zc[i] + 1.0) / 2.0 * e, (Zc[i + 1] + 1.0) / 2.0 * e
-            y0, y1 = yv((Zc[j] + 1.0) / 2.0 * e), yv((Zc[j + 1] + 1.0) / 2.0 * e)
+            x0, x1 = _r4((Zc[i] + 1.0) / 2.0 * e + dx_bloc), _r4((Zc[i + 1] + 1.0) / 2.0 * e + dx_bloc)
+            y0, y1 = _r4(yv((Zc[j] + 1.0) / 2.0 * e)), _r4(yv((Zc[j + 1] + 1.0) / 2.0 * e))
             p = _poly(["mz"], [(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
             p["fill"] = couleur_taux(t)
             s.append(p)
-    # --- les mailles : (s_i, s_{i+1}) × (ζ_j, ζ_{j+1}) sur la vraie géométrie, colorées par le plus grand taux de leurs
-    #     quatre nœuds (le durable garde le défavorable). Dans la matière du congé, les deux modèles de poutre se
+    # --- les mailles : (s_i, s_{i+1}) × (ζ_j, ζ_{j+1}) sur la vraie géométrie DÉFORMÉE, colorées par le plus grand taux de
+    #     leurs quatre nœuds (le durable garde le défavorable). Dans la matière du congé, les deux modèles de poutre se
     #     recouvrent : l'aile la plus sollicitée est dessinée en dernier, c'est elle qu'on voit
     ordre = sorted((HORIZONTALE, VERTICALE), key=lambda a: res["maxima"][a]["taux"])
     for aile in ordre:
         ch = mz[aile]
-        S_, T_, Z_, TX = ch["s"], ch["t"], ch["zeta"], ch["taux"]
+        S_, T_, Z_, TX, U_ = ch["s"], ch["t"], ch["zeta"], ch["taux"], df[aile]["u"]
 
-        def noeud(i: int, j: int, aile=aile, S_=S_, T_=T_, Z_=Z_) -> Tuple[float, float]:
+        def noeud(i: int, j: int, aile=aile, S_=S_, T_=T_, Z_=Z_, U_=U_) -> Tuple[float, float]:
             u = (Z_[j] + 1.0) / 2.0 * T_[i]                       # la distance à la face extérieure
-            return (S_[i], yv(u)) if aile == HORIZONTALE else (u, yv(S_[i]))
+            if aile == HORIZONTALE:
+                return (_r4(S_[i] + dx_bloc), _r4(yv(u) + k * amp * U_[i]))
+            return (_r4(u + amp * U_[i]), _r4(yv(S_[i])))
 
         for i in range(len(S_) - 1):
             for j in range(len(Z_) - 1):
@@ -986,35 +1039,46 @@ def contraintes(res: Dict, fs: Optional[float] = None, interactif: bool = True) 
                 p = _poly(["mz"], [noeud(i, j), noeud(i + 1, j), noeud(i + 1, j + 1), noeud(i, j + 1)])
                 p["fill"] = couleur_taux(t)
                 s.append(p)
-    # --- le contour par-dessus (bouts droits : la géométrie du modèle)
-    s.append(_poly(["ctr"], _contour(larg, haut, e, r, 0.0, yv)))
-    # --- les sections 1 à 4, pastilles hors de la pièce (1, 2 côté face extérieure de l'aile horizontale ; 3, 4 côté
-    #     support) ; congé étroit : la pastille de la section au nu est décalée d'un cran
+    # --- le contour d'origine en tirets fins (le repère de la déformée), puis le contour DÉFORMÉ par-dessus (bouts droits :
+    #     la géométrie du modèle)
+    contour = _contour(larg, haut, e, r, 0.0, yv)
+    s.append(_poly(["hd"], contour))
+    s.append(_poly(["ctr"], [deplace(x, y) for x, y in contour]))
+    # --- les sections 1 à 4 : la pastille HORS de la pièce, reliée à la face extérieure déformée par un pointillé léger qui
+    #     s'arrête au contour (remarque de l'ingénieur du 10/11 au soir : rien ne traverse le dessin) ; 1, 2 sous l'aile
+    #     horizontale, 3, 4 côté support ; congé étroit : la pastille de la section au nu est décalée d'un cran
     etag = r < 1.9 * fs
-    y1p, y2p = yv(-2.2 * fs), yv(-3.9 * fs if etag else -2.2 * fs)
-    x3p, x4p = -2.2 * fs, -(3.9 * fs if etag else 2.2 * fs)
-    s += [_path(["sc"], [[(e + r, yv(e)), (e + r, yv(-1.4 * fs))]]),
-          _path(["sc"], [[(e, yv(e + r)), (e, yv(-3.1 * fs if etag else -1.4 * fs))]]),
-          _path(["sc"], [[(e, yv(e + r)), (-1.4 * fs, yv(e + r))]]),
-          _path(["sc"], [[(e + r, yv(e)), (-(3.1 * fs if etag else 1.4 * fs), yv(e))]]),
-          _pastille(e + r, y1p, 1, fs), _pastille(e, y2p, 2, fs), _pastille(x3p, yv(e + r), 3, fs), _pastille(x4p, yv(e), 4, fs)]
-    # --- l'axe de l'ancrage et ses positions ± dy
+    d1, d2 = 2.2 * fs, (3.9 * fs if etag else 2.2 * fs)
+    pastilles = []
+    for num, s_, d_ in ((1, e + r, d1), (2, e, d2)):
+        px, py = deplace(s_, yv(0.0))
+        s.append(_path(["sl"], [[(px, py), (px, py - k * d_)]]))
+        pastilles.append(_pastille(px, py - k * d_, num, fs))
+    for num, s_, d_ in ((3, e + r, d1), (4, e, d2)):
+        px, py = deplace(0.0, yv(s_))
+        s.append(_path(["sl"], [[(px, py), (px - d_, py)]]))
+        pastilles.append(_pastille(px - d_, py, num, fs))
+    x_gauche = -d2 - 1.2 * fs                       # le bord gauche des pastilles 3 et 4
+    # --- l'axe de l'ancrage et ses positions ± dy, en repères courts HORS de la pièce (à l'ancrage la déformée est nulle)
     ya = yv(Y)
-    s.append(_path(["ax"], [[(-1.5 * fs, ya), (e + 1.5 * fs, ya)]]))
+    s.append(_path(["ax"], [[(-1.5 * fs, ya), (0.0, ya)], [(e, ya), (e + 1.5 * fs, ya)]]))
     if dy > 0:
-        s.append(_path(["hd"], [[(-0.6 * fs, yv(Y - dy)), (e + 0.6 * fs, yv(Y - dy))], [(-0.6 * fs, yv(Y + dy)), (e + 0.6 * fs, yv(Y + dy))]]))
-    # --- le maximum ◉ de chaque aile : à la position de la VÉRIFICATION, sur la face ζ du maillage ; l'étiquette hors de
-    #     la pièce, reliée par un renvoi
-    x_gauche = x4p - 1.2 * fs                       # le bord gauche des pastilles 3 et 4
+        for yj in (yv(Y - dy), yv(Y + dy)):
+            s.append(_path(["hd"], [[(-0.9 * fs, yj), (0.0, yj)], [(e, yj), (e + 0.9 * fs, yj)]]))
+    # --- le maximum ◉ de chaque aile : à la position de la VÉRIFICATION, sur la face ζ du maillage déformé ; l'étiquette
+    #     hors de la pièce, reliée par un renvoi
     for aile in (HORIZONTALE, VERTICALE):
         mx = res["maxima"][aile]
         z = mz[aile]["max"]["zeta"]
         u = (z + 1.0) / 2.0 * mx["t"]
-        xm, ym = (mx["s"], yv(u)) if aile == HORIZONTALE else (u, yv(mx["s"]))
+        if aile == HORIZONTALE:
+            xm, ym = mx["s"] + dx_bloc, yv(u) + k * ih(mx["s"])
+        else:
+            xm, ym = u + iv(mx["s"]), yv(mx["s"])
         txt = f"{_pct(mx['taux'])} · s = {_num(mx['s'], 1)}"
         w = _tw(txt, fs)
         if aile == HORIZONTALE:
-            xl, yl = mx["s"] + 1.2 * fs + w / 2, yv(-4.9 * fs if etag else -3.9 * fs) - k * 1.5 * fs
+            xl, yl = xm + 1.2 * fs + w / 2, yv(-4.9 * fs if etag else -3.9 * fs) - k * 1.5 * fs + k * ih(mx["s"])
             att = (xl - w / 2 - 0.2 * fs, yl - k * 0.0)
         else:
             xl, yl = x_gauche - 0.4 * fs - w / 2, yv(mx["s"] + 2.6 * fs)
@@ -1022,44 +1086,46 @@ def contraintes(res: Dict, fs: Optional[float] = None, interactif: bool = True) 
         s.append(_path(["ext"], [[(xm, ym), att]]))
         s += [_circle(["gv"], xm, ym, 0.5 * fs), _circle(["gvd"], xm, ym, 0.2 * fs)]
         _label(s, xl, yl + 0.34 * fs, txt, fs)
-    # --- la barre de couleur : 0 → 100 % sur 70 % de sa hauteur, 100 → 105 % sur 15 %, au-delà sur 15 % ; graduée des
-    #     DEUX côtés (demande de l'ingénieur du 10/11 au soir) : σéq en N/mm² à gauche — la limite écrite à 100 % —, le
-    #     taux en % à droite
+    s += pastilles
+    # --- la barre de couleur : de 0 au MAXIMUM du maillage (§ 9.9 : l'échelle s'arrête là où le maillage s'arrête, et dit
+    #     sa valeur) ; graduée des DEUX côtés : σéq en N/mm² à gauche (la limite écrite si l'échelle l'atteint), le taux
+    #     en % à droite ; 50, 100 et 105 % quand ils sont dans l'échelle et assez loin du maximum
     s_lim = mat["sigma_adm"]
+    t_haut = max(mz[HORIZONTALE]["max"]["taux"], mz[VERTICALE]["max"]["taux"], max(max(l) for l in TXc), 0.05)
     xb, wb = larg + 3.8 * fs, 1.0 * fs
     y_b0, y_b1 = max(yv(0.0), yv(0.85 * haut)), min(yv(0.0), yv(0.85 * haut))
     hb = y_b0 - y_b1
-    degres = [(i / 20.0, (i + 1) / 20.0, 0.70) for i in range(20)]            # 0 → 100 % : vingt degrés
-    for i, (t0, t1, part) in enumerate(degres):
-        p = _rect(["mz"], xb, y_b0 - t1 * part * hb, wb, (t1 - t0) * part * hb + 0.02 * fs)
+    n_deg = 24
+    for i in range(n_deg):
+        t0, t1 = t_haut * i / n_deg, t_haut * (i + 1) / n_deg
+        p = _rect(["mz"], xb, y_b0 - (i + 1) / n_deg * hb, wb, hb / n_deg + 0.02 * fs)
         p["fill"] = couleur_taux((t0 + t1) / 2.0)
         s.append(p)
-    for i in range(5):                                                         # 100 → 105 % : cinq degrés
-        t0 = 1.0 + 0.01 * i
-        p = _rect(["mz"], xb, y_b0 - (0.70 + 0.03 * (i + 1)) * hb, wb, 0.03 * hb + 0.02 * fs)
-        p["fill"] = couleur_taux(t0 + 0.005)
-        s.append(p)
-    p = _rect(["mz"], xb, y_b1, wb, 0.15 * hb)                                 # au-delà de 105 %
-    p["fill"] = couleur_taux(2.0)
-    s.append(p)
     s.append(_rect(["ctr"], xb, y_b1, wb, hb))
-    for part, taux_, txt in ((0.0, 0.0, "0"), (0.35, 0.5, "50"), (0.70, 1.0, "100 %"), (0.85, 1.05, "105 %")):
-        y = y_b0 - part * hb
+    grads = [(0.0, "0"), (t_haut, _pct(t_haut))]
+    for t_, txt in ((0.5, "50"), (1.0, "100 %"), (1.05, "105 %")):
+        if t_ < t_haut and all(abs(t_ - g) >= ECART_GRADUATION * t_haut for g, _ in grads):
+            grads.append((t_, txt))
+    for t_, txt in grads:
+        y = y_b0 - t_ / t_haut * hb
         s.append(_path(["axe"], [[(xb - 0.35 * fs, y), (xb, y)], [(xb + wb, y), (xb + wb + 0.35 * fs, y)]]))
-        s.append(_text(["tx2"], xb - 0.55 * fs, y + 0.3 * fs, "0" if taux_ == 0 else _num(taux_ * s_lim, 1), 0.85 * fs, "end"))
+        s.append(_text(["tx2"], xb - 0.55 * fs, y + 0.3 * fs, "0" if t_ == 0 else _num(t_ * s_lim, 1), 0.85 * fs, "end"))
         s.append(_text(["tx2"], xb + wb + 0.55 * fs, y + 0.3 * fs, txt, 0.85 * fs, "start"))
     s.append(_text(["tx2"], xb + wb / 2, y_b1 - 2.1 * fs, "σéq N/mm²", 0.85 * fs))
     s.append(_text(["tx2"], xb + wb / 2, y_b1 - 0.9 * fs, f"taux σéq / {_symbole_sigma(mat)}", 0.85 * fs))
-    # --- ce que c'est, en deux lignes sous le dessin : des contraintes de poutre, l'enveloppe des positions, le coin
-    #     prolongé, pas un calcul par éléments finis
+    # --- ce que c'est, en trois lignes sous le dessin : des contraintes de poutre, l'enveloppe des positions, le coin
+    #     prolongé, la déformée (combinaison, u max réel, amplification), pas un calcul par éléments finis
     ex = _extent(s, fs) or (0.0, 0.0, 1.0, 1.0)
     x0, y_bas = ex[0], ex[3]
     s.append(_text(["tx2"], x0, y_bas + 1.9 * fs, "σ = M·ζ/W + N/A, τ = V/A (poutre, classeur) · enveloppe des positions", 0.85 * fs, "start"))
     s.append(_text(["tx2"], x0, y_bas + 3.2 * fs, "coin : sections 2 et 4 prolongées · pas un calcul par éléments finis", 0.85 * fs, "start"))
-    aria = (f"Contraintes de von Mises sur la cornière {sec['designation']} (configuration {cfg}) : le maillage de l'enveloppe, chaque "
-            f"maille colorée par son taux (du bleu à l'orange jusqu'à 100 %, orange vers rouge de 100 à 105 %, rouge au-delà), le coin "
-            f"maillé par les sections 2 et 4 prolongées, le maximum de chaque aile, les sections 1 à 4, la barre de couleur graduée en "
-            f"N/mm² et en % — contraintes de poutre, pas un calcul par éléments finis")
+    s.append(_text(["tx2"], x0, y_bas + 4.5 * fs, f"déformée élastique · {df['combinaison']['libelle']} · u max = {_num(df['u_max'], 2)} mm · × {_num(amp, 0)}",
+                   0.85 * fs, "start"))
+    aria = (f"Contraintes de von Mises sur la cornière {sec['designation']} (configuration {cfg}) : le maillage de l'enveloppe, déformé "
+            f"(déformée élastique de la combinaison gouvernante amplifiée × {_num(amp, 0)}, contour d'origine en tirets), chaque maille "
+            f"colorée par son taux (du bleu à l'orange jusqu'à 100 %, orange vers rouge de 100 à 105 %, rouge au-delà), le coin maillé par les "
+            f"sections 2 et 4 prolongées, le maximum de chaque aile, les sections 1 à 4 hors du dessin, la barre de couleur de 0 à "
+            f"{_pct(t_haut)} graduée en N/mm² et en % — contraintes de poutre, pas un calcul par éléments finis")
     return _dessin(s, fs, aria)
 
 
@@ -1090,7 +1156,8 @@ def legende(res: Dict, cle: str) -> str:
         return (f"{conf} · {LIBELLES_MODE[mode]} · {etat} · σéq par maille, enveloppe des positions, limite {_symbole_sigma(mat)} = "
                 f"{_num(mat['sigma_adm'], 1)} N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), "
                 f"le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du "
-                f"bleu (0) à l'orange (100 %), rouge au-delà de 105 %")
+                f"bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison "
+                f"gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets")
     a = f"a = {f0(g['a'])}" if g["a"] is not None else "a = L"
     coupe_txt = " · tranche coupée au dessin, cotes vraies" if g["L"] > COUPURE_TRANCHE * g["haut"] else ""
     return (f"{conf} · {etat} : N et V par ancrage (enveloppe) · la tranche L = {f0(g['L'])} vue de face : {g['n']} ancrage(s) à "

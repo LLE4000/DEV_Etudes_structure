@@ -37,14 +37,21 @@ retire (§ 12, mutations).
      aile, un sommet à Mmax au nu du support, au pivot pour l'aile verticale) ; les courbes de l'aile verticale quittent
      l'axe à Y − dy, Y, Y + dy (trois zéros) ; M1 à M4 écrits avec la valeur de l'enveloppe (grandeur, 3 décimales),
      Mmax en bas ET à gauche (historique), « M angle » en B ; l'ancrage (axe, bande ± dy) ; R.
-  7. CONTRAINTES, MAILLAGE : (len(s) − 1) × 8 mailles par aile, posées sur la vraie géométrie (les nœuds de la face
-     extérieure aux abscisses s du moteur, ceux de la face du congé à t(s)) et 8 × 8 dans le coin (le champ « coin » du
+  7. CONTRAINTES, MAILLAGE : (len(s) − 1) × 12 mailles par aile (96 × 12), posées sur la vraie géométrie DÉFORMÉE —
+     les nœuds de la face extérieure aux abscisses s du moteur, ceux de la face du congé à t(s), chacun déplacé du
+     déplacement RÉEL du moteur (déformée élastique de la combinaison gouvernante) amplifié pour que le plus grand
+     fasse PART_DEFORMEE × haut, le bloc d'angle translaté d'un bloc — et 12 × 12 dans le coin (le champ « coin » du
      moteur) ; CHAQUE maille porte la couleur du plus grand des taux de ses quatre nœuds selon l'échelle IMPOSÉE,
      recopiée ici depuis les décisions (bleu #2563EB, cyan #06B6D4 à 25 %, vert #22C55E à 50 %, jaune #FACC15 à 75 %,
      orange #F97316 à 100 %, → #C2410C à 105 %, rouge #DC2626 au-delà) ; la maille la plus chargée porte la couleur du
-     taux max ; le ◉ de chaque aile à maxima[aile]["s"] sur la face ζ du maillage, avec le taux de la vérification ; plus
-     de bloc d'angle masqué ; la barre de couleur graduée des deux côtés (N/mm² à gauche avec la limite, % à droite) ; les
-     deux lignes « coin : sections 2 et 4 prolongées · pas un calcul par éléments finis » ; les pastilles ; l'axe.
+     taux max ; le ◉ de chaque aile à maxima[aile]["s"] sur la face ζ du maillage déformé, avec le taux de la
+     vérification ; plus de bloc d'angle masqué ; le contour d'ORIGINE en tirets (« hd ») et le contour déformé
+     par-dessus ; les pastilles 1 à 4 HORS de la pièce, reliées à la face déformée par un pointillé « sl » qui s'arrête
+     au contour (rien ne traverse le dessin) ; l'axe de l'ancrage en repères courts hors de la pièce ; la barre de
+     couleur de 0 au MAXIMUM du maillage (sa valeur écrite ; 50, 100 et 105 % seulement s'ils sont sous le maximum et à
+     plus de ECART_GRADUATION × max de toute graduation gardée), graduée des deux côtés (N/mm² à gauche, % à droite) ;
+     les trois lignes « σ = … », « coin : sections 2 et 4 prolongées · pas un calcul par éléments finis » et
+     « déformée élastique · combinaison · u max = … mm · × amplification ».
   8. ÉLÉVATION : n ancrages aux positions z_i = e₁ + i·s du moteur à la hauteur Y, la chaîne de cotes e₁ · s · … · e₁,
      L, haut, larg ; N et V PAR ANCRAGE dans l'état limite saisi (« N ELS », « N ELU ») ; la charge de largeur a et le
      trapèze à 45° dont la base à la section 1 mesure L_eff ; sans a : « sur L » ; COUPURES sur L = 900 (la tranche
@@ -58,14 +65,16 @@ retire (§ 12, mutations).
      aux bornes imposées.
  12. MUTATIONS : le module rechargé depuis sa source, modifié d'UN trait (section 1 déplacée, B dessiné comme A,
      charge décalée, ancrages décalés sur l'élévation, data-sel oublié, diagramme porté dans l'angle, une courbe de
-     moment oubliée, enveloppe non remplie, enveloppe perdue, dégradé inversé, maille colorée par le plus petit taux,
-     maximum sur la mauvaise face, profondeur non dessinée, cote L prise sur la longueur dessinée, section 3 depuis la
-     mauvaise face en B, ancrage compté depuis l'angle), est rejeté par les contrôles de ce fichier ; un témoin
-     inoffensif ne l'est pas.
+     moment oubliée, enveloppe non remplie, enveloppe perdue, dégradé inversé, coin non maillé, barre sans les N/mm²,
+     maille colorée par le plus petit taux, maximum sur la mauvaise face, déformée non dessinée, barre jusqu'à 105 %
+     quel que soit le maillage, repère de section à travers le dessin, profondeur non dessinée, cote L prise sur la
+     longueur dessinée, section 3 depuis la mauvaise face en B, ancrage compté depuis l'angle), est rejeté par les
+     contrôles de ce fichier ; un témoin inoffensif ne l'est pas.
 
     /usr/bin/python3.12 tests/test_corniere_schemas.py
 """
 import io
+import math
 import os
 import re
 import sys
@@ -649,24 +658,56 @@ def fautes_contraintes(mod, res):
     attendu_n = sum((len(mz[a]["s"]) - 1) * (len(mz[a]["zeta"]) - 1) for a in ("horizontale", "verticale")) + (len(Zc) - 1) ** 2
     if len(mailles) != attendu_n:
         return [f"{len(mailles)} mailles au lieu de {attendu_n} (deux ailes et le coin)"]
-    # les mailles attendues : leurs quatre nœuds sur la vraie géométrie, leur couleur par le plus grand taux
+    # la DÉFORMÉE : les déplacements du moteur amplifiés pour que le plus grand fasse PART_DEFORMEE × haut (la règle de la
+    # scène, réécrite ici) ; l'aile horizontale suit (0, k), l'aile verticale (1, 0), le bloc translate de u_bloc
+    df = mz["deformee"]
+    amp = mod.PART_DEFORMEE * haut / df["u_max"] if df["u_max"] > 1e-12 else 0.0
+    dx_bloc = amp * df["u_bloc"]
+
+    def interp(xs, ys, x):
+        if x <= xs[0]:
+            return ys[0] if abs(x - xs[0]) < 1e-9 else 0.0
+        for i in range(1, len(xs)):
+            if x <= xs[i]:
+                a, b = xs[i - 1], xs[i]
+                return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - a) / (b - a)
+        return ys[-1]
+
+    def ih(x):
+        return amp * interp(df["horizontale"]["s"], df["horizontale"]["u"], x)
+
+    def iv(x):
+        return amp * interp(df["verticale"]["s"], df["verticale"]["u"], x)
+
+    def deplace(x, y):
+        ya = abs(y)
+        if x >= e and (x - e) >= (ya - e):
+            return (x + dx_bloc, y + k * ih(x))
+        if ya >= e:
+            return (x + iv(ya), y)
+        return (x + dx_bloc, y)
+
+    # les mailles attendues : leurs quatre nœuds sur la vraie géométrie DÉFORMÉE, leur couleur par le plus grand taux
     attendues = {}
     for aile in ("horizontale", "verticale"):
         ch = mz[aile]
-        S_, T_, Z_, TX = ch["s"], ch["t"], ch["zeta"], ch["taux"]
+        S_, T_, Z_, TX, U_ = ch["s"], ch["t"], ch["zeta"], ch["taux"], df[aile]["u"]
 
         def noeud(i, j):
             u = (Z_[j] + 1.0) / 2.0 * T_[i]
-            return (round(S_[i], 4), round(k * u, 4)) if aile == "horizontale" else (round(u, 4), round(k * S_[i], 4))
+            if aile == "horizontale":
+                return (round(S_[i] + dx_bloc, 4), round(k * u + k * amp * U_[i], 4))
+            return (round(u + amp * U_[i], 4), round(k * S_[i], 4))
 
         for i in range(len(S_) - 1):
             for j in range(len(Z_) - 1):
                 cle = frozenset([noeud(i, j), noeud(i + 1, j), noeud(i + 1, j + 1), noeud(i, j + 1)])
                 attendues[cle] = couleur_attendue(max(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1]))
-    # le coin (bloc d'angle e × e), maillé lui aussi : i suit x depuis le nu du support, j suit y depuis la face extérieure
+    # le coin (bloc d'angle e × e), maillé lui aussi : i suit x depuis le nu du support, j suit y depuis la face extérieure ;
+    # il translate avec le pied de l'aile verticale
     for i in range(len(Zc) - 1):
         for j in range(len(Zc) - 1):
-            xs = [round((Zc[i] + 1.0) / 2.0 * e, 4), round((Zc[i + 1] + 1.0) / 2.0 * e, 4)]
+            xs = [round((Zc[i] + 1.0) / 2.0 * e + dx_bloc, 4), round((Zc[i + 1] + 1.0) / 2.0 * e + dx_bloc, 4)]
             ys = [round(k * (Zc[j] + 1.0) / 2.0 * e, 4), round(k * (Zc[j + 1] + 1.0) / 2.0 * e, 4)]
             cle = frozenset([(xs[0], ys[0]), (xs[1], ys[0]), (xs[1], ys[1]), (xs[0], ys[1])])
             attendues[cle] = couleur_attendue(max(TXc[i][j], TXc[i + 1][j], TXc[i][j + 1], TXc[i + 1][j + 1]))
@@ -686,39 +727,96 @@ def fautes_contraintes(mod, res):
     fills = {(m.get("fill") or "").upper() for m in mailles}
     if couleur_attendue(t_max) not in fills:
         f.append(f"la couleur du taux max ({couleur_attendue(t_max)}) n'est portée par aucune maille")
-    # le maximum ◉ de chaque aile : à s de la vérification, sur la face ζ du maillage ; son étiquette
+    # le maximum ◉ de chaque aile : à s de la vérification, sur la face ζ du maillage DÉFORMÉ ; son étiquette
     gv = [(float(c.get("cx")), float(c.get("cy"))) for c in tous(root, "circle", "gv")]
     tx = " ".join(textes(root))
     for aile in ("horizontale", "verticale"):
         mx, z = res["maxima"][aile], mz[aile]["max"]["zeta"]
         u = (z + 1.0) / 2.0 * mx["t"]
-        att = (mx["s"], k * u) if aile == "horizontale" else (u, k * mx["s"])
+        att = (mx["s"] + dx_bloc, k * u + k * ih(mx["s"])) if aile == "horizontale" else (u + iv(mx["s"]), k * mx["s"])
         if not any(pres(a, att[0]) and pres(b, att[1]) for a, b in gv):
             f.append(f"{aile} : le ◉ n'est pas en {att} ({gv})")
         if f"{fr(100 * mx['taux'], 1)} % · s = {fr(mx['s'], 1)}" not in tx:
             f.append(f"{aile} : l'étiquette « {fr(100 * mx['taux'], 1)} % · s = {fr(mx['s'], 1)} » manque")
-    # plus de bloc d'angle masqué (fond gris, hachures) : le coin est maillé ; le contour, les pastilles, l'axe de
-    # l'ancrage, la barre et la mention
+    # plus de bloc d'angle masqué (fond gris, hachures) : le coin est maillé ; le contour d'origine en tirets (hd), le
+    # contour DÉFORMÉ par-dessus (ctr : chaque sommet déplacé comme la scène le fait, le plus grand déplacement =
+    # PART_DEFORMEE × haut), les pastilles hors du dessin reliées par un pointillé léger (sl) qui s'arrête à la face
+    # extérieure déformée (plus aucun trait de section « sc » à travers la pièce), l'axe de l'ancrage en repères courts
+    # hors de la pièce, la barre et les mentions
     if tous(root, "polygon", "bg") or tous(root, "path", "ht"):
         f.append("le bloc d'angle est encore masqué (fond ou hachures) au lieu d'être maillé")
+    hd_poly = [points_poly(q) for q in tous(root, "polygon", "hd")]
+    if not any(bbox(q) == (0.0, min(0.0, k * haut), larg, max(0.0, k * haut)) for q in hd_poly):
+        f.append("le contour d'origine (tirets) manque")
     ctr = tous(root, "polygon", "ctr")
-    if not ctr or not (pres(bbox(points_poly(ctr[0]))[2], larg) and pres(bbox(points_poly(ctr[0]))[3] - bbox(points_poly(ctr[0]))[1], haut)):
-        f.append("le contour de la cornière n'est pas tracé par-dessus")
-    nums = sorted(int("".join(t.itertext()).strip()) for grp in tous(root, "g", "scg") for t in tous(grp, "text"))
-    if nums != [1, 2, 3, 4]:
-        f.append(f"pastilles {nums}")
-    ax = {round(p[1], 6) for a in tous(root, "path", "ax") for p in points_d(a.get("d"))}
-    if ax != {round(k * Y, 6)}:
-        f.append(f"axe de l'ancrage à {sorted(ax)}")
+    if not ctr:
+        f.append("le contour déformé n'est pas tracé par-dessus")
+    else:
+        orig = next((q for q in hd_poly if bbox(q) == (0.0, min(0.0, k * haut), larg, max(0.0, k * haut))), None)
+        pc = points_poly(ctr[0])
+        if orig is None or len(pc) != len(orig):
+            f.append("le contour déformé n'a pas les sommets du contour d'origine")
+        else:
+            attendu_c = [deplace(x, y) for x, y in orig]
+            if any(abs(a[0] - b[0]) > 1e-3 or abs(a[1] - b[1]) > 1e-3 for a, b in zip(pc, attendu_c)):
+                f.append("le contour déformé n'est pas celui de la déformée du moteur")
+            # l'amplitude : chaque COMPOSANTE d'un déplacement dessiné est bornée par PART_DEFORMEE × haut (u_max est un maximum
+            # de composantes : u_h, u_v, u_bloc), et le contour bouge visiblement (au moins le tiers de cette borne)
+            comp = [max(abs(a[0] - b[0]), abs(a[1] - b[1])) for a, b in zip(pc, orig)]
+            if df["u_max"] > 1e-12 and (max(comp) > mod.PART_DEFORMEE * haut * (1 + 1e-6) or max(comp) < mod.PART_DEFORMEE * haut / 3.0):
+                f.append(f"le plus grand déplacement dessiné fait {max(comp):.3f} (borne {mod.PART_DEFORMEE * haut}, au moins le tiers attendu)")
+    if tous(root, "path", "sc"):
+        f.append("des traits de section traversent encore le dessin")
+    # les pastilles : un groupe « scg » translaté (transform), le cercle « scb » dedans ; son centre dans la scène = translation + (cx, cy)
+    centres, rayons = {}, {}
+    for grp in tous(root, "g", "scg"):
+        num = int("".join("".join(t.itertext()) for t in tous(grp, "text")).strip())
+        tr = re.search(r"translate\(\s*([-+0-9.eE]+)[ ,]+([-+0-9.eE]+)\s*\)", grp.get("transform") or "")
+        tx_, ty_ = (float(tr.group(1)), float(tr.group(2))) if tr else (0.0, 0.0)
+        c_ = tous(grp, "circle")[0]
+        centres[num] = (tx_ + float(c_.get("cx")), ty_ + float(c_.get("cy")))
+        rayons[num] = float(c_.get("r"))
+    if sorted(centres) != [1, 2, 3, 4]:
+        f.append(f"pastilles {sorted(centres)}")
+    else:
+        faces = {1: deplace(e + r, 0.0), 2: deplace(e, 0.0), 3: deplace(0.0, k * (e + r)), 4: deplace(0.0, k * e)}
+        sl = [points_d(q.get("d")) for q in tous(root, "path", "sl")]
+        for num, face in faces.items():
+            # le pointillé part de la face extérieure DÉFORMÉE et finit dans la pastille (à moins d'un rayon de son centre)
+            ok = any(len(seg) == 2 and ((pres(seg[0][0], face[0], 1e-3) and pres(seg[0][1], face[1], 1e-3) and math.hypot(seg[1][0] - centres[num][0], seg[1][1] - centres[num][1]) <= rayons[num])
+                                        or (pres(seg[1][0], face[0], 1e-3) and pres(seg[1][1], face[1], 1e-3) and math.hypot(seg[0][0] - centres[num][0], seg[0][1] - centres[num][1]) <= rayons[num]))
+                     for q in sl for seg in [q])
+            if not ok:
+                f.append(f"le renvoi pointillé de la section {num} ne va pas de la face extérieure déformée à la pastille")
+            # la pastille est hors de la pièce, cercle compris : sous la face extérieure (1, 2) ou côté support (3, 4)
+            if (num in (1, 2) and (centres[num][1] - face[1]) * (-k) < rayons[num]) or (num in (3, 4) and face[0] - centres[num][0] < rayons[num]):
+                f.append(f"la pastille {num} n'est pas hors du dessin")
+    ax = [points_d(a.get("d")) for a in tous(root, "path", "ax")]
+    ax_y = {round(p[1], 6) for q in ax for p in q}
+    if ax_y != {round(k * Y, 6)} or any(0.0 + 1e-9 < p[0] < e - 1e-9 for q in ax for p in q):
+        f.append(f"axe de l'ancrage à {sorted(ax_y)} ou tracé à travers la pièce")
+    # la barre de couleur : de 0 au MAXIMUM du maillage, graduée des deux côtés — la règle des graduations réécrite ici :
+    # 0 et le maximum toujours ; 50, 100 et 105 % quand ils sont sous le maximum et à plus de ECART_GRADUATION de toute
+    # graduation gardée
     barre = tous(root, "rect", "mz")
     s_lim = res["materiau"]["sigma_adm"]
-    gauche = [fr(0.5 * s_lim, 1), fr(s_lim, 1), fr(1.05 * s_lim, 1)]
-    if len(barre) < 20 or not all(t in textes(root) for t in ("0", "50", "100 %", "105 %")):
-        f.append(f"barre de couleur : {len(barre)} degrés, graduations {[t for t in ('0', '50', '100 %', '105 %') if t in textes(root)]}")
-    if not all(t in textes(root) for t in gauche) or "σéq N/mm²" not in textes(root):
+    t_haut = max(mz["horizontale"]["max"]["taux"], mz["verticale"]["max"]["taux"], max(max(l) for l in TXc), 0.05)
+    grads = [(0.0, "0"), (t_haut, f"{fr(100 * t_haut, 1)} %")]
+    for t_, txt in ((0.5, "50"), (1.0, "100 %"), (1.05, "105 %")):
+        if t_ < t_haut and all(abs(t_ - g) >= mod.ECART_GRADUATION * t_haut for g, _ in grads):
+            grads.append((t_, txt))
+    droite = [txt for _, txt in grads]
+    gauche = [fr(t_ * s_lim, 1) for t_, _ in grads if t_ > 0]
+    absents = [txt for txt in ("50", "100 %", "105 %") if txt not in droite]
+    T = textes(root)
+    if len(barre) < 20 or not all(t in T for t in droite) or any(t in T for t in absents):
+        f.append(f"barre de couleur : {len(barre)} degrés, graduations attendues {droite} (absentes : {absents}), lues {[t for t in T if '%' in t or t in ('0', '50')]}")
+    if not all(t in T for t in gauche) or "σéq N/mm²" not in T:
         f.append(f"barre de couleur : les N/mm² à gauche manquent ({gauche}, « σéq N/mm² »)")
     if "pas un calcul par éléments finis" not in tx or "coin : sections 2 et 4 prolongées" not in tx:
         f.append("la mention « coin : sections 2 et 4 prolongées · pas un calcul par éléments finis » manque")
+    if f"déformée élastique · {df['combinaison']['libelle']} · u max = {fr(df['u_max'], 2)} mm · × {fr(amp, 0)}" not in tx:
+        f.append("la mention de la déformée (combinaison, u max, amplification) manque")
     return f
 
 
@@ -931,8 +1029,9 @@ chk("la vue des moments ne porte aucun paragraphe : seuls les repères (M = 0, R
 print("\n=== 7. Les contraintes : le maillage de von Mises ===")
 for nom, r in RES.items():
     f = fautes_contraintes(SC, r)
-    chk(f"{nom} : 48 × 8 mailles par aile sur la vraie géométrie, chacune de la couleur du plus grand taux de ses nœuds, le ◉ de chaque aile, "
-        f"bloc d'angle, barre, mention", not f, f[:3])
+    chk(f"{nom} : 96 × 12 mailles par aile sur la vraie géométrie DÉFORMÉE (déplacements du moteur × amplification), 12 × 12 dans le coin "
+        f"translaté, chacune de la couleur du plus grand taux de ses nœuds, le ◉ de chaque aile déplacé, contour d'origine en tirets, pastilles "
+        f"hors de la pièce reliées par un pointillé, barre arrêtée au maximum, trois mentions", not f, f[:3])
 root_c = racine(SC.svg(SC.contraintes(r0, fs=5.0), "t"))
 fills_c = {(m.get("fill") or "").upper() for m in tous(root_c, "polygon", "mz")}
 chk("cas de contrôle (88,9 % en S3) : aucune maille de la bande 100–105 % ni rouge, des mailles froides (bleu, cyan, vert) aux bouts des ailes, "
@@ -961,16 +1060,34 @@ chk("l'échelle imposée aux bornes : 0 % → bleu #2563EB, 25 % → cyan #06B6D
 chk("les mailles portent leur couleur en attribut fill (lisible sans feuille de style, par le peintre PDF et en thème sombre)",
     all(re.fullmatch(r"#[0-9A-F]{6}", m.get("fill") or "") for m in tous(root_c, "polygon", "mz")))
 root_elu = racine(SC.svg(SC.contraintes(RES["ELU R = 60"], fs=5.0), "t"))
-chk("la barre de couleur : du bleu à l'orange jusqu'à 100 %, la bande 100–105 %, rouge au-dessus ; graduée en N/mm² à GAUCHE (0, 118,3, la limite "
-    "236,7, 248,5) et en % à droite ; son titre nomme la limite (σadm ; fy/γM0 et 355,0 à l'ELU)",
-    any(est_froid((b.get("fill") or "")) for b in tous(root_c, "rect", "mz")) and any(est_depasse((b.get("fill") or "")) for b in tous(root_c, "rect", "mz"))
-    and any((b.get("fill") or "").upper() == ROUGE for b in tous(root_c, "rect", "mz")) and "taux σéq / σadm" in textes(root_c)
-    and "σéq N/mm²" in textes(root_c) and all(t in textes(root_c) for t in ("0", "118,3", "236,7", "248,5", "50", "100 %", "105 %"))
-    and "taux σéq / fy/γM0" in textes(root_elu) and "355,0" in textes(root_elu) and "372,8" in textes(root_elu))
-chk("le coin est maillé : 64 mailles de la couleur du champ « coin » du moteur dans le carré e × e, plus de hachures ni de fond gris, la mention le dit",
-    not tous(root_c, "path", "ht") and not tous(root_c, "polygon", "bg")
-    and sum(1 for m in tous(root_c, "polygon", "mz") if all(0.0 - 1e-6 <= p[0] <= 15.0 + 1e-6 and -15.0 - 1e-6 <= p[1] <= 1e-6 for p in points_poly(m))
-            and bbox(points_poly(m))[2] - bbox(points_poly(m))[0] < 2.0) == 64
+rects_c = [(b.get("fill") or "").upper() for b in tous(root_c, "rect", "mz")]
+chk("la barre de couleur s'ARRÊTE au maximum du maillage (§ 9.9) : sur le cas de contrôle, 24 degrés de 0 à 90,2 %, du bleu au jaune, ni bande "
+    "100–105 % ni rouge puisque le maillage n'y va pas ; graduée en N/mm² à GAUCHE (0, 118,3 à 50 %, 213,4 au maximum — la limite 236,7 n'est "
+    "pas atteinte) et en % à droite (0, 50, 90,2 %, sans 100 ni 105 %) ; son titre nomme la limite (σadm ; fy/γM0 à l'ELU : 177,5 et 345,7 à "
+    "97,4 %, 355,0 hors de l'échelle)",
+    len(rects_c) == 24 and any(est_froid(c) for c in rects_c) and not any(est_depasse(c) for c in rects_c) and ROUGE not in rects_c
+    and "taux σéq / σadm" in textes(root_c) and "σéq N/mm²" in textes(root_c)
+    and all(t in textes(root_c) for t in ("0", "118,3", "213,4", "50", "90,2 %")) and not any(t in textes(root_c) for t in ("100 %", "105 %", "236,7"))
+    and "taux σéq / fy/γM0" in textes(root_elu) and all(t in textes(root_elu) for t in ("177,5", "345,7", "97,4 %")) and "355,0" not in textes(root_elu))
+root_144 = racine(SC.svg(SC.contraintes(r144, fs=5.0), "t"))
+rects_144 = [(b.get("fill") or "").upper() for b in tous(root_144, "rect", "mz")]
+chk("B chargée : la barre monte à 144,5 % (342,1 N/mm²), rouge en haut, froide en bas ; la limite 236,7 écrite face au repère 100 % ; 105 % tu, "
+    "trop près de 100 % (ECART_GRADUATION × max = 10 points)",
+    ROUGE in rects_144 and any(est_froid(c) for c in rects_144)
+    and all(t in textes(root_144) for t in ("342,1", "144,5 %", "236,7", "100 %", "118,3", "50")) and "105 %" not in textes(root_144))
+rects_102 = [(b.get("fill") or "").upper() for b in tous(racine(SC.svg(SC.contraintes(r102, fs=5.0), "t")), "rect", "mz")]
+chk("A à 102 % : la barre monte à 103,5 % et finit dans la bande orange → rouge-orangé ; 100 % tu (à 3,5 points du maximum)",
+    any(est_depasse(c) for c in rects_102) and ROUGE not in rects_102
+    and "103,5 %" in textes(racine(SC.svg(SC.contraintes(r102, fs=5.0), "t"))) and "100 %" not in textes(racine(SC.svg(SC.contraintes(r102, fs=5.0), "t"))))
+amp0 = SC.PART_DEFORMEE * r0["geometrie"]["haut"] / r0["maillage"]["deformee"]["u_max"]
+dxb0 = amp0 * r0["maillage"]["deformee"]["u_bloc"]
+chk("le coin est maillé : 144 mailles (12 × 12) de la couleur du champ « coin » du moteur dans le carré e × e TRANSLATÉ avec le bloc d'angle "
+    "(dx = amplification × u_bloc), plus de hachures ni de fond gris, la mention le dit",
+    not tous(root_c, "path", "ht") and not tous(root_c, "polygon", "bg") and abs(dxb0) > 0.1
+    and sum(1 for m in tous(root_c, "polygon", "mz") if all(dxb0 - 1e-3 <= p[0] <= dxb0 + 15.0 + 1e-3 and -15.0 - 1e-3 <= p[1] <= 1e-3 for p in points_poly(m))
+            and bbox(points_poly(m))[2] - bbox(points_poly(m))[0] < 2.0) == 144
+    and sum(1 for m in tous(root_c, "polygon", "mz") if all(-1e-3 <= p[0] <= 15.0 + 1e-3 and -15.0 - 1e-3 <= p[1] <= 1e-3 for p in points_poly(m))
+            and bbox(points_poly(m))[2] - bbox(points_poly(m))[0] < 2.0) < 144
     and "coin : sections 2 et 4 prolongées · pas un calcul par éléments finis" in textes(root_c))
 
 # ================================================================== 8. l'élévation
@@ -1061,7 +1178,7 @@ for nom in ("A historique avec jeux", "B Y = 85", "B chargée (144 %)"):
         c.save()
         doc = pymupdf.open(stream=buf.getvalue(), filetype="pdf")
         t1, t2 = doc[0].get_text(), doc[1].get_text()
-        attendus = ("R = 42,76 kN", "Mmax", "larg = 120", "105 %", "pas un calcul par éléments finis", "hef = 100")
+        attendus = ("R = 42,76 kN", "Mmax", "larg = 120", "u max", "pas un calcul par éléments finis", "hef = 100")
         chk(f"{nom} : les quatre vues se peignent par le peintre SVG (ndc_pdf) et par le peintre de scène (kit), et leurs textes s'y lisent",
             all(t in t1 for t in attendus) and all(t in t2 for t in attendus), [t for t in attendus if t not in t1 or t not in t2])
     except Exception as ex:  # noqa: BLE001 — un peintre qui plante est l'échec à montrer
@@ -1139,7 +1256,12 @@ MUTATIONS = [
     ("échelle de couleurs inversée", "return _lerp(c0, c1, (t - t0) / (t1 - t0))", "return _lerp(c1, c0, (t - t0) / (t1 - t0))"),
     ("coin non maillé", "    for i in range(len(Zc) - 1):\n        for j in range(len(Zc) - 1):\n            t = max(TXc[i][j]",
      "    for i in range(0):\n        for j in range(len(Zc) - 1):\n            t = max(TXc[i][j]"),
-    ("barre de couleur sans les N/mm² à gauche", "\"0\" if taux_ == 0 else _num(taux_ * s_lim, 1), 0.85 * fs, \"end\"))", "\"\", 0.85 * fs, \"end\"))"),
+    ("barre de couleur sans les N/mm² à gauche", "\"0\" if t_ == 0 else _num(t_ * s_lim, 1), 0.85 * fs, \"end\"))", "\"\", 0.85 * fs, \"end\"))"),
+    ("déformée non dessinée", "amp = PART_DEFORMEE * haut / df[\"u_max\"] if df[\"u_max\"] > 1e-12 else 0.0", "amp = 0.0"),
+    ("barre de couleur jusqu'à 105 % quel que soit le maillage",
+     "t_haut = max(mz[HORIZONTALE][\"max\"][\"taux\"], mz[VERTICALE][\"max\"][\"taux\"], max(max(l) for l in TXc), 0.05)", "t_haut = 1.2"),
+    ("repère de section à travers le dessin", "s.append(_path([\"sl\"], [[(px, py), (px, py - k * d_)]]))",
+     "s.append(_path([\"sl\"], [[(px, py + k * e), (px, py - k * d_)]]))"),
     ("maille colorée par le plus petit taux de ses nœuds", "t = max(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1])",
      "t = min(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1])"),
     ("maximum posé sur la mauvaise face", "u = (z + 1.0) / 2.0 * mx[\"t\"]", "u = (1.0 - z) / 2.0 * mx[\"t\"]"),

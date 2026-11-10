@@ -19,7 +19,8 @@ SANS l'écran du module : l'état de la note du site est construit par le moteur
   rondelles, Y ± dy, entraxe et e₁, support voile ou poutre avec ses distances aux bords) ; la PAGE 2 : le résumé de
   méthode (trois lignes), les trois vues et leur légende, les limites (entières ou abrégées), les références, un
   budget de caractères hors cartouche ; les MAILLES COLORÉES du champ de von Mises dans le PDF (pymupdf : les couleurs
-  de remplissage de la page 2 sont celles du dégradé du moteur, maille par maille ; sans pymupdf, le flux de contenu) ;
+  de remplissage de la page 2 sont celles du dégradé du moteur, maille par maille, le rouge franc présent si et seulement
+  si le maillage dépasse 105 % — la barre s'arrête au maximum du maillage ; sans pymupdf, le flux de contenu) ;
 - chaque FORMULE de la note (acier/corniere/formules.py) ré-évaluée deux fois, sur tous les blocs de tous les états —
   dont les gabarits de l'ELU (sigma_lim_ELU, tau_lim_ELU, N_ELU_direct, V_ELU_direct) ;
 - l'IDENTIFICATION : la note du site (chantier et nom PIÉGÉS — accents, guillemets, « & », tiret long —, indice « C »,
@@ -192,9 +193,15 @@ def couleurs_attendues(res):
     return out
 
 
+def taux_max_maillage(res):
+    """Le plus grand taux du maillage (les deux ailes et le coin) : la borne haute de la barre de couleur depuis § 9.9."""
+    mz = res["maillage"]
+    return max(max(max(l) for l in mz[cle]["taux"]) for cle in ("horizontale", "verticale", "coin"))
+
+
 def nb_mailles(res):
-    """Le nombre de mailles du champ de von Mises que le moteur donne (2 ailes × pas en s × niveaux ζ : 768 avec un congé,
-    576 sans — une saisie libre à r = 0 — plus les 64 du coin)."""
+    """Le nombre de mailles du champ de von Mises que le moteur donne (2 ailes × pas en s × niveaux ζ : 2 304 avec un congé
+    — 96 × 12 par aile —, 1 728 sans — une saisie libre à r = 0 — plus les 144 du coin)."""
     mz = res["maillage"]
     return sum((len(mz[a]["s"]) - 1) * (len(mz[a]["zeta"]) - 1) for a in ("horizontale", "verticale")) + (len(mz["coin"]["zeta"]) - 1) ** 2
 
@@ -360,18 +367,24 @@ def ecarts_parite(e, octets):
             out.append(f"« {nom} » p. 2 : trop de texte ({n_p2} caractères hors cartouche, budget {SEUIL_PAGE2})")
         # les mailles colorées du champ de von Mises, dans le PDF : les couleurs de l'échelle, maille par maille, le coin compris
         # (pymupdf : un chemin rempli par maille — au moins 90 % du compte du moteur, et au plus 3 % des couleurs attendues
-        # absentes ; rendu : au moins quarante couleurs froides — bleu, cyan, vert — et le rouge de la barre)
+        # absentes ; rendu : au moins quarante couleurs froides — bleu, cyan, vert) ; le ROUGE franc est là si et seulement
+        # si le maillage dépasse SEUIL_ORANGE (§ 9.9 : la barre s'arrête au maximum du maillage, elle n'apporte plus de rouge
+        # à un dessin qui n'en a pas)
         n_col, vues = fills_page(octets, i + 1)
         attendues = couleurs_attendues(res)
+        rouge_attendu = taux_max_maillage(res) > SC.SEUIL_ORANGE
+        rouge_vu = SC.ROUGE_TAUX.upper() in vues
         if n_col is not None:
             manquent = attendues - vues
-            if n_col < 0.9 * nb_mailles(res) or len(manquent) > 0.03 * len(attendues) or SC.ROUGE_TAUX.upper() not in vues:
+            if n_col < 0.9 * nb_mailles(res) or len(manquent) > 0.03 * len(attendues) or rouge_vu != rouge_attendu:
                 out.append(f"« {nom} » p. 2 : mailles colorées — {n_col} remplissages colorés pour {nb_mailles(res)} mailles, {len(manquent)}/{len(attendues)} "
-                           f"couleurs de l'échelle absentes, rouge {SC.ROUGE_TAUX} {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
+                           f"couleurs de l'échelle absentes, rouge {SC.ROUGE_TAUX} {'présent' if rouge_vu else 'absent'} (attendu : "
+                           f"{'présent' if rouge_attendu else 'absent'}, maillage à {100 * taux_max_maillage(res):.1f} %)")
         else:
             froides = [h for h in vues if _colore(h) and int(h[5:7], 16) > int(h[1:3], 16)]
-            if len(froides) < 40 or SC.ROUGE_TAUX.upper() not in vues:
-                out.append(f"« {nom} » p. 2 : mailles colorées (rendu) — {len(froides)} couleurs froides distinctes, rouge {'présent' if SC.ROUGE_TAUX.upper() in vues else 'absent'}")
+            if len(froides) < 40 or rouge_vu != rouge_attendu:
+                out.append(f"« {nom} » p. 2 : mailles colorées (rendu) — {len(froides)} couleurs froides distinctes, rouge {'présent' if rouge_vu else 'absent'} "
+                           f"(attendu : {'présent' if rouge_attendu else 'absent'})")
     if len(tx) != attendu_pages:
         out.append(f"{len(tx)} pages pour {attendu_pages} attendues (garde + pages de chaque cornière)")
     # le sommaire de la garde : les pages annoncées sont celles où chaque cornière commence

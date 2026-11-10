@@ -467,8 +467,8 @@ def champ_coin(r, aile, u):
 
 
 def u_coin(r, k):
-    """La fibre u du niveau ζ_k du coin : de la face extérieure (0) au nu de l'autre aile (e)."""
-    return (-1 + 0.25 * k + 1) / 2 * r["section"]["e"]
+    """La fibre u du niveau ζ_k du coin (13 niveaux) : de la face extérieure (0) au nu de l'autre aile (e)."""
+    return (-1 + k / 6.0 + 1) / 2 * r["section"]["e"]
 
 
 def coin_attendu(r, i, j):
@@ -935,6 +935,80 @@ chk("support poutre : refus — trou au-delà du bord supérieur (A), bout libre
     not refus_poutre, refus_poutre)
 
 
+def fautes_deformee(r):
+    """La déformée élastique ``r["maillage"]["deformee"]`` recalculée ici : κ = −M/(E·I(s)) de la combinaison gouvernante
+    (M_attendu, I = b·t(s)³/12, E = 210 000 N/mm²), intégrée deux fois (trapèzes sur les abscisses du maillage), l'aile
+    verticale nulle au pivot (e/2 en historique, y_c en équilibre) ou au contact (B) ET à l'ancrage Y′, le bloc d'angle
+    rigide (θ = u′(e)), l'aile horizontale en console tournée de −θ puis fléchie ; u_max ; le bout de l'aile horizontale
+    descend (A : vers la face extérieure, u < 0 ; B : vers la face du congé, u > 0)."""
+    df = r["maillage"]["deformee"]
+    cb = df["combinaison"]
+    c, sec, e, r_ = r["corniere"], r["section"], r["section"]["e"], r["section"]["r"]
+    f = []
+    if cb != r["gouvernant"]["combinaison"]:
+        f.append("la combinaison de la déformée n'est pas la gouvernante")
+
+    def kappa(aile, x):
+        Mi, _, _, Lw = efforts_attendus(r, cb, aile, x)
+        t = e + r_ - math.sqrt(max(r_ * r_ - (e + r_ - x) ** 2, 0.0)) if x < e + r_ else e
+        return -Mi * 1e3 / (210000.0 * Lw * t ** 3 / 12)
+
+    def integ(aile, xs):
+        ks = [kappa(aile, x) for x in xs]
+        p, dp = [0.0], [0.0]
+        for i in range(1, len(xs)):
+            h = xs[i] - xs[i - 1]
+            dp.append(dp[-1] + 0.5 * (ks[i - 1] + ks[i]) * h)
+            p.append(p[-1] + 0.5 * (dp[-2] + dp[-1]) * h)
+        return p
+
+    def interp(xs, ys, x):
+        if x <= xs[0]:
+            return 0.0
+        for i in range(1, len(xs)):
+            if x <= xs[i]:
+                a, b = xs[i - 1], xs[i]
+                return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - a) / (b - a)
+        return ys[-1]
+
+    xv, xh = df["verticale"]["s"], df["horizontale"]["s"]
+    if xv != r["maillage"]["verticale"]["s"] or xh != r["maillage"]["horizontale"]["s"]:
+        f.append("les abscisses de la déformée ne sont pas celles du maillage")
+    pv, ph = integ("verticale", xv), integ("horizontale", xh)
+    if r["configuration"] == "B":
+        s1, nom1 = sec["haut"] - c["yc"], "contact"
+    elif r["mode"] == "historique":
+        s1, nom1 = e / 2, "pivot"
+    else:
+        s1, nom1 = c["yc"], "pivot"
+    s2 = cb["Y"]
+    p1, p2 = interp(xv, pv, s1), interp(xv, pv, s2)
+    theta = -(p2 - p1) / (s2 - s1)
+    u0 = -p1 - theta * (s1 - e)
+    uv = [u0 + theta * (x - e) + q for x, q in zip(xv, pv)]
+    uh = [-theta * (x - e) + q for x, q in zip(xh, ph)]
+    umax = max(abs(x) for x in uv + uh + [u0])
+    tol = 1e-9 * max(1.0, umax)
+    if [a["nom"] for a in df["appuis"]] != [nom1, "ancrage"] or abs(df["appuis"][0]["s"] - s1) > 1e-9 or abs(df["appuis"][1]["s"] - s2) > 1e-9:
+        f.append(f"appuis {df['appuis']} ≠ {nom1} {s1}, ancrage {s2}")
+    if abs(df["theta"] - theta) > 1e-12 * max(1.0, abs(theta)) or abs(df["u_bloc"] - u0) > tol:
+        f.append(f"θ {df['theta']} ≠ {theta} ou u_bloc {df['u_bloc']} ≠ {u0}")
+    if any(abs(a - b) > tol for a, b in zip(df["verticale"]["u"], uv)) or len(df["verticale"]["u"]) != len(uv):
+        f.append("u de l'aile verticale ≠ recalcul")
+    if any(abs(a - b) > tol for a, b in zip(df["horizontale"]["u"], uh)) or len(df["horizontale"]["u"]) != len(uh):
+        f.append("u de l'aile horizontale ≠ recalcul")
+    if abs(df["u_max"] - umax) > tol or df["E"] != 210000.0:
+        f.append(f"u_max {df['u_max']} ≠ {umax}")
+    if abs(interp(xv, df["verticale"]["u"], s2)) > tol or abs(interp(xv, df["verticale"]["u"], s1)) > tol:
+        f.append("la déformée n'est pas nulle à l'ancrage ou au pivot/contact")
+    if abs(df["horizontale"]["u"][0]) > 1e-12:
+        f.append("l'aile horizontale ne part pas de 0 au nu du bloc")
+    bout = df["horizontale"]["u"][-1]
+    if (r["configuration"] == "A" and bout >= 0) or (r["configuration"] == "B" and bout <= 0):
+        f.append(f"le bout de l'aile horizontale ne descend pas ({bout})")
+    return f
+
+
 def fautes_maillage(r):
     """Le champ de von Mises ``r["maillage"]`` face aux vérifications : à chaque s, max_ζ σ_vm = |M|/W + |N|/A — donc aux
     sections S1 à S4 le taux du maillage est celui de la vérification ; le maximum du maillage ne dépasse jamais le
@@ -942,7 +1016,7 @@ def fautes_maillage(r):
     f = []
     for aile in ("horizontale", "verticale"):
         ch = r["maillage"][aile]
-        if ch["zeta"] != [-1.0 + 0.25 * i for i in range(9)] or len(ch["s"]) != len(ch["taux"]) or any(len(l) != 9 for l in ch["taux"]):
+        if ch["zeta"] != [-1.0 + i / 6.0 for i in range(13)] or len(ch["s"]) != len(ch["taux"]) or any(len(l) != 13 for l in ch["taux"]):
             f.append(f"{aile} : forme {len(ch['s'])} × {len(ch['zeta'])}")
         for v in r["verifications"]:
             if v["aile"] != aile or not v["cle"].startswith("S"):
@@ -957,10 +1031,10 @@ def fautes_maillage(r):
             f.append(f"{aile} : le maximum annoncé n'est pas celui des mailles")
     # le coin (bloc d'angle) : 9 × 9, chaque maille = le plus grand des deux champs prolongés, recalculé ici
     coin = r["maillage"].get("coin")
-    if not coin or coin["zeta"] != [-1.0 + 0.25 * i for i in range(9)] or len(coin["taux"]) != 9 or any(len(l) != 9 for l in coin["taux"]):
-        f.append("coin : absent ou pas 9 × 9")
+    if not coin or coin["zeta"] != [-1.0 + i / 6.0 for i in range(13)] or len(coin["taux"]) != 13 or any(len(l) != 13 for l in coin["taux"]):
+        f.append("coin : absent ou pas 13 × 13")
     else:
-        ecarts = [(i, j, coin["sigma_eq"][i][j], coin_attendu(r, i, j)) for i in range(9) for j in range(9)
+        ecarts = [(i, j, coin["sigma_eq"][i][j], coin_attendu(r, i, j)) for i in range(13) for j in range(13)
                   if not pres(coin["sigma_eq"][i][j], coin_attendu(r, i, j), 1e-9)
                   or not pres(coin["taux"][i][j], coin["sigma_eq"][i][j] / r["materiau"]["sigma_adm"], 1e-9)]
         if ecarts:
@@ -968,10 +1042,10 @@ def fautes_maillage(r):
     return f
 
 
-chk("maillage (A historique) : 49 × 9 mailles par aile, aux sections S1 à S4 le taux du maillage = la vérification à 1e-9, le maximum ≤ celui "
-    "du congé (section dorée) et à moins de 1 % ; le COIN 9 × 9 = le plus grand des deux champs prolongés (sections 2 et 4, fibre de même "
-    "distance à la face extérieure) recalculé ici ; idem A équilibre, B, avec jeux", not (fautes_maillage(R0) + fautes_maillage(M.verifier(dict(CAS, mode="equilibre")))
-    + fautes_maillage(B) + fautes_maillage(M.verifier(dict(CAS, dx=20.0, dy=10.0)))),
+chk("maillage (A historique) : 97 × 13 mailles par aile (le congé en 24 pas, la partie droite en 72, 13 niveaux ζ), aux sections S1 à S4 le taux du "
+    "maillage = la vérification à 1e-9, le maximum ≤ celui du congé (section dorée) et à moins de 1 % ; le COIN 13 × 13 = le plus grand des deux "
+    "champs prolongés (sections 2 et 4, fibre de même distance à la face extérieure) recalculé ici ; idem A équilibre, B, avec jeux",
+    not (fautes_maillage(R0) + fautes_maillage(M.verifier(dict(CAS, mode="equilibre"))) + fautes_maillage(B) + fautes_maillage(M.verifier(dict(CAS, dx=20.0, dy=10.0)))),
     fautes_maillage(R0) + fautes_maillage(B))
 chk("coin du cas de contrôle : au talon (u = 0 des deux ailes) la maille vaut la section 4 prolongée (M4 > M2 : l'aile verticale l'emporte) ; "
     "la plus chargée du coin reste sous le maximum du congé ; aucune maille du coin au-dessous du champ de l'une ou l'autre aile",
@@ -979,7 +1053,20 @@ chk("coin du cas de contrôle : au talon (u = 0 des deux ailes) la maille vaut l
     and champ_coin(R0, "verticale", 0.0) > champ_coin(R0, "horizontale", 0.0)
     and max(max(l) for l in R0["maillage"]["coin"]["taux"]) < R0["maxima"]["verticale"]["taux"]
     and all(R0["maillage"]["coin"]["sigma_eq"][i][j] >= max(champ_coin(R0, "horizontale", u_coin(R0, j)), champ_coin(R0, "verticale", u_coin(R0, i))) - 1e-9
-            for i in range(9) for j in range(9)))
+            for i in range(13) for j in range(13)))
+fdef = {lib: fautes_deformee(r) for lib, r in (("A historique", R0), ("A équilibre", M.verifier(dict(CAS, mode="equilibre"))), ("B", B),
+                                                ("A équilibre y_c = 7,5, u_V = 0", M.verifier(dict(CAS, mode="equilibre", yc=7.5, uV=0.0))),
+                                                ("jeux 20/10", M.verifier(dict(CAS, dx=20.0, dy=10.0))), ("B c = 10", M.verifier(dict(CAS, configuration="B", yc=10.0))))}
+chk("déformée (maillage[\"deformee\"]) : la poutre élastique recalculée ici — κ = −M/(E·I(s)) de la combinaison gouvernante, deux intégrations, l'aile "
+    "verticale nulle au pivot (e/2 ; y_c) ou au contact (B) et à l'ancrage, le bloc rigide (θ), l'aile horizontale en console tournée de −θ — à 1e-9 ; "
+    "u_max ; le bout de l'aile horizontale descend (A : u < 0, B : u > 0) — A historique, A équilibre (y_c = 0 et 7,5), B (c = 0 et 10), jeux 20/10",
+    not any(fdef.values()), {k: v[:2] for k, v in fdef.items() if v})
+DF0 = R0["maillage"]["deformee"]
+chk("cas de contrôle (sans jeu) : u_max = 0,62 mm au bout de l'aile horizontale (vers le bas, la face extérieure), θ = 2,9 mrad, le bombement de "
+    "l'aile verticale 0,08 mm (sous 0,1), appuis pivot e/2 = 7,5 et ancrage Y = 85",
+    dec(DF0["u_max"], 0.62, 2) and DF0["horizontale"]["u"][-1] < 0 and abs(DF0["horizontale"]["u"][-1]) == DF0["u_max"] and dec(1e3 * DF0["theta"], 2.9, 1)
+    and 0.05 < max(abs(x) for x in DF0["verticale"]["u"]) < 0.1 and DF0["appuis"] == [{"nom": "pivot", "s": 7.5}, {"nom": "ancrage", "s": 85.0}],
+    (DF0["u_max"], DF0["theta"], DF0["appuis"]))
 MJ0, MJ1 = R0["maillage"]["verticale"], M.verifier(dict(CAS, dx=20.0, dy=10.0))["maillage"]["verticale"]
 chk("maillage : l'enveloppe ne baisse nulle part quand les jeux croissent (cas de contrôle → dx = 20, dy = 10, mêmes abscisses) ; "
     "sans jeu, la maille (s, ζ = ±1) vaut la contrainte de la combinaison unique : ζ = +1 sur la face du congé tendue en A (M > 0)",
@@ -1202,6 +1289,7 @@ def rejets(mod):
                 and dec(u["ancrages"]["N_ELU"], 21.38, 2)):
             out.append("ELU")
         out += [f"maillage : {x}" for x in fautes_maillage(r0)[:1] + fautes_maillage(b)[:1] + fautes_maillage(j)[:1]]
+        out += [f"déformée : {x}" for x in fautes_deformee(r0)[:1] + fautes_deformee(b)[:1] + fautes_deformee(p0)[:1]]
         out += [f"ancrages : {x}" for x in fautes_ancrages(mod)[:1]]
         try:
             mod.verifier(dict(CAS, configuration="B", support="poutre", support_bas=100.0))
@@ -1266,6 +1354,10 @@ MUTATIONS = (
      [("moteur", "seq = [[max(sh[j], sv[i]) for j in range(len(ZETA))] for i in range(len(ZETA))]", "seq = [[sh[j] for j in range(len(ZETA))] for i in range(len(ZETA))]")]),
     ("coin : la fibre du coin prise au même ζ que la section au nu (et non à la même distance de la face extérieure)",
      [("moteur", "        zp = 2.0 * u / t_e - 1.0\n", "        zp = 2.0 * u / e - 1.0\n")]),
+    ("déformée : la courbure du signe de M (la face tendue prise pour la comprimée)", [("moteur", "        return -M / (E_ACIER * inertie)", "        return M / (E_ACIER * inertie)")]),
+    ("déformée : le bloc d'angle ne tourne pas (l'aile horizontale sans −θ)",
+     [("moteur", "    u_h = [-theta * (s - e) + ph for s, ph in zip(absc_h, p_h)]", "    u_h = [ph for s, ph in zip(absc_h, p_h)]")]),
+    ("déformée : le pivot pris au talon (0) et non à e/2 en historique", [("moteur", '        s1, appui1 = e / 2.0, "pivot"', '        s1, appui1 = 0.0, "pivot"')]),
     ("diagrammes : l'aile verticale par position de la charge (un seul zéro)",
      [("moteur", 'cle_p, cle_autre = ("jeu_charge", "jeu_ancrage") if horiz else ("jeu_ancrage", "jeu_charge")', 'cle_p, cle_autre = ("jeu_charge", "jeu_ancrage")')]),
     ("entraxe : le minimum 2,2·d0 oublié", [("entree", "_exiger(s_ancr >= ENTRAXE_MIN * trou,", "_exiger(True or s_ancr >= ENTRAXE_MIN * trou,")]),
@@ -1290,7 +1382,7 @@ for nom, muts in MUTATIONS:
         survivants.append(nom)
 chk(f"{len(MUTATIONS)} mutations volontaires (une par formule clé : ρ₃, pivot, N en B, nette, L_eff, dx, M_angle, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, "
     f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact, texte au point, arrachement en B, "
-    f"limite ELU, maillage τ, maillage enveloppe, coin à un seul champ, fibre du coin, courbes de l'ancrage, entraxe minimal, contact hors poutre) : TOUTES rejetées "
+    f"limite ELU, maillage τ, maillage enveloppe, coin à un seul champ, fibre du coin, déformée (signe, rotation du bloc, pivot), courbes de l'ancrage, entraxe minimal, contact hors poutre) : TOUTES rejetées "
     f"(de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
 chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(charger_mutant(TEMOIN[1])))
 chk("après les mutations, le moteur chargé est intact (mêmes résultats)", M.verifier(CAS) == R0 and M.candidats(CAS) == CANDS)

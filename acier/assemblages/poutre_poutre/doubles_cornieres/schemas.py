@@ -999,6 +999,9 @@ def style_de(cls, ctx, p=None):
     elif "hd" in c:
         # arête cachée (semelle au-dessus du plan de coupe) : interrompu fin
         st.update(stroke=p["hatch"], sw=0.6, dash=(4, 2.5))
+    elif "sl" in c:
+        # renvoi léger d'un repère de section : pointillé fin, gris, qui s'arrête au contour de la pièce (cornière § 9.9)
+        st.update(stroke=p["muted"], sw=0.45, dash=(1.2, 1.8))
     elif "wsy" in c:
         # symbole de soudure : flèche et ligne de référence
         st.update(stroke=p["weld2"], sw=0.9)
@@ -1252,6 +1255,7 @@ def _css(p, pre):
         f"#{pre} .ax{{stroke:{ink};stroke-width:.5;stroke-dasharray:8 2.5 2 2.5;fill:none}}"
         f"#{pre} .ax.hot{{stroke:{ko};stroke-width:2.2}}"
         f"#{pre} .hd{{stroke:{p['hatch']};stroke-width:.6;stroke-dasharray:4 2.5;fill:none}}"
+        f"#{pre} .sl{{stroke:{p['muted']};stroke-width:.45;stroke-dasharray:1.2 1.8;fill:none}}"
         f"#{pre} .wsy{{stroke:{p['weld2']};stroke-width:.9;fill:none}}"
         f"#{pre} .wst{{fill:{p['weld']};stroke:{p['weld2']};stroke-width:.8}}"
         f"#{pre} .we{{stroke:{p['weld']};stroke-width:5;fill:none}}"

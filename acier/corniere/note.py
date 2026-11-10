@@ -32,8 +32,9 @@ plus (``methode.resume`` : le modèle et l'état limite, le mode et la configura
 trois colonnes égales, chacune un titre court, la vue aussi grande que la colonne le permet (à l'échelle, le texte des
 dessins à ``TEXTE_DESSIN`` pt par ``schemas.ajuster``) et une légende courte qui dit l'état limite — à gauche LARGEUR
 EFFICACE ET ÉLÉVATION (scène ``elevation``), au centre MOMENTS SUR LA CORNIÈRE (``moments``), à droite CONTRAINTES DE
-VON MISES (``contraintes``, le maillage coloré par le taux — le coin compris — avec sa barre de couleur graduée en N/mm²
-et en %, l'échelle bleu → orange → rouge rendue telle quelle par le peintre du kit) ; sous la rangée, les LIMITES (les
+VON MISES (``contraintes``, le maillage coloré par le taux — le coin compris — dessiné sur la DÉFORMÉE élastique amplifiée,
+le contour d'origine en tirets, avec sa barre de couleur arrêtée au maximum du maillage et graduée en N/mm² et en %,
+l'échelle bleu → orange → rouge rendue telle quelle par le peintre du kit) ; sous la rangée, les LIMITES (les
 avertissements du moteur, trois lignes au plus,
 abrégés si besoin : ``abreger``), la ligne des RÉFÉRENCES, le cartouche. Cette page ne passe JAMAIS en page de suite :
 ce qui se réduit quand la place manque, c'est la taille des légendes et des textes, pas le dessin.
@@ -409,9 +410,12 @@ class Calcul:
                     f"l'ancrage $Y$ ± {_mm(g['dy'])} (aile verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à $M_{{max}}$, "
                     f"$M_1$ à $M_4$ · {signe}")
         sym = "$σ_{adm}$" if etat == E.ELS else "$f_y$/$γ_{M0}$"
+        df = res["maillage"]["deformee"] if res.get("maillage") else None
+        deformee = (f" · déformée élastique de la combinaison gouvernante, $u_{{max}}$ = {_fmt(df['u_max'], 2)} mm amplifié (facteur écrit), "
+                    f"contour d'origine en tirets" if df else "")
         return (f"{etat} · $σ_{{eq}}$ par maille, enveloppe des positions, limite {sym} = {_fmt(mat['sigma_adm'])} N/mm² (100 %) · ◉ le maximum de "
-                f"chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 % · le coin par les sections 2 et 4 prolongées · "
-                f"contraintes de poutre σ = M·ζ/W + N/A, τ = V/A — pas un calcul par éléments finis")
+                f"chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · le coin par les "
+                f"sections 2 et 4 prolongées{deformee} · contraintes de poutre σ = M·ζ/W + N/A, τ = V/A — pas un calcul par éléments finis")
 
 
 # ------------------------------------------------------------------ page 1 · calcul

@@ -83,9 +83,10 @@ SORTIE de calculer / verifier
                   l'aile va vers l'angle), "compression_mur" (kN, A : résultante à y_c),
                   "pression_support" (N/mm, B), "methode": "historique"|"equilibre"},
      "diagrammes": {"horizontale": <diagramme>, "verticale": <diagramme>} (None quand diagrammes=False),
-     "maillage": {"horizontale": <champ>, "verticale": <champ>, "coin": <coin>} (None quand diagrammes=False) — § 9.6 :
-                  <champ> = {"aile", "s": [du nu e à la fin : le congé en 12 pas, la partie droite en 36], "t": [t(s)],
-                  "zeta": [−1 … +1 en 9 niveaux ; −1 = face extérieure, +1 = face du congé], "sigma_eq": [[σ_vm(s, ζ) par ζ] par s],
+     "maillage": {"horizontale": <champ>, "verticale": <champ>, "coin": <coin>, "deformee": <deformee>} (None quand
+                  diagrammes=False) — § 9.6 :
+                  <champ> = {"aile", "s": [du nu e à la fin : le congé en 24 pas, la partie droite en 72], "t": [t(s)],
+                  "zeta": [−1 … +1 en 13 niveaux ; −1 = face extérieure, +1 = face du congé], "sigma_eq": [[σ_vm(s, ζ) par ζ] par s],
                   "taux": [[σ_vm/σ_lim]], "max": {"s", "zeta", "sigma_eq", "taux"}} ; pour chaque combinaison k :
                   σ_x = (M_k·ζ)/W + N_k/A (M signé), τ = |V_k|/A uniforme (le classeur), σ_vm,k = √(σ_x² + 3τ²) ; la maille
                   garde max_k (aucun mélange de positions) ; max_ζ σ_vm(s, ζ) = |M|/W + |N|/A = la vérification de la coupe ;
@@ -94,7 +95,12 @@ SORTIE de calculer / verifier
                   l'aile horizontale, fonction de ζ_h) et la section 4 (s = e de l'aile verticale, fonction de ζ_v), chaque
                   fibre du coin prenant la contrainte de la fibre de même distance à la face extérieure dans la section au nu
                   (épaisseur e + r) : jamais moins que l'une ou l'autre (demande de l'ingénieur du 10/11 au soir : « le
-                  maillage partout »),
+                  maillage partout ») ;
+                  <deformee> = {"combinaison" (la gouvernante), "E" (210 000), "theta" (rad, la rotation du bloc d'angle), "u_bloc"
+                  (mm), "appuis": [{"nom": "pivot"|"contact", "s"}, {"nom": "ancrage", "s"}], "horizontale": {"s", "u": [mm, > 0 vers
+                  la face du congé]}, "verticale": {"s", "u"}, "u_max" (mm), "modele"} : la déformée ÉLASTIQUE du modèle de poutre
+                  (κ = −M/(E·I(s)), I = b·t(s)³/12, l'aile verticale posée sur le pivot ou le contact et sur l'ancrage, l'aile
+                  horizontale en console depuis le bloc rigide), des déplacements réels — la scène les amplifie et le dit (§ 9.9),
      "maxima": {"horizontale": <verification max_h>, "verticale": <verification max_v>},
      "comparaison": {"mode", "taux_max", "gouvernant": {"cle", "nom"}} — l'autre mode, en A ; None en B,
      "garde": {"taux_historique", "taux_equilibre_P1", "depasse", "yc", "uV"} — mode historique ; None sinon,
@@ -431,8 +437,9 @@ def _diagramme(ctx: Dict, aile: str, verifs: List[Dict]) -> Dict:
 
 
 # ------------------------------------------------------------------ le champ de contraintes (§ 9.6)
-PAS_MAILLAGE = (12, 36)                 # mailles dans le congé, puis dans la partie droite
-ZETA = tuple(-1.0 + 0.25 * i for i in range(9))   # la position dans l'épaisseur : −1 face extérieure, +1 face du congé
+PAS_MAILLAGE = (24, 72)                 # mailles dans le congé, puis dans la partie droite (§ 9.9 : un maillage plus fin)
+ZETA = tuple(-1.0 + i / 6.0 for i in range(13))   # la position dans l'épaisseur : −1 face extérieure, +1 face du congé (13 niveaux)
+E_ACIER = 210000.0                      # N/mm², le module de l'acier (EN 1993-1-1 § 3.2.6) — pour la déformée seulement
 
 
 def _maillage(ctx: Dict, aile: str) -> Dict:
@@ -497,9 +504,71 @@ def _maillage_coin(ctx: Dict) -> Dict:
             "modele": "sections 2 et 4 prolongées (fibre de même distance à la face extérieure), enveloppe des deux ailes"}
 
 
-def _maillages(ctx: Dict) -> Dict:
-    """Les trois champs : une aile, l'autre, le coin."""
-    return {HORIZONTALE: _maillage(ctx, HORIZONTALE), VERTICALE: _maillage(ctx, VERTICALE), "coin": _maillage_coin(ctx)}
+def _deformee(ctx: Dict, cb_gov: Dict, absc_h: List[float], absc_v: List[float]) -> Dict:
+    """La DÉFORMÉE élastique du modèle de poutre, pour la combinaison gouvernante (demande de l'ingénieur du 10/11 au
+    soir : « le maillage déformé ») : sur chaque aile la courbure κ(s) = −M(s)/(E·I(s)) avec E = 210 000 N/mm² et
+    I(s) = b·t(s)³/12 (la largeur b du modèle de contrainte, l'épaisseur t(s) du congé comprise), u positif vers la
+    face du congé ; intégrée deux fois depuis le nu de l'angle (s = e). L'aile VERTICALE est posée sur ses deux
+    appuis — le pivot (historique : e/2 ; équilibre : y_c) ou le contact du bout libre (B), et l'ancrage Y′ — : u = 0
+    aux deux ; le bloc d'angle est rigide (u linéaire sous s = e), sa rotation θ = u′(e). L'aile HORIZONTALE est une
+    console depuis le bloc : u(e) = 0, u′(e) = −θ (la rotation du bloc, qui penche le bout de l'aile vers le bas dans
+    les deux configurations), puis sa propre flexion. Déplacements RÉELS en mm (la scène les amplifie et dit de
+    combien) ; au-delà de l'ancrage ou du contact M = 0 : l'aile reste droite. Ce n'est pas un calcul par éléments
+    finis : une déformée de poutre, cohérente avec les moments dessinés."""
+    e, r = ctx["e"], ctx["r"]
+    k = next(i for i, cb in enumerate(ctx["combos"]) if cb["jeu_charge"] == cb_gov["jeu_charge"] and cb["jeu_ancrage"] == cb_gov["jeu_ancrage"])
+    st = ctx["stats"][k]
+
+    def courbure(aile: str, s: float) -> float:
+        M = S.efforts(st, aile, s)[0] * 1e3                      # N·mm, > 0 : face du congé tendue
+        t = S.t_conge(s, e, r)
+        inertie = ctx["largeur"](aile, st) * t ** 3 / 12.0
+        return -M / (E_ACIER * inertie)
+
+    def integrer(aile: str, absc: List[float]) -> Tuple[List[float], List[float]]:
+        """p(s) = ∬ κ depuis s = e (p(e) = p′(e) = 0), trapèzes sur les abscisses du maillage."""
+        kap = [courbure(aile, s) for s in absc]
+        p, dp = [0.0], [0.0]
+        for i in range(1, len(absc)):
+            h = absc[i] - absc[i - 1]
+            dp.append(dp[-1] + 0.5 * (kap[i - 1] + kap[i]) * h)
+            p.append(p[-1] + 0.5 * (dp[-2] + dp[-1]) * h)
+        return p, dp
+
+    def valeur(absc: List[float], p: List[float], s: float) -> float:
+        """p interpolé linéairement en s (0 sous s = e : le bloc rigide n'a pas de courbure)."""
+        if s <= absc[0]:
+            return 0.0
+        for i in range(1, len(absc)):
+            if s <= absc[i]:
+                a, b = absc[i - 1], absc[i]
+                return p[i - 1] + (p[i] - p[i - 1]) * (s - a) / (b - a) if b > a else p[i]
+        return p[-1] + (p[-1] - p[-2]) * (s - absc[-1]) / (absc[-1] - absc[-2])
+
+    p_v, _ = integrer(VERTICALE, absc_v)
+    if ctx["cfg"] == "B":
+        s1, appui1 = st["s_contact"], "contact"
+    elif ctx["mode"] == HISTORIQUE:
+        s1, appui1 = e / 2.0, "pivot"
+    else:
+        s1, appui1 = ctx["c"]["yc"], "pivot"
+    s2 = st["Yp"]
+    p1, p2 = valeur(absc_v, p_v, s1), valeur(absc_v, p_v, s2)
+    theta = -(p2 - p1) / (s2 - s1)                               # u′(e) : la rotation du bloc d'angle
+    u_bloc = -p1 - theta * (s1 - e)                              # u(e)
+    u_v = [u_bloc + theta * (s - e) + pv for s, pv in zip(absc_v, p_v)]
+    p_h, _ = integrer(HORIZONTALE, absc_h)
+    u_h = [-theta * (s - e) + ph for s, ph in zip(absc_h, p_h)]
+    u_max = max([abs(x) for x in u_v] + [abs(x) for x in u_h] + [abs(u_bloc)])
+    return {"combinaison": cb_gov, "E": E_ACIER, "theta": theta, "u_bloc": u_bloc, "appuis": [{"nom": appui1, "s": s1}, {"nom": "ancrage", "s": s2}],
+            HORIZONTALE: {"s": list(absc_h), "u": u_h}, VERTICALE: {"s": list(absc_v), "u": u_v}, "u_max": u_max,
+            "modele": "poutre élastique, E·I(s) = E·b·t(s)³/12, appuis = pivot/contact et ancrage, bloc d'angle rigide"}
+
+
+def _maillages(ctx: Dict, cb_gov: Dict) -> Dict:
+    """Les trois champs — une aile, l'autre, le coin — et la déformée de la combinaison gouvernante."""
+    mh, mv = _maillage(ctx, HORIZONTALE), _maillage(ctx, VERTICALE)
+    return {HORIZONTALE: mh, VERTICALE: mv, "coin": _maillage_coin(ctx), "deformee": _deformee(ctx, cb_gov, mh["s"], mv["s"])}
 
 
 # ------------------------------------------------------------------ les formules du détail
@@ -850,7 +919,7 @@ def calculer(c: Dict, diagrammes: bool = True, annexes: bool = True) -> Dict:
            "geometrie": geo, "combinaisons": ctx["combos"], "efforts": _efforts(ctx, anc), "verifications": verifs,
            "informations": _informations(ctx, anc, geo, comparaison), "ancrages": anc,
            "diagrammes": {HORIZONTALE: _diagramme(ctx, HORIZONTALE, verifs), VERTICALE: _diagramme(ctx, VERTICALE, verifs)} if diagrammes else None,
-           "maillage": _maillages(ctx) if diagrammes else None,
+           "maillage": _maillages(ctx, gov["combinaison"]) if diagrammes else None,
            "maxima": {HORIZONTALE: next(v for v in verifs if v["cle"] == "max_h"), VERTICALE: next(v for v in verifs if v["cle"] == "max_v")},
            "comparaison": comparaison, "garde": garde,
            "taux_max": gov["taux"], "statut": OK if all(v["ok"] for v in verifs if v["verdict"]) else NOK,
