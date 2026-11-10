@@ -244,6 +244,27 @@ visibles en saisie libre). Décisions écrites AVANT le code : `docs/acier/CORNI
   les autres modules (hors demande) ; les ancrages restent sur une ligne horizontale (l'étape 4 — cornière longue,
   plusieurs lignes, charges localisées — reste à faire).
 
+## Fait ensuite, le lot S4 : une application, un moteur (même branche `integration-nuit-0911`, sur 2fd6dd6, 10/11/2026)
+
+Demande de l'ingénieur (10/11, après la mesure 7c38a02 qui montrait un redémarrage complet de Python à chaque écran) :
+une application unique, navigation sans rechargement, chaque module dans ses fichiers, un moteur Python partagé qui
+reste actif, modules chargés à la demande, ouverture préparée à l'approche d'une tuile, l'interface tout de suite sans
+écran de chargement plein écran, les calculs inchangés et prouvés identiques. Conception écrite AVANT le code :
+`REFONTE_ETABLI.md`, S4-D1 à S4-D10 (007c634) et C1 à C14 (ba7dcc6) ; la réalisation et ses écarts : même fichier,
+« Le lot S4 réalisé ».
+
+- ~~Registre paresseux~~ : 007c634 (`api_web/registre.module(clé)` ne lit que son fichier, une fois ; mêmes refus que
+  `cles()`).
+- ~~Construction, aperçus, version du site~~ (A1), ~~moteur partagé~~ (A2), ~~application et écrans montables~~ (A3),
+  ~~harnais~~ (A4a), ~~filtre « demarrage »~~ (A4b) : réunis 0ea2647, 0911ba6, 0311c29, a2cd22c, 959ff87, 62f895b ;
+  harnais à l'intégration bbbbcf4, a02512e ; une adresse en « .html » dans l'application 60a13a8.
+- ~~Revue adverse~~ (5 angles, 40 constats, 38 confirmés, aucun écart de calcul) et ses corrections en deux vagues :
+  moteur 6204e69, c077a9b ; navigation, fusion d8a11e5 ; écrans, fusion e5c43cc ; preuves, fusion 0c521f2.
+- Mesure « après » : `mesures/2026-11-10_demarrage_apres.md`.
+- Non fait, et pourquoi : la recette Safari (iPad, iPhone) se fait à la main, elle ne se prouve pas dans Chromium ;
+  annuler/rétablir ne restaure pas ses piles si le moteur refuse l'état rendu (hors de la revue) ; l'instantané mémoire
+  de Pyodide reste hors périmètre (D8).
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

@@ -1145,3 +1145,55 @@ formats.
   entrelacés avec des invariants comme portes ; et un inventaire des noms de contrôles avant et après (un contrôle
   disparu sans remplaçant nommé est un contrôle perdu). Une recette iPad et iPhone (Safari) à faire à la main est écrite
   avec la mesure « après » : elle ne se prouve pas dans Chromium.
+
+## Le lot S4 réalisé (10/11/2026) : ce qui a été fait, ce qui s'écarte, ce que la revue a trouvé
+
+Branche `integration-nuit-0911`, sur 2fd6dd6 ; la mesure : `mesures/2026-11-10_demarrage_apres.md`.
+
+**Réalisé comme écrit** : S4-D1 à S4-D10 et C1 à C14, par cinq lots (construction et aperçus ; moteur partagé ;
+harnais ; filtre « demarrage » ; application et écrans montables), puis réunis. Les calculs ne changent pas :
+`test_reference_refonte` 249 OK sans regel ; aperçus = routeur à l'octet (17 établis) ; le moteur partagé rejoué dans
+Pyodide sous node, dans plusieurs ordres, après préchauffages et numpy, égal à CPython (exceptions NOMMÉES : compteur
+`s<n>_` des soudures, dernier chiffre de coordonnées SVG du garde-corps) ; les bibliothèques aussi depuis la revue.
+
+**Écarts à la conception (assumés)** :
+- `predalle.html` perd son `<meta http-equiv="refresh">` : l'échange de page garde le `<head>`, et le meta aurait mené
+  vers la dalle sans `?note=…`. Le repli sans script est le lien « Ouvrir les dalles » (style `.redirection`).
+- Les feuilles de la cible sont chargées et prêtes AVANT la fermeture de l'écran courant (pas d'écran sans style) ; la
+  bascule d'activation, la fermeture, l'échange et le montage restent dans la même tâche.
+- Le bandeau de démarrage, au PC et à la tablette, a sa propre RANGÉE pleine largeur sous la barre du haut (et non une
+  place dans la barre) : mesuré, la barre n'a la place à aucune largeur (à 1 440 px le nom tombait à « Poutre ») ; la
+  toile regagne ≈ 38 px quand il part. La barre est resserrée de 701 à 800 px (iPad mini : le nom de 5 établis coupé).
+- L'aperçu se dit par une mention en tête du résultat (« Aperçu… »), composant des trois formats, effacée par la
+  première vraie réponse ; une note rouverte ne dit jamais « aperçu » (C11).
+- Une adresse en « .html » passe par sa forme canonique (sans « .html ») : la redirection 308 de Cloudflare, lue,
+  aurait été prise pour une session à refaire (`adresseCanonique`, le harnais l'avait trouvé en PASSAGE=1).
+- C5 : une exception écrite (voir C5 ci-dessus) pour le chargement de numpy d'une intention de fond.
+
+**La revue adverse** (cinq angles, chaque constat soumis à un vérificateur qui cherche à le réfuter ; 40 constats, 38
+confirmés, 2 réfutés) n'a trouvé AUCUN écart de calcul (un relecteur a rejoué les 211 cas de la référence mélangés
+dans un seul interpréteur : 0 écart). Elle a trouvé des défauts d'ÉCRAN et de navigation, corrigés en deux vagues,
+chacun figé par un contrôle qui rougit sans sa correction :
+- *non conservatif* : l'accueil montrait le taux et la pastille d'AVANT une modification gardée encore en vol (C1)
+  → carte neutre « enregistrement en cours », redessin à la fin (`ctx.enCours`, `ctx.apresEnregistrements`) ;
+- moteur : un démarrage raté restait définitif pour la session (relancé au montage d'écran suivant) ; un préchauffage
+  d'une clé avec numpy passait devant une vraie requête (tâche de fond, C4) ; numpy partait après « pret » sur un lien
+  direct (`annoncer()`) ; un guet de numpy raté hors ligne bloquait tous les modules ; le travailleur ne vérifiait pas
+  la version du site (`?v=`, erreur nommée « Le site a été mis à jour : rechargez la page ») ;
+- navigation : retour puis avance rapides ; double clic et feuilles ; retour avant l'enregistrement d'une note
+  provisoire (C3) ; bfcache ; réseau absent après une mise en ligne ; message « pas de réseau » faux et pages déjà lues
+  servies hors ligne pour la vie du document ; retour hors ligne recalé ; délai de 10 s et indicateur de navigation ;
+- écrans : suppression pendant un enregistrement ; refus d'une modification (champs revenus au dernier calcul) ; refus
+  gardés nommés (« « nom » (Module) : … ») ; en erreur de démarrage, « Exporter .stab », « Imprimer » et ⋯ redeviennent
+  actifs ; ⋯ du téléphone et croix des fenêtres actifs pendant l'aperçu ; mention de l'aperçu aux trois formats ;
+  bandeau et nom de la note à la tablette ; alerte du téléphone sous les onglets ; retour au téléphone (défilement et
+  onglet rendus) ; garde : aucune modification envoyée avant l'écran « prêt » ;
+- preuves : le passage complet du harnais joue aussi « demarrage » (et un « non mesurable » n'y vaut jamais succès,
+  code 3) ; C11, la première réponse, l'attente d'enregistrement, le blur de fermeture, les refus de l'écran suivant
+  ont leur contrôle ; `verifier_demarrage.js` n'est plus publié (règle générale sur la racine du site).
+
+**Reste, écrit pour la suite** : annuler/rétablir ne restaure pas ses piles si le moteur refuse l'état rendu ; la
+mutation isolée de l'appel `ctx.rendreDefilement()` de la bibliothèque n'a pas été rejouée ; une entrée d'historique
+créée par une ancre seule déclencherait un remontage (le site n'a aucune ancre) ; les messages non-erreur dits pendant
+une fermeture restent écartés (comme avant) ; Safari (iPad, iPhone) ne se prouve pas dans Chromium : recette à la main
+dans la mesure « après ».
