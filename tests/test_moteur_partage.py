@@ -87,6 +87,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 import zipfile
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -930,10 +931,17 @@ def ecrire_node(dossier):
             f.write(texte)
 
 
+def nom_sortie(dossier, script):
+    """Le fichier de sortie d'UN lancement de pilote : unique, même pour deux lancements du même pilote dans la même
+    milliseconde (les deux pilotes « client », avec et sans la sonde, partent ensemble : nommés au processus et à la
+    milliseconde, ils pouvaient s'écraser — un résultat perdu, l'autre attribué au mauvais pilote)."""
+    return os.path.join(dossier, f"{script}.{os.getpid()}.{uuid.uuid4().hex}.json")
+
+
 def node(dossier, script, args, timeout=900):
     """Lance un pilote node ; rend (sortie JSON lue dans le fichier « sortie » ou None, durée, trace d'erreur)."""
     t0 = time.time()
-    sortie = os.path.join(dossier, f"{script}.{os.getpid()}.{int(t0 * 1000)}.json")
+    sortie = nom_sortie(dossier, script)
     args = dict(args, sortie=sortie)
     try:
         p = subprocess.run(["node", os.path.join(dossier, script), json.dumps(args)], capture_output=True, text=True, timeout=timeout, env=ENV, cwd=dossier)
@@ -1598,6 +1606,9 @@ def main(argv):
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool_cp:
                 refs = references(pool_cp)
             print(f"     (références CPython, processus neufs : {time.time() - t_ref:.1f} s)")
+            noms = {nom_sortie(dossier, "client.mjs") for _ in range(50)}
+            B.chk("pilotes · cinquante lancements du même pilote, dans la même milliseconde, ont cinquante fichiers de sortie (jamais deux "
+                  "pilotes qui s'écrasent)", len(noms) == 50, len(noms))
             B.chk("P6 · version · le texte nommé « Le site a été mis à jour : rechargez la page » : la copie de l'essai est celle de js/travailleur.js",
                   f'const MIS_A_JOUR = "{MIS_A_JOUR}";' in open(os.path.join(WEB, "js", "travailleur.js"), encoding="utf-8").read())
             durees = jouer(B, dossier, WEB, refs, {"partage": True, "sonde": TOUTES_PARTIES, "neufs": NOUVELLES_PARTIES, "mort": True, "client": True})
