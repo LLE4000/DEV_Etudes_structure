@@ -212,71 +212,140 @@ aura-t-il X MPa tel jour ? Sinon, quand ? ». La réponse attendue : une DATE pa
 Disparaissent : les cinq « analyses » à cocher (① à ⑤), le comparateur de classes (④, remplacé par le sélecteur de
 classe), le « seuil » unique, numpy (le module démarre sans lui). Arrivent : des OBJECTIFS nommés (autant qu'on veut),
 chacun daté ; l'heure du coulage ; l'intégration jour par jour partout ; la variante prudente sur chaque date ;
-l'alerte de gel avant 5 MPa ; l'essai sur éprouvettes comparé à la prévision, avec calage de la courbe.
+l'alerte de gel avant 5 MPa ; le DURCISSEMENT décrit par le bon de livraison (rapide, moyen, lent) et pas seulement par
+la classe du ciment ; la loi de température du complément BELGE (NBN B 15-400) ; l'essai sur éprouvettes comparé à la
+prévision, avec calage de la courbe.
 
-### 2.4 La méthode — EN 1992-1-1:2004 §3.1.2 et annexe B ; EN 13670:2009 §8.5
+### 2.4 La méthode — EN 1992-1-1:2004 §3.1.2 ; NBN B 15-400 (complément belge à l'EN 13670) ; EN 13670:2009 §8.5
 
-    f_cm(t) = β_cc(t_T)·f_cm                      f_cm = f_ck + 8                                   (3.1)
-    β_cc(t_T) = exp{ s·[1 − √(28/t_T)] }          s = 0,20 (R) · 0,25 (N) · 0,38 (S)                (3.2)
-    f_ck(t) = f_cm(t) − 8  pour t_T < 28 j ;  f_ck pour t_T ≥ 28 j                                  §3.1.2(5)
-    t_T = Σ Δt_i · k_T(T_i)        k_T(T) = exp{ −(E_a/R)·[1/(273 + T) − 1/293] }    E_a/R = 4 000 K   (B.10)
+    f_cm(t) = β_cc(t_T)·f_cm                      f_cm = f_ck + 8                              §3.1.2(6), (3.1)
+    β_cc(t_T) = exp{ s·[1 − √(28/t_T)] }                                                       (3.2)
+    f_ck(t) = f_cm(t) − 8  pour 3 < t_T < 28 j ;  f_ck pour t_T ≥ 28 j                         §3.1.2(5)
+    t_T = Σ Δt_i · k(T_i)                         l'âge équivalent à 20 °C
 
-- Ciments : R = CEM 42,5 R, 52,5 N, 52,5 R ; N = CEM 32,5 R, 42,5 N ; S = CEM 32,5 N (§3.1.2(6)). Les ciments au
-  laitier (CEM III), courants en Belgique, durcissent plus lentement à froid : l'énergie d'activation se règle dans les
-  hypothèses (E_a de 20 à 60 kJ/mol ; EC2 : 33,26), et l'écran le dit.
-- (B.10) écrit « 13,65 » pour 4000/293 = 13,652 : le moteur prend la référence exacte (k_T = 1 à 20 °C), 0,2 % d'écart.
-- **Domaine de (B.10) : 0 à 80 °C.** Un jour dont la température moyenne est sous 0 °C ne compte AUCUNE maturité
-  (k_T = 0, côté sûr), et il est signalé.
-- **Le temps** : t compté depuis la FIN DU BÉTONNAGE (date et heure ; midi si l'heure n'est pas donnée) ; la température
-  est constante par jour civil ; t_T(t) est donc linéaire par morceaux, intégré exactement (le premier jour ne compte
-  que pour sa fraction restante). Au-delà du dernier jour connu, le relevé est PROLONGÉ à la moyenne de ses cinq
-  derniers jours (comme la météo), et c'est dit.
-- **Un objectif** : une résistance cible (MPa, ou % de f_ck) comparée à f_ck(t) — la résistance CARACTÉRISTIQUE, côté
-  sûr, par défaut — ou à f_cm(t) (la moyenne) au choix dans les hypothèses. L'âge où il est atteint a une forme fermée,
-  t_T,req = 28/(1 − ln β_req/s)² avec β_req = (cible + 8)/f_cm (ou cible/f_cm), puis t se lit en inversant t_T(t) :
-  plus de dichotomie. Une cible au-dessus de la classe est « non atteignable ». La date et l'heure sont données à
-  l'heure près (« le 15/11 vers 14 h »), jamais tronquées.
-- **Variante prudente** : les jours PRÉVUS et PROLONGÉS (tous, en température constante) abaissés de la marge (3 °C par
-  défaut) ; chaque objectif donne ses deux dates.
-- **Opération datée** : si l'objectif porte un âge prévu, η = cible/f(t_prévu) ; conforme si η ≤ 1 ; « conforme,
-  attention » si la variante prudente ne passe pas.
-- **Domaine de l'EC2** : pour t_T ≤ 3 j, « des valeurs plus précises doivent se fonder sur des essais » (§3.1.2(5)) :
-  tout résultat dans ce domaine est marqué « indicatif — à confirmer par essais ».
-- **Gel** (EN 13670 §8.5) : le béton ne doit pas geler avant d'avoir 5 MPa. Le moteur cherche le premier jour de gel
-  (température moyenne ≤ 0 °C, ou minimale horaire < 0 °C si le détail horaire est chargé) et le compare à l'âge où
-  f_cm(t) atteint 5 MPa : alerte « protéger du gel » si le gel vient avant.
-- **Essai** : la moyenne des éprouvettes à un âge donné (cube 150 mm ramené au cylindre par f_ck/f_ck,cube de la
-  classe), comparée à f_cm(t) prévu : écart en %. « Caler la courbe sur l'essai » recalcule s pour que la courbe passe
-  par la mesure (s_cal = ln(f_mes/f_cm)/(1 − √(28/t_T)), borné à [0,10 ; 0,80]) : toutes les dates suivent.
-- **Sélecteur de classe** : chaque classe (C16/20 à C50/60) avec le même ciment et les mêmes températures : l'âge où le
-  premier objectif est atteint ; ✓ la classe du coulage, ★ la plus petite qui tient l'âge prévu.
+Les sources ont été croisées le 10/11/2026 (rapport `SOURCES_MATURITE` du lot) ; ce que le croisement a changé est
+marqué **[sources]**.
 
-Ce que l'outil N'EST PAS, écrit sous le résultat : une estimation par la loi de l'EC2 avec la température de l'AIR ; pour
-une opération critique (désétaiement, précontrainte), la résistance se confirme par des éprouvettes conservées sur
-chantier ou une maturométrie étalonnée.
+**Le durcissement — le coefficient s.** Deux lectures, au choix dans la rubrique « Béton » :
+
+| Lecture | Choix | s | r = f_cm,2j / f_cm,28j qu'elle suppose |
+|---|---|---|---|
+| le CIMENT (EN 1992-1-1 §3.1.2(6)) | R : CEM 42,5 R, 52,5 N, 52,5 R | 0,20 | 0,58 |
+| | N : CEM 32,5 R, 42,5 N | 0,25 | 0,50 |
+| | S : CEM 32,5 N | 0,38 | 0,35 |
+| le BÉTON (développement de résistance de la NBN EN 206, écrit sur le bon de livraison) | rapide : r ≥ 0,50 | 0,253 | 0,50 (la borne basse de la classe) |
+| | moyen : 0,30 ≤ r < 0,50 | 0,439 | 0,30 |
+| | lent : 0,15 ≤ r < 0,30 | 0,692 | 0,15 |
+| | r connu (centrale, essais) | −ln r / (√14 − 1) | r |
+
+s se déduit de r par (3.2) écrite à 2 jours : r = β_cc(2) = exp{s·(1 − √14)}. **[sources]** La classe S de l'EC2 n'est
+PAS « lente » : elle suppose r = 0,35, un béton « moyen » au sens de l'EN 206 ; et la classe N suppose r = 0,50, la
+frontière du « rapide ». Or le ciment le plus courant en Belgique, le CEM III/A 42,5 N LA, est N par la lettre de l'EC2
+(et par la règle FEBELCEM : laitier > 35 %) mais « moyen » sur les bons de livraison : la lecture par le ciment est
+alors optimiste (à 3 jours, β_cc = 0,60 en N contre 0,41 en « moyen » pris à sa borne). L'écran montre toujours le r que
+le choix suppose, et conseille la lecture du bon de livraison pour les ciments au laitier (CEM III/B 42,5 N et
+CEM III/A 32,5 N : « lent »). **Le défaut d'ouverture est « béton à durcissement moyen »** (s = 0,439) : c'est le
+béton le plus courant ici, et une valeur par défaut doit être du côté sûr.
+
+**La température — le coefficient k(T)**, au choix dans les hypothèses :
+
+| T (°C) | −10 | −5 | 0 | 5 | 10 | 15 | 20 | 30 |
+|---|---|---|---|---|---|---|---|---|
+| NBN B 15-400 (par défaut) | 0 | 0,15 | 0,30 | 0,45 | 0,60 | 0,80 | 1,00 | 1,00 |
+| EC2 annexe B, (B.10) | 0 | 0 | 0,37 | 0,48 | 0,62 | 0,79 | 1,00 | 1,57 |
+| E_a = 45 kJ/mol (exemple) | 0 | 0 | 0,26 | 0,37 | 0,52 | 0,73 | 1,00 | 1,84 |
+
+- **NBN B 15-400** **[sources]** : l'« âge fictif » du complément belge à l'EN 13670 — k = 1 à 20 °C et au-dessus,
+  0,8 à 15 °C, 0,6 à 10 °C, 0,45 à 5 °C, 0,3 à 0 °C, 0,15 à −5 °C, interpolé linéairement (l'exemple de la norme, 5, 7
+  et 5 °C, donne 1,41 j : reproduit par un test). Le moteur le prolonge en ligne droite jusqu'à 0 à −10 °C, et ne
+  compte aucun bonus au-dessus de 20 °C. C'est la loi PAR DÉFAUT : belge, et la plus prudente par temps froid. Valeurs
+  relevées sur deux sources concordantes (projet d'annexe devenu NBN B 15-400), à contrôler sur l'édition 2024.
+- **EC2 (B.10)** : k = exp{−4 000·[1/(273 + T) − 1/293]} (E_a/R = 4 000 K), domaine 0 à 80 °C ; écrite pour la cure
+  thermique (§10.3.1.1(3)), son emploi pour un béton coulé en place est une extension (le fib MC2010 fait de même).
+  **[sources]** C'est la loi la PLUS OPTIMISTE par temps froid (0,48 à 5 °C contre 0,45 pour la norme belge, 0,29 à
+  0,40 pour les méthodes de maturité étalonnées). Hors de son domaine (sous 0 °C) : k = 0. (B.10) écrit « 13,65 » pour
+  4000/293 = 13,652 : le moteur prend la référence exacte, k = 1 à 20 °C.
+- **E_a saisi** (20 à 60 kJ/mol, Arrhenius) : pour un béton dont la centrale donne l'énergie d'activation ; les ciments
+  au laitier montent à 45–60 kJ/mol.
+- La température est celle du BÉTON (toutes les méthodes sont définies ainsi) ; à défaut de mesure, celle de l'air —
+  une hypothèse, dite à l'écran (un élément mince exposé peut être plus froid que l'air la nuit).
+
+**Le temps** : t compté depuis la FIN DU BÉTONNAGE (date et heure ; midi si l'heure n'est pas donnée) ; la température
+est constante par jour civil ; t_T(t) est donc linéaire par morceaux, intégré exactement (le premier jour ne compte que
+pour sa fraction restante). Au-delà du dernier jour connu, le relevé est PROLONGÉ à la moyenne de ses cinq derniers
+jours (comme la météo), et c'est dit.
+
+**Un objectif** : une résistance cible et la résistance à laquelle on la compare.
+- Cible en **% de f_ck** (une exigence de calcul : 70 % de f_ck) → comparée à la résistance CARACTÉRISTIQUE f_ck(t).
+- Cible en **MPa** (un seuil de chantier : 5 MPa) → comparée, au choix, à la résistance MOYENNE f_cm(t) — ce que
+  mesurent des cubes de chantier, la base des seuils d'usage — ou à la caractéristique (côté sûr, par défaut pour une
+  cible saisie à la main). **[sources]** Les cahiers des charges comparent bien la MOYENNE des cubes de chantier au
+  seuil (Qualiroutes K : ces essais « n'ont pas pour objet de déterminer f_ck »).
+- L'âge où il est atteint a une forme fermée : t_T,req = 28/(1 − ln β_req/s)², β_req = (cible + 8)/f_cm
+  (caractéristique) ou cible/f_cm (moyenne) ; puis t se lit en inversant t_T(t) : plus de dichotomie. Une cible
+  au-dessus de la classe est « non atteignable ». La date et l'heure sont données à l'heure près (« sam. 15/11 vers
+  14 h »), jamais tronquées.
+- **Modèles d'objectif**, chacun avec sa source au survol : « Hors gel · 5 MPa » (moyenne ; EN 13670 §8.5(12)) ;
+  « Décoffrage vertical · 5 MPa » (moyenne ; annexe informative de l'EN 13670, citée par le CSTC et Infociments) ;
+  « Reprise de bétonnage · 10 MPa » (moyenne ; Infociments, bétonnage par temps froid) ; « 50 % », « 70 % », « 100 % de
+  f_ck » (caractéristique ; à fixer par le bureau d'études selon la charge au décoffrage).
+
+**Variante prudente** : les jours PRÉVUS et PROLONGÉS (tous, en température constante) abaissés de la marge (3 °C par
+défaut) ; chaque objectif donne ses deux dates. **Opération datée** : si l'objectif porte un âge prévu,
+η = cible/f(t_prévu) ; conforme si η ≤ 1 ; « conforme, attention » si la variante prudente ne passe pas.
+
+**Domaine de l'EC2** : f_ck(t) = f_cm(t) − 8 vaut pour 3 < t < 28 j ; avant 3 jours équivalents (le domaine de la
+plupart des décoffrages), la valeur est marquée « indicative — à confirmer par essais ». f_ck(t) n'est jamais négatif.
+
+**Gel** (EN 13670 §8.5(12)) : la surface du béton ne doit pas descendre sous 0 °C avant d'avoir 5 MPa. Le moteur
+cherche le premier jour de gel (minimale horaire < 0 °C si le détail horaire est chargé, sinon moyenne ≤ 0 °C — et il
+dit laquelle) et le compare à l'âge où f_cm(t) atteint 5 MPa : alerte « protéger du gel » si le gel vient avant. Et un
+rappel (Buildwise, NIT 285 §9.4) quand une température sous 5 °C tombe dans les 72 premières heures : « mesures de
+bétonnage par temps froid ».
+
+**Essai** : la moyenne des éprouvettes de chantier à un âge donné (cube de 150 mm ramené au cylindre par
+f_ck/f_ck,cube de la classe : 0,78 à 0,83), comparée à f_cm(t) prévu : écart en %. « Caler la courbe sur l'essai »
+recalcule s pour que la courbe passe par la mesure (s_cal = ln(f_mes/f_cm)/(1 − √(28/t_T)), borné à [0,10 ; 0,80]) :
+toutes les dates suivent, et le r calé s'affiche.
+
+**Sélecteur de classe** : chaque classe (C16/20 à C50/60) avec le même durcissement et les mêmes températures : l'âge
+où le premier objectif est atteint ; ✓ la classe du coulage, ★ la plus petite qui tient l'âge prévu.
+
+**Ce que l'outil N'EST PAS**, écrit sous le résultat : une ESTIMATION (loi de l'EC2, température de l'air à défaut de
+celle du béton) ; pour une opération critique (désétaiement, mise en charge, précontrainte), la résistance se confirme
+par des éprouvettes conservées sur chantier ou une maturométrie étalonnée, et le délai se valide avec le bureau
+d'études. **Non couvert**, dit à l'écran : les délais minimaux de décoffrage par type de coffrage de la NBN B 15-400
+et les durées de cure (tableau F.8-ANB) — leurs valeurs n'ont pas pu être relues sur le texte ; les critères en
+proportion des charges ; les flèches au jeune âge ; l'EN 1992-1-1:2023 (annexe B.4, classes CS/CN/CR : pas encore
+d'annexe belge).
 
 ### 2.5 L'écran
 
-- **Rubriques** : 1 Béton (classe, ciment R/N/S, date et heure de fin de bétonnage) · 2 Températures (Constante /
-  Relevé / Météo du lieu : inchangé, Open-Meteo à la demande) · 3 Objectifs (lignes : nom, cible en MPa ou % f_ck, âge
-  prévu facultatif ; « + Objectif » avec des modèles : hors gel 5 MPa, 50 %, 70 %, 100 % de f_ck) · 4 Hypothèses
-  (résistance comparée : caractéristique / moyenne ; marge sur les prévisions ; loi de température : EC2 ou E_a saisi ;
-  essai sur éprouvettes et calage).
+- **Rubriques** : 1 Béton (classe ; « Durcissement » : un menu en deux groupes, le ciment R / N / S ou le béton rapide
+  / moyen / lent / r connu, avec dessous le r supposé ; date et heure de fin de bétonnage) · 2 Températures (Constante
+  / Relevé / Météo du lieu : inchangé, Open-Meteo à la demande ; le relevé peut être celui du béton) · 3 Objectifs
+  (une carte par objectif : nom, cible en MPa ou % f_ck, comparée à la moyenne ou à la caractéristique, âge prévu
+  facultatif ; « + Objectif » et les modèles) · 4 Hypothèses (loi de température : NBN B 15-400 / EC2 (B.10) / E_a
+  saisi ; marge sur les prévisions ; essai sur éprouvettes et calage).
 - **Résultats** : verdict = le premier objectif (sa date, sa variante prudente ; son taux s'il a un âge prévu) ; bloc
   « Objectifs » (une ligne par objectif : cible, âge atteint, date ; prudent) ; bloc « Températures » (moyenne, extrêmes,
-  jours mesurés / prévus / prolongés, gel) ; bloc « Essai » s'il y en a un ; avertissements.
-- **Vues** : « Courbe » (f(t) en âge réel, dates sous l'axe, objectifs en lignes avec leur point, variante prudente en
-  tirets, domaine t_T ≤ 3 j grisé, essai), « Températures » (barres par source, gel, t_T cumulé), « Tableau » (jour par
-  jour : T, k_T, t_T, β_cc, f_cm, f_ck).
-- **Défaut à l'ouverture** : C30/37, ciment N, 20 °C constante, objectif « Décoffrage : 70 % de f_ck ».
+  jours mesurés / prévus / prolongés, gel, âge équivalent) ; bloc « Essai » s'il y en a un ; avertissements.
+- **Vues** : « Courbe » (f_cm(t) et f_ck(t) en âge réel, dates sous l'axe, objectifs en lignes avec leur point, variante
+  prudente en tirets, domaine t_T ≤ 3 j grisé, essai), « Températures » (barres par source, gel, t_T cumulé),
+  « Tableau » (jour par jour : T, k, t_T, β_cc, f_cm, f_ck).
+- **Défaut à l'ouverture** : C30/37, béton à durcissement MOYEN, 20 °C constante, objectif « Décoffrage : 70 % de
+  f_ck » (J + 10,7 ; J + 6,5 si l'on choisit le ciment N). Le défaut est le béton courant en Belgique (CEM III/A
+  42,5 N LA : « moyen » sur le bon de livraison) pris à la borne basse de sa classe : réaliste et du côté sûr, là où
+  le ciment N promettrait un décoffrage quatre jours plus tôt.
 
 ### 2.6 Les preuves
 
-`tests/test_maturite_moteur.py` réécrit : β_cc, t_T, f_ck(t) à la main ; forme fermée = balayage numérique fin ; le cas
-du défaut n° 1 (7 j à 2 °C puis 7 j à 20 °C : jour 8, plus 4,8 j) ; l'heure du coulage ; le gel ; la variante prudente
-toujours plus tardive ; l'essai et son calage (la courbe calée passe par la mesure) ; refus ; 12 mutations. La lecture
-de la météo (`meteo.py`, `releve.py`) garde ses contrôles contre le faux Open-Meteo. `tests/test_api_web_age.py` : l'écran
-= le moteur.
+`tests/test_maturite_moteur.py` réécrit : β_cc, s(r), k(T) des trois lois (le tableau ci-dessus, l'exemple belge
+5-7-5 °C = 1,41 j), t_T, f_ck(t) à la main ; forme fermée = balayage numérique fin ; le cas du défaut n° 1 (7 j à 2 °C
+puis 7 j à 20 °C, EC2 (B.10) : jour 8, plus 4,8 j) ; l'heure du coulage ; le gel ; la variante prudente toujours plus
+tardive ; la loi belge jamais plus rapide que (B.10) sous 20 °C ; l'essai et son calage (la courbe calée passe par la
+mesure) ; refus ; 12 mutations. La lecture de la météo (`meteo.py`, `releve.py`) garde ses contrôles contre le faux
+Open-Meteo. `tests/test_api_web_age.py` : l'écran = le moteur.
 
 ---
 
@@ -383,10 +452,27 @@ elle, ne donnait rien pour les poteaux et les voiles (« non transcrits »).
 ### 4.3 Ce qui est fait
 
 - **Un moteur du feu**, `beton/bibliotheque/feu.py` : les tableaux de l'EN 1992-1-2:2004 section 5, transcrits et
-  croisés sur deux sources (§ 4.5), avec leurs notes : poteaux (5.2a, méthode A : μ_fi = 0,2 / 0,5 / 0,7, exposé sur
-  plusieurs côtés ou un seul), voiles porteurs (5.4 : μ_fi = 0,35 / 0,7, une ou deux faces) et non porteurs (5.3),
+  croisés sur des sources indépendantes (§ 4.5, l'état de chaque tableau y est écrit), avec leurs notes : poteaux
+  (5.2a, méthode A : μ_fi = 0,2 / 0,5 / 0,7, exposé sur plusieurs côtés ou un seul ; et la FORMULE (5.7) de la même
+  méthode, voir ci-dessous), voiles porteurs (5.4 : μ_fi = 0,35 / 0,7, une ou deux faces) et non porteurs (5.3),
   poutres sur appuis simples (5.5) et continues (5.6), dalles (5.8 : une direction, deux directions, continues) et
   planchers-dalles (5.9).
+- **Les poteaux ont deux lectures** (croisement des sources du 10/11/2026). L'annexe belge (NBN EN 1992-1-2 ANB)
+  REMPLACE le tableau 5.2a par deux tableaux (5.2.a.1-ANB pour l_0,fi ≤ 2 m, 5.2.a.2-ANB pour l_0,fi ≤ 3 m ; largeurs
+  de 200 à 450 mm ; 4 barres ou 8), que la formule (5.7) de l'EN reproduit à ± 0,5 mm quand on y met α_cc = 0,85 (la
+  valeur belge de l'EN 1992-1-1) : 99 cases sur 102 de l'extrait relevé dans la fiche FEBE DT02. Le texte de l'ANB n'a
+  pas pu être LU (sites fermés à la session) ; l'extrait montre aussi des cases « – » que la formule seule n'explique
+  pas (colonne de 200 mm à R 90 pour μ_fi = 0,7 et à R 120 dès μ_fi = 0,5). Donc :
+  - **par défaut, le tableau 5.2a de l'EN** (α_cc = 1,0 ; l_0,fi ≤ 3 m) : vérifié case par case sur plusieurs sources,
+    et le plus SÉVÈRE des deux (R 90, μ_fi = 0,7, colonne de 350 : a = 53 mm contre 47) — la règle du dépôt : le
+    durable garde le défavorable ;
+  - **au choix, « Formule (5.7) »** : pour une longueur de flambement au feu jusqu'à 6 m, un μ_fi quelconque, la
+    largeur réelle — a exigé pour la durée demandée ET la durée R obtenue avec l'enrobage retenu. α_cc = 0,85 (ANB),
+    donc le terme en ω disparaît. Son domaine géométrique (a de 25 à 80 mm, b′ de 200 à 450 mm, h ≤ 1,5·b, l_0,fi de
+    2 à 6 m) est contrôlé — hors domaine : refus, jamais d'extrapolation ; A_s < 0,04·A_c et e ≤ e_max sont des
+    conditions d'emploi écrites sous le résultat. L'écran dit : « ce que
+    donnent les tableaux 5.2.a-ANB de l'annexe belge — à contrôler sur le texte de l'ANB:2021 ; le tableau belge exclut
+    certaines colonnes de 200 mm ».
 - **La rubrique « Enrobages » a deux onglets** (demande de l'ingénieur, 10/11/2026) :
   - **« Calcul »** — le calcul complet de l'enrobage d'un élément, ce que faisait l'ancien module, en plus poussé :
     l'élément (poutre, poteau, dalle, voile) et ses dimensions ; l'environnement (exposition avec son libellé belge,
@@ -411,10 +497,22 @@ elle, ne donnait rien pour les poteaux et les voiles (« non transcrits »).
 
 ### 4.4 Non couvert, dit à l'écran
 
-Méthode B des poteaux, formule (5.7), poteaux de l_0,fi > 3 m ou d'excentricité > 0,15·h ; sections en I (âme b_w) ;
-précontrainte (a + 10 ou 15 mm) ; bétons à haute résistance ; méthodes de calcul simplifiées et avancées.
+Méthode B des poteaux (tableau 5.2b) et annexe C ; poteaux hors du domaine de la méthode A (l_0,fi > 3 m pour le
+tableau, > 6 m pour la formule ; excentricité au-delà de e_max = 0,15·h — la valeur belge n'a pas pu être relue) ;
+sections en I (largeur d'âme b_w : la Belgique retient la classe WC) ; précontrainte (a + 10 mm pour les barres,
++ 15 mm pour les fils et torons) ; plusieurs lits (distance moyenne a_m, éq. 5.5 : à la charge de l'ingénieur) ; bétons
+à haute résistance ; granulats calcaires (réduction de 10 % non appliquée : côté sûr) ; méthodes de calcul simplifiées
+et avancées. Rappel écrit quand a ≥ 70 mm : armature de peau à prévoir (EN 1992-1-2 §4.5.2).
 
 ### 4.5 Tableaux retenus (mm) — EN 1992-1-2:2004
+
+État du croisement des sources (rapports `SOURCES_FEU` du lot, 10/11/2026) : **5.2a** confirmé en entier (plusieurs
+sources) ; **5.3** confirmé (une source) ; **5.4** confirmé pour μ_fi = 0,35 et, pour μ_fi = 0,7, de REI 120 à REI 240 ;
+**5.5** : trois points confirmés, le reste identique aux valeurs déjà en ligne dans la bibliothèque ; **5.6, 5.8 (deux
+directions), 5.9** : transcrits, seconde vérification en cours au moment d'écrire — l'état final de chaque tableau est
+porté par le moteur (`feu.py`, champ `verification` de chaque table) et montré sous le tableau à l'écran. Une valeur non
+recoupée est DITE non recoupée.
+
 
 Poteaux, tableau 5.2a (b_min/a ; ** : au moins 8 barres) :
 
@@ -476,12 +574,28 @@ dalles continues : colonnes « une direction »… voir §5.7.3 (h_s et a de la 
 Planchers-dalles, tableau 5.9 (h_s/a) : REI 30 : 150/10 · REI 60 : 180/15 · REI 90 : 200/25 · REI 120 : 200/35 ·
 REI 180 : 200/45 · REI 240 : 200/50.
 
+Poteaux, formule (5.7) (EN 1992-1-2 §5.3.2(4), méthode A) :
+
+    R = 120·[(R_ηfi + R_a + R_l + R_b + R_n)/120]^1,8                                        (5.7)
+    R_ηfi = 83·[1,00 − μ_fi·(1 + ω)/((0,85/α_cc) + ω)]      = 83·(1 − μ_fi) avec α_cc = 0,85 (ANB)
+    R_a = 1,60·(a − 30)        R_l = 9,60·(5 − l_0,fi)        R_b = 0,09·b′
+    R_n = 0 (4 barres, aux angles) ; 12 (plus de 4 barres)      b′ = 2·A_c/(b + h) = 2·b·h/(b + h) ; le diamètre d'un poteau rond
+    a exigé pour une durée R :  a = 30 + [120·(R/120)^(1/1,8) − R_ηfi − R_l − R_b − R_n]/1,60, au moins 25 mm
+
+Domaine : 25 ≤ a ≤ 80 mm ; 200 ≤ b′ ≤ 450 mm ; h ≤ 1,5·b ; 2 ≤ l_0,fi ≤ 6 m (sous 2 m : la valeur à 2 m, côté sûr) ;
+0,2 ≤ μ_fi ≤ 0,7 (sous 0,2 : la valeur à 0,2). a est arrondi au millimètre SUPÉRIEUR (le tableau belge arrondit au plus
+proche : 1 mm d'écart au plus, côté sûr). Contrôles à la main (l_0,fi = 3 m, 4 barres) : R 90, 350 mm, μ_fi = 0,7 →
+a = 46,7 → 47 mm (extrait ANB : 47) ; R 90, 300 mm, μ_fi = 0,5 → 39,1 → 40 mm (ANB : 39) ; 8 barres : 31,6 → 32 mm
+(ANB : 32) ; R 60, 200 mm, μ_fi = 0,7 → 42,2 → 43 mm (ANB : 42).
+
 ### 4.6 Les preuves
 
 `tests/test_bibliotheque_moteur.py` : chaque case de chaque tableau relue contre une transcription INDÉPENDANTE écrite
 dans le test (deux copies nommées, liées par le test, R2), la monotonie (a croît avec R, décroît avec b), les cas D1 et
-D2 d'hier (R 90 poteau μ 0,7 : 350/53 ; voile REI 180 : 50), la dalle et le voile sans étrier, les refus ; mutations.
-`tests/test_api_web_bibliotheque.py` : la rubrique allume la bonne case.
+D2 d'hier (R 90 poteau μ 0,7 : 350/53 ; voile REI 180 : 50), la dalle et le voile sans étrier, les refus ; la formule
+(5.7) recalculée à la main (les quatre contrôles ci-dessus, l'aller-retour a → R → a, R croissant avec a, b′ et le
+nombre de barres, décroissant avec μ_fi et l_0,fi, le domaine refusé de chaque côté), et « la formule n'est jamais
+choisie par défaut » ; mutations. `tests/test_api_web_bibliotheque.py` : la rubrique allume la bonne case.
 
 ---
 
