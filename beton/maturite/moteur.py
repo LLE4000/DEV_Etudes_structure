@@ -118,6 +118,54 @@ def _f(cle, symbole, termes, resultat, unite=""):
             "resultat": resultat, "unite": unite}
 
 
+def _c(x: float) -> str:
+    """Une constante d'une expression, à la française et sans zéro inutile (8 ; 8,314 ; 273)."""
+    s = f"{x:.6f}".rstrip("0").rstrip(".")
+    return s.replace(".", ",")
+
+
+# Les EXPRESSIONS des formules, par leur clé (``formules[k]["cle"]``) : le GABARIT où ``{i}`` est le i-ième terme de la
+# formule (dans l'ordre de ``termes``). L'écran en tire « symbole = expression = valeurs = résultat » : l'expression,
+# chaque ``{i}`` remplacé par le SYMBOLE du terme et « × » par « · » ; les valeurs, chaque ``{i}`` par sa VALEUR. Les
+# constantes viennent des tables de ``lois.py`` (une source). Un gabarit à None : une valeur posée par la loi, dite par
+# son seul texte (``LUES``). tests/test_api_web_age.py réévalue chaque ligne affichée à partir de ses valeurs.
+_RAC = f"√{_c(L.AGE_REFERENCE_J / L.AGE_RAPPORT_J)}"                           # √14 : (3.2) écrite à 2 jours
+_BETA = f"exp({{0}} × (1 − √({_c(L.AGE_REFERENCE_J)} / {{1}})))"
+_ARR = f"(1 / ({_c(L.T_KELVIN)} + {{0}}) − 1 / {_c(L.T_KELVIN + L.T_REFERENCE_C)})"
+EXPRESSIONS = {
+    "cible_pct": "{0} × {1} / 100",
+    "fcm": f"{{0}} + {_c(L.DELTA_FCM)}",
+    "beta_req_fck": f"({{0}} + {_c(L.DELTA_FCM)}) / {{1}}",
+    "beta_req_fcm": "{0} / {1}",
+    "t_T_req": f"{_c(L.AGE_REFERENCE_J)} / (1 − ln({{0}}) / {{1}})²",
+    "T_prudent": "{0} − {1}",
+    "k_nbn": "{2} + ({4} − {2}) × ({0} − {1}) / ({3} − {1})",
+    "k_ec2": f"exp(−{_c(L.EA_SUR_R_EC2)} × {_ARR})",
+    "k_perso": f"exp(−({{1}} × 1000 / {_c(L.R_GAZ)}) × {_ARR})",
+    "t_atteint": "{0} + ({1} − {2}) / {3}",
+    "t_T_a": "{0} + {1} × ({2} − {3})",
+    "beta": _BETA,
+    "fcm_t": "{0} × {1}",
+    "fck_t": f"max(0 ; {{0}} − {_c(L.DELTA_FCM)})",
+    "taux": "{0} / {1}",
+    "rapport_cube": "{0} / {1}",
+    "f_cyl": "{0} × {1}",
+    "ecart": "({0} − {1}) / {1} × 100",
+    "s_cale": f"ln({{0}} / {{1}}) / (1 − √({_c(L.AGE_REFERENCE_J)} / {{2}}))",
+    "r_de_s": f"exp({{0}} × (1 − {_RAC}))",
+    "s_de_r": f"−ln({{0}}) / ({_RAC} − 1)",
+}
+LUES = {
+    "t_T_req_28": f"{_c(L.AGE_REFERENCE_J)} (la cible demande la résistance à {_c(L.AGE_REFERENCE_J)} j : β_req ≥ 1)",
+    "beta_28": f"1 (t_T ≥ {_c(L.AGE_REFERENCE_J)} j)",
+    "beta_nul": "0 (aucun durcissement compté : t_T = 0)",
+    "k_nbn_nul": f"0 (T ≤ {_c(L.T_NUL_NBN).replace('-', '−')} °C)",
+    "k_nbn_plafond": f"1 (T ≥ {_c(L.T_REFERENCE_C)} °C : aucun bonus compté)",
+    "k_sous_zero": f"0 (sous {_c(L.T_MIN_EC2)} °C : hors du domaine de la loi)",
+    "k_sans_donnee": "0 (jour sans température)",
+}
+
+
 def _fr(x: float, nd: int = 1) -> str:
     """Un nombre d'un message, à la française (le vrai signe moins)."""
     s = f"{x:.{nd}f}"
@@ -691,4 +739,5 @@ def candidats_classes(coulage: dict) -> list:
     return out
 
 
-__all__ = ["nouvel_element", "normaliser", "calculer", "candidats_classes", "modele_objectif", "MODELES_OBJECTIF", "NON_COUVERT"]
+__all__ = ["nouvel_element", "normaliser", "calculer", "candidats_classes", "modele_objectif", "MODELES_OBJECTIF", "NON_COUVERT", "EXPRESSIONS",
+           "LUES"]

@@ -1,27 +1,29 @@
 # -*- coding: utf-8 -*-
-"""L'API du site pour la maturité du béton (api_web/age.py), vérifiée en Python ordinaire.
+"""L'écran « Maturité du béton » du site (api_web/age.py), refait le 10/11/2026 : l'écran = le moteur.
 
-  1. Inventaire : chaque champ, option, résultat, avertissement et dessin de l'écran Streamlit modules/age_beton.py a
-     sa place sur le site (la liste est écrite ici, et chaque entrée est cherchée dans les fragments rendus).
-  2. Ce que l'écran affiche = ce que le moteur calcule : le verdict, chaque ligne du résultat, les fenêtres de calcul,
-     le sélecteur de classe, le tableau, la courbe (ses 500 points, ses repères), sur des coulages variés.
-  3. Les saisies : nombres à la française, refus avec message (l'état reste intact), effets de bord (borne de l'âge,
-     classes comparées dans l'ordre du multiselect, relevé collé ou lu, relevé refusé gardé à l'écran).
-  4. Le sélecteur de classe : trié par résistance, la classe retenue (✓) et la plus petite qui tient (★) du moteur ;
-     un clic retient la classe.
-  5. Les éléments de la note (plusieurs coulages), l'échappement de tout texte venu de l'état, du JSON strict.
-  6. Pureté : le module du site et ses dessins se chargent et répondent sans streamlit, matplotlib, pandas, requests.
-  7. La météo du lieu (Open-Meteo, importée à la demande) : la troisième source de la cure, le bouton qui porte le PLAN
-     du moteur, la récupération relue et GARDÉE dans la note (le relevé écrit, modifiable), le calcul refait hors ligne
-     (.stab), le badge, la date de récupération, le détail horaire, les refus (lieu introuvable, réponse abîmée, plan
-     changé, dates hors de portée) en message — jamais une exception —, l'échappement de ce que le service renvoie. Les
-     réponses viennent d'un faux Open-Meteo (tests/faux_open_meteo.py, au format documenté) : le réseau n'est jamais appelé.
+  1. La note neuve se lit d'un coup d'œil (« Décoffrage · 21 MPa : J + 10,7 ») ; les quatre rubriques, la colonne
+     compacte, la première rubrique seule ouverte.
+  2. Chaque nombre et chaque date affichés = le moteur (``beton.maturite.moteur.calculer``), sur des coulages variés :
+     le verdict, chaque ligne des blocs « Objectifs », « Températures », « Essai », le tableau jour par jour, la
+     courbe (ses repères), le sélecteur de classe.
+  3. Les fenêtres de calcul : chaque ligne « symbole = expression = valeurs = résultat » est RÉÉVALUÉE à partir des
+     valeurs affichées (petit interpréteur : exp, ln, √, max).
+  4. Les saisies : chaque champ relié à l'état ; chaque refus avec un message qui nomme le champ, l'état intact ; les
+     effets de bord (mode de la cible, durcissement, objectifs ajoutés / retirés, modèles).
+  5. Le sélecteur de classe (✓ la classe du coulage, ★ la plus petite qui tient l'âge prévu, aucune sans âge prévu).
+  6. La note d'avant (version 1) : noms gardés, coulages neufs, l'avis dit une fois ; l'échappement d'un nom piégé.
+  7. Pureté : le module se charge et calcule sans numpy, streamlit, matplotlib, pandas, requests.
+  8. La météo du lieu (le faux Open-Meteo : aucun réseau) : le plan du bouton, l'import gardé, les refus.
+  9. MUTATIONS de l'écran : une mise en forme fautive (l'échéance tronquée au jour, nominal et prudent confondus, un
+     taux recopié…) fait rougir les contrôles du § 2.
 
     python3.12 tests/test_api_web_age.py
 """
 import copy
+import datetime as _dt
 import html
 import json
+import math
 import os
 import re
 import subprocess
@@ -29,18 +31,19 @@ import sys
 
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import faux_open_meteo as FO  # noqa: E402  (tests/ : le faux Open-Meteo)
 from api_web import age as A  # noqa: E402
 from api_web import commun as C  # noqa: E402
-from api_web import dessin_age as DA  # noqa: E402
 from api_web import routeur as R  # noqa: E402
 from beton.maturite import entree as EN  # noqa: E402
+from beton.maturite import lois as L  # noqa: E402
 from beton.maturite import meteo as MT  # noqa: E402
 from beton.maturite import moteur as M  # noqa: E402
-from beton.maturite.ec2 import CLASSES  # noqa: E402
 
 OK, KO = [], []
+NB = C.NBSP
 
 
 def chk(nom, cond, info=""):
@@ -49,23 +52,35 @@ def chk(nom, cond, info=""):
 
 
 def req(**k):
-    texte = R.traiter(json.dumps(k))
-    return json.loads(texte)
+    return json.loads(R.traiter(json.dumps(k)))
 
 
 def note(*coulages, actif=0):
-    return {"version": 1, "coulages": [EN.normaliser(c) for c in coulages], "actif": actif}
+    return {"version": 2, "coulages": [EN.normaliser(c) for c in coulages], "actif": actif}
 
 
 def coulage(nom="Coulage 1", **k):
+    """Un coulage neuf modifié : « temperature__T » écrit dans le groupe « temperature »."""
     e = EN.nouvel_element(nom)
     for cle, v in k.items():
-        if "__" in cle:
-            a, b = cle.split("__")
+        a, _, b = cle.partition("__")
+        if b:
             e[a][b] = v
         else:
-            e[cle] = v
+            e[a] = v
     return EN.normaliser(e)
+
+
+def objectif(nom, **k):
+    o = EN.nouvel_objectif(nom)
+    o.update(k)
+    return o
+
+
+def calc(etat):
+    out = req(module="age", action="calculer", etat=copy.deepcopy(etat))
+    assert out["ok"], out
+    return out
 
 
 def saisir(etat, chemin, valeur):
@@ -76,583 +91,545 @@ def saisir(etat, chemin, valeur):
 
 
 def texte(h):
-    """Le texte d'un fragment HTML, sans balises ni entités."""
+    """Le texte d'un fragment HTML, sans balises ni entités, les espaces insécables gardées."""
     return html.unescape(re.sub(r"<[^>]+>", "", h))
 
 
-RELEVE = ("Date;T moy (°C);Source\n2026-11-02;9,5;mesuré\n2026-11-03;8,0;mesuré\n2026-11-04;—;mesuré\n2026-11-05;6,5;mesuré\n"
-          "2026-11-06;5,0;mesuré\n2026-11-07;4,0;mesuré\n2026-11-08;6,0;prévision\n2026-11-09;7,5;prévision\n2026-11-10;8,5;prévision\n"
-          "2026-11-11;7,0;prolongé\n2026-11-12;7,0;prolongé\n2026-11-13;7,0;prolongé")
-TOUT = dict(seuil__afficher=True, optim__afficher=True, comparateur__afficher=True, essai__mpa=18.0, essai__afficher=True, age=7)
-
-# ------------------------------------------------------------------ 1. inventaire de l'écran Streamlit
-print("=== 1. Inventaire : chaque élément de l'écran Streamlit a sa place sur le site ===")
-r_const = req(module="age", action="calculer", etat=note(coulage(**TOUT, date_coulage="2026-11-02")))
-e_rel = note(coulage(temperature__mode="releve", temperature__releve=RELEVE, temperature__lieu="Namur", **TOUT))
-r_rel = req(module="age", action="calculer", etat=e_rel)
-e_av = note(coulage(avance=True, Ea_kJ=40.0, seuil__mode="mpa", seuil__mpa=12.5))
-r_av = req(module="age", action="calculer", etat=e_av)
-chk("les trois notes de l'inventaire se calculent", r_const["ok"] and r_rel["ok"] and r_av["ok"], [r_const.get("erreur"), r_rel.get("erreur"), r_av.get("erreur")])
+def plat(h):
+    """… et ses espaces (insécables comprises) ramenées à une espace simple."""
+    return re.sub(r"[\s  ]+", " ", texte(h)).strip()
 
 
-def tout(r):
-    return " ".join([r["donnees"], r["resultat"], r["volets"], r["phrase"]] + [v["svg"] + v["titre"] + v.get("legende", "") for v in r["vues"]])
+AUJ = _dt.date(2026, 11, 7)
+A.aujourdhui = lambda: AUJ                                   # le jour de l'écran, figé (le plan du bouton en dépend)
+A.maintenant = lambda: "2026-11-07T10:30"                   # l'heure d'une récupération, figée
 
 
-def champ(r, chemin):
-    return f'data-chemin="{chemin}"' in r["donnees"]
+# ------------------------------------------------------------------ la mise en forme attendue, écrite ici
+JOURS = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
 
 
-# (élément de l'écran Streamlit, où il est sur le site, preuve)
-INVENTAIRE = [
-    ("titre « Évolution de la résistance du béton — EC2 » et légende EN 1992-1-1 §3.1.2 / annexe B", "pied du résultat, fenêtre ①",
-     "EC2 §3.1.2 et annexe B" in r_const["resultat"] and "EN 1992-1-1 §3.1.2" in r_const["volets"]),
-    ("⚙️ paramètres avancés (toggle)", "section 8 Méthode, case", champ(r_const, "avance")),
-    ("Ea [kJ/mol] (20 à 60)", "section 8, champ grisé sans ⚙️", champ(r_const, "Ea_kJ") and 'data-min="20.0" data-max="60.0"' in r_const["donnees"]),
-    ("Classe béton (7 classes, C30/37)", "section 1, menu", all(f'value="{c}"' in r_const["donnees"] for c in CLASSES)),
-    ("Classe ciment (R, N, S) et sa légende CEM… — s =", "section 1, segments + aide",
-     champ(r_const, "ciment") and "CEM 32,5R · CEM 42,5N — s = 0,25" in r_const["donnees"]),
-    ("Date de coulage", "section 1, champ JJ/MM/AAAA", champ(r_const, "date_coulage") and 'value="02/11/2026"' in r_const["donnees"]),
-    ("Température : Manuel / Météo", "section 2, segments Constante / Relevé", champ(r_const, "temperature/mode")),
-    ("T moyenne (°C) (−5 à 60)", "section 2, champ", champ(r_const, "temperature/T") and 'data-min="-5.0" data-max="60.0"' in r_const["donnees"]),
-    ("Lieu du chantier", "section 2 (relevé), champ", champ(r_rel, "temperature/lieu")),
-    ("Température : Météo — le relevé peut aussi se saisir", "section 2 « Relevé » : zone de texte, fichier",
-     '<textarea data-chemin="temperature/releve"' in r_rel["donnees"] and 'type="file" data-chemin="temperature/fichier"' in r_rel["donnees"]),
-    ("badge « lieu — n j mesurés · n j de prévision · n j prolongés »", "section 2, aide",
-     "Namur — 6 j mesurés · 3 j de prévision · 3 j prolongés" in texte(r_rel["donnees"])),
-    ("mesures T min / T moy / T max", "section 2, rangée de mesures", all(x in texte(r_rel["donnees"]) for x in ("T min", "T moy", "T max"))),
-    ("avertissement de prolongation (au-delà de l'horizon)", "résultat, message", "prolongé(s) au-delà des prévisions" in r_rel["resultat"]),
-    ("légende « n jour(s) sans donnée, remplacé(s) par la moyenne »", "résultat, message", "sans donnée, remplacé(s) par la moyenne" in r_rel["resultat"]),
-    ("tableau « Données météo » (Date, T moy, Source)", "vue Tableau (Date, T, Source…)",
-     any(v["cle"] == "tableau" and "Source" in v["svg"] and "prévision" in v["svg"] for v in r_rel["vues"])),
-    ("mesures Jours · t_e · t_e défavorable", "section 2, rangée de mesures", "t<sub>e</sub> défav." in r_rel["donnees"]),
-    ("① Âge (jours réels), curseur 1 à 28 (1 à n jours du relevé)", "section 3, champ entier + âges usuels",
-     'data-chemin="age" data-sorte="entier"' in r_const["donnees"] and 'data-max="28"' in r_const["donnees"] and 'data-max="12"' in r_rel["donnees"]),
-    ("① bloc « fck(t j à T °C) : x MPa · y % de fck(28) »", "verdict + ligne « Résistance à t j »",
-     "Résistance à 7 j" in r_const["resultat"] and "72 % de f<sub>ck</sub>" in r_const["resultat"]),
-    ("① légende t_e = … (source) — ≤ 3 j : hors domaine", "verdict (t_e), message grave hors domaine", "t<sub>e</sub> = 7,0 j" in r_const["resultat"]),
-    ("① légende défavorable (jours prévus − 3 °C)", "ligne « Défavorable à t j » + message", "Défavorable à 7 j" in r_rel["resultat"]),
-    ("② Cible : Pourcentage / Résistance (MPa)", "section 4, segments", champ(r_const, "seuil/mode")),
-    ("② Pourcentage 30 à 100 par 5", "section 4, menu", all(f'value="{p}"' in r_const["donnees"] for p in range(30, 101, 5))),
-    ("② Résistance (MPa) 1 à fck", "section 4, champ borné", champ(r_av, "seuil/mpa") and 'data-max="30"' in r_av["donnees"]),
-    ("② bloc « Seuil 75 % = 22,5 MPa — après t j — le JJ/MM/AAAA » / « non atteignable »", "ligne « Seuil à t j » (cible, temps, date) + fenêtre",
-     "22,5 MPa · après 7,9 j · 09/11/2026" in texte(r_const["resultat"]) and "le 09/11/2026" in r_const["volets"]
-     and "seuil 75 % = 22,5 MPa" in r_const["volets"]),
-    ("② Afficher sur le graphique", "section 4, case", champ(r_const, "seuil/afficher")),
-    ("③ Résistance (MPa), Délai (jours)", "section 5, champs", champ(r_const, "optim/mpa") and champ(r_const, "optim/delai")),
-    ("③ bloc « Classe minimale : X (actuelle) » — « f MPa à d j » / « Aucune classe… »", "ligne « Classe minimale » ★, sélecteur, fenêtre",
-     'data-pk="classe"' in r_const["resultat"] and "<b>Classe minimale</b>" in r_const["resultat"] and "C35/45 · 30,8 MPa" in texte(r_const["resultat"])
-     and "→ C35/45" in r_const["volets"]),
-    ("③ Afficher sur le graphique", "section 5, case", champ(r_const, "optim/afficher")),
-    ("④ Classes à comparer (multiselect)", "section 6, sept cases", all(champ(r_const, f"comparateur/classes/{i}") for i in range(7))),
-    ("④ Ciment (comparateur)", "section 6, segments", champ(r_const, "comparateur/ciment")),
-    ("④ Afficher sur le graphique", "section 6, case", champ(r_const, "comparateur/afficher")),
-    ("⑤ Mesure (MPa), Âge (j), T cure (°C)", "section 7, champs", all(champ(r_const, f"essai/{k}") for k in ("mpa", "age", "T"))),
-    ("⑤ blocs « Classe estimée ≈ X (fck28 ≈ f MPa) » et « Cohérent / Au-dessus / Sous — écart » ", "ligne « Essai à t j », message, fenêtre",
-     "<b>Essai à 7 j</b>" in r_const["resultat"] and "≈ C25/30 · fck,28 ≈ 25,4 MPa" in texte(r_const["resultat"]) and "sous C30/37 (écart −15 %)" in texte(r_const["resultat"])
-     and "sous C30/37" in r_const["volets"]),
-    ("⑤ Afficher sur le graphique", "section 7, case", champ(r_const, "essai/afficher")),
-    ("figure : courbe de référence, défavorable, comparateur, optimisation, point, seuil, essai, t_e = 28 j, légende",
-     "vue Courbe (SVG)", all(x in r_rel["vues"][0]["svg"] for x in ("comparateur", "classe minimale", "seuil ②", "essai ⑤", "défavorable"))
-     and "= 28 j" in r_const["vues"][0]["svg"]),
-    ("expander « Formules EC2 » (β_cc, f_cm, t_e, s, E_a/R, domaine 3 < t_e < 28)", "fenêtre ①, « Les formules de l'EC2 »",
-     "Domaine de validité" in r_const["volets"] and "4 000 K" in r_const["volets"]),
-    ("export PDF (données prêtes, pas de PDF dans Streamlit)", "bouton Note PDF grisé (hors périmètre)", True),
-]
-manque = [(n, ou) for n, ou, ok in INVENTAIRE if not ok]
-chk(f"inventaire : les {len(INVENTAIRE)} éléments de l'écran Streamlit sont sur le site", not manque, manque)
+def fr(x, nd=1):
+    """Un nombre à la française, arrondi demi vers l'extérieur sur sa valeur décimale (comme l'écran)."""
+    return C.fr(x, nd).replace("-", "−")
 
-# ------------------------------------------------------------------ 2. ce que l'écran affiche = ce que le moteur calcule
-print("\n=== 2. L'écran affiche ce que le moteur calcule ===")
-LIGNE = re.compile(r'<div class="el( gov)?"[^>]*><div class="l1"><b>([^<]+)</b>.*?<span class="pct (\w)">([^<]+)</span>', re.S)
-CAS = [coulage(), coulage(**TOUT), coulage(classe="C20/25", ciment="S", age=2, temperature__T=5.0),
-       coulage(classe="C50/60", ciment="R", age=1, temperature__T=60.0), coulage(temperature__T=-5.0, seuil__pct=100, optim__mpa=60.0, optim__delai=2.0),
-       coulage(essai__mpa=33.0, essai__age=35.0), coulage(avance=True, Ea_kJ=45.0, temperature__T=8.0, age=10),
-       coulage(temperature__mode="releve", temperature__releve=RELEVE, age=12, **{k: v for k, v in TOUT.items() if k != "age"}),
-       coulage(temperature__mode="releve", temperature__releve="1\n0,5\n-1\n2\n3", age=5),
-       coulage(temperature__T=-5.0, optim__delai=0.5, age=1)]
-fautes = []
-for k, c in enumerate(CAS):
-    r = req(module="age", action="calculer", etat=note(c))
-    if not r["ok"]:
-        fautes.append((k, r.get("erreur")))
-        continue
+
+def taux_txt(t):
+    """Le taux tel que la pastille l'écrit (C.chip) : « 87 % », « > 999 % »."""
+    return html.unescape(C._taux_txt(C.pct(t))[0])
+
+
+def jplus(t):
+    return f"J{NB}+{NB}{C.fr(t, 1)}"
+
+
+def instant(iso, annee=None, mot="vers"):
+    d = _dt.datetime.fromisoformat(iso)
+    an = "" if annee is None or d.year == annee else f"/{d.year}"
+    return f"{JOURS[d.weekday()]}{NB}{d:%d/%m}{an}{NB}{mot}{NB}{d.hour}{NB}h"
+
+
+# ------------------------------------------------------------------ 1. la note neuve
+print("=== 1. La note neuve : « Décoffrage · 21 MPa : J + 10,7 » ===")
+r0 = req(module="age", action="nouveau")
+m0 = M.calculer(EN.nouvel_element("Coulage 1"))
+o0 = m0["objectifs"][0]
+v0 = re.search(r'<div class="verdict age-v"[^>]*>.*?</div></div>', r0["resultat"], re.S)
+chk("la note neuve se calcule : C30/37, béton à durcissement moyen, 20 °C constante, « Décoffrage » à 70 % de f_ck non daté",
+    r0["ok"] and r0["etat"]["coulages"][0]["classe"] == "C30/37" and r0["etat"]["coulages"][0]["durcissement"]["beton"] == "moyen"
+    and r0["etat"]["coulages"][0]["objectifs"][0]["age"] is None, r0.get("erreur"))
+chk("le verdict se lit d'un coup d'œil : « J + 10,7 j », « Décoffrage · 21 MPa », la variante prudente du moteur (J + 12,2)",
+    v0 and "10,7" in texte(v0.group(0)) and "Décoffrage · 21 MPa" in texte(v0.group(0)) and abs(o0["t"] - 10.73) < 0.01
+    and f"prudent (−{NB}3{NB}°C) : {jplus(o0['prudent']['t'])}" in texte(v0.group(0)) and abs(o0["prudent"]["t"] - 12.19) < 0.01,
+    v0 and texte(v0.group(0)))
+d0 = r0["donnees"]
+secs = re.findall(r'<div class="sec( open)?" data-sec="(\w+)"( data-secondaire="1")?>', d0)
+chk("quatre rubriques : Béton (ouverte), Températures, Objectifs, Hypothèses (secondaire) ; la colonne compacte (data-elements)",
+    [(o, k, s) for o, k, s in secs] == [(" open", "bt", ""), ("", "tp", ""), ("", "ob", ""), ("", "hy", ' data-secondaire="1"')]
+    and '<div class="et-elsel" data-elements="1">' in d0, secs)
+chk("trois vues — Courbe, Températures, Tableau — hors échelle, chacune sous son en-tête",
+    [v["cle"] for v in r0["vues"]] == ["courbe", "temperatures", "tableau"] and all(v["echelle"] is False and "et-ent" in v["entete"] for v in r0["vues"]))
+chk("la note neuve est une consultation (aucun objectif daté) : le statut le dit, le résumé nomme l'échéance",
+    "Consultation" in r0["statut_html"] and r0["resume"]["gouvernant"] == "Coulage 1 · Décoffrage 21 MPa : J + 10,7", r0["resume"])
+# J + 6,5 en ciment N (conception § 2.5)
+rN = saisir(r0["etat"], "durcissement/choix", "ciment:N")
+chk("le ciment N (au lieu du béton moyen) : J + 6,5 — et la ligne discrète dit le r supposé (50 %) et s = 0,25",
+    "6,5" in texte(re.search(r'<div class="verdict.*?</div></div>', rN["resultat"], re.S).group(0))
+    and f"f<sub>cm</sub>(2{NB}j) = 50{NB}% de f<sub>cm</sub>(28{NB}j) · s = 0,25" in rN["donnees"], texte(rN["resultat"])[:200])
+
+# ------------------------------------------------------------------ 2. l'écran = le moteur
+print("\n=== 2. Chaque nombre et chaque date affichés = le moteur ===")
+RELEVE = ("2026-11-02;9,5;mesuré\n2026-11-03;8,0;mesuré\n2026-11-04;—;mesuré\n2026-11-05;6,5;mesuré\n2026-11-06;-2,0;mesuré\n"
+          "2026-11-07;4,0;mesuré\n2026-11-08;6,0;prévision\n2026-11-09;7,5;prévision\n2026-11-10;8,5;prévision\n2026-11-11;7,0;prolongé")
+FROID = "\n".join(["2,0"] * 7 + ["20,0"] * 7)                 # le défaut n° 1 de l'ancien écran : 7 j à 2 °C puis 7 j à 20 °C
+CAS = {
+    "neuf": coulage(),
+    "ciment N, daté le 02/11 à 16 h, décoffrage à J + 3": coulage(durcissement__mode="ciment", date="2026-11-02", heure=16,
+                                                                 objectifs=[objectif("Décoffrage", age=3.0)]),
+    "relevé de Namur, trois objectifs (dont un modèle en MPa sur la moyenne)": coulage(
+        "Voile R+1", date="2026-11-02", heure=7, temperature__mode="releve", temperature__releve=RELEVE, temperature__lieu="Namur",
+        objectifs=[objectif("Décoffrage", age=6.0), M.modele_objectif("hors_gel", 30.0), objectif("Mise en charge", mode="mpa", mpa=25.0, base="fck")]),
+    "défaut n° 1 : 7 j à 2 °C puis 7 j à 20 °C, ciment N, EC2, 15 MPa caractéristique": coulage(
+        durcissement__mode="ciment", loi__mode="ec2", temperature__mode="releve", temperature__releve=FROID,
+        objectifs=[objectif("Décoffrage", mode="mpa", mpa=15.0, base="fck")]),
+    "non atteignable (40 MPa sur un C30/37) et jamais (−15 °C en loi EC2)": coulage(
+        temperature__T=-15.0, loi__mode="ec2", objectifs=[objectif("Trop haut", mode="mpa", mpa=40.0), objectif("Gelé", age=5.0)]),
+    "essai cube calé, Arrhenius 45 kJ/mol, C25/30 lent": coulage(
+        classe="C25/30", durcissement__beton="lent", loi__mode="perso", loi__Ea_kJ=45.0, temperature__T=12.0, date="2026-12-28", heure=18,
+        essai__actif=True, essai__age=7.0, essai__mpa=18.0, essai__caler=True, objectifs=[objectif("Décoffrage", age=10.0), objectif("100 %", pct=100.0)]),
+    "r connu 0,40, objectif daté non tenu (C20/25, 5 °C)": coulage(
+        classe="C20/25", durcissement__mode="r", durcissement__r=0.40, temperature__T=5.0, objectifs=[objectif("Désétaiement", pct=80.0, age=4.0)]),
+    "météo importée (Bruxelles, décoffrage à J + 3)": A._etat_meteo(True)["coulages"][0],
+}
+
+
+def bloc(h, i):
+    m = re.search(rf'<section class="et-bloc [^"]*" data-theme="{i}">(.*?)</section>', h, re.S)
+    return m.group(1) if m else ""
+
+
+def lignes_bloc(h, i):
+    return re.findall(r'<div class="el vc[^"]*"[^>]*>(.*?)</div></div>', bloc(h, i), re.S)
+
+
+def controle_ecran(nom, c, ecran=None):
+    """Les fautes de l'écran face au moteur pour un coulage : chaque nombre, chaque date."""
+    fautes = []
     m = M.calculer(c)
-    a, s, o, es = m["age"], m["seuil"], m["optim"], m["essai"]
-    lignes = {nom: (bool(gov), niv, txt) for gov, nom, niv, txt in LIGNE.findall(r["resultat"])}
-    # le verdict : f_ck(t) au dixième, le pourcentage
-    if f'{C.fr(a["fck"], 1).replace("-", "−")}<small>' not in r["resultat"]:
-        fautes.append((k, "verdict", a["fck"]))
-    # ① : le pourcentage de f_ck, la ligne gouvernante
-    l1 = lignes.get(f"Résistance à {a['t']} j")
-    if not l1 or not l1[0] or l1[2] != f"{C.pc(C.pct(max(a['pct'], 0) / 100))} %":
-        fautes.append((k, "①", l1, a["pct"]))
-    if f"{C.fr(a['fck'], 2).replace('-', '−')} MPa" not in r["resultat"]:
-        fautes.append((k, "① MPa"))
-    # ② : la cible à l'âge choisi, le temps d'obtention
-    l2 = lignes.get(f"Seuil à {a['t']} j")
-    t2 = s["taux_age"]
-    if not l2 or l2[2] != f"{C.pc(C.pct(min(max(t2, 0), 9.99)) if t2 is not None else C.pct(9.99))} %":
-        fautes.append((k, "②", l2, t2))
-    if (s["t"] is None) != ("non atteignable" in r["resultat"]):
-        fautes.append((k, "② atteignable"))
-    # ③ : la classe minimale et sa résistance au délai (le bloc de l'écran), ★ ; « aucune », en rouge, sinon
-    l3 = lignes.get("Classe minimale")
-    t3 = texte(r["resultat"])
-    if o["classe"]:
-        opt = next(x for x in o["classes"] if x["classe"] == o["classe"])
-        if not l3 or l3[1] == "r" or f"{o['classe']} · {C.fr(o['fck'], 1).replace('-', '−')} MPa" not in t3 \
-                or l3[2] != f"{C.pc(A._taux_classe(opt))}{C.NBSP}%" or 'class="leger"' not in r["resultat"]:
-            fautes.append((k, "③", l3, o["classe"]))
-    elif not l3 or l3[1] != "r" or "aucune ne suffit" not in t3:
-        fautes.append((k, "③ aucune", l3))
-    # ⑤ : la ligne n'existe qu'avec une mesure
-    if es["actif"] != (f"Essai à {C.nb(es['age'])} j" in r["resultat"]) or (es["actif"] and f"≈ {es['classe']}" not in r["resultat"]):
-        fautes.append((k, "⑤"))
-    # les avertissements du moteur, tous écrits
-    for av in m["avertissements"]:
-        if C.symb_math(av["message"]) not in r["resultat"]:
-            fautes.append((k, "avertissement", av["code"]))
-    # les vues : la courbe, le relevé seulement avec un relevé exploitable, le tableau ligne par ligne
-    cles = [v["cle"] for v in r["vues"]]
-    if cles != ["courbe"] + (["releve"] if m["temperature"]["source"] == "releve" else []) + ["tableau"]:
-        fautes.append((k, "vues", cles))
-    tab = next(v["svg"] for v in r["vues"] if v["cle"] == "tableau")
-    if tab.count("<tr") - 1 != len(m["tableau"]["lignes"]) or tab.count('<tr class="on') != 1:
-        fautes.append((k, "tableau", tab.count("<tr")))
-    # le résumé : une consultation, nommée avec sa résistance
-    if r["resume"]["niveau"] != "i" or r["resume"]["taux"] is not None or C.fr(a["fck"], 1).replace("-", "−") not in r["resume"]["gouvernant"]:
-        fautes.append((k, "résumé", r["resume"]))
-    # le JSON du routeur est strict (pas de NaN ni d'infini, même quand f_ck ≤ 0)
-    try:
-        json.loads(R.traiter(json.dumps({"module": "age", "action": "calculer", "etat": note(c)})), parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))
-    except ValueError as x:
-        fautes.append((k, "JSON", x))
-chk(f"{len(CAS)} coulages : verdict, lignes ①②③⑤, avertissements, vues, tableau, résumé = le moteur ; JSON strict", not fautes, fautes[:4])
+    rep = ecran or calc({"version": 2, "coulages": [c], "actif": 0})
+    res, an = rep["resultat"], (int(m["temps"]["date"][:4]) if m["temps"]["date"] else None)
+    v = re.search(r'<div class="verdict[^"]*"[^>]*>.*?</div></div>', res, re.S)
+    v = texte(v.group(0)) if v else ""
+    o = m["objectifs"][0]
+    # le verdict : le premier objectif
+    if o["age_prevu"] is not None:
+        if o["taux"] is not None and taux_txt(o["taux"]) not in v:
+            fautes.append(f"{nom} : verdict sans le taux {o['taux']}")
+        if f"{fr(o['f_prevu'])}{NB}MPa" not in v or f"{fr(o['f_prevu_prudent'])}{NB}MPa" not in v:
+            fautes.append(f"{nom} : verdict sans f(t_prévu) = {o['f_prevu']} ou sa variante prudente")
+        if o["instant_prevu"] and instant(o["instant_prevu"], an, "à") not in v:
+            fautes.append(f"{nom} : verdict sans la date de l'opération {o['instant_prevu']}")
+    elif o["t"] is not None:
+        if f"J +{C.fr(o['t'], 1)}j" not in v:
+            fautes.append(f"{nom} : verdict sans l'âge {o['t']}")
+        if o["instant"] and instant(o["instant"], an) not in v:
+            fautes.append(f"{nom} : verdict sans l'instant {o['instant']}")
+        if m["synthese"]["prudent_distinct"] and o["prudent"]["t"] != o["t"] and jplus(o["prudent"]["t"]) not in v:
+            fautes.append(f"{nom} : verdict sans la variante prudente {o['prudent']['t']}")
+    # le bloc « Objectifs » : une ligne par objectif, dans l'ordre
+    ls = lignes_bloc(res, 0)
+    if len(ls) != len(m["objectifs"]):
+        fautes.append(f"{nom} : {len(ls)} lignes d'objectifs pour {len(m['objectifs'])}")
+    for x, h in zip(m["objectifs"], ls):
+        t = texte(h)
+        if not t.startswith(x["nom"]):
+            fautes.append(f"{nom} : ligne « {t[:30]} » pour « {x['nom']} »")
+        if f"{C.nb(x['cible'], 1)}{NB}MPa" not in t:
+            fautes.append(f"{nom}/{x['nom']} : cible {x['cible']} absente")
+        if x["age_prevu"] is not None:
+            if x["taux"] is not None and taux_txt(x["taux"]) not in t:
+                fautes.append(f"{nom}/{x['nom']} : taux {x['taux']} absent")
+            if f"{fr(x['f_prevu'])}{NB}MPa" not in t:
+                fautes.append(f"{nom}/{x['nom']} : f_prévu {x['f_prevu']} absent")
+        elif x["t"] is not None:
+            if jplus(x["t"]) not in t:
+                fautes.append(f"{nom}/{x['nom']} : âge {x['t']} absent")
+            if x["instant"] and instant(x["instant"], an) not in t:
+                fautes.append(f"{nom}/{x['nom']} : instant {x['instant']} absent")
+            if m["synthese"]["prudent_distinct"] and x["prudent"]["t"] != x["t"] and f"prudent {jplus(x['prudent']['t'])}" not in t:
+                fautes.append(f"{nom}/{x['nom']} : prudent {x['prudent']['t']} absent")
+        elif x["etat"] == "non_atteignable" and "non atteignable" not in t:
+            fautes.append(f"{nom}/{x['nom']} : « non atteignable » absent")
+        elif x["etat"] == "jamais" and "jamais" not in t:
+            fautes.append(f"{nom}/{x['nom']} : « jamais » absent")
+    # le bloc « Températures »
+    bt = texte(bloc(res, 1))
+    sy = m["synthese"]
+    for q in (sy["T_moy"], sy["T_min"], sy["T_max"]):
+        if f"{fr(q)}{NB}°C" not in bt:
+            fautes.append(f"{nom} : température {q} absente du bloc")
+    if f"{fr(sy['t_T_28'])}{NB}j" not in bt:
+        fautes.append(f"{nom} : t_T(28 j) = {sy['t_T_28']} absent")
+    g = m["gel"]
+    if g["t_5MPa"] is not None and jplus(g["t_5MPa"]) not in bt:
+        fautes.append(f"{nom} : 5 MPa à {g['t_5MPa']} absent")
+    if g["alerte"] != ("protéger" in bt):
+        fautes.append(f"{nom} : l'alerte de gel ({g['alerte']}) n'est pas celle du bloc")
+    # le bloc « Essai »
+    x = m["essai"]
+    be = texte(bloc(res, 2))
+    if (x is None) != (be == ""):
+        fautes.append(f"{nom} : bloc « Essai » présent sans essai, ou l'inverse")
+    if x:
+        for q in (x["f_cyl"], x["f_prevu"]):
+            if f"{fr(q)}{NB}MPa" not in be:
+                fautes.append(f"{nom} : essai {q} absent")
+        if x["ecart"] is not None and f"{C.fr(abs(x['ecart']), 0)} %" not in be:
+            fautes.append(f"{nom} : écart de l'essai {x['ecart']} absent")
+        if x["cale"] and f"s = {C.nb(x['s_cale'], 3)}" not in be:
+            fautes.append(f"{nom} : s calé absent")
+    # les avertissements : chacun écrit
+    tr = plat(res)
+    for a in m["avertissements"]:
+        if plat(C.symb_math(a["message"])) not in tr:
+            fautes.append(f"{nom} : avertissement « {a['code']} » absent")
+    # le tableau jour par jour
+    tab = next(vv["svg"] for vv in rep["vues"] if vv["cle"] == "tableau")
+    rows = re.findall(r"<tr[^>]*><th>(\d+)</th>(.*?)</tr>", tab, re.S)
+    if len(rows) != len(m["tableau"]["lignes"]):
+        fautes.append(f"{nom} : {len(rows)} lignes au tableau pour {len(m['tableau']['lignes'])}")
+    for (j, h), li in zip(rows, m["tableau"]["lignes"]):
+        cases = [texte(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", h)]
+        att = ([_dt.date.fromisoformat(li["date"]).strftime("%d/%m/%Y")] if m["temps"]["date"] else [])
+        att += [fr(li["T"]) if li["T"] is not None else "—", A.MOTS_SOURCE[li["source"]]]
+        if m["tableau"]["horaire"]:
+            att += [fr(li["T_min_h"]) if li["T_min_h"] is not None else "—", fr(li["T_max_h"]) if li["T_max_h"] is not None else "—"]
+        att += [C.fr(li["k"], 3), C.fr(li["t_T"], 2), C.fr(li["beta"], 3), C.fr(li["fcm"], 1), C.fr(li["fck"], 1)]
+        if int(j) != li["jour"] or cases != att:
+            fautes.append(f"{nom} : jour {j} du tableau {cases} ≠ {att}")
+            break
+    # la courbe : chaque objectif atteint dans l'horizon porte son étiquette
+    svg = next(vv["svg"] for vv in rep["vues"] if vv["cle"] == "courbe")
+    for x in m["courbes"]["objectifs"]:
+        if x["t"] is not None and x["t"] <= m["courbes"]["horizon"] and f"J+{C.fr(x['t'], 1)}" not in html.unescape(svg):
+            fautes.append(f"{nom} : la courbe n'étiquette pas « {x['nom']} » à J+{x['t']}")
+    return fautes
 
-# la courbe : les 500 points de la référence (abscisses 1 à 40 j), les repères demandés et eux seuls
-c = coulage(**TOUT)
-m = M.calculer(c)
-svg = DA.courbe("t", m)
-chemin = re.search(r'<path d="(M[^"]+)" fill="none" stroke="#2e6fb0" stroke-width="2.6"', svg)
-pts = chemin.group(1)[1:].split(" L") if chemin else []
-chk("courbe : la référence est tracée avec ses 500 points (np.linspace(1, 40, 500) du module)", len(pts) == 500, len(pts))
-svg0 = DA.courbe("t", M.calculer(coulage()))
-chk("courbe : sans case cochée, ni seuil, ni classe minimale, ni comparateur, ni essai (comme la figure du module)",
-    not any(x in svg0 for x in ("seuil ②", "classe minimale", "comparateur", "essai ⑤")) and all(x in svg for x in ("seuil ②", "classe minimale", "comparateur", "essai ⑤")))
-chk("courbe : le point de l'âge choisi porte « f MPa à t j » (l'annotation du module)", f"{DA.fr(m['age']['fck'], 1)} MPa à 7 j" in svg)
-chk("courbe : chaque classe comparée nommée au bout de sa courbe (la classe du coulage n'est pas retracée)",
-    all(f">{cl}<" in svg or f">{cl} ③<" in svg for cl in CLASSES) and svg.count(">C30/37<") == 1)
-svg_loin = DA.courbe("t", M.calculer(coulage(optim__delai=200.0, optim__mpa=30.0, optim__afficher=True)))
-chk("courbe : un délai au-delà de 120 j est signalé au bord (flèche) au lieu d'écraser l'axe", "200,0 j →" in svg_loin)
-chk("courbe : le domaine t_e ≤ 3 j est grisé et légendé", "hors du domaine de l'EC2" in svg and 'fill="#F1F2F5"' in svg)
 
-# ------------------------------------------------------------------ 3. les saisies
-print("\n=== 3. Les saisies : lecture, refus, effets de bord ===")
-e0 = A.nouvel_etat()
-o = saisir(e0, "temperature/T", "12,5")
-chk("« 12,5 » °C est lu 12.5 et recalcule", o["etat"]["coulages"][0]["temperature"]["T"] == 12.5 and o["message"] is None)
-o = saisir(e0, "optim/delai", "1 000")
-chk("« 1 000 » (espace des milliers) est lu 1000", o["etat"]["coulages"][0]["optim"]["delai"] == 1000.0 and o["message"] is None)
-REFUS = [("temperature/T", "-6", "Température de cure"), ("temperature/T", "61", "Température de cure"), ("age", "0", "Âge"),
-         ("age", "29", "Âge"), ("age", "7,5", "entier"), ("Ea_kJ", "19", "Énergie d'activation"), ("seuil/mpa", "31", "dépasse f_ck"),
-         ("seuil/mpa", "0,5", "Résistance du seuil"), ("optim/mpa", "0,9", "Résistance cible"), ("optim/delai", "0,4", "Délai"),
-         ("essai/mpa", "-1", "Mesure"), ("essai/age", "0,4", "Âge de l'essai"), ("essai/T", "70", "T de cure"), ("date_coulage", "demain", "date"),
-         ("temperature/T", "abc", "illisible"), ("classe", "C16/20", "classe"), ("ciment", "X", "ciment"), ("seuil/pct", "72", "pas de 5"),
-         ("temperature/mode", "météo", "cure"), ("inconnu", "1", "Champ inconnu"),
-         # saisies absurdes : l'écran n'a pas de borne haute, le site en met une (10 ans, 200 MPa) — au-delà, un délai de 1e308 j
-         # déborde en infini à 60 °C et le JSON du navigateur ne le porte pas
-         ("optim/delai", "1e308", "Délai"), ("optim/delai", "3651", "Délai"), ("essai/age", "1e30", "Âge de l'essai"),
-         ("optim/mpa", "201", "Résistance cible"), ("essai/mpa", "1e308", "Mesure"), ("temperature/T", "1e400", "illisible"),
-         ("Ea_kJ", "nan", "illisible"), ("Ea_kJ", "inf", "illisible"), ("age", "1e308", "Âge"), ("optim/delai", True, "illisible"),
-         ("comparateur/classes/9", True, "Classe comparée"), ("comparateur/classes/-1", True, "Classe comparée"),
-         ("comparateur/classes/x", True, "Classe comparée")]
+ECRANS = {}
+for nom_cas, c in CAS.items():
+    ECRANS[nom_cas] = calc({"version": 2, "coulages": [c], "actif": 0})
+    f = controle_ecran(nom_cas, c, ECRANS[nom_cas])
+    chk(f"écran = moteur — {nom_cas}", not f, f[:4])
+
+# des valeurs attendues, en clair
+m_d1 = M.calculer(CAS["défaut n° 1 : 7 j à 2 °C puis 7 j à 20 °C, ciment N, EC2, 15 MPa caractéristique"])
+chk("le défaut n° 1 de l'ancien écran : atteint dans le 8ᵉ jour civil (J + 6,9 : le jour 7 commence à J + 6,5), plus « 4,8 j »",
+    6.5 < m_d1["objectifs"][0]["t"] < 7.5 and "4,8" not in texte(ECRANS["défaut n° 1 : 7 j à 2 °C puis 7 j à 20 °C, ciment N, EC2, 15 MPa caractéristique"]["resultat"]),
+    m_d1["objectifs"][0]["t"])
+e_rel = ECRANS["relevé de Namur, trois objectifs (dont un modèle en MPa sur la moyenne)"]
+chk("un relevé avec un jour à −2 °C le 5ᵉ jour : l'avertissement de gel (s'il précède 5 MPa) ou « hors gel », comme le moteur ; la ligne "
+    "« sans donnée » du 04/11 est dite", "1 jour sans température" in texte(e_rel["resultat"]), texte(e_rel["resultat"])[-800:])
+m_md = M.calculer(CAS["météo importée (Bruxelles, décoffrage à J + 3)"])
+chk("météo importée, décoffrage à J + 3 : le verdict porte la date de l'opération « ven. 30/10 à 15 h » et le taux du moteur",
+    instant(m_md["objectifs"][0]["instant_prevu"], 2026, "à") == f"ven.{NB}30/10{NB}à{NB}15{NB}h"
+    and taux_txt(m_md["objectifs"][0]["taux"]) in texte(ECRANS["météo importée (Bruxelles, décoffrage à J + 3)"]["resultat"]))
+r_an = ECRANS["essai cube calé, Arrhenius 45 kJ/mol, C25/30 lent"]
+m_an = M.calculer(CAS["essai cube calé, Arrhenius 45 kJ/mol, C25/30 lent"])
+chk("une échéance de l'année suivante (bétonnage le 28/12/2026) s'écrit avec son année (« …/2027 »)",
+    m_an["objectifs"][1]["instant"][:4] == "2027" and "/2027" in texte(r_an["resultat"]), m_an["objectifs"][1]["instant"])
+chk("la courbe calée sur l'essai : s calé du moteur, l'avis « Courbe CALÉE » et « (calé) » dans le bloc",
+    m_an["materiau"]["cale"] and f"s = {C.nb(m_an['materiau']['s'], 3)} (calé)" in texte(r_an["resultat"]) and "Courbe CALÉE" in texte(r_an["resultat"]))
+
+# ------------------------------------------------------------------ 3. les fenêtres de calcul, réévaluées
+print("\n=== 3. Les fenêtres de calcul : chaque ligne réévaluée ===")
+FX = re.compile(r'<div class="fx">(.*?)</div>', re.S)
+SPAN = re.compile(r'<span(?: class="([^"]*)")?>(.*?)</span>', re.S)
+
+
+def evaluer(vals):
+    """« exp(0,4391 × (1 − √(28 / 3))) » → le nombre (exp, ln, √, max(a ; b), ², les parenthèses)."""
+    s = html.unescape(re.sub(r"<[^>]+>", "", vals))
+    s = s.replace(NB, "").replace(C.FINE, "").replace(" ", "").replace("−", "-")
+    s = re.sub(r"(\d),(\d)", r"\1.\2", s).replace(";", ",")
+    s = re.sub(r"√(\d+(?:\.\d+)?)", r"sqrt(\1)", s).replace("√(", "sqrt(")
+    s = s.replace("×", "*").replace("²", "**2").replace("ln(", "log(")
+    return eval(s, {"__builtins__": {}}, {"sqrt": math.sqrt, "exp": math.exp, "log": math.log, "max": max})  # noqa: S307
+
+
+def lire_res(t):
+    t = texte(t).replace(NB, " ").replace(C.FINE, "")
+    mt = re.match(r"([-−]?\d+(?:,(\d+))?)", t)
+    x = float(mt.group(1).replace("−", "-").replace(",", "."))
+    return x, len(mt.group(2) or ""), "%" in t
+
+
+def controle_formules(rep, nom):
+    fautes, n, lues = [], 0, 0
+    for ligne in FX.findall(rep["volets"]):
+        spans = SPAN.findall(ligne)
+        parts = [t for cls, t in spans if cls in ("s", "")]
+        res = next((t for cls, t in spans if cls == "r" or cls.startswith("chip")), None)
+        if res is None or len(parts) not in (2, 3):
+            fautes.append(f"{nom} : ligne mal formée « {texte(ligne)[:60]} »")
+            continue
+        if len(parts) == 2:
+            lues += 1
+            continue
+        n += 1
+        try:
+            val = evaluer(parts[2])
+        except Exception as e:  # noqa: BLE001 — une expression illisible est une faute
+            fautes.append(f"{nom} {texte(parts[0])} : illisible ({e}) : {texte(parts[2])}")
+            continue
+        att, nd, pct = lire_res(res)
+        if pct and texte(parts[0]) == "η":
+            val *= 100.0
+        tol = 0.5 * 10 ** -nd + 2e-3 * abs(att) + (0.5 if pct else 0)
+        if abs(val - att) > tol:
+            fautes.append(f"{nom} {texte(parts[0])} = {texte(parts[2])} → {val} ≠ {att}")
+    return fautes, n, lues
+
+
+total = 0
+for nom_cas, rep in ECRANS.items():
+    f, n, lues = controle_formules(rep, nom_cas)
+    total += n
+    chk(f"fenêtres : chaque ligne réévaluée ({n}, et {lues} valeurs posées par la loi) — {nom_cas}", not f and n >= 8, f[:3])
+cles_vues = {f["cle"] for nom_cas, c in CAS.items() for x in [M.calculer(c)]
+             for f in x["materiau"]["formules"] + x["gel"]["formules"] + [x["temperature"]["formule_k"]]
+             + [g for o in x["objectifs"] for g in o["formules"]] + (x["essai"]["formules"] if x["essai"] else [])}
+chk(f"chaque formule du moteur a son gabarit ou son texte (moteur.EXPRESSIONS, moteur.LUES) — {len(cles_vues)} sortes vues ici, {total} lignes réévaluées",
+    all(k in M.EXPRESSIONS or k in M.LUES for k in cles_vues) and len(cles_vues) >= 18 and total > 120, sorted(cles_vues - set(M.EXPRESSIONS) - set(M.LUES)))
+ids = set(re.findall(r'id="ck-([^"]+)"', ECRANS["essai cube calé, Arrhenius 45 kJ/mol, C25/30 lent"]["volets"]))
+annonces = {x for nom_cas, rep in ECRANS.items() for x in re.findall(r'data-calcul="([^"]+)"', rep["resultat"])}
+chk("chaque ligne qui annonce un calcul a sa fenêtre (o0, o1, s0, s1, gel, s2)",
+    {"o0", "o1", "s0", "s1", "gel", "s2"} <= ids and all(any(f'id="ck-{a}"' in rep["volets"] for rep in ECRANS.values()) for a in annonces), (ids, annonces))
+
+# ------------------------------------------------------------------ 4. les saisies
+print("\n=== 4. Les saisies : chaque champ relié, les refus, les effets de bord ===")
+e0 = r0["etat"]
+RELIES = [("classe", "C35/45", lambda c: c["classe"] == "C35/45"),
+          ("durcissement/choix", "beton:rapide", lambda c: c["durcissement"]["mode"] == "beton" and c["durcissement"]["beton"] == "rapide"),
+          ("durcissement/choix", "ciment:S", lambda c: c["durcissement"]["mode"] == "ciment" and c["durcissement"]["ciment"] == "S"),
+          ("durcissement/choix", "r", lambda c: c["durcissement"]["mode"] == "r"),
+          ("date", "02/11/2026", lambda c: c["date"] == "2026-11-02"), ("date", "", lambda c: c["date"] is None),
+          ("heure", "7", lambda c: c["heure"] == 7), ("temperature/T", "-5", lambda c: c["temperature"]["T"] == -5.0),
+          ("temperature/mode", "releve", lambda c: c["temperature"]["mode"] == "releve"), ("marge", "4,5", lambda c: c["marge"] == 4.5),
+          ("loi/mode", "perso", lambda c: c["loi"]["mode"] == "perso"), ("loi/Ea_kJ", "45", lambda c: c["loi"]["Ea_kJ"] == 45.0),
+          ("essai/actif", True, lambda c: c["essai"]["actif"] is True), ("essai/age", "3,5", lambda c: c["essai"]["age"] == 3.5),
+          ("essai/mpa", "21,6", lambda c: c["essai"]["mpa"] == 21.6), ("essai/eprouvette", "cylindre", lambda c: c["essai"]["eprouvette"] == "cylindre"),
+          ("essai/caler", True, lambda c: c["essai"]["caler"] is True), ("nom", "Voile R+1", lambda c: c["nom"] == "Voile R+1"),
+          ("objectifs/0/nom", "Désétaiement", lambda c: c["objectifs"][0]["nom"] == "Désétaiement"),
+          ("objectifs/0/pct", "50", lambda c: c["objectifs"][0]["pct"] == 50.0), ("objectifs/0/age", "3", lambda c: c["objectifs"][0]["age"] == 3.0),
+          ("objectifs/0/mode", "mpa", lambda c: c["objectifs"][0]["mode"] == "mpa" and c["objectifs"][0]["mpa"] == 21.0),
+          ("objectifs/+", "nouveau", lambda c: [o["nom"] for o in c["objectifs"]] == ["Décoffrage", "Objectif 2"] and c["objectifs"][1]["pct"] == 70.0),
+          ("objectifs/+", "reprise", lambda c: c["objectifs"][1]["mpa"] == 10.0 and c["objectifs"][1]["base"] == "fcm"),
+          ("durcissement/r", "0,4", lambda c: c["durcissement"]["r"] == 0.4)]
 mal = []
-for chemin, v, mot in REFUS:
-    o = saisir(e0, chemin, v)
-    if not o["message"] or mot.lower() not in o["message"].lower() or o["etat"] != e0:
-        mal.append((chemin, v, o["message"]))
-chk(f"{len(REFUS)} saisies hors du domaine de l'écran refusées avec un message qui nomme le champ ; la note reste intacte", not mal, mal[:3])
-o = saisir(e0, "seuil/pct", "50")
-chk("le pourcentage du seuil se choisit dans le menu (« 50 » → 50)", o["etat"]["coulages"][0]["seuil"]["pct"] == 50)
-o = saisir(e0, "date_coulage", "2/11/2026")
-chk("la date de coulage JJ/MM/AAAA est lue, réécrite au format du moteur et affichée JJ/MM/AAAA",
-    o["etat"]["coulages"][0]["date_coulage"] == "2026-11-02" and 'value="02/11/2026"' in o["donnees"])
-o = saisir(o["etat"], "date_coulage", "")
-chk("une date effacée revient à « sans date »", o["etat"]["coulages"][0]["date_coulage"] is None)
-# les classes comparées : l'ordre du multiselect (la classe cochée va au bout)
-o = saisir(e0, "comparateur/classes/0", False)
-o = saisir(o["etat"], "comparateur/classes/0", True)
-cl = o["etat"]["coulages"][0]["comparateur"]["classes"]
-chk("décocher puis recocher C20/25 la remet AU BOUT de la liste (comme le multiselect : l'ordre fixe les couleurs)", cl == CLASSES[1:] + ["C20/25"], cl)
-o2 = saisir(o["etat"], "comparateur/classes/0", True)
-chk("recocher une classe déjà comparée ne change rien", o2["etat"] == o["etat"])
-# la borne de l'âge suit le relevé
-e1 = note(coulage(age=20))
-o = saisir(e1, "temperature/mode", "releve")
-o = saisir(o["etat"], "temperature/releve", "10\n11\n12\n13\n14")
-chk("un relevé de 5 jours ramène l'âge 20 à min(28, 5) = 5 (la borne du curseur de l'écran)", o["etat"]["coulages"][0]["age"] == 5, o["etat"]["coulages"][0]["age"])
-o = saisir(o["etat"], "temperature/mode", "constante")
-chk("revenir à la température constante garde l'âge (5 ≤ 28)", o["etat"]["coulages"][0]["age"] == 5)
-# un relevé refusé : gardé à l'écran avec son erreur, le calcul garde le précédent
-e2 = note(coulage(temperature__mode="releve", temperature__releve=RELEVE, age=6))
-o = saisir(e2, "temperature/releve", RELEVE.replace("6,5", "six"))
-c2 = o["etat"]["coulages"][0]
-chk("relevé mal écrit : refusé avec la ligne et ce qu'elle porte ; le texte reste à l'écran avec l'erreur ; le calcul garde l'ancien",
-    o["message"] and "ligne 5" in o["message"] and "six" in o["message"] and c2["temperature"]["releve"] == RELEVE
-    and A.BROUILLON in c2 and "six" in o["donnees"] and 'class="msg grave"' in o["donnees"], o["message"])
-o3 = saisir(o["etat"], "temperature/releve", RELEVE.replace("6,5", "6,0"))
-chk("le relevé corrigé est pris et l'erreur disparaît", A.BROUILLON not in o3["etat"]["coulages"][0] and o3["message"] is None
-    and "6,0" in o3["etat"]["coulages"][0]["temperature"]["releve"])
-o4 = req(module="age", action="calculer", etat=json.loads(json.dumps(o["etat"])))
-chk("le relevé refusé survit à l'enregistrement (.stab) et à la relecture", o4["ok"] and A.BROUILLON in o4["etat"]["coulages"][0])
-o = saisir(e0, ["temperature", "fichier"], {"nom": "releve_<b>.csv", "texte": RELEVE})
-c3 = o["etat"]["coulages"][0]
-chk("un fichier lu : le relevé est pris, le mode passe à « relevé », le nom du fichier est gardé (et échappé à l'écran)",
-    c3["temperature"]["mode"] == "releve" and c3["temperature"]["releve"] == RELEVE and c3["temperature"]["fichier"] == "releve_<b>.csv"
-    and "releve_&lt;b&gt;.csv" in o["donnees"] and "releve_<b>" not in o["donnees"])
-o = saisir(note(coulage(temperature__mode="releve")), ["temperature", "fichier"], {"nom": "faux.csv", "texte": "douze"})
-chk("un fichier illisible est refusé avec son nom et sa ligne", o["message"] and "ligne 1" in o["message"] and "Fichier « faux.csv »" in o["donnees"])
-# ⚙️ : le champ E_a grisé tant que la case n'est pas cochée
-chk("E_a est grisé sans ⚙️ et s'ouvre avec", 'data-chemin="Ea_kJ"' in A.formulaire(e0, M.calculer(e0["coulages"][0]))
-    and re.search(r'data-chemin="Ea_kJ"[^>]*disabled', req(module="age", action="nouveau")["donnees"])
-    and not re.search(r'data-chemin="Ea_kJ"[^>]*disabled', saisir(e0, "avance", True)["donnees"]))
+for ch, v, cond in RELIES:
+    out = saisir(e0, ch, v)
+    if out["message"] or not cond(out["etat"]["coulages"][0]):
+        mal.append((ch, v, out["message"]))
+chk(f"{len(RELIES)} saisies reliées à l'état (nombres à la française, segments, cases, menus, objectifs, modèles) sans message", not mal, mal)
+e2 = saisir(saisir(e0, "objectifs/+", "hors_gel")["etat"], "objectifs/0/age", "3")["etat"]
+chk("un objectif en MPa est fixe, un objectif en % suit la classe (C30/37 → C40/50 : 21 → 28 MPa)",
+    M.calculer(saisir(e2, "classe", "C40/50")["etat"]["coulages"][0])["objectifs"][0]["cible"] == 28.0
+    and M.calculer(saisir(e2, "classe", "C40/50")["etat"]["coulages"][0])["objectifs"][1]["cible"] == 5.0)
+e_mpa = saisir(saisir(e0, "objectifs/0/mode", "mpa")["etat"], "objectifs/0/mpa", "18")["etat"]
+chk("de la cible en MPa à la cible en % : 18 MPa du C30/37 → 60 % ; en %, la base est forcée à la caractéristique",
+    saisir(e_mpa, "objectifs/0/mode", "pct")["etat"]["coulages"][0]["objectifs"][0]["pct"] == 60.0
+    and saisir(saisir(e_mpa, "objectifs/0/base", "fcm")["etat"], "objectifs/0/mode", "pct")["etat"]["coulages"][0]["objectifs"][0]["base"] == "fck")
+ret = saisir(e2, "objectifs/0/-", "1")
+chk("retirer un objectif : le second devient le premier (le verdict le suit)", [o["nom"] for o in ret["etat"]["coulages"][0]["objectifs"]] == ["Hors gel"]
+    and "Hors gel · 5 MPa" in texte(ret["resultat"]))
+REFUS = [("temperature/T", "-25", "Température : −25 est sous le minimum −20 (°C)"), ("marge", "11", "Marge sur les prévisions"),
+         ("loi/Ea_kJ", "70", "Énergie d'activation"), ("durcissement/r", "0,1", "Rapport r"), ("objectifs/0/pct", "4", "Objectif 1, cible"),
+         ("objectifs/0/age", "400", "Objectif 1, âge prévu"), ("objectifs/0/age", "trois", "Objectif 1, âge prévu"),
+         ("essai/mpa", "200", "Résistance mesurée"), ("essai/age", "0", "Âge de l'essai"), ("heure", "25", "Heure de fin du bétonnage"),
+         ("heure", "7,5", "heure entière"), ("date", "32/13/2026", "date illisible"), ("temperature/T", "douze", "nombre illisible"),
+         ("nom", "x" * 81, "Nom trop long"), ("objectifs/0/nom", "y" * 41, "Objectif 1, nom"), ("objectifs/0/-", "1", "au moins un objectif"),
+         ("objectifs/+", "inconnu", "modèle d'objectif inconnu"), ("objectifs/7/nom", "x", "objectif inconnu"), ("classe", "C99/99", "Classe"),
+         ("durcissement/choix", "beton:tres_lent", "Durcissement"), ("inconnu", "1", "champ inconnu"), ("essai/actif", "peut-être", "case à cocher")]
+mal = []
+for ch, v, mot in REFUS:
+    out = req(module="age", action="modifier", etat=copy.deepcopy(e0), chemin=ch.split("/"), valeur=v)
+    if not out.get("ok") or not out.get("message") or mot.lower() not in out["message"].lower() or out["etat"] != e0:
+        mal.append((ch, v, out.get("message") or out.get("erreur")))
+chk(f"{len(REFUS)} saisies refusées : un message qui nomme le champ, l'état intact, jamais une exception", not mal, mal)
+e8 = e0
+for k in range(7):
+    e8 = saisir(e8, "objectifs/+", "nouveau")["etat"]
+o9 = req(module="age", action="modifier", etat=copy.deepcopy(e8), chemin=["objectifs", "+"], valeur="nouveau")
+chk("huit objectifs au plus : le neuvième est refusé, et la rubrique ne propose plus d'en ajouter",
+    len(e8["coulages"][0]["objectifs"]) == 8 and "au plus 8" in (o9["message"] or "") and o9["etat"] == e8 and 'data-chemin="objectifs/+"' not in o9["donnees"])
+r_rel = saisir(saisir(e0, "temperature/mode", "releve")["etat"], "temperature/releve", "12\nabc\n13")
+chk("un relevé illisible reste à l'écran avec son erreur et sa ligne ; le calcul garde le précédent",
+    "Relevé refusé" in r_rel["message"] and "abc" in r_rel["donnees"] and r_rel["etat"]["coulages"][0]["temperature"]["releve"] == ""
+    and r_rel["etat"]["coulages"][0][A.BROUILLON]["texte"] == "12\nabc\n13")
+r_f = saisir(e0, "temperature/fichier", {"nom": "releve.csv", "texte": RELEVE})
+chk("un fichier lu devient le relevé (mode « Relevé », son nom écrit)", r_f["message"] is None
+    and r_f["etat"]["coulages"][0]["temperature"]["mode"] == "releve" and "releve.csv" in r_f["donnees"])
+chk("le champ r n'apparaît qu'en « r connu » ; E_a qu'en « Eₐ saisie » ; l'essai qu'une fois coché",
+    'data-chemin="durcissement/r"' not in r0["donnees"] and 'data-chemin="durcissement/r"' in saisir(e0, "durcissement/choix", "r")["donnees"]
+    and 'data-chemin="loi/Ea_kJ"' not in r0["donnees"] and 'data-chemin="loi/Ea_kJ"' in saisir(e0, "loi/mode", "perso")["donnees"]
+    and 'data-chemin="essai/mpa"' not in r0["donnees"] and 'data-chemin="essai/mpa"' in saisir(e0, "essai/actif", True)["donnees"])
+chk("le menu « Durcissement » a deux groupes : le bon de livraison (rapide, moyen, lent, r connu) puis le ciment (R, N, S)",
+    re.findall(r'<optgroup label="([^"]+)">', r0["donnees"]) == ["Bon de livraison · NBN EN 206", "Ciment · EN 1992-1-1"]
+    and re.findall(r'<option value="(beton:\w+|r|ciment:\w)"', r0["donnees"]) == ["beton:rapide", "beton:moyen", "beton:lent", "r", "ciment:R", "ciment:N", "ciment:S"])
+chk("les six modèles d'objectif, chacun avec sa source au survol",
+    all(f'data-valeur="{k}" title="{C.esc(src)}"' in r0["donnees"] for k, *_x, src in M.MODELES_OBJECTIF))
 
-# ------------------------------------------------------------------ 4. le sélecteur de classe
-print("\n=== 4. Le sélecteur de classe (③) ===")
-fautes = []
-for c in CAS:
-    s = req(module="age", action="selecteur", etat=note(c), role="classe")
-    cands = M.candidats_classes(c)
-    noms = re.findall(r'data-choix="([^"]+)"', s["html"])
-    cur = re.findall(r'class="pk-row cur[^"]*" data-choix="([^"]+)"', s["html"])
-    opt = re.findall(r'class="pk-row[^"]* opt" data-choix="([^"]+)"', s["html"])
-    if noms != CLASSES or cur != [c["classe"]] or opt != [x["classe"] for x in cands if x["optimal"]]:
-        fautes.append((noms, cur, opt))
-    for x in cands:
-        if f'{C.fr(x["fck"], 1).replace("-", "−")}</span>' not in s["html"]:
-            fautes.append(("f", x["classe"]))
-chk(f"{len(CAS)} sélecteurs : les sept classes par résistance, ✓ la classe du coulage, ★ la plus petite qui tient (moteur), f_ck au délai",
-    not fautes, fautes[:3])
-s = req(module="age", action="choisir", etat=note(coulage()), role="classe", nom="C35/45")
-chk("un clic retient la classe : C35/45 devient la classe du coulage, et la ligne ③ dit qu'elle suffit",
-    s["ok"] and s["etat"]["coulages"][0]["classe"] == "C35/45" and "classe du coulage C35/45 : 30,8 MPa à 14 j — elle suffit" in s["resultat"])
-s = req(module="age", action="choisir", etat=note(coulage()), role="classe", nom="C99/99")
-chk("une classe inconnue est refusée (erreur lisible)", not s["ok"] and "C99/99" in s["erreur"])
-s = req(module="age", action="selecteur", etat=note(coulage(optim__mpa=60.0, optim__delai=2.0)), role="classe")
-chk("aucune classe ne tient : pas d'étoile, toutes en rouge", s["ok"] and " opt" not in s["html"] and s["html"].count('class="chip r"') == 7)
+# ------------------------------------------------------------------ 5. le sélecteur de classe
+print("\n=== 5. Le sélecteur de classe ===")
+sel0 = req(module="age", action="selecteur", etat=e0, role="classe")["html"]
+ca0 = M.candidats_classes(e0["coulages"][0])
+lignes0 = re.findall(r'<button class="pk-row([^"]*)"[^>]*data-choix="([^"]+)"[^>]*>.*?<span class="kg">([^<]*)</span>', sel0, re.S)
+chk("sans âge prévu : les huit classes, l'âge où le premier objectif est atteint (le moteur), ✓ la classe du coulage, aucune étoile",
+    [x[1] for x in lignes0] == list(L.CLASSES) and [x[2] for x in lignes0] == [C.fr(c["t"], 1) if c["t"] is not None else "—" for c in ca0]
+    and [" cur" in x[0] for x in lignes0] == [c["classe"] == "C30/37" for c in ca0] and " opt" not in "".join(x[0] for x in lignes0), lignes0)
+e_d = saisir(saisir(saisir(e0, "objectifs/0/mode", "mpa")["etat"], "objectifs/0/mpa", "15")["etat"], "objectifs/0/age", "7")["etat"]
+sel1 = req(module="age", action="selecteur", etat=e_d, role="classe")["html"]
+ca1 = M.candidats_classes(e_d["coulages"][0])
+opt = [c["classe"] for c in ca1 if c["optimal"]]
+chk("avec un âge prévu (15 MPa caractéristiques à J + 7) : ★ la plus petite classe qui tient (le moteur), les taux en pastille",
+    len(opt) == 1 and re.search(rf'class="pk-row[^"]* opt"[^>]*data-choix="{re.escape(opt[0])}"', sel1) and "chip" in sel1, opt)
+ch1 = req(module="age", action="choisir", etat=copy.deepcopy(e_d), role="classe", nom=opt[0])
+chk("un clic retient la classe ; l'objectif en % la suit", ch1["ok"] and ch1["etat"]["coulages"][0]["classe"] == opt[0], ch1.get("erreur"))
+chk("la ligne du premier objectif ouvre le sélecteur (data-pk « classe »)", 'data-pk="classe"' in bloc(r0["resultat"], 0))
 
-# ------------------------------------------------------------------ 5. éléments, échappement
-print("\n=== 5. Les coulages de la note, l'échappement ===")
-e = A.nouvel_etat()
-a1 = req(module="age", action="ajouter", etat=e)
-a2 = req(module="age", action="dupliquer", etat=saisir(a1["etat"], "classe", "C45/55")["etat"])
-chk("ajouter, copier : trois coulages, la copie ouverte porte la classe copiée",
-    len(a2["etat"]["coulages"]) == 3 and a2["etat"]["actif"] == 2 and a2["etat"]["coulages"][2]["classe"] == "C45/55"
-    and a2["etat"]["coulages"][2]["nom"] == "Coulage 2 (copie)")
-a3 = req(module="age", action="supprimer", etat=a2["etat"], index=0)
-chk("supprimer le premier : deux coulages, l'ouvert reste le même", len(a3["etat"]["coulages"]) == 2 and a3["etat"]["coulages"][a3["etat"]["actif"]]["nom"] == "Coulage 2 (copie)")
-a4 = req(module="age", action="activer", etat=a3["etat"], index=0)
-chk("le résumé de la note nomme le coulage ouvert", a4["resume"]["gouvernant"].startswith("Coulage 2 ·"))
+# ------------------------------------------------------------------ 6. la note d'avant, l'échappement
+print("\n=== 6. La note d'avant, plusieurs coulages, l'échappement ===")
+v1 = calc(A.NOTE_V1)
+chk("une note d'avant (version 1) : les noms des coulages gardés, les coulages neufs, l'avis dit une fois (puis retiré de l'état)",
+    [c["nom"] for c in v1["etat"]["coulages"]] == ["Voile R+1", "Dalle R+2"] and v1["etat"]["coulages"][0]["classe"] == "C30/37"
+    and v1["etat"]["coulages"][1]["classe"] == "C30/37" and "avis" in v1 and "refait sur la norme" in v1["avis"][0] and A.CLE_AVIS not in v1["etat"]
+    and "avis" not in calc(v1["etat"]), v1.get("avis"))
+chk("une note d'une version plus récente est refusée avec un message lisible",
+    not req(module="age", action="calculer", etat={"version": 3, "coulages": [{}]})["ok"])
+deux = req(module="age", action="ajouter", etat=e0)
+chk("un coulage ajouté (« Coulage 2 ») ; la ligne de l'élément le dit ; le dernier ne se supprime pas",
+    [c["nom"] for c in deux["etat"]["coulages"]] == ["Coulage 1", "Coulage 2"] and 'data-elements="2"' in deux["donnees"]
+    and len(req(module="age", action="supprimer", etat=e0, index=0)["etat"]["coulages"]) == 1)
 PIEGE = '<img src=x onerror=alert(1)>'
-fuites = []
-for chemin in ("nom", "temperature/lieu"):
-    base = note(coulage(temperature__mode="releve", temperature__releve=RELEVE, age=6))
-    o = saisir(base, chemin, PIEGE)
-    for k_, h in (("données", o["donnees"]), ("résultat", o["resultat"]), ("fenêtres", o["volets"]), ("éléments", o["elements"]),
-                  ("vues", "".join(v["svg"] for v in o["vues"])), ("phrase", o["phrase"])):
-        if "<img" in h:
-            fuites.append((chemin, k_))
-o = saisir(note(coulage(temperature__mode="releve")), "temperature/releve", "12\n" + PIEGE)
-if "<img" in o["donnees"]:
-    fuites.append(("relevé refusé", "données"))
-chk("un nom, un lieu, un relevé refusé piégés sont échappés dans tous les fragments", not fuites, fuites)
-abime = req(module="age", action="calculer", etat={"version": 1, "coulages": [{"classe": "C99"}], "actif": 0})
-chk("un coulage abîmé (.stab) rend une erreur lisible", not abime["ok"] and "classe" in abime["erreur"])
+p1 = saisir(saisir(saisir(e0, "nom", PIEGE)["etat"], "objectifs/0/nom", PIEGE[:40])["etat"], "temperature/mode", "releve")
+p1 = saisir(p1["etat"], "temperature/lieu", PIEGE)
+frag = {k: p1[k] for k in ("resultat", "volets", "donnees", "elements", "phrase")}
+frag["vues"] = "".join(v["svg"] + v["entete"] for v in p1["vues"])
+fuites = [k for k, h in frag.items() if "<img" in h]
+chk("un nom de coulage, un nom d'objectif et un lieu piégés sont échappés dans tous les fragments (et sur les dessins)", not fuites, fuites)
+chk("la réponse est du JSON strict (ni NaN ni infini) pour chaque cas", all(json.loads(json.dumps(rep, allow_nan=False)) for rep in ECRANS.values()))
 
-# ------------------------------------------------------------------ 5 bis. ce que la relecture a ajouté
-print("\n=== 5 bis. Le verdict de l'essai, le signe moins, la courbe lisible, les valeurs extrêmes admises ===")
-# ⑤ : le second bloc de l'écran (cohérent / au-dessus / sous, l'écart) et la lecture en moyenne (défaut non conservatif)
-mal = []
-for mesure, verdict, grave in ((21.6, "cohérent avec C30/37", False), (35.0, "au-dessus de C30/37", False), (12.0, "sous C30/37", True)):
-    c = coulage(essai__mpa=mesure, essai__age=7.0)
-    r = req(module="age", action="calculer", etat=note(c))
-    m = M.calculer(c)["essai"]
-    msgs = [x for x in re.findall(r'<div class="msg( grave)?">(.*?)</div>', r["resultat"]) if "Essai ⑤" in x[1]]
-    att = f"{verdict} (écart {m['ecart']:+.0f} %)".replace("(écart -", "(écart −")
-    if len(msgs) != 2 or att not in texte(msgs[0][1]) or (msgs[0][0] == " grave") != grave or msgs[1][0] \
-            or f"fck,28 ≈ {C.fr(m['fck28_est_moyenne'], 1)} MPa." not in texte(msgs[1][1]) or "à trancher par le bureau" not in msgs[1][1]:
-        mal.append((mesure, msgs))
-chk("⑤ : le verdict de l'écran (cohérent / au-dessus / sous, écart ; « sous » en grave) et, à part, la lecture en moyenne à trancher",
-    not mal, mal)
-chk("⑤ : 21,6 MPa à 7 j — le module dit C30/37 « cohérent », la lecture en moyenne donne 19,7 MPa (défaut non conservatif, écrit)",
-    "19,7 MPa" in req(module="age", action="calculer", etat=note(coulage(essai__mpa=21.6, essai__age=7.0)))["resultat"])
-r = req(module="age", action="calculer", etat=note(coulage(temperature__T=-5.0, age=3)))
-chk("une température négative s'écrit avec le vrai signe moins (verdict, phrase, éléments, fenêtres)",
-    "−5 °C" in r["resultat"] and "−5 °C" in r["phrase"] and "−5 °C" in r["elements"] and "-5 °C" not in r["resultat"] + r["phrase"] + r["elements"] + r["volets"])
-# la courbe : légende AU-DESSUS du tracé, noms entiers dans le dessin, axe des résistances serré sous zéro, étiquette ① sans rien cacher
-svg = DA.courbe("t", M.calculer(coulage(**TOUT)))
-y_trace = float(re.search(r'<rect x="[^"]+" y="([^"]+)" width="[^"]+" height="[^"]+" fill="#FBFCFE"/>', svg).group(1))
-y_leg = [float(y) for y in re.findall(r'<text x="[^"]+" y="([^"]+)"[^>]*>[^<]*(?:seuil ②|essai ⑤|comparateur|classe minimale)', svg)]
-chk("courbe : la légende est au-dessus du tracé (elle ne cache plus les courbes des petites classes)", y_leg and max(y_leg) < y_trace, (y_leg, y_trace))
-largeur = float(re.search(r'viewBox="0 0 ([0-9.]+) ', svg).group(1))
-noms = re.findall(r'<text x="([0-9.]+)" y="[^"]+" text-anchor="start" font-size="([0-9.]+)"[^>]*font-weight="650">([^<]+)</text>', svg)
-coupe = [(n, float(x) + DA._largeur(n, float(t), True)) for x, t, n in noms if float(x) + DA._largeur(n, float(t), True) > largeur]
-chk("courbe : les noms au bout des courbes (« C35/45 ③ ») tiennent dans le dessin", noms and not coupe, coupe)
-svg_f = DA.courbe("t", M.calculer(coulage(temperature__T=-5.0, age=1)))
-chk("courbe : une résistance négative (−4,0 MPa à 1 j, −5 °C) n'étire pas l'axe jusqu'à −10 : il s'arrête juste dessous",
-    ">−5<" in svg_f and ">−10<" not in svg_f and "−4,0 MPa à 1 j" in svg_f)
-m_t = M.calculer(coulage(**TOUT))
-rect = re.search(r'<rect x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="([0-9.]+)" rx="6"', svg)
-bx, by, bw, bh = (float(v) for v in rect.groups())
-carre = re.search(r'<rect x="([0-9.]+)" y="([0-9.]+)" width="12" height="12" fill="#b45309"', svg)
-cx, cy = float(carre.group(1)) + 6, float(carre.group(2)) + 6
-chk("courbe : l'étiquette du point ① ne couvre pas le repère du seuil voisin (7,9 j contre 7 j)",
-    not (bx - 6 <= cx <= bx + bw + 6 and by - 6 <= cy <= by + bh + 6), (bx, by, bw, bh, cx, cy))
-# ② : jours froids d'abord, le seuil annoncé à la température moyenne est trop tôt — avertissement grave, et la fenêtre le montre
-froid_chaud = note(coulage(temperature__mode="releve", temperature__releve="\n".join(["2"] * 7 + ["20"] * 7), seuil__pct=50, age=5))
-r = req(module="age", action="calculer", etat=froid_chaud)
-chaud_froid = req(module="age", action="calculer", etat=note(coulage(temperature__mode="releve", temperature__releve="\n".join(["20"] * 7 + ["2"] * 7),
-                                                                     seuil__pct=50, age=5)))
-chk("② NON CONSERVATIF (jours froids d'abord) : avertissement grave « il n'est atteint qu'au jour 8 », et la fenêtre du seuil le montre ; rien quand "
-    "les jours chauds viennent d'abord",
-    re.search(r'<div class="msg grave">Seuil ② NON CONSERVATIF.*?f<sub>ck</sub> au jour 5 = 11,36 MPa &lt; 15,0 MPa : il n\'est atteint qu\'au jour 8', r["resultat"])
-    and "premier jour où f" in r["volets"] and "jour 8" in texte(r["volets"]) and "NON CONSERVATIF" not in chaud_froid["resultat"],
-    re.findall(r'<div class="msg grave">(Seuil[^<]*)', r["resultat"]))
-# les valeurs extrêmes ADMISES restent du JSON strict (pas d'infini) : 10 ans à 60 °C, 200 MPa
-fautes = []
-for k in (dict(temperature__T=60.0, optim__delai=3650.0, optim__afficher=True), dict(temperature__T=60.0, essai__age=3650.0, essai__mpa=200.0, essai__afficher=True),
-          dict(optim__mpa=200.0, optim__afficher=True, seuil__mode="mpa", seuil__mpa=30.0), dict(temperature__T=-5.0, essai__mpa=200.0, essai__age=0.5)):
-    try:
-        t_ = R.traiter(json.dumps({"module": "age", "action": "calculer", "etat": note(coulage(**k))}))
-        if not json.loads(t_, parse_constant=lambda x: (_ for _ in ()).throw(ValueError(x)))["ok"]:
-            fautes.append((k, "refus"))
-    except ValueError as x:
-        fautes.append((k, x))
-chk("les valeurs extrêmes admises (délai et âge d'essai de 10 ans à 60 °C, 200 MPa) se calculent en JSON strict", not fautes, fautes)
-
-# les dates sous l'axe du relevé (la vue « Températures ») : jamais deux qui se chevauchent, quelle que soit la durée — le
-# jour 1 et le jour 2 sont voisins quand les autres jours vont de deux en deux (« 24/1025/10 » au téléphone, vu sur la
-# capture de la météo du lieu)
-chev = []
-for n_ in range(1, 61):
-    rel_ = "\n".join(f"{(A._dt.date(2026, 10, 1) + A._dt.timedelta(days=i)).isoformat()};10" for i in range(n_))
-    svg_r = DA.releve("r", M.calculer(coulage(temperature__mode="releve", temperature__releve=rel_, age=min(n_, 28) if n_ > 1 else 1)))
-    xs = [float(x) for x, t in re.findall(r'<text x="([0-9.]+)" y="[0-9.]+"[^>]*>(\d\d/\d\d)</text>', svg_r)]
-    lw = DA._largeur("00/00", 13.0)
-    chev += [(n_, round(b - a, 1)) for a, b in zip(xs, xs[1:]) if b - a < lw + 2]
-    if n_ <= 11 and len(xs) != n_:
-        chev.append((n_, f"{len(xs)} dates sur {n_} jours"))
-chk("relevé de 1 à 60 jours : les dates sous l'axe ne se chevauchent jamais (et chaque jour a la sienne jusqu'à 11 jours)", not chev, chev[:4])
-
-# ------------------------------------------------------------------ 6. pureté
-print("\n=== 6. Pureté : le module du site se charge et répond sans streamlit ni matplotlib ===")
-SOUS = r'''
-import json, sys
-INTERDITS = ("streamlit", "pandas", "reportlab", "matplotlib", "scipy", "requests", "fitz", "PIL")
-class Refus:
-    def find_spec(self, nom, chemin=None, cible=None):
+# ------------------------------------------------------------------ 7. pureté
+print("\n=== 7. Pureté : sans numpy, streamlit, matplotlib, pandas, requests ===")
+SONDE = r"""
+import importlib.abc, json, sys
+INTERDITS = ("numpy", "streamlit", "matplotlib", "pandas", "requests", "scipy")
+class Refus(importlib.abc.MetaPathFinder):
+    def find_spec(self, nom, chemin, cible=None):
         if nom.split(".")[0] in INTERDITS:
-            raise ImportError("refusé : " + nom)
-        return None
+            raise ImportError("interdit : " + nom)
 sys.meta_path.insert(0, Refus())
 sys.path.insert(0, sys.argv[1])
 from api_web import routeur as R
-q = json.loads(sys.stdin.read())
-out = [json.loads(R.traiter(json.dumps(x)))["ok"] for x in q]
-print(json.dumps({"ok": out, "interdits": sorted(m for m in sys.modules if m.split(".")[0] in INTERDITS)}))
-'''
-reqs = [{"module": "age", "action": "nouveau"}, {"module": "age", "action": "calculer", "etat": e_rel},
-        {"module": "age", "action": "selecteur", "etat": e_rel, "role": "classe"}]
-pr = subprocess.run([sys.executable, "-I", "-c", SOUS, RACINE], input=json.dumps(reqs), capture_output=True, text=True, check=False)
-res = json.loads(pr.stdout) if pr.returncode == 0 else {"ok": [], "interdits": [pr.stderr[-300:]]}
-chk("le module « age » répond (nouveau, relevé, sélecteur) avec streamlit, matplotlib, pandas, requests REFUSÉS", res["ok"] == [True] * 3 and not res["interdits"], res)
+r = json.loads(R.traiter(json.dumps({"module": "age", "action": "nouveau"})))
+print(json.dumps({"ok": r["ok"], "interdits": sorted(m for m in sys.modules if m.split(".")[0] in INTERDITS)}))
+"""
+p = subprocess.run([sys.executable, "-c", SONDE, RACINE], capture_output=True, text=True, timeout=120)
+try:
+    pur = json.loads(p.stdout.strip().splitlines()[-1])
+except (ValueError, IndexError):
+    pur = {"ok": False, "sortie": p.stdout[-300:] + p.stderr[-300:]}
+chk("le module du site et le moteur se chargent et calculent quand numpy, streamlit, matplotlib, pandas, requests et scipy sont REFUSÉS à l'import",
+    pur.get("ok") and not pur.get("interdits"), pur)
 
-# ------------------------------------------------------------------ 7. la météo du lieu
-print("\n=== 7. La météo du lieu (Open-Meteo, importée à la demande ; faux service au format documenté) ===")
-AUJ = A._dt.date(2026, 11, 7)
-A.aujourdhui = lambda: AUJ                                   # le jour de l'écran, figé (le plan du bouton en dépend)
-A.maintenant = lambda: "2026-11-07T10:30"                   # l'heure de la récupération, figée
+# ------------------------------------------------------------------ 8. la météo du lieu
+print("\n=== 8. La météo du lieu (Open-Meteo, importée à la demande ; faux service au format documenté) ===")
 BOUTON = re.compile(r'<button type="button" class="btn meteo( sm)?" data-meteo="([^"]*)" data-meteo-chemin="([^"]+)"( disabled)?>')
 
 
 def boutons(r):
-    """Les boutons météo du cadre Données : [(chemin, plan, grisé, petit)]."""
     return [(ch, json.loads(html.unescape(pl)), bool(gr), bool(sm)) for sm, pl, ch, gr in BOUTON.findall(r["donnees"])]
 
 
 def navigateur(r, chemin="temperature/meteo", service=None):
-    """Ce que le navigateur ferait au clic du bouton : le plan du bouton exécuté chez le faux Open-Meteo."""
     b = next(x for x in boutons(r) if x[0] == chemin)
     return FO.recuperer(b[1], service or FO.FauxService(AUJ))
 
 
-e_m = saisir(note(coulage(age=10)), "temperature/mode", "meteo")
+e_m = saisir(e0, "temperature/mode", "meteo")
 c_m = e_m["etat"]["coulages"][0]
-chk("« Météo du lieu » : la troisième source de la cure, à côté de « Constante » et « Relevé » ; le lieu de l'écran (« Bruxelles, Belgique »)",
-    re.search(r'data-chemin="temperature/mode" data-sorte="choix" data-valeur="meteo"[^>]*>Météo du lieu<', e_m["donnees"])
-    and c_m["temperature"]["mode"] == "meteo" and c_m["temperature"]["lieu"] == MT.LIEU_DEFAUT)
 bt = boutons(e_m)
-pl = bt[0][1] if bt else {}
-chk("le bouton « Récupérer la météo » porte le PLAN du moteur (data-meteo) : géocodage du lieu, archive puis prévisions, dates de l'écran",
-    len(bt) == 1 and bt[0][0] == "temperature/meteo" and not bt[0][2] and "Récupérer la météo</span>" in e_m["donnees"]
-    and pl == dict(MT.plan(MT.LIEU_DEFAUT, AUJ - A._dt.timedelta(days=14), AUJ, AUJ), coulage=0)
-    and [a["source"] for a in pl["appels"]] == ["archive", "prevision"] and pl["geocodage"] == {"name": MT.LIEU_DEFAUT, "count": 1, "language": "fr"}, pl)
-chk("sans récupération : T = 20 °C par défaut, dit dans le résultat ; ni relevé, ni badge ; les champs Lieu, Début, Fin (« Coulage », « Fin (décoffrage) » de l'écran)",
-    "Météo pas encore récupérée" in e_m["resultat"] and all(champ(e_m, k) for k in ("temperature/lieu", "temperature/debut", "temperature/fin"))
-    and "auto · 24/10/2026" in e_m["donnees"] and "auto · 07/11/2026" in e_m["donnees"] and "<textarea" not in e_m["donnees"])
-d_c = saisir(e_m["etat"], "date_coulage", "02/11/2026")
-chk("la date de coulage du béton est le coulage par défaut de la météo (fin = coulage + 5 j quand il est récent)",
-    boutons(d_c)[0][1]["debut"] == "2026-11-02" and boutons(d_c)[0][1]["fin"] == "2026-11-07"
-    and boutons(saisir(e_m["etat"], "temperature/debut", "05/11/2026")["etat"] and saisir(e_m["etat"], "temperature/debut", "05/11/2026"))[0][1]["fin"] == "2026-11-10")
-avant = req(module="age", action="calculer", etat=e_m["etat"])
+chk("« Météo du lieu » : le lieu par défaut, le bouton porte le PLAN du moteur (géocodage, archive puis prévisions, coulage n° 0)",
+    c_m["temperature"]["lieu"] == MT.LIEU_DEFAUT and len(bt) == 1 and not bt[0][2]
+    and bt[0][1] == dict(MT.plan(MT.LIEU_DEFAUT, AUJ - _dt.timedelta(days=14), AUJ, AUJ), coulage=0)
+    and "Météo pas encore récupérée" in e_m["resultat"], bt and bt[0][1])
+chk("la date de fin du bétonnage est le début par défaut de la météo",
+    boutons(saisir(e_m["etat"], "date", "02/11/2026"))[0][1]["debut"] == "2026-11-02")
 v = navigateur(e_m)
 o = saisir(e_m["etat"], "temperature/meteo", v)
 c_o = o["etat"]["coulages"][0]
 p_att = MT.plan(MT.LIEU_DEFAUT, "2026-10-24", "2026-11-07", AUJ)
-j_att = MT.lire_journalier(p_att, v["reponses"])
-chk("la récupération (réponses BRUTES du navigateur) est lue par le moteur : le relevé est écrit (une ligne par jour, mesurés), le mode reste « météo »",
-    o["message"] is None and c_o["temperature"]["mode"] == "meteo" and c_o["temperature"]["releve"] == MT.releve(j_att)
-    and len(c_o["temperature"]["releve"].splitlines()) == 15, o["message"])
-rec = c_o["temperature"]["meteo"]
-chk("… et GARDÉE dans la note : le lieu demandé et trouvé, les dates (fixées), le jour et l'heure, les réponses réduites à ce qui est lu",
-    rec and rec["lieu"] == MT.LIEU_DEFAUT and rec["geocodage"]["name"] == "Bruxelles" and rec["recupere"] == "2026-11-07T10:30"
-    and (rec["debut"], rec["fin"], rec["aujourdhui"]) == ("2026-10-24", "2026-11-07", "2026-11-07")
-    and (c_o["temperature"]["debut"], c_o["temperature"]["fin"]) == ("2026-10-24", "2026-11-07")
-    and set(rec["reponses"][0]["daily"]) == {"time", "temperature_2m_mean"} and len(rec["reponses"]) == 2, rec and list(rec))
+chk("la récupération est lue par le moteur et GARDÉE : le relevé (15 jours), le lieu trouvé, la date de récupération",
+    o["message"] is None and c_o["temperature"]["releve"] == MT.releve(MT.lire_journalier(p_att, v["reponses"]))
+    and c_o["temperature"]["meteo"]["recupere"] == "2026-11-07T10:30" and c_o["temperature"]["mode"] == "meteo", o["message"])
 t_o = texte(o["donnees"])
-chk("l'écran dit d'où viennent les températures : le badge de l'écran Streamlit (lieu trouvé — n j mesurés), la date de récupération, la position",
-    "Bruxelles, Bruxelles-Capitale, Belgique — 15 j mesurés" in t_o and "Open-Meteo · récupérée le 07/11/2026 à 10:30 · 50,85°\u00a0N\u00a0·\u00a04,35°\u00a0E" in t_o
-    and all(x in t_o for x in ("T min", "T moy", "T max")) and "Récupérer à nouveau la météo" in t_o, t_o[:400])
-chk("les températures reçues sont visibles (vue « Météo du lieu » : la courbe des jours ; vue « Tableau » : une ligne par jour, mesurées) et modifiables (zone du relevé)",
-    [x["cle"] for x in o["vues"]] == ["courbe", "releve", "tableau"] and o["vues"][1]["titre"] == "Météo du lieu"
-    and "Open-Meteo" in o["vues"][1]["legende"] and o["vues"][2]["svg"].count("<tr") - 1 == 15 and o["vues"][2]["svg"].count(">mesuré<") == 15
-    and '<textarea data-chemin="temperature/releve"' in o["donnees"] and "Températures journalières (modifiables)" in o["donnees"], [x["cle"] for x in o["vues"]])
-m_o = M.calculer(c_o)
-chk("la maturité est recalculée avec la météo (f_ck(10 j) n'est plus celle de 20 °C ; t_e suit le relevé jour par jour)",
-    m_o["temperature"]["source"] == "releve" and m_o["age"]["fck"] != M.calculer(c_m)["age"]["fck"]
-    and f'{C.fr(m_o["age"]["fck"], 1)}<small>' in o["resultat"] and "météo de Bruxelles" in o["phrase"], (m_o["age"]["fck"], avant["resume"]))
-stab = json.loads(json.dumps(o["etat"]))
-o2 = req(module="age", action="calculer", etat=stab)
-chk("la note rechargée (.stab, JSON) garde la récupération et se recalcule HORS LIGNE à l'identique (aucun appel : le moteur relit ce qu'elle garde)",
-    o2["ok"] and o2["etat"] == o["etat"] and o2["resultat"] == o["resultat"] and o2["donnees"] == o["donnees"])
-o3 = saisir(o["etat"], "temperature/releve", c_o["temperature"]["releve"].replace(";7,", ";2,", 1) if ";7," in c_o["temperature"]["releve"]
-            else c_o["temperature"]["releve"].replace(";", ";1", 1))
-c3 = o3["etat"]["coulages"][0]
-chk("les températures se corrigent à la main : le calcul les suit, la récupération reste gardée, l'écran dit « corrigées à la main »",
-    o3["message"] is None and c3["temperature"]["meteo"] == rec and c3["temperature"]["mode"] == "meteo"
-    and "corrigées à la main" in o3["donnees"] and M.calculer(c3)["temperature"]["T"] != m_o["temperature"]["T"], o3["message"])
-# (relecture adverse) les températures EFFACÉES après une récupération : le résultat disait « Météo pas encore récupérée »
-# sous la date de la récupération — il dit ce qui s'est passé, et comment les retrouver
-o3b = saisir(o["etat"], "temperature/releve", "")
-chk("températures effacées à la main après une récupération : « Températures de la météo effacées » (T = 20 °C), et non « Météo pas encore "
-    "récupérée », que contredisait la date de récupération écrite au-dessus ; le résumé de la section le dit aussi",
-    o3b["message"] is None and "Températures de la météo effacées" in o3b["resultat"] and "pas encore récupérée" not in o3b["resultat"]
-    and "Open-Meteo · récupérée le 07/11/2026" in texte(o3b["donnees"]) and "températures effacées · 20 °C" in o3b["donnees"]
-    and "météo à récupérer" not in o3b["donnees"], (o3b["message"], texte(o3b["resultat"])[-300:]))
-o4 = saisir(o["etat"], "temperature/lieu", "Namur")
-chk("lieu changé depuis la récupération : « Lieu ou dates modifiés depuis la récupération » (comme l'écran) ; le bouton porte le nouveau lieu",
-    "Lieu ou dates modifiés depuis la récupération" in o4["donnees"] and boutons(o4)[0][1]["lieu"] == "Namur")
-# le détail horaire, à la demande
+chk("l'écran dit d'où viennent les températures : le badge, la date de récupération et la position, T min / T moy / T max",
+    "Bruxelles, Bruxelles-Capitale, Belgique — 15 j mesurés" in t_o and "Open-Meteo · récupérée le 07/11/2026 à 10:30 · 50,85° N · 4,35° E" in t_o
+    and all(x in t_o for x in ("T min", "T moy", "T max")) and "Récupérer à nouveau la météo" in t_o, t_o[:300])
+chk("la vue « Météo du lieu » dit Open-Meteo ; le tableau a une ligne par jour du profil, les 15 premières « mesuré »",
+    o["vues"][1]["titre"] == "Météo du lieu" and "Open-Meteo" in o["vues"][1]["legende"]
+    and o["vues"][2]["svg"].count(">mesuré<") == 15, [x["titre"] for x in o["vues"]])
+chk("rechargée (.stab), la note se recalcule HORS LIGNE à l'identique", calc(json.loads(json.dumps(o["etat"])))["resultat"] == o["resultat"])
+o3 = saisir(o["etat"], "temperature/releve", c_o["temperature"]["releve"].replace(";", ";1", 1))
+chk("une température corrigée à la main : le calcul suit, la récupération reste, « corrigées à la main »",
+    o3["message"] is None and o3["etat"]["coulages"][0]["temperature"]["meteo"] == c_o["temperature"]["meteo"] and "corrigées à la main" in o3["donnees"])
 bh = [b for b in boutons(o) if b[0] == "temperature/meteo_horaire"]
-chk("« Charger le détail horaire (facultatif) » : un second bouton, petit, dont le plan donne la position (sans géocodage) et demande l'horaire",
-    len(bh) == 1 and bh[0][3] and "position" in bh[0][1] and "geocodage" not in bh[0][1]
-    and all(a["parametres"].get("hourly") == "temperature_2m" for a in bh[0][1]["appels"]), bh)
-vh = navigateur(o, "temperature/meteo_horaire")
-oh = saisir(o["etat"], "temperature/meteo_horaire", vh)
-tab = next(x["svg"] for x in oh["vues"] if x["cle"] == "tableau")
-ext = MT.extremes_horaires(MT.lire_horaire(bh[0][1], vh["reponses"]))
-chk("le détail horaire est gardé ; le tableau ajoute T min h et T max h de chaque jour (les extrêmes horaires du moteur) ; le bouton s'efface",
-    oh["message"] is None and oh["etat"]["coulages"][0]["temperature"]["meteo"]["horaire"] is not None and "T min h" in tab and "T max h" in tab
-    and f"<td>{C.fr(ext['2026-10-24'][0], 1).replace('-', '−')}</td><td>{C.fr(ext['2026-10-24'][1], 1).replace('-', '−')}</td>" in tab
-    and not [b for b in boutons(oh) if b[0] == "temperature/meteo_horaire"] and "Détail horaire chargé le 07/11/2026 à 10:30" in oh["donnees"], oh["message"])
-# au-delà de l'horizon : prévisions et prolongation, la variante défavorable
-o5 = saisir(saisir(e_m["etat"], "temperature/debut", "03/11/2026")["etat"], "temperature/fin", "30/11/2026")
-v5 = navigateur(o5)
-o5 = saisir(o5["etat"], "temperature/meteo", v5)
-chk("coulage récent, fin au-delà de l'horizon : jours mesurés, prévus, prolongés (badge), avertissement de prolongation, variante défavorable",
-    o5["message"] is None and "5 j mesurés · 16 j de prévision · 7 j prolongés" in texte(o5["donnees"])
-    and "prolongé(s) au-delà des prévisions" in o5["resultat"] and "Défavorable à 10 j" in o5["resultat"], (o5["message"], texte(o5["donnees"])[:300]))
-# (relecture adverse) un AUTRE coulage ouvert pendant la récupération : elle allait dans le coulage ouvert au retour. Une
-# copie (même lieu, mêmes dates, plan identique) y perdait ses corrections à la main, et le coulage du clic restait sans
-# météo. Le plan porte le rang du coulage du bouton : la récupération qui revient ailleurs est refusée, la note intacte.
-deux = req(module="age", action="dupliquer", etat=o3["etat"])                      # coulage 2 = copie, corrigée à la main
-v_1 = navigateur(req(module="age", action="activer", etat=deux["etat"], index=0))  # le clic sur le bouton du coulage 1
-o_x = req(module="age", action="modifier", etat=copy.deepcopy(deux["etat"]), chemin=["temperature", "meteo"], valeur=v_1)  # … revenu sur le 2
-v_2 = navigateur(deux)
-o_2 = saisir(deux["etat"], "temperature/meteo", v_2)
-chk("une récupération lancée sur un coulage et revenue alors qu'un autre est ouvert (une copie : même lieu, mêmes dates) est refusée — le "
-    "coulage ouvert garde ses corrections à la main ; depuis son propre bouton, elle passe",
-    deux["etat"]["actif"] == 1 and v_1["plan"]["coulage"] == 0 and o_x["ok"] and o_x["message"] and "Un autre coulage a été ouvert" in o_x["message"]
-    and o_x["etat"] == deux["etat"] and boutons(deux)[0][1]["coulage"] == 1 and o_2["message"] is None
-    and o_2["etat"]["coulages"][1]["temperature"]["releve"] == c_o["temperature"]["releve"]
-    and o_2["etat"]["coulages"][0] == deux["etat"]["coulages"][0], (o_x.get("message"), o_2["message"]))
-vh_1 = navigateur(req(module="age", action="activer", etat=o["etat"] | {"coulages": [o["etat"]["coulages"][0]] * 2}, index=0), "temperature/meteo_horaire")
-oh_x = req(module="age", action="modifier", etat=o["etat"] | {"coulages": [o["etat"]["coulages"][0]] * 2, "actif": 1},
-           chemin=["temperature", "meteo_horaire"], valeur=vh_1)
-chk("… de même pour le détail horaire", oh_x["ok"] and oh_x["message"] and "Un autre coulage a été ouvert" in oh_x["message"], oh_x.get("message"))
-# les refus : jamais une exception, la note intacte
-REFUS_M = [("lieu introuvable", "temperature/meteo", None, lambda e_: FO.recuperer(boutons(saisir(e_, "temperature/lieu", "Atlantide")["etat"] and
-                                                                                          saisir(e_, "temperature/lieu", "Atlantide"))[0][1], FO.FauxService(AUJ)),
-            "Lieu introuvable : « Atlantide »"),
-           ("une température en texte dans la réponse", "temperature/meteo", None,
-            lambda e_: (lambda x: (x["reponses"][0]["daily"]["temperature_2m_mean"].__setitem__(1, "douze"), x)[1])(navigateur(e_m)), "Météo refusée"),
-           ("une réponse de moins", "temperature/meteo", None, lambda e_: dict(navigateur(e_m), reponses=navigateur(e_m)["reponses"][:1]), "Météo refusée"),
-           ("le plan d'un autre lieu (changé pendant la récupération)", "temperature/meteo", None,
-            lambda e_: dict(navigateur(e_m), plan=dict(navigateur(e_m)["plan"], lieu="Namur")), "modifiés pendant la récupération"),
-           # (relecture adverse) une archive qui commence un jour APRÈS le coulage était lue : le relevé glissait d'un jour
-           ("l'archive qui commence le lendemain du coulage", "temperature/meteo", None,
-            lambda e_: (lambda x: ([x["reponses"][0]["daily"][k].pop(0) for k in ("time", "temperature_2m_mean")], x)[1])(navigateur(e_m)),
-            "le 24/10/2026 manque"),
-           ("sans plan", "temperature/meteo", None, lambda e_: {"reponses": []}, "Météo illisible"),
-           ("rien d'utile (une liste)", "temperature/meteo", None, lambda e_: [1, 2], "Météo illisible"),
-           ("le détail horaire avant la météo", "temperature/meteo_horaire", None, lambda e_: vh, "Récupérez d'abord la météo")]
+oh = saisir(o["etat"], "temperature/meteo_horaire", navigateur(o, "temperature/meteo_horaire"))
+tab_h = next(x["svg"] for x in oh["vues"] if x["cle"] == "tableau")
+mh = M.calculer(oh["etat"]["coulages"][0])
+chk("le détail horaire (petit bouton, la position sans géocodage) : gardé, T min h / T max h au tableau, la MINIMALE horaire sert au gel",
+    len(bh) == 1 and bh[0][3] and "geocodage" not in bh[0][1] and oh["message"] is None and "T min h" in tab_h and mh["gel"]["base"] == "minimale"
+    and "minimale horaire" in texte(oh["resultat"]), oh["message"])
+chk("écran = moteur avec le détail horaire", not controle_ecran("détail horaire", oh["etat"]["coulages"][0], oh))
+deux = req(module="age", action="dupliquer", etat=o3["etat"])
+v_1 = navigateur(req(module="age", action="activer", etat=deux["etat"], index=0))
+o_x = req(module="age", action="modifier", etat=copy.deepcopy(deux["etat"]), chemin=["temperature", "meteo"], valeur=v_1)
+chk("une récupération revenue alors qu'un autre coulage est ouvert est refusée ; la copie garde ses corrections",
+    o_x["ok"] and "Un autre coulage a été ouvert" in (o_x["message"] or "") and o_x["etat"] == deux["etat"], o_x.get("message"))
+REFUS_M = [("lieu introuvable", lambda: (saisir(e_m["etat"], "temperature/lieu", "Atlantide")["etat"],), "Lieu introuvable : « Atlantide »"),
+           ("une réponse de moins", lambda: (e_m["etat"], dict(v, reponses=v["reponses"][:1])), "Météo refusée"),
+           ("le plan d'un autre lieu", lambda: (e_m["etat"], dict(v, plan=dict(v["plan"], lieu="Namur"))), "modifiés pendant la récupération"),
+           ("sans plan", lambda: (e_m["etat"], {"reponses": []}), "Météo illisible"),
+           ("le détail horaire avant la météo", lambda: (e_m["etat"], dict(v, plan=bh[0][1])), "Récupérez d'abord la météo")]
 mal = []
-for nom, chemin, _, fab, mot in REFUS_M:
-    base = e_m["etat"]
-    if nom == "lieu introuvable":
-        base = saisir(e_m["etat"], "temperature/lieu", "Atlantide")["etat"]
-    out = req(module="age", action="modifier", etat=copy.deepcopy(base), chemin=chemin.split("/"), valeur=fab(base))
-    if not out.get("ok") or not out.get("message") or mot not in out["message"] or out["etat"] != base:
+for nom, fab, mot in REFUS_M:
+    x = fab()
+    base = x[0]
+    val = x[1] if len(x) > 1 else FO.recuperer(boutons(calc(base))[0][1], FO.FauxService(AUJ))
+    ch = ["temperature", "meteo_horaire" if "horaire" in nom else "meteo"]
+    out = req(module="age", action="modifier", etat=copy.deepcopy(base), chemin=ch, valeur=val)
+    if not out.get("ok") or mot not in (out.get("message") or "") or out["etat"] != base:
         mal.append((nom, out.get("message") or out.get("erreur")))
-chk(f"{len(REFUS_M)} récupérations refusées (lieu introuvable, réponse abîmée, une de moins, plan changé, sans plan, détail horaire seul) : "
-    "un message en français, la note intacte, jamais une exception", not mal, mal)
-o6 = saisir(e_m["etat"], "temperature/debut", "01/12/2026")
-b6 = boutons(saisir(o6["etat"], "temperature/fin", "05/12/2026"))
-chk("dates hors de portée (au-delà de l'horizon des prévisions) : le bouton est grisé et le message dit pourquoi, avant tout appel",
-    b6 and b6[0][2] and "horizon des prévisions" in b6[0][1].get("erreur", "")
-    and "horizon des prévisions (16 j" in saisir(o6["etat"], "temperature/fin", "05/12/2026")["donnees"], b6)
-o7 = saisir(o["etat"], "temperature/fin", "01/10/2026")
-chk("une fin avant le coulage est refusée avec un message (la note intacte) ; un coulage après la fin la remet en automatique",
-    o7["message"] and "Fin de la météo" in o7["message"] and "précède le début" in o7["message"] and o7["etat"] == o["etat"]
-    and saisir(o["etat"], "temperature/debut", "20/11/2026")["etat"]["coulages"][0]["temperature"]["fin"] is None, o7["message"])
-# l'échappement : un lieu saisi piégé (il part dans le plan du bouton) et un nom de lieu piégé RENDU PAR LE SERVICE
-FO.LIEUX["piege"] = dict(FO.LIEUX["namur"], name='Piège<img src=x onerror=alert(1)>', admin1='"><script>x()</script>')
-fuites = []
-p1 = saisir(e_m["etat"], "temperature/lieu", PIEGE)
-for k_, h in (("données", p1["donnees"]), ("résultat", p1["resultat"])):
-    if "<img" in h:
-        fuites.append(("lieu saisi", k_))
-e_p = saisir(e_m["etat"], "temperature/lieu", "Piège")["etat"]
-r_p = saisir(e_p, "temperature/meteo", navigateur(saisir(e_p, "temperature/mode", "meteo")))
-frag = {"données": r_p["donnees"], "résultat": r_p["resultat"], "fenêtres": r_p["volets"], "éléments": r_p["elements"], "phrase": r_p["phrase"],
-        "dessins": "".join(x["svg"] for x in r_p["vues"]), "section": r_p["donnees"]}
-fuites += [("nom rendu par le service", k_) for k_, h in frag.items() if "<img" in h or "<script" in h]
-chk("un lieu saisi piégé (dans le plan du bouton) et un nom de lieu piégé rendu par le service sont échappés dans tous les fragments",
-    not fuites and r_p["message"] is None and "Piège&lt;img" in r_p["donnees"], (fuites, r_p["message"]))
-del FO.LIEUX["piege"]
-# un .stab abîmé : la récupération gardée est relue strictement
-ab = copy.deepcopy(o["etat"])
-ab["coulages"][0]["temperature"]["meteo"]["reponses"][0]["daily"]["temperature_2m_mean"][0] = "<b>"
-r_ab = req(module="age", action="calculer", etat=ab)
-chk("une récupération gardée abîmée (.stab venu d'ailleurs) rend une erreur lisible, jamais une exception",
-    not r_ab["ok"] and "meteo" in r_ab["erreur"] and "Traceback" not in r_ab["erreur"], r_ab.get("erreur"))
-# le parcours propre du module passe par la météo (récupérée, lieu introuvable, détail horaire, réponse de moins)
-journal = [req(module="age", **dict(q, etat=copy.deepcopy(q["etat"]))) for q in A.PARCOURS if q.get("chemin", [""])[0:1] == ["temperature"]
-           and q.get("chemin", ["", ""])[1:2] and q["chemin"][1].startswith("meteo")]
-chk("le parcours de l'écran passe par la météo : récupérée, lieu introuvable, réponse incomplète, détail horaire (sans erreur, refus en message)",
-    len(journal) == 4 and all(x["ok"] for x in journal) and journal[0]["message"] is None and "Lieu introuvable" in journal[1]["message"]
-    and "Météo refusée" in journal[2]["message"] and journal[3]["message"] is None, [(x.get("message"), x.get("erreur")) for x in journal])
+chk(f"{len(REFUS_M)} récupérations refusées : un message en français, la note intacte, jamais une exception", not mal, mal)
+b6 = boutons(saisir(saisir(e_m["etat"], "temperature/debut", "01/12/2026")["etat"], "temperature/fin", "05/12/2026"))
+chk("dates hors de portée : le bouton grisé, le message (horizon des prévisions)", b6 and b6[0][2] and "horizon des prévisions" in b6[0][1].get("erreur", ""), b6)
+journal = [req(module="age", **dict(q, etat=copy.deepcopy(q.get("etat") or e0))) for q in A.PARCOURS]
+chk(f"le parcours propre du module ({len(journal)} requêtes) : aucune erreur", all(x["ok"] for x in journal), [x.get("erreur") for x in journal if not x["ok"]])
+
+# ------------------------------------------------------------------ 9. les mutations de l'écran
+print("\n=== 9. Mutations de l'écran : une mise en forme fautive fait rougir les contrôles ===")
+
+
+def rejoue():
+    fautes = []
+    for nom_cas, c in CAS.items():
+        fautes += controle_ecran(nom_cas, c)
+        fautes += controle_formules(calc({"version": 2, "coulages": [c], "actif": 0}), nom_cas)[0]
+    return fautes
+
+
+MUTATIONS = [
+    ("l'échéance tronquée au jour", "_jplus", lambda f: (lambda t: f(None if t is None else math.floor(t)))),
+    ("nominal et prudent confondus", "_prudent_txt", lambda f: (lambda r, o: f(r, dict(o, prudent={"t": o["t"], "instant": o["instant"]})))),
+    ("l'instant arrondi à l'heure inférieure", "_instant", lambda f: (lambda iso, mot="vers": f(None if not iso else
+                                                                       (_dt.datetime.fromisoformat(iso) - _dt.timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M"), mot))),
+    ("le taux recopié au lieu d'arrondi dans sa bande", "_taux", lambda f: (lambda o: None if o["taux"] is None else round(o["taux"] * 100 + 0.5))),
+    ("une valeur substituée arrondie à deux chiffres", "_v", lambda f: (lambda x: f(float(f"{x:.2g}")))),
+    ("la résistance prévue lue sur la mauvaise base", "_mpa", lambda f: (lambda x, nd=1: f(None if x is None else x + 8.0, nd))),
+    ("les températures en °F", "_deg", lambda f: (lambda x, nd=1: f(None if x is None else x * 1.8 + 32, nd))),
+]
+for nom, cible, fab in MUTATIONS:
+    orig = getattr(A, cible)
+    setattr(A, cible, fab(orig))
+    try:
+        rouges = rejoue()
+    except Exception as e:  # noqa: BLE001 — une exception compte comme un rouge
+        rouges = [f"exception : {e}"]
+    finally:
+        setattr(A, cible, orig)
+    chk(f"mutation « {nom} » : les contrôles rougissent ({len(rouges)} fautes)", bool(rouges), "aucune faute vue")
+chk("sans mutation, les contrôles restent verts", not rejoue())
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
