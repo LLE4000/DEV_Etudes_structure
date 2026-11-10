@@ -14,9 +14,14 @@
      section, tête, fenêtres de calcul) est celui du calcul à la main ; les refus laissent l'état intact ; un nom piégé
      est échappé ; la note PDF ne reçoit le taux de la poutre que si la case « dans la note de calcul » est cochée
      (éteinte par défaut : on ne donne pas toujours le taux à qui reçoit la note).
+  4 bis. « DÉTAILLER DANS TAUX D'ARMATURE » : le bouton (absent sans l'option, éteint avec sa raison tant qu'une section
+     n'a pas de longueur), la note envoyée au module détaillé (la poutre OUVERTE, sa provenance datée, ses zones au pas
+     des sections) et le LIEN entre les deux calculs : la masse des barres du module détaillé vaut Σ (masse au mètre de
+     la section, recalculée ici à la main) × longueur, aux abouts près ; par le routeur, de bout en bout.
   5. MUTATIONS : le moteur rechargé depuis sa source, modifié d'UNE formule, est rejeté par les contrôles 1 et 2 ;
-     l'écran modifié d'UN affichage est rejeté par les contrôles 4 ; la note qui donnerait le taux sans qu'on le demande
-     est rejetée. Une mutation témoin (un commentaire) ne l'est pas.
+     l'écran modifié d'UN affichage est rejeté par les contrôles 4 ; l'envoi modifié (bouton toujours allumé, mauvaise
+     poutre, date perdue…) par les contrôles 4 bis ; la note qui donnerait le taux sans qu'on le demande est rejetée.
+     Une mutation témoin (un commentaire) ne l'est pas.
 
 La PARITÉ avec l'écran Streamlit (``modules/poutre.py`` rejoué) est dans ``tests/test_poutre_moteur.py`` (section 9).
 """
@@ -482,6 +487,110 @@ except ImportError as ex:  # pragma: no cover — le générateur PDF demande re
     NP = None
     chk("le générateur de la note se charge", False, ex)
 
+# ------------------------------------------------------------------ 4 bis. « Détailler dans Taux d'armature »
+print("\n=== 4 bis. « Détailler dans Taux d'armature » : le bouton, la note envoyée, le lien entre les deux calculs ===")
+from api_web import taux as TX  # noqa: E402 — la destination : son écran relit la note envoyée
+from beton.taux import moteur as TXM  # noqa: E402 — et son moteur la calcule
+
+
+def rejets_envoi(mod):
+    """Ce que les contrôles reprochent au bouton « Détailler dans Taux d'armature » et à l'envoi de ``mod`` (api_web.poutre,
+    ou un mutant), sur la poutre de l'exemple. Liste vide quand tout tient."""
+    out = []
+
+    def bouton(etat):
+        h = mod.resultat(mod.normaliser(copy.deepcopy(etat)))["resultat"]
+        m = re.search(r'<button[^>]*data-transmettre="[^"]*"[^>]*>', h)
+        return m.group(0) if m else None
+
+    def sans(*rangs, option=True):
+        e = copy.deepcopy(ETAT)
+        for i in rangs:
+            e["poutres"][0]["sections"][i].pop("longueur")
+        if not option:
+            e["poutres"][0].pop("taux")
+        return e
+
+    def refus(etat, vers="taux"):
+        try:
+            mod.transmettre(mod.normaliser(copy.deepcopy(etat)), vers, "10/11/2026")
+        except ValueError as ex:
+            return str(ex)
+        return None
+    try:
+        # ---- le bouton : absent sans l'option ; éteint, avec sa raison, tant qu'une section n'a pas de longueur
+        if bouton(sans(option=False)) is not None:
+            out.append("le bouton est montré alors que l'option est éteinte")
+        b = bouton(ETAT)
+        if b is None or 'data-transmettre="taux"' not in b or " disabled" in b:
+            out.append(f"chaque section a sa longueur : bouton absent, éteint ou mal adressé ({b})")
+        for nom, e in (("une section sans longueur", sans(1)), ("aucune longueur", sans(0, 1))):
+            b = bouton(e)
+            if b is None or " disabled" not in b or 'aria-disabled="true"' not in b or "longueur" not in b:
+                out.append(f"{nom} : le bouton n'est pas éteint avec sa raison ({b})")
+        # ---- les refus de l'envoi : le message dit quoi donner
+        for nom, e in (("une section sans longueur", sans(1)), ("aucune longueur", sans(0, 1))):
+            if refus(e) != P.MANQUE_LONGUEUR:
+                out.append(f"{nom} : l'envoi n'est pas refusé par « {P.MANQUE_LONGUEUR[:40]}… » ({refus(e)!r})")
+        if "ne s'envoie pas" not in (refus(ETAT, "dalle") or ""):
+            out.append("une poutre s'envoie vers un autre module que le taux d'armature")
+        # ---- la note envoyée : la poutre de l'exemple, sa provenance datée, ses zones au pas des sections
+        n = mod.transmettre(mod.normaliser(copy.deepcopy(ETAT)), "taux", "10/11/2026")
+        if set(n) != {"module", "nom", "etat"} or n["module"] != "taux" or n["nom"] != "V1 · taux d'armature":
+            out.append(f"la note rendue : {sorted(n)} · {n.get('module')!r} · {n.get('nom')!r}")
+        et = TX.normaliser(n["etat"])
+        if len(et["poutres"]) != 1 or et["actif"] != 0:
+            out.append(f"la note envoyée porte {len(et['poutres'])} poutres, ouverte : {et['actif']}")
+        pt = et["poutres"][0]
+        if pt["origine"] != {"module": "poutre", "nom": "V1", "date": "10/11/2026"}:
+            out.append(f"provenance : {pt.get('origine')}")
+        if (pt["b"], pt["h"], pt["L"], pt["enrobage"]) != (30.0, 60.0, 6.0, 3.0):
+            out.append(f"géométrie : b {pt['b']}, h {pt['h']}, L {pt['L']}, c {pt['enrobage']}")
+        if [(z["de"], z["a"], z["s"]) for z in pt["zones"]] != [(0.0, 4.0, 20.0), (4.0, 6.0, 10.0)]:
+            out.append(f"zones d'étriers : {pt['zones']}")
+        if len({z["type"] for z in pt["zones"]}) != 2:
+            out.append("les deux compositions d'étriers (cadre + épingle, cadre seul) ne font pas deux types")
+        # ---- le LIEN entre les deux calculs. Les barres du module détaillé s'arrêtent à l'enrobage des abouts : leur
+        # masse vaut Σ (masse au mètre des barres de la section × longueur) − c × (celle de la première + de la dernière).
+        ml = MAIN["ml"]
+        m_a = 3 * ml[20] + 2 * ml[12] + 2 * ml[10]            # section A : 3Ø20, 2Ø12, 2 latérales Ø10 → 10,41 kg/m
+        m_b = 2 * ml[20] + 4 * ml[16] + 2 * ml[10]            # section B : 2Ø20, 4Ø16, 2 latérales Ø10 → 12,48 kg/m
+        attendu = m_a * 4.0 + m_b * 2.0 - 0.03 * (m_a + m_b)  # 65,91 kg
+        res = TXM.calculer(pt)
+        barres = [r for r in res["reperes"] if r["sorte"] == "barre"]
+        masse = sum(r["masse"] for r in barres)
+        if not proche(masse, attendu, 1e-6) or any(r["detail"]["retours"] or r["detail"]["n_rec"] for r in barres):
+            out.append(f"barres du module détaillé : {masse:.4f} kg, à la main {attendu:.4f} kg")
+        if [z["cours"] for z in res["zones"]] != [20, 20]:
+            out.append(f"cours d'étriers par zone : {[z['cours'] for z in res['zones']]} (4 m au pas de 20 et 2 m au pas de 10 : 20 et 20)")
+        # ---- plusieurs poutres dans la note : c'est l'OUVERTE qui part
+        deux = copy.deepcopy(ETAT)
+        v2 = copy.deepcopy(POUTRE)
+        v2["nom"], v2["b"] = "V2", 40.0
+        deux["poutres"].append(v2)
+        deux["actif"] = 1
+        n2 = mod.transmettre(mod.normaliser(deux), "taux", "")
+        p2 = n2["etat"]["poutres"][0]
+        if n2["nom"] != "V2 · taux d'armature" or p2["b"] != 40.0 or p2["origine"] != {"module": "poutre", "nom": "V2", "date": ""}:
+            out.append(f"deux poutres, la seconde ouverte : envoyé {n2['nom']!r}, b {p2['b']}, {p2['origine']}")
+    except Exception as ex:  # noqa: BLE001
+        out.append(f"{type(ex).__name__} : {ex}")
+    return out
+
+
+fautes = rejets_envoi(P)
+chk("« Détailler dans Taux d'armature » : bouton absent sans l'option, éteint avec sa raison sans longueur ; la note envoyée "
+    "(poutre ouverte, provenance datée, zones au pas des sections) ; les barres du module détaillé = le calcul à la main, aux abouts près",
+    not fautes, fautes)
+bout = req(module="poutre", action="transmettre", etat=ETAT, vers="taux", date="10/11/2026")
+ecran_taux = req(module="taux", action="calculer", etat=bout["note"]["etat"]) if bout.get("ok") else {}
+chk("de bout en bout par le routeur : la note envoyée s'ouvre dans « Taux d'armature », qui dit « reçue de la poutre V1, le 10/11/2026 »",
+    bout.get("ok") and bout["note"]["module"] == "taux" and ecran_taux.get("ok") and not ecran_taux.get("message")
+    and "reçue de la poutre V1, le 10/11/2026" in texte(ecran_taux["resultat"]), bout.get("erreur") or ecran_taux.get("erreur"))
+chk("de bout en bout : la note d'origine n'est pas rendue (rien ne s'y écrit), et une date qui n'en est pas une part vide",
+    set(bout) == {"ok", "note"}
+    and req(module="poutre", action="transmettre", etat=ETAT, vers="taux", date="<b>hier</b>")["note"]["etat"]["poutres"][0]["origine"]["date"] == "")
+
 # ------------------------------------------------------------------ 5. mutations
 print("\n=== 5. Mutations : UNE formule du moteur, UN affichage de l'écran, modifiés, sont rejetés ===")
 SRC_T = lire("beton", "poutre", "taux.py")
@@ -544,6 +653,25 @@ chk(f"{len(MUT_ECRAN)} mutations de l'écran (tête, ligne, fenêtres, champs) :
 chk("l'écran témoin (un commentaire changé) n'est pas rejeté",
     not rejets_ecran(mutant(SRC_P, "api_web.poutre_mutant", "api_web", "# ------------------------------------------------------------------ le taux d'armature simplifié (option)",
                             "# ------------------------------------------------------------------ le taux d'armature (option)")))
+MUT_ENVOI = (
+    ("le bouton est toujours allumé", 'pret = bool(ta["poutre"]) and not ta["poutre"]["sans_longueur"]', "pret = True"),
+    ("le bouton est adressé à un autre module", 'class="pt-detailler" data-transmettre="taux"', 'class="pt-detailler" data-transmettre="dalle"'),
+    ("c'est la première poutre qui part, pas l'ouverte", "    p = EN.normaliser(_poutre(etat))\n    longueurs", '    p = EN.normaliser(etat["poutres"][0])\n    longueurs'),
+    ("une section sans longueur n'est plus refusée ici", "    if any(lg is None for lg in longueurs):\n        raise ValueError(MANQUE_LONGUEUR)",
+     "    if False:\n        raise ValueError(MANQUE_LONGUEUR)"),
+    ("la date de l'envoi est perdue", "poutre_taux = DP.convertir(p, longueurs, date)", "poutre_taux = DP.convertir(p, longueurs)"),
+    ("la note ne porte plus le nom de la poutre", "\"nom\": f\"{p.get('nom') or 'Poutre'} · taux d'armature\"", "\"nom\": \"Poutre · taux d'armature\""),
+    ("la poutre part vers n'importe quel module", "    if vers != \"taux\":\n        raise ValueError(f\"Une poutre ne s'envoie pas",
+     "    if False:\n        raise ValueError(f\"Une poutre ne s'envoie pas"),
+)
+survivants = []
+for nom, avant, apres in MUT_ENVOI:
+    if not rejets_envoi(mutant(SRC_P, "api_web.poutre_mutant", "api_web", avant, apres)):
+        survivants.append(nom)
+chk(f"{len(MUT_ENVOI)} mutations de l'envoi (bouton, poutre envoyée, refus, date, nom, destination) : toutes rejetées", not survivants, survivants)
+chk("l'envoi témoin (un commentaire changé) n'est pas rejeté",
+    not rejets_envoi(mutant(SRC_P, "api_web.poutre_mutant", "api_web", "# ------------------------------------------------------------------ vers le module « Taux d'armature »",
+                            "# ------------------------------------------------------------------ vers le module détaillé")))
 if NP is not None:
     SRC_N = lire("api_web", "note_poutre.py")
     F_N = os.path.join(RACINE, "api_web", "note_poutre.py")
@@ -553,7 +681,7 @@ if NP is not None:
     chk("la note témoin (un commentaire changé) n'est pas rejetée",
         not rejets_note(mutant(SRC_N, "api_web.note_poutre_mutant", "api_web", "# C'est le nombre de l'écran, calculé par le moteur du site.",
                                "# Le nombre de l'écran.", F_N)))
-chk("après les mutations, le moteur et l'écran chargés sont intacts", not rejets_moteur(T) and not rejets_ecran(P))
+chk("après les mutations, le moteur et l'écran chargés sont intacts", not rejets_moteur(T) and not rejets_ecran(P) and not rejets_envoi(P))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

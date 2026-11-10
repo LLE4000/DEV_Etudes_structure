@@ -414,6 +414,31 @@ quand il est calculé à la main), avec un signet par partie. Fichier : « Note 
   dans les deux fonctions qui s'en servent, plus en tête de module (sinon le navigateur ne pouvait pas charger sa garde
   et son récapitulatif ; rapport Streamlit identique avant/après : 16 pages, même texte, mêmes signets).
 
+### 4 sexies. Envoyer l'élément ouvert à un AUTRE module (10/11/2026)
+
+« Détailler dans Taux d'armature » d'une poutre (`docs/site/LOT_Q_QUATRE_MODULES.md` § 6.2). Le module pose un bouton
+`<button type="button" data-transmettre="<clé du module de destination>">…</button>` — éteint (`disabled`), avec sa
+raison écrite à côté, tant que l'envoi est impossible. L'écran envoie `{"module", "action": "transmettre", "etat",
+"vers", "date"}` (`date` : le jour, « JJ/MM/AAAA » — le moteur n'a pas d'horloge) ; le routeur appelle la fonction du module
+
+```python
+def transmettre(etat, vers, date="") -> dict:      # etat : déjà normalisé ; « date » : facultatif — le routeur ne la passe
+    if vers != "taux":                             # qu'au module qui l'attend, et VIDE si ce n'est pas une date
+        raise ValueError("Une poutre ne s'envoie pas vers « … ».")
+    …                                              # la conversion : une fonction PURE du moteur de la destination
+    return {"module": "taux", "nom": "V1 · taux d'armature", "etat": {...}}   # la note à créer
+```
+
+et répond `{"ok": true, "note": {"module", "nom", "etat"}}` — l'état **relu par le module de destination** (son
+`normaliser`) : jamais une note que sa page ne saurait pas ouvrir — ou `{"ok": false, "erreur": "<message en
+français>"}` (module sans `transmettre`, destination absente ou inconnue, refus du module par `ValueError`, destination
+qui refuse l'état, note abîmée) — jamais une exception. L'écran crée la note (même chantier, même dossier, le nom rendu,
+une ligne de 120 caractères au plus) et l'ouvre ; **rien n'est écrit dans la note d'origine** (son état n'est pas rendu).
+La conversion vit dans le MOTEUR de la destination (`beton/taux/depuis_poutre.convertir`), pas dans `api_web/`.
+Contrôles : `tests/test_api_web_commun.py` § 9 ter (la mécanique, avec de faux modules, et six mutations du routeur) ; le
+gel (`data-transmettre` est une ACTION relevée : le bouton ne disparaît pas sans qu'une photo rougisse) ; le harnais,
+filtre « envoi ».
+
 ## 5. Les règles
 
 1. **Parité fonctionnelle avec Streamlit** : chaque champ, option, résultat, avertissement et dessin de l'écran

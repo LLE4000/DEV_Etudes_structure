@@ -462,15 +462,14 @@ if env.get("ok"):
     et = env["note"]["etat"]
     pt = et["poutres"][0]
     o = req(action="calculer", etat=et)
-    date = pt["origine"]["date"]
     chk("bout en bout : l'écran relit la note reçue (L = 6 m, une zone par section, 2 Ø 16 filants et un renfort de 2 Ø 16 au milieu)",
         o.get("ok") and pt["L"] == 6.0 and len(pt["zones"]) == 3 and any(b["de"] == 1.5 and b["a"] == 4.5 and b["n"] == 2 for b in pt["barres"]),
         o.get("erreur") or pt["barres"])
-    attendu = "reçue de la poutre V1" + (f", le {date}" if date else "")
+    chk("bout en bout : la date de l'envoi, donnée par l'écran avec la demande, arrive dans la provenance de la poutre reçue",
+        pt["origine"] == {"module": "poutre", "nom": "V1", "date": "10/11/2026"}, pt["origine"])
+    attendu = "reçue de la poutre V1, le 10/11/2026"
     chk(f"bout en bout : la provenance est dite dans le résultat et l'en-tête de chaque vue (« {attendu} »)",
         o.get("ok") and attendu in o["resultat"] and all(attendu[0].upper() + attendu[1:] in v["entete"] for v in o["vues"]))
-    if not date:
-        print("     (le routeur et la poutre ne transmettent pas encore la date de l'envoi : provenance sans date — besoin commun)")
     chk("bout en bout : la note reçue se recalcule sans perte (écran = moteur)", not controle_resultat(T, et))
 ref = json.loads(R.traiter(json.dumps({"module": "poutre", "action": "transmettre", "etat": etat_poutre([1.5, None, 1.5]), "vers": "taux"})))
 chk("bout en bout : une poutre sans longueur de section est refusée, en français, en disant où les saisir",

@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|plaques|nappes|corniere|doigt|bibliotheque|note_pdf|demarrage[:sous-filtre,…]]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|note_pdf|demarrage[:sous-filtre,…]]
 //
 // « demarrage[:sous-filtre,…] » délègue à verifier_demarrage.js (le lot S4 : un moteur, pas de rechargement, aperçu,
 // fermeture…). SANS filtre — le passage complet —, verifier_demarrage.js est joué AUSSI, à la fin, avec tous ses
@@ -3128,6 +3128,88 @@ const principal = async () => {
     await c.close();
   }
 
+  // ---------------------------------------------------------------- « Détailler dans Taux d'armature » (poutre → taux)
+  // Une poutre dont l'option « Taux d'armature » est allumée porte, sous son nom, le bouton qui l'envoie dans le module
+  // détaillé (docs/site/LOT_Q_QUATRE_MODULES.md § 6.2). Éteint — et il dit pourquoi — tant qu'une section n'a pas de
+  // longueur : un clic n'y fait rien. Allumé, il crée UNE note « Taux d'armature » (même chantier, nommée d'après la
+  // poutre), l'ouvre, et le module détaillé dit d'où vient la poutre et quand ; la note de la poutre n'est pas touchée.
+  // Au PC et au téléphone (R1 : le bouton s'atteint aux deux formats, à hauteur de doigt). Captures : site_envoi_*.png.
+  //   filtre « envoi » (joué aussi par « pilote »)
+  if (!FILTRE || FILTRE === 'pilote' || FILTRE === 'envoi') {
+    const POUTRE_ENVOI = { nom: 'V1', b: 30, h: 60, enrobage: 3, taux: { actif: true },
+      sections: [{ nom: 'A', M_inf: 120, V: 60, inf: [{ n: 3, d: 20 }], sup: [{ n: 2, d: 12 }], etriers: [{ type: 'etrier', d: 8 }, { type: 'epingle', d: 8 }], pas: 20, longueur: 4 },
+        { nom: 'B', M_sup: 95, V: 120, inf: [{ n: 2, d: 20 }], sup: [{ n: 4, d: 16 }], etriers: [{ type: 'etrier', d: 8 }], pas: 10, longueur: 2 }] };
+    for (const [format, options, tel] of [['PC 1440', { viewport: { width: 1440, height: 900 } }, false], ['téléphone', { ...devices['iPhone 13'] }, true]]) {
+      const c = await b.newContext(options);
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+      const tranquille = () => g.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 60000 });
+      const notes = () => g.evaluate(() => { try { return JSON.parse(localStorage.getItem('stab.notes.v1') || '{}'); } catch (e) { return {}; } });
+      const semer = (id, poutre) => g.evaluate(([i, p]) => { const k = 'stab.notes.v1', ns = JSON.parse(localStorage.getItem(k) || '{}'), t = Date.now() - 60000;
+        ns[i] = { id: i, module: 'poutre', nom: 'Poutres du R+1', chantier: 'Réalex', dossier: '', indice: 'A', cree: t, modifie: t,
+          etat: { version: 1, poutres: [p], actif: 0 }, resume: null, vignette: '' };
+        localStorage.setItem(k, JSON.stringify(ns)); }, [id, poutre]);
+      const bouton = () => g.evaluate(() => { const x = document.querySelector('#resultat [data-transmettre]');
+        return x ? { vers: x.dataset.transmettre, eteint: x.disabled, vu: x.checkVisibility({ visibilityProperty: true, opacityProperty: true }),
+          h: Math.round(x.getBoundingClientRect().height), texte: x.textContent.replace(/\s+/g, ' ').trim() } : null; });
+      const versResultat = async () => { if (tel) { await g.click('.mtabs [data-onglet="resultat"]'); await g.waitForTimeout(200); } };
+      try {
+        await ouvrir(g, `${BASE}/index.html`);
+        const sans = JSON.parse(JSON.stringify(POUTRE_ENVOI));
+        delete sans.sections[1].longueur;
+        await semer('envoi-sans', sans);
+        await semer('envoi-avec', POUTRE_ENVOI);
+        // ---- une section sans longueur : éteint, il dit pourquoi, et un clic n'y fait rien
+        await pretEcran(g, { apres: await ouvrir(g, `${BASE}/poutre?note=envoi-sans`) });
+        await tranquille();
+        await versResultat();
+        let bt = await bouton();
+        verif(`envoi · ${format} : une section sans longueur — le bouton « Détailler dans Taux d'armature » se voit, éteint, et dit pourquoi`,
+          !!bt && bt.vers === 'taux' && bt.vu && bt.eteint && /Détailler dans Taux d'armature/.test(bt.texte) && /longueur/.test(bt.texte), JSON.stringify(bt));
+        const adresse = g.url();
+        await g.$eval('#resultat [data-transmettre]', (x) => { x.click(); x.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); });
+        await g.waitForTimeout(700);
+        verif(`envoi · ${format} : éteint, un clic n'y fait rien (même adresse, aucune note créée)`,
+          g.url() === adresse && Object.keys(await notes()).length === 2, `${g.url()} · ${Object.keys(await notes()).length} notes`);
+        // ---- chaque section a sa longueur : le bouton envoie la poutre
+        await pretEcran(g, { apres: await ouvrir(g, `${BASE}/poutre?note=envoi-avec`) });
+        await tranquille();
+        await versResultat();
+        bt = await bouton();
+        verif(`envoi · ${format} : chaque section a sa longueur — le bouton est allumé${tel ? ', à hauteur de doigt (44 px)' : ''}`,
+          !!bt && bt.vers === 'taux' && bt.vu && !bt.eteint && (!tel || bt.h >= 44), JSON.stringify(bt));
+        await g.screenshot({ path: path.join(OUT, `site_envoi_${tel ? 'tel' : 'pc'}_poutre.png`) });
+        const avant = await notes();
+        const m0 = await montage(g);
+        await g.click('#resultat [data-transmettre]');
+        await g.waitForFunction(() => /taux-armature/.test(location.pathname), null, { timeout: 60000 });
+        await pretEcran(g, { apres: m0 });
+        await tranquille();
+        const apres = await notes();
+        const neuves = Object.values(apres).filter((n) => !avant[n.id]);
+        const id = new URLSearchParams(new URL(g.url()).search).get('note');
+        verif(`envoi · ${format} : UNE note « Taux d'armature » est créée et ouverte — nommée d'après la poutre, dans le même chantier`,
+          neuves.length === 1 && neuves[0].module === 'taux' && neuves[0].id === id && neuves[0].nom === 'V1 · taux d\'armature' && neuves[0].chantier === 'Réalex',
+          JSON.stringify(neuves.map((n) => [n.module, n.nom, n.chantier, n.id === id])));
+        verif(`envoi · ${format} : la note de la poutre n'est pas touchée (même état, même date)`,
+          !!apres['envoi-avec'] && JSON.stringify(apres['envoi-avec'].etat) === JSON.stringify(avant['envoi-avec'].etat) && apres['envoi-avec'].modifie === avant['envoi-avec'].modifie);
+        await versResultat();
+        const recu = await g.evaluate(() => ({ jour: new Date().toLocaleDateString('fr-BE'),
+          res: document.querySelector('#resultat').textContent.replace(/\s+/g, ' '),
+          vu: document.querySelector('#resultat').checkVisibility({ visibilityProperty: true, opacityProperty: true }) }));
+        verif(`envoi · ${format} : le module détaillé dit d'où vient la poutre et quand (« reçue de la poutre V1, le ${recu.jour} »)`,
+          recu.vu && recu.res.includes(`reçue de la poutre V1, le ${recu.jour}`), recu.res.slice(0, 220));
+        verif(`envoi · ${format} : la poutre reçue est calculée (30 × 60, 6,00 m, un taux en kg/m³)`,
+          /30\s*×\s*60/.test(recu.res) && /6,00/.test(recu.res) && /\d\s*kg\/m³/.test(recu.res), recu.res.slice(0, 220));
+        await g.screenshot({ path: path.join(OUT, `site_envoi_${tel ? 'tel' : 'pc'}_taux.png`) });
+        verif(`envoi · ${format} : aucune erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+      } catch (e) { verif(`envoi · ${format} : le parcours va au bout`, false, String(e.message).split('\n')[0]); }
+      await c.close();
+    }
+  }
+
   // ---------------------------------------------------------------- les poignées d'un cadre, AU DOIGT (tablette)
   // Signalé par l'ingénieur (11/2026) : sur tablette, les poignées se voient mais ne bougent pas — le navigateur prenait
   // l'appui pour faire défiler la page et annulait le glisser (pointercancel). Les événements tactiles sont ceux de
@@ -4711,10 +4793,10 @@ const principal = async () => {
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
   const n = await p.$$eval('#recentes .rcard', (e) => e.length);
-  // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
+  // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
   // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
   //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

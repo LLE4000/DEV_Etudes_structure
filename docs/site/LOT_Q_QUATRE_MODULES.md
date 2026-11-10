@@ -661,3 +661,23 @@ de la poutre ouverte (`beton/taux/depuis_poutre.py`, § 3.4), crée une note du 
 même dossier, nommée d'après la poutre — et l'ouvre. Rien n'est écrit dans la note de la poutre. Sans longueur de
 section, le bouton est éteint et dit pourquoi. Dans le module détaillé, l'en-tête de la vue rappelle la provenance
 (« reçue de la poutre V1, le 10/11/2026 »).
+
+**Réalisé le 10/11/2026** (`api_web/poutre.py::transmettre`, `api_web/routeur.py::transmettre`, `site/web/js/etabli.js`,
+`beton/taux/depuis_poutre.py`) — ce qui s'écarte du texte ci-dessus, et pourquoi :
+
+- le bouton est sous le nom de la poutre, en tête des résultats, à côté de son taux d'armature : il n'existe que si
+  l'option est allumée, et au téléphone il est au même endroit, dans l'onglet « Résultat » (il n'est pas dans le menu
+  « ⋯ » : un seul endroit, le même aux trois formats) ;
+- la mécanique est GÉNÉRALE et réutilisable (`data-transmettre="<clé>"`, action « transmettre » du routeur :
+  `docs/site/MODULES_SITE.md` § 4 sexies) : la destination RELIT l'état qu'on lui envoie avant que la note soit créée ;
+- la date de l'envoi vient de l'écran (le moteur n'a pas d'horloge) ; le routeur ne garde qu'une date « JJ/MM/AAAA » ;
+- les deux modules ne donnent pas le même nombre, et c'est voulu : le taux simplifié compte au mètre courant et
+  s'arrondit au multiple supérieur ; le module détaillé arrête les barres à l'enrobage des abouts, compte l'étrier de
+  fermeture et ses crochets. Sur la poutre de l'exemple (30 × 60, 4 m + 2 m) : 100 kg/m³ (97,4 avant arrondi) contre
+  96,5 kg/m³. Le lien est PROUVÉ sur les barres : masse détaillée = Σ (masse au mètre de la section × longueur) −
+  c × (masse au mètre de la première section + de la dernière).
+
+Preuves : `tests/test_api_web_commun.py` § 9 ter (la mécanique, six mutations du routeur), `tests/test_poutre_taux.py`
+§ 4 bis (le bouton, la note envoyée, le lien entre les deux calculs, sept mutations), `tests/test_api_web_taux.py` § 9
+(la poutre reçue, de bout en bout), le gel de la poutre (« transmettre:taux » est une action relevée), le harnais
+(filtre « envoi », joué aussi par « pilote » : PC et téléphone, dans le vrai navigateur).
