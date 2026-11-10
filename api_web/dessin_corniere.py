@@ -31,14 +31,12 @@ def _ajuster(construire, fs0: float):
 
 
 def _fs0(res: Dict, cle: str) -> float:
-    """La taille de texte de départ (mm de la scène) : proportionnelle à la pièce pour les dessins à l'échelle ;
-    sans importance pour les diagrammes, dont la mise en page est en tailles de texte."""
+    """La taille de texte de départ (mm de la scène), proportionnelle à la pièce : les quatre vues dessinent la
+    cornière à l'échelle (l'élévation compte la tranche, coupée au-delà de 2,5 fois la hauteur)."""
     g = res["geometrie"]
-    if cle == "coupe":
-        return (g["larg"] + g["haut"]) / 34.0
     if cle == "elevation":
-        return (g["L"] + 1.5 * (g["larg"] + g["haut"])) / 44.0
-    return 10.0
+        return (min(g["L"], SC.COUPURE_TRANCHE * g["haut"]) + 1.5 * (g["larg"] + g["haut"])) / 44.0
+    return (g["larg"] + g["haut"]) / 34.0
 
 
 def vues(res: Dict, ident: str = "co") -> List[Dict]:

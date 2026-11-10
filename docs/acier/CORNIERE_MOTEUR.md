@@ -17,9 +17,9 @@ lot « note », § 12).*
 | `acier/corniere/statique.py` | la statique d'UNE combinaison (une position de la charge, une de l'ancrage) : M, N, V le long des deux ailes pour chaque mode et configuration ; l'épaisseur du congé t(s) ; la recherche du maximum (grille ≤ 0,1 mm puis section dorée) |
 | `acier/corniere/moteur.py` | l'enveloppe des neuf combinaisons, les vérifications (S1–S4, maxima, section nette), les ancrages, les diagrammes, les formules du détail (avec la cellule du classeur en historique), les avertissements, la comparaison des modes, la garde, le sélecteur — et le **contrat complet** dans sa docstring |
 | `tests/test_corniere_moteur.py` | cas de contrôle à 1e-9 face aux 93 formules de `P8` codées dans le test, 240 saisies au sort, enveloppe, équilibre, B, ailes inégales, maxima, L_eff, formules, domaine, relecture v1, sélecteur, pureté 3.12 et 3.13, 28 mutations |
-| `acier/corniere/schemas.py` (lot « schémas », 11/11) | les quatre VUES partagées par l'écran et la note — coupe, moments, contraintes, élévation — construites sur le kit de dessin des assemblages à partir de la seule sortie de `verifier` ; le contrat de sélection `data-sel` ; `ajuster`, `legende`, `secours` (§ 10) |
+| `acier/corniere/schemas.py` (lot « schémas », 11/11 ; révisé le 10/11 au soir, § 9 des décisions) | les quatre VUES partagées par l'écran et la note — coupe (plan de principe : support, ancrage, rondelles, profondeur), moments SUR la cornière, contraintes en MAILLAGE de von Mises, élévation — construites sur le kit de dessin des assemblages à partir de la seule sortie de `verifier` ; les coupures ; le dégradé imposé ; le contrat de sélection `data-sel` ; `ajuster`, `legende`, `secours` (§ 10) |
 | `api_web/dessin_corniere.py` | la couche mince de l'écran : `vues(res, ident)` → `[{cle, titre, court, svg, legende, echelle}]`, ajustées à la toile de l'établi (13 px dans 626 × 682) |
-| `tests/test_corniere_schemas.py` | 96 contrôles : échelle, orientation A/B, sections exactes, bras du mode, data-sel, diagrammes au prorata de s, peintres de la note, pureté, 9 mutations et un témoin |
+| `tests/test_corniere_schemas.py` | 193 contrôles : vingt états, échelle, orientation A/B, sections exactes, bras du mode, support et ancrage, data-sel, moments perpendiculaires à échelle commune, maillage maille par maille face au dégradé recopié des décisions, élévation et coupures, peintres de la note, pureté, 19 mutations et un témoin |
 | `api_web/corniere.py` (lot « écran », 11/11) | le module du site sur l'établi compact : l'état, les saisies refusées avec le message du moteur, quatre rubriques, les vues, le verdict, trois blocs thématiques, cinq fenêtres de calcul, le sélecteur, la note v1, `telecharger` (§ 11) |
 | `tests/test_api_web_corniere.py` | 134 contrôles : seize états face au moteur, 23 refus, le sélecteur, le contrat de sélection, 1 768 lignes de formules réévaluées, la note v1, onze mutations |
 | `acier/corniere/note.py`, `formules.py`, `methode.py`, `api_web/note_corniere.py` (lot « note », 11/11) | la note PDF : la garde du site puis deux pages par cornière (calcul ; détails et méthode), une page de suite au besoin ; les gabarits des formules ; les textes de méthode ; la plomberie du site (§ 12) — branchée le 11/11 (`construire.NOTE_PDF`) |
@@ -252,41 +252,100 @@ classeur l'a mesuré : 120,65 % sur le cas de contrôle avec σ_lim = f_y/1,5 sa
 le site** (il reste tel quel dans l'application du bureau). Les notes enregistrées avec lui (version 1 : clés V, e, s,
 gamma_ELU, bord, sig_lim_*) se rouvrent : le nom et la cornière sont gardés, le reste est à ressaisir (§ 8).
 
-## 10 · Les vues (lot « schémas », 10/11/2026) — `acier/corniere/schemas.py`
+## 10 · Les vues (lot « schémas », 10/11/2026 ; révision § 9 des décisions le 10/11 au soir) — `acier/corniere/schemas.py`
 
-Quatre vues (décisions § 4 ; modèle visuel : figures a, b, c de l'analyse), chacune une fonction
+Quatre vues (décisions § 4, § 9.1 à 9.3 ; modèles visuels : figures a, b, c de l'analyse), chacune une fonction
 `(res, fs=None, interactif=True) -> Dessin` du kit de dessin des assemblages, qui ne lit que la SORTIE de `verifier`
-(rien n'est recalculé : un bras de levier est une cote mesurée sur le dessin, dont la valeur est sa longueur) :
+(rien n'est recalculé : un bras de levier est une cote mesurée sur le dessin, un moment est un point du diagramme du
+moteur, une maille porte le taux que le moteur lui a donné). Les quatre dessinent la cornière À L'ÉCHELLE, dans le
+même repère (talon à l'origine, aile horizontale vers la droite, aile verticale vers le haut en A, vers le bas en B) :
 
 | Vue | Ce qu'elle montre | Échelle |
 |---|---|---|
-| `coupe` | le schéma statique coté : mur hachuré (rompu), cornière (congé r₁, bouts r₂ du catalogue), charge R à X en plein et X ± dx en tirets, ancrage (trou, tige, rondelle, écrou, axe) à Y et Y ± dy en tirets fins, résultante C au pivot (A : Y′ − bras, soit y_c en équilibre, jeu_ancrage en historique) ou au contact du bout libre (B : haut − c), ligne u_V (équilibre), sections 1 à 4 en orange avec pastilles, cotes larg, haut, e, r, X, Y et les bras DU MODE (historique : Xe, Xe+r, Ye, Ye+r, YH ; équilibre A : X − uV, Y − yc ; B : X − uV, ya − c), valeurs R, H, C ; A (aile horizontale en bas, y ≤ 0) et B (en haut, y ≥ 0 : l'aile verticale descend) | mm |
-| `moments` | les deux ailes développées l'une au-dessus de l'autre (abscisse s depuis le dos de l'autre aile) : une courbe par position de la charge (extrêmes fines `cvf`, nominale `cvm`), l'enveloppe en gras (`env`), la bande ± dy (`tol`), N et V par tronçon, M1 à M4 écrits (valeur de l'enveloppe, négative en B), congé et bloc d'angle grisés, la charge et l'ancrage (et le contact en B) repérés | hors échelle (`echelle: False`) |
-| `contraintes` | la bande t(s) (`pp`), σéq de l'enveloppe (`sig`), la ligne σadm (`lim`) et l'échelle des taux (50 %, 100 %), le maximum ◉ et sa position (« 1,98 mm avant le pied du congé »), les taux S1 à S4 | hors échelle |
-| `elevation` | la tranche L vue de face (les n ancrages à L/(2n) + i·L/n, N et V ELS par ancrage, la chaîne des entraxes, Y) et l'aile horizontale RABATTUE (vue de dessus, le bout libre contre l'élévation) : la charge de largeur a à X, la position X′ qui gouverne L_eff en tirets, le trapèze de diffusion à 45° jusqu'à la section 1 dont la base mesure L_eff (coté), L, larg, X | mm |
+| `coupe` | LE plan de principe coté : le SUPPORT — « voile » : le mur sans limite, rompu en haut et en bas ; « poutre » : ses deux arêtes réelles à y = −support_haut et +support_bas, cotées depuis l'axe d'ancrage le plus proche de chaque bord (`bord haut`, `bord bas` = `bords_poutre`, la distance que Hilti demande), COUPÉE par des lignes de rupture quand elle dépasse 1,5 × haut (la cote traverse la coupure et garde sa vraie valeur) — ; la cornière (congé r₁, bouts r₂) ; la charge R à X en plein et X ± dx en tirets ; l'ANCRAGE : la tige jusqu'à −profondeur (cotée « hef », « ép. » pour le traversant ; coupée au-delà de 1,2 × haut), les rondelles selon `rondelles` aux dimensions de `geometrie["rondelle"]` (ISO 7093-1 large contre l'aile, ISO 7089 sous l'écrou), l'écrou, le rendu du `type_ancrage` (mécanique : douille d'expansion au fond ; chimique : tige dans son scellement hachuré fin ; traversant : le support a l'épaisseur `profondeur`, face arrière droite, écrou et rondelle derrière), l'axe et Y ± dy en tirets fins ; la résultante C au pivot (A) ou au contact du bout libre (B) ; la ligne u_V (équilibre) ; les sections 1 à 4 en orange avec pastilles ; les cotes larg, haut, e, r, X, Y et les bras DU MODE ; les valeurs R, H, C. L'état limite (ELS, ELU) est dit par la légende, les étiquettes restent « R = 35 kN » | mm |
+| `moments` | « les moments sur la cornière », le principe du classeur (figure c) : l'axe de chaque aile tracé et nommé « M = 0 » ; le diagramme de chaque aile porté PERPENDICULAIREMENT à l'aile depuis cet axe, HORS de l'angle (horizontale : vers la face extérieure, c'est-à-dire vers le bas en A et vers le haut en B — le signe de B se lit au côté ; verticale : côté support), à une ÉCHELLE COMMUNE aux deux ailes (`PART_MOMENT` = 0,7 : le plus grand moment, Mmax, occupe 0,7 × haut) ; les courbes du moteur (`courbes` : une par position de la charge, extrêmes `cvf` fines, nominale `cvm` moyenne), l'ENVELOPPE `env` en gras, la zone entre l'axe et l'enveloppe REMPLIE (`envf`, rouge à 12 %) ; le prolongement en pointillé (`envp`) dans le bloc d'angle jusqu'à Mmax au nu du support (et, en historique, jusqu'au pivot du classeur à e/2 ; en B le moment constant jusqu'à l'axe) ; les sections 1 à 4 (trait, tirets jusqu'à l'enveloppe, pastille au-delà) avec la valeur de l'enveloppe « M1 = 2,010 » (la grandeur, trois décimales), « Mmax = », en B « M4 = M angle = » ; l'ancrage (axe, trou, bande ± dy, « Y = 85 ± 5 ») ; R en petite flèche à X et ses positions ± dx. Rien d'autre : pas de paragraphe | mm ; moments : 0,7 × haut / Mmax |
+| `contraintes` | « le maillage de von Mises » : les mailles (s_i, s_{i+1}) × (ζ_j, ζ_{j+1}) de `res["maillage"]` posées sur la vraie géométrie (face extérieure, face du congé qui suit l'arc t(s)), chaque maille colorée (`fill` sur la primitive) par le PLUS GRAND des taux de ses quatre nœuds selon le dégradé imposé (`couleur_taux` : 0 → 100 % vert #E8F5E9 → #1B5E20, 100 → 105 % orange #FFB74D → #E65100, au-delà rouge #C62828) ; le bloc d'angle (s < e) hachuré gris « hors modèle » ; le contour par-dessus (bouts droits : la géométrie du modèle) ; le maximum ◉ de chaque aile à `maxima[aile]["s"]` sur la face ζ du maillage, étiqueté avec le taux de la VÉRIFICATION (« 90,2 % · s = 26,3 ») ; les sections 1 à 4 (pastilles hors de la pièce) ; l'axe de l'ancrage et ± dy ; la barre de couleur (0, 50, 100 %, 105 %, titrée « taux σéq / σadm » ou « / fy/γM0 ») ; deux lignes sous le dessin : « σ = M·ζ/W + N/A, τ = V/A uniforme (poutre, classeur) · enveloppe des positions » et « pas un calcul par éléments finis ». Pas de déformée | mm |
+| `elevation` | la tranche L vue de face (les n ancrages à `ancrages["positions_z"]`, la chaîne de cotes e₁ · s · … · e₁, « N ELS = 14,25 kN » / « V ELS = … » par ancrage — « N ELU » quand l'état limite saisi est l'ELU — sous chaque ancrage si la place le permet, sinon une ligne pour tous) et l'aile horizontale RABATTUE (la charge de largeur a à X, la position X′ qui gouverne en tirets, le trapèze de diffusion à 45° dont la base mesure L_eff, coté) ; des COUPURES entre les ancrages quand L > 2,5 × haut (L = 900 : deux coupures, la tranche dessinée ≈ 630, la cote « L = 900 » et la chaîne 150 · 300 vraies) ; très peu de texte | mm (tranche coupée au-delà de 2,5 × haut) |
 
-**Mise en page en tailles de texte.** `fs` est la taille du texte en unités de la scène ; `schemas.ajuster(construire,
-toile, texte_px, fs0)` reconstruit une vue jusqu'à ce que son texte se lise à `texte_px` dans une toile donnée (l'écran :
-`dessin_corniere.TOILE` = 626 × 682 px, `TEXTE_PX` = 13 ; la note choisira la sienne). Les diagrammes sont dessinés
-tout en tailles de texte (≈ 48 fs de large) : leur texte vaut ≈ 13 px dans la toile quel que soit `fs`.
+**Les coupures** (`_Coupures`, `_rect_coupe`, `coupures_elevation`). Une tranche de l'axe est retirée du dessin et remplacée
+par un intervalle entre deux lignes de rupture (`_rect_rompu` du kit) ; ce qui est au-delà se rapproche ; une cote qui
+traverse la tranche est dessinée plus courte que sa valeur — la convention du dessin de bureau, et la seule entorse à
+« à l'échelle ». Elles ne s'appliquent qu'à ce qui est long et vide : le support au-delà de 1,5 × haut, les intervalles
+entre ancrages (jamais la zone d'un ancrage, ni la charge et sa diffusion ; les bouts e₁ seulement s'ils dépassent
+1,2 × haut) quand L > 2,5 × haut et que la coupure retire au moins une demi-hauteur, la tige d'une cheville plus
+profonde que 1,2 × haut. Toutes les décisions sont en PROPORTION DE LA PIÈCE (haut), jamais de la taille du texte :
+`ajuster` fait varier `fs`, le dessin ne doit pas changer de forme sous lui (piège rencontré : des zones protégées
+dimensionnées sur les étiquettes faisaient apparaître et disparaître les coupures d'une passe à l'autre).
+
+**La couleur d'une maille.** Le kit ne connaît que des classes ; une maille porte sa couleur elle-même : `style_prim(p,
+ctx, palette)` (kit, additif) applique `fill`, `fo`, `stroke`, `sw` posés sur la primitive par-dessus `style_de`, et les
+deux peintres (SVG `vers_svg`, PDF `rapport._peindre_prim`) passent par lui — la couleur est donc dans l'attribut `fill`
+du SVG (lisible sans feuille de style, en thème sombre, par le peintre PDF). Dans la matière du congé, les deux modèles
+de poutre se RECOUVRENT (chaque aile y a ses mailles) : l'aile la plus sollicitée est dessinée en dernier, c'est elle
+qu'on voit. Le maximum ◉ est à la position de la vérification (section dorée), pas à un nœud du maillage ; la face ζ
+est celle du maillage (à égalité, N = 0, le moteur retient ζ = −1, la face extérieure).
+
+**Mise en page.** `fs` est la taille du texte en unités de la scène ; par défaut (larg + haut)/34 pour la coupe, les
+moments et le maillage, (min(L ; 2,5·haut) + 1,5·(larg + haut))/44 pour l'élévation. `ajuster(construire, toile,
+texte_px, fs0)` reconstruit une vue jusqu'à ce que son texte se lise à `texte_px` dans la toile : le texte à l'écran
+croît avec `fs` mais de moins en moins vite (une partie de la boîte est en tailles de texte) ; on corrige du rapport
+manquant en accélérant quand la boîte suit à peine, puis on interpole entre deux passes qui encadrent la cible, et on
+s'arrête quand le texte est trop petit et ne grandit plus (toile trop petite) ; la meilleure passe est gardée (l'ancien
+point fixe laissait la coupe de B à 14 px et le maillage à 16 px). Les étiquettes principales (cotes, valeurs M, maxima)
+sont à `fs`, les mentions à 0,85 fs — à l'écran : 13 px et 11 px ; dans une colonne de la page 2 de la note (≈ 260 ×
+300 pt), les vues se lisent à 5,5 pt. Hauteurs conseillées des toiles : la coupe et le maillage sont à peu près carrés,
+les moments un peu plus larges que hauts (le diagramme de l'aile verticale s'étend côté support), l'élévation large.
 
 **Contrat de sélection.** Chaque pièce qu'une donnée pilote est un groupe `<g class="pc" data-sel="<clé>">` sous la
 clé de sa ligne dans les données (`schemas.CLES_SEL`) : coupe → X, dx, Y, dy, R, d, profil, jeu_ancrage (historique)
-ou yc et uV (équilibre) ; élévation → L, a, n, d, X, Y, profil. `interactif=False` n'en pose aucun (la note).
+ou yc et uV (équilibre) ; élévation → L, a, n, d, X, Y, profil. Les pièces nouvelles (support, profondeur, rondelles,
+type) sont posées à plat, SANS `data-sel`, tant que l'écran n'a pas de ligne de données sous ces clés (le contrat de
+l'écran exige que chaque `data-sel` ait sa `data-cible`) : à poser ensemble, dans le lot écran. `interactif=False` n'en
+pose aucun (la note). Les moments et le maillage n'en portent pas.
 
 **Styles ajoutés au kit** (`doubles_cornieres/schemas.py`, additifs) : `sc`/`scb`/`scg` (sections et pastilles orange),
-`env`/`cvm`/`cvf` (courbes), `sig`, `lim`, `fzd` (charge déplacée en tirets), `tol`, `cong`, `fc`/`fch`/`fcp`/`fcl`
-(résultante de compression, vert `PALETTE["comp"]`) ; et l'attribut `sel` d'un groupe → `data-sel`.
+`env`/`cvm`/`cvf` (courbes), `envf` (zone sous l'enveloppe, rouge à 12 %), `envp` (prolongement pointillé), `m0` (axe
+M = 0, mixte fin gris), `mz` (maille : couleur portée par la primitive, sans trait), `ctr` (contour par-dessus un champ),
+`scel` (scellement, teinte mortier), `sig`, `lim`, `fzd` (charge déplacée en tirets), `tol`, `cong`, `fc`/`fch`/`fcp`/`fcl`
+(résultante de compression, vert `PALETTE["comp"]`) ; l'attribut `sel` d'un groupe → `data-sel` ; `style_prim`.
 
-**Pour la note.** `schemas.svg(dessin, identifiant)` donne le SVG ; `ndc_pdf.svg.peindre_svg` le peint, mais il
-IGNORE `fill-opacity` : la zone du congé (`cong`) et la bande de tolérance (`tol`) y sortent en aplats opaques
-(orange, gris) — le peintre de scène du kit (`doubles_cornieres.rapport.peindre(d, dessin, x, y, w, h)`) honore
-l'opacité et rend les mêmes vues : à préférer pour les diagrammes, ou ajouter `fill-opacity` au peintre SVG. Les
-légendes (`schemas.legende(res, cle)`) sont la source unique du texte sous chaque vue (écran et note).
+**Pour la note.** `schemas.svg(dessin, identifiant)` donne le SVG ; le peintre de scène du kit
+(`doubles_cornieres.rapport.peindre(d, dessin, x, y, w, h)`) honore l'opacité du remplissage et la couleur de chaque
+maille — c'est lui que la note utilise ; `ndc_pdf.svg.peindre_svg` ignore `fill-opacity` (la zone sous l'enveloppe y
+sortirait en rouge plein). Les quatre vues étant à l'échelle, la note gagnerait à les passer toutes par
+`schemas.ajuster` (aujourd'hui `note.Calcul.vue` n'ajuste que la coupe et l'élévation ; les deux autres prennent leur
+taille par défaut, lisible dans la colonne). Les légendes (`schemas.legende(res, cle)`) sont la source unique du texte
+sous chaque vue (écran et note) : une ligne chacune, avec la configuration, le mode, l'ÉTAT LIMITE et la réaction
+(« ELS : R = 42,76 kN »), le support et l'ancrage pour la coupe, le côté et le signe pour les moments, la limite et la
+mention « pas un calcul par éléments finis » pour le maillage, l'entraxe, e₁, L eff et « tranche coupée » pour
+l'élévation ; clés : `coupe`, `moments`, `contraintes`, `elevation`.
 
-**Dessin impossible.** `elevation` lève `ValueError` quand la hauteur de la cornière vaut moins de 1,6 ligne de texte
-(une tranche de plusieurs mètres face à une petite aile) ; `dessin_corniere.vues` rend alors le cadre
-`schemas.secours` « Dessin impossible à cette échelle » pour cette vue seule.
+**Dessin impossible.** `coupe`, `moments`, `contraintes` et `elevation` lèvent `ValueError` quand la hauteur de la
+cornière vaut moins de 1,6 ligne de texte (une tranche de plusieurs mètres face à une petite aile : l'ajustement à la
+toile grossit le texte jusqu'à l'impossible) ; `dessin_corniere.vues` rend alors le cadre `schemas.secours` « Dessin
+impossible à cette échelle » pour cette vue seule. Sans diagrammes (`calculer(…, diagrammes=False)`), `moments` et
+`contraintes` refusent avec un message qui le dit.
+
+**Choix tranchés sans l'ingénieur.** Les diagrammes de moment sont portés HORS de l'angle (vers la face extérieure de
+l'aile horizontale, côté support pour l'aile verticale), comme la figure c du classeur — en A la face extérieure de
+l'aile horizontale est la face comprimée : le côté n'est donc pas celui de la fibre tendue, et la légende dit le signe
+(M > 0 : face du congé tendue ; tout négatif en B). Les valeurs M1 à M4 sont écrites en grandeur (le moteur les signe) ;
+en B « M4 = M angle = 2,712 » porte le moment constant de l'ancrage à l'angle. La cote des bords de poutre est la
+distance de l'axe d'ancrage LE PLUS PROCHE du bord (Y ± dy), celle de Hilti, plutôt que l'étendue du support depuis
+y = 0 ; « hef » nomme la profondeur d'une cheville, « ép. » l'épaisseur traversée. Les rangées de cotes de gauche
+commencent au-delà du fond de la cheville (rien ne croise la tige) : la coupe est plus large de la profondeur.
+
+**La preuve** (`tests/test_corniere_schemas.py`, 193 contrôles, ~90 s) : vingt états ; chaque maille comparée à la
+couleur attendue par le dégradé recopié des décisions dans le test (768 mailles par état) ; les moments vérifiés
+perpendiculaires, hors de l'angle, à une échelle commune entre 0,6 et 0,8 × haut, avec autant de courbes et de points
+que le moteur ; la coupe mesurée (contour, ancrage, charge, pivot, sections, bras, arêtes et cotes de la poutre depuis
+l'ancrage le plus proche, tige au fond, rondelles aux dimensions de la table, douille / scellement / pile arrière) ;
+l'élévation (positions z_i, chaîne, N et V dans l'état limite, coupures de L = 900) ; 19 mutations rejetées (dont
+« dégradé inversé », « une courbe de moment oubliée », « enveloppe non remplie », « profondeur non dessinée », « cote
+L prise sur la longueur dessinée », « maille colorée par le plus petit taux ») et un témoin accepté. Les rendus ont été
+regardés (Playwright, 626 × 682 et 260 × 300) sur dix-sept états ; ils ont conduit à : des coupures en proportion de la
+pièce (pas du texte), deux coupures et non quatre sur L = 900, le nom du support dans son coin libre, le renvoi « r »
+posé au premier emplacement libre des étiquettes, les valeurs à la taille du texte, un ajusteur qui converge.
 
 ## 11 · Le module du site (lot « écran », 10/11/2026) — `api_web/corniere.py`
 

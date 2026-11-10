@@ -703,7 +703,8 @@ vues = r0["vues"]
 chk("quatre vues (coupe, moments, contraintes, élévation), chacune un SVG avec son en-tête technique (bande R, Mmax, H) et la légende de schemas",
     [v["cle"] for v in vues] == ["coupe", "moments", "contraintes", "elevation"] and all(v["svg"].lstrip().startswith("<svg") for v in vues)
     and all('class="et-eff"' in v["entete"] and "<i>M</i><sub>max</sub>" in v["entete"] for v in vues)
-    and all(C.esc(SC.legende(REF0, v["cle"])) in v["entete"] for v in vues) and [v["echelle"] for v in vues] == [True, False, False, True], None)
+    and all(C.esc(SC.legende(REF0, v["cle"])) in v["entete"] for v in vues) and [v["echelle"] for v in vues] == [True, True, True, True], None)
+# (révision § 9 des schémas : les moments et le maillage dessinent la cornière à l'échelle, les quatre vues portent echelle True)
 from api_web import dessin_corniere as DC  # noqa: E402
 tailles = [DC.taille_texte(v["svg"]) for v in vues]
 chk("le texte des dessins se lit à l'écran (≈ 13 px dans la toile de l'établi, entre 9 et 16)", all(9 <= t <= 16 for t in tailles), tailles)
