@@ -29,6 +29,7 @@ HALO = ' stroke="#FFFFFF" stroke-width="4" stroke-linejoin="round" paint-order="
 HB_MAX = 64.0          # la hauteur dessinée de la poutre au plus (une poutre haute sur une portée courte écraserait la feuille)
 APPUI_MAX = 0.16       # la longueur d'appui dessinée au plus, en part de la portée
 DEBORD_MAX = 0.06      # le débord dessiné au plus, en part de la portée
+HD_MIN = 120.0         # la hauteur des diagrammes de contraintes au moins (une section à plat les écraserait)
 
 
 def _f(x: float) -> str:
@@ -81,20 +82,32 @@ def _fleche(x, y_haut, y_bas, couleur, ep=1.3, tete=7.0) -> str:
             + _poly([(x, y_bas), (x - tete * 0.45, y_bas - tete), (x + tete * 0.45, y_bas - tete)], couleur, couleur, 0.6))
 
 
+def _large(texte: str, taille: float) -> float:
+    """La largeur d'un texte, ESTIMÉE (un demi-cadratin par caractère : mesuré de 0,40 à 0,56 dans le navigateur)."""
+    return 0.5 * taille * len(texte)
+
+
 def _cote_h(x1, x2, y, texte, taille=15.0) -> str:
-    """Une cote horizontale : ligne, deux traits obliques, le texte au-dessus."""
+    """Une cote horizontale : ligne, deux traits obliques, le texte au-dessus — ou à droite de la cote quand elle est
+    trop courte pour le porter (une section étroite)."""
     t = 5.0
-    return (_ligne(x1, y, x2, y, COTE, 1.0) + _ligne(x1 - t, y + t, x1 + t, y - t, ENCRE, 1.2)
-            + _ligne(x2 - t, y + t, x2 + t, y - t, ENCRE, 1.2) + _txt((x1 + x2) / 2, y - 7, texte, taille))
+    out = (_ligne(x1, y, x2, y, COTE, 1.0) + _ligne(x1 - t, y + t, x1 + t, y - t, ENCRE, 1.2)
+           + _ligne(x2 - t, y + t, x2 + t, y - t, ENCRE, 1.2))
+    if x2 - x1 < _large(texte, taille) + 14:
+        return out + _txt(x2 + 12, y + taille * 0.35, texte, taille, "start")
+    return out + _txt((x1 + x2) / 2, y - 7, texte, taille)
 
 
 def _cote_v(x, y1, y2, texte, taille=15.0) -> str:
-    """Une cote verticale : le texte tourné le long de la ligne, à sa gauche."""
+    """Une cote verticale : le texte tourné le long de la ligne, à sa gauche — ou écrit à l'horizontale, à gauche de
+    la cote, quand elle est trop courte pour le porter (une section à plat)."""
     t = 5.0
     xt = x - 8
-    return (_ligne(x, y1, x, y2, COTE, 1.0) + _ligne(x - t, y1 + t, x + t, y1 - t, ENCRE, 1.2)
-            + _ligne(x - t, y2 + t, x + t, y2 - t, ENCRE, 1.2)
-            + _txt(xt, (y1 + y2) / 2, texte, taille, extra=f' transform="rotate(-90 {_f(xt)} {_f((y1 + y2) / 2)})"'))
+    out = (_ligne(x, y1, x, y2, COTE, 1.0) + _ligne(x - t, y1 + t, x + t, y1 - t, ENCRE, 1.2)
+           + _ligne(x - t, y2 + t, x + t, y2 - t, ENCRE, 1.2))
+    if y2 - y1 < _large(texte, taille) + 14:
+        return out + _txt(x - 10, (y1 + y2) / 2 + taille * 0.35, texte, taille, "end")
+    return out + _txt(xt, (y1 + y2) / 2, texte, taille, extra=f' transform="rotate(-90 {_f(xt)} {_f((y1 + y2) / 2)})"')
 
 
 def _sol(x, y, largeur=44.0) -> str:
@@ -140,10 +153,15 @@ def _veines(x1, x2, y1, y2) -> str:
 
 
 def _lamelles_long(x1, x2, y1, y2, n: int) -> str:
-    """Les plans de collage d'un lamellé-collé vus en élévation : ``n`` lamelles horizontales."""
-    if n < 2 or (y2 - y1) / n < 3.0:
+    """Les plans de collage d'un lamellé-collé vus en élévation : ``n`` lamelles horizontales ; quand elles seraient
+    trop serrées pour se lire (moins de 3 unités), un plan sur deux, sur trois… est tracé — le dessin dit « lamellé »
+    sans noircir la poutre."""
+    if n < 2:
         return ""
-    return "".join(_ligne(x1, y1 + (y2 - y1) * i / n, x2, y1 + (y2 - y1) * i / n, VEINE, 0.7) for i in range(1, n))
+    pas = 1
+    while (y2 - y1) * pas / n < 3.0 and pas < n:
+        pas += 1
+    return "".join(_ligne(x1, y1 + (y2 - y1) * i / n, x2, y1 + (y2 - y1) * i / n, VEINE, 0.7) for i in range(pas, n, pas))
 
 
 def _svg(ident: str, largeur: float, hauteur: float, corps: str, etiquette: str) -> str:
@@ -340,8 +358,10 @@ def deformee(ident: str, r: Dict) -> str:
     else:
         ech = "déformée nulle"
     yc = yg + 62
-    cf = f" · contre-flèche {_v(fl['w_c'], 1)} mm déduite (parabolique)" if fl["w_c"] else ""
-    out += _txt(xm, yc, f"{ech} par rapport à la portée · flexion et effort tranchant{cf}", 13, couleur=COTE)
+    out += _txt(xm, yc, f"{ech} par rapport à la portée · flexion et effort tranchant", 13, couleur=COTE)
+    if fl["w_c"]:
+        yc += 18
+        out += _txt(xm, yc, f"contre-flèche de {_v(fl['w_c'], 1)} mm déduite de la flèche finale (prise parabolique le long de la portée)", 13, couleur=COTE)
     return _svg(ident, LARGEUR_SVG, yc + 16, out, "Déformée de la poutre bois")
 
 
@@ -366,13 +386,22 @@ def section(ident: str, r: Dict) -> str:
     """La section b × h à l'échelle, cotée (cernes d'un bois massif, lamelles horizontales d'un lamellé-collé, le
     platelage fixé d'un maintien continu), et à côté les contraintes de calcul de la combinaison qui gouverne chacune :
     σ_m (linéaire, compression en haut) face à sa limite k_crit·f_m,d, τ (parabolique, maximale sur l'axe neutre) face
-    à f_v,d."""
+    à f_v,d. Les diagrammes sont tracés sur la hauteur de la section ; quand elle est à plat (un madrier de
+    plateforme), ils gardent une hauteur lisible, centrée sur l'axe neutre — et la légende le dit."""
     geo, mat, dv = r["geometrie"], r["materiau"], r["deversement"]
     vs = {v["cle"]: v for v in r["verifications"]}
     b, h = float(geo["b"]), float(geo["h"])
     s = min(380.0 / h, 230.0 / b)
+    a_plat = h * s < HD_MIN
+    if a_plat:
+        s = min(s, 160.0 / b)                                     # moins large : la feuille garde sa largeur (le téléphone la lit)
     bs, hs = b * s, h * s
-    sx, sy = 138.0, 74.0
+    hd = max(hs, HD_MIN)                                          # la hauteur des diagrammes
+    sx = 150.0 if a_plat else 138.0
+    haut = 74.0                                                   # le haut des diagrammes (et de la section, sauf à plat)
+    yn = haut + hd / 2                                            # l'axe neutre
+    sy = yn - hs / 2                                              # le haut de la section
+    bas = haut + hd                                               # le bas des diagrammes (≥ celui de la section)
     clip = f"{ident}_bord_{_f(b)}x{_f(h)}".replace(".", "_")      # unique par section : deux dessins d'une page ne se mêlent pas
     out = f'<defs><clipPath id="{C.esc(clip)}"><rect x="{_f(sx)}" y="{_f(sy)}" width="{_f(bs)}" height="{_f(hs)}"/></clipPath></defs>'
     out += f'<rect x="{_f(sx)}" y="{_f(sy)}" width="{_f(bs)}" height="{_f(hs)}" fill="{BOIS_CLAIR}"/>'
@@ -415,47 +444,48 @@ def section(ident: str, r: Dict) -> str:
     xh = sx - gauche - 16
     out += (_ligne(sx - gauche - 5, sy, xh - 10, sy, COTE, 0.8, "4 3") + _ligne(sx - 6, sy + hs, xh - 10, sy + hs, COTE, 0.8, "4 3")
             + _cote_v(xh, sy, sy + hs, f"h = {C.nb(h)}", 16))
-    yn = sy + hs / 2
     # σ_m : compression en haut (à gauche de l'axe), traction en bas (à droite)
     vm, vt = vs["flexion"], vs["cisaillement"]
     SW = 78.0
-    xs_ = max(sx + bs + 66 + SW, 330.0 + SW)
+    xs_ = max(sx + bs + (40 if a_plat else 66) + SW, 330.0 + SW)
     smax = max(vm["valeur"], vm["limite"], 1e-12)
     ws, wf = SW * vm["valeur"] / smax, SW * vm["limite"] / smax
     TW = 66.0
     xt = xs_ + SW + 96
     out += _ligne(sx + bs + 6, yn, xt + TW + 96, yn, COTE, 0.9, "12 4 2 4")
-    out += _poly([(xs_, sy), (xs_ - ws, sy), (xs_, yn)], TEINTE_V, ARDOISE, 1.4)
-    out += _poly([(xs_, yn), (xs_ + ws, sy + hs), (xs_, sy + hs)], TEINTE_M, ROUGE, 1.4)
-    out += _ligne(xs_, sy - 8, xs_, sy + hs + 8, ENCRE, 1.2)
-    out += _ligne(xs_ - wf, sy, xs_ - wf, yn, ENCRE, 0.9, "4 3") + _ligne(xs_ + wf, yn, xs_ + wf, sy + hs, ENCRE, 0.9, "4 3")
-    out += _txt(xs_, sy - 14, _sub("σ", "m", " (N/mm²)"), 14.5, gras=True)
+    out += _poly([(xs_, haut), (xs_ - ws, haut), (xs_, yn)], TEINTE_V, ARDOISE, 1.4)
+    out += _poly([(xs_, yn), (xs_ + ws, bas), (xs_, bas)], TEINTE_M, ROUGE, 1.4)
+    out += _ligne(xs_, haut - 8, xs_, bas + 8, ENCRE, 1.2)
+    out += _ligne(xs_ - wf, haut, xs_ - wf, yn, ENCRE, 0.9, "4 3") + _ligne(xs_ + wf, yn, xs_ + wf, bas, ENCRE, 0.9, "4 3")
+    out += _txt(xs_, haut - 14, _sub("σ", "m", " (N/mm²)"), 14.5, gras=True)
     # (chaque mot du côté LIBRE de l'axe : il ne croise ni le triangle ni sa limite)
-    out += (_txt(xs_ + 7, sy + 15, "compression", 11.5, "start", ARDOISE)
-            + _txt(xs_ - 7, sy + hs - 8, "traction", 11.5, "end", ROUGE))
+    out += (_txt(xs_ + 7, haut + 16, "compression", 13, "start", ARDOISE)
+            + _txt(xs_ - 7, bas - 8, "traction", 13, "end", ROUGE))
     # τ : parabole, maximale sur l'axe neutre
     tmax = max(vt["valeur"], vt["limite"], 1e-12)
     wt, wv = TW * vt["valeur"] / tmax, TW * vt["limite"] / tmax
-    pts = [(xt, sy)] + [(xt + wt * (1 - 4 * (i / 24 - 0.5) ** 2), yn + (i / 24 - 0.5) * hs) for i in range(25)] + [(xt, sy + hs)]
+    pts = [(xt, haut)] + [(xt + wt * (1 - 4 * (i / 24 - 0.5) ** 2), yn + (i / 24 - 0.5) * hd) for i in range(25)] + [(xt, bas)]
     out += _poly(pts, TEINTE_V, ARDOISE, 1.4)
-    out += _ligne(xt, sy - 8, xt, sy + hs + 8, ENCRE, 1.2)
-    out += _ligne(xt + wv, sy, xt + wv, sy + hs, ENCRE, 0.9, "4 3")
-    out += _txt(xt + TW / 2, sy - 14, "τ (N/mm²)", 14.5, gras=True)
-    out += _txt(xt + TW + 96, yn - 7, "axe neutre", 12.5, "end", COTE)
+    out += _ligne(xt, haut - 8, xt, bas + 8, ENCRE, 1.2)
+    out += _ligne(xt + wv, haut, xt + wv, bas, ENCRE, 0.9, "4 3")
+    out += _txt(xt + TW / 2, haut - 14, "τ (N/mm²)", 14.5, gras=True)
+    out += _txt(xt + TW + 96, yn - 7, "axe neutre", 13, "end", COTE)
     # les valeurs sous chaque diagramme : la contrainte (trait plein) et sa limite (tirets), avec leurs symboles du moteur
     noms = {c["cle"]: c["nom"] for c in r["combinaisons"]}
     for x, v in ((xs_, vm), (xt + TW / 2, vt)):
-        out += _txt(x, sy + hs + 34, _symbole(v["symbole"], f" = {_v(v['valeur'])}"), 14, couleur=ARDOISE, gras=True)
-        out += _txt(x, sy + hs + 54, _symbole(v["symbole_limite"], f" = {_v(v['limite'])}"), 13.5, couleur=COTE)
-        out += _txt(x, sy + hs + 72, C.esc(noms[v["combinaison"]]), 12, couleur=COTE)
+        out += _txt(x, bas + 34, _symbole(v["symbole"], f" = {_v(v['valeur'])}"), 14, couleur=ARDOISE, gras=True)
+        out += _txt(x, bas + 54, _symbole(v["symbole_limite"], f" = {_v(v['limite'])}"), 13.5, couleur=COTE)
+        out += _txt(x, bas + 73, C.esc(noms[v["combinaison"]]), 13, couleur=COTE)
     # la légende
-    yl = sy + hs + 110
-    xc = (sx + xt + TW) / 2
+    yl = bas + 112
+    xc = max(xt + TW + 104, LARGEUR_SVG) / 2                      # la légende au milieu de la feuille
     lam = " · lamelles horizontales" if n_lam else ""
     out += _txt(xc, yl, f"{C.esc(mat['classe'])} · {C.esc(geo['designation'])} mm", 17, "middle", ENCRE, True)
     out += _txt(xc, yl + 23, f"{C.esc(mat['libelle_type'])}{lam} · A = {C.fr(geo['A'] / 100, 1)} cm² · W = {C.fr(geo['W'] / 1e3, 1)} cm³ · "
                 f"I = {C.fr(geo['I'] / 1e4, 0)} cm⁴", 13.5, "middle", COTE)
-    out += _txt(xc, yl + 43, "contraintes de calcul à l'ELU, chacune dans la combinaison qui la gouverne ; limites en tirets", 12.5, "middle", COTE)
-    largeur = max(xt + TW + 110, xc * 2, LARGEUR_SVG)
+    out += _txt(xc, yl + 43, "contraintes de calcul à l'ELU, chacune dans la combinaison qui la gouverne ; limites en tirets", 13, "middle", COTE)
+    if a_plat:
+        yl += 18
+        out += _txt(xc, yl + 43, "section à plat : diagrammes tracés sur une hauteur agrandie (la section est à l'échelle)", 13, "middle", COTE)
+    largeur = max(xt + TW + 104, LARGEUR_SVG)
     return _svg(ident, largeur, yl + 58, out, "Section de la poutre bois et contraintes de calcul")
-

@@ -555,6 +555,16 @@ petit = M.verifier(poutre(appui__a=20.0, appui__debord=50.0))
 chk("longueur efficace d'appui : sans débord 100 + 30 = 130 ; débord de 50 → 100 + 30 + 30 = 160 ; débord de 12 → 142 ; a = 20 → 20 + 20 + 20 = 60 "
     "(jamais plus que a de chaque côté)", R0["appui"]["l_ef"] == 130.0 and deb["appui"]["l_ef"] == 160.0 and deb_c["appui"]["l_ef"] == 142.0
     and petit["appui"]["l_ef"] == 60.0, (deb["appui"]["l_ef"], deb_c["appui"]["l_ef"], petit["appui"]["l_ef"]))
+dit_debord = [h for h in deb["hypotheses"] if "Débord de 50 mm" in h]
+chk("un débord est DIT dans les hypothèses : compté pour la longueur efficace (30 mm au plus) et la masse, il ne porte aucune charge et n'est pas "
+    "vérifié en porte-à-faux (les efforts restent ceux de la portée) ; sans débord, rien n'est dit ; la pièce s'allonge de deux débords (masse)",
+    len(dit_debord) == 1 and "aucune charge" in dit_debord[0] and "porte-à-faux" in dit_debord[0] and not any("Débord" in h for h in R0["hypotheses"])
+    and deb["efforts"] == R0["efforts"] and deb["geometrie"]["longueur"] == R0["geometrie"]["longueur"] + 100.0
+    and pres(deb["masse"], R0["masse"] + 0.1 * R0["masse_lineique"]), dit_debord)
+tr = [h for h in R0["hypotheses"] if "Effort tranchant" in h]
+chk("l'effort tranchant est pris à l'axe de l'appui, SANS réduction, et c'est dit (le §6.1.7(3) ne vise que les charges concentrées) : V_d = p_d·L/2",
+    len(tr) == 1 and "sans réduction" in tr[0] and "charges concentrées" in tr[0]
+    and pres(R0["combinaisons"][1]["V_d"], R0["combinaisons"][1]["p_d"] * 4.0 / 2.0), tr)
 court_l1 = M.verifier(poutre(section="38x89", L=0.5, appui__a=460.0))
 chk("côté travée, la majoration ne dépasse pas l_1/2 : L = 500, a = 460 → l_1 = 40 → 460 + 20 + 0 = 480 mm", court_l1["appui"]["l_ef"] == 480.0, court_l1["appui"])
 sans_ap = M.verifier(poutre(appui__verifier=False))
@@ -770,6 +780,26 @@ chk("aucun nombre « à point » dans les textes du moteur (avertissements, hypo
 chk("ce qui n'est pas couvert est rendu (charges concentrées, porte-à-faux, entailles, vibrations, flexion déviée, feu, perçages, bois humide)",
     len(R0["non_couvert"]) == 8 and all(any(m in t for t in R0["non_couvert"]) for m in ("concentrées", "porte-à-faux", "entailles", "vibrations", "déviée",
                                                                                          "feu", "perçages", "humide")), R0["non_couvert"])
+
+# les AIDES de la saisie : écrites par le moteur à partir de ses constantes et de ses gabarits (l'écran n'en écrit aucune)
+ent_ = M.verifier(poutre(section="45x245", L=5.0, maintien__type="entretoises", maintien__entraxe=1.25))
+app_ = M.verifier(poutre(section="45x245", L=5.0, maintien__type="appuis"))
+expr = lambda r, bloc, cle: next(f["expression"] for b in r["calcul"] if b["cle"] == bloc for f in b["formules"] if f["cle"] == cle)  # noqa: E731
+AI = M.AIDES
+chk("les aides de la saisie viennent du moteur, avec SES formules (celles du détail du calcul, mot pour mot) et SES valeurs : l_ef,a et ses 30 mm, "
+    "l_ef = 0,9·L + 2·h et min(e_m ; 0,9·L) + 2·h, w_fin, w_net,fin, γ_G = 1,35, γ_Q = 1,5, k_sys = 1,1 (0,6 m), L/300 à L/500, L/250 à L/350, les "
+    "trois classes de service",
+    expr(R0, "appui", "l_ef_a") in AI["appui/a"] and expr(R0, "appui", "l_ef_a") == "a + min(30 ; a ; l_1 / 2) + min(30 ; a ; débord)"
+    and "30 mm au plus" in AI["appui/debord"] and "aucune charge" in AI["appui/debord"]
+    and expr(app_, "deversement", "l_ef") in AI["maintien/type"] and expr(app_, "deversement", "l_ef") == "0,9·L + 2·h"
+    and expr(ent_, "deversement", "l_ef") in AI["maintien/type"] and expr(ent_, "deversement", "l_ef") == "min(e_m ; 0,9·L) + 2·h"
+    and "maintenus en torsion" in AI["maintien/type"]
+    and expr(R0, "fleche_fin", "w_fin") in AI["charges/psi2"] and expr(R0, "fleche_fin", "w_net_fin") in AI["contre_fleche"]
+    and AI["gamma_G"].endswith(": 1,35.") and AI["gamma_Q"].endswith(": 1,5.") and "k_sys = 1,1" in AI["systeme"] and "0,6 m" in AI["systeme"]
+    and "L/300 à L/500" in AI["lim_inst"] and "L/250 à L/350" in AI["lim_fin"]
+    and all(f"{k}, {D.LIBELLES_SERVICE[k]}" in AI["service"] for k in (1, 2, 3)), {k: v[:60] for k, v in AI.items() if k in ("appui/a", "maintien/type")})
+chk("chaque champ numérique borné a son aide, et aucune aide n'écrit un nombre à point décimal",
+    all(k in AI for k in D.BORNES) and not any(a_point(v) for v in AI.values()), ([k for k in D.BORNES if k not in AI], [k for k, v in AI.items() if a_point(v)]))
 
 # ====================================================================== 11. le sélecteur
 print("\n=== 11. Sélecteur : les sections standard du type du bois, par aire, la retenue et la plus légère qui tient ===")

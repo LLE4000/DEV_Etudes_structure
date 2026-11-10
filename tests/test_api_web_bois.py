@@ -25,6 +25,7 @@ Python ordinaire : CE QUE LE SITE AFFICHE = CE QUE LE MOTEUR CALCULE.
 
     /usr/bin/python3.12 tests/test_api_web_bois.py
 """
+import ast
 import copy
 import html
 from html.parser import HTMLParser
@@ -32,6 +33,7 @@ import json
 import math
 import os
 import re
+import subprocess
 import sys
 import types
 
@@ -763,17 +765,24 @@ def fautes_entete(mod, etat, cas):
         if [(s, i, u) for s, i, _, u in bande] != [("M", "d", "kN·m"), ("V", "d", "kN"), ("R", "d", "kN")] \
                 or not all(affiche(x[2], val) for x, val in zip(bande, (ef["M_d"], ef["V_d"], ef["R"]))):
             f.append(f"{cas} {v['cle']} : bande {bande} ≠ {ef['M_d']}, {ef['V_d']}, {ef['R']}")
-        t = texte(v["entete"])
-        for mot in (r["geometrie"]["designation"], r["materiau"]["classe"], f"combinaison {ef['nom']}", r["coefficients"]["libelle_nature"], r["deversement"]["libelle"]):
+        t = texte(v["entete"]).replace(C.NBSP, " ")          # (une quantité y est d'un seul tenant : ses espaces sont insécables)
+        ch_, ap_ = r["charges"], r["appui"]
+        for mot in (r["geometrie"]["designation"] + " mm", r["materiau"]["classe"], f"L = {C.fr(r['geometrie']['L'], 2)} m", f"g = {C.fr(ch_['g'], 2)} kN/m",
+                    f"q = {C.fr(ch_['q'], 2)} kN/m", f"combinaison {ef['nom']}", f"a = {C.nb(ap_['a'])} mm", r["coefficients"]["libelle_nature"],
+                    f"classe de service {r['coefficients']['service']}", r["deversement"]["libelle"]):
             if mot not in t:
                 f.append(f"{cas} {v['cle']} : l'en-tête ne dit pas « {mot} »")
+        for lie in (f"a{C.NBSP}={C.NBSP}{C.nb(ap_['a'])}{C.NBSP}mm", f"L{C.NBSP}={C.NBSP}{C.fr(r['geometrie']['L'], 2)}{C.NBSP}m"):
+            if lie not in html.unescape(v["entete"]):
+                f.append(f"{cas} {v['cle']} : « {lie} » peut se couper en fin de ligne")
         if C.esc(v["legende"]) not in v["entete"]:
             f.append(f"{cas} {v['cle']} : légende absente de l'en-tête")
     return f
 
 
 fe = [x for nom_cas, etat in ETATS.items() for x in fautes_entete(B, etat, nom_cas)]
-chk("l'en-tête de chaque vue : la section, le bois, les charges, la combinaison ELU qui gouverne, le maintien ; la bande M_d, V_d, R_d du moteur ; la légende", not fe, fe[:3])
+chk("l'en-tête de chaque vue : la section, le bois, la portée, g et q, la nature de Q, la classe de service, la combinaison ELU qui gouverne, l'appui, le "
+    "maintien (chaque quantité d'un seul tenant) ; la bande M_d, V_d, R_d du moteur ; la légende", not fe, fe[:3])
 
 
 def textes_svg(svg):
@@ -831,6 +840,57 @@ chk("une poutre très haute sur une portée courte (400 × 2 500 sur 3 m, a = 60
 ids = [re.search(r'<svg id="([^"]+)"', v["svg"]).group(1) for v in vues]
 chk("chaque dessin a son identifiant, propre à la poutre ouverte (deux dessins d'une page ne se mêlent pas)", ids == ["bo0_schema", "bo0_deformee", "bo0_section"], ids)
 
+# ====================================================================== 9 bis. l'écran n'écrit aucune valeur de norme
+print("\n=== 9 bis. Aucune formule, aucune valeur de norme écrite dans l'écran")
+NORME = re.compile(r"\d+,\d+|\bL/\d|\b\d+\s?(?:mm|cm|m|kN|ans|mois|jours?)\b|\d\s(?:%|N/mm²)|[=≤≥<>]\s?\d|\d\s?[·×]\s?[A-Za-zγψσλ]")
+SYMBOLES_A_CHIFFRE = ("E_0,05", "E_0,mean", "ψ<sub>2</sub>", "ψ_2", "L/2")          # des NOMS (et la mi-portée du dessin), pas des valeurs
+HORS_TEXTES = {"NOTE_V1", "PARCOURS", "AVIS_V1", "AVIS_NOM", "DECIMALES", "ESPACES"}  # des saisies d'essai, une date, des précisions d'affichage
+
+
+def valeurs_de_norme(source):
+    """Les textes d'un fichier de l'écran qui portent un nombre de norme (« 30 mm », « 0,9·L », « L/300 », « 10 % »…) :
+    chaque constante de texte de ses fonctions et de ses affectations, hors docstrings et hors saisies d'essai."""
+    arbre = ast.parse(source)
+    docs = {id(n.body[0].value) for n in ast.walk(arbre) if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef)) and n.body
+            and isinstance(n.body[0], ast.Expr) and isinstance(getattr(n.body[0], "value", None), ast.Constant)}
+    zones = [n for n in arbre.body if isinstance(n, ast.FunctionDef)
+             or (isinstance(n, ast.Assign) and not any(getattr(t, "id", None) in HORS_TEXTES for t in n.targets))]
+    out = []
+    for z in zones:
+        for n in ast.walk(z):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
+                t = n.value
+                for s_ in SYMBOLES_A_CHIFFRE:
+                    t = t.replace(s_, "")
+                if NORME.search(t):
+                    out.append((n.lineno, n.value[:80]))
+    return out
+
+
+SRC_ECRAN = {f: open(os.path.join(RACINE, "api_web", f), encoding="utf-8").read() for f in ("bois.py", "dessin_bois.py")}
+vn = {f: valeurs_de_norme(s) for f, s in SRC_ECRAN.items()}
+chk("api_web/bois.py et api_web/dessin_bois.py n'écrivent AUCUN nombre de norme dans leurs textes (ni « 30 mm », ni « 0,9·L », ni « L/300 », ni "
+    "« 1,35 ») : les aides ⓘ, les formules et les hypothèses sont celles du moteur", not any(vn.values()), vn)
+chk("le lecteur de ce contrôle voit bien une valeur remise à la main (« de 30 mm au plus », « l_ef = 0,9·L + 2·h », « L/300 à L/500 », « 1,35 »)",
+    all(valeurs_de_norme(f'def f():\n    return "{t}"\n') for t in ("de 30 mm au plus", "l_ef = 0,9·L + 2·h", "L/300 à L/500", "(6.10 : 1,35)", "majorés de 10 %")))
+aides_ecran = [html.unescape(a) for a in re.findall(r'<span class="aide" title="([^"]+)">', "".join(resultat_module(B, e)["donnees"] for e in (
+    e0, etat_avec(standard=False), etat_avec(charges__mode="surfacique"), etat_avec(maintien__type="entretoises"))))]
+chk(f"chaque aide du moteur ({len(MO.AIDES)}) est posée derrière un ⓘ du cadre Données (celle de la nature de Q et les deux verrous sont complétés par l'écran)",
+    all(any(a.startswith(v) for a in aides_ecran) for v in MO.AIDES.values()) and len(MO.AIDES) == 23, [k for k, v in MO.AIDES.items() if not any(a.startswith(v) for a in aides_ecran)])
+
+# le harnais du site charge les modules de l'écran avec le python3 du SYSTÈME (3.11) : une f-string imbriquée à la
+# manière de Python 3.12 (les mêmes guillemets dedans et dehors) y est une erreur de syntaxe
+FICHIERS_MODULE = [os.path.join(RACINE, *f.split("/")) for f in ("api_web/bois.py", "api_web/dessin_bois.py", "bois/poutre/__init__.py", "bois/poutre/donnees.py",
+                                                                 "bois/poutre/entree.py", "bois/poutre/moteur.py", "bois/poutre/diagrammes.py")]
+LIRE = "import ast, sys\nfor f in sys.argv[1:]:\n    ast.parse(open(f, encoding='utf-8').read(), f)\nprint(sys.version_info[:2])"
+for py in ("/usr/bin/python3.11", "/usr/bin/python3.13"):
+    if not os.path.exists(py):
+        print(f"     ({py} absent de cette machine : la lecture par cette version n'est pas jouée)")
+        continue
+    lu = subprocess.run([py, "-c", LIRE] + FICHIERS_MODULE, capture_output=True, text=True, timeout=60)
+    chk(f"les sept fichiers du module se LISENT avec {os.path.basename(py)} (aucune syntaxe réservée à une version plus récente)",
+        lu.returncode == 0, lu.stderr.strip().splitlines()[-1:] if lu.stderr else "")
+
 # ====================================================================== 10. les éléments de la note
 print("\n=== 10. Les éléments de la note, son résumé")
 e2 = req(action="ajouter", etat=copy.deepcopy(e0))
@@ -857,7 +917,8 @@ def mutant(ancien, nouveau):
     m = types.ModuleType("api_web.bois_mutant")
     m.__package__ = "api_web"
     m.__file__ = B.__file__
-    exec(compile(src.replace(ancien, nouveau, 1), B.__file__, "exec"), m.__dict__)  # noqa: S102 — le module lui-même, muté
+    m.SOURCE = src.replace(ancien, nouveau, 1)
+    exec(compile(m.SOURCE, B.__file__, "exec"), m.__dict__)  # noqa: S102 — le module lui-même, muté
     return m
 
 
@@ -932,6 +993,8 @@ MUTATIONS = [
      '    return f\'<div class="et-hyps">{lignes}{non}</div>\'', '    return f\'<div class="et-hyps">{lignes}</div>\'', lambda m: controle_resultat(m, e0, "neuve")),
     ("k_crit n'est plus dit sur la ligne de flexion quand la poutre déverse", 'if v["cle"] == "flexion" and r["deversement"]["kcrit"] < 1:', "if False:",
      lambda m: controle_resultat(m, E_D, "déversement")),
+    ("une aide récrite à la main dans l'écran, avec sa valeur de norme (« 30 mm »)", 'A["appui/debord"]))',
+     '"Le débord augmente la longueur efficace, de 30 mm au plus."))', lambda m: valeurs_de_norme(m.SOURCE)),
 ]
 TEMOIN = ("témoin : un commentaire changé", "# la plus légère qui tient (l'étoile de la ligne « Flexion », qui ouvre le sélecteur)", "# la plus légère qui tient (témoin)")
 survivants = []
@@ -940,7 +1003,7 @@ for titre, ancien, nouveau, controle in MUTATIONS:
     if not rouge(lambda controle=controle, m=m: controle(m)):
         survivants.append(titre)
 chk(f"{len(MUTATIONS)} mutations d'affichage (verdict, comparaison, combinaison nommée, couleur, plafond, valeurs substituées, unité d'un résultat, tableau, échappement, "
-    "avis, noms d'une ancienne note, refus, nature de Q, changement de type, sélecteur × 3, étoile, bande, pied, avertissements, non couvert, k_crit) : TOUTES vues rouges",
+    "avis, noms d'une ancienne note, refus, nature de Q, changement de type, sélecteur × 3, étoile, bande, pied, avertissements, non couvert, k_crit, aide récrite) : TOUTES vues rouges",
     not survivants, survivants)
 mt = mutant(TEMOIN[1], TEMOIN[2])
 temoin_rouge = [t for t, _, _, c in MUTATIONS if rouge(lambda c=c: c(mt))]

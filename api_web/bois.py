@@ -363,6 +363,12 @@ def _niv_res(r: Dict) -> str:
     return "r" if r["statut"] == MO.NOK else C.niveau(r["taux_max"])
 
 
+def _lie(t: str) -> str:
+    """Une quantité écrite d'un seul tenant (« a = 200 mm », « L = 10,00 m ») : ses espaces deviennent insécables, elle
+    ne se coupe pas en fin de ligne."""
+    return t.replace(" ", C.NBSP)
+
+
 def _section_txt(geo: Dict) -> str:
     """« 75 × 225 » : la section, telle que le moteur la désigne (texte échappé)."""
     return C.esc(geo["designation"])
@@ -381,6 +387,11 @@ def _comb_txt(r: Dict, v: Dict, court: bool = False) -> str:
 
 
 # ------------------------------------------------------------------ le cadre Données : les quatre rubriques
+# Les AIDES des champs (les ⓘ) viennent du MOTEUR : elles portent des valeurs et des formules de la norme (30 mm,
+# 0,9·L + 2·h, L/300 à L/500…), que cet écran n'écrit pas.
+A = MO.AIDES
+
+
 def _menu_classes(p: Dict) -> str:
     """Le menu des classes de résistance, groupé : d'abord le bois massif (C14 à C50), puis le lamellé-collé (GL…)."""
     groupes = ""
@@ -400,6 +411,7 @@ def _bouton_section(r: Dict) -> str:
 
 
 def _rubrique_poutre(p: Dict, r: Dict) -> str:
+    """1 Poutre : le bois, la section (standard : le bouton du sélecteur ; sur mesure : b et h), la portée."""
     mat, geo, co = r["materiau"], r["geometrie"], r["coefficients"]
     aide_bois = (f"{p['classe']} ({mat['norme']}) : f_m,k {C.nb(mat['fm_k'])} · f_v,k {C.nb(mat['fv_k'])} · f_c,90,k {C.nb(mat['fc90_k'])} · "
                  f"E_0,mean {C.fr(mat['E0_mean'], 0)} · E_0,05 {C.fr(mat['E0_05'], 0)} · G_mean {C.nb(mat['G_mean'])} N/mm² · "
@@ -410,9 +422,8 @@ def _rubrique_poutre(p: Dict, r: Dict) -> str:
         s += C.ligne("b × h", _bouton_section(r), "", f"Une section standard du {D.COURTS_TYPE[mat['type']]} : la liste s'ouvre, chaque section "
                      "y est recalculée avec vos charges (taux, ✓ la retenue, ★ la plus légère qui tient).", full=True)
     else:
-        s += C.ligne2(("b", C.num(["b"], p["b"], "mm"), "La largeur de la section."),
-                      ("h", C.num(["h"], p["h"], "mm"), "La hauteur de la section, dans le plan de flexion."))
-    s += C.ligne("portée", C.num(["L"], p["L"], "m"), "L", "La portée entre AXES des appuis ; poutre sur deux appuis simples.")
+        s += C.ligne2(("b", C.num(["b"], p["b"], "mm"), A["b"]), ("h", C.num(["h"], p["h"], "mm"), A["h"]))
+    s += C.ligne("portée", C.num(["L"], p["L"], "m"), "L", A["L"])
     s += C.aide(f"A = {C.qte(geo['A'] / 100, 'cm²', 1)} · W = {C.qte(geo['W'] / 1e3, 'cm³', 1)} · I = {C.qte(geo['I'] / 1e4, 'cm⁴', 0)} · "
                 f"{C.qte(r['masse_lineique'], 'kg/m', 2)}")
     return s
@@ -420,21 +431,16 @@ def _rubrique_poutre(p: Dict, r: Dict) -> str:
 
 def _rubrique_charges(p: Dict, r: Dict) -> str:
     ch, rc, co = p["charges"], r["charges"], r["coefficients"]
-    s = C.ligne("Saisie en", C.segments(["charges", "mode"], ch["mode"], SEGMENTS_MODE), "",
-                "kN/m : les charges linéaires que porte la poutre. kN/m² : les charges du plancher, multipliées par l'entraxe des "
-                "pièces (gîtes, chevrons).", full=True)
+    s = C.ligne("Saisie en", C.segments(["charges", "mode"], ch["mode"], SEGMENTS_MODE), "", A["charges/mode"], full=True)
     if ch["mode"] == "surfacique":
-        s += C.ligne2(("g<sub>s</sub>", C.num(["charges", "g"], ch["g"], "kN/m²"), "La charge permanente du plancher, hors poids propre de la pièce."),
-                      ("q<sub>s</sub>", C.num(["charges", "q"], ch["q"], "kN/m²"), "La charge variable du plancher."))
-        s += C.ligne("entraxe", C.num(["charges", "entraxe"], ch["entraxe"], "m"), "e", "L'entraxe des pièces : G = g_s·e, Q = q_s·e.")
+        s += C.ligne2(("g<sub>s</sub>", C.num(["charges", "g"], ch["g"], "kN/m²"), A["charges/g"]),
+                      ("q<sub>s</sub>", C.num(["charges", "q"], ch["q"], "kN/m²"), A["charges/q"]))
+        s += C.ligne("entraxe", C.num(["charges", "entraxe"], ch["entraxe"], "m"), "e", A["charges/entraxe"])
         s += C.aide(f"G = {C.qte(rc['G'], 'kN/m', 3)} · Q = {C.qte(rc['Q'], 'kN/m', 3)}")
     else:
-        s += C.ligne2(("G", C.num(["charges", "G"], ch["G"], "kN/m"), "La charge permanente, HORS poids propre de la poutre (compté à part, ci-dessous)."),
-                      ("Q", C.num(["charges", "Q"], ch["Q"], "kN/m"), "La charge variable ; sa nature fixe sa durée (k_mod) et ψ₂ (fluage)."))
+        s += C.ligne2(("G", C.num(["charges", "G"], ch["G"], "kN/m"), A["charges/G"]), ("Q", C.num(["charges", "Q"], ch["Q"], "kN/m"), A["charges/Q"]))
     s += C.ligne("Nature Q", C.choix(["charges", "nature"], ch["nature"], [(k, D.LIBELLES_NATURE[k]) for k in D.CLES_NATURE]), "",
-                 "La nature de la charge variable fixe sa classe de durée (EN 1995-1-1 tableau 2.2 et annexe belge), donc le k_mod de la "
-                 "combinaison G + Q, et ψ₂ (NBN EN 1990 ANB), donc la part de Q qui flue. « Autre » : durée et ψ₂ se saisissent dans les "
-                 "Hypothèses.", full=True)
+                 A["charges/nature"] + " Elles se saisissent alors dans les Hypothèses.", full=True)
     libre = " · à saisir dans les Hypothèses" if co["nature_libre"] else ""
     s += C.aide(f"{C.esc(co['libelle_duree'])} ({C.esc(D.PERIODES_DUREE[co['duree']])}) · k<sub>mod</sub> = {C.nb(co['kmod_variable'])} · "
                 f"ψ<sub>2</sub> = {C.nb(co['psi2'])}{libre}")
@@ -444,20 +450,11 @@ def _rubrique_charges(p: Dict, r: Dict) -> str:
 
 def _rubrique_appuis(p: Dict, r: Dict) -> str:
     ap, mt, dv = p["appui"], p["maintien"], r["deversement"]
-    s = C.ligne2(("a appui", C.num(["appui", "a"], ap["a"], "mm"),
-                  "La longueur d'appui, comptée le long de la poutre. La compression perpendiculaire au fil se vérifie sur la largeur b et "
-                  "la longueur efficace l_ef,a = a + 30 mm côté travée + 30 mm côté about (sans dépasser a, ni le débord)."),
-                 ("débord", C.num(["appui", "debord"], ap["debord"], "mm"),
-                  "La longueur de poutre au-delà de l'appui, côté about (0 : la poutre s'arrête au bord de l'appui). Elle augmente la "
-                  "longueur efficace d'appui, de 30 mm au plus."))
+    s = C.ligne2(("a appui", C.num(["appui", "a"], ap["a"], "mm"), A["appui/a"]), ("débord", C.num(["appui", "debord"], ap["debord"], "mm"), A["appui/debord"]))
     s += C.case(["appui", "verifier"], ap["verifier"], "Vérifier la compression à l'appui")
-    s += C.ligne("Maintien", C.segments(["maintien", "type"], mt["type"], SEGMENTS_MAINTIEN), "",
-                 "Le maintien latéral de la fibre comprimée (le dessus de la poutre). Continu : un plancher ou un platelage fixé, pas de "
-                 "déversement (k_crit = 1). Aux appuis : la poutre est libre entre ses appuis, l_ef = 0,9·L + 2·h. Entretoises : l_ef = "
-                 "leur entraxe + 2·h. Dans les trois cas, les appuis sont supposés maintenus en torsion (EN 1995-1-1 tableau 6.1).", full=True)
+    s += C.ligne("Maintien", C.segments(["maintien", "type"], mt["type"], SEGMENTS_MAINTIEN), "", A["maintien/type"], full=True)
     if mt["type"] == "entretoises":
-        s += C.ligne("entraxe", C.num(["maintien", "entraxe"], mt["entraxe"], "m"), "e<sub>m</sub>",
-                     "L'entraxe des entretoises qui maintiennent la fibre comprimée (le plus grand, s'ils diffèrent) ; au plus la portée.")
+        s += C.ligne("entraxe", C.num(["maintien", "entraxe"], mt["entraxe"], "m"), "e<sub>m</sub>", A["maintien/entraxe"])
     if dv["l_ef"] is None:
         s += C.aide(f"k<sub>crit</sub> = {_n(dv['kcrit'])} · pas de déversement")
     else:
@@ -468,29 +465,19 @@ def _rubrique_appuis(p: Dict, r: Dict) -> str:
 def _rubrique_hypotheses(p: Dict, r: Dict) -> str:
     co, ch = r["coefficients"], p["charges"]
     libre = co["nature_libre"]
-    s = C.ligne("Service", C.segments(["service"], str(p["service"]), [(str(k), str(k)) for k in D.CLASSES_SERVICE]), "",
-                "La classe de service (EN 1995-1-1 §2.3.1.3) : 1, intérieur chauffé ; 2, abrité non chauffé ; 3, exposé aux intempéries. "
-                "Elle fixe k_mod (la résistance) et k_def (le fluage).", full=True)
+    s = C.ligne("Service", C.segments(["service"], str(p["service"]), [(str(k), str(k)) for k in D.CLASSES_SERVICE]), "", A["service"], full=True)
     s += C.aide(f"{C.esc(co['libelle_service'])} · k<sub>mod</sub> {C.nb(co['kmod_permanent'])} (G) et {C.nb(co['kmod_variable'])} (G + Q) · "
                 f"k<sub>def</sub> = {C.nb(co['kdef'])}")
-    s += C.ligne2(("γ<sub>G</sub>", C.num(["gamma_G"], p["gamma_G"], ""), "Le coefficient partiel des charges permanentes (NBN EN 1990 ANB, 6.10 : 1,35)."),
-                  ("γ<sub>Q</sub>", C.num(["gamma_Q"], p["gamma_Q"], ""), "Le coefficient partiel de la charge variable (NBN EN 1990 ANB, 6.10 : 1,50)."))
+    s += C.ligne2(("γ<sub>G</sub>", C.num(["gamma_G"], p["gamma_G"], ""), A["gamma_G"]), ("γ<sub>Q</sub>", C.num(["gamma_Q"], p["gamma_Q"], ""), A["gamma_Q"]))
     verrou = "" if libre else f" Fixée par la nature de Q ({D.LIBELLES_NATURE[ch['nature']]}) : choisir « Autre » pour la saisir."
     s += C.ligne("Durée Q", C.choix(["charges", "duree"], ch["duree"], [(k, D.LIBELLES_DUREE[k].capitalize()) for k in D.DUREES], desactive=not libre), "",
-                 "La classe de durée de la charge variable (EN 1995-1-1 tableau 2.1) : elle donne le k_mod de la combinaison G + Q." + verrou,
-                 full=True)
+                 A["charges/duree"] + verrou, full=True)
     verrou = "" if libre else f" Fixé par la nature de Q ({D.LIBELLES_NATURE[ch['nature']]}) : choisir « Autre » pour le saisir."
-    s += C.ligne("de Q", C.num(["charges", "psi2"], ch["psi2"], "", desactive=not libre), "ψ<sub>2</sub>",
-                 "La part quasi permanente de Q : elle flue avec G dans la flèche finale, w_fin = w_g·(1 + k_def) + w_q·(1 + ψ₂·k_def)." + verrou)
-    s += C.ligne("Effet système", C.case(["systeme"], p["systeme"], f"k<sub>sys</sub> = {C.nb(D.K_SYS)}"), "",
-                 "EN 1995-1-1 §6.6 : f_m,d et f_v,d majorés de 10 % pour des pièces semblables, régulièrement espacées (60 cm environ) "
-                 "et liées par un platelage continu capable de répartir les charges. À ne cocher que si ces conditions sont réunies.")
-    s += C.ligne2(("w<sub>inst</sub> ≤", C.choix(["lim_inst"], p["lim_inst"], [(n, f"L/{n}") for n in D.LIMITES_INST]),
-                   "La limite de la flèche instantanée sous G + Q (EN 1995-1-1 tableau 7.2 : L/300 à L/500 sur deux appuis)."),
-                  ("w<sub>net,fin</sub> ≤", C.choix(["lim_fin"], p["lim_fin"], [(n, f"L/{n}") for n in D.LIMITES_FIN]),
-                   "La limite de la flèche finale nette, fluage compris, contre-flèche déduite (tableau 7.2 : L/250 à L/350)."))
-    s += C.ligne("contre-flèche", C.num(["contre_fleche"], p["contre_fleche"], "mm"), "w<sub>c</sub>",
-                 "La contre-flèche donnée à la poutre à la fabrication (lamellé-collé) : w_net,fin = w_fin − w_c. 0 : aucune.")
+    s += C.ligne("de Q", C.num(["charges", "psi2"], ch["psi2"], "", desactive=not libre), "ψ<sub>2</sub>", A["charges/psi2"] + verrou)
+    s += C.ligne("Effet système", C.case(["systeme"], p["systeme"], f"k<sub>sys</sub> = {C.nb(D.K_SYS)}"), "", A["systeme"])
+    s += C.ligne2(("w<sub>inst</sub> ≤", C.choix(["lim_inst"], p["lim_inst"], [(n, f"L/{n}") for n in D.LIMITES_INST]), A["lim_inst"]),
+                  ("w<sub>net,fin</sub> ≤", C.choix(["lim_fin"], p["lim_fin"], [(n, f"L/{n}") for n in D.LIMITES_FIN]), A["lim_fin"]))
+    s += C.ligne("contre-flèche", C.num(["contre_fleche"], p["contre_fleche"], "mm"), "w<sub>c</sub>", A["contre_fleche"])
     return s
 
 
@@ -761,9 +748,12 @@ def _entete(r: Dict, titre: str, legende: str) -> str:
     c = _comb(r, ef["combinaison"])
     bande = [("M", "d", ef["M_d"], "kN·m"), ("V", "d", ef["V_d"], "kN"), ("R", "d", ef["R"], "kN")]
     pp = f" (dont poids propre {C.fr(ch['poids_propre'], 2)})" if ch["poids_propre_compte"] else " (poids propre non compté)"
-    lignes = [f"g = {C.fr(ch['g'], 2)} kN/m{pp} · q = {C.fr(ch['q'], 2)} kN/m · {co['libelle_nature']} · classe de service {co['service']}",
-              f"ELU · combinaison {c['nom']} ({c['libelle_duree']}) · appui a = {C.nb(ap['a'])} mm · {r['deversement']['libelle']}"]
-    sous = f"{_section_txt(geo)} mm · {C.esc(mat['classe'])} · L = {C.qte(geo['L'], 'm', 2)}"
+    # (chaque quantité d'un seul tenant : « a = 200 mm » ne se coupe pas en fin de ligne)
+    g_txt, q_txt = _lie(f"g = {C.fr(ch['g'], 2)} kN/m"), _lie(f"q = {C.fr(ch['q'], 2)} kN/m")
+    a_txt, service = _lie(f"a = {C.nb(ap['a'])} mm"), _lie(f"classe de service {co['service']}")
+    lignes = [f"{g_txt}{pp} · {q_txt} · {co['libelle_nature']} · {service}",
+              f"ELU · combinaison {c['nom']} ({c['libelle_duree']}) · appui {a_txt} · {r['deversement']['libelle']}"]
+    sous = f"{_lie(_section_txt(geo) + ' mm')} · {C.esc(mat['classe'])} · {_lie('L = ' + C.qte(geo['L'], 'm', 2))}"
     return E.entete(titre, sous, lignes, bande, legende)
 
 

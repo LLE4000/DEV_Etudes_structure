@@ -16,6 +16,7 @@ API
     verifier(poutre) -> dict                    le calcul complet (ci-dessous)
     candidats_sections(poutre) -> list          les sections standard du TYPE du bois, chacune recalculée, par aire
     optimal(poutre) -> dict | None              la plus légère qui tient
+    AIDES                                       ce que chaque champ veut dire (chemin → texte) : les ⓘ de l'écran
 
 UNITÉS — la saisie : mm (section, appui), m (portée, entraxes), kN/m ou kN/m² (charges). Le calcul : N et mm, avec
 1 kN/m = 1 N/mm (l'ancien écran multipliait encore par 1 000 : ses flèches étaient 1 000 fois trop grandes). Les
@@ -28,8 +29,9 @@ Q = q_s·e (e : l'entraxe des pièces).
 
 ELU (NBN EN 1990, 6.10) — DEUX combinaisons, chacune avec SON k_mod (§3.1.3(2) : celui de l'action de plus courte
 durée) : « G seule », p_d = γ_G·g avec k_mod permanent ; « G + Q », p_d = γ_G·g + γ_Q·q avec le k_mod de la charge
-variable (absente quand q = 0). M_d = p_d·L²/8, V_d = p_d·L/2 (à l'axe de l'appui, sans la réduction du §6.1.7(3) :
-côté sûr). Chaque vérification retient la combinaison au taux le plus fort et la NOMME.
+variable (absente quand q = 0). M_d = p_d·L²/8, V_d = p_d·L/2 (à l'axe de l'appui, sans réduction : le §6.1.7(3) ne
+vise que les charges concentrées proches de l'appui). Chaque vérification retient la combinaison au taux le plus fort
+et la NOMME.
 
   flexion (§6.1.6, §6.3.3)        σ_m,d = M_d/W ≤ k_crit·f_m,d ; f_m,d = k_mod·k_h·k_sys·f_m,k/γ_M
       k_h (§3.2(3), §3.3(3))      massif : min((150/h)^0,2 ; 1,3) si h < 150 mm ; lamellé : min((600/h)^0,1 ; 1,1) si h < 600 mm ; 1 sinon
@@ -149,6 +151,16 @@ def _taux(valeur: float, limite: float) -> float:
 def _etat(taux: float) -> str:
     """Conforme jusqu'à 100 % compris ; au-delà, non conforme (le seuil du code couleur du bureau)."""
     return NOK if taux > 1.0 else OK
+
+
+# Les gabarits que le détail du calcul, les hypothèses ET les aides de la saisie écrivent : chaque formule, UNE fois.
+GABARITS = {
+    "l_ef_appuis": f"{_c(D.LEF_CHARGE_REPARTIE)} × {{L}} + {_c(D.LEF_FIBRE_COMPRIMEE)} × {{h}}",
+    "l_ef_entretoises": f"min({{e_m}} ; {_c(D.LEF_CHARGE_REPARTIE)} × {{L}}) + {_c(D.LEF_FIBRE_COMPRIMEE)} × {{h}}",
+    "l_ef_a": f"{{a}} + min({_c(D.MAJORATION_APPUI)} ; {{a}} ; {{l_1}} / 2) + min({_c(D.MAJORATION_APPUI)} ; {{a}} ; {{débord}})",
+    "w_fin": "{w_g} × (1 + {k_def}) + {w_q} × (1 + {ψ_2} × {k_def})",
+    "w_net_fin": "{w_fin} − {w_c}",
+}
 
 
 # ------------------------------------------------------------------ les coefficients
@@ -369,10 +381,9 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
         f = [_lu("kcrit", "k_crit", "maintien continu de la fibre comprimée (§6.3.3(5))", x["kcrit"])]
     else:
         if p["maintien"]["type"] == "appuis":
-            f_lef = _fx("l_ef", "l_ef", f"{_c(D.LEF_CHARGE_REPARTIE)} × {{L}} + {_c(D.LEF_FIBRE_COMPRIMEE)} × {{h}}",
-                        [_t("L", L_mm, "mm"), _t("h", h, "mm")], x["l_ef"], "mm")
+            f_lef = _fx("l_ef", "l_ef", GABARITS["l_ef_appuis"], [_t("L", L_mm, "mm"), _t("h", h, "mm")], x["l_ef"], "mm")
         else:
-            f_lef = _fx("l_ef", "l_ef", f"min({{e_m}} ; {_c(D.LEF_CHARGE_REPARTIE)} × {{L}}) + {_c(D.LEF_FIBRE_COMPRIMEE)} × {{h}}",
+            f_lef = _fx("l_ef", "l_ef", GABARITS["l_ef_entretoises"],
                         [_t("e_m", p["maintien"]["entraxe"] * 1000.0, "mm"), _t("L", L_mm, "mm"), _t("h", h, "mm")], x["l_ef"], "mm")
         f = [f_lef,
              _fx("sigma_crit", "σ_m,crit", f"{_c(D.COEF_SIGMA_CRIT)} × {{b}}² × {{E_0,05}} / ({{h}} × {{l_ef}})",
@@ -420,10 +431,9 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
         else:
             origine = (f"{D.COURTS_TYPE[typ]}, l_1 ≥ {_c(D.L1_SUR_H_MIN)}·h = {_n(deux_h, 0)} mm"
                        + (f", a ≤ {_c(D.A_MAX_K_C90[typ])} mm" if typ in D.A_MAX_K_C90 else "") + " (§6.1.5(4))")
-        m = _c(D.MAJORATION_APPUI)
         bloc("appui", "Appui", [
             _fx("l1", "l_1", "{L} − {a}", [_t("L", L_mm, "mm"), _t("a", x["a"], "mm")], x["l1"], "mm"),
-            _fx("l_ef_a", "l_ef,a", f"{{a}} + min({m} ; {{a}} ; {{l_1}} / 2) + min({m} ; {{a}} ; {{débord}})",
+            _fx("l_ef_a", "l_ef,a", GABARITS["l_ef_a"],
                 [_t("a", x["a"], "mm"), _t("l_1", x["l1"], "mm"), _t("débord", x["debord"], "mm")], x["l_ef_a"], "mm"),
             _lu("kc90", "k_c,90", origine, x["kc90"], termes=[_t("l_1", x["l1"], "mm"), _t("h", h, "mm")]),
         ])
@@ -462,9 +472,9 @@ def _blocs(p: Dict, x: Dict) -> List[Dict]:
         origine_psi = f"NBN EN 1990 ANB · {D.LIBELLES_NATURE[ch['nature']]}"
     f = [_lu("kdef", "k_def", f"tableau 3.2 · classe de service {x['service']}", x["kdef"]),
          _lu("psi2", "ψ_2", origine_psi, x["psi2"]),
-         _fx("w_fin", "w_fin", "{w_g} × (1 + {k_def}) + {w_q} × (1 + {ψ_2} × {k_def})",
+         _fx("w_fin", "w_fin", GABARITS["w_fin"],
              [_t("w_g", x["w_g"], "mm"), _t("k_def", x["kdef"]), _t("w_q", x["w_q"], "mm"), _t("ψ_2", x["psi2"])], x["w_fin"], "mm"),
-         _fx("w_net_fin", "w_net,fin", "{w_fin} − {w_c}", [_t("w_fin", x["w_fin"], "mm"), _t("w_c", x["w_c"], "mm")], x["w_net_fin"], "mm"),
+         _fx("w_net_fin", "w_net,fin", GABARITS["w_net_fin"], [_t("w_fin", x["w_fin"], "mm"), _t("w_c", x["w_c"], "mm")], x["w_net_fin"], "mm"),
          _fx("lim_fin", "w_lim", "{L} / {n}", [_t("L", L_mm, "mm"), _t("n", p["lim_fin"])], x["lim_fin"], "mm")]
     if x["w_net_fin"] >= 0:
         f.append(_fx("taux", "η", "{w_net,fin} / {w_lim}", [_t("w_net,fin", x["w_net_fin"], "mm"), _t("w_lim", x["lim_fin"], "mm")], x["taux_fin"]))
@@ -514,27 +524,84 @@ def _hypotheses(p: Dict, x: Dict) -> List[str]:
            "entre axes des appuis.",
            "ELU, NBN EN 1990 (6.10) : deux combinaisons, γ_G·g seule avec k_mod permanent, et γ_G·g + γ_Q·q avec le k_mod de la "
            "charge variable (EN 1995-1-1 §3.1.3(2)) ; chaque vérification retient la plus défavorable.",
-           "Effort tranchant pris à l'axe de l'appui, sans la réduction du §6.1.7(3) : côté sûr."]
+           "Effort tranchant pris à l'axe de l'appui, sans réduction (le §6.1.7(3) ne vise que les charges concentrées proches "
+           "de l'appui)."]
     typ = p["maintien"]["type"]
     if typ == "continu":
         out.append("Déversement : fibre comprimée maintenue sur toute la longueur (plancher ou platelage fixé) et appuis maintenus "
                    "en torsion : k_crit = 1 (§6.3.3(5)).")
     elif typ == "appuis":
         out.append("Déversement : maintien latéral aux appuis seulement, appuis maintenus en torsion, charge appliquée sur la fibre "
-                   f"comprimée : l_ef = {_c(D.LEF_CHARGE_REPARTIE)}·L + {_c(D.LEF_FIBRE_COMPRIMEE)}·h (tableau 6.1).")
+                   f"comprimée : l_ef = {expression(GABARITS['l_ef_appuis'])} (tableau 6.1).")
     else:
         out.append("Déversement : entretoises qui maintiennent la fibre comprimée, appuis maintenus en torsion ; moment pris constant "
-                   f"entre deux entretoises (côté sûr) : l_ef = min(e_m ; {_c(D.LEF_CHARGE_REPARTIE)}·L) + {_c(D.LEF_FIBRE_COMPRIMEE)}·h "
-                   "(tableau 6.1).")
+                   f"entre deux entretoises (côté sûr) : l_ef = {expression(GABARITS['l_ef_entretoises'])} (tableau 6.1).")
     if p["appui"]["verifier"]:
         out.append("Appui : la réaction V_d sur la largeur b et la longueur efficace l_ef,a (§6.1.5) ; la charge portée par les "
                    "abouts au-delà de l'axe de l'appui est négligée.")
+    if x["debord"] > 0:
+        out.append(f"Débord de {_n(x['debord'], 0)} mm au-delà de chaque appui : compté pour la longueur efficace d'appui "
+                   f"({_c(D.MAJORATION_APPUI)} mm au plus) et pour la masse ; il ne porte aucune charge et n'est pas vérifié en "
+                   "porte-à-faux.")
     out.append("Flèches en combinaison caractéristique, avec E_0,mean et G_mean ; la part d'effort tranchant est comptée "
                f"(section rectangulaire : facteur {_c(D.FORME_TRANCHANT)}) ; fluage par k_def et ψ₂ (§2.2.3).")
     if p["systeme"]:
         out.append(f"Effet système k_sys = {_n(D.K_SYS, 1)} sur f_m,d et f_v,d (§6.6) : pièces semblables, régulièrement espacées, liées "
                    "par un platelage continu qui répartit les charges.")
     return out
+
+
+# ------------------------------------------------------------------ les aides de la saisie
+def _aides() -> Dict[str, str]:
+    """Ce que chaque champ de la saisie veut dire (chemin du champ → texte simple, symboles en « f_m,d »). Ces phrases
+    portent des valeurs et des formules de la norme (30 mm, 0,9·L + 2·h, L/300 à L/500, 1,35…) : elles sont écrites
+    ICI, à partir de ``donnees`` et des gabarits du calcul — l'écran les pose derrière ses ⓘ sans en écrire aucune."""
+    m = _c(D.MAJORATION_APPUI)
+    services = " ; ".join(f"{k}, {D.LIBELLES_SERVICE[k]}" for k in D.CLASSES_SERVICE)
+    inst, fin = D.TABLEAU_7_2["inst"], D.TABLEAU_7_2["net_fin"]
+    return {
+        "b": "La largeur de la section.",
+        "h": "La hauteur de la section, dans le plan de flexion.",
+        "L": "La portée entre AXES des appuis ; poutre sur deux appuis simples.",
+        "charges/mode": "kN/m : les charges linéaires que porte la poutre. kN/m² : les charges du plancher, multipliées par l'entraxe "
+                        "des pièces (gîtes, chevrons).",
+        "charges/G": "La charge permanente, HORS poids propre de la poutre (il est compté à part).",
+        "charges/Q": "La charge variable ; sa nature fixe sa durée (k_mod) et ψ₂ (fluage).",
+        "charges/g": "La charge permanente du plancher, hors poids propre de la pièce.",
+        "charges/q": "La charge variable du plancher.",
+        "charges/entraxe": "L'entraxe des pièces : il change les charges du plancher en charges linéaires (G = g_s·e, Q = q_s·e).",
+        "charges/nature": "La nature de la charge variable fixe sa classe de durée (EN 1995-1-1 tableau 2.1 et tableau 2.2 ; la neige est prise "
+                          "de courte durée), donc le k_mod de la combinaison G + Q, et ψ₂ (NBN EN 1990 ANB), donc la part de Q qui flue. "
+                          "« Autre » : la durée et ψ₂ au choix — une neige comptée en moyen terme, par exemple.",
+        "charges/duree": "La classe de durée de la charge variable (EN 1995-1-1 tableau 2.1) : elle donne le k_mod de la combinaison G + Q.",
+        "charges/psi2": f"La part quasi permanente de Q : elle flue avec G dans la flèche finale, w_fin = {expression(GABARITS['w_fin'])}.",
+        "appui/a": "La longueur d'appui, comptée le long de la poutre. La compression perpendiculaire au fil se vérifie sur la largeur b et "
+                   f"la longueur efficace l_ef,a = {expression(GABARITS['l_ef_a'])} (EN 1995-1-1 §6.1.5), où l_1 = L − a est la distance "
+                   "libre entre les appuis.",
+        "appui/debord": "La longueur de poutre au-delà de l'appui, côté about (0 : la poutre s'arrête au bord de l'appui). Elle augmente "
+                        f"la longueur efficace d'appui, de {m} mm au plus ; aucune charge n'y est comptée.",
+        "maintien/type": "Le maintien latéral de la fibre comprimée (le dessus de la poutre). Continu : un plancher ou un platelage fixé, "
+                         f"pas de déversement (k_crit = 1). Aux appuis : la poutre est libre entre ses appuis, l_ef = "
+                         f"{expression(GABARITS['l_ef_appuis'])}. Entretoises à l'entraxe e_m : l_ef = "
+                         f"{expression(GABARITS['l_ef_entretoises'])}. Dans les trois cas, les appuis sont supposés maintenus en torsion "
+                         "(EN 1995-1-1 tableau 6.1).",
+        "maintien/entraxe": "L'entraxe des entretoises qui maintiennent la fibre comprimée (le plus grand, s'ils diffèrent) ; au plus la portée.",
+        "service": f"La classe de service (EN 1995-1-1 §2.3.1.3) : {services}. Elle fixe k_mod (la résistance) et k_def (le fluage).",
+        "gamma_G": f"Le coefficient partiel des charges permanentes (NBN EN 1990 ANB, expression (6.10)) : {_c(D.GAMMA_G)}.",
+        "gamma_Q": f"Le coefficient partiel de la charge variable (NBN EN 1990 ANB, expression (6.10)) : {_c(D.GAMMA_Q)}.",
+        "systeme": f"EN 1995-1-1 §6.6 : f_m,d et f_v,d sont multipliés par k_sys = {_c(D.K_SYS)} pour des pièces semblables, régulièrement "
+                   f"espacées ({_c(D.ENTRAXE_SYSTEME)} m environ) et liées par un platelage continu capable de répartir les charges. À ne "
+                   "cocher que si ces conditions sont réunies.",
+        "lim_inst": "La limite de la flèche instantanée sous G + Q (EN 1995-1-1 tableau 7.2, poutre sur deux appuis : "
+                    f"L/{inst[0]} à L/{inst[1]}).",
+        "lim_fin": "La limite de la flèche finale nette, fluage compris, contre-flèche déduite (EN 1995-1-1 tableau 7.2 : "
+                   f"L/{fin[0]} à L/{fin[1]}).",
+        "contre_fleche": "La contre-flèche donnée à la poutre à la fabrication (lamellé-collé) : w_net,fin = "
+                         f"{expression(GABARITS['w_net_fin'])}. Sans contre-flèche : laisser à zéro.",
+    }
+
+
+AIDES = _aides()
 
 
 # ------------------------------------------------------------------ le calcul complet

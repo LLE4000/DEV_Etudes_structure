@@ -153,9 +153,13 @@ FORME_TRANCHANT = 1.2
 G_PESANTEUR = 9.81              # m/s² — le poids propre : ρ_mean·b·h·g
 
 # ------------------------------------------------------------------ la charge variable : sa NATURE fixe sa durée et ψ₂
-# Classe de durée : EN 1995-1-1 tableau 2.2 (exploitation des planchers : moyen terme ; stockage : long terme) et
-# annexe belge pour la neige et les charges de courte durée ; ψ₂ : NBN EN 1990 ANB, tableau A1.1 (catégories A et
-# B : 0,3 ; C et D : 0,6 ; E : 0,8 ; H : 0 ; neige en Belgique, altitude ≤ 1 000 m : 0).
+# Classe de durée : EN 1995-1-1 tableau 2.2 (exploitation des planchers : moyen terme ; stockage : long terme ;
+# entretien d'une toiture, chantier de moins d'une semaine : court terme, tableau 2.1) ; ψ₂ : NBN EN 1990 ANB,
+# tableau A1.1 (catégories A et B : 0,3 ; C et D : 0,6 ; E : 0,8 ; H : 0 ; neige en Belgique, altitude ≤ 1 000 m : 0).
+# LA NEIGE EN COURT TERME est la valeur de la conception du lot Q : le tableau 2.2 de l'EN cite la neige en exemple
+# du moyen ET du court terme et renvoie à l'annexe nationale, et le croisement des sources du 10/11/2026 n'a pas pu
+# lire le texte de l'ANB belge (seul un extrait de la STS 31 dit la neige de courte durée). Plus sévère : la nature
+# « autre » avec « moyen terme » (k_mod 0,80 au lieu de 0,90).
 # (clé, libellé du menu, durée, ψ₂) — « autre » : durée et ψ₂ au choix.
 NATURES = (
     ("A", "A · habitation", "moyen", 0.3),
@@ -180,6 +184,7 @@ GAMMA_G, GAMMA_Q = 1.35, 1.50
 # ------------------------------------------------------------------ les limites de flèche (diviseurs de L)
 # EN 1995-1-1 tableau 7.2 (poutre sur deux appuis) : w_inst de L/300 à L/500, w_net,fin de L/250 à L/350 ; les menus
 # offrent aussi des limites plus larges (ouvrages provisoires, toitures), au choix du bureau (conception § 1.4).
+TABLEAU_7_2 = {"inst": (300, 500), "net_fin": (250, 350)}      # les diviseurs de L recommandés par la norme
 LIMITES_INST = (200, 250, 300, 350, 400, 500)
 LIMITES_FIN = (150, 200, 250, 300, 350)
 LIMITE_INST_DEFAUT, LIMITE_FIN_DEFAUT = 300, 250
