@@ -543,8 +543,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,65 1 10, 118,3 18 2 2 201,6 26,3 26,5 3 4 4 5 50 76,2 85,2 85,2"
      },
      {
       "cle": "elevation",
@@ -1249,8 +1249,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,0 26,3 3 4 4 50 77,4 90,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,62 1 118,3 2 2 20 213,4 26,0 26,3 3 4 4 50 77,4 90,2 90,2"
      },
      {
       "cle": "elevation",
@@ -1798,8 +1798,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 74,5 76,2"
+      "legende": "configuration A (aile horizontale en bas) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,55 1 10, 118,3 180,4 2 2 22 26,3 26,5 3 4 4 50 74,5 76,2 76,2"
      },
      {
       "cle": "elevation",
@@ -2366,8 +2366,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 105,2 118,3 2 2 236,7 248,5 26,3 28,0 3 4 4 50 76,2"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 1 1,59 10, 105,2 105,2 118,3 2 2 248,9 26,3 28,0 3 4 4 50 76,2 8"
      },
      {
       "cle": "elevation",
@@ -2904,8 +2904,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 126,7 127,8 2 2 22,5 22,8 236,7 248,5 3 4 4 50"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 1 1,60 10, 100 118,3 126,7 127,8 127,8 2 2 22,5 22,8 236,7 3 302,4 4 4 5 50 6"
      },
      {
       "cle": "elevation",
@@ -3444,8 +3444,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 87,1 97,4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,74 1 10, 118,3 16 2 2 230,4 26,3 26,5 3 4 4 5 50 87,1 97,4 97,4"
      },
      {
       "cle": "elevation",
@@ -3984,8 +3984,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,65 1 10, 118,3 18 2 2 201,6 26,3 26,5 3 4 4 5 50 76,2 85,2 85,2"
      },
      {
       "cle": "elevation",
@@ -4524,8 +4524,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,65 1 10, 118,3 18 2 2 201,6 26,3 26,5 3 4 4 5 50 76,2 85,2 85,2"
      },
      {
       "cle": "elevation",
@@ -5077,8 +5077,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 106,9 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,76 1 10, 106,9 106,9 118,3 16 2 2 252,9 26,3 26,5 3 4 4 50 85,2"
      },
      {
       "cle": "elevation",
@@ -5623,8 +5623,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 101,7 105 118,3 15,0 15,0 2 2 236,7 248,5 3 4 4 50 92,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,76 1 10, 101,7 101,7 118,3 15,0 15,0 16 2 2 240,8 3 4 4 5 50 92,2"
      },
      {
       "cle": "elevation",
@@ -6088,8 +6088,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 22,6 236,7 248,5 26,0 3 4 4 45,7 50 63,4"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,30 1 118,3 149,9 2 2 22,6 26,0 3 4 4 40 45,7 50 63,3 63,4"
      },
      {
       "cle": "elevation",
@@ -6628,8 +6628,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 147,0 160,9 2 2 20,8 20,9 236,7 248,5 3 4 4 50"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 1 1,36 100 118,3 147,0 160,9 160,9 2 2 20,8 20,9 236,7 3 380,8 4 4 4 50 7 8,5,"
      },
      {
       "cle": "elevation",
@@ -7168,8 +7168,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,65 1 10, 118,3 18 2 2 201,6 26,3 26,5 3 4 4 5 50 76,2 85,2 85,2"
      },
      {
       "cle": "elevation",
@@ -7942,8 +7942,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · σéq par maille, enveloppe des positions, limite fy/γM0 = 355,0 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 177,5 2 2 26,3 26,5 3 355,0 372,8 4 4 50 87,1 97,4 fy/γM0"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELU · σéq par maille, enveloppe des positions, limite fy/γM0 = 355,0 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 1 1,11 10, 11 177,5 2 2 26,3 26,5 3 345,7 4 4 5 50 87,1 97,4 97,4 fy/γM0"
      },
      {
       "cle": "elevation",
@@ -8488,8 +8488,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,65 1 10, 118,3 18 2 2 201,6 26,3 26,5 3 4 4 5 50 76,2 85,2 85,2"
      },
      {
       "cle": "elevation",
@@ -9064,8 +9064,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 105,2 118,3 2 2 236,7 248,5 26,3 28,0 3 4 4 50 76,2"
+      "legende": "configuration B (aile horizontale en haut) · équilibre · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 1 1,59 10, 105,2 105,2 118,3 2 2 248,9 26,3 28,0 3 4 4 50 76,2 8"
      },
      {
       "cle": "elevation",
@@ -9602,8 +9602,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,65 1 10, 118,3 18 2 2 201,6 26,3 26,5 3 4 4 5 50 76,2 85,2 85,2"
      },
      {
       "cle": "elevation",
@@ -10142,8 +10142,8 @@
       "cle": "contraintes",
       "titre": "Contraintes · von Mises, maillage",
       "court": "Contraintes",
-      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %",
-      "nombres": "0 0 1 100 105 118,3 2 2 236,7 248,5 26,3 26,5 3 4 4 50 76,2 85,2"
+      "legende": "configuration A (aile horizontale en bas) · méthode historique (classeur P8) · ELS · σéq par maille, enveloppe des positions, limite σadm = 236,7 N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du bleu (0) à l'orange (100 %), rouge au-delà de 105 %, arrêtée au maximum du maillage · déformée élastique de la combinaison gouvernante, amplifiée (le facteur est écrit), contour d'origine en tirets",
+      "nombres": "0 0 0,65 1 10, 118,3 18 2 2 201,6 26,3 26,5 3 4 4 5 50 76,2 85,2 85,2"
      },
      {
       "cle": "elevation",
