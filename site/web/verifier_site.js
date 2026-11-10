@@ -16,16 +16,15 @@ if (/^demarrage(:|$)/.test(FILTRE)) process.exit(require('child_process').spawnS
 // Elles sont définies HORS du parcours et exportées (module.exports, en bas) : un essai les charge sans lancer le
 // parcours (require.main n'est pas ce fichier), pour les prouver sur des pages factices — mutations comprises.
 
-// ---------------------------------------------------------------- le signal « écran prêt », DOUBLE pendant la refonte
-// Deux contrats coexistent tant que le lot S4 se réalise (docs/site/REFONTE_ETABLI.md, S4-D7 et C1-C14 ; ordre de
-// travail de l'objection « Dans quel ordre retoucher le harnais ») :
-//  - le NOUVEAU : app.js pose body[data-montage] (le jeton du montage, avant d'ouvrir l'écran) ; l'écran pose
-//    body[data-ecran] ∈ demarrage | apercu | pret | erreur ; en erreur, le bandeau .et-demarre[data-etat="erreur"] ;
-//  - l'ANCIEN : le voile #demarrage, caché (hidden) quand le moteur a répondu, ou porteur de .erreur.
-// Les 36 lectures du voile passent par ces deux aides, et par elles seules. Si NI l'un NI l'autre signal n'existe, c'est
-// une erreur TOUT DE SUITE (« signal de démarrage absent ») : l'attente de 180 s, puis l'exception hors de tout bilan,
-// c'était le défaut à éviter. (Étape 4 de l'ordre de travail : le repli #demarrage se retire dans le commit qui retire le
-// voile, et « #demarrage absent » devient un contrôle.)
+// ---------------------------------------------------------------- le signal « écran prêt »
+// (docs/site/REFONTE_ETABLI.md, S4-D7 et C1-C14) app.js pose body[data-montage] (le jeton du montage, avant d'ouvrir
+// l'écran) ; l'écran pose body[data-ecran] ∈ demarrage | apercu | pret | erreur ; en erreur, le bandeau
+// .et-demarre[data-etat="erreur"]. Les 36 lectures de l'ancien voile passent par ces deux aides, et par elles seules.
+// Sans body[data-ecran], c'est une erreur TOUT DE SUITE (« signal de démarrage absent ») : l'attente de 180 s, puis
+// l'exception hors de tout bilan, c'était le défaut à éviter.
+// (Étape 4 de l'ordre de travail, faite à l'intégration du lot S4, le 10/11/2026 : le repli sur l'ancien voile #demarrage
+// est retiré — un voile revenu sans body[data-ecran] est un signal ABSENT, plus un écran prêt. « #demarrage absent »
+// est un contrôle : test_site_web « aucun id=demarrage », et le filtre demarrage · statique sur les 21 pages servies.)
 const SIGNAL_ABSENT = 'signal de démarrage absent';
 // le jeton du montage courant (body[data-montage]) : null sur l'ancien site, ou hors d'un écran monté par app.js
 const montage = (pg) => pg.evaluate(() => {
@@ -48,8 +47,6 @@ async function pretEcran(pg, { apres = null, exigerPret = false, delai = 180000 
       const e = b.dataset.ecran;
       return e === 'pret' || e === 'erreur' ? e : false;
     }
-    const d = document.getElementById('demarrage');
-    if (d) return d.hidden ? 'pret' : d.classList.contains('erreur') ? 'erreur' : false;
     // (le document se lit encore : le signal peut ne pas être né)
     return document.readyState === 'loading' ? false : 'absent';
   }, apres, { timeout: delai })).jsonValue();
@@ -63,7 +60,7 @@ async function pretEcran(pg, { apres = null, exigerPret = false, delai = 180000 
   return r;
 }
 // l'échec du démarrage, LU : '' si l'écran n'a pas échoué, sinon le texte de l'échec (jamais vide). Il EXIGE qu'un signal
-// existe : sans body[data-ecran] ni #demarrage, il lève (« absent » ne vaut pas « pas d'échec » — sans cette règle, un
+// existe : sans body[data-ecran], il lève (« absent » ne vaut pas « pas d'échec » — sans cette règle, un
 // contrôle « pas d'erreur » passe toujours, quoi qu'il arrive).
 async function echecEcran(pg) {
   const r = await pg.evaluate(() => {
@@ -75,8 +72,6 @@ async function echecEcran(pg) {
       return { echec: (bandeau && net(bandeau.textContent))
         || `écran en erreur (data-ecran=${b.dataset.ecran}${bandeau ? '' : ', sans bandeau .et-demarre[data-etat=erreur]'})` };
     }
-    const d = document.getElementById('demarrage');
-    if (d) return { echec: d.classList.contains('erreur') ? (net((document.getElementById('demarrage-etape') || {}).textContent) || 'erreur') : '' };
     return { absent: true };
   });
   if (r.absent) throw new Error(SIGNAL_ABSENT);
