@@ -168,7 +168,7 @@ chk(f"le paquet de la note ne répète rien du paquet du moteur ({len(noms_note)
     not set(noms_note) & set(noms), sorted(set(noms_note) & set(noms))[:5])
 chk(f"le manifeste nomme les modules dont la note charge numpy ({', '.join(desc_note['avec_numpy']) or 'aucun'}), et le "
     "travailleur charge numpy pour eux AVANT la note",
-    mn.get("avec_numpy") == desc_note["avec_numpy"] and "m.avec_numpy.includes(MODULE)) await chargerNumpy()" in TRAV, mn.get("avec_numpy"))
+    mn.get("avec_numpy") == desc_note["avec_numpy"] and "m.avec_numpy.includes(cle)) await chargerNumpy()" in TRAV, mn.get("avec_numpy"))
 ESSAI_NOTE = """
 import base64, json, os, sys
 TMP, CLE = {tmp!r}, {cle!r}
