@@ -36,7 +36,8 @@ CE QUI EST FIGÉ (la photo d'un cas, indépendante de la mise en page HTML)
   panneau ne compte pas pour un écart) ; ``verrous`` : les champs verrouillés ; ``menus`` : le nombre et l'empreinte
   des options de chaque menu et de chaque groupe de segments ;
 - ``actions`` : ce qu'on peut faire d'autre que saisir — ajouter/retirer (``data-chemin`` sans ``data-sorte``),
-  sélecteurs (``data-pk``), fenêtres de calcul (``data-calcul``), téléchargements, météo ;
+  sélecteurs (``data-pk``), fenêtres de calcul (``data-calcul``), téléchargements, météo, envoi vers un autre module
+  (``data-transmettre``) ;
 - ``vues`` : clé, titre, court, légende de chaque vue, et l'EMPREINTE de ses nombres (la liste triée des textes qui
   portent un chiffre — un dessin à l'échelle change de cotes si le calcul change) ;
 - ``elements`` : quand la note en a plusieurs, chaque élément ouvert à son tour (requête « activer ») : sa phrase et
@@ -60,7 +61,8 @@ L'EXTRACTEUR ne dépend PAS des classes CSS. Il dépend :
 3. des attributs FONCTIONNELS que lit ``site/web/js/etabli.js`` — pas de style : ``data-chemin`` + ``data-sorte``
    (un champ), ``value``/``checked``/``selected``/``disabled``, ``data-valeur`` d'un segment, le segment retenu marqué
    par la classe ``on`` OU ``aria-pressed="true"`` OU ``aria-checked="true"`` (la seule classe lue, et elle a deux
-   remplaçants admis), ``data-pk``, ``data-calcul``, ``data-telecharger``, ``data-meteo-chemin``, ``data-activer`` ;
+   remplaçants admis), ``data-pk``, ``data-calcul``, ``data-telecharger``, ``data-meteo-chemin``, ``data-transmettre``
+   (l'envoi de l'élément ouvert à un autre module), ``data-activer`` ;
 4. de ``C.legende()`` (ôtée du résultat, c'est une légende fixe) et de ``C.message`` (espionnée pour les avis) ;
 5. de ``api_web.age.aujourdhui`` / ``maintenant``, figés au 07/11/2026 (le plan de la météo dépend du jour).
 
@@ -156,7 +158,7 @@ class _Lecteur(HTMLParser):
                 self._choisie = v
         chemin, sorte = a.get("data-chemin"), a.get("data-sorte")
         for cle, quoi in (("data-pk", "pk"), ("data-calcul", "calcul"), ("data-telecharger", "telecharger"),
-                          ("data-meteo-chemin", "meteo")):
+                          ("data-meteo-chemin", "meteo"), ("data-transmettre", "transmettre")):
             if a.get(cle):
                 self.actions.add(f"{quoi}:{a[cle]}")
         if chemin is None:

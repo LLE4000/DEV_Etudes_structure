@@ -3100,7 +3100,7 @@
      "sections/1/sup/0/d": "9 · de1b60750ceb",
      "sections/1/sup/0/rep": "2 · 33f240fe3d87"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf", "calcul:s0-pas", "calcul:s0-sup", "calcul:s0-ta", "calcul:s0-tau", "calcul:s1", "calcul:s1-hauteur", "calcul:s1-inf", "calcul:s1-sup", "calcul:s1-ta", "calcul:ta", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/dup", "chemin:sections/0/etriers/+", "chemin:sections/0/inf/+", "chemin:sections/0/sup/+", "chemin:sections/1/-", "chemin:sections/1/dup", "chemin:sections/1/etriers/+", "chemin:sections/1/inf/+", "chemin:sections/1/sup/+", "pk:inf-0", "pk:inf-1", "pk:sup-0", "pk:sup-1"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf", "calcul:s0-pas", "calcul:s0-sup", "calcul:s0-ta", "calcul:s0-tau", "calcul:s1", "calcul:s1-hauteur", "calcul:s1-inf", "calcul:s1-sup", "calcul:s1-ta", "calcul:ta", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/dup", "chemin:sections/0/etriers/+", "chemin:sections/0/inf/+", "chemin:sections/0/sup/+", "chemin:sections/1/-", "chemin:sections/1/dup", "chemin:sections/1/etriers/+", "chemin:sections/1/inf/+", "chemin:sections/1/sup/+", "pk:inf-0", "pk:inf-1", "pk:sup-0", "pk:sup-1", "transmettre:taux"],
     "vues": [
      {
       "cle": "s0",
@@ -3332,7 +3332,7 @@
      "sections/0/sup/0/d": "9 · de1b60750ceb",
      "sections/0/sup/0/rep": "2 · 33f240fe3d87"
     },
-    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf", "calcul:s0-sup", "calcul:s0-ta", "calcul:ta", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/dup", "chemin:sections/0/etriers/+", "chemin:sections/0/inf/+", "chemin:sections/0/sup/+", "pk:inf-0", "pk:sup-0"],
+    "actions": ["calcul:s0", "calcul:s0-hauteur", "calcul:s0-inf", "calcul:s0-sup", "calcul:s0-ta", "calcul:ta", "chemin:sections/+", "chemin:sections/0/-", "chemin:sections/0/dup", "chemin:sections/0/etriers/+", "chemin:sections/0/inf/+", "chemin:sections/0/sup/+", "pk:inf-0", "pk:sup-0", "transmettre:taux"],
     "vues": [
      {
       "cle": "s0",
