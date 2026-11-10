@@ -539,8 +539,10 @@ Voiles porteurs, tableau 5.4 (épaisseur/a) :
 Voiles non porteurs, tableau 5.3 (épaisseur) : EI 30 : 60 · EI 60 : 80 · EI 90 : 100 · EI 120 : 120 · EI 180 : 150 ·
 EI 240 : 175.
 
-Poutres sur appuis simples, tableau 5.5 (b_min/a ; a_sd = a + 10 mm pour les barres d'angle d'un lit unique, sauf
-au-delà de la largeur de la dernière colonne) :
+Poutres sur appuis simples, tableau 5.5 (b_min/a). a_sd = a + 10 mm pour les barres d'angle d'une poutre à un seul
+lit, pour les largeurs jusqu'à celle de la COLONNE 4 du tableau 5.5 — la troisième combinaison, les colonnes étant
+numérotées avec celle des durées — et de la COLONNE 3 du tableau 5.6 (la deuxième combinaison) ; au-delà, aucune
+majoration (§5.6.1(8) ; corrigé le 10/11/2026 : la première rédaction disait « la dernière colonne ») :
 
 | R 30 | 80/25 | 120/20 | 160/15 | 200/15 |
 |---|---|---|---|---|
