@@ -349,6 +349,9 @@
 .bib-notes-t details { margin: 0; }
 .bib-notes-t details[open] { flex: 1 1 100%; }
 .bib-tableau > .bib-av { margin: 10px 14px 0; }
+.bib-feu td.nv { color: var(--ink-4); }              /* une case sans valeur (pas « .vide », la classe des pages) */
+/* les notes sous le tableau restent posées quand le tableau défile en largeur (téléphone) */
+.bib-notes-t, .bib-tableau > .bib-av { position: sticky; left: 0; }
 
 /* tablette : la feuille garde sa largeur pour le calcul — le nom de chaque terme passe au survol de sa ligne (et
    reste dans « Pourquoi ? ») ; le dessin se resserre ; les cases du feu un peu moins hautes */

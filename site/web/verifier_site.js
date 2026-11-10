@@ -4453,7 +4453,7 @@ const principal = async () => {
         verif('bibliothèque pc · ancrages : l\'adresse rouverte redonne le même état (Ø 12, C40/50, autres conditions, même valeur)',
           relu.v === v2 && JSON.parse(relu.cur).phi === 12 && relu.cond === 'mediocres', JSON.stringify(relu));
         // les enrobages : l'exemple de la NIT 260
-        await g.goto(`${BASE}/bibliotheque-beton?rubrique=enrobages&element=dalle&exposition=XC1&classe=C30%2F37&phi=12&phi_etrier=0`);
+        await g.goto(`${BASE}/bibliotheque-beton?rubrique=enrobages&onglet=tableaux&element=dalle&exposition=XC1&classe=C30%2F37&phi=12&phi_ext=0`);
         await attendreBib(g);
         const nit = await g.evaluate(() => ({ v: document.querySelector('.bib-val').textContent.replace(/\s/g, ''), cur: document.querySelector('#bib-tableau .cur')?.textContent,
           ligne: document.querySelector('#bib-tableau tr.on th.nm')?.textContent.trim().slice(0, 2) }));
@@ -4462,6 +4462,47 @@ const principal = async () => {
         await calmeBib(g);
         verif('bibliothèque pc · enrobages : la vue « feu » montre le tableau 5.8 de la dalle', (await g.$$eval('#bib-tableau .bib-feu tbody tr', (x) => x.length)) === 6);
         await g.screenshot({ path: path.join(OUT, 'site_bib_enrobages_feu_pc.png') });
+      }
+      // les enrobages, deux onglets (Lot Q, 10/11/2026) : un POTEAU R 90 à μ_fi = 0,7 (350/53) et un VOILE REI 180, au PC
+      // et au téléphone — « Calcul » (le dessin à l'échelle, la feuille, c_nom allumé) puis « Tableaux » (la case
+      // allumée), l'adresse suit l'onglet ; ce que l'œil voit : le cadre tient au PC, aucun texte de dessin sous 6 px
+      if (nomF === 'pc' || nomF === 'tel') {
+        const vueEnr = () => g.evaluate(() => {
+          const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const cadre = document.getElementById('bib-tableau'), svg = cadre.querySelector('svg');
+          let police = null;
+          if (svg && vis(svg)) {
+            const k = svg.getBoundingClientRect().width / svg.viewBox.baseVal.width;
+            police = Math.min(...[...svg.querySelectorAll('text')].map((t) => parseFloat(getComputedStyle(t).fontSize) * k));
+          }
+          return { v: (document.querySelector('.bib-val') || {}).textContent?.replace(/\s/g, ''), cur: document.querySelector('#bib-tableau .cur')?.textContent.replace(/\s/g, ''),
+            ligne: document.querySelector('#bib-tableau tr.on')?.dataset.terme || null, dessin: svg && vis(svg) ? Math.round(svg.getBoundingClientRect().width) : 0,
+            police: police && Math.round(police * 10) / 10, defile: cadre.scrollHeight > cadre.clientHeight + 1, deborde: document.documentElement.scrollWidth > innerWidth,
+            onglet: new URL(location.href).searchParams.get('onglet') };
+        });
+        await g.goto(`${BASE}/bibliotheque-beton?rubrique=enrobages&element=poteau&feu=R90&mu_fi=0.7&b=350`);
+        await attendreBib(g);
+        const pc1 = await vueEnr();
+        verif(`bibliothèque ${nomF} · enrobages · poteau R 90, μ_fi = 0,7, b = 350 : « Calcul » ouvert par défaut, c_nom = 35 mm allumé dans la feuille, le dessin visible (textes ≥ 6 px)${tel ? '' : ', le cadre tient sans défiler'}`,
+          pc1.v === '35mm' && pc1.ligne === 'cnom' && pc1.cur === '35mm' && pc1.dessin > 200 && pc1.police >= 6 && !pc1.deborde && (tel || !pc1.defile), JSON.stringify(pc1));
+        await g.screenshot({ path: path.join(OUT, `site_bib_enrobages_poteau_calcul_${nomF}.png`), fullPage: tel });
+        await g.click('.bib-barre .seg[data-param="onglet"] button[data-valeur="tableaux"]');
+        await calmeBib(g);
+        const pt1 = await vueEnr();
+        verif(`bibliothèque ${nomF} · enrobages · poteau : « Tableaux » allume la case 350/53 du tableau 5.2a, la même valeur, l'adresse suit (onglet=tableaux)`,
+          pt1.cur === '53≥350' && pt1.v === '35mm' && pt1.onglet === 'tableaux' && !pt1.deborde, JSON.stringify(pt1));
+        await g.screenshot({ path: path.join(OUT, `site_bib_enrobages_poteau_tableaux_${nomF}.png`), fullPage: tel });
+        await g.goto(`${BASE}/bibliotheque-beton?rubrique=enrobages&onglet=tableaux&element=voile&feu=R180&e=210&phi=20`);
+        await attendreBib(g);
+        const vt = await vueEnr();
+        verif(`bibliothèque ${nomF} · enrobages · voile REI 180, μ_fi = 0,7, une face, e = 210 : la case 210/50 du tableau 5.4 allumée, c_nom = 50 − 10 = 40 mm (aucun étrier)`,
+          vt.cur === '50≥210' && vt.v === '40mm' && !vt.deborde, JSON.stringify(vt));
+        await g.click('.bib-barre .seg[data-param="onglet"] button[data-valeur="calcul"]');
+        await calmeBib(g);
+        const vc = await vueEnr();
+        verif(`bibliothèque ${nomF} · enrobages · voile : « Calcul » — la coupe du voile dessinée (textes ≥ 6 px), c_nom allumé, l'adresse suit (onglet=calcul)${tel ? '' : ', le cadre tient'}`,
+          vc.ligne === 'cnom' && vc.v === '40mm' && vc.dessin > 200 && vc.police >= 6 && vc.onglet === 'calcul' && (tel || !vc.defile), JSON.stringify(vc));
+        await g.screenshot({ path: path.join(OUT, `site_bib_enrobages_voile_calcul_${nomF}.png`), fullPage: tel });
       }
       verif(`bibliothèque ${nomF} : aucune erreur JavaScript`, g.erreurs.length === 0, g.erreurs.join(' | ').slice(0, 300));
       await c.close();

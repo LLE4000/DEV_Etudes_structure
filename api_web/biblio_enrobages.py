@@ -412,7 +412,7 @@ def _tab_feu(res: Dict, moteur: Dict) -> tuple:
             for k in range(larg[c["cle"]]):
                 if k >= len(combs):
                     vide = "aucune valeur : méthode B (tableau 5.2b), annexe C ou calcul" if not combs else ""
-                    cases += f'<td class="vide"{(" title=" + chr(34) + C.esc(vide) + chr(34)) if vide else ""}>{"—" if not combs and k == 0 else ""}</td>'
+                    cases += f'<td class="nv"{(" title=" + chr(34) + C.esc(vide) + chr(34)) if vide else ""}>{"—" if not combs and k == 0 else ""}</td>'
                     continue
                 comb = combs[k]
                 html_, tx = _texte_comb(comb, c["sorte"])
