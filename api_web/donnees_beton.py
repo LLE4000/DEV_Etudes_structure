@@ -9,7 +9,9 @@ verdict). Cinq rubriques, chacune lue à sa source unique — rien n'est recopi�
   l'EN 1992-1-1), E_s et ε_yd (``beton/donnees/ec2.py``) ;
 - Tableau des armatures : ``beton/armatures/tableau.py`` (le tableau du bureau, relu au chiffre près) ;
 - Enrobages : ``beton/enrobage/donnees.py`` (c_min,dur, classes proposées, Δc_dev, tableaux feu) et son moteur
-  (``beton/enrobage/moteur.calculer``) pour la valeur retenue et les avertissements ;
+  (``beton/enrobage/moteur.calculer``) pour la valeur retenue et les avertissements — depuis le 10/11/2026, les distances
+  au feu des poteaux et des voiles y sont lues dans la norme (``beton/bibliotheque/feu.py``), et un bandeau renvoie au
+  calcul complet : Bibliothèque › Enrobages › Calcul ;
 - Ancrages et recouvrements : ``beton/donnees/ancrages_recouvrements.json``, VIDE tant que l'ingénieur n'a pas fourni
   ses tableaux (« tableaux du bureau à venir ») — aucune valeur n'est inventée.
 
@@ -657,7 +659,7 @@ def _r_durabilite(c: Dict) -> Dict:
                                nd=0, symbole="c<sub>nom</sub>", calcul="source", classe="db-verdict")
     messages = "".join(C.message(C.symb_math(a["message"]), a["grave"]) for a in res["avertissements"]
                        if a["code"] in ("classe_reduite", "contre_sol"))
-    messages += C.message(C.esc(ED.AIDE_DELTA_DEV) + " Le calcul complet (feu compris) : module Enrobage.")
+    messages += C.message(C.esc(ED.AIDE_DELTA_DEV) + " Le calcul complet (feu compris) : Bibliothèque › Enrobages › Calcul.")
     fx = [_fx(["c_min", "max(c_min,b ; c_min,dur ; 10 mm)", f"max({dur['c_min_b']} ; {dur['c_min_dur']} ; {dur['plancher']})"],
               f"{C.fr(dur['c_min'], 0)} mm"),
           _fx(["c_nom", "c_min + Δc_dev", f"{dur['c_min']} + {dur['delta_dev']}"], f"{C.fr(res['c_nom_dur'], 0)} mm")]
@@ -669,33 +671,41 @@ def _r_durabilite(c: Dict) -> Dict:
     vues = [{"cle": "coupe", "titre": "Coupe d'enrobage", "court": "Coupe", "svg": DEN.coupe("db_enrob", res),
              "legende": f"dalle · {expo} · {struct} · Ø{e['diam_barre']} · enrobage nominal {C.fr(res['c_nom_dur'], 0)} mm"}]
     return {"ligne": expo, "titre_ligne": "Exposition", "table": _vue(tab, leg, pied), "legende": "enrobage minimal de durabilité (mm) · EN 1992-1-1 tab. 4.4N",
-            "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": vues,
+            "bandeau": C.message(BANDEAU_ENROBAGES), "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": vues,
             "phrase": f"<b>{C.esc(expo)} · {C.esc(struct)}</b> · c<sub>min,dur</sub> = {C.qte(dur['c_min_dur'], 'mm', 0)} · c<sub>nom</sub> = {C.qte(res['c_nom_dur'], 'mm', 0)} (Ø{e['diam_barre']}, Δc<sub>dev</sub> {e['delta_dev']} mm)",
             "sources": ["c<sub>min,dur</sub>, classe proposée, tolérances : les tableaux de l'écran Enrobage",
                         "c<sub>nom</sub> : le calcul de l'écran Enrobage, pour une dalle sans étrier"]}
 
 
 FEU_ELEMENTS = (("Dalle", "dalle"), ("Voile", "voile"), ("Poutre", "poutre"), ("Poteau", "poteau"))
-DOUTE = "à vérifier dans la norme avant usage"
+DOUTE = "non couvert par le tableau 5.2a à μ_fi = 0,7 : aucune valeur — méthode B, annexe C ou calcul au feu"
+NON_COUVERT = "non couvert"
 ILLISIBLE = "Fichier des ancrages illisible"
+# en tête de la rubrique « Enrobages » depuis le 10/11/2026 : le calcul d'enrobage a changé de lieu (un lien ordinaire,
+# relatif, vers la page de la bibliothèque)
+BANDEAU_ENROBAGES = ("Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul — "
+                     '<a href="bibliotheque-beton?rubrique=enrobages&amp;onglet=calcul">ouvrir le calcul complet</a> '
+                     "(durabilité et feu, les tableaux de l'EN 1992-1-2 en entier).")
 
 
 def _douteux(h: str) -> str:
-    """Une valeur que le moteur de l'enrobage dit « à vérifier dans la norme » : en rouge, marquée « ! », la raison au
-    survol — dans la fiche et le verdict comme dans la toile (relecture adverse du 07/11/2026 : la toile la montrait en
-    rouge, le résultat l'écrivait comme une valeur sûre ; au téléphone, c'est le résultat qu'on lit)."""
+    """Une case que le moteur de l'enrobage dit SANS VALEUR (un poteau R240 à μ_fi = 0,7 : « non couvert par le
+    tableau ») : en rouge, marquée « ! », la raison au survol — dans la fiche et le verdict comme dans la toile
+    (relecture adverse du 07/11/2026 : la toile la montrait en rouge, le résultat l'écrivait comme une valeur sûre ; au
+    téléphone, c'est le résultat qu'on lit). Jusqu'au 10/11/2026 la marque portait les valeurs « à vérifier dans la
+    norme » de l'écran Streamlit (D1, D2) : elles sont désormais lues dans la norme."""
     return f'<span class="db-dout" title="{DOUTE}">{h}<i class="db-ex">!</i></span>'
 
 
 def _alertes_feu(r: str) -> Dict:
-    """Les avertissements du moteur de l'enrobage pour chaque élément vérifié au feu à la durée ``r`` :
-    {type: [avertissement du tableau feu]} (codes « tableau_poteau », « tableau_voile »)."""
+    """Les avertissements GRAVES du moteur de l'enrobage pour chaque élément vérifié au feu à la durée ``r`` :
+    {type: [avertissement]} — aujourd'hui le seul « feu_non_couvert » (un poteau R240 : le tableau n'a pas de valeur)."""
     out = {}
     for typ, _ in FEU_ELEMENTS:
         var = EM.variantes(typ, r)
         el = {**EM.nouvel_element(), "type": typ, "feu": True, "r": r, "b_min": var[0][0] if var else None,
               "diam_etrier": 0 if typ in ("Dalle", "Voile") else ED.DIAM_ETRIER_DEFAUT}
-        out[typ] = [a for a in EM.calculer(el)["avertissements"] if a["code"].startswith("tableau_")]
+        out[typ] = [a for a in EM.calculer(el)["avertissements"] if a["code"] == "feu_non_couvert"]
     return out
 
 
@@ -714,42 +724,46 @@ def _r_feu(c: Dict) -> Dict:
     for x in ED.R_LEVELS:
         al = _alertes_feu(x)
 
-        def case(a, b=None, alerte=False, typ=""):
-            t = f"{x} · {typ} : a = {a} mm" + (f" pour b ≥ {b} mm" if b is not None else "") + (" · à vérifier dans la norme" if alerte else "")
-            bb = f"<small>b ≥ {b}</small>" if b is not None else ""
-            mk = '<i class="mk">!</i>' if alerte else ""
-            return f'<td class="{"dout" if alerte else ""}" title="{C.esc(t)}">{mk}<b>{a}</b>{bb}</td>'
-        cells = case(ED.FEU_DALLE[x], typ="dalle", alerte=bool(al["Dalle"])) + case(ED.FEU_VOILE[x], typ="voile", alerte=bool(al["Voile"]))
+        def case(a, b=None, typ="", huit=False):
+            t = f"{x} · {typ} : a = {a} mm" + (f" pour b ≥ {b} mm" if b is not None else "") + (" · au moins 8 barres" if huit else "")
+            bb = f"<small>b ≥ {b}{' **' if huit else ''}</small>" if b is not None else ""
+            return f'<td class="" title="{C.esc(t)}"><b>{a}</b>{bb}</td>'
+        cells = case(ED.FEU_DALLE[x], typ="dalle") + case(ED.FEU_VOILE[x], typ="voile")
         pou, pot = ED.FEU_POUTRE[x], ED.FEU_POTEAU[x]
-        cells += "".join(case(a, b, bool(al["Poutre"]), "poutre") for b, a in pou) + "<td></td>" * (n_pou - len(pou))
-        cells += "".join(case(a, b, bool(al["Poteau"]), "poteau") for b, a in pot) + "<td></td>" * (n_pot - len(pot))
+        cells += "".join(case(a, b, "poutre") for b, a in pou) + "<td></td>" * (n_pou - len(pou))
+        if al["Poteau"]:        # la case du tableau 5.2a est vide : dit, en rouge, sans nombre
+            cells += f'<td class="dout" colspan="{n_pot}" title="{C.esc(x + " · poteau : " + DOUTE)}"><i class="mk">!</i>{NON_COUVERT}</td>'
+        else:
+            cells += "".join(case(a, b, "poteau", b in ED.FEU_POTEAU_8_BARRES[x]) for b, a in pot) + "<td></td>" * (n_pot - len(pot))
         corps += f'<tr{" class=" + chr(34) + "on" + chr(34) if x == r else ""}><th class="nm">{x}</th>{cells}</tr>'
     tab = f'<table class="db-tab db-deux db-feu"><thead><tr class="r1">{h1}</tr><tr class="r2">{h2}</tr></thead><tbody>{corps}</tbody></table>'
     leg = ("<b>Distance à l'axe a (mm)</b> des armatures principales, méthode tabulée de l'EN 1992-1-2 ; poutre et poteau : "
-           "la largeur minimale b<sub>min</sub> (mm) en petit. <i class=\"mk r\">!</i> valeur à vérifier dans la norme (rouge).")
-    pied = f"Les tableaux feu de l'écran Enrobage · {C.symb_math(ED.CAPTION_FEU)}"
+           "la largeur minimale b<sub>min</sub> (mm) en petit ; ** au moins 8 barres. <i class=\"mk r\">!</i> non couvert par le "
+           "tableau (rouge).")
+    pied = ("Dalle (tab. 5.8, une direction) et poutre (tab. 5.5, appuis simples) : les tableaux de l'écran Enrobage · voile (tab. 5.4, une face) "
+            f"et poteau (tab. 5.2a, exposé sur plus d'un côté) : la norme, à μ<sub>fi</sub> = 0,7, lue par la bibliothèque · {C.symb_math(ED.CAPTION_FEU)}")
     al = _alertes_feu(r)
 
-    def val(typ, a):
-        return _douteux(str(a)) if al[typ] else str(a)
-
     def titre(typ, tab):
-        return f"{typ} · tab. {tab}" + (" · à vérifier" if al[typ] else "")
+        return f"{typ} · tab. {tab}" + (" · non couvert" if al[typ] else "")
 
     def var(typ, lst):
-        return [(f"b ≥ {b}", val(typ, a), "mm", f"largeur minimale {b} mm : distance à l'axe {a} mm") for b, a in lst]
+        if al[typ]:
+            return [("b", _douteux(NON_COUVERT), "", DOUTE)]
+        huit = ED.FEU_POTEAU_8_BARRES[r] if typ == "Poteau" else []
+        return [(f"b ≥ {b}" + (" **" if b in huit else ""), str(a), "mm",
+                 f"largeur minimale {b} mm : distance à l'axe {a} mm" + (" · ** au moins 8 barres" if b in huit else "")) for b, a in lst]
 
-    def a_eg(typ, a):
-        h = f"a{C.NBSP}={C.NBSP}{a}{C.NBSP}mm"
-        return _douteux(h) if al[typ] else h
-    fiche = _fiche([(titre("Dalle", "5.8"), [("a", val("Dalle", ED.FEU_DALLE[r]), "mm", "dalle pleine portant sur une direction")]),
-                    (titre("Voile", "5.4"), [("a", val("Voile", ED.FEU_VOILE[r]), "mm", "voile porteur exposé sur une face, μfi ≈ 0,7")]),
+    def a_eg(a):
+        return f"a{C.NBSP}={C.NBSP}{a}{C.NBSP}mm"
+    fiche = _fiche([(titre("Dalle", "5.8"), [("a", str(ED.FEU_DALLE[r]), "mm", "dalle pleine portant sur une direction")]),
+                    (titre("Voile", "5.4"), [("a", str(ED.FEU_VOILE[r]), "mm", "voile porteur exposé sur une face, μfi = 0,7")]),
                     (titre("Poutre", "5.5"), var("Poutre", ED.FEU_POUTRE[r])),
                     (titre("Poteau", "5.2a"), var("Poteau", ED.FEU_POTEAU[r]))])
     minutes = int(r[1:])
-    poteau = _douteux("à vérifier") if al["Poteau"] else "selon b<sub>min</sub>"
+    poteau = _douteux(NON_COUVERT) if al["Poteau"] else "selon b<sub>min</sub>"
     verdict = C.verdict_valeur(minutes, "min", f"Résistance au feu {r}",
-                               f"dalle : {a_eg('Dalle', ED.FEU_DALLE[r])} · voile : {a_eg('Voile', ED.FEU_VOILE[r])}<br>"
+                               f"dalle : {a_eg(ED.FEU_DALLE[r])} · voile : {a_eg(ED.FEU_VOILE[r])}<br>"
                                f"poutre : selon b<sub>min</sub> · poteau : {poteau} (fiche)", nd=0, symbole="R", calcul="source",
                                classe="db-verdict")
     vus = set()
@@ -760,19 +774,21 @@ def _r_feu(c: Dict) -> Dict:
                 vus.add(a["code"])
                 messages += C.message(C.symb_math(a["message"]), a["grave"])
     messages += C.message("a est mesurée à l'axe de la barre principale : l'écran Enrobage en tire c<sub>feu,min</sub> = a − Ø/2 − "
-                          "Ø<sub>étrier</sub>, puis c<sub>nom</sub> = max(durabilité ; feu).")
+                          "Ø<sub>étrier</sub> (rien à retirer pour une dalle ou un voile), puis c<sub>nom</sub> = max(durabilité ; feu).")
     fen = _fenetre(f"Feu {C.esc(r)} · d'où viennent les valeurs", "les tableaux de la méthode tabulée de l'EN 1992-1-2",
                    ["Dalle : tab. 5.8", "Voile : tab. 5.4", "Poutre : tab. 5.5", "Poteau : tab. 5.2a"],
-                   [("Les tableaux de l'écran Enrobage", "".join(f'<div class="db-regle"><b>{C.esc(t)}</b> {C.esc(EM.TABLEAUX_FEU[t])} '
-                                                                  f'({C.esc(EM.SECTIONS_FEU[t])})</div>' for t, _ in FEU_ELEMENTS)),
-                    ("Hypothèse", f'<div class="db-regle">{C.symb_math(ED.CAPTION_FEU)}</div>')],
-                   '<div class="ck-autres">Écarts relevés avec la norme à l\'extraction de l\'écran Enrobage : D1 (poteaux) et '
-                   'D2 (voiles R180 et R240), en rouge.</div>')
+                   [("Les tableaux", "".join(f'<div class="db-regle"><b>{C.esc(t)}</b> {C.esc(EM.TABLEAUX_FEU[t])} '
+                                               f'({C.esc(EM.SECTIONS_FEU[t])})</div>' for t, _ in FEU_ELEMENTS)),
+                    ("Hypothèse", f'<div class="db-regle">{C.symb_math(ED.CAPTION_FEU)}</div>'),
+                    ("Sources", "".join(f'<div class="db-regle"><b>{C.esc(t)}</b> {C.symb_math(ED.SOURCES_FEU[t])}</div>' for t in ("Voile", "Poteau")))],
+                   '<div class="ck-autres">Poteaux (tab. 5.2a) et voiles (tab. 5.4) : valeurs de la norme à μ<sub>fi</sub> = 0,7, lues par la '
+                   "bibliothèque depuis le 10/11/2026 — les écarts D1 et D2 de l'écran Streamlit ne sont plus reproduits. Un poteau R240 "
+                   "n'a pas de valeur dans le tableau : non couvert.</div>")
     return {"ligne": r, "titre_ligne": "Durée", "table": _vue(tab, leg, pied), "legende": "distance à l'axe a (mm) · EN 1992-1-2",
-            "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": [],
-            "phrase": f"<b>Feu {C.esc(r)}</b> · dalle {a_eg('Dalle', ED.FEU_DALLE[r])} · voile {a_eg('Voile', ED.FEU_VOILE[r])}",
-            "sources": ["Distances à l'axe : les tableaux feu de l'écran Enrobage (dalle, voile, poutre, poteau)",
-                        "Valeurs à vérifier : les avertissements de l'écran Enrobage"]}
+            "bandeau": C.message(BANDEAU_ENROBAGES), "verdict": verdict, "fiche": fiche, "messages": messages, "fenetre": fen, "vues_plus": [],
+            "phrase": f"<b>Feu {C.esc(r)}</b> · dalle {a_eg(ED.FEU_DALLE[r])} · voile {a_eg(ED.FEU_VOILE[r])}",
+            "sources": ["Distances à l'axe — dalle et poutre : les tableaux feu de l'écran Enrobage ; voile et poteau : la norme, par la bibliothèque",
+                        "Poteau R240 : non couvert par le tableau (l'avertissement de l'écran Enrobage) ; ** : au moins 8 barres"]}
 
 
 def _r_enrobages(c: Dict) -> Dict:
@@ -883,9 +899,8 @@ def _rangs(c: Dict):
         return "enrobages", "Classe d'exposition", f"c<sub>min,dur</sub> en classe {s}", rows, "c<sub>min,dur</sub> mm"
     if rub == "enrobages":
         rows = [{"nom": x, "col": str(ED.FEU_DALLE[x]), "cur": x == c["enrobages"]["r"], "cible": ("enrobages/r", x),
-                 "prop": f"dalle a = {ED.FEU_DALLE[x]} mm · voile a = "
-                         + (_douteux(f"{ED.FEU_VOILE[x]} mm") if _alertes_feu(x)["Voile"] else f"{ED.FEU_VOILE[x]} mm")
-                         + " · poteau : " + (_douteux("à vérifier") if _alertes_feu(x)["Poteau"] else "selon b<sub>min</sub>")}
+                 "prop": f"dalle a = {ED.FEU_DALLE[x]} mm · voile a = {ED.FEU_VOILE[x]} mm"
+                         + " · poteau : " + (_douteux(NON_COUVERT) if _alertes_feu(x)["Poteau"] else "selon b<sub>min</sub>")}
                 for x in ED.R_LEVELS]
         return "enrobages", "Durée de résistance au feu", "la distance à l'axe d'une dalle en colonne", rows, "a dalle mm"
     d = _ancrages()
@@ -1025,7 +1040,8 @@ def resultat(etat: Dict) -> Dict:
     if rendu["ligne"] is not None:
         rows += _ligne(rendu["titre_ligne"], C.esc(rendu["ligne"]), calcul="source", pk="ligne", gov=True)
     rows += _ligne("D'où viennent les valeurs", C.esc(NOMS[c["rubrique"]]), calcul="source")
-    corps = rendu["verdict"] + f'<div class="els">{rows}</div>' + rendu["messages"] + rendu["fiche"]
+    # (« bandeau » : la rubrique Enrobages dit en tête où est désormais le calcul d'enrobage)
+    corps = rendu.get("bandeau", "") + rendu["verdict"] + f'<div class="els">{rows}</div>' + rendu["messages"] + rendu["fiche"]
     pied = (f'<div class="pfoot"><div class="mass"><span>Aide-mémoire du bureau</span><b class="db-nb">{C.esc(NOMS[c["rubrique"]])}</b></div></div>')
     vues = [{"cle": "tableau", "titre": NOMS[c["rubrique"]], "court": "Tableau", "svg": _normes(rendu["table"]), "legende": rendu["legende"]}]
     vues += rendu["vues_plus"]

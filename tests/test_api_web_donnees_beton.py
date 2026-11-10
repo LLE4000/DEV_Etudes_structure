@@ -11,7 +11,9 @@ de référence, l'image du bureau) — jamais à travers lui.
 4. Tableau des armatures : les 12 × 15 cases et les masses = l'image du bureau (transcription de
    tests/test_armatures_moteur.py, relue dans ses pixels) ; la lecture « par mètre » ; le dessin des diamètres.
 5. Enrobages : c_min,dur et la classe proposée = l'écran Streamlit modules/enrobage.py (lu dans son texte) ; c_nom
-   recalculé ici ; la coupe ; le feu (FEU_* de l'écran), les cases à vérifier en rouge (poteau, voile R180 et R240).
+   recalculé ici ; la coupe ; le feu — dalle et poutre : les tableaux de l'écran ; voile et poteau : la NORME, transcrite
+   ici (écarts voulus D1 et D2 avec l'écran depuis le 10/11/2026) ; un poteau R240 : « non couvert », en rouge, sans
+   nombre ; le bandeau qui renvoie à la Bibliothèque › Enrobages › Calcul.
 6. Ancrages et recouvrements : vide → « Tableaux du bureau à venir », aucune valeur ; un fichier d'exemple (de forme)
    s'affiche tel quel, texte échappé ; un fichier abîmé est dit en rouge.
 7. Chaque formule de la fenêtre « d'où viennent les valeurs », réévaluée avec ses valeurs écrites, redonne son résultat.
@@ -172,13 +174,32 @@ def ecarts_durabilite(r) -> list:
     return out + ([("cases", len(lu))] if len(lu) != 42 else [])
 
 
-CASE_FEU = re.compile(r'<td class="(dout)?"[^>]*>(?:<i class="mk">!</i>)?<b>(\d+)</b>(?:<small>b ≥ (\d+)</small>)?</td>|<td></td>')
+# Les ÉCARTS VOULUS avec l'écran Streamlit depuis le 10/11/2026 (lot Q, docs/site/LOT_Q_QUATRE_MODULES.md § 4) : les
+# poteaux et les voiles ne sont plus lus dans l'écran (D1 : il suivait la colonne μ_fi = 0,2 du tableau 5.2a sous un
+# libellé « μ_fi = 0,7 » ; D2 : 45 et 55 mm pour un voile R180 et R240) mais dans la NORME — transcrite ICI, sans passer
+# par le site : EN 1992-1-2:2004, tableau 5.2a, colonne μ_fi = 0,7, poteau exposé sur plus d'un côté ((b_min, a, « au
+# moins 8 barres » : le repère ** de la norme) ; R240 : la case est vide) et tableau 5.4, μ_fi = 0,7, une face (a).
+POTEAU_NORME = {"R30": [(200, 32, False), (300, 27, False)], "R60": [(250, 46, False), (350, 40, False)],
+                "R90": [(350, 53, False), (450, 40, True)], "R120": [(350, 57, True), (450, 51, True)],
+                "R180": [(450, 70, True)], "R240": []}
+VOILE_NORME = {"R30": 10, "R60": 10, "R90": 25, "R120": 35, "R180": 50, "R240": 60}
+NON_COUVERT = "non couvert"
+CASE_FEU = re.compile(r'<td class="(dout)?"[^>]*>(?:<i class="mk">!</i>)?(?:<b>(\d+)</b>(?:<small>b ≥ (\d+)( \*\*)?</small>)?|(non couvert))</td>'
+                      r"|<td></td>")
 
 
 def lire_feu(r) -> dict:
+    """{durée: [case]} — une case : (a, b_min ou None, « au moins 8 barres ») ; la case ROUGE et sans nombre du poteau
+    que le tableau ne couvre pas : « non couvert ». Une case rouge qui porte un nombre, une case « non couvert » qui
+    n'est pas rouge sont rendues comme telles (ce sont des écarts)."""
     out = {}
     for _, nom, corps in RANGEE.findall(vue(r, "tableau")["svg"]):
-        cs = [(bool(d), int(a), int(b) if b else None) for d, a, b in CASE_FEU.findall(corps) if a]
+        cs = []
+        for rouge, a, b, huit, vide in CASE_FEU.findall(corps):
+            if vide:
+                cs.append(NON_COUVERT if rouge else "non couvert, pas en rouge")
+            elif a:
+                cs.append((int(a), int(b) if b else None, bool(huit)) + (("en rouge",) if rouge else ()))
         out[texte(nom)] = cs
     return out
 
@@ -187,10 +208,43 @@ def ecarts_feu(r) -> list:
     out = []
     lu = lire_feu(r)
     for x in ECRAN["R_LEVELS"]:
-        att = [(False, ECRAN["FEU_DALLE"][x], None), (x in ("R180", "R240"), ECRAN["FEU_VOILE"][x], None)]
-        att += [(False, a, b) for b, a in ECRAN["FEU_POUTRE"][x]] + [(True, a, b) for b, a in ECRAN["FEU_POTEAU"][x]]
+        att = [(ECRAN["FEU_DALLE"][x], None, False), (VOILE_NORME[x], None, False)]
+        att += [(a, b, False) for b, a in ECRAN["FEU_POUTRE"][x]]
+        att += [(a, b, huit) for b, a, huit in POTEAU_NORME[x]] or [NON_COUVERT]
         if lu.get(x) != att:
             out.append((x, lu.get(x), att))
+    return out
+
+
+def valeurs_d_hier(r) -> list:
+    """Les valeurs FAUSSES de l'écran Streamlit que le site montrerait encore : une rangée de poteau égale à celle de
+    l'écran (D1), un voile R180 ou R240 à 45 ou 55 mm (D2)."""
+    lu = lire_feu(r)
+    out = []
+    for x in ECRAN["R_LEVELS"]:
+        n = len(ECRAN["FEU_POUTRE"][x])
+        if [(a, b) for a, b, *_ in (c for c in lu[x][2 + n:] if isinstance(c, tuple))] == [(a, b) for b, a in ECRAN["FEU_POTEAU"][x]]:
+            out.append(("poteau", x))
+        if x in ("R180", "R240") and lu[x][1][0] == ECRAN["FEU_VOILE"][x]:
+            out.append(("voile", x))
+    return out
+
+
+LIEN_BIBLIOTHEQUE = '<a href="bibliotheque-beton?rubrique=enrobages&amp;onglet=calcul">'
+BANDEAU = "Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul"
+
+
+def bandeaux_faux(tous: dict) -> list:
+    """Les rubriques dont l'en-tête n'est pas le bon : « Enrobages » (durabilité, feu) porte EN TÊTE du résultat, avant
+    le verdict, le bandeau qui dit où est désormais le calcul d'enrobage — un lien ORDINAIRE et relatif, le seul de la
+    réponse ; les autres rubriques ne le portent pas."""
+    out = []
+    for k, r in tous.items():
+        tete = r["resultat"].split('<div class="verdict')[0]
+        liens = re.findall(r"<a [^>]*>", r["resultat"])
+        a = BANDEAU in tete and LIEN_BIBLIOTHEQUE in tete and 'class="msg grave"' not in tete
+        if a != (k in ("durabilité", "feu")) or liens != ([LIEN_BIBLIOTHEQUE] if a else []):
+            out.append((k, a, liens))
     return out
 
 
@@ -336,13 +390,20 @@ for s, x, d, dd in (("S4", "XC1", 20, 10), ("S1", "X0", 12, 5), ("S6", "XD3/XS3"
         chk("S1 (sous S4) : l'avertissement du moteur de l'enrobage sur la classe réduite", "sous S4" in rr["resultat"])
 rf = saisir(re_["etat"], "enrobages/tableau", "feu")
 e = ecarts_feu(rf)
-chk("feu : chaque distance à l'axe (et sa largeur b_min) est celle de l'écran Streamlit ; à vérifier en rouge : poteau (toutes) et voile R180, R240",
-    not e, e[:2])
-chk("feu : les avertissements rouges du moteur (poteau, μ_fi écrit avec son indice)",
-    "Poteau : les distances a" in rf["resultat"] and 'class="msg grave"' in rf["resultat"] and "μ<sub>fi</sub>" in rf["resultat"])
+chk("feu : chaque distance à l'axe (et sa largeur b_min) est celle de sa source — dalle et poutre : l'écran Streamlit ; voile "
+    "et poteau : la NORME transcrite ici (écarts voulus D1 et D2) ; ** : au moins 8 barres ; poteau R240 : « non couvert », "
+    "en rouge, sans nombre", not e, e[:2])
+e = valeurs_d_hier(rf)
+chk("feu : plus aucune valeur fausse de l'écran Streamlit — ni la table des poteaux (D1 : la colonne μ_fi = 0,2), ni les "
+    "45 et 55 mm d'un voile R180 et R240 (D2)", not e, e)
+chk("feu R30 : aucun avertissement rouge (les valeurs sont celles de la norme, elles ne sont plus « à vérifier »)",
+    'class="msg grave"' not in rf["resultat"] and "à vérifier" not in rf["resultat"] and "db-dout" not in rf["resultat"])
 rf2 = saisir(rf["etat"], "enrobages/r", "R240")
-chk("R240 : la rangée surlignée, l'avertissement du voile (5 mm de plus à vérifier)",
-    [n for on, n, _ in rangees(vue(rf2, "tableau")["svg"]) if on] == ["R240"] and "Voile R240" in rf2["resultat"])
+chk("R240 : la rangée surlignée, l'avertissement ROUGE du poteau (non couvert par le tableau 5.2a, μ_fi écrit avec son indice)",
+    [n for on, n, _ in rangees(vue(rf2, "tableau")["svg"]) if on] == ["R240"] and 'class="msg grave">Poteau R240 : non couvert' in rf2["resultat"]
+    and "μ<sub>fi</sub>" in rf2["resultat"] and "voile : a" + C.NBSP + "=" + C.NBSP + "60" in rf2["resultat"], rf2["resultat"][:300])
+chk("le feu dit sa source dans la fenêtre : les tableaux 5.2a et 5.4 de l'EN 1992-1-2:2004, la colonne lue",
+    all(m in texte(rf2["volets"]) for m in ("tableau 5.2a", "tableau 5.4", "μfi = 0,7", "EN 1992-1-2:2004")), texte(rf2["volets"])[:400])
 
 # ================================================================================================ 6. ancrages
 print("\n=== 6 · Ancrages et recouvrements")
@@ -503,11 +564,19 @@ chk("mutation « classe proposée de XC4 = S3 » : le contrôle des ● rougit",
     avec(ED, "CLASSE_STRUCTURALE_DEFAULT", {**ED.CLASSE_STRUCTURALE_DEFAULT, "XC4": "S3"},
          lambda: ecarts_durabilite(saisir(E0, "rubrique", "enrobages"))))
 feu_etat = rf["etat"]
-chk("mutation « poteau R60 : a = 46 » : le contrôle du feu rougit",
-    avec(ED, "FEU_POTEAU", {**ED.FEU_POTEAU, "R60": [(250, 46), (350, 40)]}, lambda: ecarts_feu(req(action="calculer", etat=feu_etat))))
+chk("mutation « poteau R60 : a = 36 au lieu de 46 » : le contrôle du feu rougit",
+    avec(ED, "FEU_POTEAU", {**ED.FEU_POTEAU, "R60": [(250, 36), (350, 40)]}, lambda: ecarts_feu(req(action="calculer", etat=feu_etat))))
+chk("mutation « D1 revenu : la table des poteaux de l'écran Streamlit (colonne μ_fi = 0,2) » : les deux contrôles du feu rougissent",
+    avec(ED, "FEU_POTEAU", ECRAN["FEU_POTEAU"], lambda: ecarts_feu(req(action="calculer", etat=feu_etat)))
+    and avec(ED, "FEU_POTEAU", ECRAN["FEU_POTEAU"], lambda: valeurs_d_hier(req(action="calculer", etat=feu_etat))))
+chk("mutation « D2 revenu : voile R180 = 45 et R240 = 55 » : les deux contrôles du feu rougissent",
+    avec(ED, "FEU_VOILE", ECRAN["FEU_VOILE"], lambda: ecarts_feu(req(action="calculer", etat=feu_etat)))
+    and avec(ED, "FEU_VOILE", ECRAN["FEU_VOILE"], lambda: valeurs_d_hier(req(action="calculer", etat=feu_etat))))
+chk("mutation « le repère ** (au moins 8 barres) oublié » : le contrôle du feu rougit",
+    avec(ED, "FEU_POTEAU_8_BARRES", {x: [] for x in ED.R_LEVELS}, lambda: ecarts_feu(req(action="calculer", etat=feu_etat))))
 import beton.enrobage.moteur as EM  # noqa: E402
 
-chk("mutation « avertissements du moteur de l'enrobage tus » : les cases à vérifier ne sont plus rouges (le contrôle rougit)",
+chk("mutation « avertissements du moteur de l'enrobage tus » : la case du poteau R240 n'est plus « non couvert » en rouge (le contrôle rougit)",
     avec(EM, "avertissements", lambda res: [], lambda: ecarts_feu(req(action="calculer", etat=feu_etat))))
 chk("mutation « f_ctm écrit à la place de 0,7 × f_ctm » dans la fenêtre : le contrôle des formules rougit",
     ecarts_formules(r0["volets"].replace("0,7 × 2,896", "0,7 × 3,896")))
@@ -625,11 +694,13 @@ chk("… une note vide ou sans consultation est une note neuve", all(D.normalise
 
 
 def feu_sans_reserve(r) -> list:
-    """Les valeurs du feu que le moteur de l'enrobage dit « à vérifier dans la norme » (poteau : toutes ; voile : R180 et
-    R240) et que la FICHE ou le VERDICT du résultat écrivent comme des valeurs sûres. La toile les montrait en rouge,
-    le résultat non — et au téléphone, c'est le résultat qu'on lit."""
+    """La case du feu que le moteur de l'enrobage dit SANS VALEUR (un poteau R240 : le tableau 5.2a ne le couvre pas à
+    μ_fi = 0,7) et que la FICHE ou le VERDICT du résultat écriraient sans réserve — et, à l'inverse, une réserve posée
+    sur une valeur de la norme. La toile la montre en rouge ; au téléphone, c'est le résultat qu'on lit. (Jusqu'au
+    10/11/2026 la réserve portait les valeurs « à vérifier » de l'écran Streamlit : tous les poteaux, les voiles R180
+    et R240 — elles sont désormais lues dans la norme.)"""
     duree = r["etat"]["consultations"][r["etat"]["actif"]]["enrobages"]["r"]
-    att = {"Dalle": False, "Voile": duree in ("R180", "R240"), "Poutre": False, "Poteau": True}
+    att = {"Dalle": False, "Voile": False, "Poutre": False, "Poteau": duree == "R240"}
     out = []
     groupes = re.findall(r'<tr class="g"><td colspan="3">(.*?)</td></tr>(.*?)(?=<tr class="g">|</table>)', r["resultat"], re.S)
     vus = set()
@@ -642,15 +713,14 @@ def feu_sans_reserve(r) -> list:
                 out.append(("fiche", duree, typ, marques))
     gov = re.search(r'<div class="gov">(.*?)</div>', r["resultat"], re.S).group(1)
     l1, _, l2 = gov.partition("<br>")
-    avant, _, voile = l1.partition("voile")
-    if "db-dout" in avant or ("db-dout" in voile) != att["Voile"] or "db-dout" not in l2:
+    if "db-dout" in l1 or ("db-dout" in l2) != att["Poteau"] or ("non couvert" in l2) != att["Poteau"]:
         out.append(("verdict", duree, texte(gov)))
     return out + ([("groupes", sorted(vus))] if vus != set(att) else [])
 
 
 e = [x for d in ED.R_LEVELS for x in feu_sans_reserve(saisir(rf["etat"], "enrobages/r", d))]
-chk("feu, chaque durée : les valeurs « à vérifier » (poteau, voile R180 et R240) le sont aussi dans la fiche et le verdict, "
-    "les autres non", not e, e[:3])
+chk("feu, chaque durée : le poteau R240 « non couvert » l'est aussi, en rouge, dans la fiche et le verdict ; aucune autre "
+    "valeur ne porte de réserve", not e, e[:3])
 chk("mutation « avertissements du moteur tus » : la fiche n'a plus de réserve (le contrôle rougit)",
     avec(EM, "avertissements", lambda res: [], lambda: feu_sans_reserve(saisir(rf["etat"], "enrobages/r", "R240"))))
 
@@ -663,6 +733,11 @@ def egal_secable(r) -> list:
 
 
 TOUS = {"classes": r0, "bureau": rb, "aciers": ra, "armatures": rm, "nappe": rn, "durabilité": re_, "feu": rf2, "ancrages": rk}
+e = bandeaux_faux(TOUS)
+chk("la rubrique « Enrobages » (durabilité et feu) dit EN TÊTE où est désormais le calcul d'enrobage — un lien ordinaire et "
+    "relatif vers la Bibliothèque › Enrobages › Calcul, le seul lien de la réponse ; les autres rubriques ne l'ont pas", not e, e)
+chk("mutation « le bandeau retiré » : le contrôle rougit", avec(D, "BANDEAU_ENROBAGES", "", lambda: bandeaux_faux(
+    {"durabilité": saisir(E0, "rubrique", "enrobages")})))
 e = {k: egal_secable(r) for k, r in TOUS.items() if egal_secable(r)}
 chk("verdict et phrase : « symbole = valeur » ne se coupe jamais au « = » (espaces insécables)", not e, list(e.items())[:2])
 
@@ -750,8 +825,8 @@ for nom, objet, attr, valeur, controle in (
         ("un booléen lu comme un choix (l'ancienne lecture)", D, "_lire_choix", _ancien_lire_choix, booleens_admis),
         ("nom jamais refusé", D, "_refus_nom", lambda n: None, noms_admis),
         ("index ramené dans la liste (l'ancienne borne)", D, "_index", lambda index, n: min(max(0, int(index or 0)), n - 1), saisies_mal_dites),
-        ("valeur douteuse écrite sans réserve", D, "_douteux", lambda h: h,
-         lambda: feu_sans_reserve(saisir(rf["etat"], "enrobages/r", "R180"))),
+        ("poteau non couvert écrit sans réserve", D, "_douteux", lambda h: h,
+         lambda: feu_sans_reserve(saisir(rf["etat"], "enrobages/r", "R240"))),
         ("« = » laissé sécable (et normes non gardées)", D, "_normes", lambda h: h, lambda: egal_secable(saisir(E0, "rubrique", "enrobages"))),
         ("légende laissée sécable", D, "_legende", lambda t: t, lambda: legendes_secables(saisir(E0, "rubrique", "aciers")))):
     try:

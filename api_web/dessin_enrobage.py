@@ -186,7 +186,7 @@ def _angle(ident: str, res: dict) -> str:
     T.ligne(-u * 0.4, H - c, xv - u * 0.5, H - c, COTE, 0.8, fin)
     T.ligne(-u * 0.4, H, xv - u * 0.5, H)
     T.cote_v(xv, H - c, H, t_c)
-    if f is not None:
+    if f is not None and f.get("a") is not None:      # (poteau R240 : le tableau n'a pas de valeur, rien à repérer)
         ar = float(f["a"])
         t_feu = _indice("a", "feu", f" ≥ {_mm(ar)} · {escape(f['r'])}", u)
         g.append(f'<path d="M{_f(ar)} {_f(y2)} l{_f(-u * 0.38)} {_f(u * 0.75)} h{_f(u * 0.76)} Z" fill="{EFFORT}"/>')
@@ -249,7 +249,7 @@ def _face(ident: str, res: dict) -> str:
     T.cote_v(x2, yc, H, None)
     gauches = [(x1, H - c / 2, _indice("c", "nom", f" = {_mm(c)}", u), ENCRE, False),
                (x2, H - xc0 / 2, f"a = {_mm(xc0)}", ENCRE, False)]
-    if f is not None:
+    if f is not None and f.get("a") is not None:      # (poteau R240 : le tableau n'a pas de valeur, rien à repérer)
         ar = float(f["a"])
         g.append(f'<path d="M{_f(x2)} {_f(H - ar)} l{_f(-u * 0.75)} {_f(-u * 0.38)} v{_f(u * 0.76)} Z" fill="{EFFORT}"/>')
         gauches.append((x2 - u * 0.75, H - ar, _indice("a", "feu", f" ≥ {_mm(ar)} · {escape(f['r'])}", u), EFFORT, True))

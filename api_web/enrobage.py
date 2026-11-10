@@ -5,8 +5,11 @@ feu, valeur retenue), le sélecteur de la largeur au feu et les vues (le détail
 l'écran) — rendus en fragments HTML.
 
 Le calcul est celui du moteur ``beton/enrobage`` (extrait de l'écran Streamlit modules/enrobage.py, dont il reproduit
-les résultats, les effets de bord et l'affichage — tests/test_enrobage_moteur.py). Ce fichier MET EN FORME : il ne
-calcule rien ; il choisit parmi ce que le moteur nomme et compose les phrases. Pas de vérification dans l'écran
+les résultats, les effets de bord et l'affichage — tests/test_enrobage_moteur.py — SAUF trois écarts voulus depuis le
+10/11/2026 : les distances au feu des poteaux et des voiles viennent de la norme, par ``beton/bibliotheque/feu.py``, et
+aucun étrier n'est retiré de a pour une dalle ou un voile). Ce module est MASQUÉ de l'accueil : le calcul d'enrobage est
+désormais dans la Bibliothèque › Enrobages › Calcul, et un bandeau le dit en tête du résultat (``BANDEAU``). Ce fichier
+MET EN FORME : il ne calcule rien ; il choisit parmi ce que le moteur nomme et compose les phrases. Pas de vérification dans l'écran
 d'origine (aucun enrobage prévu n'y est comparé) : c'est une CONSULTATION (niveau « i »), les barres disent la part de
 chaque exigence dans l'enrobage retenu.
 """
@@ -27,6 +30,12 @@ MODULE = "enrobage"
 PAGE = "enrobage"
 
 GOUV = {"durabilite": "la durabilité", "feu": "le feu"}
+# le lien vers le lieu du calcul depuis le 10/11/2026 (un lien ordinaire, relatif : la page de la bibliothèque)
+LIEN_BIBLIOTHEQUE = "bibliotheque-beton?rubrique=enrobages&onglet=calcul"
+BANDEAU = ("Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul — "
+           f'<a href="{html.escape(LIEN_BIBLIOTHEQUE, quote=True)}">ouvrir le calcul complet</a> (les quatre éléments, le feu selon '
+           "l'EN 1992-1-2 : poteaux, voiles, poutres, dalles).")
+NON_COUVERT = "non couvert par le tableau"
 NOM_MAX = 80
 LIBELLES = {"nom": "Nom", "type": "Type d'élément", "position": "Position", "diam_barre": "Ø max des armatures principales",
             "diam_etrier": "Ø de l'étrier ou du cadre", "delta_dev": "Tolérance Δc_dev", "classe_expo": "Classe d'exposition",
@@ -289,11 +298,21 @@ def _lignes_dur(res: Dict) -> List[Dict]:
     return out
 
 
+def _etrier(res: Dict) -> bool:
+    """L'étrier se retire-t-il de la distance à l'axe ? Non pour une dalle ou un voile (le moteur le dit)."""
+    return M.el_a_etrier(res)
+
+
 def _lignes_feu(res: Dict) -> List[Dict]:
     f = res["feu"]
+    if f["sans_valeur"]:
+        # un poteau R240 à μ_fi = 0,7 : le tableau n'a pas de valeur — une ligne qui le dit, aucun nombre
+        return [{"nom": "a", "sous": f"distance à l'axe · {f['r']}", "formule": f"lue pour {f['r']} · μ<sub>fi</sub> = 0,7", "valeur": "—",
+                 "limite": f"EC2-1-2 tab. {f['tableau']}", "taux": None, "niveau": "r", "etat_txt": "non couvert", "gov": False}]
+    cfm = "max(a − Ø/2 − Ø<sub>e</sub> ; 0)" if _etrier(res) else "max(a − Ø/2 ; 0)"
     rows = [("a", "a", f"distance à l'axe · {f['r']}", f"lue pour {f['r']}" + (f" · b ≥ {f['b_min']} mm" if f["b_min"] else ""), f["a"],
              f"EC2-1-2 tab. {f['tableau']}"),
-            ("c_feu_min", "c<sub>feu,min</sub>", "au nu de l'étrier", "max(a − Ø/2 − Ø<sub>e</sub> ; 0)", f["c_min"], "convention de l'écran"),
+            ("c_feu_min", "c<sub>feu,min</sub>", "au nu de l'étrier" if _etrier(res) else "au nu de la barre", cfm, f["c_min"], "convention de l'écran"),
             ("c_nom_feu", "c<sub>nom,feu</sub>", "nominal · feu", "c<sub>feu,min</sub> + Δc<sub>dev</sub>", f["c_nom"], "convention de l'écran")]
     return [{"nom": sym, "sous": sous, "formule": fo, "valeur": f"{_mm(v)} mm", "limite": ref, "taux": _pc(_part(v, res)),
              "niveau": "c", "gov": cle == "c_nom_feu" and res["gouvernant"] == "feu"} for cle, sym, sous, fo, v, ref in rows]
@@ -310,20 +329,29 @@ def _fx_dur(res: Dict) -> str:
 
 
 def _fx_feu(res: Dict) -> str:
-    f, el = res["feu"], res["element"]
+    f = res["feu"]
     var = f" ; b ≥ {f['b_min']}" if f["b_min"] else ""
+    tete = f'<div class="ck-t">Feu · EN 1992-1-2 {f["section"]}, méthode tabulée</div>'
+    source = f'<div class="hint">{_s(f["source"])}</div>' if f["source"] else ""
+    if f["sans_valeur"]:
+        lignes = [{"parts": ["a", f"tab. {f['tableau']} [{f['r']} ; μ_fi = 0,7]"], "res": "aucune valeur"}]
+        return f'<div class="ck-g">{tete}{C.lignes_fx(lignes)}<div class="hint">{_s(_note(f))}</div>{source}</div>'
+    if _etrier(res):
+        expr, vals = "max(a − Ø/2 − Ø étrier ; 0)", f"max({_mm(f['a'])} − {_mm(f['demi_barre'])} − {_mm(f['diam_etrier'])} ; 0)"
+    else:   # une dalle, un voile : aucun étrier à retirer (écart voulu avec l'écran Streamlit depuis le 10/11/2026)
+        expr, vals = "max(a − Ø/2 ; 0)", f"max({_mm(f['a'])} − {_mm(f['demi_barre'])} ; 0)"
     lignes = [{"parts": ["a", f"tab. {f['tableau']} [{f['r']}{var}]"], "res": f"{_mm(f['a'])} mm"},
-              {"parts": ["c_feu,min", "max(a − Ø/2 − Ø étrier ; 0)",
-                         f"max({_mm(f['a'])} − {_mm(f['demi_barre'])} − {_mm(el['diam_etrier'])} ; 0)"], "res": f"{_mm(f['c_min'])} mm"},
+              {"parts": ["c_feu,min", expr, vals], "res": f"{_mm(f['c_min'])} mm"},
               {"parts": ["c_nom,feu", "c_feu,min + Δc_dev", f"{_mm(f['c_min'])} + {_mm(f['delta_dev'])}"], "res": f"{_mm(f['c_nom'])} mm"}]
-    return (f'<div class="ck-g"><div class="ck-t">Feu · EN 1992-1-2 {f["section"]}, méthode tabulée</div>{C.lignes_fx(lignes)}'
-            f'<div class="hint">{_s(_note(f))}</div></div>')
+    return f'<div class="ck-g">{tete}{C.lignes_fx(lignes)}<div class="hint">{_s(_note(f))}</div>{source}</div>'
 
 
 def _fx_retenu(res: Dict) -> str:
-    if res["feu"] is None:
+    f = res["feu"]
+    if f is None or f["sans_valeur"]:
         lignes = [{"parts": ["c_nom", "c_nom,dur"], "res": f"{_mm(res['c_nom'])} mm"}]
-        pied = '<div class="hint">Feu non vérifié : l\'enrobage retenu est celui de la durabilité.</div>'
+        pied = ('<div class="hint">Feu non vérifié : l\'enrobage retenu est celui de la durabilité.</div>' if f is None else
+                f'<div class="hint">Feu {f["r"]} : {NON_COUVERT} {f["tableau"]} — l\'enrobage retenu est celui de la durabilité seule.</div>')
     else:
         lignes = [{"parts": ["c_nom", "max(c_nom,dur ; c_nom,feu)", f"max({_mm(res['c_nom_dur'])} ; {_mm(res['c_nom_feu'])})"],
                    "res": f"{_mm(res['c_nom'])} mm"}]
@@ -367,7 +395,9 @@ def _fenetres(res: Dict, nom: str) -> str:
     lignes = [li for li in _lignes_dur(res) if li["nom"] == "c<sub>nom,dur</sub>"]
     if res["feu"]:
         lignes += [li for li in _lignes_feu(res) if li["nom"] == "c<sub>nom,feu</sub>"]
-    lignes.append({"nom": "c<sub>nom</sub>", "sous": f"retenu · {GOUV[res['gouvernant']]}", "formule": "max(c<sub>nom,dur</sub> ; c<sub>nom,feu</sub>)",
+    sans_valeur = bool(res["feu"] and res["feu"]["sans_valeur"])      # un poteau R240 : aucun enrobage de feu à comparer
+    lignes.append({"nom": "c<sub>nom</sub>", "sous": f"retenu · {GOUV[res['gouvernant']]}",
+                   "formule": f"c<sub>nom,dur</sub> · feu {NON_COUVERT}" if sans_valeur else "max(c<sub>nom,dur</sub> ; c<sub>nom,feu</sub>)",
                    "valeur": f"{_mm(res['c_nom'])} mm", "limite": "le plus grand", "taux": 100 if res["c_nom"] else 0, "niveau": "c", "gov": True})
     detail = _fx_retenu(res) + _fx_dur(res) + (_fx_feu(res) if res["feu"] else "")
     out += C.fenetre_calcul("retenu", f"{n} · enrobage nominal retenu", "max(durabilité EN 1992-1-1 ; feu EN 1992-1-2) · comme l'écran Streamlit",
@@ -393,6 +423,8 @@ def _verdict(res: Dict) -> str:
     d, f = res["durabilite"], res["feu"]
     if f is None:
         cmp_ = f"c<sub>min</sub> + Δc<sub>dev</sub> = {_mm(d['c_min'])} + {_mm(d['delta_dev'])} mm<br>feu non vérifié"
+    elif f["sans_valeur"]:
+        cmp_ = f"durabilité {_mm(res['c_nom_dur'])} mm · feu {f['r']} : {NON_COUVERT}<br>tab. {f['tableau']} · μ<sub>fi</sub> = 0,7 : aucune valeur"
     else:
         cmp_ = (f"durabilité {_mm(res['c_nom_dur'])} mm · feu {_mm(res['c_nom_feu'])} mm"
                 f"<br>{f['r']} · tab. {f['tableau']}" + (f" · b ≥ {f['b_min']} mm" if f["b_min"] else ""))
@@ -404,7 +436,9 @@ def _lignes(res: Dict) -> str:
     d, f, el = res["durabilite"], res["feu"], res["element"]
     rows = C.ligne_res("Durabilité", f"{d['classe_structurale']} / {C.esc(d['classe_exposition'])} · {_mm(d['c_nom'])} mm",
                        _pc(_part(d["c_nom"], res)), "c", calcul="dur", gov=res["gouvernant"] == "durabilite")
-    if f is not None:
+    if f is not None and f["sans_valeur"]:
+        rows += C.ligne_res(f"Feu · {f['r']}", NON_COUVERT, None, "r", calcul="feu", sans_taux="non couvert")
+    elif f is not None:
         piece = (f"b ≥ {f['b_min']} · a {_mm(f['a'])} · {_mm(f['c_nom'])} mm" if f["b_min"] else f"a {_mm(f['a'])} · {_mm(f['c_nom'])} mm")
         leger = ""
         if f["b_min"]:
@@ -468,6 +502,9 @@ def vue_tableaux(res: Dict) -> str:
           f'<table class="en-tab"><thead><tr><th>Classe</th>{tete}</tr></thead><tbody>{corps}</tbody></table></div>')
     t = el["type"]
     f = res["feu"]
+    # d'où vient le tableau du feu : l'écran Streamlit (dalles, poutres) ou la norme, par la bibliothèque (poteaux, voiles)
+    origine = {"Poteau": "de l'EN 1992-1-2:2004 · μ<sub>fi</sub> = 0,7, exposé sur plus d'un côté",
+               "Voile": "de l'EN 1992-1-2:2004 · μ<sub>fi</sub> = 0,7, une face exposée"}.get(t, "de l'écran")
     if t in D.TYPES_VARIANTES:
         tab = D.FEU_POUTRE if t == "Poutre" else D.FEU_POTEAU
         n = max(len(v) for v in tab.values())
@@ -481,18 +518,21 @@ def vue_tableaux(res: Dict) -> str:
                     cel += f'<td class="{"on" if on else ""}"><small>b ≥ {b}</small>{a}</td>'
                 else:
                     cel += "<td></td>"
+            if not tab[r]:      # un poteau R240 à μ_fi = 0,7 : la case du tableau est vide
+                cel = f'<td colspan="{n}" class="vide">{NON_COUVERT}</td>'
             lignes += f'<tr class="{"lig" if f is not None and r == f["r"] else ""}"><th>{r}</th>{cel}</tr>'
-        t2 = (f'<div class="en-bloc"><div class="en-tt">a (mm) · {t.lower()} · tableau {M.TABLEAUX_FEU[t]} de l\'écran (variantes de largeur b, mm)</div>'
+        t2 = (f'<div class="en-bloc"><div class="en-tt">a (mm) · {t.lower()} · tableau {M.TABLEAUX_FEU[t]} {origine} (variantes de largeur b, mm)</div>'
               f'<table class="en-tab feu"><thead><tr><th>Durée</th>{"".join(f"<th>variante {k + 1}</th>" for k in range(n))}</tr></thead>'
               f'<tbody>{lignes}</tbody></table></div>')
     else:
         tab = D.FEU_DALLE if t == "Dalle" else D.FEU_VOILE
         cel = "".join(f'<td class="{"on" if f is not None and r == f["r"] else ""}">{tab[r]}</td>' for r in D.R_LEVELS)
-        t2 = (f'<div class="en-bloc"><div class="en-tt">a (mm) · {t.lower()} · tableau {M.TABLEAUX_FEU[t]} de l\'écran</div>'
+        t2 = (f'<div class="en-bloc"><div class="en-tt">a (mm) · {t.lower()} · tableau {M.TABLEAUX_FEU[t]} {origine}</div>'
               f'<table class="en-tab feu"><thead><tr><th>Durée</th>{"".join(f"<th>{r}</th>" for r in D.R_LEVELS)}</tr></thead>'
               f'<tbody><tr><th>a</th>{cel}</tr></tbody></table></div>')
-    pied = ("Valeurs reprises telles quelles de l'écran Streamlit (« alignées ANB — à valider par l'ingénieur ») ; leurs écarts "
-            "avec les tableaux de la norme sont relevés dans la documentation du moteur.")
+    pied = ("c<sub>min,dur</sub>, dalles et poutres : valeurs reprises telles quelles de l'écran Streamlit (« alignées ANB — à valider par "
+            "l'ingénieur ») ; poteaux (tableau 5.2a) et voiles (tableau 5.4) : lus dans la norme par la bibliothèque depuis le 10/11/2026. "
+            "Le calcul complet : Bibliothèque › Enrobages › Calcul.")
     return f'<div class="en-vue">{t1}{t2}<div class="en-pied">{pied}</div></div>'
 
 
@@ -504,7 +544,9 @@ def resultat(etat: Dict) -> Dict:
     nom = el.get("nom") or f"Élément {etat['actif'] + 1}"
     pied = (f'<div class="pfoot"><div class="mass"><span>EN 1992-1-1 §4.4.1 · EN 1992-1-2 §5</span><b>écran v2.0</b></div>'
             f'<div class="legend en-leg"><span>Barres : part de c<sub>nom</sub> retenu · valeurs ANB de l\'écran, à valider par l\'ingénieur</span></div></div>')
-    corps = f'<div class="pbody">{_verdict(res)}{_synthese(res)}<div class="els">{_lignes(res)}</div>{_messages(res)}</div>{pied}'
+    # en tête du résultat : le calcul d'enrobage a changé de lieu (ce module reste servi pour les notes existantes)
+    corps = (f'<div class="pbody">{C.message(BANDEAU)}{_verdict(res)}{_synthese(res)}<div class="els">{_lignes(res)}</div>'
+             f'{_messages(res)}</div>{pied}')
     f = res["feu"]
     phrase = (f"{C.esc(el['type'])} · {C.esc(el['classe_expo'])} / {el['classe_struct']} · Ø{el['diam_barre']} · étrier Ø{el['diam_etrier']}"
               f" · Δc<sub>dev</sub> {el['delta_dev']} mm" + (f" · {f['r']}" if f else ""))

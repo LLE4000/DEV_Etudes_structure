@@ -19,6 +19,11 @@
      affichent les mêmes valeurs, sur 20 cas, à l'arrondi de l'écran près ; le contrôle sait rougir.
   9. Ce que la relecture du 07/11/2026 a ajouté : l'hypothèse du tableau feu dans les Données, μ_fi seulement pour les
      poteaux et les voiles, des règles sans doublon, Δc_dev avec les armatures, les bornes des champs Ø.
+ 10. Depuis le 10/11/2026 (lot Q) : le module est masqué et ne montre plus une valeur fausse — le BANDEAU qui renvoie à la
+     Bibliothèque › Enrobages › Calcul, et les TROIS ÉCARTS VOULUS avec l'écran Streamlit, tenus à l'écran contre la
+     norme : D1 (poteaux : tableau 5.2a, μ_fi = 0,7 ; R240 « non couvert par le tableau »), D2 (voiles R180 et R240 :
+     50 et 60 mm), D6 (aucun étrier retiré de a pour une dalle ou un voile). Le bout à bout (§ 8) garde la parité sur
+     tout le reste et NOMME ces trois écarts.
 
     python3.12 tests/test_api_web_enrobage.py
 """
@@ -105,12 +110,19 @@ for k, etat in enumerate(CAS):
         e.append(f"terme gouvernant de c_min marqué {marque} ≠ {d['terme_c_min']}")
     lignes = re.findall(r'<div class="el( gov)?" data-calcul="(\w+)".*?<b>(.*?)</b>.*?<span>(.*?)</span>.*?<span class="pct c">([^<]+)</span>',
                         out["resultat"], re.S)
-    att_l = [("dur", f"{mm(d['c_nom'])} mm")] + ([("feu", f"{mm(f['c_nom'])} mm")] if f else [])
+    # (un poteau R240 — écart voulu D1 — n'a PAS de valeur au feu : sa ligne dit « non couvert par le tableau », sans
+    #  nombre ni part ; elle est contrôlée à part)
+    chiffre = f is not None and not f["sans_valeur"]
+    att_l = [("dur", f"{mm(d['c_nom'])} mm")] + ([("feu", f"{mm(f['c_nom'])} mm")] if chiffre else [])
     if [(x[1], texte(x[3]).rsplit(" · ", 1)[-1]) for x in lignes] != att_l:
         e.append(f"lignes {[(x[1], texte(x[3])) for x in lignes]} ≠ {att_l}")
-    if [bool(x[0]) for x in lignes] != [res["gouvernant"] == "durabilite"] + ([res["gouvernant"] == "feu"] if f else []):
+    if [bool(x[0]) for x in lignes] != [res["gouvernant"] == "durabilite"] + ([res["gouvernant"] == "feu"] if chiffre else []):
         e.append("ligne gouvernante mal marquée")
-    for x, cn in zip(lignes, [d["c_nom"]] + ([f["c_nom"]] if f else [])):
+    if f is not None and f["sans_valeur"] and not re.search(
+            r'<div class="el" data-calcul="feu"[^>]*><div class="l1"><b>Feu · R240</b><span class="prof"><span>non couvert par le tableau</span></span></div>'
+            r'.*?<span class="pct r">non couvert</span>', out["resultat"], re.S):
+        e.append("poteau R240 : la ligne « non couvert par le tableau » manque")
+    for x, cn in zip(lignes, [d["c_nom"]] + ([f["c_nom"]] if chiffre else [])):
         if texte(x[4]) != f"{int(cn / res['c_nom'] * 100 + 0.5)} %":
             e.append(f"part {texte(x[4])} ≠ {cn}/{res['c_nom']}")
     # les fenêtres : chaque ligne « … = valeurs = résultat » recalculée à partir de ses seuls nombres
@@ -202,7 +214,13 @@ chk("XC2/XC3 (S6 choisie) → XC4 : S6 est gardée (même classe proposée S4)",
 _, e = saisir(etat_de(feu=True, r="R60", b_min=200), ["r"], "R90")
 chk("poutre R60 b ≥ 200 → R90 : la largeur revient à la première variante (150)", e["elements"][0]["b_min"] == 150)
 _, e = saisir(etat_de(type="Poteau", feu=True, r="R30", b_min=300), ["r"], "R60")
-chk("poteau R30 b ≥ 300 → R60 (même tableau) : la largeur est gardée", e["elements"][0]["b_min"] == 300)
+chk("poteau R30 b ≥ 300 → R60 : la liste change (tableau 5.2a, μ_fi = 0,7 : 200 · 300 puis 250 · 350), la largeur revient à la première (250)",
+    e["elements"][0]["b_min"] == 250)
+_, e = saisir(etat_de(type="Poteau", feu=True, r="R120", b_min=450), ["r"], "R240")
+chk("poteau R120 → R240 : le tableau n'a pas de valeur, plus de largeur (null) ; R240 → R180 : la largeur du tableau revient (450)",
+    e["elements"][0]["b_min"] is None and saisir(e, ["r"], "R180")[1]["elements"][0]["b_min"] == 450)
+_, e = saisir(etat_de(feu=True, r="R60", b_min=200), ["r"], "R60")
+chk("une durée re-saisie à l'identique garde la largeur choisie (même liste)", e["elements"][0]["b_min"] == 200)
 _, e = saisir(etat_de(feu=True, r="R60", b_min=200), ["type"], "Dalle")
 chk("poutre → dalle : plus de largeur (null)", e["elements"][0]["b_min"] is None)
 _, e = saisir(etat_de(feu=True, r="R120"), ["feu"], False)
@@ -471,9 +489,15 @@ def bout_a_bout(el):
         for sym, st_v in (("a", st_a), ("cfeu,min", st_sub[3]), ("cnom,feu", st_cnf)):
             if not comme_ecran(nombre(fx[sym].replace("mm", "")), st_v):
                 e.append(f"fenêtre feu {sym} {fx[sym]} ≠ écran {st_v}")
-        sub = re.search(r"max\(([\d,]+) − ([\d,]+) − ([\d,]+) ; 0\)", texte(V)).groups()
-        if not all(comme_ecran(nombre(x), y) for x, y in zip(sub, st_sub[:3])):
-            e.append(f"substitution feu {sub} ≠ écran {st_sub[:3]}")
+        if el["type"] in D.TYPES_A_ETRIER:
+            sub = re.search(r"max\(([\d,]+) − ([\d,]+) − ([\d,]+) ; 0\)", texte(V)).groups()
+            if not all(comme_ecran(nombre(x), y) for x, y in zip(sub, st_sub[:3])):
+                e.append(f"substitution feu {sub} ≠ écran {st_sub[:3]}")
+        else:
+            # une dalle, un voile : le site n'écrit plus le terme de l'étrier (écart voulu D6) ; en parité l'étrier vaut 0
+            sub = re.search(r"max\(([\d,]+) − ([\d,]+) ; 0\)", texte(V)).groups()
+            if not all(comme_ecran(nombre(x), y) for x, y in zip(sub, st_sub[:2])) or st_sub[2] != "0":
+                e.append(f"substitution feu {sub} ≠ écran {st_sub[:3]}")
         note = [x[1] for x in ev if x[0] == "cap"][-1]          # la caption de l'écran sous « B — Feu »
         if texte(C.symb_math(W._note({"note": note}))) not in texte(out["donnees"]) or texte(C.symb_math(W._note({"note": note}))) not in texte(V):
             e.append(f"caption feu absente : {note}")
@@ -503,23 +527,37 @@ if E_ST is not None:
             ("écart 2 mm pile (encadré « proches »)", el_(classe_expo="XC4", classe_struct="S4", diam_etrier=7, feu=True, r="R90", b_min=200)),
             ("écart 2,5 mm (pas d'encadré)", el_(classe_expo="XC4", classe_struct="S4", diam_barre=21, diam_etrier=7, feu=True, r="R90", b_min=200)),
             ("dalle R30 : c_feu,min nul pile", el_(type="Dalle", diam_etrier=0, feu=True, r="R30")),
-            ("voile R60 : c_feu,min négatif borné", el_(type="Voile", diam_barre=16, feu=True, r="R60")),
-            ("voile R240, XD3/XS3 S6", el_(type="Voile", classe_expo="XD3/XS3", classe_struct="S6", feu=True, r="R240", diam_barre=12, diam_etrier=0)),
-            ("poteau R120 Ø25 : demi-millimètre", el_(type="Poteau", diam_barre=25, feu=True, r="R120", b_min=250)),
+            ("dalle R30 Ø25 : c_feu,min négatif borné", el_(type="Dalle", diam_barre=25, diam_etrier=0, feu=True, r="R30")),
+            ("voile R120, XD3/XS3 S6, sans étrier", el_(type="Voile", classe_expo="XD3/XS3", classe_struct="S6", feu=True, r="R120", diam_barre=12, diam_etrier=0)),
+            ("poutre R60 Ø25 étrier 8 : 19,5 affiché « 20 » par l'écran", el_(diam_barre=25, diam_etrier=8, feu=True, r="R60", b_min=120)),
             ("poutre R60 Ø25 étrier 9 : 18,5 affiché « 18 » par l'écran", el_(diam_barre=25, diam_etrier=9, feu=True, r="R60", b_min=120)),
             ("poutre R240 b ≥ 280, Δc_dev 0, Ø32 étrier 12, XD2/XS2", el_(feu=True, r="R240", b_min=280, delta_dev=0, diam_barre=32, diam_etrier=12,
                                                                         classe_expo="XD2/XS2", classe_struct="S5")),
             ("Δc_dev 5, Ø40 : c_min,b gouverne", el_(delta_dev=5, diam_barre=40, classe_expo="XC2/XC3", classe_struct="S4")),
             ("Ø6, étrier 0 : le plancher à égalité", el_(diam_barre=6, diam_etrier=0)),
-            ("poteau R240 b ≥ 450, extérieur, XC4/S3", el_(type="Poteau", feu=True, r="R240", b_min=450, position="Extérieur", classe_expo="XC4", classe_struct="S3")),
-            ("dalle R180 Ø11 étrier 5 : 54,5 (feu)", el_(type="Dalle", feu=True, r="R180", diam_barre=11, diam_etrier=5, classe_expo="XD1/XS1", classe_struct="S5")),
+            ("poutre R240 b ≥ 700, extérieur, XC4/S3", el_(feu=True, r="R240", b_min=700, position="Extérieur", classe_expo="XC4", classe_struct="S3")),
+            ("dalle R180 Ø11 sans étrier : 59,5 (feu)", el_(type="Dalle", feu=True, r="R180", diam_barre=11, diam_etrier=0, classe_expo="XD1/XS1", classe_struct="S5")),
             ("poutre R30 b ≥ 80, Ø7 : 25,5 (feu)", el_(feu=True, r="R30", b_min=80, diam_barre=7, diam_etrier=6)),
-            ("poteau R30 b ≥ 300, Ø60 étrier 40 (les bornes)", el_(type="Poteau", feu=True, r="R30", b_min=300, diam_barre=60, diam_etrier=40,
+            ("poutre R30 b ≥ 200, Ø60 étrier 40 (les bornes)", el_(feu=True, r="R30", b_min=200, diam_barre=60, diam_etrier=40,
                                                                  classe_expo="XC1", classe_struct="S6")),
-            ("voile R120 Ø13 Δc_dev 5 : 27,5 (feu)", el_(type="Voile", feu=True, r="R120", diam_barre=13, diam_etrier=6, delta_dev=5))]
+            ("voile R120 Ø13 Δc_dev 5, sans étrier : 33,5 (feu)", el_(type="Voile", feu=True, r="R120", diam_barre=13, diam_etrier=0, delta_dev=5))]
     for nom, el in BOUT:
         ec = bout_a_bout(el)
         chk(f"bout à bout · {nom} : verdict, décomposition, lignes, fenêtres, encadrés = écran Streamlit", not ec, ec)
+    # LES TROIS ÉCARTS VOULUS avec l'écran Streamlit depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md § 4) : sur ces
+    # cas — et ceux-là seulement — le site n'affiche plus ce que l'écran affiche ; le bout à bout le CONSTATE (il rougit
+    # sur eux), et la section 10 les tient contre la norme
+    VOULUS = [("D1 · poteau R120 b ≥ 350, Ø25", el_(type="Poteau", diam_barre=25, feu=True, r="R120", b_min=350)),
+              ("D1 · poteau R30 b ≥ 300, Ø60 étrier 40", el_(type="Poteau", feu=True, r="R30", b_min=300, diam_barre=60, diam_etrier=40, classe_expo="XC1", classe_struct="S6")),
+              ("D2 · voile R240, XD3/XS3 S6, sans étrier", el_(type="Voile", classe_expo="XD3/XS3", classe_struct="S6", feu=True, r="R240", diam_barre=12, diam_etrier=0)),
+              ("D6 · voile R60, Ø16, étrier 8", el_(type="Voile", diam_barre=16, feu=True, r="R60")),
+              ("D6 · dalle R180 Ø11 étrier 5", el_(type="Dalle", feu=True, r="R180", diam_barre=11, diam_etrier=5, classe_expo="XD1/XS1", classe_struct="S5"))]
+    for nom, el in VOULUS:
+        try:
+            ec = bout_a_bout(el)
+        except (KeyError, StopIteration, AttributeError) as ex:     # l'écran n'a même plus la largeur ou le libellé du site
+            ec = [f"{type(ex).__name__}"]
+        chk(f"écart voulu avec l'écran Streamlit depuis le 10/11/2026 · {nom} : le site n'affiche plus ce que l'écran affiche (le bout à bout le voit)", bool(ec), ec)
     # le contrôle sait rougir : un site qui afficherait 1 mm de plus sur c_min,dur serait vu
     vrai = W._synthese
     W._synthese = lambda res: vrai({**res, "durabilite": {**res["durabilite"], "c_min_dur": res["durabilite"]["c_min_dur"] + 1}})
@@ -547,6 +585,89 @@ chk("Δc_dev est dans la section « Armatures et tolérance » (il s'ajoute aux 
 chk("les champs Ø portent leurs bornes (data-min, data-max) : le navigateur refuse avant d'envoyer",
     'data-chemin="diam_barre" data-sorte="nombre" inputmode="decimal" value="20" data-min="6" data-max="60"' in h
     and 'data-min="0" data-max="40"' in h)
+
+# =================================================================== 10. depuis le 10/11/2026 : le bandeau, les trois écarts voulus
+print("\n=== 10. Lot Q (10/11/2026) : le bandeau vers la bibliothèque, les trois écarts voulus tenus contre la norme ===")
+from beton.bibliotheque import feu as FEU  # noqa: E402
+out = W.resultat(etat_de())
+bandeau = re.search(r'<div class="pbody"><div class="msg">(.*?)</div>', out["resultat"], re.S)
+chk("en tête du résultat, un bandeau non grave : « Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul », avec un lien "
+    "ordinaire et RELATIF vers bibliotheque-beton?rubrique=enrobages&onglet=calcul",
+    bandeau is not None and "Le calcul d'enrobage est maintenant dans la Bibliothèque › Enrobages › Calcul" in texte(bandeau.group(1))
+    and '<a href="bibliotheque-beton?rubrique=enrobages&amp;onglet=calcul">' in bandeau.group(1)
+    and not re.search(r'href="(?:https?:|/|[^"]*\.html)', bandeau.group(1)), bandeau and bandeau.group(1))
+chk("le bandeau est sur chaque élément, feu vérifié ou non, et n'a ni script ni gestionnaire",
+    all(W.BANDEAU in W.resultat(etat_de(**k))["resultat"] for k in ({}, {"type": "Poteau", "feu": True, "r": "R240"}, {"type": "Dalle", "feu": True}))
+    and not re.search(r"<script|\son[a-z]+\s*=", W.BANDEAU, re.I))
+# D1 — les poteaux : le tableau 5.2a de l'EN 1992-1-2:2004, colonne μ_fi = 0,7 (transcrite ici du § 4.5 de la conception)
+POTEAU_NORME = {"R30": [(200, 32), (300, 27)], "R60": [(250, 46), (350, 40)], "R90": [(350, 53), (450, 40)],
+                "R120": [(350, 57), (450, 51)], "R180": [(450, 70)], "R240": []}
+faux = []
+for r_, vs in POTEAU_NORME.items():
+    for b_, a_ in vs:
+        o = W.resultat(etat_de(type="Poteau", feu=True, r=r_, b_min=b_, classe_expo="XC1", classe_struct="S2"))
+        cfm = max(a_ - 10 - 8, 0)                       # Ø20, étrier Ø8 : c_feu,min = a − Ø/2 − Ø_étrier
+        cn = max(30, cfm + 10)                          # durabilité XC1/S2, Ø20 : 20 + 10 = 30 ; feu : c_feu,min + Δc_dev
+        if (f"b ≥ {b_} · a {a_} · {mm(cfm + 10)} mm" not in texte(o["resultat"]) or f'class="chip xl en-c">{mm(cn)}<small>' not in o["resultat"]
+                or f"b ≥ {b_} mm → a = {a_} mm" not in o["donnees"] or f"max({a_} − 10 − 8 ; 0)" not in texte(o["volets"])):
+            faux.append((r_, b_, a_))
+chk("D1 · poteaux : chaque couple b_min / a du tableau 5.2a à μ_fi = 0,7 (R90 : 350/53 et 450/40, là où l'écran donnait 200/31) est dans le menu, "
+    "la ligne du feu, la fenêtre de calcul, et le verdict en découle (9 couples)", not faux and sum(len(v) for v in POTEAU_NORME.values()) == 9, faux)
+o = W.resultat(etat_de(type="Poteau", feu=True, r="R240", classe_expo="XC4", classe_struct="S4"))
+chk("D1 · poteau R240 : « non couvert par le tableau » — plus de valeur inventée : pas de menu de largeur, la ligne du feu sans nombre, le verdict = "
+    "durabilité (40 mm), l'avertissement GRAVE, la fenêtre « aucune valeur », aucun « feu non dimensionnant »",
+    'data-chemin="b_min"' not in o["donnees"] and "non couvert par le tableau" in texte(o["resultat"]) and 'class="chip xl en-c">40<small>' in o["resultat"]
+    and re.search(r'<div class="msg grave">Poteau R240 : non couvert par le tableau 5\.2a', o["resultat"]) is not None
+    and "aucune valeur" in texte(o["volets"]) and "feu non dimensionnant" not in texte(o["resultat"]) and 'data-pk="feu"' not in o["resultat"]
+    and "c<sub>nom,feu</sub>" not in o["volets"].split('id="ck-retenu"')[1].split("ck-sub")[0])
+tab = W.resultat(etat_de(type="Poteau", feu=True, r="R90", b_min=350))["vues"][1]["svg"]
+chk("D1 · vue Tableaux d'un poteau : le tableau 5.2a de l'EN (μ_fi = 0,7), la case 350/53 retenue, la ligne R240 « non couvert par le tableau »",
+    re.findall(r'<td class="on"><small>b ≥ (\d+)</small>(\d+)</td>', tab) == [("350", "53")] and "tableau 5.2a de l'EN 1992-1-2:2004" in tab
+    and re.search(r'<tr class=""><th>R240</th><td colspan="2" class="vide">non couvert par le tableau</td></tr>', tab) is not None)
+o = W.resultat(etat_de(type="Poteau", feu=True, r="R90", b_min=450))
+chk("D1 · la source est dite à l'écran (tableau 5.2a, colonne μ_fi = 0,7) et « au moins 8 barres » pour 450/40 ; plus aucun message rouge « à vérifier dans la norme »",
+    "tableau 5.2a" in texte(o["resultat"]) and "au moins 8 barres" in texte(o["resultat"]) and 'class="msg grave"' not in o["resultat"]
+    and "à vérifier dans la norme" not in o["resultat"] and "EN 1992-1-2:2004, tableau 5.2a" in texte(o["volets"]))
+# D2 — les voiles : tableau 5.4, μ_fi = 0,7, une face
+VOILE_NORME = {"R30": 10, "R60": 10, "R90": 25, "R120": 35, "R180": 50, "R240": 60}
+faux = [(r_, a_) for r_, a_ in VOILE_NORME.items()
+        for o in (W.resultat(etat_de(type="Voile", feu=True, r=r_, diam_barre=12, diam_etrier=0, classe_expo="XC1", classe_struct="S2")),)
+        if f"a {a_} · {mm(max(a_ - 6, 0) + 10)} mm" not in texte(o["resultat"]) or f"max({a_} − 6 ; 0)" not in texte(o["volets"])]
+chk("D2 · voiles : a = 10, 10, 25, 35, 50, 60 mm de R30 à R240 (l'écran : 45 et 55 pour R180 et R240) — la ligne du feu et la fenêtre de calcul",
+    not faux and FEU.VOILE_5_4["R180"]["mu07_1"] == (210, 50, ""), faux)
+# D6 — une dalle, un voile : aucun étrier retiré de la distance à l'axe
+o8 = W.resultat(etat_de(type="Dalle", feu=True, r="R90", diam_barre=12, diam_etrier=8))
+o0 = W.resultat(etat_de(type="Dalle", feu=True, r="R90", diam_barre=12, diam_etrier=0))
+chk("D6 · dalle R90, Ø12 : c_feu,min = 30 − 6 = 24 mm que l'étrier saisi vaille 8 ou 0 (l'écran retirait les 8 mm : 16) ; la fenêtre écrit « max(a − Ø/2 ; 0) », "
+    "et un message (non grave) dit que l'étrier n'est pas retiré",
+    all("a 30 · 34 mm" in texte(o["resultat"]) and "max(30 − 6 ; 0)" in texte(o["volets"]) and "max(a − Ø/2 ; 0)" in texte(o["volets"]) for o in (o8, o0))
+    and "n'est pas retiré de la distance à l'axe" in texte(o8["resultat"]) and "n'est pas retiré" not in texte(o0["resultat"])
+    and 'class="msg grave"' not in o8["resultat"])
+op = W.resultat(etat_de(feu=True, r="R90", b_min=200, diam_barre=12, diam_etrier=8))
+chk("… une poutre garde son étrier : c_feu,min = 45 − 6 − 8 = 31 mm, « max(a − Ø/2 − Ø étrier ; 0) »",
+    "max(45 − 6 − 8 ; 0)" in texte(op["volets"]) and "max(a − Ø/2 − Ø étrier ; 0)" in texte(op["volets"]))
+# mutations : chaque écart voulu REVENU fait rougir son contrôle
+vrai = D.FEU_POTEAU
+D.FEU_POTEAU = {**vrai, "R90": [(200, 31), (300, 25), (400, 25)]}
+try:
+    o = W.resultat(etat_de(type="Poteau", feu=True, r="R90", b_min=200))
+    chk("mutation « D1 revenu : la table de l'écran pour les poteaux » : 350/53 n'est plus dans le menu (le contrôle D1 rougit)",
+        "b ≥ 350 mm → a = 53 mm" not in o["donnees"] and "b ≥ 200 mm → a = 31 mm" in o["donnees"])
+finally:
+    D.FEU_POTEAU = vrai
+vrai = D.TYPES_A_ETRIER
+D.TYPES_A_ETRIER = ("Poutre", "Poteau", "Dalle", "Voile")
+try:
+    chk("mutation « D6 revenu : l'étrier retiré d'une dalle » : c_feu,min repasse à 16 mm (le contrôle D6 rougit)",
+        "a 30 · 26 mm" in texte(W.resultat(etat_de(type="Dalle", feu=True, r="R90", diam_barre=12, diam_etrier=8))["resultat"]))
+finally:
+    D.TYPES_A_ETRIER = vrai
+vrai = W.BANDEAU
+W.BANDEAU = ""
+try:
+    chk("mutation « bandeau retiré » : le contrôle du bandeau rougit", 'href="bibliotheque-beton' not in W.resultat(etat_de())["resultat"])
+finally:
+    W.BANDEAU = vrai
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
