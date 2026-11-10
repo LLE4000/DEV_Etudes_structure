@@ -318,7 +318,8 @@ limites en trois lignes au plus, les références, le cartouche :
   poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), enveloppe des positions — pas un calcul par éléments
   finis » ; pas de déformée (aucune condition d'appui justifiée dans ce modèle).
   Dégradé : taux 0 → 100 % vert progressif (#E8F5E9 → #1B5E20) ; 100 → 105 % orange progressif (#FFB74D → #E65100) ;
-  > 105 % rouge #C62828.
+  > 105 % rouge #C62828 — *révisé le soir même, § 9.8 : échelle bleu → orange, coin maillé, barre en N/mm² et en %, les
+  courbes de l'aile verticale par position de l'ancrage, le remplissage jusqu'à Mmax.*
 Les vues de l'ÉCRAN sont les mêmes scènes (cohérence écran ↔ note) : Coupe, Moments, Contraintes, Élévation.
 
 **9.6 · Le champ de contraintes, dans le moteur (R3)** : `res["maillage"] = {"horizontale": <champ>, "verticale":
@@ -340,3 +341,24 @@ support ; Hypothèses reçoit l'état limite en tête (coef en ELS seulement).
 
 **Hors demande, donc non fait** : dimensionnement automatique (le choix reste manuel ; le sélecteur existant n'est
 qu'une liste), autres modules, déformée.
+
+**9.8 · Révision du 10/11 au soir, devant les captures des scènes (remarques de l'ingénieur)** — quatre retouches qui
+MODIFIENT § 9.1 et § 9.6 ci-dessus :
+- *Moments* : les trois courbes de l'aile verticale sont désormais celles des trois positions de l'ANCRAGE (Y − dy, Y,
+  Y + dy ; chacune l'enveloppe des trois positions de la charge, le gouvernant nommé) — « 85 ± 5, il faut trois
+  zéros » : le zéro de l'aile verticale est à l'ancrage, celui de l'aile horizontale à la charge, chaque aile montre le
+  jeu qui déplace SON zéro ; ce n'était pas une erreur de calcul (l'enveloppe couvrait les neuf combinaisons) mais une
+  représentation incomplète. Le remplissage de l'enveloppe va JUSQU'AU BOUT du prolongement (Mmax au nu du support,
+  le pivot pour l'aile verticale) sur les deux ailes, et Mmax est écrit en bas ET à gauche (M angle en B).
+- *Contraintes* : la barre de couleur est graduée des DEUX côtés — σéq en N/mm² à gauche (0, la moitié, la LIMITE
+  σadm ou fy/γM0 écrite à 100 %, 105 %), le taux en % à droite ; l'échelle de couleurs n'est plus le vert progressif
+  (« ça ne rend pas bien ») mais une vraie échelle de calcul : bleu #2563EB (0) → cyan #06B6D4 (25 %) → vert #22C55E
+  (50 %) → jaune #FACC15 (75 %) → orange #F97316 (100 %), de 100 à 105 % l'orange vire au rouge-orangé #C2410C, au-delà
+  rouge franc #DC2626 (les seuils 100 et 105 % de la demande initiale sont gardés). Le COIN (bloc d'angle) est maillé
+  lui aussi : `res["maillage"]["coin"]` (9 × 9, § 9.6) = le plus grand des deux champs prolongés — la section au nu de
+  l'aile horizontale (s = e, section 2, épaisseur e + r) et celle de l'aile verticale (section 4), chaque fibre du coin
+  recevant la contrainte de la fibre de même distance à la face extérieure ; c'est une enveloppe, jamais moins que l'une
+  ou l'autre aile, dite dans la mention (« coin : sections 2 et 4 prolongées · pas un calcul par éléments finis »).
+- *Écran* : la désignation du catalogue n'est plus tapée mais choisie dans un MENU DÉROULANT des 233 cornières (deux
+  familles, par dimensions croissantes) ; la liste calculée avec les charges (taux, ★) reste celle de la ligne
+  « Cornière » du résultat.

@@ -417,8 +417,8 @@ def M_attendu(r, cb, aile, s):
     return (H * (Yp - s) - R * (e / 2 - uV)) / 1e3
 
 
-def seq_attendu(r, cb, aile, s):
-    """σ_éq d'une combinaison à s, recalculée ici (N et V de la statique, t(s) du congé, largeur L ou L_eff)."""
+def efforts_attendus(r, cb, aile, s):
+    """(M en kN·mm signé, N en kN signé, V en kN, largeur en mm) d'une combinaison à s, recalculés ici depuis la statique."""
     c, sec, e, r_ = r["corniere"], r["section"], r["section"]["e"], r["section"]["r"]
     R, Xp, Yp = c["R"], cb["X"], cb["Y"]
     uV = c["uV"] if c["uV"] is not None else e / 2
@@ -436,6 +436,13 @@ def seq_attendu(r, cb, aile, s):
         else:
             H = R * (Xp - uV) / (Yp - c["yc"])
             N, Vv = (R, H) if s < Yp else (0.0, 0.0)
+    return Mi, N, Vv, Lw
+
+
+def seq_attendu(r, cb, aile, s):
+    """σ_éq d'une combinaison à s, recalculée ici (N et V de la statique, t(s) du congé, largeur L ou L_eff)."""
+    e, r_ = r["section"]["e"], r["section"]["r"]
+    Mi, N, Vv, Lw = efforts_attendus(r, cb, aile, s)
     t = e + r_ - math.sqrt(max(r_ * r_ - (e + r_ - s) ** 2, 0.0)) if s < e + r_ else e
     W, A = Lw * t * t / 6, Lw * t
     sig = abs(Mi) * 1e3 / W + abs(N) * 1e3 / A
@@ -443,28 +450,67 @@ def seq_attendu(r, cb, aile, s):
     return math.sqrt(sig * sig + 3 * tau * tau)
 
 
+def champ_coin(r, aile, u):
+    """σ_éq (N/mm²) de la section au nu d'une aile (s = e, épaisseur e + r) à la fibre u (distance à la face extérieure),
+    le maximum des neuf combinaisons — recalculé ici pour le coin."""
+    e, r_ = r["section"]["e"], r["section"]["r"]
+    t_e = e + r_
+    zp = 2 * u / t_e - 1
+    best = 0.0
+    for cb in r["combinaisons"]:
+        Mi, N, Vv, Lw = efforts_attendus(r, cb, aile, e)
+        W, A = Lw * t_e * t_e / 6, Lw * t_e
+        sx = Mi * 1e3 * zp / W + N * 1e3 / A
+        tau = abs(Vv) * 1e3 / A
+        best = max(best, math.sqrt(sx * sx + 3 * tau * tau))
+    return best
+
+
+def u_coin(r, k):
+    """La fibre u du niveau ζ_k du coin : de la face extérieure (0) au nu de l'autre aile (e)."""
+    return (-1 + 0.25 * k + 1) / 2 * r["section"]["e"]
+
+
+def coin_attendu(r, i, j):
+    """σ_éq de la maille (ζ_v[i], ζ_h[j]) du coin, recalculée ici : le plus grand des deux champs prolongés — la section
+    au nu de l'aile horizontale (s = e, section 2) à la fibre u_j, celle de l'aile verticale (s = e, section 4) à la
+    fibre u_i."""
+    return max(champ_coin(r, "horizontale", u_coin(r, j)), champ_coin(r, "verticale", u_coin(r, i)))
+
+
 def fautes_diagrammes(r):
-    """Les écarts entre les diagrammes rendus et la statique recalculée : trois courbes (une par charge, à l'ancrage
-    qui gouverne), enveloppe = max point par point des courbes et des neuf combinaisons."""
+    """Les écarts entre les diagrammes rendus et la statique recalculée : trois courbes par aile — une par position de la
+    CHARGE sur l'aile horizontale, une par position de l'ANCRAGE sur l'aile verticale (le paramètre qui déplace le zéro
+    de l'aile : « 85 ± 5, trois zéros »), chacune l'enveloppe des trois positions de l'autre paramètre, le gouvernant à
+    la section de référence nommé —, enveloppe = max point par point des courbes et des neuf combinaisons."""
     out = []
     for aile in ("horizontale", "verticale"):
         d = r["diagrammes"][aile]
-        jeux_charge = sorted(set(cb["jeu_charge"] for cb in r["combinaisons"]))
-        if [cc["jeu_charge"] for cc in d["courbes"]] != jeux_charge:
-            out.append(f"{aile} : {len(d['courbes'])} courbes pour {len(jeux_charge)} positions de la charge")
+        horiz = aile == "horizontale"
+        cle_p, cle_autre = ("jeu_charge", "jeu_ancrage") if horiz else ("jeu_ancrage", "jeu_charge")
+        jeux = sorted(set(cb[cle_p] for cb in r["combinaisons"]))
+        if [cc.get("jeu") for cc in d["courbes"]] != jeux or any(cc.get("parametre") != ("charge" if horiz else "ancrage") for cc in d["courbes"]):
+            out.append(f"{aile} : {len(d['courbes'])} courbes pour {len(jeux)} positions ({[cc.get('jeu') for cc in d['courbes']]})")
             continue
+        s_ref = r["section"]["e"] + r["section"]["r"]
         for cc in d["courbes"]:
-            cbs = [cb for cb in r["combinaisons"] if cb["jeu_charge"] == cc["jeu_charge"]]
+            cbs = [cb for cb in r["combinaisons"] if cb[cle_p] == cc["jeu"]]
+            if cc[cle_p] != cc["jeu"] or (cc["ancrage"] is None) == (not horiz) or (horiz and cc["jeu_ancrage"] is not None) \
+                    or (not horiz and (cc["Y"] != cbs[0]["Y"] or cc["ancrage"] != cc["jeu"])):
+                out.append(f"{aile} courbe Δ = {cc['jeu']} : clés jeu_charge / jeu_ancrage / ancrage / Y incohérentes")
             for s, Mc in cc["points"]:
                 attendu = max((M_attendu(r, cb, aile, s) for cb in cbs), key=abs)
                 if not pres(abs(Mc), abs(attendu), 1e-9):
-                    out.append(f"{aile} courbe Δx = {cc['jeu_charge']} s = {s} : {Mc} ≠ {attendu}")
+                    out.append(f"{aile} courbe Δ = {cc['jeu']} s = {s} : {Mc} ≠ {attendu}")
                     break
-            if aile == "verticale" and cc["ancrage"] is not None:
-                cb_g = next(cb for cb in cbs if cb["jeu_ancrage"] == cc["ancrage"])
-                s_ref = r["section"]["e"] + r["section"]["r"]
-                if any(abs(M_attendu(r, cb, aile, s_ref)) > abs(M_attendu(r, cb_g, aile, s_ref)) * (1 + 1e-9) for cb in cbs):
-                    out.append(f"{aile} courbe Δx = {cc['jeu_charge']} : l'ancrage rendu ({cc['ancrage']}) ne gouverne pas S3")
+            if not horiz:
+                cb_g = next((cb for cb in cbs if cb["jeu_charge"] == cc["jeu_charge"]), None)
+                if cb_g is None or any(abs(M_attendu(r, cb, aile, s_ref)) > abs(M_attendu(r, cb_g, aile, s_ref)) * (1 + 1e-9) for cb in cbs):
+                    out.append(f"{aile} courbe Δy = {cc['jeu']} : la charge nommée ({cc['jeu_charge']}) ne gouverne pas S3")
+                # en A le zéro de la courbe est à SON ancrage Y′ : nul au-delà, non nul avant
+                if r["configuration"] == "A" and (any(abs(M_) > 1e-12 for s_, M_ in cc["points"] if s_ >= cc["Y"])
+                                                 or not any(abs(M_) > 1e-9 for s_, M_ in cc["points"] if s_ < cc["Y"])):
+                    out.append(f"{aile} courbe Δy = {cc['jeu']} : le zéro n'est pas à l'ancrage Y′ = {cc['Y']}")
         for i, pt in enumerate(d["points"]):
             s = pt["s"]
             Mmax_courbes = max((cc["points"][i][1] for cc in d["courbes"]), key=abs)
@@ -486,24 +532,27 @@ DIAG = {lib: M.verifier(dict(CAS, **kw)) for lib, kw in (("A hist 20/10", dict(d
                                                           ("A éq u_V = 0", dict(mode="equilibre", uV=0.0, dx=10.0, dy=5.0)),
                                                           ("B c = 10", dict(configuration="B", yc=10.0, dx=5.0, dy=5.0, a=120.0)))}
 fd = [f"{lib} : {x}" for lib, r in DIAG.items() for x in fautes_diagrammes(r)[:2]]
-chk("diagrammes : une courbe de moment par position de la charge (la statique recalculée ici, à l'ancrage qui gouverne S3 — nommé), "
-    "l'enveloppe = le maximum point par point des courbes, σ_éq = le maximum des neuf combinaisons, t(s) du congé — A historique, A équilibre "
-    "(u_V = 0 aussi), B (c = 10, a = 120 aussi)", not fd, fd[:4])
+chk("diagrammes : une courbe de moment par position de la CHARGE sur l'aile horizontale et par position de l'ANCRAGE sur l'aile verticale (le "
+    "paramètre qui déplace le zéro de l'aile — remarque de l'ingénieur du 10/11 au soir), chacune l'enveloppe de l'autre paramètre, le gouvernant "
+    "de S3 nommé, le zéro de l'aile verticale à Y′ (A) ; l'enveloppe = le maximum point par point des courbes, σ_éq = le maximum des neuf "
+    "combinaisons, t(s) du congé — A historique, A équilibre (u_V = 0 aussi), B (c = 10, a = 120 aussi)", not fd, fd[:4])
 d = DIAG["A hist 20/10"]["diagrammes"]["verticale"]
 chk("diagrammes : repères (sections, congé, bloc d'angle, charge et ses trois positions, ancrage et sa bande, maximum), tronçons N/V, "
-    "les trois courbes de l'aile verticale prennent l'ancrage haut (Δy = +10)",
+    "les trois courbes de l'aile verticale sont celles de l'ancrage (Δy = −10, 0, +10 ; Y′ = 75, 85, 95), chacune avec la charge loin (Δx = +20)",
     d["reperes"]["ancrage"]["bande"] == [75.0, 95.0] and d["reperes"]["ancrage"]["positions"] == [75.0, 85.0, 95.0]
     and DIAG["A hist 20/10"]["diagrammes"]["horizontale"]["reperes"]["charge"]["positions"] == [55.0, 75.0, 95.0]
     and d["reperes"]["conge"] == [15.0, 28.0] and d["reperes"]["bloc_angle"] == [0.0, 15.0] and [x["cle"] for x in d["reperes"]["sections"]] == ["S3", "S4"]
-    and all(cc["ancrage"] == 10.0 for cc in d["courbes"]) and d["troncons"] == [{"de": 15.0, "a": 95.0, "N": 0.0, "V": 42.76}]
+    and [cc["ancrage"] for cc in d["courbes"]] == [-10.0, 0.0, 10.0] and [cc["Y"] for cc in d["courbes"]] == [75.0, 85.0, 95.0]
+    and all(cc["jeu_charge"] == 20.0 for cc in d["courbes"]) and d["troncons"] == [{"de": 15.0, "a": 95.0, "N": 0.0, "V": 42.76}]
+    and [cc["jeu"] for cc in DIAG["A hist 20/10"]["diagrammes"]["horizontale"]["courbes"]] == [-20.0, 0.0, 20.0]
+    and all(cc["jeu_ancrage"] is None and cc["ancrage"] is None for cc in DIAG["A hist 20/10"]["diagrammes"]["horizontale"]["courbes"])
     and pres(d["reperes"]["maximum"]["taux"], V(DIAG["A hist 20/10"], "max_v")["taux"]), d["reperes"])
 dB = DIAG["B 20/10"]["diagrammes"]["verticale"]
-chk("B : à la section 3 le moment ne dépend pas de l'ancrage (égalité → l'ancrage nominal est nommé), sous l'ancrage la courbe suit l'ancrage bas ; "
-    "tronçons N = −R puis V = H ; contact repéré au bout libre (s = haut)",
-    all(cc["ancrage"] == 0.0 for cc in dB["courbes"]) and dB["troncons"][0]["N"] == -42.76 and dB["troncons"][1]["V"] > 0 and dB["reperes"]["contact"] == 120.0
-    and all(pres(abs(M_), abs(M_attendu(DIAG["B 20/10"], next(cb for cb in DIAG["B 20/10"]["combinaisons"] if cb["jeu_charge"] == cc["jeu_charge"]
-                                                                  and cb["jeu_ancrage"] == 10.0), "verticale", s_)))
-            for cc in dB["courbes"] for s_, M_ in cc["points"] if 95.0 < s_ < 120.0))
+chk("B : les trois courbes de l'aile verticale sont celles de l'ancrage (Δy = −10, 0, +10) ; sous l'ancrage bas (Δy = +10) la courbe suit sa statique "
+    "(le maximum des trois charges) ; tronçons N = −R puis V = H ; contact repéré au bout libre (s = haut)",
+    [cc["ancrage"] for cc in dB["courbes"]] == [-10.0, 0.0, 10.0] and dB["troncons"][0]["N"] == -42.76 and dB["troncons"][1]["V"] > 0 and dB["reperes"]["contact"] == 120.0
+    and all(pres(abs(M_), max(abs(M_attendu(DIAG["B 20/10"], cb, "verticale", s_)) for cb in DIAG["B 20/10"]["combinaisons"] if cb["jeu_ancrage"] == 10.0))
+            for cc in dB["courbes"] if cc["jeu"] == 10.0 for s_, M_ in cc["points"] if 95.0 < s_ < 120.0))
 chk("sans jeu, une seule courbe, égale à l'enveloppe", len(DIAG["A hist 0/0"]["diagrammes"]["horizontale"]["courbes"]) == 1
     and all(pres(abs(p["M"]), abs(q[1])) for p, q in zip(DIAG["A hist 0/0"]["diagrammes"]["horizontale"]["points"],
                                                         DIAG["A hist 0/0"]["diagrammes"]["horizontale"]["courbes"][0]["points"])))
@@ -906,13 +955,31 @@ def fautes_maillage(r):
             f.append(f"{aile} : max {ch['max']['taux']} face à {vmax['taux']}")
         if ch["max"]["taux"] != max(max(l) for l in ch["taux"]) or not pres(ch["max"]["sigma_eq"], ch["max"]["taux"] * r["materiau"]["sigma_adm"]):
             f.append(f"{aile} : le maximum annoncé n'est pas celui des mailles")
+    # le coin (bloc d'angle) : 9 × 9, chaque maille = le plus grand des deux champs prolongés, recalculé ici
+    coin = r["maillage"].get("coin")
+    if not coin or coin["zeta"] != [-1.0 + 0.25 * i for i in range(9)] or len(coin["taux"]) != 9 or any(len(l) != 9 for l in coin["taux"]):
+        f.append("coin : absent ou pas 9 × 9")
+    else:
+        ecarts = [(i, j, coin["sigma_eq"][i][j], coin_attendu(r, i, j)) for i in range(9) for j in range(9)
+                  if not pres(coin["sigma_eq"][i][j], coin_attendu(r, i, j), 1e-9)
+                  or not pres(coin["taux"][i][j], coin["sigma_eq"][i][j] / r["materiau"]["sigma_adm"], 1e-9)]
+        if ecarts:
+            f.append(f"coin : {len(ecarts)} maille(s) ≠ le plus grand des champs prolongés, p. ex. {ecarts[0]}")
     return f
 
 
 chk("maillage (A historique) : 49 × 9 mailles par aile, aux sections S1 à S4 le taux du maillage = la vérification à 1e-9, le maximum ≤ celui "
-    "du congé (section dorée) et à moins de 1 % ; idem A équilibre, B, avec jeux", not (fautes_maillage(R0) + fautes_maillage(M.verifier(dict(CAS, mode="equilibre")))
+    "du congé (section dorée) et à moins de 1 % ; le COIN 9 × 9 = le plus grand des deux champs prolongés (sections 2 et 4, fibre de même "
+    "distance à la face extérieure) recalculé ici ; idem A équilibre, B, avec jeux", not (fautes_maillage(R0) + fautes_maillage(M.verifier(dict(CAS, mode="equilibre")))
     + fautes_maillage(B) + fautes_maillage(M.verifier(dict(CAS, dx=20.0, dy=10.0)))),
     fautes_maillage(R0) + fautes_maillage(B))
+chk("coin du cas de contrôle : au talon (u = 0 des deux ailes) la maille vaut la section 4 prolongée (M4 > M2 : l'aile verticale l'emporte) ; "
+    "la plus chargée du coin reste sous le maximum du congé ; aucune maille du coin au-dessous du champ de l'une ou l'autre aile",
+    pres(R0["maillage"]["coin"]["sigma_eq"][0][0], champ_coin(R0, "verticale", 0.0), 1e-9)
+    and champ_coin(R0, "verticale", 0.0) > champ_coin(R0, "horizontale", 0.0)
+    and max(max(l) for l in R0["maillage"]["coin"]["taux"]) < R0["maxima"]["verticale"]["taux"]
+    and all(R0["maillage"]["coin"]["sigma_eq"][i][j] >= max(champ_coin(R0, "horizontale", u_coin(R0, j)), champ_coin(R0, "verticale", u_coin(R0, i))) - 1e-9
+            for i in range(9) for j in range(9)))
 MJ0, MJ1 = R0["maillage"]["verticale"], M.verifier(dict(CAS, dx=20.0, dy=10.0))["maillage"]["verticale"]
 chk("maillage : l'enveloppe ne baisse nulle part quand les jeux croissent (cas de contrôle → dx = 20, dy = 10, mêmes abscisses) ; "
     "sans jeu, la maille (s, ζ = ±1) vaut la contrainte de la combinaison unique : ζ = +1 sur la face du congé tendue en A (M > 0)",
@@ -1195,6 +1262,12 @@ MUTATIONS = (
                               "                tau = 0.0\n                vm = max(vm, math.sqrt(sx * sx + 3.0 * tau * tau))")]),
     ("maillage : une seule combinaison (la nominale)", [("moteur", "            for st in ctx[\"stats\"]:\n                M, N, V = S.efforts(st, aile, s)\n                W, A = S.module_aire",
                                                          "            for st in ctx[\"stats\"][:1]:\n                M, N, V = S.efforts(st, aile, s)\n                W, A = S.module_aire")]),
+    ("coin : un seul champ (l'aile horizontale), plus d'enveloppe des deux ailes",
+     [("moteur", "seq = [[max(sh[j], sv[i]) for j in range(len(ZETA))] for i in range(len(ZETA))]", "seq = [[sh[j] for j in range(len(ZETA))] for i in range(len(ZETA))]")]),
+    ("coin : la fibre du coin prise au même ζ que la section au nu (et non à la même distance de la face extérieure)",
+     [("moteur", "        zp = 2.0 * u / t_e - 1.0\n", "        zp = 2.0 * u / e - 1.0\n")]),
+    ("diagrammes : l'aile verticale par position de la charge (un seul zéro)",
+     [("moteur", 'cle_p, cle_autre = ("jeu_charge", "jeu_ancrage") if horiz else ("jeu_ancrage", "jeu_charge")', 'cle_p, cle_autre = ("jeu_charge", "jeu_ancrage")')]),
     ("entraxe : le minimum 2,2·d0 oublié", [("entree", "_exiger(s_ancr >= ENTRAXE_MIN * trou,", "_exiger(True or s_ancr >= ENTRAXE_MIN * trou,")]),
     ("poutre : le contact du bout libre hors de la poutre admis (B)", [("entree", "_exiger(haut - out[\"yc\"] <= bs,", "_exiger(True or haut - out[\"yc\"] <= bs,")]),
     ("nuance quelconque admise", [("entree", "_exiger(out[\"fy\"] in FY_ADMIS,", "_exiger(True or out[\"fy\"] in FY_ADMIS,")]),
@@ -1217,7 +1290,7 @@ for nom, muts in MUTATIONS:
         survivants.append(nom)
 chk(f"{len(MUTATIONS)} mutations volontaires (une par formule clé : ρ₃, pivot, N en B, nette, L_eff, dx, M_angle, u_V, t(s), σ_éq, τ, bras, ELU, enveloppe, maximum, "
     f"garde, gouvernant, verdict, refus, défaut, sélecteur, optimal, v1, diagrammes, positions, nuance, contact, texte au point, arrachement en B, "
-    f"limite ELU, maillage τ, maillage enveloppe, entraxe minimal, contact hors poutre) : TOUTES rejetées "
+    f"limite ELU, maillage τ, maillage enveloppe, coin à un seul champ, fibre du coin, courbes de l'ancrage, entraxe minimal, contact hors poutre) : TOUTES rejetées "
     f"(de {min(n_rejets or [0])} à {max(n_rejets or [0])} reproches chacune)", not survivants, survivants)
 chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle : les rejets viennent bien des mutations", not rejets(charger_mutant(TEMOIN[1])))
 chk("après les mutations, le moteur chargé est intact (mêmes résultats)", M.verifier(CAS) == R0 and M.candidats(CAS) == CANDS)

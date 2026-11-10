@@ -83,12 +83,18 @@ SORTIE de calculer / verifier
                   l'aile va vers l'angle), "compression_mur" (kN, A : résultante à y_c),
                   "pression_support" (N/mm, B), "methode": "historique"|"equilibre"},
      "diagrammes": {"horizontale": <diagramme>, "verticale": <diagramme>} (None quand diagrammes=False),
-     "maillage": {"horizontale": <champ>, "verticale": <champ>} (None quand diagrammes=False) — § 9.6 :
+     "maillage": {"horizontale": <champ>, "verticale": <champ>, "coin": <coin>} (None quand diagrammes=False) — § 9.6 :
                   <champ> = {"aile", "s": [du nu e à la fin : le congé en 12 pas, la partie droite en 36], "t": [t(s)],
                   "zeta": [−1 … +1 en 9 niveaux ; −1 = face extérieure, +1 = face du congé], "sigma_eq": [[σ_vm(s, ζ) par ζ] par s],
                   "taux": [[σ_vm/σ_lim]], "max": {"s", "zeta", "sigma_eq", "taux"}} ; pour chaque combinaison k :
                   σ_x = (M_k·ζ)/W + N_k/A (M signé), τ = |V_k|/A uniforme (le classeur), σ_vm,k = √(σ_x² + 3τ²) ; la maille
-                  garde max_k (aucun mélange de positions) ; max_ζ σ_vm(s, ζ) = |M|/W + |N|/A = la vérification de la coupe,
+                  garde max_k (aucun mélange de positions) ; max_ζ σ_vm(s, ζ) = |M|/W + |N|/A = la vérification de la coupe ;
+                  <coin> = {"zeta", "sigma_eq": [[par ζ_h] par ζ_v], "taux", "modele"} : le bloc d'angle (s < e sur les deux
+                  ailes), hors du modèle de poutre, maillé par le PLUS GRAND des deux champs prolongés — la section 2 (s = e de
+                  l'aile horizontale, fonction de ζ_h) et la section 4 (s = e de l'aile verticale, fonction de ζ_v), chaque
+                  fibre du coin prenant la contrainte de la fibre de même distance à la face extérieure dans la section au nu
+                  (épaisseur e + r) : jamais moins que l'une ou l'autre (demande de l'ingénieur du 10/11 au soir : « le
+                  maillage partout »),
      "maxima": {"horizontale": <verification max_h>, "verticale": <verification max_v>},
      "comparaison": {"mode", "taux_max", "gouvernant": {"cle", "nom"}} — l'autre mode, en A ; None en B,
      "garde": {"taux_historique", "taux_equilibre_P1", "depasse", "yc", "uV"} — mode historique ; None sinon,
@@ -107,10 +113,14 @@ SORTIE de calculer / verifier
                     congé, e + r − s), "dans_conge" (bool)}
   <information> = {"cle", "nom", "valeur", "unite", "combinaison" (ou None), "texte"}
   <diagramme> = {"aile", "fin" (mm), "largeur" (mm, la plus petite des combinaisons), "points": [<point>, …] (l'ENVELOPPE :
-                 point par point, la plus défavorable des combinaisons), "courbes": [{"jeu_charge", "X", "ancrage" (le jeu
-                 d'ancrage qui gouverne la section de référence pour cette charge), "points": [[s, M], …]}, …] (une courbe
-                 par position de la charge, chacune enveloppe des trois positions de l'ancrage ; l'enveloppe des points
-                 est leur maximum point par point), "troncons": [{"de", "a", "N", "V"}] (étiquettes des efforts, enveloppe),
+                 point par point, la plus défavorable des combinaisons), "courbes": [{"parametre": "charge"|"ancrage", "jeu"
+                 (−d|0|+d du paramètre), "jeu_charge", "jeu_ancrage", "X", "Y", "ancrage" (= jeu_ancrage, compatibilité),
+                 "points": [[s, M], …]}, …] — une courbe par position du paramètre qui DÉPLACE LE ZÉRO de l'aile : la charge
+                 (X − dx, X, X + dx) sur l'aile horizontale, l'ancrage (Y − dy, Y, Y + dy) sur l'aile verticale (remarque de
+                 l'ingénieur du 10/11 au soir : « 85 ± 5, trois zéros ») ; chaque courbe est l'enveloppe des trois positions
+                 de l'autre paramètre, dont le gouvernant à la section de référence est nommé (jeu_charge sur l'aile
+                 verticale, jeu_ancrage None sur l'horizontale : son moment n'en dépend pas) ; l'enveloppe des points est leur
+                 maximum point par point), "troncons": [{"de", "a", "N", "V"}] (étiquettes des efforts, enveloppe),
                  "reperes": {"sections": [{"cle", "s", "t"}], "conge": [e, e + r], "bloc_angle": [0, e], "charge": {"X",
                  "positions"} (horizontale), "ancrage": {"Y", "positions", "bande", "d0"} (verticale), "contact" (B),
                  "maximum": {"s", "taux", "sigma_eq"}}}
@@ -374,11 +384,15 @@ def _diagramme(ctx: Dict, aile: str, verifs: List[Dict]) -> Dict:
     absc += [x for x in coudes if e <= x <= fin] + [vmax["s"]]
     absc = sorted(set(round(x, 9) for x in absc))
     points = _enveloppe_points(ctx, aile, absc)
-    # une courbe de moment par position de la charge, enveloppe des positions de l'ancrage
+    # une courbe de moment par position du paramètre qui déplace le ZÉRO de l'aile — la charge (X ± dx) sur l'aile
+    # horizontale, l'ancrage (Y ± dy) sur l'aile verticale (remarque de l'ingénieur du 10/11 au soir : « 85 ± 5, il faut
+    # trois zéros ») ; chaque courbe est l'enveloppe des trois positions de l'autre paramètre, le gouvernant nommé
     courbes = []
     s_ref = e + r
-    for jc in sorted(set(cb["jeu_charge"] for cb in ctx["combos"])):
-        paires = [(cb, st) for cb, st in zip(ctx["combos"], ctx["stats"]) if cb["jeu_charge"] == jc]
+    horiz = aile == HORIZONTALE
+    cle_p, cle_autre = ("jeu_charge", "jeu_ancrage") if horiz else ("jeu_ancrage", "jeu_charge")
+    for jv in sorted(set(cb[cle_p] for cb in ctx["combos"])):
+        paires = [(cb, st) for cb, st in zip(ctx["combos"], ctx["stats"]) if cb[cle_p] == jv]
         pts = []
         for s in absc:
             M = 0.0
@@ -387,9 +401,11 @@ def _diagramme(ctx: Dict, aile: str, verifs: List[Dict]) -> Dict:
                 if abs(m) > abs(M):
                     M = m
             pts.append([s, M / 1e3])
-        gouv = max(paires, key=lambda p: (abs(S.efforts(p[1], aile, s_ref)[0]), -abs(p[0]["jeu_ancrage"])))[0]
-        courbes.append({"jeu_charge": jc, "X": paires[0][0]["X"], "ancrage": gouv["jeu_ancrage"] if aile == VERTICALE else None,
-                        "points": pts})
+        gouv = max(paires, key=lambda p: (abs(S.efforts(p[1], aile, s_ref)[0]), -abs(p[0][cle_autre])))[0]
+        courbes.append({"parametre": "charge" if horiz else "ancrage", "jeu": jv,
+                        "jeu_charge": jv if horiz else gouv["jeu_charge"], "jeu_ancrage": None if horiz else jv,
+                        "X": paires[0][0]["X"] if horiz else gouv["X"], "Y": None if horiz else paires[0][0]["Y"],
+                        "ancrage": None if horiz else jv, "points": pts})
     # les tronçons : N et V en étiquettes (enveloppe)
     R, Hmax = c["R"], max(st["H"] for st in ctx["stats"])
     Xmax, Ymin, Ymax = max(st["Xp"] for st in ctx["stats"]), min(st["Yp"] for st in ctx["stats"]), max(st["Yp"] for st in ctx["stats"])
@@ -448,6 +464,42 @@ def _maillage(ctx: Dict, aile: str) -> Dict:
         seqs.append(ligne)
         taux.append([v / ctx["sigma_adm"] for v in ligne])
     return {"aile": aile, "s": absc, "t": ts, "zeta": list(ZETA), "sigma_eq": seqs, "taux": taux, "max": best}
+
+
+def _maillage_coin(ctx: Dict) -> Dict:
+    """Le bloc d'angle (s < e sur les deux ailes), hors du modèle de poutre, maillé lui aussi (demande de l'ingénieur du
+    10/11 au soir : « il faudrait que le maillage soit partout ») : chaque maille (ζ_v, ζ_h) garde le PLUS GRAND des deux
+    champs PROLONGÉS — celui de la section au nu de l'aile horizontale (s = e, la section 2, d'épaisseur e + r, la matière
+    du congé comprise) et celui de la section au nu de l'aile verticale (s = e, la section 4). Une fibre du coin à la
+    distance u de la face extérieure (0 ≤ u ≤ e) reçoit la contrainte de la fibre de MÊME distance u de la section au nu
+    (ζ′ = 2u/(e + r) − 1), pour chaque combinaison, et garde le maximum des combinaisons comme les ailes. L'enveloppe des
+    deux ailes : jamais moins que l'une ou l'autre. ``sigma_eq[i][j]`` : i suit ζ_v (u depuis le nu du support, vers la
+    droite), j suit ζ_h (u depuis la face extérieure de l'aile horizontale)."""
+    e, r = ctx["e"], ctx["r"]
+    t_e = S.t_conge(e, e, r)
+    us = [(z + 1.0) / 2.0 * e for z in ZETA]
+
+    def champ(aile: str, u: float) -> float:
+        zp = 2.0 * u / t_e - 1.0
+        vm = 0.0
+        for st in ctx["stats"]:
+            M, N, V = S.efforts(st, aile, e)
+            W, A = S.module_aire(ctx["largeur"](aile, st), t_e)
+            sx = M * 1e3 * zp / W + N * 1e3 / A
+            tau = abs(V) * 1e3 / A
+            vm = max(vm, math.sqrt(sx * sx + 3.0 * tau * tau))
+        return vm
+
+    sh = [champ(HORIZONTALE, u) for u in us]          # fonction de ζ_h (j)
+    sv = [champ(VERTICALE, u) for u in us]            # fonction de ζ_v (i)
+    seq = [[max(sh[j], sv[i]) for j in range(len(ZETA))] for i in range(len(ZETA))]
+    return {"zeta": list(ZETA), "sigma_eq": seq, "taux": [[v / ctx["sigma_adm"] for v in ligne] for ligne in seq],
+            "modele": "sections 2 et 4 prolongées (fibre de même distance à la face extérieure), enveloppe des deux ailes"}
+
+
+def _maillages(ctx: Dict) -> Dict:
+    """Les trois champs : une aile, l'autre, le coin."""
+    return {HORIZONTALE: _maillage(ctx, HORIZONTALE), VERTICALE: _maillage(ctx, VERTICALE), "coin": _maillage_coin(ctx)}
 
 
 # ------------------------------------------------------------------ les formules du détail
@@ -798,7 +850,7 @@ def calculer(c: Dict, diagrammes: bool = True, annexes: bool = True) -> Dict:
            "geometrie": geo, "combinaisons": ctx["combos"], "efforts": _efforts(ctx, anc), "verifications": verifs,
            "informations": _informations(ctx, anc, geo, comparaison), "ancrages": anc,
            "diagrammes": {HORIZONTALE: _diagramme(ctx, HORIZONTALE, verifs), VERTICALE: _diagramme(ctx, VERTICALE, verifs)} if diagrammes else None,
-           "maillage": {HORIZONTALE: _maillage(ctx, HORIZONTALE), VERTICALE: _maillage(ctx, VERTICALE)} if diagrammes else None,
+           "maillage": _maillages(ctx) if diagrammes else None,
            "maxima": {HORIZONTALE: next(v for v in verifs if v["cle"] == "max_h"), VERTICALE: next(v for v in verifs if v["cle"] == "max_v")},
            "comparaison": comparaison, "garde": garde,
            "taux_max": gov["taux"], "statut": OK if all(v["ok"] for v in verifs if v["verdict"]) else NOK,

@@ -27,20 +27,25 @@ haut (configuration A) ou vers le bas (B) ; y vers le bas, comme le SVG.
 - ``moments`` — « les moments sur la cornière », le principe du classeur (figure c) : la cornière à l'échelle, et le
   diagramme de moment de CHAQUE aile porté PERPENDICULAIREMENT à l'aile depuis son axe (la ligne M = 0, tracée et
   nommée), hors de l'angle — l'aile horizontale vers le bas en A et vers le haut en B, l'aile verticale côté support ;
-  une ÉCHELLE commune (``PART_MOMENT`` × haut pour le plus grand moment) ; les trois courbes (une par position de la
-  charge : extrêmes en trait fin, nominale en trait moyen), l'ENVELOPPE en gras, remplie légèrement ; le
-  prolongement en pointillé dans le bloc d'angle jusqu'à Mmax (et M angle en B) ; les sections 1 à 4 avec la valeur de
-  l'enveloppe (M1 à M4, trois décimales), l'axe de l'ancrage et sa bande ± dy, la charge R en petite flèche. Les
-  valeurs écrites sont des grandeurs (|M|) : le signe est une affaire de face, dite par la légende (M > 0 : face du
-  congé tendue ; tout négatif en B).
+  une ÉCHELLE commune (``PART_MOMENT`` × haut pour le plus grand moment) ; les trois courbes de chaque aile — une par
+  position du paramètre qui déplace SON zéro : la charge X ± dx sur l'aile horizontale, l'ancrage Y ± dy sur l'aile
+  verticale (remarque de l'ingénieur du 10/11 au soir : « 85 ± 5, trois zéros ») ; extrêmes en trait fin, nominale en
+  trait moyen —, l'ENVELOPPE en gras, remplie légèrement JUSQU'AU BOUT du prolongement (« la coloration jusqu'à Mmax,
+  sur les deux ailes ») ; le prolongement en pointillé dans le bloc d'angle jusqu'à Mmax au nu du support pour l'aile
+  horizontale, jusqu'au pivot pour l'aile verticale (Mmax en historique, M angle en B), chacun étiqueté — Mmax est donc
+  écrit en bas ET à gauche ; les sections 1 à 4 avec la valeur de l'enveloppe (M1 à M4, trois décimales), l'axe de
+  l'ancrage et sa bande ± dy, la charge R en petite flèche. Les valeurs écrites sont des grandeurs (|M|) : le signe est
+  une affaire de face, dite par la légende (M > 0 : face du congé tendue ; tout négatif en B).
 - ``contraintes`` — « le maillage de von Mises » : la cornière à l'échelle, découpée en mailles (s_i, s_{i+1}) ×
   (ζ_j, ζ_{j+1}) posées sur la vraie géométrie (ζ = −1 face extérieure, +1 face du congé, qui suit l'arc t(s)), chaque
-  maille colorée par le plus grand des taux de ses quatre nœuds (``res["maillage"]``) avec le dégradé IMPOSÉ
-  (``couleur_taux`` : 0 → 100 % vert progressif, 100 → 105 % orange progressif, au-delà rouge) ; le bloc d'angle
-  (s < e) hachuré gris « hors modèle de poutre » ; le contour par-dessus ; le maximum ◉ de chaque aile à
-  ``maxima[aile]["s"]`` sur la face ζ du maillage, étiqueté avec le taux de la VÉRIFICATION ; les sections 1 à 4 ; l'axe
-  de l'ancrage ; une barre de couleur (0, 50, 100, 105 %) ; deux lignes qui disent ce que c'est — des contraintes de
-  poutre, l'enveloppe des positions, PAS un calcul par éléments finis. Pas de déformée.
+  maille colorée par le plus grand des taux de ses quatre nœuds (``res["maillage"]``) avec l'échelle IMPOSÉE
+  (``couleur_taux`` : 0 → 100 % bleu, cyan, vert, jaune, orange ; 100 → 105 % orange vers rouge-orangé ; au-delà rouge
+  franc) ; le bloc d'angle (s < e) maillé lui aussi par le champ « coin » du moteur (sections 2 et 4 prolongées,
+  enveloppe des deux) ; le contour par-dessus ; le maximum ◉ de chaque aile à ``maxima[aile]["s"]`` sur la face ζ du
+  maillage, étiqueté avec le taux de la VÉRIFICATION ; les sections 1 à 4 ; l'axe de l'ancrage ; une barre de couleur
+  graduée des deux côtés — σéq en N/mm² à gauche (0, la moitié, la LIMITE σadm ou fy/γM0, 105 %), le taux en % à
+  droite (0, 50, 100, 105) — ; deux lignes qui disent ce que c'est — des contraintes de poutre, l'enveloppe des
+  positions, PAS un calcul par éléments finis. Pas de déformée.
 - ``elevation`` — à l'échelle : la tranche L vue de face (les n ancrages à ``ancrages["positions_z"]``, la chaîne de
   cotes e₁ · s · … · e₁, N et V par ancrage dans l'état limite saisi) et l'aile horizontale RABATTUE : la charge de
   largeur a (ou L) et sa diffusion à 45° jusqu'à la section 1 — le trapèze qui donne L_eff, coté ; des COUPURES au
@@ -84,10 +89,12 @@ LISIBLE_MIN = 1.6
 PART_MOMENT = 0.7
 # les coupures : le support au-delà de ce multiple de la hauteur de la cornière, la tranche au-delà de celui-ci de L
 COUPURE_SUPPORT, COUPURE_TRANCHE, COUPURE_TIGE = 1.5, 2.5, 1.2
-# le dégradé imposé des taux (§ 9.1) : 0 → 100 % vert progressif, 100 → 105 % orange progressif, au-delà rouge
-DEGRADE_VERT = ("#E8F5E9", "#1B5E20")
-DEGRADE_ORANGE = ("#FFB74D", "#E65100")
-ROUGE_TAUX = "#C62828"
+# l'échelle de couleurs imposée des taux (§ 9.1, révisée le 10/11 au soir sur la remarque de l'ingénieur devant les
+# captures : « le vert seul ne rend pas bien, une vraie échelle de couleurs ») : de 0 à 100 % l'échelle des logiciels de
+# calcul — bleu, cyan, vert, jaune, orange à 100 % — ; de 100 à 105 % l'orange vire au rouge-orangé ; au-delà rouge franc
+PALETTE_TAUX = ((0.0, "#2563EB"), (0.25, "#06B6D4"), (0.5, "#22C55E"), (0.75, "#FACC15"), (1.0, "#F97316"))
+DEGRADE_ORANGE = ("#F97316", "#C2410C")
+ROUGE_TAUX = "#DC2626"
 SEUIL_ORANGE = 1.05
 
 
@@ -383,9 +390,14 @@ def _lerp(c0: str, c1: str, t: float) -> str:
 
 
 def couleur_taux(t: float) -> str:
-    """La couleur IMPOSÉE d'un taux : de 0 à 100 % un vert qui fonce, de 100 à 105 % un orange qui fonce, rouge au-delà."""
+    """La couleur IMPOSÉE d'un taux : de 0 à 100 % l'échelle ``PALETTE_TAUX`` (bleu → cyan → vert → jaune → orange, par
+    morceaux), de 100 à 105 % un orange qui vire au rouge-orangé, rouge franc au-delà."""
     if t <= 1.0:
-        return _lerp(DEGRADE_VERT[0], DEGRADE_VERT[1], t)
+        t = max(0.0, t)
+        for (t0, c0), (t1, c1) in zip(PALETTE_TAUX, PALETTE_TAUX[1:]):
+            if t <= t1:
+                return _lerp(c0, c1, (t - t0) / (t1 - t0))
+        return PALETTE_TAUX[-1][1]
     if t <= SEUIL_ORANGE:
         return _lerp(DEGRADE_ORANGE[0], DEGRADE_ORANGE[1], (t - 1.0) / (SEUIL_ORANGE - 1.0))
     return ROUGE_TAUX
@@ -841,25 +853,27 @@ def moments(res: Dict, fs: Optional[float] = None, interactif: bool = True) -> D
         """Un point du diagramme de l'aile verticale : porté côté support, depuis l'axe de l'aile."""
         return (x_ax - abs(M) * ech, yv(sv))
 
+    # --- le prolongement dans le bloc d'angle (hors modèle), en pointillé : l'aile horizontale jusqu'à Mmax au nu du
+    #     support (M angle à l'axe de l'aile verticale en B) ; l'aile verticale jusqu'au pivot du classeur (historique :
+    #     Mmax à e/2) ou le moment constant de B ; rien en A équilibre (le pivot est ailleurs)
+    prolong: Dict[str, List[Tuple[float, float]]] = {HORIZONTALE: [(e, dgs[HORIZONTALE]["points"][0]["M"]), (0.0, Mmax)]}
+    if mode == HISTORIQUE:
+        prolong[VERTICALE] = [(e, dgs[VERTICALE]["points"][0]["M"]), (e / 2.0, Mmax)]
+    elif not A:
+        prolong[VERTICALE] = [(e, dgs[VERTICALE]["points"][0]["M"]), (e / 2.0, abs(eff["M_angle"]))]
     for aile, pt in ((HORIZONTALE, pt_h), (VERTICALE, pt_v)):
         dg = dgs[aile]
         pts = dg["points"]
-        # la zone entre l'axe et l'enveloppe, remplie léger ; les courbes (extrêmes fines, nominale moyenne) ; l'enveloppe
-        s.append(_poly(["envf"], [pt(pts[0]["s"], 0.0)] + [pt(p["s"], p["M"]) for p in pts] + [pt(pts[-1]["s"], 0.0)]))
-        for c in sorted(dg["courbes"], key=lambda c: abs(c["jeu_charge"]), reverse=True):
-            s.append(_path(["cvm" if abs(c["jeu_charge"]) < 1e-9 else "cvf"], [[pt(a, b) for a, b in c["points"]]]))
+        # la zone entre l'axe et l'enveloppe, remplie léger, JUSQU'AU BOUT du prolongement (remarque de l'ingénieur du
+        # 10/11 au soir : « la coloration jusqu'à Mmax, pour l'horizontale et pour la verticale ») ; les courbes (une par
+        # position du paramètre qui déplace le zéro de l'aile : extrêmes fines, nominale moyenne) ; l'enveloppe
+        debut = [pt(prolong[aile][-1][0], 0.0), pt(*prolong[aile][-1])] if aile in prolong else [pt(pts[0]["s"], 0.0)]
+        s.append(_poly(["envf"], debut + [pt(p["s"], p["M"]) for p in pts] + [pt(pts[-1]["s"], 0.0)]))
+        for c in sorted(dg["courbes"], key=lambda c: abs(c["jeu"]), reverse=True):
+            s.append(_path(["cvm" if abs(c["jeu"]) < 1e-9 else "cvf"], [[pt(a, b) for a, b in c["points"]]]))
         s.append(_path(["env"], [[pt(p["s"], p["M"]) for p in pts]]))
-    # --- le prolongement dans le bloc d'angle (hors modèle), en pointillé : l'aile horizontale jusqu'à Mmax au nu du
-    #     support (M angle à l'axe de l'aile verticale en B) ; l'aile verticale jusqu'au pivot du classeur (historique :
-    #     Mmax à e/2) ou le moment constant de B
-    M_e_h = dgs[HORIZONTALE]["points"][0]["M"]
-    M_e_v = dgs[VERTICALE]["points"][0]["M"]
-    if ech > 0:
-        s.append(_path(["envp"], [[pt_h(e, M_e_h), pt_h(0.0, Mmax)]]))
-        if mode == HISTORIQUE:
-            s.append(_path(["envp"], [[pt_v(e, M_e_v), pt_v(e / 2.0, Mmax)]]))
-        elif not A:
-            s.append(_path(["envp"], [[pt_v(e, M_e_v), pt_v(e / 2.0, eff["M_angle"])]]))
+        if ech > 0 and aile in prolong:
+            s.append(_path(["envp"], [[pt(*q) for q in prolong[aile]]]))
     # --- la charge R en petite flèche à X (ses positions X ± dx en tirets) ; l'axe de l'ancrage, sa bande ± dy, le contact (B)
     y_face = yv(e) if A else yv(0.0)
     _fleche_cls(s, (X, y_face - 2.6 * fs), (X, y_face), "fz", "fzh", fs)
@@ -903,14 +917,23 @@ def moments(res: Dict, fs: Optional[float] = None, interactif: bool = True) -> D
         s.append(_path(["sc"], [[(0.0, yv(sv)), (secs[cle]["t"], yv(sv))]]))
         s.append(_path(["d1"], [[(0.0, yv(sv)), (x_p + 0.8 * fs, yv(sv))]]))
         _etiquette_pastille(s, x_p, yv(sv), num, txt, fs, -1)
-    # Mmax au nu du support (le bout du prolongement de l'aile horizontale)
+    # Mmax au nu du support (le bout du prolongement de l'aile horizontale) et, à GAUCHE, le bout du prolongement de
+    # l'aile verticale (Mmax au pivot en historique, M angle en B — demande de l'ingénieur du 10/11 au soir), posé de
+    # l'autre côté de l'axe que l'étiquette M4 pour ne pas la toucher
     if ech > 0:
         xm, ym = pt_h(0.0, Mmax)
         s.append(_circle(["gvd"], xm, ym, 0.22 * fs))
         txt = f"Mmax = {_knm(Mmax)}"
         _label(s, xm - 0.6 * fs - _tw(txt, fs) / 2, ym - k * 0.2 * fs + 0.34 * fs, txt, fs)
+        if VERTICALE in prolong:
+            sv_, Mv_ = prolong[VERTICALE][-1]
+            xm, ym = pt_v(sv_, Mv_)
+            s.append(_circle(["gvd"], xm, ym, 0.22 * fs))
+            txt = f"Mmax = {_knm(Mv_)}" if mode == HISTORIQUE else f"M angle = {_knm(Mv_)}"
+            _label(s, xm - 0.3 * fs - _tw(txt, fs) / 2, ym - k * 1.3 * fs + 0.34 * fs, txt, fs)
     aria = (f"Moments sur la cornière {sec['designation']} (configuration {cfg}) : le diagramme de chaque aile porté perpendiculairement "
-            f"à l'aile depuis son axe, une courbe par position de la charge, l'enveloppe en gras, M1 à M4 et Mmax = {_knm(Mmax)} kN·m")
+            f"à l'aile depuis son axe, une courbe par position de la charge (aile horizontale) et de l'ancrage (aile verticale), "
+            f"l'enveloppe en gras remplie jusqu'à Mmax, M1 à M4 et Mmax = {_knm(Mmax)} kN·m")
     return _dessin(s, fs, aria)
 
 
@@ -932,9 +955,19 @@ def contraintes(res: Dict, fs: Optional[float] = None, interactif: bool = True) 
     _lisible(haut, fs, "la hauteur de la cornière")
     mz = res["maillage"]
     s: List[Dict] = []
-    # --- le bloc d'angle (s < e) : hors modèle de poutre, hachuré gris clair
-    bloc = [(0.0, yv(0.0)), (e, yv(0.0)), (e, yv(e)), (0.0, yv(e))]
-    s += [_poly(["bg"], bloc), _hach(["ht"], bloc, 0.3 * fs)]
+    # --- le bloc d'angle (s < e) : hors modèle de poutre, MAILLÉ lui aussi par le champ « coin » du moteur (le plus grand
+    #     des deux champs prolongés, sections 2 et 4 — demande de l'ingénieur du 10/11 au soir : « le maillage partout ») ;
+    #     i suit ζ_v (x depuis le nu du support), j suit ζ_h (y depuis la face extérieure)
+    coin = mz["coin"]
+    Zc, TXc = coin["zeta"], coin["taux"]
+    for i in range(len(Zc) - 1):
+        for j in range(len(Zc) - 1):
+            t = max(TXc[i][j], TXc[i + 1][j], TXc[i][j + 1], TXc[i + 1][j + 1])
+            x0, x1 = (Zc[i] + 1.0) / 2.0 * e, (Zc[i + 1] + 1.0) / 2.0 * e
+            y0, y1 = yv((Zc[j] + 1.0) / 2.0 * e), yv((Zc[j + 1] + 1.0) / 2.0 * e)
+            p = _poly(["mz"], [(x0, y0), (x1, y0), (x1, y1), (x0, y1)])
+            p["fill"] = couleur_taux(t)
+            s.append(p)
     # --- les mailles : (s_i, s_{i+1}) × (ζ_j, ζ_{j+1}) sur la vraie géométrie, colorées par le plus grand taux de leurs
     #     quatre nœuds (le durable garde le défavorable). Dans la matière du congé, les deux modèles de poutre se
     #     recouvrent : l'aile la plus sollicitée est dessinée en dernier, c'est elle qu'on voit
@@ -989,38 +1022,44 @@ def contraintes(res: Dict, fs: Optional[float] = None, interactif: bool = True) 
         s.append(_path(["ext"], [[(xm, ym), att]]))
         s += [_circle(["gv"], xm, ym, 0.5 * fs), _circle(["gvd"], xm, ym, 0.2 * fs)]
         _label(s, xl, yl + 0.34 * fs, txt, fs)
-    # --- la barre de couleur : 0 → 100 % (vert) sur 70 % de sa hauteur, 100 → 105 % (orange) sur 15 %, au-delà (rouge)
-    xb, wb = larg + 2.2 * fs, 1.0 * fs
+    # --- la barre de couleur : 0 → 100 % sur 70 % de sa hauteur, 100 → 105 % sur 15 %, au-delà sur 15 % ; graduée des
+    #     DEUX côtés (demande de l'ingénieur du 10/11 au soir) : σéq en N/mm² à gauche — la limite écrite à 100 % —, le
+    #     taux en % à droite
+    s_lim = mat["sigma_adm"]
+    xb, wb = larg + 3.8 * fs, 1.0 * fs
     y_b0, y_b1 = max(yv(0.0), yv(0.85 * haut)), min(yv(0.0), yv(0.85 * haut))
     hb = y_b0 - y_b1
-    degres = [(i / 20.0, (i + 1) / 20.0, 0.70) for i in range(20)]            # vert : 20 degrés
+    degres = [(i / 20.0, (i + 1) / 20.0, 0.70) for i in range(20)]            # 0 → 100 % : vingt degrés
     for i, (t0, t1, part) in enumerate(degres):
         p = _rect(["mz"], xb, y_b0 - t1 * part * hb, wb, (t1 - t0) * part * hb + 0.02 * fs)
         p["fill"] = couleur_taux((t0 + t1) / 2.0)
         s.append(p)
-    for i in range(5):                                                         # orange : 100 → 105 %, cinq degrés
+    for i in range(5):                                                         # 100 → 105 % : cinq degrés
         t0 = 1.0 + 0.01 * i
         p = _rect(["mz"], xb, y_b0 - (0.70 + 0.03 * (i + 1)) * hb, wb, 0.03 * hb + 0.02 * fs)
         p["fill"] = couleur_taux(t0 + 0.005)
         s.append(p)
-    p = _rect(["mz"], xb, y_b1, wb, 0.15 * hb)                                 # rouge : au-delà de 105 %
+    p = _rect(["mz"], xb, y_b1, wb, 0.15 * hb)                                 # au-delà de 105 %
     p["fill"] = couleur_taux(2.0)
     s.append(p)
     s.append(_rect(["ctr"], xb, y_b1, wb, hb))
-    for part, txt in ((0.0, "0"), (0.35, "50"), (0.70, "100 %"), (0.85, "105 %")):
+    for part, taux_, txt in ((0.0, 0.0, "0"), (0.35, 0.5, "50"), (0.70, 1.0, "100 %"), (0.85, 1.05, "105 %")):
         y = y_b0 - part * hb
-        s.append(_path(["axe"], [[(xb + wb, y), (xb + wb + 0.35 * fs, y)]]))
+        s.append(_path(["axe"], [[(xb - 0.35 * fs, y), (xb, y)], [(xb + wb, y), (xb + wb + 0.35 * fs, y)]]))
+        s.append(_text(["tx2"], xb - 0.55 * fs, y + 0.3 * fs, "0" if taux_ == 0 else _num(taux_ * s_lim, 1), 0.85 * fs, "end"))
         s.append(_text(["tx2"], xb + wb + 0.55 * fs, y + 0.3 * fs, txt, 0.85 * fs, "start"))
+    s.append(_text(["tx2"], xb + wb / 2, y_b1 - 2.1 * fs, "σéq N/mm²", 0.85 * fs))
     s.append(_text(["tx2"], xb + wb / 2, y_b1 - 0.9 * fs, f"taux σéq / {_symbole_sigma(mat)}", 0.85 * fs))
-    # --- ce que c'est, en deux lignes sous le dessin : des contraintes de poutre, l'enveloppe des positions, pas un
-    #     calcul par éléments finis
+    # --- ce que c'est, en deux lignes sous le dessin : des contraintes de poutre, l'enveloppe des positions, le coin
+    #     prolongé, pas un calcul par éléments finis
     ex = _extent(s, fs) or (0.0, 0.0, 1.0, 1.0)
     x0, y_bas = ex[0], ex[3]
-    s.append(_text(["tx2"], x0, y_bas + 1.9 * fs, "σ = M·ζ/W + N/A, τ = V/A uniforme (poutre, classeur) · enveloppe des positions", 0.85 * fs, "start"))
-    s.append(_text(["tx2"], x0, y_bas + 3.2 * fs, "pas un calcul par éléments finis", 0.85 * fs, "start"))
+    s.append(_text(["tx2"], x0, y_bas + 1.9 * fs, "σ = M·ζ/W + N/A, τ = V/A (poutre, classeur) · enveloppe des positions", 0.85 * fs, "start"))
+    s.append(_text(["tx2"], x0, y_bas + 3.2 * fs, "coin : sections 2 et 4 prolongées · pas un calcul par éléments finis", 0.85 * fs, "start"))
     aria = (f"Contraintes de von Mises sur la cornière {sec['designation']} (configuration {cfg}) : le maillage de l'enveloppe, chaque "
-            f"maille colorée par son taux (vert sous 100 %, orange de 100 à 105 %, rouge au-delà), le maximum de chaque aile, les "
-            f"sections 1 à 4, la barre de couleur — contraintes de poutre, pas un calcul par éléments finis")
+            f"maille colorée par son taux (du bleu à l'orange jusqu'à 100 %, orange vers rouge de 100 à 105 %, rouge au-delà), le coin "
+            f"maillé par les sections 2 et 4 prolongées, le maximum de chaque aile, les sections 1 à 4, la barre de couleur graduée en "
+            f"N/mm² et en % — contraintes de poutre, pas un calcul par éléments finis")
     return _dessin(s, fs, aria)
 
 
@@ -1045,11 +1084,13 @@ def legende(res: Dict, cle: str) -> str:
         signe = ("M > 0 : face du congé tendue" if cfg == "A" else
                  "M < 0 (face du congé comprimée), constant de l'ancrage à l'angle (M angle)")
         return (f"{conf} · {LIBELLES_MODE[mode]} · {etat} · le diagramme de chaque aile porté hors de l'angle depuis son axe (M = 0) : "
-                f"une courbe par position de la charge (extrêmes en trait fin), l'enveloppe en gras et remplie, M1 à M4 et Mmax · {signe}")
+                f"une courbe par position de la charge X ± {f0(g['dx'])} (aile horizontale) et de l'ancrage Y ± {f0(g['dy'])} (aile "
+                f"verticale, extrêmes en trait fin), l'enveloppe en gras et remplie jusqu'à Mmax, M1 à M4 et Mmax · {signe}")
     if cle == "contraintes":
-        return (f"{conf} · {LIBELLES_MODE[mode]} · {etat} · taux σéq / {_symbole_sigma(mat)} = {_num(mat['sigma_adm'], 1)} N/mm² par "
-                f"maille, enveloppe des positions : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur) — "
-                f"pas un calcul par éléments finis · ◉ le maximum de chaque aile, vert sous 100 %, orange de 100 à 105 %, rouge au-delà")
+        return (f"{conf} · {LIBELLES_MODE[mode]} · {etat} · σéq par maille, enveloppe des positions, limite {_symbole_sigma(mat)} = "
+                f"{_num(mat['sigma_adm'], 1)} N/mm² (100 %) : contraintes de poutre σ = M·ζ/W + N/A, τ = V/A uniforme (comme le classeur), "
+                f"le coin par les sections 2 et 4 prolongées — pas un calcul par éléments finis · ◉ le maximum de chaque aile · échelle du "
+                f"bleu (0) à l'orange (100 %), rouge au-delà de 105 %")
     a = f"a = {f0(g['a'])}" if g["a"] is not None else "a = L"
     coupe_txt = " · tranche coupée au dessin, cotes vraies" if g["L"] > COUPURE_TRANCHE * g["haut"] else ""
     return (f"{conf} · {etat} : N et V par ancrage (enveloppe) · la tranche L = {f0(g['L'])} vue de face : {g['n']} ancrage(s) à "

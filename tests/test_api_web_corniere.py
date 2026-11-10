@@ -453,9 +453,16 @@ chk("support « poutre » par le segment : les champs 150/150 apparaissent, les 
     and re.search(r'data-sec="an"[^>]*>.*?<span class="sum">Y 85 ± 5 · 3 Ø16 · poutre', e_pt["donnees"], re.S) is not None, None)
 
 # ---------------------------------------------------------------------- la révision § 9.7 : la colonne de gauche
+chk("catalogue : le profil se choisit dans un MENU DÉROULANT des 233 cornières (deux familles, par dimensions croissantes, la retenue sélectionnée, "
+    "la valeur = le nom du catalogue, le libellé = la désignation) — remarque de l'ingénieur du 10/11 au soir",
+    '<select data-chemin="profil" data-sorte="choix">' in don0 and '<option value="L 120x120x15" selected>L 120×120×15</option>' in don0
+    and re.search(r'<select data-chemin="profil"[^>]*><optgroup label="Ailes égales">(<option [^>]*>[^<]*</option>)+</optgroup>'
+                  r'<optgroup label="Ailes inégales">(<option [^>]*>[^<]*</option>)+</optgroup></select>', don0) is not None
+    and len(re.findall(r'<option value="L [^"]+"', don0[don0.index('<select data-chemin="profil"'):don0.index("</select>", don0.index('<select data-chemin="profil"'))])) == 233
+    and don0.index('<option value="L 20x20x3"') < don0.index('<option value="L 200x200x20"') < don0.index('<option value="L 100x65x7"'), None)
 chk("catalogue : le profil choisi reste, la fiche (ailes, épaisseur, congés, masse, aire) est dans un volet « Détails » REPLIÉ par défaut (details sans open, data-volet), "
     "son résumé fermé dit la famille, la norme et la masse",
-    '<input data-chemin="profil" data-sorte="texte" value="L 120×120×15"' in don0
+    '<option value="L 120x120x15" selected>' in don0
     and re.search(r'<details class="et-volet" data-volet="fiche"><summary[^>]*>.*?<span class="t">Détails</span><span class="r">Ailes égales · EN 10056-1 · 26,64.kg/m</span></summary>'
                   r'<div class="et-volet-c"><dl class="facts">', don0, re.S) is not None and " open>" not in don0 and "<details open" not in don0
     and don0.index("<details") < don0.index("Congés r<sub>1</sub>") < don0.index("</details>"), None)
@@ -469,9 +476,9 @@ don0 = r0["donnees"]
 chk("quatre rubriques : 1 Cornière, 2 Charge (ouvertes), 3 Ancrage, 4 Hypothèses (secondaire, repliée)",
     re.findall(r'<div class="sec( open)?" data-sec="(\w+)"( data-secondaire="1")?>', don0) == [(" open", "co", ""), (" open", "ch", ""), ("", "an", ""), ("", "hy", " data-secondaire=\"1\"")],
     re.findall(r'<div class="sec( open)?" data-sec="(\w+)"( data-secondaire="1")?>', don0))
-chk("rubrique 1 : origine en segments, désignation tapée, fiche du catalogue (congés, masse, aire), aile horizontale avec les longueurs réelles, "
+chk("rubrique 1 : origine en segments, menu des cornières, fiche du catalogue (congés, masse, aire), aile horizontale avec les longueurs réelles, "
     "configuration A/B en segments avec deux pictogrammes, nuance et coefficient",
-    'data-chemin="standard" data-sorte="choix" data-valeur="catalogue"' in don0 and '<input data-chemin="profil" data-sorte="texte" value="L 120×120×15"' in don0
+    'data-chemin="standard" data-sorte="choix" data-valeur="catalogue"' in don0 and '<select data-chemin="profil" data-sorte="choix">' in don0
     and "<span>Profil</span>" in don0 and "<span>Aile</span>" in don0 and "<span>Pose</span>" in don0
     and "Congés r<sub>1</sub> / r<sub>2</sub>" in don0 and "13 / 6,5" in don0 and "26,64" in don0
     and 'data-chemin="aile_horizontale" data-sorte="choix" data-valeur="A"' in don0 and ">A = 120 mm<" in don0 and ">B = 120 mm<" in don0
@@ -498,6 +505,12 @@ chk("passer en saisie libre part des dimensions de la cornière du catalogue aff
 e_d = saisir(r0["etat"], "profil", "150 × 150 × 15")
 chk("une désignation tapée (« 150 × 150 × 15 ») est relue au catalogue",
     e_d["etat"]["cornieres"][0]["profil"] == "L 150x150x15" and e_d["message"] is None, e_d.get("message"))
+e_menu = saisir(r0["etat"], "profil", "L 200x200x20")
+chk("le menu déroulant envoie le nom du catalogue (« L 200x200x20 ») : retenu, sélectionné au rendu suivant, la coupe suit (larg = 200)",
+    e_menu["etat"]["cornieres"][0]["profil"] == "L 200x200x20" and e_menu["message"] is None
+    and '<option value="L 200x200x20" selected>L 200×200×20</option>' in e_menu["donnees"]
+    and e_menu["donnees"][e_menu["donnees"].index('<select data-chemin="profil"'):].split("</select>")[0].count(" selected>") == 1
+    and "L 200×200×20" in e_menu["resultat"], e_menu.get("message"))
 e_d2 = saisir(r0["etat"], "profil", "80 × 80 × 8")
 chk("une désignation tapée trop petite pour la charge est relue au catalogue puis REFUSÉE par le moteur (la charge au-delà de l'aile), la cornière intacte",
     "au-delà de l'aile" in (e_d2["message"] or "") and e_d2["etat"] == r0["etat"], e_d2.get("message"))

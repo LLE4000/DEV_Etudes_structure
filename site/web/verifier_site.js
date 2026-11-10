@@ -3133,10 +3133,16 @@ const FILTRE = process.argv[4] || '';
       await g.click('.flyout.on.picker .pk-row.opt');
       await tranquille();
       await g.waitForTimeout(200);
-      verif(`cornière : choisir l'optimale (${pk.opt}) la retient — la désignation des données et la ligne Cornière la disent`,
-        (await g.inputValue('input[data-chemin="profil"]')) === pk.opt && (await g.textContent('#resultat .prof[data-pk="corniere"] span')).trim() === pk.opt, await g.inputValue('input[data-chemin="profil"]'));
+      // la désignation des données est désormais un MENU DÉROULANT des 233 cornières (remarque de l'ingénieur du 10/11 au soir) :
+      // l'option sélectionnée porte la désignation retenue
+      const menuProfil = () => g.$eval('select[data-chemin="profil"]', (s) => ({ n: s.options.length, groupes: s.querySelectorAll('optgroup').length, choisi: s.options[s.selectedIndex].textContent.trim(), valeur: s.value }));
+      const mp = await menuProfil();
+      verif(`cornière : choisir l'optimale (${pk.opt}) la retient — le menu des données (233 cornières, deux familles) et la ligne Cornière la disent`,
+        mp.n === 233 && mp.groupes === 2 && mp.choisi === pk.opt && (await g.textContent('#resultat .prof[data-pk="corniere"] span')).trim() === pk.opt, JSON.stringify(mp));
       await ouvrirRub('co');
-      await saisir('input[data-chemin="profil"]', 'L 120×120×15');
+      await g.selectOption('select[data-chemin="profil"]', 'L 120x120x15');
+      await tranquille();
+      await g.waitForTimeout(200);
       // le mode équilibre : le taux change, la coupe dessine le pivot y_c et u_V (plus le jeu du classeur)
       await ouvrirRub('hy');
       await g.click('#donnees [data-chemin="mode"][data-valeur="equilibre"]');
@@ -3165,14 +3171,16 @@ const FILTRE = process.argv[4] || '';
       await g.screenshot({ path: path.join(OUT, 'site_corniere_B_pc.png') });
       await g.click('#donnees [data-chemin="configuration"][data-valeur="A"]');
       await tranquille();
-      // une inégale tapée dans l'autre ordre, après avoir descendu l'ancrage : relue au catalogue, les segments de l'aile disent les longueurs
+      // une inégale choisie dans le menu, après avoir descendu l'ancrage : retenue, les segments de l'aile disent les longueurs
       await ouvrirRub('an');
       await saisir('input[data-chemin="Y"]', '65');
       await ouvrirRub('co');
-      await saisir('input[data-chemin="profil"]', '100 x 150 x 12');
-      const des = await g.inputValue('input[data-chemin="profil"]');
+      await g.selectOption('select[data-chemin="profil"]', 'L 150x100x12');
+      await tranquille();
+      await g.waitForTimeout(200);
+      const des = (await menuProfil()).choisi;
       const ailes = await g.$$eval('#donnees [data-chemin="aile_horizontale"]', (x) => x.map((e) => e.textContent.trim()));
-      verif('cornière inégale : « 100 x 150 x 12 » relue « L 150×100×12 », l\'aile horizontale en segments avec les longueurs réelles (A = 150 mm, B = 100 mm)',
+      verif('cornière inégale : « L 150×100×12 » choisie dans le menu (famille Ailes inégales), l\'aile horizontale en segments avec les longueurs réelles (A = 150 mm, B = 100 mm)',
         des === 'L 150×100×12' && ailes.join() === 'A = 150 mm,B = 100 mm', JSON.stringify({ des, ailes }));
       await g.screenshot({ path: path.join(OUT, 'site_corniere_inegale_pc.png') });
       // une note du module d'avant (version 1, modèle lame) semée dans ce navigateur : elle se rouvre, l'avis est dit une fois
@@ -3186,7 +3194,8 @@ const FILTRE = process.argv[4] || '';
       await tranquille();
       await g.waitForTimeout(200);
       const v1 = await g.evaluate(() => ({ avis: [...document.querySelectorAll('#resultat .msg')].map((m) => m.textContent).filter((t) => /modèle lame/.test(t)).length,
-        nom: (document.querySelector('.panel.left .phead .et-elt input.et-elt-nom') || {}).value, profil: (document.querySelector('input[data-chemin="profil"]') || {}).value,
+        nom: (document.querySelector('.panel.left .phead .et-elt input.et-elt-nom') || {}).value,
+        profil: ((s) => s && s.options[s.selectedIndex] ? s.options[s.selectedIndex].textContent.trim() : null)(document.querySelector('select[data-chemin="profil"]')),
         erreur: !!document.querySelector('#demarrage.erreur') }));
       verif('cornière : une note du module d\'avant (modèle lame) se rouvre — le nom et la cornière gardés, l\'avis « modèle lame » dit une fois dans le résultat',
         !v1.erreur && v1.avis === 1 && v1.nom === 'Cornière de rive' && v1.profil === 'L 100×100×10', JSON.stringify(v1));

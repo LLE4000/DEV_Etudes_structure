@@ -628,14 +628,29 @@ def _fiche(sec: Dict) -> str:
             f'<div class="et-volet-c"><dl class="facts">{dl}</dl></div></details>')
 
 
+def _menu_catalogue(c: Dict) -> str:
+    """Le MENU DÉROULANT des 233 cornières du catalogue EN 10056-1, par famille (ailes égales, puis inégales) et par
+    dimensions croissantes (A, B, t), chacune par sa désignation (« L 200×200×20 »), la retenue sélectionnée — remarque de
+    l'ingénieur du 10/11 au soir (« j'ai dû écrire 200 x 200 x 20, pas de menu déroulant avec toutes les cornières »).
+    La valeur envoyée est le nom du catalogue, que ``modifier`` relit comme une désignation tapée ; la liste CALCULÉE
+    avec les charges (taux, ★ la plus légère qui tient) reste celle de la ligne « Cornière » du résultat."""
+    groupes = []
+    for fam in EN.FAMILLES:
+        opts = "".join(f'<option value="{C.esc(p["nom"])}"{" selected" if p["nom"] == c["profil"] else ""}>{C.esc(EN.designation(p["nom"]))}</option>'
+                       for p in sorted(EN.cornieres([fam]), key=lambda p: (p["h"], p["b"], p["t"])))
+        groupes.append(f'<optgroup label="{C.esc(EN.LIBELLES_FAMILLE[fam])}">{opts}</optgroup>')
+    return (f'<div class="field select"><select data-chemin="{C._attr_chemin(["profil"])}" data-sorte="choix">{"".join(groupes)}</select>'
+            f'{C.icon("chevron-down")}</div>')
+
+
 def _rubrique_corniere(c: Dict, sec: Dict, res: Dict) -> str:
     L = C.ligne
     s = L("Origine", C.segments(["standard"], "catalogue" if c["standard"] else "saisie", ORIGINES), full=True)
     if c["standard"]:
-        s += (L("Profil", C.texte(["profil"], sec["designation"], "ex. L 80×80×8"), "", "La désignation tapée (« 80x80x8 », "
-                "« 100 × 65 × 8 », les ailes dans un ordre ou dans l'autre) est relue au catalogue EN 10056-1 ; la liste des 233 "
-                "cornières, triée par masse et calculée avec vos charges, s'ouvre depuis la ligne « Cornière » du résultat. "
-                "La fiche du catalogue (congés, masse, aire) est dans le volet « Détails ».", full=True)
+        s += (L("Profil", _menu_catalogue(c), "", "Les 233 cornières du catalogue EN 10056-1, par famille et par dimensions "
+                "croissantes ; la liste triée par masse et CALCULÉE avec vos charges (taux, ★ la plus légère qui tient) s'ouvre "
+                "depuis la ligne « Cornière » du résultat. La fiche du catalogue (congés, masse, aire) est dans le volet « Détails ».",
+                full=True)
               + _fiche(sec))
     else:
         s += (C.ligne2(("A", C.num(["A"], c["A"], "mm"), "La première aile (A au catalogue)."),

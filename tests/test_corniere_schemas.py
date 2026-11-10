@@ -33,15 +33,18 @@ retire (§ 12, mutations).
      chaque aile PERPENDICULAIRE à l'aile, depuis son axe, hors de l'angle (horizontale : vers le bas en A, vers le
      haut en B — le signe de B porté de l'autre côté ; verticale : côté support), à une ÉCHELLE COMMUNE (le plus grand
      moment entre 0,6 et 0,8 × haut) ; autant de courbes que le moteur (extrêmes fines, nominale moyenne), l'enveloppe
-     en gras avec autant de points que le moteur, REMPLIE (un polygone fermé sur l'axe par aile) ; M1 à M4 écrits avec
-     la valeur de l'enveloppe (grandeur, 3 décimales), Mmax, et « M angle » en B ; l'ancrage (axe, bande ± dy) ; R.
+     en gras avec autant de points que le moteur, REMPLIE jusqu'au bout du prolongement (un polygone fermé sur l'axe par
+     aile, un sommet à Mmax au nu du support, au pivot pour l'aile verticale) ; les courbes de l'aile verticale quittent
+     l'axe à Y − dy, Y, Y + dy (trois zéros) ; M1 à M4 écrits avec la valeur de l'enveloppe (grandeur, 3 décimales),
+     Mmax en bas ET à gauche (historique), « M angle » en B ; l'ancrage (axe, bande ± dy) ; R.
   7. CONTRAINTES, MAILLAGE : (len(s) − 1) × 8 mailles par aile, posées sur la vraie géométrie (les nœuds de la face
-     extérieure aux abscisses s du moteur, ceux de la face du congé à t(s)) ; CHAQUE maille porte la couleur du plus
-     grand des taux de ses quatre nœuds selon le dégradé IMPOSÉ, recopié ici depuis les décisions (vert #E8F5E9 →
-     #1B5E20 sous 100 %, orange #FFB74D → #E65100 de 100 à 105 %, rouge #C62828 au-delà) ; la maille la plus chargée
-     porte la couleur du taux max (vert à 88 %, orange à 102–104 %, rouge à 144 %) ; le ◉ de chaque aile à
-     maxima[aile]["s"] sur la face ζ du maillage, avec le taux de la vérification ; le bloc d'angle hachuré ; la barre
-     de couleur (0, 50, 100 %, 105 %) ; les deux lignes « pas un calcul par éléments finis » ; les pastilles ; l'axe.
+     extérieure aux abscisses s du moteur, ceux de la face du congé à t(s)) et 8 × 8 dans le coin (le champ « coin » du
+     moteur) ; CHAQUE maille porte la couleur du plus grand des taux de ses quatre nœuds selon l'échelle IMPOSÉE,
+     recopiée ici depuis les décisions (bleu #2563EB, cyan #06B6D4 à 25 %, vert #22C55E à 50 %, jaune #FACC15 à 75 %,
+     orange #F97316 à 100 %, → #C2410C à 105 %, rouge #DC2626 au-delà) ; la maille la plus chargée porte la couleur du
+     taux max ; le ◉ de chaque aile à maxima[aile]["s"] sur la face ζ du maillage, avec le taux de la vérification ; plus
+     de bloc d'angle masqué ; la barre de couleur graduée des deux côtés (N/mm² à gauche avec la limite, % à droite) ; les
+     deux lignes « coin : sections 2 et 4 prolongées · pas un calcul par éléments finis » ; les pastilles ; l'axe.
   8. ÉLÉVATION : n ancrages aux positions z_i = e₁ + i·s du moteur à la hauteur Y, la chaîne de cotes e₁ · s · … · e₁,
      L, haut, larg ; N et V PAR ANCRAGE dans l'état limite saisi (« N ELS », « N ELU ») ; la charge de largeur a et le
      trapèze à 45° dont la base à la section 1 mesure L_eff ; sans a : « sur L » ; COUPURES sur L = 900 (la tranche
@@ -258,24 +261,34 @@ def _lerp(c0, c1, t):
     return "#%02X%02X%02X" % tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))
 
 
+PALETTE = ((0.0, "#2563EB"), (0.25, "#06B6D4"), (0.5, "#22C55E"), (0.75, "#FACC15"), (1.0, "#F97316"))
+ROUGE = "#DC2626"
+
+
 def couleur_attendue(t):
-    """0 → 100 % vert #E8F5E9 → #1B5E20 ; 100 → 105 % orange #FFB74D → #E65100 ; au-delà rouge #C62828 — la règle
-    des décisions, écrite ici pour ne pas faire confiance au module."""
+    """0 → 100 % : bleu #2563EB, cyan #06B6D4 (25 %), vert #22C55E (50 %), jaune #FACC15 (75 %), orange #F97316 (100 %),
+    par morceaux ; 100 → 105 % : #F97316 → #C2410C ; au-delà rouge #DC2626 — la règle des décisions (§ 9.1 révisé le 10/11
+    au soir sur la remarque de l'ingénieur), écrite ici pour ne pas faire confiance au module."""
     if t <= 1.0:
-        return _lerp("#E8F5E9", "#1B5E20", t)
+        t = max(0.0, t)
+        for (t0, c0), (t1, c1) in zip(PALETTE, PALETTE[1:]):
+            if t <= t1:
+                return _lerp(c0, c1, (t - t0) / (t1 - t0))
     if t <= 1.05:
-        return _lerp("#FFB74D", "#E65100", (t - 1.0) / 0.05)
-    return "#C62828"
+        return _lerp("#F97316", "#C2410C", (t - 1.0) / 0.05)
+    return ROUGE
 
 
-def est_vert(c):
+def est_froid(c):
+    """Une couleur du bas de l'échelle (bleu, cyan, vert : taux faible) — le bleu l'emporte sur le rouge."""
     r, g, b = (int(c[i:i + 2], 16) for i in (1, 3, 5))
-    return g >= r and g >= b
+    return b > r
 
 
-def est_orange(c):
+def est_depasse(c):
+    """Une couleur de la bande 100 → 105 % (de l'orange #F97316 au rouge-orangé #C2410C), le rouge franc exclu."""
     r, g, b = (int(c[i:i + 2], 16) for i in (1, 3, 5))
-    return r >= 0xE0 and 0x40 <= g <= 0xC0 and b <= 0x60
+    return c != ROUGE and 0xC2 <= r <= 0xF9 and 0x41 <= g <= 0x73 and b <= 0x16
 
 
 # ------------------------------------------------------------------ les contrôles réutilisés par les mutations
@@ -567,21 +580,44 @@ def fautes_moments(mod, res):
         plus_grand = abs(eff["Mmax"]) * max(echelles)
         if not 0.6 * haut - 1e-6 <= plus_grand <= 0.8 * haut + 1e-6:
             f.append(f"le plus grand moment occupe {plus_grand / haut:.2f} × haut")
-    # le remplissage : un polygone par aile, fermé sur l'axe, avec les points de l'enveloppe
+    # le remplissage : un polygone par aile, fermé sur l'axe, avec les points de l'enveloppe ET le bout du prolongement
+    # (jusqu'à Mmax au nu du support pour l'aile horizontale ; au pivot pour la verticale en historique et en B)
+    prolongee = {"horizontale": True, "verticale": res["mode"] == "historique" or cfg == "B"}
     envf = [points_poly(p) for p in tous(root, "polygon", "envf")]
-    if len(envf) != 2 or sorted(len(q) for q in envf) != sorted(len(dgs[a]["points"]) + 2 for a in ("horizontale", "verticale")):
+    if len(envf) != 2 or sorted(len(q) for q in envf) != sorted(len(dgs[a]["points"]) + (3 if prolongee[a] else 2) for a in ("horizontale", "verticale")):
         f.append(f"remplissage de l'enveloppe : {len(envf)} polygone(s), {[len(q) for q in envf]} points")
     else:
         for q in envf:
             if not ((pres(q[0][1], y_ax) and pres(q[-1][1], y_ax)) or (pres(q[0][0], x_ax) and pres(q[-1][0], x_ax))):
                 f.append("un remplissage ne se referme pas sur l'axe M = 0")
-    # les valeurs : M1 à M4 (grandeur de l'enveloppe), Mmax, M angle en B
+        if echelles:
+            ech_ = max(echelles)
+            # l'aile horizontale : un sommet du remplissage au nu du support (x = 0), à Mmax de l'axe
+            if not any(pres(p[0], 0.0) and pres(abs(p[1] - y_ax), abs(eff["Mmax"]) * ech_, 1e-6) for q in envf for p in q):
+                f.append("le remplissage de l'aile horizontale ne va pas jusqu'à Mmax au nu du support")
+            if prolongee["verticale"]:
+                Mv = abs(eff["Mmax"]) if res["mode"] == "historique" else abs(eff["M_angle"])
+                if not any(pres(p[1], k * e / 2) and pres(x_ax - p[0], Mv * ech_, 1e-6) for q in envf for p in q):
+                    f.append("le remplissage de l'aile verticale ne va pas jusqu'au bout de son prolongement (pivot)")
+    # les trois zéros de l'aile verticale (A, dy > 0) : chaque courbe quitte l'axe à SON ancrage Y′ = Y − dy, Y, Y + dy
+    if cfg == "A" and dy > 0:
+        zeros = set()
+        for p in tous(root, "path", "cvf") + tous(root, "path", "cvm"):
+            pts_c = points_d(p.get("d"))
+            if all(pres(a[1], k * q["s"]) for a, q in zip(pts_c, dgs["verticale"]["points"])) and len(pts_c) == len(dgs["verticale"]["points"]):
+                sur_axe = [a[1] for a in pts_c if pres(a[0], x_ax)]
+                if sur_axe:
+                    zeros.add(round(min(abs(y_) for y_ in sur_axe), 6))
+        if zeros != {round(Y - dy, 6), round(Y, 6), round(Y + dy, 6)}:
+            f.append(f"les zéros des courbes de l'aile verticale sont à {sorted(zeros)} et non à Y ± dy")
+    # les valeurs : M1 à M4 (grandeur de l'enveloppe), Mmax (en bas, et à gauche en historique), M angle en B
     joint = " ".join(tx)
     for i, cle in enumerate(("S1", "S2", "S3", "S4")):
         if not re.search(rf"M{i + 1} = (M angle = )?{re.escape(fr(abs(verifs[cle]['M']), 3))}", joint):
             f.append(f"la valeur M{i + 1} = {fr(abs(verifs[cle]['M']), 3)} n'est pas écrite")
-    if f"Mmax = {fr(abs(eff['Mmax']), 3)}" not in joint:
-        f.append("Mmax n'est pas écrit")
+    n_mmax = tx.count(f"Mmax = {fr(abs(eff['Mmax']), 3)}")
+    if n_mmax != (2 if res["mode"] == "historique" else 1):
+        f.append(f"Mmax écrit {n_mmax} fois (attendu : en bas, et à gauche en historique)")
     if cfg == "B" and f"M angle = {fr(abs(eff['M_angle']), 3)}" not in joint:
         f.append("en B, M angle n'est pas écrit")
     nums = sorted(int("".join(t.itertext()).strip()) for grp in tous(root, "g", "scg") for t in tous(grp, "text"))
@@ -609,9 +645,10 @@ def fautes_contraintes(mod, res):
     f = []
     root = racine(mod.svg(mod.contraintes(res, fs=5.0), "t"))
     mailles = tous(root, "polygon", "mz")
-    attendu_n = sum((len(mz[a]["s"]) - 1) * (len(mz[a]["zeta"]) - 1) for a in ("horizontale", "verticale"))
+    Zc, TXc = mz["coin"]["zeta"], mz["coin"]["taux"]
+    attendu_n = sum((len(mz[a]["s"]) - 1) * (len(mz[a]["zeta"]) - 1) for a in ("horizontale", "verticale")) + (len(Zc) - 1) ** 2
     if len(mailles) != attendu_n:
-        return [f"{len(mailles)} mailles au lieu de {attendu_n}"]
+        return [f"{len(mailles)} mailles au lieu de {attendu_n} (deux ailes et le coin)"]
     # les mailles attendues : leurs quatre nœuds sur la vraie géométrie, leur couleur par le plus grand taux
     attendues = {}
     for aile in ("horizontale", "verticale"):
@@ -626,6 +663,13 @@ def fautes_contraintes(mod, res):
             for j in range(len(Z_) - 1):
                 cle = frozenset([noeud(i, j), noeud(i + 1, j), noeud(i + 1, j + 1), noeud(i, j + 1)])
                 attendues[cle] = couleur_attendue(max(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1]))
+    # le coin (bloc d'angle e × e), maillé lui aussi : i suit x depuis le nu du support, j suit y depuis la face extérieure
+    for i in range(len(Zc) - 1):
+        for j in range(len(Zc) - 1):
+            xs = [round((Zc[i] + 1.0) / 2.0 * e, 4), round((Zc[i + 1] + 1.0) / 2.0 * e, 4)]
+            ys = [round(k * (Zc[j] + 1.0) / 2.0 * e, 4), round(k * (Zc[j + 1] + 1.0) / 2.0 * e, 4)]
+            cle = frozenset([(xs[0], ys[0]), (xs[1], ys[0]), (xs[1], ys[1]), (xs[0], ys[1])])
+            attendues[cle] = couleur_attendue(max(TXc[i][j], TXc[i + 1][j], TXc[i][j + 1], TXc[i + 1][j + 1]))
     fautes_couleur, introuvables = 0, 0
     for m in mailles:
         cle = frozenset((round(p[0], 4), round(p[1], 4)) for p in points_poly(m))
@@ -653,10 +697,10 @@ def fautes_contraintes(mod, res):
             f.append(f"{aile} : le ◉ n'est pas en {att} ({gv})")
         if f"{fr(100 * mx['taux'], 1)} % · s = {fr(mx['s'], 1)}" not in tx:
             f.append(f"{aile} : l'étiquette « {fr(100 * mx['taux'], 1)} % · s = {fr(mx['s'], 1)} » manque")
-    # le bloc d'angle hachuré, le contour, les pastilles, l'axe de l'ancrage, la barre et la mention
-    bg = [points_poly(p) for p in tous(root, "polygon", "bg")]
-    if not any(bbox(q) == (0.0, min(0.0, k * e), e, max(0.0, k * e)) for q in bg):
-        f.append("le bloc d'angle e × e n'est pas marqué")
+    # plus de bloc d'angle masqué (fond gris, hachures) : le coin est maillé ; le contour, les pastilles, l'axe de
+    # l'ancrage, la barre et la mention
+    if tous(root, "polygon", "bg") or tous(root, "path", "ht"):
+        f.append("le bloc d'angle est encore masqué (fond ou hachures) au lieu d'être maillé")
     ctr = tous(root, "polygon", "ctr")
     if not ctr or not (pres(bbox(points_poly(ctr[0]))[2], larg) and pres(bbox(points_poly(ctr[0]))[3] - bbox(points_poly(ctr[0]))[1], haut)):
         f.append("le contour de la cornière n'est pas tracé par-dessus")
@@ -667,10 +711,14 @@ def fautes_contraintes(mod, res):
     if ax != {round(k * Y, 6)}:
         f.append(f"axe de l'ancrage à {sorted(ax)}")
     barre = tous(root, "rect", "mz")
+    s_lim = res["materiau"]["sigma_adm"]
+    gauche = [fr(0.5 * s_lim, 1), fr(s_lim, 1), fr(1.05 * s_lim, 1)]
     if len(barre) < 20 or not all(t in textes(root) for t in ("0", "50", "100 %", "105 %")):
         f.append(f"barre de couleur : {len(barre)} degrés, graduations {[t for t in ('0', '50', '100 %', '105 %') if t in textes(root)]}")
-    if "pas un calcul par éléments finis" not in tx:
-        f.append("la mention « pas un calcul par éléments finis » manque")
+    if not all(t in textes(root) for t in gauche) or "σéq N/mm²" not in textes(root):
+        f.append(f"barre de couleur : les N/mm² à gauche manquent ({gauche}, « σéq N/mm² »)")
+    if "pas un calcul par éléments finis" not in tx or "coin : sections 2 et 4 prolongées" not in tx:
+        f.append("la mention « coin : sections 2 et 4 prolongées · pas un calcul par éléments finis » manque")
     return f
 
 
@@ -887,32 +935,43 @@ for nom, r in RES.items():
         f"bloc d'angle, barre, mention", not f, f[:3])
 root_c = racine(SC.svg(SC.contraintes(r0, fs=5.0), "t"))
 fills_c = {(m.get("fill") or "").upper() for m in tous(root_c, "polygon", "mz")}
-chk("cas de contrôle (88,9 % en S3) : toutes les mailles sont vertes, la plus chargée porte la couleur du taux max du maillage, le ◉ de "
-    "l'aile verticale dit « 90,2 % · s = 26,3 » (le maximum du congé, 1,66 mm avant le pied) et celui de l'horizontale « 77,4 % · s = 26,0 »",
-    all(est_vert(c) for c in fills_c) and couleur_attendue(r0["maillage"]["verticale"]["max"]["taux"]) in fills_c
+chk("cas de contrôle (88,9 % en S3) : aucune maille de la bande 100–105 % ni rouge, des mailles froides (bleu, cyan, vert) aux bouts des ailes, "
+    "la plus chargée porte la couleur du taux max du maillage, le ◉ de l'aile verticale dit « 90,2 % · s = 26,3 » (le maximum du congé, 1,66 mm "
+    "avant le pied) et celui de l'horizontale « 77,4 % · s = 26,0 »",
+    not any(est_depasse(c) for c in fills_c) and ROUGE not in fills_c and any(est_froid(c) for c in fills_c)
+    and couleur_attendue(r0["maillage"]["verticale"]["max"]["taux"]) in fills_c
     and "90,2 % · s = 26,3" in " ".join(textes(root_c)) and "77,4 % · s = 26,0" in " ".join(textes(root_c)))
 r102 = RES["A à 102 %"]
 fills_102 = {(m.get("fill") or "").upper() for m in tous(racine(SC.svg(SC.contraintes(r102, fs=5.0), "t")), "polygon", "mz")}
-chk("A à 102 % (R = 49,1 kN) : le maillage culmine entre 100 et 105 % — des mailles orange, aucune rouge, des vertes",
-    1.0 < r102["maillage"]["verticale"]["max"]["taux"] < 1.05 and any(est_orange(c) for c in fills_102)
-    and "#C62828" not in fills_102 and any(est_vert(c) for c in fills_102))
+chk("A à 102 % (R = 49,1 kN) : le maillage culmine entre 100 et 105 % — des mailles de la bande orange → rouge-orangé, aucune rouge franche, "
+    "des froides",
+    1.0 < r102["maillage"]["verticale"]["max"]["taux"] < 1.05 and any(est_depasse(c) for c in fills_102)
+    and ROUGE not in fills_102 and any(est_froid(c) for c in fills_102))
 r144 = RES["B chargée (144 %)"]
 fills_144 = {(m.get("fill") or "").upper() for m in tous(racine(SC.svg(SC.contraintes(r144, fs=5.0), "t")), "polygon", "mz")}
-chk("B chargée (144,5 % au pied du congé) : des mailles rouges #C62828, des orange (100 à 105 %) et des vertes",
-    r144["maillage"]["verticale"]["max"]["taux"] > 1.05 and "#C62828" in fills_144 and any(est_orange(c) for c in fills_144)
-    and any(est_vert(c) for c in fills_144))
-chk("le dégradé imposé aux bornes : 0 % → #E8F5E9, 100 % → #1B5E20, juste au-dessus → #FFB74D, 105 % → #E65100, au-delà #C62828 ; il fonce "
-    "quand le taux monte",
-    SC.couleur_taux(0.0) == "#E8F5E9" and SC.couleur_taux(1.0) == "#1B5E20" and SC.couleur_taux(1.0 + 1e-9) == "#FFB74D"
-    and SC.couleur_taux(1.05) == "#E65100" and SC.couleur_taux(1.2) == "#C62828" and SC.couleur_taux(2.0) == "#C62828"
-    and all(int(SC.couleur_taux(t / 20)[3:5], 16) >= int(SC.couleur_taux((t + 1) / 20)[3:5], 16) for t in range(20))
-    and all(SC.couleur_taux(t) == couleur_attendue(t) for t in (0.0, 0.3, 0.77, 1.0, 1.02, 1.049, 1.05, 1.3)))
+chk("B chargée (144,5 % au pied du congé) : des mailles rouges #DC2626, des mailles de la bande 100–105 % et des froides",
+    r144["maillage"]["verticale"]["max"]["taux"] > 1.05 and ROUGE in fills_144 and any(est_depasse(c) for c in fills_144)
+    and any(est_froid(c) for c in fills_144))
+chk("l'échelle imposée aux bornes : 0 % → bleu #2563EB, 25 % → cyan #06B6D4, 50 % → vert #22C55E, 75 % → jaune #FACC15, 100 % → orange #F97316, "
+    "105 % → #C2410C, au-delà rouge #DC2626 ; par morceaux entre les bornes (la règle réécrite ici)",
+    SC.couleur_taux(0.0) == "#2563EB" and SC.couleur_taux(0.25) == "#06B6D4" and SC.couleur_taux(0.5) == "#22C55E" and SC.couleur_taux(0.75) == "#FACC15"
+    and SC.couleur_taux(1.0) == "#F97316" and SC.couleur_taux(1.05) == "#C2410C" and SC.couleur_taux(1.2) == "#DC2626" and SC.couleur_taux(2.0) == "#DC2626"
+    and SC.couleur_taux(-0.1) == "#2563EB"
+    and all(SC.couleur_taux(t) == couleur_attendue(t) for t in (0.0, 0.1, 0.3, 0.5, 0.62, 0.77, 0.99, 1.0, 1.02, 1.049, 1.05, 1.3)))
 chk("les mailles portent leur couleur en attribut fill (lisible sans feuille de style, par le peintre PDF et en thème sombre)",
     all(re.fullmatch(r"#[0-9A-F]{6}", m.get("fill") or "") for m in tous(root_c, "polygon", "mz")))
-chk("la barre de couleur : vert jusqu'à 100 %, orange de 100 à 105 %, rouge au-dessus — son titre nomme la limite (σadm)",
-    any(est_vert((b.get("fill") or "")) for b in tous(root_c, "rect", "mz")) and any(est_orange((b.get("fill") or "")) for b in tous(root_c, "rect", "mz"))
-    and any((b.get("fill") or "").upper() == "#C62828" for b in tous(root_c, "rect", "mz")) and "taux σéq / σadm" in textes(root_c)
-    and "taux σéq / fy/γM0" in textes(racine(SC.svg(SC.contraintes(RES["ELU R = 60"], fs=5.0), "t"))))
+root_elu = racine(SC.svg(SC.contraintes(RES["ELU R = 60"], fs=5.0), "t"))
+chk("la barre de couleur : du bleu à l'orange jusqu'à 100 %, la bande 100–105 %, rouge au-dessus ; graduée en N/mm² à GAUCHE (0, 118,3, la limite "
+    "236,7, 248,5) et en % à droite ; son titre nomme la limite (σadm ; fy/γM0 et 355,0 à l'ELU)",
+    any(est_froid((b.get("fill") or "")) for b in tous(root_c, "rect", "mz")) and any(est_depasse((b.get("fill") or "")) for b in tous(root_c, "rect", "mz"))
+    and any((b.get("fill") or "").upper() == ROUGE for b in tous(root_c, "rect", "mz")) and "taux σéq / σadm" in textes(root_c)
+    and "σéq N/mm²" in textes(root_c) and all(t in textes(root_c) for t in ("0", "118,3", "236,7", "248,5", "50", "100 %", "105 %"))
+    and "taux σéq / fy/γM0" in textes(root_elu) and "355,0" in textes(root_elu) and "372,8" in textes(root_elu))
+chk("le coin est maillé : 64 mailles de la couleur du champ « coin » du moteur dans le carré e × e, plus de hachures ni de fond gris, la mention le dit",
+    not tous(root_c, "path", "ht") and not tous(root_c, "polygon", "bg")
+    and sum(1 for m in tous(root_c, "polygon", "mz") if all(0.0 - 1e-6 <= p[0] <= 15.0 + 1e-6 and -15.0 - 1e-6 <= p[1] <= 1e-6 for p in points_poly(m))
+            and bbox(points_poly(m))[2] - bbox(points_poly(m))[0] < 2.0) == 64
+    and "coin : sections 2 et 4 prolongées · pas un calcul par éléments finis" in textes(root_c))
 
 # ================================================================== 8. l'élévation
 print("\n=== 8. L'élévation : ancrages, chaîne, L, L_eff, N et V, coupures ===")
@@ -1068,12 +1127,19 @@ MUTATIONS = [
     ("data-sel du profil oublié", "_hach([\"ht\"], pts, max(1.2, 0.22 * fs))], sel(\"profil\"))", "_hach([\"ht\"], pts, max(1.2, 0.22 * fs))], None)"),
     ("diagramme de l'aile horizontale porté dans l'angle", "return (sv, y_ax - k * abs(M) * ech)", "return (sv, y_ax + k * abs(M) * ech)"),
     ("échelle des moments propre à chaque aile", "return (x_ax - abs(M) * ech, yv(sv))", "return (x_ax - abs(M) * ech * 0.9, yv(sv))"),
-    ("une courbe de moment oubliée", "for c in sorted(dg[\"courbes\"], key=lambda c: abs(c[\"jeu_charge\"]), reverse=True):",
-     "for c in sorted(dg[\"courbes\"], key=lambda c: abs(c[\"jeu_charge\"]), reverse=True)[1:]:"),
-    ("enveloppe non remplie", "s.append(_poly([\"envf\"], [pt(pts[0][\"s\"], 0.0)]", "s.append(_poly([\"envx\"], [pt(pts[0][\"s\"], 0.0)]"),
+    ("une courbe de moment oubliée", "for c in sorted(dg[\"courbes\"], key=lambda c: abs(c[\"jeu\"]), reverse=True):",
+     "for c in sorted(dg[\"courbes\"], key=lambda c: abs(c[\"jeu\"]), reverse=True)[1:]:"),
+    ("enveloppe non remplie", "s.append(_poly([\"envf\"], debut + [pt(p[\"s\"], p[\"M\"]) for p in pts]", "s.append(_poly([\"envx\"], debut + [pt(p[\"s\"], p[\"M\"]) for p in pts]"),
+    ("remplissage arrêté au nu de l'angle (pas jusqu'à Mmax)",
+     "debut = [pt(prolong[aile][-1][0], 0.0), pt(*prolong[aile][-1])] if aile in prolong else [pt(pts[0][\"s\"], 0.0)]", "debut = [pt(pts[0][\"s\"], 0.0)]"),
+    ("Mmax non écrit à gauche (aile verticale)", "        if VERTICALE in prolong:\n            sv_, Mv_ = prolong[VERTICALE][-1]",
+     "        if False and VERTICALE in prolong:\n            sv_, Mv_ = prolong[VERTICALE][-1]"),
     ("enveloppe perdue (tracée comme la nominale)", "s.append(_path([\"env\"], [[pt(p[\"s\"], p[\"M\"]) for p in pts]]))",
      "s.append(_path([\"cvm\"], [[pt(p[\"s\"], p[\"M\"]) for p in pts]]))"),
-    ("dégradé inversé", "return _lerp(DEGRADE_VERT[0], DEGRADE_VERT[1], t)", "return _lerp(DEGRADE_VERT[1], DEGRADE_VERT[0], t)"),
+    ("échelle de couleurs inversée", "return _lerp(c0, c1, (t - t0) / (t1 - t0))", "return _lerp(c1, c0, (t - t0) / (t1 - t0))"),
+    ("coin non maillé", "    for i in range(len(Zc) - 1):\n        for j in range(len(Zc) - 1):\n            t = max(TXc[i][j]",
+     "    for i in range(0):\n        for j in range(len(Zc) - 1):\n            t = max(TXc[i][j]"),
+    ("barre de couleur sans les N/mm² à gauche", "\"0\" if taux_ == 0 else _num(taux_ * s_lim, 1), 0.85 * fs, \"end\"))", "\"\", 0.85 * fs, \"end\"))"),
     ("maille colorée par le plus petit taux de ses nœuds", "t = max(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1])",
      "t = min(TX[i][j], TX[i + 1][j], TX[i][j + 1], TX[i + 1][j + 1])"),
     ("maximum posé sur la mauvaise face", "u = (z + 1.0) / 2.0 * mx[\"t\"]", "u = (1.0 - z) / 2.0 * mx[\"t\"]"),
