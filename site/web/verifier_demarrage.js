@@ -9,7 +9,7 @@
 //   DEMARRAGE_FORMATS=pc,tel (les deux par défaut)
 //
 // Sous-filtres : statique, moteur, prechauffage, doigt, longues, apercu, etablis, fermeture, historique, supprimer,
-// js, feuilles, ecouteurs, horsligne, version, temps, etalons.
+// js, feuilles, ecouteurs, horsligne, lent, version, temps, etalons.
 //
 // Ce que le harnais pose dans CHAQUE document (addInitScript, avant tout script de la page) :
 //   - une sentinelle window.__s (un nombre tiré au sort) : un document rechargé en tire un autre ;
@@ -472,6 +472,23 @@ function lireChemin(etat, chemin) {
   for (const p of String(chemin).split('/')) { if (x == null) return undefined; x = x[/^\d+$/.test(p) ? Number(p) : p]; }
   return x;
 }
+// les pages lues d'avance par app.js vieillissent de 31 s (sa copie fraîche vaut 30 s) : la lecture suivante d'une page
+// passe par le réseau — ou, réseau absent, par la copie gardée pour la vie du document (sous-filtres historique, horsligne)
+const vieillirPages = (pg) => lire(pg, () => {
+  if (!window.__vieillir) { const d0 = Date.now.bind(Date); let dec = 0; Date.now = () => d0() + dec; window.__vieillir = () => { dec += 31000; }; }
+  window.__vieillir();
+});
+// un champ numérique visible de l'établi : { chemin, valeur }, et la valeur à y saisir
+const champVisible = (pg) => lire(pg, () => {
+  const e = [...document.querySelectorAll('#donnees input[data-sorte="nombre"]:not([disabled])')].find((x) => x.checkVisibility());
+  return e ? { chemin: e.dataset.chemin, valeur: e.value } : null;
+});
+const autreValeur = (champ, k) => Math.round(valeurNombre(champ.valeur) * k * 10) / 10 || 55;
+// les messages d'app.js, lus dans le module lui-même (déjà chargé par la page : une seule source)
+const messagesApp = (pg) => lire(pg, async () => { const A = await import(new URL('js/app.js', document.baseURI).href); return { PAS_DE_RESEAU: A.PAS_DE_RESEAU, RESEAU_MUET: A.RESEAU_MUET || null }; });
+// le message affiché (#toast VU), effacé avant un geste
+const messageVu = (pg) => lire(pg, () => { const t = document.getElementById('toast'); return t && t.checkVisibility({ visibilityProperty: true, opacityProperty: true }) ? t.textContent : ''; });
+const effacerMessage = (pg) => lire(pg, () => { const t = document.getElementById('toast'); if (t) { t.hidden = true; t.textContent = ''; } });
 // une note, en mémoire du navigateur, porte cette valeur à ce chemin (lecture directe, sinon dans son texte)
 function noteAvecValeur(notes, module, chemin, valeur) {
   return Object.values(notes || {}).find((n) => {
@@ -665,6 +682,132 @@ function noteAvecValeur(notes, module, chemin, valeur) {
             fenetre: reduit ? `${vp.width}×520 le temps du contrôle (l'accueil ne défile pas à ${vp.width}×${vp.height})` : `${vp.width}×${vp.height}` }));
         if (reduit) await pg.setViewportSize(vp);
       });
+
+      // revue S4, etat-04 : Retour puis Avance AUSSITÔT, pendant que la page du Retour se lit — l'écran de l'entrée
+      // QUITTÉE ne doit pas être monté sur l'entrée courante
+      await essai('retour puis avance', async () => {
+        await allerA(pg, './');
+        await naviguerApp(pg, P('poutre'));
+        const ici = await etatEcran(pg), R = repere(pg);
+        await vieillirPages(pg);
+        let lues = 0;
+        const estAccueil = (u) => new URL(u).pathname === '/';
+        const retenir = async (route) => {
+          if (!route.request().isNavigationRequest()) { lues++; await attendre(1500); }
+          try { await route.continue(); } catch (e) { /* la page est passée à autre chose */ }
+        };
+        await pg.route(estAccueil, retenir);
+        try {
+          await pg.goBack({ timeout: 5000 }).catch(() => null);
+          await attendre(150);
+          await pg.goForward({ timeout: 5000 }).catch(() => null);
+          await attendre(2600);
+        } finally { await pg.unroute(estAccueil, retenir); }
+        const l = await lire(pg, () => ({ page: document.body.dataset.page, module: document.body.dataset.module, montage: document.body.dataset.montage, chemin: location.pathname,
+          s: window.__s, busy: document.body.getAttribute('aria-busy') }));
+        const D = depuis(pg, R);
+        verif(N("retour puis avance pendant la lecture de la page du retour : l'écran de la poutre reste monté sur son entrée (pas l'accueil sur l'adresse de la poutre), sans document rechargé"),
+          lues >= 1 && l.page === 'module' && l.module === 'poutre' && l.chemin === `/${P('poutre')}` && l.montage === ici.montage && l.s === ici.s && D.navs === 0 && !l.busy,
+          court({ ...l, lectures: lues, montageAvant: ici.montage, navigations: D.navs }));
+      });
+
+      // revue S4, etat-06 : le retour d'un document gardé par le navigateur (bfcache, pageshow persisted) — l'écran
+      // restauré est remonté depuis le stockage à jour (un autre onglet a renommé la note) et ne l'écrase pas
+      await essai('bfcache', async () => {
+        await allerA(pg, './');
+        await naviguerApp(pg, P('poutre'));   // (toujours un montage neuf : l'essai ne dépend pas de l'écran laissé par le précédent)
+        let champ = await champVisible(pg);
+        if (!champ) { verif(N('bfcache : un champ numérique visible à saisir'), false); return; }
+        let sel = `#donnees input[data-chemin="${champ.chemin}"]`;
+        const n0 = (await etatEcran(pg)).journal;
+        await pg.fill(sel, String(autreValeur(champ, 1.1)).replace('.', ','));
+        await lire(pg, (s) => document.querySelector(s).blur(), sel);
+        await pg.waitForFunction((n) => /note=/.test(location.search) && window.__journal.slice(n).some((e) => e.sens === 'recu' && e.type === 'reponse' && e.module === 'poutre'), n0, { timeout: 30000 });
+        await attendre(500);
+        const id = new URLSearchParams((await etatEcran(pg)).recherche).get('note');
+        await lire(pg, (id) => { const ns = window.__notes(); ns[id].nom = 'Renommée ailleurs'; ns[id].modifie = Date.now() + 1000; localStorage.setItem('stab.notes.v1', JSON.stringify(ns)); }, id);
+        const avant = await etatEcran(pg), R = repere(pg);
+        await lire(pg, () => { window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })); });
+        const remonte = await pretEcran(pg, avant, { chemin: `/${P('poutre')}`, delai: 20000 }).catch(() => null);   // (jamais remonté : jugé ci-dessous)
+        const l = await lire(pg, () => ({ noms: [...document.querySelectorAll('[data-nom-note]')].map((n) => n.value), recherche: location.search, montage: document.body.dataset.montage }));
+        // une saisie après le retour : la note enregistrée garde le nom donné ailleurs
+        champ = await champVisible(pg);
+        sel = `#donnees input[data-chemin="${champ.chemin}"]`;
+        const n = (await etatEcran(pg)).journal;
+        await pg.fill(sel, String(autreValeur(champ, 1.1)).replace('.', ','));
+        await lire(pg, (s) => document.querySelector(s).blur(), sel);
+        await pg.waitForFunction((n) => window.__journal.slice(n).some((e) => e.sens === 'recu' && e.type === 'reponse' && e.module === 'poutre'), n, { timeout: 30000 }).catch(() => {});
+        await attendre(500);
+        const nom = await lire(pg, (id) => ((window.__notes() || {})[id] || {}).nom, id);
+        verif(N("retour par le bfcache (pageshow persisted) : l'écran est remonté sur la même adresse depuis le stockage à jour (le nom donné ailleurs), et une saisie ne l'écrase pas"),
+          Number(l.montage) > Number(avant.montage) && l.noms.includes('Renommée ailleurs') && l.recherche.includes(`note=${id}`) && nom === 'Renommée ailleurs' && depuis(pg, R).navs === 0,
+          court({ ...l, remonte, nomEnregistre: nom, montageAvant: avant.montage, navigations: depuis(pg, R).navs }));
+      });
+
+      // revue S4, etat-05 (C3) : Retour AVANT la réponse de la modification gardée d'une note PROVISOIRE — l'entrée
+      // attend l'enregistrement, prend l'adresse ?note= de la note écrite après le départ, et la note se rouvre
+      await essai('retour avant la réponse', async () => {
+        await allerA(pg, './');
+        let avant = await etatEcran(pg);
+        await pg.click('.tile[data-module="poutre"]');   // un calcul ouvert depuis sa tuile : provisoire, sans ?note=
+        await pretEcran(pg, avant, { chemin: `/${P('poutre')}` });
+        const champ = await champVisible(pg);
+        if (!champ) { verif(N('retour avant la réponse : un champ numérique visible à saisir'), false); return; }
+        const v = autreValeur(champ, 1.2), sel = `#donnees input[data-chemin="${champ.chemin}"]`;
+        const prov = (await etatEcran(pg)).recherche;
+        const deja = Object.keys((await lire(pg, () => window.__notes())) || {});
+        await pg.fill(sel, String(v).replace('.', ','));
+        await lire(pg, () => { window.__retarder = { ms: 3000, module: 'poutre' }; });
+        avant = await etatEcran(pg);
+        const R = repere(pg);
+        await cliquerLien(pg, P('assemblages'));
+        await pretEcran(pg, avant, { chemin: `/${P('assemblages')}` });
+        const au = await lire(pg, () => ({ retardees: window.__retardees.length, livrees: window.__livrees.length }));
+        avant = await etatEcran(pg);
+        await pg.goBack({ timeout: 20000 }).catch(() => null);
+        try { await pretEcran(pg, avant, { chemin: `/${P('poutre')}`, delai: 30000 }); } finally { await lire(pg, () => { window.__retarder = null; }); }
+        const l = await lire(pg, (s) => ({ recherche: location.search, valeur: (document.querySelector(s) || {}).value, notes: window.__notes(), s: window.__s }), sel);
+        // la note que l'adresse nomme : NEUVE (la provisoire, écrite après le départ), et sa valeur est la saisie
+        const id = new URLSearchParams(l.recherche).get('note'), note = id && (l.notes || {})[id];
+        const enregistree = !!note && !!noteAvecValeur({ [id]: note }, 'poutre', champ.chemin, v);   // (même lecture que les autres essais : le chemin, sinon le texte de l'état)
+        verif(N(`retour AVANT la réponse de la modification gardée d'une note provisoire : l'entrée attend son enregistrement, prend ?note= et la note se rouvre avec la valeur saisie (${champ.chemin} = ${v})`),
+          !/note=/.test(prov) && au.livrees < au.retardees && !!note && !deja.includes(id) && enregistree && valeurNombre(l.valeur) === v
+            && l.s === avant.s && depuis(pg, R).navs === 0,
+          court({ provisoire: prov, auRetour: au, recherche: l.recherche, valeur: l.valeur, note: id, neuve: !!id && !deja.includes(id), enregistree, navigations: depuis(pg, R).navs }));
+      });
+
+      // revue S4, etat-05 (C3) : la réponse arrive après le départ, puis F5 sur l'écran suivant, puis Retour — la
+      // correction d'adresse (sessionStorage) rouvre la note dans le document NEUF (une page à part : son propre onglet)
+      await essai('rechargement puis retour', async () => {
+        const p2 = await nouvellePage(c);
+        try {
+          await p2.goto(`${BASE}/${P('poutre')}`);
+          await pretEcran(p2, null, { chemin: `/${P('poutre')}` });
+          const champ = await champVisible(p2);
+          if (!champ) { verif(N('rechargement puis retour : un champ numérique visible à saisir'), false); return; }
+          const v = autreValeur(champ, 1.3), sel = `#donnees input[data-chemin="${champ.chemin}"]`;
+          const deja = Object.keys((await lire(p2, () => window.__notes())) || {});
+          await p2.fill(sel, String(v).replace('.', ','));
+          await lire(p2, () => { window.__retarder = { ms: 1500, module: 'poutre' }; });
+          let avant = await etatEcran(p2);
+          await cliquerLien(p2, P('assemblages'));
+          await pretEcran(p2, avant, { chemin: `/${P('assemblages')}` });
+          await p2.waitForFunction(() => window.__livrees.length > 0, null, { timeout: 20000 }).catch(() => {});
+          await attendre(600);
+          const stocke = await lire(p2, () => sessionStorage.getItem('stab.app.corrections'));
+          await p2.reload();
+          await pretEcran(p2, null, { chemin: `/${P('assemblages')}` });
+          avant = await etatEcran(p2);
+          await p2.goBack({ timeout: 30000 }).catch(() => null);
+          await pretEcran(p2, avant, { chemin: `/${P('poutre')}`, delai: 90000 });
+          const l = await lire(p2, (s) => ({ recherche: location.search, valeur: (document.querySelector(s) || {}).value, notes: window.__notes() }), sel);
+          const id = new URLSearchParams(l.recherche).get('note'), note = id && (l.notes || {})[id];
+          const enregistree = !!note && !!noteAvecValeur({ [id]: note }, 'poutre', champ.chemin, v);   // (même lecture que les autres essais : le chemin, sinon le texte de l'état)
+          verif(N(`rechargement entre la réponse et le retour : la correction d'adresse gardée (sessionStorage) rouvre la note provisoire écrite après le départ (${champ.chemin} = ${v})`),
+            !!note && !deja.includes(id) && enregistree && valeurNombre(l.valeur) === v,
+            court({ recherche: l.recherche, valeur: l.valeur, note: id, neuve: !!id && !deja.includes(id), enregistree, stocke }));
+        } finally { await p2.close(); }
+      });
     }
 
     // ---- ✕ « Supprimer » d'une carte Reprendre ne navigue pas (et un clic sur la carte, oui : le témoin)
@@ -829,25 +972,151 @@ function noteAvecValeur(notes, module, chemin, valeur) {
       });
     }
 
-    // ---- hors ligne : un écran pas encore chargé ne s'ouvre pas, on RESTE, avec le message (C8)
+    // ---- hors ligne : un écran jamais ouvert ne s'ouvre pas, on RESTE, avec le message juste (C8) ; un écran déjà ouvert
+    //      dans ce document se rouvre de la copie de sa page et calcule (R5 ; revue S4, deploiement-03) ; un Retour hors
+    //      ligne laisse l'adresse et l'écran d'accord (deploiement-04)
     if (joue('horsligne')) {
       await essai('hors ligne', async () => {
-        await allerA(pg, P('poutre'));
+        const M = await messagesApp(pg);
+        await allerA(pg, './');
+        await naviguerApp(pg, P('poutre'));
         const avant = await etatEcran(pg), R = repere(pg);
+        await vieillirPages(pg);   // plus de 30 s : la copie fraîche des lectures d'avance ne compte plus
+        await effacerMessage(pg);
         await c.setOffline(true);
         try {
           await cliquerLien(pg, P('soudures')).catch(() => {});
           await attendre(2500);
-          const l = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, message: /Pas de réseau/.test(document.body.innerText) })).catch((e) => ({ erreur: String(e.message).slice(0, 120) }));
-          const D = depuis(pg, R);
-          verif(N('hors ligne : le lien vers un écran pas encore chargé laisse l\'écran en place, avec le message « Pas de réseau »'),
-            !l.erreur && l.chemin === avant.chemin && l.s === avant.s && l.message && D.navs === 0, court({ ...l, navigations: D.navs }));
+          const l = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, message: (document.getElementById('toast') || {}).textContent || '' })).catch((e) => ({ erreur: String(e.message).slice(0, 120) }));
+          verif(N('hors ligne : le lien vers un écran jamais ouvert laisse l\'écran en place, avec le message exact (« ne peut pas s\'ouvrir sans connexion », pas « pas encore chargé »)'),
+            !l.erreur && l.chemin === avant.chemin && l.s === avant.s && l.message === M.PAS_DE_RESEAU && !/pas encore/.test(l.message) && depuis(pg, R).navs === 0,
+            court({ ...l, attendu: M.PAS_DE_RESEAU, navigations: depuis(pg, R).navs }));
+          let av = await etatEcran(pg);
+          await cliquerLien(pg, './');
+          const s1 = await pretEcran(pg, av, { chemin: '/', delai: 20000 }).catch((e) => `rien : ${String(e.message).split('\n')[0]}`);
+          av = await etatEcran(pg);
+          await cliquerLien(pg, P('poutre'));
+          const s2 = await pretEcran(pg, av, { chemin: `/${P('poutre')}`, delai: 30000 }).catch((e) => `rien : ${String(e.message).split('\n')[0]}`);
+          const l2 = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, ecran: document.body.dataset.ecran, resultat: ((document.getElementById('resultat') || {}).innerHTML || '').length }));
+          verif(N('hors ligne : un écran déjà ouvert dans ce document (l\'accueil, puis la poutre) se rouvre de la copie de sa page, et la poutre calcule (le moteur porte tous les modules)'),
+            s1 === 'ecran:pret' && s2 === 'ecran:pret' && l2.chemin === `/${P('poutre')}` && l2.ecran === 'pret' && l2.resultat > 0 && l2.s === avant.s && depuis(pg, R).navs === 0,
+            court({ accueil: s1, poutre: s2, ...l2, navigations: depuis(pg, R).navs }));
+          av = await etatEcran(pg);
+          await pg.goBack({ timeout: 10000 }).catch(() => null);
+          const s3 = await pretEcran(pg, av, { chemin: '/', delai: 20000 }).catch((e) => `rien : ${String(e.message).split('\n')[0]}`);
+          const l3 = await lire(pg, () => ({ chemin: location.pathname, page: document.body.dataset.page, s: window.__s }));
+          verif(N('hors ligne, Retour : l\'écran de l\'entrée d\'arrivée (l\'accueil, déjà ouvert) s\'ouvre ; l\'adresse et l\'écran disent le même écran'),
+            s3 === 'ecran:pret' && l3.chemin === '/' && l3.page === 'accueil' && l3.s === avant.s && depuis(pg, R).navs === 0, court({ signal: s3, ...l3, navigations: depuis(pg, R).navs }));
         } finally { await c.setOffline(false); }
+      });
+      // la page du document lui-même (lue par le navigateur, pas par app.js) se rouvre aussi hors ligne (une page à part)
+      await essai('hors ligne · page du document', async () => {
+        const p2 = await nouvellePage(c);
+        try {
+          await p2.goto(`${BASE}/${P('dalle')}`);
+          await pretEcran(p2, null, { chemin: `/${P('dalle')}` });
+          await naviguerApp(p2, './', '/');
+          const av = await etatEcran(p2), R = repere(p2);
+          await c.setOffline(true);
+          try {
+            await p2.goBack({ timeout: 10000 }).catch(() => null);
+            const sig = await pretEcran(p2, av, { chemin: `/${P('dalle')}`, delai: 30000 }).catch((e) => `rien : ${String(e.message).split('\n')[0]}`);
+            const l = await lire(p2, () => ({ module: document.body.dataset.module, s: window.__s, chemin: location.pathname }));
+            verif(N('hors ligne, Retour vers la page du document lui-même (la dalle, chargée par le navigateur) : elle se rouvre de sa copie, et calcule'),
+              sig === 'ecran:pret' && l.module === 'dalle' && l.s === av.s && depuis(p2, R).navs === 0, court({ signal: sig, ...l, navigations: depuis(p2, R).navs }));
+          } finally { await c.setOffline(false); }
+        } finally { await p2.close(); }
       });
     }
 
-    // ---- version changée : la page cible porte une autre stab-version → exactement UNE navigation de document (S4-D3)
+    // ---- une lecture de page qui traîne : la barre fine (aux trois formats : le même composant de site.css) et
+    //      body[aria-busy] après 300 ms ; sans réponse, 10 s au plus, puis on RESTE avec le message (deploiement-05)
+    if (joue('lent')) {
+      await essai('lent', async () => {
+        const M = await messagesApp(pg);
+        await allerA(pg, P('poutre'));
+        const cible1 = `/${P('sol')}`, est1 = (u) => new URL(u).pathname === cible1;
+        const lente = async (route) => {
+          if (!route.request().isNavigationRequest()) await attendre(2000);
+          try { await route.continue(); } catch (e) { /* la page est passée à autre chose */ }
+        };
+        await pg.route(est1, lente);
+        try {
+          const avant = await etatEcran(pg), R = repere(pg);
+          await cliquerLien(pg, P('sol'));
+          await attendre(1000);
+          const pendant = await lire(pg, () => {
+            const e = document.querySelector('.app-attente'), r = e && e.getBoundingClientRect();
+            return { vu: !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true }), boite: r ? [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)] : null,
+              busy: document.body.getAttribute('aria-busy'), largeur: innerWidth, chemin: location.pathname };
+          });
+          await pretEcran(pg, avant, { chemin: cible1 });
+          const apres = await lire(pg, () => ({ dom: !!document.querySelector('.app-attente'), busy: document.body.getAttribute('aria-busy') }));
+          verif(N('lecture lente (2 s) : la barre .app-attente est VUE en haut de l\'écran, pleine largeur, body[aria-busy] posé, avant l\'échange ; tous deux retirés une fois l\'écran monté'),
+            pendant.vu && !!pendant.boite && pendant.boite[0] === 0 && pendant.boite[1] === 0 && pendant.boite[2] >= pendant.largeur - 1 && pendant.boite[3] >= 2
+              && pendant.busy === 'true' && pendant.chemin === avant.chemin && !apres.dom && !apres.busy && depuis(pg, R).navs === 0,
+            court({ pendant, apres, navigations: depuis(pg, R).navs }));
+        } finally { await pg.unroute(est1, lente); }
+        const cible2 = `/${P('bois')}`, est2 = (u) => new URL(u).pathname === cible2;
+        const muette = async (route) => {
+          if (!route.request().isNavigationRequest()) await attendre(15000);
+          try { await route.continue(); } catch (e) { /* abandonnée par la page */ }
+        };
+        await pg.route(est2, muette);
+        try {
+          await effacerMessage(pg);
+          const ici = await etatEcran(pg), R = repere(pg), t0 = Date.now();
+          await cliquerLien(pg, P('bois'));
+          let t = null;
+          try { await pg.waitForFunction((m) => !!m && (document.getElementById('toast') || {}).textContent === m, M.RESEAU_MUET, { timeout: 13000, polling: 100 }); t = Date.now() - t0; } catch (e) { /* jugé ci-dessous */ }
+          const l = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, dom: !!document.querySelector('.app-attente'), busy: document.body.getAttribute('aria-busy') }));
+          verif(N('lecture sans réponse : après 10 s (AbortController), on RESTE sur l\'écran avec le message « Le réseau ne répond pas », sans navigation de document, la barre retirée'),
+            t !== null && t > 9000 && t < 12000 && l.chemin === ici.chemin && l.s === ici.s && !l.dom && !l.busy && depuis(pg, R).navs === 0,
+            court({ apres_ms: t, attendu: M.RESEAU_MUET, ...l, navigations: depuis(pg, R).navs }));
+        } finally { await pg.unroute(est2, muette); }
+      });
+    }
+
+    // ---- version changée : la page cible porte une autre stab-version → exactement UNE navigation de document (S4-D3) ;
+    //      une mise en ligne vue ET le réseau absent : on reste, jamais de navigation ordinaire (C8 ; deploiement-02)
     if (joue('version')) {
+      await essai('version · hors ligne', async () => {
+        const M = await messagesApp(pg);
+        await allerA(pg, './');
+        await naviguerApp(pg, P('poutre'));
+        const estManifeste = (u) => new URL(u).pathname === '/moteur/manifeste.json';
+        const autre = async (route) => {
+          try { const r = await route.fetch(); const j = await r.json(); j.version = 'ffffffffffffffff'; await route.fulfill({ response: r, json: j }); } catch (e) { try { await route.abort(); } catch (x) { /* déjà fini */ } }
+        };
+        await pg.route(estManifeste, autre);
+        const R = repere(pg), s = (await etatEcran(pg)).s;
+        let l1 = null, l2 = null, mise = false;
+        try {
+          await lire(pg, () => document.dispatchEvent(new Event('visibilitychange')));
+          mise = await pg.waitForFunction(() => /mis à jour/.test((document.getElementById('toast') || {}).textContent || ''), null, { timeout: 10000 }).then(() => true, () => false);
+          await c.setOffline(true);
+          try {
+            await effacerMessage(pg);
+            await cliquerLien(pg, P('soudures')).catch(() => {});
+            await attendre(2500);
+            l1 = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, message: (document.getElementById('toast') || {}).textContent || '' })).catch((e) => ({ erreur: String(e.message).slice(0, 120) }));
+            const av = await etatEcran(pg).catch(() => null);
+            await cliquerLien(pg, './').catch(() => {});
+            await pretEcran(pg, av, { chemin: '/', delai: 20000 }).catch(() => null);
+            l2 = await lire(pg, () => ({ chemin: location.pathname, s: window.__s, page: document.body.dataset.page })).catch((e) => ({ erreur: String(e.message).slice(0, 120) }));
+          } finally { await c.setOffline(false); }
+        } finally { await pg.unroute(estManifeste, autre); }
+        const D = depuis(pg, R);
+        verif(N('version changée ET hors ligne : aucune navigation de document — un écran jamais ouvert : on reste, avec le message ; un écran déjà ouvert (l\'accueil) : sa copie'),
+          mise && D.navs === 0 && l1 && l1.s === s && l1.chemin === `/${P('poutre')}` && l1.message === M.PAS_DE_RESEAU && l2 && l2.s === s && l2.page === 'accueil',
+          court({ miseEnLigneVue: mise, l1, l2, navigations: D.navs }));
+        // le réseau revenu : la navigation suivante est ORDINAIRE (une mise en ligne a été vue pendant la session)
+        const av = await etatEcran(pg).catch(() => null), R2 = repere(pg);
+        await cliquerLien(pg, P('poutre')).catch(() => {});
+        await pretEcran(pg, av, { chemin: `/${P('poutre')}` }).catch(() => null);
+        verif(N('version changée, réseau revenu : la navigation suivante est ordinaire (exactement une navigation de document)'), depuis(pg, R2).navs === 1,
+          `navigations ${depuis(pg, R2).navs}`);
+      });
       await essai('version', async () => {
         await allerA(pg, P('poutre')).catch(() => null);
         const meta = await lire(pg, () => (document.querySelector('meta[name="stab-version"]') || {}).content || null);

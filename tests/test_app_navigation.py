@@ -23,6 +23,14 @@ seul travailleur, la fermeture, les feuilles actives, les écouteurs vivants…)
   commun.js) ; cablerRail n'est appelé que par app.js ; chaque écouteur posé sur document, window ou une requête média
   par un écran porte le signal du montage ; chaque ResizeObserver se déconnecte au signal ; plus de voile #demarrage
   nommé dans js/ ni dans les feuilles.
+- le BANC (revue S4 : etat-04, 05, 06, 08, deploiement-02 à 05, le refus anonyme ; le CONTRAT du ctx documenté en tête de
+  js/app.js) : app.js tel quel dans un faux document (historique avec index et go, adresse, réseau immédiat / différé /
+  suspendu / en panne, feuilles retenues ou échouées, stockage de session, document rechargé), les écrans et le moteur
+  remplacés par des doublures qui disent ce qu'app.js leur fait — Retour puis Avance pendant une lecture, double clic,
+  Retour avant la réponse d'une modification gardée, correction d'adresse après un rechargement, bfcache, version
+  changée hors ligne, copie des pages lues pour la vie du document, Retour hors ligne recalé, délai de 10 s et
+  indicateur après 300 ms, titre de l'écran quitté sur ses messages, ctx.enCours / apresEnregistrements /
+  rendreDefilement / etatEntree / garderEtatEntree, annonce de la clé au moteur ;
 - chaque contrôle a sa MUTATION : la même vérification, sur une copie de js/ abîmée exprès, doit rougir.
 
     python3 tests/test_app_navigation.py
@@ -687,7 +695,625 @@ chk("plus de voile : aucun script ni aucune feuille ne nomme #demarrage, .demarr
 chk("js/redirection.js a disparu (app.js mène une page de redirection ouverte directement à la page qui la sert)",
     not os.path.exists(os.path.join(JS, "redirection.js")) and "corps.dataset.vers + location.search + location.hash" in open(os.path.join(JS, "app.js"), encoding="utf-8").read())
 
-# ------------------------------------------------------------------ 9. les mutations
+# ------------------------------------------------------------------ 9. la navigation dans un faux document (le BANC)
+# js/app.js tel quel, dans un faux document : l'historique (entrées, index, popstate, go), l'adresse, le réseau (lecture
+# immédiate, différée, suspendue, en panne ; navigator.onLine), les feuilles de <head> (chargées, ou retenues), le corps
+# échangé, le message (#toast), le stockage de session. Les ÉCRANS (etabli.js, accueil.js, bibliotheque.js) et le MOTEUR
+# (moteur.js) sont des DOUBLURES qui disent ce qu'on leur fait : ce qu'app.js leur donne (ctx), quand il les monte et les
+# ferme — c'est le contrat entre l'application et les écrans qui se prouve ici (revue S4 : etat-04, etat-05, etat-06,
+# etat-08, deploiement-02 à 05, le refus anonyme ; le contrat du lot « écrans »). commun.js, sonde.js, compact.js,
+# modules.js sont les vrais.
+DOUBLURES = {
+    "etabli.js": "// doublure du banc (tests/test_app_navigation.py)\nexport function ouvrirEtabli(hote, ctx) { return globalThis.__banc.ouvrir(\"module\", hote, ctx); }\n",
+    "accueil.js": "// doublure du banc\nexport function ouvrirAccueil(hote, ctx) { return globalThis.__banc.ouvrir(\"accueil\", hote, ctx); }\n",
+    "bibliotheque.js": "// doublure du banc\nexport function ouvrirBibliotheque(hote, ctx) { return globalThis.__banc.ouvrir(\"bibliotheque\", hote, ctx); }\n",
+    "moteur.js": ("// doublure du banc\nexport class EcranFerme extends Error {}\n"
+                  "export function moteurPartage() { return globalThis.__banc.moteur; }\n"
+                  "export function moteurExiste() { return !!globalThis.__banc.moteurExiste; }\n"),
+}
+
+
+def copie_banc(mutations=()):
+    """Une copie de js/ (``mutations`` appliquées, comme copie_mutee) où les écrans et le moteur sont des doublures."""
+    d = copie_mutee(list(mutations))
+    for f, src in DOUBLURES.items():
+        open(os.path.join(d, f), "w", encoding="utf-8").write(src)
+    return d
+
+
+BANC = r"""
+const base = process.argv[1], SCEN = process.argv[2];
+const RACINE = new URL("../", base).href;
+const V = "v-banc";
+const st0 = globalThis.setTimeout.bind(globalThis);
+const calme = () => new Promise((ok) => st0(ok, 20));
+const sommeil = (ms) => new Promise((ok) => st0(ok, ms));
+const R = globalThis.__banc = { montes: [], surFermer: null, moteur: null, moteurExiste: false, toasts: [], ordinaires: [], scrolls: [],
+  delais: [], lectures: [], ariaBusy: [], mode: {}, lacher: {}, panne: false, versionManifeste: V, decalage: 0, accelerer: false,
+  feuillesLentes: new Set(), actif: null, rejets: [] };
+// comme un navigateur : un rejet que personne ne traite est consigné, il n'arrête pas tout
+process.on("unhandledRejection", (e) => { R.rejets.push(String((e && e.message) || e)); });
+const fauxMoteur = ({ etat = "pret", annoncer = true } = {}) => {
+  const m = { etat, pret: Promise.resolve(), prechauffes: [], annonces: [], prechauffer(k) { m.prechauffes.push(k); },
+    client() { return { demander: async () => ({ ok: true }), fermer: async () => {} }; } };
+  if (annoncer) m.annoncer = (k) => m.annonces.push(k);
+  return m;
+};
+R.moteur = fauxMoteur();
+R.ouvrir = (sorte, hote, ctx) => {
+  const e = { n: R.montes.length + 1, sorte, page: hote.dataset.page, module: ctx.module, bibliotheque: ctx.bibliotheque,
+    note: ctx.params.get("note"), ctx, ferme: false, adresse: location.href.slice(RACINE.length) };
+  R.montes.push(e);
+  return { fermer: () => { e.ferme = true; return (R.surFermer && R.surFermer(e)) || { note: null, enregistree: Promise.resolve({ refus: [] }) }; } };
+};
+// ---- le temps : les délais de 5 s et plus accélérés (×100) quand R.accelerer ; Date.now décalable
+globalThis.setTimeout = (f, ms = 0, ...a) => { R.delais.push(ms); return st0(f, R.accelerer && ms >= 5000 ? ms / 100 : ms, ...a); };
+const now0 = Date.now; Date.now = () => now0() + R.decalage;
+// ---- les pages du faux site : leur texte nomme la page et sa version, le faux DOMParser les relit
+const BASE_CSS = ["css/charte.css", "css/site.css"];
+const MOD = (k, t) => ({ page: "module", titre: `${t} · Stab Méthodes`, attrs: { "data-module": k }, feuilles: [...BASE_CSS, "css/etabli.css"] });
+const PAGES = { "": { page: "accueil", titre: "Stab Méthodes", feuilles: BASE_CSS }, poutre: MOD("poutre", "Poutre BA"), dalle: MOD("dalle", "Dalle"),
+  assemblages: MOD("assemblages", "Assemblages"), soudures: MOD("soudures", "Soudures"), corniere: MOD("corniere", "Cornières"),
+  flambement: MOD("flambement", "Flambement"),
+  "bibliotheque-beton": { page: "bibliotheque", titre: "Béton armé · Stab Méthodes", attrs: { "data-bibliotheque": "beton", "data-titre": "Béton armé" },
+    feuilles: [...BASE_CSS, "css/bibliotheque.css"] } };
+const texteDe = (nom, v = V) => `<!doctype html><html><head><meta name="stab-version" content="${v}"></head><body><!--banc:${nom}--></body></html>`;
+const nomDe = (u) => String(u && u.href ? u.href : u).slice(RACINE.length).replace(/[?#].*$/, "");
+// ---- les éléments
+const kebab = (k) => "data-" + k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase());
+const camel = (n) => n.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+function el(tag = "div", attrs = {}) {
+  const at = new Map(Object.entries(attrs)), classes = new Set();
+  const e = {
+    tagName: tag.toUpperCase(), style: {}, hidden: false, parentNode: null, enfants: [], textContent: "",
+    get childNodes() { return e.enfants.slice(); },
+    classList: { add: (...c) => c.forEach((x) => classes.add(x)), remove: (...c) => c.forEach((x) => classes.delete(x)), contains: (c) => classes.has(c),
+      toggle: (c, f) => { const on = f === undefined ? !classes.has(c) : !!f; if (on) classes.add(c); else classes.delete(c); return on; } },
+    get className() { return [...classes].join(" "); }, set className(v) { classes.clear(); String(v).split(/\s+/).filter(Boolean).forEach((x) => classes.add(x)); },
+    get attributes() { return [...at].map(([name, value]) => ({ name, value })); },
+    setAttribute(n, v) { at.set(n, String(v)); if (e.surAttribut) e.surAttribut(n, String(v)); }, getAttribute(n) { return at.has(n) ? at.get(n) : null; },
+    removeAttribute(n) { at.delete(n); }, hasAttribute(n) { return at.has(n); },
+    addEventListener() {}, removeEventListener() {}, querySelector() { return null; }, querySelectorAll() { return []; },
+    append(...xs) { for (const x of xs) { if (x.parentNode) x.remove(); x.parentNode = e; e.enfants.push(x); } },
+    replaceChildren(...xs) { for (const x of e.enfants) x.parentNode = null; e.enfants = []; e.append(...xs); },
+    remove() { const p = e.parentNode; if (p) { p.enfants = p.enfants.filter((x) => x !== e); e.parentNode = null; } },
+    after() {}, before() {}, focus() {}, blur() {}, closest() { return null; }, contains() { return false; }, checkVisibility() { return false; },
+  };
+  e.dataset = new Proxy({}, {
+    get: (_, k) => (typeof k === "string" && at.has(kebab(k)) ? at.get(kebab(k)) : undefined),
+    set: (_, k, v) => { at.set(kebab(k), String(v)); return true; },
+    deleteProperty: (_, k) => { at.delete(kebab(k)); return true; },
+    ownKeys: () => [...at.keys()].filter((n) => n.startsWith("data-")).map(camel),
+    getOwnPropertyDescriptor: () => ({ enumerable: true, configurable: true }),
+  });
+  return e;
+}
+const toastEl = el("div");
+Object.defineProperty(toastEl, "hidden", { get: () => true, set: (v) => { if (!v) R.toasts.push([toastEl.textContent, toastEl.classList.contains("erreur")]); } });
+// ---- les feuilles de <head> : une feuille posée se charge au tour suivant, sauf si elle est « lente » (R.feuillesLentes)
+const tete = [];
+function lien() {
+  const l = el("link"), ec = {};
+  l.rel = "stylesheet"; l.sheet = null; l.media = ""; l.disabled = false;
+  l.addEventListener = (t, f) => { (ec[t] = ec[t] || []).push(f); };
+  l.charger = () => { l.sheet = { disabled: false }; const fs = ec.load || []; ec.load = []; fs.forEach((f) => f()); };
+  l.echouer = () => { const fs = ec.error || []; ec.error = []; fs.forEach((f) => f()); };
+  Object.defineProperty(l, "href", { get: () => l._href || "", set: (v) => { l._href = new URL(v, RACINE).href; if (!R.feuillesLentes.has(l._href.slice(RACINE.length))) st0(() => l.charger(), 0); } });
+  l.after = (x) => { const i = tete.indexOf(x); if (i >= 0) tete.splice(i, 1); tete.splice(tete.indexOf(l) + 1, 0, x); };
+  l.before = (x) => { const i = tete.indexOf(x); if (i >= 0) tete.splice(i, 1); tete.splice(tete.indexOf(l), 0, x); };
+  l.remove = () => { const i = tete.indexOf(l); if (i >= 0) tete.splice(i, 1); };
+  l.removeAttribute = (n) => { if (n === "media") l.media = ""; };
+  return l;
+}
+// ---- l'historique, l'adresse, les écouteurs de la fenêtre et du document
+const H = { entrees: [], i: 0 };
+let W = {}, D = {};
+const ecouter = (table) => (t, f, o) => {
+  if (o && o.signal) { if (o.signal.aborted) return; o.signal.addEventListener("abort", () => { table[t] = (table[t] || []).filter((x) => x !== f); }); }
+  (table[t] = table[t] || []).push(f);
+};
+globalThis.addEventListener = (t, f, o) => ecouter(W)(t, f, o);
+const emettre = (t, ev = {}) => { for (const f of (W[t] || []).slice()) f(ev); };
+const emettreDoc = (t, ev = {}) => { for (const f of (D[t] || []).slice()) f(ev); };
+globalThis.history = {
+  scrollRestoration: "auto",
+  get state() { return H.entrees[H.i].state; },
+  replaceState(s, _, u) { H.entrees[H.i] = { url: u ? new URL(u, H.entrees[H.i].url).href : H.entrees[H.i].url, state: structuredClone(s) }; },
+  pushState(s, _, u) { H.entrees.splice(H.i + 1); H.entrees.push({ url: new URL(u, H.entrees[H.i].url).href, state: structuredClone(s) }); H.i++; },
+  go(d) { st0(() => { const j = H.i + d; if (j < 0 || j >= H.entrees.length) return; H.i = j; emettre("popstate", {}); }, 0); },
+};
+globalThis.location = { get href() { return H.entrees[H.i].url; }, get search() { return new URL(this.href).search; }, get hash() { return new URL(this.href).hash; },
+  get pathname() { return new URL(this.href).pathname; }, assign(u) { R.ordinaires.push(["assign", String(u).slice(RACINE.length)]); },
+  replace(u) { R.ordinaires.push(["replace", String(u).slice(RACINE.length)]); }, reload() {} };
+const traverser = (d) => { H.i += d; emettre("popstate", {}); };
+const allerEntree = (j) => { H.i = j; emettre("popstate", {}); };
+// ---- le réseau
+const nav = { onLine: true };
+Object.defineProperty(globalThis, "navigator", { value: nav, configurable: true });
+globalThis.fetch = (u, o = {}) => {
+  const nom = nomDe(u);
+  R.lectures.push(nom);
+  if (R.panne || nav.onLine === false) return Promise.reject(new TypeError("Failed to fetch"));
+  if (nom === "moteur/manifeste.json") return Promise.resolve({ ok: true, type: "basic", status: 200, json: async () => ({ version: R.versionManifeste, pyodide: "vendor/pyodide-0.29.5" }) });
+  const rep = { type: "basic", ok: !!PAGES[nom], status: PAGES[nom] ? 200 : 404, text: async () => texteDe(nom) };
+  const mode = R.mode[nom] || "ok";
+  if (mode === "ok") return Promise.resolve(rep);
+  return new Promise((ok, ko) => {
+    if (o.signal) o.signal.addEventListener("abort", () => { const e = new Error("abandon"); e.name = "AbortError"; ko(e); });
+    if (mode === "attente") R.lacher[nom] = () => ok(rep);
+  });
+};
+globalThis.DOMParser = class { parseFromString(t) {
+  const nom = (/<!--banc:([^>]*?)-->/.exec(t) || [])[1], v = (/name="stab-version" content="([^"]*)"/.exec(t) || [])[1], p = PAGES[nom];
+  if (!p) return { title: "", querySelector: () => null, querySelectorAll: () => [], body: el("body") };
+  return { title: p.titre, querySelector: (s) => (s.includes("stab-version") && v ? { content: v } : null),
+    querySelectorAll: (s) => (s.includes("stylesheet") ? p.feuilles.map((h) => ({ getAttribute: (a) => (a === "href" ? h : null) })) : []),
+    body: el("body", { "data-page": p.page, ...(p.attrs || {}) }) };
+} };
+// ---- le reste du navigateur
+globalThis.self = { location: { href: RACINE } };
+globalThis.scrollY = 0;
+globalThis.scrollTo = (x, y) => { R.scrolls.push(y); globalThis.scrollY = y; };
+globalThis.requestAnimationFrame = (f) => st0(f, 0);
+globalThis.performance.getEntriesByType = () => [];
+const magasin = () => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, String(v)), removeItem: (k) => m.delete(k),
+  key: (i) => [...m.keys()][i] ?? null, get length() { return m.size; }, _tout: () => Object.fromEntries(m) }; };
+globalThis.localStorage = magasin();
+globalThis.sessionStorage = magasin();
+globalThis.alert = () => {}; globalThis.confirm = () => true;
+// ---- un document : sa page, ses feuilles, son corps ; app.js importé (un module NEUF à chaque document)
+let A = null, nDoc = 0;
+async function ouvrirDocument(chemin, { capture = true, garder = false } = {}) {
+  const nom = chemin.replace(/[?#].*$/, ""), p = PAGES[nom];
+  if (!garder) { H.entrees = [{ url: RACINE + chemin, state: null }]; H.i = 0; }
+  tete.length = 0;
+  for (const h of p.feuilles) { const l = lien(); l._href = new URL(h, RACINE).href; l.sheet = { disabled: false }; tete.push(l); }
+  const body = el("body", { "data-page": p.page, ...(p.attrs || {}) });
+  body.surAttribut = (n, v) => { if (n === "aria-busy") R.ariaBusy.push(v); };
+  const html = el("html");
+  Object.defineProperty(html, "outerHTML", { get: () => (capture ? texteDe(nom).replace(/^<!doctype html>/, "") : undefined) });
+  W = {}; D = {}; R.montes = [];
+  globalThis.document = {
+    body, documentElement: html, readyState: "complete", visibilityState: "visible", title: p.titre,
+    head: { querySelector: () => tete[0] || null, append: (x) => tete.push(x) },
+    get activeElement() { return R.actif || body; },
+    createElement: (t) => (t === "link" ? lien() : el(t)), adoptNode: (x) => x,
+    getElementById: (id) => (id === "toast" ? toastEl : null),
+    querySelector: (s) => (s.includes("stab-version") ? { content: V } : null),
+    querySelectorAll: (s) => (s.includes("stylesheet") ? tete.slice() : []),
+    addEventListener: (t, f, o) => ecouter(D)(t, f, o),
+  };
+  nDoc++;
+  A = await import(base + "app.js" + (nDoc > 1 ? `?doc=${nDoc}` : ""));
+  await calme();
+  return A;
+}
+const vue = () => ({ page: document.body.dataset.page, montes: R.montes.length, adresse: location.href.slice(RACINE.length),
+  cle: history.state && history.state.cle, i: H.i, n: H.entrees.length, busy: document.body.getAttribute("aria-busy"),
+  indicateur: document.body.enfants.some((x) => /\bapp-attente\b/.test(x.className || "")) });
+const dernier = () => R.montes[R.montes.length - 1] || {};
+const borne = (p, ms = 1500) => Promise.race([p, sommeil(ms)]);
+
+const S = {};
+// etat-04 : Retour puis Avance pendant la lecture de la page du Retour
+S.retour_avance = async () => {
+  await ouvrirDocument("");
+  await A.naviguer(RACINE + "bibliotheque-beton"); await calme();
+  const cle1 = history.state.cle;
+  R.mode[""] = "attente";
+  traverser(-1); await calme();
+  const pendant = vue();
+  traverser(+1); await calme();
+  R.lacher[""](); await calme(); await calme();
+  return { pendant, fin: vue(), cle1, ordinaires: R.ordinaires };
+};
+// etat-08 : double clic — la seconde navigation attend la feuille que la première a posée
+S.double_clic = async () => {
+  await ouvrirDocument("");
+  R.feuillesLentes.add("css/bibliotheque.css");
+  A.naviguer(RACINE + "bibliotheque-beton"); await calme();
+  A.naviguer(RACINE + "bibliotheque-beton"); await calme();
+  const avant = vue();
+  const l = tete.find((x) => x.href.endsWith("css/bibliotheque.css"));
+  if (l) l.charger();
+  await calme(); await calme();
+  return { avant, fin: vue(), pages: R.montes.map((e) => e.page) };
+};
+// C9 : une feuille posée dont le chargement a ÉCHOUÉ (sans contenu, plus en chargement) n'est pas prise pour chargée :
+// une neuve la remplace, attendue
+S.feuille_echouee = async () => {
+  await ouvrirDocument("");
+  R.feuillesLentes.add("css/bibliotheque.css");
+  const p = A.naviguer(RACINE + "bibliotheque-beton"); await calme();
+  const l1 = tete.find((x) => x.href.endsWith("css/bibliotheque.css"));
+  if (l1) l1.echouer();
+  await borne(p); await calme();
+  const apresEchec = { ...vue(), ordinaires: R.ordinaires.slice() };
+  A.naviguer(RACINE + "bibliotheque-beton"); await calme();
+  const avant = vue();
+  const l2 = tete.find((x) => x.href.endsWith("css/bibliotheque.css"));
+  const neuve = !!l2 && l2 !== l1;
+  if (l2) l2.charger();
+  await calme(); await calme();
+  return { apresEchec, avant, neuve, fin: vue(), feuilles: tete.filter((x) => x.href.endsWith("css/bibliotheque.css")).length };
+};
+// etat-05 (a) : Retour AVANT la réponse de la modification gardée d'une note provisoire
+S.retour_avant_reponse = async () => {
+  await ouvrirDocument("poutre");
+  let fin = null;
+  R.surFermer = (e) => (e.n === 1 ? { note: "P", enregistree: new Promise((ok) => { fin = ok; }) } : null);
+  await A.naviguer(RACINE + "assemblages"); await calme();
+  traverser(-1); await calme();
+  const pendant = vue();
+  R.montes[0].ctx.adresse("?note=P");          // la réponse arrive : l'écran fermé écrit la note P et donne son adresse (C3)
+  fin({ refus: [] }); await calme(); await calme();
+  return { pendant, fin: vue(), dernier: { page: dernier().page, module: dernier().module, note: dernier().note }, ordinaires: R.ordinaires };
+};
+// etat-05 (b) : la correction d'adresse survit au rechargement de l'onglet (sessionStorage), appliquée au démarrage
+S.correction_rechargement = async () => {
+  await ouvrirDocument("poutre");
+  const k0 = history.state.cle;
+  let fin = null;
+  R.surFermer = (e) => (e.n === 1 ? { note: "P", enregistree: new Promise((ok) => { fin = ok; }) } : null);
+  await A.naviguer(RACINE + "assemblages"); await calme();
+  R.montes[0].ctx.adresse("?note=P");          // la réponse arrive APRÈS le départ : l'entrée de la poutre n'est plus la courante
+  fin({ refus: [] }); await calme();
+  const stocke = JSON.stringify(sessionStorage._tout());
+  // F5 sur assemblages, puis Retour : le navigateur charge l'entrée de la poutre dans un document NEUF, son état rendu
+  H.i = 0;
+  await ouvrirDocument("poutre", { garder: true });
+  return { k0, stocke, fin: vue(), note: dernier().note, ordinaires: R.ordinaires };
+};
+// etat-06 : retour par le bfcache (pageshow persisted) : l'écran remonté depuis le stockage à jour, le moteur vivant
+S.bfcache = async () => {
+  await ouvrirDocument("poutre?note=X");
+  const cle = history.state.cle;
+  emettre("pageshow", { persisted: false }); await calme();
+  const sans = vue();
+  emettre("pageshow", { persisted: true }); await calme(); await calme();
+  return { cle, sans, fin: vue(), premierFerme: R.montes[0].ferme, note: dernier().note, ordinaires: R.ordinaires };
+};
+// deploiement-02 : version changée ET réseau absent : on reste (ou la copie de la page) — jamais de navigation ordinaire
+S.version_horsligne = async () => {
+  await ouvrirDocument("");
+  await A.naviguer(RACINE + "poutre"); await calme();
+  R.versionManifeste = "autre";
+  emettreDoc("visibilitychange"); await calme();
+  const message = R.toasts.map((t) => t[0]);
+  nav.onLine = false; R.toasts.length = 0;
+  await borne(A.naviguer(RACINE + "dalle")); await calme();
+  const jamais = { ...vue(), toasts: R.toasts.map((t) => t[0]), ordinaires: R.ordinaires.slice() };
+  await borne(A.naviguer(RACINE)); await calme();
+  const deja = { ...vue(), ordinaires: R.ordinaires.slice() };
+  traverser(-1); await calme(); await calme();
+  const retour = { ...vue(), ordinaires: R.ordinaires.slice() };
+  nav.onLine = true; R.panne = true; R.toasts.length = 0;
+  await borne(A.naviguer(RACINE + "soudures")); await calme();
+  const menteur = { ...vue(), toasts: R.toasts.map((t) => t[0]), ordinaires: R.ordinaires.slice() };
+  R.panne = false;
+  await borne(A.naviguer(RACINE + "soudures")); await calme();
+  return { message, jamais, deja, retour, menteur, enLigne: R.ordinaires.slice(), PAS_DE_RESEAU: A.PAS_DE_RESEAU };
+};
+// deploiement-03 : un écran déjà ouvert se rouvre hors ligne (la page gardée pour la vie du document) ; le message juste
+S.memoire = async () => {
+  await ouvrirDocument("");
+  await A.naviguer(RACINE + "poutre"); await calme();
+  await A.naviguer(RACINE); await calme();
+  R.decalage = 31000; nav.onLine = false; R.toasts.length = 0;
+  await borne(A.naviguer(RACINE + "poutre")); await calme();
+  const deja = { ...vue(), module: dernier().module, toasts: R.toasts.map((t) => t[0]) };
+  await borne(A.naviguer(RACINE + "soudures")); await calme();
+  const jamais = { ...vue(), toasts: R.toasts.map((t) => t[0]), ordinaires: R.ordinaires.slice() };
+  return { deja, jamais, PAS_DE_RESEAU: A.PAS_DE_RESEAU };
+};
+// deploiement-03 (bis) : la page de CE document (lue par le navigateur, pas par app.js) se rouvre aussi hors ligne
+S.memoire_initiale = async () => {
+  await ouvrirDocument("poutre");
+  await A.naviguer(RACINE + "dalle"); await calme();
+  nav.onLine = false; R.toasts.length = 0;
+  traverser(-1); await calme(); await calme();
+  return { fin: vue(), module: dernier().module, toasts: R.toasts.map((t) => t[0]), ordinaires: R.ordinaires };
+};
+// deploiement-04 : Retour hors ligne vers une entrée qui ne peut pas s'ouvrir : l'historique revient sur l'écran affiché
+S.retour_horsligne = async () => {
+  await ouvrirDocument("", { capture: false });
+  await A.naviguer(RACINE + "poutre"); await calme();
+  await A.naviguer(RACINE + "dalle"); await calme();
+  const k2 = history.state.cle;
+  nav.onLine = false; R.toasts.length = 0;
+  traverser(-2); await calme(); await calme(); await calme();
+  const fin = { ...vue(), toasts: R.toasts.map((t) => t[0]), entrees: H.entrees.map((e) => e.url.slice(RACINE.length)) };
+  // une entrée sans rang (écrite par une version d'avant) : l'entrée d'arrivée est réécrite à l'adresse et à la clé de l'écran affiché
+  H.entrees[0].state = { cle: "ancien.1", defile: 0 };
+  allerEntree(0); await calme(); await calme(); await calme();
+  const sansRang = vue();
+  return { k2, fin, sansRang, ordinaires: R.ordinaires, PAS_DE_RESEAU: A.PAS_DE_RESEAU };
+};
+// deploiement-05 : un délai (10 s, accéléré ici) et un indicateur visible après 300 ms, retiré quand la navigation finit
+S.lent = async () => {
+  await ouvrirDocument("");
+  R.mode.poutre = "attente";
+  const p = A.naviguer(RACINE + "poutre");
+  await sommeil(150); const a150 = vue();
+  await sommeil(300); const a450 = vue();
+  if (R.lacher.poutre) R.lacher.poutre();
+  await borne(p); await calme();
+  const fin1 = vue();
+  const n0 = R.ariaBusy.length;
+  await A.naviguer(RACINE + "dalle"); await sommeil(400);
+  const rapide = { ...vue(), poses: R.ariaBusy.slice(n0) };
+  R.mode.soudures = "attente"; R.mode.assemblages = "attente";
+  const q1 = A.naviguer(RACINE + "soudures"); await sommeil(400);
+  const q2 = A.naviguer(RACINE + "assemblages"); await calme();
+  const remplacee = vue();
+  if (R.lacher.soudures) R.lacher.soudures();      // la remplacée finit la PREMIÈRE : l'indicateur reste à la dernière
+  await borne(q1); await calme();
+  const tardive = vue();
+  if (R.lacher.assemblages) R.lacher.assemblages();
+  await borne(q2); await calme();
+  const fin3 = vue();
+  R.mode.corniere = "attente";
+  A.naviguer(RACINE + "corniere"); await sommeil(400);
+  const avantAnnulee = vue();
+  emettre("popstate", {}); await calme();
+  const annulee = vue();
+  R.accelerer = true; R.mode.flambement = "suspendu"; R.toasts.length = 0;
+  await borne(A.naviguer(RACINE + "flambement")); await calme();
+  const suspendue = { ...vue(), toasts: R.toasts.map((t) => t[0]), ordinaires: R.ordinaires.slice(), delai: R.delais.includes(10000) };
+  return { a150, a450, fin1, rapide, remplacee, fin3, tardive, avantAnnulee, annulee, suspendue, RESEAU_MUET: A.RESEAU_MUET || null };
+};
+// le refus anonyme : un message d'ERREUR dit pendant la fermeture porte le titre de l'écran quitté ; un refus rendu par
+// l'écran (res.refus) passe tel quel (l'établi le préfixe lui-même)
+S.refus = async () => {
+  await ouvrirDocument("poutre");
+  document.title = "Note P1 · Stab Méthodes";
+  const C = await import(base + "commun.js");
+  R.surFermer = (e) => (e.n === 1 ? { note: "P", enregistree: Promise.resolve({ refus: ["« Note P1 » (Poutre BA) : Le moteur a refusé : essai"] }) } : null);
+  R.actif = { blur() { C.toast("Valeur refusée : « -5 »", true); C.toast("Météo récupérée"); } };
+  await A.naviguer(RACINE + "dalle"); R.actif = null; await calme(); await calme();
+  return { toasts: R.toasts };
+};
+// le contrat (1) : ctx.enCours(id), ctx.apresEnregistrements()
+S.contrat_enregistrements = async () => {
+  await ouvrirDocument("poutre");
+  let d1, d2, d3;
+  R.surFermer = (e) => (e.n === 1 ? { note: "P", enregistree: new Promise((ok) => { d1 = ok; }) }
+    : e.n === 2 ? { note: "Q", enregistree: new Promise((ok, ko) => { d2 = ko; }) }
+    : e.n === 3 ? { note: "S", enregistree: new Promise((ok) => { d3 = ok; }) } : null);
+  await A.naviguer(RACINE + "dalle"); await calme();
+  await A.naviguer(RACINE + "assemblages"); await calme();
+  const ctx = R.montes[2].ctx;
+  if (typeof ctx.enCours !== "function" || typeof ctx.apresEnregistrements !== "function") return { absent: true };
+  const e1 = { P: ctx.enCours("P"), Q: ctx.enCours("Q"), X: ctx.enCours("X") };
+  let fini = false;
+  ctx.apresEnregistrements().then(() => { fini = true; }, () => { fini = "rejetée"; });
+  await A.naviguer(RACINE + "soudures"); await calme();
+  d1({ refus: [] }); await calme();
+  const f1 = fini, e2 = { P: ctx.enCours("P"), Q: ctx.enCours("Q") };
+  d2(new Error("panne")); await calme();
+  const f2 = fini;
+  let s = false;
+  R.montes[3].ctx.apresEnregistrements().then(() => { s = true; }); await calme();
+  const s1 = s;
+  d3({ refus: [] }); await calme();
+  let rien = false;
+  R.montes[3].ctx.apresEnregistrements().then(() => { rien = true; }); await calme();
+  return { e1, f1, e2, f2, s1, s2: s, rien, rejets: R.rejets };
+};
+// le contrat (2) : ctx.rendreDefilement() — une fois, puis oublié ; sinon l'application à 1,5 s ; l'accueil, à l'image suivante
+S.contrat_defilement = async () => {
+  await ouvrirDocument("");
+  globalThis.scrollY = 180;
+  await A.naviguer(RACINE + "poutre"); await calme();
+  globalThis.scrollY = 420;
+  await A.naviguer(RACINE + "dalle"); await calme();
+  const cd = R.montes[2].ctx;
+  if (typeof cd.rendreDefilement !== "function") return { absent: true };
+  const aller = { scrolls: R.scrolls.slice(), rendu: cd.rendreDefilement() };
+  globalThis.scrollY = 250; R.scrolls.length = 0;
+  traverser(-1); await calme();
+  const c = R.montes[3].ctx;
+  const s1 = R.scrolls.slice();
+  const r1 = c.rendreDefilement(); const s2 = R.scrolls.slice();
+  const r2 = c.rendreDefilement(); const s3 = R.scrolls.slice();
+  await sommeil(1700); const s4 = R.scrolls.slice();
+  R.scrolls.length = 0;
+  traverser(+1); await calme();
+  const t1 = R.scrolls.slice();
+  await sommeil(1700); const t2 = R.scrolls.slice();
+  R.scrolls.length = 0;
+  traverser(-2); await calme();
+  return { aller, s1, r1, s2, r2, s3, s4, t1, t2, accueil: R.scrolls.slice() };
+};
+// le contrat (3) : ctx.etatEntree, ctx.garderEtatEntree(obj) — seulement sur l'entrée de CET écran, s'il l'occupe encore
+S.contrat_etat_entree = async () => {
+  await ouvrirDocument("poutre");
+  const c1 = R.montes[0].ctx;
+  if (typeof c1.garderEtatEntree !== "function") return { absent: true };
+  const cle0 = history.state.cle, lu1 = c1.etatEntree;
+  const ok1 = c1.garderEtatEntree({ onglet: "resultat" }), ok1b = c1.garderEtatEntree({ zoom: 2 });
+  const st1 = history.state;
+  await A.naviguer(RACINE + "dalle"); await calme();
+  const ok2 = c1.garderEtatEntree({ onglet: "dessin" }), st2 = history.state;
+  traverser(-1); await calme();
+  const c3 = R.montes[2].ctx, lu3 = c3.etatEntree;
+  const ok3 = c1.garderEtatEntree({ onglet: "x" }), st3 = history.state;
+  emettre("pageshow", { persisted: true }); await calme(); await calme();
+  const ok4 = c3.garderEtatEntree({ onglet: "y" }), st4 = history.state;
+  const lu4 = R.montes[3] ? R.montes[3].ctx.etatEntree : null;
+  return { cle0, lu1, ok1, ok1b, st1, ok2, st2, lu3, ok3, st3, ok4, st4, lu4 };
+};
+// le contrat (4) : moteurApp().annoncer?.(k) au montage d'un écran de module ou de bibliothèque, moteur pas prêt
+S.contrat_annonce = async () => {
+  R.moteur = fauxMoteur({ etat: "demarrage" });
+  await ouvrirDocument("poutre");
+  await A.naviguer(RACINE + "bibliotheque-beton"); await calme();
+  await A.naviguer(RACINE + "predalle?note=n1"); await calme();
+  await A.naviguer(RACINE); await calme();
+  R.moteur.etat = "pret";
+  await A.naviguer(RACINE + "soudures"); await calme();
+  const annonces = R.moteur.annonces.slice();
+  R.moteur = fauxMoteur({ etat: "demarrage", annoncer: false });
+  await A.naviguer(RACINE + "assemblages"); await calme();
+  return { annonces, fin: vue(), modules: R.montes.map((e) => e.module || e.bibliotheque || e.sorte) };
+};
+
+let res;
+try { res = await S[SCEN](); } catch (e) { res = { erreur: String(e && e.stack || e).slice(0, 600) }; }
+console.log(JSON.stringify(res));
+process.exit(0);
+"""
+
+
+def banc(scenario, d):
+    return node(BANC, url_js(d), scenario, timeout=60)
+
+
+def egal(a, b):
+    return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def juger_banc(scenario, d):
+    """(vrai si le scénario du banc tient, ce qui a été vu)."""
+    r = banc(scenario, d)
+    if "erreur" in r:
+        return False, r
+    J = JUGES[scenario]
+    try:
+        return bool(J(r)), r
+    except Exception as e:  # noqa: BLE001
+        return False, {"juge": repr(e), "vu": r}
+
+
+def _sans_ordinaire(*xs):
+    return all(not x for x in xs)
+
+
+JUGES = {
+    "retour_avance": lambda r: (r["fin"]["page"] == "bibliotheque" and r["fin"]["montes"] == 2 and r["fin"]["adresse"] == "bibliotheque-beton"
+                                and r["fin"]["cle"] == r["cle1"] and not r["fin"]["busy"] and not r["fin"]["indicateur"] and not r["ordinaires"]),
+    "double_clic": lambda r: (r["avant"]["page"] == "accueil" and r["avant"]["montes"] == 1 and r["fin"]["page"] == "bibliotheque"
+                              and r["pages"] == ["accueil", "bibliotheque"]),
+    "feuille_echouee": lambda r: (r["apresEchec"]["page"] == "accueil" and r["avant"]["page"] == "accueil" and r["avant"]["montes"] == 1 and r["neuve"]
+                                  and r["fin"]["page"] == "bibliotheque" and r["feuilles"] == 1),
+    "retour_avant_reponse": lambda r: (r["pendant"]["montes"] == 2 and r["fin"]["montes"] == 3 and r["dernier"] == {"page": "module", "module": "poutre", "note": "P"}
+                                       and r["fin"]["adresse"] == "poutre?note=P" and not r["ordinaires"]),
+    "correction_rechargement": lambda r: (r["k0"] in r["stocke"] and "note=P" in r["stocke"] and r["fin"]["adresse"] == "poutre?note=P"
+                                          and r["note"] == "P" and r["fin"]["cle"] == r["k0"] and not r["ordinaires"]),
+    "bfcache": lambda r: (r["sans"]["montes"] == 1 and r["fin"]["montes"] == 2 and r["premierFerme"] and r["note"] == "X"
+                          and r["fin"]["cle"] == r["cle"] and r["fin"]["adresse"] == "poutre?note=X" and not r["ordinaires"]),
+    "version_horsligne": lambda r: (any("mis à jour" in t for t in r["message"])
+                                    and r["jamais"]["adresse"] == "poutre" and r["jamais"]["toasts"] == [r["PAS_DE_RESEAU"]]
+                                    and r["deja"]["page"] == "accueil" and r["deja"]["adresse"] == ""
+                                    and r["retour"]["page"] == "module" and r["retour"]["adresse"] == "poutre"
+                                    and r["menteur"]["adresse"] == "poutre" and r["menteur"]["toasts"] == [r["PAS_DE_RESEAU"]]
+                                    and _sans_ordinaire(r["jamais"]["ordinaires"], r["deja"]["ordinaires"], r["retour"]["ordinaires"], r["menteur"]["ordinaires"])
+                                    and r["enLigne"] == [["assign", "soudures"]]),
+    "memoire": lambda r: (r["deja"]["page"] == "module" and r["deja"]["module"] == "poutre" and r["deja"]["adresse"] == "poutre" and not r["deja"]["toasts"]
+                          and r["jamais"]["adresse"] == "poutre" and r["jamais"]["toasts"] == [r["PAS_DE_RESEAU"]] and not r["jamais"]["ordinaires"]
+                          and "pas encore" not in r["PAS_DE_RESEAU"]),
+    "memoire_initiale": lambda r: (r["fin"]["page"] == "module" and r["module"] == "poutre" and r["fin"]["adresse"] == "poutre" and r["fin"]["montes"] == 3
+                                   and not r["toasts"] and not r["ordinaires"]),
+    "retour_horsligne": lambda r: (r["fin"]["adresse"] == "dalle" and r["fin"]["cle"] == r["k2"] and r["fin"]["i"] == 2 and r["fin"]["montes"] == 3
+                                   and r["fin"]["entrees"] == ["", "poutre", "dalle"] and r["fin"]["toasts"] == [r["PAS_DE_RESEAU"]]
+                                   and r["sansRang"]["adresse"] == "dalle" and r["sansRang"]["cle"] == r["k2"] and r["sansRang"]["i"] == 0
+                                   and r["sansRang"]["montes"] == 3 and not r["ordinaires"]),
+    "lent": lambda r: (not r["a150"]["busy"] and not r["a150"]["indicateur"] and r["a450"]["busy"] == "true" and r["a450"]["indicateur"]
+                       and r["fin1"]["adresse"] == "poutre" and not r["fin1"]["busy"] and not r["fin1"]["indicateur"]
+                       and not r["rapide"]["poses"] and not r["rapide"]["busy"]
+                       and r["remplacee"]["busy"] == "true" and r["remplacee"]["indicateur"]
+                       and r["tardive"]["adresse"] == "dalle" and r["tardive"]["busy"] == "true" and r["tardive"]["indicateur"]
+                       and r["fin3"]["adresse"] == "assemblages" and not r["fin3"]["busy"] and not r["fin3"]["indicateur"]
+                       and r["avantAnnulee"]["busy"] == "true" and not r["annulee"]["busy"] and not r["annulee"]["indicateur"]
+                       and r["suspendue"]["adresse"] == "assemblages" and r["suspendue"]["delai"] and r["RESEAU_MUET"]
+                       and r["suspendue"]["toasts"] == [r["RESEAU_MUET"]] and not r["suspendue"]["ordinaires"] and not r["suspendue"]["busy"]),
+    "refus": lambda r: (["« Note P1 » : Valeur refusée : « -5 »", True] in r["toasts"]
+                        and ["« Note P1 » (Poutre BA) : Le moteur a refusé : essai", True] in r["toasts"]
+                        and not any("Météo" in t[0] for t in r["toasts"]) and len(r["toasts"]) == 2),
+    "contrat_enregistrements": lambda r: (r["e1"] == {"P": True, "Q": True, "X": False} and r["f1"] is False and r["e2"] == {"P": False, "Q": True}
+                                          and r["f2"] is True and r["s1"] is False and r["s2"] is True and r["rien"] is True and not r["rejets"]),
+    "contrat_defilement": lambda r: (r["aller"]["rendu"] is None and 0 in r["aller"]["scrolls"] and 420 not in r["s1"] and r["r1"] == 420
+                                     and r["s2"][-1:] == [420] and r["r2"] is None and r["s3"] == r["s2"] and r["s4"] == r["s3"]
+                                     and 250 not in r["t1"] and r["t2"][-1:] == [250] and r["accueil"][-1:] == [180]),
+    "contrat_etat_entree": lambda r: (r["lu1"] == {} and r["ok1"] and r["ok1b"] and r["st1"]["cle"] == r["cle0"] and r["st1"]["ecran"] == {"onglet": "resultat", "zoom": 2}
+                                      and r["ok2"] is False and "ecran" not in r["st2"] and r["lu3"] == {"onglet": "resultat", "zoom": 2}
+                                      and r["ok3"] is False and r["st3"]["ecran"] == r["st1"]["ecran"] and r["ok4"] is False
+                                      and r["st4"]["ecran"] == r["st1"]["ecran"] and r["lu4"] == r["st1"]["ecran"]),
+    "contrat_annonce": lambda r: (r["annonces"] == ["poutre", "biblio_beton", "dalle"] and r["fin"]["adresse"] == "assemblages"
+                                  and r["modules"] == ["poutre", "beton", "dalle", "accueil", "soudures", "assemblages"]),
+}
+NOMS_BANC = {
+    "retour_avance": "etat-04 · Retour puis Avance pendant la lecture de la page : l'écran monté reste celui de l'entrée courante (aucun montage de l'écran quitté)",
+    "double_clic": "etat-08 · double clic : la seconde navigation attend la feuille que la première a posée (l'écran n'est pas monté sans sa feuille, C9)",
+    "feuille_echouee": "C9 · une feuille posée dont le chargement a échoué n'est pas prise pour chargée : une neuve la remplace, attendue avant le montage",
+    "retour_avant_reponse": "etat-05 · Retour avant la réponse de la modification gardée : l'entrée attend son enregistrement, prend l'adresse ?note= de la note écrite, et la note se rouvre",
+    "correction_rechargement": "etat-05 · la correction d'adresse d'une entrée survit au rechargement (sessionStorage) et s'applique au démarrage du document qui rouvre cette entrée",
+    "bfcache": "etat-06 · retour par le bfcache (pageshow persisted) : l'écran est remonté (depuis le stockage à jour), sur la même entrée et la même adresse ; pas sans persisted",
+    "version_horsligne": "deploiement-02 · version changée et réseau absent (ou muet) : aucune navigation ordinaire — on reste avec le message, ou la page déjà lue s'ouvre ; réseau revenu : ordinaire",
+    "memoire": "deploiement-03 · hors ligne, plus de 30 s après : un écran déjà ouvert se rouvre (la page gardée pour la vie du document) ; un écran jamais ouvert : le message juste",
+    "memoire_initiale": "deploiement-03 · hors ligne : la page du document lui-même (lue par le navigateur) se rouvre aussi par Retour",
+    "retour_horsligne": "deploiement-04 · Retour hors ligne vers une entrée qui ne s'ouvre pas : l'historique revient sur l'entrée de l'écran affiché (history.go), sans perdre d'entrée ; sans rang, l'entrée d'arrivée est réécrite",
+    "lent": "deploiement-05 · une lecture qui traîne : l'indicateur (body[aria-busy], .app-attente) après 300 ms et pas avant, retiré à la fin ou à l'annulation ; 10 s au plus, puis on reste avec le message",
+    "refus": "refus anonyme · un message d'erreur dit pendant la fermeture porte le titre de l'écran quitté ; un refus rendu par l'écran passe tel quel (une seule fois préfixé)",
+    "contrat_enregistrements": "contrat · ctx.enCours(id) dit l'enregistrement gardé qui court ; ctx.apresEnregistrements() attend ceux en cours à l'appel (pas les suivants), jamais rejetée",
+    "contrat_defilement": "contrat · ctx.rendreDefilement() rend le défilement du retour UNE fois ; sinon l'application le rend à 1,5 s ; l'accueil à l'image suivante ; rien à l'aller",
+    "contrat_etat_entree": "contrat · ctx.etatEntree (lu au montage) et ctx.garderEtatEntree(obj) : fusionné dans l'entrée de CET écran, refusé quand un autre montage l'occupe",
+    "contrat_annonce": "contrat · au montage d'un module ou d'une bibliothèque, moteur pas prêt : moteur.annoncer(clé) (biblio_<k>, le module servi) ; pas prêt sans annoncer() : rien ne lève",
+}
+_banc = copie_banc()
+for _s, _nom in NOMS_BANC.items():
+    ok, info = juger_banc(_s, _banc)
+    chk(f"banc · {_nom}", ok, info)
+
+# chaque correction retirée (sur une copie d'app.js) fait rougir le scénario qui la prouve
+MUTATIONS_BANC = [
+    ("etat-04 : l'avance vers l'écran monté n'annule plus la navigation en cours", "retour_avance",
+     "      jeton++;\n      finirAttente();\n      appliquerCorrection();\n      return;", "      appliquerCorrection();\n      return;"),
+    ("etat-08 : une feuille déjà posée n'est plus attendue (ni remplacée)", "double_clic",
+     "    if (chargements.has(h)) attentes.push(chargements.get(h));\n    else if (!l.sheet) {", "    if (false) {"),
+    ("C9 : une feuille échouée est prise pour chargée", "feuille_echouee", "    else if (!l.sheet) {", "    else if (false) {"),
+    ("etat-05 : le retour n'attend plus l'enregistrement de l'entrée", "retour_avant_reponse", "    if (k && attentes.has(k)) {", "    if (false) {"),
+    ("etat-05 : les corrections ne sont plus écrites en sessionStorage", "correction_rechargement",
+     "    if (c.size) sessionStorage.setItem(CORRECTIONS, JSON.stringify(Object.fromEntries(c)));", "    if (false) sessionStorage.setItem(CORRECTIONS, '');"),
+    ("etat-05 : le démarrage n'applique plus la correction de son entrée", "correction_rechargement", "  appliquerCorrection({ memePage: true });\n", ""),
+    ("etat-06 : pageshow persisted ne remonte plus l'écran", "bfcache", "    if (ev && ev.persisted && courant) {", "    if (false) {"),
+    ("deploiement-02 : version changée → navigation ordinaire AVANT de savoir si le réseau est là (le code d'avant)", "version_horsligne",
+     "  const quitter = versionChangee || !courant;", "  if (versionChangee || !courant) { ordinaire(u, remplace); return; }\n  const quitter = false;"),
+    ("deploiement-03 : plus de copie des pages lues (réseau absent : le message)", "memoire", "    const copie = lues.get(u.pathname);", "    const copie = null;"),
+    ("deploiement-03 : l'ancien message (« pas encore été chargé »)", "memoire",
+     "\"Pas de réseau : cet écran ne peut pas s'ouvrir sans connexion ; l'écran ouvert reste utilisable\"",
+     "\"Pas de réseau : cet écran n'a pas encore été chargé sur cet appareil ; les calculs déjà ouverts restent utilisables\""),
+    ("deploiement-03 : la page du document n'est plus gardée", "memoire_initiale", "      if (t && versionCourante()) lues.set(", "      if (false) lues.set("),
+    ("deploiement-04 : un retour qui reste ne recale plus l'historique", "retour_horsligne", "  if (retour) recaler();", "  if (false) recaler();"),
+    ("deploiement-04 : le recalage réécrit l'entrée au lieu de revenir dessus (une entrée perdue)", "retour_horsligne",
+     "    try { history.go(e.rang - ra); return; } catch (x) { /* repli ci-dessous */ }", ""),
+    ("deploiement-05 : plus d'indicateur après 300 ms", "lent",
+     "  attente = { n, montree, minuterie: montree ? 0 : setTimeout(() => montrerAttente(n), ATTENTE_MS) };", "  attente = { n, montree, minuterie: 0 };"),
+    ("deploiement-05 : la navigation remplacée retire l'indicateur de la suivante", "lent",
+     "  if (!attente || (n !== null && attente.n !== n)) return;", "  if (!attente) return;"),
+    ("deploiement-05 : la lecture n'a plus de délai", "lent", "  const minuterie = setTimeout(() => ac.abort(), LECTURE_MS);", "  const minuterie = 0;"),
+    ("refus anonyme : les messages de la fermeture sans le titre de l'écran quitté", "refus",
+     "toast(quitte ? `« ${quitte} » : ${t}` : t, true);", "toast(t, true);"),
+    ("contrat : enCours dit toujours non", "contrat_enregistrements", "    enCours: (id) => enregistrements.has(id),", "    enCours: (id) => false,"),
+    ("contrat : apresEnregistrements n'attend rien", "contrat_enregistrements",
+     "    apresEnregistrements: () => Promise.all([...enVol]).then(() => undefined, () => undefined),", "    apresEnregistrements: () => Promise.resolve(),"),
+    ("contrat : apresEnregistrements rejetée par un enregistrement en échec", "contrat_enregistrements",
+     "    const p = Promise.resolve(f.enregistree).catch(() => ({ refus: [] }));", "    const p = Promise.resolve(f.enregistree);\n    p.catch(() => {});"),
+    ("contrat : rendreDefilement ne l'oublie plus (rendu deux fois)", "contrat_defilement", "  d.oublier();\n  if (courant !== etat || etat.ferme) return null;",
+     "  if (courant !== etat || etat.ferme) return null;"),
+    ("contrat : plus de défilement rendu par l'application à 1,5 s", "contrat_defilement",
+     "  const minuterie = setTimeout(() => rendreDefilement(etat), DEFILEMENT_MS);", "  const minuterie = 0;"),
+    ("contrat : l'accueil attend 1,5 s comme un établi", "contrat_defilement",
+     "  if (etat.sorte === \"accueil\") { requestAnimationFrame(() => { if (courant === etat) scrollTo(0, y); }); return; }\n", ""),
+    ("contrat : garderEtatEntree sans contrôle du propriétaire", "contrat_etat_entree",
+     "  if (!o || typeof o !== \"object\" || proprietaires.get(etat.cle) !== etat.m) return false;", "  if (!o || typeof o !== \"object\") return false;"),
+    ("contrat : etatEntree jamais lu", "contrat_etat_entree", "    etatEntree: { ...ecran },", "    etatEntree: {},"),
+    ("contrat : la clé n'est plus annoncée au moteur", "contrat_annonce", "    try { if (k) moteur.annoncer(k); } catch (e) { console.error(e); }", ""),
+]
+for _nom, _s, _avant, _apres in MUTATIONS_BANC:
+    MUTATIONS.append((f"banc · {_nom}", (lambda s=_s, a=_avant, b=_apres: not juger_banc(s, copie_banc([("app.js", a, b)]))[0])))
+
+# ------------------------------------------------------------------ 10. les mutations
 print()
 for nom, rougit in MUTATIONS:
     try:
