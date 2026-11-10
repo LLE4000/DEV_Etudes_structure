@@ -4,6 +4,8 @@ wrangler.jsonc
 README.md
 construire.py
 verifier_site.js
+# le harnais du lot S4 (filtre « demarrage ») : un outil, jamais chargé par une page (tests/test_site_web.py, la règle)
+verifier_demarrage.js
 outils
 __pycache__
 .wrangler

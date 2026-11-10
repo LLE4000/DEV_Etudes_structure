@@ -4,13 +4,73 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|plaques|nappes|corniere|doigt|bibliotheque|note_pdf]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|plaques|nappes|corniere|doigt|bibliotheque|note_pdf|demarrage[:sous-filtre,…]]
+//
+// « demarrage[:sous-filtre,…] » délègue à verifier_demarrage.js (le lot S4 : un moteur, pas de rechargement, aperçu,
+// fermeture…). SANS filtre — le passage complet —, verifier_demarrage.js est joué AUSSI, à la fin, avec tous ses
+// sous-filtres, et son verdict compte dans le code de sortie (revue S4, preuves-demarrage-hors-complet : la promesse
+// centrale du lot n'était gardée que si l'on pensait à demander « demarrage »).
+// Code de sortie : 0 tout est OK ; 1 un KO (ou un passage qui a planté) ; 3 NON CONCLUANT — aucun défaut vu, mais un
+// contrôle a refusé de conclure (le sous-filtre « temps » de demarrage, sur une machine trop chargée : « non mesurable »).
+// Un passage non mesuré n'est jamais un succès silencieux : le bilan le nomme, et le code n'est pas 0.
 const { chromium, devices } = require('playwright');
 const path = require('path');
 const BASE = process.argv[2] || 'http://127.0.0.1:8770';
 const OUT = process.argv[3] || '.';
 const FILTRE = process.argv[4] || '';
-if (/^demarrage(:|$)/.test(FILTRE)) process.exit(require('child_process').spawnSync(process.execPath, [path.join(__dirname, 'verifier_demarrage.js'), BASE, OUT, FILTRE.slice(10)], { stdio: 'inherit' }).status ?? 2);   // « demarrage[:sous-filtre] » : verifier_demarrage.js
+
+// ---------------------------------------------------------------- le filtre « demarrage » (verifier_demarrage.js)
+const DEMARRAGE = path.join(__dirname, 'verifier_demarrage.js');
+// les sous-filtres de demarrage que joue un filtre : '' (tous), « a,b » (ceux-là) ; null : ce filtre ne le joue pas.
+// Le passage complet (filtre vide) les joue TOUS (fonction PURE, prouvée par tests/test_site_web.py).
+function sousFiltresDemarrage(filtre) {
+  const f = String(filtre || '');
+  if (!f) return '';
+  const m = /^demarrage(?::(.*))?$/.exec(f);
+  return m ? (m[1] || '') : null;
+}
+// un contrôle qui a REFUSÉ de conclure (il le dit dans son nom : « non mesurable »), pas un défaut constaté
+const NON_MESURE = /:\s*non mesurable\b/;
+// le verdict de verifier_demarrage.js, lu dans son code de sortie ET ses lignes : { code, ko, nonMesures } — code 0 (tout
+// OK), 1 (un KO, ou le passage a planté : code 2 ou autre), 3 (ses seuls KO sont des contrôles non mesurés) (PURE)
+function bilanDemarrage(statut, texte) {
+  const lignes = String(texte || '').split('\n').filter((l) => /^KO {2}/.test(l)).map((l) => l.slice(4));
+  const nonMesures = lignes.filter((l) => NON_MESURE.test(l)), ko = lignes.filter((l) => !NON_MESURE.test(l));
+  if (statut === 0 && !lignes.length) return { code: 0, ko, nonMesures };
+  if (statut === 1 && !ko.length && nonMesures.length) return { code: 3, ko, nonMesures };
+  return { code: 1, ko, nonMesures };
+}
+// le code de sortie du passage : un KO du parcours ou de demarrage → 1 ; sinon un contrôle non mesuré → 3 ; sinon 0 (PURE)
+function codeSortie(koParcours, demarrage = { code: 0 }) {
+  if (koParcours || demarrage.code === 1) return 1;
+  return demarrage.code === 3 ? 3 : 0;
+}
+// une ligne de bilan, lisible : ce que demarrage a dit
+function direBilanDemarrage(d) {
+  if (!d.code) return 'demarrage : tout OK';
+  const nm = d.nonMesures.length ? ` · ${d.nonMesures.length} NON MESURÉ(S) — ${d.nonMesures.map((l) => `« ${l.split('  ')[0]} »`).join(', ')} : ce passage n'a PAS mesuré, il ne vaut pas succès` : '';
+  return `demarrage : ${d.ko.length} KO${d.code === 1 && !d.ko.length && !d.nonMesures.length ? ' (le passage a planté)' : ''}${nm}`;
+}
+// jouer verifier_demarrage.js (un processus à part) : ses lignes passent telles quelles à l'écran ET sont lues pour le bilan
+function jouerDemarrage(sous) {
+  return new Promise((ok) => {
+    const enfant = require('child_process').spawn(process.execPath, [DEMARRAGE, BASE, OUT, sous], { stdio: ['ignore', 'pipe', 'inherit'] });
+    let texte = '';
+    enfant.stdout.setEncoding('utf8');   // (un caractère accentué coupé entre deux morceaux reste entier)
+    enfant.stdout.on('data', (x) => { process.stdout.write(x); texte += x; });
+    enfant.on('error', (e) => { console.error(e); ok(bilanDemarrage(2, texte)); });
+    enfant.on('close', (statut) => ok(bilanDemarrage(statut ?? 2, texte)));
+  });
+}
+const SOUS_DEMARRAGE = sousFiltresDemarrage(FILTRE);
+// « demarrage[:sous-filtre] » seul : verifier_demarrage.js, et rien d'autre
+const DELEGUE = require.main === module && !!FILTRE && SOUS_DEMARRAGE !== null;
+if (DELEGUE) {
+  jouerDemarrage(SOUS_DEMARRAGE).then((d) => {
+    console.log(`bilan : ${direBilanDemarrage(d)}`);
+    process.exit(codeSortie(0, d));
+  });
+}
 
 // ================================================================ les aides partagées par tous les filtres (lot S4)
 // Elles sont définies HORS du parcours et exportées (module.exports, en bas) : un essai les charge sans lancer le
@@ -4666,10 +4726,18 @@ const principal = async () => {
   await capture('accueil');
   verif('aucune erreur JavaScript', erreurs.length === 0, erreurs.join(' | ').slice(0, 400));
   await b.close();
-  process.exit(ko ? 1 : 0);
+  // le passage complet joue AUSSI le filtre demarrage, à la fin (son navigateur à lui : celui du parcours est fermé), et
+  // son verdict compte — un « non mesurable » compris : il est dit, et le code de sortie n'est pas 0
+  let demarrage = { code: 0, ko: [], nonMesures: [] };
+  if (!FILTRE) {
+    console.log('---- demarrage (verifier_demarrage.js, tous les sous-filtres : le passage complet le joue aussi)');
+    demarrage = await jouerDemarrage(sousFiltresDemarrage(FILTRE));
+    console.log(`bilan du passage complet : parcours ${ko} KO · ${direBilanDemarrage(demarrage)}`);
+  }
+  process.exit(codeSortie(ko, demarrage));
 };
 
 // le parcours ne part que si ce fichier est lancé (node site/web/verifier_site.js …) ; chargé par require(), il ne rend
 // que ses aides
-if (require.main === module) principal();
-module.exports = { pretEcran, echecEcran, bandeauErreur, bandeauDit, montage, ouvrir, proxyTravailleur, interceptees, SIGNAL_ABSENT };
+if (require.main === module && !DELEGUE) principal();
+module.exports = { pretEcran, echecEcran, bandeauErreur, bandeauDit, montage, ouvrir, proxyTravailleur, interceptees, SIGNAL_ABSENT, sousFiltresDemarrage, bilanDemarrage, codeSortie };
