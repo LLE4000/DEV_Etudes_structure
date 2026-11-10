@@ -362,6 +362,10 @@ def controle_formules(rep, nom):
         except Exception as e:  # noqa: BLE001 — une expression illisible est une faute
             fautes.append(f"{nom} {texte(parts[0])} : illisible ({e}) : {texte(parts[2])}")
             continue
+        if texte(res).startswith(">"):                      # au-delà du plafond de la pastille : « > 999 % »
+            if not val * 100.0 > C.PLAFOND_TAUX:
+                fautes.append(f"{nom} {texte(parts[0])} = {val} écrit « {texte(res)} »")
+            continue
         att, nd, pct = lire_res(res)
         if pct and texte(parts[0]) == "η":
             val *= 100.0

@@ -401,7 +401,7 @@ def temperatures(ident: str, r: Dict) -> str:
     y0 = 16.0 + h_leg + 8.0
     date = jours[0]["date"]
     hauteur = y0 + H_TEMP + (66.0 if date else 50.0)
-    rp = Repere(52.0, LARGEUR - 50.0, y0, y0 + H_TEMP, -0.5, n - 0.5, a_t, b_t)
+    rp = Repere(52.0, LARGEUR - 56.0, y0, y0 + H_TEMP, -0.5, n - 0.5, a_t, b_t)
     re_ = Repere(rp.x0, rp.x1, rp.y0, rp.y1, -0.5, n - 0.5, 0.0, b_e)
     g = [svg_leg, f'<rect x="{_f(rp.x0)}" y="{_f(rp.y0)}" width="{_f(rp.x1 - rp.x0)}" height="{_f(rp.y1 - rp.y0)}" fill="#FBFCFE"/>']
     w = min(30.0, (rp.x1 - rp.x0) / n * 0.74)
@@ -474,7 +474,7 @@ def temperatures(ident: str, r: Dict) -> str:
     g.append(_txt((rp.x0 + rp.x1) / 2, hauteur - 9, "Jour depuis le bétonnage (0 : le jour du bétonnage)" + (" · dates" if date else ""), T_TITRE, "middle", ENCRE, True))
     yt = (rp.y0 + rp.y1) / 2
     g.append(_txt(15, yt, "Température du jour (°C)", T_TITRE, "middle", ENCRE, True, extra=f' transform="rotate(-90 15 {_f(yt)})"'))
-    g.append(_txt(LARGEUR - 11, yt, _sub("t", "T", " cumulé (j)"), T_TITRE, "middle", COL_TE, True, extra=f' transform="rotate(90 {_f(LARGEUR - 11)} {_f(yt)})"'))
+    g.append(_txt(LARGEUR - 16, yt, _sub("t", "T", " cumulé (j)"), T_TITRE, "middle", COL_TE, True, extra=f' transform="rotate(90 {_f(LARGEUR - 16)} {_f(yt)})"'))
     return (f'<svg id="{escape(ident)}" class="age-graphe" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {_f(LARGEUR)} {_f(hauteur)}" '
             f'width="100%" role="img" aria-label="Températures jour par jour et âge équivalent cumulé">{"".join(g)}</svg>')
 

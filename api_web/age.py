@@ -634,9 +634,20 @@ def _jours(x: Optional[float], nd: int = 1) -> str:
     return "—" if x is None else f"{_fr(x, nd)}{NB}j"
 
 
-def _jplus(t: Optional[float]) -> str:
-    """Un âge réel depuis la fin du bétonnage : « J + 10,7 »."""
-    return "—" if t is None else _lie(f"J + {C.fr(t, 1)}")
+def _jplus(t: Optional[float], prevu: bool = False) -> str:
+    """Un âge réel depuis la fin du bétonnage : « J + 10,7 » ; ``prevu`` : l'âge SAISI d'une opération, écrit tel quel
+    (« J + 3 », « J + 2,5 »)."""
+    if t is None:
+        return "—"
+    return _lie(f"J + {C.nb(t, 1) if prevu else C.fr(t, 1)}")
+
+
+def _taux_mots(t: Optional[float]) -> str:
+    """Un taux en TEXTE, comme la pastille l'écrit (« 87 % », « > 999 % » au-delà du plafond)."""
+    if t is None:
+        return "—"
+    x = C.pct(t)
+    return f">{NB}{C.PLAFOND_TAUX}{NB}%" if x > C.PLAFOND_TAUX else f"{C.pc(x)}{NB}%"
 
 
 def _cible_txt(x: float) -> str:
@@ -706,9 +717,8 @@ def _menu_durcissement(c: Dict) -> str:
     ciment de l'EC2 (R, N, S). La brique C.choix n'a pas de groupes : le menu est écrit comme elle l'écrit (bois.py)."""
     du = c["durcissement"]
     v = {"beton": f"beton:{du['beton']}", "ciment": f"ciment:{du['ciment']}", "r": "r"}[du["mode"]]
-    groupes = (("Bon de livraison · NBN EN 206", [(f"beton:{b}", f"Béton {b} ({L.durcissement({'mode': 'beton', 'beton': b})['detail']})")
-                                                  for b in L.BETONS] + [("r", "r connu (centrale, essais)")]),
-               ("Ciment · EN 1992-1-1", [(f"ciment:{k}", f"Ciment {k} · s = {C.nb(x['s'], 2)}") for k, x in L.CIMENTS.items()]))
+    groupes = (("Bon de livraison · NBN EN 206", [(f"beton:{b}", f"Béton {b}") for b in L.BETONS] + [("r", "r connu")]),
+               ("Ciment · EN 1992-1-1", [(f"ciment:{k}", f"Ciment {k}") for k in L.CIMENTS]))
     opts = "".join(f'<optgroup label="{C.esc(g)}">' + "".join(f'<option value="{C.esc(k)}"{" selected" if k == v else ""}>{C.esc(t)}</option>'
                                                              for k, t in items) + "</optgroup>" for g, items in groupes)
     return (f'<div class="field select"><select data-chemin="durcissement/choix" data-sorte="choix">{opts}</select>'
@@ -738,12 +748,13 @@ def _rubrique_beton(c: Dict, r: Dict) -> str:
         s += C.ligne("r connu", C.num(["durcissement", "r"], c["durcissement"]["r"], "", mini=L.R_MIN, maxi=L.R_MAX), "r",
                      f"r = f_cm,2j / f_cm,28j, donné par la centrale ou par des essais : {C.nb(L.R_MIN)} à {C.nb(L.R_MAX)}.")
     cale = (f" · calé sur l'essai : s = {C.nb(m['s'], 3)}, r = {C.nb(m['r'], 2)}" if m["cale"] else "")
-    s += C.aide(f"f<sub>cm</sub>(2{NB}j) = {C.fr(du['r'] * 100, 0)}{NB}% de f<sub>cm</sub>(28{NB}j) · s = {C.nb(du['s'], 3)}{cale}")
-    s += C.ligne2(("Fin du bétonnage", C.texte(["date"], _date_fr(c["date"]), "JJ/MM/AAAA"),
-                   "La date de la FIN du bétonnage : t = 0. Vide : les échéances sont données en jours (J + …), sans date ; avec un relevé "
-                   "daté, sa première ligne la donne."),
-                  ("à", C.choix(["heure"], c["heure"], HEURES),
-                   "L'heure de la fin du bétonnage : le premier jour ne compte que ce qu'il en reste (midi par défaut)."))
+    detail = f"{du['detail']} · " if du["detail"] else ""
+    s += C.aide(f"{detail}f<sub>cm</sub>(2{NB}j) = {C.fr(du['r'] * 100, 0)}{NB}% de f<sub>cm</sub>(28{NB}j) · s = {C.nb(du['s'], 3)}{cale}")
+    s += C.ligne("Fin du bétonnage", C.texte(["date"], _date_fr(c["date"]), "JJ/MM/AAAA"), "",
+                 "La date de la FIN du bétonnage : t = 0. Vide : les échéances sont données en jours (J + …), sans date ; avec un relevé "
+                 "daté, sa première ligne la donne.")
+    s += C.ligne("à l'heure", C.choix(["heure"], c["heure"], HEURES), "",
+                 "L'heure de la fin du bétonnage : le premier jour ne compte que ce qu'il en reste (midi par défaut).")
     return s
 
 
@@ -857,11 +868,11 @@ def _rubrique_temperatures(c: Dict, r: Dict, coulage: int) -> str:
 def _resume_objectif(o: Dict, ro: Dict) -> str:
     """La ligne courte d'une carte d'objectif : « 70 % f_ck · 21 MPa » ou « 5 MPa · moyenne », et « J + 3 » s'il est daté."""
     if o["mode"] == "pct":
-        txt = f"{C.nb(o['pct'], 1)}{NB}% f<sub>ck</sub> · {_cible_txt(ro['cible'])}"
+        txt = f"{C.nb(o['pct'], 1)}{NB}% f<sub>ck</sub>"
     else:
-        txt = f"{_cible_txt(o['mpa'])} · {'moyenne' if o['base'] == 'fcm' else 'caract.'}"
+        txt = f"{_cible_txt(o['mpa'])} {'f<sub>cm</sub>' if o['base'] == 'fcm' else 'f<sub>ck</sub>'}"
     if o["age"] is not None:
-        txt += f" · {_jplus(o['age'])}"
+        txt += f" · {_jplus(o['age'], True)}"
     return txt
 
 
@@ -887,7 +898,7 @@ def _carte_objectif(i: int, o: Dict, ro: Dict, seul: bool) -> str:
                        "le côté sûr, par défaut pour une cible saisie à la main.", full=True)
     else:
         det += C.aide(f"Comparée à la résistance caractéristique f<sub>ck</sub>(t) : {_cible_txt(ro['cible'])} pour le {C.esc(ro['classe'])}.")
-    det += C.ligne("prévu à", C.num(ch + ["age"], o["age"], "j", auto="non daté", mini=EN.AGE_MIN, maxi=EN.AGE_MAX), "J +",
+    det += C.ligne("âge prévu", C.num(ch + ["age"], o["age"], "j", auto="non daté", mini=EN.AGE_MIN, maxi=EN.AGE_MAX), "",
                    f"L'âge réel de l'opération (décoffrage, mise en charge), en jours depuis la fin du bétonnage ({C.nb(EN.AGE_MIN)} à "
                    f"{C.nb(EN.AGE_MAX)} j) : le résultat dit alors son taux. Vide : non daté, le résultat dit quand la cible est atteinte.")
     if not seul:
@@ -1080,11 +1091,11 @@ def _verdict(r: Dict) -> str:
     titre = f"{o['nom']} · {C.nb(o['cible'], 1)} MPa"
     pr = _prudent_txt(r, o)
     if o["age_prevu"] is not None:
-        quand = _jplus(o["age_prevu"]) + (f" ({_instant(o['instant_prevu'], 'à')})" if o["instant_prevu"] else "")
-        cmp_ = (f"{_base_txt(o['base'], _jplus(o['age_prevu']))} = {_mpa(o['f_prevu'])} pour {_cible_txt(o['cible'])} demandés"
-                f"<br>prudent : {_mpa(o['f_prevu_prudent'])} · atteint {_quand_atteint(o)}")
+        quand = f"{_instant(o['instant_prevu'], 'à')} : " if o["instant_prevu"] else ""
+        cmp_ = (f"{quand}{_base_txt(o['base'])} = {_mpa(o['f_prevu'])} pour {_cible_txt(o['cible'])}"
+                f"<br>prudent {_mpa(o['f_prevu_prudent'])} · {_cible_txt(o['cible'])} atteints {_quand_atteint(o)}")
         return (f'<div class="verdict" data-calcul="o0" title="Voir le calcul">{C.chip(_taux(o), _niv(o), xl=True)}<div class="gov">'
-                f'<b>{C.esc(o["nom"])} à {quand}</b>{cmp_}</div></div>')
+                f'<b>{C.esc(o["nom"])} · {_jplus(o["age_prevu"], True)}</b>{cmp_}</div></div>')
     if o["t"] is None:
         cmp_ = ("la cible dépasse la résistance de la classe" if o["etat"] == "non_atteignable"
                 else "jamais atteint : la loi ne compte aucun durcissement à cette température")
@@ -1099,7 +1110,7 @@ def _ligne_objectif(r: Dict, i: int, o: Dict, gov: bool) -> str:
     sélecteur), le taux s'il est daté, sinon l'âge atteint ; puis ce qu'on compare, en clair."""
     cible = f"{_cible_txt(o['cible'])} · {'f<sub>ck</sub>' if o['base'] == 'fck' else 'f<sub>cm</sub>'}"
     if o["age_prevu"] is not None:
-        cmp_ = (f"{_base_txt(o['base'], _jplus(o['age_prevu']))} = {_mpa(o['f_prevu'])} · prudent {_mpa(o['f_prevu_prudent'])} · "
+        cmp_ = (f"{_base_txt(o['base'], _jplus(o['age_prevu'], True))} = {_mpa(o['f_prevu'])} · "
                 f"atteint {_jplus(o['t']) if o['t'] is not None else 'jamais'}")
         etat_txt = ""
     else:
@@ -1121,7 +1132,7 @@ def _etat_bloc_objectifs(r: Dict) -> Tuple[str, str]:
         return "inc", f"Consultation · {n} objectif{'s' if n > 1 else ''}"
     etat = r["resume"]["etat"]
     t = r["resume"]["taux"]
-    pc = f" · {C.pc(C.pct(t))}{NB}%" if t is not None else ""
+    pc = f" · {_taux_mots(t)}" if t is not None else ""
     return {"ok": "ok", "attention": "warn", "nok": "nok"}[etat], C.STATUTS[NIV_ETAT[etat]][1] + pc
 
 
@@ -1155,7 +1166,8 @@ def _bloc_temperatures(r: Dict) -> str:
         if gel["prudent"]["alerte"]:
             cmp_ += " · gel possible en variante prudente"
         g_txt, g_niv = ("à surveiller", "f") if gel["prudent"]["alerte"] else ("hors gel", "p")
-    cmp_ += f" · {'minimale horaire' if gel['base'] == 'minimale' else 'moyenne du jour'}"
+    if gel["base"] == "minimale":
+        cmp_ += " · minimale horaire"
     rows += C.ligne_verif("Gel avant 5 MPa", cmp_, None, g_niv, calcul="gel", etat_txt=g_txt)
     cls = "nok" if gel["alerte"] else ("warn" if gel["prudent"]["alerte"] or r["temps_froid"]["rappel"] else "ok")
     etat_txt = "Gel avant 5 MPa" if gel["alerte"] else ("Temps froid" if r["temps_froid"]["rappel"] else _temperatures_txt(r))
@@ -1201,7 +1213,7 @@ def _methode(r: Dict) -> str:
                      "opération critique (désétaiement, mise en charge, précontrainte), confirmer la résistance par des éprouvettes "
                      "conservées sur chantier ou une maturométrie étalonnée, et valider le délai avec le bureau d'études."),
               C.aide(f"<b>Méthode</b> : la résistance au jeune âge de l'EN 1992-1-1 §3.1.2 en âge équivalent ; durcissement : "
-                     f"{C.esc(m['durcissement']['libelle'])} ({C.esc(m['durcissement']['source'])}) ; âge équivalent : "
+                     f"{C.esc(m['durcissement']['libelle'])} — {C.esc(m['durcissement']['source'])} ; âge équivalent : "
                      f"{C.esc(m['loi']['source'])} ; gel avant 5 MPa : EN 13670 §8.5(12)."),
               C.aide("<b>Non couvert</b> : " + C.symb_math(" ; ".join(r["non_couvert"])) + ".")]
     return f'<div class="et-hyps">{"".join(lignes)}</div>'
@@ -1217,7 +1229,7 @@ def _fx(f: Dict) -> Dict:
     if cle == "beta" and termes[1]["valeur"] <= 0:
         cle = "beta_nul"
     if cle == "taux":
-        return {"parts": [f["symbole"], *_fx_parts(cle, termes)], "res": f"{C.pc(C.pct(f['resultat']))} %", "niveau": C.niveau(f["resultat"])}
+        return {"parts": [f["symbole"], *_fx_parts(cle, termes)], "res": _taux_mots(f["resultat"]).replace(NB, " "), "niveau": C.niveau(f["resultat"])}
     return {"parts": [f["symbole"], *_fx_parts(cle, termes)], "res": _res(f["resultat"], f["unite"]), "niveau": ""}
 
 
@@ -1257,7 +1269,7 @@ def _ligne_tab(r: Dict, o: Dict, gov: bool) -> Dict:
     pr = _prudent_txt(r, o)
     sous = f"cible {_cible_txt(o['cible'])}" + (f" · {C.nb(o['pct'], 1)}{NB}% de f<sub>ck</sub>" if o["mode"] == "pct" else "")
     if o["age_prevu"] is not None:
-        sous += f" · prévu à {_jplus(o['age_prevu'])}"
+        sous += f" · prévu à {_jplus(o['age_prevu'], True)}"
     li = {"nom": C.esc(o["nom"]), "sous": sous, "formule": f"{_base_txt(o['base'])} ≥ {_cible_txt(o['cible'])}",
           "valeur": f"t<sub>T,req</sub> = {_jours(o['t_T'], 2)}" if o["t_T"] is not None else "non atteignable",
           "limite": _quand_atteint(o) + (f"<br><small>{pr}</small>" if pr else ""), "gov": gov}
@@ -1433,7 +1445,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         quand = f"atteint à {_jplus(x['t'])}" if x["t"] is not None else ("non atteignable" if not x["atteignable"] else "jamais atteint")
         s = f"{C.esc(x['classe'])} · f<sub>ck</sub> = {_mpa(x['fck'], 0)} · cible {_cible_txt(x['cible'])} · {quand}"
         if date:
-            s += f" · f({_jplus(x['age_prevu'])}) = {_mpa(x['f_prevu'])}" + ("" if x["ok"] else " · <b>ne tient pas</b>")
+            s += f" · f({_jplus(x['age_prevu'], True)}) = {_mpa(x['f_prevu'])}" + ("" if x["ok"] else " · <b>ne tient pas</b>")
         return s
 
     rows = []
@@ -1446,7 +1458,7 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
         else:
             row.update(taux=None, niveau="r" if x["t"] is None else "c", etat="non" if x["t"] is None else "")
         rows.append(row)
-    titre = f"Classe de béton · {C.esc(o['nom'] or 'Objectif 1')}" + (f" à {_jplus(o['age'])}" if date else "")
+    titre = f"Classe de béton · {C.esc(o['nom'] or 'Objectif 1')}" + (f" à {_jplus(o['age'], True)}" if date else "")
     sous = "triées par résistance · le même durcissement, les mêmes températures"
     return C.selecteur("classe", titre, sous, "", rows, max(0, min(i_o, i_c) - 4), "j : âge réel où l'objectif est atteint",
                        etoile="la plus petite classe qui tient l'âge prévu" if date else "", pastille="taux" if date else "")
