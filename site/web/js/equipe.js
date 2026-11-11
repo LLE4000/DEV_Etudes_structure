@@ -1,5 +1,9 @@
 // L'ÉQUIPE du bureau, enregistrée DANS CE NAVIGATEUR en attendant les comptes partagés (docs/site/PROJETS_EQUIPE.md § 3).
-// Un membre : { id, nom, email, initiales (1 à 5 lettres ou chiffres, en capitales : « LLE »), couleur (0 à 7), cree }.
+// Un membre : { id, nom, email, initiales (1 à 5 lettres ou chiffres, en capitales : « LLE »), couleur (0 à 7), cree,
+// role (« admin » ou « membre ») }.
+// Les RÔLES (cahier des charges § 3) : un ADMINISTRATEUR nomme les autres administrateurs et déclare un module vérifié
+// (js/verifications.js) ; il y en a toujours un — le premier inscrit du poste, tant qu'aucun n'est nommé. Sans comptes,
+// le rôle est une DÉCLARATION (« Ce n'est pas vous ? » change de personne sans mot de passe) : il range, il ne verrouille pas.
 // « moi » : le membre qui travaille sur ce poste — c'est sa SIGNATURE ({ id, ini, nom, c }) que portent les notes qu'il
 // crée ou modifie et les lignes du journal (js/journal.js). La signature est une COPIE prise au moment du geste : un
 // membre retiré ou renommé depuis garde ses initiales sur ce qu'il a fait.
@@ -9,7 +13,8 @@ import * as M from "./memoire.js";
 
 export const CLE = "stab.equipe.v1";
 export const INITIALES_MAX = 5;
-export const COULEURS = 8;                       // les teintes des pastilles : css/bureau.css, .avatar.c0 à .avatar.c7
+export const COULEURS = 8;                       // les teintes des pastilles : css/site.css, .avatar.c0 à .avatar.c7
+export const ROLES = { admin: "Administrateur", membre: "Membre" };
 const NOM_MAX = 80, EMAIL_MAX = 120;
 
 const vide = () => ({ moi: null, membres: {} });
@@ -68,10 +73,34 @@ function lu() {
     const ini = initialesValides(x.initiales), nom = propre(x.nom, NOM_MAX);
     if (!ini || !nom) continue;
     membres[id] = { id, nom, email: propre(x.email, EMAIL_MAX), initiales: ini,
-                    couleur: Number.isInteger(x.couleur) && x.couleur >= 0 && x.couleur < COULEURS ? x.couleur : 0, cree: Number(x.cree) || 0 };
+                    couleur: Number.isInteger(x.couleur) && x.couleur >= 0 && x.couleur < COULEURS ? x.couleur : 0, cree: Number(x.cree) || 0,
+                    role: x.role === "admin" ? "admin" : "membre" };
   }
+  const premier = sansAdministrateur(membres);
+  if (premier) membres[premier].role = "admin";
   return { etat: m.etat, moi: Object.hasOwn(membres, e.moi) ? e.moi : null, membres };
 }
+
+// Une équipe a toujours un administrateur : si personne ne l'est (un registre d'avant les rôles, le dernier administrateur
+// retiré), c'est le PREMIER INSCRIT (le plus ancien ; à date égale, l'identifiant le plus petit). Rend son identifiant, ou
+// null si un administrateur existe déjà (ou s'il n'y a personne).
+function sansAdministrateur(membres) {
+  const tous = Object.values(membres).filter((m) => m && typeof m === "object");
+  if (!tous.length || tous.some((m) => m.role === "admin")) return null;
+  return tous.sort((a, b) => ((Number(a.cree) || 0) - (Number(b.cree) || 0)) || String(a.id).localeCompare(String(b.id)))[0].id;
+}
+
+// Toute écriture de l'équipe : le registre garde la règle « toujours un administrateur » (elle s'ÉCRIT, elle n'est pas
+// seulement lue), puis ``f`` le change.
+function ecrire(f) {
+  return M.changer(CLE, vide, valide, (v) => {
+    f(v);
+    const premier = sansAdministrateur(v.membres);
+    if (premier) v.membres[premier].role = "admin";
+  });
+}
+
+export const estAdmin = (m = moi()) => !!m && m.role === "admin";
 
 // L'équipe, à LIRE : { etat, moi (le membre, ou null), membres (triés par nom) }
 export function equipe() {
@@ -116,8 +145,10 @@ export function ajouter({ nom, email = "", initiales = "", couleur = null }, { e
   f.initiales = String(initiales ?? "").trim() ? initialesValides(initiales) : proposerInitiales(f.nom, Object.values(e.membres).map((m) => m.initiales));
   const pb = controler(e.membres, f);
   if (pb) return { ok: false, ...pb };
-  const membre = { id: M.ident(), ...f, couleur: Number.isInteger(couleur) && couleur >= 0 && couleur < COULEURS ? couleur : couleurLibre(e.membres), cree: Date.now() };
-  const ok = M.changer(CLE, vide, valide, (v) => {
+  // le premier inscrit du poste est administrateur (il met le bureau en place) ; les suivants sont membres
+  const membre = { id: M.ident(), ...f, couleur: Number.isInteger(couleur) && couleur >= 0 && couleur < COULEURS ? couleur : couleurLibre(e.membres), cree: Date.now(),
+                   role: Object.keys(e.membres).length ? "membre" : "admin" };
+  const ok = ecrire((v) => {
     v.membres[membre.id] = membre;
     if (estMoi) v.moi = membre.id;
   });
@@ -134,17 +165,33 @@ export function modifier(id, champs) {
   const pb = controler(e.membres, f, id);
   if (pb) return { ok: false, ...pb };
   const couleur = Number.isInteger(champs.couleur) && champs.couleur >= 0 && champs.couleur < COULEURS ? champs.couleur : m.couleur;
-  const ok = M.changer(CLE, vide, valide, (v) => { v.membres[id] = { ...m, ...f, couleur }; });
+  const ok = ecrire((v) => { v.membres[id] = { ...m, ...f, couleur }; });
   return ok ? { ok: true, membre: { ...m, ...f, couleur } } : { ok: false, champ: "", erreur: "L'équipe n'a pas pu être enregistrée dans ce navigateur." };
 }
 
+// Nommer un membre administrateur, ou lui retirer ce rôle : SEUL un administrateur le fait (la personne du poste), et il
+// reste toujours un administrateur.
+export function nommer(id, role) {
+  const e = lu();
+  const m = e.membres[id], qui = e.moi ? e.membres[e.moi] : null;
+  if (!m) return { ok: false, erreur: "Ce membre n'est plus dans l'équipe." };
+  if (!Object.hasOwn(ROLES, role)) return { ok: false, erreur: "Ce rôle n'existe pas." };
+  if (!estAdmin(qui)) return { ok: false, erreur: "Seul un administrateur peut changer un rôle." };
+  if (m.role === role) return { ok: true, membre: m, inchange: true };
+  if (role !== "admin" && Object.values(e.membres).filter((x) => x.role === "admin").length < 2) {
+    return { ok: false, erreur: "Il faut toujours un administrateur : nommez-en un autre d'abord." };
+  }
+  const ok = ecrire((v) => { v.membres[id] = { ...m, role }; });
+  return ok ? { ok: true, membre: { ...m, role } } : { ok: false, erreur: "L'équipe n'a pas pu être enregistrée dans ce navigateur." };
+}
+
 export function retirer(id) {
-  return M.changer(CLE, vide, valide, (v) => { delete v.membres[id]; if (v.moi === id) v.moi = null; });
+  return ecrire((v) => { delete v.membres[id]; if (v.moi === id) v.moi = null; });
 }
 
 // « Je suis… » : la personne qui travaille sur ce poste (null : personne)
 export function choisirMoi(id) {
-  return M.changer(CLE, vide, valide, (v) => { v.moi = id && Object.hasOwn(v.membres, id) ? id : null; });
+  return ecrire((v) => { v.moi = id && Object.hasOwn(v.membres, id) ? id : null; });
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

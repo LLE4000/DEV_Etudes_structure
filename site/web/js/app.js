@@ -48,6 +48,7 @@ import { ouvrirAccueil } from "./accueil.js";
 import { ouvrirBibliotheque } from "./bibliotheque.js";
 import { ouvrirProjets } from "./ecran_projets.js";
 import { ouvrirEquipe } from "./ecran_equipe.js";
+import { marquer } from "./marques.js";
 
 // le dossier des pages (les pages sont à la racine du site, les scripts dans js/)
 export const RACINE = new URL("../", import.meta.url).href;
@@ -310,6 +311,8 @@ function monter(sorte, url, cle, defile = null) {
     annoncer: (t) => { if (estCourant()) annoncer(t); },
   };
   etat.ecran = OUVRIR[sorte](corps, ctx);
+  // la pastille du poste et les modules vérifiés, sur toute page (js/marques.js : gardé, jamais un échec de montage)
+  marquer(corps);
   if (sorte === "accueil") demarrerEnFond();
   return etat;
 }

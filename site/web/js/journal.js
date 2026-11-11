@@ -23,6 +23,8 @@ export const VERBES = {
   "projet.rouvert": "a rouvert le projet", "projet.supprime": "a supprimé le projet",
   "sous.cree": "a créé le sous-projet", "sous.renomme": "a renommé le sous-projet", "sous.supprime": "a supprimé le sous-projet",
   "membre.ajoute": "a ajouté à l'équipe", "membre.arrive": "a rejoint l'équipe", "membre.retire": "a retiré de l'équipe",
+  "membre.admin": "a nommé administrateur", "membre.membre": "a retiré le rôle d'administrateur à",
+  "module.verifie": "a vérifié le module", "module.retire": "a retiré la vérification du module",
 };
 
 const texte = (x, max = 120) => (typeof x === "string" ? x : "").slice(0, max);
@@ -57,14 +59,14 @@ export function lire({ projet = null, membre = null, note = null, max = MAX } = 
 const derniers = new Map();
 
 // Noter un geste. ``note`` : la note concernée ({ id, nom, module, chantier, dossier }) ; ``projet``, ``sous`` : sinon
-// le projet et le sous-projet nommés ; ``de`` : l'ancien nom ; ``membre`` : le nom d'un membre. Rend vrai si une ligne
+// le projet et le sous-projet nommés ; ``de`` : l'ancien nom ; ``membre`` : le nom d'un membre ; ``module`` : le nom d'un module. Rend vrai si une ligne
 // a été écrite ou avancée. Ne lève jamais.
-export function noter(quoi, { note = null, projet = "", sous = "", de = "", membre = "", qui = undefined, quand = Date.now() } = {}) {
+export function noter(quoi, { note = null, projet = "", sous = "", de = "", membre = "", module = "", qui = undefined, quand = Date.now() } = {}) {
   try {
     if (!Object.hasOwn(VERBES, quoi)) return false;
     const q = qui === undefined ? signature() : signaturePropre(qui);
     const n = note ? { id: texte(note.id, 40), nom: texte(note.nom), m: texte(note.module, 40) } : null;
-    const e = { t: quand, q, k: quoi, n, p: texte(note ? note.chantier : projet), s: texte(note ? note.dossier : sous), de: texte(de), x: texte(membre) };
+    const e = { t: quand, q, k: quoi, n, p: texte(note ? note.chantier : projet), s: texte(note ? note.dossier : sous), de: texte(de), x: texte(membre || module) };
     if (quoi === "note.modifiee" && n) {
       const vu = derniers.get(n.id);
       if (vu && quand - vu < SILENCE_MS) return false;
@@ -121,5 +123,7 @@ export function phrase(e) {
   if (e.k.startsWith("projet.")) return { qui, verbe: VERBES[e.k], objet: e.p, lieu: "", suite: e.k === "projet.renomme" && e.de ? `(avant : ${e.de})` : "" };
   if (e.k.startsWith("sous.")) return { qui, verbe: VERBES[e.k], objet: e.s, lieu: e.p, suite: e.k === "sous.renomme" && e.de ? `(avant : ${e.de})` : "" };
   if (e.k === "membre.arrive") return { qui, verbe: VERBES[e.k], objet: "", lieu: "", suite: "" };
+  // un module vérifié, un rôle donné ou retiré : le geste, puis son objet (le nom du module, de la personne)
+  if (e.k.startsWith("module.") || e.k === "membre.admin" || e.k === "membre.membre") return { qui, verbe: VERBES[e.k], objet: e.x, lieu: "", suite: "" };
   return { qui, verbe: e.k === "membre.retire" ? "a retiré" : "a ajouté", objet: e.x, lieu: "", suite: e.k === "membre.retire" ? "de l'équipe" : "à l'équipe" };
 }

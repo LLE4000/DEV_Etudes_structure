@@ -228,8 +228,21 @@ chk("css/charte.css est la charte des maquettes", sha(os.path.join(WEB, "css", "
 # pas lue dans une page ; les deux bibliothèques sont comparées aussi)
 VERSION = SW.version_site(WEB)
 _PAGES_RENDUES = SW.pages_rendues()
-for nom, html in [("js/modules.js", SW.modules_js())] + [(n, SW.poser_version(h, VERSION)) for n, h in _PAGES_RENDUES.items()]:
+# (js/versions.js : l'empreinte du CALCUL de chaque module, tirée du relevé — une vérification posée sur un module vaut
+#  pour elle, js/verifications.js ; un fichier du calcul modifié sans reconstruire le site rougit ICI)
+_VERSIONS_MODULES = SW.versions_modules(RELEVE["par_module"])
+for nom, html in [("js/modules.js", SW.modules_js()), ("js/versions.js", SW.versions_js(_VERSIONS_MODULES))] + [(n, SW.poser_version(h, VERSION)) for n, h in _PAGES_RENDUES.items()]:
     chk(f"{nom} est celle que le générateur écrit", os.path.exists(os.path.join(WEB, nom)) and open(os.path.join(WEB, nom), encoding="utf-8").read() == html)
+# la version d'un module suit SON calcul : ses fichiers à lui (hors la plomberie partagée) — chaque module en a, deux modules
+# n'ont jamais la même, et le moteur de la poutre n'entre pas dans celle des soudures
+_propres = {k: sorted(set(f) - SW.HORS_VERSION) for k, f in RELEVE["par_module"].items()}
+chk(f"la version d'un module (js/versions.js) : une par établi ({len(_VERSIONS_MODULES)}), tirée de SES fichiers de calcul — chacun en a hors de la plomberie "
+    "partagée, deux modules n'ont pas la même, et un module ne dépend pas du moteur d'un autre (la poutre n'est pas dans les soudures)",
+    sorted(_VERSIONS_MODULES) == sorted(k for k in SW.ADRESSES if k not in SW.REDIRECTIONS) and len(set(_VERSIONS_MODULES.values())) == len(_VERSIONS_MODULES)
+    and all(_propres.get(k) and f"api_web/{k}.py" in _propres[k] for k in _VERSIONS_MODULES)
+    and any(f.startswith("beton/poutre/") for f in _propres["poutre"]) and not any(f.startswith("beton/poutre/") for f in _propres["soudures"])
+    and all(_VERSIONS_MODULES[k] == SW.empreinte_module(RELEVE["par_module"][k]) for k in _VERSIONS_MODULES),
+    {k: len(v) for k, v in _propres.items()})
 # la version (S4-D3, C7) : la MÊME balise sur les 24 pages (21 + la Bibliothèque Autres, puis Projets et Équipe, 11/11/2026), la valeur recalculée,
 # la même dans le manifeste
 _versions = {n: re.findall(r'<meta name="stab-version" content="([^"]*)">', open(os.path.join(WEB, n), encoding="utf-8").read()) for n in _PAGES_RENDUES}

@@ -8,7 +8,10 @@ Ce que ce fichier vérifie, sans navigateur :
      sans copie, des noms piégés rendus comme du texte ;
   2. les pages (site/web/construire.py) : Projets et Équipe existent, le menu y mène depuis toutes les pages, l'accueil
      porte les projets et l'activité ; les copies liées (les pages du bureau, les teintes, les longueurs) ;
-  3. des mutations : chacune abîme une ligne d'une copie des sources et rejoue CE fichier dessus — il doit rougir.
+  3. les RÔLES et les MODULES VÉRIFIÉS (§ 8) : le premier inscrit est administrateur, il y en a toujours un, lui seul nomme
+     et vérifie ; une vérification vaut pour UNE version du module (l'empreinte de son calcul, construire.empreinte_module)
+     et tombe quand le calcul change ; la marque est écrite cachée dans les pages ; la recherche de l'accueil ;
+  4. des mutations : chacune abîme une ligne d'une copie des sources et rejoue CE fichier dessus — il doit rougir.
 
 Le vrai navigateur (les quatre formats, les gestes) : site/web/verifier_site.js, filtre « bureau ».
 """
@@ -61,6 +64,7 @@ class Memoire {
 globalThis.localStorage = new Memoire();
 const base = %s;
 const E = await import(base + "equipe.js"), J = await import(base + "journal.js"), P = await import(base + "projets.js"), N = await import(base + "notes.js");
+const VF = await import(base + "verifications.js"), VS = await import(base + "versions.js"), A = await import(base + "accueil.js"), MQ = await import(base + "marques.js");
 const out = {};
 const jouer = (nom, memoire, f) => { globalThis.localStorage = memoire; try { out[nom] = f(memoire); } catch (e) { out[nom] = { erreur: String(e && e.stack || e) }; } };
 const T = 1762862400000;                         // un instant fixe pour les heures du journal
@@ -214,6 +218,75 @@ const r2 = await N.importer(fichier({ ini: "<script>alert(1)</script>", nom: "<i
 const r3 = await N.importer(fichier({ ini: "AB", nom: "x".repeat(500), c: 42, html: "<b>" }));
 out.importer = { auteur: r1.auteur, par: r1.par && r1.par.ini, piege: r2.auteur, borne: [r3.auteur.ini, r3.auteur.nom.length, r3.auteur.c, Object.keys(r3.auteur).sort()],
                  journal: J.lire().slice(0, 3).map((e) => [e.k, e.q.ini]) };
+
+// ---- les RÔLES : le premier inscrit est administrateur ; lui seul nomme ; il en reste toujours un
+jouer("roles", new Memoire(), (mem) => {
+  const a = E.ajouter({ nom: "Louis Lejeune" }, { estMoi: true }).membre, b = E.ajouter({ nom: "Marie Durand" }).membre, c = E.ajouter({ nom: "Paul Martin" }).membre;
+  // (trois inscriptions dans la même milliseconde : on leur rend des dates d'inscription distinctes)
+  const r0 = JSON.parse(mem.getItem("stab.equipe.v1")); r0.membres[a.id].cree = 1000; r0.membres[b.id].cree = 2000; r0.membres[c.id].cree = 3000; mem.setItem("stab.equipe.v1", JSON.stringify(r0));
+  const roles = () => E.equipe().membres.map((m) => [m.initiales, m.role]);
+  const depart = roles(), moiAdmin = E.estAdmin();
+  const inconnu = E.nommer(b.id, "chef"), absent = E.nommer("personne", "admin");
+  const n1 = E.nommer(b.id, "admin"), deux = roles(), encore = E.nommer(b.id, "admin");
+  const n2 = E.nommer(a.id, "membre"), apres = roles();             // Louis se retire le rôle : Marie reste administrateur
+  const refus = E.nommer(c.id, "admin"), louisAdmin = E.estAdmin(); // Louis n'est plus administrateur : il ne nomme plus
+  E.choisirMoi(b.id);
+  const dernier = E.nommer(b.id, "membre"), toujours = roles();     // le dernier administrateur ne peut pas se retirer
+  E.retirer(b.id);                                                  // l'administrateur quitte l'équipe : le premier inscrit le devient
+  const releve = roles(), ecrit = Object.values(JSON.parse(mem.getItem("stab.equipe.v1")).membres).map((m) => m.role).sort();
+  return { depart, moiAdmin, inconnu, absent, n1: n1.ok, deux, encore: encore.inchange === true, n2: n2.ok, apres, refus, louisAdmin, dernier, toujours, releve, ecrit, libelles: E.ROLES };
+});
+// un registre d'AVANT les rôles (aucun champ « role »), et un rôle piégé : un seul administrateur, le plus ancien inscrit
+jouer("roles_anciens", new Memoire(() => null, { "stab.equipe.v1": JSON.stringify({ moi: "m2", membres: {
+  m1: { id: "m1", nom: "Zoé Ancienne", initiales: "ZA", couleur: 1, cree: 5 }, m2: { id: "m2", nom: "Albert Récent", initiales: "AR", couleur: 2, cree: 9, role: "<b>admin</b>" } } }) }), () => (
+  { lus: E.equipe().membres.map((m) => [m.initiales, m.role]), moiAdmin: E.estAdmin(), nommer: E.nommer("m2", "admin") }));
+
+// ---- les MODULES VÉRIFIÉS : un administrateur, pour UNE version du module ; la marque tombe quand le calcul change
+jouer("verifications", new Memoire(), (mem) => {
+  const mods = VF.modules(), sansPersonne = VF.verifier("poutre"), etat0 = VF.etat("poutre");
+  const a = E.ajouter({ nom: "Louis Lejeune" }, { estMoi: true }).membre, b = E.ajouter({ nom: "Marie Durand" }).membre;
+  const v1 = VF.verifier("poutre"), e1 = VF.etat("poutre"), d1 = VF.dire("poutre");
+  const refus = ["predalle", "inconnu", "__proto__", "toString", ""].map((k) => VF.verifier(k).ok);
+  E.choisirMoi(b.id);                                               // Marie est membre : ni vérifier, ni retirer
+  const membre = [VF.verifier("dalle"), VF.retirer("poutre")], encore = VF.etat("poutre").etat, dalle = VF.etat("dalle").etat;
+  E.choisirMoi(a.id);
+  // le calcul du module change : l'empreinte du site n'est plus celle de la vérification
+  const r = JSON.parse(mem.getItem(VF.CLE)); r.poutre.version = "0123456789abcdef"; mem.setItem(VF.CLE, JSON.stringify(r));
+  const e2 = VF.etat("poutre"), d2 = VF.dire("poutre"), nb2 = VF.tous().filter((m) => m.etat === "verifie").length;
+  const v2 = VF.verifier("poutre"), e3 = VF.etat("poutre");        // revérifier : la version du jour
+  const nb3 = VF.tous().filter((m) => m.etat === "verifie").map((m) => [m.cle, m.nom, m.par.ini]);
+  const ret = VF.retirer("poutre"), e4 = VF.etat("poutre").etat, ret2 = VF.retirer("poutre");
+  const journal = J.lire().map((x) => [x.k, x.q && x.q.ini, x.x]);
+  return { n: mods.length, mods, sansPersonne, etat0, v1: { ok: v1.ok, par: v1.par, version: v1.version }, e1, d1, refus, membre, encore, dalle, e2, d2, nb2, v2: v2.ok,
+           e3: [e3.etat, e3.version === e3.actuelle], nb3, ret, e4, ret2, journal, phrase: J.phrase(J.lire()[0]), versions: VS.VERSIONS, cles: [...mem.m.keys()].sort() };
+});
+// un registre des vérifications réécrit à la main : rien de mal formé ne fait une marque
+const VP = VS.VERSIONS.poutre, SIG = { id: "x", ini: "LLE", nom: "Louis Lejeune", c: 0 };
+jouer("verifications_piegees", new Memoire(() => null, { "stab.verifications.v1": JSON.stringify({
+  poutre: { par: { ini: "<script>", nom: "x" }, t: 1, version: VP }, dalle: { par: SIG, t: "hier", version: VS.VERSIONS.dalle },
+  soudures: { par: SIG, t: 5, version: "pas une empreinte" }, bois: { par: SIG, t: 5, version: VS.VERSIONS.bois }, corniere: null, inconnu: { par: SIG, t: 5, version: VP },
+  predalle: { par: SIG, t: 5, version: VP } }) }), () => ({ etats: Object.fromEntries(["poutre", "dalle", "soudures", "bois", "corniere", "inconnu", "predalle"].map((k) => [k, VF.etat(k).etat])),
+  tous: VF.tous().filter((m) => m.etat !== "non").map((m) => m.cle) }));
+jouer("verifications_abimees", new Memoire(() => null, { "stab.verifications.v1": "[1,2" }), (mem) => {
+  E.ajouter({ nom: "Louis Lejeune" }, { estMoi: true });
+  const avant = VF.etat("poutre").etat, v = VF.verifier("poutre");
+  return { avant, ok: v.ok, copies: [...mem.m.keys()].filter((k) => k.startsWith("stab.verifications.v1.illisible.")).map((k) => mem.getItem(k)), apres: VF.etat("poutre").etat };
+});
+out.marques = { sansDocument: MQ.marquer() === undefined, sansRacine: MQ.marquer(null) === undefined, poser: MQ.poserVerification(null, "poutre") === undefined };
+
+// ---- la RECHERCHE de l'accueil : modules, bibliothèques, projets, sous-projets, notes
+jouer("recherche", new Memoire(), () => {
+  E.ajouter({ nom: "Louis Lejeune" }, { estMoi: true });
+  P.creer("Réalex"); P.creerSous("Réalex", "Étude de la dalle"); P.creer("Dalton & fils");
+  const n = N.nouvelle({ module: "dalle", nom: "Dalle R+2", chantier: "Réalex", dossier: "Étude de la dalle" }); N.ecrire(n);
+  const idx = A.indexRecherche(N.toutes());
+  const voir = (q, max) => A.chercher(idx, q, max).map((x) => `${x.sorte}:${x.nom}`);
+  const note = A.chercher(idx, "dalle r+2")[0], projet = A.chercher(idx, "dalton")[0], sous = A.chercher(idx, "etude de la")[0], module = A.chercher(idx, "Dalles béton")[0];
+  return { sortes: [...new Set(idx.map((x) => x.sorte))], masques: idx.filter((x) => x.sorte === "Module").map((x) => x.module), dal: voir("dal"), accents: voir("REALEX"), mots: voir("arme beton"),
+           rien: voir("zzz"), vide: voir("   "), max: voir("e", 3).length, defaut: A.chercher(idx, "e").length, vus: A.RESULTATS_VUS,
+           note: [note.sorte, note.href === `dalle?note=${encodeURIComponent(n.id)}`, note.sous, note.module], projet: [projet.sorte, projet.href], sous: [sous.sorte, sous.href, sous.sous],
+           module: [module.sorte, module.href, module.module, module.sous], piege: A.indexRecherche({ x: null, y: { module: "__proto__", nom: "X" }, z: "texte" }).filter((x) => x.sorte === "Note").length };
+});
 console.log(JSON.stringify(out));
 """ % json.dumps("file://" + JS + "/")
 
@@ -346,9 +419,113 @@ chk("un .stab piégé : des initiales « <script> » → pas d'auteur gardé (ce
     "une teinte hors palette revient à 0, aucune autre clé n'est gardée",
     (IM.get("piege") or {}).get("ini") == "MDU" and IM.get("borne") == ["AB", 80, 0, ["c", "id", "ini", "nom"]], (IM.get("piege"), IM.get("borne")))
 
+print("\n=== 3 bis · Les rôles et les modules vérifiés (§ 8)")
+RO = D.get("roles", {})
+chk("rôles : le PREMIER inscrit du poste est administrateur, les suivants sont membres ; les deux libellés (Administrateur, Membre)",
+    RO.get("depart") == [["LLE", "admin"], ["MDU", "membre"], ["PMA", "membre"]] and RO.get("moiAdmin") is True
+    and RO.get("libelles") == {"admin": "Administrateur", "membre": "Membre"}, (RO.get("depart"), RO.get("libelles")))
+chk("un administrateur nomme un autre administrateur (le redire ne change rien) ; un rôle qui n'existe pas, un membre parti : refusés",
+    RO.get("n1") is True and RO.get("deux") == [["LLE", "admin"], ["MDU", "admin"], ["PMA", "membre"]] and RO.get("encore") is True
+    and (RO.get("inconnu") or {}).get("ok") is False and (RO.get("absent") or {}).get("ok") is False, (RO.get("deux"), RO.get("inconnu"), RO.get("absent")))
+chk("SEUL un administrateur change un rôle : celui qui s'est retiré le sien ne nomme plus personne (la raison est dite)",
+    RO.get("n2") is True and RO.get("apres") == [["LLE", "membre"], ["MDU", "admin"], ["PMA", "membre"]] and RO.get("louisAdmin") is False
+    and (RO.get("refus") or {}).get("ok") is False and "Seul un administrateur" in RO["refus"]["erreur"], (RO.get("apres"), RO.get("refus")))
+chk("il reste TOUJOURS un administrateur : le dernier ne peut pas se retirer le rôle ; s'il quitte l'équipe, le premier inscrit le devient — et c'est ÉCRIT",
+    (RO.get("dernier") or {}).get("ok") is False and "toujours un administrateur" in RO["dernier"]["erreur"] and RO.get("toujours") == RO.get("apres")
+    and RO.get("releve") == [["LLE", "admin"], ["PMA", "membre"]] and RO.get("ecrit") == ["admin", "membre"], (RO.get("dernier"), RO.get("releve"), RO.get("ecrit")))
+RA = D.get("roles_anciens", {})
+chk("une équipe d'AVANT les rôles (ou un rôle piégé « <b>admin</b> ») : un seul administrateur, le plus ancien inscrit ; les autres sont membres",
+    RA.get("lus") == [["AR", "membre"], ["ZA", "admin"]] and RA.get("moiAdmin") is False and (RA.get("nommer") or {}).get("ok") is False, RA)
+VE = D.get("verifications", {})
+_pages_calcul = [k for k in SW.PAGES if k not in SW.MASQUES and k not in SW.REDIRECTIONS]
+chk(f"les modules qu'on peut vérifier : les {len(_pages_calcul)} calculs que l'accueil montre (ni masqués, ni absorbés par un autre), chacun avec sa version",
+    VE.get("mods") == [k for k in VE.get("mods", []) if k in _pages_calcul] and sorted(VE.get("mods", [])) == sorted(_pages_calcul) and VE.get("n") == 13
+    and all(re.fullmatch(r"[0-9a-f]{16}", VE.get("versions", {}).get(k, "")) for k in _pages_calcul), (VE.get("n"), sorted(set(_pages_calcul) ^ set(VE.get("mods", [])))))
+chk("vérifier un module : il faut s'être présenté (la vérification porte un nom) ; personne ne l'a fait : « à vérifier »",
+    (VE.get("sansPersonne") or {}).get("ok") is False and "Présentez-vous" in VE["sansPersonne"]["erreur"] and (VE.get("etat0") or {}).get("etat") == "non"
+    and VE["etat0"]["par"] is None, (VE.get("sansPersonne"), VE.get("etat0")))
+chk("un administrateur déclare un module vérifié : son nom, la date, et la VERSION du module ce jour-là (l'empreinte de son calcul) ; "
+    "la marque dit « Vérifié · LLE · jj/mm/aaaa » et rappelle que chaque note reste à relire",
+    (VE.get("v1") or {}).get("ok") is True and VE["v1"]["par"]["ini"] == "LLE" and set(VE["v1"]["par"]) == {"id", "ini", "nom", "c"}
+    and VE["v1"]["version"] == VE["versions"]["poutre"] and (VE.get("e1") or {}).get("etat") == "verifie" and VE["e1"]["version"] == VE["e1"]["actuelle"]
+    and VE["d1"]["court"] == "Vérifié" and re.fullmatch(r"LLE · \d\d/\d\d/\d{4}", VE["d1"]["qui"]) is not None
+    and "vérifié par Louis Lejeune" in VE["d1"]["long"] and "Chaque note reste à relire" in VE["d1"]["long"], (VE.get("v1"), VE.get("d1")))
+chk("ce qui ne se vérifie pas : un module absorbé par un autre (prédalle), un nom inconnu, « __proto__ », « toString », rien",
+    VE.get("refus") == [False] * 5, VE.get("refus"))
+chk("SEUL un administrateur vérifie ou retire une vérification : un membre est refusé (la raison est dite) et rien ne change",
+    all(x.get("ok") is False and "Seul un administrateur" in x.get("erreur", "") for x in VE.get("membre", [{}])) and len(VE.get("membre", [])) == 2
+    and VE.get("encore") == "verifie" and VE.get("dalle") == "non", (VE.get("membre"), VE.get("encore"), VE.get("dalle")))
+chk("le CALCUL du module change (une autre empreinte) : la marque TOMBE d'elle-même — « à revérifier », et le module n'est plus compté vérifié ; "
+    "on sait encore qui l'avait vérifié",
+    (VE.get("e2") or {}).get("etat") == "change" and VE["e2"]["version"] != VE["e2"]["actuelle"] and VE["e2"]["par"]["ini"] == "LLE"
+    and VE["d2"]["court"] == "À revérifier" and "son calcul a changé" in VE["d2"]["long"] and VE.get("nb2") == 0, (VE.get("e2"), VE.get("d2"), VE.get("nb2")))
+chk("revérifier pose la version du jour ; retirer la vérification rend le module « à vérifier » (le refaire ne change rien)",
+    VE.get("v2") is True and VE.get("e3") == ["verifie", True] and VE.get("nb3") == [["poutre", "Poutres béton armé", "LLE"]]
+    and (VE.get("ret") or {}).get("ok") is True and VE.get("e4") == "non" and (VE.get("ret2") or {}).get("inchange") is True, (VE.get("e3"), VE.get("nb3"), VE.get("ret"), VE.get("ret2")))
+chk("chaque vérification laisse sa ligne au journal : « Louis Lejeune a vérifié le module Poutres béton armé », « … a retiré la vérification du module … » ; "
+    "un geste refusé n'en laisse pas",
+    [x for x in VE.get("journal", []) if x[0].startswith("module.")] == [["module.retire", "LLE", "Poutres béton armé"]] + [["module.verifie", "LLE", "Poutres béton armé"]] * 2
+    and VE.get("phrase") == {"qui": "Louis Lejeune", "verbe": "a retiré la vérification du module", "objet": "Poutres béton armé", "lieu": "", "suite": ""}
+    and VE.get("cles") == ["stab.equipe.v1", "stab.journal.v1", "stab.verifications.v1"], (VE.get("journal"), VE.get("phrase"), VE.get("cles")))
+VP_ = D.get("verifications_piegees", {})
+chk("un registre des vérifications réécrit à la main : une signature « <script> », une date qui n'en est pas une, une version qui n'est pas une empreinte, "
+    "un module inconnu ou absorbé ne font AUCUNE marque — seule la ligne bien formée compte",
+    VP_.get("etats") == {"poutre": "non", "dalle": "non", "soudures": "non", "bois": "verifie", "corniere": "non", "inconnu": "non", "predalle": "non"}
+    and VP_.get("tous") == ["bois"], VP_)
+VA = D.get("verifications_abimees", {})
+chk("un registre des vérifications ABÎMÉ se lit vide (aucun module vérifié) ; vérifier COPIE d'abord son texte à part",
+    VA == {"avant": "non", "ok": True, "copies": ["[1,2"], "apres": "verifie"}, VA)
+chk("js/marques.js ne peut pas faire échouer un écran : sans document, sans racine, sans cadre Résultat, il ne fait rien et ne lève pas",
+    D.get("marques") == {"sansDocument": True, "sansRacine": True, "poser": True}, D.get("marques"))
+RC = D.get("recherche", {})
+chk("la recherche de l'accueil connaît les modules (ceux qu'on voit : aucun masqué, aucun absorbé), les bibliothèques, les projets, les sous-projets, les notes",
+    RC.get("sortes") == ["Module", "Bibliothèque", "Projet", "Sous-projet", "Note"] and sorted(RC.get("masques", [])) == sorted(_pages_calcul), (RC.get("sortes"), RC.get("masques")))
+chk("« dal » : d'abord ce dont le NOM commence ainsi — le module, puis le projet, puis la note — ensuite ce qui le contient ; à rang égal : modules, "
+    "bibliothèques, projets, sous-projets, notes",
+    RC.get("dal") == ["Module:Dalles béton armé", "Projet:Dalton & fils", "Note:Dalle R+2", "Sous-projet:Étude de la dalle"], RC.get("dal"))
+chk("sans accents ni capitales (« REALEX » trouve Réalex, son sous-projet et sa note) ; plusieurs mots : chacun doit s'y trouver, dans n'importe quel ordre ; "
+    "rien ne porte ce nom, ou une recherche vide : aucun résultat",
+    RC.get("accents") == ["Projet:Réalex", "Sous-projet:Étude de la dalle", "Note:Dalle R+2"] and "Module:Poutres béton armé" in RC.get("mots", [])
+    and "Bibliothèque:Bibliothèque Béton armé" in RC["mots"] and RC.get("rien") == [] and RC.get("vide") == [], (RC.get("accents"), RC.get("mots"), RC.get("rien")))
+chk("huit résultats au plus (RESULTATS_VUS) ; un résultat mène où il faut : la note à sa page (?note=), le projet et le sous-projet à la page Projets, le module à sa page ; une table des notes piégée (« __proto__ », null, un texte) ne donne aucune note",
+    RC.get("vus") == 8 and RC.get("defaut") == 8 and RC.get("max") == 3 and RC.get("note") == ["Note", True, "Dalles béton armé · Réalex · Étude de la dalle", "dalle"]
+    and RC.get("projet") == ["Projet", "projets?p=Dalton+%26+fils"] and RC.get("sous") == ["Sous-projet", "projets?p=R%C3%A9alex&s=%C3%89tude+de+la+dalle", "Réalex"]
+    and RC.get("module") == ["Module", "dalle", "dalle", "Béton"] and RC.get("piege") == 0, RC)
+
+# ---- la VERSION d'un module : l'empreinte de son CALCUL (construire.empreinte_module)
+_F = {"beton/poutre/moteur.py": b"import math\n\n\n# la formule\ndef m(q, l):\n    return q * l ** 2 / 8  # kN.m\n", "beton/donnees/classes.json": b'{"C30/37": 30}\n',
+      "api_web/poutre.py": b"def calculer(e):\n    return 1\n", "api_web/commun.py": b"def esc(t):\n    return t\n"}
+
+
+def _empreinte(change=None, fichiers=None):
+    d = {**_F, **(change or {})}
+    return SW.empreinte_module(fichiers or list(_F), lire=lambda c: d[c])
+
+
+_e0 = _empreinte()
+chk("la version d'un module : 16 chiffres hexadécimaux, la même dans n'importe quel ordre des fichiers et si un fichier est cité deux fois",
+    re.fullmatch(r"[0-9a-f]{16}", _e0) is not None and _empreinte(fichiers=list(reversed(list(_F))) + ["api_web/poutre.py"]) == _e0, _e0)
+chk("elle ne change PAS pour un commentaire ou une ligne vide en plus dans le code (rien du calcul n'a changé : la vérification tient)",
+    _empreinte({"beton/poutre/moteur.py": b"import math\n# un commentaire de plus\n\n\n\n    # un autre, en retrait\ndef m(q, l):\n    return q * l ** 2 / 8  # kN.m\n"}) == _e0)
+chk("elle CHANGE dès que le calcul change : un coefficient (8 → 10), une donnée (30 → 35), l'adaptateur du module, un fichier en plus ou en moins",
+    len({_e0, _empreinte({"beton/poutre/moteur.py": _F["beton/poutre/moteur.py"].replace(b"/ 8", b"/ 10")}), _empreinte({"beton/donnees/classes.json": b'{"C30/37": 35}\n'}),
+         _empreinte({"api_web/poutre.py": b"def calculer(e):\n    return 2\n"}), _empreinte(fichiers=[f for f in _F if f != "beton/donnees/classes.json"]),
+         _empreinte({"x.py": b"a = 1\n"}, fichiers=list(_F) + ["x.py"])}) == 6)
+chk("elle ne change PAS pour la plomberie que tous les modules partagent (HORS_VERSION : le routeur, le registre, les briques d'écran) — sinon "
+    "retoucher un écran ferait tomber toutes les vérifications du bureau",
+    _empreinte({"api_web/commun.py": b"def esc(t):\n    return t.upper()\n"}) == _e0 and "api_web/commun.py" in SW.HORS_VERSION and "api_web/routeur.py" in SW.HORS_VERSION
+    and not [f for f in SW.HORS_VERSION if not f.startswith("api_web/")] and not [f for f in SW.HORS_VERSION if not os.path.isfile(os.path.join(RACINE, f))],
+    sorted(SW.HORS_VERSION))
+_vjs = source("versions.js")
+_vdit = json.loads(re.search(r"export const VERSIONS = (\{.*?\});", _vjs, re.S).group(1))
+chk("js/versions.js (écrit par la construction) : une version par page de calcul — aucune pour un module absorbé —, toutes différentes ; "
+    "c'est versions_js() qui l'écrit (tests/test_site_web.py le lie au relevé)",
+    sorted(_vdit) == sorted(k for k in SW.PAGES if k not in SW.REDIRECTIONS) and len(set(_vdit.values())) == len(_vdit)
+    and SW.versions_js(_vdit).strip() == _vjs.strip() and set(_vdit) == set(SW.versions_modules({k: [] for k in _vdit})), sorted(set(_vdit) ^ set(SW.PAGES)))
+
 # ================================================================================================ 4 · les sources
 print("\n=== 4 · Les sources")
-for f in ("memoire.js", "equipe.js", "journal.js", "projets.js"):
+for f in ("memoire.js", "equipe.js", "journal.js", "projets.js", "verifications.js", "versions.js"):
     s = source(f)
     chk(f"js/{f} : aucun effet au chargement et rien du document (ni document, ni window, ni history) — il tourne dans node",
         not re.search(r"\b(document|window|history)\.", s), re.findall(r"\b(?:document|window|history)\.\w+", s)[:4])
@@ -446,6 +623,58 @@ chk(f"les {len(_demandees)} icônes que les écrans du bureau posent sont dépos
     and all(m == list(SW.PAGES) for m in _modules.values()) and set(_demandees) <= set(SW.ICONES_BUREAU),
     {n: sorted(set(_demandees) - set(d)) for n, d in _deposees.items()})
 
+# ---- les RÔLES et les MODULES VÉRIFIÉS dans les pages (§ 8)
+_MARQUE = re.compile(r'<span class="ok" data-verifie="(\w+)"( hidden)?>')
+_tuiles = re.findall(r'<a class="tile[^"]*"[^>]*data-module="(\w+)"[^>]*>(.*?)</a>', ACC, re.S)
+_mopt = re.findall(r'<button[^>]*class="mopt[^"]*"[^>]*data-module="(\w+)"[^>]*>(.*?)</button>', SW.fenetre_nouvelle_note(), re.S)
+_volets = {n: re.search(r'<aside class="modpanel">.*?</aside>', h, re.S).group(0) for n, h in PAGES_R.items() if '<aside class="modpanel">' in h}
+
+
+def marques(html):
+    return [k for k, _ in _MARQUE.findall(html)]
+
+
+_visibles = sorted({n for n, h in PAGES_R.items() for k, cache in _MARQUE.findall(h) if not cache})
+chk(f"la marque « vérifié » est écrite CACHÉE partout ({sum(len(_MARQUE.findall(h)) for h in PAGES_R.values())} marques dans {len(PAGES_R)} pages) : sans "
+    "le script — ou avant lui — aucun module ne se dit vérifié",
+    not _visibles and sum(len(_MARQUE.findall(h)) for h in PAGES_R.values()) >= 13 * 20
+    and SW.marque_verifie("poutre").startswith('<span class="ok" data-verifie="poutre" hidden>'), _visibles)
+chk("chaque module de calcul porte SA marque là où il est nommé : sa tuile de l'accueil, sa ligne du volet des modules (toutes les pages qui l'ont), "
+    "son bouton de « Nouvelle note » — une fois, et la sienne",
+    len(_tuiles) == 13 and all(marques(c) == [k] for k, c in _tuiles) and sorted(k for k, _ in _tuiles) == sorted(_pages_calcul)
+    and len(_mopt) == 13 and all(marques(c) == [k] for k, c in _mopt)
+    and len(_volets) == 24 - len(SW.REDIRECTIONS) and all(sorted(marques(v)) == sorted(_pages_calcul) for v in _volets.values()),
+    (len(_tuiles), len(_mopt), len(_volets), [k for k, c in _tuiles + _mopt if marques(c) != [k]]))
+chk("la marque est EXPLIQUÉE là où on la voit : « vérifié par un administrateur » au-dessus des modules de l'accueil, « vérifié » en tête du volet",
+    re.search(r'<div class="h2">Modules</div>.*?<span class="okleg">.*?vérifié par un administrateur</span>', ACC, re.S) is not None
+    and all(re.search(r'<div class="mp-h"><div class="h2">Modules</div><span class="okleg">.*?vérifié</span>', v, re.S) for v in _volets.values()))
+_etablis_v = {n: re.findall(r'<template id="et-verif-gabarit">(.*?)</template>', h, re.S) for n, h in PAGES_R.items() if 'id="resultat"' in h}
+_cle_de = {v: k for k, v in SW.ADRESSES.items()}
+chk(f"dans les {len(_etablis_v)} pages d'établi, le gabarit de la ligne « Module vérifié / à vérifier » (js/marques.js la pose au pied du cadre Résultat) "
+    "nomme LE module de la page ; c'est une ligne qu'on lit — ni bouton ni lien (au doigt, un bouton du résultat doit faire 44 px)",
+    len(_etablis_v) >= 17 and all(len(g) == 1 and f'<span class="et-verif" data-verif-module="{_cle_de[n[:-5]]}">' in g[0]
+                                  and "<button" not in g[0] and "<a " not in g[0] and g[0].count("<svg") == 2 for n, g in _etablis_v.items()),
+    {n: len(g) for n, g in _etablis_v.items() if len(g) != 1})
+_moi_rail = {n: re.findall(r'<a class="navitem rail-moi" href="equipe" data-moi-rail="1"[^>]*></a>', r) for n, r in _rail.items()}
+chk(f"la barre des {len(_rail)} pages porte, à son pied, la place de la pastille de la personne du poste (vide dans la page : js/marques.js la remplit) ; "
+    "elle mène à l'équipe",
+    all(len(x) == 1 for x in _moi_rail.values()) and all(r.rstrip().endswith('></a></nav>') or 'data-moi-rail="1"' in r[-400:] for r in _rail.values()),
+    [n for n, x in _moi_rail.items() if len(x) != 1])
+_cherche = re.search(r'<div class="bu-cherche">.*?<div class="bu-resultats"[^>]*></div></div>', ACC, re.S)
+chk("l'accueil a sa RECHERCHE (modules, projets, notes) : un vrai champ dans un formulaire sans action, 80 caractères, sa liste de résultats cachée au "
+    "départ, le raccourci Ctrl K annoncé ; « Reprendre » mène à toutes les notes (« Tout voir »)",
+    not une_fois(ACC, ["ac-recherche-form", "ac-recherche", "ac-resultats"]) and _cherche is not None
+    and re.search(r'<form class="bigsearch" id="ac-recherche-form" role="search" autocomplete="off">', _cherche.group(0)) is not None
+    and re.search(r'<input id="ac-recherche" type="search" maxlength="80" placeholder="Rechercher un module, un projet, une note…"[^>]*aria-controls="ac-resultats"', _cherche.group(0)) is not None
+    and re.search(r'<div class="bu-resultats" id="ac-resultats" role="listbox"[^>]* hidden></div>', _cherche.group(0)) is not None and '<span class="kbd" aria-hidden="true">Ctrl K</span>' in _cherche.group(0)
+    and re.search(r'<span class="h2">Reprendre</span><span class="muted" id="nb-notes"></span><a class="btn ghost sm" href="projets">Tout voir', ACC) is not None
+    and len(re.findall(r'<a class="btn ghost sm" href="projets">Tout voir', ACC)) == 2, une_fois(ACC, ["ac-recherche-form", "ac-recherche", "ac-resultats"]))
+chk("la page ÉQUIPE a la carte « Vérification des modules » (le compte, la table que l'écran remplit) et dit « Qui peut faire quoi » : Administrateur, "
+    "Membre, Module vérifié — et que rôles et vérifications sont, eux aussi, enregistrés dans ce navigateur",
+    not une_fois(EQU, ["eq-verif", "eq-verif-nb", "eq-modules"]) and re.search(r'<div class="h3">Vérification des modules</div>', EQU) is not None
+    and re.search(r'<div class="h3">Qui peut faire quoi</div>.*?<div class="rights">.*?<b>Administrateur</b>.*?<b>Membre</b>.*?<b>Module vérifié</b>', EQU, re.S) is not None
+    and "les rôles et les modules vérifiés aussi" in EQU, une_fois(EQU, ["eq-verif", "eq-verif-nb", "eq-modules"]))
+
 # ================================================================================================ 6 · les copies liées (R2)
 print("\n=== 6 · Les copies liées")
 APP = source("app.js")
@@ -458,10 +687,13 @@ chk("les pages du bureau : construire.PAGES_BUREAU et js/app.js PAGES_BUREAU dis
     and 'const SANS_MOTEUR = new Set(["accueil", ...PAGES_BUREAU]);' in APP
     and re.search(r"accueil: ouvrirAccueil,\s*projets: ouvrirProjets,\s*equipe: ouvrirEquipe,", APP) is not None, _app_pages and _app_pages.group(0))
 _n_teintes = int(re.search(r"export const COULEURS = (\d+);", EQ).group(1))
-_teintes_css = re.findall(r"^\.avatar\.c(\d) \{ background: (#[0-9A-F]{6}); color: #fff; \}", BU, re.M)
-chk(f"les teintes des pastilles : js/equipe.js en compte {_n_teintes}, css/bureau.css en peint {len(_teintes_css)} (.avatar.c0 à .avatar.c{_n_teintes - 1}), "
-    "toutes différentes, texte blanc",
-    _n_teintes == 8 and [int(c) for c, _ in _teintes_css] == list(range(_n_teintes)) and len({h for _, h in _teintes_css}) == _n_teintes, _teintes_css)
+# (la pastille est dans css/site.css depuis que la barre de TOUTE page porte celle de la personne du poste : css/bureau.css
+#  n'est chargée que par les trois pages du bureau)
+_teintes_css = re.findall(r"^\.avatar\.c(\d) \{ background: (#[0-9A-F]{6}); color: #fff; \}", SITE_CSS, re.M)
+chk(f"les teintes des pastilles : js/equipe.js en compte {_n_teintes}, css/site.css en peint {len(_teintes_css)} (.avatar.c0 à .avatar.c{_n_teintes - 1}), "
+    "toutes différentes, texte blanc ; css/bureau.css ne les redit pas (une seule source)",
+    _n_teintes == 8 and [int(c) for c, _ in _teintes_css] == list(range(_n_teintes)) and len({h for _, h in _teintes_css}) == _n_teintes
+    and not re.search(r"^\.avatar\b", BU, re.M), _teintes_css)
 
 
 def luminance(hexa):
@@ -478,7 +710,7 @@ _max_ini = (re.findall(r'<input id="eq-ini" maxlength="(\d+)"', EQU) + re.findal
             + re.findall(r'data-moi="initiales" value="[^"]*" maxlength="(\d+)"', EE) + re.findall(r'name="initiales" value="[^"]*" maxlength="(\d+)"', EE))
 chk(f"les initiales : {_ini_max} caractères au plus, dans les données (INITIALES_MAX) comme dans les QUATRE champs où on les saisit ; la pastille a sa "
     "forme pour 1 à 5 lettres (.n3, .n4, .n5)",
-    _ini_max == 5 and _max_ini == ["5"] * 4 and all(f".avatar.n{k}" in BU for k in (3, 4, 5)) and "/^[\\p{L}\\p{N}]{1,5}$/u" in EQ, _max_ini)
+    _ini_max == 5 and _max_ini == ["5"] * 4 and all(f".avatar.n{k}" in SITE_CSS for k in (3, 4, 5)) and "/^[\\p{L}\\p{N}]{1,5}$/u" in EQ, _max_ini)
 _nom_max = int(re.search(r"export const NOM_MAX = (\d+);", PJ).group(1))
 chk(f"le nom d'un projet : {_nom_max} caractères au plus, dans les données (NOM_MAX) comme dans les champs qui le créent (accueil, arbre, « Nouvelle note ») "
     "et ceux qui le renomment",
@@ -512,8 +744,38 @@ chk(f"dans les {len(_etablis)} pages d'établi, « Classer la note » range dans
                                 and ">Chantier<" not in h and ">Dossier<" not in h for h in _etablis)
     and 'import * as P from "./projets.js";' in RG and "P.modele()" in RG and "N.toutes()" not in RG
     and "n.chantier = p ? p.nom : P.nomPropre(champs.chantier.value);" in RG, len(_etablis))
-chk("css/bureau.css : une pile de pastilles ne se recouvre pas (on doit y lire les initiales)",
-    ".avstack .avatar, .avstack .avatar:first-child { margin-left: 0; box-shadow: none; }" in BU)
+chk("css/site.css : une pile de pastilles ne se recouvre pas (on doit y lire les initiales)",
+    ".avstack .avatar, .avstack .avatar:first-child { margin-left: 0; box-shadow: none; }" in SITE_CSS)
+
+# ---- les rôles et les modules vérifiés : les copies liées
+CHARTE, MQ_JS, VF_JS, AC_JS, ET_JS = feuille("charte.css"), source("marques.js"), source("verifications.js"), source("accueil.js"), source("etabli.js")
+chk("les rôles : js/equipe.js les nomme (ROLES), la charte les peint (.role.admin, .role.membre), l'écran de l'équipe tire ses libellés de ROLES "
+    "— il ne les redit pas",
+    'export const ROLES = { admin: "Administrateur", membre: "Membre" };' in EQ and ".role.admin {" in CHARTE and ".role.membre {" in CHARTE
+    and "Object.entries(E.ROLES).map(" in EE and "esc(E.ROLES.admin)" in EE and "esc(E.ROLES.membre)" in EE
+    and not re.search(r">Administrateur<|>Membre<", EE), re.findall(r">(?:Administrateur|Membre)<", EE))
+chk("le journal sait dire les quatre gestes du lot (nommer administrateur, retirer le rôle, vérifier un module, retirer la vérification) ; l'écran de "
+    "l'équipe note les deux premiers, js/verifications.js les deux autres — après l'écriture, jamais avant",
+    all(f'"{k}": ' in JO_ for k in ("membre.admin", "membre.membre", "module.verifie", "module.retire"))
+    and 'J.noter(choisi.value === "admin" ? "membre.admin" : "membre.membre", { membre: r.membre.nom });' in EE
+    and re.search(r"if \(!M\.changer\(CLE, vide, valide, \(r\) => \{ r\[cle\] = v; \}\)\) return \{ ok: false, erreur: ECHEC \};\n  J\.noter\(\"module\.verifie\"", VF_JS) is not None
+    and re.search(r"if \(!M\.changer\(CLE, vide, valide, \(r\) => \{ delete r\[cle\]; \}\)\) return \{ ok: false, erreur: ECHEC \};\n  J\.noter\(\"module\.retire\"", VF_JS) is not None)
+chk("« hidden » l'emporte sur la charte (qui affiche « .tile .ok » en grille) : css/site.css le dit, sinon TOUS les modules porteraient la marque",
+    "[data-verifie][hidden] { display: none !important; }" in SITE_CSS and re.search(r"\.tile \.ok \{[^}]*display: grid", CHARTE) is not None)
+chk("js/marques.js ne MONTRE une marque que pour l'état « verifie » (ni « change », ni « non ») et dit par qui et quand ; l'application la rafraîchit "
+    "après chaque montage, l'établi la pose après chaque résultat, l'accueil et l'équipe après chaque changement",
+    'const vu = !!e && e.etat === "verifie";' in MQ_JS and "el.hidden = !vu;" in MQ_JS and "el.title = `Vérifié · ${d.qui}`" in MQ_JS
+    and re.search(r"etat\.ecran = OUVRIR\[sorte\]\(corps, ctx\);\n(?:\s*//[^\n]*\n)*\s*marquer\(corps\);", APP) is not None
+    and re.search(r'\$\("#resultat"\)\.innerHTML = r\.resultat;\s*\n\s*poserVerification\(\$\("#resultat"\), MODULE\);', ET_JS) is not None
+    and "marquer(document);" in AC_JS and "marquer(document);" in EE)
+chk("déclarer un module vérifié demande une confirmation qui dit ce qu'on affirme (« relu la méthode ») ; les boutons n'existent que pour un administrateur",
+    re.search(r"if \(!confirm\(poser \? `Déclarer le module « \$\{nom\} » VÉRIFIÉ \?", EE) is not None and "relu la méthode" in EE
+    and re.search(r'const geste = !admin \? "" : m\.etat === "verifie"', EE) is not None and "const admin = E.estAdmin(eq.moi);" in EE)
+_tel2 = BU[BU.index("@media (max-width: 700px) {"):BU.index("/* ================================================================ au doigt")]
+chk("css/bureau.css : au PC le rôle est une colonne (l'écusson après le nom est caché — plus précisément que la charte, qui affiche tout « .who2 > div "
+    "span ») ; au téléphone la colonne s'efface et l'écusson paraît",
+    ".bu-membres .who2 .bu-role-m { display: none;" in BU.replace(_tel2, "") and ".bu-membres .who2 .bu-role-m { display: inline-grid; }" in _tel2
+    and ".bu-membres .bu-mr" in _tel2 and re.search(r"^\.who2 > div span \{ display: block;", CHARTE, re.M) is not None)
 
 # ================================================================================================ 7 · les mutations
 # Chaque mutation abîme UNE ligne d'une copie des sources, puis rejoue CE fichier entier dessus : il doit rougir.
@@ -553,11 +815,34 @@ if not REJOUE:
         ("supprimer un projet qui a des notes", [("js/projets.js", "  if (p.nb) return { ok: false, erreur: `Ce projet a encore", "  if (false) return { ok: false, erreur: `Ce projet a encore")], None),
         ("un registre abîmé écrasé sans copie", [("js/memoire.js", '  if (m.etat === "illisible" && !garderCopie(cle, m.brut)) return false;', "")], None),
         ("une note écrite sans signature", [("js/notes.js", "    if (!avant && !note.auteur && sig) note.auteur = sig;", "    if (false) note.auteur = sig;")], None),
-        ("une teinte en moins dans la feuille", [("css/bureau.css", ".avatar.c7 { background: #475569; color: #fff; }", "")], None),
-        ("une teinte trop claire pour le blanc", [("css/bureau.css", ".avatar.c1 { background: #0B7A6E; color: #fff; }", ".avatar.c1 { background: #2FB5A6; color: #fff; }")], None),
+        ("une teinte en moins dans la feuille", [("css/site.css", ".avatar.c7 { background: #475569; color: #fff; }", "")], None),
+        ("une teinte trop claire pour le blanc", [("css/site.css", ".avatar.c1 { background: #0B7A6E; color: #fff; }", ".avatar.c1 { background: #2FB5A6; color: #fff; }")], None),
         ("au téléphone, les notes d'un projet cachées (la règle de la charte)", [("css/bureau.css", "  .bu-proj .list .tablecard { display: block; }\n", "")], None),
         ("la page des projets oubliée par l'application", [("js/app.js", 'export const PAGES_BUREAU = ["projets", "equipe"];', 'export const PAGES_BUREAU = ["equipe"];')], None),
         ("une icône demandée par un écran, absente des pages", [("js/ecran_projets.js", 'V.icone("layers")', 'V.icone("rocket")')], None),
+        ("le premier inscrit n'est pas administrateur", [("js/equipe.js", '                   role: Object.keys(e.membres).length ? "membre" : "admin" };', '                   role: "membre" };'),
+                                                         ("js/equipe.js", "  const premier = sansAdministrateur(membres);\n  if (premier) membres[premier].role = \"admin\";\n", "")], None),
+        ("un membre ordinaire nomme un administrateur", [("js/equipe.js", '  if (!estAdmin(qui)) return { ok: false, erreur: "Seul un administrateur peut changer un rôle." };\n', "")], None),
+        ("le dernier administrateur se retire le rôle", [("js/equipe.js", '  if (role !== "admin" && Object.values(e.membres).filter((x) => x.role === "admin").length < 2) {',
+                                                         '  if (false) {'),
+                                                        ("js/equipe.js", "    f(v);\n    const premier = sansAdministrateur(v.membres);\n    if (premier) v.membres[premier].role = \"admin\";", "    f(v);"),
+                                                        ("js/equipe.js", "  const premier = sansAdministrateur(membres);\n  if (premier) membres[premier].role = \"admin\";\n", "")], None),
+        ("une équipe d'avant les rôles reste sans administrateur", [("js/equipe.js", "  const premier = sansAdministrateur(membres);\n  if (premier) membres[premier].role = \"admin\";\n", "")], None),
+        ("un rôle piégé pris pour « admin »", [("js/equipe.js", '                    role: x.role === "admin" ? "admin" : "membre" };', '                    role: String(x.role).includes("admin") ? "admin" : "membre" };')], None),
+        ("un membre ordinaire déclare un module vérifié", [("js/verifications.js", '  if (!E.estAdmin(moi)) return { ok: false, erreur: "Seul un administrateur peut déclarer un module vérifié." };\n', "")], None),
+        ("un membre ordinaire retire une vérification", [("js/verifications.js", '  if (!E.estAdmin(moi)) return { ok: false, erreur: "Seul un administrateur peut retirer une vérification." };\n', "")], None),
+        ("la marque RESTE quand le calcul a changé", [("js/verifications.js", 'return { etat: v.version === actuelle ? "verifie" : "change", ...v, actuelle };', 'return { etat: "verifie", ...v, actuelle };')], None),
+        ("une vérification sans version", [("js/verifications.js", "  const v = { par: E.signatureDe(moi), t: Date.now(), version: VERSIONS[cle] };", '  const v = { par: E.signatureDe(moi), t: Date.now(), version: "0000000000000000" };')], None),
+        ("une signature piégée fait une marque", [("js/verifications.js", "  const par = E.signaturePropre(x.par);", "  const par = x.par;")], None),
+        ("un module que l'accueil ne montre pas se vérifie", [("js/verifications.js", "!MODULES[k].masque && !MODULES[k].vers && Object.hasOwn(VERSIONS, k)", "!MODULES[k].vers && Object.hasOwn(VERSIONS, k)")], None),
+        ("la marque montrée pour un module à revérifier", [("js/marques.js", 'const vu = !!e && e.etat === "verifie";', 'const vu = !!e && e.etat !== "non";')], None),
+        ("la marque d'un module écrite visible dans la page", [], ("index.html", '<span class="ok" data-verifie="poutre" hidden>', '<span class="ok" data-verifie="poutre">')),
+        ("« hidden » ne l'emporte plus sur la charte (tous les modules marqués)", [("css/site.css", "[data-verifie][hidden] { display: none !important; }\n", "")], None),
+        ("la tuile d'un module porte la marque d'un autre", [], ("index.html", 'data-verifie="dalle" hidden', 'data-verifie="poutre" hidden')),
+        ("la recherche ne voit plus les accents", [("js/accueil.js", '.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "")', "")], None),
+        ("la recherche propose un module masqué", [("js/accueil.js", "    if (!m.masque && !m.vers) out.push({ sorte: \"Module\"", "    if (true) out.push({ sorte: \"Module\"")], None),
+        ("la recherche sans borne", [("js/accueil.js", 'a.nom.localeCompare(b.nom, "fr")).slice(0, max);', 'a.nom.localeCompare(b.nom, "fr"));')], None),
+        ("l'établi sans la ligne « Module vérifié »", [], ("poutre.html", '<template id="et-verif-gabarit">', '<template id="et-verif-retire">')),
         ("le menu d'une page ne mène plus aux projets", [], ("poutre.html", 'data-tip="Projets" href="projets"', 'data-tip="Projets · bientôt" aria-disabled="true" data-bientot="1"')),
         ("l'accueil sans le journal d'activité", [], ("index.html", '<div id="activite"></div>', "")),
         ("l'équipe : trois initiales au plus dans le champ", [], ("equipe.html", '<input id="eq-ini" maxlength="5"', '<input id="eq-ini" maxlength="3"')),

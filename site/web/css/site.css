@@ -362,6 +362,61 @@ label.fichier { width: max-content; }
 .mrow3 input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .btn:disabled { opacity: .5; cursor: default; }
 
+/* ---------------------------------------------------------------- la pastille : des initiales dans un rond */
+/* Les HUIT teintes (js/equipe.js, COULEURS = 8 — tests/test_site_bureau.py lie les deux ; elles sont ICI, et non dans css/bureau.css, parce que la barre de toute page porte la pastille du poste) : un texte blanc s'y lit
+   (contraste ≥ 4,5) dans les deux thèmes. */
+.avatar { line-height: 1; user-select: none; text-transform: none; }
+.avatar.c0 { background: #2B4BCF; color: #fff; }
+.avatar.c1 { background: #0B7A6E; color: #fff; }
+.avatar.c2 { background: #B9472A; color: #fff; }
+.avatar.c3 { background: #7650D8; color: #fff; }
+.avatar.c4 { background: #B0277A; color: #fff; }
+.avatar.c5 { background: #96590A; color: #fff; }
+.avatar.c6 { background: #1D7A3E; color: #fff; }
+.avatar.c7 { background: #475569; color: #fff; }
+.avatar.sm { width: 24px; height: 24px; font-size: 10px; }
+.avatar.lg { width: 40px; height: 40px; font-size: 14.5px; }
+.avatar.xl { width: 64px; height: 64px; font-size: 22px; letter-spacing: .01em; }
+/* trois lettres : le rond les tient en serrant un peu ; quatre ou cinq : le rond s'allonge en pastille */
+.avatar.n3 { font-size: 10px; letter-spacing: 0; }
+.avatar.sm.n3 { font-size: 8.5px; }
+.avatar.lg.n3 { font-size: 13px; }
+.avatar.xl.n3 { font-size: 20px; }
+.avatar.n4, .avatar.n5 { width: auto; min-width: 28px; padding: 0 7px; border-radius: 999px; font-size: 10px; letter-spacing: 0; }
+.avatar.sm.n4, .avatar.sm.n5 { min-width: 24px; padding: 0 6px; font-size: 8.5px; }
+.avatar.sm.n5 { padding: 0 5px; font-size: 8px; }
+.avatar.lg.n4, .avatar.lg.n5 { min-width: 40px; padding: 0 10px; font-size: 13px; }
+.avatar.xl.n4, .avatar.xl.n5 { min-width: 64px; padding: 0 14px; font-size: 19px; }
+/* quelqu'un qui ne s'est pas présenté ; « +2 » : les suivants d'une pile */
+.avatar.inconnu { background: var(--bg-sunken); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.avatar.plus { background: var(--bg-sunken); color: var(--ink-2); font-size: 9.5px; letter-spacing: 0; }
+/* une pile de pastilles : côte à côte, sans recouvrement — on doit y LIRE les initiales (le recouvrement de la charte
+   mangeait la dernière lettre) */
+.avstack { flex: none; align-items: center; gap: 3px; }
+.avstack .avatar, .avstack .avatar:first-child { margin-left: 0; box-shadow: none; }
+.avstack .avatar.inconnu { box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+/* la pastille de la personne du poste, au pied de la barre (js/marques.js) : elle mène à l'équipe */
+.app.rail > .nav .navitem.rail-moi { width: auto; min-width: 40px; height: 40px; }
+.rail-moi:empty { display: none; }
+
+/* ---------------------------------------------------------------- un module VÉRIFIÉ (cahier des charges § 4) */
+/* La marque est écrite cachée (construire.marque_verifie) ; js/marques.js la montre. « hidden » doit l'emporter sur le
+   « display: grid » que la charte donne à .ok. */
+[data-verifie][hidden] { display: none !important; }
+.mopt .ok { margin-left: auto; flex: none; display: grid; color: var(--accent); }
+.mopt .ok svg.i { width: 15px; height: 15px; }
+.accueil .tile .ok { margin-left: auto; }
+/* dans le module : une ligne au pied du cadre Résultat — « Module vérifié · LLE · 11/11/2026 », « Module à vérifier » */
+.pfoot .et-verif { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11.5px; font-weight: 600; line-height: 1.3; color: var(--ink-3); }
+.et-verif .et-verif-i { display: none; flex: none; }
+.et-verif svg.i { width: 14px; height: 14px; }
+.et-verif[data-etat="verifie"] { color: var(--accent-hover); }
+[data-theme="dark"] .et-verif[data-etat="verifie"] { color: var(--accent); }
+.et-verif[data-etat="verifie"] .et-verif-oui, .et-verif:not([data-etat="verifie"]) .et-verif-non { display: grid; }
+.et-verif[data-etat="change"] { color: var(--ink); }
+.et-verif-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* ---------------------------------------------------------------- impression : le dessin et le résultat */
 @page { size: A4 landscape; margin: 9mm; }
 @media print {

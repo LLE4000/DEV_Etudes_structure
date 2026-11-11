@@ -12,11 +12,56 @@ import * as P from "./projets.js";
 import * as E from "./equipe.js";
 import * as J from "./journal.js";
 import * as V from "./vues_bureau.js";
+import * as VF from "./verifications.js";
+import { BIBLIOTHEQUES } from "./modules.js";
+import { marquer } from "./marques.js";
 import { cablerNouvelleNote, cablerImport } from "./nouvelle.js";
 import { esc, toast, texteTaux, telecharger, cablerBientot } from "./commun.js";
 
 export const PROJETS_VUS = 6;                    // l'accueil montre les six projets les plus récemment actifs
 export const ACTIVITE_VUE = 6;                   // et les six dernières lignes du journal
+export const RESULTATS_VUS = 8;                  // la recherche montre huit résultats au plus
+
+// sans accents ni capitales : « realex » trouve « Réalex »
+const plat = (t) => String(t || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+const ORDRE = { Module: 0, Bibliothèque: 1, Projet: 2, "Sous-projet": 3, Note: 4 };
+const NOMS_FAMILLES = { beton: "Béton", acier: "Acier", autres: "Autres" };
+
+// Ce que la recherche de l'accueil connaît : les modules (ceux qu'on voit), les bibliothèques, les projets et leurs
+// sous-projets, les notes de ce navigateur. ``notes`` : la table des notes ; rend [{ sorte, nom, sous, href, module }].
+export function indexRecherche(notes) {
+  const out = [];
+  for (const [k, m] of Object.entries(N.MODULES)) {
+    if (!m.masque && !m.vers) out.push({ sorte: "Module", nom: m.nom, sous: NOMS_FAMILLES[m.famille] || "", href: m.page, module: k });
+  }
+  for (const b of Object.values(BIBLIOTHEQUES)) out.push({ sorte: "Bibliothèque", nom: `Bibliothèque ${b.titre}`, sous: "", href: b.page });
+  const md = P.modele(notes);
+  for (const p of md.projets) {
+    out.push({ sorte: "Projet", nom: p.nom, sous: `${p.nb} note${p.nb > 1 ? "s" : ""}${p.archive ? " · archivé" : ""}`, href: `projets?${new URLSearchParams({ p: p.nom })}` });
+    for (const s of p.sous) out.push({ sorte: "Sous-projet", nom: s.nom, sous: p.nom, href: `projets?${new URLSearchParams({ p: p.nom, s: s.nom })}` });
+  }
+  for (const n of Object.values(notes || {})) {
+    if (!n || typeof n !== "object" || !Object.hasOwn(N.MODULES, n.module)) continue;
+    const m = N.MODULES[n.module];
+    out.push({ sorte: "Note", nom: n.nom || m.nom, sous: [m.nom, n.chantier, n.dossier].filter(Boolean).join(" · "), href: `${N.pageDe(n.module)}?note=${encodeURIComponent(n.id)}`,
+               module: N.moduleServi(n.module) });
+  }
+  return out;
+}
+
+// Les résultats d'une recherche : chaque mot doit se trouver (dans le nom ou ce qui le situe) ; d'abord ce dont le NOM
+// commence par la recherche, puis ce dont le nom la contient, puis le reste ; à rang égal : modules, bibliothèques,
+// projets, sous-projets, notes ; puis l'ordre alphabétique. ``max`` résultats au plus.
+export function chercher(index, question, max = RESULTATS_VUS) {
+  const q = plat(question).trim();
+  if (!q) return [];
+  const mots = q.split(/\s+/);
+  return index.map((x) => {
+    const nom = plat(x.nom), tout = `${nom} ${plat(x.sous)} ${plat(x.sorte)}`;
+    if (!mots.every((w) => tout.includes(w))) return null;
+    return { ...x, rang: nom.startsWith(q) ? 0 : nom.includes(q) ? 1 : 2 };
+  }).filter(Boolean).sort((a, b) => (a.rang - b.rang) || (ORDRE[a.sorte] - ORDRE[b.sorte]) || a.nom.localeCompare(b.nom, "fr")).slice(0, max);
+}
 
 const $ = (s) => document.querySelector(s);
 
@@ -121,7 +166,46 @@ export function ouvrirAccueil(hote, ctx) {
     else if (!qui.querySelector("form")) { qui.innerHTML = V.formulaireQui(); V.cablerQui(qui, { signal, apres: () => afficher() }); }
     $("#activite").innerHTML = V.journalHTML(J.lire({ max: ACTIVITE_VUE }), { moi, notes,
       vide: "Le journal se remplira avec le travail : une note créée, rangée, exportée…" });
+    // la pastille du poste dans la barre suit (on vient peut-être de se présenter) ; les modules vérifiés aussi
+    marquer(document);
   }
+
+  // ---------------------------------------------------------------- la recherche : un module, un projet, une note
+  // On écrit ; les résultats viennent à mesure ; ↓ ↑ choisissent, Entrée ouvre, Échap referme ; Ctrl K y mène.
+  const recherche = { champ: $("#ac-recherche"), liste: $("#ac-resultats"), vus: [], choix: 0 };
+  function afficherRecherche() {
+    const { champ, liste } = recherche;
+    const q = champ.value;
+    recherche.vus = q.trim() ? chercher(indexRecherche(N.memoire().notes), q) : [];
+    recherche.choix = Math.min(recherche.choix, Math.max(0, recherche.vus.length - 1));
+    const verifies = new Set(VF.tous().filter((m) => m.etat === "verifie").map((m) => m.cle));
+    const icone = (x) => (x.module ? `<span class="modic ${esc(N.MODULES[x.module].famille)}">${V.iconeModule(x.module)}</span>`
+      : `<span class="ic">${V.icone(x.sorte === "Bibliothèque" ? "book-open" : "folder")}</span>`);
+    liste.innerHTML = recherche.vus.map((x, i) => `<a class="bu-res${i === recherche.choix ? " on" : ""}" role="option" aria-selected="${i === recherche.choix}" href="${esc(x.href)}" data-rang="${i}">`
+      + `${icone(x)}<span class="bu-res-t"><b>${esc(x.nom)}</b><span>${esc([x.sorte, x.sous].filter(Boolean).join(" · "))}</span></span>`
+      + `${x.sorte === "Module" && verifies.has(x.module) ? `<span class="ok" title="Module vérifié">${V.icone("badge-check")}</span>` : ""}</a>`).join("")
+      || (q.trim() ? `<p class="muted bu-vide">Rien ne porte ce nom : ni module, ni projet, ni note.</p>` : "");
+    liste.hidden = !q.trim();
+    champ.setAttribute("aria-expanded", String(!liste.hidden));
+  }
+  const fermerRecherche = () => { recherche.liste.hidden = true; recherche.champ.setAttribute("aria-expanded", "false"); };
+  recherche.champ.addEventListener("input", () => { recherche.choix = 0; afficherRecherche(); }, { signal });
+  recherche.champ.addEventListener("focus", () => { if (recherche.champ.value.trim()) afficherRecherche(); }, { signal });
+  recherche.champ.addEventListener("keydown", (ev) => {
+    const n = recherche.vus.length;
+    if (ev.key === "ArrowDown" && n) { ev.preventDefault(); recherche.choix = (recherche.choix + 1) % n; afficherRecherche(); }
+    else if (ev.key === "ArrowUp" && n) { ev.preventDefault(); recherche.choix = (recherche.choix + n - 1) % n; afficherRecherche(); }
+    else if (ev.key === "Escape") { if (recherche.champ.value) { recherche.champ.value = ""; afficherRecherche(); } else recherche.champ.blur(); }
+  }, { signal });
+  $("#ac-recherche-form").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const x = recherche.vus[recherche.choix];
+    if (x) ctx.naviguer(x.href);
+  }, { signal });
+  document.addEventListener("click", (ev) => { if (!ev.target.closest(".bu-cherche")) fermerRecherche(); }, { signal });
+  document.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && !ev.altKey && !ev.shiftKey && ev.key.toLowerCase() === "k") { ev.preventDefault(); recherche.champ.focus(); recherche.champ.select(); }
+  }, { signal });
   V.cablerCreer("ac-projet", { signal, valider: (nom) => {
     const r = P.creer(nom);
     if (!r.ok) { toast(r.erreur, true); return false; }

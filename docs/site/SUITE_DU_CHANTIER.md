@@ -437,6 +437,25 @@ page d'accueil, ça doit être très bien intégré ». Fait :
 invitations par e-mail, les rôles et la preuve de qui est qui viendront avec les comptes ; le préremplissage de l'e-mail
 par l'adresse de connexion n'a pas été vérifié en production.
 
+## Fait ensuite, les modules vérifiés et les détails de l'accueil (même branche, sur 6992ae0, 11/11/2026)
+
+Demande de l'ingénieur : « quand un module est vérifié, un des administrateurs peut mettre vérifié […] on sait qu'on
+pourra les utiliser sans se poser de questions et sans revérifier […] tous les petits trucs comme ça […] pour que la page
+d'accueil soit complète, plus agréable aussi ». Fait :
+
+- **Rôles** : Administrateur ou Membre ; le premier inscrit du poste est administrateur, il y en a toujours un, lui seul
+  nomme les autres.
+- **Modules vérifiés** : un administrateur déclare un module vérifié (page Équipe) ; la marque, avec son nom et la date,
+  se voit sur l'accueil, dans le volet des modules, dans « Nouvelle note », dans la recherche et au pied du résultat du
+  module. Elle vaut pour le calcul du jour : une formule, un coefficient ou une donnée change, elle tombe d'elle-même
+  (« à revérifier »).
+- **Accueil** : la recherche (modules, projets, notes ; Ctrl K), « Tout voir », la légende ; la pastille de la personne
+  au pied de la barre de toutes les pages.
+- Détail, choix, contrôles et limites : `docs/site/PROJETS_EQUIPE.md` § 8.
+
+**Ce qui reste ouvert** (dit à l'écran) : c'est enregistré par poste, et un rôle est une déclaration sans mot de passe —
+les comptes du bureau régleront les deux ; la note PDF ne dit pas encore si son module était vérifié.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

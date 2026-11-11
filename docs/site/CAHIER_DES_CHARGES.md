@@ -62,6 +62,10 @@ site tel qu'il est.
   et la date). Elle se voit sur l'accueil et dans le module ; « à valider » sinon.
 - La pastille porte la **version du module** : une nouvelle version du module repasse « à valider ».
 - La pastille dit que la **méthode** est validée ; chaque note reste à relire par son auteur.
+- **Fait le 11/11/2026**, avec le mot de l'ingénieur — « **vérifié** », « à vérifier », « à revérifier » — et les deux
+  rôles Administrateur / Membre. La « version du module » est l'empreinte de son calcul : elle change toute seule quand
+  une formule, un coefficient ou une donnée change. Enregistré par poste en attendant les comptes. Détail et limites :
+  `docs/site/PROJETS_EQUIPE.md` § 8.
 
 ## 5 · Projets, notes et indices
 

@@ -5068,6 +5068,11 @@ const principal = async () => {
   // projet qui a des notes qu'on ne supprime pas ; puis l'équipe (ajouter, refuser des initiales prises, quatre lettres dans
   // une pastille allongée, la teinte, « je suis… »), et le retour à l'accueil. Ce que l'œil voit : rien ne dépasse de
   // l'écran, les pastilles sont RONDES et leurs initiales y tiennent, au doigt chaque cible fait 40 px. Filtre « bureau ».
+  // Puis les RÔLES et les MODULES VÉRIFIÉS (docs/site/PROJETS_EQUIPE.md § 8) : le premier inscrit est administrateur, un
+  // membre ne vérifie pas, un administrateur déclare deux modules vérifiés — la marque paraît sur la page Équipe, l'accueil,
+  // le volet, « Nouvelle note », la recherche et au pied du résultat du module ; le calcul de l'un « change » (son empreinte
+  // est réécrite dans le registre) : sa marque tombe partout. La recherche de l'accueil (clavier, accents, Ctrl K), la
+  // pastille du poste au pied de la barre. Sept mutations du site le font rougir (docs, § 8.5).
   if (!FILTRE || FILTRE === 'bureau') {
     const mesureBureau = (pg, large, zone) => pg.evaluate(({ large, zone }) => {
       const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
@@ -5105,7 +5110,7 @@ const principal = async () => {
     }, { large, zone });
     const ZONE_PROJETS = '.bu-top .btn, .bu-top .crumbs a, #pj button, #pj select, #pj input, #pj a.node, #pj a.btn, #pj a.bu-retour, #pj a.bu-tout, #pj summary, #pj a.bu-carte';
     const ZONE_EQUIPE = '.bu-team button, .bu-team select, .bu-team input';
-    const ZONE_ACCUEIL = '.accueil .side button, .accueil .side input, .accueil .side a.btn, .accueil .side a.site, .accueil .side label.btn, .accueil .hello .bu-moi, .accueil .hello button';
+    const ZONE_ACCUEIL = '.accueil .side button, .accueil .side input, .accueil .side a.btn, .accueil .side a.site, .accueil .side label.btn, .accueil .hello .bu-moi, .accueil .hello button, .accueil .hello .bigsearch, .accueil .sechead a.btn';
     const pretBureau = async (pg, page) => {
       await pg.waitForFunction((page) => document.body.dataset.page === page && document.body.dataset.ecran === 'pret', page, { timeout: 30000 });
       await pg.waitForTimeout(150);
@@ -5398,6 +5403,68 @@ const principal = async () => {
       a = await g.evaluate(() => ({ moi: document.querySelector('#eq-moi .avatar.xl').textContent, lignes: document.querySelectorAll('#eq-journal .feed').length, puce: document.getElementById('eq-filtre').textContent }));
       verif(`${dit} · « Ce n'est pas vous ? » passe le poste à Marie (MDU) puis me le rend ; l'horloge d'un membre ne montre QUE son activité (Marie : rien encore), sa puce rend le journal entier`,
         JSON.stringify(marie) === '["MDU","Marie Dubois"]' && /Marie/.test(filtre.puce) && filtre.lignes === 0 && /Marie n'a encore rien fait/.test(filtre.vide) && a.moi === 'LL' && a.lignes >= 9 && a.puce === '', JSON.stringify({ marie, filtre, a }));
+      // ---- les RÔLES et les MODULES VÉRIFIÉS (docs/site/PROJETS_EQUIPE.md § 8) : le premier inscrit est administrateur ; lui
+      // seul déclare un module vérifié ; la marque vaut pour le calcul du jour et tombe s'il change
+      const jour = await g.evaluate(() => new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' }));
+      const etatEquipe = () => g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        return { roles: [...document.querySelectorAll('#eq-membres tr[data-membre]')].map((t) => [t.querySelector('.avatar').textContent, ((t.querySelector('.bu-mr .role') || {}).textContent || '').trim(), vis(t.querySelector('.bu-mr .role')), vis(t.querySelector('.bu-role-m'))]),
+          nb: document.getElementById('eq-verif-nb').textContent,
+          modules: [...document.querySelectorAll('#eq-modules tr[data-module-verif]')].map((t) => [t.dataset.moduleVerif, t.dataset.etat, ((t.querySelector('.bu-ve .valid') || {}).textContent || '').trim(), ((t.querySelector('.bu-vqui') || {}).textContent || '').trim(),
+            [...t.querySelectorAll('.bu-vg button')].filter(vis).map((x) => x.textContent.trim()).join()]),
+          note: (document.querySelector('.bu-verif-note') || {}).textContent || '', menuRole: !!document.querySelector('#eq-membres form[data-edit] [name="role"]'),
+          volet: ['poutre', 'dalle', 'soudures'].map((k) => !document.querySelector(`.modpanel [data-verifie="${k}"]`).hidden) }; });
+      a = await etatEquipe();
+      verif(`${dit} · les rôles : le premier inscrit du poste (moi) est Administrateur, Anne et Marie sont Membres — ${tel ? 'au téléphone, un écusson après le nom (la colonne « Rôle » s\'efface)' : 'une colonne « Rôle », lue'} ; aucun module n'est vérifié : 13 lignes « À vérifier », chacune avec son bouton « Vérifier » (je suis administrateur)`,
+        JSON.stringify(a.roles.map((r) => r.slice(0, 2))) === '[["AVDB","Membre"],["LL","Administrateur"],["MDU","Membre"]]' && a.roles.every((r) => r[2] === !tel)
+        && JSON.stringify(a.roles.map((r) => r[3])) === JSON.stringify([false, tel, false]) && a.nb === '0 vérifié sur 13' && a.modules.length === 13
+        && a.modules.every((m) => m[1] === 'non' && m[2] === 'À vérifier' && m[3] === '' && m[4] === 'Vérifier') && /Vous êtes administrateur/.test(a.note) && !a.volet.includes(true), JSON.stringify(a));
+      // Marie (membre) prend le poste : elle LIT les vérifications, elle n'en pose pas ; la fiche d'un collègue n'a pas de menu « Rôle »
+      await g.selectOption('#eq-jesuis', idMarie);
+      await g.waitForTimeout(150);
+      await g.click(`#eq-membres [data-modifier="${idLouis}"]`);
+      await g.waitForTimeout(120);
+      const enMembre = await etatEquipe();
+      await g.click('#eq-membres [data-annuler]');
+      await g.selectOption('#eq-jesuis', idLouis);
+      await g.waitForTimeout(150);
+      verif(`${dit} · un MEMBRE lit les vérifications, il n'en pose pas : aucun bouton « Vérifier », la page dit pourquoi ; la fiche d'un collègue n'a pas de menu « Rôle »`,
+        enMembre.modules.length === 13 && enMembre.modules.every((m) => m[4] === '') && /Seul un administrateur déclare un module vérifié/.test(enMembre.note) && !enMembre.menuRole,
+        JSON.stringify({ note: enMembre.note, menuRole: enMembre.menuRole, gestes: enMembre.modules.map((m) => m[4]).join('') }));
+      // administrateur : je déclare deux modules vérifiés (une confirmation dit ce qu'on affirme ; ce parcours l'accepte)
+      await g.click('#eq-modules [data-verifier="poutre"]');
+      await g.waitForTimeout(200);
+      const toastVerif = await vuToast(g);
+      await g.click('#eq-modules [data-verifier="dalle"]');
+      await g.waitForTimeout(200);
+      a = await etatEquipe();
+      let lg = (cle) => a.modules.find((m) => m[0] === cle) || [];
+      verif(`${dit} · un ADMINISTRATEUR déclare « Poutres béton armé » et « Dalles béton armé » vérifiés : la ligne dit « Vérifié », par qui (Louis Lejeune) et quand (${jour}), le bouton devient « Retirer », le compte passe à 2 sur 13 ; le volet des modules les marque aussitôt — eux seuls`,
+        toastVerif && !toastVerif.erreur && /Poutres béton armé » vérifié/.test(toastVerif.texte) && a.nb === '2 vérifiés sur 13' && lg('poutre')[1] === 'verifie' && lg('poutre')[2] === 'Vérifié'
+        && lg('poutre')[3] === `LLLouis Lejeune · ${jour}` && lg('poutre')[4] === 'Retirer' && lg('dalle')[1] === 'verifie' && a.modules.filter((m) => m[1] === 'non').length === 11
+        && JSON.stringify(a.volet) === '[true,true,false]', JSON.stringify({ toastVerif, nb: a.nb, poutre: lg('poutre'), dalle: lg('dalle'), volet: a.volet }));
+      // le CALCUL d'un module change (l'empreinte du site n'est plus celle de la vérification) : la marque tombe d'elle-même
+      await g.evaluate(() => { const r = JSON.parse(localStorage.getItem('stab.verifications.v1')); r.dalle.version = '0123456789abcdef'; localStorage.setItem('stab.verifications.v1', JSON.stringify(r)); });
+      await g.reload();
+      await pretBureau(g, 'equipe');
+      a = await etatEquipe();
+      verif(`${dit} · le calcul des dalles a CHANGÉ depuis sa vérification : la ligne dit « À revérifier » (on sait encore qui l'avait vérifié), le bouton « Revérifier », le compte retombe à 1 sur 13, le volet ne marque plus que la poutre — une marque ne certifie jamais un calcul que personne n'a relu`,
+        a.nb === '1 vérifié sur 13' && lg('dalle')[1] === 'change' && lg('dalle')[2] === 'À revérifier' && lg('dalle')[3] === `LLLouis Lejeune · ${jour} · le calcul a changé depuis` && lg('dalle')[4] === 'Revérifier'
+        && lg('poutre')[1] === 'verifie' && JSON.stringify(a.volet) === '[true,false,false]', JSON.stringify({ nb: a.nb, poutre: lg('poutre'), dalle: lg('dalle'), volet: a.volet }));
+      // nommer Marie administrateur (le menu « Rôle » de sa fiche), lui reprendre le rôle, puis vouloir me retirer le mien
+      const nommer = async (id, role) => { await g.click(`#eq-membres [data-modifier="${id}"]`); await g.waitForTimeout(120); await g.selectOption('#eq-membres form[data-edit] [name="role"]', role);
+        await g.click('#eq-membres form[data-edit] button[type="submit"]'); await g.waitForTimeout(220); return vuToast(g); };
+      const toastNomme = await nommer(idMarie, 'admin');
+      const deuxAdmins = (await etatEquipe()).roles.map((r) => r[1]).join();
+      await nommer(idMarie, 'membre');
+      const toastRefus = await nommer(idLouis, 'membre');
+      await g.click('#eq-membres [data-annuler]');
+      await g.waitForTimeout(120);
+      a = await etatEquipe();
+      const lignesRoles = (await memoire(g)).journal.slice(0, 2);
+      verif(`${dit} · un administrateur en nomme un autre (Marie) puis lui reprend le rôle — le journal dit les deux ; le DERNIER administrateur ne peut pas se retirer le sien : refusé, la raison est dite, rien ne change`,
+        toastNomme && !toastNomme.erreur && deuxAdmins === 'Membre,Administrateur,Administrateur' && toastRefus && toastRefus.erreur && /toujours un administrateur/.test(toastRefus.texte)
+        && a.roles.map((r) => r[1]).join() === 'Membre,Administrateur,Membre' && JSON.stringify(lignesRoles) === '[["membre.membre","LL","Marie Dubois"],["membre.admin","LL","Marie Dubois"]]',
+        JSON.stringify({ toastNomme, toastRefus, deuxAdmins, roles: a.roles, lignesRoles }));
       mes = await mesureBureau(g, w, ZONE_EQUIPE);
       verif(`${dit} · la page Équipe : rien ne dépasse de l'écran (${w} px), les pastilles sont rondes (AVDB allongée), leurs initiales dedans${doigt ? ' ; au doigt, chaque cible fait 40 px au moins' : ''}`,
         mes.page <= w && !mes.hors.length && mes.nPastilles >= 12 && !mes.pasRondes.length && !mes.debordent.length && !mes.petites.length
@@ -5415,11 +5482,104 @@ const principal = async () => {
       verif(`${dit} · l'accueil, intégré : « Bonjour Louis » et ma pastille (LL) ; le projet « Réalex – Lot 2 » (1 note, la pastille de qui y a travaillé) ; l'activité — six lignes au plus, chacune avec la pastille de son auteur ; la note à reprendre dit son projet et son auteur`,
         a.bonjour === 'Bonjour Louis' && a.moi === 'LL' && JSON.stringify(a.projets) === '[["Réalex – Lot 2","1 note","LLE"]]' && a.fil.length === 6 && a.fil.every((l) => /^(LLE|LL) Vous avez /.test(l))
         && a.carte.length === 1 && a.carte[0][0] === 'Poutres R+1' && /Réalex – Lot 2 › Charpente/.test(a.carte[0][1]) && a.carte[0][2] === 'LLE', JSON.stringify(a));
+      // ---- les détails de l'accueil : la marque des modules vérifiés, « Nouvelle note », le volet, la pastille du poste, la recherche
+      a = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const vues = [...document.querySelectorAll('.accueil a.tile [data-verifie]')].filter(vis).map((e) => { const r = e.getBoundingClientRect(); return [e.dataset.verifie, e.title, Math.round(r.width), Math.round(r.height)]; });
+        const t = document.querySelector('.accueil a.tile[data-module="poutre"]').getBoundingClientRect(), m = document.querySelector('.accueil a.tile[data-module="poutre"] [data-verifie]').getBoundingClientRect();
+        const leg = document.querySelector('.accueil .okleg');
+        return { vues, n: document.querySelectorAll('.accueil a.tile [data-verifie]').length, dedans: m.left >= t.left && m.right <= t.right && m.top >= t.top && m.bottom <= t.bottom, legende: vis(leg) && leg.textContent.trim() }; });
+      verif(`${dit} · l'accueil marque le module VÉRIFIÉ — « Poutres béton armé », et lui seul des 13 : la marque se voit dans sa tuile (14 px au moins) et dit « Vérifié · LL · ${jour} » ; « Dalles », dont le calcul a changé, ne la porte plus ; la légende l'explique`,
+        a.n === 13 && a.vues.length === 1 && a.vues[0][0] === 'poutre' && a.vues[0][1] === `Vérifié · LL · ${jour}` && a.vues[0][2] >= 14 && a.vues[0][3] >= 14 && a.dedans && a.legende === 'vérifié par un administrateur', JSON.stringify(a));
+      await g.click('#ouvrir-nouvelle');
+      await g.waitForTimeout(250);
+      const dansNouvelle = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        return { ouverte: vis(document.querySelector('#nouvelle .mopt')), vues: [...document.querySelectorAll('#nouvelle .mopt [data-verifie]')].filter(vis).map((e) => e.dataset.verifie), n: document.querySelectorAll('#nouvelle .mopt [data-verifie]').length }; });
+      await g.click('#nouvelle [data-fermer-modal]');
+      await g.waitForTimeout(200);
+      let volet = null, barre = null;
+      if (!tel) {
+        await g.click('.nav [data-modules]');
+        await g.waitForTimeout(300);
+        volet = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+          const leg = document.querySelector('.modpanel .okleg');
+          return { ouvert: vis(document.querySelector('.modpanel a.navitem')), vues: [...document.querySelectorAll('.modpanel [data-verifie]')].filter(vis).map((e) => [e.dataset.verifie, Math.round(e.getBoundingClientRect().width)]), legende: vis(leg) && leg.textContent.trim() }; });
+        await g.click('.modpanel [data-modules]');
+        await g.waitForTimeout(250);
+        barre = await g.evaluate(() => { const e = document.querySelector('.nav [data-moi-rail]'), p = e.querySelector('.avatar'), n = document.querySelector('.nav').getBoundingClientRect();
+          if (!p) return null;
+          const r = p.getBoundingClientRect(), l = e.getBoundingClientRect();
+          return { vu: p.checkVisibility({ visibilityProperty: true, opacityProperty: true }), ini: p.textContent, rond: Math.abs(r.width - r.height) < 0.6, dans: r.left >= n.left && r.right <= n.right && r.bottom <= innerHeight && r.top >= 0,
+            href: e.getAttribute('href'), tip: e.dataset.tip, cible: [Math.round(l.width), Math.round(l.height)] }; });
+      }
+      verif(`${dit} · la même marque là où le module est nommé : « Nouvelle note » (la poutre seule)${tel ? '' : ', le volet des modules (la poutre seule ; sa légende « vérifié ») ; au pied de la barre, MA pastille (LL, ronde, dans la barre) mène à l\'équipe' + (doigt ? ' — une cible de 40 px' : '')}`,
+        dansNouvelle.ouverte && dansNouvelle.n === 13 && JSON.stringify(dansNouvelle.vues) === '["poutre"]'
+        && (tel || (volet.ouvert && volet.vues.length === 1 && volet.vues[0][0] === 'poutre' && volet.vues[0][1] >= 14 && volet.legende === 'vérifié'
+          && barre && barre.vu && barre.ini === 'LL' && barre.rond && barre.dans && barre.href === 'equipe' && /^Louis Lejeune/.test(barre.tip) && (!doigt || (barre.cible[0] >= 40 && barre.cible[1] >= 40)))),
+        JSON.stringify({ dansNouvelle, volet, barre }));
+      // la RECHERCHE : un module (vérifié : il le dit), une note, un projet ; le clavier ; rien ne porte ce nom
+      const lireRecherche = () => g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const bo = document.getElementById('ac-resultats'), r = bo.getBoundingClientRect(), ch = document.getElementById('ac-recherche').getBoundingClientRect();
+        return { ouvert: vis(bo), boite: [Math.round(r.left), Math.round(r.right), Math.round(r.top - ch.bottom)], champ: [Math.round(ch.width), Math.round(ch.height)],
+          lignes: [...bo.querySelectorAll('a.bu-res')].map((x) => [x.querySelector('.bu-res-t b').textContent, x.querySelector('.bu-res-t span').textContent, x.getAttribute('href'), x.classList.contains('on'), vis(x.querySelector('.ok')), Math.round(x.getBoundingClientRect().height)]),
+          vide: (bo.querySelector('.bu-vide') || {}).textContent || '', etendu: document.getElementById('ac-recherche').getAttribute('aria-expanded'), saisie: document.getElementById('ac-recherche').value }; });
+      await g.fill('#ac-recherche', 'pout');
+      await g.waitForTimeout(150);
+      a = await lireRecherche();
+      await g.press('#ac-recherche', 'ArrowDown');
+      const apresFleche = (await lireRecherche()).lignes.map((l) => l[3]);
+      await g.press('#ac-recherche', 'Escape');
+      const apresEchap = await lireRecherche();
+      verif(`${dit} · la recherche de l'accueil, « pout » : le module « Poutres béton armé » d'abord (il dit qu'il est vérifié), « Poutres bois », la note « Poutres R+1 » (son module, son projet) — la liste s'ouvre sous le champ, dans l'écran${doigt ? ', des lignes de 40 px au moins' : ''} ; la flèche descend d'une ligne, Échap vide le champ et referme`,
+        a.ouvert && a.etendu === 'true' && a.lignes.length === 3 && JSON.stringify(a.lignes[0].slice(0, 5)) === '["Poutres béton armé","Module · Béton","poutre",true,true]'
+        && JSON.stringify(a.lignes[1].slice(0, 5)) === '["Poutres bois","Module · Autres","poutre-bois",false,false]' && a.lignes[2][0] === 'Poutres R+1' && /^Note · Poutres béton armé · Réalex – Lot 2/.test(a.lignes[2][1])
+        && /^poutre\?note=/.test(a.lignes[2][2]) && a.boite[0] >= 0 && a.boite[1] <= w && a.boite[2] >= 0 && a.boite[2] <= 12 && (!doigt || (a.lignes.every((l) => l[5] >= 40) && a.champ[1] >= 40))
+        && JSON.stringify(apresFleche) === '[false,true,false]' && !apresEchap.ouvert && apresEchap.saisie === '' && apresEchap.etendu === 'false', JSON.stringify({ a, apresFleche, apresEchap }));
+      await g.fill('#ac-recherche', 'zzz');
+      await g.waitForTimeout(120);
+      const rien = await lireRecherche();
+      if (nomF === 'pc') { await g.click('.accueil .h2'); await g.keyboard.press('Control+k'); }
+      const auClavier = nomF !== 'pc' || await g.evaluate(() => document.activeElement && document.activeElement.id === 'ac-recherche');
+      await g.fill('#ac-recherche', 'realex lot');
+      await g.waitForTimeout(150);
+      a = await lireRecherche();
+      await g.press('#ac-recherche', 'Enter');
+      // (si la recherche n'a rien trouvé, Entrée ne mène nulle part : le contrôle doit le DIRE, pas attendre une page qui ne viendra pas)
+      const arrive = await g.waitForFunction(() => document.body.dataset.page === 'projets' && document.body.dataset.ecran === 'pret', null, { timeout: 8000 })
+        .then(() => g.evaluate(() => ({ p: new URLSearchParams(location.search).get('p'), fil: document.getElementById('pj-fil').textContent.replace(/\s+/g, ' ').trim() })), () => ({ p: null, fil: '' }));
+      verif(`${dit} · « zzz » : « Rien ne porte ce nom » ; « realex lot » (sans accent ni capitale) trouve le projet « Réalex – Lot 2 », et Entrée y mène${nomF === 'pc' ? ' ; Ctrl K rend la main au champ de recherche' : ''}`,
+        rien.ouvert && !rien.lignes.length && /Rien ne porte ce nom/.test(rien.vide) && auClavier && a.lignes.length >= 1 && a.lignes[0][0] === 'Réalex – Lot 2' && /^Projet · 1 note/.test(a.lignes[0][1])
+        && arrive.p === 'Réalex – Lot 2' && /Réalex – Lot 2/.test(arrive.fil), JSON.stringify({ rien: rien.vide, auClavier, lignes: a.lignes, arrive }));
+      await g.goto(`${BASE}/`);
+      await pretBureau(g, 'accueil');
       mes = await mesureBureau(g, w, ZONE_ACCUEIL);
       verif(`${dit} · l'accueil : rien ne dépasse de l'écran, les pastilles sont rondes${doigt ? ', les cibles des projets et de l\'activité font 40 px au moins' : ''}`,
         mes.page <= w && !mes.hors.filter((x) => !/rcard|thumb|body|\.t |\.m |\.ou|chip|supp|avatar/.test(x)).length && mes.nPastilles >= 8 && !mes.pasRondes.length && !mes.debordent.length
         && mes.auDoigt === doigt && (!doigt || (!mes.basses.length && !mes.etroites.length && mes.nCibles >= 6)), JSON.stringify(mes));
       await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_accueil.png`), fullPage: true });
+      // ---- DANS le module : au pied du cadre Résultat, « Module vérifié · LL · la date » — une ligne qu'on lit, aux quatre formats
+      const piedModule = async (adresse) => {
+        await g.goto(`${BASE}/${adresse}`);
+        await g.waitForSelector('#resultat .pfoot .et-verif', { timeout: 120000, state: 'attached' });
+        if (tel) await g.click('.mtabs [data-onglet="resultat"]');
+        await g.waitForTimeout(350);
+        return g.evaluate(() => { const e = document.querySelector('#resultat .pfoot .et-verif'); e.scrollIntoView({ block: 'end' });
+          const r = e.getBoundingClientRect(), t = e.querySelector('.et-verif-t'), tr = t.getBoundingClientRect(), pied = e.closest('.pfoot').getBoundingClientRect();
+          const icones = [...e.querySelectorAll('.et-verif-i')].filter((x) => x.checkVisibility({ visibilityProperty: true, opacityProperty: true })).map((x) => x.className.replace('et-verif-i ', ''));
+          return { vu: e.checkVisibility({ visibilityProperty: true, opacityProperty: true }), etat: e.dataset.etat, texte: t.textContent, titre: e.title, entier: t.scrollWidth <= t.clientWidth + 1, police: parseFloat(getComputedStyle(t).fontSize),
+            dans: r.left >= pied.left - 1 && r.right <= pied.right + 1 && r.right <= innerWidth && tr.width > 40 && r.bottom <= innerHeight + 1, icones, n: document.querySelectorAll('#resultat .et-verif').length,
+            boutons: e.querySelectorAll('button, a').length, auDoigt: matchMedia('(pointer: coarse)').matches }; });
+      };
+      const pv = await piedModule('poutre');
+      verif(`${dit} · dans « Poutres béton armé », le pied du cadre Résultat dit « Module vérifié · LL · ${jour} » : une seule ligne, lue en entier (11 px au moins), dans le cadre et dans l'écran, son pictogramme — ni bouton ni lien (au doigt, un bouton du résultat doit faire 44 px)`,
+        pv.vu && pv.etat === 'verifie' && pv.texte === `Module vérifié · LL · ${jour}` && /vérifié par Louis Lejeune/.test(pv.titre) && pv.entier && pv.police >= 11 && pv.dans && JSON.stringify(pv.icones) === '["et-verif-oui"]'
+        && pv.n === 1 && pv.boutons === 0 && pv.auDoigt === doigt, JSON.stringify(pv));
+      await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_module_verifie.png`) });
+      const pd = await piedModule('dalle'), pn = await piedModule('corniere');
+      verif(`${dit} · « Dalles béton armé », dont le calcul a changé depuis sa vérification, dit « Module à revérifier » ; « Cornières », que personne n'a vérifié, « Module à vérifier » — jamais « vérifié »`,
+        pd.vu && pd.etat === 'change' && pd.texte === 'Module à revérifier' && /son calcul a changé/.test(pd.titre) && JSON.stringify(pd.icones) === '["et-verif-non"]' && pd.dans && pd.entier
+        && pn.vu && pn.etat === 'non' && pn.texte === 'Module à vérifier' && JSON.stringify(pn.icones) === '["et-verif-non"]' && pn.dans && pn.entier, JSON.stringify({ pd, pn }));
+      await g.goto(`${BASE}/`);
+      await pretBureau(g, 'accueil');
       await g.reload();
       await pretBureau(g, 'accueil');
       a = await g.evaluate(() => [document.getElementById('bonjour').textContent, document.querySelectorAll('#chantiers a.site').length, document.querySelectorAll('#activite .feed').length]);

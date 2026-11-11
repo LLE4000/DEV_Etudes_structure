@@ -26,6 +26,7 @@ import { recupererMeteo } from "./meteo.js";
 import { SONDE, marquer, marquerUneFois } from "./sonde.js";
 import { cablerCompact } from "./compact.js";
 import { cablerRangement } from "./rangement.js";
+import { poserVerification } from "./marques.js";
 import { cablerPanneauBibliotheque } from "./biblio_note.js";
 
 // les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
@@ -157,8 +158,8 @@ export function ouvrirEtabli(hote, ctx) {
       noms.forEach((n) => { if (n !== document.activeElement) n.value = note.nom || ""; });
       ctx.titre(`${note.nom || N.MODULES[MODULE].nom} · Stab Méthodes`);
       const fil = [note.chantier, note.dossier].filter(Boolean).join(" › ");
-      $("#fil-chantier").textContent = fil || "Sans chantier";
-      $("#fil-m").textContent = [provisoire ? "" : identite(), fil || "Sans chantier", N.MODULES[MODULE].nom].filter(Boolean).join(" · ");
+      $("#fil-chantier").textContent = fil || "Sans projet";
+      $("#fil-m").textContent = [provisoire ? "" : identite(), fil || "Sans projet", N.MODULES[MODULE].nom].filter(Boolean).join(" · ");
       const ind = $("#et-ind");
       ind.textContent = identite();
       ind.dataset.provisoire = provisoire ? "1" : "";
@@ -451,6 +452,7 @@ export function ouvrirEtabli(hote, ctx) {
       // (le nom de l'élément peut être un champ de la tête des résultats, colonne de gauche compacte : la frappe en cours y survit aussi)
       const saisieR = saisieEnCours($("#resultat"));
       $("#resultat").innerHTML = r.resultat;
+      poserVerification($("#resultat"), MODULE);    // « Module vérifié · LLE · 11/11/2026 », au pied (js/marques.js)
       if (defR && $("#resultat .pbody")) $("#resultat .pbody").scrollTop = defR;
       reprendreSaisie($("#resultat"), saisieR);
       const ouvert = $(".flyout.on.calcul");

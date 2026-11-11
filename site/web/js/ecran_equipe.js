@@ -8,6 +8,8 @@ import * as N from "./notes.js";
 import * as E from "./equipe.js";
 import * as J from "./journal.js";
 import * as V from "./vues_bureau.js";
+import * as VF from "./verifications.js";
+import { marquer } from "./marques.js";
 import { esc, toast, cablerBientot } from "./commun.js";
 
 export const JOURNAL_VU = 120;                   // les lignes du journal montrées (les plus récentes)
@@ -45,23 +47,29 @@ export function ouvrirEquipe(hote, ctx) {
     const n = eq.membres.length;
     $("eq-titre").textContent = n ? `Membres · ${n}` : "Membres";
     $("eq-nb").textContent = n ? `${V.compter(n, "membre")} sur ce poste` : "";
+    // le rôle : « Administrateur » (il nomme les autres et vérifie les modules) ou « Membre » ; seul un administrateur le change
+    const admin = E.estAdmin(eq.moi);
+    const role = (m) => (m.role === "admin" ? `<span class="role admin">${V.icone("shield-check")}${esc(E.ROLES.admin)}</span>` : `<span class="role membre">${esc(E.ROLES.membre)}</span>`);
     const ligne = (m) => {
       const moi = eq.moi && eq.moi.id === m.id;
       if (enEdition === m.id) {
-        return `<tr data-membre="${esc(m.id)}" class="bu-edit"><td colspan="3"><form class="bu-ligne-f" data-edit="${esc(m.id)}" autocomplete="off">${E.pastille(m)}`
+        return `<tr data-membre="${esc(m.id)}" class="bu-edit"><td colspan="4"><form class="bu-ligne-f" data-edit="${esc(m.id)}" autocomplete="off">${E.pastille(m)}`
           + `<input class="field-in" name="nom" value="${esc(m.nom)}" maxlength="80" aria-label="Prénom et nom">`
           + `<input class="field-in bu-ini-in" name="initiales" value="${esc(m.initiales)}" maxlength="5" aria-label="Initiales" autocapitalize="characters" spellcheck="false">`
           + `<input class="field-in" name="email" type="email" value="${esc(m.email)}" maxlength="120" placeholder="adresse e-mail" aria-label="Adresse e-mail">`
+          + (admin ? `<select class="field-in bu-role-in" name="role" aria-label="Rôle">${Object.entries(E.ROLES).map(([k, nom]) => `<option value="${k}"${m.role === k ? " selected" : ""}>${esc(nom)}</option>`).join("")}</select>` : "")
           + `<button type="submit" class="btn sm primary">${V.icone("check")}Enregistrer</button><button type="button" class="btn sm" data-annuler="1">Annuler</button></form></td></tr>`;
       }
-      return `<tr data-membre="${esc(m.id)}"><td><div class="who2">${E.pastille(m)}<div><b>${esc(m.nom)}${moi ? ' <span class="tag pub">vous</span>' : ""}</b>`
-        + `<span>${m.email ? esc(m.email) : "pas d'adresse e-mail"}</span></div></div></td><td class="bu-mi"><span class="bu-ini-l">${esc(m.initiales)}</span></td>`
+      return `<tr data-membre="${esc(m.id)}"><td><div class="who2">${E.pastille(m)}<div><b>${esc(m.nom)}${moi ? ' <span class="tag pub">vous</span>' : ""}`
+        + `${m.role === "admin" ? `<span class="bu-role-m" title="${esc(E.ROLES.admin)}">${V.icone("shield-check")}</span>` : ""}</b>`
+        + `<span>${m.email ? esc(m.email) : "pas d'adresse e-mail"}</span></div></div></td><td class="bu-mr">${role(m)}</td>`
+        + `<td class="bu-mi"><span class="bu-ini-l">${esc(m.initiales)}</span></td>`
         + `<td class="n"><span class="bu-actions">`
         + `<button type="button" class="btn icon ghost sm${filtre === m.id ? " on" : ""}" data-voir="${esc(m.id)}" title="Voir son activité dans le journal" aria-label="Voir l'activité de ${esc(m.nom)}" aria-pressed="${filtre === m.id}">${V.icone("clock")}</button>`
         + `<button type="button" class="btn icon ghost sm" data-modifier="${esc(m.id)}" title="Modifier la fiche" aria-label="Modifier la fiche de ${esc(m.nom)}">${V.icone("pencil-line")}</button>`
         + `<button type="button" class="btn icon ghost sm" data-retirer="${esc(m.id)}" title="Retirer de l'équipe" aria-label="Retirer ${esc(m.nom)} de l'équipe">${V.icone("trash-2")}</button></span></td></tr>`;
     };
-    $("eq-membres").innerHTML = n ? `<div class="tscroll"><table class="table bu-membres"><thead><tr><th>Personne</th><th>Initiales</th><th class="n"></th></tr></thead><tbody>${eq.membres.map(ligne).join("")}</tbody></table></div>`
+    $("eq-membres").innerHTML = n ? `<div class="tscroll"><table class="table bu-membres"><thead><tr><th>Personne</th><th>Rôle</th><th>Initiales</th><th class="n"></th></tr></thead><tbody>${eq.membres.map(ligne).join("")}</tbody></table></div>`
       : '<p class="muted bu-vide">Personne encore : présentez-vous ci-dessus, puis ajoutez vos collègues.</p>';
   }
 
@@ -74,11 +82,40 @@ export function ouvrirEquipe(hote, ctx) {
       vide: qui ? `${V.prenom(qui.nom)} n'a encore rien fait sur ce poste.` : "Le journal se remplira avec le travail : une note créée, rangée, exportée, un projet créé…" });
   }
 
+  // ------------------------------------------------------------------ la vérification des modules
+  // Chaque module de calcul : vérifié (par qui, quand), à vérifier, ou à REVÉRIFIER (son calcul a changé depuis). Un
+  // administrateur le déclare vérifié — ou retire sa vérification ; les autres lisent.
+  function afficherModules(eq) {
+    const admin = E.estAdmin(eq.moi);
+    const tous = VF.tous();
+    const faits = tous.filter((m) => m.etat === "verifie").length;
+    $("eq-verif-nb").textContent = `${faits} vérifié${faits > 1 ? "s" : ""} sur ${tous.length}`;
+    const ligne = (m) => {
+      const d = VF.dire(m.cle, m);
+      const etat = m.etat === "verifie" ? `<span class="valid ok">${V.icone("badge-check")}Vérifié</span>`
+        : `<span class="valid non${m.etat === "change" ? " change" : ""}">${V.icone("shield-check")}${esc(d.court)}</span>`;
+      const qui = m.etat === "non" ? "" : `${E.pastille(m.par, "sm")}<span class="muted" title="${esc(d.long)}">${esc(m.par.nom)} · ${esc(d.qui.split(" · ")[1])}`
+        + `${m.etat === "change" ? " · le calcul a changé depuis" : ""}</span>`;
+      const geste = !admin ? "" : m.etat === "verifie"
+        ? `<button type="button" class="btn sm ghost" data-retirer-verif="${esc(m.cle)}" aria-label="Retirer la vérification du module ${esc(m.nom)}">Retirer</button>`
+        : `<button type="button" class="btn sm" data-verifier="${esc(m.cle)}" aria-label="Déclarer vérifié le module ${esc(m.nom)}">${V.icone("badge-check")}${m.etat === "change" ? "Revérifier" : "Vérifier"}</button>`;
+      return `<tr data-module-verif="${esc(m.cle)}" data-etat="${m.etat}"><td class="bu-vm"><a class="mod bu-lien" href="${esc(N.pageDe(m.cle))}"><span class="modic ${esc(m.famille)}">${V.iconeModule(m.cle)}</span><b>${esc(m.nom)}</b></a></td>`
+        + `<td class="bu-ve">${etat}</td><td class="bu-vq"><span class="bu-vqui">${qui}</span></td><td class="n bu-vg">${geste}</td></tr>`;
+    };
+    $("eq-modules").innerHTML = `<div class="tscroll"><table class="table bu-verif"><thead><tr><th>Module</th><th>État</th><th>Par · le</th><th class="n"></th></tr></thead>`
+      + `<tbody>${tous.map(ligne).join("")}</tbody></table></div>`
+      + `<p class="hint bu-verif-note">${admin ? "Vous êtes administrateur : « Vérifier » dit que vous avez relu la méthode du module. "
+        : eq.moi ? "Seul un administrateur déclare un module vérifié. " : "Présentez-vous pour savoir si vous pouvez vérifier un module. "}`
+      + `La marque tombe d'elle-même si le calcul du module change.</p>`;
+  }
+
   function afficher() {
     const eq = E.equipe();
     afficherMoi(eq);
     afficherMembres(eq);
+    afficherModules(eq);
     afficherJournal(eq);
+    marquer(document);                          // la pastille du poste, les modules vérifiés du volet
     return eq;
   }
 
@@ -102,9 +139,20 @@ export function ouvrirEquipe(hote, ctx) {
     }
   }, { signal });
   page.addEventListener("click", (ev) => {
-    const b = ev.target.closest("[data-teinte], [data-voir], [data-modifier], [data-retirer], [data-annuler]");
+    const b = ev.target.closest("[data-teinte], [data-voir], [data-modifier], [data-retirer], [data-annuler], [data-verifier], [data-retirer-verif]");
     if (!b) return;
     const eq = E.equipe();
+    if ("verifier" in b.dataset || "retirerVerif" in b.dataset) {
+      const cle = b.dataset.verifier || b.dataset.retirerVerif, nom = (N.MODULES[cle] || {}).nom || cle;
+      const poser = "verifier" in b.dataset;
+      if (!confirm(poser ? `Déclarer le module « ${nom} » VÉRIFIÉ ?\n\nVous dites en avoir relu la méthode. Votre nom et la date s'afficheront sur l'accueil et dans le module ; la marque tombera d'elle-même si son calcul change.`
+        : `Retirer la vérification du module « ${nom} » ? Il redeviendra « à vérifier ».`)) return;
+      const r = poser ? VF.verifier(cle) : VF.retirer(cle);
+      if (!r.ok) { toast(r.erreur, true); return; }
+      toast(poser ? `Module « ${nom} » vérifié.` : `Le module « ${nom} » est de nouveau à vérifier.`);
+      afficher();
+      return;
+    }
     if ("teinte" in b.dataset && eq.moi) { E.modifier(eq.moi.id, { couleur: Number(b.dataset.teinte) }); afficher(); return; }
     if ("voir" in b.dataset) { filtre = filtre === b.dataset.voir ? null : b.dataset.voir; afficherMembres(eq); afficherJournal(eq); return; }
     if ("annuler" in b.dataset) { enEdition = null; afficherMembres(eq); return; }
@@ -133,6 +181,13 @@ export function ouvrirEquipe(hote, ctx) {
     const c = (n) => f.querySelector(`[name="${n}"]`).value;
     const r = E.modifier(f.dataset.edit, { nom: c("nom"), initiales: c("initiales"), email: c("email") });
     if (!r.ok) { toast(r.erreur, true); const x = f.querySelector(`[name="${r.champ}"]`); if (x) x.focus(); return; }
+    // le rôle (le menu n'existe que pour un administrateur) : un refus — le dernier administrateur — se dit, la fiche reste
+    const choisi = f.querySelector('[name="role"]');
+    if (choisi && choisi.value !== r.membre.role) {
+      const n = E.nommer(f.dataset.edit, choisi.value);
+      if (!n.ok) { toast(n.erreur, true); afficher(); return; }
+      J.noter(choisi.value === "admin" ? "membre.admin" : "membre.membre", { membre: r.membre.nom });
+    }
     enEdition = null;
     toast(`La fiche de ${r.membre.nom} est enregistrée.`);
     afficher();

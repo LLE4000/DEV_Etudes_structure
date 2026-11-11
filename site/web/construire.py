@@ -92,7 +92,8 @@ ADRESSES_BUREAU = {"projets": "projets", "equipe": "equipe"}
 FEUILLE_BUREAU = "css/bureau.css"
 # les icônes que ces écrans posent eux-mêmes (js/vues_bureau.js les lit dans la page : rien n'est chargé d'ailleurs)
 ICONES_BUREAU = ("plus", "x", "check", "pencil-line", "trash-2", "ellipsis", "chevron-right", "chevron-left", "folder", "folder-open",
-                 "archive", "search", "user-plus", "users", "file-plus-2", "file-text", "layers", "clock", "mail", "upload")
+                 "archive", "search", "user-plus", "users", "file-plus-2", "file-text", "layers", "clock", "mail", "upload",
+                 "badge-check", "shield-check", "book-open")
 
 
 def _bibliotheques_de(fam: str) -> list:
@@ -203,7 +204,56 @@ def releve(modules=None) -> dict:
         for d, _, fs in os.walk(os.path.join(RACINE, paquet_)):
             fichiers |= {os.path.relpath(os.path.join(d, f), RACINE) for f in fs if f.endswith(".py")}
     return {"fichiers": sorted(f for f in fichiers if "__pycache__" not in f and not f.endswith(".pyc")),
-            "avec_numpy": sorted(avec_numpy)}
+            "avec_numpy": sorted(avec_numpy),
+            # ce que CHAQUE module charge (la version d'un module en est l'empreinte : ``versions_modules``)
+            "par_module": {cle: sorted(f for f in r["fichiers"] if "__pycache__" not in f and not f.endswith(".pyc"))
+                           for cle, r in par_module.items()}}
+
+
+# ------------------------------------------------------------------ la VERSION d'un module (cahier des charges § 4)
+# « Vérifié » dit qu'un administrateur a relu la MÉTHODE d'un module ; la pastille doit TOMBER quand le calcul change —
+# sinon elle certifie un calcul que personne n'a relu. La version d'un module est donc l'EMPREINTE de ce que son calcul
+# charge : les fichiers du moteur que son parcours fait lire (``releve`` : ses paquets de calcul, leurs données, son
+# adaptateur api_web et ses dessins), SANS l'habillage commun à tous les modules (HORS_VERSION : y changer une icône ne
+# redemande pas dix-sept vérifications). Dans un fichier Python, ni une ligne vide ni une ligne de commentaire ne
+# comptent ; tout le reste compte, à l'octet (une donnée, un coefficient, une formule, un texte affiché).
+# js/versions.js porte ces empreintes ; js/verifications.js compare celle d'aujourd'hui à celle du jour de la vérification.
+HORS_VERSION = frozenset({"api_web/__init__.py", "api_web/routeur.py", "api_web/registre.py", "api_web/parcours.py",
+                          "api_web/icones.py", "api_web/commun.py", "api_web/etabli_compact.py", "api_web/fiches.py"})
+
+
+def _calcul_seul(chemin: str, octets: bytes) -> bytes:
+    """Ce qui COMPTE d'un fichier pour la version d'un module : un fichier Python sans ses lignes vides ni ses lignes de
+    commentaire (les fins de ligne et les blancs de fin de ligne ne comptent pas non plus) ; tout autre fichier, tel quel."""
+    if not chemin.endswith(".py"):
+        return octets
+    lignes = (l.rstrip() for l in octets.decode("utf-8").replace("\r\n", "\n").split("\n"))
+    return "\n".join(l for l in lignes if l.strip() and not l.lstrip().startswith("#")).encode("utf-8")
+
+
+def _lire_depot(chemin: str) -> bytes:
+    with open(os.path.join(RACINE, chemin), "rb") as f:
+        return f.read()
+
+
+def empreinte_module(fichiers, lire=_lire_depot) -> str:
+    """L'empreinte (16 caractères hexadécimaux) du calcul d'un module : ses fichiers (hors HORS_VERSION), dans l'ordre de
+    leurs noms, chacun réduit à ce qui compte (``_calcul_seul``). ``lire`` : pour les essais."""
+    h = hashlib.sha256()
+    for f in sorted(set(fichiers) - HORS_VERSION):
+        h.update(f.encode("utf-8") + b"\0" + _calcul_seul(f, lire(f)) + b"\0")
+    return h.hexdigest()[:16]
+
+
+def versions_modules(par_module: dict) -> dict:
+    """{clé: empreinte} des ÉTABLIS (les modules de ADRESSES, sans les redirections : un module absorbé n'a plus d'écran)."""
+    return {k: empreinte_module(par_module[k]) for k in ADRESSES if k not in REDIRECTIONS and k in par_module}
+
+
+def versions_js(versions: dict) -> str:
+    return ("// Écrit par site/web/construire.py (versions_modules) : l'empreinte du CALCUL de chaque module — ne pas modifier.\n"
+            "// Une vérification posée sur un module (js/verifications.js) vaut pour CETTE empreinte : le calcul change, elle tombe.\n"
+            f"export const VERSIONS = {json.dumps(versions, ensure_ascii=False, sort_keys=True)};\n")
 
 
 def fichiers_du_moteur(modules=None) -> list:
@@ -441,6 +491,17 @@ def _module(cle: str):
     raise KeyError(cle)
 
 
+def marque_verifie(cle: str) -> str:
+    """La marque « vérifié » d'un module (cahier des charges § 4), là où le module est nommé : la tuile de l'accueil, le
+    volet des modules, « Nouvelle note ». Écrite CACHÉE : js/marques.js la montre si un administrateur a déclaré le module
+    vérifié ET que son calcul n'a pas changé depuis (js/verifications.js), et y écrit par qui et quand."""
+    return f'<span class="ok" data-verifie="{cle}" hidden>{MQ.icon("badge-check")}</span>'
+
+
+def legende_verifie(texte: str = "vérifié par un administrateur") -> str:
+    return f'<span class="okleg">{MQ.icon("badge-check")}{MQ.esc(texte)}</span>'
+
+
 def rail(actif: str) -> str:
     """La barre de cinq icônes. Projets et Équipe mènent à leurs pages (11/11/2026 : elles étaient « bientôt ») ;
     Paramètres viendra avec les comptes du bureau."""
@@ -451,8 +512,11 @@ def rail(actif: str) -> str:
             + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets", "projets", f' href="{ADRESSES_BUREAU["projets"]}"')
             + it("layout-grid", "Modules", "modules", ' data-modules="1"') + it("users", "Équipe", "equipe", f' href="{ADRESSES_BUREAU["equipe"]}"')
             + it("settings", "Paramètres · bientôt", "parametres", bientot)
+            # en bas : le thème, puis la PASTILLE de la personne du poste (js/marques.js l'écrit ; elle mène à l'équipe)
             + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">'
-              f'<a class="navitem" data-theme-toggle="1" data-tip="Thème clair ou sombre">{MQ.icon("sun-moon")}</a></div></nav>' + modpanel())
+              f'<a class="navitem" data-theme-toggle="1" data-tip="Thème clair ou sombre">{MQ.icon("sun-moon")}</a>'
+              f'<a class="navitem rail-moi" href="{ADRESSES_BUREAU["equipe"]}" data-moi-rail="1" data-tip="Mon profil et l\'équipe" aria-label="Mon profil et l\'équipe"></a>'
+              f'</div></nav>' + modpanel())
 
 
 def mnav(actif: str) -> str:
@@ -479,11 +543,11 @@ def modpanel() -> str:
             if k in MASQUES:
                 continue
             if k in PAGES:
-                corps += f'<a class="navitem" href="{ADRESSES[k]}"><span class="modic {fam}">{MQ.MOD[k]}</span><span>{MQ.esc(n)}</span></a>'
+                corps += f'<a class="navitem" href="{ADRESSES[k]}"><span class="modic {fam}">{MQ.MOD[k]}</span><span>{MQ.esc(n)}</span>{marque_verifie(k)}</a>'
             else:
                 corps += (f'<a class="navitem bientot" aria-disabled="true"><span class="modic {fam}">{MQ.MOD[k]}</span><span>{MQ.esc(n)}</span>'
                           f'<span class="tag draft">bientôt</span></a>')
-    return (f'<aside class="modpanel"><div class="mp-h"><div class="h2">Modules</div>'
+    return (f'<aside class="modpanel"><div class="mp-h"><div class="h2">Modules</div>{legende_verifie("vérifié")}'
             f'<a class="btn icon ghost" data-modules="1" title="Fermer">{MQ.icon("x")}</a></div>{corps}</aside>')
 
 
@@ -568,7 +632,7 @@ def page_accueil() -> str:
                 # la carte ouvre le calcul LUI-MÊME, sans fenêtre (décision D1, tous les modules : la note est provisoire
                 # tant que rien n'est modifié) ; « Nouvelle note » reste le chemin qui nomme et range d'abord
                 t += (f'<a class="tile" href="{ADRESSES[k]}" data-module="{k}"><span class="modic {fam}">{MQ.MOD[k]}</span>'
-                      f'<span class="nm">{MQ.esc(n)}</span></a>')
+                      f'<span class="nm">{MQ.esc(n)}</span>{marque_verifie(k)}</a>')
             else:
                 t += (f'<div class="tile bientot" title="Ce module n\'est pas encore sur le site (il reste dans Streamlit)">'
                       f'<span class="modic {fam}">{MQ.MOD[k]}</span><span class="nm">{MQ.esc(n)}</span><span class="tag draft">bientôt</span></div>')
@@ -579,10 +643,20 @@ def page_accueil() -> str:
              f'<div class="page accueil"><div class="col"><div class="et-memoire" id="et-memoire" role="alert" hidden></div>'
              f'<header class="hello"><a class="bu-moi" id="moi" href="{ADRESSES_BUREAU["equipe"]}" title="Mon profil et l\'équipe"></a>'
              f'<div><h1 class="h1" id="bonjour">Bonjour</h1><p class="muted" id="date"></p></div><span class="spacer"></span>'
+             # la RECHERCHE (maquette validée) : un module, un projet, une note — Ctrl K y mène, Entrée ouvre le premier
+             f'<div class="bu-cherche"><form class="bigsearch" id="ac-recherche-form" role="search" autocomplete="off">{MQ.icon("search")}'
+             f'<input id="ac-recherche" type="search" maxlength="80" placeholder="Rechercher un module, un projet, une note…" '
+             f'aria-label="Rechercher un module, un projet, une note" aria-controls="ac-resultats" aria-expanded="false" enterkeyhint="search">'
+             f'<span class="kbd" aria-hidden="true">Ctrl K</span></form>'
+             f'<div class="bu-resultats" id="ac-resultats" role="listbox" aria-label="Résultats de la recherche" hidden></div></div>'
              f'<button class="btn primary big" id="ouvrir-nouvelle">{MQ.icon("plus")}Nouvelle note</button></header>'
-             f'<section><div class="sechead"><span class="h2">Reprendre</span><span class="muted" id="nb-notes"></span></div>'
+             f'<section><div class="sechead"><span class="h2">Reprendre</span><span class="muted" id="nb-notes"></span>'
+             f'<a class="btn ghost sm" href="{ADRESSES_BUREAU["projets"]}">Tout voir{MQ.icon("chevron-right")}</a></div>'
              f'<div class="resume" id="recentes"></div></section>'
-             f'<section><div class="sechead"><span class="h2">Modules</span><span class="muted">{_sous_titre_modules()}</span></div>{tuiles}</section>'
+             # (la légende dit ce que veut dire la marque d'une tuile ; le sous-titre ne reste que s'il annonce des modules à venir)
+             f'<section><div class="sechead"><span class="h2">Modules</span>'
+             f'{"" if _sous_titre_modules() == "Tous les modules du bureau" else f'<span class="muted">{_sous_titre_modules()}</span>'}'
+             f'{legende_verifie()}</div>{tuiles}</section>'
              f'</div><aside class="side">'
              # les PROJETS (c'était « Chantiers » : la liste seule) : en créer un d'ici — son nom, Entrée —, les ouvrir
              f'<div class="card bu-projets"><div class="sechead"><span class="h3">Projets</span>'
@@ -619,7 +693,7 @@ def champ_creer(ident: str, invite: str, icone: str) -> str:
 def fenetre_nouvelle_note() -> str:
     """La fenêtre « Nouvelle note » (l'accueil, la page des projets : js/nouvelle.js) : le projet, le sous-projet, le nom,
     puis le module. Le projet et le sous-projet déjà connus sont proposés ; on peut en taper un nouveau."""
-    options = "".join(f'<button type="button" class="mopt" data-module="{k}"><span class="modic {_module(k)[0]}">{MQ.MOD[k]}</span>{MQ.esc(_module(k)[1])}</button>'
+    options = "".join(f'<button type="button" class="mopt" data-module="{k}"><span class="modic {_module(k)[0]}">{MQ.MOD[k]}</span>{MQ.esc(_module(k)[1])}{marque_verifie(k)}</button>'
                       for k in PAGES if k not in MASQUES)
     return (f'<div class="modal" id="nouvelle" hidden><div class="mcard"><div class="mh"><span class="h2">Nouvelle note</span>'
             f'<button class="btn icon ghost" data-fermer-modal="1" title="Fermer">{MQ.icon("x")}</button></div>'
@@ -679,10 +753,20 @@ def page_equipe() -> str:
              f'<div class="field text">{MQ.icon("mail")}<input id="eq-email" type="email" maxlength="120" placeholder="adresse e-mail (facultatif)" aria-label="Adresse e-mail"></div>'
              f'<button type="submit" class="btn primary">{MQ.icon("plus")}Ajouter</button></form>'
              f'<p class="hint bu-erreur" id="eq-erreur" role="alert" hidden></p></div>'
+             # la VÉRIFICATION DES MODULES (cahier des charges § 4, la maquette) : un administrateur déclare un module vérifié
+             f'<div class="card flush" id="eq-verif"><div class="sechead"><div class="h3">Vérification des modules</div>'
+             f'<span class="muted bu-nb" id="eq-verif-nb"></span></div><div id="eq-modules"></div></div>'
+             f'<div class="card"><div class="h3">Qui peut faire quoi</div><div class="rights">'
+             f'<div><span class="ic">{MQ.icon("shield-check")}</span><div><b>Administrateur</b>Nomme les autres administrateurs et déclare un module vérifié. '
+             f'Le premier inscrit du poste l\'est ; il y en a toujours un.</div></div>'
+             f'<div><span class="ic">{MQ.icon("users")}</span><div><b>Membre</b>Crée ses notes et ses projets ; ses initiales les signent.</div></div>'
+             f'<div><span class="ic">{MQ.icon("badge-check")}</span><div><b>Module vérifié</b>Un administrateur a relu sa méthode : on s\'en sert sans la revérifier — '
+             f'chaque note reste à relire par son auteur. Si le calcul du module change, la marque tombe : il est à revérifier.</div></div>'
+             f'</div></div>'
              f'<div class="card note-locale"><div class="h3">Où est enregistrée l\'équipe ?</div><p>Pour l\'instant, l\'équipe et le journal '
-             f'sont enregistrés <b>dans ce navigateur</b>, comme les notes : chaque poste a les siens. Les initiales d\'une personne '
-             f'voyagent avec ses notes (le fichier <b>.stab</b> les porte). Les invitations par e-mail, les rôles et le partage entre '
-             f'les postes viendront avec les comptes du bureau.</p></div>'
+             f'sont enregistrés <b>dans ce navigateur</b>, comme les notes : chaque poste a les siens — les rôles et les modules vérifiés '
+             f'aussi. Les initiales d\'une personne voyagent avec ses notes (le fichier <b>.stab</b> les porte). Les invitations par e-mail, '
+             f'les mots de passe et le partage entre les postes viendront avec les comptes du bureau.</p></div>'
              f'</section><aside class="bu-journal"><div class="card"><div class="sechead"><div class="h3">Journal d\'activité</div>'
              f'<span id="eq-filtre"></span></div><div id="eq-journal"></div></div></aside></div>{mnav("equipe")}</main></div>'
              f'{icones_bureau()}<div class="toast" id="toast" role="status" hidden></div>'
@@ -852,6 +936,13 @@ def page_module(cle: str, titre: str) -> str:
              f'<div class="bench" data-tab="donnees">{toile}<section class="panel left">{gauche}</section>'
              f'<section class="panel right">{droite}</section><div id="volets"></div></div>{mbar}</main></div>'
              f'<input type="file" id="ouvrir" accept=".stab,.json" hidden>{alerte_enregistrement()}{fenetre_rangement()}'
+             # la marque « Module vérifié / à vérifier » (cahier des charges § 4) : un gabarit inerte, que js/marques.js pose au
+             # pied du cadre Résultat à chaque calcul — au même endroit aux trois formats (R1)
+             # — une ligne qu'on LIT (pas un bouton : au doigt, 44 px de plus au pied du résultat lui prenaient une ligne) ;
+             # un administrateur déclare le module vérifié sur la page Équipe
+             f'<template id="et-verif-gabarit"><span class="et-verif" data-verif-module="{cle}">'
+             f'<span class="et-verif-i et-verif-oui">{MQ.icon("badge-check")}</span><span class="et-verif-i et-verif-non">{MQ.icon("shield-check")}</span>'
+             f'<span class="et-verif-t"></span></span></template>'
              f'<div class="toast" id="toast" role="status" hidden></div>'
              f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
     # la bibliothèque de la famille, dans un panneau de la note (docs/site/BIBLIOTHEQUES.md § 2.4) : pour un module de
@@ -1181,6 +1272,8 @@ def construire(dossier: str = ICI, modules=None) -> dict:
     ecrire(os.path.join(dossier, "js", "modules.js"), modules_js())
     ecrire(os.path.join(dossier, "favicon.svg"), favicon())
     rel = releve(modules)
+    # la version de chaque module (l'empreinte de son calcul) : js/verifications.js y compare les vérifications posées
+    ecrire(os.path.join(dossier, "js", "versions.js"), versions_js(versions_modules(rel["par_module"])))
     z = paquet(rel["fichiers"])
     ecrire(os.path.join(dossier, "moteur", "moteur.zip"), z, binaire=True)
     # « avec_numpy » : les modules dont le travailleur charge numpy dès le démarrage (les autres s'en passent ; un
