@@ -566,7 +566,7 @@ calcul, puis ce que le calcul fixe et ce qu'il ne fixe pas.
 | 2 | Ø16 ; 4 × 4 = 16 ; 60 / 262 / 60 | semelle | `semelle` · `sup` : `n` 4, `d` 16 | G181:G184 | 4Ø16 | les retours, la longueur |
 | 3 | Ø25 ; 4 × 6 = 24 ; 60 / 262 / 60 | semelle | `semelle` · `inf` : `n` 6, `d` 25 | G175:G178 | 6Ø25 | les retours, la longueur |
 | 4 | L Ø12 ; 4 × 4 × 2 = 32 ; 80 / 160 | semelle | `semelle` · `laterales` : `d` 12, `texte` | — | le Ø et la règle « 2Ø12 tous les 30 à 40 cm » | le nombre de rangées, la forme, le recouvrement |
-| 5 | U Ø12 ; 2 × 4 × 2 × 10 = 160 ; 65 / 70 / 65 | semelle, au droit de chaque pieu | `semelle` · `renfort_pieu` : `brins` 16, `d` 12, `brins_base` 5 | G234:G236 | 16 brins Ø12 en plus de 5 brins de base | la forme et le nombre de barres — voir ci-dessous |
+| 5 | U Ø12 ; 2 × 4 × 2 × 10 = 160 ; 65 / 70 / 65 | semelle, au droit de chaque pieu | `semelle` · `renfort_pieu` : `brins` 16, `d` 12, `brins_base` 5 | G234:G236 | 16 brins Ø12 en plus de 5 brins de base | la forme et la pose (10 cadres de 2 U sur le plan) — voir ci-dessous |
 | 6 | étriers Ø12 – 10 ; 8 × 21 = 168 ; 62 × 55 | poutre support | `support` · `etriers_extremites` : `brins` 6, `d` 12, `pas` 100 | G145:G147 | 6 brins, Ø12, pas 100 | la longueur de la zone (200), le découpage en cadres |
 | 7 | étriers Ø12 – 10 ; 4 × 21 = 84 ; 62 × 70 | poutre support | le même poste que le repère 6 | G145:G147 | (les 6 brins = deux cadres du rep. 6 et un du rep. 7) | |
 | 8 | étriers Ø12 – 30 ; 4 × 12 = 48 ; 62 × 95 | poutre support | `support` · `etriers_centre` : `brins` 4, `d` 12, `pas` 300 | G152:G154 | 4 brins, Ø12, pas 300 | la longueur de la zone (350), le découpage en cadres |
@@ -578,15 +578,23 @@ calcul, puis ce que le calcul fixe et ce qu'il ne fixe pas.
 Les cellules sont celles de la « Fiche de calcul » du classeur ; le fichier les donne dans `controle.lignes[].cellules`
 et dans `modelesPoutre[].stab.saisies`.
 
-**Le repère 5 ne se compare pas tel quel.** Le classeur compte des **brins** (16 brins Ø12 ajoutés aux 5 brins des
-étriers de base) ; le plan pose **2 × 10 U** par pieu. Je ne sais pas comment le dessinateur est passé de l'un à
-l'autre : c'est une question à poser au propriétaire, pas une règle à deviner.
+**Le repère 5, lu de près.** Dans le classeur, la cellule G234 compte des **brins** complémentaires (16 dans
+l'exemple), ajoutés aux brins des étriers de base que l'ingénieur compte à la main (G236 : 5) ; la vérification
+additionne leurs sections. Sur le plan, au-dessus de chaque pieu, il y a une cage carrée de 70 × 70 : **5 cadres dans
+le sens de la poutre et 5 cadres en travers**, espacés de 11 à 14 cm. Chaque cadre est fait de **2 U** 65 / 70 / 65,
+l'un à l'endroit, l'autre retourné : c'est le « 2 x 10 » de l'étiquette, 2 U × 10 cadres. (Compté dans les traits du
+PDF, sur la vue en plan : cinq positions dans chaque sens, chacune large de deux barres ; la miniature de l'étiquette
+montre les deux U face à face.) Dix cadres font 20 brins verticaux : le plan en porte 4 de plus que l'exemple du
+classeur. Le fichier d'exemple porte encore les 16 brins du classeur ; la note portera ce qui est posé, et la façon
+de le saisir — des cadres par sens plutôt que des brins — se décide avec le propriétaire.
 
 **Le plan de référence et le classeur d'origine ne disent pas la même chose sur quatre postes.** L'exemple du classeur
 Greenwood porte 8Ø20 et 4Ø16 dans la poutre support et 8Ø20 en bas de la semelle ; le plan porte 9Ø20, 6Ø16 et 6Ø25 ;
-le quatrième poste est le repère 5. Le dessinateur a mis plus d'acier que le calcul n'en demandait. Règle que je
-propose, **pas encore confirmée par le propriétaire** : RBAR dessine ce que dit le fichier, donc ce que la note a
-vérifié ; si le dessin doit changer, l'ingénieur change le choix dans la note, qui revérifie, et réexporte.
+le quatrième poste est le repère 5. Le dessinateur a mis plus d'acier que le calcul n'en demandait.
+
+**Règle confirmée par le propriétaire le 11/11/2026 : ce qui apparaît dans RBAR est ce qui apparaît dans la note.**
+L'ingénieur met dans la note les armatures réellement posées ; la note les vérifie ; RBAR les dessine. Si le dessin
+doit changer, on change le choix dans la note, qui revérifie, et on réexporte.
 
 ## 7. Ce que le calcul ne fixe pas
 
