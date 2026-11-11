@@ -120,7 +120,8 @@ mesurent des cubes conservés sur chantier).
   10 MPa (moyenne) ; 50, 70 et 100 % de f_ck (caractéristique, à fixer par le bureau d'études).
 
 **La variante prudente.** Les jours PRÉVUS et PROLONGÉS — tous, en température constante — sont abaissés de la marge
-(3 °C par défaut) ; les jours MESURÉS ne le sont pas. Chaque objectif donne ses deux dates.
+(3 °C par défaut) ; les jours MESURÉS ne le sont pas. Chaque objectif donne ses deux dates. Dans les fenêtres de calcul
+ses grandeurs portent l'indice « prud » — T_prud = T − marge, k_prud, t_prud — ; t_p reste l'âge PRÉVU d'une opération.
 
 **Le gel** — EN 13670:2009 §8.5(12) : la surface du béton ne descend pas sous 0 °C avant d'avoir 5 MPa. Le moteur
 cherche le premier jour de gel (la minimale horaire sous 0 °C quand le détail horaire de la météo est chargé, sinon la
@@ -200,13 +201,23 @@ réponse n'est lue que jusqu'à 5 Mo.
   point, la variante prudente en tirets, le domaine t_T ≤ 3 j grisé, l'essai), les températures jour par jour (par
   source, le gel, l'âge équivalent cumulé), le tableau jour par jour (T, k, t_T, β_cc, f_cm, f_ck).
 - **Résultats** : le VERDICT (le premier objectif : son âge et sa date, sa variante prudente ; son taux s'il est
-  daté) ; les blocs « Objectifs », « Températures », « Essai » ; les avertissements du moteur ; la méthode, ses sources
-  et ce qui n'est pas couvert.
+  daté) ; les blocs « Objectifs », « Températures » (les jours par source ; « Jours suivants » : la température
+  supposée après le dernier jour connu et son k ; l'âge équivalent ; le gel), « Essai » ; les avertissements du
+  moteur ; la méthode, ses sources et ce qui n'est pas couvert.
 - **Fenêtres de calcul** : chaque ligne « symbole = expression = valeurs = résultat » est le gabarit du moteur
   (`moteur.EXPRESSIONS`) où chaque terme est remplacé par sa valeur — l'écran n'écrit aucune formule, et un test
   réévalue chaque ligne affichée à partir des valeurs écrites.
 - Toute saisie passe par `entree.normaliser` : hors domaine, elle est REFUSÉE avec le message du moteur, et le coulage
-  reste intact.
+  reste intact. Une date de fin du bétonnage lue sur le relevé se voit dans son champ (en grisé) et se dit dessous.
+- **Un défaut de franchise trouvé sur un cas d'hiver, le 11/11/2026** (une dalle coulée le 16/11, onze jours de relevé,
+  décoffrage prévu à J + 7) : à J + 7 le béton n'a que 5,7 MPa, et l'écran écrit aussi « 21 MPa atteints J + 28,4 » —
+  une échéance qui tombe APRÈS le relevé, donc calculée sur des températures prolongées (2,5 °C). Le moteur ne regardait
+  que le jour PRÉVU d'un objectif daté et se taisait. Il signale maintenant toute échéance AFFICHÉE (la nominale, la
+  prudente, le jour prévu) qui repose sur la prolongation : l'avertissement nomme l'objectif et la température.
+- **Relecture des captures du 11/11/2026** (PC, tablette, téléphone), figée par six contrôles et douze contre-épreuves :
+  la notation de la variante prudente ; la dernière colonne des fenêtres (« Résultat » : un taux ou une échéance, jamais
+  « Taux » sur une échéance) ; la fenêtre du gel titrée ; les légendes en mots ; la légende du tableau (ligne surlignée :
+  l'objectif ; numéro bleu : un jour de gel) ; plus aucune phrase coupée dans les résultats.
 
 ## 6 · Ce qui n'est pas couvert (dit, jamais tu)
 
@@ -226,8 +237,8 @@ réponse n'est lue que jusqu'à 5 Mo.
 
 | Suite | Contrôles | Ce qu'elle prouve |
 |---|---|---|
-| `tests/test_maturite_moteur.py` | 202 contrôles, 44 mutations rejetées | chaque table et chaque loi à la main (`math` seul) ; la forme fermée face à un balayage numérique fin ; l'heure de fin de bétonnage, le profil et son inverse ; l'exemple complet ci-dessous ; les objectifs, les deux bases, la variante prudente, l'opération datée, les instants à l'heure près ; le gel et le temps froid ; l'essai et le calage ; le sélecteur ; chaque borne refusée ; le format (JSON strict, chaque ligne de calcul retrouvée à partir de ses seuls termes) ; le relevé (10 relevés mal formés refusés) ; la météo contre l'écran Streamlit rejoué avec un faux service (30 scénarios, 2 113 périodes : mêmes appels, mêmes températures à 1e-12 près, mêmes refus — le vrai service n'est jamais appelé) ; la pureté (un sous-processus où numpy, streamlit, matplotlib, pandas, requests, scipy sont refusés à l'import) |
-| `tests/test_api_web_age.py` | 72 contrôles, 7 mutations vues rouges | l'écran = le moteur (chaque nombre affiché) ; chaque formule des fenêtres réévaluée à partir des valeurs écrites ; refus ; les gestes ; une échéance jamais tronquée au jour ni arrondie à l'heure inférieure ; nominal et prudent jamais confondus |
+| `tests/test_maturite_moteur.py` | 208 contrôles, 46 mutations rejetées | chaque table et chaque loi à la main (`math` seul) ; la forme fermée face à un balayage numérique fin ; l'heure de fin de bétonnage, le profil et son inverse ; l'exemple complet ci-dessous ; les objectifs, les deux bases, la variante prudente, l'opération datée, les instants à l'heure près ; le gel et le temps froid ; l'essai et le calage ; le sélecteur ; chaque borne refusée ; le format (JSON strict, chaque ligne de calcul retrouvée à partir de ses seuls termes) ; le relevé (10 relevés mal formés refusés) ; la météo contre l'écran Streamlit rejoué avec un faux service (30 scénarios, 2 113 périodes : mêmes appels, mêmes températures à 1e-12 près, mêmes refus — le vrai service n'est jamais appelé) ; la pureté (un sous-processus où numpy, streamlit, matplotlib, pandas, requests, scipy sont refusés à l'import) |
+| `tests/test_api_web_age.py` | 78 contrôles, 7 mutations vues rouges | l'écran = le moteur (chaque nombre affiché) ; chaque formule des fenêtres réévaluée à partir des valeurs écrites ; refus ; les gestes ; une échéance jamais tronquée au jour ni arrondie à l'heure inférieure ; nominal et prudent jamais confondus |
 | `tests/test_api_web_modules.py age` | 22 | le contrat commun des modules (parcours, champs, fichiers, éléments) |
 | `tests/test_reference_refonte.py age` | 19 cas | la photo gelée (regel accepté le 10/11/2026) |
 

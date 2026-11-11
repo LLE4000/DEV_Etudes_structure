@@ -271,7 +271,7 @@ reste actif, modules chargés à la demande, ouverture préparée à l'approche 
   « Recharger la page » ; sans script ni fichier à charger. Gardé par `tests/test_site_web.py` et `demarrage:secours`
   (trois formats ; deux mutations rougissent : la règle qui le cache retirée, l'animation retirée).
 
-## Fait ensuite, le lot Q : quatre modules refaits sur la norme — première livraison (même branche, sur 7bc200d, 10/11/2026 au soir)
+## Fait ensuite, le lot Q : quatre modules refaits sur la norme — trois livraisons (même branche, sur 7bc200d, 10 et 11/11/2026)
 
 Demande de l'ingénieur du 10/11/2026 : « fais bois, feu, taux, maturité ; vérifie les formules, tout n'était pas juste ;
 pas grave si on n'a pas exactement la même chose que sur Streamlit ». La conception est écrite AVANT le code, sources
@@ -302,9 +302,32 @@ Deuxième livraison, le même soir :
   dalle, R 240 inventé) sont refusées par des mutations. Trois cas recalculés à la main par l'intégrateur (poutre R 90,
   poteau R 90 au tableau puis à la formule, dalle R 120) : mêmes nombres.
 
-Reste du lot Q : « Maturité du béton » (moteur fait, écran en cours).
+Troisième livraison, le 11/11/2026 — **le lot Q est complet** :
 
-À voir avec l'ingénieur après essai : au téléphone, l'onglet « Calcul » ramène la page sur la ligne c_nom après chaque
+- ~~Maturité du béton refait sur la norme~~ (une DATE par objectif, à l'heure près, avec sa variante prudente ; le
+  durcissement lu sur le bon de livraison ou sur le ciment ; la loi de température belge par défaut ; le gel avant
+  5 MPa ; l'essai sur éprouvettes et le calage de la courbe ; le sélecteur de classe ; plus de numpy) : moteur 2e8b941,
+  dessins 407b5ca, page compacte 1f40ddb, écran fdc9700, feuille 64acd83, cas et gel d0606ab, aide de la loi 9c28f0f,
+  docs c96bad7, relecture des captures 70c9ed8. 208 + 78 contrôles, 46 + 7 mutations, douze contre-épreuves des
+  retouches. Trois coulages recalculés par l'intégrateur par une AUTRE méthode que le moteur (intégration numérique au
+  1/20 000 de jour et dichotomie, face à la forme fermée) : hiver à 3 °C en béton rapide, relevé avec gel en loi
+  (B.10), essai sur cube calé — mêmes nombres. Les trois défauts non conservatifs de l'ancien écran sont refusés par des
+  tests (le seuil à la température MOYENNE : annoncé à 4,8 j, atteint à 7,23 j ; le premier jour compté en entier ;
+  l'essai lu comme une résistance caractéristique).
+- **Un invariant de la conception s'est révélé faux, et c'est écrit** (`LOT_Q_QUATRE_MODULES.md` § 2.6,
+  `docs/beton/MATURITE_MOTEUR.md` § 3) : « la loi belge jamais plus rapide que (B.10) sous 20 °C » ne tient que de 0 à
+  12,2 °C ; au-delà le tableau belge dépasse (B.10) de 1,5 % au plus. L'aide de l'écran disait « la plus prudente par
+  temps froid » : elle dit maintenant ce qui est vrai (plus prudente que (B.10) ; un ciment au laitier durcit plus
+  lentement au froid que le tableau).
+- **Un défaut de franchise trouvé en jouant un cas d'hiver réaliste**, corrigé dans le moteur : pour un objectif DATÉ,
+  l'échéance affichée (« 21 MPa atteints J + 28,4 ») pouvait tomber après le relevé — donc reposer sur des températures
+  prolongées — sans que rien le dise (seul le jour prévu était regardé). Toute échéance affichée, nominale ou prudente,
+  est maintenant signalée ; deux contrôles et deux mutations le tiennent.
+- ~~Harnais « modules »~~ : le premier nombre d'un cadre Données peut être dans une rubrique repliée — le harnais suit
+  (16f2c48) ; `module:age` s'arrêtait à 18 contrôles, il en joue 26.
+
+À voir avec l'ingénieur après essai : au téléphone, l'onglet « Calcul » de la rubrique « Enrobages » ramène la page sur
+la ligne c_nom après chaque
 réglage (la règle de la bibliothèque : la case allumée se voit) ; avec quinze paramètres au-dessus, une bande de
 résultat fixe en bas d'écran et aucun saut serait peut-être plus commode. La feuille de la formule (5.7), dix-huit
 termes, défile dans son cadre au PC et à la tablette (c_nom reste visible dans la bande).
@@ -318,6 +341,15 @@ termes, défile dans son cadre au PC et à la tablette (c_nom reste visible dans
 3. Bois — k_cr = 0,67 pour le lamellé-collé aussi (le plus sévère des deux lectures).
 4. Feu — dix cases (R 180 des tableaux 5.5 et 5.6, REI 30 et REI 180 du 5.9) ne sont recoupées que par du code
    publié : à relire sur la norme papier.
+5. Maturité — le coulage d'ouverture est un « béton à durcissement moyen » (s = 0,439 : J + 10,7 pour 70 % de f_ck à
+   20 °C) et non le ciment N de l'EC2 (J + 6,5) : le béton courant ici (CEM III/A 42,5 N LA) est « moyen » sur les
+   bons de livraison, et le défaut doit être du côté sûr.
+6. Maturité — les six valeurs du tableau belge (NBN B 15-400, « âge fictif ») viennent de deux sources concordantes :
+   à relire sur l'édition 2024. Le prolongement jusqu'à 0 à −10 °C et l'absence de bonus au-dessus de 20 °C sont des
+   choix du module, dits à l'écran.
+7. Maturité — les délais minimaux de décoffrage par type de coffrage et les durées de cure de la norme belge ne sont
+   PAS dans le module (leurs valeurs n'ont pas pu être relues) : à ajouter si le bureau fournit le texte.
+8. Maturité — pas encore de note PDF (le bouton reste « bientôt ») : le résultat se lit à l'écran et s'imprime.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
