@@ -61,8 +61,9 @@ SEGMENTS_CIBLE = (("mpa", "MPa"), ("pct", "% de fck"))
 SEGMENTS_BASE = (("fcm", "Moyenne"), ("fck", "Caractéristique"))
 SEGMENTS_EPROUVETTE = (("cube", "Cube 150"), ("cylindre", "Cylindre"))
 MOTS_SOURCE = {"mesure": "mesuré", "prevision": "prévision", "prolonge": "prolongé", "constante": "constante", "sans_donnee": "sans donnée"}
-# … et dans un décompte de jours (« 11 j mesurés · 16 j de prévision ») : (un jour, plusieurs)
-MOTS_JOURS = {"mesure": ("mesuré", "mesurés"), "prevision": ("de prévision", "de prévision"), "prolonge": ("prolongé", "prolongés"),
+# … et dans un décompte de jours (« 11 j mesurés · 16 prévus · 2 prolongés · 1 sans donnée » : « j » une fois, en tête —
+# la ligne ne se replie pas, et quatre sources à deux chiffres doivent y tenir) : (un jour, plusieurs)
+MOTS_JOURS = {"mesure": ("mesuré", "mesurés"), "prevision": ("prévu", "prévus"), "prolonge": ("prolongé", "prolongés"),
               "constante": ("constant", "constants"), "sans_donnee": ("sans donnée", "sans donnée")}
 JOURS_SEMAINE = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
 COURT_BETON = {"rapide": "rapide", "moyen": "moyen", "lent": "lent"}
@@ -1162,7 +1163,7 @@ def _bloc_objectifs(r: Dict) -> str:
 def _bloc_temperatures(r: Dict) -> str:
     sy, tp, gel = r["synthese"], r["temperature"], r["gel"]
     n = sy["n"]
-    jours = " · ".join(f"{v}{NB}j {MOTS_JOURS[k][v > 1]}" for k, v in n.items()) or "température constante"
+    jours = " · ".join(f"{v}{NB}{'j ' if i == 0 else ''}{MOTS_JOURS[k][v > 1]}" for i, (k, v) in enumerate(n.items())) or "température constante"
     efforts = (f"T moy {_deg(sy['T_moy'])} · min {_deg(sy['T_min'])} · max {_deg(sy['T_max'])} · loi {C.esc(r['materiau']['loi']['libelle'])}")
     rows = C.ligne_verif("Jours", jours, None, "c", calcul="s1", etat_txt=f"{sy['n_jours']} j connus" if sy["n_jours"] else _deg(tp["T"]))
     if tp["source"] == "releve":
@@ -1176,13 +1177,18 @@ def _bloc_temperatures(r: Dict) -> str:
         cmp_ = f"gel {quand} ({_deg(gel['T'])}) avant 5{NB}MPa ({_jplus(gel['t_5MPa'])})"
         g_txt, g_niv = "protéger", "r"
     else:
+        # UNE ligne, jamais coupée (55 caractères au plus) : quand viennent les 5 MPa, quand vient le premier gel, et SUR
+        # QUOI le gel est jugé — la minimale horaire, ou à défaut la MOYENNE du jour (une nuit peut geler sous une moyenne
+        # positive : l'ingénieur doit savoir laquelle). La variante prudente se lit dans la pastille (« à surveiller ») et
+        # dans l'avertissement du moteur, juste dessous.
+        base = "minimale horaire" if gel["base"] == "minimale" else ("moyenne du jour" if tp["source"] == "releve" else "")
         cmp_ = (f"5{NB}MPa (f<sub>cm</sub>) à {_jplus(gel['t_5MPa'])}" if gel["t_5MPa"] is not None else "5 MPa jamais atteints")
-        cmp_ += " · " + ("gel ensuite" if gel["premier_jour"] is not None else "aucun jour de gel")
-        if gel["prudent"]["alerte"]:
-            cmp_ += " · gel possible en variante prudente"
+        if gel["premier_jour"] is None:
+            cmp_ += " · " + (f"aucun gel ({base})" if base else "aucun jour de gel")
+        else:
+            quand = f"le {_date_fr(gel['date'], annee=False)}" if gel["date"] else f"au jour {gel['premier_jour']}"
+            cmp_ += f" · gel {quand}" + (f" ({base})" if base else "")
         g_txt, g_niv = ("à surveiller", "f") if gel["prudent"]["alerte"] else ("hors gel", "p")
-    if gel["base"] == "minimale":
-        cmp_ += " · minimale horaire"
     rows += C.ligne_verif("Gel avant 5 MPa", cmp_, None, g_niv, calcul="gel", etat_txt=g_txt)
     cls = "nok" if gel["alerte"] else ("warn" if gel["prudent"]["alerte"] or r["temps_froid"]["rappel"] else "ok")
     etat_txt = "Gel avant 5 MPa" if gel["alerte"] else ("Temps froid" if r["temps_froid"]["rappel"] else _temperatures_txt(r))
@@ -1194,8 +1200,9 @@ def _bloc_essai(r: Dict) -> str:
     if x is None:
         return ""
     ec = x["ecart"]
-    cube = f" (cube {_mpa(x['mpa'])} × {C.nb(x['rapport_cube'], 3)})" if x["eprouvette"] == "cube" else ""
-    cmp_ = f"mesuré {_mpa(x['f_cyl'])}{cube} pour {_mpa(x['f_prevu'])} prévus (f<sub>cm</sub>)"
+    # (une ligne qui ne se replie pas : la résistance du cube sans répéter l'unité ; « face à f_cm(t) » est dit dans la fenêtre)
+    cube = f" (cube {C.fr(x['mpa'], 1)} × {C.nb(x['rapport_cube'], 3)})" if x["eprouvette"] == "cube" else ""
+    cmp_ = f"mesuré {_mpa(x['f_cyl'])}{cube} pour {_mpa(x['f_prevu'])} prévus"
     niv = "c" if ec is None else ("f" if ec < 0 else "p")
     row = C.ligne_verif(f"Essai à {_jplus(x['age']).replace(NB, ' ')}", cmp_, None, niv, calcul="s2",
                         etat_txt="—" if ec is None else f"{'+' if ec >= 0 else '−'}{C.fr(abs(ec), 0)} %")

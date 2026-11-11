@@ -479,9 +479,9 @@ chk("l'aide de la loi k(T) est exacte : « plus prudente que (B.10) » (0,45 < 0
     and "le tableau belge peut alors être optimiste" in aide_loi and "(20 à 60 kJ/mol)" in aide_loi, aide_loi[-520:])
 
 # La relecture des captures du 11/11/2026 — six points de finition, chacun figé ici.
-e_rel = note(coulage("Voile", temperature__mode="releve", temperature__releve=RELEVE, objectifs=[objectif("Décoffrage"), objectif("Daté", age=6.0)]))
-r_rel, r_dat = calc(e_rel), calc(note(coulage("Voile", date="2026-11-02", temperature__mode="releve", temperature__releve=RELEVE)))
-m_rel = M.calculer(e_rel["coulages"][0])
+e_cap = note(coulage("Voile", temperature__mode="releve", temperature__releve=RELEVE, objectifs=[objectif("Décoffrage"), objectif("Daté", age=6.0)]))
+r_cap, r_capd = calc(e_cap), calc(note(coulage("Voile", date="2026-11-02", temperature__mode="releve", temperature__releve=RELEVE)))
+m_cap = M.calculer(e_cap["coulages"][0])
 def titres(rep):
     """Les cinq titres du tableau de chaque fenêtre de calcul : {identifiant: [titres]} (texte, sans balises)."""
     out = {}
@@ -493,46 +493,113 @@ def titres(rep):
 
 
 T_OBJ = ["Objectif", "Comparée à", "Âge équivalent requis", "Atteint", "Résultat"]
-t0, t_rel = titres(r0), titres(r_rel)
+t0, t_cap = titres(r0), titres(r_cap)
 chk("fenêtres : aucune colonne « Taux » sur ce qui n'en est pas un — les objectifs finissent par « Résultat » (l'ÉCHÉANCE « J + … » d'un objectif "
     "non daté, le TAUX d'un objectif daté), le gel par « Verdict » (« hors gel », « protéger ») entre « 5 MPa atteints » et « Premier jour de gel »",
-    set(t0) == {"o0", "s0", "s1", "gel"} and set(t_rel) == {"o0", "o1", "s0", "s1", "gel"}
-    and all(t[k] == T_OBJ for t in (t0, t_rel) for k in t if k == "s0" or k.startswith("o"))
-    and all(t["gel"] == ["Vérification", "Condition", "5 MPa atteints", "Premier jour de gel", "Verdict"] for t in (t0, t_rel))
-    and not any("Taux" in x or "Valeur" in x or "Limite" in x for t in (t0, t_rel) for v in t.values() for x in v)
-    and m_rel["objectifs"][0]["age_prevu"] is None and m_rel["objectifs"][1]["taux"] is not None
-    and f">J + {C.fr(m_rel['objectifs'][0]['t'], 1)}<" in r_rel["volets"] and taux_txt(m_rel["objectifs"][1]["taux"]) in texte(r_rel["volets"]),
-    (t0, t_rel))
+    set(t0) == {"o0", "s0", "s1", "gel"} and set(t_cap) == {"o0", "o1", "s0", "s1", "gel"}
+    and all(t[k] == T_OBJ for t in (t0, t_cap) for k in t if k == "s0" or k.startswith("o"))
+    and all(t["gel"] == ["Vérification", "Condition", "5 MPa atteints", "Premier jour de gel", "Verdict"] for t in (t0, t_cap))
+    and not any("Taux" in x or "Valeur" in x or "Limite" in x for t in (t0, t_cap) for v in t.values() for x in v)
+    and m_cap["objectifs"][0]["age_prevu"] is None and m_cap["objectifs"][1]["taux"] is not None
+    and f">J + {C.fr(m_cap['objectifs'][0]['t'], 1)}<" in r_cap["volets"] and taux_txt(m_cap["objectifs"][1]["taux"]) in texte(r_cap["volets"]),
+    (t0, t_cap))
 chk("fenêtres : la variante prudente s'écrit en indice — T_prud, k_prud, t_prud —, plus aucun « k,p » ni « t,p » ; t_p reste l'âge prévu",
-    all(f"{x}<sub>prud</sub>" in r0["volets"] for x in "Tkt") and not re.search(r"\b[kt],p\b", texte(r0["volets"]) + texte(r_rel["volets"]))
-    and "(t<sub>p</sub>)" in r_rel["volets"] and "<sub>prud</sub>" in r_rel["volets"])
+    all(f"{x}<sub>prud</sub>" in r0["volets"] for x in "Tkt") and not re.search(r"\b[kt],p\b", texte(r0["volets"]) + texte(r_cap["volets"]))
+    and "(t<sub>p</sub>)" in r_cap["volets"] and "<sub>prud</sub>" in r_cap["volets"])
 chk("vues : la légende de chaque vue est du TEXTE lisible — aucun symbole écrit avec son tiret bas (« f_cm(t) », « t_T ») —, et l'en-tête non plus",
-    all(not re.search(r"[A-Za-zα-ω]_[A-Za-z]", v["legende"] + " " + texte(v["entete"])) for rep in (r0, r_rel, r_dat) for v in rep["vues"])
+    all(not re.search(r"[A-Za-zα-ω]_[A-Za-z]", v["legende"] + " " + texte(v["entete"])) for rep in (r0, r_cap, r_capd) for v in rep["vues"])
     and "valeurs indicatives (grisé)" in r0["vues"][0]["legende"] and f"avant {C.nb(L.SEUIL_INDICATIF_J, 0)} j équivalents" in r0["vues"][0]["legende"])
-tab_rel, tab_0 = r_rel["vues"][2]["svg"], r0["vues"][2]["svg"]
-j_gel = [li["jour"] for li in m_rel["tableau"]["lignes"] if li["gel"]]
+tab_cap, tab_0 = r_cap["vues"][2]["svg"], r0["vues"][2]["svg"]
+j_gel = [li["jour"] for li in m_cap["tableau"]["lignes"] if li["gel"]]
 chk("tableau : sa légende dit ce que l'œil voit — la LIGNE surlignée est le jour où le premier objectif est atteint, le NUMÉRO en bleu un jour de "
     "gel (le 06/11 à −2,0 °C : jour 4), et elle ne parle du gel que s'il y en a",
-    j_gel == [4] and re.search(r'<tr class="[^"]*\bgel\b[^"]*"><th>4</th>', tab_rel) and len(re.findall(r'<tr class="[^"]*\bgel\b', tab_rel)) == 1
-    and "ligne surlignée : le jour où le premier objectif est atteint" in tab_rel and "numéro du jour en bleu : jour de gel" in tab_rel
-    and "moyenne du jour à 0 °C ou moins" in tab_rel and "en bleu, le jour où" not in tab_rel + tab_0
-    and "ligne surlignée" in tab_0 and "jour de gel" not in tab_0 and len(re.findall(r'<tr class="[^"]*\bon\b', tab_rel)) == 1, j_gel)
-tp_rel = m_rel["temperature"]
+    j_gel == [4] and re.search(r'<tr class="[^"]*\bgel\b[^"]*"><th>4</th>', tab_cap) and len(re.findall(r'<tr class="[^"]*\bgel\b', tab_cap)) == 1
+    and "ligne surlignée : le jour où le premier objectif est atteint" in tab_cap and "numéro du jour en bleu : jour de gel" in tab_cap
+    and "moyenne du jour à 0 °C ou moins" in tab_cap and "en bleu, le jour où" not in tab_cap + tab_0
+    and "ligne surlignée" in tab_0 and "jour de gel" not in tab_0 and len(re.findall(r'<tr class="[^"]*\bon\b', tab_cap)) == 1, j_gel)
+tp_cap = m_cap["temperature"]
 chk("résultats : « Jours » compte les jours par source sans phrase coupée, et ce que le calcul suppose APRÈS le dernier jour connu a sa ligne — "
     "« Jours suivants · 6,6 °C · la moyenne des 5 derniers jours connus · k = 0,50 » (le moteur) ; rien de tel à température constante",
-    abs(tp_rel["T_fin"] - (4.0 + 6.0 + 7.5 + 8.5 + 7.0) / 5.0) < 1e-12 and abs(tp_rel["k_fin"] - (0.45 + 0.15 * 1.6 / 5.0)) < 1e-12
-    and f"5{NB}j mesurés · 3{NB}j de prévision · 1{NB}j prolongé · 1{NB}j sans donnée" in texte(r_rel["resultat"])
+    abs(tp_cap["T_fin"] - (4.0 + 6.0 + 7.5 + 8.5 + 7.0) / 5.0) < 1e-12 and abs(tp_cap["k_fin"] - (0.45 + 0.15 * 1.6 / 5.0)) < 1e-12
+    and f"5{NB}j mesurés · 3{NB}prévus · 1{NB}prolongé · 1{NB}sans donnée" in texte(r_cap["resultat"])
     and re.search(r"Jours suivants.{0,400}?" + re.escape(f"6,6{NB}°C") + r".{0,400}?" + re.escape(f"la moyenne des 5 derniers jours connus · k{NB}={NB}0,50"),
-                  texte(r_rel["resultat"]), re.S)
-    and "au-delà :" not in texte(r_rel["resultat"]) and "Jours suivants" not in texte(r0["resultat"]) and "température constante" in texte(r0["resultat"]),
-    texte(r_rel["resultat"])[:400])
+                  texte(r_cap["resultat"]), re.S)
+    and "au-delà :" not in texte(r_cap["resultat"]) and "Jours suivants" not in texte(r0["resultat"]) and "température constante" in texte(r0["resultat"]),
+    texte(r_cap["resultat"])[:400])
 champ = r'<input data-chemin="date" data-sorte="texte" value="{}" placeholder="{}">'
 chk("données : une date de fin du bétonnage LUE SUR LE RELEVÉ se voit dans le champ vide (en grisé) et se dit dessous ; saisie, ou sans relevé daté, "
     "le champ reprend son gabarit « JJ/MM/AAAA » et la phrase disparaît",
-    m_rel["temps"]["date_origine"] == "releve" and m_rel["temps"]["date"] == "2026-11-02"
-    and champ.format("", "02/11/2026") in r_rel["donnees"] and "Date lue sur la première ligne du relevé (02/11/2026)" in r_rel["donnees"]
-    and champ.format("02/11/2026", "JJ/MM/AAAA") in r_dat["donnees"] and "Date lue sur" not in r_dat["donnees"]
+    m_cap["temps"]["date_origine"] == "releve" and m_cap["temps"]["date"] == "2026-11-02"
+    and champ.format("", "02/11/2026") in r_cap["donnees"] and "Date lue sur la première ligne du relevé (02/11/2026)" in r_cap["donnees"]
+    and champ.format("02/11/2026", "JJ/MM/AAAA") in r_capd["donnees"] and "Date lue sur" not in r_capd["donnees"]
     and champ.format("", "JJ/MM/AAAA") in r0["donnees"] and "Date lue sur" not in r0["donnees"])
+
+
+def ligne_gel(rep):
+    """Le texte de la seconde ligne de « Gel avant 5 MPa » (ce que l'ingénieur lit sous le titre) et sa pastille."""
+    m_ = re.search(r'<b>Gel avant 5 MPa</b>.*?<span class="et-mot (\w)">([^<]*)</span></div><div class="l2"><span class="cmp">(.*?)</span>', rep["resultat"], re.S)
+    return (texte(m_.group(3)), m_.group(2), m_.group(1)) if m_ else ("", "", "")
+
+
+# « Gel avant 5 MPa » dit QUAND vient le premier gel et SUR QUOI il est jugé — la minimale horaire, sinon la moyenne du jour
+# (une nuit peut geler sous une moyenne positive) —, en UNE ligne qui n'est jamais coupée ; la variante prudente se lit dans
+# la pastille et dans l'avertissement du moteur.
+g0, g_cap, g_capd = ligne_gel(r0), ligne_gel(r_cap), ligne_gel(r_capd)
+g_doux = ligne_gel(calc(note(coulage(temperature__mode="releve", temperature__releve="\n".join(["15,0"] * 8)))))
+g_sans = ligne_gel(calc(note(coulage(temperature__mode="releve", temperature__releve="9,5\n8,0\n6,5\n-2,0\n4,0"))))
+e_prud = note(coulage(heure=0, temperature__mode="releve",
+                      temperature__releve="4,0;mesuré\n2,0;prévision\n2,0;prévision\n8,0;prévision\n8,0;prévision"))
+r_prud, m_prud = calc(e_prud), M.calculer(e_prud["coulages"][0])
+g_prud = ligne_gel(r_prud)
+chk("« Gel avant 5 MPa » : à température constante « aucun jour de gel » ; sur un relevé, le premier gel a sa DATE (« gel le 06/11 », ou "
+    "« gel au jour 3 » sans date) et la base du jugement est dite (« moyenne du jour ») — y compris quand il n'y a aucun gel",
+    g0 == (f"5{NB}MPa (fcm) à J{NB}+{NB}0,9 · aucun jour de gel", "hors gel", "p")
+    and g_doux[0].endswith(" · aucun gel (moyenne du jour)") and g_doux[1] == "hors gel"
+    and g_cap[0].endswith(" · gel le 06/11 (moyenne du jour)") and g_capd[0].endswith(" · gel le 06/11 (moyenne du jour)")
+    and g_sans[0].endswith(" · gel au jour 3 (moyenne du jour)")
+    and all("gel ensuite" not in g[0] and "variante prudente" not in g[0] for g in (g0, g_doux, g_cap, g_capd, g_sans, g_prud)),
+    (g0, g_doux, g_cap, g_sans))
+chk("« Gel avant 5 MPa » · variante prudente seule en alerte (un jour prévu à 2 °C, donc −1 °C en prudent, avant les 5 MPa) : la pastille dit "
+    "« à surveiller », la ligne reste courte, et l'avertissement du moteur le dit en clair juste dessous",
+    not m_prud["gel"]["alerte"] and m_prud["gel"]["prudent"]["alerte"] and m_prud["gel"]["premier_jour"] is None
+    and g_prud == (f"5{NB}MPa (fcm) à {A._jplus(m_prud['gel']['t_5MPa'])} · aucun gel (moyenne du jour)".replace("&nbsp;", NB), "à surveiller", "f")
+    and "gel_prudent" in [a["code"] for a in m_prud["avertissements"]] and "Gel possible avant 5 MPa" in texte(r_prud["resultat"]),
+    (g_prud, m_prud["gel"]["prudent"]))
+# La SECONDE LIGNE d'un résultat ne se replie pas (css/etabli.css : .el.vc .l2 .cmp, une ligne, « … » au-delà). Sa place,
+# MESURÉE au navigateur le 11/11/2026 : 313 px au PC et au petit portable (le plus étroit des six formats ; 317 à 340 px
+# ailleurs), soit 59 caractères de cette police — « 10 j mesurés · 16 j de prévision · 12 j prolongés · 1 j sans donnée »
+# (67) et « mesuré 17,8 MPa (cube 22,0 MPa × 0,811) pour 20,3 MPa prévus (f_cm) » (66) y étaient coupés. La longueur est
+# la COPIE nommée de cette mesure (deux langages : la largeur ne se lit pas ici) ; elle se contrôle sur tous les écrans de
+# ce test et sur les cas les plus longs.
+CMP_MAX = 58
+
+
+def secondes_lignes(rep):
+    return [(texte(a), texte(b)) for a, b in re.findall(r'<div class="l1"><b>(.*?)</b>.*?<div class="l2"><span class="cmp">(.*?)</span>', rep["resultat"], re.S)]
+
+
+REL_LONG = "\n".join(["2026-11-02;9,5;mesuré"] + [f"2026-11-{d:02d};{t};mesuré" for d, t in zip(range(3, 13), ["8,0", "—", "6,5", "-2,0", "4,0", "3,0", "2,0", "5,0", "6,0", "7,0"])]
+                     + [f"2026-11-{d:02d};6,0;prévision" for d in range(13, 29)] + ["2026-11-29;6,0;prolongé", "2026-11-30;6,0;prolongé"]
+                     + [f"2026-12-{d:02d};6,0;prolongé" for d in range(1, 11)])
+LONGS = {
+    "quatre sources à deux chiffres, trois objectifs": calc(note(coulage(
+        "Voile", date="2026-11-02", heure=7, temperature__mode="releve", temperature__releve=REL_LONG,
+        objectifs=[objectif("Décoffrage des voiles du R+1", age=6.0), M.modele_objectif("hors_gel", 30.0),
+                   objectif("Mise en charge", mode="mpa", mpa=25.0, base="fck", age=35.0)]))),
+    "essai sur cube, calé": calc(note(coulage(temperature__T=12.0, essai={"actif": True, "age": 7.0, "mpa": 22.0, "eprouvette": "cube", "caler": True}))),
+    "gel en alerte, daté": calc(note(coulage(date="2026-12-28", heure=18, temperature__mode="releve", temperature__releve="1,0\n-3,0\n-4,0\n0,0\n2,0\n4,0"))),
+}
+toutes = [(nom, t, c) for nom, rep in list(ECRANS.items()) + list(LONGS.items()) + [("prudent seul", r_prud), ("relevé daté", r_capd)]
+          for t, c in secondes_lignes(rep)]
+trop = [(len(c), nom, t, c) for nom, t, c in toutes if len(c) > CMP_MAX]
+j_long = [c for t, c in secondes_lignes(LONGS["quatre sources à deux chiffres, trois objectifs"]) if t == "Jours"]
+e_long = [c for t, c in secondes_lignes(LONGS["essai sur cube, calé"]) if t.startswith("Essai")]
+chk(f"aucune seconde ligne de résultat ne dépasse {CMP_MAX} caractères ({len(toutes)} lignes, {len(ECRANS) + len(LONGS) + 2} écrans) : elle se lirait coupée — "
+    "« Jours » compte « 10 j mesurés · 16 prévus · 12 prolongés · 1 sans donnée », l'essai sur cube « mesuré … (cube 22,0 × 0,811) pour … prévus »",
+    not trop and len(toutes) > 40
+    and j_long == [f"10{NB}j mesurés · 16{NB}prévus · 12{NB}prolongés · 1{NB}sans donnée"]
+    and len(e_long) == 1 and re.fullmatch(rf"mesuré 17,8{NB}MPa \(cube 22,0 × 0,811\) pour \d+,\d{NB}MPa prévus", e_long[0]),
+    (sorted(trop, reverse=True)[:3], j_long, e_long))
 
 # ------------------------------------------------------------------ 5. le sélecteur de classe
 print("\n=== 5. Le sélecteur de classe ===")
