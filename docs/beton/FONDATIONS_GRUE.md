@@ -83,6 +83,19 @@ sans rien recalculer (`beton/fondation_grue/export.py`).
 reprend pas d'un fichier. **L'export RBAR est refusé** tant qu'une vérification du classeur est « PAS OK » : on ne
 transmet pas au dessin une armature que la note refuse.
 
+**Le contrat du fichier RBAR** est [`FONDATIONS_GRUE_RBAR.md`](FONDATIONS_GRUE_RBAR.md) : chaque paramètre, son sens,
+son unité, et un fichier d'exemple complet (Greenwood, aux armatures de son plan d'armatures). C'est le document remis
+à la conversation qui développe RBAR. Le fichier est versionné et ne change que par **ajouts** ; la version 2
+(11/11/2026) ajoute ce qu'un plan écrit et que la version 1 ne portait pas — les textes de la grue (flèche, hauteur
+sous crochet, châssis, niveau), l'enrobage, la plus grande charge par pied — et, pour chaque armature, **d'où elle
+vient** : ses cellules du classeur (`cellules`) et le texte prêt à écrire sur le plan (`origine`).
+
+**Ce qui reste hors de RBAR, par décision du propriétaire** : RBAR sera vendu hors du bureau, ce site reste interne.
+La fondation de grue ne doit donc pas exister dans RBAR — ni commande, ni modèle, ni texte. C'est le fichier du site
+qui porte tout ; RBAR recevra une porte d'entrée générale (« construire un ouvrage décrit par un fichier »), et le
+vocabulaire du fichier d'aujourd'hui (`support`, `semelle`, `pieds`…) ne doit pas s'écrire dans son code. Le format
+neutre que RBAR lira est à définir par sa conversation ; le site s'y conformera.
+
 Ce que l'export ne peut pas donner, parce que le calcul ne le fixe pas : les longueurs des zones d'étriers, les
 formes, les retours, les ancrages et les recouvrements (standard du bureau), le nombre de rangées d'armatures
 latérales. Et ce que RBAR ne lit pas encore d'un fichier : la géométrie complète d'un élément, les étriers de renfort
@@ -111,8 +124,9 @@ seul dessin pour l'écran et pour la note).
 | Suite | Ce qu'elle tient |
 |---|---|
 | `tests/test_fondation_grue_moteur.py` | les 541 cellules calculées des quatre fiches et environ 7 800 valeurs des grands tableaux, reproduites à 10⁻⁹ près ; la statique indépendante ; les formules imprimées — leur gabarit réévalué, et leur ÉCRITURE : la chaîne imprimée de 1 236 formules (les quatre classeurs et 24 variantes) relue caractère par caractère ; l'enveloppe exacte de la poutre support ; 39 + 8 mutations vues |
-| `tests/test_api_web_fondation_grue.py` | ce que le site affiche, dessine et exporte = ce que le moteur calcule, sur 14 états ; aucun texte d'un dessin hors de son cadre ni sur un autre ; les refus ; l'échappement ; 52 mutations vues |
+| `tests/test_api_web_fondation_grue.py` | ce que le site affiche, dessine et exporte = ce que le moteur calcule, sur 14 états ; aucun texte d'un dessin hors de son cadre ni sur un autre ; le fichier RBAR en version 2 ; les refus ; l'échappement ; 57 mutations vues |
 | `tests/test_note_fondation_grue.py` | la note PDF relue par pdftotext sur 13 états et une grille de 40 fondations : tout ce que le moteur calcule y est, à la lettre (formules, cellules, verdicts, écarts, positions de tolérance, armatures), les dessins de l'écran, l'échelle du plan, la mise en page sans débordement, l'identification, les conditions du navigateur ; 21 mutations vues |
+| `tests/test_fondation_grue_contrat_rbar.py` | le document du fichier RBAR et le fichier disent la même chose : l'exemple du document est celui que le site produit, chaque paramètre exporté y est nommé, le tableau des 12 repères du plan Greenwood dit les cellules et les armatures du fichier, rien de la version 1 n'a disparu ; 14 mutations vues |
 | `tests/test_api_web_modules.py fondation_grue` | le contrat commun des modules du site |
 | `site/web/verifier_site.js` (`module:fondation_grue`, `formats:fondation_grue`, `note_pdf`) | l'écran dans le navigateur : PC, tablettes, téléphone ; la note PDF téléchargée d'un clic |
 

@@ -508,6 +508,15 @@ conclusion (« Contrôles … non respectés », « E7 × 2 »).
 Preuves : `tests/test_note_fondation_grue.py` (61 OK, 21 mutations), `tests/test_fondation_grue_moteur.py` (39 + 8
 mutations), `tests/test_api_web_fondation_grue.py` (52 mutations), le harnais `note_pdf` aux trois formats.
 
+**Le fichier RBAR en version 2, et son contrat écrit (11/11/2026).** Le propriétaire fait travailler une autre
+conversation dans le dépôt RBAR ; ce site lui fournit le fichier. `docs/beton/FONDATIONS_GRUE_RBAR.md` est le brief
+qui lui a été remis : la demande (le plan d'armatures Greenwood comme référence, huit vues, chaque barre tracée jusqu'à
+sa cellule du classeur), l'exigence de confidentialité (RBAR sera vendu : la fondation de grue n'y existe pas, c'est
+le fichier du site qui porte tout), chaque paramètre exporté et un fichier d'exemple réel. La version 2 du fichier
+ajoute les textes de la grue, l'enrobage, la charge maximale par pied et l'origine de chaque armature.
+`tests/test_fondation_grue_contrat_rbar.py` lie le document au fichier (14 mutations). **Suite attendue** : le format
+neutre que RBAR veut lire, à recevoir de sa conversation ; le site produira alors ce fichier-là.
+
 **À la relecture du bureau** : une coquille du classeur est reproduite telle quelle, parce qu'elle est dans la cellule
 G142 de la fiche — « Zone 3 = 1,12 N/mm² < τ << 1,68 N/mm² » (« << » pour « < »). À corriger dans le classeur si le
 bureau le veut ; le module suivra.

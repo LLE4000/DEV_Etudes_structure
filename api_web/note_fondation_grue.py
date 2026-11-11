@@ -955,14 +955,8 @@ class Note:
 
 
 def plage(cellules: Optional[str]) -> str:
-    """« G129, G130, G131, G132 » → « G129:G132 » : des cellules qui se suivent dans une colonne, en plage ; « — » sans cellule."""
-    cs = [c.strip() for c in (cellules or "").split(",") if c.strip()]
-    if not cs:
-        return "—"
-    m = [re.fullmatch(r"([A-Z]+)(\d+)", c) for c in cs]
-    if len(cs) > 1 and all(m) and len({x.group(1) for x in m}) == 1 and [int(x.group(2)) for x in m] == list(range(int(m[0].group(2)), int(m[0].group(2)) + len(cs))):
-        return f"{cs[0]}:{cs[-1]}"
-    return ", ".join(cs)
+    """« G129, G130, G131, G132 » → « G129:G132 » (``export.plage`` : la même écriture que dans le fichier RBAR) ; « — » sans cellule."""
+    return X.plage(cellules) or "—"
 
 
 def codes_ecarts(ecarts) -> str:

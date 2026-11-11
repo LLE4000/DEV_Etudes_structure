@@ -726,8 +726,15 @@ def fautes_export(mod=FG, x_mod=X):
     for ex, f in [(ex, EN.exemple(ex)) for ex in ("BASE", "GWW", "VAR4", "VAR8")] + [("GWW à deux groupes de barres", deux_groupes)]:
         r = MO.verifier(f)
         d = x_mod.rbar(r, {"date": "11/11/2026", "indice": "A", "chantier": "Essai"})
-        if d["format"] != "stab.fondation_grue" or d["note"]["classeur"] != r["classeur"] or d["note"]["date"] != "11/11/2026" or d["materiaux"] != {"beton": f["beton"], "acier": f["acier"]}:
+        if d["format"] != "stab.fondation_grue" or d["version"] != 2 or d["note"]["classeur"] != r["classeur"] or d["note"]["date"] != "11/11/2026" \
+                or d["materiaux"] != {"beton": f["beton"], "acier": f["acier"], "enrobage_mm": f.get("enrobage")}:
             fautes.append((ex, "l'en-tête du fichier RBAR"))
+        # (version 2) ce qu'un plan écrit dans son bloc « grue » : les textes saisis, tels quels ; la plus grande réaction d'un pied
+        if any(d["note"][k] != f.get(k, "") for k in ("fleche", "hauteur_crochet", "dimensions_chassis", "niveau_beton")):
+            fautes.append((ex, "les textes de la grue (flèche, hauteur sous crochet, châssis, niveau)", d["note"]))
+        p_max = max(c[k] for c in f["charges"]["cas"] for k in "ABCD") if f["type"] == EN.SEMELLES8 else f["charges"]["P"]
+        if d["charges"] != {"max_par_pied_kN": p_max}:
+            fautes.append((ex, "la charge maximale par pied", d["charges"], p_max))
         par = {}
         for a in r["armatures"]:
             par.setdefault(a["element"], {})[a["poste"]] = a
@@ -764,8 +771,17 @@ def fautes_export(mod=FG, x_mod=X):
         g = G.plan(f)
         if [(p["nom"], p["x"], p["y"], p["diametre"]) for p in d["implantation"]["pieux"]] != [(p["nom"], round(p["x"] * 10, 3), round(p["y"] * 10, 3), p["D"] * 10) for p in g["pieux"]]:
             fautes.append((ex, "l'implantation des pieux en mm"))
-        if d["armatures"] != r["armatures"] or d["controle"]["pret"] is not True:
+        nus = [{k: v for k, v in a.items() if k not in ("cellules", "origine")} for a in d["armatures"]]
+        if nus != r["armatures"] or d["controle"]["pret"] is not True:
             fautes.append((ex, "le tableau des armatures du fichier"))
+        # (version 2) d'où vient chaque armature : les cellules de saisie du classeur, en plage, et le texte prêt à écrire
+        for a in d["armatures"]:
+            cs = [cel for cle, cel in EN.SAISIES[f["type"]].items() if a["saisie"] and (cle == a["saisie"] or cle.startswith(a["saisie"] + "/"))]
+            suite = len(cs) > 1 and len({c[0] for c in cs}) == 1 and [int(c[1:]) for c in cs] == list(range(int(cs[0][1:]), int(cs[0][1:]) + len(cs)))
+            attendu = f"{cs[0]}:{cs[-1]}" if suite else ", ".join(cs)
+            fin = f"classeur {attendu}" if attendu else "prescription du classeur"
+            if a["cellules"] != attendu or a["origine"] != f"{f['nom']} · {a['nom_element']} · {a['designation']} · {fin}" or (a["genre"] != "prescription") != bool(attendu):
+                fautes.append((ex, "l'origine d'une armature (cellules du classeur)", a["poste"], a["cellules"], a["origine"]))
         # le DXF : des paires code / valeur, un cercle par pieu au rayon réel, de l'ASCII
         lignes = x_mod.dxf(r, {}).split("\n")
         if lignes[-1] != "" or len(lignes[:-1]) % 2 or lignes[:4] != ["0", "SECTION", "2", "HEADER"] or lignes[-3:-1] != ["0", "EOF"] or not "\n".join(lignes).isascii():
@@ -778,6 +794,11 @@ def fautes_export(mod=FG, x_mod=X):
         csv = x_mod.tableau(r).strip().split("\n")
         if not csv[0].startswith("Élément;Poste;Armature") or len(csv) != 1 + sum(len(a["groupes"]) if a["genre"] == "barres" else 1 for a in r["armatures"]):
             fautes.append((ex, "le tableau des armatures (CSV)", len(csv)))
+    # la charge maximale par pied : le plus grand pied de TOUS les cas (dans les exemples, c'est le premier cas qui la donne)
+    f = copy.deepcopy(EN.exemple("GWW"))
+    f["charges"]["cas"][4]["C"] = 2345.0
+    if x_mod.charge_max_par_pied(f) != 2345.0:
+        fautes.append(("GWW", "la charge maximale par pied : le plus grand pied de tous les cas", x_mod.charge_max_par_pied(f)))
     # les cas de la grue (CSV) : une ligne par colonne des quatre grands tableaux, les valeurs du moteur
     r = MO.verifier(EN.exemple("GWW"))
     csv = [li.split(";") for li in x_mod.tableau_cas(r).strip().split("\n")]
@@ -925,6 +946,11 @@ MUTATIONS_ECRAN = [
     ("« tableau » rend le fichier des cas de la grue", 'if quoi == "tableau":', 'if quoi == "tablo":', fautes_fichiers),
 ]
 MUTATIONS_EXPORT = [
+    ("la charge maximale par pied est celle du premier cas", '        return max(float(c[k]) for c in ch["cas"] for k in E.PIEDS)', '        return max(float(ch["cas"][0][k]) for k in E.PIEDS)'),
+    ("l'origine d'une armature oublie ses cellules", '(f"classeur {cel}" if cel else "prescription du classeur")', '("prescription du classeur" if cel else "prescription du classeur")'),
+    ("les cellules d'une armature ne sont plus mises en plage", '        return f"{cs[0]}:{cs[-1]}"\n    return ", ".join(cs)', '        return ", ".join(cs)\n    return ", ".join(cs)'),
+    ("l'enrobage n'est plus dit dans les matériaux", '"enrobage_mm": f.get("enrobage")}', '"enrobage_mm": None}'),
+    ("la flèche de la grue n'est plus transmise", '"fleche": f.get("fleche", ""),', '"fleche": "",'),
     ("le fichier RBAR part malgré une vérification PAS OK", '    if not c["pret"]:\n        raise ValueError("Export refusé', '    if False:\n        raise ValueError("Export refusé'),
     ("le second groupe de barres n'est pas exporté", "                if len(p[face][\"groupes\"]) > 1:", "                if False:"),
     ("les barres hautes exportées sont les barres basses", '"haut": _lit(p["sup"]["groupes"]),', '"haut": _lit(p["inf"]["groupes"]),'),

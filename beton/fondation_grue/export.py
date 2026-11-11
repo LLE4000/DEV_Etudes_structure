@@ -17,14 +17,22 @@ le classeur ni l'export ne fixent : RBAR le prend dans le standard du bureau, ou
 BLOQUE (une vérification non conforme : le fichier RBAR est alors refusé).
 
 Ce que RBAR ne sait pas recevoir aujourd'hui est écrit dans ``LIMITES_RBAR`` et dans le fichier lui-même.
+
+Le fichier est VERSIONNÉ, et il ne change que par AJOUTS : un paramètre publié ne change ni de nom ni de sens. Son
+contrat — chaque paramètre, son sens, son unité, un fichier d'exemple — est ``docs/beton/FONDATIONS_GRUE_RBAR.md`` ;
+``tests/test_fondation_grue_contrat_rbar.py`` lie le document au fichier.
+    version 1 (11/11/2026) : note, modelesPoutre, pieux, fondations, materiaux, pieces, implantation, armatures, controle ;
+    version 2 (11/11/2026) : note.fleche / hauteur_crochet / dimensions_chassis / niveau_beton, materiaux.enrobage_mm,
+                             charges.max_par_pied_kN, et pour chaque armature ``cellules`` et ``origine``.
 """
 import json
+import re
 
 from . import entree as E
 from . import geometrie as G
 
 FORMAT = "stab.fondation_grue"
-VERSION = 1
+VERSION = 2
 LIMITES_RBAR = (
     "RBAR importe les modèles de poutre (« modelesPoutre ») : palette › liste des modèles › Importer JSON. Il ne lit "
     "pas encore le reste de ce fichier (géométrie, pieux, armatures de renfort, perfos).",
@@ -40,6 +48,33 @@ def _cellules(f: dict, chemin: str) -> str:
     """Les cellules de saisie d'une armature (« G129, G130 ») : la correspondance de ``entree.SAISIES``."""
     s = E.SAISIES[f["type"]]
     return ", ".join(cel for cle, cel in s.items() if cle == chemin or cle.startswith(chemin + "/"))
+
+
+def plage(cellules) -> str:
+    """« G129, G130, G131, G132 » → « G129:G132 » : des cellules qui se suivent dans une colonne s'écrivent en plage ;
+    sinon la liste telle quelle ; « » sans cellule."""
+    cs = [c.strip() for c in (cellules or "").split(",") if c.strip()]
+    m = [re.fullmatch(r"([A-Z]+)(\d+)", c) for c in cs]
+    if len(cs) > 1 and all(m) and len({x.group(1) for x in m}) == 1 \
+            and [int(x.group(2)) for x in m] == list(range(int(m[0].group(2)), int(m[0].group(2)) + len(cs))):
+        return f"{cs[0]}:{cs[-1]}"
+    return ", ".join(cs)
+
+
+def origine(f: dict, a: dict) -> str:
+    """D'où vient une armature, en un texte prêt à écrire sur le plan : la note, la pièce, le poste, puis les cellules
+    du classeur — ou « prescription du classeur » quand le classeur la prescrit sans la calculer."""
+    cel = plage(_cellules(f, a["saisie"])) if a.get("saisie") else ""
+    return f"{f['nom']} · {a['nom_element']} · {a['designation']} · " + (f"classeur {cel}" if cel else "prescription du classeur")
+
+
+def charge_max_par_pied(f: dict) -> float:
+    """La plus grande réaction verticale d'un pied de la grue (kN), tous cas confondus : ce que le plan écrit « charge
+    maximale par pied ». Schéma à semelles : le plus grand A, B, C ou D des cas saisis ; variantes : la charge P."""
+    ch = f["charges"]
+    if f["type"] == E.SEMELLES8:
+        return max(float(c[k]) for c in ch["cas"] for k in E.PIEDS)
+    return float(ch["P"])
 
 
 def controle(res: dict) -> dict:
@@ -154,11 +189,15 @@ def rbar(res: dict, infos: dict = None) -> dict:
         "format": FORMAT, "version": VERSION,
         "note": {"nom": f["nom"], "projet": f.get("projet", ""), "grue": f.get("grue", ""), "schema": f["type"],
                  "libelle": E.LIBELLES_TYPE[f["type"]], "classeur": res["classeur"], "statut": res["statut"],
-                 "date": infos.get("date", ""), "indice": infos.get("indice", ""), "chantier": infos.get("chantier", "")},
+                 "date": infos.get("date", ""), "indice": infos.get("indice", ""), "chantier": infos.get("chantier", ""),
+                 # (version 2) les textes du bloc « grue » d'un plan, tels que saisis ; vides quand la fiche ne les a pas
+                 "fleche": f.get("fleche", ""), "hauteur_crochet": f.get("hauteur_crochet", ""),
+                 "dimensions_chassis": f.get("dimensions_chassis", ""), "niveau_beton": f.get("niveau_beton", "")},
         "limites": list(LIMITES_RBAR),
         "modelesPoutre": modeles_rbar(res),
         "pieux": _pieux_rbar(res), "fondations": _massifs_rbar(res),
-        "materiaux": {"beton": f["beton"], "acier": f["acier"]},
+        "materiaux": {"beton": f["beton"], "acier": f["acier"], "enrobage_mm": f.get("enrobage")},
+        "charges": {"max_par_pied_kN": charge_max_par_pied(f)},
         "pieces": res["pieces"],
         "implantation": {
             "unite": "mm", "repere": "origine au centre du châssis ; x vers la droite, y vers le haut",
@@ -169,7 +208,8 @@ def rbar(res: dict, infos: dict = None) -> dict:
                         "axe": _mm(p["axe"])} for p in g["pieces"]],
             "paroi": None if not g["paroi"] else {k: v * 10 for k, v in g["paroi"].items()},
             "conventions": g["conventions"]},
-        "armatures": res["armatures"],
+        "armatures": [dict(a, cellules=plage(_cellules(f, a["saisie"])) if a.get("saisie") else "", origine=origine(f, a))
+                      for a in res["armatures"]],
         "controle": c,
     }
 
