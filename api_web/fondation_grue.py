@@ -27,10 +27,10 @@ import math
 import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from acier.assemblages.poutre_poutre.doubles_cornieres import formules as KIT
 from beton.fondation_grue import classeur as K
 from beton.fondation_grue import donnees as D
 from beton.fondation_grue import ecarts as EC
+from beton.fondation_grue import ecriture as W
 from beton.fondation_grue import entree as EN
 from beton.fondation_grue import export as X
 from beton.fondation_grue import moteur as MO
@@ -710,14 +710,11 @@ def _export(r: Dict) -> str:
 
 
 # ------------------------------------------------------------------ les fenêtres de calcul
-def _sub(fx: Dict) -> KIT.Sub:
-    return KIT.Sub(fx["nom"], fx["gabarit"], {t[0]: (t[1], t[2]) for t in fx["termes"]}, fx["resultat"], fx["unite"], fx["nd"])
-
-
 def _fx(fx: Dict) -> str:
     """Une formule du classeur : « symbole = expression = valeurs = résultat », puis la CELLULE dont elle reproduit la
-    valeur. Le gabarit et ses termes viennent du moteur ; le kit de formules les habille (le test les réévalue)."""
-    parts, res = KIT.morceaux(_sub(fx))
+    valeur. Le gabarit et ses termes viennent du moteur ; ``ecriture`` les écrit, comme dans la note PDF (le test relit
+    la chaîne imprimée)."""
+    parts, res = W.morceaux(fx)
     h = f'<span class="s">{C.symb_math(parts[0])}</span>' + "".join(f'<span class="eq">=</span><span>{C.symb_math(p)}</span>' for p in parts[1:])
     cel = f'<span class="fg-cel" title="Cellule du classeur">{C.esc(fx["cellule"])}</span>' if fx.get("cellule") else ""
     return f'<div class="fx">{h}<span class="eq">=</span><span class="r">{C.esc(res)}</span>{cel}</div>'
@@ -743,7 +740,7 @@ def _hyps(r: Dict) -> List[str]:
 
 def _ligne_tableau(v: Dict, gov: bool) -> Dict:
     a, b = _libelles(v)
-    formule = C.symb_math(KIT.litteral(_sub(v["formules"][0]))) if v["formules"] and v["formules"][0]["gabarit"] else ""
+    formule = C.symb_math(W.litteral(v["formules"][0])) if v["formules"] and v["formules"][0]["gabarit"] else ""
     return {"nom": C.esc(_court(v)), "sous": f"{C.esc(v['piece'])} · classeur : {C.esc(v['etat_classeur'])} ({C.esc(v['cellule_etat'])})",
             "formule": formule, "valeur": f"{a} = {_nu(v['valeur'], v['unite'])}", "limite": f"{b} = {_nu(v['limite'], v['unite'])}",
             "taux": C.pct(v["taux"]) if v["taux"] is not None else None, "niveau": _niv(v), "gov": gov}
@@ -843,7 +840,7 @@ def _volets(r: Dict, nom: str) -> str:
             g = _groupe(info["nom"], [info["formule"]])
             tout += g
             niv = NIVEAUX_ETAT[info["etat"]]
-            ligne = {"nom": C.symb_math(info["nom"]), "sous": C.esc(info.get("texte") or ""), "formule": C.symb_math(KIT.litteral(_sub(info["formule"]))),
+            ligne = {"nom": C.symb_math(info["nom"]), "sous": C.esc(info.get("texte") or ""), "formule": C.symb_math(W.litteral(info["formule"])),
                      "valeur": _nu(info["valeur"], info.get("unite", "")), "limite": "—", "niveau": niv,
                      "etat_txt": (info.get("zone") or "valeur").capitalize()}
             out += C.fenetre_calcul(_cle_info(b, k), f"{nom} · {C.symb_math(info['nom'])}", base, hyps, [ligne], soll + g, pied)

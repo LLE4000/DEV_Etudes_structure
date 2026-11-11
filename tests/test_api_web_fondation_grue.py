@@ -37,7 +37,7 @@ import xml.etree.ElementTree as ET
 RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
-from acier.assemblages.poutre_poutre.doubles_cornieres import formules as KIT  # noqa: E402
+from beton.fondation_grue import ecriture as W  # noqa: E402
 from api_web import commun as C  # noqa: E402
 from api_web import fondation_grue as FG  # noqa: E402
 from api_web import routeur as R  # noqa: E402
@@ -449,8 +449,10 @@ def fenetre(volets, ident):
 
 
 def ligne_formule(fx):
-    """La ligne attendue d'une formule du moteur, en texte : « symbole = expression = valeurs = résultat cellule »."""
-    parts, res = KIT.morceaux(KIT.Sub(fx["nom"], fx["gabarit"], {t[0]: (t[1], t[2]) for t in fx["termes"]}, fx["resultat"], fx["unite"], fx["nd"]))
+    """La ligne attendue d'une formule du moteur, en texte : « symbole = expression = valeurs = résultat cellule » —
+    l'écriture commune à l'écran et à la note (``ecriture.py`` ; tests/test_fondation_grue_moteur.py relit ce qu'elle
+    imprime)."""
+    parts, res = W.morceaux(fx)
     return " ".join((" = ".join(texte(C.symb_math(p)) for p in parts) + " = " + res + (" " + fx["cellule"] if fx.get("cellule") else "")).split())
 
 

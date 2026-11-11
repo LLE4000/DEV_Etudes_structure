@@ -484,6 +484,16 @@ pas dans la ligne de l'élément et sa liste sortait de l'écran du téléphone 
 écarts (étude § 11) ; RBAR ne lit pas encore d'un fichier la géométrie d'un élément, les étriers de renfort au droit
 des pieux ni les perfos — ils partent dans le tableau.
 
+**Écriture des formules corrigée (11/11/2026, après la mise en ligne).** En préparant la note PDF, la relecture des
+fenêtres de calcul a trouvé trois écritures fausses sous des résultats justes : « × 10³ » imprimé « × 100 » (étriers et
+cisaillement, quand la part de V intervient), « H_pied » écrit « H_πed » (perfos), un tiret pour le signe moins (« −P·e »
+de la variante 4 pieux). Cause : la brique partagée des substitutions (jeton du facteur 1000 portant une lettre,
+« pi » remplacé partout). Corrigée à la racine ; les autres modules qui l'utilisent (assemblages, cornières, soudures,
+garde-corps) gardent des photos de référence identiques. En plus : les termes s'impriment à cinq chiffres
+significatifs (« 1032,4 × 1,15 − … = 468,3 » se refait à la main), `beton/fondation_grue/ecriture.py` est l'écriture
+commune de l'écran et de la note, et `tests/test_fondation_grue_moteur.py` relit la chaîne IMPRIMÉE de 1 236 formules
+(8 mutations d'écriture vues). Photos de référence regelées avec la raison écrite.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

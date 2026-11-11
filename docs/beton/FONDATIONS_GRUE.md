@@ -88,13 +88,21 @@ au droit des pieux, les perfos — ils sont dans le tableau, à poser par le des
 
 | Suite | Ce qu'elle tient |
 |---|---|
-| `tests/test_fondation_grue_moteur.py` | les 541 cellules calculées des quatre fiches et environ 7 800 valeurs des grands tableaux, reproduites à 10⁻⁹ près ; la statique indépendante ; les formules imprimées, réévaluées ; 37 mutations vues |
+| `tests/test_fondation_grue_moteur.py` | les 541 cellules calculées des quatre fiches et environ 7 800 valeurs des grands tableaux, reproduites à 10⁻⁹ près ; la statique indépendante ; les formules imprimées — leur gabarit réévalué, et leur ÉCRITURE : la chaîne imprimée de 1 236 formules (les quatre classeurs et 24 variantes) relue caractère par caractère ; 37 + 8 mutations vues |
 | `tests/test_api_web_fondation_grue.py` | ce que le site affiche, dessine et exporte = ce que le moteur calcule, sur 14 états ; les refus ; l'échappement ; 48 mutations vues |
 | `tests/test_api_web_modules.py fondation_grue` | le contrat commun des modules du site |
 | `site/web/verifier_site.js` (`module:fondation_grue`, `formats:fondation_grue`) | l'écran dans le navigateur : PC, tablettes, téléphone |
 
 Les valeurs de référence (`tests/ref_fondation_grue.json`) sont tirées des classeurs par
 `tools/transcrire_fondation_grue.py`.
+
+**L'écriture des formules** (`beton/fondation_grue/ecriture.py`) est la même dans la fenêtre de calcul et dans la note :
+« symbole = expression = valeurs = résultat », les valeurs à cinq chiffres significatifs (un calcul refait à la main avec
+les nombres imprimés retombe sur le résultat imprimé), la cellule du classeur au bout de la ligne. Le 11/11/2026, la
+relecture de l'écran a trouvé trois écritures fausses sous des résultats justes : « × 10³ » imprimé « × 100 » quand la
+part de V intervenait, « H_pied » écrit « H_πed », un tiret pour le signe moins de « −P·e ». La cause était dans la
+brique partagée qui écrit les substitutions (`acier/assemblages/poutre_poutre/doubles_cornieres/formules.py`) ; elle
+est corrigée là, et le test relit désormais la chaîne IMPRIMÉE — l'ancien contrôle ne réévaluait que le gabarit.
 
 ## 7. Ce qui n'est pas couvert
 

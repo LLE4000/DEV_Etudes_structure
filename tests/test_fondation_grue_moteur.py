@@ -15,7 +15,11 @@ VAR4, VAR8 par ``tools/transcrire_fondation_grue.py``) ; étude : ``docs/beton/F
      leurs moments et leurs efforts tranchants — sur les exemples et sur des fondations tirées au sort ; les seuls
      écarts sont ceux que l'étude nomme (E8 : maximum lu tous les 5 cm ; E16 : moment pris sous la charge).
   6. FORMULES : chaque formule imprimée (note, fenêtres de calcul) se retrouve à 1e-9 à partir de ses seuls termes,
-     et à l'arrondi d'affichage près avec les nombres tels qu'ils sont imprimés (kit des notes).
+     et à l'arrondi d'affichage près avec les nombres tels qu'ils sont imprimés (kit des notes) ; et son ÉCRITURE
+     (``ecriture.py``) : la chaîne IMPRIMÉE, relue caractère par caractère, vaut le gabarit ; chaque symbole y est écrit
+     tel quel ; ni caractère invisible, ni tiret à la place du signe moins, ni parenthèses autour d'un symbole seul
+     (11/11/2026 : un « × 10³ » s'imprimait « × 100 », « H_pied » s'écrivait « H_πed » — le résultat était juste,
+     l'écriture fausse, et le contrôle d'alors ne relisait que le gabarit).
   7. ÉCARTS : ceux de l'étude, chiffrés, sur les quatre exemples ; ils apparaissent et disparaissent avec leur cause.
   8. MOTEUR : états (OK → ok, LIMITE → warn, PAS OK → nok, zones de τ), taux, vérification gouvernante, contrôles de
      géométrie de la fiche BASE, diagrammes (enveloppe = maximum des positions), armatures = saisies (l'export ne
@@ -31,6 +35,7 @@ import json
 import math
 import os
 import random
+import re
 import subprocess
 import sys
 import types
@@ -39,7 +44,7 @@ RACINE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, RACINE)
 
 import beton.fondation_grue as PAQUET  # noqa: E402
-from beton.fondation_grue import classeur, donnees, ecarts, entree, formules, moteur, statique  # noqa: E402
+from beton.fondation_grue import classeur, donnees, ecarts, ecriture, entree, formules, moteur, statique  # noqa: E402
 from acier.assemblages.poutre_poutre.doubles_cornieres import formules as KIT  # noqa: E402
 
 NOMS_MODULES = ("donnees", "entree", "statique", "classeur", "ecarts", "formules", "moteur")
@@ -414,24 +419,102 @@ for nom in CLASSEURS:
             sorted(attendues - posees)[:10])
 chk("au total, 541 cellules calculées des quatre fiches sont comparées (93 + 118 + 165 + 165)", total == 541, total)
 
-print("\n=== 6. Les formules telles qu'elles sont imprimées (kit des notes) ===")
-n_f, mauvaises = 0, []
-for nom in CLASSEURS:
-    res = moteur.verifier(entree.exemple(nom))
+print("\n=== 6. Les formules telles qu'elles sont IMPRIMÉES (ecriture.py, kit des notes) ===")
+
+
+def formules_de(res):
+    """Toutes les formules qu'un résultat fait imprimer : sollicitations, vérifications, cisaillement."""
     for bloc in res["blocs"]:
-        fs = (list(bloc["sollicitations"]) + [x for v in bloc["verifications"] for x in v["formules"]]
-              + [i["formule"] for i in bloc["informations"] if i.get("formule")])
-        for fx in fs:
-            sub = KIT.Sub(fx["nom"], fx["gabarit"], {t[0]: (t[1], t[2]) for t in fx["termes"]}, fx["resultat"], fx["unite"], fx["nd"])
-            ok, v = KIT.verifier(sub, tol=0.02)
-            n_f += 1
-            if not ok or "=" not in KIT.rendre(sub):
-                mauvaises.append((nom, fx["nom"], KIT.rendre(sub), v))
-chk(f"les {n_f} formules des quatre exemples, relues avec les nombres IMPRIMÉS, redonnent leur résultat à 2 % près",
-    not mauvaises and n_f >= 180, mauvaises[:4])
+        yield from bloc["sollicitations"]
+        for v in bloc["verifications"]:
+            yield from v["formules"]
+        for i in bloc["informations"]:
+            if i.get("formule"):
+                yield i["formule"]
+
+
+# les quatre classeurs, et des fondations tirées au sort autour d'eux (autres nombres, mêmes écritures)
+RESULTATS_ECRITURE = [moteur.verifier(f) for f in [entree.exemple(n) for n in CLASSEURS] + variantes(MODS, 24, graine=7)]
+# ce qui doit se LIRE, relu à la main sur les classeurs : (classeur, début du nom, cellule) → la formule entière ou sa fin
+ATTENDUES = (
+    ("BASE", "C145", "/(V_max·part de V (%)/100) = 6 × π × (12/2)² × 333,33 × 658/(989,56 × 10³ × 100/100) = 150 mm"),
+    ("BASE", "C142", "τ = V_max·part de V (%)/100/(0,75·b·d) = 989,56 × 100/100 × 10³/(0,75 × 1200 × 688) = 1,6 N/mm²"),
+    ("BASE", "C257", "Ω_perfos = H_pied/150 = 49,439 × 10³/150 = 330 mm²"),
+    ("BASE", "C189", "·(d − enrobage)/V_max = 4 × π × (12/2)² × 333,33 × (688 − 40)/(602,17 × 10³) = 162 mm"),
+    ("VAR4", "C37", "M_min (CAS A) = −P·e − pp·e²/2 = −474 × 0,15 − 11,25 × 0,15²/2 = −71,2 kN·m"),
+    ("GWW", "C94", "= R_A·x − pp·x²/2 − P_1·(x − a') = 1032,4 × 1,15 − 24,5 × 1,15²/2 − 1004 × (1,15 − 0,45) = 468,3 kN·m"),
+    ("GWW", "C128", "Ω_inf = M_max,éq/(σ_adm·0,9·d) = 470,5 × 10⁶/(333,33 × 0,9 × 638) = 2458 mm²"),
+)
+_SYMBOLE_SEUL = re.compile(r"/\(([^()\s·×+−/*-]+)\)")
+_PI_COLLE = re.compile(r"[^\W\d_]π|π[^\W\d_]")
+
+
+def fautes_ecriture(W) -> list:
+    """Ce que l'écriture ``W`` (le module ``ecriture``, ou un mutant) imprime de faux ; liste vide = rien."""
+    r, n = [], 0
+    for res in RESULTATS_ECRITURE:
+        for fx in formules_de(res):
+            n += 1
+            parts, resultat = W.morceaux(fx)
+            if not parts or parts[0] != fx["nom"] or not resultat or any(not p.strip() for p in parts):
+                r.append(f"morceaux vides ou sans nom : {fx['nom']} → {parts} = {resultat}")
+            if not fx["gabarit"]:
+                continue
+            lit, num = W.litteral(fx), W.numerique(fx)
+            ici = f"{fx['nom']} = {lit} = {num}"
+            # 1. la chaîne IMPRIMÉE, relue, vaut le gabarit évalué avec les mêmes nombres imprimés
+            try:
+                relu, attendu = W.relire(num), KIT.evaluer(W.sub(fx))
+                if not math.isclose(relu, attendu, rel_tol=1e-9, abs_tol=1e-9):
+                    r.append(f"la chaîne imprimée ne vaut pas son gabarit ({relu:.6g} ≠ {attendu:.6g}) : {ici}")
+            except Exception as err:  # noqa: BLE001
+                r.append(f"chaîne imprimée illisible ({type(err).__name__}: {err}) : {ici}")
+            # 2. … et redonne le résultat du classeur, à l'arrondi d'affichage près
+            ok, v = KIT.verifier(W.sub(fx), tol=0.02)
+            if not ok:
+                r.append(f"les nombres imprimés ne redonnent pas le résultat ({v} ≠ {fx['resultat']}) : {ici}")
+            # 3. chaque symbole est écrit tel quel dans la forme littérale
+            ids = set(KIT._IDENT.findall(fx["gabarit"]))
+            for ident, symbole, _ in fx["termes"]:
+                if ident in ids and symbole not in lit:
+                    r.append(f"symbole abîmé : « {symbole} » introuvable dans « {lit} » ({fx['nom']})")
+            # 4. la typographie : rien d'invisible, π seul, le vrai signe moins, la virgule décimale, pas de parenthèses
+            #    autour d'un symbole seul
+            for p in parts[1:] + [lit, num]:
+                if "\u2063" in p or _PI_COLLE.search(p) or "-" in p or _SYMBOLE_SEUL.search(p) or re.search(r"\d\.\d", p):
+                    r.append(f"typographie : « {p} » ({fx['nom']})".replace("\u2063", "<invisible>"))
+                    break
+            # 5. l'écriture des gabarits : la virgule d'un argument est suivie d'un espace (la virgule décimale ne l'est pas)
+            if re.search(r",(?! )", fx["gabarit"]):
+                r.append(f"gabarit : une virgule d'argument sans espace ({fx['gabarit']})")
+    if n < 1000:
+        r.append(f"seulement {n} formules relues")
+    # 6. ce qui doit se lire, à la lettre
+    for nom, cellule_, attendu in ATTENDUES:
+        ecrites = [" = ".join(W.morceaux(fx)[0] + [W.morceaux(fx)[1]]) for fx in formules_de(RESULTATS_ECRITURE[CLASSEURS.index(nom)])
+                   if fx.get("cellule") == cellule_]
+        if not ecrites or not any(e.endswith(attendu) for e in ecrites):
+            r.append(f"écriture attendue ({nom} {cellule_}) : « {attendu} » — écrit : {ecrites[:1]}")
+    return r
+
+
+FAUTES = fautes_ecriture(ecriture)
+N_FORMULES = sum(1 for res in RESULTATS_ECRITURE for _ in formules_de(res))
+chk(f"les {N_FORMULES} formules de {len(RESULTATS_ECRITURE)} fondations (les quatre classeurs et 24 variantes) : la chaîne IMPRIMÉE, relue, "
+    "vaut son gabarit ; les nombres imprimés redonnent le résultat à 2 % près ; chaque symbole est écrit tel quel ; ni caractère "
+    "invisible, ni « π » collé à une lettre, ni tiret pour un moins, ni point décimal, ni « /(symbole) »", not FAUTES, FAUTES[:4])
+chk("relire : « 989,6 × 10³ × 100/100 » vaut 989 600, « √(4 × 10⁶/(2 × 0,5)) » vaut 2 000, « max(|−3|, 2,5) » vaut 3",
+    (ecriture.relire("989,6 × 10³ × 100/100"), ecriture.relire("√(4 × 10⁶/(2 × 0,5))"), ecriture.relire("max(|−3|, 2,5)")) == (989600.0, 2000.0, 3.0))
+for nom_, cellule_, attendu_ in ATTENDUES:
+    chk(f"{nom_}, cellule {cellule_} : « {attendu_} »", not any(x.startswith(f"écriture attendue ({nom_} {cellule_})") for x in FAUTES),
+        [x for x in FAUTES if cellule_ in x][:1])
+chk("un terme s'imprime à CINQ chiffres significatifs : 1032,41 → 1032,4 ; 989,56 ; 333,33 ; 0,1708 ; 12 ; 0,45 (le calcul refait à la "
+    "main avec les nombres imprimés retombe sur le résultat imprimé)",
+    [KIT.terme(("", v, ecriture.decimales(v))) for v in (1032.4108, 989.5615, 333.33, 0.1708, 12.0, 0.45, 468.2718, 0.0)]
+    == ["1032,4", "989,56", "333,33", "0,1708", "12", "0,45", "468,27", "0"])
 res4 = moteur.verifier(entree.exemple("VAR4"))
 h = next(x for x in res4["blocs"][3]["sollicitations"] if x["nom"] == "H_pied")
-texte = KIT.rendre(KIT.Sub(h["nom"], h["gabarit"], {t[0]: (t[1], t[2]) for t in h["termes"]}, h["resultat"], h["unite"], h["nd"]))
+texte = " = ".join(ecriture.morceaux(h)[0] + [ecriture.morceaux(h)[1]])
 chk("l'effort horizontal des variantes s'imprime comme le classeur l'écrit (M/2/L/100, L en cm)",
     "200/2/450/100" in texte and texte.endswith("23 kN"), texte)
 
@@ -566,6 +649,61 @@ chk(f"{len(MUTATIONS)} mutations (une formule ou une règle chacune : base de do
     f"(de {min(comptes or [0])} à {max(comptes or [0])} reproches)", not survivants, survivants)
 chk("la mutation témoin (un commentaire) n'est rejetée par aucun contrôle", not controles(charger_mutant(TEMOIN)))
 chk("après les mutations, le moteur chargé est intact", not controles({n: getattr(PAQUET, n) for n in NOMS_MODULES}))
+
+print("\n=== 11 bis. Mutations de l'écriture (le kit des substitutions, ecriture.py) ===")
+
+
+def ecriture_mutante(mut_kit=(), mut_ecriture=()):
+    """Le module ``ecriture`` rechargé depuis ses sources avec [(avant, après)], sur un KIT rechargé de même : rien
+    n'est changé dans les modules chargés."""
+    def charger(nom, fichier, paquet, mutations):
+        with open(fichier, encoding="utf-8") as f_:
+            src = f_.read()
+        for avant, apres in mutations:
+            if src.count(avant) != 1:
+                raise AssertionError(f"mutation périmée : « {avant} » ({src.count(avant)} fois dans {os.path.basename(fichier)})")
+            src = src.replace(avant, apres)
+        m = types.ModuleType(nom)
+        m.__package__, m.__file__ = paquet, fichier
+        sys.modules[nom] = m                      # (une dataclass cherche son module dans sys.modules)
+        try:
+            exec(compile(src, fichier, "exec"), m.__dict__)
+        finally:
+            del sys.modules[nom]
+        return m
+
+    kit = charger("kit_mutant", KIT.__file__, KIT.__package__, mut_kit)
+    w = charger("ecriture_mutante", ecriture.__file__, "beton.fondation_grue", mut_ecriture)
+    w.KIT = kit
+    return w
+
+
+MUTATIONS_ECRITURE = (
+    ("kit : le jeton du facteur 1000 porte une lettre (un terme « k » prend sa place : « × 10³ » imprimé « × 100 »)",
+     [('_KILO = "\\u2063\\u2063"', '_KILO = "\\u2063k\\u2063"')], []),
+    ("kit : « pi » remplacé partout (« H_pied » imprimé « H_πed »)", [('expr = _PI.sub("π", expr)', 'expr = expr.replace("pi", "π")')], []),
+    ("kit : le moins en tête d'expression reste un tiret", [('    expr = _MOINS_UNAIRE.sub(lambda m: m.group(1) + "−", expr)\n', "")], []),
+    ("kit : la virgule décimale n'est plus posée (« 0.45 » imprimé)", [('expr = re.sub(r"(?<![A-Za-z])(\\d+)\\.(\\d+)", r"\\1,\\2", expr)', "expr = expr")], []),
+    ("ecriture : les parenthèses autour d'un symbole seul restent (« /(V_max) »)", [], [('return _PARENTHESES_INUTILES.sub(r"/\\1", expression)', "return expression")]),
+    ("ecriture : relire lit « 10³ » comme 100", [], [('t.replace("10³", "1000")', 't.replace("10³", "100")')]),
+    ("ecriture : quatre chiffres significatifs (« 1032 × 1,15 − … = 468,3 » ne se refait plus à la main)", [],
+     [("return max(0, min(5, 4 - int(math.floor(math.log10(abs(v))))))", "return max(0, min(4, 3 - int(math.floor(math.log10(abs(v))))))")]),
+    ("kit : les décimales données pour un terme sont ignorées", [("    return fmt(v[1], v[2] if len(v) > 2 else None)", "    return fmt(v[1])")], []),
+)
+survivants_e = []
+for nom, mk, me in MUTATIONS_ECRITURE:
+    try:
+        rej = fautes_ecriture(ecriture_mutante(mk, me))
+    except AssertionError as err:
+        survivants_e.append(f"{nom} : {err}")
+        continue
+    except Exception as err:  # noqa: BLE001
+        rej = [type(err).__name__]
+    if not rej:
+        survivants_e.append(nom)
+chk(f"{len(MUTATIONS_ECRITURE)} mutations de l'écriture (le jeton du facteur 1000, la constante π, le signe moins, la virgule décimale, les "
+    "parenthèses, la relecture, les chiffres significatifs) : TOUTES rejetées", not survivants_e, survivants_e)
+chk("le kit et l'écriture rechargés SANS mutation n'impriment rien de faux (le témoin)", not fautes_ecriture(ecriture_mutante()))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

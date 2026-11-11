@@ -27,7 +27,8 @@ INF = 1e8
 @dataclass
 class Sub:
     """Une substitution : ``nom = template(symboles) = template(valeurs) =
-    résultat unité``. ``vals`` : identifiant → (symbole, valeur)."""
+    résultat unité``. ``vals`` : identifiant → (symbole, valeur) ou (symbole, valeur, décimales) — sans décimales
+    données, la valeur s'imprime à quatre chiffres significatifs (``decimales``)."""
     nom: str
     template: str
     vals: dict = field(default_factory=dict)
@@ -59,6 +60,11 @@ def fmt(v, nd=None):
     return s.replace("-", "−")
 
 
+def terme(v):
+    """Un terme tel qu'il est imprimé : ``v`` = (symbole, valeur) ou (symbole, valeur, décimales)."""
+    return fmt(v[1], v[2] if len(v) > 2 else None)
+
+
 def nombre(s):
     """La valeur d'un nombre imprimé."""
     return float(s.replace("−", "-").replace(",", "."))
@@ -68,7 +74,12 @@ _IDENT = re.compile(r"(?<![A-Za-z0-9_.])([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_(]
 _FONCTIONS = {"sqrt", "min", "max", "abs", "pi"}
 
 
-_KILO = "⁣k⁣"          # jeton d'un facteur 1000 (unités), posé avant la substitution
+# le jeton d'un facteur 1000 (unités), posé avant la substitution des identifiants : deux séparateurs invisibles, AUCUN
+# caractère d'identifiant — avec une lettre (« k »), un terme nommé k prenait sa place et le « × 10³ » s'imprimait
+# « × 100 » (trouvé le 11/11/2026 dans les fondations de grues : la part de V, en %)
+_KILO = "\u2063\u2063"
+_PI = re.compile(r"(?<!\w)pi(?!\w)")                 # la constante seule : « H_pied » ne devient pas « H_πed »
+_MOINS_UNAIRE = re.compile(r"(^|[(,]\s*)-(?=\S)")    # un moins en tête, après « ( » ou « , » : le vrai signe moins
 
 
 def _habiller(expr, numerique):
@@ -79,11 +90,12 @@ def _habiller(expr, numerique):
     expr = re.sub(r"sqrt\(3\)", "√3", expr)
     expr = expr.replace("sqrt(", "√(")
     expr = re.sub(r"abs\(([^()]*)\)", r"|\1|", expr)
-    expr = expr.replace("pi", "π")
+    expr = _PI.sub("π", expr)
     expr = re.sub(r"(?<![A-Za-z])(\d+)\.(\d+)", r"\1,\2", expr)
     expr = expr.replace("1e6", "10⁶").replace(_KILO, "10³")
     expr = expr.replace("*", " × " if numerique else "·")
     expr = expr.replace(" - ", " − ")
+    expr = _MOINS_UNAIRE.sub(lambda m: m.group(1) + "−", expr)
     return expr
 
 
@@ -109,7 +121,7 @@ def numerique(s):
         ident = m.group(1)
         if ident in _FONCTIONS:
             return ident
-        return fmt(s.vals[ident][1]) if ident in s.vals else ident
+        return terme(s.vals[ident]) if ident in s.vals else ident
     return _habiller(_IDENT.sub(rep, t), True)
 
 
@@ -142,7 +154,7 @@ def rendre(s):
 
 def evaluer(s):
     """Évalue le gabarit avec les nombres tels qu'ils sont imprimés."""
-    env = {k: nombre(fmt(v[1])) for k, v in s.vals.items()}
+    env = {k: nombre(terme(v)) for k, v in s.vals.items()}
     env.update(sqrt=math.sqrt, min=min, max=max, abs=abs, pi=math.pi)
     return eval(s.template, {"__builtins__": {}}, env)  # noqa: S307 — gabarits internes
 
