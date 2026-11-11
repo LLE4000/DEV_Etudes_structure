@@ -277,19 +277,32 @@ cas("plancher", "charge ponctuelle ajoutée puis dupliquée", LIM, [neuf(), mod(
 cas("plancher", "hourdis en service, sens 2", LIM, [calc(PL.exemple("hourdis")), mod("plancher/hourdis/nature", "service"), mod("plancher/sens", "2")])
 cas("plancher", "cas ajouté", LIM, [neuf(), act("ajouter")], {"elements": 2})
 
-# ====================================================================== maturité du béton (âge)
-cas("age", "note neuve", REF, [neuf()], selecteurs=True, fichiers=True)
-cas("age", "relevé collé (Namur, 6 jours)", REF, [calc(AGE._etat_releve())])
-cas("age", "tout affiché (seuil, optimisation, comparateur, essai)", REF,
-    [calc(AGE._etat_releve(seuil__afficher=True, optim__afficher=True, comparateur__afficher=True, essai__mpa=12.0, essai__afficher=True))])
-cas("age", "météo importée (Bruxelles)", REF, [calc(AGE._etat_meteo(True))])
-cas("age", "seuil à 95 % de f_ck", REF, [neuf(), mod("seuil/afficher", True), mod("seuil/pct", "95")])
+# ====================================================================== maturité du béton (âge) — refait le 10/11/2026 sur la norme
+# (les cas de l'écran d'avant — âge choisi ①, seuil ②, classe pour un délai ③, comparateur ④ — n'existent plus : les photos
+# sont regelées, docs/site/LOT_Q_QUATRE_MODULES.md § 2 ; les échéances annoncées sont celles du moteur du 10/11/2026,
+# recalculées à la main dans tests/test_maturite_moteur.py : 70 % de f_ck du C30/37 « moyen » à 20 °C = J + 10,7)
+cas("age", "note neuve (C30/37, béton moyen, 20 °C, décoffrage à 70 % de f_ck : J + 10,7)", REF, [neuf()], {"sans_message": True},
+    selecteurs=True, fichiers=True)
+cas("age", "ciment N au lieu du béton moyen (J + 6,5)", REF, [neuf(), mod("durcissement/choix", "ciment:N")], {"sans_message": True})
+cas("age", "décoffrage prévu à J + 11 : près de 100 % (la variante prudente ne tient pas)", REF, [neuf(), mod("objectifs/0/age", "11")],
+    {"taux": [98, 99], "niveau": "f"})
+cas("age", "relevé collé (Namur), coulé le 02/11/2026 à 16 h", REF, [calc(AGE._etat_releve())])
+cas("age", "météo importée (Bruxelles), décoffrage à J + 3", REF, [calc(AGE._etat_meteo(True))], selecteurs=True)
+cas("age", "trois objectifs datés et modèles (hors gel, reprise), coulé le 05/11/2026 à 7 h", REF,
+    [neuf(), mod("date", "05/11/2026"), mod("heure", "7"), mod("temperature/T", "8"), mod("objectifs/+", "hors_gel"), mod("objectifs/+", "reprise"),
+     mod("objectifs/0/age", "14"), mod("objectifs/2/age", "4")], selecteurs=True)
+cas("age", "essai sur cube (21,6 MPa à J + 7) et courbe calée, loi EC2", REF,
+    [neuf(), mod("loi/mode", "ec2"), mod("essai/actif", True), mod("essai/mpa", "21,6"), mod("essai/caler", True)])
 cas("age", "relevé illisible refusé (PARCOURS)", LIM, [calc(AGE._etat_releve()), mod("temperature/releve", "12\nabc\n13")], {"message": True})
 cas("age", "fichier illisible refusé (PARCOURS)", LIM, [neuf(), mod("temperature/fichier", {"nom": "faux.csv", "texte": "douze"})], {"message": True})
-cas("age", "température de −5 °C (PARCOURS)", LIM, [neuf(), mod("temperature/T", "-5")])
+cas("age", "température de −20 °C (valeur minimale admise : la loi belge compte encore)", LIM, [neuf(), mod("temperature/T", "-20")])
+cas("age", "température de −21 °C refusée", LIM, [neuf(), mod("temperature/T", "-21")], {"message": True})
+cas("age", "cible au-dessus de la classe (40 MPa sur un C30/37) : non atteignable", LIM,
+    [neuf(), mod("objectifs/0/mode", "mpa"), mod("objectifs/0/mpa", "40")])
+cas("age", "le dernier objectif ne se retire pas", LIM, [neuf(), mod("objectifs/0/-", "1")], {"message": True})
 cas("age", "météo : lieu introuvable (PARCOURS)", LIM, [calc(AGE._etat_meteo()), mod("temperature/meteo", AGE._meteo_exemple(trouve=False))],
     {"message": True})
-cas("age", "âge de 3 jours (le plus court)", LIM, [neuf(), mod("age", "3")], {"sans_message": True})
+cas("age", "note du module d'avant relue (noms gardés)", LIM, [calc(AGE.NOTE_V1)], {"elements": 2})
 cas("age", "coulage ajouté", LIM, [neuf(), act("ajouter"), mod("classe", "C40/50")], {"elements": 2})
 
 # ====================================================================== tableau des armatures

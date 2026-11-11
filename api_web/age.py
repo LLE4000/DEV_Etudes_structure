@@ -996,10 +996,12 @@ def _temperatures_txt(r: Dict) -> str:
 
 
 def _dims(r: Dict) -> str:
-    """« · C30/37 · moyen » : un coulage dans la liste de la note (HTML)."""
+    """« · C30/37 · moyen » : un coulage dans la liste de la note (HTML court : la liste tient dans l'écran du téléphone)."""
     if "materiau" not in r:
         return ""
-    return f"· {C.esc(r['materiau']['classe'])} · {_dur_court(r['materiau'])}"
+    du = r["materiau"]["durcissement"]
+    court = {"beton": du["cle"], "ciment": f"ciment {du['cle']}", "r": f"r {C.nb(du['r'], 2)}"}[du["mode"]]
+    return f"· {C.esc(r['materiau']['classe'])} · {court}"
 
 
 def arbre(etat: Dict, r: Optional[Dict] = None, resultats: Optional[List[Dict]] = None) -> str:

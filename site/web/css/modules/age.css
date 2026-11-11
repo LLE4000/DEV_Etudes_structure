@@ -90,4 +90,9 @@ body[data-module="age"] #donnees .seg.full > button[data-chemin="loi/mode"] { pa
 }
 
 /* « Durcissement » : un libellé plus long que la colonne des libellés de la charte (84 px) */
-body[data-module="age"] #donnees .row.full:has(select[data-chemin="durcissement/choix"]) { grid-template-columns: 100px minmax(0, 1fr); }
+body[data-module="age"] #donnees .row.full:has(select[data-chemin="durcissement/choix"]) { grid-template-columns: 112px minmax(0, 1fr); }
+
+/* au doigt (tablette et téléphone) : « Modèles » à 44 px, comme « + Objectif » (css/etabli.css, .et-add) */
+@media (max-width: 1199px) {
+  [data-etabli="compact"] .age-ajouts .et-mn-b { height: 44px; min-height: 44px; }
+}

@@ -1650,6 +1650,14 @@ const principal = async () => {
       return rep;
     };
     const tranquille = (pg) => pg.waitForFunction(() => !document.querySelector('.calcule.on'), null, { timeout: 90000 });
+    // (Lot Q, 10/11/2026 : la page est passée à l'établi compact, qui n'ouvre que la PREMIÈRE rubrique — le harnais suit)
+    // la rubrique « Températures » (data-sec « tp ») ouverte avant d'en toucher les champs
+    const ouvrirTp = async (pg) => {
+      if (!(await pg.$eval('#donnees .sec[data-sec="tp"]', (e) => e.classList.contains('open')))) await pg.click('#donnees .sec[data-sec="tp"] > .sechd');
+      await pg.waitForTimeout(100);
+    };
+    const LIGNE_ELT = '.panel.left .phead .et-elt .et-elsel';
+    const activer = async (pg, i) => { await pg.click(`${LIGNE_ELT} .et-elt-liste [data-menu]`); await pg.click(`${LIGNE_ELT} .et-elt-liste .et-mn-l [data-activer="${i}"]`); };
     const saisirDate = async (pg, chemin, v) => { await pg.fill(`#donnees input[data-chemin="${chemin}"]`, v); await pg.press(`#donnees input[data-chemin="${chemin}"]`, 'Enter'); await tranquille(pg); };
     const lire = (pg) => pg.evaluate(() => {
       const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
@@ -1681,6 +1689,7 @@ const principal = async () => {
       /connect-src 'self' https:\/\/geocoding-api\.open-meteo\.com https:\/\/archive-api\.open-meteo\.com https:\/\/api\.open-meteo\.com;/.test(rep.headers()['content-security-policy'] || ''),
       (rep.headers()['content-security-policy'] || '').slice(0, 200));
     const v20 = (await lire(g)).verdict;
+    await ouvrirTp(g);
     await g.click('#donnees button[data-chemin="temperature/mode"][data-valeur="meteo"]');
     await tranquille(g);
     let L = await lire(g);
@@ -1724,27 +1733,31 @@ const principal = async () => {
       L.releveVu && lignes.length === nJ && lignes[0] === ligneReleve(debut, 'mesuré') && lignes[nMes] === ligneReleve(decale(auj, 1), 'prévision')
       && lignes[nJ - 1].endsWith(';prolongé'), JSON.stringify({ n: lignes.length, nJ, l0: lignes[0], att0: ligneReleve(debut, 'mesuré') }));
     verif('météo · PC : la maturité est recalculée (le verdict n\'est plus celui de 20 °C), les vues « Températures » et « Tableau » sont là',
-      L.verdict && L.verdict !== v20 && L.vues.join() === 'courbe,releve,tableau', JSON.stringify({ v20, v: L.verdict, vues: L.vues }));
+      L.verdict && L.verdict !== v20 && L.vues.join() === 'courbe,temperatures,tableau', JSON.stringify({ v20, v: L.verdict, vues: L.vues }));
     await g.screenshot({ path: path.join(OUT, 'site_meteo_pc.png') });
     // les vues : la courbe des températures et le tableau, vus à l'écran
-    await g.click('#vues [data-vue="releve"]');
+    await g.click('#vues [data-vue="temperatures"]');
     await g.waitForTimeout(250);
     const courbe = await g.evaluate(() => { const s = [...document.querySelectorAll('.view.on .draw > svg')].find((x) => x.checkVisibility()); const r = s && s.getBoundingClientRect();
-      return { titre: document.querySelector('.view.on .stitle b')?.textContent, leg: document.querySelector('.view.on .stitle .leg')?.textContent, l: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0 }; });
+      // (Lot Q : la vue a l'en-tête technique de l'établi compact, son titre en capitales et sa légende en dernière ligne — le harnais suit)
+      return { titre: document.querySelector('.view.on .stitle b, .view.on .et-ent .l1 b')?.textContent, leg: document.querySelector('.view.on .stitle .leg, .view.on .et-ent .lg')?.textContent,
+        l: r ? Math.round(r.width) : 0, h: r ? Math.round(r.height) : 0 }; });
     verif('météo · PC : la vue « Météo du lieu » montre la courbe des températures reçues, à sa taille, sa légende dit Open-Meteo',
-      courbe.titre === 'Météo du lieu' && /Open-Meteo/.test(courbe.leg || '') && courbe.l > 400 && courbe.h > 250, JSON.stringify(courbe));
+      (courbe.titre || '').toUpperCase() === 'MÉTÉO DU LIEU' && /Open-Meteo/.test(courbe.leg || '') && courbe.l > 400 && courbe.h > 250, JSON.stringify(courbe));
     await g.screenshot({ path: path.join(OUT, 'site_meteo_pc_temperatures.png') });
     await g.click('#vues [data-vue="tableau"]');
     await g.waitForTimeout(250);
     const tab = await g.evaluate(() => { const rows = [...document.querySelectorAll('.view.on .age-tab tbody tr')]; const r0 = rows[0];
       return { n: rows.length, vu: !!r0 && r0.checkVisibility(), cases: r0 ? [...r0.children].map((x) => x.textContent) : [] }; });
+    // (Lot Q : le tableau suit le profil jusqu'à l'horizon de la courbe, 28 jours réels au moins — le harnais suit)
     verif('météo · PC : le tableau montre une ligne par jour reçu (date, température, source)',
-      tab.n === nJ && tab.vu && tab.cases[1] === fr(debut) && tab.cases[3] === 'mesuré', JSON.stringify(tab));
+      tab.n >= nJ && tab.vu && tab.cases[1] === fr(debut) && tab.cases[3] === 'mesuré', JSON.stringify(tab));
     // la note rechargée : tout est gardé, et rien n'est redemandé à Open-Meteo (le calcul se refait hors ligne)
     const nAppels = g.journal.length;
     await g.reload();
     await pretEcran(g);
     await tranquille(g);
+    await ouvrirTp(g);
     const R = await lire(g);
     verif('météo · PC : rechargée, la note garde les températures, le badge et la maturité — sans AUCUN nouvel appel (calcul hors ligne)',
       R.releve === L.releve && R.hints.includes(badge) && R.verdict === L.verdict && g.journal.length === nAppels, JSON.stringify({ appels: g.journal.length - nAppels, v: R.verdict }));
@@ -1802,21 +1815,21 @@ const principal = async () => {
     verif('météo · PC · réponse énorme : refusée dès le géocodage, aucun autre appel', aE.length === 1 && /geocoding-api/.test(aE[0]), JSON.stringify(aE));
     // (relecture adverse) un AUTRE coulage ouvert pendant la récupération : la météo allait dans le coulage ouvert au retour —
     // une copie (même lieu, mêmes dates) perdait ses corrections à la main, et celui du clic restait sans météo
-    await g.click('#donnees [data-dupliquer]');
+    await g.click(`${LIGNE_ELT} [data-dupliquer-index]`);
     await tranquille(g);
-    await g.click('.elements .ni[data-activer="0"]');
+    await activer(g, 0);
     await tranquille(g);
     const c1 = await lire(g);
     g.mode.lent = 2500;
     await g.click('#donnees [data-meteo-chemin="temperature/meteo"]');
     await attendre(g, () => !!document.querySelector('#donnees [data-meteo].attente'), 3000);
-    await g.click('.elements .ni[data-activer="1"]');
+    await activer(g, 1);
     await attendre(g, () => !document.querySelector('#donnees [data-meteo].attente'), 30000);
     await tranquille(g);
     await g.waitForTimeout(200);
     g.mode.lent = 0;
     const c2 = await lire(g);
-    await g.click('.elements .ni[data-activer="0"]');
+    await activer(g, 0);
     await tranquille(g);
     const c1b = await lire(g);
     verif('météo · PC · un autre coulage ouvert pendant la récupération : rien n\'est importé, un message le dit ; la copie ouverte garde ses corrections à la main, le coulage du clic aussi',
@@ -1843,6 +1856,7 @@ const principal = async () => {
       const t = await preparer(w, h, tel);
       await ouvrir(t);
       if (tel) await t.click('.mtabs [data-onglet="donnees"]');
+      await ouvrirTp(t);
       await t.click('#donnees button[data-chemin="temperature/mode"][data-valeur="meteo"]');
       await tranquille(t);
       let M = await lire(t);
@@ -1862,7 +1876,7 @@ const principal = async () => {
       await t.locator('#donnees .age-mini').scrollIntoViewIfNeeded();
       await t.screenshot({ path: path.join(OUT, `site_meteo_${nom}_donnees.png`) });
       if (tel) await t.click('.mtabs [data-onglet="dessin"]');
-      await t.click('#vues [data-vue="releve"]');
+      await t.click('#vues [data-vue="temperatures"]');
       await t.waitForTimeout(300);
       const vue = await t.evaluate(() => { const s = [...document.querySelectorAll('.view.on .draw > svg')].find((x) => x.checkVisibility()); const r = s && s.getBoundingClientRect(); return r ? [Math.round(r.width), Math.round(r.height)] : null; });
       verif(`météo · ${fmt} : la vue des températures reçues est visible, à sa taille`, vue && vue[0] >= (tel ? 300 : 500) && vue[1] > 150, JSON.stringify(vue));
@@ -1870,7 +1884,7 @@ const principal = async () => {
       await t.click('#vues [data-vue="tableau"]');
       await t.waitForTimeout(300);
       const tb = await t.evaluate(() => [...document.querySelectorAll('.view.on .age-tab tbody tr')].filter((x) => x.checkVisibility()).length);
-      verif(`météo · ${fmt} : le tableau des jours reçus se voit`, tb === n, `${tb} / ${n}`);
+      verif(`météo · ${fmt} : le tableau des jours reçus se voit`, tb >= n, `${tb} / ${n}`);
       await t.screenshot({ path: path.join(OUT, `site_meteo_${nom}_tableau.png`) });
       // le refus au téléphone : réseau coupé → un message visible
       if (tel) {
