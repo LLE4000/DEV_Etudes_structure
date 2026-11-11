@@ -439,7 +439,7 @@ chk("une équipe d'AVANT les rôles (ou un rôle piégé « <b>admin</b> ») : u
 VE = D.get("verifications", {})
 _pages_calcul = [k for k in SW.PAGES if k not in SW.MASQUES and k not in SW.REDIRECTIONS]
 chk(f"les modules qu'on peut vérifier : les {len(_pages_calcul)} calculs que l'accueil montre (ni masqués, ni absorbés par un autre), chacun avec sa version",
-    VE.get("mods") == [k for k in VE.get("mods", []) if k in _pages_calcul] and sorted(VE.get("mods", [])) == sorted(_pages_calcul) and VE.get("n") == 13
+    VE.get("mods") == [k for k in VE.get("mods", []) if k in _pages_calcul] and sorted(VE.get("mods", [])) == sorted(_pages_calcul) and VE.get("n") == 14
     and all(re.fullmatch(r"[0-9a-f]{16}", VE.get("versions", {}).get(k, "")) for k in _pages_calcul), (VE.get("n"), sorted(set(_pages_calcul) ^ set(VE.get("mods", [])))))
 chk("vérifier un module : il faut s'être présenté (la vérification porte un nom) ; personne ne l'a fait : « à vérifier »",
     (VE.get("sansPersonne") or {}).get("ok") is False and "Présentez-vous" in VE["sansPersonne"]["erreur"] and (VE.get("etat0") or {}).get("etat") == "non"
@@ -555,8 +555,8 @@ def corps(html):
     return dict(re.findall(r'\s([\w-]+)="([^"]*)"', re.search(r"<body[^>]*>", html).group(0))) if "<body" in html else {}
 
 
-chk("les pages Projets et Équipe existent (projets.html, equipe.html), le corps dit leur écran (data-page) — 24 pages au site",
-    len(PAGES_R) == 24 and corps(PRJ) == {"data-page": "projets"} and corps(EQU) == {"data-page": "equipe"}
+chk("les pages Projets et Équipe existent (projets.html, equipe.html), le corps dit leur écran (data-page) — 25 pages au site",
+    len(PAGES_R) == 25 and corps(PRJ) == {"data-page": "projets"} and corps(EQU) == {"data-page": "equipe"}
     and SW.PAGES_BUREAU == {"projets": "projets.html", "equipe": "equipe.html"}, (len(PAGES_R), corps(PRJ), corps(EQU)))
 # le MENU : depuis CHAQUE page, la barre (PC, tablette) et les onglets du téléphone (là où il y en a) mènent aux projets
 # et à l'équipe — des LIENS, plus « bientôt » ; Paramètres, lui, attend encore les comptes
@@ -570,7 +570,7 @@ _mnav_ko = [n for n, r in _mnav.items() if not (re.search(r'<a class="(on)?" hre
                                                 and r.count('data-bientot="1"') == 1 and len(re.findall(r"<a ", r)) == 5)]
 chk(f"le menu mène aux Projets et à l'Équipe depuis les {len(_rail)} pages (la barre) et depuis les {len(_mnav)} pages qui ont les onglets du "
     "téléphone : des liens, plus « bientôt » — seul Paramètres attend encore",
-    len(_rail) == 24 - len(SW.REDIRECTIONS) and not _rail_ko and len(_mnav) == 6 and not _mnav_ko, (len(_rail), _rail_ko, _mnav_ko))
+    len(_rail) == 25 - len(SW.REDIRECTIONS) and not _rail_ko and len(_mnav) == 6 and not _mnav_ko, (len(_rail), _rail_ko, _mnav_ko))
 chk("chaque page du bureau allume SON entrée du menu (et elle seule) : Accueil, Projets, Équipe",
     all(len(re.findall(r'class="navitem on"', _rail[n])) == 1 and f'class="navitem on" data-tip="{nom}"' in _rail[n]
         and re.search(rf'<a class="on" href="{href}">', _mnav[n]) and len(re.findall(r'<a class="on"', _mnav[n])) == 1
@@ -637,13 +637,13 @@ def marques(html):
 _visibles = sorted({n for n, h in PAGES_R.items() for k, cache in _MARQUE.findall(h) if not cache})
 chk(f"la marque « vérifié » est écrite CACHÉE partout ({sum(len(_MARQUE.findall(h)) for h in PAGES_R.values())} marques dans {len(PAGES_R)} pages) : sans "
     "le script — ou avant lui — aucun module ne se dit vérifié",
-    not _visibles and sum(len(_MARQUE.findall(h)) for h in PAGES_R.values()) >= 13 * 20
+    not _visibles and sum(len(_MARQUE.findall(h)) for h in PAGES_R.values()) >= 14 * 20
     and SW.marque_verifie("poutre").startswith('<span class="ok" data-verifie="poutre" hidden>'), _visibles)
 chk("chaque module de calcul porte SA marque là où il est nommé : sa tuile de l'accueil, sa ligne du volet des modules (toutes les pages qui l'ont), "
     "son bouton de « Nouvelle note » — une fois, et la sienne",
-    len(_tuiles) == 13 and all(marques(c) == [k] for k, c in _tuiles) and sorted(k for k, _ in _tuiles) == sorted(_pages_calcul)
-    and len(_mopt) == 13 and all(marques(c) == [k] for k, c in _mopt)
-    and len(_volets) == 24 - len(SW.REDIRECTIONS) and all(sorted(marques(v)) == sorted(_pages_calcul) for v in _volets.values()),
+    len(_tuiles) == 14 and all(marques(c) == [k] for k, c in _tuiles) and sorted(k for k, _ in _tuiles) == sorted(_pages_calcul)
+    and len(_mopt) == 14 and all(marques(c) == [k] for k, c in _mopt)
+    and len(_volets) == 25 - len(SW.REDIRECTIONS) and all(sorted(marques(v)) == sorted(_pages_calcul) for v in _volets.values()),
     (len(_tuiles), len(_mopt), len(_volets), [k for k, c in _tuiles + _mopt if marques(c) != [k]]))
 chk("la marque est EXPLIQUÉE là où on la voit : « vérifié par un administrateur » au-dessus des modules de l'accueil, « vérifié » en tête du volet",
     re.search(r'<div class="h2">Modules</div>.*?<span class="okleg">.*?vérifié par un administrateur</span>', ACC, re.S) is not None

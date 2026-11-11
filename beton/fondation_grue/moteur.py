@@ -178,21 +178,28 @@ def _interp(xs: list, ys: list, x: float) -> float:
 
 
 def _elements(f: dict, r: K.Releve) -> list:
+    """Les poutres et semelles de la fondation, avec leurs diagrammes ; ``dimensionnant`` : les valeurs que le classeur
+    retient pour l'élément (les diagrammes les repèrent d'un trait fin, à côté des extremums exacts)."""
     t = f["type"]
     if t == E.CADRE4:
-        return [_elements_un_pied("poutre", "Poutre", f["chassis"] / 100, f["e"] / 100, f["charges"]["P"], r["pp.poutre"])]
-    if t == E.DIAGONALES8:
+        els = [_elements_un_pied("poutre", "Poutre", f["chassis"] / 100, f["e"] / 100, f["charges"]["P"], r["pp.poutre"])]
+    elif t == E.DIAGONALES8:
         pr = f["primaire"]
-        return [_elements_un_pied("secondaire", "Poutre secondaire", f["chassis"] / 100, f["e_secondaire"] / 100,
-                                  f["charges"]["P"], r["pp.secondaire"]),
-                _elements_deux_pieux("primaire", "Poutre primaire", pr["L"] / 100, f["pieux"]["entraxe"] / 100,
-                                     f["e_primaire"] / 100, r["primaire.charge"], r["pp.primaire"], 0.0,
-                                     "poutre secondaire")]
-    sm = f["semelle"]
-    return [_element_support(f, r),
-            _elements_deux_pieux("semelle", "Semelle sur pieux", sm["L"] / 100, f["pieux"]["entraxe"] / 100,
-                                 f["e_semelle"] / 100, r["semelle.charge"], r["pp.semelle"], f["c_appui"] / 100,
-                                 "poutre support")]
+        els = [_elements_un_pied("secondaire", "Poutre secondaire", f["chassis"] / 100, f["e_secondaire"] / 100,
+                                 f["charges"]["P"], r["pp.secondaire"]),
+               _elements_deux_pieux("primaire", "Poutre primaire", pr["L"] / 100, f["pieux"]["entraxe"] / 100,
+                                    f["e_primaire"] / 100, r["primaire.charge"], r["pp.primaire"], 0.0,
+                                    "poutre secondaire")]
+    else:
+        sm = f["semelle"]
+        els = [_element_support(f, r),
+               _elements_deux_pieux("semelle", "Semelle sur pieux", sm["L"] / 100, f["pieux"]["entraxe"] / 100,
+                                    f["e_semelle"] / 100, r["semelle.charge"], r["pp.semelle"], f["c_appui"] / 100,
+                                    "poutre support")]
+    for el in els:
+        c = el["cle"]
+        el["dimensionnant"] = {"M_max": r.get(f"{c}.dim.M_max"), "M_min": r.get(f"{c}.dim.M_min"), "V_max": r.get(f"{c}.dim.V_max")}
+    return els
 
 
 # ------------------------------------------------------------------ contrôles de géométrie (fiche BASE)
@@ -302,7 +309,7 @@ def _armatures(f: dict, r: K.Releve) -> list:
     pf = f["perfos"]
     out.append({"element": "perfos", "nom_element": "Plaques de répartition", "poste": "perfos",
                 "designation": "Perfos par plaque", "genre": "perfos", "n": r["horizontal.perfos_par_plaque"], "d": pf["d"],
-                "texte": f"{r['horizontal.perfos_par_plaque']}Ø{pf['d']} par plaque",
+                "texte": f"{r['horizontal.perfos_par_plaque']}Ø{pf['d']} par plaque (calcul : {pf['n']}Ø{pf['d']} par pied)",
                 "section": r["horizontal.omega_perfos_choisie"], "requis": r["horizontal.omega_perfos"],
                 "etat": ETATS.get(r["etat.perfos"], INFO), "saisie": "perfos"})
     return out

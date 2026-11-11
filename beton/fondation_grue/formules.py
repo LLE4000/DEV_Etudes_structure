@@ -380,7 +380,7 @@ def _semelles8(f: dict, r: K.Releve, m: dict) -> list:
         gab, T = "RA*x - pp*x**2/2", ()
     T = (("RA", "R_A", col["RA"]), ("x", "x", x), ("pp", "pp", pp)) + ((("P1", "P_1", col["P1"]), ("a", "a'", g["a"]))
                                                                       if x > g["a"] else ()) + T
-    soll.append(_fx(f"M_max — {cas(src)}, x = {x:.2f} m".replace(".", ","), gab, T, r["support.dim.M_max"], "kN·m", 1, "C94"))
+    soll.append(_fx(f"M_max — {cas(src)}, x = {f'{x:.2f}'.replace('.', ',')} m", gab, T, r["support.dim.M_max"], "kN·m", 1, "C94"))
     t, col, src = _colonne(r, "M_max_eq")
     g = t["geometrie"]
     soll.append(_fx(f"M_hor,éq — {cas(src)}", "max(((b + Lc) + b)*a*H/L, ((a + Lc) + a)*b*H/L)*h/bp*100/125",

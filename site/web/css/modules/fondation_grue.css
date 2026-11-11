@@ -1,0 +1,58 @@
+/* Module « Fondations de grues » (api_web/fondation_grue.py, sur l'établi compact) : ce que son établi ajoute à la
+   charte (css/charte.css), au site (css/site.css) et à l'établi compact (css/etabli.css). */
+
+/* ---------------------------------------------------------------- les données */
+/* un sous-titre dans une rubrique : la pièce dont on saisit les dimensions ou les armatures */
+.fg-st { margin: 10px 0 2px; padding-top: 8px; border-top: 1px solid var(--line); font-size: 10.5px; font-weight: 650; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-3); }
+.rows > .fg-st:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* un cas de la grue : une carte — son nom, son état et « retirer » sur une ligne, puis la charge de chaque pied
+   (A et B, puis C et D : deux champs par ligne, assez larges pour « 1 004 kN ») */
+.fg-cas { display: flex; flex-direction: column; gap: 5px; margin: 6px 0; padding: 7px 8px 8px; border: 1px solid var(--line); border-radius: var(--r-sm);
+  background: var(--bg-sunken); }
+.fg-cas-h { display: grid; grid-template-columns: minmax(0, 5.2em) minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.fg-cas-h .field.text input { font-weight: 600; }
+.fg-cas-h .seg.full button { padding: 0 6px; }
+.fg-cas-h .fg-ret { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin: 0; padding: 0; border: 0;
+  border-radius: var(--r-sm); background: none; color: var(--ink-3); cursor: pointer; }
+.fg-cas-h .fg-ret:hover { color: var(--nok); background: var(--panel); }
+.fg-cas-h .fg-ret svg.i { width: 15px; height: 15px; }
+.fg-cas-v { display: grid; grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr); gap: 4px 6px; align-items: center; }
+.fg-cas-v > label { font-size: 12px; font-weight: 650; color: var(--ink-2); }
+.fg-cas-v .field { min-width: 0; }
+
+/* ---------------------------------------------------------------- le résultat */
+/* l'état que le CLASSEUR donne à une vérification, quand ce n'est pas « OK » : LIMITE, A VERIFIER, PAS OK */
+.fg-mot { font-weight: 700; white-space: nowrap; }
+.fg-mot.v { color: var(--vrf); }
+.fg-mot.r { color: var(--nok); }
+/* sous le verdict : ce qui n'est pas « OK » dans le classeur */
+.fg-reg { color: var(--vrf); font-weight: 600; }
+/* les valeurs que le classeur calcule sans les vérifier, au pied d'un bloc */
+.fg-infos { padding: 4px 12px 8px; border-top: 1px solid var(--line); }
+.fg-infos .hint { margin: 3px 0 0; }
+/* « Cas de la grue : ce qui gouverne » : un lien au pied du bloc de la poutre support */
+.fg-lien { display: inline-flex; align-items: center; gap: 6px; margin: 6px 0 0; padding: 0; border: 0; background: none; font: inherit; font-size: 12px;
+  font-weight: 600; color: var(--accent); cursor: pointer; text-align: left; }
+.fg-lien svg.i { width: 14px; height: 14px; flex: none; }
+.fg-lien:hover { text-decoration: underline; }
+/* l'export : « Contrôler l'export », puis un bouton par fichier */
+.fg-exp { display: flex; flex-wrap: wrap; gap: 6px; }
+.fg-exp .btn.sm { flex: 1 1 auto; justify-content: center; }
+/* la 2ᵉ ligne d'une vérification passe à la ligne plutôt que d'être coupée (une comparaison et l'état du classeur) */
+body[data-module="fondation_grue"] .el.vc .l2 .cmp { white-space: normal; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------- les fenêtres de calcul */
+/* la CELLULE du classeur dont une ligne reproduit la valeur : une étiquette discrète en fin de ligne */
+.fg-cel { margin-left: 4px; padding: 0 5px; border: 1px solid var(--line); border-radius: 4px; font-size: 10.5px; font-weight: 600; line-height: 16px;
+  color: var(--ink-3); background: var(--bg-sunken); font-style: normal; white-space: nowrap; }
+.fg-msg { font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+.fg-li { margin: 2px 0 4px; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.ck-autres.fg-pied { line-height: 1.45; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* ---------------------------------------------------------------- au doigt (tablette, téléphone) */
+@media (max-width: 1199px) {
+  .fg-cas-h .fg-ret { width: 44px; height: 44px; }
+  .fg-lien { min-height: 44px; }
+}

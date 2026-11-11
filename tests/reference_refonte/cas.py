@@ -432,3 +432,32 @@ cas("assemblages", "pied : traction N = −100 kN (vérification complète)", LI
     [neuf(), mod("type", "platine_beton"), mod("v/mode", COMPLET), mod("v/N_Ed", "-100")])
 cas("assemblages", "assemblage ajouté (platine d'about)", LIM, [neuf(), act("ajouter"), mod("type", "platine_about")], {"elements": 2})
 cas("assemblages", "note abîmée", LIM, [ABIMEE])
+
+
+# ====================================================================== fondations de grues (module né le 11/11/2026)
+# (les quatre classeurs validés par le bureau, repris par « exemple » ; les taux annoncés sont ceux des classeurs, que
+# tests/test_fondation_grue_moteur.py tient cellule par cellule ; « v » : le classeur dit LIMITE, ou le cisaillement
+# est en zone 3 — docs/beton/FONDATIONS_GRUE.md)
+_FG = [neuf(), mod("exemple", "GWW")]
+cas("fondation_grue", "note neuve (8 pieux sur semelles, valeurs du classeur BASE)", REF, [neuf()], {"taux": [100, 100], "niveau": "v"}, fichiers=True)
+cas("fondation_grue", "classeur BASE", REF, [neuf(), mod("exemple", "BASE")], {"taux": [100, 100], "niveau": "v", "sans_message": True})
+cas("fondation_grue", "classeur Greenwood (GWW)", REF, _FG, {"taux": [98, 98], "niveau": "v", "sans_message": True}, fichiers=True)
+cas("fondation_grue", "classeur de la variante 4 pieux (cadre)", REF, [neuf(), mod("exemple", "VAR4")], {"taux": [90, 90], "niveau": "p", "sans_message": True},
+    fichiers=True)
+cas("fondation_grue", "classeur de la variante 8 pieux (poutres primaires à 45°)", REF, [neuf(), mod("exemple", "VAR8")],
+    {"taux": [96, 97], "niveau": "f", "sans_message": True}, fichiers=True)
+cas("fondation_grue", "Greenwood contre une paroi de pieux sécants", REF, _FG + [mod("cote_b", "paroi")], {"taux": [98, 98], "niveau": "v"})
+cas("fondation_grue", "Greenwood, un second groupe de barres (2Ø16) et un 7e cas de la grue (900 + 900 kN)", REF,
+    _FG + [mod("support/inf/1/n", "2"), mod("charges/cas/+", "1"), mod("charges/cas/6/A", "900"), mod("charges/cas/6/B", "900")], {"sans_message": True},
+    fichiers=True)
+cas("fondation_grue", "pieu PAS OK (capacité 40 T) : l'export vers RBAR est bloqué", LIM, _FG + [mod("pieux/capacite", "40")],
+    {"niveau": "r", "texte": "Export vers RBAR bloqué"}, fichiers=True)
+cas("fondation_grue", "cisaillement au-delà de la zone 3 (poutre support de 60 cm de large)", LIM, _FG + [mod("support/b", "60")], {"niveau": "r"})
+cas("fondation_grue", "géométrie non respectée (entredistance des pieux 150 cm < 3 Ø)", LIM, _FG + [mod("pieux/entraxe", "150")], {"texte": "Non respecté"})
+cas("fondation_grue", "un seul cas de la grue", LIM, _FG + [mod("charges/cas/1/-", "1")] * 5, {"sans_message": True})
+cas("fondation_grue", "excentricité hors domaine refusée (e = 80 cm : le pied sortirait de la portée)", LIM, [neuf(), mod("e_support", "80")], {"message": True})
+cas("fondation_grue", "diamètre hors de la liste refusé (Ø17)", LIM, [neuf(), mod("support/inf/0/d", "17")], {"message": True})
+cas("fondation_grue", "le dernier cas de la grue ne se retire pas", LIM, _FG + [mod("charges/cas/1/-", "1")] * 5 + [mod("charges/cas/0/-", "1")], {"message": True})
+cas("fondation_grue", "fondation ajoutée, passée en cadre de 4 pieux", LIM, [neuf(), act("ajouter"), mod("type", "cadre4")], {"elements": 2})
+cas("fondation_grue", "note abîmée (châssis négatif)", LIM, [calc({"version": 1, "fondations": [{"type": "semelles8", "chassis": -5}], "actif": 0})],
+    {"erreur": True})

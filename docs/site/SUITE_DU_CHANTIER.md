@@ -456,6 +456,34 @@ d'accueil soit complète, plus agréable aussi ». Fait :
 **Ce qui reste ouvert** (dit à l'écran) : c'est enregistré par poste, et un rôle est une déclaration sans mot de passe —
 les comptes du bureau régleront les deux ; la note PDF ne dit pas encore si son module était vérifié.
 
+## Fait ensuite, le module « Fondations de grues » (même branche, sur 311bb93, 11/11/2026)
+
+Demande de l'ingénieur : un module « Fondations de grues » dans la partie Béton, à partir des quatre classeurs validés
+par le bureau — « mêmes formules, mêmes hypothèses, mêmes arrondis » —, avec une vue en plan, « une poutre sur deux
+appuis, le pieu qui se décale à gauche, à droite », les courbes de moment et d'effort tranchant et leur enveloppe, et un
+export pour que le plan d'armatures se fasse dans AutoCAD avec RBAR. Fait, en deux commits :
+
+- **L'étude et le moteur** (`c84aef0`) : les quatre classeurs lus feuille par feuille, chaque formule redémontrée,
+  seize écarts relevés (`docs/beton/FONDATIONS_GRUE_ETUDE.md`) ; le moteur reproduit les 541 cellules calculées des
+  quatre fiches et les grands tableaux à 10⁻⁹ près (`beton/fondation_grue`, `tests/test_fondation_grue_moteur.py`).
+- **Le module du site** : trois schémas (8 pieux sur semelles ou contre une paroi de pieux sécants, 4 pieux en cadre,
+  8 pieux sous poutres primaires à 45°), sur l'établi compact — six rubriques de saisie, la vue en plan redessinée à
+  chaque saisie, un diagramme M et V par poutre et par semelle (une courbe par position de tolérance, l'enveloppe, la
+  valeur du classeur en tireté), les résultats avec l'état que le classeur donne à chaque vérification, les fenêtres
+  de calcul où chaque ligne porte sa cellule, les écarts signalés avec les deux chiffres.
+- **L'export** : le fichier RBAR (les modèles de poutre que RBAR importe déjà, le type de pieu, l'implantation, le
+  tableau des armatures), refusé tant qu'une vérification est « PAS OK » ; le plan de principe en DXF ; deux tableaux
+  CSV ; « Contrôle » dit ce qui part, ce qui manque, ce qui bloque.
+- Détail, preuves et limites : `docs/beton/FONDATIONS_GRUE.md`.
+
+**Le harnais a trouvé** (corrigé avant la mise en ligne) : au doigt, le nom par défaut « Fondation de grue 1 » ne tenait
+pas dans la ligne de l'élément et sa liste sortait de l'écran du téléphone — une fondation neuve s'appelle « F1 », comme
+« V1 » pour une poutre. **Le test a trouvé** : la fenêtre des cas de la grue tombait quand aucun cas n'est symétrique.
+
+**Ce qui reste ouvert** : la note de calcul PDF du module (lot suivant) ; les six questions posées au bureau sur les
+écarts (étude § 11) ; RBAR ne lit pas encore d'un fichier la géométrie d'un élément, les étriers de renfort au droit
+des pieux ni les perfos — ils partent dans le tableau.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

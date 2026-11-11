@@ -46,6 +46,8 @@ MOD = {
     # l'aide-mémoire : une fiche de données (lignes de texte) et la section d'une barre
     "donnees_beton": glyph('<path d="M6 3.5h9l3.5 3.5v13.5H6z"/><path d="M15 3.5V7h3.5M8.8 10.5h6.4M8.8 13.5h3.6"/>'
                            '<circle cx="14.6" cy="16.6" r="1.9" fill="currentColor" fill-opacity=".18"/>'),
+    # la fondation de grue : le mât et sa flèche sur un massif porté par deux pieux
+    "fondation_grue": glyph('<path d="M4 14.5h16v3.5H4z"/><path d="M7.5 18v3M16.5 18v3"/><path d="M12 14.5V3.5M7 6.5l5-3h7.5M19.5 3.5v3"/>'),
     "profil": glyph('<path d="M5 4h14v3h-5.6v10H19v3H5v-3h5.6V7H5z"/>'),
     "catalogue": glyph('<rect x="3.5" y="4" width="17" height="16" rx="1.5"/><path d="M8 8h3.4M9.7 8v8M8 16h3.4M14 8.5h3M14 12h3M14 15.5h3"/>'),
     "corniere": glyph('<path d="M7 4v16h12v-3H10V4z"/>'),
@@ -64,7 +66,8 @@ LOGO = ('<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" str
 # les modules du bureau : le titre seul dit ce que fait le module (retour du bureau, 06/11/2026)
 FAMILLES = [
     ("beton", "Béton", [("poutre", "Poutres béton armé"), ("dalle", "Dalles béton armé"), ("predalle", "Prédalles"),
-                        ("plancher", "Charges sur plancher"), ("taux", "Taux d'armature"), ("enrobage", "Enrobage"),
+                        ("plancher", "Charges sur plancher"), ("fondation_grue", "Fondations de grues"),
+                        ("taux", "Taux d'armature"), ("enrobage", "Enrobage"),
                         ("age", "Maturité du béton"), ("armatures", "Tableau des armatures"),
                         ("donnees_beton", "Données béton")]),
     ("acier", "Acier", [("profil", "Choix de profilé"), ("catalogue", "Catalogue des profilés"), ("corniere", "Cornières"),

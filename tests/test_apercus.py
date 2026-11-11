@@ -5,11 +5,11 @@
   ``routeur.traiter(json.dumps({"module": clé, "action": "nouveau"}))`` dans un processus NEUF (rien d'un autre module
   chargé ; un CPython ordinaire, sans les refus du navigateur que construire.py applique : deux chemins, une réponse) ;
 - chacun est une réponse COMPLÈTE (``ok`` vrai, ``etat``, ``resultat``) — construire.py refuse d'écrire les autres ;
-- la liste du manifeste (« apercus » : clé → empreinte) est celle des 17 établis, ni plus ni moins, chaque empreinte
+- la liste du manifeste (« apercus » : clé → empreinte) est celle des 18 établis, ni plus ni moins, chaque empreinte
   celle de son fichier, et aucun autre fichier dans moteur/apercus ;
 - la réponse « nouveau » ne dépend pas du JOUR : rejouée sous quatre dates simulées (date.today, datetime.now), elle
   est la même, et égale à l'aperçu — age compris (S4-D8 l'avait mesuré ; on ne compte plus sur le jour où le test passe) ;
-- la version du site : la même sur les 24 pages et dans le manifeste ; une construction dans un dossier temporaire la
+- la version du site : la même sur les 25 pages et dans le manifeste ; une construction dans un dossier temporaire la
   reproduit ; elle CHANGE si un octet d'un fichier publié change (js, css, moteur, aperçus, favicon, _headers) ou si un
   gabarit change, et NE CHANGE PAS pour un fichier non publié (configuration, outils, le manifeste lui-même) ;
 - chaque contrôle a sa MUTATION : la même vérification, sur une entrée abîmée exprès, doit rougir (sinon le contrôle ne
@@ -56,9 +56,9 @@ def complet(cle: str, texte: str) -> bool:
 
 
 def liste_juste(manifeste_apercus: dict, dossier_apercus: str, etablis: list) -> bool:
-    """La liste du manifeste : les 17 établis, chacun avec l'empreinte (16 hex) de SON fichier, et rien d'autre dans le
+    """La liste du manifeste : les 18 établis, chacun avec l'empreinte (16 hex) de SON fichier, et rien d'autre dans le
     dossier."""
-    if not isinstance(manifeste_apercus, dict) or sorted(manifeste_apercus) != sorted(etablis) or len(etablis) != 17:
+    if not isinstance(manifeste_apercus, dict) or sorted(manifeste_apercus) != sorted(etablis) or len(etablis) != 18:
         return False
     fichiers = sorted(os.listdir(dossier_apercus)) if os.path.isdir(dossier_apercus) else []
     if fichiers != sorted(f"{k}.json" for k in etablis):
@@ -76,8 +76,8 @@ def meme_reponse(reponses: list, attendue: bytes) -> bool:
 
 
 def version_partout(pages: dict, version: str) -> bool:
-    """Une balise stab-version par page, la même valeur (16 hex) sur les 24 pages (22 + Projets et Équipe, 11/11/2026)."""
-    return (len(pages) == 24 and re.fullmatch(r"[0-9a-f]{16}", version or "") is not None
+    """Une balise stab-version par page, la même valeur (16 hex) sur les 25 pages (22 + Projets et Équipe, puis les Fondations de grues, 11/11/2026)."""
+    return (len(pages) == 25 and re.fullmatch(r"[0-9a-f]{16}", version or "") is not None
             and all(re.findall(r'<meta name="stab-version" content="([^"]*)">', h) == [version] for h in pages.values()))
 
 
@@ -132,7 +132,7 @@ MAN = json.load(open(os.path.join(WEB, "moteur", "manifeste.json"), encoding="ut
 
 # 1. chaque aperçu = le routeur, dans un processus neuf, à l'octet ; une réponse complète
 chk(f"les établis sont les {len(ETABLIS)} modules du site moins les redirections (predalle est servi par la dalle)",
-    len(ETABLIS) == 17 and "predalle" not in ETABLIS and set(ETABLIS) == set(SW.ADRESSES) - set(SW.REDIRECTIONS), ETABLIS)
+    len(ETABLIS) == 18 and "predalle" not in ETABLIS and set(ETABLIS) == set(SW.ADRESSES) - set(SW.REDIRECTIONS), ETABLIS)
 with ThreadPoolExecutor(max_workers=max(1, min(4, os.cpu_count() or 1))) as ex:
     NEUFS = dict(zip(ETABLIS, ex.map(traiter_neuf, ETABLIS)))
 FICHIERS = {}
@@ -169,7 +169,7 @@ chk("construire.apercu refuse d'écrire une réponse qui n'est pas complète (le
     "sans etat, sans resultat, pas du JSON)", _v_porte, _d_porte)
 
 # 3. la liste du manifeste
-chk("le manifeste liste les aperçus des 17 établis (« apercus » : clé → empreinte de 16 hex de son fichier), et moteur/apercus ne porte "
+chk("le manifeste liste les aperçus des 18 établis (« apercus » : clé → empreinte de 16 hex de son fichier), et moteur/apercus ne porte "
     "rien d'autre", liste_juste(MAN.get("apercus"), DOSSIER_APERCUS, ETABLIS), (MAN.get("apercus"), sorted(os.listdir(DOSSIER_APERCUS))))
 
 # 4. la réponse « nouveau » ne dépend pas du jour : quatre dates simulées, chacune dans un processus neuf
@@ -193,7 +193,7 @@ for k in ETABLIS:
 # 5. la version du site
 PAGES = {n: open(os.path.join(WEB, n), encoding="utf-8").read() for n in SW.pages_rendues()}
 VERSION_LUE = (re.findall(r'<meta name="stab-version" content="([^"]*)">', PAGES.get("index.html", "")) or [""])[0]
-chk("la version : la même balise stab-version sur les 24 pages, et la même valeur dans le manifeste",
+chk("la version : la même balise stab-version sur les 25 pages, et la même valeur dans le manifeste",
     version_partout(PAGES, VERSION_LUE) and MAN.get("version") == VERSION_LUE, (VERSION_LUE, MAN.get("version")))
 chk("la version des pages est celle que construire.version_site recalcule sur le site (fichiers publiés et pages rendues, version vide)",
     SW.version_site(WEB) == VERSION_LUE, (SW.version_site(WEB), VERSION_LUE))
@@ -258,7 +258,7 @@ try:
     # une VRAIE construction dans un dossier temporaire (le relevé, les paquets, les aperçus, la version, les pages)
     MAN_T = SW.construire(TMP)
     PAGES_T = {n: open(os.path.join(TMP, n), encoding="utf-8").read() for n in SW.pages_rendues()}
-    chk("construit dans un dossier temporaire : la même version sur les 24 pages, dans le manifeste, recalculée — et la MÊME que celle du "
+    chk("construit dans un dossier temporaire : la même version sur les 25 pages, dans le manifeste, recalculée — et la MÊME que celle du "
         "site (la construction est reproductible, aperçus compris)",
         version_partout(PAGES_T, MAN_T.get("version")) and SW.version_site(TMP) == MAN_T["version"] == VERSION_LUE
         and MAN_T.get("apercus") == MAN.get("apercus"), (MAN_T.get("version"), VERSION_LUE))
@@ -300,7 +300,7 @@ try:
     _p_mut["poutre.html"] = _p_mut["poutre.html"].replace(MAN_T["version"], "0" * 16, 1)
     MUT["version partout : une page d'une autre version"] = version_partout(_p_mut, MAN_T["version"])
     MUT["version partout : une page sans balise"] = version_partout({**PAGES_T, "taux-armature.html": re.sub(r'<meta name="stab-version"[^>]*>\n', "", PAGES_T["taux-armature.html"])}, MAN_T["version"])
-    MUT["version partout : 23 pages au lieu de 24"] = version_partout({n: h for n, h in PAGES_T.items() if n != "predalle.html"}, MAN_T["version"])
+    MUT["version partout : 24 pages au lieu de 25"] = version_partout({n: h for n, h in PAGES_T.items() if n != "predalle.html"}, MAN_T["version"])
     # la version sensible : une empreinte qui OUBLIE js/ (ou css/, ou moteur/) ne voit pas le changement
     for rel, racine_ in (("js/etabli.js", "js/"), ("css/site.css", "css/"), ("moteur/apercus/age.json", "moteur/"), ("_headers", "_headers")):
         MUT[f"version sensible : l'empreinte sans {racine_}"] = change_si(TMP, rel, publies=lambda d, r_=racine_: [p for p in SW.fichiers_publies(d) if not p.startswith(r_)])

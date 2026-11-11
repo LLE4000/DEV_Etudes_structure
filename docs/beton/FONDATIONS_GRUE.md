@@ -1,0 +1,107 @@
+# Fondations de grues — le module
+
+Le module « Fondations de grues » du site (famille Béton, adresse `fondations-grues`) reprend les quatre classeurs du
+bureau « Fondation grue tour sur pieux ». Ce document dit ce qu'il fait, comment il est construit, ce qui prouve qu'il
+calcule comme les classeurs, et ce qu'il ne couvre pas. L'étude qui l'a précédé — la lecture des quatre classeurs,
+feuille par feuille, les écarts relevés et la correspondance cellule par cellule — est dans
+[`FONDATIONS_GRUE_ETUDE.md`](FONDATIONS_GRUE_ETUDE.md).
+
+## 1. La règle : le classeur, à la lettre
+
+Les classeurs ont été validés par le bureau. Le module n'en change rien : mêmes formules, mêmes hypothèses, mêmes
+unités, mêmes arrondis, mêmes résultats intermédiaires. Rien n'est repris du module « Poutres béton armé » du site,
+parce que ses formules ne sont pas celles des classeurs (étude § 7).
+
+Trois conséquences :
+
+- **le verdict est celui du classeur** : chaque vérification porte l'état que le classeur lui donne (OK, LIMITE,
+  PAS OK, A VERIFIER), et la couleur de l'écran le suit ;
+- **un écart n'est jamais corrigé en silence** : là où la lecture a trouvé une formule discutable, le module calcule
+  comme le classeur et le SIGNALE, avec les deux chiffres (bloc « Écarts relevés dans le classeur ») ;
+- **chaque ligne de calcul dit d'où elle vient** : la cellule du classeur dont elle reproduit la valeur est écrite au
+  bout de la ligne.
+
+## 2. Les trois schémas
+
+| Schéma | Classeur | Pièces calculées |
+|---|---|---|
+| 8 pieux — 2 poutres support sur 4 semelles de 2 pieux (ou, du côté b, une paroi de pieux sécants) | BASE (et Greenwood, mêmes formules) | poutre support châssis, semelle sur pieux, pieux, renfort au droit du pieu, effort horizontal |
+| 4 pieux — 4 poutres en cadre | variante 4 pieux | poutre, pieux, renfort, effort horizontal |
+| 8 pieux — poutres primaires à 45° sur 2 pieux et poutres secondaires | variante 8 pieux | poutre secondaire, poutre primaire, renfort, effort horizontal |
+
+« Reprendre un classeur » (rubrique 1) charge les valeurs d'un des quatre classeurs : c'est le moyen de comparer le
+module au classeur, ligne par ligne.
+
+## 3. Les tolérances d'exécution : une poutre sur deux appuis
+
+Un pieu peut être exécuté à côté de sa place. Les classeurs en tiennent compte par de grands tableaux ; le module
+montre la même chose comme on la dessinerait à la main (`beton/fondation_grue/statique.py`) :
+
+- chaque poutre et chaque semelle est **une poutre sur deux appuis** ;
+- pour chaque **position de tolérance** (le pieu décalé de e d'un côté, de l'autre ; pour la poutre support : les
+  pieux de la semelle A décalés, ceux de l'appui B, le châssis posé décalé de + e, de − e), les appuis et les charges
+  sont placés là où cette position les met ;
+- chaque position donne sa courbe de moment et sa courbe d'effort tranchant ; l'**enveloppe** est tracée en trait
+  fort, ses extremums sont cotés ;
+- la valeur que le classeur retient est repérée par un tireté : quand elle diffère de l'extremum exact, on le voit
+  (c'est le cas de la variante 4 pieux : 72,6 kN·m au classeur, 76,3 kN·m sur la courbe — écart E16).
+
+Cette statique est écrite indépendamment de la transcription des classeurs ; les tests vérifient que les deux donnent
+les mêmes réactions, les mêmes moments et les mêmes efforts tranchants.
+
+## 4. L'écran
+
+Il a la disposition des Poutres béton armé (l'établi compact).
+
+- **À gauche**, six rubriques courtes : 1 Fondation (le schéma, le côté b, le chantier, la grue, « reprendre un
+  classeur »), 2 Matériaux, 3 Géométrie, 4 Tolérances d'exécution, 5 Charges de la grue (pour les 8 pieux sur
+  semelles : un cas par carte, la réaction de chaque pied A, B, C, D), 6 Armatures choisies.
+- **Au centre**, la vue en plan, redessinée à chaque saisie (pieux, semelles, poutres, pieds de la grue, châssis,
+  cotes), puis une vue « M et V » par poutre et par semelle.
+- **À droite**, le verdict, un bloc par partie du classeur, les contrôles de géométrie, les écarts, puis l'export.
+  Chaque ligne ouvre sa fenêtre de calcul.
+
+Une saisie hors du domaine du classeur est refusée avec un message, et la fondation reste comme elle était.
+
+## 5. L'export vers RBAR (AutoCAD)
+
+RBAR dessine, il ne dimensionne pas : il attend des armatures toutes choisies. Le module lui donne celles de la note,
+sans rien recalculer (`beton/fondation_grue/export.py`).
+
+| Fichier | Contenu | Usage |
+|---|---|---|
+| RBAR `.json` | les **modèles de poutre** au format que RBAR importe déjà (palette › modèles › « Importer JSON… ») : un modèle par pièce et par zone d'étriers — barres basses et hautes, second groupe en 2ᵉ lit, étriers (Ø, pas, brins), enrobage quand le classeur en a un ; le type de pieu et de massif ; l'implantation en mm ; le tableau des armatures | le dessinateur importe les modèles, puis dessine |
+| Plan `.dxf` | le plan de principe (DXF R12, en cm) : contours, axes, pieux en cercles au diamètre réel, pieds de la grue | s'ouvre dans AutoCAD ; `RBARPIEU › Objets` reprend les cercles |
+| Armatures `.csv` | une ligne par poste d'armature, avec la section requise, la section choisie et les cellules de saisie | contrôle, bordereau |
+| Cas `.csv` | toutes les colonnes des grands tableaux (4 positions × 6 cas × 8 orientations) | comparer aux feuilles du classeur |
+
+**Avant d'envoyer**, « Contrôle » montre ce qui part, poste par poste, ce que le calcul ne fixe pas et ce que RBAR ne
+reprend pas d'un fichier. **L'export RBAR est refusé** tant qu'une vérification du classeur est « PAS OK » : on ne
+transmet pas au dessin une armature que la note refuse.
+
+Ce que l'export ne peut pas donner, parce que le calcul ne le fixe pas : les longueurs des zones d'étriers, les
+formes, les retours, les ancrages et les recouvrements (standard du bureau), le nombre de rangées d'armatures
+latérales. Et ce que RBAR ne lit pas encore d'un fichier : la géométrie complète d'un élément, les étriers de renfort
+au droit des pieux, les perfos — ils sont dans le tableau, à poser par le dessinateur.
+
+## 6. Ce qui prouve la fidélité
+
+| Suite | Ce qu'elle tient |
+|---|---|
+| `tests/test_fondation_grue_moteur.py` | les 541 cellules calculées des quatre fiches et environ 7 800 valeurs des grands tableaux, reproduites à 10⁻⁹ près ; la statique indépendante ; les formules imprimées, réévaluées ; 37 mutations vues |
+| `tests/test_api_web_fondation_grue.py` | ce que le site affiche, dessine et exporte = ce que le moteur calcule, sur 14 états ; les refus ; l'échappement ; 48 mutations vues |
+| `tests/test_api_web_modules.py fondation_grue` | le contrat commun des modules du site |
+| `site/web/verifier_site.js` (`module:fondation_grue`, `formats:fondation_grue`) | l'écran dans le navigateur : PC, tablettes, téléphone |
+
+Les valeurs de référence (`tests/ref_fondation_grue.json`) sont tirées des classeurs par
+`tools/transcrire_fondation_grue.py`.
+
+## 7. Ce qui n'est pas couvert
+
+- **La note de calcul PDF** : elle vient au lot suivant (même forme que celle des poutres et des dalles, la dernière
+  page pour le plan de principe).
+- **Toute géométrie hors des trois schémas** : pieux inclinés, nombre de pieux différent, châssis rectangulaire,
+  semelle sur trois pieux. Le module refuse plutôt que d'extrapoler.
+- **Ce que les classeurs ne calculent pas** : le soulèvement d'un pieu, le poinçonnement, les longueurs d'ancrage, la
+  fissuration, la répartition de l'effort horizontal entre les pieux.
+- **Les seize écarts de l'étude** (§ 5) : signalés, non corrigés. Six questions restent posées au bureau (étude § 11).
