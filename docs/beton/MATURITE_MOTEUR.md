@@ -218,6 +218,14 @@ réponse n'est lue que jusqu'à 5 Mo.
   la notation de la variante prudente ; la dernière colonne des fenêtres (« Résultat » : un taux ou une échéance, jamais
   « Taux » sur une échéance) ; la fenêtre du gel titrée ; les légendes en mots ; la légende du tableau (ligne surlignée :
   l'objectif ; numéro bleu : un jour de gel) ; plus aucune phrase coupée dans les résultats.
+- **Aucune seconde ligne de résultat coupée** : elle ne se replie pas, et sa place a été MESURÉE au navigateur aux six
+  formats (313 px au PC, le plus étroit : 59 caractères). « Jours » compte « 10 j mesurés · 16 prévus · 12 prolongés ·
+  1 sans donnée » ; l'essai sur cube n'écrit qu'une fois l'unité. Tenu par un contrôle (58 caractères au plus, sur
+  69 lignes de treize écrans, dont les cas les plus longs).
+- **« Gel avant 5 MPa » dit sa date et sa base** : « 5 MPa (f_cm) à J + 1,9 · gel le 21/11 (moyenne du jour) ». Le gel
+  est jugé sur la minimale horaire quand le détail horaire de la météo est chargé, sinon sur la MOYENNE du jour — et une
+  nuit peut geler sous une moyenne positive : l'ingénieur doit savoir laquelle des deux il lit. La variante prudente se
+  lit dans la pastille (« à surveiller ») et dans l'avertissement du moteur.
 
 ## 6 · Ce qui n'est pas couvert (dit, jamais tu)
 
@@ -238,7 +246,7 @@ réponse n'est lue que jusqu'à 5 Mo.
 | Suite | Contrôles | Ce qu'elle prouve |
 |---|---|---|
 | `tests/test_maturite_moteur.py` | 208 contrôles, 46 mutations rejetées | chaque table et chaque loi à la main (`math` seul) ; la forme fermée face à un balayage numérique fin ; l'heure de fin de bétonnage, le profil et son inverse ; l'exemple complet ci-dessous ; les objectifs, les deux bases, la variante prudente, l'opération datée, les instants à l'heure près ; le gel et le temps froid ; l'essai et le calage ; le sélecteur ; chaque borne refusée ; le format (JSON strict, chaque ligne de calcul retrouvée à partir de ses seuls termes) ; le relevé (10 relevés mal formés refusés) ; la météo contre l'écran Streamlit rejoué avec un faux service (30 scénarios, 2 113 périodes : mêmes appels, mêmes températures à 1e-12 près, mêmes refus — le vrai service n'est jamais appelé) ; la pureté (un sous-processus où numpy, streamlit, matplotlib, pandas, requests, scipy sont refusés à l'import) |
-| `tests/test_api_web_age.py` | 78 contrôles, 7 mutations vues rouges | l'écran = le moteur (chaque nombre affiché) ; chaque formule des fenêtres réévaluée à partir des valeurs écrites ; refus ; les gestes ; une échéance jamais tronquée au jour ni arrondie à l'heure inférieure ; nominal et prudent jamais confondus |
+| `tests/test_api_web_age.py` | 81 contrôles, 7 mutations vues rouges | l'écran = le moteur (chaque nombre affiché) ; chaque formule des fenêtres réévaluée à partir des valeurs écrites ; refus ; les gestes ; une échéance jamais tronquée au jour ni arrondie à l'heure inférieure ; nominal et prudent jamais confondus |
 | `tests/test_api_web_modules.py age` | 22 | le contrat commun des modules (parcours, champs, fichiers, éléments) |
 | `tests/test_reference_refonte.py age` | 19 cas | la photo gelée (regel accepté le 10/11/2026) |
 

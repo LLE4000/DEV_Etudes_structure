@@ -347,7 +347,7 @@ tardive ; la loi belge jamais plus rapide que (B.10) sous 20 °C ; l'essai et so
 mesure) ; refus ; 12 mutations. La lecture de la météo (`meteo.py`, `releve.py`) garde ses contrôles contre le faux
 Open-Meteo. `tests/test_api_web_age.py` : l'écran = le moteur.
 
-**Réalisé les 10 et 11/11/2026** (`docs/beton/MATURITE_MOTEUR.md`) : 208 contrôles et 46 mutations rejetées côté moteur, 78
+**Réalisé les 10 et 11/11/2026** (`docs/beton/MATURITE_MOTEUR.md`) : 208 contrôles et 46 mutations rejetées côté moteur, 81
 contrôles et 7 mutations côté écran. **Un invariant annoncé ci-dessus s'est révélé FAUX et a été mesuré** : « la loi
 belge jamais plus rapide que (B.10) sous 20 °C » ne tient que de 0 à 12,2 °C ; de 12,3 à 19,9 °C le tableau belge
 dépasse (B.10), de 1,5 % au plus (0,80 contre 0,789 à 15 °C). Le test borne l'écart au lieu d'affirmer l'invariant ; la

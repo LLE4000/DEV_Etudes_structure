@@ -308,8 +308,8 @@ Troisième livraison, le 11/11/2026 — **le lot Q est complet** :
   durcissement lu sur le bon de livraison ou sur le ciment ; la loi de température belge par défaut ; le gel avant
   5 MPa ; l'essai sur éprouvettes et le calage de la courbe ; le sélecteur de classe ; plus de numpy) : moteur 2e8b941,
   dessins 407b5ca, page compacte 1f40ddb, écran fdc9700, feuille 64acd83, cas et gel d0606ab, aide de la loi 9c28f0f,
-  docs c96bad7, relecture des captures 70c9ed8. 208 + 78 contrôles, 46 + 7 mutations, douze contre-épreuves des
-  retouches. Trois coulages recalculés par l'intégrateur par une AUTRE méthode que le moteur (intégration numérique au
+  docs c96bad7, relecture des captures 70c9ed8 et 8c4aa2b. 208 + 81 contrôles, 46 + 7 mutations, dix-huit
+  contre-épreuves des retouches. Trois coulages recalculés par l'intégrateur par une AUTRE méthode que le moteur (intégration numérique au
   1/20 000 de jour et dichotomie, face à la forme fermée) : hiver à 3 °C en béton rapide, relevé avec gel en loi
   (B.10), essai sur cube calé — mêmes nombres. Les trois défauts non conservatifs de l'ancien écran sont refusés par des
   tests (le seuil à la température MOYENNE : annoncé à 4,8 j, atteint à 7,23 j ; le premier jour compté en entier ;
@@ -322,7 +322,11 @@ Troisième livraison, le 11/11/2026 — **le lot Q est complet** :
 - **Un défaut de franchise trouvé en jouant un cas d'hiver réaliste**, corrigé dans le moteur : pour un objectif DATÉ,
   l'échéance affichée (« 21 MPa atteints J + 28,4 ») pouvait tomber après le relevé — donc reposer sur des températures
   prolongées — sans que rien le dise (seul le jour prévu était regardé). Toute échéance affichée, nominale ou prudente,
-  est maintenant signalée ; deux contrôles et deux mutations le tiennent.
+  est maintenant signalée ; deux contrôles et deux mutations le tiennent (13bdcdc).
+- **Ce que l'œil voit, mesuré** : la seconde ligne d'un résultat ne se replie pas ; sa place, lue au navigateur aux six
+  formats, est de 313 px au PC (59 caractères). Trois lignes du module y étaient ou pouvaient y être coupées (« Jours »
+  à quatre sources, l'essai sur cube, le gel en variante prudente) : raccourcies, et tenues par un contrôle. « Gel avant
+  5 MPa » dit la date du premier gel et sur quoi il est jugé (minimale horaire, ou moyenne du jour).
 - ~~Harnais « modules »~~ : le premier nombre d'un cadre Données peut être dans une rubrique repliée — le harnais suit
   (16f2c48) ; `module:age` s'arrêtait à 18 contrôles, il en joue 26.
 
@@ -350,6 +354,8 @@ termes, défile dans son cadre au PC et à la tablette (c_nom reste visible dans
 7. Maturité — les délais minimaux de décoffrage par type de coffrage et les durées de cure de la norme belge ne sont
    PAS dans le module (leurs valeurs n'ont pas pu être relues) : à ajouter si le bureau fournit le texte.
 8. Maturité — pas encore de note PDF (le bouton reste « bientôt ») : le résultat se lit à l'écran et s'imprime.
+9. Maturité — sans détail horaire, le gel est jugé sur la MOYENNE du jour (c'est dit sur la ligne) : une nuit peut geler
+   sous une moyenne de + 1 °C. Faut-il une colonne « T min » dans le relevé saisi, pour juger le gel sur elle ?
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
