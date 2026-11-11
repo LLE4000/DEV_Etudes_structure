@@ -357,6 +357,38 @@ termes, défile dans son cadre au PC et à la tablette (c_nom reste visible dans
 9. Maturité — sans détail horaire, le gel est jugé sur la MOYENNE du jour (c'est dit sur la ligne) : une nuit peut geler
    sous une moyenne de + 1 °C. Faut-il une colonne « T min » dans le relevé saisi, pour juger le gel sur elle ?
 
+## Fait ensuite, le catalogue des hourdis Ergon 2018 (même branche, sur d9fdb49, 11/11/2026)
+
+Demande de l'ingénieur du 11/11/2026, avec le guide technique Ergon 2018 : « on peut prendre leur hourdis […] le MRd et
+le VRd […] les dimensions […] ce sera Ergon, mais on mettra aussi des autres marques plus tard ». Référence :
+`docs/beton/HOURDIS.md`.
+
+- ~~Le catalogue transcrit~~ (7 profils SP 150 à SPZ 500, 53 variantes : M_Rd, V_Rd,c, M_Rd avec 50 mm de couche
+  C30/37 ; dimensions, poids, section, mise en œuvre, coupes relevées) : f170478. Trois lectures du guide qui s'accordent
+  (0 écart), trois erreurs du guide nommées, une empreinte qui garde les valeurs ; 87 contrôles, 17 mutations.
+- ~~Charges sur plancher : les 53 types au menu~~, groupés par profil, valeurs reprises et modifiables ; P-17 révisée
+  (M et V avec chape jugés séparément, épaisseur exigée) — Ergon ne publiant pas V_Rd,c avec chape, le tranchant reste
+  jugé sur la valeur nue : 68ff13a. Le gel du plancher a été regelé avec sa raison (menu et vue Méthode ; aucun
+  résultat changé).
+- ~~La rubrique « Hourdis » de la Bibliothèque Béton armé~~ (coupe cotée, caractéristiques, tableau des variantes, la
+  première qui suffit ★ pour M_Ed et V_Ed donnés, la Gamme et le profil le plus léger qui suffit) : 6522bc8, site
+  630c92d ; harnais « bibliotheque » 263 contrôles aux quatre formats (la tablette avait rougi : le cadre défilait —
+  d'où la coupe et les caractéristiques à gauche, le tableau à droite).
+- ~~Les conditions du fabricant lues dans le catalogue~~ (feu, classe de conséquence, environnement, chevilles : elles
+  étaient écrites dans l'écran, fausses pour la marque suivante) : 881b2aa, trois mutations qui rougissent.
+
+**À confirmer par l'ingénieur** (rien de bloquant) :
+
+1. Un cas neuf de Charges sur plancher démarre toujours sur la fiche générique « à renseigner » : faut-il qu'il démarre
+   sur un type Ergon (lequel) ?
+2. V_Rd,c avec couche collaborante n'est pas publié par Ergon : le tranchant est jugé sur la valeur nue (prudent). Si le
+   bureau obtient la valeur du fabricant (« sur demande »), elle s'ajoute au catalogue et le moteur la prend.
+3. M_cr, pression locale admissible sur la membrure et courbes de performance (charge utile selon la portée) ne sont pas
+   publiés ou pas transcrits : la membrure reste « répartiteur exigé » ou « non vérifiée » (P-5). Les courbes sont-elles
+   utiles (elles se transcriraient point par point) ?
+4. La sélection de la bibliothèque prend M_Ed et V_Ed **par élément** (1,2 m), comme le guide : un moment par mètre se
+   multiplie par 1,2. Faut-il une saisie par mètre en plus ?
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

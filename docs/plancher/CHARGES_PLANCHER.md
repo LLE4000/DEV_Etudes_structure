@@ -31,6 +31,7 @@ plancher/charges/
   resistances.py    formules BA de l'application inversées · natures de catalogue · chape · EN 1992-1-1 §6.7 et §6.4
   verification.py   verifier() · balayer() · dimensionner_filiere()
   bibliotheque.py   gabarits, types de hourdis, plateaux (plancher/donnees/*.json) · profilés (acier/donnees/profiles.json) · aciers
+                    · catalogues des fabricants de hourdis (beton/hourdis, Ergon 2018 : 53 types, docs/beton/HOURDIS.md)
   parametres.py     Parametres : décisions du bureau et valeurs « à transcrire », défauts conservatifs
 plancher/donnees/   engins.json · hourdis.json · plateaux.json (génériques, sources, charges à saisir)
 tests/              test_charges_plancher_diffusion.py · _repartiteurs.py · _moteur.py · ref_chp.json (cas gelés)
@@ -84,7 +85,9 @@ entre la charge et la mi-portée, § 10), V aux appuis ; les efforts sollicitant
 concentrées × φ, part Q). **Résistances de calcul** (nature Rd) : M_Ed = γG·M_G + γQ·M_Q ≤ M_Rd avec
 γG = 1,35 et γQ = 1,5 (P-2, tranché le 02/11/2026 — plus de « ÷ 1,5 uniforme », qui pondérait le poids
 propre à 1,5) ; **valeurs admissibles de service** : M_G + M_Q ≤ M_adm, coefficients 1 ; valeurs
-« avec chape » seulement si collaborante et classe exigée atteinte (P-17). La ligne de fissuration
+« avec chape » seulement si la chape est collaborante, la classe exigée atteinte et l'épaisseur exigée par le fabricant
+tenue (P-17, révisée le 11/11/2026 : M et V **séparément** — le catalogue Ergon ne publie que M_Rd avec chape, le
+moteur juge alors M_Rd avec chape et V_Rd nu, et l'hypothèse le dit). La ligne de fissuration
 (M_cr) compare le moment de service. Membrure : pression P/(aire efficace
 + diffusion à 45° dans la chape) ≤ `p_loc_adm` ; sans donnée : non vérifié si un répartiteur efficace
 est présent, défaut « répartiteur exigé » sinon (P-5). Joints : effort transmis par les parts de
@@ -131,8 +134,10 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
 3. **Résistance du joint longitudinal** (EN 1168) : sans elle, l'effort transmis est calculé et la
    ligne est « non vérifié ».
 4. **αcc et v_Rd,max** de l'ANB belge pour les effets locaux.
-5. **Valeurs de catalogue** des hourdis (M_Rd, V_Rd, nature, I, p_loc_adm, M_cr, valeurs avec chape et
-   classe exigée) : la fiche livrée est un gabarit vide.
+5. **Valeurs de catalogue** des hourdis : **le catalogue Ergon 2018 est transcrit** (11/11/2026, 7 profils, 53 types
+   au menu : M_Rd, V_Rd,c, nature Rd, I, h, g, E, M_Rd avec 50 mm de chape C30/37 — `docs/beton/HOURDIS.md`). Restent
+   ce qu'Ergon ne publie pas — **V_Rd,c avec chape** (le V nu s'applique), **M_cr**, **p_loc_adm** — et les catalogues
+   des autres fabricants. La fiche générique « à renseigner » reste le type d'un cas neuf.
 
 ## 6 · Tests
 
@@ -141,9 +146,10 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
 - `test_charges_plancher_repartiteurs.py` (23) : bande c itérée à la main, section en I à 2 % du
   catalogue sur tous les profilés, poutre sur ressorts (statique, rigide, souple, Σ R = Σ P, symétrie,
   erreurs), flexion de la filière.
-- `test_charges_plancher_moteur.py` (84) : **copie tenue** des formules BA (les expressions de
+- `test_charges_plancher_moteur.py` (98) : **copie tenue** des formules BA (les expressions de
   `poutre.py` retrouvées mot pour mot, inversions exactes, exemple de l'étude), classes et Ecm,
-  natures et chape (P-17), §6.7 et §6.4 à la main, pipeline hourdis (P·L/4, levier, plateau avec
+  natures et chape (P-17, et sa révision du 11/11/2026 sur un type Ergon : M avec chape et V nu, chape de 40 mm ou à
+  25 MPa refusée, hypothèse nommée), §6.7 et §6.4 à la main, pipeline hourdis (P·L/4, levier, plateau avec
   bande plastique sous la pression ELU, chape, P-5, filière rigide et souple, annexe C, P-3, P-15,
   P-11, φ), **P-2** (poids propres dans les efforts : M_G et M_Q nommés, M_Ed = 1,35·M_G + 1,5·M_Q,
   V de même, nature service → coefficients 1, γG = γQ = 1 retrouve le service, l'ancien ÷ 1,5 refusé,

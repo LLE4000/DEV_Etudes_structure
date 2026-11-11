@@ -830,6 +830,13 @@ qui changent les nombres).
   et si elle est collaborante (surface rugueuse, joints remplis) ; sinon
   valeurs « sans chape », et la chape ne compte que comme poids (§ 12,
   remarque 5).
+  *Révision du 11/11/2026 (catalogue Ergon 2018, `docs/beton/HOURDIS.md`) :
+  une troisième condition, l'**épaisseur** de chape au moins égale à celle
+  des valeurs du fabricant (Ergon : 50 mm de C30/37, p. 23) ; et M et V
+  sont admis **séparément** — un fabricant qui ne publie que M_Rd avec chape
+  (Ergon ne publie pas V_Rd,c avec chape) fait juger M_Rd avec chape et
+  V_Rd nu, la plus faible des deux valeurs connues du tranchant. La note
+  le dit dans ses hypothèses.*
 
 ---
 
