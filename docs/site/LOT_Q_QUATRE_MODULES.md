@@ -347,6 +347,17 @@ tardive ; la loi belge jamais plus rapide que (B.10) sous 20 °C ; l'essai et so
 mesure) ; refus ; 12 mutations. La lecture de la météo (`meteo.py`, `releve.py`) garde ses contrôles contre le faux
 Open-Meteo. `tests/test_api_web_age.py` : l'écran = le moteur.
 
+**Réalisé le 10/11/2026** (`docs/beton/MATURITE_MOTEUR.md`) : 202 contrôles et 44 mutations rejetées côté moteur, 72
+contrôles et 7 mutations côté écran. **Un invariant annoncé ci-dessus s'est révélé FAUX et a été mesuré** : « la loi
+belge jamais plus rapide que (B.10) sous 20 °C » ne tient que de 0 à 12,2 °C ; de 12,3 à 19,9 °C le tableau belge
+dépasse (B.10), de 1,5 % au plus (0,80 contre 0,789 à 15 °C). Le test borne l'écart au lieu d'affirmer l'invariant ; la
+loi belge reste le défaut (c'est la norme d'ici, et l'écart est sans effet devant la marge de la variante prudente).
+« La plus prudente par temps froid » s'entend FACE À (B.10), de 0 à 12 °C : sous 0 °C la loi belge compte encore un peu
+de durcissement là où (B.10) compte 0, et une énergie d'activation de plus de 36 kJ/mol (ciments au laitier : 45 à
+60) donne moins que le tableau belge à 5 °C (0,37 contre 0,45 pour 45 kJ/mol). L'aide de l'écran le dit.
+Deux choix du moteur qui ne sont pas dans la norme sont écrits à l'écran : la droite belge prolongée jusqu'à k = 0 à
+−10 °C, et aucun bonus au-dessus de 20 °C ; aucun gain n'est compté au-delà de 28 jours équivalents.
+
 ---
 
 ## 3. Taux d'armature (`beton/taux`, `api_web/taux.py`, page `taux-armature`)

@@ -66,6 +66,8 @@ Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATR
 
 ### Maturité du béton
 
+**Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md)** : le module est refait sur la norme (`docs/beton/MATURITE_MOTEUR.md`). Le relevé ci-dessous reste celui de l'écran Streamlit `modules/age_beton.py`, inchangé.
+
 Écran : `modules/age_beton.py` · doc : `docs/beton/MATURITE_MOTEUR.md`
 
 - NON CONSERVATIF — ② seuil à la température MOYENNE du relevé : annoncé trop tôt quand les jours froids viennent d'abord. Exemple : 7 j à 2 °C puis 7 j à 20 °C, seuil 15 MPa ; annoncé « après 4,8 j », réellement atteint au jour 8 (f_ck(5 j) = 11,36 MPa). Le site le signale en grave.
@@ -183,6 +185,8 @@ Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATR
 - « Ouvrir » accepte en silence un fichier mal formé : un ordre de couches « abc » devient trois couches par défaut ; un id illisible lève une exception Python.
 
 ### Maturité du béton
+
+**Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md)** : le module est refait sur la norme (`docs/beton/MATURITE_MOTEUR.md`). Le relevé ci-dessous reste celui de l'écran Streamlit `modules/age_beton.py`, inchangé.
 
 - ③ calculé à la température moyenne du relevé (même cause que le premier point).
 - Le t_e de « Données météo » garde l'E_a de l'EC2 même ajustée.
@@ -365,6 +369,8 @@ Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATR
 - Une erreur de lecture d'un fichier d'essai s'affiche en toast (passager), là où Streamlit laisse un st.error dans l'expander.
 
 ### Maturité du béton
+
+**Le site ne reproduit plus cet écran depuis le 10/11/2026 (docs/site/LOT_Q_QUATRE_MODULES.md)** : le module est refait sur la norme (`docs/beton/MATURITE_MOTEUR.md`). Le relevé ci-dessous reste celui de l'écran Streamlit `modules/age_beton.py`, inchangé.
 
 - Récupération météo Open-Meteo : géocodage du lieu, archive et prévisions, prolongation automatique au-delà de 16 j, détail horaire (T min h / T max h), dates « Coulage » et « Fin (décoffrage) », cache et re-essai. Le relevé se saisit : tableau collé (celui de Streamlit passe tel quel) ou fichier.
 - Données préparées pour un futur PDF (ab_rapport) : le bouton Note PDF est grisé.
