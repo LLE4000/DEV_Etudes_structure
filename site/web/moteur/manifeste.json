@@ -1,6 +1,6 @@
 {
  "pyodide": "vendor/pyodide-0.29.5",
- "sha256": "da5bfa039df984bd1c5fe3508a7bea6e657ca1b341b8c03fd8fc5cf885010326",
+ "sha256": "8c6d4ae1c271806301d3849d6026ac004bf8a6e6b90e8b5c08a62dd18d82ab22",
  "fichiers": [
   "acier/__init__.py",
   "acier/assemblages/__init__.py",
@@ -154,6 +154,7 @@
   "api_web/biblio_acier.py",
   "api_web/biblio_beton.py",
   "api_web/biblio_enrobages.py",
+  "api_web/biblio_hourdis.py",
   "api_web/bois.py",
   "api_web/catalogue.py",
   "api_web/commun.py",
@@ -164,6 +165,7 @@
   "api_web/dalle_positions.py",
   "api_web/dessin_age.py",
   "api_web/dessin_biblio_enrobage.py",
+  "api_web/dessin_biblio_hourdis.py",
   "api_web/dessin_bois.py",
   "api_web/dessin_catalogue.py",
   "api_web/dessin_corniere.py",
@@ -220,10 +222,13 @@
   "beton/donnees/ancrages_recouvrements.json",
   "beton/donnees/consultation.py",
   "beton/donnees/ec2.py",
+  "beton/donnees/hourdis/ergon_2018.json",
   "beton/enrobage/__init__.py",
   "beton/enrobage/donnees.py",
   "beton/enrobage/entree.py",
   "beton/enrobage/moteur.py",
+  "beton/hourdis/__init__.py",
+  "beton/hourdis/catalogue.py",
   "beton/maturite/__init__.py",
   "beton/maturite/entree.py",
   "beton/maturite/lois.py",
@@ -321,12 +326,12 @@
   "enrobage": "8c0b6bd1daf8e7b4",
   "flambement": "e28700385e8c0a7b",
   "garde_corps": "599f7caee4d6c336",
-  "plancher": "0b84ae95d83f3be8",
+  "plancher": "9a8494338553434d",
   "poutre": "42e726efa9ec3d94",
   "profil": "643f0f383da5e28c",
   "sol": "faf7dedd53612ba1",
   "soudures": "b2d858ea8353cf67",
   "taux": "0325815790c3ee2c"
  },
- "version": "20076b22e975d6ca"
+ "version": "0debacdcbfb0ed27"
 }
