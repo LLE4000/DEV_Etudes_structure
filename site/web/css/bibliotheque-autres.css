@@ -1,0 +1,167 @@
+/* La BIBLIOTHÈQUE « AUTRES » (docs/site/BIBLIOTHEQUE_AUTRES.md § 6) : trois outils de RDM dans le cadre des bibliothèques.
+   Le CADRE (#bib-tableau) porte l'outil : le dessin à gauche, les données et les résultats à droite, la feuille de calcul
+   dessous. PC et tablette : deux colonnes ; téléphone : une colonne. Les couleurs sont celles du thème (clair et sombre).
+   Chargée par bibliotheque-autres.html seule (site/web/construire.py, page_bibliotheque). */
+
+.bib-tableau:has(> .rdm) { flex: 1 1 auto; }
+.rdm { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(330px, .88fr); grid-template-areas: "g d" "f f"; align-items: start; }
+.rdm-g { grid-area: g; min-width: 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.rdm-d { grid-area: d; min-width: 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 12px; border-left: 1px solid var(--line); align-self: stretch; }
+.rdm-f { grid-area: f; min-width: 0; border-top: 1px solid var(--line); }
+.rdm > .rdm-refus { grid-column: 1 / -1; margin: 14px; }
+
+/* ---------------------------------------------------------------- les blocs */
+.rdm-bloc { min-width: 0; }
+.rdm-bh { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; }
+.rdm-bh h3 { margin: 0; font-size: 10.5px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.rdm-bc { min-width: 0; }
+.rdm-f > .rdm-bloc > .rdm-bh { padding: 10px 14px 0; }
+.rdm-aide, .rdm-vide { margin: 6px 0 0; font-size: 11.5px; line-height: 1.4; color: var(--ink-3); }
+.rdm-vide { padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); }
+
+/* ---------------------------------------------------------------- les champs du cadre */
+.rdm-c { display: inline-flex; align-items: center; gap: 5px; min-width: 0; font-size: 12px; color: var(--ink-2); }
+.rdm-cl { white-space: nowrap; font-size: 12px; color: var(--ink-2); }
+.rdm-cl sub { font-size: 9px; }
+.rdm-c .field { height: 30px; min-width: 0; }
+.rdm-c .field { padding: 0 7px; }
+.rdm-c .field input { width: 44px; text-align: right; }
+.rdm-c.l .field input { width: 84px; }
+.rdm-c .field.select select { appearance: none; border: 0; outline: 0; background: transparent; font-weight: 500; font-size: 12.5px; padding-right: 2px; max-width: 112px; color: var(--ink); }
+.rdm-ch { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.rdm-ch > .btn { margin-left: auto; }
+.rdm-plus { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.rdm-plus .btn svg.i { width: 13px; height: 13px; }
+
+/* ---------------------------------------------------------------- les résultats */
+.rdm-res { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.rdm-res th, .rdm-res td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: baseline; }
+.rdm-res th { width: 1%; white-space: nowrap; font-weight: 700; color: var(--ink); }
+.rdm-res th sub, .rdm-res td sub { font-size: 9px; }
+.rdm-res td.nm { color: var(--ink-3); font-size: 11.5px; }
+.rdm-res td.v { text-align: right; white-space: nowrap; color: var(--ink-2); }
+.rdm-res td.v[colspan] { white-space: normal; }
+.rdm-res td.v b { font-size: 13.5px; font-weight: 700; color: var(--ink); }
+.rdm-res td.p { text-align: right; white-space: nowrap; font-size: 11px; color: var(--ink-3); }
+.rdm-res tr[data-sel] { cursor: pointer; }
+.rdm-res tr[data-sel]:hover td, .rdm-res tr[data-sel]:hover th { background: var(--bg); }
+.rdm-res tr.on th, .rdm-res tr.on td { background: color-mix(in srgb, var(--accent-soft) 60%, var(--panel)); }
+.rdm-res tr.on th { box-shadow: inset 3px 0 0 var(--accent); color: var(--accent-hover); }
+.rdm-res tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* ---------------------------------------------------------------- la section lue */
+.rdm-lu { display: flex; align-items: center; gap: 10px; }
+.rdm-cur { flex: 1; min-width: 80px; accent-color: var(--accent); height: 28px; }
+.rdm-lu-v { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 4px; font-size: 12.5px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rdm-lu-v b { color: var(--ink); font-weight: 700; }
+
+/* ---------------------------------------------------------------- le dessin */
+.rdm-dessin { margin: 0; min-width: 0; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r); background: var(--panel-2); }
+.rdm-svg { display: block; width: 100%; height: auto; min-width: 500px; font-family: var(--font); user-select: none; -webkit-user-select: none; }
+.rdm-svg text { font-size: 12.5px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.rdm-svg text .ind { font-size: 9px; }
+.rdm-svg .poutre { stroke: var(--ink); stroke-width: 3.2; stroke-linecap: round; fill: none; }
+.rdm-svg .appui .tri { fill: var(--panel); stroke: var(--ink); stroke-width: 1.5; stroke-linejoin: round; }
+.rdm-svg .appui .sol, .rdm-svg .appui .mur { stroke: var(--ink); stroke-width: 1.4; fill: none; stroke-linecap: round; }
+.rdm-svg .appui .mur { stroke-width: 2.6; }
+.rdm-svg text.nom { font-size: 13px; font-weight: 700; fill: var(--ink); }
+.rdm-svg .ch { stroke: var(--beton); stroke-width: 1.3; fill: none; }
+.rdm-svg .ch.fo { stroke-width: 2; }
+.rdm-svg .ch.pte { fill: var(--beton); stroke: none; }
+.rdm-svg .ch-b { fill: color-mix(in srgb, var(--beton) 13%, transparent); stroke: var(--beton); stroke-width: 1.3; stroke-linejoin: round; }
+.rdm-svg .ch-p { fill: var(--beton); }
+.rdm-svg .ch-r { stroke: var(--beton); stroke-width: 1; stroke-dasharray: 2 3; fill: none; opacity: .7; }
+.rdm-svg text.ch-t { fill: var(--beton); font-weight: 650; }
+.rdm-svg .prise { fill: transparent; }
+.rdm-svg .glis { cursor: grab; touch-action: none; }
+.rdm-svg .glis:hover .ch-b { fill: color-mix(in srgb, var(--beton) 24%, transparent); }
+.rdm-svg .glis.glisse { cursor: grabbing; opacity: .75; }
+.rdm-svg text.glis-t { font-size: 12.5px; font-weight: 700; fill: var(--ink); text-anchor: middle; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; pointer-events: none; }
+.rdm-svg .re { stroke: var(--att); stroke-width: 2; fill: none; }
+.rdm-svg .re.pte { fill: var(--att); stroke: none; }
+.rdm-svg text.re-t { fill: var(--att); font-weight: 650; }
+.rdm-svg .cote { stroke: var(--ink-3); stroke-width: 1; fill: none; }
+.rdm-svg text.cote-t { fill: var(--ink-3); font-size: 12px; paint-order: stroke; stroke: var(--panel-2); stroke-width: 4px; }
+.rdm-svg .diag .axe { stroke: var(--ink-3); stroke-width: 1; fill: none; }
+.rdm-svg .diag .courbe { stroke-width: 1.8; fill: none; stroke-linejoin: round; }
+.rdm-svg .diag .aire { stroke: none; }
+.rdm-svg .diag text.dt { font-size: 13px; font-weight: 750; fill: var(--ink); }
+.rdm-svg .diag text.du { font-size: 11px; fill: var(--ink-3); }
+.rdm-svg .diag text.val { font-size: 12.5px; font-weight: 700; paint-order: stroke; stroke: var(--panel-2); stroke-width: 3.5px; }
+.rdm-svg .dV .courbe { stroke: var(--accent); } .rdm-svg .dV .aire { fill: color-mix(in srgb, var(--accent) 14%, transparent); } .rdm-svg .dV .pt, .rdm-svg .dV text.val { fill: var(--accent); }
+.rdm-svg .dM .courbe { stroke: var(--beton); } .rdm-svg .dM .aire { fill: color-mix(in srgb, var(--beton) 15%, transparent); } .rdm-svg .dM .pt, .rdm-svg .dM text.val { fill: var(--beton); }
+.rdm-svg .df .courbe { stroke: var(--autres); } .rdm-svg .df .aire { fill: color-mix(in srgb, var(--autres) 14%, transparent); } .rdm-svg .df .pt, .rdm-svg .df text.val { fill: var(--autres); }
+.rdm-svg .lu path { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 3; fill: none; opacity: .65; }
+.rdm-svg text.lu-t { font-size: 12px; fill: var(--ink-2); }
+
+/* ---------------------------------------------------------------- la feuille de calcul */
+.rdm-hyp { margin: 0; padding: 4px 14px 10px 30px; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
+.rdm-hyp li { margin: 1px 0; }
+.rdm-hyp sub { font-size: 8.5px; }
+.bib-fc.rdm-fc { border-top: 1px solid var(--line); }
+.bib-fc.rdm-fc col.c-s { width: 92px; } .bib-fc.rdm-fc col.c-n { width: 19%; } .bib-fc.rdm-fc col.c-v { width: 128px; } .bib-fc.rdm-fc col.c-r { width: 128px; }
+.bib-fc.rdm-fc td.fc .fo { display: block; margin: 0 0 1px; color: var(--ink); font-size: 12px; }
+.bib-fc.rdm-fc td.fc .va { display: block; color: var(--ink-3); font-size: 11.5px; overflow-wrap: anywhere; }
+.bib-fc.rdm-fc td.v .u, .bib-fc.rdm-fc td.cur .u { font-size: 11px; color: var(--ink-3); font-weight: 500; }
+.bib-fc.rdm-fc td.rg { white-space: normal; }
+.bib-fc.rdm-fc tr.g th span { text-transform: none; letter-spacing: 0; }
+.rdm-imp { display: none; }
+
+/* ---------------------------------------------------------------- un cas refusé, le volet */
+.rdm-refus { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--nok) 45%, var(--line)); border-radius: var(--r);
+  background: color-mix(in srgb, var(--nok) 6%, var(--panel)); color: var(--ink); }
+.rdm-refus > svg.i { flex: none; width: 20px; height: 20px; color: var(--nok); margin-top: 1px; }
+.rdm-refus b { font-size: 13.5px; }
+.rdm-refus p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--ink-2); }
+.rdm-refus ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.45; color: var(--ink-2); }
+.rdm-vt { margin: 12px 0 4px; font-size: 10.5px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-3); }
+.rdm-vt:first-child { margin-top: 0; }
+.rdm-vl { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
+
+/* ---------------------------------------------------------------- tablette */
+@media (max-width: 1200px) and (min-width: 701px) {
+  .rdm { grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); }
+  .rdm-g, .rdm-d { padding: 10px; }
+}
+
+/* ---------------------------------------------------------------- téléphone : une colonne, le cadre ne défile plus seul */
+@media (max-width: 700px) {
+  .bib-tableau:has(> .rdm) { flex: none; max-height: none; overflow: visible; }
+  .rdm { grid-template-columns: minmax(0, 1fr); grid-template-areas: "g" "d" "f"; }
+  .rdm-d { border-left: 0; border-top: 1px solid var(--line); }
+  .rdm-g, .rdm-d { padding: 10px; }
+  .rdm-c .field { height: 36px; }
+  .rdm-c .field input { width: 58px; font-size: 16px; }             /* 16 px : iOS n'agrandit pas la page à la saisie */
+  .rdm-ch > .btn, .rdm-plus .btn { min-height: 36px; }
+  .rdm-cur { height: 36px; }
+  .rdm-res tr[data-sel] td, .rdm-res tr[data-sel] th { padding-top: 10px; padding-bottom: 10px; }
+  /* la barre : les cinq modèles tiennent sur deux lignes plutôt que de se chevaucher */
+  body[data-bibliotheque="autres"] .bib-p .seg { height: auto; flex-wrap: wrap; row-gap: 2px; padding: 3px; }
+  body[data-bibliotheque="autres"] .bib-p .seg button { height: 30px; }
+}
+
+/* ---------------------------------------------------------------- l'impression : la feuille seule, sur papier blanc */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  html, body { background: #fff !important; height: auto !important; overflow: visible !important; }
+  .rail, .top, .mhead, .mnav, .bib-menu, .bib-barre, .bib-bande-b, .bib-pq, .toast, .app-attente, .rdm-plus, .rdm-aide, .rdm-ch > .btn, .rdm-cur,
+  .bandeau-demarrage { display: none !important; }
+  .app, .main, .bib, .bib-corps, .bib-tableau { display: block !important; height: auto !important; min-height: 0 !important; max-height: none !important;
+    overflow: visible !important; padding: 0 !important; border: 0 !important; background: #fff !important; }
+  .bib-corps > * + * { margin-top: 8px; }
+  .rdm { display: block; }
+  .rdm-g, .rdm-d { padding: 0 0 8px; border: 0; }
+  .rdm-dessin { border: 0; background: #fff; overflow: visible; }
+  .rdm-svg { min-width: 0; max-width: 150mm; margin: 0 auto; }
+  .rdm-imp { display: block; margin-bottom: 8px; border-bottom: 1.5px solid #000; padding-bottom: 6px; }
+  .rdm-imp-t { display: flex; gap: 14px; align-items: baseline; font-size: 11px; }
+  .rdm-imp-t b { font-size: 14px; margin-right: auto; }
+  .rdm-imp ul { display: none; }
+  .rdm-f { border-top: 0; }
+  .rdm-bloc { break-inside: auto; }
+  .rdm-resultats, .rdm-charges, .rdm-lecture, .rdm-dessin { break-inside: avoid; }
+  .bib-fc.rdm-fc tr { break-inside: avoid; }
+  .bib-bande { border: 1px solid #999 !important; break-inside: avoid; }
+  .bib-sources { font-size: 9.5px; }
+  .field { border-color: #bbb !important; }
+}

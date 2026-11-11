@@ -78,7 +78,8 @@ REDIRECTIONS = {"predalle": "dalle"}
 # clé → (module de rendu, titre, famille). La Bibliothèque Acier (BIB5) porte le catalogue des profilés : le module
 # « Catalogue des profilés » est masqué de l'accueil (MASQUES), sa page et ses notes restent servies.
 BIBLIOTHEQUES = {"beton": ("api_web.biblio_beton", "Béton armé", "beton"),
-                 "acier": ("api_web.biblio_acier", "Acier", "acier")}
+                 "acier": ("api_web.biblio_acier", "Acier", "acier"),
+                 "autres": ("api_web.biblio_autres", "Autres", "autres")}
 PAGES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}.html" for k in BIBLIOTHEQUES}
 ADRESSES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}" for k in BIBLIOTHEQUES}
 # les modules masqués de l'accueil (site/maquettes/construire.py, MASQUES) : servis, plus listés
@@ -104,7 +105,7 @@ NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblag
 MAX_RELEVE = 120
 # les paquets de calcul propres au site, empaquetés ENTIERS (un import paresseux n'y manque jamais) ; acier et plancher,
 # qui portent aussi les écrans Streamlit, sont relevés fichier par fichier
-PAQUETS_ENTIERS = ("api_web", "beton", "bois", "sol", "flambement")
+PAQUETS_ENTIERS = ("api_web", "beton", "bois", "sol", "flambement", "rdm")
 INTERDITS = ("streamlit", "reportlab", "matplotlib", "pandas", "fitz", "scipy", "PIL")
 
 
@@ -811,7 +812,9 @@ def page_bibliotheque(cle: str) -> str:
              f'{_gabarit_bibliotheque(B)}'
              f'{mnav("modules")}</main></div>{_pourquoi_bibliotheque()}<div class="toast" id="toast" role="status" hidden></div>'
              f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
-    return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css") + corps
+    # une bibliothèque peut avoir sa feuille de style propre (css/bibliotheque-<clé>.css : les outils de la Bibliothèque Autres)
+    propre = f"css/bibliotheque-{cle}.css"
+    return tete(f"Bibliothèque {titre} · Stab Méthodes", "css/bibliotheque.css", propre if os.path.exists(os.path.join(ICI, propre)) else "") + corps
 
 
 def compact(corps: str, bibliotheque=None, arbre_compact: bool = False) -> str:

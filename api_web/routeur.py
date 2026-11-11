@@ -56,7 +56,8 @@ from . import registre
 # une note. L'action « consulter » les sert : {"action": "consulter", "bibliotheque": "beton", "rubrique": "ancrages",
 # "params": {...}, "hote": "page" | "note"} → les fragments de la rubrique (api_web/biblio_<clé>.consulter) ; la
 # Bibliothèque Acier (BIB5) : {"bibliotheque": "acier", "rubrique": "profils" | "nuances" | "boulons", …}
-BIBLIOTHEQUES = {"beton": "api_web.biblio_beton", "acier": "api_web.biblio_acier"}
+# la Bibliothèque Autres (docs/site/BIBLIOTHEQUE_AUTRES.md) : {"bibliotheque": "autres", "rubrique": "poutres" | "plaques" | "sections", …}
+BIBLIOTHEQUES = {"beton": "api_web.biblio_beton", "acier": "api_web.biblio_acier", "autres": "api_web.biblio_autres"}
 
 
 def consulter(q: dict) -> dict:
