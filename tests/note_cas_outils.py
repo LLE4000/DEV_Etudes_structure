@@ -147,8 +147,15 @@ def present(nombre: str, texte: str) -> bool:
 
 
 def lignes_resultat(resultat: str):
-    """Les lignes du cadre Résultat (commun.ligne_res) : [(nom, pièce, niveau, taux affiché)]."""
+    """Les lignes du cadre Résultat : [(nom, pièce, niveau, taux affiché)]. Deux écritures, selon l'établi du module :
+    ``commun.ligne_res`` (le taux sous le nom, avec la jauge) et, sur l'établi compact, ``commun.ligne_verif`` (le taux au
+    bout de la première ligne ; ce que la vérification compare et sa jauge dessous)."""
     out = []
+    if 'class="el vc' in resultat:
+        for m in re.finditer(r'<div class="el vc[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>(.*?)<span class="pct (\w+)"[^>]*>([^<]+)</span></div>'
+                             r'<div class="l2">', resultat, re.S):
+            out.append((html.unescape(m.group(1)), ecran(m.group(2)).strip(" |"), m.group(3), norm(html.unescape(m.group(4)))))
+        return out
     for m in re.finditer(r'<div class="el[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>(.*?)</div><div class="l2">.*?'
                          r'<span class="pct (\w+)"[^>]*>([^<]+)</span></div></div>', resultat, re.S):
         out.append((html.unescape(m.group(1)), ecran(m.group(2)).strip(" |"), m.group(3), norm(html.unescape(m.group(4)))))

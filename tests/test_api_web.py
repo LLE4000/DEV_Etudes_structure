@@ -53,7 +53,7 @@ lignes = re.findall(r'<div class="el[^"]*"[^>]*><div class="l1"><b>([^<]+)</b>.*
 chk("une ligne de résultat par élément du moteur", len(lignes) == len(ref["elements"]), (len(lignes), len(ref["elements"])))
 chk("chaque ligne porte le taux et la couleur de son élément",
     all(t == f"{C.pc(C.pct(e['taux']))}{C.NBSP}%" and n == C.niveau(e["taux"]) for (_, n, t), e in zip(lignes, ref["elements"])), lignes[:2])
-chk("une seule ligne gouvernante", r["resultat"].count('class="el gov"') == 1)
+chk("une seule ligne gouvernante (une vérification de l'établi compact : « el vc »)", r["resultat"].count('class="el vc gov"') == 1)
 chk("les vues du dessin sont celles du moteur", [v["cle"] for v in r["vues"]] == [k for k, _, _ in __import__("acier.garde_corps.schemas", fromlist=["x"]).vues(ref)])
 chk("une fenêtre de calcul pour chaque ligne qui en annonce une",
     all(f'id="ck-{c}"' in r["volets"] for c in re.findall(r'data-calcul="([^"]+)"', r["resultat"])))
@@ -140,12 +140,65 @@ chk(f"les {len(TY.TYPES) * 8} combinaisons type × fixation × méthode se calcu
 # 7. l'échappement, les erreurs
 e = copy.deepcopy(etat)
 G.modifier(e, ["nom"], '<script>alert("x")</script>')
-h = G.elements(e)
-chk("un nom saisi est échappé dans le HTML", "<script>" not in h and "&lt;script&gt;" in h)
+rr = req(module="garde_corps", action="calculer", etat=e)
+h = rr["donnees"] + rr["resultat"]
+chk("un nom saisi est échappé dans le HTML (la ligne de l'élément, la tête des résultats)", "<script>" not in h and h.count("&lt;script&gt;") >= 2)
 x = req(module="inconnu", action="calculer")
 chk("un module inconnu rend une erreur lisible", x["ok"] is False and "inconnu" in x["erreur"], x)
 x = json.loads(R.traiter("pas du json"))
 chk("une requête illisible rend une erreur, pas une exception", x["ok"] is False)
+
+# 8. l'établi COMPACT (la mise en forme de la poutre, 11/11/2026) : la colonne de gauche, les blocs, les fenêtres, les vues
+d, res_h = r["donnees"], r["resultat"]
+chk("à gauche : la colonne compacte — la ligne du garde-corps (son nom s'y modifie, à cet endroit seulement), six rubriques, la dernière "
+    "(« Hypothèses ») secondaire ; plus de bloc « Dans cette note », plus de phrase au-dessus du dessin",
+    'class="et-arbre et-arbre-c" data-gardecorps="0"' in d and d.count('data-chemin="nom"') == 1 and len(re.findall(r'<div class="sec( open)?" data-sec=', d)) == 6
+    and re.findall(r'data-sec="(\w+)"( data-secondaire="1")?', d) == [("gc", ""), ("tr", ""), ("rp", ""), ("ch", ""), ("fx", ""), ("me", ' data-secondaire="1"')]
+    and r["elements"] == "" and r["phrase"] == "", re.findall(r'data-sec="(\w+)"( data-secondaire="1")?', d))
+chk("à droite : la tête porte le nom, le type et la géométrie du moteur",
+    f'<div class="et-rp"><b>G1</b><span>{C.esc(ref["type_libelle"])} · {C.esc(ref["geometrie"]["phrase"])}</span></div>' in res_h)
+blocs_h = re.findall(r'<section class="et-bloc (\w+)" data-theme="(\d)">.*?<span class="n">([^<]+)</span><span class="e">([^<]+)</span>(.*?)</section>', res_h, re.S)
+par_bloc = {0: [e for e in ref["elements"] if e["cle"] in ET.ROLES], 1: [e for e in ref["elements"] if e["cle"] not in ET.ROLES]}
+chk("deux blocs : « Profilés » (les pièces qui se choisissent) et « Fixation » ; chacun porte l'état et le taux de sa ligne la plus chargée, "
+    "et autant de lignes que le moteur a d'éléments",
+    [(b[1], b[2]) for b in blocs_h] == [("0", "Profilés"), ("1", "Fixation")]
+    and all(b[0] == {"p": "ok", "f": "warn", "r": "nok"}[C.niveau(max(e["taux"] for e in par_bloc[int(b[1])]))]
+            and b[3] == f"{C.STATUTS[C.niveau(max(e['taux'] for e in par_bloc[int(b[1])]))][1]} · {C.pc(C.pct(max(e['taux'] for e in par_bloc[int(b[1])])))}{C.NBSP}%"
+            and b[4].count('class="el vc') == len(par_bloc[int(b[1])]) for b in blocs_h), [(b[0], b[1], b[2], b[3]) for b in blocs_h])
+cmps = re.findall(r'<span class="cmp">(.*?)</span><div class="bar"', res_h)
+dm = ref["elements"][0]["detail"]
+chk("chaque vérification dit ce qu'elle compare, en clair : pour le montant, sa flèche face à sa limite (les nombres du moteur) et son cas de charge",
+    len(cmps) == len(ref["elements"]) and cmps[0] == f"Flèche {C.fr(dm['fleche'], 2)} ≤ {C.fr(dm['fleche_lim'], 1)} mm · cas 1" and cmps[1].startswith("σ<sub>éq</sub> ")
+    and all(" ≤ " in c for c in cmps),
+    cmps[:2])
+fen = re.findall(r'id="ck-(s\d)".*?<tbody>(.*?)</tbody>', r["volets"], re.S)
+chk("« tout le calcul » d'un bloc a sa fenêtre (s0, s1) : toutes les vérifications du bloc, une seule gouvernante en tête",
+    [f[0] for f in fen] == ["s0", "s1"] and all(f[1].count("<tr") >= len(par_bloc[i]) and f[1].count('class="gov"') == 1
+                                                 and f[1].index('class="gov"') < f[1].index("</tr>") for i, f in enumerate(fen)),
+    [(f[0], f[1].count("<tr")) for f in fen])
+chk("chaque vue du dessin porte son en-tête technique : le type, l'acier, la méthode ; la géométrie ; les charges",
+    all(v["entete"].startswith('<div class="et-ent">') and C.esc(ref["type_libelle"]) in v["entete"] and C.esc(ref["geometrie"]["phrase"]) in v["entete"]
+        and "qh = 0,5 kN/m" in v["entete"] and v["titre"].upper() in v["entete"] for v in r["vues"]), r["vues"][0]["entete"][:300])
+e = G.nouvel_etat()
+G.modifier(e, ["fixation", "type"], "scellee")
+rs = req(module="garde_corps", action="calculer", etat=e)
+chk("montant scellé : la fixation n'est pas vérifiée — pas de bloc « Fixation », pas de fenêtre s1, et aucune ligne n'annonce un calcul absent",
+    'data-theme="1"' not in rs["resultat"] and 'id="ck-s1"' not in rs["volets"] and 'data-theme="0"' in rs["resultat"]
+    and all(f'id="ck-{c}"' in rs["volets"] for c in re.findall(r'data-calcul="([^"]+)"', rs["resultat"])))
+e = G.nouvel_etat()
+G.gerer_elements(e, "ajouter")
+G.gerer_elements(e, "ajouter")
+G.gerer_elements(e, "dupliquer", 0)
+chk("copier un garde-corps (bouton de sa ligne) : la copie s'insère juste après lui et s'ouvre",
+    [c["nom"] for c in e["cas"]] == ["G1", "G1 (copie)", "G2", "G3"] and e["actif"] == 1, [c["nom"] for c in e["cas"]])
+G.gerer_elements(e, "supprimer", 3)
+G.gerer_elements(e, "ajouter")
+chk("un garde-corps neuf porte un nom court, libre dans la note (G1 à l'ouverture, puis G2, G3… : il tient entier dans la ligne de l'élément)",
+    G.nouvel_etat()["cas"][0]["nom"] == "G1" and [c["nom"] for c in e["cas"]] == ["G1", "G1 (copie)", "G2", "G4"], [c["nom"] for c in e["cas"]])
+rn3 = req(module="garde_corps", action="calculer", etat=e)
+chk("une note de plusieurs garde-corps : la liste de la ligne les nomme tous (nom, type, longueur), le statut de la note est dit ; seul, il ne l'est pas",
+    rn3["donnees"].count('class="et-elt-i') == 4 and 'data-elements="4"' in rn3["donnees"] and "Barreaudage vertical · 3,60" in rn3["donnees"]
+    and rn3["statut_html"] != "" and r["statut_html"] == "")
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:

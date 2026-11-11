@@ -167,7 +167,7 @@ ident["identification"] = {"projet": "Projet du fichier", "partie": "Partie cach
 f, octets, _ = O.note_et_tailles(G, ident, {})
 t = O.norm(" ".join(O.pages(octets)))
 chk("sans infos : le nom du garde-corps nomme la note ; l'identification d'un fichier, que l'écran ne montre pas, ne s'imprime pas",
-    f["nom"] == "Note de calcul - Garde-corps 1.pdf" and "Garde-corps 1 · Garde-corps · cas Garde-corps 1" in t and "indice A" in t
+    f["nom"] == "Note de calcul - G1.pdf" and "G1 · Garde-corps · cas G1" in t and "indice A" in t
     and "Projet du fichier" not in t and "Partie cachée" not in t, (f["nom"], t[:300]))
 chk("infos_du_cas : la correspondance écrite (projet = chantier, partie = nom, indice, date)",
     NC.infos_du_cas(G.NOTE, e, e["cas"][0], INFOS) == {"nom_projet": "Résidence Les Tilleuls", "partie": "Terrasse", "indice": "B", "date": "01/02/2026"})

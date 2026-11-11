@@ -312,6 +312,33 @@ const principal = async () => {
     return { deborde: document.documentElement.scrollWidth > innerWidth, coupes, gris, tabulaires, svg: r ? [Math.round(r.width), Math.round(r.height)] : null,
       vue: rb ? [Math.round(rb.width), Math.round(rb.height)] : null };
   });
+  // (refonte du 11/11/2026 : les modules passés ce jour-là sur l'établi compact) ce que l'œil LIT : dans CHAQUE rubrique
+  // des données, une valeur saisie se lit en entier dans son champ (« 1 100 » ne se lit pas « 1 10 », vu sur la première
+  // capture du garde-corps) ; à droite, ce qu'une vérification compare se lit en entier. Les rubriques sont ouvertes
+  // l'une après l'autre (l'accordéon n'en montre qu'une), puis la première est rouverte.
+  const REFONTE_1111 = ['garde_corps', 'flambement', 'profil', 'sol', 'soudures', 'plancher', 'assemblages'];
+  const lisibles = async (pg) => {
+    const out = { rubriques: 0, champs: [], cmps: [] };
+    const lire = () => pg.evaluate(() => {
+      const vis = (e) => e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      return [...document.querySelectorAll('#donnees .field input:not([type=checkbox])')].filter(vis)
+        .filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.dataset.chemin} « ${e.value} »`);
+    });
+    const n = await pg.$$eval('#donnees .sec', (e) => e.length);
+    for (let i = 0; i < n; i++) {
+      const ouverte = await pg.$$eval('#donnees .sec', (e, k) => e[k].classList.contains('open'), i);
+      if (!ouverte) { await (await pg.$$('#donnees .sec > .sechd'))[i].click(); await pg.waitForTimeout(160); }
+      if (await pg.$$eval('#donnees .sec', (e, k) => e[k].classList.contains('open'), i)) { out.rubriques += 1; out.champs.push(...await lire()); }
+      out.champs = [...new Set(out.champs)];
+    }
+    if (n && !(await pg.$$eval('#donnees .sec', (e) => e[0].classList.contains('open')))) {
+      await (await pg.$$('#donnees .sec > .sechd'))[0].click(); await pg.waitForTimeout(160);
+    }
+    out.cmps = await pg.evaluate(() => [...document.querySelectorAll('#resultat .el.vc .l2 .cmp')]
+      .filter((e) => e.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && e.scrollWidth > e.clientWidth + 1)
+      .map((e) => e.textContent.trim().slice(0, 50)));
+    return out;
+  };
   // (colonne de gauche compacte : la poutre, la dalle — construire.ARBRE_COMPACT) la LIGNE de l'élément ouvert, que
   // js/etabli.js pose dans l'en-tête du panneau des données, à côté d'« Annuler » et « Rétablir ». Ce que l'œil voit :
   // chaque pièce (le nom, la liste, copier, supprimer, puis Annuler, Rétablir, replier) visible et à une taille LUE, dans
@@ -454,7 +481,8 @@ const principal = async () => {
     await calme();
     verif('H = 1 300 mm : le résultat suit (89 %)', /89\s?%/.test(await verdict()), await verdict());
     // le calcul détaillé
-    await p.click('#resultat .el[data-calcul="montant"]');
+    // (l'établi compact, 11/11/2026 : la ligne porte aussi le bouton du profilé — on clique sur ce qu'elle compare)
+    await p.click('#resultat .el[data-calcul="montant"] .cmp');
     await p.waitForTimeout(200);
     verif('la ligne du montant ouvre son calcul détaillé', await p.isVisible('.flyout.on.calcul .vtab'));
     await capture('garde_corps_calcul');
@@ -475,20 +503,23 @@ const principal = async () => {
     // le type change les éléments
     await p.selectOption('select[data-chemin="type"]', 'lisses');
     await calme();
-    verif('type « lisses » : la ligne des lisses intermédiaires apparaît', (await p.textContent('#resultat')).includes('Lisses intermédiaires'));
-    // « Lisses intermédiaires (2) » et son profilé ne tiennent pas sur une ligne du cadre de 316 px : le profilé passe
-    // dessous, entier (il se coupait en « RHS 50×25×2,… », l'épaisseur cachée)
+    verif('type « lisses » : la ligne des lisses intermédiaires apparaît', /Lisses \(\d+\)/.test(await p.textContent('#resultat')));
+    // l'établi compact dit les noms en COURT (« Montant M2 », « Lisses (2) ») : le nom, le profilé et le taux tiennent sur
+    // une ligne du cadre de 316 px, sans être coupés (le profilé se coupait en « RHS 50×25×2,… », l'épaisseur cachée)
     m = await mesure();
     verif('type « lisses » : aucun nom coupé dans le résultat (le profilé des lisses se lit en entier)', !m.coupes.length && !m.deborde, m.coupes.join(', '));
-    // un deuxième garde-corps
-    await p.click('[data-ajouter]');
+    // un deuxième garde-corps (l'établi compact : la liste de la LIGNE de l'élément, dans l'en-tête du panneau des données)
+    const nGardeCorps = () => p.$eval('.panel.left .phead .et-elt .et-elsel[data-elements]', (l) => Number(l.dataset.elements));
+    await p.click(`${LISTE_ELT} [data-menu]`);
+    await p.click(`${LISTE_ELT} .et-mn-l [data-ajouter]`);
     await calme();
-    verif('« Ajouter un garde-corps » : deux éléments dans la note', (await p.$$eval('.elements .ni', (e) => e.length)) === 2);
+    verif('« Ajouter un garde-corps » : deux éléments dans la note', (await nGardeCorps()) === 2);
     // l'enregistrement : la page rechargée retrouve la note
     await p.reload();
     await pret();
-    verif('rechargée, la note garde ses deux garde-corps', (await p.$$eval('.elements .ni', (e) => e.length)) === 2);
-    await p.click('.elements .ni[data-activer="0"]');
+    verif('rechargée, la note garde ses deux garde-corps', (await nGardeCorps()) === 2);
+    await p.click(`${LISTE_ELT} [data-menu]`);
+    await p.click(`${LISTE_ELT} .et-mn-l [data-activer="0"]`);
     await calme();
     verif('… et le premier garde sa hauteur de 1 300 mm', (await p.inputValue('input[data-chemin="geometrie/H"]')).replace(/\s/g, '') === '1300');
     // sombre
@@ -603,6 +634,11 @@ const principal = async () => {
       if (nVues) verif(`${cle} : la vue (dessin ou tableau) est visible et à sa taille`, m.vue && m.vue[0] > 200 && m.vue[1] > 120, JSON.stringify(m.vue));
       verif(`${cle} : rien ne déborde, aucun nom coupé, les valeurs à l'encre, les noms sans chiffres tabulaires`,
         !m.deborde && !m.coupes.length && !m.gris.length && !m.tabulaires.length, [...m.coupes, ...m.gris, ...m.tabulaires].join(', '));
+      if (REFONTE_1111.includes(cle) && (await p.evaluate(() => document.body.dataset.etabli)) === 'compact') {
+        const lus = await lisibles(p);
+        verif(`${cle} : dans chaque rubrique des données, chaque valeur saisie se lit en entier dans son champ ; à droite, chaque comparaison se lit en entier`,
+          lus.rubriques > 0 && !lus.champs.length && !lus.cmps.length, JSON.stringify(lus).slice(0, 500));
+      }
       await capture(cle);
       const c = await p.$('#resultat [data-calcul]');
       if (c) {

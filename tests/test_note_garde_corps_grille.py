@@ -72,6 +72,9 @@ def grille():
     """Les 240 états : (clé lisible, état de la note du site)."""
     for t, f, cu, fx, m in itertools.product(TYPES, FORMES, CUMUL, FIXATIONS, METHODES):
         e = G.nouvel_etat()
+        # la référence a été figée quand un garde-corps neuf s'appelait « Garde-corps 1 » (il s'appelle G1 depuis le
+        # 11/11/2026, api_web/garde_corps.NOM_DEFAUT) : la note imprime ce nom, la grille le garde tel qu'il était
+        e["cas"][0]["nom"] = "Garde-corps 1"
         for ch, v in ((["type"], t), (["geometrie", "forme"], f), (["charges", "cumul"], cu), (["fixation", "type"], fx),
                       (["methode", "mode"], m)):
             msg = G.modifier(e, ch, v)

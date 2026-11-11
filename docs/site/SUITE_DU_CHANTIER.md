@@ -521,6 +521,36 @@ neutre que RBAR veut lire, à recevoir de sa conversation ; le site produira alo
 G142 de la fiche — « Zone 3 = 1,12 N/mm² < τ << 1,68 N/mm² » (« << » pour « < »). À corriger dans le classeur si le
 bureau le veut ; le module suivra.
 
+## Fait ensuite, la remise en forme des sept modules restants (même branche, sur 15ad6a9, nuit du 11 au 12/11/2026)
+
+**Demande de l'ingénieur (11/11/2026 au soir).** Sept modules gardaient l'établi d'avant : Garde-corps, Flambement,
+Choix de profilé, Rigidité du sol, Soudures, Charges sur plancher, Assemblages métalliques. « Fais-les tous d'un coup…
+Ça doit vraiment être ergonomique. Des fois, il y a trop de choses affichées : garde l'essentiel… Plus c'est mieux
+remis en forme, plus c'est simple à relire et à améliorer. » Sans question, pendant la nuit.
+
+**La règle du lot.** C'est une remise en FORME : aucun calcul ne change. Chaque module passe sur l'établi compact de la
+poutre (`construire.ETABLI_COMPACT`, `api_web/etabli_compact.py`) :
+- à gauche, la ligne de l'élément (son nom, la liste, copier, supprimer) et ses rubriques en accordéon, la dernière
+  — les hypothèses, la méthode — secondaire ; les aides au survol de ⓘ, plus en paragraphes ;
+- au centre, les vues, chacune sous son en-tête technique ;
+- à droite, la tête, le verdict, puis des BLOCS de vérifications : chaque ligne dit ce qu'elle compare, en clair
+  (« Flèche 7,01 ≤ 11,0 mm · cas 1 »), puis sa jauge ; elle ouvre son calcul ; chaque bloc a « tout le calcul ».
+
+**Ce que le harnais a appris.** La colonne des données fait 340 px : deux champs par ligne n'y tiennent que sous des
+libellés très courts. Sur la première capture du garde-corps, « 1 100 mm » se lisait « 1 10 ». Le harnais ouvre
+désormais CHAQUE rubrique de ces modules et mesure que chaque valeur saisie se lit en entier dans son champ, et chaque
+comparaison du résultat aussi (`verifier_site.js`, `lisibles`, liste `REFONTE_1111`).
+
+**Module par module.**
+- **Garde-corps** (`api_web/garde_corps.py`) : six rubriques (Garde-corps, Tronçons, Remplissage, Charges, Fixation,
+  Hypothèses) ; deux blocs, « Profilés » (les pièces dont la section se choisit) et « Fixation » ; les noms des lignes
+  dits en court (« Montant M2 », « Lisses (2) ») pour tenir avec la section et le taux ; un garde-corps neuf s'appelle
+  G1 (comme C1, F1, P1 : le nom tient entier dans la ligne de l'élément sur tablette). Retiré de l'écran : le bloc
+  « Dans cette note » (la liste est dans la ligne de l'élément), le champ Nom de la première rubrique, la phrase
+  au-dessus du dessin (elle est dans la tête des résultats), les paragraphes d'aide (au survol). Preuves :
+  `tests/test_api_web.py` (41 OK), la note PDF inchangée (`tests/test_note_garde_corps.py`), harnais `garde`,
+  `module:garde_corps`, `formats:garde_corps`, `ouverture`.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage
