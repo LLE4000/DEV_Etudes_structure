@@ -42,9 +42,13 @@ montre la même chose comme on la dessinerait à la main (`beton/fondation_grue/
   pieux de la semelle A décalés, ceux de l'appui B, le châssis posé décalé de + e, de − e), les appuis et les charges
   sont placés là où cette position les met ;
 - chaque position donne sa courbe de moment et sa courbe d'effort tranchant ; l'**enveloppe** est tracée en trait
-  fort, ses extremums sont cotés ;
+  fort, ses extremums sont cotés — valeur et abscisse EXACTES (le sommet de M est là où l'effort tranchant s'annule ;
+  le classeur, lui, lit M tous les 5 cm : écart E8) ;
 - la valeur que le classeur retient est repérée par un tireté : quand elle diffère de l'extremum exact, on le voit
   (c'est le cas de la variante 4 pieux : 72,6 kN·m au classeur, 76,3 kN·m sur la courbe — écart E16).
+
+Les abscisses sont comptées depuis l'appui A à sa place prévue ; pour une pièce posée sur deux pieux (la semelle, la
+poutre primaire), depuis son milieu — la légende de chaque dessin le dit.
 
 Cette statique est écrite indépendamment de la transcription des classeurs ; les tests vérifient que les deux donnent
 les mêmes réactions, les mêmes moments et les mêmes efforts tranchants.
@@ -84,14 +88,33 @@ formes, les retours, les ancrages et les recouvrements (standard du bureau), le 
 latérales. Et ce que RBAR ne lit pas encore d'un fichier : la géométrie complète d'un élément, les étriers de renfort
 au droit des pieux, les perfos — ils sont dans le tableau, à poser par le dessinateur.
 
-## 6. Ce qui prouve la fidélité
+## 6. La note de calcul PDF
+
+Le bouton « Note PDF » fait la note de TOUTE la note du site (`api_web/note_fondation_grue.py`, sur le kit `ndc_pdf` des
+notes Poutre et Dalle : même page de garde, mêmes polices). Elle ne calcule rien : elle imprime le résultat que l'écran
+affiche (`moteur.verifier`), avec les mots et les nombres de l'écran.
+
+| Pages | Contenu |
+|---|---|
+| Garde (A4 portrait) | projet, partie, date, indice ; une ligne par fondation : son schéma, son taux, ce qui gouverne, son statut, sa page |
+| Calcul (A4 paysage, 2 ou 3 pages) | les hypothèses (la méthode du classeur, les matériaux et leurs contraintes) ; les données saisies, **chacune avec sa cellule du classeur** ; les charges de la grue ; un bloc par partie du classeur — ses sollicitations, chaque vérification avec ses formules « symbole = expression = valeurs = résultat » et la cellule dont chacune reproduit la valeur, son verdict (l'état que le classeur donne), le cisaillement et sa zone ; les contrôles de géométrie ; les écarts relevés (les deux chiffres) ; le récapitulatif ; ce que la note ne couvre pas ; la conclusion |
+| Diagrammes M et V | pour chaque poutre et chaque semelle : le dessin de l'écran (une rangée et une courbe par position de tolérance, l'enveloppe, la valeur du classeur en tireté) et le tableau des positions (portée, réactions, moments, efforts tranchants, l'enveloppe, ce que le classeur retient) |
+| Plan de principe (la dernière page) | la vue en plan à une **échelle normalisée** (1:50, 1:75…), les pièces, les armatures choisies avec leurs cellules (ce qui part vers RBAR), ce que le calcul ne fixe pas, le cartouche — ni plan de coffrage, ni plan d'armatures |
+
+La mise en page ne tronque jamais : les blocs du calcul sont mesurés puis posés, colonne après colonne ; un titre ne
+reste pas seul en bas d'une colonne. Le nombre de pages est celui de la taille normale du texte ; la taille retenue est
+la plus grande qui tient dans ce nombre de pages. Les dessins sont les scènes de l'écran, peintes telles quelles (un
+seul dessin pour l'écran et pour la note).
+
+## 7. Ce qui prouve la fidélité
 
 | Suite | Ce qu'elle tient |
 |---|---|
-| `tests/test_fondation_grue_moteur.py` | les 541 cellules calculées des quatre fiches et environ 7 800 valeurs des grands tableaux, reproduites à 10⁻⁹ près ; la statique indépendante ; les formules imprimées — leur gabarit réévalué, et leur ÉCRITURE : la chaîne imprimée de 1 236 formules (les quatre classeurs et 24 variantes) relue caractère par caractère ; 37 + 8 mutations vues |
-| `tests/test_api_web_fondation_grue.py` | ce que le site affiche, dessine et exporte = ce que le moteur calcule, sur 14 états ; les refus ; l'échappement ; 48 mutations vues |
+| `tests/test_fondation_grue_moteur.py` | les 541 cellules calculées des quatre fiches et environ 7 800 valeurs des grands tableaux, reproduites à 10⁻⁹ près ; la statique indépendante ; les formules imprimées — leur gabarit réévalué, et leur ÉCRITURE : la chaîne imprimée de 1 236 formules (les quatre classeurs et 24 variantes) relue caractère par caractère ; l'enveloppe exacte de la poutre support ; 39 + 8 mutations vues |
+| `tests/test_api_web_fondation_grue.py` | ce que le site affiche, dessine et exporte = ce que le moteur calcule, sur 14 états ; aucun texte d'un dessin hors de son cadre ni sur un autre ; les refus ; l'échappement ; 52 mutations vues |
+| `tests/test_note_fondation_grue.py` | la note PDF relue par pdftotext sur 13 états et une grille de 40 fondations : tout ce que le moteur calcule y est, à la lettre (formules, cellules, verdicts, écarts, positions de tolérance, armatures), les dessins de l'écran, l'échelle du plan, la mise en page sans débordement, l'identification, les conditions du navigateur ; 21 mutations vues |
 | `tests/test_api_web_modules.py fondation_grue` | le contrat commun des modules du site |
-| `site/web/verifier_site.js` (`module:fondation_grue`, `formats:fondation_grue`) | l'écran dans le navigateur : PC, tablettes, téléphone |
+| `site/web/verifier_site.js` (`module:fondation_grue`, `formats:fondation_grue`, `note_pdf`) | l'écran dans le navigateur : PC, tablettes, téléphone ; la note PDF téléchargée d'un clic |
 
 Les valeurs de référence (`tests/ref_fondation_grue.json`) sont tirées des classeurs par
 `tools/transcrire_fondation_grue.py`.
@@ -104,12 +127,17 @@ part de V intervenait, « H_pied » écrit « H_πed », un tiret pour le signe 
 brique partagée qui écrit les substitutions (`acier/assemblages/poutre_poutre/doubles_cornieres/formules.py`) ; elle
 est corrigée là, et le test relit désormais la chaîne IMPRIMÉE — l'ancien contrôle ne réévaluait que le gabarit.
 
-## 7. Ce qui n'est pas couvert
+La relecture des pages de la note, calculs refaits à la main, a encore trouvé quatre écritures à reprendre (aucune ne
+changeait un résultat) : au droit du pieu, la largeur de la hauteur calculée était écrite « b » alors que le classeur y
+met le diamètre du pieu (elle s'écrit D) ; le moment maximal de la poutre support était coté à un point de grille
+(« x = 5,21 m » pour un sommet en 5,18 m) ; le tranchant du classeur portait le signe du côté où il est tracé
+(« V max = −820,8 ») ; la dernière graduation pouvait toucher le titre de l'axe (« 6x (m) »). Chacune a son contrôle
+et sa mutation.
 
-- **La note de calcul PDF** : elle vient au lot suivant (même forme que celle des poutres et des dalles, la dernière
-  page pour le plan de principe).
+## 8. Ce qui n'est pas couvert
+
 - **Toute géométrie hors des trois schémas** : pieux inclinés, nombre de pieux différent, châssis rectangulaire,
   semelle sur trois pieux. Le module refuse plutôt que d'extrapoler.
 - **Ce que les classeurs ne calculent pas** : le soulèvement d'un pieu, le poinçonnement, les longueurs d'ancrage, la
-  fissuration, la répartition de l'effort horizontal entre les pieux.
+  fissuration, la répartition de l'effort horizontal entre les pieux (`moteur.NON_COUVERT` : la note l'imprime).
 - **Les seize écarts de l'étude** (§ 5) : signalés, non corrigés. Six questions restent posées au bureau (étude § 11).

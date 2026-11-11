@@ -262,10 +262,11 @@ def selecteur(etat: Dict, role: str, familles=None, froid: bool = True) -> str:
 
 # ------------------------------------------------------------------ les nombres
 def _n(x: Optional[float], unite: str = "") -> str:
-    """Un résultat à la précision d'usage de son unité (mm et mm² entiers, kN et kN·m au dixième, τ au millième)."""
+    """Un résultat à la précision d'usage de son unité (mm et mm² entiers, kN et kN·m au dixième, τ au millième) ; un
+    nombre négatif porte le vrai signe moins, comme dans les dessins et les formules (« −71,2 », pas « -71,2 »)."""
     if x is None:
         return "—"
-    return C.fr(x, DECIMALES.get(unite, 2))
+    return C.fr(x, DECIMALES.get(unite, 2)).replace("-", "−")
 
 
 def _nu(x: Optional[float], unite: str) -> str:
@@ -289,8 +290,8 @@ def _val_ecart(x) -> str:
     if x is None:
         return "—"
     if isinstance(x, dict):
-        return " · ".join(f"{C.esc(NOMS_VARIANTE.get(k, k))} {_g(round(v, 2))}" for k, v in x.items())
-    return _g(round(x, 2))
+        return " · ".join(f"{C.esc(NOMS_VARIANTE.get(k, k))} {_g(round(v, 2)).replace('-', '−')}" for k, v in x.items())
+    return _g(round(x, 2)).replace("-", "−")
 
 
 def _pct(t: Optional[float]) -> str:
@@ -931,9 +932,14 @@ def resultat(etat: Dict) -> Dict:
 
 # ------------------------------------------------------------------ les fichiers à télécharger
 def telecharger(etat: Dict, quoi: str, infos: Optional[Dict] = None) -> Optional[Dict]:
-    """« rbar » : le fichier d'échange vers RBAR (JSON ; refusé avec un message quand une vérification du classeur est
-    PAS OK) ; « dxf » : le plan de principe (DXF R12, en cm) ; « tableau » : le tableau des armatures (CSV) ; « cas » :
-    toutes les colonnes des grands tableaux des cas de la grue (CSV, 8 pieux sur semelles)."""
+    """« note_pdf » : la note de calcul PDF de TOUTE la note (une garde, puis les pages de chaque fondation —
+    ``note_fondation_grue``, chargé à la demande : reportlab n'est pas dans le paquet du moteur) ; « rbar » : le fichier
+    d'échange vers RBAR (JSON ; refusé avec un message quand une vérification du classeur est PAS OK) ; « dxf » : le plan
+    de principe (DXF R12, en cm) ; « tableau » : le tableau des armatures (CSV) ; « cas » : toutes les colonnes des grands
+    tableaux des cas de la grue (CSV, 8 pieux sur semelles)."""
+    if quoi == "note_pdf":
+        from . import note_fondation_grue as NF
+        return NF.fichier(etat, infos)
     f = _fondation(etat)
     nom = f.get("nom") or "Fondation de grue"
     if quoi not in ("rbar", "dxf", "tableau", "cas"):

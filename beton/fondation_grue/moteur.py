@@ -33,6 +33,9 @@ from .entree import exemple, normaliser, nouvelle_fondation  # noqa: F401 — l'
 
 REFERENCE = "classeurs du bureau « Fondation grue tour sur pieux » (BASE, GWW, variantes 4 et 8 pieux) relus le 11/11/2026"
 OK, WARN, NOK, INFO = "ok", "warn", "nok", "info"
+# ce que les classeurs — donc ce module — ne calculent PAS : la note le dit en toutes lettres (docs/beton/FONDATIONS_GRUE.md § 7)
+NON_COUVERT = ("le soulèvement d'un pieu", "le poinçonnement", "les longueurs d'ancrage", "la fissuration",
+               "la répartition de l'effort horizontal entre les pieux", "toute géométrie hors des trois schémas")
 ETATS = {K.OK: OK, K.LIMITE: WARN, K.A_VERIFIER: WARN, K.PAS_OK: NOK}
 ETATS_ZONE = {"ZONE 1": OK, "ZONE 2": OK, "ZONE 3": WARN, "> ZONE 3": NOK}
 N_ENVELOPPE = 90                 # points de l'enveloppe d'un grand tableau (dessin)
@@ -103,7 +106,9 @@ TEXTES_SOUS_CAS = {
 def _element_support(f: dict, r: K.Releve) -> dict:
     """La poutre support : quatre positions de tolérance ; pour chacune, l'enveloppe de ses colonnes (un cas de la
     grue × une orientation) et la colonne qui donne son plus grand moment. Les colonnes d'un sous-cas ont la même
-    géométrie : leur enveloppe se calcule directement, avec les RA du relevé."""
+    géométrie : leur enveloppe se calcule directement, avec les RA du relevé. La grille porte, pour chaque colonne,
+    les abscisses où son effort tranchant s'annule (les sommets de M) : l'extremum coté est EXACT, valeur et abscisse
+    — le classeur, lui, lit M tous les 5 cm (écart E8)."""
     Lc, a, b, e = f["chassis"] / 100, f["dist_a"] / 100, f["dist_b"] / 100, f["e_support"] / 100
     pp = r["pp.support"]
     positions, gouvernantes = [], []
@@ -112,7 +117,8 @@ def _element_support(f: dict, r: K.Releve) -> dict:
         modele = S.poutre_support(Lc, a, b, e, k, 0.0, 0.0, pp)
         x1, x2 = modele.ponctuelles[0][0], modele.ponctuelles[1][0]
         x0, L = modele.x0, modele.x1 - modele.x0
-        xs = sorted({x0 + L * i / N_ENVELOPPE for i in range(N_ENVELOPPE + 1)} | {x1, x2})
+        xs = sorted({x0 + L * i / N_ENVELOPPE for i in range(N_ENVELOPPE + 1)} | {x1, x2}
+                    | {x for col in t["colonnes"] for x in _sommets(x0, L, x1, x2, col, pp)})
         env = {"x": [], "M_max": [], "M_min": [], "V_max": [], "V_min": []}
         for x in xs:
             u = x - x0
@@ -158,6 +164,19 @@ def _element_support(f: dict, r: K.Releve) -> dict:
     return {"cle": "support", "nom": "Poutre support châssis", "positions": positions, "enveloppe": env,
             "repere": {"appuis_nominaux": [0.0, Lc + a + b], "pieds_nominaux": [a, a + Lc], "longueur": Lc + a + b, "e": e},
             "extremes": _extremes_enveloppe(env)}
+
+
+def _sommets(x0: float, L: float, x1: float, x2: float, col: dict, pp: float) -> list:
+    """Les abscisses où l'effort tranchant d'une colonne s'annule À L'INTÉRIEUR d'un tronçon (avant le pied 1, entre
+    les pieds, après le pied 2) : là, M est à son sommet. V(u) = RA − pp·u − les pieds déjà passés, u = x − x0."""
+    if pp <= 0:
+        return []
+    out = []
+    for debut, fin, passes in ((x0, x1, 0.0), (x1, x2, col["P1"]), (x2, x0 + L, col["P1"] + col["P2"])):
+        x = x0 + (col["RA"] - passes) / pp
+        if debut + S.EPS < x < fin - S.EPS:
+            out.append(x)
+    return out
 
 
 def _interp(xs: list, ys: list, x: float) -> float:

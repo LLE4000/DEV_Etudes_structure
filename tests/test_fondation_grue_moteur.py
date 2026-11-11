@@ -256,6 +256,12 @@ def controles(mods) -> list:
                     continue
                 if fx["resultat"] is None or not proche(v, fx["resultat"]):
                     r.append(f"formule {bloc['cle']} « {fx['nom']} » : {v} ≠ {fx['resultat']}")
+                if fx["nom"] in ("h_calc,A", "h_calc,B"):
+                    # au droit du pieu, la largeur que le classeur met dans la hauteur calculée est le DIAMÈTRE du pieu :
+                    # elle s'écrit D — « b » y vaudrait 410 quand la semelle fait 900 (relecture du 11/11/2026)
+                    larg = [t_ for t_ in fx["termes"] if t_[0] == "b"]
+                    if not larg or larg[0][1] != "D" or not proche(larg[0][2], f["pieux"]["D"] * 10):
+                        r.append(f"formule {fx['nom']} : la largeur doit s'écrire D et valoir le diamètre du pieu ({larg})")
                 if fx["cellule"] and fx["cellule"] in res["cellules"].values():
                     cle = next(c for c, cel in res["cellules"].items() if cel == fx["cellule"])
                     if not proche(res["valeurs"][cle], fx["resultat"]):
@@ -265,6 +271,25 @@ def controles(mods) -> list:
             mx = max(p["extremes"]["M_max"]["valeur"] for p in el["positions"])
             if el["extremes"]["M_max"]["valeur"] < mx - max(1e-6, 2e-3 * abs(mx)):
                 r.append(f"enveloppe de {el['cle']} sous le maximum d'une position")
+        # 8 bis. l'enveloppe de la poutre support est EXACTE : pour chaque position, son moment maximal et son abscisse
+        #        sont ceux du sommet de la colonne la plus chargée (là où son effort tranchant s'annule), pas ceux d'un
+        #        point de grille (« x = 5,21 m » pour un sommet en 5,18 m : relecture du 11/11/2026)
+        if t == E.SEMELLES8:
+            el = next(x_ for x_ in res["elements"] if x_["cle"] == "support")
+            Lc_, a_s, b_s, e_s = f["chassis"] / 100, f["dist_a"] / 100, f["dist_b"] / 100, f["e_support"] / 100
+            sommets = []
+            for p in el["positions"]:
+                exact = max((S.poutre_support(Lc_, a_s, b_s, e_s, p["cle"], col["P1"], col["P2"], rel["pp.support"]).extremes()["M_max"]
+                             for col in rel.tableaux[p["cle"]]["colonnes"]), key=lambda m_: m_["valeur"])
+                sommets.append(exact)
+                env_p = p["extremes_enveloppe"]["M_max"]
+                if not proche(env_p["valeur"], exact["valeur"]) or abs(env_p["x"] - exact["x"]) > 1e-6:
+                    r.append(f"enveloppe du support, position {p['cle']} : M max {env_p['valeur']} en x = {env_p['x']} — "
+                             f"exact : {exact['valeur']} en x = {exact['x']}")
+            haut = max(m_["valeur"] for m_ in sommets)
+            gen = el["extremes"]["M_max"]
+            if not proche(gen["valeur"], haut) or not any(proche(m_["valeur"], haut) and abs(m_["x"] - gen["x"]) < 1e-6 for m_ in sommets):
+                r.append(f"enveloppe du support : M max {gen['valeur']} en x = {gen['x']} — exact : {haut}")
         for a_ in res["armatures"]:
             if a_["genre"] == "etriers" and a_["saisie"]:
                 et = E.lire(f, a_["saisie"])
@@ -444,6 +469,7 @@ ATTENDUES = (
     ("VAR4", "C37", "M_min (CAS A) = −P·e − pp·e²/2 = −474 × 0,15 − 11,25 × 0,15²/2 = −71,2 kN·m"),
     ("GWW", "C94", "= R_A·x − pp·x²/2 − P_1·(x − a') = 1032,4 × 1,15 − 24,5 × 1,15²/2 − 1004 × (1,15 − 0,45) = 468,3 kN·m"),
     ("GWW", "C128", "Ω_inf = M_max,éq/(σ_adm·0,9·d) = 470,5 × 10⁶/(333,33 × 0,9 × 638) = 2458 mm²"),
+    ("BASE", "C224", "h_calc,A = √(M_A/(μ·D·σ'_b)) = √(36,883 × 10⁶/(0,1708 × 410 × 12,96)) = 202 mm"),
 )
 _SYMBOLE_SEUL = re.compile(r"/\(([^()\s·×+−/*-]+)\)")
 _PI_COLLE = re.compile(r"[^\W\d_]π|π[^\W\d_]")
@@ -629,6 +655,10 @@ MUTATIONS = (
     ("formule imprimée de Ω avec 0,85·d", [("formules", '"M*1e6/(sa*0.9*d)"', '"M*1e6/(sa*0.85*d)"')]),
     ("armature exportée : le Ø des étriers remplacé", [("moteur", '"genre": "etriers", "brins": et["brins"], "d": et["d"]', '"genre": "etriers", "brins": et["brins"], "d": 10')]),
     ("contrôle de géométrie : entraxe ≥ 2 Ø", [("moteur", 'not pi_["entraxe"] < pi_["D"] * 3', 'not pi_["entraxe"] < pi_["D"] * 2')]),
+    ("au droit du pieu, la largeur de la hauteur calculée s'écrit « b » (elle vaut le diamètre du pieu)",
+     [("formules", 'm, Dp, hA, c["h_A"], "h_calc,A", "D")', 'm, Dp, hA, c["h_A"], "h_calc,A")')]),
+    ("enveloppe de la poutre support : les sommets des colonnes ne sont plus sur la grille (« x = 5,21 m » pour 5,18 m)",
+     [("moteur", "        if debut + S.EPS < x < fin - S.EPS:\n            out.append(x)", "        if False:\n            out.append(x)")]),
     ("refus levé : e ≥ a admis", [("entree", '_exiger(out["dist_a"] - out["e_support"] >= 0 and out["dist_b"] - out["e_support"] >= 0,', '_exiger(True or out["dist_a"] - out["e_support"] >= 0,')]),
 )
 TEMOIN = [("classeur", "# --- CAS A : pieu rentré de e", "# --- CAS A (témoin) : pieu rentré de e")]

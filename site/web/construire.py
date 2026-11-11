@@ -109,7 +109,7 @@ def _bibliotheques_de(fam: str) -> list:
 # § 4 quinquies — décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site) : leur bouton
 # « Note PDF » s'allume sur leur page, compacte ou non, aux trois emplacements (``allumer_note_pdf``) ; les autres le
 # gardent grisé, « bientôt ». Chaque clé a sa note « riche » dans ``NOTES_RELEVE`` (le relevé du paquet de la note).
-NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere")
+NOTE_PDF = ("poutre", "dalle", "garde_corps", "soudures", "plancher", "assemblages", "corniere", "fondation_grue")
 # le relevé du paquet rejoue le PARCOURS de chaque module (api_web/parcours.py) : ce qu'un chemin rare importe doit
 # être dans le paquet
 MAX_RELEVE = 120
@@ -366,6 +366,21 @@ K.gerer_elements(etat, "ajouter")
 for ch, v in ((["etat_limite"], "ELU"), (["R"], "60"), (["mode"], "equilibre"), (["type_ancrage"], "traversant"), (["entraxe"], "80"),
               (["rondelles"], "2"), (["profondeur"], "200")):
     assert K.modifier(etat, ch, v) is None, ch
+""",
+    # trois fondations de grue (docs/beton/FONDATIONS_GRUE.md § 6) : le classeur Greenwood avec une paroi de pieux sécants du
+    # côté b, un second groupe de barres et un septième cas de la grue ; la variante 4 pieux avec un pieu PAS OK (les
+    # bandes rouges, la conclusion « non conforme ») ; la variante 8 pieux — les trois schémas, leurs dessins, leurs tableaux
+    "fondation_grue": """
+from api_web import fondation_grue as FG
+etat = FG.nouvel_etat()
+for ch, v in ((["exemple"], "GWW"), (["cote_b"], "paroi"), (["support", "inf", "1", "n"], "2"), (["charges", "cas", "+"], "1"),
+              (["charges", "cas", "6", "B"], "900"), (["charges", "cas", "6", "A"], "350")):
+    assert FG.modifier(etat, ch, v) is None, ch
+FG.gerer_elements(etat, "ajouter")
+for ch, v in ((["exemple"], "VAR4"), (["pieux", "capacite"], "500")):
+    assert FG.modifier(etat, ch, v) is None, ch
+FG.gerer_elements(etat, "ajouter")
+assert FG.modifier(etat, ["exemple"], "VAR8") is None
 """,
 }
 _SONDE_NOTE = """

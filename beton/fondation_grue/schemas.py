@@ -136,7 +136,8 @@ def plan(res: dict) -> Scene:
         while y <= w["y1"] + 1e-9:
             sc.cercle(*P(w["x"], y), w["D"] / 2 * K, ENCRE, ep, PIEU)
             y += pas
-        sc.texte(P(w["x"], 0)[0] + w["D"] * K, P(0, w["y1"])[1] + fs, "paroi de pieux sécants", fs, "start", ENCRE)
+        # (le long de la paroi, à sa droite, dans la marge du cadre : écrite à l'horizontale, elle en sortait et se lisait coupée)
+        sc.texte(P(w["x"], 0)[0] + w["D"] / 2 * K + fs * 1.2, P(0, 0)[1], "paroi de pieux sécants", fs, "middle", ENCRE, angle=-90.0)
     for p in g["pieux"]:
         cx, cy = P(p["x"], p["y"])
         r = p["D"] / 2 * K
@@ -313,10 +314,10 @@ def diagrammes(res: dict, cle: str) -> Scene:
             larg, xt, yt = len(texte) * FS * 0.56, X(x) + (7 if ancre == "start" else -7), Y(val) + (FS + 4 if dessous else -7)
             pris.append((xt if ancre == "start" else xt - larg, xt + larg if ancre == "start" else xt, yt))
             sc.texte(xt, yt, texte, FS, ancre, ENCRE, True)
-        for nom, val in reperes:                                # ce que le classeur retient : un tireté, du côté libre
+        for nom, val, ecrit in reperes:                         # ce que le classeur retient : un tireté, du côté libre
             if val is None or abs(val) < 0.02 * etendue or not vmin - 0.15 * etendue <= val <= vmax + 0.15 * etendue:
                 continue
-            texte = f"classeur : {nom} = {_fr(val)}"
+            texte = f"classeur : {nom} = {_fr(ecrit)}"
             larg, yt = len(texte) * (FS - 1.5) * 0.56, Y(val) + (FS + 1 if (val > 0) == positif_bas else -5)
 
             def libre(x0, x1):
@@ -329,20 +330,27 @@ def diagrammes(res: dict, cle: str) -> Scene:
     ym = y_app + 32
     donnees = [_series(p) for p in pos]
     diagramme(ym, H_M, "M (kN·m) — tracé du côté de la fibre tendue", "kN·m", [(xs, m) for xs, m, _ in donnees],
-              env["M_max"], env["M_min"], True, [("M max", dim.get("M_max")), ("M min", dim.get("M_min"))])
+              env["M_max"], env["M_min"], True,
+              [("M max", dim.get("M_max"), dim.get("M_max")), ("M min", dim.get("M_min"), dim.get("M_min"))])
     yv = ym + H_M + ECART
-    v_dim = dim.get("V_max")
-    if v_dim is not None and -min(env["V_min"]) > max(env["V_max"]):
-        v_dim = -v_dim                                          # le repère du tranchant du côté où l'enveloppe est la plus forte
+    # le classeur donne V max en GRANDEUR : le tireté va du côté où l'enveloppe est la plus forte (en haut quand les
+    # deux côtés se valent — une poutre symétrique), et son étiquette porte la valeur du classeur, sans signe
+    v_dim = v_trace = dim.get("V_max")
+    if v_dim is not None and -min(env["V_min"]) > max(env["V_max"]) * (1 + 1e-9):
+        v_trace = -v_dim
     diagramme(yv, H_V, "V (kN)", "kN", [(xs, v) for xs, _, v in donnees], env["V_max"], env["V_min"], False,
-              [("V max", v_dim)])
+              [("V max", v_trace, v_dim)])
     # --- l'axe des abscisses
     ya = yv + H_V + 10
     sc.ligne(X(xmin), ya, X(xmax), ya, GRIS, 0.8)
+    titre_axe = "x (m)"
+    bord_titre = LARGEUR - 2 - len(titre_axe) * (FS - 1.5) * 0.56
     for g in graduations:
         sc.ligne(X(g), ya, X(g), ya + 4, GRIS, 0.8)
-        sc.texte(X(g), ya + 4 + FS - 1.5, _fr(g, 1 if pas < 1 else 0), FS - 1.5, "middle", GRIS)
-    sc.texte(LARGEUR - 2, ya + 4 + FS - 1.5, "x (m)", FS - 1.5, "end", GRIS)
+        nombre = _fr(g, 1 if pas < 1 else 0)
+        if X(g) + len(nombre) * (FS - 1.5) * 0.28 + 5 < bord_titre:   # sinon l'étiquette toucherait le titre de l'axe
+            sc.texte(X(g), ya + 4 + FS - 1.5, nombre, FS - 1.5, "middle", GRIS)
+    sc.texte(LARGEUR - 2, ya + 4 + FS - 1.5, titre_axe, FS - 1.5, "end", GRIS)
     # --- la légende : une entrée par position, puis l'enveloppe
     y = ya + 40
     par_ligne = int((LARGEUR - MG - 40) / ((FS - 1.5) * 0.5))
@@ -364,6 +372,25 @@ def diagrammes(res: dict, cle: str) -> Scene:
     return sc
 
 
+LEGENDE_MV = ("Une rangée et une courbe par position de tolérance ; l'enveloppe en trait fort ; en tireté, les valeurs que le classeur "
+              "retient. M est tracé du côté de la fibre tendue (positif vers le bas)")
+
+
+def origine_abscisses(el: dict) -> str:
+    """D'où les abscisses d'un élément sont comptées : de l'appui A à sa place prévue (x = 0) ; du milieu de la pièce
+    quand ses deux pieux sont en ± s/2 (la semelle sur pieux, la poutre primaire)."""
+    return "depuis l'appui A à sa place prévue" if abs(el["repere"]["appuis_nominaux"][0]) < 1e-9 else "depuis le milieu de la pièce"
+
+
+def legende_mv(elements: list) -> str:
+    """La légende des diagrammes d'un ou de plusieurs éléments (une page de la note en porte deux) : l'origine des
+    abscisses est dite une fois quand elle est la même, pièce par pièce sinon."""
+    origines = [origine_abscisses(el) for el in elements]
+    if len(set(origines)) == 1:
+        return f"{LEGENDE_MV}, abscisses en m {origines[0]}."
+    return f"{LEGENDE_MV}. Abscisses en m : " + " ; ".join(f"{el['nom'].lower()}, {o}" for el, o in zip(elements, origines)) + "."
+
+
 def vues(res: dict) -> list:
     """Les vues d'une fondation : le plan, puis les diagrammes de chaque poutre ou semelle."""
     f = res["fondation"]
@@ -372,7 +399,5 @@ def vues(res: dict) -> list:
             "Plan de principe, cotes en cm : ni plan de coffrage, ni plan d'armatures. " + " ; ".join(c[:1].upper() + c[1:] for c in conventions) + ".")]
     for el in res["elements"]:
         out.append((f"mv_{el['cle']}", f"{el['nom']} · M et V", el["nom"].replace("Poutre ", "P. ").replace(" sur pieux", ""), False,
-                    diagrammes(res, el["cle"]),
-                    "Une rangée et une courbe par position de tolérance ; l'enveloppe en trait fort ; en tireté, les valeurs que le classeur "
-                    "retient. M est tracé du côté de la fibre tendue (positif vers le bas), abscisses en m depuis l'appui A."))
+                    diagrammes(res, el["cle"]), legende_mv([el])))
     return out

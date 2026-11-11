@@ -280,7 +280,11 @@ note) porte ce que le générateur charge. Modèles : `api_web/note_poutre.py` (
 **Le branchement (intégration du 09/11/2026)** — `NOTE_PDF` = poutre, dalle, garde-corps, soudures, charges sur
 plancher, assemblages — et, depuis l'intégration du 10/11/2026, les cornières d'appui (`api_web/note_corniere.py`,
 `docs/acier/CORNIERE_MOTEUR.md` § 12 ; sa note riche : deux cornières, A historique avec R_ELU saisie et largeur d'appui,
-puis B avec l'ancrage à Y = 45). Il tient en trois points, chacun prouvé :
+puis B avec l'ancrage à Y = 45) — et, depuis le 11/11/2026, les fondations de grues (`api_web/note_fondation_grue.py`,
+`docs/beton/FONDATIONS_GRUE.md` § 6 : le générateur et sa plomberie sont dans `api_web`, donc dans le paquet du moteur ;
+le paquet de la note n'a AUCUN fichier de plus à recevoir, et la note ne charge pas numpy ; sa note riche : trois
+fondations — Greenwood avec une paroi de pieux sécants, un second groupe de barres et un septième cas ; la variante
+4 pieux avec un pieu PAS OK ; la variante 8 pieux). Il tient en trois points, chacun prouvé :
 
 - **Le bouton** : `construire.boutons_note_pdf` est UN composant posé aux trois emplacements (barre du haut du PC et de
   la tablette, menu ⋯ et barre du bas du téléphone) par `page_module`, pour TOUTE page d'établi, compacte ou non (avant,

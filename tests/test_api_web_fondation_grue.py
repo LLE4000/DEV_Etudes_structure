@@ -540,6 +540,55 @@ def fr(x, nd=1):
     return (s.lstrip("-") if float(s) == 0 else s).replace(".", ",").replace("-", "−")
 
 
+def textes_hors_cadre(scene, em=0.55):
+    """Les textes d'une scène qui SORTENT de son cadre (ils se liraient coupés à l'écran et déborderaient dans la note) :
+    [(texte, dépassement en hauteurs de texte)]. La largeur d'un texte est estimée à ``em`` × sa taille par caractère
+    (un peu plus en gras) ; un texte tourné de ±90° s'étend le long de y."""
+    cx, cy, cw, ch = scene.cadre
+    out = []
+    for it in scene.items:
+        if it[0] != "texte":
+            continue
+        _, x, y, txt, t, ancre, _couleur, gras, angle = it
+        w = em * t * len(txt) * (1.06 if gras else 1.0)
+        a, b = {"start": (0.0, w), "middle": (-w / 2, w / 2), "end": (-w, 0.0)}[ancre]
+        if abs(angle) > 45:
+            x0, x1, y0, y1 = x - t, x + t * 0.3, (y + a if angle > 0 else y - b), (y + b if angle > 0 else y - a)
+        else:
+            x0, x1, y0, y1 = x + a, x + b, y - t, y + t * 0.3
+        d = max(cx - x0, x1 - (cx + cw), cy - y0, y1 - (cy + ch))
+        if d > 0.5:
+            out.append((txt[:40], round(d / t, 1)))
+    return out
+
+
+def textes_qui_se_touchent(scene, em=0.5, jeu=2.0):
+    """Les paires de textes d'une même ligne d'écriture qui se chevauchent (une graduation « 6 » collée au titre
+    « x (m) » de l'axe, lue « 6x (m) » : relecture du 11/11/2026). Largeur estimée à ``em`` × la taille par caractère
+    — étroite, pour ne rien reprocher à tort ; ``jeu`` : le blanc exigé entre deux textes."""
+    lignes = []
+    for it in scene.items:
+        if it[0] != "texte" or abs(it[8]) > 45:
+            continue
+        _, x, y, txt, t, ancre, _couleur, gras, _angle = it
+        w = em * t * len(txt) * (1.06 if gras else 1.0)
+        a, b = {"start": (0.0, w), "middle": (-w / 2, w / 2), "end": (-w, 0.0)}[ancre]
+        lignes.append((y, x + a, x + b, t, txt))
+    out = []
+    for i, (y1, a1, b1, t1, txt1) in enumerate(lignes):
+        for y2, a2, b2, t2, txt2 in lignes[i + 1:]:
+            if abs(y1 - y2) < 0.6 * min(t1, t2) and min(b1, b2) - max(a1, a2) > -jeu:
+                out.append((txt1[:30], txt2[:30]))
+    return out
+
+
+def origine_attendue(el) -> str:
+    """D'où les abscisses d'un élément sont comptées, lu sur ses appuis : une pièce dont les deux appuis encadrent
+    x = 0 à égale distance est comptée de son milieu ; les autres, de l'appui A à sa place prévue."""
+    xa, xb = el["positions"][-1]["appuis"]
+    return "depuis le milieu de la pièce" if abs(xa + xb) < 1e-9 else "depuis l'appui A à sa place prévue"
+
+
 def fautes_vues(mod, etat, cas, sc=SC):
     etat = mod.normaliser(copy.deepcopy(etat))
     f = etat["fondations"][0]
@@ -548,6 +597,16 @@ def fautes_vues(mod, etat, cas, sc=SC):
     vues = [dict(cle=c, titre=t, svg=sc.svg(s, "x_" + c, t)) for c, t, _, _, s, _ in sc.vues(r)]
     if [v["cle"] for v in vues] != ["plan"] + ["mv_" + el["cle"] for el in r["elements"]]:
         return [(cas, "les vues", [v["cle"] for v in vues])]
+    for c, _t, _c, _e, scene, _l in sc.vues(r):
+        dehors = textes_hors_cadre(scene)
+        if dehors:
+            fautes.append((cas, c, "un texte sort du cadre du dessin (il se lirait coupé)", dehors[:3]))
+        colles = textes_qui_se_touchent(scene)
+        if colles:
+            fautes.append((cas, c, "deux textes d'une même ligne se chevauchent", colles[:3]))
+    for el, (c, _t, _c, _e, _s, legende) in zip(r["elements"], sc.vues(r)[1:]):
+        if not legende.endswith(f"abscisses en m {origine_attendue(el)}."):
+            fautes.append((cas, c, "la légende ne dit pas d'où les abscisses sont comptées", legende[-70:]))
     racine, textes = textes_svg(vues[0]["svg"])
     g = G.plan(f)
     cercles = len(list(racine.iter("{http://www.w3.org/2000/svg}circle")))
@@ -574,8 +633,7 @@ def fautes_vues(mod, etat, cas, sc=SC):
         attendus.append(f"classeur : M max = {fr(dim['M_max'])}")
         if dim.get("M_min") is not None:
             attendus.append(f"classeur : M min = {fr(dim['M_min'])}")
-        if not any(t.startswith("classeur : V max = ") and proche(abs(nombres(t)[-1]), dim["V_max"], 1) for t in textes):
-            fautes.append((cas, v["cle"], "le tranchant du classeur manque"))
+        attendus.append(f"classeur : V max = {fr(dim['V_max'])}")   # la valeur du classeur, une grandeur : jamais de signe
         for a in attendus:
             if a not in textes:
                 fautes.append((cas, v["cle"], "texte attendu absent", a))
@@ -880,10 +938,20 @@ MUTATIONS_EXPORT = [
 ]
 MUTATIONS_DESSINS = [
     ("le moment coté est celui du classeur, pas l'extremum de l'enveloppe", '            texte = f"{_fr(val)} {unite} à x = {_fr(x, 2)} m"', '            texte = f"{_fr(reperes[0][1] or val)} {unite} à x = {_fr(x, 2)} m"'),
-    ("les valeurs du classeur ne sont plus repérées sur les diagrammes", '            texte = f"classeur : {nom} = {_fr(val)}"', '            continue'),
+    ("les valeurs du classeur ne sont plus repérées sur les diagrammes", '            texte = f"classeur : {nom} = {_fr(ecrit)}"', '            continue'),
+    ("le tranchant du classeur est écrit avec le signe du côté où il est tracé (« V max = −820,8 », trouvé le 11/11/2026)",
+     '            texte = f"classeur : {nom} = {_fr(ecrit)}"', '            texte = f"classeur : {nom} = {_fr(val)}"'),
+    ("la dernière graduation est écrite sous le titre de l'axe (« 6x (m) », trouvé le 11/11/2026)",
+     "        if X(g) + len(nombre) * (FS - 1.5) * 0.28 + 5 < bord_titre:", "        if True:"),
+    ("les abscisses sont dites « depuis l'appui A » pour toutes les pièces (la semelle est comptée de son milieu)",
+     '''    return "depuis l'appui A à sa place prévue" if abs(el["repere"]["appuis_nominaux"][0]) < 1e-9 else "depuis le milieu de la pièce"''',
+     '''    return "depuis l'appui A à sa place prévue"'''),
     ("une position de tolérance n'est pas dessinée", "    for i, p in enumerate(pos):\n        coul, y = COULEURS.get(p[\"cle\"], ENCRE), y1 + i * RANGEE", "    for i, p in enumerate(pos[1:]):\n        coul, y = COULEURS.get(p[\"cle\"], ENCRE), y1 + i * RANGEE"),
     ("le plan oublie un pieu", '    for p in g["pieux"]:\n        cx, cy = P(p["x"], p["y"])', '    for p in g["pieux"][1:]:\n        cx, cy = P(p["x"], p["y"])'),
     ("le plan oublie les cotes", '    for k in g["cotes"]:\n        _cote(', '    for k in g["cotes"][:0]:\n        _cote('),
+    ("l'étiquette de la paroi de pieux sécants est écrite à l'horizontale, hors du cadre (lue coupée, trouvé le 11/11/2026)",
+     '        sc.texte(P(w["x"], 0)[0] + w["D"] / 2 * K + fs * 1.2, P(0, 0)[1], "paroi de pieux sécants", fs, "middle", ENCRE, angle=-90.0)',
+     '        sc.texte(P(w["x"], 0)[0] + w["D"] * K, P(0, w["y1"])[1] + fs, "paroi de pieux sécants", fs, "start", ENCRE)'),
 ]
 MUTATIONS_GEOMETRIE = [
     ("8 pieux sur semelles : les pieux à l'entraxe entier de l'axe", '                pieux.append({"nom": f"P{n}", "x": x, "y": y + sg * s / 2, "D": D})', '                pieux.append({"nom": f"P{n}", "x": x, "y": y + sg * s, "D": D})'),
@@ -907,7 +975,8 @@ for titre, ancien, nouveau in MUTATIONS_EXPORT:
         survivants.append(titre)
 for titre, ancien, nouveau in MUTATIONS_DESSINS:
     ms = mutant(SC, ancien, nouveau)
-    if not rouge(lambda ms=ms: [x for cas in ("classeur Greenwood", "classeur 4 pieux") for x in fautes_vues(FG, ETATS[cas], cas, ms)]):
+    if not rouge(lambda ms=ms: [x for cas in ("classeur Greenwood", "classeur 4 pieux", "classeur 8 pieux primaires", "paroi de pieux sécants")
+                                for x in fautes_vues(FG, ETATS[cas], cas, ms)]):
         survivants.append(titre)
 for titre, ancien, nouveau in MUTATIONS_GEOMETRIE:
     mg = mutant(G, ancien, nouveau)

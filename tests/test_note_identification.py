@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-"""L'IDENTIFICATION imprimée par la note PDF des SEPT modules du site qui la font (poutre, dalle, garde-corps, soudures,
-charges sur plancher, assemblages, cornières d'appui depuis le 10/11/2026) : TOUJOURS celle de la note du site (R2 : une
+"""L'IDENTIFICATION imprimée par la note PDF des HUIT modules du site qui la font (poutre, dalle, garde-corps, soudures,
+charges sur plancher, assemblages, cornières d'appui depuis le 10/11/2026, fondations de grues depuis le 11/11/2026) :
+TOUJOURS celle de la note du site (R2 : une
 source unique) — son nom, son chantier, son indice, sa date (``infos`` que la page envoie, js/etabli.js).
 
 Défaut corrigé (09/11/2026) : les notes des soudures et du plancher imprimaient « indice 0 » sous une note du site
@@ -110,7 +111,7 @@ def ecarts(module: str, octets: bytes, etat: dict) -> list:
     tout = norm(" ".join(tx))
     out += [f"« {x} » imprimé" for x in INTERDITS if x in tout]
     tete = "Note de calcul · 03/04/2026 · indice C"
-    if module in ("poutre", "dalle", "assemblages", "corniere"):     # corniere : la même garde, dès son intégration (NOTE_PDF)
+    if module in ("poutre", "dalle", "assemblages", "corniere", "fondation_grue"):     # la même garde (ndc_pdf : garde_lignes)
         g = plat(tx[0])
         for lab, val in (("PROJET", CHANTIER), ("PARTIE", NOM), ("DATE", "03/04/2026"), ("INDICE", "C")):
             if plat(lab + val) not in g:
@@ -145,7 +146,7 @@ for mod, e in ETATS.items():
     ec = ecarts(mod, NOTES[mod], e)
     chk(f"{mod} : le nom, le chantier (accents, guillemets, « & »), l'indice C et la date de la note du site, exactement aux "
         f"endroits prévus ({len(pages(NOTES[mod]))} pages) ; rien d'autre", not ec, ec[:4])
-chk("les sept modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 7, sorted(NOTES))
+chk("les huit modules qui font leur note sur le site sont contrôlés", set(NOTES) == set(K.NOTE_PDF) and len(NOTES) == 8, sorted(NOTES))
 
 # ---------------------------------------------------------------- MUTATIONS : chacune doit faire rougir son module
 vrai_infos = NC.infos_du_cas

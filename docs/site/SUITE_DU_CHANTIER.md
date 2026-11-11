@@ -494,6 +494,24 @@ significatifs (« 1032,4 × 1,15 − … = 468,3 » se refait à la main), `beto
 commune de l'écran et de la note, et `tests/test_fondation_grue_moteur.py` relit la chaîne IMPRIMÉE de 1 236 formules
 (8 mutations d'écriture vues). Photos de référence regelées avec la raison écrite.
 
+**La note de calcul PDF du module (11/11/2026).** `api_web/note_fondation_grue.py` : la garde du site, puis par
+fondation deux ou trois pages de calcul (hypothèses, données avec leur cellule du classeur, chaque formule avec sa
+cellule, les verdicts du classeur, les écarts, le récapitulatif, la conclusion), une page de diagrammes M et V (les
+positions de tolérance, l'enveloppe, ce que le classeur retient) et, en dernière page, le plan de principe à une échelle
+normalisée avec les armatures choisies. Les blocs sont mesurés puis posés : jamais de page tronquée. La relecture a
+trouvé et corrigé en chemin : l'étiquette « paroi de pieux sécants » qui sortait du dessin (lue coupée à l'écran), un
+tiret pour le signe moins des résultats négatifs, les symboles de l'effort horizontal (H_s, H_hs, M_s partout) ; puis,
+pages relues et calculs refaits à la main : la largeur « b » au droit du pieu (c'est le diamètre D), l'abscisse du
+moment maximal de la poutre support (exacte, plus un point de grille), le signe du tranchant du classeur sur son
+tireté, une graduation collée au titre de l'axe, l'origine des abscisses dite pièce par pièce, les accords de la
+conclusion (« Contrôles … non respectés », « E7 × 2 »).
+Preuves : `tests/test_note_fondation_grue.py` (61 OK, 21 mutations), `tests/test_fondation_grue_moteur.py` (39 + 8
+mutations), `tests/test_api_web_fondation_grue.py` (52 mutations), le harnais `note_pdf` aux trois formats.
+
+**À la relecture du bureau** : une coquille du classeur est reproduite telle quelle, parce qu'elle est dans la cellule
+G142 de la fiche — « Zone 3 = 1,12 N/mm² < τ << 1,68 N/mm² » (« << » pour « < »). À corriger dans le classeur si le
+bureau le veut ; le module suivra.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

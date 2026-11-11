@@ -48,8 +48,9 @@ def _pp(nom, b, h, res, cel):
     return _fx(nom, "25*b*h", (("b", "b", b / 100), ("h", "h", h / 100)), res, "kN/m", 2, cel)
 
 
-def _h_calc(sym_M, M, m, b, res, cel, nom="h_calc"):
-    return _fx(nom, "sqrt(M*1e6/(mu*b*sb))", (("M", sym_M, M), ("mu", "μ", m["mu"]), ("b", "b", b * 10),
+def _h_calc(sym_M, M, m, b, res, cel, nom="h_calc", sym_b="b"):
+    """La hauteur calculée ; ``sym_b`` nomme la largeur que le classeur y met (au droit du pieu : son diamètre D)."""
+    return _fx(nom, "sqrt(M*1e6/(mu*b*sb))", (("M", sym_M, M), ("mu", "μ", m["mu"]), ("b", sym_b, b * 10),
                                               ("sb", "σ'_b", m["sigma_b"])), res, "mm", 0, cel)
 
 
@@ -86,8 +87,8 @@ def _renfort(f, r, m, b, Dp, sym_P, piece_base, cellules, etats, om_h_formule, e
     verifs = [
         _verif("renfort.hauteur", "Hauteur au droit du pieu", f"d = {d:g} mm",
                None if hA is None or hB is None else max(hA, hB), d, "mm", etats["hauteur"][0], etats["hauteur"][1],
-               ([] if hA is None else [_h_calc("M_A", r["renfort.M_A"], m, Dp, hA, c["h_A"], "h_calc,A")])
-               + ([] if hB is None else [_h_calc("M_B", r["renfort.M_B"], m, Dp, hB, c["h_B"], "h_calc,B")]),
+               ([] if hA is None else [_h_calc("M_A", r["renfort.M_A"], m, Dp, hA, c["h_A"], "h_calc,A", "D")])
+               + ([] if hB is None else [_h_calc("M_B", r["renfort.M_B"], m, Dp, hB, c["h_B"], "h_calc,B", "D")]),
                texte=None if (hA is not None and hB is not None) else
                "moment négatif : le pieu est aussi large que la poutre, le classeur ne calcule pas (#NOMBRE!)"),
         _verif("renfort.sup", "Armature supérieure au droit du pieu", "brins horizontaux des étriers",
@@ -214,7 +215,7 @@ def _cadre4(f: dict, r: K.Releve, m: dict) -> list:
     horizontal = _horizontal(
         f, r, {"H": "C130", "om": "C133", "om_ch": "G133", "plaque": "D139", "etat": "G139"},
         "max(Hh/3, Hs/3 + M/2/L/100)",
-        (("Hh", "H_hors service", ch["H_hs"]), ("Hs", "H_service", ch["H_s"]), ("M", "M_service", ch["M_s"]),
+        (("Hh", "H_hs", ch["H_hs"]), ("Hs", "H_s", ch["H_s"]), ("M", "M_s", ch["M_s"]),
          ("L", "L (cm)", f["chassis"])), r["etat.perfos"])
     return [poutre, pieux, renfort, horizontal]
 
@@ -325,7 +326,7 @@ def _diagonales8(f: dict, r: K.Releve, m: dict) -> list:
     horizontal = _horizontal(
         f, r, {"H": "C155", "om": "C158", "om_ch": "G158", "plaque": "D164", "etat": "G164"},
         "max(Hh/3, Hs/3 + M/2/L/100)",
-        (("Hh", "H_hors service", ch["H_hs"]), ("Hs", "H_service", ch["H_s"]), ("M", "M_service", ch["M_s"]),
+        (("Hh", "H_hs", ch["H_hs"]), ("Hs", "H_s", ch["H_s"]), ("M", "M_s", ch["M_s"]),
          ("L", "L (cm)", f["chassis"])), r["etat.perfos"])
     return [secondaire, primaire, renfort, horizontal]
 
@@ -526,7 +527,7 @@ def _semelles8(f: dict, r: K.Releve, m: dict) -> list:
     horizontal = _horizontal(
         f, r, {"H": "C254", "om": "C257", "om_ch": "G257", "plaque": "D263", "etat": "G263"},
         "max(Hh/3, Hs/3 + M/(2*L/s45))",
-        (("Hh", "H_hors service", ch["H_hs"]), ("Hs", "H_service", ch["H_s"]), ("M", "M_service", ch["M_s"]),
+        (("Hh", "H_hs", ch["H_hs"]), ("Hs", "H_s", ch["H_s"]), ("M", "M_s", ch["M_s"]),
          ("L", "L", f["chassis"] / 100), ("s45", "sin 45°", math.sin(math.radians(45)))), r["etat.perfos"])
     return [support, semelle, pieux, renfort, horizontal]
 
