@@ -327,6 +327,22 @@ chk("un polygone tourné ne montre plus ses poignées de sommets (le glisser éc
     'class="sommet glis"' not in A.consulter("sections", dict(op["params"], r1=30))["tableau"])
 oc_ = A.consulter("sections", {"n": 1, "k1": "plat", "b1": 100, "h1": 100, "c1": "haut", "cc1": 500})
 chk("une coupe hors de l'élément est ramenée dans l'élément, et le message le dit (jamais d'élément vide)", "cc1" in (oc_["message"] or "") and oc_["params"]["cc1"] < 50)
+# un exemple est ce que l'ingénieur ouvre en premier : il ne s'ouvre jamais sur un avertissement
+avertis = {nom: [m_ for m_ in ("se recouvrent", "sort de la matière") if m_ in texte(A.consulter("sections", BS._jeu(els))["bande"])] for nom, els in BS.EXEMPLES}
+chk("aucun des six exemples ne s'ouvre sur un avertissement (ni matière comptée deux fois, ni évidement hors de la matière)",
+    not any(avertis.values()), {k: v for k, v in avertis.items() if v})
+opp = A.consulter("sections", BS._jeu(dict(BS.EXEMPLES)["Plat percé"]))
+lpp = {c: nombre(v) for c, _f, _v, v, _u in lignes(opp) if v and c in ("A", "Iy", "Iz")}
+chk("plat percé 200 × 20, deux trous de 22 vus en COUPE (rectangles 22 × 20) : section nette à la main — A = (200 − 44)·20 = 31,20 cm², "
+    "I_y = 156·20³/12 = 10,40 cm⁴, I_z = 20·200³/12 − 2·(20·22³/12 + 440·50²) = 1 109,78 cm⁴",
+    abs(nombre(valeur(opp)[0]) - 156 * 20 ** 3 / 12 / 1e4) < 0.006 and abs(lpp.get("A", 0) - 31.20) < 0.006
+    and abs(lpp.get("Iz", 0) - (20 * 200 ** 3 / 12 - 2 * (20 * 22 ** 3 / 12 + 440 * 50 ** 2)) / 1e4) < 0.006, (valeur(opp), lpp))
+# le nom d'un axe principal plutôt vertical est à son bout du haut (un plat à plat : l'axe 1 est vertical, la cote est dessous)
+opl = A.consulter("sections", {"n": 1, "k1": "plat", "b1": 200, "h1": 20})
+ax1 = re.search(r'<text class="ax1" x="([\d.]+)" y="([\d.]+)"', opl["tableau"])
+cdg = re.search(r'<g class="cdg"><path d="M([\d.]+) ([\d.]+)h24', opl["tableau"])
+chk("plat à plat (axe 1 vertical) : le « 1 » est AU-DESSUS de G, pas sur la cote de largeur", ax1 is not None and cdg is not None and float(ax1.group(2)) < float(cdg.group(2)) - 10,
+    (ax1 and ax1.groups(), cdg and cdg.groups()))
 chk("six exemples (HEA + plat, demi-HEA, caisson de plats, PRS en I, deux UPN dos à dos, plat percé), chacun remplace toute la section",
     len(BS.EXEMPLES) == 6 and all(d.get("k3") is None or True for d in sels(o)) and len([d for d in sels(o) if "k1" in d and "n" in d and "f1" in d]) >= 6)
 ox = A.consulter("sections", {"n": "trois", "k1": "<img>", "p1": "<script>", "y1": "ici", "sel": 99})

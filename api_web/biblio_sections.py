@@ -63,7 +63,10 @@ EXEMPLES = (
     ("PRS en I", [{"k": "plat", "b": 200, "h": 15, "y": 0, "z": 157.5}, {"k": "plat", "b": 10, "h": 300, "y": 0, "z": 0},
                   {"k": "plat", "b": 200, "h": 15, "y": 0, "z": -157.5}]),
     ("2 UPN dos à dos", [{"k": "profil", "f": "UPN", "p": "UPN 200", "y": 42.5, "z": 0}, {"k": "profil", "f": "UPN", "p": "UPN 200", "y": -42.5, "z": 0, "m": 1}]),
-    ("Plat percé", [{"k": "plat", "b": 200, "h": 20, "y": 0, "z": 0}, {"k": "rond", "d": 22, "y": -50, "z": 0, "v": 1}, {"k": "rond", "d": 22, "y": 50, "z": 0, "v": 1}]),
+    # (un trou de boulon traverse l'épaisseur : dans la COUPE il retire un rectangle d0 × t, pas un disque — l'exemple portait
+    #  deux ronds Ø 22 dans un plat de 20, qui sortaient de la matière et s'ouvraient sur deux avertissements : 11/11/2026)
+    ("Plat percé", [{"k": "plat", "b": 200, "h": 20, "y": 0, "z": 0}, {"k": "plat", "b": 22, "h": 20, "y": -50, "z": 0, "v": 1},
+                    {"k": "plat", "b": 22, "h": 20, "y": 50, "z": 0, "v": 1}]),
 )
 
 
@@ -234,10 +237,15 @@ def dessin(o: Dict, car: Optional[Dict], recouv: Sequence[Dict]) -> str:
                         lim = min(lim, (hi_ - g_) / abs(d_), (g_ - lo_) / abs(d_))
                 return max(lim, 12.0)
             l1, l2 = portee(ca, sa), portee(sa, ca)
+            # le nom d'un axe se pose à son bout du HAUT quand l'axe est plutôt vertical, jamais à celui du bas : il y tombait
+            # sur la cote de largeur (un plat à plat : l'axe 1 est vertical, α = −90°)
+            b1_, b2_ = (-1 if abs(sa) > abs(ca) and sa < 0 else 1), (-1 if abs(sa) > abs(ca) and sa > 0 else 1)
+            v1x, v1y = (l1 - 2) * ca + 9 * sa, -(l1 - 2) * sa + 9 * ca
+            v2x, v2y = -(l2 - 2) * sa + 9 * ca, -(l2 - 2) * ca - 9 * sa
             s += (f'<g class="principaux"><path d="M{gx - l1 * ca:.1f} {gy + l1 * sa:.1f}L{gx + l1 * ca:.1f} {gy - l1 * sa:.1f}"/>'
                   f'<path d="M{gx + l2 * sa:.1f} {gy + l2 * ca:.1f}L{gx - l2 * sa:.1f} {gy - l2 * ca:.1f}"/>'
-                  f'<text x="{gx + (l1 - 2) * ca + 9 * sa:.1f}" y="{gy - (l1 - 2) * sa + 9 * ca + 4:.1f}" text-anchor="middle">1</text>'
-                  f'<text x="{gx - (l2 - 2) * sa + 9 * ca:.1f}" y="{gy - (l2 - 2) * ca - 9 * sa + 4:.1f}" text-anchor="middle">2</text></g>')
+                  f'<text class="ax1" x="{gx + b1_ * v1x:.1f}" y="{gy + b1_ * v1y + 4:.1f}" text-anchor="middle">1</text>'
+                  f'<text class="ax2" x="{gx + b2_ * v2x:.1f}" y="{gy + b2_ * v2y + 4:.1f}" text-anchor="middle">2</text></g>')
         s += (f'<g class="cdg"><path d="M{gx - 12:.1f} {gy:.1f}h24M{gx:.1f} {gy - 12:.1f}v24"/><circle cx="{gx:.1f}" cy="{gy:.1f}" r="4.2"/>'
               f'<text x="{gx + 9:.1f}" y="{gy - 8:.1f}">G</text></g>')
         # l'encombrement
