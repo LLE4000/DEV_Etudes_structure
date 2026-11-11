@@ -428,6 +428,44 @@ def controles(m):
         v("2 · un objectif atteint pendant des jours « prolongé » du relevé lui-même (une météo au-delà de son horizon) repose aussi sur des températures prolongées : dit",
           met["objectifs"][0]["source"] == "prolonge" and met["objectifs"][0]["au_dela"] and "prolonge" in codes(met)
           and not Mm.calculer(coulage(m, heure=16, temperature__mode="releve", temperature__releve=releve([15.0] * 36)))["objectifs"][0]["au_dela"])
+        # Relecture du 11/11/2026 — une dalle coulée le 16/11 à 15 h, onze jours de relevé (4 mesurés, 7 prévus, du gel) ;
+        # « Décoffrage » (70 % de f_ck) PRÉVU à J + 7, dans les jours connus. À J + 7 le béton n'a que 5,7 MPa ; les 21 MPa
+        # ne viennent qu'à J + 28,4, bien APRÈS le relevé, prolongé à 2,5 °C. Cette échéance s'affiche : le moteur doit dire
+        # qu'elle repose sur des températures prolongées (il ne regardait que le jour prévu, et se taisait).
+        T11 = [7.5, 6.0, 4.5, 3.0, 1.0, -1.5, -2.0, 0.5, 3.0, 5.0, 6.0]
+        hiv = coulage(m, date="2026-11-16", heure=15, temperature__mode="releve", temperature__releve=releve(T11, "mmmmppppppp"))
+        hiv["objectifs"] = [objectif(m, "Décoffrage", age=7.0), objectif(m, "Hors gel", mode="mpa", mpa=5.0, base="fcm")]
+        rh = Mm.calculer(hiv)
+        oh, og = rh["objectifs"]
+        K11 = [0.525, 0.48, 0.435, 0.39, 0.33, 0.255, 0.24, 0.315, 0.39, 0.45, 0.48]      # k belge de chaque jour, à la main
+        f0h = 9.0 / 24.0
+        fin11 = f0h * K11[0] + sum(K11[1:])                        # l'âge équivalent à la fin du relevé (âge réel 10,375 j)
+        T_suite = (-2.0 + 0.5 + 3.0 + 5.0 + 6.0) / 5.0              # 2,5 °C : k = 0,30 + 0,15 × 2,5/5 = 0,375
+        s_m = -math.log(0.30) / (RAC14 - 1.0)
+        tT21 = 28.0 / (1.0 - math.log(29.0 / 38.0) / s_m) ** 2
+        t21 = (f0h + 10.0) + (tT21 - fin11) / 0.375
+        v("2 · un objectif DATÉ dont le jour prévu (J + 7) est dans les jours connus mais dont l'échéance tombe après le relevé (21 MPa à "
+          "J + 28,4, prolongé à 2,5 °C) : cette échéance affichée repose sur des températures PROLONGÉES — dit (« au_dela », l'avertissement "
+          "nomme « Décoffrage »), le verdict du jour prévu gardant sa source (une prévision)",
+          [pres(x["k"], k, 1e-12) for x, k in zip(rh["profil"][:11], K11)] == [True] * 11 and pres(rh["temperature"]["T_fin"], T_suite, 1e-12)
+          and pres(rh["temperature"]["k_fin"], 0.375, 1e-12) and pres(oh["t"], t21, 1e-9) and dec(t21, 28.42, 2)
+          and oh["age_prevu"] == 7.0 and oh["source"] == "prevision" and oh["etat"] == "nok" and oh["au_dela"]
+          and any(a["code"] == "prolonge" and "« Décoffrage »" in a["message"] and "Hors gel" not in a["message"] and "2,5 °C" in a["message"]
+                  for a in rh["avertissements"])
+          and og["source"] == "mesure" and not og["au_dela"], (oh["t"], oh["source"], oh["au_dela"], codes(rh)))
+        # … et la variante PRUDENTE seule au-delà du relevé : coulé à 0 h, trois jours mesurés à 20 °C puis deux prévus à
+        # 12 °C (k = 0,68 ; prudent 9 °C : 0,57). 19,1 MPa de résistance moyenne demandent t_T = 4,25 j : atteints le DERNIER
+        # jour connu au nominal (3 + 1,25/0,68 = 4,84 j), mais en prudent le relevé finit à t_T = 3 + 2 × 0,57 = 4,14 j —
+        # la suite est prolongée (16,8 − 3 = 13,8 °C, k = 0,752) : 5 + 0,11/0,752 = 5,15 j. Cette date prudente s'affiche.
+        e_pr = coulage(m, heure=0, temperature__mode="releve", temperature__releve=releve([20.0] * 3 + [12.0] * 2, "mmmpp"))
+        e_pr["objectifs"] = [objectif(m, "Seuil", mode="mpa", mpa=19.1, base="fcm")]
+        op = Mm.calculer(e_pr)["objectifs"][0]
+        tT19 = 28.0 / (1.0 - math.log(19.1 / 38.0) / s_m) ** 2
+        v("2 · … et quand seule la variante PRUDENTE passe la fin du relevé (nominal le dernier jour connu : 4,84 j ; prudent après : 5,15 j) : dit aussi",
+          dec(tT19, 4.25, 2) and pres(op["t"], 3.0 + (tT19 - 3.0) / 0.68, 1e-9) and dec(op["t"], 4.84, 2)
+          and pres(op["prudent"]["t"], 5.0 + (tT19 - (3.0 + 2 * 0.57)) / 0.752, 1e-9) and dec(op["prudent"]["t"], 5.15, 2)
+          and op["t"] <= 5.0 < op["prudent"]["t"] and op["source"] == "prevision" and op["au_dela"],
+          (tT19, op["t"], op["prudent"]["t"], op["source"], op["au_dela"]))
     groupe("2 · le temps", temps)
 
     # ------------------------------------------------------------- 3. un exemple complet, déroulé à la main
@@ -1501,6 +1539,10 @@ def rejets(mutations):
 
 
 MUTATIONS = [
+    ("« au-delà du relevé » ne regarde que le jour PRÉVU d'un objectif daté (l'échéance prolongée passe sans un mot)",
+     [("moteur", '    out["au_dela"] = "prolonge" in (out["source"], *sources_atteint)', '    out["au_dela"] = out["source"] == "prolonge"')]),
+    ("« au-delà du relevé » oublie la variante prudente",
+     [("moteur", '        sources_atteint = (out["source"], _source_a(p, out["prudent"]["t"]))', '        sources_atteint = (out["source"],)')]),
     ("la référence 293 K changée (293,15 : l'ancien moteur)", [("lois", "T_REFERENCE_C = 20.0 ", "T_REFERENCE_C = 20.15 ")]),
     ("β_cc : 27 au lieu de 28 sous la racine", [("lois", "AGE_REFERENCE_J = 28.0 ", "AGE_REFERENCE_J = 27.0 ")]),
     ("f_ck(t) : le « − 8 » oublié", [("lois", "    return max(0.0, fcm_t(t_T, fck, s) - DELTA_FCM)", "    return max(0.0, fcm_t(t_T, fck, s))")]),

@@ -41,8 +41,8 @@ SORTIE de ``calculer`` — JSON strict (ni NaN ni infini), nombres non arrondis 
      "objectifs": [{"nom", "mode", "pct", "mpa", "cible", "base", "atteignable", "t_T" (requis), "t", "instant",
                     "indicatif", "prudent": {"t", "instant"}, "age_prevu", "instant_prevu", "t_T_prevu", "f_prevu",
                     "f_prevu_prudent", "indicatif_prevu", "taux" (cible / f à l'âge prévu), "etat": "ok" | "attention" |
-                    "nok" | "date" | "jamais" | "non_atteignable", "prudent_ok", "au_dela" (atteint après les jours
-                    connus), "formules": [...]}, …],
+                    "nok" | "date" | "jamais" | "non_atteignable", "prudent_ok", "au_dela" (l'âge prévu, l'échéance ou
+                    sa variante prudente tombent après les jours connus : températures prolongées), "formules": [...]}, …],
      "gel": {"seuil", "base": "minimale" | "moyenne", "premier_jour", "date", "T", "t", "t_5MPa", "alerte",
              "prudent": {"premier_jour", "date", "T", "t", "t_5MPa", "alerte"}, "formules": [...]},
      "temps_froid": {"seuil", "heures", "rappel", "jour", "date", "T", "base"},
@@ -484,6 +484,7 @@ def _objectif(i: int, o: dict, e: dict, p: dict, fck: float, s: float) -> dict:
     b_req = L.beta_requis(cible, base, fck)
     fx.append(_f(f"beta_req_{base}", "β_req", [("f_cible", cible, "MPa"), ("f_cm", fcm, "MPa")], b_req))
     tT = L.t_T_requis(cible, base, fck, s)
+    sources_atteint = ()
     out = {"nom": o["nom"] or f"Objectif {i + 1}", "mode": o["mode"], "pct": o["pct"], "mpa": o["mpa"], "cible": cible, "base": base,
            "atteignable": tT is not None, "t_T": tT, "t": None, "instant": None, "indicatif": False,
            "prudent": {"t": None, "instant": None}, "age_prevu": o["age"], "instant_prevu": None, "t_T_prevu": None, "f_prevu": None,
@@ -510,6 +511,7 @@ def _objectif(i: int, o: dict, e: dict, p: dict, fck: float, s: float) -> dict:
                 fx.append(_f("t_atteint", "t" + suf, [("t_d", seg["debut"], "j"), ("t_T,req", tT, "j"), ("t_T,d", seg["t_T_debut"], "j"),
                                                     ("k" + suf, seg["k"], "")], t, "j"))
         out["source"] = _source_a(p, out["t"])
+        sources_atteint = (out["source"], _source_a(p, out["prudent"]["t"]))   # le jour où la cible est atteinte : nominal, prudent
     if o["age"] is not None:
         a = o["age"]
         out["instant_prevu"] = _instant(p["date0"], e["heure"], a, plafond=False)
@@ -539,8 +541,11 @@ def _objectif(i: int, o: dict, e: dict, p: dict, fck: float, s: float) -> dict:
         out["etat"] = "non_atteignable"
     else:
         out["etat"] = "date" if out["t"] is not None else "jamais"
-    # le résultat repose sur des températures PROLONGÉES (au-delà du relevé, ou les jours « prolongé » d'une météo)
-    out["au_dela"] = out["source"] == "prolonge"
+    # Un résultat AFFICHÉ repose sur des températures PROLONGÉES (au-delà du relevé, ou les jours « prolongé » d'une
+    # météo) : le jour PRÉVU d'une opération datée, OU le jour où la cible est atteinte — cette échéance et sa variante
+    # prudente s'écrivent aussi sous un objectif daté (« 21 MPa atteints J + 28,4 ») ; ne regarder que le jour prévu les
+    # laissait passer sans un mot quand lui seul tombait dans les jours connus.
+    out["au_dela"] = "prolonge" in (out["source"], *sources_atteint)
     out["formules"] = fx
     return out
 
