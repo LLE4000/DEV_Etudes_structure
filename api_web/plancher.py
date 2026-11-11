@@ -112,7 +112,7 @@ def _completer(d: Dict, defaut: Dict) -> Dict:
     return d
 
 
-NULS_HOURDIS = ("I", "M_Rd_chape", "V_Rd_chape", "M_cr", "p_loc_adm")
+NULS_HOURDIS = ("I", "M_Rd_chape", "V_Rd_chape", "e_chape", "M_cr", "p_loc_adm")
 NOMBRES_HOURDIS = ("b_element", "h", "g", "E", "M_Rd", "V_Rd")
 NOMBRES_DALLE = ("h", "d", "As_inf", "fyk", "gamma_s", "h1", "largeur")
 NOMBRES_PREDALLE = NOMBRES_DALLE + ("b_predalle",)
@@ -394,6 +394,7 @@ def _champs_fixes() -> Dict[Tuple, Dict]:
          ("plancher", "hourdis", "M_cr"): _S("nul", "M_cr", "kN·m", mini=0.0, strict=True),
          ("plancher", "hourdis", "M_Rd_chape"): _S("nul", "M_Rd avec chape", "kN·m", mini=0.0, strict=True),
          ("plancher", "hourdis", "V_Rd_chape"): _S("nul", "V_Rd avec chape", "kN", mini=0.0, strict=True),
+         ("plancher", "hourdis", "e_chape"): _S("nul", "Épaisseur exigée", "m", mini=0.0, strict=True, maxi=LIMITES["epaisseur"]),
          ("plancher", "hourdis", "nature"): _S("choix", options=NATURES),
          ("plancher", "hourdis", "etat"): _S("choix", options=list(OP.ETATS_H.items())),
          ("plancher", "hourdis", "chape", "oui"): _S("case"),
@@ -964,9 +965,12 @@ def _sec_hourdis(etat: Dict, cas: Dict) -> str:
     L = C.ligne
     types = ET.types_hourdis(etat)
     cur = h.get("type_cat")
-    opts = [(n, n) for n in types] + ([] if cur in types else [(cur, cur)])
-    s = (L("Type", C.choix(["plancher", "hourdis", "type_cat"], cur, opts), full=True)
-         + C.aide("Le catalogue ou une fiche de ce fichier : ses valeurs se recopient ci-dessous et restent modifiables (P-1).")
+    groupes = ET.groupes_types_hourdis(etat)
+    if cur not in types:
+        groupes = [(None, [cur])] + groupes
+    s = (L("Type", C.choix_groupes(["plancher", "hourdis", "type_cat"], cur, groupes), full=True)
+         + C.aide("Le catalogue d'un fabricant (Ergon 2018 : valeurs de calcul par élément), la fiche générique ou une fiche "
+                  "de ce fichier : ses valeurs se recopient ci-dessous et restent modifiables (P-1).")
          + '<div class="grp">Éléments</div>'
          + L("nombre d'éléments", _num(["plancher", "hourdis", "n_elements"], h["n_elements"], "", entier=True, mini=1), "n")
          + L("largeur d'élément", _num(["plancher", "hourdis", "b_element"], h["b_element"], "m"), "b")
@@ -997,6 +1001,9 @@ def _sec_hourdis(etat: Dict, cas: Dict) -> str:
               + C.case(["plancher", "hourdis", "chape", "collaborante"], ch["collaborante"], "Chape collaborante (surface rugueuse, joints remplis)")
               + L("classe exigée", _num(["plancher", "hourdis", "chape", "fck_exigee"], ch["fck_exigee"], "MPa"), "f<sub>ck,ex</sub>",
                   "Classe que le fabricant exige pour ses valeurs avec chape ; vide : inconnue → valeurs nues (P-17).")
+              + L("épaisseur exigée", _num(["plancher", "hourdis", "e_chape"], h["e_chape"], "m"), "e<sub>ex</sub>",
+                  "Épaisseur de chape des valeurs avec chape du fabricant (Ergon : 50 mm) : plus mince, valeurs nues (P-17) ; "
+                  "vide : non précisée.")
               + L("M<sub>Rd</sub> avec chape", _num(["plancher", "hourdis", "M_Rd_chape"], h["M_Rd_chape"], "kN·m"), "")
               + L("V<sub>Rd</sub> avec chape", _num(["plancher", "hourdis", "V_Rd_chape"], h["V_Rd_chape"], "kN"), ""))
     actif = h["etat"] in ("clavetes", "chapes") and bool(h["parts_annexe_C"])
@@ -1515,7 +1522,9 @@ def _hyps_communes(cas: Dict, calc: Dict) -> List[str]:
         return [f"<b>{C.esc(_court(pl.nom, 34))}</b> · {nat}",
                 f"L = {_d(pl.L)} m · {pl.n_elements} × b = {_d(pl.b_element)} m",
                 f"M<sub>{rd}</sub> = {_r(rh['M_Rd'], 'kN·m')} · V<sub>{rd}</sub> = {_r(rh['V_Rd'], 'kN')}"
-                + (" · <b>avec chape</b>" if rh["avec_chape"] else "")]
+                + (" · <b>avec chape</b>" if rh["M_avec_chape"] and rh["V_avec_chape"] else
+                   " · M<sub>Rd</sub> <b>avec chape</b>, V<sub>Rd</sub> nu" if rh["M_avec_chape"] else
+                   " · V<sub>Rd</sub> <b>avec chape</b>, M<sub>Rd</sub> nu" if rh["V_avec_chape"] else "")]
     rdl = RS.resistance_dalle(pl)
     L = pl.portee_etayee if getattr(pl, "portee_etayee", None) else pl.L
     return [f"<b>{TYPES_COURTS[pl.type]}</b> {C.esc(rdl['classe'])} · f<sub>yk</sub> = {_d(pl.fyk)} N/mm² · γ<sub>s</sub> = {_d(pl.gamma_s)}",

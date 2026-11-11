@@ -469,8 +469,12 @@ def _hypotheses(plancher, p: Parametres) -> List[str]:
                  "l'élément chargé, sans partage par les joints — prudent, l'annexe C répartit la flexion à mi-portée, pas "
                  "l'effort tranchant près de l'appui (P-3)")
         if plancher.chape:
-            h.append(f"couche de compression {plancher.chape.epaisseur * 1e3:.0f} mm, fck(t) = {plancher.chape.fck_t:g} MPa"
-                     + (" : valeurs catalogue avec chape" if plancher.chape.valeurs_avec_chape_admises() else " : valeurs nues, chape en poids (P-17)"))
+            rh = RS.resistance_hourdis(plancher, p.gamma_G, p.gamma_Q)
+            quoi = ("valeurs catalogue avec chape" if rh["M_avec_chape"] and rh["V_avec_chape"] else
+                    "M_Rd catalogue avec chape, V_Rd nu (valeur avec chape non publiée)" if rh["M_avec_chape"] else
+                    "V_Rd catalogue avec chape, M_Rd nu (valeur avec chape non publiée)" if rh["V_avec_chape"] else
+                    "valeurs nues, chape en poids (P-17)")
+            h.append(f"couche de compression {plancher.chape.epaisseur * 1e3:.0f} mm, fck(t) = {plancher.chape.fck_t:g} MPa : {quoi}")
     else:
         h.append("béton armé : méthode aux contraintes admissibles de l'application (αb, μ, τadm,I) sur les charges de SERVICE, "
                  f"coefficients 1 sur G et Q ; effets locaux EN 1992-1-1 §6.4 et §6.7 à l'ELU avec γQ = {p.gamma_Q:g} sur la charge (P-9)")

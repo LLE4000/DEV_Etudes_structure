@@ -61,12 +61,27 @@ class Chape:
         """kN/m²."""
         return self.epaisseur * self.gamma
 
-    def valeurs_avec_chape_admises(self):
+    def valeurs_avec_chape_admises(self, e_min: Optional[float] = None):
         """P-17 : les résistances « avec chape » du catalogue ne sont acquises
-        que si la chape est collaborante ET a atteint la classe exigée ; une
-        classe exigée inconnue vaut refus (conservatif)."""
+        que si la chape est collaborante ET a atteint la classe exigée ET,
+        quand le fabricant donne l'épaisseur de ses valeurs (``e_min``, m),
+        a au moins cette épaisseur ; une classe exigée inconnue vaut refus
+        (conservatif)."""
         return bool(self.collaborante and self.fck_exigee is not None
-                    and self.fck_t >= self.fck_exigee)
+                    and self.fck_t >= self.fck_exigee
+                    and (e_min is None or self.epaisseur >= e_min - 1e-9))
+
+    def motif_refus(self, e_min: Optional[float] = None) -> str:
+        """Pourquoi les valeurs « avec chape » ne sont pas admises (P-17) ; vide si elles le sont."""
+        if not self.collaborante:
+            return "chape non collaborante"
+        if self.fck_exigee is None:
+            return "classe exigée inconnue"
+        if self.fck_t < self.fck_exigee:
+            return f"f_ck(t) = {self.fck_t:g} MPa < {self.fck_exigee:g} MPa exigés"
+        if e_min is not None and self.epaisseur < e_min - 1e-9:
+            return f"épaisseur {self.epaisseur * 1e3:.0f} mm < {e_min * 1e3:.0f} mm des valeurs du fabricant"
+        return ""
 
 
 @dataclass
@@ -122,6 +137,9 @@ class Hourdis(Plancher):
     """Plancher de hourdis alvéolés précontraints, sur deux appuis.
 
     Résistances du catalogue PAR ÉLÉMENT (kN·m, kN) avec leur nature (P-1) ;
+    ``M_Rd_chape`` et ``V_Rd_chape`` : les valeurs « avec chape », chacune
+    admise séparément (P-17), ``e_chape`` l'épaisseur de chape pour laquelle
+    le fabricant les donne (m ; ``None`` : non précisée) ;
     ``I`` par élément (m⁴, donnée fabricant) et ``E`` (MPa) pour la raideur ;
     ``p_loc_adm`` : pression locale admissible sur la membrure (MPa, donnée
     fabricant, P-5) ; ``parts_annexe_C`` : parts de la figure C.1 de
@@ -140,6 +158,7 @@ class Hourdis(Plancher):
     nature: str = RD
     M_Rd_chape: Optional[float] = None
     V_Rd_chape: Optional[float] = None
+    e_chape: Optional[float] = None  # m, épaisseur de chape des valeurs « avec chape » du fabricant (None : non précisée)
     M_cr: Optional[float] = None     # kN·m / élément, moment de fissuration (P-11)
     p_loc_adm: Optional[float] = None
     chape: Optional[Chape] = None

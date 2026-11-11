@@ -459,6 +459,17 @@ def choix(chemin: Sequence, valeur, options: Iterable[Tuple], desactive: bool = 
             f'{icon("chevron-down")}</div>')
 
 
+def choix_groupes(chemin: Sequence, valeur, groupes: Iterable[Tuple], desactive: bool = False) -> str:
+    """Un menu déroulant en GROUPES ; ``groupes`` : (titre, [valeurs]) — un titre ``None`` : des options hors groupe ;
+    chaque option a sa valeur pour libellé (le même attribut ``data-chemin`` que ``choix``)."""
+    def _opt(k):
+        return f'<option value="{esc(k)}"{" selected" if k == valeur else ""}>{esc(k)}</option>'
+    opts = "".join("".join(_opt(k) for k in noms) if t is None else
+                   f'<optgroup label="{esc(t)}">{"".join(_opt(k) for k in noms)}</optgroup>' for t, noms in groupes if noms)
+    return (f'<div class="field select"><select data-chemin="{_attr_chemin(chemin)}" data-sorte="choix"{" disabled" if desactive else ""}>{opts}</select>'
+            f'{icon("chevron-down")}</div>')
+
+
 def segments(chemin: Sequence, valeur, options: Iterable[Tuple], desactive: bool = False) -> str:
     """Un choix court en segments (deux à quatre options) ; ``desactive`` : verrouillé (aucun segment ne répond)."""
     off = " disabled" if desactive else ""

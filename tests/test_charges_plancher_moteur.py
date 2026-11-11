@@ -118,6 +118,45 @@ chk("classe exigée inconnue : refus des valeurs avec chape", not RS.resistance_
 hc.chape = M.Chape(0.05, 30.0, False, 20.0)
 chk("chape non collaborante : valeurs nues", not RS.resistance_hourdis(hc)["avec_chape"])
 chk("chape comptée en poids (permanent)", pres(hc.g_perm(), 2.9 + 1.25) and pres(hc.g_total(), 2.9 + 1.25))
+# P-17, catalogue Ergon (11/11/2026) : M et V jugés SÉPARÉMENT, épaisseur exigée par le fabricant
+he = M.Hourdis(nom="SP 200-4-2X · Ergon 2018", L=7.2, n_elements=4, M_Rd=113.0, V_Rd=94.0, M_Rd_chape=141.0,
+               V_Rd_chape=None, e_chape=0.05, chape=M.Chape(0.05, 30.0, True, 30.0))
+re_ = RS.resistance_hourdis(he)
+chk("Ergon, chape admise : M_Rd avec chape (141), V_Rd nu (94 : avec chape non publié)",
+    pres(re_["M_adm"], 141.0) and pres(re_["V_adm"], 94.0) and re_["M_avec_chape"] and not re_["V_avec_chape"]
+    and re_["avec_chape"], re_)
+chk("Ergon : la note nomme M avec chape et V nu (P-17)", "M_Rd avec chape" in re_["note"] and "V_Rd nu" in re_["note"]
+    and "P-17" in re_["note"], re_["note"])
+he.chape = M.Chape(0.04, 30.0, True, 30.0)
+re_ = RS.resistance_hourdis(he)
+chk("Ergon, chape de 40 mm < 50 mm des valeurs : valeurs nues, la note dit l'épaisseur",
+    pres(re_["M_adm"], 113.0) and pres(re_["V_adm"], 94.0) and not re_["avec_chape"] and "40 mm < 50 mm" in re_["note"], re_)
+he.chape = M.Chape(0.08, 30.0, True, 30.0)
+chk("Ergon, chape de 80 mm ≥ 50 mm : M_Rd avec chape (la valeur pour 50 mm, prudente)",
+    pres(RS.resistance_hourdis(he)["M_adm"], 141.0))
+he.chape = M.Chape(0.05, 29.0, True, 30.0)
+re_ = RS.resistance_hourdis(he)
+chk("Ergon, chape à 29 MPa < C30/37 exigé : valeurs nues, la note dit la classe",
+    pres(re_["M_adm"], 113.0) and "29 MPa < 30 MPa" in re_["note"], re_["note"])
+he.chape, he.e_chape = M.Chape(0.03, 30.0, True, 30.0), None
+chk("épaisseur exigée non précisée (fiche ancienne) : aucune condition d'épaisseur",
+    pres(RS.resistance_hourdis(he)["M_adm"], 141.0))
+hv = M.Hourdis(nom="H", L=6.0, n_elements=4, M_Rd=90.0, V_Rd=95.0, M_Rd_chape=None, V_Rd_chape=104.0,
+               chape=M.Chape(0.05, 30.0, True, 20.0))
+rv = RS.resistance_hourdis(hv)
+chk("V seul avec chape : V_Rd avec chape (104), M_Rd nu (90)", pres(rv["V_adm"], 104.0) and pres(rv["M_adm"], 90.0)
+    and rv["V_avec_chape"] and not rv["M_avec_chape"] and "M_Rd nu" in rv["note"], rv)
+ha = M.Hourdis(nom="H", L=6.0, n_elements=4, M_Rd=90.0, V_Rd=95.0, chape=M.Chape(0.05, 30.0, True, 20.0))
+ra = RS.resistance_hourdis(ha)
+chk("chape admise sans aucune valeur avec chape : valeurs nues, la note le dit", not ra["avec_chape"]
+    and pres(ra["M_adm"], 90.0) and "aucune valeur" in ra["note"], ra["note"])
+hyp = [x for x in V._hypotheses(ha, Parametres()) if "couche de compression" in x]
+chk("hypothèse de chape = ce que la résistance retient (valeurs nues, pas « avec chape »)",
+    len(hyp) == 1 and "valeurs nues" in hyp[0] and "avec chape" not in hyp[0], hyp)
+hyp = [x for x in V._hypotheses(M.Hourdis(nom="SP", L=7.2, n_elements=4, M_Rd=113.0, V_Rd=94.0, M_Rd_chape=141.0,
+                                           e_chape=0.05, chape=M.Chape(0.05, 30.0, True, 30.0)), Parametres())
+       if "couche de compression" in x]
+chk("hypothèse de chape Ergon : « M_Rd catalogue avec chape, V_Rd nu »", len(hyp) == 1 and "M_Rd catalogue avec chape, V_Rd nu" in hyp[0], hyp)
 
 # 4. effets locaux
 pl = RS.pression_localisee_Rd(300.0, 300.0, 200.0, 30.0)
@@ -311,6 +350,20 @@ ff = BIB.filiere_profil("HEB 140", 3.6, 3.0, 3.0)
 chk("filière catalogue : EI = E·Iy, W_el et b", pres(ff.EI, 210000e3 * BIB.profils()["HEB 140"]["Iy"] * 1e-8) and ff.W_el == BIB.profils()["HEB 140"]["Wel"]
     and pres(ff.b_semelle, BIB.profils()["HEB 140"]["b"] / 1000.0))
 chk("bibliothèque : plateaux et types de hourdis", len(BIB.plateaux()) >= 4 and len(BIB.types_hourdis()) >= 1)
+th = BIB.types_hourdis()
+chk("bibliothèque : la fiche générique d'abord, puis les 53 variantes Ergon 2018 (catalogue de l'application)",
+    list(th)[0].startswith("Hourdis générique") and len(th) == 54 and th.get("SP 200-4-2X · Ergon 2018", {}).get("M_Rd") == 113.0)
+chk("bibliothèque : une fiche du cas qui reprend un nom du catalogue le remplace (et n'est montrée qu'une fois)",
+    BIB.types_hourdis([{"nom": "SP 200-4-2X · Ergon 2018", "M_Rd": 1.0}])["SP 200-4-2X · Ergon 2018"]["M_Rd"] == 1.0
+    and sum("SP 200-4-2X · Ergon 2018" in noms for _, noms in BIB.groupes_types_hourdis([{"nom": "SP 200-4-2X · Ergon 2018"}])) == 1)
+hd = BIB.hourdis_depuis(th["SP 200-4-2X · Ergon 2018"], L=7.2, n_elements=4) if "SP 200-4-2X · Ergon 2018" in th else None
+chk("bibliothèque : un Hourdis construit depuis la fiche Ergon porte l'épaisseur exigée (0,05 m)",
+    hd is not None and hd.e_chape == 0.05 and hd.M_Rd_chape == 141.0 and hd.V_Rd_chape is None)
+from plancher.charges import etat as ET  # noqa: E402
+vieux = ET.payload(ET.nouvel_etat())
+del vieux["etat"]["cas"][0]["plancher"]["hourdis"]["e_chape"]
+chk("fichier d'avant le catalogue (sans e_chape) : ET.charger complète la clé à vide (aucune condition d'épaisseur)",
+    "e_chape" in ET.charger(vieux)["cas"][0]["plancher"]["hourdis"] and ET.charger(vieux)["cas"][0]["plancher"]["hourdis"]["e_chape"] is None)
 cas = {}
 Hx = M.Hourdis(nom="SP", L=7.2, n_elements=8, I=1.05e-3, M_Rd=90.0, V_Rd=95.0, p_loc_adm=0.7, q_presentes=1.0,
                parts_annexe_C={0: 0.52, 1: 0.24})

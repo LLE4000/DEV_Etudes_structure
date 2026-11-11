@@ -20,6 +20,7 @@ import html
 import re
 from typing import Dict, List, Optional
 
+from plancher.charges import bibliotheque as BIB
 from plancher.charges import dessin as DS
 from plancher.charges import methode as MET
 from plancher.charges import symboles as SY
@@ -176,8 +177,15 @@ def _tableau_bibliotheque(gabarits: Dict[str, Dict], dispo: Dict[str, Dict], hou
             txt = sec.get("profil") or f"rectangle {C.nb(sec.get('b'))} × {C.nb(sec.get('h'))} mm sur champ"
             lignes.append(("", nom, "filière · fiche du fichier", f"{txt} · {d.get('materiau', '')}", d.get("source") or "—"))
     for nom, d in hourdis.items():
+        if d.get("catalogue"):                 # une variante d'un catalogue de fabricant : une ligne par catalogue, plus bas
+            continue
         lignes.append(("", nom, "hourdis" + (" · générique" if d.get("generique", True) else " · fiche du fichier"),
                        f"M_Rd {C.nb(d.get('M_Rd') or 0)} · V_Rd {C.nb(d.get('V_Rd') or 0)} ({d.get('nature', 'Rd')})", d.get("source") or "—"))
+    for k in BIB.resume_catalogues(hourdis):
+        lignes.append(("", k["titre"], "hourdis · catalogue du fabricant",
+                       f"{len(k['profils'])} profils ({k['profils'][0]} à {k['profils'][-1]}), {k['variantes']} variantes · M_Rd "
+                       f"{C.nb(k['M_min'])} à {C.nb(k['M_max'])} kN·m · V_Rd {C.nb(k['V_min'])} à {C.nb(k['V_max'])} kN par élément ({k['nature']})",
+                       f"{k['document']} — transcrit dans {k['fichier']}"))
     lignes.append(("", "Profilés", "filières · catalogue", "IPE, HEA, HEB (I_y, W_el, masse)",
                    "catalogue des profilés de l'application (acier/donnees/profiles.json)"))
     corps = "".join(f'<tr><td class="chp-pc">{pic}</td><td><b>{C.esc(nom)}</b><span>{C.esc(typ)}</span></td><td>{C.symb_math(contenu)}</td>'

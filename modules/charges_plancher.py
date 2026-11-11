@@ -419,6 +419,7 @@ def _etape_hourdis(etat, cas):
         _case("Chape collaborante", ("plancher", "hourdis", "chape", "collaborante"), cas, help="Surface rugueuse, joints remplis, selon le fabricant (P-17)")
     with c2:
         _num("Classe exigée (MPa)", ("plancher", "hourdis", "chape", "fck_exigee"), cas, 1.0, "%.1f", nul_vaut_none=True, help="Classe que le fabricant exige pour ses valeurs avec chape ; 0 = inconnue → valeurs nues (P-17)")
+        _num("Épaisseur exigée (m)", ("plancher", "hourdis", "e_chape"), cas, 0.01, "%.3f", nul_vaut_none=True, help="Épaisseur de chape des valeurs avec chape du fabricant (Ergon : 0,05 m) ; plus mince → valeurs nues (P-17) ; 0 = non précisée")
     with c3:
         _parts_annexe_c(cas)
     _texte_w("Source du catalogue", ("plancher", "hourdis", "source"), cas)
@@ -769,9 +770,17 @@ def _etape_methode(etat, cas):
                 lignes.append(f"<tr><td><b>{nom}</b></td><td>plateau · {d.get('origine', '')}</td>"
                               f"<td>{d.get('A', 0):.0f} × {d.get('Bp', 0):.0f} × {d.get('t', 0):.0f} mm · f {d.get('f') or '—'} MPa</td>"
                               f"<td class='chp-i'>{(d.get('source') or '—')[:160]}</td></tr>")
-        for nom, d in ET.types_hourdis(etat).items():
+        types_h = ET.types_hourdis(etat)
+        for nom, d in types_h.items():
+            if d.get("catalogue"):           # une ligne par catalogue de fabricant, plus bas
+                continue
             lignes.append(f"<tr><td><b>{nom}</b></td><td>hourdis{' · générique' if d.get('generique', True) else ''}</td>"
                           f"<td>M_Rd {d.get('M_Rd', 0)} · V_Rd {d.get('V_Rd', 0)} ({d.get('nature', 'Rd')})</td><td class='chp-i'>{(d.get('source') or '—')[:160]}</td></tr>")
+        for k in BIB.resume_catalogues(types_h):
+            lignes.append(f"<tr><td><b>{k['titre']}</b></td><td>hourdis · catalogue du fabricant</td>"
+                          f"<td>{len(k['profils'])} profils ({k['profils'][0]} à {k['profils'][-1]}), {k['variantes']} variantes · "
+                          f"M_Rd {k['M_min']:g} à {k['M_max']:g} kN·m · V_Rd {k['V_min']:g} à {k['V_max']:g} kN ({k['nature']})</td>"
+                          f"<td class='chp-i'>{k['document']} — {k['fichier']}</td></tr>")
         lignes.append("<tr><td><b>Profilés</b></td><td>filières · catalogue</td><td>IPE, HEA, HEB (Iy, Wel, masse)</td><td class='chp-i'>catalogue des profilés de l'application (acier/donnees/profiles.json)</td></tr>")
         st.markdown("".join(lignes) + "</table>", unsafe_allow_html=True)
 

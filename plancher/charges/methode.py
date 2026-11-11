@@ -51,8 +51,9 @@ SECTIONS: List[Dict] = [
          "M est cherché aux abscisses des charges, à mi-portée et sur une grille au pas L/60 — son maximum "
          "tombe entre la charge et la mi-portée ; V aux deux appuis. Les résistances sont celles "
          "du catalogue, dans leur nature (calcul ou service, P-1) ; les valeurs « avec couche de compression » "
-         "ne sont admises que si la chape est collaborante et a atteint la classe exigée par le fabricant "
-         "(P-17), sinon la chape ne compte que comme poids. La pression sur la membrure supérieure, diffusée à "
+         "ne sont admises que si la chape est collaborante et a atteint la classe et l'épaisseur exigées par le "
+         "fabricant (P-17) — M et V séparément, une valeur non publiée restant nue —, sinon la chape ne compte "
+         "que comme poids. La pression sur la membrure supérieure, diffusée à "
          "45° dans la chape, est comparée à la pression locale admissible du fabricant ; sans cette donnée, un "
          "répartiteur efficace est exigé (P-5). L'effort transmis par un joint longitudinal est vérifié quand "
          "sa résistance est transcrite de l'EN 1168 (P-15). Le moment de fissuration, s'il est renseigné, donne "
@@ -90,8 +91,8 @@ A_TRANSCRIRE = [
     "les parts de la figure C.1 de l'EN 1168 pour chaque type de hourdis ;",
     "la résistance du joint longitudinal (EN 1168) ;",
     "αcc et le coefficient de v_Rd,max de l'ANB belge ;",
-    "les valeurs de catalogue des hourdis (M_Rd, V_Rd, nature, I, pression locale admissible, M_cr, valeurs "
-    "avec chape et classe exigée), à relire sur la fiche du fabricant.",
+    "pour les hourdis, ce que le catalogue Ergon 2018 ne publie pas (V_Rd,c avec couche collaborante, M_cr, "
+    "pression locale admissible) et les catalogues des autres fabricants.",
 ]
 
 REFERENCES = [

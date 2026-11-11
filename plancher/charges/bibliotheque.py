@@ -5,6 +5,8 @@ types de hourdis, plateaux, filières. Sources uniques :
 - ``plancher/donnees/engins.json``, ``hourdis.json``, ``plateaux.json`` :
   fiches livrées, GÉNÉRIQUES et nommées comme telles (P-13) ; chaque fiche
   porte ``source`` ; une charge par appui absente vaut 0 et bloque le calcul ;
+- les types de hourdis des fabricants viennent des catalogues de
+  l'application (``beton/donnees/hourdis``, lus par ``beton.hourdis.catalogue``) ;
 - les profilés de filière viennent du catalogue ``acier/donnees/profiles.json`` de
   l'application (Iy en cm⁴, Wel en cm³, masse en kg/m), lu directement ;
 - les nuances d'acier viennent de ``acier/donnees/bibliotheques.json``.
@@ -14,8 +16,9 @@ réécrit jamais ses fichiers.
 """
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
+from beton.hourdis import catalogue as KH
 from .modele import AppuiGabarit, Gabarit, Plateau, Filiere, Hourdis, Chape, RD, EN_TRAVERS
 
 _ICI = os.path.dirname(os.path.abspath(__file__))
@@ -51,9 +54,48 @@ def gabarit_depuis(d: Dict) -> Gabarit:
 
 # ---------------------------------------------------------------- hourdis
 def types_hourdis(extra: Optional[List[Dict]] = None) -> Dict[str, Dict]:
+    """Les types de hourdis, dans l'ordre d'un menu : la fiche GÉNÉRIQUE livrée (``hourdis.json``, à renseigner), les
+    variantes des catalogues de fabricants (``beton/donnees/hourdis``, lus par ``beton.hourdis.catalogue`` — Ergon
+    2018 : 53 variantes, valeurs de calcul par élément), puis les fiches du cas (``extra``) ; un nom repris remplace
+    le précédent (une fiche du cas peut reprendre le nom d'un type du catalogue)."""
     out = {}
-    for d in _lire("hourdis.json") + list(extra or []):
+    for d in _lire("hourdis.json") + KH.fiches_plancher() + list(extra or []):
         out[d["nom"]] = d
+    return out
+
+
+def groupes_types_hourdis(extra: Optional[List[Dict]] = None) -> List[Tuple[Optional[str], List[str]]]:
+    """Les noms de ``types_hourdis`` groupés pour un menu : la fiche générique (sans groupe), un groupe par profil de
+    catalogue (« Ergon 2018 · SP 200 »), puis les fiches du cas (« Fiches de ce fichier ») ; un nom repris par une
+    fiche du cas n'est montré qu'une fois, parmi les fiches du cas."""
+    du_cas = list(dict.fromkeys(d["nom"] for d in (extra or [])))
+    pris = set(du_cas)
+    out = [(None, [d["nom"] for d in _lire("hourdis.json") if d["nom"] not in pris])]
+    for titre, noms in KH.groupes_plancher():
+        n = [x for x in noms if x not in pris]
+        if n:
+            out.append((titre, n))
+    if du_cas:
+        out.append(("Fiches de ce fichier", du_cas))
+    return out
+
+
+def resume_catalogues(types: Dict[str, Dict]) -> List[Dict]:
+    """Une ligne par catalogue de fabricant présent dans ``types`` (les variantes qui portent ``catalogue``) : titre,
+    profils, nombre de variantes, plus petite et plus grande M_Rd et V_Rd (des valeurs du fabricant, choisies parmi
+    celles qu'il nomme), nature, document et fichier transcrit — ce que les onglets Méthode montrent au lieu d'une
+    ligne par variante."""
+    par = {}
+    for d in types.values():
+        if d.get("catalogue"):
+            par.setdefault(d["catalogue"], []).append(d)
+    out = []
+    for cle, ds in par.items():
+        cat = KH.catalogue(cle)
+        out.append({"cle": cle, "titre": f"Hourdis {KH.titre(cat)}", "profils": list(dict.fromkeys(d["profil"] for d in ds)),
+                    "variantes": len(ds), "M_min": min(d["M_Rd"] for d in ds), "M_max": max(d["M_Rd"] for d in ds),
+                    "V_min": min(d["V_Rd"] for d in ds), "V_max": max(d["V_Rd"] for d in ds), "nature": ds[0]["nature"],
+                    "document": cat["meta"]["document"], "fichier": f"beton/donnees/hourdis/{cle}.json"})
     return out
 
 
@@ -64,7 +106,8 @@ def hourdis_depuis(d: Dict, **surcharges) -> Hourdis:
     champs = {
         "b_element": d.get("b_element", 1.2), "h": d["h"], "g": d["g"], "E": d.get("E", 36000.0),
         "I": d.get("I"), "M_Rd": d.get("M_Rd", 0.0), "V_Rd": d.get("V_Rd", 0.0), "nature": d.get("nature", RD),
-        "M_Rd_chape": d.get("M_Rd_chape"), "V_Rd_chape": d.get("V_Rd_chape"), "M_cr": d.get("M_cr"),
+        "M_Rd_chape": d.get("M_Rd_chape"), "V_Rd_chape": d.get("V_Rd_chape"), "e_chape": d.get("e_chape"),
+        "M_cr": d.get("M_cr"),
         "p_loc_adm": d.get("p_loc_adm"), "source": d.get("source", ""), "nom": d["nom"],
     }
     champs.update(surcharges)

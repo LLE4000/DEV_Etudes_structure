@@ -33,7 +33,7 @@ def defaut_plancher() -> Dict:
         "type": "hourdis", "sens": 1, "L": 7.2, "q_presentes": 1.0,
         "hourdis": {"type_cat": "Hourdis générique 200 · à renseigner", "b_element": 1.2, "n_elements": 8, "h": 0.2,
                     "g": 2.9, "E": 36000.0, "I": None, "etat": "clavetes", "M_Rd": 0.0, "V_Rd": 0.0, "nature": "Rd",
-                    "M_Rd_chape": None, "V_Rd_chape": None, "M_cr": None, "p_loc_adm": None,
+                    "M_Rd_chape": None, "V_Rd_chape": None, "e_chape": None, "M_cr": None, "p_loc_adm": None,
                     "chape": {"oui": False, "epaisseur": 0.05, "fck_t": 20.0, "collaborante": True, "fck_exigee": 25.0},
                     "parts_annexe_C": None, "source": ""},
         "dalle": {"h": 0.2, "d": 0.17, "beton": "C30/37", "fck_t": None, "As_inf": 524.0, "fyk": 500.0, "gamma_s": 1.15,
@@ -98,23 +98,33 @@ def repartiteurs_disponibles(etat: Dict) -> Dict[str, Dict]:
 
 
 def types_hourdis(etat: Dict) -> Dict[str, Dict]:
-    out = {}
-    for d in BIB._lire("hourdis.json") + list(etat["fiches"].get("hourdis", [])):
-        out[d["nom"]] = d
-    return out
+    """Les types livrés, ceux des catalogues de fabricants et les fiches du fichier (``BIB.types_hourdis``)."""
+    return BIB.types_hourdis(etat["fiches"].get("hourdis", []))
 
 
-CHAMPS_FICHE_HOURDIS = ("b_element", "h", "g", "E", "I", "M_Rd", "V_Rd", "nature", "M_Rd_chape", "V_Rd_chape", "M_cr",
-                        "p_loc_adm", "source")
+def groupes_types_hourdis(etat: Dict):
+    """Les noms des types groupés pour un menu (``BIB.groupes_types_hourdis``)."""
+    return BIB.groupes_types_hourdis(etat["fiches"].get("hourdis", []))
+
+
+CHAMPS_FICHE_HOURDIS = ("b_element", "h", "g", "E", "I", "M_Rd", "V_Rd", "nature", "M_Rd_chape", "V_Rd_chape", "e_chape",
+                        "M_cr", "p_loc_adm", "source")
+CHAMPS_FICHE_CHAPE = ("fck_exigee",)     # la condition du fabricant sur la chape : elle vit dans la chape du cas
 
 
 def appliquer_type_hourdis(cas: Dict, fiche: Dict) -> None:
-    """Copie les valeurs d'une fiche de hourdis dans le cas (modifiables ensuite)."""
+    """Copie les valeurs d'une fiche de hourdis dans le cas (modifiables ensuite). Une fiche sans épaisseur de chape
+    (``e_chape``) n'hérite pas de celle du type précédent ; la classe exigée d'une fiche passe dans la chape du cas."""
     h = cas["plancher"]["hourdis"]
     h["type_cat"] = fiche["nom"]
     for k in CHAMPS_FICHE_HOURDIS:
         if k in fiche:
             h[k] = fiche[k]
+    if "e_chape" not in fiche:
+        h["e_chape"] = None
+    for k in CHAMPS_FICHE_CHAPE:
+        if k in fiche:
+            h["chape"][k] = fiche[k]
 
 
 def ajouter_fiche_hourdis(etat: Dict, cas: Dict, nom: str) -> Dict:
@@ -125,6 +135,8 @@ def ajouter_fiche_hourdis(etat: Dict, cas: Dict, nom: str) -> Dict:
     fiche = {"nom": nom, "generique": False}
     for k in CHAMPS_FICHE_HOURDIS:
         fiche[k] = h.get(k)
+    for k in CHAMPS_FICHE_CHAPE:
+        fiche[k] = h["chape"].get(k)
     etat["fiches"]["hourdis"] = [f for f in etat["fiches"].get("hourdis", []) if f["nom"] != nom] + [fiche]
     h["type_cat"] = nom
     return fiche
@@ -169,7 +181,8 @@ def construire(etat: Dict, cas: Optional[Dict] = None):
                              b_element=float(h["b_element"]), n_elements=int(h["n_elements"]), h=float(h["h"]),
                              g=float(h["g"]), E=float(h.get("E") or 36000.0), I=h.get("I"), etat=h.get("etat", "clavetes"),
                              M_Rd=float(h.get("M_Rd") or 0.0), V_Rd=float(h.get("V_Rd") or 0.0), nature=h.get("nature", "Rd"),
-                             M_Rd_chape=h.get("M_Rd_chape"), V_Rd_chape=h.get("V_Rd_chape"), M_cr=h.get("M_cr"),
+                             M_Rd_chape=h.get("M_Rd_chape"), V_Rd_chape=h.get("V_Rd_chape"), e_chape=h.get("e_chape"),
+                             M_cr=h.get("M_cr"),
                              p_loc_adm=h.get("p_loc_adm"), chape=chape,
                              parts_annexe_C={int(k): float(v) for k, v in (h.get("parts_annexe_C") or {}).items()} or None,
                              source=h.get("source", ""))
@@ -682,6 +695,8 @@ def charger(data: Dict) -> Dict:
             cas.setdefault(k, v)
         for k, v in ref["plancher"].items():
             cas["plancher"].setdefault(k, v)
+        for k, v in ref["plancher"]["hourdis"].items():      # une clé du hourdis venue après le fichier (e_chape…)
+            cas["plancher"]["hourdis"].setdefault(k, v)
         for k, v in ref["params"].items():
             cas["params"].setdefault(k, v)
     return base

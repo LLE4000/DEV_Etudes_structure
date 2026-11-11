@@ -126,12 +126,18 @@ def resistance_hourdis(h: Hourdis, gamma_G: float = 1.35, gamma_Q: float = 1.5) 
       poids propres, γQ sur les charges de chantier (P-2, 02/11/2026) ;
     - nature service : valeurs admissibles telles quelles, efforts de
       service (coefficients 1 et 1) ;
-    - valeurs « avec chape » si la chape les autorise (P-17), sinon valeurs
-      nues, la chape ne comptant que comme poids."""
-    avec_chape = bool(h.chape and h.chape.valeurs_avec_chape_admises()
-                      and h.M_Rd_chape is not None and h.V_Rd_chape is not None)
-    M_Rd = h.M_Rd_chape if avec_chape else h.M_Rd
-    V_Rd = h.V_Rd_chape if avec_chape else h.V_Rd
+    - valeurs « avec chape » si la chape les autorise (P-17 : collaborante,
+      classe exigée atteinte, épaisseur du fabricant ``e_chape`` si elle est
+      donnée), sinon valeurs nues, la chape ne comptant que comme poids ;
+      M et V sont jugés SÉPARÉMENT : une valeur « avec chape » que le
+      fabricant ne publie pas (V_Rd,c chez Ergon) reste la valeur nue, la
+      plus faible (prudent)."""
+    admises = bool(h.chape and h.chape.valeurs_avec_chape_admises(h.e_chape))
+    M_chape = admises and h.M_Rd_chape is not None
+    V_chape = admises and h.V_Rd_chape is not None
+    avec_chape = M_chape or V_chape
+    M_Rd = h.M_Rd_chape if M_chape else h.M_Rd
+    V_Rd = h.V_Rd_chape if V_chape else h.V_Rd
     if h.nature == RD:
         gG, gQ = gamma_G, gamma_Q
         methode = (f"résistances de calcul du catalogue : M_Ed = γG·M_G + γQ·M_Q ≤ M_Rd, γG = {gamma_G:g} sur les poids "
@@ -142,10 +148,17 @@ def resistance_hourdis(h: Hourdis, gamma_G: float = 1.35, gamma_Q: float = 1.5) 
     else:
         raise ValueError(f"Nature de catalogue non prise en charge en V1 : {h.nature!r} (Rd ou service)")
     note = ""
-    if h.chape and not avec_chape:
-        note = ("chape présente mais résistances « avec chape » non admises (P-17 : classe exigée non atteinte, "
-                "chape non collaborante ou valeurs absentes) : valeurs nues, chape comptée en poids")
+    if h.chape and not admises:
+        note = (f"chape présente mais résistances « avec chape » non admises (P-17 : {h.chape.motif_refus(h.e_chape)}) : "
+                "valeurs nues, chape comptée en poids")
+    elif h.chape and not avec_chape:
+        note = "chape admise mais aucune valeur « avec chape » au catalogue (P-17) : valeurs nues, chape comptée en poids"
+    elif h.chape and not (M_chape and V_chape):
+        nue = "V_Rd" if M_chape else "M_Rd"
+        note = (f"{'M_Rd' if M_chape else 'V_Rd'} avec chape ; {nue} nu : la valeur avec chape n'est pas au catalogue, "
+                "la valeur nue est la plus faible (P-17)")
     return {"M_adm": M_Rd, "V_adm": V_Rd, "M_Rd": M_Rd, "V_Rd": V_Rd, "avec_chape": avec_chape,
+            "M_avec_chape": M_chape, "V_avec_chape": V_chape,
             "nature": h.nature, "gamma_G": gG, "gamma_Q": gQ, "methode": methode, "note": note,
             "M_cr": h.M_cr, "p_loc_adm": h.p_loc_adm}
 

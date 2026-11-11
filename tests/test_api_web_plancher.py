@@ -485,6 +485,66 @@ chk("sous un sys.meta_path qui refuse streamlit, pandas, matplotlib, reportlab, 
 chk("ni note.py ni peintre.py (reportlab) ne sont chargés", out and "plancher.charges.note" not in out["charges"] and "plancher.charges.peintre" not in out["charges"],
     out.get("charges"))
 
+print("\n=== Catalogue Ergon 2018 (beton/donnees/hourdis, 11/11/2026) ===")
+from beton.hourdis import catalogue as KH  # noqa: E402
+ERG = "SP 200-4-2X · Ergon 2018"
+GEN = "Hourdis générique 200 · à renseigner"
+e = W.nouvel_etat()
+sec = W._sec_hourdis(e, cas(e))
+opts = re.findall(r'<option value="([^"]*)"', sec)
+chk("menu des types : la fiche générique d'abord, hors groupe, puis un groupe par profil Ergon (7), 54 options",
+    opts[0] == GEN and len(opts) == 54 and sec.count("<optgroup") == 7 and 'label="Ergon 2018 · SP 150"' in sec
+    and 'label="Ergon 2018 · SPZ 500"' in sec and sec.index(GEN) < sec.index("<optgroup"), (len(opts), opts[:3]))
+chk("menu des types : chaque variante une fois, dans l'ordre du fabricant",
+    opts[1:] == [f["nom"] for f in KH.fiches_plancher()])
+chk("type Ergon choisi : aucun message", mod(e, ["plancher", "hourdis", "type_cat"], ERG) is None)
+h = cas(e)["plancher"]["hourdis"]
+chk("type Ergon : valeurs de calcul par élément recopiées (b 1,2 m, h 0,2 m, g 2,78, E 38 214, I 6,3·10⁻⁴, M_Rd 113, V_Rd 94, Rd)",
+    (h["b_element"], h["h"], h["g"], h["E"], h["M_Rd"], h["V_Rd"], h["nature"]) == (1.2, 0.2, 2.78, 38214.0, 113.0, 94.0, "Rd")
+    and abs(h["I"] - 6.3e-4) < 1e-15, h)
+chk("type Ergon : M_Rd avec chape 141, V_Rd avec chape vide (non publié), épaisseur exigée 0,05 m, classe exigée 30 MPa",
+    h["M_Rd_chape"] == 141.0 and h["V_Rd_chape"] is None and h["e_chape"] == 0.05 and h["chape"]["fck_exigee"] == 30.0, h)
+chk("type Ergon : la source cite le guide et ses pages", "Ergon" in h["source"] and "p. 30" in h["source"])
+W._faire(e, (["plancher", "hourdis", "chape", "oui"], True), (["plancher", "hourdis", "chape", "fck_t"], "30"),
+         (["plancher", "hourdis", "chape", "epaisseur"], "0,05"), (["charges", "+"], "ponctuel"))
+calc = W._calculer(e, cas(e))
+el = calc["res"]["elements"]
+chk("chape C30/37 de 50 mm : M_adm = M_Rd avec chape 141, V_adm = V_Rd nu 94 (prudent)",
+    el and all(abs(x["M_adm"] - 141.0) < 1e-9 and abs(x["V_adm"] - 94.0) < 1e-9 for x in el), [(x["M_adm"], x["V_adm"]) for x in el])
+hy = " ".join(W._hyps_communes(cas(e), calc))
+chk("l'en-tête des calculs le dit : « M_Rd avec chape, V_Rd nu »", "M<sub>Rd</sub> <b>avec chape</b>, V<sub>Rd</sub> nu" in hy, hy)
+chk("une ligne d'hypothèse du moteur le dit aussi (V_Rd nu, valeur avec chape non publiée)",
+    any("V_Rd nu" in (v.get("methode") or "") for v in calc["res"]["verifications"] if v["famille"] == "hypothese"))
+sec = W._sec_hourdis(e, cas(e))
+chk("chape cochée : le champ « épaisseur exigée » est à l'écran, à 0,05 m", "e_chape" in sec and "épaisseur exigée" in sec)
+chk("épaisseur exigée négative refusée", mod(e, ["plancher", "hourdis", "e_chape"], "-0,01") is not None and cas(e)["plancher"]["hourdis"]["e_chape"] == 0.05)
+W._faire(e, (["plancher", "hourdis", "chape", "epaisseur"], "0,04"))
+el = W._calculer(e, cas(e))["res"]["elements"]
+chk("chape de 40 mm < 50 mm : valeurs nues (M_adm 113)", el and all(abs(x["M_adm"] - 113.0) < 1e-9 for x in el))
+W._faire(e, (["plancher", "hourdis", "chape", "epaisseur"], "0,06"), (["plancher", "hourdis", "chape", "fck_t"], "25"))
+el = W._calculer(e, cas(e))["res"]["elements"]
+chk("chape à 25 MPa < C30/37 exigé : valeurs nues (M_adm 113)", el and all(abs(x["M_adm"] - 113.0) < 1e-9 for x in el))
+W._faire(e, (["note", "nom_fiche_hourdis"], "SP 200-4-2X bureau"), (["note", "fiche_hourdis", "enregistrer"], "1"))
+fh = e["fiches"]["hourdis"][-1]
+chk("« Garder comme fiche » depuis un type Ergon : la fiche garde l'épaisseur et la classe exigées",
+    fh.get("nom") == "SP 200-4-2X bureau" and fh.get("e_chape") == 0.05 and fh.get("fck_exigee") == 30.0 and fh.get("M_Rd_chape") == 141.0, fh)
+chk("retour à la fiche générique : l'épaisseur exigée d'Ergon ne reste pas", mod(e, ["plancher", "hourdis", "type_cat"], GEN) is None
+    and cas(e)["plancher"]["hourdis"]["e_chape"] is None and cas(e)["plancher"]["hourdis"]["M_Rd"] == 0.0)
+sec = W._sec_hourdis(e, cas(e))
+chk("une fiche du fichier va au groupe « Fiches de ce fichier »", 'label="Fiches de ce fichier"' in sec and "SP 200-4-2X bureau" in sec)
+vm = next(v for v in W.resultat(e)["vues"] if v["cle"] == "methode")
+contenu = json.dumps(vm, ensure_ascii=False)
+chk("méthode : UNE ligne pour le catalogue (« Hourdis Ergon 2018 », 7 profils, 53 variantes), pas une par variante",
+    "Hourdis Ergon 2018" in contenu and "53 variantes" in contenu and "SP 150-5X" not in contenu, contenu[:200])
+# un fichier d'avant le catalogue (sans e_chape) s'ouvre ; l'épaisseur exigée est vide (aucune condition)
+vieux = {k: v for k, v in W.exemple("hourdis").items() if k != "site"}
+for c_ in vieux["cas"]:
+    c_["plancher"]["hourdis"].pop("e_chape", None)
+e = W.nouvel_etat()
+chk("un fichier d'avant le catalogue (sans e_chape) s'ouvre ; e_chape complété à vide",
+    mod(e, ["note", "ouvrir"], {"nom": "v.json", "texte": ET.texte_json(vieux)}) is None
+    and cas(e)["plancher"]["hourdis"]["e_chape"] is None)
+
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")
 for nom, info in KO:
     print("   -", nom, "|", str(info)[:300])
