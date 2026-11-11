@@ -49,10 +49,15 @@ META = {
                          "texte": "largeur nominale 1200 mm (module), largeur réelle de l'élément 1196 mm"},
     "beton": {"classe": "C55/67", "fck": 55.0, "pages": [13, 20],
               "texte": "classe de résistance C 55/67 pour les hourdis précontraints SP, SPN et SPZ"},
-    "classe_consequence": {"texte": "catalogue valable pour la classe de conséquence CC2", "page": 8},
-    "environnement": {"texte": "conception standard en classe d'environnement EI ou classe d'exposition XC1 ; "
-                               "autres exigences sur demande", "page": 13},
-    "feu": {"texte": "résistance au feu standard Rf 60 ; Rf 90 ou Rf 120 à la demande", "pages": [13, 20]},
+    # « court » : ce que l'écran affiche en une case ; « texte » : la phrase du guide, pour « Pourquoi ? »
+    "classe_consequence": {"court": "CC2", "texte": "catalogue valable pour la classe de conséquence CC2", "page": 8},
+    "environnement": {"court": "EI ou XC1", "texte": "conception standard en classe d'environnement EI ou classe "
+                                                     "d'exposition XC1 ; autres exigences sur demande", "page": 13},
+    "feu": {"court": "Rf 60", "texte": "résistance au feu standard Rf 60 ; Rf 90 ou Rf 120 à la demande", "pages": [13, 20]},
+    "ancrage_alveole": {"court": "M8 à M12, simple traction",
+                        "texte": "chevilles à expansion ou chimiques dans l'alvéole, M8, M10 ou M12 : charge admissible en "
+                                 "simple traction, à réduire si l'ancrage est aussi cisaillé ; vérifier la disposition des "
+                                 "torons avant de forer"},
     "valeurs": {"nature": "Rd", "pages": [29, 30, 31, 32, 33, 34, 35],
                 "texte": "valeurs de CALCUL à l'état-limite ultime, par élément : M_Ed ≤ M_Rd et V_Ed ≤ V_Rd,c, M_Ed et "
                          "V_Ed calculés avec le poids propre de l'élément et la charge utile multipliés par leurs "

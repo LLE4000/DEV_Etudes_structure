@@ -94,6 +94,12 @@ def defauts(cat):
             d.append(f"meta.{cle_} absent")
     if m["valeurs"]["nature"] not in ("Rd", "service"):
         d.append("nature inconnue")
+    # les libellés courts que l'écran affiche viennent du catalogue (une autre marque a d'autres conditions)
+    for cle_ in ("feu", "classe_consequence", "environnement"):
+        if not (m.get(cle_) or {}).get("court"):
+            d.append(f"meta.{cle_}.court absent")
+    if any(p.get("ancrage_alveole") is not None for p in cat["profils"]) and not (m.get("ancrage_alveole") or {}).get("court"):
+        d.append("meta.ancrage_alveole.court absent")
     noms = set()
     for p in cat["profils"]:
         n, c = p["nom"], p["cotes"]
@@ -186,6 +192,8 @@ chk("lecture : titre « Ergon 2018 »", K.titre(cat) == "Ergon 2018")
 # ================================================================================================ 2 · cohérence
 d0 = defauts(cat)
 chk("cohérence : aucun défaut sur le catalogue livré", d0 == [], d0)
+for k_, c_ in K.catalogues():                    # une marque ajoutée passe les mêmes contrôles sans qu'on les recopie
+    chk(f"cohérence : chaque catalogue du dossier passe les contrôles ({k_})", defauts(c_) == [], defauts(c_)[:3])
 chk("cohérence : 7 profils, 53 variantes", len(cat["profils"]) == 7 and sum(len(p["variantes"]) for p in cat["profils"]) == 53)
 chk("cohérence : profils dans l'ordre du guide",
     [p["nom"] for p in cat["profils"]] == ["SP 150", "SP 200", "SPN 200", "SP 265", "SP 320", "SP 400", "SPZ 500"])
@@ -340,6 +348,8 @@ muter("variante en double", lambda c: _prof(c, "SP 200")["variantes"].append(dic
                                                                                     M_Rd=999)), "en double")
 muter("page perdue", lambda c: _prof(c, "SP 320").__setitem__("page", None), "page absente")
 muter("transcription anonyme", lambda c: c["meta"].__setitem__("transcription", ""), "meta.transcription")
+muter("feu sans libellé court", lambda c: c["meta"]["feu"].pop("court"), "meta.feu.court")
+muter("conditions des chevilles perdues", lambda c: c["meta"].pop("ancrage_alveole"), "meta.ancrage_alveole.court")
 c = copy.deepcopy(cat)
 _prof(c, "SP 200")["variantes"][4]["V_Rd"] = 95
 chk("mutation « un V_Rd changé » : l'empreinte rougit", empreinte(c) != EMPREINTE_ERGON)

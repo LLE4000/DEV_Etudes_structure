@@ -201,6 +201,17 @@ try:
         "★</i>" not in B.consulter("hourdis", {"M_Ed": "100", "V_Ed": "93"})["tableau"])
 finally:
     K.verifier = orig
+m_ = cat["meta"]
+memo_m = (m_["feu"]["court"], m_["classe_consequence"]["court"], m_["ancrage_alveole"]["court"])
+try:
+    # des valeurs qu'aucune phrase du guide ne contient (« Rf 90 » est dans « Rf 90 ou Rf 120 à la demande »)
+    m_["feu"]["court"], m_["classe_consequence"]["court"], m_["ancrage_alveole"]["court"] = "Rf 77", "CC9", "M10 seule"
+    r_ = B.consulter("hourdis", {})
+    chk("mutation « conditions du fabricant changées » : feu, classe de conséquence et chevilles suivent le catalogue "
+        "(aucune copie dans l'écran : une autre marque a les siennes)",
+        "Rf 77" in r_["pourquoi"] and "CC9 · " in r_["pourquoi"] and "M10 seule" in r_["tableau"] and "M8 à M12" not in r_["tableau"])
+finally:
+    m_["feu"]["court"], m_["classe_consequence"]["court"], m_["ancrage_alveole"]["court"] = memo_m
 chk("après les mutations, la rubrique est revenue (51 kN·m)", valeur(B.consulter("hourdis", {})) == ("51", "kN·m"))
 
 print(f"\nRÉSULTAT : {len(OK)} OK, {len(KO)} échec(s)")

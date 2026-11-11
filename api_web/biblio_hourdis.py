@@ -111,7 +111,7 @@ def _caracteristiques(cat: Dict, p: Dict) -> str:
                                   f" · centrales {_n(r['rectangulaire'][0])}×{_n(r['rectangulaire'][1])}{NBSP}mm"),
     ]
     if p.get("ancrage_alveole") is not None:
-        lignes.append(("Cheville dans l'alvéole", "", f"{C.nb(p['ancrage_alveole'])}{NBSP}kN admissibles (M8 à M12, traction seule)"))
+        lignes.append(("Cheville dans l'alvéole", "", f"{C.nb(p['ancrage_alveole'])}{NBSP}kN admissibles ({C.esc(m['ancrage_alveole']['court'])})"))
     corps = "".join(f'<div class="bib-hd-l"><dt>{t}</dt><dd>{(s + " ") if s else ""}{v}</dd></div>' for t, s, v in lignes)
     return f'<dl class="bib-hd-c">{corps}</dl>'
 
@@ -207,8 +207,8 @@ def _termes(cat: Dict, p: Dict, v: Dict) -> List[Dict]:
          "regle": f"{C.nb(p['poids_kN_m'])} kN/m par élément (p. {m['pages']['caracteristiques']}) ; à compter dans M_Ed et V_Ed"},
         {"symbole": "I_x", "nom": "moment d'inertie", "valeur": p["Ix"] / 1e6, "unite": "10⁶ mm⁴", "regle": f"p. {m['pages']['caracteristiques']}"},
         {"symbole": "", "nom": "béton", "valeur": m["beton"]["classe"], "unite": "", "regle": m["beton"]["texte"]},
-        {"symbole": "", "nom": "feu", "valeur": "Rf 60", "unite": "", "regle": m["feu"]["texte"]},
-        {"symbole": "", "nom": "conditions", "valeur": "CC2 · EI/XC1", "unite": "",
+        {"symbole": "", "nom": "feu", "valeur": m["feu"]["court"], "unite": "", "regle": m["feu"]["texte"]},
+        {"symbole": "", "nom": "conditions", "valeur": f"{m['classe_consequence']['court']} · {m['environnement']['court']}", "unite": "",
          "regle": f"{m['classe_consequence']['texte']} (p. {m['classe_consequence']['page']}) ; {m['environnement']['texte']}"},
     ]
     return out
