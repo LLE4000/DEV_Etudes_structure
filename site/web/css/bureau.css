@@ -1,0 +1,433 @@
+/* Le BUREAU : les projets, l'équipe, le journal d'activité — l'accueil, la page Projets, la page Équipe
+   (docs/site/PROJETS_EQUIPE.md). Cette feuille s'ajoute à la charte (css/charte.css, dont elle reprend les composants
+   validés en maquette : .avatar, .feed, .site, .proj, .tree, .node, .list, .drawer, .facts, .team, .who2, .invrow) et à
+   css/site.css. Elle porte ce qui est propre au bureau (préfixe « bu- ») et l'adaptation aux formats :
+     PC (≥ 1200 px)          l'arbre | les notes | l'activité ;
+     tablette (701–1199 px)  l'arbre | les notes, l'activité dessous ;
+     téléphone (≤ 700 px)    la liste des projets, puis la page d'un projet (#pj[data-vue]).
+   Les cibles tactiles font 44 px (pointer: coarse). */
+
+/* ---------------------------------------------------------------- la pastille : des initiales dans un rond */
+/* Les HUIT teintes (js/equipe.js, COULEURS = 8 — tests/test_site_bureau.py lie les deux) : un texte blanc s'y lit
+   (contraste ≥ 4,5) dans les deux thèmes. */
+.avatar { line-height: 1; user-select: none; text-transform: none; }
+.avatar.c0 { background: #2B4BCF; color: #fff; }
+.avatar.c1 { background: #0B7A6E; color: #fff; }
+.avatar.c2 { background: #B9472A; color: #fff; }
+.avatar.c3 { background: #7650D8; color: #fff; }
+.avatar.c4 { background: #B0277A; color: #fff; }
+.avatar.c5 { background: #96590A; color: #fff; }
+.avatar.c6 { background: #1D7A3E; color: #fff; }
+.avatar.c7 { background: #475569; color: #fff; }
+.avatar.sm { width: 24px; height: 24px; font-size: 10px; }
+.avatar.lg { width: 40px; height: 40px; font-size: 14.5px; }
+.avatar.xl { width: 64px; height: 64px; font-size: 22px; letter-spacing: .01em; }
+/* trois lettres : le rond les tient en serrant un peu ; quatre ou cinq : le rond s'allonge en pastille */
+.avatar.n3 { font-size: 10px; letter-spacing: 0; }
+.avatar.sm.n3 { font-size: 8.5px; }
+.avatar.lg.n3 { font-size: 13px; }
+.avatar.xl.n3 { font-size: 20px; }
+.avatar.n4, .avatar.n5 { width: auto; min-width: 28px; padding: 0 7px; border-radius: 999px; font-size: 10px; letter-spacing: 0; }
+.avatar.sm.n4, .avatar.sm.n5 { min-width: 24px; padding: 0 6px; font-size: 8.5px; }
+.avatar.sm.n5 { padding: 0 5px; font-size: 8px; }
+.avatar.lg.n4, .avatar.lg.n5 { min-width: 40px; padding: 0 10px; font-size: 13px; }
+.avatar.xl.n4, .avatar.xl.n5 { min-width: 64px; padding: 0 14px; font-size: 19px; }
+/* quelqu'un qui ne s'est pas présenté ; « +2 » : les suivants d'une pile */
+.avatar.inconnu { background: var(--bg-sunken); color: var(--ink-3); box-shadow: inset 0 0 0 1px var(--line-strong); }
+.avatar.plus { background: var(--bg-sunken); color: var(--ink-2); font-size: 9.5px; letter-spacing: 0; }
+/* une pile de pastilles : côte à côte, sans recouvrement — on doit y LIRE les initiales (le recouvrement de la charte
+   mangeait la dernière lettre) */
+.avstack { flex: none; align-items: center; gap: 3px; }
+.avstack .avatar, .avstack .avatar:first-child { margin-left: 0; box-shadow: none; }
+.avstack .avatar.inconnu { box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+/* ---------------------------------------------------------------- un champ qui crée à la touche Entrée */
+.bu-creer { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bu-creer .field { flex: 1; height: 36px; }
+/* la saisie prend toute la hauteur de son cadre : c'est elle qu'on touche (elle faisait 23 px dans un cadre de 44) */
+.bu-creer .field input, .bu-qui .field input, .bu-ajout .field input { align-self: stretch; height: auto; min-width: 0; }
+.bu-creer .field svg.i, .bu-qui .field svg.i, .bu-ajout .field svg.i { flex: none; width: 15px; height: 15px; color: var(--ink-3); }
+.bu-creer .btn { flex: none; height: 36px; }
+.bu-creer .btn[hidden] { display: none; }
+.field.refus, .field.refus:focus-within { border-color: var(--nok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--nok) 16%, transparent); }
+.bu-erreur { color: var(--nok); font-weight: 600; margin-top: 8px; }
+.bu-erreur[hidden] { display: none; }
+.bu-vide { font-size: 12.5px; line-height: 1.5; padding: 6px 0 2px; }
+.bu-lien { color: inherit; }
+.bu-lien:hover b, a.bu-lien:hover { text-decoration: underline; text-underline-offset: 2px; }
+.bu-lieu { color: var(--ink-3); }
+
+/* ---------------------------------------------------------------- le journal */
+.feed > div { min-width: 0; overflow-wrap: anywhere; }
+/* une liste où quelqu'un a quatre ou cinq initiales (une pastille allongée) : toutes les pastilles prennent la même
+   place, les phrases restent alignées */
+:is(#activite, .bu-fil, #eq-journal):has(.feed > .avatar:is(.n4, .n5)) .feed { display: grid; grid-template-columns: 40px minmax(0, 1fr); column-gap: 8px; justify-items: start; }
+.feed .avatar { margin-top: 1px; }
+.bu-jour { font-size: 10.5px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--ink-3); padding: 14px 0 2px; }
+.bu-jour:first-child { padding-top: 0; }
+.bu-jour + .feed { border-top: 0; }
+
+/* ---------------------------------------------------------------- « Qui êtes-vous ? » */
+.bu-qui { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin-bottom: 4px; border-radius: var(--r);
+  background: var(--accent-soft); border: 1px solid var(--accent-line); }
+.bu-qui-t b { display: block; font-size: 13px; font-weight: 650; }
+.bu-qui-t span { display: block; margin-top: 2px; font-size: 11.5px; line-height: 1.4; color: var(--ink-2); }
+.bu-qui-c { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.bu-qui .field { height: 36px; background: var(--panel); }
+.bu-qui-nom, .bu-qui-mail { flex: 1 1 0; }
+.bu-qui .btn { flex: none; height: 36px; }
+.bu-qui .bu-erreur { margin-top: 0; }
+/* les initiales : au centre, en capitales, un peu espacées — comme dans la pastille */
+.field.bu-ini { flex: 0 0 76px; padding: 0 6px; }
+.field.bu-ini input, .bu-ini-in, .bu-ch-ini .field-in { text-align: center; text-transform: uppercase; font-weight: 700; letter-spacing: .06em; }
+.field.bu-ini input::placeholder { text-transform: none; font-weight: 500; letter-spacing: 0; }
+
+/* ---------------------------------------------------------------- l'accueil */
+.accueil .hello .bu-moi { flex: none; display: grid; place-items: center; border-radius: 999px; transition: box-shadow .12s; }
+.accueil .hello .bu-moi:hover, .accueil .hello .bu-moi:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 4px var(--accent-line); outline: 0; }
+.accueil .hello > div { min-width: 0; }
+.accueil .side .sechead { margin-bottom: 10px; }
+.accueil .side .sechead .btn svg.i { width: 14px; height: 14px; margin-right: -4px; }
+.bu-projets .bu-creer { margin-bottom: 6px; }
+a.site { color: inherit; margin: 0 -8px; padding: 9px 8px; border-radius: var(--r-sm); min-width: 0; }
+a.site:hover { background: var(--panel-2); }
+a.site > div { flex: 1; min-width: 0; }
+a.site b, a.site > div > span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.site .nb { margin-left: 0; flex: none; white-space: nowrap; }
+a.site.sans .ic { background: none; box-shadow: inset 0 0 0 1px var(--line-strong); color: var(--ink-3); }
+a.site.sans b { color: var(--ink-2); }
+.bu-plus { display: flex; align-items: center; padding: 8px 0 0; font-size: 12px; font-weight: 600; color: var(--accent); border-top: 1px solid var(--line); margin-top: 2px; }
+.bu-plus:hover { text-decoration: underline; }
+.bu-activite .feed:last-child { padding-bottom: 0; }
+
+/* ---------------------------------------------------------------- la page Projets : la barre */
+.bu-tel { display: none; }
+.bu-top .crumbs { flex: 0 1 auto; overflow: hidden; }
+.bu-top .crumbs a, .bu-top .crumbs b { overflow: hidden; text-overflow: ellipsis; }
+.bu-top .crumbs a { color: var(--ink-2); flex: 0 1 auto; min-width: 2.5em; }
+.bu-top .crumbs a:hover { color: var(--accent); }
+.bu-top .crumbs b { flex: 0 2 auto; min-width: 3em; }
+.bu-top .crumbs svg.i { flex: none; }
+.bu-top .btn { flex: none; }
+
+/* ---------------------------------------------------------------- la page Projets : l'arbre */
+.bu-proj { align-items: start; }
+.bu-proj .tree { position: sticky; top: var(--top-h); height: calc(100vh - var(--top-h)); overflow-y: auto; min-width: 0; }
+.bu-proj .tree .bu-creer { margin: 0 4px 12px; }
+.bu-proj .tree .field { margin: 0; height: 34px; }
+.bu-proj .tree nav { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.bu-proj .node { min-width: 0; height: 32px; }
+.bu-proj .node:hover { background: var(--panel-2); }
+.bu-proj .node.on:hover { background: var(--accent-soft); }
+.bu-proj .node svg.i { flex: none; }
+.bu-nn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.bu-proj .node .count { flex: none; font-variant-numeric: tabular-nums; }
+.bu-proj .node.l1 { padding-left: 31px; position: relative; font-weight: 500; }
+.bu-proj .node.l1::before { content: ""; position: absolute; left: 15px; top: -1px; bottom: -1px; width: 1px; background: var(--line-strong); }
+.bu-proj .node.chantier.ouvert:not(.on) svg.i { color: var(--accent); }
+button.node.bu-creer-n { width: 100%; text-align: left; margin-bottom: 6px; color: var(--accent-hover); background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-line); font-weight: 600; cursor: pointer; }
+[data-theme="dark"] button.node.bu-creer-n { color: var(--accent); }
+button.node.bu-creer-n svg.i { color: currentColor; }
+.bu-rien { padding: 8px 8px 0; }
+
+/* ---------------------------------------------------------------- la page Projets : le centre */
+.bu-proj .list { container: liste / inline-size; min-height: calc(100vh - var(--top-h)); }
+.bu-proj .list .head { align-items: center; gap: 8px; }
+.bu-tete { flex: 1; min-width: 0; }
+.bu-tete .kicker { margin-bottom: 2px; }
+.bu-sous { margin-top: 3px; font-size: 12.5px; }
+.bu-proj .list .head .btn { flex: none; }
+.bu-proj .list .head .spacer { display: none; }
+/* le nom du projet : un titre qu'on réécrit sur place */
+.bu-titre, .bu-sous-nom { display: block; border: 1px solid transparent; border-radius: var(--r-sm); background: transparent; color: var(--ink);
+  outline: 0; text-overflow: ellipsis; }
+.bu-titre { width: calc(100% + 8px); margin: -3px -8px -3px -7px; padding: 2px 6px; height: 34px; }
+.bu-titre:hover, .bu-sous-nom:hover { border-color: var(--line-strong); background: var(--panel); }
+.bu-titre:focus, .bu-sous-nom:focus { border-color: var(--accent); background: var(--panel); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.bu-sous-nom { flex: 0 1 auto; field-sizing: content; min-width: 6em; max-width: 100%; height: 28px; margin-left: -5px; padding: 0 5px;
+  font: inherit; font-size: 14px; font-weight: 650; }
+/* (un navigateur qui ne règle pas la largeur d'un champ sur son texte : une largeur fixe) */
+@supports not (field-sizing: content) { .bu-sous-nom { width: 15em; } }
+/* « ⋯ » : archiver, supprimer */
+.bu-menu { position: relative; flex: none; }
+.bu-menu > summary { list-style: none; cursor: pointer; }
+.bu-menu > summary::-webkit-details-marker { display: none; }
+.bu-menu[open] > summary { background: var(--panel-2); }
+.bu-menu-c { position: absolute; right: 0; top: calc(100% + 6px); z-index: 12; min-width: 220px; padding: 5px; border-radius: var(--r);
+  background: var(--panel); border: 1px solid var(--line); box-shadow: var(--shadow-pop); display: flex; flex-direction: column; gap: 1px; }
+.bu-menu-c button { display: flex; align-items: center; gap: 9px; height: 36px; padding: 0 10px; border-radius: var(--r-sm); font-weight: 500;
+  color: var(--ink); text-align: left; white-space: nowrap; cursor: pointer; }
+.bu-menu-c button:hover { background: var(--panel-2); }
+.bu-menu-c button svg.i { width: 15px; height: 15px; color: var(--ink-3); }
+.bu-menu-c button[data-supprimer-projet]:hover, .bu-menu-c button[data-supprimer-projet]:hover svg.i { color: var(--nok); }
+/* tous les projets : des cartes */
+.bu-cartes { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+.bu-carte { display: flex; flex-direction: column; gap: 8px; padding: 14px; min-width: 0; color: inherit; }
+.bu-carte:hover { border-color: var(--accent-line); box-shadow: var(--shadow-2); }
+.bu-carte.archive { opacity: .72; box-shadow: none; }
+.bu-carte-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bu-carte-h .ic { flex: none; width: 30px; height: 30px; border-radius: 8px; background: var(--bg); display: grid; place-items: center; color: var(--ink-2); }
+.bu-carte-h b { min-width: 0; font-size: 13.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bu-carte > .muted { font-size: 12px; }
+.bu-carte-f { display: flex; align-items: center; gap: 8px; min-height: 24px; margin-top: 2px; }
+.bu-carte-f .when { margin-left: auto; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.bu-k { margin: 24px 0 10px; }
+.bu-depart span { display: block; margin-top: 6px; font-size: 12px; }
+.bu-absent { margin-bottom: 18px; }
+/* un projet : ses notes, puis chaque sous-projet */
+.bu-groupe { margin-top: 20px; }
+.bu-groupe:first-of-type { margin-top: 0; }
+.bu-gh { display: flex; align-items: center; gap: 8px; min-height: 30px; margin-bottom: 8px; min-width: 0; }
+.bu-gh > svg.i { flex: none; width: 16px; height: 16px; color: var(--ink-3); }
+.bu-gt { font-size: 14px; font-weight: 650; }
+.bu-gh .count { flex: none; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
+.bu-gh .btn { flex: none; }
+.bu-groupe > .bu-vide { padding: 12px 14px; border: 1px dashed var(--line-strong); border-radius: var(--r); }
+.bu-proj .list > .bu-vide { margin-top: 4px; }
+.bu-creer-sous { margin-top: 22px; max-width: 460px; }
+.bu-retour, .bu-tout { display: none; }
+/* la table des notes : le nom prend la place qui reste ; les autres colonnes ont leur largeur */
+.bu-table table { table-layout: fixed; }
+.bu-table th:nth-child(2) { width: 88px; }
+.bu-table th:nth-child(3) { width: 62px; }
+.bu-table th:nth-child(4) { width: 112px; }
+.bu-table th:nth-child(5) { width: 52px; }
+.bu-table th:nth-child(6) { width: 132px; }
+.bu-table td { height: 50px; overflow: hidden; text-overflow: ellipsis; }
+.bu-table tbody tr:last-child td { border-bottom: 0; }
+.bu-table tbody tr:hover td { background: var(--panel-2); }
+.bu-table .bu-n a { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.bu-table .bu-n a > span:last-child { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.bu-table .bu-n b { font-weight: 650; overflow: hidden; text-overflow: ellipsis; }
+.bu-table .bu-n .muted { font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; }
+.bu-table .bu-p .avatar { display: inline-grid; vertical-align: middle; }
+.bu-ranger { width: 100%; max-width: 118px; height: 28px; padding: 0 4px 0 7px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--panel); color: var(--ink-2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.bu-ranger:hover { border-color: var(--ink-4); color: var(--ink); }
+@container liste (max-width: 680px) {
+  .bu-table th:nth-child(3), .bu-table .bu-i { display: none; }
+}
+/* une liste étroite (le téléphone, la tablette debout) : chaque note devient une fiche de deux lignes */
+@container liste (max-width: 560px) {
+  .bu-table table, .bu-table tbody { display: block; }
+  .bu-table thead { display: none; }
+  .bu-table tr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "n n r" "p q g"; align-items: center;
+    gap: 6px 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .bu-table tbody tr:last-child { border-bottom: 0; }
+  .bu-table td { height: auto; padding: 0; border: 0; }
+  .bu-table tbody tr:hover td { background: none; }
+  .bu-table .bu-n { grid-area: n; }
+  .bu-table .bu-r { grid-area: r; justify-self: end; }
+  .bu-table .bu-p { grid-area: p; }
+  .bu-table .bu-q { grid-area: q; font-size: 12px; }
+  .bu-table .bu-g { grid-area: g; }
+  .bu-ranger { max-width: 124px; }
+}
+
+/* ---------------------------------------------------------------- la page Projets : le volet (les faits, l'activité) */
+.bu-proj .drawer { position: sticky; top: var(--top-h); height: calc(100vh - var(--top-h)); overflow-y: auto; min-width: 0; gap: 12px; }
+.bu-proj .drawer .h3:not(:first-child) { margin-top: 8px; }
+.bu-proj .facts { margin: 0; align-items: center; }
+.bu-proj .facts dd { margin: 0; display: flex; align-items: center; justify-content: flex-end; gap: 6px; min-width: 0; }
+.bu-fil { min-width: 0; }
+
+/* ---------------------------------------------------------------- la page Équipe */
+.bu-team { grid-template-columns: minmax(0, 1fr) 380px; }
+.bu-nb { font-size: 12px; }
+.bu-journal { position: sticky; top: calc(var(--top-h) + 20px); min-width: 0; }
+.bu-journal .card { max-height: calc(100vh - var(--top-h) - 44px); overflow-y: auto; }
+.bu-journal .sechead .btn { gap: 6px; padding-left: 4px; }
+.bu-journal .sechead .btn svg.i { width: 13px; height: 13px; }
+/* moi, sur ce poste */
+.bu-profil { display: flex; align-items: flex-start; gap: 18px; min-width: 0; }
+.bu-profil-c { flex: 1; min-width: 0; }
+.bu-profil-l { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 8px; }
+.bu-profil-t { align-items: center; margin-top: 14px; font-size: 12px; }
+.bu-ch { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.bu-ch > span { font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.bu-ch-nom { flex: 2 1 190px; }
+.bu-ch-ini { flex: 0 0 92px; }
+.bu-ch-mail { flex: 3 1 230px; }
+.bu-team .field-in { width: 100%; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px;
+  background: var(--panel); color: var(--ink); font: inherit; font-weight: 500; outline: 0; }
+.bu-team .field-in:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
+.bu-teintes { display: flex; flex-wrap: wrap; gap: 8px; }
+.bu-teintes .avatar { width: 26px; height: 26px; padding: 0; cursor: pointer; }
+.bu-teintes .avatar.on { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--ink); }
+.bu-jesuis { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; font-size: 12px; color: var(--ink-3); }
+.bu-jesuis.court { margin-top: 0; }
+.bu-jesuis select { height: 32px; max-width: 220px; padding: 0 6px 0 8px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--panel); color: var(--ink); font: inherit; font-size: 12.5px; font-weight: 500; }
+/* se présenter, dans la carte de la page Équipe : la carte est déjà le cadre */
+#eq-moi .bu-qui { max-width: 620px; padding: 0; margin: 0; background: none; border: 0; }
+#eq-moi .bu-qui-t b { font-size: 15px; }
+#eq-moi .bu-qui-t span { font-size: 12.5px; }
+/* les membres */
+.bu-membres td { height: 58px; }
+.bu-membres th:nth-child(2) { width: 96px; }
+.bu-membres th:nth-child(3) { width: 124px; }
+.bu-membres .who2 { min-width: 0; }
+.bu-membres:has(.who2 > .avatar:is(.n4, .n5)) .who2 { display: grid; grid-template-columns: 46px minmax(0, 1fr); justify-items: start; }
+.bu-membres .who2 > div { min-width: 0; }
+.bu-membres .who2 > div b, .bu-membres .who2 > div > span { overflow: hidden; text-overflow: ellipsis; }
+.bu-membres .who2 b .tag { display: inline-flex; vertical-align: 1px; margin-left: 6px; height: 18px; padding: 0 7px; font-size: 10.5px; }
+.bu-ini-l { font-weight: 700; letter-spacing: .06em; color: var(--ink-2); }
+.bu-actions { display: inline-flex; gap: 2px; }
+.bu-actions .btn.on { background: var(--accent-soft); color: var(--accent-hover); }
+.bu-actions .btn[data-retirer]:hover { color: var(--nok); }
+.bu-membres tr.bu-edit td { height: auto; padding: 10px 14px; white-space: normal; background: var(--panel-2); }
+.bu-ligne-f { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bu-ligne-f [name="nom"] { flex: 2 1 150px; }
+.bu-ligne-f .bu-ini-in { flex: 0 0 84px; }
+.bu-ligne-f [name="email"] { flex: 3 1 180px; }
+.bu-ligne-f .btn { height: 36px; }
+/* ajouter un collègue */
+.team .card.flush .bu-vide { padding: 12px 18px 14px; }
+.bu-ajout { margin: 0; padding: 14px 18px; border-top: 1px solid var(--line); background: var(--panel-2); }
+.bu-ajout .field { flex: 3 1 200px; background: var(--panel); }
+.bu-ajout .field.bu-ini { flex: 0 0 92px; }
+.team .card.flush > .bu-erreur { margin: 0; padding: 0 18px 12px; background: var(--panel-2); }
+
+/* ================================================================ tablette : 701 à 1199 px */
+@media (min-width: 701px) and (max-width: 1199px) {
+  /* les projets : l'arbre et les notes ; l'activité passe sous les notes */
+  .bu-proj { grid-template-columns: 224px minmax(0, 1fr); }
+  .bu-proj .tree { grid-row: 1 / span 2; }
+  /* (au doigt, la saisie fait 16 px : l'invite, elle, doit tenir dans les 224 px de l'arbre) */
+  .bu-proj .tree .field input::placeholder { font-size: 13px; }
+  .bu-proj .list { min-height: 0; padding: 20px 20px 24px; }
+  .bu-proj .drawer { grid-column: 2; position: static; height: auto; overflow: visible; border-left: 0; border-top: 1px solid var(--line); padding: 18px 20px 28px; }
+  /* l'équipe : le journal sous les membres */
+  .bu-team { grid-template-columns: minmax(0, 1fr); padding: 20px; }
+  .bu-journal { position: static; }
+  .bu-journal .card { max-height: none; overflow: visible; }
+  .bu-top.top .btn, .bu-top.top label.btn { flex: none; }
+}
+
+/* ================================================================ téléphone : 700 px et moins */
+@media (max-width: 700px) {
+  /* l'accueil : la pastille à côté de « Bonjour », le bouton sur toute la largeur */
+  .accueil .hello > div { flex: 1 1 0; }
+  /* la barre des projets reste (la charte cache « .top » au téléphone) : logo, fil, importer, nouvelle note, thème */
+  .top.bu-top { display: flex; height: 56px; gap: 4px; padding: 0 6px 0 14px; z-index: 6;
+    background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(10px); }
+  .bu-top .bu-tel { display: grid; }
+  .bu-top .btn.bu-tel { display: inline-flex; }
+  .bu-top .logo { flex: none; width: 28px; height: 28px; margin-right: 6px; }
+  .bu-top .crumbs { font-size: 15px; gap: 4px; }
+  .bu-top .crumbs > svg.i:first-child { display: none; }
+  .bu-top .crumbs b { font-family: var(--font-display); font-weight: 700; letter-spacing: -.015em; }
+  .bu-top .btn .lbl { display: none; }
+  .bu-top .btn, .bu-top label.btn { width: 44px; height: 44px; padding: 0; justify-content: center; }
+  .bu-top .btn svg.i { width: 19px; height: 19px; }
+
+  /* les projets : la liste des projets (data-vue="arbre"), ou la page d'un projet (data-vue="liste") */
+  .bu-proj .tree { position: static; height: auto; overflow: visible; flex-direction: column; align-items: stretch; gap: 0; padding: 14px 16px 6px;
+    border-bottom: 0; background: none; -webkit-mask-image: none; mask-image: none; }
+  .bu-proj .tree .field { display: flex; height: 46px; }
+  .bu-proj .tree .bu-creer { margin: 0 0 12px; }
+  .bu-proj .tree .bu-creer .btn { height: 46px; padding: 0 14px; }
+  .bu-proj .tree .navlabel { display: block; padding: 14px 4px 6px; }
+  .bu-proj .tree nav { gap: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-1); overflow: hidden; }
+  .bu-proj .tree nav:empty { display: none; }
+  .bu-proj .node { height: 50px; padding: 0 14px; gap: 12px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: none; font-size: 14.5px; }
+  .bu-proj .tree nav > .node:first-child { border-top: 0; }
+  .bu-proj .node svg.i { width: 18px; height: 18px; }
+  .bu-proj .node .count { margin-left: auto; font-size: 12.5px; }
+  .bu-proj .node.l1 { padding-left: 44px; }
+  .bu-proj .node.l1::before { left: 22px; }
+  .bu-proj .node.on { border-color: var(--line); }
+  button.node.bu-creer-n { margin: 0; box-shadow: none; }
+  .bu-rien { padding: 12px 14px; }
+  .bu-proj .list { min-height: 0; padding: 14px 16px 22px; }
+  .bu-proj[data-vue="liste"] .tree { display: none; }
+  /* la table des notes RESTE (la charte, écrite pour la maquette, cachait « .list .tablecard » au téléphone) : c'est
+     elle qui devient des fiches, plus haut (@container liste) */
+  .bu-proj .list .tablecard { display: block; }
+  /* la liste des projets : l'arbre les montre déjà — le centre ne garde que ses messages */
+  .bu-proj[data-vue="arbre"] .list { padding-top: 0; padding-bottom: 0; }
+  .bu-proj[data-vue="arbre"] .list .head, .bu-proj[data-vue="arbre"] .bu-cartes, .bu-proj[data-vue="arbre"] .bu-k { display: none; }
+  .bu-proj[data-vue="arbre"] .list .vide { margin: 8px 0 14px; }
+  .bu-retour, .bu-tout { display: inline-flex; align-items: center; gap: 2px; min-height: 44px; margin: -8px 0 2px -6px; padding-right: 10px;
+    font-weight: 600; font-size: 13.5px; color: var(--accent); }
+  .bu-retour svg.i, .bu-tout svg.i { width: 18px; height: 18px; }
+  .bu-tout { margin: -6px 0 8px -6px; }
+  .bu-proj .list .head { flex-wrap: wrap; margin-bottom: 16px; }
+  .bu-tete { flex: 1 1 100%; }
+  .bu-titre { height: 44px; font-size: 22px; }
+  .bu-proj .list .head .btn.primary { flex: 1; height: 46px; justify-content: center; font-size: 14.5px; }
+  .bu-proj .list .head .spacer { display: none; }
+  .bu-menu > summary.btn { width: 46px; height: 46px; }
+  .bu-menu-c button { height: 46px; font-size: 14px; }
+  /* l'en-tête d'un sous-projet : son nom prend la place ; le nombre de notes se lit dans la liste dessous */
+  .bu-gh .count, .bu-gh .spacer { display: none; }
+  .bu-gh .bu-gt { flex: 1; }
+  .bu-sous-nom { flex: 1 1 0; min-width: 0; height: 44px; font-size: 16px; }
+  .bu-creer-sous { max-width: none; }
+  .bu-creer-sous .field, .bu-creer-sous .btn { height: 46px; }
+  /* le volet : sous la liste, à plat (la charte en faisait une feuille qui monte du bas) */
+  .bu-proj .drawer { position: static; height: auto; max-height: none; overflow: visible; transform: none; visibility: visible; transition: none;
+    border-radius: 0; box-shadow: none; z-index: auto; border-top: 1px solid var(--line); padding: 18px 16px 26px; }
+
+  /* l'équipe */
+  .bu-team { grid-template-columns: minmax(0, 1fr); padding: 14px 16px 24px; }
+  .bu-journal { position: static; }
+  .bu-journal .card { max-height: none; overflow: visible; }
+  .bu-profil { gap: 14px; }
+  .bu-profil > .avatar.xl { width: 52px; height: 52px; font-size: 18px; }
+  .bu-profil > .avatar.xl.n3 { font-size: 16px; }
+  .bu-profil > .avatar.xl.n4, .bu-profil > .avatar.xl.n5 { min-width: 52px; padding: 0 10px; font-size: 15px; }
+  .bu-ch-nom { flex: 1 1 100%; }
+  .bu-ch-mail { flex: 1 1 100%; }
+  .bu-profil-t .spacer { display: none; }
+  .bu-jesuis.court { flex: 1 1 100%; }
+  .bu-membres { table-layout: fixed; }
+  .bu-membres th:nth-child(2), .bu-membres .bu-mi { display: none; }
+  .bu-membres th:nth-child(3) { width: 148px; }
+  .bu-membres td, .bu-membres th { padding: 0 8px 0 14px; }
+  .bu-ajout { padding: 14px; }
+  .bu-ajout .field { flex: 1 1 100%; }
+  .bu-ajout .field.bu-ini { flex: 0 0 96px; }
+  .bu-ajout .btn { flex: 1; justify-content: center; }
+  .bu-qui-c { flex-wrap: wrap; }
+  .bu-qui-nom { flex: 1 1 120px; }
+}
+
+/* ================================================================ au doigt : des cibles de 44 px, une saisie de 16 px */
+@media (pointer: coarse) {
+  .bu-creer .field, .bu-qui .field, .bu-ajout .field { height: 44px; }
+  .bu-creer .btn, .bu-qui .btn, .bu-ajout .btn, .bu-ligne-f .btn { height: 44px; }
+  .bu-creer input, .bu-qui input, .bu-ajout input, .bu-team .field-in, .bu-ranger, .bu-jesuis select { font-size: 16px; }
+  .bu-proj .tree .field { height: 44px; }
+  .bu-proj .node { height: 44px; }
+  .accueil .side .sechead .btn, .bu-gh .btn, .bu-proj .list .head .btn, .bu-journal .sechead .btn { min-height: 44px; }
+  .bu-gh .btn.icon, .bu-menu > summary.btn { min-width: 44px; }
+  .bu-plus { min-height: 44px; padding-top: 0; }
+  .bu-top .crumbs a { display: inline-flex; align-items: center; min-height: 44px; }
+  .accueil .hello .bu-moi { min-width: 44px; min-height: 44px; }
+  .accueil .side label.btn { min-height: 44px; }
+  .bu-titre, .bu-sous-nom { height: 44px; }
+  .bu-sous-nom { font-size: 16px; }
+  .bu-ranger { height: 44px; max-width: 132px; }
+  .bu-menu-c button { height: 46px; }
+  .bu-team .field-in, .bu-jesuis select { height: 44px; }
+  .bu-teintes { gap: 6px; }
+  .bu-teintes .avatar { width: 40px; height: 40px; }
+  .bu-actions .btn.icon { width: 44px; height: 44px; }
+  .bu-actions .btn.icon svg.i { width: 17px; height: 17px; }
+  .bu-membres th:nth-child(3) { width: 156px; }
+  .bu-membres td { height: 62px; }
+  .bu-table td { height: 56px; }
+}
+@media (pointer: coarse) and (max-width: 700px) {
+  .bu-proj .node { height: 50px; }
+  .bu-proj .tree .field { height: 46px; }
+}
+@container liste (max-width: 560px) {
+  .bu-table td { height: auto; }
+}
+
+@media print {
+  .bu-top, .bu-proj .tree, .bu-creer, .bu-menu, .bu-ranger, .bu-ajout, .bu-actions { display: none !important; }
+}

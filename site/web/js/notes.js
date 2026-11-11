@@ -1,5 +1,9 @@
 // Les notes du bureau, enregistrées DANS CE NAVIGATEUR (localStorage) en attendant les comptes partagés (Supabase).
-// Une note : { id, module, nom, chantier, dossier, indice, cree, modifie, etat (l'état du moteur), resume, vignette }.
+// Une note : { id, module, nom, chantier, dossier, indice, cree, modifie, etat (l'état du moteur), resume, vignette,
+//              auteur, par }.
+// « chantier » est le nom de son PROJET, « dossier » celui de son SOUS-PROJET (js/projets.js les rassemble) ; « auteur »
+// et « par » sont les SIGNATURES ({ id, ini, nom, c } : js/equipe.js) de qui l'a créée et de qui l'a modifiée en dernier.
+// Chaque écriture réussie laisse une ligne au journal d'activité (js/journal.js) — qui ne peut jamais la faire échouer.
 const CLE = "stab.notes.v1";
 // La copie d'une mémoire ILLISIBLE : son texte brut, tel quel, sous cette clé suivie de l'heure de la copie
 // (« stab.notes.v1.illisible.2026-11-07T17:08:03.120Z »). Elle n'est jamais réécrite par le site.
@@ -9,6 +13,8 @@ export const PREFIXE_COPIE = `${CLE}.illisible.`;
 // adresses SANS « .html » (Cloudflare sert poutre.html à l'adresse « poutre »), nom, famille.
 import { MODULES } from "./modules.js";
 import { telecharger } from "./commun.js";
+import * as J from "./journal.js";
+import { signature, signaturePropre } from "./equipe.js";
 export { MODULES };
 
 // Un module qu'un autre a ABSORBÉ (construire.REDIRECTIONS, écrit dans js/modules.js : « vers » ; docs/site/
@@ -114,13 +120,42 @@ function changer(f) {
 // ``date`` : la note a été MODIFIÉE, sa date de modification avance. Sans (date: false), elle est réécrite telle quelle —
 // ses caches (résumé, vignette, état relu par le moteur) — et garde sa date : rouvrir une note sans rien y changer ne la
 // fait pas remonter dans « Reprendre » (js/etabli.js décide, REFONTE_ETABLI.md, lot S3).
-export function ecrire(note, { date = true } = {}) {
+//
+// ``journal`` : le geste à noter au journal (« note.importee ») ; sinon il se déduit — la note n'existait pas : créée ;
+// son projet ou son sous-projet a changé : rangée ; son nom : renommée ; sinon, si elle est datée : modifiée.
+const meme = (a, b) => String(a || "").trim().toLocaleLowerCase("fr") === String(b || "").trim().toLocaleLowerCase("fr");
+export function ecrire(note, { date = true, journal = null } = {}) {
   if (date || !Number.isFinite(note.modifie)) note.modifie = Date.now();
-  return changer((notes) => { notes[note.id] = note; });
+  const sig = signature();
+  let avant = null;
+  const ok = changer((notes) => {
+    avant = notes[note.id] && typeof notes[note.id] === "object" ? notes[note.id] : null;
+    if (!avant && !note.auteur && sig) note.auteur = sig;       // la première écriture : qui l'a créée
+    if (date && sig) note.par = sig;                            // une modification : qui l'a faite
+    notes[note.id] = note;
+  });
+  if (ok) {
+    if (journal) J.noter(journal, { note });
+    else if (!avant) J.noter("note.creee", { note });
+    else if (!meme(avant.chantier, note.chantier) || !meme(avant.dossier, note.dossier)) J.noter("note.classee", { note });
+    else if ((avant.nom || "") !== (note.nom || "")) J.noter("note.renommee", { note, de: avant.nom || "" });
+    else if (date) J.noter("note.modifiee", { note });
+  }
+  return ok;
 }
 
 export function supprimer(id) {
-  return changer((notes) => { delete notes[id]; });
+  let avant = null;
+  const ok = changer((notes) => { avant = notes[id] && typeof notes[id] === "object" ? notes[id] : null; delete notes[id]; });
+  if (ok && avant) J.noter("note.supprimee", { note: avant });
+  return ok;
+}
+
+// Changer PLUSIEURS notes d'un coup, sans les dater (renommer un projet, un sous-projet : js/projets.js) : ``f(note)``
+// reçoit chaque note lisible et la change en place. La même porte que ecrire et supprimer.
+export function reclasser(f) {
+  const ok = changer((notes) => { for (const n of Object.values(notes)) if (n && typeof n === "object") f(n); });
+  return ok;
 }
 
 function ident() {
@@ -142,7 +177,9 @@ export function recentes(n = 6) {
 // comme du JSON : un navigateur qui voit « application/json » ajoute « .json » au nom (« note.stab.json »).
 export function exporter(note) {
   const nom = `${(note.chantier ? note.chantier + " - " : "") + (note.nom || "note")}`.replace(/[\\/:*?"<>|]/g, "_");
-  return telecharger(`${nom}.stab`, JSON.stringify({ format: "stab", version: 1, note }, null, 1), "application/octet-stream");
+  const fait = telecharger(`${nom}.stab`, JSON.stringify({ format: "stab", version: 1, note }, null, 1), "application/octet-stream");
+  J.noter("note.exportee", { note });
+  return fait;
 }
 
 // Un .stab vient d'ailleurs : on n'en garde que des DONNÉES (des textes, l'état que le moteur relira). Le dessin et le
@@ -174,15 +211,19 @@ export async function importer(fichier) {
   const d = JSON.parse(await fichier.text());
   const st = d && d.format !== "stab" ? depuisStreamlit(d, fichier.name) : null;
   if (st) {
-    if (!ecrire(st)) throw new Error(`la note n'a pas pu être enregistrée dans ce navigateur : ${RAISONS[dernier.raison].long}`);
+    if (!ecrire(st, { journal: "note.importee" })) throw new Error(`la note n'a pas pu être enregistrée dans ce navigateur : ${RAISONS[dernier.raison].long}`);
     return st;
   }
   const src = d && d.format === "stab" ? d.note : null;
   if (!src || !Object.hasOwn(MODULES, src.module)) throw new Error("ce fichier n'est ni une note .stab du site, ni un enregistrement Streamlit « Poutre en béton armé »");
   const n = nouvelle({ module: src.module, nom: texte(src.nom), chantier: texte(src.chantier), dossier: texte(src.dossier) });
   Object.assign(n, { indice: texte(src.indice, "A") || "A", etat: src.etat && typeof src.etat === "object" ? src.etat : null });
+  // qui l'avait créée (sa signature : des initiales, un nom — des textes, relus et bornés) ; celui qui l'importe ici la
+  // signe comme dernière main
+  const auteur = signaturePropre(src.auteur);
+  if (auteur) n.auteur = auteur;
   // une note lue mais pas enregistrée ne s'ouvre pas : l'établi l'aurait remplacée, sans un mot, par une note neuve
-  if (!ecrire(n)) throw new Error(`la note n'a pas pu être enregistrée dans ce navigateur : ${RAISONS[dernier.raison].long}`);
+  if (!ecrire(n, { journal: "note.importee" })) throw new Error(`la note n'a pas pu être enregistrée dans ce navigateur : ${RAISONS[dernier.raison].long}`);
   return n;
 }
 

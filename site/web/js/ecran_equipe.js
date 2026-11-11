@@ -1,0 +1,163 @@
+// La page ÉQUIPE (docs/site/PROJETS_EQUIPE.md § 4.3) : qui je suis sur ce poste (mon nom, mon e-mail, mes initiales dans
+// leur pastille), les membres du bureau, le journal d'activité entier. Se présenter prend une ligne : le prénom et le
+// nom — les initiales sont proposées (LLE pour Louis Lejeune) et se corrigent, de 1 à 5 lettres.
+//
+// Un ÉCRAN MONTABLE (comme js/accueil.js) : aucun effet au chargement ; js/app.js appelle ouvrirEquipe(hote, ctx). Il
+// n'attend pas le moteur et n'écrit jamais l'historique.
+import * as N from "./notes.js";
+import * as E from "./equipe.js";
+import * as J from "./journal.js";
+import * as V from "./vues_bureau.js";
+import { esc, toast, cablerBientot } from "./commun.js";
+
+export const JOURNAL_VU = 120;                   // les lignes du journal montrées (les plus récentes)
+
+export function ouvrirEquipe(hote, ctx) {
+  const { signal } = ctx;
+  const $ = (id) => document.getElementById(id);
+  let filtre = null;                             // l'identifiant d'un membre : le journal ne montre que ses lignes
+  let enEdition = null;                          // l'identifiant du membre dont la ligne est ouverte en saisie
+  const teintes = (m) => `<div class="bu-teintes" role="group" aria-label="La teinte de la pastille">${Array.from({ length: E.COULEURS }, (_, c) =>
+    `<button type="button" class="avatar sm c${c}${m.couleur === c ? " on" : ""}" data-teinte="${c}" title="Cette teinte" aria-pressed="${m.couleur === c}"></button>`).join("")}</div>`;
+
+  // ------------------------------------------------------------------ moi
+  function afficherMoi(eq) {
+    const z = $("eq-moi"), moi = eq.moi;
+    if (!moi) {
+      const autres = eq.membres.length ? `<label class="bu-jesuis"><span>Vous êtes déjà dans la liste ?</span><select id="eq-jesuis" aria-label="Je suis…"><option value="">Je suis…</option>`
+        + `${eq.membres.map((m) => `<option value="${esc(m.id)}">${esc(m.nom)} (${esc(m.initiales)})</option>`).join("")}</select></label>` : "";
+      z.innerHTML = V.formulaireQui("Qui êtes-vous ?", "Présentez-vous une fois sur ce poste : vos initiales signeront vos notes et vos gestes dans le journal.") + autres;
+      V.cablerQui(z, { signal, apres: () => afficher() });
+      return;
+    }
+    z.innerHTML = `<div class="bu-profil">${E.pastille(moi, "xl")}<div class="bu-profil-c"><div class="kicker">Vous, sur ce poste</div>`
+      + `<div class="bu-profil-l"><label class="bu-ch bu-ch-nom"><span>Prénom et nom</span><input class="field-in" data-moi="nom" value="${esc(moi.nom)}" maxlength="80" autocomplete="name"></label>`
+      + `<label class="bu-ch bu-ch-ini"><span>Initiales</span><input class="field-in" data-moi="initiales" value="${esc(moi.initiales)}" maxlength="5" autocapitalize="characters" spellcheck="false"></label>`
+      + `<label class="bu-ch bu-ch-mail"><span>Adresse e-mail</span><input class="field-in" data-moi="email" type="email" value="${esc(moi.email)}" maxlength="120" placeholder="facultatif" autocomplete="email"></label></div>`
+      + `<div class="bu-profil-l bu-profil-t"><span class="muted">Teinte</span>${teintes(moi)}<span class="spacer"></span>`
+      + `<label class="bu-jesuis court"><span>Ce n'est pas vous ?</span><select id="eq-jesuis" aria-label="Changer de personne sur ce poste">`
+      + `${eq.membres.map((m) => `<option value="${esc(m.id)}"${m.id === moi.id ? " selected" : ""}>${esc(m.nom)}</option>`).join("")}<option value="-">Personne (se présenter)</option></select></label></div>`
+      + `<p class="hint bu-erreur" id="eq-moi-erreur" role="alert" hidden></p></div></div>`;
+  }
+
+  // ------------------------------------------------------------------ les membres
+  function afficherMembres(eq) {
+    const n = eq.membres.length;
+    $("eq-titre").textContent = n ? `Membres · ${n}` : "Membres";
+    $("eq-nb").textContent = n ? `${V.compter(n, "membre")} sur ce poste` : "";
+    const ligne = (m) => {
+      const moi = eq.moi && eq.moi.id === m.id;
+      if (enEdition === m.id) {
+        return `<tr data-membre="${esc(m.id)}" class="bu-edit"><td colspan="3"><form class="bu-ligne-f" data-edit="${esc(m.id)}" autocomplete="off">${E.pastille(m)}`
+          + `<input class="field-in" name="nom" value="${esc(m.nom)}" maxlength="80" aria-label="Prénom et nom">`
+          + `<input class="field-in bu-ini-in" name="initiales" value="${esc(m.initiales)}" maxlength="5" aria-label="Initiales" autocapitalize="characters" spellcheck="false">`
+          + `<input class="field-in" name="email" type="email" value="${esc(m.email)}" maxlength="120" placeholder="adresse e-mail" aria-label="Adresse e-mail">`
+          + `<button type="submit" class="btn sm primary">${V.icone("check")}Enregistrer</button><button type="button" class="btn sm" data-annuler="1">Annuler</button></form></td></tr>`;
+      }
+      return `<tr data-membre="${esc(m.id)}"><td><div class="who2">${E.pastille(m)}<div><b>${esc(m.nom)}${moi ? ' <span class="tag pub">vous</span>' : ""}</b>`
+        + `<span>${m.email ? esc(m.email) : "pas d'adresse e-mail"}</span></div></div></td><td class="bu-mi"><span class="bu-ini-l">${esc(m.initiales)}</span></td>`
+        + `<td class="n"><span class="bu-actions">`
+        + `<button type="button" class="btn icon ghost sm${filtre === m.id ? " on" : ""}" data-voir="${esc(m.id)}" title="Voir son activité dans le journal" aria-label="Voir l'activité de ${esc(m.nom)}" aria-pressed="${filtre === m.id}">${V.icone("clock")}</button>`
+        + `<button type="button" class="btn icon ghost sm" data-modifier="${esc(m.id)}" title="Modifier la fiche" aria-label="Modifier la fiche de ${esc(m.nom)}">${V.icone("pencil-line")}</button>`
+        + `<button type="button" class="btn icon ghost sm" data-retirer="${esc(m.id)}" title="Retirer de l'équipe" aria-label="Retirer ${esc(m.nom)} de l'équipe">${V.icone("trash-2")}</button></span></td></tr>`;
+    };
+    $("eq-membres").innerHTML = n ? `<div class="tscroll"><table class="table bu-membres"><thead><tr><th>Personne</th><th>Initiales</th><th class="n"></th></tr></thead><tbody>${eq.membres.map(ligne).join("")}</tbody></table></div>`
+      : '<p class="muted bu-vide">Personne encore : présentez-vous ci-dessus, puis ajoutez vos collègues.</p>';
+  }
+
+  // ------------------------------------------------------------------ le journal
+  function afficherJournal(eq) {
+    const qui = filtre ? eq.membres.find((m) => m.id === filtre) : null;
+    if (filtre && !qui) filtre = null;
+    $("eq-filtre").innerHTML = qui ? `<button type="button" class="btn sm soft" data-voir="${esc(qui.id)}" title="Montrer tout le journal">${E.pastille(qui, "sm")}${esc(V.prenom(qui.nom))}${V.icone("x")}</button>` : "";
+    $("eq-journal").innerHTML = V.journalHTML(J.lire({ membre: qui ? qui.id : null, max: JOURNAL_VU }), { moi: eq.moi, notes: N.toutes(), jours: true,
+      vide: qui ? `${V.prenom(qui.nom)} n'a encore rien fait sur ce poste.` : "Le journal se remplira avec le travail : une note créée, rangée, exportée, un projet créé…" });
+  }
+
+  function afficher() {
+    const eq = E.equipe();
+    afficherMoi(eq);
+    afficherMembres(eq);
+    afficherJournal(eq);
+    return eq;
+  }
+
+  // ------------------------------------------------------------------ les gestes
+  const page = hote.querySelector(".bu-team");
+  // ma fiche : chaque champ s'enregistre quand on en sort (ou à Entrée) ; un refus dit pourquoi et rend l'ancienne valeur
+  page.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && ev.target.matches && ev.target.matches("[data-moi]")) { ev.preventDefault(); ev.target.blur(); }
+  }, { signal });
+  page.addEventListener("change", (ev) => {
+    const t = ev.target, moi = E.moi();
+    if (t.matches("[data-moi]") && moi) {
+      const r = E.modifier(moi.id, { [t.dataset.moi]: t.value });
+      const err = $("eq-moi-erreur");
+      if (!r.ok) { err.textContent = r.erreur; err.hidden = false; t.value = moi[t.dataset.moi]; t.focus(); return; }
+      toast("Votre fiche est enregistrée.");
+      afficher();
+    } else if (t.matches("#eq-jesuis")) {
+      E.choisirMoi(t.value && t.value !== "-" ? t.value : null);
+      afficher();
+    }
+  }, { signal });
+  page.addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-teinte], [data-voir], [data-modifier], [data-retirer], [data-annuler]");
+    if (!b) return;
+    const eq = E.equipe();
+    if ("teinte" in b.dataset && eq.moi) { E.modifier(eq.moi.id, { couleur: Number(b.dataset.teinte) }); afficher(); return; }
+    if ("voir" in b.dataset) { filtre = filtre === b.dataset.voir ? null : b.dataset.voir; afficherMembres(eq); afficherJournal(eq); return; }
+    if ("annuler" in b.dataset) { enEdition = null; afficherMembres(eq); return; }
+    if ("modifier" in b.dataset) {
+      enEdition = b.dataset.modifier;
+      afficherMembres(eq);
+      const c = page.querySelector(`form[data-edit="${CSS.escape(enEdition)}"] [name="nom"]`);
+      if (c) { c.focus(); c.select(); }
+      return;
+    }
+    if ("retirer" in b.dataset) {
+      const m = eq.membres.find((x) => x.id === b.dataset.retirer);
+      if (!m) return;
+      const moi = eq.moi && eq.moi.id === m.id;
+      if (!confirm(`Retirer ${m.nom} de l'équipe de ce poste ? Ses notes et ses lignes du journal gardent ses initiales.${moi ? "\n\nC'est vous : il faudra vous présenter à nouveau." : ""}`)) return;
+      if (!E.retirer(m.id)) { toast("L'équipe n'a pas pu être enregistrée dans ce navigateur.", true); return; }
+      if (!moi) J.noter("membre.retire", { membre: m.nom });
+      toast(`${m.nom} ne fait plus partie de l'équipe de ce poste.`);
+      afficher();
+    }
+  }, { signal });
+  page.addEventListener("submit", (ev) => {
+    const f = ev.target.closest("form[data-edit]");
+    if (!f) return;
+    ev.preventDefault();
+    const c = (n) => f.querySelector(`[name="${n}"]`).value;
+    const r = E.modifier(f.dataset.edit, { nom: c("nom"), initiales: c("initiales"), email: c("email") });
+    if (!r.ok) { toast(r.erreur, true); const x = f.querySelector(`[name="${r.champ}"]`); if (x) x.focus(); return; }
+    enEdition = null;
+    toast(`La fiche de ${r.membre.nom} est enregistrée.`);
+    afficher();
+  }, { signal });
+
+  // ajouter un collègue : son nom ; ses initiales sont proposées, son adresse est facultative
+  const fiche = V.cablerFiche({ nom: $("eq-nom"), initiales: $("eq-ini"), email: $("eq-email"), erreur: $("eq-erreur"), signal,
+                                prises: () => E.equipe().membres.map((m) => m.initiales) });
+  $("eq-form").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const r = E.ajouter(fiche.lire());
+    if (!r.ok) { fiche.erreur(r.erreur, r.champ); return; }
+    fiche.erreur();
+    fiche.vider();
+    J.noter("membre.ajoute", { membre: r.membre.nom });
+    toast(`${r.membre.nom} (${r.membre.initiales}) est dans l'équipe.`);
+    afficher();
+    $("eq-nom").focus();
+  }, { signal });
+  cablerBientot(signal);
+
+  afficher();
+  ctx.titre("Équipe · Stab Méthodes");
+  if (typeof ctx.rendreDefilement === "function") ctx.rendreDefilement();
+  // prêt dès qu'il est monté : cet écran n'attend pas le moteur
+  hote.dataset.ecran = "pret";
+  return { fermer() { return { note: null, enregistree: Promise.resolve({ refus: [] }) }; } };
+}

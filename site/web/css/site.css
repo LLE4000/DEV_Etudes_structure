@@ -356,12 +356,6 @@ label.fichier { width: max-content; }
 .accueil .rcard .supp:hover { color: var(--nok); }
 .vide { padding: 22px; border: 1px dashed var(--line-strong); border-radius: var(--r-lg); color: var(--ink-3); text-align: center; grid-column: 1 / -1; }
 .vide b { color: var(--ink-2); display: block; margin-bottom: 4px; }
-.chantier { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--line); }
-.chantier:first-child { border-top: 0; }
-.chantier .t { flex: 1; min-width: 0; }
-.chantier .t b { display: block; font-weight: 650; }
-.chantier .t span { color: var(--ink-3); font-size: 12px; }
-.chantier .nb { font-weight: 650; color: var(--ink-2); white-space: nowrap; }
 .note-locale { display: flex; flex-direction: column; gap: 8px; }
 .note-locale p { color: var(--ink-2); font-size: 12.5px; line-height: 1.5; }
 .mrow3 input { height: 34px; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0 10px; background: var(--panel); outline: 0; }

@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|bibliotheque_autres|note_pdf|demarrage[:sous-filtre,…]]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|bibliotheque_autres|bureau|note_pdf|demarrage[:sous-filtre,…]]
 //
 // « demarrage[:sous-filtre,…] » délègue à verifier_demarrage.js (le lot S4 : un moteur, pas de rechargement, aperçu,
 // fermeture…). SANS filtre — le passage complet —, verifier_demarrage.js est joué AUSSI, à la fin, avec tous ses
@@ -5060,6 +5060,375 @@ const principal = async () => {
     console.log(`     temps de préparation de la note (du clic au téléchargement, la première de chaque format compte le chargement du paquet de la note) : ${temps.join(' · ')}`);
   }
 
+  // ---------------------------------------------- le BUREAU : les projets, l'équipe, le journal (docs/site/PROJETS_EQUIPE.md)
+  // Aux QUATRE formats, dans un navigateur neuf, le parcours entier : se présenter (les initiales proposées, la pastille),
+  // créer un projet d'une ligne, y entrer, deux sous-projets à la suite, une note créée DEPUIS le sous-projet, la retrouver
+  // dans le projet — VUE (au téléphone, la charte cachait la table des notes : un projet s'ouvrait vide, le 11/11/2026) —,
+  // renommer le projet (ses notes suivent, l'adresse aussi), ranger la note ailleurs, un nom piégé écrit comme du texte, un
+  // projet qui a des notes qu'on ne supprime pas ; puis l'équipe (ajouter, refuser des initiales prises, quatre lettres dans
+  // une pastille allongée, la teinte, « je suis… »), et le retour à l'accueil. Ce que l'œil voit : rien ne dépasse de
+  // l'écran, les pastilles sont RONDES et leurs initiales y tiennent, au doigt chaque cible fait 40 px. Filtre « bureau ».
+  if (!FILTRE || FILTRE === 'bureau') {
+    const mesureBureau = (pg, large, zone) => pg.evaluate(({ large, zone }) => {
+      const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      const hors = [];
+      for (const e of document.querySelectorAll('main *')) {
+        if (!vis(e)) continue;
+        const r = e.getBoundingClientRect();
+        if (!r.width || r.right <= large + 1) continue;
+        let q = e.parentElement, excuse = false;
+        while (q && q !== document.body) {
+          if (/auto|scroll|hidden/.test(getComputedStyle(q).overflowX) && q.getBoundingClientRect().right <= large + 1) { excuse = true; break; }
+          q = q.parentElement;
+        }
+        if (!excuse) hors.push(`${e.tagName.toLowerCase()}.${String(e.getAttribute('class') || '').slice(0, 24)} → ${Math.round(r.right)}`);
+      }
+      // les pastilles : rondes (ou allongées pour quatre ou cinq initiales), leurs initiales dedans, lisibles
+      const pastilles = [...document.querySelectorAll('main .avatar')].filter(vis).map((a) => {
+        const r = a.getBoundingClientRect(), cs = getComputedStyle(a);
+        const g = document.createRange(); g.selectNodeContents(a);
+        const t = g.getBoundingClientRect();
+        const n = a.textContent.trim().length;
+        return { ini: a.textContent.trim(), l: +r.width.toFixed(1), h: +r.height.toFixed(1), rond: parseFloat(cs.borderTopLeftRadius) >= Math.min(r.width, r.height) / 2 - 0.5 || cs.borderTopLeftRadius === '50%',
+          dedans: !n || (t.width <= r.width - 2 && t.left >= r.left - 0.5 && t.right <= r.right + 0.5), police: parseFloat(cs.fontSize), n,
+          clair: cs.color, fond: cs.backgroundColor };
+      });
+      // les cibles : ce qui se touche dans la zone (boutons, champs, menus, nœuds de l'arbre, lignes qui mènent quelque part)
+      const cibles = [...document.querySelectorAll(zone)].filter(vis).map((e) => {
+        const r = e.getBoundingClientRect();
+        return [(e.getAttribute('aria-label') || e.getAttribute('title') || e.getAttribute('placeholder') || e.textContent || e.id || e.className).trim().slice(0, 26), Math.round(r.height), Math.round(r.width)];
+      });
+      return { page: document.documentElement.scrollWidth, hors: hors.slice(0, 6), nPastilles: pastilles.length, auDoigt: matchMedia('(pointer: coarse)').matches,
+        pasRondes: pastilles.filter((x) => !x.rond || (x.n <= 3 && Math.abs(x.l - x.h) > 0.6) || (x.n >= 4 && x.l <= x.h)).slice(0, 4),
+        debordent: pastilles.filter((x) => !x.dedans).slice(0, 4), petites: pastilles.filter((x) => x.n && x.police < 8).slice(0, 4),
+        basses: cibles.filter((c) => c[1] < 40).slice(0, 8), etroites: cibles.filter((c) => c[2] < 40).slice(0, 8), nCibles: cibles.length };
+    }, { large, zone });
+    const ZONE_PROJETS = '.bu-top .btn, .bu-top .crumbs a, #pj button, #pj select, #pj input, #pj a.node, #pj a.btn, #pj a.bu-retour, #pj a.bu-tout, #pj summary, #pj a.bu-carte';
+    const ZONE_EQUIPE = '.bu-team button, .bu-team select, .bu-team input';
+    const ZONE_ACCUEIL = '.accueil .side button, .accueil .side input, .accueil .side a.btn, .accueil .side a.site, .accueil .side label.btn, .accueil .hello .bu-moi, .accueil .hello button';
+    const pretBureau = async (pg, page) => {
+      await pg.waitForFunction((page) => document.body.dataset.page === page && document.body.dataset.ecran === 'pret', page, { timeout: 30000 });
+      await pg.waitForTimeout(150);
+    };
+    const memoire = (pg) => pg.evaluate(() => {
+      const lire = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
+      const notes = Object.values(lire('stab.notes.v1', {}));
+      return { notes: notes.map((n) => ({ id: n.id, nom: n.nom, chantier: n.chantier, dossier: n.dossier, auteur: n.auteur && n.auteur.ini, par: n.par && n.par.ini, modifie: n.modifie })),
+        journal: lire('stab.journal.v1', []).map((e) => [e.k, e.q && e.q.ini, (e.n && e.n.nom) || e.x || e.s || e.p || '']),
+        projets: Object.values(lire('stab.projets.v1', {})).map((p) => [p.nom, p.sous, !!p.archive]), equipe: lire('stab.equipe.v1', { membres: {} }) };
+    });
+    const vuToast = (pg) => pg.evaluate(() => { const t = document.getElementById('toast'); return t && !t.hidden ? { texte: t.textContent, erreur: t.classList.contains('erreur') } : null; });
+    const PIEGE = '<img src=x onerror=window.__xss=1>';
+    // La photo de la page ENTIÈRE, puis la page rechargée. PIÈGE (mesuré le 11/11/2026) : pour photographier une page plus
+    // haute que l'écran, Playwright change un instant les dimensions émulées — et Chromium en perd l'émulation tactile
+    // (matchMedia('(pointer: coarse)') devient faux) jusqu'au document suivant. La page Équipe, atteinte SANS rechargement
+    // (le menu) juste après une telle photo, était alors mesurée « à la souris » : champs de 36 px, teintes de 26 — un
+    // rouge du harnais, pas du site (les deux autres formats tactiles, dont la page tenait dans l'écran, étaient verts).
+    // Chaque mesure dit donc si le navigateur EST au doigt (auDoigt), et le contrôle l'exige.
+    const photo = async (pg, nom, page) => {
+      await pg.screenshot({ path: path.join(OUT, `site_bureau_${nom}.png`), fullPage: true });
+      await pg.reload();
+      await pretBureau(pg, page);
+    };
+    for (const [nomF, w, h, tel] of FORMATS_BIB) {
+      const doigt = nomF !== 'pc';
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: doigt });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      // (hors de Cloudflare, l'adresse de connexion n'existe pas : le 404 du serveur local n'est pas une erreur du site)
+      g.on('console', (m) => { if (m.type() === 'error' && !/\/cdn-cgi\/access\/get-identity$/.test(m.location().url || '')) g.erreurs.push(m.text().slice(0, 300)); });
+      g.on('dialog', (d) => d.accept());
+      // l'adresse de connexion : le PC la reçoit (comme derrière Cloudflare Access), le téléphone reçoit une page HTML (la
+      // page de connexion), les tablettes rien (404) — dans les trois cas, se présenter marche
+      if (nomF === 'pc') await c.route('**/cdn-cgi/access/get-identity', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ email: 'louis@bureau.example', name: 'x' }) }));
+      if (nomF === 'tel') await c.route('**/cdn-cgi/access/get-identity', (r) => r.fulfill({ status: 200, contentType: 'text/html', body: '<html>connexion</html>' }));
+      const menu = tel ? '.mnav' : '.nav';
+      const dit = `bureau ${nomF}`;
+
+      // ---- l'accueil d'un poste neuf : personne ne s'est présenté
+      await g.goto(`${BASE}/`);
+      await pretBureau(g, 'accueil');
+      let a = await g.evaluate((menu) => {
+        const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const lien = (h) => { const e = document.querySelector(`${menu} a[href="${h}"]`); return !!e && vis(e) && e.getAttribute('aria-disabled') !== 'true' && !e.dataset.bientot; };
+        return { projets: lien('projets'), equipe: lien('equipe'), qui: vis(document.querySelector('#ac-qui form[data-qui]')), moi: document.querySelector('#moi .avatar').textContent,
+          inconnu: document.querySelector('#moi .avatar').classList.contains('inconnu'), bonjour: document.getElementById('bonjour').textContent,
+          vide: document.getElementById('chantiers').textContent, champ: vis(document.getElementById('ac-projet')), creer: vis(document.getElementById('ac-projet-creer')) };
+      }, menu);
+      verif(`${dit} · accueil d'un poste neuf : le menu mène aux Projets et à l'Équipe (des liens, plus « bientôt ») ; « Qui êtes-vous ? » se voit, la pastille est un « ? », aucun projet — le champ qui en crée un est là`,
+        a.projets && a.equipe && a.qui && a.moi === '?' && a.inconnu && a.bonjour === 'Bonjour' && /Aucun projet/.test(a.vide) && a.champ && !a.creer, JSON.stringify(a));
+      await photo(g, `${nomF}_accueil_neuf`, 'accueil');
+
+      // ---- se présenter : le nom ; les initiales sont proposées (LLE), l'adresse préremplie quand le site la connaît
+      await g.fill('#ac-qui [name="nom"]', 'Louis Lejeune');
+      await g.waitForTimeout(nomF === 'pc' ? 400 : 150);
+      a = await g.evaluate(() => { const f = document.querySelector('#ac-qui form'); return { ini: f.querySelector('[name="initiales"]').value, email: f.querySelector('[name="email"]').value,
+        apercu: f.querySelector('[data-qui-pastille]').textContent }; });
+      verif(`${dit} · se présenter : « Louis Lejeune » → les initiales proposées sont LLE, la pastille les montre à mesure ; l'adresse ${nomF === 'pc' ? 'de connexion préremplit le champ' : 'reste vide (le site ne la connaît pas ici)'}`,
+        a.ini === 'LLE' && a.apercu === 'LLE' && a.email === (nomF === 'pc' ? 'louis@bureau.example' : ''), JSON.stringify(a));
+      await g.click('#ac-qui button[type="submit"]');
+      await g.waitForTimeout(250);
+      a = await g.evaluate(() => { const p = document.querySelector('#moi .avatar'); const r = p.getBoundingClientRect();
+        return { bonjour: document.getElementById('bonjour').textContent, moi: p.textContent, classe: p.className, rond: Math.abs(r.width - r.height) < 0.6 && r.width >= 40,
+          qui: document.querySelector('#ac-qui').children.length, fil: [...document.querySelectorAll('#activite .feed')].map((f) => [f.querySelector('.avatar').textContent, f.querySelector('div').textContent]) }; });
+      verif(`${dit} · présenté : « Bonjour Louis », la pastille LLE (ronde, dans sa teinte) mène à l'équipe, « Qui êtes-vous ? » a disparu, le journal dit « Vous avez rejoint l'équipe »`,
+        a.bonjour === 'Bonjour Louis' && a.moi === 'LLE' && /\bc\d\b/.test(a.classe) && /\bn3\b/.test(a.classe) && a.rond && a.qui === 0
+        && a.fil.length === 1 && a.fil[0][0] === 'LLE' && /^Vous avez rejoint l'équipe/.test(a.fil[0][1]), JSON.stringify(a));
+
+      // ---- créer un projet : son nom, Entrée
+      await g.fill('#ac-projet', '  Réalex ');
+      a = { creer: await g.isVisible('#ac-projet-creer') };
+      await g.press('#ac-projet', 'Enter');
+      await g.waitForTimeout(200);
+      Object.assign(a, await g.evaluate(() => ({ lignes: [...document.querySelectorAll('#chantiers a.site')].map((s) => [s.getAttribute('href'), s.querySelector('b').textContent, s.querySelector('.nb').textContent]),
+        champ: document.getElementById('ac-projet').value, fil: document.querySelector('#activite .feed div').textContent })), { toast: await vuToast(g), m: await memoire(g) });
+      verif(`${dit} · créer un projet depuis l'accueil : « Réalex », Entrée — il est dans la liste (0 note), le champ est vidé, le message le dit, le journal aussi (« Vous avez créé le projet Réalex »)`,
+        a.creer && a.lignes.length === 1 && a.lignes[0][1] === 'Réalex' && a.lignes[0][2] === '0 note' && /^projets\?p=R/.test(a.lignes[0][0]) && a.champ === ''
+        && a.toast && /Projet « Réalex » créé/.test(a.toast.texte) && /^Vous avez créé le projet Réalex/.test(a.fil) && JSON.stringify(a.m.projets) === '[["Réalex",[],false]]', JSON.stringify(a));
+
+      // ---- entrer dans le projet (la navigation de l'application, sans rechargement)
+      await g.evaluate(() => { window.__memePage = true; });
+      await g.click('#chantiers a.site');
+      await pretBureau(g, 'projets');
+      a = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        return { memePage: window.__memePage === true, adresse: decodeURIComponent(location.pathname.split('/').pop() + location.search), vue: document.getElementById('pj').dataset.vue,
+          titre: document.getElementById('pj-nom').value, titreVu: vis(document.getElementById('pj-nom')), fil: document.getElementById('pj-fil').textContent.replace(/\s+/g, ' ').trim(), docTitre: document.title,
+          noteIci: vis(document.querySelector('[data-note-ici]')), sousChamp: vis(document.querySelector('form[data-creer-sous] input')), nouvelle: vis(document.getElementById('ouvrir-nouvelle')),
+          importer: vis(document.querySelector('label[for="importer"]')) }; });
+      verif(`${dit} · le projet s'ouvre sans recharger la page : son adresse (projets?p=Réalex), son nom en titre (modifiable), le fil « Projets › Réalex », « + Note », le champ d'un sous-projet ; « Nouvelle note » et l'import sont atteignables`,
+        a.memePage && a.adresse === 'projets?p=Réalex' && a.vue === 'liste' && a.titre === 'Réalex' && a.titreVu && a.fil === 'Projets Réalex' && /^Réalex · Projets/.test(a.docTitre)
+        && a.noteIci && a.sousChamp && a.nouvelle && a.importer, JSON.stringify(a));
+
+      // ---- deux sous-projets à la suite : le nom, Entrée ; le champ garde la main
+      await g.fill('form[data-creer-sous] input', 'Étude de la dalle');
+      await g.press('form[data-creer-sous] input', 'Enter');
+      await g.waitForTimeout(150);
+      const main1 = await g.evaluate(() => document.activeElement && document.activeElement.closest('form[data-creer-sous]') !== null);
+      await g.keyboard.type('Charpente');
+      await g.keyboard.press('Enter');
+      await g.waitForTimeout(150);
+      a = await g.evaluate(() => ({ sous: [...document.querySelectorAll('.bu-sous-nom')].map((i) => i.value), noeuds: [...document.querySelectorAll('#pj-noeuds .node.l1')].map((n) => n.textContent) }));
+      verif(`${dit} · deux sous-projets créés à la suite (le nom, Entrée ; le champ garde la main pour le suivant) : « Étude de la dalle », « Charpente »`,
+        main1 && JSON.stringify(a.sous) === '["Étude de la dalle","Charpente"]' && JSON.stringify((await memoire(g)).projets) === '[["Réalex",["Étude de la dalle","Charpente"],false]]', JSON.stringify({ main1, ...a }));
+
+      // ---- une note créée DEPUIS le sous-projet : le projet et le sous-projet sont déjà écrits
+      await g.click('[data-note-ici="Étude de la dalle"]');
+      await g.waitForTimeout(200);
+      a = await g.evaluate(() => ({ ouverte: !document.getElementById('nouvelle').hidden, projet: document.getElementById('nn-chantier').value, sous: document.getElementById('nn-dossier').value,
+        main: document.activeElement && document.activeElement.id, proposes: [...document.querySelectorAll('#nn-dossiers option')].map((o) => o.value) }));
+      verif(`${dit} · « + Note » d'un sous-projet ouvre « Nouvelle note » DÉJÀ rangée : projet « Réalex », sous-projet « Étude de la dalle » ; le nom de la note attend ; les sous-projets connus sont proposés`,
+        a.ouverte && a.projet === 'Réalex' && a.sous === 'Étude de la dalle' && a.main === 'nn-nom' && JSON.stringify(a.proposes) === '["Étude de la dalle","Charpente"]', JSON.stringify(a));
+      await g.fill('#nn-nom', 'Poutres R+1');
+      await g.click('#nouvelle .mopt[data-module="poutre"]');
+      await g.click('#nn-creer');
+      await g.waitForFunction(() => document.body.dataset.page === 'module' && /note=/.test(location.search), null, { timeout: 30000 });
+      let m = await memoire(g);
+      const idNote = m.notes[0] && m.notes[0].id;
+      verif(`${dit} · la note est créée, RANGÉE et SIGNÉE : « Poutres R+1 », Réalex › Étude de la dalle, auteur LLE ; son établi s'ouvre ; le journal dit « a créé la note »`,
+        m.notes.length === 1 && m.notes[0].nom === 'Poutres R+1' && m.notes[0].chantier === 'Réalex' && m.notes[0].dossier === 'Étude de la dalle' && m.notes[0].auteur === 'LLE'
+        && JSON.stringify(m.journal[0]) === '["note.creee","LLE","Poutres R+1"]', JSON.stringify(m.notes) + JSON.stringify(m.journal.slice(0, 2)));
+      // dans l'ÉTABLI (au PC, une fois) : « Classer la note… » parle des mêmes projets — les mots, les listes ; un nom écrit
+      // en minuscules rejoint le sous-projet qui existe (« charpente » → « Charpente »), sans en créer un second
+      if (nomF === 'pc') {
+        await pretEcran(g);
+        await g.click('.top [data-ranger]');
+        await g.waitForTimeout(150);
+        a = await g.evaluate(() => ({ libelles: [...document.querySelectorAll('#et-rangement label.et-rg-l')].map((l) => l.childNodes[0].textContent.trim()),
+          projet: document.getElementById('et-rg-chantier').value, sous: document.getElementById('et-rg-dossier').value,
+          projets: [...document.querySelectorAll('#et-rg-chantiers option')].map((o) => o.value), sousP: [...document.querySelectorAll('#et-rg-dossiers option')].map((o) => o.value),
+          invites: [document.getElementById('et-rg-chantier').placeholder, document.getElementById('et-rg-dossier').placeholder] }));
+        await g.fill('#et-rg-dossier', '  charpente ');
+        await g.click('#et-rangement button[type="submit"]');
+        await g.waitForTimeout(300);
+        m = await memoire(g);
+        verif(`${dit} · dans l'établi, « Classer la note… » range dans un PROJET et un SOUS-PROJET (les mêmes mots), propose ceux de la page des projets (Réalex ; Étude de la dalle, Charpente — même vide) ; « charpente » rejoint « Charpente » sans doublon`,
+          a.libelles.includes('Projet') && a.libelles.includes('Sous-projet') && !a.libelles.includes('Chantier') && a.projet === 'Réalex' && a.sous === 'Étude de la dalle'
+          && JSON.stringify(a.projets) === '["Réalex"]' && JSON.stringify(a.sousP) === '["Charpente","Étude de la dalle"]' && JSON.stringify(a.invites) === '["Sans projet","Sans sous-projet"]'
+          && m.notes[0].dossier === 'Charpente' && JSON.stringify(m.projets) === '[["Réalex",["Étude de la dalle","Charpente"],false]]' && m.journal[0][0] === 'note.classee', JSON.stringify({ a, n: m.notes[0], p: m.projets, j: m.journal[0] }));
+        // (la note retourne où le parcours l'attend)
+        await g.click('.top [data-ranger]');
+        await g.waitForTimeout(150);
+        await g.fill('#et-rg-dossier', 'Étude de la dalle');
+        await g.click('#et-rangement button[type="submit"]');
+        await g.waitForTimeout(300);
+      }
+
+      // ---- de retour dans le projet : la note s'y VOIT (au téléphone, la table restait cachée : un projet « vide »)
+      await g.goto(`${BASE}/projets?p=${encodeURIComponent('Réalex')}`);
+      await pretBureau(g, 'projets');
+      const dateAvant = (await memoire(g)).notes[0].modifie;
+      a = await g.evaluate((large) => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const l = document.querySelector('#pj-liste tr[data-note]'); const r = l ? l.getBoundingClientRect() : null;
+        const nom = l && l.querySelector('.bu-n b'); const rn = nom ? nom.getBoundingClientRect() : null;
+        return { ligne: vis(l), boite: r && [Math.round(r.left), Math.round(r.right), Math.round(r.height)], nom: nom && nom.textContent, nomVu: vis(nom) && rn.width > 30 && rn.right <= large,
+          lien: l && l.querySelector('a').getAttribute('href'), pastille: l && [...l.querySelectorAll('.avatar')].filter(vis).map((x) => x.textContent), ranger: vis(l && l.querySelector('.bu-ranger')),
+          groupe: l && l.closest('.bu-groupe') && l.closest('.bu-groupe').querySelector('.bu-sous-nom').value, sousTitre: document.querySelector('.bu-sous').textContent,
+          volet: [...document.querySelectorAll('#pj-volet .feed')].map((f) => [f.querySelector('.avatar').textContent, f.querySelector('div').textContent]).filter((l) => / créé la note /.test(l[1])),
+          faits: [...document.querySelectorAll('#pj-volet .facts dt')].map((d) => d.textContent), voletVu: vis(document.querySelector('#pj-volet .feed')) }; }, w);
+      verif(`${dit} · le projet MONTRE sa note (vue à l'écran, dans l'écran) : « Poutres R+1 » sous « Étude de la dalle », la pastille LLE de son auteur, le menu « Ranger… » ; l'activité du projet se voit : « Vous avez créé la note Poutres R+1 »`,
+        a.ligne && a.boite && a.boite[0] >= 0 && a.boite[1] <= w && a.boite[2] >= 40 && a.nom === 'Poutres R+1' && a.nomVu && /^poutre\?note=/.test(a.lien)
+        && JSON.stringify(a.pastille) === '["LLE"]' && a.ranger && a.groupe === 'Étude de la dalle' && /^1 note · 2 sous-projets/.test(a.sousTitre)
+        && a.voletVu && a.volet.length === 1 && a.volet[0][0] === 'LLE' && /^Vous avez créé la note Poutres R\+1 · Étude de la dalle/.test(a.volet[0][1]) && a.faits.includes('Y ont travaillé'), JSON.stringify(a));
+      let mes = await mesureBureau(g, w, ZONE_PROJETS);
+      verif(`${dit} · la page d'un projet : rien ne dépasse de l'écran (${w} px) ; les pastilles sont rondes, leurs initiales dedans${doigt ? ' ; au doigt, chaque cible fait 40 px au moins' : ''}`,
+        mes.page <= w && !mes.hors.length && mes.nPastilles >= 3 && !mes.pasRondes.length && !mes.debordent.length && !mes.petites.length
+        && mes.auDoigt === doigt && (!doigt || (!mes.basses.length && !mes.etroites.length && mes.nCibles >= 10)), JSON.stringify(mes));
+      await photo(g, `${nomF}_projet`, 'projets');
+
+      // ---- ranger la note dans un autre sous-projet : elle y passe, sans changer de date
+      await g.selectOption(`.bu-ranger[data-ranger="${idNote}"]`, 's:Charpente');
+      await g.waitForTimeout(200);
+      m = await memoire(g);
+      a = await g.evaluate(() => { const l = document.querySelector('#pj-liste tr[data-note]'); return l && l.closest('.bu-groupe').querySelector('.bu-sous-nom').value; });
+      verif(`${dit} · « Ranger… » déplace la note dans « Charpente » : elle y est à l'écran et dans la mémoire, sa date n'a pas bougé, le journal dit « a rangé la note »`,
+        a === 'Charpente' && m.notes[0].dossier === 'Charpente' && m.notes[0].chantier === 'Réalex' && m.notes[0].modifie === dateAvant && m.journal[0][0] === 'note.classee', JSON.stringify({ a, n: m.notes[0], j: m.journal[0] }));
+
+      // ---- renommer le projet : on écrit par-dessus son titre ; ses notes suivent, l'adresse aussi
+      await g.fill('#pj-nom', 'Réalex – Lot 2');
+      await g.press('#pj-nom', 'Enter');
+      await g.waitForTimeout(250);
+      m = await memoire(g);
+      a = await g.evaluate(() => ({ adresse: new URLSearchParams(location.search).get('p'), titre: document.getElementById('pj-nom').value, fil: document.getElementById('pj-fil').textContent.replace(/\s+/g, ' ').trim(),
+        ligne: !!document.querySelector('#pj-liste tr[data-note]'), noeud: (document.querySelector('#pj-noeuds .node.chantier') || {}).textContent || '' }));
+      verif(`${dit} · renommer le projet « Réalex – Lot 2 » : sa note suit (son « chantier » est réécrit, sans changer de date), l'adresse et le fil aussi ; le journal dit « a renommé le projet »`,
+        a.adresse === 'Réalex – Lot 2' && a.titre === 'Réalex – Lot 2' && a.fil === 'Projets Réalex – Lot 2' && a.ligne && m.notes[0].chantier === 'Réalex – Lot 2' && m.notes[0].modifie === dateAvant
+        && m.projets.length === 1 && m.projets[0][0] === 'Réalex – Lot 2' && m.journal[0][0] === 'projet.renomme', JSON.stringify({ a, n: m.notes[0], p: m.projets, j: m.journal[0] }));
+
+      // ---- un projet qui a encore une note ne se supprime pas (on ne perd jamais une note en supprimant un projet)
+      await g.click('.bu-menu > summary');
+      await g.waitForTimeout(100);
+      const menuVu = await g.evaluate((large) => { const e = document.querySelector('.bu-menu-c'); const r = e.getBoundingClientRect(); return e.checkVisibility() && r.left >= 0 && r.right <= large && r.width > 150; }, w);
+      await g.click('[data-supprimer-projet]');
+      await g.waitForTimeout(150);
+      a = { toast: await vuToast(g), projets: (await memoire(g)).projets.length };
+      verif(`${dit} · « ⋯ » s'ouvre dans l'écran ; supprimer un projet qui a encore une note est REFUSÉ, et dit pourquoi (« encore 1 note ») : rien n'est perdu`,
+        menuVu && a.toast && a.toast.erreur && /encore 1 note/.test(a.toast.texte) && a.projets === 1, JSON.stringify({ menuVu, ...a }));
+
+      // ---- la liste des projets : le champ cherche, puis crée — un nom PIÉGÉ est écrit comme du texte
+      await g.goto(`${BASE}/projets`);
+      await pretBureau(g, 'projets');
+      await g.fill('#pj-champ', 'réal');
+      await g.waitForTimeout(120);
+      const cherche = await g.evaluate(() => ({ noeuds: [...document.querySelectorAll('#pj-noeuds a.node.chantier')].map((n) => n.querySelector('.bu-nn').textContent), creer: (document.querySelector('.bu-creer-n') || {}).textContent || '' }));
+      await g.fill('#pj-champ', PIEGE);
+      await g.waitForTimeout(120);
+      const propose = await g.evaluate(() => ({ creer: (document.querySelector('.bu-creer-n') || {}).textContent || '', img: document.querySelectorAll('#pj img').length }));
+      await g.press('#pj-champ', 'Enter');
+      await g.waitForFunction(() => /p=/.test(location.search), null, { timeout: 10000 });
+      await pretBureau(g, 'projets');
+      a = await g.evaluate(() => ({ xss: window.__xss, img: document.querySelectorAll('main img, #toast img').length, titre: document.getElementById('pj-nom').value, fil: document.getElementById('pj-fil').textContent,
+        volet: (document.querySelector('#pj-volet .feed div') || {}).textContent || '', docTitre: document.title }));
+      verif(`${dit} · le champ de l'arbre CHERCHE (« réal » → Réalex – Lot 2, et propose de créer « réal ») puis CRÉE à Entrée ; un nom piégé (« <img onerror> ») est écrit comme du TEXTE partout — titre, fil, journal — et rien ne s'exécute`,
+        JSON.stringify(cherche.noeuds) === '["Réalex – Lot 2"]' && /Créer « réal »/.test(cherche.creer) && propose.creer.includes(PIEGE) && propose.img === 0
+        && a.xss === undefined && a.img === 0 && a.titre === PIEGE && a.fil.includes(PIEGE) && a.volet.includes(PIEGE), JSON.stringify({ cherche, propose, a }));
+      // ce projet est vide : il se supprime (après confirmation), on revient à la liste
+      await g.click('.bu-menu > summary');
+      await g.click('[data-supprimer-projet]');
+      await g.waitForFunction(() => !location.search, null, { timeout: 10000 });
+      await pretBureau(g, 'projets');
+      m = await memoire(g);
+      a = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        return { vue: document.getElementById('pj').dataset.vue, noeuds: [...document.querySelectorAll('#pj-noeuds a.node')].filter(vis).map((n) => n.querySelector('.bu-nn').textContent),
+          cartes: [...document.querySelectorAll('.bu-carte')].filter(vis).length, champ: vis(document.getElementById('pj-champ')), fil: vis(document.querySelector('#pj-volet .feed')) }; });
+      verif(`${dit} · un projet VIDE se supprime ; la liste des projets : « Tous les projets », « Réalex – Lot 2 » — ${tel ? 'au téléphone, la liste seule (pas de cartes en double), son champ en tête' : 'l\'arbre à gauche, les cartes au centre'}, l'activité du bureau`,
+        m.projets.length === 1 && a.vue === 'arbre' && JSON.stringify(a.noeuds) === '["Tous les projets","Réalex – Lot 2"]' && a.cartes === (tel ? 0 : 1) && a.champ && a.fil
+        && m.journal[0][0] === 'projet.supprime', JSON.stringify({ a, p: m.projets, j: m.journal[0] }));
+      mes = await mesureBureau(g, w, ZONE_PROJETS);
+      verif(`${dit} · la liste des projets : rien ne dépasse de l'écran, pastilles rondes${doigt ? ', cibles de 40 px au moins' : ''}`,
+        mes.page <= w && !mes.hors.length && !mes.pasRondes.length && !mes.debordent.length && mes.auDoigt === doigt && (!doigt || (!mes.basses.length && !mes.etroites.length)), JSON.stringify(mes));
+      await photo(g, `${nomF}_projets`, 'projets');
+
+      // ---- l'ÉQUIPE : moi, puis mes collègues
+      await g.click(`${menu} a[href="equipe"]`);
+      await pretBureau(g, 'equipe');
+      a = await g.evaluate(() => ({ moi: document.querySelector('#eq-moi .avatar.xl').textContent, nom: document.querySelector('[data-moi="nom"]').value, ini: document.querySelector('[data-moi="initiales"]').value,
+        email: document.querySelector('[data-moi="email"]').value, lignes: document.querySelectorAll('#eq-membres tr[data-membre]').length, vous: !!document.querySelector('#eq-membres .tag.pub'),
+        titre: document.getElementById('eq-titre').textContent, journal: document.querySelectorAll('#eq-journal .feed').length, jours: document.querySelectorAll('#eq-journal .bu-jour').length }));
+      verif(`${dit} · l'équipe (par le menu) : ma fiche (Louis Lejeune, LLE${nomF === 'pc' ? ', mon adresse' : ''}), « Membres · 1 » avec la mention « vous », le journal entier sous « Aujourd'hui »`,
+        a.moi === 'LLE' && a.nom === 'Louis Lejeune' && a.ini === 'LLE' && a.email === (nomF === 'pc' ? 'louis@bureau.example' : '') && a.lignes === 1 && a.vous && a.titre === 'Membres · 1'
+        && a.journal >= 7 && a.jours === 1, JSON.stringify(a));
+      // ajouter Marie : ses initiales sont proposées ; puis quelqu'un qui en a QUATRE ; puis un refus (LLE est pris)
+      await g.fill('#eq-nom', 'Marie Dubois');
+      const iniMarie = await g.inputValue('#eq-ini');
+      await g.fill('#eq-email', 'marie@bureau.example');
+      await g.press('#eq-email', 'Enter');
+      await g.waitForTimeout(150);
+      await g.fill('#eq-nom', 'Anne Van den Broeck');
+      const iniAnne = await g.inputValue('#eq-ini');
+      await g.press('#eq-nom', 'Enter');
+      await g.waitForTimeout(150);
+      await g.fill('#eq-nom', 'Lucie Lebon');
+      await g.fill('#eq-ini', 'lle');
+      await g.press('#eq-ini', 'Enter');
+      await g.waitForTimeout(150);
+      a = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        const err = document.getElementById('eq-erreur');
+        return { membres: [...document.querySelectorAll('#eq-membres tr[data-membre]')].map((t) => [t.querySelector('.who2 b').childNodes[0].textContent.trim(), t.querySelector('.avatar').textContent, t.querySelector('.who2 > div > span').textContent]),
+          erreur: vis(err) && err.textContent, refus: !!document.querySelector('#eq-form .field.refus #eq-ini'), saisie: document.getElementById('eq-ini').value,
+          longue: (() => { const p = [...document.querySelectorAll('#eq-membres .avatar')].find((x) => x.textContent === 'AVDB'); const r = p.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })(),
+          noms: [...document.querySelectorAll('#eq-membres .who2 > div')].map((d) => Math.round(d.getBoundingClientRect().left)) }; });
+      verif(`${dit} · ajouter des collègues : Marie Dubois (initiales proposées MDU, son adresse), Anne Van den Broeck (AVDB : quatre lettres, la pastille s'allonge, les noms restent alignés) ; « Lucie Lebon » avec LLE est REFUSÉE — « déjà celles de Louis Lejeune », le champ est marqué`,
+        iniMarie === 'MDU' && iniAnne === 'AVDB' && JSON.stringify(a.membres.map((x) => x.slice(0, 2))) === '[["Anne Van den Broeck","AVDB"],["Louis Lejeune","LLE"],["Marie Dubois","MDU"]]'
+        && a.membres[2][2] === 'marie@bureau.example' && /pas d'adresse/.test(a.membres[0][2]) && /LLE sont déjà celles de Louis Lejeune/.test(a.erreur || '') && a.refus && a.saisie === 'LLE'
+        && a.longue[0] > a.longue[1] && new Set(a.noms).size === 1, JSON.stringify({ iniMarie, iniAnne, ...a }));
+      // ma teinte, mes initiales (elles changent pour la suite ; ce qui est déjà signé garde LLE), « je suis… »
+      await g.click('#eq-moi [data-teinte="3"]');
+      await g.waitForTimeout(120);
+      await g.fill('[data-moi="initiales"]', 'll');
+      await g.press('[data-moi="initiales"]', 'Enter');
+      await g.waitForTimeout(200);
+      a = await g.evaluate(() => ({ moi: document.querySelector('#eq-moi .avatar.xl').textContent, classe: document.querySelector('#eq-moi .avatar.xl').className,
+        allumee: (document.querySelector('#eq-moi [data-teinte].on') || { dataset: {} }).dataset.teinte, journal: [...new Set([...document.querySelectorAll('#eq-journal .feed > .avatar')].map((x) => x.textContent))] }));
+      const sigNote = (await memoire(g)).notes[0];
+      verif(`${dit} · ma fiche : la teinte choisie se voit (la 3), mes initiales deviennent LL — et ce que j'ai déjà signé GARDE « LLE » (la note, les lignes du journal : la signature est une copie du moment)`,
+        a.moi === 'LL' && /\bc3\b/.test(a.classe) && /\bn2\b/.test(a.classe) && a.allumee === '3' && JSON.stringify(a.journal) === '["LLE"]' && sigNote.auteur === 'LLE', JSON.stringify({ a, sigNote }));
+      const idMarie = await g.evaluate(() => [...document.querySelectorAll('#eq-jesuis option')].find((o) => /Marie/.test(o.textContent)).value);
+      await g.selectOption('#eq-jesuis', idMarie);
+      await g.waitForTimeout(150);
+      const marie = await g.evaluate(() => [document.querySelector('#eq-moi .avatar.xl').textContent, document.querySelector('[data-moi="nom"]').value]);
+      await g.click(`[data-voir="${idMarie}"]`);
+      await g.waitForTimeout(120);
+      const filtre = await g.evaluate(() => ({ puce: document.getElementById('eq-filtre').textContent, lignes: document.querySelectorAll('#eq-journal .feed').length, vide: (document.querySelector('#eq-journal .bu-vide') || {}).textContent || '' }));
+      const idLouis = await g.evaluate(() => [...document.querySelectorAll('#eq-jesuis option')].find((o) => /Louis/.test(o.textContent)).value);
+      await g.selectOption('#eq-jesuis', idLouis);
+      await g.waitForTimeout(150);
+      await g.click('#eq-filtre button');
+      await g.waitForTimeout(120);
+      a = await g.evaluate(() => ({ moi: document.querySelector('#eq-moi .avatar.xl').textContent, lignes: document.querySelectorAll('#eq-journal .feed').length, puce: document.getElementById('eq-filtre').textContent }));
+      verif(`${dit} · « Ce n'est pas vous ? » passe le poste à Marie (MDU) puis me le rend ; l'horloge d'un membre ne montre QUE son activité (Marie : rien encore), sa puce rend le journal entier`,
+        JSON.stringify(marie) === '["MDU","Marie Dubois"]' && /Marie/.test(filtre.puce) && filtre.lignes === 0 && /Marie n'a encore rien fait/.test(filtre.vide) && a.moi === 'LL' && a.lignes >= 9 && a.puce === '', JSON.stringify({ marie, filtre, a }));
+      mes = await mesureBureau(g, w, ZONE_EQUIPE);
+      verif(`${dit} · la page Équipe : rien ne dépasse de l'écran (${w} px), les pastilles sont rondes (AVDB allongée), leurs initiales dedans${doigt ? ' ; au doigt, chaque cible fait 40 px au moins' : ''}`,
+        mes.page <= w && !mes.hors.length && mes.nPastilles >= 12 && !mes.pasRondes.length && !mes.debordent.length && !mes.petites.length
+        && mes.auDoigt === doigt && (!doigt || (!mes.basses.length && !mes.etroites.length && mes.nCibles >= 20)), JSON.stringify(mes));
+      await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_equipe.png`), fullPage: true });
+
+      // ---- l'accueil, après : mes projets, l'activité avec les pastilles, la note à reprendre signée ; tout tient au rechargement
+      await g.goto(`${BASE}/`);
+      await pretBureau(g, 'accueil');
+      a = await g.evaluate(() => { const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+        return { bonjour: document.getElementById('bonjour').textContent, moi: document.querySelector('#moi .avatar').textContent,
+          projets: [...document.querySelectorAll('#chantiers a.site')].map((s) => [s.querySelector('b').textContent, s.querySelector('.nb').textContent, [...s.querySelectorAll('.avatar')].filter(vis).map((x) => x.textContent).join()]),
+          fil: [...document.querySelectorAll('#activite .feed')].filter(vis).map((f) => f.querySelector('.avatar').textContent + ' ' + f.querySelector('div').textContent.slice(0, 44)),
+          carte: [...document.querySelectorAll('#recentes .rcard')].map((r) => [r.querySelector('.t').textContent, r.querySelector('.ou').textContent, (r.querySelector('.avatar') || {}).textContent]) }; });
+      verif(`${dit} · l'accueil, intégré : « Bonjour Louis » et ma pastille (LL) ; le projet « Réalex – Lot 2 » (1 note, la pastille de qui y a travaillé) ; l'activité — six lignes au plus, chacune avec la pastille de son auteur ; la note à reprendre dit son projet et son auteur`,
+        a.bonjour === 'Bonjour Louis' && a.moi === 'LL' && JSON.stringify(a.projets) === '[["Réalex – Lot 2","1 note","LLE"]]' && a.fil.length === 6 && a.fil.every((l) => /^(LLE|LL) Vous avez /.test(l))
+        && a.carte.length === 1 && a.carte[0][0] === 'Poutres R+1' && /Réalex – Lot 2 › Charpente/.test(a.carte[0][1]) && a.carte[0][2] === 'LLE', JSON.stringify(a));
+      mes = await mesureBureau(g, w, ZONE_ACCUEIL);
+      verif(`${dit} · l'accueil : rien ne dépasse de l'écran, les pastilles sont rondes${doigt ? ', les cibles des projets et de l\'activité font 40 px au moins' : ''}`,
+        mes.page <= w && !mes.hors.filter((x) => !/rcard|thumb|body|\.t |\.m |\.ou|chip|supp|avatar/.test(x)).length && mes.nPastilles >= 8 && !mes.pasRondes.length && !mes.debordent.length
+        && mes.auDoigt === doigt && (!doigt || (!mes.basses.length && !mes.etroites.length && mes.nCibles >= 6)), JSON.stringify(mes));
+      await g.screenshot({ path: path.join(OUT, `site_bureau_${nomF}_accueil.png`), fullPage: true });
+      await g.reload();
+      await pretBureau(g, 'accueil');
+      a = await g.evaluate(() => [document.getElementById('bonjour').textContent, document.querySelectorAll('#chantiers a.site').length, document.querySelectorAll('#activite .feed').length]);
+      verif(`${dit} · tout est enregistré dans ce navigateur : après un rechargement, « Bonjour Louis », le projet, l'activité sont là ; aucune erreur JavaScript de tout le parcours`,
+        JSON.stringify(a) === '["Bonjour Louis",1,6]' && !g.erreurs.length, JSON.stringify(a) + ' ' + g.erreurs.join(' | ').slice(0, 300));
+      await c.close();
+    }
+  }
+
   // ---------------------------------------------------------------- retour à l'accueil
   await p.goto(`${BASE}/index.html`);
   await p.waitForTimeout(300);
@@ -5067,7 +5436,7 @@ const principal = async () => {
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
   // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
   //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'bureau', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

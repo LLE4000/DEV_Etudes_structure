@@ -417,6 +417,26 @@ Bibliothèque de même dimension qu'au-dessus […] trois choses que tu peux dé
 4. Les trois outils ne s'enregistrent pas comme une note et n'ont pas de note PDF : l'adresse porte l'état (elle se
    partage) et « Imprimer la feuille » sort le papier.
 
+## Fait ensuite, les projets, l'équipe et le journal d'activité (même branche, sur 50e85e7, 11/11/2026)
+
+Demande de l'ingénieur du 11/11/2026 : « dans le menu principal, il y a Projets […] le nom du chantier […] très facile de
+créer des projets, et des sous-projets […] Équipe […] nos initiales dans un rond […] un journal des activités […] sur la
+page d'accueil, ça doit être très bien intégré ». Fait :
+
+- **Le menu** : Projets et Équipe sont des pages (ils disaient « bientôt »), depuis toutes les pages et les trois formats.
+- **Projets** : un projet = le nom du chantier, créé d'une ligne (accueil ou page Projets) ; des sous-projets ; les notes
+  s'y rangent (ce sont les champs « chantier » et « dossier » qu'elles portaient déjà : rien à migrer) ; renommer,
+  ranger, archiver, supprimer ce qui est vide.
+- **Équipe** : se présenter une fois par poste (nom, initiales proposées — LLE —, e-mail facultatif), ajouter ses
+  collègues ; les initiales (1 à 5) dans une pastille de couleur signent les notes et le journal.
+- **Journal d'activité** : « LLE a créé la note Poutres R+1 · Réalex › Étude de la dalle », sur l'accueil, dans chaque
+  projet et en entier sur la page Équipe.
+- Détail, choix, données, contrôles et limites : `docs/site/PROJETS_EQUIPE.md`.
+
+**Ce qui reste ouvert** (dit à l'écran) : tout est enregistré dans le navigateur — le partage entre les postes, les
+invitations par e-mail, les rôles et la preuve de qui est qui viendront avec les comptes ; le préremplissage de l'e-mail
+par l'adresse de connexion n'a pas été vérifié en production.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

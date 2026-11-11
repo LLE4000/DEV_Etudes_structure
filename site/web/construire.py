@@ -84,6 +84,15 @@ PAGES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}.html" for k in BIBLIOTHEQUES}
 ADRESSES_BIBLIOTHEQUES = {k: f"bibliotheque-{k}" for k in BIBLIOTHEQUES}
 # les modules masqués de l'accueil (site/maquettes/construire.py, MASQUES) : servis, plus listés
 MASQUES = frozenset(MQ.MASQUES)
+# Les pages du BUREAU (docs/site/PROJETS_EQUIPE.md) : les projets et l'équipe. Ni module ni bibliothèque : des écrans que
+# js/app.js monte comme l'accueil (body data-page), sans moteur. Leur feuille : css/bureau.css (l'accueil la charge aussi :
+# il porte les projets, les pastilles et le fil d'activité).
+PAGES_BUREAU = {"projets": "projets.html", "equipe": "equipe.html"}
+ADRESSES_BUREAU = {"projets": "projets", "equipe": "equipe"}
+FEUILLE_BUREAU = "css/bureau.css"
+# les icônes que ces écrans posent eux-mêmes (js/vues_bureau.js les lit dans la page : rien n'est chargé d'ailleurs)
+ICONES_BUREAU = ("plus", "x", "check", "pencil-line", "trash-2", "ellipsis", "chevron-right", "chevron-left", "folder", "folder-open",
+                 "archive", "search", "user-plus", "users", "file-plus-2", "file-text", "layers", "clock", "mail", "upload")
 
 
 def _bibliotheques_de(fam: str) -> list:
@@ -433,13 +442,14 @@ def _module(cle: str):
 
 
 def rail(actif: str) -> str:
-    """La barre de cinq icônes ; Projets, Équipe et Paramètres viendront avec les comptes (Supabase)."""
+    """La barre de cinq icônes. Projets et Équipe mènent à leurs pages (11/11/2026 : elles étaient « bientôt ») ;
+    Paramètres viendra avec les comptes du bureau."""
     def it(ic, nom, cle, attr):
         return f'<a class="navitem{" on" if cle == actif else ""}" data-tip="{nom}"{attr}>{MQ.icon(ic)}</a>'
     bientot = ' aria-disabled="true" data-bientot="1"'
     return (f'<nav class="nav"><a class="brand" href="{ACCUEIL}" title="Accueil"><div class="logo">{MQ.LOGO}</div></a>'
-            + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets · bientôt", "projets", bientot)
-            + it("layout-grid", "Modules", "modules", ' data-modules="1"') + it("users", "Équipe · bientôt", "equipe", bientot)
+            + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets", "projets", f' href="{ADRESSES_BUREAU["projets"]}"')
+            + it("layout-grid", "Modules", "modules", ' data-modules="1"') + it("users", "Équipe", "equipe", f' href="{ADRESSES_BUREAU["equipe"]}"')
             + it("settings", "Paramètres · bientôt", "parametres", bientot)
             + f'<div style="margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:10px">'
               f'<a class="navitem" data-theme-toggle="1" data-tip="Thème clair ou sombre">{MQ.icon("sun-moon")}</a></div></nav>' + modpanel())
@@ -447,12 +457,12 @@ def rail(actif: str) -> str:
 
 def mnav(actif: str) -> str:
     """Les onglets du bas du téléphone : les cinq entrées de la barre du PC, dans le même ordre (cahier des charges
-    § 1 bis) ; Projets, Équipe et Paramètres viendront avec les comptes."""
+    § 1 bis) ; Paramètres viendra avec les comptes."""
     def it(ic, nom, cle, attr):
         return f'<a class="{"on" if cle == actif else ""}"{attr}>{MQ.icon(ic)}<span>{nom}</span></a>'
     bientot = ' aria-disabled="true" data-bientot="1" title="Bientôt"'
-    return ('<nav class="mnav">' + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets", "projets", bientot)
-            + it("layout-grid", "Modules", "modules", ' data-modules="1" role="button"') + it("users", "Équipe", "equipe", bientot)
+    return ('<nav class="mnav">' + it("house", "Accueil", "accueil", f' href="{ACCUEIL}"') + it("folder", "Projets", "projets", f' href="{ADRESSES_BUREAU["projets"]}"')
+            + it("layout-grid", "Modules", "modules", ' data-modules="1" role="button"') + it("users", "Équipe", "equipe", f' href="{ADRESSES_BUREAU["equipe"]}"')
             + it("settings", "Paramètres", "parametres", bientot) + "</nav>")
 
 
@@ -564,34 +574,120 @@ def page_accueil() -> str:
                       f'<span class="modic {fam}">{MQ.MOD[k]}</span><span class="nm">{MQ.esc(n)}</span><span class="tag draft">bientôt</span></div>')
         grille = f'<div class="tiles fam-b">{cartes[0]}<div class="tiles">{t}</div></div>' if cartes else f'<div class="tiles">{t}</div>'
         tuiles += f'<div class="famille" data-fam="{fam}"><div class="kicker">{nom_fam}</div>{grille}</div>'
-    options = "".join(f'<button type="button" class="mopt" data-module="{k}"><span class="modic {_module(k)[0]}">{MQ.MOD[k]}</span>{MQ.esc(_module(k)[1])}</button>'
-                      for k in PAGES if k not in MASQUES)
-    modal = (f'<div class="modal" id="nouvelle" hidden><div class="mcard"><div class="mh"><span class="h2">Nouvelle note</span>'
-             f'<button class="btn icon ghost" data-fermer-modal="1" title="Fermer">{MQ.icon("x")}</button></div>'
-             f'<div class="mb"><div class="mrow3"><label><span>Chantier</span><input id="nn-chantier" list="nn-chantiers" placeholder="ex. Réalex"></label>'
-             f'<label><span>Dossier</span><input id="nn-dossier" placeholder="ex. Étude de la dalle"></label>'
-             f'<label><span>Nom de la note</span><input id="nn-nom" placeholder="ex. Poutres R+1"></label></div><datalist id="nn-chantiers"></datalist>'
-             f'<div class="mlabel">Module</div><div class="mgrid">{options}</div></div>'
-             f'<div class="mf"><button class="btn" data-fermer-modal="1">Annuler</button>'
-             f'<button class="btn primary" id="nn-creer" disabled>{MQ.icon("plus")}Créer la note</button></div></div></div>')
-    # au téléphone : l'en-tête (le nom du site, le thème) et les cinq entrées de la barre, en bas, dans le même ordre
-    mhead = (f'<header class="mhead"><div class="logo">{MQ.LOGO}</div><span class="ttl">Stab Méthodes</span><span class="spacer"></span>'
-             f'<button type="button" class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}</button></header>')
-    corps = (f'<body data-page="accueil"><div class="app rail">{rail("accueil")}<main class="main">{mhead}'
+    # (l'avatar de la personne du poste mène à l'équipe ; « Bonjour » prend son prénom dès qu'elle s'est présentée)
+    corps = (f'<body data-page="accueil"><div class="app rail">{rail("accueil")}<main class="main">{mhead("Stab Méthodes")}'
              f'<div class="page accueil"><div class="col"><div class="et-memoire" id="et-memoire" role="alert" hidden></div>'
-             f'<header class="hello"><div><h1 class="h1">Bonjour</h1><p class="muted" id="date"></p></div><span class="spacer"></span>'
+             f'<header class="hello"><a class="bu-moi" id="moi" href="{ADRESSES_BUREAU["equipe"]}" title="Mon profil et l\'équipe"></a>'
+             f'<div><h1 class="h1" id="bonjour">Bonjour</h1><p class="muted" id="date"></p></div><span class="spacer"></span>'
              f'<button class="btn primary big" id="ouvrir-nouvelle">{MQ.icon("plus")}Nouvelle note</button></header>'
              f'<section><div class="sechead"><span class="h2">Reprendre</span><span class="muted" id="nb-notes"></span></div>'
              f'<div class="resume" id="recentes"></div></section>'
              f'<section><div class="sechead"><span class="h2">Modules</span><span class="muted">{_sous_titre_modules()}</span></div>{tuiles}</section>'
-             f'</div><aside class="side"><div class="card"><div class="sechead"><span class="h3">Chantiers</span></div><div id="chantiers"></div></div>'
+             f'</div><aside class="side">'
+             # les PROJETS (c'était « Chantiers » : la liste seule) : en créer un d'ici — son nom, Entrée —, les ouvrir
+             f'<div class="card bu-projets"><div class="sechead"><span class="h3">Projets</span>'
+             f'<a class="btn ghost sm" href="{ADRESSES_BUREAU["projets"]}">Tout voir{MQ.icon("chevron-right")}</a></div>'
+             f'{champ_creer("ac-projet", "Nouveau projet : le nom du chantier", "plus")}<div id="chantiers"></div></div>'
+             # l'ACTIVITÉ : qui a fait quoi (le journal) ; tant que personne ne s'est présenté sur ce poste, on le demande ici
+             f'<div class="card bu-activite"><div class="sechead"><span class="h3">Activité</span>'
+             f'<a class="btn ghost sm" href="{ADRESSES_BUREAU["equipe"]}">Équipe{MQ.icon("chevron-right")}</a></div>'
+             f'<div id="ac-qui"></div><div id="activite"></div></div>'
              f'<div class="card note-locale"><div class="h3">Où sont mes notes ?</div><p>Pour l\'instant, chaque note est enregistrée '
-             f'<b>dans ce navigateur</b>, sur ce PC. Le bouton <b>.stab</b> d\'une note l\'exporte en fichier ; les comptes du bureau et le partage '
-             f'viendront ensuite.</p><label class="btn sm" for="importer">{MQ.icon("upload")}Importer un fichier .stab</label>'
-             f'<input type="file" id="importer" accept=".stab,.json" hidden></div></aside></div>{mnav("accueil")}</main></div>{modal}'
-             f'<div class="toast" id="toast" role="status" hidden></div>'
+             f'<b>dans ce navigateur</b>, sur ce PC — comme les projets, l\'équipe et le journal. Le bouton <b>.stab</b> d\'une note l\'exporte '
+             f'en fichier ; les comptes du bureau et le partage entre les postes viendront ensuite.</p>'
+             f'<label class="btn sm" for="importer">{MQ.icon("upload")}Importer un fichier .stab</label>'
+             f'<input type="file" id="importer" accept=".stab,.json" hidden></div></aside></div>{mnav("accueil")}</main></div>{fenetre_nouvelle_note()}'
+             f'{icones_bureau()}<div class="toast" id="toast" role="status" hidden></div>'
              f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
-    return tete("Stab Méthodes") + corps
+    return tete("Stab Méthodes", FEUILLE_BUREAU) + corps
+
+
+def mhead(titre: str) -> str:
+    """Au téléphone : l'en-tête d'une page du bureau (le nom, le thème) ; les cinq entrées de la barre sont en bas."""
+    return (f'<header class="mhead"><div class="logo">{MQ.LOGO}</div><span class="ttl">{MQ.esc(titre)}</span><span class="spacer"></span>'
+            f'<button type="button" class="btn icon ghost" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}</button></header>')
+
+
+def champ_creer(ident: str, invite: str, icone: str) -> str:
+    """Un champ qui CRÉE à la touche Entrée (un projet, un sous-projet) : pas de fenêtre, pas d'étape — le nom, Entrée.
+    Le bouton « Créer » ne paraît que quand le champ porte un nom (js/vues_bureau.js)."""
+    return (f'<form class="bu-creer" id="{ident}-form" autocomplete="off"><div class="field text">{MQ.icon(icone)}'
+            f'<input id="{ident}" maxlength="80" placeholder="{MQ.esc(invite)}" aria-label="{MQ.esc(invite)}" enterkeyhint="done"></div>'
+            f'<button type="submit" class="btn sm primary" id="{ident}-creer" hidden>Créer</button></form>')
+
+
+def fenetre_nouvelle_note() -> str:
+    """La fenêtre « Nouvelle note » (l'accueil, la page des projets : js/nouvelle.js) : le projet, le sous-projet, le nom,
+    puis le module. Le projet et le sous-projet déjà connus sont proposés ; on peut en taper un nouveau."""
+    options = "".join(f'<button type="button" class="mopt" data-module="{k}"><span class="modic {_module(k)[0]}">{MQ.MOD[k]}</span>{MQ.esc(_module(k)[1])}</button>'
+                      for k in PAGES if k not in MASQUES)
+    return (f'<div class="modal" id="nouvelle" hidden><div class="mcard"><div class="mh"><span class="h2">Nouvelle note</span>'
+            f'<button class="btn icon ghost" data-fermer-modal="1" title="Fermer">{MQ.icon("x")}</button></div>'
+            f'<div class="mb"><div class="mrow3"><label><span>Projet</span><input id="nn-chantier" list="nn-chantiers" maxlength="80" placeholder="le chantier, ex. Réalex"></label>'
+            f'<label><span>Sous-projet</span><input id="nn-dossier" list="nn-dossiers" maxlength="80" placeholder="ex. Étude de la dalle"></label>'
+            f'<label><span>Nom de la note</span><input id="nn-nom" placeholder="ex. Poutres R+1"></label></div>'
+            f'<datalist id="nn-chantiers"></datalist><datalist id="nn-dossiers"></datalist>'
+            f'<div class="mlabel">Module</div><div class="mgrid">{options}</div></div>'
+            f'<div class="mf"><button class="btn" data-fermer-modal="1">Annuler</button>'
+            f'<button class="btn primary" id="nn-creer" disabled>{MQ.icon("plus")}Créer la note</button></div></div></div>')
+
+
+def icones_bureau() -> str:
+    """Les icônes que les écrans du bureau posent eux-mêmes — celles de ICONES_BUREAU et le pictogramme de chaque module —,
+    déposées dans la page, inertes (<template>) : js/vues_bureau.js les y lit. Rien n'est chargé d'ailleurs (R5)."""
+    return ('<div id="icones" hidden>' + "".join(f'<template data-icone="{n}">{MQ.icon(n)}</template>' for n in ICONES_BUREAU)
+            + "".join(f'<template data-icone-module="{k}">{MQ.MOD[k]}</template>' for k in PAGES) + '</div>')
+
+
+def page_projets() -> str:
+    """La page PROJETS (docs/site/PROJETS_EQUIPE.md § 4.2, la maquette site/maquettes/pages/projets.html) : l'ARBRE des
+    projets et de leurs sous-projets à gauche — son champ cherche et crée —, les NOTES du projet choisi au centre, son
+    ACTIVITÉ à droite. Un gabarit vide : js/ecran_projets.js le remplit depuis les notes et le registre de ce navigateur."""
+    corps = (f'<body data-page="projets"><div class="app rail">{rail("projets")}<main class="main">'
+             # UNE barre pour les trois formats (R1) : au téléphone, la charte cache « .top » — celle-ci reste (css/bureau.css,
+             # « .top.bu-top »), avec le logo et le thème à la place de l'en-tête « .mhead » : le fil d'Ariane, l'import d'un
+             # .stab et « Nouvelle note » y sont donc atteignables aussi au téléphone
+             f'<header class="top bu-top"><div class="logo bu-tel">{MQ.LOGO}</div><div class="crumbs" id="pj-fil">{MQ.icon("folder")}<b>Projets</b></div>'
+             f'<span class="spacer"></span>'
+             f'<label class="btn" for="importer" title="Importer un fichier .stab">{MQ.icon("upload")}<span class="lbl">Importer .stab</span></label>'
+             f'<input type="file" id="importer" accept=".stab,.json" hidden>'
+             f'<button type="button" class="btn primary" id="ouvrir-nouvelle" title="Nouvelle note">{MQ.icon("plus")}<span class="lbl">Nouvelle note</span></button>'
+             f'<button type="button" class="btn icon ghost bu-tel" data-theme-toggle="1" title="Thème clair ou sombre">{MQ.icon("sun-moon")}</button></header>'
+             f'<div class="proj bu-proj" id="pj" data-vue="arbre">'
+             f'<aside class="tree" id="pj-arbre">{champ_creer("pj-champ", "Chercher ou créer un projet", "search")}'
+             f'<nav id="pj-noeuds" aria-label="Les projets et leurs sous-projets"></nav></aside>'
+             f'<section class="list" id="pj-liste" aria-live="polite"></section>'
+             f'<aside class="drawer" id="pj-volet"></aside></div>{mnav("projets")}</main></div>{fenetre_nouvelle_note()}'
+             f'{icones_bureau()}<div class="toast" id="toast" role="status" hidden></div>'
+             f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
+    return tete("Projets · Stab Méthodes", FEUILLE_BUREAU) + corps
+
+
+def page_equipe() -> str:
+    """La page ÉQUIPE (docs/site/PROJETS_EQUIPE.md § 4.3, la maquette site/maquettes/pages/equipe.html) : la personne du
+    poste (son nom, son e-mail, ses initiales dans leur pastille), les membres, et le journal d'activité entier. Un gabarit
+    vide : js/ecran_equipe.js le remplit depuis ce navigateur."""
+    corps = (f'<body data-page="equipe"><div class="app rail">{rail("equipe")}<main class="main">'
+             f'<header class="top"><div class="crumbs">{MQ.icon("users")}<b>Équipe du bureau</b></div><span class="spacer"></span>'
+             f'<span class="muted bu-nb" id="eq-nb"></span></header>{mhead("Équipe")}'
+             f'<div class="team bu-team"><section class="tmain">'
+             f'<div class="card" id="eq-moi"></div>'
+             f'<div class="card flush"><div class="sechead"><div class="h3" id="eq-titre">Membres</div></div><div id="eq-membres"></div>'
+             f'<form class="invrow bu-ajout" id="eq-form" autocomplete="off">'
+             f'<div class="field text">{MQ.icon("user-plus")}<input id="eq-nom" maxlength="80" placeholder="Prénom et nom" aria-label="Prénom et nom du nouveau membre"></div>'
+             f'<div class="field text bu-ini"><input id="eq-ini" maxlength="5" placeholder="Initiales" aria-label="Initiales (1 à 5)" autocapitalize="characters"></div>'
+             f'<div class="field text">{MQ.icon("mail")}<input id="eq-email" type="email" maxlength="120" placeholder="adresse e-mail (facultatif)" aria-label="Adresse e-mail"></div>'
+             f'<button type="submit" class="btn primary">{MQ.icon("plus")}Ajouter</button></form>'
+             f'<p class="hint bu-erreur" id="eq-erreur" role="alert" hidden></p></div>'
+             f'<div class="card note-locale"><div class="h3">Où est enregistrée l\'équipe ?</div><p>Pour l\'instant, l\'équipe et le journal '
+             f'sont enregistrés <b>dans ce navigateur</b>, comme les notes : chaque poste a les siens. Les initiales d\'une personne '
+             f'voyagent avec ses notes (le fichier <b>.stab</b> les porte). Les invitations par e-mail, les rôles et le partage entre '
+             f'les postes viendront avec les comptes du bureau.</p></div>'
+             f'</section><aside class="bu-journal"><div class="card"><div class="sechead"><div class="h3">Journal d\'activité</div>'
+             f'<span id="eq-filtre"></span></div><div id="eq-journal"></div></div></aside></div>{mnav("equipe")}</main></div>'
+             f'{icones_bureau()}<div class="toast" id="toast" role="status" hidden></div>'
+             f'{SECOURS}{SCRIPT_APP}</body>\n</html>\n')
+    return tete("Équipe · Stab Méthodes", FEUILLE_BUREAU) + corps
 
 
 def _bouton(icone: str, libelle: str, attrs: str, cls: str = "btn") -> str:
@@ -686,8 +782,10 @@ def fenetre_rangement() -> str:
             '<form class="et-rg-carte" id="et-rg-form"><div class="et-rg-h"><b id="et-rg-titre">Enregistrer comme note</b>'
             f'<button type="button" class="btn icon ghost" data-fermer-rangement="1" aria-label="Fermer">{MQ.icon("x")}</button></div>'
             '<label class="et-rg-l">Nom de la note<input id="et-rg-nom" class="field-in" autocomplete="off" spellcheck="false" maxlength="200"></label>'
-            '<label class="et-rg-l">Chantier<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans chantier"></label>'
-            '<label class="et-rg-l">Dossier<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Sans dossier"></label>'
+            # (11/11/2026) le PROJET et le SOUS-PROJET — les mêmes mots, les mêmes listes et la même longueur que la page des
+            # projets et « Nouvelle note » (c'était « Chantier » et « Dossier » : les champs des notes gardent ces noms)
+            '<label class="et-rg-l">Projet<input id="et-rg-chantier" list="et-rg-chantiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="80" placeholder="Sans projet"></label>'
+            '<label class="et-rg-l">Sous-projet<input id="et-rg-dossier" list="et-rg-dossiers" class="field-in" autocomplete="off" spellcheck="false" maxlength="80" placeholder="Sans sous-projet"></label>'
             '<datalist id="et-rg-chantiers"></datalist><datalist id="et-rg-dossiers"></datalist>'
             '<p class="et-rg-aide">La note est enregistrée dans ce navigateur ; « Exporter .stab » en garde une copie en fichier.</p>'
             '<div class="et-rg-b"><button type="button" class="btn ghost" data-fermer-rangement="1">Annuler</button>'
@@ -1030,8 +1128,9 @@ def fichiers_publies(dossier: str) -> list:
 
 
 def pages_rendues() -> dict:
-    """Les 21 pages du site, telles que les gabarits les rendent (version VIDE) : {fichier publié: HTML}."""
-    pages = {"index.html": page_accueil()}
+    """Les pages du site, telles que les gabarits les rendent (version VIDE) : {fichier publié: HTML} — l'accueil, les
+    deux pages du bureau (projets, équipe), une par module, une par bibliothèque."""
+    pages = {"index.html": page_accueil(), PAGES_BUREAU["projets"]: page_projets(), PAGES_BUREAU["equipe"]: page_equipe()}
     pages.update({fichier: page(cle) for cle, fichier in PAGES.items()})
     pages.update({fichier: page_bibliotheque(cle) for cle, fichier in PAGES_BIBLIOTHEQUES.items()})
     return pages
@@ -1115,7 +1214,7 @@ if __name__ == "__main__":
     a = ap.parse_args()
     mods = [m for m in a.modules.split(",") if m] or None
     m = construire(a.dossier, mods)
-    print(f"{os.path.relpath(os.path.abspath(a.dossier), RACINE)} : {len(PAGES) + 1 + len(PAGES_BIBLIOTHEQUES)} pages ({', '.join(PAGES)} ; "
-          f"bibliothèques : {', '.join(PAGES_BIBLIOTHEQUES)}), paquet du moteur "
+    print(f"{os.path.relpath(os.path.abspath(a.dossier), RACINE)} : {len(PAGES) + 1 + len(PAGES_BUREAU) + len(PAGES_BIBLIOTHEQUES)} pages ({', '.join(PAGES)} ; "
+          f"bureau : {', '.join(PAGES_BUREAU)} ; bibliothèques : {', '.join(PAGES_BIBLIOTHEQUES)}), paquet du moteur "
           f"{len(m['fichiers'])} fichiers, {os.path.getsize(os.path.join(a.dossier, 'moteur', 'moteur.zip')) // 1024} ko (sha256 {m['sha256'][:12]}), "
           f"{len(m['apercus'])} aperçus, version {m['version']}")

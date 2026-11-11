@@ -171,8 +171,12 @@ D'autres changements de noms suivront ; cette liste est la référence.
 - **En ligne** : Cloudflare Pages relié au dépôt GitHub (dossier `site/web`, sans construction), le domaine
   stab-methodes.be, et Cloudflare Access pour le garder privé (les adresses invitées reçoivent un code par e-mail)
   en attendant les comptes. Les étapes : `site/web/README.md`.
-- **Reste à faire** : la note PDF sur le site, les comptes, les projets, l'équipe, les paramètres du bureau, puis
-  les autres modules, chacun avec son moteur extrait de l'écran Streamlit.
+- **Projets, équipe, journal d'activité** (11/11/2026) : les pages Projets et Équipe existent, l'accueil les porte —
+  un projet est le nom d'un chantier, avec ses sous-projets ; chacun a ses initiales (1 à 5) dans une pastille, qui
+  signent ses notes et ses lignes du journal. Tout est enregistré **dans le navigateur**, comme les notes : le partage
+  entre les postes, les invitations et les rôles viendront avec les comptes (`docs/site/PROJETS_EQUIPE.md`).
+- **Reste à faire** : les comptes (le partage des projets et de l'équipe entre les postes, les droits), les paramètres
+  du bureau, les indices et le rapport assemblé d'un projet.
 
 ## 10 bis · Téléphone et tablette (07/11/2026)
 

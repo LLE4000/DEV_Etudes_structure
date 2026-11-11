@@ -19,6 +19,15 @@ export function cablerRail() {
   });
 }
 
+// L'entrée « bientôt » de la barre (Paramètres) : elle viendra avec les comptes du bureau ; d'ici là, un clic le dit.
+// Chaque écran du bureau (l'accueil, les projets, l'équipe) la câble avec le signal de son montage.
+export function cablerBientot(signal) {
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-bientot]");
+    if (b) { ev.preventDefault(); toast("Bientôt : avec les comptes du bureau."); }
+  }, { signal });
+}
+
 let minuterie = null;
 // les messages RETENUS pendant la fermeture d'un écran (js/app.js, C1) : le champ qui perd le focus à la fermeture peut
 // dire « Valeur refusée » dans un corps qui va être remplacé ; app.js les retient, puis les rend à l'écran suivant

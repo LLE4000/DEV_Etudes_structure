@@ -230,11 +230,11 @@ VERSION = SW.version_site(WEB)
 _PAGES_RENDUES = SW.pages_rendues()
 for nom, html in [("js/modules.js", SW.modules_js())] + [(n, SW.poser_version(h, VERSION)) for n, h in _PAGES_RENDUES.items()]:
     chk(f"{nom} est celle que le générateur écrit", os.path.exists(os.path.join(WEB, nom)) and open(os.path.join(WEB, nom), encoding="utf-8").read() == html)
-# la version (S4-D3, C7) : la MÊME balise sur les 22 pages (21 + la Bibliothèque Autres, 11/11/2026), la valeur recalculée,
+# la version (S4-D3, C7) : la MÊME balise sur les 24 pages (21 + la Bibliothèque Autres, puis Projets et Équipe, 11/11/2026), la valeur recalculée,
 # la même dans le manifeste
 _versions = {n: re.findall(r'<meta name="stab-version" content="([^"]*)">', open(os.path.join(WEB, n), encoding="utf-8").read()) for n in _PAGES_RENDUES}
 chk(f"même stab-version sur les {len(_PAGES_RENDUES)} pages (une balise chacune, dans <head>), égale à la version recalculée et à celle du manifeste",
-    len(_PAGES_RENDUES) == 22 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
+    len(_PAGES_RENDUES) == 24 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
     and all(open(os.path.join(WEB, n), encoding="utf-8").read().index('name="stab-version"') < open(os.path.join(WEB, n), encoding="utf-8").read().index("</head>")
             for n in _PAGES_RENDUES), ({n: v for n, v in _versions.items() if v != [VERSION]}, VERSION, man.get("version")))
 # un seul script de module, js/app.js, sur chaque page ; js/theme.js reste le seul script classique, en tête (S4-D1)
@@ -254,7 +254,7 @@ for n in _PAGES_RENDUES:
     _secours[n] = (_h.count('class="secours-demarrage"') == 1 and _h.endswith(SW.SECOURS + SW.SCRIPT_APP + "</body>\n</html>\n")
                    and _tete.count(SW.STYLE_SECOURS) == 1 and _h.count("<style>") == 1)
 chk(f"chaque page ({len(_secours)}) : le message de secours une fois, juste avant js/app.js, et sa feuille en ligne une fois dans <head>",
-    len(_secours) == 22 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
+    len(_secours) == 24 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
 chk(f"le message de secours : caché tant que l'application démarre (body[data-montage] … display:none), visible au bout de {SW.SECOURS_S} s "
     "par une animation sans script (opacity et visibility), fixé dans l'écran, un lien « Recharger la page » vers la page même",
     "body[data-montage] .secours-demarrage{display:none}" in SW.STYLE_SECOURS
@@ -276,9 +276,12 @@ _sorte = {"index.html": {"data-page": "accueil"}}
 _sorte.update({SW.PAGES[k]: ({"data-page": "redirection", "data-module": k, "data-vers": SW.ADRESSES[SW.REDIRECTIONS[k]]} if k in SW.REDIRECTIONS
                              else {"data-page": "module", "data-module": k}) for k in SW.PAGES})
 _sorte.update({SW.PAGES_BIBLIOTHEQUES[b]: {"data-page": "bibliotheque", "data-bibliotheque": b, "data-titre": SW.BIBLIOTHEQUES[b][1]} for b in SW.BIBLIOTHEQUES})
-chk("chaque page dit sa sorte au corps : accueil (data-page=accueil, rien d'autre), établi (module + clé), bibliothèque (clé + titre), redirection (clé + data-vers)",
+# (11/11/2026) les pages du BUREAU — les projets, l'équipe : leur sorte EST leur clé, rien d'autre au corps
+_sorte.update({SW.PAGES_BUREAU[k]: {"data-page": k} for k in SW.PAGES_BUREAU})
+chk("chaque page dit sa sorte au corps : accueil (data-page=accueil, rien d'autre), projets et équipe (leur clé, rien d'autre), établi (module + clé), "
+    "bibliothèque (clé + titre), redirection (clé + data-vers)",
     sorted(_sorte) == sorted(_PAGES_RENDUES) and all(_sorte[n].items() <= _corps_de[n].items() for n in _PAGES_RENDUES)
-    and _corps_de["index.html"] == _sorte["index.html"],
+    and all(_corps_de[n] == _sorte[n] for n in ["index.html", *SW.PAGES_BUREAU.values()]),
     {n: _corps_de[n] for n in _PAGES_RENDUES if not _sorte.get(n, {"?": 1}).items() <= _corps_de[n].items()})
 # les ÉTABLIS : les pages des modules, moins celles qui ne sont qu'une redirection (REDIRECTIONS : un module absorbé par
 # un autre, docs/site/DALLES_FUSION.md § 2.4) — ce qui suit décrit un établi, et ne s'applique pas à une redirection
@@ -958,8 +961,10 @@ chk("notes.js : si la copie échoue, RIEN n'est écrit — ecrire et supprimer r
     and B.get("cles") == ["stab.notes.v1"], B)
 chk("notes.js : autre chose qu'un objet de notes (un tableau JSON) est illisible aussi : copié avant d'écrire",
     JN.get("tableau") == {"etat": "illisible", "ok": True, "survit": True}, JN.get("tableau"))
-chk("notes.js : une mémoire absente s'écrit sans copie ; une mémoire lue garde ses 30 notes et n'est pas copiée",
-    (JN.get("absente") or {}).get("etat") == "absente" and JN["absente"].get("ok") is True and JN["absente"].get("cles") == ["stab.notes.v1"]
+# (11/11/2026 : la note créée s'inscrit aussi au JOURNAL d'activité, sous sa propre clé — aucune copie « .illisible. »)
+chk("notes.js : une mémoire absente s'écrit sans copie (les notes, et la ligne du journal sous sa clé) ; une mémoire lue garde ses 30 notes et n'est pas copiée",
+    (JN.get("absente") or {}).get("etat") == "absente" and JN["absente"].get("ok") is True
+    and sorted(JN["absente"].get("cles") or []) == ["stab.journal.v1", "stab.notes.v1"]
     and JN.get("lue") == {"etat": "lue", "ok": True, "notes": 31, "copies": 0}, (JN.get("absente"), JN.get("lue")))
 chk("notes.js : écrire sans dater (rouvrir une note sans la modifier) garde sa date ; une modification l'avance",
     JN.get("date") == {"ok": True, "ok2": True, "garde": True, "avance": True}, JN.get("date"))
@@ -968,9 +973,12 @@ chk("notes.js : stockage plein → ecrire rend false, raison « plein », la mé
     (JN.get("plein") or {}).get("ok") is False and (JN["plein"].get("b") or {}).get("raison") == "plein" and JN["plein"].get("intacte") is True
     and "pas pu être enregistrée" in str(JN.get("importer")) and "plein" in str(JN.get("importer")), (JN.get("plein"), JN.get("importer")))
 NOTES_JS = open(os.path.join(WEB, "js", "notes.js"), encoding="utf-8").read()
-chk("notes.js : toute écriture de la mémoire passe par changer() (une seule porte : ecrire et supprimer)",
-    len(re.findall(r"localStorage\.setItem\(CLE", NOTES_JS)) == 1 and "return changer(" in NOTES_JS
-    and len(re.findall(r"return changer\(", NOTES_JS)) == 2, re.findall(r"localStorage\.setItem\([^)]*\)", NOTES_JS))
+# (11/11/2026 : trois gestes passent la porte — ecrire, supprimer, et reclasser, qui renomme un projet sur toutes ses
+# notes ; chacun garde le verdict de changer() pour inscrire le geste au journal SEULEMENT s'il est écrit)
+chk("notes.js : toute écriture de la mémoire passe par changer() (une seule porte : ecrire, supprimer, reclasser)",
+    len(re.findall(r"localStorage\.setItem\(CLE", NOTES_JS)) == 1 and len(re.findall(r"\bconst ok = changer\(", NOTES_JS)) == 3
+    and len(re.findall(r"(?<!function )\bchanger\(", NOTES_JS)) == 3 and len(re.findall(r"localStorage\.setItem\(", NOTES_JS)) == 2,
+    (re.findall(r"localStorage\.setItem\([^)]*\)", NOTES_JS), len(re.findall(r"(?<!function )\bchanger\(", NOTES_JS))))
 
 # 6. la politique de sécurité (_headers) et ce qui la rend possible : aucun script écrit dans une page, aucun
 # gestionnaire « on…= » dans les pages ni dans les fragments que Python rend (la politique les bloquerait : un bouton

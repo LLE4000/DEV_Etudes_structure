@@ -99,7 +99,8 @@ const R = "http://x.test/";
 const cas = {};
 for (const u of ["./", "", "index.html", "index", "poutre", "poutre.html", "poutre?note=n1", "predalle?note=n1#x", "bibliotheque-beton",
                  "bibliotheque-acier?rubrique=profils", "garde-corps", "inconnu", "js/app.js", "moteur/manifeste.json",
-                 "http://autre.test/poutre", "sous/poutre"]) cas[u] = app.route(u, R);
+                 "http://autre.test/poutre", "sous/poutre", "projets", "projets.html", "projets?p=R%C3%A9alex&s=Dalle", "equipe", "equipe.html",
+                 "sous/projets"]) cas[u] = app.route(u, R);
 const pages = {};
 for (const [k, m] of Object.entries(mods.MODULES)) pages[k] = app.route(m.page, R);
 const biblios = {};
@@ -127,7 +128,11 @@ def juger_route(d):
         fautes.append("bibliotheque-beton")
     if c["bibliotheque-acier?rubrique=profils"]["cle"] != "acier" or c["garde-corps"]["cle"] != "garde_corps":
         fautes.append("acier / garde-corps")
-    for u in ("inconnu", "js/app.js", "moteur/manifeste.json", "http://autre.test/poutre", "sous/poutre"):
+    # les pages du BUREAU (11/11/2026) : les projets et l'équipe, des écrans sans clé
+    for u, sorte in (("projets", "projets"), ("projets.html", "projets"), ("projets?p=R%C3%A9alex&s=Dalle", "projets"), ("equipe", "equipe"), ("equipe.html", "equipe")):
+        if c[u] != {"sorte": sorte, "cle": None, "page": sorte, "vers": None}:
+            fautes.append((u, c[u]))
+    for u in ("inconnu", "js/app.js", "moteur/manifeste.json", "http://autre.test/poutre", "sous/poutre", "sous/projets"):
         if c[u]["sorte"] is not None:
             fautes.append(u)
     for k, m in mods.items():
@@ -141,9 +146,12 @@ def juger_route(d):
 
 
 ok, info = juger_route(JS)
-chk(f"route : les {info if ok else '?'} pages du registre mènent à leur module (predalle : une redirection vers dalle), les deux "
-    "bibliothèques à la leur, l'accueil à « ./ », « index », « index.html » ; une autre origine, un sous-dossier, une adresse "
-    "inconnue ne sont pas des routes", ok, info)
+chk(f"route : les {info if ok else '?'} pages du registre mènent à leur module (predalle : une redirection vers dalle), les "
+    "bibliothèques à la leur, l'accueil à « ./ », « index », « index.html », les projets et l'équipe à leur écran (« projets », "
+    "« equipe », avec ou sans .html, avec leurs paramètres) ; une autre origine, un sous-dossier, une adresse inconnue ne sont pas "
+    "des routes", ok, info)
+MUTATIONS.append(("route : les pages du bureau oubliées (projets, equipe)", lambda: not juger_route(copie_mutee([(
+    "app.js", 'for (const k of PAGES_BUREAU) PAGES.set(k, { sorte: k, cle: null, vers: null });', '')]))[0]))
 MUTATIONS.append(("route : la redirection oubliée (predalle traité comme un établi)", lambda: not juger_route(copie_mutee([(
     "app.js", 'PAGES.set(m.page, m.vers ? { sorte: "redirection", cle: k, vers: MODULES[m.vers].page } : { sorte: "module", cle: k, vers: null });',
     'PAGES.set(m.page, { sorte: "module", cle: k, vers: null });')]))[0]))
@@ -343,7 +351,8 @@ for (const n of ["matchMedia", "requestAnimationFrame", "localStorage", "session
 }
 globalThis.Worker = class { constructor() { travailleurs++; } };
 const res = {};
-for (const [f, e] of [["etabli.js", "ouvrirEtabli"], ["accueil.js", "ouvrirAccueil"], ["bibliotheque.js", "ouvrirBibliotheque"]]) {
+for (const [f, e] of [["etabli.js", "ouvrirEtabli"], ["accueil.js", "ouvrirAccueil"], ["bibliotheque.js", "ouvrirBibliotheque"],
+                      ["ecran_projets.js", "ouvrirProjets"], ["ecran_equipe.js", "ouvrirEquipe"]]) {
   try { const m = await import(base + f); res[f] = { ok: typeof m[e] === "function" && m[e].length === 2, exports: Object.keys(m) }; }
   catch (x) { res[f] = { ok: false, erreur: String(x && x.message || x) }; }
 }
@@ -359,12 +368,12 @@ def juger_import(d):
     r = node(ESSAI_IMPORT, url_js(d))
     if "erreur" in r:
         return False, r
-    ok = all(v["ok"] for v in r["res"].values()) and not r["touches"] and not r["touchesApp"] and r["travailleurs"] == 0 and len(r["res"]) == 4
+    ok = all(v["ok"] for v in r["res"].values()) and not r["touches"] and not r["touchesApp"] and r["travailleurs"] == 0 and len(r["res"]) == 6
     return ok, r
 
 
 ok, info = juger_import(JS)
-chk("etabli.js, accueil.js, bibliotheque.js s'importent dans node SANS document : ni erreur, ni lecture de document, matchMedia, "
+chk("etabli.js, accueil.js, bibliotheque.js, ecran_projets.js, ecran_equipe.js s'importent dans node SANS document : ni erreur, ni lecture de document, matchMedia, "
     "requestAnimationFrame, localStorage, sessionStorage ou history, ni travailleur ; chacun exporte son ouvrirX(hote, ctx) — et "
     "app.js s'importe sans rien démarrer", ok, info)
 MUTATIONS.append(("import : l'accueil câble le rail à son chargement (l'effet d'avant)", lambda: not juger_import(copie_mutee([(
@@ -566,7 +575,9 @@ def code_seul(src):
 INTERDIT = re.compile(r"\bhistory\s*\.|\blocation\s*=(?!=)|\blocation\s*\.\s*(href|search|pathname|hash)\s*=(?!=)|\blocation\s*\.\s*(assign|replace)\s*\("
                       r"|\bdocument\s*\.\s*location\b|\bdocument\s*\.\s*title\s*=(?!=)")
 ECRANS = ("etabli.js", "accueil.js", "bibliotheque.js", "compact.js", "toile.js", "rangement.js", "biblio.js", "biblio_note.js",
-          "meteo.js", "notes.js", "commun.js", "modules.js", "moteur.js")
+          "meteo.js", "notes.js", "commun.js", "modules.js", "moteur.js",
+          # le bureau (11/11/2026) : ses écrans, ce qu'ils partagent, ses données
+          "ecran_projets.js", "ecran_equipe.js", "vues_bureau.js", "nouvelle.js", "projets.js", "equipe.js", "journal.js", "memoire.js")
 
 
 def juger_statique(d):
@@ -608,12 +619,16 @@ chk("history., location.(href|search|pathname|hash) =, location =, location.assi
     "pour « Recharger » (commun.js) ; cablerRail() appelé une seule fois, par app.js ; theme.js n'en a rien", ok, info)
 for nom, f, avant, apres in [
     ("la bibliothèque réécrit l'adresse elle-même", "bibliotheque.js", '      ctx.adresse(`?${u}`);', '      history.replaceState(null, "", `?${u}`);'),
-    ("l'accueil navigue par location.href", "accueil.js", "    ctx.naviguer(`${N.pageDe(module)}${ou}`);", "    location.href = `${N.pageDe(module)}${ou}`;"),
+    ("« Nouvelle note » navigue par location.href", "nouvelle.js", "    naviguer(`${N.pageDe(module)}${ou}`);", "    location.href = `${N.pageDe(module)}${ou}`;"),
+    ("la page des projets navigue par location.href", "ecran_projets.js", "      ctx.naviguer(adresseDe(r.nom));", "      location.href = adresseDe(r.nom);"),
+    ("la page des projets réécrit l'adresse elle-même", "ecran_projets.js", '      ctx.adresse(adresseDe(r.nom, s ? s.nom : ""));',
+     '      history.replaceState(null, "", adresseDe(r.nom, s ? s.nom : ""));'),
+    ("l'équipe lit l'origine de la page (location)", "equipe.js", "const r = await fetch(ADRESSE_IDENTITE, {", "const r = await fetch(new URL(ADRESSE_IDENTITE, location.origin), {"),
     ("l'établi écrit le titre", "etabli.js", "      ctx.titre(`${note.nom || N.MODULES[MODULE].nom} · Stab Méthodes`);",
      "      document.title = `${note.nom || N.MODULES[MODULE].nom} · Stab Méthodes`;"),
     ("l'établi relit location.search", "etabli.js", "    const q = ctx.params;", "    const q = new URLSearchParams(location.search);"),
-    ("un écran recâble le rail", "accueil.js", 'import { esc, toast, texteTaux, telecharger } from "./commun.js";',
-     'import { esc, toast, texteTaux, telecharger, cablerRail } from "./commun.js";\nexport const _r = () => cablerRail();'),
+    ("un écran recâble le rail", "accueil.js", 'import { esc, toast, texteTaux, telecharger, cablerBientot } from "./commun.js";',
+     'import { esc, toast, texteTaux, telecharger, cablerBientot, cablerRail } from "./commun.js";\nexport const _r = () => cablerRail();'),
 ]:
     MUTATIONS.append((f"statique : {nom}", (lambda f=f, a=avant, b=apres: not juger_statique(copie_mutee([(f, a, b)]))[0])))
 
@@ -641,7 +656,8 @@ def appels(src, motif):
     return out
 
 
-SIGNALES = ("etabli.js", "accueil.js", "bibliotheque.js", "compact.js", "toile.js", "rangement.js", "biblio.js", "biblio_note.js")
+SIGNALES = ("etabli.js", "accueil.js", "bibliotheque.js", "compact.js", "toile.js", "rangement.js", "biblio.js", "biblio_note.js",
+            "ecran_projets.js", "ecran_equipe.js", "vues_bureau.js", "nouvelle.js")
 
 
 def juger_signal(d):
@@ -707,6 +723,8 @@ DOUBLURES = {
     "etabli.js": "// doublure du banc (tests/test_app_navigation.py)\nexport function ouvrirEtabli(hote, ctx) { return globalThis.__banc.ouvrir(\"module\", hote, ctx); }\n",
     "accueil.js": "// doublure du banc\nexport function ouvrirAccueil(hote, ctx) { return globalThis.__banc.ouvrir(\"accueil\", hote, ctx); }\n",
     "bibliotheque.js": "// doublure du banc\nexport function ouvrirBibliotheque(hote, ctx) { return globalThis.__banc.ouvrir(\"bibliotheque\", hote, ctx); }\n",
+    "ecran_projets.js": "// doublure du banc\nexport function ouvrirProjets(hote, ctx) { return globalThis.__banc.ouvrir(\"projets\", hote, ctx); }\n",
+    "ecran_equipe.js": "// doublure du banc\nexport function ouvrirEquipe(hote, ctx) { return globalThis.__banc.ouvrir(\"equipe\", hote, ctx); }\n",
     "moteur.js": ("// doublure du banc\nexport class EcranFerme extends Error {}\n"
                   "export function moteurPartage() { return globalThis.__banc.moteur; }\n"
                   "export function moteurExiste() { return !!globalThis.__banc.moteurExiste; }\n"),
@@ -1304,7 +1322,7 @@ MUTATIONS_BANC = [
     ("contrat : plus de défilement rendu par l'application à 1,5 s", "contrat_defilement",
      "  const minuterie = setTimeout(() => rendreDefilement(etat), DEFILEMENT_MS);", "  const minuterie = 0;"),
     ("contrat : l'accueil attend 1,5 s comme un établi", "contrat_defilement",
-     "  if (etat.sorte === \"accueil\") { requestAnimationFrame(() => { if (courant === etat) scrollTo(0, y); }); return; }\n", ""),
+     "  if (SANS_MOTEUR.has(etat.sorte)) { requestAnimationFrame(() => { if (courant === etat) scrollTo(0, y); }); return; }\n", ""),
     ("contrat : garderEtatEntree sans contrôle du propriétaire", "contrat_etat_entree",
      "  if (!o || typeof o !== \"object\" || proprietaires.get(etat.cle) !== etat.m) return false;", "  if (!o || typeof o !== \"object\") return false;"),
     ("contrat : etatEntree jamais lu", "contrat_etat_entree", "    etatEntree: { ...ecran },", "    etatEntree: {},"),
