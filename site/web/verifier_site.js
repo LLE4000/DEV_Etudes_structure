@@ -622,10 +622,19 @@ const principal = async () => {
         await capture(`${cle}_selecteur`);
         await p.keyboard.press('Escape');
       }
-      // une saisie : le premier nombre modifiable du cadre Données, augmenté de 10 %
+      // une saisie : le premier nombre modifiable du cadre Données, augmenté de 10 %. Sur l'établi compact ce champ peut
+      // être dans une rubrique REPLIÉE (la maturité : la rubrique 1 « Béton » n'a que des menus, une date et une heure ;
+      // le premier nombre, la température, est dans la rubrique 2) : on l'ouvre d'abord, comme le fait l'ingénieur.
       const champ = await p.$('#donnees input[data-sorte="nombre"]:not([disabled])');
       if (champ) {
         const chemin = await champ.getAttribute('data-chemin');
+        const rubrique = await champ.evaluate((e) => { const s = e.closest('#donnees .sec[data-sec]'); return s && !s.classList.contains('open') ? s.dataset.sec : null; });
+        if (rubrique) {
+          await p.click(`#donnees .sec[data-sec="${rubrique}"] > .sechd`);
+          await p.waitForTimeout(150);
+          verif(`${cle} : la rubrique repliée qui porte le premier nombre (${chemin}) s'ouvre d'un clic sur son titre, le champ se voit`,
+            await champ.evaluate((e) => e.isConnected && e.checkVisibility({ visibilityProperty: true, opacityProperty: true })), rubrique);
+        }
         const avant = (await champ.inputValue()).replace(/[\s  ]/g, '').replace(',', '.');
         const x = Number(avant);
         const neuf = Number.isFinite(x) && x !== 0 ? String(Math.round(x * 1.1 * 1000) / 1000).replace('.', ',') : '1';
