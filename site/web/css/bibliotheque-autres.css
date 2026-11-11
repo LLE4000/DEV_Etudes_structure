@@ -205,6 +205,11 @@
 @media (max-width: 1200px) and (min-width: 901px) {
   .rdm { grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); }
   .rdm-g, .rdm-d { padding: 10px; }
+  /* la colonne des résultats fait 318 px : la valeur et la remarque passent à la ligne plutôt que de sortir de la colonne
+     (Sections : le tableau dépassait de 132 px, la remarque coupée et le cadre défilant en largeur — 11/11/2026) */
+  .rdm-res td.v { white-space: normal; }
+  .rdm-res td.p { white-space: normal; min-width: 66px; }            /* (se coupe aux espaces, jamais au milieu d'un nombre) */
+  .rdm-res th, .rdm-res td { padding-left: 5px; padding-right: 5px; }
 }
 
 /* ---------------------------------------------------------------- tablette en portrait et téléphone : une colonne
@@ -247,7 +252,8 @@
   .rdm-res tr[data-sel] td, .rdm-res tr[data-sel] th { padding-top: 10px; padding-bottom: 10px; }
   /* la remarque de droite (position, coefficient) passe à la ligne plutôt que d'élargir la page (Sections : 482 px pour
      390, le 11/11/2026 — le tableau portait « 63,0 kg/m en acier » sur une ligne insécable) */
-  .rdm-res td.p { white-space: normal; max-width: 92px; overflow-wrap: anywhere; }
+  .rdm-res td.p { white-space: normal; min-width: 66px; }
+  .rdm-res td.v { white-space: normal; }
   .rdm-res th, .rdm-res td { padding-left: 6px; padding-right: 6px; }
   .rdm-bords { grid-template-columns: minmax(0, 1fr); }
   .rdm-el-t { min-height: 44px; }

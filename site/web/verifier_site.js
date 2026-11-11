@@ -4747,7 +4747,25 @@ const principal = async () => {
         .map((e) => [(e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 14), Math.round(e.getBoundingClientRect().height)]);
       const prises = [...document.querySelectorAll('#bib-tableau [data-glisser]')].filter(vis).map((e) => getComputedStyle(e).touchAction);
       const res = document.querySelector('#bib-tableau .rdm-res');
-      return { page: document.documentElement.scrollWidth, hors: hors.slice(0, 6),
+      // ce qui dépasse de SA COLONNE (le dessin, les données, la feuille) sans être dans un cadre qui défile seul : à la
+      // tablette en paysage, le tableau des résultats des Sections sortait de 132 px de sa colonne — la remarque de droite
+      // était coupée et le cadre entier défilait en largeur (vu sur une photo le 11/11/2026 ; « rien ne dépasse de l'écran »
+      // l'excusait, le cadre étant lui-même dans l'écran)
+      const colonne = [];
+      for (const col of document.querySelectorAll('#bib-tableau .rdm > .rdm-g, #bib-tableau .rdm > .rdm-d, #bib-tableau .rdm > .rdm-f')) {
+        const rc = col.getBoundingClientRect();
+        for (const e of col.querySelectorAll('*')) {
+          if (!vis(e)) continue;
+          const r = e.getBoundingClientRect();
+          if (!r.width || r.right <= rc.right + 1) continue;
+          let q = e.parentElement, excuse = false;
+          while (q && q !== col) { if (/auto|scroll/.test(getComputedStyle(q).overflowX)) { excuse = true; break; } q = q.parentElement; }
+          if (!excuse) colonne.push(`${col.className.split(' ')[0]} › ${e.tagName.toLowerCase()}.${String(e.getAttribute('class') || '').slice(0, 18)} +${Math.round(r.right - rc.right)}`);
+        }
+      }
+      const cadre = document.getElementById('bib-tableau');
+      return { page: document.documentElement.scrollWidth, hors: hors.slice(0, 6), colonne: colonne.slice(0, 5), nColonne: colonne.length,
+        defileX: cadre.scrollWidth > cadre.clientWidth + 1,
         svg: [Math.round(rs.width), Math.round(rs.height)], svgVisible: vis(svg), nTextes: textes.length,
         petits: textes.filter((t) => t[1] < 10), basses: cibles.filter((c) => c[1] < 40).slice(0, 6), nCibles: cibles.length,
         prises: prises.length, prisesLibres: prises.filter((t) => t !== 'none').length,
@@ -4772,6 +4790,8 @@ const principal = async () => {
         verif(`bibliothèque autres ${nomF} · ${r} : l'outil s'ouvre, son titre, son adresse (?rubrique=${r}), les trois entrées du menu et la sienne allumée`,
           m.titre.length > 3 && url.searchParams.get('rubrique') === r && m.menu === 3 && m.allume === r, JSON.stringify({ t: m.titre, u: url.search, menu: m.menu, on: m.allume }));
         verif(`bibliothèque autres ${nomF} · ${r} : rien ne dépasse de l'écran (${w} px)`, m.page <= w + 1 && !m.hors.length, JSON.stringify({ page: m.page, hors: m.hors }));
+        verif(`bibliothèque autres ${nomF} · ${r} : rien ne dépasse de sa colonne (dessin, données et résultats, feuille) et le cadre ne défile pas en largeur`,
+          !m.nColonne && !m.defileX, JSON.stringify({ n: m.nColonne, colonne: m.colonne, defileX: m.defileX }));
         verif(`bibliothèque autres ${nomF} · ${r} : le dessin se voit (${m.svg.join(' × ')} px) et chacun de ses ${m.nTextes} textes fait 10 px au moins à l'écran`,
           m.svgVisible && m.svg[0] >= 300 && m.svg[1] >= 150 && m.nTextes >= 4 && !m.petits.length, JSON.stringify({ svg: m.svg, petits: m.petits }));
         verif(`bibliothèque autres ${nomF} · ${r} : les résultats (${m.lignes} lignes) et la feuille de calcul (${m.feuille} lignes) sont là ; la bande dit une valeur (${m.valeur.trim()})`,
