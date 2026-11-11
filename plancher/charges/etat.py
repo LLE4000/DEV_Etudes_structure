@@ -28,10 +28,26 @@ VERSION = 1
 
 
 # ---------------------------------------------------------------- défauts
+# Le type de hourdis d'un cas NEUF (décision de l'ingénieur du 11/11/2026 : « le SP 200 par défaut, c'est le plus
+# banal ») : la variante la MOINS armée du profil — un défaut doit être du côté sûr ; l'ingénieur choisit la sienne au
+# menu. Ses valeurs sont LUES au catalogue (beton/hourdis), jamais recopiées ici ; si le catalogue ne le connaît plus,
+# le cas neuf retombe sur la fiche générique « à renseigner » (tests/test_charges_plancher_moteur.py le dirait).
+TYPE_HOURDIS_DEFAUT = "SP 200-4X · Ergon 2018"
+TYPE_HOURDIS_GENERIQUE = "Hourdis générique 200 · à renseigner"
+
+
 def defaut_plancher() -> Dict:
+    d = _plancher_generique()
+    fiche = BIB.types_hourdis([]).get(TYPE_HOURDIS_DEFAUT)
+    if fiche is not None:
+        appliquer_type_hourdis({"plancher": d}, fiche)
+    return d
+
+
+def _plancher_generique() -> Dict:
     return {
         "type": "hourdis", "sens": 1, "L": 7.2, "q_presentes": 1.0,
-        "hourdis": {"type_cat": "Hourdis générique 200 · à renseigner", "b_element": 1.2, "n_elements": 8, "h": 0.2,
+        "hourdis": {"type_cat": TYPE_HOURDIS_GENERIQUE, "b_element": 1.2, "n_elements": 8, "h": 0.2,
                     "g": 2.9, "E": 36000.0, "I": None, "etat": "clavetes", "M_Rd": 0.0, "V_Rd": 0.0, "nature": "Rd",
                     "M_Rd_chape": None, "V_Rd_chape": None, "e_chape": None, "M_cr": None, "p_loc_adm": None,
                     "chape": {"oui": False, "epaisseur": 0.05, "fck_t": 20.0, "collaborante": True, "fck_exigee": 25.0},
@@ -54,6 +70,15 @@ def nouveau_cas(nom: str) -> Dict:
             "params": defaut_params(), "selection": None, "vue": "plan",
             "options": {"cotes": True, "aires": True, "taux": True},
             "identification": {"projet": "", "partie": "", "indice": "0"}}
+
+
+def cas_neutre(nom: str) -> Dict:
+    """Le cas de RÉFÉRENCE dont un fichier ou une note se complète (clés venues après son enregistrement) : celui d'un
+    cas neuf, mais avec le plancher de la fiche générique — les valeurs neutres, jamais celles du type par défaut
+    (un ancien cas sans « e_chape » hériterait sinon des 50 mm exigés par un fabricant)."""
+    c = nouveau_cas(nom)
+    c["plancher"] = _plancher_generique()
+    return c
 
 
 def nouvel_etat() -> Dict:
@@ -122,9 +147,10 @@ def appliquer_type_hourdis(cas: Dict, fiche: Dict) -> None:
             h[k] = fiche[k]
     if "e_chape" not in fiche:
         h["e_chape"] = None
+    neutre = _plancher_generique()["hourdis"]["chape"]
     for k in CHAMPS_FICHE_CHAPE:
-        if k in fiche:
-            h["chape"][k] = fiche[k]
+        # une fiche sans condition sur la chape (la fiche générique) ne garde pas celle du fabricant précédent
+        h["chape"][k] = fiche[k] if k in fiche else neutre[k]
 
 
 def ajouter_fiche_hourdis(etat: Dict, cas: Dict, nom: str) -> Dict:
@@ -690,7 +716,7 @@ def charger(data: Dict) -> Dict:
     if not base["cas"]:
         base["cas"] = [nouveau_cas("C1")]
     for cas in base["cas"]:
-        ref = nouveau_cas(cas.get("nom", "C"))
+        ref = cas_neutre(cas.get("nom", "C"))       # les valeurs NEUTRES, jamais celles du type d'un cas neuf
         for k, v in ref.items():
             cas.setdefault(k, v)
         for k, v in ref["plancher"].items():

@@ -185,6 +185,46 @@ chk("fiche figée : titre, valeur 113 kN·m, lignes M_Rd / V_Rd,c / avec couche 
     and [li["symbole"] for li in f["lignes"][:3]] == ["M_Rd", "V_Rd,c", "M_Rd"] and "4 Ø 12,5 + 2 Ø 9,3" in json.dumps(f, ensure_ascii=False)
     and "p. 30" in f["sources"][0] and f["extrait"]["case"] == [4, 1], (f["titre"], f["valeur"], f["extrait"]["case"]))
 
+# ================================================================================================ 5 bis. par mètre
+print("\n=== 5 bis · Valeurs par mètre de largeur")
+od = B.consulter("hourdis", {})
+chk("par défaut : par élément (la valeur publiée), et la bande donne l'équivalent par mètre (51 kN·m, soit 42,5 kN·m/m ÷ 1,2 m)",
+    od["params"]["base"] == "element" and valeur(od) == ("51", "kN·m") and "42,5" in od["bande"] and "kN·m/m" in od["bande"]
+    and "1,2" in od["bande"], od["bande"][:300])
+om = B.consulter("hourdis", {"base": "metre"})
+chk("par mètre : la bande passe à 42,5 kN·m/m et rappelle la valeur publiée (51 kN·m par élément de 1,2 m)",
+    valeur(om) == ("42,5", "kN·m/m") and "51" in om["bande"] and "par élément" in om["bande"], (valeur(om), om["bande"][:300]))
+lm = lignes(om)
+chk("par mètre : le tableau des variantes du SP 200 donne M_Rd / 1,2 et V_Rd,c / 1,2 arrondis par défaut (4X : 42,5 / 74,1 / 55,0)",
+    lm["SP 200-4X"][:3] == ["42,5", "74,1", "55,0"] and lm["SP 200-4-2X"][:3] == ["94,1", "78,3", "117,5"], (lm["SP 200-4X"], lm["SP 200-4-2X"]))
+chk("par mètre : les unités du tableau et de la barre suivent (kN·m/m, kN/m)",
+    "kN·m/m" in om["tableau"] and "kN/m" in om["tableau"] and "kN·m/m" in om["barre"] and "kN/m" in om["barre"])
+chk("par élément : aucune unité par mètre dans les en-têtes du tableau des variantes ni dans la barre",
+    "kN·m/m" not in od["tableau"].split("<tbody>")[0] and "kN·m/m" not in od["barre"])
+ome = B.consulter("hourdis", {"base": "metre", "M_Ed": "80", "V_Ed": "70"})
+chk("par mètre, m_Ed 80, v_Ed 70 : ★ sur SP 200-4-2X (94,1 ≥ 80 et 78,3 ≥ 70) — par élément, les mêmes nombres désignent SP 200-3-2X",
+    "SP 200-4-2X" in ome["bande"] and re.search(r'SP 200-4-2X[^<]*<i class="mk">★</i>', ome["tableau"]) is not None
+    and re.search(r'SP 200-3-2X[^<]*<i class="mk">★</i>', B.consulter("hourdis", {"M_Ed": "80", "V_Ed": "70"})["tableau"]) is not None,
+    ome["bande"][:300])
+sels = [json.loads(html.unescape(x)) for x in re.findall(r'data-sel="([^"]+)"', om["tableau"])]
+chk("par mètre : un clic dans le tableau garde la base (chaque data-sel la porte) ; par élément, aucun ne la porte",
+    sels and all(x.get("base") == "metre" for x in sels)
+    and not any("base" in json.loads(html.unescape(x)) for x in re.findall(r'data-sel="([^"]+)"', od["tableau"])), len(sels))
+ogmm = B.consulter("hourdis", {"vue": "gamme", "base": "metre", "M_Ed": "100", "V_Ed": "90"})
+chk("gamme par mètre, m_Ed 100, v_Ed 90 : le plus léger qui suffit est le SPN 200", "<b>SPN 200</b>" in ogmm["bande"], ogmm["bande"][:300])
+fm = B.consulter("hourdis", {"base": "metre", "variante": "SP 200-4-2X"})["fiche"]
+chk("fiche par mètre : valeur 94,1 kN·m/m, et la valeur publiée par élément (113 kN·m) reste écrite",
+    fm["valeur"] == 94.1 and fm["unite"] == "kN·m/m" and "113" in json.dumps(fm, ensure_ascii=False), (fm["valeur"], fm["unite"]))
+chk("base inconnue : par élément, et le message le dit", B.consulter("hourdis", {"base": "pied"})["params"]["base"] == "element"
+    and "base" in (B.consulter("hourdis", {"base": "pied"})["message"] or ""))
+memo_fn = K.par_metre
+try:
+    K.par_metre = lambda cat_, x: None if x is None else round(x / 1.2 + 0.04, 1)
+    chk("mutation « par mètre arrondi vers le haut » : la bande suit le moteur (l'écran ne divise pas lui-même)",
+        valeur(B.consulter("hourdis", {"base": "metre", "variante": "SP 200-3-2X"}))[0] != "76,6")
+finally:
+    K.par_metre = memo_fn
+
 # ================================================================================================ 6. mutations
 print("\n=== 6 · Mutations")
 v = K.variante(cat, "SP 200-4X")[1]
@@ -196,7 +236,8 @@ finally:
     v["M_Rd"] = memo
 orig = K.verifier
 try:
-    K.verifier = lambda p, M_Ed=None, V_Ed=None, avec_chape=False: dict(orig(p, M_Ed, V_Ed, avec_chape), premiere=None)
+    K.verifier = lambda p, M_Ed=None, V_Ed=None, avec_chape=False, cat_par_metre=None: dict(
+        orig(p, M_Ed, V_Ed, avec_chape, cat_par_metre), premiere=None)
     chk("mutation « le moteur ne désigne plus de variante » : l'étoile s'éteint (l'écran ne juge pas lui-même)",
         "★</i>" not in B.consulter("hourdis", {"M_Ed": "100", "V_Ed": "93"})["tableau"])
 finally:

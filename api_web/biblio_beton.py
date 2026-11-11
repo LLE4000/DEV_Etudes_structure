@@ -197,7 +197,8 @@ def _bande(valeur: str, unite: str, symbole: str, nom: str, phrase: str, hote: s
             f'<span class="bib-phr">{phrase}</span></div></div>{av}<div class="bib-bande-b">{boutons}</div>')
 
 
-DECIMALES = {"mm": 1, "MPa": 2, "GPa": 0, "‰": 2, "%": 1, "": 3, "mm²": 0, "mm²/m": 0, "kg/m": 3, "kg/m²": 2, "kg/m³": 0, "cm": 1, "barres/m": 2}
+DECIMALES = {"mm": 1, "MPa": 2, "GPa": 0, "‰": 2, "%": 1, "": 3, "mm²": 0, "mm²/m": 0, "kg/m": 3, "kg/m²": 2, "kg/m³": 0, "cm": 1, "barres/m": 2,
+             "kN·m/m": 1, "kN/m": 1}
 
 
 def _valeur_txt(v, unite: str, nd: int) -> str:

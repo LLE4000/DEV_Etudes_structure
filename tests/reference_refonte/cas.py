@@ -265,7 +265,11 @@ cas("soudures", "soudure discontinue (tronçons)", LIM, [neuf(), mod("params/tro
 cas("soudures", "cas ajouté, configuration C5", LIM, [neuf(), act("ajouter"), mod("config", "C5")], {"elements": 2})
 
 # ====================================================================== charges sur plancher
-cas("plancher", "note neuve (à compléter)", REF, [neuf()], {"niveau": "c"}, selecteurs=True, fichiers=True)
+# Décision de l'ingénieur du 11/11/2026 : un cas neuf part du SP 200-4X du catalogue Ergon (le hourdis « le plus banal ») ;
+# la fiche générique « à renseigner » reste au menu, et c'est elle qui garde l'état « à compléter ».
+cas("plancher", "note neuve (SP 200-4X du catalogue, poids propre seul)", REF, [neuf()], {"niveau": "p"}, selecteurs=True, fichiers=True)
+cas("plancher", "fiche générique à renseigner (à compléter)", LIM,
+    [neuf(), mod("plancher/hourdis/type_cat", "Hourdis générique 200 · à renseigner")], {"niveau": "c"})
 cas("plancher", "exemple hourdis (engin, plateaux, filière)", REF, [calc(PL.exemple("hourdis"))], selecteurs=True)
 cas("plancher", "exemple dalle (télescopique à roues)", REF, [calc(PL.exemple("dalle"))])
 cas("plancher", "exemple prédalle sans chape durcie (refus P-7)", REF, [calc(PL.exemple("predalle"))])

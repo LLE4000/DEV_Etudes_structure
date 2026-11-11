@@ -379,15 +379,15 @@ le VRd […] les dimensions […] ce sera Ergon, mais on mettra aussi des autres
 
 **À confirmer par l'ingénieur** (rien de bloquant) :
 
-1. Un cas neuf de Charges sur plancher démarre toujours sur la fiche générique « à renseigner » : faut-il qu'il démarre
-   sur un type Ergon (lequel) ?
+1. ~~Un cas neuf de Charges sur plancher démarre sur la fiche générique~~ : **tranché le 11/11/2026** — il démarre sur
+   le SP 200-4X du catalogue Ergon (`docs/beton/HOURDIS.md` § 6.1).
 2. V_Rd,c avec couche collaborante n'est pas publié par Ergon : le tranchant est jugé sur la valeur nue (prudent). Si le
    bureau obtient la valeur du fabricant (« sur demande »), elle s'ajoute au catalogue et le moteur la prend.
 3. M_cr, pression locale admissible sur la membrure et courbes de performance (charge utile selon la portée) ne sont pas
    publiés ou pas transcrits : la membrure reste « répartiteur exigé » ou « non vérifiée » (P-5). Les courbes sont-elles
    utiles (elles se transcriraient point par point) ?
-4. La sélection de la bibliothèque prend M_Ed et V_Ed **par élément** (1,2 m), comme le guide : un moment par mètre se
-   multiplie par 1,2. Faut-il une saisie par mètre en plus ?
+4. ~~Saisie par mètre~~ : **fait le 11/11/2026** — la rubrique Hourdis lit et juge « par élément » ou « par mètre »
+   (÷ 1,2 m, arrondi par défaut), et la fenêtre d'un élément de Charges sur plancher donne les deux lectures.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

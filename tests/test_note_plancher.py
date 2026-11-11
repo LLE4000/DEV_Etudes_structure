@@ -78,7 +78,9 @@ ETATS = {
     "hourdis (engin sur plateaux, étançon sur filière, stock)": PL.normaliser(H),
     "trois cas : hourdis, dalle coulée, hourdis NON CONFORME": note_de(H, D, NOK),
     "prédalle sans chape durcie (données manquantes, P-7), puis dalle": note_de(P, D),
-    "neuve (hourdis générique à renseigner)": PL.normaliser(PL.nouvel_etat()),
+    "neuve (le SP 200-4X du catalogue Ergon par défaut)": PL.normaliser(PL.nouvel_etat()),
+    "fiche générique à renseigner (données manquantes)": PL.normaliser(PL._faire(
+        PL.nouvel_etat(), (["plancher", "hourdis", "type_cat"], "Hourdis générique 200 · à renseigner"))),
     "hourdis, V_Rd = 95 kN (tranchant à 90,5 %)": PL.normaliser(PL._faire(copy.deepcopy(H), (["plancher", "hourdis", "V_Rd"], "95"))),
 }
 # l'identification saisie à l'écran, propre à chaque cas

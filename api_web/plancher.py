@@ -172,7 +172,8 @@ def _relire_cas(cas, i: int, etat: Dict) -> Dict:
     ou = f"cas {i + 1}"
     if not isinstance(cas, dict):
         raise ValueError(f"{ou} : dictionnaire attendu")
-    _completer(cas, ET.nouveau_cas(cas.get("nom") if isinstance(cas.get("nom"), str) else f"C{i + 1}"))
+    # (complété des valeurs NEUTRES — ET.cas_neutre —, jamais de celles du type de hourdis d'un cas neuf)
+    _completer(cas, ET.cas_neutre(cas.get("nom") if isinstance(cas.get("nom"), str) else f"C{i + 1}"))
     _completer(cas, {"site": _site_cas()})
     cas["nom"] = _texte(cas["nom"], f"{ou}, nom")
     pl = cas["plancher"]
@@ -1570,9 +1571,18 @@ def _fen_element(cas: Dict, calc: Dict, e: Dict) -> str:
               _fx("V_B", "γ_G·V_G + γ_Q·(V_Q + Σ R_B)", f"{_d(gG)} × {_r(VG)} + {_d(gQ)} × ({_r(VQ)} + {_r(RB)})", _r(e["V_B"], "kN")),
               _fx("V_Ed", "max(V_A ; V_B)", f"max({_r(e['V_A'])} ; {_r(e['V_B'])})", _r(e["V_max"], "kN")),
               _eta("η_V", e["V_max"], e["V_adm"], "kN")]
+    # la même vérification lue PAR MÈTRE de largeur (demande de l'ingénieur du 11/11/2026 : « on utilise souvent ça ») :
+    # efforts et résistances de l'élément divisés par sa largeur b — une projection d'affichage, le taux est le même
+    par_m = [_fx("m_Ed", "M_Ed / b", f"{_r(e['M_max'])} / {_d(b)}", _r(e["M_max"] / b, "kN·m/m")),
+             _fx(f"m_{rd}", f"M_{rd} / b", f"{_r(e['M_adm'])} / {_d(b)}", _r(e["M_adm"] / b, "kN·m/m")),
+             _fx("v_Ed", "V_Ed / b", f"{_r(e['V_max'])} / {_d(b)}", _r(e["V_max"] / b, "kN/m")),
+             _fx(f"v_{rd}", f"V_{rd} / b", f"{_r(e['V_adm'])} / {_d(b)}", _r(e["V_adm"] / b, "kN/m"))]
     detail = (_groupe("Charges réparties", charges, '<div class="ck-t chp-sous">Charges concentrées portées par l\'élément</div>' + tab)
               + _groupe(f"Flexion · section x = {_d(x, 3)} m", flex)
-              + _groupe("Tranchant aux appuis A et B", tranch, f'<div class="hint">{_texte_p3(ptr, pl.repartition_active())}</div>'))
+              + _groupe("Tranchant aux appuis A et B", tranch, f'<div class="hint">{_texte_p3(ptr, pl.repartition_active())}</div>')
+              + _groupe(f"Par mètre de largeur (b = {_d(b)} m)", par_m,
+                        '<div class="hint">Les valeurs du fabricant et le calcul ci-dessus sont par élément ; divisées par la '
+                        'largeur de l\'élément, elles se comparent à un calcul fait par mètre de plancher. Les taux ne changent pas.</div>'))
     fis = next((v for v in vs if v["famille"] == "fissuration"), None)
     if fis:
         detail += _groupe("Fissuration (information, P-11)", [
@@ -2224,7 +2234,9 @@ def exemple(sorte: str = "hourdis") -> Dict:
     e = nouvel_etat()
     gabs = list(ET.gabarits(e))
     if sorte == "hourdis":
-        _faire(e, (["nom"], "C1 levage en rive"), (["plancher", "hourdis", "M_Rd"], "120"), (["plancher", "hourdis", "V_Rd"], "90"),
+        # (la fiche générique d'abord : l'exemple saisit SES résistances, il ne retouche pas un type de catalogue)
+        _faire(e, (["nom"], "C1 levage en rive"), (["plancher", "hourdis", "type_cat"], ET.TYPE_HOURDIS_GENERIQUE),
+               (["plancher", "hourdis", "M_Rd"], "120"), (["plancher", "hourdis", "V_Rd"], "90"),
                (["plancher", "hourdis", "M_cr"], "60"), (["plancher", "hourdis", "p_loc_adm"], "1,5"),
                (["plancher", "hourdis", "parts_annexe_C"], "0:0.5 ; 1:0.25"),
                (["charges", "+engin"], gabs[0]))

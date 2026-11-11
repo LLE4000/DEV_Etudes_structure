@@ -19,6 +19,7 @@ sys.path.insert(0, RACINE)
 from api_web import commun as C  # noqa: E402
 from api_web import plancher as W  # noqa: E402
 from api_web import routeur as R  # noqa: E402
+from beton.hourdis import catalogue as KH  # noqa: E402
 from plancher.charges import diffusion as DF  # noqa: E402
 from plancher.charges import etat as ET  # noqa: E402
 from plancher.charges import methode as MET  # noqa: E402
@@ -48,12 +49,34 @@ def mod(e, chemin, valeur):
 print("\n=== 1. La note neuve ===")
 e0 = W.nouvel_etat()
 ref = ET.nouvel_etat()
-chk("la note neuve est celle de l'écran Streamlit (un cas C1, hourdis générique à renseigner, aucune charge) + les brouillons du site",
+chk("la note neuve est celle de l'écran Streamlit (un cas C1, le hourdis par défaut, aucune charge) + les brouillons du site",
     {k: v for k, v in e0.items() if k != "site"} == {**ref, "cas": [dict(ref["cas"][0], site=W._site_cas())]})
+# Décision de l'ingénieur du 11/11/2026 : un cas neuf démarre sur le SP 200 (la variante la moins armée), lu au catalogue
+h0 = e0["cas"][0]["plancher"]["hourdis"]
+f0 = KH.fiche_plancher("ergon_2018", "SP 200-4X")
+chk("note neuve : le type par défaut est « SP 200-4X · Ergon 2018 », ses valeurs LUES au catalogue (M_Rd 51, V_Rd 89, g 2,78, "
+    "I, E, M_Rd avec chape 66, 50 mm exigés, C30/37)",
+    h0["type_cat"] == ET.TYPE_HOURDIS_DEFAUT == f0["nom"] and all(h0[k] == f0[k] for k in ET.CHAMPS_FICHE_HOURDIS)
+    and (h0["M_Rd"], h0["V_Rd"], h0["g"], h0["M_Rd_chape"], h0["e_chape"], h0["chape"]["fck_exigee"]) == (51, 89, 2.78, 66, 0.05, 30.0),
+    {k: h0.get(k) for k in ("type_cat", "M_Rd", "V_Rd", "g", "M_Rd_chape", "e_chape")})
 r0 = W.resultat(W.nouvel_etat())
-chk("note neuve : « À compléter », le message du moteur (M_Rd et V_Rd à renseigner), le plan, la méthode, la bibliothèque",
+# à la main : g = 2,78 × 1,2 = 3,336 kN/m ; q = 1 × 1,2 ; M_Ed = (1,35 × 3,336 + 1,5 × 1,2) × 7,2² / 8 = 40,85 kN·m ; 40,85 / 51 = 80 %
+chk("note neuve : conforme à 80 % (M_Ed = 40,85 kN·m ≤ M_Rd = 51 kN·m, recalculé à la main), le plan et la méthode",
+    r0["resume"] == {"taux": 80, "niveau": "p", "statut": "Conforme", "gouvernant": "C1 · Flexion · H7"}
+    and "40,85" in r0["resultat"] and "51,00" in r0["resultat"] and abs((1.35 * 2.78 * 1.2 + 1.5 * 1.2) * 7.2 ** 2 / 8 - 40.85) < 0.005
+    and [v["cle"] for v in r0["vues"]][:1] == ["plan"] and "methode" in [v["cle"] for v in r0["vues"]], r0["resume"])
+chk("le type par défaut est la variante la MOINS armée de son profil (un défaut du côté sûr)",
+    KH.nom_type(KH.catalogue("ergon_2018"), KH.profil(KH.catalogue("ergon_2018"), "SP 200")["variantes"][0]) == ET.TYPE_HOURDIS_DEFAUT)
+eg = W.nouvel_etat()
+chk("retour à la fiche générique : accepté", mod(eg, ["plancher", "hourdis", "type_cat"], ET.TYPE_HOURDIS_GENERIQUE) is None)
+hg = eg["cas"][0]["plancher"]["hourdis"]
+chk("fiche générique : aucune condition du fabricant précédent ne reste (M_Rd et V_Rd à 0, ni épaisseur exigée, classe exigée neutre)",
+    (hg["M_Rd"], hg["V_Rd"], hg["M_Rd_chape"], hg["e_chape"], hg["chape"]["fck_exigee"]) == (0.0, 0.0, None, None, 25.0),
+    (hg["M_Rd"], hg["V_Rd"], hg["M_Rd_chape"], hg["e_chape"], hg["chape"]["fck_exigee"]))
+r0 = W.resultat(eg)
+chk("fiche générique : « À compléter », le message du moteur (M_Rd et V_Rd à renseigner), le plan, la méthode, la bibliothèque",
     r0["resume"]["niveau"] == "c" and "M<sub>Rd</sub> et V<sub>Rd</sub>" in r0["resultat"] and [v["cle"] for v in r0["vues"]] == ["plan", "methode"])
-chk("note neuve : le message du moteur est écrit UNE fois (le verdict y renvoie) et le site dit où compléter (section 2)",
+chk("fiche générique : le message du moteur est écrit UNE fois (le verdict y renvoie) et le site dit où compléter (section 2)",
     r0["resultat"].count("du catalogue à renseigner") == 1 and "Où compléter" in r0["resultat"] and "Section 2 « Hourdis »" in r0["resultat"])
 
 # ------------------------------------------------------------------ 2. ce que l'écran affiche = ce que le moteur calcule
@@ -104,6 +127,22 @@ for el in calc["res"]["elements"]:
     if not ok:
         mauvais.append(el["nom"])
 chk("chaque élément : M_Ed = γG·M_G + γQ·M_Q, M_Q = w_Q·x(L − x)/2 + Σ M_P et V_A écrits avec les valeurs du moteur (et qui se recalculent)", not mauvais, mauvais)
+# la même vérification lue PAR MÈTRE de largeur (demande de l'ingénieur du 11/11/2026) : efforts et résistances divisés par b
+mauvais_m = []
+for el in calc["res"]["elements"]:
+    m = re.search(rf'<div class="flyout calcul" id="ck-el-{el["index"]}">(.*?)</div></div></div>', r["volets"], re.S)
+    h = re.sub(r"<[^>]+>", "", m.group(1) if m else "")
+    b_el = el["y1"] - el["y0"]
+    attendu = [f"{W._r(el['M_max'])} / {W._d(b_el)}", W._r(el["M_max"] / b_el, "kN·m/m"), f"{W._r(el['M_adm'])} / {W._d(b_el)}",
+               W._r(el["M_adm"] / b_el, "kN·m/m"), W._r(el["V_max"] / b_el, "kN/m"), W._r(el["V_adm"] / b_el, "kN/m")]
+    if "Par mètre de largeur" not in h or not all(re.sub(r"<[^>]+>", "", a) in h for a in attendu):
+        mauvais_m.append(el["nom"])
+chk("chaque élément : le groupe « Par mètre de largeur » écrit M_Ed / b, M_Rd / b, V_Ed / b, V_Rd / b avec la largeur de l'élément",
+    not mauvais_m, mauvais_m)
+rn = W.resultat(W.nouvel_etat())
+hn = re.sub(r"<[^>]+>", "", rn["volets"])
+chk("note neuve (SP 200-4X, 1,2 m) : m_Rd = 51,00 / 1,2 = 42,50 kN·m/m et v_Rd = 89,00 / 1,2 = 74,17 kN/m (à la main)",
+    "51,00 / 1,2" in hn and "42,50\xa0kN·m/m" in hn.replace(" ", "\xa0") and "74,17" in hn, hn[hn.find("Par mètre"):hn.find("Par mètre") + 300])
 chk("la fenêtre de la filière écrit M_Rd = W_el·f_y/γM0 et γQ·M_max", "W<sub>el</sub>·f<sub>y</sub> / γ<sub>M0</sub>" in r["volets"] and 'id="ck-filiere"' in r["volets"])
 chk("la fenêtre des plateaux écrit c = t·√(f / (3·p_Ed)) et l'aire efficace", 'id="ck-plateau"' in r["volets"] and "t·√(f / (3·p<sub>Ed</sub>))" in r["volets"]
     and "a<sub>eff</sub>" in r["volets"])
@@ -349,6 +388,18 @@ vieux = W.exemple("hourdis")
 del vieux["cas"][0]["identification"], vieux["cas"][0]["params"]["alpha_cc"], vieux["site"]
 chk("un fichier ancien (clés manquantes) est complété avec les défauts de l'écran d'origine",
     W.normaliser(vieux)["cas"][0]["params"]["alpha_cc"] == 1.0 and W.normaliser(vieux)["cas"][0]["identification"]["indice"] == "0")
+# Une note d'AVANT le catalogue des hourdis n'a ni e_chape, ni M_Rd_chape, ni fck_exigee : elle est complétée des valeurs
+# NEUTRES — jamais de celles du SP 200 d'un cas neuf, qui lui feraient exiger 50 mm de couche et un C30/37 qu'elle n'a pas.
+avant_cat = W.exemple("hourdis")
+for k_ in ("e_chape", "M_Rd_chape"):
+    avant_cat["cas"][0]["plancher"]["hourdis"].pop(k_, None)
+avant_cat["cas"][0]["plancher"]["hourdis"]["chape"].pop("fck_exigee", None)
+h_av = W.normaliser(avant_cat)["cas"][0]["plancher"]["hourdis"]
+chk("une note d'avant le catalogue (sans e_chape, M_Rd_chape, fck_exigee) est complétée des valeurs NEUTRES, pas de celles du SP 200 "
+    "d'un cas neuf (aucune épaisseur de couche exigée, pas de M_Rd avec couche, C25)",
+    h_av["e_chape"] is None and not h_av["M_Rd_chape"] and h_av["chape"]["fck_exigee"] == 25.0
+    and ET.nouvel_etat()["cas"][0]["plancher"]["hourdis"]["e_chape"] == 0.05,
+    (h_av.get("e_chape"), h_av.get("M_Rd_chape"), h_av["chape"].get("fck_exigee")))
 chk("le format de fichier de l'écran Streamlit est relu tel quel", W.normaliser(ET.payload(ET.nouvel_etat()))["cas"][0]["nom"] == "C1")
 rq = req(action="calculer", etat=W.exemple("dalle"))
 chk("par le routeur : réponse complète", rq.get("ok") and rq["resume"]["niveau"] in ("p", "f", "r"))

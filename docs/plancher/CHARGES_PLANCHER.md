@@ -137,7 +137,8 @@ bureau après transcription de la figure C.1 ; `None` = l'élément chargé port
 5. **Valeurs de catalogue** des hourdis : **le catalogue Ergon 2018 est transcrit** (11/11/2026, 7 profils, 53 types
    au menu : M_Rd, V_Rd,c, nature Rd, I, h, g, E, M_Rd avec 50 mm de chape C30/37 — `docs/beton/HOURDIS.md`). Restent
    ce qu'Ergon ne publie pas — **V_Rd,c avec chape** (le V nu s'applique), **M_cr**, **p_loc_adm** — et les catalogues
-   des autres fabricants. La fiche générique « à renseigner » reste le type d'un cas neuf.
+   des autres fabricants. Depuis le 11/11/2026 un cas neuf part du **SP 200-4X** du catalogue (la fiche générique « à
+   renseigner » reste au menu ; un ancien fichier est complété des valeurs neutres, `etat.cas_neutre`).
 
 ## 6 · Tests
 

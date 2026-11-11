@@ -317,6 +317,34 @@ chk("gamme : bornes de M_Rd et V_Rd,c d'un profil (SP 400 : 251–635, 223–234
     [(li["M_min"], li["M_max"], li["V_min"], li["V_max"]) for li in K.gamme(cat)["lignes"] if li["nom"] == "SP 400"] == [(251, 635, 223, 234)])
 chk("gamme : sans effort, aucun profil désigné", K.gamme(cat)["leger"] is None and not K.gamme(cat)["demande"])
 
+# ================================================================================================ 5 ter · par mètre
+# Le guide publie M_Rd et V_Rd,c PAR ÉLÉMENT de 1,2 m (p. 30-33). Le bureau travaille souvent par mètre de largeur : la
+# valeur par mètre est la valeur publiée divisée par la largeur du module, arrondie PAR DÉFAUT (une résistance ne
+# s'arrondit jamais vers le haut).
+chk("par mètre : largeur du module lue au catalogue (1,2 m)", K.largeur_element(cat) == 1.2, K.largeur_element(cat))
+chk("par mètre : 51 kN·m par élément → 42,5 kN·m/m (51 / 1,2, à la main)", K.par_metre(cat, 51) == 42.5, K.par_metre(cat, 51))
+chk("par mètre : arrondi PAR DÉFAUT — 113 / 1,2 = 94,17 → 94,1 ; 89 / 1,2 = 74,17 → 74,1 ; 92 / 1,2 = 76,67 → 76,6 (pas 76,7)",
+    (K.par_metre(cat, 113), K.par_metre(cat, 89), K.par_metre(cat, 92)) == (94.1, 74.1, 76.6),
+    (K.par_metre(cat, 113), K.par_metre(cat, 89), K.par_metre(cat, 92)))
+chk("par mètre : une valeur non publiée reste non publiée", K.par_metre(cat, None) is None)
+chk("par mètre : jamais au-dessus de la valeur exacte, sur toutes les variantes du catalogue (M_Rd, V_Rd,c, M_Rd avec couche)",
+    all(K.par_metre(cat, v[c]) <= v[c] / 1.2 + 1e-12 and v[c] / 1.2 - K.par_metre(cat, v[c]) < 0.1 + 1e-9
+        for p_ in cat["profils"] for v in p_["variantes"] for c in ("M_Rd", "V_Rd", "M_Rd_chape") if v.get(c) is not None))
+chk("par élément : 34,04 kN·m/m × 1,2 m = 40,85 kN·m", abs(K.par_element(cat, 34.04) - 40.848) < 1e-9, K.par_element(cat, 34.04))
+vm = K.verifier(p200, 80.0, 70.0, cat_par_metre=cat)
+chk("sélection par mètre : les résistances sont celles par mètre (SP 200 : 42,5 / 52,5 / 63,3 / 76,6 / 94,1 / 111,6 kN·m/m)",
+    vm["par_metre"] and [li["M_Rd"] for li in vm["lignes"]] == [42.5, 52.5, 63.3, 76.6, 94.1, 111.6]
+    and [li["V_Rd"] for li in vm["lignes"]] == [74.1, 75.8, 76.6, 76.6, 78.3, 80.0], [li["M_Rd"] for li in vm["lignes"]])
+chk("sélection par mètre : m_Ed 80, v_Ed 70 → SP 200-4-2X (94,1 ≥ 80 ; SP 200-3-2X : 76,6 < 80)", vm["premiere"] == "SP 200-4-2X", vm["premiere"])
+chk("sélection par mètre : 76,7 kN·m/m refuse SP 200-3-2X (76,6 affiché) — on compare à la valeur AFFICHÉE, du côté sûr",
+    K.verifier(p200, 76.7, None, cat_par_metre=cat)["premiere"] == "SP 200-4-2X"
+    and K.verifier(p200, 76.6, None, cat_par_metre=cat)["premiere"] == "SP 200-3-2X")
+chk("sélection par élément inchangée quand on ne demande pas le mètre", K.verifier(p200, 80.0, 70.0)["premiere"] == "SP 200-3-2X"
+    and not K.verifier(p200, 80.0, 70.0)["par_metre"])
+gm = K.gamme(cat, 100.0, 90.0, par_metre_=True)
+chk("gamme par mètre : m_Ed 100, v_Ed 90 → le plus léger qui suffit est le SPN 200 ; par élément (100 ; 90) c'est le SP 200",
+    gm["leger"] == "SPN 200" and K.gamme(cat, 100.0, 90.0)["leger"] == "SP 200", (gm["leger"], K.gamme(cat, 100.0, 90.0)["leger"]))
+
 # ================================================================================================ 6 · mutations
 def muter(nom, action, attendu):
     c = copy.deepcopy(cat)

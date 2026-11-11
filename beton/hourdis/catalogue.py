@@ -17,6 +17,7 @@ modules de calcul ont besoin :
   raideur relative des éléments sous une filière.
 """
 import json
+import math
 import os
 import re
 from functools import lru_cache
@@ -158,36 +159,66 @@ def chercher_type(nom_type_: str) -> Optional[Tuple[str, Dict, Dict]]:
     return None
 
 
+# ------------------------------------------------------------------ par élément, par mètre
+DECIMALES_PAR_METRE = 1          # une résistance par mètre s'écrit au dixième (la valeur publiée est un entier par élément)
+
+
+def par_metre(cat: Dict, valeur: Optional[float]) -> Optional[float]:
+    """Une résistance publiée PAR ÉLÉMENT ramenée au MÈTRE de largeur de plancher : ÷ la largeur du module (1,2 m chez
+    Ergon — la largeur que le plancher occupe par élément, joint compris), ARRONDIE PAR DÉFAUT au dixième : une résistance
+    ne s'arrondit jamais vers le haut. ``None`` reste ``None`` (une valeur que le fabricant ne publie pas)."""
+    if valeur is None:
+        return None
+    k = 10 ** DECIMALES_PAR_METRE
+    return math.floor(valeur / largeur_element(cat) * k + 1e-9) / k
+
+
+def par_element(cat: Dict, valeur_par_metre: float) -> float:
+    """Un effort donné par mètre de largeur de plancher, ramené à l'élément (× la largeur du module)."""
+    return valeur_par_metre * largeur_element(cat)
+
+
 # ------------------------------------------------------------------ la sélection (bibliothèque)
-def verifier(p: Dict, M_Ed: Optional[float] = None, V_Ed: Optional[float] = None, avec_chape: bool = False) -> Dict:
+def verifier(p: Dict, M_Ed: Optional[float] = None, V_Ed: Optional[float] = None, avec_chape: bool = False,
+             cat_par_metre: Optional[Dict] = None) -> Dict:
     """Ce qui suffit, variante par variante d'un profil, à des efforts de CALCUL donnés par élément (M_Ed en kN·m, V_Ed
     en kN ; ``None`` : non demandé). M_Rd retenu : avec couche collaborante si ``avec_chape`` et si la valeur est publiée,
     sinon nu ; V_Rd,c : toujours nu (la valeur avec chape n'est pas publiée : la nue est la plus faible). La PREMIÈRE
     variante qui suffit est la moins armée (le tableau du fabricant est rangé par M_Rd croissant). Sans effort demandé,
-    rien n'est jugé (``suffit`` vaut ``None``)."""
+    rien n'est jugé (``suffit`` vaut ``None``).
+
+    ``cat_par_metre`` (le catalogue du profil) : tout se lit PAR MÈTRE de largeur — les efforts donnés (kN·m/m, kN/m)
+    comme les résistances rendues (``par_metre`` : ÷ la largeur du module, arrondies par défaut) ; la comparaison se
+    fait sur ces valeurs par mètre, celles que l'écran affiche."""
     demande = M_Ed is not None or V_Ed is not None
     lignes, premiere = [], None
+
+    def r(x):
+        return par_metre(cat_par_metre, x) if cat_par_metre is not None else x
+
     for v in p["variantes"]:
-        M_ret = v["M_Rd_chape"] if (avec_chape and v.get("M_Rd_chape") is not None) else v["M_Rd"]
+        M_nu, V_nu, M_ch = r(v["M_Rd"]), r(v["V_Rd"]), r(v.get("M_Rd_chape"))
+        M_ret = M_ch if (avec_chape and M_ch is not None) else M_nu
         sM = None if M_Ed is None else M_ret >= M_Ed - 1e-9
-        sV = None if V_Ed is None else v["V_Rd"] >= V_Ed - 1e-9
+        sV = None if V_Ed is None else V_nu >= V_Ed - 1e-9
         suffit = None if not demande else (sM is not False and sV is not False)
-        lignes.append({"nom": v["nom"], "M_Rd": v["M_Rd"], "V_Rd": v["V_Rd"], "M_Rd_chape": v.get("M_Rd_chape"), "M_retenu": M_ret,
-                       "avec_chape": bool(avec_chape and v.get("M_Rd_chape") is not None), "suffit_M": sM, "suffit_V": sV,
+        lignes.append({"nom": v["nom"], "M_Rd": M_nu, "V_Rd": V_nu, "M_Rd_chape": M_ch, "M_retenu": M_ret,
+                       "avec_chape": bool(avec_chape and M_ch is not None), "suffit_M": sM, "suffit_V": sV,
                        "suffit": suffit})
         if suffit and premiere is None:
             premiere = v["nom"]
-    return {"lignes": lignes, "premiere": premiere, "demande": demande}
+    return {"lignes": lignes, "premiere": premiere, "demande": demande, "par_metre": cat_par_metre is not None}
 
 
-def gamme(cat: Dict, M_Ed: Optional[float] = None, V_Ed: Optional[float] = None, avec_chape: bool = False) -> Dict:
+def gamme(cat: Dict, M_Ed: Optional[float] = None, V_Ed: Optional[float] = None, avec_chape: bool = False,
+          par_metre_: bool = False) -> Dict:
     """Profil par profil : les bornes de M_Rd (retenu, comme ``verifier``) et de V_Rd,c, la première variante qui suffit ;
     puis le profil le plus LÉGER (poids avec joints, kN/m²) qui a une variante qui suffit. Les efforts sont donnés
     poids propre compris : changer de profil change le poids propre, donc M_Ed et V_Ed — le choix est à refaire avec
-    le poids du profil retenu."""
+    le poids du profil retenu. ``par_metre_`` : efforts et résistances par mètre de largeur (voir ``verifier``)."""
     lignes, leger = [], None
     for p in cat["profils"]:
-        r = verifier(p, M_Ed, V_Ed, avec_chape)
+        r = verifier(p, M_Ed, V_Ed, avec_chape, cat if par_metre_ else None)
         Ms = [li["M_retenu"] for li in r["lignes"]]
         Vs = [li["V_Rd"] for li in r["lignes"]]
         lignes.append({"nom": p["nom"], "M_min": min(Ms), "M_max": max(Ms), "V_min": min(Vs), "V_max": max(Vs),

@@ -114,7 +114,13 @@ chk("un composant de plan (svg_cliquable), SVG en millimètres (viewBox 0 0 1140
 chk("poignées ○ des bords libres (sens porteur) et cote L cliquable", 'data-action="sens:+1"' in s and 'data-key="L"' in s)
 chk("poignées ± du nombre de hourdis", 'data-action="n_elements:+1"' in s and 'data-action="n_elements:-1"' in s)
 chk("appuis A et B nommés, échelle graphique", ">A<" in s and ">B<" in s and "2 m" in s)
-chk("sans M_Rd / V_Rd : « Données manquantes », message du moteur", "manquantes" in pastille(at) and "M_Rd et V_Rd" in md(at))
+# Décision de l'ingénieur du 11/11/2026 : un cas neuf démarre sur le SP 200 du catalogue Ergon (la variante la moins
+# armée) ; la fiche générique « à renseigner » reste au menu, et la suite de ce harnais la choisit pour saisir SES valeurs
+chk("cas neuf : le hourdis par défaut est le SP 200-4X du catalogue Ergon — conforme sans rien saisir",
+    ET.cas_actif(at.session_state["chp"])["plancher"]["hourdis"]["type_cat"] == ET.TYPE_HOURDIS_DEFAUT == "SP 200-4X · Ergon 2018"
+    and "Conforme" in pastille(at) and "manquantes" not in pastille(at), pastille(at))
+at.selectbox(key="chp_w_type_cat").set_value(ET.TYPE_HOURDIS_GENERIQUE); run(at)
+chk("fiche générique, sans M_Rd / V_Rd : « Données manquantes », message du moteur", "manquantes" in pastille(at) and "M_Rd et V_Rd" in md(at))
 chk("cinq onglets à libellé FIXE", [t.label for t in at.tabs] == ETAPES)
 chk("barre d'outils : Accueil, cas, ＋ Cas, copie, Ouvrir, nom du cas",
     {"chp_btn_home", "chp_sel_cas", "chp_btn_new", "chp_btn_copy", "chp_btn_open", "chp_w_nom"} <= cles(at))

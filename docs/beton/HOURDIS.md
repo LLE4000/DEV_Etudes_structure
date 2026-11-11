@@ -113,7 +113,13 @@ streamlit). Il est expédié avec le moteur du site (le paquet de `construire.py
   fabricant (`Chape.valeurs_avec_chape_admises(e_min)`, `motif_refus`). Le catalogue Ergon ne publie que M avec chape :
   le moteur juge **M_Rd avec chape et V_Rd,c nu**, et l'hypothèse le dit (« M_Rd catalogue avec chape, V_Rd nu (valeur
   avec chape non publiée) ») ; une chape de 40 mm ou à 25 MPa garde les valeurs nues, et la note dit pourquoi.
-- Un cas neuf démarre toujours sur le type générique « à renseigner » (point à confirmer, `docs/site/SUITE_DU_CHANTIER.md`).
+- **Un cas neuf démarre sur le SP 200-4X** (décision de l'ingénieur du 11/11/2026 : « le plus banal ») — la variante la
+  MOINS armée du profil, donc le côté sûr ; ses valeurs sont LUES au catalogue (`etat.TYPE_HOURDIS_DEFAUT`,
+  `defaut_plancher`), jamais recopiées. La fiche générique « à renseigner » reste en tête du menu. Un **ancien fichier**
+  ou une ancienne note à qui il manque une clé du hourdis est complété des valeurs **neutres** (`etat.cas_neutre`),
+  jamais de celles du SP 200 : il n'hérite ni des 50 mm de couche ni du C30/37 qu'il n'a pas demandés.
+- **Par mètre de largeur** : la fenêtre de calcul d'un élément donne aussi m_Ed = M_Ed / b, m_Rd = M_Rd / b, v_Ed et
+  v_Rd (b = largeur de l'élément, 1,2 m) — une projection d'affichage, les taux ne changent pas.
 - L'onglet Méthode (Streamlit) et la vue Méthode du site listent le catalogue (une ligne : profils, variantes, bornes de
   M_Rd et V_Rd,c, document) ; les anciens fichiers de cas s'ouvrent (le champ `e_chape` manquant est complété à vide).
 
@@ -127,7 +133,12 @@ Deux vues sur les mêmes paramètres (adresse : `?rubrique=hourdis&vue=…&fabri
   minimal, transport et joints, hourdis rétrécis, réservations maximales, chevilles dans l'alvéole) et le **tableau des
   variantes** : M_Rd, V_Rd,c, M_Rd avec couche, les torons de chacune, la case choisie allumée.
 - **Gamme** : les sept profils côte à côte (h, g, A, I_x, W_sup, W_inf, bornes de M_Rd et V_Rd,c).
-- **Efforts facultatifs** M_Ed et V_Ed (par élément, ELU, poids propre compris) et la case « Avec couche
+- **Valeurs « par élément » ou « par mètre »** (interrupteur de la barre, paramètre `base`) : le guide publie M_Rd et
+  V_Rd,c par élément de 1,2 m ; par mètre, la valeur est divisée par la largeur du module et **arrondie par défaut** au
+  dixième (`catalogue.par_metre` : 51 → 42,5 kN·m/m ; 113 → 94,1 et non 94,2 — une résistance ne s'arrondit jamais
+  vers le haut). Tableau, bande, fiche, efforts demandés et étoiles suivent la base choisie ; la bande rappelle
+  toujours l'autre lecture (« soit 51 kN·m par élément de 1,2 m »). La comparaison se fait sur la valeur AFFICHÉE.
+- **Efforts facultatifs** M_Ed et V_Ed (par élément ou par mètre, ELU, poids propre compris) et la case « Avec couche
   collaborante » : les cases qui suffisent s'allument en vert, la première variante qui suffit est marquée ★ ; dans la
   Gamme, la première variante de chaque profil et le profil le plus léger qui suffit ★ — avec l'avertissement que le
   poids propre du profil retenu change M_Ed et V_Ed. Le jugement est celui du lecteur (`verifier`, `gamme`) : l'écran

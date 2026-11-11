@@ -10,6 +10,10 @@ marque, c'est un fichier et une ligne de ``CATALOGUES``). Deux vues qui partagen
 - « Gamme » : les profils côte à côte (hauteur, poids, aire, inertie, modules, bornes de M_Rd et V_Rd,c) ; avec M_Ed et
   V_Ed, la première variante qui suffit de chaque profil, le plus léger qui suffit marqué ★.
 
+« Par élément / par mètre » (demande de l'ingénieur du 11/11/2026 : « il faut diviser par 1,2 pour avoir des kN par
+mètre, on utilise souvent ça ») : les valeurs du fabricant sont PAR ÉLÉMENT (module de 1,20 m) ; « par mètre » les
+divise par la largeur du module, arrondies par défaut (``catalogue.par_metre``), et lit M_Ed et V_Ed par mètre aussi.
+
 Les valeurs sont celles du catalogue (R3 : rien n'est recopié ici) ; « ce qui suffit » est jugé par
 ``catalogue.verifier`` et ``catalogue.gamme`` — l'écran choisit, compose et formate. Un paramètre illisible reprend
 son défaut et ``message`` le dit ; une variante d'un autre profil (le profil vient de changer) reprend en silence la
@@ -24,6 +28,7 @@ from beton.hourdis import catalogue as K
 
 NBSP = C.NBSP
 VUES = (("profil", "Profil"), ("gamme", "Gamme"))
+BASES = (("element", "par élément"), ("metre", "par mètre"))
 PROFIL_DEFAUT = "SP 200"
 # les trois valeurs d'une variante : (clé, symbole, unité, nom)
 GRANDEURS = (("M_Rd", "M_Rd", "kN·m", "moment résistant de calcul par élément"),
@@ -46,6 +51,11 @@ def _n(x, nd: int = 0) -> str:
 
 
 # ================================================================================================ les paramètres
+def _val(x, par_metre: bool) -> str:
+    """Une résistance telle que le tableau l'écrit : un entier par élément (la valeur publiée), un dixième par mètre."""
+    return C.fr(x, K.DECIMALES_PAR_METRE) if par_metre else _n(x)
+
+
 def lire(params: Optional[Dict]):
     L = B.Lecture(params)
     cats = K.catalogues()
@@ -68,6 +78,7 @@ def lire(params: Optional[Dict]):
     if grandeur == "M_Rd_chape" and K.variante(cat, var)[1].get("M_Rd_chape") is None:
         grandeur = L.out["grandeur"] = "M_Rd"                  # une valeur que le fabricant ne publie pas ne s'allume pas
     L.choix("carac", tuple(c[0] for c in CARACS), "Ix")
+    L.choix("base", tuple(k for k, _ in BASES), "element")
     L.nombre("M_Ed", None, 0, 100000, vide=None)
     L.nombre("V_Ed", None, 0, 100000, vide=None)
     L.case("chape", False)
@@ -81,11 +92,17 @@ def _barre(L, cat: Dict, p: Dict) -> str:
     choix = (B._champ("fabricant", "Fabricant", B._select("fabricant", o["fabricant"], [(k, K.titre(c)) for k, c in K.catalogues()]),
                       "Catalogues transcrits dans l'application ; d'autres marques s'ajouteront")
              + B._champ("profil", "Profil", B._select("profil", o["profil"], [(q["nom"], f"{q['nom']} · h{NBSP}{q['h']}") for q in cat["profils"]])))
-    efforts = (B._champ("M_Ed", "M<sub>Ed</sub>", B._num("M_Ed", o["M_Ed"], "kN·m", "—"),
-                        "facultatif · moment de calcul PAR ÉLÉMENT, poids propre du hourdis compris (ELU) : les variantes qui "
-                        "suffisent s'allument en vert, la première est marquée ★")
-               + B._champ("V_Ed", "V<sub>Ed</sub>", B._num("V_Ed", o["V_Ed"], "kN", "—"),
-                          "facultatif · effort tranchant de calcul par élément, à l'appui (ELU), poids propre compris")
+    pm = o["base"] == "metre"
+    b_txt = C.nb(K.largeur_element(cat))
+    par = "PAR MÈTRE de largeur de plancher" if pm else f"PAR ÉLÉMENT ({b_txt} m)"
+    efforts = (B._champ("base", "Valeurs", B._segments("base", o["base"], BASES),
+                        f"les tableaux du fabricant sont par élément (module de {b_txt} m, joint compris) ; « par mètre » : "
+                        f"÷ {b_txt}, arrondi par défaut au dixième — M_Ed et V_Ed se lisent alors par mètre aussi")
+               + B._champ("M_Ed", "M<sub>Ed</sub>", B._num("M_Ed", o["M_Ed"], "kN·m/m" if pm else "kN·m", "—"),
+                          f"facultatif · moment de calcul {par}, poids propre du hourdis compris (ELU) : les variantes qui "
+                          "suffisent s'allument en vert, la première est marquée ★")
+               + B._champ("V_Ed", "V<sub>Ed</sub>", B._num("V_Ed", o["V_Ed"], "kN/m" if pm else "kN", "—"),
+                          f"facultatif · effort tranchant de calcul {par.lower() if not pm else par}, à l'appui (ELU), poids propre compris")
                + B._champ("chape", "", B._case("chape", o["chape"], "Avec couche collaborante",
                                                 f"M_Rd avec {cat['meta']['chape']['epaisseur_min']} mm de couche collaborante "
                                                 f"{cat['meta']['chape']['classe']} (p. {cat['meta']['chape']['page']}) ; V_Rd,c reste "
@@ -118,12 +135,14 @@ def _caracteristiques(cat: Dict, p: Dict) -> str:
 
 def _profil(L, cat: Dict, p: Dict, hote: str) -> Dict:
     o = L.out
-    ver = K.verifier(p, o["M_Ed"], o["V_Ed"], o["chape"])
+    pm = o["base"] == "metre"
+    um, uv, par = ("kN·m/m", "kN/m", "par mètre de largeur") if pm else ("kN·m", "kN", "par élément")
+    ver = K.verifier(p, o["M_Ed"], o["V_Ed"], o["chape"], cat if pm else None)
     nom_v, grandeur = o["variante"], o["grandeur"]
     th = ('<tr><th class="nm">Variante<span class="u">torons</span></th>'
-          + B._th("M_Rd", "kN·m", "moment résistant de calcul par élément (ELU)")
-          + B._th("V_Rd,c", "kN", "effort tranchant résistant de calcul par élément (ELU), sans couche collaborante")
-          + B._th("M_Rd", "kN·m + couche",
+          + B._th("M_Rd", um, f"moment résistant de calcul {par} (ELU)")
+          + B._th("V_Rd,c", uv, f"effort tranchant résistant de calcul {par} (ELU), sans couche collaborante")
+          + B._th("M_Rd", f"{um} + couche",
                   f"moment résistant avec {cat['meta']['chape']['epaisseur_min']} mm de couche collaborante {cat['meta']['chape']['classe']}")
           + "</tr>")
     corps, lignes_extrait, case_extrait = "", [], None
@@ -137,15 +156,18 @@ def _profil(L, cat: Dict, p: Dict, hote: str) -> Dict:
                 cellules += '<td class="na" title="non publié">—</td>'
                 continue
             sel = {"vue": "profil", "fabricant": o["fabricant"], "profil": p["nom"], "variante": li["nom"], "grandeur": cle}
+            if pm:
+                sel["base"] = "metre"
             juge = (li["suffit_V"] if cle == "V_Rd" else
                     li["suffit_M"] if (cle == "M_Rd_chape") == li["avec_chape"] else None)
             cls = " ".join(k for k, v in (("cur", on and cle == grandeur), ("ok", juge is True and not (on and cle == grandeur))) if v)
-            cellules += B._td(_n(val), sel, cls)
+            cellules += B._td(_val(val, pm), sel, cls)
             if on and cle == grandeur:
                 case_extrait = (i, j + 1)
         corps += (f'<tr{" class=" + chr(34) + "on" + chr(34) if on else ""}><th class="nm">{C.esc(li["nom"])}{etoile}'
                   f'<small class="bib-hd-to">{_torons(cat, li["nom"])}</small></th>{cellules}</tr>')
-        lignes_extrait.append([li["nom"], _n(li["M_Rd"]), _n(li["V_Rd"]), _n(li["M_Rd_chape"]) if li["M_Rd_chape"] is not None else "—"])
+        lignes_extrait.append([li["nom"], _val(li["M_Rd"], pm), _val(li["V_Rd"], pm),
+                               _val(li["M_Rd_chape"], pm) if li["M_Rd_chape"] is not None else "—"])
     tab = B._tableau(th, corps, "bib-hd-tab")
     figure = (f'<figure class="bib-hd-f"><div class="bib-hd-s">{D.coupe("bib-hd-coupe", p)}</div>'
               f'<figcaption>{C.esc(p["nom"])} · {C.esc(D.legende_alveoles(p))} · relevé du guide {C.esc(K.titre(cat))}, '
@@ -154,14 +176,23 @@ def _profil(L, cat: Dict, p: Dict, hote: str) -> Dict:
     # la bande : la case choisie
     _, v = K.variante(cat, nom_v)
     g = next(x for x in GRANDEURS if x[0] == grandeur)
-    val, sym, unite, nom = v[grandeur], g[1], g[2], g[3]
+    li_v = next(li for li in ver["lignes"] if li["nom"] == nom_v)
+    val, sym = li_v[grandeur], g[1]
+    unite = (g[2] + "/m") if pm else g[2]
+    nom = g[3].replace("par élément", par) if "par élément" in g[3] else f"{g[3]}, {par}"
     m = cat["meta"]
+    b_txt = C.nb(K.largeur_element(cat))
     phrase = f"{C.esc(nom_v)} · {_torons(cat, nom_v)} · {C.esc(K.titre(cat))}, p.{NBSP}{p['page']}"
     if grandeur == "M_Rd_chape":
         phrase += f" · avec {m['chape']['epaisseur_min']}{NBSP}mm de couche collaborante {m['chape']['classe']}"
+    # l'autre lecture de la même valeur : par élément ↔ par mètre (÷ la largeur du module, arrondi par défaut)
+    if pm:
+        phrase += f" · soit {_n(v[grandeur])}{NBSP}{g[2]} par élément de {b_txt}{NBSP}m"
+    else:
+        phrase += f" · soit {_val(K.par_metre(cat, v[grandeur]), True)}{NBSP}{g[2]}/m (÷{NBSP}{b_txt}{NBSP}m)"
     if ver["demande"]:
-        effort = " · ".join(t for t in ((f"M<sub>Ed</sub>{NBSP}={NBSP}{C.nb(o['M_Ed'])}{NBSP}kN·m" if o["M_Ed"] is not None else ""),
-                                        (f"V<sub>Ed</sub>{NBSP}={NBSP}{C.nb(o['V_Ed'])}{NBSP}kN" if o["V_Ed"] is not None else "")) if t)
+        effort = " · ".join(t for t in ((f"M<sub>Ed</sub>{NBSP}={NBSP}{C.nb(o['M_Ed'])}{NBSP}{um}" if o["M_Ed"] is not None else ""),
+                                        (f"V<sub>Ed</sub>{NBSP}={NBSP}{C.nb(o['V_Ed'])}{NBSP}{uv}" if o["V_Ed"] is not None else "")) if t)
         phrase += (f" — pour {effort}" + (" (couche collaborante)" if o["chape"] else "") + " : "
                    + (f"<b>{C.esc(ver['premiere'])}</b> ★, la moins armée qui suffit" if ver["premiere"] else "<b>aucune variante de ce profil ne suffit</b>"))
     avert = []
@@ -173,10 +204,10 @@ def _profil(L, cat: Dict, p: Dict, hote: str) -> Dict:
                      "couche n'est pas publié — la valeur nue s'applique.")
     termes = _termes(cat, p, v)
     sources = _sources(cat, p)
-    extrait = B._extrait(["Variante", "M_Rd (kN·m)", "V_Rd,c (kN)", f"M_Rd avec {m['chape']['epaisseur_min']} mm de couche (kN·m)"],
-                         lignes_extrait, case_extrait, f"{p['nom']} — {K.titre(cat)}, valeurs de calcul par élément (p. {p['page']})",
-                         sources[0])
-    texte = _n(val)
+    extrait = B._extrait(["Variante", f"M_Rd ({um})", f"V_Rd,c ({uv})", f"M_Rd avec {m['chape']['epaisseur_min']} mm de couche ({um})"],
+                         lignes_extrait, case_extrait, f"{p['nom']} — {K.titre(cat)}, valeurs de calcul {par} (p. {p['page']})"
+                         + (f" ÷ {b_txt} m, arrondies par défaut" if pm else ""), sources[0])
+    texte = _val(val, pm)
     return {"titre": f"Hourdis {K.titre(cat)}", "barre": _barre(L, cat, p), "tableau": tableau,
             "bande": B._bande(texte, unite, sym, nom, phrase, hote, avert),
             "pourquoi": B._pourquoi(f"{C.esc(nom_v)} · {C.esc(K.titre(cat))}", f"guide technique du fabricant, p.{NBSP}{p['page']}",
@@ -199,6 +230,15 @@ def _termes(cat: Dict, p: Dict, v: Dict) -> List[Dict]:
     if v.get("M_Rd_chape") is not None:
         out.append({"symbole": "M_Rd", "nom": "avec couche collaborante", "valeur": v["M_Rd_chape"], "unite": "kN·m",
                     "regle": f"{ch['epaisseur_min']} mm de couche {ch['classe']} au point le plus haut (p. {ch['page']})"})
+    b_txt = C.nb(K.largeur_element(cat))
+    regle_m = (f"÷ {b_txt} m (largeur du module, joint compris : p. {m['largeur_nominale']['page']}), arrondi par défaut au dixième")
+    out += [{"symbole": "m_Rd", "nom": "moment résistant par mètre de largeur", "valeur": K.par_metre(cat, v["M_Rd"]), "unite": "kN·m/m",
+             "regle": "M_Rd " + regle_m},
+            {"symbole": "v_Rd,c", "nom": "effort tranchant résistant par mètre de largeur", "valeur": K.par_metre(cat, v["V_Rd"]),
+             "unite": "kN/m", "regle": "V_Rd,c " + regle_m}]
+    if v.get("M_Rd_chape") is not None:
+        out.append({"symbole": "m_Rd", "nom": "par mètre, avec couche collaborante", "valeur": K.par_metre(cat, v["M_Rd_chape"]),
+                    "unite": "kN·m/m", "regle": "M_Rd avec couche " + regle_m})
     out += [
         {"symbole": "", "nom": "torons", "valeur": _torons(cat, v["nom"]).replace(NBSP, " "), "unite": "",
          "regle": m["notation"]["texte"]},
@@ -225,11 +265,14 @@ def _sources(cat: Dict, p: Dict) -> List[str]:
 # ================================================================================================ la vue « Gamme »
 def _gamme(L, cat: Dict, p: Dict, hote: str) -> Dict:
     o = L.out
-    g = K.gamme(cat, o["M_Ed"], o["V_Ed"], o["chape"])
+    pm = o["base"] == "metre"
+    um, uv = ("kN·m/m", "kN/m") if pm else ("kN·m", "kN")
+    g = K.gamme(cat, o["M_Ed"], o["V_Ed"], o["chape"], pm)
     carac = o["carac"]
     th = ('<tr><th class="nm">Profil</th>' + "".join(B._th(sym, unite, nom) for _, sym, unite, nom, _, _ in CARACS)
-          + B._th("M_Rd", "kN·m", "de la variante la moins armée à la plus armée" + (" (avec couche collaborante)" if o["chape"] else ""))
-          + B._th("V_Rd,c", "kN", "de la variante la moins armée à la plus armée")
+          + B._th("M_Rd", um, "de la variante la moins armée à la plus armée" + (" (avec couche collaborante)" if o["chape"] else "")
+                  + (", par mètre de largeur" if pm else ", par élément"))
+          + B._th("V_Rd,c", uv, "de la variante la moins armée à la plus armée" + (", par mètre de largeur" if pm else ", par élément"))
           + ('<th class="tx" title="la première variante qui suffit (la moins armée)">Suffit</th>' if g["demande"] else "") + "</tr>")
     corps, lignes_extrait, case_extrait = "", [], None
     for i, (q, li) in enumerate(zip(cat["profils"], g["lignes"])):
@@ -237,12 +280,14 @@ def _gamme(L, cat: Dict, p: Dict, hote: str) -> Dict:
         cellules, ext = "", [q["nom"]]
         for j, (cle, _s, _u, _n2, f, nd) in enumerate(CARACS):
             sel = {"vue": "gamme", "fabricant": o["fabricant"], "profil": q["nom"], "carac": cle}
+            if pm:
+                sel["base"] = "metre"
             cur = on and cle == carac
             cellules += B._td(C.fr(q[cle] * f, nd), sel, "cur" if cur else "")
             ext.append(C.fr(q[cle] * f, nd))
             if cur:
                 case_extrait = (i, j + 1)
-        cellules += (f'<td>{_n(li["M_min"])}–{_n(li["M_max"])}</td><td>{_n(li["V_min"])}–{_n(li["V_max"])}</td>')
+        cellules += (f'<td>{_val(li["M_min"], pm)}–{_val(li["M_max"], pm)}</td><td>{_val(li["V_min"], pm)}–{_val(li["V_max"], pm)}</td>')
         if g["demande"]:
             mk = '<i class="mk">★</i>' if q["nom"] == g["leger"] else ""
             cellules += (f'<td class="tx{" ok" if li["premiere"] else ""}">{C.esc(li["premiere"]) if li["premiere"] else "—"}{mk}</td>')

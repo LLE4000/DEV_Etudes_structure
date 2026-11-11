@@ -71,8 +71,12 @@ def sans_espaces(t):
 
 
 def cas_base():
+    """Un cas sur la FICHE GÉNÉRIQUE : ce harnais saisit ses propres résistances d'essai (un cas neuf démarre, lui, sur le
+    SP 200 du catalogue Ergon depuis le 11/11/2026 — ET.TYPE_HOURDIS_DEFAUT)."""
     etat = ET.nouvel_etat()
-    return etat, ET.cas_actif(etat)
+    cas = ET.cas_actif(etat)
+    ET.appliquer_type_hourdis(cas, ET.types_hourdis(etat)[ET.TYPE_HOURDIS_GENERIQUE])
+    return etat, cas
 
 
 # ---------------------------------------------------------------- les quatre cas
