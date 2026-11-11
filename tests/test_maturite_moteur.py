@@ -862,8 +862,18 @@ def controles(m):
           all(json.loads(json.dumps(r, allow_nan=False)) == r for _, _, r in res))
         v("9 · l'entrée rendue est la normalisée, stable à la relecture", all(ENm.normaliser(r["entree"]) == r["entree"] for _, _, r in res))
         # « symbole = expression = valeurs = résultat » : chaque résultat se retrouve à partir des SEULS termes que le moteur donne
+        # (la variante prudente porte l'indice « _prud » : T_prud, k_prud — le terme se lit sous l'un ou l'autre symbole,
+        # jamais les deux dans la même formule)
+        def T_(t):
+            assert ("T" in t) != ("T_prud" in t), t
+            return t["T"] if "T" in t else t["T_prud"]
+
+        def k_(t):
+            assert ("k" in t) != ("k_prud" in t), t
+            return t["k"] if "k" in t else t["k_prud"]
+
         def nbn(t):
-            return t["k_a"] + (t["k_b"] - t["k_a"]) * (t["T"] - t["T_a"]) / (t["T_b"] - t["T_a"])
+            return t["k_a"] + (t["k_b"] - t["k_a"]) * (T_(t) - t["T_a"]) / (t["T_b"] - t["T_a"])
         FORMULES = {
             "cible_pct": lambda t: t["p"] * t["f_ck"] / 100.0,
             "fcm": lambda t: t["f_ck"] + 8.0,
@@ -873,9 +883,9 @@ def controles(m):
             "t_T_req_28": lambda t: 28.0,
             "T_prudent": lambda t: t["T"] - t["marge"],
             "k_nbn": nbn, "k_nbn_nul": lambda t: 0.0, "k_nbn_plafond": lambda t: 1.0, "k_sous_zero": lambda t: 0.0, "k_sans_donnee": lambda t: 0.0,
-            "k_ec2": lambda t: math.exp(-4000.0 * (1.0 / (273.0 + t["T"]) - 1.0 / 293.0)),
-            "k_perso": lambda t: math.exp(-(t["E_a"] * 1000.0 / 8.314) * (1.0 / (273.0 + t["T"]) - 1.0 / 293.0)),
-            "t_atteint": lambda t: t["t_d"] + (t["t_T,req"] - t["t_T,d"]) / t["k"],
+            "k_ec2": lambda t: math.exp(-4000.0 * (1.0 / (273.0 + T_(t)) - 1.0 / 293.0)),
+            "k_perso": lambda t: math.exp(-(t["E_a"] * 1000.0 / 8.314) * (1.0 / (273.0 + T_(t)) - 1.0 / 293.0)),
+            "t_atteint": lambda t: t["t_d"] + (t["t_T,req"] - t["t_T,d"]) / k_(t),
             "t_T_a": lambda t: t["t_T,d"] + t["k"] * (t["t"] - t["t_d"]),
             "beta": lambda t: math.exp(t["s"] * (1.0 - math.sqrt(28.0 / t["t_T"]))) if t["t_T"] > 0 else 0.0,
             "beta_28": lambda t: 1.0,
@@ -906,6 +916,24 @@ def controles(m):
                         fautes.append(f"{nom}/{bloc}/{f['cle']} : {FORMULES[f['cle']](t)!r} ≠ {f['resultat']!r}")
         v(f"9 · « symbole = expression = valeurs = résultat » : les {n_f} formules ({len(vues)} sortes) se recalculent à partir de leurs seuls termes",
           not fautes and n_f > 700 and len(vues) >= 22, (fautes[:3], n_f, sorted(set(FORMULES) - vues)))
+        # la NOTATION de la variante prudente (relecture du 11/11/2026 : « k,p » et « t,p » s'écrivaient sans indice, et la
+        # formule de k y nommait « T » une température abaissée) : T_prud, k_prud, t_prud — et un terme qui reprend une de ces
+        # grandeurs porte SON symbole. t_p reste l'âge PRÉVU d'une opération.
+        sy0 = {f["symbole"]: f for f in Mm.calculer(Mm.nouvel_element())["objectifs"][0]["formules"]}
+        v("9 · la variante prudente s'écrit en indice : T_prud = T − marge, k_prud calculé sur T_prud, t_prud sur k_prud (le coulage neuf, 20 °C "
+          "constante : 17 °C, k = 0,88, J + 12,19) ; aucun symbole « ,p »",
+          {"T_prud", "k_prud", "t_prud", "k", "t"} <= set(sy0) and not any(",p" in s for s in sy0)
+          and [y["symbole"] for y in sy0["T_prud"]["termes"]] == ["T", "marge"] and sy0["T_prud"]["resultat"] == 17.0
+          and sy0["k_prud"]["termes"][0]["symbole"] == "T_prud" and sy0["k_prud"]["termes"][0]["valeur"] == 17.0 and pres(sy0["k_prud"]["resultat"], 0.88, 1e-12)
+          and sy0["t_prud"]["termes"][-1]["symbole"] == "k_prud" and pres(sy0["t_prud"]["termes"][-1]["valeur"], 0.88, 1e-12)
+          and pres(sy0["t_prud"]["resultat"], 10.728645672973535 / 0.88, 1e-9)
+          and sy0["k"]["termes"][0]["symbole"] == "T" and sy0["t"]["termes"][-1]["symbole"] == "k", sorted(sy0))
+        e_mes = coulage(m, date="2026-11-02", heure=16, temperature__mode="releve", temperature__releve=releve(T6))
+        e_mes["objectifs"] = [objectif(m, "Hors gel", mode="mpa", mpa=5.0, base="fcm")]
+        sy1 = {f["symbole"]: f for f in Mm.calculer(e_mes)["objectifs"][0]["formules"]}
+        v("9 · … et un jour MESURÉ n'est pas abaissé : pas de ligne T_prud, k_prud se calcule sur T (5 °C : 0,45), t_prud = t",
+          "T_prud" not in sy1 and sy1["k_prud"]["termes"][0]["symbole"] == "T" and sy1["k_prud"]["termes"][0]["valeur"] == 5.0
+          and pres(sy1["k_prud"]["resultat"], 0.45, 1e-12) and pres(sy1["t_prud"]["resultat"], sy1["t"]["resultat"], 1e-12), sorted(sy1))
         # les invariants
         inv = []
         for nom, e, r in res:

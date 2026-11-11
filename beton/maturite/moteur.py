@@ -208,22 +208,26 @@ def _instant(date0, heure: int, t, plafond: bool = True):
 
 
 # ------------------------------------------------------------------ le profil des températures
-def _k_formule(T, loi: dict, symbole: str = "k") -> dict:
-    """La formule du coefficient k à la température T, dans la loi choisie (None : un jour sans température)."""
+SYM_PRUDENT = "_prud"       # l'indice des symboles de la variante prudente : T_prud, k_prud, t_prud (t_p est l'âge PRÉVU)
+
+
+def _k_formule(T, loi: dict, symbole: str = "k", sym_T: str = "T") -> dict:
+    """La formule du coefficient k à la température T, dans la loi choisie (None : un jour sans température).
+    ``sym_T`` : le symbole de la température dans la formule (« T_prud » quand elle est abaissée de la marge)."""
     if T is None:
         return _f("k_sans_donnee", symbole, [], 0.0)
     mode = loi["mode"]
     if mode == "nbn":
         seg = L.segment_nbn(T)
         if seg is None:
-            return _f("k_nbn_nul" if T <= L.T_NUL_NBN else "k_nbn_plafond", symbole, [("T", T, "°C")], L.k_nbn(T))
+            return _f("k_nbn_nul" if T <= L.T_NUL_NBN else "k_nbn_plafond", symbole, [(sym_T, T, "°C")], L.k_nbn(T))
         (Ta, ka), (Tb, kb) = seg
-        return _f("k_nbn", symbole, [("T", T, "°C"), ("T_a", Ta, "°C"), ("k_a", ka, ""), ("T_b", Tb, "°C"), ("k_b", kb, "")], L.k_nbn(T))
+        return _f("k_nbn", symbole, [(sym_T, T, "°C"), ("T_a", Ta, "°C"), ("k_a", ka, ""), ("T_b", Tb, "°C"), ("k_b", kb, "")], L.k_nbn(T))
     if T < L.T_MIN_EC2:
-        return _f("k_sous_zero", symbole, [("T", T, "°C")], 0.0)
+        return _f("k_sous_zero", symbole, [(sym_T, T, "°C")], 0.0)
     if mode == "ec2":
-        return _f("k_ec2", symbole, [("T", T, "°C")], L.k_ec2(T))
-    return _f("k_perso", symbole, [("T", T, "°C"), ("E_a", loi["Ea_kJ"], "kJ/mol")], L.k_arrhenius(T, loi["Ea_kJ"]))
+        return _f("k_ec2", symbole, [(sym_T, T, "°C")], L.k_ec2(T))
+    return _f("k_perso", symbole, [(sym_T, T, "°C"), ("E_a", loi["Ea_kJ"], "kJ/mol")], L.k_arrhenius(T, loi["Ea_kJ"]))
 
 
 def _profil(e: dict, avert: list) -> dict:
@@ -498,11 +502,13 @@ def _objectif(i: int, o: dict, e: dict, p: dict, fck: float, s: float) -> dict:
                 out["t"], out["instant"] = t, inst
             if seg is not None:
                 jr = _jour(p, seg["jour"])
-                suf = ",p" if prudent else ""
-                if prudent and jr["source"] in NON_MESURES:
-                    fx.append(_f("T_prudent", "T_p", [("T", jr["T"], "°C"), ("marge", p["marge"], "°C")], jr["T_prudent"], "°C"))
-                fx.append(_k_formule(jr["T_prudent"] if prudent else jr["T"], e["loi"], "k" + suf))
-                fx.append(_f("t_atteint", "t" + suf, [("t_d", seg["debut"], "j"), ("t_T,req", tT, "j"), ("t_T,d", seg["t_T_debut"], "j"), ("k", seg["k"], "")], t, "j"))
+                suf = SYM_PRUDENT if prudent else ""
+                abaisse = prudent and jr["source"] in NON_MESURES   # un jour mesuré n'est pas abaissé : sa température reste T
+                if abaisse:
+                    fx.append(_f("T_prudent", "T" + suf, [("T", jr["T"], "°C"), ("marge", p["marge"], "°C")], jr["T_prudent"], "°C"))
+                fx.append(_k_formule(jr["T_prudent"] if prudent else jr["T"], e["loi"], "k" + suf, "T" + suf if abaisse else "T"))
+                fx.append(_f("t_atteint", "t" + suf, [("t_d", seg["debut"], "j"), ("t_T,req", tT, "j"), ("t_T,d", seg["t_T_debut"], "j"),
+                                                    ("k" + suf, seg["k"], "")], t, "j"))
         out["source"] = _source_a(p, out["t"])
     if o["age"] is not None:
         a = o["age"]

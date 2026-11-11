@@ -61,6 +61,9 @@ SEGMENTS_CIBLE = (("mpa", "MPa"), ("pct", "% de fck"))
 SEGMENTS_BASE = (("fcm", "Moyenne"), ("fck", "Caractéristique"))
 SEGMENTS_EPROUVETTE = (("cube", "Cube 150"), ("cylindre", "Cylindre"))
 MOTS_SOURCE = {"mesure": "mesuré", "prevision": "prévision", "prolonge": "prolongé", "constante": "constante", "sans_donnee": "sans donnée"}
+# … et dans un décompte de jours (« 11 j mesurés · 16 j de prévision ») : (un jour, plusieurs)
+MOTS_JOURS = {"mesure": ("mesuré", "mesurés"), "prevision": ("de prévision", "de prévision"), "prolonge": ("prolongé", "prolongés"),
+              "constante": ("constant", "constants"), "sans_donnee": ("sans donnée", "sans donnée")}
 JOURS_SEMAINE = ("lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim.")
 COURT_BETON = {"rapide": "rapide", "moyen": "moyen", "lent": "lent"}
 # les noms des champs, pour les messages (le moteur nomme le chemin : « temperature/T : -25 est sous le minimum -20 »)
@@ -750,9 +753,13 @@ def _rubrique_beton(c: Dict, r: Dict) -> str:
     cale = (f" · calé sur l'essai : s = {C.nb(m['s'], 3)}, r = {C.nb(m['r'], 2)}" if m["cale"] else "")
     detail = f"{du['detail']} · " if du["detail"] else ""
     s += C.aide(f"{detail}f<sub>cm</sub>(2{NB}j) = {C.fr(du['r'] * 100, 0)}{NB}% de f<sub>cm</sub>(28{NB}j) · s = {C.nb(du['s'], 3)}{cale}")
-    s += C.ligne("Fin du bétonnage", C.texte(["date"], _date_fr(c["date"]), "JJ/MM/AAAA"), "",
+    tm = r["temps"]
+    du_releve = c["date"] is None and tm["date_origine"] == "releve"          # le moteur l'a lue sur la première ligne du relevé
+    s += C.ligne("Fin du bétonnage", C.texte(["date"], _date_fr(c["date"]), _date_fr(tm["date"]) if du_releve else "JJ/MM/AAAA"), "",
                  "La date de la FIN du bétonnage : t = 0. Vide : les échéances sont données en jours (J + …), sans date ; avec un relevé "
                  "daté, sa première ligne la donne.")
+    if du_releve:
+        s += C.aide(f"Date lue sur la première ligne du relevé ({_date_fr(tm['date'])}) : saisissez-la ici pour la fixer.")
     s += C.ligne("à l'heure", C.choix(["heure"], c["heure"], HEURES), "",
                  "L'heure de la fin du bétonnage : le premier jour ne compte que ce qu'il en reste (midi par défaut).")
     return s
@@ -1155,11 +1162,13 @@ def _bloc_objectifs(r: Dict) -> str:
 def _bloc_temperatures(r: Dict) -> str:
     sy, tp, gel = r["synthese"], r["temperature"], r["gel"]
     n = sy["n"]
-    jours = " · ".join(f"{v} j {MOTS_SOURCE[k]}{'s' if v > 1 and k in ('mesure', 'prolonge') else ''}" for k, v in n.items()) or "température constante"
+    jours = " · ".join(f"{v}{NB}j {MOTS_JOURS[k][v > 1]}" for k, v in n.items()) or "température constante"
     efforts = (f"T moy {_deg(sy['T_moy'])} · min {_deg(sy['T_min'])} · max {_deg(sy['T_max'])} · loi {C.esc(r['materiau']['loi']['libelle'])}")
-    rows = C.ligne_verif("Jours", jours + (f" · au-delà : {_deg(tp['T_fin'])} {'prolongée' if tp['source_fin'] == 'prolonge' else 'constante'}"
-                                         if tp["source"] == "releve" else ""), None, "c", calcul="s1",
-                         etat_txt=f"{sy['n_jours']} j connus" if sy["n_jours"] else _deg(tp["T"]))
+    rows = C.ligne_verif("Jours", jours, None, "c", calcul="s1", etat_txt=f"{sy['n_jours']} j connus" if sy["n_jours"] else _deg(tp["T"]))
+    if tp["source"] == "releve":
+        # ce que le calcul suppose APRÈS le dernier jour connu : une hypothèse qui date les objectifs lointains — elle se lit
+        rows += C.ligne_verif("Jours suivants", f"la moyenne des {L.JOURS_PROLONGATION} derniers jours connus · k{NB}={NB}{C.fr(tp['k_fin'], 2)}",
+                              None, "c", calcul="s1", etat_txt=_deg(tp["T_fin"]))
     rows += C.ligne_verif("Âge équivalent", f"t<sub>T</sub> à 28{NB}j réels" + (f" · prudent {_jours(sy['t_T_28_prudent'])}" if sy["prudent_distinct"] else ""),
                           None, "c", calcul="s1", etat_txt=_jours(sy["t_T_28"]))
     if gel["alerte"]:
@@ -1268,7 +1277,8 @@ def _hyps(r: Dict) -> List[str]:
     return out
 
 
-COLONNES_OBJ = ("Objectif", "Comparée à", "Âge équivalent requis", "Atteint", "Taux")
+# la dernière colonne porte le TAUX d'un objectif daté, l'ÉCHÉANCE d'un objectif qui ne l'est pas : « Résultat »
+COLONNES_OBJ = ("Objectif", "Comparée à", "Âge équivalent requis", "Atteint", "Résultat")
 
 
 def _ligne_tab(r: Dict, o: Dict, gov: bool) -> Dict:
@@ -1323,7 +1333,8 @@ def _volets(r: Dict, nom: str) -> str:
                                                                                  else "aucun jour de gel")),
                 "etat_txt": "protéger" if gel["alerte"] else "hors gel", "niveau": "r" if gel["alerte"] else "p"}]
     out += C.fenetre_calcul("gel", f"{nom} · gel", f"{base} · le gel avant 5 MPa", hyps, lig_gel,
-                            _groupe("5 MPa en résistance moyenne", gel["formules"]), pied)
+                            _groupe("5 MPa en résistance moyenne", gel["formules"]), pied,
+                            ("Vérification", "Condition", "5 MPa atteints", "Premier jour de gel", "Verdict"))
     x = r["essai"]
     if x:
         lig = [{"nom": f"Essai à {_jplus(x['age'])}", "sous": "cube de 150 mm" if x["eprouvette"] == "cube" else "cylindre",
@@ -1365,8 +1376,13 @@ def _vue_tableau(r: Dict) -> str:
                f'<td>{C.fr(li["fcm"], 1)}</td><td class="f">{C.fr(li["fck"], 1)}</td>')
         corps += tr + "</tr>"
     pied = ("Jour 0 : le jour du bétonnage (compté pour ce qui en reste après l'heure de fin) ; t<sub>T</sub> : l'âge équivalent à 20 °C "
-            "en fin de jour ; en gris, t<sub>T</sub> ≤ 3 j (valeurs indicatives, EC2 §3.1.2(5)) ; en bleu, le jour où le premier objectif "
-            "est atteint.")
+            "en fin de jour ; en gris, t<sub>T</sub> ≤ 3 j (valeurs indicatives, EC2 §3.1.2(5)) ; ligne surlignée : le jour où le premier "
+            "objectif est atteint")
+    if any(li["gel"] for li in tb["lignes"]):
+        zero = C.nb(M.T_GEL_C, 0)
+        pied += (f" ; numéro du jour en bleu : jour de gel (minimale horaire sous {zero} °C ; à défaut de détail horaire, moyenne du jour à "
+                 f"{zero} °C ou moins)")
+    pied += "."
     if hor:
         pied += " T min h, T max h : les extrêmes horaires du jour (Open-Meteo, détail horaire) ; « — » : aucune valeur horaire."
     return (f'<div class="age-vue"><div class="age-defile"><table class="age-tab"><thead><tr>{tete}</tr></thead><tbody>{corps}</tbody></table></div>'
@@ -1394,7 +1410,8 @@ def _vues(r: Dict, ident: str) -> List[Dict]:
     else:
         t_titre, t_leg = "Températures", _temperatures_txt(r)
     t_leg += " · barres : la température du jour, par source · courbe : l'âge équivalent cumulé"
-    c_leg = "f_cm(t) et f_ck(t) en âge réel · objectifs atteints · variante prudente en tirets · t_T ≤ 3 j grisé"
+    c_leg = ("résistances en âge réel, depuis la fin du bétonnage · chaque objectif à son point · variante prudente en tirets · "
+             f"avant {C.nb(L.SEUIL_INDICATIF_J, 0)} j équivalents : valeurs indicatives (grisé)")
     vues = [("courbe", "Courbe des résistances", "Courbe", DA.courbe, c_leg),
             ("temperatures", t_titre, "Températures", DA.temperatures, t_leg),
             ("tableau", "Valeurs jour par jour", "Tableau", None, "jour, température, k, âge équivalent, résistances")]

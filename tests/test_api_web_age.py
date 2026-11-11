@@ -478,6 +478,62 @@ chk("l'aide de la loi k(T) est exacte : « plus prudente que (B.10) » (0,45 < 0
     and "(0,3 à 0 °C ; le tableau de la norme s'arrête à −5 °C, le module le prolonge jusqu'à 0 à −10 °C)" in aide_loi
     and "le tableau belge peut alors être optimiste" in aide_loi and "(20 à 60 kJ/mol)" in aide_loi, aide_loi[-520:])
 
+# La relecture des captures du 11/11/2026 — six points de finition, chacun figé ici.
+e_rel = note(coulage("Voile", temperature__mode="releve", temperature__releve=RELEVE, objectifs=[objectif("Décoffrage"), objectif("Daté", age=6.0)]))
+r_rel, r_dat = calc(e_rel), calc(note(coulage("Voile", date="2026-11-02", temperature__mode="releve", temperature__releve=RELEVE)))
+m_rel = M.calculer(e_rel["coulages"][0])
+def titres(rep):
+    """Les cinq titres du tableau de chaque fenêtre de calcul : {identifiant: [titres]} (texte, sans balises)."""
+    out = {}
+    for bloc in re.split(r'(?=<[^>]*\bid="ck-)', rep["volets"]):
+        ident, tete = re.search(r'\bid="ck-([^"]+)"', bloc), re.search(r"<thead><tr>(.*?)</tr></thead>", bloc, re.S)
+        if ident and tete:
+            out[ident.group(1)] = [texte(t) for t in re.findall(r"<th[^>]*>(.*?)</th>", tete.group(1), re.S)]
+    return out
+
+
+T_OBJ = ["Objectif", "Comparée à", "Âge équivalent requis", "Atteint", "Résultat"]
+t0, t_rel = titres(r0), titres(r_rel)
+chk("fenêtres : aucune colonne « Taux » sur ce qui n'en est pas un — les objectifs finissent par « Résultat » (l'ÉCHÉANCE « J + … » d'un objectif "
+    "non daté, le TAUX d'un objectif daté), le gel par « Verdict » (« hors gel », « protéger ») entre « 5 MPa atteints » et « Premier jour de gel »",
+    set(t0) == {"o0", "s0", "s1", "gel"} and set(t_rel) == {"o0", "o1", "s0", "s1", "gel"}
+    and all(t[k] == T_OBJ for t in (t0, t_rel) for k in t if k == "s0" or k.startswith("o"))
+    and all(t["gel"] == ["Vérification", "Condition", "5 MPa atteints", "Premier jour de gel", "Verdict"] for t in (t0, t_rel))
+    and not any("Taux" in x or "Valeur" in x or "Limite" in x for t in (t0, t_rel) for v in t.values() for x in v)
+    and m_rel["objectifs"][0]["age_prevu"] is None and m_rel["objectifs"][1]["taux"] is not None
+    and f">J + {C.fr(m_rel['objectifs'][0]['t'], 1)}<" in r_rel["volets"] and taux_txt(m_rel["objectifs"][1]["taux"]) in texte(r_rel["volets"]),
+    (t0, t_rel))
+chk("fenêtres : la variante prudente s'écrit en indice — T_prud, k_prud, t_prud —, plus aucun « k,p » ni « t,p » ; t_p reste l'âge prévu",
+    all(f"{x}<sub>prud</sub>" in r0["volets"] for x in "Tkt") and not re.search(r"\b[kt],p\b", texte(r0["volets"]) + texte(r_rel["volets"]))
+    and "(t<sub>p</sub>)" in r_rel["volets"] and "<sub>prud</sub>" in r_rel["volets"])
+chk("vues : la légende de chaque vue est du TEXTE lisible — aucun symbole écrit avec son tiret bas (« f_cm(t) », « t_T ») —, et l'en-tête non plus",
+    all(not re.search(r"[A-Za-zα-ω]_[A-Za-z]", v["legende"] + " " + texte(v["entete"])) for rep in (r0, r_rel, r_dat) for v in rep["vues"])
+    and "valeurs indicatives (grisé)" in r0["vues"][0]["legende"] and f"avant {C.nb(L.SEUIL_INDICATIF_J, 0)} j équivalents" in r0["vues"][0]["legende"])
+tab_rel, tab_0 = r_rel["vues"][2]["svg"], r0["vues"][2]["svg"]
+j_gel = [li["jour"] for li in m_rel["tableau"]["lignes"] if li["gel"]]
+chk("tableau : sa légende dit ce que l'œil voit — la LIGNE surlignée est le jour où le premier objectif est atteint, le NUMÉRO en bleu un jour de "
+    "gel (le 06/11 à −2,0 °C : jour 4), et elle ne parle du gel que s'il y en a",
+    j_gel == [4] and re.search(r'<tr class="[^"]*\bgel\b[^"]*"><th>4</th>', tab_rel) and len(re.findall(r'<tr class="[^"]*\bgel\b', tab_rel)) == 1
+    and "ligne surlignée : le jour où le premier objectif est atteint" in tab_rel and "numéro du jour en bleu : jour de gel" in tab_rel
+    and "moyenne du jour à 0 °C ou moins" in tab_rel and "en bleu, le jour où" not in tab_rel + tab_0
+    and "ligne surlignée" in tab_0 and "jour de gel" not in tab_0 and len(re.findall(r'<tr class="[^"]*\bon\b', tab_rel)) == 1, j_gel)
+tp_rel = m_rel["temperature"]
+chk("résultats : « Jours » compte les jours par source sans phrase coupée, et ce que le calcul suppose APRÈS le dernier jour connu a sa ligne — "
+    "« Jours suivants · 6,6 °C · la moyenne des 5 derniers jours connus · k = 0,50 » (le moteur) ; rien de tel à température constante",
+    abs(tp_rel["T_fin"] - (4.0 + 6.0 + 7.5 + 8.5 + 7.0) / 5.0) < 1e-12 and abs(tp_rel["k_fin"] - (0.45 + 0.15 * 1.6 / 5.0)) < 1e-12
+    and f"5{NB}j mesurés · 3{NB}j de prévision · 1{NB}j prolongé · 1{NB}j sans donnée" in texte(r_rel["resultat"])
+    and re.search(r"Jours suivants.{0,400}?" + re.escape(f"6,6{NB}°C") + r".{0,400}?" + re.escape(f"la moyenne des 5 derniers jours connus · k{NB}={NB}0,50"),
+                  texte(r_rel["resultat"]), re.S)
+    and "au-delà :" not in texte(r_rel["resultat"]) and "Jours suivants" not in texte(r0["resultat"]) and "température constante" in texte(r0["resultat"]),
+    texte(r_rel["resultat"])[:400])
+champ = r'<input data-chemin="date" data-sorte="texte" value="{}" placeholder="{}">'
+chk("données : une date de fin du bétonnage LUE SUR LE RELEVÉ se voit dans le champ vide (en grisé) et se dit dessous ; saisie, ou sans relevé daté, "
+    "le champ reprend son gabarit « JJ/MM/AAAA » et la phrase disparaît",
+    m_rel["temps"]["date_origine"] == "releve" and m_rel["temps"]["date"] == "2026-11-02"
+    and champ.format("", "02/11/2026") in r_rel["donnees"] and "Date lue sur la première ligne du relevé (02/11/2026)" in r_rel["donnees"]
+    and champ.format("02/11/2026", "JJ/MM/AAAA") in r_dat["donnees"] and "Date lue sur" not in r_dat["donnees"]
+    and champ.format("", "JJ/MM/AAAA") in r0["donnees"] and "Date lue sur" not in r0["donnees"])
+
 # ------------------------------------------------------------------ 5. le sélecteur de classe
 print("\n=== 5. Le sélecteur de classe ===")
 sel0 = req(module="age", action="selecteur", etat=e0, role="classe")["html"]
