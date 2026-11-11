@@ -369,7 +369,10 @@ chk("le générateur écrit la page et le fichier construit est le sien",
 bjs = open(os.path.join(RACINE, "site", "web", "js", "biblio.js"), encoding="utf-8").read()
 chk("js/biblio.js : une ligne (tr[data-sel]), un en-tête (th[data-sel]), un bouton de la bande règlent ; une pastille règle le paramètre "
     "du bloc qui la contient ; un menu « data-garde » ouvert le reste ; le tableau garde son défilement dans la même rubrique",
-    "#bib-tableau tr[data-sel]" in bjs and "#bib-tableau th[data-sel]" in bjs and "#bib-bande [data-sel]" in bjs
+    # (11/11/2026, le test SUIT : le câblage ne nomme plus la case, la ligne et l'en-tête un à un — TOUT élément du cadre
+    #  qui porte data-sel règle, un élément d'un dessin compris (Bibliothèque Autres). Le geste lui-même — la ligne
+    #  cliquée, l'en-tête qui trie — est joué dans le vrai navigateur : verifier_site.js, filtre « bibliotheque ».)
+    "#bib-tableau [data-sel], #bib-bande [data-sel]" in bjs
     and '.bib-barre [data-param] button[data-valeur]' in bjs and 'closest("[data-param]")' in bjs and "details[data-garde][open]" in bjs
     and "affichee" in bjs)
 
