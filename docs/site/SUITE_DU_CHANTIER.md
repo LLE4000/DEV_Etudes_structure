@@ -474,6 +474,26 @@ D3, D5, D7), prédalle (couches basses croisées). Règle : Streamlit d'abord, p
   autres copies de f_y non liées (`choix_profil` FY_EPAIS, plancher FY_MATERIAU) ; `biblio_beton._champ` met des
   segments dans un `<label>` (un clic sur le libellé active le premier bouton ; corrigé côté acier seulement).
 - Chantiers et dossiers (nouvel écran, MIGRATION du format de la mémoire des notes : rien sans l'accord) (gros).
+- **Hourdis — les réflexions de l'ingénieur du 11/11/2026 (« pas à faire tout de suite »)**, avec l'avis donné le même
+  jour ; ordre proposé : 1, 2, 3, puis 4 sur document du fabricant.
+  1. *Les autres marques* (Prefer, et une autre à nommer) : conseillé. Un fichier et une ligne de `CATALOGUES` chacune,
+     transcrites comme Ergon (trois lectures, empreinte, mesure datée) ; il faut leurs guides techniques en PDF, édition
+     la plus récente. Les conditions propres à chaque marque (béton, feu, classe de conséquence) restent affichées : une
+     comparaison entre marques se lit avec elles (petit à moyen par marque).
+  2. *Les découpes* : les hourdis rétrécis sont « sciés longitudinalement dans l'axe de l'alvéole » (p. 26) et leurs
+     largeurs sont publiées (SP 200 : 520 / 700 / 890 / 1 080 mm), déjà écrites dans la rubrique ; les montrer sur la
+     coupe. À comprendre d'abord : les largeurs publiées ne tombent pas pile sur les axes d'alvéoles (520 pour un axe à
+     504 mm du bord : joint compris ?) — à demander ou à déduire du guide, jamais à inventer (petit).
+  3. *Un module « choix de hourdis »* (après Charges sur plancher) : portée, appuis, charges permanentes et variables,
+     couche ou non → pour chaque profil la variante la moins armée qui suffit, puis le plus léger. L'ELU se juge sur les
+     tableaux M_Rd / V_Rd,c déjà transcrits (le poids propre de CHAQUE profil compté) ; les déformations ne s'en
+     déduisent pas (la contre-flèche de précontrainte n'est pas publiée) : relever aussi les COURBES DE PERFORMANCE du
+     guide (vectorielles dans le PDF, lisibles comme les coupes), et retenir la plus défavorable des deux lectures. Se
+     conçoit par écrit avant le code (moyen à gros).
+  4. *Les torons sur la coupe* : déconseillé tant que leur position n'est pas publiée — le guide donne nombre et Ø, pas
+     l'implantation, et dit (p. 28) « Vérifiez toujours la disposition des torons avant de forer ! Demandez à chaque fois
+     un schéma d'implantation » : un toron dessiné à une place supposée servirait à décider où forer. À faire sur le
+     schéma d'implantation du fabricant ; en attendant, une mention sous la coupe (petit).
 
 ## 3. Plus tard : le confort
 
