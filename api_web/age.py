@@ -926,10 +926,14 @@ def _aide_loi() -> str:
     for cle, lib in (("nbn", "NBN B 15-400"), ("ec2", "EC2 (B.10)"), ("perso", "E_a = 45 kJ/mol")):
         loi = {"mode": cle, "Ea_kJ": 45.0}
         lignes.append(f"{lib} : " + ", ".join(f"{C.nb(L.k_T(T, loi), 2)} à {_moins(C.nb(T, 0))} °C" for T in pts))
+    # les nombres de la phrase viennent des tables du moteur (lois.py) : rien n'est recopié ici
+    k0, T_nul, T_norme = C.nb(L.k_nbn(0.0), 2), _moins(C.nb(L.T_NUL_NBN, 0)), _moins(C.nb(L.K_NBN_NORME[0][0], 0))
     return ("k(T), ce que vaut un jour à T par rapport à un jour à 20 °C — " + " ; ".join(lignes) + ". La NBN B 15-400 (complément belge "
-            "à l'EN 13670, « âge fictif ») est la loi par défaut : belge, et la plus prudente par temps froid ; elle compte encore un peu "
-            "sous 0 °C (prolongée jusqu'à 0 à −10 °C) et rien de plus au-dessus de 20 °C. (B.10) est écrite pour la cure thermique, et "
-            "compte 0 sous 0 °C. E_a saisie : l'énergie d'activation donnée par la centrale (20 à 60 kJ/mol).")
+            "à l'EN 13670, « âge fictif ») est la loi par défaut : c'est la norme belge, plus prudente que (B.10) par temps froid. Sous "
+            f"0 °C elle compte encore un peu ({k0} à 0 °C ; le tableau de la norme s'arrête à {T_norme} °C, le module le prolonge jusqu'à 0 à "
+            f"{T_nul} °C) et rien de plus au-dessus de 20 °C. (B.10) est écrite pour la cure thermique, et compte 0 sous 0 °C. E_a saisie : "
+            f"l'énergie d'activation donnée par la centrale ({C.nb(L.EA_MIN, 0)} à {C.nb(L.EA_MAX, 0)} kJ/mol) — plus elle est haute (ciments "
+            "au laitier), plus le béton durcit lentement au froid : le tableau belge peut alors être optimiste.")
 
 
 def _rubrique_hypotheses(c: Dict, r: Dict) -> str:

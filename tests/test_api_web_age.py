@@ -463,6 +463,20 @@ chk("le menu « Durcissement » a deux groupes : le bon de livraison (rapide, mo
     and re.findall(r'<option value="(beton:\w+|r|ciment:\w)"', r0["donnees"]) == ["beton:rapide", "beton:moyen", "beton:lent", "r", "ciment:R", "ciment:N", "ciment:S"])
 chk("les six modèles d'objectif, chacun avec sa source au survol",
     all(f'data-valeur="{k}" title="{C.esc(src)}"' in r0["donnees"] for k, *_x, src in M.MODELES_OBJECTIF))
+# L'aide de la loi k(T) ne dit que ce qui est VRAI (relecture du 11/11/2026) : la loi belge est plus prudente que (B.10)
+# par temps froid, PAS « la plus prudente » — sous 0 °C elle compte encore un peu là où (B.10) compte 0, et une E_a haute
+# (ciments au laitier) donne moins qu'elle. Recalculé ici : à 5 °C, 0,45 (belge) contre 0,479 (B.10) et 0,369 (45 kJ/mol).
+aide_loi = html.unescape(A._aide_loi())
+k5 = {"nbn": L.k_nbn(5.0), "ec2": L.k_ec2(5.0), "e45": L.k_arrhenius(5.0, 45.0)}
+chk("l'aide de la loi k(T) est exacte : « plus prudente que (B.10) » (0,45 < 0,479 à 5 °C), jamais « la plus prudente » (0,369 pour 45 kJ/mol) ; "
+    "elle dit que la loi belge compte encore sous 0 °C (0,3 à 0 °C), où le tableau de la norme s'arrête (−5 °C) et jusqu'où le module le "
+    "prolonge (−10 °C), et qu'une E_a haute rend le tableau belge optimiste — ses nombres sont ceux des tables du moteur",
+    abs(k5["nbn"] - 0.45) < 1e-12 and abs(k5["ec2"] - 0.4787) < 5e-5 and abs(k5["e45"] - 0.3691) < 5e-5 and k5["e45"] < k5["nbn"] < k5["ec2"]
+    and L.k_nbn(-3.0) > 0.0 == L.k_ec2(-3.0)
+    and "plus prudente que (B.10) par temps froid" in aide_loi and "la plus prudente" not in aide_loi
+    and abs(L.k_nbn(0.0) - 0.30) < 1e-12 and L.K_NBN_NORME[0][0] == -5.0 and L.T_NUL_NBN == -10.0 and (L.EA_MIN, L.EA_MAX) == (20.0, 60.0)
+    and "(0,3 à 0 °C ; le tableau de la norme s'arrête à −5 °C, le module le prolonge jusqu'à 0 à −10 °C)" in aide_loi
+    and "le tableau belge peut alors être optimiste" in aide_loi and "(20 à 60 kJ/mol)" in aide_loi, aide_loi[-520:])
 
 # ------------------------------------------------------------------ 5. le sélecteur de classe
 print("\n=== 5. Le sélecteur de classe ===")
