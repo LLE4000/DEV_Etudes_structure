@@ -271,6 +271,19 @@ fournir).
 - Le gabarit du PDF n'est pas refait : la page de garde, le cartouche et les planches restent ; sans fiche, le document
   est celui d'avant.
 
+### 2.6 La Bibliothèque Autres — trois outils de résistance des matériaux (11/11/2026)
+
+Demande de l'ingénieur du 11/11/2026. La page `bibliotheque-autres` (`api_web/biblio_autres.py`) a trois rubriques :
+**Poutres** (formulaire de RDM), **Plaques** (plaques rectangulaires sous charge uniforme), **Sections**
+(caractéristiques d'une section quelconque, composée à l'écran). Ce ne sont pas des tableaux mais des OUTILS : le cadre
+porte un dessin, des données, des résultats et une feuille de calcul (formule générale → valeurs → résultat) qui
+s'imprime. La conception, les formules, les références, les limites et l'état construit : `docs/site/BIBLIOTHEQUE_AUTRES.md`.
+
+À l'accueil, la famille « Autres » a désormais sa carte, **haute de deux rangées comme celles du Béton et de l'Acier**
+bien que ses modules tiennent sur une rangée (« le rectangle Bibliothèque de même dimension qu'au-dessus […] parce que
+le menu Autres sera complété »). Il n'y a donc plus de famille sans bibliothèque : les contrôles de l'accueil qui
+posaient une carte d'essai sur « Autres » mesurent maintenant la vraie.
+
 ## 3. Correspondance ancien → nouveau
 
 | Aujourd'hui | Demain | Données, calculs, notes |

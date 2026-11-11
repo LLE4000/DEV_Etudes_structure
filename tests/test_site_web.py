@@ -230,10 +230,11 @@ VERSION = SW.version_site(WEB)
 _PAGES_RENDUES = SW.pages_rendues()
 for nom, html in [("js/modules.js", SW.modules_js())] + [(n, SW.poser_version(h, VERSION)) for n, h in _PAGES_RENDUES.items()]:
     chk(f"{nom} est celle que le générateur écrit", os.path.exists(os.path.join(WEB, nom)) and open(os.path.join(WEB, nom), encoding="utf-8").read() == html)
-# la version (S4-D3, C7) : la MÊME balise sur les 21 pages, la valeur recalculée, la même dans le manifeste
+# la version (S4-D3, C7) : la MÊME balise sur les 22 pages (21 + la Bibliothèque Autres, 11/11/2026), la valeur recalculée,
+# la même dans le manifeste
 _versions = {n: re.findall(r'<meta name="stab-version" content="([^"]*)">', open(os.path.join(WEB, n), encoding="utf-8").read()) for n in _PAGES_RENDUES}
 chk(f"même stab-version sur les {len(_PAGES_RENDUES)} pages (une balise chacune, dans <head>), égale à la version recalculée et à celle du manifeste",
-    len(_PAGES_RENDUES) == 21 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
+    len(_PAGES_RENDUES) == 22 and all(v == [VERSION] for v in _versions.values()) and man.get("version") == VERSION
     and all(open(os.path.join(WEB, n), encoding="utf-8").read().index('name="stab-version"') < open(os.path.join(WEB, n), encoding="utf-8").read().index("</head>")
             for n in _PAGES_RENDUES), ({n: v for n, v in _versions.items() if v != [VERSION]}, VERSION, man.get("version")))
 # un seul script de module, js/app.js, sur chaque page ; js/theme.js reste le seul script classique, en tête (S4-D1)
@@ -253,7 +254,7 @@ for n in _PAGES_RENDUES:
     _secours[n] = (_h.count('class="secours-demarrage"') == 1 and _h.endswith(SW.SECOURS + SW.SCRIPT_APP + "</body>\n</html>\n")
                    and _tete.count(SW.STYLE_SECOURS) == 1 and _h.count("<style>") == 1)
 chk(f"chaque page ({len(_secours)}) : le message de secours une fois, juste avant js/app.js, et sa feuille en ligne une fois dans <head>",
-    len(_secours) == 21 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
+    len(_secours) == 22 and all(_secours.values()), [n for n, ok in _secours.items() if not ok])
 chk(f"le message de secours : caché tant que l'application démarre (body[data-montage] … display:none), visible au bout de {SW.SECOURS_S} s "
     "par une animation sans script (opacity et visibility), fixé dans l'écran, un lien « Recharger la page » vers la page même",
     "body[data-montage] .secours-demarrage{display:none}" in SW.STYLE_SECOURS
@@ -555,14 +556,19 @@ chk("accueil : la carte « Bibliothèque Acier » (BIB5) est à gauche du bloc A
     _fa["forme"] == "biblio" and _fa["carte"] == ("acier", "bibliotheque-acier", "Bibliothèque Acier") and _fa["rubriques"] == _rub_acier == ["Profilés", "Nuances", "Boulons"]
     and _fa["icones"] == 3 and "catalogue" in SW.MASQUES and "Catalogue des profilés" not in _fa["modules"]
     and _fa["modules"] == ["Choix de profilé", "Cornières", "Flambement", "Assemblages métalliques", "Soudures"], (_fa["carte"], _fa["rubriques"], _fa["modules"]))
-# le gabarit reste générique : une bibliothèque d'essai déclarée sur « Autres » (la seule famille sans bibliothèque
-# depuis BIB5) prend la même forme ; deux bibliothèques dans une famille sont refusées à la construction (le gabarit
-# n'en place qu'une : la première colonne). (Avant BIB5, l'essai était sur l'Acier : le contrôle SUIT la vraie carte.)
+# la Bibliothèque AUTRES (11/11/2026, docs/site/BIBLIOTHEQUE_AUTRES.md) : la troisième famille a sa carte, de la même forme
+# (à gauche de ses modules, haute de deux rangées même si la famille n'a qu'une rangée de modules), ses trois outils en
+# rubriques avec leurs icônes. (L'essai du gabarit générique se faisait sur « Autres » tant qu'elle n'avait pas de
+# bibliothèque : le contrôle SUIT la vraie carte, comme il avait suivi celle de l'Acier à BIB5.)
+_fo = next((f for f in _FAMS if f["fam"] == "autres"), {"carte": (None, None, ""), "rubriques": [], "icones": 0, "modules": [], "forme": None})
+_rub_autres = [t for _, t, _, _ in importlib.import_module("api_web.biblio_autres").RUBRIQUES]
+chk("accueil : la carte « Bibliothèque Autres » est à gauche du bloc Autres, vise sa page, liste ses trois outils (Poutres, Plaques, Sections) avec "
+    "leurs icônes ; les modules de la famille sont à sa droite, les mêmes",
+    _fo["forme"] == "biblio" and _fo["carte"] == ("autres", "bibliotheque-autres", "Bibliothèque Autres") and _fo["rubriques"] == _rub_autres == ["Poutres", "Plaques", "Sections"]
+    and _fo["icones"] == 3 and _fo["modules"] == [n for f, ns in _attendu if f == "autres" for n in ns], (_fo["carte"], _fo["rubriques"], _fo["modules"]))
+# deux bibliothèques dans une famille sont refusées à la construction (le gabarit n'en place qu'une : la première colonne)
 _sauve = dict(SW.BIBLIOTHEQUES), dict(SW.ADRESSES_BIBLIOTHEQUES)
 try:
-    SW.BIBLIOTHEQUES["essai"] = ("api_web.biblio_beton", "Autres", "autres")
-    SW.ADRESSES_BIBLIOTHEQUES["essai"] = "bibliotheque-essai"
-    _fams_essai = {f["fam"]: f for f in _familles_accueil(SW.page_accueil())}
     SW.BIBLIOTHEQUES["essai2"] = ("api_web.biblio_beton", "Autres bis", "autres")
     SW.ADRESSES_BIBLIOTHEQUES["essai2"] = "bibliotheque-essai2"
     try:
@@ -573,12 +579,8 @@ try:
 finally:
     SW.BIBLIOTHEQUES.clear(); SW.BIBLIOTHEQUES.update(_sauve[0])
     SW.ADRESSES_BIBLIOTHEQUES.clear(); SW.ADRESSES_BIBLIOTHEQUES.update(_sauve[1])
-chk("accueil : une bibliothèque déclarée sur la famille « Autres » prend la même forme (carte à gauche, ses modules à droite, "
-    "les mêmes) ; deux bibliothèques dans une famille sont refusées à la construction",
-    _fams_essai["autres"]["forme"] == "biblio" and _fams_essai["autres"]["carte"][:2] == ("essai", "bibliotheque-essai")
-    and _fams_essai["autres"]["modules"] == [n for f, ns in _attendu if f == "autres" for n in ns]
-    and _fams_essai["beton"]["forme"] == "biblio" and _fams_essai["acier"]["forme"] == "biblio" and "n'en place qu'une" in _deux,
-    ({k: (f["forme"], f["carte"]) for k, f in _fams_essai.items()}, _deux))
+chk("accueil : les trois familles ont leur bibliothèque, de la même forme ; deux bibliothèques dans une famille sont refusées à la construction",
+    all(f["forme"] == "biblio" for f in _FAMS) and len(_FAMS) == 3 and "n'en place qu'une" in _deux, ([(f["fam"], f["forme"]) for f in _FAMS], _deux))
 # la feuille du site porte la règle de la forme (la mesure à l'écran est celle de verifier_site.js) : la grille des
 # modules d'un bloc à bibliothèque commence à la DEUXIÈME colonne, en sous-grille (les colonnes de la charte, une
 # source) ; la carte ne se mesure pas (la hauteur est celle du bloc des modules) ; plus de carte « large » (span 2)
@@ -1137,7 +1139,7 @@ _bib_js = json.loads(re.search(r"^export const BIBLIOTHEQUES = (\{.*\});$", modu
 chk("js/modules.js exporte BIBLIOTHEQUES (clé → page, titre) ; l'adresse est celle que api_web/biblio_*.py déclare (PAGE)",
     _bib_js == {b: {"page": SW.ADRESSES_BIBLIOTHEQUES[b], "titre": t} for b, (_c, t, _f) in SW.BIBLIOTHEQUES.items()}
     and all(importlib.import_module(c).PAGE == SW.ADRESSES_BIBLIOTHEQUES[b] for b, (c, _t, _f) in SW.BIBLIOTHEQUES.items())
-    and sorted(_bib_js) == sorted(SW.BIBLIOTHEQUES) == ["acier", "beton"], _bib_js)
+    and sorted(_bib_js) == sorted(SW.BIBLIOTHEQUES) == ["acier", "autres", "beton"], _bib_js)       # (+ « autres », 11/11/2026)
 liens = [(p, h) for p in ["index.html"] + list(SW.PAGES.values())
          for h in re.findall(r'<a [^>]*href="([^"]+)"', open(os.path.join(WEB, p), encoding="utf-8").read()) if h.endswith(".html")]
 chk("aucun lien des pages ne vise une adresse en « .html »", not liens, liens[:4])

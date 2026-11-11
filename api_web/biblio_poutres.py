@@ -704,9 +704,9 @@ def rendre(params: Optional[Dict], hote: str = "page") -> Dict:
         groupes.append(("Contrainte de flexion", "indication élastique, sans coefficient",
                         [A.ligne("σ_max", "contrainte (le plus grand moment, en valeur absolue)", "M_max/W_el", f"{n(abs(info['M'][0]))} × 1000 / {n(o['W'], 1)}", r(info["sigma"], 1), "MPa", "Navier", False, "sigma")]))
     hyp = _hypotheses(sol, o)
-    feuille = (A.entete_impression(titre, TITRES_MODELE[sol.modele], hyp)
-               + A.bloc("Feuille de calcul", f'<ul class="rdm-hyp">{"".join(f"<li>{h}</li>" for h in hyp)}</ul>{A.feuille(groupes)}', "rdm-feuille"))
-    tableau = (f'<div class="rdm rdm-poutres"><div class="rdm-g"><figure class="rdm-dessin">{dessin}</figure>{_lecture(sol, o, x)}</div>'
+    entete = A.entete_impression(titre, TITRES_MODELE[sol.modele], hyp)
+    feuille = (A.bloc("Feuille de calcul", f'<ul class="rdm-hyp">{"".join(f"<li>{h}</li>" for h in hyp)}</ul>{A.feuille(groupes)}', "rdm-feuille"))
+    tableau = (f'<div class="rdm rdm-poutres">{entete}<div class="rdm-g"><figure class="rdm-dessin">{dessin}</figure>{_lecture(sol, o, x)}</div>'
                f'<div class="rdm-d">{_charges(o, L.out)}{res_html}</div><div class="rdm-f">{feuille}</div></div>')
     # ---- la bande
     g = o["g"]

@@ -389,6 +389,34 @@ le VRd […] les dimensions […] ce sera Ergon, mais on mettra aussi des autres
 4. ~~Saisie par mètre~~ : **fait le 11/11/2026** — la rubrique Hourdis lit et juge « par élément » ou « par mètre »
    (÷ 1,2 m, arrondi par défaut), et la fenêtre d'un élément de Charges sur plancher donne les deux lectures.
 
+## Fait ensuite, la Bibliothèque « Autres » : poutres, plaques, sections (même branche, sur 7bd488d, 11/11/2026)
+
+Demande de l'ingénieur du 11/11/2026 : « tu me crées la nouvelle bibliothèque du menu Autres […] le rectangle
+Bibliothèque de même dimension qu'au-dessus […] trois choses que tu peux déjà intégrer ». Fait :
+
+- **Hourdis** : un cas neuf de Charges sur plancher démarre sur le SP 200-4X ; la rubrique Hourdis donne M_Rd et V_Rd
+  par élément ou par mètre de largeur (÷ 1,2 m, arrondi par défaut) — 07a5853.
+- **La carte « Bibliothèque Autres »** à l'accueil, haute de deux rangées ; la page `bibliotheque-autres`.
+- **Formulaire de poutres** (`rdm/poutres.py`) : cinq modèles (deux appuis, console, encastrée-appuyée, bi-encastrée,
+  continue de 2 à 5 travées), quatre charges superposables (jusqu'à huit), schéma, réactions, V, M, flèche, section lue
+  au curseur, profilé acier ou section bois des bibliothèques existantes, feuille formule → valeurs → résultat.
+- **Plaques rectangulaires** (`rdm/plaques.py`) : charge uniforme, bords appuyés, encastrés ou libres — 26 combinaisons
+  calculées (Lévy, superposition de Timoshenko), 55 refusées avec leur raison.
+- **Section quelconque** (`rdm/sections.py`) : profilés du catalogue, plats, ronds, polygones ; déplacer, tourner,
+  retourner, couper, évider ; centre de gravité, inerties, axes principaux, modules élastiques et plastiques.
+- Détail, références, contrôles et limites : `docs/site/BIBLIOTHEQUE_AUTRES.md` (§ 8 pour l'état construit).
+
+**Ce qui reste ouvert** (rien n'est caché à l'écran : chaque point y est dit) :
+
+1. Plaques : charges autres qu'uniformes (ponctuelle, hydrostatique), bords libres hors solution de Lévy, plaques
+   épaisses, grandes flèches.
+2. Poutres : porte-à-faux d'une poutre sur appuis, poutre continue encastrée en bout, appuis élastiques, inertie
+   variable.
+3. Sections : centre de cisaillement, inertie de torsion et de gauchissement (non calculés) ; sections de plusieurs
+   matériaux ; export du dessin (DXF).
+4. Les trois outils ne s'enregistrent pas comme une note et n'ont pas de note PDF : l'adresse porte l'état (elle se
+   partage) et « Imprimer la feuille » sort le papier.
+
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 
 - C'est l'étude INTERNE du 07/11/2026 sur l'établi (le rangement des calculs) et le démarrage

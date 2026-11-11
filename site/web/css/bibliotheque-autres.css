@@ -25,6 +25,7 @@
 .rdm-cl sub { font-size: 9px; }
 .rdm-c .field { height: 30px; min-width: 0; }
 .rdm-c .field { padding: 0 7px; }
+.rdm-c .field.select { padding-right: 24px; }                       /* la place de la flèche du menu (elle recouvrait le texte) */
 .rdm-c .field input { width: 44px; text-align: right; }
 .rdm-c.l .field input { width: 84px; }
 .rdm-c .field.select select { appearance: none; border: 0; outline: 0; background: transparent; font-weight: 500; font-size: 12.5px; padding-right: 2px; max-width: 112px; color: var(--ink); }
@@ -94,6 +95,87 @@
 .rdm-svg .lu path { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 4 3; fill: none; opacity: .65; }
 .rdm-svg text.lu-t { font-size: 12px; fill: var(--ink-2); }
 
+/* ---------------------------------------------------------------- le plan d'une plaque */
+.rdm-svg-plaque { min-width: 380px; max-height: 62vh; }
+.rdm-svg .plaque { fill: var(--panel); stroke: none; }
+.rdm-svg .carte rect { fill: var(--autres); stroke: none; }
+.rdm-svg .niv { fill: none; stroke: var(--autres); stroke-width: 1.1; stroke-linecap: round; }
+.rdm-svg .bord { cursor: pointer; outline: none; }
+.rdm-svg .b-zone { fill: transparent; }
+.rdm-svg .bord:hover .b-zone, .rdm-svg .bord:focus-visible .b-zone { fill: color-mix(in srgb, var(--accent) 10%, transparent); }
+.rdm-svg .b-enc { stroke: var(--ink); stroke-width: 4; fill: none; }
+.rdm-svg .b-hach { stroke: var(--ink); stroke-width: 1.2; fill: none; }
+.rdm-svg .b-app { stroke: var(--ink); stroke-width: 2; fill: none; }
+.rdm-svg .b-app2 { stroke: var(--ink); stroke-width: 1.1; stroke-dasharray: 6 4; fill: none; }
+.rdm-svg .b-lib { stroke: var(--ink-3); stroke-width: 1.2; stroke-dasharray: 2 4; fill: none; }
+.rdm-svg text.b-t { font-size: 12px; font-weight: 650; fill: var(--accent-hover); }
+.rdm-svg .bord[data-type="L"] text.b-t { fill: var(--ink-3); }
+.rdm-svg .axes path { stroke: var(--ink-2); stroke-width: 1.2; fill: none; }
+.rdm-svg .axes text { font-size: 12px; font-style: italic; fill: var(--ink-2); }
+.rdm-svg .mq circle { stroke: var(--panel); stroke-width: 1.2; }
+.rdm-svg .mq text { font-size: 12.5px; font-weight: 700; paint-order: stroke; stroke: var(--panel); stroke-width: 4px; }
+.rdm-svg .mq-w circle, .rdm-svg .mq-w text { fill: var(--autres); }
+.rdm-svg .mq-m circle, .rdm-svg .mq-m text { fill: var(--beton); }
+.rdm-svg .centre { stroke: var(--ink-3); stroke-width: 1.2; fill: none; }
+.rdm-bords { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.rdm-bords .rdm-c { justify-content: space-between; }
+.rdm-bords .rdm-cl small { color: var(--ink-3); font-size: 10.5px; }
+.rdm-res td.nm br + * { font-size: 10.5px; }
+
+/* ---------------------------------------------------------------- l'éditeur de section */
+.rdm-svg-section { min-width: 360px; max-height: 66vh; }
+.rdm-svg .repere path { stroke: var(--ink-3); stroke-width: 1; stroke-dasharray: 1 4; fill: none; }
+.rdm-svg .repere text { font-size: 12px; font-style: italic; fill: var(--ink-3); }
+.rdm-svg .elt { cursor: grab; touch-action: none; outline: none; }
+.rdm-svg .elt > path { fill: color-mix(in srgb, var(--acier) 20%, var(--panel)); stroke: var(--ink); stroke-width: 1.3; stroke-linejoin: round; }
+.rdm-svg .elt:hover > path { fill: color-mix(in srgb, var(--acier) 32%, var(--panel)); }
+.rdm-svg .elt.on > path { fill: color-mix(in srgb, var(--accent) 34%, var(--panel)); stroke: var(--accent-hover); stroke-width: 2; }
+.rdm-svg .elt.ev > path { fill: var(--panel-2); stroke: var(--ink-2); stroke-dasharray: 5 3; }
+.rdm-svg .elt.double > path { stroke: var(--nok); stroke-width: 2; }
+.rdm-svg .elt.glisse { cursor: grabbing; opacity: .7; }
+.rdm-svg .elt .num circle { fill: var(--panel); stroke: var(--ink-2); stroke-width: 1; }
+.rdm-svg .elt.on .num circle { fill: var(--accent); stroke: var(--accent); }
+.rdm-svg .elt .num text { font-size: 11px; font-weight: 700; fill: var(--ink); }
+.rdm-svg .elt.on .num text { fill: var(--on-accent); }
+.rdm-svg .sommet { fill: var(--panel); stroke: var(--accent-hover); stroke-width: 2; cursor: grab; touch-action: none; }
+.rdm-svg .principaux path { stroke: var(--autres); stroke-width: 1.4; stroke-dasharray: 9 4 2 4; fill: none; }
+.rdm-svg .principaux text { font-size: 12.5px; font-weight: 700; fill: var(--autres); }
+.rdm-svg .cdg path { stroke: var(--beton); stroke-width: 1.5; fill: none; }
+.rdm-svg .cdg circle { fill: var(--beton); stroke: var(--panel); stroke-width: 1.4; }
+.rdm-svg .cdg text { font-size: 13px; font-weight: 750; fill: var(--beton); paint-order: stroke; stroke: var(--panel-2); stroke-width: 4px; }
+.rdm-svg .cotes path { stroke: var(--ink-3); stroke-width: 1; fill: none; }
+.rdm-svg .cotes text { font-size: 12px; fill: var(--ink-3); }
+.rdm-svg .mq-w text { fill: var(--ink); }
+.rdm-el { border: 1px solid var(--line); border-radius: var(--r-sm); margin-bottom: 6px; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; background: var(--panel); }
+.rdm-el.on { border-color: var(--accent-line); box-shadow: inset 3px 0 0 var(--accent); }
+.rdm-el.ko { border-color: color-mix(in srgb, var(--nok) 50%, var(--line)); }
+.rdm-el-t { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 38px; padding: 4px 10px; text-align: left; cursor: pointer; min-width: 0; color: var(--ink); }
+.rdm-el-n { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-strong); font-size: 11.5px; font-weight: 700; color: var(--ink-2); }
+.rdm-el.on .rdm-el-n { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.rdm-el-d { font-size: 13px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rdm-el-a { font-size: 11.5px; color: var(--ink-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rdm-el-f { grid-column: 1 / -1; padding: 4px 10px 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.rdm-fl { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.rdm-fl .rdm-c .field.select select { max-width: 150px; }
+.rdm-fl .rdm-plus, .rdm-acc .rdm-plus { margin-top: 0; }
+.rdm-acc { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.rdm-soms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; width: 100%; }
+.rdm-som { display: flex; align-items: center; gap: 6px; }
+.rdm-som > span { width: 16px; font-size: 11px; font-weight: 700; color: var(--ink-3); text-align: right; }
+.rdm-ex { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; }
+.rdm .btn.on { background: var(--accent-soft); border-color: var(--accent-line); color: var(--accent-hover); }
+.rdm-res tr.nc td { font-size: 11.5px; color: var(--ink-3); }
+.rdm-res tr.nc td b { color: var(--ink-2); }
+.rdm-st-c { overflow-x: auto; border-top: 1px solid var(--line); }
+.rdm-st { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.rdm-st th, .rdm-st td { padding: 5px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.rdm-st th { background: var(--panel-2); font-weight: 650; color: var(--ink); vertical-align: bottom; }
+.rdm-st th span { display: block; font-size: 10px; font-weight: 500; color: var(--ink-3); }
+.rdm-st th sub, .rdm-st td sub { font-size: 8.5px; }
+.rdm-st td.nm, .rdm-st th:nth-child(2) { text-align: left; }
+.rdm-st tr.ev td { color: var(--ink-3); font-style: italic; }
+.rdm-st tr.tot td { font-weight: 700; border-top: 1.5px solid var(--line-strong); }
+
 /* ---------------------------------------------------------------- la feuille de calcul */
 .rdm-hyp { margin: 0; padding: 4px 14px 10px 30px; font-size: 11.5px; line-height: 1.45; color: var(--ink-2); }
 .rdm-hyp li { margin: 1px 0; }
@@ -105,7 +187,7 @@
 .bib-fc.rdm-fc td.v .u, .bib-fc.rdm-fc td.cur .u { font-size: 11px; color: var(--ink-3); font-weight: 500; }
 .bib-fc.rdm-fc td.rg { white-space: normal; }
 .bib-fc.rdm-fc tr.g th span { text-transform: none; letter-spacing: 0; }
-.rdm-imp { display: none; }
+.rdm-imp { display: none; grid-column: 1 / -1; }
 
 /* ---------------------------------------------------------------- un cas refusé, le volet */
 .rdm-refus { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid color-mix(in srgb, var(--nok) 45%, var(--line)); border-radius: var(--r);
@@ -118,26 +200,75 @@
 .rdm-vt:first-child { margin-top: 0; }
 .rdm-vl { margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.5; color: var(--ink-2); }
 
-/* ---------------------------------------------------------------- tablette */
-@media (max-width: 1200px) and (min-width: 701px) {
-  .rdm { grid-template-columns: minmax(0, 1fr) minmax(300px, .9fr); }
+/* ---------------------------------------------------------------- tablette en paysage : deux colonnes, le dessin la plus large
+   (le schéma d'une poutre demande 500 px pour rester lisible : 1,55 part sur 2,55 les lui donne dans un cadre de 862 px) */
+@media (max-width: 1200px) and (min-width: 901px) {
+  .rdm { grid-template-columns: minmax(0, 1.55fr) minmax(300px, 1fr); }
   .rdm-g, .rdm-d { padding: 10px; }
 }
 
-/* ---------------------------------------------------------------- téléphone : une colonne, le cadre ne défile plus seul */
-@media (max-width: 700px) {
-  .bib-tableau:has(> .rdm) { flex: none; max-height: none; overflow: visible; }
+/* ---------------------------------------------------------------- tablette en portrait et téléphone : une colonne
+   (le dessin prend la largeur du cadre, les données et les résultats viennent dessous) */
+@media (max-width: 900px) {
   .rdm { grid-template-columns: minmax(0, 1fr); grid-template-areas: "g" "d" "f"; }
   .rdm-d { border-left: 0; border-top: 1px solid var(--line); }
   .rdm-g, .rdm-d { padding: 10px; }
+}
+
+/* ---------------------------------------------------------------- formats étroits : les textes du dessin restent lisibles
+   Le dessin est RÉDUIT par la largeur de l'écran (un plan de 640 unités tient dans 340 à 500 px) : ses textes le seraient
+   aussi (6 à 8 px mesurés le 11/11/2026). Ils sont donc grossis d'autant, par format — à l'écran ils font 10 px au moins
+   (verifier_site.js, filtre « bibliotheque » : chaque texte VISIBLE du dessin est mesuré aux quatre formats). */
+@media (max-width: 1200px) and (min-width: 901px), (max-width: 700px) {
+  .rdm .rdm-dessin .rdm-svg-poutre text { font-size: 14px; }
+  .rdm .rdm-dessin .rdm-svg-poutre text .ind { font-size: 10.5px; }
+}
+@media (max-width: 1200px) and (min-width: 901px) {
+  .rdm .rdm-dessin .rdm-svg-plaque text, .rdm .rdm-dessin .rdm-svg-section text { font-size: 15px; }
+  .rdm .rdm-dessin .rdm-svg-plaque text .ind, .rdm .rdm-dessin .rdm-svg-section text .ind { font-size: 11px; }
+  .rdm .rdm-dessin .rdm-svg-section .elt .num circle { r: 11px; }
+  .rdm .rdm-dessin .rdm-svg-section .elt .num text { font-size: 14px; transform: translateY(1px); }
+}
+@media (max-width: 700px) {
+  .rdm-svg-plaque, .rdm-svg-section { min-width: 0; }               /* le plan tient dans l'écran : rien à faire défiler */
+  .rdm .rdm-dessin .rdm-svg-plaque text, .rdm .rdm-dessin .rdm-svg-section text { font-size: 20px; }
+  .rdm .rdm-dessin .rdm-svg-plaque text .ind, .rdm .rdm-dessin .rdm-svg-section text .ind { font-size: 14px; }
+  .rdm .rdm-dessin .rdm-svg-section .elt .num circle { r: 15px; }
+  .rdm .rdm-dessin .rdm-svg-section .elt .num text { font-size: 20px; transform: translateY(3px); }   /* (18,5 : 9,9 px à l'écran — le harnais l'a vu) */
+}
+
+/* ---------------------------------------------------------------- téléphone : le cadre ne défile plus seul, c'est la page */
+@media (max-width: 700px) {
+  .bib-tableau:has(> .rdm) { flex: none; max-height: none; overflow: visible; }
   .rdm-c .field { height: 36px; }
   .rdm-c .field input { width: 58px; font-size: 16px; }             /* 16 px : iOS n'agrandit pas la page à la saisie */
   .rdm-ch > .btn, .rdm-plus .btn { min-height: 36px; }
   .rdm-cur { height: 36px; }
   .rdm-res tr[data-sel] td, .rdm-res tr[data-sel] th { padding-top: 10px; padding-bottom: 10px; }
+  /* la remarque de droite (position, coefficient) passe à la ligne plutôt que d'élargir la page (Sections : 482 px pour
+     390, le 11/11/2026 — le tableau portait « 63,0 kg/m en acier » sur une ligne insécable) */
+  .rdm-res td.p { white-space: normal; max-width: 92px; overflow-wrap: anywhere; }
+  .rdm-res th, .rdm-res td { padding-left: 6px; padding-right: 6px; }
+  .rdm-bords { grid-template-columns: minmax(0, 1fr); }
+  .rdm-el-t { min-height: 44px; }
+  .rdm-soms { grid-template-columns: minmax(0, 1fr); }
   /* la barre : les cinq modèles tiennent sur deux lignes plutôt que de se chevaucher */
   body[data-bibliotheque="autres"] .bib-p .seg { height: auto; flex-wrap: wrap; row-gap: 2px; padding: 3px; }
   body[data-bibliotheque="autres"] .bib-p .seg button { height: 30px; }
+}
+
+/* ---------------------------------------------------------------- au doigt : des cibles qu'on touche
+   (la règle de l'établi, B.3 de REFONTE_ETABLI.md : 44 px pour un bouton ; un champ de saisie se touche sur toute sa hauteur) */
+@media (pointer: coarse) {
+  .rdm-c .field { height: 40px; }
+  .rdm-c .field input, .rdm-c .field.select select { height: 100%; font-size: 16px; }   /* 16 px : iOS n'agrandit pas la page à la saisie */
+  .rdm-c .field.select select { max-width: 168px; }
+  .rdm-c .field input { width: 58px; }
+  .rdm-c.l .field input { width: 92px; }
+  .rdm .btn { min-height: 44px; min-width: 44px; }
+  .rdm-el-t { min-height: 44px; }
+  .rdm-cur { height: 44px; }
+  .rdm-res tr[data-sel] td, .rdm-res tr[data-sel] th { padding-top: 11px; padding-bottom: 11px; }
 }
 
 /* ---------------------------------------------------------------- l'impression : la feuille seule, sur papier blanc */
@@ -159,7 +290,11 @@
   .rdm-imp ul { display: none; }
   .rdm-f { border-top: 0; }
   .rdm-bloc { break-inside: auto; }
-  .rdm-resultats, .rdm-charges, .rdm-lecture, .rdm-dessin { break-inside: avoid; }
+  .rdm-charges, .rdm-lecture, .rdm-dessin, .rdm-res tr { break-inside: avoid; }
+  .rdm-svg { max-height: 120mm; }
+  .rdm-ex, .rdm-acc, .rdm-el > .btn, .rdm-svg .sommet { display: none !important; }
+  .rdm-st-c { overflow: visible; }
+  .rdm-st { font-size: 9.5px; }
   .bib-fc.rdm-fc tr { break-inside: avoid; }
   .bib-bande { border: 1px solid #999 !important; break-inside: avoid; }
   .bib-sources { font-size: 9.5px; }

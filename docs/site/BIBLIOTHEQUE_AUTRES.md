@@ -1,4 +1,4 @@
-# Bibliothèque « Autres » — conception (11/11/2026)
+# Bibliothèque « Autres » — conception et état construit (11/11/2026)
 
 Demande de l'ingénieur du 11/11/2026 : « créer la bibliothèque « Autres » de Stab Méthodes. Elle doit réunir trois
 outils : 1. Formulaire de RDM (poutres) ; 2. Calcul de plaques ; 3. Calcul des caractéristiques de sections
@@ -218,3 +218,75 @@ tablette en deux colonnes, téléphone en une colonne.
   les refus, l'échappement, l'adresse.
 - `verifier_site.js`, filtre « bibliotheque » : les trois rubriques aux quatre formats, les gestes (glisser,
   ajouter, supprimer), l'impression.
+
+## 8 · Ce qui a été construit (état au 11/11/2026)
+
+Les §§ 1 à 7 sont la conception, écrite avant le code. Ce paragraphe dit ce qui EXISTE, là où le code a précisé ou
+corrigé la conception.
+
+### 8.1 Les fichiers
+
+| Fichier | Rôle |
+|---|---|
+| `rdm/poutres.py`, `rdm/plaques.py`, `rdm/sections.py` | les trois moteurs, sans écran, bibliothèque standard seule sur le chemin de calcul |
+| `api_web/biblio_autres.py` | le cadre de la bibliothèque (rubriques, feuille de calcul, bande, hypothèses, impression, refus) |
+| `api_web/biblio_poutres.py`, `biblio_poutres_dessin.py`, `biblio_plaques.py`, `biblio_sections.py` | un écran par outil |
+| `site/web/css/bibliotheque-autres.css` | la mise en page des trois outils, quatre formats et l'impression |
+| `site/web/js/biblio.js` | les gestes génériques : champ dans le cadre, glisser (`data-glisser`), `data-imprimer`, foyer gardé, clavier |
+
+### 8.2 Poutres
+
+Quinze cas d'école sont reconnus et écrits avec LEUR formule du formulaire (q·L²/8, P·a·b/L, 5·q·L⁴/384·E·I…) ; tout
+autre chargement est résolu par la solution générale (paramètres initiaux : chaque charge apporte son terme à V, M,
+E·I·ω, E·I·f) et la feuille l'écrit terme à terme, évaluée dans la section lue. La poutre continue passe par le
+théorème des trois moments (les rotations isostatiques viennent du formulaire). À chaque résolution, le moteur contrôle
+lui-même l'équilibre, les conditions d'appui et l'accord des rotations du formulaire avec celles des paramètres
+initiaux : un écart lève une erreur au lieu d'afficher un chiffre. Aucune intégration numérique n'est présentée.
+
+### 8.3 Plaques
+
+- Écriture retenue : w = α·q·L⁴/D et M = β·q·L², **L = le petit côté** (convention des tableaux de Timoshenko).
+- Des 81 combinaisons de bords : **17** par la série de Lévy (deux bords opposés appuyés, 30 harmoniques, base
+  d'exponentielles décroissantes pour rester stable sur une plaque longue) ; **9** par la superposition de Timoshenko
+  (appuis et encastrements sans paire d'appuis opposés, 36 termes par bord) ; **55 refusées** — tout bord libre dont les
+  deux voisins ne sont pas appuyés. Le refus s'affiche avec sa raison, sans aucune valeur.
+- La plaque sur quatre appuis est calculée deux fois (Navier et Lévy) et l'écart est donné ; la convergence est
+  contrôlée à chaque calcul (demi-nombre de termes) et affichée.
+- Béton : E = E_cm de la classe (en MPa — `beton/donnees/ec2.Ecm` rend des GPa : conversion faite et verrouillée par
+  un test), ν = 0,2.
+
+### 8.4 Sections
+
+Jusqu'à dix éléments : profilé du catalogue, plat, rond, polygone saisi sommet par sommet (ou glissé sommet par
+sommet). Chaque élément se place (y, z), se tourne (angle libre, raccourcis 0/90/180/270°), se retourne, se COUPE
+(garder le haut, le bas, la gauche ou la droite d'une droite à la cote choisie) et peut être un ÉVIDEMENT. « Poser
+contre » accole un élément à un autre (dessus, dessous, à gauche, à droite, centré). Six exemples chargent une section
+type. Le tableau de Huygens-Steiner est affiché élément par élément, puis les formules en cm. Les recouvrements
+(matière comptée deux fois, évidement hors matière) sont détectés et signalés. Non calculés et dits : centre de
+cisaillement, inertie de torsion, inertie de gauchissement (§ 5.2).
+
+### 8.5 L'écran, quatre formats
+
+PC : deux colonnes (dessin | données et résultats), la feuille dessous, le cadre défile. Tablette en paysage (901 à
+1 200 px) : deux colonnes, le dessin la plus large. Tablette en portrait et téléphone (≤ 900 px) : une colonne ; au
+téléphone c'est la page qui défile. Les textes du dessin sont grossis par format pour faire 10 px au moins à l'écran ;
+au doigt, toute cible fait 40 px au moins et ce qui se glisse porte `touch-action: none`.
+
+### 8.6 Les contrôles, et ce qu'ils prouvent
+
+| Suite | Ce qui est comparé |
+|---|---|
+| `tests/test_rdm_poutres.py` (59) | les quinze cas d'école contre leur formule écrite dans le test ; les coefficients des poutres continues de 2 à 5 travées égales (fractions des tableaux) ; une intégration numérique indépendante de V → M → rotation → flèche ; équilibre ; mutations |
+| `tests/test_rdm_plaques.py` (67) | les valeurs PUBLIÉES des tableaux 8, 29, 30 et 35 et des §§ 46-47 de Timoshenko & Woinowsky-Krieger ; la plaque carrée encastrée contre Taylor & Govindjee (2004) ; le résidu de l'équation ∇⁴w = q/D et des conditions de bord par différences finies sur 20 configurations ; Navier = Lévy, Lévy = superposition là où elles se recouvrent ; limites de poutre ; refus ; mutations |
+| `tests/test_rdm_sections.py` (47) | formes simples contre leurs formules ; 17 profilés contre le catalogue (10⁻⁵) et un profilé sur sept de tout le catalogue ; un calcul croisé numpy ; cinq sections composées calculées à la main dans le test (PRS, caisson, HEA + plat, demi-HEA, Z) ; invariants (rotation, translation) ; recouvrements ; mutations |
+| `tests/test_api_web_bibliotheque_autres.py` (66) | l'écran dit les chiffres du moteur ; chaque ligne « valeurs » de la feuille est RÉ-ÉVALUÉE et redonne le résultat affiché ; refus ; échappement ; adresse |
+| `site/web/verifier_site.js`, filtre « bibliotheque » | les trois outils aux quatre formats (rien ne dépasse, textes du dessin, cibles au doigt, bande) ; les gestes au PC ; l'impression |
+
+**Deux valeurs du tableau 35 (1959) diffèrent du calcul à la 3ᵉ décimale** (−0,0571 publié, −0,05699 calculé ;
+−0,0697 publié, −0,06984 calculé) : la tolérance du test est de deux unités du dernier chiffre publié pour ces deux
+cases, et le résidu de l'équation confirme le calcul.
+
+**Ce qui n'a PAS été comparé à une valeur publiée**, et repose sur le résidu de l'équation, les recoupements entre
+méthodes et les limites de poutre : les combinaisons de bords hors des tableaux cités (par exemple trois bords
+encastrés et un appuyé à un rapport a/b quelconque, ou un bord libre entre deux appuis avec le bord opposé encastré).
+

@@ -4,7 +4,7 @@
 // aucun nom coupé (mesure exacte du texte), le dessin visible et à sa taille.
 //
 //   python3 site/web/outils/serveur_local.py 8770 &      (le site avec les en-têtes de _headers, comme Cloudflare)
-//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|note_pdf|demarrage[:sous-filtre,…]]
+//   node site/web/verifier_site.js http://127.0.0.1:8770 <dossier_des_captures> [garde|poutre|piege|modules|module:<clé>|formats|formats:<clé>|telecharger|meteo|sonde|enregistrement|ouverture|pilote|envoi|plaques|nappes|corniere|doigt|bibliotheque|bibliotheque_autres|note_pdf|demarrage[:sous-filtre,…]]
 //
 // « demarrage[:sous-filtre,…] » délègue à verifier_demarrage.js (le lot S4 : un moteur, pas de rechargement, aperçu,
 // fermeture…). SANS filtre — le passage complet —, verifier_demarrage.js est joué AUSSI, à la fin, avec tous ses
@@ -4261,6 +4261,7 @@ const principal = async () => {
   //   chacun d'eux, aucun sous elle ; les modules sur les lignes de colonnes des familles sans bibliothèque (un seul
   //   rythme) ; « Bibliothèque », le titre et les six rubriques visibles, dans la carte, aucun coupé. Au téléphone : la
   //   carte pleine largeur, en tête de la liste de sa famille. Thème sombre : la carte reste distincte d'une tuile.
+  const FORMATS_BIB = [['pc', 1440, 900, false], ['tablette', 1180, 820, false], ['portrait', 820, 1180, false], ['tel', 390, 844, true]];
   if (!FILTRE || FILTRE === 'bibliotheque') {
     const mesureAccueilBib = (pg) => pg.evaluate(() => {
       const vu = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
@@ -4345,9 +4346,18 @@ const principal = async () => {
         // (petits chantiers, 10/11/2026) de 701 à 1 360 px comme au PC : les cinq modules du Béton et de l'Acier sur DEUX rangées
         // (ils en prenaient trois, la carte aussi) ; la carte, plus étroite, pose son icône AU-DESSUS du titre ; au PC large, à gauche
         const etroit = (opts.viewport || {}).width <= 1360;
+        // (11/11/2026 : « Autres » a sa bibliothèque — le harnais SUIT : la règle des deux rangées vaut pour le Béton et l'Acier ;
+        //  « Autres » n'a qu'une rangée de modules, et sa carte garde la hauteur de DEUX rangées — demande de l'ingénieur : « le
+        //  rectangle Bibliothèque de même dimension qu'au-dessus », en attendant que la famille se complète)
+        const grandes = avec.filter((f) => f.fam !== 'autres');
         verif(`accueil · ${nomF} : les modules du Béton et de l'Acier sur DEUX rangées, la carte à leur hauteur (120 px), son icône ${etroit ? 'AU-DESSUS du' : 'à gauche du'} titre`,
-          avec.every((f) => f.rangees === 2 && Math.abs(f.carte.t - 120) <= 1 && f.icone === (etroit ? 'dessus' : 'gauche')),
+          grandes.length === 2 && grandes.every((f) => f.rangees === 2 && Math.abs(f.carte.t - 120) <= 1 && f.icone === (etroit ? 'dessus' : 'gauche')),
           JSON.stringify(avec.map((f) => ({ fam: f.fam, rangees: f.rangees, carte: f.carte.t, icone: f.icone }))));
+        const fo = avec.find((f) => f.fam === 'autres');
+        verif(`accueil · ${nomF} : la carte « Bibliothèque Autres » (Poutres, Plaques, Sections) a la hauteur de DEUX rangées (120 px, comme celles du dessus) bien que sa famille n'ait qu'une rangée de modules, restés à la hauteur d'une tuile`,
+          !!fo && fo.titre === 'Bibliothèque Autres' && fo.rubriques === 'Poutres,Plaques,Sections' && fo.rangees === 1 && Math.abs(fo.carte.t - 120) <= 1
+          && fo.hautT <= Math.max(...grandes.map((f) => f.hautT)) + 1 && fo.icone === (etroit ? 'dessus' : 'gauche'),
+          JSON.stringify(fo && { rangees: fo.rangees, carte: fo.carte, hautT: fo.hautT, rubriques: fo.rubriques, icone: fo.icone }));
         verif(`accueil · ${nomF} : un seul rythme de colonnes — la carte sur la première, ses modules sur TOUTES les suivantes, celles des familles sans bibliothèque`,
           rythme(m.familles), JSON.stringify({ pistes: m.familles.map((f) => [f.fam, f.pistes]), avec: avec.map((f) => [f.carte.g, f.gauches]) }));
         if (nomF === 'PC 1440') {
@@ -4372,7 +4382,8 @@ const principal = async () => {
           });
           await g.waitForTimeout(150);
           const ms = await mesureAccueilBib(g), avecS = ms.familles.filter((f) => f.carte);
-          verif(`accueil · ${nomF} : la Bibliothèque Acier (BIB5, la vraie) et une carte d'essai sur « Autres » (trois modules) prennent la même forme — étroites et hautes, leurs modules à droite à la hauteur d'une tuile, un seul rythme de colonnes`,
+          // (11/11/2026 : « Autres » a désormais SA carte ; la boucle ci-dessus ne pose plus rien — le contrôle mesure les trois vraies)
+          verif(`accueil · ${nomF} : les trois bibliothèques (Béton armé, Acier, Autres — trois modules) prennent la même forme — étroites et hautes, leurs modules à droite à la hauteur d'une tuile, un seul rythme de colonnes`,
             avecS.length === 3 && ['acier', 'autres'].every((k) => avecS.some((f) => f.fam === k)) && etroiteHaute(avecS) && rythme(ms.familles)
             && ms.familles.every((f) => f.hautT <= tuileH + 1),
             JSON.stringify({ tuileH, pistes: ms.familles.map((f) => [f.fam, f.pistes]), avec: avecS.map((f) => [f.fam, f.carte.g, f.carte.l, f.carte.t, f.gauches, f.hautT]) }));
@@ -4389,7 +4400,6 @@ const principal = async () => {
       await c.close();
     }
 
-    const FORMATS_BIB = [['pc', 1440, 900, false], ['tablette', 1180, 820, false], ['portrait', 820, 1180, false], ['tel', 390, 844, true]];
     const RUBRIQUES_BIB = ['betons', 'aciers', 'sections', 'enrobages', 'ancrages', 'hourdis'];
     const attendreBib = async (pg) => {
       await pretEcran(pg);
@@ -4695,6 +4705,177 @@ const principal = async () => {
     }
   }
 
+  // ---------------------------------------------- la Bibliothèque « Autres » (docs/site/BIBLIOTHEQUE_AUTRES.md) : trois OUTILS
+  // Le cadre ne porte pas un tableau mais un outil de RDM : le dessin, les données, les résultats, la feuille de calcul.
+  // Aux quatre formats, CE QUE L'ŒIL VOIT : rien ne dépasse de l'écran (le tableau des résultats des Sections portait la
+  // page à 482 px pour 390, le 11/11/2026) ; le dessin se voit et ses textes font 10 px au moins À L'ÉCRAN (ils en
+  // faisaient 6 à 8 : un plan de 640 unités réduit à 360 px) ; au doigt, toute cible fait 40 px au moins et ce qui se
+  // glisse ne fait pas défiler la page ; la bande dit une valeur. Filtre « bibliotheque » ou, seul, « bibliotheque_autres ».
+  // Puis les GESTES (PC) : glisser un élément de la
+  // section, une charge de la poutre, cliquer un bord de la plaque, un cas REFUSÉ sans valeur, la feuille à l'impression.
+  if (!FILTRE || ['bibliotheque', 'bibliotheque_autres'].includes(FILTRE)) {
+    const OUTILS = [['poutres', /kN·m/], ['plaques', /mm/], ['sections', /cm⁴/]];
+    const attendreAutres = async (pg) => {
+      await pretEcran(pg);
+      await pg.waitForFunction(() => {
+        const c = document.getElementById('bib-corps');
+        return c && c.getAttribute('aria-busy') !== 'true' && document.querySelector('#bib-tableau .rdm');
+      }, null, { timeout: 240000 });
+    };
+    const calmeAutres = async (pg) => { await pg.waitForTimeout(80); await attendreAutres(pg); await pg.waitForTimeout(120); };
+    const adresse = (pg) => pg.evaluate(() => Object.fromEntries(new URLSearchParams(location.search)));
+    const mesureAutres = (pg, large) => pg.evaluate((large) => {
+      const vis = (e) => !!e && e.checkVisibility({ visibilityProperty: true, opacityProperty: true });
+      // ce qui dépasse de l'écran sans qu'un ancêtre qui défile (et tient, lui, dans l'écran) ne l'excuse
+      const hors = [];
+      for (const e of document.querySelectorAll('#bib-corps *')) {
+        if (!vis(e)) continue;
+        const r = e.getBoundingClientRect();
+        if (!r.width || r.right <= large + 1) continue;
+        let q = e.parentElement, excuse = false;
+        while (q && q !== document.body) {
+          if (/auto|scroll|hidden/.test(getComputedStyle(q).overflowX) && q.getBoundingClientRect().right <= large + 1) { excuse = true; break; }
+          q = q.parentElement;
+        }
+        if (!excuse) hors.push(`${e.tagName.toLowerCase()}.${String(e.getAttribute('class') || '').slice(0, 24)} → ${Math.round(r.right)}`);
+      }
+      const svg = document.querySelector('#bib-tableau .rdm-svg');
+      const rs = svg ? svg.getBoundingClientRect() : { width: 0, height: 0 };
+      const k = svg ? rs.width / svg.viewBox.baseVal.width : 0;
+      const textes = svg ? [...svg.querySelectorAll('text')].filter(vis).map((t) => [t.textContent.trim().slice(0, 16), +(parseFloat(getComputedStyle(t).fontSize) * k).toFixed(1)]) : [];
+      const cibles = [...document.querySelectorAll('#bib-tableau button, #bib-tableau .field')].filter(vis)
+        .map((e) => [(e.textContent || e.getAttribute('aria-label') || '').trim().slice(0, 14), Math.round(e.getBoundingClientRect().height)]);
+      const prises = [...document.querySelectorAll('#bib-tableau [data-glisser]')].filter(vis).map((e) => getComputedStyle(e).touchAction);
+      const res = document.querySelector('#bib-tableau .rdm-res');
+      return { page: document.documentElement.scrollWidth, hors: hors.slice(0, 6),
+        svg: [Math.round(rs.width), Math.round(rs.height)], svgVisible: vis(svg), nTextes: textes.length,
+        petits: textes.filter((t) => t[1] < 10), basses: cibles.filter((c) => c[1] < 40).slice(0, 6), nCibles: cibles.length,
+        prises: prises.length, prisesLibres: prises.filter((t) => t !== 'none').length,
+        lignes: res && vis(res) ? res.querySelectorAll('tr').length : 0, feuille: document.querySelectorAll('#bib-tableau .rdm-fc tr').length,
+        valeur: (document.querySelector('.bib-val') || {}).textContent || '', titre: document.getElementById('bib-titre').textContent,
+        menu: [...document.querySelectorAll('.bib-m')].filter(vis).length, allume: (document.querySelector('.bib-m.on') || {}).dataset?.rubrique };
+    }, large);
+    for (const [nomF, w, h, tel] of FORMATS_BIB) {
+      const doigt = nomF !== 'pc';                         // tablettes et téléphone : l'écran se touche (pointer: coarse)
+      const c = await b.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2, isMobile: tel, hasTouch: doigt });
+      const g = await c.newPage();
+      g.erreurs = [];
+      g.on('pageerror', (e) => g.erreurs.push(e.message));
+      g.on('console', (m) => { if (m.type() === 'error') g.erreurs.push(m.text().slice(0, 300)); });
+      await g.goto(`${BASE}/bibliotheque-autres`);
+      await attendreAutres(g);
+      for (const [r, unite] of OUTILS) {
+        await g.click(`.bib-m[data-rubrique="${r}"]`);
+        await calmeAutres(g);
+        const m = await mesureAutres(g, w);
+        const url = new URL(g.url());
+        verif(`bibliothèque autres ${nomF} · ${r} : l'outil s'ouvre, son titre, son adresse (?rubrique=${r}), les trois entrées du menu et la sienne allumée`,
+          m.titre.length > 3 && url.searchParams.get('rubrique') === r && m.menu === 3 && m.allume === r, JSON.stringify({ t: m.titre, u: url.search, menu: m.menu, on: m.allume }));
+        verif(`bibliothèque autres ${nomF} · ${r} : rien ne dépasse de l'écran (${w} px)`, m.page <= w + 1 && !m.hors.length, JSON.stringify({ page: m.page, hors: m.hors }));
+        verif(`bibliothèque autres ${nomF} · ${r} : le dessin se voit (${m.svg.join(' × ')} px) et chacun de ses ${m.nTextes} textes fait 10 px au moins à l'écran`,
+          m.svgVisible && m.svg[0] >= 300 && m.svg[1] >= 150 && m.nTextes >= 4 && !m.petits.length, JSON.stringify({ svg: m.svg, petits: m.petits }));
+        verif(`bibliothèque autres ${nomF} · ${r} : les résultats (${m.lignes} lignes) et la feuille de calcul (${m.feuille} lignes) sont là ; la bande dit une valeur (${m.valeur.trim()})`,
+          m.lignes >= 3 && m.feuille >= 8 && /\d/.test(m.valeur) && unite.test(m.valeur), JSON.stringify({ l: m.lignes, f: m.feuille, v: m.valeur }));
+        if (doigt) {
+          verif(`bibliothèque autres ${nomF} · ${r} : au doigt, chacune des ${m.nCibles} cibles (boutons, champs) fait 40 px de haut au moins`,
+            m.nCibles >= 5 && !m.basses.length, JSON.stringify(m.basses));
+          if (r !== 'plaques') verif(`bibliothèque autres ${nomF} · ${r} : ce qui se glisse sur le dessin (${m.prises}) ne fait pas défiler la page sous le doigt (touch-action: none)`,
+            m.prises >= 1 && m.prisesLibres === 0, JSON.stringify({ prises: m.prises, libres: m.prisesLibres }));
+        }
+        await g.screenshot({ path: path.join(OUT, `site_bib_autres_${r}_${nomF}.png`) });
+      }
+      if (nomF === 'pc') {
+        // ---- sections : glisser l'élément 2 (le plat posé sur le HEA 200), un clic choisit, ajouter, retirer, un exemple
+        const pasEcran = (sel) => g.evaluate((sel) => JSON.parse(document.querySelector(sel).dataset.glisser).ech * document.querySelector('.rdm-svg').getScreenCTM().a, sel);
+        let bb = await g.locator('.rdm-svg g.elt[data-element="2"] > path').boundingBox();
+        let ech = await pasEcran('.rdm-svg g.elt[data-element="2"]');
+        await g.mouse.move(bb.x + bb.width / 2 + 40, bb.y + bb.height / 2);
+        await g.mouse.down();
+        await g.mouse.move(bb.x + bb.width / 2 + 40 + 30 * ech, bb.y + bb.height / 2 - 20 * ech, { steps: 8 });
+        const pendant = await g.evaluate(() => ({ t: (document.querySelector('.rdm-svg text.glis-t') || {}).textContent || '',
+          suit: document.querySelector('.rdm-svg g.elt[data-element="2"]').classList.contains('glisse') }));
+        await g.mouse.up();
+        await calmeAutres(g);
+        let q = await adresse(g);
+        verif('bibliothèque autres pc · sections : glisser le plat de (+30 ; +20) mm → y2 = 30, z2 = 121, il devient l\'élément choisi ; pendant le geste il suit et une étiquette dit sa position',
+          q.y2 === '30' && q.z2 === '121' && q.sel === '2' && pendant.suit && /30/.test(pendant.t) && /121/.test(pendant.t), JSON.stringify({ q, pendant }));
+        bb = await g.locator('.rdm-svg g.elt[data-element="1"] > path').boundingBox();
+        await g.mouse.click(bb.x + bb.width / 2, bb.y + bb.height - 6);
+        await calmeAutres(g);
+        q = await adresse(g);
+        verif('bibliothèque autres pc · sections : un clic choisit le profilé sans le déplacer', q.sel === '1' && (q.y1 || '0') === '0' && (q.z1 || '0') === '0', JSON.stringify(q));
+        await g.locator('.rdm-elements .rdm-plus button', { hasText: 'Plat' }).first().click();
+        await calmeAutres(g);
+        q = await adresse(g);
+        const pose = q.n === '3' && q.sel === '3';
+        await g.locator('.rdm-el.on button[aria-label^="Retirer"]').click();
+        await calmeAutres(g);
+        q = await adresse(g);
+        verif('bibliothèque autres pc · sections : « + Plat » ajoute un troisième élément, choisi ; « Retirer » le retire et l\'adresse n\'en garde rien',
+          pose && q.n === '2' && !Object.keys(q).some((k) => /^[a-z]+3(_\d+)?$/.test(k)), JSON.stringify(q));
+        await g.locator('.rdm-ex button', { hasText: 'Demi-HEA' }).click();
+        await calmeAutres(g);
+        q = await adresse(g);
+        verif('bibliothèque autres pc · sections : l\'exemple « Demi-HEA » remplace la section (un HEA 300 coupé à mi-hauteur, seul)', q.n === '1' && q.p1 === 'HEA 300' && q.c1 === 'haut' && !('k2' in q), JSON.stringify(q));
+        await g.locator('.rdm-el-f input[data-param="y1"]').fill('25');
+        await g.keyboard.press('Tab');
+        await calmeAutres(g);
+        const foyer = await g.evaluate(() => document.activeElement && document.activeElement.dataset.param);
+        verif('bibliothèque autres pc · sections : saisir y1 = 25 puis Tab → la valeur est prise et le champ suivant (z1) garde le foyer', (await adresse(g)).y1 === '25' && foyer === 'z1', String(foyer));
+        // ---- poutres : glisser la charge ponctuelle, la borne, la ligne « flèche »
+        await g.goto(`${BASE}/bibliotheque-autres?rubrique=poutres&n=2&t2=P&a2=2`);
+        await attendreAutres(g);
+        bb = await g.locator('.rdm-svg g.charge[data-charge="2"] rect.prise').boundingBox();
+        ech = await pasEcran('.rdm-svg g.charge[data-charge="2"]');
+        await g.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+        await g.mouse.down();
+        await g.mouse.move(bb.x + bb.width / 2 + 1.5 * ech, bb.y + bb.height / 2 + 4, { steps: 8 });
+        await g.mouse.up();
+        await calmeAutres(g);
+        const a1 = (await adresse(g)).a2;
+        bb = await g.locator('.rdm-svg g.charge[data-charge="2"] rect.prise').boundingBox();
+        await g.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+        await g.mouse.down();
+        await g.mouse.move(bb.x + bb.width / 2 + 9 * ech, bb.y + bb.height / 2, { steps: 8 });
+        await g.mouse.up();
+        await calmeAutres(g);
+        verif('bibliothèque autres pc · poutres : glisser la charge ponctuelle de +1,5 m → a2 = 3,5 ; au-delà de l\'appui elle s\'arrête au bout de la poutre (a2 = 6)',
+          a1 === '3.5' && (await adresse(g)).a2 === '6', JSON.stringify({ a1, a2: (await adresse(g)).a2 }));
+        await g.locator('.rdm-res tr[data-sel]', { hasText: 'flèche' }).click();
+        await calmeAutres(g);
+        verif('bibliothèque autres pc · poutres : un clic sur la ligne « flèche » la met dans la bande (mm) et dans l\'adresse (g=f)',
+          /mm/.test(await g.locator('.bib-val').textContent()) && (await adresse(g)).g === 'f', await g.locator('.bib-val').textContent());
+        // ---- plaques : un clic sur un bord, un cas REFUSÉ (sans valeur), un préréglage
+        await g.goto(`${BASE}/bibliotheque-autres?rubrique=plaques`);
+        await attendreAutres(g);
+        await g.locator('.rdm-svg g.bord[data-bord="y0"] rect.b-zone').click({ position: { x: 60, y: 8 } });
+        await calmeAutres(g);
+        const b1 = (await adresse(g)).by0;
+        await g.locator('.rdm-svg g.bord[data-bord="y0"] rect.b-zone').click({ position: { x: 60, y: 8 } });
+        await calmeAutres(g);
+        await g.locator('.rdm-svg g.bord[data-bord="x0"] rect.b-zone').click({ position: { x: 8, y: 60 } });
+        await calmeAutres(g);
+        q = await adresse(g);
+        const refus = { n: await g.locator('.rdm-refus').count(), vu: await g.locator('.rdm-refus').first().isVisible().catch(() => false), v: (await g.locator('.bib-val').textContent()).trim() };
+        verif('bibliothèque autres pc · plaques : un clic sur le bord bas le fait encastré, un second libre ; bas libre + gauche encastré est REFUSÉ à l\'écran, dit, sans aucune valeur (la bande montre « — »)',
+          b1 === 'E' && q.by0 === 'L' && q.bx0 === 'E' && refus.n === 1 && refus.vu && refus.v.startsWith('—') && !/\d/.test(refus.v), JSON.stringify({ b1, q, refus }));
+        await g.screenshot({ path: path.join(OUT, 'site_bib_autres_plaques_refus_pc.png') });
+        await g.locator('.rdm-bords-b .rdm-plus button', { hasText: '4 encastrés' }).click();
+        await calmeAutres(g);
+        verif('bibliothèque autres pc · plaques : le préréglage « 4 encastrés » rétablit un cas calculé', (await g.locator('.rdm-refus').count()) === 0 && (await adresse(g)).byb === 'E' && /\d/.test(await g.locator('.bib-val').textContent()));
+        // ---- l'impression : la feuille seule
+        await g.emulateMedia({ media: 'print' });
+        const imp = await g.evaluate(() => { const d = (s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display : 'absent'; };
+          return { menu: d('.bib-menu'), barre: d('.bib-barre'), entete: d('.rdm-imp'), feuille: document.querySelectorAll('.rdm-fc tr').length, premier: document.querySelector('.rdm').firstElementChild.className }; });
+        await g.emulateMedia({ media: 'screen' });
+        verif('bibliothèque autres pc · impression : le menu et la barre disparaissent, l\'en-tête de la feuille apparaît EN TÊTE, la feuille de calcul reste',
+          imp.menu === 'none' && imp.barre === 'none' && imp.entete !== 'none' && imp.entete !== 'absent' && /rdm-imp/.test(imp.premier) && imp.feuille >= 8, JSON.stringify(imp));
+      }
+      verif(`bibliothèque autres ${nomF} : aucune erreur JavaScript`, !g.erreurs.length, g.erreurs.join(' | ').slice(0, 300));
+      await c.close();
+    }
+  }
+
   // ---------------------------------------------------------------- la NOTE PDF de chaque module qui la fait (filtre « note_pdf »)
   // Décision de l'ingénieur du 09/11/2026 : les notes PDF de Streamlit passent sur le site (docs/site/MODULES_SITE.md
   // § 4 quinquies). Les modules sont ceux dont la page le DIT (body data-note-pdf="1", écrit par construire.NOTE_PDF :
@@ -4866,7 +5047,7 @@ const principal = async () => {
   // (les formats, « télécharger », « météo », la sonde, l'enregistrement, le pilote, l'envoi, les plaques et la bibliothèque travaillent dans leurs propres navigateurs : leurs notes ne sont pas ici)
   // (« piege » seul n'en crée aucune : ses deux .stab s'ouvrent sans être écrits — un calcul ouvert n'écrit rien tant
   //  qu'on ne le modifie pas, décision D1 du 10/11/2026 — le contrôle rougissait sur ce filtre seul, avant le lot S4 déjà)
-  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
+  if (!FILTRE.startsWith('formats') && !['telecharger', 'meteo', 'sonde', 'enregistrement', 'ouverture', 'pilote', 'envoi', 'plaques', 'doigt', 'bibliotheque', 'bibliotheque_autres', 'nappes', 'corniere', 'note_pdf', 'piege'].includes(FILTRE)) verif('accueil : les notes créées sont à reprendre', n >= 1, `${n} note(s)`);
   // une vignette est un dessin : un tableau (vue HTML d'un module de consultation) y serait coupé et illisible
   const vignettes = await p.$$eval('#recentes .rcard', (cs) => cs.map((c) => ({ page: c.getAttribute('href').split('?')[0],
     v: c.querySelector('.thumb').firstElementChild ? c.querySelector('.thumb').firstElementChild.tagName.toLowerCase() : '' })));

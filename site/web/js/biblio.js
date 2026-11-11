@@ -211,7 +211,11 @@ export function cablerBibliotheque({ racine, demander, apres = () => {}, rubriqu
   racine.addEventListener("keydown", (ev) => {
     if (ev.key === "Enter" && ev.target.matches(".bib-barre input[data-param], #bib-tableau input[data-param]")) { ev.target.blur(); return; }
     // une ligne ou un bouton du cadre qui se clique se valide aussi au clavier
-    if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches("#bib-tableau tr[data-sel][tabindex]")) { ev.preventDefault(); ev.target.click(); return; }
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches("#bib-tableau [data-sel][tabindex]")) {
+      ev.preventDefault();
+      ev.target.dispatchEvent(new MouseEvent("click", { bubbles: true }));      // (une pièce d'un dessin SVG n'a pas de méthode click)
+      return;
+    }
     // Échap referme « Pourquoi ? » d'abord ; l'hôte ne voit pas cet Échap-là (il refermerait son panneau en même temps)
     if (ev.key === "Escape" && !pourquoi.hidden) { ev.stopPropagation(); ouvrirPourquoi(false); }
   }, { signal });
