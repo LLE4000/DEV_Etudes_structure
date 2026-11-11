@@ -4259,7 +4259,7 @@ const principal = async () => {
   //   « elle serait beaucoup moins large et plus haute, et les modules seraient à droite ») : au PC et à la tablette, la
   //   carte occupe UNE colonne (pas plus large qu'une tuile), sur TOUTE la hauteur du bloc de ses modules, à GAUCHE de
   //   chacun d'eux, aucun sous elle ; les modules sur les lignes de colonnes des familles sans bibliothèque (un seul
-  //   rythme) ; « Bibliothèque », le titre et les cinq rubriques visibles, dans la carte, aucun coupé. Au téléphone : la
+  //   rythme) ; « Bibliothèque », le titre et les six rubriques visibles, dans la carte, aucun coupé. Au téléphone : la
   //   carte pleine largeur, en tête de la liste de sa famille. Thème sombre : la carte reste distincte d'une tuile.
   if (!FILTRE || FILTRE === 'bibliotheque') {
     const mesureAccueilBib = (pg) => pg.evaluate(() => {
@@ -4335,8 +4335,8 @@ const principal = async () => {
       const m = await mesureAccueilBib(g);
       const tel = nomF.startsWith('téléphone');
       const avec = m.familles.filter((f) => f.carte);
-      verif(`accueil · ${nomF} : chaque bibliothèque a sa carte, « Bibliothèque Béton armé » (cinq rubriques) et « Bibliothèque Acier » (trois), toutes visibles dans leur carte, aucune coupée, rien ne déborde${sombre ? ' (thème sombre)' : ''}`,
-        avec.length >= 2 && avec.some((f) => f.fam === 'beton' && f.titre === 'Bibliothèque Béton armé' && f.rubriques === 'Bétons,Aciers,Sections,Enrobages,Ancrages')
+      verif(`accueil · ${nomF} : chaque bibliothèque a sa carte, « Bibliothèque Béton armé » (six rubriques) et « Bibliothèque Acier » (trois), toutes visibles dans leur carte, aucune coupée, rien ne déborde${sombre ? ' (thème sombre)' : ''}`,
+        avec.length >= 2 && avec.some((f) => f.fam === 'beton' && f.titre === 'Bibliothèque Béton armé' && f.rubriques === 'Bétons,Aciers,Sections,Enrobages,Ancrages,Hourdis')
         && avec.some((f) => f.fam === 'acier' && f.titre === 'Bibliothèque Acier' && f.rubriques === 'Profilés,Nuances,Boulons')
         && avec.every((f) => f.carte.vu && !f.hors.length && !f.coupes.length) && !m.deborde && (!sombre || m.theme === 'dark'), JSON.stringify({ avec, deborde: m.deborde, theme: m.theme }));
       if (!tel) {
@@ -4390,7 +4390,7 @@ const principal = async () => {
     }
 
     const FORMATS_BIB = [['pc', 1440, 900, false], ['tablette', 1180, 820, false], ['portrait', 820, 1180, false], ['tel', 390, 844, true]];
-    const RUBRIQUES_BIB = ['betons', 'aciers', 'sections', 'enrobages', 'ancrages'];
+    const RUBRIQUES_BIB = ['betons', 'aciers', 'sections', 'enrobages', 'ancrages', 'hourdis'];
     const attendreBib = async (pg) => {
       await pretEcran(pg);
       await pg.waitForFunction(() => {

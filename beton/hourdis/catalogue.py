@@ -156,3 +156,42 @@ def chercher_type(nom_type_: str) -> Optional[Tuple[str, Dict, Dict]]:
                 if nom_type(cat, v) == nom_type_:
                     return k, p, v
     return None
+
+
+# ------------------------------------------------------------------ la sélection (bibliothèque)
+def verifier(p: Dict, M_Ed: Optional[float] = None, V_Ed: Optional[float] = None, avec_chape: bool = False) -> Dict:
+    """Ce qui suffit, variante par variante d'un profil, à des efforts de CALCUL donnés par élément (M_Ed en kN·m, V_Ed
+    en kN ; ``None`` : non demandé). M_Rd retenu : avec couche collaborante si ``avec_chape`` et si la valeur est publiée,
+    sinon nu ; V_Rd,c : toujours nu (la valeur avec chape n'est pas publiée : la nue est la plus faible). La PREMIÈRE
+    variante qui suffit est la moins armée (le tableau du fabricant est rangé par M_Rd croissant). Sans effort demandé,
+    rien n'est jugé (``suffit`` vaut ``None``)."""
+    demande = M_Ed is not None or V_Ed is not None
+    lignes, premiere = [], None
+    for v in p["variantes"]:
+        M_ret = v["M_Rd_chape"] if (avec_chape and v.get("M_Rd_chape") is not None) else v["M_Rd"]
+        sM = None if M_Ed is None else M_ret >= M_Ed - 1e-9
+        sV = None if V_Ed is None else v["V_Rd"] >= V_Ed - 1e-9
+        suffit = None if not demande else (sM is not False and sV is not False)
+        lignes.append({"nom": v["nom"], "M_Rd": v["M_Rd"], "V_Rd": v["V_Rd"], "M_Rd_chape": v.get("M_Rd_chape"), "M_retenu": M_ret,
+                       "avec_chape": bool(avec_chape and v.get("M_Rd_chape") is not None), "suffit_M": sM, "suffit_V": sV,
+                       "suffit": suffit})
+        if suffit and premiere is None:
+            premiere = v["nom"]
+    return {"lignes": lignes, "premiere": premiere, "demande": demande}
+
+
+def gamme(cat: Dict, M_Ed: Optional[float] = None, V_Ed: Optional[float] = None, avec_chape: bool = False) -> Dict:
+    """Profil par profil : les bornes de M_Rd (retenu, comme ``verifier``) et de V_Rd,c, la première variante qui suffit ;
+    puis le profil le plus LÉGER (poids avec joints, kN/m²) qui a une variante qui suffit. Les efforts sont donnés
+    poids propre compris : changer de profil change le poids propre, donc M_Ed et V_Ed — le choix est à refaire avec
+    le poids du profil retenu."""
+    lignes, leger = [], None
+    for p in cat["profils"]:
+        r = verifier(p, M_Ed, V_Ed, avec_chape)
+        Ms = [li["M_retenu"] for li in r["lignes"]]
+        Vs = [li["V_Rd"] for li in r["lignes"]]
+        lignes.append({"nom": p["nom"], "M_min": min(Ms), "M_max": max(Ms), "V_min": min(Vs), "V_max": max(Vs),
+                       "variantes": len(Ms), "premiere": r["premiere"]})
+        if r["premiere"] is not None and (leger is None or p["poids_kN_m2"] < profil(cat, leger)["poids_kN_m2"]):
+            leger = p["nom"]
+    return {"lignes": lignes, "leger": leger, "demande": M_Ed is not None or V_Ed is not None}

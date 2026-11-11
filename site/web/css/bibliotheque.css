@@ -412,3 +412,42 @@
   .bib-p .seg button::after { top: -10px; bottom: -10px; }          /* 24 px dessinés, 44 px au doigt */
   .bib-onglets .seg button::after { top: -8px; bottom: -8px; }      /* 28 px dessinés, 44 px au doigt */
 }
+
+/* ---------------------------------------------------------------------------------------------- « Hourdis »
+   Vue « Profil » : à gauche la coupe cotée puis les caractéristiques, à droite le tableau des variantes (PC et tablette
+   en paysage : le cadre tient sans défiler, le harnais le mesure) ; l'un sous l'autre en portrait et au téléphone.
+   Vue « Gamme » : le tableau seul. La coupe est lisible dès 430 px de large (textes ≥ 9 px ; 12 px à 560 px :
+   api_web/dessin_biblio_hourdis.py, U = 30 mm) ; au téléphone elle garde 560 px et défile en largeur dans son cadre. */
+.bib-hd { display: grid; grid-template-columns: minmax(0, 1fr) minmax(400px, 1fr); grid-template-rows: auto 1fr; grid-template-areas: "f t" "c t"; }
+.bib-hd-g { grid-template-columns: minmax(0, 1fr); grid-template-areas: "t"; }
+.bib-hd-f { grid-area: f; margin: 0; padding: 8px 12px 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  background: var(--paper); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); border-radius: var(--r-lg) 0 0 0; }
+.bib-hd-c { border-right: 1px solid var(--line); }
+.bib-hd-s { min-width: 0; }
+.bib-hd-s svg { display: block; width: 100%; height: auto; max-height: 230px; margin: 0 auto; }
+.bib-hd-f figcaption { font-size: 11px; line-height: 1.3; color: var(--ink-3); text-align: center; }
+.bib-hd-c { grid-area: c; margin: 0; padding: 8px 12px; display: flex; flex-direction: column; gap: 3px;
+  font-size: 12px; line-height: 1.3; min-width: 0; }
+.bib-hd-l { display: grid; grid-template-columns: 9em minmax(0, 1fr); column-gap: 8px; }
+.bib-hd-l dt { color: var(--ink-3); font-size: 11px; }
+.bib-hd-l dd { margin: 0; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bib-hd-t { grid-area: t; min-width: 0; }
+.bib-hd-tab th, .bib-hd-tab td { height: 32px; }
+.bib-hd-tab th.nm .bib-hd-to { display: block; margin-left: 0; font-size: 10px; font-weight: 500; color: var(--ink-3); line-height: 1.15; }
+.bib-hd-tab thead th.nm .u { display: block; }
+.bib-hd-tab td.na { color: var(--ink-4); }
+.bib-hd-tab td.tx { text-align: left; }
+/* portrait de tablette : la coupe, puis les caractéristiques, puis le tableau */
+@media (max-width: 1000px) {
+  .bib-hd { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "f" "c" "t"; }
+  .bib-hd-f { border-right: 0; border-radius: var(--r-lg) var(--r-lg) 0 0; }
+  .bib-hd-c { border-right: 0; border-bottom: 1px solid var(--line); }
+}
+/* téléphone : le cadre suit son contenu (la page défile) ; la coupe garde 560 px et défile en largeur, le tableau aussi */
+@media (max-width: 700px) {
+  .bib-tableau:has(> .bib-hd) { flex: none; max-height: none; overflow: visible; }
+  .bib-hd-s { overflow-x: auto; }
+  .bib-hd-s svg { min-width: 560px; max-height: none; }
+  .bib-hd-t { overflow-x: auto; }
+  .bib-hd-l { grid-template-columns: 7.5em minmax(0, 1fr); }
+}

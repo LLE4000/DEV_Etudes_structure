@@ -3,7 +3,7 @@
 site/web/construire.page_bibliotheque), vérifiée en Python ordinaire : chaque valeur de la bande est celle du MOTEUR
 (beton/bibliotheque, beton/donnees, beton/armatures), lue ici indépendamment de la page.
 
-1. Les cinq rubriques se rendent avec leurs défauts : barre, tableau (une seule case allumée), bande (« Pourquoi ? »),
+1. Les six rubriques se rendent avec leurs défauts : barre, tableau (une seule case allumée), bande (« Pourquoi ? »),
    justification, sources, fiche figée, paramètres relus ; aucun script ni « on…= » ; l'hôte « note » ajoute
    « Inclure dans la note » et « Utiliser cette valeur », la page non.
 2. Les valeurs : l'exemple de la NIT 260 (dalle XC1 C30/37 Ø 12 → 22 mm), l'ancrage Ø 16 C30/37 (580 mm), B500B
@@ -13,7 +13,7 @@ site/web/construire.page_bibliotheque), vérifiée en Python ordinaire : chaque 
 4. Les paramètres : écrits comme l'adresse les donne (des chaînes) ; un paramètre illisible reprend son défaut et le
    message le dit ; un texte piégé est échappé ; une rubrique inconnue ouvre la première ; le routeur répond à
    « consulter » et refuse une bibliothèque inconnue sans exception.
-5. La page : le gabarit porte le menu des cinq rubriques, les identifiants que js/bibliotheque.js cherche, la feuille
+5. La page : le gabarit porte le menu des six rubriques, les identifiants que js/bibliotheque.js cherche, la feuille
    css/bibliotheque.css ; le menu vient de RUBRIQUES (une source).
 6. Mutations : abîmer un moteur change la bande (la page ne garde aucune copie) ; retirer l'échappement fait rougir.
 
@@ -65,8 +65,8 @@ def req(**k):
     return json.loads(R.traiter(json.dumps(k)))
 
 
-# ============================================================================================ 1. les cinq rubriques
-print("=== 1 · Les cinq rubriques, par défaut")
+# ============================================================================================ 1. les six rubriques
+print("=== 1 · Les six rubriques, par défaut")
 CLES_REPONSE = ("titre", "barre", "tableau", "bande", "pourquoi", "sources", "fiche", "params", "message", "rubrique", "bibliotheque")
 for r in B.CLES:
     out = B.consulter(r, {})
@@ -87,7 +87,7 @@ for r in B.CLES:
     note = B.consulter(r, {}, hote="note")
     chk(f"{r} : dans une note, la bande ajoute « Inclure dans la note » (fiche, extrait) et « Utiliser cette valeur »",
         note["bande"].count("data-inclure=") == 2 and 'data-utiliser="1"' in note["bande"] and note["tableau"] == out["tableau"])
-chk("le menu porte les cinq rubriques dans l'ordre, la première allumée", re.findall(r'data-rubrique="([^"]+)"', B.menu()) == list(B.CLES) and 'class="bib-m on" data-rubrique="betons"' in B.menu())
+chk("le menu porte les six rubriques dans l'ordre, la première allumée", re.findall(r'data-rubrique="([^"]+)"', B.menu()) == list(B.CLES) and 'class="bib-m on" data-rubrique="betons"' in B.menu())
 chk("rubrique inconnue ou absente : la première s'ouvre, et le message le dit",
     B.consulter(None, {})["rubrique"] == "betons" and B.consulter(None, {})["message"] is None and B.consulter("zzz", {})["rubrique"] == "betons" and "inconnue" in B.consulter("zzz", {})["message"])
 try:
@@ -200,7 +200,7 @@ js = open(os.path.join(RACINE, "site", "web", "js", "bibliotheque.js"), encoding
 ids = sorted(set(re.findall(r'\$\("#([\w-]+)', js)) | set(re.findall(r'getElementById\("([\w-]+)"', js)))
 absents = [i for i in ids if f'id="{i}"' not in page]
 chk(f"js/bibliotheque.js → bibliotheque-beton.html : les {len(ids)} identifiants cherchés existent", not absents, absents)
-chk("la page porte le menu des cinq rubriques (RUBRIQUES, une source) et son corps", B.menu() in page and 'data-bibliotheque="beton"' in page and 'id="bib-corps"' in page)
+chk("la page porte le menu des six rubriques (RUBRIQUES, une source) et son corps", B.menu() in page and 'data-bibliotheque="beton"' in page and 'id="bib-corps"' in page)
 # (S4 : la page n'a plus qu'un script de module, js/app.js, qui monte l'écran de js/bibliotheque.js — body
 # data-page="bibliotheque" ; le fichier construit porte la VERSION du site, recalculée ici comme le fait test_site_web ;
 # le démarrage n'est plus une carte #demarrage de la page mais le bandeau partagé de js/commun.js, le même que l'établi)

@@ -383,9 +383,9 @@ for k in ETABLIS:
     if k in _avec:
         absents = [i for i in _ids_biblio if f'id="{i}"' not in html]
         chk(f"{SW.PAGES[k]} : « Bibliothèque » dans la barre du haut et le menu ⋯, le panneau avec ses {len(_ids_biblio)} identifiants (une fois chacun), "
-            "le menu des cinq rubriques, la feuille css/bibliotheque.css, et la page le dit (body data-bibliotheque)",
+            "le menu des six rubriques, la feuille css/bibliotheque.css, et la page le dit (body data-bibliotheque)",
             not absents and all(html.count(f'id="{i}"') == 1 for i in _ids_biblio) and html.count('data-action="bibliotheque"') == 2
-            and 'data-bibliotheque="beton"' in _corps and 'href="css/bibliotheque.css"' in html and len(re.findall(r'class="bib-m(?: on)?" data-rubrique="', html)) == 5
+            and 'data-bibliotheque="beton"' in _corps and 'href="css/bibliotheque.css"' in html and len(re.findall(r'class="bib-m(?: on)?" data-rubrique="', html)) == 6
             and html.index('data-action="bibliotheque"') < html.index('data-ranger="1"'), (absents, html.count('data-action="bibliotheque"')))
     else:
         chk(f"{SW.PAGES[k]} : sans bibliothèque de note (ni bouton, ni panneau, ni feuille, ni data-bibliotheque)",
@@ -542,7 +542,7 @@ _rub_beton = [t for _, t, _, _ in importlib.import_module("api_web.biblio_beton"
 _fb = next((f for f in _FAMS if f["carte"] and f["carte"][0] == "beton"), {"carte": (None, None, ""), "rubriques": [], "icones": 0})
 chk("accueil : la carte dit « Bibliothèque Béton armé » et LISTE ses rubriques, une par ligne avec leur icône, dans l'ordre "
     "du menu de la bibliothèque (RUBRIQUES, une source)",
-    _fb["carte"][2] == "Bibliothèque Béton armé" and _fb["rubriques"] == _rub_beton == ["Bétons", "Aciers", "Sections", "Enrobages", "Ancrages"]
+    _fb["carte"][2] == "Bibliothèque Béton armé" and _fb["rubriques"] == _rub_beton == ["Bétons", "Aciers", "Sections", "Enrobages", "Ancrages", "Hourdis"]
     and _fb["icones"] == len(_rub_beton), (_fb["carte"], _fb["rubriques"], _fb["icones"]))
 # BIB5 : la Bibliothèque ACIER, déclarée sur la famille Acier, a pris la forme prévue sans rien recoder (le gabarit LIT
 # _bibliotheques_de(fam)) : sa carte dit « Bibliothèque Acier » et liste les rubriques de son menu (RUBRIQUES de

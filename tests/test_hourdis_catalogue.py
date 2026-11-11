@@ -14,7 +14,9 @@ n'est pas dans le dépôt : ce test garde ce qui peut l'être sans lui.
    relancer l'outil sur le PDF et de reporter ici la nouvelle empreinte — une valeur ne se corrige pas à la main.
 4. Des valeurs relues dans le guide, écrites ici une seconde fois (copie nommée, liée au fichier par ce test).
 5. Le lecteur : fiche du module Charges sur plancher (unités, E_cm du tableau 3.1, nature Rd, chape C30/37 ≥ 50 mm,
-   V_Rd avec chape absent), torons, noms de type, recherche, bibliothèque standard seulement.
+   V_Rd avec chape absent), torons, noms de type, recherche, bibliothèque standard seulement ; la SÉLECTION de la
+   bibliothèque (``verifier`` : la première variante qui suffit à M_Ed et V_Ed, avec ou sans couche ; ``gamme`` : le
+   profil le plus léger qui suffit).
 6. Mutations : chaque défaut injecté dans une copie du catalogue fait rougir le contrôle qui le garde.
 
     python3 tests/test_hourdis_catalogue.py
@@ -284,6 +286,28 @@ sonde = ("import sys\nclass R:\n    def find_spec(self, n, p=None, t=None):\n"
          f"sys.path.insert(0, {RACINE!r})\nfrom beton.hourdis import catalogue as K\nprint(len(K.fiches_plancher()))")
 r = subprocess.run([sys.executable, "-c", sonde], capture_output=True, text=True)
 chk("lecteur : charge et résout sans numpy, scipy, fitz, streamlit", r.returncode == 0 and r.stdout.strip() == "53", r.stderr[-300:])
+
+# ================================================================================================ 5 bis · la sélection
+p200 = K.profil(cat, "SP 200")
+v0 = K.verifier(p200)
+chk("sélection : sans effort demandé, rien n'est jugé", v0["premiere"] is None and not v0["demande"] and all(li["suffit"] is None for li in v0["lignes"]))
+v1 = K.verifier(p200, 100.0, 93.0)
+chk("sélection : M_Ed 100, V_Ed 93 → SP 200-4-2X, la première (moins armée) qui suffit (113 ≥ 100, 94 ≥ 93)",
+    v1["premiere"] == "SP 200-4-2X" and [li["suffit"] for li in v1["lignes"]] == [False, False, False, False, True, True], v1["premiere"])
+chk("sélection : V_Ed 93 refuse SP 200-3-2X (92 < 93) même si M suffit", next(li for li in v1["lignes"] if li["nom"] == "SP 200-3-2X")["suffit_V"] is False)
+v2 = K.verifier(p200, 100.0, None, avec_chape=True)
+chk("sélection : avec couche, M_Rd retenu = M_Rd avec chape → SP 200-6X (96 < 100) refusé, SP 200-3-2X (116) retenu",
+    v2["premiere"] == "SP 200-3-2X" and all(li["avec_chape"] for li in v2["lignes"]))
+chk("sélection : V seul demandé (95) → SP 200-5-2X (96)", K.verifier(p200, None, 95.0)["premiere"] == "SP 200-5-2X")
+chk("sélection : rien ne suffit (M_Ed 200) → None", K.verifier(p200, 200.0)["premiere"] is None)
+chk("sélection : égalité admise (M_Ed = M_Rd = 113)", K.verifier(p200, 113.0)["premiere"] == "SP 200-4-2X")
+g = K.gamme(cat, 150.0, 120.0)
+chk("gamme : M_Ed 150, V_Ed 120 → le plus léger qui suffit est SP 265 (3,83 kN/m²), sa première variante SP 265-4-2X",
+    g["leger"] == "SP 265" and next(li for li in g["lignes"] if li["nom"] == "SP 265")["premiere"] == "SP 265-4-2X"
+    and next(li for li in g["lignes"] if li["nom"] == "SPN 200")["premiere"] is None, g["leger"])
+chk("gamme : bornes de M_Rd et V_Rd,c d'un profil (SP 400 : 251–635, 223–234)",
+    [(li["M_min"], li["M_max"], li["V_min"], li["V_max"]) for li in K.gamme(cat)["lignes"] if li["nom"] == "SP 400"] == [(251, 635, 223, 234)])
+chk("gamme : sans effort, aucun profil désigné", K.gamme(cat)["leger"] is None and not K.gamme(cat)["demande"])
 
 # ================================================================================================ 6 · mutations
 def muter(nom, action, attendu):

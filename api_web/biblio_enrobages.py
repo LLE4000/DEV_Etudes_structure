@@ -154,9 +154,7 @@ def _seg(cle: str, valeur, options, inactifs=()) -> str:
     return f'<div class="seg" data-param="{C.esc(cle)}">{bt}</div>'
 
 
-def _groupe(titre: str, contenu: str, cls: str = "") -> str:
-    """Un groupe de paramètres de la barre, nommé (Élément, Feu, Environnement, Armatures)."""
-    return f'<div class="bib-gr{(" " + cls) if cls else ""}" role="group" aria-label="{C.esc(titre)}"><span class="bib-gr-t">{titre}</span>{contenu}</div>'
+_groupe = B._groupe          # un groupe nommé de la barre (brique commune de la bibliothèque)
 
 
 def _barre(p: Dict, moteur: Dict, res: Dict, onglet: str, vue: str) -> str:

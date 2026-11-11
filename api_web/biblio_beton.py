@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""La BIBLIOTHÈQUE BÉTON ARMÉ du site (docs/site/BIBLIOTHEQUES.md § 2.2) : une page, cinq rubriques, chacune un
+"""La BIBLIOTHÈQUE BÉTON ARMÉ du site (docs/site/BIBLIOTHEQUES.md § 2.2) : une page, six rubriques, chacune un
 TABLEAU complet à sélection et une FICHE RAPIDE (les paramètres allument la case, la bande sous le tableau donne la
 valeur retenue, « Pourquoi ? » déplie la justification). Ce fichier n'est pas un module de calcul du registre (il ne
 déclare ni MODULE ni PAGE : une consultation n'est pas une note) ; le routeur l'appelle par l'action « consulter »
@@ -10,7 +10,7 @@ déclare ni MODULE ni PAGE : une consultation n'est pas une note) ; le routeur l
                                                   params, message}
 
 Les valeurs viennent des moteurs (beton/donnees/ec2.py, beton/donnees/consultation.py, beton/armatures,
-beton/bibliotheque/{aciers, enrobage, feu, ancrages}.py), jamais d'ici ; les paramètres illisibles reprennent leur défaut et
+beton/bibliotheque/{aciers, enrobage, feu, ancrages}.py, beton/hourdis/catalogue.py), jamais d'ici ; les paramètres illisibles reprennent leur défaut et
 ``message`` le dit ; tout texte venu des paramètres est échappé.
 """
 import html
@@ -39,6 +39,7 @@ RUBRIQUES = (
     ("sections", "Sections", "Sections et masses des armatures", "grid-2x2"),
     ("enrobages", "Enrobages", "Durabilité et feu", "shield-check"),
     ("ancrages", "Ancrages", "Ancrages et recouvrements", "anchor"),
+    ("hourdis", "Hourdis", "Catalogues des fabricants", "building-2"),
 )
 CLES = tuple(r[0] for r in RUBRIQUES)
 NOMS = {r[0]: r[1] for r in RUBRIQUES}
@@ -168,6 +169,11 @@ def _num(cle: str, valeur, unite: str = "", vide: str = "") -> str:
 def _case(cle: str, valeur: bool, texte: str, aide: str = "") -> str:
     a = f'<span class="aide" title="{C.esc(aide)}">{C.icon("info")}</span>' if aide else ""
     return f'<span class="case bib-case"><input type="checkbox" data-param="{C.esc(cle)}"{" checked" if valeur else ""}><span>{texte}</span>{a}</span>'
+
+
+def _groupe(titre: str, contenu: str, cls: str = "") -> str:
+    """Un groupe de paramètres de la barre, nommé (Élément, Feu, Environnement, Armatures ; Catalogue, Efforts)."""
+    return f'<div class="bib-gr{(" " + cls) if cls else ""}" role="group" aria-label="{C.esc(titre)}"><span class="bib-gr-t">{titre}</span>{contenu}</div>'
 
 
 def _barre(*lignes: str) -> str:
@@ -573,8 +579,17 @@ def _r_ancrages(params: Dict, hote: str) -> Dict:
             "params": p, "message": L.message()}
 
 
+# ================================================================================================ 6 · hourdis
+def _r_hourdis(params: Dict, hote: str) -> Dict:
+    """La rubrique « Hourdis » (catalogues des fabricants, vues « Profil » et « Gamme ») : api_web/biblio_hourdis.py
+    (importé ici, à l'appel : il prend ses briques dans ce fichier)."""
+    from api_web import biblio_hourdis
+    return biblio_hourdis.rendre(params, hote)
+
+
 # ================================================================================================ la porte
-RENDUS = {"betons": _r_betons, "aciers": _r_aciers, "sections": _r_sections, "enrobages": _r_enrobages, "ancrages": _r_ancrages}
+RENDUS = {"betons": _r_betons, "aciers": _r_aciers, "sections": _r_sections, "enrobages": _r_enrobages, "ancrages": _r_ancrages,
+          "hourdis": _r_hourdis}
 
 
 def consulter(rubrique: Optional[str], params: Optional[Dict], hote: str = "page") -> Dict:
