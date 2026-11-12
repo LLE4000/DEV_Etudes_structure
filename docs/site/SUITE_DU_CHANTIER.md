@@ -717,6 +717,15 @@ navigateur (0.4.38, WebAssembly) ; le site lui a passé son fichier Greenwood : 
   arrière-plan. Fait le même soir : l'écran gardé allumé pendant le plan, la page cachée notée, le diagnostic de
   l'appareil dans le message d'échec (`FONDATIONS_GRUE_OUVRAGE.md` § 3 bis). À vérifier : la compression des fichiers
   `.wasm` par Cloudflare (`Content-Encoding` ; ≈ 4,3 Mio au lieu de 15,2), invisible d'ici derrière Cloudflare Access.
+- **Les plans PDF marchent sur la tablette du propriétaire (13/11/2026, vers 0 h 30)** : premier plan en 12 s, puis 2 s,
+  puis 0,2 s (le même fichier) ; après un changement de béton, 8,8 s dont 8,7 s de dessin
+  (`docs/site/mesures/2026-11-13_plans_pdf_sur_la_tablette.md`). Deux remarques du propriétaire sur le PDF :
+  - « C40/50 dans la note, C30/37 sur le plan » : le site écrit bien la classe de la note et RBAR la dessine (vérifié :
+    C40/50 sur les feuilles 01 et 03, aucun C30/37) — le PDF ouvert était l'ANCIEN : Chrome demandait « Télécharger de
+    nouveau le fichier ? » pour le nouveau, de même nom. Corrigé : le nom porte l'heure de l'export.
+  - « Il est incomplet » : à préciser avec lui. Relevé en attendant, du côté de RBAR : feuille 04, vue en plan des
+    poutres longitudinales, deux pieux de l'AUTRE semelle (6,5 m plus loin) dessinés sous la vue, avec un long trait de
+    rappel — signalé à RBAR.
 
 ## 0. « L'audit » : ce que c'est, ce qui en reste
 

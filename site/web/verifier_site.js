@@ -1725,13 +1725,15 @@ const principal = async () => {
       DUREES[fmt] = { premier: coffrage.ms, encore: encore.ms, etapes: coffrage.attente.etapes, mo: coffrage.attente.mo };
       // (les FEUILLES : le message les compte par plan, d'après le compte rendu de RBAR ; le PDF doit en avoir autant de pages.
       //  Le 12/11/2026, une ligne par plan n'enregistrait que la première feuille de chacun : 2 sur 5, et rien ne le disait)
-      const FINAL = /^F1 - plans\.pdf téléchargé : (\d+) feuilles \(coffrage (\d+), armatures (\d+)\) en \d+,\d s( — (moteur prêt en \d+,\d s, )?dessin \d+,\d s)?$/;
+      // (le nom porte l'heure de l'export : un plan dépassé ne garde plus le nom du nouveau — 13/11/2026)
+      const NOM = /^F1 - plans - \d{4}-\d{2}-\d{2} \d{2}h\d{2}\.pdf$/;
+      const FINAL = /^F1 - plans - \d{4}-\d{2}-\d{2} \d{2}h\d{2}\.pdf téléchargé : (\d+) feuilles \(coffrage (\d+), armatures (\d+)\) en \d+,\d s( — (moteur prêt en \d+,\d s, )?dessin \d+,\d s)?$/;
       const [, n1, c1, a1, dessin1] = FINAL.exec(coffrage.toast.texte) || [];
       const [, n2, , , dessin2] = FINAL.exec(encore.toast.texte) || [];
       verif(`exporter · ${fmt} : « Plans PDF » : le moteur de RBAR fait les plans DANS le navigateur — UN vrai PDF au nom de la fondation, `
         + 'une page par feuille, TOUTES les feuilles (coffrage et armatures : autant de pages que le compte rendu de RBAR en compte, dites à l\'écran), '
         + 'la durée dite (et celle du dessin) ; un second clic ne refait pas le calcul',
-      coffrage.nom === 'F1 - plans.pdf' && encore.nom === 'F1 - plans.pdf' && coffrage.entete.startsWith('%PDF-1.') && coffrage.octets > 40000
+      NOM.test(coffrage.nom) && NOM.test(encore.nom) && coffrage.entete.startsWith('%PDF-1.') && coffrage.octets > 40000
         && !!n1 && Number(n1) === coffrage.pages && Number(c1) >= 1 && Number(a1) >= 1 && Number(c1) + Number(a1) === Number(n1) && !!dessin1
         && n2 === n1 && !dessin2 && encore.octets === coffrage.octets && encore.pages === coffrage.pages
         && !coffrage.toast.erreur && !encore.toast.erreur && encore.ms < coffrage.ms,

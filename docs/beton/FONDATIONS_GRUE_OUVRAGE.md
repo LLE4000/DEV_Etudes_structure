@@ -73,8 +73,11 @@ remplissant un classeur type dont les cases à remplir sont colorées (`FONDATIO
 - **Le chemin d'un clic** (`js/etabli.js`, `js/plans.js`, `js/plans-travailleur.js`) : le moteur Python écrit le fichier
   « rbar.ouvrage » (le même que « DWG pour AutoCAD », avec le cartouche de la note) ; le moteur de RBAR, dans un
   travailleur à part (l'écran ne se fige pas), en fait UN PDF, une page par feuille, enregistré au nom de la fondation
-  (« F1 - plans.pdf »). Un plan peut demander plusieurs feuilles : la note neuve en a **cinq** (coffrage 1/2 et 2/2,
-  armatures 1/3, 2/3 et 3/3). Le message final les compte, d'après le compte rendu de RBAR (« F1 - plans.pdf
+  avec l'heure de l'export (« F1 - plans - 2026-11-13 00h29.pdf » : chaque export a son nom — avec un nom fixe, le
+  navigateur demandait « Télécharger de nouveau le fichier ? », et tant qu'on ne confirmait pas, l'ANCIEN plan restait
+  sous ce nom ; le propriétaire a ouvert ainsi un plan en C30/37 après être passé en C40/50, le 13/11/2026). Un plan peut
+  demander plusieurs feuilles : la note neuve en a **cinq** (coffrage 1/2 et 2/2,
+  armatures 1/3, 2/3 et 3/3). Le message final les compte, d'après le compte rendu de RBAR (« F1 - plans - … .pdf
   téléchargé : 5 feuilles (coffrage 2, armatures 3) en 5,8 s — dessin 5,0 s ») ; le harnais vérifie que le PDF en a
   autant de pages. Le moteur se charge dès que le menu « Exporter » s'ouvre. Un refus du site ou de RBAR est dit tel
   quel ; une note de RBAR aussi ; **la durée est dite à l'écran**, mesurée sur l'appareil.

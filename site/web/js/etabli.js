@@ -28,7 +28,7 @@ import { cablerCompact } from "./compact.js";
 import { cablerRangement } from "./rangement.js";
 import { poserVerification } from "./marques.js";
 import { cablerPanneauBibliotheque } from "./biblio_note.js";
-import { plansPdf, prechaufferPlans, ETAPES_PLAN, diagnosticPlans, garderEcranAllume } from "./plans.js";
+import { plansPdf, prechaufferPlans, ETAPES_PLAN, diagnosticPlans, garderEcranAllume, horodatage } from "./plans.js";
 
 // les actions qui MODIFIENT la note (une note provisoire s'écrit à la première) ; « nouveau », « calculer »,
 // « selecteur », « bibliotheque » ne font que la lire
@@ -1090,7 +1090,8 @@ export function ouvrirEtabli(hote, ctx) {
         }
         const pdf = Array.isArray(p.pdfs) && p.pdfs.length === 1 ? p.pdfs[0] : null;
         if (!pdf) { toast(`RBAR n'a pas rendu un seul PDF des plans (${Array.isArray(p.pdfs) ? p.pdfs.length : 0} fichier(s))`, true); return; }
-        const nom = telecharger(`${b.dataset.nom || pdf.nom}.pdf`, pdf.octets, "application/pdf");
+        // (l'heure dans le nom : chaque export a le sien — js/plans.js, horodatage)
+        const nom = telecharger(`${b.dataset.nom || pdf.nom} - ${horodatage()}.pdf`, pdf.octets, "application/pdf");
         // les FEUILLES du fichier, comptées par plan (le compte rendu de RBAR : une page par feuille) — un plan peut en
         // demander plusieurs (la note neuve : coffrage 2, armatures 3) ; le 12/11/2026, une ligne par plan n'enregistrait que
         // la PREMIÈRE feuille de chacun, et rien ne le disait

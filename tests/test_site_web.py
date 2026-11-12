@@ -481,6 +481,7 @@ try { m.garderEcranAllume(refuse)(); m.garderEcranAllume({})(); m.garderEcranAll
 await new Promise((f) => setTimeout(f, 5));
 out.ecran = { journal, erreurs };
 out.etapes = m.ETAPES_PLAN;
+out.heures = [m.horodatage(new Date(2026, 10, 13, 0, 29, 5)), m.horodatage(new Date(2026, 0, 2, 9, 5, 59)), typeof m.horodatage()];
 console.log(JSON.stringify(out));
 """ % json.dumps("file://" + os.path.join(JS, "plans.js"))
 try:
@@ -501,6 +502,10 @@ chk("plans : le diagnostic d'un échec dit l'étape et depuis quand, les Mo reç
 chk("plans : l'écran gardé allumé pendant le plan — demandé (« screen »), relâché à la fin, même obtenu après la fin ; refusé "
     "ou absent, aucune erreur",
     (DG.get("ecran") or {}).get("journal") == ["demandé screen", "relâché", "demandé tôt", "relâché"] and (DG.get("ecran") or {}).get("erreurs") == 0, DG)
+chk("plans : l'heure de l'export dans le nom du PDF (« 2026-11-13 00h29 », chiffres sur deux places) — chaque export a son nom : "
+    "un plan dépassé ne garde plus le nom du nouveau (13/11/2026 : le propriétaire a ouvert l'ancien, en C30/37)",
+    DG.get("heures") == ["2026-11-13 00h29", "2026-01-02 09h05", "string"]
+    and "${b.dataset.nom || pdf.nom} - ${horodatage()}.pdf" in open(os.path.join(JS, "etabli.js"), encoding="utf-8").read(), DG.get("heures"))
 
 # 5. les identifiants que les scripts cherchent existent dans leur page (S4, partie « écrans » : l'établi est un écran
 # montable, il ne nomme plus le VOILE retiré — #demarrage, #demarrage-etape — : plus aucune exception à cette règle)

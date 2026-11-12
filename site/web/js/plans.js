@@ -144,6 +144,14 @@ export function diagnosticPlans({ etape = null, depuis_ms = null, mo = null, cac
   ].filter(Boolean).join(" · ");
 }
 
+/** L'HEURE dans le nom du PDF (« 2026-11-13 00h29 », heure de l'appareil) : chaque export a son nom. Avec un nom fixe, le
+ *  navigateur demande « Télécharger de nouveau le fichier ? » — et tant qu'on ne confirme pas, c'est l'ANCIEN plan qui reste
+ *  sous ce nom : le propriétaire a ouvert ainsi un plan en C30/37 après être passé en C40/50 (13/11/2026). */
+export function horodatage(d = new Date()) {
+  const n = (x) => String(x).padStart(2, "0");
+  return `${d.getFullYear()}-${n(d.getMonth() + 1)}-${n(d.getDate())} ${n(d.getHours())}h${n(d.getMinutes())}`;
+}
+
 /** L'ÉCRAN GARDÉ ALLUMÉ pendant un plan (Android gèle un onglet dont l'écran s'éteint) : la demande part tout de suite, sans
  *  être attendue ; refusée ou absente, le plan se fait quand même. Rend de quoi le relâcher. */
 export function garderEcranAllume(nav = globalThis.navigator) {
